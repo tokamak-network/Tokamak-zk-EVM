@@ -1,0 +1,92 @@
+{
+  "name": "@ethereumjs/evm",
+  "version": "3.1.0",
+  "description": "JavaScript Ethereum Virtual Machine (EVM) implementation",
+  "keywords": [
+    "ethereum",
+    "EVM",
+    "JavaScript",
+    "TypeScript"
+  ],
+  "homepage": "https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/evm#readme",
+  "bugs": {
+    "url": "https://github.com/ethereumjs/ethereumjs-monorepo/issues?q=is%3Aissue+label%3A%22package%3A+evm%22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ethereumjs/ethereumjs-monorepo.git"
+  },
+  "license": "MPL-2.0",
+  "author": "EthereumJS",
+  "contributors": [
+    "Alex Beregszaszi <alex@rtfs.hu>"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "../../config/cli/ts-build.sh",
+    "clean": "../../config/cli/clean-package.sh",
+    "coverage": "DEBUG=ethjs npx vitest run --coverage.enabled --coverage.reporter=lcov",
+    "coverage:test": "npm run test:node && cd ../vm && npm run tester -- --state",
+    "docs:build": "typedoc --options typedoc.cjs",
+    "examples": "tsx ../../scripts/examples-runner.ts -- evm",
+    "examples:build": "npx embedme README.md",
+    "formatTest": "node ./scripts/formatTest",
+    "lint": "../../config/cli/lint.sh",
+    "lint:diff": "../../config/cli/lint-diff.sh",
+    "lint:fix": "../../config/cli/lint-fix.sh",
+    "prepublishOnly": "../../config/cli/prepublish.sh",
+    "profiling": "0x ./benchmarks/run.js profiling",
+    "test": "npm run test:node && npm run test:browser",
+    "test:browser": "npx vitest run --config=./vitest.config.browser.mts",
+    "test:node": "npx vitest run",
+    "test:tokamak": "npx vitest run test/tokamak",
+    "tsc": "../../config/cli/ts-compile.sh",
+    "visualize:bundle": "npx vite build --config=./vite.config.bundler.ts --emptyOutDir=false --outDir ."
+  },
+  "dependencies": {
+    "@ethereumjs/common": "^4.4.0",
+    "@ethereumjs/statemanager": "^2.4.0",
+    "@ethereumjs/util": "^9.1.0",
+    "@types/debug": "^4.1.9",
+    "app-root-path": "^3.1.0",
+    "debug": "^4.3.3",
+    "ethereum-cryptography": "^3.0.0",
+    "eventemitter3": "^5.0.1"
+  },
+  "devDependencies": {
+    "@paulmillr/trusted-setups": "^0.1.2",
+    "@types/benchmark": "^1.0.33",
+    "@types/core-js": "^2.5.0",
+    "@types/minimist": "^1.2.2",
+    "@types/node-dir": "^0.0.34",
+    "@types/rollup-plugin-visualizer": "^4.2.4",
+    "benchmark": "^2.1.4",
+    "level": "^8.0.0",
+    "mcl-wasm": "^1.5.0",
+    "memory-level": "^1.0.0",
+    "micro-eth-signer": "^0.11.0",
+    "minimist": "^1.2.5",
+    "node-dir": "^0.1.17",
+    "rollup-plugin-visualizer": "^5.12.0",
+    "rustbn-wasm": "^0.4.0",
+    "solc": "^0.8.1",
+    "split": "^1.0.1",
+    "typescript": "^4.7.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

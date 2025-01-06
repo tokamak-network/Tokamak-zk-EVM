@@ -1,0 +1,6 @@
+{
+  "extends": "../../../config/monorepo-js/tsconfig.json",
+  "compilerOptions": {
+    "forceConsistentCasingInFileNames": true
+  }
+}

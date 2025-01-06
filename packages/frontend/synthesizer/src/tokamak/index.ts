@@ -1,0 +1,6 @@
+export { Synthesizer } from './core/synthesizer.js'
+export type { ArithmeticOperator } from './operations/arithmetic.js'
+export { OPERATION_MAPPING } from './operations/arithmetic.js'
+export { DataPointFactory } from './pointers/dataPointFactory.js'
+export type { CreateDataPointParams, DataPt } from './types/synthesizer.js'
+export { SynthesizerValidator } from './validation/validator.js'

@@ -1,0 +1,3 @@
+{
+  "extends": "../../../config/monorepo-js/tsconfig.lint.json"
+}
