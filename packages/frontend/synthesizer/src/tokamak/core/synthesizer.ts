@@ -642,62 +642,8 @@ export class Synthesizer {
   }
 
   /**
-   * RETURN은 더이상 배치를 사용하지 않습니다.
-   *
-   * RETURN은 Ethereum Virtual Machine(EVM)에서 사용되는 오퍼코드(opcode) 중 하나로, 지정된 메모리 위치에서 데이터를 반환합니다.
-   *
-   * @param {string} name - 배치의 이름.
-   * @param {DataAliasInfos} dataAliasInfos - 데이터 출처와 변형 정보를 포함하는 배열.
-   * @returns {DataPt} 생성된 데이터 포인트.
+   * @todo newDataPt size 변수 검증 필요
    */
-  // public newPlacementRETURNs(name: string, dataAliasInfos: DataAliasInfos): DataPt {
-  //   const inPt: DataPt = this._resolveDataAlias(dataAliasInfos)
-  //   const outPt: DataPt = inPt
-  //   outPt.sourceIndex = 0
-  //   outPt.source = this.placementIndex
-
-  //   switch (name) {
-  //     case 'RETURN': {
-  //       const aliasResolvedDataPt = this.placeMemoryToMemory(dataAliasInfos)
-
-  //       let dataCopy = aliasResolvedDataPt.value
-  //       const uint8Array = new Uint8Array(32)
-  //       for (let i = 31; i >= 0; i--) {
-  //         uint8Array[i] = Number(dataCopy & 0xffn)
-  //         dataCopy >>= 8n
-  //       }
-
-  //       /**
-  //        * @example Big Endian
-  //        *
-  //        * 주소:  0x00  0x01  0x02  0x03
-  //        * 값:   0x12  0x34  0x56  0x78
-  //        */
-  //       const outValues = Array.from(uint8Array, (byte) => BigInt(byte))
-  //       const sourceOffset = this.auxin.length
-  //       this._addAuxin(outValues)
-
-  //       const inPt = aliasResolvedDataPt
-  //       const outPts: DataPt[] = outValues
-  //         .slice(0, 32)
-  //         .map((value, index) => DataPointFactory.create('auxin', sourceOffset + index, value, 32))
-  //       this._place('RETURN', [inPt], outPts)
-  //       break
-  //     }
-  //     default:
-  //       throw new Error(`LOAD subcircuit can only be manipulated by PUSH or RETURNs.`)
-  //   }
-
-  //   /**
-  //    * @todo
-  //    *
-  //    * outPt 리턴을 여기서 해야될 필요?
-  //    * switch statement 안에서 해야될 것처럼 보임
-  //    */
-  //   return outPt
-  // }
-
-  //# TODO: newDataPt size 변수 검증 필요
   private static readonly REQUIRED_INPUTS: Partial<Record<string, number>> = {
     ADDMOD: 3,
     MULMOD: 3,
