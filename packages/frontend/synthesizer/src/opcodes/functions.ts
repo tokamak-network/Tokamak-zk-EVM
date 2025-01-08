@@ -31,15 +31,8 @@ import { keccak256 } from 'ethereum-cryptography/keccak.js'
 
 import { EOFContainer, EOFContainerMode } from '../eof/container.js'
 import { EOFError } from '../eof/errors.js'
-import { EOFBYTES, EOFHASH, isEOF } from '../eof/util.js'
+import {  isEOF } from '../eof/util.js'
 import { ERROR } from '../exceptions.js'
-import {
-  prepareEXTCodePt,
-  synthesizerArith,
-  synthesizerBlkInf,
-  synthesizerEnvInf,
-} from '../tokamak/core/synthesizer.js'
-import { copyMemoryRegion, simulateMemoryPt } from '../tokamak/pointers/index.js'
 import { DELEGATION_7702_FLAG } from '../types.js'
 
 import {
@@ -48,7 +41,6 @@ import {
   exponentiation,
   fromTwos,
   getDataSlice,
-  jumpIsValid,
   mod,
   toTwos,
   trap,
@@ -56,7 +48,6 @@ import {
 } from './util.js'
 
 import type { RunState } from '../interpreter.js'
-import type { MemoryPtEntry, MemoryPts } from '../tokamak/pointers/index.js'
 import type { Common } from '@ethereumjs/common'
 
 export interface SyncOpHandler {

@@ -11,6 +11,8 @@ import type { CustomOpcode } from '../types.js'
 import type { OpHandler } from './functions.js'
 import type { AsyncDynamicGasHandler, SyncDynamicGasHandler } from './gas.js'
 import type { Common } from '@ethereumjs/common'
+import { SynthesizerHandler } from './synthesizer/types.js'
+import { synthesizerHandlers } from './synthesizer/handlers.js'
 export class Opcode {
   readonly code: number
   readonly name: string
@@ -411,6 +413,7 @@ export type OpcodeMapEntry = {
   opcodeInfo: Opcode
   opHandler: OpHandler
   gasHandler: AsyncDynamicGasHandler | SyncDynamicGasHandler
+  synthesizerHandler: SynthesizerHandler  
   subcircuit: SubcircuitCode | undefined
 }
 export type OpcodeMap = OpcodeMapEntry[]
@@ -504,11 +507,13 @@ export function getOpcodesForHF(common: Common, customOpcodes?: CustomOpcode[]):
   for (const [opNumber, op] of ops) {
     const dynamicGas = dynamicGasHandlersCopy.get(opNumber)!
     const handler = handlersCopy.get(opNumber)!
+    const synthesizerHandler = synthesizerHandlers.get(opNumber)!
     const subcircuitCode = subcircuits.find((entry) => parseInt(entry.opcode, 16) === opNumber)
     opcodeMap[opNumber] = {
       opcodeInfo: op,
       opHandler: handler,
       gasHandler: dynamicGas,
+      synthesizerHandler,
       subcircuit: subcircuitCode
         ? {
             subcircuitId: subcircuitCode.id,

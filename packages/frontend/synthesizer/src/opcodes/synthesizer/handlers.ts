@@ -4,10 +4,13 @@ import { mod, fromTwos, toTwos } from "../util.js"
 import { 
   synthesizerArith, 
   synthesizerEnvInf, 
-  synthesizerBlkInf 
+  synthesizerBlkInf,
+  prepareEXTCodePt
 } from "../../tokamak/core/synthesizer.js"
 import { copyMemoryRegion, simulateMemoryPt } from "../../tokamak/pointers/index.js"
 import { BIGINT_0, BIGINT_1 } from "@ethereumjs/util"
+
+
 
 export const synthesizerHandlers = new Map([
   // 0x01: ADD

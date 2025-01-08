@@ -153,7 +153,7 @@ export async function synthesizerEnvInf(
   target?: bigint,
   offset?: bigint,
 ): Promise<void> {
-  // Environment information을 Stack에 load하는 경우만 다룹니다. 그 외의 경우 (~COPY)는 functionst.ts에서 직접 처리 합니다.
+  // Environment information을 Stack에 load하는 경우만 다룹니다. 그 외의 경우 (~COPY)는 functions.ts에서 직접 처리 합니다.
   let dataPt: DataPt
   switch (op) {
     case 'CALLDATALOAD': {
