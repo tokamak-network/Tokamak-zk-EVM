@@ -1,4 +1,4 @@
-import { bytesToBigInt } from '../../../../util/dist/cjs/index.js'
+import { bytesToBigInt } from '@ethereumjs/util'
 
 import { InvalidInputCountError, UndefinedSubcircuitError } from './errors.js'
 

@@ -7,7 +7,10 @@
       "@ethereumjs/util/*": ["util/dist/esm/*"],
       "@ethereumjs/util": ["util/dist/esm/index"],
       "@ethereumjs/common/*": ["common/dist/esm/*"],
-      "@ethereumjs/common": ["common/dist/esm/index"]
+      "@ethereumjs/common": ["common/dist/esm/index"],
+      "@ethereumjs/statemanager": ["statemanager/dist/esm/index"],
+      "@ethereumjs/statemanager/*": ["statemanager/dist/esm/*"]
     }
   }
 }
+

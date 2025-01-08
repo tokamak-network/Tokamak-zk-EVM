@@ -58,7 +58,7 @@
   },
   "dependencies": {
     "@ethereumjs/common": "file:common",
-    "@ethereumjs/statemanager": "^2.4.0",
+    "@ethereumjs/statemanager": "file:statemanager",
     "@ethereumjs/util": "file:util",
     "@types/debug": "^4.1.9",
     "@vitest/coverage-v8": "^2.1.8",
