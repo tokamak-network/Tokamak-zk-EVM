@@ -1,6 +1,11 @@
 {
   "extends": "../../../config/monorepo-js/tsconfig.json",
   "compilerOptions": {
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@ethereumjs/util/*": ["util/dist/esm/*"],
+      "@ethereumjs/util": ["util/dist/esm/index"]
+    }
   }
 }
