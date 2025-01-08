@@ -5,7 +5,9 @@
     "baseUrl": ".",
     "paths": {
       "@ethereumjs/util/*": ["util/dist/esm/*"],
-      "@ethereumjs/util": ["util/dist/esm/index"]
+      "@ethereumjs/util": ["util/dist/esm/index"],
+      "@ethereumjs/common/*": ["common/dist/esm/*"],
+      "@ethereumjs/common": ["common/dist/esm/index"]
     }
   }
 }

@@ -57,7 +57,7 @@
     "visualize:bundle": "npx vite build --config=./vite.config.bundler.ts --emptyOutDir=false --outDir ."
   },
   "dependencies": {
-    "@ethereumjs/common": "^4.4.0",
+    "@ethereumjs/common": "file:common",
     "@ethereumjs/statemanager": "^2.4.0",
     "@ethereumjs/util": "file:util",
     "@types/debug": "^4.1.9",
@@ -86,7 +86,7 @@
     "rustbn-wasm": "^0.4.0",
     "solc": "^0.8.1",
     "split": "^1.0.1",
-    "typescript": "^5.0.4"
+    "typescript": "^4.7.2"
   },
   "engines": {
     "node": ">=18"
