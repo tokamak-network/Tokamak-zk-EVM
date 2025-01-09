@@ -153,7 +153,7 @@ export async function synthesizerEnvInf(
   target?: bigint,
   offset?: bigint,
 ): Promise<void> {
-  // Environment information을 Stack에 load하는 경우만 다룹니다. 그 외의 경우 (~COPY)는 functions.ts에서 직접 처리 합니다.
+  // Environment information을 Stack에 load하는 경우만 다룹니다. 그 외의 경우 (~COPY)는 functionst.ts에서 직접 처리 합니다.
   let dataPt: DataPt
   switch (op) {
     case 'CALLDATALOAD': {
@@ -590,7 +590,7 @@ export class Synthesizer {
   }
 
   public placeEXP(inPts: DataPt[]): DataPt {
-    SynthesizerValidator.validateSubcircuitName('EXP', this.subcircuitNames)
+    SynthesizerValidator.validateSubcircuitName('subEXP', this.subcircuitNames)
     // a^b
     const aPt = inPts[0]
     const bPt = inPts[1]
@@ -641,8 +641,9 @@ export class Synthesizer {
     return copiedDataPts
   }
 
+
   /**
-   * @todo newDataPt size 변수 검증 필요
+  @todo: newDataPt size 변수 검증 필요
    */
   private static readonly REQUIRED_INPUTS: Partial<Record<string, number>> = {
     ADDMOD: 3,
@@ -798,20 +799,6 @@ export class Synthesizer {
     }
     return this.placements.get(this.placementIndex - 1)!.outPts[0]
   }
-
-  /**
-   * @deprecated Auxin에는 한 번에 하나씩 원소가 추가되어야 하며, 하나가 추가 될 때 마다 LOAD 서브서킷에 등록하도록 변경됨
-   * auxin 배열에 값을 추가합니다.
-   *
-   * @param {bigint} value - 추가할 값.
-   */
-  // private _addAuxin(value: bigint | bigint[]): void {
-  //   if (Array.isArray(value)) {
-  //     this.auxin.push(...value)
-  //   } else {
-  //     this.auxin.push(value)
-  //   }
-  // }
 
   private _applyShiftAndMask(info: DataAliasInfoEntry): DataPt {
     let shiftOutPt = info.dataPt

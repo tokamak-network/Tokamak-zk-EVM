@@ -431,15 +431,13 @@ export class Interpreter {
       // Execute opcode handler
       const opFn = opEntry.opHandler
 
-      console.log("opEntry", opEntry);
-      
 
-  // 2. 일반 opcode 실행
-  if (opInfo.isAsync) {
-    await (opFn as AsyncOpHandler).apply(null, [this._runState, this.common])
-  } else {
-    opFn.apply(null, [this._runState, this.common])
-  }
+    // 2. 일반 opcode 실행
+    if (opInfo.isAsync) {
+      await (opFn as AsyncOpHandler).apply(null, [this._runState, this.common])
+    } else {
+      opFn.apply(null, [this._runState, this.common])
+    }
 
   
     } finally {
