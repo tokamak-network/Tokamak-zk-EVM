@@ -1,0 +1,47 @@
+
+[package]
+name = "zkp-rust-tools-math"
+description = "Modular math library for tokamak zk evm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+lambdaworks-math = { git="https://github.com/lambdaclass/lambdaworks.git", version = "0.10.0" }
+lambdaworks-groth16 = {  git="https://github.com/lambdaclass/lambdaworks.git",version = "0.10.0"}
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"], optional = true }
+rayon = { version = "1.7", optional = true }
+proptest = { version = "1.1.0", optional = true }
+ndarray = { version = "0.16.1", default-features = false }
+rand = "0.8.5"
+rustyline = "12"
+num-traits = "0.2.19"
+
+[dev-dependencies]
+rand = { version = "0.8.5", default-features = false }
+rand_chacha = "0.3.1"
+criterion = "0.5.1"
+const-random = "0.1.15"
+iai-callgrind.workspace = true
+proptest = "1.1.0"
+pprof = { version = "0.13.0", features = ["criterion","flamegraph"] }
+
+
+[features]
+default = ["parallel", "std"]
+std = ["alloc", "serde?/std", "serde_json?/std"]
+alloc = []
+parallel = ["dep:rayon"]
+lambdaworks-serde-binary = ["dep:serde", "alloc"]
+lambdaworks-serde-string = ["dep:serde", "dep:serde_json", "alloc"]
+proptest = ["dep:proptest"]
+
+# gpu
+# metal = [
+#     "dep:metal",
+#     "dep:objc",
+#     "dep:lambdaworks-gpu",
+#     "lambdaworks-gpu?/metal",
+# ]
+# cuda = ["dep:cudarc", "dep:lambdaworks-gpu"]

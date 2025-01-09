@@ -431,11 +431,17 @@ export class Interpreter {
       // Execute opcode handler
       const opFn = opEntry.opHandler
 
-      if (opInfo.isAsync) {
-        await (opFn as AsyncOpHandler).apply(null, [this._runState, this.common])
-      } else {
-        opFn.apply(null, [this._runState, this.common])
-      }
+      console.log("opEntry", opEntry);
+      
+
+  // 2. 일반 opcode 실행
+  if (opInfo.isAsync) {
+    await (opFn as AsyncOpHandler).apply(null, [this._runState, this.common])
+  } else {
+    opFn.apply(null, [this._runState, this.common])
+  }
+
+  
     } finally {
       if (this.profilerOpts?.enabled === true) {
         this.performanceLogger.stopTimer(

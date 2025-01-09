@@ -1,0 +1,20 @@
+[package]
+name = "zkp-rust-tools-ooo-snark"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+zkp-rust-tools-math = { workspace = true, features = ["alloc"] }
+lambdaworks-math = { git="https://github.com/lambdaclass/lambdaworks.git", version = "0.10.0" }
+lambdaworks-groth16 = {  git="https://github.com/lambdaclass/lambdaworks.git",version = "0.10.0"}
+rand_chacha = "0.3.1"
+serde = "1.0"
+serde_json = "1.0"
+rand = "0.8.5"
+lazy_static = "1.4.0"
+ndarray = { version = "0.16.1", default-features = false }
+

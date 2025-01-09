@@ -24,14 +24,13 @@ import {
   bytesToInt,
   concatBytes,
   equalsBytes,
-  getVerkleTreeIndicesForStorageSlot,
   setLengthLeft,
 } from '@ethereumjs/util'
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 
 import { EOFContainer, EOFContainerMode } from '../eof/container.js'
 import { EOFError } from '../eof/errors.js'
-import {  isEOF } from '../eof/util.js'
+import { EOFBYTES, EOFHASH, isEOF } from '../eof/util.js'
 import { ERROR } from '../exceptions.js'
 import { DELEGATION_7702_FLAG } from '../types.js'
 
@@ -41,6 +40,7 @@ import {
   exponentiation,
   fromTwos,
   getDataSlice,
+  jumpIsValid,
   mod,
   toTwos,
   trap,
@@ -230,21 +230,21 @@ export const handlers: Map<number, OpHandler> = new Map([
   [
     0x0b,
     function (runState) {
-      const [k, _val] = runState.stack.popN(2)
-      let val = _val
-
+      /* eslint-disable-next-line prefer-const */
+      let [k, val] = runState.stack.popN(2)
       if (k < BIGINT_31) {
         const signBit = k * BIGINT_8 + BIGINT_7
         const mask = (BIGINT_1 << signBit) - BIGINT_1
-        if ((_val >> signBit) & BIGINT_1) {
-          val = _val | BigInt.asUintN(256, ~mask)
+        if ((val >> signBit) & BIGINT_1) {
+          val = val | BigInt.asUintN(256, ~mask)
         } else {
-          val = _val & mask
+          val = val & mask
         }
       }
       runState.stack.push(val)
     },
   ],
+  // 0x10 range - bit ops
   // 0x10: LT
   [
     0x10,
@@ -407,6 +407,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
     },
   ],
+  // 0x20 range - crypto
   // 0x20: KECCAK256
   [
     0x20,
@@ -420,10 +421,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
     },
   ],
+  // 0x30 range - closure state
   // 0x30: ADDRESS
   [
     0x30,
-    async function (runState) {
+    function (runState) {
       const address = bytesToBigInt(runState.interpreter.getAddress().bytes)
       runState.stack.push(address)
     },
@@ -441,28 +443,28 @@ export const handlers: Map<number, OpHandler> = new Map([
   // 0x32: ORIGIN
   [
     0x32,
-    async function (runState) {
+    function (runState) {
       runState.stack.push(runState.interpreter.getTxOrigin())
     },
   ],
   // 0x33: CALLER
   [
     0x33,
-    async function (runState) {
+    function (runState) {
       runState.stack.push(runState.interpreter.getCaller())
     },
   ],
   // 0x34: CALLVALUE
   [
     0x34,
-    async function (runState) {
+    function (runState) {
       runState.stack.push(runState.interpreter.getCallValue())
     },
   ],
   // 0x35: CALLDATALOAD
   [
     0x35,
-    async function (runState) {
+    function (runState) {
       const pos = runState.stack.pop()
       if (pos > runState.interpreter.getCallDataSize()) {
         runState.stack.push(BIGINT_0)
@@ -482,8 +484,9 @@ export const handlers: Map<number, OpHandler> = new Map([
   // 0x36: CALLDATASIZE
   [
     0x36,
-    async function (runState) {
-      runState.stack.push(runState.interpreter.getCallDataSize())
+    function (runState) {
+      const r = runState.interpreter.getCallDataSize()
+      runState.stack.push(r)
     },
   ],
   // 0x37: CALLDATACOPY
@@ -491,6 +494,7 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x37,
     function (runState) {
       const [memOffset, dataOffset, dataLength] = runState.stack.popN(3)
+
       if (dataLength !== BIGINT_0) {
         const data = getDataSlice(runState.interpreter.getCallData(), dataOffset, dataLength)
         const memOffsetNum = Number(memOffset)
@@ -499,15 +503,684 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
     },
   ],
+  // 0x38: CODESIZE
+  [
+    0x38,
+    function (runState) {
+      runState.stack.push(runState.interpreter.getCodeSize())
+    },
+  ],
+  // 0x39: CODECOPY
+  [
+    0x39,
+    function (runState) {
+      const [memOffset, codeOffset, dataLength] = runState.stack.popN(3)
+
+      if (dataLength !== BIGINT_0) {
+        const data = getDataSlice(runState.interpreter.getCode(), codeOffset, dataLength)
+        const memOffsetNum = Number(memOffset)
+        const lengthNum = Number(dataLength)
+        runState.memory.write(memOffsetNum, lengthNum, data)
+      }
+    },
+  ],
+  // 0x3b: EXTCODESIZE
+  [
+    0x3b,
+    async function (runState, common) {
+      const addressBigInt = runState.stack.pop()
+      const address = createAddressFromStackBigInt(addressBigInt)
+      // EOF check
+      let code = await runState.stateManager.getCode(address)
+      if (isEOF(code)) {
+        // In legacy code, the target code is treated as to be "EOFBYTES" code
+        runState.stack.push(BigInt(EOFBYTES.length))
+        return
+      } else if (common.isActivatedEIP(7702)) {
+        code = await eip7702CodeCheck(runState, code)
+      }
+
+      const size = BigInt(code.length)
+
+      runState.stack.push(size)
+    },
+  ],
+  // 0x3c: EXTCODECOPY
+  [
+    0x3c,
+    async function (runState, common) {
+      const [addressBigInt, memOffset, codeOffset, dataLength] = runState.stack.popN(4)
+
+      if (dataLength !== BIGINT_0) {
+        const address = createAddressFromStackBigInt(addressBigInt)
+        let code = await runState.stateManager.getCode(address)
+
+        if (isEOF(code)) {
+          // In legacy code, the target code is treated as to be "EOFBYTES" code
+          code = EOFBYTES
+        } else if (common.isActivatedEIP(7702)) {
+          code = await eip7702CodeCheck(runState, code)
+        }
+
+        const data = getDataSlice(code, codeOffset, dataLength)
+        const memOffsetNum = Number(memOffset)
+        const lengthNum = Number(dataLength)
+        runState.memory.write(memOffsetNum, lengthNum, data)
+      }
+    },
+  ],
+  // 0x3f: EXTCODEHASH
+  [
+    0x3f,
+    async function (runState, common) {
+      const addressBigInt = runState.stack.pop()
+      const address = createAddressFromStackBigInt(addressBigInt)
+
+      // EOF check
+      const code = await runState.stateManager.getCode(address)
+      if (isEOF(code)) {
+        // In legacy code, the target code is treated as to be "EOFBYTES" code
+        // Therefore, push the hash of EOFBYTES to the stack
+        runState.stack.push(bytesToBigInt(EOFHASH))
+        return
+      } else if (common.isActivatedEIP(7702)) {
+        const possibleDelegatedAddress = getEIP7702DelegatedAddress(code)
+        if (possibleDelegatedAddress !== undefined) {
+          const account = await runState.stateManager.getAccount(possibleDelegatedAddress)
+          if (!account || account.isEmpty()) {
+            runState.stack.push(BIGINT_0)
+            return
+          }
+
+          runState.stack.push(BigInt(bytesToHex(account.codeHash)))
+          return
+        }
+      }
+
+      const account = await runState.stateManager.getAccount(address)
+      if (!account || account.isEmpty()) {
+        runState.stack.push(BIGINT_0)
+        return
+      }
+
+      runState.stack.push(BigInt(bytesToHex(account.codeHash)))
+    },
+  ],
+  // 0x3d: RETURNDATASIZE
+  [
+    0x3d,
+    function (runState) {
+      runState.stack.push(runState.interpreter.getReturnDataSize())
+    },
+  ],
+  // 0x3e: RETURNDATACOPY
+  [
+    0x3e,
+    function (runState) {
+      const [memOffset, returnDataOffset, dataLength] = runState.stack.popN(3)
+
+      if (dataLength !== BIGINT_0) {
+        const data = getDataSlice(
+          runState.interpreter.getReturnData(),
+          returnDataOffset,
+          dataLength,
+        )
+        const memOffsetNum = Number(memOffset)
+        const lengthNum = Number(dataLength)
+        runState.memory.write(memOffsetNum, lengthNum, data)
+      }
+    },
+  ],
+  // 0x3a: GASPRICE
+  [
+    0x3a,
+    function (runState) {
+      runState.stack.push(runState.interpreter.getTxGasPrice())
+    },
+  ],
+  // '0x40' range - block operations
+  // 0x40: BLOCKHASH
+  [
+    0x40,
+    async function (runState, common) {
+      const number = runState.stack.pop()
+
+      if (common.isActivatedEIP(7709)) {
+        if (number >= runState.interpreter.getBlockNumber()) {
+          runState.stack.push(BIGINT_0)
+          return
+        }
+
+        const diff = runState.interpreter.getBlockNumber() - number
+        // block lookups must be within the original window even if historyStorageAddress's
+        // historyServeWindow is much greater than 256
+        if (diff > BIGINT_256 || diff <= BIGINT_0) {
+          runState.stack.push(BIGINT_0)
+          return
+        }
+
+        const historyAddress = new Address(
+          bigIntToAddressBytes(common.param('historyStorageAddress')),
+        )
+        const historyServeWindow = common.param('historyServeWindow')
+        const key = setLengthLeft(bigIntToBytes(number % historyServeWindow), 32)
+
+        if (common.isActivatedEIP(6800)) {
+          // create witnesses and charge gas
+          const statelessGas = runState.env.accessWitness!.readAccountStorage(
+            historyAddress,
+            number,
+          )
+          runState.interpreter.useGas(statelessGas, `BLOCKHASH`)
+        }
+        const storage = await runState.stateManager.getStorage(historyAddress, key)
+
+        runState.stack.push(bytesToBigInt(storage))
+      } else {
+        const diff = runState.interpreter.getBlockNumber() - number
+        // block lookups must be within the past 256 blocks
+        if (diff > BIGINT_256 || diff <= BIGINT_0) {
+          runState.stack.push(BIGINT_0)
+          return
+        }
+
+        const block = await runState.blockchain.getBlock(Number(number))
+
+        runState.stack.push(bytesToBigInt(block.hash()))
+      }
+    },
+  ],
+  // 0x41: COINBASE
+  [
+    0x41,
+    function (runState) {
+      runState.stack.push(runState.interpreter.getBlockCoinbase())
+    },
+  ],
+  // 0x42: TIMESTAMP
+  [
+    0x42,
+    function (runState) {
+      runState.stack.push(runState.interpreter.getBlockTimestamp())
+    },
+  ],
+  // 0x43: NUMBER
+  [
+    0x43,
+    function (runState) {
+      runState.stack.push(runState.interpreter.getBlockNumber())
+    },
+  ],
+  // 0x44: DIFFICULTY (EIP-4399: supplanted as PREVRANDAO)
+  [
+    0x44,
+    function (runState, common) {
+      if (common.isActivatedEIP(4399)) {
+        runState.stack.push(runState.interpreter.getBlockPrevRandao())
+      } else {
+        runState.stack.push(runState.interpreter.getBlockDifficulty())
+      }
+    },
+  ],
+  // 0x45: GASLIMIT
+  [
+    0x45,
+    function (runState) {
+      runState.stack.push(runState.interpreter.getBlockGasLimit())
+    },
+  ],
+  // 0x46: CHAINID
+  [
+    0x46,
+    function (runState) {
+      runState.stack.push(runState.interpreter.getChainId())
+    },
+  ],
+  // 0x47: SELFBALANCE
+  [
+    0x47,
+    function (runState) {
+      runState.stack.push(runState.interpreter.getSelfBalance())
+    },
+  ],
+  // 0x48: BASEFEE
+  [
+    0x48,
+    function (runState) {
+      runState.stack.push(runState.interpreter.getBlockBaseFee())
+    },
+  ],
+  // 0x49: BLOBHASH
+  [
+    0x49,
+    function (runState) {
+      const index = runState.stack.pop()
+      if (runState.env.blobVersionedHashes.length > Number(index)) {
+        runState.stack.push(BigInt(runState.env.blobVersionedHashes[Number(index)]))
+      } else {
+        runState.stack.push(BIGINT_0)
+      }
+    },
+  ],
+  // 0x4a: BLOBBASEFEE
+  [
+    0x4a,
+    function (runState) {
+      runState.stack.push(runState.interpreter.getBlobBaseFee())
+    },
+  ],
+  // 0x50 range - 'storage' and execution
+  // 0x50: POP
+  [
+    0x50,
+    function (runState) {
+      runState.stack.pop()
+    },
+  ],
+  // 0x51: MLOAD
+  [
+    0x51,
+    function (runState) {
+      const pos = runState.stack.pop()
+      const word = runState.memory.read(Number(pos), 32, true)
+      runState.stack.push(bytesToBigInt(word))
+    },
+  ],
+  // 0x52: MSTORE
+  [
+    0x52,
+    function (runState) {
+      const [offset, word] = runState.stack.popN(2)
+      const buf = setLengthLeft(bigIntToBytes(word), 32)
+      const offsetNum = Number(offset)
+      runState.memory.write(offsetNum, 32, buf)
+    },
+  ],
+  // 0x53: MSTORE8
+  [
+    0x53,
+    function (runState) {
+      const [offset, byte] = runState.stack.popN(2)
+
+      const buf = bigIntToBytes(byte & BIGINT_255)
+      const offsetNum = Number(offset)
+      runState.memory.write(offsetNum, 1, buf)
+    },
+  ],
+  // 0x54: SLOAD
+  [
+    0x54,
+    async function (runState) {
+      const key = runState.stack.pop()
+      const keyBuf = setLengthLeft(bigIntToBytes(key), 32)
+      const value = await runState.interpreter.storageLoad(keyBuf)
+      const valueBigInt = value.length ? bytesToBigInt(value) : BIGINT_0
+      runState.stack.push(valueBigInt)
+    },
+  ],
+  // 0x55: SSTORE
+  [
+    0x55,
+    async function (runState) {
+      const [key, val] = runState.stack.popN(2)
+
+      const keyBuf = setLengthLeft(bigIntToBytes(key), 32)
+      // NOTE: this should be the shortest representation
+      let value
+      if (val === BIGINT_0) {
+        value = Uint8Array.from([])
+      } else {
+        value = bigIntToBytes(val)
+      }
+
+      await runState.interpreter.storageStore(keyBuf, value)
+    },
+  ],
+  // 0x56: JUMP
+  [
+    0x56,
+    function (runState) {
+      const dest = runState.stack.pop()
+      if (dest > runState.interpreter.getCodeSize()) {
+        trap(ERROR.INVALID_JUMP + ' at ' + describeLocation(runState))
+      }
+
+      const destNum = Number(dest)
+
+      if (!jumpIsValid(runState, destNum)) {
+        trap(ERROR.INVALID_JUMP + ' at ' + describeLocation(runState))
+      }
+
+      runState.programCounter = destNum
+    },
+  ],
+  // 0x57: JUMPI
+  [
+    0x57,
+    function (runState) {
+      const [dest, cond] = runState.stack.popN(2)
+      if (cond !== BIGINT_0) {
+        if (dest > runState.interpreter.getCodeSize()) {
+          trap(ERROR.INVALID_JUMP + ' at ' + describeLocation(runState))
+        }
+
+        const destNum = Number(dest)
+
+        if (!jumpIsValid(runState, destNum)) {
+          trap(ERROR.INVALID_JUMP + ' at ' + describeLocation(runState))
+        }
+
+        runState.programCounter = destNum
+      }
+    },
+  ],
+  // 0x58: PC
+  [
+    0x58,
+    function (runState) {
+      runState.stack.push(BigInt(runState.programCounter - 1))
+    },
+  ],
+  // 0x59: MSIZE
+  [
+    0x59,
+    function (runState) {
+      runState.stack.push(runState.memoryWordCount * BIGINT_32)
+    },
+  ],
+  // 0x5a: GAS
+  [
+    0x5a,
+    function (runState) {
+      runState.stack.push(runState.interpreter.getGasLeft())
+    },
+  ],
+  // 0x5b: JUMPDEST
+  [0x5b, function () {}],
+  // 0x5c: TLOAD (EIP 1153)
+  [
+    0x5c,
+    function (runState) {
+      const key = runState.stack.pop()
+      const keyBuf = setLengthLeft(bigIntToBytes(key), 32)
+      const value = runState.interpreter.transientStorageLoad(keyBuf)
+      const valueBN = value.length ? bytesToBigInt(value) : BIGINT_0
+      runState.stack.push(valueBN)
+    },
+  ],
+  // 0x5d: TSTORE (EIP 1153)
+  [
+    0x5d,
+    function (runState) {
+      // TSTORE
+      if (runState.interpreter.isStatic()) {
+        trap(ERROR.STATIC_STATE_CHANGE)
+      }
+      const [key, val] = runState.stack.popN(2)
+
+      const keyBuf = setLengthLeft(bigIntToBytes(key), 32)
+      // NOTE: this should be the shortest representation
+      let value
+      if (val === BIGINT_0) {
+        value = Uint8Array.from([])
+      } else {
+        value = bigIntToBytes(val)
+      }
+
+      runState.interpreter.transientStorageStore(keyBuf, value)
+    },
+  ],
+  // 0x5e: MCOPY (5656)
+  [
+    0x5e,
+    function (runState) {
+      const [dst, src, length] = runState.stack.popN(3)
+      const data = runState.memory.read(Number(src), Number(length), true)
+      runState.memory.write(Number(dst), Number(length), data)
+    },
+  ],
+  // 0x5f: PUSH0
+  [
+    0x5f,
+    function (runState) {
+      runState.stack.push(BIGINT_0)
+    },
+  ],
+  // 0x60: PUSH
+  [
+    0x60,
+    function (runState, common) {
+      const numToPush = runState.opCode - 0x5f
+
+      if (common.isActivatedEIP(6800) && runState.env.chargeCodeAccesses === true) {
+        const contract = runState.interpreter.getAddress()
+        const startOffset = Math.min(runState.code.length, runState.programCounter + 1)
+        const endOffset = Math.min(runState.code.length, startOffset + numToPush - 1)
+        const statelessGas = runState.env.accessWitness!.readAccountCodeChunks(
+          contract,
+          startOffset,
+          endOffset,
+        )
+        runState.interpreter.useGas(statelessGas, `PUSH`)
+      }
+
+      if (!runState.shouldDoJumpAnalysis) {
+        runState.stack.push(runState.cachedPushes[runState.programCounter])
+        runState.programCounter += numToPush
+      } else {
+        const loaded = bytesToBigInt(
+          runState.code.subarray(runState.programCounter, runState.programCounter + numToPush),
+        )
+        runState.programCounter += numToPush
+        runState.stack.push(loaded)
+      }
+    },
+  ],
+  // 0x80: DUP
+  [
+    0x80,
+    function (runState) {
+      const stackPos = runState.opCode - 0x7f
+      runState.stack.dup(stackPos)
+    },
+  ],
+  // 0x90: SWAP
+  [
+    0x90,
+    function (runState) {
+      const stackPos = runState.opCode - 0x8f
+      runState.stack.swap(stackPos)
+    },
+  ],
+  // 0xa0: LOG
+  [
+    0xa0,
+    function (runState) {
+      const [memOffset, memLength] = runState.stack.popN(2)
+
+      const topicsCount = runState.opCode - 0xa0
+
+      const topics = runState.stack.popN(topicsCount)
+      const topicsBuf = topics.map(function (a: bigint) {
+        return setLengthLeft(bigIntToBytes(a), 32)
+      })
+
+      let mem = new Uint8Array(0)
+      if (memLength !== BIGINT_0) {
+        mem = runState.memory.read(Number(memOffset), Number(memLength))
+      }
+
+      runState.interpreter.log(mem, topicsCount, topicsBuf)
+    },
+  ],
+  // 0xd0: DATALOAD
+  [
+    0xd0,
+    function (runState) {
+      if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
+        trap(ERROR.INVALID_OPCODE)
+      }
+      const pos = runState.stack.pop()
+      if (pos > runState.env.eof!.container.body.dataSection.length) {
+        runState.stack.push(BIGINT_0)
+        return
+      }
+
+      const i = Number(pos)
+      let loaded = runState.env.eof!.container.body.dataSection.subarray(i, i + 32)
+      loaded = loaded.length ? loaded : Uint8Array.from([0])
+      let r = bytesToBigInt(loaded)
+      // Pad the loaded length with 0 bytes in case it is smaller than 32
+      if (loaded.length < 32) {
+        r = r << (BIGINT_8 * BigInt(32 - loaded.length))
+      }
+      runState.stack.push(r)
+    },
+  ],
+  // 0xd1: DATALOADN
+  [
+    0xd1,
+    function (runState) {
+      if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
+        trap(ERROR.INVALID_OPCODE)
+      }
+      const toLoad = Number(
+        bytesToBigInt(runState.code.subarray(runState.programCounter, runState.programCounter + 2)),
+      )
+      const data = bytesToBigInt(
+        runState.env.eof!.container.body.dataSection.subarray(toLoad, toLoad + 32),
+      )
+      runState.stack.push(data)
+      runState.programCounter += 2
+    },
+  ],
+  // 0xd2: DATASIZE
+  [
+    0xd2,
+    function (runState) {
+      if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
+        trap(ERROR.INVALID_OPCODE)
+      }
+      runState.stack.push(BigInt(runState.env.eof!.container.body.dataSection.length))
+    },
+  ],
+  // 0xd3: DATACOPY
+  [
+    0xd3,
+    function (runState) {
+      if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
+        trap(ERROR.INVALID_OPCODE)
+      }
+      const [memOffset, offset, size] = runState.stack.popN(3)
+      if (size !== BIGINT_0) {
+        const data = getDataSlice(runState.env.eof!.container.body.dataSection, offset, size)
+        const memOffsetNum = Number(memOffset)
+        const dataLengthNum = Number(size)
+        runState.memory.write(memOffsetNum, dataLengthNum, data)
+      }
+    },
+  ],
+  // 0xe0: RJUMP
+  [
+    0xe0,
+    function (runState) {
+      if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
+        trap(ERROR.INVALID_OPCODE)
+      } else {
+        const code = runState.env.code
+        const rjumpDest = new DataView(code.buffer).getInt16(runState.programCounter)
+        runState.programCounter += 2 + rjumpDest
+      }
+    },
+  ],
+  // 0xe1: RJUMPI
+  [
+    0xe1,
+    function (runState) {
+      if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
+        trap(ERROR.INVALID_OPCODE)
+      } else {
+        const cond = runState.stack.pop()
+        // Move PC to the PC post instruction
+        if (cond > 0) {
+          const code = runState.env.code
+          const rjumpDest = new DataView(code.buffer).getInt16(runState.programCounter)
+          runState.programCounter += rjumpDest
+        }
+        // In all cases, increment PC with 2 (also in the case if `cond` is `0`)
+        runState.programCounter += 2
+      }
+    },
+  ],
+  // 0xe2: RJUMPV
+  [
+    0xe2,
+    function (runState) {
+      if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
+        trap(ERROR.INVALID_OPCODE)
+      } else {
+        const code = runState.env.code
+        const jumptableEntries = code[runState.programCounter]
+        // Note: if the size of the immediate is `0`, this thus means that the actual size is `2`
+        // This allows for 256 entries in the table instead of 255
+        const jumptableSize = (jumptableEntries + 1) * 2
+        // Move PC to start of the jump table
+        runState.programCounter += 1
+        const jumptableCase = runState.stack.pop()
+        if (jumptableCase <= jumptableEntries) {
+          const rjumpDest = new DataView(code.buffer).getInt16(
+            runState.programCounter + Number(jumptableCase) * 2,
+          )
+          runState.programCounter += jumptableSize + rjumpDest
+        } else {
+          runState.programCounter += jumptableSize
+        }
+      }
+    },
+  ],
+  // 0xe3: CALLF
+  [
+    0xe3,
+    function (runState) {
+      if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
+        trap(ERROR.INVALID_OPCODE)
+      }
+      const sectionTarget = bytesToInt(
+        runState.code.slice(runState.programCounter, runState.programCounter + 2),
+      )
+      const stackItems = runState.stack.length
+      const typeSection = runState.env.eof!.container.body.typeSections[sectionTarget]
+      if (stackItems > 1024 - typeSection.maxStackHeight + typeSection.inputs) {
+        trap(EOFError.StackOverflow)
+      }
+      if (runState.env.eof!.eofRunState.returnStack.length >= 1024) {
+        trap(EOFError.ReturnStackOverflow)
+      }
+      runState.env.eof?.eofRunState.returnStack.push(runState.programCounter + 2)
+
+      // Find out the opcode we should jump into
+      runState.programCounter = runState.env.eof!.container.header.getCodePosition(sectionTarget)
+    },
+  ],
   // 0xe4: RETF
   [
     0xe4,
-    function (runState, _common) {
+    function (runState) {
       if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
         trap(ERROR.INVALID_OPCODE)
       }
       const newPc = runState.env.eof!.eofRunState.returnStack.pop()
       if (newPc === undefined) {
+        // This should NEVER happen since it is validated that functions either terminate (the call frame) or return
         trap(EOFError.RetfNoReturn)
       }
       runState.programCounter = newPc!
@@ -516,26 +1189,37 @@ export const handlers: Map<number, OpHandler> = new Map([
   // 0xe5: JUMPF
   [
     0xe5,
-    function (runState, _common) {
+    function (runState) {
       if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
         trap(ERROR.INVALID_OPCODE)
       }
+      // NOTE: (and also TODO) this code is exactly the same as CALLF, except pushing to the return stack is now skipped
+      // (and also the return stack overflow check)
+      // It is commented out here
       const sectionTarget = bytesToInt(
         runState.code.slice(runState.programCounter, runState.programCounter + 2),
       )
       const stackItems = runState.stack.length
       const typeSection = runState.env.eof!.container.body.typeSections[sectionTarget]
-      if (1024 < stackItems + typeSection?.inputs - typeSection?.maxStackHeight) {
+      if (stackItems > 1024 - typeSection.maxStackHeight + typeSection.inputs) {
         trap(EOFError.StackOverflow)
       }
+      /*if (runState.env.eof!.eofRunState.returnStack.length >= 1024) {
+        trap(EOFError.ReturnStackOverflow)
+      }
+      runState.env.eof?.eofRunState.returnStack.push(runState.programCounter + 2)*/
+
+      // Find out the opcode we should jump into
       runState.programCounter = runState.env.eof!.container.header.getCodePosition(sectionTarget)
     },
   ],
   // 0xe6: DUPN
   [
     0xe6,
-    function (runState, _common) {
+    function (runState) {
       if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
         trap(ERROR.INVALID_OPCODE)
       }
       const toDup =
@@ -551,8 +1235,9 @@ export const handlers: Map<number, OpHandler> = new Map([
   // 0xe7: SWAPN
   [
     0xe7,
-    function (runState, _common) {
+    function (runState) {
       if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
         trap(ERROR.INVALID_OPCODE)
       }
       const toSwap =
@@ -568,8 +1253,9 @@ export const handlers: Map<number, OpHandler> = new Map([
   // 0xe8: EXCHANGE
   [
     0xe8,
-    function (runState, _common) {
+    function (runState) {
       if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
         trap(ERROR.INVALID_OPCODE)
       }
       const toExchange = Number(
@@ -584,13 +1270,19 @@ export const handlers: Map<number, OpHandler> = new Map([
   // 0xec: EOFCREATE
   [
     0xec,
-    async function (runState, _common) {
+    async function (runState) {
       if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
         trap(ERROR.INVALID_OPCODE)
       } else {
+        if (runState.interpreter.isStatic()) {
+          trap(ERROR.STATIC_STATE_CHANGE)
+        }
+        // Read container index
         const containerIndex = runState.env.code[runState.programCounter]
         const containerCode = runState.env.eof!.container.body.containerSections[containerIndex]
 
+        // Pop stack values
         const [value, salt, inputOffset, inputSize] = runState.stack.popN(4)
 
         const gasLimit = runState.messageGasLimit!
@@ -601,7 +1293,7 @@ export const handlers: Map<number, OpHandler> = new Map([
           data = runState.memory.read(Number(inputOffset), Number(inputSize), true)
         }
 
-        runState.programCounter++
+        runState.programCounter++ // Jump over the immediate byte
 
         const ret = await runState.interpreter.eofcreate(
           gasLimit,
@@ -617,15 +1309,19 @@ export const handlers: Map<number, OpHandler> = new Map([
   // 0xee: RETURNCONTRACT
   [
     0xee,
-    async function (runState, _common) {
+    async function (runState) {
       if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
         trap(ERROR.INVALID_OPCODE)
       } else {
+        // Read container index
         const containerIndex = runState.env.code[runState.programCounter]
         const containerCode = runState.env.eof!.container.body.containerSections[containerIndex]
 
+        // Read deployContainer as EOFCreate (initcode) container
         const deployContainer = new EOFContainer(containerCode, EOFContainerMode.Initmode)
 
+        // Pop stack values
         const [auxDataOffset, auxDataSize] = runState.stack.popN(2)
 
         let auxData = new Uint8Array(0)
@@ -642,11 +1338,14 @@ export const handlers: Map<number, OpHandler> = new Map([
         }
 
         if (actualSectionSize > 0xffff) {
+          // Data section size is now larger than the max data section size
+          // Temp: trap OOG?
           trap(ERROR.OUT_OF_GAS)
         }
 
         const newSize = setLengthLeft(bigIntToBytes(BigInt(actualSectionSize)), 2)
 
+        // Write the bytes to the containerCode
         const dataSizePtr = deployContainer.header.dataSizePtr
         containerCode[dataSizePtr] = newSize[0]
         containerCode[dataSizePtr + 1] = newSize[1]
@@ -657,6 +1356,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
     },
   ],
+  // '0xf0' range - closures
   // 0xf0: CREATE
   [
     0xf0,
@@ -680,6 +1380,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
 
       if (isEOF(data)) {
+        // Legacy cannot deploy EOF code
         runState.stack.push(BIGINT_0)
         return
       }
@@ -715,6 +1416,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
 
       if (isEOF(data)) {
+        // Legacy cannot deploy EOF code
         runState.stack.push(BIGINT_0)
         return
       }
@@ -750,13 +1452,8 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       runState.messageGasLimit = undefined
 
-      const ret = await runState.interpreter.call(
-        gasLimit,
-        toAddress,
-        value,
-        data,
-      )
-
+      const ret = await runState.interpreter.call(gasLimit, toAddress, value, data)
+      // Write return data to memory
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
     },
@@ -783,13 +1480,8 @@ export const handlers: Map<number, OpHandler> = new Map([
         data = runState.memory.read(Number(inOffset), Number(inLength), true)
       }
 
-      const ret = await runState.interpreter.callCode(
-        gasLimit,
-        toAddress,
-        value,
-        data,
-      )
-
+      const ret = await runState.interpreter.callCode(gasLimit, toAddress, value, data)
+      // Write return data to memory
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
     },
@@ -811,22 +1503,42 @@ export const handlers: Map<number, OpHandler> = new Map([
       const gasLimit = runState.messageGasLimit!
       runState.messageGasLimit = undefined
 
-      const ret = await runState.interpreter.callDelegate(
-        gasLimit,
-        toAddress,
-        value,
-        data,
-      )
-
+      const ret = await runState.interpreter.callDelegate(gasLimit, toAddress, value, data)
+      // Write return data to memory
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
+    },
+  ],
+  // 0xf7: RETURNDATALOAD
+  [
+    0xf7,
+    function (runState) {
+      if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
+        trap(ERROR.INVALID_OPCODE)
+      }
+      const pos = runState.stack.pop()
+      if (pos > runState.interpreter.getReturnDataSize()) {
+        runState.stack.push(BIGINT_0)
+        return
+      }
+
+      const i = Number(pos)
+      let loaded = runState.interpreter.getReturnData().subarray(i, i + 32)
+      loaded = loaded.length ? loaded : Uint8Array.from([0])
+      let r = bytesToBigInt(loaded)
+      if (loaded.length < 32) {
+        r = r << (BIGINT_8 * BigInt(32 - loaded.length))
+      }
+      runState.stack.push(r)
     },
   ],
   // 0xf8: EXTCALL
   [
     0xf8,
-    async function (runState, _common) {
+    async function (runState) {
       if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
         trap(ERROR.INVALID_OPCODE)
       } else {
         const [toAddr, inOffset, inLength, value] = runState.stack.popN(4)
@@ -835,6 +1547,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         runState.messageGasLimit = undefined
 
         if (gasLimit === -BIGINT_1) {
+          // Special case, abort doing any logic (this logic is defined in `gas.ts`), and put `1` on stack per spec
           runState.stack.push(BIGINT_1)
           runState.returnBytes = new Uint8Array(0)
           return
@@ -848,6 +1561,8 @@ export const handlers: Map<number, OpHandler> = new Map([
         }
 
         const ret = await runState.interpreter.call(gasLimit, toAddress, value, data)
+        // Write return data to memory
+
         runState.stack.push(ret)
       }
     },
@@ -855,8 +1570,9 @@ export const handlers: Map<number, OpHandler> = new Map([
   // 0xf9: EXTDELEGATECALL
   [
     0xf9,
-    async function (runState, _common) {
+    async function (runState) {
       if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
         trap(ERROR.INVALID_OPCODE)
       } else {
         const value = runState.interpreter.getCallValue()
@@ -866,6 +1582,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         runState.messageGasLimit = undefined
 
         if (gasLimit === -BIGINT_1) {
+          // Special case, abort doing any logic (this logic is defined in `gas.ts`), and put `1` on stack per spec
           runState.stack.push(BIGINT_1)
           runState.returnBytes = new Uint8Array(0)
           return
@@ -876,7 +1593,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         const code = await runState.stateManager.getCode(toAddress)
 
         if (!isEOF(code)) {
+          // EXTDELEGATECALL cannot call legacy contracts
           runState.stack.push(BIGINT_1)
+          runState.returnBytes = new Uint8Array(0)
           return
         }
 
@@ -885,12 +1604,7 @@ export const handlers: Map<number, OpHandler> = new Map([
           data = runState.memory.read(Number(inOffset), Number(inLength), true)
         }
 
-        const ret = await runState.interpreter.callDelegate(
-          gasLimit,
-          toAddress,
-          value,
-          data,
-        )
+        const ret = await runState.interpreter.callDelegate(gasLimit, toAddress, value, data)
         runState.stack.push(ret)
       }
     },
@@ -912,13 +1626,8 @@ export const handlers: Map<number, OpHandler> = new Map([
         data = runState.memory.read(Number(inOffset), Number(inLength), true)
       }
 
-      const ret = await runState.interpreter.callStatic(
-        gasLimit,
-        toAddress,
-        value,
-        data,
-      )
-
+      const ret = await runState.interpreter.callStatic(gasLimit, toAddress, value, data)
+      // Write return data to memory
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
     },
@@ -926,8 +1635,9 @@ export const handlers: Map<number, OpHandler> = new Map([
   // 0xfb: EXTSTATICCALL
   [
     0xfb,
-    async function (runState, _common) {
+    async function (runState) {
       if (runState.env.eof === undefined) {
+        // Opcode not available in legacy contracts
         trap(ERROR.INVALID_OPCODE)
       } else {
         const value = BIGINT_0
@@ -937,6 +1647,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         runState.messageGasLimit = undefined
 
         if (gasLimit === -BIGINT_1) {
+          // Special case, abort doing any logic (this logic is defined in `gas.ts`), and put `1` on stack per spec
           runState.stack.push(BIGINT_1)
           runState.returnBytes = new Uint8Array(0)
           return
@@ -978,6 +1689,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.interpreter.revert(returnData)
     },
   ],
+  // '0x70', range - other
   // 0xff: SELFDESTRUCT
   [
     0xff,

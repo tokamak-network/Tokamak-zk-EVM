@@ -1,5 +1,4 @@
 import { TWO_POW256, bytesToBigInt, equalsBytes } from "@ethereumjs/util"
-import { RunState } from "../../interpreter.js"
 import { mod, fromTwos, toTwos } from "../util.js"
 import { 
   synthesizerArith, 
@@ -9,33 +8,35 @@ import {
 } from "../../tokamak/core/synthesizer.js"
 import { copyMemoryRegion, simulateMemoryPt } from "../../tokamak/pointers/index.js"
 import { BIGINT_0, BIGINT_1 } from "@ethereumjs/util"
+import { SynthesizerHandler } from "./types.js"
 
 
 
-export const synthesizerHandlers = new Map([
+export const synthesizerHandlers: Map<number, SynthesizerHandler> = new Map([
   // 0x01: ADD
-  [0x01, async function (runState: RunState) {
+  [0x01, async function (runState) {
+    console.log('synthesizer add go')
     const [a, b] = runState.stackPt.popN(2)
     const r = mod(a.value + b.value, TWO_POW256)
-    await synthesizerArith('ADD', [a.value, b.value], r, runState)
+    synthesizerArith('ADD', [a.value, b.value], r, runState)
   }],
   
   // 0x02: MUL
-  [0x02, async function (runState: RunState) {
+  [0x02, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     const r = mod(a.value * b.value, TWO_POW256)
-    await synthesizerArith('MUL', [a.value, b.value], r, runState)
+    synthesizerArith('MUL', [a.value, b.value], r, runState)
   }],
 
   // 0x03: SUB
-  [0x03, async function (runState: RunState) {
+  [0x03, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     const r = mod(a.value - b.value, TWO_POW256)
-    await synthesizerArith('SUB', [a.value, b.value], r, runState)
+    synthesizerArith('SUB', [a.value, b.value], r, runState)
   }],
 
   // 0x04: DIV
-  [0x04, async function (runState: RunState) {
+  [0x04, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     let r
     if (b.value === BIGINT_0) {
@@ -43,11 +44,11 @@ export const synthesizerHandlers = new Map([
     } else {
       r = mod(a.value / b.value, TWO_POW256)
     }
-    await synthesizerArith('DIV', [a.value, b.value], r, runState)
+    synthesizerArith('DIV', [a.value, b.value], r, runState)
   }],
 
   // 0x05: SDIV
-  [0x05, async function (runState: RunState) {
+  [0x05, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     let r
     if (b.value === BIGINT_0) {
@@ -55,11 +56,11 @@ export const synthesizerHandlers = new Map([
     } else {
       r = toTwos(fromTwos(a.value) / fromTwos(b.value))
     }
-    await synthesizerArith('SDIV', [a.value, b.value], r, runState)
+     synthesizerArith('SDIV', [a.value, b.value], r, runState)
   }],
 
   // 0x06: MOD
-  [0x06, async function (runState: RunState) {
+  [0x06, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     let r
     if (b.value === BIGINT_0) {
@@ -67,11 +68,11 @@ export const synthesizerHandlers = new Map([
     } else {
       r = mod(a.value, b.value)
     }
-    await synthesizerArith('MOD', [a.value, b.value], r, runState)
+   synthesizerArith('MOD', [a.value, b.value], r, runState)
   }],
 
   // 0x07: SMOD
-  [0x07, async function (runState: RunState) {
+  [0x07, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     let r
     if (b.value === BIGINT_0) {
@@ -79,11 +80,14 @@ export const synthesizerHandlers = new Map([
     } else {
       r = fromTwos(a.value) % fromTwos(b.value)
     }
-    await synthesizerArith('SMOD', [a.value, b.value], toTwos(r), runState)
+      // SMOD 연산의 결과를 2의 보수 표현으로 변환하여 EVM의 256비트 부호 없는 정수로 처리
+        // EVM은 모든 값을 부호 없는 256비트 정수로 처리하므로, 음수 결과를 올바르게 변환하기 위해 필요
+        // toTwos(r)를 사용하여 음수 결과를 2의 보수로 변환함으로써, SMOD 연산이 예상대로 작동하도록 보장
+     synthesizerArith('SMOD', [a.value, b.value], toTwos(r), runState)
   }],
 
   // 0x08: ADDMOD
-  [0x08, async function (runState: RunState) {
+  [0x08, async function (runState) {
     const [a, b, c] = runState.stackPt.popN(3)
     let r
     if (c.value === BIGINT_0) {
@@ -91,11 +95,11 @@ export const synthesizerHandlers = new Map([
     } else {
       r = mod(a.value + b.value, c.value)
     }
-    await synthesizerArith('ADDMOD', [a.value, b.value, c.value], r, runState)
+    synthesizerArith('ADDMOD', [a.value, b.value, c.value], r, runState)
   }],
 
   // 0x09: MULMOD
-  [0x09, async function (runState: RunState) {
+  [0x09, async function (runState) {
     const [a, b, c] = runState.stackPt.popN(3)
     let r
     if (c.value === BIGINT_0) {
@@ -103,11 +107,11 @@ export const synthesizerHandlers = new Map([
     } else {
       r = mod(a.value * b.value, c.value)
     }
-    await synthesizerArith('MULMOD', [a.value, b.value, c.value], r, runState)
+    synthesizerArith('MULMOD', [a.value, b.value, c.value], r, runState)
   }],
 
   // 0x0a: EXP
-  [0x0a, async function (runState: RunState) {
+  [0x0a, async function (runState) {
     const [base, exponent] = runState.stackPt.popN(2)
     let r
     if (exponent.value === BIGINT_0) {
@@ -117,108 +121,108 @@ export const synthesizerHandlers = new Map([
     } else {
       r = base.value ** exponent.value % TWO_POW256
     }
-    await synthesizerArith('EXP', [base.value, exponent.value], r, runState)
+    synthesizerArith('EXP', [base.value, exponent.value], r, runState)
   }],
 
   // 0x0b: SIGNEXTEND
-  [0x0b, async function (runState: RunState) {
+  [0x0b, async function (runState) {
     const [k, val] = runState.stackPt.popN(2)
-    await synthesizerArith('SIGNEXTEND', [k.value, val.value], val.value, runState)
+    synthesizerArith('SIGNEXTEND', [k.value, val.value], val.value, runState)
   }],
 
   // 0x10: LT
-  [0x10, async function (runState: RunState) {
+  [0x10, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     const r = a.value < b.value ? BIGINT_1 : BIGINT_0
-    await synthesizerArith('LT', [a.value, b.value], r, runState)
+    synthesizerArith('LT', [a.value, b.value], r, runState)
   }],
 
   // 0x11: GT
-  [0x11, async function (runState: RunState) {
+  [0x11, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     const r = a.value > b.value ? BIGINT_1 : BIGINT_0
-    await synthesizerArith('GT', [a.value, b.value], r, runState)
+    synthesizerArith('GT', [a.value, b.value], r, runState)
   }],
 
   // 0x12: SLT
-  [0x12, async function (runState: RunState) {
+  [0x12, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     const r = fromTwos(a.value) < fromTwos(b.value) ? BIGINT_1 : BIGINT_0
     await synthesizerArith('SLT', [a.value, b.value], r, runState)
   }],
 
   // 0x13: SGT
-  [0x13, async function (runState: RunState) {
+  [0x13, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     const r = fromTwos(a.value) > fromTwos(b.value) ? BIGINT_1 : BIGINT_0
     await synthesizerArith('SGT', [a.value, b.value], r, runState)
   }],
 
   // 0x14: EQ
-  [0x14, async function (runState: RunState) {
+  [0x14, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     const r = a.value === b.value ? BIGINT_1 : BIGINT_0
     await synthesizerArith('EQ', [a.value, b.value], r, runState)
   }],
 
   // 0x15: ISZERO
-  [0x15, async function (runState: RunState) {
+  [0x15, async function (runState) {
     const a = runState.stackPt.pop()
     const r = a.value === BIGINT_0 ? BIGINT_1 : BIGINT_0
     await synthesizerArith('ISZERO', [a.value], r, runState)
   }],
 
   // 0x16: AND
-  [0x16, async function (runState: RunState) {
+  [0x16, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     const r = a.value & b.value
     await synthesizerArith('AND', [a.value, b.value], r, runState)
   }],
 
   // 0x17: OR
-  [0x17, async function (runState: RunState) {
+  [0x17, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     const r = a.value | b.value
     await synthesizerArith('OR', [a.value, b.value], r, runState)
   }],
 
   // 0x18: XOR
-  [0x18, async function (runState: RunState) {
+  [0x18, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     const r = a.value ^ b.value
     await synthesizerArith('XOR', [a.value, b.value], r, runState)
   }],
 
   // 0x19: NOT
-  [0x19, async function (runState: RunState) {
+  [0x19, async function (runState) {
     const a = runState.stackPt.pop()
     const r = BigInt.asUintN(256, ~a.value)
     await synthesizerArith('NOT', [a.value], r, runState)
   }],
 
   // 0x1a: BYTE
-  [0x1a, async function (runState: RunState) {
+  [0x1a, async function (runState) {
     const [pos, word] = runState.stackPt.popN(2)
     const r = (word.value >> ((BigInt(31) - pos.value) * BigInt(8))) & BigInt(255)
     await synthesizerArith('BYTE', [pos.value, word.value], r, runState)
   }],
 
   // 0x1b: SHL
-  [0x1b, async function (runState: RunState) {
+  [0x1b, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     const r = (b.value << a.value) & ((BigInt(1) << BigInt(256)) - BigInt(1))
     await synthesizerArith('SHL', [a.value, b.value], r, runState)
   }],
 
   // 0x1c: SHR
-  [0x1c, async function (runState: RunState) {
+  [0x1c, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     const r = b.value >> a.value
     await synthesizerArith('SHR', [a.value, b.value], r, runState)
   }],
 
   // 0x1d: SAR
-  [0x1d, async function (runState: RunState) {
+  [0x1d, async function (runState) {
     const [a, b] = runState.stackPt.popN(2)
     let r
     const isSigned = BigInt.asIntN(256, b.value) < 0
@@ -238,7 +242,7 @@ export const synthesizerHandlers = new Map([
   }],
 
   // 0x20: KECCAK256
-  [0x20, async function (runState: RunState) {
+  [0x20, async function (runState) {
     const [offsetPt, lengthPt] = runState.stackPt.popN(2)
     const offset = offsetPt.value
     const length = lengthPt.value
@@ -281,44 +285,44 @@ export const synthesizerHandlers = new Map([
   }],
 
   // 0x30: ADDRESS
-  [0x30, async function (runState: RunState) {
+  [0x30, async function (runState) {
     await synthesizerEnvInf('ADDRESS', runState)
   }],
 
   // 0x31: BALANCE
-  [0x31, async function (runState: RunState) {
+  [0x31, async function (runState) {
     const addressBigInt = runState.stackPt.pop().value
     await synthesizerEnvInf('BALANCE', runState, addressBigInt)
   }],
 
   // 0x32: ORIGIN
-  [0x32, async function (runState: RunState) {
+  [0x32, async function (runState) {
     await synthesizerEnvInf('ORIGIN', runState)
   }],
 
   // 0x33: CALLER
-  [0x33, async function (runState: RunState) {
+  [0x33, async function (runState) {
     await synthesizerEnvInf('CALLER', runState)
   }],
 
   // 0x34: CALLVALUE
-  [0x34, async function (runState: RunState) {
+  [0x34, async function (runState) {
     await synthesizerEnvInf('CALLVALUE', runState)
   }],
 
   // 0x35: CALLDATALOAD
-  [0x35, async function (runState: RunState) {
+  [0x35, async function (runState) {
     const pos = runState.stackPt.pop().value
     await synthesizerEnvInf('CALLDATALOAD', runState, undefined, pos)
   }],
 
   // 0x36: CALLDATASIZE
-  [0x36, async function (runState: RunState) {
+  [0x36, async function (runState) {
     await synthesizerEnvInf('CALLDATASIZE', runState)
   }],
 
   // 0x37: CALLDATACOPY
-  [0x37, async function (runState: RunState) {
+  [0x37, async function (runState) {
     const [memOffset, dataOffset, dataLength] = runState.stackPt.popN(3)
     
     if (dataLength.value !== BIGINT_0) {
@@ -372,12 +376,12 @@ export const synthesizerHandlers = new Map([
   }],
 
   // 0x38: CODESIZE
-  [0x38, async function (runState: RunState) {
+  [0x38, async function (runState) {
     await synthesizerEnvInf('CODESIZE', runState)
   }],
 
   // 0x39: CODECOPY
-  [0x39, async function (runState: RunState) {
+  [0x39, async function (runState) {
     const [memOffset, codeOffset, dataLength] = runState.stackPt.popN(3)
     
     if (dataLength.value !== BIGINT_0) {
@@ -417,13 +421,13 @@ export const synthesizerHandlers = new Map([
   }],
 
   // 0x3b: EXTCODESIZE
-  [0x3b, async function (runState: RunState) {
+  [0x3b, async function (runState) {
     const addressBigInt = runState.stackPt.pop().value
     await synthesizerEnvInf('EXTCODESIZE', runState, addressBigInt)
   }],
 
   // 0x3c: EXTCODECOPY
-  [0x3c, async function (runState: RunState) {
+  [0x3c, async function (runState) {
     const [addressPt, memOffsetPt, codeOffsetPt, dataLengthPt] = runState.stackPt.popN(4)
     
     if (dataLengthPt.value !== BIGINT_0) {
@@ -456,18 +460,18 @@ export const synthesizerHandlers = new Map([
   }],
 
   // 0x3f: EXTCODEHASH
-  [0x3f, async function (runState: RunState) {
+  [0x3f, async function (runState) {
     const addressBigInt = runState.stackPt.pop().value
     await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
   }],
 
   // 0x3d: RETURNDATASIZE
-  [0x3d, async function (runState: RunState) {
+  [0x3d, async function (runState) {
     await synthesizerEnvInf('RETURNDATASIZE', runState)
   }],
 
   // 0x3e: RETURNDATACOPY
-  [0x3e, async function (runState: RunState) {
+  [0x3e, async function (runState) {
     const [memOffset, returnDataOffset, dataLength] = runState.stackPt.popN(3)
     
     if (dataLength.value !== BIGINT_0) {
@@ -499,58 +503,58 @@ export const synthesizerHandlers = new Map([
   }],
 
   // 0x3a: GASPRICE
-  [0x3a, async function (runState: RunState) {
+  [0x3a, async function (runState) {
     await synthesizerEnvInf('GASPRICE', runState)
   }],
 
   // 0x40: BLOCKHASH
-  [0x40, async function (runState: RunState) {
+  [0x40, async function (runState) {
     const number = runState.stackPt.pop().value
     await synthesizerBlkInf('BLOCKHASH', runState, number)
   }],
 
   // 0x41: COINBASE
-  [0x41, async function (runState: RunState) {
+  [0x41, async function (runState) {
     await synthesizerBlkInf('COINBASE', runState)
   }],
 
   // 0x42: TIMESTAMP
-  [0x42, async function (runState: RunState) {
+  [0x42, async function (runState) {
     await synthesizerBlkInf('TIMESTAMP', runState)
   }],
 
   // 0x43: NUMBER
-  [0x43, async function (runState: RunState) {
+  [0x43, async function (runState) {
     await synthesizerBlkInf('NUMBER', runState)
   }],
 
   // 0x44: DIFFICULTY (PREVRANDAO)
-  [0x44, async function (runState: RunState) {
+  [0x44, async function (runState) {
     await synthesizerBlkInf('DIFFICULTY', runState)
   }],
 
   // 0x45: GASLIMIT
-  [0x45, async function (runState: RunState) {
+  [0x45, async function (runState) {
     await synthesizerBlkInf('GASLIMIT', runState)
   }],
 
   // 0x46: CHAINID
-  [0x46, async function (runState: RunState) {
+  [0x46, async function (runState) {
     await synthesizerBlkInf('CHAINID', runState)
   }],
 
   // 0x47: SELFBALANCE
-  [0x47, async function (runState: RunState) {
+  [0x47, async function (runState) {
     await synthesizerBlkInf('SELFBALANCE', runState)
   }],
 
   // 0x48: BASEFEE
-  [0x48, async function (runState: RunState) {
+  [0x48, async function (runState) {
     await synthesizerBlkInf('BASEFEE', runState)
   }],
 
   // 0x5e: MCOPY
-  [0x5e, async function (runState: RunState) {
+  [0x5e, async function (runState) {
     const [dst, src, length] = runState.stackPt.popN(3)
     const copiedMemoryPts = copyMemoryRegion(
       runState,
@@ -579,7 +583,7 @@ export const synthesizerHandlers = new Map([
   }],
 
   // 0x5f: PUSH0
-  [0x5f, async function (runState: RunState) {
+  [0x5f, async function (runState) {
     const dataPt = runState.synthesizer.loadPUSH(
       runState.env.address.toString(),
       runState.programCounterPrev,
@@ -594,7 +598,7 @@ export const synthesizerHandlers = new Map([
   }],
 
   // 0x60: PUSH
-  [0x60, async function (runState: RunState) {
+  [0x60, async function (runState) {
     const value = runState.stack.peek(1)[0]
     const numToPush = runState.opCode - 0x5f
     const dataPt = runState.synthesizer.loadPUSH(
@@ -611,19 +615,19 @@ export const synthesizerHandlers = new Map([
   }],
 
   // 0x80: DUP
-  [0x80, async function (runState: RunState) {
+  [0x80, async function (runState) {
     const stackPos = runState.opCode - 0x7f
     runState.stackPt.dup(stackPos)
   }],
 
   // 0x90: SWAP
-  [0x90, async function (runState: RunState) {
+  [0x90, async function (runState) {
     const stackPos = runState.opCode - 0x8f
     runState.stackPt.swap(stackPos)
   }],
 
   // 0xa0: LOG
-  [0xa0, async function (runState: RunState) {
+  [0xa0, async function (runState) {
     const [memOffsetPt, memLengthPt] = runState.stackPt.popN(2)
     const topicsCount = runState.opCode - 0xa0
     const topicPts = runState.stackPt.popN(topicsCount)
@@ -637,7 +641,7 @@ export const synthesizerHandlers = new Map([
   }],
 
   // 0xf3: RETURN
-  [0xf3, async function (runState: RunState) {
+  [0xf3, async function (runState) {
     const [offset, length] = runState.stackPt.popN(2)
     const returnMemoryPts = copyMemoryRegion(
       runState,
