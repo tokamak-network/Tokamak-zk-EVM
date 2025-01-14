@@ -12,77 +12,77 @@ import type { RunState } from '../../interpreter.js'
 import type { DataPt } from '../types/index.js'
 
 /**
- * Memory vs MemoryPt 클래스의 주요 차이점
+ * Key differences between Memory and MemoryPt classes
  *
- * 1. 데이터 구조
- *    - Memory: Uint8Array (연속된 바이트 배열)
- *    - MemoryPt: Map<number, { memOffset, containerSize, dataPt }> (메모리 포인터 맵)
+ * 1. Data Structure
+ *    - Memory: Uint8Array (continuous byte array)
+ *    - MemoryPt: Map<number, { memOffset, containerSize, dataPt }> (memory pointer map)
  *
- * 2. 저장 방식
- *    - Memory: 실제 바이트 값을 연속된 메모리에 직접 저장
- *    - MemoryPt: 데이터의 위치와 크기 정보를 포인터로 관리
+ * 2. Storage Method
+ *    - Memory: Directly stores actual byte values in continuous memory
+ *    - MemoryPt: Manages data location and size information through pointers
  *
- * 3. 읽기/쓰기 동작
- *    - Memory: 실제 메모리에 직접 읽기/쓰기
+ * 3. Read/Write Operations
+ *    - Memory: Direct read/write to actual memory
  *    - MemoryPt:
- *      - 쓰기: 새로운 데이터 포인터 생성 및 오버랩되는 영역 관리
- *      - 읽기: getDataAlias를 통해 데이터 별칭 정보 반환
+ *      - Write: Creates new data pointers and manages overlapping regions
+ *      - Read: Returns data alias information through getDataAlias
  *
- * 4. 용도
- *    - Memory: 실제 EVM 실행 시 메모리 조작
- *    - MemoryPt: 심볼릭 실행을 위한 메모리 추적 및 분석
+ * 4. Purpose
+ *    - Memory: Memory manipulation during actual EVM execution
+ *    - MemoryPt: Memory tracking and analysis for symbolic execution
  *
- * 5. 특징
- *    - Memory: 연속된 메모리 공간, 단순한 바이트 조작
+ * 5. Characteristics
+ *    - Memory: Continuous memory space, simple byte manipulation
  *    - MemoryPt:
- *      - 타임스탬프 기반 데이터 관리
- *      - 메모리 영역 충돌 감지
- *      - 데이터 별칭 정보 생성
+ *      - Timestamp-based data management
+ *      - Memory region conflict detection
+ *      - Data alias information generation
  */
 
 /**
- * 데이터 별칭 정보를 나타내는 구조체입니다.
- * @property {DataPt} dataPt - 원본 데이터 포인터
- * @property {number} shift - 비트 이동 수 (양수는 SHL, 음수는 SHR)
- * @property {string} masker - 유효한 바이트를 나타내는 16진수 문자열 (FF) 또는 유효하지 않은 바이트를 나타내는 00
+ * Structure representing data alias information.
+ * @property {DataPt} dataPt - Original data pointer
+ * @property {number} shift - Number of bit shifts (positive for SHL, negative for SHR)
+ * @property {string} masker - Hexadecimal string representing valid bytes (FF) or invalid bytes (00)
  */
 export type DataAliasInfoEntry = { dataPt: DataPt; shift: number; masker: string }
 export type DataAliasInfos = DataAliasInfoEntry[]
 
 /**
- * 메모리 정보를 나타내는 구조체입니다.
- * @property {number} memOffset - 메모리 오프셋
- * @property {number} containerSize - 컨테이너 크기
- * @property {DataPt} dataPt - 데이터 포인터
+ * Structure representing memory information.
+ * @property {number} memOffset - Memory offset
+ * @property {number} containerSize - Container size
+ * @property {DataPt} dataPt - Data pointer
  */
 export type MemoryPtEntry = { memOffset: number; containerSize: number; dataPt: DataPt }
 
 /**
- * 메모리 정보의 배열입니다. 인덱스가 낮을수록 오래된 메모리 정보입니다.
+ * Array of memory information. Lower indices represent older memory information.
  */
 export type MemoryPts = MemoryPtEntry[]
 
 /**
- * 메모리 정보의 맵입니다.
+ * Map of memory information.
  */
 type TMemoryPt = Map<number, MemoryPtEntry>
 
 /**
- * 데이터 조각 정보를 나타내는 맵입니다.
- * @property { number } key - 데이터가 메모리에 저장된 타임스탬프
- * @property {Set<number>} originalRange - 원본 데이터 범위
- * @property {Set<number>} validRange - 유효한 데이터 범위
+ * Map representing data fragment information.
+ * @property {number} key - Timestamp when data was stored in memory
+ * @property {Set<number>} originalRange - Original data range
+ * @property {Set<number>} validRange - Valid data range
  */
 type _DataFragments = Map<number, { originalRange: Set<number>; validRange: Set<number> }>
 
 /**
- * a부터 b까지의 연속된 숫자 집합을 생성합니다.
- * 주로 다음과 같은 용도로 사용됩니다:
- * - 특정 데이터가 차지하는 메모리 주소 범위를 나타낼 때 (예: 오프셋 2부터 5까지의 데이터)
- * - 유효한 메모리 범위를 추적할 때 (예: 덮어쓰기 전후의 유효한 메모리 영역)
- * @param a - 시작 숫자
- * @param b - 끝 숫자
- * @returns a부터 b까지의 연속된 숫자들을 포함하는 Set
+ * Creates a set of consecutive numbers from a to b.
+ * Commonly used for:
+ * - Representing memory address ranges occupied by specific data (e.g., data from offset 2 to 5)
+ * - Tracking valid memory ranges (e.g., valid memory regions before and after overwriting)
+ * @param a - Start number
+ * @param b - End number
+ * @returns Set containing consecutive numbers from a to b
  */
 const createRangeSet = (a: number, b: number): Set<number> => {
   // the resulting increasing set from 'a' to 'b'
@@ -90,10 +90,10 @@ const createRangeSet = (a: number, b: number): Set<number> => {
 }
 
 /**
- * A에서 B를 뺀 집합을 반환합니다.
- * @param A - 첫 번째 집합
- * @param B - 두 번째 집합
- * @returns A에서 B를 뺀 집합
+ * A minus B
+ * @param A - First set
+ * @param B - Second set
+ * @returns A minus B
  */
 const setMinus = (A: Set<number>, B: Set<number>): Set<number> => {
   const result = new Set<number>()
@@ -175,8 +175,8 @@ export class MemoryPt {
   }
 
   /**
-   * 만약 새롭게 쓰이는 데이터가 기존의 데이터를 완전히 오버랩 한다면,
-   * 기존의 key-value 쌍을 삭제합니다.
+   * If the newly written data completely overlaps existing data,
+   * delete the existing key-value pair.
    */
   private _memPtCleanUp(newOffset: number, newSize: number) {
     for (const [key, { memOffset: _offset, containerSize: _size }] of this._storePt) {
@@ -212,9 +212,9 @@ export class MemoryPt {
   }
 
   /**
-   * 특정 메모리 범위에 영향을 주는 _storePt 요소들의 값을 반환합니다 (key 제외). Memory -> Memory으로의 데이터 이동시 사용됨.
-   * @param offset - 읽기 시작할 메모리 위치
-   * @param length - 읽을 바이트 수
+   * Returns values of _storePt elements (excluding keys) that affect a specific memory range. Used when moving data from Memory to Memory.
+   * @param offset - Starting memory position to read
+   * @param length - Number of bytes to read
    * @returns {returnMemroyPts}
    */
   read(offset: number, length: number, avoidCopy?: boolean): MemoryPts {
@@ -240,7 +240,7 @@ export class MemoryPt {
   }
 
   /**
-     * read 는 MemoryPt조작에는 사용되지 않습니다. 대신 "getDataAlias"를 사용합니다.
+     * read is not used for MemoryPt manipulation. Instead, "getDataAlias" is used.
      * Reads a slice of memory from `offset` till `offset + size` as a `Uint8Array`.
      * It fills up the difference between memory's length and `offset + size` with zeros.
      * @param offset - Starting memory position
@@ -261,9 +261,9 @@ export class MemoryPt {
     */
 
   /**
-   * 특정 메모리 범위에 대한 데이터 변형 정보를 반환합니다. Memory -> Stack으로의 데이터 이동시 사용됨
-   * @param offset - 읽기 시작할 메모리 위치
-   * @param size - 읽을 바이트 수
+   * Returns data transformation information for a specific memory range. Used when moving data from Memory to Stack.
+   * @param offset - Starting memory position to read
+   * @param size - Number of bytes to read
    * @returns {DataAliasInfos}
    */
   getDataAlias(offset: number, size: number): DataAliasInfos {
@@ -320,9 +320,9 @@ export class MemoryPt {
   }
 
   /**
-   * 메모리 영역에서 충돌 데이터 조각을 찾습니다.
-   * @param offset - 읽기 시작할 메모리 위치
-   * @param size - 읽을 바이트 수
+   * Finds conflicting data fragments in the memory region.
+   * @param offset - Starting memory position to read
+   * @param size - Number of bytes to read
    * @returns {DataFragments}
    */
   private _viewMemoryConflict(offset: number, size: number): _DataFragments {

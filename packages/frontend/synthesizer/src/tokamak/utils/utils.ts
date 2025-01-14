@@ -26,13 +26,13 @@ export const addPlacement = (map: Placements, value: PlacementEntry) => {
   map.set(key, value)
 }
 
-// 부호 있는 정수로 변환 (256비트)
+// Convert to signed integer (256-bit)
 export const convertToSigned = (value: bigint): bigint => {
   const SIGN_BIT = 1n << 255n
   return (value & SIGN_BIT) !== 0n ? value - (1n << 256n) : value
 }
 
-// 디버깅 툴
+// Debugging tool
 export const mapToStr = (map: Map<any, any>) => {
   return Object.fromEntries(
     Array.from(map, ([key, value]) => [
@@ -42,7 +42,7 @@ export const mapToStr = (map: Map<any, any>) => {
   )
 }
 
-// 디버깅 툴
+// Debugging tool
 export function arrToStr(key: string, value: any) {
   return typeof value === 'bigint' ? value.toString() : value
 }

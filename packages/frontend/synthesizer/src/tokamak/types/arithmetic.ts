@@ -1,4 +1,3 @@
-// 연산자 타입 정의
 export type ArithmeticOperator =
   | 'ADD'
   | 'MUL'

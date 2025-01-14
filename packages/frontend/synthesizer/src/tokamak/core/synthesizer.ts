@@ -248,12 +248,12 @@ export async function synthesizerEnvInf(
 }
 
 /**
- * Synthesizer 클래스는 서브서킷과 관련된 데이터를 관리합니다.
+ * The Synthesizer class manages data related to subcircuits.
  *
- * @property {Placements} placements - 서브서킷의 배치 정보를 저장하는 맵.
- * @property {bigint[]} auxin - 보조 입력 데이터를 저장하는 배열.
- * @property {number} placementIndex - 현재 배치 인덱스.
- * @property {string[]} subcircuitNames - 서브서킷 이름을 저장하는 배열.
+ * @property {Placements} placements - Map storing subcircuit placement information.
+ * @property {bigint[]} auxin - Array storing auxiliary input data.
+ * @property {number} placementIndex - Current placement index.
+ * @property {string[]} subcircuitNames - Array storing subcircuit names.
  */
 export class Synthesizer {
   public placements: Placements
@@ -312,13 +312,13 @@ export class Synthesizer {
   }
 
   /**
-   * LOAD 서브서킷에 새���운 입출력 쌍을 추가합니다.
-   * @param pointerIn - 입력 데이터 포인트
-   * @returns 생성된 출력 데이터 포인트
+   * Adds a new input-output pair to the LOAD subcircuit.
+   * @param pointerIn - Input data point
+   * @returns Generated output data point
    * @private
    */
   private _addWireToLoadPlacement(pointerIn: DataPt): DataPt {
-    // 기존 output list의 길이를 새로운 출력의 인덱스로 사용
+    // Use the length of existing output list as index for new output
     if (
       this.placements.get(LOAD_PLACEMENT_INDEX)!.inPts.length !==
       this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts.length
@@ -327,7 +327,7 @@ export class Synthesizer {
     }
     const outWireIndex = this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts.length
 
-    // 출력 데이터 포인트 생성
+    // Create output data point
     const outPtRaw: CreateDataPointParams = {
       source: 0,
       wireIndex: outWireIndex,
@@ -336,7 +336,7 @@ export class Synthesizer {
     }
     const pointerOut = DataPointFactory.create(outPtRaw)
 
-    // LOAD 서브서킷에 입출력 추가
+    // Add input-output pair to the LOAD subcircuit
     this.placements.get(LOAD_PLACEMENT_INDEX)!.inPts.push(pointerIn)
     this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts.push(pointerOut)
 
@@ -344,11 +344,11 @@ export class Synthesizer {
   }
 
   /**
-   * PUSH 명령어에 의한 새로운 LOAD 배치의 입출력 쌍을 추가합니다.
+   * Adds a new input-output pair to the LOAD placement caused by the PUSH instruction.
    *
-   * @param {string} codeAddress - PUSH가 실행 된 코드의 address.
-   * @param {number} programCounter - PUSH 입력 인자의 program counter.
-   * @param {bigint} value - PUSH 입력 인자의 값.
+   * @param {string} codeAddress - Address of the code where PUSH was executed.
+   * @param {number} programCounter - Program counter of the PUSH input argument.
+   * @param {bigint} value - Value of the PUSH input argument.
    * @returns {void}
    */
   public loadPUSH(
@@ -441,7 +441,7 @@ export class Synthesizer {
     const keyString = JSON.stringify({ address: codeAddress, key: Number(key) })
     this.storagePt.set(keyString, inPt)
     const outWireIndex = this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.length
-    // 출력 데이터 포인트 생성
+    // Create output data point
     const outPtRaw: CreateDataPointParams = {
       dest: `storage: ${codeAddress}`,
       key,
@@ -449,7 +449,7 @@ export class Synthesizer {
       sourceSize: DEFAULT_SOURCE_SIZE,
     }
     const outPt = DataPointFactory.create(outPtRaw)
-    // 입출력 데이터 포인터 쌍을 ReturnBuffer의 새로운 입출력 와이어 쌍으로 추가
+    // Add input-output pair to the ReturnBuffer
     this.placements.get(RETURN_PLACEMENT_INDEX)!.inPts.push(inPt)
     this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.push(outPt)
   }
@@ -458,7 +458,7 @@ export class Synthesizer {
     this.logPt.push({ valPt, topicPts })
     let outWireIndex = this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.length
     const inWireIndex = this.placements.get(RETURN_PLACEMENT_INDEX)!.inPts.length
-    // 값 출력 데이터 포인트 생성
+    // Create output data point
     const outPtRaw: CreateDataPointParams = {
       dest: 'LOG',
       pairedInputWireIndices: [inWireIndex],
@@ -467,11 +467,11 @@ export class Synthesizer {
       sourceSize: DEFAULT_SOURCE_SIZE,
     }
     const valOutPt = DataPointFactory.create(outPtRaw)
-    // 입출력 데이터 포인터 쌍을 ReturnBuffer의 새로운 입출력 와이어 쌍으로 추가
+    // Add input-output pair to the ReturnBuffer
     this.placements.get(RETURN_PLACEMENT_INDEX)!.inPts.push(valPt)
     this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.push(valOutPt)
 
-    // Topic 출력 데이터 포인트 생성
+    // Create output data point for topics
     for (const topicPt of topicPts) {
       const outPtRaw: CreateDataPointParams = {
         dest: 'LOG',
@@ -526,7 +526,7 @@ export class Synthesizer {
     const inWireIndex = this.placements.get(KECCAK_IN_PLACEMENT_INDEX)!.inPts.length
     const pairedInputWireIndices = Array.from({ length: nChunks }, (_, i) => inWireIndex + i)
     const outWireIndex = this.placements.get(KECCAK_OUT_PLACEMENT_INDEX)!.outPts.length
-    // 출력 데이터 포인트 생성
+    // Create output data point
     const outPtRaw: CreateDataPointParams = {
       source: KECCAK_OUT_PLACEMENT_INDEX,
       wireIndex: outWireIndex,
@@ -536,7 +536,7 @@ export class Synthesizer {
     }
     const outPt = DataPointFactory.create(outPtRaw)
 
-    // keccakBuffer 서브서킷에 입출력 추가
+    // Add input-output pairs to the keccakBuffer subcircuit
     for (let i = 0; i < nChunks; i++) {
       this.placements.get(KECCAK_IN_PLACEMENT_INDEX)!.inPts[pairedInputWireIndices[i]] = inPts[i]
       this.placements.get(KECCAK_IN_PLACEMENT_INDEX)!.outPts[pairedInputWireIndices[i]] = inPts[i]
@@ -548,24 +548,25 @@ export class Synthesizer {
   }
 
   /**
-   * 새���운 MSTORE 배치를 추가합니다.
-   * MSTORE는 Ethereum Virtual Machine(EVM)에서 사용되는 오퍼코드(opcode) 중 하나로, 메모리에 데이터를 저장하는 명령어입니다. MSTORE 지정된 메모리 위치에 32바이트(256비트) 크기의 데이터를 저장합니다.
-   EVM 오퍼코드 설명
-   MSTORE:
-   기능: 메모리의 특정 위치에 32바이트 크기의 데이터를 저장합니다.
-   스택 동작: 스택에서 두 개의 값을 팝(pop)합니다. 첫 번째 값은 메모리 주소이고, 두 번째 값은 저장할 데이터입니다.
-   예: MSTORE는 메모리 주소와 데이터를 스택에서 꺼내어 해당 주소에 데이터를 저장합니다.
+   * Adds a new MSTORE placement.
+   * MSTORE is one of the Ethereum Virtual Machine (EVM) opcodes, which stores 32 bytes (256 bits) of data into memory.
+   * EVM opcode description
+   * MSTORE:
+   * Function: Stores 32 bytes of data into memory at a specific memory location.
+   * Stack operations: Pops two values from the stack. The first value is the memory address, and the second value is the data to be stored.
+   * Example: MSTORE pops the memory address and data from the stack and stores the data at the specified memory address.
    *
-   * @param {DataPt} inPt - 입력 데이터 포인트.
-   * @param {DataPt} outPt - 출력 데이터 포인트.
+   * @param {DataPt} inPt - Input data point.
+   * @param {DataPt} outPt - Output data point.
    * @returns {void}
-   * 이 메서드는 MSTORE 오퍼코드를 시뮬레이션하여 새로운 배치를 추가합니다. truncSize가 dataPt.actualSize보다 작으면, 데이터의 하위 바이트만 저장하고 상위 바이트는 버립니다. 변형된 데이터 포인트를 반환합니다.
+   * This method adds a new MSTORE placement by simulating the MSTORE opcode. If truncSize is less than dataPt.actualSize,
+   * only the lower bytes of data are stored, and the upper bytes are discarded. The modified data point is returned.
    */
   public placeMSTORE(dataPt: DataPt, truncSize: number): DataPt {
-    // MSTORE8은 trucSize=1로써, data의 최하위 1바이트만을 저장하고 상위 바이트는 버림.
+    // MSTORE8 is used as truncSize=1, storing only the lowest 1 byte of data and discarding the rest.
     if (truncSize < dataPt.sourceSize) {
-      // 원본 데이터에 변형이 있으므로, 이를 추적하는 가상의 연산를 만들고 이를 Placements에 반영합니다.
-      // MSTORE8의 데이터 변형은 AND 연산으로 표현 가능 (= AND(data, 0xff))
+      // Since there is a modification in the original data, create a virtual operation to track this in Placements.
+      // MSTORE8's modification is possible with AND operation (= AND(data, 0xff))
       const maskerString = '0x' + 'FF'.repeat(truncSize)
 
       const outValue = dataPt.value & BigInt(maskerString)
@@ -616,11 +617,11 @@ export class Synthesizer {
   }
 
   /**
-   * 새로운 MLOAD 배치를 추가합니다.
+   * Adds a new MLOAD placement.
    *
-   * MLOAD는 Ethereum Virtual Machine(EVM)에서 사용되는 오퍼코드(opcode) 중 하나로, 메모리에서 32바이트(256비트) 크기의 데이터를 읽어옵니다.
-   * @param {DataAliasInfos} dataAliasInfos - 데이터 출처와 변형 정보를 포함하는 배열.
-   * @returns {DataPt} 생성된 데이터 포인트.
+   * MLOAD is one of the Ethereum Virtual Machine (EVM) opcodes, which loads 32 bytes (256 bits) of data from memory.
+   * @param {DataAliasInfos} dataAliasInfos - Array containing data source and modification information.
+   * @returns {DataPt} Generated data point.
    */
   public placeMemoryToStack(dataAliasInfos: DataAliasInfos): DataPt {
     if (dataAliasInfos.length === 0) {
@@ -708,12 +709,12 @@ export class Synthesizer {
   }
 
   /**
-   * 새로운 산술 연산 배치를 추가합니다.
+   * Adds a new arithmetic placement.
    *
-   * @param {string} name - 배치의 이름. 예: 'ADD', 'SUB', 'MUL', 'DIV'.
-   * @param {DataPt[]} inPts - 입력 데이터 포인트 배열.
-   * @returns {DataPt[]} 생성된 출력 데이터 포인트 배열.
-   * @throws {Error} 정의되지 않은 서브서킷 이름이 주어진 경우.
+   * @param {string} name - Name of the placement. Examples: 'ADD', 'SUB', 'MUL', 'DIV'.
+   * @param {DataPt[]} inPts - Array of input data points.
+   * @returns {DataPt[]} Array of generated output data points.
+   * @throws {Error} If an undefined subcircuit name is provided.
    */
   public placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
     SynthesizerValidator.validateSubcircuitName(name, this.subcircuitNames)
@@ -750,28 +751,29 @@ export class Synthesizer {
   }
 
   /**
-   * MLOAD는 고정적으로 32바이트를 읽지만, offset이 1바이트 단위이기 때문에 데이터 변형이 발생할 수 있습니다.
-   * 데이터 변형을 추적하기 위해 데이터 변형 여부를 확인하는 함수를 구현합니다.
-   * getDataAlias(offset, size) 함수는 Memory에서 offset 부터 offset + size -1 까지의 주소의 데이터의 출처를 추적합니다.
-   * 결과물은 여러 데이터가 잘려지거나 concatenated 되는 방식으로 변형 되었을 가능성이 있습니다.
-   * getDataAlias의 출력물의 타입은 다음과 같습니다.
+   * MLOAD always reads 32 bytes, but since the offset is in byte units, data transformation can occur.
+   * Implement a function to track data transformations by checking for data modifications.
+   * The getDataAlias(offset, size) function tracks the source of data from offset to offset + size - 1 in Memory.
+   * The result may have been transformed through cutting or concatenating multiple data pieces.
+   * The output type of getDataAlias is as follows:
    * type DataAliasInfos = {dataPt: DataPt, shift: number, masker: string}[]
-   * 예를 들어, dataAliasInfos 의 배열 길이가 3일 경우, Memory의 해당 주소에서 가져온 변형 데이터는 3개의 원본 데이터가 조합된 결과물입니다.
-   * 3개 원본 데이터의 출처는 각각 dataPt에 저장되어 있으며,
-   * 3개의 원본 데이터를 각각 "shift"만큼 bit shift 한 뒤 (음의 값이라면 왼쪽으로, 양의 값이라면 오른쪽으로),
-   * 그 결과를 각각 "masker"와 AND 해주고,
-   *  결과를 모두 OR 해주면, 그 결과는 변형 데이터와 같습니다.
+   * For example, if dataAliasInfos array length is 3, the transformed data from that memory address
+   * is a combination of 3 original data pieces.
+   * The sources of the 3 original data are stored in dataPt,
+   * Each original data is bit shifted by "shift" amount (left if negative, right if positive),
+   * Then AND'ed with their respective "masker",
+   * Finally, OR'ing all results will give the transformed data.
    **/
 
   /**
-   * 데이터 출처와 변형 정보를 포함하는 배열을 받아서 데이터 포인트를 생성합니다.
+   * Creates a data point from an array of data sources and modification information.
    *
-   * @param {DataAliasInfos} dataAliasInfos - 데이터 출처와 변형 정보를 포함하는 배열.
-   * @returns {DataPt} 생성된 데이터 포인트.
+   * @param {DataAliasInfos} dataAliasInfos - Array containing data source and modification information.
+   * @returns {DataPt} Generated data point.
    */
   private _resolveDataAlias(dataAliasInfos: DataAliasInfos): DataPt {
     const ADDTargets: { subcircuitID: number; wireID: number }[] = []
-    // 먼저 각각을 shift 후 mask와 AND 해줌
+    // First, shift each dataPt and AND with mask
     const initPlacementIndex = this.placementIndex
     for (const info of dataAliasInfos) {
       let prevPlacementIndex = this.placementIndex
@@ -814,11 +816,11 @@ export class Synthesizer {
   }
 
   /**
-   * shift 연산을 적용합니다.
+   * Applies shift operation.
    *
-   * @param {bigint} shift - 적용할 shift 값.
-   * @param {DataPt} dataPt - 데이터 포인트.
-   * @returns {bigint} shift 연산이 적용된 값.
+   * @param {bigint} shift - Shift value to apply.
+   * @param {DataPt} dataPt - Data point.
+   * @returns {bigint} Shifted value.
    */
   private _applyShift(info: DataAliasInfoEntry): DataPt {
     const { shift, dataPt } = info
@@ -834,10 +836,10 @@ export class Synthesizer {
   }
 
   /**
-   * mask 연산을 적용합니다.
+   * Applies mask operation.
    *
-   * @param {string} masker - 적용할 mask 값.
-   * @param {bigint} dataPt - 적용 대상의 포인터.
+   * @param {string} masker - Mask value to apply.
+   * @param {bigint} dataPt - Pointer to apply the mask.
    */
   private _applyMask(info: DataAliasInfoEntry, unshift?: boolean): DataPt {
     let masker = info.masker
@@ -860,9 +862,9 @@ export class Synthesizer {
   }
 
   /**
-   * AND 결과물들을 모두 ADD 해줍니다.
+   * Adds all AND results together.
    *
-   * @param {{subcircuitID: number, wireID: number}[]} addTargets - OR 연산 대상 인덱스 배열.
+   * @param {{subcircuitID: number, wireID: number}[]} addTargets - OR operation target indices array.
    */
   private _addAndPlace(addTargets: { subcircuitID: number; wireID: number }[]): void {
     let inPts: DataPt[] = [
