@@ -1,8 +1,8 @@
 // DEBUG=ethjs,evm:*,evm:*:* tsx MCOPY.ts
 import { hexToBytes } from '@ethereumjs/util'
 
-import { createEVM } from '../src/constructors.js'
-import { mapToStr } from '../src/tokamak/utils/index.js'
+import { createEVM } from '../../../src/constructors.js'
+import { mapToStr } from '../../../src/tokamak/utils/index.js'
 
 const main = async () => {
   const evm = await createEVM()

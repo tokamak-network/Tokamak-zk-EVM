@@ -1,19 +1,9 @@
 import { hexToBytes } from '@ethereumjs/util'
 
-import { createEVM } from '../src/constructors.js'
+import { createEVM } from '../../../src/constructors.js'
 
 const main = async () => {
   const evm = await createEVM()
-
-  //   //단순 MUL 연산 테스트
-  //   console.log('\nTesting Simple MUL Operations:')
-  //   const simpleRes = await evm.runCode({
-  //     code: hexToBytes('0x600360040200'), // PUSH1 3, PUSH1 4, MUL
-  //   })
-
-  //   const simpleStackValue = simpleRes.runState?.stack.peek(1)[0]
-  //   console.log(`Simple MUL result (3 * 4): ${simpleStackValue}`)
-
   //복합 MUL 연산 테스트
   console.log('\nTesting Complex MUL Operations:')
   const res = await evm.runCode({
