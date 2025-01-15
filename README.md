@@ -27,7 +27,7 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 ## Branches
 ### Active Branches
 - `main` - Stable releases, currently containing frontend components (v0.1.x)
-- `develop` - Active development branch
+- `dev` - Active development branch
 
 ### Version Strategy
 - Alpha releases will use `0.1.x` versioning
@@ -44,8 +44,11 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 ## Ethereum compatibility
 
 ## Documentation
+- [Project Tokamak zk-EVM(Medium)](https://medium.com/tokamak-network/project-tokamak-zk-evm-67483656fd21)
+- [Project Tokamak zk-EVM(Slide)](https://drive.google.com/file/d/1RAmyGDVteAzuBxJ05XEGIjfHC0MY-2_5/view)
 - [Tokamak zk-SNARK Paper](https://eprint.iacr.org/2024/507)
-- [Technical Documentation](./docs)
+- Frontend
+    - [Synthesizer Documentation](./docs)
 - [API Reference](./docs/api)
 
 ## Contributing
