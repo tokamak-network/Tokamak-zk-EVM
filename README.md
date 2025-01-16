@@ -9,25 +9,20 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 ### Frontend Packages
 | Package | Description |
 |---------|------------|
-| [`qap-compiler`](./packages/circuit) | description |
+| [`qap-compiler`](./packages/frontend/qap-compiler) | description |
 | [`synthesizer`](./packages/frontend/synthesizer) | Compiler that processes Ethereum transactions into wire maps for Tokamak zk-SNARK proof generation |
 ### Backend Packages
 | Package | Description |
 |---------|------------|
-| [`prover`](./packages/circuit) | description |
-| [`mpc-setup`](./packages/circuit) | description |
-| [`trusted-setup`](./packages/circuit) | description |
-| [`verify-rust`](./packages/circuit) | description |
-| [`verify-sol`](./packages/circuit) | description |
+| [`prover`](./packages/backend/prover) | description |
+| [`mpc-setup`](./packages/backend/setup/mpc-setup) | description |
+| [`trusted-setup`](./packages/backend/setup/trusted-setup) | description |
+| [`verify-rust`](./packages/backend/verify/rust) | description |
+| [`verify-sol`](./packages/backend/verify/solidity) | description |
 ### Libraries
 | Package | Description |
 |---------|------------|
-| [`libs-rust-tools`](./packages/circuit) | description |
-
-## Branches
-### Active Branches
-- `main` - Stable releases, currently containing frontend components (v0.1.x)
-- `dev` - Active development branch
+| [`libs-rust-tools`](./packages/libs/internal/rust-tools) | description |
 
 ## Package Versions
 | Package | Current Version | Status |
@@ -41,7 +36,6 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 | `verify-sol` | - | 🚧 Planned |
 | `libs-rust-tools` | v0.1.0 | 🔥 Alpha |
 
-
 ### Version Strategy
 🔥 Alpha (v0.1.x)
 - Initial implementation and testing
@@ -53,9 +47,14 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 - Production-ready release
 - Full system integration and testing
 
+## Branches
+### Active Branches
+- `main` - Stable releases, currently containing frontend components (v0.1.x)
+- `dev` - Active development branch
+
 ### Development Status
 - ✅ Frontend Components (current focus)
-- 🚧 Backend Components (planned)
+<!-- - 🚧 Backend Components (planned) -->
 
 ## Tokamak-zk-EVM flow chart
 ![Tokamak-zk-EVM Flow Chart](.github/assets/flowchart.png)

@@ -25,14 +25,104 @@ This package provides the core Ethereum Virtual Machine (EVM) implementation whi
 **Note:** Starting with the Dencun hardfork `EIP-4844` related functionality will become an integrated part of the EVM functionality with the activation of the point evaluation precompile. It is therefore strongly recommended to _always_ run the EVM with a KZG library installed and initialized, see [KZG Setup](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/tx/README.md#kzg-setup) for instructions.
 
 ## Usage
-[Synthesizer specific usage examples]
+### ERC20 Transfer Example
 
-#### Input
+```typescript
+import { Account, Address, hexToBytes } from '@ethereumjs/util'
+import { keccak256 } from 'ethereum-cryptography/keccak'
+import { createEVM } from './src/constructors'
+
+async function main() {
+  // Initialize EVM
+  const evm = await createEVM()
+
+  // Setup accounts
+  const contractAddr = new Address('0x1000000000000000000000000000000000000000')
+  const sender = new Address('0x2000000000000000000000000000000000000000')
+  const recipient = new Address('0x3000000000000000000000000000000000000000')
+
+  // Deploy contract
+  await evm.stateManager.putAccount(contractAddr, new Account())
+  await evm.stateManager.putCode(contractAddr, contractCode)
+
+  // Set initial balance
+  const balanceSlot = '0x5'
+  const senderBalanceSlot = keccak256(
+    hexToBytes(sender.toString().padStart(64, '0') + balanceSlot.slice(2).padStart(64, '0'))
+  )
+  await evm.stateManager.putStorage(
+    contractAddr,
+    senderBalanceSlot,
+    hexToBytes('100'.padStart(64, '0'))
+  )
+
+  // Execute transfer
+  const transferAmount = BigInt(100)
+  const result = await evm.runCode({
+    caller: sender,
+    to: contractAddr,
+    data: hexToBytes(
+      '0xa9059cbb' + // transfer function selector
+      recipient.toString().slice(2).padStart(64, '0') + // recipient address
+      transferAmount.toString(16).padStart(64, '0')     // amount
+    )
+  })
+
+  // Get circuit placements
+  console.log('Circuit Placements:', 
+    JSON.stringify(result.runState?.synthesizer.placements, null, 2)
+  )
+
+  // Generate proof
+  const permutation = await finalize(result.runState!.synthesizer.placements, true)
+}
+```
+
+### Key Features
+- Processes Ethereum transactions into wire maps
+- Generates circuit placements for zk-SNARK proofs
+- Supports standard EVM operations
+- Integrates with Tokamak zk-SNARK system
+
+### More Examples
+See the [examples directory](./examples) for more usage examples:
+#### Basic Operations
+- Basic token transfers
+- Contract deployments
+- Storage operations
+
+#### Mathematical Examples
+- Fibonacci sequence calculation
+- Factorial computation
+- Prime number verification
+- Modular exponentiation
+
+#### Smart Contract Interactions
+- ERC20 token operations
+- Multi-signature wallet
+- Simple auction contract
+- Time-locked transactions
+
+#### Complex Examples
+- Merkle proof verification
+- Hash chain generation
+- State channel operations
+- Batch transaction processing
+
+Each example demonstrates different aspects of the Synthesizer:
+- Circuit generation patterns
+- Memory and storage access
+- Complex computation synthesis
+- Gas optimization techniques
+
+> 📘 **Note**: Full example code and detailed explanations can be found in the [examples directory](./examples).
+
+### Input
 1. Ethereum transactions
 - Playground: ____
 2. Subcircuit library
 - 
-#### Output
+### Output
 
 ## Supported EVM Operations
 | Opcode | Name | Description | Status |

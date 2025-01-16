@@ -43,7 +43,7 @@ const main = async () => {
 
   // Now run the transfer
   const transferAmount = BigInt(100)
-  const res = await evm.runCode({
+  const result = await evm.runCode({
     caller: sender,
     to: contractAddr,
     code: contractCode,
@@ -53,25 +53,14 @@ const main = async () => {
         transferAmount.toString(16).padStart(64, '0'),
     ),
   })
-  // ... rest of code
 
-  // 결과 확인
-  console.log('\n=== Storage State ===')
-  const senderBalance = await evm.stateManager.getStorage(
-    contractAddr,
-    hexToBytes('0x' + sender.toString().slice(2).padStart(64, '0')),
-  )
-  const recipientBalance = await evm.stateManager.getStorage(
-    contractAddr,
-    hexToBytes('0x' + recipient.toString().slice(2).padStart(64, '0')),
+   // Get circuit placements
+  console.log('Circuit Placements:', 
+    JSON.stringify(result.runState?.synthesizer.placements, null, 2)
   )
 
-  // console.log('Sender Balance:', BigInt('0x' + senderBalance.toString('hex')))
-  // console.log('Recipient Balance:', BigInt('0x' + recipientBalance.toString('hex')))
-  console.log('\n=== Circuit Placements ===')
-  console.log(JSON.stringify(res.runState?.synthesizer.placements, null, 2))
-
-  const permutation = await finalize(res.runState!.synthesizer.placements, true)
+  // Generate proof
+  const permutation = await finalize(result.runState!.synthesizer.placements, true)
 }
 
 void main()
