@@ -9,9 +9,6 @@ Synthesizer is a compiler that processes an Ethereum transaction and returns a w
 - Efficient witness calculation for zk-proofs
 - TypeScript/JavaScript friendly API for blockchain developers
 
-### Output
-[Output description]
-
 ## Installation
 
 To obtain the latest version, simply require the project using `npm`:
@@ -22,107 +19,9 @@ npm install
 
 This package provides the core Ethereum Virtual Machine (EVM) implementation which is capable of executing EVM-compatible bytecode. The package has been extracted from the [@ethereumjs/vm](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/vm) package along the VM `v6` release.
 
-**Note:** Starting with the Dencun hardfork `EIP-4844` related functionality will become an integrated part of the EVM functionality with the activation of the point evaluation precompile. It is therefore strongly recommended to _always_ run the EVM with a KZG library installed and initialized, see [KZG Setup](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/tx/README.md#kzg-setup) for instructions.
-
 ## Usage
-### ERC20 Transfer Example
-
-```typescript
-import { Account, Address, hexToBytes } from '@ethereumjs/util'
-import { keccak256 } from 'ethereum-cryptography/keccak'
-import { createEVM } from './src/constructors'
-
-async function main() {
-  // Initialize EVM
-  const evm = await createEVM()
-
-  // Setup accounts
-  const contractAddr = new Address('0x1000000000000000000000000000000000000000')
-  const sender = new Address('0x2000000000000000000000000000000000000000')
-  const recipient = new Address('0x3000000000000000000000000000000000000000')
-
-  // Deploy contract
-  await evm.stateManager.putAccount(contractAddr, new Account())
-  await evm.stateManager.putCode(contractAddr, contractCode)
-
-  // Set initial balance
-  const balanceSlot = '0x5'
-  const senderBalanceSlot = keccak256(
-    hexToBytes(sender.toString().padStart(64, '0') + balanceSlot.slice(2).padStart(64, '0'))
-  )
-  await evm.stateManager.putStorage(
-    contractAddr,
-    senderBalanceSlot,
-    hexToBytes('100'.padStart(64, '0'))
-  )
-
-  // Execute transfer
-  const transferAmount = BigInt(100)
-  const result = await evm.runCode({
-    caller: sender,
-    to: contractAddr,
-    data: hexToBytes(
-      '0xa9059cbb' + // transfer function selector
-      recipient.toString().slice(2).padStart(64, '0') + // recipient address
-      transferAmount.toString(16).padStart(64, '0')     // amount
-    )
-  })
-
-  // Get circuit placements
-  console.log('Circuit Placements:', 
-    JSON.stringify(result.runState?.synthesizer.placements, null, 2)
-  )
-
-  // Generate proof
-  const permutation = await finalize(result.runState!.synthesizer.placements, true)
-}
-```
-
-### Key Features
-- Processes Ethereum transactions into wire maps
-- Generates circuit placements for zk-SNARK proofs
-- Supports standard EVM operations
-- Integrates with Tokamak zk-SNARK system
-
-### More Examples
-See the [examples directory](./examples) for more usage examples:
-#### Basic Operations
-- Basic token transfers
-- Contract deployments
-- Storage operations
-
-#### Mathematical Examples
-- Fibonacci sequence calculation
-- Factorial computation
-- Prime number verification
-- Modular exponentiation
-
-#### Smart Contract Interactions
-- ERC20 token operations
-- Multi-signature wallet
-- Simple auction contract
-- Time-locked transactions
-
-#### Complex Examples
-- Merkle proof verification
-- Hash chain generation
-- State channel operations
-- Batch transaction processing
-
-Each example demonstrates different aspects of the Synthesizer:
-- Circuit generation patterns
-- Memory and storage access
-- Complex computation synthesis
-- Gas optimization techniques
-
+* Playground (will be updated soon)
 > 📘 **Note**: Full example code and detailed explanations can be found in the [examples directory](./examples).
-
-### Input
-1. Ethereum transactions
-- Playground: ____
-2. Subcircuit library
-- 
-### Output
 
 ## Supported EVM Operations
 | Opcode | Name | Description | Status |
@@ -175,19 +74,14 @@ Each example demonstrates different aspects of the Synthesizer:
 
 > **Note**: This list shows currently supported operations. More opcodes will be added in future releases.
 
-## Architecture
-### Overview
-![Tokamak-zk-EVM Flow Chart](../../../.github/assets/flowchart.png)
-### Difference in signal processing from EVM
-![Tokamak-zk-EVM Flow Chart](../../../.github/assets/EVM_interpreter.png)
-![Tokamak-zk-EVM Flow Chart](../../../.github/assets/EVM_interpreter_Synthesizer.png)
-
-## Development
-[Synthesizer specific development guide]
+## Contributing
+We welcome contributions! Please see our [Contributing Guidelines](../../../CONTRIBUTING.md) for details.
 
 ## References
-- This project is built on top of [EthereumJS EVM](./docs/ETHEREUMJS.md). See the detailed documentation for the underlying EVM implementation.
+- [Synthesizer Documentation](./docs)
 - [Tokamak zk-SNARK paper](https://eprint.iacr.org/2024/507)
+- This project is built on top of [EthereumJS EVM](https://github.com/ethereumjs/ethereumjs-monorepo). See the detailed documentation for the underlying EVM implementation.
+
 
 ## License
 [MPL-2.0]

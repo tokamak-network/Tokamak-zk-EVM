@@ -1,25 +1,28 @@
 {
-  "name": "@ethereumjs/evm",
-  "version": "3.1.0",
-  "description": "JavaScript Ethereum Virtual Machine (EVM) implementation",
+  "name": "@tokamak-zk-evm/synthesizer",
+  "version": "0.1.0",
+  "description": "Tokamak zk-EVM Synthesizer - Processes Ethereum transactions into wire maps for Tokamak zk-SNARK proof generation",
   "keywords": [
     "ethereum",
-    "EVM",
-    "JavaScript",
-    "TypeScript"
+    "zk-EVM",
+    "zero-knowledge",
+    "zk-SNARK",
+    "tokamak",
+    "layer2"
   ],
-  "homepage": "https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/evm#readme",
+  "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/frontend/synthesizer#readme",
   "bugs": {
-    "url": "https://github.com/ethereumjs/ethereumjs-monorepo/issues?q=is%3Aissue+label%3A%22package%3A+evm%22"
+    "url": "https://github.com/tokamak-network/tokamak-zk-evm/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ethereumjs/ethereumjs-monorepo.git"
+    "url": "https://github.com/tokamak-network/tokamak-zk-evm.git"
   },
   "license": "MPL-2.0",
-  "author": "EthereumJS",
+  "author": "Tokamak Network",
   "contributors": [
-    "Alex Beregszaszi <alex@rtfs.hu>"
+    "Jake Jang <jake@tokamak.network>",
+    "Ale Son <ale@tokamak.network>"
   ],
   "type": "module",
   "sideEffects": false,

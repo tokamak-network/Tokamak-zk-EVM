@@ -47,27 +47,23 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 - Production-ready release
 - Full system integration and testing
 
-## Branches
-### Active Branches
-- `main` - Stable releases, currently containing frontend components (v0.1.x)
-- `dev` - Active development branch
-
-### Development Status
-- ✅ Frontend Components (current focus)
-<!-- - 🚧 Backend Components (planned) -->
-
 ## Tokamak-zk-EVM flow chart
 ![Tokamak-zk-EVM Flow Chart](.github/assets/flowchart.png)
 
 ## Ethereum compatibility
+> 📝 **Note**: This section will be updated as new EVM features are implemented
 
 ## Documentation
 - [Project Tokamak zk-EVM(Medium)](https://medium.com/tokamak-network/project-tokamak-zk-evm-67483656fd21)
 - [Project Tokamak zk-EVM(Slide)](https://drive.google.com/file/d/1RAmyGDVteAzuBxJ05XEGIjfHC0MY-2_5/view)
 - [Tokamak zk-SNARK Paper](https://eprint.iacr.org/2024/507)
 - Frontend
-    - [Synthesizer Documentation](./docs)
-- [API Reference](./docs/api)
+    - Synthesizer(will be updated soon) 
+<!-- - [API Reference](./docs/api) -->
+
+## ActiveBranches
+- `main` - Stable releases, currently containing frontend components (v0.1.x)
+- `dev` - Active development branch
 
 ## Contributing
 We welcome contributions! Please see our [Contributing Guidelines](./CONTRIBUTING.md) for details.
