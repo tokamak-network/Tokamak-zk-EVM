@@ -39,7 +39,7 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 - 🚧 Backend Components (planned)
 
 ## Tokamak-zk-EVM flow chart
-![Tokamak-zk-EVM Flow Chart](.github/assets/root/flowchart.png)
+![Tokamak-zk-EVM Flow Chart](.github/assets/flowchart.png)
 
 ## Ethereum compatibility
 
