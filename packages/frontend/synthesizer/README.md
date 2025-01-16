@@ -86,7 +86,11 @@ This package provides the core Ethereum Virtual Machine (EVM) implementation whi
 > **Note**: This list shows currently supported operations. More opcodes will be added in future releases.
 
 ## Architecture
+### Overview
 ![Tokamak-zk-EVM Flow Chart](../../../.github/assets/flowchart.png)
+### Difference in signal processing from EVM
+![Tokamak-zk-EVM Flow Chart](../../../.github/assets/EVM_interpreter.png)
+![Tokamak-zk-EVM Flow Chart](../../../.github/assets/EVM_interpreter_Synthesizer.png)
 
 ## Development
 [Synthesizer specific development guide]
