@@ -90,25 +90,27 @@ circuits
     - Implementing Keccak hashing directly in a circuit, such as [Keccak256-circom](https://github.com/vocdoni/keccak256-circom), is computationally inefficient, resulting in approximately 151k constraints. Thus, we have chosen not to implement a Keccak circuit. Instead, Synthesizer will buffer subcircuits to emit the KECCAK256 input values from the circuit and reintroduce the KECCAK256 output values back into the circuit. Outside the circuit, the Keccak hash computation can be run by the verifier of the Tokamak-zk SNARK. Find details from [Synthesizer Doc.](https://tokamak.notion.site/Synthesizer-documentation-164d96a400a3808db0f0f636e20fca24?pvs=4)
 
 - Number of constraints
-| Subcircuit name | Current Constraints |
+
+
+| Subcircuit name | # of constraints |
 |-------------|---------------------|
-| ADD    | 256                 |
-| MUL    | 522                 |
-| SUB    | 256                 |
-| DIV    | 1054                |
-| SDIV   | 4155                |
-| MOD    | 1054                |
-| SMOD   | 4155                |
-| ADDMOD | 1445                |
-| MULMOD | 2239                |
-| EXP    | 7982                |
-| SIGNEXTEND | 2823            |
-| SLT    | 520                 |
-| SGT    | 520                 |
-| BYTE   | 308                 |
-| SHL    | 326                 |
-| SHR    | 325                 |
-| SAR    | 1063                |
+| 0x01 ADD    | 256                 |
+| 0x02 MUL    | 522                 |
+| 0x03 SUB    | 256                 |
+| 0x04 DIV    | 1054                |
+| 0x05 SDIV   | 4155                |
+| 0x06 MOD    | 1054                |
+| 0x07 SMOD   | 4155                |
+| 0x08 ADDMOD | 1445                |
+| 0x09 MULMOD | 2239                |
+| 0x0A EXP    | 7982                |
+| 0x0B SIGNEXTEND | 2823            |
+| 0x12 SLT    | 520                 |
+| 0x13 SGT    | 520                 |
+| 0x1A BYTE   | 308                 |
+| 0x1B SHL    | 326                 |
+| 0x1C SHR    | 325                 |
+| 0x1D SAR    | 1063                |
 
 ## Contributing
 We welcome contributions! Please see our [Contributing Guidelines](../../../CONTRIBUTING.md) for details.
