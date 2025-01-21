@@ -1,16 +1,13 @@
 # Tokamak-zk-EVM/Synthesizer
 
 ## Overview
-Synthesizer is a compiler that processes an Ethereum transaction and returns a wire map. This wire map serves as preprocessed input for [Tokamak zk-SNARK](https://eprint.iacr.org/2024/507).
+Synthesizer is a compiler that takes an Ethereum transaction as input and returns a wire map (in the form of a permutation map). Combined with the library subcircuits in [qap-compiler package](../qap-compiler), this wire map forms a zkp circuit specialized for the transaction. The transaction specific-circuit will be used as preprocessed input for [Tokamak zk-SNARK](https://eprint.iacr.org/2024/507).
 
 ## Features
-- Zero-knowledge proof generation and verification capabilities
+- Preliminary work for zero-knowledge proof generation and verification
 - Seamless integration with Ethereum's EVM
 - Efficient witness calculation for zk-proofs
 - TypeScript/JavaScript friendly API for blockchain developers
-
-### Output
-[Output description]
 
 ## Installation
 
@@ -22,17 +19,9 @@ npm install
 
 This package provides the core Ethereum Virtual Machine (EVM) implementation which is capable of executing EVM-compatible bytecode. The package has been extracted from the [@ethereumjs/vm](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/vm) package along the VM `v6` release.
 
-**Note:** Starting with the Dencun hardfork `EIP-4844` related functionality will become an integrated part of the EVM functionality with the activation of the point evaluation precompile. It is therefore strongly recommended to _always_ run the EVM with a KZG library installed and initialized, see [KZG Setup](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/tx/README.md#kzg-setup) for instructions.
-
 ## Usage
-[Synthesizer specific usage examples]
-
-#### Input
-1. Ethereum transactions
-- Playground: ____
-2. Subcircuit library
-- 
-#### Output
+* Playground (will be updated soon)
+> 📘 **Note**: Full example code and detailed explanations can be found in the [examples directory](./examples).
 
 ## Supported EVM Operations
 | Opcode | Name | Description | Status |
@@ -85,19 +74,17 @@ This package provides the core Ethereum Virtual Machine (EVM) implementation whi
 
 > **Note**: This list shows currently supported operations. More opcodes will be added in future releases.
 
-## Architecture
-### Overview
-![Tokamak-zk-EVM Flow Chart](../../../.github/assets/flowchart.png)
-### Difference in signal processing from EVM
-![Tokamak-zk-EVM Flow Chart](../../../.github/assets/EVM_interpreter.png)
-![Tokamak-zk-EVM Flow Chart](../../../.github/assets/EVM_interpreter_Synthesizer.png)
-
-## Development
-[Synthesizer specific development guide]
+## Contributing
+We welcome contributions! Please see our [Contributing Guidelines](../../../CONTRIBUTING.md) for details.
 
 ## References
-- This project is built on top of [EthereumJS EVM](./docs/ETHEREUMJS.md). See the detailed documentation for the underlying EVM implementation.
+- [Synthesizer Documentation](./docs)
 - [Tokamak zk-SNARK paper](https://eprint.iacr.org/2024/507)
+- This project is built on top of [EthereumJS EVM](https://github.com/ethereumjs/ethereumjs-monorepo). See the detailed documentation for the underlying EVM implementation.
+
+## Original contribution
+- [JehyukJang](https://github.com/JehyukJang): Algorithm design and development. Core functionality implementation.
+- [SonYoungsung](https://github.com/SonYoungsung): Auxiliary functionality implementation. Code organization and optimization. Interface implementation.
 
 ## License
 [MPL-2.0]
