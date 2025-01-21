@@ -9,20 +9,20 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 ### Frontend Packages
 | Package | Description | Language |
 |---------|-------------|----------|
-| [`qap-compiler`](./packages/circuit) | Library of subcircuits for basic EVM operations | CIRCOM |
-| [`synthesizer`](./packages/frontend/synthesizer) | Compiler that converts an Ethereum transaction into a circuit for Tokamak zk-SNARK | Javascript |
+| [`qap-compiler`](./packages/circuit) | Library of subcircuits for basic EVM operations | circom |
+| [`synthesizer`](./packages/frontend/synthesizer) | Compiler that converts an Ethereum transaction into a circuit for Tokamak zk-SNARK | javascript |
 ### Backend Packages
 | Package | Description | Language |
 |---------|-------------|----------|
-| [`prover`](./packages/circuit) | Tokamak zk-SNARK's proving algorithm | RUST |
-| [`mpc-setup`](./packages/circuit) | Tokamak zk-SNARK's setup alogirhtm (multi-party computation version) | RUST |
-| [`trusted-setup`](./packages/circuit) | Tokamak zk-SNARK's setup algorithm (trusted single entity version) | RUST |
-| [`verify-rust`](./packages/circuit) | Tokamak zk-SNARK's verifying algorithm | RUST |
-| [`verify-sol`](./packages/circuit) | Tokamak zk-SNARK's verifying algorithm | Solidity |
+| [`prover`](./packages/circuit) | Tokamak zk-SNARK's proving algorithm | rust |
+| [`mpc-setup`](./packages/circuit) | Tokamak zk-SNARK's setup alogirhtm (multi-party computation version) | rust |
+| [`trusted-setup`](./packages/circuit) | Tokamak zk-SNARK's setup algorithm (trusted single entity version) | rust |
+| [`verify-rust`](./packages/circuit) | Tokamak zk-SNARK's verifying algorithm | rust |
+| [`verify-sol`](./packages/circuit) | Tokamak zk-SNARK's verifying algorithm | solidity |
 ### Libraries
 | Package | Description | Language | 
 |---------|-------------|----------|
-| [`libs-rust-tools`](./packages/circuit) | Field, polynomial, signal processing related modules for Tokamak zk-SNARK | RUST |
+| [`libs-rust-tools`](./packages/circuit) | Field, polynomial, signal processing related modules for Tokamak zk-SNARK | rust |
 
 ## Branches
 ### Active Branches
