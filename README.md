@@ -9,7 +9,7 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 ### Frontend Packages
 | Package | Description |
 |---------|------------|
-| [`qap-compiler`](./packages/circuit) | Library of subcircuits for Tokamak zk-EVM, written in CIRCOM |
+| [`qap-compiler`](./packages/circuit) | Library of subcircuits for basic EVM operations, written in CIRCOM |
 | [`synthesizer`](./packages/frontend/synthesizer) | Compiler that converts an Ethereum transaction into a Tokamak zk-EVM circuit |
 ### Backend Packages
 | Package | Description |
