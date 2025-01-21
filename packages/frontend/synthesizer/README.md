@@ -111,12 +111,13 @@ This package provides the core Ethereum Virtual Machine (EVM) implementation whi
 | fe     | INVALID      | Designated invalid instruction                           | ✅      |
 | ff     | SELFDESTRUCT | Halt execution and delete account                        | ❌      |
 
-> **Notes**: Find details in [Synthesizer Doc](https://tokamak.notion.site/Synthesizer-documentation-164d96a400a3808db0f0f636e20fca24?pvs=4)
-- This list is based on [Cancun hardfork](https://www.evm.codes/).
-- ❌: Will be supported in the future release
-- ⚠️: Implemented in a different way than the zkp circuit
-- Precompiled operations will be supported in the future.
-- Synthesizers and the resulting zkp circuits will support tracking of gas usage in the future.
+> **Notes**
+> - This list is based on [Cancun hardfork](https://www.evm.codes/).
+> - ❌: Will be supported in the future release
+> - ⚠️: Implemented in a different way than the zkp circuit
+> - Precompiled operations will be supported in the future.
+> - Synthesizers and the resulting zkp circuits will support tracking of gas usage in the future.
+> - Find details in [Synthesizer Doc](https://tokamak.notion.site/Synthesizer-documentation-164d96a400a3808db0f0f636e20fca24?pvs=4)
 
 ## Contributing
 We welcome contributions! Please see our [Contributing Guidelines](../../../CONTRIBUTING.md) for details.
