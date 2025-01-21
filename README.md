@@ -9,20 +9,19 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 ### Frontend Packages
 | Package | Description | Language |
 |---------|-------------|----------|
-| [`qap-compiler`](./packages/circuit) | Library of subcircuits for basic EVM operations | circom |
+| [`qap-compiler`](./packages/frontend/qap-compiler) | Library of subcircuits for basic EVM operations | circom |
 | [`synthesizer`](./packages/frontend/synthesizer) | Compiler that converts an Ethereum transaction into a circuit for Tokamak zk-SNARK | javascript |
 ### Backend Packages
 | Package | Description | Language |
 |---------|-------------|----------|
-| [`prover`](./packages/circuit) | Tokamak zk-SNARK's proving algorithm | rust |
-| [`mpc-setup`](./packages/circuit) | Tokamak zk-SNARK's setup alogirhtm (multi-party computation version) | rust |
-| [`trusted-setup`](./packages/circuit) | Tokamak zk-SNARK's setup algorithm (trusted single entity version) | rust |
-| [`verify-rust`](./packages/circuit) | Tokamak zk-SNARK's verifying algorithm | rust |
-| [`verify-sol`](./packages/circuit) | Tokamak zk-SNARK's verifying algorithm | solidity |
+| [`mpc-setup`](./packages/backend/setup/mpc-setup) | Tokamak zk-SNARK's setup alogirhtm (multi-party computation version) | rust |
+| [`trusted-setup`](./packages/backend/setup/trusted-setup) | Tokamak zk-SNARK's setup algorithm (trusted single entity version) | rust |
+| [`prover`](./packages/backend/prove) | Tokamak zk-SNARK's proving algorithm | rust |
+| [`verify`](./packages/backend/verify) | Tokamak zk-SNARK's verifying algorithm | rust, solidity |
 ### Libraries
 | Package | Description | Language | 
 |---------|-------------|----------|
-| [`libs-rust-tools`](./packages/circuit) | Field, polynomial, signal processing related modules for Tokamak zk-SNARK | rust |
+| [`libs-rust-tools`](./packages/libs/internal/rust-tools) | Field, polynomial, signal processing related modules for Tokamak zk-SNARK | rust |
 
 ## Branches
 ### Active Branches
