@@ -9,20 +9,20 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 ### Frontend Packages
 | Package | Description |
 |---------|------------|
-| [`qap-compiler`](./packages/circuit) | description |
-| [`synthesizer`](./packages/frontend/synthesizer) | Compiler that processes Ethereum transactions into wire maps for Tokamak zk-SNARK proof generation |
+| [`qap-compiler`](./packages/circuit) | Library of subcircuits for Tokamak zk-EVM, written in CIRCOM |
+| [`synthesizer`](./packages/frontend/synthesizer) | Compiler that converts an Ethereum transaction into a Tokamak zk-EVM circuit |
 ### Backend Packages
 | Package | Description |
 |---------|------------|
-| [`prover`](./packages/circuit) | description |
-| [`mpc-setup`](./packages/circuit) | description |
-| [`trusted-setup`](./packages/circuit) | description |
-| [`verify-rust`](./packages/circuit) | description |
-| [`verify-sol`](./packages/circuit) | description |
+| [`prover`](./packages/circuit) | Tokamak zk-SNARK's proving algorithm written in RUST |
+| [`mpc-setup`](./packages/circuit) | Tokamak zk-SNARK's setup alogirhtm written in RUST (multi-party computation version) |
+| [`trusted-setup`](./packages/circuit) | Tokamak zk-SNARK's setup algorithm written in RUST (trusted third party version) |
+| [`verify-rust`](./packages/circuit) | Tokamak zk-SNARK's verifying algorithm written in RUST  |
+| [`verify-sol`](./packages/circuit) | Tokamak zk-SNARK's verifying algorithm written in Solidity |
 ### Libraries
 | Package | Description |
 |---------|------------|
-| [`libs-rust-tools`](./packages/circuit) | description |
+| [`libs-rust-tools`](./packages/circuit) | RUST modules for Tokamak zk-SNARK |
 
 ## Branches
 ### Active Branches
