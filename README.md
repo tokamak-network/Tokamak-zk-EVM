@@ -7,22 +7,22 @@ Tokamak-zk-EVM is a zero-knowledge Ethereum Virtual Machine implementation that 
 This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 
 ### Frontend Packages
-| Package | Description |
-|---------|------------|
-| [`qap-compiler`](./packages/circuit) | Library of subcircuits for basic EVM operations, written in CIRCOM |
-| [`synthesizer`](./packages/frontend/synthesizer) | Compiler that converts an Ethereum transaction into a circuit for Tokamak zk-SNARK |
+| Package | Description | Language |
+|---------|-------------|----------|
+| [`qap-compiler`](./packages/circuit) | Library of subcircuits for basic EVM operations | CIRCOM |
+| [`synthesizer`](./packages/frontend/synthesizer) | Compiler that converts an Ethereum transaction into a circuit for Tokamak zk-SNARK | Javascript |
 ### Backend Packages
-| Package | Description |
-|---------|------------|
-| [`prover`](./packages/circuit) | Tokamak zk-SNARK's proving algorithm written in RUST |
-| [`mpc-setup`](./packages/circuit) | Tokamak zk-SNARK's setup alogirhtm written in RUST (multi-party computation version) |
-| [`trusted-setup`](./packages/circuit) | Tokamak zk-SNARK's setup algorithm written in RUST (trusted third party version) |
-| [`verify-rust`](./packages/circuit) | Tokamak zk-SNARK's verifying algorithm written in RUST  |
-| [`verify-sol`](./packages/circuit) | Tokamak zk-SNARK's verifying algorithm written in Solidity |
+| Package | Description | Language |
+|---------|-------------|----------|
+| [`prover`](./packages/circuit) | Tokamak zk-SNARK's proving algorithm | RUST |
+| [`mpc-setup`](./packages/circuit) | Tokamak zk-SNARK's setup alogirhtm (multi-party computation version) | RUST |
+| [`trusted-setup`](./packages/circuit) | Tokamak zk-SNARK's setup algorithm (trusted single entity version) | RUST |
+| [`verify-rust`](./packages/circuit) | Tokamak zk-SNARK's verifying algorithm | RUST |
+| [`verify-sol`](./packages/circuit) | Tokamak zk-SNARK's verifying algorithm | Solidity |
 ### Libraries
-| Package | Description |
-|---------|------------|
-| [`libs-rust-tools`](./packages/circuit) | RUST modules for Tokamak zk-SNARK |
+| Package | Description | Language | 
+|---------|-------------|----------|
+| [`libs-rust-tools`](./packages/circuit) | Field, polynomial, signal processing related modules for Tokamak zk-SNARK | RUST |
 
 ## Branches
 ### Active Branches
