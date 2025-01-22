@@ -22,8 +22,15 @@ npm install
 This package provides the core Ethereum Virtual Machine (EVM) implementation which is capable of executing EVM-compatible bytecode. The package has been extracted from the [@ethereumjs/vm](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/vm) package along the VM `v6` release.
 
 ## Usage
-* Playground (will be updated soon)
-> 📘 **Note**: Full example code and detailed explanations can be found in the [examples directory](./examples).
+1. Prepare input files
+    - Ethereum transaction ID (obtainable from [etherscan.io](https://etherscan.io))
+    - R1CSs of the library subcircuits in Circom's WASM format ([example](./src/tokamak/resources/subcircuitLibrary), obtainable from [qap-compiler package](../qap-compiler/outputs/wasm))
+    - List of the library subcircuits ([example](./src/tokamak/resources/subcircuitInfo.ts), obtainable from [qap-compiler package](../qap-compiler/outputs))
+    - List of the wires of the library subcircuits ([example](./src/tokamak/resources/globalWireList.ts), obtainable from [qap-compiler package](../qap-compiler/outputs))
+
+2. INTERFACE GIF ANIMATION WILL BE ADDED HERE
+
+3. Check your outputs ([example](./examples/tokamak/outputs))
 
 ## Supported EVM Operations
 | Opcode | Name         | Description                                              | Status |
