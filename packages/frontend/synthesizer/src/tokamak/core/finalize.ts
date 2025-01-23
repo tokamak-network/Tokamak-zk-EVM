@@ -1,4 +1,4 @@
-import { bigIntToBytes, bytesToHex, setLengthLeft } from '@ethereumjs/util'
+import { bigIntToBytes, bytesToHex, setLengthLeft } from "@ethereumjs/util/index.js"
 import fs from 'fs'
 import { readFileSync } from 'fs'
 import path from 'path'

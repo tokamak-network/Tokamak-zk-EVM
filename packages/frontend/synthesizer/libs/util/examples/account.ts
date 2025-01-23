@@ -1,4 +1,4 @@
-import { createAccount } from '@ethereumjs/util'
+import { createAccount } from "@ethereumjs/util/index.js"
 
 const account = createAccount({
   nonce: '0x02',

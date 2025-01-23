@@ -1,4 +1,4 @@
-import { Hardfork } from '@ethereumjs/common'
+import { Hardfork } from '@ethereumjs/common/dist/esm/index.js'
 
 
 import { handlers } from './functions.js'
@@ -8,7 +8,7 @@ import { getFullname } from './util.js'
 import type { CustomOpcode } from '../types.js'
 import type { OpHandler } from './functions.js'
 import type { AsyncDynamicGasHandler, SyncDynamicGasHandler } from './gas.js'
-import type { Common } from '@ethereumjs/common'
+import type { Common } from '@ethereumjs/common/dist/esm/index.js'
 // import { SynthesizerHandler } from './synthesizer/types.js'
 // import { synthesizerHandlers } from './synthesizer/handlers.js'
 export class Opcode {

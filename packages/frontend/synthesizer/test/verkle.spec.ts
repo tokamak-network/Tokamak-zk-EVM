@@ -1,4 +1,4 @@
-import { Common, Hardfork, Mainnet } from '@ethereumjs/common'
+import { Common, Hardfork, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
 import { StatefulVerkleStateManager } from '@ethereumjs/statemanager'
 import {
   bigIntToBytes,
@@ -6,14 +6,14 @@ import {
   createAddressFromString,
   hexToBytes,
   setLengthLeft,
-} from '@ethereumjs/util'
+} from "@ethereumjs/util/index.js"
 import { createVerkleTree } from '@ethereumjs/verkle'
 import { loadVerkleCrypto } from 'verkle-cryptography-wasm'
 import { assert, beforeAll, describe, it } from 'vitest'
 
 import { VerkleAccessWitness, createEVM } from '../src/index.js'
 
-import type { VerkleCrypto } from '@ethereumjs/util'
+import type { VerkleCrypto } from "@ethereumjs/util/index.js"
 
 describe('verkle tests', () => {
   let verkleCrypto: VerkleCrypto

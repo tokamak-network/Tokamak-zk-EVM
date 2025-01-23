@@ -1,4 +1,4 @@
-import { ConsensusAlgorithm } from '@ethereumjs/common'
+import { ConsensusAlgorithm } from '@ethereumjs/common/dist/esm/index.js'
 import {
   Account,
   BIGINT_0,
@@ -9,7 +9,7 @@ import {
   bytesToBigInt,
   bytesToHex,
   equalsBytes,
-} from '@ethereumjs/util'
+} from "@ethereumjs/util/index.js"
 import debugDefault from 'debug'
 import readline from 'readline'
 
@@ -44,8 +44,8 @@ import type {
   Common,
   StateManagerInterface,
   VerkleAccessWitnessInterface,
-} from '@ethereumjs/common'
-import type { Address, PrefixedHexString } from '@ethereumjs/util'
+} from '@ethereumjs/common/dist/esm/index.js'
+import type { Address, PrefixedHexString } from "@ethereumjs/util/index.js"
 
 const debugGas = debugDefault('evm:gas')
 
@@ -1097,7 +1097,9 @@ export class Interpreter {
       this._runState.returnBytes = results.execResult.returnValue
 
       // For synthesizer
-      this._runState.returnMemoryPts = results.execResult.returnMemoryPts
+      if (results.execResult.returnMemoryPts) {
+        this._runState.returnMemoryPts = results.execResult.returnMemoryPts
+      }
     }
 
     if (!results.execResult.exceptionError) {

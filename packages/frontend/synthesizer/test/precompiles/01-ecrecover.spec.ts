@@ -1,5 +1,5 @@
-import { Common, Hardfork, Mainnet } from '@ethereumjs/common'
-import { bytesToHex, bytesToUnprefixedHex, hexToBytes, utf8ToBytes } from '@ethereumjs/util'
+import { Common, Hardfork, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
+import { bytesToHex, bytesToUnprefixedHex, hexToBytes, utf8ToBytes } from "@ethereumjs/util/index.js"
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 import { assert, describe, it } from 'vitest'
 

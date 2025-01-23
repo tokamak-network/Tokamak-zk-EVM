@@ -1,7 +1,7 @@
-import { bytesToHex } from '@ethereumjs/util'
+import { bytesToHex } from "@ethereumjs/util/index.js"
 
 import type { TransientStorageInterface } from './types.js'
-import type { Address } from '@ethereumjs/util'
+import type { Address } from "@ethereumjs/util/index.js"
 
 type TransientStorageCurrent = Map<string, Map<string, Uint8Array>>
 

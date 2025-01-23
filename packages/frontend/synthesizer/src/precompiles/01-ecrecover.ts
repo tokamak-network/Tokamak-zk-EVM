@@ -7,7 +7,7 @@ import {
   publicToAddress,
   setLengthLeft,
   setLengthRight,
-} from '@ethereumjs/util'
+} from "@ethereumjs/util/index.js"
 
 import { OOGResult } from '../evm.js'
 

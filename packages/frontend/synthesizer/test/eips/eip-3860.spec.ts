@@ -1,4 +1,4 @@
-import { Common, Hardfork, Mainnet } from '@ethereumjs/common'
+import { Common, Hardfork, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
 import {
   Address,
   concatBytes,
@@ -6,7 +6,7 @@ import {
   equalsBytes,
   hexToBytes,
   privateToAddress,
-} from '@ethereumjs/util'
+} from "@ethereumjs/util/index.js"
 import { assert, describe, it } from 'vitest'
 
 import { createEVM } from '../../src/index.js'

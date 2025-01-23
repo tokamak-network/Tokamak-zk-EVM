@@ -1,5 +1,5 @@
-import { Hardfork } from '@ethereumjs/common'
-import { type Address, bytesToUnprefixedHex } from '@ethereumjs/util'
+import { Hardfork } from '@ethereumjs/common/dist/esm/index.js'
+import { type Address, bytesToUnprefixedHex } from "@ethereumjs/util/index.js"
 
 import { precompile01 } from './01-ecrecover.js'
 import { precompile02 } from './02-sha256.js'
@@ -24,7 +24,7 @@ import { MCLBLS, NobleBLS } from './bls12_381/index.js'
 import { NobleBN254, RustBN254 } from './bn254/index.js'
 
 import type { PrecompileFunc, PrecompileInput } from './types.js'
-import type { Common } from '@ethereumjs/common'
+import type { Common } from '@ethereumjs/common/dist/esm/index.js'
 
 interface PrecompileEntry {
   address: string

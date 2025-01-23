@@ -1,4 +1,4 @@
-import { Common, Hardfork, Mainnet, createCommonFromGethGenesis } from '@ethereumjs/common'
+import { Common, Hardfork, Mainnet, createCommonFromGethGenesis } from '@ethereumjs/common/dist/esm/index.js'
 import {
   Account,
   Address,
@@ -12,7 +12,7 @@ import {
   hexToBytes,
   padToEven,
   unpadBytes,
-} from '@ethereumjs/util'
+} from "@ethereumjs/util/index.js"
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 import { assert, describe, it } from 'vitest'
 

@@ -1,4 +1,4 @@
-import { Common, Hardfork, Mainnet } from '@ethereumjs/common'
+import { Common, Hardfork, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
 
 export const getCommon = () => {
   return new Common({

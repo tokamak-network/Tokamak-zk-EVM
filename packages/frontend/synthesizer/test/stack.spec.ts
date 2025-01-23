@@ -1,4 +1,4 @@
-import { Account, Address, bigIntToBytes, hexToBytes, setLengthLeft } from '@ethereumjs/util'
+import { Account, Address, bigIntToBytes, hexToBytes, setLengthLeft } from "@ethereumjs/util/index.js"
 import { assert, describe, it } from 'vitest'
 
 import { createEVM } from '../src/index.js'

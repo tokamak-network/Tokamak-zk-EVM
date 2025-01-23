@@ -4,7 +4,7 @@ import {
   // bytesToHex,
   setLengthLeft,
   // setLengthRight,
-} from '@ethereumjs/util'
+} from "@ethereumjs/util/index.js"
 
 import { Memory } from '../../memory.js'
 

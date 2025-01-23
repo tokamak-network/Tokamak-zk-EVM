@@ -1,4 +1,4 @@
-import type { ParamsDict } from '@ethereumjs/common'
+import type { ParamsDict } from '@ethereumjs/common/dist/esm/index.js'
 
 export const paramsEVM: ParamsDict = {
   /**

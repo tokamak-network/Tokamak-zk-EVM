@@ -1,4 +1,4 @@
-import { equalsBytes } from '@ethereumjs/util'
+import { equalsBytes } from "@ethereumjs/util/index.js"
 
 import { BLS_GAS_DISCOUNT_PAIRS } from './constants.js'
 

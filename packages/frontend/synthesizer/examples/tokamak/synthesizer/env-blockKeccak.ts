@@ -1,4 +1,4 @@
-import { hexToBytes } from '@ethereumjs/util'
+import { hexToBytes } from "@ethereumjs/util/index.js"
 
 import { createEVM } from '../../../src/constructors.js'
 import { mapToStr } from '../../../src/tokamak/utils/index.js'

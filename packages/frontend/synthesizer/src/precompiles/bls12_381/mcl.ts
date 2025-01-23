@@ -5,7 +5,7 @@ import {
   equalsBytes,
   setLengthLeft,
   unprefixedHexToBytes,
-} from '@ethereumjs/util'
+} from "@ethereumjs/util/index.js"
 
 import { ERROR, EvmError } from '../../exceptions.js'
 

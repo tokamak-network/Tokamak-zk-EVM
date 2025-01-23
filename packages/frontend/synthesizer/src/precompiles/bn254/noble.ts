@@ -6,7 +6,7 @@ import {
   equalsBytes,
   hexToBytes,
   setLengthLeft,
-} from '@ethereumjs/util'
+} from "@ethereumjs/util/index.js"
 import { bn254 } from 'ethereum-cryptography/bn.js'
 
 import { ERROR, EvmError } from '../../exceptions.js'

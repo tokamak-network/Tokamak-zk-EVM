@@ -1,7 +1,7 @@
 // import { RunState, DataPt, ArithmeticOperator } from '../types/index.js'
 // import {
 //   bytesToBigInt,
-// } from '@ethereumjs/util'
+// } from "@ethereumjs/util/index.js"
 // import { SynthesizerInstructionValidator } from '../validation/validator.js';
 
 // interface ArithOperationHandler {

@@ -1,6 +1,6 @@
-import { Common, Hardfork, Mainnet } from '@ethereumjs/common'
+import { Common, Hardfork, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
 import { createEVM, getActivePrecompiles } from '@ethereumjs/evm'
-import { bytesToHex, hexToBytes } from '@ethereumjs/util'
+import { bytesToHex, hexToBytes } from "@ethereumjs/util/index.js"
 
 const main = async () => {
   const common = new Common({ chain: Mainnet, hardfork: Hardfork.Prague })

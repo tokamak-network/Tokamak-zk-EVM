@@ -1,4 +1,4 @@
-import { hexToBytes } from '@ethereumjs/util'
+import { hexToBytes } from "@ethereumjs/util/index.js"
 
 import { createEVM } from '../../../src/constructors.js'
 

@@ -1,4 +1,4 @@
-import { concatBytes, hexToBytes } from '@ethereumjs/util'
+import { concatBytes, hexToBytes } from "@ethereumjs/util/index.js"
 
 // base field modulus as described in the EIP
 export const BLS_FIELD_MODULUS = BigInt(

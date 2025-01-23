@@ -1,4 +1,4 @@
-import { Common, Mainnet } from '@ethereumjs/common'
+import { Common, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
 import { createEVM } from '@ethereumjs/evm'
 
 const main = async () => {

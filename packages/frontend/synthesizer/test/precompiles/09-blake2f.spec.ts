@@ -1,5 +1,5 @@
-import { Common, Hardfork, Mainnet } from '@ethereumjs/common'
-import { bytesToHex, createZeroAddress, hexToBytes } from '@ethereumjs/util'
+import { Common, Hardfork, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
+import { bytesToHex, createZeroAddress, hexToBytes } from "@ethereumjs/util/index.js"
 import { assert, beforeAll, describe, it } from 'vitest'
 
 import { createEVM, getActivePrecompiles } from '../../src/index.js'

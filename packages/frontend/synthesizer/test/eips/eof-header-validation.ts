@@ -1,4 +1,4 @@
-import { hexToBytes } from '@ethereumjs/util'
+import { hexToBytes } from "@ethereumjs/util/index.js"
 import * as dir from 'node-dir'
 import path from 'path'
 import { assert, describe, it } from 'vitest'

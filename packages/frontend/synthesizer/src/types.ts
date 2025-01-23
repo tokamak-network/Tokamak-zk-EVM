@@ -12,8 +12,8 @@ import type {
   ParamsDict,
   StateManagerInterface,
   VerkleAccessWitnessInterface,
-} from '@ethereumjs/common'
-import type { Account, Address, PrefixedHexString } from '@ethereumjs/util'
+} from '@ethereumjs/common/dist/esm/index.js'
+import type { Account, Address, PrefixedHexString } from "@ethereumjs/util/index.js"
 import type { EventEmitter } from 'eventemitter3'
 
 export type DeleteOpcode = {
@@ -419,7 +419,7 @@ export interface ExecResult {
    * Amount of blob gas consumed by the transaction
    */
   blobGasUsed?: bigint
-  returnMemoryPts: MemoryPts
+  returnMemoryPts?: MemoryPts
 }
 
 /**

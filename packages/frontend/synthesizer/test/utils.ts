@@ -1,4 +1,4 @@
-import { Account } from '@ethereumjs/util'
+import { Account } from "@ethereumjs/util/index.js"
 import path from 'path'
 
 export function createAccount(nonce = BigInt(0), balance = BigInt(0xfff384)) {

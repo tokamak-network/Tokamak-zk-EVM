@@ -5,7 +5,7 @@ import {
   hexToBytes,
   setLengthLeft,
   unpadBytes,
-} from '@ethereumjs/util'
+} from "@ethereumjs/util/index.js"
 import { assert, describe, it } from 'vitest'
 
 import { createEVM } from '../src/index.js'

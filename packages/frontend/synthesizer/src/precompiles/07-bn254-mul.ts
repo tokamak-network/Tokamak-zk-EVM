@@ -1,4 +1,4 @@
-import { bytesToHex, setLengthRight } from '@ethereumjs/util'
+import { bytesToHex, setLengthRight } from "@ethereumjs/util/index.js"
 
 import { EvmErrorResult, OOGResult } from '../evm.js'
 

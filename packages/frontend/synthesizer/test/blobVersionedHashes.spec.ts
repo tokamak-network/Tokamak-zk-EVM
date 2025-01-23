@@ -1,4 +1,4 @@
-import { Hardfork, createCommonFromGethGenesis } from '@ethereumjs/common'
+import { Hardfork, createCommonFromGethGenesis } from '@ethereumjs/common/dist/esm/index.js'
 import {
   Account,
   Address,
@@ -6,13 +6,13 @@ import {
   createAddressFromString,
   hexToBytes,
   unpadBytes,
-} from '@ethereumjs/util'
+} from "@ethereumjs/util/index.js"
 import { assert, describe, it } from 'vitest'
 
 import { createEVM } from '../src/index.js'
 
 import type { EVMRunCallOpts } from '../src/types.js'
-import type { PrefixedHexString } from '@ethereumjs/util'
+import type { PrefixedHexString } from "@ethereumjs/util/index.js"
 
 describe('BLOBHASH / access blobVersionedHashes in calldata', () => {
   it('should work', async () => {

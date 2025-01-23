@@ -1,4 +1,4 @@
-import { Address, createZeroAddress, hexToBytes, utf8ToBytes } from '@ethereumjs/util'
+import { Address, createZeroAddress, hexToBytes, utf8ToBytes } from "@ethereumjs/util/index.js"
 import { assert, describe, it } from 'vitest'
 
 import { type PrecompileInput, createEVM } from '../src/index.js'

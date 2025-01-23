@@ -24,7 +24,7 @@ This package contains the following modules providing respective helper methods,
 All helpers are re-exported from the root level and deep imports are not necessary. So an import can be done like this:
 
 ```ts
-import { hexToBytes, isValidChecksumAddress } from '@ethereumjs/util'
+import { hexToBytes, isValidChecksumAddress } from "@ethereumjs/util/index.js"
 ```
 
 ### Module: [account](src/account.ts)
@@ -34,7 +34,7 @@ Class representing an `Account` and providing private/public key and address-rel
 ```ts
 // ./examples/account.ts
 
-import { createAccount } from '@ethereumjs/util'
+import { createAccount } from "@ethereumjs/util/index.js"
 
 const account = createAccount({
   nonce: '0x02',
@@ -50,7 +50,7 @@ For Verkle or other contexts it can be useful to create partial accounts not con
 ```ts
 // ./examples/accountPartial.ts
 
-import { createPartialAccount } from '@ethereumjs/util'
+import { createPartialAccount } from "@ethereumjs/util/index.js"
 
 const account = createPartialAccount({
   nonce: '0x02',
@@ -66,7 +66,7 @@ Class representing an Ethereum `Address` with instantiation helpers and validati
 ```ts
 // ./examples/address.ts
 
-import { createAddressFromString } from '@ethereumjs/util'
+import { createAddressFromString } from "@ethereumjs/util/index.js"
 
 const address = createAddressFromString('0x2f015c60e0be116b1f0cd534704db9c92118fb6a')
 console.log(`Ethereum address ${address.toString()} created`)
@@ -79,7 +79,7 @@ Module providing helpers for 4844 blobs and versioned hashes.
 ```ts
 // ./examples/blobs.ts
 
-import { bytesToHex, computeVersionedHash, getBlobs } from '@ethereumjs/util'
+import { bytesToHex, computeVersionedHash, getBlobs } from "@ethereumjs/util/index.js"
 
 const blobs = getBlobs('test input')
 
@@ -100,7 +100,7 @@ Byte-related helper and conversion functions.
 ```ts
 // ./examples/bytes.ts
 
-import { bytesToBigInt } from '@ethereumjs/util'
+import { bytesToBigInt } from "@ethereumjs/util/index.js"
 
 const bytesValue = new Uint8Array([97])
 const bigIntValue = bytesToBigInt(bytesValue)
@@ -115,7 +115,7 @@ Exposed constants (e.g. `KECCAK256_NULL_S` for string representation of Keccak-2
 ```ts
 // ./examples/constants.ts
 
-import { BIGINT_2EXP96, KECCAK256_NULL_S } from '@ethereumjs/util'
+import { BIGINT_2EXP96, KECCAK256_NULL_S } from "@ethereumjs/util/index.js"
 
 console.log(`The keccak-256 hash of null: ${KECCAK256_NULL_S}`)
 console.log(`BigInt constants (performance), e.g. BIGINT_2EXP96: ${BIGINT_2EXP96}`)
@@ -158,7 +158,7 @@ Functionality for signing, signature validation, conversion, recovery.
 ```ts
 // ./examples/signature.ts
 
-import { bytesToHex, ecrecover, hexToBytes } from '@ethereumjs/util'
+import { bytesToHex, ecrecover, hexToBytes } from "@ethereumjs/util/index.js"
 
 const chainId = BigInt(3) // Ropsten
 
@@ -189,7 +189,7 @@ import {
   decodeVerkleLeafBasicData,
   getVerkleKey,
   hexToBytes,
-} from '@ethereumjs/util'
+} from "@ethereumjs/util/index.js"
 
 const state = {
   '0xdf67dea9181141d6255ac05c7ada5a590fb30a375023f16c31223f067319e300':
@@ -219,7 +219,7 @@ Class representing an `EIP-4895` `Withdrawal` with different constructors as wel
 ```ts
 // ./examples/withdrawal.ts
 
-import { createWithdrawal } from '@ethereumjs/util'
+import { createWithdrawal } from "@ethereumjs/util/index.js"
 
 const withdrawal = createWithdrawal({
   index: 0n,
@@ -277,7 +277,7 @@ toBytes(v: ToBytesInputTypes) // Converts various byte compatible types to Uint8
 Helper methods can be imported like this:
 
 ```ts
-import { hexToBytes } from '@ethereumjs/util'
+import { hexToBytes } from "@ethereumjs/util/index.js"
 ```
 
 ### Hybrid CJS/ESM Builds
@@ -329,7 +329,7 @@ The following methods are available by an internalized version of the [ethjs-uti
 They can be imported by name:
 
 ```ts
-import { stripHexPrefix } from '@ethereumjs/util'
+import { stripHexPrefix } from "@ethereumjs/util/index.js"
 ```
 
 ## EthereumJS

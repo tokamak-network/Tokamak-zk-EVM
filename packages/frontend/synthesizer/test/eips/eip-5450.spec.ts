@@ -1,4 +1,4 @@
-import { hexToBytes } from '@ethereumjs/util'
+import { hexToBytes } from "@ethereumjs/util/index.js"
 import { assert, describe, it } from 'vitest'
 
 import { default as testData } from '../../../ethereum-tests/EOFTests/EIP5450/validInvalid.json'

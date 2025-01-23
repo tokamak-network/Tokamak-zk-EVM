@@ -1,7 +1,7 @@
-import { equalsBytes } from '@ethereumjs/util'
+import { equalsBytes } from "@ethereumjs/util/index.js"
 
 import type { RunState } from '../interpreter.js'
-import type { Common } from '@ethereumjs/common'
+import type { Common } from '@ethereumjs/common/dist/esm/index.js'
 
 /**
  * Adjusts gas usage and refunds of SStore ops per EIP-1283 (Constantinople)

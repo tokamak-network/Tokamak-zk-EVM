@@ -1,5 +1,5 @@
-import { Common, Hardfork, Mainnet } from '@ethereumjs/common'
-import { unprefixedHexToBytes } from '@ethereumjs/util'
+import { Common, Hardfork, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
+import { unprefixedHexToBytes } from "@ethereumjs/util/index.js"
 import split from 'split'
 
 import { createEVM, validateEOF } from '../src/index.js'

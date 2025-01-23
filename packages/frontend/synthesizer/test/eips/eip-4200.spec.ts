@@ -1,4 +1,4 @@
-import { hexToBytes } from '@ethereumjs/util'
+import { hexToBytes } from "@ethereumjs/util/index.js"
 import { assert, describe, it } from 'vitest'
 
 import { default as testData } from '../../../ethereum-tests/EOFTests/EIP4200/validInvalid.json'
@@ -7,7 +7,7 @@ import { createEVM } from '../../src/index.js'
 
 import { getCommon } from './eof-utils.js'
 
-import type { PrefixedHexString } from '@ethereumjs/util'
+import type { PrefixedHexString } from "@ethereumjs/util/index.js"
 
 async function getEVM() {
   const common = getCommon()

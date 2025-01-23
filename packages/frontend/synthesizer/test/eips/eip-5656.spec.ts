@@ -1,10 +1,10 @@
-import { Common, Hardfork, Mainnet } from '@ethereumjs/common'
-import { bytesToHex, hexToBytes } from '@ethereumjs/util'
+import { Common, Hardfork, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
+import { bytesToHex, hexToBytes } from "@ethereumjs/util/index.js"
 import { assert, describe, it } from 'vitest'
 
 import { createEVM } from '../../src/index.js'
 
-import type { PrefixedHexString } from '@ethereumjs/util'
+import type { PrefixedHexString } from "@ethereumjs/util/index.js"
 
 type Situation = {
   pre: string

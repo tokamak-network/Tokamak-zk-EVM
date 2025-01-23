@@ -1,9 +1,9 @@
 import { createBlockchain } from '@ethereumjs/blockchain'
-import { Common, Hardfork, Mainnet } from '@ethereumjs/common'
+import { Common, Hardfork, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
 import { createEVM } from '@ethereumjs/evm'
-import { bytesToHex, hexToBytes } from '@ethereumjs/util'
+import { bytesToHex, hexToBytes } from "@ethereumjs/util/index.js"
 
-import type { PrefixedHexString } from '@ethereumjs/util'
+import type { PrefixedHexString } from "@ethereumjs/util/index.js"
 
 const main = async () => {
   const common = new Common({ chain: Mainnet, hardfork: Hardfork.London })

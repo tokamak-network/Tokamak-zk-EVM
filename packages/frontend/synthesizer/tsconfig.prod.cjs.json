@@ -7,10 +7,10 @@
     "composite": true,
     "paths": {
       "@ethereumjs/util/*": ["libs/util/dist/esm/*"],
-      "@ethereumjs/util": ["libs/util/dist/esm/index"],
+      "@ethereumjs/util": ["libs/util/dist/esm/index.js"],
       "@ethereumjs/common/*": ["libs/common/dist/esm/*"],
-      "@ethereumjs/common": ["libs/common/dist/esm/index"],
-      "@ethereumjs/statemanager": ["libs/statemanager/dist/esm/index"],
+      "@ethereumjs/common": ["libs/common/dist/esm/index.js"],
+      "@ethereumjs/statemanager": ["libs/statemanager/dist/esm/index.js"],
       "@ethereumjs/statemanager/*": ["libs/statemanager/dist/esm/*"]
     }
   },

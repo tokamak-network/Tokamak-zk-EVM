@@ -26,7 +26,7 @@ import {
   equalsBytes,
   getVerkleTreeIndicesForStorageSlot,
   setLengthLeft,
-} from '@ethereumjs/util'
+} from "@ethereumjs/util/index.js"
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 
 import { EOFContainer, EOFContainerMode } from '../eof/container.js'
@@ -57,7 +57,7 @@ import {
 
 import type { RunState } from '../interpreter.js'
 import type { MemoryPtEntry, MemoryPts } from '../tokamak/pointers/index.js'
-import type { Common } from '@ethereumjs/common'
+import type { Common } from '@ethereumjs/common/dist/esm/index.js'
 
 export interface SyncOpHandler {
   (runState: RunState, common: Common): void

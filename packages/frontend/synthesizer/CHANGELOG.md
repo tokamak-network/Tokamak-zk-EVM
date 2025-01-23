@@ -68,7 +68,7 @@ The `EVM` direct constructor initialization with `new EVM()` now has been deprec
 An EVM is now initialized like the following (from our `examples`):
 
 ```ts
-import { hexToBytes } from '@ethereumjs/util'
+import { hexToBytes } from "@ethereumjs/util/index.js"
 import { EVM } from '@ethereumjs/evm'
 
 const evm = await EVM.create()
@@ -93,7 +93,7 @@ Note that `kzg-wasm` needs to be added manually to your own dependencies and the
 
 ```typescript
 import { loadKZG } from 'kzg-wasm'
-import { Chain, Common, Hardfork } from '@ethereumjs/common'
+import { Chain, Common, Hardfork } from '@ethereumjs/common/dist/esm/index.js'
 
 const kzg = await loadKZG()
 
@@ -133,8 +133,8 @@ Dencun hardfork on the execution side is called [Cancun](https://github.com/ethe
 
 ```typescript
 import * as kzg from 'c-kzg'
-import { Common, Chain, Hardfork } from '@ethereumjs/common'
-import { initKZG } from '@ethereumjs/util'
+import { Common, Chain, Hardfork } from '@ethereumjs/common/dist/esm/index.js'
+import { initKZG } from "@ethereumjs/util/index.js"
 
 initKZG(kzg, __dirname + '/../../client/src/trustedSetups/official.txt')
 const common = new Common({
@@ -260,14 +260,14 @@ The Shanghai hardfork is now the default HF in `@ethereumjs/common` and therefor
 Also the Merge HF has been renamed to Paris (`Hardfork.Paris`) which is the correct HF name on the execution side, see [#2652](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2652). To set the HF to Paris in Common you can do:
 
 ```ts
-import { Chain, Common, Hardfork } from '@ethereumjs/common'
+import { Chain, Common, Hardfork } from '@ethereumjs/common/dist/esm/index.js'
 const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Paris })
 ```
 
 And third on hardforks 🙂: the upcoming Cancun hardfork is now fully supported and all EIPs are included (see PRs [#2659](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2659) and [#2892](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2892)). The Cancun HF can be activated with:
 
 ```ts
-import { Chain, Common, Hardfork } from '@ethereumjs/common'
+import { Chain, Common, Hardfork } from '@ethereumjs/common/dist/esm/index.js'
 const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Cancun })
 ```
 
@@ -286,7 +286,7 @@ So the mandatory `eei` option now goes away and is replaced by two optional `sta
 So the EVM initialization in its most simple form now goes to:
 
 ```ts
-import { hexToBytes } from '@ethereumjs/util'
+import { hexToBytes } from "@ethereumjs/util/index.js"
 import { EVM } from '@ethereumjs/evm'
 
 const evm = new EVM()
@@ -302,7 +302,7 @@ This release adds support for [EIP-5656](https://eips.ethereum.org/EIPS/eip-5656
 You can initialize an EIP-5656 activated EVM with:
 
 ```ts
-import { Chain, Common, Hardfork } from '@ethereumjs/common'
+import { Chain, Common, Hardfork } from '@ethereumjs/common/dist/esm/index.js'
 import { EVM } from '@ethereumjs/evm'
 
 const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Cancun })
@@ -320,7 +320,7 @@ Support for [EIP-6780](https://eips.ethereum.org/EIPS/eip-6780) "SELFDESTRUCT on
 You can initialize an EIP-6780 activated EVM with:
 
 ```ts
-import { Chain, Common, Hardfork } from '@ethereumjs/common'
+import { Chain, Common, Hardfork } from '@ethereumjs/common/dist/esm/index.js'
 import { EVM } from '@ethereumjs/evm'
 
 const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Cancun })
@@ -352,7 +352,7 @@ The `initKZG()` method can be used as follows:
 ```ts
 // Make the kzg library available globally
 import * as kzg from 'c-kzg'
-import { initKZG } from '@ethereumjs/util'
+import { initKZG } from "@ethereumjs/util/index.js"
 
 // Initialize the trusted setup
 initKZG(kzg, 'path/to/my/trusted_setup.txt')
@@ -387,7 +387,7 @@ const common = new Common({ chain: Chain.Mainnet })
 And this is how an ESM import looks like:
 
 ```ts
-import { Chain, Common } from '@ethereumjs/common'
+import { Chain, Common } from '@ethereumjs/common/dist/esm/index.js'
 const common = new Common({ chain: Chain.Mainnet })
 ```
 
@@ -481,7 +481,7 @@ This release fully supports all EIPs included in the [Shanghai](https://github.c
 You can instantiate a Shanghai-enabled Common instance for your transactions with:
 
 ```ts
-import { Common, Chain, Hardfork } from '@ethereumjs/common'
+import { Common, Chain, Hardfork } from '@ethereumjs/common/dist/esm/index.js'
 
 const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Shanghai })
 ```
@@ -497,7 +497,7 @@ This release supports an experimental version of the blob transaction type intro
 To run EVM related EIP-4844 functionality you have to active the EIP in the associated `@ethereumjs/common` library:
 
 ```ts
-import { Common, Chain, Hardfork } from '@ethereumjs/common'
+import { Common, Chain, Hardfork } from '@ethereumjs/common/dist/esm/index.js'
 
 const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Shanghai, eips: [4844] })
 ```
@@ -553,7 +553,7 @@ For lots of custom chains (for e.g. devnets and testnets), you might come across
 `Common` now has a new constructor `Common.fromGethGenesis()` - see PRs [#2300](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2300) and [#2319](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2319) - which can be used in following manner to instantiate for example a VM run or a tx with a `genesis.json` based Common:
 
 ```ts
-import { Common } from '@ethereumjs/common'
+import { Common } from '@ethereumjs/common/dist/esm/index.js'
 // Load geth genesis json file into lets say `genesisJson` and optional `chain` and `genesisHash`
 const common = Common.fromGethGenesis(genesisJson, { chain: 'customChain', genesisHash })
 // If you don't have `genesisHash` while initiating common, you can later configure common (for e.g.
@@ -638,7 +638,7 @@ This means that if this library is instantiated without providing an explicit `C
 If you want to prevent these kind of implicit HF switches in the future it is likely a good practice to just always do your upper-level library instantiations with a `Common` instance setting an explicit HF, e.g.:
 
 ```ts
-import { Common, Chain, Hardfork } from '@ethereumjs/common'
+import { Common, Chain, Hardfork } from '@ethereumjs/common/dist/esm/index.js'
 
 const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.London })
 ```
@@ -669,7 +669,7 @@ Since our [@ethereumjs/common](https://github.com/ethereumjs/ethereumjs-monorepo
 So Common import and usage is changing from:
 
 ```ts
-import Common, { Chain, Hardfork } from '@ethereumjs/common'
+import Common, { Chain, Hardfork } from '@ethereumjs/common/dist/esm/index.js'
 
 const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Merge })
 ```
@@ -677,7 +677,7 @@ const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Merge })
 to:
 
 ```ts
-import { Common, Chain, Hardfork } from '@ethereumjs/common'
+import { Common, Chain, Hardfork } from '@ethereumjs/common/dist/esm/index.js'
 
 const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Merge })
 ```
@@ -753,7 +753,7 @@ This means that a Block object instantiated without providing an explicit `Commo
 If you want to prevent these kind of implicit HF switches in the future it is likely a good practice to just always do your upper-level library instantiations with a `Common` instance setting an explicit HF, e.g.:
 
 ```ts
-import Common, { Chain, Hardfork } from '@ethereumjs/common'
+import Common, { Chain, Hardfork } from '@ethereumjs/common/dist/esm/index.js'
 
 const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Merge })
 ```
@@ -864,7 +864,7 @@ In the VM the `merge` HF is now activated as being supported and an (experimenta
 
 ```ts
 import VM from '@ethereumjs/vm'
-import Common, { Chain, Hardfork } from '@ethereumjs/common'
+import Common, { Chain, Hardfork } from '@ethereumjs/common/dist/esm/index.js'
 
 const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Merge })
 const vm = new VM({ common })
@@ -969,7 +969,7 @@ An ArrowGlacier VM can be instantiated with:
 
 ```ts
 import VM from '@ethereumjs/vm'
-import Common, { Chain, Hardfork } from '@ethereumjs/common'
+import Common, { Chain, Hardfork } from '@ethereumjs/common/dist/esm/index.js'
 
 const common = new Common({ chain: Chain.Mainnet, hardfork: Hardfork.ArrowGlacier })
 const vm = new VM({ common })
@@ -1076,7 +1076,7 @@ This `VM` release comes with full functional support for the `london` hardfork (
 
 ```ts
 import VM from '@ethereumjs/vm'
-import Common from '@ethereumjs/common'
+import Common from '@ethereumjs/common/dist/esm/index.js'
 const common = new Common({ chain: 'mainnet', hardfork: 'london' })
 const vm = new VM({ common })
 ```
@@ -1199,7 +1199,7 @@ Please note that the default HF is still set to `istanbul`. You therefore need t
 
 ```ts
 import VM from '@ethereumjs/vm'
-import Common from '@ethereumjs/common'
+import Common from '@ethereumjs/common/dist/esm/index.js'
 const common = new Common({ chain: 'mainnet', hardfork: 'berlin' })
 const vm = new VM({ common })
 ```
@@ -1268,7 +1268,7 @@ Here is a simple example:
 
 ```ts
 import VM from '@ethereumjs/vm'
-import Common from '@ethereumjs/common'
+import Common from '@ethereumjs/common/dist/esm/index.js'
 
 const common = new Common({ chain: 'goerli' })
 const hardforkByBlockNumber = true
@@ -1368,7 +1368,7 @@ A VM with the specific HF rules (on the chain provided) can be instantiated by p
 
 ```ts
 import VM from '@ethereumjs/vm'
-import Common from '@ethereumjs/common'
+import Common from '@ethereumjs/common/dist/esm/index.js'
 
 const common = new Common({ chain: 'mainnet', hardfork: 'spuriousDragon' })
 const vm = new VM({ common })
@@ -1393,7 +1393,7 @@ These integrations come along with an API addition to the VM to support the acti
 This API can be used as follows:
 
 ```ts
-import Common from '@ethereumjs/common'
+import Common from '@ethereumjs/common/dist/esm/index.js'
 import VM from '@ethereumjs/vm'
 
 const common = new Common({ chain: 'mainnet', eips: [2537] })
@@ -1521,7 +1521,7 @@ by passing in a `Common` instance:
 
 ```ts
 import VM from '@ethereumjs/vm'
-import Common from '@ethereumjs/common'
+import Common from '@ethereumjs/common/dist/esm/index.js'
 
 const common = new Common({ chain: 'mainnet', hardfork: 'spuriousDragon' })
 const vm = new VM({ common })
@@ -1563,7 +1563,7 @@ PR [#872](https://github.com/ethereumjs/ethereumjs-monorepo/pull/872).
 This API can be used as follows:
 
 ```ts
-import Common from '@ethereumjs/common'
+import Common from '@ethereumjs/common/dist/esm/index.js'
 import VM from '@ethereumjs/vm'
 
 const common = new Common({ chain: 'mainnet', eips: [2537] })

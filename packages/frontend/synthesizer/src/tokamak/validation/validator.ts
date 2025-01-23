@@ -1,4 +1,4 @@
-import { bytesToBigInt } from '@ethereumjs/util'
+import { bytesToBigInt } from "@ethereumjs/util/index.js"
 
 import { InvalidInputCountError, UndefinedSubcircuitError } from './errors.js'
 
@@ -70,7 +70,7 @@ export class SynthesizerValidator {
       'SAR',
       'DecToBit',
       'SubEXP',
-    ] as const
+    ] 
 
     if (!implementedOpcodes.includes(opcode as ArithmeticOperator)) {
       throw new Error(`Synthesizer: Opcode '${opcode}' is not implemented`)

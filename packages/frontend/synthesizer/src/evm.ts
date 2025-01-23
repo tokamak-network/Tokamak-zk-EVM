@@ -1,4 +1,4 @@
-import { Hardfork } from '@ethereumjs/common'
+import { Hardfork } from '@ethereumjs/common/dist/esm/index.js'
 import {
   Account,
   Address,
@@ -14,7 +14,7 @@ import {
   generateAddress,
   generateAddress2,
   short,
-} from '@ethereumjs/util'
+} from "@ethereumjs/util/index.js"
 import debugDefault from 'debug'
 import { EventEmitter } from 'eventemitter3'
 
@@ -52,7 +52,7 @@ import type { MessageWithTo } from './message.js'
 import type { AsyncDynamicGasHandler, SyncDynamicGasHandler } from './opcodes/gas.js'
 import type { OpHandler, OpcodeList, OpcodeMap } from './opcodes/index.js'
 import type { CustomPrecompile, PrecompileFunc } from './precompiles/index.js'
-import type { Common, StateManagerInterface } from '@ethereumjs/common'
+import type { Common, StateManagerInterface } from '@ethereumjs/common/dist/esm/index.js'
 
 const debug = debugDefault('evm:evm')
 const debugGas = debugDefault('evm:gas')

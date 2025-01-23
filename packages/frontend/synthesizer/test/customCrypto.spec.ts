@@ -1,4 +1,4 @@
-import { Common, Mainnet } from '@ethereumjs/common'
+import { Common, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
 import {
   bytesToHex,
   concatBytes,
@@ -6,7 +6,7 @@ import {
   intToBytes,
   randomBytes,
   setLengthLeft,
-} from '@ethereumjs/util'
+} from "@ethereumjs/util/index.js"
 import { assert, describe, it } from 'vitest'
 
 import { createEVM, getActivePrecompiles } from '../src/index.js'

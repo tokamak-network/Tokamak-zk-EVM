@@ -1,7 +1,7 @@
 // DEBUG=ethjs,evm:*,evm:*:* tsx callcodes.ts
-import { Common, Mainnet } from '@ethereumjs/common'
+import { Common, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
 import { SimpleStateManager } from '@ethereumjs/statemanager'
-import { Account, createAddressFromPrivateKey, hexToBytes } from '@ethereumjs/util'
+import { Account, createAddressFromPrivateKey, hexToBytes } from "@ethereumjs/util/index.js"
 
 import { createEVM } from '../src/constructors.js'
 import { NobleBN254 } from '../src/precompiles/index.js'
