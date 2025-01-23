@@ -13,7 +13,7 @@ Synthesizer is a compiler that takes an Ethereum transaction as input and return
 
 ## Installation
 
-To obtain the latest version, simply require the project using `npm`:
+Make sure you are currently in the "synthesizer" folder. To obtain the latest version, simply require the project using `npm`:
 
 ```shell
 npm install
