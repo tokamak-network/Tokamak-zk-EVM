@@ -6,14 +6,17 @@
      "allowJs": true,
      "declaration": true,
     "baseUrl": ".",
-    "rootDir": "src",
     "paths": {
-      "@ethereumjs/util": ["libs/util/dist/esm/index.d.ts"],
+      "@ethereumjs/util": ["libs/util/dist/esm/index"],
       "@ethereumjs/common": ["libs/common/dist/esm/index"],
       "@ethereumjs/statemanager": ["libs/statemanager/dist/esm/index"],
       "@ethereumjs/util/*": ["libs/util/dist/esm/*"],
       "@ethereumjs/common/*": ["libs/common/dist/esm/*"],
-      "@ethereumjs/statemanager/*": ["libs/statemanager/dist/esm/*"]
+      "@ethereumjs/statemanager/*": ["libs/statemanager/dist/esm/*"],
+      "@ethereumjs/mpt": ["libs/mpt/dist/esm/index"],
+      "@ethereumjs/mpt/*": ["libs/mpt/dist/esm/*"],
+      "@ethereumjs/verkle": ["libs/verkle/dist/esm/index"],
+      "@ethereumjs/verkle/*": ["libs/verkle/dist/esm/*"]
     },
   }
 }

@@ -5,13 +5,11 @@ Cargo.lock
 
 # Node
 node_modules/
-dist/
 build/
 .env
 
 # Solidity
 artifacts/
-cache/
 coverage/
 coverage.json
 

@@ -153,7 +153,7 @@ async function outputPlacementInstance(placements: Placements): Promise<Placemen
   const tsContent = `export const placementInstance = \n ${JSON.stringify(result, null, 2)}`
   const filePath = path.resolve(
     appRootPath.path,
-    'packages/evm/examples/tokamak/outputs/placementInstance.ts',
+    'examples/tokamak/outputs/placementInstance.ts',
   )
   const dir = path.dirname(filePath)
   if (!fs.existsSync(dir)) {
@@ -260,7 +260,7 @@ class Permutation {
     const tsContent = `export const permutationRule = \n ${JSON.stringify(this.permutationFile, null, 2)}`
     const filePath = path.resolve(
       appRootPath.path,
-      'packages/evm/examples/tokamak/outputs/permutation.ts',
+      'examples/tokamak/outputs/permutation.ts',
     )
     const dir = path.dirname(filePath)
     if (!fs.existsSync(dir)) {
@@ -404,7 +404,7 @@ class Permutation {
 
 const testInstances = async (instances: PlacementInstances): Promise<void> => {
   //console.log("Usage: tsx generate_witness.ts <file.wasm> <input.json> <output.wtns>")
-  const dir = 'packages/evm/src/tokamak/resources/subcircuitLibrary'
+  const dir = 'src/tokamak/resources/subcircuitLibrary'
   const reuseBuffer = new Map()
   for (const [placementInd, instance] of instances.entries()) {
     const id = instance.subcircuitId
@@ -414,6 +414,8 @@ const testInstances = async (instances: PlacementInstances): Promise<void> => {
       buffer = reuseBuffer.get(id)
     } else {
       const targetWasmPath = path.resolve(appRootPath.path, dir, `subcircuit${id}.wasm`)
+
+
       try {
         buffer = readFileSync(targetWasmPath)
       } catch (err) {

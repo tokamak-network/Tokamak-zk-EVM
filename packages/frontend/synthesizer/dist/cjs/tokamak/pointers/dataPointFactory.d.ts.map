@@ -1,0 +1,1 @@
+{"version":3,"file":"dataPointFactory.d.ts","sourceRoot":"","sources":["../../../../src/tokamak/pointers/dataPointFactory.ts"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAE,qBAAqB,EAAE,MAAM,EAAE,MAAM,mBAAmB,CAAA;AAEtE,qBAAa,gBAAgB;WACb,MAAM,CAAC,MAAM,EAAE,qBAAqB,GAAG,MAAM;CAQ5D"}
