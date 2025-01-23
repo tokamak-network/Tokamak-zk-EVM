@@ -8,12 +8,12 @@ window.Buffer = window.Buffer || Buffer;
 const App: React.FC = () => {
   const [transactionId, setTransactionId] = useState('');
   const [status, setStatus] = useState<string | null>(null);
-  const [output, setOutput] = useState<string | null>(null);
+  const [serverData, setServerData] = useState<{ permutation: string | null; placementInstance: string | null } | null>(null);
 
   const handleSubmit = async () => {
     try {
       setStatus('Fetching bytecode from Etherscan...');
-      setOutput(null); // Clear old data
+      setServerData(null);
 
       // 1) Fetch the bytecode
       const bytecode = await fetchTransactionBytecode(transactionId);
@@ -54,30 +54,25 @@ const App: React.FC = () => {
         throw new Error(json.error || 'Unknown server error.');
       }
 
-      // Combine server result and bytecode into a single object
-      const dataToSave = {
-        finalizeResult: json.data || {},
-        sourceBytecode: bytecode,
-      };
-
-      // Update state
-      setOutput(JSON.stringify(dataToSave, null, 2));
-      setStatus('Process complete!');
+      // Extract server response
+      const { permutation, placementInstance } = json.data || {};
+      setServerData({ permutation, placementInstance });
+      setStatus('Process complete! Files are ready for download.');
     } catch (error) {
       console.error('Error:', error);
       setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
-      setOutput(null);
+      setServerData(null);
     }
   };
 
-  // Download the output JSON
-  const handleDownload = () => {
-    if (!output) return;
-    const blob = new Blob([output], { type: 'application/json' });
+  // Handle file download
+  const handleDownload = (fileContent: string | null, fileName: string) => {
+    if (!fileContent) return;
+    const blob = new Blob([fileContent], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'finalize-result.json';
+    link.download = fileName;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -113,9 +108,9 @@ const App: React.FC = () => {
       </button>
       <div style={{ marginTop: '20px' }}>
         {status && <p>{status}</p>}
-        {output && (
+        {serverData?.permutation && (
           <button
-            onClick={handleDownload}
+            onClick={() => handleDownload(serverData.permutation, 'permutation.ts')}
             style={{
               padding: '10px 20px',
               background: '#28a745',
@@ -123,9 +118,25 @@ const App: React.FC = () => {
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
+              marginRight: '10px',
             }}
           >
-            Download JSON
+            Download Permutation
+          </button>
+        )}
+        {serverData?.placementInstance && (
+          <button
+            onClick={() => handleDownload(serverData.placementInstance, 'placementInstance.ts')}
+            style={{
+              padding: '10px 20px',
+              background: '#17a2b8',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            Download Placement Instance
           </button>
         )}
       </div>

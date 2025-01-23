@@ -4,89 +4,61 @@ import bodyParser from 'body-parser';
 import { finalize } from './src/tokamak/core/finalize.js';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Define __dirname for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Path to the outputs directory used by the Synthesizer
+const outputDir = path.join(__dirname, 'src', 'packages', 'evm', 'examples', 'tokamak', 'outputs');
+
+// Helper function to wait for a file to be generated
+const waitForFile = (filePath: string, retries = 5, delay = 200): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const checkFile = (attempts: number) => {
+      if (fs.existsSync(filePath)) {
+        resolve();
+      } else if (attempts > 0) {
+        setTimeout(() => checkFile(attempts - 1), delay);
+      } else {
+        reject(new Error(`File not found: ${filePath}`));
+      }
+    };
+
+    checkFile(retries);
+  });
+};
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// Helper function to recursively fix arrays in the object
-function deepFixArrays(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(deepFixArrays);
-  } else if (obj && typeof obj === 'object') {
-    const keys = Object.keys(obj);
-    if (keys.length && keys.every(k => /^\d+$/.test(k))) {
-      // convert numeric-keyed object => array
-      const sorted = keys.sort((a, b) => Number(a) - Number(b));
-      return sorted.map(k => deepFixArrays(obj[k]));
-    } else {
-      for (const k of keys) {
-        obj[k] = deepFixArrays(obj[k]);
-      }
-      return obj;
-    }
-  }
-  return obj;
-}
-
 app.post('/api/finalize', async (req, res) => {
   try {
-    // 1) Parse placements from request body
     const placementsObj = req.body.placements;
 
-    // 2) Convert placements back into a Map
     const placementsMap = new Map<number, any>(
-      Object.entries(placementsObj).map(([k, v]) => {
-        return [Number(k), deepFixArrays(v)];
-      })
+      Object.entries(placementsObj).map(([k, v]) => [Number(k), v])
     );
 
-    // 3) Ensure inPts/outPts are arrays for all placements
-    for (const [mapKey, placement] of placementsMap.entries()) {
-      if (!placement.inPts) {
-        placement.inPts = [];
-      } else if (!Array.isArray(placement.inPts)) {
-        placement.inPts = Object.values(placement.inPts);
-      }
-
-      if (!placement.outPts) {
-        placement.outPts = [];
-      } else if (!Array.isArray(placement.outPts)) {
-        placement.outPts = Object.values(placement.outPts);
-      }
-    }
-
-    // 4) Log the processed placementsMap for debugging
-    console.log('--- Final placementsMap before finalize ---');
-    for (const [k, v] of placementsMap.entries()) {
-      console.log(`Key = ${k}`, JSON.stringify(v, null, 2));
-    }
-
-    // 5) Call finalize to generate results
     const result = await finalize(placementsMap, true);
 
-    // Assuming `finalize` writes files to /outputs directory
-    const outputDir = path.join(__dirname, 'outputs');
-
-    // Ensure the output directory exists
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
-
-    // Extract the generated permutation and placementInstance
     const permutationPath = path.join(outputDir, 'permutation.ts');
     const placementInstancePath = path.join(outputDir, 'placementInstance.ts');
 
-    // Read the files if they exist
+    // Wait for the permutation file to be generated
+    console.log('Waiting for permutation file to be generated...');
+    await waitForFile(permutationPath);
+
     const permutation = fs.existsSync(permutationPath)
       ? fs.readFileSync(permutationPath, 'utf-8')
-      : null;
+      : 'export const permutationRule = [];'; // Default for empty permutations
 
     const placementInstance = fs.existsSync(placementInstancePath)
       ? fs.readFileSync(placementInstancePath, 'utf-8')
       : null;
 
-    // Return the results
     res.json({
       ok: true,
       data: {
@@ -100,7 +72,6 @@ app.post('/api/finalize', async (req, res) => {
   }
 });
 
-// Start the server
 app.listen(3001, () => {
   console.log('Server running on port 3001');
 });
