@@ -1,6 +1,6 @@
 import { hexToBytes } from "@ethereumjs/util/index.js"
 
-import { createEVM } from '../../../src/constructors.js'
+import { createEVM } from '../../src/constructors.js'
 
 const main = async () => {
   const evm = await createEVM()

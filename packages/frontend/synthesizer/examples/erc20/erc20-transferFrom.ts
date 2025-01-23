@@ -5,7 +5,7 @@
 import { Account, Address, hexToBytes } from "@ethereumjs/util/index.js"
 import { keccak256 } from 'ethereum-cryptography/keccak'
 
-import { createEVM } from '../../../src/constructors.js'
+import { createEVM } from '../../src/constructors.js'
 
 // ERC20 contract bytecode
 const contractCode = hexToBytes(
