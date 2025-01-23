@@ -7,22 +7,21 @@ Tokamak-zk-EVM is a zero-knowledge Ethereum Virtual Machine implementation that 
 This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 
 ### Frontend Packages
-| Package | Description |
-|---------|------------|
-| [`qap-compiler`](./packages/frontend/qap-compiler) | description |
-| [`synthesizer`](./packages/frontend/synthesizer) | Compiler that processes Ethereum transactions into wire maps for Tokamak zk-SNARK proof generation |
+| Package | Description | Language |
+|---------|-------------|----------|
+| [`qap-compiler`](./packages/frontend/qap-compiler) | Library of subcircuits for basic EVM operations | circom |
+| [`synthesizer`](./packages/frontend/synthesizer) | Compiler that converts an Ethereum transaction into a circuit for Tokamak zk-SNARK | javascript |
 ### Backend Packages
-| Package | Description |
-|---------|------------|
-| [`prover`](./packages/backend/prover) | description |
-| [`mpc-setup`](./packages/backend/setup/mpc-setup) | description |
-| [`trusted-setup`](./packages/backend/setup/trusted-setup) | description |
-| [`verify-rust`](./packages/backend/verify/rust) | description |
-| [`verify-sol`](./packages/backend/verify/solidity) | description |
+| Package | Description | Language |
+|---------|-------------|----------|
+| [`mpc-setup`](./packages/backend/setup/mpc-setup) | Tokamak zk-SNARK's setup alogirhtm (multi-party computation version) | rust |
+| [`trusted-setup`](./packages/backend/setup/trusted-setup) | Tokamak zk-SNARK's setup algorithm (trusted single entity version) | rust |
+| [`prover`](./packages/backend/prove) | Tokamak zk-SNARK's proving algorithm | rust |
+| [`verify`](./packages/backend/verify) | Tokamak zk-SNARK's verifying algorithm | rust, solidity |
 ### Libraries
-| Package | Description |
-|---------|------------|
-| [`libs-rust-tools`](./packages/libs/internal/rust-tools) | description |
+| Package | Description | Language | 
+|---------|-------------|----------|
+| [`libs-rust-tools`](./packages/libs/internal/rust-tools) | Field, polynomial, signal processing related modules for Tokamak zk-SNARK | rust |
 
 ## Package Versions
 | Package | Current Version | Status |

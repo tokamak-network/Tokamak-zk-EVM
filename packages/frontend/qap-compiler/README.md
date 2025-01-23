@@ -1,20 +1,36 @@
-# circom-ethereum-opcodes
+# Tokamak-zk-EVM/qap-compiler
 
-Circom circuit set of the Ethereum opcodes
+## Overview
+You can convert your Ethereum transactions into zero-knowledge proofs (zkp) even if you don't know zkp.
 
-## Goal
+This repository provides a library of subcircuits for EVM's basic operations. Combined with Synthesizer in [synthesizer package](../synthesizer), you can build a zkp circuit specialized for each Ethereum transaction. The transaction specific-circuit will be used as preprocessed input for [Tokamak zk-SNARK](https://eprint.iacr.org/2024/507).
 
-Tokamak team is working toward a zk-EVM which is capable to execute EVM bytecode and generate a zk-SNARK proof based on our SNARK paper "[An Efficient SNARK for Field-Programmable and RAM Circuits
-](https://eprint.iacr.org/2024/507)".
-The original Groth16 requires high cost "setup" for every single transaction since it is a circuit-speicific SNARK. On the other hand, universal SNARKs such as Plonk would be enough with just a single setup but the existing protocols cause humongous computation overhead in proving and verifying algorithm.
+## Features
+- Preliminary work for zero-knowledge proof generation and verification
+- Compatible with Ethereum's EVM, which is based on 256-bit words.
+- Combined with Synthesizer, almost any type of transaction can be circuited.
 
-Every transaction might execute different functions with different arguments but all the execution steps can be broken down into the EVM opcode set; the executed opcodes should be in the EVM instruction set even though the order of opcode execution would be different.
+## Installation
 
-Our approach is to take advantage of those two different types of SNARK protocols by assembling each EVM opcode circuit in the order of executions by a transaction; it would be fast to prove and verify like circuit-speicific SNARKs and require only a single setup phase similar to universal SNARKs. It is enough to make setups for the EVM opcode circuits, rather than you need setups everytime transaction occurs. This allows us to make all transactions zk-provable after a single of the setup phase, using [Tokamak-ZkEVM](https://github.com/tokamak-network/Tokamak-ZkEVM) without any huge sacrifice in terms of cost to prove or verify.
+This package requires [Circom](https://docs.circom.io/getting-started/installation) and [nodeJs](https://nodejs.org).
 
-This repository aims to implement zk-SNARK provable circuits of the EVM instruction set along Tokamak zk-EVM plan.
+To obtain the latest version, simply require the project using `npm`:
 
-## Directory tree
+```shell
+npm install
+```
+
+## Usage
+1. Configure the number of inputs and outputs in buffer subcircuits by changing the variable $N$ in [this code](./circuits/buffer.circom) (default: $N = 256$).
+   > - There is no limit to $N$. However, the larger they are, the more time it takes to generate a zkp proof.
+   > - If $N$ is insufficient, fewer types of Ethereum transactions can be circuited, and the Synthesizer may throw errors for more complicated transactions.
+2. Run the script below in terminal. Windows users will need to use GitBash as their terminal.
+```shell
+./scripts/compile.sh
+```
+3. Check your [outputs](./outputs) 
+
+## Composition of the subcircuit library
 
 ```text
 circuits
@@ -32,6 +48,7 @@ circuits
 ├── add.circom
 ├── addmod.circom
 ├── and.circom
+├── buffer.circom
 ├── byte.circom
 ├── div.circom
 ├── eq.circom
@@ -55,75 +72,56 @@ circuits
 ├── slt.circom
 ├── smod.circom
 ├── sub.circom
+├── subexp.circom
 └── xor.circom
 ```
 
-- `templates`: The set of circuits and functions frequently used by the sub-circuits. The circuits under `128bit` assume to take 128-bit length values.
+- All subcircuits are written Circom language (for details, visit [Circom official document](https://docs.circom.io/).
+- `templates`: The set of modules and functions frequently used by the sub-circuits. The circuits under `128bit` assume to take 128-bit length values.
+- The list of subcircuits does not explicitly mean the compatibility with EVM. Synthesizer will combine these subcircuits to represent all signal processing performed within the EVM. Thus, the EVM-compatiblity depends on Synthesizer, and additions and changes to the subcircuits will be determined based on the needs of the Synthesizer.
 
-## Circuit design
+## Subcircuits design
+- All subcircuits are compatible with the EVM's basic operations on 256-bit words.
+- - Due to the nature of finite fields for pairing-friendly elliptic curves (e.g., BN128), Circom supports 254-bit words.
+- - So, each input and output of target operations will be split (by Synthesizer) into two 128-bit length values before being applied to the subcircuits.
+- - As the result, the subcircuits have twice as many inputs and outputs as target operations.
 
-The circuits are implemented following the instruction definitions in Ethereum yellow paper.
+- KECCAK256
+    - Implementing Keccak hashing directly in a circuit, such as [Keccak256-circom](https://github.com/vocdoni/keccak256-circom), is computationally inefficient, resulting in approximately 151k constraints. Thus, we have chosen not to implement a Keccak circuit. Instead, Synthesizer will buffer subcircuits to emit the KECCAK256 input values from the circuit and reintroduce the KECCAK256 output values back into the circuit. Outside the circuit, the Keccak hash computation can be run by the verifier of the Tokamak-zk SNARK. Find details from [Synthesizer Doc.](https://tokamak.notion.site/Synthesizer-documentation-164d96a400a3808db0f0f636e20fca24?pvs=4)
 
-To learn more about Circom, please check [the official document](https://docs.circom.io/).
-
-### Input
-
-The circuits take one or multiple input signals such as "`in1`" or "`in2`".
-
-Due to limitation where the Circom's finite field prime (BN128) is 254-bit sized value, each circuit takes two 128-bit length values to be compatible with 32-byte words.
-
-Signed integers are represented as two's complements.
-
-### Output
-
-All the opcode circuits return a single output except `load` for a special use.
-
-The circuits returns two 128-bit values as output signals.
-
-### Number of constraints per opcode
-|Arithmetic Opcode|0x01 ADD|0x02 MUL|0x03 SUB|0x04 DIV|0x05 SDIV|0x06 MOD|0x07 SMOD|0x08 ADDMOD|0x09 MULMOD|0x0A EXP|0x0B SIGNEXTEND|
-|---|---|---|---|---|---|---|---|---|---|---|---|
-|Constraints|256|522|256|1054|*4155|1054|*4155|*1445|*2239|🚧 WIP|*2823|
-
-|Comparators Opcode|0x10 LT|0x11 GT|0x12 SLT|0x13 SGT|0x14 EQ|0x15 ISZERO|
-|---|---|---|---|---|---|---|
-|Constraints|262|262|520|520|5|5|
-
-|Bitwise Opcode|0x16 AND|0x17 OR|0x18 XOR|0x19 NOT|0x1A BYTE|0x1B SHL|0x1C SHR|0x1D SAR|
-|---|---|---|---|---|---|---|---|---|
-|Constraints|768|768|768|256|308|326|325|1063
-
-*: Improvement is required to be used in products.
-
-Most Cost is the range check cost. For future research on optimization, please check [Further Research](#further-research) below.
-
-### Our SNARK Primitive - Subcircuit library
-Refer to [our SNARK paper](https://eprint.iacr.org/2024/507.pdf) "3 Front-end preprocess: System of constraints and setup algorithm"
-
-### Our Limitation
-- EXP
-
-    As the exponent range is [0,2**256), if an EXP circuit is implemented, it will be the most expensive among the above opcodes. In other words, including an EXP single circuit in the subcircuit library has the disadvantage of being expensive. One good approach is to implement the EXP operation using the MUL opcode circuit already in the subcircuit library.
-
-- SHA3
-
-    [Keccak256](https://github.com/vocdoni/keccak256-circom) hash function is implemented in Circom by [Vocdoni](https://github.com/vocdoni). However, it needs around 151k constraints by Keccak's zk-unfriendliness. It is too expensive to put it in a subcircuit library.
+- Number of constraints
 
 
-## Further Research
+| Subcircuit name | # of constraints |
+|-------------|---------------------|
+| 0x01 ADD    | 256                 |
+| 0x02 MUL    | 522                 |
+| 0x03 SUB    | 256                 |
+| 0x04 DIV    | 1054                |
+| 0x05 SDIV   | 4155                |
+| 0x06 MOD    | 1054                |
+| 0x07 SMOD   | 4155                |
+| 0x08 ADDMOD | 1445                |
+| 0x09 MULMOD | 2239                |
+| 0x0A EXP    | 7982                |
+| 0x0B SIGNEXTEND | 2823            |
+| 0x12 SLT    | 520                 |
+| 0x13 SGT    | 520                 |
+| 0x1A BYTE   | 308                 |
+| 0x1B SHL    | 326                 |
+| 0x1C SHR    | 325                 |
+| 0x1D SAR    | 1063                |
 
-How to reduce range check constraints
+## Contributing
+We welcome contributions! Please see our [Contributing Guidelines](../../../CONTRIBUTING.md) for details.
 
-- About R1CS range check : [Simple R1CS range check and truncation](https://hackmd.io/@7dpNYqjKQGeYC7wMlPxHtQ/B1w_9nq2Y)
+## References
+- [Tokamak zk-SNARK paper](https://eprint.iacr.org/2024/507)
 
-Can we Use Lookup?
+## Original contribution
+- [JehyukJang](https://github.com/JehyukJang): Subcircuits planning and consulting
+- [pleiadex](https://github.com/pleiadex): Initial subcircuits design and implementation. Script development.
+- [jdhyun09](https://github.com/jdhyun09): Improvement of EVM-compatability. Constraints optimization.
 
-- [GroLup: Plookup for R1CS](https://ethresear.ch/t/grolup-plookup-for-r1cs/14307)
-
-- [Can Groth16 support lookups?](https://hackmd.io/@Merlin404/SJmtF_k-2)
-
-Optimize our zk-EVM Subcircuit library
-
-- Splitting opcode operations. (e.g. SDIV => sign_bit extraction circuit + subcircuit already in subcircuit library)
-    - [Using lazy loading for duplicate subcircuit constraints](https://hackmd.io/@JIJKVPoYSZaHxu42ObOitQ/SJDZWE-Gh)
-- Combine opposing opcodes into one subcircuit. (e.g. <0x10 LT, 0x11 GT>,<0x12 SLT, 0x13 SGT>)
+## License
+[MPL-2.0]
