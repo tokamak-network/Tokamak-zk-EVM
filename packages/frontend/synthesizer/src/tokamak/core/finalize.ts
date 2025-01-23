@@ -404,7 +404,7 @@ class Permutation {
 
 const testInstances = async (instances: PlacementInstances): Promise<void> => {
   //console.log("Usage: tsx generate_witness.ts <file.wasm> <input.json> <output.wtns>")
-  const dir = 'packages/evm/src/tokamak/resources/subcircuitLibrary'
+  const dir = 'src/tokamak/resources/subcircuitLibrary'
   const reuseBuffer = new Map()
   for (const [placementInd, instance] of instances.entries()) {
     const id = instance.subcircuitId
@@ -414,6 +414,8 @@ const testInstances = async (instances: PlacementInstances): Promise<void> => {
       buffer = reuseBuffer.get(id)
     } else {
       const targetWasmPath = path.resolve(appRootPath.path, dir, `subcircuit${id}.wasm`)
+
+
       try {
         buffer = readFileSync(targetWasmPath)
       } catch (err) {
