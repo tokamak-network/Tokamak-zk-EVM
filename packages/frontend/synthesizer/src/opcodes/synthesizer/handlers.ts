@@ -11,7 +11,6 @@ import { BIGINT_0, BIGINT_1 } from "@ethereumjs/util"
 import { SynthesizerHandler } from "./types.js"
 
 
-
 export const synthesizerHandlers: Map<number, SynthesizerHandler> = new Map([
   // 0x01: ADD
   [0x01, async function (runState) {

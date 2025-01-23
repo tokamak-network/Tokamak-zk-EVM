@@ -3,15 +3,24 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist/cjs",
-    "composite": true
+    "baseUrl": ".",
+    "composite": true,
+    "paths": {
+      "@ethereumjs/util/*": ["libs/util/dist/esm/*"],
+      "@ethereumjs/util": ["libs/util/dist/esm/index"],
+      "@ethereumjs/common/*": ["libs/common/dist/esm/*"],
+      "@ethereumjs/common": ["libs/common/dist/esm/index"],
+      "@ethereumjs/statemanager": ["libs/statemanager/dist/esm/index"],
+      "@ethereumjs/statemanager/*": ["libs/statemanager/dist/esm/*"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.json"],
-  "references": [
-    { "path": "../common/tsconfig.prod.cjs.json" },
-    { "path": "../rlp/tsconfig.prod.cjs.json" },
-    { "path": "../statemanager/tsconfig.prod.cjs.json" },
-    { "path": "../mpt/tsconfig.prod.cjs.json" },
-    { "path": "../tx/tsconfig.prod.cjs.json" },
-    { "path": "../util/tsconfig.prod.cjs.json" }
-  ]
+  // "references": [
+  //   { "path": "../common/tsconfig.prod.cjs.json" },
+  //   { "path": "../rlp/tsconfig.prod.cjs.json" },
+  //   { "path": "../statemanager/tsconfig.prod.cjs.json" },
+  //   { "path": "../mpt/tsconfig.prod.cjs.json" },
+  //   { "path": "../tx/tsconfig.prod.cjs.json" },
+  //   { "path": "../util/tsconfig.prod.cjs.json" }
+  // ]
 }
