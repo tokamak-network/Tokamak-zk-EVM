@@ -10,7 +10,6 @@ build/
 
 # Solidity
 artifacts/
-cache/
 coverage/
 coverage.json
 
