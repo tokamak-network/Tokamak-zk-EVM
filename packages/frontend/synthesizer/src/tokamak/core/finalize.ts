@@ -153,7 +153,7 @@ async function outputPlacementInstance(placements: Placements): Promise<Placemen
   const tsContent = `export const placementInstance = \n ${JSON.stringify(result, null, 2)}`
   const filePath = path.resolve(
     appRootPath.path,
-    'packages/evm/examples/tokamak/outputs/placementInstance.ts',
+    'examples/tokamak/outputs/placementInstance.ts',
   )
   const dir = path.dirname(filePath)
   if (!fs.existsSync(dir)) {
@@ -260,7 +260,7 @@ class Permutation {
     const tsContent = `export const permutationRule = \n ${JSON.stringify(this.permutationFile, null, 2)}`
     const filePath = path.resolve(
       appRootPath.path,
-      'packages/evm/examples/tokamak/outputs/permutation.ts',
+      'examples/tokamak/outputs/permutation.ts',
     )
     const dir = path.dirname(filePath)
     if (!fs.existsSync(dir)) {
