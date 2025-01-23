@@ -1,16 +1,15 @@
-# Tokamak-zk-EVM/Synthesizer
+# Tokamak-zk-EVM/synthesizer
 
 ## Overview
-Synthesizer is a compiler that processes an Ethereum transaction and returns a wire map. This wire map serves as preprocessed input for [Tokamak zk-SNARK](https://eprint.iacr.org/2024/507).
+You can convert your Ethereum transactions into zero-knowledge proofs (zkp) even if you don't know zkp.
+
+Synthesizer is a compiler that takes an Ethereum transaction as input and returns a wire map (in the form of a permutation map). Combined with the library subcircuits in [qap-compiler package](../qap-compiler), this wire map forms a zkp circuit specialized for the transaction. The transaction specific-circuit will be used as preprocessed input for [Tokamak zk-SNARK](https://eprint.iacr.org/2024/507).
 
 ## Features
-- Zero-knowledge proof generation and verification capabilities
+- Preliminary work for zero-knowledge proof generation and verification
 - Seamless integration with Ethereum's EVM
 - Efficient witness calculation for zk-proofs
 - TypeScript/JavaScript friendly API for blockchain developers
-
-### Output
-[Output description]
 
 ## Installation
 
@@ -22,82 +21,124 @@ npm install
 
 This package provides the core Ethereum Virtual Machine (EVM) implementation which is capable of executing EVM-compatible bytecode. The package has been extracted from the [@ethereumjs/vm](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/vm) package along the VM `v6` release.
 
-**Note:** Starting with the Dencun hardfork `EIP-4844` related functionality will become an integrated part of the EVM functionality with the activation of the point evaluation precompile. It is therefore strongly recommended to _always_ run the EVM with a KZG library installed and initialized, see [KZG Setup](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/tx/README.md#kzg-setup) for instructions.
-
 ## Usage
-[Synthesizer specific usage examples]
+1. Prepare input files
+    - Ethereum transaction ID (obtainable from [etherscan.io](https://etherscan.io))
+    - R1CSs of the library subcircuits in Circom's WASM format ([example](./src/tokamak/resources/subcircuitLibrary), obtainable from [qap-compiler package](../qap-compiler/outputs/wasm))
+    - List of the library subcircuits ([example](./src/tokamak/resources/subcircuitInfo.ts), obtainable from [qap-compiler package](../qap-compiler/outputs))
+    - List of the wires of the library subcircuits ([example](./src/tokamak/resources/globalWireList.ts), obtainable from [qap-compiler package](../qap-compiler/outputs))
 
-#### Input
-1. Ethereum transactions
-- Playground: ____
-2. Subcircuit library
-- 
-#### Output
+2. INTERFACE GIF ANIMATION WILL BE ADDED HERE
+
+3. Check your outputs ([example](./examples/tokamak/outputs))
 
 ## Supported EVM Operations
-| Opcode | Name | Description | Status |
-|--------|------|-------------|---------|
-| `0x00` | STOP | Halts execution | ✅ |
-| `0x01` | ADD | Addition operation | ✅ |
-| `0x02` | MUL | Multiplication operation | ✅ |
-| `0x03` | SUB | Subtraction operation | ✅ |
-| `0x04` | DIV | Integer division operation | ✅ |
-| `0x05` | SDIV | Signed integer division operation | ✅ |
-| `0x06` | MOD | Modulo remainder operation | ✅ |
-| `0x07` | SMOD | Signed modulo remainder operation | ✅ |
-| `0x08` | ADDMOD | Modulo addition operation | ✅ |
-| `0x09` | MULMOD | Modulo multiplication operation | ✅ |
-| `0x0A` | EXP | Exponential operation | ✅ |
-| `0x0B` | SIGNEXTEND | Extend length of signed integer | ✅ |
-| `0x10` | LT | Less-than comparison | ✅ |
-| `0x11` | GT | Greater-than comparison | ✅ |
-| `0x12` | SLT | Signed less-than comparison | ✅ |
-| `0x13` | SGT | Signed greater-than comparison | ✅ |
-| `0x14` | EQ | Equality comparison | ✅ |
-| `0x15` | ISZERO | Simple not operator | ✅ |
-| `0x16` | AND | Bitwise AND operation | ✅ |
-| `0x17` | OR | Bitwise OR operation | ✅ |
-| `0x18` | XOR | Bitwise XOR operation | ✅ |
-| `0x19` | NOT | Bitwise NOT operation | ✅ |
-| `0x1A` | BYTE | Retrieve single byte from word | ✅ |
-| `0x1B` | SHL | Shift left | ✅ |
-| `0x1C` | SHR | Logical shift right | ✅ |
-| `0x1D` | SAR | Arithmetic shift right | ✅ |
-| `0x20` | KECCAK256 | Compute Keccak-256 hash | ✅ |
-| `0x30` | ADDRESS | Get address of currently executing account | ✅ |
-| `0x31` | BALANCE | Get balance of the given account | ✅ |
-| `0x32` | ORIGIN | Get execution origination address | ✅ |
-| `0x33` | CALLER | Get caller address | ✅ |
-| `0x34` | CALLVALUE | Get deposited value by the instruction/transaction | ✅ |
-| `0x35` | CALLDATALOAD | Get input data of current environment | ✅ |
-| `0x36` | CALLDATASIZE | Get size of input data in current environment | ✅ |
-| `0x37` | CALLDATACOPY | Copy input data in current environment to memory | ✅ |
-| `0x38` | CODESIZE | Get size of code running in current environment | ✅ |
-| `0x39` | CODECOPY | Copy code running in current environment to memory | ✅ |
-| `0xF1` | CALL | Message-call into an account | ✅ |
-| `0xF2` | CALLCODE | Message-call into this account with alternative account's code | ✅ |
-| `0xF3` | RETURN | Halt execution returning output data | ✅ |
-| `0xF4` | DELEGATECALL | Message-call into this account with an alternative account's code, but persisting the current values for sender and value | ✅ |
-| `0xF8` | EXTCALL | External message-call into an account | ✅ |
-| `0xF9` | EXTDELEGATECALL | External delegate call | ✅ |
-| `0xFA` | STATICCALL | Static message-call into an account | ✅ |
-| `0xFB` | EXTSTATICCALL | External static call | ✅ |
+| Opcode | Name         | Description                                              | Status |
+|--------|--------------|----------------------------------------------------------|--------|
+| 0      | STOP         | Halts execution                                          | ✅      |
+| 1      | ADD          | Addition operation                                       | ✅      |
+| 2      | MUL          | Multiplication operation                                 | ✅      |
+| 3      | SUB          | Subtraction operation                                    | ✅      |
+| 4      | DIV          | Integer division operation                               | ✅      |
+| 5      | SDIV         | Signed integer division operation (truncated)           | ✅      |
+| 6      | MOD          | Modulo remainder operation                               | ✅      |
+| 7      | SMOD         | Signed modulo remainder operation                        | ✅      |
+| 8      | ADDMOD       | Modulo addition operation                                | ✅      |
+| 9      | MULMOD       | Modulo multiplication operation                          | ✅      |
+| 0a     | EXP          | Exponential operation                                    | ✅      |
+| 0b     | SIGNEXTEND   | Extend length of two’s complement signed integer         | ✅      |
+| 10     | LT           | Less-than comparison                                     | ✅      |
+| 11     | GT           | Greater-than comparison                                  | ✅      |
+| 12     | SLT          | Signed less-than comparison                              | ✅      |
+| 13     | SGT          | Signed greater-than comparison                           | ✅      |
+| 14     | EQ           | Equality comparison                                      | ✅      |
+| 15     | ISZERO       | Is-zero comparison                                       | ✅      |
+| 16     | AND          | Bitwise AND operation                                    | ✅      |
+| 17     | OR           | Bitwise OR operation                                     | ✅      |
+| 18     | XOR          | Bitwise XOR operation                                    | ✅      |
+| 19     | NOT          | Bitwise NOT operation                                    | ✅      |
+| 1a     | BYTE         | Retrieve single byte from word                           | ✅      |
+| 1b     | SHL          | Left shift operation                                     | ✅      |
+| 1c     | SHR          | Logical right shift operation                            | ✅      |
+| 1d     | SAR          | Arithmetic (signed) right shift operation               | ✅      |
+| 20     | KECCAK256    | Compute Keccak-256 hash                                  | ⚠️      |
+| 30     | ADDRESS      | Get address of currently executing account               | ✅      |
+| 31     | BALANCE      | Get balance of the given account                         | ✅      |
+| 32     | ORIGIN       | Get execution origination address                        | ✅      |
+| 33     | CALLER       | Get caller address                                       | ✅      |
+| 34     | CALLVALUE    | Get deposited value by the instruction/transaction       | ✅      |
+| 35     | CALLDATALOAD | Get input data of current environment                    | ✅      |
+| 36     | CALLDATASIZE | Get size of input data in current environment            | ✅      |
+| 37     | CALLDATACOPY | Copy input data in current environment to memory         | ✅      |
+| 38     | CODESIZE     | Get size of code running in current environment          | ✅      |
+| 39     | CODECOPY     | Copy code running in current environment to memory       | ✅      |
+| 3a     | GASPRICE     | Get price of gas in current environment                  | ✅      |
+| 3b     | EXTCODESIZE  | Get size of an account’s code                            | ✅      |
+| 3c     | EXTCODECOPY  | Copy an account’s code to memory                         | ✅      |
+| 3d     | RETURNDATASIZE | Get size of output data from the previous call         | ✅      |
+| 3e     | RETURNDATACOPY | Copy output data from the previous call to memory      | ✅      |
+| 3f     | EXTCODEHASH  | Get hash of an account’s code                            | ✅      |
+| 40     | BLOCKHASH    | Get the hash of one of the 256 most recent complete blocks | ✅    |
+| 41     | COINBASE     | Get the block’s beneficiary address                      | ✅      |
+| 42     | TIMESTAMP    | Get the block’s timestamp                                | ✅      |
+| 43     | NUMBER       | Get the block’s number                                   | ✅      |
+| 44     | PREVRANDAO   | Get the block’s difficulty                               | ✅      |
+| 45     | GASLIMIT     | Get the block’s gas limit                                | ✅      |
+| 46     | CHAINID      | Get the chain ID                                         | ✅      |
+| 47     | SELFBALANCE  | Get balance of currently executing account               | ✅      |
+| 48     | BASEFEE      | Get the base fee                                         | ✅      |
+| 49     | BLOBHASH     | Get versioned hashes                                     | ✅      |
+| 4a     | BLOBBASEFEE  | Returns the value of the blob base-fee                   | ✅      |
+| 50     | POP          | Remove item from stack                                   | ✅      |
+| 51     | MLOAD        | Load word from memory                                    | ✅      |
+| 52     | MSTORE       | Save word to memory                                      | ✅      |
+| 53     | MSTORE8      | Save byte to memory                                      | ✅      |
+| 54     | SLOAD        | Load word from storage                                   | ✅      |
+| 55     | SSTORE       | Save word to storage                                     | ✅      |
+| 56     | JUMP         | Alter the program counter                                | ✅      |
+| 57     | JUMPI        | Conditionally alter the program counter                  | ✅      |
+| 58     | PC           | Get the value of the program counter                     | ✅      |
+| 59     | MSIZE        | Get the size of active memory in bytes                   | ✅      |
+| 5a     | GAS          | Get the amount of available gas                          | ✅      |
+| 5b     | JUMPDEST     | Mark a valid destination for jumps                       | ✅      |
+| 5c     | TLOAD        | Load word from transient storage                         | ✅      |
+| 5d     | TSTORE       | Save word to transient storage                           | ✅      |
+| 5e     | MCOPY        | Copy memory areas                                        | ✅      |
+| 5f     | PUSH0        | Place value 0 on stack                                   | ✅      |
+| 60 - 7f| PUSHx        | Place x byte item on stack                               | ✅      |
+| 80 - 8f| DUPx         | Duplicate xst stack item                                 | ✅      |
+| 90 - 9f| SWAPx        | Exchange 1st and xnd stack items                         | ✅      |
+| a0 - a4| LOGx         | Append log record with x topics                          | ✅      |
+| f0     | CREATE       | Create a new account with associated code                | ❌      |
+| f1     | CALL         | Message-call into an account                             | ✅      |
+| f2     | CALLCODE     | Message-call into this account with alternative code     | ✅      |
+| f3     | RETURN       | Halt execution returning output data                     | ✅      |
+| f4     | DELEGATECALL | Static message-call into an account                      | ✅      |
+| f5     | CREATE2      | Create a new account with associated code at predictable | ❌      |
+| fa     | STATICCALL   | Static message-call into an account                      | ✅      |
+| fd     | REVERT       | Halt execution reverting state changes                   | ❌      |
+| fe     | INVALID      | Designated invalid instruction                           | ✅      |
+| ff     | SELFDESTRUCT | Halt execution and delete account                        | ❌      |
 
-> **Note**: This list shows currently supported operations. More opcodes will be added in future releases.
+> **Notes**
+> - This list is based on [Cancun hardfork](https://www.evm.codes/).
+> - ❌: Will be supported in the future release
+> - ⚠️: Implemented in a different way than the zkp circuit
+> - Precompiled operations will be supported in the future.
+> - Synthesizers and the resulting zkp circuits will support tracking of gas usage in the future.
+> - Find details in [Synthesizer Doc](https://tokamak.notion.site/Synthesizer-documentation-164d96a400a3808db0f0f636e20fca24?pvs=4)
 
-## Architecture
-### Overview
-![Tokamak-zk-EVM Flow Chart](../../../.github/assets/flowchart.png)
-### Difference in signal processing from EVM
-![Tokamak-zk-EVM Flow Chart](../../../.github/assets/EVM_interpreter.png)
-![Tokamak-zk-EVM Flow Chart](../../../.github/assets/EVM_interpreter_Synthesizer.png)
-
-## Development
-[Synthesizer specific development guide]
+## Contributing
+We welcome contributions! Please see our [Contributing Guidelines](../../../CONTRIBUTING.md) for details.
 
 ## References
-- This project is built on top of [EthereumJS EVM](./docs/ETHEREUMJS.md). See the detailed documentation for the underlying EVM implementation.
+- [Synthesizer Documentation](./docs)
 - [Tokamak zk-SNARK paper](https://eprint.iacr.org/2024/507)
+- This project is built on top of [EthereumJS EVM](https://github.com/ethereumjs/ethereumjs-monorepo). See the detailed documentation for the underlying EVM implementation.
+
+## Original contribution
+- [JehyukJang](https://github.com/JehyukJang): Algorithm design and development. Core functionality implementation.
+- [SonYoungsung](https://github.com/SonYoungsung): Auxiliary functionality implementation. Code organization and optimization. Interface implementation.
 
 ## License
 [MPL-2.0]
