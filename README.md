@@ -60,10 +60,6 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
     - Synthesizer(will be updated soon) 
 <!-- - [API Reference](./docs/api) -->
 
-## ActiveBranches
-- `main` - Stable releases, currently containing frontend components (v0.1.x)
-- `dev` - Active development branch
-
 ## Contributing
 We welcome contributions! Please see our [Contributing Guidelines](./CONTRIBUTING.md) for details.
 
