@@ -8,13 +8,14 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-     "server": "tsx server/index.ts"
+    "server": "tsx server/index.ts"
   },
   "dependencies": {
     "@types/axios": "^0.14.4",
     "buffer": "^6.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
+    "ethereum-cryptography": "^3.0.0",
     "express": "^4.21.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

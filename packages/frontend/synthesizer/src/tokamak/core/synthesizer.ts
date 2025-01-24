@@ -591,7 +591,7 @@ export class Synthesizer {
   }
 
   public placeEXP(inPts: DataPt[]): DataPt {
-    SynthesizerValidator.validateSubcircuitName('subEXP', this.subcircuitNames)
+    SynthesizerValidator.validateSubcircuitName('SubEXP', this.subcircuitNames)
     // a^b
     const aPt = inPts[0]
     const bPt = inPts[1]

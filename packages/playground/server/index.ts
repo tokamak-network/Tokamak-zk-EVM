@@ -43,7 +43,9 @@ app.post('/api/finalize', async (req, res) => {
       Object.entries(placementsObj).map(([k, v]) => [Number(k), v])
     );
 
-    const result = await finalize(placementsMap, true);
+        const result = await finalize(placementsMap, true);
+        
+        console.log('result ', result)
 
     const permutationPath = path.join(outputDir, 'permutation.ts');
     const placementInstancePath = path.join(outputDir, 'placementInstance.ts');
