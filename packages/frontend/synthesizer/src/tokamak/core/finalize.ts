@@ -35,31 +35,57 @@ export async function finalize(placements: Placements, validate?: boolean): Prom
 }
 
 const halveWordSizeOfWires = (newDataPts: DataPt[], prevDataPt: DataPt, index: number): void => {
-  const indLow = index * 2
-  const indHigh = indLow + 1
-  newDataPts[indLow] = { ...prevDataPt }
-  newDataPts[indHigh] = { ...prevDataPt }
-  if (prevDataPt.wireIndex !== undefined) {
-    newDataPts[indLow].wireIndex = prevDataPt.wireIndex * 2
-    newDataPts[indHigh].wireIndex = prevDataPt.wireIndex * 2 + 1
-  }
-  if (prevDataPt.pairedInputWireIndices !== undefined) {
-    newDataPts[indHigh].pairedInputWireIndices = prevDataPt.pairedInputWireIndices.flatMap(
-      (ind) => [ind * 2, ind * 2 + 1],
+  console.log('Input data:', {
+    prevDataPt,
+    index,
+    valueType: typeof prevDataPt.value
+  });
+
+  const indLow = BigInt(index * 2)
+  const indHigh = indLow + 1n
+
+  try {
+    newDataPts[Number(indLow)] = { ...prevDataPt }
+    newDataPts[Number(indHigh)] = { ...prevDataPt }
+
+    if (prevDataPt.wireIndex !== undefined) {
+      const wireIndex = BigInt(prevDataPt.wireIndex)
+      newDataPts[Number(indLow)].wireIndex = Number(wireIndex * 2n)
+      newDataPts[Number(indHigh)].wireIndex = Number(wireIndex * 2n + 1n)
+    }
+
+    if (prevDataPt.pairedInputWireIndices !== undefined) {
+      const convertIndices = (ind: number) => {
+        const bigInd = BigInt(ind)
+        return [Number(bigInd * 2n), Number(bigInd * 2n + 1n)]
+      }
+
+      newDataPts[Number(indHigh)].pairedInputWireIndices = prevDataPt.pairedInputWireIndices.flatMap(convertIndices)
+      newDataPts[Number(indLow)].pairedInputWireIndices = prevDataPt.pairedInputWireIndices.flatMap(convertIndices)
+    }
+
+    // value가 문자열로 들어올 경우를 대비
+    const value = typeof prevDataPt.value === 'string' ? BigInt(prevDataPt.value) : prevDataPt.value
+    
+    newDataPts[Number(indHigh)].value = value >> 128n
+    newDataPts[Number(indLow)].value = value & ((2n ** 128n) - 1n)
+
+    newDataPts[Number(indHigh)].valueHex = bytesToHex(
+      setLengthLeft(bigIntToBytes(newDataPts[Number(indHigh)].value), 16)
     )
-    newDataPts[indLow].pairedInputWireIndices = prevDataPt.pairedInputWireIndices.flatMap((ind) => [
-      ind * 2,
-      ind * 2 + 1,
-    ])
+    newDataPts[Number(indLow)].valueHex = bytesToHex(
+      setLengthLeft(bigIntToBytes(newDataPts[Number(indLow)].value), 16)
+    )
+
+  } catch (error) {
+    console.error('Error in halveWordSizeOfWires:', {
+      error,
+      prevDataPt,
+      index,
+      valueType: typeof prevDataPt.value
+    });
+    throw error;
   }
-  newDataPts[indHigh].value = prevDataPt.value >> 128n
-  newDataPts[indLow].value = prevDataPt.value & (2n ** 128n - 1n)
-  newDataPts[indHigh].valueHex = bytesToHex(
-    setLengthLeft(bigIntToBytes(newDataPts[indHigh].value), 16),
-  )
-  newDataPts[indLow].valueHex = bytesToHex(
-    setLengthLeft(bigIntToBytes(newDataPts[indLow].value), 16),
-  )
 }
 
 const removeUnusedLoadWires = (placements: Placements): PlacementEntry => {

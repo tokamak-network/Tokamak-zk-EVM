@@ -35,6 +35,11 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
+// JSON 페이로드 크기 제한 증가
+app.use(express.json({limit: '50mb'}));
+// URL-encoded 페이로드 크기 제한 증가
+app.use(express.urlencoded({limit: '50mb', extended: true}));
+
 app.post('/api/finalize', async (req, res) => {
     try {
     const placementsObj = req.body.placements;
