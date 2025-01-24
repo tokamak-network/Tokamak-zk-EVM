@@ -122,18 +122,18 @@ async function outputPlacementInstance(placements) {
         }
     }
     await testInstances(result);
-    const tsContent = `export const placementInstance = \n ${JSON.stringify(result, null, 2)}`;
-    const filePath = path.resolve(appRootPath.path, 'packages/evm/examples/tokamak/outputs/placementInstance.ts');
+    const jsonContent = `${JSON.stringify(result, null, 2)}`;
+    const filePath = path.resolve(appRootPath.path, 'examples/outputs/placementInstance.json');
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
     try {
-        fs.writeFileSync(filePath, tsContent, 'utf-8');
-        console.log(`Synthesizer: Input and output wire assingments of the placements are generated in "/outputs/placementInstance.ts".`);
+        fs.writeFileSync(filePath, jsonContent, 'utf-8');
+        console.log(`Synthesizer: Input and output wire assingments of the placements are generated in "/outputs/placementInstance.json".`);
     }
     catch (error) {
-        throw new Error(`Synthesizer: Failure in writing "placementInstance.ts".`);
+        throw new Error(`Synthesizer: Failure in writing "placementInstance.json".`);
     }
     return result;
 }
@@ -322,24 +322,24 @@ class Permutation {
         if (this._instances !== undefined) {
             this._validatePermutation();
         }
-        const tsContent = `export const permutationRule = \n ${JSON.stringify(this.permutationFile, null, 2)}`;
-        const filePath = path.resolve(appRootPath.path, 'packages/evm/examples/tokamak/outputs/permutation.ts');
+        const jsonContent = `${JSON.stringify(this.permutationFile, null, 2)}`;
+        const filePath = path.resolve(appRootPath.path, 'examples/outputs/permutation.json');
         const dir = path.dirname(filePath);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
         try {
-            fs.writeFileSync(filePath, tsContent, 'utf-8');
-            console.log(`Synthesizer: Permutation rule is generated in "/outputs/permutation.ts".`);
+            fs.writeFileSync(filePath, jsonContent, 'utf-8');
+            console.log(`Synthesizer: Permutation rule is generated in "/outputs/permutation.json".`);
         }
         catch (error) {
-            throw new Error(`Synthesizer: Failure in writing "permutation.ts".`);
+            throw new Error(`Synthesizer: Failure in writing "permutation.json".`);
         }
     }
 }
 const testInstances = async (instances) => {
     //console.log("Usage: tsx generate_witness.ts <file.wasm> <input.json> <output.wtns>")
-    const dir = 'packages/evm/src/tokamak/resources/subcircuitLibrary';
+    const dir = 'src/tokamak/resources/subcircuitLibrary';
     const reuseBuffer = new Map();
     for (const [placementInd, instance] of instances.entries()) {
         const id = instance.subcircuitId;

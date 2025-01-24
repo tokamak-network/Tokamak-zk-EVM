@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { fetchTransactionBytecode } from '../utils/etherscanApi';
 import { Buffer } from 'buffer';
-import { createEVM } from '../../evm/src/constructors';
+import { createEVM } from '../../frontend/synthesizer/src/constructors';
 
 window.Buffer = window.Buffer || Buffer;
 
@@ -39,7 +39,7 @@ const App: React.FC = () => {
 
       // 3) Send placements to the server
       setStatus('Finalizing placements on the server...');
-      const response = await fetch('http://localhost:3001/api/finalize', {
+      const response = await fetch('api/finalize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ placements: placementsObj }),
