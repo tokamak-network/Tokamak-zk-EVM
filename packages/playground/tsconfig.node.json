@@ -20,7 +20,8 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+    "noImplicitAny": false,
   },
   "include": ["utils/**/*.ts"], // Include server-related TypeScript files
   "exclude": ["node_modules", "dist"] // Exclude unnecessary files

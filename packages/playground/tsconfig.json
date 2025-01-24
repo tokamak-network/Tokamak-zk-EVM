@@ -5,8 +5,9 @@
     { "path": "./tsconfig.node.json" }
   ],
    "compilerOptions": {
+    "noImplicitAny": false,
     "module": "ESNext",
     "moduleResolution": "bundler",
-    // ... other options
+ 
   }
 }
