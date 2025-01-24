@@ -32,26 +32,48 @@ const waitForFile = (filePath: string, retries = 5, delay = 200): Promise<void> 
 };
 
 const app = express();
-app.use(cors());
-app.use(bodyParser.json());
 
-// JSON 페이로드 크기 제한 증가
-app.use(express.json({limit: '50mb'}));
-// URL-encoded 페이로드 크기 제한 증가
-app.use(express.urlencoded({limit: '50mb', extended: true}));
+const MAX_SIZE = '2gb';  // 더 큰 크기로 설정
+
+// 크기 제한 설정을 가장 먼저
+app.use(express.json({
+    limit: MAX_SIZE,
+    verify: (req, res, buf) => {
+        req['rawBody'] = buf;
+    }
+}));
+
+app.use(express.urlencoded({
+    limit: MAX_SIZE,
+    extended: true,
+    parameterLimit: 50000
+}));
+
+// body-parser 설정
+app.use(bodyParser.json({
+    limit: MAX_SIZE
+}));
+
+app.use(bodyParser.urlencoded({
+    limit: MAX_SIZE,
+    extended: true,
+    parameterLimit: 50000
+}));
+
+app.use(cors());
+
 
 app.post('/api/finalize', async (req, res) => {
     try {
-    const placementsObj = req.body.placements;
+      const placementsObj = req.body.placements;
+
 
     const placementsMap = new Map<number, any>(
       Object.entries(placementsObj).map(([k, v]) => [Number(k), v])
     );
 
-        const result = await finalize(placementsMap, true);
+    await finalize(placementsMap, true);
         
-        console.log('result ', result)
-
     const permutationPath = path.join(outputDir, 'permutation.ts');
     const placementInstancePath = path.join(outputDir, 'placementInstance.ts');
 
