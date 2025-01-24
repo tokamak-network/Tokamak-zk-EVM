@@ -1,50 +1,88 @@
-# React + TypeScript + Vite
+# Playground README
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## What is the Playground?
 
-Currently, two official plugins are available:
+The Playground is a developer-friendly environment designed to interact with and visualize the functionality of the **Tokamak zk-EVM** ecosystem. It provides a frontend interface for developers to test, debug, and experiment with **placements**, **permutations**, and other functionalities related to Zero-Knowledge Proof (ZKP) circuits.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## Expanding the ESLint configuration
+## How to Initialize the Playground
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+### 1. **System Requirements**
 
-- Configure the top-level `parserOptions` property like this:
+Ensure you have the following installed on your system:
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+- **Node.js** (v18 or later)
+- **npm** (package manager)
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+### 2. **Project Setup**
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+1. Clone the repository:
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+   ```bash
+   git clone <repository-url>
+   cd <repository-folder>
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+3. Ensure the Synthesizer package has been built:
+   Refer to the Synthesizer documentation for building instructions: [Synthesizer Documentation](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/dev/packages/frontend/synthesizer)
+
+4. Add an `.env` file with the following content:
+
+   ```plaintext
+   VITE_ETHERSCAN_API_KEY=<Your Etherscan API Key>
+   ```
+
+   You can generate the API key at [Etherscan](https://etherscan.io/).
+
+### 3. **Start the Backend Server**
+
+The backend handles operations like file reading, witness generation, and ZKP calculations.
+
+1. Start the server:
+   ```bash
+   npm run server
+   ```
+   By default, the server runs on `http://localhost:3000`.
+
+---
+
+### 4. **Start the Frontend**
+
+The frontend serves the Playground interface.
+
+1. Start the development server:
+   ```bash
+   npm run dev
+   ```
+2. Open your browser and visit:
+   ```
+   http://localhost:5173
+   ```
+
+---
+
+### 5. **Using the Playground**
+
+1. **Provide a Transaction**:
+
+   - Enter a transaction hash in the input field.
+   - Click "Process" to start the generation.
+
+2. **Generate Outputs**:
+
+   - The backend will compute outputs such as wire assignments and permutations.
+   - Once completed, download buttons for "Permutation" and "Placement Instance" files will appear.
+
+3. **Download Results**:
+
+   - Click the respective buttons to download the generated files.
+
+---
+
