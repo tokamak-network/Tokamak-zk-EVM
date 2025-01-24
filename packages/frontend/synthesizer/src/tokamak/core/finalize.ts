@@ -150,22 +150,22 @@ async function outputPlacementInstance(placements: Placements): Promise<Placemen
 
   await testInstances(result)
 
-  const tsContent = `export const placementInstance = \n ${JSON.stringify(result, null, 2)}`
+  const jsonContent = `${JSON.stringify(result, null, 2)}`
   const filePath = path.resolve(
     appRootPath.path,
-    'packages/evm/examples/tokamak/outputs/placementInstance.ts',
+    'examples/outputs/placementInstance.json',
   )
   const dir = path.dirname(filePath)
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true })
   }
   try {
-    fs.writeFileSync(filePath, tsContent, 'utf-8')
+    fs.writeFileSync(filePath, jsonContent, 'utf-8')
     console.log(
-      `Synthesizer: Input and output wire assingments of the placements are generated in "/outputs/placementInstance.ts".`,
+      `Synthesizer: Input and output wire assingments of the placements are generated in "/outputs/placementInstance.json".`,
     )
   } catch (error) {
-    throw new Error(`Synthesizer: Failure in writing "placementInstance.ts".`)
+    throw new Error(`Synthesizer: Failure in writing "placementInstance.json".`)
   }
 
   return result
@@ -257,20 +257,20 @@ class Permutation {
       this._validatePermutation()
     }
 
-    const tsContent = `export const permutationRule = \n ${JSON.stringify(this.permutationFile, null, 2)}`
+    const jsonContent = `${JSON.stringify(this.permutationFile, null, 2)}`
     const filePath = path.resolve(
       appRootPath.path,
-      'packages/evm/examples/tokamak/outputs/permutation.ts',
+      'examples/outputs/permutation.json',
     )
     const dir = path.dirname(filePath)
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
     }
     try {
-      fs.writeFileSync(filePath, tsContent, 'utf-8')
-      console.log(`Synthesizer: Permutation rule is generated in "/outputs/permutation.ts".`)
+      fs.writeFileSync(filePath, jsonContent, 'utf-8')
+      console.log(`Synthesizer: Permutation rule is generated in "/outputs/permutation.json".`)
     } catch (error) {
-      throw new Error(`Synthesizer: Failure in writing "permutation.ts".`)
+      throw new Error(`Synthesizer: Failure in writing "permutation.json".`)
     }
   }
 

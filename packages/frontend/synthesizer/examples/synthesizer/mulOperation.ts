@@ -1,6 +1,6 @@
 import { hexToBytes } from "@ethereumjs/util/index.js"
 
-import { createEVM } from '../../../src/constructors.js'
+import { createEVM } from '../../src/constructors.js'
 
 const main = async () => {
   const evm = await createEVM()
@@ -35,7 +35,7 @@ const main = async () => {
 
   const placementsArray = Array.from(res.runState!.synthesizer.placements.values())
   const lastPlacement = placementsArray[placementsArray.length - 1]
-  const lastOutPtValue = lastPlacement.outPts[lastPlacement.outPts.length - 1].valuestr
+  const lastOutPtValue = lastPlacement.outPts[lastPlacement.outPts.length - 1].value
 
   console.log(`Last Stack Value: ${stackValue?.toString(16)}`)
   console.log(`Last Placement OutPt Value: ${lastOutPtValue}`)

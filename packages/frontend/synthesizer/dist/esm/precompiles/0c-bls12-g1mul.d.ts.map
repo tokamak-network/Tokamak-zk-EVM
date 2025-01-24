@@ -1,0 +1,1 @@
+{"version":3,"file":"0c-bls12-g1mul.d.ts","sourceRoot":"","sources":["../../../src/precompiles/0c-bls12-g1mul.ts"],"names":[],"mappings":"AAUA,OAAO,KAAK,EAAmB,UAAU,EAAE,MAAM,aAAa,CAAA;AAC9D,OAAO,KAAK,EAAE,eAAe,EAAE,MAAM,YAAY,CAAA;AAEjD,wBAAsB,YAAY,CAAC,IAAI,EAAE,eAAe,GAAG,OAAO,CAAC,UAAU,CAAC,CAyC7E"}

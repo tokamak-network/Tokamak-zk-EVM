@@ -1,0 +1,1 @@
+{"version":3,"file":"stackDelta.d.ts","sourceRoot":"","sources":["../../../src/eof/stackDelta.ts"],"names":[],"mappings":"AAEA,eAAO,MAAM,UAAU,EAAE;IACvB,CAAC,GAAG,EAAE,MAAM,GAAG;QACb,MAAM,EAAE,MAAM,CAAA;QACd,OAAO,EAAE,MAAM,CAAA;QACf,IAAI,EAAE,MAAM,CAAA;QACZ,aAAa,EAAE,MAAM,CAAA;QACrB,WAAW,CAAC,EAAE,OAAO,CAAA;KACtB,CAAA;CA8JF,CAAA"}
