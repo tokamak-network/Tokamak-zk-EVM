@@ -5,11 +5,14 @@ You can convert your Ethereum transactions into zero-knowledge proofs (zkp) even
 
 Synthesizer is a compiler that takes an Ethereum transaction as input and returns a wire map (in the form of a permutation map). Combined with the library subcircuits in [qap-compiler package](../qap-compiler), this wire map forms a zkp circuit specialized for the transaction. The transaction specific-circuit will be used as preprocessed input for [Tokamak zk-SNARK](https://eprint.iacr.org/2024/507).
 
+For technical details, see [Synthesizer Documentation](./docs).
+
 ## Features
 - Preliminary work for zero-knowledge proof generation and verification
 - Seamless integration with Ethereum's EVM
 - Efficient witness calculation for zk-proofs
 - TypeScript/JavaScript friendly API for blockchain developers
+- Synthesizer is built on top of [EthereumJS EVM](https://github.com/ethereumjs/ethereumjs-monorepo). See the detailed documentation for the underlying EVM implementation.
 
 ## Installation
 
@@ -130,11 +133,6 @@ This package provides the core Ethereum Virtual Machine (EVM) implementation whi
 
 ## Contributing
 We welcome contributions! Please see our [Contributing Guidelines](../../../CONTRIBUTING.md) for details.
-
-## References
-- [Synthesizer Documentation](./docs)
-- [Tokamak zk-SNARK paper](https://eprint.iacr.org/2024/507)
-- This project is built on top of [EthereumJS EVM](https://github.com/ethereumjs/ethereumjs-monorepo). See the detailed documentation for the underlying EVM implementation.
 
 ## Original contribution
 - [JehyukJang](https://github.com/JehyukJang): Algorithm design and development. Core functionality implementation.
