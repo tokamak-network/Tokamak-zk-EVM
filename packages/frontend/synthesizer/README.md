@@ -5,7 +5,7 @@ You can convert your Ethereum transactions into zero-knowledge proofs (zkp) even
 
 Synthesizer is a compiler that takes an Ethereum transaction as input and returns a wire map (in the form of a permutation map). Combined with the library subcircuits in [qap-compiler package](../qap-compiler), this wire map forms a zkp circuit specialized for the transaction. The transaction specific-circuit will be used as preprocessed input for [Tokamak zk-SNARK](https://eprint.iacr.org/2024/507).
 
-For technical details, see [Synthesizer Documentation](./docs).
+For technical details, see [Synthesizer Documentation](https://tokamak.notion.site/Synthesizer-documentation-164d96a400a3808db0f0f636e20fca24?pvs=4).
 
 ## Features
 - Preliminary work for zero-knowledge proof generation and verification
