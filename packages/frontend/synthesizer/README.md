@@ -23,10 +23,10 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
    - **Node.js** (v18 or later)
    - **npm** (package manager)
 
-- Make sure you have the Tokamak zk-EVM repository cloned on your system:
+- Make sure you have the Tokamak zk-EVM repository cloned on your system. For example,
    ```bash
-   git clone <repository-url>
-   cd <repository-folder>
+   git clone https://github.com/tokamak-network/Tokamak-zk-EVM.git
+   cd Tokamak-zk-EVM
    ```
 - Make sure you have installed the follows:
    - [Synthesizer](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/dev/packages/frontend/synthesizer)
