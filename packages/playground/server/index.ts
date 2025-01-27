@@ -11,8 +11,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Path to the outputs directory used by the Synthesizer
-const projectRoot = path.join(__dirname, '../../..');
-const outputDir = path.join(projectRoot, 'packages/frontend/synthesizer/examples/tokamak/outputs');
+const projectRoot = path.resolve(__dirname, '../../..'); 
+const outputDir = path.join(projectRoot, 'packages/frontend/synthesizer/examples/outputs');
 
 // Helper function to wait for a file to be generated
 const waitForFile = (filePath: string, retries = 5, delay = 200): Promise<void> => {
@@ -62,38 +62,49 @@ app.use(bodyParser.urlencoded({
 
 app.use(cors());
 
+const generateTypeScriptFile = (jsonContent: string, filePath: string) => {
+  const tsContent = `export const data = ${jsonContent};\n`;
+  fs.writeFileSync(filePath, tsContent, 'utf-8');
+};
 
 app.post('/api/finalize', async (req, res) => {
-    try {
-      const placementsObj = req.body.placements;
+  try {
+    const placementsObj = req.body.placements;
 
+    if (!placementsObj || typeof placementsObj !== 'object') {
+      throw new Error('Invalid placements data provided.');
+    }
 
     const placementsMap = new Map<number, any>(
       Object.entries(placementsObj).map(([k, v]) => [Number(k), v])
     );
 
+    console.log('Finalizing placements...');
     await finalize(placementsMap, true);
-        
-    const permutationPath = path.join(outputDir, 'permutation.ts');
-    const placementInstancePath = path.join(outputDir, 'placementInstance.ts');
 
-    // Wait for the permutation file to be generated
-    console.log('Waiting for permutation file to be generated...');
-    await waitForFile(permutationPath);
+    const permutationPathJson = path.join(outputDir, 'permutation.json');
+    const placementInstancePathJson = path.join(outputDir, 'placementInstance.json');
+    const permutationPathTs = path.join(outputDir, 'permutation.ts');
+    const placementInstancePathTs = path.join(outputDir, 'placementInstance.ts');
 
-    const permutation = fs.existsSync(permutationPath)
-      ? fs.readFileSync(permutationPath, 'utf-8')
-      : 'export const permutationRule = [];'; // Default for empty permutations
+    console.log('Waiting for output files...');
+    await Promise.all([
+      waitForFile(permutationPathJson),
+      waitForFile(placementInstancePathJson),
+    ]);
 
-    const placementInstance = fs.existsSync(placementInstancePath)
-      ? fs.readFileSync(placementInstancePath, 'utf-8')
-      : null;
+    // Updated: Generate `.ts` files
+    const permutationJson = fs.readFileSync(permutationPathJson, 'utf-8');
+    const placementInstanceJson = fs.readFileSync(placementInstancePathJson, 'utf-8');
+
+    generateTypeScriptFile(permutationJson, permutationPathTs);
+    generateTypeScriptFile(placementInstanceJson, placementInstancePathTs);
 
     res.json({
       ok: true,
       data: {
-        permutation,
-        placementInstance,
+        permutation: permutationJson,
+        placementInstance: placementInstanceJson,
       },
     });
   } catch (error) {
