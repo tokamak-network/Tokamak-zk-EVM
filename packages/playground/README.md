@@ -1,11 +1,11 @@
 # Playground README
 
-## What is the Playground?
+## What is Playground?
 
 The Playground is a developer-friendly environment designed to interact with and visualize the functionality of the **Tokamak zk-EVM** ecosystem. It provides a frontend interface for developers to test, debug, and experiment with **placements**, **permutations**, and other functionalities related to Zero-Knowledge Proof (ZKP) circuits.
 
 
-## How to use the Playground
+## How to use Playground
 
 ### **Prerequisite**
 
