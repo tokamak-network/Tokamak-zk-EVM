@@ -28,7 +28,7 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
    git clone https://github.com/tokamak-network/Tokamak-zk-EVM.git
    cd Tokamak-zk-EVM
    ```
-- Make sure you have installed the follows:
+- Make sure you have installed the following packages:
    - [Synthesizer](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/dev/packages/frontend/synthesizer)
 ### A. **Package install**
 1. Open a new terminal and go to the package directory.
