@@ -2,7 +2,7 @@
 
 Tokamak-zk-EVM is a zero-knowledge Ethereum Virtual Machine implementation that enables scalable and private smart contract execution.
 
-## Overview
+## Package Composition
 
 This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 
