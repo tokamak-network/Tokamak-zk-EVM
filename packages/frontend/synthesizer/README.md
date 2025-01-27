@@ -29,8 +29,27 @@ This package provides the core Ethereum Virtual Machine (EVM) implementation whi
     - List of the wires of the library subcircuits ([example](./src/tokamak/resources/globalWireList.ts), obtainable from [qap-compiler package](../qap-compiler/outputs))
 
 2. INTERFACE GIF ANIMATION WILL BE ADDED HERE
+3. 
+### D. **Using the Playground**
 
-3. Check your outputs ([example](./examples/tokamak/outputs))
+1. **Provide a Transaction**:
+
+   - Enter a transaction hash in the input field.
+   - Click "Process" to start the generation.
+
+2. **Generate Outputs**:
+
+   - The backend will compute outputs such as wire assignments and permutations.
+   - Once completed, download buttons for "Permutation" and "Placement Instance" files will appear.
+
+3. **Download Results**:
+
+   - Click the respective buttons to download the generated files.
+
+---
+
+
+4. Check your outputs ([example](./examples/tokamak/outputs))
 
 ## Supported EVM Operations
 | Opcode | Name         | Description                                              | Status |
