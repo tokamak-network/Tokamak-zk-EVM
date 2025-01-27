@@ -14,10 +14,10 @@ The Playground is a developer-friendly environment designed to interact with and
    - **Node.js** (v18 or later)
    - **npm** (package manager)
 
-- Make sure you have the Tokamak zk-EVM repository cloned on your system:
+- Make sure you have the Tokamak zk-EVM repository cloned on your system. For example,
    ```bash
-   git clone <repository-url>
-   cd <repository-folder>
+   git clone https://github.com/tokamak-network/Tokamak-zk-EVM.git
+   cd Tokamak-zk-EVM
    ```
 - Make sure you have installed [Tokamak zk-EVM packages](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/dev/README.md#package-composition) of your interest.
 
