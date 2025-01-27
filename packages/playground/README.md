@@ -8,64 +8,55 @@ The Playground is a developer-friendly environment designed to interact with and
 
 ## How to Initialize the Playground
 
-### 1. **System Requirements**
+### **Prerequisite**
 
 Ensure you have the following installed on your system:
 
 - **Node.js** (v18 or later)
 - **npm** (package manager)
 
-### 2. **Project Setup**
-
-1. Clone the repository:
-
+Ensure you have the Tokamak zk-EVM repository cloned on your system:
    ```bash
    git clone <repository-url>
    cd <repository-folder>
    ```
+Ensure you have installed [Synthesizer](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/dev/packages/frontend/synthesizer).
 
-2. Install dependencies:
+### 1. **Package install and setup**
+
+1. Install dependencies:
 
    ```bash
    npm install
    ```
+2. Get your Etherscan API key from [Etherscan](https://etherscan.io/) -> My profile -> API Keys.
 
-3. Ensure the Synthesizer package has been built:
-   Refer to the Synthesizer documentation for building instructions: [Synthesizer Documentation](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/dev/packages/frontend/synthesizer)
-
-4. Add an `.env` file with the following content:
+3. Add an `.env` file with the following content:
 
    ```plaintext
    VITE_ETHERSCAN_API_KEY=<Your Etherscan API Key>
    ```
+   
+### 2. **Start the Backend Server**
 
-   You can generate the API key at [Etherscan](https://etherscan.io/).
-
-### 3. **Start the Backend Server**
-
-The backend handles operations like file reading, witness generation, and ZKP calculations.
-
-1. Start the server:
+1. Open a new terminal for running your backend server. The backend handles operations like file reading, witness generation, and ZKP calculations.
+2. Start the server:
    ```bash
    npm run server
    ```
-   By default, the server runs on `http://localhost:3000`.
-
+   By default, the server may run on `http://localhost:3000`.
 ---
 
-### 4. **Start the Frontend**
-
-The frontend serves the Playground interface.
-
-1. Start the development server:
+### 4. **Start the Frontend server**
+1. Open a new terminal for running your frontend server. The frontend serves the Playground interface.
+2. Start the server:
    ```bash
    npm run dev
    ```
-2. Open your browser and visit:
+3. Open your browser and visit:
    ```
    http://localhost:5173
    ```
-
 ---
 
 ### 5. **Using the Playground**
