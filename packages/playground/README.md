@@ -23,15 +23,15 @@ The Playground is a developer-friendly environment designed to interact with and
    - [Synthesizer](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/dev/packages/frontend/synthesizer)
 
 ### A. **Package install and setup**
-
-1. Install dependencies:
+1. Open a new terminal and go to the package directory.
+2. Install dependencies:
 
    ```bash
    npm install
    ```
-2. Get your Etherscan API key from [Etherscan](https://etherscan.io/) -> My profile -> API Keys.
+3. Get your Etherscan API key from [Etherscan](https://etherscan.io/) -> My profile -> API Keys.
 
-3. Add an `.env` file with the following content:
+4. Add an `.env` file with the following content:
 
    ```plaintext
    VITE_ETHERSCAN_API_KEY=<Your Etherscan API Key>
@@ -40,7 +40,8 @@ The Playground is a developer-friendly environment designed to interact with and
 ### B. **Start the Backend Server**
 
 1. Open a new terminal for running your backend server. The backend handles operations like file reading, witness generation, and ZKP calculations.
-2. Start the server:
+2. Go to the package directory.
+3. Start the server:
    ```bash
    npm run server
    ```
@@ -48,11 +49,12 @@ The Playground is a developer-friendly environment designed to interact with and
 
 ### C. **Start the Frontend server**
 1. Open a new terminal for running your frontend server. The frontend serves the Playground interface.
-2. Start the server:
+2. Go to the package directory.
+3. Start the server:
    ```bash
    npm run dev
    ```
-3. Open your browser and visit:
+4. Open your browser and visit:
    ```
    http://localhost:5173
    ```
