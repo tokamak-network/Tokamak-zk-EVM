@@ -4,9 +4,8 @@
 
 The Playground is a developer-friendly environment designed to interact with and visualize the functionality of the **Tokamak zk-EVM** ecosystem. It provides a frontend interface for developers to test, debug, and experiment with **placements**, **permutations**, and other functionalities related to Zero-Knowledge Proof (ZKP) circuits.
 
----
 
-## How to Initialize the Playground
+## How to use the Playground
 
 ### **Prerequisite**
 
@@ -46,7 +45,6 @@ The Playground is a developer-friendly environment designed to interact with and
    npm run server
    ```
    By default, the server may run on `http://localhost:3000`.
----
 
 ### C. **Start the Frontend server**
 1. Open a new terminal for running your frontend server. The frontend serves the Playground interface.
@@ -58,4 +56,3 @@ The Playground is a developer-friendly environment designed to interact with and
    ```
    http://localhost:5173
    ```
----
