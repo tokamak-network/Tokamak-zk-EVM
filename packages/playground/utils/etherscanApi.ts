@@ -21,6 +21,8 @@ export const fetchTransactionBytecode = async (transactionId: string): Promise<{
       },
     });
 
+    console.log("response", response);
+
 
     // Validate the response
     if (

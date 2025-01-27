@@ -45,7 +45,7 @@ const App: React.FC = () => {
         setServerData(null);
 
         // Fetch bytecode logic remains unchanged
-        const { bytecode, from } = await fetchTransactionBytecode(transactionId);
+        const { bytecode, from, to } = await fetchTransactionBytecode(transactionId);
         if (!bytecode || bytecode.length < 2) {
             throw new Error('Invalid bytecode received. Check your transaction ID.');
         }
@@ -55,7 +55,7 @@ const App: React.FC = () => {
         // Create and run EVM logic remains unchanged
         setStatus('Creating and running the EVM...');
         const evm = await createEVM();
-        const contractAddr = new Address(hexToBytes('0xdac17f958d2ee523a2206206994597c13d831ec7'));
+        const contractAddr = new Address(hexToBytes(to));
         const sender = new Address(hexToBytes(from));
         await setupEVM(evm, from, contractCode, contractAddr, sender);
 
@@ -65,6 +65,8 @@ const App: React.FC = () => {
             code: contractCode,
             data: hexToBytes(bytecode),
         });
+      
+      console.log('res', res)
 
         if (res.logs) {
             const formattedLogs = formatLogsStructured(res.logs);
