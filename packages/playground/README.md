@@ -22,7 +22,7 @@ The Playground is a developer-friendly environment designed to interact with and
 - Make sure you have installed [Tokamak zk-EVM packages](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/dev/README.md#package-composition) of your interest.
 
 ### A. **Playground install and setup**
-1. Open a new terminal and go to [the playground directory](./).
+1. Open a new terminal and go to the playground directory.
 2. Install dependencies:
    ```bash
    npm install
@@ -36,9 +36,8 @@ The Playground is a developer-friendly environment designed to interact with and
    ```
    
 ### B. **Start the Backend Server**
-
 1. Open a new terminal for running your backend server. The backend handles operations like file reading, witness generation, and ZKP calculations.
-2. Go to the package directory.
+2. Go to the playground directory.
 3. Start the server:
    ```bash
    npm run server
@@ -47,7 +46,7 @@ The Playground is a developer-friendly environment designed to interact with and
 
 ### C. **Start the Frontend server**
 1. Open a new terminal for running your frontend server. The frontend serves the Playground interface.
-2. Go to the package directory.
+2. Go to the playground directory.
 3. Start the server:
    ```bash
    npm run dev
