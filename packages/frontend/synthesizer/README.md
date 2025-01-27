@@ -28,6 +28,7 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
    git clone https://github.com/tokamak-network/Tokamak-zk-EVM.git
    cd Tokamak-zk-EVM
    ```
+- Make sure you have installed [Playground](../../playground/).
 ### A. **Package install**
 1. Open a new terminal and go to the package directory.
 2. Install dependencies:
@@ -37,7 +38,7 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
     This package install includes some packages in [EthereumJS-monorepo](https://github.com/ethereumjs/ethereumjs-monorepo/).
 
 ### B. **Start Synthesizer through Playground**
-1. Follow the steps in [Playground README](../../playground/README.md#how-to-use-playground)
+1. Run [Playground](../../playground/README.md#how-to-use-playground)
 2. In the Playground GUI, type a target transaction ID, which is the hash of the target transaction to run Synthesizer. You can get a transaction ID from [etherscan.io](https://etherscan.io).
 3. Click the button "Process".
 4. If the transaction contains logs, the GUI will display the outputs of your ZKP circuit, which are expected to be the same as the transaction logs. Verify that the displayed outputs match the transaction logs.
