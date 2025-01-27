@@ -19,13 +19,11 @@ The Playground is a developer-friendly environment designed to interact with and
    git clone <repository-url>
    cd <repository-folder>
    ```
-- Make sure you have installed the follows:
-   - [Synthesizer](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/dev/packages/frontend/synthesizer)
+- Make sure you have installed [Tokamak zk-EVM packages](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/dev/README.md#package-composition) of your interest.
 
-### A. **Package install and setup**
-1. Open a new terminal and go to the package directory.
+### A. **Playground install and setup**
+1. Open a new terminal and go to [the playground directory](./).
 2. Install dependencies:
-
    ```bash
    npm install
    ```
