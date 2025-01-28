@@ -1,39 +1,52 @@
 # Tokamak-zk-EVM/synthesizer
 
-## Overview
+## What is Synthesizer
 You can convert your Ethereum transactions into zero-knowledge proofs (zkp) even if you don't know zkp.
 
 Synthesizer is a compiler that takes an Ethereum transaction as input and returns a wire map (in the form of a permutation map). Combined with the library subcircuits in [qap-compiler package](../qap-compiler), this wire map forms a zkp circuit specialized for the transaction. The transaction specific-circuit will be used as preprocessed input for [Tokamak zk-SNARK](https://eprint.iacr.org/2024/507).
 
 For technical details, see [Synthesizer Documentation](https://tokamak.notion.site/Synthesizer-documentation-164d96a400a3808db0f0f636e20fca24?pvs=4).
 
-## Features
+### Features
 - Preliminary work for zero-knowledge proof generation and verification
 - Seamless integration with Ethereum's EVM
 - Efficient witness calculation for zk-proofs
 - TypeScript/JavaScript friendly API for blockchain developers
-- Synthesizer is built on top of [EthereumJS EVM](https://github.com/ethereumjs/ethereumjs-monorepo). See the detailed documentation for the underlying EVM implementation.
+- Synthesizer is built on top of [@ethereumJS/evm](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/evm) as a hardfork.
 
-## Installation
+## How to use Synthesizer
 
-Make sure you are currently in the "synthesizer" folder. To obtain the latest version, simply require the project using `npm`:
+### Prerequisite
 
-```shell
-npm install
-```
+- Make sure you have the following installed on your system:
 
-This package provides the core Ethereum Virtual Machine (EVM) implementation which is capable of executing EVM-compatible bytecode. The package has been extracted from the [@ethereumjs/vm](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/vm) package along the VM `v6` release.
+   - **Node.js** (v18 or later)
+   - **npm** (package manager)
 
-## Usage
-1. Prepare input files
-    - Ethereum transaction ID (obtainable from [etherscan.io](https://etherscan.io))
-    - R1CSs of the library subcircuits in Circom's WASM format ([example](./src/tokamak/resources/subcircuitLibrary), obtainable from [qap-compiler package](../qap-compiler/outputs/wasm))
-    - List of the library subcircuits ([example](./src/tokamak/resources/subcircuitInfo.ts), obtainable from [qap-compiler package](../qap-compiler/outputs))
-    - List of the wires of the library subcircuits ([example](./src/tokamak/resources/globalWireList.ts), obtainable from [qap-compiler package](../qap-compiler/outputs))
+- Make sure you have the Tokamak zk-EVM repository cloned on your system. For example,
+   ```bash
+   git clone https://github.com/tokamak-network/Tokamak-zk-EVM.git
+   cd Tokamak-zk-EVM
+   ```
+- Make sure you have installed [Playground](../../playground/).
+### A. **Package install**
+1. Open a new terminal and go to the package directory.
+2. Install dependencies:
+    ```shell
+    npm install
+    ```
+    This package install includes some packages in [EthereumJS-monorepo](https://github.com/ethereumjs/ethereumjs-monorepo/).
 
-2. INTERFACE GIF ANIMATION WILL BE ADDED HERE
+### B. **Start Synthesizer through Playground**
+1. Run [Playground](../../playground/README.md#how-to-use-playground)
+2. In the Playground GUI, type a target transaction ID, which is the hash of the target transaction to run Synthesizer. You can get a transaction ID from [etherscan.io](https://etherscan.io).
+3. Click the button "Process".
+4. If the transaction contains logs, the GUI will display the outputs of your ZKP circuit, which are expected to be the same as the transaction logs. Verify that the displayed outputs match the transaction logs (we are aware that some transactions are not being processed correctly. We are working on a fix). 
+![image](https://github.com/user-attachments/assets/3572fc8f-bbc1-4ccb-9c3c-78a37f37e7a4)
+![image](https://github.com/user-attachments/assets/4695e0d2-0b0d-49fc-88aa-028e79df2fb1)
 
-3. Check your outputs ([example](./examples/tokamak/outputs))
+6. Now you are ready to move on to the backend of Tokamak zk-EVM.
+
 
 ## Supported EVM Operations
 | Opcode | Name         | Description                                              | Status |

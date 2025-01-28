@@ -1,50 +1,57 @@
-# React + TypeScript + Vite
+# Playground README
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## What is Playground?
 
-Currently, two official plugins are available:
+The Playground is a developer-friendly environment designed to interact with and visualize the functionality of the **Tokamak zk-EVM** ecosystem. It provides a frontend interface for developers to test, debug, and experiment with **placements**, **permutations**, and other functionalities related to Zero-Knowledge Proof (ZKP) circuits.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-## Expanding the ESLint configuration
+## How to use Playground
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+### **Prerequisite**
 
-- Configure the top-level `parserOptions` property like this:
+- Make sure you have the following installed on your system:
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+   - **Node.js** (v18 or later)
+   - **npm** (package manager)
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+- Make sure you have the Tokamak zk-EVM repository cloned on your system. For example,
+   ```bash
+   git clone https://github.com/tokamak-network/Tokamak-zk-EVM.git
+   cd Tokamak-zk-EVM
+   ```
+- Make sure you have installed [Tokamak zk-EVM packages](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/dev/README.md#package-composition) of your interest.
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+### A. **Playground install and setup**
+1. Open a new terminal and go to the playground directory.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Get your Etherscan API key from [Etherscan](https://etherscan.io/) -> My profile -> API Keys.
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+4. Add an `.env` file with the following content:
+
+   ```plaintext
+   VITE_ETHERSCAN_API_KEY=<Your Etherscan API Key>
+   ```
+   
+### B. **Start the Backend Server**
+1. Open a new terminal for running your backend server. The backend handles operations like file reading, witness generation, and ZKP calculations.
+2. Go to the playground directory.
+3. Start the server:
+   ```bash
+   npm run server
+   ```
+   By default, the server may run on `http://localhost:3000`.
+
+### C. **Start the Frontend server**
+1. Open a new terminal for running your frontend server. The frontend serves the Playground interface.
+2. Go to the playground directory.
+3. Start the server:
+   ```bash
+   npm run dev
+   ```
+4. Open your browser and visit:
+   ```
+   http://localhost:5173
+   ```

@@ -10,7 +10,7 @@ const API_KEY = import.meta.env.VITE_ETHERSCAN_API_KEY;
  * @returns The transaction bytecode as a hexadecimal string.
  * @throws Error if the bytecode cannot be retrieved or the transaction is invalid.
  */
-export const fetchTransactionBytecode = async (transactionId: string): Promise<string> => {
+export const fetchTransactionBytecode = async (transactionId: string): Promise<{bytecode: string, from: string, to: string}> => {
   try {
     const response = await axios.get(ETHERSCAN_API_URL, {
       params: {
@@ -20,6 +20,9 @@ export const fetchTransactionBytecode = async (transactionId: string): Promise<s
         apikey: API_KEY,
       },
     });
+
+    console.log("response", response);
+
 
     // Validate the response
     if (
@@ -31,7 +34,11 @@ export const fetchTransactionBytecode = async (transactionId: string): Promise<s
       throw new Error('Transaction bytecode not found or invalid response from Etherscan.');
     }
 
-    return response.data.result.input; // The bytecode is in the 'input' field.
+    return {
+      bytecode: response.data.result.input,
+      from: response.data.result.from,
+      to: response.data.result.to
+    }; // The bytecode is in the 'input' field.
   } catch (error) {
     console.error('Error fetching transaction bytecode:', error);
     throw new Error('Failed to fetch transaction bytecode. Please check the transaction ID and try again.');
