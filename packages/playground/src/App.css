@@ -219,3 +219,53 @@ h1 span {
   margin: 0 auto;
   padding: 20px;
 }
+
+.transaction-input {
+  font-family: 'Press Start 2P', cursive;
+  padding: 15px;
+  width: 400px;
+  border: 4px solid #ffffff;
+  background: #000033;
+  color: #00ff00;
+  font-size: 0.8rem;
+  text-align: center;
+  outline: none;
+  margin: 20px 0;
+  border-radius: 0;
+  box-shadow: 
+      inset 0 0 10px rgba(0, 255, 0, 0.3),
+      0 0 20px rgba(0, 255, 0, 0.2);
+}
+
+.transaction-input::placeholder {
+  color: #00aa00;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.8rem;
+}
+
+.btn-process {
+  font-family: 'Press Start 2P', cursive;
+  padding: 15px 30px;
+  border: 4px solid #ffffff;
+  background: #000033;
+  color: #00ff00;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 0;
+  box-shadow: 
+      inset 0 0 10px rgba(0, 255, 0, 0.3),
+      0 0 20px rgba(0, 255, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.btn-process:hover:not(.disabled) {
+  background: #000066;
+  transform: scale(1.05);
+}
+
+.btn-process.disabled {
+  background: #1a1a1a;
+  color: #666666;
+  cursor: not-allowed;
+  border-color: #666666;
+}
