@@ -7,6 +7,7 @@ import { Address } from '../../frontend/synthesizer/libs/util/dist/esm/index.js'
 import { formatLogsStructured, FormattedLog } from '../utils/formatLog';
 import { ERC20_CONTRACT_CODE } from './constant/evm.js';
 import { setupEVM } from '../utils/setupEVM';
+import logo from '../public/Primary_Black.png';
 import './App.css';
 
 window.Buffer = window.Buffer || Buffer;
@@ -131,7 +132,13 @@ const App: React.FC = () => {
 
     return (
         <div className="container">
-            <h1>Synthesizer Developer Playground</h1>
+          <div className="logo-container">
+            <img src={logo} alt="Synthesizer Logo" className="logo-image" />
+          </div>
+            <div className="title-container">
+                <h1 className="main-title">Synthesizer</h1>
+                <h2 className="subtitle">Developer Playground</h2>
+            </div>
             <input
                 type="text"
                 value={transactionId}
