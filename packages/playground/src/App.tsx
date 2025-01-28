@@ -7,7 +7,7 @@ import { Address } from '../../frontend/synthesizer/libs/util/dist/esm/index.js'
 import { formatLogsStructured, FormattedLog } from '../utils/formatLog';
 import { ERC20_CONTRACT_CODE } from './constant/evm.js';
 import { setupEVM } from '../utils/setupEVM';
-import logo from '../public/Primary_Black.png';
+import logo from '/Primary_Black.png';
 import './App.css';
 
 window.Buffer = window.Buffer || Buffer;
@@ -170,7 +170,7 @@ const App: React.FC = () => {
                     </div>
                     <div className="log-field">
                         <strong>Data:</strong>
-                        <div className="log-data">
+                        <div className="log-data" title={`Hex: ${log.data.hex}\nValue: ${log.data.value}`}>
                             <div><strong>Hex:</strong> {log.data.hex}</div>
                             <div><strong>Value:</strong> {log.data.value}</div>
                         </div>
