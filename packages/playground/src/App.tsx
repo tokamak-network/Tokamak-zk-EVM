@@ -7,6 +7,7 @@ import { Address } from '../../frontend/synthesizer/libs/util/dist/esm/index.js'
 import { formatLogsStructured, FormattedLog } from '../utils/formatLog';
 import { ERC20_CONTRACT_CODE } from './constant/evm.js';
 import { setupEVM } from '../utils/setupEVM';
+import './App.css';
 
 window.Buffer = window.Buffer || Buffer;
 
@@ -129,60 +130,40 @@ const App: React.FC = () => {
     };
 
     return (
-        <div style={{ padding: '20px' }}>
+        <div className="container">
             <h1>Synthesizer Developer Playground</h1>
             <input
                 type="text"
                 value={transactionId}
                 onChange={(e) => setTransactionId(e.target.value)}
                 placeholder="Enter Transaction ID"
-                style={{
-                    padding: '10px',
-                    width: '300px',
-                    marginRight: '10px',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                }}
+                className="transaction-input"
                 disabled={isProcessing}
             />
             <button
                 onClick={handleSubmit}
-                style={{
-                    padding: '10px 20px',
-                    background: '#007bff',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: isProcessing ? 'not-allowed' : 'pointer',
-                    opacity: isProcessing ? 0.7 : 1,
-                }}
+                className={`btn btn-process ${isProcessing ? 'disabled' : ''}`}
                 disabled={isProcessing}
             >
                 {isProcessing ? 'Processing...' : 'Process'}
             </button>
 
             {logs?.map((log, index) => (
-                <div key={index} style={{ 
-                    border: '1px solid #ddd', 
-                    borderRadius: '8px',
-                    padding: '16px',
-                    margin: '8px 0',
-                    backgroundColor: '#f9f9f9'
-                }}>
-                    <div style={{ marginBottom: '8px' }}>
+                <div key={index} className="log-entry">
+                    <div className="log-field">
                         <strong>Address:</strong> {log.address}
                     </div>
-                    <div style={{ marginBottom: '8px' }}>
+                    <div className="log-field">
                         <strong>Topics:</strong>
-                        <div style={{ marginLeft: '20px' }}>
+                        <div className="log-topics">
                             <div><strong>Signature:</strong> {log.topics.signature}</div>
                             <div><strong>From:</strong> {log.topics.from}</div>
                             <div><strong>To:</strong> {log.topics.to}</div>
                         </div>
                     </div>
-                    <div>
+                    <div className="log-field">
                         <strong>Data:</strong>
-                        <div style={{ marginLeft: '20px' }}>
+                        <div className="log-data">
                             <div><strong>Hex:</strong> {log.data.hex}</div>
                             <div><strong>Value:</strong> {log.data.value}</div>
                         </div>
@@ -190,20 +171,12 @@ const App: React.FC = () => {
                 </div>
             ))}
 
-            <div style={{ marginTop: '20px' }}>
-                {status && <p>{status}</p>}
+            <div className="status-download-container">
+                {status && <p className="status-message">{status}</p>}
                 {serverData?.permutation && (
                     <button
                         onClick={() => handleDownload(serverData.permutation, 'permutation.ts')}
-                        style={{
-                            padding: '10px 20px',
-                            background: '#28a745',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            marginRight: '10px',
-                        }}
+                        className="btn btn-download btn-permutation"
                         disabled={isProcessing}
                     >
                         Download Permutation
@@ -212,14 +185,7 @@ const App: React.FC = () => {
                 {serverData?.placementInstance && (
                     <button
                         onClick={() => handleDownload(serverData.placementInstance, 'placementInstance.ts')}
-                        style={{
-                            padding: '10px 20px',
-                            background: '#17a2b8',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                        }}
+                        className="btn btn-download btn-placement"
                         disabled={isProcessing}
                     >
                         Download Placement Instance

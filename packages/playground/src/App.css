@@ -1,3 +1,71 @@
+.container {
+  padding: 20px;
+}
+
+.transaction-input {
+  padding: 10px;
+  width: 300px;
+  margin-right: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.btn {
+  padding: 10px 20px;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: opacity 0.3s ease;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn-process {
+  background: #007bff;
+}
+
+.log-entry {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 8px 0;
+  background-color: #f9f9f9;
+}
+
+.log-field {
+  margin-bottom: 8px;
+}
+
+.log-topics,
+.log-data {
+  margin-left: 20px;
+}
+
+.status-download-container {
+  margin-top: 20px;
+}
+
+.status-message {
+  margin-bottom: 15px;
+}
+
+.btn-download {
+  padding: 10px 20px;
+  margin-right: 10px;
+}
+
+.btn-permutation {
+  background: #28a745;
+}
+
+.btn-placement {
+  background: #17a2b8;
+}
+
 #root {
   max-width: 1280px;
   margin: 0 auto;
@@ -11,9 +79,11 @@
   will-change: filter;
   transition: filter 300ms;
 }
+
 .logo:hover {
   filter: drop-shadow(0 0 2em #646cffaa);
 }
+
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
