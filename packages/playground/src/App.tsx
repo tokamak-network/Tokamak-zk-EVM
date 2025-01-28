@@ -93,7 +93,7 @@ const App: React.FC = () => {
 
             const { permutation, placementInstance } = json.data || {};
             setServerData({ permutation, placementInstance });
-            setStatus('Process complete!');
+            setStatus(null);
             sessionStorage.removeItem('pendingTransactionId');
 
         } catch (error) {
@@ -158,7 +158,7 @@ const App: React.FC = () => {
             {logs?.map((log, index) => (
                 <div key={index} className="log-entry">
                     <div className="log-field">
-                        <strong>Address:</strong> {log.address}
+                        <strong>Token Address:</strong> {log.address}
                     </div>
                     <div className="log-field">
                         <strong>Topics:</strong>
@@ -186,7 +186,7 @@ const App: React.FC = () => {
                         className="btn btn-download btn-permutation"
                         disabled={isProcessing}
                     >
-                        Download Permutation
+                        Permutation
                     </button>
                 )}
                 {serverData?.placementInstance && (
@@ -195,7 +195,7 @@ const App: React.FC = () => {
                         className="btn btn-download btn-placement"
                         disabled={isProcessing}
                     >
-                        Download Placement Instance
+                        Placement Instance
                     </button>
                 )}
             </div>

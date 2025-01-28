@@ -269,3 +269,93 @@ h1 span {
   cursor: not-allowed;
   border-color: #666666;
 }
+
+.btn-download {
+  font-family: 'Press Start 2P', cursive;
+  padding: 15px 30px 15px 50px; 
+  border: 4px solid #ffffff;
+  background: #000033;
+  color: #00ff00;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 0;
+  margin: 10px;
+  position: relative;
+  box-shadow: 
+      inset 0 0 10px rgba(0, 255, 0, 0.3),
+      0 0 20px rgba(0, 255, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.btn-download::before {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: 
+      /* Down Arrow - simple design */
+      linear-gradient(currentColor, currentColor) 6px 0/4px 12px no-repeat,  /* vertical line */
+      linear-gradient(currentColor, currentColor) 2px 8px/12px 4px no-repeat,  /* horizontal line */
+      linear-gradient(-45deg, currentColor, currentColor) 2px 8px/6px 4px no-repeat,  /* left diagonal */
+      linear-gradient(45deg, currentColor, currentColor) 8px 8px/6px 4px no-repeat;   /* right diagonal */
+}
+
+.btn-download:hover:not(:disabled) {
+  background: #000066;
+  transform: scale(1.05);
+}
+
+.btn-download:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.btn-download:disabled {
+  background: #1a1a1a;
+  color: #666666;
+  cursor: not-allowed;
+  border-color: #666666;
+}
+
+.btn-download:disabled::before {
+  opacity: 0.5;
+}
+
+.status-download-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.btn-permutation {
+  background: #4a0080;
+  border-color: #8000ff;
+  color: #d9b3ff;
+}
+
+.btn-permutation:hover:not(:disabled) {
+  background: #6600b3;
+  border-color: #9933ff;
+}
+
+.btn-placement {
+  background: #006666;
+  border-color: #00cccc;
+  color: #99ffff;
+}
+
+.btn-placement:hover:not(:disabled) {
+  background: #008080;
+  border-color: #00ffff;
+}
+
+.status-message {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 20px;
+}
