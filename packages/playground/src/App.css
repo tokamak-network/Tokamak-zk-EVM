@@ -1,12 +1,65 @@
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
 body {
-    background: linear-gradient(180deg, #001a40 0%, #002855 100%);
-    color: white;
-    font-family: 'Press Start 2P', cursive;
-    text-align: center;
-    margin: 0;
-    padding: 0;
+  background: linear-gradient(180deg, #001a40 0%, #002855 100%);
+  color: white;
+  font-family: 'Press Start 2P', cursive;
+  text-align: center;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Star layers */
+body::before,
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 0;
+    background-image: 
+        radial-gradient(2px 2px at 20px 30px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 50px 160px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 130px 80px, #fff, rgba(0,0,0,0));
+    background-repeat: repeat;
+    background-size: 200px 200px;
+    opacity: 0.5;
+    animation: stars 8s linear infinite;
+}
+
+body::after {
+    background-size: 300px 300px;
+    animation: stars 15s linear infinite;
+    opacity: 0.3;
+}
+
+@keyframes stars {
+    0% {
+        transform: translateY(0);
+    }
+    100% {
+        transform: translateY(-200px);
+    }
+}
+
+/* Add twinkling effect */
+.twinkle {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    animation: twinkle 2s infinite;
+}
+
+@keyframes twinkle {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.8; }
 }
 
 .app-container {
@@ -130,13 +183,15 @@ h1 span {
 }
 
 .logo-container {
-  position: absolute;
+  position: fixed;
   top: 20px;
   left: 20px;
+  z-index: 100;
+  width: 350px;
 }
 
 .logo-image {
-  width: 350px;
+  width: 100%;
   height: auto;
   filter: brightness(0) invert(1);
 }
@@ -214,10 +269,13 @@ h1 span {
 }
 
 .container {
+  position: relative;
+  z-index: 1;
   width: 95%;
   max-width: 1400px;
   margin: 0 auto;
   padding: 20px;
+  padding-top: 100px;
 }
 
 .transaction-input {
