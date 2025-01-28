@@ -8,6 +8,7 @@ import { formatLogsStructured, FormattedLog } from '../utils/formatLog';
 import { ERC20_CONTRACT_CODE } from './constant/evm.js';
 import { setupEVM } from '../utils/setupEVM';
 import logo from '/Primary_Black.png';
+import downloadIcon from '/download.svg';
 import './App.css';
 
 window.Buffer = window.Buffer || Buffer;
@@ -182,12 +183,13 @@ const App: React.FC = () => {
                 {status && <p className="status-message">{status}</p>}
                 {serverData?.permutation && (
                     <button
-                        onClick={() => handleDownload(serverData.permutation, 'permutation.ts')}
-                        className="btn btn-download btn-permutation"
-                        disabled={isProcessing}
-                    >
-                        Permutation
-                    </button>
+                          onClick={() => handleDownload(serverData.permutation, 'permutation.ts')}
+                          className="btn btn-download btn-permutation"
+                          disabled={isProcessing}
+                      >
+                          <img src={downloadIcon} alt="download" className="download-icon" />
+                          Permutation
+                      </button>
                 )}
                 {serverData?.placementInstance && (
                     <button
@@ -195,6 +197,7 @@ const App: React.FC = () => {
                         className="btn btn-download btn-placement"
                         disabled={isProcessing}
                     >
+                        <img src={downloadIcon} alt="download" className="download-icon" />
                         Placement Instance
                     </button>
                 )}

@@ -287,20 +287,19 @@ h1 span {
   transition: all 0.2s ease;
 }
 
-.btn-download::before {
-  content: "";
-  position: absolute;
-  left: 15px;
-  top: 50%;
-  transform: translateY(-50%);
+.download-icon {
   width: 16px;
   height: 16px;
-  background: 
-      /* Down Arrow - simple design */
-      linear-gradient(currentColor, currentColor) 6px 0/4px 12px no-repeat,  /* vertical line */
-      linear-gradient(currentColor, currentColor) 2px 8px/12px 4px no-repeat,  /* horizontal line */
-      linear-gradient(-45deg, currentColor, currentColor) 2px 8px/6px 4px no-repeat,  /* left diagonal */
-      linear-gradient(45deg, currentColor, currentColor) 8px 8px/6px 4px no-repeat;   /* right diagonal */
+  margin-right: 10px;
+  fill: currentColor;
+  filter: invert(1); /* Makes black icon match button text color */
+}
+
+.btn-download {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 15px 30px;
 }
 
 .btn-download:hover:not(:disabled) {
