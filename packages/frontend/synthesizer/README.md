@@ -41,7 +41,7 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
 1. Run [Playground](../../playground/README.md#how-to-use-playground)
 2. In the Playground GUI, type a target transaction ID, which is the hash of the target transaction to run Synthesizer. You can get a transaction ID from [etherscan.io](https://etherscan.io).
 3. Click the button "Process".
-4. If the transaction contains logs, the GUI will display the outputs of your ZKP circuit, which are expected to be the same as the transaction logs. Verify that the displayed outputs match the transaction logs.
+4. If the transaction contains logs, the GUI will display the outputs of your ZKP circuit, which are expected to be the same as the transaction logs. Verify that the displayed outputs match the transaction logs (we are aware that some transactions are not being processed correctly. We are working on a fix). 
 ![image](https://github.com/user-attachments/assets/3572fc8f-bbc1-4ccb-9c3c-78a37f37e7a4)
 ![image](https://github.com/user-attachments/assets/4695e0d2-0b0d-49fc-88aa-028e79df2fb1)
 
