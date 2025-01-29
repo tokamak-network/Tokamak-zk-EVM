@@ -180,7 +180,17 @@ const App: React.FC = () => {
             ))}
 
             <div className="status-download-container">
-                {status && <p className="status-message">{status}</p>}
+              {status && !status.startsWith('Error') ? (
+                  <div className="loading-spinner-container">
+                      <div className="loading-spinner"></div>
+                  </div>
+              ) : status ? (
+                  <div className="status-message error">
+                      <div className="error-content">
+                          {status.replace('Error: ', '')}
+                      </div>
+                  </div>
+              ) : null}
                 {serverData?.permutation && (
                     <button
                           onClick={() => handleDownload(serverData.permutation, 'permutation.ts')}

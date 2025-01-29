@@ -156,13 +156,7 @@ h1 span {
     font-size: 12px;
 }
 
-.rainbow-border {
-    width: 100%;
-    height: 10px;
-    background: linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet);
-    position: absolute;
-    bottom: 0;
-}
+
 
 .title-container {
   margin-bottom: 30px;
@@ -350,7 +344,7 @@ h1 span {
   height: 16px;
   margin-right: 10px;
   fill: currentColor;
-  filter: invert(1); /* Makes black icon match button text color */
+  filter: invert(1); 
 }
 
 .btn-download {
@@ -412,7 +406,90 @@ h1 span {
 }
 
 .status-message {
-  width: 100%;
+  width: 80%;
+  max-width: 600px;
+  margin: 20px auto;
+  padding: 0;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.8rem;
   text-align: center;
-  margin-bottom: 20px;
+  position: relative;
 }
+
+.status-message.error {
+  background: #000033;
+  border: 4px solid #4466ff;
+  color: #99aaff;
+  box-shadow: 
+      inset 0 0 10px rgba(68, 102, 255, 0.3),
+      0 0 20px rgba(68, 102, 255, 0.2);
+}
+
+.status-message.error::before {
+  content: "ERROR!";
+  display: block;
+  background: linear-gradient(to bottom, #0000ac, #333344);
+  color: #ff2727;
+  padding: 10px;
+  font-size: 1rem;
+  margin: 0;
+  border-bottom: 4px solid #4466ff;
+}
+
+.error-content {
+  padding: 10px;
+  color: #ccccdd;
+  text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.5);
+  border-top: 2px solid #333366;
+}
+
+.loading-spinner-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+}
+
+.loading-spinner {
+  width: 64px;
+  height: 64px;
+  border: 8px solid #000033;
+  border-top: 8px solid #00ffff;
+  animation: spin 1s steps(8) infinite;
+  position: relative;
+}
+
+.loading-spinner::before {
+  content: '';
+  position: absolute;
+  top: -8px;  
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border: 4px solid #00ffff;
+  animation: glow 1.5s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { 
+      transform: rotate(360deg);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+  }
+  50% {
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+  }
+}
+
+.status-message.loading,
+.status-message.loading::before,
+.loading-content {
+  display: none;
+}
+
+
