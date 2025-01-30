@@ -146,7 +146,6 @@ class WitnessCalculator {
         throw new Error(`Not enough values for input signal ${k}\n`)
       }
       if (fArr.length > signalSize) {
-        console.log(fArr)
         throw new Error(`Too many values for input signal ${k}\n`)
       }
       for (let i = 0; i < fArr.length; i++) {
