@@ -193,17 +193,17 @@ const App: React.FC = () => {
               ) : null}
                 {serverData?.permutation && (
                     <button
-                          onClick={() => handleDownload(serverData.permutation, 'permutation.ts')}
-                          className="btn btn-download btn-permutation"
-                          disabled={isProcessing}
-                      >
-                          <img src={downloadIcon} alt="download" className="download-icon" />
-                          Permutation
-                      </button>
+                        onClick={() => handleDownload(serverData.permutation, 'permutation.json')}
+                        className="btn btn-download btn-permutation"
+                        disabled={isProcessing}
+                    >
+                        <img src={downloadIcon} alt="download" className="download-icon" />
+                        Permutation
+                    </button>
                 )}
                 {serverData?.placementInstance && (
                     <button
-                        onClick={() => handleDownload(serverData.placementInstance, 'placementInstance.ts')}
+                        onClick={() => handleDownload(serverData.placementInstance, 'placementInstance.json')}
                         className="btn btn-download btn-placement"
                         disabled={isProcessing}
                     >
