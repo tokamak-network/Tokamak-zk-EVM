@@ -411,7 +411,7 @@ export type OpcodeMapEntry = {
   opHandler: OpHandler
   gasHandler: AsyncDynamicGasHandler | SyncDynamicGasHandler
   /**
-   * @todo: synthesizerHandler 추가 필요
+   * @todo: Need to add synthesizerHandler
    */
   // synthesizerHandler: SynthesizerHandler  
 }
@@ -491,7 +491,7 @@ export function getOpcodesForHF(common: Common, customOpcodes?: CustomOpcode[]):
     const dynamicGas = dynamicGasHandlersCopy.get(opNumber)!
     const handler = handlersCopy.get(opNumber)!
      /**
-     * @todo: synthesizerHandler 추가 필요
+     * @todo: Need to add synthesizerHandler
      */
     // const synthesizerHandler = synthesizerHandlers.get(opNumber)!
     // const subcircuitCode = subcircuits.find((entry) => parseInt(entry.opcode, 16) === opNumber)

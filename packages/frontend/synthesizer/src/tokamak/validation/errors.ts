@@ -1,5 +1,5 @@
 /**
- * Synthesizer 관련 에러들을 정의하는 클래스들
+ * Classes defining Synthesizer-related errors
  */
 
 export class SynthesizerError extends Error {

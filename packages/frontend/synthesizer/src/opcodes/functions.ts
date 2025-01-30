@@ -1202,10 +1202,10 @@ export const handlers: Map<number, OpHandler> = new Map([
       const dataPt = runState.stackPt.peek(2)[1]
       const memPt = runState.synthesizer.placeMSTORE(dataPt, truncSize)
       if (truncSize < dataPt.sourceSize) {
-        // StackPt에서 dataPt를 변형을 추적 memPt로 교체해 줍니다.
+        // Replace dataPt in StackPt with the tracked memPt
         runState.stackPt.swap(1)
-        runState.stackPt.pop() // 기존 dataPt를 버립니다.
-        runState.stackPt.push(memPt) // 변형된 dataPt를 넣습니다.
+        runState.stackPt.pop() // Discard the original dataPt
+        runState.stackPt.push(memPt) //  Replace dataPt in StackPt with the tracked memPt
         runState.stackPt.swap(1)
       }
       const [offsetPt, newDataPt] = runState.stackPt.popN(2)
@@ -1242,18 +1242,18 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.memory.write(offsetNum, 1, buf)
 
       // For Synthesizer //
-      const truncSize = 1 // MSTORE8은 최하위 1바이트만을 저장하고, 상위 바이트는 버림.
-      const dataPt = runState.stackPt.peek(2)[1] // StackPt에서 최상위 두번째 포인터를 리턴 (stack.ts 참고)
-      // 데이터의 변형을 추적하면서 동시에 Placements에도 반영 해 줍니다.
+      const truncSize = 1 // MSTORE8 stores only the lowest byte and discards the higher bytes
+      const dataPt = runState.stackPt.peek(2)[1] // Return the top second pointer from StackPt (refer to stack.ts)
+      // Track data modifications and reflect them in Placements
       const memPt = runState.synthesizer.placeMSTORE(dataPt, truncSize)
       if (truncSize < dataPt.sourceSize) {
-        // StackPt에서 dataPt를 변형을 추적 memPt로 교체해 줍니다.
+        // Replace dataPt in StackPt with the tracked memPt
         runState.stackPt.swap(1)
-        runState.stackPt.pop() // 기존 dataPt를 버립니다.
-        runState.stackPt.push(memPt) // 변형된 dataPt를 넣습니다.
+        runState.stackPt.pop() // Discard the original dataPt
+        runState.stackPt.push(memPt) // Replace dataPt in StackPt with the tracked memPt
         runState.stackPt.swap(1)
       }
-      // 이제 일반적인 MSTORE 연산을 수행합니다
+      // Now perform the usual MSTORE operation
       const [offsetPt, newDataPt] = runState.stackPt.popN(2)
       const _offsetNum = Number(offsetPt.value)
       if (_offsetNum !== offsetNum || newDataPt.value !== bytesToBigInt(buf)) {
@@ -2059,7 +2059,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         calldataMemoryPts,
       )
 
-      // Synthesizer를 위해 writeCallOutput을 수정하였음 (Write the return data on the memory)
+      // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
     },
@@ -2118,7 +2118,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         calldataMemoryPts,
       )
 
-      // Synthesizer를 위해 writeCallOutput을 수정하였음 (Write the return data on the memory)
+      // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
     },
@@ -2172,7 +2172,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         calldataMemoryPts,
       )
 
-      // Synthesizer를 위해 writeCallOutput을 수정하였음 (Write the return data on the memory)
+      // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
     },
@@ -2310,7 +2310,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         calldataMemoryPts,
       )
 
-      // Synthesizer를 위해 writeCallOutput을 수정하였음 (Write the return data on the memory)
+      // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
     },

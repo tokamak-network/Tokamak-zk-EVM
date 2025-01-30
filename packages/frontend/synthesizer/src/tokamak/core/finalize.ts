@@ -64,7 +64,7 @@ const halveWordSizeOfWires = (newDataPts: DataPt[], prevDataPt: DataPt, index: n
       newDataPts[Number(indLow)].pairedInputWireIndices = prevDataPt.pairedInputWireIndices.flatMap(convertIndices)
     }
 
-    // value가 문자열로 들어올 경우를 대비
+    // Handle cases where value comes as a string
     const value = typeof prevDataPt.value === 'string' ? BigInt(prevDataPt.value) : prevDataPt.value
     
     newDataPts[Number(indHigh)].value = value >> 128n
@@ -464,5 +464,5 @@ const testInstances = async (instances: PlacementInstances): Promise<void> => {
   console.log(`Synthesizer: Instances passed subcircuits.`)
 }
 
-// Todo: permutationY와 permutationZ의 내용 압축해서 내보내기.
-// Todo: WireFlattenMap과 Inverse를 buildQAP에서 수행하고 내용 압축해서 내보내고, 여기선 그걸 불러오기
+// Todo: Export compressed content of permutationY and permutationZ
+// Todo: Execute WireFlattenMap and Inverse in buildQAP, export compressed content, and load it here
