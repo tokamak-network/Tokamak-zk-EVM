@@ -58,6 +58,7 @@ import {
 import type { RunState } from '../interpreter.js'
 import type { MemoryPtEntry, MemoryPts } from '../tokamak/pointers/index.js'
 import type { Common } from '@ethereumjs/common/dist/esm/index.js'
+import { DEFAULT_SOURCE_SIZE } from "src/tokamak/constant/placement.js"
 
 export interface SyncOpHandler {
   (runState: RunState, common: Common): void
@@ -678,19 +679,30 @@ export const handlers: Map<number, OpHandler> = new Map([
           )
         } else {
           // Case: The calldata is originated from Environmental Information
-          const data = getDataSlice(runState.interpreter.getCallData(), dataOffset, dataLength)
-          const entryToCopy: MemoryPtEntry = {
-            memOffset: Number(memOffset),
-            containerSize: Number(dataLength),
-            dataPt: runState.synthesizer.loadEnvInf(
-              runState.env.address.toString(),
-              'Calldata',
-              bytesToBigInt(data),
-              dataOffsetNum,
-              Number(dataLength),
-            ),
+          let chunkedLength = Number(dataLength)
+          let accumOffsetShift = 0n
+          let entryToCopy: MemoryPtEntry
+          while (chunkedLength > 0){
+            const chunkSize = chunkedLength >= DEFAULT_SOURCE_SIZE ? DEFAULT_SOURCE_SIZE : chunkedLength
+
+            const data = getDataSlice(runState.interpreter.getCallData(), dataOffset + accumOffsetShift, BigInt(chunkSize))
+            entryToCopy = {
+              memOffset: Number(memOffset + accumOffsetShift),
+              containerSize: chunkSize,
+              dataPt: runState.synthesizer.loadEnvInf(
+                runState.env.address.toString(),
+                'Calldata',
+                bytesToBigInt(data),
+                Number(dataOffset + accumOffsetShift),
+                chunkSize,
+              )
+            }
+            memoryPtsToCopy.push(entryToCopy)
+
+            chunkedLength -= chunkSize
+            accumOffsetShift += BigInt(chunkSize)
           }
-          memoryPtsToCopy.push(entryToCopy)
+          
         }
 
         for (const entry of memoryPtsToCopy) {
@@ -739,17 +751,24 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
 
       if (dataLength !== BIGINT_0) {
-        const data = getDataSlice(runState.interpreter.getCode(), codeOffset, dataLength)
-        const dataBigint = bytesToBigInt(data)
-        const codeOffsetNum = Number(codeOffset)
-        const dataPt = runState.synthesizer.loadEnvInf(
-          runState.env.address.toString(),
-          'Code',
-          dataBigint,
-          codeOffsetNum,
-          Number(dataLength),
-        )
-        runState.memoryPt.write(Number(memOffset), Number(dataLength), dataPt)
+        let chunkedLength = Number(dataLength)
+        let accumOffsetShift = 0n
+        while (chunkedLength > 0){
+          const chunkSize = chunkedLength >= DEFAULT_SOURCE_SIZE ? DEFAULT_SOURCE_SIZE : chunkedLength
+          const data = getDataSlice(runState.interpreter.getCode(), codeOffset+accumOffsetShift, BigInt(chunkSize))
+          const dataBigint = bytesToBigInt(data)
+          const dataPt = runState.synthesizer.loadEnvInf(
+            runState.env.address.toString(),
+            'Code',
+            dataBigint,
+            Number(codeOffset+accumOffsetShift),
+            chunkSize,
+          )
+          runState.memoryPt.write(Number(memOffset+accumOffsetShift), chunkSize, dataPt)
+
+          chunkedLength -= chunkSize
+          accumOffsetShift += BigInt(chunkSize)
+        }
       }
       const _outData = runState.memoryPt.viewMemory(Number(memOffset), Number(dataLength))
       const outData = runState.memory.read(Number(memOffset), Number(dataLength))
@@ -819,8 +838,17 @@ export const handlers: Map<number, OpHandler> = new Map([
         throw new Error(`Synthesizer: EXTCODECOPY: Input data mismatch`)
       }
       if (dataLength !== BIGINT_0) {
-        const dataPt = await prepareEXTCodePt(runState, addressBigInt, codeOffset, dataLength)
-        runState.memoryPt.write(Number(memOffset), Number(dataLength), dataPt)
+        let chunkedLength = Number(dataLength)
+        let accumOffsetShift = 0n
+        while (chunkedLength > 0){
+          const chunkSize = chunkedLength >= DEFAULT_SOURCE_SIZE ? DEFAULT_SOURCE_SIZE : chunkedLength
+
+          const dataPt = await prepareEXTCodePt(runState, addressBigInt, codeOffset+accumOffsetShift, BigInt(chunkSize))
+          runState.memoryPt.write(Number(memOffset+accumOffsetShift), chunkSize, dataPt)
+
+          chunkedLength -= chunkSize
+          accumOffsetShift += BigInt(chunkSize)
+        }
       }
       const _outData = runState.memoryPt.viewMemory(Number(memOffset), Number(dataLength))
       const outData = runState.memory.read(Number(memOffset), Number(dataLength))

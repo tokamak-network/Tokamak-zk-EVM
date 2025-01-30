@@ -145,7 +145,7 @@ function refactoryPlacement(placements: Placements): Placements {
       name: placement!.name,
       subcircuitId: subcircuitIdByName.get(placement!.name)!,
       inPts: newInPts,
-      outPts: newOutPts,
+      outPts: placement!.name !== 'DecToBit' ? newOutPts : outPts,
     })
   }
   return outPlacements
@@ -450,7 +450,6 @@ const testInstances = async (instances: PlacementInstances): Promise<void> => {
       reuseBuffer.set(id, buffer)
     }
     const ins = { in: instance.inValues }
-
     const witnessCalculator = await builder(buffer)
     const witness = await witnessCalculator.calculateWitness(ins, 0)
     for (let i = 1; i <= instance.outValues.length; i++) {
