@@ -35,12 +35,6 @@ export async function finalize(placements: Placements, validate?: boolean): Prom
 }
 
 const halveWordSizeOfWires = (newDataPts: DataPt[], prevDataPt: DataPt, index: number): void => {
-  console.log('Input data:', {
-    prevDataPt,
-    index,
-    valueType: typeof prevDataPt.value
-  });
-
   const indLow = BigInt(index * 2)
   const indHigh = indLow + 1n
 
@@ -64,7 +58,7 @@ const halveWordSizeOfWires = (newDataPts: DataPt[], prevDataPt: DataPt, index: n
       newDataPts[Number(indLow)].pairedInputWireIndices = prevDataPt.pairedInputWireIndices.flatMap(convertIndices)
     }
 
-    // Handle cases where value comes as a string
+    // value가 문자열로 들어올 경우를 대비
     const value = typeof prevDataPt.value === 'string' ? BigInt(prevDataPt.value) : prevDataPt.value
     
     newDataPts[Number(indHigh)].value = value >> 128n
@@ -430,7 +424,7 @@ class Permutation {
 
 const testInstances = async (instances: PlacementInstances): Promise<void> => {
   //console.log("Usage: tsx generate_witness.ts <file.wasm> <input.json> <output.wtns>")
-  const dir = 'src/tokamak/resources/subcircuitLibrary'
+  const dir = '../qap-compiler/outputs/wasm'
   const reuseBuffer = new Map()
   for (const [placementInd, instance] of instances.entries()) {
     const id = instance.subcircuitId
@@ -450,7 +444,6 @@ const testInstances = async (instances: PlacementInstances): Promise<void> => {
       reuseBuffer.set(id, buffer)
     }
     const ins = { in: instance.inValues }
-
     const witnessCalculator = await builder(buffer)
     const witness = await witnessCalculator.calculateWitness(ins, 0)
     for (let i = 1; i <= instance.outValues.length; i++) {
@@ -464,5 +457,4 @@ const testInstances = async (instances: PlacementInstances): Promise<void> => {
   console.log(`Synthesizer: Instances passed subcircuits.`)
 }
 
-// Todo: Export compressed content of permutationY and permutationZ
-// Todo: Execute WireFlattenMap and Inverse in buildQAP, export compressed content, and load it here
+// Todo: Compresss permutation

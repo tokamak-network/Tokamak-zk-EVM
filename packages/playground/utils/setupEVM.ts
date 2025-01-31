@@ -12,7 +12,7 @@ export const setupEVM = async (evm: any, from: string, contractCode: Uint8Array,
     await evm.stateManager.putCode(contractAddr, contractCode)
 
     // set balance
-    const balanceSlot = '0x5'
+    const balanceSlot = '0x00'
     const senderBalanceSlot = keccak256(
         hexToBytes(
             '0x' + sender.toString().slice(2).padStart(64, '0') + balanceSlot.slice(2).padStart(64, '0'),
@@ -22,6 +22,6 @@ export const setupEVM = async (evm: any, from: string, contractCode: Uint8Array,
     await evm.stateManager.putStorage(
         contractAddr,
         senderBalanceSlot,
-        hexToBytes('0x' + 'de0b6b3a7640000'.padStart(64, '0')),
+        hexToBytes('0x' + '00000000000000000000000000000000000000000A968163F0A57B400000000'),
     )
 }
