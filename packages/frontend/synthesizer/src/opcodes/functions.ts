@@ -418,7 +418,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       const a = runState.stack.pop()
       const r = BigInt.asUintN(256, ~a)
       runState.stack.push(r)
-
+]
       // For Synthesizer //
       synthesizerArith('NOT', [a], r, runState)
     },
@@ -1313,9 +1313,6 @@ export const handlers: Map<number, OpHandler> = new Map([
         throw new Error(`Synthesizer: 'SSTORE': Input data mismatch`)
       }
       runState.synthesizer.storeStorage(runState.env.address.toString(), key, valPt)
-
-      // for opcode not implemented with Synthesizer
-      SynthesizerValidator.validateOpcodeImplemented(0x55, 'SSTORE')
     },
   ],
   // 0x56: JUMP
