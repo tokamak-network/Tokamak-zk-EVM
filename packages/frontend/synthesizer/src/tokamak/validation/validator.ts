@@ -77,6 +77,16 @@ export class SynthesizerValidator {
     }
   }
 
+   /**
+   * Validates that the opcode is implemented
+   * @param opcode The opcode number
+   * @param opcodeName The opcode name
+   * @throws Error if the opcode is not implemented
+   */
+  public static validateOpcodeImplemented(opcode: number, opcodeName: string): void {
+    throw new Error(`Synthesizer: Opcode ${opcodeName} (0x${opcode.toString(16)}) is not implemented yet`)
+  }
+
   /**
    * 입력값들이 유효한지 검증합니다.
    *

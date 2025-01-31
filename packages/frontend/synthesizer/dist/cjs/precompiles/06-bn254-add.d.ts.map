@@ -1,1 +1,0 @@
-{"version":3,"file":"06-bn254-add.d.ts","sourceRoot":"","sources":["../../../src/precompiles/06-bn254-add.ts"],"names":[],"mappings":"AASA,OAAO,KAAK,EAAE,UAAU,EAAE,MAAM,aAAa,CAAA;AAC7C,OAAO,KAAK,EAAE,eAAe,EAAE,MAAM,YAAY,CAAA;AAEjD,wBAAgB,YAAY,CAAC,IAAI,EAAE,eAAe,GAAG,UAAU,CAqC9D"}

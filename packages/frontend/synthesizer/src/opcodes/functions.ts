@@ -59,6 +59,10 @@ import type { RunState } from '../interpreter.js'
 import type { MemoryPtEntry, MemoryPts } from '../tokamak/pointers/index.js'
 import type { Common } from '@ethereumjs/common/dist/esm/index.js'
 
+import {
+  SynthesizerValidator,
+} from '../tokamak/validation/index.js'
+
 export interface SyncOpHandler {
   (runState: RunState, common: Common): void
 }
@@ -1307,6 +1311,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         throw new Error(`Synthesizer: 'SSTORE': Input data mismatch`)
       }
       runState.synthesizer.storeStorage(runState.env.address.toString(), key, valPt)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0x55, 'SSTORE')
     },
   ],
   // 0x56: JUMP
@@ -1358,6 +1365,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x58,
     function (runState) {
       runState.stack.push(BigInt(runState.programCounter - 1))
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0x58, 'PC')
     },
   ],
   // 0x59: MSIZE
@@ -1365,6 +1375,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x59,
     function (runState) {
       runState.stack.push(runState.memoryWordCount * BIGINT_32)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0x59, 'MSIZE')
     },
   ],
   // 0x5a: GAS
@@ -1372,6 +1385,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x5a,
     function (runState) {
       runState.stack.push(runState.interpreter.getGasLeft())
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0x5a, 'GAS')
     },
   ],
   // 0x5b: JUMPDEST
@@ -1536,11 +1552,6 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.dup(stackPos)
 
       // // For Synthesizer
-      // const dataPt = runState.stackPt.peek(stackPos)[0]
-      // console.log('stackPos', stackPos)
-      // console.log('dataPt', dataPt)
-      // const newDataPt = { ...dataPt } // 새로운 객체로 복사
-      // runState.stackPt.push(newDataPt)
       runState.stackPt.dup(stackPos)
     },
   ],
@@ -1614,6 +1625,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         r = r << (BIGINT_8 * BigInt(32 - loaded.length))
       }
       runState.stack.push(r)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xd0, 'DATALOAD')
     },
   ],
   // 0xd1: DATALOADN
@@ -1632,6 +1646,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       )
       runState.stack.push(data)
       runState.programCounter += 2
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xd1, 'DATALOADN')
     },
   ],
   // 0xd2: DATASIZE
@@ -1643,6 +1660,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         trap(ERROR.INVALID_OPCODE)
       }
       runState.stack.push(BigInt(runState.env.eof!.container.body.dataSection.length))
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xd2, 'DATASIZE')
     },
   ],
   // 0xd3: DATACOPY
@@ -1660,6 +1680,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         const dataLengthNum = Number(size)
         runState.memory.write(memOffsetNum, dataLengthNum, data)
       }
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xd3, 'DATACOPY')
     },
   ],
   // 0xe0: RJUMP
@@ -1674,6 +1697,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         const rjumpDest = new DataView(code.buffer).getInt16(runState.programCounter)
         runState.programCounter += 2 + rjumpDest
       }
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe0, 'RJUMP')
     },
   ],
   // 0xe1: RJUMPI
@@ -1694,6 +1720,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         // In all cases, increment PC with 2 (also in the case if `cond` is `0`)
         runState.programCounter += 2
       }
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe1, 'RJUMPI')
     },
   ],
   // 0xe2: RJUMPV
@@ -1721,6 +1750,9 @@ export const handlers: Map<number, OpHandler> = new Map([
           runState.programCounter += jumptableSize
         }
       }
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe2, 'RJUMPV')
     },
   ],
   // 0xe3: CALLF
@@ -1746,6 +1778,9 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // Find out the opcode we should jump into
       runState.programCounter = runState.env.eof!.container.header.getCodePosition(sectionTarget)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe3, 'CALLF')
     },
   ],
   // 0xe4: RETF
@@ -1762,6 +1797,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         trap(EOFError.RetfNoReturn)
       }
       runState.programCounter = newPc!
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe4, 'RETF')
     },
   ],
   // 0xe5: JUMPF
@@ -1790,6 +1828,9 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // Find out the opcode we should jump into
       runState.programCounter = runState.env.eof!.container.header.getCodePosition(sectionTarget)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe5, 'JUMPF')
     },
   ],
   // 0xe6: DUPN
@@ -1808,6 +1849,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         ) + 1
       runState.stack.dup(toDup)
       runState.programCounter++
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe6, 'DUPN')
     },
   ],
   // 0xe7: SWAPN
@@ -1826,6 +1870,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         ) + 1
       runState.stack.swap(toSwap)
       runState.programCounter++
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe7, 'SWAPN')
     },
   ],
   // 0xe8: EXCHANGE
@@ -1843,6 +1890,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       const m = (toExchange & 0x0f) + 1
       runState.stack.exchange(n, n + m)
       runState.programCounter++
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe8, 'EXCHANGE')
     },
   ],
   // 0xec: EOFCREATE
@@ -1878,6 +1928,9 @@ export const handlers: Map<number, OpHandler> = new Map([
           data,
         )
         runState.stack.push(ret)
+
+        // for opcode not implemented with Synthesizer
+        SynthesizerValidator.validateOpcodeImplemented(0xec, 'EOFCREATE')
       }
     },
   ],
@@ -1928,6 +1981,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         const returnContainer = concatBytes(containerCode, auxData)
 
         runState.interpreter.finish(returnContainer)
+
+        // for opcode not implemented with Synthesizer
+        SynthesizerValidator.validateOpcodeImplemented(0xee, 'RETURNCONTRACT')
       }
     },
   ],
@@ -1962,6 +2018,9 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       const ret = await runState.interpreter.create(gasLimit, value, data)
       runState.stack.push(ret)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xf0, 'CREATE')
     },
   ],
   // 0xf5: CREATE2
@@ -2003,6 +2062,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         setLengthLeft(bigIntToBytes(salt), 32),
       )
       runState.stack.push(ret)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xf5, 'CREATE2')
     },
   ],
   // 0xf1: CALL
@@ -2388,6 +2450,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         returnData = runState.memory.read(Number(offset), Number(length))
       }
       runState.interpreter.revert(returnData)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xfd, 'REVERT')
     },
   ],
   // '0x70', range - other
@@ -2397,7 +2462,10 @@ export const handlers: Map<number, OpHandler> = new Map([
     async function (runState) {
       const selfdestructToAddressBigInt = runState.stack.pop()
       const selfdestructToAddress = createAddressFromStackBigInt(selfdestructToAddressBigInt)
-      return runState.interpreter.selfDestruct(selfdestructToAddress)
+      runState.interpreter.selfDestruct(selfdestructToAddress)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xff, 'SELFDESTRUCT')
     },
   ],
 ])

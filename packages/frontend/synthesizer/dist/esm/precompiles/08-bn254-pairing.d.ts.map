@@ -1,1 +1,0 @@
-{"version":3,"file":"08-bn254-pairing.d.ts","sourceRoot":"","sources":["../../../src/precompiles/08-bn254-pairing.ts"],"names":[],"mappings":"AAUA,OAAO,KAAK,EAAE,UAAU,EAAE,MAAM,aAAa,CAAA;AAC7C,OAAO,KAAK,EAAE,eAAe,EAAE,MAAM,YAAY,CAAA;AAEjD,wBAAgB,YAAY,CAAC,IAAI,EAAE,eAAe,GAAG,UAAU,CAyC9D"}
