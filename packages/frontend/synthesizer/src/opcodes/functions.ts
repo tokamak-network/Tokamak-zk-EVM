@@ -419,7 +419,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       const a = runState.stack.pop()
       const r = BigInt.asUintN(256, ~a)
       runState.stack.push(r)
-]
+
       // For Synthesizer //
       synthesizerArith('NOT', [a], r, runState)
     },
