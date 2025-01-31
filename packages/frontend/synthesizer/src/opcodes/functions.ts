@@ -1159,16 +1159,16 @@ export const handlers: Map<number, OpHandler> = new Map([
       const dataAliasInfos = runState.memoryPt.getDataAlias(offsetNum, loadSize)
       const mutDataPt = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
 
-      /***
-       * EVM 실행과 포인터 추적 시스템 간의 일관성 검증
-       * 1. 메모리 오프셋 검증:
-       *    - pos: 메인 스택에서 pop된 실제 메모리 오프셋
-       *    - offsetNum: 포인터 스택(stackPt)에서 추적된 메모리 오프셋
-       * 2. 로드된 값 검증:
-       *    - stack.peek(1)[0]: 메모리 로드 후 스택에 push된 실제 값
-       *    - mutDataPt.value: 포인터 추적 시스템이 계산한 예상 메모리 값
-       * 이 값들이 일치하지 않으면 EVM 실행과 포인터 추적 사이에
-       * 심각한 불일치가 있음을 의미하므로 즉시 에러 처리가 필요
+      /**
+       * Consistency validation between EVM execution and pointer tracking system
+       * 1. Memory offset validation:
+       *    - pos: Actual memory offset popped from main stack
+       *    - offsetNum: Tracked memory offset from pointer stack (stackPt)
+       * 2. Loaded value validation:
+       *    - stack.peek(1)[0]: Actual value pushed to stack after memory load
+       *    - mutDataPt.value: Expected memory value calculated by pointer tracking system
+       * If these values don't match, it indicates a critical inconsistency
+       * between EVM execution and pointer tracking, requiring immediate error handling
        */
       if (Number(pos) !== offsetNum || runState.stack.peek(1)[0] !== mutDataPt.value) {
         console.log('******ERROR******')
