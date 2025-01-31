@@ -6,16 +6,16 @@ import type { RunState } from '../../interpreter.js'
 import type { ArithmeticOperator, DataPt } from '../types/index.js'
 
 /**
- * Synthesizer 관련 유효성 검사를 담당하는 클래스
+ * Class responsible for Synthesizer-related validations
  */
 export class SynthesizerValidator {
   /**
-   * 입력 개수가 예상된 개수와 일치하는지 검증합니다.
+   * Validates if the input count matches the expected count
    *
-   * @param name 연산자 이름
-   * @param actual 실제 입력 개수Fevm
-   * @param expected 예상되는 입력 개수
-   * @throws {InvalidInputCountError} 입력 개수가 일치하지 않을 경우
+   * @param name Operator name
+   * @param actual Actual input count
+   * @param expected Expected input count
+   * @throws {InvalidInputCountError} If input count doesn't match
    */
   static validateInputCount(name: string, actual: number, expected: number): void {
     if (actual !== expected) {
@@ -24,11 +24,11 @@ export class SynthesizerValidator {
   }
 
   /**
-   * 서브서킷 이름이 유효한지 검증합니다.
+   * Validates if the subcircuit name is valid
    *
-   * @param name 서브서킷 이름
-   * @param validNames 유효한 서브서킷 이름 목록
-   * @throws {UndefinedSubcircuitError} 유효하지 않은 서브서킷 이름일 경우
+   * @param name Subcircuit name
+   * @param validNames List of valid subcircuit names
+   * @throws {UndefinedSubcircuitError} If subcircuit name is invalid
    */
   static validateSubcircuitName(name: string, validNames: string[]): void {
     if (!validNames.includes(name)) {
@@ -37,39 +37,16 @@ export class SynthesizerValidator {
   }
 
   /**
-   * 주어진 opcode가 구현되어 있는지 검증합니다.
-   * @param opcode 검증할 opcode
-   * @throws {Error} 구현되지 않은 opcode인 경우
+   * Validates if the given opcode is implemented
+   * @param opcode Opcode to validate
+   * @throws {Error} If opcode is not implemented
    */
   public static validateImplementedOpcode(opcode: string): void {
     const implementedOpcodes: ArithmeticOperator[] = [
-      'ADD',
-      'MUL',
-      'SUB',
-      'DIV',
-      'SDIV',
-      'MOD',
-      'SMOD',
-      'ADDMOD',
-      'MULMOD',
-      'EXP',
-      'SIGNEXTEND',
-      'LT',
-      'GT',
-      'SLT',
-      'SGT',
-      'EQ',
-      'ISZERO',
-      'AND',
-      'OR',
-      'XOR',
-      'NOT',
-      'BYTE',
-      'SHL',
-      'SHR',
-      'SAR',
-      'DecToBit',
-      'SubEXP',
+      'ADD', 'MUL', 'SUB', 'DIV', 'SDIV', 'MOD', 'SMOD',
+      'ADDMOD', 'MULMOD', 'EXP', 'SIGNEXTEND', 'LT', 'GT',
+      'SLT', 'SGT', 'EQ', 'ISZERO', 'AND', 'OR', 'XOR',
+      'NOT', 'BYTE', 'SHL', 'SHR', 'SAR', 'DecToBit', 'SubEXP',
     ] 
 
     if (!implementedOpcodes.includes(opcode as ArithmeticOperator)) {
@@ -88,10 +65,10 @@ export class SynthesizerValidator {
   }
 
   /**
-   * 입력값들이 유효한지 검증합니다.
+   * Validates if the inputs are valid
    *
-   * @param inputs 검증할 입력값 배열
-   * @throws {Error} 입력값이 null이거나 undefined인 경우
+   * @param inputs Array of inputs to validate
+   * @throws {Error} If input is null or undefined
    */
   static validateInputs(inputs: DataPt[]): void {
     for (const input of inputs) {
@@ -105,13 +82,13 @@ export class SynthesizerValidator {
   }
 
   /**
-   * 숫자 범위를 검증합니다.
+   * Validates number range
    *
-   * @param value 검증할 값
-   * @param min 최소값
-   * @param max 최대값
-   * @param paramName 파라미터 이름
-   * @throws {Error} 값이 범위를 벗어난 경우
+   * @param value Value to validate
+   * @param min Minimum value
+   * @param max Maximum value
+   * @param paramName Parameter name
+   * @throws {Error} If value is out of range
    */
   static validateRange(
     value: number | bigint,
@@ -124,6 +101,11 @@ export class SynthesizerValidator {
     }
   }
 
+  /**
+   * Validates if the value is within Ethereum word size limits
+   * @param value Value to validate
+   * @throws {Error} If value is negative or exceeds word size
+   */
   static validateValue(value: bigint): void {
     if (value < 0n) {
       throw new Error('Negative values are not allowed')
@@ -135,23 +117,11 @@ export class SynthesizerValidator {
 }
 
 export class SynthesizerInstructionValidator {
-  // static validateInput(op: string, expected?: bigint, actual?: bigint) {
-  //   if (expected === undefined) {
-  //     throw new SynthesizerOperationError(op, 'Must have an input value')
-  //   }
-  //   if (expected !== actual) {
-  //     throw new SynthesizerOperationError(op, 'Input data mismatch')
-  //   }
-  // }
-
-  // static validateOutput(op: string, stackPt: DataPt, stackValue: bigint) {
-  //   if (stackPt.value !== stackValue) {
-  //     throw new SynthesizerOperationError(op, 'Output data mismatch')
-  //   }
-  // }
-
   constructor(private runState: RunState) {}
 
+  /**
+   * Validates arithmetic inputs
+   */
   public validateArithInputs(inPts: DataPt[], ins: bigint[], op: string): void {
     if (inPts.length !== ins.length) {
       throw new Error(`Synthesizer: ${op}: Input data mismatch`)
@@ -164,12 +134,18 @@ export class SynthesizerInstructionValidator {
     }
   }
 
+  /**
+   * Validates arithmetic output
+   */
   public validateArithOutput(outPt: DataPt, expectedValue: bigint, op: string): void {
     if (outPt.value !== expectedValue) {
       throw new Error(`Synthesizer: ${op}: Output data mismatch`)
     }
   }
 
+  /**
+   * Validates Keccak256 data
+   */
   public validateKeccakData(offset: number, length: number, mutDataPt: DataPt): void {
     const data = this.runState.memory.read(offset, length)
     if (bytesToBigInt(data) !== mutDataPt.value) {

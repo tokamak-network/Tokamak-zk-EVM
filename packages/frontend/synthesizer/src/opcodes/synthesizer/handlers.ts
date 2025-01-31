@@ -78,9 +78,9 @@ export const synthesizerHandlers: Map<number, SynthesizerHandler> = new Map([
     } else {
       r = fromTwos(a.value) % fromTwos(b.value)
     }
-      // SMOD 연산의 결과를 2의 보수 표현으로 변환하여 EVM의 256비트 부호 없는 정수로 처리
-        // EVM은 모든 값을 부호 없는 256비트 정수로 처리하므로, 음수 결과를 올바르게 변환하기 위해 필요
-        // toTwos(r)를 사용하여 음수 결과를 2의 보수로 변환함으로써, SMOD 연산이 예상대로 작동하도록 보장
+      // Convert SMOD operation result to two's complement representation for EVM's 256-bit unsigned integer
+      // Required to properly handle negative results since EVM processes all values as unsigned 256-bit integers
+      // Using toTwos(r) to convert negative results to two's complement ensures SMOD operation works as expected
      synthesizerArith('SMOD', [a.value, b.value], toTwos(r), runState)
   }],
 

@@ -29,7 +29,7 @@ The Playground is a developer-friendly environment designed to interact with and
    ```
 3. Get your Etherscan API key from [Etherscan](https://etherscan.io/) -> My profile -> API Keys.
 
-4. Add an `.env` file with the following content:
+4. Add an `.env` file into the playground folder with the following content:
 
    ```plaintext
    VITE_ETHERSCAN_API_KEY=<Your Etherscan API Key>

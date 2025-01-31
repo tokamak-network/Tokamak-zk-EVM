@@ -431,15 +431,12 @@ export class Interpreter {
       // Execute opcode handler
       const opFn = opEntry.opHandler
 
-
-    // 2. 일반 opcode 실행
-    if (opInfo.isAsync) {
-      await (opFn as AsyncOpHandler).apply(null, [this._runState, this.common])
-    } else {
-      opFn.apply(null, [this._runState, this.common])
-    }
-
-  
+      // 2. Execute normal opcode
+      if (opInfo.isAsync) {
+        await (opFn as AsyncOpHandler).apply(null, [this._runState, this.common])
+      } else {
+        opFn.apply(null, [this._runState, this.common])
+      }
     } finally {
       if (this.profilerOpts?.enabled === true) {
         this.performanceLogger.stopTimer(
@@ -505,7 +502,7 @@ export class Interpreter {
             } else {
               console.log(`Invalid command. Please type "${targetCommand}" to proceed.`)
               rl.close()
-              waitForCommand(targetCommand).then(resolve) // 다시 대기
+              waitForCommand(targetCommand).then(resolve) // wait again
             }
           })
         })
@@ -866,7 +863,7 @@ export class Interpreter {
   }
 
   /**
-   * Returns the block’s number.
+   * Returns the block's number.
    */
   getBlockNumber(): bigint {
     return this._env.block.header.number
@@ -1027,7 +1024,7 @@ export class Interpreter {
   }
 
   /**
-   * Message-call into this account with an alternative account’s code, but
+   * Message-call into this account with an alternative account's code, but
    * persisting the current values for sender and value.
    */
   async callDelegate(

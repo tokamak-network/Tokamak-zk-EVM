@@ -82,9 +82,9 @@ circuits
 
 ## Subcircuits design
 - All subcircuits are compatible with the EVM's basic operations on 256-bit words.
-- - Due to the nature of finite fields for pairing-friendly elliptic curves (e.g., BN128), Circom supports 254-bit words.
-- - So, each input and output of target operations will be split (by Synthesizer) into two 128-bit length values before being applied to the subcircuits.
-- - As the result, the subcircuits have twice as many inputs and outputs as target operations.
+  - Due to the nature of finite fields for pairing-friendly elliptic curves (e.g., BN128), Circom supports 254-bit words.
+  - So, each input and output of target operations will be split (by Synthesizer) into two 128-bit length values before being applied to the subcircuits.
+  - As the result, the subcircuits have twice as many inputs and outputs as target operations.
 
 - KECCAK256
     - Implementing Keccak hashing directly in a circuit, such as [Keccak256-circom](https://github.com/vocdoni/keccak256-circom), is computationally inefficient, resulting in approximately 151k constraints. Thus, we have chosen not to implement a Keccak circuit. Instead, Synthesizer will buffer subcircuits to emit the KECCAK256 input values from the circuit and reintroduce the KECCAK256 output values back into the circuit. Outside the circuit, the Keccak hash computation can be run by the verifier of the Tokamak-zk SNARK. Find details from [Synthesizer Doc.](https://tokamak.notion.site/Synthesizer-documentation-164d96a400a3808db0f0f636e20fca24?pvs=4)

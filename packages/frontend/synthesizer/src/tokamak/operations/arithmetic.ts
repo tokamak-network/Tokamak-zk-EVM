@@ -5,18 +5,17 @@ import type { ArithmeticOperator } from '../types/index.js'
 export type ArithmeticFunction = (...args: bigint[]) => bigint | bigint[]
 
 /**
-/**
- * Synthesizer 산술 연산을 처리하는 유틸리티 클래스
+ * Utility class for handling Synthesizer arithmetic operations
  */
 export class ArithmeticOperations {
   private static readonly MAX_UINT256 = (1n << 256n) - 1n
   private static readonly SIGN_BIT = 1n << 255n
-  // const N은 opcodes/utils.ts 에서 복사해왔습니다. EXP에서 사용하는 모듈로인데, 왜 이 숫자를 사용하는지는 모르겠네요...
+   // N is 2^256, copied from opcodes/utils.ts. Used as modulo in EXP operations
   private static readonly N =
     BigInt(115792089237316195423570985008687907853269984665640564039457584007913129639936)
 
   /**
-   * 기본 산술 연산
+   * Basic arithmetic operations
    */
   static add(a: bigint, b: bigint): bigint {
     return (a + b) & ArithmeticOperations.MAX_UINT256
@@ -43,7 +42,7 @@ export class ArithmeticOperations {
   }
 
   /**
-   * 모듈로 연산
+   * Modulo operations
    */
   static mod(a: bigint, b: bigint): bigint {
     return b === 0n ? 0n : a % b
@@ -69,7 +68,7 @@ export class ArithmeticOperations {
 
   /**
    * @deprecated
-   * 지수 연산
+   * Exponentiation operation
    */
   static exp(base: bigint, exponent: bigint): bigint {
     if (exponent === 0n) return 1n
@@ -90,7 +89,7 @@ export class ArithmeticOperations {
   }
 
   /**
-   * 비교 연산
+   * Comparison operations
    */
   static lt(a: bigint, b: bigint): bigint {
     return a < b ? 1n : 0n
@@ -117,7 +116,7 @@ export class ArithmeticOperations {
   }
 
   /**
-   * 비트 연산
+   * Bit operations
    */
   static and(a: bigint, b: bigint): bigint {
     return a & b
@@ -136,7 +135,7 @@ export class ArithmeticOperations {
   }
 
   /**
-   * 시프트 연산
+   * Shift operations
    */
   static shl(shift: bigint, value: bigint): bigint {
     return shift >= 256n ? 0n : (value << shift) & ArithmeticOperations.MAX_UINT256
@@ -162,7 +161,7 @@ export class ArithmeticOperations {
   }
 
   /**
-   * 바이트 연산
+   * Byte operations
    */
   static byte(index: bigint, value: bigint): bigint {
     if (index >= 32n) return 0n
@@ -171,7 +170,7 @@ export class ArithmeticOperations {
   }
 
   /**
-   * 부호 확장
+   * Sign extension
    */
   static signextend(k: bigint, value: bigint): bigint {
     if (k > 31n) return value
@@ -211,7 +210,7 @@ export class ArithmeticOperations {
   }
 }
 
-// 연산자와 함수 매핑
+// Operator and function mapping
 export const OPERATION_MAPPING: Record<ArithmeticOperator, ArithmeticFunction> = {
   ADD: ArithmeticOperations.add,
   MUL: ArithmeticOperations.mul,
