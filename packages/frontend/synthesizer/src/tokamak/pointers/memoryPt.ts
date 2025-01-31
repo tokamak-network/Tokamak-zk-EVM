@@ -175,12 +175,13 @@ export class MemoryPt {
   }
 
   /**
+   * Cleans up memory pointers when new data is written.
    * If the newly written data completely overlaps existing data,
    * delete the existing key-value pair.
    */
   private _memPtCleanUp(newOffset: number, newSize: number) {
     for (const [key, { memOffset: _offset, containerSize: _size }] of this._storePt) {
-      //새 데이터가 기존 데이터를 완전히 오버랩 하는 조건
+      // Condition where new data completely overlaps existing data
       const _endOffset = _offset + _size - 1
       const newEndOffset = newOffset + newSize - 1
       if (_endOffset <= newEndOffset && _offset >= newOffset) {
@@ -267,9 +268,6 @@ export class MemoryPt {
    * @returns {DataAliasInfos}
    */
   getDataAlias(offset: number, size: number): DataAliasInfos {
-    // if (size > 32) {
-    //   throw new Error(`The range of memory view exceeds 32 bytes. Try to chunk it in the Handlers.`)
-    // }
     const dataAliasInfos: DataAliasInfos = []
     const dataFragments = this._viewMemoryConflict(offset, size)
 
@@ -281,7 +279,7 @@ export class MemoryPt {
       const viewEndOffset = offset + size - 1
       dataAliasInfos.push({
         dataPt: this._storePt.get(timeStamp)!.dataPt,
-        // shift가 양의 값이면 SHL, 음의 값이면 SHR
+        // shift is positive for SHL, negative for SHR
         shift: (viewEndOffset - dataEndOffset) * 8,
         masker: this._generateMasker(offset, size, _value.validRange),
       })

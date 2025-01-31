@@ -153,7 +153,7 @@ export async function synthesizerEnvInf(
   target?: bigint,
   offset?: bigint,
 ): Promise<void> {
-  // Environment information을 Stack에 load하는 경우만 다룹니다. 그 외의 경우 (~COPY)는 functionst.ts에서 직접 처리 합니다.
+  // Handles only cases where Environment information is loaded to Stack. Other cases (~COPY) are handled directly in functionst.ts.
   let dataPt: DataPt
   switch (op) {
     case 'CALLDATALOAD': {
@@ -511,7 +511,7 @@ export class Synthesizer {
   }
 
   public loadKeccak(inPts: DataPt[], outValue: bigint, length?: bigint): DataPt {
-    // 연산 실행
+    // Execute operation
     const nChunks = inPts.length
     let value = BIGINT_0
     for (let i = 0; i < nChunks; i++) {
@@ -644,7 +644,7 @@ export class Synthesizer {
 
 
   /**
-  @todo: newDataPt size 변수 검증 필요
+  @todo: Validation needed for newDataPt size variable
    */
   private static readonly REQUIRED_INPUTS: Partial<Record<string, number>> = {
     ADDMOD: 3,
@@ -655,7 +655,7 @@ export class Synthesizer {
     SubEXP: 3,
   } as const
   private validateOperation(name: ArithmeticOperator, inPts: DataPt[]): void {
-    // 기본값은 2, 예외적인 경우만 REQUIRED_INPUTS에서 확인
+    // Default is 2, check REQUIRED_INPUTS only for exceptional cases
     const requiredInputs = Synthesizer.REQUIRED_INPUTS[name] ?? 2
     SynthesizerValidator.validateInputCount(name, inPts.length, requiredInputs)
     SynthesizerValidator.validateInputs(inPts)
@@ -678,20 +678,20 @@ export class Synthesizer {
 
   private handleBinaryOp(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
     try {
-      // 1. 입력값 검증
+      // 1. Validate inputs
       this.validateOperation(name, inPts)
 
-      // 2. 연산 실행
+      // 2. Execute operation
       const values = inPts.map((pt) => pt.value)
       const outValue = this.executeOperation(name, values)
 
-      // 3. 출력값 생성
+      // 3. Generate output
       let wireIndex = 0
       const outPts = Array.isArray(outValue)
         ? outValue.map((value) => this.createOutputPoint(value, wireIndex++))
         : [this.createOutputPoint(outValue)]
 
-      // 4. 배치 추가
+      // 4. Add placement
       this._place(name, inPts, outPts)
 
       return outPts
@@ -826,7 +826,7 @@ export class Synthesizer {
     const { shift, dataPt } = info
     let outPts = [dataPt]
     if (Math.abs(shift) > 0) {
-      // shift 값과 shift 방향과의 관계는 MemoryPt에서 정의하였음
+      // The relationship between shift value and shift direction is defined in MemoryPt
       const subcircuitName: ArithmeticOperator = shift > 0 ? 'SHL' : 'SHR'
       const absShift = Math.abs(shift)
       const inPts: DataPt[] = [this.loadAuxin(BigInt(absShift)), dataPt]

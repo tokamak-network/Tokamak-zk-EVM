@@ -145,9 +145,12 @@ export class EVM implements EVMInterface {
   protected readonly _emit: (topic: string, data: any) => Promise<void>
 
   private _bn254: EVMBN254Interface
-  // EVM에서 synthesizer를 생성하고, interpreter가 runState를 구성할 때 이를 상속받아 사용함.
-  // 결과적으로 CALL류 실행을 통해 하위 컨텍스트들이 구성될 때, 모든 컨텍스트에서 EVM에서 생성된 synthesizer가 공유됨.
-  // 이를 위해 interpreter의 constructor의 인자에 synthesizer를 추가하였음.
+  /**
+   * Synthesizer is created in EVM and inherited by interpreter when constructing runState.
+   * As a result, when sub-contexts are created through CALL-type executions,
+   * the synthesizer created in EVM is shared across all contexts.
+   * For this purpose, synthesizer was added as an argument to the interpreter's constructor.
+   */
   public synthesizer: Synthesizer
 
   /**
