@@ -1,6 +1,6 @@
 /**
  * Run this file with:
- * DEBUG=ethjs,evm:*,evm:*:* tsx erc20-transfer.ts
+ * DEBUG=ethjs,evm:*,evm:*:* tsx ton-transfer.ts
  */
 
 import { Account, Address, hexToBytes } from "@ethereumjs/util/index.js"
@@ -16,9 +16,9 @@ const main = async () => {
   const evm = await createEVM()
 
   // 계정 설정
-  const contractAddr = new Address(hexToBytes('0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'))
-  const sender = new Address(hexToBytes('0xE86Cf48dc0452abB479A232dDF11793Fb199F034'))
-  const recipient = new Address(hexToBytes('0xd7b5c8615ecd3dce8bf659e7fb632ba052b92734'))
+  const contractAddr = new Address(hexToBytes('0x2be5e8c109e2197D077D13A82dAead6a9b3433C5'))
+  const sender = new Address(hexToBytes('0x71A4BcDc06CF271344d65f7A7BbA67BD6b005520'))
+  const recipient = new Address(hexToBytes('0x5e5cc881b5d61979d009a7aa06b81b3f4546479d'))
 
   // 컨트랙트 계정 생성
     await evm.stateManager.putAccount(contractAddr, new Account())
@@ -27,7 +27,7 @@ const main = async () => {
   await evm.stateManager.putCode(contractAddr, hexToBytes(contractCode))
 
   // 잔액 설정
-  const balanceSlot = '0x02'
+  const balanceSlot = '0x00'
   const senderBalanceSlot = keccak256(
     hexToBytes(
       '0x' + sender.toString().slice(2).padStart(64, '0') + balanceSlot.slice(2).padStart(64, '0'),
@@ -36,7 +36,7 @@ const main = async () => {
   await evm.stateManager.putStorage(
     contractAddr,
     senderBalanceSlot,
-    hexToBytes('0x' + 'f'.padStart(64, 'f')),
+    hexToBytes('0x' + 'ff6b935b8bbd400000'.padStart(64, '0')),
   )
     
 
@@ -46,16 +46,11 @@ const main = async () => {
     to: contractAddr,
     code: hexToBytes(contractCode),
     data: hexToBytes(
-      "0xa9059cbb0000000000000000000000009944a69089a39cb719b8533cc892e133e3a80a0700000000000000000000000000000000000000000000000000000001e88db3d7"
+      "0xa9059cbb0000000000000000000000005e5cc881b5d61979d009a7aa06b81b3f4546479d00000000000000000000000000000000000000000000006c6b935b8bbd400000"
     ),
   })
 
-  console.log("result", result)
-
-   // Get circuit placements
-  console.log('Circuit Placements:', 
-    JSON.stringify(result.runState?.synthesizer.placements, null, 2)
-  )
+  console.log(result)
 
   // Generate proof
   const permutation = await finalize(result.runState!.synthesizer.placements, true)
