@@ -1413,8 +1413,12 @@ export const handlers: Map<number, OpHandler> = new Map([
     function (runState) {
       runState.stack.push(runState.interpreter.getGasLeft())
 
-      // for opcode not implemented with Synthesizer
-      SynthesizerValidator.validateOpcodeImplemented(0x5a, 'GAS')
+      // For Synthesizer. Temporary handling. Will be updated.
+      const dataPt = runState.synthesizer.loadAuxin(runState.interpreter.getGasLeft())
+      runState.stackPt.push(dataPt)
+      if (runState.stackPt.peek(1)[0].value !== runState.stack.peek(1)[0]) {
+        throw new Error(`Synthesizer: 'GAS': Output data mismatch`)
+      }
     },
   ],
   // 0x5b: JUMPDEST
