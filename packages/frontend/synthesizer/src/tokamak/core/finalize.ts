@@ -4,11 +4,11 @@ import { readFileSync } from 'fs'
 import path from 'path'
 import appRootPath from 'app-root-path'
 
-import { subcircuits as subcircuitInfos, globalWireInfo } from '../resources/index.js'
+import { subcircuits as subcircuitInfos, globalWireInfo, wasmDir } from '../resources/index.js'
 import { KECCAK_OUT_PLACEMENT_INDEX, LOAD_PLACEMENT_INDEX } from '../constant/placement.js'
 
 // @ts-ignore
-import { builder } from '../utils/witness_calculator.js'
+import { builder } from '../resources/index.js'
 
 import type {
   DataPt,
@@ -182,7 +182,7 @@ async function outputPlacementInstance(placements: Placements): Promise<Placemen
   try {
     fs.writeFileSync(filePath, jsonContent, 'utf-8')
     console.log(
-      `Synthesizer: Input and output wire assingments of the placements are generated in "/outputs/placementInstance.json".`,
+      `Synthesizer: Input and output wire assingments of the placements are generated in "examples/outputs/placementInstance.json".`,
     )
   } catch (error) {
     throw new Error(`Synthesizer: Failure in writing "placementInstance.json".`)
@@ -288,7 +288,7 @@ class Permutation {
     }
     try {
       fs.writeFileSync(filePath, jsonContent, 'utf-8')
-      console.log(`Synthesizer: Permutation rule is generated in "/outputs/permutation.json".`)
+      console.log(`Synthesizer: Permutation rule is generated in "examples/outputs/permutation.json".`)
     } catch (error) {
       throw new Error(`Synthesizer: Failure in writing "permutation.json".`)
     }
@@ -424,7 +424,6 @@ class Permutation {
 
 const testInstances = async (instances: PlacementInstances): Promise<void> => {
   //console.log("Usage: tsx generate_witness.ts <file.wasm> <input.json> <output.wtns>")
-  const dir = '../qap-compiler/outputs/wasm'
   const reuseBuffer = new Map()
   for (const [placementInd, instance] of instances.entries()) {
     const id = instance.subcircuitId
@@ -433,7 +432,7 @@ const testInstances = async (instances: PlacementInstances): Promise<void> => {
     if (reuseBuffer.has(id)) {
       buffer = reuseBuffer.get(id)
     } else {
-      const targetWasmPath = path.resolve(appRootPath.path, dir, `subcircuit${id}.wasm`)
+      const targetWasmPath = path.resolve(appRootPath.path, wasmDir, `subcircuit${id}.wasm`)
 
 
       try {

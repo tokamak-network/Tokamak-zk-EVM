@@ -1,7 +1,7 @@
 //const {opcodeDictionary} = require('./opcode.js')
 const fs = require('fs')
 
-const numOfLinesPerCircuit = 12
+const numOfLinesPerCircuit = 13
 
 function _buildWireFlattenMap(globalWireList, subcircuitInfos, globalWireIndex, subcircuitId, subcircuitWireId) {
   if ( globalWireList[globalWireIndex] !== undefined ) {
@@ -220,7 +220,6 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
 
     const subcircuit = {
       id: id,
-      //opcode: '0',
       name: name,
       Nwires: Number(numWires),
       Out_idx: [1, Number(numOutput)],
@@ -231,8 +230,13 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
 
   const globalWireInfo = parseWireList(subcircuits)
 
-  const tsSubcircuitInfo = `//flattenMap[localWireIndex] = globalWireIndex \n export const subcircuits =\n ${JSON.stringify(subcircuits, null)}`
-  fs.writeFile('../outputs/subcircuitInfo.ts', tsSubcircuitInfo, (err) => {
+  const tsSubcircuitInfo = `// Out_idx[0] denotes the index of the first output wire.
+  // Out_idx[1] denotes the number of output wires.
+  // In_idx[0] denotes the index of the first input wire.
+  // In_idx[1] denotes the number of input wires.
+  // flattenMap[localWireIndex] maps localWireIndex of this subcircuit to globalWireIndex out of m_D global wires.
+  export const subcircuits =\n ${JSON.stringify(subcircuits, null)}`
+  fs.writeFile('../subcircuits/library/subcircuitInfo.ts', tsSubcircuitInfo, (err) => {
     if (err) {
       console.log('Error writing the TypeScript file', err);
     } else {
@@ -240,8 +244,10 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
     }
   })
 
-  const tsWireInfo = `//wireList[globalWireIndex][0] = subcircuitId \n //wireList[globalWireIndex][1] = localWireIndex \n export const globalWireInfo =\n ${JSON.stringify(globalWireInfo, null)}`
-  fs.writeFile('../outputs/globalWireList.ts', tsWireInfo, (err) => {
+  const tsWireInfo = `// wireList[globalWireIndex][0] indicates subcircuitId to which this wire belongs.
+  // wireList[globalWireIndex][1] indicates the corresponding localWireIndex in the subcircuitId.
+  export const globalWireInfo =\n ${JSON.stringify(globalWireInfo, null)}`
+  fs.writeFile('../subcircuits/library/globalWireList.ts', tsWireInfo, (err) => {
     if (err) {
       console.log('Error writing the TypeScript file', err);
     } else {
