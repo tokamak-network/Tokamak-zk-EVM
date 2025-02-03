@@ -3,6 +3,9 @@ const fs = require('fs')
 
 const numOfLinesPerCircuit = 13
 
+const listPublicIn = new Map().set('bufferPubInPrvOut', true)
+const listPublicOut = new Map().set('bufferPrvInPubOut', true)
+
 function _buildWireFlattenMap(globalWireList, subcircuitInfos, globalWireIndex, subcircuitId, subcircuitWireId) {
   if ( globalWireList[globalWireIndex] !== undefined ) {
     throw new Error(`parseWireList: The same mapping occurs twice.`)
@@ -28,18 +31,6 @@ function _buildWireFlattenMap(globalWireList, subcircuitInfos, globalWireIndex, 
 }
 
 function parseWireList(subcircuitInfos, mode = 0) {
-  // mode: 0 (default) = The output wires of KeccakBufferIn and the input wires of KeccakBufferOut are regarded as public wires.
-  // mode: 1 = In addition to the public wires for mode 0, the input wires of InterfaceBufferIn and the output wires of InterfaceBufferOut are additionally regarded as public wires.
-  if (mode < 0 || mode > 1){
-    throw new Error(`parseWireList: Unexpected mode`)
-  }
-
-  const listPublicIn = new Map().set('KeccakBufferOut', true)
-  const listPublicOut = new Map().set('KeccakBufferIn', true)
-  if (mode){
-    listPublicIn.set('InterfaceBufferIn', true)
-    listPublicOut.set('InterfaceBufferOut', true)
-  }
   let numTotalWires = 0
   let numPublicWires = 0
   let numInterfaceWires = 0
@@ -235,7 +226,8 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
   // In_idx[0] denotes the index of the first input wire.
   // In_idx[1] denotes the number of input wires.
   // flattenMap[localWireIndex] maps localWireIndex of this subcircuit to globalWireIndex out of m_D global wires.
-  export const subcircuits =\n ${JSON.stringify(subcircuits, null)}`
+  const subcircuits =\n ${JSON.stringify(subcircuits, null)}
+  module.exports = subcircuits`
   fs.writeFile('../subcircuits/library/subcircuitInfo.ts', tsSubcircuitInfo, (err) => {
     if (err) {
       console.log('Error writing the TypeScript file', err);
@@ -246,7 +238,8 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
 
   const tsWireInfo = `// wireList[globalWireIndex][0] indicates subcircuitId to which this wire belongs.
   // wireList[globalWireIndex][1] indicates the corresponding localWireIndex in the subcircuitId.
-  export const globalWireInfo =\n ${JSON.stringify(globalWireInfo, null)}`
+  const globalWireInfo =\n ${JSON.stringify(globalWireInfo, null)}
+  module.exports = globalWireInfo`
   fs.writeFile('../subcircuits/library/globalWireList.ts', tsWireInfo, (err) => {
     if (err) {
       console.log('Error writing the TypeScript file', err);
