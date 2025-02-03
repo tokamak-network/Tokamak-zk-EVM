@@ -58,7 +58,8 @@ export type DataPt = CreateDataPointParams & { valueHex: string }
 
 export type PlacementEntry = {
   name: string
-  subcircuitId?: number
+  usage?: string
+  subcircuitId: number
   inPts: DataPt[]
   outPts: DataPt[]
 }
