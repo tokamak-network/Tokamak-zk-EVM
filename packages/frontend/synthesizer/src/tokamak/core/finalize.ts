@@ -5,7 +5,7 @@ import path from 'path'
 import appRootPath from 'app-root-path'
 
 import { subcircuits as subcircuitInfos, globalWireInfo, wasmDir } from '../resources/index.js'
-import { INITIAL_PLACEMENT_INDEX, KECCAK_OUT_PLACEMENT_INDEX, LOAD_PLACEMENT_INDEX } from '../constant/index.js'
+import { INITIAL_PLACEMENT_INDEX, LOAD_PLACEMENT_INDEX } from '../constant/index.js'
 
 // @ts-ignore
 import { builder } from '../utils/witness_calculator.js'
