@@ -227,7 +227,7 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
   // In_idx[1] denotes the number of input wires.
   // flattenMap[localWireIndex] maps localWireIndex of this subcircuit to globalWireIndex out of m_D global wires.
   const subcircuits =\n ${JSON.stringify(subcircuits, null)}
-  module.exports = subcircuits`
+  export default subcircuits`
   fs.writeFile('../subcircuits/library/subcircuitInfo.ts', tsSubcircuitInfo, (err) => {
     if (err) {
       console.log('Error writing the TypeScript file', err);
@@ -239,7 +239,7 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
   const tsWireInfo = `// wireList[globalWireIndex][0] indicates subcircuitId to which this wire belongs.
   // wireList[globalWireIndex][1] indicates the corresponding localWireIndex in the subcircuitId.
   const globalWireInfo =\n ${JSON.stringify(globalWireInfo, null)}
-  module.exports = globalWireInfo`
+  export default globalWireInfo`
   fs.writeFile('../subcircuits/library/globalWireList.ts', tsWireInfo, (err) => {
     if (err) {
       console.log('Error writing the TypeScript file', err);

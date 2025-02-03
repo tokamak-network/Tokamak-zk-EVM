@@ -8,7 +8,7 @@ import { subcircuits as subcircuitInfos, globalWireInfo, wasmDir } from '../reso
 import { INITIAL_PLACEMENT_INDEX, KECCAK_OUT_PLACEMENT_INDEX, LOAD_PLACEMENT_INDEX } from '../constant/index.js'
 
 // @ts-ignore
-import { builder } from '../resources/index.js'
+import { builder } from '../utils/witness_calculator.js'
 
 import type {
   DataPt,
