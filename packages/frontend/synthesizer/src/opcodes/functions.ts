@@ -58,6 +58,11 @@ import {
 import type { RunState } from '../interpreter.js'
 import type { MemoryPtEntry, MemoryPts } from '../tokamak/pointers/index.js'
 import type { Common } from '@ethereumjs/common/dist/esm/index.js'
+import { DEFAULT_SOURCE_SIZE } from "../tokamak/constant/constants.js"
+
+import {
+  SynthesizerValidator,
+} from '../tokamak/validation/index.js'
 
 export interface SyncOpHandler {
   (runState: RunState, common: Common): void
@@ -197,9 +202,11 @@ export const handlers: Map<number, OpHandler> = new Map([
       synthesizerArith(
         'SMOD',
         [a, b],
-        // SMOD 연산의 결과를 2의 보수 표현으로 변환하여 EVM의 256비트 부호 없는 정수로 처리
-        // EVM은 모든 값을 부호 없는 256비트 정수로 처리하므로, 음수 결과를 올바르게 변환하기 위해 필요
-        // toTwos(r)를 사용하여 음수 결과를 2의 보수로 변환함으로써, SMOD 연산이 예상대로 작동하도록 보장
+        /* 
+         * Convert SMOD operation result to two's complement representation for EVM's 256-bit unsigned integer.
+         * Required because EVM processes all values as unsigned 256-bit integers, so negative results need proper conversion.
+         * Using toTwos(r) to convert negative results to two's complement ensures SMOD operation works as expected.
+         */
         toTwos(r),
         runState,
       )
@@ -678,19 +685,30 @@ export const handlers: Map<number, OpHandler> = new Map([
           )
         } else {
           // Case: The calldata is originated from Environmental Information
-          const data = getDataSlice(runState.interpreter.getCallData(), dataOffset, dataLength)
-          const entryToCopy: MemoryPtEntry = {
-            memOffset: Number(memOffset),
-            containerSize: Number(dataLength),
-            dataPt: runState.synthesizer.loadEnvInf(
-              runState.env.address.toString(),
-              'Calldata',
-              bytesToBigInt(data),
-              dataOffsetNum,
-              Number(dataLength),
-            ),
+          let chunkedLength = Number(dataLength)
+          let accumOffsetShift = 0n
+          let entryToCopy: MemoryPtEntry
+          while (chunkedLength > 0){
+            const chunkSize = chunkedLength >= DEFAULT_SOURCE_SIZE ? DEFAULT_SOURCE_SIZE : chunkedLength
+
+            const data = getDataSlice(runState.interpreter.getCallData(), dataOffset + accumOffsetShift, BigInt(chunkSize))
+            entryToCopy = {
+              memOffset: Number(memOffset + accumOffsetShift),
+              containerSize: chunkSize,
+              dataPt: runState.synthesizer.loadEnvInf(
+                runState.env.address.toString(),
+                'Calldata',
+                bytesToBigInt(data),
+                Number(dataOffset + accumOffsetShift),
+                chunkSize,
+              )
+            }
+            memoryPtsToCopy.push(entryToCopy)
+
+            chunkedLength -= chunkSize
+            accumOffsetShift += BigInt(chunkSize)
           }
-          memoryPtsToCopy.push(entryToCopy)
+          
         }
 
         for (const entry of memoryPtsToCopy) {
@@ -739,17 +757,24 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
 
       if (dataLength !== BIGINT_0) {
-        const data = getDataSlice(runState.interpreter.getCode(), codeOffset, dataLength)
-        const dataBigint = bytesToBigInt(data)
-        const codeOffsetNum = Number(codeOffset)
-        const dataPt = runState.synthesizer.loadEnvInf(
-          runState.env.address.toString(),
-          'Code',
-          dataBigint,
-          codeOffsetNum,
-          Number(dataLength),
-        )
-        runState.memoryPt.write(Number(memOffset), Number(dataLength), dataPt)
+        let chunkedLength = Number(dataLength)
+        let accumOffsetShift = 0n
+        while (chunkedLength > 0){
+          const chunkSize = chunkedLength >= DEFAULT_SOURCE_SIZE ? DEFAULT_SOURCE_SIZE : chunkedLength
+          const data = getDataSlice(runState.interpreter.getCode(), codeOffset+accumOffsetShift, BigInt(chunkSize))
+          const dataBigint = bytesToBigInt(data)
+          const dataPt = runState.synthesizer.loadEnvInf(
+            runState.env.address.toString(),
+            'Code',
+            dataBigint,
+            Number(codeOffset+accumOffsetShift),
+            chunkSize,
+          )
+          runState.memoryPt.write(Number(memOffset+accumOffsetShift), chunkSize, dataPt)
+
+          chunkedLength -= chunkSize
+          accumOffsetShift += BigInt(chunkSize)
+        }
       }
       const _outData = runState.memoryPt.viewMemory(Number(memOffset), Number(dataLength))
       const outData = runState.memory.read(Number(memOffset), Number(dataLength))
@@ -819,8 +844,17 @@ export const handlers: Map<number, OpHandler> = new Map([
         throw new Error(`Synthesizer: EXTCODECOPY: Input data mismatch`)
       }
       if (dataLength !== BIGINT_0) {
-        const dataPt = await prepareEXTCodePt(runState, addressBigInt, codeOffset, dataLength)
-        runState.memoryPt.write(Number(memOffset), Number(dataLength), dataPt)
+        let chunkedLength = Number(dataLength)
+        let accumOffsetShift = 0n
+        while (chunkedLength > 0){
+          const chunkSize = chunkedLength >= DEFAULT_SOURCE_SIZE ? DEFAULT_SOURCE_SIZE : chunkedLength
+
+          const dataPt = await prepareEXTCodePt(runState, addressBigInt, codeOffset+accumOffsetShift, BigInt(chunkSize))
+          runState.memoryPt.write(Number(memOffset+accumOffsetShift), chunkSize, dataPt)
+
+          chunkedLength -= chunkSize
+          accumOffsetShift += BigInt(chunkSize)
+        }
       }
       const _outData = runState.memoryPt.viewMemory(Number(memOffset), Number(dataLength))
       const outData = runState.memory.read(Number(memOffset), Number(dataLength))
@@ -1155,16 +1189,16 @@ export const handlers: Map<number, OpHandler> = new Map([
       const dataAliasInfos = runState.memoryPt.getDataAlias(offsetNum, loadSize)
       const mutDataPt = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
 
-      /***
-       * EVM 실행과 포인터 추적 시스템 간의 일관성 검증
-       * 1. 메모리 오프셋 검증:
-       *    - pos: 메인 스택에서 pop된 실제 메모리 오프셋
-       *    - offsetNum: 포인터 스택(stackPt)에서 추적된 메모리 오프셋
-       * 2. 로드된 값 검증:
-       *    - stack.peek(1)[0]: 메모리 로드 후 스택에 push된 실제 값
-       *    - mutDataPt.value: 포인터 추적 시스템이 계산한 예상 메모리 값
-       * 이 값들이 일치하지 않으면 EVM 실행과 포인터 추적 사이에
-       * 심각한 불일치가 있음을 의미하므로 즉시 에러 처리가 필요
+      /**
+       * Consistency validation between EVM execution and pointer tracking system
+       * 1. Memory offset validation:
+       *    - pos: Actual memory offset popped from main stack
+       *    - offsetNum: Tracked memory offset from pointer stack (stackPt)
+       * 2. Loaded value validation:
+       *    - stack.peek(1)[0]: Actual value pushed to stack after memory load
+       *    - mutDataPt.value: Expected memory value calculated by pointer tracking system
+       * If these values don't match, it indicates a critical inconsistency
+       * between EVM execution and pointer tracking, requiring immediate error handling
        */
       if (Number(pos) !== offsetNum || runState.stack.peek(1)[0] !== mutDataPt.value) {
         console.log('******ERROR******')
@@ -1358,6 +1392,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x58,
     function (runState) {
       runState.stack.push(BigInt(runState.programCounter - 1))
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0x58, 'PC')
     },
   ],
   // 0x59: MSIZE
@@ -1365,6 +1402,9 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x59,
     function (runState) {
       runState.stack.push(runState.memoryWordCount * BIGINT_32)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0x59, 'MSIZE')
     },
   ],
   // 0x5a: GAS
@@ -1372,6 +1412,13 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x5a,
     function (runState) {
       runState.stack.push(runState.interpreter.getGasLeft())
+
+      // For Synthesizer. Temporary handling. Will be updated.
+      const dataPt = runState.synthesizer.loadAuxin(runState.interpreter.getGasLeft())
+      runState.stackPt.push(dataPt)
+      if (runState.stackPt.peek(1)[0].value !== runState.stack.peek(1)[0]) {
+        throw new Error(`Synthesizer: 'GAS': Output data mismatch`)
+      }
     },
   ],
   // 0x5b: JUMPDEST
@@ -1536,11 +1583,6 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.dup(stackPos)
 
       // // For Synthesizer
-      // const dataPt = runState.stackPt.peek(stackPos)[0]
-      // console.log('stackPos', stackPos)
-      // console.log('dataPt', dataPt)
-      // const newDataPt = { ...dataPt } // 새로운 객체로 복사
-      // runState.stackPt.push(newDataPt)
       runState.stackPt.dup(stackPos)
     },
   ],
@@ -1614,6 +1656,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         r = r << (BIGINT_8 * BigInt(32 - loaded.length))
       }
       runState.stack.push(r)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xd0, 'DATALOAD')
     },
   ],
   // 0xd1: DATALOADN
@@ -1632,6 +1677,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       )
       runState.stack.push(data)
       runState.programCounter += 2
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xd1, 'DATALOADN')
     },
   ],
   // 0xd2: DATASIZE
@@ -1643,6 +1691,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         trap(ERROR.INVALID_OPCODE)
       }
       runState.stack.push(BigInt(runState.env.eof!.container.body.dataSection.length))
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xd2, 'DATASIZE')
     },
   ],
   // 0xd3: DATACOPY
@@ -1660,6 +1711,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         const dataLengthNum = Number(size)
         runState.memory.write(memOffsetNum, dataLengthNum, data)
       }
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xd3, 'DATACOPY')
     },
   ],
   // 0xe0: RJUMP
@@ -1674,6 +1728,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         const rjumpDest = new DataView(code.buffer).getInt16(runState.programCounter)
         runState.programCounter += 2 + rjumpDest
       }
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe0, 'RJUMP')
     },
   ],
   // 0xe1: RJUMPI
@@ -1694,6 +1751,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         // In all cases, increment PC with 2 (also in the case if `cond` is `0`)
         runState.programCounter += 2
       }
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe1, 'RJUMPI')
     },
   ],
   // 0xe2: RJUMPV
@@ -1721,6 +1781,9 @@ export const handlers: Map<number, OpHandler> = new Map([
           runState.programCounter += jumptableSize
         }
       }
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe2, 'RJUMPV')
     },
   ],
   // 0xe3: CALLF
@@ -1746,6 +1809,9 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // Find out the opcode we should jump into
       runState.programCounter = runState.env.eof!.container.header.getCodePosition(sectionTarget)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe3, 'CALLF')
     },
   ],
   // 0xe4: RETF
@@ -1762,6 +1828,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         trap(EOFError.RetfNoReturn)
       }
       runState.programCounter = newPc!
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe4, 'RETF')
     },
   ],
   // 0xe5: JUMPF
@@ -1790,6 +1859,9 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // Find out the opcode we should jump into
       runState.programCounter = runState.env.eof!.container.header.getCodePosition(sectionTarget)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe5, 'JUMPF')
     },
   ],
   // 0xe6: DUPN
@@ -1808,6 +1880,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         ) + 1
       runState.stack.dup(toDup)
       runState.programCounter++
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe6, 'DUPN')
     },
   ],
   // 0xe7: SWAPN
@@ -1826,6 +1901,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         ) + 1
       runState.stack.swap(toSwap)
       runState.programCounter++
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe7, 'SWAPN')
     },
   ],
   // 0xe8: EXCHANGE
@@ -1843,6 +1921,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       const m = (toExchange & 0x0f) + 1
       runState.stack.exchange(n, n + m)
       runState.programCounter++
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xe8, 'EXCHANGE')
     },
   ],
   // 0xec: EOFCREATE
@@ -1878,6 +1959,9 @@ export const handlers: Map<number, OpHandler> = new Map([
           data,
         )
         runState.stack.push(ret)
+
+        // for opcode not implemented with Synthesizer
+        SynthesizerValidator.validateOpcodeImplemented(0xec, 'EOFCREATE')
       }
     },
   ],
@@ -1928,6 +2012,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         const returnContainer = concatBytes(containerCode, auxData)
 
         runState.interpreter.finish(returnContainer)
+
+        // for opcode not implemented with Synthesizer
+        SynthesizerValidator.validateOpcodeImplemented(0xee, 'RETURNCONTRACT')
       }
     },
   ],
@@ -1962,6 +2049,9 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       const ret = await runState.interpreter.create(gasLimit, value, data)
       runState.stack.push(ret)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xf0, 'CREATE')
     },
   ],
   // 0xf5: CREATE2
@@ -2003,6 +2093,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         setLengthLeft(bigIntToBytes(salt), 32),
       )
       runState.stack.push(ret)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xf5, 'CREATE2')
     },
   ],
   // 0xf1: CALL
@@ -2388,6 +2481,9 @@ export const handlers: Map<number, OpHandler> = new Map([
         returnData = runState.memory.read(Number(offset), Number(length))
       }
       runState.interpreter.revert(returnData)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xfd, 'REVERT')
     },
   ],
   // '0x70', range - other
@@ -2397,7 +2493,10 @@ export const handlers: Map<number, OpHandler> = new Map([
     async function (runState) {
       const selfdestructToAddressBigInt = runState.stack.pop()
       const selfdestructToAddress = createAddressFromStackBigInt(selfdestructToAddressBigInt)
-      return runState.interpreter.selfDestruct(selfdestructToAddress)
+      runState.interpreter.selfDestruct(selfdestructToAddress)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xff, 'SELFDESTRUCT')
     },
   ],
 ])
