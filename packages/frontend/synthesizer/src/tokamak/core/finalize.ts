@@ -5,7 +5,7 @@ import path from 'path'
 import appRootPath from 'app-root-path'
 
 import { subcircuits as subcircuitInfos, globalWireInfo, wasmDir } from '../resources/index.js'
-import { KECCAK_OUT_PLACEMENT_INDEX, LOAD_PLACEMENT_INDEX } from '../constant/placement.js'
+import { INITIAL_PLACEMENT_INDEX, KECCAK_OUT_PLACEMENT_INDEX, LOAD_PLACEMENT_INDEX } from '../constant/index.js'
 
 // @ts-ignore
 import { builder } from '../resources/index.js'
@@ -153,7 +153,7 @@ async function outputPlacementInstance(placements: Placements): Promise<Placemen
     inValues: entry.inPts.map((pt) => pt.valueHex),
     outValues: entry.outPts.map((pt) => pt.valueHex),
   }))
-  for (let i = LOAD_PLACEMENT_INDEX; i <= KECCAK_OUT_PLACEMENT_INDEX; i++) {
+  for (let i = 0; i < INITIAL_PLACEMENT_INDEX; i++) {
     let ins = result[i].inValues
     let outs = result[i].outValues
     const expectedInsLen = subcircuitInfos[result[i].subcircuitId].In_idx[1]
@@ -353,6 +353,9 @@ class Permutation {
               const pointedWireId = this._placements
                 .get(dataPt.source!)!
                 .outPts.findIndex((outPt) => outPt.wireIndex! === dataPt.wireIndex!)
+              if (pointedWireId === -1){
+                throw new Error(`Permutation: A wire is referring to nothing.`)
+              }
               const pointedLocalWireId = pointedSubcircuitInfo.outWireIndex + pointedWireId
               const pointedGlobalWireId = pointedSubcircuitInfo.flattenMap![pointedLocalWireId]
               const pointedPlacementWireId: PlacementWireIndex = {
@@ -360,7 +363,7 @@ class Permutation {
                 globalWireId: pointedGlobalWireId,
               }
               if (!(pointedGlobalWireId >= this.l && pointedGlobalWireId < this.l_D)) {
-                throw new Error(`Permutation: A wire is referring to a public wire.`)
+                throw new Error(`Permutation: A wire is referring to a public wire or an internal wire.`)
               }
               this._searchInsert(pointedPlacementWireId, placementWireId)
             }
