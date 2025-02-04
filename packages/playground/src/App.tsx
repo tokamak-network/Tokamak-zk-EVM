@@ -4,7 +4,6 @@ import { Buffer } from 'buffer';
 import { createEVM } from '../../frontend/synthesizer/src/constructors';
 import { hexToBytes } from '../../frontend/synthesizer/libs/util/dist/esm/index.js';
 import { Address } from '../../frontend/synthesizer/libs/util/dist/esm/index.js';
-import { formatLogsStructured, FormattedLog } from '../utils/formatLog';
 import { TON_CONTRACT_CODE } from './constant/evm.js';
 import { setupEVM } from '../utils/setupEVM';
 import logo from '/Primary_Black.png';
@@ -13,206 +12,360 @@ import './App.css';
 
 window.Buffer = window.Buffer || Buffer;
 
+// Helper to convert a hex string to a decimal string.
+const getValueDecimal = (hexValue: string): string => {
+  if (!hexValue) return "";
+  try {
+    // Use BigInt for large numbers; remove any leading '0x' if present.
+    const cleanHex = hexValue.startsWith("0x") ? hexValue : "0x" + hexValue;
+    return BigInt(cleanHex).toString(10);
+  } catch (error) {
+    return "";
+  }
+};
+
+// Helper function to summarize hexadecimal strings.
+// (Now returning the full hash without ellipsis.)
+const summarizeHex = (value: any): string => {
+  let hex = value;
+  if (typeof hex !== 'string') {
+    if (hex instanceof Buffer) {
+      hex = hex.toString('hex');
+    } else if (typeof hex === 'number' || typeof hex === 'bigint') {
+      hex = hex.toString(16);
+    } else {
+      hex = String(hex);
+    }
+  }
+  return hex;
+};
+
 function serializePlacements(placements: any) {
-    const convertValue = (val: any): any => {
-        if (typeof val === 'bigint') {
-            return val.toString();
-        }
-        if (Array.isArray(val)) {
-            return val.map(convertValue);
-        }
-        if (typeof val === 'object' && val !== null) {
-            return Object.fromEntries(
-                Object.entries(val).map(([k, v]) => [k, convertValue(v)])
-            );
-        }
-        return val;
-    };
-    return JSON.stringify({ placements: convertValue(placements) });
+  const convertValue = (val: any): any => {
+    if (typeof val === 'bigint') {
+      return val.toString();
+    }
+    if (Array.isArray(val)) {
+      return val.map(convertValue);
+    }
+    if (typeof val === 'object' && val !== null) {
+      return Object.fromEntries(
+        Object.entries(val).map(([k, v]) => [k, convertValue(v)])
+      );
+    }
+    return val;
+  };
+  return JSON.stringify({ placements: convertValue(placements) });
 }
 
 const App: React.FC = () => {
-    const [transactionId, setTransactionId] = useState('');
-    const [status, setStatus] = useState<string | null>(null);
-    const [serverData, setServerData] = useState<{ permutation: string | null; placementInstance: string | null } | null>(null);
-    const [logs, setLogs] = useState<FormattedLog[] | null>(null);
-    const [isProcessing, setIsProcessing] = useState(false);
+  const [transactionId, setTransactionId] = useState('');
+  const [status, setStatus] = useState<string | null>(null);
+  const [serverData, setServerData] = useState<{ permutation: string | null; placementInstance: string | null } | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-    const processTransaction = async (txId: string) => {
-        try {
-            setIsProcessing(true);
-            setStatus('Fetching bytecode from Etherscan...');
-            setLogs(null);
-            setServerData(null);
+  // States for each of the three placements data.
+  const [storageLoad, setStorageLoad] = useState<any[]>([]);
+  const [placementLogs, setPlacementLogs] = useState<any[]>([]);
+  const [storageStore, setStorageStore] = useState<any[]>([]);
 
-            const { bytecode, from, to } = await fetchTransactionBytecode(txId);
-            if (!bytecode || bytecode.length < 2) {
-                throw new Error('Invalid bytecode received. Check your transaction ID.');
-            }
+  // State for the contract address used in the transaction.
+  const [evmContractAddress, setEvmContractAddress] = useState<string>('');
 
-            const contractCode = TON_CONTRACT_CODE;
-            setStatus('Creating and running the EVM...');
-            const evm = await createEVM();
-            const contractAddr = new Address(hexToBytes(to));
-            const sender = new Address(hexToBytes(from));
-            await setupEVM(evm, from, contractCode, contractAddr, sender);
+  // Active tab: 'storageLoad', 'logs', or 'storageStore'.
+  const [activeTab, setActiveTab] = useState('storageLoad');
 
-            const res = await evm.runCode({
-                caller: sender,
-                to: contractAddr,
-                code: contractCode,
-                data: hexToBytes(bytecode),
-            });
+  const processTransaction = async (txId: string) => {
+    try {
+      setIsProcessing(true);
+      setStatus('Fetching bytecode from Etherscan...');
+      // Clear previous placements data.
+      setStorageLoad([]);
+      setPlacementLogs([]);
+      setStorageStore([]);
+      setServerData(null);
 
-            if (res.logs) {
-                const formattedLogs = formatLogsStructured(res.logs);
-                setLogs(formattedLogs);
-            }
+      const { bytecode, from, to } = await fetchTransactionBytecode(txId);
+      if (!bytecode || bytecode.length < 2) {
+        throw new Error('Invalid bytecode received. Check your transaction ID.');
+      }
 
-            if (!res.runState?.synthesizer?.placements) {
-                throw new Error('No placements generated by the synthesizer.');
-            }
+      const contractCode = TON_CONTRACT_CODE;
+      setStatus('Creating and running the EVM...');
+      const evm = await createEVM();
+      const contractAddr = new Address(hexToBytes(to));
+      setEvmContractAddress(contractAddr.toString()); // Save the contract address in state.
+      const sender = new Address(hexToBytes(from));
+      await setupEVM(evm, from, contractCode, contractAddr, sender);
 
-            const rawMap = res.runState.synthesizer.placements;
-            const placementsObj = Object.fromEntries(rawMap.entries());
+      const res = await evm.runCode({
+        caller: sender,
+        to: contractAddr,
+        code: contractCode,
+        data: hexToBytes(bytecode),
+      });
 
-            setStatus('Finalizing placements on the server...');
-            const response = await fetch('api/finalize', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: serializePlacements(placementsObj),
-            });
-            if (!response.ok) {
-                throw new Error(`Server returned status ${response.status}`);
-            }
-            const json = await response.json();
-            
-            if (!json.ok) {
-                throw new Error(json.error || 'Unknown server error.');
-            }
+      if (!res.runState?.synthesizer?.placements) {
+        throw new Error('No placements generated by the synthesizer.');
+      }
 
-            const { permutation, placementInstance } = json.data || {};
-            setServerData({ permutation, placementInstance });
-            setStatus(null);
-            sessionStorage.removeItem('pendingTransactionId');
+      const placementsMap = res.runState.synthesizer.placements;
 
-        } catch (error) {
-            console.error('Error:', error);
-            setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
-            sessionStorage.removeItem('pendingTransactionId');
-        } finally {
-            setIsProcessing(false);
-        }
-    };
+      // Define placement indexes (adjust if needed).
+      const STORAGE_IN_PLACEMENT_INDEX = 0;
+      const STORAGE_OUT_PLACEMENT_INDEX = 1;
+      const RETURN_PLACEMENT_INDEX = 2;
 
-    const handleSubmit = () => {
-        if (isProcessing) return;
-        sessionStorage.setItem('pendingTransactionId', transactionId);
-        window.location.reload();
-    };
+      // Extract placements for each category.
+      const storageLoadPlacement = placementsMap.get(STORAGE_IN_PLACEMENT_INDEX);
+      const logsPlacement = placementsMap.get(STORAGE_OUT_PLACEMENT_INDEX);
+      const storageStorePlacement = placementsMap.get(RETURN_PLACEMENT_INDEX);
 
-    useEffect(() => {
-        const pendingTxId = sessionStorage.getItem('pendingTransactionId');
-        if (pendingTxId) {
-            setTransactionId(pendingTxId);
-            processTransaction(pendingTxId);
-        }
-    }, []);
+      // For Storage Load, use inPts; for Logs and Storage Store, use outPts.
+      const storageLoadData = storageLoadPlacement?.inPts || [];
+      const logsData = logsPlacement?.outPts || [];
+      const storageStoreData = storageStorePlacement?.outPts || [];
 
-    const handleDownload = (fileContent: string | null, fileName: string) => {
-        if (!fileContent) return;
-        const blob = new Blob([fileContent], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        link.click();
-        URL.revokeObjectURL(url);
-    };
+      setStorageLoad(storageLoadData);
+      setPlacementLogs(logsData);
+      setStorageStore(storageStoreData);
 
-    return (
-        <div className="container">
-          <div className="logo-container">
-            <img src={logo} alt="Synthesizer Logo" className="logo-image" />
+      // Prepare placements object for finalizing on the server.
+      const placementsObj = Object.fromEntries(placementsMap.entries());
+
+      setStatus('Finalizing placements on the server...');
+      const response = await fetch('api/finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: serializePlacements(placementsObj),
+      });
+      if (!response.ok) {
+        throw new Error(`Server returned status ${response.status}`);
+      }
+      const json = await response.json();
+      
+      if (!json.ok) {
+        throw new Error(json.error || 'Unknown server error.');
+      }
+
+      const { permutation, placementInstance } = json.data || {};
+      setServerData({ permutation, placementInstance });
+      setStatus(null);
+      sessionStorage.removeItem('pendingTransactionId');
+
+    } catch (error) {
+      console.error('Error:', error);
+      setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      sessionStorage.removeItem('pendingTransactionId');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (isProcessing) return;
+    sessionStorage.setItem('pendingTransactionId', transactionId);
+    window.location.reload();
+  };
+
+  useEffect(() => {
+    const pendingTxId = sessionStorage.getItem('pendingTransactionId');
+    if (pendingTxId) {
+      setTransactionId(pendingTxId);
+      processTransaction(pendingTxId);
+    }
+  }, []);
+
+  const handleDownload = (fileContent: string | null, fileName: string) => {
+    if (!fileContent) return;
+    const blob = new Blob([fileContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const renderActiveTab = () => {
+    if (activeTab === 'storageLoad') {
+      return storageLoad.length ? (
+        storageLoad.map((item, index) => (
+          <div key={index} className="log-card">
+            <div>
+              <strong>Contract Address:</strong>{' '}
+              <span title={item.contractAddress || evmContractAddress}>
+                {item.contractAddress || evmContractAddress}
+              </span>
+            </div>
+            <div>
+              <strong>Key:</strong>{' '}
+              <span title={item.key}>{summarizeHex(item.key)}</span>
+            </div>
+            <div>
+              <strong>Value (Decimal):</strong>{' '}
+              {item.valueDecimal || getValueDecimal(item.valueHex)}
+            </div>
+            <div>
+              <strong>Value (Hex):</strong>{' '}
+              <span title={item.valueHex}>{item.valueHex}</span>
+            </div>
           </div>
-            <div className="title-container">
-                <h1 className="main-title">Synthesizer</h1>
-                <h2 className="subtitle">Developer Playground</h2>
+        ))
+      ) : <p>No storage load data.</p>;
+    } else if (activeTab === 'logs') {
+      return placementLogs.length ? (
+        placementLogs.map((log, index) => {
+          const values = Array.isArray(log) ? log : Object.values(log);
+          const topics = values.slice(0, values.length - 2);
+          const valueDecimal = values[values.length - 2];
+          const valueHex = values[values.length - 1];
+          return (
+            <div key={index} className="log-card">
+              <div>
+                <strong>Topics:</strong>{' '}
+                {topics.map((topic: string, idx: number) => (
+                  <span key={idx} title={topic}>{summarizeHex(topic)} </span>
+                ))}
+              </div>
+              <div>
+                <strong>Value (Decimal):</strong> {valueDecimal}
+              </div>
+              <div>
+                <strong>Value (Hex):</strong>{' '}
+                <span title={valueHex}>{summarizeHex(valueHex)}</span>
+              </div>
             </div>
-            <input
-                type="text"
-                value={transactionId}
-                onChange={(e) => setTransactionId(e.target.value)}
-                placeholder="Enter Transaction ID"
-                className="transaction-input"
-                disabled={isProcessing}
-            />
-            <button
-                onClick={handleSubmit}
-                className={`btn btn-process ${isProcessing ? 'disabled' : ''}`}
-                disabled={isProcessing}
-            >
-                {isProcessing ? 'Processing...' : 'Process'}
-            </button>
+          );
+        })
+      ) : <p>No logs data.</p>;
+    } else if (activeTab === 'storageStore') {
+        console.log("Storage Store Data:", storageStore);
 
-            {logs?.map((log, index) => (
-                <div key={index} className="log-entry">
-                    <div className="log-field">
-                        <strong>Token Address:</strong> {log.address}
-                    </div>
-                    <div className="log-field">
-                        <strong>Topics:</strong>
-                        <div className="log-topics">
-                            <div><strong>Signature:</strong> {log.topics.signature}</div>
-                            <div><strong>From:</strong> {log.topics.from}</div>
-                            <div><strong>To:</strong> {log.topics.to}</div>
-                        </div>
-                    </div>
-                    <div className="log-field">
-                        <strong>Data:</strong>
-                        <div className="log-data" title={`Hex: ${log.data.hex}\nValue: ${log.data.value}`}>
-                            <div><strong>Hex:</strong> {log.data.hex}</div>
-                            <div><strong>Value:</strong> {log.data.value}</div>
-                        </div>
-                    </div>
-                </div>
-            ))}
-
-            <div className="status-download-container">
-              {status && !status.startsWith('Error') ? (
-                  <div className="loading-spinner-container">
-                      <div className="loading-spinner"></div>
-                  </div>
-              ) : status ? (
-                  <div className="status-message error">
-                      <div className="error-content">
-                          {status.replace('Error: ', '')}
-                      </div>
-                  </div>
-              ) : null}
-                {serverData?.permutation && (
-                    <button
-                        onClick={() => handleDownload(serverData.permutation, 'permutation.json')}
-                        className="btn btn-download btn-permutation"
-                        disabled={isProcessing}
-                    >
-                        <img src={downloadIcon} alt="download" className="download-icon" />
-                        Permutation
-                    </button>
-                )}
-                {serverData?.placementInstance && (
-                    <button
-                        onClick={() => handleDownload(serverData.placementInstance, 'placementInstance.json')}
-                        className="btn btn-download btn-placement"
-                        disabled={isProcessing}
-                    >
-                        <img src={downloadIcon} alt="download" className="download-icon" />
-                        Placement Instance
-                    </button>
-                )}
+      return storageStore.length ? (
+        storageStore.map((item, index) => {
+          const contractAddress = Array.isArray(item) ? item[0] : item.contractAddress;
+          const key = Array.isArray(item) ? item[1] : item.key;
+          const valueDecimal = Array.isArray(item) ? item[2] : item.valueDecimal;
+          const valueHex = Array.isArray(item) ? item[3] : item.valueHex;
+          return (
+            <div key={index} className="log-card">
+              <div>
+                <strong>Contract Address:</strong>{' '}
+                <span title={contractAddress}>{summarizeHex(contractAddress)}</span>
+              </div>
+              <div>
+                <strong>Key:</strong>{' '}
+                <span title={key}>{summarizeHex(key)}</span>
+              </div>
+              <div>
+                <strong>Value (Decimal):</strong> {valueDecimal || getValueDecimal(valueHex)}
+              </div>
+              <div>
+                <strong>Value (Hex):</strong>{' '}
+                <span title={valueHex}>{valueHex}</span>
+              </div>
             </div>
+          );
+        })
+      ) : <p>No storage store data.</p>;
+    }
+    return null;
+  };
+
+  return (
+    <div className="container">
+      <div className="logo-container">
+        <img src={logo} alt="Synthesizer Logo" className="logo-image" />
+      </div>
+      <div className="title-container">
+        <h1 className="main-title">Synthesizer</h1>
+        <h2 className="subtitle">Developer Playground</h2>
+      </div>
+      <input
+        type="text"
+        value={transactionId}
+        onChange={(e) => setTransactionId(e.target.value)}
+        placeholder="Enter Transaction ID"
+        className="transaction-input"
+        disabled={isProcessing}
+      />
+      <button
+        onClick={handleSubmit}
+        className={`btn-process ${isProcessing ? 'disabled' : ''}`}
+        disabled={isProcessing}
+      >
+        {isProcessing ? 'Processing...' : 'Process'}
+      </button>
+
+      {/* Global status message */}
+      {status && (
+        <div className={status.startsWith('Error') ? 'error-box' : 'status-download-container'}>
+          <div className="error-content">
+            {status.replace('Error: ', '')}
+          </div>
         </div>
-    );
+      )}
+
+      {/* Big Box: Contains Tab Switcher, Fixed Content, and Download Buttons */}
+      {(storageLoad.length > 0 || placementLogs.length > 0 || storageStore.length > 0) && (
+        <div className="big-box">
+          {/* Tab Switcher */}
+          <div className="tab-switcher">
+            <button
+              className={activeTab === 'storageLoad' ? 'active' : ''}
+              onClick={() => setActiveTab('storageLoad')}
+            >
+              Storage Load
+            </button>
+            <button
+              className={activeTab === 'logs' ? 'active' : ''}
+              onClick={() => setActiveTab('logs')}
+            >
+              Logs
+            </button>
+            <button
+              className={activeTab === 'storageStore' ? 'active' : ''}
+              onClick={() => setActiveTab('storageStore')}
+            >
+              Storage Store
+            </button>
+          </div>
+
+          {/* Fixed, Scrollable Content */}
+          <div className="fixed-box">
+            {renderActiveTab()}
+          </div>
+
+          {/* Download Buttons at the Bottom */}
+          {serverData && (
+            <div className="download-buttons-container">
+              {serverData.permutation && (
+                <button
+                  onClick={() => handleDownload(serverData.permutation, 'permutation.json')}
+                  className="btn-download btn-permutation"
+                  disabled={isProcessing}
+                >
+                  <img src={downloadIcon} alt="download" className="download-icon" />
+                  Permutation
+                </button>
+              )}
+              {serverData.placementInstance && (
+                <button
+                  onClick={() => handleDownload(serverData.placementInstance, 'placementInstance.json')}
+                  className="btn-download btn-placement"
+                  disabled={isProcessing}
+                >
+                  <img src={downloadIcon} alt="download" className="download-icon" />
+                  Placement Instance
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default App;
