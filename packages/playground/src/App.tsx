@@ -187,6 +187,7 @@ const App: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  // Renders the content for the active tab.
   const renderActiveTab = () => {
     if (activeTab === 'storageLoad') {
       return storageLoad.length ? (
@@ -218,15 +219,39 @@ const App: React.FC = () => {
         placementLogs.map((log, index) => {
           const values = Array.isArray(log) ? log : Object.values(log);
           const topics = values.slice(0, values.length - 2);
+          // Filter out topics that match the contract address.
+          const filteredTopics = topics.filter(topic => {
+            const topicStr = String(topic);
+            if (!evmContractAddress) return true;
+            return topicStr.toLowerCase() !== evmContractAddress.toLowerCase();
+          });
           const valueDecimal = values[values.length - 2];
           const valueHex = values[values.length - 1];
           return (
             <div key={index} className="log-card">
               <div>
-                <strong>Topics:</strong>{' '}
-                {topics.map((topic: string, idx: number) => (
-                  <span key={idx} title={topic}>{summarizeHex(topic)} </span>
-                ))}
+                <strong>Topics:</strong>
+                {filteredTopics.map((topic: any, idx: number) => {
+                  const topicStr = String(topic);
+                  const cleanTopic = topicStr.startsWith("storage:")
+                    ? topicStr.replace("storage:", "").trim()
+                    : topicStr;
+                  return (
+                    <div
+                      key={idx}
+                      title={cleanTopic}
+                      style={{
+                        marginBottom: '0.5rem',
+                        padding: '0.2rem 0.5rem',
+                        backgroundColor: '#444',
+                        color: '#fff',
+                        borderRadius: '4px'
+                      }}
+                    >
+                      {summarizeHex(cleanTopic)}
+                    </div>
+                  );
+                })}
               </div>
               <div>
                 <strong>Value (Decimal):</strong> {valueDecimal}
@@ -240,10 +265,9 @@ const App: React.FC = () => {
         })
       ) : <p>No logs data.</p>;
     } else if (activeTab === 'storageStore') {
-        console.log("Storage Store Data:", storageStore);
-
       return storageStore.length ? (
         storageStore.map((item, index) => {
+          // If the item is an array, destructure its elements.
           const contractAddress = Array.isArray(item) ? item[0] : item.contractAddress;
           const key = Array.isArray(item) ? item[1] : item.key;
           const valueDecimal = Array.isArray(item) ? item[2] : item.valueDecimal;
