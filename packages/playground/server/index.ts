@@ -62,11 +62,6 @@ app.use(bodyParser.urlencoded({
 
 app.use(cors());
 
-const generateTypeScriptFile = (jsonContent: string, filePath: string) => {
-  const tsContent = `export const data = ${jsonContent};\n`;
-  fs.writeFileSync(filePath, tsContent, 'utf-8');
-};
-
 app.post('/api/finalize', async (req, res) => {
   try {
     const placementsObj = req.body.placements;
@@ -79,26 +74,20 @@ app.post('/api/finalize', async (req, res) => {
       Object.entries(placementsObj).map(([k, v]) => [Number(k), v])
     );
 
-    console.log('Finalizing placements...');
-    await finalize(placementsMap, true);
+    console.log('Finalizing placements and generating outputs...');
+    await finalize(placementsMap, outputDir, true);
 
-    const permutationPathJson = path.join(outputDir, 'permutation.json');
-    const placementInstancePathJson = path.join(outputDir, 'placementInstance.json');
-    const permutationPathTs = path.join(outputDir, 'permutation.ts');
-    const placementInstancePathTs = path.join(outputDir, 'placementInstance.ts');
+    const permutationPath = path.join(outputDir, 'permutation.json');
+    const placementInstancePath = path.join(outputDir, 'placementInstance.json');
 
     console.log('Waiting for output files...');
     await Promise.all([
-      waitForFile(permutationPathJson),
-      waitForFile(placementInstancePathJson),
+      waitForFile(permutationPath),
+      waitForFile(placementInstancePath),
     ]);
 
-    // Updated: Generate `.ts` files
-    const permutationJson = fs.readFileSync(permutationPathJson, 'utf-8');
-    const placementInstanceJson = fs.readFileSync(placementInstancePathJson, 'utf-8');
-
-    generateTypeScriptFile(permutationJson, permutationPathTs);
-    generateTypeScriptFile(placementInstanceJson, placementInstancePathTs);
+    const permutationJson = fs.readFileSync(permutationPath, 'utf-8');
+    const placementInstanceJson = fs.readFileSync(placementInstancePath, 'utf-8');
 
     res.json({
       ok: true,

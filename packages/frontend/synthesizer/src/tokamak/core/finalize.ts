@@ -21,12 +21,12 @@ import type {
 type SubcircuitWireIndex = { subcircuitId: number; localWireId: number }
 type PlacementWireIndex = { placementId: number; globalWireId: number }
 
-export async function finalize(placements: Placements, validate?: boolean): Promise<Permutation> {
+export async function finalize(placements: Placements, _path?: string, validate?: boolean): Promise<Permutation> {
   const _validate = validate ?? false
   const refactoriedPlacements = refactoryPlacement(placements)
   let permutation: Permutation
   if (_validate) {
-    const placementInstances = await outputPlacementInstance(refactoriedPlacements)
+    const placementInstances = await outputPlacementInstance(refactoriedPlacements, _path)
     permutation = new Permutation(refactoriedPlacements, placementInstances)
   } else {
     permutation = new Permutation(refactoriedPlacements)
@@ -145,7 +145,7 @@ function refactoryPlacement(placements: Placements): Placements {
   return outPlacements
 }
 
-async function outputPlacementInstance(placements: Placements): Promise<PlacementInstances> {
+async function outputPlacementInstance(placements: Placements, _path?: string): Promise<PlacementInstances> {
   const result: PlacementInstances = Array.from(placements.entries()).map(([key, entry]) => ({
     placementIndex: key,
     subcircuitId: entry.subcircuitId!,
@@ -171,10 +171,10 @@ async function outputPlacementInstance(placements: Placements): Promise<Placemen
   await testInstances(result)
 
   const jsonContent = `${JSON.stringify(result, null, 2)}`
-  const filePath = path.resolve(
-    appRootPath.path,
-    'examples/outputs/placementInstance.json',
-  )
+  const filePath = _path === undefined ? path.resolve(
+      appRootPath.path,
+      'examples/outputs/placementInstance.json',
+    ) : path.resolve(_path!,'placementInstance.json')
   const dir = path.dirname(filePath)
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true })
@@ -182,7 +182,7 @@ async function outputPlacementInstance(placements: Placements): Promise<Placemen
   try {
     fs.writeFileSync(filePath, jsonContent, 'utf-8')
     console.log(
-      `Synthesizer: Input and output wire assingments of the placements are generated in "examples/outputs/placementInstance.json".`,
+      `Synthesizer: Input and output wire assingments of the placements are generated in '${filePath}'.`,
     )
   } catch (error) {
     throw new Error(`Synthesizer: Failure in writing "placementInstance.json".`)
@@ -209,7 +209,7 @@ class Permutation {
   public permutationZ: number[][]
   public permutationFile: { row: number; col: number; Y: number; Z: number }[]
 
-  constructor(placements: Placements, instances?: PlacementInstances) {
+  constructor(placements: Placements, instances?: PlacementInstances, _path?: string) {
     // Istances are needed only for debugging by "this._validatePermutation()"
     this._placements = placements
     this._instances = instances ?? undefined
@@ -243,10 +243,10 @@ class Permutation {
     )
     this.permutationFile = []
     // File write the permutation
-    this._outputPermutation()
+    this._outputPermutation(_path)
   }
 
-  private _outputPermutation() {
+  private _outputPermutation(_path?: string) {
     for (const _group of this.permGroup) {
       const group = [..._group.keys()]
       const groupLength = group.length
@@ -278,17 +278,17 @@ class Permutation {
     }
 
     const jsonContent = `${JSON.stringify(this.permutationFile, null, 2)}`
-    const filePath = path.resolve(
+    const filePath = _path === undefined ? path.resolve(
       appRootPath.path,
       'examples/outputs/permutation.json',
-    )
+    ) : path.resolve(_path!, 'permutation.json')
     const dir = path.dirname(filePath)
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
     }
     try {
       fs.writeFileSync(filePath, jsonContent, 'utf-8')
-      console.log(`Synthesizer: Permutation rule is generated in "examples/outputs/permutation.json".`)
+      console.log(`Synthesizer: Permutation rule is generated in '${filePath}'.`)
     } catch (error) {
       throw new Error(`Synthesizer: Failure in writing "permutation.json".`)
     }
