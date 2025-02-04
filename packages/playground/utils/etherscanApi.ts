@@ -71,3 +71,30 @@ export const fetchContractCode = async (address: string): Promise<string> => {
     throw new Error('Failed to fetch contract code from Etherscan.');
   }
 };
+
+export const getBalanceSlot = async (address: string): Promise<string> => {
+  try {
+    const response = await axios.get(ETHERSCAN_API_URL, {
+      params: {
+        module: 'proxy',
+        action: 'eth_getStorageAt',
+        address: address,
+        position: '0',  // Start with slot 0
+        tag: 'latest',
+        apikey: API_KEY,
+      },
+    });
+
+    if (!response.data || response.data.status === '0' || !response.data.result) {
+      throw new Error('Storage data not found or invalid response from Etherscan.');
+    }
+
+    // For ERC20 tokens, balance mapping is typically at slot 0
+    // For more complex contracts, we'd need to analyze the contract's storage layout
+    return '0';
+
+  } catch (error) {
+    console.error('Error fetching storage slot:', error);
+    throw new Error('Failed to fetch storage data from Etherscan.');
+  }
+};

@@ -5,7 +5,7 @@ import { createEVM } from '../../frontend/synthesizer/src/constructors';
 import { hexToBytes } from '../../frontend/synthesizer/libs/util/dist/esm/index.js';
 import { Address } from '../../frontend/synthesizer/libs/util/dist/esm/index.js';
 import { formatLogsStructured, FormattedLog } from '../utils/formatLog';
-import { TON_CONTRACT_CODE } from './constant/evm.js';
+//import { TON_CONTRACT_CODE } from './constant/evm.js';
 import { setupEVM } from '../utils/setupEVM';
 import logo from '/Primary_Black.png';
 import downloadIcon from '/download.svg';
