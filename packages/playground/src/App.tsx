@@ -6,7 +6,7 @@ import { hexToBytes } from '../../frontend/synthesizer/libs/util/dist/esm/index.
 import { Address } from '../../frontend/synthesizer/libs/util/dist/esm/index.js';
 import { TON_CONTRACT_CODE } from './constant/evm.js';
 import { setupEVM } from '../utils/setupEVM';
-import logo from '/Primary_Black.png';
+import logo from '/logo.png';
 import downloadIcon from '/download.svg';
 import processIcon from '/process.png';
 import buttonBg from '/button.png';
