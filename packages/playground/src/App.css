@@ -111,13 +111,46 @@ h1 span {
 .log-card {
   background: white;
   border: 1px solid #ccc;
-  margin: 5px 0;
-  padding: 10px;
+  margin: 10px 0;
+  padding: 15px;
   color: black;
   font-family: 'Tahoma', sans-serif;
   font-size: 11px;
   border-radius: 2px;
   box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+}
+
+.log-card > div {
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.log-card strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #003399;
+  font-size: 11px;
+}
+
+.log-card span {
+  display: block;
+  padding: 5px 8px;
+  background: #fff;
+  border: 1px solid #919B9C;
+  box-shadow: inset 1px 1px 0px #919B9C,
+              inset -1px -1px 0px white;
+  min-height: 16px;
+  word-break: break-all;
+}
+
+.topic-badge {
+  display: inline-block;
+  margin: 2px;
+  padding: 3px 6px;
+  background: #f0f0f0;
+  border: 1px solid #919B9C;
+  color: #000;
+  border-radius: 0;
 }
 
 .download-button {

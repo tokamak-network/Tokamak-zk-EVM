@@ -39,7 +39,8 @@ const LogCard: React.FC<LogCardProps> = ({
       <span title={keyValue}>{summarizeHex(keyValue)}</span>
     </div>
     <div>
-      <strong>Value (Decimal):</strong> {valueDecimal || getValueDecimal(valueHex)}
+      <strong>Value (Decimal):</strong>{' '}
+      <span>{valueDecimal || getValueDecimal(valueHex)}</span>
     </div>
     <div>
       <strong>Value (Hex):</strong>{' '}
