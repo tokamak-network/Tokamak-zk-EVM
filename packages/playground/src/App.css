@@ -316,28 +316,27 @@ h1 span {
 }
 
 .btn-download {
-  font-family: 'Press Start 2P', cursive;
-  padding: 15px 30px 15px 50px; 
-  border: 4px solid #ffffff;
-  background: #000033;
-  color: #00ff00;
-  font-size: 0.8rem;
+  font-family: 'Tahoma', sans-serif;
+  font-size: 11px;
+  font-weight: normal;
+  width: calc(50% - 10px);
+  padding: 6px 12px;
+  background: linear-gradient(to bottom, #fefefe 0%, #e4e2d5 100%);
+  border: 1px solid #919B9C;
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  border-radius: 0;
-  margin: 10px;
-  position: relative;
-  box-shadow: 
-      inset 0 0 10px rgba(0, 255, 0, 0.3),
-      0 0 20px rgba(0, 255, 0, 0.2);
-  transition: all 0.2s ease;
+  box-shadow: inset 1px 1px 0px white, 
+              inset -1px -1px 0px #919B9C;
 }
 
 .download-icon {
   width: 16px;
   height: 16px;
-  margin-right: 10px;
-  fill: currentColor;
-  filter: invert(1); 
+  margin-right: 5px;
+  filter: none;
 }
 
 .btn-download {
@@ -348,23 +347,19 @@ h1 span {
 }
 
 .btn-download:hover:not(:disabled) {
-  background: #000066;
-  transform: scale(1.05);
+  background: linear-gradient(to bottom, #fefefe 0%, #f1f5f9 100%);
 }
 
 .btn-download:active:not(:disabled) {
-  transform: scale(0.95);
+  background: #e4e2d5;
+  box-shadow: inset -1px -1px 0px white,
+              inset 1px 1px 0px #919B9C;
 }
 
 .btn-download:disabled {
-  background: #1a1a1a;
-  color: #666666;
+  background: #ECE9D8;
+  color: #919B9C;
   cursor: not-allowed;
-  border-color: #666666;
-}
-
-.btn-download:disabled::before {
-  opacity: 0.5;
 }
 
 .status-download-container {
@@ -374,6 +369,21 @@ h1 span {
   align-items: center;
   gap: 20px;
   margin-top: 20px;
+}
+
+.btn-permutation, .btn-placement {
+  border-radius: 0;
+  color: rgb(255, 255, 255);
+  font-family: 'Tahoma', sans-serif;
+  font-size: 12px;
+  padding: 8px 16px;  /* Increased padding */
+  width: calc(50% - 20px);  /* Increased margin space */
+  min-width: 120px;  /* Minimum width */
+}
+
+.btn-permutation:disabled, .btn-placement:disabled {
+  color: #eee;
+  opacity: 0.6;
 }
 
 .btn-permutation {
@@ -509,10 +519,12 @@ h1 span {
 
 .download-buttons-container {
   display: flex;
-  flex-direction: row;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: #ECE9D8;
+  border-top: 1px solid #919B9C;
+  margin-top: 10px;
   gap: 20px;
-  margin-top: 1rem;
 }
 
 .tab-switcher {
