@@ -2,41 +2,71 @@ import React, { useState, useEffect } from 'react';
 import { fetchTransactionBytecode } from '../utils/etherscanApi';
 import { Buffer } from 'buffer';
 import { createEVM } from '../../frontend/synthesizer/src/constructors';
-import { hexToBytes } from '../../frontend/synthesizer/libs/util/dist/esm/index.js';
-import { Address } from '../../frontend/synthesizer/libs/util/dist/esm/index.js';
+import { hexToBytes, Address } from '../../frontend/synthesizer/libs/util/dist/esm/index.js';
 import { TON_CONTRACT_CODE } from './constant/evm.js';
 import { setupEVM } from '../utils/setupEVM';
 import logo from '/logo.png';
 import downloadIcon from '/download.svg';
-import processIcon from '/process.png';
-import buttonBg from '/button.png';
 import { getValueDecimal, summarizeHex, serializePlacements } from '../helpers/helpers';
 import './App.css';
 
 window.Buffer = window.Buffer || Buffer;
 
+type LogCardProps = {
+  contractAddress: string;
+  keyValue: string;
+  valueDecimal: string;
+  valueHex: string;
+  summarizeAddress?: boolean;
+};
+
+const LogCard: React.FC<LogCardProps> = ({
+  contractAddress,
+  keyValue,
+  valueDecimal,
+  valueHex,
+  summarizeAddress = false,
+}) => (
+  <div className="log-card">
+    <div>
+      <strong>Contract Address:</strong>{' '}
+      <span title={contractAddress}>
+        {summarizeAddress ? summarizeHex(contractAddress) : contractAddress}
+      </span>
+    </div>
+    <div>
+      <strong>Key:</strong>{' '}
+      <span title={keyValue}>{summarizeHex(keyValue)}</span>
+    </div>
+    <div>
+      <strong>Value (Decimal):</strong> {valueDecimal || getValueDecimal(valueHex)}
+    </div>
+    <div>
+      <strong>Value (Hex):</strong>{' '}
+      <span title={valueHex}>{valueHex}</span>
+    </div>
+  </div>
+);
+
 const App: React.FC = () => {
   const [transactionId, setTransactionId] = useState('');
   const [status, setStatus] = useState<string | null>(null);
-  const [serverData, setServerData] = useState<{ permutation: string | null; placementInstance: string | null } | null>(null);
+  const [serverData, setServerData] = useState<{
+    permutation: string | null;
+    placementInstance: string | null;
+  } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // States for each of the three placements data.
   const [storageLoad, setStorageLoad] = useState<any[]>([]);
   const [placementLogs, setPlacementLogs] = useState<any[]>([]);
   const [storageStore, setStorageStore] = useState<any[]>([]);
-
-  // State for the contract address used in the transaction.
   const [evmContractAddress, setEvmContractAddress] = useState<string>('');
-
-  // Active tab: 'storageLoad', 'logs', or 'storageStore'.
   const [activeTab, setActiveTab] = useState('storageLoad');
 
   const processTransaction = async (txId: string) => {
     try {
       setIsProcessing(true);
       setStatus('Fetching bytecode from Etherscan...');
-      // Clear previous placements data.
       setStorageLoad([]);
       setPlacementLogs([]);
       setStorageStore([]);
@@ -51,7 +81,7 @@ const App: React.FC = () => {
       setStatus('Creating and running the EVM...');
       const evm = await createEVM();
       const contractAddr = new Address(hexToBytes(to));
-      setEvmContractAddress(contractAddr.toString()); // Save the contract address in state.
+      setEvmContractAddress(contractAddr.toString());
       const sender = new Address(hexToBytes(from));
       await setupEVM(evm, from, contractCode, contractAddr, sender);
 
@@ -67,17 +97,14 @@ const App: React.FC = () => {
       }
 
       const placementsMap = res.runState.synthesizer.placements;
-
       const STORAGE_IN_PLACEMENT_INDEX = 0;
       const STORAGE_OUT_PLACEMENT_INDEX = 1;
       const RETURN_PLACEMENT_INDEX = 2;
 
-      // Extract placements for each category.
       const storageLoadPlacement = placementsMap.get(STORAGE_IN_PLACEMENT_INDEX);
       const logsPlacement = placementsMap.get(STORAGE_OUT_PLACEMENT_INDEX);
       const storageStorePlacement = placementsMap.get(RETURN_PLACEMENT_INDEX);
 
-      // For Storage Load, use inPts; for Logs and Storage Store, use outPts.
       const storageLoadData = storageLoadPlacement?.inPts || [];
       const logsData = logsPlacement?.outPts || [];
       const storageStoreData = storageStorePlacement?.outPts || [];
@@ -86,7 +113,6 @@ const App: React.FC = () => {
       setPlacementLogs(logsData);
       setStorageStore(storageStoreData);
 
-      // Prepare placements object for finalizing on the server.
       const placementsObj = Object.fromEntries(placementsMap.entries());
 
       setStatus('Finalizing placements on the server...');
@@ -99,7 +125,7 @@ const App: React.FC = () => {
         throw new Error(`Server returned status ${response.status}`);
       }
       const json = await response.json();
-      
+
       if (!json.ok) {
         throw new Error(json.error || 'Unknown server error.');
       }
@@ -108,7 +134,6 @@ const App: React.FC = () => {
       setServerData({ permutation, placementInstance });
       setStatus(null);
       sessionStorage.removeItem('pendingTransactionId');
-
     } catch (error) {
       console.error('Error:', error);
       setStatus(`Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -143,40 +168,27 @@ const App: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  // Renders the content for the active tab.
   const renderActiveTab = () => {
     if (activeTab === 'storageLoad') {
       return storageLoad.length ? (
         storageLoad.map((item, index) => (
-          <div key={index} className="log-card">
-            <div>
-              <strong>Contract Address:</strong>{' '}
-              <span title={item.contractAddress || evmContractAddress}>
-                {item.contractAddress || evmContractAddress}
-              </span>
-            </div>
-            <div>
-              <strong>Key:</strong>{' '}
-              <span title={item.key}>{summarizeHex(item.key)}</span>
-            </div>
-            <div>
-              <strong>Value (Decimal):</strong>{' '}
-              {item.valueDecimal || getValueDecimal(item.valueHex)}
-            </div>
-            <div>
-              <strong>Value (Hex):</strong>{' '}
-              <span title={item.valueHex}>{item.valueHex}</span>
-            </div>
-          </div>
+          <LogCard
+            key={index}
+            contractAddress={item.contractAddress || evmContractAddress}
+            keyValue={item.key}
+            valueDecimal={item.valueDecimal}
+            valueHex={item.valueHex}
+          />
         ))
-      ) : <p>No storage load data.</p>;
+      ) : (
+        <p>No storage load data.</p>
+      );
     } else if (activeTab === 'logs') {
       return placementLogs.length ? (
         placementLogs.map((log, index) => {
           const values = Array.isArray(log) ? log : Object.values(log);
           const topics = values.slice(0, values.length - 2);
-          // Filter out topics that match the contract address.
-          const filteredTopics = topics.filter(topic => {
+          const filteredTopics = topics.filter((topic) => {
             const topicStr = String(topic);
             if (!evmContractAddress) return true;
             return topicStr.toLowerCase() !== evmContractAddress.toLowerCase();
@@ -189,21 +201,11 @@ const App: React.FC = () => {
                 <strong>Topics:</strong>
                 {filteredTopics.map((topic: any, idx: number) => {
                   const topicStr = String(topic);
-                  const cleanTopic = topicStr.startsWith("storage:")
-                    ? topicStr.replace("storage:", "").trim()
+                  const cleanTopic = topicStr.startsWith('storage:')
+                    ? topicStr.replace('storage:', '').trim()
                     : topicStr;
                   return (
-                    <div
-                      key={idx}
-                      title={cleanTopic}
-                      style={{
-                        marginBottom: '0.5rem',
-                        padding: '0.2rem 0.5rem',
-                        backgroundColor: '#444',
-                        color: '#fff',
-                        borderRadius: '4px'
-                      }}
-                    >
+                    <div key={idx} title={cleanTopic} className="topic-badge">
                       {summarizeHex(cleanTopic)}
                     </div>
                   );
@@ -219,36 +221,30 @@ const App: React.FC = () => {
             </div>
           );
         })
-      ) : <p>No logs data.</p>;
+      ) : (
+        <p>No logs data.</p>
+      );
     } else if (activeTab === 'storageStore') {
       return storageStore.length ? (
         storageStore.map((item, index) => {
-          // If the item is an array, destructure its elements.
           const contractAddress = Array.isArray(item) ? item[0] : item.contractAddress;
           const key = Array.isArray(item) ? item[1] : item.key;
           const valueDecimal = Array.isArray(item) ? item[2] : item.valueDecimal;
           const valueHex = Array.isArray(item) ? item[3] : item.valueHex;
           return (
-            <div key={index} className="log-card">
-              <div>
-                <strong>Contract Address:</strong>{' '}
-                <span title={contractAddress}>{summarizeHex(contractAddress)}</span>
-              </div>
-              <div>
-                <strong>Key:</strong>{' '}
-                <span title={key}>{summarizeHex(key)}</span>
-              </div>
-              <div>
-                <strong>Value (Decimal):</strong> {valueDecimal || getValueDecimal(valueHex)}
-              </div>
-              <div>
-                <strong>Value (Hex):</strong>{' '}
-                <span title={valueHex}>{valueHex}</span>
-              </div>
-            </div>
+            <LogCard
+              key={index}
+              contractAddress={contractAddress}
+              keyValue={key}
+              valueDecimal={valueDecimal}
+              valueHex={valueHex}
+              summarizeAddress={true}
+            />
           );
         })
-      ) : <p>No storage store data.</p>;
+      ) : (
+        <p>No storage store data.</p>
+      );
     }
     return null;
   };
@@ -262,51 +258,32 @@ const App: React.FC = () => {
         <h1 className="main-title">Synthesizer</h1>
         <h2 className="subtitle">Developer Playground</h2>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', justifyContent: 'center' }}>
-      <input
-        type="text"
-        value={transactionId}
-        onChange={(e) => setTransactionId(e.target.value)}
-        placeholder="Enter Transaction ID"
-        className="transaction-input"
-        disabled={isProcessing}
-      />
-      <button
-        onClick={handleSubmit}
-        className={`btn-process ${isProcessing ? 'disabled' : ''}`}
-        disabled={isProcessing}
-        style={{
-          backgroundImage: `url(${buttonBg})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          width: '150px',
-          height: '50px',
-          border: 'none',
-          cursor: 'pointer',
-          borderRadius: '0px',
-          display: 'flex',
-          alignItems: 'center', 
-          justifyContent: 'center'
-        }}
-      >
-        {isProcessing ? 'Processing...' : ''}
-      </button>
-    </div>
+      <div className="input-button-container">
+        <input
+          type="text"
+          value={transactionId}
+          onChange={(e) => setTransactionId(e.target.value)}
+          placeholder="Enter Transaction ID"
+          className="transaction-input"
+          disabled={isProcessing}
+        />
+        <button
+          onClick={handleSubmit}
+          className={`btn-process ${isProcessing ? 'disabled' : ''}`}
+          disabled={isProcessing}
+        >
+          {isProcessing ? 'Processing...' : ''}
+        </button>
+      </div>
 
-      {/* Global status message */}
       {status && (
         <div className={status.startsWith('Error') ? 'error-box' : 'status-download-container'}>
-          <div className="error-content">
-            {status.replace('Error: ', '')}
-          </div>
+          <div className="error-content">{status.replace('Error: ', '')}</div>
         </div>
       )}
 
-      {/* Big Box: Contains Tab Switcher, Fixed Content, and Download Buttons */}
       {(storageLoad.length > 0 || placementLogs.length > 0 || storageStore.length > 0) && (
         <div className="big-box">
-          {/* Tab Switcher */}
           <div className="tab-switcher">
             <button
               className={activeTab === 'storageLoad' ? 'active' : ''}
@@ -327,13 +304,7 @@ const App: React.FC = () => {
               Storage Store
             </button>
           </div>
-
-          {/* Fixed, Scrollable Content */}
-          <div className="fixed-box">
-            {renderActiveTab()}
-          </div>
-
-          {/* Download Buttons at the Bottom */}
+          <div className="fixed-box">{renderActiveTab()}</div>
           {serverData && (
             <div className="download-buttons-container">
               {serverData.permutation && (
@@ -348,7 +319,9 @@ const App: React.FC = () => {
               )}
               {serverData.placementInstance && (
                 <button
-                  onClick={() => handleDownload(serverData.placementInstance, 'placementInstance.json')}
+                  onClick={() =>
+                    handleDownload(serverData.placementInstance, 'placementInstance.json')
+                  }
                   className="btn-download btn-placement"
                   disabled={isProcessing}
                 >
