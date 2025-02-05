@@ -139,6 +139,8 @@ const App: React.FC = () => {
       const storageLoadPlacement = placementsMap.get(STORAGE_IN_PLACEMENT_INDEX);
       const logsPlacement = placementsMap.get(STORAGE_OUT_PLACEMENT_INDEX);
       const storageStorePlacement = placementsMap.get(RETURN_PLACEMENT_INDEX);
+      console.log("Storage Store Placement:", storageStorePlacement);
+
 
       const storageLoadData = storageLoadPlacement?.inPts || [];
       //const logsData = logsPlacement?.outPts || [];
@@ -230,22 +232,20 @@ const App: React.FC = () => {
         placementLogs.map((log, index) => (
           <div key={index} className="log-card">
             <div>
-              {/*<strong>Token Address:</strong> {log.address}*/}
+              <strong>From Address:</strong>
+              <span title={log.topics.from}>{summarizeHex(log.topics.from)}</span>
             </div>
             <div>
-              <strong>Topics:</strong>
-              <div className="log-topics">
-                <div><strong>Signature:</strong> {log.topics.signature}</div>
-                <div><strong>From:</strong> {log.topics.from}</div>
-                <div><strong>To:</strong> {log.topics.to}</div>
-              </div>
+              <strong>To Address:</strong>
+              <span title={log.topics.to}>{summarizeHex(log.topics.to)}</span>
             </div>
             <div>
-              <strong>Data:</strong>
-              <div className="log-data" title={`Hex: ${log.data.hex}\nValue: ${log.data.value}`}>
-                <div><strong>Hex:</strong> {log.data.hex}</div>
-                <div><strong>Value (Decimal):</strong> {log.data.value}</div>
-              </div>
+              <strong>Data (Hex):</strong>
+              <span title={log.data.hex}>{summarizeHex(log.data.hex)}</span>
+            </div>
+            <div>
+              <strong>Value (Decimal):</strong>
+              <span>{log.data.value}</span>
             </div>
           </div>
         ))
@@ -256,10 +256,19 @@ const App: React.FC = () => {
      else if (activeTab === 'storageStore') {
       return storageStore.length ? (
         storageStore.map((item, index) => {
-          const contractAddress = Array.isArray(item) ? item[0] : item.contractAddress;
-          const key = Array.isArray(item) ? item[1] : item.key;
-          const valueDecimal = Array.isArray(item) ? item[2] : item.valueDecimal;
-          const valueHex = Array.isArray(item) ? item[3] : item.valueHex;
+          const contractAddress = Array.isArray(item)
+            ? item[0] || evmContractAddress
+            : item.contractAddress || evmContractAddress;
+          const key = Array.isArray(item)
+            ? item[1]
+            : item.key;
+          const valueDecimal = Array.isArray(item)
+            ? item[2] !== undefined ? item[2].toString() : "0"
+            : item.valueDecimal !== undefined ? item.valueDecimal.toString() : "0";
+          const valueHex = Array.isArray(item)
+            ? item[3] || "0x0"
+            : item.valueHex || "0x0";
+      
           return (
             <LogCard
               key={index}
