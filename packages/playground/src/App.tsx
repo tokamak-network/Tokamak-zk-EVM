@@ -8,6 +8,8 @@ import { TON_CONTRACT_CODE } from './constant/evm.js';
 import { setupEVM } from '../utils/setupEVM';
 import logo from '/Primary_Black.png';
 import downloadIcon from '/download.svg';
+import processIcon from '/process.png';
+import buttonBg from '/button.png';
 import { getValueDecimal, summarizeHex, serializePlacements } from '../helpers/helpers';
 import './App.css';
 
@@ -66,7 +68,6 @@ const App: React.FC = () => {
 
       const placementsMap = res.runState.synthesizer.placements;
 
-      // Define placement indexes (adjust if needed).
       const STORAGE_IN_PLACEMENT_INDEX = 0;
       const STORAGE_OUT_PLACEMENT_INDEX = 1;
       const RETURN_PLACEMENT_INDEX = 2;
@@ -261,6 +262,7 @@ const App: React.FC = () => {
         <h1 className="main-title">Synthesizer</h1>
         <h2 className="subtitle">Developer Playground</h2>
       </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', justifyContent: 'center' }}>
       <input
         type="text"
         value={transactionId}
@@ -273,9 +275,24 @@ const App: React.FC = () => {
         onClick={handleSubmit}
         className={`btn-process ${isProcessing ? 'disabled' : ''}`}
         disabled={isProcessing}
+        style={{
+          backgroundImage: `url(${buttonBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          width: '150px',
+          height: '50px',
+          border: 'none',
+          cursor: 'pointer',
+          borderRadius: '0px',
+          display: 'flex',
+          alignItems: 'center', 
+          justifyContent: 'center'
+        }}
       >
-        {isProcessing ? 'Processing...' : 'Process'}
+        {isProcessing ? 'Processing...' : ''}
       </button>
+    </div>
 
       {/* Global status message */}
       {status && (
