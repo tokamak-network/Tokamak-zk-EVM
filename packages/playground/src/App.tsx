@@ -232,27 +232,29 @@ const App: React.FC = () => {
         placementLogs.map((log, index) => (
           <div key={index} className="log-card">
             <div>
-              <strong>From Address:</strong>
-              <span title={log.topics.from}>{summarizeHex(log.topics.from)}</span>
-            </div>
-            <div>
-              <strong>To Address:</strong>
-              <span title={log.topics.to}>{summarizeHex(log.topics.to)}</span>
-            </div>
-            <div>
-              <strong>Data (Hex):</strong>
-              <span title={log.data.hex}>{summarizeHex(log.data.hex)}</span>
+              <strong>Topics:</strong>
+              <div className="log-topics">
+                {Object.values(log.topics).map((topic, idx) => (
+                  <div key={idx} className="topic-badge">
+                    {summarizeHex(topic)}
+                  </div>
+                ))}
+              </div>
             </div>
             <div>
               <strong>Value (Decimal):</strong>
               <span>{log.data.value}</span>
+            </div>
+            <div>
+              <strong>Value (Hex):</strong>
+              <span title={log.data.hex}>{summarizeHex(log.data.hex)}</span>
             </div>
           </div>
         ))
       ) : (
         <p>No logs data.</p>
       );
-    }
+    }    
      else if (activeTab === 'storageStore') {
       return storageStore.length ? (
         storageStore.map((item, index) => {
