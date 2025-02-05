@@ -164,14 +164,14 @@ h1 span {
 }
 
 .main-title {
-  font-size: 3rem;
+  font-size: clamp(1.5rem, 5vw, 3rem);
   text-shadow: 4px 4px 0px black;
   color: yellow;
   margin-bottom: 10px;
 }
 
 .subtitle {
-  font-size: 1.5rem;
+  font-size: clamp(0.8rem, 3vw, 1.5rem);
   text-shadow: 3px 3px 0px black;
   color: white;
   margin: 0;
@@ -270,7 +270,32 @@ h1 span {
   max-width: 1400px;
   margin: 0 auto;
   padding: 20px;
-  padding-top: 100px;
+  padding-top: clamp(60px, 10vh, 100px);
+}
+
+@media (max-width: 768px) {
+  .title-container {
+    margin-bottom: 20px;
+  }
+  
+  .logo-container {
+    width: clamp(150px, 30vw, 350px);
+  }
+}
+
+@media (max-width: 480px) {
+  .title-container {
+    margin-bottom: 15px;
+  }
+  
+  .logo-container {
+    position: static;
+    margin: 20px auto;
+  }
+
+  .container {
+    padding-top: 20px;
+  }
 }
 
 .transaction-input {
@@ -497,6 +522,10 @@ h1 span {
 
 
 .big-box {
+  max-height: calc(100vh - 400px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: #ECE9D8;
   border: 2px solid #919B9C;
   border-radius: 3px;
