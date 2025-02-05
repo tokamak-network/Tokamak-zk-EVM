@@ -255,7 +255,7 @@ const App: React.FC = () => {
         <p>No logs data.</p>
       );
     }    
-     else if (activeTab === 'storageStore') {
+    else if (activeTab === 'storageStore') {
       return storageStore.length ? (
         storageStore.map((item, index) => {
           const contractAddress = Array.isArray(item)
@@ -264,13 +264,11 @@ const App: React.FC = () => {
           const key = Array.isArray(item)
             ? item[1]
             : item.key;
-          const valueDecimal = Array.isArray(item)
-            ? item[2] !== undefined ? item[2].toString() : "0"
-            : item.valueDecimal !== undefined ? item.valueDecimal.toString() : "0";
-          const valueHex = Array.isArray(item)
-            ? item[3] || "0x0"
-            : item.valueHex || "0x0";
-      
+          const valueDecimal = item.value !== undefined
+            ? item.value.toString()  // Extract the correct value
+            : "0";
+          const valueHex = item.valueHex || "0x0";
+    
           return (
             <LogCard
               key={index}
@@ -286,6 +284,7 @@ const App: React.FC = () => {
         <p>No storage store data.</p>
       );
     }
+    
     return null;
   };
 
