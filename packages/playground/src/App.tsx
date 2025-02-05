@@ -49,6 +49,40 @@ const LogCard: React.FC<LogCardProps> = ({
   </div>
 );
 
+export interface FormattedLog {
+  address: string;
+  topics: {
+      signature: string;
+      from: string;
+      to: string;
+  };
+  data: {
+      hex: string;
+      value: string;
+  };
+}
+
+export function formatLogsStructured(logs: any[]): FormattedLog[] {
+  return logs.map((log: any) => {
+      const topics = log[1].map((topic: any) => `0x${Buffer.from(topic).toString('hex')}`);
+      const dataHex = `0x${Buffer.from(log[2]).toString('hex')}`;
+      
+      return {
+          address: `0x${Buffer.from(log[0]).toString('hex')}`,
+          topics: {
+              signature: topics[0],
+              from: `0x${topics[1].slice(-40)}`,
+              to: `0x${topics[2].slice(-40)}`
+          },
+          data: {
+              hex: dataHex,
+              value: parseInt(dataHex, 16).toString()
+          }
+      };
+  });
+}
+
+
 const App: React.FC = () => {
   const [transactionId, setTransactionId] = useState('');
   const [status, setStatus] = useState<string | null>(null);
@@ -107,11 +141,18 @@ const App: React.FC = () => {
       const storageStorePlacement = placementsMap.get(RETURN_PLACEMENT_INDEX);
 
       const storageLoadData = storageLoadPlacement?.inPts || [];
-      const logsData = logsPlacement?.outPts || [];
+      //const logsData = logsPlacement?.outPts || [];
       const storageStoreData = storageStorePlacement?.outPts || [];
 
+      if (res.logs) {
+          const formattedLogs = formatLogsStructured(res.logs);
+          setPlacementLogs(formattedLogs);
+      } else {
+          setPlacementLogs([]);
+      }
+
       setStorageLoad(storageLoadData);
-      setPlacementLogs(logsData);
+      //setPlacementLogs(logsData);
       setStorageStore(storageStoreData);
 
       const placementsObj = Object.fromEntries(placementsMap.entries());
@@ -186,46 +227,33 @@ const App: React.FC = () => {
       );
     } else if (activeTab === 'logs') {
       return placementLogs.length ? (
-        placementLogs.map((log, index) => {
-          const values = Array.isArray(log) ? log : Object.values(log);
-          const topics = values.slice(0, values.length - 2);
-          const filteredTopics = topics.filter((topic) => {
-            const topicStr = String(topic);
-            if (!evmContractAddress) return true;
-            return topicStr.toLowerCase() !== evmContractAddress.toLowerCase();
-          });
-          const valueDecimal = values[values.length - 2];
-          const valueHex = values[values.length - 1];
-          return (
-            <div key={index} className="log-card">
-              <div>
-                <strong>Topics:</strong>
-                {filteredTopics.map((topic: any, idx: number) => {
-                  const topicStr = String(topic);
-                  const cleanTopic = topicStr.startsWith('storage:')
-                    ? topicStr.replace('storage:', '').trim()
-                    : topicStr;
-                  return (
-                    <div key={idx} title={cleanTopic} className="topic-badge">
-                      {summarizeHex(cleanTopic)}
-                    </div>
-                  );
-                })}
-              </div>
-              <div>
-                <strong>Value (Decimal):</strong> {valueDecimal}
-              </div>
-              <div>
-                <strong>Value (Hex):</strong>{' '}
-                <span title={valueHex}>{summarizeHex(valueHex)}</span>
+        placementLogs.map((log, index) => (
+          <div key={index} className="log-card">
+            <div>
+              {/*<strong>Token Address:</strong> {log.address}*/}
+            </div>
+            <div>
+              <strong>Topics:</strong>
+              <div className="log-topics">
+                <div><strong>Signature:</strong> {log.topics.signature}</div>
+                <div><strong>From:</strong> {log.topics.from}</div>
+                <div><strong>To:</strong> {log.topics.to}</div>
               </div>
             </div>
-          );
-        })
+            <div>
+              <strong>Data:</strong>
+              <div className="log-data" title={`Hex: ${log.data.hex}\nValue: ${log.data.value}`}>
+                <div><strong>Hex:</strong> {log.data.hex}</div>
+                <div><strong>Value (Decimal):</strong> {log.data.value}</div>
+              </div>
+            </div>
+          </div>
+        ))
       ) : (
         <p>No logs data.</p>
       );
-    } else if (activeTab === 'storageStore') {
+    }
+     else if (activeTab === 'storageStore') {
       return storageStore.length ? (
         storageStore.map((item, index) => {
           const contractAddress = Array.isArray(item) ? item[0] : item.contractAddress;
