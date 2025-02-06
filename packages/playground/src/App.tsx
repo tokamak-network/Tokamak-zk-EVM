@@ -319,16 +319,11 @@ const App: React.FC = () => {
           className={`btn-process ${isProcessing ? 'disabled' : ''} ${status && status.startsWith('Error') ? 'error' : ''}`}
           disabled={isProcessing}
         >
-          {!isProcessing ? (
-            <>
-              <span className="btn-icon">
-                <img src={save} alt="icon" />
-              </span>
-              <span className="btn-text">Process</span>
-            </>
-          ) : (
-            <span>Processing...</span>
-          )}
+          <span className="btn-icon">
+            <img src={save} alt="icon" />
+          </span>
+          {/* Button text remains "Process" regardless of the isProcessing state */}
+          <span className="btn-text">Process</span>
         </button>
       </div>
       {status && status.startsWith('Error') ? (
