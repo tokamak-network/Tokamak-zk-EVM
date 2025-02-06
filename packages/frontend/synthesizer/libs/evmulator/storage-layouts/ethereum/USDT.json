@@ -1,0 +1,117 @@
+{
+  "storageLayout": {
+    "storage": [
+      {
+        "astId": 1,
+        "contract": "Ownable",
+        "label": "owner",
+        "offset": 0,
+        "slot": "0",
+        "type": "address"
+      },
+      {
+        "astId": 2,
+        "contract": "Pausable",
+        "label": "paused",
+        "offset": 0,
+        "slot": "1", 
+        "type": "bool"
+      },
+      {
+        "astId": 3,
+        "contract": "TetherToken",
+        "label": "name",
+        "offset": 0,
+        "slot": "2",
+        "type": "string"
+      },
+      {
+        "astId": 4,
+        "contract": "TetherToken", 
+        "label": "symbol",
+        "offset": 0,
+        "slot": "3",
+        "type": "string"
+      },
+      {
+        "astId": 5,
+        "contract": "TetherToken",
+        "label": "decimals",
+        "offset": 0,
+        "slot": "4",
+        "type": "uint256"
+      },
+      {
+        "astId": 6,
+        "contract": "TetherToken",
+        "label": "upgradedAddress",
+        "offset": 0,
+        "slot": "5",
+        "type": "address"
+      },
+      {
+        "astId": 7,
+        "contract": "TetherToken",
+        "label": "deprecated",
+        "offset": 0,
+        "slot": "6",
+        "type": "bool"
+      },
+      {
+        "astId": 8,
+        "contract": "TetherToken",
+        "label": "_totalSupply",
+        "offset": 0,
+        "slot": "7",
+        "type": "uint256"
+      },
+      {
+        "astId": 9,
+        "contract": "BasicToken",
+        "label": "balances",
+        "offset": 0,
+        "slot": "8",
+        "type": "mapping(address => uint256)"
+      },
+      {
+        "astId": 10,
+        "contract": "StandardToken",
+        "label": "allowed",
+        "offset": 0,
+        "slot": "9",
+        "type": "mapping(address => mapping(address => uint256))"
+      },
+      {
+        "astId": 11,
+        "contract": "BlackList",
+        "label": "isBlackListed",
+        "offset": 0,
+        "slot": "10",
+        "type": "mapping(address => bool)"
+      }
+    ],
+    "types": {
+      "mapping(address => uint256)": {
+        "encoding": "mapping",
+        "key": "address",
+        "label": "mapping(address => uint256)",
+        "numberOfBytes": "32",
+        "value": "uint256"
+      },
+      "mapping(address => mapping(address => uint256))": {
+        "encoding": "mapping",
+        "key": "address",
+        "label": "mapping(address => mapping(address => uint256))",
+        "numberOfBytes": "32",
+        "value": "mapping(address => uint256)"
+      },
+      "mapping(address => bool)": {
+        "encoding": "mapping",
+        "key": "address",
+        "label": "mapping(address => bool)",
+        "numberOfBytes": "32", 
+        "value": "bool"
+      }
+    }
+  }
+}

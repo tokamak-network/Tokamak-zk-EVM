@@ -27,7 +27,7 @@ const main = async () => {
   await evm.stateManager.putCode(contractAddr, hexToBytes(contractCode))
 
   // 잔액 설정
-  const balanceSlot = '0x00'
+  const balanceSlot = '0x01'
   const senderBalanceSlot = keccak256(
     hexToBytes(
       '0x' + sender.toString().slice(2).padStart(64, '0') + balanceSlot.slice(2).padStart(64, '0'),

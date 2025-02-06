@@ -86,6 +86,8 @@ class ContractAnalyzer {
             throw new Error(`Failed to fetch source code: ${data.message || 'Unknown error'}`);
         }
 
+        console.log('--data', data)
+
         return data.result[0];
     }
 
@@ -352,7 +354,7 @@ async function main() {
  
     try {
         //TON
-        // const contractAddress = '0x2be5e8c109e2197d077d13a82daead6a9b3433c5';
+        const contractAddress = '0x2be5e8c109e2197d077d13a82daead6a9b3433c5';
         //USDT
         // const contractAddress = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
         //USDC proxy
@@ -360,7 +362,7 @@ async function main() {
         //USDC implementation
         // const contractAddress = "0x43506849d7c04f9138d1a2050bbf3a0c054402dd"
         //SHIB
-        const contractAddress = "0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce"
+        // const contractAddress = "0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce"
         const metadata = await analyzer.analyze(contractAddress, 'mainnet');
         // console.log('Contract Metadata:', metadata);
 

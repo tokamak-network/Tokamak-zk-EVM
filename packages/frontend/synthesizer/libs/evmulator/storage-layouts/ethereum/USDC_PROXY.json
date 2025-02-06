@@ -1,0 +1,30 @@
+{
+  "storageLayout": {
+    "storage": [
+      {
+        "astId": 1,
+        "contract": "AdminUpgradeabilityProxy",
+        "label": "IMPLEMENTATION_SLOT",
+        "offset": 0,
+       
+        "slot": "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3",
+        "type": "address"
+      },
+      {
+        "astId": 2,
+        "contract": "AdminUpgradeabilityProxy",
+        "label": "ADMIN_SLOT",
+        "offset": 0,
+        "slot": "0x10d6a54a4754c8869d6886b5f5d7fbfa5b4522237ea5c60d11bc4e7a1ff9390b",
+        "type": "address"
+      }
+    ],
+    "types": {
+      "address": {
+        "encoding": "inplace",
+        "label": "address", 
+        "numberOfBytes": "20"
+      }
+    }
+  }
+}
