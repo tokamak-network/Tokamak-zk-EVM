@@ -56,7 +56,7 @@ const main = async () => {
   console.log((4711671378835304087552n-2711671378835304087552n).toString(16))
 
   // Generate proof
-  const permutation = await finalize(result.runState!.synthesizer.placements, true)
+  const permutation = await finalize(result.runState!.synthesizer.placements, undefined, true)
 }
 
 void main()
