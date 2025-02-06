@@ -147,10 +147,6 @@ h1 span {
   font-size: 12px;
 }
 
-.title-container {
-  margin-bottom: 30px;
-}
-
 .main-title {
   font-size: clamp(1.5rem, 5vw, 3rem);
   text-shadow: 4px 4px 0px black;
@@ -296,7 +292,7 @@ h1 span {
   outline: none;
   margin: 20px 0;
   border-radius: 0;
-  color: #999999;
+  color: #000000;
   font-family: "IBM Plex Mono-Regular", Helvetica;
   font-size: 20px;
   height: 20px;
@@ -529,12 +525,6 @@ h1 span {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: #ECE9D8;
-  border: 2px solid #919B9C;
-  border-radius: 3px;
-  box-shadow: inset 1px 1px 0px white, inset -1px -1px 0px #919B9C;
-  padding: 10px;
-  color: black;
 }
 
 .fixed-box {
@@ -544,16 +534,13 @@ h1 span {
   padding: 10px;
   max-height: 400px;
   overflow-y: auto;
-  box-shadow: inset 1px 1px 0px white, inset -1px -1px 0px #919B9C;
 }
 
 .download-buttons-container {
   display: flex;
   justify-content: space-between;
   padding: 10px 20px;
-  background: #ECE9D8;
-  border-top: 1px solid #919B9C;
-  margin-top: 10px;
+  background: #ffffff;
   gap: 20px;
 }
 
