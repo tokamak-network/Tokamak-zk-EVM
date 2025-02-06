@@ -339,6 +339,10 @@ h1 span {
   background: #BC2828;
 }
 
+.btn-process.error:hover:not(:disabled) {
+  background: #d9534f;
+}
+
 .btn-process::before {
   content: '';
   position: absolute;

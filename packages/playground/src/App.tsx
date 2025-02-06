@@ -322,7 +322,6 @@ const App: React.FC = () => {
           <span className="btn-icon">
             <img src={save} alt="icon" />
           </span>
-          {/* Button text remains "Process" regardless of the isProcessing state */}
           <span className="btn-text">Process</span>
         </button>
       </div>
