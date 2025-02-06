@@ -113,7 +113,7 @@ h1 span {
 }
 
 .download-button {
-  font-family: 'Press Start 2P', cursive;
+  font-family: "IBM Plex Mono", Helvetica;
   padding: 10px;
   font-size: 14px;
   background: #444;
@@ -151,9 +151,8 @@ h1 span {
   font-size: clamp(1.5rem, 5vw, 3rem);
   text-shadow: 4px 4px 0px black;
   color: yellow;
-  margin-bottom: 10px;
-  font-size: 96px;
-  line-height: 96px;
+  font-size: 85px;
+  line-height: 60px;
 }
 
 .subtitle {
@@ -161,8 +160,9 @@ h1 span {
   text-shadow: 3px 3px 0px black;
   color: white;
   margin: 0;
-  font-size: 96px;
-  line-height: 96px;
+  font-size: 85px;
+  line-height: 60px;
+  padding-bottom: 20px;
 }
 
 .logo-container {
@@ -283,7 +283,7 @@ h1 span {
 .transaction-input {
   font-family: "IBM Plex Mono", Helvetica;
   padding: 15px;
-  width: 500px;
+  width: 520px;
   border: 4px solid #ffffff;
   background-color: rgb(255, 255, 255);
   color: rgb(255, 255, 255);
@@ -412,9 +412,9 @@ h1 span {
 }
 
 .btn-permutation {
-  background: #4a0080;
-  border-color: #8000ff;
-  color: #d9b3ff;
+  background: #55008A;
+  color: #ffffff;
+  font-weight: '500';
 }
 
 .btn-permutation:hover:not(:disabled) {
@@ -423,9 +423,9 @@ h1 span {
 }
 
 .btn-placement {
-  background: #006666;
+  background: #008A4C;
   border-color: #00cccc;
-  color: #99ffff;
+  color: #ffffff;
 }
 
 .btn-placement:hover:not(:disabled) {
@@ -528,8 +528,8 @@ h1 span {
 }
 
 .fixed-box {
-  background: white;
-  border: 1px solid #919B9C;
+  background: #bdbdbd;
+  border: 1px solid #919b9c;
   border-radius: 2px;
   padding: 10px;
   max-height: 400px;
@@ -540,7 +540,7 @@ h1 span {
   display: flex;
   justify-content: space-between;
   padding: 10px 20px;
-  background: #ffffff;
+  background: #bdbdbd;
   gap: 20px;
 }
 

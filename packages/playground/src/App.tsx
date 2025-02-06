@@ -1,3 +1,4 @@
+// App.tsx
 import React, { useState, useEffect } from 'react';
 import { fetchTransactionBytecode } from '../utils/etherscanApi';
 import { Buffer } from 'buffer';
@@ -9,6 +10,7 @@ import logo from '/logo.png';
 import downloadIcon from '/download.svg';
 import { getValueDecimal, summarizeHex, serializePlacements } from '../helpers/helpers';
 import './App.css';
+import CustomTabSwitcher from './CustomTabSwitcher';
 
 window.Buffer = window.Buffer || Buffer;
 
@@ -52,36 +54,35 @@ const LogCard: React.FC<LogCardProps> = ({
 export interface FormattedLog {
   address: string;
   topics: {
-      signature: string;
-      from: string;
-      to: string;
+    signature: string;
+    from: string;
+    to: string;
   };
   data: {
-      hex: string;
-      value: string;
+    hex: string;
+    value: string;
   };
 }
 
 export function formatLogsStructured(logs: any[]): FormattedLog[] {
   return logs.map((log: any) => {
-      const topics = log[1].map((topic: any) => `0x${Buffer.from(topic).toString('hex')}`);
-      const dataHex = `0x${Buffer.from(log[2]).toString('hex')}`;
-      
-      return {
-          address: `0x${Buffer.from(log[0]).toString('hex')}`,
-          topics: {
-              signature: topics[0],
-              from: `0x${topics[1].slice(-40)}`,
-              to: `0x${topics[2].slice(-40)}`
-          },
-          data: {
-              hex: dataHex,
-              value: parseInt(dataHex, 16).toString()
-          }
-      };
+    const topics = log[1].map((topic: any) => `0x${Buffer.from(topic).toString('hex')}`);
+    const dataHex = `0x${Buffer.from(log[2]).toString('hex')}`;
+
+    return {
+      address: `0x${Buffer.from(log[0]).toString('hex')}`,
+      topics: {
+        signature: topics[0],
+        from: `0x${topics[1].slice(-40)}`,
+        to: `0x${topics[2].slice(-40)}`,
+      },
+      data: {
+        hex: dataHex,
+        value: parseInt(dataHex, 16).toString(),
+      },
+    };
   });
 }
-
 
 const App: React.FC = () => {
   const [transactionId, setTransactionId] = useState('');
@@ -139,22 +140,19 @@ const App: React.FC = () => {
       const storageLoadPlacement = placementsMap.get(STORAGE_IN_PLACEMENT_INDEX);
       const logsPlacement = placementsMap.get(STORAGE_OUT_PLACEMENT_INDEX);
       const storageStorePlacement = placementsMap.get(RETURN_PLACEMENT_INDEX);
-      console.log("Storage Store Placement:", storageStorePlacement);
-
+      console.log('Storage Store Placement:', storageStorePlacement);
 
       const storageLoadData = storageLoadPlacement?.inPts || [];
-      //const logsData = logsPlacement?.outPts || [];
       const storageStoreData = storageStorePlacement?.outPts || [];
 
       if (res.logs) {
-          const formattedLogs = formatLogsStructured(res.logs);
-          setPlacementLogs(formattedLogs);
+        const formattedLogs = formatLogsStructured(res.logs);
+        setPlacementLogs(formattedLogs);
       } else {
-          setPlacementLogs([]);
+        setPlacementLogs([]);
       }
 
       setStorageLoad(storageLoadData);
-      //setPlacementLogs(logsData);
       setStorageStore(storageStoreData);
 
       const placementsObj = Object.fromEntries(placementsMap.entries());
@@ -254,8 +252,7 @@ const App: React.FC = () => {
       ) : (
         <p>No logs data.</p>
       );
-    }    
-    else if (activeTab === 'storageStore') {
+    } else if (activeTab === 'storageStore') {
       return storageStore.length ? (
         storageStore.map((item, index) => {
           const contractAddress = Array.isArray(item)
@@ -264,11 +261,10 @@ const App: React.FC = () => {
           const key = Array.isArray(item)
             ? item[1]
             : item.key;
-          const valueDecimal = item.value !== undefined
-            ? item.value.toString()  // Extract the correct value
-            : "0";
-          const valueHex = item.valueHex || "0x0";
-    
+          const valueDecimal =
+            item.value !== undefined ? item.value.toString() : '0';
+          const valueHex = item.valueHex || '0x0';
+
           return (
             <LogCard
               key={index}
@@ -284,7 +280,7 @@ const App: React.FC = () => {
         <p>No storage store data.</p>
       );
     }
-    
+
     return null;
   };
 
@@ -323,26 +319,7 @@ const App: React.FC = () => {
 
       {(storageLoad.length > 0 || placementLogs.length > 0 || storageStore.length > 0) && (
         <div className="big-box">
-          <div className="tab-switcher">
-            <button
-              className={activeTab === 'storageLoad' ? 'active' : ''}
-              onClick={() => setActiveTab('storageLoad')}
-            >
-              Storage Load
-            </button>
-            <button
-              className={activeTab === 'logs' ? 'active' : ''}
-              onClick={() => setActiveTab('logs')}
-            >
-              Logs
-            </button>
-            <button
-              className={activeTab === 'storageStore' ? 'active' : ''}
-              onClick={() => setActiveTab('storageStore')}
-            >
-              Storage Store
-            </button>
-          </div>
+          <CustomTabSwitcher activeTab={activeTab} setActiveTab={setActiveTab} />
           <div className="fixed-box">{renderActiveTab()}</div>
           {serverData && (
             <div className="download-buttons-container">
@@ -352,8 +329,7 @@ const App: React.FC = () => {
                   className="btn-download btn-permutation"
                   disabled={isProcessing}
                 >
-                  <img src={downloadIcon} alt="download" className="download-icon" />
-                  Permutation
+                  Download Permutation
                 </button>
               )}
               {serverData.placementInstance && (
@@ -364,8 +340,7 @@ const App: React.FC = () => {
                   className="btn-download btn-placement"
                   disabled={isProcessing}
                 >
-                  <img src={downloadIcon} alt="download" className="download-icon" />
-                  Placement Instance
+                  Download Placement Instance
                 </button>
               )}
             </div>
