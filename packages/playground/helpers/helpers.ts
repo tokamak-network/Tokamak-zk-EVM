@@ -46,3 +46,9 @@ export const getValueDecimal = (hexValue: string): string => {
     return JSON.stringify({ placements: convertValue(placements) });
   };
   
+
+  export const add0xPrefix = (value: any): string => {
+    if (value === null || value === undefined) return '';
+    const strValue = value.toString();
+    return strValue.startsWith('0x') ? strValue : `0x${strValue}`;
+  };

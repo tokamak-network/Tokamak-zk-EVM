@@ -7,8 +7,7 @@ import { hexToBytes, Address } from '../../frontend/synthesizer/libs/util/dist/e
 import { TON_CONTRACT_CODE } from './constant/evm.js';
 import { setupEVM } from '../utils/setupEVM';
 import logo from '/logo.png';
-import downloadIcon from '/download.svg';
-import { getValueDecimal, summarizeHex, serializePlacements } from '../helpers/helpers';
+import { getValueDecimal, summarizeHex, serializePlacements, add0xPrefix } from '../helpers/helpers';
 import './App.css';
 import CustomTabSwitcher from './CustomTabSwitcher';
 import save from '/save.png';
@@ -68,6 +67,7 @@ export interface FormattedLog {
 
 export function formatLogsStructured(logs: any[]): FormattedLog[] {
   return logs.map((log: any) => {
+    // Convert topics and data to hex strings with a "0x" prefix.
     const topics = log[1].map((topic: any) => `0x${Buffer.from(topic).toString('hex')}`);
     const dataHex = `0x${Buffer.from(log[2]).toString('hex')}`;
 
@@ -226,9 +226,9 @@ const App: React.FC = () => {
           <LogCard
             key={index}
             contractAddress={item.contractAddress || evmContractAddress}
-            keyValue={item.key}
+            keyValue={add0xPrefix(item.key)}
             valueDecimal={item.valueDecimal}
-            valueHex={item.valueHex}
+            valueHex={add0xPrefix(item.valueHex)}
           />
         ))
       ) : (
@@ -275,9 +275,9 @@ const App: React.FC = () => {
             <LogCard
               key={index}
               contractAddress={contractAddress}
-              keyValue={key}
+              keyValue={add0xPrefix(key)}
               valueDecimal={valueDecimal}
-              valueHex={valueHex}
+              valueHex={add0xPrefix(valueHex)}
               summarizeAddress={true}
             />
           );
