@@ -120,7 +120,7 @@ h1 span {
   border: 3px solid #222;
   margin-top: 10px;
   display: block;
-  width: 250px;
+  width: 350px;
   text-align: center;
 }
 
@@ -150,8 +150,9 @@ h1 span {
   font-size: clamp(1.5rem, 5vw, 3rem);
   text-shadow: 4px 4px 0px black;
   color: yellow;
-  font-size: 85px;
+  font-size: 80px;
   line-height: 60px;
+  margin-top: -20px;
 }
 
 .subtitle {
@@ -159,7 +160,7 @@ h1 span {
   text-shadow: 3px 3px 0px black;
   color: white;
   margin: 0;
-  font-size: 85px;
+  font-size: 80px;
   line-height: 60px;
   padding-bottom: 20px;
 }
@@ -294,7 +295,7 @@ h1 span {
   color: #000000;
   font-family: "IBM Plex Mono-Regular", Helvetica;
   font-size: 20px;
-  height: 18px;
+  height: 14px;
 }
 
 .transaction-input.error {
@@ -316,8 +317,8 @@ h1 span {
 
 .btn-process {
   background: #2A72E5;
-  height: 56px;
-  width: 160px;
+  height: 50px;
+  width: 140px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -449,7 +450,7 @@ h1 span {
   font-family: 'Tahoma', sans-serif;
   font-size: 12px;
   padding: 8px 16px;
-  width: calc(50% - 20px);
+  width: calc(50% - 5px);
   min-width: 120px;
 }
 
@@ -466,18 +467,15 @@ h1 span {
 
 .btn-permutation:hover:not(:disabled) {
   background: #6600b3;
-  border-color: #9933ff;
 }
 
 .btn-placement {
   background: #008A4C;
-  border-color: #00cccc;
   color: #ffffff;
 }
 
 .btn-placement:hover:not(:disabled) {
   background: #008080;
-  border-color: #00ffff;
 }
 
 .status-message {
@@ -576,8 +574,6 @@ h1 span {
 
 .fixed-box {
   background: #bdbdbd;
-  border: 1px solid #919b9c;
-  border-radius: 2px;
   padding: 10px;
   max-height: 400px;
   overflow-y: auto;
@@ -588,7 +584,6 @@ h1 span {
   justify-content: space-between;
   padding: 10px 20px;
   background: #bdbdbd;
-  gap: 20px;
 }
 
 .tab-switcher {
