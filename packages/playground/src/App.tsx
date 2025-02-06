@@ -12,6 +12,7 @@ import { getValueDecimal, summarizeHex, serializePlacements } from '../helpers/h
 import './App.css';
 import CustomTabSwitcher from './CustomTabSwitcher';
 import save from '/save.png';
+import CustomErrorTab from './CustomErrorTab';
 
 window.Buffer = window.Buffer || Buffer;
 
@@ -192,6 +193,13 @@ const App: React.FC = () => {
     window.location.reload();
   };
 
+  const handleRetry = () => {
+    if (transactionId) {
+      setStatus(null); // Clear previous error
+      processTransaction(transactionId);
+    }
+  };
+
   useEffect(() => {
     const pendingTxId = sessionStorage.getItem('pendingTransactionId');
     if (pendingTxId) {
@@ -259,11 +267,8 @@ const App: React.FC = () => {
           const contractAddress = Array.isArray(item)
             ? item[0] || evmContractAddress
             : item.contractAddress || evmContractAddress;
-          const key = Array.isArray(item)
-            ? item[1]
-            : item.key;
-          const valueDecimal =
-            item.value !== undefined ? item.value.toString() : '0';
+          const key = Array.isArray(item) ? item[1] : item.key;
+          const valueDecimal = item.value !== undefined ? item.value.toString() : '0';
           const valueHex = item.valueHex || '0x0';
 
           return (
@@ -281,7 +286,6 @@ const App: React.FC = () => {
         <p>No storage store data.</p>
       );
     }
-
     return null;
   };
 
@@ -300,25 +304,34 @@ const App: React.FC = () => {
           value={transactionId}
           onChange={(e) => setTransactionId(e.target.value)}
           placeholder="Enter Transaction ID"
-          className="transaction-input"
+          className={`transaction-input ${status && status.startsWith('Error') ? 'error' : ''}`}
           disabled={isProcessing}
         />
-        <button onClick={handleSubmit} className={`btn-process ${isProcessing ? 'disabled' : ''}`} disabled={isProcessing}>
-        {!isProcessing && (
-          <>
-            <span className="btn-icon">
-              <img src={save} alt="icon" />
-            </span>
-            <span className="btn-text">Process</span>
-          </>
-        )}
-        {isProcessing && <span>Processing...</span>}
-      </button>
+        <button
+          onClick={handleSubmit}
+          className={`btn-process ${isProcessing ? 'disabled' : ''} ${status && status.startsWith('Error') ? 'error' : ''}`}
+          disabled={isProcessing}
+        >
+          {!isProcessing ? (
+            <>
+              <span className="btn-icon">
+                <img src={save} alt="icon" />
+              </span>
+              <span className="btn-text">Process</span>
+            </>
+          ) : (
+            <span>Processing...</span>
+          )}
+        </button>
       </div>
-      {status && (
-        <div className={status.startsWith('Error') ? 'error-box' : 'status-download-container'}>
-          <div className="error-content">{status.replace('Error: ', '')}</div>
-        </div>
+      {status && status.startsWith('Error') ? (
+        <CustomErrorTab onRetry={handleRetry} errorMessage={status.replace('Error: ', '')} />
+      ) : (
+        status && (
+          <div className="status-download-container">
+            <div className="error-content">{status}</div>
+          </div>
+        )
       )}
       {(storageLoad.length > 0 || placementLogs.length > 0 || storageStore.length > 0) && (
         <div className="big-box">
@@ -337,9 +350,7 @@ const App: React.FC = () => {
               )}
               {serverData.placementInstance && (
                 <button
-                  onClick={() =>
-                    handleDownload(serverData.placementInstance, 'placementInstance.json')
-                  }
+                  onClick={() => handleDownload(serverData.placementInstance, 'placementInstance.json')}
                   className="btn-download btn-placement"
                   disabled={isProcessing}
                 >

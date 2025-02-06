@@ -294,7 +294,11 @@ h1 span {
   color: #000000;
   font-family: "IBM Plex Mono-Regular", Helvetica;
   font-size: 20px;
-  height: 20px;
+  height: 18px;
+}
+
+.transaction-input.error {
+  color: red;
 }
 
 .transaction-input:focus::placeholder {
