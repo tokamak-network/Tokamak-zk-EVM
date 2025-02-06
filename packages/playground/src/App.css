@@ -49,7 +49,6 @@ h1 span {
   text-align: center;
   outline: none;
   margin-bottom: 10px;
-  
 }
 
 .submit-button {
@@ -312,33 +311,78 @@ h1 span {
 }
 
 .btn-process {
-  font-family: 'Press Start 2P', cursive;
-  color: #00ff00;
-  font-size: 0.8rem;
-  transition: all 0.2s ease;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-  background-image: url('/button.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background: #2A72E5;
+  height: 56px;
   width: 160px;
-  height: 60px;
-  cursor: pointer;
-  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  gap: 8px;
+  border: none;
+  border-radius: 0%;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.2s ease;
 }
 
-.btn-process:hover:not(.disabled) {
-  transform: scale(1.03);
-  filter: brightness(1.1);
+.btn-process:hover:not(.disabled):not(.error) {
+  background: #5B9AFF;
+}
+
+.btn-process:active:not(.disabled):not(.error) {
+  background: #1057C9;
+}
+
+.btn-process.error {
+  background: #BC2828;
+}
+
+.btn-process::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: #A8A8A8;
+}
+
+.btn-process::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: #5F5F5F;
+}
+
+.btn-process .btn-icon {
+  width: 24px;
+  height: 24px;
+  position: relative;
+}
+
+.btn-process .btn-icon img {
+  width: 20px;
+  height: 20px;
+  position: absolute;
+  left: 2px;
+  top: 2px;
+}
+
+.btn-process .btn-text {
+  color: #F8F8F8;
+  font-size: 24px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 500;
+  word-wrap: break-word;
 }
 
 .btn-process.disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  filter: grayscale(100%);
 }
 
 .input-button-container {
@@ -346,7 +390,6 @@ h1 span {
   align-items: center;
   gap: 20px;
   justify-content: center;
-  
 }
 
 .btn-download {

@@ -11,6 +11,7 @@ import downloadIcon from '/download.svg';
 import { getValueDecimal, summarizeHex, serializePlacements } from '../helpers/helpers';
 import './App.css';
 import CustomTabSwitcher from './CustomTabSwitcher';
+import save from '/save.png';
 
 window.Buffer = window.Buffer || Buffer;
 
@@ -302,21 +303,23 @@ const App: React.FC = () => {
           className="transaction-input"
           disabled={isProcessing}
         />
-        <button
-          onClick={handleSubmit}
-          className={`btn-process ${isProcessing ? 'disabled' : ''}`}
-          disabled={isProcessing}
-        >
-          {isProcessing ? 'Processing...' : ''}
-        </button>
+        <button onClick={handleSubmit} className={`btn-process ${isProcessing ? 'disabled' : ''}`} disabled={isProcessing}>
+        {!isProcessing && (
+          <>
+            <span className="btn-icon">
+              <img src={save} alt="icon" />
+            </span>
+            <span className="btn-text">Process</span>
+          </>
+        )}
+        {isProcessing && <span>Processing...</span>}
+      </button>
       </div>
-
       {status && (
         <div className={status.startsWith('Error') ? 'error-box' : 'status-download-container'}>
           <div className="error-content">{status.replace('Error: ', '')}</div>
         </div>
       )}
-
       {(storageLoad.length > 0 || placementLogs.length > 0 || storageStore.length > 0) && (
         <div className="big-box">
           <CustomTabSwitcher activeTab={activeTab} setActiveTab={setActiveTab} />
