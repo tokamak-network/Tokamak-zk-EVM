@@ -3,9 +3,9 @@
 
 body {
   background: linear-gradient(
-    180deg,
-    rgba(0, 3.25, 6.44, 0.7) 0%,
-    rgba(0, 52, 102, 0) 100%
+    179.38deg,
+    #000305,
+    #00356600
   ),
   url('/background-stars.png') bottom center / contain no-repeat,
   url('/background6.png') bottom center / cover no-repeat;
@@ -282,7 +282,7 @@ h1 span {
 
 .transaction-input {
   font-family: "IBM Plex Mono", Helvetica;
-  width: 552px;
+  width: 546px;
   height: 57px;
   background-color: rgb(255, 255, 255);
   color: rgb(255, 255, 255);
