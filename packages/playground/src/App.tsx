@@ -66,12 +66,12 @@ export interface FormattedLog {
 }
 
 export function formatLogsStructured(logs: any[]): FormattedLog[] {
-  return logs.map((log: any) => {
-    // Convert topics and data to hex strings with a "0x" prefix.
+  console.log("Raw logs:", logs);
+  const formattedLogs = logs.map((log: any) => {
     const topics = log[1].map((topic: any) => `0x${Buffer.from(topic).toString('hex')}`);
     const dataHex = `0x${Buffer.from(log[2]).toString('hex')}`;
 
-    return {
+    const formattedLog: FormattedLog = {
       address: `0x${Buffer.from(log[0]).toString('hex')}`,
       topics: {
         signature: topics[0],
@@ -83,7 +83,11 @@ export function formatLogsStructured(logs: any[]): FormattedLog[] {
         value: parseInt(dataHex, 16).toString(),
       },
     };
+
+    console.log("Formatted log:", formattedLog);
+    return formattedLog;
   });
+  return formattedLogs;
 }
 
 const App: React.FC = () => {
@@ -195,7 +199,7 @@ const App: React.FC = () => {
 
   const handleRetry = () => {
     if (transactionId) {
-      setStatus(null); // Clear previous error
+      setStatus(null); 
       processTransaction(transactionId);
     }
   };
@@ -240,10 +244,13 @@ const App: React.FC = () => {
           <div key={index} className="log-card">
             <div>
               <strong>Topics:</strong>
-              <div className="log-topics">
-                {Object.values(log.topics).map((topic, idx) => (
+              <div
+                className="log-topics"
+                style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+              >
+                {['signature', 'from', 'to'].map((key, idx) => (
                   <div key={idx} className="topic-badge">
-                    {summarizeHex(topic)}
+                    {`${idx}: ${summarizeHex(log.topics[key])}`}
                   </div>
                 ))}
               </div>
