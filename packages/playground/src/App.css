@@ -4,9 +4,11 @@
 body {
   background: linear-gradient(
     180deg,
-    rgb(0, 3.25, 6.44) 0%,
-    rgb(0, 52, 102) 100%
-    );
+    rgba(0, 3.25, 6.44, 0.7) 0%,
+    rgba(0, 52, 102, 0) 100%
+  ),
+  url('/background-stars.png') bottom center / contain no-repeat,
+  url('/background6.png') bottom center / cover no-repeat;
   color: white;
   font-family: 'Jersey 10', cursive;
   text-align: center;
@@ -16,55 +18,6 @@ body {
   overflow: hidden;
 }
 
-body::before,
-body::after {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 0;
-  background-image: 
-    radial-gradient(2px 2px at 20px 30px, #fff, rgba(0,0,0,0)),
-    radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
-    radial-gradient(2px 2px at 50px 160px, #fff, rgba(0,0,0,0)),
-    radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0)),
-    radial-gradient(2px 2px at 130px 80px, #fff, rgba(0,0,0,0));
-  background-repeat: repeat;
-  background-size: 200px 200px;
-  opacity: 0.5;
-  animation: stars 8s linear infinite;
-}
-
-body::after {
-  background-size: 300px 300px;
-  animation: stars 15s linear infinite;
-  opacity: 0.3;
-}
-
-@keyframes stars {
-  0% {
-    transform: translateY(0);
-  }
-  100% {
-    transform: translateY(-200px);
-  }
-}
-
-.twinkle {
-  position: fixed;
-  width: 100%;
-  height: 100%;
-  background: transparent;
-  animation: twinkle 2s infinite;
-}
-
-@keyframes twinkle {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.8; }
-}
-
 .app-container {
   position: relative;
   display: flex;
@@ -72,7 +25,7 @@ body::after {
   align-items: center;
   justify-content: center;
   height: 100vh;
-  padding: 20px;
+  padding: 10px;
 }
 
 h1 {
@@ -302,15 +255,16 @@ h1 span {
   max-width: 1400px;
   margin: 0 auto;
   padding: 20px;
-  padding-top: clamp(60px, 10vh, 100px);
+  padding-top: clamp(10px, 5vh, 10px);
 }
 
 @media (max-width: 768px) {
   .title-container {
-    margin-bottom: 20px;
+    margin-bottom: 10px;
   }
   
   .logo-container {
+    top: 10px; 
     width: clamp(150px, 30vw, 350px);
   }
 }
