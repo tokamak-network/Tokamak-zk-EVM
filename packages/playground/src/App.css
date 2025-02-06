@@ -144,21 +144,25 @@ h1 span {
 
 .main-title {
   font-size: clamp(1.5rem, 5vw, 3rem);
-  text-shadow: 4px 4px 0px black;
+  text-shadow:
+  0 1px 0 #a17510,
+  0 2px 0 #a17510;
   color: yellow;
-  font-size: 80px;
+  font-size: 96px;
   line-height: 60px;
   margin-top: -20px;
 }
 
 .subtitle {
   font-size: clamp(0.8rem, 3vw, 1.5rem);
-  text-shadow: 3px 3px 0px black;
   color: white;
   margin: 0;
-  font-size: 80px;
+  font-size: 96px;
   line-height: 60px;
   padding-bottom: 20px;
+  text-shadow:
+  0 1px 0 #a17510,
+  0 2px 0 #a17510;
 }
 
 .logo-container {
