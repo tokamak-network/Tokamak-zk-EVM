@@ -1,9 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Jersey+10&display=swap');
 
 body {
   background: linear-gradient(180deg, #001a40 0%, #002855 100%);
   color: white;
-  font-family: 'Press Start 2P', cursive;
+  font-family: 'Jersey 10', cursive;
   text-align: center;
   margin: 0;
   padding: 0;
@@ -82,7 +82,7 @@ h1 span {
 }
 
 .input-field {
-  font-family: 'Press Start 2P', cursive;
+  font-family: 'Jersey 10', cursive;
   padding: 10px;
   width: 300px;
   border: 3px solid #ccc;
@@ -94,7 +94,7 @@ h1 span {
 }
 
 .submit-button {
-  font-family: 'Press Start 2P', cursive;
+  font-family: 'Jersey 10', cursive;
   padding: 10px 20px;
   font-size: 14px;
   background: #444;
@@ -197,6 +197,8 @@ h1 span {
   text-shadow: 4px 4px 0px black;
   color: yellow;
   margin-bottom: 10px;
+  font-size: 96px;
+  line-height: 96px;
 }
 
 .subtitle {
@@ -204,6 +206,8 @@ h1 span {
   text-shadow: 3px 3px 0px black;
   color: white;
   margin: 0;
+  font-size: 96px;
+  line-height: 96px;
 }
 
 .logo-container {
