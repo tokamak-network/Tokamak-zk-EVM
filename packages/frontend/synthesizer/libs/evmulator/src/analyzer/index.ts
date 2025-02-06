@@ -131,88 +131,158 @@ class ContractAnalyzer {
 
     // Storage layout analysis methods
     async analyzeStorageLayout(metadata: ContractMetadata): Promise<StorageLayout> {
-        const sourceCode = metadata.sourceCode;
+        const bytecode = metadata.bytecode;
+        const abi = metadata.abi;
         const slots: StorageSlot[] = [];
         const types: Record<string, StorageType> = {};
         
-        // 상속 관계와 매핑을 고려한 변수 순서 분석
-        const storageVars = this.extractStorageVariables(sourceCode);
-        let currentSlot = 0;
+        // 1. ABI에서 상태 변수 정보 추출
+        const stateVariables = this.extractStateVariablesFromABI(abi);
         
-        for (const variable of storageVars) {
-            const [slot, offset, typeInfo] = this.calculateSlotAndOffset(variable.type, currentSlot);
+        // 2. 바이트코드에서 storage 접근 패턴 분석
+        const storageAccesses = this.analyzeStorageAccesses(bytecode);
+        
+        // 3. 상태 변수와 storage 접근 패턴 매칭
+        for (const variable of stateVariables) {
+            const slot = this.determineStorageSlot(variable, storageAccesses, metadata);
+            const typeInfo = this.getTypeInfo(variable.type);
             
             slots.push({
                 name: variable.name,
                 type: variable.type,
-                slot,
-                offset
+                slot: slot,  // 매핑도 단순 숫자로 표시
+                offset: 0
             });
             
             types[variable.type] = typeInfo;
-            currentSlot = slot + 1;
         }
         
         return { slots, types };
     }
 
-    private extractStorageVariables(sourceCode: string): Array<{ name: string; type: string }> {
+    private extractStateVariablesFromABI(abi: any[]): Array<{ name: string; type: string }> {
         const variables: Array<{ name: string; type: string }> = [];
         
-        // 매핑 찾기 - 접근 제어자와 상속된 변수들도 포함
-        const mappingRegex = /(?:override\s+)?(?:public|private|internal)?\s*mapping\s*\(([^==>]*?)=>\s*([^;{]*?)\)\s+(?:private\s+)?(\w+)\s*;/g;
-        let match;
-        
-        while ((match = mappingRegex.exec(sourceCode)) !== null) {
-            const keyType = match[1].trim();
-            const valueType = match[2].trim();
-            const name = match[3];
-            
-            if (!this.isKeyword(name)) {
+        for (const item of abi) {
+            // 1. getter 함수로 노출된 public 상태 변수 찾기
+            if (item.type === 'function' && 
+                item.inputs.length === 0 && 
+                (item.stateMutability === 'view' || item.constant === true) &&
+                item.outputs?.length === 1) {
+                
+                // 특정 함수들 제외 (순수 getter 함수)
+                if (item.name === 'totalSupply' || 
+                    item.name === 'decimals' || 
+                    item.name === 'version' ||
+                    item.name === 'getOwner') {
+                    continue;
+                }
+
                 variables.push({
-                    name,
-                    type: `mapping(${keyType} => ${valueType})`
+                    name: item.name,
+                    type: this.inferTypeFromOutput(item.outputs[0])
                 });
             }
-        }
 
-        // 일반 상태 변수 찾기
-        const stateVarRegex = /(?:^|\n)\s*([\w\.]+(?:\s*\[\s*\])?)\s+(?:public|private|internal)?\s+(\w+)\s*;/gm;
+            // 2. mapping getter 함수 찾기
+            if (item.type === 'function' &&
+                item.inputs.length === 1 &&
+                (item.stateMutability === 'view' || item.constant === true) &&
+                item.outputs?.length === 1) {
+                
+                // balanceOf, allowance 등의 mapping getter
+                if (item.name === 'balanceOf') {
+                    variables.push({
+                        name: '_balances',
+                        type: `mapping(${item.inputs[0].type} => ${item.outputs[0].type})`
+                    });
+                } else if (item.name === 'allowance') {
+                    variables.push({
+                        name: '_allowances',
+                        type: `mapping(${item.inputs[0].type} => mapping(${item.inputs[1].type} => ${item.outputs[0].type}))`
+                    });
+                }
+            }
+        }
         
-        while ((match = stateVarRegex.exec(sourceCode)) !== null) {
-            if (match[0].includes('function') || match[0].includes('mapping') || 
-                match[0].includes('return') || match[0].includes('require')) {
-                continue;
-            }
-            
-            const type = match[1].trim();
-            const name = match[2];
-            
-            if (!this.isKeyword(name) && !variables.some(v => v.name === name)) {
-                variables.push({ name, type });
-            }
-        }
-
         return variables;
     }
 
-    private isKeyword(name: string): boolean {
-        const keywords = ['return', 'true', 'false', '0', '1', 'function', 'require'];
-        return keywords.includes(name);
+    private inferTypeFromOutput(output: any): string {
+        if (output.type.startsWith('uint')) {
+            return output.type;
+        } else if (output.type === 'bool') {
+            return 'bool';
+        } else if (output.type === 'address') {
+            return 'address';
+        } else if (output.type === 'string') {
+            return 'string';
+        } else {
+            return output.type;
+        }
     }
 
-    private calculateSlotAndOffset(type: string, currentSlot: number): [number, number, StorageType] {
-        // 매핑은 항상 새로운 슬롯에서 시작
-        if (type.startsWith('mapping')) {
-            const baseType = type.match(/mapping\s*\([^==>]*?=>\s*([^;{]*?)\)/)?.[1]?.trim() || 'unknown';
-            return [currentSlot, 0, {
-                encoding: 'mapping',
-                label: type,
-                numberOfBytes: '32',
-                base: baseType
-            }];
+    private analyzeStorageAccesses(bytecode: string): Map<number, string> {
+        const storageAccesses = new Map<number, string>();
+        const opcodes = this.disassembleBytecode(bytecode);
+        
+        for (let i = 0; i < opcodes.length; i++) {
+            const opcode = opcodes[i];
+            if (opcode === 'SLOAD' || opcode === 'SSTORE') {
+                // 이전 opcode들을 분석하여 storage slot 번호 추출
+                const slot = this.findPrecedingPush(opcodes, i);
+                if (slot !== undefined) {
+                    storageAccesses.set(slot, opcode);
+                }
+            }
         }
+        
+        return storageAccesses;
+    }
 
+    private disassembleBytecode(bytecode: string): string[] {
+        // 바이트코드를 opcode 배열로 변환
+        const opcodes: string[] = [];
+        let i = 0;
+        
+        while (i < bytecode.length) {
+            const opcode = this.getOpcode(bytecode.slice(i, i + 2));
+            opcodes.push(opcode);
+            i += 2;
+            
+            // PUSH 연산의 경우 데이터 길이만큼 추가로 건너뛰기
+            if (opcode.startsWith('PUSH')) {
+                const size = parseInt(opcode.slice(4));
+                i += size * 2;
+            }
+        }
+        
+        return opcodes;
+    }
+
+    private getOpcode(hex: string): string {
+        // EVM opcode 맵핑
+        const opcodes: Record<string, string> = {
+            '54': 'SLOAD',
+            '55': 'SSTORE',
+            '60': 'PUSH1',
+            // ... 필요한 다른 opcode들 추가
+        };
+        return opcodes[hex] || hex;
+    }
+
+    private findPrecedingPush(opcodes: string[], currentIndex: number): number | undefined {
+        // SLOAD/SSTORE 이전의 PUSH 연산에서 storage slot 번호 찾기
+        for (let i = currentIndex - 1; i >= 0; i--) {
+            if (opcodes[i].startsWith('PUSH')) {
+                const value = parseInt(opcodes[i + 1], 16);
+                return value;
+            }
+        }
+        return undefined;
+    }
+
+    private getTypeInfo(type: string): StorageType {
         const typeMap: Record<string, StorageType> = {
             'address': {
                 encoding: 'inplace',
@@ -243,26 +313,56 @@ class ContractAnalyzer {
 
         // 사용자 정의 타입 (예: Roles.Role, SeigManagerI)
         if (type.includes('.') || !typeMap[type]) {
-            return [currentSlot, 0, {
+            return {
                 encoding: 'inplace',
                 label: type,
                 numberOfBytes: '32'
-            }];
+            };
         }
 
-        return [currentSlot, 0, typeMap[type]];
+        return typeMap[type];
     }
 
+    private extractMappingTypes(type: string): [string, string] {
+        const matches = type.match(/mapping\s*\(([^==>]*?)\s*=>\s*([^;{]*?)\)/);
+        if (!matches) {
+            throw new Error(`Invalid mapping type: ${type}`);
+        }
+        return [matches[1].trim(), matches[2].trim()];
+    }
+
+    private determineStorageSlot(
+        variable: { name: string; type: string }, 
+        storageAccesses: Map<number, string>,
+        metadata: ContractMetadata
+    ): number {
+        // slots 배열에서의 인덱스를 슬롯 번호로 사용
+        const stateVariables = this.extractStateVariablesFromABI(metadata.abi);
+        const index = stateVariables.findIndex(v => v.name === variable.name);
+        
+        // 변수를 찾지 못한 경우 NaN 반환
+        return index === -1 ? NaN : index;
+    }
 }
 
 // Usage example
 async function main() {
     const analyzer = new ContractAnalyzer('');
-    
+  
+ 
     try {
-        const contractAddress = '0x6982508145454ce325ddbe47a25d4ec3d2311933';
+        //TON
+        // const contractAddress = '0x2be5e8c109e2197d077d13a82daead6a9b3433c5';
+        //USDT
+        // const contractAddress = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+        //USDC proxy
+        // const contractAddress = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        //USDC implementation
+        // const contractAddress = "0x43506849d7c04f9138d1a2050bbf3a0c054402dd"
+        //SHIB
+        const contractAddress = "0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce"
         const metadata = await analyzer.analyze(contractAddress, 'mainnet');
-        console.log('Contract Metadata:', metadata);
+        // console.log('Contract Metadata:', metadata);
 
         // Analyze storage layout
         const storageLayout = await analyzer.analyzeStorageLayout(metadata);
