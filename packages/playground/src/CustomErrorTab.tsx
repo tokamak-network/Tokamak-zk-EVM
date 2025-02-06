@@ -1,5 +1,5 @@
 // CustomErrorTab.tsx
-import React from 'react';
+import React, { useState } from 'react';
 
 type CustomErrorTabProps = {
   errorMessage?: string;
@@ -7,10 +7,23 @@ type CustomErrorTabProps = {
 };
 
 const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
-  // Changed default message to use \n for line breaks.
   errorMessage = "Failed to fetch transaction bytecode.\nPlease check the transaction ID and try again.",
   onRetry,
 }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Define the style for the Retry button, changing the background color on hover.
+  const retryButtonStyle = {
+    alignSelf: 'stretch',
+    height: 28,
+    background: isHovered ? '#A5A5A5' : '#BDBDBD', // Change color on hover
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    display: 'inline-flex',
+    cursor: 'pointer',
+  };
+
   return (
     <div
       style={{
@@ -50,7 +63,7 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
           <div style={{ alignSelf: 'stretch', height: 1, background: '#DFDFDF' }} />
           <div
             style={{
-              width: 500,
+              width: 485,
               height: 22,
               paddingBottom: 2,
               paddingLeft: 8,
@@ -189,7 +202,7 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
                 fontWeight: '400',
                 lineHeight: '23px',
                 wordWrap: 'break-word',
-                whiteSpace: 'pre-line' // This ensures \n creates line breaks
+                whiteSpace: 'pre-line', // This ensures \n creates line breaks
               }}
             >
               {errorMessage}
@@ -230,17 +243,10 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
                 >
                   <div style={{ alignSelf: 'stretch', height: 1, background: '#A8A8A8' }} />
                   <div
-                    style={{
-                      alignSelf: 'stretch',
-                      height: 28,
-                      background: '#BDBDBD',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      gap: 8,
-                      display: 'inline-flex',
-                      cursor: 'pointer',
-                    }}
+                    style={retryButtonStyle}
                     onClick={onRetry}
+                    onMouseEnter={() => setIsHovered(true)}
+                    onMouseLeave={() => setIsHovered(false)}
                   >
                     <div style={{ width: 1, alignSelf: 'stretch', background: '#A8A8A8' }} />
                     <div

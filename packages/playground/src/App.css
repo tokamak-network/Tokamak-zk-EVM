@@ -340,7 +340,7 @@ h1 span {
 }
 
 .btn-process.error:hover:not(:disabled) {
-  background: #d9534f;
+  background: #ec3030;
 }
 
 .btn-process::before {
