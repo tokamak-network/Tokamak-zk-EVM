@@ -46,9 +46,9 @@
   }
   
   .horizontalAl {
-    width: 480px; /* Base width */
+    width: 552px; /* Base width */
     background-color: #f7f7f7;
-    height: 57px;
+    height: 59px;
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -86,10 +86,9 @@
   /* ===== Hover Styles (from Figma) ===== */
   .property1hover:hover .horizontalAl {
     /* Note: fixed width; change to 100% if you need a responsive design */
-    width: 480px;
     position: relative;
     background-color: #f7f7f7;
-    height: 56px;
+    height: 58px;
     display: flex;
     flex-direction: row;
     align-items: center;
