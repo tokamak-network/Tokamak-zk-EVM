@@ -109,18 +109,22 @@ h1 span {
 .log-card strong {
   display: block;
   margin-bottom: 4px;
-  color: #003399;
-  font-size: 11px;
+  font-size: 14px;
+  font-family: 'IBM Plex Mono';
+  color: #222;
+  font-weight: 500;
 }
 
 .log-card span {
   display: block;
   padding: 5px 8px;
-  background: #dfdfdf;
+  background: #F2F2F2;
   border-top: 1px solid #5f5f5f;
   border-left: 1px solid #5f5f5f;
   min-height: 16px;
   word-break: break-all;
+  font-family: 'IBM Plex Mono';
+
 }
 
 .topic-badge {
