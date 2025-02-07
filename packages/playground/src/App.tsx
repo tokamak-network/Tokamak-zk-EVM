@@ -12,6 +12,7 @@ import './App.css';
 import CustomTabSwitcher from './CustomTabSwitcher';
 import save from '/save.png';
 import CustomErrorTab from './CustomErrorTab';
+import { RETURN_PLACEMENT_INDEX, STORAGE_IN_PLACEMENT_INDEX, STORAGE_OUT_PLACEMENT_INDEX } from '../../frontend/synthesizer/src/tokamak/constant/constants.js';
 
 window.Buffer = window.Buffer || Buffer;
 
@@ -139,27 +140,39 @@ const App: React.FC = () => {
       }
 
       const placementsMap = res.runState.synthesizer.placements;
-      const STORAGE_IN_PLACEMENT_INDEX = 0;
-      const STORAGE_OUT_PLACEMENT_INDEX = 1;
-      const RETURN_PLACEMENT_INDEX = 2;
 
       const storageLoadPlacement = placementsMap.get(STORAGE_IN_PLACEMENT_INDEX);
-      const logsPlacement = placementsMap.get(STORAGE_OUT_PLACEMENT_INDEX);
-      const storageStorePlacement = placementsMap.get(RETURN_PLACEMENT_INDEX);
-      console.log('Storage Store Placement:', storageStorePlacement);
+      const logsPlacement = placementsMap.get(RETURN_PLACEMENT_INDEX);
+      const storageStorePlacement = placementsMap.get(STORAGE_OUT_PLACEMENT_INDEX);
 
       const storageLoadData = storageLoadPlacement?.inPts || [];
       const storageStoreData = storageStorePlacement?.outPts || [];
+      const _logsData = logsPlacement?.outPts || [];
 
-      if (res.logs) {
-        const formattedLogs = formatLogsStructured(res.logs);
-        setPlacementLogs(formattedLogs);
-      } else {
-        setPlacementLogs([]);
+      // // THIS IS NOT GOOD!!!!!!!!!!!!!!!!!!!!!!
+      // if (res.logs) {
+      //   const formattedLogs = formatLogsStructured(res.logs);
+      //   setPlacementLogs(formattedLogs);
+      // } else {
+      //   setPlacementLogs([]);
+      // }
+      // //////////////////////
+
+      const logsData: {topics: string[], valueDec: bigint, valueHex: string}[] = []
+      let prevIdx = -1
+      for (const _logData of _logsData) {
+        const idx = _logData.pairedInputWireIndices![0]
+        if (idx !== prevIdx){
+          logsData.push({topics: [], valueDec: _logData.value, valueHex: _logData.valueHex})
+        } else {
+          logsData[idx].topics.push(_logData.valueHex)
+        }
+        prevIdx = idx
       }
-
+      console.log(`logsData: ${logsData}`)
       setStorageLoad(storageLoadData);
       setStorageStore(storageStoreData);
+      setPlacementLogs(logsData);
 
       const placementsObj = Object.fromEntries(placementsMap.entries());
 
@@ -248,20 +261,20 @@ const App: React.FC = () => {
                 className="log-topics"
                 style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
               >
-                {['signature', 'from', 'to'].map((key, idx) => (
+                {log.topics.forEach((topic, idx) => (
                   <div key={idx} className="topic-badge">
-                    {`${idx}: ${summarizeHex(log.topics[key])}`}
+                    {`${idx}: ${summarizeHex(topic)}`}
                   </div>
                 ))}
               </div>
             </div>
             <div>
               <strong>Value (Decimal):</strong>
-              <span>{log.data.value}</span>
+              <span>{log.valueDec}</span>
             </div>
             <div>
               <strong>Value (Hex):</strong>
-              <span title={log.data.hex}>{summarizeHex(log.data.hex)}</span>
+              <span title={log.valueHex}>{summarizeHex(log.valueHex)}</span>
             </div>
           </div>
         ))
