@@ -4,9 +4,8 @@
     left: 0;
     width: 100%;
     max-width: 100%;
-    height: auto;
     object-fit: contain;
-    z-index: 900;
+    z-index: 1000;
     pointer-events: none;
-    opacity: 0.6;
+   
 }
