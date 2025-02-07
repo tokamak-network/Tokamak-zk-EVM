@@ -154,7 +154,6 @@ h1 span {
   margin: 0;
   font-size: 96px;
   line-height: 60px;
-  padding-bottom: 20px;
   text-shadow:
   0 1px 0 #a17510,
   0 2px 0 #a17510;
@@ -275,37 +274,6 @@ h1 span {
   }
 }
 
-.transaction-input {
-  font-family: "IBM Plex Mono", Helvetica;
-  width: 546px;
-  height: 57px;
-  background-color: rgb(255, 255, 255);
-  color: rgb(255, 255, 255);
-  text-align: center;
-  outline: none;
-  border-radius: 0;
-  color: #000000;
-  font-family: "IBM Plex Mono-Regular", Helvetica;
-  font-size: 20px;
-}
-
-.transaction-input.error {
-  color: red;
-}
-
-.transaction-input:focus::placeholder {
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  border-color: white;
-}
-
-.transaction-input::placeholder {
-  text-align: left;
-  font-family: "IBM Plex Mono", Helvetica;
-  font-size: 24px;
-  color: #999999;
-}
-
 .btn-process {
   background: #2A72E5;
   height: 59px;
@@ -388,9 +356,10 @@ h1 span {
 .input-button-container {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
   justify-content: center;
   margin-bottom: 15px;
+  margin-top: 64px;
 }
 
 .btn-download {
