@@ -13,6 +13,15 @@ body {
   text-align: center;
 }
 
+.logo-image {
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.logo-image:hover {
+  opacity: 0.8; 
+}
+
 .app-container {
   position: relative;
   display: flex;

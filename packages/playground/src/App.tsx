@@ -315,8 +315,13 @@ const App: React.FC = () => {
   return (
     <>
       <div className="container">
-        <div className="logo-container">
-          <img src={logo} alt="Synthesizer Logo" className="logo-image" />
+      <div className="logo-container">
+          <img
+            src={logo}
+            alt="Synthesizer Logo"
+            className="logo-image"
+            onClick={() => window.location.reload()}
+          />
         </div>
         <div className="title-container">
           <h1 className="main-title">Synthesizer</h1>
