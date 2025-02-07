@@ -1,22 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Jersey+10&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Jersey+10&display=swap');
 
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
 body {
-  background: linear-gradient(
-    179.38deg,
-    #000305,
-    #00356600
-  ),
-  url('/background-stars.png') bottom center / contain no-repeat,
-  url('/background6.png') bottom center / cover no-repeat;
+  background: linear-gradient(179.38deg, #000306, #003466);
   color: white;
   font-family: 'Jersey 10', cursive;
   text-align: center;
-  margin: 0;
-  padding: 0;
-  position: relative;
-  overflow: hidden;
 }
+
+
 
 .app-container {
   position: relative;

@@ -6,13 +6,15 @@ import { createEVM } from '../../frontend/synthesizer/src/constructors';
 import { hexToBytes, Address } from '../../frontend/synthesizer/libs/util/dist/esm/index.js';
 import { TON_CONTRACT_CODE } from './constant/evm.js';
 import { setupEVM } from '../utils/setupEVM';
-import logo from '/logo.png';
+import logo from '/logo.svg';
 import { getValueDecimal, summarizeHex, serializePlacements, add0xPrefix } from '../helpers/helpers';
 import './App.css';
 import CustomTabSwitcher from './CustomTabSwitcher';
-import save from '/save.png';
+import save from '/save.svg';
 import CustomErrorTab from './CustomErrorTab';
 import { RETURN_PLACEMENT_INDEX, STORAGE_IN_PLACEMENT_INDEX, STORAGE_OUT_PLACEMENT_INDEX } from '../../frontend/synthesizer/src/tokamak/constant/constants.js';
+import RainbowImage from './RainbowImage';
+import Stars from './Stars';
 
 window.Buffer = window.Buffer || Buffer;
 
@@ -310,6 +312,7 @@ const App: React.FC = () => {
   };
 
   return (
+    <>
     <div className="container">
       <div className="logo-container">
         <img src={logo} alt="Synthesizer Logo" className="logo-image" />
@@ -375,7 +378,12 @@ const App: React.FC = () => {
           )}
         </div>
       )}
+          
     </div>
+    <Stars />
+    <RainbowImage />
+
+    </>
   );
 };
 
