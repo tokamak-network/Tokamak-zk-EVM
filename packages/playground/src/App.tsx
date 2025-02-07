@@ -31,6 +31,7 @@ type LogCardProps = {
   summarizeAddress?: boolean;
 };
 
+// Updated LogCard: Renders contract address and key if provided.
 const LogCard: React.FC<LogCardProps> = ({
   contractAddress,
   keyValue,
@@ -39,16 +40,20 @@ const LogCard: React.FC<LogCardProps> = ({
   summarizeAddress = false,
 }) => (
   <div className="log-card">
-    <div>
-      <strong>Contract Address:</strong>{' '}
-      <span title={contractAddress}>
-        {summarizeAddress ? summarizeHex(contractAddress) : contractAddress}
-      </span>
-    </div>
-    <div>
-      <strong>Key:</strong>{' '}
-      <span title={keyValue}>{summarizeHex(keyValue)}</span>
-    </div>
+    {contractAddress && (
+      <div>
+        <strong>Contract Address:</strong>{' '}
+        <span title={contractAddress}>
+          {summarizeAddress ? summarizeHex(contractAddress) : contractAddress}
+        </span>
+      </div>
+    )}
+    {keyValue && (
+      <div>
+        <strong>Key:</strong>{' '}
+        <span title={keyValue}>{summarizeHex(keyValue)}</span>
+      </div>
+    )}
     <div>
       <strong>Value (Decimal):</strong>{' '}
       <span>{valueDecimal || getValueDecimal(valueHex)}</span>
@@ -232,9 +237,7 @@ const App: React.FC = () => {
       return storageLoad.length ? (
         storageLoad.map((item, index) => (
           <div key={index} className="log-card-inside">
-            {/* "Data #..." label in a distinct blue style */}
             <div className="data-label">Data #{index + 1}</div>
-
             <LogCard
               contractAddress={item.contractAddress || evmContractAddress}
               keyValue={add0xPrefix(item.key)}
@@ -251,7 +254,7 @@ const App: React.FC = () => {
         placementLogs.map((log, index) => (
           <div key={index} className="log-card-inside">
             <div className="data-label">Data #{index + 1}</div>
-
+            {/* Render topics exactly as before */}
             <div>
               <strong>Topics:</strong>
               <div
@@ -265,14 +268,13 @@ const App: React.FC = () => {
                 ))}
               </div>
             </div>
-            <div>
-              <strong>Value (Decimal):</strong>
-              <span>{log.valueDec.toString()}</span>
-            </div>
-            <div>
-              <strong>Value (Hex):</strong>
-              <span title={log.valueHex}>{summarizeHex(log.valueHex)}</span>
-            </div>
+            {/* Use LogCard solely to display the values, ensuring hex value starts with 0x */}
+            <LogCard
+              contractAddress=""
+              keyValue=""
+              valueDecimal={log.valueDec.toString()}
+              valueHex={add0xPrefix(log.valueHex)}
+            />
           </div>
         ))
       ) : (
@@ -291,7 +293,6 @@ const App: React.FC = () => {
           return (
             <div key={index} className="log-card-inside">
               <div className="data-label">Data #{index + 1}</div>
-
               <LogCard
                 contractAddress={contractAddress}
                 keyValue={add0xPrefix(key)}
