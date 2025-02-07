@@ -42,7 +42,8 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
       {/* Main error container */}
       <div
         style={{
-          width: 500,
+          width: 400,
+          height:195,
           alignSelf: 'stretch',
           background: '#BDBDBD',
           flexDirection: 'column',
@@ -65,7 +66,7 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
           <div style={{ alignSelf: 'stretch', height: 1, background: '#DFDFDF' }} />
           <div
             style={{
-              width: 485,
+              width: 385,
               height: 22,
               paddingBottom: 2,
               paddingLeft: 8,
@@ -149,10 +150,10 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
                 >
                   {/* Render a series of 25 red blocks */}
                   {Array.from({ length: 25 }).map((_, idx) => (
-                    <div key={`red-${idx}`} style={{ width: 12, height: 24, position: 'relative' }}>
+                    <div key={`red-${idx}`} style={{ width: 9, height: 24, position: 'relative' }}>
                       <div
                         style={{
-                          width: 12,
+                          width: 9,
                           height: 24,
                           left: 0,
                           top: 0,
@@ -164,10 +165,10 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
                   ))}
                   {/* Render 4 grey blocks */}
                   {Array.from({ length: 4 }).map((_, idx) => (
-                    <div key={`grey-${idx}`} style={{ width: 12, height: 24, position: 'relative' }}>
+                    <div key={`grey-${idx}`} style={{ width: 8, height: 24, position: 'relative' }}>
                       <div
                         style={{
-                          width: 12,
+                          width: 9,
                           height: 24,
                           left: 0,
                           top: 0,
@@ -198,13 +199,14 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
             <div
               style={{
                 alignSelf: 'stretch',
-                color: '#222222',
+                color: '#222',
                 fontSize: 14,
                 fontFamily: 'IBM Plex Mono',
                 fontWeight: '400',
                 lineHeight: '23px',
                 wordWrap: 'break-word',
                 whiteSpace: 'pre-line',
+                textAlign: 'left',
               }}
             >
               {errorMessage}
@@ -264,17 +266,18 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
                         display: 'flex',
                       }}
                     >
-                      <div
+                        <div
                         style={{
                           color: '#222222',
                           fontSize: 13,
                           fontFamily: 'IBM Plex Mono',
                           fontWeight: '400',
                           wordWrap: 'break-word',
+                          whiteSpace: 'pre-line'
                         }}
-                      >
+                        >
                         Back to main page
-                      </div>
+                        </div>
                     </div>
                     <div style={{ width: 1, alignSelf: 'stretch', background: '#5F5F5F' }} />
                   </div>
