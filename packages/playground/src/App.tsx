@@ -312,6 +312,10 @@ const App: React.FC = () => {
 
   return (
     <>
+    <div className="background-container">
+      <Stars />
+      <RainbowImage />
+    </div>
       <div className="container">
         <div className="logo-container">
           <img
@@ -388,8 +392,7 @@ const App: React.FC = () => {
           </div>
         )}
       </div>
-      <Stars />
-      <RainbowImage />
+      
     </>
   );
 };
