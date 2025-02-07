@@ -15,6 +15,7 @@ import CustomErrorTab from './CustomErrorTab';
 import { RETURN_PLACEMENT_INDEX, STORAGE_IN_PLACEMENT_INDEX, STORAGE_OUT_PLACEMENT_INDEX } from '../../frontend/synthesizer/src/tokamak/constant/constants.js';
 import RainbowImage from './RainbowImage';
 import Stars from './Stars';
+import VertialAL from './VertialAL';
 
 window.Buffer = window.Buffer || Buffer;
 
@@ -322,14 +323,12 @@ const App: React.FC = () => {
         <h2 className="subtitle">Developer Playground</h2>
       </div>
       <div className="input-button-container">
-        <input
-          type="text"
-          value={transactionId}
-          onChange={(e) => setTransactionId(e.target.value)}
-          placeholder="Enter Transaction ID"
-          className={`transaction-input ${status && status.startsWith('Error') ? 'error' : ''}`}
-          disabled={isProcessing}
-        />
+      <VertialAL 
+        value={transactionId}
+        onChange={setTransactionId}
+        disabled={isProcessing}
+        error={status?.startsWith('Error')}
+      />        
         <button
           onClick={handleSubmit}
           className={`btn-process ${isProcessing ? 'disabled' : ''} ${status && status.startsWith('Error') ? 'error' : ''}`}
