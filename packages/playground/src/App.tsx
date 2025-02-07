@@ -152,15 +152,6 @@ const App: React.FC = () => {
       const storageStoreData = storageStorePlacement?.outPts || [];
       const _logsData = logsPlacement?.outPts || [];
 
-      // // THIS IS NOT GOOD!!!!!!!!!!!!!!!!!!!!!!
-      // if (res.logs) {
-      //   const formattedLogs = formatLogsStructured(res.logs);
-      //   setPlacementLogs(formattedLogs);
-      // } else {
-      //   setPlacementLogs([]);
-      // }
-      // //////////////////////
-
       const logsData: { topics: string[]; valueDec: bigint; valueHex: string }[] = [];
       let prevIdx = -1;
       for (const _logData of _logsData) {
@@ -211,13 +202,6 @@ const App: React.FC = () => {
     if (isProcessing) return;
     sessionStorage.setItem('pendingTransactionId', transactionId);
     window.location.reload();
-  };
-
-  const handleRetry = () => {
-    if (transactionId) {
-      setStatus(null);
-      processTransaction(transactionId);
-    }
   };
 
   useEffect(() => {
@@ -315,7 +299,7 @@ const App: React.FC = () => {
   return (
     <>
       <div className="container">
-      <div className="logo-container">
+        <div className="logo-container">
           <img
             src={logo}
             alt="Synthesizer Logo"
@@ -346,7 +330,7 @@ const App: React.FC = () => {
           </button>
         </div>
         {status && status.startsWith('Error') ? (
-          <CustomErrorTab onRetry={handleRetry} errorMessage={status.replace('Error: ', '')} />
+          <CustomErrorTab errorMessage={status.replace('Error: ', '')} />
         ) : (
           status && (
             <div className="status-download-container">
@@ -354,36 +338,34 @@ const App: React.FC = () => {
             </div>
           )
         )}
-        { // Modified condition: show details box if any of the storage/log arrays have content OR if serverData exists
-          (storageLoad.length > 0 || placementLogs.length > 0 || storageStore.length > 0 || serverData) && (
-            <div className="big-box">
-              <CustomTabSwitcher activeTab={activeTab} setActiveTab={setActiveTab} />
-              <div className="fixed-box">{renderActiveTab()}</div>
-              {serverData && (
-                <div className="download-buttons-container">
-                  {serverData.permutation && (
-                    <button
-                      onClick={() => handleDownload(serverData.permutation, 'permutation.json')}
-                      className="btn-download btn-permutation"
-                      disabled={isProcessing}
-                    >
-                      Download Permutation
-                    </button>
-                  )}
-                  {serverData.placementInstance && (
-                    <button
-                      onClick={() => handleDownload(serverData.placementInstance, 'placementInstance.json')}
-                      className="btn-download btn-placement"
-                      disabled={isProcessing}
-                    >
-                      Download Placement Instance
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        }
+        {(storageLoad.length > 0 || placementLogs.length > 0 || storageStore.length > 0 || serverData) && (
+          <div className="big-box">
+            <CustomTabSwitcher activeTab={activeTab} setActiveTab={setActiveTab} />
+            <div className="fixed-box">{renderActiveTab()}</div>
+            {serverData && (
+              <div className="download-buttons-container">
+                {serverData.permutation && (
+                  <button
+                    onClick={() => handleDownload(serverData.permutation, 'permutation.json')}
+                    className="btn-download btn-permutation"
+                    disabled={isProcessing}
+                  >
+                    Download Permutation
+                  </button>
+                )}
+                {serverData.placementInstance && (
+                  <button
+                    onClick={() => handleDownload(serverData.placementInstance, 'placementInstance.json')}
+                    className="btn-download btn-placement"
+                    disabled={isProcessing}
+                  >
+                    Download Placement Instance
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <Stars />
       <RainbowImage />

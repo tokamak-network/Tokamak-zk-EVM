@@ -1,27 +1,29 @@
-// CustomErrorTab.tsx
 import React, { useState } from 'react';
 
 type CustomErrorTabProps = {
   errorMessage?: string;
-  onRetry?: () => void;
 };
 
 const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
   errorMessage = "Failed to fetch transaction bytecode.\nPlease check the transaction ID and try again.",
-  onRetry,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
-  // Define the style for the Retry button, changing the background color on hover.
-  const retryButtonStyle = {
+  // Define the style for the button, changing the background color on hover.
+  const buttonStyle = {
     alignSelf: 'stretch',
     height: 28,
-    background: isHovered ? '#A5A5A5' : '#BDBDBD', // Change color on hover
+    background: isHovered ? '#A5A5A5' : '#BDBDBD',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
     display: 'inline-flex',
     cursor: 'pointer',
+  };
+
+  // This function refreshes the page
+  const handleGoToMain = () => {
+    window.location.reload();
   };
 
   return (
@@ -40,7 +42,7 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
       {/* Main error container */}
       <div
         style={{
-          width: 500, // Wider error box
+          width: 500,
           alignSelf: 'stretch',
           background: '#BDBDBD',
           flexDirection: 'column',
@@ -93,7 +95,7 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
         <div
           style={{
             alignSelf: 'stretch',
-            height: 140, // Reduced height
+            height: 140,
             paddingLeft: 8,
             paddingRight: 8,
             paddingTop: 16,
@@ -182,7 +184,7 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
             </div>
           </div>
 
-          {/* Error message and retry button */}
+          {/* Error message and "Go to the main" button */}
           <div
             style={{
               flexDirection: 'column',
@@ -202,13 +204,13 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
                 fontWeight: '400',
                 lineHeight: '23px',
                 wordWrap: 'break-word',
-                whiteSpace: 'pre-line', // This ensures \n creates line breaks
+                whiteSpace: 'pre-line',
               }}
             >
               {errorMessage}
             </div>
 
-            {/* Retry button */}
+            {/* "Go to the main" button */}
             <div
               style={{
                 alignSelf: 'stretch',
@@ -243,8 +245,8 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
                 >
                   <div style={{ alignSelf: 'stretch', height: 1, background: '#A8A8A8' }} />
                   <div
-                    style={retryButtonStyle}
-                    onClick={onRetry}
+                    style={buttonStyle}
+                    onClick={handleGoToMain}
                     onMouseEnter={() => setIsHovered(true)}
                     onMouseLeave={() => setIsHovered(false)}
                   >
@@ -271,7 +273,7 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
                           wordWrap: 'break-word',
                         }}
                       >
-                        Retry
+                        Back to main page
                       </div>
                     </div>
                     <div style={{ width: 1, alignSelf: 'stretch', background: '#5F5F5F' }} />
