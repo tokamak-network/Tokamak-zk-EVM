@@ -124,7 +124,6 @@ h1 span {
   min-height: 16px;
   word-break: break-all;
   font-family: 'IBM Plex Mono';
-
 }
 
 .topic-badge {
@@ -175,8 +174,8 @@ h1 span {
 .main-title {
   font-size: clamp(1.5rem, 5vw, 3rem);
   text-shadow:
-  0 1px 0 #a17510,
-  0 2px 0 #a17510;
+    0 1px 0 #a17510,
+    0 2px 0 #a17510;
   color: yellow;
   font-size: 96px;
   line-height: 60px;
@@ -190,8 +189,8 @@ h1 span {
   font-size: 96px;
   line-height: 60px;
   text-shadow:
-  0 1px 0 #a17510,
-  0 2px 0 #a17510;
+    0 1px 0 #a17510,
+    0 2px 0 #a17510;
 }
 
 .logo-container {
@@ -584,6 +583,35 @@ h1 span {
   overflow-y: auto;
 }
 
+/* Custom Scrollbar Styles */
+.fixed-box::-webkit-scrollbar {
+  width: 16px;
+}
+
+.fixed-box::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border: 1px solid #919B9C;
+}
+
+.fixed-box::-webkit-scrollbar-thumb {
+  background: #d4d0c8;
+  border: 1px solid #919B9C;
+}
+
+.fixed-box::-webkit-scrollbar-button:vertical:decrement {
+  background: url('Top.svg') no-repeat center center;
+  height: 16px;
+  width: 16px;
+  border: 1px solid #a8a8a8;
+}
+
+.fixed-box::-webkit-scrollbar-button:vertical:increment {
+  background: url('Bottom.svg') no-repeat center center;
+  height: 16px;
+  width: 16px;
+  border: 1px solid #a8a8a8;
+}
+
 .download-buttons-container {
   width: 688px;
   display: flex;
@@ -635,12 +663,12 @@ h1 span {
 }
 
 .fixed-box::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #DFDFDF;
   border: 1px solid #919B9C;
 }
 
 .fixed-box::-webkit-scrollbar-thumb {
-  background: #d4d0c8;
+  background: #BDBDBD;
   border: 1px solid #919B9C;
 }
 
