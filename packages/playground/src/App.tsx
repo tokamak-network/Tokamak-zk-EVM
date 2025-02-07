@@ -12,7 +12,11 @@ import './App.css';
 import CustomTabSwitcher from './CustomTabSwitcher';
 import save from '/save.svg';
 import CustomErrorTab from './CustomErrorTab';
-import { RETURN_PLACEMENT_INDEX, STORAGE_IN_PLACEMENT_INDEX, STORAGE_OUT_PLACEMENT_INDEX } from '../../frontend/synthesizer/src/tokamak/constant/constants.js';
+import {
+  RETURN_PLACEMENT_INDEX,
+  STORAGE_IN_PLACEMENT_INDEX,
+  STORAGE_OUT_PLACEMENT_INDEX,
+} from '../../frontend/synthesizer/src/tokamak/constant/constants.js';
 import RainbowImage from './RainbowImage';
 import Stars from './Stars';
 import VertialAL from './VertialAL';
@@ -227,13 +231,17 @@ const App: React.FC = () => {
     if (activeTab === 'storageLoad') {
       return storageLoad.length ? (
         storageLoad.map((item, index) => (
-          <LogCard
-            key={index}
-            contractAddress={item.contractAddress || evmContractAddress}
-            keyValue={add0xPrefix(item.key)}
-            valueDecimal={item.valueDecimal}
-            valueHex={add0xPrefix(item.valueHex)}
-          />
+          <div key={index} className="log-card-inside">
+            {/* "Data #..." label in a distinct blue style */}
+            <div className="data-label">Data #{index + 1}</div>
+
+            <LogCard
+              contractAddress={item.contractAddress || evmContractAddress}
+              keyValue={add0xPrefix(item.key)}
+              valueDecimal={item.valueDecimal}
+              valueHex={add0xPrefix(item.valueHex)}
+            />
+          </div>
         ))
       ) : (
         <p>No storage load data.</p>
@@ -241,7 +249,9 @@ const App: React.FC = () => {
     } else if (activeTab === 'logs') {
       return placementLogs.length ? (
         placementLogs.map((log, index) => (
-          <div key={index} className="log-card">
+          <div key={index} className="log-card-inside">
+            <div className="data-label">Data #{index + 1}</div>
+
             <div>
               <strong>Topics:</strong>
               <div
@@ -257,7 +267,7 @@ const App: React.FC = () => {
             </div>
             <div>
               <strong>Value (Decimal):</strong>
-              <span>{log.valueDec}</span>
+              <span>{log.valueDec.toString()}</span>
             </div>
             <div>
               <strong>Value (Hex):</strong>
@@ -279,14 +289,17 @@ const App: React.FC = () => {
           const valueHex = item.valueHex || '0x0';
 
           return (
-            <LogCard
-              key={index}
-              contractAddress={contractAddress}
-              keyValue={add0xPrefix(key)}
-              valueDecimal={valueDecimal}
-              valueHex={add0xPrefix(valueHex)}
-              summarizeAddress={true}
-            />
+            <div key={index} className="log-card-inside">
+              <div className="data-label">Data #{index + 1}</div>
+
+              <LogCard
+                contractAddress={contractAddress}
+                keyValue={add0xPrefix(key)}
+                valueDecimal={valueDecimal}
+                valueHex={add0xPrefix(valueHex)}
+                summarizeAddress={true}
+              />
+            </div>
           );
         })
       ) : (
@@ -312,15 +325,17 @@ const App: React.FC = () => {
           <h2 className="subtitle">Developer Playground</h2>
         </div>
         <div className="input-button-container">
-          <VertialAL 
+          <VertialAL
             value={transactionId}
             onChange={setTransactionId}
             disabled={isProcessing}
             error={status?.startsWith('Error')}
-          />        
+          />
           <button
             onClick={handleSubmit}
-            className={`btn-process ${isProcessing ? 'disabled' : ''} ${status && status.startsWith('Error') ? 'error' : ''}`}
+            className={`btn-process ${isProcessing ? 'disabled' : ''} ${
+              status && status.startsWith('Error') ? 'error' : ''
+            }`}
             disabled={isProcessing}
           >
             <span className="btn-icon">
@@ -338,7 +353,10 @@ const App: React.FC = () => {
             </div>
           )
         )}
-        {(storageLoad.length > 0 || placementLogs.length > 0 || storageStore.length > 0 || serverData) && (
+        {(storageLoad.length > 0 ||
+          placementLogs.length > 0 ||
+          storageStore.length > 0 ||
+          serverData) && (
           <div className="big-box">
             <CustomTabSwitcher activeTab={activeTab} setActiveTab={setActiveTab} />
             <div className="fixed-box">{renderActiveTab()}</div>
@@ -355,7 +373,9 @@ const App: React.FC = () => {
                 )}
                 {serverData.placementInstance && (
                   <button
-                    onClick={() => handleDownload(serverData.placementInstance, 'placementInstance.json')}
+                    onClick={() =>
+                      handleDownload(serverData.placementInstance, 'placementInstance.json')
+                    }
                     className="btn-download btn-placement"
                     disabled={isProcessing}
                   >

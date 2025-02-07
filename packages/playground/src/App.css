@@ -67,15 +67,40 @@ h1 span {
 }
 
 .log-card {
-  background: white;
-  border: 1px solid #ccc;
+  position: relative;
+  margin: 10px 0;
+  color: black;
+  font-family: 'Tahoma', sans-serif;
+  font-size: 11px;
+  border-radius: 2px;
+}
+
+.log-card-inside {
+  position: relative;
+  margin-top: 40px;
+  background: #ffffff;
+  border: 1px solid #5f5f5f;
   margin: 10px 0;
   padding: 15px;
   color: black;
   font-family: 'Tahoma', sans-serif;
   font-size: 11px;
-  border-radius: 2px;
-  box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+  margin-bottom: 30px;
+  margin-top: 30px;
+}
+
+.data-label {
+  position: absolute;
+  top: -25px;
+  left: -1px;
+  background-color: #ffffff; 
+  color: #007BFF;
+  font-weight: bold;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-top: 1px solid #5f5f5f;
+  border-left: 1px solid #5f5f5f;
+  border-right: 1px solid #5f5f5f;
 }
 
 .log-card > div {
