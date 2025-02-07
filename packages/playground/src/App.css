@@ -145,7 +145,7 @@ h1 span {
   color: yellow;
   font-size: 96px;
   line-height: 60px;
-  margin-top: -20px;
+  margin-top: -60px;
 }
 
 .subtitle {
@@ -358,8 +358,10 @@ h1 span {
   align-items: center;
   gap: 16px;
   justify-content: center;
-  margin-bottom: 15px;
+  margin-bottom: 34px;
   margin-top: 64px;
+  width: 728px;
+  height: 59px;
 }
 
 .btn-download {
