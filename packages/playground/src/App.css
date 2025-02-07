@@ -68,11 +68,9 @@ h1 span {
 
 .log-card {
   position: relative;
-  margin: 10px 0;
   color: black;
   font-family: 'Tahoma', sans-serif;
-  font-size: 11px;
-  border-radius: 2px;
+  font-size: 12px;
 }
 
 .log-card-inside {
@@ -95,7 +93,7 @@ h1 span {
   left: -1px;
   background-color: #ffffff; 
   color: #007BFF;
-  font-weight: bold;
+  font-weight: 500;
   font-size: 11px;
   padding: 4px 8px;
   border-top: 1px solid #5f5f5f;
@@ -118,10 +116,9 @@ h1 span {
 .log-card span {
   display: block;
   padding: 5px 8px;
-  background: #fff;
-  border: 1px solid #919B9C;
-  box-shadow: inset 1px 1px 0px #919B9C,
-              inset -1px -1px 0px white;
+  background: #dfdfdf;
+  border-top: 1px solid #5f5f5f;
+  border-left: 1px solid #5f5f5f;
   min-height: 16px;
   word-break: break-all;
 }
@@ -568,6 +565,7 @@ h1 span {
 }
 
 .big-box {
+  width: 728px;
   max-height: calc(100vh - 400px);
   overflow: hidden;
   display: flex;
@@ -575,6 +573,7 @@ h1 span {
 }
 
 .fixed-box {
+  width: 708px;
   background: #bdbdbd;
   padding: 10px;
   max-height: 400px;
@@ -582,6 +581,7 @@ h1 span {
 }
 
 .download-buttons-container {
+  width: 688px;
   display: flex;
   justify-content: space-between;
   padding: 10px 20px;
