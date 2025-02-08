@@ -172,7 +172,6 @@ const App: React.FC = () => {
         }
         prevIdx = idx;
       }
-      console.log(`logsData: ${logsData}`);
       setStorageLoad(storageLoadData);
       setStorageStore(storageStoreData);
       setPlacementLogs(logsData);
@@ -263,7 +262,7 @@ const App: React.FC = () => {
               >
                 {log.topics.map((topic: string, idx: number) => (
                   <div key={idx} className="topic-badge">
-                    {`${idx}: ${summarizeHex(topic)}`}
+                    {`${idx}: ${add0xPrefix(summarizeHex(topic))}`}
                   </div>
                 ))}
               </div>
