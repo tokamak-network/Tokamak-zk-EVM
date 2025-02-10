@@ -15,21 +15,6 @@ const VertialAL: FunctionComponent<VertialALProps> = ({
   error = false,
 }) => {
   const [active, setActive] = useState(false);
-
-  // When error occurs, clear the input (i.e. the transaction value)
-  useEffect(() => {
-    if (error && value !== '') {
-      onChange('');
-    }
-  }, [error, value, onChange]);
-
-  /* 
-    Build the container's class list.
-    Priority: If disabled, use disabled styles.
-    Else if error, use error styles.
-    Else if active (focused), use active styles.
-    Always include the base hover class to support hover styles.
-  */
   const containerClasses = [
     styles.property1hover,
     disabled
