@@ -288,7 +288,11 @@ h1 span {
   justify-content: center;
   position: relative;
   gap: 8px;
-  border: 1px solid #a8a8a8;
+  border-left: 1px solid #a8a8a8;
+  border-top: 1px solid #a8a8a8;
+  border-bottom: 1px solid #5F5F5F;
+  border-right: 1px solid #5F5F5F;;
+
   border-radius: 0%;
   padding: 0;
   cursor: pointer;
