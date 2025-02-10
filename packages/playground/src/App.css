@@ -556,6 +556,7 @@ h1 span {
   padding: 10px;
   max-height: 400px;
   overflow-y: auto;
+  height: 287px;
 }
 
 /* Custom Scrollbar Styles */
