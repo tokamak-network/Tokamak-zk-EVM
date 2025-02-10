@@ -47,9 +47,9 @@
 }
 
 .horizontalAl {
-  width: 552px; 
+  width: 550px;
   background-color: #f7f7f7;
-  height: 59px;
+  height: 57px;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -87,7 +87,7 @@
 .property1hover:not(.property1active):hover .horizontalAl {
   position: relative;
   background-color: #f7f7f7;
-  height: 58px;
+  height: 58px; /* increased height by 1px */
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -99,9 +99,12 @@
   font-family: 'IBM Plex Mono';
 }
 
+/* (Removed the hover rule that changed .borderRight so borders remain unchanged) */
+/*
 .property1hover:not(.property1active):hover .borderRight {
   width: 2px;
 }
+*/
 
 .property1hover:not(.property1active):hover .inputText::placeholder {
   color: #222222;

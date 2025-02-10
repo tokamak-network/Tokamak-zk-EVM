@@ -1,4 +1,4 @@
-import { FunctionComponent, useState, useEffect } from 'react';
+import { FunctionComponent, useState } from 'react';
 import styles from './VertialAL.module.css';
 
 interface VertialALProps {
@@ -15,6 +15,8 @@ const VertialAL: FunctionComponent<VertialALProps> = ({
   error = false,
 }) => {
   const [active, setActive] = useState(false);
+
+  // Determine container classes based on state
   const containerClasses = [
     styles.property1hover,
     disabled
