@@ -13,18 +13,6 @@ body {
   text-align: center;
 }
 
-.logo-image {
-  cursor: pointer;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-  position: absolute;
-  top: 40px;
-  left: 40px;
-}
-
-.logo-image:hover {
-  opacity: 0.8; 
-}
-
 .app-container {
   position: relative;
   display: flex;
@@ -198,15 +186,21 @@ h1 span {
 
 .logo-container {
   position: fixed;
-  top: 20px;
-  left: 20px;
-  z-index: 100;
-  width: 350px;
+  top: 40px;
+  left: 40px;
+  width: 334px;
+  height: 29.1px;
 }
 
 .logo-image {
-  width: 100%;
-  height: auto;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  height: 29.1px;
+  width: 334px;
+}
+
+.logo-image:hover {
+  opacity: 0.8; 
 }
 
 .log-entry::before {
@@ -283,32 +277,6 @@ h1 span {
   margin: 0 auto;
   padding: 20px;
   padding-top: clamp(10px, 5vh, 10px);
-}
-
-@media (max-width: 768px) {
-  .title-container {
-    margin-bottom: 10px;
-  }
-  
-  .logo-container {
-    top: 10px; 
-    width: clamp(150px, 30vw, 350px);
-  }
-}
-
-@media (max-width: 480px) {
-  .title-container {
-    margin-bottom: 15px;
-  }
-  
-  .logo-container {
-    position: static;
-    margin: 20px auto;
-  }
-
-  .container {
-    padding-top: 20px;
-  }
 }
 
 .btn-process {
