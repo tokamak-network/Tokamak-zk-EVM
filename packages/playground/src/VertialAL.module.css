@@ -25,6 +25,7 @@
   outline: none;
 }
 
+/* Base placeholder color is now #999999 */
 .inputText::placeholder {
   color: #999999;
 }
@@ -106,6 +107,7 @@
   color: #222222;
 }
 
+/* In hover state the input text (but not the placeholder) remains #222222 */
 .property1hover .inputText {
   color: #222222;
 }
@@ -171,12 +173,20 @@
   font-family: 'IBM Plex Mono';
 }
 
-/* When there is an error, the user's input text appears in red */
+/* Force the input text and placeholder to become red in error state */
 .property1error .inputText {
   color: #a01313;
 }
 
-/* If the input is empty, the placeholder (if visible) will also be red */
 .property1error .inputText::placeholder {
+  color: #a01313;
+}
+
+/* Ensure that even if the input is disabled in error state, the red color remains */
+.property1error .inputText:disabled {
+  color: #a01313;
+}
+
+.property1error .inputText:disabled::placeholder {
   color: #a01313;
 }
