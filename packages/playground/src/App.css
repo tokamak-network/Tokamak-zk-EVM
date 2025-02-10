@@ -16,6 +16,9 @@ body {
 .logo-image {
   cursor: pointer;
   transition: transform 0.2s ease, opacity 0.2s ease;
+  position: absolute;
+  top: 40px;
+  left: 40px;
 }
 
 .logo-image:hover {
@@ -392,7 +395,7 @@ h1 span {
   align-items: center;
   gap: 16px;
   justify-content: center;
-  margin-bottom: 34px;
+  margin-bottom: 32px;
   margin-top: 64px;
   width: 728px;
   height: 59px;
