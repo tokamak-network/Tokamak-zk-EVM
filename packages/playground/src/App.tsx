@@ -9,18 +9,18 @@ import { setupEVM } from '../utils/setupEVM';
 import logo from '/logo.svg';
 import { getValueDecimal, summarizeHex, serializePlacements, add0xPrefix } from '../helpers/helpers';
 import './App.css';
-import CustomTabSwitcher from './CustomTabSwitcher';
+import CustomTabSwitcher from './components/CustomTabSwitcher.js';
 import save from '/save.svg';
-import CustomErrorTab from './CustomErrorTab';
+import CustomErrorTab from './components/CustomErrorTab.js';
 import {
   RETURN_PLACEMENT_INDEX,
   STORAGE_IN_PLACEMENT_INDEX,
   STORAGE_OUT_PLACEMENT_INDEX,
 } from '../../frontend/synthesizer/src/tokamak/constant/constants.js';
-import RainbowImage from './RainbowImage';
-import Stars from './Stars';
-import CustomInput from './CustomInput.js';
-import CustomLoading from './CustomLoading';
+import RainbowImage from './components/RainbowImage.js';
+import Stars from './components/Stars.js';
+import CustomInput from './components/CustomInput.js';
+import CustomLoading from './components/CustomLoading.js';
 
 window.Buffer = window.Buffer || Buffer;
 
