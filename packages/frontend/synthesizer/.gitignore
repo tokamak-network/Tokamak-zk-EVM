@@ -2,3 +2,7 @@
 benchmarks/*.js
 # Bundle stats generated with npm visualize:bundle
 stats.html
+
+# Negate .vscode ignore from root .gitignore
+!.vscode/
+!.vscode/**
