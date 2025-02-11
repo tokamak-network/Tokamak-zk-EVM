@@ -89,7 +89,9 @@ export const setupEVMFromCalldata = async (
                                  findSlot('allowed') ||       // Some tokens use 'allowed'
                                  findSlot('allowances');      // Others might use 'allowances'
             
-            const allowanceSlot = allowancesItem.slot;
+            const allowanceSlot = allowancesItem?.slot;
+
+            if (allowanceSlot === undefined) throw new Error(`Storage slot not found for _allowances`);
             
             const ownerKey = keccak256(
                 hexToBytes(
@@ -100,7 +102,7 @@ export const setupEVMFromCalldata = async (
             const spenderKey = keccak256(
                 hexToBytes(
                     '0x' + spender.slice(2).padStart(64, '0') + 
-                    ownerKey.toString('hex').padStart(64, '0'),
+                      ownerKey.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '').padStart(64, '0'),
                 ),
             );
             
@@ -122,7 +124,9 @@ export const setupEVMFromCalldata = async (
             const balancesItem = findSlot('_balances') || 
                                findSlot('balances') || 
                                findSlot('_balance');
-            const balanceSlot = balancesItem.slot;
+            const balanceSlot = balancesItem?.slot;
+
+            if (balanceSlot === undefined) throw new Error(`Storage slot not found for _balances`);
             
             // Setup from balance
             const fromBalanceSlot = keccak256(
@@ -142,18 +146,23 @@ export const setupEVMFromCalldata = async (
             const allowancesItem = findSlot('_allowances') || 
                                  findSlot('allowed') || 
                                  findSlot('allowances');
-            const allowanceSlot = allowancesItem.slot;
+            const allowanceSlot = allowancesItem?.slot;
+
+            if (allowanceSlot === undefined) throw new Error(`Storage slot not found for _allowances`);
             
+
+            console.log("allowanceSlot", allowanceSlot);
             const ownerKey = keccak256(
                 hexToBytes(
                     '0x' + from.slice(2).padStart(64, '0') + 
                     allowanceSlot.padStart(64, '0'),
                 ),
             );
+
             const spenderKey = keccak256(
                 hexToBytes(
                     '0x' + sender.toString().slice(2).padStart(64, '0') + 
-                    ownerKey.toString('hex').padStart(64, '0'),
+                    ownerKey.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '').padStart(64, '0'),
                 ),
             );
             
