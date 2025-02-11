@@ -32,7 +32,7 @@ const main = async () => {
     to: contractAddr,
     code: hexToBytes(contractCode),
     data: hexToBytes(
-      "0xa9059cbb0000000000000000000000005e5cc881b5d61979d009a7aa06b81b3f4546479d00000000000000000000000000000000000000000000006c6b935b8bbd400000"
+      calldata
     ),
   })
 

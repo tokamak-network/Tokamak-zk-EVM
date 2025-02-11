@@ -43,7 +43,7 @@ export const setupEVMFromCalldata = async (
     // Find relevant storage slots from layout
     const findSlot = (labelToFind: string) => {
         const item = storageLayout.storageLayout.storage.find(item => item.label === labelToFind);
-        if (!item) throw new Error(`Storage slot not found for ${labelToFind}`);
+        // if (!item) throw new Error(`Storage slot not found for ${labelToFind}`);
         return item;
     };
 
@@ -54,11 +54,15 @@ export const setupEVMFromCalldata = async (
             const amount = BigInt('0x' + params.slice(64));
             
             // Find balances mapping slot from layout
-            const balancesItem = findSlot('_balances'); // TON uses '_balances'
+            const balancesItem = findSlot('_balances'); 
             // If not found, try alternative names
             const balanceSlot = balancesItem?.slot || 
                               findSlot('balances')?.slot || 
-                              findSlot('_balance')?.slot;
+                findSlot('_balance')?.slot;
+           
+            console.log("balanceSlot", balanceSlot);
+            
+            if (balanceSlot === undefined) throw new Error(`Storage slot not found for _balances`);
             
             const senderBalanceSlot = keccak256(
                 hexToBytes(
