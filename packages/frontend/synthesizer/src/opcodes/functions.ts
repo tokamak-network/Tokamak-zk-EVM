@@ -148,10 +148,6 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
-      console.log('dd')
-      console.log(runState.stack)
-      console.log(runState.stackPt)
-      console.log(runState.programCounter)
       synthesizerArith('DIV', [a, b], r, runState)
     },
   ],
