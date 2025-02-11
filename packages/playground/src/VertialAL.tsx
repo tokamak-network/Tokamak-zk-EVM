@@ -42,7 +42,7 @@ const VertialAL: FunctionComponent<VertialALProps> = ({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder="Enter Transaction ID"
-            disabled={disabled || error}
+            disabled={disabled }
             onFocus={() => setActive(true)}
             onBlur={() => setActive(false)}
           />
