@@ -19,7 +19,7 @@ import {
 } from '../../frontend/synthesizer/src/tokamak/constant/constants.js';
 import RainbowImage from './RainbowImage';
 import Stars from './Stars';
-import VertialAL from './VertialAL';
+import CustomInput from './CustomInput.js';
 import CustomLoading from './CustomLoading';
 
 window.Buffer = window.Buffer || Buffer;
@@ -331,7 +331,7 @@ const App: React.FC = () => {
           <h2 className="subtitle">Developer Playground</h2>
         </div>
         <div className="input-button-container">
-          <VertialAL
+          <CustomInput
             value={transactionId}
             onChange={setTransactionId}
             disabled={isProcessing}

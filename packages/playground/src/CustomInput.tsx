@@ -1,14 +1,14 @@
 import { FunctionComponent, useState } from 'react';
-import styles from './VertialAL.module.css';
+import styles from './CustomInput.module.css';
 
-interface VertialALProps {
+interface CustomInputProps {
   value?: string;
   onChange?: (value: string) => void;
   disabled?: boolean;
   error?: boolean;
 }
 
-const VertialAL: FunctionComponent<VertialALProps> = ({
+const CustomInput: FunctionComponent<CustomInputProps> = ({
   value = '',
   onChange = () => {},
   disabled = false,
@@ -54,4 +54,4 @@ const VertialAL: FunctionComponent<VertialALProps> = ({
   );
 };
 
-export default VertialAL;
+export default CustomInput;

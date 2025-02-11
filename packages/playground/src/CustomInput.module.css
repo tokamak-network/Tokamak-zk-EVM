@@ -99,18 +99,10 @@
   font-family: 'IBM Plex Mono';
 }
 
-/* (Removed the hover rule that changed .borderRight so borders remain unchanged) */
-/*
-.property1hover:not(.property1active):hover .borderRight {
-  width: 2px;
-}
-*/
-
 .property1hover:not(.property1active):hover .inputText::placeholder {
   color: #222222;
 }
 
-/* In hover state the input text (but not the placeholder) remains #222222 */
 .property1hover .inputText {
   color: #222222;
 }
@@ -152,7 +144,6 @@
   font-family: 'IBM Plex Mono';
 }
 
-/* Override inner container background when disabled */
 .property1disable .horizontalAl {
   background-color: #d0d0d7;
   height: 56px;
@@ -176,7 +167,6 @@
   font-family: 'IBM Plex Mono';
 }
 
-/* Force the input text and placeholder to become red in error state */
 .property1error .inputText {
   color: #a01313;
 }
@@ -185,7 +175,6 @@
   color: #a01313;
 }
 
-/* Ensure that even if the input is disabled in error state, the red color remains */
 .property1error .inputText:disabled {
   color: #a01313;
 }
