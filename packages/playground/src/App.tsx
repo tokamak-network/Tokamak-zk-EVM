@@ -20,6 +20,7 @@ import {
 import RainbowImage from './RainbowImage';
 import Stars from './Stars';
 import VertialAL from './VertialAL';
+import CustomLoading from './CustomLoading';
 
 window.Buffer = window.Buffer || Buffer;
 
@@ -31,7 +32,6 @@ type LogCardProps = {
   summarizeAddress?: boolean;
 };
 
-// Updated LogCard: Renders contract address and key if provided.
 const LogCard: React.FC<LogCardProps> = ({
   contractAddress,
   keyValue,
@@ -79,7 +79,7 @@ export interface FormattedLog {
 }
 
 export function formatLogsStructured(logs: any[]): FormattedLog[] {
-  console.log("Raw logs:", logs);
+  console.log('Raw logs:', logs);
   const formattedLogs = logs.map((log: any) => {
     const topics = log[1].map((topic: any) => `0x${Buffer.from(topic).toString('hex')}`);
     const dataHex = `0x${Buffer.from(log[2]).toString('hex')}`;
@@ -97,7 +97,7 @@ export function formatLogsStructured(logs: any[]): FormattedLog[] {
       },
     };
 
-    console.log("Formatted log:", formattedLog);
+    console.log('Formatted log:', formattedLog);
     return formattedLog;
   });
   return formattedLogs;
@@ -121,6 +121,10 @@ const App: React.FC = () => {
   const processTransaction = async (txId: string) => {
     try {
       setIsProcessing(true);
+
+      // Temporary delay (for testing purposes)
+      //await new Promise((resolve) => setTimeout(resolve, 2000));
+
       setStatus('Fetching bytecode from Etherscan...');
       setStorageLoad([]);
       setPlacementLogs([]);
@@ -253,7 +257,6 @@ const App: React.FC = () => {
         placementLogs.map((log, index) => (
           <div key={index} className="log-card-inside">
             <div className="data-label">Data #{index + 1}</div>
-            {/* Render topics exactly as before */}
             <div>
               <strong>Topics:</strong>
               <div
@@ -267,7 +270,6 @@ const App: React.FC = () => {
                 ))}
               </div>
             </div>
-            {/* Use LogCard solely to display the values, ensuring hex value starts with 0x */}
             <LogCard
               contractAddress=""
               keyValue=""
@@ -311,10 +313,10 @@ const App: React.FC = () => {
 
   return (
     <>
-    <div className="background-container">
-      <Stars />
-      <RainbowImage />
-    </div>
+      <div className="background-container">
+        <Stars />
+        <RainbowImage />
+      </div>
       <div className="container">
         <div className="logo-container">
           <img
@@ -348,19 +350,13 @@ const App: React.FC = () => {
             <span className="btn-text">Process</span>
           </button>
         </div>
-        {status && status.startsWith('Error') ? (
+        {isProcessing ? (
+          <CustomLoading />
+        ) : status && status.startsWith('Error') ? (
           <CustomErrorTab errorMessage={status.replace('Error: ', '')} />
-        ) : (
-          status && (
-            <div className="status-download-container">
-              <div className="error-content">{status}</div>
-            </div>
-          )
-        )}
-        {(storageLoad.length > 0 ||
-          placementLogs.length > 0 ||
-          storageStore.length > 0 ||
-          serverData) && (
+        ) : null}
+        {/* Only show the result box when not processing */}
+        {!isProcessing && (storageLoad.length > 0 || placementLogs.length > 0 || storageStore.length > 0 || serverData) && (
           <div className="big-box">
             <CustomTabSwitcher activeTab={activeTab} setActiveTab={setActiveTab} />
             <div className="fixed-box">{renderActiveTab()}</div>
@@ -391,7 +387,6 @@ const App: React.FC = () => {
           </div>
         )}
       </div>
-      
     </>
   );
 };
