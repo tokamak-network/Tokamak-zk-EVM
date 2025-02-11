@@ -148,6 +148,10 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(r)
 
       // For Synthesizer //
+      console.log('dd')
+      console.log(runState.stack)
+      console.log(runState.stackPt)
+      console.log(runState.programCounter)
       synthesizerArith('DIV', [a, b], r, runState)
     },
   ],
@@ -251,26 +255,42 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x0a,
     function (runState) {
       const [base, exponent] = runState.stack.popN(2)
+
       if (base === BIGINT_2) {
         switch (exponent) {
           case BIGINT_96:
             runState.stack.push(BIGINT_2EXP96)
+
+            // For Synthesizer //
+            synthesizerArith('EXP', [base, exponent], BIGINT_2EXP96, runState)
             return
           case BIGINT_160:
             runState.stack.push(BIGINT_2EXP160)
+
+            // For Synthesizer //
+            synthesizerArith('EXP', [base, exponent], BIGINT_2EXP160, runState)
             return
           case BIGINT_224:
             runState.stack.push(BIGINT_2EXP224)
+
+            // For Synthesizer //
+            synthesizerArith('EXP', [base, exponent], BIGINT_2EXP224, runState)
             return
         }
       }
       if (exponent === BIGINT_0) {
         runState.stack.push(BIGINT_1)
+
+        // For Synthesizer //
+        synthesizerArith('EXP', [base, exponent], BIGINT_1, runState)
         return
       }
 
       if (base === BIGINT_0) {
         runState.stack.push(base)
+
+        // For Synthesizer //
+        synthesizerArith('EXP', [base, exponent], base, runState)
         return
       }
       const r = exponentiation(base, exponent)
