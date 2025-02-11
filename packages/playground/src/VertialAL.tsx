@@ -41,8 +41,8 @@ const VertialAL: FunctionComponent<VertialALProps> = ({
             className={styles.inputText}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="Enter Transaction ID"
-            disabled={disabled }
+            placeholder={active ? "" : "Enter Transaction ID"}
+            disabled={disabled}
             onFocus={() => setActive(true)}
             onBlur={() => setActive(false)}
           />
