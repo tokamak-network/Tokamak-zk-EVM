@@ -572,7 +572,7 @@ h1 span {
   transform: translateX(-50%);
   top: 512px;
   flex-grow: 0;
-  padding-bottom: 100px;
+  padding-bottom: 150px;
 }
 
 .fixed-box {
