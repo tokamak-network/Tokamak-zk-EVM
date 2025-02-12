@@ -564,7 +564,7 @@ h1 span {
 .big-box {
   position: absolute;
   width: 728px;
-  height: 600px;
+  height: auto;
   overflow: visible;
   display: flex;
   flex-direction: column;
@@ -580,6 +580,7 @@ h1 span {
   width: 708px;
   background: #bdbdbd;
   height: calc(100% - 40px);
+  max-height: 655px;
   border: 9px solid #bdbdbd;
   overflow-y: auto;
   left: 0;
