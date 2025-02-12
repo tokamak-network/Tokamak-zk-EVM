@@ -2171,6 +2171,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
+      runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
     },
   ],
   // 0xf2: CALLCODE
@@ -2230,6 +2231,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
+      runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
     },
   ],
   // 0xf4: DELEGATECALL
@@ -2284,6 +2286,8 @@ export const handlers: Map<number, OpHandler> = new Map([
       // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
+      runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
+
     },
   ],
   // 0xf8: EXTCALL
@@ -2319,6 +2323,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         // Write return data to memory
 
         runState.stack.push(ret)
+        runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
       }
     },
   ],
@@ -2368,6 +2373,7 @@ export const handlers: Map<number, OpHandler> = new Map([
           dataPts,
         )
         runState.stack.push(ret)
+        runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
       }
     },
   ],
@@ -2422,6 +2428,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
+      runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
     },
   ],
   // 0xfb: EXTSTATICCALL
@@ -2456,6 +2463,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         const dataPts = runState.memoryPt.read(Number(inOffset), Number(inLength))
         const ret = await runState.interpreter.callStatic(gasLimit, toAddress, value, data, dataPts)
         runState.stack.push(ret)
+        runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
       }
     },
   ],
