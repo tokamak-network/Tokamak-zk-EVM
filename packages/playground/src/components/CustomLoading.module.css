@@ -156,4 +156,11 @@
     color: #fff;
     font-family: 'IBM Plex Mono';
 }
+.loadingContainer {
+    position: absolute;
+    top: 512px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+}
 

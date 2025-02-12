@@ -9,7 +9,19 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
-  // Define the style for the button, changing the background color on hover.
+  const containerStyle = {
+    position: 'absolute' as const,
+    top: '512px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: '402px',
+    height: '195px',
+    display: 'inline-flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  };
+
   const buttonStyle = {
     alignSelf: 'stretch',
     height: 28,
@@ -21,21 +33,12 @@ const CustomErrorTab: React.FC<CustomErrorTabProps> = ({
     cursor: 'pointer',
   };
 
-  // This function refreshes the page
   const handleGoToMain = () => {
     window.location.reload();
   };
 
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        justifyContent: 'center',
-        alignItems: 'center',
-        display: 'inline-flex',
-      }}
-    >
+    <div style={containerStyle}>
       {/* Left vertical border */}
       <div style={{ width: 1, alignSelf: 'stretch', background: '#DFDFDF' }} />
 
