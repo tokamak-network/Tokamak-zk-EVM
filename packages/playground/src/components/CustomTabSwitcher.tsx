@@ -141,7 +141,6 @@ const CustomTabSwitcher: React.FC<CustomTabSwitcherProps> = ({ activeTab, setAct
     <div
       style={{
         width: '100%',
-        height: '100%',
         justifyContent: 'flex-start',
         alignItems: 'flex-end',
         display: 'inline-flex',

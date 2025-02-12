@@ -317,7 +317,7 @@ const App: React.FC = () => {
         <Stars />
         <RainbowImage />
       </div>
-      <div className="container">
+      <div >
         <div className="logo-container">
           <img
             src={logo}
