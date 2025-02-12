@@ -41,7 +41,7 @@ const CustomInput: FunctionComponent<CustomInputProps> = ({
             className={styles.inputText}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            placeholder={active ? "" : "Enter Transaction ID"}
+            placeholder="Enter Transaction ID"
             disabled={disabled}
             onFocus={() => setActive(true)}
             onBlur={() => setActive(false)}

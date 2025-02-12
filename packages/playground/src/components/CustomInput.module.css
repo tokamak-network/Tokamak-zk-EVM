@@ -25,9 +25,10 @@
   outline: none;
 }
 
-/* Base placeholder color is now #999999 */
+/* Base placeholder color */
 .inputText::placeholder {
-  color: #999999;
+  color: #999999 !important;
+  opacity: 1;
 }
 
 .labelWrapper {
@@ -99,8 +100,10 @@
   font-family: 'IBM Plex Mono';
 }
 
+/* Remove hover state changes for placeholder */
 .property1hover:not(.property1active):hover .inputText::placeholder {
-  color: #222222;
+  color: #999999 !important;
+  opacity: 1;
 }
 
 .property1hover .inputText {
@@ -127,8 +130,9 @@
   color: #222222;
 }
 
+/* Remove active state changes for placeholder */
 .property1active .inputText::placeholder {
-  color: #222222;
+  color: #999999 !important;
 }
 
 /* ===== Disabled Styles ===== */
@@ -171,8 +175,9 @@
   color: #a01313;
 }
 
+/* Keep error state */
 .property1error .inputText::placeholder {
-  color: #a01313;
+  color: #a01313 !important;
 }
 
 .property1error .inputText:disabled {
