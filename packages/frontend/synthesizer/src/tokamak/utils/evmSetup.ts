@@ -60,7 +60,6 @@ export const setupEVMFromCalldata = async (
                               findSlot('balances')?.slot || 
                 findSlot('_balance')?.slot;
            
-            console.log("balanceSlot", balanceSlot);
             
             if (balanceSlot === undefined) throw new Error(`Storage slot not found for _balances`);
             
@@ -84,33 +83,19 @@ export const setupEVMFromCalldata = async (
             const spender = '0x' + params.slice(24, 64);
             const amount = BigInt('0x' + params.slice(64));
             
-            // Find allowances mapping slot from layout
-            const allowancesItem = findSlot('_allowances') || // TON uses '_allowances'
-                                 findSlot('allowed') ||       // Some tokens use 'allowed'
-                                 findSlot('allowances');      // Others might use 'allowances'
-            
-            const allowanceSlot = allowancesItem?.slot;
+            console.log('=== Setup Debug Info ===');
+            console.log('Sender:', sender.toString());
+            console.log('Spender:', spender);
+            console.log('Amount:', amount.toString());
 
-            if (allowanceSlot === undefined) throw new Error(`Storage slot not found for _allowances`);
-            
-            const ownerKey = keccak256(
-                hexToBytes(
-                    '0x' + sender.toString().slice(2).padStart(64, '0') + 
-                    allowanceSlot.padStart(64, '0'),
-                ),
-            );
-            const spenderKey = keccak256(
-                hexToBytes(
-                    '0x' + spender.slice(2).padStart(64, '0') + 
-                      ownerKey.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '').padStart(64, '0'),
-                ),
-            );
-            
-            await evm.stateManager.putStorage(
-                contractAddr,
-                spenderKey,
-                hexToBytes('0x' + amount.toString(16).padStart(64, '0')),
-            );
+            // 실제 approve 실행을 위한 초기 환경만 설정
+            // 스토리지 변경은 하지 않음
+            await evm.stateManager.putAccount(spender, new Account());
+            await evm.stateManager.putAccount(sender, new Account());
+
+            console.log('Environment setup completed');
+            console.log('==================');
+
             break;
         }
 
@@ -151,7 +136,6 @@ export const setupEVMFromCalldata = async (
             if (allowanceSlot === undefined) throw new Error(`Storage slot not found for _allowances`);
             
 
-            console.log("allowanceSlot", allowanceSlot);
             const ownerKey = keccak256(
                 hexToBytes(
                     '0x' + from.slice(2).padStart(64, '0') + 

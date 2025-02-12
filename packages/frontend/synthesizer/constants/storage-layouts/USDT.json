@@ -44,7 +44,7 @@
       {
         "astId": 6,
         "contract": "StandardToken",
-        "label": "allowances",
+        "label": "allowed",
         "offset": 0,
         "slot": "5",
         "type": "mapping(address => mapping(address => uint256))"

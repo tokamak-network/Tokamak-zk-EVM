@@ -1,82 +1,51 @@
 /**
  * Run this file with:
- * DEBUG=ethjs,evm:*,evm:*:* tsx erc20-approve.ts
+ * DEBUG=ethjs,evm:*,evm:*:* tsx ton-transfer.ts
  */
+
 import { Account, Address, hexToBytes } from "@ethereumjs/util/index.js"
 import { keccak256 } from 'ethereum-cryptography/keccak'
 
 import { createEVM } from '../../src/constructors.js'
+import { finalize } from '../../src/tokamak/core/finalize.js'
+import { setupEVMFromCalldata } from "src/tokamak/utils/evmSetup.js"
+import TON_STORAGE_LAYOUT from "../../constants/storage-layouts/TON.json" assert { type: "json" };
 import ERC20_CONTRACTS from "../../constants/bytecodes/ERC20_CONTRACTS.json" assert { type: "json" };
 
-// ERC20 contract bytecode
-const contractCode = hexToBytes(
-  ERC20_CONTRACTS.TON
-)
+// USDC contract bytecode
+const contractCode = ERC20_CONTRACTS.TON
 
 const main = async () => {
   const evm = await createEVM()
 
   // 계정 설정
-  const contractAddr = new Address(hexToBytes('0x1000000000000000000000000000000000000000'))
-  const owner = new Address(hexToBytes('0x2000000000000000000000000000000000000000'))
-  const spender = new Address(hexToBytes('0x3000000000000000000000000000000000000000'))
+  const contractAddr = new Address(hexToBytes('0x2be5e8c109e2197D077D13A82dAead6a9b3433C5'))
+ 
+  // approve(address,uint256)의 함수 시그니처: 0x095ea7b3
+// spender: 0x0ce8f6c9d4ad12e56e54018313761487d2d1fee9 (예시와 동일한 주소 사용)
+// amount: 2000 TON = 2000 * 10^18 = 2000000000000000000000
 
-  // 컨트랙트 계정 생성
-  await evm.stateManager.putAccount(contractAddr, new Account())
+  const calldata = "0x095ea7b30000000000000000000000000ce8f6c9d4ad12e56e54018313761487d2d1fee90000000000000000000000000000000000000000000006c6b935b8bbd400000"
+  const sender = new Address(hexToBytes('0xc2C30E79392A2D1a05288B172f205541a56FC20d'))
 
-  // 컨트랙트 코드 배포
-  await evm.stateManager.putCode(contractAddr, contractCode)
+  await setupEVMFromCalldata(evm, contractAddr, hexToBytes(contractCode), TON_STORAGE_LAYOUT, calldata, sender)
+    
 
-  // owner의 잔액 설정 (approve와는 직접적인 관련은 없지만, 테스트를 위해 설정)
-  const balanceSlot = '0x00'
-  const ownerBalanceSlot = keccak256(
-    hexToBytes(
-      '0x' + owner.toString().slice(2).padStart(64, '0') + balanceSlot.slice(2).padStart(64, '0'),
-    ),
-  )
-  await evm.stateManager.putStorage(
-    contractAddr,
-    ownerBalanceSlot,
-    hexToBytes('0x' + '100'.padStart(64, '0')),
-  )
-
-  // approve 실행
-  const approveAmount = BigInt(50)
-  const res = await evm.runCode({
-    caller: owner,
+  // Now run the transfer
+  const result = await evm.runCode({
+    caller: sender,
     to: contractAddr,
-    code: contractCode,
-    // approve(address,uint256) 함수 시그니처: 0x095ea7b3
+    code: hexToBytes(contractCode),
     data: hexToBytes(
-      '0x095ea7b3' +
-        spender.toString().slice(2).padStart(64, '0') +
-        approveAmount.toString(16).padStart(64, '0'),
+      calldata
     ),
   })
 
-  //   // 결과 확인
-  //   console.log('\n=== Storage State ===')
-  //   // allowance mapping의 slot: keccak256(spender + keccak256(owner + 0x6))
-  //   const allowanceSlot = '0x6'
-  //   const allowanceKey = keccak256(
-  //     hexToBytes(
-  //       '0x' +
-  //         spender.toString().slice(2).padStart(64, '0') +
-  //         keccak256(
-  //           hexToBytes(
-  //             '0x' +
-  //               owner.toString().slice(2).padStart(64, '0') +
-  //               allowanceSlot.slice(2).padStart(64, '0'),
-  //           ),
-  //         ),
-  //     ),
-  //   )
+  console.log('result', result.exceptionError)
 
-  //   const allowanceValue = await evm.stateManager.getStorage(contractAddr, allowanceKey)
-  //   console.log('Allowance:', BigInt('0x' + allowanceValue.toString()))
-
-  console.log('\n=== Circuit Placements ===')
-  console.log(JSON.stringify(res.runState?.synthesizer.placements, null, 2))
+  
+  // Generate proof
+  const permutation = await finalize(result.runState!.synthesizer.placements, undefined, true)
 }
 
 void main()

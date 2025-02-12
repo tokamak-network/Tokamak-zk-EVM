@@ -37,7 +37,7 @@ const main = async () => {
     ),
   })
 
-  console.log('result', result)
+  console.log('result', result.exceptionError)
 
   
   // Generate proof
