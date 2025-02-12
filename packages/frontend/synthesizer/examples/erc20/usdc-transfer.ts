@@ -16,7 +16,7 @@ import { setupEVMFromCalldata } from "src/tokamak/utils/evmSetup.js";
 import USDC_IMPLEMENTATION_V1 from '../../constants/bytecodes/USDC_IMP.json' assert { type: "json" };
 import USDC_IMPLEMENTATION_V2 from '../../constants/bytecodes/USDC_IMP_2.json' assert { type: "json" };
 import { setupUSDCFromCalldata } from "src/tokamak/utils/usdcSetup.js";
-// USDT contract bytecode
+// USDC contract bytecode
 const contractCode = ERC20_CONTRACTS.USDC_PROXY
 
 const main = async () => {

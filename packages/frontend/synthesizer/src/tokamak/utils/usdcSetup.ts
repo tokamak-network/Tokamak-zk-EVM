@@ -142,12 +142,6 @@ export const setupUSDCFromCalldata = async (
     ),
 );
 
-// 프록시 컨트랙트의 스토리지에 저장
-await evm.stateManager.putStorage(
-    proxyAddr,  // implementationV2Addr가 아닌 proxyAddr 사용
-    senderBalanceSlot,
-    hexToBytes('0x' + amount.toString(16).padStart(64, '0')),
-);
 
 // 검증을 위해 저장된 값 확인
 const storedBalance = await evm.stateManager.getStorage(proxyAddr, senderBalanceSlot);
