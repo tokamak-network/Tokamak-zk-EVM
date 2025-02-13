@@ -78,7 +78,6 @@ export const setupUSDCFromCalldata = async (
         hexToBytes('0x' + implementationV2Addr.toString().slice(2).padStart(64, '0'))
     )
 
-  
     // Verify delegation chain
     const proxyImpl = await evm.stateManager.getStorage(proxyAddr, hexToBytes(IMPLEMENTATION_SLOT))
     const v1Impl = await evm.stateManager.getStorage(implementationV1Addr, hexToBytes(IMPLEMENTATION_SLOT))
@@ -120,6 +119,7 @@ export const setupUSDCFromCalldata = async (
 
             // Setup balances in all contracts if needed
             if (v2BalanceSlot) {  // Use V2's layout as it's the final implementation
+                console.log('v2BalanceSlot:', v2BalanceSlot)
                 const balanceKey = keccak256(
                     hexToBytes(
                         '0x' + sender.toString().slice(2).padStart(64, '0') + 
@@ -128,7 +128,7 @@ export const setupUSDCFromCalldata = async (
                 )
                 
                 // Set initial balance for sender
-                const initialBalance = amount + BigInt(1000)  // Some buffer
+                const initialBalance = amount  // Some buffer
                 await evm.stateManager.putStorage(
                     proxyAddr,  // Store in proxy's storage
                     balanceKey,

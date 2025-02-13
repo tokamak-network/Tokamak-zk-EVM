@@ -49,50 +49,68 @@ const main = async () => {
         sender
    )
   
-  
-  
-console.log("=== Testing Proxy Execution ===");
-const proxyTest = await evm.runCode({
+// console.log("=== Testing Proxy Execution ===");
+// const proxyTest = await evm.runCode({
+//     caller: sender,
+//     to: proxyAddr,
+//     code: hexToBytes(contractCode),
+//     data: hexToBytes(calldata),
+// })
+// console.log("Proxy execution result:", proxyTest.exceptionError);
+
+// // 2. V1 implementation 직접 실행해보기
+// console.log("\n=== Testing V1 Implementation ===");
+// const v1Test = await evm.runCode({
+//     caller: sender,
+//     to: implementationV1Addr,
+//     code: hexToBytes(USDC_IMPLEMENTATION_V1.bytecode),
+//     data: hexToBytes(calldata),
+// })
+// console.log("V1 execution result:", v1Test.exceptionError);
+
+// // 3. V2 implementation 직접 실행해보기
+// console.log("\n=== Testing V2 Implementation ===");
+// const v2Test = await evm.runCode({
+//     caller: sender,
+//     to: implementationV2Addr,
+//     code: hexToBytes(USDC_IMPLEMENTATION_V2.bytecode),
+//     data: hexToBytes(calldata),
+// })
+// console.log("V2 execution result:", v2Test.exceptionError);
+    
+  // 실행 전 잔액 확인
+const balanceSlot = '9';  // USDC balance slot
+const senderBalanceKey = keccak256(
+    hexToBytes(
+        '0x' + sender.toString().slice(2).padStart(64, '0') + 
+        balanceSlot.padStart(64, '0')
+    )
+);
+
+console.log("\n=== Before Transfer ===");
+const balanceBefore = await evm.stateManager.getStorage(proxyAddr, senderBalanceKey);
+console.log("Sender balance before:", Buffer.from(balanceBefore).toString('hex'));
+
+
+  // Now run the transfer
+  const result = await evm.runCode({
     caller: sender,
     to: proxyAddr,
     code: hexToBytes(contractCode),
-    data: hexToBytes(calldata),
-})
-console.log("Proxy execution result:", proxyTest);
-
-// 2. V1 implementation 직접 실행해보기
-console.log("\n=== Testing V1 Implementation ===");
-const v1Test = await evm.runCode({
-    caller: sender,
-    to: implementationV1Addr,
-    code: hexToBytes(USDC_IMPLEMENTATION_V1.bytecode),
-    data: hexToBytes(calldata),
-})
-console.log("V1 execution result:", v1Test);
-
-// 3. V2 implementation 직접 실행해보기
-console.log("\n=== Testing V2 Implementation ===");
-const v2Test = await evm.runCode({
-    caller: sender,
-    to: implementationV2Addr,
-    code: hexToBytes(USDC_IMPLEMENTATION_V2.bytecode),
-    data: hexToBytes(calldata),
-})
-console.log("V2 execution result:", v2Test);
-    
-
-  // // Now run the transfer
-  // const result = await evm.runCode({
-  //   caller: sender,
-  //   to: proxyAddr,
-  //   code: hexToBytes(contractCode),
-  //   data: hexToBytes(
-  //    calldata
-  //   ),
+    data: hexToBytes(
+     calldata
+    ),
      
-  // })
+  })
 
-  // console.log("result", result.exceptionError)
+  // console.log("result", result)
+
+  // 실행 후 잔액 확인
+console.log("\n=== After Transfer ===");
+const balanceAfter = await evm.stateManager.getStorage(proxyAddr, senderBalanceKey);
+console.log("Sender balance after:", Buffer.from(balanceAfter).toString('hex'));
+
+  
 
   // Generate proof
   const permutation = await finalize(result.runState!.synthesizer.placements, undefined, true)

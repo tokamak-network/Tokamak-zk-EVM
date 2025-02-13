@@ -62,10 +62,6 @@ const specificSpenderKey = keccak256(
   // Check sender's allowance mapping
 console.log("\n=== Checking sender's allowance ===");
 console.log("Sender address:", sender.toString());
-
-
-
-
 console.log("Sender's mapping position:", Buffer.from(senderPosition).toString('hex'));
 
 // Get all allowances for this sender
