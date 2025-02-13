@@ -15,6 +15,8 @@ import ERC20_CONTRACTS from "../../constants/bytecodes/ERC20_CONTRACTS.json" ass
 // USDT contract bytecode
 const contractCode = ERC20_CONTRACTS.USDT
 
+
+
 const main = async () => {
   const evm = await createEVM()
 

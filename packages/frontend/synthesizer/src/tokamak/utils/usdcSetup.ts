@@ -62,10 +62,6 @@ export const setupUSDCFromCalldata = async (
     const v1DeployedCode = await evm.stateManager.getCode(implementationV1Addr)
     const v2DeployedCode = await evm.stateManager.getCode(implementationV2Addr)
 
-    console.log('Proxy code length:', proxyDeployedCode.length);
-    console.log('V1 code length:', v1DeployedCode.length);
-    console.log('V2 code length:', v2DeployedCode.length);
-
     // Setup delegation chain with verification
     await evm.stateManager.putStorage(
         proxyAddr,
@@ -128,7 +124,7 @@ export const setupUSDCFromCalldata = async (
                 )
                 
                 // Set initial balance for sender
-                const initialBalance = amount + BigInt(1000)  // Some buffer
+                const initialBalance = amount + BigInt(1000)    // Some buffer
                 await evm.stateManager.putStorage(
                     proxyAddr,  // Store in proxy's storage
                     balanceKey,
@@ -167,7 +163,8 @@ console.log('Stored balance:', Buffer.from(storedBalance).toString('hex'));
             const v2AllowanceSlot = findAllowanceSlot(v2StorageLayout)
             if (v2AllowanceSlot) {
                  // Calculate storage slot for allowance
-        // allowances[owner][spender]
+                // allowances[owner][spender]
+                // console.log('v2AllowanceSlot:', v2AllowanceSlot)
         const ownerKey = keccak256(
             hexToBytes(
                 '0x' + sender.toString().slice(2).padStart(64, '0') + 

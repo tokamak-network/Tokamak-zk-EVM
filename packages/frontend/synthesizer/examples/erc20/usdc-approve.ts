@@ -16,6 +16,39 @@ import { setupUSDCFromCalldata } from "src/tokamak/utils/usdcSetup.js";
 import USDC_IMPLEMENTATION_V1 from '../../constants/bytecodes/USDC_IMP.json' assert { type: "json" };
 import USDC_IMPLEMENTATION_V2 from '../../constants/bytecodes/USDC_IMP_2.json' assert { type: "json" };
 
+const parseApprovalEvent = (logs: any[]) => {
+    // Approval 이벤트: event Approval(address indexed owner, address indexed spender, uint256 value)
+    for (const log of logs) {
+        try {
+            // log[0]은 컨트랙트 주소
+            // log[1]은 topics 배열
+            // log[2]는 data
+            const [contractAddress, topics, data] = log;
+            
+            // topics[0]는 이벤트 시그니처 해시
+            // Approval(address,address,uint256) => 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925
+            const eventSignature = Buffer.from(topics[0]).toString('hex');
+            if (eventSignature === '8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925') {
+                const owner = '0x' + Buffer.from(topics[1]).toString('hex');
+                const spender = '0x' + Buffer.from(topics[2]).toString('hex');
+                const value = BigInt('0x' + Buffer.from(data).toString('hex'));
+                
+                return {
+                    contractAddress: '0x' + Buffer.from(contractAddress).toString('hex'),
+                    event: 'Approval',
+                    owner,
+                    spender,
+                    value: value.toString()
+                };
+            }
+        } catch (error) {
+            console.error("Error parsing log:", error);
+            console.log("Problematic log:", log);
+        }
+    }
+    return null;
+}
+
 const main = async () => {
     const evm = await createEVM()
 
@@ -25,16 +58,12 @@ const main = async () => {
     const implementationV2Addr = new Address(hexToBytes('0x800c32eaa2a6c93cf4cb51794450ed77fbfbb172')) // v2
 
     /**
-     * approve 함수 호출 데이터 생성
-     * function approve(address spender, uint256 amount)
+     * https://etherscan.io/tx/0xd2e02df1a4e29d14a7ee34c475580d55a932ab5c2b81a7046743a776d449b6b4
      */
-    const spender = '0xBC8552339dA68EB65C8b88B414B5854E0E366cFc'
-    const amount = '1000000000' // 1000 USDC (6 decimals)
-    const calldata = '0x095ea7b3' + 
-                    spender.slice(2).padStart(64, '0') +
-                    BigInt(amount).toString(16).padStart(64, '0')
-
-    const sender = new Address(hexToBytes('0x03ec765dbdF46AADaa52Cd663Fe0ea174be36720'))
+    const spender = '0x334841090107D86523bd7cc6DA8279dc02aAE9e9'
+    const amount = '95192259' //(6 decimals)
+    const calldata = '0x095ea7b30000000000000000000000001111111254eeb25477b68fb85ed929f73a9605820000000000000000000000000000000000000000000000000000000005ac84c3'
+    const sender = new Address(hexToBytes('0x334841090107D86523bd7cc6DA8279dc02aAE9e9'))
 
     await setupUSDCFromCalldata(
         evm,
@@ -66,10 +95,10 @@ const main = async () => {
         )
     );
 
-    console.log("\n=== Before Approve ===");
-    const allowanceBefore = await evm.stateManager.getStorage(proxyAddr, spenderKey);
-    const allowanceBeforeDecimal = BigInt('0x' + Buffer.from(allowanceBefore).toString('hex'));
-    console.log("Spender allowance before:", allowanceBeforeDecimal.toString());
+    // console.log("\n=== Before Approve ===");
+    // const allowanceBefore = await evm.stateManager.getStorage(proxyAddr, spenderKey);
+    // const allowanceBeforeDecimal = BigInt('0x' + Buffer.from(allowanceBefore).toString('hex'));
+    // console.log("Spender allowance before:", allowanceBeforeDecimal.toString());
 
     // Execute approve
     const result = await evm.runCode({
@@ -82,10 +111,18 @@ const main = async () => {
     console.log("result", result)
 
     // 실행 후 allowance 확인
-    console.log("\n=== After Approve ===");
-    const allowanceAfter = await evm.stateManager.getStorage(proxyAddr, spenderKey);
-    const allowanceAfterDecimal = BigInt('0x' + Buffer.from(allowanceAfter).toString('hex'));
-    console.log("Spender allowance after:", allowanceAfterDecimal.toString());
+    // console.log("\n=== After Approve ===");
+    // const allowanceAfter = await evm.stateManager.getStorage(proxyAddr, spenderKey);
+    // const allowanceAfterDecimal = BigInt('0x' + Buffer.from(allowanceAfter).toString('hex'));
+    // console.log("Spender allowance after:", allowanceAfterDecimal.toString());
+
+      // 이벤트 파싱 추가
+    if (result.logs && result.logs.length > 0) {
+        const approvalEvent = parseApprovalEvent(result.logs);
+        console.log("\n=== Parsed Approval Event ===");
+        console.log(approvalEvent);
+    }
+
 
     // Generate proof
     const permutation = await finalize(result.runState!.synthesizer.placements, undefined, true)
