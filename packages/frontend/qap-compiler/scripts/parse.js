@@ -171,6 +171,8 @@ function parseWireList(subcircuitInfos, mode = 0) {
 
 // Main script
 
+const numConstsVec= [];
+
 fs.readFile('./temp.txt', 'utf8', function(err, data) {
   if (err) throw err;
   
@@ -209,23 +211,40 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
     // public input
     const numInput = output[i + 4].match(/\d+/)[0]
 
+    // num_constraints
+    const numConsts = Number(output[i + 3].match(/\d+/)[0]) + Number(output[i + 2].match(/\d+/)[0])
+    numConstsVec.push(numConsts)
+
     const subcircuit = {
       id: id,
       name: name,
       Nwires: Number(numWires),
+      Nconsts: Number(numConsts),
       Out_idx: [1, Number(numOutput)],
-      In_idx: [Number(numOutput)+1, Number(numInput)]
+      In_idx: [Number(numOutput)+1, Number(numInput)],
     }
     subcircuits.push(subcircuit)
   }
 
   const globalWireInfo = parseWireList(subcircuits)
+  const _n = Math.max(...numConstsVec)
+  let n = 1;
+  while (n < _n) {
+      n <<= 1
+  }
+  const setupParams = {
+    l: globalWireInfo.l,
+    l_D: globalWireInfo.l_D,
+    m_D: globalWireInfo.m_D,
+    n,
+  }
+  const globalWireList = globalWireInfo.wireList
 
   const tsSubcircuitInfo = `// Out_idx[0] denotes the index of the first output wire.
   // Out_idx[1] denotes the number of output wires.
   // In_idx[0] denotes the index of the first input wire.
   // In_idx[1] denotes the number of input wires.
-  // flattenMap[localWireIndex] maps localWireIndex of this subcircuit to globalWireIndex out of m_D global wires.
+  // flattenMap[localWireIndex] is a map that describes how each subcitcuit wire (local wire) is related to the library wires (global wires), i.e., 'flattenMap' is the inverse of 'globalWireList'.
   export const subcircuits =\n ${JSON.stringify(subcircuits, null)}`
   fs.writeFile('../subcircuits/library/subcircuitInfo.ts', tsSubcircuitInfo, (err) => {
     if (err) {
@@ -235,10 +254,25 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
     }
   })
 
-  const tsWireInfo = `// wireList[globalWireIndex][0] indicates subcircuitId to which this wire belongs.
-  // wireList[globalWireIndex][1] indicates the corresponding localWireIndex in the subcircuitId.
-  export const globalWireInfo =\n ${JSON.stringify(globalWireInfo, null)}`
-  fs.writeFile('../subcircuits/library/globalWireList.ts', tsWireInfo, (err) => {
+  const tsGlobalWireList = `// This is a map that describes how each library wire (global wire) is related to the subcircuit wires (local wires), i.e., 'globalWireList' is the inverse of 'flattenMap' in the subcircuitInfo file.
+  // globalWireList[index][0] indicates subcircuitId to which this wire belongs.
+  // globalWireList[index][1] indicates the corresponding localWireIndex in the subcircuitId.
+  export const globalWireList =\n ${JSON.stringify(globalWireList, null)}`
+  fs.writeFile('../subcircuits/library/globalWireList.ts', tsGlobalWireList, (err) => {
+    if (err) {
+      console.log('Error writing the TypeScript file', err);
+    } else {
+      console.log('Successfully wrote the TypeScript file');
+    }
+  })
+
+  const tsSetupParams = `// Parameters for the subcircuit library
+  // l: The number of public wires
+  // l_D: The number of interface wires (private)
+  // m: The total number of wires
+  // n: The maximum number of constraints
+  export const setupParams = \n ${JSON.stringify(setupParams, null, 2)}`
+  fs.writeFile('../subcircuits/library/setupParams.ts', tsSetupParams, (err) => {
     if (err) {
       console.log('Error writing the TypeScript file', err);
     } else {
