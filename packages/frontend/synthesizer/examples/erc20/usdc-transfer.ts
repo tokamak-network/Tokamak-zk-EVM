@@ -79,17 +79,13 @@ const main = async () => {
 // console.log("V2 execution result:", v2Test.exceptionError);
     
   // 실행 전 잔액 확인
-const balanceSlot = '9';  // USDC balance slot
+const balanceSlot = '10';  // USDC allowed slot
 const senderBalanceKey = keccak256(
     hexToBytes(
         '0x' + sender.toString().slice(2).padStart(64, '0') + 
         balanceSlot.padStart(64, '0')
     )
 );
-
-console.log("\n=== Before Transfer ===");
-const balanceBefore = await evm.stateManager.getStorage(proxyAddr, senderBalanceKey);
-console.log("Sender balance before:", Buffer.from(balanceBefore).toString('hex'));
 
 
   // Now run the transfer

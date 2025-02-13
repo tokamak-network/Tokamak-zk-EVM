@@ -65,16 +65,16 @@ console.log("Sender address:", sender.toString());
 console.log("Sender's mapping position:", Buffer.from(senderPosition).toString('hex'));
 
 // Get all allowances for this sender
-for(let i = 0; i < 5; i++) {  // Check first few potential spenders
-    const spenderKey = keccak256(
-        hexToBytes(
-            '0x' + '0'.repeat(i * 8).padStart(64, '0') + 
-            senderPosition.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '').padStart(64, '0'),
-        ),
-    );
-    const value = await evm.stateManager.getStorage(contractAddr, spenderKey);
-    console.log(`Allowance for spender ${i}:`, Buffer.from(value).toString('hex'));
-}
+// for(let i = 0; i < 6; i++) {  // Check first few potential spenders
+//     const spenderKey = keccak256(
+//         hexToBytes(
+//             '0x' + '0'.repeat(i * 8).padStart(64, '0') + 
+//             senderPosition.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '').padStart(64, '0'),
+//         ),
+//     );
+//     const value = await evm.stateManager.getStorage(contractAddr, spenderKey);
+//     console.log(`Allowance for spender ${i}:`, Buffer.from(value).toString('hex'));
+// }
 
 
 const specificAllowance = await evm.stateManager.getStorage(contractAddr, specificSpenderKey);

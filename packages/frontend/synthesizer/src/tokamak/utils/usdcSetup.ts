@@ -128,7 +128,7 @@ export const setupUSDCFromCalldata = async (
                 )
                 
                 // Set initial balance for sender
-                const initialBalance = amount  // Some buffer
+                const initialBalance = amount + BigInt(1000)  // Some buffer
                 await evm.stateManager.putStorage(
                     proxyAddr,  // Store in proxy's storage
                     balanceKey,
@@ -160,14 +160,45 @@ console.log('Stored balance:', Buffer.from(storedBalance).toString('hex'));
             // Find allowance slots
             const findAllowanceSlot = (layout: StorageLayout) => {
                 return layout.storageLayout.storage.find(
-                    item => item.label === '_allowances' || item.label === 'allowances'
+                    item => item.label === 'allowed' 
                 )?.slot
             }
 
             const v2AllowanceSlot = findAllowanceSlot(v2StorageLayout)
             if (v2AllowanceSlot) {
-                // Setup allowance mapping if needed
-                // ... allowance setup logic
+                 // Calculate storage slot for allowance
+        // allowances[owner][spender]
+        const ownerKey = keccak256(
+            hexToBytes(
+                '0x' + sender.toString().slice(2).padStart(64, '0') + 
+                v2AllowanceSlot.padStart(64, '0')
+            )
+        )
+        
+        const spenderKey = keccak256(
+            hexToBytes(
+                '0x' + spender.slice(2).padStart(64, '0') + 
+                ownerKey.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '').padStart(64, '0')
+            )
+        )
+
+        // Set initial allowance in proxy's storage
+        await evm.stateManager.putStorage(
+            proxyAddr,  // Store in proxy's storage
+            spenderKey,
+            hexToBytes('0x' + amount.toString(16).padStart(64, '0'))  // 
+        )
+
+        console.log('Setup allowance mapping:', {
+            owner: sender.toString(),
+            spender: spender,
+            slot: v2AllowanceSlot,
+            storageKey: Buffer.from(spenderKey).toString('hex')
+        })
+
+        // Verify the allowance was set
+        const currentAllowance = await evm.stateManager.getStorage(proxyAddr, spenderKey)
+        console.log('Current allowance:', BigInt('0x' + Buffer.from(currentAllowance).toString('hex')).toString())
             }
 
             break
