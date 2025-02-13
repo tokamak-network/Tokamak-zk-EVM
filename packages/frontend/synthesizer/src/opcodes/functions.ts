@@ -251,26 +251,42 @@ export const handlers: Map<number, OpHandler> = new Map([
     0x0a,
     function (runState) {
       const [base, exponent] = runState.stack.popN(2)
+
       if (base === BIGINT_2) {
         switch (exponent) {
           case BIGINT_96:
             runState.stack.push(BIGINT_2EXP96)
+
+            // For Synthesizer //
+            synthesizerArith('EXP', [base, exponent], BIGINT_2EXP96, runState)
             return
           case BIGINT_160:
             runState.stack.push(BIGINT_2EXP160)
+
+            // For Synthesizer //
+            synthesizerArith('EXP', [base, exponent], BIGINT_2EXP160, runState)
             return
           case BIGINT_224:
             runState.stack.push(BIGINT_2EXP224)
+
+            // For Synthesizer //
+            synthesizerArith('EXP', [base, exponent], BIGINT_2EXP224, runState)
             return
         }
       }
       if (exponent === BIGINT_0) {
         runState.stack.push(BIGINT_1)
+
+        // For Synthesizer //
+        synthesizerArith('EXP', [base, exponent], BIGINT_1, runState)
         return
       }
 
       if (base === BIGINT_0) {
         runState.stack.push(base)
+
+        // For Synthesizer //
+        synthesizerArith('EXP', [base, exponent], base, runState)
         return
       }
       const r = exponentiation(base, exponent)
@@ -2155,6 +2171,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
+      runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
     },
   ],
   // 0xf2: CALLCODE
@@ -2214,6 +2231,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
+      runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
     },
   ],
   // 0xf4: DELEGATECALL
@@ -2268,6 +2286,8 @@ export const handlers: Map<number, OpHandler> = new Map([
       // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
+      runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
+
     },
   ],
   // 0xf8: EXTCALL
@@ -2303,6 +2323,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         // Write return data to memory
 
         runState.stack.push(ret)
+        runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
       }
     },
   ],
@@ -2352,6 +2373,7 @@ export const handlers: Map<number, OpHandler> = new Map([
           dataPts,
         )
         runState.stack.push(ret)
+        runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
       }
     },
   ],
@@ -2406,6 +2428,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
+      runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
     },
   ],
   // 0xfb: EXTSTATICCALL
@@ -2440,6 +2463,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         const dataPts = runState.memoryPt.read(Number(inOffset), Number(inLength))
         const ret = await runState.interpreter.callStatic(gasLimit, toAddress, value, data, dataPts)
         runState.stack.push(ret)
+        runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
       }
     },
   ],

@@ -443,8 +443,8 @@ export class Synthesizer {
         sourceSize: DEFAULT_SOURCE_SIZE,
       }
       const inPt = DataPointFactory.create(inPtRaw)
-      this.storagePt.set(keyString, inPt)
       outPt = this._addWireToLoadPlacement(inPt, true)
+      this.storagePt.set(keyString, outPt)
     }
     return outPt
   }

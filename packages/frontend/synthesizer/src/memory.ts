@@ -50,10 +50,6 @@ export class Memory {
       return
     }
 
-    if (size > 32) {
-      console.log(`HERE`)
-    }
-
     this.extend(offset, size)
 
     if (value.length !== size) throw new Error('Invalid value size')

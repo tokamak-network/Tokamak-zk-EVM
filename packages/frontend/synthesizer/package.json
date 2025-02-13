@@ -59,7 +59,7 @@
     "tsc": "../../../config/monorepo-js//cli/ts-compile.sh",
     "visualize:bundle": "npx vite build --config=./vite.config.bundler.ts --emptyOutDir=false --outDir ."
   },
-  "dependencies": { 
+  "dependencies": {
     "@ethereumjs/common": "file:libs/common",
     "@ethereumjs/mpt": "file:libs/mpt",
     "@ethereumjs/statemanager": "file:libs/statemanager",
@@ -71,6 +71,7 @@
     "app-root-path": "^3.1.0",
     "debug": "^4.3.3",
     "ethereum-cryptography": "^3.0.0",
+    "ethers": "^6.13.5",
     "eventemitter3": "^5.0.1",
     "vitest": "^2.1.8"
   },

@@ -21,7 +21,11 @@ const main = async () => {
   // 계정 설정
   const contractAddr = new Address(hexToBytes('0x2be5e8c109e2197D077D13A82dAead6a9b3433C5'))
  
-  const calldata = "0xa9059cbb0000000000000000000000000ce8f6c9d4ad12e56e54018313761487d2d1fee900000000000000000000000000000000000000000000006c6b935b8bbd400000"
+  // approve(address,uint256)의 함수 시그니처: 0x095ea7b3
+// spender: 0x0ce8f6c9d4ad12e56e54018313761487d2d1fee9 (예시와 동일한 주소 사용)
+// amount: 2000 TON = 2000 * 10^18 = 2000000000000000000000
+
+  const calldata = "0x095ea7b30000000000000000000000000ce8f6c9d4ad12e56e54018313761487d2d1fee90000000000000000000000000000000000000000000006c6b935b8bbd400000"
   const sender = new Address(hexToBytes('0xc2C30E79392A2D1a05288B172f205541a56FC20d'))
 
   await setupEVMFromCalldata(evm, contractAddr, hexToBytes(contractCode), TON_STORAGE_LAYOUT, calldata, sender)
