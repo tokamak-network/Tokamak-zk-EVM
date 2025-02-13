@@ -8,7 +8,7 @@ import { keccak256 } from 'ethereum-cryptography/keccak'
 
 import { createEVM } from '../../src/constructors.js'
 import { finalize } from '../../src/tokamak/core/finalize.js'
-import { setupEVMFromCalldata } from "src/tokamak/utils/evmSetup.js"
+import { setupEVMFromCalldata } from "src/tokamak/utils/erc20EvmSetup.js"
 import TON_STORAGE_LAYOUT from "../../constants/storage-layouts/TON.json" assert { type: "json" };
 import ERC20_CONTRACTS from "../../constants/bytecodes/ERC20_CONTRACTS.json" assert { type: "json" };
 

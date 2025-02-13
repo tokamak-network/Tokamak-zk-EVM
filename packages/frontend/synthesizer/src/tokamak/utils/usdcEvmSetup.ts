@@ -1,5 +1,6 @@
 import { keccak256 } from 'ethereum-cryptography/keccak'
-import { hexToBytes, Address, Account } from '../../../libs/util/dist/esm/index.js';
+import { hexToBytes, Address, Account } from '@ethereumjs/util';
+import { EVM } from 'src/evm.js';
 
 interface StorageItem {
     astId: number;
@@ -28,7 +29,7 @@ interface StorageLayout {
 const IMPLEMENTATION_SLOT = '0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3'
 
 export const setupUSDCFromCalldata = async (
-    evm: any,
+    evm: EVM,
     proxyAddr: Address,
     implementationV1Addr: Address,
     implementationV2Addr: Address,

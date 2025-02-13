@@ -1,5 +1,6 @@
-import { hexToBytes, Address, Account } from '../../../libs/util/dist/esm/index.js';
+import { hexToBytes, Address, Account } from '@ethereumjs/util';
 import { keccak256 } from 'ethereum-cryptography/keccak';
+import { EVM } from 'src/evm.js';
 
 interface StorageItem {
     astId: number;
@@ -26,7 +27,7 @@ interface StorageLayout {
 }
 
 export const setupEVMFromCalldata = async (
-    evm: any,
+    evm: EVM,
     contractAddr: Address,
     contractCode: Uint8Array,
     storageLayout: StorageLayout,
@@ -63,18 +64,27 @@ export const setupEVMFromCalldata = async (
             
             if (balanceSlot === undefined) throw new Error(`Storage slot not found for _balances`);
             
+          
             const senderBalanceSlot = keccak256(
                 hexToBytes(
                     '0x' + sender.toString().slice(2).padStart(64, '0') + 
                     balanceSlot.padStart(64, '0'),
                 ),
             );
+
+                 // Set initial balance for sender
+                const initialBalance = amount + BigInt(1000)    // Some buffer
             
             await evm.stateManager.putStorage(
                 contractAddr,
                 senderBalanceSlot,
-                hexToBytes('0x' + amount.toString(16).padStart(64, '0')),
+                hexToBytes('0x' + initialBalance.toString(16).padStart(64, '0')),
             );
+
+            // 검증을 위해 저장된 값 확인
+const storedBalance = await evm.stateManager.getStorage(contractAddr, senderBalanceSlot);
+console.log('Stored balance:', Buffer.from(storedBalance).toString('hex'));
+            
             break;
         }
 
