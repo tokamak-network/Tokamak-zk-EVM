@@ -1,3 +1,8 @@
+/**
+ * The adapter provides an external interface that returns data structures directly in memory,
+ * eliminating the need for file system operations.
+ */
+
 import { Synthesizer } from '../tokamak/core/synthesizer.js';
 import { Address , hexToBytes} from "@ethereumjs/util";
 import { EVM } from 'src/evm.js';
@@ -17,7 +22,6 @@ import USDC_PROXY_CONTRACT from "../../constants/bytecodes/USDC_PROXY.json" asse
 import USDC_IMPLEMENTATION_V1 from "../../constants/bytecodes/USDC_IMP.json" assert { type: "json" };
 import USDC_IMPLEMENTATION_V2 from "../../constants/bytecodes/USDC_IMP_2.json" assert { type: "json" };    
 
-// 지원하는 토큰 설정
 const TOKEN_CONFIGS = {
     TON: {
         address: SUPPORTED_TOKENS.TON,
@@ -50,17 +54,10 @@ export class SynthesizerAdapter {
 
     private instances: Synthesizer[] = [];
 
-      /**
-     * 주어진 컨트랙트 주소가 지원되는 토큰인지 확인합니다.
-     */
     private isSupportedToken(address: string): boolean {
         return Object.values(SUPPORTED_TOKENS).includes(address.toLowerCase());
     }
 
-
-    /**
-     * 주어진 컨트랙트 주소에 대한 토큰 설정을 반환합니다.
-     */
     private getTokenConfig(address: string) {
         const config = Object.values(TOKEN_CONFIGS).find(
             config => config.address.toLowerCase() === address.toLowerCase()
@@ -78,11 +75,17 @@ export class SynthesizerAdapter {
         return config;
     }
 
-  
-    /**
-     * ERC20 트랜잭션을 실행하고 증명을 생성합니다.
-     * @param params 트랜잭션 실행에 필요한 파라미터들
-     * @returns EVM 인스턴스, 실행 결과, 그리고 증명
+      /**
+     * Parses and processes an ERC20 transaction, returning all necessary data structures in memory.
+     * @param {string} params.contractAddr - The ERC20 contract address
+     * @param {string} params.calldata - The transaction calldata
+     * @param {string} params.sender - The transaction sender address
+     * @returns {Promise<{
+     *   evm: EVM,
+     *   executionResult: ExecResult,
+     *   permutation: Permutation,
+     *   placementInstance: PlacementInstances
+     * }>} Returns EVM instance, execution result, and ZK-proof related data structures
      */
     async parseTransaction({
         contractAddr,
@@ -97,10 +100,7 @@ export class SynthesizerAdapter {
         if (!this.isSupportedToken(contractAddr)) {
             throw new Error(`Unsupported token address: ${contractAddr}. Supported tokens are TON(Tokamak), USDT, and USDC.`);
         }
-        // 토큰 설정 가져오기
         const config = this.getTokenConfig(contractAddr);
-        
-        // 1. EVM 생성
         const evm = await createEVM();
 
         const _contractAddr = new Address(hexToBytes(config.address))
@@ -108,7 +108,6 @@ export class SynthesizerAdapter {
         const _contractCode = hexToBytes(config.bytecode)
         const _calldata = hexToBytes(calldata)
 
-        // USDC와 다른 토큰들의 설정 분기
         if (config === TOKEN_CONFIGS.USDC) {
             await  (config.setupFunction as typeof setupUSDCFromCalldata)(
                 evm,
@@ -135,17 +134,15 @@ export class SynthesizerAdapter {
             );
         }
 
-        // 3. 트랜잭션 실행
-        const result = await evm.runCode({
+        const executionResult = await evm.runCode({
             caller: _sender,
             to: _contractAddr,
             code: _contractCode,
             data: _calldata
         });
 
-        // 4. Finalize 및 증명 생성
         const { permutation, placementInstance } = await finalize(
-            result.runState!.synthesizer.placements,
+            executionResult.runState!.synthesizer.placements,
             undefined,
             true,
             false
@@ -153,7 +150,7 @@ export class SynthesizerAdapter {
 
         return {
             evm,
-            executionResult: result,
+            executionResult,
             permutation,
             placementInstance
         };
