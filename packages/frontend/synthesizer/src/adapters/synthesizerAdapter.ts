@@ -147,11 +147,13 @@ export class SynthesizerAdapter {
         const { permutation, placementInstance } = await finalize(
             result.runState!.synthesizer.placements,
             undefined,
-            true
+            true,
+            false
         );
 
         return {
             evm,
+            executionResult: result,
             permutation,
             placementInstance
         };
