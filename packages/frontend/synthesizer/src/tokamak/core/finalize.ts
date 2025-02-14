@@ -4,7 +4,7 @@ import { readFileSync } from 'fs'
 import path from 'path'
 import appRootPath from 'app-root-path'
 
-import { subcircuits as subcircuitInfos, globalWireInfo, wasmDir } from '../resources/index.js'
+import { subcircuits as subcircuitInfos, globalWireList, setupParams, wasmDir } from '../resources/index.js'
 import { INITIAL_PLACEMENT_INDEX, LOAD_PLACEMENT_INDEX } from '../constant/index.js'
 
 // @ts-ignore
@@ -193,8 +193,8 @@ async function outputPlacementInstance(placements: Placements, _path?: string): 
 
 // This class instantiates the compiler model in Section "3.1 Compilers" of the Tokamak zk-SNARK paper.
 class Permutation {
-  private l = globalWireInfo.l
-  private l_D = globalWireInfo.l_D
+  private l = setupParams.l
+  private l_D = setupParams.l_D
   // flattenMapInverse: {0, 1, ..., m_D-1} -> \union_{j=0}^{s_D - 1} {j} \times {0, 1, ...,m^{(j)}-1} }
   private flattenMapInverse
 
@@ -213,7 +213,7 @@ class Permutation {
     // Istances are needed only for debugging by "this._validatePermutation()"
     this._placements = placements
     this._instances = instances ?? undefined
-    this.flattenMapInverse = instances === undefined ? undefined : globalWireInfo.wireList
+    this.flattenMapInverse = instances === undefined ? undefined : globalWireList
 
     this.subcircuitInfoByName = new Map()
     for (const subcircuit of subcircuitInfos) {

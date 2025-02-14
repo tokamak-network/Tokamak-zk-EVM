@@ -437,6 +437,17 @@ export class Interpreter {
       } else {
         opFn.apply(null, [this._runState, this.common])
       }
+
+      // Check stack consistency between EVM and Synthesizer
+      const stackVals = this._runState.stack.getStack();
+      const stackPtVals = this._runState.stackPt.getStack().map(dataPt => dataPt.value);
+      if (!(stackVals.length === stackPtVals.length && stackVals.every((val, index) => val === stackPtVals[index]))){
+        console.log(`Instruction: ${opInfo.name}`)
+        console.log(`Stack values(right-newest): ${stackVals}`)
+        console.log(`StackPt values(right-newest): ${stackPtVals}`)
+        throw new Error('Synthesizer: Stack mismatch between EVM and Synthesizer')  
+      }
+      
     } finally {
       if (this.profilerOpts?.enabled === true) {
         this.performanceLogger.stopTimer(

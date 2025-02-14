@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch with tsx",
+      "runtimeExecutable": "tsx",
+      "program": "${workspaceFolder}/examples/erc20/usdc-transfer.ts",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal", 
+    }
+  ]
+}
