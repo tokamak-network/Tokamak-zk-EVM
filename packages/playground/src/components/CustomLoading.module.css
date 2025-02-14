@@ -1,0 +1,166 @@
+.borderLeft {
+    align-self: stretch;
+    width: 1px;
+    position: relative;
+    background-color: #dfdfdf;
+}
+.borderTop {
+    align-self: stretch;
+    position: relative;
+    background-color: #dfdfdf;
+    height: 1px;
+}
+.modalTitle {
+    position: relative;
+}
+.headerAl {
+    width: 400px;
+    background-color: #0f2058;
+    height: 22px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0px 8px 2px;
+    box-sizing: border-box;
+}
+.modalHeader {
+    align-self: stretch;
+    height: 23px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+.borderTop1 {
+    align-self: stretch;
+    position: relative;
+    background-color: #5f5f5f;
+    height: 1px;
+}
+.borderLeft1 {
+    align-self: stretch;
+    width: 1px;
+    position: relative;
+    background-color: #5f5f5f;
+}
+.rect {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    top: 0%;
+    right: 0%;
+    bottom: 0%;
+    left: 0%;
+    background-color: #2a72e5;
+}
+.elementsprogressBarlink {
+    width: 12px;
+    position: relative;
+    height: 24px;
+}
+.rect19 {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    top: 0%;
+    right: 0%;
+    bottom: 0%;
+    left: 0%;
+    background-color: #a5a5a5;
+}
+.labelWrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 4px;
+}
+.horizontalAl1 {
+    align-self: stretch;
+    height: 31px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 385px;
+    margin: 0 auto;
+}
+.vertialAl1 {
+    background-color: #f2f2f2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.progressbarprogressbar {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0px 1px 1px 0px;
+}
+.processComplete {
+    margin: 0;
+}
+.processCompleteFilesContainer {
+    align-self: stretch;
+    position: relative;
+    line-height: 23px;
+}
+.modalHeading {
+    width: 412px;
+    position: relative;
+    font-size: 16px;
+    line-height: 28px;
+    display: none;
+}
+.bodyTextAl {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 16px;
+}
+.modalBody {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 16px 8px;
+    gap: 12px;
+    font-size: 14px;
+    color: #222;
+}
+.vertialAl {
+    align-self: stretch;
+    width: 400px;
+    background-color: #bdbdbd;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+.horizontalAl {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    text-align: left;
+    font-size: 12px;
+    color: #fff;
+    font-family: 'IBM Plex Mono';
+}
+.loadingContainer {
+    position: absolute;
+    top: 512px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+}
+
