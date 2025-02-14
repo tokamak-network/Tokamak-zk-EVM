@@ -21,6 +21,8 @@ import USDT_CONTRACT from "../../constants/bytecodes/USDT.json" assert { type: "
 import USDC_PROXY_CONTRACT from "../../constants/bytecodes/USDC_PROXY.json" assert { type: "json" };
 import USDC_IMPLEMENTATION_V1 from "../../constants/bytecodes/USDC_IMP.json" assert { type: "json" };
 import USDC_IMPLEMENTATION_V2 from "../../constants/bytecodes/USDC_IMP_2.json" assert { type: "json" };    
+import { PlacementInstances } from 'src/tokamak/types/synthesizer.js';
+import { ExecResult } from 'src/types.js';
 
 const TOKEN_CONFIGS = {
     TON: {
@@ -51,8 +53,6 @@ const TOKEN_CONFIGS = {
 } as const;
 
 export class SynthesizerAdapter {
-
-    private instances: Synthesizer[] = [];
 
     private isSupportedToken(address: string): boolean {
         return Object.values(SUPPORTED_TOKENS).includes(address.toLowerCase());
@@ -85,9 +85,9 @@ export class SynthesizerAdapter {
      *   executionResult: ExecResult,
      *   permutation: Permutation,
      *   placementInstance: PlacementInstances
-     * }>} Returns EVM instance, execution result, and ZK-proof related data structures
+     * }>} Returns EVM instance, execution result, permutation and placementInstance
      */
-    async parseTransaction({
+    public async parseTransaction({
         contractAddr,
         calldata,
         sender
@@ -95,7 +95,12 @@ export class SynthesizerAdapter {
         contractAddr: string,
         calldata: string,
         sender: string
-        }) {
+        }): Promise<{
+            evm: EVM,
+            executionResult: ExecResult,
+            permutation: any,
+            placementInstance: PlacementInstances
+        }> {
        
         if (!this.isSupportedToken(contractAddr)) {
             throw new Error(`Unsupported token address: ${contractAddr}. Supported tokens are TON(Tokamak), USDT, and USDC.`);
