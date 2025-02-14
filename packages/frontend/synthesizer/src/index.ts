@@ -61,3 +61,4 @@ export {
 
 export * from './constructors.js'
 export * from './params.js'
+export {SynthesizerAdapter} from './adapters/synthesizerAdapter.js'

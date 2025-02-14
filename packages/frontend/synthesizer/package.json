@@ -8,7 +8,8 @@
     "zero-knowledge",
     "zk-SNARK",
     "tokamak",
-    "layer2"
+    "layer2",
+    "tokamak-network"
   ],
   "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/frontend/synthesizer#readme",
   "bugs": {

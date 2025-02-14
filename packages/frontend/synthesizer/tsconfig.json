@@ -18,6 +18,8 @@
       "@ethereumjs/verkle": ["libs/verkle/dist/esm/index"],
       "@ethereumjs/verkle/*": ["libs/verkle/dist/esm/*"]
     },
-  }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
 }
 
