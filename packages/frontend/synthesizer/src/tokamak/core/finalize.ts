@@ -21,17 +21,31 @@ import type {
 type SubcircuitWireIndex = { subcircuitId: number; localWireId: number }
 type PlacementWireIndex = { placementId: number; globalWireId: number }
 
-export async function finalize(placements: Placements, _path?: string, validate?: boolean): Promise<Permutation> {
+export async function finalize(
+  placements: Placements, 
+  _path?: string, 
+  validate?: boolean,
+  writeToFS: boolean = true
+): Promise<{
+  permutation: Permutation,
+  placementInstance: PlacementInstances
+}> {
   const _validate = validate ?? false
   const refactoriedPlacements = refactoryPlacement(placements)
   let permutation: Permutation
+  let placementInstance: PlacementInstances
+
   if (_validate) {
-    const placementInstances = await outputPlacementInstance(refactoriedPlacements, _path)
-    permutation = new Permutation(refactoriedPlacements, placementInstances)
+    placementInstance = await outputPlacementInstance(refactoriedPlacements, _path, writeToFS)
+    permutation = new Permutation(refactoriedPlacements, placementInstance, _path, writeToFS)
   } else {
     permutation = new Permutation(refactoriedPlacements)
   }
-  return permutation
+
+  return {
+    permutation,
+    placementInstance
+  }
 }
 
 const halveWordSizeOfWires = (newDataPts: DataPt[], prevDataPt: DataPt, index: number): void => {
@@ -145,7 +159,11 @@ function refactoryPlacement(placements: Placements): Placements {
   return outPlacements
 }
 
-async function outputPlacementInstance(placements: Placements, _path?: string): Promise<PlacementInstances> {
+async function outputPlacementInstance(
+  placements: Placements, 
+  _path?: string,
+  writeToFS: boolean = true
+): Promise<PlacementInstances> {
   const result: PlacementInstances = Array.from(placements.entries()).map(([key, entry]) => ({
     placementIndex: key,
     subcircuitId: entry.subcircuitId!,
@@ -170,22 +188,24 @@ async function outputPlacementInstance(placements: Placements, _path?: string): 
 
   await testInstances(result)
 
-  const jsonContent = `${JSON.stringify(result, null, 2)}`
-  const filePath = _path === undefined ? path.resolve(
+  if (writeToFS) {
+    const jsonContent = `${JSON.stringify(result, null, 2)}`
+    const filePath = _path === undefined ? path.resolve(
       appRootPath.path,
       'examples/outputs/placementInstance.json',
-    ) : path.resolve(_path!,'placementInstance.json')
-  const dir = path.dirname(filePath)
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true })
-  }
-  try {
-    fs.writeFileSync(filePath, jsonContent, 'utf-8')
-    console.log(
-      `Synthesizer: Input and output wire assingments of the placements are generated in '${filePath}'.`,
-    )
-  } catch (error) {
-    throw new Error(`Synthesizer: Failure in writing "placementInstance.json".`)
+    ) : path.resolve(_path!, 'placementInstance.json')
+    const dir = path.dirname(filePath)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    try {
+      fs.writeFileSync(filePath, jsonContent, 'utf-8')
+      console.log(
+        `Synthesizer: Input and output wire assingments of the placements are generated in '${filePath}'.`,
+      )
+    } catch (error) {
+      throw new Error(`Synthesizer: Failure in writing "placementInstance.json".`)
+    }
   }
 
   return result
@@ -209,7 +229,12 @@ class Permutation {
   public permutationZ: number[][]
   public permutationFile: { row: number; col: number; Y: number; Z: number }[]
 
-  constructor(placements: Placements, instances?: PlacementInstances, _path?: string) {
+  constructor(
+    placements: Placements, 
+    instances?: PlacementInstances, 
+    _path?: string,
+    writeToFS: boolean = true
+  ) {
     // Istances are needed only for debugging by "this._validatePermutation()"
     this._placements = placements
     this._instances = instances ?? undefined
@@ -243,7 +268,9 @@ class Permutation {
     )
     this.permutationFile = []
     // File write the permutation
-    this._outputPermutation(_path)
+    if (writeToFS) {
+      this._outputPermutation(_path)
+    }
   }
 
   private _outputPermutation(_path?: string) {
