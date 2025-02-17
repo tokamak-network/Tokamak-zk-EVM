@@ -7,7 +7,7 @@ import { hexToBytes, Address } from '../../frontend/synthesizer/libs/util/dist/e
 import { TON_CONTRACT_CODE } from './constant/evm';
 import { setupEVM } from '../utils/setupEVM';
 import logo from '/logo.svg';
-import { getValueDecimal, summarizeHex, serializePlacements, add0xPrefix } from '../helpers/helpers';
+import {serializePlacements} from '../helpers/helpers';
 import './App.css';
 
 import Header from './components/Header';
@@ -19,44 +19,6 @@ import Stars from './components/Stars';
 import RainbowImage from './components/RainbowImage';
 
 window.Buffer = window.Buffer || Buffer;
-
-export interface FormattedLog {
-  address: string;
-  topics: {
-    signature: string;
-    from: string;
-    to: string;
-  };
-  data: {
-    hex: string;
-    value: string;
-  };
-}
-
-export function formatLogsStructured(logs: any[]): FormattedLog[] {
-  console.log('Raw logs:', logs);
-  const formattedLogs = logs.map((log: any) => {
-    const topics = log[1].map((topic: any) => `0x${Buffer.from(topic).toString('hex')}`);
-    const dataHex = `0x${Buffer.from(log[2]).toString('hex')}`;
-
-    const formattedLog: FormattedLog = {
-      address: `0x${Buffer.from(log[0]).toString('hex')}`,
-      topics: {
-        signature: topics[0],
-        from: `0x${topics[1].slice(-40)}`,
-        to: `0x${topics[2].slice(-40)}`,
-      },
-      data: {
-        hex: dataHex,
-        value: parseInt(dataHex, 16).toString(),
-      },
-    };
-
-    console.log('Formatted log:', formattedLog);
-    return formattedLog;
-  });
-  return formattedLogs;
-}
 
 const App: React.FC = () => {
   const [transactionId, setTransactionId] = useState('');
@@ -110,7 +72,11 @@ const App: React.FC = () => {
       const placementsMap = res.runState.synthesizer.placements;
 
       // Import constants dynamically (adjust if needed)
-      const { STORAGE_IN_PLACEMENT_INDEX, RETURN_PLACEMENT_INDEX, STORAGE_OUT_PLACEMENT_INDEX } = await import('../../frontend/synthesizer/src/tokamak/constant/constants.js');
+      const {
+        STORAGE_IN_PLACEMENT_INDEX,
+        RETURN_PLACEMENT_INDEX,
+        STORAGE_OUT_PLACEMENT_INDEX,
+      } = await import('../../frontend/synthesizer/src/tokamak/constant/constants.js');
       
       const storageLoadPlacement = placementsMap.get(STORAGE_IN_PLACEMENT_INDEX);
       const logsPlacement = placementsMap.get(RETURN_PLACEMENT_INDEX);
@@ -210,7 +176,6 @@ const App: React.FC = () => {
         ) : status && status.startsWith('Error') ? (
           <CustomErrorTab errorMessage={status.replace('Error: ', '')} />
         ) : null}
-        {/* Show results if available */}
         {!isProcessing && (storageLoad.length > 0 || placementLogs.length > 0 || storageStore.length > 0 || serverData) && (
           <ResultDisplay
             activeTab={activeTab}
