@@ -70,14 +70,13 @@ h1 span {
 
 .log-card-inside {
   position: relative;
-  margin-top: 40px;
+  margin-top: 30px;
   background: #ffffff;
   border: 1px solid #5f5f5f;
   padding: 15px;
   color: black;
   font-family: 'Tahoma', sans-serif;
   font-size: 11px;
-  margin-top: 30px;
 }
 
 .data-label {
@@ -171,46 +170,8 @@ h1 span {
   font-size: 12px;
 }
 
-.main-title {
-  font-size: clamp(1.5rem, 5vw, 3rem);
-  text-shadow:
-    0 1px 0 #a17510,
-    0 2px 0 #a17510;
-  color: yellow;
-  font-size: 96px;
-  line-height: 60px;
-  margin-top: -60px;
-}
-
-.subtitle {
-  font-size: clamp(0.8rem, 3vw, 1.5rem);
-  color: white;
-  margin: 0;
-  font-size: 96px;
-  line-height: 60px;
-  text-shadow:
-    0 1px 0 #a17510,
-    0 2px 0 #a17510;
-}
-
-.logo-container {
-  position: fixed;
-  top: 40px;
-  left: 40px;
-  width: 334px;
-  height: 29.1px;
-}
-
-.logo-image {
-  cursor: pointer;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-  height: 29.1px;
-  width: 334px;
-}
-
-.logo-image:hover {
-  opacity: 0.8; 
-}
+/* Header styles (.logo-container, .logo-image, .title-container, .main-title, .subtitle)
+   have been moved to Header.module.css */
 
 .log-entry::before {
   content: '';
@@ -290,15 +251,6 @@ h1 span {
   flex-direction: column;
 }
 
-.title-container {
-  position: absolute;
-  z-index: 2;
-  top: 280px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 736px;
-}
-
 .btn-process {
   background: #2A72E5;
   height: 59px;
@@ -311,8 +263,7 @@ h1 span {
   border-left: 1px solid #a8a8a8;
   border-top: 1px solid #a8a8a8;      
   border-bottom: 1px solid #5F5F5F;
-  border-right: 1px solid #5F5F5F;;
-
+  border-right: 1px solid #5F5F5F;
   border-radius: 0%;
   padding: 0;
   cursor: pointer;
@@ -507,7 +458,7 @@ h1 span {
 }
 
 .error-content {
-  font-size: 50px; 
+  font-size: 50px;
   padding: 10px;
   color: #ccccdd;
   text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.5);
@@ -534,7 +485,7 @@ h1 span {
 .loading-spinner::before {
   content: '';
   position: absolute;
-  top: -8px;  
+  top: -8px;
   left: -8px;
   right: -8px;
   bottom: -8px;
@@ -629,7 +580,6 @@ h1 span {
   background: #bdbdbd;
   font-family: 'IBM Plex Mono';
 }
-
 
 .tab-switcher {
   display: flex;
