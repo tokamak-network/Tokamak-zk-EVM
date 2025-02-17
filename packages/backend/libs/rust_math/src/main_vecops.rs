@@ -15,6 +15,15 @@ use std::{
 };
 
 fn main () {
+    let p1_coeffs_number:[u32; 12] = [1,2,3,4,5,6,7,8,9,10,11,12];
+    let mut p1_coeffs_vec = vec![ScalarField::zero(); 12];
+    for (ind, &num) in p1_coeffs_number.iter().enumerate() {
+        p1_coeffs_vec[ind] = ScalarField::from_u32(num);
+    }
+    let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
+    let mut p2_coeffs_vec = vec![ScalarField::zero(); 12];
+    let p2_coeffs = HostSlice::from_mut_slice(&mut p2_coeffs_vec);
+    
     let mut a_vec = vec![ScalarField::zero(); 5];
     a_vec[0] = ScalarField::from_u32(5);
     a_vec[4] = ScalarField::one();
@@ -29,5 +38,7 @@ fn main () {
     
     let cfg = VecOpsConfig::default();
     ScalarCfg::add(a,b,c,&cfg).unwrap();
-    println!("res: {:?}", c_vec);
+    println!("res: {:?}\n", c_vec);
+    ScalarCfg::transpose(p1_coeffs, 3, 4, p2_coeffs, &cfg).unwrap();
+    println!("transpose:\n {:?}\n", p2_coeffs_vec);
 }
