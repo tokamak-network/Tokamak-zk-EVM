@@ -1,4 +1,4 @@
-import { TWO_POW256, bytesToBigInt, equalsBytes } from "@ethereumjs/util/index.js"
+import { TWO_POW256, bytesToBigInt, equalsBytes } from "@ethereumjs/util"  
 import { mod, fromTwos, toTwos } from "../util.js"
 import { 
   synthesizerArith, 
@@ -7,7 +7,7 @@ import {
   prepareEXTCodePt
 } from "../../tokamak/core/synthesizer.js"
 import { copyMemoryRegion, simulateMemoryPt } from "../../tokamak/pointers/index.js"
-import { BIGINT_0, BIGINT_1 } from "@ethereumjs/util/index.js"
+import { BIGINT_0, BIGINT_1 } from "@ethereumjs/util"
 import { SynthesizerHandler } from "./types.js"
 
 export const synthesizerHandlers: Map<number, SynthesizerHandler> = new Map([

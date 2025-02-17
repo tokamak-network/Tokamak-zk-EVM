@@ -1,4 +1,4 @@
-import { short } from "@ethereumjs/util/index.js"
+import { short } from "@ethereumjs/util"
 
 import { OOGResult } from '../evm.js'
 

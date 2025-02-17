@@ -1,4 +1,4 @@
-import { concatBytes } from "@ethereumjs/util/index.js"
+import { concatBytes } from "@ethereumjs/util"
 
 const ceil = (value: number, ceiling: number): number => {
   const r = value % ceiling

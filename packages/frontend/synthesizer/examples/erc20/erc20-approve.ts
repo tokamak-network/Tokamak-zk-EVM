@@ -2,7 +2,7 @@
  * Run this file with:
  * DEBUG=ethjs,evm:*,evm:*:* tsx erc20-approve.ts
  */
-import { Account, Address, hexToBytes } from "@ethereumjs/util/index.js"
+import { Account, Address, hexToBytes } from "@ethereumjs/util"
 import { keccak256 } from 'ethereum-cryptography/keccak'
 
 import { createEVM } from '../../src/constructors.js'

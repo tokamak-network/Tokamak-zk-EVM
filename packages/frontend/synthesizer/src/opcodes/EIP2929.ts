@@ -1,4 +1,4 @@
-import { BIGINT_0 } from "@ethereumjs/util/index.js"
+import { BIGINT_0 } from "@ethereumjs/util"
 
 import type { RunState } from '../interpreter.js'
 import type { Common } from '@ethereumjs/common/dist/esm/index.js'

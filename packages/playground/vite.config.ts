@@ -22,7 +22,7 @@ export default defineConfig({
       '@ethereumjs/common': path.resolve(__dirname, '../frontend/synthesizer/libs/common/dist/esm/index.js'),
       '@ethereumjs/statemanager/index.js': path.resolve(__dirname, '../frontend/synthesizer/libs/statemanager/dist/esm/index.js'),
       '@ethereumjs/statemanager': path.resolve(__dirname, '../frontend/synthesizer/libs/statemanager/dist/esm/index.js'),
-      '@ethereumjs/util/index.js': path.resolve(__dirname, '../frontend/synthesizer/libs/util/dist/esm/index.js'),
+      '@ethereumjs/util': path.resolve(__dirname, '../frontend/synthesizer/libs/util/dist/esm/index.js'),
       '@ethereumjs/util': path.resolve(__dirname, '../frontend/synthesizer/libs/util/dist/esm/index.js'),
       '@ethereumjs/mpt/index.js': path.resolve(__dirname, '../frontend/synthesizer/libs/mpt/dist/esm/index.js'),
       '@ethereumjs/mpt': path.resolve(__dirname, '../frontend/synthesizer/libs/mpt/dist/esm/index.js'),

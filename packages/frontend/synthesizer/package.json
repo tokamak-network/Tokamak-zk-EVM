@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/synthesizer",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Tokamak zk-EVM Synthesizer - Processes Ethereum transactions into wire maps for Tokamak zk-SNARK proof generation",
   "keywords": [
     "ethereum",
@@ -51,7 +51,6 @@
     "lint": "../../../config/monorepo-js//cli/lint.sh",
     "lint:diff": "../../../config/monorepo-js//cli/lint-diff.sh",
     "lint:fix": "../../../config/monorepo-js//cli/lint-fix.sh",
-    "prepublishOnly": "../../../config/monorepo-js//cli/prepublish.sh",
     "profiling": "0x ./benchmarks/run.js profiling",
     "test": "npm run test:node && npm run test:browser",
     "test:browser": "npx vitest run --config=./vitest.config.browser.mts",

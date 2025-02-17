@@ -33,18 +33,21 @@ export async function finalize(
   const _validate = validate ?? false
   const refactoriedPlacements = refactoryPlacement(placements)
   let permutation: Permutation
-  let placementInstance: PlacementInstances
+  let placementInstance: PlacementInstances 
 
   if (_validate) {
     placementInstance = await outputPlacementInstance(refactoriedPlacements, _path, writeToFS)
     permutation = new Permutation(refactoriedPlacements, placementInstance, _path, writeToFS)
-  } else {
-    permutation = new Permutation(refactoriedPlacements)
-  }
+    return {
+      permutation,
+      placementInstance
+    }
+  } 
 
+  permutation = new Permutation(refactoriedPlacements)
   return {
     permutation,
-    placementInstance
+    placementInstance: []
   }
 }
 

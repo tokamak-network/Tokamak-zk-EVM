@@ -14,7 +14,7 @@ import {
   generateAddress,
   generateAddress2,
   short,
-} from "@ethereumjs/util/index.js"
+} from "@ethereumjs/util"
 import debugDefault from 'debug'
 import { EventEmitter } from 'eventemitter3'
 

@@ -1,4 +1,4 @@
-import { createPartialAccount } from "@ethereumjs/util/index.js"
+import { createPartialAccount } from "@ethereumjs/util"
 
 const account = createPartialAccount({
   nonce: '0x02',

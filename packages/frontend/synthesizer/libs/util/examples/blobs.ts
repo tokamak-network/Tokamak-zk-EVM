@@ -1,4 +1,4 @@
-import { bytesToHex, computeVersionedHash, getBlobs } from "@ethereumjs/util/index.js"
+import { bytesToHex, computeVersionedHash, getBlobs } from "@ethereumjs/util"
 
 const blobs = getBlobs('test input')
 

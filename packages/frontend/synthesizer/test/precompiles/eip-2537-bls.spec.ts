@@ -1,12 +1,12 @@
 import { Common, Hardfork, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
-import { Address, bytesToHex, createZeroAddress, hexToBytes } from "@ethereumjs/util/index.js"
+import { Address, bytesToHex, createZeroAddress, hexToBytes } from "@ethereumjs/util"
 import { readFileSync, readdirSync } from 'fs'
 import * as mcl from 'mcl-wasm'
 import { assert, describe, it } from 'vitest'
 
 import { MCLBLS, createEVM, getActivePrecompiles } from '../../src/index.js'
 
-import type { PrefixedHexString } from "@ethereumjs/util/index.js"
+import type { PrefixedHexString } from "@ethereumjs/util"
 
 // BLS tests, run this from `./packages/evm` using `npx vitest run ./test/precompiles/eip-2537-bls.spec.ts`
 

@@ -1,4 +1,4 @@
-import { bytesToUnprefixedHex, hexToBytes } from "@ethereumjs/util/index.js"
+import { bytesToUnprefixedHex, hexToBytes } from "@ethereumjs/util"
 
 import type { EVMBN254Interface } from '../../types.js'
 

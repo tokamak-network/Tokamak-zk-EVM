@@ -9,7 +9,7 @@ import {
   bytesToBigInt,
   bytesToHex,
   equalsBytes,
-} from "@ethereumjs/util/index.js"
+} from "@ethereumjs/util"
 import debugDefault from 'debug'
 import readline from 'readline'
 
@@ -45,7 +45,7 @@ import type {
   StateManagerInterface,
   VerkleAccessWitnessInterface,
 } from '@ethereumjs/common/dist/esm/index.js'
-import type { Address, PrefixedHexString } from "@ethereumjs/util/index.js"
+import type { Address, PrefixedHexString } from "@ethereumjs/util"
 
 const debugGas = debugDefault('evm:gas')
 

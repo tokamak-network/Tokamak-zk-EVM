@@ -13,7 +13,7 @@ import type {
   StateManagerInterface,
   VerkleAccessWitnessInterface,
 } from '@ethereumjs/common/dist/esm/index.js'
-import type { Account, Address, PrefixedHexString } from "@ethereumjs/util/index.js"
+import type { Account, Address, PrefixedHexString } from "@ethereumjs/util"
 import type { EventEmitter } from 'eventemitter3'
 
 export type DeleteOpcode = {

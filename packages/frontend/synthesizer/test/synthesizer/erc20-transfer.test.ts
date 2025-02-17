@@ -1,4 +1,4 @@
-import { Address, hexToBytes } from "@ethereumjs/util/index.js"
+import { Address, hexToBytes } from "@ethereumjs/util"
 import { describe, it } from 'vitest'
 
 import { createEVM } from '../../src/constructors.js'

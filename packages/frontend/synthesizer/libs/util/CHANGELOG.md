@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 For Verkle or other contexts it can be useful to create partial accounts not containing all the account parameters. This is now supported starting with this release, see PR [#3269](https://github.com/ethereumjs/ethereumjs-monorepo/pull/3269):
 
 ```ts
-import { Account } from "@ethereumjs/util/index.js"
+import { Account } from "@ethereumjs/util"
 
 const account = Account.fromPartialAccountData({
   nonce: '0x02',

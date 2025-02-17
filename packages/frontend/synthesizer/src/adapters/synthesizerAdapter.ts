@@ -2,27 +2,16 @@
  * The adapter provides an external interface that returns data structures directly in memory,
  * eliminating the need for file system operations.
  */
-
-import { Synthesizer } from '../tokamak/core/synthesizer.js';
 import { Address , hexToBytes} from "@ethereumjs/util";
-import { EVM } from 'src/evm.js';
+import { EVM } from '../evm.js';
 import { finalize } from '../tokamak/core/finalize.js';
 import { setupEVMFromCalldata } from "../tokamak/utils/erc20EvmSetup.js";
 import { setupUSDCFromCalldata } from "../tokamak/utils/usdcEvmSetup.js";
 import { createEVM } from '../constructors.js';
-import SUPPORTED_TOKENS from "../../constants/addresses/ERC20_ADDRESSES.json" assert { type: "json" };
-import TON_STORAGE_LAYOUT from "../../constants/storage-layouts/TON.json" assert { type: "json" };
-import USDT_STORAGE_LAYOUT from "../../constants/storage-layouts/USDT.json" assert { type: "json" };
-import USDC_PROXY_STORAGE_LAYOUT from "../../constants/storage-layouts/USDC_PROXY.json" assert { type: "json" };
-import USDC_STORAGE_LAYOUT_V1 from "../../constants/storage-layouts/USDC_IMP.json" assert { type: "json" };
-import USDC_STORAGE_LAYOUT_V2 from "../../constants/storage-layouts/USDC_IMP_2.json" assert { type: "json" };
-import TON_CONTRACT from "../../constants/bytecodes/TON.json" assert { type: "json" };
-import USDT_CONTRACT from "../../constants/bytecodes/USDT.json" assert { type: "json" };
-import USDC_PROXY_CONTRACT from "../../constants/bytecodes/USDC_PROXY.json" assert { type: "json" };
-import USDC_IMPLEMENTATION_V1 from "../../constants/bytecodes/USDC_IMP.json" assert { type: "json" };
-import USDC_IMPLEMENTATION_V2 from "../../constants/bytecodes/USDC_IMP_2.json" assert { type: "json" };    
-import { PlacementInstances } from 'src/tokamak/types/synthesizer.js';
-import { ExecResult } from 'src/types.js';
+
+import { SUPPORTED_TOKENS, TON_STORAGE_LAYOUT, USDT_STORAGE_LAYOUT, USDC_PROXY_STORAGE_LAYOUT, USDC_STORAGE_LAYOUT_V1, USDC_STORAGE_LAYOUT_V2 , TON_CONTRACT, USDT_CONTRACT, USDC_PROXY_CONTRACT, USDC_IMPLEMENTATION_V1, USDC_IMPLEMENTATION_V2} from "../constants/index.js";
+import { PlacementInstances } from '../tokamak/types/synthesizer.js';
+import { ExecResult } from '../types.js';
 
 const TOKEN_CONFIGS = {
     TON: {

@@ -3,7 +3,7 @@
  * DEBUG=ethjs,evm:*,evm:*:* tsx test-synthesizer-adapter.ts
  */
 
-import { SynthesizerAdapter } from "../../src/adapters/synthesizerAdapter.js"
+import { SynthesizerAdapter } from "../../src/adapters/synthesizerAdapter"
 
 const main = async () => {
     const adapter = new SynthesizerAdapter();

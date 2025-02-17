@@ -1,6 +1,6 @@
 import { keccak256 } from 'ethereum-cryptography/keccak'
 import { hexToBytes, Address, Account } from '@ethereumjs/util';
-import { EVM } from 'src/evm.js';
+import { EVM } from '../../evm.js';
 
 interface StorageItem {
     astId: number;

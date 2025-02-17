@@ -12,7 +12,7 @@ import {
   getVerkleStem,
   getVerkleTreeIndicesForCodeChunk,
   intToBytes,
-} from "@ethereumjs/util/index.js"
+} from "@ethereumjs/util"
 import debugDefault from 'debug'
 
 import type {
@@ -22,7 +22,7 @@ import type {
   VerkleAccessedState,
   VerkleAccessedStateWithAddress,
 } from '@ethereumjs/common/dist/esm/index.js'
-import type { Address, PrefixedHexString, VerkleCrypto } from '@ethereumjs/util/index.js'
+import type { Address, PrefixedHexString, VerkleCrypto } from '@ethereumjs/util'
 
 const debug = debugDefault('statemanager:verkle:aw')
 

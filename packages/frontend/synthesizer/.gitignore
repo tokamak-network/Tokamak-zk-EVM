@@ -6,3 +6,5 @@ stats.html
 # Negate .vscode ignore from root .gitignore
 !.vscode/
 !.vscode/**
+
+dist/

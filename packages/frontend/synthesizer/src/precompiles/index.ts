@@ -1,5 +1,5 @@
 import { Hardfork } from '@ethereumjs/common/dist/esm/index.js'
-import { type Address, bytesToUnprefixedHex } from "@ethereumjs/util/index.js"
+import { type Address, bytesToUnprefixedHex } from "@ethereumjs/util"
 
 import { precompile01 } from './01-ecrecover.js'
 import { precompile02 } from './02-sha256.js'

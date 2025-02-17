@@ -1,4 +1,4 @@
-import { equalsBytes } from "@ethereumjs/util/index.js"
+import { equalsBytes } from "@ethereumjs/util"
 
 import { ERROR } from '../exceptions.js'
 
