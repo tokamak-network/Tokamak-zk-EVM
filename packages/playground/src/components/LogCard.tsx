@@ -1,6 +1,7 @@
 // LogCard.tsx
 import React from 'react';
-import { summarizeHex, getValueDecimal, add0xPrefix } from '../../helpers/helpers';
+import { summarizeHex, getValueDecimal } from '../../helpers/helpers';
+import styles from './LogCard.module.css';
 
 type LogCardProps = {
   contractAddress: string;
@@ -17,7 +18,7 @@ const LogCard: React.FC<LogCardProps> = ({
   valueHex,
   summarizeAddress = false,
 }) => (
-  <div className="log-card">
+  <div className={styles.logCard}>
     {contractAddress && (
       <div>
         <strong>Contract Address:</strong>{' '}
