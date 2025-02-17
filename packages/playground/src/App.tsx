@@ -257,25 +257,33 @@ const App: React.FC = () => {
         placementLogs.map((log, index) => (
           <div key={index} className="log-card-inside">
             <div className="data-label">Data #{index + 1}</div>
-            <div>
-              <strong>Topics:</strong>
-              <div
-                className="log-topics"
-                style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
-              >
+            <div className="log-card">
+              <div>
+                <strong>Topics:</strong>
                 {log.topics.map((topic: string, idx: number) => (
-                  <div key={idx} className="topic-badge">
+                  <span 
+                    key={idx} 
+                    title={add0xPrefix(topic)}
+                    style={{
+                      display: 'block',
+                      marginBottom: '4px'
+                    }}
+                  >
                     {`${idx}: ${add0xPrefix(summarizeHex(topic))}`}
-                  </div>
+                  </span>
                 ))}
               </div>
+              <div>
+                <strong>Value (Decimal):</strong>
+                <span>{log.valueDec.toString()}</span>
+              </div>
+              <div>
+                <strong>Value (Hex):</strong>
+                <span title={add0xPrefix(log.valueHex)}>
+                  {add0xPrefix(log.valueHex)}
+                </span>
+              </div>
             </div>
-            <LogCard
-              contractAddress=""
-              keyValue=""
-              valueDecimal={log.valueDec.toString()}
-              valueHex={add0xPrefix(log.valueHex)}
-            />
           </div>
         ))
       ) : (

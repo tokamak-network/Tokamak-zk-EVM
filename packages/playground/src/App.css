@@ -119,6 +119,8 @@ h1 span {
   background: #F2F2F2;
   border-top: 1px solid #5f5f5f;
   border-left: 1px solid #5f5f5f;
+  border-right: 1px solid #dfdfdf;
+  border-bottom: 1px solid #dfdfdf;
   min-height: 16px;
   word-break: break-all;
   font-family: 'IBM Plex Mono';
