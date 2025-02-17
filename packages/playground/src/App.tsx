@@ -71,7 +71,6 @@ const App: React.FC = () => {
 
       const placementsMap = res.runState.synthesizer.placements;
 
-      // Import constants dynamically (adjust if needed)
       const {
         STORAGE_IN_PLACEMENT_INDEX,
         RETURN_PLACEMENT_INDEX,

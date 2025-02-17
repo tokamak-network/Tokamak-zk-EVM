@@ -37,30 +37,6 @@ h1 span {
   color: white;
 }
 
-.input-field {
-  font-family: "IBM Plex Mono", Helvetica;
-  width: 300px;
-  background: white;
-  font-size: 14px;
-  text-align: center;
-  outline: none;
-}
-
-.submit-button {
-  font-family: 'Jersey 10', cursive;
-  padding: 10px 20px;
-  font-size: 14px;
-  background: #444;
-  color: white;
-  border: 3px solid #222;
-  cursor: pointer;
-}
-
-.submit-button:disabled {
-  background: grey;
-  cursor: not-allowed;
-}
-
 .log-card {
   position: relative;
   color: black;
@@ -170,33 +146,6 @@ h1 span {
   font-size: 12px;
 }
 
-/* Header styles (.logo-container, .logo-image, .title-container, .main-title, .subtitle)
-   have been moved to Header.module.css */
-
-.log-entry::before {
-  content: '';
-  position: absolute;
-  top: -4px;
-  left: -4px;
-  right: -4px;
-  bottom: -4px;
-  background: linear-gradient(45deg, #00ff00 0%, transparent 100%);
-  z-index: -1;
-  pointer-events: none;
-}
-
-.log-field {
-  margin: 15px 0;
-  padding: 10px;
-  border: 2px solid #00ff00;
-  background: rgba(0, 0, 0, 0.5);
-}
-
-.log-field strong {
-  color: #ffff00;
-  text-shadow: 2px 2px 0 #000;
-}
-
 @keyframes scanline {
   0% {
     background-position: 0 0;
@@ -204,39 +153,6 @@ h1 span {
   100% {
     background-position: 0 30px;
   }
-}
-
-.log-field div {
-  margin: 8px 0;
-  position: relative;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 1100px;
-}
-
-.log-topics, .log-data {
-  margin-left: 20px;
-  padding: 10px;
-  border-left: 2px solid #00ff00;
-  word-break: break-all;
-}
-
-.log-entry {
-  background: #000033;
-  border: 4px solid #ffffff;
-  padding: 20px;
-  margin: 15px auto;
-  width: 95%;
-  max-width: 1200px; 
-  position: relative;
-  color: #00ff00;
-  font-family: 'Press Start 2P', cursive;
-  font-size: 0.8rem;
-  box-shadow: 
-    inset 0 0 10px rgba(0, 255, 0, 0.3),
-    0 0 20px rgba(0, 255, 0, 0.2);
-  animation: scanline 2s linear infinite;
 }
 
 .container {

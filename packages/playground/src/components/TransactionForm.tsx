@@ -1,7 +1,7 @@
 // TransactionForm.tsx
 import React from 'react';
 import CustomInput from './CustomInput';
-import saveIcon from '/save.svg'; // Adjust path if necessary
+import saveIcon from '/save.svg';
 
 type TransactionFormProps = {
   transactionId: string;
