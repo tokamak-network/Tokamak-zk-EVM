@@ -102,13 +102,11 @@ h1 span {
 }
 
 .topic-badge {
-  display: inline-block;
-  margin: 2px;
-  padding: 3px 6px;
-  background: #f0f0f0;
-  border: 1px solid #919B9C;
-  color: #000;
-  border-radius: 0;
+  margin-bottom: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  background-color: #444;
+  color: #fff;
+  border-radius: 4px;
 }
 
 .download-button {
@@ -547,14 +545,6 @@ h1 span {
 .fixed-box::-webkit-scrollbar-thumb {
   background: #BDBDBD;
   border: 1px solid #919B9C;
-}
-
-.topic-badge {
-  margin-bottom: 0.5rem;
-  padding: 0.2rem 0.5rem;
-  background-color: #444;
-  color: #fff;
-  border-radius: 4px;
 }
 
 .background-container {
