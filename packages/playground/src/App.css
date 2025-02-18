@@ -37,70 +37,6 @@ h1 span {
   color: white;
 }
 
-.log-card {
-  position: relative;
-  color: black;
-  font-family: 'Tahoma', sans-serif;
-  font-size: 12px;
-}
-
-.log-card-inside {
-  position: relative;
-  margin-top: 30px;
-  background: #ffffff;
-  border: 1px solid #5f5f5f;
-  padding: 15px;
-  color: black;
-  font-family: 'Tahoma', sans-serif;
-  font-size: 11px;
-}
-
-.data-label {
-  position: absolute;
-  top: -25px;
-  left: -1px;
-  font-family: 'IBM Plex Mono';
-  background-color: #ffffff; 
-  letter-spacing: 0.15px;
-  color: #3b48ff;
-  text-align: left;
-  font-weight: 500;
-  font-size: 11px;
-  padding: 4px 8px;
-  border-top: 1px solid #5f5f5f;
-  border-left: 1px solid #5f5f5f;
-  border-right: 1px solid #5f5f5f;
-  border-top-left-radius: 2px;
-  border-top-right-radius: 2px;
-}
-
-.log-card > div {
-  margin-bottom: 12px;
-  text-align: left;
-}
-
-.log-card strong {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 14px;
-  font-family: 'IBM Plex Mono';
-  color: #222;
-  font-weight: 500;
-}
-
-.log-card span {
-  display: block;
-  padding: 5px 8px;
-  background: #F2F2F2;
-  border-top: 1px solid #5f5f5f;
-  border-left: 1px solid #5f5f5f;
-  border-right: 1px solid #dfdfdf;
-  border-bottom: 1px solid #dfdfdf;
-  min-height: 16px;
-  word-break: break-all;
-  font-family: 'IBM Plex Mono';
-}
-
 .topic-badge {
   margin-bottom: 0.5rem;
   padding: 0.2rem 0.5rem;
@@ -248,20 +184,6 @@ h1 span {
 .status-message.loading::before,
 .loading-content {
   display: none;
-}
-
-.big-box {
-  position: absolute;
-  width: 728px;
-  height: auto;
-  overflow: visible;
-  display: flex;
-  flex-direction: column;
-  left: 50%;
-  transform: translateX(-50%);
-  top: 512px;
-  flex-grow: 0;
-  padding-bottom: 150px;
 }
 
 .fixed-box {
