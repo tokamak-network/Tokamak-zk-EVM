@@ -827,98 +827,98 @@ impl BivariatePolynomial for DensePolynomialExt {
 // }
 
 // TEST SCRIPT for from_rou_eval and to_rou_eval
-// fn main() {
+fn main() {
 
-//     let p1_coeffs_number:[u32; 2] = [4, 0];
-//     let mut p1_coeffs_vec = vec![ScalarField::zero(); 2];
-//     for (ind, &num) in p1_coeffs_number.iter().enumerate() {
-//         p1_coeffs_vec[ind] = ScalarField::from_u32(num);
-//     }
-//     let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
-//     let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 1, 2);
+    let p1_coeffs_number:[u32; 2] = [4, 0];
+    let mut p1_coeffs_vec = vec![ScalarField::zero(); 2];
+    for (ind, &num) in p1_coeffs_number.iter().enumerate() {
+        p1_coeffs_vec[ind] = ScalarField::from_u32(num);
+    }
+    let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
+    let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 1, 2);
 
-//     let mut evals_vec = vec![ScalarField::zero(); 2];
-//     let evals = HostSlice::from_mut_slice(&mut evals_vec);
-//     p1.to_rou_evals(evals);
+    let mut evals_vec = vec![ScalarField::zero(); 2];
+    let evals = HostSlice::from_mut_slice(&mut evals_vec);
+    p1.to_rou_evals(evals);
 
-//     let p2 = DensePolynomialExt::from_rou_evals(evals, 1, 2);
-//     let mut p2_coeffs_vec = vec![ScalarField::zero(); 2];
-//     let p2_coeffs = HostSlice::from_mut_slice(&mut p2_coeffs_vec);
-//     p2.copy_coeffs(0, p2_coeffs);
+    let p2 = DensePolynomialExt::from_rou_evals(evals, 1, 2);
+    let mut p2_coeffs_vec = vec![ScalarField::zero(); 2];
+    let p2_coeffs = HostSlice::from_mut_slice(&mut p2_coeffs_vec);
+    p2.copy_coeffs(0, p2_coeffs);
 
-//     println!("p1_coeffs: \n{:?}\n\n", p1_coeffs_vec);
-//     println!("evals: \n{:?}\n\n", evals);
-//     println!("p2_coeffs: \n{:?}\n\n", p2_coeffs_vec);
+    println!("p1_coeffs: \n{:?}\n\n", p1_coeffs_vec);
+    println!("evals: \n{:?}\n\n", evals);
+    println!("p2_coeffs: \n{:?}\n\n", p2_coeffs_vec);
 
-// }
+}
 
 // TEST SCRIPT for polynomial division
-fn main() {
+// fn main() {
     
-    let p1_coeffs_vec = ScalarCfg::generate_random(32);
-    let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
-    let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 8, 4);
+//     let p1_coeffs_vec = ScalarCfg::generate_random(32);
+//     let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
+//     let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 8, 4);
 
-    let p2_coeffs_vec = ScalarCfg::generate_random(6);
-    let p2_coeffs = HostSlice::from_slice(&p2_coeffs_vec);
-    let p2 = DensePolynomialExt::from_coeffs(p2_coeffs,6,1);
+//     let p2_coeffs_vec = ScalarCfg::generate_random(6);
+//     let p2_coeffs = HostSlice::from_slice(&p2_coeffs_vec);
+//     let p2 = DensePolynomialExt::from_coeffs(p2_coeffs,6,1);
 
-    let p3_coeffs_vec = ScalarCfg::generate_random(3);
-    let p3_coeffs = HostSlice::from_slice(&p3_coeffs_vec);
-    let p3 = DensePolynomialExt::from_coeffs(p3_coeffs,1,3);
+//     let p3_coeffs_vec = ScalarCfg::generate_random(3);
+//     let p3_coeffs = HostSlice::from_slice(&p3_coeffs_vec);
+//     let p3 = DensePolynomialExt::from_coeffs(p3_coeffs,1,3);
 
-    let (quo_x, rem_x) = p1.divide_x(&p2);
-    let (quo_y, rem_y) = rem_x.divide_y(&p3);
+//     let (quo_x, rem_x) = p1.divide_x(&p2);
+//     let (quo_y, rem_y) = rem_x.divide_y(&p3);
 
-    let mut quo_x_coeffs_vec = vec![ScalarField::zero(); 32];
-    let quo_x_coeffs = HostSlice::from_mut_slice(&mut quo_x_coeffs_vec);
-    quo_x.copy_coeffs(0,quo_x_coeffs);
-    let mut rem_x_coeffs_vec = vec![ScalarField::zero(); 32];
-    let rem_x_coeffs = HostSlice::from_mut_slice(&mut rem_x_coeffs_vec);
-    rem_x.copy_coeffs(0,rem_x_coeffs);
+//     let mut quo_x_coeffs_vec = vec![ScalarField::zero(); 32];
+//     let quo_x_coeffs = HostSlice::from_mut_slice(&mut quo_x_coeffs_vec);
+//     quo_x.copy_coeffs(0,quo_x_coeffs);
+//     let mut rem_x_coeffs_vec = vec![ScalarField::zero(); 32];
+//     let rem_x_coeffs = HostSlice::from_mut_slice(&mut rem_x_coeffs_vec);
+//     rem_x.copy_coeffs(0,rem_x_coeffs);
 
-    let mut quo_y_coeffs_vec = vec![ScalarField::zero(); 32];
-    let quo_y_coeffs = HostSlice::from_mut_slice(&mut quo_y_coeffs_vec);
-    quo_y.copy_coeffs(0,quo_y_coeffs);
-    let mut rem_y_coeffs_vec = vec![ScalarField::zero(); 32];
-    let rem_y_coeffs = HostSlice::from_mut_slice(&mut rem_y_coeffs_vec);
-    rem_y.copy_coeffs(0,rem_y_coeffs);
+//     let mut quo_y_coeffs_vec = vec![ScalarField::zero(); 32];
+//     let quo_y_coeffs = HostSlice::from_mut_slice(&mut quo_y_coeffs_vec);
+//     quo_y.copy_coeffs(0,quo_y_coeffs);
+//     let mut rem_y_coeffs_vec = vec![ScalarField::zero(); 32];
+//     let rem_y_coeffs = HostSlice::from_mut_slice(&mut rem_y_coeffs_vec);
+//     rem_y.copy_coeffs(0,rem_y_coeffs);
 
-    let mut p1_est_coeffs_vec = vec![ScalarField::zero(); 32];
-    let p1_est_coeffs = HostSlice::from_mut_slice(&mut p1_est_coeffs_vec);
-    let p1_est = &(&(&p2 * &quo_x) + &(&p3 * &quo_y)) + &rem_y;
-    p1_est.copy_coeffs(0,p1_est_coeffs);
+//     let mut p1_est_coeffs_vec = vec![ScalarField::zero(); 32];
+//     let p1_est_coeffs = HostSlice::from_mut_slice(&mut p1_est_coeffs_vec);
+//     let p1_est = &(&(&p2 * &quo_x) + &(&p3 * &quo_y)) + &rem_y;
+//     p1_est.copy_coeffs(0,p1_est_coeffs);
 
-    let x = ScalarCfg::generate_random(1)[0];
-    let y = ScalarCfg::generate_random(1)[0];
+//     let x = ScalarCfg::generate_random(1)[0];
+//     let y = ScalarCfg::generate_random(1)[0];
 
-    let eval_p1 = p1.eval(&x,&y);
-    let eval_p2 = p2.eval(&x,&y);
-    let eval_p3 = p3.eval(&x,&y);
-    let eval_quo_x = quo_x.eval(&x,&y);
-    let eval_rem_x = rem_x.eval(&x,&y);
-    let eval_quo_y = quo_y.eval(&x,&y);
-    let eval_rem_y = rem_y.eval(&x,&y);
+//     let eval_p1 = p1.eval(&x,&y);
+//     let eval_p2 = p2.eval(&x,&y);
+//     let eval_p3 = p3.eval(&x,&y);
+//     let eval_quo_x = quo_x.eval(&x,&y);
+//     let eval_rem_x = rem_x.eval(&x,&y);
+//     let eval_quo_y = quo_y.eval(&x,&y);
+//     let eval_rem_y = rem_y.eval(&x,&y);
 
-    println!("p1_coeffs: \n{:?}\n\n", p1_coeffs_vec);
-    println!("p2_coeffs: \n{:?}\n\n", p2_coeffs_vec);
-    println!("p3_coeffs: \n{:?}\n\n", p3_coeffs_vec);
-    println!("quo_x_coeffs: \n{:?}\n\n", quo_x_coeffs_vec);
-    println!("rem_x_coeffs: \n{:?}\n\n", rem_x_coeffs_vec);
-    println!("quo_y_coeffs: \n{:?}\n\n", quo_y_coeffs_vec);
-    println!("rem_y_coeffs: \n{:?}\n\n", rem_y_coeffs_vec);
-    println!("\n");
-    println!("p1_coeffs: \n{:?}\n\n", p1_coeffs_vec);
-    println!("p1_est_coeffs: \n{:?}\n\n", p1_est_coeffs_vec);
-    println!("\n");
-    println!("p1_eval: \n{:?}\n\n", eval_p1);
-    println!("p2_eval: \n{:?}\n\n", eval_p2);
-    println!("p3_eval: \n{:?}\n\n", eval_p3);
-    println!("quo_x_eval: \n{:?}\n\n", eval_quo_x);
-    println!("rem_x_eval: \n{:?}\n\n", eval_rem_x);
-    println!("quo_y_eval: \n{:?}\n\n", eval_quo_y);
-    println!("rem_y_eval: \n{:?}\n\n", eval_rem_y);
-    println!("p1_est_eval: \n{:?}\n\n", p1_est.eval(&x,&y));
-    println!("p1 == p2*quo_x + p3*quo_y + rem_y?: {:?}\n", eval_p1.eq( &(((eval_p2 * eval_quo_x) + (eval_p3 * eval_quo_y)) + eval_rem_y) ) ); 
+//     println!("p1_coeffs: \n{:?}\n\n", p1_coeffs_vec);
+//     println!("p2_coeffs: \n{:?}\n\n", p2_coeffs_vec);
+//     println!("p3_coeffs: \n{:?}\n\n", p3_coeffs_vec);
+//     println!("quo_x_coeffs: \n{:?}\n\n", quo_x_coeffs_vec);
+//     println!("rem_x_coeffs: \n{:?}\n\n", rem_x_coeffs_vec);
+//     println!("quo_y_coeffs: \n{:?}\n\n", quo_y_coeffs_vec);
+//     println!("rem_y_coeffs: \n{:?}\n\n", rem_y_coeffs_vec);
+//     println!("\n");
+//     println!("p1_coeffs: \n{:?}\n\n", p1_coeffs_vec);
+//     println!("p1_est_coeffs: \n{:?}\n\n", p1_est_coeffs_vec);
+//     println!("\n");
+//     println!("p1_eval: \n{:?}\n\n", eval_p1);
+//     println!("p2_eval: \n{:?}\n\n", eval_p2);
+//     println!("p3_eval: \n{:?}\n\n", eval_p3);
+//     println!("quo_x_eval: \n{:?}\n\n", eval_quo_x);
+//     println!("rem_x_eval: \n{:?}\n\n", eval_rem_x);
+//     println!("quo_y_eval: \n{:?}\n\n", eval_quo_y);
+//     println!("rem_y_eval: \n{:?}\n\n", eval_rem_y);
+//     println!("p1_est_eval: \n{:?}\n\n", p1_est.eval(&x,&y));
+//     println!("p1 == p2*quo_x + p3*quo_y + rem_y?: {:?}\n", eval_p1.eq( &(((eval_p2 * eval_quo_x) + (eval_p3 * eval_quo_y)) + eval_rem_y) ) ); 
     
-}
+// }
