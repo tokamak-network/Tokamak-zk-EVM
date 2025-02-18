@@ -1,0 +1,87 @@
+.statusMessage {
+  width: 80%;
+  max-width: 600px;
+  margin: 20px auto;
+  padding: 0;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.8rem;
+  text-align: center;
+  position: relative;
+}
+
+.statusMessage.error {
+  background: #000033;
+  border: 4px solid #4466ff;
+  color: #99aaff;
+  box-shadow: 
+    inset 0 0 10px rgba(68, 102, 255, 0.3),
+    0 0 20px rgba(68, 102, 255, 0.2);
+}
+
+.statusMessage.error::before {
+  content: "ERROR!";
+  display: block;
+  background: linear-gradient(to bottom, #0000ac, #333344);
+  color: #ff2727;
+  padding: 10px;
+  font-size: 1rem;
+  margin: 0;
+  border-bottom: 4px solid #4466ff;
+}
+
+.errorContent {
+  font-size: 50px;
+  padding: 10px;
+  color: #ccccdd;
+  text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.5);
+  border-top: 2px solid #333366;
+}
+
+.loadingSpinnerContainer {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+}
+
+.loadingSpinner {
+  width: 64px;
+  height: 64px;
+  border: 8px solid #000033;
+  border-top: 8px solid #00ffff;
+  animation: spin 1s steps(8) infinite;
+  position: relative;
+}
+
+.loadingSpinner::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border: 4px solid #00ffff;
+  animation: glow 1.5s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { 
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+  }
+}
+
+.statusMessage.loading,
+.statusMessage.loading::before,
+.loadingContent {
+  display: none;
+} 
