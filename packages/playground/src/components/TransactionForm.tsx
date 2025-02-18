@@ -2,6 +2,7 @@
 import React from 'react';
 import CustomInput from './CustomInput';
 import saveIcon from '/save.svg';
+import styles from './TransactionForm.module.css';
 
 type TransactionFormProps = {
   transactionId: string;
@@ -19,7 +20,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   error = false,
 }) => {
   return (
-    <div className="input-button-container">
+    <div className={styles.inputButtonContainer}>
       <CustomInput
         value={transactionId}
         onChange={setTransactionId}
@@ -28,13 +29,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       />
       <button
         onClick={handleSubmit}
-        className={`btn-process ${isProcessing ? 'disabled' : ''} ${error ? 'error' : ''}`}
+        className={`${styles.btnProcess} ${isProcessing ? styles.disabled : ''} ${error ? styles.error : ''}`}
         disabled={isProcessing}
       >
-        <span className="btn-icon">
+        <span className={styles.btnIcon}>
           <img src={saveIcon} alt="icon" />
         </span>
-        <span className="btn-text">Process</span>
+        <span className={styles.btnText}>Process</span>
       </button>
     </div>
   );

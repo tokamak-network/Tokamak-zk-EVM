@@ -3,6 +3,7 @@ import React from 'react';
 import CustomTabSwitcher from './CustomTabSwitcher';
 import LogCard from './LogCard';
 import { add0xPrefix, summarizeHex } from '../../helpers/helpers';
+import styles from './ResultDisplay.module.css';
 
 type ResultDisplayProps = {
   activeTab: string;
@@ -29,8 +30,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     if (activeTab === 'storageLoad') {
       return storageLoad.length ? (
         storageLoad.map((item, index) => (
-          <div key={index} className="log-card-inside">
-            <div className="data-label">Data #{index + 1}</div>
+          <div key={index} className={styles.logCardInside}>
+            <div className={styles.dataLabel}>Data #{index + 1}</div>
             <LogCard
               contractAddress={item.contractAddress || evmContractAddress}
               keyValue={add0xPrefix(item.key)}
@@ -45,16 +46,16 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     } else if (activeTab === 'logs') {
       return placementLogs.length ? (
         placementLogs.map((log, index) => (
-          <div key={index} className="log-card-inside">
-            <div className="data-label">Data #{index + 1}</div>
-            <div className="log-card">
+          <div key={index} className={styles.logCardInside}>
+            <div className={styles.dataLabel}>Data #{index + 1}</div>
+            <div className={styles.logCard}>
               <div>
                 <strong>Topics:</strong>
                 {log.topics.map((topic: string, idx: number) => (
                   <span
                     key={idx}
                     title={add0xPrefix(topic)}
-                    style={{ display: 'block', marginBottom: '4px' }}
+                    className={styles.logSpan}
                   >
                     {`${idx}: ${add0xPrefix(summarizeHex(topic))}`}
                   </span>
@@ -87,8 +88,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
           const valueHex = item.valueHex || '0x0';
 
           return (
-            <div key={index} className="log-card-inside">
-              <div className="data-label">Data #{index + 1}</div>
+            <div key={index} className={styles.logCardInside}>
+              <div className={styles.dataLabel}>Data #{index + 1}</div>
               <LogCard
                 contractAddress={contractAddress}
                 keyValue={add0xPrefix(key)}
@@ -107,15 +108,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   };
 
   return (
-    <div className="big-box">
+    <div className={styles.bigBox}>
       <CustomTabSwitcher activeTab={activeTab} setActiveTab={setActiveTab} />
-      <div className="fixed-box">{renderActiveTab()}</div>
+      <div className={styles.fixedBox}>{renderActiveTab()}</div>
       {serverData && (
-        <div className="download-buttons-container">
+        <div className={styles.downloadButtonsContainer}>
           {serverData.permutation && (
             <button
               onClick={() => handleDownload(serverData.permutation, 'permutation.json')}
-              className="btn-download btn-permutation"
+              className={`${styles.btnDownload} ${styles.btnPermutation}`}
             >
               Download Permutation
             </button>
@@ -125,7 +126,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
               onClick={() =>
                 handleDownload(serverData.placementInstance, 'placementInstance.json')
               }
-              className="btn-download btn-placement"
+              className={`${styles.btnDownload} ${styles.btnPlacement}`}
             >
               Download Placement Instance
             </button>

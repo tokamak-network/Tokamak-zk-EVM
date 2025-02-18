@@ -1,0 +1,164 @@
+.bigBox {
+  position: absolute;
+  width: 728px;
+  height: auto;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 512px;
+  flex-grow: 0;
+  padding-bottom: 150px;
+}
+
+.fixedBox {
+  position: relative;
+  width: 708px;
+  background: #bdbdbd;
+  height: calc(100% - 40px);
+  max-height: 655px;
+  border: 9px solid #bdbdbd;
+  overflow-y: auto;
+  left: 0;
+  top: 0;
+}
+
+.logCard {
+  position: relative;
+  color: black;
+  font-family: 'Tahoma', sans-serif;
+  font-size: 12px;
+}
+
+.logCard > div {
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.logCard strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+  font-family: 'IBM Plex Mono';
+  color: #222;
+  font-weight: 500;
+}
+
+.logCard span {
+  display: block;
+  padding: 5px 8px;
+  background: #F2F2F2;
+  border-top: 1px solid #5f5f5f;
+  border-left: 1px solid #5f5f5f;
+  border-right: 1px solid #dfdfdf;
+  border-bottom: 1px solid #dfdfdf;
+  min-height: 16px;
+  word-break: break-all;
+  font-family: 'IBM Plex Mono';
+}
+
+.logCardInside {
+  position: relative;
+  margin-top: 30px;
+  background: #ffffff;
+  border: 1px solid #5f5f5f;
+  padding: 15px;
+  color: black;
+  font-family: 'Tahoma', sans-serif;
+  font-size: 11px;
+}
+
+.dataLabel {
+  position: absolute;
+  top: -25px;
+  left: -1px;
+  font-family: 'IBM Plex Mono';
+  background-color: #ffffff; 
+  letter-spacing: 0.15px;
+  color: #3b48ff;
+  text-align: left;
+  font-weight: 500;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-top: 1px solid #5f5f5f;
+  border-left: 1px solid #5f5f5f;
+  border-right: 1px solid #5f5f5f;
+  border-top-left-radius: 2px;
+  border-top-right-radius: 2px;
+}
+
+.downloadButtonsContainer {
+  width: 710px;
+  height: 31px;
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px;
+  padding-top: 3px;
+  background: #bdbdbd;
+  font-family: 'IBM Plex Mono';
+}
+
+.btnDownload {
+  font-family: 'IBM Plex Mono';
+  font-size: 13px;
+  font-weight: normal;
+  width: 350px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.btnPermutation, .btnPlacement {
+  border-radius: 0;
+  color: #f8f8f8;
+  font-family: 'IBM Plex Mono';
+  font-size: 13px;
+  padding: 0px 1px 0px 0px;
+  font-weight: 500;
+  border-left: 1px solid #a8a8a8;
+  border-top: 1px solid #a8a8a8;
+  border-right: 1px solid #5f5f5f;
+  border-bottom: 1px solid #5f5f5f;
+}
+
+.btnPermutation {
+  background: #55008A;
+  color: #F8F8F8;
+  font-weight: '500';
+}
+
+.btnPermutation:hover:not(:disabled) {
+  background: #6600b3;
+}
+
+.btnPlacement {
+  background: #008A4C;
+  color: #F8F8F8;
+}
+
+.btnPlacement:hover:not(:disabled) {
+  background: #008080;
+}
+
+.btnPermutation:disabled, .btnPlacement:disabled {
+  color: #eee;
+  opacity: 0.6;
+}
+
+/* Custom Scrollbar Styles */
+.fixedBox::-webkit-scrollbar {
+  width: 16px;
+}
+
+.fixedBox::-webkit-scrollbar-track {
+  background: #DFDFDF;
+  border: 1px solid #919B9C;
+}
+
+.fixedBox::-webkit-scrollbar-thumb {
+  background: #BDBDBD;
+  border: 1px solid #919B9C;
+} 
