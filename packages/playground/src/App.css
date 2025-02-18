@@ -277,20 +277,6 @@ h1 span {
   background: linear-gradient(to bottom, #fefefe 0%, #f1f5f9 100%);
 }
 
-.fixed-box::-webkit-scrollbar {
-  width: 16px;
-}
-
-.fixed-box::-webkit-scrollbar-track {
-  background: #DFDFDF;
-  border: 1px solid #919B9C;
-}
-
-.fixed-box::-webkit-scrollbar-thumb {
-  background: #BDBDBD;
-  border: 1px solid #919B9C;
-}
-
 .background-container {
   position: fixed; 
   top: 0;

@@ -161,4 +161,18 @@
 .fixedBox::-webkit-scrollbar-thumb {
   background: #BDBDBD;
   border: 1px solid #919B9C;
+}
+
+.fixedBox::-webkit-scrollbar-button:vertical:decrement {
+  background: url('../assets/Top.svg') no-repeat center center;
+  height: 16px;
+  width: 16px;
+  border: 1px solid #a8a8a8;
+}
+
+.fixedBox::-webkit-scrollbar-button:vertical:increment {
+  background: url('../assets/Bottom.svg') no-repeat center center;
+  height: 16px;
+  width: 16px;
+  border: 1px solid #a8a8a8;
 } 
