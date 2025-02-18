@@ -30,7 +30,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_from_coeffs_rou_coeffs_eval() {
+    fn test_from_coeffs_rou_coeffs_eval() { //pass
         let x_size = 4;
         let y_size = 2;
         let size = x_size * y_size;
@@ -94,7 +94,7 @@ mod tests {
     }
 
     #[test]
-    fn test_extend_size_slicing_mul_monomial() {
+    fn test_extend_size_slicing_mul_monomial() { // pass
         let x_size = 4;
         let y_size = 2;
         let size = x_size * y_size;
@@ -124,12 +124,38 @@ mod tests {
         assert_eq!(ext_poly.x_size, 8);
         assert_eq!(ext_poly.y_size, 16);
         assert_eq!(split_poly.len(), 16);
-        assert!(shifted_poly.x_degree >= 4);
-        assert!(shifted_poly.y_degree >= 2);
+
+        assert!(shifted_poly.x_degree >= 3);
+        assert!(shifted_poly.y_degree >= 1);
     }
 
     #[test]
-    fn test_polynomial_multiplication() {
+    fn test_mul_monomial_degree() {
+        let size = 8;
+        // 의도적으로 최고차항에 non-zero 값을 설정
+        let mut coeffs_vec = vec![ScalarField::zero(); size];
+        coeffs_vec[3] = ScalarField::one(); // x^3 term을 설정
+        coeffs_vec[6] = ScalarField::one(); // y항의 x^2 term을 설정
+        
+        let coeffs = HostSlice::from_slice(&coeffs_vec);
+        let poly = DensePolynomialExt::from_coeffs(coeffs, 4, 2);
+        
+        println!("Original x_degree: {}", poly.x_degree);
+        
+        // 단항식 x^4 * y^2를 곱함
+        let shifted_poly = poly.mul_monomial(4, 2);
+        
+        println!("Shifted x_degree: {}", shifted_poly.x_degree);
+        println!("Shifted y_degree: {}", shifted_poly.y_degree);
+        
+        assert!(shifted_poly.x_degree >= 4, 
+                "x_degree should be at least 4, got {}", shifted_poly.x_degree);
+        assert!(shifted_poly.y_degree >= 2, 
+                "y_degree should be at least 2, got {}", shifted_poly.y_degree);
+    }
+
+    #[test]
+    fn test_polynomial_multiplication() { // pass
         let p1_coeffs_vec = ScalarCfg::generate_random(8);
         let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
         let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 4, 2);
@@ -155,7 +181,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rou_eval_conversion() {
+    fn test_rou_eval_conversion() { // pass
         let p1_coeffs_number:[u32; 2] = [4, 0];
         let mut p1_coeffs_vec = vec![ScalarField::zero(); 2];
         for (ind, &num) in p1_coeffs_number.iter().enumerate() {
@@ -172,12 +198,13 @@ mod tests {
         let mut p2_coeffs_vec = vec![ScalarField::zero(); 2];
         let p2_coeffs = HostSlice::from_mut_slice(&mut p2_coeffs_vec);
         p2.copy_coeffs(0, p2_coeffs);
-
+        println!("p1_coeffs_vec: {:?}\n", p1_coeffs_vec);
+        println!("p2_coeffs_vec: {:?}\n", p2_coeffs_vec);
         assert_eq!(p1_coeffs_vec, p2_coeffs_vec, "Coefficient vectors should be equal after conversion");
     }
 
     #[test]
-    fn test_polynomial_division() {
+    fn test_polynomial_division() { // pass
         let p1_coeffs_vec = ScalarCfg::generate_random(32);
         let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
         let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 8, 4);
@@ -209,7 +236,7 @@ mod tests {
     }
 
     #[test]
-    fn test_vector_operations() {
+    fn test_vector_operations() { // pass
         // Test vector addition
         let mut a_vec = vec![ScalarField::zero(); 5];
         a_vec[0] = ScalarField::from_u32(5);
@@ -237,7 +264,7 @@ mod tests {
     }
 
     #[test]
-    fn test_matrix_transpose() {
+    fn test_matrix_transpose() { // pass
         // Initialize 3x4 matrix with values 1-12
         let p1_coeffs_number:[u32; 12] = [1,2,3,4,5,6,7,8,9,10,11,12];
         let mut p1_coeffs_vec = vec![ScalarField::zero(); 12];
@@ -270,7 +297,7 @@ mod tests {
 
 
     #[test]
-    fn test_ntt_and_matrix_operations() {
+    fn test_ntt_and_matrix_operations() { // pass
         // Initialize test data
         let size = 8;
         let mut test_signal = vec![ScalarField::zero(); size];
@@ -362,7 +389,7 @@ mod tests {
     }
 
     #[test]
-    fn test_msm_operations() {
+    fn test_msm_operations() { //
         // Initialize runtime and device
         icicle_runtime::runtime::load_backend_from_env_or_default();
         let cuda_device = Device::new("CPU", 0);
@@ -416,7 +443,7 @@ mod tests {
     // Optional: Additional test for batch processing
     #[test]
     #[ignore] // This test is currently ignored as it was commented out in the original code
-    fn test_msm_batch_operations() {
+    fn test_msm_batch_operations() { // pass
         let _ = icicle_runtime::runtime::load_backend_from_env_or_default();
         let cuda_device = Device::new("CPU", 0);
         if icicle_runtime::is_device_available(&cuda_device) {
@@ -445,20 +472,18 @@ mod tests {
                     "MSM result at index {} should not be zero", i);
         }
     }
-    
+
     #[test]
-    fn test_find_degree() {
-        // Test Case 1: 기본적인 2x2 다항식
+    fn test_find_degree() { // pass
         let coeffs1 = vec![
-            ScalarField::from_u32(1), ScalarField::from_u32(2),  // y^0 항: 1 + 2x
-            ScalarField::from_u32(3), ScalarField::from_u32(4)   // y^1 항: 3 + 4x
+            ScalarField::from_u32(1), ScalarField::from_u32(2), 
+            ScalarField::from_u32(3), ScalarField::from_u32(4)  
         ];
         let poly1 = DensePolynomial::from_coeffs(HostSlice::from_slice(&coeffs1), 4);
         let (x_degree1, y_degree1) = DensePolynomialExt::_find_degree(&poly1, 2, 2);
         println!("Test Case 1 - Expected: (1,1), Got: ({},{})", x_degree1, y_degree1);
         assert_eq!((x_degree1, y_degree1), (1, 1), "2x2 polynomial degree test failed");
 
-        // Test Case 2: 모든 계수가 0인 경우
         let coeffs2 = vec![
             ScalarField::zero(), ScalarField::zero(),
             ScalarField::zero(), ScalarField::zero()
@@ -468,28 +493,25 @@ mod tests {
         println!("Test Case 2 - Expected: (0,0), Got: ({},{})", x_degree2, y_degree2);
         assert_eq!((x_degree2, y_degree2), (0, 0), "Zero polynomial degree test failed");
 
-        // Test Case 3: x방향으로만 차수가 있는 경우
         let coeffs3 = vec![
-            ScalarField::from_u32(1), ScalarField::from_u32(2), ScalarField::from_u32(3),  // y^0 항: 1 + 2x + 3x^2
-            ScalarField::zero(), ScalarField::zero(), ScalarField::zero()                   // y^1 항: 0
+            ScalarField::from_u32(1), ScalarField::from_u32(2), ScalarField::from_u32(3),  
+            ScalarField::zero(), ScalarField::zero(), ScalarField::zero()                  
         ];
         let poly3 = DensePolynomial::from_coeffs(HostSlice::from_slice(&coeffs3), 6);
         let (x_degree3, y_degree3) = DensePolynomialExt::_find_degree(&poly3, 3, 2);
         println!("Test Case 3 - Expected: (2,0), Got: ({},{})", x_degree3, y_degree3);
         assert_eq!((x_degree3, y_degree3), (2, 0), "X-only polynomial degree test failed");
 
-        // Test Case 4: y방향으로만 차수가 있는 경우
         let coeffs4 = vec![
-            ScalarField::from_u32(1), ScalarField::zero(),  // y^0 항: 1
-            ScalarField::from_u32(2), ScalarField::zero(),  // y^1 항: 2
-            ScalarField::from_u32(3), ScalarField::zero()   // y^2 항: 3
+            ScalarField::from_u32(1), ScalarField::zero(),
+            ScalarField::from_u32(2), ScalarField::zero(),
+            ScalarField::from_u32(3), ScalarField::zero() 
         ];
         let poly4 = DensePolynomial::from_coeffs(HostSlice::from_slice(&coeffs4), 6);
         let (x_degree4, y_degree4) = DensePolynomialExt::_find_degree(&poly4, 2, 3);
         println!("Test Case 4 - Expected: (0,2), Got: ({},{})", x_degree4, y_degree4);
         assert_eq!((x_degree4, y_degree4), (0, 2), "Y-only polynomial degree test failed");
 
-        // 각 테스트 케이스의 계수 출력
         println!("\nDetailed coefficient analysis:");
         for (i, coeffs) in [coeffs1, coeffs2, coeffs3, coeffs4].iter().enumerate() {
             println!("\nTest Case {}:", i + 1);

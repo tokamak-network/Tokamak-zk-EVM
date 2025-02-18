@@ -517,30 +517,39 @@ impl BivariatePolynomial for DensePolynomialExt {
     }
 
     fn mul_monomial(&self, x_exponent: usize, y_exponent: usize) -> Self {
-       if x_exponent == 0 && y_exponent == 0 {
-            self.clone()
-        } else {
-            let mut orig_coeffs_vec = Vec::<Self::Field>::with_capacity(self.x_size * self.y_size);
-            unsafe{orig_coeffs_vec.set_len(self.x_size * self.y_size);}
-            let orig_coeffs = HostSlice::from_mut_slice(&mut orig_coeffs_vec);
-            self.copy_coeffs(0, orig_coeffs);
-
-            let target_x_size = self.x_degree as usize + x_exponent + 1;
-            let target_y_size = self.y_degree as usize + y_exponent + 1;
-            let (new_x_size, new_y_size) = _find_size_as_twopower(target_x_size, target_y_size);
-            let new_size: usize = self.x_size * self.y_size;
-            
-            let mut res_coeffs_vec = vec![Self::Field::zero(); new_size];
-            for i in 0 .. self.y_size {
-                res_coeffs_vec[new_x_size * (i + y_exponent) + x_exponent .. new_x_size * (i + y_exponent) + self.x_size + x_exponent].copy_from_slice(
-                    &orig_coeffs_vec[self.x_size * i .. self.x_size * (i+1)]
-                );
-            }
-
-            let res_coeffs = HostSlice::from_slice(&res_coeffs_vec);
-            
-            DensePolynomialExt::from_coeffs(res_coeffs, new_x_size, new_y_size)
+        if x_exponent == 0 && y_exponent == 0 {
+            return self.clone();
         }
+    
+        let mut orig_coeffs_vec = vec![Self::Field::zero(); self.x_size * self.y_size];
+        let orig_coeffs = HostSlice::from_mut_slice(&mut orig_coeffs_vec);
+        self.copy_coeffs(0, orig_coeffs);
+    
+        let new_x_size = self.x_size + x_exponent;
+        let new_y_size = self.y_size + y_exponent;
+        let (final_x_size, final_y_size) = _find_size_as_twopower(new_x_size, new_y_size);
+    
+        let mut res_coeffs_vec = vec![Self::Field::zero(); final_x_size * final_y_size];
+    
+        for y in 0..self.y_size {
+            for x in 0..self.x_size {
+                let src_idx = x + y * self.x_size;
+                let dst_x = x + x_exponent;
+                let dst_y = y + y_exponent;
+                let dst_idx = dst_x + dst_y * final_x_size;
+                if !Self::Field::eq(&orig_coeffs_vec[src_idx], &Self::Field::zero()) {
+                    res_coeffs_vec[dst_idx] = orig_coeffs_vec[src_idx].clone();
+                }
+            }
+        }
+    
+        let res_coeffs = HostSlice::from_slice(&res_coeffs_vec);
+        let mut result = DensePolynomialExt::from_coeffs(res_coeffs, final_x_size, final_y_size);
+        
+        result.x_degree = self.x_degree + x_exponent as i64;
+        result.y_degree = self.y_degree + y_exponent as i64;
+    
+        result
     }
 
     fn _mul(&self, rhs: &Self) -> Self {
@@ -776,39 +785,39 @@ impl BivariatePolynomial for DensePolynomialExt {
 // }
 
 //TEST SCRIPT for extend_size, slicing as a block matrix, mul_monomial
-// fn main() {
-//     let x_size = 4;
-//     let y_size = 2;
-//     let size = x_size * y_size;
-//     let coeffs_vec = ScalarCfg::generate_random(size);
-//     let coeffs = HostSlice::from_slice(&coeffs_vec);
+fn main() {
+    let x_size = 4;
+    let y_size = 2;
+    let size = x_size * y_size;
+    let coeffs_vec = ScalarCfg::generate_random(size);
+    let coeffs = HostSlice::from_slice(&coeffs_vec);
 
-//     let poly = DensePolynomialExt::from_coeffs(coeffs, x_size, y_size);
+    let poly = DensePolynomialExt::from_coeffs(coeffs, x_size, y_size);
 
-//     let mut ext_poly = poly.clone();
-//     ext_poly.extend_size(8, 16);
+    let mut ext_poly = poly.clone();
+    ext_poly.resize(8, 16);
     
-//     let mut blocks_raw = vec![ScalarField::zero(); 8*16];
-//     ext_poly._slice_coeffs_into_blocks(2, 8, &mut blocks_raw);
-//     let split_poly:Vec<Vec<ScalarField>> = blocks_raw.chunks(8).map(|chunk| chunk.to_vec()).collect();
+    let mut blocks_raw = vec![ScalarField::zero(); 8*16];
+    ext_poly._slice_coeffs_into_blocks(2, 8, &mut blocks_raw);
+    let split_poly:Vec<Vec<ScalarField>> = blocks_raw.chunks(8).map(|chunk| chunk.to_vec()).collect();
 
-//     let mut ext_poly_coeffs_vec = vec![ScalarField::zero(); 8 * 16];
-//     let ext_poly_coeffs = HostSlice::from_mut_slice(&mut ext_poly_coeffs_vec);
-//     ext_poly.copy_coeffs(0, ext_poly_coeffs);
+    let mut ext_poly_coeffs_vec = vec![ScalarField::zero(); 8 * 16];
+    let ext_poly_coeffs = HostSlice::from_mut_slice(&mut ext_poly_coeffs_vec);
+    ext_poly.copy_coeffs(0, ext_poly_coeffs);
 
-//     let mut shifted_poly = poly.clone();
-//     shifted_poly.mul_monomial(4, 2);
-//     let mut shifted_poly_coeffs_vec = vec![ScalarField::zero(); 8*4];
-//     let shifted_poly_coeffs = HostSlice::from_mut_slice(&mut shifted_poly_coeffs_vec);
-//     shifted_poly.copy_coeffs(0,shifted_poly_coeffs);
+    let mut shifted_poly = poly.clone();
+    shifted_poly.mul_monomial(4, 2);
+    let mut shifted_poly_coeffs_vec = vec![ScalarField::zero(); 8*4];
+    let shifted_poly_coeffs = HostSlice::from_mut_slice(&mut shifted_poly_coeffs_vec);
+    shifted_poly.copy_coeffs(0,shifted_poly_coeffs);
 
-//     println!("poly: \n{:?}\n\n", coeffs_vec);
-//     println!("ext_poly: \n{:?}\n\n", ext_poly_coeffs_vec);
-//     println!("block0: \n{:?}\n\n", split_poly[0]);
-//     println!("shifted: \n{:?}\n\n", shifted_poly_coeffs_vec);
+    println!("poly: \n{:?}\n\n", coeffs_vec);
+    println!("ext_poly: \n{:?}\n\n", ext_poly_coeffs_vec);
+    println!("block0: \n{:?}\n\n", split_poly[0]);
+    println!("shifted: \n{:?}\n\n", shifted_poly_coeffs_vec);
     
     
-// }
+}
 
 // TEST SCRIPT for polynomial multiplication
 // fn main() {
@@ -846,30 +855,30 @@ impl BivariatePolynomial for DensePolynomialExt {
 // }
 
 // TEST SCRIPT for from_rou_eval and to_rou_eval
-fn main() {
+// fn main() {
 
-    let p1_coeffs_number:[u32; 2] = [4, 0];
-    let mut p1_coeffs_vec = vec![ScalarField::zero(); 2];
-    for (ind, &num) in p1_coeffs_number.iter().enumerate() {
-        p1_coeffs_vec[ind] = ScalarField::from_u32(num);
-    }
-    let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
-    let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 1, 2);
+//     let p1_coeffs_number:[u32; 2] = [4, 0];
+//     let mut p1_coeffs_vec = vec![ScalarField::zero(); 2];
+//     for (ind, &num) in p1_coeffs_number.iter().enumerate() {
+//         p1_coeffs_vec[ind] = ScalarField::from_u32(num);
+//     }
+//     let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
+//     let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 1, 2);
 
-    let mut evals_vec = vec![ScalarField::zero(); 2];
-    let evals = HostSlice::from_mut_slice(&mut evals_vec);
-    p1.to_rou_evals(evals);
+//     let mut evals_vec = vec![ScalarField::zero(); 2];
+//     let evals = HostSlice::from_mut_slice(&mut evals_vec);
+//     p1.to_rou_evals(evals);
 
-    let p2 = DensePolynomialExt::from_rou_evals(evals, 1, 2);
-    let mut p2_coeffs_vec = vec![ScalarField::zero(); 2];
-    let p2_coeffs = HostSlice::from_mut_slice(&mut p2_coeffs_vec);
-    p2.copy_coeffs(0, p2_coeffs);
+//     let p2 = DensePolynomialExt::from_rou_evals(evals, 1, 2);
+//     let mut p2_coeffs_vec = vec![ScalarField::zero(); 2];
+//     let p2_coeffs = HostSlice::from_mut_slice(&mut p2_coeffs_vec);
+//     p2.copy_coeffs(0, p2_coeffs);
 
-    println!("p1_coeffs: \n{:?}\n\n", p1_coeffs_vec);
-    println!("evals: \n{:?}\n\n", evals);
-    println!("p2_coeffs: \n{:?}\n\n", p2_coeffs_vec);
+//     println!("p1_coeffs: \n{:?}\n\n", p1_coeffs_vec);
+//     println!("evals: \n{:?}\n\n", evals);
+//     println!("p2_coeffs: \n{:?}\n\n", p2_coeffs_vec);
 
-}
+// }
 
 // TEST SCRIPT for polynomial division
 // fn main() {
