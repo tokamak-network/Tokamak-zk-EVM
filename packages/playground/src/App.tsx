@@ -6,7 +6,7 @@ import { createEVM } from '../../frontend/synthesizer/src/constructors';
 import { hexToBytes, Address } from '../../frontend/synthesizer/libs/util/dist/esm/index.js';
 import { TON_CONTRACT_CODE } from './constant/evm';
 import { setupEVM } from '../utils/setupEVM';
-import logo from '/logo.svg';
+import logo from '/src/assets/logo.svg';
 import {serializePlacements} from '../helpers/helpers';
 import './App.css';
 
