@@ -278,20 +278,30 @@ impl BivariatePolynomial for DensePolynomialExt {
     type FieldConfig = ScalarCfg;
 
     fn _find_degree(poly: &DensePolynomial, x_size: usize, y_size: usize) -> (i64, i64) {
-        let mut x_degree: i64 = 0;
+        let mut x_degree: i64 = -1;
         let mut y_degree: i64 = 0;
-
-        for x_offset in (0 .. x_size as u64).rev() {
-            let sub_poly_y = poly.slice(x_offset, x_size as u64, y_size as u64);
-            y_degree = sub_poly_y.degree() as i64;
-            if y_degree > 0 {
-                x_degree = x_offset as i64;
-                break;
-            } else if !(Self::Field::eq(&Self::Field::zero(), &sub_poly_y.get_coeff(0))){
-                x_degree = x_offset as i64;
-                break;
+        let mut found_nonzero = false;
+    
+        for y in 0..y_size {
+            for x in (0..x_size).rev() {
+                let idx = x + y * x_size;
+                if !Self::Field::eq(&Self::Field::zero(), &poly.get_coeff(idx as u64)) {
+                    found_nonzero = true;
+                    x_degree = x_degree.max(x as i64);
+                    y_degree = y_degree.max(y as i64);
+                    break;
+                }
             }
         }
+
+        if !found_nonzero {
+            return (0, 0);
+        }
+    
+        if x_degree == -1 {
+            x_degree = 0;
+        }
+    
         (x_degree, y_degree)
     }
 
@@ -299,8 +309,14 @@ impl BivariatePolynomial for DensePolynomialExt {
         if x_size == 0 || y_size == 0 {
             panic!("Invalid matrix size for from_coeffs");
         }
-        let poly = DensePolynomial::from_coeffs(coeffs, x_size as usize * y_size as usize);
+        let poly = DensePolynomial::from_coeffs(coeffs, x_size * y_size);
         let (x_degree, y_degree) = DensePolynomialExt::_find_degree(&poly, x_size, y_size);
+        
+        // 각 차원의 크기는 최소한 degree + 1이어야 하며, 2의 거듭제곱이어야 함
+        let target_x_size = cmp::max(x_size, x_degree as usize + 1);
+        let target_y_size = cmp::max(y_size, y_degree as usize + 1);
+        let (new_x_size, new_y_size) = _find_size_as_twopower(target_x_size, target_y_size);
+
         let mut bipoly = Self {
             poly,
             x_degree,
@@ -308,10 +324,11 @@ impl BivariatePolynomial for DensePolynomialExt {
             x_size,
             y_size,
         };
-        // Adjusting the sizes to minimum powers of two
-        let target_x_size = x_degree as usize + 1;
-        let target_y_size = y_degree as usize + 1;
-        bipoly.resize(target_x_size, target_y_size);
+
+        if new_x_size != x_size || new_y_size != y_size {
+            bipoly.resize(new_x_size, new_y_size);
+        }
+
         bipoly
     }
 
@@ -471,27 +488,29 @@ impl BivariatePolynomial for DensePolynomialExt {
     }
 
     
-    fn resize(&mut self, target_x_size: usize, target_y_size: usize){
+    fn resize(&mut self, target_x_size: usize, target_y_size: usize) {
         let (new_x_size, new_y_size) = _find_size_as_twopower(target_x_size, target_y_size);
         if self.x_size == new_x_size && self.y_size == new_y_size {
-            return
+            return;
         }
-        let new_size: usize = new_x_size * new_y_size;
-        let mut orig_coeffs_vec = Vec::<Self::Field>::with_capacity(self.x_size * self.y_size);
-        unsafe{orig_coeffs_vec.set_len(self.x_size * self.y_size);}
+
+        let mut orig_coeffs_vec = vec![Self::Field::zero(); self.x_size * self.y_size];
         let orig_coeffs = HostSlice::from_mut_slice(&mut orig_coeffs_vec);
         self.copy_coeffs(0, orig_coeffs);
 
+        let new_size = new_x_size * new_y_size;
         let mut res_coeffs_vec = vec![Self::Field::zero(); new_size];
-        for i in 0 .. cmp::min(self.y_size, new_y_size) {
-            let each_x_size = cmp::min(self.x_size, new_x_size);
-            res_coeffs_vec[new_x_size * i .. new_x_size * i + each_x_size].copy_from_slice(
-                &orig_coeffs_vec[self.x_size * i .. self.x_size * i + each_x_size]
-            );  
+        
+        for y in 0..cmp::min(self.y_size, new_y_size) {
+            let src_start = y * self.x_size;
+            let dst_start = y * new_x_size;
+            let copy_width = cmp::min(self.x_size, new_x_size);
+            
+            res_coeffs_vec[dst_start..dst_start + copy_width]
+                .copy_from_slice(&orig_coeffs_vec[src_start..src_start + copy_width]);
         }
 
         let res_coeffs = HostSlice::from_mut_slice(&mut res_coeffs_vec);
-        
         self.poly = DensePolynomial::from_coeffs(res_coeffs, new_size);
         self.x_size = new_x_size;
         self.y_size = new_y_size;

@@ -445,4 +445,57 @@ mod tests {
                     "MSM result at index {} should not be zero", i);
         }
     }
+    
+    #[test]
+    fn test_find_degree() {
+        // Test Case 1: 기본적인 2x2 다항식
+        let coeffs1 = vec![
+            ScalarField::from_u32(1), ScalarField::from_u32(2),  // y^0 항: 1 + 2x
+            ScalarField::from_u32(3), ScalarField::from_u32(4)   // y^1 항: 3 + 4x
+        ];
+        let poly1 = DensePolynomial::from_coeffs(HostSlice::from_slice(&coeffs1), 4);
+        let (x_degree1, y_degree1) = DensePolynomialExt::_find_degree(&poly1, 2, 2);
+        println!("Test Case 1 - Expected: (1,1), Got: ({},{})", x_degree1, y_degree1);
+        assert_eq!((x_degree1, y_degree1), (1, 1), "2x2 polynomial degree test failed");
+
+        // Test Case 2: 모든 계수가 0인 경우
+        let coeffs2 = vec![
+            ScalarField::zero(), ScalarField::zero(),
+            ScalarField::zero(), ScalarField::zero()
+        ];
+        let poly2 = DensePolynomial::from_coeffs(HostSlice::from_slice(&coeffs2), 4);
+        let (x_degree2, y_degree2) = DensePolynomialExt::_find_degree(&poly2, 2, 2);
+        println!("Test Case 2 - Expected: (0,0), Got: ({},{})", x_degree2, y_degree2);
+        assert_eq!((x_degree2, y_degree2), (0, 0), "Zero polynomial degree test failed");
+
+        // Test Case 3: x방향으로만 차수가 있는 경우
+        let coeffs3 = vec![
+            ScalarField::from_u32(1), ScalarField::from_u32(2), ScalarField::from_u32(3),  // y^0 항: 1 + 2x + 3x^2
+            ScalarField::zero(), ScalarField::zero(), ScalarField::zero()                   // y^1 항: 0
+        ];
+        let poly3 = DensePolynomial::from_coeffs(HostSlice::from_slice(&coeffs3), 6);
+        let (x_degree3, y_degree3) = DensePolynomialExt::_find_degree(&poly3, 3, 2);
+        println!("Test Case 3 - Expected: (2,0), Got: ({},{})", x_degree3, y_degree3);
+        assert_eq!((x_degree3, y_degree3), (2, 0), "X-only polynomial degree test failed");
+
+        // Test Case 4: y방향으로만 차수가 있는 경우
+        let coeffs4 = vec![
+            ScalarField::from_u32(1), ScalarField::zero(),  // y^0 항: 1
+            ScalarField::from_u32(2), ScalarField::zero(),  // y^1 항: 2
+            ScalarField::from_u32(3), ScalarField::zero()   // y^2 항: 3
+        ];
+        let poly4 = DensePolynomial::from_coeffs(HostSlice::from_slice(&coeffs4), 6);
+        let (x_degree4, y_degree4) = DensePolynomialExt::_find_degree(&poly4, 2, 3);
+        println!("Test Case 4 - Expected: (0,2), Got: ({},{})", x_degree4, y_degree4);
+        assert_eq!((x_degree4, y_degree4), (0, 2), "Y-only polynomial degree test failed");
+
+        // 각 테스트 케이스의 계수 출력
+        println!("\nDetailed coefficient analysis:");
+        for (i, coeffs) in [coeffs1, coeffs2, coeffs3, coeffs4].iter().enumerate() {
+            println!("\nTest Case {}:", i + 1);
+            for chunk in coeffs.chunks(2) {
+                println!("{:?}", chunk);
+            }
+        }
+    }
 }
