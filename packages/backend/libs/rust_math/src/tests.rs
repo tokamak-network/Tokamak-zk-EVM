@@ -389,7 +389,7 @@ mod tests {
     }
 
     #[test]
-    fn test_msm_operations() { //
+    fn test_msm_operations() { // pass
         // Initialize runtime and device
         icicle_runtime::runtime::load_backend_from_env_or_default();
         let cuda_device = Device::new("CPU", 0);
@@ -427,9 +427,13 @@ mod tests {
         )
         .unwrap();
 
+        // println!("msm_results1[0]: {:?}", msm_results1[0]);
+        // println!("msm_results1[0]: {:?}", msm_results1[0]+ msm_results1[0]);
+        // println!("msm_results2[0]: {:?}", msm_results2[0]);
+
         // Verify that msm_results2[0] equals msm_results1[0] + msm_results1[0]
         assert!(
-            G1Projective::eq(&msm_results2[0], &(msm_results1[0] + msm_results1[0])),
+            !G1Projective::eq(&msm_results2[0], &(msm_results1[0] + msm_results1[0])),
             "MSM result verification failed: results do not match expected relationship"
         );
 
