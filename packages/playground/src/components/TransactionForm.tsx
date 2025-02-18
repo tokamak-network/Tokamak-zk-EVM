@@ -1,7 +1,7 @@
 // TransactionForm.tsx
 import React from 'react';
 import CustomInput from './CustomInput';
-import saveIcon from '/save.svg';
+import saveIcon from '../assets/save.svg';
 import styles from './TransactionForm.module.css';
 
 type TransactionFormProps = {
