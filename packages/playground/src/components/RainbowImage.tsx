@@ -1,10 +1,20 @@
-import { FunctionComponent } from 'react';
-import styles from './RainbowImage.module.css';
+import { FunctionComponent, CSSProperties } from 'react';
 
+const RainbowImage: FunctionComponent = () => {
+  const styles: CSSProperties = {
+    position: 'fixed',
+    bottom: 0,
+    left: 0,
+    width: '100%',
+    maxWidth: '100%',
+    height: 'auto',
+    objectFit: 'contain',
+    zIndex: 1000,
+    pointerEvents: 'none',
+    marginBottom: '44px',
+  };
 
-const RainbowImage:FunctionComponent = () => {
-  	return (
-    		<img className={styles.rainbowIcon} alt="" src="./src/assets/rainbow.svg" />);
+  return <img style={styles} alt="" src="./src/assets/rainbow.svg" />;
 };
 
 export default RainbowImage;

@@ -1,9 +1,9 @@
 // ResultDisplay.tsx
-import React from 'react';
+import React, { CSSProperties, useState } from 'react';
 import CustomTabSwitcher from './CustomTabSwitcher';
 import LogCard from './LogCard';
+import ScrollBar from './ScrollBar';
 import { add0xPrefix, summarizeHex } from '../../helpers/helpers';
-import styles from './ResultDisplay.module.css';
 
 type ResultDisplayProps = {
   activeTab: string;
@@ -26,12 +26,125 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   handleDownload,
   serverData,
 }) => {
+  const [permutationHovered, setPermutationHovered] = useState(false);
+  const [placementHovered, setPlacementHovered] = useState(false);
+
+  const styles: Record<string, CSSProperties> = {
+    container: {
+      position: 'absolute',
+      width: '728px',
+      height: 'auto',
+      overflow: 'visible',
+      display: 'flex',
+      flexDirection: 'column',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      top: '512px',
+      flexGrow: 0,
+      paddingBottom: '150px',
+    },
+    downloadButtonsContainer: {
+      width: '710px',
+      height: '31px',
+      display: 'flex',
+      justifyContent: 'flex-start',
+      gap: '8px',
+      padding: '8px',
+      paddingTop: '3px',
+      background: '#bdbdbd',
+      fontFamily: 'IBM Plex Mono',
+    },
+    logCardInside: {
+      position: 'relative',
+      marginTop: '30px',
+      background: '#ffffff',
+      border: '1px solid #5f5f5f',
+      padding: '15px',
+      color: 'black',
+      fontFamily: 'Tahoma, sans-serif',
+      fontSize: '11px',
+    },
+    dataLabel: {
+      position: 'absolute',
+      top: '-25px',
+      left: '-1px',
+      fontFamily: 'IBM Plex Mono',
+      backgroundColor: '#ffffff',
+      letterSpacing: '0.15px',
+      color: '#3b48ff',
+      textAlign: 'left',
+      fontWeight: 500,
+      fontSize: '11px',
+      padding: '4px 8px',
+      borderTop: '1px solid #5f5f5f',
+      borderLeft: '1px solid #5f5f5f',
+      borderRight: '1px solid #5f5f5f',
+      borderTopLeftRadius: '2px',
+      borderTopRightRadius: '2px',
+    },
+    btnDownload: {
+      fontFamily: 'IBM Plex Mono',
+      fontSize: '13px',
+      fontWeight: 'normal',
+      width: '350px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'pointer',
+      borderRadius: 0,
+      borderLeft: '1px solid #a8a8a8',
+      borderTop: '1px solid #a8a8a8',
+      borderRight: '1px solid #5f5f5f',
+      borderBottom: '1px solid #5f5f5f',
+    },
+    btnPermutation: {
+      background: permutationHovered ? '#6600b3' : '#55008A',
+      color: '#F8F8F8',
+      transition: 'background 0.2s ease',
+    },
+    btnPlacement: {
+      background: placementHovered ? '#008080' : '#008A4C',
+      color: '#F8F8F8',
+      transition: 'background 0.2s ease',
+    },
+    logCard: {
+      position: 'relative',
+      color: 'black',
+      fontFamily: 'Tahoma, sans-serif',
+      fontSize: '12px',
+    },
+    logDiv: {
+      marginBottom: '12px',
+      textAlign: 'left',
+    },
+    logStrong: {
+      display: 'block',
+      marginBottom: '4px',
+      fontSize: '14px',
+      fontFamily: 'IBM Plex Mono',
+      color: '#222',
+      fontWeight: 500,
+    },
+    logSpan: {
+      display: 'block',
+      padding: '5px 8px',
+      background: '#F2F2F2',
+      borderTop: '1px solid #5f5f5f',
+      borderLeft: '1px solid #5f5f5f',
+      borderRight: '1px solid #dfdfdf',
+      borderBottom: '1px solid #dfdfdf',
+      minHeight: '16px',
+      wordBreak: 'break-all',
+      fontFamily: 'IBM Plex Mono',
+    },
+  };
+
   const renderActiveTab = () => {
     if (activeTab === 'storageLoad') {
       return storageLoad.length ? (
         storageLoad.map((item, index) => (
-          <div key={index} className={styles.logCardInside}>
-            <div className={styles.dataLabel}>Data #{index + 1}</div>
+          <div key={index} style={styles.logCardInside}>
+            <div style={styles.dataLabel}>Data #{index + 1}</div>
             <LogCard
               contractAddress={item.contractAddress || evmContractAddress}
               keyValue={add0xPrefix(item.key)}
@@ -46,28 +159,28 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
     } else if (activeTab === 'logs') {
       return placementLogs.length ? (
         placementLogs.map((log, index) => (
-          <div key={index} className={styles.logCardInside}>
-            <div className={styles.dataLabel}>Data #{index + 1}</div>
-            <div className={styles.logCard}>
-              <div>
-                <strong>Topics:</strong>
+          <div key={index} style={styles.logCardInside}>
+            <div style={styles.dataLabel}>Data #{index + 1}</div>
+            <div style={styles.logCard}>
+              <div style={styles.logDiv}>
+                <strong style={styles.logStrong}>Topics:</strong>
                 {log.topics.map((topic: string, idx: number) => (
                   <span
                     key={idx}
                     title={add0xPrefix(topic)}
-                    className={styles.logSpan}
+                    style={styles.logSpan}
                   >
                     {`${idx}: ${add0xPrefix(summarizeHex(topic))}`}
                   </span>
                 ))}
               </div>
-              <div>
-                <strong>Value (Decimal):</strong>
-                <span>{log.valueDec.toString()}</span>
+              <div style={styles.logDiv}>
+                <strong style={styles.logStrong}>Value (Decimal):</strong>
+                <span style={styles.logSpan}>{log.valueDec.toString()}</span>
               </div>
-              <div>
-                <strong>Value (Hex):</strong>
-                <span title={add0xPrefix(log.valueHex)}>
+              <div style={styles.logDiv}>
+                <strong style={styles.logStrong}>Value (Hex):</strong>
+                <span style={styles.logSpan} title={add0xPrefix(log.valueHex)}>
                   {add0xPrefix(log.valueHex)}
                 </span>
               </div>
@@ -88,8 +201,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
           const valueHex = item.valueHex || '0x0';
 
           return (
-            <div key={index} className={styles.logCardInside}>
-              <div className={styles.dataLabel}>Data #{index + 1}</div>
+            <div key={index} style={styles.logCardInside}>
+              <div style={styles.dataLabel}>Data #{index + 1}</div>
               <LogCard
                 contractAddress={contractAddress}
                 keyValue={add0xPrefix(key)}
@@ -108,15 +221,19 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
   };
 
   return (
-    <div className={styles.bigBox}>
+    <div style={styles.container}>
       <CustomTabSwitcher activeTab={activeTab} setActiveTab={setActiveTab} />
-      <div className={styles.fixedBox}>{renderActiveTab()}</div>
+      <ScrollBar>
+        {renderActiveTab()}
+      </ScrollBar>
       {serverData && (
-        <div className={styles.downloadButtonsContainer}>
+        <div style={styles.downloadButtonsContainer}>
           {serverData.permutation && (
             <button
               onClick={() => handleDownload(serverData.permutation, 'permutation.json')}
-              className={`${styles.btnDownload} ${styles.btnPermutation}`}
+              style={{ ...styles.btnDownload, ...styles.btnPermutation }}
+              onMouseEnter={() => setPermutationHovered(true)}
+              onMouseLeave={() => setPermutationHovered(false)}
             >
               Download Permutation
             </button>
@@ -126,7 +243,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({
               onClick={() =>
                 handleDownload(serverData.placementInstance, 'placementInstance.json')
               }
-              className={`${styles.btnDownload} ${styles.btnPlacement}`}
+              style={{ ...styles.btnDownload, ...styles.btnPlacement }}
+              onMouseEnter={() => setPlacementHovered(true)}
+              onMouseLeave={() => setPlacementHovered(false)}
             >
               Download Placement Instance
             </button>

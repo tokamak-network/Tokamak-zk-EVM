@@ -1,5 +1,4 @@
-import { FunctionComponent, useState } from 'react';
-import styles from './CustomInput.module.css';
+import { FunctionComponent, useState, CSSProperties } from 'react';
 
 interface CustomInputProps {
   value?: string;
@@ -15,42 +14,112 @@ const CustomInput: FunctionComponent<CustomInputProps> = ({
   error = false,
 }) => {
   const [active, setActive] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
-  // Determine container classes based on state
-  const containerClasses = [
-    styles.property1hover,
-    disabled
-      ? styles.property1disable
-      : error
-      ? styles.property1error
-      : active
-      ? styles.property1active
-      : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
+  // Base styles
+  const styles: Record<string, CSSProperties> = {
+    container: {
+      position: 'relative' as const,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      justifyContent: 'center',
+      textAlign: 'left',
+      fontSize: '24px',
+      fontFamily: 'IBM Plex Mono',
+      color: error ? '#a01313' : disabled ? '#444' : '#999',
+    },
+    borderTop: {
+      alignSelf: 'stretch',
+      position: 'relative',
+      backgroundColor: '#a8a8a8',
+      height: '1px',
+    },
+    horizontalAl: {
+      width: '550px',
+      backgroundColor: disabled ? '#d0d0d7' : '#f7f7f7',
+      height: isHovered && !disabled && !active ? '58px' : '57px',
+      display: 'flex',
+      flexDirection: 'row' as const,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '8px',
+    },
+    borderLeft: {
+      alignSelf: 'stretch',
+      width: '1px',
+      position: 'relative',
+      backgroundColor: '#a8a8a8',
+    },
+    labelWrapper: {
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'row' as const,
+      alignItems: 'flex-start',
+      justifyContent: 'flex-start',
+      padding: '0px 0px 2px',
+    },
+    input: {
+      position: 'relative',
+      width: '100%',
+      height: '100%',
+      border: 'none',
+      background: 'transparent',
+      padding: '0 16px',
+      fontFamily: 'IBM Plex Mono',
+      fontSize: '24px',
+      outline: 'none',
+      color: error ? '#a01313' : active || value ? '#222222' : '#999999',
+    },
+    borderRight: {
+      alignSelf: 'stretch',
+      width: '1px',
+      position: 'relative',
+      backgroundColor: '#5f5f5f',
+    },
+    borderBottom: {
+      alignSelf: 'stretch',
+      position: 'relative',
+      backgroundColor: '#5f5f5f',
+      height: '1px',
+    },
+  };
 
   return (
-    <div className={containerClasses}>
-      <div className={styles.borderTop} />
-      <div className={styles.horizontalAl}>
-        <div className={styles.borderLeft} />
-        <div className={styles.labelWrapper}>
-          <input
-            type="text"
-            className={styles.inputText}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="Enter Transaction ID"
-            disabled={disabled}
-            onFocus={() => setActive(true)}
-            onBlur={() => setActive(false)}
-          />
+    <>
+      <style>
+        {`
+          input::placeholder {
+            color: ${error ? '#a01313' : '#999999'} !important;
+            opacity: 1;
+          }
+        `}
+      </style>
+      <div 
+        style={styles.container}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <div style={styles.borderTop} />
+        <div style={styles.horizontalAl}>
+          <div style={styles.borderLeft} />
+          <div style={styles.labelWrapper}>
+            <input
+              type="text"
+              style={styles.input}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="Enter Transaction ID"
+              disabled={disabled}
+              onFocus={() => setActive(true)}
+              onBlur={() => setActive(false)}
+            />
+          </div>
+          <div style={styles.borderRight} />
         </div>
-        <div className={styles.borderRight} />
+        <div style={styles.borderBottom} />
       </div>
-      <div className={styles.borderBottom} />
-    </div>
+    </>
   );
 };
 
