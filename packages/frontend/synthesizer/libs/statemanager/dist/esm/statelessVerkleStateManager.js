@@ -1,4 +1,4 @@
-import { VerkleAccessedStateType } from '@ethereumjs/common';
+import { VerkleAccessedStateType } from '@synthesizer-libs/common';
 import { Account, KECCAK256_NULL, KECCAK256_NULL_S, VERKLE_CODE_CHUNK_SIZE, VerkleLeafType, bigIntToBytes, bytesToHex, createPartialAccount, createPartialAccountFromRLP, decodeVerkleLeafBasicData, encodeVerkleLeafBasicData, getVerkleKey, getVerkleStem, getVerkleTreeKeyForCodeChunk, getVerkleTreeKeyForStorageSlot, hexToBytes, padToEven, setLengthLeft, setLengthRight, short, toBytes, } from '@ethereumjs/util';
 import debugDefault from 'debug';
 import { keccak256 } from 'ethereum-cryptography/keccak.js';

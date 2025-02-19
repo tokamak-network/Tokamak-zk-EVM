@@ -1,4 +1,4 @@
-import { Common, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
+import { Common, Mainnet } from '@synthesizer-libs/common'
 import { SimpleStateManager } from '@ethereumjs/statemanager/dist/esm/index.js'
 
 import { NobleBN254 } from './precompiles/index.js'

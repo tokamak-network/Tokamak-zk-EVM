@@ -12,7 +12,7 @@ import type {
   ParamsDict,
   StateManagerInterface,
   VerkleAccessWitnessInterface,
-} from '@ethereumjs/common/dist/esm/index.js'
+} from '@synthesizer-libs/common'
 import type { Account, Address, PrefixedHexString } from "@ethereumjs/util"
 import type { EventEmitter } from 'eventemitter3'
 

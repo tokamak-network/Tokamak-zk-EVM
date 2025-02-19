@@ -8,10 +8,8 @@
     "baseUrl": ".",
     "paths": {
       "@ethereumjs/util": ["libs/util/dist/esm/index"],
-      "@ethereumjs/common": ["libs/common/dist/esm/index"],
       "@ethereumjs/statemanager": ["libs/statemanager/dist/esm/index"],
       "@ethereumjs/util/*": ["libs/util/dist/esm/*"],
-      "@ethereumjs/common/*": ["libs/common/dist/esm/*"],
       "@ethereumjs/statemanager/*": ["libs/statemanager/dist/esm/*"],
       "@ethereumjs/mpt": ["libs/mpt/dist/esm/index"],
       "@ethereumjs/mpt/*": ["libs/mpt/dist/esm/*"],

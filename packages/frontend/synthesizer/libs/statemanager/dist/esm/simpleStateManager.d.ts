@@ -1,6 +1,6 @@
 import { Account } from '@ethereumjs/util';
 import type { SimpleStateManagerOpts } from './index.js';
-import type { AccountFields, Common, StateManagerInterface } from '@ethereumjs/common';
+import type { AccountFields, Common, StateManagerInterface } from '@synthesizer-libs/common';
 import type { Address, PrefixedHexString } from '@ethereumjs/util';
 /**
  * Simple and dependency-free state manager for basic state access use cases

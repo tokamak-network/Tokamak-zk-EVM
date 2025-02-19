@@ -60,12 +60,12 @@
     "visualize:bundle": "npx vite build --config=./vite.config.bundler.ts --emptyOutDir=false --outDir ."
   },
   "dependencies": {
-    "@ethereumjs/common": "file:libs/common",
     "@ethereumjs/mpt": "file:libs/mpt",
     "@ethereumjs/statemanager": "file:libs/statemanager",
     "@ethereumjs/util": "file:libs/util",
     "@ethereumjs/verkle": "file:libs/verkle",
     "@js-sdsl/ordered-map": "^4.4.2",
+    "@synthesizer-libs/common": "^0.0.1",
     "@types/debug": "^4.1.9",
     "@vitest/coverage-v8": "^2.1.8",
     "app-root-path": "^3.1.0",

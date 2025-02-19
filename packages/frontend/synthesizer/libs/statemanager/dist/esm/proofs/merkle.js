@@ -1,4 +1,4 @@
-import { createMPTFromProof, createMerkleProof, updateMPTFromMerkleProof, verifyMerkleProof, } from '@ethereumjs/mpt';
+import { createMPTFromProof, createMerkleProof, updateMPTFromMerkleProof, verifyMerkleProof, } from '@synthesizer-libs/mpt';
 import { RLP } from '@ethereumjs/rlp';
 import { KECCAK256_NULL, KECCAK256_NULL_S, KECCAK256_RLP, KECCAK256_RLP_S, bigIntToHex, bytesToHex, createAccountFromRLP, createAddressFromString, equalsBytes, hexToBytes, setLengthLeft, unpadBytes, } from '@ethereumjs/util';
 import { MerkleStateManager } from '../merkleStateManager.js';

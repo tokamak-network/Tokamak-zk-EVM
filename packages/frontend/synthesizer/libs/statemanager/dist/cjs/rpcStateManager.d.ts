@@ -1,8 +1,8 @@
-import { Common } from '@ethereumjs/common';
+import { Common } from '@synthesizer-libs/common';
 import { Account } from '@ethereumjs/util';
 import { Caches, OriginalStorageCache } from './cache/index.js';
 import type { RPCStateManagerOpts } from './index.js';
-import type { AccountFields, StateManagerInterface, StorageDump } from '@ethereumjs/common';
+import type { AccountFields, StateManagerInterface, StorageDump } from '@synthesizer-libs/common';
 import type { Address } from '@ethereumjs/util';
 import type { Debugger } from 'debug';
 export declare class RPCStateManager implements StateManagerInterface {

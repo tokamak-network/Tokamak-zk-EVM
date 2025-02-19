@@ -57,7 +57,7 @@ import {
 
 import type { RunState } from '../interpreter.js'
 import type { MemoryPtEntry, MemoryPts } from '../tokamak/pointers/index.js'
-import type { Common } from '@ethereumjs/common/dist/esm/index.js'
+import type { Common } from '@synthesizer-libs/common'
 import { DEFAULT_SOURCE_SIZE } from "../tokamak/constant/constants.js"
 
 import {

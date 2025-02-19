@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MerkleStateManager = exports.CODEHASH_PREFIX = void 0;
-const common_1 = require("@ethereumjs/common");
-const mpt_1 = require("@ethereumjs/mpt");
+const common_1 = require("@synthesizer-libs/common");
+const mpt_1 = require("@synthesizer-libs/mpt");
 const rlp_1 = require("@ethereumjs/rlp");
 const util_1 = require("@ethereumjs/util");
 const debug_1 = require("debug");
@@ -26,7 +26,7 @@ exports.CODEHASH_PREFIX = (0, util_1.utf8ToBytes)('c');
  * and storage slots.
  *
  * The default state manager implementation uses a
- * `@ethereumjs/mpt` trie as a data backend.
+ * `@synthesizer-libs/mpt` trie as a data backend.
  *
  * Note that there is a `SimpleStateManager` dependency-free state
  * manager implementation available shipped with the `@ethereumjs/statemanager`

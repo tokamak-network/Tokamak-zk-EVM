@@ -5,7 +5,7 @@ import type { OnFound } from './util/asyncWalk.js';
 import type { BatchDBOp, DB } from '@ethereumjs/util';
 import type { Debugger } from 'debug';
 /**
- * The basic trie interface, use with `import { MerklePatriciaTrie } from '@ethereumjs/mpt'`.
+ * The basic trie interface, use with `import { MerklePatriciaTrie } from '@synthesizer-libs/mpt'`.
  */
 export declare class MerklePatriciaTrie {
     protected readonly _opts: MPTOptsWithDefaults;

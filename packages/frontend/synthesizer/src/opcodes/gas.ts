@@ -1,4 +1,4 @@
-import { Hardfork } from '@ethereumjs/common/dist/esm/index.js'
+import { Hardfork } from '@synthesizer-libs/common'
 import {
   BIGINT_0,
   BIGINT_1,
@@ -32,7 +32,7 @@ import {
 } from './util.js'
 
 import type { RunState } from '../interpreter.js'
-import type { Common } from '@ethereumjs/common/dist/esm/index.js'
+import type { Common } from '@synthesizer-libs/common'
 import type { Address } from "@ethereumjs/util"
 
 const EXTCALL_TARGET_MAX = BigInt(2) ** BigInt(8 * 20) - BigInt(1)

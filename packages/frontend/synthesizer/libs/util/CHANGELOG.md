@@ -126,14 +126,14 @@ Both builds have respective separate entrypoints in the distributed `package.jso
 A CommonJS import of our libraries can then be done like this:
 
 ```ts
-const { Chain, Common } = require('@ethereumjs/common')
+const { Chain, Common } = require('@synthesizer-libs/common')
 const common = new Common({ chain: Chain.Mainnet })
 ```
 
 And this is how an ESM import looks like:
 
 ```ts
-import { Chain, Common } from '@ethereumjs/common/dist/esm/index.js'
+import { Chain, Common } from '@synthesizer-libs/common/dist/esm/index.js'
 const common = new Common({ chain: Chain.Mainnet })
 ```
 

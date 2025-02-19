@@ -1,4 +1,4 @@
-import { Common, Mainnet } from '@ethereumjs/common';
+import { Common, Mainnet } from '@synthesizer-libs/common';
 import { RLP } from '@ethereumjs/rlp';
 import { Account, bigIntToHex, bytesToHex, createAccount, createAccountFromRLP, equalsBytes, fetchFromProvider, hexToBytes, intToHex, toBytes, } from '@ethereumjs/util';
 import debugDefault from 'debug';

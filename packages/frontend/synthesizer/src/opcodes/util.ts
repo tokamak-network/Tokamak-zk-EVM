@@ -1,4 +1,4 @@
-import { Hardfork } from '@ethereumjs/common/dist/esm/index.js'
+import { Hardfork } from '@synthesizer-libs/common'
 import {
   BIGINT_0,
   BIGINT_1,
@@ -20,7 +20,7 @@ import { copyMemoryRegion } from '../tokamak/pointers/index.js'
 
 import type { ERROR } from '../exceptions.js'
 import type { RunState } from '../interpreter.js'
-import type { Common } from '@ethereumjs/common/dist/esm/index.js'
+import type { Common } from '@synthesizer-libs/common'
 import type { Address } from "@ethereumjs/util"
 
 const MASK_160 = (BIGINT_1 << BIGINT_160) - BIGINT_1

@@ -3,7 +3,7 @@ import { OriginalStorageCache } from './cache/index.js';
 import type { Caches } from './cache/index.js';
 import type { StatelessVerkleStateManagerOpts } from './index.js';
 import type { MerkleStateManager } from './merkleStateManager.js';
-import type { AccountFields, StateManagerInterface, VerkleAccessWitnessInterface, VerkleAccessedStateWithAddress } from '@ethereumjs/common';
+import type { AccountFields, StateManagerInterface, VerkleAccessWitnessInterface, VerkleAccessedStateWithAddress } from '@synthesizer-libs/common';
 import type { Address, PrefixedHexString, VerkleCrypto, VerkleExecutionWitness } from '@ethereumjs/util';
 import type { Debugger } from 'debug';
 /**

@@ -13,7 +13,7 @@ const asyncWalk_js_1 = require("./util/asyncWalk.js");
 const nibbles_js_1 = require("./util/nibbles.js");
 const walkController_js_1 = require("./util/walkController.js");
 /**
- * The basic trie interface, use with `import { MerklePatriciaTrie } from '@ethereumjs/mpt'`.
+ * The basic trie interface, use with `import { MerklePatriciaTrie } from '@synthesizer-libs/mpt'`.
  */
 class MerklePatriciaTrie {
     /**

@@ -1,7 +1,7 @@
 /**
  * Run with DEBUG=ethjs,trie:* to see debug log output
  */
-import { MerklePatriciaTrie, createMerkleProof, verifyMPTWithMerkleProof } from '@ethereumjs/mpt'
+import { MerklePatriciaTrie, createMerkleProof, verifyMPTWithMerkleProof } from '@synthesizer-libs/mpt'
 import { utf8ToBytes } from '@ethereumjs/util'
 
 const trie_entries: [string, string | null][] = [

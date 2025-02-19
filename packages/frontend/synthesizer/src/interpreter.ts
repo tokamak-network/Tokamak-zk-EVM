@@ -1,4 +1,4 @@
-import { ConsensusAlgorithm } from '@ethereumjs/common/dist/esm/index.js'
+import { ConsensusAlgorithm } from '@synthesizer-libs/common'
 import {
   Account,
   BIGINT_0,
@@ -44,7 +44,7 @@ import type {
   Common,
   StateManagerInterface,
   VerkleAccessWitnessInterface,
-} from '@ethereumjs/common/dist/esm/index.js'
+} from '@synthesizer-libs/common'
 import type { Address, PrefixedHexString } from "@ethereumjs/util"
 
 const debugGas = debugDefault('evm:gas')

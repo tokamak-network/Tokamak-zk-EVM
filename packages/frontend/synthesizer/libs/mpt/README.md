@@ -1,4 +1,4 @@
-# @ethereumjs/mpt
+# @synthesizer-libs/mpt
 
 [![NPM Package][mpt-npm-badge]][mpt-npm-link]
 [![GitHub Issues][mpt-issues-badge]][mpt-issues-link]
@@ -16,7 +16,7 @@
 To obtain the latest version, simply require the project using `npm`:
 
 ```shell
-npm install @ethereumjs/mpt
+npm install @synthesizer-libs/mpt
 ```
 
 ## Usage
@@ -32,7 +32,7 @@ It is best to select the variant that is most appropriate for your unique use ca
 ```ts
 // ./examples/basicUsage.ts
 
-import { createMPT } from '@ethereumjs/mpt'
+import { createMPT } from '@synthesizer-libs/mpt'
 import { MapDB, bytesToUtf8, utf8ToBytes } from '@ethereumjs/util'
 
 async function test() {
@@ -47,7 +47,7 @@ void test()
 
 ### WASM Crypto Support
 
-This library by default uses JavaScript implementations for the basic standard crypto primitives like hashing for keys. See `@ethereumjs/common` [README](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/common) for instructions on how to replace with e.g. a more performant WASM implementation by using a shared `common` instance.
+This library by default uses JavaScript implementations for the basic standard crypto primitives like hashing for keys. See `@synthesizer-libs/common` [README](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/common) for instructions on how to replace with e.g. a more performant WASM implementation by using a shared `common` instance.
 
 ### Use with Standalone Constructors
 
@@ -75,7 +75,7 @@ const otherProof = await createMerkleProof(someOtherTrie, k2)
 ```ts
 // ./examples/basicUsage.ts
 
-import { createMPT } from '@ethereumjs/mpt'
+import { createMPT } from '@synthesizer-libs/mpt'
 import { MapDB, bytesToUtf8, utf8ToBytes } from '@ethereumjs/util'
 
 async function test() {
@@ -104,7 +104,7 @@ import {
   createMPTFromProof,
   createMerkleProof,
   updateMPTFromMerkleProof,
-} from '@ethereumjs/mpt'
+} from '@synthesizer-libs/mpt'
 import { bytesToUtf8, utf8ToBytes } from '@ethereumjs/util'
 
 async function main() {
@@ -142,7 +142,7 @@ The new walk functionality can be used like the following:
 ```ts
 // ./examples/trieWalking.ts
 
-import { createMPT } from '@ethereumjs/mpt'
+import { createMPT } from '@synthesizer-libs/mpt'
 import { utf8ToBytes } from '@ethereumjs/util'
 
 async function main() {
@@ -193,7 +193,7 @@ You can enable persistence by setting the `useRootPersistence` option to `true` 
 ```ts
 // ./examples/rootPersistence.ts
 
-import { createMPT } from '@ethereumjs/mpt'
+import { createMPT } from '@synthesizer-libs/mpt'
 import { bytesToHex } from '@ethereumjs/util'
 
 async function main() {
@@ -427,8 +427,8 @@ See our organizational [documentation](https://ethereumjs.readthedocs.io) for an
 
 [discord-badge]: https://img.shields.io/static/v1?logo=discord&label=discord&message=Join&color=blue
 [discord-link]: https://discord.gg/TNwARpR
-[mpt-npm-badge]: https://img.shields.io/npm/v/@ethereumjs/mpt.svg
-[mpt-npm-link]: https://www.npmjs.com/package/@ethereumjs/mpt
+[mpt-npm-badge]: https://img.shields.io/npm/v/@synthesizer-libs/mpt.svg
+[mpt-npm-link]: https://www.npmjs.com/package/@synthesizer-libs/mpt
 [mpt-issues-badge]: https://img.shields.io/github/issues/ethereumjs/ethereumjs-monorepo/package:%20mpt?label=issues
 [mpt-issues-link]: https://github.com/ethereumjs/ethereumjs-monorepo/issues?q=is%3Aopen+is%3Aissue+label%3A"package%3A+mpt"
 [mpt-actions-badge]: https://github.com/ethereumjs/ethereumjs-monorepo/workflows/Trie/badge.svg

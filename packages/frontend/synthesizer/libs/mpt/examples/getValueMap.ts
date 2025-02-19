@@ -1,4 +1,4 @@
-import { createMPT } from '@ethereumjs/mpt'
+import { createMPT } from '@synthesizer-libs/mpt'
 import { bigIntToBytes, hexToBytes } from '@ethereumjs/util'
 
 const main = async () => {

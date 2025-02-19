@@ -3,7 +3,7 @@ import {
   createMPTFromProof,
   createMerkleProof,
   updateMPTFromMerkleProof,
-} from '@ethereumjs/mpt'
+} from '@synthesizer-libs/mpt'
 import { bytesToUtf8, utf8ToBytes } from '@ethereumjs/util'
 
 async function main() {

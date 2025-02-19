@@ -1,4 +1,4 @@
-import { createMPT } from '@ethereumjs/mpt'
+import { createMPT } from '@synthesizer-libs/mpt'
 import { utf8ToBytes } from '@ethereumjs/util'
 
 async function main() {

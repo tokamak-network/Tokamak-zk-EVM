@@ -1,4 +1,4 @@
-import { VerkleAccessedStateType } from '@ethereumjs/common/dist/esm/index.js'
+import { VerkleAccessedStateType } from '@synthesizer-libs/common'
 import {
   BIGINT_0,
   VERKLE_BASIC_DATA_LEAF_KEY,
@@ -21,7 +21,7 @@ import type {
   VerkleAccessWitnessInterface,
   VerkleAccessedState,
   VerkleAccessedStateWithAddress,
-} from '@ethereumjs/common/dist/esm/index.js'
+} from '@synthesizer-libs/common'
 import type { Address, PrefixedHexString, VerkleCrypto } from '@ethereumjs/util'
 
 const debug = debugDefault('statemanager:verkle:aw')

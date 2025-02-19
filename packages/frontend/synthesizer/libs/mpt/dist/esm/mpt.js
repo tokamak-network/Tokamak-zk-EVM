@@ -11,7 +11,7 @@ import { _walkTrie } from './util/asyncWalk.js';
 import { bytesToNibbles, matchingNibbleLength, nibblesTypeToPackedBytes } from './util/nibbles.js';
 import { WalkController } from './util/walkController.js';
 /**
- * The basic trie interface, use with `import { MerklePatriciaTrie } from '@ethereumjs/mpt'`.
+ * The basic trie interface, use with `import { MerklePatriciaTrie } from '@synthesizer-libs/mpt'`.
  */
 export class MerklePatriciaTrie {
     /**

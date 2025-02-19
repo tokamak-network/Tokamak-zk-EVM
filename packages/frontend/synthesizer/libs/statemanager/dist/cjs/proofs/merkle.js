@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyMerkleStateProof = exports.addMerkleStateProofData = exports.fromMerkleStateProof = exports.addMerkleStateStorageProof = exports.getMerkleStateProof = void 0;
-const mpt_1 = require("@ethereumjs/mpt");
+const mpt_1 = require("@synthesizer-libs/mpt");
 const rlp_1 = require("@ethereumjs/rlp");
 const util_1 = require("@ethereumjs/util");
 const merkleStateManager_js_1 = require("../merkleStateManager.js");

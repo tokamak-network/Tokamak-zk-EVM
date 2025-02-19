@@ -10,7 +10,7 @@ export class LMDB implements DB {
     this._path = path
     this._database = open({
       compression: true,
-      name: '@ethereumjs/mpt',
+      name: '@synthesizer-libs/mpt',
       path,
     })
   }

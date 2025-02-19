@@ -1,6 +1,6 @@
 import { MerkleStateManager } from '../merkleStateManager.js';
 import type { MerkleStateManagerOpts } from '../index.js';
-import type { Proof, StorageProof } from '@ethereumjs/common';
+import type { Proof, StorageProof } from '@synthesizer-libs/common';
 import type { Address, PrefixedHexString } from '@ethereumjs/util';
 /**
  * Get an EIP-1186 proof

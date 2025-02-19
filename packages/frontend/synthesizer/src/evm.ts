@@ -1,4 +1,4 @@
-import { Hardfork } from '@ethereumjs/common/dist/esm/index.js'
+import { Hardfork } from '@synthesizer-libs/common'
 import {
   Account,
   Address,
@@ -52,7 +52,7 @@ import type { MessageWithTo } from './message.js'
 import type { AsyncDynamicGasHandler, SyncDynamicGasHandler } from './opcodes/gas.js'
 import type { OpHandler, OpcodeList, OpcodeMap } from './opcodes/index.js'
 import type { CustomPrecompile, PrecompileFunc } from './precompiles/index.js'
-import type { Common, StateManagerInterface } from '@ethereumjs/common/dist/esm/index.js'
+import type { Common, StateManagerInterface } from '@synthesizer-libs/common'
 
 const debug = debugDefault('evm:evm')
 const debugGas = debugDefault('evm:gas')

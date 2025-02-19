@@ -1,4 +1,4 @@
-import { MerklePatriciaTrie } from '@ethereumjs/mpt'
+import { MerklePatriciaTrie } from '@synthesizer-libs/mpt'
 import { KeyEncoding, ValueEncoding } from '@ethereumjs/util'
 import { Level } from 'level'
 import { MemoryLevel } from 'memory-level'

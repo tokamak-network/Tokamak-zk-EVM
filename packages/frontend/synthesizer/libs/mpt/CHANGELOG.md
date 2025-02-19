@@ -51,7 +51,7 @@ Also note that along with this release round there is additional higher level pr
 
 With this release round there is a new way to replace the native JS crypto primitives used within the EthereumJS ecosystem by custom/other implementations in a controlled fashion, see PR [#3192](https://github.com/ethereumjs/ethereumjs-monorepo/pull/3192).
 
-This can e.g. be used to replace time-consuming primitives like the commonly used `keccak256` hash function with a more performant WASM based implementation, see `@ethereumjs/common` [README](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/common) for some detailed guidance on how to use.
+This can e.g. be used to replace time-consuming primitives like the commonly used `keccak256` hash function with a more performant WASM based implementation, see `@synthesizer-libs/common` [README](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/common) for some detailed guidance on how to use.
 
 ### Self-Contained (and Working 🙂) README Examples
 
@@ -162,14 +162,14 @@ Both builds have respective separate entrypoints in the distributed `package.jso
 A CommonJS import of our libraries can then be done like this:
 
 ```ts
-const { Chain, Common } = require('@ethereumjs/common')
+const { Chain, Common } = require('@synthesizer-libs/common')
 const common = new Common({ chain: Chain.Mainnet })
 ```
 
 And this is how an ESM import looks like:
 
 ```ts
-import { Chain, Common } from '@ethereumjs/common'
+import { Chain, Common } from '@synthesizer-libs/common'
 const common = new Common({ chain: Chain.Mainnet })
 ```
 

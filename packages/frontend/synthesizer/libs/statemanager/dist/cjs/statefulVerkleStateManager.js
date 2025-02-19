@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StatefulVerkleStateManager = void 0;
-const common_1 = require("@ethereumjs/common");
+const common_1 = require("@synthesizer-libs/common");
 const rlp_1 = require("@ethereumjs/rlp");
 const util_1 = require("@ethereumjs/util");
 const verkle_1 = require("@ethereumjs/verkle");
