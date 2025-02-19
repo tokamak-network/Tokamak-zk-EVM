@@ -1,4 +1,4 @@
-import { bytesToHex, computeVersionedHash, getBlobs } from "@ethereumjs/util"
+import { bytesToHex, computeVersionedHash, getBlobs } from "@synthesizer-libs/util"
 
 const blobs = getBlobs('test input')
 

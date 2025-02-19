@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VerkleTree = void 0;
-const util_1 = require("@ethereumjs/util");
+const util_1 = require("@synthesizer-libs/util");
 const debug_1 = require("debug");
 const checkpoint_js_1 = require("./db/checkpoint.js");
 const internalNode_js_1 = require("./node/internalNode.js");
@@ -10,7 +10,7 @@ const types_js_1 = require("./node/types.js");
 const util_js_1 = require("./node/util.js");
 const types_js_2 = require("./types.js");
 /**
- * The basic verkle tree interface, use with `import { VerkleTree } from '@ethereumjs/verkle'`.
+ * The basic verkle tree interface, use with `import { VerkleTree } from '@synthesizer-libs/verkle'`.
  */
 class VerkleTree {
     /**

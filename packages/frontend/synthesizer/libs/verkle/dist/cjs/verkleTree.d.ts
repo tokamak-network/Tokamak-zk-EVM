@@ -1,10 +1,10 @@
-import { Lock } from '@ethereumjs/util';
+import { Lock } from '@synthesizer-libs/util';
 import { CheckpointDB } from './db/checkpoint.js';
 import { InternalVerkleNode } from './node/internalNode.js';
 import { LeafVerkleNode } from './node/leafNode.js';
 import { LeafVerkleNodeValue, type VerkleNode } from './node/types.js';
 import { type Proof, type VerkleTreeOpts } from './types.js';
-import type { VerkleCrypto } from '@ethereumjs/util';
+import type { VerkleCrypto } from '@synthesizer-libs/util';
 import type { Debugger } from 'debug';
 interface Path {
     node: VerkleNode | null;
@@ -12,7 +12,7 @@ interface Path {
     stack: Array<[VerkleNode, Uint8Array]>;
 }
 /**
- * The basic verkle tree interface, use with `import { VerkleTree } from '@ethereumjs/verkle'`.
+ * The basic verkle tree interface, use with `import { VerkleTree } from '@synthesizer-libs/verkle'`.
  */
 export declare class VerkleTree {
     _opts: VerkleTreeOpts;

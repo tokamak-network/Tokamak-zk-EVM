@@ -1,4 +1,4 @@
-import {  Address, hexToBytes } from '@ethereumjs/util';
+import {  Address, hexToBytes } from '@synthesizer-libs/util';
 import { keccak256 } from 'ethereum-cryptography/keccak'
 import { EVM } from '../evm.js';
 

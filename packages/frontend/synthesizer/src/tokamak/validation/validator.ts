@@ -1,4 +1,4 @@
-import { bytesToBigInt } from "@ethereumjs/util"
+import { bytesToBigInt } from "@synthesizer-libs/util"
 
 import { InvalidInputCountError, UndefinedSubcircuitError } from './errors.js'
 

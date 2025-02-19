@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / DelBatch
+[@synthesizer-libs/util](../README.md) / DelBatch
 
 # Interface: DelBatch<TKey\>
 

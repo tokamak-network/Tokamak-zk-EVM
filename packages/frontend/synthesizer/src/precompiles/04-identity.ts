@@ -1,4 +1,4 @@
-import { short } from "@ethereumjs/util"
+import { short } from "@synthesizer-libs/util"
 
 import { OOGResult } from '../evm.js'
 

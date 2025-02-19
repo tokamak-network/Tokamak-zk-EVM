@@ -1,4 +1,4 @@
-# @ethereumjs/util
+# @synthesizer-libs/util
 
 [![NPM Package][util-npm-badge]][util-npm-link]
 [![GitHub Issues][util-issues-badge]][util-issues-link]
@@ -14,7 +14,7 @@
 To obtain the latest version, simply require the project using `npm`:
 
 ```shell
-npm install @ethereumjs/util
+npm install @synthesizer-libs/util
 ```
 
 ## Usage
@@ -24,7 +24,7 @@ This package contains the following modules providing respective helper methods,
 All helpers are re-exported from the root level and deep imports are not necessary. So an import can be done like this:
 
 ```ts
-import { hexToBytes, isValidChecksumAddress } from "@ethereumjs/util/index.js"
+import { hexToBytes, isValidChecksumAddress } from "@synthesizer-libs/util/index.js"
 ```
 
 ### Module: [account](src/account.ts)
@@ -34,7 +34,7 @@ Class representing an `Account` and providing private/public key and address-rel
 ```ts
 // ./examples/account.ts
 
-import { createAccount } from "@ethereumjs/util/index.js"
+import { createAccount } from "@synthesizer-libs/util/index.js"
 
 const account = createAccount({
   nonce: '0x02',
@@ -50,7 +50,7 @@ For Verkle or other contexts it can be useful to create partial accounts not con
 ```ts
 // ./examples/accountPartial.ts
 
-import { createPartialAccount } from "@ethereumjs/util/index.js"
+import { createPartialAccount } from "@synthesizer-libs/util/index.js"
 
 const account = createPartialAccount({
   nonce: '0x02',
@@ -66,7 +66,7 @@ Class representing an Ethereum `Address` with instantiation helpers and validati
 ```ts
 // ./examples/address.ts
 
-import { createAddressFromString } from "@ethereumjs/util/index.js"
+import { createAddressFromString } from "@synthesizer-libs/util/index.js"
 
 const address = createAddressFromString('0x2f015c60e0be116b1f0cd534704db9c92118fb6a')
 console.log(`Ethereum address ${address.toString()} created`)
@@ -79,7 +79,7 @@ Module providing helpers for 4844 blobs and versioned hashes.
 ```ts
 // ./examples/blobs.ts
 
-import { bytesToHex, computeVersionedHash, getBlobs } from "@ethereumjs/util/index.js"
+import { bytesToHex, computeVersionedHash, getBlobs } from "@synthesizer-libs/util/index.js"
 
 const blobs = getBlobs('test input')
 
@@ -100,7 +100,7 @@ Byte-related helper and conversion functions.
 ```ts
 // ./examples/bytes.ts
 
-import { bytesToBigInt } from "@ethereumjs/util/index.js"
+import { bytesToBigInt } from "@synthesizer-libs/util/index.js"
 
 const bytesValue = new Uint8Array([97])
 const bigIntValue = bytesToBigInt(bytesValue)
@@ -115,7 +115,7 @@ Exposed constants (e.g. `KECCAK256_NULL_S` for string representation of Keccak-2
 ```ts
 // ./examples/constants.ts
 
-import { BIGINT_2EXP96, KECCAK256_NULL_S } from "@ethereumjs/util/index.js"
+import { BIGINT_2EXP96, KECCAK256_NULL_S } from "@synthesizer-libs/util/index.js"
 
 console.log(`The keccak-256 hash of null: ${KECCAK256_NULL_S}`)
 console.log(`BigInt constants (performance), e.g. BIGINT_2EXP96: ${BIGINT_2EXP96}`)
@@ -158,7 +158,7 @@ Functionality for signing, signature validation, conversion, recovery.
 ```ts
 // ./examples/signature.ts
 
-import { bytesToHex, ecrecover, hexToBytes } from "@ethereumjs/util/index.js"
+import { bytesToHex, ecrecover, hexToBytes } from "@synthesizer-libs/util/index.js"
 
 const chainId = BigInt(3) // Ropsten
 
@@ -189,7 +189,7 @@ import {
   decodeVerkleLeafBasicData,
   getVerkleKey,
   hexToBytes,
-} from "@ethereumjs/util/index.js"
+} from "@synthesizer-libs/util/index.js"
 
 const state = {
   '0xdf67dea9181141d6255ac05c7ada5a590fb30a375023f16c31223f067319e300':
@@ -219,7 +219,7 @@ Class representing an `EIP-4895` `Withdrawal` with different constructors as wel
 ```ts
 // ./examples/withdrawal.ts
 
-import { createWithdrawal } from "@ethereumjs/util/index.js"
+import { createWithdrawal } from "@synthesizer-libs/util/index.js"
 
 const withdrawal = createWithdrawal({
   index: 0n,
@@ -248,7 +248,7 @@ Read the [API docs](docs/).
 
 Depending on the extend of `Buffer` usage within your own libraries and other planning considerations, there are the two upgrade options to do the switch to `Uint8Array` yourself or keep `Buffer` and do transitions for input and output values.
 
-We have updated the `@ethereumjs/util` `bytes` module with helpers for the most common conversions:
+We have updated the `@synthesizer-libs/util` `bytes` module with helpers for the most common conversions:
 
 ```ts
 Buffer.alloc(97) // Allocate a Buffer with length 97
@@ -277,7 +277,7 @@ toBytes(v: ToBytesInputTypes) // Converts various byte compatible types to Uint8
 Helper methods can be imported like this:
 
 ```ts
-import { hexToBytes } from "@ethereumjs/util/index.js"
+import { hexToBytes } from "@synthesizer-libs/util/index.js"
 ```
 
 ### Hybrid CJS/ESM Builds
@@ -302,7 +302,7 @@ Using ESM will give you additional advantages over CJS beyond browser usage like
 
 With the breaking releases from Summer 2023 we have removed all Node.js specific `Buffer` usages from our libraries and replace these with [Uint8Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array) representations, which are available both in Node.js and the browser (`Buffer` is a subclass of `Uint8Array`).
 
-We have converted existing Buffer conversion methods to Uint8Array conversion methods in the [@ethereumjs/util](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/util) `bytes` module, see the respective README section for guidance.
+We have converted existing Buffer conversion methods to Uint8Array conversion methods in the [@synthesizer-libs/util](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/util) `bytes` module, see the respective README section for guidance.
 
 ### BigInt Support
 
@@ -329,7 +329,7 @@ The following methods are available by an internalized version of the [ethjs-uti
 They can be imported by name:
 
 ```ts
-import { stripHexPrefix } from "@ethereumjs/util/index.js"
+import { stripHexPrefix } from "@synthesizer-libs/util/index.js"
 ```
 
 ## EthereumJS
@@ -340,8 +340,8 @@ See our organizational [documentation](https://ethereumjs.readthedocs.io) for an
 
 [MPL-2.0](<https://tldrlegal.com/license/mozilla-public-license-2.0-(mpl-2)>)
 
-[util-npm-badge]: https://img.shields.io/npm/v/@ethereumjs/util.svg
-[util-npm-link]: https://www.npmjs.org/package/@ethereumjs/util
+[util-npm-badge]: https://img.shields.io/npm/v/@synthesizer-libs/util.svg
+[util-npm-link]: https://www.npmjs.org/package/@synthesizer-libs/util
 [util-issues-badge]: https://img.shields.io/github/issues/ethereumjs/ethereumjs-monorepo/package:%20util?label=issues
 [util-issues-link]: https://github.com/ethereumjs/ethereumjs-monorepo/issues?q=is%3Aopen+is%3Aissue+label%3A"package%3A+util"
 [util-actions-badge]: https://github.com/ethereumjs/ethereumjs-monorepo/workflows/Util/badge.svg

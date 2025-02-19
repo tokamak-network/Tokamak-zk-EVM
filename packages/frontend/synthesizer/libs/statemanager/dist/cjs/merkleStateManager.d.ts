@@ -1,11 +1,11 @@
 import { Common } from '@synthesizer-libs/common';
 import { MerklePatriciaTrie } from '@synthesizer-libs/mpt';
-import { Account } from '@ethereumjs/util';
+import { Account } from '@synthesizer-libs/util';
 import { OriginalStorageCache } from './cache/index.js';
 import { type MerkleStateManagerOpts } from './index.js';
 import type { Caches } from './index.js';
 import type { AccountFields, StateManagerInterface, StorageDump, StorageRange } from '@synthesizer-libs/common';
-import type { Address, DB } from '@ethereumjs/util';
+import type { Address, DB } from '@synthesizer-libs/util';
 import type { Debugger } from 'debug';
 /**
  * Prefix to distinguish between a contract deployed with code `0x80`
@@ -27,7 +27,7 @@ export declare const CODEHASH_PREFIX: Uint8Array;
  * `@synthesizer-libs/mpt` trie as a data backend.
  *
  * Note that there is a `SimpleStateManager` dependency-free state
- * manager implementation available shipped with the `@ethereumjs/statemanager`
+ * manager implementation available shipped with the `@synthesizer-libs/statemanager`
  * package which might be an alternative to this implementation
  * for many basic use cases.
  */

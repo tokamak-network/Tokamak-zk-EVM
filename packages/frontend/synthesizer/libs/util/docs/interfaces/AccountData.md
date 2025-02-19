@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / AccountData
+[@synthesizer-libs/util](../README.md) / AccountData
 
 # Interface: AccountData
 

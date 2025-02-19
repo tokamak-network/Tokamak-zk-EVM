@@ -1,4 +1,4 @@
-import { Lock, bytesToHex, equalsBytes, intToHex, matchingBytesLength } from '@ethereumjs/util';
+import { Lock, bytesToHex, equalsBytes, intToHex, matchingBytesLength } from '@synthesizer-libs/util';
 import debug from 'debug';
 import { CheckpointDB } from './db/checkpoint.js';
 import { InternalVerkleNode } from './node/internalNode.js';
@@ -7,7 +7,7 @@ import { LeafVerkleNodeValue } from './node/types.js';
 import { createZeroesLeafValue, decodeVerkleNode, isLeafVerkleNode } from './node/util.js';
 import { ROOT_DB_KEY } from './types.js';
 /**
- * The basic verkle tree interface, use with `import { VerkleTree } from '@ethereumjs/verkle'`.
+ * The basic verkle tree interface, use with `import { VerkleTree } from '@synthesizer-libs/verkle'`.
  */
 export class VerkleTree {
     /**

@@ -1,4 +1,4 @@
-import { KeyEncoding, MapDB, ValueEncoding } from '@ethereumjs/util';
+import { KeyEncoding, MapDB, ValueEncoding } from '@synthesizer-libs/util';
 import { loadVerkleCrypto } from 'verkle-cryptography-wasm';
 import { ROOT_DB_KEY } from './types.js';
 import { VerkleTree } from './verkleTree.js';

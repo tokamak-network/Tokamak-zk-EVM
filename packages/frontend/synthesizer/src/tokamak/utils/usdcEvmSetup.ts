@@ -1,5 +1,5 @@
 import { keccak256 } from 'ethereum-cryptography/keccak'
-import { hexToBytes, Address, Account } from '@ethereumjs/util';
+import { hexToBytes, Address, Account } from '@synthesizer-libs/util';
 import { EVM } from '../../evm.js';
 
 interface StorageItem {

@@ -1,4 +1,4 @@
-import { equalsBytes } from "@ethereumjs/util"
+import { equalsBytes } from "@synthesizer-libs/util"
 
 import { ERROR } from '../exceptions.js'
 

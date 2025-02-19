@@ -4,7 +4,7 @@ import {
   computeVersionedHash,
   concatBytes,
   setLengthLeft,
-} from "@ethereumjs/util"
+} from "@synthesizer-libs/util"
 
 import { EvmErrorResult, OOGResult } from '../evm.js'
 import { ERROR, EvmError } from '../exceptions.js'

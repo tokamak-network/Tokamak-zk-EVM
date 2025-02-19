@@ -1,4 +1,4 @@
-import { Account, bytesToHex } from '@ethereumjs/util';
+import { Account, bytesToHex } from '@synthesizer-libs/util';
 import { keccak256 } from 'ethereum-cryptography/keccak.js';
 import { OriginalStorageCache } from './cache/originalStorageCache.js';
 import { modifyAccountFields } from './util.js';
@@ -15,7 +15,7 @@ import { modifyAccountFields } from './util.js';
  * cases and the state manager is used as default there.
  *
  * For a more full fledged and MPT-backed state manager implementation
- * have a look at the `@ethereumjs/statemanager` package.
+ * have a look at the `@synthesizer-libs/statemanager` package.
  */
 export class SimpleStateManager {
     constructor(opts = {}) {

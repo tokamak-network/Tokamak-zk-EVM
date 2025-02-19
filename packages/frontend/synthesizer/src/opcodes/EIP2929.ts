@@ -1,4 +1,4 @@
-import { BIGINT_0 } from "@ethereumjs/util"
+import { BIGINT_0 } from "@synthesizer-libs/util"
 
 import type { RunState } from '../interpreter.js'
 import type { Common } from '@synthesizer-libs/common'

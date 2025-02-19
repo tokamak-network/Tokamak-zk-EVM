@@ -2,7 +2,7 @@ import { OrderedMap } from '@js-sdsl/ordered-map';
 import { LRUCache } from 'lru-cache';
 import { Cache } from './cache.js';
 import type { CacheOpts } from './types.js';
-import type { Address } from '@ethereumjs/util';
+import type { Address } from '@synthesizer-libs/util';
 /**
  * key -> storage mapping
  *

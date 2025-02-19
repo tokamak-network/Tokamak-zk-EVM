@@ -1,6 +1,6 @@
-@ethereumjs/util
+@synthesizer-libs/util
 
-# @ethereumjs/util
+# @synthesizer-libs/util
 
 ## Table of contents
 

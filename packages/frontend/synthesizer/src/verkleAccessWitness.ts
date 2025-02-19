@@ -12,7 +12,7 @@ import {
   getVerkleStem,
   getVerkleTreeIndicesForCodeChunk,
   intToBytes,
-} from "@ethereumjs/util"
+} from "@synthesizer-libs/util"
 import debugDefault from 'debug'
 
 import type {
@@ -22,7 +22,7 @@ import type {
   VerkleAccessedState,
   VerkleAccessedStateWithAddress,
 } from '@synthesizer-libs/common'
-import type { Address, PrefixedHexString, VerkleCrypto } from '@ethereumjs/util'
+import type { Address, PrefixedHexString, VerkleCrypto } from '@synthesizer-libs/util'
 
 const debug = debugDefault('statemanager:verkle:aw')
 

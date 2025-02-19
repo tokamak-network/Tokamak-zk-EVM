@@ -1,4 +1,4 @@
-import { MapDB, equalsBytes, hexToBytes, matchingBytesLength } from '@ethereumjs/util'
+import { MapDB, equalsBytes, hexToBytes, matchingBytesLength } from '@synthesizer-libs/util'
 import { loadVerkleCrypto } from 'verkle-cryptography-wasm'
 import { assert, beforeAll, describe, it } from 'vitest'
 
@@ -12,7 +12,7 @@ import {
 } from '../src/index.js'
 
 import type { VerkleNode } from '../src/index.js'
-import type { PrefixedHexString, VerkleCrypto } from '@ethereumjs/util'
+import type { PrefixedHexString, VerkleCrypto } from '@synthesizer-libs/util'
 
 describe('Verkle tree', () => {
   let verkleCrypto: VerkleCrypto

@@ -1,5 +1,5 @@
 import { Hardfork } from '@synthesizer-libs/common'
-import { type Address, bytesToUnprefixedHex } from "@ethereumjs/util"
+import { type Address, bytesToUnprefixedHex } from "@synthesizer-libs/util"
 
 import { precompile01 } from './01-ecrecover.js'
 import { precompile02 } from './02-sha256.js'

@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / KeyEncoding
+[@synthesizer-libs/util](../README.md) / KeyEncoding
 
 # Enumeration: KeyEncoding
 

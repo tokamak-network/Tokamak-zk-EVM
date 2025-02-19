@@ -1,6 +1,6 @@
 import type { Proof } from '../index.js';
 import type { StatelessVerkleStateManager } from '../statelessVerkleStateManager.js';
-import type { Address } from '@ethereumjs/util';
+import type { Address } from '@synthesizer-libs/util';
 export declare function getVerkleStateProof(sm: StatelessVerkleStateManager, _: Address, __?: Uint8Array[]): Promise<Proof>;
 /**
  * Verifies whether the execution witness matches the stateRoot

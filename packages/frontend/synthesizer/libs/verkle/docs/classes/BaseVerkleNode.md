@@ -1,4 +1,4 @@
-[@ethereumjs/verkle](../README.md) / BaseVerkleNode
+[@synthesizer-libs/verkle](../README.md) / BaseVerkleNode
 
 # Class: BaseVerkleNode<T\>
 

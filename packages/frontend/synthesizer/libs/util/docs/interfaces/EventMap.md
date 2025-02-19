@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / EventMap
+[@synthesizer-libs/util](../README.md) / EventMap
 
 # Interface: EventMap
 

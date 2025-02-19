@@ -1,4 +1,4 @@
-import { createWithdrawal } from "@ethereumjs/util"
+import { createWithdrawal } from "@synthesizer-libs/util"
 
 const withdrawal = createWithdrawal({
   index: 0n,

@@ -1,4 +1,4 @@
-import { createPartialAccount } from "@ethereumjs/util"
+import { createPartialAccount } from "@synthesizer-libs/util"
 
 const account = createPartialAccount({
   nonce: '0x02',

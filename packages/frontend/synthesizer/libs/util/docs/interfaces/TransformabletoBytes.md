@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / TransformabletoBytes
+[@synthesizer-libs/util](../README.md) / TransformabletoBytes
 
 # Interface: TransformabletoBytes
 

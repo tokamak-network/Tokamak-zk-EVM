@@ -14,7 +14,7 @@ import {
   generateAddress,
   generateAddress2,
   short,
-} from "@ethereumjs/util"
+} from "@synthesizer-libs/util"
 import debugDefault from 'debug'
 import { EventEmitter } from 'eventemitter3'
 

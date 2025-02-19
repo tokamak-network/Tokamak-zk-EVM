@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createVerkleTree = void 0;
-const util_1 = require("@ethereumjs/util");
+const util_1 = require("@synthesizer-libs/util");
 const verkle_cryptography_wasm_1 = require("verkle-cryptography-wasm");
 const types_js_1 = require("./types.js");
 const verkleTree_js_1 = require("./verkleTree.js");

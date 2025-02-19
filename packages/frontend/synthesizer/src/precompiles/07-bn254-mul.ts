@@ -1,4 +1,4 @@
-import { bytesToHex, setLengthRight } from "@ethereumjs/util"
+import { bytesToHex, setLengthRight } from "@synthesizer-libs/util"
 
 import { EvmErrorResult, OOGResult } from '../evm.js'
 

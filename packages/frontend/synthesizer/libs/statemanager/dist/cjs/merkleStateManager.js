@@ -4,7 +4,7 @@ exports.MerkleStateManager = exports.CODEHASH_PREFIX = void 0;
 const common_1 = require("@synthesizer-libs/common");
 const mpt_1 = require("@synthesizer-libs/mpt");
 const rlp_1 = require("@ethereumjs/rlp");
-const util_1 = require("@ethereumjs/util");
+const util_1 = require("@synthesizer-libs/util");
 const debug_1 = require("debug");
 const keccak_js_1 = require("ethereum-cryptography/keccak.js");
 const index_js_1 = require("./cache/index.js");
@@ -29,7 +29,7 @@ exports.CODEHASH_PREFIX = (0, util_1.utf8ToBytes)('c');
  * `@synthesizer-libs/mpt` trie as a data backend.
  *
  * Note that there is a `SimpleStateManager` dependency-free state
- * manager implementation available shipped with the `@ethereumjs/statemanager`
+ * manager implementation available shipped with the `@synthesizer-libs/statemanager`
  * package which might be an alternative to this implementation
  * for many basic use cases.
  */

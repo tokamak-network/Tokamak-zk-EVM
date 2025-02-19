@@ -1,4 +1,4 @@
-import { bytesToBigInt } from "@ethereumjs/util"
+import { bytesToBigInt } from "@synthesizer-libs/util"
 
 const bytesValue = new Uint8Array([97])
 const bigIntValue = bytesToBigInt(bytesValue)

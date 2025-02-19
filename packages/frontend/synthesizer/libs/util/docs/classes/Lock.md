@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / Lock
+[@synthesizer-libs/util](../README.md) / Lock
 
 # Class: Lock
 

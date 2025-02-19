@@ -6,12 +6,12 @@ import {
   bytesToUnprefixedHex,
   stripHexPrefix,
   unprefixedHexToBytes,
-} from "@ethereumjs/util"
+} from "@synthesizer-libs/util"
 import debugDefault from 'debug'
 import { hexToBytes } from 'ethereum-cryptography/utils'
 
 import type { Common, StateManagerInterface } from '@synthesizer-libs/common'
-import type { Account, PrefixedHexString } from "@ethereumjs/util"
+import type { Account, PrefixedHexString } from "@synthesizer-libs/util"
 import type { Debugger } from 'debug'
 
 type AddressString = string

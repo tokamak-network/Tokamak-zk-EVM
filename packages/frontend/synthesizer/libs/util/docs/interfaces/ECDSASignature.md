@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / ECDSASignature
+[@synthesizer-libs/util](../README.md) / ECDSASignature
 
 # Interface: ECDSASignature
 

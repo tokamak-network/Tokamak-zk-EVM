@@ -1,4 +1,4 @@
-import { equalsBytes } from "@ethereumjs/util"
+import { equalsBytes } from "@synthesizer-libs/util"
 
 import type { RunState } from '../interpreter.js'
 import type { Common } from '@synthesizer-libs/common'

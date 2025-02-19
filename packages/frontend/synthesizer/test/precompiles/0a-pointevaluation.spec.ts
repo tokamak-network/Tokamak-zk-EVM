@@ -5,7 +5,7 @@ import {
   concatBytes,
   hexToBytes,
   unpadBytes,
-} from "@ethereumjs/util"
+} from "@synthesizer-libs/util"
 import { trustedSetup } from '@paulmillr/trusted-setups/fast.js'
 import { KZG as microEthKZG } from 'micro-eth-signer/kzg'
 import { assert, describe, it } from 'vitest'
@@ -13,7 +13,7 @@ import { assert, describe, it } from 'vitest'
 import { createEVM, getActivePrecompiles } from '../../src/index.js'
 
 import type { PrecompileInput } from '../../src/index.js'
-import type { PrefixedHexString } from "@ethereumjs/util"
+import type { PrefixedHexString } from "@synthesizer-libs/util"
 const kzg = new microEthKZG(trustedSetup)
 const BLS_MODULUS = BigInt(
   '52435875175126190479447740508185965837690552500527637822603658699938581184513',

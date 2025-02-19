@@ -1,18 +1,15 @@
 {
-  "name": "@ethereumjs/statemanager",
-  "version": "2.4.0",
+  "name": "@synthesizer-libs/statemanager",
+  "version": "0.0.2",
   "description": "An Ethereum statemanager implementation",
   "keywords": [
     "ethereum",
     "statemanager"
   ],
-  "homepage": "https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/statemanager#readme",
-  "bugs": {
-    "url": "https://github.com/ethereumjs/ethereumjs-monorepo/issues?q=is%3Aissue+label%3A%22package%3A+statemanager%22"
-  },
+  "homepage": "https://github.com/tokamak-network/Tokamak-zk-EVM/tree/ale-75/packages/frontend/synthesizer/libs/statemanager#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ethereumjs/ethereumjs-monorepo.git"
+    "url": "https://github.com/tokamak-network/Tokamak-zk-EVM/tree/ale-75/packages/frontend/synthesizer/libs/statemanager"
   },
   "license": "MPL-2.0",
   "author": "EthereumJS Team",
@@ -43,18 +40,17 @@
     "lint": "../../config/cli/lint.sh",
     "lint:diff": "../../config/cli/lint-diff.sh",
     "lint:fix": "../../config/cli/lint-fix.sh",
-    "prepublishOnly": "../../config/cli/prepublish.sh && npm run test:node",
     "test": "npm run test:node && npm run test:browser",
     "test:browser": "npx vitest run --config=./vitest.config.browser.mts",
     "test:node": "npx vitest run",
     "tsc": "../../config/cli/ts-compile.sh"
   },
   "dependencies": {
-    "@ethereumjs/common": "^4.4.0",
+    "@synthesizer-libs/common": "^0.0.2",
     "@ethereumjs/rlp": "^5.0.2",
-    "@ethereumjs/mpt": "^6.2.2",
-    "@ethereumjs/util": "^9.1.0",
-    "@ethereumjs/verkle": "^0.1.0",
+    "@synthesizer-libs/mpt": "^0.0.1",
+    "@synthesizer-libs/util": "^0.0.1",
+    "@synthesizer-libs/verkle": "^0.0.2",
     "@js-sdsl/ordered-map": "^4.4.2",
     "debug": "^4.3.3",
     "ethereum-cryptography": "^3.0.0",

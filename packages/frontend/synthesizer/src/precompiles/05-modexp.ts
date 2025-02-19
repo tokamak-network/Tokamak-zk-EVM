@@ -12,7 +12,7 @@ import {
   bytesToHex,
   setLengthLeft,
   setLengthRight,
-} from "@ethereumjs/util"
+} from "@synthesizer-libs/util"
 
 import { OOGResult } from '../evm.js'
 
@@ -32,7 +32,7 @@ const BIGINT_3072 = BigInt(3072)
 const BIGINT_199680 = BigInt(199680)
 
 const maxInt = BigInt(Number.MAX_SAFE_INTEGER)
-const maxSize = BigInt(2147483647) // @ethereumjs/util setLengthRight limitation
+const maxSize = BigInt(2147483647) // @synthesizer-libs/util setLengthRight limitation
 
 function multiplicationComplexity(x: bigint): bigint {
   let fac1

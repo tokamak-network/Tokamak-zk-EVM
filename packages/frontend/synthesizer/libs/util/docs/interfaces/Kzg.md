@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / Kzg
+[@synthesizer-libs/util](../README.md) / Kzg
 
 # Interface: Kzg
 

@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SimpleStateManager = void 0;
-const util_1 = require("@ethereumjs/util");
+const util_1 = require("@synthesizer-libs/util");
 const keccak_js_1 = require("ethereum-cryptography/keccak.js");
 const originalStorageCache_js_1 = require("./cache/originalStorageCache.js");
 const util_js_1 = require("./util.js");
@@ -18,7 +18,7 @@ const util_js_1 = require("./util.js");
  * cases and the state manager is used as default there.
  *
  * For a more full fledged and MPT-backed state manager implementation
- * have a look at the `@ethereumjs/statemanager` package.
+ * have a look at the `@synthesizer-libs/statemanager` package.
  */
 class SimpleStateManager {
     constructor(opts = {}) {

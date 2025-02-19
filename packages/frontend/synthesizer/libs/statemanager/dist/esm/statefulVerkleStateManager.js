@@ -1,7 +1,7 @@
 import { Common, Mainnet, VerkleAccessedStateType } from '@synthesizer-libs/common';
 import { RLP } from '@ethereumjs/rlp';
-import { Account, KECCAK256_NULL, MapDB, VERKLE_CODE_CHUNK_SIZE, VERKLE_CODE_OFFSET, VERKLE_NODE_WIDTH, VerkleLeafType, bigIntToBytes, bytesToBigInt, bytesToHex, chunkifyCode, createAddressFromString, createPartialAccount, createPartialAccountFromRLP, decodeVerkleLeafBasicData, encodeVerkleLeafBasicData, equalsBytes, generateChunkSuffixes, generateCodeStems, getVerkleStem, getVerkleTreeKeyForStorageSlot, hexToBytes, padToEven, setLengthLeft, setLengthRight, short, unpadBytes, unprefixedHexToBytes, } from '@ethereumjs/util';
-import { LeafVerkleNodeValue, VerkleTree } from '@ethereumjs/verkle';
+import { Account, KECCAK256_NULL, MapDB, VERKLE_CODE_CHUNK_SIZE, VERKLE_CODE_OFFSET, VERKLE_NODE_WIDTH, VerkleLeafType, bigIntToBytes, bytesToBigInt, bytesToHex, chunkifyCode, createAddressFromString, createPartialAccount, createPartialAccountFromRLP, decodeVerkleLeafBasicData, encodeVerkleLeafBasicData, equalsBytes, generateChunkSuffixes, generateCodeStems, getVerkleStem, getVerkleTreeKeyForStorageSlot, hexToBytes, padToEven, setLengthLeft, setLengthRight, short, unpadBytes, unprefixedHexToBytes, } from '@synthesizer-libs/util';
+import { LeafVerkleNodeValue, VerkleTree } from '@synthesizer-libs/verkle';
 import debugDefault from 'debug';
 import { keccak256 } from 'ethereum-cryptography/keccak.js';
 import { OriginalStorageCache } from './cache/originalStorageCache.js';

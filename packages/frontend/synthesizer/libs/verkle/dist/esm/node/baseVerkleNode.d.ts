@@ -1,5 +1,5 @@
 import { type VerkleNodeInterface, type VerkleNodeOptions, type VerkleNodeType } from './types.js';
-import type { VerkleCrypto } from '@ethereumjs/util';
+import type { VerkleCrypto } from '@synthesizer-libs/util';
 export declare abstract class BaseVerkleNode<T extends VerkleNodeType> implements VerkleNodeInterface {
     commitment: Uint8Array;
     protected verkleCrypto: VerkleCrypto;

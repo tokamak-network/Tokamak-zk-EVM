@@ -12,7 +12,7 @@ import {
   equalsBytes,
   getVerkleTreeIndicesForStorageSlot,
   setLengthLeft,
-} from "@ethereumjs/util"
+} from "@synthesizer-libs/util"
 
 import { EOFError } from '../eof/errors.js'
 import { ERROR } from '../exceptions.js'
@@ -33,7 +33,7 @@ import {
 
 import type { RunState } from '../interpreter.js'
 import type { Common } from '@synthesizer-libs/common'
-import type { Address } from "@ethereumjs/util"
+import type { Address } from "@synthesizer-libs/util"
 
 const EXTCALL_TARGET_MAX = BigInt(2) ** BigInt(8 * 20) - BigInt(1)
 

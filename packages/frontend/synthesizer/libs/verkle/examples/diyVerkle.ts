@@ -1,5 +1,5 @@
-import { MapDB, bytesToHex } from '@ethereumjs/util'
-import { VerkleTree } from '@ethereumjs/verkle'
+import { MapDB, bytesToHex } from '@synthesizer-libs/util'
+import { VerkleTree } from '@synthesizer-libs/verkle'
 import { loadVerkleCrypto } from 'verkle-cryptography-wasm'
 
 const verkleCrypto = await loadVerkleCrypto()

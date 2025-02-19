@@ -2,7 +2,7 @@
  * The adapter provides an external interface that returns data structures directly in memory,
  * eliminating the need for file system operations.
  */
-import { Address , hexToBytes} from "@ethereumjs/util";
+import { Address , hexToBytes} from "@synthesizer-libs/util";
 import { EVM } from '../evm.js';
 import { finalize } from '../tokamak/core/finalize.js';
 import { setupEVMFromCalldata } from "../tokamak/utils/erc20EvmSetup.js";
