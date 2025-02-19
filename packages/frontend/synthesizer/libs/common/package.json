@@ -1,6 +1,6 @@
 {
   "name": "@synthesizer-libs/common",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "description": "Resources common to all Ethereum implementations",
   "keywords": [
     "ethereum",
@@ -47,7 +47,7 @@
     "tsc": "../../config/cli/ts-compile.sh"
   },
   "dependencies": {
-    "@synthesizer-libs/util": "^0.0.1",
+    "@synthesizer-libs/util": "*",
     "eventemitter3": "^5.0.1"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@synthesizer-libs/statemanager",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "An Ethereum statemanager implementation",
   "keywords": [
     "ethereum",
@@ -46,11 +46,11 @@
     "tsc": "../../config/cli/ts-compile.sh"
   },
   "dependencies": {
-    "@synthesizer-libs/common": "^0.0.2",
-    "@ethereumjs/rlp": "^5.0.2",
-    "@synthesizer-libs/mpt": "^0.0.3",
-    "@synthesizer-libs/util": "^0.0.1",
-    "@synthesizer-libs/verkle": "^0.0.2",
+    "@synthesizer-libs/common": "*",
+    "@ethereumjs/rlp": "*",
+    "@synthesizer-libs/mpt": "*",
+    "@synthesizer-libs/util": "*",
+    "@synthesizer-libs/verkle": "*",
     "@js-sdsl/ordered-map": "^4.4.2",
     "debug": "^4.3.3",
     "ethereum-cryptography": "^3.0.0",

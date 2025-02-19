@@ -38,7 +38,7 @@
   "files": [
     "dist",
     "src",
-     "*.wasm",
+    "*.wasm",
     "src/**/*.wasm",
     "src/tokamak/**/*.wasm"
   ],
@@ -63,13 +63,12 @@
     "visualize:bundle": "npx vite build --config=./vite.config.bundler.ts --emptyOutDir=false --outDir ."
   },
   "dependencies": {
-    "@ethereumjs/util": "^9.1.0",
     "@js-sdsl/ordered-map": "^4.4.2",
-    "@synthesizer-libs/common": "^0.0.2",
-    "@synthesizer-libs/mpt": "^0.0.3",
-    "@synthesizer-libs/statemanager": "^0.0.4",
-    "@synthesizer-libs/util": "^0.0.3",
-    "@synthesizer-libs/verkle": "^0.0.2",
+    "@synthesizer-libs/common": "*",
+    "@synthesizer-libs/mpt": "*",
+    "@synthesizer-libs/statemanager": "*",
+    "@synthesizer-libs/util": "*",
+    "@synthesizer-libs/verkle": "*",
     "@types/debug": "^4.1.9",
     "@vitest/coverage-v8": "^2.1.8",
     "app-root-path": "^3.1.0",
@@ -102,5 +101,12 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "resolutions": {
+    "@synthesizer-libs/util": "*",
+    "@synthesizer-libs/common/@synthesizer-libs/util": "*",
+    "@synthesizer-libs/statemanager/@synthesizer-libs/util": "*",
+    "@synthesizer-libs/mpt/@synthesizer-libs/util": "*",
+    "@synthesizer-libs/verkle/@synthesizer-libs/util": "*"
   }
 }
