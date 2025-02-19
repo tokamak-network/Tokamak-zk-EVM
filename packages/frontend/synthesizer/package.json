@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/synthesizer",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Tokamak zk-EVM Synthesizer - Processes Ethereum transactions into wire maps for Tokamak zk-SNARK proof generation",
   "keywords": [
     "ethereum",
@@ -63,6 +63,7 @@
     "visualize:bundle": "npx vite build --config=./vite.config.bundler.ts --emptyOutDir=false --outDir ."
   },
   "dependencies": {
+    "@ethereumjs/util": "^9.1.0",
     "@js-sdsl/ordered-map": "^4.4.2",
     "@synthesizer-libs/common": "^0.0.5",
     "@synthesizer-libs/mpt": "^0.0.5",
