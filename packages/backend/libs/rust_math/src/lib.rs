@@ -2,4 +2,3 @@
 pub mod dense_ext;
 pub mod dense_ext_refact;
 pub mod tests;
-pub mod benchmarks;
