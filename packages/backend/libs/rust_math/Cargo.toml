@@ -11,4 +11,10 @@ edition = "2021"
 icicle-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.4.0", package = "icicle-runtime" }
 icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.4.0", package = "icicle-core" }
 icicle-bls12-381 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.4.0", package = "icicle-bls12-381" }
+rayon = "1.5"
+criterion = "0.3"
+
+[[bench]]
+name = "benchmarks"
+harness = false
 

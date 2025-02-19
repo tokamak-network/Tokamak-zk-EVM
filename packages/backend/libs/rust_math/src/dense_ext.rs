@@ -583,8 +583,6 @@ impl BivariatePolynomial for DensePolynomialExt {
         let res_coeffs = HostSlice::from_mut_slice(&mut res_coeffs_vec);
         
         self.poly = DensePolynomial::from_coeffs(res_coeffs, new_size);
-        // self.x_size, self.y_size는 2,2 이지만 new_x_size, new_y_size가 1, 1이 되어 input 은 1 output은 4가되어 에러발생
-        print!("x_size: {}, y_size: {}, new_x_size: {}, new_y_size: {}\n", self.x_size, self.y_size, new_x_size, new_y_size);
         self.x_size = new_x_size;
         self.y_size = new_y_size;
     }
