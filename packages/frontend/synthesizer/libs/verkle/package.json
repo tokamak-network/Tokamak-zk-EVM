@@ -1,6 +1,6 @@
 {
   "name": "@synthesizer-libs/verkle",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Implementation of verkle trees as used in Ethereum.",
   "keywords": [
     "verkle",
