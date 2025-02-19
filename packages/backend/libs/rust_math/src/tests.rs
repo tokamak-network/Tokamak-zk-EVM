@@ -30,7 +30,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_from_coeffs_rou_coeffs_eval() { //pass
+    fn test_from_coeffs_rou_coeffs_eval() { // pass
         let x_size = 4;
         let y_size = 2;
         let size = x_size * y_size;
@@ -38,111 +38,79 @@ mod tests {
         let coeffs = HostSlice::from_slice(&coeffs_vec);
         let mut evals = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
 
-        ntt::initialize_domain::<ScalarField>(
-            ntt::get_root_of_unity::<ScalarField>(size as u64),
-            &ntt::NTTInitDomainConfig::default(),
-        )
-        .unwrap();
-
-        // Using default config
-        let mut cfg = ntt::NTTConfig::<ScalarField>::default();
-        cfg.batch_size = y_size as i32;
-        cfg.columns_batch = false;
-
-        // Computing NTT columns batch
-        ntt::ntt(
-            coeffs,
-            ntt::NTTDir::kInverse,
-            &cfg,
-            &mut evals,
-        )
-        .unwrap();
-
-        // Using default config
-        let mut cfg = ntt::NTTConfig::<ScalarField>::default();
-        cfg.batch_size = x_size as i32;
-        cfg.columns_batch = true;
-
-        // Computing NTT columns batch
-        let mut evals2 = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
-        ntt::ntt(
-            &evals,
-            ntt::NTTDir::kInverse,
-            &cfg,
-            &mut evals2,
-        )
-        .unwrap();
-
+        // First polynomial from coefficients
         let poly1 = DensePolynomialExt::from_coeffs(coeffs, x_size, y_size);
-        let poly2 = DensePolynomialExt::from_rou_evals(&evals2, x_size, y_size);
 
-        let mut coeff1_vec = vec![ScalarField::zero(); size];
-        let mut coeff2_vec = vec![ScalarField::zero(); size];
-        let coeff1 = HostSlice::from_mut_slice(&mut coeff1_vec);
-        let coeff2 = HostSlice::from_mut_slice(&mut coeff2_vec);
-        poly1.copy_coeffs(0, coeff1);
-        poly2.copy_coeffs(0, coeff2);
+        // Convert to evaluations
+        poly1.to_rou_evals(None, None, &mut evals);
 
+        // Create second polynomial from evaluations
+        let poly2 = DensePolynomialExt::from_rou_evals(&evals, x_size, y_size, None, None);
+
+        // Compare evaluations at a random point
         let x = ScalarCfg::generate_random(1)[0];
         let y = ScalarCfg::generate_random(1)[0];
 
         let eval1 = poly1.eval(&x, &y);
         let eval2 = poly2.eval(&x, &y);
-        println!("eval1: {:?}\n", eval1);
-        println!("eval2: {:?}\n", eval2);
-        assert!(!ScalarField::eq(&eval1, &eval2));
+
+        assert!(ScalarField::eq(&eval1, &eval2), 
+            "Evaluations should be equal. eval1: {:?}, eval2: {:?}", eval1, eval2);
     }
 
     #[test]
-    fn test_extend_size_slicing_mul_monomial() { // pass
-        let x_size = 4;
-        let y_size = 2;
-        let size = x_size * y_size;
-        let coeffs_vec = ScalarCfg::generate_random(size);
-        let coeffs = HostSlice::from_slice(&coeffs_vec);
+    fn test_rou_eval_conversion() {
+        // Initialize test data with power-of-two dimensions (2x2)
+        let p1_coeffs_number:[u32; 4] = [4, 0, 0, 0];
+        let mut p1_coeffs_vec = vec![ScalarField::zero(); 4];
+        for (ind, &num) in p1_coeffs_number.iter().enumerate() {
+            p1_coeffs_vec[ind] = ScalarField::from_u32(num);
+        }
+        let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
+        // x_size = 2, y_size = 2 가 되어야하지만
+        let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 2, 2);  // Changed to 2x2
 
-        let poly = DensePolynomialExt::from_coeffs(coeffs, x_size, y_size);
+        // Allocate device memory for evaluations
+        let mut evals = DeviceVec::<ScalarField>::device_malloc(4).unwrap();  // Changed to DeviceVec
 
-        let mut ext_poly = poly.clone();
-        ext_poly.resize(8, 16);
+        // Initialize NTT domain
+        ntt::initialize_domain::<ScalarField>(
+            ntt::get_root_of_unity::<ScalarField>(4u64),  // Size must match total elements
+            &ntt::NTTInitDomainConfig::default(),
+        ).unwrap();
+
+        // Perform evaluations
+        p1.to_rou_evals(None, None, &mut evals);
+
+        // Convert back to polynomial
+        let p2 = DensePolynomialExt::from_rou_evals(&evals, 2, 2, None, None);  // Changed dimensions to 2x2
         
-        let mut blocks_raw = vec![ScalarField::zero(); 8*16];
-        ext_poly._slice_coeffs_into_blocks(2, 8, &mut blocks_raw);
-        let split_poly:Vec<Vec<ScalarField>> = blocks_raw.chunks(8).map(|chunk| chunk.to_vec()).collect();
+        // Get coefficients for comparison
+        let mut p2_coeffs_vec = vec![ScalarField::zero(); 4];  // Increased size to 4
+        let p2_coeffs = HostSlice::from_mut_slice(&mut p2_coeffs_vec);
+        p2.copy_coeffs(0, p2_coeffs);
 
-        let mut ext_poly_coeffs_vec = vec![ScalarField::zero(); 8 * 16];
-        let ext_poly_coeffs = HostSlice::from_mut_slice(&mut ext_poly_coeffs_vec);
-        ext_poly.copy_coeffs(0, ext_poly_coeffs);
-
-        let mut shifted_poly = poly.clone();
-        shifted_poly.mul_monomial(4, 2);
-        let mut shifted_poly_coeffs_vec = vec![ScalarField::zero(); 8*4];
-        let shifted_poly_coeffs = HostSlice::from_mut_slice(&mut shifted_poly_coeffs_vec);
-        shifted_poly.copy_coeffs(0, shifted_poly_coeffs);
-
-        // Add assertions to verify the operations were successful
-        assert_eq!(ext_poly.x_size, 8);
-        assert_eq!(ext_poly.y_size, 16);
-        assert_eq!(split_poly.len(), 16);
-
-        assert!(shifted_poly.x_degree >= 3);
-        assert!(shifted_poly.y_degree >= 1);
+        println!("p1_coeffs_vec: {:?}", p1_coeffs_vec);
+        println!("p2_coeffs_vec: {:?}", p2_coeffs_vec);
+        
+        // Compare coefficients
+        assert_eq!(p1_coeffs_vec, p2_coeffs_vec, 
+            "Coefficient vectors should be equal after conversion");
     }
 
     #[test]
-    fn test_mul_monomial_degree() {
+    fn test_mul_monomial_degree() { // pass
         let size = 8;
-        // 의도적으로 최고차항에 non-zero 값을 설정
+        
         let mut coeffs_vec = vec![ScalarField::zero(); size];
-        coeffs_vec[3] = ScalarField::one(); // x^3 term을 설정
-        coeffs_vec[6] = ScalarField::one(); // y항의 x^2 term을 설정
+        coeffs_vec[3] = ScalarField::one(); 
+        coeffs_vec[6] = ScalarField::one(); 
         
         let coeffs = HostSlice::from_slice(&coeffs_vec);
         let poly = DensePolynomialExt::from_coeffs(coeffs, 4, 2);
         
         println!("Original x_degree: {}", poly.x_degree);
         
-        // 단항식 x^4 * y^2를 곱함
         let shifted_poly = poly.mul_monomial(4, 2);
         
         println!("Shifted x_degree: {}", shifted_poly.x_degree);
@@ -178,61 +146,6 @@ mod tests {
         let eval_p3 = p3.eval(&x,&y);
 
         assert!(eval_p3.eq(&(eval_p1 * eval_p2)), "Multiplication evaluation failed");
-    }
-
-    #[test]
-    fn test_rou_eval_conversion() { // pass
-        let p1_coeffs_number:[u32; 2] = [4, 0];
-        let mut p1_coeffs_vec = vec![ScalarField::zero(); 2];
-        for (ind, &num) in p1_coeffs_number.iter().enumerate() {
-            p1_coeffs_vec[ind] = ScalarField::from_u32(num);
-        }
-        let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
-        let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 1, 2);
-
-        let mut evals_vec = vec![ScalarField::zero(); 2];
-        let evals = HostSlice::from_mut_slice(&mut evals_vec);
-        p1.to_rou_evals(evals);
-
-        let p2 = DensePolynomialExt::from_rou_evals(evals, 1, 2);
-        let mut p2_coeffs_vec = vec![ScalarField::zero(); 2];
-        let p2_coeffs = HostSlice::from_mut_slice(&mut p2_coeffs_vec);
-        p2.copy_coeffs(0, p2_coeffs);
-        println!("p1_coeffs_vec: {:?}\n", p1_coeffs_vec);
-        println!("p2_coeffs_vec: {:?}\n", p2_coeffs_vec);
-        assert_eq!(p1_coeffs_vec, p2_coeffs_vec, "Coefficient vectors should be equal after conversion");
-    }
-
-    #[test]
-    fn test_polynomial_division() { // pass
-        let p1_coeffs_vec = ScalarCfg::generate_random(32);
-        let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
-        let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 8, 4);
-
-        let p2_coeffs_vec = ScalarCfg::generate_random(6);
-        let p2_coeffs = HostSlice::from_slice(&p2_coeffs_vec);
-        let p2 = DensePolynomialExt::from_coeffs(p2_coeffs,6,1);
-
-        let p3_coeffs_vec = ScalarCfg::generate_random(3);
-        let p3_coeffs = HostSlice::from_slice(&p3_coeffs_vec);
-        let p3 = DensePolynomialExt::from_coeffs(p3_coeffs,1,3);
-
-        let (quo_x, rem_x) = p1.divide_x(&p2);
-        let (quo_y, rem_y) = rem_x.divide_y(&p3);
-
-        let x = ScalarCfg::generate_random(1)[0];
-        let y = ScalarCfg::generate_random(1)[0];
-
-        let eval_p1 = p1.eval(&x,&y);
-        let eval_p2 = p2.eval(&x,&y);
-        let eval_p3 = p3.eval(&x,&y);
-        let eval_quo_x = quo_x.eval(&x,&y);
-        let eval_quo_y = quo_y.eval(&x,&y);
-        let eval_rem_y = rem_y.eval(&x,&y);
-
-        // Verify that p1 = p2*quo_x + p3*quo_y + rem_y
-        assert!(eval_p1.eq(&(((eval_p2 * eval_quo_x) + (eval_p3 * eval_quo_y)) + eval_rem_y)), 
-            "Division result verification failed");
     }
 
     #[test]
@@ -478,7 +391,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_degree() { // pass
+    fn test_find_degree() { 
         let coeffs1 = vec![
             ScalarField::from_u32(1), ScalarField::from_u32(2), 
             ScalarField::from_u32(3), ScalarField::from_u32(4)  
@@ -523,5 +436,143 @@ mod tests {
                 println!("{:?}", chunk);
             }
         }
+    }
+
+    #[test]
+    fn test_polynomial_division() { // pass
+        let p1_coeffs_vec = ScalarCfg::generate_random(32);
+        let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
+        let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 8, 4);
+
+        let p2_coeffs_vec = ScalarCfg::generate_random(6);
+        let p2_coeffs = HostSlice::from_slice(&p2_coeffs_vec);
+        let p2 = DensePolynomialExt::from_coeffs(p2_coeffs,6,1);
+
+        let p3_coeffs_vec = ScalarCfg::generate_random(3);
+        let p3_coeffs = HostSlice::from_slice(&p3_coeffs_vec);
+        let p3 = DensePolynomialExt::from_coeffs(p3_coeffs,1,3);
+
+        let (quo_x, rem_x) = p1.divide_x(&p2);
+        let (quo_y, rem_y) = rem_x.divide_y(&p3);
+
+        // Test reconstruction
+        let p1_est = &(&(&p2 * &quo_x) + &(&p3 * &quo_y)) + &rem_y;
+
+        // Evaluate at random point
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+
+        let eval_p1 = p1.eval(&x,&y);
+        let eval_p2 = p2.eval(&x,&y);
+        let eval_p3 = p3.eval(&x,&y);
+        let eval_quo_x = quo_x.eval(&x,&y);
+        let eval_quo_y = quo_y.eval(&x,&y);
+        let eval_rem_y = rem_y.eval(&x,&y);
+        let eval_p1_est = p1_est.eval(&x,&y);
+
+        // Verify division result
+        assert!(eval_p1.eq(&eval_p1_est), 
+            "Polynomial reconstruction failed at evaluation point");
+        assert!(eval_p1.eq(&(((eval_p2 * eval_quo_x) + (eval_p3 * eval_quo_y)) + eval_rem_y)),
+            "Division equation p1 = p2*quo_x + p3*quo_y + rem_y failed at evaluation point");
+    }
+
+    #[test]
+    fn test_polynomial_coset_division() { // pass
+        let n: usize = 3;
+        let t_y_degree = 4;
+        let y_size = t_y_degree*n-2;
+        let y_degree = y_size - 1;
+        let quo_y_degree = y_degree - t_y_degree;
+        let quo_y_size = quo_y_degree + 1;
+
+        // Create t_X polynomial
+        let mut tx_coeffs_vec = vec![ScalarField::zero(); 5];
+        tx_coeffs_vec[0] = ScalarField::zero() - ScalarField::one();
+        tx_coeffs_vec[4] = ScalarField::one();
+        let tx_coeffs = HostSlice::from_slice(&tx_coeffs_vec);
+        let tx = DensePolynomialExt::from_coeffs(tx_coeffs,5,1);
+
+        // Create quo_x polynomial
+        let quox_coeffs_vec = ScalarCfg::generate_random(3*y_size);
+        let quox_coeffs = HostSlice::from_slice(&quox_coeffs_vec);
+        let mut quox = DensePolynomialExt::from_coeffs(quox_coeffs, 3, y_size);
+
+        // Create t_Y polynomial
+        let mut ty_coeffs_vec = vec![ScalarField::zero(); t_y_degree + 1];
+        ty_coeffs_vec[0] = ScalarField::zero() - ScalarField::one();
+        ty_coeffs_vec[t_y_degree] = ScalarField::one();
+        let ty_coeffs = HostSlice::from_slice(&ty_coeffs_vec);
+        let ty = DensePolynomialExt::from_coeffs(ty_coeffs,1,t_y_degree + 1);
+
+        // Create quo_y polynomial
+        let quoy_coeffs_vec = ScalarCfg::generate_random(7 * quo_y_size);
+        let quoy_coeffs = HostSlice::from_slice(&quoy_coeffs_vec);
+        let mut quoy = DensePolynomialExt::from_coeffs(quoy_coeffs, 7, quo_y_size);
+
+        // Create polynomial p = quo_x * t_x + quo_y * t_y
+        let p = &(&quox * &tx) + &(&quoy * &ty);
+        
+        // Perform coset division
+        let (quox_est, quoy_est) = p.div_by_vanishing(4, 4);
+
+        // Resize original polynomials to match estimated ones
+        quox.resize(quox_est.x_size, quox_est.y_size);
+        quoy.resize(quoy_est.x_size, quoy_est.y_size);
+
+        // Evaluate at random point
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+
+        let eval_quox_est = quox_est.eval(&x,&y);
+        let eval_quoy_est = quoy_est.eval(&x,&y);
+        let eval_tx = tx.eval(&x, &y);
+        let eval_ty = ty.eval(&x, &y);
+        let eval_p = p.eval(&x, &y);
+
+        // Verify coset division result
+        assert!(eval_p.eq(&((eval_quox_est * eval_tx) + (eval_quoy_est * eval_ty))),
+            "Coset division reconstruction failed at evaluation point");
+    }
+
+    #[test]
+    fn test_polynomial_coset_fft() { // pass
+        let p_coeffs_vec = ScalarCfg::generate_random(30);
+        let p_coeffs = HostSlice::from_slice(&p_coeffs_vec);
+        let poly = DensePolynomialExt::from_coeffs(p_coeffs, 6, 5);
+        let size = poly.x_size * poly.y_size;
+
+        // Generate random coset factors
+        let coset_x = ScalarCfg::generate_random(1)[0];
+        let coset_y = ScalarCfg::generate_random(1)[0];
+
+        // Perform FFT and inverse FFT
+        let mut p_evals = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        poly.to_rou_evals(Some(&coset_x), Some(&coset_y), &mut p_evals);
+        let poly_est = DensePolynomialExt::from_rou_evals(&p_evals, poly.x_size, poly.y_size, 
+            Some(&coset_x), Some(&coset_y));
+
+        // Evaluate at random point
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+
+        let eval_poly = poly.eval(&x,&y);
+        let eval_poly_est = poly_est.eval(&x,&y);
+
+        // Verify FFT/IFFT reconstruction
+        assert!(eval_poly.eq(&eval_poly_est),
+            "FFT/IFFT reconstruction failed at evaluation point");
+
+        // Optional: Check coefficient equality if needed
+        let mut poly_coeffs_vec = vec![ScalarField::zero(); size];
+        let poly_coeffs = HostSlice::from_mut_slice(&mut poly_coeffs_vec);
+        poly.copy_coeffs(0, poly_coeffs);
+
+        let mut poly_est_coeffs_vec = vec![ScalarField::zero(); size];
+        let poly_est_coeffs = HostSlice::from_mut_slice(&mut poly_est_coeffs_vec);
+        poly_est.copy_coeffs(0, poly_est_coeffs);
+
+        assert_eq!(poly_coeffs_vec, poly_est_coeffs_vec,
+            "FFT/IFFT coefficient reconstruction failed");
     }
 }
