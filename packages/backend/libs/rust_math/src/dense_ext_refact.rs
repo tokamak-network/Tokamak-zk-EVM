@@ -2,21 +2,22 @@ extern crate icicle_bls12_381;
 extern crate icicle_core;
 extern crate icicle_runtime;
 use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
-use icicle_bls12_381::vec_ops;
+// use icicle_bls12_381::vec_ops;
 use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
 use icicle_core::polynomials::UnivariatePolynomial;
-use icicle_core::{ntt, ntt::NTTInitDomainConfig};
+use icicle_core::ntt;
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use icicle_bls12_381::polynomials::DensePolynomial;
 use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice, DeviceSlice, DeviceVec};
-use icicle_runtime::Device;
-use std::ops::Deref;
+// use icicle_runtime::Device;
+// use std::ops::Deref;
 use std::{
-    clone, cmp,
-    ops::{Add, AddAssign, Div, Mul, Rem, Sub, Neg},
-    ptr, slice,
+    cmp,
+    ops::{Add, AddAssign, Mul, Sub, Neg},
+    // ptr, slice,
 };
-use rayon::prelude::*;
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
+
 
 fn _find_size_as_twopower(target_x_size: usize, target_y_size: usize) -> (usize, usize) {
     // Problem: find min{m: x_size*2^m >= target_x_size} and min{n: y_size*2^n >= target_y_size}
@@ -46,15 +47,11 @@ pub struct DensePolynomialExt {
 impl DensePolynomialExt {
     // Inherit DensePolynomial
     pub fn print(&self) {
-        unsafe {
-            self.poly.print()
-        }
+        self.poly.print()
     }
     // Inherit DensePolynomial
     pub fn coeffs_mut_slice(&mut self) -> &mut DeviceSlice<ScalarField> {
-        unsafe {
-            self.poly.coeffs_mut_slice()          
-        }
+        self.poly.coeffs_mut_slice()          
     }
 
     // Method to get the degree of the polynomial.
@@ -426,93 +423,125 @@ impl BivariatePolynomial for DensePolynomialExt {
         self.y_size = new_y_size;
     }
 
-    // 3. 최적화된 다항식 곱셈
     fn _mul(&self, rhs: &Self) -> Self {
         let (lhs_x_degree, lhs_y_degree) = self.degree();
         let (rhs_x_degree, rhs_y_degree) = rhs.degree();
-
-        // 상수 케이스 최적화
-        if lhs_x_degree + lhs_y_degree == 0 {
+        
+        // 상수 처리
+        if lhs_x_degree + lhs_y_degree == 0 && rhs_x_degree + rhs_y_degree > 0 {
             return &(rhs.clone()) * &(self.get_coeff(0, 0));
         }
-        if rhs_x_degree + rhs_y_degree == 0 {
+        if rhs_x_degree + rhs_y_degree == 0 && lhs_x_degree + lhs_y_degree > 0 {
             return &(self.clone()) * &(rhs.get_coeff(0, 0));
         }
-
-        let target_x_size = lhs_x_degree as usize + rhs_x_degree as usize + 1;
-        let target_y_size = lhs_y_degree as usize + rhs_y_degree as usize + 1;
+        if rhs_x_degree + rhs_y_degree == 0 && lhs_x_degree + lhs_y_degree == 0 {
+            let out_coeffs_vec = vec![self.get_coeff(0, 0) * rhs.get_coeff(0, 0); 1];
+            let out_coeffs = HostSlice::from_slice(&out_coeffs_vec);
+            return DensePolynomialExt::from_coeffs(out_coeffs, 1, 1);
+        }
         
+        // 결과 다항식 크기 결정 (차수 합 + 1)
+        let target_x_size = (lhs_x_degree + rhs_x_degree) as usize + 1;
+        let target_y_size = (lhs_y_degree + rhs_y_degree) as usize + 1;
+        
+        // 두 다항식을 필요한 크기로 리사이즈
         let mut lhs_ext = self.clone();
         let mut rhs_ext = rhs.clone();
         lhs_ext.resize(target_x_size, target_y_size);
         rhs_ext.resize(target_x_size, target_y_size);
-
-        let extended_size = target_x_size * target_y_size;
+        
+        let x_size = lhs_ext.x_size;
+        let y_size = lhs_ext.y_size;
+        let extended_size = x_size * y_size;
         let cfg_vec_ops = VecOpsConfig::default();
-
-        // 병렬 FFT 처리
-        let mut lhs_evals = DeviceVec::<Self::Field>::device_malloc(extended_size).unwrap();
+        
+        // NTT 변환
+        let mut lhs_evals = DeviceVec::<ScalarField>::device_malloc(extended_size).unwrap();
         lhs_ext.to_rou_evals(None, None, &mut lhs_evals);
-
-        let mut rhs_evals = DeviceVec::<Self::Field>::device_malloc(extended_size).unwrap();
+        let mut rhs_evals = DeviceVec::<ScalarField>::device_malloc(extended_size).unwrap();
         rhs_ext.to_rou_evals(None, None, &mut rhs_evals);
-
-        let mut out_evals = DeviceVec::<Self::Field>::device_malloc(extended_size).unwrap();
-        ScalarCfg::mul(&lhs_evals, &rhs_evals, &mut out_evals, &cfg_vec_ops).unwrap();
-
-        DensePolynomialExt::from_rou_evals(
-            &out_evals, 
-            target_x_size, 
-            target_y_size, 
-            None, 
-            None
-        )
+        
+        // 요소별 곱셈: 데이터 크기가 일정 수준(예: 1024 이상)일 때만 Rayon을 사용하도록 함.
+        let mut out_evals = DeviceVec::<ScalarField>::device_malloc(extended_size).unwrap();
+        unsafe {
+            let lhs_slice: &[ScalarField] = std::slice::from_raw_parts(lhs_evals.as_ptr(), extended_size);
+            let rhs_slice: &[ScalarField] = std::slice::from_raw_parts(rhs_evals.as_ptr(), extended_size);
+            let out_slice: &mut [ScalarField] =
+                std::slice::from_raw_parts_mut(out_evals.as_mut_ptr(), extended_size);
+            
+            if extended_size >= 1024 {
+                out_slice.par_iter_mut()
+                    .zip(lhs_slice.par_iter())
+                    .zip(rhs_slice.par_iter())
+                    .for_each(|((o, a), b)| {
+                        *o = a.clone() * b.clone();
+                    });
+            } else {
+                for i in 0..extended_size {
+                    out_slice[i] = lhs_slice[i].clone() * rhs_slice[i].clone();
+                }
+            }
+        }
+        
+        // 역NTT 변환하여 결과 복원
+        DensePolynomialExt::from_rou_evals(&out_evals, x_size, y_size, None, None)
     }
 
-    // 4. 최적화된 vanishing 다항식으로 나누기
     fn div_by_vanishing(&self, denom_x_degree: i64, denom_y_degree: i64) -> (Self, Self) {
         if !((denom_x_degree as usize).is_power_of_two() && 
             (denom_y_degree as usize).is_power_of_two()) {
             panic!("The denominators must have degrees as powers of two.");
         }
-
+    
         let c = denom_x_degree as usize;
         let d = denom_y_degree as usize;
         let m = self.x_size / c;
         let n = self.y_size / d;
-
-        // 메모리 재사용을 위한 버퍼
-        let mut shared_buffer = DeviceVec::<Self::Field>::device_malloc(self.x_size * self.y_size)
-            .unwrap();
-        
+    
+        // 명시적인 스코프로 메모리 수명 관리
+        let buffer_size = c * d * n;
         let vec_ops_cfg = VecOpsConfig::default();
         let zeta = Self::FieldConfig::generate_random(1)[0];
         
-        // 블록 병렬 처리
-        let block_size = c * d;
-        let mut blocks: Vec<_> = (0..m*n).map(|i| {
-            let start = i * block_size;
-            let end = start + block_size;
-            self.poly.slice(start as u64, block_size as u64, 1)
-        }).collect();
-
-        blocks.iter_mut().enumerate().for_each(|(i, block)| {
-            let start = i * block_size;
-            let mut block_coeffs = vec![Self::Field::zero(); block_size];
-            let block_slice = HostSlice::from_mut_slice(&mut block_coeffs);
-            block.copy_coeffs(0, block_slice);
-            shared_buffer[start..start + block_size].copy_from_host(block_slice).unwrap();
-        });
-
-        // FFT 처리
-        let mut eval_buffer = DeviceVec::<Self::Field>::device_malloc(c * d * n).unwrap();
-        let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-        cfg.batch_size = d as i32;
+        // 공유 버퍼 생성 및 초기화
+        let mut shared_buffer = DeviceVec::<Self::Field>::device_malloc(buffer_size).unwrap();
         
-        ntt::ntt(&shared_buffer, ntt::NTTDir::kForward, &cfg, &mut eval_buffer).unwrap();
-
-        // 결과 계산
-        self._compute_quotients_optimized(&eval_buffer, zeta, c, d, n, &vec_ops_cfg)
+        // 블록 단위로 데이터 복사
+        {
+            let block_size = c * d;
+            // 모든 블록을 한 번에 처리할 임시 버퍼
+            let mut temp_coeffs = vec![Self::Field::zero(); buffer_size];
+            
+            for i in 0..m*n {
+                let start = i * block_size;
+                if start + block_size <= buffer_size {
+                    let block = self.poly.slice(start as u64, block_size as u64, 1);
+                    let mut block_coeffs = vec![Self::Field::zero(); block_size];
+                    let block_slice = HostSlice::from_mut_slice(&mut block_coeffs);
+                    block.copy_coeffs(0, block_slice);
+                    temp_coeffs[start..start + block_size].copy_from_slice(&block_coeffs);
+                }
+            }
+            
+            // 한 번에 디바이스로 복사
+            shared_buffer.copy_from_host(HostSlice::from_slice(&temp_coeffs)).unwrap();
+        }
+    
+        // FFT 처리
+        let mut eval_buffer = DeviceVec::<Self::Field>::device_malloc(buffer_size).unwrap();
+        {
+            let mut cfg = ntt::NTTConfig::<Self::Field>::default();
+            cfg.batch_size = d as i32;
+            ntt::ntt(&shared_buffer, ntt::NTTDir::kForward, &cfg, &mut eval_buffer).unwrap();
+        }
+        
+        // shared_buffer는 여기서 자동으로 해제됨
+    
+        // 결과 계산 및 반환
+        let result = self._compute_quotients_optimized(&eval_buffer, zeta, c, d, n, &vec_ops_cfg);
+        
+        // eval_buffer는 여기서 자동으로 해제됨
+        result
     }
 
     // 5. 최적화된 몫 계산
