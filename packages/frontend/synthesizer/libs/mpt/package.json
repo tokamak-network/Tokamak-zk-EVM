@@ -1,6 +1,6 @@
 {
   "name": "@synthesizer-libs/mpt",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "Implementation of the modified merkle patricia tree as specified in Ethereum's yellow paper.",
   "keywords": [
     "merkle",

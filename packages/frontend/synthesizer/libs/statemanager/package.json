@@ -1,6 +1,6 @@
 {
   "name": "@synthesizer-libs/statemanager",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "description": "An Ethereum statemanager implementation",
   "keywords": [
     "ethereum",
@@ -48,7 +48,7 @@
   "dependencies": {
     "@synthesizer-libs/common": "^0.0.2",
     "@ethereumjs/rlp": "^5.0.2",
-    "@synthesizer-libs/mpt": "^0.0.1",
+    "@synthesizer-libs/mpt": "^0.0.3",
     "@synthesizer-libs/util": "^0.0.1",
     "@synthesizer-libs/verkle": "^0.0.2",
     "@js-sdsl/ordered-map": "^4.4.2",

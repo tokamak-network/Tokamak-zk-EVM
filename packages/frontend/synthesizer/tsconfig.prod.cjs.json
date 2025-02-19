@@ -5,12 +5,12 @@
     "outDir": "dist/cjs",
     "baseUrl": ".",
     "composite": true,
-    "paths": {
-      "@synthesizer-libs/util/*": ["libs/util/dist/esm/*"],
-      "@synthesizer-libs/util": ["libs/util/dist/esm/index"],
-      "@synthesizer-libs/statemanager": ["libs/statemanager/dist/esm/index"],
-      "@synthesizer-libs/statemanager/*": ["libs/statemanager/dist/esm/*"]
-    }
+    // "paths": {
+    //   "@synthesizer-libs/util/*": ["libs/util/dist/esm/*"],
+    //   "@synthesizer-libs/util": ["libs/util/dist/esm/index"],
+    //   "@synthesizer-libs/statemanager": ["libs/statemanager/dist/esm/index"],
+    //   "@synthesizer-libs/statemanager/*": ["libs/statemanager/dist/esm/*"]
+    // }
   },
   "include": ["src/**/*.ts", "src/**/*.json"],
   // "references": [
