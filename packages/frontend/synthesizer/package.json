@@ -37,7 +37,10 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+     "*.wasm",
+    "src/**/*.wasm",
+    "src/tokamak/**/*.wasm"
   ],
   "scripts": {
     "build": "../../../config/monorepo-js/cli/ts-build.sh",
@@ -60,10 +63,12 @@
     "visualize:bundle": "npx vite build --config=./vite.config.bundler.ts --emptyOutDir=false --outDir ."
   },
   "dependencies": {
+    "@ethereumjs/util": "^9.1.0",
     "@js-sdsl/ordered-map": "^4.4.2",
-    "@synthesizer-libs/common": "^0.0.1",
+    "@synthesizer-libs/common": "^0.0.2",
     "@synthesizer-libs/mpt": "^0.0.3",
     "@synthesizer-libs/statemanager": "^0.0.4",
+    "@synthesizer-libs/util": "^0.0.3",
     "@synthesizer-libs/verkle": "^0.0.2",
     "@types/debug": "^4.1.9",
     "@vitest/coverage-v8": "^2.1.8",
@@ -72,6 +77,7 @@
     "ethereum-cryptography": "^3.0.0",
     "ethers": "^6.13.5",
     "eventemitter3": "^5.0.1",
+    "verkle-cryptography-wasm": "^0.4.8",
     "vitest": "^2.1.8"
   },
   "devDependencies": {

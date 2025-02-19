@@ -1,6 +1,6 @@
 {
   "name": "@synthesizer-libs/util",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "A collection of utility functions for Ethereum",
   "keywords": [
     "ethereum",
@@ -94,11 +94,13 @@
     "@ethereumjs/rlp": "^5.0.2",
     "ethereum-cryptography": "^3.0.0"
   },
+   "peerDependencies": {
+    "verkle-cryptography-wasm": "^0.4.8"
+  },
   "devDependencies": {
     "@paulmillr/trusted-setups": "^0.1.2",
     "kzg-wasm": "^0.5.0",
-    "micro-eth-signer": "^0.11.0",
-    "verkle-cryptography-wasm": "^0.4.8"
+    "micro-eth-signer": "^0.11.0"
   },
   "engines": {
     "node": ">=18"
