@@ -47,7 +47,7 @@
     "tsc": "../../config/cli/ts-compile.sh"
   },
   "dependencies": {
-    "@synthesizer-libs/util": "*",
+    "@synthesizer-libs/util": "^0.0.3",
     "eventemitter3": "^5.0.1"
   }
 }

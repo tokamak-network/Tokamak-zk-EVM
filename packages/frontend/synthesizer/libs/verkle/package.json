@@ -58,7 +58,7 @@
     "lru-cache": "10.1.0",
     "verkle-cryptography-wasm": "^0.4.8",
     "@ethereumjs/rlp": "^5.0.2",
-    "@synthesizer-libs/util": "*"
+    "@synthesizer-libs/util": "^0.0.3"
   },
   "engines": {
     "node": ">=18"
