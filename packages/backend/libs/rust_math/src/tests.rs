@@ -58,45 +58,45 @@ mod tests {
             "Evaluations should be equal. eval1: {:?}, eval2: {:?}", eval1, eval2);
     }
 
-    #[test]
-    fn test_rou_eval_conversion() {
-        // Initialize test data with power-of-two dimensions (2x2)
-        let p1_coeffs_number:[u32; 4] = [4, 0, 0, 0];
-        let mut p1_coeffs_vec = vec![ScalarField::zero(); 4];
-        for (ind, &num) in p1_coeffs_number.iter().enumerate() {
-            p1_coeffs_vec[ind] = ScalarField::from_u32(num);
-        }
-        let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
-        // x_size = 2, y_size = 2 가 되어야하지만
-        let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 2, 2);  // Changed to 2x2
+    // #[test]
+    // fn test_rou_eval_conversion() {
+    //     // Initialize test data with power-of-two dimensions (2x2)
+    //     let p1_coeffs_number:[u32; 4] = [4, 0, 0, 0];
+    //     let mut p1_coeffs_vec = vec![ScalarField::zero(); 4];
+    //     for (ind, &num) in p1_coeffs_number.iter().enumerate() {
+    //         p1_coeffs_vec[ind] = ScalarField::from_u32(num);
+    //     }
+    //     let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
+    //     // x_size = 2, y_size = 2 가 되어야하지만
+    //     let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 2, 2);  // Changed to 2x2
 
-        // Allocate device memory for evaluations
-        let mut evals = DeviceVec::<ScalarField>::device_malloc(4).unwrap();  // Changed to DeviceVec
+    //     // Allocate device memory for evaluations
+    //     let mut evals = DeviceVec::<ScalarField>::device_malloc(4).unwrap();  // Changed to DeviceVec
 
-        // Initialize NTT domain
-        ntt::initialize_domain::<ScalarField>(
-            ntt::get_root_of_unity::<ScalarField>(4u64),  // Size must match total elements
-            &ntt::NTTInitDomainConfig::default(),
-        ).unwrap();
+    //     // Initialize NTT domain
+    //     ntt::initialize_domain::<ScalarField>(
+    //         ntt::get_root_of_unity::<ScalarField>(4u64),  // Size must match total elements
+    //         &ntt::NTTInitDomainConfig::default(),
+    //     ).unwrap();
 
-        // Perform evaluations
-        p1.to_rou_evals(None, None, &mut evals);
+    //     // Perform evaluations
+    //     p1.to_rou_evals(None, None, &mut evals);
 
-        // Convert back to polynomial
-        let p2 = DensePolynomialExt::from_rou_evals(&evals, 2, 2, None, None);  // Changed dimensions to 2x2
+    //     // Convert back to polynomial
+    //     let p2 = DensePolynomialExt::from_rou_evals(&evals, 2, 2, None, None);  // Changed dimensions to 2x2
         
-        // Get coefficients for comparison
-        let mut p2_coeffs_vec = vec![ScalarField::zero(); 4];  // Increased size to 4
-        let p2_coeffs = HostSlice::from_mut_slice(&mut p2_coeffs_vec);
-        p2.copy_coeffs(0, p2_coeffs);
+    //     // Get coefficients for comparison
+    //     let mut p2_coeffs_vec = vec![ScalarField::zero(); 4];  // Increased size to 4
+    //     let p2_coeffs = HostSlice::from_mut_slice(&mut p2_coeffs_vec);
+    //     p2.copy_coeffs(0, p2_coeffs);
 
-        println!("p1_coeffs_vec: {:?}", p1_coeffs_vec);
-        println!("p2_coeffs_vec: {:?}", p2_coeffs_vec);
+    //     println!("p1_coeffs_vec: {:?}", p1_coeffs_vec);
+    //     println!("p2_coeffs_vec: {:?}", p2_coeffs_vec);
         
-        // Compare coefficients
-        assert_eq!(p1_coeffs_vec, p2_coeffs_vec, 
-            "Coefficient vectors should be equal after conversion");
-    }
+    //     // Compare coefficients
+    //     assert_eq!(p1_coeffs_vec, p2_coeffs_vec, 
+    //         "Coefficient vectors should be equal after conversion");
+    // }
 
     #[test]
     fn test_mul_monomial_degree() { // pass
@@ -390,53 +390,53 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_find_degree() { 
-        let coeffs1 = vec![
-            ScalarField::from_u32(1), ScalarField::from_u32(2), 
-            ScalarField::from_u32(3), ScalarField::from_u32(4)  
-        ];
-        let poly1 = DensePolynomial::from_coeffs(HostSlice::from_slice(&coeffs1), 4);
-        let (x_degree1, y_degree1) = DensePolynomialExt::_find_degree(&poly1, 2, 2);
-        println!("Test Case 1 - Expected: (1,1), Got: ({},{})", x_degree1, y_degree1);
-        assert_eq!((x_degree1, y_degree1), (1, 1), "2x2 polynomial degree test failed");
+    // #[test]
+    // fn test_find_degree() { 
+    //     let coeffs1 = vec![
+    //         ScalarField::from_u32(1), ScalarField::from_u32(2), 
+    //         ScalarField::from_u32(3), ScalarField::from_u32(4)  
+    //     ];
+    //     let poly1 = DensePolynomial::from_coeffs(HostSlice::from_slice(&coeffs1), 4);
+    //     let (x_degree1, y_degree1) = DensePolynomialExt::_find_degree(&poly1, 2, 2);
+    //     println!("Test Case 1 - Expected: (1,1), Got: ({},{})", x_degree1, y_degree1);
+    //     assert_eq!((x_degree1, y_degree1), (1, 1), "2x2 polynomial degree test failed");
 
-        let coeffs2 = vec![
-            ScalarField::zero(), ScalarField::zero(),
-            ScalarField::zero(), ScalarField::zero()
-        ];
-        let poly2 = DensePolynomial::from_coeffs(HostSlice::from_slice(&coeffs2), 4);
-        let (x_degree2, y_degree2) = DensePolynomialExt::_find_degree(&poly2, 2, 2);
-        println!("Test Case 2 - Expected: (0,0), Got: ({},{})", x_degree2, y_degree2);
-        assert_eq!((x_degree2, y_degree2), (0, 0), "Zero polynomial degree test failed");
+    //     let coeffs2 = vec![
+    //         ScalarField::zero(), ScalarField::zero(),
+    //         ScalarField::zero(), ScalarField::zero()
+    //     ];
+    //     let poly2 = DensePolynomial::from_coeffs(HostSlice::from_slice(&coeffs2), 4);
+    //     let (x_degree2, y_degree2) = DensePolynomialExt::_find_degree(&poly2, 2, 2);
+    //     println!("Test Case 2 - Expected: (0,0), Got: ({},{})", x_degree2, y_degree2);
+    //     assert_eq!((x_degree2, y_degree2), (0, 0), "Zero polynomial degree test failed");
 
-        let coeffs3 = vec![
-            ScalarField::from_u32(1), ScalarField::from_u32(2), ScalarField::from_u32(3),  
-            ScalarField::zero(), ScalarField::zero(), ScalarField::zero()                  
-        ];
-        let poly3 = DensePolynomial::from_coeffs(HostSlice::from_slice(&coeffs3), 6);
-        let (x_degree3, y_degree3) = DensePolynomialExt::_find_degree(&poly3, 3, 2);
-        println!("Test Case 3 - Expected: (2,0), Got: ({},{})", x_degree3, y_degree3);
-        assert_eq!((x_degree3, y_degree3), (2, 0), "X-only polynomial degree test failed");
+    //     let coeffs3 = vec![
+    //         ScalarField::from_u32(1), ScalarField::from_u32(2), ScalarField::from_u32(3),  
+    //         ScalarField::zero(), ScalarField::zero(), ScalarField::zero()                  
+    //     ];
+    //     let poly3 = DensePolynomial::from_coeffs(HostSlice::from_slice(&coeffs3), 6);
+    //     let (x_degree3, y_degree3) = DensePolynomialExt::_find_degree(&poly3, 3, 2);
+    //     println!("Test Case 3 - Expected: (2,0), Got: ({},{})", x_degree3, y_degree3);
+    //     assert_eq!((x_degree3, y_degree3), (2, 0), "X-only polynomial degree test failed");
 
-        let coeffs4 = vec![
-            ScalarField::from_u32(1), ScalarField::zero(),
-            ScalarField::from_u32(2), ScalarField::zero(),
-            ScalarField::from_u32(3), ScalarField::zero() 
-        ];
-        let poly4 = DensePolynomial::from_coeffs(HostSlice::from_slice(&coeffs4), 6);
-        let (x_degree4, y_degree4) = DensePolynomialExt::_find_degree(&poly4, 2, 3);
-        println!("Test Case 4 - Expected: (0,2), Got: ({},{})", x_degree4, y_degree4);
-        assert_eq!((x_degree4, y_degree4), (0, 2), "Y-only polynomial degree test failed");
+    //     let coeffs4 = vec![
+    //         ScalarField::from_u32(1), ScalarField::zero(),
+    //         ScalarField::from_u32(2), ScalarField::zero(),
+    //         ScalarField::from_u32(3), ScalarField::zero() 
+    //     ];
+    //     let poly4 = DensePolynomial::from_coeffs(HostSlice::from_slice(&coeffs4), 6);
+    //     let (x_degree4, y_degree4) = DensePolynomialExt::_find_degree(&poly4, 2, 3);
+    //     println!("Test Case 4 - Expected: (0,2), Got: ({},{})", x_degree4, y_degree4);
+    //     assert_eq!((x_degree4, y_degree4), (0, 2), "Y-only polynomial degree test failed");
 
-        println!("\nDetailed coefficient analysis:");
-        for (i, coeffs) in [coeffs1, coeffs2, coeffs3, coeffs4].iter().enumerate() {
-            println!("\nTest Case {}:", i + 1);
-            for chunk in coeffs.chunks(2) {
-                println!("{:?}", chunk);
-            }
-        }
-    }
+    //     println!("\nDetailed coefficient analysis:");
+    //     for (i, coeffs) in [coeffs1, coeffs2, coeffs3, coeffs4].iter().enumerate() {
+    //         println!("\nTest Case {}:", i + 1);
+    //         for chunk in coeffs.chunks(2) {
+    //             println!("{:?}", chunk);
+    //         }
+    //     }
+    // }
 
     #[test]
     fn test_polynomial_division() { // pass

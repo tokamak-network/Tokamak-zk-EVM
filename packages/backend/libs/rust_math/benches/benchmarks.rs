@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
 use icicle_runtime::memory::{HostSlice};
 use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
+use icicle_runtime::Device;
 
 // Original implementation (paste.txt)
 use rust_math::dense_ext::{BivariatePolynomial as originalBipolynomial, DensePolynomialExt as originalDensePolynomial};
@@ -16,9 +17,10 @@ fn generate_random_polynomial(x_size: usize, y_size: usize) -> Vec<ScalarField> 
 }
 
 fn benchmark_multiplication(c: &mut Criterion) {
-    let mut group = c.benchmark_group("multiplication");
-    
-    for size in [128, 256, 512].iter() {
+   
+    let mut group = c.benchmark_group("resize");
+    for size in [64, 128, 256].iter() {
+        
         group.bench_function(format!("original_mul_{}", size), |b| {
             // 입력 다항식의 크기를 2배로 설정
             let input_size = *size;
@@ -37,6 +39,7 @@ fn benchmark_multiplication(c: &mut Criterion) {
                 black_box(&poly1 * &poly2);
             });
         });
+        
 
         group.bench_function(format!("optimized_mul_{}", size), |b| {
             let input_size = *size;
@@ -46,9 +49,12 @@ fn benchmark_multiplication(c: &mut Criterion) {
             let coeffs2 = generate_random_polynomial(input_size, input_size);
             let coeffs1_slice = HostSlice::from_slice(&coeffs1);
             let coeffs2_slice = HostSlice::from_slice(&coeffs2);
+
+            let poly1 = originalDensePolynomial::from_coeffs_fixed_size(coeffs1_slice, output_size, output_size);
+            let poly2 = originalDensePolynomial::from_coeffs_fixed_size(coeffs2_slice, output_size, output_size);
             
-            let poly1 = optimizedDensePolynomial::from_coeffs_fixed_size(coeffs1_slice, output_size, output_size);
-            let poly2 = optimizedDensePolynomial::from_coeffs_fixed_size(coeffs2_slice, output_size, output_size);
+            // let poly1 = optimizedDensePolynomial::from_coeffs_fixed_size(coeffs1_slice, output_size, output_size);
+            // let poly2 = optimizedDensePolynomial::from_coeffs_fixed_size(coeffs2_slice, output_size, output_size);
             
             b.iter(|| {
                 black_box(&poly1 * &poly2);
