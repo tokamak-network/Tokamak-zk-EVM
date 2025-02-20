@@ -1,8 +1,7 @@
 import axios from 'axios';
 
 const ETHERSCAN_API_URL = 'https://api.etherscan.io/api';
-const API_KEY = import.meta.env.VITE_ETHERSCAN_API_KEY;
-
+const API_KEY = process.env.ETHERSCAN_API_KEY;
 /**
  * Fetches the bytecode of a transaction by its hash using the Etherscan API.
  *
@@ -11,6 +10,7 @@ const API_KEY = import.meta.env.VITE_ETHERSCAN_API_KEY;
  * @throws Error if the bytecode cannot be retrieved or the transaction is invalid.
  */
 export const fetchTransactionBytecode = async (transactionId: string): Promise<{bytecode: string, from: string, to: string}> => {
+  console.log('ETHERSCAN_API_KEY:', process.env.ETHERSCAN_API_KEY);
   try {
     const response = await axios.get(ETHERSCAN_API_URL, {
       params: {
