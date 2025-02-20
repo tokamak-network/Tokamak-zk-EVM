@@ -1,0 +1,10 @@
+[package]
+name = "trusted-setup"
+version = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+icicle-runtime = { workspace = true }
+icicle-core = { workspace = true }
+icicle-bls12-381 = { workspace = true }
+libs = { workspace = true }

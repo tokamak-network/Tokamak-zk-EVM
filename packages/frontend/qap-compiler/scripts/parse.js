@@ -237,6 +237,7 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
     l_D: globalWireInfo.l_D,
     m_D: globalWireInfo.m_D,
     n,
+    s_D: subcircuits.length,
   }
   const globalWireList = globalWireInfo.wireList
 
@@ -271,6 +272,7 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
   // l_D: The number of interface wires (private)
   // m: The total number of wires
   // n: The maximum number of constraints
+  // s_D: The number of subcircuits in the library
   export const setupParams = \n ${JSON.stringify(setupParams, null, 2)}`
   fs.writeFile('../subcircuits/library/setupParams.ts', tsSetupParams, (err) => {
     if (err) {
