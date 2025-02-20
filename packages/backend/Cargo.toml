@@ -1,14 +1,15 @@
+[workspace]
+members = [
+    "libs",
+    "setup/trusted-setup",
+]
+
 [workspace.package]
 edition = "2021"
 version = "0.1.0"
 
-[package]
-name = "rust-math"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
+[workspace.dependencies]
 icicle-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.4.0", package = "icicle-runtime" }
 icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.4.0", package = "icicle-core" }
 icicle-bls12-381 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.4.0", package = "icicle-bls12-381" }
-
+libs = { path = "libs" }
