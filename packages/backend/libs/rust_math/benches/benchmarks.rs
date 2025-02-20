@@ -50,11 +50,11 @@ fn benchmark_multiplication(c: &mut Criterion) {
             let coeffs1_slice = HostSlice::from_slice(&coeffs1);
             let coeffs2_slice = HostSlice::from_slice(&coeffs2);
 
-            let poly1 = originalDensePolynomial::from_coeffs_fixed_size(coeffs1_slice, output_size, output_size);
-            let poly2 = originalDensePolynomial::from_coeffs_fixed_size(coeffs2_slice, output_size, output_size);
+            // let poly1 = originalDensePolynomial::from_coeffs_fixed_size(coeffs1_slice, output_size, output_size);
+            // let poly2 = originalDensePolynomial::from_coeffs_fixed_size(coeffs2_slice, output_size, output_size);
             
-            // let poly1 = optimizedDensePolynomial::from_coeffs_fixed_size(coeffs1_slice, output_size, output_size);
-            // let poly2 = optimizedDensePolynomial::from_coeffs_fixed_size(coeffs2_slice, output_size, output_size);
+            let poly1 = optimizedDensePolynomial::from_coeffs_fixed_size(coeffs1_slice, output_size, output_size);
+            let poly2 = optimizedDensePolynomial::from_coeffs_fixed_size(coeffs2_slice, output_size, output_size);
             
             b.iter(|| {
                 black_box(&poly1 * &poly2);
