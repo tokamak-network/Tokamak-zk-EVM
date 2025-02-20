@@ -8,12 +8,14 @@ import { keccak256 } from 'ethereum-cryptography/keccak'
 
 import { createEVM } from '../../src/constructors.js'
 import { finalize } from '../../src/tokamak/core/finalize.js'
-import { setupEVMFromCalldata } from "src/tokamak/utils/evmSetup.js"
+import { setupEVMFromCalldata } from "src/tokamak/utils/erc20EvmSetup.js"
 import TON_STORAGE_LAYOUT from "../../constants/storage-layouts/TON.json" assert { type: "json" };
-import ERC20_CONTRACTS from "../../constants/bytecodes/ERC20_CONTRACTS.json" assert { type: "json" };
+import TON_CONTRACT from "../../constants/bytecodes/TON.json" assert { type: "json" };
+import { logAfterTransaction } from "examples/utils/balanceUnit.js"
+import { getStorageSlot } from "examples/utils/getStorageSlot.js"
 
 // USDC contract bytecode
-const contractCode = ERC20_CONTRACTS.TON
+const contractCode = TON_CONTRACT.bytecode
 
 const main = async () => {
   const evm = await createEVM()
@@ -37,8 +39,13 @@ const main = async () => {
     ),
   })
 
-  console.log('result', result.exceptionError)
-
+  const balanceSlot = getStorageSlot(TON_STORAGE_LAYOUT, '_balances')
+  logAfterTransaction({
+    evm,
+    sender,
+    balanceSlot,
+    contractAddr
+  })
   
   // Generate proof
   const permutation = await finalize(result.runState!.synthesizer.placements, undefined, true)

@@ -1203,7 +1203,12 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
       const offsetNum = Number(offsetPt.value)
       const dataAliasInfos = runState.memoryPt.getDataAlias(offsetNum, loadSize)
-      const mutDataPt = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
+      let mutDataPt
+      if (dataAliasInfos.length === 0 ){
+        mutDataPt = runState.synthesizer.loadAuxin(BIGINT_0)
+      } else {
+        mutDataPt = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
+      }
 
       /**
        * Consistency validation between EVM execution and pointer tracking system

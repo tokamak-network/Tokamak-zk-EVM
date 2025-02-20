@@ -8,16 +8,15 @@ import { keccak256 } from 'ethereum-cryptography/keccak'
 
 import { createEVM } from '../../src/constructors.js'
 import { finalize } from '../../src/tokamak/core/finalize.js'
-import ERC20_CONTRACTS from '../../constants/bytecodes/ERC20_CONTRACTS.json' assert { type: "json" };
+import USDC_PROXY_CONTRACT from '../../constants/bytecodes/USDC_PROXY.json' assert { type: "json" };
 import USDC_STORAGE_LAYOUT from '../../constants/storage-layouts/USDC_PROXY.json' assert { type: "json" };
 import USDC_STORAGE_LAYOUT_V1 from '../../constants/storage-layouts/USDC_IMP.json' assert { type: "json" };
 import USDC_STORAGE_LAYOUT_V2 from '../../constants/storage-layouts/USDC_IMP_2.json' assert { type: "json" };
-import { setupEVMFromCalldata } from "src/tokamak/utils/evmSetup.js";
 import USDC_IMPLEMENTATION_V1 from '../../constants/bytecodes/USDC_IMP.json' assert { type: "json" };
 import USDC_IMPLEMENTATION_V2 from '../../constants/bytecodes/USDC_IMP_2.json' assert { type: "json" };
-import { setupUSDCFromCalldata } from "src/tokamak/utils/usdcSetup.js";
+import { setupUSDCFromCalldata } from "src/tokamak/utils/usdcEvmSetup.js";
 // USDC contract bytecode
-const contractCode = ERC20_CONTRACTS.USDC_PROXY
+const contractCode = USDC_PROXY_CONTRACT.bytecode
 
 const main = async () => {
   const evm = await createEVM()
@@ -39,7 +38,7 @@ const main = async () => {
         proxyAddr,
         implementationV1Addr,
         implementationV2Addr,
-        hexToBytes(ERC20_CONTRACTS.USDC_PROXY),
+        hexToBytes(contractCode),
         hexToBytes(USDC_IMPLEMENTATION_V1.bytecode),
         hexToBytes(USDC_IMPLEMENTATION_V2.bytecode),
         USDC_STORAGE_LAYOUT,
@@ -49,14 +48,6 @@ const main = async () => {
         sender
    )
   
-  // 실행 전 잔액 확인
-const balanceSlot = '9';  // USDC allowed slot
-const senderBalanceKey = keccak256(
-    hexToBytes(
-        '0x' + sender.toString().slice(2).padStart(64, '0') + 
-        balanceSlot.padStart(64, '0')
-    )
-);
 
   // Now run the transfer
   const result = await evm.runCode({
@@ -68,8 +59,15 @@ const senderBalanceKey = keccak256(
     ),
   })
 
-  // 실행 후 잔액 확인
-console.log("\n=== After Transfer ===");
+  console.log("\n=== After Transfer ===");
+const balanceSlot = '9';  
+  const senderBalanceKey = keccak256(
+    hexToBytes(
+        '0x' + sender.toString().slice(2).padStart(64, '0') + 
+        balanceSlot.padStart(64, '0')
+    )
+);
+
   const balanceAfter = await evm.stateManager.getStorage(proxyAddr, senderBalanceKey);
 console.log("Sender balance after:", Buffer.from(balanceAfter).toString('hex'));
 

@@ -1,3 +1,4 @@
+import { byteSize } from './../../src/tokamak/utils/utils';
 /**
  * Run this file with:
  * DEBUG=ethjs,evm:*,evm:*:* tsx ton-transfer.ts
@@ -8,14 +9,12 @@ import { keccak256 } from 'ethereum-cryptography/keccak'
 
 import { createEVM } from '../../src/constructors.js'
 import { finalize } from '../../src/tokamak/core/finalize.js'
-import { setupEVMFromCalldata } from "src/tokamak/utils/evmSetup.js"
+import { setupEVMFromCalldata } from "src/tokamak/utils/erc20EvmSetup.js"
 import USDT_STORAGE_LAYOUT from "../../constants/storage-layouts/USDT.json" assert { type: "json" };
-import ERC20_CONTRACTS from "../../constants/bytecodes/ERC20_CONTRACTS.json" assert { type: "json" };
+import USDT_CONTRACT from "../../constants/bytecodes/USDT.json" assert { type: "json" };
 
 // USDT contract bytecode
-const contractCode = ERC20_CONTRACTS.USDT
-
-
+const contractCode = USDT_CONTRACT.bytecode
 
 const main = async () => {
   const evm = await createEVM()
@@ -37,9 +36,6 @@ const main = async () => {
      calldata
     ),
   })
-
-  console.log('result', result)
-
   
   // Generate proof
   const permutation = await finalize(result.runState!.synthesizer.placements, undefined, true)

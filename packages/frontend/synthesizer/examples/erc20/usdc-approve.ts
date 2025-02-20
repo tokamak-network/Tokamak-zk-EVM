@@ -8,11 +8,11 @@ import { keccak256 } from 'ethereum-cryptography/keccak'
 
 import { createEVM } from '../../src/constructors.js'
 import { finalize } from '../../src/tokamak/core/finalize.js'
-import ERC20_CONTRACTS from '../../constants/bytecodes/ERC20_CONTRACTS.json' assert { type: "json" };
+import USDC_PROXY_CONTRACT from '../../constants/bytecodes/USDC_PROXY.json' assert { type: "json" };
 import USDC_STORAGE_LAYOUT from '../../constants/storage-layouts/USDC_PROXY.json' assert { type: "json" };
 import USDC_STORAGE_LAYOUT_V1 from '../../constants/storage-layouts/USDC_IMP.json' assert { type: "json" };
 import USDC_STORAGE_LAYOUT_V2 from '../../constants/storage-layouts/USDC_IMP_2.json' assert { type: "json" };
-import { setupUSDCFromCalldata } from "src/tokamak/utils/usdcSetup.js";
+import { setupUSDCFromCalldata } from "src/tokamak/utils/usdcEvmSetup.js";
 import USDC_IMPLEMENTATION_V1 from '../../constants/bytecodes/USDC_IMP.json' assert { type: "json" };
 import USDC_IMPLEMENTATION_V2 from '../../constants/bytecodes/USDC_IMP_2.json' assert { type: "json" };
 
@@ -49,8 +49,12 @@ const parseApprovalEvent = (logs: any[]) => {
     return null;
 }
 
+// USDC contract bytecode
+const contractCode = USDC_PROXY_CONTRACT.bytecode
+
+
 const main = async () => {
-    const evm = await createEVM()
+    const evm = await createEVM();
 
     // 컨트랙트 주소들 설정
     const proxyAddr = new Address(hexToBytes('0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48')) // USDC 프록시
@@ -70,7 +74,7 @@ const main = async () => {
         proxyAddr,
         implementationV1Addr,
         implementationV2Addr,
-        hexToBytes(ERC20_CONTRACTS.USDC_PROXY),
+        hexToBytes(contractCode),
         hexToBytes(USDC_IMPLEMENTATION_V1.bytecode),
         hexToBytes(USDC_IMPLEMENTATION_V2.bytecode),
         USDC_STORAGE_LAYOUT,
@@ -104,7 +108,7 @@ const main = async () => {
     const result = await evm.runCode({
         caller: sender,
         to: proxyAddr,
-        code: hexToBytes(ERC20_CONTRACTS.USDC_PROXY),
+        code: hexToBytes(contractCode),
         data: hexToBytes(calldata),
     })
 
