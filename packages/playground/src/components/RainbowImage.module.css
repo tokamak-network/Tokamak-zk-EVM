@@ -1,0 +1,13 @@
+.rainbowIcon {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    z-index: 1000;
+    pointer-events: none;
+    margin-bottom: 44px;
+}
+

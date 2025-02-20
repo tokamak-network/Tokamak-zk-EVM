@@ -1,4 +1,4 @@
-export default async function builder(code, options) {
+module.exports = async function builder(code, options) {
 
     options = options || {};
 

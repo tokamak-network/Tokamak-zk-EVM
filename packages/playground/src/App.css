@@ -1,193 +1,213 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Jersey+10&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Jersey+10&display=swap');
+
+html, body {
+  height: 100%;
+  margin: 0;
+  min-height: 100vh;
+}
 
 body {
-  background: linear-gradient(180deg, #001a40 0%, #002855 100%);
+  background: linear-gradient(179.38deg, #000306, #003466);
   color: white;
-  font-family: 'Press Start 2P', cursive;
+  font-family: 'Jersey 10', cursive;
   text-align: center;
+  min-height: 100vh;
   margin: 0;
   padding: 0;
-  position: relative;
-  overflow: hidden;
-}
-
-/* Star layers */
-body::before,
-body::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 0;
-    background-image: 
-        radial-gradient(2px 2px at 20px 30px, #fff, rgba(0,0,0,0)),
-        radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
-        radial-gradient(2px 2px at 50px 160px, #fff, rgba(0,0,0,0)),
-        radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0)),
-        radial-gradient(2px 2px at 130px 80px, #fff, rgba(0,0,0,0));
-    background-repeat: repeat;
-    background-size: 200px 200px;
-    opacity: 0.5;
-    animation: stars 8s linear infinite;
-}
-
-body::after {
-    background-size: 300px 300px;
-    animation: stars 15s linear infinite;
-    opacity: 0.3;
-}
-
-@keyframes stars {
-    0% {
-        transform: translateY(0);
-    }
-    100% {
-        transform: translateY(-200px);
-    }
-}
-
-/* Add twinkling effect */
-.twinkle {
-    position: fixed;
-    width: 100%;
-    height: 100%;
-    background: transparent;
-    animation: twinkle 2s infinite;
-}
-
-@keyframes twinkle {
-    0%, 100% { opacity: 0.3; }
-    50% { opacity: 0.8; }
 }
 
 .app-container {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    padding: 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
 }
 
 h1 {
-    font-size: 2rem;
-    text-shadow: 4px 4px 0px black;
-    color: yellow;
-    margin-bottom: 20px;
+  font-size: 2rem;
+  text-shadow: 4px 4px 0px black;
+  color: yellow;
+  margin-bottom: 20px;
 }
 
 h1 span {
-    color: white;
+  color: white;
 }
 
 .input-field {
-    font-family: 'Press Start 2P', cursive;
-    padding: 10px;
-    width: 300px;
-    border: 3px solid #ccc;
-    background: white;
-    font-size: 14px;
-    text-align: center;
-    outline: none;
-    margin-bottom: 10px;
+  font-family: "IBM Plex Mono", Helvetica;
+  width: 300px;
+  background: white;
+  font-size: 14px;
+  text-align: center;
+  outline: none;
 }
 
 .submit-button {
-    font-family: 'Press Start 2P', cursive;
-    padding: 10px 20px;
-    font-size: 14px;
-    background: #444;
-    color: white;
-    border: 3px solid #222;
-    cursor: pointer;
+  font-family: 'Jersey 10', cursive;
+  padding: 10px 20px;
+  font-size: 14px;
+  background: #444;
+  color: white;
+  border: 3px solid #222;
+  cursor: pointer;
 }
 
 .submit-button:disabled {
-    background: grey;
-    cursor: not-allowed;
+  background: grey;
+  cursor: not-allowed;
 }
 
 .log-card {
-    background: rgba(0, 0, 0, 0.6);
-    padding: 15px;
-    border-radius: 10px;
-    margin: 10px 0;
-    text-align: left;
-    font-size: 12px;
-    border: 3px solid white;
-    color: white;
+  position: relative;
+  color: black;
+  font-family: 'Tahoma', sans-serif;
+  font-size: 12px;
+}
+
+.log-card-inside {
+  position: relative;
+  margin-top: 40px;
+  background: #ffffff;
+  border: 1px solid #5f5f5f;
+  padding: 15px;
+  color: black;
+  font-family: 'Tahoma', sans-serif;
+  font-size: 11px;
+  margin-top: 30px;
+}
+
+.data-label {
+  position: absolute;
+  top: -25px;
+  left: -1px;
+  font-family: 'IBM Plex Mono';
+  background-color: #ffffff; 
+  letter-spacing: 0.15px;
+  color: #3b48ff;
+  text-align: left;
+  font-weight: 500;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-top: 1px solid #5f5f5f;
+  border-left: 1px solid #5f5f5f;
+  border-right: 1px solid #5f5f5f;
+  border-top-left-radius: 2px;
+  border-top-right-radius: 2px;
+}
+
+.log-card > div {
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.log-card strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+  font-family: 'IBM Plex Mono';
+  color: #222;
+  font-weight: 500;
+}
+
+.log-card span {
+  display: block;
+  padding: 5px 8px;
+  background: #F2F2F2;
+  border-top: 1px solid #5f5f5f;
+  border-left: 1px solid #5f5f5f;
+  min-height: 16px;
+  word-break: break-all;
+  font-family: 'IBM Plex Mono';
+}
+
+.topic-badge {
+  display: inline-block;
+  margin: 2px;
+  padding: 3px 6px;
+  background: #f0f0f0;
+  border: 1px solid #919B9C;
+  color: #000;
+  border-radius: 0;
 }
 
 .download-button {
-    font-family: 'Press Start 2P', cursive;
-    padding: 10px;
-    font-size: 14px;
-    background: #444;
-    color: white;
-    border: 3px solid #222;
-    margin-top: 10px;
-    display: block;
-    width: 250px;
-    text-align: center;
+  font-family: "IBM Plex Mono", Helvetica;
+  padding: 10px;
+  font-size: 14px;
+  background: #444;
+  color: white;
+  border: 3px solid #222;
+  margin-top: 10px;
+  display: block;
+  width: 350px;
+  text-align: center;
 }
 
 .download-button:hover {
-    background: #666;
+  background: #666;
 }
 
 .download-button.success {
-    background: green;
+  background: green;
 }
 
 .download-button.info {
-    background: blue;
+  background: blue;
 }
 
 .error-box {
-    background: #222;
-    border: 3px solid red;
-    padding: 20px;
-    text-align: center;
-    color: white;
-    margin-top: 20px;
-    font-size: 12px;
-}
-
-
-
-.title-container {
-  margin-bottom: 30px;
+  background: #222;
+  border: 3px solid red;
+  padding: 20px;
+  text-align: center;
+  color: white;
+  margin-top: 20px;
+  font-size: 12px;
 }
 
 .main-title {
-  font-size: 3rem;
-  text-shadow: 4px 4px 0px black;
+  font-size: clamp(1.5rem, 5vw, 3rem);
+  text-shadow:
+    0 1px 0 #a17510,
+    0 2px 0 #a17510;
   color: yellow;
-  margin-bottom: 10px;
+  font-size: 96px;
+  line-height: 60px;
+  margin-top: -60px;
 }
 
 .subtitle {
-  font-size: 1.5rem;
-  text-shadow: 3px 3px 0px black;
+  font-size: clamp(0.8rem, 3vw, 1.5rem);
   color: white;
   margin: 0;
+  font-size: 96px;
+  line-height: 60px;
+  text-shadow:
+    0 1px 0 #a17510,
+    0 2px 0 #a17510;
 }
 
 .logo-container {
   position: fixed;
-  top: 20px;
-  left: 20px;
-  z-index: 100;
-  width: 350px;
+  top: 40px;
+  left: 40px;
+  width: 334px;
+  height: 29.1px;
 }
 
 .logo-image {
-  width: 100%;
-  height: auto;
-  filter: brightness(0) invert(1);
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  height: 29.1px;
+  width: 334px;
+}
+
+.logo-image:hover {
+  opacity: 0.8; 
 }
 
 .log-entry::before {
@@ -209,12 +229,6 @@ h1 span {
   background: rgba(0, 0, 0, 0.5);
 }
 
-.log-topics, .log-data {
-  margin-left: 20px;
-  padding: 10px;
-  border-left: 2px solid #00ff00;
-}
-
 .log-field strong {
   color: #ffff00;
   text-shadow: 2px 2px 0 #000;
@@ -222,10 +236,10 @@ h1 span {
 
 @keyframes scanline {
   0% {
-      background-position: 0 0;
+    background-position: 0 0;
   }
   100% {
-      background-position: 0 30px;
+    background-position: 0 30px;
   }
 }
 
@@ -257,8 +271,8 @@ h1 span {
   font-family: 'Press Start 2P', cursive;
   font-size: 0.8rem;
   box-shadow: 
-      inset 0 0 10px rgba(0, 255, 0, 0.3),
-      0 0 20px rgba(0, 255, 0, 0.2);
+    inset 0 0 10px rgba(0, 255, 0, 0.3),
+    0 0 20px rgba(0, 255, 0, 0.2);
   animation: scanline 2s linear infinite;
 }
 
@@ -269,109 +283,148 @@ h1 span {
   max-width: 1400px;
   margin: 0 auto;
   padding: 20px;
-  padding-top: 100px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-.transaction-input {
-  font-family: 'Press Start 2P', cursive;
-  padding: 15px;
-  width: 400px;
-  border: 4px solid #ffffff;
-  background: #000033;
-  color: #00ff00;
-  font-size: 0.8rem;
-  text-align: center;
-  outline: none;
-  margin: 20px 0;
-  border-radius: 0;
-  box-shadow: 
-      inset 0 0 10px rgba(0, 255, 0, 0.3),
-      0 0 20px rgba(0, 255, 0, 0.2);
-}
-
-.transaction-input::placeholder {
-  color: #00aa00;
-  font-family: 'Press Start 2P', cursive;
-  font-size: 0.8rem;
+.title-container {
+  position: absolute;
+  z-index: 2;
+  top: 280px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 736px;
 }
 
 .btn-process {
-  font-family: 'Press Start 2P', cursive;
-  padding: 15px 30px;
-  border: 4px solid #ffffff;
-  background: #000033;
-  color: #00ff00;
-  font-size: 0.8rem;
+  background: #2A72E5;
+  height: 59px;
+  width: 159px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  gap: 8px;
+  border-left: 1px solid #a8a8a8;
+  border-top: 1px solid #a8a8a8;      
+  border-bottom: 1px solid #5F5F5F;
+  border-right: 1px solid #5F5F5F;;
+
+  border-radius: 0%;
+  padding: 0;
   cursor: pointer;
-  border-radius: 0;
-  box-shadow: 
-      inset 0 0 10px rgba(0, 255, 0, 0.3),
-      0 0 20px rgba(0, 255, 0, 0.2);
-  transition: all 0.2s ease;
+  transition: background 0.2s ease;
 }
 
-.btn-process:hover:not(.disabled) {
-  background: #000066;
-  transform: scale(1.05);
+.btn-process:hover:not(.disabled):not(.error) {
+  background: #5B9AFF;
+}
+
+.btn-process:active:not(.disabled):not(.error) {
+  background: #1057C9;
+}
+
+.btn-process.error {
+  background: #BC2828;
+}
+
+.btn-process.error:hover:not(:disabled) {
+  background: #ec3030;
+}
+
+.btn-process::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: #A8A8A8;
+}
+
+.btn-process::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: #5F5F5F;
+}
+
+.btn-process .btn-icon {
+  width: 24px;
+  height: 24px;
+  position: relative;
+}
+
+.btn-process .btn-icon img {
+  width: 20px;
+  height: 20px;
+  position: absolute;
+  left: 2px;
+  top: 2px;
+}
+
+.btn-process .btn-text {
+  color: #F8F8F8;
+  font-size: 24px;
+  font-family: 'IBM Plex Mono';
+  font-weight: 500;
+  word-wrap: break-word;
 }
 
 .btn-process.disabled {
-  background: #1a1a1a;
-  color: #666666;
+  opacity: 0.6;
   cursor: not-allowed;
-  border-color: #666666;
+}
+
+.input-button-container {
+  position: absolute;
+  top: 424px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: center;
+  width: 728px;
+  height: 59px;
+  z-index: 2;
 }
 
 .btn-download {
-  font-family: 'Press Start 2P', cursive;
-  padding: 15px 30px 15px 50px; 
-  border: 4px solid #ffffff;
-  background: #000033;
-  color: #00ff00;
-  font-size: 0.8rem;
+  font-family: 'IBM Plex Mono';
+  font-size: 13px;
+  font-weight: normal;
+  width: 350px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  border-radius: 0;
-  margin: 10px;
-  position: relative;
-  box-shadow: 
-      inset 0 0 10px rgba(0, 255, 0, 0.3),
-      0 0 20px rgba(0, 255, 0, 0.2);
-  transition: all 0.2s ease;
 }
 
 .download-icon {
   width: 16px;
   height: 16px;
-  margin-right: 10px;
-  fill: currentColor;
-  filter: invert(1); 
-}
-
-.btn-download {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 15px 30px;
+  margin-right: 5px;
+  filter: none;
 }
 
 .btn-download:hover:not(:disabled) {
-  background: #000066;
-  transform: scale(1.05);
+  background: linear-gradient(to bottom, #fefefe 0%, #f1f5f9 100%);
 }
 
 .btn-download:active:not(:disabled) {
-  transform: scale(0.95);
+  background: #e4e2d5;
+  box-shadow: inset -1px -1px 0px white, inset 1px 1px 0px #919B9C;
 }
 
 .btn-download:disabled {
-  background: #1a1a1a;
-  color: #666666;
+  background: #ECE9D8;
+  color: #919B9C;
   cursor: not-allowed;
-  border-color: #666666;
-}
-
-.btn-download:disabled::before {
-  opacity: 0.5;
 }
 
 .status-download-container {
@@ -383,26 +436,41 @@ h1 span {
   margin-top: 20px;
 }
 
+.btn-permutation, .btn-placement {
+  border-radius: 0;
+  color: #f8f8f8;
+  font-family: 'IBM Plex Mono';
+  font-size: 13px;
+  padding: 0px 1px 0px 0px;
+  font-weight: 500;
+  border-left: 1px solid #a8a8a8;
+  border-top: 1px solid #a8a8a8;
+  border-right: 1px solid #5f5f5f;
+  border-bottom: 1px solid #5f5f5f;
+}
+
+.btn-permutation:disabled, .btn-placement:disabled {
+  color: #eee;
+  opacity: 0.6;
+}
+
 .btn-permutation {
-  background: #4a0080;
-  border-color: #8000ff;
-  color: #d9b3ff;
+  background: #55008A;
+  color: #F8F8F8;
+  font-weight: '500';
 }
 
 .btn-permutation:hover:not(:disabled) {
   background: #6600b3;
-  border-color: #9933ff;
 }
 
 .btn-placement {
-  background: #006666;
-  border-color: #00cccc;
-  color: #99ffff;
+  background: #008A4C;
+  color: #F8F8F8;
 }
 
 .btn-placement:hover:not(:disabled) {
   background: #008080;
-  border-color: #00ffff;
 }
 
 .status-message {
@@ -421,8 +489,8 @@ h1 span {
   border: 4px solid #4466ff;
   color: #99aaff;
   box-shadow: 
-      inset 0 0 10px rgba(68, 102, 255, 0.3),
-      0 0 20px rgba(68, 102, 255, 0.2);
+    inset 0 0 10px rgba(68, 102, 255, 0.3),
+    0 0 20px rgba(68, 102, 255, 0.2);
 }
 
 .status-message.error::before {
@@ -437,6 +505,7 @@ h1 span {
 }
 
 .error-content {
+  font-size: 50px; 
   padding: 10px;
   color: #ccccdd;
   text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.5);
@@ -473,16 +542,16 @@ h1 span {
 
 @keyframes spin {
   to { 
-      transform: rotate(360deg);
+    transform: rotate(360deg);
   }
 }
 
 @keyframes glow {
   0%, 100% {
-      box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
   }
   50% {
-      box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
   }
 }
 
@@ -492,4 +561,142 @@ h1 span {
   display: none;
 }
 
+.big-box {
+  position: absolute;
+  width: 728px;
+  height: auto;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 512px;
+  flex-grow: 0;
+  padding-bottom: 150px;
+}
 
+.fixed-box {
+  position: relative;
+  width: 708px;
+  background: #bdbdbd;
+  height: calc(100% - 40px);
+  max-height: 655px;
+  border: 9px solid #bdbdbd;
+  overflow-y: auto;
+  left: 0;
+  top: 0;
+}
+
+/* Custom Scrollbar Styles */
+.fixed-box::-webkit-scrollbar {
+  width: 16px;
+}
+
+.fixed-box::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border: 1px solid #919B9C;
+}
+
+.fixed-box::-webkit-scrollbar-thumb {
+  background: #d4d0c8;
+  border: 1px solid #919B9C;
+}
+
+.fixed-box::-webkit-scrollbar-button:vertical:decrement {
+  background: url('Top.svg') no-repeat center center;
+  height: 16px;
+  width: 16px;
+  border: 1px solid #a8a8a8;
+}
+
+.fixed-box::-webkit-scrollbar-button:vertical:increment {
+  background: url('Bottom.svg') no-repeat center center;
+  height: 16px;
+  width: 16px;
+  border: 1px solid #a8a8a8;
+}
+
+.download-buttons-container {
+  width: 710px;
+  height: 31px;
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px;
+  padding-top: 3px;
+  background: #bdbdbd;
+  font-family: 'IBM Plex Mono';
+}
+
+
+.tab-switcher {
+  display: flex;
+  margin-bottom: 0;
+  margin-left: 10px;
+  gap: 2px;
+  position: relative;
+  z-index: 1;
+}
+
+.tab-switcher button {
+  background: linear-gradient(to bottom, #fefefe 0%, #e4e2d5 100%);
+  border: 1px solid #919B9C;
+  border-bottom: none;
+  padding: 5px 15px;
+  color: black;
+  font-family: 'Tahoma', sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 3px 3px 0 0;
+  min-width: 100px;
+  height: 24px;
+  clip-path: none;
+  margin: 0;
+  position: relative;
+  box-shadow: none;
+}
+
+.tab-switcher button.active {
+  background: #fff;
+  border-bottom: 1px solid #fff;
+  z-index: 2;
+  margin-bottom: -1px;
+}
+
+.tab-switcher button:hover:not(.active) {
+  background: linear-gradient(to bottom, #fefefe 0%, #f1f5f9 100%);
+}
+
+.fixed-box::-webkit-scrollbar {
+  width: 16px;
+}
+
+.fixed-box::-webkit-scrollbar-track {
+  background: #DFDFDF;
+  border: 1px solid #919B9C;
+}
+
+.fixed-box::-webkit-scrollbar-thumb {
+  background: #BDBDBD;
+  border: 1px solid #919B9C;
+}
+
+.topic-badge {
+  margin-bottom: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  background-color: #444;
+  color: #fff;
+  border-radius: 4px;
+}
+
+.background-container {
+  position: fixed; 
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  min-height: 100vh;
+  background: linear-gradient(179.38deg, #000306, #003466);
+}
