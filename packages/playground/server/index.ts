@@ -6,13 +6,11 @@ import bodyParser from 'body-parser';
 import { SynthesizerAdapter } from '@tokamak-zk-evm/synthesizer';
 
 // If your environment supports top-level await (Node 18+ with "type": "module"):
-const {
-  STORAGE_IN_PLACEMENT_INDEX,
-  RETURN_PLACEMENT_INDEX,
-  STORAGE_OUT_PLACEMENT_INDEX,
-} = await import('file:///C:/Users/kyros/Documents/tokamak-zk-evm-8/node_modules/@tokamak-zk-evm/synthesizer/src/tokamak/constant/constants.js');
-//C:\Users\kyros\Documents\tokamak-zk-evm-8\node_modules\@tokamak-zk-evm\synthesizer\src\tokamak\constant\constants.ts
-//../../frontend/synthesizer/src/tokamak/constant/constants.js');
+import {
+  STORAGE_IN_PLACEMENT_INDEX, 
+  RETURN_PLACEMENT_INDEX, 
+  STORAGE_OUT_PLACEMENT_INDEX 
+} from '@tokamak-zk-evm/synthesizer';
 
 // A Node/server-side version of fetchTransactionBytecode
 // (Make sure it uses axios or node-fetch, not window.fetch)
