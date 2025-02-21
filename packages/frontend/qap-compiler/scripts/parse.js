@@ -203,16 +203,16 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
     //const opcode = opcodeDictionary[name]
 
     // num_wires 
-    const numWires = output[i + 8].match(/\d+/)[0]
+    const numWires = output[i + 7].match(/\d+/)[0]
 
     // public output
     const numOutput = output[i + 6].match(/\d+/)[0]
 
     // public input
-    const numInput = output[i + 4].match(/\d+/)[0]
+    const numInput = Number(output[i + 4].match(/\d+/)[0]) + Number(output[i + 5].match(/\d+/)[0])
 
     // num_constraints
-    const numConsts = Number(output[i + 3].match(/\d+/)[0]) + Number(output[i + 2].match(/\d+/)[0])
+    const numConsts = Number(output[i + 2].match(/\d+/)[0]) + Number(output[i + 3].match(/\d+/)[0])
     numConstsVec.push(numConsts)
 
     const subcircuit = {
@@ -221,7 +221,7 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
       Nwires: Number(numWires),
       Nconsts: Number(numConsts),
       Out_idx: [1, Number(numOutput)],
-      In_idx: [Number(numOutput)+1, Number(numInput)],
+      In_idx: [Number(numOutput)+1, numInput],
     }
     subcircuits.push(subcircuit)
   }
