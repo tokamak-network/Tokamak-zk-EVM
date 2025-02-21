@@ -8,9 +8,11 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "server": "tsx server/index.ts"
+    "server": "tsx server/index.ts",
+    "build:server": "tsc -p tsconfig.node.json"
   },
   "dependencies": {
+    "@tokamak-zk-evm/synthesizer": "^0.0.5",
     "@types/axios": "^0.14.4",
     "buffer": "^6.0.3",
     "cors": "^2.8.5",

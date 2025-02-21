@@ -8,6 +8,7 @@ import CustomLoading from './components/CustomLoading';
 import CustomErrorTab from './components/CustomErrorTab';
 import Stars from './components/Stars';
 import RainbowImage from './components/RainbowImage';
+import logo from '/src/assets/logo.svg';
 
 const App: React.FC = () => {
   const [transactionId, setTransactionId] = useState('');
@@ -115,7 +116,7 @@ const App: React.FC = () => {
         <RainbowImage />
       </div>
       <div>
-        <Header logo="logo.svg" onLogoClick={() => window.location.reload()} />
+        <Header logo={logo} onLogoClick={() => window.location.reload()} />
         <TransactionForm
           transactionId={transactionId}
           setTransactionId={setTransactionId}

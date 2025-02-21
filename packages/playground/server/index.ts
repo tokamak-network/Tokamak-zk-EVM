@@ -1,15 +1,18 @@
+// server/index.ts
 import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import { SynthesizerAdapter } from '@tokamak-zk-evm/synthesizer';
 
-// Import constants using a valid file URL for Windows
+// If your environment supports top-level await (Node 18+ with "type": "module"):
 const {
   STORAGE_IN_PLACEMENT_INDEX,
   RETURN_PLACEMENT_INDEX,
   STORAGE_OUT_PLACEMENT_INDEX,
 } = await import('file:///C:/Users/kyros/Documents/tokamak-zk-evm-8/node_modules/@tokamak-zk-evm/synthesizer/src/tokamak/constant/constants.js');
+//C:\Users\kyros\Documents\tokamak-zk-evm-8\node_modules\@tokamak-zk-evm\synthesizer\src\tokamak\constant\constants.ts
+//../../frontend/synthesizer/src/tokamak/constant/constants.js');
 
 // A Node/server-side version of fetchTransactionBytecode
 // (Make sure it uses axios or node-fetch, not window.fetch)
@@ -60,20 +63,28 @@ app.post('/api/parseTransaction', async (req: Request, res: Response) => {
     const storageStore = storageStorePlacement?.outPts || [];
     const _logsData = logsPlacement?.outPts || [];
 
-    // Example log parsing logic - modified to safely append topics
-    const logs: Array<{ topics: string[]; valueDec: bigint; valueHex: string }> = [];
+    // Example log parsing logic - modified to handle BigInt serialization
+    const logs: Array<{ topics: string[]; valueDec: string; valueHex: string }> = [];
     let prevIdx = -1;
     for (const _logData of _logsData) {
-      const idx = _logData.pairedInputWireIndices?.[0] ?? -1;  // Default to -1 if undefined
-      // If the current log index differs from the previous one or logs array is empty, create a new log entry
-      if (idx !== prevIdx || logs.length === 0) {
-        logs.push({ topics: [], valueDec: _logData.value, valueHex: _logData.valueHex });
+      const idx = _logData.pairedInputWireIndices![0];
+      if (idx !== prevIdx) {
+        logs.push({ 
+          topics: [], 
+          valueDec: _logData.value.toString(), // Convert BigInt to string
+          valueHex: _logData.valueHex 
+        });
       } else {
-        // Append to the topics of the most recent log entry
-        logs[logs.length - 1].topics.push(_logData.valueHex);
+        logs[idx].topics.push(_logData.valueHex);
       }
       prevIdx = idx;
     }
+
+    // Helper function to convert BigInt values to strings in any object
+    const convertBigIntsToStrings = (obj: any) => 
+      JSON.parse(JSON.stringify(obj, (_, value) =>
+        typeof value === 'bigint' ? value.toString() : value
+      ));
 
     // 4) Send final results back to the client
     res.json({
@@ -82,10 +93,10 @@ app.post('/api/parseTransaction', async (req: Request, res: Response) => {
         from,
         to,
         logs,
-        storageLoad,
-        storageStore,
-        permutation,       // In-memory finalization
-        placementInstance, // In-memory finalization
+        storageLoad: convertBigIntsToStrings(storageLoad),
+        storageStore: convertBigIntsToStrings(storageStore),
+        permutation: convertBigIntsToStrings(permutation),
+        placementInstance: convertBigIntsToStrings(placementInstance),
       },
     });
   } catch (error) {
