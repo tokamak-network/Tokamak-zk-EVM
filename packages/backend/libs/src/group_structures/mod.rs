@@ -1,5 +1,5 @@
 use icicle_bls12_381::curve::{BaseField, G2BaseField, CurveCfg, G1Projective, G2Projective, G1Affine, G2Affine, ScalarCfg, ScalarField};
-use icicle_bls12_381::curve;
+use icicle_bls12_381::{curve, vec_ops};
 use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use crate::tools::{Tau, SetupParams, SubcircuitInfo, SubcircuitQAPEvaled, gen_cached_pows};
@@ -53,6 +53,9 @@ fn gen_monomial_matrix(x_size: usize, y_size: usize, x: &ScalarField, y: &Scalar
 }
 
 fn from_coef_vec_to_affine_vec(coef: &Box<[ScalarField]>, size: usize, gen: &G1Affine, res: &mut Box<[G1Affine]>) {
+    if res.len() != size {
+        panic!("Not enough buffer length.")
+    }
     let mut msm_cfg = msm::MSMConfig::default();
     let coef_buf = HostSlice::from_slice(&coef);
     let bases_vec = vec![*gen; size].into_boxed_slice();
@@ -66,14 +69,39 @@ fn from_coef_vec_to_affine_vec(coef: &Box<[ScalarField]>, size: usize, gen: &G1A
     }
 }
 
+fn from_coef_vec_to_affine_mat(coef: &Box<[ScalarField]>, r_size: usize, c_size: usize, gen: &G1Affine, res: &mut Box<[Box<[G1Affine]>]>) {
+    if res.len() != r_size || res.len() == 0 {
+        panic!("Not enough buffer row length.")
+    }
+    let mut temp_vec = vec![G1Affine::zero(); r_size * c_size].into_boxed_slice();
+    from_coef_vec_to_affine_vec(coef, r_size * c_size, gen, &mut temp_vec);
+    for i in 0..r_size {
+        if res[i].len() != c_size {
+            panic!("Not enough buffer column length.")
+        }
+        res[i].copy_from_slice(&temp_vec[i * c_size .. (i + 1) * c_size]);
+    }
+}
+
+fn point_mul_two_vecs(lhs: &Box<[ScalarField]>, rhs: &Box<[ScalarField]>, res: &mut Box<[ScalarField]>){
+    if lhs.len() != rhs.len() || lhs.len() != res.len() {
+        panic!("Mismatch of sizes of vectors to be pointwise-multiplied");
+    }
+    let vec_ops_cfg = VecOpsConfig::default();
+    let lhs_buff = HostSlice::from_slice(lhs);
+    let rhs_buff = HostSlice::from_slice(rhs);
+    let res_buff = HostSlice::from_mut_slice(res);
+    ScalarCfg::mul(lhs_buff, rhs_buff, res_buff, &vec_ops_cfg);
+}
+
 pub struct SigmaArithAndIP {
     // first line paper page 21 
     pub alpha: G1Affine,  
     pub xy_hi: Box<[G1Affine]>, // h ∈ ⟦0,n-1⟧ , i ∈ ⟦0, s_{max} -1⟧
     // second line paper page 21
     pub gamma_l_pub_o_j: Box<[G1Affine]>, // //  j ∈ ⟦0, l-1⟧
-    pub eta1_l_inter_o_j:Box<[Box<[G1Affine]>]>, // i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l, l_{D} - 1⟧
-    pub delta_l_prv_o_j: Box<[Box<[G1Affine]>]>,  // i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l_{D} , m_{D} - 1 ⟧
+    pub eta1_l_inter_o_ij:Box<[Box<[G1Affine]>]>, // i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l, l_{D} - 1⟧
+    pub delta_l_prv_o_ij: Box<[Box<[G1Affine]>]>,  // i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l_{D} , m_{D} - 1 ⟧
     // third line paper page 21 
     pub eta0_l_o_ip_first_ij: Box<[Box<[G1Affine]>]>, //i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l, l_{D} - 1⟧
     pub eta0_l_m_tz_ip_second_ij: Box<[Box<[G1Affine]>]>, //i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l, l_{D} - 1⟧
@@ -99,8 +127,8 @@ impl SigmaArithAndIP {
     }
     let l_in = l/2;
     let m_d = params.m_D;
-    let l_D = params.l_D;
-    let z_dom_length = l_D - l;
+    let l_d = params.l_D;
+    let z_dom_length = l_d - l;
     let n = params.n;
 
     let mut msm_cfg = msm::MSMConfig::default();
@@ -133,28 +161,75 @@ impl SigmaArithAndIP {
     let gamma_l_out_vec = vec![tau.gamma.inv()*l_vec[s_max - 1]; l_in].into_boxed_slice();
     gamma_l_pub_vec.extend_from_slice(&gamma_l_in_vec);
     gamma_l_pub_vec.extend_from_slice(&gamma_l_out_vec);
-    gamma_l_pub_vec.into_boxed_slice();
-    let gamma_l_pub = HostSlice::from_slice(&gamma_l_pub_vec);
-    let pub_o_j_vec= o_vec[0..l].to_owned().into_boxed_slice();
-    let pub_o_j = HostSlice::from_slice(&pub_o_j_vec);
     let mut gamma_l_pub_o_j_coef_vec = vec![ScalarField::zero(); l].into_boxed_slice();
-    let gamma_l_pub_o_j_coef = HostSlice::from_mut_slice(&mut gamma_l_pub_o_j_coef_vec);
-    ScalarCfg::mul(pub_o_j, gamma_l_pub, gamma_l_pub_o_j_coef, &vec_ops_cfg).unwrap();
-    let mut gamma_l_pub_o_j_affine_vec= vec![G1Affine::zero(); l].into_boxed_slice();
+    point_mul_two_vecs(
+        &o_vec[0..l].to_owned().into_boxed_slice(),
+        &gamma_l_pub_vec.into_boxed_slice(),
+        &mut gamma_l_pub_o_j_coef_vec);
+    let mut gamma_l_pub_o_j= vec![G1Affine::zero(); l].into_boxed_slice();
     from_coef_vec_to_affine_vec(
         &gamma_l_pub_o_j_coef_vec,
         l,
         g1_gen,
-        &mut gamma_l_pub_o_j_affine_vec
+        &mut gamma_l_pub_o_j
     );
 
-    // generate eta1_l_inter_o_j:Box<[Box<[G1Affine]>]>, // i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l, l_{D} - 1⟧
-    
+    // generate eta1_l_inter_o_ij:Box<[Box<[G1Affine]>]>, // i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l, l_{D} - 1⟧
+    let size = s_max * (l_d - l);
+    let mut eta1_l_i_vec = Vec::<ScalarField>::with_capacity(size);
+    let mut inter_o_j_vec = Vec::<ScalarField>::with_capacity(size);
+    for ind in 0..s_max{ 
+        eta1_l_i_vec.extend_from_slice(&vec![tau.eta1.inv() * l_vec[ind]; l_d-l]);
+        inter_o_j_vec.extend_from_slice(&o_vec[l..l_d]);
+    }
+    let mut eta1_l_inter_o_ij_coef_vec = vec![ScalarField::zero(); size].into_boxed_slice();
+    point_mul_two_vecs(
+        &inter_o_j_vec.into_boxed_slice(),
+        &eta1_l_i_vec.into_boxed_slice(),
+        &mut eta1_l_inter_o_ij_coef_vec,
+    );
+
+    let zero_vec = vec![G1Affine::zero(); l_d - l].into_boxed_slice();
+    let mut eta1_l_inter_o_ij = vec![zero_vec; s_max].into_boxed_slice();
+    from_coef_vec_to_affine_mat(
+        &eta1_l_inter_o_ij_coef_vec,
+        s_max,
+        l_d - l,
+        g1_gen,
+        &mut eta1_l_inter_o_ij,
+    );
+
+    // generate delta_l_prv_o_j: Box<[Box<[G1Affine]>]>,  // i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l_{D} , m_{D} - 1 ⟧
+    let size = s_max * (m_d - l_d);
+    let mut delta_l_prv_o_ij_coef_vec = vec![ScalarField::zero(); size].into_boxed_slice();
+    for ind in 0..s_max {
+        let mut this_row_vec = vec![ScalarField::zero(); m_d - l_d].into_boxed_slice();
+        point_mul_two_vecs(
+            &o_vec[l_d..m_d].to_owned().into_boxed_slice(),
+            &vec![tau.delta.inv() * l_vec[ind]; m_d-l_d].into_boxed_slice(),
+            &mut this_row_vec,
+        );
+        delta_l_prv_o_ij_coef_vec[ind * (m_d - l_d) .. (ind + 1) * (m_d - l_d)].copy_from_slice(&this_row_vec);
+    }
+    let zero_vec = vec![G1Affine::zero(); m_d - l_d].into_boxed_slice();
+    let mut delta_l_prv_o_ij = vec![zero_vec; s_max].into_boxed_slice();
+    from_coef_vec_to_affine_mat(
+        &delta_l_prv_o_ij_coef_vec,
+        s_max,
+        m_d - l_d,
+        g1_gen,
+        &mut delta_l_prv_o_ij,
+    );
+
+    // eta0_l_o_ip_first_ij: Box<[Box<[G1Affine]>]>, //i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l, l_{D} - 1⟧
+
+
+
 
     Self {
         alpha,
         xy_hi: xy_hi_affine_vec,
-        gamma_l_pub_o_j: gamma_l_pub_o_j_affine_vec,
+        gamma_l_pub_o_j,
 
     }
     
