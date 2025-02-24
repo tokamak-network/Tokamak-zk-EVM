@@ -1,9 +1,9 @@
-import { MapDB, hexToBytes, utf8ToBytes } from '@ethereumjs/util'
+import { MapDB, hexToBytes, utf8ToBytes } from '@synthesizer-libs/util'
 import { assert, beforeEach, describe, it } from 'vitest'
 
 import { CheckpointDB } from '../../src/index.js'
 
-import type { BatchDBOp } from '@ethereumjs/util'
+import type { BatchDBOp } from '@synthesizer-libs/util'
 
 describe('DB tests', () => {
   let db: CheckpointDB

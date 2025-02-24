@@ -1,4 +1,4 @@
-import { bytesToHex, ecrecover, hexToBytes } from "@ethereumjs/util/index.js"
+import { bytesToHex, ecrecover, hexToBytes } from "@synthesizer-libs/util"
 
 const chainId = BigInt(3) // Ropsten
 

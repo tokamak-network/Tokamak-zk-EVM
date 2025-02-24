@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CheckpointDB = void 0;
-const util_1 = require("@ethereumjs/util");
+const util_1 = require("@synthesizer-libs/util");
 const lru_cache_1 = require("lru-cache");
 /**
  * DB is a thin wrapper around the underlying levelup db,

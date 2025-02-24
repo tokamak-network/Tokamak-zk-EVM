@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / Withdrawal
+[@synthesizer-libs/util](../README.md) / Withdrawal
 
 # Class: Withdrawal
 

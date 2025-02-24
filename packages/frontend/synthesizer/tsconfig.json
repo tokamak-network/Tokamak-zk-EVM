@@ -6,18 +6,17 @@
      "allowJs": true,
      "declaration": true,
     "baseUrl": ".",
-    "paths": {
-      "@ethereumjs/util": ["libs/util/dist/esm/index"],
-      "@ethereumjs/common": ["libs/common/dist/esm/index"],
-      "@ethereumjs/statemanager": ["libs/statemanager/dist/esm/index"],
-      "@ethereumjs/util/*": ["libs/util/dist/esm/*"],
-      "@ethereumjs/common/*": ["libs/common/dist/esm/*"],
-      "@ethereumjs/statemanager/*": ["libs/statemanager/dist/esm/*"],
-      "@ethereumjs/mpt": ["libs/mpt/dist/esm/index"],
-      "@ethereumjs/mpt/*": ["libs/mpt/dist/esm/*"],
-      "@ethereumjs/verkle": ["libs/verkle/dist/esm/index"],
-      "@ethereumjs/verkle/*": ["libs/verkle/dist/esm/*"]
-    },
-  }
+    // "paths": {
+    //   "@synthesizer-libs/util": ["libs/util/dist/esm/index"],
+    //   "@synthesizer-libs/statemanager": ["libs/statemanager/dist/esm/index"],
+    //   "@synthesizer-libs/util/*": ["libs/util/dist/esm/*"],
+    //   "@synthesizer-libs/statemanager/*": ["libs/statemanager/dist/esm/*"],
+    //   "@ethereumjs/mpt": ["libs/mpt/dist/esm/index"],
+    //   "@ethereumjs/mpt/*": ["libs/mpt/dist/esm/*"],
+    //   "@synthesizer-libs/verkle": ["libs/verkle/dist/esm/index"],
+    //   "@synthesizer-libs/verkle/*": ["libs/verkle/dist/esm/*"]
+    // },
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
 }
-

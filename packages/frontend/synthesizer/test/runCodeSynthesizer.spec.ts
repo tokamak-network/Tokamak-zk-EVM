@@ -1,4 +1,4 @@
-import { Account, createAddressFromString, hexToBytes } from "@ethereumjs/util/index.js"
+import { Account, createAddressFromString, hexToBytes } from "@synthesizer-libs/util"
 import { assert, describe, it } from 'vitest'
 
 import { createEVM } from '../src/index.js'

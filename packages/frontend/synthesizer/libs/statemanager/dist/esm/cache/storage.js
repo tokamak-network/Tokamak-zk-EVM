@@ -1,4 +1,4 @@
-import { bytesToUnprefixedHex, hexToBytes } from '@ethereumjs/util';
+import { bytesToUnprefixedHex, hexToBytes } from '@synthesizer-libs/util';
 import { OrderedMap } from '@js-sdsl/ordered-map';
 import debugDefault from 'debug';
 import { LRUCache } from 'lru-cache';

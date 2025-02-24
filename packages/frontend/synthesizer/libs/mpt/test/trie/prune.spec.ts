@@ -1,4 +1,4 @@
-import { KECCAK256_RLP, equalsBytes, hexToBytes, randomBytes, utf8ToBytes } from '@ethereumjs/util'
+import { KECCAK256_RLP, equalsBytes, hexToBytes, randomBytes, utf8ToBytes } from '@synthesizer-libs/util'
 import { assert, describe, it } from 'vitest'
 
 import { MerklePatriciaTrie, createMPT, isRawMPTNode } from '../../src/index.js'

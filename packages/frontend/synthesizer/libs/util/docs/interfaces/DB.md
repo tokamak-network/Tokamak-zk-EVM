@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / DB
+[@synthesizer-libs/util](../README.md) / DB
 
 # Interface: DB<TKey, TValue\>
 

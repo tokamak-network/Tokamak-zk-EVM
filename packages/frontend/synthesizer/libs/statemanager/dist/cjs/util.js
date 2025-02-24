@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.modifyAccountFields = void 0;
-const util_1 = require("@ethereumjs/util");
+const util_1 = require("@synthesizer-libs/util");
 async function modifyAccountFields(stateManager, address, accountFields) {
     const account = (await stateManager.getAccount(address)) ?? new util_1.Account();
     account.nonce = accountFields.nonce ?? account.nonce;

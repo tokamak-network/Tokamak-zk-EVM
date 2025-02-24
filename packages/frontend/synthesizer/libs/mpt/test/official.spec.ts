@@ -1,4 +1,4 @@
-import { bytesToHex, hexToBytes, isHexString, utf8ToBytes } from '@ethereumjs/util'
+import { bytesToHex, hexToBytes, isHexString, utf8ToBytes } from '@synthesizer-libs/util'
 import { assert, describe, it } from 'vitest'
 
 import { MerklePatriciaTrie } from '../src/index.js'

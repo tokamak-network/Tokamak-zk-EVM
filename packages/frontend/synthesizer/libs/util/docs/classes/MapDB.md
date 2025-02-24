@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / MapDB
+[@synthesizer-libs/util](../README.md) / MapDB
 
 # Class: MapDB<TKey, TValue\>
 

@@ -1,5 +1,5 @@
 /* Example 1c - Creating an empty Merkle Patricia Tree and updating it with a single key-value pair */
-const { bytesToHex, bytesToUtf8, utf8ToBytes } = require('@ethereumjs/util')
+const { bytesToHex, bytesToUtf8, utf8ToBytes } = require('@synthesizer-libs/util')
 
 const { MerklePatriciaTrie } = require('../../dist/cjs/index.js')
 

@@ -1,6 +1,6 @@
 /* Example 1d - Deleting a Key-Value Pair from a Trie*/
 
-const { bytesToHex, bytesToUtf8, utf8ToBytes } = require('@ethereumjs/util')
+const { bytesToHex, bytesToUtf8, utf8ToBytes } = require('@synthesizer-libs/util')
 
 const { MerklePatriciaTrie } = require('../../dist/cjs/index.js')
 

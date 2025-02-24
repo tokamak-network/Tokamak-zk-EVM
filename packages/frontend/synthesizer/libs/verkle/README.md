@@ -1,4 +1,4 @@
-# @ethereumjs/verkle
+# @synthesizer-libs/verkle
 
 [![NPM Package][verkle-npm-badge]][verkle-npm-link]
 [![GitHub Issues][verkle-issues-badge]][verkle-issues-link]
@@ -18,7 +18,7 @@ This package is currently in early alpha and is a work in progress. It is not in
 To obtain the latest version, simply require the project using `npm`:
 
 ```shell
-npm install @ethereumjs/verkle
+npm install @synthesizer-libs/verkle
 ```
 
 ## Usage
@@ -40,8 +40,8 @@ If you prefer to instantiate the verkle tree class directly, you can do so by pa
 ```ts
 // ./examples/diyVerkle.ts
 
-import { MapDB, bytesToHex } from '@ethereumjs/util'
-import { VerkleTree } from '@ethereumjs/verkle'
+import { MapDB, bytesToHex } from '@synthesizer-libs/util'
+import { VerkleTree } from '@synthesizer-libs/verkle'
 import { loadVerkleCrypto } from 'verkle-cryptography-wasm'
 
 const verkleCrypto = await loadVerkleCrypto()
@@ -62,7 +62,7 @@ void main()
 
 ### Getting and Putting Values
 
-Values are stored using a combination of a `stem` obtained through the `getVerkleStem` function exposed by `@ethereumjs/util`. In the context of Ethereum, to retrieve the data associated with an account at a particular address, we would first compute the verkle stem of that address (`getVerkleStem(verkleCrypto, address)`), and then get the particular pieces of data we're interested in by suffixing the stem with the suffixes corresponding to that data.
+Values are stored using a combination of a `stem` obtained through the `getVerkleStem` function exposed by `@synthesizer-libs/util`. In the context of Ethereum, to retrieve the data associated with an account at a particular address, we would first compute the verkle stem of that address (`getVerkleStem(verkleCrypto, address)`), and then get the particular pieces of data we're interested in by suffixing the stem with the suffixes corresponding to that data.
 
 Following the design goal of verkle trees of allowing efficient reads and writes of multiple values that are "close" to each other, the `get` and `put` methods take a stem as a first argument and then an array of "suffixes" (the 32nd byte) of the key used to access a value.
 
@@ -79,8 +79,8 @@ See below for a complete example.
 ```ts
 // ./examples/simple.ts
 
-import { bytesToUtf8, createAddressFromString, getVerkleStem, utf8ToBytes } from '@ethereumjs/util'
-import { createVerkleTree } from '@ethereumjs/verkle'
+import { bytesToUtf8, createAddressFromString, getVerkleStem, utf8ToBytes } from '@synthesizer-libs/util'
+import { createVerkleTree } from '@synthesizer-libs/verkle'
 
 async function test() {
   const addrHex = '0x781f1e4238f9de8b4d0ede9932f5a4d08f15dae7'
@@ -121,13 +121,13 @@ The verkle package is shipped with both CommonJS and ESM builds.
 If you use an ESM `import` in your code, import as below:
 
 ```ts
-import { createVerkleTree } from '@ethereumjs/verkle'
+import { createVerkleTree } from '@synthesizer-libs/verkle'
 ```
 
 If you use Node.js-specific `require`, the CJS build will be used:
 
 ```ts
-const { createVerkleTree } = require('@ethereumjs/verkle')
+const { createVerkleTree } = require('@synthesizer-libs/verkle')
 ```
 
 ## Debugging
@@ -194,8 +194,8 @@ See our organizational [documentation](https://ethereumjs.readthedocs.io) for an
 
 [discord-badge]: https://img.shields.io/static/v1?logo=discord&label=discord&message=Join&color=blue
 [discord-link]: https://discord.gg/TNwARpR
-[verkle-npm-badge]: https://img.shields.io/npm/v/@ethereumjs/verkle.svg
-[verkle-npm-link]: https://www.npmjs.com/package/@ethereumjs/verkle
+[verkle-npm-badge]: https://img.shields.io/npm/v/@synthesizer-libs/verkle.svg
+[verkle-npm-link]: https://www.npmjs.com/package/@synthesizer-libs/verkle
 [verkle-issues-badge]: https://img.shields.io/github/issues/ethereumjs/ethereumjs-monorepo/package:%20verkle?label=issues
 [verkle-issues-link]: https://github.com/ethereumjs/ethereumjs-monorepo/issues?q=is%3Aopen+is%3Aissue+label%3A"package%3A+verkle"
 [verkle-actions-badge]: https://github.com/ethereumjs/ethereumjs-monorepo/workflows/Verkle/badge.svg

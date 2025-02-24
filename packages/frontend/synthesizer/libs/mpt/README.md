@@ -1,4 +1,4 @@
-# @ethereumjs/mpt
+# @synthesizer-libs/mpt
 
 [![NPM Package][mpt-npm-badge]][mpt-npm-link]
 [![GitHub Issues][mpt-issues-badge]][mpt-issues-link]
@@ -16,7 +16,7 @@
 To obtain the latest version, simply require the project using `npm`:
 
 ```shell
-npm install @ethereumjs/mpt
+npm install @synthesizer-libs/mpt
 ```
 
 ## Usage
@@ -32,8 +32,8 @@ It is best to select the variant that is most appropriate for your unique use ca
 ```ts
 // ./examples/basicUsage.ts
 
-import { createMPT } from '@ethereumjs/mpt'
-import { MapDB, bytesToUtf8, utf8ToBytes } from '@ethereumjs/util'
+import { createMPT } from '@synthesizer-libs/mpt'
+import { MapDB, bytesToUtf8, utf8ToBytes } from '@synthesizer-libs/util'
 
 async function test() {
   const trie = await createMPT({ db: new MapDB() })
@@ -47,7 +47,7 @@ void test()
 
 ### WASM Crypto Support
 
-This library by default uses JavaScript implementations for the basic standard crypto primitives like hashing for keys. See `@ethereumjs/common` [README](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/common) for instructions on how to replace with e.g. a more performant WASM implementation by using a shared `common` instance.
+This library by default uses JavaScript implementations for the basic standard crypto primitives like hashing for keys. See `@synthesizer-libs/common` [README](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/common) for instructions on how to replace with e.g. a more performant WASM implementation by using a shared `common` instance.
 
 ### Use with Standalone Constructors
 
@@ -75,8 +75,8 @@ const otherProof = await createMerkleProof(someOtherTrie, k2)
 ```ts
 // ./examples/basicUsage.ts
 
-import { createMPT } from '@ethereumjs/mpt'
-import { MapDB, bytesToUtf8, utf8ToBytes } from '@ethereumjs/util'
+import { createMPT } from '@synthesizer-libs/mpt'
+import { MapDB, bytesToUtf8, utf8ToBytes } from '@synthesizer-libs/util'
 
 async function test() {
   const trie = await createMPT({ db: new MapDB() })
@@ -104,8 +104,8 @@ import {
   createMPTFromProof,
   createMerkleProof,
   updateMPTFromMerkleProof,
-} from '@ethereumjs/mpt'
-import { bytesToUtf8, utf8ToBytes } from '@ethereumjs/util'
+} from '@synthesizer-libs/mpt'
+import { bytesToUtf8, utf8ToBytes } from '@synthesizer-libs/util'
 
 async function main() {
   const k1 = utf8ToBytes('keyOne')
@@ -142,8 +142,8 @@ The new walk functionality can be used like the following:
 ```ts
 // ./examples/trieWalking.ts
 
-import { createMPT } from '@ethereumjs/mpt'
-import { utf8ToBytes } from '@ethereumjs/util'
+import { createMPT } from '@synthesizer-libs/mpt'
+import { utf8ToBytes } from '@synthesizer-libs/util'
 
 async function main() {
   const trie = await createMPT()
@@ -164,9 +164,9 @@ void main()
 
 The `DB` opt in the `MPTOpts` allows you to use any database that conforms to the `DB` interface to store the trie data in. We provide several [examples](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/trie/examples) for database implementations. The [level.js](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/trie/examples/level.js) example is used in the `ethereumjs client` while [lmdb.js](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/trie/examples/lmdb.js) is an alternative implementation that uses the popular [LMDB](https://en.wikipedia.org/wiki/Lightning_Memory-Mapped_Database) as its underlying database.
 
-If no `db` option is provided, an in-memory database powered by [a Javascript Map](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map) will fulfill this role (imported from `@ethereumjs/util`, see [mapDB](https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/util/src/mapDB.ts) module).
+If no `db` option is provided, an in-memory database powered by [a Javascript Map](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map) will fulfill this role (imported from `@synthesizer-libs/util`, see [mapDB](https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/util/src/mapDB.ts) module).
 
-If you want to use an alternative database, you can integrate your own by writing a DB wrapper that conforms to the [`DB` interface](https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/util/src/db.ts) (in `@ethereumjs/util`). The `DB` interface defines the methods `get`, `put`, `del`, `batch` and `copy` that a concrete implementation of the `DB` interface will need to implement.
+If you want to use an alternative database, you can integrate your own by writing a DB wrapper that conforms to the [`DB` interface](https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/util/src/db.ts) (in `@synthesizer-libs/util`). The `DB` interface defines the methods `get`, `put`, `del`, `batch` and `copy` that a concrete implementation of the `DB` interface will need to implement.
 
 ##### LevelDB
 
@@ -193,8 +193,8 @@ You can enable persistence by setting the `useRootPersistence` option to `true` 
 ```ts
 // ./examples/rootPersistence.ts
 
-import { createMPT } from '@ethereumjs/mpt'
-import { bytesToHex } from '@ethereumjs/util'
+import { createMPT } from '@synthesizer-libs/mpt'
+import { bytesToHex } from '@synthesizer-libs/util'
 
 async function main() {
   const trie = await createMPT({
@@ -303,7 +303,7 @@ Using ESM will give you additional advantages over CJS beyond browser usage like
 
 With the breaking releases from Summer 2023 we have removed all Node.js specific `Buffer` usages from our libraries and replace these with [Uint8Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array) representations, which are available both in Node.js and the browser (`Buffer` is a subclass of `Uint8Array`).
 
-We have converted existing Buffer conversion methods to Uint8Array conversion methods in the [@ethereumjs/util](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/util) `bytes` module, see the respective README section for guidance.
+We have converted existing Buffer conversion methods to Uint8Array conversion methods in the [@synthesizer-libs/util](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/util) `bytes` module, see the respective README section for guidance.
 
 ### BigInt Support
 
@@ -427,8 +427,8 @@ See our organizational [documentation](https://ethereumjs.readthedocs.io) for an
 
 [discord-badge]: https://img.shields.io/static/v1?logo=discord&label=discord&message=Join&color=blue
 [discord-link]: https://discord.gg/TNwARpR
-[mpt-npm-badge]: https://img.shields.io/npm/v/@ethereumjs/mpt.svg
-[mpt-npm-link]: https://www.npmjs.com/package/@ethereumjs/mpt
+[mpt-npm-badge]: https://img.shields.io/npm/v/@synthesizer-libs/mpt.svg
+[mpt-npm-link]: https://www.npmjs.com/package/@synthesizer-libs/mpt
 [mpt-issues-badge]: https://img.shields.io/github/issues/ethereumjs/ethereumjs-monorepo/package:%20mpt?label=issues
 [mpt-issues-link]: https://github.com/ethereumjs/ethereumjs-monorepo/issues?q=is%3Aopen+is%3Aissue+label%3A"package%3A+mpt"
 [mpt-actions-badge]: https://github.com/ethereumjs/ethereumjs-monorepo/workflows/Trie/badge.svg

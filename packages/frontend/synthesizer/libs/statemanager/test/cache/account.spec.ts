@@ -1,4 +1,4 @@
-import { Account, Address, equalsBytes, hexToBytes } from '@ethereumjs/util'
+import { Account, Address, equalsBytes, hexToBytes } from '@synthesizer-libs/util'
 import { assert, describe, it } from 'vitest'
 
 import { AccountCache, CacheType } from '../../src/cache/index.js'

@@ -1,4 +1,4 @@
-[@ethereumjs/verkle](../README.md) / Point
+[@synthesizer-libs/verkle](../README.md) / Point
 
 # Interface: Point
 

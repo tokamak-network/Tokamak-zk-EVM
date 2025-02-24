@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RPCBlockChain = exports.RPCStateManager = void 0;
-const common_1 = require("@ethereumjs/common");
+const common_1 = require("@synthesizer-libs/common");
 const rlp_1 = require("@ethereumjs/rlp");
-const util_1 = require("@ethereumjs/util");
+const util_1 = require("@synthesizer-libs/util");
 const debug_1 = require("debug");
 const keccak_js_1 = require("ethereum-cryptography/keccak.js");
 const index_js_1 = require("./cache/index.js");

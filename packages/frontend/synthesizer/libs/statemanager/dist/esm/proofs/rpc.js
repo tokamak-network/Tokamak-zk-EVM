@@ -1,4 +1,4 @@
-import { bytesToHex, fetchFromProvider } from '@ethereumjs/util';
+import { bytesToHex, fetchFromProvider } from '@synthesizer-libs/util';
 /**
  * Get an EIP-1186 proof from the provider
  * @param address address to get proof of

@@ -51,7 +51,7 @@ Also note that along with this release round there is additional higher level pr
 
 With this release round there is a new way to replace the native JS crypto primitives used within the EthereumJS ecosystem by custom/other implementations in a controlled fashion, see PR [#3192](https://github.com/ethereumjs/ethereumjs-monorepo/pull/3192).
 
-This can e.g. be used to replace time-consuming primitives like the commonly used `keccak256` hash function with a more performant WASM based implementation, see `@ethereumjs/common` [README](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/common) for some detailed guidance on how to use.
+This can e.g. be used to replace time-consuming primitives like the commonly used `keccak256` hash function with a more performant WASM based implementation, see `@synthesizer-libs/common` [README](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/common) for some detailed guidance on how to use.
 
 ### Self-Contained (and Working 🙂) README Examples
 
@@ -89,7 +89,7 @@ See [Debugging](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/pa
 - Performance: `findPath()` optimizations, PR [#3066](https://github.com/ethereumjs/ethereumjs-monorepo/pull/3066)
 - Make `null` available as type option for `put()` method value, PR [#3020](https://github.com/ethereumjs/ethereumjs-monorepo/pull/3020)
 - Allow partial trie options for `shallowCopy()` (e.g. for a more flexible cache configuration for the trie copy), PR [#3063](https://github.com/ethereumjs/ethereumjs-monorepo/pull/3063)
-- Use `lock` class from `@ethereumjs/util`, PR [#3109](https://github.com/ethereumjs/ethereumjs-monorepo/pull/3109)
+- Use `lock` class from `@synthesizer-libs/util`, PR [#3109](https://github.com/ethereumjs/ethereumjs-monorepo/pull/3109)
 - Improve util types and handling, PR [#2951](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2951)
 
 ## 6.0.0 - 2023-08-09
@@ -162,14 +162,14 @@ Both builds have respective separate entrypoints in the distributed `package.jso
 A CommonJS import of our libraries can then be done like this:
 
 ```ts
-const { Chain, Common } = require('@ethereumjs/common')
+const { Chain, Common } = require('@synthesizer-libs/common')
 const common = new Common({ chain: Chain.Mainnet })
 ```
 
 And this is how an ESM import looks like:
 
 ```ts
-import { Chain, Common } from '@ethereumjs/common'
+import { Chain, Common } from '@synthesizer-libs/common'
 const common = new Common({ chain: Chain.Mainnet })
 ```
 
@@ -205,7 +205,7 @@ Trie.hash(msg: Uint8Array): Uint8Array
 
 So basically the whole API. Lol. 😋
 
-We have converted existing Buffer conversion methods to Uint8Array conversion methods in the [@ethereumjs/util](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/util) `bytes` module, see the respective README section for guidance.
+We have converted existing Buffer conversion methods to Uint8Array conversion methods in the [@synthesizer-libs/util](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/util) `bytes` module, see the respective README section for guidance.
 
 #### Prefixed Hex Strings as Default
 
@@ -220,17 +220,17 @@ Please therefore check you code base on updating and ensure that values you are 
 ### Other Changes
 
 - Support for `Node.js 16` has been removed (minimal version: `Node.js 18`), PR [#2859](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2859)
-- Breaking: `DB` interface and `MapDB` implementation have been moved to [@ethereumjs/util](https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/util/src/db.ts) (for re-usage), PR [#2669](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2669)
+- Breaking: `DB` interface and `MapDB` implementation have been moved to [@synthesizer-libs/util](https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/util/src/db.ts) (for re-usage), PR [#2669](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2669)
 - Breaking: The `copy()` method has been renamed to `shallowCopy()` (same underlying state DB), PR [#2826](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2826)
 
 ## 5.0.5 - 2023-04-20
 
 - Update ethereum-cryptography from 1.2 to 2.0 (switch from noble-secp256k1 to noble-curves), PR [#2641](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2641)
-- Bump `@ethereumjs/util` `@chainsafe/ssz` dependency to 0.11.1 (no WASM, native SHA-256 implementation, ES2019 compatible, explicit imports), PRs [#2622](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2622), [#2564](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2564) and [#2656](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2656)
+- Bump `@synthesizer-libs/util` `@chainsafe/ssz` dependency to 0.11.1 (no WASM, native SHA-256 implementation, ES2019 compatible, explicit imports), PRs [#2622](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2622), [#2564](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2564) and [#2656](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2656)
 
 ## 5.0.4 - 2023-02-27
 
-- Pinned `@ethereumjs/util` `@chainsafe/ssz` dependency to `v0.9.4` due to ES2021 features used in `v0.10.+` causing compatibility issues, PR [#2555](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2555)
+- Pinned `@synthesizer-libs/util` `@chainsafe/ssz` dependency to `v0.9.4` due to ES2021 features used in `v0.10.+` causing compatibility issues, PR [#2555](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2555)
 
 ## 5.0.3 - 2023-02-21
 

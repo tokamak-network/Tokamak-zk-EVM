@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / GenesisState
+[@synthesizer-libs/util](../README.md) / GenesisState
 
 # Interface: GenesisState
 

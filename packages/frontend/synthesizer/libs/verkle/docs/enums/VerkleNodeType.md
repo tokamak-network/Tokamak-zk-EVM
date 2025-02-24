@@ -1,4 +1,4 @@
-[@ethereumjs/verkle](../README.md) / VerkleNodeType
+[@synthesizer-libs/verkle](../README.md) / VerkleNodeType
 
 # Enumeration: VerkleNodeType
 

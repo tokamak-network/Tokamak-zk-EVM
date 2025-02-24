@@ -1,6 +1,6 @@
 import { LRUCache } from 'lru-cache';
 import type { Checkpoint, CheckpointDBOpts } from '../types.js';
-import type { BatchDBOp, DB } from '@ethereumjs/util';
+import type { BatchDBOp, DB } from '@synthesizer-libs/util';
 /**
  * DB is a thin wrapper around the underlying levelup db,
  * which validates inputs and sets encoding type.

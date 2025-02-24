@@ -1,4 +1,4 @@
-[@ethereumjs/verkle](../README.md) / VerkleNodeOptions
+[@synthesizer-libs/verkle](../README.md) / VerkleNodeOptions
 
 # Interface: VerkleNodeOptions
 

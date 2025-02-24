@@ -2,7 +2,7 @@
   "name": "my-monorepo",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/frontend/synthesizer/libs/*"
   ],
   "scripts": {
     "build": "cd packages/playground && npm run build",

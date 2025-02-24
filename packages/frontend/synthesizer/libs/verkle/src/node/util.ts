@@ -1,11 +1,11 @@
 import { RLP } from '@ethereumjs/rlp'
-import { setLengthRight } from '@ethereumjs/util'
+import { setLengthRight } from '@synthesizer-libs/util'
 
 import { InternalVerkleNode } from './internalNode.js'
 import { LeafVerkleNode } from './leafNode.js'
 import { LeafVerkleNodeValue, type VerkleNode, VerkleNodeType } from './types.js'
 
-import type { VerkleCrypto } from '@ethereumjs/util'
+import type { VerkleCrypto } from '@synthesizer-libs/util'
 
 export function decodeRawVerkleNode(raw: Uint8Array[], verkleCrypto: VerkleCrypto): VerkleNode {
   const nodeType = raw[0][0]

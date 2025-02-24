@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 For Verkle or other contexts it can be useful to create partial accounts not containing all the account parameters. This is now supported starting with this release, see PR [#3269](https://github.com/ethereumjs/ethereumjs-monorepo/pull/3269):
 
 ```ts
-import { Account } from "@ethereumjs/util/index.js"
+import { Account } from "@synthesizer-libs/util"
 
 const account = Account.fromPartialAccountData({
   nonce: '0x02',
@@ -126,14 +126,14 @@ Both builds have respective separate entrypoints in the distributed `package.jso
 A CommonJS import of our libraries can then be done like this:
 
 ```ts
-const { Chain, Common } = require('@ethereumjs/common')
+const { Chain, Common } = require('@synthesizer-libs/common')
 const common = new Common({ chain: Chain.Mainnet })
 ```
 
 And this is how an ESM import looks like:
 
 ```ts
-import { Chain, Common } from '@ethereumjs/common/dist/esm/index.js'
+import { Chain, Common } from '@synthesizer-libs/common/dist/esm/index.js'
 const common = new Common({ chain: Chain.Mainnet })
 ```
 
@@ -198,7 +198,7 @@ Withdrawal.raw()
 Withdrawal.toValue()
 ```
 
-We have converted existing Buffer conversion methods to Uint8Array conversion methods in the [@ethereumjs/util](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/util) `bytes` module (so: within this library), see the respective README section for guidance.
+We have converted existing Buffer conversion methods to Uint8Array conversion methods in the [@synthesizer-libs/util](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/util) `bytes` module (so: within this library), see the respective README section for guidance.
 
 ### Other Changes
 
@@ -289,7 +289,7 @@ The Util library itself has no import changes along this update.
 
 This release is part of a larger breaking release round where all [EthereumJS monorepo](https://github.com/ethereumjs/ethereumjs-monorepo) libraries (VM, Tx, Trie, other) get major version upgrades. This round of releases has been prepared for a long time and we are really pleased with and proud of the result, thanks to all team members and contributors who worked so hard and made this possible! 🙂 ❤️
 
-We have gotten rid of a lot of technical debt and inconsistencies and removed unused functionality, renamed methods, improved on the API and on TypeScript typing, to name a few of the more local type of refactoring changes. There are also broader structural changes like a full transition to native JavaScript `BigInt` values as well as various somewhat deep-reaching refactorings, both within a single package as well as some reaching beyond the scope of a single package. Also two completely new packages - `@ethereumjs/evm` (in addition to the existing `@ethereumjs/vm` package) and `@ethereumjs/statemanager` - have been created, leading to a more modular Ethereum JavaScript VM.
+We have gotten rid of a lot of technical debt and inconsistencies and removed unused functionality, renamed methods, improved on the API and on TypeScript typing, to name a few of the more local type of refactoring changes. There are also broader structural changes like a full transition to native JavaScript `BigInt` values as well as various somewhat deep-reaching refactorings, both within a single package as well as some reaching beyond the scope of a single package. Also two completely new packages - `@ethereumjs/evm` (in addition to the existing `@ethereumjs/vm` package) and `@synthesizer-libs/statemanager` - have been created, leading to a more modular Ethereum JavaScript VM.
 
 We are very much confident that users of the libraries will greatly benefit from the changes being introduced. However - along the upgrade process - these releases require some extra attention and care since the changeset is both so big and deep reaching. We highly recommend to closely read the release notes, we have done our best to create a full picture on the changes with some special emphasis on delicate code and API parts and give some explicit guidance on how to upgrade and where problems might arise!
 
@@ -301,12 +301,12 @@ The EthereumJS Team
 
 **Attention!** This library release aligns (and therefore: changes!) the library name with the other EthereumJS libraries and switches to the new scoped package name format, see PR [#1952](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1952). In this case the library is renamed as follows:
 
-- `ethereumjs-util` -> `@ethereumjs/util`
+- `ethereumjs-util` -> `@synthesizer-libs/util`
 
 Please update your library references accordingly and install with:
 
 ```shell
-npm i @ethereumjs/util
+npm i @synthesizer-libs/util
 ```
 
 ### BigInt Introduction / ES2020 Build Target

@@ -7,7 +7,7 @@ import { BranchMPTNode } from './branch.js'
 import { ExtensionMPTNode } from './extension.js'
 import { LeafMPTNode } from './leaf.js'
 
-import type { NestedUint8Array } from '@ethereumjs/util'
+import type { NestedUint8Array } from '@synthesizer-libs/util'
 
 export function decodeRawMPTNode(raw: Uint8Array[]) {
   if (raw.length === 17) {

@@ -26,7 +26,7 @@ import {
   equalsBytes,
   getVerkleTreeIndicesForStorageSlot,
   setLengthLeft,
-} from "@ethereumjs/util/index.js"
+} from "@synthesizer-libs/util"
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 
 import { EOFContainer, EOFContainerMode } from '../eof/container.js'
@@ -57,7 +57,7 @@ import {
 
 import type { RunState } from '../interpreter.js'
 import type { MemoryPtEntry, MemoryPts } from '../tokamak/pointers/index.js'
-import type { Common } from '@ethereumjs/common/dist/esm/index.js'
+import type { Common } from '@synthesizer-libs/common'
 import { DEFAULT_SOURCE_SIZE } from "../tokamak/constant/constants.js"
 
 import {

@@ -1,4 +1,4 @@
-import { utf8ToBytes } from '@ethereumjs/util'
+import { utf8ToBytes } from '@synthesizer-libs/util'
 import { assert, describe, it } from 'vitest'
 
 import { createMPTFromProof, createMerkleProof, verifyMPTWithMerkleProof } from '../../src/index.js'

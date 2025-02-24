@@ -1,4 +1,4 @@
-import { bytesToUnprefixedHex } from '@ethereumjs/util';
+import { bytesToUnprefixedHex } from '@synthesizer-libs/util';
 /**
  * Helper class to cache original storage values (so values already being present in
  * the pre-state of a call), mainly for correct gas cost calculation in EVM/VM.

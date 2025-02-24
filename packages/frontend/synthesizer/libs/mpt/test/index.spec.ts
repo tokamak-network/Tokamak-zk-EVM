@@ -7,7 +7,7 @@ import {
   concatBytes,
   hexToBytes,
   utf8ToBytes,
-} from '@ethereumjs/util'
+} from '@synthesizer-libs/util'
 import { blake2b } from 'ethereum-cryptography/blake2b.js'
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 import { assert, describe, it } from 'vitest'

@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / ValueEncoding
+[@synthesizer-libs/util](../README.md) / ValueEncoding
 
 # Enumeration: ValueEncoding
 

@@ -13,7 +13,7 @@ import {
   randomBytes,
   unprefixedHexToBytes,
   utf8ToBytes,
-} from '@ethereumjs/util'
+} from '@synthesizer-libs/util'
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 import { assert, describe, it } from 'vitest'
 

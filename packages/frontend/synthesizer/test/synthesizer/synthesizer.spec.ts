@@ -1,4 +1,4 @@
-import { hexToBytes } from "@ethereumjs/util/index.js"
+import { hexToBytes } from "@synthesizer-libs/util"
 import { describe, expect, it } from 'vitest'
 
 import { createEVM } from '../../src/index.js'

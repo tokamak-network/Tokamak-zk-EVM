@@ -1,4 +1,4 @@
-import type { DB, VerkleCrypto } from '@ethereumjs/util';
+import type { DB, VerkleCrypto } from '@synthesizer-libs/util';
 export interface Fr {
 }
 export type Proof = Uint8Array[];

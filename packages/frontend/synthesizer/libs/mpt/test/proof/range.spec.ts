@@ -6,12 +6,12 @@ import {
   randomBytes,
   setLengthLeft,
   toBytes,
-} from '@ethereumjs/util'
+} from '@synthesizer-libs/util'
 import { assert, describe, it } from 'vitest'
 
 import { MerklePatriciaTrie, createMerkleProof, verifyMerkleRangeProof } from '../../src/index.js'
 
-import type { DB } from '@ethereumjs/util'
+import type { DB } from '@synthesizer-libs/util'
 
 // reference: https://github.com/ethereum/go-ethereum/blob/20356e57b119b4e70ce47665a71964434e15200d/trie/proof_test.go
 

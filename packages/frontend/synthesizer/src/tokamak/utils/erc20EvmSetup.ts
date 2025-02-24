@@ -1,6 +1,6 @@
-import { hexToBytes, Address, Account } from '@ethereumjs/util';
+import { hexToBytes, Address, Account } from '@synthesizer-libs/util';
 import { keccak256 } from 'ethereum-cryptography/keccak';
-import { EVM } from 'src/evm.js';
+import { EVM } from '../../evm.js';
 
 interface StorageItem {
     astId: number;
@@ -100,7 +100,7 @@ console.log('Stored balance:', Buffer.from(storedBalance).toString('hex'));
 
             // 실제 approve 실행을 위한 초기 환경만 설정
             // 스토리지 변경은 하지 않음
-            await evm.stateManager.putAccount(spender, new Account());
+            await evm.stateManager.putAccount(new Address(hexToBytes(spender)), new Account());
             await evm.stateManager.putAccount(sender, new Account());
 
             console.log('Environment setup completed');
@@ -210,7 +210,7 @@ console.log('Stored balance:', Buffer.from(storedBalance).toString('hex'));
             );
 
             // Setup accounts
-            await evm.stateManager.putAccount(spender, new Account());
+            await evm.stateManager.putAccount(new Address(hexToBytes(spender)), new Account());
             await evm.stateManager.putAccount(sender, new Account());
 
             console.log('Environment setup completed');

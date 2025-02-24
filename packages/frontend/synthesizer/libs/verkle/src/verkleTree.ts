@@ -1,4 +1,4 @@
-import { Lock, bytesToHex, equalsBytes, intToHex, matchingBytesLength } from '@ethereumjs/util'
+import { Lock, bytesToHex, equalsBytes, intToHex, matchingBytesLength } from '@synthesizer-libs/util'
 import debug from 'debug'
 
 import { CheckpointDB } from './db/checkpoint.js'
@@ -10,7 +10,7 @@ import { type Proof, ROOT_DB_KEY, type VerkleTreeOpts } from './types.js'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { createVerkleTree } from './constructors.js' // Imported so intellisense can display docs
-import type { PutBatch, VerkleCrypto } from '@ethereumjs/util'
+import type { PutBatch, VerkleCrypto } from '@synthesizer-libs/util'
 import type { Debugger } from 'debug'
 interface Path {
   node: VerkleNode | null
@@ -19,7 +19,7 @@ interface Path {
 }
 
 /**
- * The basic verkle tree interface, use with `import { VerkleTree } from '@ethereumjs/verkle'`.
+ * The basic verkle tree interface, use with `import { VerkleTree } from '@synthesizer-libs/verkle'`.
  */
 export class VerkleTree {
   _opts: VerkleTreeOpts

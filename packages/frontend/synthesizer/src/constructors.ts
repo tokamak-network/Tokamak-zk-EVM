@@ -1,5 +1,5 @@
-import { Common, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
-import { SimpleStateManager } from '@ethereumjs/statemanager/index.js'
+import { Common, Mainnet } from '@synthesizer-libs/common'
+import { SimpleStateManager } from '@synthesizer-libs/statemanager'
 
 import { NobleBN254 } from './precompiles/index.js'
 import { EVMMockBlockchain } from './types.js'

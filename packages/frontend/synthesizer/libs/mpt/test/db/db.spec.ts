@@ -1,7 +1,7 @@
-import { MapDB, equalsBytes, utf8ToBytes } from '@ethereumjs/util'
+import { MapDB, equalsBytes, utf8ToBytes } from '@synthesizer-libs/util'
 import { assert, describe, it } from 'vitest'
 
-import type { BatchDBOp } from '@ethereumjs/util'
+import type { BatchDBOp } from '@synthesizer-libs/util'
 
 describe('DB tests', () => {
   const db = new MapDB<Uint8Array, Uint8Array>()

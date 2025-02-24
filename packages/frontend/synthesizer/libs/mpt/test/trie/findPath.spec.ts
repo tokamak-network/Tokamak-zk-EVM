@@ -1,4 +1,4 @@
-import { randomBytes } from '@ethereumjs/util'
+import { randomBytes } from '@synthesizer-libs/util'
 import { assert, describe, it } from 'vitest'
 
 import { MerklePatriciaTrie } from '../../src/index.js'

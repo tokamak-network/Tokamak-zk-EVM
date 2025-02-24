@@ -3,17 +3,17 @@
  * DEBUG=ethjs,evm:*,evm:*:* tsx erc20-transfer.ts
  */
 
-import { Account, Address, hexToBytes } from "@ethereumjs/util/index.js"
+import { Account, Address, hexToBytes } from "@synthesizer-libs/util"
 import { keccak256 } from 'ethereum-cryptography/keccak'
 
 import { createEVM } from '../../src/constructors.js'
 import { finalize } from '../../src/tokamak/core/finalize.js'
-import USDC_PROXY_CONTRACT from '../../constants/bytecodes/USDC_PROXY.json' assert { type: "json" };
-import USDC_STORAGE_LAYOUT from '../../constants/storage-layouts/USDC_PROXY.json' assert { type: "json" };
-import USDC_STORAGE_LAYOUT_V1 from '../../constants/storage-layouts/USDC_IMP.json' assert { type: "json" };
-import USDC_STORAGE_LAYOUT_V2 from '../../constants/storage-layouts/USDC_IMP_2.json' assert { type: "json" };
-import USDC_IMPLEMENTATION_V1 from '../../constants/bytecodes/USDC_IMP.json' assert { type: "json" };
-import USDC_IMPLEMENTATION_V2 from '../../constants/bytecodes/USDC_IMP_2.json' assert { type: "json" };
+import USDC_PROXY_CONTRACT from '../../src/constants/bytecodes/USDC_PROXY.json' assert { type: "json" };
+import USDC_STORAGE_LAYOUT from '../../src/constants/storage-layouts/USDC_PROXY.json' assert { type: "json" };
+import USDC_STORAGE_LAYOUT_V1 from '../../src/constants/storage-layouts/USDC_IMP.json' assert { type: "json" };
+import USDC_STORAGE_LAYOUT_V2 from '../../src/constants/storage-layouts/USDC_IMP_2.json' assert { type: "json" };
+import USDC_IMPLEMENTATION_V1 from '../../src/constants/bytecodes/USDC_IMP.json' assert { type: "json" };
+import USDC_IMPLEMENTATION_V2 from '../../src/constants/bytecodes/USDC_IMP_2.json' assert { type: "json" };
 import { setupUSDCFromCalldata } from "src/tokamak/utils/usdcEvmSetup.js";
 // USDC contract bytecode
 const contractCode = USDC_PROXY_CONTRACT.bytecode

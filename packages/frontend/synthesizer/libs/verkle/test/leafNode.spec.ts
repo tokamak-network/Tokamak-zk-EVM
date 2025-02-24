@@ -1,4 +1,4 @@
-import { type VerkleCrypto, equalsBytes, randomBytes, setLengthRight } from '@ethereumjs/util'
+import { type VerkleCrypto, equalsBytes, randomBytes, setLengthRight } from '@synthesizer-libs/util'
 import { loadVerkleCrypto } from 'verkle-cryptography-wasm'
 import { assert, beforeAll, describe, it } from 'vitest'
 

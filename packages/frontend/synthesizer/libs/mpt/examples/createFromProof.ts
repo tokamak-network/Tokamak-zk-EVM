@@ -3,8 +3,8 @@ import {
   createMPTFromProof,
   createMerkleProof,
   updateMPTFromMerkleProof,
-} from '@ethereumjs/mpt'
-import { bytesToUtf8, utf8ToBytes } from '@ethereumjs/util'
+} from '@synthesizer-libs/mpt'
+import { bytesToUtf8, utf8ToBytes } from '@synthesizer-libs/util'
 
 async function main() {
   const k1 = utf8ToBytes('keyOne')

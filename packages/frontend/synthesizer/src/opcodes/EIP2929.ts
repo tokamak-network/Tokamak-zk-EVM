@@ -1,7 +1,7 @@
-import { BIGINT_0 } from "@ethereumjs/util/index.js"
+import { BIGINT_0 } from "@synthesizer-libs/util"
 
 import type { RunState } from '../interpreter.js'
-import type { Common } from '@ethereumjs/common/dist/esm/index.js'
+import type { Common } from '@synthesizer-libs/common'
 
 /**
  * Adds address to accessedAddresses set if not already included.

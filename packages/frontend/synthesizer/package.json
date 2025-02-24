@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/synthesizer",
-  "version": "0.1.0",
+  "version": "0.0.5",
   "description": "Tokamak zk-EVM Synthesizer - Processes Ethereum transactions into wire maps for Tokamak zk-SNARK proof generation",
   "keywords": [
     "ethereum",
@@ -8,7 +8,8 @@
     "zero-knowledge",
     "zk-SNARK",
     "tokamak",
-    "layer2"
+    "layer2",
+    "tokamak-network"
   ],
   "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/frontend/synthesizer#readme",
   "bugs": {
@@ -50,7 +51,6 @@
     "lint": "../../../config/monorepo-js//cli/lint.sh",
     "lint:diff": "../../../config/monorepo-js//cli/lint-diff.sh",
     "lint:fix": "../../../config/monorepo-js//cli/lint-fix.sh",
-    "prepublishOnly": "../../../config/monorepo-js//cli/prepublish.sh",
     "profiling": "0x ./benchmarks/run.js profiling",
     "test": "npm run test:node && npm run test:browser",
     "test:browser": "npx vitest run --config=./vitest.config.browser.mts",
@@ -60,12 +60,13 @@
     "visualize:bundle": "npx vite build --config=./vite.config.bundler.ts --emptyOutDir=false --outDir ."
   },
   "dependencies": {
-    "@ethereumjs/common": "file:libs/common",
-    "@ethereumjs/mpt": "file:libs/mpt",
-    "@ethereumjs/statemanager": "file:libs/statemanager",
-    "@ethereumjs/util": "file:libs/util",
-    "@ethereumjs/verkle": "file:libs/verkle",
+    "@ethereumjs/util": "^9.1.0",
     "@js-sdsl/ordered-map": "^4.4.2",
+    "@synthesizer-libs/common": "^0.0.2",
+    "@synthesizer-libs/mpt": "^0.0.3",
+    "@synthesizer-libs/statemanager": "^0.0.4",
+    "@synthesizer-libs/util": "^0.0.3",
+    "@synthesizer-libs/verkle": "^0.0.2",
     "@types/debug": "^4.1.9",
     "@vitest/coverage-v8": "^2.1.8",
     "app-root-path": "^3.1.0",
@@ -73,6 +74,7 @@
     "ethereum-cryptography": "^3.0.0",
     "ethers": "^6.13.5",
     "eventemitter3": "^5.0.1",
+    "verkle-cryptography-wasm": "^0.4.8",
     "vitest": "^2.1.8"
   },
   "devDependencies": {

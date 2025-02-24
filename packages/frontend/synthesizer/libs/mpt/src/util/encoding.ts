@@ -1,4 +1,4 @@
-import { concatBytes, hexToBytes, toBytes, unprefixedHexToBytes } from '@ethereumjs/util'
+import { concatBytes, hexToBytes, toBytes, unprefixedHexToBytes } from '@synthesizer-libs/util'
 
 import { nibblesTypeToPackedBytes } from './nibbles.js'
 

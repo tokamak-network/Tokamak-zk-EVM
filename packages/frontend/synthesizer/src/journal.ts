@@ -1,4 +1,4 @@
-import { Hardfork } from '@ethereumjs/common/dist/esm/index.js'
+import { Hardfork } from '@synthesizer-libs/common'
 import {
   Address,
   RIPEMD160_ADDRESS_STRING,
@@ -6,12 +6,12 @@ import {
   bytesToUnprefixedHex,
   stripHexPrefix,
   unprefixedHexToBytes,
-} from "@ethereumjs/util/index.js"
+} from "@synthesizer-libs/util"
 import debugDefault from 'debug'
 import { hexToBytes } from 'ethereum-cryptography/utils'
 
-import type { Common, StateManagerInterface } from '@ethereumjs/common/dist/esm/index.js'
-import type { Account, PrefixedHexString } from "@ethereumjs/util/index.js"
+import type { Common, StateManagerInterface } from '@synthesizer-libs/common'
+import type { Account, PrefixedHexString } from "@synthesizer-libs/util"
 import type { Debugger } from 'debug'
 
 type AddressString = string

@@ -1,4 +1,4 @@
-[@ethereumjs/verkle](../README.md) / WalkController
+[@synthesizer-libs/verkle](../README.md) / WalkController
 
 # Class: WalkController
 

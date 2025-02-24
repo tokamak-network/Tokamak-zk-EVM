@@ -1,6 +1,6 @@
 import { Database, open } from 'lmdb'
 
-import type { BatchDBOp, DB } from '@ethereumjs/util'
+import type { BatchDBOp, DB } from '@synthesizer-libs/util'
 
 export class LMDB implements DB {
   readonly _path: string
@@ -10,7 +10,7 @@ export class LMDB implements DB {
     this._path = path
     this._database = open({
       compression: true,
-      name: '@ethereumjs/mpt',
+      name: '@synthesizer-libs/mpt',
       path,
     })
   }

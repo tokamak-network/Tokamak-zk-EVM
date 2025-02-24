@@ -5,7 +5,7 @@ import {
   hexToBytes,
   toBytes,
   utf8ToBytes,
-} from '@ethereumjs/util'
+} from '@synthesizer-libs/util'
 import { assert, describe, it } from 'vitest'
 
 import { MerklePatriciaTrie } from '../src/index.js'

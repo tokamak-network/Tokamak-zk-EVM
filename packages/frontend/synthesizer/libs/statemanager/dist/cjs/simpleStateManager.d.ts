@@ -1,7 +1,7 @@
-import { Account } from '@ethereumjs/util';
+import { Account } from '@synthesizer-libs/util';
 import type { SimpleStateManagerOpts } from './index.js';
-import type { AccountFields, Common, StateManagerInterface } from '@ethereumjs/common';
-import type { Address, PrefixedHexString } from '@ethereumjs/util';
+import type { AccountFields, Common, StateManagerInterface } from '@synthesizer-libs/common';
+import type { Address, PrefixedHexString } from '@synthesizer-libs/util';
 /**
  * Simple and dependency-free state manager for basic state access use cases
  * where a merkle-patricia or verkle tree backed state manager is too heavy-weight.
@@ -15,7 +15,7 @@ import type { Address, PrefixedHexString } from '@ethereumjs/util';
  * cases and the state manager is used as default there.
  *
  * For a more full fledged and MPT-backed state manager implementation
- * have a look at the `@ethereumjs/statemanager` package.
+ * have a look at the `@synthesizer-libs/statemanager` package.
  */
 export declare class SimpleStateManager implements StateManagerInterface {
     accountStack: Map<PrefixedHexString, Account | undefined>[];

@@ -1,26 +1,24 @@
 {
-  "extends": "../../../config/monorepo-js/tsconfig.prod.cjs.json",
+  "extends": "../../../config/monorepo-js/tsconfig.prod.esm.json",
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist/cjs",
     "baseUrl": ".",
     "composite": true,
-    "paths": {
-      "@ethereumjs/util/*": ["libs/util/dist/esm/*"],
-      "@ethereumjs/util": ["libs/util/dist/esm/index.js"],
-      "@ethereumjs/common/*": ["libs/common/dist/esm/*"],
-      "@ethereumjs/common": ["libs/common/dist/esm/index.js"],
-      "@ethereumjs/statemanager": ["libs/statemanager/dist/esm/index.js"],
-      "@ethereumjs/statemanager/*": ["libs/statemanager/dist/esm/*"]
-    }
+    // "paths": {
+    //   "@synthesizer-libs/util/*": ["libs/util/dist/esm/*"],
+    //   "@synthesizer-libs/util": ["libs/util/dist/esm/index"],
+    //   "@synthesizer-libs/statemanager": ["libs/statemanager/dist/esm/index"],
+    //   "@synthesizer-libs/statemanager/*": ["libs/statemanager/dist/esm/*"]
+    // }
   },
-  "include": ["src/**/*.ts", "src/**/*.json"],
+  "include": ["src/**/*.ts", "src/**/*.json", "src/**/*.wasm"],
   // "references": [
-  //   { "path": "../common/tsconfig.prod.cjs.json" },
-  //   { "path": "../rlp/tsconfig.prod.cjs.json" },
-  //   { "path": "../statemanager/tsconfig.prod.cjs.json" },
-  //   { "path": "../mpt/tsconfig.prod.cjs.json" },
-  //   { "path": "../tx/tsconfig.prod.cjs.json" },
-  //   { "path": "../util/tsconfig.prod.cjs.json" }
+  //   { "path": "../common/tsconfig.prod.esm.json" },
+  //   { "path": "../rlp/tsconfig.prod.esm.json" },
+  //   { "path": "../statemanager/tsconfig.prod.esm.json" },
+  //   { "path": "../mpt/tsconfig.prod.esm.json" },
+  //   { "path": "../tx/tsconfig.prod.esm.json" },
+  //   { "path": "../util/tsconfig.prod.esm.json" }
   // ]
 }

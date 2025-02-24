@@ -1,5 +1,5 @@
-import { bytesToUtf8, createAddressFromString, getVerkleStem, utf8ToBytes } from '@ethereumjs/util'
-import { createVerkleTree } from '@ethereumjs/verkle'
+import { bytesToUtf8, createAddressFromString, getVerkleStem, utf8ToBytes } from '@synthesizer-libs/util'
+import { createVerkleTree } from '@synthesizer-libs/verkle'
 
 async function test() {
   const addrHex = '0x781f1e4238f9de8b4d0ede9932f5a4d08f15dae7'

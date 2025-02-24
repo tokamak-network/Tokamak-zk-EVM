@@ -1,7 +1,7 @@
 import { InternalVerkleNode } from './internalNode.js';
 import { LeafVerkleNode } from './leafNode.js';
 import { LeafVerkleNodeValue, type VerkleNode } from './types.js';
-import type { VerkleCrypto } from '@ethereumjs/util';
+import type { VerkleCrypto } from '@synthesizer-libs/util';
 export declare function decodeRawVerkleNode(raw: Uint8Array[], verkleCrypto: VerkleCrypto): VerkleNode;
 export declare function decodeVerkleNode(raw: Uint8Array, verkleCrypto: VerkleCrypto): VerkleNode;
 export declare function isRawVerkleNode(node: Uint8Array | Uint8Array[]): node is Uint8Array[];

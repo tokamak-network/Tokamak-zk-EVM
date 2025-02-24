@@ -1,11 +1,11 @@
-import { Common } from '@ethereumjs/common';
-import { Account, type Address } from '@ethereumjs/util';
-import { VerkleTree } from '@ethereumjs/verkle';
+import { Common } from '@synthesizer-libs/common';
+import { Account, type Address } from '@synthesizer-libs/util';
+import { VerkleTree } from '@synthesizer-libs/verkle';
 import { OriginalStorageCache } from './cache/originalStorageCache.js';
 import type { Caches } from './cache/caches.js';
 import type { StatefulVerkleStateManagerOpts } from './types.js';
-import type { AccountFields, StateManagerInterface, StorageDump, StorageRange, VerkleAccessWitnessInterface, VerkleAccessedStateWithAddress } from '@ethereumjs/common';
-import type { PrefixedHexString, VerkleCrypto, VerkleExecutionWitness } from '@ethereumjs/util';
+import type { AccountFields, StateManagerInterface, StorageDump, StorageRange, VerkleAccessWitnessInterface, VerkleAccessedStateWithAddress } from '@synthesizer-libs/common';
+import type { PrefixedHexString, VerkleCrypto, VerkleExecutionWitness } from '@synthesizer-libs/util';
 import type { Debugger } from 'debug';
 export declare class StatefulVerkleStateManager implements StateManagerInterface {
     protected _debug: Debugger;

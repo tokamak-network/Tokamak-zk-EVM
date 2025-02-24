@@ -1,5 +1,5 @@
 import type { Proof, RPCStateManager } from '../index.js';
-import type { Address } from '@ethereumjs/util';
+import type { Address } from '@synthesizer-libs/util';
 /**
  * Get an EIP-1186 proof from the provider
  * @param address address to get proof of
