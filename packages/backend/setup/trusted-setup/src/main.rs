@@ -1,6 +1,7 @@
-use libs::tools::{SetupParams, SubcircuitInfo, SubcircuitQAP};
-use libs::tools::read_json_as_boxed_boxed_numbers;
+use libs::tools::{Tau, SetupParams, SubcircuitInfo, SubcircuitQAPEvaled};
+use libs::tools::{read_json_as_boxed_boxed_numbers, gen_cached_pows};
 use libs::math::{DensePolynomialExt, BivariatePolynomial};
+use libs::group_structures::{SigmaArithAndIP, SigmaCopy, SigmaVerify};
 
 use icicle_bls12_381::curve::{ScalarField as Field, ScalarCfg, G1Affine as G1, G2Affine as G2, CurveCfg};
 use icicle_bls12_381::vec_ops;
@@ -19,133 +20,7 @@ use std::{
     ops::{Add, AddAssign, Div, Mul, Rem, Sub, Neg},
     ptr, slice,
 };
-
-macro_rules! impl_tau_struct {
-    ($name:ident { $($field:ident),* }) => {
-        struct $name {
-            $(pub $field: Field),*
-        }
-
-        impl $name {
-            fn gen() -> Self {
-                Self {
-                    $($field: ScalarCfg::generate_random(1)[0]),*
-                }
-            }
-        }
-    };
-}
-
-impl_tau_struct!(Tau {x, y, z, alpha, beta, gamma, delta, eta0, eta1, mu, nu, psi0, psi1, psi2, psi3, kappa});
-
-struct SubcircuitQAPEvaled {
-    o_evals: Box<[Field]>,
-    active_wires: HashSet<usize>,
-}
-
-impl SubcircuitQAPEvaled {
-    fn from_r1cs_to_evaled_qap(
-        path :&str, 
-        setup_params: &SetupParams, 
-        subcircuit_info: &SubcircuitInfo, 
-        tau: &Tau, 
-        cashed_x_pows_vec: &Box<[Field]>
-    ) -> Self {
-        let qap_polys = SubcircuitQAP::from_path(path, setup_params, subcircuit_info).unwrap();
-        let mut u_evals_long = vec![Field::zero(); subcircuit_info.Nwires].into_boxed_slice();
-        let mut v_evals_long = u_evals_long.clone();
-        let mut w_evals_long = u_evals_long.clone();
-        let cashed_x_pows = HostSlice::from_slice(cashed_x_pows_vec);
-        let vec_ops_cfg = VecOpsConfig::default();
-        for (i, wire_idx) in qap_polys.u_active_wires.iter().enumerate() {
-            // u_evals_long[*wire_idx] = qap_polys.u_polys[i].eval(&tau.x);
-            let u_evals = HostSlice::from_slice(&qap_polys.u_evals[i]);
-            let mut mul_res_vec = vec![Field::zero(); setup_params.n].into_boxed_slice();
-            let mul_res = HostSlice::from_mut_slice(&mut mul_res_vec);
-            ScalarCfg::mul(u_evals, cashed_x_pows, mul_res, &vec_ops_cfg).unwrap();
-            let mut sum = Field::zero();
-            for val in mul_res_vec {
-                sum = sum + val;
-            }
-            u_evals_long[*wire_idx] = sum;
-        }
-        for (i, wire_idx) in qap_polys.v_active_wires.iter().enumerate() {
-            // v_evals_long[*wire_idx] = qap_polys.v_polys[i].eval(&tau.x);
-            let v_evals = HostSlice::from_slice(&qap_polys.v_evals[i]);
-            let mut mul_res_vec = vec![Field::zero(); setup_params.n].into_boxed_slice();
-            let mul_res = HostSlice::from_mut_slice(&mut mul_res_vec);
-            ScalarCfg::mul(v_evals, cashed_x_pows, mul_res, &vec_ops_cfg).unwrap();
-            let mut sum = Field::zero();
-            for val in mul_res_vec {
-                sum = sum + val;
-            }
-            v_evals_long[*wire_idx] = sum;
-        }
-        for (i, wire_idx) in qap_polys.w_active_wires.iter().enumerate() {
-            // w_evals_long[*wire_idx] = qap_polys.w_polys[i].eval(&tau.x);
-            let w_evals = HostSlice::from_slice(&qap_polys.w_evals[i]);
-            let mut mul_res_vec = vec![Field::zero(); setup_params.n].into_boxed_slice();
-            let mul_res = HostSlice::from_mut_slice(&mut mul_res_vec);
-            ScalarCfg::mul(w_evals, cashed_x_pows, mul_res, &vec_ops_cfg).unwrap();
-            let mut sum = Field::zero();
-            for val in mul_res_vec {
-                sum = sum + val;
-            }
-            w_evals_long[*wire_idx] = sum;
-        }
-        let mut active_wires = HashSet::new();
-        active_wires = active_wires.union(&qap_polys.u_active_wires).copied().collect();
-        active_wires = active_wires.union(&qap_polys.v_active_wires).copied().collect();
-        active_wires = active_wires.union(&qap_polys.w_active_wires).copied().collect();
-        let length = active_wires.len();
-        if length != subcircuit_info.Nwires {
-            for i in 0..subcircuit_info.Nwires {
-                if !active_wires.contains(&i) {
-                    println!("Not counted wire id: {:?}", i);
-                }
-            }
-        }
-        let mut u_evals_vec = vec![Field::zero(); length].into_boxed_slice();
-        let mut v_evals_vec = u_evals_vec.clone();
-        let mut w_evals_vec = u_evals_vec.clone();
-
-        for (i, wire_idx) in active_wires.iter().enumerate() {
-            if qap_polys.u_active_wires.contains(wire_idx){
-                u_evals_vec[i] = u_evals_long[*wire_idx]; 
-            }
-            if qap_polys.v_active_wires.contains(wire_idx){
-                v_evals_vec[i] = v_evals_long[*wire_idx]; 
-            }
-            if qap_polys.w_active_wires.contains(wire_idx){
-                w_evals_vec[i] = w_evals_long[*wire_idx]; 
-            }
-        }
-        let alpha_scaler_vec = vec![tau.alpha; length].into_boxed_slice();
-        let alpha_scaler = HostSlice::from_slice(&alpha_scaler_vec);
-        let beta_scaler_vec = vec![tau.beta; length].into_boxed_slice();
-        let beta_scaler = HostSlice::from_slice(&beta_scaler_vec);
-        let u_evals = HostSlice::from_slice(&u_evals_vec);
-        let v_evals = HostSlice::from_slice(&v_evals_vec);
-        let w_evals = HostSlice::from_slice(&w_evals_vec);
-        
-        let vec_ops_cfg = VecOpsConfig::default();
-        let mut first_term = DeviceVec::<Field>::device_malloc(length).unwrap();
-        ScalarCfg::mul(beta_scaler, u_evals, &mut first_term, &vec_ops_cfg).unwrap();
-        let mut second_term = DeviceVec::<Field>::device_malloc(length).unwrap();
-        ScalarCfg::mul(alpha_scaler, v_evals, &mut second_term, &vec_ops_cfg).unwrap();
-        let mut third_term = DeviceVec::<Field>::device_malloc(length).unwrap();
-        ScalarCfg::add(&first_term, &second_term, &mut third_term, &vec_ops_cfg).unwrap();
-        let mut o_evaled_local_vec = vec![Field::zero(); length].into_boxed_slice();
-        let o_evaled_local = HostSlice::from_mut_slice(&mut o_evaled_local_vec);
-        ScalarCfg::add(&third_term, w_evals, o_evaled_local, &vec_ops_cfg).unwrap();
-
-        Self {
-            o_evals: o_evaled_local_vec,
-            active_wires,
-        }
-    }
-}
-
+const s_max: usize = 1024;
 
 fn main() {
     let tau = Tau::gen();
@@ -154,6 +29,26 @@ fn main() {
     path = "setup/trusted-setup/resource/setupParams.json";
     let setup_params = SetupParams::from_path(path).unwrap();
     // println!("{:?}", setup_params);
+    let m_d = setup_params.m_D;
+    let s_d = setup_params.s_D;
+    let n = setup_params.n;
+    if !setup_params.n.is_power_of_two() {
+        panic!{"n is not a power of two."}
+    }
+    let l = setup_params.l;
+    let l_d = setup_params.l_D;
+    if l%2 == 1 {
+        panic!{"l is not even."}
+    }
+    let l_in = l/2;
+    if !s_max.is_power_of_two() {
+        panic!{"s_max is not a power of two."}
+    }
+    let z_dom_length = l_d-l;
+    if z_dom_length.is_power_of_two() {
+        panic!{"l_D - l is not a pwer of two."}
+    }
+
     path = "setup/trusted-setup/resource/subcircuitInfo.json";
     let subcircuit_infos = SubcircuitInfo::from_path(path).unwrap();
     // for subcircuit in subcircuit_infos.iter() {
@@ -177,21 +72,15 @@ fn main() {
     //     Err(e) => eprintln!("JSON 파일을 읽는 중 오류가 발생했습니다: {}", e),
     // }
 
-    let m_d = setup_params.m_D;
-    let s_d = setup_params.s_D;
-    let mut o_evaled_vec = vec![Field::zero(); m_d].into_boxed_slice();
-    let mut x_pows = vec![Field::zero(); setup_params.n].into_boxed_slice();
-    for i in 1..setup_params.n {
-        x_pows[i] = x_pows[i-1] * tau.x;
-    }
-    let temp_evals = HostSlice::from_slice(&x_pows);
-    let temp_poly = DensePolynomialExt::from_rou_evals(temp_evals, setup_params.n, 1, None, None);
-    let mut cashed_x_pows_vec = vec![Field::zero(); setup_params.n].into_boxed_slice();
-    let cashed_x_pows = HostSlice::from_mut_slice(&mut cashed_x_pows_vec);
-    temp_poly.copy_coeffs(0, cashed_x_pows);
-    // Todo: Cashed 방법과 보통 방법 시간 재보기
+    
+    let mut cached_x_pows_vec = vec![Field::zero(); setup_params.n].into_boxed_slice();
+    gen_cached_pows(&tau.x, setup_params.n, &mut cached_x_pows_vec);
+    // Todo: Cached 방법과 보통 방법 시간 재보기
 
-    for i in 0..s_d {
+    // Building o_i(x) for i in [0..m_D-1]
+    let mut o_evaled_vec = vec![Field::zero(); m_d].into_boxed_slice();
+    //for i in 0..s_d {
+    for i in [3,4] {
         println!("Processing subcircuit id {:?}", i);
         let _path = format!("setup/trusted-setup/resource/json/subcircuit{i}.json");
         let evaled_qap = SubcircuitQAPEvaled::from_r1cs_to_evaled_qap(
@@ -199,7 +88,7 @@ fn main() {
             &setup_params,
             &subcircuit_infos[i],
             &tau,
-            &cashed_x_pows_vec,
+            &cached_x_pows_vec,
         );
         let flatten_map = &subcircuit_infos[i].flattenMap;
         for (i, local_idx) in evaled_qap.active_wires.iter().enumerate(){
@@ -207,4 +96,32 @@ fn main() {
             o_evaled_vec[global_idx] = evaled_qap.o_evals[i];
         }
     }
+
+    // Building Lagranges L_i(y) for i in [0..s_max-1] and K_i(z) for i in [0..l_D-1]
+    let mut l_evaled_vec = vec![Field::zero(); s_max].into_boxed_slice();
+    gen_cached_pows(&tau.y, s_max, &mut l_evaled_vec);
+    let mut k_evaled_vec = vec![Field::zero(); z_dom_length].into_boxed_slice();
+    gen_cached_pows(&tau.z, z_dom_length, &mut k_evaled_vec);
+
+    //building M_i(x,z) for i in [l .. l_D]
+    let mut m_evaled_vec = vec![Field::zero(); z_dom_length].into_boxed_slice();
+    let omega = ntt::get_root_of_unity::<Field>(z_dom_length as u64);
+    let mut omega_pows_vec = vec![Field::zero(); l_d];
+    for i in 1..l_d { omega_pows_vec[i] = omega_pows_vec[i-1] * omega };
+    for i in 0..z_dom_length {
+        let j = i + l;
+        let mut m_eval = Field::zero();
+        for k in l .. l_d {
+            if j != k {
+                let factor1 = o_evaled_vec[k] * Field::from_u32((l_d- l) as u32).inv();
+                let factor2_term1 = omega_pows_vec[k] * k_evaled_vec[j-l];
+                let factor2_term2 = omega_pows_vec[j] * k_evaled_vec[i];
+                let factor2 = ( factor2_term1 + factor2_term2 ) * (omega_pows_vec[j] - omega_pows_vec[k]).inv();
+                m_eval = m_eval + factor1 * factor2;
+            }
+        }
+        m_evaled_vec[i] = m_eval;
+    }
+
+
 }

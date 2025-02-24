@@ -1,10 +1,12 @@
 use super::math::{DensePolynomialExt, BivariatePolynomial};
 
-use icicle_bls12_381::curve::ScalarField;
+use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
 use icicle_bls12_381::polynomials::DensePolynomial;
 use icicle_core::polynomials::UnivariatePolynomial;
-use icicle_core::traits::FieldImpl;
-use icicle_runtime::memory::HostSlice;
+use icicle_core::traits::{FieldImpl, GenerateRandom};
+use icicle_core::vec_ops::{VecOps, VecOpsConfig};
+
+use icicle_runtime::memory::{HostSlice, DeviceVec};
 use serde::Deserialize;
 use serde_json::from_reader;
 use std::fs::File;
@@ -12,6 +14,23 @@ use std::io::{self, BufReader};
 use std::env;
 use std::collections::{HashMap, HashSet};
 use num_bigint::BigUint;
+
+macro_rules! impl_tau_struct {
+    ($name:ident { $($ScalarField:ident),* }) => {
+        pub struct $name {
+            $(pub $ScalarField: ScalarField),*
+        }
+
+        impl $name {
+            pub fn gen() -> Self {
+                Self {
+                    $($ScalarField: ScalarCfg::generate_random(1)[0]),*
+                }
+            }
+        }
+    };
+}
+impl_tau_struct!(Tau {x, y, z, alpha, beta, gamma, delta, eta0, eta1, mu, nu, psi0, psi1, psi2, psi3, kappa});
 
 #[derive(Debug, Deserialize)]
 pub struct SetupParams {
@@ -190,4 +209,123 @@ impl SubcircuitQAP{
         })
 
     }
+}
+
+pub struct SubcircuitQAPEvaled {
+    pub o_evals: Box<[ScalarField]>,
+    pub active_wires: HashSet<usize>,
+}
+
+impl SubcircuitQAPEvaled {
+    pub fn from_r1cs_to_evaled_qap(
+        path :&str, 
+        setup_params: &SetupParams, 
+        subcircuit_info: &SubcircuitInfo, 
+        tau: &Tau, 
+        cached_x_pows_vec: &Box<[ScalarField]>
+    ) -> Self {
+        let qap_polys = SubcircuitQAP::from_path(path, setup_params, subcircuit_info).unwrap();
+        let mut u_evals_long = vec![ScalarField::zero(); subcircuit_info.Nwires].into_boxed_slice();
+        let mut v_evals_long = u_evals_long.clone();
+        let mut w_evals_long = u_evals_long.clone();
+        let cached_x_pows = HostSlice::from_slice(cached_x_pows_vec);
+        let vec_ops_cfg = VecOpsConfig::default();
+        for (i, wire_idx) in qap_polys.u_active_wires.iter().enumerate() {
+            // u_evals_long[*wire_idx] = qap_polys.u_polys[i].eval(&tau.x);
+            let u_evals = HostSlice::from_slice(&qap_polys.u_evals[i]);
+            let mut mul_res_vec = vec![ScalarField::zero(); setup_params.n].into_boxed_slice();
+            let mul_res = HostSlice::from_mut_slice(&mut mul_res_vec);
+            ScalarCfg::mul(u_evals, cached_x_pows, mul_res, &vec_ops_cfg).unwrap();
+            let mut sum = ScalarField::zero();
+            for val in mul_res_vec {
+                sum = sum + val;
+            }
+            u_evals_long[*wire_idx] = sum;
+        }
+        for (i, wire_idx) in qap_polys.v_active_wires.iter().enumerate() {
+            // v_evals_long[*wire_idx] = qap_polys.v_polys[i].eval(&tau.x);
+            let v_evals = HostSlice::from_slice(&qap_polys.v_evals[i]);
+            let mut mul_res_vec = vec![ScalarField::zero(); setup_params.n].into_boxed_slice();
+            let mul_res = HostSlice::from_mut_slice(&mut mul_res_vec);
+            ScalarCfg::mul(v_evals, cached_x_pows, mul_res, &vec_ops_cfg).unwrap();
+            let mut sum = ScalarField::zero();
+            for val in mul_res_vec {
+                sum = sum + val;
+            }
+            v_evals_long[*wire_idx] = sum;
+        }
+        for (i, wire_idx) in qap_polys.w_active_wires.iter().enumerate() {
+            // w_evals_long[*wire_idx] = qap_polys.w_polys[i].eval(&tau.x);
+            let w_evals = HostSlice::from_slice(&qap_polys.w_evals[i]);
+            let mut mul_res_vec = vec![ScalarField::zero(); setup_params.n].into_boxed_slice();
+            let mul_res = HostSlice::from_mut_slice(&mut mul_res_vec);
+            ScalarCfg::mul(w_evals, cached_x_pows, mul_res, &vec_ops_cfg).unwrap();
+            let mut sum = ScalarField::zero();
+            for val in mul_res_vec {
+                sum = sum + val;
+            }
+            w_evals_long[*wire_idx] = sum;
+        }
+        let mut active_wires = HashSet::new();
+        active_wires = active_wires.union(&qap_polys.u_active_wires).copied().collect();
+        active_wires = active_wires.union(&qap_polys.v_active_wires).copied().collect();
+        active_wires = active_wires.union(&qap_polys.w_active_wires).copied().collect();
+        let length = active_wires.len();
+        if length != subcircuit_info.Nwires {
+            for i in 0..subcircuit_info.Nwires {
+                if !active_wires.contains(&i) {
+                    println!("Not counted wire id: {:?}", i);
+                }
+            }
+        }
+        let mut u_evals_vec = vec![ScalarField::zero(); length].into_boxed_slice();
+        let mut v_evals_vec = u_evals_vec.clone();
+        let mut w_evals_vec = u_evals_vec.clone();
+
+        for (i, wire_idx) in active_wires.iter().enumerate() {
+            if qap_polys.u_active_wires.contains(wire_idx){
+                u_evals_vec[i] = u_evals_long[*wire_idx]; 
+            }
+            if qap_polys.v_active_wires.contains(wire_idx){
+                v_evals_vec[i] = v_evals_long[*wire_idx]; 
+            }
+            if qap_polys.w_active_wires.contains(wire_idx){
+                w_evals_vec[i] = w_evals_long[*wire_idx]; 
+            }
+        }
+        let alpha_scaler_vec = vec![tau.alpha; length].into_boxed_slice();
+        let alpha_scaler = HostSlice::from_slice(&alpha_scaler_vec);
+        let beta_scaler_vec = vec![tau.beta; length].into_boxed_slice();
+        let beta_scaler = HostSlice::from_slice(&beta_scaler_vec);
+        let u_evals = HostSlice::from_slice(&u_evals_vec);
+        let v_evals = HostSlice::from_slice(&v_evals_vec);
+        let w_evals = HostSlice::from_slice(&w_evals_vec);
+        
+        let vec_ops_cfg = VecOpsConfig::default();
+        let mut first_term = DeviceVec::<ScalarField>::device_malloc(length).unwrap();
+        ScalarCfg::mul(beta_scaler, u_evals, &mut first_term, &vec_ops_cfg).unwrap();
+        let mut second_term = DeviceVec::<ScalarField>::device_malloc(length).unwrap();
+        ScalarCfg::mul(alpha_scaler, v_evals, &mut second_term, &vec_ops_cfg).unwrap();
+        let mut third_term = DeviceVec::<ScalarField>::device_malloc(length).unwrap();
+        ScalarCfg::add(&first_term, &second_term, &mut third_term, &vec_ops_cfg).unwrap();
+        let mut o_evaled_local_vec = vec![ScalarField::zero(); length].into_boxed_slice();
+        let o_evaled_local = HostSlice::from_mut_slice(&mut o_evaled_local_vec);
+        ScalarCfg::add(&third_term, w_evals, o_evaled_local, &vec_ops_cfg).unwrap();
+
+        Self {
+            o_evals: o_evaled_local_vec,
+            active_wires,
+        }
+    }
+}
+
+pub fn gen_cached_pows(val: &ScalarField, size: usize, res: &mut Box<[ScalarField]>) {
+    let mut val_pows = vec![ScalarField::zero(); size].into_boxed_slice();
+    for i in 1..size {
+        val_pows[i] = val_pows[i-1] * *val;
+    }
+    let temp_evals = HostSlice::from_slice(&val_pows);
+    let temp_poly = DensePolynomialExt::from_rou_evals(temp_evals, size, 1, None, None);
+    let cached_val_pows = HostSlice::from_mut_slice(res);
+    temp_poly.copy_coeffs(0, cached_val_pows);
 }

@@ -7,8 +7,8 @@
   export const setupParams = 
  {
   "l": 512,
-  "l_D": 2204,
-  "m_D": 30418,
+  "l_D": 2560,
+  "m_D": 30774,
   "n": 8192,
   "s_D": 29
 }

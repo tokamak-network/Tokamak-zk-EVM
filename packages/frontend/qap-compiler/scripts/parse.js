@@ -62,8 +62,16 @@ function parseWireList(subcircuitInfos, mode = 0) {
   }
 
   const l = numPublicWires
-  const l_D = numInterfaceWires + l
-  const m_D = numTotalWires
+  const l_D_minus_l = numInterfaceWires
+  let twosPower = 1
+  while (twosPower < l_D_minus_l) {
+    twosPower <<= 1
+  }
+  // twosPower >= numInterfaceWires
+  const numDiff = twosPower - numInterfaceWires
+  const l_D = numInterfaceWires + numDiff + l
+  const m_D = numTotalWires + numDiff
+  // numDiff makes l_D - l to be power of two.
 
   const globalWireList = []
 
@@ -132,10 +140,13 @@ function parseWireList(subcircuitInfos, mode = 0) {
     }
   }
 
+  ind += numDiff
+
   if (ind !== l_D) {
     throw new Error(`parseWireList: Error during flattening interface wires`)
   }
 
+  ind = ind
   for (const targetSubcircuit of subcircuitInfos) {
     // The first wire is always for constant
     _buildWireFlattenMap(
