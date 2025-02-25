@@ -83,8 +83,8 @@ export const setupEVMFromCalldata = async (
             );
 
             // 검증을 위해 저장된 값 확인
-const storedBalance = await evm.stateManager.getStorage(contractAddr, senderBalanceSlot);
-console.log('Stored balance:', Buffer.from(storedBalance).toString('hex'));
+            const storedBalance = await evm.stateManager.getStorage(contractAddr, senderBalanceSlot);
+            console.log('Stored balance:', Buffer.from(storedBalance).toString('hex'));
             
             break;
         }

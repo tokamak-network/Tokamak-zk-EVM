@@ -8,7 +8,7 @@ import { keccak256 } from 'ethereum-cryptography/keccak'
 
 import { createEVM } from '../../src/constructors.js'
 import { finalize } from '../../src/tokamak/core/finalize.js'
-import { setupEVMFromCalldata } from "src/tokamak/utils/erc20EvmSetup.js"
+import { setupEVMFromCalldata } from "../../src/tokamak/utils/erc20EvmSetup.js"
 import TON_STORAGE_LAYOUT from "../../src/constants/storage-layouts/TON.json" 
 import TON_CONTRACT from "../../src/constants/bytecodes/TON.json" 
 import ERC20_ADDRESSES from "../../src/constants/addresses/ERC20_ADDRESSES.json"
@@ -17,6 +17,11 @@ import WTON_CONTRACT from "../../src/constants/bytecodes/WTON.json"
 
 const tonContractCode = TON_CONTRACT.bytecode
 const wtonContractCode = WTON_CONTRACT.bytecode
+
+ // 문자열을 hex로 변환하는 함수
+function stringToHex(str: string): string {
+  return '0x' + Buffer.from(str).toString('hex').padStart(64, '0');
+}
 
 const main = async () => {
   const evm = await createEVM()
@@ -57,89 +62,294 @@ const approveAndCallData = "0xcae9ca51000000000000000000000000c4a11aaf6ea915ed7a
   await setupEVMFromCalldata(evm, tonAddr, hexToBytes(tonContractCode), TON_STORAGE_LAYOUT, transferCalldata, sender)
   await setupEVMFromCalldata(evm, tonAddr, hexToBytes(tonContractCode), TON_STORAGE_LAYOUT, approveCalldata, sender)
 
-  //  await evm.stateManager.putAccount(wtonAddr, new Account());
-  //   await evm.stateManager.putCode(wtonAddr, hexToBytes(wtonContractCode));
+   await evm.stateManager.putAccount(wtonAddr, new Account());
+    await evm.stateManager.putCode(wtonAddr, hexToBytes(wtonContractCode));
 
   // await setupEVMFromCalldata(evm, wtonAddr, hexToBytes(wtonContractCode), WTON_STORAGE_LAYOUT, transferCalldata, sender)
   // await setupEVMFromCalldata(evm, wtonAddr, hexToBytes(wtonContractCode), WTON_STORAGE_LAYOUT, approveCalldata, sender)
 
   
   // ERC165 interface support setup
-const INTERFACE_ID_ERC165 = '0x01ffc9a7';
-const INTERFACE_ID_ON_APPROVE = '0x4a393149';
+// const INTERFACE_ID_ERC165 = '0x01ffc9a7';
+// const INTERFACE_ID_ON_APPROVE = '0x4a393149';
 
 
 // Initialize WTON contract
-await evm.stateManager.putAccount(wtonAddr, new Account());
-await evm.stateManager.putCode(wtonAddr, hexToBytes(wtonContractCode));
+// await evm.stateManager.putAccount(wtonAddr, new Account());
+//   await evm.stateManager.putCode(wtonAddr, hexToBytes(wtonContractCode));
+ 
 
-// Set up storage for interface support
-const SUPPORTED_INTERFACES_SLOT = '9';
+ 
 
-// First, hash the slot number to get the base position of the mapping
-const mappingSlot = keccak256(
-    hexToBytes('0x' + SUPPORTED_INTERFACES_SLOT.padStart(64, '0'))
-);
+// // 스토리지 수동 초기화
+// const storageValues = {
+//   name: "Wrapped TON",
+//   symbol: "WTON",
+//   decimals: "27",
+//   ton: tonAddr.toString()
+// };
 
-// Then hash each key with the mapping slot
-const erc165Key = keccak256(
-    hexToBytes(
-        '0x' + INTERFACE_ID_ERC165.slice(2).padStart(64, '0') + 
-        Buffer.from(mappingSlot).toString('hex')
-    )
-);
+// // 스토리지 설정
+// await evm.stateManager.putStorage(
+//   wtonAddr,
+//   hexToBytes("0x0000000000000000000000000000000000000000000000000000000000000006"), // name slot
+//   hexToBytes(stringToHex("Wrapped TON"))
+// );
 
-const onApproveKey = keccak256(
-    hexToBytes(
-        '0x' + INTERFACE_ID_ON_APPROVE.slice(2).padStart(64, '0') + 
-        Buffer.from(mappingSlot).toString('hex')
-    )
-);
+// await evm.stateManager.putStorage(
+//   wtonAddr,
+//   hexToBytes("0x0000000000000000000000000000000000000000000000000000000000000005"), // symbol slot
+//   hexToBytes(stringToHex("WTON"))
+// );
 
-// Set interface support to true for WTON contract
+// await evm.stateManager.putStorage(
+//   wtonAddr,
+//   hexToBytes("0x0000000000000000000000000000000000000000000000000000000000000002"), // decimals slot
+//   hexToBytes('0x' + '1b'.padStart(64, '0')) // 27 in hex
+// );
+
+// // TON 주소 설정
+// await evm.stateManager.putStorage(
+//   wtonAddr,
+//   hexToBytes("0x0000000000000000000000000000000000000000000000000000000000000001"), // TON address slot (확인 필요)
+//   hexToBytes('0x' + tonAddr.toString().slice(2).padStart(64, '0'))
+// );
+
+//   // onApprove 인터페이스 ID: 0x4a393149
+// await evm.stateManager.putStorage(
+//   wtonAddr,
+//   hexToBytes("0x0000000000000000000000000000000000000000000000000000000000000004"),
+//   hexToBytes("0x" + "4a393149".padStart(64, '0'))
+// );
+
+// // 또는 mapping으로 설정하는 경우:
+// const INTERFACE_ID_ON_APPROVE = '0x4a393149';
+// const SUPPORTED_INTERFACES_SLOT = '0x04';
+
+// // mapping의 키를 계산
+// const mappingKey = keccak256(
+//   hexToBytes(
+//     "0x" + INTERFACE_ID_ON_APPROVE.slice(2).padStart(64, '0') + 
+//     SUPPORTED_INTERFACES_SLOT.slice(2).padStart(64, '0')
+//   )
+// );
+
+// // mapping에 true 값 설정 (1)
+// await evm.stateManager.putStorage(
+//   wtonAddr,
+//   mappingKey,
+//   hexToBytes("0x" + "1".padStart(64, '0'))  
+  // );
+  
+  // 스토리지 설정
+// Slot 0: bool/uint8 값 1
 await evm.stateManager.putStorage(
-    wtonAddr,
-    erc165Key,
-    hexToBytes('0x0000000000000000000000000000000000000000000000000000000000000001')
+  wtonAddr,
+  hexToBytes("0x0000000000000000000000000000000000000000000000000000000000000000"),
+  hexToBytes("0x" + "1".padStart(64, '0'))
+);
+
+// Slot 3: uint128 값
+await evm.stateManager.putStorage(
+  wtonAddr,
+  hexToBytes("0x0000000000000000000000000000000000000000000000000000000000000003"),
+  hexToBytes("0x" + "41632775533584369980774943213748224".toString(16).padStart(64, '0'))
+);
+
+// Slot 5: address
+await evm.stateManager.putStorage(
+  wtonAddr,
+  hexToBytes("0x0000000000000000000000000000000000000000000000000000000000000005"),
+  hexToBytes("0x" + "dd9f0ccc044b0781289ee318e5971b0139602c26".padStart(64, '0'))
+);
+
+// Slot 6: name (Wrapped TON)
+await evm.stateManager.putStorage(
+  wtonAddr,
+  hexToBytes("0x0000000000000000000000000000000000000000000000000000000000000006"),
+  hexToBytes(stringToHex("Wrapped TON"))
+);
+
+// Slot 7: symbol (WTON)
+await evm.stateManager.putStorage(
+  wtonAddr,
+  hexToBytes("0x0000000000000000000000000000000000000000000000000000000000000007"),
+  hexToBytes(stringToHex("WTON"))
+);
+
+// Slot 8: uint256 값
+await evm.stateManager.putStorage(
+  wtonAddr,
+  hexToBytes("0x0000000000000000000000000000000000000000000000000000000000000008"),
+  hexToBytes("0x" + "165202277148218551859080237684555207204770035007488".toString(16).padStart(64, '0'))
+);
+  
+  // 슬롯 4를 0으로 초기화 (mapping base)
+await evm.stateManager.putStorage(
+  wtonAddr,
+  hexToBytes("0x0000000000000000000000000000000000000000000000000000000000000004"),
+  hexToBytes("0x" + "0".padStart(64, '0'))
+);
+
+// mapping에 onApprove 지원 설정
+const mappingKey = keccak256(
+  hexToBytes(
+    "0x" + "4a393149".padStart(64, '0') + 
+    "0000000000000000000000000000000000000000000000000000000000000004"
+  )
 );
 
 await evm.stateManager.putStorage(
-    wtonAddr,
-    onApproveKey,
-    hexToBytes('0x0000000000000000000000000000000000000000000000000000000000000001')
+  wtonAddr,
+  mappingKey,
+  hexToBytes("0x" + "1".padStart(64, '0'))
+);
+  
+//   // onApprove 인터페이스 ID: 0x4a393149
+// await evm.stateManager.putStorage(
+//   wtonAddr,
+//   hexToBytes("0x0000000000000000000000000000000000000000000000000000000000000004"),
+//   hexToBytes("0x" + "4a393149".padStart(64, '0'))
+// );
+
+// ERC165 interface support setup
+const INTERFACE_ID_ERC165 = '0x01ffc9a7';
+const INTERFACE_ID_ON_APPROVE = '0x4a393149';
+
+// // mapping의 키를 계산 (keccak256(interfaceId . slot))
+// const mappingKey = keccak256(
+//   hexToBytes(
+//     "0x" + INTERFACE_ID_ON_APPROVE.slice(2).padStart(64, '0') + 
+//     "0000000000000000000000000000000000000000000000000000000000000004"
+//   )
+// );
+
+// // mapping에 true 값 설정 (1)
+// await evm.stateManager.putStorage(
+//   wtonAddr,
+//   mappingKey,
+//   hexToBytes("0x" + "1".padStart(64, '0'))  
+// );
+  
+//   // mapping에 true 값 설정 (1)
+// await evm.stateManager.putStorage(
+//   wtonAddr,
+//   mappingKey,
+//   hexToBytes("0x" + "1".padStart(64, '0'))  
+// );
+
+// // ERC165도 지원하도록 설정
+const erc165MappingKey = keccak256(
+  hexToBytes(
+    "0x" + INTERFACE_ID_ERC165.slice(2).padStart(64, '0') + 
+    "0000000000000000000000000000000000000000000000000000000000000004"
+  )
 );
 
-// First test ERC165 interface support
-const supportsERC165Calldata = '0x01ffc9a7' + INTERFACE_ID_ERC165.slice(2).padStart(64, '0');
-
-const erc165Result = await evm.runCall({
-    caller: sender,
-    to: wtonAddr,
-    code: hexToBytes(wtonContractCode),
-    data: hexToBytes(supportsERC165Calldata),
-});
-
-console.log('OnApprove supportsInterface result:', erc165Result);
+// await evm.stateManager.putStorage(
+//   wtonAddr,
+//   erc165MappingKey,
+//   hexToBytes("0x" + "1".padStart(64, '0'))
+// );
 
 
-// Then test OnApprove interface support
-const supportsOnApproveCalldata = '0x01ffc9a7' + INTERFACE_ID_ON_APPROVE.slice(2).padStart(64, '0');
+// 스토리지 확인
+console.log("OnApprove mapping key:", mappingKey.toString('hex'));
+const onApproveSupport = await evm.stateManager.getStorage(wtonAddr, mappingKey);
+console.log("OnApprove support value:", Buffer.from(onApproveSupport).toString('hex'));
 
-const onApproveResult = await evm.runCode({
-    caller: sender,
-    to: wtonAddr,
-    code: hexToBytes(wtonContractCode),
-    data: hexToBytes(supportsOnApproveCalldata),
-});
+console.log("ERC165 mapping key:", erc165MappingKey.toString('hex'));
+const erc165Support = await evm.stateManager.getStorage(wtonAddr, erc165MappingKey);
+console.log("ERC165 support value:", Buffer.from(erc165Support).toString('hex'));
 
-console.log('OnApprove supportsInterface result:', Buffer.from(onApproveResult.returnValue).toString('hex'));
+  // WTON contract의 supportsInterface 매핑 설정
+const interfaceId = "0x4a393149";  // onApprove interface id
 
-// Print storage values for comparison
-const erc165Support = await evm.stateManager.getStorage(wtonAddr, erc165Key);
-const onApproveSupport = await evm.stateManager.getStorage(wtonAddr, onApproveKey);
+const _mappingKey = keccak256(
+  hexToBytes(
+    "0x" + interfaceId.slice(2).padStart(64, '0') + 
+    "0000000000000000000000000000000000000000000000000000000000000004"
+  )
+);
 
-console.log('ERC165 storage:', Buffer.from(erc165Support).toString('hex'));
-console.log('OnApprove storage:', Buffer.from(onApproveSupport).toString('hex'));
+ 
+  
+  // 2. onApprove interface ID (0x4a393149) 지원 설정
+const onApproveMappingKey = keccak256(
+  hexToBytes(
+    "0x" + "4a393149".padStart(64, '0') + 
+    "0000000000000000000000000000000000000000000000000000000000000004"
+  )
+);
+  
+   console.log("Current storage at mapping key:", await evm.stateManager.getStorage(wtonAddr, _mappingKey));
+
+await evm.stateManager.putStorage(
+  wtonAddr,
+  onApproveMappingKey,
+  hexToBytes("0x" + "1".padStart(64, '0'))
+);
+
+// 매핑 값을 1로 설정
+await evm.stateManager.putStorage(
+  wtonAddr,
+  mappingKey,
+  hexToBytes("0x" + "1".padStart(64, '0'))
+);
+  
+  // 슬롯 4를 0으로 초기화 (mapping base)
+await evm.stateManager.putStorage(
+  wtonAddr,
+  hexToBytes("0x0000000000000000000000000000000000000000000000000000000000000004"),
+  hexToBytes("0x" + "0".padStart(64, '0'))
+);
+
+// 1. ERC165 interface ID (0x01ffc9a7) 지원 설정
+// const erc165MappingKey = keccak256(
+//   hexToBytes(
+//     "0x" + "01ffc9a7".padStart(64, '0') + 
+//     "0000000000000000000000000000000000000000000000000000000000000004"
+//   )
+// );
+
+await evm.stateManager.putStorage(
+  wtonAddr,
+  erc165MappingKey,
+  hexToBytes("0x" + "1".padStart(64, '0'))
+);
+
+// 2. onApprove interface ID (0x4a393149) 지원 설정
+// const onApproveMappingKey = keccak256(
+//   hexToBytes(
+//     "0x" + "4a393149".padStart(64, '0') + 
+//     "0000000000000000000000000000000000000000000000000000000000000004"
+//   )
+// );
+
+await evm.stateManager.putStorage(
+  wtonAddr,
+  onApproveMappingKey,
+  hexToBytes("0x" + "1".padStart(64, '0'))
+);
+
+// 설정 확인
+console.log("ERC165 support:", await evm.stateManager.getStorage(wtonAddr, erc165MappingKey));
+console.log("OnApprove support:", await evm.stateManager.getStorage(wtonAddr, onApproveMappingKey));
+  
+  // 0번부터 9번까지 스토리지 슬롯 확인
+for (let i = 0; i <= 9; i++) {
+    const slot = "0x" + i.toString().padStart(64, '0');
+    const value = await evm.stateManager.getStorage(wtonAddr, hexToBytes(slot));
+    console.log(`Slot ${i}:`, Buffer.from(value).toString('hex'));
+}
+
+// 16진수로도 출력
+  for (let i = 0; i <= 9; i++) {
+    const slot = "0x" + i.toString().padStart(64, '0');
+    const value = await evm.stateManager.getStorage(wtonAddr, hexToBytes(slot));
+    console.log(`Slot ${i} (hex):`, '0x' + Buffer.from(value).toString('hex'));
+
+  }
 
   // approveAndCall 실행
   const result = await evm.runCode({
@@ -149,10 +359,6 @@ console.log('OnApprove storage:', Buffer.from(onApproveSupport).toString('hex'))
     data: hexToBytes(approveAndCallData),
   })
 
-  // 실행 결과 확인
-  console.log("\n=== Execution Result ===")
-  console.log('Exception:', result.exceptionError)
-  
   if (result.exceptionError) {
     // console.log('evm:', result)
     console.log("evm return value:", Buffer.from(result.returnValue).toString())
@@ -166,7 +372,7 @@ console.log('OnApprove storage:', Buffer.from(onApproveSupport).toString('hex'))
   // console.log("WTON balance after:", Buffer.from(wtonBalanceAfter).toString('hex'))
 
   // Generate proof
-  const permutation = await finalize(result.runState!.synthesizer.placements, undefined, true)
+  // const permutation = await finalize(result.runState!.synthesizer.placements, undefined, true)
 
 }
 
