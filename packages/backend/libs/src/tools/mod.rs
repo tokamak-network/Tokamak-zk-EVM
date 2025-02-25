@@ -75,7 +75,7 @@ pub fn read_json_as_boxed_boxed_numbers(path: &str) -> io::Result<Box<[Box<[usiz
     let file = File::open(abs_path)?;
     let reader = BufReader::new(file);
 
-    let vec_of_vecs: Vec<Vec<usize>> = from_reader(reader)?;
+    let vec_of_vecs:Vec<Vec<usize>> = serde_json::from_reader(reader)?;
     let boxed_outer = vec_of_vecs
         .into_iter()
         .map(|inner_vec| inner_vec.into_boxed_slice()) // `Vec<usize>` → `Box<[usize]>`

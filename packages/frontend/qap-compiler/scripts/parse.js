@@ -7,12 +7,22 @@ const listPublicIn = new Map().set('bufferPubInPrvOut', true)
 const listPublicOut = new Map().set('bufferPrvInPubOut', true)
 
 function _buildWireFlattenMap(globalWireList, subcircuitInfos, globalWireIndex, subcircuitId, subcircuitWireId) {
-  if ( globalWireList[globalWireIndex] !== undefined ) {
-    throw new Error(`parseWireList: The same mapping occurs twice.`)
-  }
-  if ( subcircuitInfos[subcircuitId].flattenMap !== undefined ) {
-    if ( subcircuitInfos[subcircuitId].flattenMap[subcircuitWireId] !== undefined ){
+  if (subcircuitId > 0 ){
+    if ( globalWireList[globalWireIndex] !== undefined ) {
       throw new Error(`parseWireList: The same mapping occurs twice.`)
+    }
+    if ( subcircuitInfos[subcircuitId].flattenMap !== undefined ) {
+      if ( subcircuitInfos[subcircuitId].flattenMap[subcircuitWireId] !== undefined ){
+        throw new Error(`parseWireList: The same mapping occurs twice.`)
+      }
+    }
+
+    if ( subcircuitInfos[subcircuitId].flattenMap === undefined ){
+      const newSubcircuitInfo = {...subcircuitInfos[subcircuitId], flattenMap: []}
+      newSubcircuitInfo.flattenMap[subcircuitWireId] = globalWireIndex
+      subcircuitInfos[subcircuitId] = newSubcircuitInfo
+    } else {
+      subcircuitInfos[subcircuitId].flattenMap[subcircuitWireId] = globalWireIndex
     }
   }
 
@@ -20,14 +30,6 @@ function _buildWireFlattenMap(globalWireList, subcircuitInfos, globalWireIndex, 
     subcircuitId,
     subcircuitWireId,
   ]
-
-  if ( subcircuitInfos[subcircuitId].flattenMap === undefined ){
-    const newSubcircuitInfo = {...subcircuitInfos[subcircuitId], flattenMap: []}
-    newSubcircuitInfo.flattenMap[subcircuitWireId] = globalWireIndex
-    subcircuitInfos[subcircuitId] = newSubcircuitInfo
-  } else {
-    subcircuitInfos[subcircuitId].flattenMap[subcircuitWireId] = globalWireIndex
-  }
 }
 
 function parseWireList(subcircuitInfos, mode = 0) {
@@ -140,13 +142,20 @@ function parseWireList(subcircuitInfos, mode = 0) {
     }
   }
 
-  ind += numDiff
+  for (let i = 0; i < numDiff; i++) {
+    _buildWireFlattenMap(
+      globalWireList,
+      subcircuitInfos,
+      ind++,
+      -1,
+      -1,
+    )
+  }
 
   if (ind !== l_D) {
     throw new Error(`parseWireList: Error during flattening interface wires`)
   }
-
-  ind = ind
+  
   for (const targetSubcircuit of subcircuitInfos) {
     // The first wire is always for constant
     _buildWireFlattenMap(

@@ -110,131 +110,131 @@ pub struct SigmaArithAndIP {
     pub delta_xy_ty_hi :Box<[G1Affine]>, // h ∈ ⟦0, 2n-2⟧ , i ∈ ⟦0 , s_{max} - 2 ⟧
 }
 
-impl SigmaArithAndIP {
-    pub fn gen(
-        params: &SetupParams,
-        tau: &Tau,
-        xy: &Box<[ScalarField]>,
-        o_vec: &Box<[ScalarField]>,
-        m_vec: &Box<[ScalarField]>,
-        l_vec: &Box<[ScalarField]>,
-        k_vec: &Box<[ScalarField]>,
-        g1_gen: &G1Affine
-    ) -> Self {
-    let l = params.l;
-    if l % 2 == 1 {
-        panic!{"l is an odd number."}
-    }
-    let l_in = l/2;
-    let m_d = params.m_D;
-    let l_d = params.l_D;
-    let z_dom_length = l_d - l;
-    let n = params.n;
+// impl SigmaArithAndIP {
+//     pub fn gen(
+//         params: &SetupParams,
+//         tau: &Tau,
+//         xy: &Box<[ScalarField]>,
+//         o_vec: &Box<[ScalarField]>,
+//         m_vec: &Box<[ScalarField]>,
+//         l_vec: &Box<[ScalarField]>,
+//         k_vec: &Box<[ScalarField]>,
+//         g1_gen: &G1Affine
+//     ) -> Self {
+//     let l = params.l;
+//     if l % 2 == 1 {
+//         panic!{"l is an odd number."}
+//     }
+//     let l_in = l/2;
+//     let m_d = params.m_D;
+//     let l_d = params.l_D;
+//     let z_dom_length = l_d - l;
+//     let n = params.n;
 
-    let mut msm_cfg = msm::MSMConfig::default();
-    let vec_ops_cfg = VecOpsConfig::default();
+//     let mut msm_cfg = msm::MSMConfig::default();
+//     let vec_ops_cfg = VecOpsConfig::default();
 
-    // generate alpha
-    let alpha = G1Affine::from( (*g1_gen).to_projective() * tau.alpha );
+//     // generate alpha
+//     let alpha = G1Affine::from( (*g1_gen).to_projective() * tau.alpha );
     
-    // generate xy_hi: Box<[G1Affine]>, // h ∈ ⟦0,n-1⟧ as column , i ∈ ⟦0, s_{max} -1⟧ as row
-    let mut xy_pows_vec = vec![ScalarField::zero(); n * s_max].into_boxed_slice();
-    gen_monomial_matrix(
-        n,
-        s_max,
-        &tau.x,
-        &tau.y,
-        &mut xy_pows_vec
-    );
-    let mut xy_hi_affine_vec = vec![G1Affine::zero(); n * s_max].into_boxed_slice();
-    let mut xy_hi_affine = HostSlice::from_mut_slice(&mut xy_hi_affine_vec);
-    from_coef_vec_to_affine_vec(
-        &xy_pows_vec,
-        n * s_max,
-        g1_gen,
-        &mut xy_hi_affine_vec
-    );
+//     // generate xy_hi: Box<[G1Affine]>, // h ∈ ⟦0,n-1⟧ as column , i ∈ ⟦0, s_{max} -1⟧ as row
+//     let mut xy_pows_vec = vec![ScalarField::zero(); n * s_max].into_boxed_slice();
+//     gen_monomial_matrix(
+//         n,
+//         s_max,
+//         &tau.x,
+//         &tau.y,
+//         &mut xy_pows_vec
+//     );
+//     let mut xy_hi_affine_vec = vec![G1Affine::zero(); n * s_max].into_boxed_slice();
+//     let mut xy_hi_affine = HostSlice::from_mut_slice(&mut xy_hi_affine_vec);
+//     from_coef_vec_to_affine_vec(
+//         &xy_pows_vec,
+//         n * s_max,
+//         g1_gen,
+//         &mut xy_hi_affine_vec
+//     );
 
-    // generate gamma_l_pub_o_j: Box<[G1Affine]>, // //  j ∈ ⟦0, l-1⟧
-    let mut gamma_l_pub_vec = Vec::with_capacity(l);
-    let gamma_l_in_vec = vec![tau.gamma.inv()*l_vec[0]; l_in].into_boxed_slice();
-    let gamma_l_out_vec = vec![tau.gamma.inv()*l_vec[s_max - 1]; l_in].into_boxed_slice();
-    gamma_l_pub_vec.extend_from_slice(&gamma_l_in_vec);
-    gamma_l_pub_vec.extend_from_slice(&gamma_l_out_vec);
-    let mut gamma_l_pub_o_j_coef_vec = vec![ScalarField::zero(); l].into_boxed_slice();
-    point_mul_two_vecs(
-        &o_vec[0..l].to_owned().into_boxed_slice(),
-        &gamma_l_pub_vec.into_boxed_slice(),
-        &mut gamma_l_pub_o_j_coef_vec);
-    let mut gamma_l_pub_o_j= vec![G1Affine::zero(); l].into_boxed_slice();
-    from_coef_vec_to_affine_vec(
-        &gamma_l_pub_o_j_coef_vec,
-        l,
-        g1_gen,
-        &mut gamma_l_pub_o_j
-    );
+//     // generate gamma_l_pub_o_j: Box<[G1Affine]>, // //  j ∈ ⟦0, l-1⟧
+//     let mut gamma_l_pub_vec = Vec::with_capacity(l);
+//     let gamma_l_in_vec = vec![tau.gamma.inv()*l_vec[0]; l_in].into_boxed_slice();
+//     let gamma_l_out_vec = vec![tau.gamma.inv()*l_vec[s_max - 1]; l_in].into_boxed_slice();
+//     gamma_l_pub_vec.extend_from_slice(&gamma_l_in_vec);
+//     gamma_l_pub_vec.extend_from_slice(&gamma_l_out_vec);
+//     let mut gamma_l_pub_o_j_coef_vec = vec![ScalarField::zero(); l].into_boxed_slice();
+//     point_mul_two_vecs(
+//         &o_vec[0..l].to_owned().into_boxed_slice(),
+//         &gamma_l_pub_vec.into_boxed_slice(),
+//         &mut gamma_l_pub_o_j_coef_vec);
+//     let mut gamma_l_pub_o_j= vec![G1Affine::zero(); l].into_boxed_slice();
+//     from_coef_vec_to_affine_vec(
+//         &gamma_l_pub_o_j_coef_vec,
+//         l,
+//         g1_gen,
+//         &mut gamma_l_pub_o_j
+//     );
 
-    // generate eta1_l_inter_o_ij:Box<[Box<[G1Affine]>]>, // i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l, l_{D} - 1⟧
-    let size = s_max * (l_d - l);
-    let mut eta1_l_i_vec = Vec::<ScalarField>::with_capacity(size);
-    let mut inter_o_j_vec = Vec::<ScalarField>::with_capacity(size);
-    for ind in 0..s_max{ 
-        eta1_l_i_vec.extend_from_slice(&vec![tau.eta1.inv() * l_vec[ind]; l_d-l]);
-        inter_o_j_vec.extend_from_slice(&o_vec[l..l_d]);
-    }
-    let mut eta1_l_inter_o_ij_coef_vec = vec![ScalarField::zero(); size].into_boxed_slice();
-    point_mul_two_vecs(
-        &inter_o_j_vec.into_boxed_slice(),
-        &eta1_l_i_vec.into_boxed_slice(),
-        &mut eta1_l_inter_o_ij_coef_vec,
-    );
+//     // generate eta1_l_inter_o_ij:Box<[Box<[G1Affine]>]>, // i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l, l_{D} - 1⟧
+//     let size = s_max * (l_d - l);
+//     let mut eta1_l_i_vec = Vec::<ScalarField>::with_capacity(size);
+//     let mut inter_o_j_vec = Vec::<ScalarField>::with_capacity(size);
+//     for ind in 0..s_max{ 
+//         eta1_l_i_vec.extend_from_slice(&vec![tau.eta1.inv() * l_vec[ind]; l_d-l]);
+//         inter_o_j_vec.extend_from_slice(&o_vec[l..l_d]);
+//     }
+//     let mut eta1_l_inter_o_ij_coef_vec = vec![ScalarField::zero(); size].into_boxed_slice();
+//     point_mul_two_vecs(
+//         &inter_o_j_vec.into_boxed_slice(),
+//         &eta1_l_i_vec.into_boxed_slice(),
+//         &mut eta1_l_inter_o_ij_coef_vec,
+//     );
 
-    let zero_vec = vec![G1Affine::zero(); l_d - l].into_boxed_slice();
-    let mut eta1_l_inter_o_ij = vec![zero_vec; s_max].into_boxed_slice();
-    from_coef_vec_to_affine_mat(
-        &eta1_l_inter_o_ij_coef_vec,
-        s_max,
-        l_d - l,
-        g1_gen,
-        &mut eta1_l_inter_o_ij,
-    );
+//     let zero_vec = vec![G1Affine::zero(); l_d - l].into_boxed_slice();
+//     let mut eta1_l_inter_o_ij = vec![zero_vec; s_max].into_boxed_slice();
+//     from_coef_vec_to_affine_mat(
+//         &eta1_l_inter_o_ij_coef_vec,
+//         s_max,
+//         l_d - l,
+//         g1_gen,
+//         &mut eta1_l_inter_o_ij,
+//     );
 
-    // generate delta_l_prv_o_j: Box<[Box<[G1Affine]>]>,  // i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l_{D} , m_{D} - 1 ⟧
-    let size = s_max * (m_d - l_d);
-    let mut delta_l_prv_o_ij_coef_vec = vec![ScalarField::zero(); size].into_boxed_slice();
-    for ind in 0..s_max {
-        let mut this_row_vec = vec![ScalarField::zero(); m_d - l_d].into_boxed_slice();
-        point_mul_two_vecs(
-            &o_vec[l_d..m_d].to_owned().into_boxed_slice(),
-            &vec![tau.delta.inv() * l_vec[ind]; m_d-l_d].into_boxed_slice(),
-            &mut this_row_vec,
-        );
-        delta_l_prv_o_ij_coef_vec[ind * (m_d - l_d) .. (ind + 1) * (m_d - l_d)].copy_from_slice(&this_row_vec);
-    }
-    let zero_vec = vec![G1Affine::zero(); m_d - l_d].into_boxed_slice();
-    let mut delta_l_prv_o_ij = vec![zero_vec; s_max].into_boxed_slice();
-    from_coef_vec_to_affine_mat(
-        &delta_l_prv_o_ij_coef_vec,
-        s_max,
-        m_d - l_d,
-        g1_gen,
-        &mut delta_l_prv_o_ij,
-    );
+//     // generate delta_l_prv_o_j: Box<[Box<[G1Affine]>]>,  // i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l_{D} , m_{D} - 1 ⟧
+//     let size = s_max * (m_d - l_d);
+//     let mut delta_l_prv_o_ij_coef_vec = vec![ScalarField::zero(); size].into_boxed_slice();
+//     for ind in 0..s_max {
+//         let mut this_row_vec = vec![ScalarField::zero(); m_d - l_d].into_boxed_slice();
+//         point_mul_two_vecs(
+//             &o_vec[l_d..m_d].to_owned().into_boxed_slice(),
+//             &vec![tau.delta.inv() * l_vec[ind]; m_d-l_d].into_boxed_slice(),
+//             &mut this_row_vec,
+//         );
+//         delta_l_prv_o_ij_coef_vec[ind * (m_d - l_d) .. (ind + 1) * (m_d - l_d)].copy_from_slice(&this_row_vec);
+//     }
+//     let zero_vec = vec![G1Affine::zero(); m_d - l_d].into_boxed_slice();
+//     let mut delta_l_prv_o_ij = vec![zero_vec; s_max].into_boxed_slice();
+//     from_coef_vec_to_affine_mat(
+//         &delta_l_prv_o_ij_coef_vec,
+//         s_max,
+//         m_d - l_d,
+//         g1_gen,
+//         &mut delta_l_prv_o_ij,
+//     );
 
-    // eta0_l_o_ip_first_ij: Box<[Box<[G1Affine]>]>, //i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l, l_{D} - 1⟧
-
-
+//     // eta0_l_o_ip_first_ij: Box<[Box<[G1Affine]>]>, //i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l, l_{D} - 1⟧
 
 
-    Self {
-        alpha,
-        xy_hi: xy_hi_affine_vec,
-        gamma_l_pub_o_j,
 
-    }
+
+//     Self {
+//         alpha,
+//         xy_hi: xy_hi_affine_vec,
+//         gamma_l_pub_o_j,
+
+//     }
     
-    }
-}
+//     }
+// }
 
 pub struct SigmaCopy {
     // first line paper page 21
@@ -251,18 +251,18 @@ pub struct SigmaCopy {
     pub psi3_kappa_2_z_j: Box<[G1Affine]>, // j ∈ ⟦0 , l_D - l - 2 ⟧
 }
 
-pub struct SigmaVerify {
-    pub beta: G2,
-    pub gamma: G2,
-    pub delta: G2,
-    pub eta1: G2,
-    pub mu_eta0: G2,
-    pub mu_eta1: G2,
-    pub xy_hi: Box<[G2]>, // h ∈ ⟦0,n-1⟧ , i ∈ ⟦0, s_{max} -1⟧
-    pub mu_comb_o_inter: G2,
-    pub mu_3_nu: G2,
-    pub mu_4_kappa_0: G2,
-    pub mu_4_kappa_1: G2,
-    pub mu_4_kappa_2: G2,
-    pub mu_3_psi_yz_hij: Box<[Box<[Box<[G2]>]>]> // h ∈ ⟦0,1,2,3⟧ , i ∈ ⟦0,1⟧, j ∈ ⟦0,1⟧
-}
+// pub struct SigmaVerify {
+//     pub beta: G2,
+//     pub gamma: G2,
+//     pub delta: G2,
+//     pub eta1: G2,
+//     pub mu_eta0: G2,
+//     pub mu_eta1: G2,
+//     pub xy_hi: Box<[G2]>, // h ∈ ⟦0,n-1⟧ , i ∈ ⟦0, s_{max} -1⟧
+//     pub mu_comb_o_inter: G2,
+//     pub mu_3_nu: G2,
+//     pub mu_4_kappa_0: G2,
+//     pub mu_4_kappa_1: G2,
+//     pub mu_4_kappa_2: G2,
+//     pub mu_3_psi_yz_hij: Box<[Box<[Box<[G2]>]>]> // h ∈ ⟦0,1,2,3⟧ , i ∈ ⟦0,1⟧, j ∈ ⟦0,1⟧
+// }

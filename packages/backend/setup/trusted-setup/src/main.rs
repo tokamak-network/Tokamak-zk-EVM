@@ -1,7 +1,7 @@
 use libs::tools::{Tau, SetupParams, SubcircuitInfo, SubcircuitQAPEvaled};
 use libs::tools::{read_json_as_boxed_boxed_numbers, gen_cached_pows};
 use libs::math::{DensePolynomialExt, BivariatePolynomial};
-use libs::group_structures::{SigmaArithAndIP, SigmaCopy, SigmaVerify};
+// use libs::group_structures::{SigmaArithAndIP, SigmaCopy, SigmaVerify};
 
 use icicle_bls12_381::curve::{ScalarField as Field, ScalarCfg, G1Affine as G1, G2Affine as G2, CurveCfg};
 use icicle_bls12_381::vec_ops;
@@ -20,13 +20,13 @@ use std::{
     ops::{Add, AddAssign, Div, Mul, Rem, Sub, Neg},
     ptr, slice,
 };
-const s_max: usize = 1024;
+use libs::s_max;
 
 fn main() {
     let tau = Tau::gen();
     
-    let mut path = "";
-    path = "setup/trusted-setup/resource/setupParams.json";
+    let mut path: &str = "";
+    path = "setup/trusted-setup/inputs/setupParams.json";
     let setup_params = SetupParams::from_path(path).unwrap();
     // println!("{:?}", setup_params);
     let m_d = setup_params.m_D;
@@ -45,19 +45,19 @@ fn main() {
         panic!{"s_max is not a power of two."}
     }
     let z_dom_length = l_d-l;
-    if z_dom_length.is_power_of_two() {
+    if !z_dom_length.is_power_of_two() {
         panic!{"l_D - l is not a pwer of two."}
     }
 
-    path = "setup/trusted-setup/resource/subcircuitInfo.json";
+    path = "setup/trusted-setup/inputs/subcircuitInfo.json";
     let subcircuit_infos = SubcircuitInfo::from_path(path).unwrap();
     // for subcircuit in subcircuit_infos.iter() {
     //     println!("{:?}", subcircuit);
     // }
-    path = "setup/trusted-setup/resource/globalWireList.json";
+    path = "setup/trusted-setup/inputs/globalWireList.json";
     let globalWireList = read_json_as_boxed_boxed_numbers(path).unwrap();
     // println!("{:?}", globalWireList);
-    // path = "setup/trusted-setup/resource/json/subcircuit0.json";
+    // path = "setup/trusted-setup/inputs/json/subcircuit0.json";
     // match Constraints::from_path(path) {
     //     Ok(mut data) => {
     //         Constraints::convert_values_to_hex(&mut data); // ✅ value를 hex로 변환
@@ -79,10 +79,10 @@ fn main() {
 
     // Building o_i(x) for i in [0..m_D-1]
     let mut o_evaled_vec = vec![Field::zero(); m_d].into_boxed_slice();
-    //for i in 0..s_d {
-    for i in [3,4] {
+    for i in 0..s_d {
+    // for i in [3,4] {
         println!("Processing subcircuit id {:?}", i);
-        let _path = format!("setup/trusted-setup/resource/json/subcircuit{i}.json");
+        let _path = format!("setup/trusted-setup/inputs/json/subcircuit{i}.json");
         let evaled_qap = SubcircuitQAPEvaled::from_r1cs_to_evaled_qap(
             &_path,
             &setup_params,
