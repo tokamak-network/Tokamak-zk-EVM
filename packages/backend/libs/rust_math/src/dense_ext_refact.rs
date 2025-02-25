@@ -628,8 +628,11 @@ impl BivariatePolynomial for DensePolynomialExt {
             let out_coeffs = HostSlice::from_slice(&out_coeffs_vec);
             return DensePolynomialExt::from_coeffs(out_coeffs, 1, 1);
         }
-        let target_x_size = self.x_degree as usize + 1;
-        let target_y_size = self.y_degree as usize + 1;
+        let x_degree = lhs_x_degree + rhs_x_degree;
+        let y_degree = lhs_y_degree + rhs_y_degree;
+        
+        let target_x_size = x_degree as usize + 1;
+        let target_y_size = y_degree as usize +1;
 
 
         let mut lhs_ext = self.clone();

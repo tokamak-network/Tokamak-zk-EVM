@@ -19,7 +19,7 @@ fn generate_random_polynomial(x_size: usize, y_size: usize) -> Vec<ScalarField> 
 fn benchmark_multiplication(c: &mut Criterion) {
    
     let mut group = c.benchmark_group("resize");
-    for size in [64, 128, 256].iter() {
+    for size in [64, 128, 256, 512].iter() {
         
         group.bench_function(format!("original_mul_{}", size), |b| {
             // 입력 다항식의 크기를 2배로 설정
@@ -155,7 +155,7 @@ criterion_group!(
     // benchmark_resize,
     benchmark_multiplication,
     benchmark_div_by_vanishing,
-    benchmark_find_degree
+    // benchmark_find_degree
 );
 criterion_main!(benches);
 
