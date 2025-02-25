@@ -32,8 +32,8 @@ fn benchmark_multiplication(c: &mut Criterion) {
             let coeffs2_slice = HostSlice::from_slice(&coeffs2);
             
             // 더 큰 크기로 초기화
-            let poly1 = originalDensePolynomial::from_coeffs_fixed_size(coeffs1_slice, output_size, output_size);
-            let poly2 = originalDensePolynomial::from_coeffs_fixed_size(coeffs2_slice, output_size, output_size);
+            let poly1 = originalDensePolynomial::from_coeffs(coeffs1_slice, output_size, output_size);
+            let poly2 = originalDensePolynomial::from_coeffs(coeffs2_slice, output_size, output_size);
             
             b.iter(|| {
                 black_box(&poly1 * &poly2);
@@ -53,11 +53,11 @@ fn benchmark_multiplication(c: &mut Criterion) {
             // let poly1 = originalDensePolynomial::from_coeffs_fixed_size(coeffs1_slice, output_size, output_size);
             // let poly2 = originalDensePolynomial::from_coeffs_fixed_size(coeffs2_slice, output_size, output_size);
             
-            let poly1 = optimizedDensePolynomial::from_coeffs_fixed_size(coeffs1_slice, output_size, output_size);
-            let poly2 = optimizedDensePolynomial::from_coeffs_fixed_size(coeffs2_slice, output_size, output_size);
+            let poly3 = optimizedDensePolynomial::from_coeffs(coeffs1_slice, output_size, output_size);
+            let poly4 = optimizedDensePolynomial::from_coeffs(coeffs2_slice, output_size, output_size);
             
             b.iter(|| {
-                black_box(&poly1 * &poly2);
+                black_box(&poly3 * &poly4);
             });
         });
     }
@@ -115,34 +115,6 @@ fn benchmark_div_by_vanishing(c: &mut Criterion) {
             
             b.iter(|| {
                 black_box(poly.div_by_vanishing(*size as i64, *size as i64));
-            });
-        });
-    }
-    
-    group.finish();
-}
-
-fn benchmark_find_degree(c: &mut Criterion) {
-    let mut group = c.benchmark_group("find_degree");
-    
-    for size in [64, 128, 256, 512].iter() {
-        group.bench_function(format!("original_find_degree_{}", size), |b| {
-            let coeffs = generate_random_polynomial(*size, *size);
-            let coeffs_slice = HostSlice::from_slice(&coeffs);
-            let poly = DensePolynomial::from_coeffs(coeffs_slice, size * size);
-            
-            b.iter(|| {
-                originalDensePolynomial::_find_degree(&poly, *size, *size);
-            });
-        });
-
-        group.bench_function(format!("optimized_find_degree_{}", size), |b| {
-            let coeffs = generate_random_polynomial(*size, *size);
-            let coeffs_slice = HostSlice::from_slice(&coeffs);
-            let poly = DensePolynomial::from_coeffs(coeffs_slice, size * size);
-            
-            b.iter(|| {
-                optimizedDensePolynomial::_find_degree(&poly, *size, *size);
             });
         });
     }
