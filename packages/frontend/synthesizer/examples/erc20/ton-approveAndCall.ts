@@ -71,40 +71,43 @@ await setupEVMFromCalldata(evm, tonAddr, hexToBytes(tonContractCode), TON_STORAG
 await evm.stateManager.putAccount(swapProxyAddr, new Account());
   await evm.stateManager.putCode(swapProxyAddr, hexToBytes(swapProxyContractCode));
 
-  const onApproveInterfaceId = '0x8d8f8076' // OnApprove.onApprove.selector
-const erc165MapSlot = '0xffffffff00000000000000000000000000000000000000000000000000000004'
+  // Set TON address in WTON's storage
 await evm.stateManager.putStorage(
   wtonAddr,
-  Buffer.from(erc165MapSlot.slice(2), 'hex'),
-  Buffer.from('0000000000000000000000000000000000000000000000000000000000000001', 'hex')
+  Buffer.from('a'.padStart(64, '0'), 'hex'),  // slot 0
+  Buffer.from(tonAddr.toString().slice(2).padStart(64, '0'), 'hex')  // TON address
 )
-// // onApprove 함수 직접 호출
-// const onApproveData = "0xe34869d7" + // onApprove(address,address,uint256,bytes)
-//     sender.toString().slice(2).padStart(64, '0') + // owner (EOA)
-//     tonAddr.toString().slice(2).padStart(64, '0') + // spender (TON contract)
-//     '1da56a4b0835bf800000'.padStart(64, '0') + // amount
-//     '0000000000000000000000000000000000000000000000000000000000000080' + // bytes data offset
-//     '0000000000000000000000000000000000000000000000000000000000000040' + // bytes data length
-//     '000000000000000000000000056e465f654393fa48f007ed7346105c7195cee43' + // recipient
-//     '00000000000000000000000042ccf0769e87cb2952634f607df1c7d62e0bbc52'; // layer2 (SeigManager)
 
-// const onApproveResult = await evm.runCall({
-//     to: wtonAddr,
-//     caller: tonAddr,
-//     data: hexToBytes(onApproveData),
-//     gasLimit: BigInt(1000000)
-// });
+  // OnApprove interface selector
+const onApproveSelector = '0x8d8f8076'  // bytes4(keccak256('onApprove(address,address,uint256,bytes)'))
+const erc165InterfaceId = '0x01ffc9a7'  // ERC165 interface ID
 
-// console.log("Direct onApprove result:", {
-//     success: onApproveResult.execResult.exceptionError === undefined,
-//     returnValue: onApproveResult.execResult.returnValue.toString('hex'),
-//     error: onApproveResult.execResult.exceptionError
-// });
 
-  // Second transaction: onApprove
-  // onApprove 함수 호출
+  // WTON의 storage slots 0-10 설정
+for (let i = 0; i < 11; i++) {
+   const slot = i.toString(16).padStart(64, '0')  // hex string padded to 32 bytes
+  // Register ERC165 interface ID
+  const erc165Key = keccak256(Buffer.concat([
+    Buffer.from(erc165InterfaceId.slice(2), 'hex'),
+    Buffer.from(slot, 'hex')
+  ]))
+  await evm.stateManager.putStorage(
+    wtonAddr,
+    Buffer.from(erc165Key),
+    Buffer.from('0000000000000000000000000000000000000000000000000000000000000001', 'hex')
+  )
 
-  // approveAndCall 실행
+  // Register onApprove selector
+  const onApproveKey = keccak256(Buffer.concat([
+    Buffer.from(onApproveSelector.slice(2), 'hex'),
+    Buffer.from(slot, 'hex')
+  ]))
+  await evm.stateManager.putStorage(
+    wtonAddr,
+    Buffer.from(onApproveKey),
+    Buffer.from('0000000000000000000000000000000000000000000000000000000000000001', 'hex')
+  )
+
   const result = await evm.runCode({
     caller: sender,
     to: tonAddr,
@@ -113,9 +116,23 @@ await evm.stateManager.putStorage(
   })
 
   if (result.exceptionError) {
-    console.log('evm:', result)
+    console.log('evm:', i)
     console.log("evm return value:", Buffer.from(result.returnValue).toString())
   }
+}
+
+  // approveAndCall 실행
+  // const result = await evm.runCode({
+  //   caller: sender,
+  //   to: tonAddr,
+  //   code: hexToBytes(tonContractCode),
+  //   data: hexToBytes(approveAndCallData),
+  // })
+
+  // if (result.exceptionError) {
+  //   console.log('evm:', result)
+  //   console.log("evm return value:", Buffer.from(result.returnValue).toString())
+  // }
 
   // 실행 후 잔액 확인
   // console.log("\n=== After approveAndCall ===")

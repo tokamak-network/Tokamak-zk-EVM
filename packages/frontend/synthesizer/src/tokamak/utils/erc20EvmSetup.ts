@@ -288,10 +288,10 @@ export const setupEVMFromCalldata = async (
                     hexToBytes('0x' + '1'.padStart(64, '0'))  // enable onApprove handler
                 );
 
-                // Setup WTON contract code
-                const wtonAccount = new Account();
-                wtonAccount.setCode(hexToBytes('0x' + WTON_CONTRACT_CODE));  // WTON contract bytecode
-                await evm.stateManager.putAccount(new Address(hexToBytes(spender)), wtonAccount);
+                // // Setup WTON contract code
+                // const wtonAccount = new Account();
+                // wtonAccount.setCode(hexToBytes('0x' + WTON_CONTRACT_CODE));  // WTON contract bytecode
+                // await evm.stateManager.putAccount(new Address(hexToBytes(spender)), wtonAccount);
             }
 
             // Setup accounts

@@ -13,6 +13,13 @@ import { SUPPORTED_TOKENS, TON_STORAGE_LAYOUT, USDT_STORAGE_LAYOUT, USDC_PROXY_S
 import { PlacementInstances } from '../tokamak/types/synthesizer.js';
 import { ExecResult } from '../types.js';
 
+import {
+    STORAGE_IN_PLACEMENT_INDEX,
+    RETURN_PLACEMENT_INDEX,
+    STORAGE_OUT_PLACEMENT_INDEX,
+  } from '../tokamak/constant/constants.js';
+
+
 const TOKEN_CONFIGS = {
     TON: {
         address: SUPPORTED_TOKENS.TON,
@@ -62,6 +69,18 @@ export class SynthesizerAdapter {
         }
         
         return config;
+    }
+
+    public get placementIndices(): { 
+        storageIn: number, 
+        return: number, 
+        storageOut: number 
+        } {
+        return {
+            storageIn: STORAGE_IN_PLACEMENT_INDEX,
+            return: RETURN_PLACEMENT_INDEX,
+            storageOut: STORAGE_OUT_PLACEMENT_INDEX
+        };
     }
 
       /**
