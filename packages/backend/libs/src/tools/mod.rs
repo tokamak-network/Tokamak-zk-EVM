@@ -75,13 +75,13 @@ pub fn read_json_as_boxed_boxed_numbers(path: &str) -> io::Result<Box<[Box<[usiz
     let file = File::open(abs_path)?;
     let reader = BufReader::new(file);
 
-    let vec_of_vecs:Vec<Vec<usize>> = serde_json::from_reader(reader)?;
-    let boxed_outer = vec_of_vecs
+    let vec_of_vecs:Vec<Vec<i32>> = serde_json::from_reader(reader)?;
+    let boxed_matrix: Box<[Box<[usize]>]> = vec_of_vecs
         .into_iter()
-        .map(|inner_vec| inner_vec.into_boxed_slice()) // `Vec<usize>` → `Box<[usize]>`
-        .collect::<Vec<Box<[usize]>>>() 
-        .into_boxed_slice(); 
-    Ok(boxed_outer) 
+        .map(|row| row.into_iter().map(|x| x as usize).collect::<Vec<_>>().into_boxed_slice())
+        .collect::<Vec<_>>()
+        .into_boxed_slice();
+    Ok(boxed_matrix)
 }
 
 #[derive(Debug, Deserialize)]
@@ -119,7 +119,7 @@ impl Constraints {
     }
 }
 
-pub struct SubcircuitQAP{
+pub struct SubcircuitQAPRaw{
     pub u_evals: Box<[Box<[ScalarField]>]>,
     pub v_evals: Box<[Box<[ScalarField]>]>,
     pub w_evals: Box<[Box<[ScalarField]>]>,
@@ -128,7 +128,7 @@ pub struct SubcircuitQAP{
     pub w_active_wires: HashSet<usize>,
 }
 
-impl SubcircuitQAP{
+impl SubcircuitQAPRaw{
     pub fn from_path(path: &str, setup_params: &SetupParams, subcircuit_info: &SubcircuitInfo) -> io::Result<Self> {
         let mut constraints = Constraints::from_path(path).unwrap();
         Constraints::convert_values_to_hex(&mut constraints);
@@ -169,6 +169,9 @@ impl SubcircuitQAP{
         }
         // n >= column_size
         let n = setup_params.n;
+        if n < column_size {
+            panic!("n is smaller than the actual number of constraints.");
+        }
         let zeros_vec = vec![ScalarField::zero(); n].into_boxed_slice();
         // let zero_poly = DensePolynomial::from_coeffs(HostSlice::from_slice(&zeros_vec), n);
         // let mut u_polys = vec![zero_poly.clone(); a_active_wire_indices.len()].into_boxed_slice();
@@ -211,12 +214,12 @@ impl SubcircuitQAP{
     }
 }
 
-pub struct SubcircuitQAPEvaled {
+pub struct MixedSubcircuitQAPEvaled {
     pub o_evals: Box<[ScalarField]>,
     pub active_wires: HashSet<usize>,
 }
 
-impl SubcircuitQAPEvaled {
+impl MixedSubcircuitQAPEvaled {
     pub fn from_r1cs_to_evaled_qap(
         path :&str, 
         setup_params: &SetupParams, 
@@ -224,7 +227,7 @@ impl SubcircuitQAPEvaled {
         tau: &Tau, 
         cached_x_pows_vec: &Box<[ScalarField]>
     ) -> Self {
-        let qap_polys = SubcircuitQAP::from_path(path, setup_params, subcircuit_info).unwrap();
+        let qap_polys = SubcircuitQAPRaw::from_path(path, setup_params, subcircuit_info).unwrap();
         let mut u_evals_long = vec![ScalarField::zero(); subcircuit_info.Nwires].into_boxed_slice();
         let mut v_evals_long = u_evals_long.clone();
         let mut w_evals_long = u_evals_long.clone();
@@ -266,6 +269,7 @@ impl SubcircuitQAPEvaled {
             }
             w_evals_long[*wire_idx] = sum;
         }
+        
         let mut active_wires = HashSet::new();
         active_wires = active_wires.union(&qap_polys.u_active_wires).copied().collect();
         active_wires = active_wires.union(&qap_polys.v_active_wires).copied().collect();
@@ -311,7 +315,7 @@ impl SubcircuitQAPEvaled {
         let mut o_evaled_local_vec = vec![ScalarField::zero(); length].into_boxed_slice();
         let o_evaled_local = HostSlice::from_mut_slice(&mut o_evaled_local_vec);
         ScalarCfg::add(&third_term, w_evals, o_evaled_local, &vec_ops_cfg).unwrap();
-
+        
         Self {
             o_evals: o_evaled_local_vec,
             active_wires,
@@ -320,7 +324,7 @@ impl SubcircuitQAPEvaled {
 }
 
 pub fn gen_cached_pows(val: &ScalarField, size: usize, res: &mut Box<[ScalarField]>) {
-    let mut val_pows = vec![ScalarField::zero(); size].into_boxed_slice();
+    let mut val_pows = vec![ScalarField::one(); size].into_boxed_slice();
     for i in 1..size {
         val_pows[i] = val_pows[i-1] * *val;
     }

@@ -7,7 +7,7 @@ const listPublicIn = new Map().set('bufferPubInPrvOut', true)
 const listPublicOut = new Map().set('bufferPrvInPubOut', true)
 
 function _buildWireFlattenMap(globalWireList, subcircuitInfos, globalWireIndex, subcircuitId, subcircuitWireId) {
-  if (subcircuitId > 0 ){
+  if (subcircuitId >= 0 ){
     if ( globalWireList[globalWireIndex] !== undefined ) {
       throw new Error(`parseWireList: The same mapping occurs twice.`)
     }
