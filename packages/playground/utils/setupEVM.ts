@@ -1,6 +1,6 @@
-import { hexToBytes } from '../../frontend/synthesizer/libs/util/dist/esm/index.js';
-import { Address } from '../../frontend/synthesizer/libs/util/dist/esm/index.js';
-import { Account } from '../../frontend/synthesizer/libs/util/dist/esm/index.js';
+import { hexToBytes } from '@synthesizer-libs/util';
+import { Address } from '@synthesizer-libs/util';
+import { Account } from '@synthesizer-libs/util';
 import { keccak256 } from 'ethereum-cryptography/keccak'
 
 export const setupEVM = async (evm: any, from: string, contractCode: Uint8Array, contractAddr: Address, sender: Address) => {

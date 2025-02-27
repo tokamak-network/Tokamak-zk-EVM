@@ -1,4 +1,4 @@
-import { hexToBytes } from "../../../frontend/synthesizer/libs/util";
+import { hexToBytes } from "@synthesizer-libs/util";
 
 //ERC20 contract
 export const TON_CONTRACT_CODE = hexToBytes(

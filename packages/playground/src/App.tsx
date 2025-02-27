@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { fetchTransactionBytecode } from '../utils/etherscanApi';
 import { Buffer } from 'buffer';
 import { createEVM } from '../../frontend/synthesizer/src/constructors';
-import { hexToBytes, Address } from '../../frontend/synthesizer/libs/util/dist/esm/index.js';
+import { hexToBytes, Address } from '@synthesizer-libs/util';
 import { TON_CONTRACT_CODE } from './constant/evm';
 import { setupEVM } from '../utils/setupEVM';
 import logo from '/src/assets/logo.svg';
