@@ -1142,144 +1142,144 @@ impl BivariatePolynomial for DensePolynomialExt {
 // }
 
 // TEST SCRIPT for polynomial division
-// fn main() {
-    
-//     let p1_coeffs_vec = ScalarCfg::generate_random(32);
-//     let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
-//     let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 8, 4);
-
-//     let p2_coeffs_vec = ScalarCfg::generate_random(6);
-//     let p2_coeffs = HostSlice::from_slice(&p2_coeffs_vec);
-//     let p2 = DensePolynomialExt::from_coeffs(p2_coeffs,6,1);
-
-//     let p3_coeffs_vec = ScalarCfg::generate_random(3);
-//     let p3_coeffs = HostSlice::from_slice(&p3_coeffs_vec);
-//     let p3 = DensePolynomialExt::from_coeffs(p3_coeffs,1,3);
-
-//     let (quo_x, rem_x) = p1.divide_x(&p2);
-//     let (quo_y, rem_y) = rem_x.divide_y(&p3);
-
-//     let mut quo_x_coeffs_vec = vec![ScalarField::zero(); 32];
-//     let quo_x_coeffs = HostSlice::from_mut_slice(&mut quo_x_coeffs_vec);
-//     quo_x.copy_coeffs(0,quo_x_coeffs);
-//     let mut rem_x_coeffs_vec = vec![ScalarField::zero(); 32];
-//     let rem_x_coeffs = HostSlice::from_mut_slice(&mut rem_x_coeffs_vec);
-//     rem_x.copy_coeffs(0,rem_x_coeffs);
-
-//     let mut quo_y_coeffs_vec = vec![ScalarField::zero(); 32];
-//     let quo_y_coeffs = HostSlice::from_mut_slice(&mut quo_y_coeffs_vec);
-//     quo_y.copy_coeffs(0,quo_y_coeffs);
-//     let mut rem_y_coeffs_vec = vec![ScalarField::zero(); 32];
-//     let rem_y_coeffs = HostSlice::from_mut_slice(&mut rem_y_coeffs_vec);
-//     rem_y.copy_coeffs(0,rem_y_coeffs);
-
-//     let mut p1_est_coeffs_vec = vec![ScalarField::zero(); 32];
-//     let p1_est_coeffs = HostSlice::from_mut_slice(&mut p1_est_coeffs_vec);
-//     let p1_est = &(&(&p2 * &quo_x) + &(&p3 * &quo_y)) + &rem_y;
-//     p1_est.copy_coeffs(0,p1_est_coeffs);
-
-//     let x = ScalarCfg::generate_random(1)[0];
-//     let y = ScalarCfg::generate_random(1)[0];
-
-//     let eval_p1 = p1.eval(&x,&y);
-//     let eval_p2 = p2.eval(&x,&y);
-//     let eval_p3 = p3.eval(&x,&y);
-//     let eval_quo_x = quo_x.eval(&x,&y);
-//     let eval_rem_x = rem_x.eval(&x,&y);
-//     let eval_quo_y = quo_y.eval(&x,&y);
-//     let eval_rem_y = rem_y.eval(&x,&y);
-
-//     println!("p1_coeffs: \n{:?}\n\n", p1_coeffs_vec);
-//     println!("p2_coeffs: \n{:?}\n\n", p2_coeffs_vec);
-//     println!("p3_coeffs: \n{:?}\n\n", p3_coeffs_vec);
-//     println!("quo_x_coeffs: \n{:?}\n\n", quo_x_coeffs_vec);
-//     println!("rem_x_coeffs: \n{:?}\n\n", rem_x_coeffs_vec);
-//     println!("quo_y_coeffs: \n{:?}\n\n", quo_y_coeffs_vec);
-//     println!("rem_y_coeffs: \n{:?}\n\n", rem_y_coeffs_vec);
-//     println!("\n");
-//     println!("p1_coeffs: \n{:?}\n\n", p1_coeffs_vec);
-//     println!("p1_est_coeffs: \n{:?}\n\n", p1_est_coeffs_vec);
-//     println!("\n");
-//     println!("p1_eval: \n{:?}\n\n", eval_p1);
-//     println!("p2_eval: \n{:?}\n\n", eval_p2);
-//     println!("p3_eval: \n{:?}\n\n", eval_p3);
-//     println!("quo_x_eval: \n{:?}\n\n", eval_quo_x);
-//     println!("rem_x_eval: \n{:?}\n\n", eval_rem_x);
-//     println!("quo_y_eval: \n{:?}\n\n", eval_quo_y);
-//     println!("rem_y_eval: \n{:?}\n\n", eval_rem_y);
-//     println!("p1_est_eval: \n{:?}\n\n", p1_est.eval(&x,&y));
-//     println!("p1 == p2*quo_x + p3*quo_y + rem_y?: {:?}\n", eval_p1.eq( &(((eval_p2 * eval_quo_x) + (eval_p3 * eval_quo_y)) + eval_rem_y) ) ); 
-    
-// }
-
-// TEST SCRIPT for polynomial coset division
 fn main() {
-    let n: usize = 3;
-    let t_y_degree = 4;
-    let y_size = t_y_degree*n-2;
-    let y_degree = y_size - 1;
-    let quo_y_degree = y_degree - t_y_degree;
-    let quo_y_size = quo_y_degree + 1;
-    // t_X
-    let mut tx_coeffs_vec = vec![ScalarField::zero(); 5];
-    tx_coeffs_vec[0] = ScalarField::zero() - ScalarField::one();
-    tx_coeffs_vec[4] = ScalarField::one();
-    let tx_coeffs = HostSlice::from_slice(&tx_coeffs_vec);
-    let tx = DensePolynomialExt::from_coeffs(tx_coeffs,5,1);
-    // quo_x
-    let quox_coeffs_vec = ScalarCfg::generate_random(3*y_size);
-    let quox_coeffs = HostSlice::from_slice(&quox_coeffs_vec);
-    let mut quox = DensePolynomialExt::from_coeffs(quox_coeffs, 3, y_size);
-    //t_Y
-    let mut ty_coeffs_vec = vec![ScalarField::zero(); t_y_degree + 1];
-    ty_coeffs_vec[0] = ScalarField::zero() - ScalarField::one();
-    ty_coeffs_vec[t_y_degree] = ScalarField::one();
-    let ty_coeffs = HostSlice::from_slice(&ty_coeffs_vec);
-    let ty = DensePolynomialExt::from_coeffs(ty_coeffs,1,t_y_degree + 1);
-    // quo_y
-    let quoy_coeffs_vec = ScalarCfg::generate_random(7 * quo_y_size);
-    let quoy_coeffs = HostSlice::from_slice(&quoy_coeffs_vec);
-    let mut quoy = DensePolynomialExt::from_coeffs(quoy_coeffs, 7, quo_y_size);
-
-    let p = &(&quox * &tx) + &(&quoy * &ty);
-    let mut p_coeffs_vec = vec![ScalarField::zero(); p.x_size * p.y_size];
-    let p_coeffs = HostSlice::from_mut_slice(&mut p_coeffs_vec);
-    p.copy_coeffs(0, p_coeffs);
     
-    let (quox_est, quoy_est) = p.div_by_vanishing(4, 4);
-    
-    let mut quox_est_coeffs_vec = vec![ScalarField::zero(); quox_est.x_size * quox_est.y_size];
-    let quox_est_coeffs = HostSlice::from_mut_slice(&mut quox_est_coeffs_vec);
-    quox_est.copy_coeffs(0, quox_est_coeffs);
-    let mut quoy_est_coeffs_vec = vec![ScalarField::zero(); quoy_est.x_size * quoy_est.y_size];
-    let quoy_est_coeffs = HostSlice::from_mut_slice(&mut quoy_est_coeffs_vec);
-    quoy_est.copy_coeffs(0, quoy_est_coeffs);
+    let p1_coeffs_vec = ScalarCfg::generate_random(32);
+    let p1_coeffs = HostSlice::from_slice(&p1_coeffs_vec);
+    let p1 = DensePolynomialExt::from_coeffs(p1_coeffs, 8, 4);
 
-    quox.resize(quox_est.x_size, quox_est.y_size);
-    let mut quox_coeffs_vec = vec![ScalarField::zero(); quox.x_size * quox.y_size];
-    let quox_coeffs = HostSlice::from_mut_slice(&mut quox_coeffs_vec);
-    quox.copy_coeffs(0, quox_coeffs);
-    quoy.resize(quoy_est.x_size, quoy_est.y_size);
-    let mut quoy_coeffs_vec = vec![ScalarField::zero(); quoy.x_size * quoy.y_size];
-    let quoy_coeffs = HostSlice::from_mut_slice(&mut quoy_coeffs_vec);
-    quoy.copy_coeffs(0, quoy_coeffs);
+    let p2_coeffs_vec = ScalarCfg::generate_random(6);
+    let p2_coeffs = HostSlice::from_slice(&p2_coeffs_vec);
+    let p2 = DensePolynomialExt::from_coeffs(p2_coeffs,6,1);
+
+    let p3_coeffs_vec = ScalarCfg::generate_random(3);
+    let p3_coeffs = HostSlice::from_slice(&p3_coeffs_vec);
+    let p3 = DensePolynomialExt::from_coeffs(p3_coeffs,1,3);
+
+    let (quo_x, rem_x) = p1.divide_x(&p2);
+    let (quo_y, rem_y) = rem_x.divide_y(&p3);
+
+    let mut quo_x_coeffs_vec = vec![ScalarField::zero(); 32];
+    let quo_x_coeffs = HostSlice::from_mut_slice(&mut quo_x_coeffs_vec);
+    quo_x.copy_coeffs(0,quo_x_coeffs);
+    let mut rem_x_coeffs_vec = vec![ScalarField::zero(); 32];
+    let rem_x_coeffs = HostSlice::from_mut_slice(&mut rem_x_coeffs_vec);
+    rem_x.copy_coeffs(0,rem_x_coeffs);
+
+    let mut quo_y_coeffs_vec = vec![ScalarField::zero(); 32];
+    let quo_y_coeffs = HostSlice::from_mut_slice(&mut quo_y_coeffs_vec);
+    quo_y.copy_coeffs(0,quo_y_coeffs);
+    let mut rem_y_coeffs_vec = vec![ScalarField::zero(); 32];
+    let rem_y_coeffs = HostSlice::from_mut_slice(&mut rem_y_coeffs_vec);
+    rem_y.copy_coeffs(0,rem_y_coeffs);
+
+    let mut p1_est_coeffs_vec = vec![ScalarField::zero(); 32];
+    let p1_est_coeffs = HostSlice::from_mut_slice(&mut p1_est_coeffs_vec);
+    let p1_est = &(&(&p2 * &quo_x) + &(&p3 * &quo_y)) + &rem_y;
+    p1_est.copy_coeffs(0,p1_est_coeffs);
 
     let x = ScalarCfg::generate_random(1)[0];
     let y = ScalarCfg::generate_random(1)[0];
 
-    let eval_quox_est = quox_est.eval(&x,&y);
-    let eval_quoy_est = quoy_est.eval(&x,&y);
-    let eval_tx = tx.eval(&x, &y);
-    let eval_ty = ty.eval(&x, &y);
-    let eval_p = p.eval(&x, &y);
+    let eval_p1 = p1.eval(&x,&y);
+    let eval_p2 = p2.eval(&x,&y);
+    let eval_p3 = p3.eval(&x,&y);
+    let eval_quo_x = quo_x.eval(&x,&y);
+    let eval_rem_x = rem_x.eval(&x,&y);
+    let eval_quo_y = quo_y.eval(&x,&y);
+    let eval_rem_y = rem_y.eval(&x,&y);
 
-    println!("quox_coeffs: \n{:?}\n\n", quox_coeffs_vec);
-    println!("quox_est_coeffs: \n{:?}\n\n", quox_est_coeffs_vec);
-    println!("quoy_coeffs: \n{:?}\n\n", quoy_coeffs_vec);
-    println!("quoy_est_coeffs: \n{:?}\n\n", quoy_est_coeffs_vec);
+    println!("p1_coeffs: \n{:?}\n\n", p1_coeffs_vec);
+    println!("p2_coeffs: \n{:?}\n\n", p2_coeffs_vec);
+    println!("p3_coeffs: \n{:?}\n\n", p3_coeffs_vec);
+    println!("quo_x_coeffs: \n{:?}\n\n", quo_x_coeffs_vec);
+    println!("rem_x_coeffs: \n{:?}\n\n", rem_x_coeffs_vec);
+    println!("quo_y_coeffs: \n{:?}\n\n", quo_y_coeffs_vec);
+    println!("rem_y_coeffs: \n{:?}\n\n", rem_y_coeffs_vec);
     println!("\n");
-    println!("p == quox_est * tx + quoy_est * ty? {:?}\n", eval_p.eq(&((eval_quox_est * eval_tx) + (eval_quoy_est * eval_ty)) ));
+    println!("p1_coeffs: \n{:?}\n\n", p1_coeffs_vec);
+    println!("p1_est_coeffs: \n{:?}\n\n", p1_est_coeffs_vec);
+    println!("\n");
+    println!("p1_eval: \n{:?}\n\n", eval_p1);
+    println!("p2_eval: \n{:?}\n\n", eval_p2);
+    println!("p3_eval: \n{:?}\n\n", eval_p3);
+    println!("quo_x_eval: \n{:?}\n\n", eval_quo_x);
+    println!("rem_x_eval: \n{:?}\n\n", eval_rem_x);
+    println!("quo_y_eval: \n{:?}\n\n", eval_quo_y);
+    println!("rem_y_eval: \n{:?}\n\n", eval_rem_y);
+    println!("p1_est_eval: \n{:?}\n\n", p1_est.eval(&x,&y));
+    println!("p1 == p2*quo_x + p3*quo_y + rem_y?: {:?}\n", eval_p1.eq( &(((eval_p2 * eval_quo_x) + (eval_p3 * eval_quo_y)) + eval_rem_y) ) ); 
+    
 }
+
+// TEST SCRIPT for polynomial coset division
+// fn main() {
+//     let n: usize = 3;
+//     let t_y_degree = 4;
+//     let y_size = t_y_degree*n-2;
+//     let y_degree = y_size - 1;
+//     let quo_y_degree = y_degree - t_y_degree;
+//     let quo_y_size = quo_y_degree + 1;
+//     // t_X
+//     let mut tx_coeffs_vec = vec![ScalarField::zero(); 5];
+//     tx_coeffs_vec[0] = ScalarField::zero() - ScalarField::one();
+//     tx_coeffs_vec[4] = ScalarField::one();
+//     let tx_coeffs = HostSlice::from_slice(&tx_coeffs_vec);
+//     let tx = DensePolynomialExt::from_coeffs(tx_coeffs,5,1);
+//     // quo_x
+//     let quox_coeffs_vec = ScalarCfg::generate_random(3*y_size);
+//     let quox_coeffs = HostSlice::from_slice(&quox_coeffs_vec);
+//     let mut quox = DensePolynomialExt::from_coeffs(quox_coeffs, 3, y_size);
+//     //t_Y
+//     let mut ty_coeffs_vec = vec![ScalarField::zero(); t_y_degree + 1];
+//     ty_coeffs_vec[0] = ScalarField::zero() - ScalarField::one();
+//     ty_coeffs_vec[t_y_degree] = ScalarField::one();
+//     let ty_coeffs = HostSlice::from_slice(&ty_coeffs_vec);
+//     let ty = DensePolynomialExt::from_coeffs(ty_coeffs,1,t_y_degree + 1);
+//     // quo_y
+//     let quoy_coeffs_vec = ScalarCfg::generate_random(7 * quo_y_size);
+//     let quoy_coeffs = HostSlice::from_slice(&quoy_coeffs_vec);
+//     let mut quoy = DensePolynomialExt::from_coeffs(quoy_coeffs, 7, quo_y_size);
+
+//     let p = &(&quox * &tx) + &(&quoy * &ty);
+//     let mut p_coeffs_vec = vec![ScalarField::zero(); p.x_size * p.y_size];
+//     let p_coeffs = HostSlice::from_mut_slice(&mut p_coeffs_vec);
+//     p.copy_coeffs(0, p_coeffs);
+    
+//     let (quox_est, quoy_est) = p.div_by_vanishing(4, 4);
+    
+//     let mut quox_est_coeffs_vec = vec![ScalarField::zero(); quox_est.x_size * quox_est.y_size];
+//     let quox_est_coeffs = HostSlice::from_mut_slice(&mut quox_est_coeffs_vec);
+//     quox_est.copy_coeffs(0, quox_est_coeffs);
+//     let mut quoy_est_coeffs_vec = vec![ScalarField::zero(); quoy_est.x_size * quoy_est.y_size];
+//     let quoy_est_coeffs = HostSlice::from_mut_slice(&mut quoy_est_coeffs_vec);
+//     quoy_est.copy_coeffs(0, quoy_est_coeffs);
+
+//     quox.resize(quox_est.x_size, quox_est.y_size);
+//     let mut quox_coeffs_vec = vec![ScalarField::zero(); quox.x_size * quox.y_size];
+//     let quox_coeffs = HostSlice::from_mut_slice(&mut quox_coeffs_vec);
+//     quox.copy_coeffs(0, quox_coeffs);
+//     quoy.resize(quoy_est.x_size, quoy_est.y_size);
+//     let mut quoy_coeffs_vec = vec![ScalarField::zero(); quoy.x_size * quoy.y_size];
+//     let quoy_coeffs = HostSlice::from_mut_slice(&mut quoy_coeffs_vec);
+//     quoy.copy_coeffs(0, quoy_coeffs);
+
+//     let x = ScalarCfg::generate_random(1)[0];
+//     let y = ScalarCfg::generate_random(1)[0];
+
+//     let eval_quox_est = quox_est.eval(&x,&y);
+//     let eval_quoy_est = quoy_est.eval(&x,&y);
+//     let eval_tx = tx.eval(&x, &y);
+//     let eval_ty = ty.eval(&x, &y);
+//     let eval_p = p.eval(&x, &y);
+
+//     println!("quox_coeffs: \n{:?}\n\n", quox_coeffs_vec);
+//     println!("quox_est_coeffs: \n{:?}\n\n", quox_est_coeffs_vec);
+//     println!("quoy_coeffs: \n{:?}\n\n", quoy_coeffs_vec);
+//     println!("quoy_est_coeffs: \n{:?}\n\n", quoy_est_coeffs_vec);
+//     println!("\n");
+//     println!("p == quox_est * tx + quoy_est * ty? {:?}\n", eval_p.eq(&((eval_quox_est * eval_tx) + (eval_quoy_est * eval_ty)) ));
+// }
 
 // TEST SCRIPT for polynomial coset fft/ifft
 // fn main() {
