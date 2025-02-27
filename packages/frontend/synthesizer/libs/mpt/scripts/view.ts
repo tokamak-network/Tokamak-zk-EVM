@@ -5,7 +5,7 @@ import {
   hexToBytes,
   PrefixedHexString,
   utf8ToBytes,
-} from '@ethereumjs/util'
+} from '@synthesizer-libs/util'
 
 import { BranchMPTNode, ExtensionMPTNode, LeafMPTNode } from '../node/index.js'
 import { MerklePatriciaTrie } from '../trie.js'

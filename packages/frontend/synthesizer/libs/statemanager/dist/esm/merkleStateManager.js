@@ -1,7 +1,7 @@
-import { Common, Mainnet } from '@ethereumjs/common';
-import { MerklePatriciaTrie } from '@ethereumjs/mpt';
+import { Common, Mainnet } from '@synthesizer-libs/common';
+import { MerklePatriciaTrie } from '@synthesizer-libs/mpt';
 import { RLP } from '@ethereumjs/rlp';
-import { Account, bytesToUnprefixedHex, concatBytes, createAccount, createAccountFromRLP, createAddressFromString, equalsBytes, hexToBytes, short, toBytes, unpadBytes, unprefixedHexToBytes, utf8ToBytes, } from '@ethereumjs/util';
+import { Account, bytesToUnprefixedHex, concatBytes, createAccount, createAccountFromRLP, createAddressFromString, equalsBytes, hexToBytes, short, toBytes, unpadBytes, unprefixedHexToBytes, utf8ToBytes, } from '@synthesizer-libs/util';
 import debugDefault from 'debug';
 import { keccak256 } from 'ethereum-cryptography/keccak.js';
 import { OriginalStorageCache } from './cache/index.js';
@@ -23,10 +23,10 @@ export const CODEHASH_PREFIX = utf8ToBytes('c');
  * and storage slots.
  *
  * The default state manager implementation uses a
- * `@ethereumjs/mpt` trie as a data backend.
+ * `@synthesizer-libs/mpt` trie as a data backend.
  *
  * Note that there is a `SimpleStateManager` dependency-free state
- * manager implementation available shipped with the `@ethereumjs/statemanager`
+ * manager implementation available shipped with the `@synthesizer-libs/statemanager`
  * package which might be an alternative to this implementation
  * for many basic use cases.
  */

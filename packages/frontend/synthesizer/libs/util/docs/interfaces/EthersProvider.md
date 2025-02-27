@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / EthersProvider
+[@synthesizer-libs/util](../README.md) / EthersProvider
 
 # Interface: EthersProvider
 

@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / PutBatch
+[@synthesizer-libs/util](../README.md) / PutBatch
 
 # Interface: PutBatch<TKey, TValue\>
 

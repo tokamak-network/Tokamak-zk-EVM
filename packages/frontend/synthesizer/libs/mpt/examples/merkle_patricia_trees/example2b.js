@@ -1,6 +1,6 @@
 // Example 2b - Creating and looking up a branch node
 
-const { bytesToHex, bytesToUtf8, utf8ToBytes } = require('@ethereumjs/util')
+const { bytesToHex, bytesToUtf8, utf8ToBytes } = require('@synthesizer-libs/util')
 
 const { MerklePatriciaTrie } = require('../../dist/cjs/index.js')
 

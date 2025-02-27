@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / Account
+[@synthesizer-libs/util](../README.md) / Account
 
 # Class: Account
 

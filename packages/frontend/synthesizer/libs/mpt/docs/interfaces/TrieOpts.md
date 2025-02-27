@@ -37,7 +37,7 @@ ___
 
 • `Optional` **common**: [`CommonInterface`](CommonInterface.md)
 
-@ethereumjs/common `Common` instance (an alternative to passing in a `customHashingFunction`)
+@synthesizer-libs/common `Common` instance (an alternative to passing in a `customHashingFunction`)
 
 #### Defined in
 

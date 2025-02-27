@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / AsyncEventEmitter
+[@synthesizer-libs/util](../README.md) / AsyncEventEmitter
 
 # Class: AsyncEventEmitter<T\>
 

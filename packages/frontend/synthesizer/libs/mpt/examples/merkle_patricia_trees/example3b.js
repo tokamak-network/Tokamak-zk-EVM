@@ -1,6 +1,6 @@
 // Example 3b - Verification using a hash
 
-const { bytesToHex, utf8ToBytes } = require('@ethereumjs/util')
+const { bytesToHex, utf8ToBytes } = require('@synthesizer-libs/util')
 
 const { MerklePatriciaTrie } = require('../../dist/cjs/index.js')
 

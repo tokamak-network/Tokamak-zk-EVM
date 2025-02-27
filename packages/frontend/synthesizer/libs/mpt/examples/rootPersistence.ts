@@ -1,5 +1,5 @@
-import { createMPT } from '@ethereumjs/mpt'
-import { bytesToHex } from '@ethereumjs/util'
+import { createMPT } from '@synthesizer-libs/mpt'
+import { bytesToHex } from '@synthesizer-libs/util'
 
 async function main() {
   const trie = await createMPT({

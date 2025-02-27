@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LeafVerkleNode = void 0;
-const util_1 = require("@ethereumjs/util");
+const util_1 = require("@synthesizer-libs/util");
 const baseVerkleNode_js_1 = require("./baseVerkleNode.js");
 const types_js_1 = require("./types.js");
 const util_js_1 = require("./util.js");

@@ -1,4 +1,4 @@
-import { equalsBytes, intToBytes, setLengthRight } from '@ethereumjs/util';
+import { equalsBytes, intToBytes, setLengthRight } from '@synthesizer-libs/util';
 import { BaseVerkleNode } from './baseVerkleNode.js';
 import { LeafVerkleNodeValue, NODE_WIDTH, VerkleNodeType } from './types.js';
 import { createCValues, createDefaultLeafVerkleValues, createZeroesLeafValue } from './util.js';

@@ -1,4 +1,4 @@
-import { equalsBytes, hexToBytes } from '@ethereumjs/util'
+import { equalsBytes, hexToBytes } from '@synthesizer-libs/util'
 import { assert, describe, it } from 'vitest'
 
 import { MerklePatriciaTrie } from '../../src/index.js'

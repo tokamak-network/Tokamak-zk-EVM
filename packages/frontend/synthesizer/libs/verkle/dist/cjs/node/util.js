@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createCValues = exports.createDefaultLeafVerkleValues = exports.createZeroesLeafValue = exports.isInternalVerkleNode = exports.isLeafVerkleNode = exports.isRawVerkleNode = exports.decodeVerkleNode = exports.decodeRawVerkleNode = void 0;
 const rlp_1 = require("@ethereumjs/rlp");
-const util_1 = require("@ethereumjs/util");
+const util_1 = require("@synthesizer-libs/util");
 const internalNode_js_1 = require("./internalNode.js");
 const leafNode_js_1 = require("./leafNode.js");
 const types_js_1 = require("./types.js");

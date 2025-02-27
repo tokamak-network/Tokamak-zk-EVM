@@ -1,11 +1,11 @@
-import { MapDB, bigIntToBytes, hexToBytes, randomBytes, setLengthRight } from '@ethereumjs/util'
+import { MapDB, bigIntToBytes, hexToBytes, randomBytes, setLengthRight } from '@synthesizer-libs/util'
 import { loadVerkleCrypto } from 'verkle-cryptography-wasm'
 import { assert, beforeAll, describe, it } from 'vitest'
 
 import { createVerkleTree } from '../src/constructors.js'
 import { LeafVerkleNode } from '../src/index.js'
 
-import type { PrefixedHexString, VerkleCrypto } from '@ethereumjs/util'
+import type { PrefixedHexString, VerkleCrypto } from '@synthesizer-libs/util'
 import type { ProverInput, VerifierInput } from 'verkle-cryptography-wasm'
 
 describe('lets make proofs', () => {

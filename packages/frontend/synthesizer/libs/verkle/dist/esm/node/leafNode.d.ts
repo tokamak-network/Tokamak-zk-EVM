@@ -1,7 +1,7 @@
 import { BaseVerkleNode } from './baseVerkleNode.js';
 import { LeafVerkleNodeValue, VerkleNodeType } from './types.js';
 import type { VerkleNodeOptions } from './types.js';
-import type { VerkleCrypto } from '@ethereumjs/util';
+import type { VerkleCrypto } from '@synthesizer-libs/util';
 export declare class LeafVerkleNode extends BaseVerkleNode<VerkleNodeType.Leaf> {
     stem: Uint8Array;
     values: (Uint8Array | LeafVerkleNodeValue)[];

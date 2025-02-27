@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CodeCache = void 0;
-const util_1 = require("@ethereumjs/util");
+const util_1 = require("@synthesizer-libs/util");
 const ordered_map_1 = require("@js-sdsl/ordered-map");
 const debug_1 = require("debug");
 const lru_cache_1 = require("lru-cache");

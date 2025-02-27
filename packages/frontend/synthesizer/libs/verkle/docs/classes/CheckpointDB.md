@@ -1,4 +1,4 @@
-[@ethereumjs/verkle](../README.md) / CheckpointDB
+[@synthesizer-libs/verkle](../README.md) / CheckpointDB
 
 # Class: CheckpointDB
 

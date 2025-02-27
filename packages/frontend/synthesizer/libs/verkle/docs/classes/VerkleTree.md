@@ -1,8 +1,8 @@
-[@ethereumjs/verkle](../README.md) / VerkleTree
+[@synthesizer-libs/verkle](../README.md) / VerkleTree
 
 # Class: VerkleTree
 
-The basic verkle tree interface, use with `import { VerkleTree } from '@ethereumjs/verkle'`.
+The basic verkle tree interface, use with `import { VerkleTree } from '@synthesizer-libs/verkle'`.
 
 ## Table of contents
 

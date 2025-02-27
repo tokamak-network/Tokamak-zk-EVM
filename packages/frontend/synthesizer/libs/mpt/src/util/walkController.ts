@@ -1,4 +1,4 @@
-import { PrioritizedTaskExecutor } from '@ethereumjs/util'
+import { PrioritizedTaskExecutor } from '@synthesizer-libs/util'
 
 import { BranchMPTNode, ExtensionMPTNode, LeafMPTNode } from '../node/index.js'
 

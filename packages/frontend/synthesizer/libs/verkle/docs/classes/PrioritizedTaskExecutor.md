@@ -1,3 +1,3 @@
-[@ethereumjs/verkle](../README.md) / PrioritizedTaskExecutor
+[@synthesizer-libs/verkle](../README.md) / PrioritizedTaskExecutor
 
 # Class: PrioritizedTaskExecutor

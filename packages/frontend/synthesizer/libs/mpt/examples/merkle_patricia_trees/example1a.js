@@ -1,6 +1,6 @@
 /* Example 1a - Creating and Updating a Base Trie*/
 
-const { bytesToHex, bytesToUtf8, utf8ToBytes } = require('@ethereumjs/util')
+const { bytesToHex, bytesToUtf8, utf8ToBytes } = require('@synthesizer-libs/util')
 
 const { MerklePatriciaTrie } = require('../../dist/cjs/index.js') // We import the library required to create a basic Merkle Patricia Tree
 

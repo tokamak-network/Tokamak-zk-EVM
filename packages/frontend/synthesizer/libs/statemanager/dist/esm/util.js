@@ -1,4 +1,4 @@
-import { Account, bytesToHex } from '@ethereumjs/util';
+import { Account, bytesToHex } from '@synthesizer-libs/util';
 export async function modifyAccountFields(stateManager, address, accountFields) {
     const account = (await stateManager.getAccount(address)) ?? new Account();
     account.nonce = accountFields.nonce ?? account.nonce;

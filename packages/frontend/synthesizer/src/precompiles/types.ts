@@ -1,5 +1,5 @@
 import type { EVMInterface, ExecResult } from '../types.js'
-import type { Common } from '@ethereumjs/common/dist/esm/index.js'
+import type { Common } from '@synthesizer-libs/common'
 import type { debug } from 'debug'
 
 export interface PrecompileFunc {

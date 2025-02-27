@@ -1,7 +1,7 @@
-import { KeyEncoding, ValueEncoding } from '@ethereumjs/util'
+import { KeyEncoding, ValueEncoding } from '@synthesizer-libs/util'
 import { MemoryLevel } from 'memory-level'
 
-import type { BatchDBOp, DB, DBObject, EncodingOpts } from '@ethereumjs/util'
+import type { BatchDBOp, DB, DBObject, EncodingOpts } from '@synthesizer-libs/util'
 import type { AbstractLevel } from 'abstract-level'
 
 // Helper to infer the `valueEncoding` option for `putting` a value in a levelDB

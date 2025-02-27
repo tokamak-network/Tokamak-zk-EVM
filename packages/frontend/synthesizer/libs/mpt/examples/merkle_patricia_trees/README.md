@@ -40,7 +40,7 @@ Let's begin right away with a simple example. Don't worry if things aren't too c
 
 ```jsx
 const { MerklePatriciaTrie } = require('@ethereumjs/trie') // We import the library required to create a basic Merkle Patricia Tree
-const { bytesToHex, bytesToUtf8, utf8ToBytes } = require('@ethereumjs/util')
+const { bytesToHex, bytesToUtf8, utf8ToBytes } = require('@synthesizer-libs/util')
 
 const trie = new MerklePatriciaTrie() // We create an empty Merkle Patricia Tree
 console.log('Empty trie root (Bytes): ', bytesToHex(trie.root())) // The trie root (32 bytes)

@@ -1,5 +1,5 @@
-import { MerklePatriciaTrie, createMerkleProof, verifyMPTWithMerkleProof } from '@ethereumjs/mpt'
-import { bytesToUtf8, utf8ToBytes } from '@ethereumjs/util'
+import { MerklePatriciaTrie, createMerkleProof, verifyMPTWithMerkleProof } from '@synthesizer-libs/mpt'
+import { bytesToUtf8, utf8ToBytes } from '@synthesizer-libs/util'
 
 const trie = new MerklePatriciaTrie()
 

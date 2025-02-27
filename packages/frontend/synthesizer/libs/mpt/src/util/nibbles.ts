@@ -1,4 +1,4 @@
-import { toBytes } from '@ethereumjs/util'
+import { toBytes } from '@synthesizer-libs/util'
 
 import type { Nibbles } from '../types.js'
 

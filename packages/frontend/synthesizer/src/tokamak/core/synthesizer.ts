@@ -5,7 +5,7 @@ import {
   bytesToBigInt,
   bytesToHex,
   setLengthLeft,
-} from "@ethereumjs/util/index.js"
+} from "@synthesizer-libs/util"
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 
 import { EOFBYTES, isEOF } from '../../eof/util.js'

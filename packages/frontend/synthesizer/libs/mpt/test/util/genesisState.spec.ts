@@ -1,12 +1,12 @@
 import { getGenesis } from '@ethereumjs/genesis'
-import { bytesToHex, parseGethGenesisState } from '@ethereumjs/util'
+import { bytesToHex, parseGethGenesisState } from '@synthesizer-libs/util'
 import { assert, describe, it } from 'vitest'
 
 import { genesisMPTStateRoot } from '../../src/util/genesisState.js'
 // kiln genesis with deposit contract storage set
 import { gethGenesisKilnData } from '../fixtures/gethGenesisKiln.js'
 
-import type { GenesisState } from '@ethereumjs/util'
+import type { GenesisState } from '@synthesizer-libs/util'
 
 describe('[Util/genesisStateRoot]', () => {
   it('should properly generate stateRoot from gethGenesis', async () => {

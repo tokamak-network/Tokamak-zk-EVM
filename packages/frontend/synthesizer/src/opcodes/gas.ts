@@ -1,4 +1,4 @@
-import { Hardfork } from '@ethereumjs/common/dist/esm/index.js'
+import { Hardfork } from '@synthesizer-libs/common'
 import {
   BIGINT_0,
   BIGINT_1,
@@ -12,7 +12,7 @@ import {
   equalsBytes,
   getVerkleTreeIndicesForStorageSlot,
   setLengthLeft,
-} from "@ethereumjs/util/index.js"
+} from "@synthesizer-libs/util"
 
 import { EOFError } from '../eof/errors.js'
 import { ERROR } from '../exceptions.js'
@@ -32,8 +32,8 @@ import {
 } from './util.js'
 
 import type { RunState } from '../interpreter.js'
-import type { Common } from '@ethereumjs/common/dist/esm/index.js'
-import type { Address } from "@ethereumjs/util/index.js"
+import type { Common } from '@synthesizer-libs/common'
+import type { Address } from "@synthesizer-libs/util"
 
 const EXTCALL_TARGET_MAX = BigInt(2) ** BigInt(8 * 20) - BigInt(1)
 

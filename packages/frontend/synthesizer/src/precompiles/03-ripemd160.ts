@@ -1,4 +1,4 @@
-import { bytesToHex, setLengthLeft } from "@ethereumjs/util/index.js"
+import { bytesToHex, setLengthLeft } from "@synthesizer-libs/util"
 import { ripemd160 } from 'ethereum-cryptography/ripemd160.js'
 
 import { OOGResult } from '../evm.js'

@@ -1,4 +1,4 @@
-[@ethereumjs/verkle](../README.md) / CheckpointDBOpts
+[@synthesizer-libs/verkle](../README.md) / CheckpointDBOpts
 
 # Interface: CheckpointDBOpts
 

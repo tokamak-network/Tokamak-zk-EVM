@@ -1,4 +1,4 @@
-import { type VerkleCrypto } from '@ethereumjs/util'
+import { type VerkleCrypto } from '@synthesizer-libs/util'
 
 import { BaseVerkleNode } from './baseVerkleNode.js'
 import { NODE_WIDTH, VerkleNodeType } from './types.js'

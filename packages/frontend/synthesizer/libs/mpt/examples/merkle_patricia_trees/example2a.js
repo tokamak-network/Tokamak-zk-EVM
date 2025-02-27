@@ -1,6 +1,6 @@
 // Example 2a - Creating and looking up a null node
 
-const { utf8ToBytes } = require('@ethereumjs/util')
+const { utf8ToBytes } = require('@synthesizer-libs/util')
 
 const { MerklePatriciaTrie } = require('../../dist/cjs/index.js')
 

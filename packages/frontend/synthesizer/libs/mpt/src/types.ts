@@ -1,8 +1,8 @@
-import { utf8ToBytes } from '@ethereumjs/util'
+import { utf8ToBytes } from '@synthesizer-libs/util'
 
 import type { BranchMPTNode, ExtensionMPTNode, LeafMPTNode } from './node/index.js'
 import type { WalkController } from './util/walkController.js'
-import type { DB, ValueEncoding } from '@ethereumjs/util'
+import type { DB, ValueEncoding } from '@synthesizer-libs/util'
 
 export type MPTNode = BranchMPTNode | ExtensionMPTNode | LeafMPTNode
 
@@ -106,7 +106,7 @@ export interface MPTOpts {
   cacheSize?: number
 
   /**
-   * @ethereumjs/common `Common` instance (an alternative to passing in a `customHashingFunction`)
+   * @synthesizer-libs/common `Common` instance (an alternative to passing in a `customHashingFunction`)
    */
   common?: CommonInterface
 }

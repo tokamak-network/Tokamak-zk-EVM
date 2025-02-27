@@ -1,6 +1,6 @@
-import { utf8ToBytes } from '@ethereumjs/util'
+import { utf8ToBytes } from '@synthesizer-libs/util'
 
-import type { DB, VerkleCrypto } from '@ethereumjs/util'
+import type { DB, VerkleCrypto } from '@synthesizer-libs/util'
 
 // Field representation of a commitment
 export interface Fr {}

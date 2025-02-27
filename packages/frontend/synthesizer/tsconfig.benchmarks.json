@@ -7,12 +7,10 @@
     "esModuleInterop": true,
     "baseUrl": ".",
     "paths": {
-      "@ethereumjs/util/*": ["libs/util/dist/esm/*"],
-      "@ethereumjs/util": ["libs/util/dist/esm/index"],
-      "@ethereumjs/common/*": ["libs/common/dist/esm/*"],
-      "@ethereumjs/common": ["libs/common/dist/esm/index"],
-      "@ethereumjs/statemanager": ["libs/statemanager/dist/esm/index"],
-      "@ethereumjs/statemanager/*": ["libs/statemanager/dist/esm/*"]
+      "@synthesizer-libs/util/*": ["libs/util/dist/esm/*"],
+      "@synthesizer-libs/util": ["libs/util/dist/esm/index"],
+      "@synthesizer-libs/statemanager": ["libs/statemanager/dist/esm/index"],
+      "@synthesizer-libs/statemanager/*": ["libs/statemanager/dist/esm/*"]
     }
   },
   "include": ["benchmarks/**.ts"]

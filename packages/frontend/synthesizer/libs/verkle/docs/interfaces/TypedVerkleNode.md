@@ -1,4 +1,4 @@
-[@ethereumjs/verkle](../README.md) / TypedVerkleNode
+[@synthesizer-libs/verkle](../README.md) / TypedVerkleNode
 
 # Interface: TypedVerkleNode
 

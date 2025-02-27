@@ -113,7 +113,7 @@ Prior to v5, this package shipped with a LevelDB integration out of the box. Wit
 Before proceeding with the implementation of `LevelDB`, you will need to install several important dependencies.
 
 ```shell
-npm i @ethereumjs/trie @ethereumjs/util abstract-level level memory-level --save-exact
+npm i @ethereumjs/trie @synthesizer-libs/util abstract-level level memory-level --save-exact
 ```
 
 Note that the `--save-exact` flag will pin these dependencies to exact versions prior to installing them. We recommend carrying out this action in order to safeguard yourself against the aforementioned risk of supply chain attacks.

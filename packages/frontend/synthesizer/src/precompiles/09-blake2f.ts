@@ -1,4 +1,4 @@
-import { bytesToHex } from "@ethereumjs/util/index.js"
+import { bytesToHex } from "@synthesizer-libs/util"
 
 import { OOGResult } from '../evm.js'
 import { ERROR, EvmError } from '../exceptions.js'

@@ -5,12 +5,12 @@ import {
   isHexString,
   unpadBytes,
   unprefixedHexToBytes,
-} from '@ethereumjs/util'
+} from '@synthesizer-libs/util'
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 
 import { MerklePatriciaTrie } from '../mpt.js'
 
-import type { AccountState, GenesisState } from '@ethereumjs/util'
+import type { AccountState, GenesisState } from '@synthesizer-libs/util'
 
 /**
  * Derives the stateRoot of the genesis block based on genesis allocations

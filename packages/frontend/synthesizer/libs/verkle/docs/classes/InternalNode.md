@@ -1,4 +1,4 @@
-[@ethereumjs/verkle](../README.md) / InternalNode
+[@synthesizer-libs/verkle](../README.md) / InternalNode
 
 # Class: InternalNode
 

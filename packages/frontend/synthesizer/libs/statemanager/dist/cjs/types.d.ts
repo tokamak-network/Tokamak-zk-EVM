@@ -1,9 +1,9 @@
-import { type PrefixedHexString } from '@ethereumjs/util';
+import { type PrefixedHexString } from '@synthesizer-libs/util';
 import type { Caches } from './index.js';
-import type { Common } from '@ethereumjs/common';
-import type { MerklePatriciaTrie } from '@ethereumjs/mpt';
-import type { VerkleCrypto } from '@ethereumjs/util';
-import type { VerkleTree } from '@ethereumjs/verkle';
+import type { Common } from '@synthesizer-libs/common';
+import type { MerklePatriciaTrie } from '@synthesizer-libs/mpt';
+import type { VerkleCrypto } from '@synthesizer-libs/util';
+import type { VerkleTree } from '@synthesizer-libs/verkle';
 /**
  * Basic state manager options (not to be used directly)
  */

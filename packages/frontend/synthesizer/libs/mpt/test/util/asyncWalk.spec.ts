@@ -1,4 +1,4 @@
-import { bytesToHex, equalsBytes, hexToBytes, isHexString, utf8ToBytes } from '@ethereumjs/util'
+import { bytesToHex, equalsBytes, hexToBytes, isHexString, utf8ToBytes } from '@synthesizer-libs/util'
 import { assert, describe, it } from 'vitest'
 
 import {
@@ -12,7 +12,7 @@ import { _walkTrie } from '../../src/util/asyncWalk.js'
 import { bytesToNibbles } from '../../src/util/nibbles.js'
 import { trieTestData } from '../fixtures/trieTest.js'
 
-import type { PrefixedHexString } from '@ethereumjs/util'
+import type { PrefixedHexString } from '@synthesizer-libs/util'
 
 describe('walk the tries from official tests', async () => {
   const testNames = Object.keys(trieTestData.tests) as (keyof typeof trieTestData.tests)[]

@@ -1,4 +1,4 @@
-[@ethereumjs/verkle](../README.md) / LeafNode
+[@synthesizer-libs/verkle](../README.md) / LeafNode
 
 # Class: LeafNode
 

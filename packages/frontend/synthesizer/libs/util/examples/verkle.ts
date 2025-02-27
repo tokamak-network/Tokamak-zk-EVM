@@ -4,7 +4,7 @@ import {
   decodeVerkleLeafBasicData,
   getVerkleKey,
   hexToBytes,
-} from "@ethereumjs/util/index.js"
+} from "@synthesizer-libs/util"
 
 const state = {
   '0xdf67dea9181141d6255ac05c7ada5a590fb30a375023f16c31223f067319e300':

@@ -1,4 +1,4 @@
-import { Hardfork } from '@ethereumjs/common/dist/esm/index.js'
+import { Hardfork } from '@synthesizer-libs/common'
 import {
   BIGINT_0,
   BIGINT_1,
@@ -12,7 +12,7 @@ import {
   equalsBytes,
   setLengthLeft,
   setLengthRight,
-} from "@ethereumjs/util/index.js"
+} from "@synthesizer-libs/util"
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 
 import { EvmError } from '../exceptions.js'
@@ -20,8 +20,8 @@ import { copyMemoryRegion } from '../tokamak/pointers/index.js'
 
 import type { ERROR } from '../exceptions.js'
 import type { RunState } from '../interpreter.js'
-import type { Common } from '@ethereumjs/common/dist/esm/index.js'
-import type { Address } from "@ethereumjs/util/index.js"
+import type { Common } from '@synthesizer-libs/common'
+import type { Address } from "@synthesizer-libs/util"
 
 const MASK_160 = (BIGINT_1 << BIGINT_160) - BIGINT_1
 
@@ -36,7 +36,7 @@ export function createAddressFromStackBigInt(value: bigint): Address {
 }
 
 /**
- * Proxy function for @ethereumjs/util's setLengthLeft, except it returns a zero
+ * Proxy function for @synthesizer-libs/util's setLengthLeft, except it returns a zero
  * length Uint8Array in case the Uint8Array is full of zeros.
  * @param value Uint8Array which we want to pad
  */

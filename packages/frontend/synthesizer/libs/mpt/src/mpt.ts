@@ -15,7 +15,7 @@ import {
   bytesToUtf8,
   concatBytes,
   equalsBytes,
-} from '@ethereumjs/util'
+} from '@synthesizer-libs/util'
 import debug from 'debug'
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 
@@ -45,11 +45,11 @@ import type {
   TrieShallowCopyOpts,
 } from './types.js'
 import type { OnFound } from './util/asyncWalk.js'
-import type { BatchDBOp, DB } from '@ethereumjs/util'
+import type { BatchDBOp, DB } from '@synthesizer-libs/util'
 import type { Debugger } from 'debug'
 
 /**
- * The basic trie interface, use with `import { MerklePatriciaTrie } from '@ethereumjs/mpt'`.
+ * The basic trie interface, use with `import { MerklePatriciaTrie } from '@synthesizer-libs/mpt'`.
  */
 export class MerklePatriciaTrie {
   protected readonly _opts: MPTOptsWithDefaults = {

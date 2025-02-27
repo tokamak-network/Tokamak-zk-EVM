@@ -5,7 +5,7 @@ import {
   concatBytes,
   equalsBytes,
   setLengthLeft,
-} from "@ethereumjs/util/index.js"
+} from "@synthesizer-libs/util"
 import { bls12_381 } from 'ethereum-cryptography/bls.js'
 
 import { ERROR, EvmError } from '../../exceptions.js'

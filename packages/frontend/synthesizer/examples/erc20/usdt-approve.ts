@@ -3,14 +3,14 @@
  * DEBUG=ethjs,evm:*,evm:*:* tsx ton-transfer.ts
  */
 
-import {  Address, hexToBytes } from "@ethereumjs/util/index.js"
+import {  Address, hexToBytes } from "@synthesizer-libs/util"
 import { keccak256 } from 'ethereum-cryptography/keccak'
 
 import { createEVM } from '../../src/constructors.js'
 import { finalize } from '../../src/tokamak/core/finalize.js'
 import { setupEVMFromCalldata } from "src/tokamak/utils/erc20EvmSetup.js"
-import USDT_STORAGE_LAYOUT from "../../constants/storage-layouts/USDT.json" assert { type: "json" };
-import USDT_CONTRACT from "../../constants/bytecodes/USDT.json" assert { type: "json" };
+import USDT_STORAGE_LAYOUT from "../../src/constants/storage-layouts/USDT.json" assert { type: "json" };
+import USDT_CONTRACT from "../../src/constants/bytecodes/USDT.json" assert { type: "json" };
 
 // USDT contract bytecode
 const contractCode = USDT_CONTRACT.bytecode

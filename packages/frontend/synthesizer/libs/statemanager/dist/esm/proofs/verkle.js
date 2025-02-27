@@ -1,4 +1,4 @@
-import { verifyVerkleProof } from '@ethereumjs/util';
+import { verifyVerkleProof } from '@synthesizer-libs/util';
 export function getVerkleStateProof(sm, _, __ = []) {
     throw new Error('Not implemented yet');
 }

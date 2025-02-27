@@ -4,7 +4,7 @@ import { StorageCache } from './storage.js'
 import { CacheType, type CachesStateManagerOpts } from './types.js'
 
 import type { CacheOpts } from './types.js'
-import type { Address } from '@ethereumjs/util'
+import type { Address } from '@synthesizer-libs/util'
 
 export class Caches {
   account?: AccountCache

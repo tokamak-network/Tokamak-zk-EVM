@@ -1,4 +1,4 @@
-import { bytesToHex, concatBytes, equalsBytes } from '@ethereumjs/util'
+import { bytesToHex, concatBytes, equalsBytes } from '@synthesizer-libs/util'
 import { keccak256 } from 'ethereum-cryptography/keccak'
 
 import { createMPTFromProof } from '../constructors.js'
@@ -8,7 +8,7 @@ import { bytesToNibbles } from '../util/nibbles.js'
 import { verifyRangeProof } from './range.js'
 
 import type { MPTOpts, Proof } from '../index.js'
-import type { PutBatch } from '@ethereumjs/util'
+import type { PutBatch } from '@synthesizer-libs/util'
 
 /**
  * An (EIP-1186)[https://eips.ethereum.org/EIPS/eip-1186] proof contains the encoded trie nodes

@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / TypeOutput
+[@synthesizer-libs/util](../README.md) / TypeOutput
 
 # Enumeration: TypeOutput
 

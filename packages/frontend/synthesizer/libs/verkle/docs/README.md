@@ -1,6 +1,6 @@
-@ethereumjs/verkle
+@synthesizer-libs/verkle
 
-# @ethereumjs/verkle
+# @synthesizer-libs/verkle
 
 ## Table of contents
 

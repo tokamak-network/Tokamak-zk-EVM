@@ -1,4 +1,4 @@
-import { createAccount } from "@ethereumjs/util/index.js"
+import { createAccount } from "@synthesizer-libs/util"
 
 const account = createAccount({
   nonce: '0x02',

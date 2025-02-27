@@ -12,8 +12,8 @@ import type {
   ParamsDict,
   StateManagerInterface,
   VerkleAccessWitnessInterface,
-} from '@ethereumjs/common/dist/esm/index.js'
-import type { Account, Address, PrefixedHexString } from "@ethereumjs/util/index.js"
+} from '@synthesizer-libs/common'
+import type { Account, Address, PrefixedHexString } from "@synthesizer-libs/util"
 import type { EventEmitter } from 'eventemitter3'
 
 export type DeleteOpcode = {
@@ -334,9 +334,9 @@ export interface EVMOpts {
   /*
    * The EVM comes with a basic dependency-minimized `SimpleStateManager` implementation
    * which serves most code execution use cases and which is included in the
-   * `@ethereumjs/statemanager` package.
+   * `@synthesizer-libs/statemanager` package.
    *
-   * The `@ethereumjs/statemanager` package also provides a variety of state manager
+   * The `@synthesizer-libs/statemanager` package also provides a variety of state manager
    * implementations for different needs (MPT-tree backed, RPC, experimental verkle)
    * which can be used by this option as a replacement.
    */

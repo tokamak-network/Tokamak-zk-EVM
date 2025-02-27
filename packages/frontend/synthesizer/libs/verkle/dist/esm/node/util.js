@@ -1,5 +1,5 @@
 import { RLP } from '@ethereumjs/rlp';
-import { setLengthRight } from '@ethereumjs/util';
+import { setLengthRight } from '@synthesizer-libs/util';
 import { InternalVerkleNode } from './internalNode.js';
 import { LeafVerkleNode } from './leafNode.js';
 import { LeafVerkleNodeValue, VerkleNodeType } from './types.js';

@@ -1,4 +1,4 @@
-[@ethereumjs/util](../README.md) / JsonRpcWithdrawal
+[@synthesizer-libs/util](../README.md) / JsonRpcWithdrawal
 
 # Interface: JsonRpcWithdrawal
 

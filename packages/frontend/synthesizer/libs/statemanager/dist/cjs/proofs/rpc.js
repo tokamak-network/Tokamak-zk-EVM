@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getRPCStateProof = void 0;
-const util_1 = require("@ethereumjs/util");
+const util_1 = require("@synthesizer-libs/util");
 /**
  * Get an EIP-1186 proof from the provider
  * @param address address to get proof of

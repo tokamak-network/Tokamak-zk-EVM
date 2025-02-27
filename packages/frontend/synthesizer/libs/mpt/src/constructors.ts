@@ -3,7 +3,7 @@ import {
   ValueEncoding,
   bytesToUnprefixedHex,
   unprefixedHexToBytes,
-} from '@ethereumjs/util'
+} from '@synthesizer-libs/util'
 import { keccak256 } from 'ethereum-cryptography/keccak'
 import { concatBytes } from 'ethereum-cryptography/utils'
 

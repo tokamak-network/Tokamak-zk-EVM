@@ -1,6 +1,6 @@
-import { bytesToUnprefixedHex } from '@ethereumjs/util'
+import { bytesToUnprefixedHex } from '@synthesizer-libs/util'
 
-import type { Address } from '@ethereumjs/util'
+import type { Address } from '@synthesizer-libs/util'
 
 type getStorage = (address: Address, key: Uint8Array) => Promise<Uint8Array>
 
