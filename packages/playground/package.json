@@ -11,12 +11,16 @@
     "server": "tsx server/index.ts"
   },
   "dependencies": {
+    "@synthesizer-libs/util": "^0.0.3",
+    "@tokamak-zk-evm/synthesizer": "^0.0.6",
     "@types/axios": "^0.14.4",
+    "browserify-fs": "^1.0.0",
     "buffer": "^6.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "ethereum-cryptography": "^3.0.0",
     "express": "^4.21.2",
+    "memfs": "^4.17.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "vite": "^6.0.9"
@@ -33,6 +37,7 @@
     "eslint-plugin-react-refresh": "^0.4.16",
     "globals": "^15.14.0",
     "typescript": "~5.6.2",
-    "typescript-eslint": "^8.18.2"
+    "typescript-eslint": "^8.18.2",
+    "vite-plugin-node-polyfills": "^0.23.0"
   }
 }
