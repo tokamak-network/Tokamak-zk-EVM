@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { RLP } from '@ethereumjs/rlp'
 
 import { type VerkleNodeInterface, type VerkleNodeOptions, type VerkleNodeType } from './types.js'
@@ -27,3 +28,34 @@ export abstract class BaseVerkleNode<T extends VerkleNodeType> implements Verkle
     return RLP.encode(this.raw())
   }
 }
+=======
+import { RLP } from '@ethereumjs/rlp'
+
+import { type VerkleNodeInterface, type VerkleNodeOptions, type VerkleNodeType } from './types.js'
+
+import type { VerkleCrypto } from '@synthesizer-libs/util'
+
+export abstract class BaseVerkleNode<T extends VerkleNodeType> implements VerkleNodeInterface {
+  public commitment: Uint8Array
+  protected verkleCrypto: VerkleCrypto
+  constructor(options: VerkleNodeOptions[T]) {
+    this.commitment = options.commitment
+    this.verkleCrypto = options.verkleCrypto
+  }
+
+  // Hash returns the field representation of the commitment.
+  hash(): Uint8Array {
+    return this.verkleCrypto.hashCommitment(this.commitment)
+  }
+
+  // Returns an array of Uint8Arrays containing the values necessary to reconstruct a node from the DB (where we store them in a RLP serialized format)
+  abstract raw(): Uint8Array[]
+
+  /**
+   * @returns the RLP serialized node
+   */
+  serialize(): Uint8Array {
+    return RLP.encode(this.raw())
+  }
+}
+>>>>>>> 603bf51d9e02a58183fabb7f7fd08e9580ceef44

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { RLP } from '@ethereumjs/rlp'
 import {
   Account,
@@ -50,3 +51,57 @@ export async function genesisMPTStateRoot(genesisState: GenesisState) {
   }
   return trie.root()
 }
+=======
+import { RLP } from '@ethereumjs/rlp'
+import {
+  Account,
+  hexToBytes,
+  isHexString,
+  unpadBytes,
+  unprefixedHexToBytes,
+} from '@synthesizer-libs/util'
+import { keccak256 } from 'ethereum-cryptography/keccak.js'
+
+import { MerklePatriciaTrie } from '../mpt.js'
+
+import type { AccountState, GenesisState } from '@synthesizer-libs/util'
+
+/**
+ * Derives the stateRoot of the genesis block based on genesis allocations
+ */
+export async function genesisMPTStateRoot(genesisState: GenesisState) {
+  const trie = new MerklePatriciaTrie({ useKeyHashing: true })
+  for (const [key, value] of Object.entries(genesisState)) {
+    const address = isHexString(key) ? hexToBytes(key) : unprefixedHexToBytes(key)
+    const account = new Account()
+    if (typeof value === 'string') {
+      account.balance = BigInt(value)
+    } else {
+      const [balance, code, storage, nonce] = value as Partial<AccountState>
+      if (balance !== undefined) {
+        account.balance = BigInt(balance)
+      }
+      if (code !== undefined) {
+        const codeBytes = isHexString(code) ? hexToBytes(code) : unprefixedHexToBytes(code)
+        account.codeHash = keccak256(codeBytes)
+      }
+      if (storage !== undefined) {
+        const storageTrie = new MerklePatriciaTrie({ useKeyHashing: true })
+        for (const [k, val] of storage) {
+          const storageKey = isHexString(k) ? hexToBytes(k) : unprefixedHexToBytes(k)
+          const storageVal = RLP.encode(
+            unpadBytes(isHexString(val) ? hexToBytes(val) : unprefixedHexToBytes(val)),
+          )
+          await storageTrie.put(storageKey, storageVal)
+        }
+        account.storageRoot = storageTrie.root()
+      }
+      if (nonce !== undefined) {
+        account.nonce = BigInt(nonce)
+      }
+    }
+    await trie.put(address, account.serialize())
+  }
+  return trie.root()
+}
+>>>>>>> 603bf51d9e02a58183fabb7f7fd08e9580ceef44

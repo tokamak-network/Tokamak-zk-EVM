@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
   "extends": "../../../config/monorepo-js/tsconfig.json",
   "compilerOptions": {
@@ -21,3 +22,27 @@
   }
 }
 
+=======
+{
+  "extends": "../../../config/monorepo-js/tsconfig.json",
+  "compilerOptions": {
+    "forceConsistentCasingInFileNames": true,
+     "moduleResolution": "node16",
+     "allowJs": true,
+     "declaration": true,
+    "baseUrl": ".",
+    // "paths": {
+    //   "@synthesizer-libs/util": ["libs/util/dist/esm/index"],
+    //   "@synthesizer-libs/statemanager": ["libs/statemanager/dist/esm/index"],
+    //   "@synthesizer-libs/util/*": ["libs/util/dist/esm/*"],
+    //   "@synthesizer-libs/statemanager/*": ["libs/statemanager/dist/esm/*"],
+    //   "@ethereumjs/mpt": ["libs/mpt/dist/esm/index"],
+    //   "@ethereumjs/mpt/*": ["libs/mpt/dist/esm/*"],
+    //   "@synthesizer-libs/verkle": ["libs/verkle/dist/esm/index"],
+    //   "@synthesizer-libs/verkle/*": ["libs/verkle/dist/esm/*"]
+    // },
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}
+>>>>>>> 603bf51d9e02a58183fabb7f7fd08e9580ceef44

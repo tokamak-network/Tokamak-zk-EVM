@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
   "name": "@ethereumjs/verkle",
   "version": "0.1.0",
@@ -65,3 +66,71 @@
     "node": ">=18"
   }
 }
+=======
+{
+  "name": "@synthesizer-libs/verkle",
+  "version": "0.0.5",
+  "description": "Implementation of verkle trees as used in Ethereum.",
+  "keywords": [
+    "verkle",
+    "tree",
+    "trie",
+    "ethereum"
+  ],
+  "homepage": "https://github.com/tokamak-network/Tokamak-zk-EVM/tree/ale-75/packages/frontend/synthesizer/libs/verkle#readme",
+  "bugs": {
+    "url": "https://github.com/tokamak-network/Tokamak-zk-EVM/issues?q=is%3Aissue+label%3A%22package%3A+verkle%22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tokamak-network/Tokamak-zk-EVM/tree/ale-75/packages/frontend/synthesizer/libs/verkle"
+  },
+  "license": "MIT",
+  "author": "EthereumJS Team",
+  "contributors": [
+    {
+      "name": "Gabriel Rocheleau",
+      "url": "https://github.com/gabrocheleau"
+    }
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "../../config/cli/ts-build.sh",
+    "clean": "../../config/cli/clean-package.sh",
+    "coverage": "npx vitest run --coverage.enabled --coverage.reporter=lcov",
+    "docs:build": "typedoc --options typedoc.cjs",
+    "examples": "tsx ../../scripts/examples-runner.ts -- verkle",
+    "examples:build": "npx embedme README.md",
+    "lint": "../../config/cli/lint.sh",
+    "lint:diff": "../../config/cli/lint-diff.sh",
+    "lint:fix": "../../config/cli/lint-fix.sh",
+    "test": "npm run test:node",
+    "test:node": "npx vitest run",
+    "test:browser": "npx vitest run --config=../../config/vitest.config.browser.mts",
+    "tsc": "../../config/cli/ts-compile.sh"
+  },
+  "dependencies": {
+    "debug": "^4.3.4",
+    "lru-cache": "10.1.0",
+    "verkle-cryptography-wasm": "^0.4.8",
+    "@ethereumjs/rlp": "^5.0.2",
+    "@synthesizer-libs/util": "^0.0.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
+>>>>>>> 603bf51d9e02a58183fabb7f7fd08e9580ceef44

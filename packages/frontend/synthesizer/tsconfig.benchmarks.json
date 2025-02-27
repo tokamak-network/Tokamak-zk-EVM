@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
   "extends": "../../../config/monorepo-js/tsconfig.json",
   "compilerOptions": {
@@ -17,3 +18,22 @@
   },
   "include": ["benchmarks/**.ts"]
 }
+=======
+{
+  "extends": "../../../config/monorepo-js/tsconfig.json",
+  "compilerOptions": {
+    "lib": ["dom"],
+    "sourceMap": false,
+    "declaration": false,
+    "esModuleInterop": true,
+    "baseUrl": ".",
+    "paths": {
+      "@synthesizer-libs/util/*": ["libs/util/dist/esm/*"],
+      "@synthesizer-libs/util": ["libs/util/dist/esm/index"],
+      "@synthesizer-libs/statemanager": ["libs/statemanager/dist/esm/index"],
+      "@synthesizer-libs/statemanager/*": ["libs/statemanager/dist/esm/*"]
+    }
+  },
+  "include": ["benchmarks/**.ts"]
+}
+>>>>>>> 603bf51d9e02a58183fabb7f7fd08e9580ceef44
