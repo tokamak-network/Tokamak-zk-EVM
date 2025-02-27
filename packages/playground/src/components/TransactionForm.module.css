@@ -1,0 +1,95 @@
+.inputButtonContainer {
+  position: absolute;
+  top: 424px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: center;
+  width: 728px;
+  height: 59px;
+  z-index: 2;
+}
+
+.btnProcess {
+  background: #2A72E5;
+  height: 59px;
+  width: 159px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  gap: 8px;
+  border-left: 1px solid #a8a8a8;
+  border-top: 1px solid #a8a8a8;      
+  border-bottom: 1px solid #5F5F5F;
+  border-right: 1px solid #5F5F5F;
+  border-radius: 0%;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btnProcess:hover:not(.disabled):not(.error) {
+  background: #5B9AFF;
+}
+
+.btnProcess:active:not(.disabled):not(.error) {
+  background: #1057C9;
+}
+
+.btnProcess.error {
+  background: #BC2828;
+}
+
+.btnProcess.error:hover:not(:disabled) {
+  background: #ec3030;
+}
+
+.btnProcess::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: #A8A8A8;
+}
+
+.btnProcess::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: #5F5F5F;
+}
+
+.btnProcess .btnIcon {
+  width: 24px;
+  height: 24px;
+  position: relative;
+}
+
+.btnProcess .btnIcon img {
+  width: 20px;
+  height: 20px;
+  position: absolute;
+  left: 2px;
+  top: 2px;
+}
+
+.btnProcess .btnText {
+  color: #F8F8F8;
+  font-size: 24px;
+  font-family: 'IBM Plex Mono';
+  font-weight: 500;
+  word-wrap: break-word;
+}
+
+.btnProcess.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

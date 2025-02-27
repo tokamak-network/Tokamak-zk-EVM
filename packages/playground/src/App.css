@@ -1,0 +1,152 @@
+@import url('https://fonts.googleapis.com/css2?family=Jersey+10&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Jersey+10&display=swap');
+
+html, body {
+  height: 100%;
+  margin: 0;
+  min-height: 100vh;
+}
+
+body {
+  background: linear-gradient(179.38deg, #000306, #003466);
+  color: white;
+  font-family: 'Jersey 10', cursive;
+  text-align: center;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+.app-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+h1 {
+  font-size: 2rem;
+  text-shadow: 4px 4px 0px black;
+  color: yellow;
+  margin-bottom: 20px;
+}
+
+h1 span {
+  color: white;
+}
+
+.topic-badge {
+  margin-bottom: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  background-color: #444;
+  color: #fff;
+  border-radius: 4px;
+}
+
+.download-button {
+  font-family: "IBM Plex Mono", Helvetica;
+  padding: 10px;
+  font-size: 14px;
+  background: #444;
+  color: white;
+  border: 3px solid #222;
+  margin-top: 10px;
+  display: block;
+  width: 350px;
+  text-align: center;
+}
+
+.download-button:hover {
+  background: #666;
+}
+
+.download-button.success {
+  background: green;
+}
+
+.download-button.info {
+  background: blue;
+}
+
+.error-box {
+  background: #222;
+  border: 3px solid red;
+  padding: 20px;
+  text-align: center;
+  color: white;
+  margin-top: 20px;
+  font-size: 12px;
+}
+
+@keyframes scanline {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 30px;
+  }
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  width: 95%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-switcher {
+  display: flex;
+  margin-bottom: 0;
+  margin-left: 10px;
+  gap: 2px;
+  position: relative;
+  z-index: 1;
+}
+
+.tab-switcher button {
+  background: linear-gradient(to bottom, #fefefe 0%, #e4e2d5 100%);
+  border: 1px solid #919B9C;
+  border-bottom: none;
+  padding: 5px 15px;
+  color: black;
+  font-family: 'Tahoma', sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 3px 3px 0 0;
+  min-width: 100px;
+  height: 24px;
+  clip-path: none;
+  margin: 0;
+  position: relative;
+  box-shadow: none;
+}
+
+.tab-switcher button.active {
+  background: #fff;
+  border-bottom: 1px solid #fff;
+  z-index: 2;
+  margin-bottom: -1px;
+}
+
+.tab-switcher button:hover:not(.active) {
+  background: linear-gradient(to bottom, #fefefe 0%, #f1f5f9 100%);
+}
+
+.background-container {
+  position: fixed; 
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  min-height: 100vh;
+  background: linear-gradient(179.38deg, #000306, #003466);
+}
