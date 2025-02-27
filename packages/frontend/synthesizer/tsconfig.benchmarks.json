@@ -1,24 +1,3 @@
-<<<<<<< HEAD
-{
-  "extends": "../../../config/monorepo-js/tsconfig.json",
-  "compilerOptions": {
-    "lib": ["dom"],
-    "sourceMap": false,
-    "declaration": false,
-    "esModuleInterop": true,
-    "baseUrl": ".",
-    "paths": {
-      "@ethereumjs/util/*": ["libs/util/dist/esm/*"],
-      "@ethereumjs/util": ["libs/util/dist/esm/index"],
-      "@ethereumjs/common/*": ["libs/common/dist/esm/*"],
-      "@ethereumjs/common": ["libs/common/dist/esm/index"],
-      "@ethereumjs/statemanager": ["libs/statemanager/dist/esm/index"],
-      "@ethereumjs/statemanager/*": ["libs/statemanager/dist/esm/*"]
-    }
-  },
-  "include": ["benchmarks/**.ts"]
-}
-=======
 {
   "extends": "../../../config/monorepo-js/tsconfig.json",
   "compilerOptions": {
@@ -36,4 +15,3 @@
   },
   "include": ["benchmarks/**.ts"]
 }
->>>>>>> 603bf51d9e02a58183fabb7f7fd08e9580ceef44

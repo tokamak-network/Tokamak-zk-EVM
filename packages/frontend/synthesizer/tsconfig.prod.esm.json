@@ -1,31 +1,3 @@
-<<<<<<< HEAD
-{
-  "extends": "../../../config/monorepo-js/tsconfig.prod.esm.json",
-  "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "dist/esm",
-    "composite": true,
-    "baseUrl": ".",
-    "paths": {
-      "@ethereumjs/util/*": ["libs/util/dist/esm/*"],
-      "@ethereumjs/util": ["libs/util/dist/esm/index"],
-      "@ethereumjs/common/*": ["libs/common/dist/esm/*"],
-      "@ethereumjs/common": ["libs/common/dist/esm/index"],
-      "@ethereumjs/statemanager": ["libs/statemanager/dist/esm/index"],
-      "@ethereumjs/statemanager/*": ["libs/statemanager/dist/esm/*"]
-    }
-  },
-  "include": ["src/**/*.ts", "src/**/*.json"],
-  // "references": [
-  //   { "path": "../common/tsconfig.prod.esm.json" },
-  //   { "path": "../rlp/tsconfig.prod.esm.json" },
-  //   { "path": "../statemanager/tsconfig.prod.esm.json" },
-  //   { "path": "../mpt/tsconfig.prod.esm.json" },
-  //   { "path": "../tx/tsconfig.prod.esm.json" },
-  //   { "path": "../util/tsconfig.prod.esm.json" }
-  // ]
-}
-=======
 {
   "extends": "../../../config/monorepo-js/tsconfig.prod.esm.json",
   "compilerOptions": {
@@ -50,4 +22,3 @@
   //   { "path": "../util/tsconfig.prod.esm.json" }
   // ]
 }
->>>>>>> 603bf51d9e02a58183fabb7f7fd08e9580ceef44

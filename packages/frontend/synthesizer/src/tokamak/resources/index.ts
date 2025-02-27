@@ -6,6 +6,7 @@ const __dirname = path.dirname(__filename);
 
 export * from './globalWireList.js'
 export * from './subcircuitInfo.js'
+export * from './setupParams.js'
 
 export const wasmDir = path.join(__dirname, '../constant/wasm');
 

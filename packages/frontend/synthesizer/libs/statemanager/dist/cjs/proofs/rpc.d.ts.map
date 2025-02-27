@@ -1,1 +1,0 @@
-{"version":3,"file":"rpc.d.ts","sourceRoot":"","sources":["../../../src/proofs/rpc.ts"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAE,KAAK,EAAE,eAAe,EAAE,MAAM,aAAa,CAAA;AACzD,OAAO,KAAK,EAAE,OAAO,EAAE,MAAM,kBAAkB,CAAA;AAE/C;;;;;GAKG;AACH,wBAAsB,gBAAgB,CACpC,EAAE,EAAE,eAAe,EACnB,OAAO,EAAE,OAAO,EAChB,YAAY,GAAE,UAAU,EAAO,GAC9B,OAAO,CAAC,KAAK,CAAC,CAQhB"}

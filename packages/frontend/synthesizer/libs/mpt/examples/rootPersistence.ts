@@ -1,17 +1,3 @@
-<<<<<<< HEAD
-import { createMPT } from '@ethereumjs/mpt'
-import { bytesToHex } from '@ethereumjs/util'
-
-async function main() {
-  const trie = await createMPT({
-    useRootPersistence: true,
-  })
-
-  // this logs the empty root value that has been persisted to the trie db
-  console.log(bytesToHex(trie.root())) // 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
-}
-void main()
-=======
 import { createMPT } from '@synthesizer-libs/mpt'
 import { bytesToHex } from '@synthesizer-libs/util'
 
@@ -24,4 +10,3 @@ async function main() {
   console.log(bytesToHex(trie.root())) // 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
 }
 void main()
->>>>>>> 603bf51d9e02a58183fabb7f7fd08e9580ceef44
