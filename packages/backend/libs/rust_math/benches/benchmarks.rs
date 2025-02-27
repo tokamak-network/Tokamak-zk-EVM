@@ -125,7 +125,7 @@ fn benchmark_div_by_vanishing(c: &mut Criterion) {
 criterion_group!(
     benches,
     // benchmark_resize,
-    benchmark_multiplication,
+    // benchmark_multiplication,
     benchmark_div_by_vanishing,
     // benchmark_find_degree
 );
