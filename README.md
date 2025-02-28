@@ -14,26 +14,24 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 ### Backend Packages
 | Package | Description | Language |
 |---------|-------------|----------|
+| [`libs`](./packages/backend/libs) | Mathematical and signal processing related library functions for Tokamak zk-SNARK | rust |
 | [`mpc-setup`](./packages/backend/setup/mpc-setup) | Tokamak zk-SNARK's setup alogirhtm (multi-party computation version) | rust |
 | [`trusted-setup`](./packages/backend/setup/trusted-setup) | Tokamak zk-SNARK's setup algorithm (trusted single entity version) | rust |
 | [`prover`](./packages/backend/prove) | Tokamak zk-SNARK's proving algorithm | rust |
-| [`verify`](./packages/backend/verify) | Tokamak zk-SNARK's verifying algorithm | rust, solidity |
-### Libraries
-| Package | Description | Language | 
-|---------|-------------|----------|
-| [`libs-rust-tools`](./packages/libs/internal/rust-tools) | Field, polynomial, signal processing related modules for Tokamak zk-SNARK | rust |
+| [`verify`](./packages/backend/verify) | Tokamak zk-SNARK's verifying algorithm | rust, solidity, javascript |
 
 ## Package Versions
 | Package | Current Version | Status |
 |---------|----------------|---------|
-| `qap-compiler` | v0.1.0 | 🔥 Alpha |
-| `synthesizer` | v0.1.0 | 🔥 Alpha |
+| `qap-compiler` | v0.2.0 | 🧪 Beta |
+| `synthesizer` | v0.1.2 | 🔥 Alpha |
+| `libs` | v0.1.0 | 🔥 Alpha |
 | `prover` | - | 🚧 Planned |
 | `mpc-setup` | - | 🚧 Planned |
 | `trusted-setup` | - | 🚧 Planned |
 | `verify-rust` | - | 🚧 Planned |
 | `verify-sol` | - | 🚧 Planned |
-| `libs-rust-tools` | v0.1.0 | 🔥 Alpha |
+
 
 ### Version Strategy
 🔥 Alpha (v0.1.x)
