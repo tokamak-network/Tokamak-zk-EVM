@@ -10,6 +10,11 @@ This repository provides a library of subcircuits for EVM's basic operations. Co
 - Compatible with Ethereum's EVM, which is based on 256-bit words.
 - Combined with Synthesizer, almost any type of transaction can be circuited.
 
+### Version
+- In the current version, the subcircuit library is a set of subcircuits for all arithmetic and logical operations in [the EVM instruction set](https://www.evm.codes/).
+   - However, we found that the current set is not a minimal basis, since some elements can be expressed as combinations of other elements by [Synthesizer](../synthesizer).
+- In the next version, we will reduce and optimize the library, which will further accelerates [the backend](../../backend).
+
 ## Installation
 
 This package requires [Circom](https://docs.circom.io/getting-started/installation) and [nodeJs](https://nodejs.org).
@@ -28,7 +33,7 @@ npm install
 ```shell
 ./scripts/compile.sh
 ```
-3. Check your [outputs](./outputs) 
+3. Check your [output library subcircuits](./subcircuits/library) 
 
 ## Composition of the subcircuit library
 
