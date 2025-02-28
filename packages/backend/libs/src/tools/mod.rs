@@ -1,4 +1,4 @@
-use super::math::{DensePolynomialExt, BivariatePolynomial};
+use super::polynomials::{DensePolynomialExt, BivariatePolynomial};
 
 use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
 use icicle_bls12_381::polynomials::DensePolynomial;

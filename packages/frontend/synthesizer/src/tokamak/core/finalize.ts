@@ -1,5 +1,6 @@
 import { bigIntToBytes, bytesToHex, setLengthLeft } from "@synthesizer-libs/util"
 import fs from 'fs'
+import { readFileSync } from 'fs'
 import path from 'path'
 import appRootPath from 'app-root-path'
 
@@ -468,7 +469,7 @@ const testInstances = async (instances: PlacementInstances): Promise<void> => {
 
 
       try {
-        buffer = fs.readFileSync(targetWasmPath)
+        buffer = readFileSync(targetWasmPath)
       } catch (err) {
         throw new Error(`Error while reading subcircuit${id}.wasm`)
       }

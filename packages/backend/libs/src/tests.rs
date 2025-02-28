@@ -9,7 +9,7 @@ use std::cmp;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::{DensePolynomialExt, BivariatePolynomial};
+    use crate::polynomials::{DensePolynomialExt, BivariatePolynomial};
 
     // Helper function: Create a simple 2D polynomial
     fn create_simple_polynomial() -> DensePolynomialExt {
@@ -460,4 +460,46 @@ mod tests {
     }
 
     // More tests can be added as needed
+}
+
+#[cfg(test)]
+mod tests_vectors {
+    use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
+    use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
+    use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice};
+    use std::cmp;
+    
+    use crate::vectors::{outer_product_two_vecs, point_mul_two_vecs};
+
+    macro_rules! scalar_vec {
+        ( $( $x:expr ),* ) => {
+            vec![
+                $( ScalarField::from_u32($x) ),*
+            ].into_boxed_slice()
+        };
+    }
+
+    #[test]
+    fn test_point_mul_two_vecs() {
+        let vec1 = scalar_vec![1, 2, 3];
+        let vec2 = scalar_vec![4, 5];
+        let vec3 = scalar_vec![2, 0, 2, 4];
+
+        let mut res = vec![ScalarField::zero(); 6].into_boxed_slice();
+        outer_product_two_vecs(&vec1, &vec2, &mut res);
+        println!("res : {:?}", res);
+
+        let mut res = vec![ScalarField::zero(); 6].into_boxed_slice();
+        outer_product_two_vecs(&vec2, &vec1, &mut res);
+        println!("res : {:?}", res);
+
+        let mut res = vec![ScalarField::zero(); 12].into_boxed_slice();
+        outer_product_two_vecs(&vec1, &vec3, &mut res);
+        println!("res : {:?}", res);
+
+        let mut res = vec![ScalarField::zero(); 8].into_boxed_slice();
+        outer_product_two_vecs(&vec3, &vec2, &mut res);
+        println!("res : {:?}", res);
+
+    }
 }
