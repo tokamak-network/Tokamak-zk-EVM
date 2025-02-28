@@ -36,7 +36,7 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
    git clone https://github.com/tokamak-network/Tokamak-zk-EVM.git
    cd Tokamak-zk-EVM
    ```
-- Make sure you have installed [Playground](../../playground/).
+- Make sure you have installed [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds/tree/dev/packages/synthesizer-playground).
 ### A. **Package install**
 1. Open a new terminal and go to the package directory.
 2. Install dependencies:
