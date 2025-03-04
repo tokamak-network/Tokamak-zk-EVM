@@ -15,13 +15,13 @@ use std::env;
 use std::collections::{HashMap, HashSet};
 use num_bigint::BigUint;
 
-macro_rules! impl_tau_struct {
-    ($name:ident { $($ScalarField:ident),* }) => {
-        pub struct $name {
+macro_rules! impl_Tau_struct {
+    ( $($ScalarField:ident),* ) => {
+        pub struct Tau {
             $(pub $ScalarField: ScalarField),*
         }
 
-        impl $name {
+        impl Tau {
             pub fn gen() -> Self {
                 Self {
                     $($ScalarField: ScalarCfg::generate_random(1)[0]),*
@@ -30,7 +30,7 @@ macro_rules! impl_tau_struct {
         }
     };
 }
-impl_tau_struct!(Tau {x, y, z, alpha, beta, gamma, delta, eta0, eta1, mu, nu, psi0, psi1, psi2, psi3, kappa});
+impl_Tau_struct!(x, y, z, alpha, beta, gamma, delta, eta0, eta1, mu, nu, psi0, psi1, psi2, psi3, kappa);
 
 #[derive(Debug, Deserialize)]
 pub struct SetupParams {
