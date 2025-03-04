@@ -3,11 +3,13 @@ use icicle_bls12_381::{curve, vec_ops};
 use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use crate::tools::{Tau, SetupParams, SubcircuitInfo, MixedSubcircuitQAPEvaled, gen_cached_pows};
-use crate::vectors::{outer_product_two_vecs, point_mul_two_vecs};
+use crate::vectors::{inner_product_two_vecs, outer_product_two_vecs, point_mul_two_vecs};
 use crate::s_max;
 use icicle_core::{ntt, msm};
 use std::path::Path;
 use std::ops::{Add, Mul, Sub};
+use std::io::{stdout, Write};
+use std::sync::atomic::{AtomicU16, Ordering};
 use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice, DeviceSlice, DeviceVec};
 use std::time::Instant;
 
@@ -75,10 +77,8 @@ macro_rules! type_scaled_outer_product_2d {
         {
             let col_size = $col_vec.len();
             let row_size = $row_vec.len();
-            let mut res = vec![vec![G1Affine::zero(); row_size].into_boxed_slice(); col_size].into_boxed_slice();
-            let start = Instant::now();
+            let mut res = vec![vec![G1Affine::zero(); col_size].into_boxed_slice(); row_size].into_boxed_slice();
             _scaled_outer_product_2d($col_vec, $row_vec, $g1_gen, $scaler, &mut res);
-            let lap = start.elapsed(); println!("Elapsed time: {:.6} seconds", lap.as_secs_f64());
             res
         }
     };  
@@ -94,9 +94,14 @@ fn _scaled_outer_product_2d(
     let col_size = col_vec.len();
     let row_size = row_vec.len();
     let size = col_size * row_size;
-    if res.len() != size {
-        panic!("Insufficient buffer length");
+    if res.len() > 0 {
+        if res.len() * res[0].len() != size {
+            panic!("Insufficient buffer length");
+        }
+    } else {
+        panic!("Empty buffer");
     }
+    
     let mut res_coef = vec![ScalarField::zero(); size].into_boxed_slice();
     _scaled_outer_product(col_vec, row_vec, scaler, &mut res_coef);
     from_coef_vec_to_affine_mat(
@@ -114,9 +119,7 @@ macro_rules! type_scaled_outer_product_1d {
             let col_size = $col_vec.len();
             let row_size = $row_vec.len();
             let mut res = vec![G1Affine::zero(); row_size * col_size].into_boxed_slice();
-            let start = Instant::now();
             _scaled_outer_product_1d($col_vec, $row_vec, $g1_gen, $scaler, &mut res);
-            let lap = start.elapsed(); println!("Elapsed time: {:.6} seconds", lap.as_secs_f64());
             res
         }
     };  
@@ -147,11 +150,9 @@ fn _scaled_outer_product_1d(
 macro_rules! type_scaled_monomials_1d {
     ( $cached_col_vec: expr, $cached_row_vec: expr, $col_size: expr, $row_size: expr, $scaler: expr, $g1_gen: expr ) => {
         {
-            let start = Instant::now();
             let col_vec = resize_monomial_vec!($cached_col_vec, $col_size);
             let row_vec = resize_monomial_vec!($cached_row_vec, $row_size);
             let res = type_scaled_outer_product_1d!(&col_vec, &row_vec, $g1_gen, $scaler);
-            let lap = start.elapsed(); println!("Elapsed time: {:.6} seconds", lap.as_secs_f64());
             res
         }
     };
@@ -225,12 +226,22 @@ fn from_coef_vec_to_affine_vec(coef: &Box<[ScalarField]>, gen: &G1Affine, res: &
     //     res[i] = G1Affine::from(gen_proj * coef[i]);
     //     println!("{:?} out of {:?}", i, coef.len());
     // }
-    
+
+    let cnt = AtomicU16::new(1);
+    let progress = AtomicU16::new(0);
+    let indi: u16 = coef.len() as u16 / 20;
     res.par_iter_mut()
         .zip(coef.par_iter())
         .for_each(|(r, &c)| {
             *r = G1Affine::from(gen_proj * c);
+            let current_cnt = cnt.fetch_add(1, Ordering::Relaxed);
+            if current_cnt % indi == 0 {
+                let new_progress = progress.fetch_add(5, Ordering::Relaxed);
+                print!("\rProgress: {}%", new_progress);
+                stdout().flush().unwrap(); 
+            }
         });
+    print!("\r");
 
     // println!("Number of nonzero coefficients: {:?}", coef.len() - nzeros);
 }
@@ -314,7 +325,7 @@ impl SigmaArithAndIP {
         let xy_hi = type_scaled_monomials_1d!(cached_y_pows_vec, cached_x_pows_vec, s_max, n, None, g1_gen);
         
         // generate gamma_l_o_pub_j: Box<[G1Affine]>, // //  j ∈ ⟦0, l-1⟧
-        let start = Instant::now(); println!("Generating gamma_l_o_pub_j of size {:?}...", l);
+        println!("Generating gamma_l_o_pub_j of size {:?}...", l);
         let mut gamma_l_o_pub_j= vec![G1Affine::zero(); l].into_boxed_slice();
         {
             let mut gamma_l_o_pub_j_coef_vec = vec![ScalarField::zero(); l].into_boxed_slice();
@@ -336,7 +347,6 @@ impl SigmaArithAndIP {
                 &mut gamma_l_o_pub_j
             );
         }
-        let lap = start.elapsed(); println!("Done! in {:.6} seconds", lap.as_secs_f64());
 
         // generate eta1_l_o_inter_ij:Box<[Box<[G1Affine]>]>, // i ∈ ⟦0, s_{max} -1⟧ , j ∈ ⟦l, l_{D} - 1⟧
         println!("Generating eta1_l_o_inter_ij of size {:?}...", s_max * (l_d - l));
@@ -486,7 +496,6 @@ impl SigmaCopy {
         let scaler = tau.psi3.inv() * tau.kappa.pow(2);
         let row_vec = vec![ScalarField::one(), ScalarField::one()].into_boxed_slice();
         let psi3_kappa_2_z_j = type_scaled_monomials_1d!(cached_z_pows_vec, &row_vec, l_d - l - 1, 1, Some(&scaler), g1_gen);
-
         //// End of generation
 
         Self {
@@ -503,9 +512,6 @@ impl SigmaCopy {
     }
 }
 
-
-
-
 pub struct SigmaVerify {
     pub beta: G2Affine,
     pub gamma: G2Affine,
@@ -516,8 +522,105 @@ pub struct SigmaVerify {
     pub xy_hi: Box<[G2Affine]>, // h ∈ ⟦0,n-1⟧ , i ∈ ⟦0, s_{max} -1⟧
     pub mu_comb_o_inter: G2Affine,
     pub mu_3_nu: G2Affine,
-    pub mu_4_kappa_0: G2Affine,
-    pub mu_4_kappa_1: G2Affine,
-    pub mu_4_kappa_2: G2Affine,
-    pub mu_3_psi_yz_hij: Box<[Box<[Box<[G2Affine]>]>]> // h ∈ ⟦0,1,2,3⟧ , i ∈ ⟦0,1⟧, j ∈ ⟦0,1⟧
+    pub mu_4_kappa_i: Box<[G2Affine]>,
+    pub mu_3_psi0_yz_ij: Box<[Box<[G2Affine]>]>, // i ∈ ⟦0,1⟧, j ∈ ⟦0,1⟧
+    pub mu_3_psi1_yz_ij: Box<[Box<[G2Affine]>]>, // i ∈ ⟦0,1⟧, j ∈ ⟦0,1⟧
+    pub mu_3_psi2_yz_ij: Box<[Box<[G2Affine]>]>, // i ∈ ⟦0,1⟧, j ∈ ⟦0,1⟧
+    pub mu_3_psi3_yz_ij: Box<[Box<[G2Affine]>]> // i ∈ ⟦0,1⟧, j ∈ ⟦0,1⟧
+}
+
+impl SigmaVerify {
+    pub fn gen(
+        params: &SetupParams,
+        tau: &Tau,
+        o_vec: &Box<[ScalarField]>,
+        k_vec: &Box<[ScalarField]>,
+        g2_gen: &G2Affine
+    ) -> Self {
+        let l = params.l;
+        let l_d = params.l_D;
+        let n = params.n;
+
+        let o_vec_inter = &o_vec[l..l_d].to_vec().into_boxed_slice();
+        let gen_proj = g2_gen.to_projective();
+
+        //generate xy_hi: Box<[G2Affine]>, // h ∈ ⟦0,n-1⟧ , i ∈ ⟦0, s_{max} -1⟧
+        println!("Generating xy_hi of size {:?} on G2...", n * s_max);
+        let x_pows_vec = resize_monomial_vec!(
+            &vec![ScalarField::one(), tau.x].into_boxed_slice(), 
+            n
+        );
+        let y_pows_vec = resize_monomial_vec!(
+            &vec![ScalarField::one(), tau.y].into_boxed_slice(), 
+            s_max
+        );
+        let mut coef = vec![ScalarField::zero(); n * s_max].into_boxed_slice();
+        _scaled_outer_product(&y_pows_vec, &x_pows_vec, None, &mut coef);
+        drop(y_pows_vec);
+        drop(x_pows_vec);
+        let mut xy_hi = vec![G2Affine::zero(); n * s_max].into_boxed_slice();
+        let cnt = AtomicU16::new(1);
+        let progress = AtomicU16::new(0);
+        let indi: u16 = coef.len() as u16 / 20;
+        xy_hi.par_iter_mut()
+            .zip(coef.par_iter())
+            .for_each(|(r, &c)| {
+                *r = G2Affine::from(gen_proj * c);
+                let current_cnt = cnt.fetch_add(1, Ordering::Relaxed);
+                if current_cnt % indi == 0 {
+                    let new_progress = progress.fetch_add(5, Ordering::Relaxed);
+                    print!("\rProgress: {}%", new_progress);
+                    stdout().flush().unwrap(); 
+                }
+            });
+        print!("\r");
+        drop(coef);
+
+        // generate others
+        println!("Generating other G2 points...");
+        let beta = G2Affine::from(gen_proj * tau.beta);
+        let gamma = G2Affine::from(gen_proj * tau.gamma);
+        let delta = G2Affine::from(gen_proj * tau.delta);
+        let eta1 = G2Affine::from(gen_proj * tau.eta1);
+        let mu_eta0 = G2Affine::from(gen_proj * (tau.mu * tau.eta0));
+        let mu_eta1 = G2Affine::from(gen_proj * (tau.mu * tau.eta1));
+        let val = inner_product_two_vecs(o_vec_inter, k_vec);
+        let mu_comb_o_inter = G2Affine::from(gen_proj * (tau.mu.pow(2) * val));
+        let mu_3_nu = G2Affine::from(gen_proj * (tau.mu.pow(3) * tau.nu));
+        let mut mu_4_kappa_i = vec![G2Affine::zero(); 3].into_boxed_slice();
+        for i in 0..3 {
+            mu_4_kappa_i[i] = G2Affine::from(gen_proj * (tau.mu.pow(4) * tau.kappa.pow(i)));
+        }
+        let mut mu_3_psi0_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
+        let mut mu_3_psi1_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
+        let mut mu_3_psi2_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
+        let mut mu_3_psi3_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
+        for y_i  in 0.. 2 {
+            for z_j in 0..2 {
+                let common_val = (tau.mu.pow(3) * tau.y.pow(y_i)) * tau.z.pow(z_j);
+                mu_3_psi0_yz_ij[y_i][z_j] = G2Affine::from(gen_proj * (tau.psi0 * common_val));
+                mu_3_psi1_yz_ij[y_i][z_j] = G2Affine::from(gen_proj * (tau.psi1 * common_val));
+                mu_3_psi2_yz_ij[y_i][z_j] = G2Affine::from(gen_proj * (tau.psi2 * common_val));
+                mu_3_psi3_yz_ij[y_i][z_j] = G2Affine::from(gen_proj * (tau.psi3 * common_val));
+            }
+        }
+
+        //// End of generation
+        Self {
+            beta,
+            gamma,
+            delta,
+            eta1,
+            mu_eta0,
+            mu_eta1,
+            xy_hi,
+            mu_comb_o_inter,
+            mu_3_nu,
+            mu_4_kappa_i,
+            mu_3_psi0_yz_ij,
+            mu_3_psi1_yz_ij,
+            mu_3_psi2_yz_ij,
+            mu_3_psi3_yz_ij
+        }
+    }
 }
