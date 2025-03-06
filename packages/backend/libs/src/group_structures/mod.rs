@@ -10,8 +10,9 @@ use std::path::Path;
 use std::ops::{Add, Mul, Sub};
 use std::io::{stdout, Write};
 use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::{Arc, Mutex};
 use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice, DeviceSlice, DeviceVec};
-use std::time::Instant;
+use rayon::scope;
 
 use rayon::prelude::*;
 
@@ -530,97 +531,221 @@ pub struct SigmaVerify {
 }
 
 impl SigmaVerify {
-    pub fn gen(
-        params: &SetupParams,
-        tau: &Tau,
-        o_vec: &Box<[ScalarField]>,
-        k_vec: &Box<[ScalarField]>,
-        g2_gen: &G2Affine
-    ) -> Self {
-        let l = params.l;
-        let l_d = params.l_D;
-        let n = params.n;
+    // pub fn gen(
+    //     params: &SetupParams,
+    //     tau: &Tau,
+    //     o_vec: &Box<[ScalarField]>,
+    //     k_vec: &Box<[ScalarField]>,
+    //     g2_gen: &G2Affine
+    // ) -> Self {
+    //     let l = params.l;
+    //     let l_d = params.l_D;
+    //     let n = params.n;
 
-        let o_vec_inter = &o_vec[l..l_d].to_vec().into_boxed_slice();
-        let gen_proj = g2_gen.to_projective();
+    //     let o_vec_inter = &o_vec[l..l_d].to_vec().into_boxed_slice();
+    //     let gen_proj = g2_gen.to_projective();
 
-        //generate xy_hi: Box<[G2Affine]>, // h ∈ ⟦0,n-1⟧ , i ∈ ⟦0, s_{max} -1⟧
-        println!("Generating xy_hi of size {:?} on G2...", n * s_max);
-        let x_pows_vec = resize_monomial_vec!(
-            &vec![ScalarField::one(), tau.x].into_boxed_slice(), 
-            n
-        );
-        let y_pows_vec = resize_monomial_vec!(
-            &vec![ScalarField::one(), tau.y].into_boxed_slice(), 
-            s_max
-        );
-        let mut coef = vec![ScalarField::zero(); n * s_max].into_boxed_slice();
-        _scaled_outer_product(&y_pows_vec, &x_pows_vec, None, &mut coef);
-        drop(y_pows_vec);
-        drop(x_pows_vec);
-        let mut xy_hi = vec![G2Affine::zero(); n * s_max].into_boxed_slice();
-        let cnt = AtomicU16::new(1);
-        let progress = AtomicU16::new(0);
-        let indi: u16 = coef.len() as u16 / 20;
-        xy_hi.par_iter_mut()
-            .zip(coef.par_iter())
-            .for_each(|(r, &c)| {
-                *r = G2Affine::from(gen_proj * c);
-                let current_cnt = cnt.fetch_add(1, Ordering::Relaxed);
-                if current_cnt % indi == 0 {
-                    let new_progress = progress.fetch_add(5, Ordering::Relaxed);
-                    print!("\rProgress: {}%", new_progress);
-                    stdout().flush().unwrap(); 
-                }
-            });
-        print!("\r");
-        drop(coef);
+    //     //generate xy_hi: Box<[G2Affine]>, // h ∈ ⟦0,n-1⟧ , i ∈ ⟦0, s_{max} -1⟧
+    //     println!("Generating xy_hi of size {:?} on G2...", n * s_max);
+    //     let x_pows_vec = resize_monomial_vec!(
+    //         &vec![ScalarField::one(), tau.x].into_boxed_slice(), 
+    //         n
+    //     );
+    //     let y_pows_vec = resize_monomial_vec!(
+    //         &vec![ScalarField::one(), tau.y].into_boxed_slice(), 
+    //         s_max
+    //     );
+    //     let mut coef = vec![ScalarField::zero(); n * s_max].into_boxed_slice();
+    //     _scaled_outer_product(&y_pows_vec, &x_pows_vec, None, &mut coef);
+    //     drop(y_pows_vec);
+    //     drop(x_pows_vec);
+    //     let mut xy_hi = vec![G2Affine::zero(); n * s_max].into_boxed_slice();
+    //     let cnt = AtomicU16::new(1);
+    //     let progress = AtomicU16::new(0);
+    //     let indi: u16 = coef.len() as u16 / 20;
+    //     xy_hi.par_iter_mut()
+    //         .zip(coef.par_iter())
+    //         .for_each(|(r, &c)| {
+    //             *r = G2Affine::from(gen_proj * c);
+    //             let current_cnt = cnt.fetch_add(1, Ordering::Relaxed);
+    //             if current_cnt % indi == 0 {
+    //                 let new_progress = progress.fetch_add(5, Ordering::Relaxed);
+    //                 print!("\rProgress: {}%", new_progress);
+    //                 stdout().flush().unwrap(); 
+    //             }
+    //         });
+    //     print!("\r");
+    //     drop(coef);
 
-        // generate others
-        println!("Generating other G2 points...");
-        let beta = G2Affine::from(gen_proj * tau.beta);
-        let gamma = G2Affine::from(gen_proj * tau.gamma);
-        let delta = G2Affine::from(gen_proj * tau.delta);
-        let eta1 = G2Affine::from(gen_proj * tau.eta1);
-        let mu_eta0 = G2Affine::from(gen_proj * (tau.mu * tau.eta0));
-        let mu_eta1 = G2Affine::from(gen_proj * (tau.mu * tau.eta1));
-        let val = inner_product_two_vecs(o_vec_inter, k_vec);
-        let mu_comb_o_inter = G2Affine::from(gen_proj * (tau.mu.pow(2) * val));
-        let mu_3_nu = G2Affine::from(gen_proj * (tau.mu.pow(3) * tau.nu));
-        let mut mu_4_kappa_i = vec![G2Affine::zero(); 3].into_boxed_slice();
-        for i in 0..3 {
-            mu_4_kappa_i[i] = G2Affine::from(gen_proj * (tau.mu.pow(4) * tau.kappa.pow(i)));
-        }
-        let mut mu_3_psi0_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
-        let mut mu_3_psi1_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
-        let mut mu_3_psi2_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
-        let mut mu_3_psi3_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
-        for y_i  in 0.. 2 {
-            for z_j in 0..2 {
-                let common_val = (tau.mu.pow(3) * tau.y.pow(y_i)) * tau.z.pow(z_j);
-                mu_3_psi0_yz_ij[y_i][z_j] = G2Affine::from(gen_proj * (tau.psi0 * common_val));
-                mu_3_psi1_yz_ij[y_i][z_j] = G2Affine::from(gen_proj * (tau.psi1 * common_val));
-                mu_3_psi2_yz_ij[y_i][z_j] = G2Affine::from(gen_proj * (tau.psi2 * common_val));
-                mu_3_psi3_yz_ij[y_i][z_j] = G2Affine::from(gen_proj * (tau.psi3 * common_val));
+    //     // generate others
+    //     println!("Generating other G2 points...");
+    //     let beta = G2Affine::from(gen_proj * tau.beta);
+    //     let gamma = G2Affine::from(gen_proj * tau.gamma);
+    //     let delta = G2Affine::from(gen_proj * tau.delta);
+    //     let eta1 = G2Affine::from(gen_proj * tau.eta1);
+    //     let mu_eta0 = G2Affine::from(gen_proj * (tau.mu * tau.eta0));
+    //     let mu_eta1 = G2Affine::from(gen_proj * (tau.mu * tau.eta1));
+    //     let val = inner_product_two_vecs(o_vec_inter, k_vec);
+    //     let mu_comb_o_inter = G2Affine::from(gen_proj * (tau.mu.pow(2) * val));
+    //     let mu_3_nu = G2Affine::from(gen_proj * (tau.mu.pow(3) * tau.nu));
+    //     let mut mu_4_kappa_i = vec![G2Affine::zero(); 3].into_boxed_slice();
+    //     for i in 0..3 {
+    //         mu_4_kappa_i[i] = G2Affine::from(gen_proj * (tau.mu.pow(4) * tau.kappa.pow(i)));
+    //     }
+    //     let mut mu_3_psi0_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
+    //     let mut mu_3_psi1_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
+    //     let mut mu_3_psi2_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
+    //     let mut mu_3_psi3_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
+    //     for y_i  in 0.. 2 {
+    //         for z_j in 0..2 {
+    //             let common_val = (tau.mu.pow(3) * tau.y.pow(y_i)) * tau.z.pow(z_j);
+    //             mu_3_psi0_yz_ij[y_i][z_j] = G2Affine::from(gen_proj * (tau.psi0 * common_val));
+    //             mu_3_psi1_yz_ij[y_i][z_j] = G2Affine::from(gen_proj * (tau.psi1 * common_val));
+    //             mu_3_psi2_yz_ij[y_i][z_j] = G2Affine::from(gen_proj * (tau.psi2 * common_val));
+    //             mu_3_psi3_yz_ij[y_i][z_j] = G2Affine::from(gen_proj * (tau.psi3 * common_val));
+    //         }
+    //     }
+
+    //     //// End of generation
+    //     Self {
+    //         beta,
+    //         gamma,
+    //         delta,
+    //         eta1,
+    //         mu_eta0,
+    //         mu_eta1,
+    //         xy_hi,
+    //         mu_comb_o_inter,
+    //         mu_3_nu,
+    //         mu_4_kappa_i,
+    //         mu_3_psi0_yz_ij,
+    //         mu_3_psi1_yz_ij,
+    //         mu_3_psi2_yz_ij,
+    //         mu_3_psi3_yz_ij
+    //     }
+    // }
+
+
+pub fn gen(
+    params: &SetupParams,
+    tau: &Tau,
+    o_vec: &Box<[ScalarField]>,
+    k_vec: &Box<[ScalarField]>,
+    g2_gen: &G2Affine
+) -> Self {
+    let l = params.l;
+    let l_d = params.l_D;
+    let n = params.n;
+
+    let o_vec_inter = &o_vec[l..l_d].to_vec().into_boxed_slice();
+    let gen_proj = g2_gen.to_projective();
+
+    // xy_hi 벡터 생성 (병렬화 유지)
+    println!("Generating xy_hi of size {:?} on G2...", n * s_max);
+    let x_pows_vec = resize_monomial_vec!(
+        &vec![ScalarField::one(), tau.x].into_boxed_slice(), 
+        n
+    );
+    let y_pows_vec = resize_monomial_vec!(
+        &vec![ScalarField::one(), tau.y].into_boxed_slice(), 
+        s_max
+    );
+    let mut coef = vec![ScalarField::zero(); n * s_max].into_boxed_slice();
+    _scaled_outer_product(&y_pows_vec, &x_pows_vec, None, &mut coef);
+    drop(y_pows_vec);
+    drop(x_pows_vec);
+
+    let mut xy_hi = vec![G2Affine::zero(); n * s_max].into_boxed_slice();
+    let progress = AtomicU16::new(0);
+    let indi: u16 = coef.len() as u16 / 20;
+
+    xy_hi.par_iter_mut()
+        .zip(coef.par_iter())
+        .for_each(|(r, &c)| {
+            *r = G2Affine::from(gen_proj * c);
+            let current_progress = progress.fetch_add(1, Ordering::Relaxed);
+            if current_progress % indi == 0 {
+                print!("\rProgress: {}%", (current_progress * 5 / indi));
+                stdout().flush().unwrap();
             }
-        }
+        });
+    print!("\r");
+    drop(coef);
+    // G2 points 병렬 생성
+    println!("Generating other G2 points...");
+    let (mut beta, mut gamma, mut delta, mut eta1, mut mu_eta0, mut mu_eta1) =
+    (G2Affine::zero(), G2Affine::zero(), G2Affine::zero(), G2Affine::zero(), G2Affine::zero(), G2Affine::zero());
 
-        //// End of generation
-        Self {
-            beta,
-            gamma,
-            delta,
-            eta1,
-            mu_eta0,
-            mu_eta1,
-            xy_hi,
-            mu_comb_o_inter,
-            mu_3_nu,
-            mu_4_kappa_i,
-            mu_3_psi0_yz_ij,
-            mu_3_psi1_yz_ij,
-            mu_3_psi2_yz_ij,
-            mu_3_psi3_yz_ij
-        }
+    scope(|s| {
+        s.spawn(|_| { beta = G2Affine::from(gen_proj * tau.beta); });
+        s.spawn(|_| { gamma = G2Affine::from(gen_proj * tau.gamma); });
+        s.spawn(|_| { delta = G2Affine::from(gen_proj * tau.delta); });
+        s.spawn(|_| { eta1 = G2Affine::from(gen_proj * tau.eta1); });
+        s.spawn(|_| { mu_eta0 = G2Affine::from(gen_proj * (tau.mu * tau.eta0)); });
+        s.spawn(|_| { mu_eta1 = G2Affine::from(gen_proj * (tau.mu * tau.eta1)); });
+    });
+
+    let mu_comb_o_inter = G2Affine::from(gen_proj * (tau.mu.pow(2) * inner_product_two_vecs(o_vec_inter, k_vec)));
+    let mu_3_nu = G2Affine::from(gen_proj * (tau.mu.pow(3) * tau.nu));
+
+    // mu_4_kappa_i 벡터 병렬화
+    let mut mu_4_kappa_i = vec![G2Affine::zero(); 3].into_boxed_slice();
+    mu_4_kappa_i.par_iter_mut().enumerate().for_each(|(i, v)| {
+        *v = G2Affine::from(gen_proj * (tau.mu.pow(4) * tau.kappa.pow(i)));
+    });
+
+    // mu_3_psi_yz_ij 벡터 병렬화
+    let mut mu_3_psi0_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
+    let mut mu_3_psi1_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
+    let mut mu_3_psi2_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
+    let mut mu_3_psi3_yz_ij = vec![vec![G2Affine::zero(); 2].into_boxed_slice(); 2].into_boxed_slice();
+
+    // 🔹 Rayon을 이용하여 병렬 실행, but Mutex 없이 직접 수정 가능
+    mu_3_psi0_yz_ij.par_iter_mut().enumerate().for_each(|(y_i, row)| {
+        row.iter_mut().enumerate().for_each(|(z_j, cell)| {
+            let common_val = (tau.mu.pow(3) * tau.y.pow(y_i)) * tau.z.pow(z_j);
+            *cell = G2Affine::from(gen_proj * (tau.psi0 * common_val));
+        });
+    });
+
+    mu_3_psi1_yz_ij.par_iter_mut().enumerate().for_each(|(y_i, row)| {
+        row.iter_mut().enumerate().for_each(|(z_j, cell)| {
+            let common_val = (tau.mu.pow(3) * tau.y.pow(y_i)) * tau.z.pow(z_j);
+            *cell = G2Affine::from(gen_proj * (tau.psi1 * common_val));
+        });
+    });
+
+    mu_3_psi2_yz_ij.par_iter_mut().enumerate().for_each(|(y_i, row)| {
+        row.iter_mut().enumerate().for_each(|(z_j, cell)| {
+            let common_val = (tau.mu.pow(3) * tau.y.pow(y_i)) * tau.z.pow(z_j);
+            *cell = G2Affine::from(gen_proj * (tau.psi2 * common_val));
+        });
+    });
+
+    mu_3_psi3_yz_ij.par_iter_mut().enumerate().for_each(|(y_i, row)| {
+        row.iter_mut().enumerate().for_each(|(z_j, cell)| {
+            let common_val = (tau.mu.pow(3) * tau.y.pow(y_i)) * tau.z.pow(z_j);
+            *cell = G2Affine::from(gen_proj * (tau.psi3 * common_val));
+        });
+    });
+
+    //// End of generation
+    Self {
+        beta,
+        gamma,
+        delta,
+        eta1,
+        mu_eta0,
+        mu_eta1,
+        xy_hi,
+        mu_comb_o_inter,
+        mu_3_nu,
+        mu_4_kappa_i,
+        mu_3_psi0_yz_ij,
+        mu_3_psi1_yz_ij,
+        mu_3_psi2_yz_ij,
+        mu_3_psi3_yz_ij
     }
+}
+
 }
