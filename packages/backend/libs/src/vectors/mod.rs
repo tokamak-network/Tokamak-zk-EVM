@@ -31,7 +31,50 @@ pub fn inner_product_two_vecs(lhs_vec: &Box<[ScalarField]>, rhs_vec: &Box<[Scala
     res
 }
 
-pub fn outer_product_two_vecs(col_vec: &Box<[ScalarField]>, row_vec: &Box<[ScalarField]>, res: &mut Box<[ScalarField]>){
+// pub fn outer_product_two_vecs(col_vec: &Box<[ScalarField]>, row_vec: &Box<[ScalarField]>, res: &mut Box<[ScalarField]>){
+//     if col_vec.len() * row_vec.len() != res.len() {
+//         panic!("Insufficient buffer length");
+//     }
+
+//     let col_len = col_vec.len();
+//     let row_len = row_vec.len();
+
+//     let vec_ops_cfg = VecOpsConfig::default();
+//     let min_len = std::cmp::min(row_len, col_len);
+//     let max_len = std::cmp::max(row_len, col_len);
+//     let max_dir = if max_len == row_len {true } else {false};
+
+//     let base_vec = if max_dir { row_vec } else { col_vec };
+     
+//     let mut res_untransposed = vec![ScalarField::zero(); res.len()].into_boxed_slice();
+//     for ind in 0 .. min_len {
+//         let scaler = if max_dir {col_vec[ind]} else {row_vec[ind]};
+//         let scaler_vec = vec![scaler; max_len].into_boxed_slice();
+//         let mut res_vec = vec![ScalarField::zero(); max_len].into_boxed_slice();
+//         ScalarCfg::mul(
+//             HostSlice::from_slice(&scaler_vec),
+//             HostSlice::from_slice(&base_vec),
+//             HostSlice::from_mut_slice(&mut res_vec),
+//             &vec_ops_cfg
+//         ).unwrap();
+//         res_untransposed[ind * max_len .. (ind + 1) * max_len].copy_from_slice(&res_vec);
+//     }
+    
+//     if !max_dir {
+//         let res_untranposed_buf = HostSlice::from_slice(&res_untransposed);
+//         let res_buf = HostSlice::from_mut_slice(res);
+//         ScalarCfg::transpose(
+//             res_untranposed_buf,
+//             min_len as u32,
+//             max_len as u32,
+//             res_buf,
+//             &vec_ops_cfg).unwrap();
+//     } else {
+//         res.clone_from(&res_untransposed);
+//     }
+// }
+
+pub fn outer_product_two_vecs(col_vec: &Box<[ScalarField]>, row_vec: &Box<[ScalarField]>, res: &mut Box<[ScalarField]>) {
     if col_vec.len() * row_vec.len() != res.len() {
         panic!("Insufficient buffer length");
     }
@@ -42,35 +85,42 @@ pub fn outer_product_two_vecs(col_vec: &Box<[ScalarField]>, row_vec: &Box<[Scala
     let vec_ops_cfg = VecOpsConfig::default();
     let min_len = std::cmp::min(row_len, col_len);
     let max_len = std::cmp::max(row_len, col_len);
-    let max_dir = if max_len == row_len {true } else {false};
+    let max_dir = if max_len == row_len { true } else { false };
 
     let base_vec = if max_dir { row_vec } else { col_vec };
-     
+
     let mut res_untransposed = vec![ScalarField::zero(); res.len()].into_boxed_slice();
-    for ind in 0 .. min_len {
-        let scaler = if max_dir {col_vec[ind]} else {row_vec[ind]};
-        let scaler_vec = vec![scaler; max_len].into_boxed_slice();
-        let mut res_vec = vec![ScalarField::zero(); max_len].into_boxed_slice();
-        ScalarCfg::mul(
-            HostSlice::from_slice(&scaler_vec),
-            HostSlice::from_slice(&base_vec),
-            HostSlice::from_mut_slice(&mut res_vec),
-            &vec_ops_cfg
-        ).unwrap();
-        res_untransposed[ind * max_len .. (ind + 1) * max_len].copy_from_slice(&res_vec);
-    }
-    
+
+    res_untransposed
+        .chunks_mut(max_len)
+        .into_iter()
+        .enumerate()
+        .for_each(|(ind, chunk)| {
+            let scaler = if max_dir { col_vec[ind] } else { row_vec[ind] };
+            let scaler_vec = vec![scaler; max_len].into_boxed_slice();
+            let mut res_vec = vec![ScalarField::zero(); max_len].into_boxed_slice();
+            
+            ScalarCfg::mul(
+                HostSlice::from_slice(&scaler_vec),
+                HostSlice::from_slice(&base_vec),
+                HostSlice::from_mut_slice(&mut res_vec),
+                &vec_ops_cfg,
+            ).unwrap();
+            chunk.copy_from_slice(&res_vec);
+        });
+
     if !max_dir {
         let res_untranposed_buf = HostSlice::from_slice(&res_untransposed);
         let res_buf = HostSlice::from_mut_slice(res);
+        
         ScalarCfg::transpose(
             res_untranposed_buf,
             min_len as u32,
             max_len as u32,
             res_buf,
-            &vec_ops_cfg).unwrap();
+            &vec_ops_cfg,
+        ).unwrap();
     } else {
         res.clone_from(&res_untransposed);
     }
-
 }

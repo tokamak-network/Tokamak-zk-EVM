@@ -31,7 +31,7 @@ fn main() {
     let tau = Tau::gen();
     
     let mut path: &str = "";
-    path = "setup/trusted-setup/inputs/setupParams.json";
+    path = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/setupParams.json";
     let setup_params = SetupParams::from_path(path).unwrap();
     // println!("{:?}", setup_params);
     let m_d = setup_params.m_D;
@@ -54,13 +54,13 @@ fn main() {
         panic!{"l_D - l is not a pwer of two."}
     }
     
-    path = "setup/trusted-setup/inputs/subcircuitInfo.json";
+    path = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/subcircuitInfo.json";
     let subcircuit_infos = SubcircuitInfo::from_path(path).unwrap();
     // for subcircuit in subcircuit_infos.iter() {
     //     println!("{:?}", subcircuit);
     // }
 
-    path = "setup/trusted-setup/inputs/globalWireList.json";
+    path = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/globalWireList.json";
     let globalWireList = read_json_as_boxed_boxed_numbers(path).unwrap();
     // println!("{:?}", globalWireList);
     // path = "setup/trusted-setup/inputs/json/subcircuit0.json";
@@ -89,7 +89,7 @@ fn main() {
         for i in 0..s_d {
         // for i in [3] {
             println!("Processing subcircuit id {:?}", i);
-            let _path = format!("setup/trusted-setup/inputs/json/subcircuit{i}.json");
+            let _path = format!("/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/json/subcircuit{i}.json");
             let evaled_qap = MixedSubcircuitQAPEvaled::from_r1cs_to_evaled_qap(
                 &_path,
                 &setup_params,
