@@ -1,17 +1,12 @@
-use icicle_bls12_381::curve::{BaseField, G2BaseField, CurveCfg, G1Projective, G2Projective, G1Affine, G2Affine, ScalarCfg, ScalarField};
-use icicle_bls12_381::{curve, vec_ops};
-use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
+use icicle_bls12_381::curve::{G1Affine, G2Affine, ScalarCfg, ScalarField};
+use icicle_core::traits::{Arithmetic, FieldImpl};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
-use crate::tools::{Tau, SetupParams, SubcircuitInfo, MixedSubcircuitQAPEvaled, gen_cached_pows};
+use crate::tools::{Tau, SetupParams};
 use crate::vectors::{inner_product_two_vecs, outer_product_two_vecs, point_mul_two_vecs};
 use crate::s_max;
-use icicle_core::{ntt, msm};
-use std::path::Path;
-use std::ops::{Add, Mul, Sub};
 use std::io::{stdout, Write};
 use std::sync::atomic::{AtomicU16, Ordering};
-use std::sync::{Arc, Mutex};
-use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice, DeviceSlice, DeviceVec};
+use icicle_runtime::memory::HostSlice;
 use rayon::scope;
 
 use rayon::prelude::*;
@@ -160,7 +155,7 @@ macro_rules! type_scaled_monomials_1d {
 }
 
 
-fn gen_monomial_matrix(x_size: usize, y_size: usize, x: &ScalarField, y: &ScalarField, res_vec: &mut Box<[ScalarField]>) {
+fn _gen_monomial_matrix(x_size: usize, y_size: usize, x: &ScalarField, y: &ScalarField, res_vec: &mut Box<[ScalarField]>) {
     // x_size: column size
     // y_size: row size
     if res_vec.len() != x_size * y_size {

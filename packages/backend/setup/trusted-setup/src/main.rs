@@ -25,10 +25,12 @@ use std::time::Instant;
 use libs::s_max;
 
 fn main() {
+    // generate random points
     let g1_gen = CurveCfg::generate_random_affine_points(1)[0];
     let g2_gen = G2CurveCfg::generate_random_affine_points(1)[0];
     
     let tau = Tau::gen();
+    println!("tau: {:?}, {:?}, {:?}", tau.x, tau.y, tau.z);
     
     let mut path: &str = "";
     path = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/setupParams.json";

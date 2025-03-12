@@ -1,8 +1,6 @@
 use super::polynomials::{DensePolynomialExt, BivariatePolynomial};
 
 use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
-use icicle_bls12_381::polynomials::DensePolynomial;
-use icicle_core::polynomials::UnivariatePolynomial;
 use icicle_core::traits::{FieldImpl, GenerateRandom};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 
@@ -130,79 +128,87 @@ pub struct SubcircuitQAPRaw{
 
 impl SubcircuitQAPRaw{
     pub fn from_path(path: &str, setup_params: &SetupParams, subcircuit_info: &SubcircuitInfo) -> io::Result<Self> {
-        let mut constraints = Constraints::from_path(path).unwrap();
+        let mut constraints = Constraints::from_path(path)?;
         Constraints::convert_values_to_hex(&mut constraints);
+    
         let column_size = subcircuit_info.Nconsts;
         let row_size = subcircuit_info.Nwires;
         let matrix_size = column_size * row_size;
-        let mut a_mat_vec = vec![ScalarField::zero(); matrix_size ].into_boxed_slice();
-        let mut b_mat_vec = vec![ScalarField::zero(); matrix_size ].into_boxed_slice();
-        let mut c_mat_vec = vec![ScalarField::zero(); matrix_size ].into_boxed_slice();
-
+        
+        let mut a_mat_vec = vec![ScalarField::zero(); matrix_size].into_boxed_slice();
+        let mut b_mat_vec = vec![ScalarField::zero(); matrix_size].into_boxed_slice();
+        let mut c_mat_vec = vec![ScalarField::zero(); matrix_size].into_boxed_slice();
+    
+        // active wire indices를 직접 확장합니다.
         let mut a_active_wire_indices = HashSet::<usize>::new();
         let mut b_active_wire_indices = HashSet::<usize>::new();
         let mut c_active_wire_indices = HashSet::<usize>::new();
-
+        
         for const_idx in 0..column_size {
             let constraint = &constraints.constraints[const_idx];
             let a_constraint = &constraint[0];
             let b_constraint = &constraint[1];
             let c_constraint = &constraint[2];
-            let a_set:HashSet<usize> = a_constraint.keys().copied().collect();
-            let b_set:HashSet<usize> = b_constraint.keys().copied().collect();
-            let c_set:HashSet<usize> = c_constraint.keys().copied().collect();
-            for wire_idx in &a_set{
-                let hex_val = a_constraint.get(wire_idx).unwrap();
-                a_mat_vec[const_idx + *wire_idx * column_size] = ScalarField::from_hex(hex_val);
+        
+            // 각 constraint의 키들을 active set에 확장(재할당 없이)
+            a_active_wire_indices.extend(a_constraint.keys().copied());
+            b_active_wire_indices.extend(b_constraint.keys().copied());
+            c_active_wire_indices.extend(c_constraint.keys().copied());
+        
+            // a_constraint 처리: 각 wire_idx에 대해 'wire_idx * column_size'를 한 번만 계산하도록 함.
+            for (&wire_idx, hex_val) in a_constraint {
+                let base = wire_idx * column_size;  // wire_idx * column_size를 캐시
+                let idx = const_idx + base;
+                a_mat_vec[idx] = ScalarField::from_hex(hex_val);
             }
-            for wire_idx in &b_set{
-                let hex_val = b_constraint.get(wire_idx).unwrap();
-                b_mat_vec[const_idx + *wire_idx * column_size] = ScalarField::from_hex(hex_val);
+            // b_constraint 처리
+            for (&wire_idx, hex_val) in b_constraint {
+                let base = wire_idx * column_size;
+                let idx = const_idx + base;
+                b_mat_vec[idx] = ScalarField::from_hex(hex_val);
             }
-            for wire_idx in &c_set{
-                let hex_val = c_constraint.get(wire_idx).unwrap();
-                c_mat_vec[const_idx + *wire_idx * column_size] = ScalarField::from_hex(hex_val);
+            // c_constraint 처리
+            for (&wire_idx, hex_val) in c_constraint {
+                let base = wire_idx * column_size;
+                let idx = const_idx + base;
+                c_mat_vec[idx] = ScalarField::from_hex(hex_val);
             }
-            a_active_wire_indices = a_active_wire_indices.union(&a_set).copied().collect();
-            b_active_wire_indices = b_active_wire_indices.union(&b_set).copied().collect();
-            c_active_wire_indices = c_active_wire_indices.union(&c_set).copied().collect();
         }
-        // n >= column_size
+        
+        
         let n = setup_params.n;
         if n < column_size {
             panic!("n is smaller than the actual number of constraints.");
         }
-        let zeros_vec = vec![ScalarField::zero(); n].into_boxed_slice();
-        // let zero_poly = DensePolynomial::from_coeffs(HostSlice::from_slice(&zeros_vec), n);
-        // let mut u_polys = vec![zero_poly.clone(); a_active_wire_indices.len()].into_boxed_slice();
-        // let mut v_polys = vec![zero_poly.clone(); b_active_wire_indices.len()].into_boxed_slice();
-        // let mut w_polys = vec![zero_poly.clone(); c_active_wire_indices.len()].into_boxed_slice();
-        let mut u_evals = vec![zeros_vec.clone(); a_active_wire_indices.len()].into_boxed_slice();
-        let mut v_evals = vec![zeros_vec.clone(); b_active_wire_indices.len()].into_boxed_slice();
-        let mut w_evals = vec![zeros_vec.clone(); c_active_wire_indices.len()].into_boxed_slice();
-        for (i, wire_idx) in a_active_wire_indices.iter().enumerate() {
-            // let mut u_poly_eval_vec = zeros_vec.clone();
-            // u_poly_eval_vec[0 .. column_size].copy_from_slice(&a_mat_vec[*wire_idx*column_size .. (*wire_idx + 1)*column_size]);
-            // let u_poly_eval = HostSlice::from_slice(&u_poly_eval_vec);
-            // u_polys[i] = DensePolynomialExt::from_rou_evals(u_poly_eval, n, 1, None, None).poly;
-            u_evals[i][0 .. column_size].copy_from_slice(&a_mat_vec[*wire_idx*column_size .. (*wire_idx + 1)*column_size]);
+        
+        let new_zeros = |n: usize| vec![ScalarField::zero(); n].into_boxed_slice();
+        let zeros_vec = new_zeros(n);
+        
+        let u_len = a_active_wire_indices.len();
+        let v_len = b_active_wire_indices.len();
+        let w_len = c_active_wire_indices.len();
+        
+        let mut u_evals = vec![zeros_vec.clone(); u_len].into_boxed_slice();
+        let mut v_evals = vec![zeros_vec.clone(); v_len].into_boxed_slice();
+        let mut w_evals = vec![zeros_vec.clone(); w_len].into_boxed_slice();
+        
+        for (i, &wire_idx) in a_active_wire_indices.iter().enumerate() {
+            let start = wire_idx * column_size;
+            let end = start + column_size;
+            u_evals[i][0 .. column_size].copy_from_slice(&a_mat_vec[start .. end]);
         }
-        for (i, wire_idx) in b_active_wire_indices.iter().enumerate() {
-            // let mut v_poly_eval_vec = zeros_vec.clone();
-            // v_poly_eval_vec[0 .. column_size].copy_from_slice(&b_mat_vec[*wire_idx*column_size .. (*wire_idx + 1)*column_size]);
-            // let v_poly_eval = HostSlice::from_slice(&v_poly_eval_vec);
-            // v_polys[i] = DensePolynomialExt::from_rou_evals(v_poly_eval, n, 1, None, None).poly;
-            v_evals[i][0 .. column_size].copy_from_slice(&b_mat_vec[*wire_idx*column_size .. (*wire_idx + 1)*column_size]);
+        for (i, &wire_idx) in b_active_wire_indices.iter().enumerate() {
+            let start = wire_idx * column_size;
+            let end = start + column_size;
+            v_evals[i][0 .. column_size].copy_from_slice(&b_mat_vec[start .. end]);
         }
-        for (i, wire_idx) in c_active_wire_indices.iter().enumerate() {
-            // let mut w_poly_eval_vec = zeros_vec.clone();
-            // w_poly_eval_vec[0 .. column_size].copy_from_slice(&c_mat_vec[*wire_idx*column_size .. (*wire_idx + 1)*column_size]);
-            // let w_poly_eval = HostSlice::from_slice(&w_poly_eval_vec);
-            // w_polys[i] = DensePolynomialExt::from_rou_evals(w_poly_eval, n, 1, None, None).poly; 
-            w_evals[i][0 .. column_size].copy_from_slice(&c_mat_vec[*wire_idx*column_size .. (*wire_idx + 1)*column_size]);
+        for (i, &wire_idx) in c_active_wire_indices.iter().enumerate() {
+            let start = wire_idx * column_size;
+            let end = start + column_size;
+            w_evals[i][0 .. column_size].copy_from_slice(&c_mat_vec[start .. end]);
         }
-        Ok(
-            Self {
+        
+        Ok(Self {
             u_evals,
             v_evals,
             w_evals,
@@ -210,8 +216,8 @@ impl SubcircuitQAPRaw{
             v_active_wires: b_active_wire_indices,
             w_active_wires: c_active_wire_indices,
         })
-
     }
+    
 }
 
 pub struct MixedSubcircuitQAPEvaled {

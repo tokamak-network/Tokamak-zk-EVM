@@ -1,7 +1,7 @@
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
-use icicle_bls12_381::{curve::{ScalarCfg, ScalarField}, vec_ops};
-use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
-use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice, DeviceSlice, DeviceVec};
+use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
+use icicle_core::traits::FieldImpl;
+use icicle_runtime::memory::HostSlice;
 
 pub fn point_mul_two_vecs(lhs: &Box<[ScalarField]>, rhs: &Box<[ScalarField]>, res: &mut Box<[ScalarField]>){
     if lhs.len() != rhs.len() || lhs.len() != res.len() {
