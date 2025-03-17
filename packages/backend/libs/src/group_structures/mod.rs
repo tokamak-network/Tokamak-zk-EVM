@@ -7,6 +7,7 @@ use crate::s_max;
 use std::io::{stdout, Write};
 use std::sync::atomic::{AtomicU16, Ordering};
 use icicle_runtime::memory::HostSlice;
+use serde_json::{Value, json, Map};
 use rayon::scope;
 
 use rayon::prelude::*;
@@ -406,6 +407,20 @@ impl SigmaArithAndIP {
         }
     
     }
+
+    pub fn serialize_sigma_ai(sigma: &SigmaArithAndIP) -> Value {
+        json!({
+            "alpha": g1_affine_to_json(&sigma.alpha),
+            "xy_hi": g1_affine_array_to_json(&sigma.xy_hi),
+            "gamma_l_o_pub_j": g1_affine_array_to_json(&sigma.gamma_l_o_pub_j),
+            "eta1_l_o_inter_ij": g1_affine_2d_array_to_json(&sigma.eta1_l_o_inter_ij),
+            "delta_l_o_prv_ij": g1_affine_2d_array_to_json(&sigma.delta_l_o_prv_ij),
+            "eta0_l_o_ip_first_ij": g1_affine_2d_array_to_json(&sigma.eta0_l_o_ip_first_ij),
+            "eta0_l_m_tz_ip_second_ij": g1_affine_2d_array_to_json(&sigma.eta0_l_m_tz_ip_second_ij),
+            "delta_xy_tx_hi": g1_affine_array_to_json(&sigma.delta_xy_tx_hi),
+            "delta_xy_ty_hi": g1_affine_array_to_json(&sigma.delta_xy_ty_hi)
+        })
+    }
 }
 
 pub struct SigmaCopy {
@@ -505,6 +520,20 @@ impl SigmaCopy {
             psi3_kappa_1_z_j,
             psi3_kappa_2_z_j
         }
+    }
+
+    pub fn serialize_sigma_c(sigma: &SigmaCopy) -> Value {
+        json!({
+            "mu_l_k_ij": g1_affine_array_to_json(&sigma.mu_l_k_ij),
+            "nu_yz_ty_ij": g1_affine_array_to_json(&sigma.nu_yz_ty_ij),
+            "nu_yz_tz_ij": g1_affine_array_to_json(&sigma.nu_yz_tz_ij),
+            "psi0_kappa_0_yz_ij": g1_affine_array_to_json(&sigma.psi0_kappa_0_yz_ij),
+            "psi0_kappa_1_yz_ij": g1_affine_array_to_json(&sigma.psi0_kappa_1_yz_ij),
+            "psi1_z_j": g1_affine_array_to_json(&sigma.psi1_z_j),
+            "psi2_kappa_2_yz_ij": g1_affine_array_to_json(&sigma.psi2_kappa_2_yz_ij),
+            "psi3_kappa_1_z_j": g1_affine_array_to_json(&sigma.psi3_kappa_1_z_j),
+            "psi3_kappa_2_z_j": g1_affine_array_to_json(&sigma.psi3_kappa_2_z_j)
+        })
     }
 }
 
@@ -742,4 +771,81 @@ impl SigmaVerify {
         }
     }
 
+    pub fn serialize_sigma_v(sigma: &SigmaVerify) -> Value {
+        json!({
+            "beta": g2_affine_to_json(&sigma.beta),
+            "gamma": g2_affine_to_json(&sigma.gamma),
+            "delta": g2_affine_to_json(&sigma.delta),
+            "eta1": g2_affine_to_json(&sigma.eta1),
+            "mu_eta0": g2_affine_to_json(&sigma.mu_eta0),
+            "mu_eta1": g2_affine_to_json(&sigma.mu_eta1),
+            "xy_hi": g2_affine_array_to_json(&sigma.xy_hi),
+            "mu_comb_o_inter": g2_affine_to_json(&sigma.mu_comb_o_inter),
+            "mu_3_nu": g2_affine_to_json(&sigma.mu_3_nu),
+            "mu_4_kappa_i": g2_affine_array_to_json(&sigma.mu_4_kappa_i),
+            "mu_3_psi0_yz_ij": g2_affine_2d_array_to_json(&sigma.mu_3_psi0_yz_ij),
+            "mu_3_psi1_yz_ij": g2_affine_2d_array_to_json(&sigma.mu_3_psi1_yz_ij),
+            "mu_3_psi2_yz_ij": g2_affine_2d_array_to_json(&sigma.mu_3_psi2_yz_ij),
+            "mu_3_psi3_yz_ij": g2_affine_2d_array_to_json(&sigma.mu_3_psi3_yz_ij)
+        })
+    }
+}
+
+
+fn g1_affine_to_json(point: &G1Affine) -> Value {
+    // G1Affine 포인트를 직렬화 (예: x, y 좌표를 문자열로 변환)
+    json!({
+        "x": point.x.to_string(),
+        "y": point.y.to_string(),
+    })
+}
+
+fn g2_affine_to_json(point: &G2Affine) -> Value {
+    // G2Affine 포인트를 직렬화
+    // json!({
+    //     "x": {
+    //         "c0": point.x.c0.to_string(),
+    //         "c1": point.x.c1().to_string()
+    //     },
+    //     "y": {
+    //         "c0": point.y.c0().to_string(),
+    //         "c1": point.y.c1().to_string()
+    //     }
+    // })
+    json!({
+        "x": point.x.to_string(),
+        "y": point.y.to_string(),
+    })
+}
+
+fn g1_affine_array_to_json(array: &Box<[G1Affine]>) -> Value {
+    let mut json_array = Vec::new();
+    for point in array.iter() {
+        json_array.push(g1_affine_to_json(point));
+    }
+    Value::Array(json_array)
+}
+
+fn g2_affine_array_to_json(array: &Box<[G2Affine]>) -> Value {
+    let mut json_array = Vec::new();
+    for point in array.iter() {
+        json_array.push(g2_affine_to_json(point));
+    }
+    Value::Array(json_array)
+}
+
+fn g1_affine_2d_array_to_json(array: &Box<[Box<[G1Affine]>]>) -> Value {
+    let mut json_array = Vec::new();
+    for row in array.iter() {
+        json_array.push(g1_affine_array_to_json(row));
+    }
+    Value::Array(json_array)
+}
+
+fn g2_affine_2d_array_to_json(array: &Box<[Box<[G2Affine]>]>) -> Value {
+    let mut json_array = Vec::new();
+    for row in array.iter() {
+        json_array.push(g2_affine_array_to_json(row));
+    }
+    Value::Array(json_array)
 }

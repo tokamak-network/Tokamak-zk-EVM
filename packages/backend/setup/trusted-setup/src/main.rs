@@ -1,14 +1,17 @@
 use libs::tools::{Tau, SetupParams, SubcircuitInfo, MixedSubcircuitQAPEvaled};
 use libs::tools::{read_json_as_boxed_boxed_numbers, gen_cached_pows};
-use libs::group_structures::{SigmaArithAndIP, SigmaCopy, SigmaVerify};
-use icicle_bls12_381::curve::{ScalarField as Field, CurveCfg, G2CurveCfg};
+use libs::group_structures::{SigmaArithAndIP, SigmaCopy, SigmaVerify, Sigma};
+use icicle_bls12_381::curve::{ScalarField as Field, CurveCfg, G2CurveCfg, G1Affine, G2Affine};
 use icicle_core::traits::{Arithmetic, FieldImpl};
 use icicle_core::ntt;
 use icicle_core::curve::Curve;
 
 use std::vec;
 use std::time::Instant;
-use libs::s_max; 
+use libs::s_max;
+use std::fs::File;
+use std::io::Write;
+use serde_json::{Value, json, Map};
 
 fn main() {
     let start1 = Instant::now();
@@ -20,27 +23,26 @@ fn main() {
     let tau = Tau::gen();
     
     // Load setup parameters from a JSON file.
-    // The setupParams JSON contains predefined circuit parameters (e.g., number of wires, subcircuits, domain size).
     let mut path: &str = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/setupParams.json";
     let setup_params = SetupParams::from_path(path).unwrap();
 
     // Extract key parameters from setup_params:
-    let m_d = setup_params.m_D; // Total number of wires in the entire circuit (global wires across all subcircuits).
-    let s_d = setup_params.s_D; // Number of subcircuits the circuit is divided into.
-    let n   = setup_params.n;   // Number of points in the evaluation domain for polynomials (should be a power of two for FFT).
+    let m_d = setup_params.m_D; 
+    let s_d = setup_params.s_D; 
+    let n   = setup_params.n;   
 
     if !n.is_power_of_two() {
         panic!("n is not a power of two.");
     }
     
     // Additional wire-related parameters from setup:
-    let l   = setup_params.l;   // A parameter related to wire counts (context-specific; e.g., could be total wires per subcircuit or twice the number of input wires).
-    let l_d = setup_params.l_D; // Another length parameter (perhaps an extended domain size or total wires including dummy wires for alignment).
+    let l   = setup_params.l;   
+    let l_d = setup_params.l_D; 
 
     if l % 2 == 1 {
         panic!("l is not even.");
     }
-    let l_in = l / 2;  // If l represents total wires of a certain kind, l_in could be half of them (e.g., number of input wires if outputs equal inputs).
+    let _l_in = l / 2;  // 변수명 앞에 _ 추가하여 경고 제거
 
     // Ensure s_max (maximum allowed value for something, e.g., max subcircuits or opcodes) is a power of two.
     if !s_max.is_power_of_two() {
@@ -49,41 +51,30 @@ fn main() {
     
     let z_dom_length = l_d - l;
     // Ensure that the difference (l_D - l) is also a power of two.
-    // This could represent the size of an extended domain or padding (for example, extra zeros in polynomial evaluation domain).
     if !z_dom_length.is_power_of_two() {
         panic!("l_D - l is not a power of two.");
     }
 
     path = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/subcircuitInfo.json";
-    // contains an array of SubcircuitInfo, each with data like subcircuit id, number of wires, and flattenMap (local-to-global wire mapping).
     let subcircuit_infos = SubcircuitInfo::from_path(path).unwrap();
 
     path = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/globalWireList.json";
-    // It provides the inverse mapping of flattenMap, i.e., given a global wire index, you can find which subcircuit and local index it corresponds to.
     let globalWireList = read_json_as_boxed_boxed_numbers(path).unwrap();
     
     let start = Instant::now();
 
     // Build polynomial evaluations for each wire in the circuit.
-    // We will evaluate each wire's corresponding polynomial (from the QAP) at the secret value tau.x,
-    // and collect these evaluations in a global vector.
     let mut o_evaled_vec = vec![Field::zero(); m_d].into_boxed_slice();
-    // o_evaled_vec will hold the evaluated polynomial value for each global wire (initialized to 0 for all m_d wires).
     let mut nonzero_wires = Vec::<usize>::new();
-    // nonzero_wires will store the indices of wires that have a non-zero polynomial evaluation (for potential optimization in later steps).
 
     {
         let mut cached_x_pows_vec = vec![Field::zero(); n].into_boxed_slice();
         gen_cached_pows(&tau.x, n, &mut cached_x_pows_vec);
-        // Precompute powers of tau.x up to x^(n-1), stored in cached_x_pows_vec.
-        // After this, cached_x_pows_vec[i] == (tau.x)^i for 0 <= i < n.
-        // This will be used to quickly evaluate Lagrange or monomial polynomials at tau.x without repeated exponentiation.
 
         for i in 0..s_d {
             println!("Processing subcircuit id {:?}", i);
             let _path = format!("/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/json/subcircuit{i}.json");
 
-            // Evaluate the QAP (Quadratic Arithmetic Program) for the given subcircuit using its R1CS.
             let evaled_qap = MixedSubcircuitQAPEvaled::from_r1cs_to_evaled_qap(
                 &_path,
                 &setup_params,
@@ -91,36 +82,22 @@ fn main() {
                 &tau,
                 &cached_x_pows_vec,
             );
-            // reads the R1CS from the JSON file,
-            // then compute the QAP polynomial evaluations.
-            // returns an object with evaluated QAP data, including the values of each wire's polynomial at tau.x.
             
-            // flatten_map is a vector mapping local wire indices (in this subcircuit) to global wire indices (in the full circuit).
             let flatten_map = &subcircuit_infos[i].flattenMap;
 
-            // Iterate over all active wires in this subcircuit and record their polynomial evaluations.
             for (j, local_idx) in evaled_qap.active_wires.iter().enumerate() {
                 let global_idx = flatten_map[*local_idx];
 
-                // Ensure consistency between the global wire list and the flatten_map mapping.
-                // The globalWireList at position global_idx should match this subcircuit and local index.
                 if (globalWireList[global_idx][0] != subcircuit_infos[i].id) || (globalWireList[global_idx][1] != *local_idx) {
                     panic!("GlobalWireList is not the inverse of flattenMap.");
                 }
 
                 let wire_val = evaled_qap.o_evals[j];
-                // wire_val is the evaluated polynomial value for this wire at tau.x (from the QAP evaluation results).
-                // If the wire's polynomial is zero everywhere, this will be 0; otherwise it's the specific field element result.
 
                 if !wire_val.eq(&Field::zero()) {
-                    // If the polynomial evaluation is non-zero (the wire carries a non-zero value in the witness):
                     nonzero_wires.push(global_idx);
-                    // record the global index of this wire in the list of non-zero wires,
                     o_evaled_vec[global_idx] = wire_val;
-                    // and store the evaluated value in the global output vector at the corresponding index.
                 }
-                // If wire_val is zero, we do nothing (o_evaled_vec remains zero by default),
-                // effectively skipping inactive or zero-contribution wires to save space and computation.
             }
         }
     }
@@ -131,16 +108,12 @@ fn main() {
     let mut l_evaled_vec = vec![Field::zero(); s_max].into_boxed_slice();
     // Compute and store Lagrange basis polynomial evaluations at τ.y
     gen_cached_pows(&tau.y, s_max, &mut l_evaled_vec);
-    // This computes and caches [1, τ.y, (τ.y)^2, ..., (τ.y)^(s_max-1)]
-    // These values will be used for subcircuit-specific polynomial operations.
 
     // Allocate memory for interpolation polynomial evaluations
     let mut k_evaled_vec = vec![Field::zero(); z_dom_length].into_boxed_slice();
     // Compute and store interpolation polynomial evaluations at τ.z
     gen_cached_pows(&tau.z, z_dom_length, &mut k_evaled_vec);
     
-    // Used for interpolating constraints involving the z-domain.
-
     // Build the M_i(x, z) polynomials for i in [l .. l_D]
     let mut m_evaled_vec = vec![Field::zero(); z_dom_length].into_boxed_slice();
     {
@@ -152,7 +125,6 @@ fn main() {
         for i in 1..l_d { 
             omega_pows_vec[i] = omega_pows_vec[i-1] * omega;
         }
-        // The omega_pows_vec[i] stores ω^i for efficient NTT-based evaluations.
 
         // Compute each M_i(x, z) evaluation
         for i in 0..z_dom_length {
@@ -225,8 +197,37 @@ fn main() {
 
     let lap = start.elapsed();
     println!("Done! Elapsed time: {:.6} seconds", lap.as_secs_f64());
-
+    
+    println!("Generating json file...");
+    let start = Instant::now();
+    let json_data = json!({
+        "sigma_ai": SigmaArithAndIP::serialize_sigma_ai(&sigma_ai),
+        "sigma_c": SigmaCopy::serialize_sigma_c(&sigma_c),
+        "sigma_v": SigmaVerify::serialize_sigma_v(&sigma_v)
+    });
+    
+    let _sigma = Sigma {
+        sigma_ai: sigma_ai,
+        sigma_c: sigma_c,
+        sigma_v: sigma_v,
+    };
+    
+    println!("Serializing combined sigma to JSON...");
+    
+    let output_path = "combined_sigma.json";
+    let mut file = File::create(output_path)
+        .expect("Failed to create output file");
+    
+    let json_string = serde_json::to_string_pretty(&json_data)
+        .expect("Failed to serialize JSON");
+    
+    file.write_all(json_string.as_bytes())
+        .expect("Failed to write to output file");
+    
+    println!("Combined sigma saved to {}", output_path);
+    let lap = start.elapsed();
+    println!("Done! Elapsed time: {:.6} seconds", lap.as_secs_f64());
+    
     let duration1 = start1.elapsed();
     println!("Total time: {:.6} seconds", duration1.as_secs_f64());
 }
-
