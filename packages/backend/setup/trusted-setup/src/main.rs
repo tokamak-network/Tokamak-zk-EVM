@@ -101,7 +101,6 @@ fn main() {
             // Iterate over all active wires in this subcircuit and record their polynomial evaluations.
             for (j, local_idx) in evaled_qap.active_wires.iter().enumerate() {
                 let global_idx = flatten_map[*local_idx];
-                // Map the local wire index (within subcircuit i) to the global wire index in the overall circuit.
 
                 // Ensure consistency between the global wire list and the flatten_map mapping.
                 // The globalWireList at position global_idx should match this subcircuit and local index.
@@ -127,9 +126,6 @@ fn main() {
     }
 
     println!("Number of nonzero wires: {:?} out of {:?} total wires", nonzero_wires.len(), m_d);
-
-    // Build Lagrange polynomials L_i(y) for i in [0..s_max-1]
-    // and interpolation polynomials K_i(z) for i in [0..l_D-1].
     
     // Allocate memory for Lagrange polynomial evaluations
     let mut l_evaled_vec = vec![Field::zero(); s_max].into_boxed_slice();
@@ -142,7 +138,7 @@ fn main() {
     let mut k_evaled_vec = vec![Field::zero(); z_dom_length].into_boxed_slice();
     // Compute and store interpolation polynomial evaluations at τ.z
     gen_cached_pows(&tau.z, z_dom_length, &mut k_evaled_vec);
-    // This precomputes [1, τ.z, (τ.z)^2, ..., (τ.z)^(z_dom_length-1)]
+    
     // Used for interpolating constraints involving the z-domain.
 
     // Build the M_i(x, z) polynomials for i in [l .. l_D]
@@ -185,7 +181,6 @@ fn main() {
     let duration = start.elapsed();
     println!("Loading and eval time: {:.6} seconds", duration.as_secs_f64());
 
-    // Generate Sigma proofs
     println!("Generating sigma_A,I...");
     let start = Instant::now();
 
@@ -206,7 +201,6 @@ fn main() {
     println!("Generating sigma_C...");
     let start = Instant::now();
     
-    // Generate the Sigma proof for Copy Constraints
     let sigma_c = SigmaCopy::gen(
         &setup_params, // Circuit setup parameters
         &tau,          // Secret randomness τ
@@ -221,7 +215,6 @@ fn main() {
     println!("Generating sigma_V...");
     let start = Instant::now();
 
-    // Generate the Sigma proof for Verification Constraints
     let sigma_v = SigmaVerify::gen(
         &setup_params, // Circuit setup parameters
         &tau,          // Secret randomness τ
