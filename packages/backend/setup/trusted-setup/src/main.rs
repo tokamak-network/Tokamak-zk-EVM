@@ -1,6 +1,6 @@
 use libs::tools::{Tau, SetupParams, SubcircuitInfo, MixedSubcircuitQAPEvaled};
 use libs::tools::{read_json_as_boxed_boxed_numbers, gen_cached_pows};
-use libs::group_structures::{SigmaArithAndIP, SigmaCopy, SigmaVerify, Sigma};
+use libs::group_structures::{Sigma, SigmaA, SigmaArithAndIP, SigmaCopy, SigmaKZG, SigmaVerify};
 use icicle_bls12_381::curve::{ScalarField as Field, CurveCfg, G2CurveCfg, G1Affine, G2Affine};
 use icicle_core::traits::{Arithmetic, FieldImpl};
 use icicle_core::ntt;
@@ -12,6 +12,130 @@ use libs::s_max;
 use std::fs::File;
 use std::io::Write;
 use serde_json::{Value, json, Map};
+
+
+fn g1_affine_to_compressed_json(point: &G1Affine) -> Value {
+    // if point.is_infinity() {
+    //     return json!("infinity");
+    // }
+
+    let x_str = point.x.to_string();
+
+    let is_y_positive = is_y_coordinate_positive(point);
+    
+    json!({
+        "x": x_str,
+        "is_y_positive": is_y_positive
+    })
+}
+
+fn g2_affine_to_compressed_json(point: &G2Affine) -> Value {
+    // if point.is_infinity() {
+    //     return json!("infinity");
+    // }
+    
+    let x = point.x.to_string();
+    
+    let is_y_positive = is_g2_y_coordinate_positive(point);
+    
+    json!({
+        "x": x,
+        "is_y_positive": is_y_positive
+    })
+}
+
+fn is_y_coordinate_positive(point: &G1Affine) -> bool {
+    let y_bytes = point.y.to_bytes_le();
+    (y_bytes[0] & 1) == 0 
+}
+
+fn is_g2_y_coordinate_positive(point: &G2Affine) -> bool {
+    let y = point.y.to_bytes_le();
+    
+    (y[0] & 1) == 0
+}
+
+fn g1_affine_array_to_compressed_json(array: &Box<[G1Affine]>) -> Value {
+    let mut json_array = Vec::new();
+    for point in array.iter() {
+        json_array.push(g1_affine_to_compressed_json(point));
+    }
+    Value::Array(json_array)
+}
+
+fn g2_affine_array_to_compressed_json(array: &Box<[G2Affine]>) -> Value {
+    let mut json_array = Vec::new();
+    for point in array.iter() {
+        json_array.push(g2_affine_to_compressed_json(point));
+    }
+    Value::Array(json_array)
+}
+
+fn g1_affine_2d_array_to_compressed_json(array: &Box<[Box<[G1Affine]>]>) -> Value {
+    let mut json_array = Vec::new();
+    for row in array.iter() {
+        json_array.push(g1_affine_array_to_compressed_json(row));
+    }
+    Value::Array(json_array)
+}
+
+fn g2_affine_2d_array_to_compressed_json(array: &Box<[Box<[G2Affine]>]>) -> Value {
+    let mut json_array = Vec::new();
+    for row in array.iter() {
+        json_array.push(g2_affine_array_to_compressed_json(row));
+    }
+    Value::Array(json_array)
+}
+
+// SigmaArithAndIP 구조체를 압축 형태의 JSON으로 변환
+fn serialize_sigma_ai_compressed(sigma: &SigmaArithAndIP) -> Value {
+    json!({
+        "alpha": g1_affine_to_compressed_json(&sigma.alpha),
+        "xy_hi": g1_affine_array_to_compressed_json(&sigma.xy_hi),
+        "gamma_l_o_pub_j": g1_affine_array_to_compressed_json(&sigma.gamma_l_o_pub_j),
+        "eta1_l_o_inter_ij": g1_affine_2d_array_to_compressed_json(&sigma.eta1_l_o_inter_ij),
+        "delta_l_o_prv_ij": g1_affine_2d_array_to_compressed_json(&sigma.delta_l_o_prv_ij),
+        "eta0_l_o_ip_first_ij": g1_affine_2d_array_to_compressed_json(&sigma.eta0_l_o_ip_first_ij),
+        "eta0_l_m_tz_ip_second_ij": g1_affine_2d_array_to_compressed_json(&sigma.eta0_l_m_tz_ip_second_ij),
+        "delta_xy_tx_hi": g1_affine_array_to_compressed_json(&sigma.delta_xy_tx_hi),
+        "delta_xy_ty_hi": g1_affine_array_to_compressed_json(&sigma.delta_xy_ty_hi)
+    })
+}
+
+// SigmaCopy 구조체를 압축 형태의 JSON으로 변환
+fn serialize_sigma_c_compressed(sigma: &SigmaCopy) -> Value {
+    json!({
+        "mu_l_k_ij": g1_affine_array_to_compressed_json(&sigma.mu_l_k_ij),
+        "nu_yz_ty_ij": g1_affine_array_to_compressed_json(&sigma.nu_yz_ty_ij),
+        "nu_yz_tz_ij": g1_affine_array_to_compressed_json(&sigma.nu_yz_tz_ij),
+        "psi0_kappa_0_yz_ij": g1_affine_array_to_compressed_json(&sigma.psi0_kappa_0_yz_ij),
+        "psi0_kappa_1_yz_ij": g1_affine_array_to_compressed_json(&sigma.psi0_kappa_1_yz_ij),
+        "psi1_z_j": g1_affine_array_to_compressed_json(&sigma.psi1_z_j),
+        "psi2_kappa_2_yz_ij": g1_affine_array_to_compressed_json(&sigma.psi2_kappa_2_yz_ij),
+        "psi3_kappa_1_z_j": g1_affine_array_to_compressed_json(&sigma.psi3_kappa_1_z_j),
+        "psi3_kappa_2_z_j": g1_affine_array_to_compressed_json(&sigma.psi3_kappa_2_z_j)
+    })
+}
+
+// SigmaVerify 구조체를 압축 형태의 JSON으로 변환
+fn serialize_sigma_v_compressed(sigma: &SigmaVerify) -> Value {
+    json!({
+        "beta": g2_affine_to_compressed_json(&sigma.beta),
+        "gamma": g2_affine_to_compressed_json(&sigma.gamma),
+        "delta": g2_affine_to_compressed_json(&sigma.delta),
+        "eta1": g2_affine_to_compressed_json(&sigma.eta1),
+        "mu_eta0": g2_affine_to_compressed_json(&sigma.mu_eta0),
+        "mu_eta1": g2_affine_to_compressed_json(&sigma.mu_eta1),
+        "xy_hi": g2_affine_array_to_compressed_json(&sigma.xy_hi),
+        "mu_comb_o_inter": g2_affine_to_compressed_json(&sigma.mu_comb_o_inter),
+        "mu_3_nu": g2_affine_to_compressed_json(&sigma.mu_3_nu),
+        "mu_4_kappa_i": g2_affine_array_to_compressed_json(&sigma.mu_4_kappa_i),
+        "mu_3_psi0_yz_ij": g2_affine_2d_array_to_compressed_json(&sigma.mu_3_psi0_yz_ij),
+        "mu_3_psi1_yz_ij": g2_affine_2d_array_to_compressed_json(&sigma.mu_3_psi1_yz_ij),
+        "mu_3_psi2_yz_ij": g2_affine_2d_array_to_compressed_json(&sigma.mu_3_psi2_yz_ij),
+        "mu_3_psi3_yz_ij": g2_affine_2d_array_to_compressed_json(&sigma.mu_3_psi3_yz_ij)
+    })
+}
 
 fn main() {
     let start1 = Instant::now();
@@ -197,24 +321,45 @@ fn main() {
 
     let lap = start.elapsed();
     println!("Done! Elapsed time: {:.6} seconds", lap.as_secs_f64());
-    
-    println!("Generating json file...");
+
+    println!("Generating sigma_kzg...");
     let start = Instant::now();
+
+    let sigma_kzg = SigmaKZG::gen(
+        &setup_params, // Circuit setup parameters
+        &tau,          // Secret randomness τ
+        &g1_gen,       // Generator point in G2
+    );
+
+    let lap = start.elapsed();
+    println!("Done! Elapsed time: {:.6} seconds", lap.as_secs_f64());
+
+    println!("Generating sigma_a...");
+    let start = Instant::now();
+
+    let sigma_a = SigmaA::gen(
+        &setup_params, // Circuit setup parameters
+        &tau, // Secret randomness τ
+        &o_evaled_vec,
+        &m_evaled_vec,
+        &l_evaled_vec,
+        &k_evaled_vec,
+        &g1_gen,       // Generator point in G2
+    );
+
+    let lap = start.elapsed();
+    println!("Done! Elapsed time: {:.6} seconds", lap.as_secs_f64());
+    
+    println!("Serializing combined sigma to compressed JSON...");
+    
     let json_data = json!({
-        "sigma_ai": SigmaArithAndIP::serialize_sigma_ai(&sigma_ai),
-        "sigma_c": SigmaCopy::serialize_sigma_c(&sigma_c),
-        "sigma_v": SigmaVerify::serialize_sigma_v(&sigma_v)
+        "sigma_ai": serialize_sigma_ai_compressed(&sigma_ai),
+        "sigma_c": serialize_sigma_c_compressed(&sigma_c),
+        "sigma_v": serialize_sigma_v_compressed(&sigma_v)
     });
     
-    let _sigma = Sigma {
-        sigma_ai: sigma_ai,
-        sigma_c: sigma_c,
-        sigma_v: sigma_v,
-    };
-    
-    println!("Serializing combined sigma to JSON...");
-    
-    let output_path = "combined_sigma.json";
+    // 파일에 저장
+    let output_path = "combined_sigma_compressed.json";
     let mut file = File::create(output_path)
         .expect("Failed to create output file");
     
@@ -225,8 +370,6 @@ fn main() {
         .expect("Failed to write to output file");
     
     println!("Combined sigma saved to {}", output_path);
-    let lap = start.elapsed();
-    println!("Done! Elapsed time: {:.6} seconds", lap.as_secs_f64());
     
     let duration1 = start1.elapsed();
     println!("Total time: {:.6} seconds", duration1.as_secs_f64());
