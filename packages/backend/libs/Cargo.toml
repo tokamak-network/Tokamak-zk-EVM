@@ -18,7 +18,3 @@ criterion = "0.3"
 [[bench]]
 name = "outer_product_bench"
 harness = false
-
-[[bench]]
-name = "sigma_verify_bench"
-harness = false
