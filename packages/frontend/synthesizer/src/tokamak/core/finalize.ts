@@ -142,6 +142,7 @@ function refactoryPlacement(placements: Placements): Placements {
   const outPlacements: Placements = new Map()
   for (const key of placements.keys()) {
     const placement = key === LOAD_PLACEMENT_INDEX ? dietLoadPlacment : placements.get(key)
+
     const newInPts: DataPt[] = []
     const newOutPts: DataPt[] = []
     const inPts = placement!.inPts

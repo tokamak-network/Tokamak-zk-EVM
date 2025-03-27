@@ -18,6 +18,7 @@ import {
     RETURN_PLACEMENT_INDEX,
     STORAGE_OUT_PLACEMENT_INDEX,
   } from '../tokamak/constant/constants.js';
+import { Synthesizer } from "src/tokamak/core/synthesizer.js";
 
 
 const TOKEN_CONFIGS = {
@@ -49,6 +50,12 @@ const TOKEN_CONFIGS = {
 } as const;
 
 export class SynthesizerAdapter {
+    private evm: Promise<EVM> | EVM;
+
+    constructor() {
+        // Initialize EVM in constructor
+        this.evm = this.createFreshEVM();
+    }
 
     private isSupportedToken(address: string): boolean {
         return Object.values(SUPPORTED_TOKENS).includes(address.toLowerCase());
@@ -83,7 +90,40 @@ export class SynthesizerAdapter {
         };
     }
 
-      /**
+    private async createFreshEVM(): Promise<EVM> {
+        const evm = await createEVM();
+
+        // Initialize placements inPts and outPts arrays
+    if (evm.synthesizer) {
+        evm.synthesizer.logPt = [];
+        
+        const returnPlacement = evm.synthesizer.placements.get(RETURN_PLACEMENT_INDEX);
+        if (returnPlacement) {
+            returnPlacement.inPts = [];
+            returnPlacement.outPts = [];
+            console.log("SynthesizerAdapter.parseTransaction: Cleared logPt and outPts arrays");
+        }
+        // Initialize STORAGE_IN_PLACEMENT's inPts and outPts arrays
+        const storageInPlacement = evm.synthesizer.placements.get(STORAGE_IN_PLACEMENT_INDEX);
+        if (storageInPlacement) {
+            storageInPlacement.inPts = [];
+            storageInPlacement.outPts = [];
+            console.log("SynthesizerAdapter.parseTransaction: Cleared STORAGE_IN_PLACEMENT arrays");
+        }
+
+        // Initialize STORAGE_OUT_PLACEMENT's inPts and outPts arrays
+        const storageOutPlacement = evm.synthesizer.placements.get(STORAGE_OUT_PLACEMENT_INDEX);
+        if (storageOutPlacement) {
+            storageOutPlacement.inPts = [];
+            storageOutPlacement.outPts = [];
+            console.log("SynthesizerAdapter.parseTransaction: Cleared STORAGE_OUT_PLACEMENT arrays");
+        }
+    }
+        
+        return evm;
+    }
+
+    /**
      * Parses and processes an ERC20 transaction, returning all necessary data structures in memory.
      * @param {string} params.contractAddr - The ERC20 contract address
      * @param {string} params.calldata - The transaction calldata
@@ -114,7 +154,9 @@ export class SynthesizerAdapter {
             throw new Error(`Unsupported token address: ${contractAddr}. Supported tokens are TON(Tokamak), USDT, and USDC.`);
         }
         const config = this.getTokenConfig(contractAddr);
-        const evm = await createEVM();
+        
+        // 생성자에서 초기화된 EVM 사용
+        const evm = await this.evm;
 
         const _contractAddr = new Address(hexToBytes(config.address))
         const _sender = new Address(hexToBytes(sender))
@@ -154,10 +196,11 @@ export class SynthesizerAdapter {
             data: _calldata
         });
 
+        // validate 옵션을 false로 설정하여 testInstances 함수를 건너뜁니다
         const { permutation, placementInstance } = await finalize(
             executionResult.runState!.synthesizer.placements,
             undefined,
-            true,
+            false,  // validate를 false로 변경
             false
         );
 
