@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/synthesizer",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Tokamak zk-EVM Synthesizer - Processes Ethereum transactions into wire maps for Tokamak zk-SNARK proof generation",
   "keywords": [
     "ethereum",
@@ -100,5 +100,8 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "resolutions": {
+    "@synthesizer-libs/util": "0.0.3"
   }
 }
