@@ -91,6 +91,7 @@
     "micro-eth-signer": "^0.11.0",
     "minimist": "^1.2.5",
     "node-dir": "^0.1.17",
+    "prettier": "^3.5.3",
     "rollup-plugin-visualizer": "^5.12.0",
     "rustbn-wasm": "^0.4.0",
     "solc": "^0.8.1",
