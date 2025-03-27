@@ -56,7 +56,7 @@
     "test:browser": "npx vitest run --config=./vitest.config.browser.mts",
     "test:node": "npx vitest run",
     "test:tokamak": "npx vitest run test/tokamak",
-    "test:synthesizer": "npx vitest run test/synthesizer",
+    "test:synthesizer": "npx vitest run test/**",
     "tsc": "../../../config/monorepo-js//cli/ts-compile.sh",
     "visualize:bundle": "npx vite build --config=./vite.config.bundler.ts --emptyOutDir=false --outDir ."
   },
