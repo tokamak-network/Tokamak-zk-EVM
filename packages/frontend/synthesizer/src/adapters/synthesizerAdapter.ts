@@ -71,6 +71,10 @@ export class SynthesizerAdapter {
     return Object.values(SUPPORTED_TOKENS).includes(address.toLowerCase());
   }
 
+  private isTON(address: string): boolean {
+    return address.toLowerCase() === SUPPORTED_TOKENS.TON.toLowerCase();
+  }
+
   private getTokenConfig(address: string) {
     const config = Object.values(TOKEN_CONFIGS).find(
       (config) => config.address.toLowerCase() === address.toLowerCase(),
@@ -86,6 +90,18 @@ export class SynthesizerAdapter {
     }
 
     return config;
+  }
+
+  // 새로운 메소드 추가
+  private isUnsupportedMethod(contractAddr: string, calldata: string): boolean {
+    if (
+      this.isTON(contractAddr) &&
+      calldata.slice(0, 10).toLowerCase() === '0xcae9ca51'
+    ) {
+      return true;
+    }
+
+    return false;
   }
 
   public get placementIndices(): {
@@ -176,6 +192,11 @@ export class SynthesizerAdapter {
         `Unsupported token address: ${contractAddr}. Supported tokens are TON(Tokamak), USDT, and USDC.`,
       );
     }
+
+    if (this.isUnsupportedMethod(contractAddr, calldata)) {
+      throw new Error(`Unsupported method for this token.`);
+    }
+
     const config = this.getTokenConfig(contractAddr);
 
     // 생성자에서 초기화된 EVM 사용
