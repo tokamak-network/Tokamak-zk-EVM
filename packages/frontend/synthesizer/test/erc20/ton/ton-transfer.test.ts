@@ -18,13 +18,13 @@ describe('TON Token Approve', () => {
       hexToBytes('0x2be5e8c109e2197D077D13A82dAead6a9b3433C5'),
     );
 
-    // Function signature for approve(address,uint256): 0x095ea7b3
-    // spender: 0x0ce8f6c9d4ad12e56e54018313761487d2d1fee9
-    // amount: 2000 TON = 2000 * 10^18 = 2000000000000000000000
+    /**
+     * https://etherscan.io/tx/0x4d6ed7a6777b94546f8e4f3e730cd15dd91c3913b930432a949a7253b0ba2981
+     */
     const calldata =
-      '0x095ea7b30000000000000000000000000ce8f6c9d4ad12e56e54018313761487d2d1fee90000000000000000000000000000000000000000000006c6b935b8bbd400000';
+      '0xa9059cbb000000000000000000000000d0ff1f431f55cd48f0ff469c579a1cceb45c7f1a0000000000000000000000000000000000000000000000acdc37d63ccd9ce18e';
     const sender = new Address(
-      hexToBytes('0xc2C30E79392A2D1a05288B172f205541a56FC20d'),
+      hexToBytes('0xF29f568F971C043Df7079A3121e9DE616b8998a3'),
     );
 
     // Setup EVM

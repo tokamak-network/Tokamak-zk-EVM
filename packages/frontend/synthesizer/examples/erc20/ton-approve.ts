@@ -48,8 +48,6 @@ const main = async () => {
     data: hexToBytes(calldata),
   });
 
-  console.log('result', result.exceptionError);
-
   // Generate proof
   const permutation = await finalize(
     result.runState!.synthesizer.placements,
