@@ -29,6 +29,30 @@ dim() {
 }
 
 
+# Test function declaration.
+
+run_tests() {
+    blue "[Tests] "
+    echo "Running tests before build"
+
+    echo "> npx vitest run test/**"
+    printf "${BLUE}[Tests] Working... "
+
+    npx vitest run test/**
+    TEST_RESULT=$?
+
+    if [ $TEST_RESULT -eq 0 ]; then
+        green "PASSED"
+        echo "\n"
+        return 0
+    else
+        red "FAILED"
+        echo "\n"
+        return 1
+    fi
+}
+
+
 # Build function declaration.
 
 build_node() {
@@ -113,11 +137,21 @@ build_browser() {
 
 # Begin build process.
 
-if [ "$1" = "browser" ];
-then
-    build_browser
+# Run tests first
+run_tests
+TEST_STATUS=$?
+
+# Only proceed with build if tests pass
+if [ $TEST_STATUS -eq 0 ]; then
+    if [ "$1" = "browser" ];
+    then
+        build_browser
+    else
+        build_node
+        build_esm
+        post_build_fixes
+    fi
 else
-    build_node
-    build_esm
-    post_build_fixes
+    red "[Build] Aborting build process due to test failures\n"
+    exit 1
 fi

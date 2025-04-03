@@ -1,8 +1,8 @@
-import { Common, Hardfork, Mainnet } from '@ethereumjs/common/dist/esm/index.js'
-import { unprefixedHexToBytes } from "@synthesizer-libs/util"
-import split from 'split'
+import { Common, Hardfork, Mainnet } from '@synthesizer-libs/common';
+import { unprefixedHexToBytes } from '@synthesizer-libs/util';
+import split from 'split';
 
-import { createEVM, validateEOF } from '../src/index.js'
+import { createEVM, validateEOF } from '../src/index.js';
 
 /**
  * This script reads hex strings (either prefixed or non-prefixed with 0x) from stdin
@@ -11,26 +11,28 @@ import { createEVM, validateEOF } from '../src/index.js'
  * If the input is empty, the program will exit
  */
 
-const common = new Common({ chain: Mainnet })
-common.setHardfork(Hardfork.Prague)
-common.setEIPs([663, 3540, 3670, 4200, 4750, 5450, 6206, 7069, 7480, 7620, 7692, 7698])
-const evm = await createEVM({ common })
+const common = new Common({ chain: Mainnet });
+common.setHardfork(Hardfork.Prague);
+common.setEIPs([
+  663, 3540, 3670, 4200, 4750, 5450, 6206, 7069, 7480, 7620, 7692, 7698,
+]);
+const evm = await createEVM({ common });
 
 function processLine(line) {
   if (line.length === 0) {
-    process.exit()
+    process.exit();
   }
-  let trimmed = line
+  let trimmed = line;
   if (line.startsWith('0x')) {
-    trimmed = line.slice(2)
+    trimmed = line.slice(2);
   }
-  const bytes = unprefixedHexToBytes(trimmed)
+  const bytes = unprefixedHexToBytes(trimmed);
   try {
-    validateEOF(bytes, evm)
-    console.log('OK')
+    validateEOF(bytes, evm);
+    console.log('OK');
   } catch (e: any) {
-    console.log('err: ' + e.message)
+    console.log('err: ' + e.message);
   }
 }
 
-process.stdin.pipe(split()).on('data', processLine)
+process.stdin.pipe(split()).on('data', processLine);
