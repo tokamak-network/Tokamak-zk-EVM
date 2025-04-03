@@ -5,7 +5,6 @@
     "packages/frontend/synthesizer/libs/*"
   ],
   "scripts": {
-    "build": "cd packages/playground && npm run build",
     "test": "lerna run test",
     "lint": "lerna run lint",
     "clean": "lerna run clean"
