@@ -6,9 +6,8 @@ use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use icicle_bls12_381::polynomials::DensePolynomial;
 use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice, DeviceSlice, DeviceVec};
 use std::{
-    clone, cmp,
-    ops::{Add, AddAssign, Div, Mul, Rem, Sub, Neg},
-    ptr, slice,
+    cmp,
+    ops::{Add, AddAssign, Mul, Sub, Neg},
 };
 
 fn _find_size_as_twopower(target_x_size: usize, target_y_size: usize) -> (usize, usize) {
