@@ -1,6 +1,6 @@
 use libs::tools::{Tau, SetupParams, SubcircuitInfo, MixedSubcircuitQAPEvaled};
 use libs::tools::{read_json_as_boxed_boxed_numbers, gen_cached_pows};
-use libs::group_structures::{Sigma, SigmaA, SigmaI, SigmaKZG, SigmaTau};
+use libs::group_structures::{SigmaB, SigmaV, SigmaAC};
 use icicle_bls12_381::curve::{ScalarField as Field, CurveCfg, G2CurveCfg, G1Affine, G2Affine};
 use icicle_core::traits::{Arithmetic, FieldImpl};
 use icicle_core::ntt;
@@ -15,85 +15,107 @@ use serde_json::{Value, json, Map};
 
 fn main() {
     let start1 = Instant::now();
-    // Generate random affine points on the elliptic curve (G1 and G2).
+    
+    // Generate random affine points on the elliptic curve (G1 and G2)
+    println!("Generating random generator points...");
     let g1_gen = CurveCfg::generate_random_affine_points(1)[0];
     let g2_gen = G2CurveCfg::generate_random_affine_points(1)[0];
     
-    // Generate a random secret parameter tau.
+    // Generate a random secret parameter tau (x and y only, no z as per the paper)
+    println!("Generating random tau parameter...");
     let tau = Tau::gen();
     
-    // Load setup parameters from a JSON file.
-    let mut path: &str = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/setupParams.json";
-    let setup_params = SetupParams::from_path(path).unwrap();
+    // Load setup parameters from JSON file
+    println!("Loading setup parameters...");
+    let setup_path = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/setupParams.json";
+    let setup_params = SetupParams::from_path(setup_path).unwrap();
 
-    // Extract key parameters from setup_params:
-    let m_d = setup_params.m_D; 
-    let s_d = setup_params.s_D; 
-    let n   = setup_params.n;   
-
+    // Extract key parameters from setup_params
+    let m_d = setup_params.m_D; // Total number of wires
+    let s_d = setup_params.s_D; // Number of subcircuits
+    let n = setup_params.n;     // Number of constraints per subcircuit
+    
+    // Verify n is a power of two
     if !n.is_power_of_two() {
         panic!("n is not a power of two.");
     }
     
-    // Additional wire-related parameters from setup:
-    let l   = setup_params.l;   
-    let l_d = setup_params.l_D; 
-
+    // Additional wire-related parameters
+    let l = setup_params.l;     // Number of public I/O wires
+    let l_d = setup_params.l_D; // Number of interface wires
+    
     if l % 2 == 1 {
         panic!("l is not even.");
     }
-    let _l_in = l / 2;  // 변수명 앞에 _ 추가하여 경고 제거
+    let l_in = l / 2;  // Number of input wires
 
-    // Ensure s_max (maximum allowed value for something, e.g., max subcircuits or opcodes) is a power of two.
+    // Verify s_max is a power of two
     if !s_max.is_power_of_two() {
         panic!("s_max is not a power of two.");
     }
     
+    // Calculate z domain length
     let z_dom_length = l_d - l;
-    // Ensure that the difference (l_D - l) is also a power of two.
+    
+    // Verify z domain length is a power of two
     if !z_dom_length.is_power_of_two() {
         panic!("l_D - l is not a power of two.");
     }
 
-    path = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/subcircuitInfo.json";
-    let subcircuit_infos = SubcircuitInfo::from_path(path).unwrap();
+    // Load subcircuit information
+    println!("Loading subcircuit information...");
+    let subcircuit_path = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/subcircuitInfo.json";
+    let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_path).unwrap();
 
-    path = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/globalWireList.json";
-    let globalWireList = read_json_as_boxed_boxed_numbers(path).unwrap();
+    // Load global wire list
+    println!("Loading global wire list...");
+    let global_wire_path = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/globalWireList.json";
+    let global_wire_list = read_json_as_boxed_boxed_numbers(global_wire_path).unwrap();
     
+    // ------------------- Generate Polynomial Evaluations -------------------
     let start = Instant::now();
+    println!("Generating polynomial evaluations...");
 
-    // Build polynomial evaluations for each wire in the circuit.
+    // 1. Compute o_evaled_vec: Wire polynomial evaluations
+    println!("Computing wire polynomial evaluations (o_evaled_vec)...");
     let mut o_evaled_vec = vec![Field::zero(); m_d].into_boxed_slice();
     let mut nonzero_wires = Vec::<usize>::new();
 
     {
+        // Generate cached powers of τ.x for more efficient computation
         let mut cached_x_pows_vec = vec![Field::zero(); n].into_boxed_slice();
         gen_cached_pows(&tau.x, n, &mut cached_x_pows_vec);
 
+        // Process each subcircuit
         for i in 0..s_d {
-            println!("Processing subcircuit id {:?}", i);
-            let _path = format!("/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/json/subcircuit{i}.json");
+            println!("Processing subcircuit id {}", i);
+            let r1cs_path = format!("/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/json/subcircuit{i}.json");
 
+            // Evaluate QAP for the current subcircuit
             let evaled_qap = MixedSubcircuitQAPEvaled::from_r1cs_to_evaled_qap(
-                &_path,
+                &r1cs_path,
                 &setup_params,
                 &subcircuit_infos[i],
                 &tau,
                 &cached_x_pows_vec,
             );
             
+            // Map local wire indices to global wire indices
             let flatten_map = &subcircuit_infos[i].flattenMap;
 
+            // Store evaluations in o_evaled_vec using global wire indices
             for (j, local_idx) in evaled_qap.active_wires.iter().enumerate() {
                 let global_idx = flatten_map[*local_idx];
 
-                if (globalWireList[global_idx][0] != subcircuit_infos[i].id) || (globalWireList[global_idx][1] != *local_idx) {
+                // Verify global wire list consistency with flatten map
+                if (global_wire_list[global_idx][0] != subcircuit_infos[i].id) || 
+                   (global_wire_list[global_idx][1] != *local_idx) {
                     panic!("GlobalWireList is not the inverse of flattenMap.");
                 }
 
                 let wire_val = evaled_qap.o_evals[j];
 
+                // Record non-zero wire evaluations
                 if !wire_val.eq(&Field::zero()) {
                     nonzero_wires.push(global_idx);
                     o_evaled_vec[global_idx] = wire_val;
@@ -102,120 +124,132 @@ fn main() {
         }
     }
 
-    println!("Number of nonzero wires: {:?} out of {:?} total wires", nonzero_wires.len(), m_d);
+    println!("Number of nonzero wires: {} out of {} total wires", nonzero_wires.len(), m_d);
     
-    // Allocate memory for Lagrange polynomial evaluations
+    // 2. Compute l_evaled_vec: Lagrange polynomial evaluations at τ.y
+    println!("Computing Lagrange polynomial evaluations (l_evaled_vec)...");
     let mut l_evaled_vec = vec![Field::zero(); s_max].into_boxed_slice();
-    // Compute and store Lagrange basis polynomial evaluations at τ.y
     gen_cached_pows(&tau.y, s_max, &mut l_evaled_vec);
-
-    // Allocate memory for interpolation polynomial evaluations
-    let mut k_evaled_vec = vec![Field::zero(); z_dom_length].into_boxed_slice();
-    // Compute and store interpolation polynomial evaluations at τ.z
-    gen_cached_pows(&tau.z, z_dom_length, &mut k_evaled_vec);
     
-    // Build the M_i(x, z) polynomials for i in [l .. l_D]
-    let mut m_evaled_vec = vec![Field::zero(); z_dom_length].into_boxed_slice();
-    {
-        // Get the NTT (Number-Theoretic Transform) root of unity for z-domain length.
-        let omega = ntt::get_root_of_unity::<Field>(z_dom_length as u64);
+    // Based on the updated paper, we don't use tau.z anymore
+    // Instead, we compute the k_evaled_vec and m_evaled_vec differently
+    
+    // 3. Compute k_evaled_vec for interpolation polynomials
+    println!("Computing interpolation polynomial evaluations (k_evaled_vec)...");
+    let mut k_evaled_vec = vec![Field::zero(); z_dom_length].into_boxed_slice();
+    
+    // Use an NTT root of unity approach for the interpolation
+    let omega = ntt::get_root_of_unity::<Field>(z_dom_length as u64);
+    let mut omega_pows = vec![Field::one(); z_dom_length];
+    for i in 1..z_dom_length {
+        omega_pows[i] = omega_pows[i-1] * omega;
+    }
+    
+    // Evaluate interpolation polynomials at points defined by the setup parameters
+    for i in 0..z_dom_length {
+        // Initialize with identity element
+        k_evaled_vec[i] = Field::one();
         
-        // Precompute powers of omega up to l_d
-        let mut omega_pows_vec = vec![Field::zero(); l_d];
-        for i in 1..l_d { 
-            omega_pows_vec[i] = omega_pows_vec[i-1] * omega;
-        }
-
-        // Compute each M_i(x, z) evaluation
-        for i in 0..z_dom_length {
-            let j = i + l; // Shifted index
-            let mut m_eval = Field::zero();
-
-            for k in l .. l_d {
-                if j != k {
-                    // Compute factor1 = (o_evaled_vec[k] / (l_D - l))
-                    let factor1 = o_evaled_vec[k] * Field::from_u32((l_d - l) as u32).inv();
-
-                    // Compute factor2 using precomputed ω and K_i(z)
-                    let factor2_term1 = omega_pows_vec[k] * k_evaled_vec[j - l];
-                    let factor2_term2 = omega_pows_vec[j] * k_evaled_vec[i];
-                    let factor2 = (factor2_term1 + factor2_term2) * (omega_pows_vec[j] - omega_pows_vec[k]).inv();
-
-                    // Accumulate the computed term
-                    m_eval = m_eval + factor1 * factor2;
-                }
+        // Compute product form of the interpolation polynomial
+        for j in 0..z_dom_length {
+            if i != j {
+                let denominator = omega_pows[i] - omega_pows[j];
+                let factor = denominator.inv();
+                k_evaled_vec[i] = k_evaled_vec[i] * factor;
             }
-            // Store the computed M_i(x, z) evaluation
-            m_evaled_vec[i] = m_eval;
+        }
+    }
+    
+    // 4. Compute m_evaled_vec for the M_i(x) polynomials
+    println!("Computing M_i(x) polynomials (m_evaled_vec)...");
+    let mut m_evaled_vec = vec![Field::zero(); z_dom_length].into_boxed_slice();
+    
+    // Precompute powers of omega up to l_d
+    let mut omega_pows_vec = vec![Field::zero(); l_d];
+    omega_pows_vec[0] = Field::one();
+    for i in 1..l_d { 
+        omega_pows_vec[i] = omega_pows_vec[i-1] * omega;
+    }
+    
+    // Compute each M_i(x) evaluation according to the paper's definition
+    for i in 0..z_dom_length {
+        let j = i + l; // Shifted index
+        let mut m_eval = Field::zero();
+
+        for k in l..l_d {
+            if j != k {
+                // Calculate the contribution of each term to M_i(x)
+                let wire_value = o_evaled_vec[k]; 
+                let scale_factor = Field::from_u32((l_d - l) as u32).inv();
+                
+                // Compute barycentric weights and factors
+                let numer = k_evaled_vec[j - l] * omega_pows_vec[k];
+                let denom = omega_pows_vec[j] - omega_pows_vec[k];
+                
+                let denom_inv = denom.inv();
+                
+                // Add contribution to M_i(x)
+                m_eval = m_eval + (wire_value * scale_factor * numer * denom_inv);
+            }
         }
     }
     
     let duration = start.elapsed();
-    println!("Loading and eval time: {:.6} seconds", duration.as_secs_f64());
+    println!("Polynomial evaluation computation time: {:.6} seconds", duration.as_secs_f64());
 
+    // Generate sigma components using the computed polynomial evaluations
     println!("Generating sigma_kzg...");
     let start = Instant::now();
 
-    let sigma_kzg = SigmaKZG::gen(
-        &setup_params, // Circuit setup parameters
-        &tau,          // Secret randomness τ
-        &g1_gen,       // Generator point in G2
-    );
-
-    let lap = start.elapsed();
-    println!("Done! Elapsed time: {:.6} seconds", lap.as_secs_f64());
-
-    println!("Generating sigma_a...");
-    let start = Instant::now();
-
-    let sigma_a = SigmaA::gen(
-        &setup_params, // Circuit setup parameters
-        &tau, // Secret randomness τ
-        &o_evaled_vec,
-        &l_evaled_vec,
-        &g1_gen,       // Generator point in G1
-    );
-
-    let lap = start.elapsed();
-    println!("Done! Elapsed time: {:.6} seconds", lap.as_secs_f64());
-
-
-    println!("Generating sigma_I...");
-    let start = Instant::now();
-
-    let sigma_i = SigmaI::gen(
-        &setup_params, // Circuit setup parameters
-        &tau, // Secret randomness τ
+    // Generate SigmaB using the computed polynomial evaluations
+    let sigma_b = SigmaB::gen(
+        &setup_params,
+        &tau,
         &o_evaled_vec,
         &l_evaled_vec,
         &k_evaled_vec,
-        &g1_gen,       // Generator point in G2
+        &m_evaled_vec,
+        &g1_gen,
     );
 
     let lap = start.elapsed();
-    println!("Done! Elapsed time: {:.6} seconds", lap.as_secs_f64());
+    println!("SigmaB generation time: {:.6} seconds", lap.as_secs_f64());
 
-    println!("Generating sigma_tau...");
+    println!("Generating sigma_ac...");
     let start = Instant::now();
 
-    let sigma_tau = SigmaTau::gen(
-        &tau, // Secret randomness τ
-        &g2_gen,       // Generator point in G2
+    // Generate SigmaAC using setup parameters and tau
+    let sigma_ac = SigmaAC::gen(
+        &setup_params,
+        &tau,
+        &g1_gen,
     );
 
     let lap = start.elapsed();
-    println!("Done! Elapsed time: {:.6} seconds", lap.as_secs_f64());
+    println!("SigmaAC generation time: {:.6} seconds", lap.as_secs_f64());
+
+    println!("Generating sigam_v...");
+    let start = Instant::now();
+
+    // Generate SigmaTau (renamed from SigmaV in the code to match paper terminology)
+    let sigam_v = SigmaV::gen(
+        &tau,
+        &g2_gen,
+    );
+
+    let lap = start.elapsed();
+    println!("SigmaTau generation time: {:.6} seconds", lap.as_secs_f64());
     
+    // Serialize the generated sigma components to JSON
     println!("Serializing combined sigma to compressed JSON...");
     
     let json_data = json!({
-        "sigma_kzg": SigmaKZG::serialize(&sigma_kzg),
-        "sigma_a": SigmaA::serialize(&sigma_a),
-        "sigma_i": SigmaI::serialize(&sigma_i),
-        "sigma_tau": SigmaTau::serialize(&sigma_tau)
+        "sigma_ac": SigmaAC::serialize(&sigma_ac),
+        "sigma_b": SigmaB::serialize(&sigma_b),
+        "sigam_v": SigmaV::serialize(&sigam_v)
     });
     
-    let output_path = "combined_sigma_modified.json";
+    let output_path = "combined_sigma.json";
     let mut file = File::create(output_path)
         .expect("Failed to create output file");
     
@@ -227,6 +261,6 @@ fn main() {
     
     println!("Combined sigma saved to {}", output_path);
     
-    let duration1 = start1.elapsed();
-    println!("Total time: {:.6} seconds", duration1.as_secs_f64());
+    let total_duration = start1.elapsed();
+    println!("Total setup time: {:.6} seconds", total_duration.as_secs_f64());
 }

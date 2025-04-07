@@ -28,12 +28,12 @@ macro_rules! impl_Tau_struct {
         }
     };
 }
-impl_Tau_struct!(x, y, z, alpha, beta, gamma, delta, eta0, eta1, mu, nu, psi0, psi1, psi2, psi3, kappa);
+impl_Tau_struct!(x, y, alpha, gamma, delta, eta);
 
 #[derive(Debug, Deserialize)]
 pub struct SetupParams {
     pub l: usize,
-    pub l_D: usize,
+    pub l_D: usize, //m_I = l_D - 1
     pub m_D: usize,
     pub n: usize,
     pub s_D: usize
@@ -239,8 +239,9 @@ impl MixedSubcircuitQAPEvaled {
         let mut w_evals_long = u_evals_long.clone();
         let cached_x_pows = HostSlice::from_slice(cached_x_pows_vec);
         let vec_ops_cfg = VecOpsConfig::default();
+        
+        // Evaluate u polynomials at tau.x
         for (i, wire_idx) in qap_polys.u_active_wires.iter().enumerate() {
-            // u_evals_long[*wire_idx] = qap_polys.u_polys[i].eval(&tau.x);
             let u_evals = HostSlice::from_slice(&qap_polys.u_evals[i]);
             let mut mul_res_vec = vec![ScalarField::zero(); setup_params.n].into_boxed_slice();
             let mul_res = HostSlice::from_mut_slice(&mut mul_res_vec);
@@ -251,8 +252,9 @@ impl MixedSubcircuitQAPEvaled {
             }
             u_evals_long[*wire_idx] = sum;
         }
+        
+        // Evaluate v polynomials at tau.x
         for (i, wire_idx) in qap_polys.v_active_wires.iter().enumerate() {
-            // v_evals_long[*wire_idx] = qap_polys.v_polys[i].eval(&tau.x);
             let v_evals = HostSlice::from_slice(&qap_polys.v_evals[i]);
             let mut mul_res_vec = vec![ScalarField::zero(); setup_params.n].into_boxed_slice();
             let mul_res = HostSlice::from_mut_slice(&mut mul_res_vec);
@@ -263,8 +265,9 @@ impl MixedSubcircuitQAPEvaled {
             }
             v_evals_long[*wire_idx] = sum;
         }
+        
+        // Evaluate w polynomials at tau.x
         for (i, wire_idx) in qap_polys.w_active_wires.iter().enumerate() {
-            // w_evals_long[*wire_idx] = qap_polys.w_polys[i].eval(&tau.x);
             let w_evals = HostSlice::from_slice(&qap_polys.w_evals[i]);
             let mut mul_res_vec = vec![ScalarField::zero(); setup_params.n].into_boxed_slice();
             let mul_res = HostSlice::from_mut_slice(&mut mul_res_vec);
@@ -276,11 +279,13 @@ impl MixedSubcircuitQAPEvaled {
             w_evals_long[*wire_idx] = sum;
         }
         
+        // Collect all active wires
         let mut active_wires = HashSet::new();
         active_wires = active_wires.union(&qap_polys.u_active_wires).copied().collect();
         active_wires = active_wires.union(&qap_polys.v_active_wires).copied().collect();
         active_wires = active_wires.union(&qap_polys.w_active_wires).copied().collect();
         let length = active_wires.len();
+        
         if length != subcircuit_info.Nwires {
             for i in 0..subcircuit_info.Nwires {
                 if !active_wires.contains(&i) {
@@ -288,6 +293,8 @@ impl MixedSubcircuitQAPEvaled {
                 }
             }
         }
+        
+        // Prepare vectors for final evaluation
         let mut u_evals_vec = vec![ScalarField::zero(); length].into_boxed_slice();
         let mut v_evals_vec = u_evals_vec.clone();
         let mut w_evals_vec = u_evals_vec.clone();
@@ -303,24 +310,29 @@ impl MixedSubcircuitQAPEvaled {
                 w_evals_vec[i] = w_evals_long[*wire_idx]; 
             }
         }
+        
+        // Setup for final calculation using tau.alpha (no tau.beta in updated paper)
         let alpha_scaler_vec = vec![tau.alpha; length].into_boxed_slice();
         let alpha_scaler = HostSlice::from_slice(&alpha_scaler_vec);
-        let beta_scaler_vec = vec![tau.beta; length].into_boxed_slice();
-        let beta_scaler = HostSlice::from_slice(&beta_scaler_vec);
         let u_evals = HostSlice::from_slice(&u_evals_vec);
         let v_evals = HostSlice::from_slice(&v_evals_vec);
         let w_evals = HostSlice::from_slice(&w_evals_vec);
         
+        // Calculate o_evaled_local using alpha instead of alpha and beta
         let vec_ops_cfg = VecOpsConfig::default();
-        let mut first_term = DeviceVec::<ScalarField>::device_malloc(length).unwrap();
-        ScalarCfg::mul(beta_scaler, u_evals, &mut first_term, &vec_ops_cfg).unwrap();
-        let mut second_term = DeviceVec::<ScalarField>::device_malloc(length).unwrap();
-        ScalarCfg::mul(alpha_scaler, v_evals, &mut second_term, &vec_ops_cfg).unwrap();
-        let mut third_term = DeviceVec::<ScalarField>::device_malloc(length).unwrap();
-        ScalarCfg::add(&first_term, &second_term, &mut third_term, &vec_ops_cfg).unwrap();
+        
+        // First, calculate alpha * v
+        let mut alpha_v_term = DeviceVec::<ScalarField>::device_malloc(length).unwrap();
+        ScalarCfg::mul(alpha_scaler, v_evals, &mut alpha_v_term, &vec_ops_cfg).unwrap();
+        
+        // Then, add u to it
+        let mut combined_term = DeviceVec::<ScalarField>::device_malloc(length).unwrap();
+        ScalarCfg::add(u_evals, &alpha_v_term, &mut combined_term, &vec_ops_cfg).unwrap();
+        
+        // Finally, add w to get the result
         let mut o_evaled_local_vec = vec![ScalarField::zero(); length].into_boxed_slice();
         let o_evaled_local = HostSlice::from_mut_slice(&mut o_evaled_local_vec);
-        ScalarCfg::add(&third_term, w_evals, o_evaled_local, &vec_ops_cfg).unwrap();
+        ScalarCfg::add(&combined_term, w_evals, o_evaled_local, &vec_ops_cfg).unwrap();
         
         Self {
             o_evals: o_evaled_local_vec,
