@@ -1,9 +1,9 @@
 use libs::tools::{Tau, SetupParams, SubcircuitInfo, MixedSubcircuitQAPEvaled};
 use libs::tools::{read_json_as_boxed_boxed_numbers, gen_cached_pows};
 // use libs::math::{DensePolynomialExt, BivariatePolynomial};
-use libs::group_structures::SigmaArithAndIP;
+use libs::group_structures::{SigmaArithAndIP, SigmaCopy, SigmaVerify};
 
-use icicle_bls12_381::curve::{ScalarField as Field, ScalarCfg, G1Affine, G2Affine, CurveCfg};
+use icicle_bls12_381::curve::{ScalarField as Field, ScalarCfg, G1Affine, G2Affine, CurveCfg, G2CurveCfg};
 // use icicle_bls12_381::vec_ops;
 use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
 // use icicle_core::polynomials::UnivariatePolynomial;
@@ -26,6 +26,7 @@ use libs::s_max;
 
 fn main() {
     let g1_gen = CurveCfg::generate_random_affine_points(1)[0];
+    let g2_gen = G2CurveCfg::generate_random_affine_points(1)[0];
     
     let tau = Tau::gen();
     
@@ -145,6 +146,8 @@ fn main() {
     let duration = start.elapsed(); // 종료 후 경과 시간 계산
     println!("Loading and eval time: {:.6} seconds", duration.as_secs_f64()); // 초 단위 출력
 
+    println!("Generating sigma_A,I...");
+    let start = Instant::now();
     let sigma_ai = SigmaArithAndIP::gen(
         &setup_params,
         &tau,
@@ -154,5 +157,28 @@ fn main() {
         &k_evaled_vec,
         &g1_gen,
     );
+    let lap = start.elapsed(); println!("Done! Elapsed time: {:.6} seconds", lap.as_secs_f64());
+
+    println!("Generating sigma_C..");
+    let start = Instant::now();
+    let sigma_c = SigmaCopy::gen(
+        &setup_params,
+        &tau,
+        &l_evaled_vec, 
+        &k_evaled_vec,
+        &g1_gen,
+    );
+    let lap = start.elapsed(); println!("Done! Elapsed time: {:.6} seconds", lap.as_secs_f64());
+
+    println!("Generating sigma_V..");
+    let start = Instant::now();
+    let sigma_v = SigmaVerify::gen(
+        &setup_params,
+        &tau,
+        &o_evaled_vec, 
+        &k_evaled_vec,
+        &g2_gen,
+    );
+    let lap = start.elapsed(); println!("Done! Elapsed time: {:.6} seconds", lap.as_secs_f64());
 
 }

@@ -12,3 +12,4 @@ serde_json = { workspace = true }
 byteorder = { workspace = true }
 num-bigint = { workspace = true }
 num-traits = { workspace = true }
+rayon = { workspace = true }
