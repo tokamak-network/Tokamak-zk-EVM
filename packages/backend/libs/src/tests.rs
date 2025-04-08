@@ -255,6 +255,25 @@ mod tests {
     }
 
     #[test]
+    fn test_div_by_ruffini() {
+        let x_size = 2usize.pow(10);
+        let y_size = 2usize.pow(5);
+        let p_coeffs_vec = ScalarCfg::generate_random(x_size * y_size);
+        let p = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&p_coeffs_vec), x_size, y_size);
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+    
+        let (q_x, q_y, r_x) = p.div_by_ruffini(x, y);
+        let a = ScalarCfg::generate_random(1)[0];
+        let b = ScalarCfg::generate_random(1)[0];
+        let q_x_eval = q_x.eval(&a, &b);
+        let q_y_eval = q_y.eval(&a, &b);
+        let estimated_p_eval = (q_x_eval * (a - x)) + (q_y_eval * (b - y)) + r_x;
+        let true_p_eval = p.eval(&a, &b);
+        assert!(estimated_p_eval.eq(&true_p_eval));
+    }
+
+    #[test]
     fn test_divide_x() {
         // Looking at the divide_x implementation, we need to ensure:
         // 1. The quotient and remainder sizes will be powers of two
