@@ -26,7 +26,7 @@ fn main() {
     
     // Load setup parameters from JSON file
     println!("Loading setup parameters...");
-    let setup_path = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/setupParams.json";
+    let setup_path = "setup/trusted-setup/inputs/setupParams.json";
     let setup_params = SetupParams::from_path(setup_path).unwrap();
 
     // Extract key parameters from setup_params
@@ -63,12 +63,12 @@ fn main() {
 
     // Load subcircuit information
     println!("Loading subcircuit information...");
-    let subcircuit_path = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/subcircuitInfo.json";
+    let subcircuit_path = "setup/trusted-setup/inputs/subcircuitInfo.json";
     let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_path).unwrap();
 
     // Load global wire list
     println!("Loading global wire list...");
-    let global_wire_path = "/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/globalWireList.json";
+    let global_wire_path = "setup/trusted-setup/inputs/globalWireList.json";
     let global_wire_list = read_json_as_boxed_boxed_numbers(global_wire_path).unwrap();
     
     // ------------------- Generate Polynomial Evaluations -------------------
@@ -88,7 +88,7 @@ fn main() {
         // Process each subcircuit
         for i in 0..s_d {
             println!("Processing subcircuit id {}", i);
-            let r1cs_path = format!("/Users/jason/workspace/Ooo/Tokamak-zk-EVM/packages/backend/setup/trusted-setup/inputs/json/subcircuit{i}.json");
+            let r1cs_path = format!("setup/trusted-setup/inputs/json/subcircuit{i}.json");
 
             // Evaluate QAP for the current subcircuit
             let evaled_qap = MixedSubcircuitQAPEvaled::from_r1cs_to_evaled_qap(
