@@ -668,7 +668,6 @@ impl Sigma {
 }
 
 
-// G1Affine을 JSON으로 직렬화
 fn g1_affine_to_json(point: &G1Affine) -> Value {
     json!({
         "x": point.x.to_string(),
@@ -676,7 +675,6 @@ fn g1_affine_to_json(point: &G1Affine) -> Value {
     })
 }
 
-// G2Affine을 JSON으로 직렬화
 fn g2_affine_to_json(point: &G2Affine) -> Value {
     json!({
         "x": point.x.to_string(),
@@ -684,47 +682,39 @@ fn g2_affine_to_json(point: &G2Affine) -> Value {
     })
 }
 
-// JSON에서 G1Affine으로 역직렬화
 fn g1_affine_from_json(json_value: &Value) -> Result<G1Affine, Box<dyn std::error::Error>> {
     let x_str = json_value["x"].as_str().ok_or("Missing x coordinate")?;
     let y_str = json_value["y"].as_str().ok_or("Missing y coordinate")?;
     
-    // 문자열을 바이트 배열로 변환하는 함수 (예: 16진수 문자열)
     let x_bytes = hex::decode(x_str.trim_start_matches("0x"))?;
     let y_bytes = hex::decode(y_str.trim_start_matches("0x"))?;
     
-    // 바이트 배열에서 필드 요소 생성
     let x_field = BaseField::from_bytes_le(&x_bytes);
     let y_field = BaseField::from_bytes_le(&y_bytes);
     
-    // G1Affine 구조체 직접 생성
     Ok(G1Affine {
         x: x_field,
         y: y_field,
     })
 }
 
-// JSON에서 G2Affine으로 역직렬화
+
 fn g2_affine_from_json(json_value: &Value) -> Result<G2Affine, Box<dyn std::error::Error>> {
     let x_str = json_value["x"].as_str().ok_or("Missing x coordinate")?;
     let y_str = json_value["y"].as_str().ok_or("Missing y coordinate")?;
     
-    // 문자열을 바이트 배열로 변환하는 함수 (예: 16진수 문자열)
     let x_bytes = hex::decode(x_str.trim_start_matches("0x"))?;
     let y_bytes = hex::decode(y_str.trim_start_matches("0x"))?;
     
-    // 바이트 배열에서 필드 요소 생성
     let x_field = G2BaseField::from_bytes_le(&x_bytes);
     let y_field = G2BaseField::from_bytes_le(&y_bytes);
-    
-    // G2Affine 구조체 직접 생성
+        
     Ok(G2Affine {
         x: x_field,
         y: y_field,
     })
 }
 
-// 나머지 역직렬화 함수들
 fn g1_affine_array_from_json(json_value: &Value) -> Result<Box<[G1Affine]>, Box<dyn std::error::Error>> {
     let array = json_value.as_array().ok_or("Expected array")?;
     let mut result = Vec::with_capacity(array.len());
@@ -758,7 +748,6 @@ fn g1_affine_2d_array_from_json(json_value: &Value) -> Result<Box<[Box<[G1Affine
     Ok(result.into_boxed_slice())
 }
 
-// 직렬화 함수들
 fn g1_affine_array_to_json(array: &Box<[G1Affine]>) -> Value {
     let mut json_array = Vec::new();
     for point in array.iter() {

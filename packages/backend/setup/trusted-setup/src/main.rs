@@ -1,7 +1,7 @@
 use libs::tools::{Tau, SetupParams, SubcircuitInfo, MixedSubcircuitQAPEvaled};
 use libs::tools::{read_json_as_boxed_boxed_numbers, gen_cached_pows};
 use libs::group_structures::{SigmaB, SigmaV, SigmaAC, Sigma};
-use icicle_bls12_381::curve::{ScalarField as Field, CurveCfg, G2CurveCfg, G1Affine, G2Affine};
+use icicle_bls12_381::curve::{ScalarField as Field, CurveCfg, G2CurveCfg};
 use icicle_core::traits::{Arithmetic, FieldImpl};
 use icicle_core::ntt;
 use icicle_core::curve::Curve;
@@ -10,8 +10,7 @@ use std::vec;
 use std::time::Instant;
 use libs::s_max;
 use std::fs::File;
-use std::io::{Write, Read};
-use serde_json::{Value, json, Map};
+use std::io::Write;
 
 fn main() {
     let start1 = Instant::now();
@@ -243,7 +242,6 @@ fn main() {
     // Serialize the generated sigma components to JSON
     println!("Serializing combined sigma to compressed JSON...");
     
-    // 생성된 Sigma 구성 요소를 JSON으로 직렬화
     let sigma = Sigma {
         sigma_ac,
         sigma_b,
@@ -267,19 +265,17 @@ fn main() {
     let total_duration = start1.elapsed();
     println!("Total setup time: {:.6} seconds", total_duration.as_secs_f64());
     
-    // ------------------- JSON 파일 읽어와서 검증 -------------------
+    // ------------------- read JSON file -------------------
     println!("\n----- Testing JSON deserialization -----");
     let read_start = Instant::now();
     
     println!("Reading from {}", output_path);
     
-    // JSON 파일 읽기
     match Sigma::from_file(output_path) {
         Ok(loaded_sigma) => {
             let read_duration = read_start.elapsed();
             println!("Successfully loaded sigma from file in {:.6} seconds", read_duration.as_secs_f64());
             
-            // 로드된 정보 출력
             println!("\nLoaded Sigma components summary:");
             println!("  - SigmaAC: {} xy_powers elements", loaded_sigma.sigma_ac.xy_powers.len());
             println!("  - SigmaB:");
@@ -320,7 +316,6 @@ fn main() {
         }
     }
     
-    // 파일 크기 확인
     if let Ok(metadata) = std::fs::metadata(output_path) {
         let file_size = metadata.len();
         println!("\nJSON file size: {} bytes ({:.2} MB)", file_size, file_size as f64 / (1024.0 * 1024.0));
