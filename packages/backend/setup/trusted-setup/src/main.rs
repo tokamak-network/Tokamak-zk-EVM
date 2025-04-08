@@ -1,6 +1,6 @@
 use libs::tools::{Tau, SetupParams, SubcircuitInfo, MixedSubcircuitQAPEvaled};
 use libs::tools::{read_json_as_boxed_boxed_numbers, gen_cached_pows};
-use libs::group_structures::{SigmaB, SigmaV, SigmaAC};
+use libs::group_structures::{SigmaB, SigmaV, SigmaAC, Sigma};
 use icicle_bls12_381::curve::{ScalarField as Field, CurveCfg, G2CurveCfg, G1Affine, G2Affine};
 use icicle_core::traits::{Arithmetic, FieldImpl};
 use icicle_core::ntt;
@@ -10,7 +10,7 @@ use std::vec;
 use std::time::Instant;
 use libs::s_max;
 use std::fs::File;
-use std::io::Write;
+use std::io::{Write, Read};
 use serde_json::{Value, json, Map};
 
 fn main() {
@@ -232,7 +232,7 @@ fn main() {
     let start = Instant::now();
 
     // Generate SigmaTau (renamed from SigmaV in the code to match paper terminology)
-    let sigam_v = SigmaV::gen(
+    let sigma_v = SigmaV::gen(
         &tau,
         &g2_gen,
     );
@@ -243,11 +243,14 @@ fn main() {
     // Serialize the generated sigma components to JSON
     println!("Serializing combined sigma to compressed JSON...");
     
-    let json_data = json!({
-        "sigma_ac": SigmaAC::serialize(&sigma_ac),
-        "sigma_b": SigmaB::serialize(&sigma_b),
-        "sigam_v": SigmaV::serialize(&sigam_v)
-    });
+    // 생성된 Sigma 구성 요소를 JSON으로 직렬화
+    let sigma = Sigma {
+        sigma_ac,
+        sigma_b,
+        sigma_v,
+    };
+    
+    let json_data = sigma.serialize();
     
     let output_path = "combined_sigma.json";
     let mut file = File::create(output_path)
@@ -263,4 +266,63 @@ fn main() {
     
     let total_duration = start1.elapsed();
     println!("Total setup time: {:.6} seconds", total_duration.as_secs_f64());
+    
+    // ------------------- JSON 파일 읽어와서 검증 -------------------
+    println!("\n----- Testing JSON deserialization -----");
+    let read_start = Instant::now();
+    
+    println!("Reading from {}", output_path);
+    
+    // JSON 파일 읽기
+    match Sigma::from_file(output_path) {
+        Ok(loaded_sigma) => {
+            let read_duration = read_start.elapsed();
+            println!("Successfully loaded sigma from file in {:.6} seconds", read_duration.as_secs_f64());
+            
+            // 로드된 정보 출력
+            println!("\nLoaded Sigma components summary:");
+            println!("  - SigmaAC: {} xy_powers elements", loaded_sigma.sigma_ac.xy_powers.len());
+            println!("  - SigmaB:");
+            println!("      * gamma_inv_l_oj_mj: {} elements", loaded_sigma.sigma_b.gamma_inv_l_oj_mj.len());
+            println!("      * eta_inv_li_ojl_ak_kj: {}x{} matrix", 
+                    loaded_sigma.sigma_b.eta_inv_li_ojl_ak_kj.len(),
+                    if loaded_sigma.sigma_b.eta_inv_li_ojl_ak_kj.len() > 0 { loaded_sigma.sigma_b.eta_inv_li_ojl_ak_kj[0].len() } else { 0 });
+            println!("      * delta_inv_li_oj_prv: {}x{} matrix", 
+                    loaded_sigma.sigma_b.delta_inv_li_oj_prv.len(),
+                    if loaded_sigma.sigma_b.delta_inv_li_oj_prv.len() > 0 { loaded_sigma.sigma_b.delta_inv_li_oj_prv[0].len() } else { 0 });
+            println!("      * delta_inv_ak_xh_tn: {} elements", loaded_sigma.sigma_b.delta_inv_ak_xh_tn.len());
+            println!("      * delta_inv_ak_xi_tm: {} elements", loaded_sigma.sigma_b.delta_inv_ak_xi_tm.len());
+            println!("      * delta_inv_ak_yi_ts: {} elements", loaded_sigma.sigma_b.delta_inv_ak_yi_ts.len());
+            
+            // Check first few elements of each component to verify they are valid
+            if loaded_sigma.sigma_ac.xy_powers.len() > 0 {
+                println!("\nSample values from SigmaAC:");
+                println!("  First xy_power x: {}", loaded_sigma.sigma_ac.xy_powers[0].x);
+                println!("  First xy_power y: {}", loaded_sigma.sigma_ac.xy_powers[0].y);
+            }
+            
+            println!("\nSample values from SigmaB:");
+            println!("  delta x: {}", loaded_sigma.sigma_b.delta.x);
+            println!("  delta y: {}", loaded_sigma.sigma_b.delta.y);
+            println!("  eta x: {}", loaded_sigma.sigma_b.eta.x);
+            println!("  eta y: {}", loaded_sigma.sigma_b.eta.y);
+            
+            println!("\nSample values from SigmaV:");
+            println!("  alpha x: {}", loaded_sigma.sigma_v.alpha.x);
+            println!("  alpha y: {}", loaded_sigma.sigma_v.alpha.y);
+            println!("  gamma x: {}", loaded_sigma.sigma_v.gamma.x);
+            println!("  gamma y: {}", loaded_sigma.sigma_v.gamma.y);
+            
+            println!("\nJSON deserialization test completed successfully!");
+        },
+        Err(e) => {
+            println!("Error loading sigma from file: {}", e);
+        }
+    }
+    
+    // 파일 크기 확인
+    if let Ok(metadata) = std::fs::metadata(output_path) {
+        let file_size = metadata.len();
+        println!("\nJSON file size: {} bytes ({:.2} MB)", file_size, file_size as f64 / (1024.0 * 1024.0));
+    }
 }

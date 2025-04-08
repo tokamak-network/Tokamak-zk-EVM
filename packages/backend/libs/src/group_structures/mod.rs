@@ -1,4 +1,4 @@
-use icicle_bls12_381::curve::{G1Affine, G2Affine, ScalarCfg, ScalarField};
+use icicle_bls12_381::curve::{BaseField, G1Affine, G2Affine, G2BaseField, ScalarCfg, ScalarField};
 use icicle_core::traits::{Arithmetic, FieldImpl};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use crate::tools::{Tau, SetupParams};
@@ -9,6 +9,12 @@ use std::sync::atomic::{AtomicU16, Ordering};
 use icicle_runtime::memory::HostSlice;
 use serde_json::{Value, json, Map};
 use rayon::scope;
+
+use serde_json::{from_str, from_value};
+use std::str::FromStr;
+use std::fs::File;
+use std::io::Read;
+use hex::*;
 
 use rayon::prelude::*;
 
@@ -310,6 +316,14 @@ impl SigmaAC {
             "xy_powers": g1_affine_array_to_json(&self.xy_powers),
         })
     }
+
+    pub fn from_json(json_value: &Value) -> Result<Self, Box<dyn std::error::Error>> {
+        let xy_powers = g1_affine_array_from_json(&json_value["xy_powers"])?;
+        
+        Ok(Self {
+            xy_powers
+        })
+    }
 }
 
 /// CRS's B component
@@ -472,6 +486,28 @@ impl SigmaB {
             delta_inv_ak_yi_ts
         }
     }
+
+    pub fn from_json(json_value: &Value) -> Result<Self, Box<dyn std::error::Error>> {
+        let delta = g1_affine_from_json(&json_value["delta"])?;
+        let eta = g1_affine_from_json(&json_value["eta"])?;
+        let gamma_inv_l_oj_mj = g1_affine_array_from_json(&json_value["gamma_inv_l_oj_mj"])?;
+        let eta_inv_li_ojl_ak_kj = g1_affine_2d_array_from_json(&json_value["eta_inv_li_ojl_ak_kj"])?;
+        let delta_inv_li_oj_prv = g1_affine_2d_array_from_json(&json_value["delta_inv_li_oj_prv"])?;
+        let delta_inv_ak_xh_tn = g1_affine_array_from_json(&json_value["delta_inv_ak_xh_tn"])?;
+        let delta_inv_ak_xi_tm = g1_affine_array_from_json(&json_value["delta_inv_ak_xi_tm"])?;
+        let delta_inv_ak_yi_ts = g1_affine_array_from_json(&json_value["delta_inv_ak_yi_ts"])?;
+        
+        Ok(Self {
+            delta,
+            eta,
+            gamma_inv_l_oj_mj,
+            eta_inv_li_ojl_ak_kj,
+            delta_inv_li_oj_prv,
+            delta_inv_ak_xh_tn,
+            delta_inv_ak_xi_tm,
+            delta_inv_ak_yi_ts
+        })
+    }
     
     /// Serialize SigmaB to JSON
     pub fn serialize(&self) -> Value {
@@ -534,6 +570,30 @@ impl SigmaV {
             y
         }
     }
+
+    pub fn from_json(json_value: &Value) -> Result<Self, Box<dyn std::error::Error>> {
+        let alpha = g2_affine_from_json(&json_value["alpha"])?;
+        let alpha_squared = g2_affine_from_json(&json_value["alpha_squared"])?;
+        let alpha_cubed = g2_affine_from_json(&json_value["alpha_cubed"])?;
+        let alpha_fourth = g2_affine_from_json(&json_value["alpha_fourth"])?;
+        let gamma = g2_affine_from_json(&json_value["gamma"])?;
+        let delta = g2_affine_from_json(&json_value["delta"])?;
+        let eta = g2_affine_from_json(&json_value["eta"])?;
+        let x = g2_affine_from_json(&json_value["x"])?;
+        let y = g2_affine_from_json(&json_value["y"])?;
+        
+        Ok(Self {
+            alpha,
+            alpha_squared,
+            alpha_cubed,
+            alpha_fourth,
+            gamma,
+            delta,
+            eta,
+            x,
+            y
+        })
+    }
     
     /// Serialize SigmaV to JSON
     pub fn serialize(&self) -> Value {
@@ -575,6 +635,27 @@ impl Sigma {
             sigma_v
         }
     }
+
+    pub fn from_file(file_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        // Read file content
+        let mut file = File::open(file_path)?;
+        let mut content = String::new();
+        file.read_to_string(&mut content)?;
+        
+        // Parse JSON
+        let json_value: Value = from_str(&content)?;
+        
+        // Parse components
+        let sigma_ac = SigmaAC::from_json(&json_value["sigma_ac"])?;
+        let sigma_b = SigmaB::from_json(&json_value["sigma_b"])?;
+        let sigma_v = SigmaV::from_json(&json_value["sigma_v"])?;
+        
+        Ok(Self {
+            sigma_ac,
+            sigma_b,
+            sigma_v
+        })
+    }
     
     /// Serialize full CRS to JSON
     pub fn serialize(&self) -> Value {
@@ -586,7 +667,8 @@ impl Sigma {
     }
 }
 
-// Helper functions for JSON serialization
+
+// G1Affine을 JSON으로 직렬화
 fn g1_affine_to_json(point: &G1Affine) -> Value {
     json!({
         "x": point.x.to_string(),
@@ -594,6 +676,7 @@ fn g1_affine_to_json(point: &G1Affine) -> Value {
     })
 }
 
+// G2Affine을 JSON으로 직렬화
 fn g2_affine_to_json(point: &G2Affine) -> Value {
     json!({
         "x": point.x.to_string(),
@@ -601,6 +684,81 @@ fn g2_affine_to_json(point: &G2Affine) -> Value {
     })
 }
 
+// JSON에서 G1Affine으로 역직렬화
+fn g1_affine_from_json(json_value: &Value) -> Result<G1Affine, Box<dyn std::error::Error>> {
+    let x_str = json_value["x"].as_str().ok_or("Missing x coordinate")?;
+    let y_str = json_value["y"].as_str().ok_or("Missing y coordinate")?;
+    
+    // 문자열을 바이트 배열로 변환하는 함수 (예: 16진수 문자열)
+    let x_bytes = hex::decode(x_str.trim_start_matches("0x"))?;
+    let y_bytes = hex::decode(y_str.trim_start_matches("0x"))?;
+    
+    // 바이트 배열에서 필드 요소 생성
+    let x_field = BaseField::from_bytes_le(&x_bytes);
+    let y_field = BaseField::from_bytes_le(&y_bytes);
+    
+    // G1Affine 구조체 직접 생성
+    Ok(G1Affine {
+        x: x_field,
+        y: y_field,
+    })
+}
+
+// JSON에서 G2Affine으로 역직렬화
+fn g2_affine_from_json(json_value: &Value) -> Result<G2Affine, Box<dyn std::error::Error>> {
+    let x_str = json_value["x"].as_str().ok_or("Missing x coordinate")?;
+    let y_str = json_value["y"].as_str().ok_or("Missing y coordinate")?;
+    
+    // 문자열을 바이트 배열로 변환하는 함수 (예: 16진수 문자열)
+    let x_bytes = hex::decode(x_str.trim_start_matches("0x"))?;
+    let y_bytes = hex::decode(y_str.trim_start_matches("0x"))?;
+    
+    // 바이트 배열에서 필드 요소 생성
+    let x_field = G2BaseField::from_bytes_le(&x_bytes);
+    let y_field = G2BaseField::from_bytes_le(&y_bytes);
+    
+    // G2Affine 구조체 직접 생성
+    Ok(G2Affine {
+        x: x_field,
+        y: y_field,
+    })
+}
+
+// 나머지 역직렬화 함수들
+fn g1_affine_array_from_json(json_value: &Value) -> Result<Box<[G1Affine]>, Box<dyn std::error::Error>> {
+    let array = json_value.as_array().ok_or("Expected array")?;
+    let mut result = Vec::with_capacity(array.len());
+    
+    for item in array {
+        result.push(g1_affine_from_json(item)?);
+    }
+    
+    Ok(result.into_boxed_slice())
+}
+
+fn g2_affine_array_from_json(json_value: &Value) -> Result<Box<[G2Affine]>, Box<dyn std::error::Error>> {
+    let array = json_value.as_array().ok_or("Expected array")?;
+    let mut result = Vec::with_capacity(array.len());
+    
+    for item in array {
+        result.push(g2_affine_from_json(item)?);
+    }
+    
+    Ok(result.into_boxed_slice())
+}
+
+fn g1_affine_2d_array_from_json(json_value: &Value) -> Result<Box<[Box<[G1Affine]>]>, Box<dyn std::error::Error>> {
+    let array = json_value.as_array().ok_or("Expected array")?;
+    let mut result = Vec::with_capacity(array.len());
+    
+    for row in array {
+        result.push(g1_affine_array_from_json(row)?);
+    }
+    
+    Ok(result.into_boxed_slice())
+}
+
+// 직렬화 함수들
 fn g1_affine_array_to_json(array: &Box<[G1Affine]>) -> Value {
     let mut json_array = Vec::new();
     for point in array.iter() {
