@@ -1,17 +1,17 @@
-use super::polynomials::{DensePolynomialExt, BivariatePolynomial};
-
-use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
+use icicle_bls12_381::curve::{ScalarField, ScalarCfg, G1Affine, G2Affine, BaseField, G2BaseField};
 use icicle_core::traits::{FieldImpl, GenerateRandom};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
+use super::vectors::scaled_outer_product;
 
 use icicle_runtime::memory::{HostSlice, DeviceVec};
-use serde::Deserialize;
 use serde_json::from_reader;
 use std::fs::File;
 use std::io::{self, BufReader};
 use std::env;
 use std::collections::{HashMap, HashSet};
 use num_bigint::BigUint;
+use serde::{Deserialize, Serialize};
+use serde::ser::{Serializer, SerializeStruct};
 
 macro_rules! impl_Tau_struct {
     ( $($ScalarField:ident),* ) => {
@@ -175,7 +175,7 @@ impl SubcircuitQAPRaw{
             }
         }
         
-        
+
         let n = setup_params.n;
         if n < column_size {
             panic!("n is smaller than the actual number of constraints.");
@@ -231,13 +231,13 @@ impl MixedSubcircuitQAPEvaled {
         setup_params: &SetupParams, 
         subcircuit_info: &SubcircuitInfo, 
         tau: &Tau, 
-        cached_x_pows_vec: &Box<[ScalarField]>
+        x_evaled_lagrange_vec: &Box<[ScalarField]>
     ) -> Self {
         let qap_polys = SubcircuitQAPRaw::from_path(path, setup_params, subcircuit_info).unwrap();
         let mut u_evals_long = vec![ScalarField::zero(); subcircuit_info.Nwires].into_boxed_slice();
         let mut v_evals_long = u_evals_long.clone();
         let mut w_evals_long = u_evals_long.clone();
-        let cached_x_pows = HostSlice::from_slice(cached_x_pows_vec);
+        let x_evaled_lagrange = HostSlice::from_slice(x_evaled_lagrange_vec);
         let vec_ops_cfg = VecOpsConfig::default();
         
         // Evaluate u polynomials at tau.x
@@ -245,7 +245,7 @@ impl MixedSubcircuitQAPEvaled {
             let u_evals = HostSlice::from_slice(&qap_polys.u_evals[i]);
             let mut mul_res_vec = vec![ScalarField::zero(); setup_params.n].into_boxed_slice();
             let mul_res = HostSlice::from_mut_slice(&mut mul_res_vec);
-            ScalarCfg::mul(u_evals, cached_x_pows, mul_res, &vec_ops_cfg).unwrap();
+            ScalarCfg::mul(u_evals, x_evaled_lagrange, mul_res, &vec_ops_cfg).unwrap();
             let mut sum = ScalarField::zero();
             for val in mul_res_vec {
                 sum = sum + val;
@@ -258,7 +258,7 @@ impl MixedSubcircuitQAPEvaled {
             let v_evals = HostSlice::from_slice(&qap_polys.v_evals[i]);
             let mut mul_res_vec = vec![ScalarField::zero(); setup_params.n].into_boxed_slice();
             let mul_res = HostSlice::from_mut_slice(&mut mul_res_vec);
-            ScalarCfg::mul(v_evals, cached_x_pows, mul_res, &vec_ops_cfg).unwrap();
+            ScalarCfg::mul(v_evals, x_evaled_lagrange, mul_res, &vec_ops_cfg).unwrap();
             let mut sum = ScalarField::zero();
             for val in mul_res_vec {
                 sum = sum + val;
@@ -271,7 +271,7 @@ impl MixedSubcircuitQAPEvaled {
             let w_evals = HostSlice::from_slice(&qap_polys.w_evals[i]);
             let mut mul_res_vec = vec![ScalarField::zero(); setup_params.n].into_boxed_slice();
             let mul_res = HostSlice::from_mut_slice(&mut mul_res_vec);
-            ScalarCfg::mul(w_evals, cached_x_pows, mul_res, &vec_ops_cfg).unwrap();
+            ScalarCfg::mul(w_evals, x_evaled_lagrange, mul_res, &vec_ops_cfg).unwrap();
             let mut sum = ScalarField::zero();
             for val in mul_res_vec {
                 sum = sum + val;
@@ -341,13 +341,210 @@ impl MixedSubcircuitQAPEvaled {
     }
 }
 
-pub fn gen_cached_pows(val: &ScalarField, size: usize, res: &mut Box<[ScalarField]>) {
-    let mut val_pows = vec![ScalarField::one(); size].into_boxed_slice();
-    for i in 1..size {
-        val_pows[i] = val_pows[i-1] * *val;
+
+#[derive(Clone, Debug, Copy)]
+pub struct G1serde(pub G1Affine);
+impl Serialize for G1serde {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: serde::Serializer {
+        let mut s = serializer.serialize_struct("G1serde", 2)?;
+        let x_coord = &self.0.x.to_string();
+        let y_coord = &self.0.y.to_string();
+        s.serialize_field("x", x_coord)?;
+        s.serialize_field("y", y_coord)?;
+        s.end()
     }
-    let temp_evals = HostSlice::from_slice(&val_pows);
-    let temp_poly = DensePolynomialExt::from_rou_evals(temp_evals, size, 1, None, None);
-    let cached_val_pows = HostSlice::from_mut_slice(res);
-    temp_poly.copy_coeffs(0, cached_val_pows);
+}
+impl<'de> Deserialize<'de> for G1serde {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where D: serde::Deserializer<'de> {
+        #[derive(Deserialize)]
+        struct G1Coords {
+            x: String,
+            y: String,
+        }
+        let G1Coords { x, y } = G1Coords::deserialize(deserializer)?;
+        let x_field = BaseField::from_hex(&x).into();
+        let y_field = BaseField::from_hex(&y).into();
+        let point = G1Affine::from_limbs(x_field, y_field);
+        Ok(G1serde(point))
+    }
+}
+impl G1serde {
+    pub fn zero() -> Self {
+        G1serde(G1Affine::zero())
+    }
+}
+
+#[derive(Clone, Debug, Copy)]
+pub struct G2serde(pub G2Affine);
+impl Serialize for G2serde {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: serde::Serializer {
+        let mut s = serializer.serialize_struct("G2", 2)?;
+        let x_coord = &self.0.x.to_string();
+        let y_coord = &self.0.y.to_string();
+        s.serialize_field("x", x_coord)?;
+        s.serialize_field("y", y_coord)?;
+        s.end()
+    }
+}
+impl<'de> Deserialize<'de> for G2serde {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where D: serde::Deserializer<'de> {
+        #[derive(Deserialize)]
+        struct G2Coords {
+            x: String,
+            y: String,
+        }
+        let G2Coords { x, y } = G2Coords::deserialize(deserializer)?;
+        let x_field = G2BaseField::from_hex(&x).into();
+        let y_field = G2BaseField::from_hex(&y).into();
+        let point = G2Affine::from_limbs(x_field, y_field);
+        Ok(G2serde(point))
+    }
+}
+
+
+pub fn scaled_outer_product_2d(
+    col_vec: &Box<[ScalarField]>, 
+    row_vec: &Box<[ScalarField]>, 
+    g1_gen: &G1Affine, 
+    scaler: Option<&ScalarField>, 
+    res: &mut Box<[Box<[G1serde]>]>
+) {
+    let col_size = col_vec.len();
+    let row_size = row_vec.len();
+    let size = col_size * row_size;
+    if res.len() > 0 {
+        if res.len() * res[0].len() != size {
+            panic!("Insufficient buffer length");
+        }
+    } else {
+        panic!("Empty buffer");
+    }
+    
+    let mut res_coef = vec![ScalarField::zero(); size].into_boxed_slice();
+    scaled_outer_product(col_vec, row_vec, scaler, &mut res_coef);
+    from_coef_vec_to_g1serde_mat(
+        &res_coef,
+        row_size,
+        col_size,
+        g1_gen,
+        res,
+    );
+}
+
+pub fn scaled_outer_product_1d(
+    col_vec: &Box<[ScalarField]>, 
+    row_vec: &Box<[ScalarField]>, 
+    g1_gen: &G1Affine, 
+    scaler: Option<&ScalarField>, 
+    res: &mut Box<[G1serde]>
+) {
+    let col_size = col_vec.len();
+    let row_size = row_vec.len();
+    let size = col_size * row_size;
+    if res.len() != size {
+        panic!("Insufficient buffer length");
+    }
+    let mut res_coef = vec![ScalarField::zero(); size].into_boxed_slice();
+    scaled_outer_product(col_vec, row_vec, scaler, &mut res_coef);
+    from_coef_vec_to_g1serde_vec(
+        &res_coef,
+        g1_gen,
+        res,
+    );
+}
+
+pub fn gen_monomial_matrix(x_size: usize, y_size: usize, x: &ScalarField, y: &ScalarField, res_vec: &mut Box<[ScalarField]>) {
+    // x_size: column size
+    // y_size: row size
+    if res_vec.len() != x_size * y_size {
+        panic!("Not enough buffer length.")
+    }
+    let vec_ops_cfg = VecOpsConfig::default();
+    let min_len = std::cmp::min(x_size, y_size);
+    let max_len = std::cmp::max(x_size, y_size);
+    let max_dir = if max_len == x_size {true } else {false};
+    let mut base_row_vec = vec![ScalarField::one(); max_len];
+    for ind in 1..max_len {
+        if max_dir {
+            base_row_vec[ind] = base_row_vec[ind-1] * *x;
+        }
+        else {
+            base_row_vec[ind] = base_row_vec[ind-1] * *y;
+        }
+    }
+    let mut res_vec_untransposed = res_vec.clone();
+    let val_dup_vec = if max_dir {vec![*y; max_len].into_boxed_slice()} else {vec![*x; max_len].into_boxed_slice()};
+    let val_dup = HostSlice::from_slice(&val_dup_vec);
+    res_vec_untransposed[0 .. max_len].copy_from_slice(&base_row_vec);
+    for ind in 1..min_len {
+        let curr_row_view = HostSlice::from_slice(&res_vec_untransposed[(ind-1) * max_len .. (ind) * max_len]);
+        let mut next_row_vec = vec![ScalarField::zero(); max_len].into_boxed_slice();
+        let next_row = HostSlice::from_mut_slice(&mut next_row_vec); 
+        ScalarCfg::mul(curr_row_view, val_dup, next_row, &vec_ops_cfg).unwrap();
+        res_vec_untransposed[ind*max_len .. (ind+1)*max_len].copy_from_slice(&next_row_vec);
+    }
+    
+    if !max_dir {
+        let res_untranposed_buf = HostSlice::from_slice(&res_vec_untransposed);
+        let res_buf = HostSlice::from_mut_slice(res_vec);
+        ScalarCfg::transpose(
+            res_untranposed_buf,
+            min_len as u32,
+            max_len as u32,
+            res_buf,
+            &vec_ops_cfg).unwrap();
+    } else {
+        res_vec.clone_from(&res_vec_untransposed);
+    }
+}
+
+pub fn from_coef_vec_to_g1serde_vec(coef: &Box<[ScalarField]>, gen: &G1Affine, res: &mut Box<[G1serde]>) {
+    use std::sync::atomic::{AtomicU16, Ordering};
+    use rayon::prelude::*;
+    use std::io::{stdout, Write};
+
+    if res.len() != coef.len() {
+        panic!("Not enough buffer length.")
+    }
+    if coef.len() == 0 {
+        return
+    }
+
+    let gen_proj = gen.to_projective();
+
+    let cnt = AtomicU16::new(1);
+    let progress = AtomicU16::new(0);
+    let indi: u16 = std::cmp::max(coef.len() as u16 / 20, 1);
+    res.par_iter_mut()
+        .zip(coef.par_iter())
+        .for_each(|(r, &c)| {
+            *r = G1serde(G1Affine::from(gen_proj * c));
+            let current_cnt = cnt.fetch_add(1, Ordering::Relaxed);
+            if current_cnt % indi == 0 {
+                let new_progress = progress.fetch_add(5, Ordering::Relaxed);
+                print!("\rProgress: {}%", new_progress);
+                stdout().flush().unwrap(); 
+            }
+        });
+    print!("\r");
+
+    // println!("Number of nonzero coefficients: {:?}", coef.len() - nzeros);
+}
+
+pub fn from_coef_vec_to_g1serde_mat(coef: &Box<[ScalarField]>, r_size: usize, c_size: usize, gen: &G1Affine, res: &mut Box<[Box<[G1serde]>]>) {
+    if res.len() != r_size || res.len() == 0 {
+        panic!("Not enough buffer row length.")
+    }
+    let mut temp_vec = vec![G1serde::zero(); r_size * c_size].into_boxed_slice();
+    from_coef_vec_to_g1serde_vec(coef, gen, &mut temp_vec);
+    for i in 0..r_size {
+        if res[i].len() != c_size {
+            panic!("Not enough buffer column length.")
+        }
+        res[i].copy_from_slice(&temp_vec[i * c_size .. (i + 1) * c_size]);
+    }
 }

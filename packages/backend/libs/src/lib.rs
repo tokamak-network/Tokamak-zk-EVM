@@ -1,6 +1,6 @@
 pub mod polynomials;
 pub mod vectors;
-pub mod tools;
+pub mod iotools;
 pub mod group_structures;
 pub const s_max: usize = 2;
 
