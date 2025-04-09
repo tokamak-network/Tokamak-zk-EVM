@@ -1,24 +1,34 @@
 use icicle_bls12_381::curve::{ScalarField, ScalarCfg, G1Affine, G2Affine, BaseField, G2BaseField};
-use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
+use icicle_core::traits::{FieldImpl, GenerateRandom};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
-use crate::group_structures::Sigma;
-use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
-use crate::vector_operations::transpose_inplace;
-
-use super::vector_operations::{*};
+use super::vectors::scaled_outer_product;
 
 use icicle_runtime::memory::{HostSlice, DeviceVec};
-use std::fs::{self, File};
-use std::io::{self, BufReader, BufWriter, stdout, Write};
+use serde_json::from_reader;
+use std::fs::File;
+use std::io::{self, BufReader};
 use std::env;
 use std::collections::{HashMap, HashSet};
-use std::time::Instant;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use serde::ser::{Serializer, SerializeStruct};
-use serde_json::{from_reader, to_writer_pretty};
 
-const QAP_COMPILER_PATH_PREFIX: &str = "../frontend/qap-compiler/subcircuits/library";
+macro_rules! impl_Tau_struct {
+    ( $($ScalarField:ident),* ) => {
+        pub struct Tau {
+            $(pub $ScalarField: ScalarField),*
+        }
+
+        impl Tau {
+            pub fn gen() -> Self {
+                Self {
+                    $($ScalarField: ScalarCfg::generate_random(1)[0]),*
+                }
+            }
+        }
+    };
+}
+impl_Tau_struct!(x, y, alpha, gamma, delta, eta);
 
 #[derive(Debug, Deserialize)]
 pub struct SetupParams {
@@ -26,101 +36,18 @@ pub struct SetupParams {
     pub l_D: usize, //m_I = l_D - 1
     pub m_D: usize,
     pub n: usize,
-    pub s_D: usize,
-    pub s_max: usize
+    pub s_D: usize
 }
 
 impl SetupParams {
-    pub fn from_path(path: &str) -> io::Result<Self> { 
-        let abs_path = env::current_dir()?.join(QAP_COMPILER_PATH_PREFIX).join(path);
-        println!("{:?}", abs_path);
+    pub fn from_path(path: &str) -> io::Result<Self> {
+        let abs_path = env::current_dir()?.join(path);
         let file = File::open(abs_path)?;
         let reader = BufReader::new(file);
         let data = from_reader(reader)?;
         Ok(data)
     }
 }
-
-impl Sigma {
-    /// Write full CRS from JSON
-    pub fn read_from_json(path: &str) -> io::Result<Self> {
-        let abs_path = env::current_dir()?.join(path);
-        let file = File::open(abs_path)?;
-        let reader = BufReader::new(file);
-        let sigma: Self = from_reader(reader)?;
-        Ok(sigma)
-    }
-    
-    /// Write full CRS into JSON
-    pub fn write_into_json(&self, path: &str) -> io::Result<()> {
-        let abs_path = env::current_dir()?.join(path);
-        if let Some(parent) = abs_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        let file = File::create(&abs_path)?;
-        let writer = BufWriter::new(file);
-        to_writer_pretty(writer, self)?;
-        println!("Sigma has been saved at {:?}", abs_path);
-        Ok(())
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct PlacementVariables {
-    pub subcircuitId: usize,
-    pub variables: Box<[String]>,
-}
-
-impl PlacementVariables {
-    pub fn from_path(path: &str) -> io::Result<Box<[Self]>> {
-        let abs_path = env::current_dir()?.join(path);
-        let file = File::open(abs_path)?;
-        let reader = BufReader::new(file);
-        let box_data: Box<[Self]> = from_reader(reader)?;
-        Ok(box_data)
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Permutation {
-    pub row: usize,
-    pub col: usize,
-    pub X: u32,
-    pub Y: u32,
-}
-
-impl Permutation {
-    pub fn from_path(path: &str) -> io::Result<Vec<Self>> {
-        let abs_path = env::current_dir()?.join(path);
-        let file = File::open(abs_path)?;
-        let reader = BufReader::new(file);
-        let vec_data: Vec<Self> = from_reader(reader)?;
-        Ok(vec_data)
-    }
-    pub fn to_poly(perm_raw: &Vec<Self>, m_i: usize, s_max: usize) -> (DensePolynomialExt, DensePolynomialExt) {
-        let mut s0_evals_vec = vec![ScalarField::zero(); m_i * s_max];
-        let mut s1_evals_vec = vec![ScalarField::zero(); m_i * s_max];
-        // Initialization
-        for row_idx in 0..m_i {
-            for col_idx in 0..s_max {
-                s0_evals_vec[row_idx * s_max + col_idx] = ScalarField::from_u32(row_idx as u32);
-                s1_evals_vec[row_idx * s_max + col_idx] = ScalarField::from_u32(col_idx as u32);
-            }
-        }
-        for i in 0..perm_raw.len() {
-            let idx = perm_raw[i].row * s_max + perm_raw[i].col;
-            s0_evals_vec[idx] = ScalarField::from_u32(perm_raw[i].X);
-            s1_evals_vec[idx] = ScalarField::from_u32(perm_raw[i].Y);            
-        }
-        let s0_evals = HostSlice::from_slice(&s0_evals_vec);
-        let s1_evals = HostSlice::from_slice(&s1_evals_vec);
-        return (
-            DensePolynomialExt::from_rou_evals(s0_evals, m_i, s_max, None, None),
-            DensePolynomialExt::from_rou_evals(s1_evals, m_i, s_max, None, None),
-        ) 
-    }
-}
-
 #[derive(Debug, Deserialize)]
 pub struct SubcircuitInfo {
     pub id: usize,
@@ -133,7 +60,7 @@ pub struct SubcircuitInfo {
 }
 impl SubcircuitInfo {
     pub fn from_path(path: &str) -> io::Result<Box<[Self]>> {
-        let abs_path = env::current_dir()?.join(QAP_COMPILER_PATH_PREFIX).join(path);
+        let abs_path = env::current_dir()?.join(path);
         let file = File::open(abs_path)?;
         let reader = BufReader::new(file);
         let vec_data: Vec<Self> = from_reader(reader)?;
@@ -141,8 +68,8 @@ impl SubcircuitInfo {
     }
 }
 
-pub fn read_global_wire_list_as_boxed_boxed_numbers(path: &str) -> io::Result<Box<[Box<[usize]>]>> {
-    let abs_path = env::current_dir()?.join(QAP_COMPILER_PATH_PREFIX).join(path);
+pub fn read_json_as_boxed_boxed_numbers(path: &str) -> io::Result<Box<[Box<[usize]>]>> {
+    let abs_path = env::current_dir()?.join(path);
     let file = File::open(abs_path)?;
     let reader = BufReader::new(file);
 
@@ -162,7 +89,7 @@ struct Constraints {
 
 impl Constraints {
     fn from_path(path: &str) -> io::Result<Self> {
-        let abs_path = env::current_dir()?.join(QAP_COMPILER_PATH_PREFIX).join(path);
+        let abs_path = env::current_dir()?.join(path);
         let file = File::open(abs_path)?;
         let reader = BufReader::new(file);
         let constraints = from_reader(reader)?;
@@ -190,88 +117,228 @@ impl Constraints {
     }
 }
 
-pub struct SubcircuitR1CS{
-    pub A_compact_col_mat: Vec<ScalarField>,
-    pub B_compact_col_mat: Vec<ScalarField>,
-    pub C_compact_col_mat: Vec<ScalarField>,
-    pub A_active_wires: HashSet<usize>,
-    pub B_active_wires: HashSet<usize>,
-    pub C_active_wires: HashSet<usize>,
+pub struct SubcircuitQAPRaw{
+    pub u_evals: Box<[Box<[ScalarField]>]>,
+    pub v_evals: Box<[Box<[ScalarField]>]>,
+    pub w_evals: Box<[Box<[ScalarField]>]>,
+    pub u_active_wires: HashSet<usize>,
+    pub v_active_wires: HashSet<usize>,
+    pub w_active_wires: HashSet<usize>,
 }
 
-impl SubcircuitR1CS{
+impl SubcircuitQAPRaw{
     pub fn from_path(path: &str, setup_params: &SetupParams, subcircuit_info: &SubcircuitInfo) -> io::Result<Self> {
         let mut constraints = Constraints::from_path(path)?;
         Constraints::convert_values_to_hex(&mut constraints);
-
+    
+        let column_size = subcircuit_info.Nconsts;
+        let row_size = subcircuit_info.Nwires;
+        let matrix_size = column_size * row_size;
+        
+        let mut a_mat_vec = vec![ScalarField::zero(); matrix_size].into_boxed_slice();
+        let mut b_mat_vec = vec![ScalarField::zero(); matrix_size].into_boxed_slice();
+        let mut c_mat_vec = vec![ScalarField::zero(); matrix_size].into_boxed_slice();
+    
         // active wire indices를 직접 확장합니다.
-        let mut A_active_wire_indices = HashSet::<usize>::new();
-        let mut B_active_wire_indices = HashSet::<usize>::new();
-        let mut C_active_wire_indices = HashSet::<usize>::new();
-
-        for const_idx in 0..subcircuit_info.Nconsts {
+        let mut a_active_wire_indices = HashSet::<usize>::new();
+        let mut b_active_wire_indices = HashSet::<usize>::new();
+        let mut c_active_wire_indices = HashSet::<usize>::new();
+        
+        for const_idx in 0..column_size {
             let constraint = &constraints.constraints[const_idx];
-            // 각 constraint의 키들을 active set에 확장(재할당 없이)
-            A_active_wire_indices.extend(constraint[0].keys().copied());
-            B_active_wire_indices.extend(constraint[1].keys().copied());
-            C_active_wire_indices.extend(constraint[2].keys().copied());
-        }     
-
-        let n = setup_params.n; // used as the number of rows.
-        if n < subcircuit_info.Nconsts {
-            panic!("n is smaller than the actual number of constraints.");
-        }
-        // used as the numbers of columns (different by the R1CS matrices).
-        let A_len = A_active_wire_indices.len();
-        let B_len = B_active_wire_indices.len();
-        let C_len = C_active_wire_indices.len();
-        if A_len > subcircuit_info.Nwires || B_len > subcircuit_info.Nwires || C_len > subcircuit_info.Nwires{
-            panic!("Incorrectly counted number of wires.");
-        }
-        
-        // Each of a_mat_vec, b_mat_vec, and c_mat_vec is, respectively, not a matrix but just a vector of vectors (of irregular lengths).
-        let mut A_compact_col_mat = vec![ScalarField::zero(); n * A_len];
-        let mut B_compact_col_mat = vec![ScalarField::zero(); n * B_len];
-        let mut C_compact_col_mat = vec![ScalarField::zero(); n * C_len];
-        
-        for row_idx in 0..subcircuit_info.Nconsts {
-            let constraint = &constraints.constraints[row_idx];
             let a_constraint = &constraint[0];
             let b_constraint = &constraint[1];
             let c_constraint = &constraint[2];
         
+            // 각 constraint의 키들을 active set에 확장(재할당 없이)
+            a_active_wire_indices.extend(a_constraint.keys().copied());
+            b_active_wire_indices.extend(b_constraint.keys().copied());
+            c_active_wire_indices.extend(c_constraint.keys().copied());
+        
             // a_constraint 처리: 각 wire_idx에 대해 'wire_idx * column_size'를 한 번만 계산하도록 함.
-            for (&col_idx, hex_val) in a_constraint {
-                let idx = A_len * row_idx + col_idx;
-                A_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
+            for (&wire_idx, hex_val) in a_constraint {
+                let base = wire_idx * column_size;  // wire_idx * column_size를 캐시
+                let idx = const_idx + base;
+                a_mat_vec[idx] = ScalarField::from_hex(hex_val);
             }
             // b_constraint 처리
-            for (&col_idx, hex_val) in b_constraint {
-                let idx = B_len * row_idx + col_idx;
-                B_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
+            for (&wire_idx, hex_val) in b_constraint {
+                let base = wire_idx * column_size;
+                let idx = const_idx + base;
+                b_mat_vec[idx] = ScalarField::from_hex(hex_val);
             }
             // c_constraint 처리
-            for (&col_idx, hex_val) in c_constraint {
-                let idx = C_len * row_idx + col_idx;
-                C_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
+            for (&wire_idx, hex_val) in c_constraint {
+                let base = wire_idx * column_size;
+                let idx = const_idx + base;
+                c_mat_vec[idx] = ScalarField::from_hex(hex_val);
             }
         }
-        // IMPORTANT: A, B, C matrices are of size A_len-by-n, B_len-by-n, and C_len-by-n, respectively.
-        // They must be transposed before being converted into bivariate polynomials.
-        transpose_inplace(&mut A_compact_col_mat, n, A_len);
-        transpose_inplace(&mut B_compact_col_mat, n, B_len);
-        transpose_inplace(&mut C_compact_col_mat, n, C_len);
+        
+
+        let n = setup_params.n;
+        if n < column_size {
+            panic!("n is smaller than the actual number of constraints.");
+        }
+        
+        let new_zeros = |n: usize| vec![ScalarField::zero(); n].into_boxed_slice();
+        let zeros_vec = new_zeros(n);
+        
+        let u_len = a_active_wire_indices.len();
+        let v_len = b_active_wire_indices.len();
+        let w_len = c_active_wire_indices.len();
+        
+        let mut u_evals = vec![zeros_vec.clone(); u_len].into_boxed_slice();
+        let mut v_evals = vec![zeros_vec.clone(); v_len].into_boxed_slice();
+        let mut w_evals = vec![zeros_vec.clone(); w_len].into_boxed_slice();
+        
+        for (i, &wire_idx) in a_active_wire_indices.iter().enumerate() {
+            let start = wire_idx * column_size;
+            let end = start + column_size;
+            u_evals[i][0 .. column_size].copy_from_slice(&a_mat_vec[start .. end]);
+        }
+        for (i, &wire_idx) in b_active_wire_indices.iter().enumerate() {
+            let start = wire_idx * column_size;
+            let end = start + column_size;
+            v_evals[i][0 .. column_size].copy_from_slice(&b_mat_vec[start .. end]);
+        }
+        for (i, &wire_idx) in c_active_wire_indices.iter().enumerate() {
+            let start = wire_idx * column_size;
+            let end = start + column_size;
+            w_evals[i][0 .. column_size].copy_from_slice(&c_mat_vec[start .. end]);
+        }
         
         Ok(Self {
-            A_compact_col_mat,
-            B_compact_col_mat,
-            C_compact_col_mat,
-            A_active_wires: A_active_wire_indices,
-            B_active_wires: B_active_wire_indices,
-            C_active_wires: C_active_wire_indices,
+            u_evals,
+            v_evals,
+            w_evals,
+            u_active_wires: a_active_wire_indices,
+            v_active_wires: b_active_wire_indices,
+            w_active_wires: c_active_wire_indices,
         })
     }
     
+}
+
+pub struct MixedSubcircuitQAPEvaled {
+    pub o_evals: Box<[ScalarField]>,
+    pub active_wires: HashSet<usize>,
+}
+
+impl MixedSubcircuitQAPEvaled {
+    pub fn from_r1cs_to_evaled_qap(
+        path :&str, 
+        setup_params: &SetupParams, 
+        subcircuit_info: &SubcircuitInfo, 
+        tau: &Tau, 
+        x_evaled_lagrange_vec: &Box<[ScalarField]>
+    ) -> Self {
+        let qap_polys = SubcircuitQAPRaw::from_path(path, setup_params, subcircuit_info).unwrap();
+        let mut u_evals_long = vec![ScalarField::zero(); subcircuit_info.Nwires].into_boxed_slice();
+        let mut v_evals_long = u_evals_long.clone();
+        let mut w_evals_long = u_evals_long.clone();
+        let x_evaled_lagrange = HostSlice::from_slice(x_evaled_lagrange_vec);
+        let vec_ops_cfg = VecOpsConfig::default();
+        
+        // Evaluate u polynomials at tau.x
+        for (i, wire_idx) in qap_polys.u_active_wires.iter().enumerate() {
+            let u_evals = HostSlice::from_slice(&qap_polys.u_evals[i]);
+            let mut mul_res_vec = vec![ScalarField::zero(); setup_params.n].into_boxed_slice();
+            let mul_res = HostSlice::from_mut_slice(&mut mul_res_vec);
+            ScalarCfg::mul(u_evals, x_evaled_lagrange, mul_res, &vec_ops_cfg).unwrap();
+            let mut sum = ScalarField::zero();
+            for val in mul_res_vec {
+                sum = sum + val;
+            }
+            u_evals_long[*wire_idx] = sum;
+        }
+        
+        // Evaluate v polynomials at tau.x
+        for (i, wire_idx) in qap_polys.v_active_wires.iter().enumerate() {
+            let v_evals = HostSlice::from_slice(&qap_polys.v_evals[i]);
+            let mut mul_res_vec = vec![ScalarField::zero(); setup_params.n].into_boxed_slice();
+            let mul_res = HostSlice::from_mut_slice(&mut mul_res_vec);
+            ScalarCfg::mul(v_evals, x_evaled_lagrange, mul_res, &vec_ops_cfg).unwrap();
+            let mut sum = ScalarField::zero();
+            for val in mul_res_vec {
+                sum = sum + val;
+            }
+            v_evals_long[*wire_idx] = sum;
+        }
+        
+        // Evaluate w polynomials at tau.x
+        for (i, wire_idx) in qap_polys.w_active_wires.iter().enumerate() {
+            let w_evals = HostSlice::from_slice(&qap_polys.w_evals[i]);
+            let mut mul_res_vec = vec![ScalarField::zero(); setup_params.n].into_boxed_slice();
+            let mul_res = HostSlice::from_mut_slice(&mut mul_res_vec);
+            ScalarCfg::mul(w_evals, x_evaled_lagrange, mul_res, &vec_ops_cfg).unwrap();
+            let mut sum = ScalarField::zero();
+            for val in mul_res_vec {
+                sum = sum + val;
+            }
+            w_evals_long[*wire_idx] = sum;
+        }
+        
+        // Collect all active wires
+        let mut active_wires = HashSet::new();
+        active_wires = active_wires.union(&qap_polys.u_active_wires).copied().collect();
+        active_wires = active_wires.union(&qap_polys.v_active_wires).copied().collect();
+        active_wires = active_wires.union(&qap_polys.w_active_wires).copied().collect();
+        let length = active_wires.len();
+        
+        if length != subcircuit_info.Nwires {
+            for i in 0..subcircuit_info.Nwires {
+                if !active_wires.contains(&i) {
+                    println!("Not counted wire id: {:?}", i);
+                }
+            }
+        }
+        
+        // Prepare vectors for final evaluation
+        let mut u_evals_vec = vec![ScalarField::zero(); length].into_boxed_slice();
+        let mut v_evals_vec = u_evals_vec.clone();
+        let mut w_evals_vec = u_evals_vec.clone();
+
+        for (i, wire_idx) in active_wires.iter().enumerate() {
+            if qap_polys.u_active_wires.contains(wire_idx){
+                u_evals_vec[i] = u_evals_long[*wire_idx]; 
+            }
+            if qap_polys.v_active_wires.contains(wire_idx){
+                v_evals_vec[i] = v_evals_long[*wire_idx]; 
+            }
+            if qap_polys.w_active_wires.contains(wire_idx){
+                w_evals_vec[i] = w_evals_long[*wire_idx]; 
+            }
+        }
+        
+        // Setup for final calculation using tau.alpha (no tau.beta in updated paper)
+        let alpha_scaler_vec = vec![tau.alpha; length].into_boxed_slice();
+        let alpha_scaler = HostSlice::from_slice(&alpha_scaler_vec);
+        let u_evals = HostSlice::from_slice(&u_evals_vec);
+        let v_evals = HostSlice::from_slice(&v_evals_vec);
+        let w_evals = HostSlice::from_slice(&w_evals_vec);
+        
+        // Calculate o_evaled_local using alpha instead of alpha and beta
+        let vec_ops_cfg = VecOpsConfig::default();
+        
+        // First, calculate alpha * v
+        let mut alpha_v_term = DeviceVec::<ScalarField>::device_malloc(length).unwrap();
+        ScalarCfg::mul(alpha_scaler, v_evals, &mut alpha_v_term, &vec_ops_cfg).unwrap();
+        
+        // Then, add u to it
+        let mut combined_term = DeviceVec::<ScalarField>::device_malloc(length).unwrap();
+        ScalarCfg::add(u_evals, &alpha_v_term, &mut combined_term, &vec_ops_cfg).unwrap();
+        
+        // Finally, add w to get the result
+        let mut o_evaled_local_vec = vec![ScalarField::zero(); length].into_boxed_slice();
+        let o_evaled_local = HostSlice::from_mut_slice(&mut o_evaled_local_vec);
+        ScalarCfg::add(&combined_term, w_evals, o_evaled_local, &vec_ops_cfg).unwrap();
+        
+        Self {
+            o_evals: o_evaled_local_vec,
+            active_wires,
+        }
+    }
 }
 
 
@@ -390,8 +457,53 @@ pub fn scaled_outer_product_1d(
     );
 }
 
+pub fn gen_monomial_matrix(x_size: usize, y_size: usize, x: &ScalarField, y: &ScalarField, res_vec: &mut Box<[ScalarField]>) {
+    // x_size: column size
+    // y_size: row size
+    if res_vec.len() != x_size * y_size {
+        panic!("Not enough buffer length.")
+    }
+    let vec_ops_cfg = VecOpsConfig::default();
+    let min_len = std::cmp::min(x_size, y_size);
+    let max_len = std::cmp::max(x_size, y_size);
+    let max_dir = if max_len == x_size {true } else {false};
+    let mut base_row_vec = vec![ScalarField::one(); max_len];
+    for ind in 1..max_len {
+        if max_dir {
+            base_row_vec[ind] = base_row_vec[ind-1] * *x;
+        }
+        else {
+            base_row_vec[ind] = base_row_vec[ind-1] * *y;
+        }
+    }
+    let mut res_vec_untransposed = res_vec.clone();
+    let val_dup_vec = if max_dir {vec![*y; max_len].into_boxed_slice()} else {vec![*x; max_len].into_boxed_slice()};
+    let val_dup = HostSlice::from_slice(&val_dup_vec);
+    res_vec_untransposed[0 .. max_len].copy_from_slice(&base_row_vec);
+    for ind in 1..min_len {
+        let curr_row_view = HostSlice::from_slice(&res_vec_untransposed[(ind-1) * max_len .. (ind) * max_len]);
+        let mut next_row_vec = vec![ScalarField::zero(); max_len].into_boxed_slice();
+        let next_row = HostSlice::from_mut_slice(&mut next_row_vec); 
+        ScalarCfg::mul(curr_row_view, val_dup, next_row, &vec_ops_cfg).unwrap();
+        res_vec_untransposed[ind*max_len .. (ind+1)*max_len].copy_from_slice(&next_row_vec);
+    }
+    
+    if !max_dir {
+        let res_untranposed_buf = HostSlice::from_slice(&res_vec_untransposed);
+        let res_buf = HostSlice::from_mut_slice(res_vec);
+        ScalarCfg::transpose(
+            res_untranposed_buf,
+            min_len as u32,
+            max_len as u32,
+            res_buf,
+            &vec_ops_cfg).unwrap();
+    } else {
+        res_vec.clone_from(&res_vec_untransposed);
+    }
+}
+
 pub fn from_coef_vec_to_g1serde_vec(coef: &Box<[ScalarField]>, gen: &G1Affine, res: &mut Box<[G1serde]>) {
-    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::atomic::{AtomicU16, Ordering};
     use rayon::prelude::*;
     use std::io::{stdout, Write};
 
@@ -402,28 +514,20 @@ pub fn from_coef_vec_to_g1serde_vec(coef: &Box<[ScalarField]>, gen: &G1Affine, r
         return
     }
 
-    let gen_proj = gen.to_projective(); 
+    let gen_proj = gen.to_projective();
 
-    let cnt = AtomicU32::new(1);
-    let progress = AtomicU32::new(0);
-    let _tick: u32 = std::cmp::max(coef.len() as u32 / 10, 1);
-    let tick = AtomicU32::new(_tick);
+    let cnt = AtomicU16::new(1);
+    let progress = AtomicU16::new(0);
+    let indi: u16 = std::cmp::max(coef.len() as u16 / 20, 1);
     res.par_iter_mut()
         .zip(coef.par_iter())
         .for_each(|(r, &c)| {
             *r = G1serde(G1Affine::from(gen_proj * c));
             let current_cnt = cnt.fetch_add(1, Ordering::Relaxed);
-            let target_tick = tick.load(Ordering::Relaxed);
-            if current_cnt >= target_tick {
-                if tick
-                .compare_exchange(target_tick, target_tick + _tick, Ordering::Relaxed, Ordering::Relaxed)
-                .is_ok()
-                {
-                    progress.fetch_add(10, Ordering::Relaxed);
-                    let new_progress = progress.load(Ordering::Relaxed);
-                    print!("\rProgress: {}%, {} elements out of {}.", new_progress, current_cnt, coef.len());
-                    stdout().flush().unwrap();
-                }
+            if current_cnt % indi == 0 {
+                let new_progress = progress.fetch_add(5, Ordering::Relaxed);
+                print!("\rProgress: {}%", new_progress);
+                stdout().flush().unwrap(); 
             }
         });
     print!("\r");

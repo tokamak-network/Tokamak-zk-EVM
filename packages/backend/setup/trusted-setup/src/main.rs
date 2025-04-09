@@ -1,8 +1,6 @@
-use icicle_runtime::stream::IcicleStream;
-use libs::iotools::{SetupParams, SubcircuitInfo, SubcircuitR1CS};
-use libs::field_structures::{Tau, from_r1cs_to_evaled_qap_mixture};
-use libs::iotools::{read_global_wire_list_as_boxed_boxed_numbers};
-use libs::vector_operations::gen_evaled_lagrange_bases;
+use libs::iotools::{Tau, SetupParams, SubcircuitInfo, MixedSubcircuitQAPEvaled};
+use libs::iotools::{read_json_as_boxed_boxed_numbers};
+use libs::vectors::gen_evaled_lagrange_bases;
 use libs::group_structures::{Sigma1, Sigma};
 use icicle_bls12_381::curve::{ScalarField as Field, CurveCfg, G2CurveCfg};
 use icicle_core::traits::{Arithmetic, FieldImpl};
@@ -11,6 +9,7 @@ use icicle_core::curve::Curve;
 
 use std::{vec, cmp};
 use std::time::Instant;
+use libs::s_max;
 use std::fs::File;
 use std::io::Write;
 
@@ -28,14 +27,13 @@ fn main() {
     
     // Load setup parameters from JSON file
     println!("Loading setup parameters...");
-    let setup_file_name = "setupParams.json";
-    let setup_params = SetupParams::from_path(setup_file_name).unwrap();
+    let setup_path = "setup/trusted-setup/inputs/setupParams.json";
+    let setup_params = SetupParams::from_path(setup_path).unwrap();
 
     // Extract key parameters from setup_params
     let m_d = setup_params.m_D; // Total number of wires
     let s_d = setup_params.s_D; // Number of subcircuits
     let n = setup_params.n;     // Number of constraints per subcircuit
-    let s_max = setup_params.s_max; // The maximum number of placements.
     
     // Verify n is a power of two
     if !n.is_power_of_two() {
@@ -63,75 +61,59 @@ fn main() {
     if !m_i.is_power_of_two() {
         panic!("m_I is not a power of two.");
     }
-    
+
     // Load subcircuit information
     println!("Loading subcircuit information...");
-    let subcircuit_file_name = "subcircuitInfo.json";
-    let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_file_name).unwrap();
+    let subcircuit_path = "setup/trusted-setup/inputs/subcircuitInfo.json";
+    let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_path).unwrap();
 
     // Load global wire list
     println!("Loading global wire list...");
-    let global_wire_file_name = "globalWireList.json";
-    let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_file_name).unwrap();
+    let global_wire_path = "setup/trusted-setup/inputs/globalWireList.json";
+    let global_wire_list = read_json_as_boxed_boxed_numbers(global_wire_path).unwrap();
     
     // ------------------- Generate Polynomial Evaluations -------------------
     let start = Instant::now();
     println!("Generating polynomial evaluations...");
 
-    // Compute k_evaled_vec: Lagrange polynomial evaluations at τ.x of size m_I
-    println!("Computing Lagrange polynomial evaluations (k_evaled_vec)...");
-    let mut k_evaled_vec = vec![Field::zero(); m_i].into_boxed_slice();
-    gen_evaled_lagrange_bases(&tau.x, m_i, &mut k_evaled_vec);
-
-    // Compute l_evaled_vec: Lagrange polynomial evaluations at τ.y of size s_max
-    println!("Computing Lagrange polynomial evaluations (l_evaled_vec)...");
-    let mut l_evaled_vec = vec![Field::zero(); s_max].into_boxed_slice();
-    gen_evaled_lagrange_bases(&tau.y, s_max, &mut l_evaled_vec);
-    
-    // Compute m_evaled_vec: Lagrange polynomial evaluations at τ.x of size l
-    println!("Computing Lagrange polynomial evaluations (m_evaled_vec)...");
-    let mut m_evaled_vec = vec![Field::zero(); l].into_boxed_slice();
-    if l>0 {
-        gen_evaled_lagrange_bases(&tau.x, l, &mut m_evaled_vec);
-    }
-
-    // Compute o_evaled_vec: Wire polynomial evaluations
+    // 1. Compute o_evaled_vec: Wire polynomial evaluations
     println!("Computing wire polynomial evaluations (o_evaled_vec)...");
     let mut o_evaled_vec = vec![Field::zero(); m_d].into_boxed_slice();
+    // let mut nonzero_wires = Vec::<usize>::new();
 
     {
         // Generate cached powers of τ.x for more efficient computation
         let mut x_evaled_lagrange_vec = vec![Field::zero(); n].into_boxed_slice();
         gen_evaled_lagrange_bases(&tau.x, n, &mut x_evaled_lagrange_vec);
+
         // Process each subcircuit
         for i in 0..s_d {
             println!("Processing subcircuit id {}", i);
-            let r1cs_path: String = format!("json/subcircuit{i}.json");
+            let r1cs_path = format!("setup/trusted-setup/inputs/json/subcircuit{i}.json");
 
             // Evaluate QAP for the current subcircuit
-            let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
-            let o_evaled = from_r1cs_to_evaled_qap_mixture(
-                &compact_r1cs,
+            let evaled_qap = MixedSubcircuitQAPEvaled::from_r1cs_to_evaled_qap(
+                &r1cs_path,
                 &setup_params,
                 &subcircuit_infos[i],
                 &tau,
-                &x_evaled_lagrange_vec
+                &x_evaled_lagrange_vec,
             );
             
             // Map local wire indices to global wire indices
             let flatten_map = &subcircuit_infos[i].flattenMap;
 
             // Store evaluations in o_evaled_vec using global wire indices
-            for local_idx in 0..subcircuit_infos[i].Nwires {
-                let global_idx = flatten_map[local_idx];
+            for (j, local_idx) in evaled_qap.active_wires.iter().enumerate() {
+                let global_idx = flatten_map[*local_idx];
 
                 // Verify global wire list consistency with flatten map
                 if (global_wire_list[global_idx][0] != subcircuit_infos[i].id) || 
-                   (global_wire_list[global_idx][1] != local_idx) {
+                   (global_wire_list[global_idx][1] != *local_idx) {
                     panic!("GlobalWireList is not the inverse of flattenMap.");
                 }
 
-                let wire_val = o_evaled[local_idx];
+                let wire_val = evaled_qap.o_evals[j];
 
                 // Record non-zero wire evaluations
                 if !wire_val.eq(&Field::zero()) {
@@ -140,6 +122,25 @@ fn main() {
                 }
             }
         }
+    }
+
+    // println!("Number of nonzero wires: {} out of {} total wires", nonzero_wires.len(), m_d);
+    
+    // 2. Compute l_evaled_vec: Lagrange polynomial evaluations at τ.y of size s_max
+    println!("Computing Lagrange polynomial evaluations (l_evaled_vec)...");
+    let mut l_evaled_vec = vec![Field::zero(); s_max].into_boxed_slice();
+    gen_evaled_lagrange_bases(&tau.y, s_max, &mut l_evaled_vec);
+    
+    // 3. Compute k_evaled_vec: Lagrange polynomial evaluations at τ.x of size m_I
+    println!("Computing Lagrange polynomial evaluations (k_evaled_vec)...");
+    let mut k_evaled_vec = vec![Field::zero(); m_i].into_boxed_slice();
+    gen_evaled_lagrange_bases(&tau.x, m_i, &mut k_evaled_vec);
+    
+    // 4. Compute m_evaled_vec: Lagrange polynomial evaluations at τ.x of size l
+    println!("Computing Lagrange polynomial evaluations (m_evaled_vec)...");
+    let mut m_evaled_vec = vec![Field::zero(); l].into_boxed_slice();
+    if l>0 {
+        gen_evaled_lagrange_bases(&tau.x, l, &mut m_evaled_vec);
     }
     
     let duration = start.elapsed();

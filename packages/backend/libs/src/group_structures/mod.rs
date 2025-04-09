@@ -1,11 +1,24 @@
-use icicle_bls12_381::curve::{G1Affine, G2Affine, ScalarField};
+use icicle_bls12_381::curve::{BaseField, G1Affine, G2Affine, G2BaseField, ScalarCfg, ScalarField};
 use icicle_core::traits::{Arithmetic, FieldImpl};
-use crate::field_structures::Tau;
-use crate::iotools::{SetupParams, G1serde, G2serde, from_coef_vec_to_g1serde_mat, from_coef_vec_to_g1serde_vec, scaled_outer_product_1d, scaled_outer_product_2d};
-use crate::vector_operations::{*};
+use icicle_core::vec_ops::{VecOps, VecOpsConfig};
+use crate::iotools::{Tau, SetupParams, G1serde, G2serde, from_coef_vec_to_g1serde_mat, from_coef_vec_to_g1serde_vec, scaled_outer_product_1d, scaled_outer_product_2d};
+use crate::vectors::{*};
+use crate::s_max;
+use std::io::{self, BufReader, BufWriter, stdout, Write};
 
+use icicle_runtime::memory::{DeviceVec, HostSlice};
+use serde_json::{from_reader, to_writer_pretty};
 use serde::{Deserialize, Serialize};
+use rayon::scope;
 
+use serde_json::{from_str, from_value};
+use std::str::FromStr;
+use std::fs::{self, File};
+use std::io::Read;
+use std::env;
+use hex::*;
+
+use rayon::prelude::*;
 
 macro_rules! resize_monomial_vec {
     ($mono_vec: expr, $target_size: expr) => {
@@ -82,7 +95,6 @@ impl Sigma1 {
         let n = params.n;
         let m_d = params.m_D;
         let l = params.l;
-        let s_max = params.s_max;
         if l % 2 == 1 {
             panic!("l is an odd number.");
         }
@@ -280,6 +292,28 @@ impl Sigma {
             sigma_1,
             sigma_2
         }
+    }
+
+    /// Write full CRS from JSON
+    pub fn read_from_json(path: &str) -> io::Result<Self> {
+        let abs_path = env::current_dir()?.join(path);
+        let file = File::open(abs_path)?;
+        let reader = BufReader::new(file);
+        let sigma: Self = from_reader(reader)?;
+        Ok(sigma)
+    }
+    
+    /// Write full CRS into JSON
+    pub fn write_into_json(&self, path: &str) -> io::Result<()> {
+        let abs_path = env::current_dir()?.join(path);
+        if let Some(parent) = abs_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let file = File::create(&abs_path)?;
+        let writer = BufWriter::new(file);
+        to_writer_pretty(writer, self)?;
+        println!("Sigma has been saved at {:?}", abs_path);
+        Ok(())
     }
 }
 
