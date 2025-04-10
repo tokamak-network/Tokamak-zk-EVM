@@ -13,7 +13,7 @@ import { builder } from '../utils/witness_calculator.js'
 import type {
   DataPt,
   PlacementEntry,
-  PlacementInstances,
+  PlacementVariables,
   Placements,
   SubcircuitInfoByName,
   SubcircuitInfoByNameEntry,
@@ -24,31 +24,21 @@ type PlacementWireIndex = { placementId: number; globalWireId: number }
 export async function finalize(
   placements: Placements, 
   _path?: string, 
-  validate?: boolean,
   writeToFS: boolean = true
 ): Promise<{
   permutation: Permutation,
-  placementInstance: PlacementInstances
+  placementVariables: PlacementVariables
 }> {
-  const _validate = validate ?? false
   const refactoriedPlacements = refactoryPlacement(placements)
   let permutation: Permutation
-  let placementInstance: PlacementInstances 
-
-  if (_validate) {
-    placementInstance = await outputPlacementInstance(refactoriedPlacements, _path, writeToFS)
-    permutation = new Permutation(refactoriedPlacements, placementInstance, _path, writeToFS)
-    return {
-      permutation,
-      placementInstance
-    }
-  } 
-
-  permutation = new Permutation(refactoriedPlacements)
+  let placementVariables: PlacementVariables 
+  placementVariables = await outputPlacementVariables(refactoriedPlacements, _path, writeToFS)
+  permutation = new Permutation(refactoriedPlacements, placementVariables, _path, writeToFS)
   return {
     permutation,
-    placementInstance: []
+    placementVariables
   }
+
 }
 
 const halveWordSizeOfWires = (newDataPts: DataPt[], prevDataPt: DataPt, index: number): void => {
@@ -163,41 +153,82 @@ function refactoryPlacement(placements: Placements): Placements {
   return outPlacements
 }
 
-async function outputPlacementInstance(
+async function generateSubcircuitWitness(
+  subcircuitId: number,
+  inValues: string[],
+): Promise<string[]> {
+  let witnessHex: string[] = []
+  if (inValues.length > 0) {
+    const id = subcircuitId
+
+    let buffer
+    const targetWasmPath = path.resolve(appRootPath.path, wasmDir, `subcircuit${id}.wasm`)
+    try {
+      buffer = readFileSync(targetWasmPath)
+    } catch (err) {
+      throw new Error(`Error while reading subcircuit${id}.wasm`)
+    }
+    const ins = { in: inValues }
+    const witnessCalculator = await builder(buffer)
+    const witness = await witnessCalculator.calculateWitness(ins, 0)
+    for (const [index, value] of witness.entries()) {
+      witnessHex[index] = '0x' + value.toString(16)
+    }
+  }
+  return witnessHex
+}
+
+async function outputPlacementVariables(
   placements: Placements, 
   _path?: string,
   writeToFS: boolean = true
-): Promise<PlacementInstances> {
-  const result: PlacementInstances = Array.from(placements.entries()).map(([key, entry]) => ({
-    placementIndex: key,
-    subcircuitId: entry.subcircuitId!,
-    instructionName: entry.name,
-    inValues: entry.inPts.map((pt) => pt.valueHex),
-    outValues: entry.outPts.map((pt) => pt.valueHex),
-  }))
-  for (let i = 0; i < INITIAL_PLACEMENT_INDEX; i++) {
-    let ins = result[i].inValues
-    let outs = result[i].outValues
-    const expectedInsLen = subcircuitInfos[result[i].subcircuitId].In_idx[1]
-    const expectedOutsLen = subcircuitInfos[result[i].subcircuitId].Out_idx[1]
-    if (expectedInsLen > ins.length) {
-      const filledIns = ins.concat(Array(expectedInsLen - ins.length).fill('0x00'))
-      result[i].inValues = filledIns
-    }
-    if (expectedOutsLen > outs.length) {
-      const filledOuts = outs.concat(Array(expectedOutsLen - outs.length).fill('0x00'))
-      result[i].outValues = filledOuts
-    }
-  }
+): Promise<PlacementVariables> {
+  const result: PlacementVariables = await Promise.all(
+      Array.from(placements.entries()).map(async ([key, entry]) => {
+      let inValues = entry.inPts.map((pt) => pt.valueHex)
+      //Formatting
+      if (entry.subcircuitId < INITIAL_PLACEMENT_INDEX) {
+        const expectedInsLen = subcircuitInfos[entry.subcircuitId].In_idx[1]
+        const expectedOutsLen = subcircuitInfos[entry.subcircuitId].Out_idx[1]
+        if (expectedInsLen > inValues.length) {
+          const filledIns = inValues.concat(Array(expectedInsLen - inValues.length).fill('0x00'))
+          inValues = filledIns
+        }
+        // if (expectedOutsLen > outs.length) {
+        //   const filledOuts = outs.concat(Array(expectedOutsLen - outs.length).fill('0x00'))
+        //   result[i].outValues = filledOuts
+        // }
+      }
+      let outValues = entry.outPts.map((pt) => pt.valueHex)
+      let variables = await generateSubcircuitWitness(entry.subcircuitId!, inValues)
+      for (let i = 1; i <= outValues.length; i++) {
+        if (BigInt(variables[i]) !== BigInt(outValues[i - 1])) {
+          throw new Error(
+            `Instance check failed in the placement ${entry.name} (index = ${key})`,
+          )
+        }
+      }
+      console.log(`Synthesizer: Instances passed subcircuits.`)
+      return {
+        placementIndex: key,
+        subcircuitId: entry.subcircuitId!,
+        instructionName: entry.name,
+        inValues,
+        outValues,
+        variables
+      }
+    })
+  )
 
-  await testInstances(result)
+  //console.log("Usage: tsx generate_witness.ts <file.wasm> <input.json> <output.wtns>")
+  
 
   if (writeToFS) {
     const jsonContent = `${JSON.stringify(result, null, 2)}`
     const filePath = _path === undefined ? path.resolve(
       appRootPath.path,
-      'examples/outputs/placementInstance.json',
-    ) : path.resolve(_path!, 'placementInstance.json')
+      'examples/outputs/placementVariables.json',
+    ) : path.resolve(_path!, 'placementVariables.json')
     const dir = path.dirname(filePath)
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
@@ -208,7 +239,7 @@ async function outputPlacementInstance(
         `Synthesizer: Input and output wire assingments of the placements are generated in '${filePath}'.`,
       )
     } catch (error) {
-      throw new Error(`Synthesizer: Failure in writing "placementInstance.json".`)
+      throw new Error(`Synthesizer: Failure in writing "placementVariables.json".`)
     }
   }
 
@@ -224,7 +255,7 @@ class Permutation {
 
   private subcircuitInfoByName: SubcircuitInfoByName
   private _placements: Placements
-  private _instances: PlacementInstances | undefined
+  private _instances: PlacementVariables
 
   private permGroup: Map<string, boolean>[]
   // permultationY: {0, 1, ..., s_{max}-1} \times {0, 1, ..., l_D-l-1} -> {0, 1, ..., s_{max}-1}
@@ -235,7 +266,7 @@ class Permutation {
 
   constructor(
     placements: Placements, 
-    instances?: PlacementInstances, 
+    instances: PlacementVariables, 
     _path?: string,
     writeToFS: boolean = true
   ) {
@@ -456,38 +487,5 @@ class Permutation {
   }
 }
 
-const testInstances = async (instances: PlacementInstances): Promise<void> => {
-  //console.log("Usage: tsx generate_witness.ts <file.wasm> <input.json> <output.wtns>")
-  const reuseBuffer = new Map()
-  for (const [placementInd, instance] of instances.entries()) {
-    const id = instance.subcircuitId
-
-    let buffer
-    if (reuseBuffer.has(id)) {
-      buffer = reuseBuffer.get(id)
-    } else {
-      const targetWasmPath = path.resolve(appRootPath.path, wasmDir, `subcircuit${id}.wasm`)
-
-
-      try {
-        buffer = readFileSync(targetWasmPath)
-      } catch (err) {
-        throw new Error(`Error while reading subcircuit${id}.wasm`)
-      }
-      reuseBuffer.set(id, buffer)
-    }
-    const ins = { in: instance.inValues }
-    const witnessCalculator = await builder(buffer)
-    const witness = await witnessCalculator.calculateWitness(ins, 0)
-    for (let i = 1; i <= instance.outValues.length; i++) {
-      if (witness[i] !== BigInt(instance.outValues[i - 1])) {
-        throw new Error(
-          `Instance check failed in the placement ${instance.instructionName} (index = ${placementInd})`,
-        )
-      }
-    }
-  }
-  console.log(`Synthesizer: Instances passed subcircuits.`)
-}
 
 // Todo: Compresss permutation

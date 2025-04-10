@@ -13,18 +13,26 @@ import { createAddressFromStackBigInt, getDataSlice } from '../../opcodes/util.j
 import {
   DEFAULT_SOURCE_SIZE,
   INITIAL_PLACEMENT_INDEX,
-  KECCAK_IN_PLACEMENT,
-  KECCAK_IN_PLACEMENT_INDEX,
-  KECCAK_OUT_PLACEMENT,
-  KECCAK_OUT_PLACEMENT_INDEX,
-  LOAD_PLACEMENT,
-  LOAD_PLACEMENT_INDEX,
-  RETURN_PLACEMENT,
-  RETURN_PLACEMENT_INDEX,
-  STORAGE_IN_PLACEMENT,
-  STORAGE_IN_PLACEMENT_INDEX,
-  STORAGE_OUT_PLACEMENT,
-  STORAGE_OUT_PLACEMENT_INDEX,
+  PUB_IN_PLACEMENT,
+  PUB_IN_PLACEMENT_INDEX,
+  PUB_OUT_PLACEMENT,
+  PUB_OUT_PLACEMENT_INDEX,
+  PRV_IN_PLACEMENT,
+  PRV_IN_PLACEMENT_INDEX,
+  PRV_OUT_PLACEMENT,
+  PRV_OUT_PLACEMENT_INDEX,
+  // KECCAK_IN_PLACEMENT,
+  // KECCAK_IN_PLACEMENT_INDEX,
+  // KECCAK_OUT_PLACEMENT,
+  // KECCAK_OUT_PLACEMENT_INDEX,
+  // LOAD_PLACEMENT,
+  // LOAD_PLACEMENT_INDEX,
+  // RETURN_PLACEMENT,
+  // RETURN_PLACEMENT_INDEX,
+  // STORAGE_IN_PLACEMENT,
+  // STORAGE_IN_PLACEMENT_INDEX,
+  // STORAGE_OUT_PLACEMENT,
+  // STORAGE_OUT_PLACEMENT_INDEX,
 } from '../constant/index.js'
 import { subcircuits } from '../resources/index.js'
 import { OPERATION_MAPPING } from '../operations/index.js'
@@ -294,30 +302,30 @@ export class Synthesizer {
     }
 
     this.placements = new Map()
-    this.placements.set(STORAGE_IN_PLACEMENT_INDEX, {
-      ...STORAGE_IN_PLACEMENT,
-      'subcircuitId': this.subcircuitInfoByName.get(STORAGE_IN_PLACEMENT.name)!.id
+    this.placements.set(PUB_IN_PLACEMENT_INDEX, {
+      ...PUB_IN_PLACEMENT,
+      'subcircuitId': this.subcircuitInfoByName.get(PUB_IN_PLACEMENT.name)!.id
     })
-    this.placements.set(STORAGE_OUT_PLACEMENT_INDEX, {
-      ...STORAGE_OUT_PLACEMENT,
-      'subcircuitId': this.subcircuitInfoByName.get(STORAGE_OUT_PLACEMENT.name)!.id
+    this.placements.set(PUB_OUT_PLACEMENT_INDEX, {
+      ...PUB_OUT_PLACEMENT,
+      'subcircuitId': this.subcircuitInfoByName.get(PUB_OUT_PLACEMENT.name)!.id
     })
-    this.placements.set(LOAD_PLACEMENT_INDEX, {
-      ...LOAD_PLACEMENT,
-      'subcircuitId': this.subcircuitInfoByName.get(LOAD_PLACEMENT.name)!.id
+    this.placements.set(PRV_IN_PLACEMENT_INDEX, {
+      ...PRV_IN_PLACEMENT,
+      'subcircuitId': this.subcircuitInfoByName.get(PRV_IN_PLACEMENT.name)!.id
     })
-    this.placements.set(RETURN_PLACEMENT_INDEX, {
-      ...RETURN_PLACEMENT,
-      'subcircuitId': this.subcircuitInfoByName.get(RETURN_PLACEMENT.name)!.id
+    this.placements.set(PRV_OUT_PLACEMENT_INDEX, {
+      ...PRV_OUT_PLACEMENT,
+      'subcircuitId': this.subcircuitInfoByName.get(PRV_OUT_PLACEMENT.name)!.id
     })
-    this.placements.set(KECCAK_IN_PLACEMENT_INDEX, {
-      ...KECCAK_IN_PLACEMENT,
-      'subcircuitId': this.subcircuitInfoByName.get(KECCAK_IN_PLACEMENT.name)!.id
-    })
-    this.placements.set(KECCAK_OUT_PLACEMENT_INDEX, {
-      ...KECCAK_OUT_PLACEMENT,
-      'subcircuitId': this.subcircuitInfoByName.get(KECCAK_OUT_PLACEMENT.name)!.id
-    })
+    // this.placements.set(KECCAK_IN_PLACEMENT_INDEX, {
+    //   ...KECCAK_IN_PLACEMENT,
+    //   'subcircuitId': this.subcircuitInfoByName.get(KECCAK_IN_PLACEMENT.name)!.id
+    // })
+    // this.placements.set(KECCAK_OUT_PLACEMENT_INDEX, {
+    //   ...KECCAK_OUT_PLACEMENT,
+    //   'subcircuitId': this.subcircuitInfoByName.get(KECCAK_OUT_PLACEMENT.name)!.id
+    // })
     
     this.placementIndex = INITIAL_PLACEMENT_INDEX
   }
@@ -328,20 +336,19 @@ export class Synthesizer {
    * @returns Generated output data point
    * @private
    */
-  private _addWireToLoadPlacement(pointerIn: DataPt, storage?: boolean): DataPt {
-    const targetPlacementIndex = storage === true ? STORAGE_IN_PLACEMENT_INDEX : LOAD_PLACEMENT_INDEX
+  private _addWireToPrvInPlacement(pointerIn: DataPt): DataPt {
     // Use the length of existing output list as index for new output
     if (
-      this.placements.get(targetPlacementIndex)!.inPts.length !==
-      this.placements.get(targetPlacementIndex)!.outPts.length
+      this.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length !==
+      this.placements.get(PRV_IN_PLACEMENT_INDEX)!.outPts.length
     ) {
       throw new Error(`Mismatches in the Load wires`)
     }
-    const outWireIndex = this.placements.get(targetPlacementIndex)!.outPts.length
+    const outWireIndex = this.placements.get(PRV_IN_PLACEMENT_INDEX)!.outPts.length
 
     // Create output data point
     const outPtRaw: CreateDataPointParams = {
-      source: targetPlacementIndex,
+      source: PRV_IN_PLACEMENT_INDEX,
       wireIndex: outWireIndex,
       value: pointerIn.value,
       sourceSize: DEFAULT_SOURCE_SIZE,
@@ -349,10 +356,10 @@ export class Synthesizer {
     const pointerOut = DataPointFactory.create(outPtRaw)
 
     // Add input-output pair to the LOAD subcircuit
-    this.placements.get(targetPlacementIndex)!.inPts.push(pointerIn)
-    this.placements.get(targetPlacementIndex)!.outPts.push(pointerOut)
+    this.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.push(pointerIn)
+    this.placements.get(PRV_IN_PLACEMENT_INDEX)!.outPts.push(pointerOut)
 
-    return this.placements.get(targetPlacementIndex)!.outPts[outWireIndex]
+    return this.placements.get(PRV_IN_PLACEMENT_INDEX)!.outPts[outWireIndex]
   }
 
   /**
@@ -370,28 +377,32 @@ export class Synthesizer {
     size: number,
   ): DataPt {
     const inPtRaw: CreateDataPointParams = {
-      source: `code: ${codeAddress}`,
+      extSource: `code: ${codeAddress}`,
       type: 'hardcoded',
       offset: programCounter + 1,
+      source: PRV_IN_PLACEMENT_INDEX,
+      wireIndex: this.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length,
       value,
       sourceSize: size,
     }
     const pointerIn: DataPt = DataPointFactory.create(inPtRaw)
 
-    return this._addWireToLoadPlacement(pointerIn)
+    return this._addWireToPrvInPlacement(pointerIn)
   }
 
   public loadAuxin(value: bigint): DataPt {
     if (this.auxin.has(value)) {
-      return this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts[this.auxin.get(value)!]
+      return this.placements.get(PRV_IN_PLACEMENT_INDEX)!.outPts[this.auxin.get(value)!]
     }
     const inPtRaw: CreateDataPointParams = {
-      source: 'auxin',
+      extSource: 'auxin',
+      source: PRV_IN_PLACEMENT_INDEX,
+      wireIndex: this.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length,
       value,
       sourceSize: DEFAULT_SOURCE_SIZE,
     }
     const pointerIn = DataPointFactory.create(inPtRaw)
-    const outPt = this._addWireToLoadPlacement(pointerIn)
+    const outPt = this._addWireToPrvInPlacement(pointerIn)
     this.auxin.set(value, outPt.wireIndex!)
     return outPt
   }
@@ -404,24 +415,25 @@ export class Synthesizer {
     size?: number,
   ): DataPt {
     const offset = _offset ?? 0
-    const whereItFrom = {
-      source: `code: ${codeAddress}`,
+    const sourceSize = size ?? DEFAULT_SOURCE_SIZE
+    const uniqueId = {
+      extSource: `code: ${codeAddress}`,
       type,
       offset,
-      length: size,
-    }
-    const key = JSON.stringify(whereItFrom)
-    // if (this.envInf.has(key)) {
-    //   return this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts[this.envInf.get(key)!.wireIndex]
-    // }
-    const sourceSize = size ?? DEFAULT_SOURCE_SIZE
-    const inPtRaw: CreateDataPointParams = {
-      ...whereItFrom,
-      value,
       sourceSize,
+      value
+    }
+    const key = JSON.stringify(uniqueId)
+    if (this.envInf.has(key)) {
+      return this.placements.get(PRV_IN_PLACEMENT_INDEX)!.outPts[this.envInf.get(key)!.wireIndex]
+    }
+    const inPtRaw: CreateDataPointParams = {
+      ...uniqueId,
+      source: PRV_IN_PLACEMENT_INDEX,
+      wireIndex: this.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length,
     }
     const pointerIn = DataPointFactory.create(inPtRaw)
-    const outPt = this._addWireToLoadPlacement(pointerIn)
+    const outPt = this._addWireToPrvInPlacement(pointerIn)
     const envInfEntry = {
       value,
       wireIndex: outPt.wireIndex!,
@@ -437,13 +449,15 @@ export class Synthesizer {
       outPt = this.storagePt.get(keyString)!
     } else {
       const inPtRaw: CreateDataPointParams = {
-        source: `storage: ${codeAddress}`,
+        extSource: `storage: ${codeAddress}`,
         key,
+        source: PRV_IN_PLACEMENT_INDEX,
+        wireIndex: this.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length, 
         value,
         sourceSize: DEFAULT_SOURCE_SIZE,
       }
       const inPt = DataPointFactory.create(inPtRaw)
-      outPt = this._addWireToLoadPlacement(inPt, true)
+      outPt = this._addWireToPrvInPlacement(inPt)
       this.storagePt.set(keyString, outPt)
     }
     return outPt
@@ -452,7 +466,7 @@ export class Synthesizer {
   public storeStorage(codeAddress: string, key: bigint, inPt: DataPt): void {
     const keyString = JSON.stringify({ address: codeAddress, key: Number(key) })
     this.storagePt.set(keyString, inPt)
-    const outWireIndex = this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.length
+    const outWireIndex = this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.length
     // Create output data point
     const outPtRaw: CreateDataPointParams = {
       dest: `storage: ${codeAddress}`,
@@ -462,14 +476,14 @@ export class Synthesizer {
     }
     const outPt = DataPointFactory.create(outPtRaw)
     // Add input-output pair to the ReturnBuffer
-    this.placements.get(STORAGE_OUT_PLACEMENT_INDEX)!.inPts.push(inPt)
-    this.placements.get(STORAGE_OUT_PLACEMENT_INDEX)!.outPts.push(outPt)
+    this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.inPts.push(inPt)
+    this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.push(outPt)
   }
 
   public storeLog(valPt: DataPt, topicPts: DataPt[]): void {
     this.logPt.push({ valPt, topicPts })
-    let outWireIndex = this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.length
-    const inWireIndex = this.placements.get(RETURN_PLACEMENT_INDEX)!.inPts.length
+    let outWireIndex = this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.length
+    const inWireIndex = this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.inPts.length
     // Create output data point
     const outPtRaw: CreateDataPointParams = {
       dest: 'LOG',
@@ -480,8 +494,8 @@ export class Synthesizer {
     }
     const valOutPt = DataPointFactory.create(outPtRaw)
     // Add input-output pair to the ReturnBuffer
-    this.placements.get(RETURN_PLACEMENT_INDEX)!.inPts.push(valPt)
-    this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.push(valOutPt)
+    this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.inPts.push(valPt)
+    this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.push(valOutPt)
 
     // Create output data point for topics
     for (const topicPt of topicPts) {
@@ -493,8 +507,8 @@ export class Synthesizer {
         sourceSize: DEFAULT_SOURCE_SIZE,
       }
       const topicOutPt = DataPointFactory.create(outPtRaw)
-      this.placements.get(RETURN_PLACEMENT_INDEX)!.inPts.push(topicPt)
-      this.placements.get(RETURN_PLACEMENT_INDEX)!.outPts.push(topicOutPt)
+      this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.inPts.push(topicPt)
+      this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.push(topicOutPt)
     }
   }
 
@@ -505,7 +519,7 @@ export class Synthesizer {
     }
     const key = JSON.stringify(whereItFrom)
     if (this.blkInf.has(key)) {
-      return this.placements.get(LOAD_PLACEMENT_INDEX)!.outPts[this.blkInf.get(key)!.wireIndex]
+      return this.placements.get(PRV_IN_PLACEMENT_INDEX)!.outPts[this.blkInf.get(key)!.wireIndex]
     }
     const inPtRaw: CreateDataPointParams = {
       ...whereItFrom,
@@ -513,7 +527,7 @@ export class Synthesizer {
       sourceSize: DEFAULT_SOURCE_SIZE,
     }
     const pointerIn = DataPointFactory.create(inPtRaw)
-    const outPt = this._addWireToLoadPlacement(pointerIn)
+    const outPt = this._addWireToPrvInPlacement(pointerIn)
     const blkInfEntry = {
       value,
       wireIndex: outPt.wireIndex!,
@@ -535,14 +549,12 @@ export class Synthesizer {
     if (_outValue !== outValue) {
       throw new Error(`Synthesizer: loadKeccak: The Keccak hash may be customized`)
     }
-    const inWireIndex = this.placements.get(KECCAK_IN_PLACEMENT_INDEX)!.inPts.length
+    const inWireIndex = this.placements.get(PUB_OUT_PLACEMENT_INDEX)!.inPts.length
     const pairedInputWireIndices = Array.from({ length: nChunks }, (_, i) => inWireIndex + i)
-    const outWireIndex = this.placements.get(KECCAK_OUT_PLACEMENT_INDEX)!.outPts.length
+    const outWireIndex = this.placements.get(PUB_IN_PLACEMENT_INDEX)!.outPts.length
     // Create output data point
     const outPtRaw: CreateDataPointParams = {
-      source: KECCAK_OUT_PLACEMENT_INDEX,
       wireIndex: outWireIndex,
-      pairedInputWireIndices,
       value: outValue,
       sourceSize: DEFAULT_SOURCE_SIZE,
     }
@@ -550,13 +562,13 @@ export class Synthesizer {
 
     // Add input-output pairs to the keccakBuffer subcircuit
     for (let i = 0; i < nChunks; i++) {
-      this.placements.get(KECCAK_IN_PLACEMENT_INDEX)!.inPts[pairedInputWireIndices[i]] = inPts[i]
-      this.placements.get(KECCAK_IN_PLACEMENT_INDEX)!.outPts[pairedInputWireIndices[i]] = inPts[i]
+      this.placements.get(PUB_OUT_PLACEMENT_INDEX)!.inPts[pairedInputWireIndices[i]] = inPts[i]
+      this.placements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts[pairedInputWireIndices[i]] = {...inPts[i], dest: 'KeccakIn'}
     }
-    this.placements.get(KECCAK_OUT_PLACEMENT_INDEX)!.inPts.push(outPt)
-    this.placements.get(KECCAK_OUT_PLACEMENT_INDEX)!.outPts.push(outPt)
+    this.placements.get(PUB_IN_PLACEMENT_INDEX)!.inPts.push({...outPt, source: 'KeccakOut'})
+    this.placements.get(PUB_IN_PLACEMENT_INDEX)!.outPts.push({...outPt, source: PUB_IN_PLACEMENT_INDEX, pairedInputWireIndices})
 
-    return this.placements.get(KECCAK_OUT_PLACEMENT_INDEX)!.outPts[outWireIndex]
+    return this.placements.get(PUB_IN_PLACEMENT_INDEX)!.outPts[outWireIndex]
   }
 
   /**
