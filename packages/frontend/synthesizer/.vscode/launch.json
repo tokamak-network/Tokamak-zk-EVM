@@ -6,7 +6,7 @@
       "request": "launch",
       "name": "Launch with tsx",
       "runtimeExecutable": "tsx",
-      "program": "${workspaceFolder}/examples/synthesizer/mulOperation.ts",
+      "program": "${workspaceFolder}/examples/erc20/usdt-transfer.ts",
       "args": [],
       "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],

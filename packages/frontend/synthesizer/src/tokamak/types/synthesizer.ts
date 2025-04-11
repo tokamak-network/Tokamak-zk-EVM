@@ -49,9 +49,9 @@ export interface CreateDataPointParams {
   extDest?: string
   // external data type
   type?: string
-  // key if the external data comes from DB
-  key?: bigint
-  // offset if the external data comes from memory
+  // key if the external data comes from or goes to a DB
+  key?: string
+  // offset if the external data comes from a memory
   offset?: number
   // used for pairing the Keccak input and output (as input can be longer than 256 bit)
   pairedInputWireIndices?: number[]
@@ -77,11 +77,8 @@ export type Placements = Map<number, PlacementEntry>
 export type Auxin = Map<bigint, number>
 
 export type PlacementVariableEntry = {
-  placementIndex: number
-  subcircuitId: number
-  instructionName: string
-  inValues: string[]
-  outValues: string[]
+  placementId: number
+  globalIdx: number[]
   variables: string[]
 }
 
