@@ -77,8 +77,7 @@ export type Placements = Map<number, PlacementEntry>
 export type Auxin = Map<bigint, number>
 
 export type PlacementVariableEntry = {
-  placementId: number
-  globalIdx: number[]
+  subcircuitId: number
   variables: string[]
 }
 

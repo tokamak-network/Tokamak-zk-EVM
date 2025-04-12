@@ -308,14 +308,7 @@ export class Permutation {
           process.stdout.write('\r' + ' '.repeat(100) + '\r');
           process.stdout.write(`Synthesizer: Instances of the ${placementId}-th placement passed the ${placement.subcircuitId}-th subcircuit.`)
 
-          //Marking the relative indices of the local variables to the global variable
-          let globalIdx: number[] = []
-          const subcircuitInfo = this.subcircuitInfoByName.get(this.placements.get(placementId)!.name)!
-          //Iterating for all local variables
-          for (let localIdx = 0; localIdx < variables.length; localIdx++){
-            globalIdx[localIdx] = subcircuitInfo.flattenMap![localIdx]
-          }
-          return {placementId, globalIdx, variables}
+          return {subcircuitId: placement.subcircuitId, variables}
         }
       )
     )
@@ -568,8 +561,7 @@ export class Permutation {
     let permutationDetected = false
     const zeros = Array(setupParams.l_D).fill('0x00')
     let b: string[][] = [] // ab.size = s_max \times l_D
-    for (const placementVariablesEntry of this.placementVariables) {
-      const placementId = placementVariablesEntry.placementId
+    for (const [placementId, placementVariablesEntry] of this.placementVariables.entries()) {
       const variables = placementVariablesEntry.variables
       const subcircuitInfo = this.subcircuitInfoByName.get(this.placements.get(placementId)!.name)!
       const idxSet = new IdxSet(subcircuitInfo)
