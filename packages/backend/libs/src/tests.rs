@@ -9,7 +9,7 @@ use std::cmp;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::polynomials::{DensePolynomialExt, BivariatePolynomial};
+    use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
 
     // Helper function: Create a simple 2D polynomial
     fn create_simple_polynomial() -> DensePolynomialExt {
@@ -66,6 +66,31 @@ mod tests {
         assert_eq!(poly.get_coeff(1, 0), ScalarField::from_u32(2));
         assert_eq!(poly.get_coeff(0, 1), ScalarField::from_u32(3));
         assert_eq!(poly.get_coeff(1, 1), ScalarField::from_u32(4));
+    }
+    #[test]
+    fn test_from_evals() {
+        let x_size = 2048;
+        let y_size = 1;
+        let evals = ScalarCfg::generate_random(x_size * y_size);
+        
+        let poly = DensePolynomialExt::from_rou_evals(
+            HostSlice::from_slice(&evals),
+            x_size,
+            y_size,
+            None,
+            None
+        );
+        let mut recoevered_evals = vec![ScalarField::zero(); x_size * y_size];
+        let buff = HostSlice::from_mut_slice(&mut recoevered_evals);
+        poly.to_rou_evals(None, None, buff);
+        
+        let mut flag = true;
+        for i in 0..x_size * y_size {
+            if !evals[i].eq(&recoevered_evals[i]) {
+                flag = false;
+            }
+        }
+        assert!(flag);
     }
 
     #[test]
@@ -488,7 +513,7 @@ mod tests_vectors {
     use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice};
     use std::cmp;
     
-    use crate::vectors::{outer_product_two_vecs, point_mul_two_vecs};
+    use crate::vector_operations::{*};
 
     macro_rules! scalar_vec {
         ( $( $x:expr ),* ) => {
@@ -521,4 +546,64 @@ mod tests_vectors {
         println!("res : {:?}", res);
 
     }
+
+    #[test]
+    fn test_matrix_matrix_mul_small() {
+        // example size: 2x3 * 3x2 = 2x2
+        // LHS: 2x3
+        // [1 2 3]
+        // [4 5 6]
+        let lhs = vec![
+            ScalarField::from_u32(1u32),
+            ScalarField::from_u32(2u32),
+            ScalarField::from_u32(3u32),
+            ScalarField::from_u32(4u32),
+            ScalarField::from_u32(5u32),
+            ScalarField::from_u32(6u32),
+        ]
+        .into_boxed_slice();
+
+        // RHS: 3x2
+        // [7  8]
+        // [9 10]
+        // [11 12]
+        let rhs = vec![
+            ScalarField::from_u32(7u32),
+            ScalarField::from_u32(8u32),
+            ScalarField::from_u32(9u32),
+            ScalarField::from_u32(10u32),
+            ScalarField::from_u32(11u32),
+            ScalarField::from_u32(12u32),
+        ]
+        .into_boxed_slice();
+
+        // expected result: 2x2
+        // [1*7+2*9+3*11, 1*8+2*10+3*12] = [58, 64]
+        // [4*7+5*9+6*11, 4*8+5*10+6*12] = [139, 154]
+        let expected = vec![
+            ScalarField::from_u32(58u32),
+            ScalarField::from_u32(64u32),
+            ScalarField::from_u32(139u32),
+            ScalarField::from_u32(154u32),
+        ]
+        .into_boxed_slice();
+
+        let mut res = vec![ScalarField::zero(); 4].into_boxed_slice();
+        matrix_matrix_mul(&lhs, &rhs, 2, 3, 2, &mut res);
+
+        for i in 0..4 {
+            assert_eq!(res[i], expected[i], "Mismatch at index {}", i);
+        }
+    }
+
+    #[test]
+    fn test_gen_evaled_lagrange_bases() {
+        let x = ScalarCfg::generate_random(1)[0];
+        let size = 2048;
+        let mut res = vec![ScalarField::zero(); size].into_boxed_slice();
+        gen_evaled_lagrange_bases(&x, size, &mut res);
+        
+    }
+
+
 }
