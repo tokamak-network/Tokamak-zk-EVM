@@ -1,4 +1,5 @@
 //const {opcodeDictionary} = require('./opcode.js')
+const S_MAX = 16
 const fs = require('fs')
 
 const numOfLinesPerCircuit = 13
@@ -258,6 +259,7 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
     m_D: globalWireInfo.m_D,
     n,
     s_D: subcircuits.length,
+    s_max: S_MAX,
   }
   const globalWireList = globalWireInfo.wireList
 

@@ -1,6 +1,7 @@
 import { hexToBytes } from "@synthesizer-libs/util"
 
 import { createEVM } from '../../src/constructors.js'
+import { finalize } from '../../src/tokamak/core/finalize.js'
 
 const main = async () => {
   const evm = await createEVM()
@@ -12,6 +13,7 @@ const main = async () => {
   console.log(res)
   console.log(res.runState?.memoryPt)
   console.log(res.executionGasUsed) // 3n
+  const permutation = await finalize(res.runState!.synthesizer.placements, undefined, true)
 }
 
 void main()

@@ -166,7 +166,12 @@ async function generateSubcircuitWitness(
     const witnessCalculator = await builder(buffer)
     const witness = await witnessCalculator.calculateWitness(ins, 0)
     for (const [index, value] of witness.entries()) {
-      witnessHex[index] = '0x' + value.toString(16)
+      let hex = value.toString(16)
+      if (hex.length % 2 === 1) {
+        hex = '0' + hex
+      }
+      hex = '0x' + hex
+      witnessHex[index] = hex
     }
   }
   return witnessHex
@@ -224,8 +229,8 @@ export class Permutation {
   // permultationY: {0, 1, ..., s_{max}-1} \times {0, 1, ..., l_D-l-1} -> {0, 1, ..., s_{max}-1}
   public permutationY: number[][]
   // permutationZ: {0, 1, ..., s_{max}-1} \times {0, 1, ..., l_D-l-1} -> {0, 1, ..., l_D-l-1}
-  public permutationZ: number[][]
-  public permutationFile: { row: number; col: number; Y: number; Z: number }[]
+  public permutationX: number[][]
+  public permutationFile: { row: number; col: number; X: number; Y: number }[]
 
   constructor(
     placements: Placements, 
@@ -260,7 +265,7 @@ export class Permutation {
     // [1,1,1]
     // [2,2,2]
     // [3,3,3]
-    this.permutationZ = Array.from({ length: this.placements.size }, () =>
+    this.permutationX = Array.from({ length: this.placements.size }, () =>
       Array.from({ length: setupParams.l_D - setupParams.l }, (_, j) => j),
     )
     // Example of (initial) permutation Z:
@@ -407,7 +412,7 @@ export class Permutation {
       return placement.inPts[localWireId - (identifier + 1)]
     }
   }
-  private _correctPermutation(): { row: number; col: number; Y: number; Z: number }[] {
+  private _correctPermutation(): { row: number; col: number; Y: number; X: number }[] {
     let permutationFile = []
     for (const _group of this.permGroup) {
       const group = [..._group.keys()]
@@ -425,7 +430,7 @@ export class Permutation {
             row: element.placementId,
             col: element.globalWireId - setupParams.l,
             Y: nextElement.placementId,
-            Z: nextElement.globalWireId - setupParams.l,
+            X: nextElement.globalWireId - setupParams.l,
           })
           const rowIdx = permutationFile[permutationFile.length - 1].row
           const colIdx = permutationFile[permutationFile.length - 1].col
@@ -434,8 +439,8 @@ export class Permutation {
           }
           this.permutationY[rowIdx][colIdx] =
             permutationFile[permutationFile.length - 1].Y
-          this.permutationZ[rowIdx][colIdx] =
-            permutationFile[permutationFile.length - 1].Z
+          this.permutationX[rowIdx][colIdx] =
+            permutationFile[permutationFile.length - 1].X
         }
       }
     }
@@ -579,7 +584,7 @@ export class Permutation {
     for (let i = 0; i < b.length; i++) {
       for (let j = 0; j < setupParams.l_D - setupParams.l; j++) {
         const i2 = this.permutationY[i][j]
-        const j2 = this.permutationZ[i][j]
+        const j2 = this.permutationX[i][j]
         if (i != i2 || j != j2) {
           permutationDetected = true
           if (b[i][j] != b[i2][j2]) {
