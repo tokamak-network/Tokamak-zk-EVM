@@ -9,25 +9,25 @@ export const PRV_OUT_PLACEMENT_INDEX = 3
 export const INITIAL_PLACEMENT_INDEX = PRV_OUT_PLACEMENT_INDEX + 1
 
 export const PUB_IN_PLACEMENT = {
-  name: 'bufferPubInPrvOut',
+  name: 'bufferPubIn',
   usage: 'Buffer to load public circuit inputs',
   inPts: [],
   outPts: [],
 }
 export const PUB_OUT_PLACEMENT = {
-  name: 'bufferPrvInPubOut',
+  name: 'bufferPubOut',
   usage: 'Buffer to emit public circuit outputs',
   inPts: [],
   outPts: [],
 }
 export const PRV_IN_PLACEMENT = {
-  name: 'bufferPrvInPrvOut',
+  name: 'bufferPrvIn',
   usage: 'Buffer to load private circuit inputs',
   inPts: [],
   outPts: [],
 }
 export const PRV_OUT_PLACEMENT = {
-  name: 'bufferPrvInPrvOut',
+  name: 'bufferPrvOut',
   usage: 'Buffer to emit private circuit outputs',
   inPts: [],
   outPts: [],

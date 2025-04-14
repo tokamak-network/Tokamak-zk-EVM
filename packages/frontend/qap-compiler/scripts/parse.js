@@ -1,11 +1,11 @@
 //const {opcodeDictionary} = require('./opcode.js')
-const S_MAX = 16
+const S_MAX = require('./constant.js')
 const fs = require('fs')
 
 const numOfLinesPerCircuit = 13
 
-const listPublicIn = new Map().set('bufferPubInPrvOut', true)
-const listPublicOut = new Map().set('bufferPrvInPubOut', true)
+const listPublicIn = new Map().set('bufferPubIn', true)
+const listPublicOut = new Map().set('bufferPubOut', true)
 
 function _buildWireFlattenMap(globalWireList, subcircuitInfos, globalWireIndex, subcircuitId, subcircuitWireId) {
   if (subcircuitId >= 0 ){
@@ -276,6 +276,13 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
       console.log('Successfully wrote the TypeScript file');
     }
   })
+  fs.writeFile('../subcircuits/library/subcircuitInfo.json', JSON.stringify(subcircuits, null), (err) => {
+    if (err) {
+      console.log('Error writing the JSON file', err);
+    } else {
+      console.log('Successfully wrote the JSON file');
+    }
+  })
 
   const tsGlobalWireList = `// This is a map that describes how each library wire (global wire) is related to the subcircuit wires (local wires), i.e., 'globalWireList' is the inverse of 'flattenMap' in the subcircuitInfo file.
   // globalWireList[index][0] indicates subcircuitId to which this wire belongs.
@@ -286,6 +293,13 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
       console.log('Error writing the TypeScript file', err);
     } else {
       console.log('Successfully wrote the TypeScript file');
+    }
+  })
+  fs.writeFile('../subcircuits/library/globalWireList.json', JSON.stringify(globalWireList, null), (err) => {
+    if (err) {
+      console.log('Error writing the JSON file', err);
+    } else {
+      console.log('Successfully wrote the JSON file');
     }
   })
 
@@ -301,6 +315,13 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
       console.log('Error writing the TypeScript file', err);
     } else {
       console.log('Successfully wrote the TypeScript file');
+    }
+  })
+  fs.writeFile('../subcircuits/library/setupParams.json', JSON.stringify(setupParams, null, 2), (err) => {
+    if (err) {
+      console.log('Error writing the JSON file', err);
+    } else {
+      console.log('Successfully wrote the JSON file');
     }
   })
 })

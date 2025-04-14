@@ -1,0 +1,1 @@
+const S_MAX = 128

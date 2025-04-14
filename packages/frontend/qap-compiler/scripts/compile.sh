@@ -1,5 +1,5 @@
-#names=("bufferPrvInPubOut" "bufferPubInPrvOut" "bufferPrvInPrvOut" "ADD" "MUL" "SUB" "DIV" "SDIV" "MOD" "SMOD" "ADDMOD" "MULMOD" "EQ" "ISZERO" "SHL" "SHR" "LT" "GT" "NOT" "BYTE" "SAR" "SIGNEXTEND" "SLT" "SGT" "AND" "OR" "XOR" "DecToBit" "SubEXP")
-names=("bufferPrvInPubOut" "bufferPubInPrvOut" "bufferPrvInPrvOut" "ADD" "MUL")
+names=("bufferPubOut" "bufferPubIn" "bufferPrvIn" "bufferPrvOut" "ADD" "MUL" "SUB" "DIV" "SDIV" "MOD" "SMOD" "ADDMOD" "MULMOD" "EQ" "ISZERO" "SHL" "SHR" "LT" "GT" "NOT" "BYTE" "SAR" "SIGNEXTEND" "SLT" "SGT" "AND" "OR" "XOR" "DecToBit" "SubEXP")
+#names=("bufferPubOut" "bufferPubIn" "bufferPrvIn" "bufferPrvOut" "ADD" "MUL")
 CURVE_NAME="bls12381"
 
 # get the directory of the script

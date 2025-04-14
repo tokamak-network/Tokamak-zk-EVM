@@ -34,7 +34,8 @@ import {
   // STORAGE_OUT_PLACEMENT,
   // STORAGE_OUT_PLACEMENT_INDEX,
 } from '../constant/index.js'
-import { subcircuits } from '../resources/index.js'
+
+import { subcircuits } from '../constant/index.js'
 import { OPERATION_MAPPING } from '../operations/index.js'
 import { DataPointFactory, simulateMemoryPt } from '../pointers/index.js'
 import { addPlacement } from '../utils/utils.js'
@@ -359,10 +360,10 @@ export class Synthesizer {
     }
     const outPt = DataPointFactory.create(outPtRaw)
 
-    // Add input-output pair to the LOAD subcircuit
+    // Add input-output pair to the input buffer subcircuit
     this.placements.get(placementId)!.inPts.push(inPt)
     this.placements.get(placementId)!.outPts.push(outPt)
-
+    
     return this.placements.get(placementId)!.outPts[outWireIndex]
   }
 
@@ -381,7 +382,7 @@ export class Synthesizer {
     if (outPt.wireIndex !== outPtIdx) {
       throw new Error(`Synthesizer: Invalid indexing in the output wire of an output buffer (placement id: ${placementId}, wire id: ${outPtIdx})`)
     }
-    // Add input-output pair to the LOAD subcircuit
+    // Add input-output pair to the output buffer subcircuit
     this.placements.get(placementId)!.inPts.push(inPt)
     this.placements.get(placementId)!.outPts.push(outPt)
   }

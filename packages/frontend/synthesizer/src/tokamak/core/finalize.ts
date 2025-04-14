@@ -4,7 +4,7 @@ import { readFileSync } from 'fs'
 import path from 'path'
 import appRootPath from 'app-root-path'
 
-import { subcircuits as subcircuitInfos, globalWireList, setupParams, wasmDir } from '../resources/index.js'
+import { subcircuits as subcircuitInfos, globalWireList, setupParams, wasmDir } from '../constant/index.js'
 import { INITIAL_PLACEMENT_INDEX, PRV_IN_PLACEMENT_INDEX, PRV_OUT_PLACEMENT_INDEX, PUB_IN_PLACEMENT_INDEX, PUB_OUT_PLACEMENT_INDEX } from '../constant/index.js'
 
 // @ts-ignore
@@ -118,9 +118,9 @@ const removeUnusedLoadWires = (placements: Placements): PlacementEntry => {
 }
 
 function refactoryPlacement(placements: Placements): Placements {
-  const subcircuitIdByName = new Map()
+  const subcircuitInfoByName = new Map()
   for (const subcircuitInfo of subcircuitInfos) {
-    subcircuitIdByName.set(subcircuitInfo.name, subcircuitInfo.id)
+    subcircuitInfoByName.set(subcircuitInfo.name, {id: subcircuitInfo.id, Out_idx: subcircuitInfo.Out_idx, In_idx: subcircuitInfo.In_idx})
   }
   const dietLoadPlacment = removeUnusedLoadWires(placements)
   const outPlacements: Placements = new Map()
@@ -139,10 +139,22 @@ function refactoryPlacement(placements: Placements): Placements {
     }
     outPlacements.set(key, {
       name: placement!.name,
-      subcircuitId: subcircuitIdByName.get(placement!.name)!,
+      subcircuitId: subcircuitInfoByName.get(placement!.name)!.id,
       inPts: newInPts,
       outPts: newOutPts,
     })
+  }
+  if (outPlacements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length > subcircuitInfoByName.get('bufferPrvIn')!.In_idx[1]) {
+    throw new Error(`Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for longer buffers.`)
+  }
+  if (outPlacements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.length > subcircuitInfoByName.get('bufferPrvOut')!.Out_idx[1]) {
+    throw new Error(`Synthesizer: Insufficient private output buffer length. Ask the qap-compiler for longer buffers.`)
+  }
+  if (outPlacements.get(PUB_IN_PLACEMENT_INDEX)!.inPts.length > subcircuitInfoByName.get('bufferPubIn')!.In_idx[1]) {
+    throw new Error(`Synthesizer: Insufficient public input buffer length. Ask the qap-compiler for longer buffers.`)
+  }
+  if (outPlacements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts.length > subcircuitInfoByName.get('bufferPubOut')!.Out_idx[1]) {
+    throw new Error(`Synthesizer: Insufficient public output buffer length. Ask the qap-compiler for longer buffers.`)
   }
   return outPlacements
 }
