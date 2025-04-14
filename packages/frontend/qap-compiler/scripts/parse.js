@@ -1,5 +1,5 @@
 //const {opcodeDictionary} = require('./opcode.js')
-const S_MAX = require('./constant.js')
+const {S_MAX} = require('./constant.js')
 const fs = require('fs')
 
 const numOfLinesPerCircuit = 13

@@ -16,3 +16,6 @@ rayon = { workspace = true }
 name = "prove"
 path = "src/main.rs"
 
+[features]
+default = []
+testing-mode = []

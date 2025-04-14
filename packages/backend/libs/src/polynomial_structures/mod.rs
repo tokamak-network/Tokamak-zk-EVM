@@ -95,7 +95,13 @@ pub fn gen_aX(placement_variables: &Box<[PlacementVariables]>, subcircuit_infos:
             } 
         }
     }
-    return gen_arbit_poly(&public_instance, l, 1)
+    return DensePolynomialExt::from_rou_evals(
+        HostSlice::from_slice(&public_instance),
+        l,
+        1,
+        None,
+        None
+    )
 }
 pub fn gen_bXY(placement_variables: &Box<[PlacementVariables]>, subcircuit_infos: &Box<[SubcircuitInfo]>, setup_params: &SetupParams) -> DensePolynomialExt {
     let l = setup_params.l;
@@ -117,13 +123,15 @@ pub fn gen_bXY(placement_variables: &Box<[PlacementVariables]>, subcircuit_infos
             } 
         }
     }
-    return gen_arbit_poly(&interface_witness, m_i, s_max)
+    return DensePolynomialExt::from_rou_evals(
+        HostSlice::from_slice(&interface_witness),
+        m_i,
+        s_max,
+        None,
+        None
+    )
 }
 
 define_gen_qapXY!(gen_uXY, A_compact_col_mat, A_active_wires);
 define_gen_qapXY!(gen_vXY, B_compact_col_mat, B_active_wires);
 define_gen_qapXY!(gen_wXY, C_compact_col_mat, C_active_wires);
-
-pub fn gen_arbit_poly(coeffs_mat: &Box<[ScalarField]>, x_size: usize, y_size: usize) -> DensePolynomialExt {
-    return DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&coeffs_mat), x_size, y_size, None, None)
-}

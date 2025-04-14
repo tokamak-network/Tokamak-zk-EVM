@@ -18,6 +18,8 @@ use serde::{Deserialize, Serialize};
 use serde::ser::{Serializer, SerializeStruct};
 use serde_json::{from_reader, to_writer_pretty};
 
+const QAP_COMPILER_PATH_PREFIX: &str = "../frontend/qap-compiler/subcircuits/library";
+
 #[derive(Debug, Deserialize)]
 pub struct SetupParams {
     pub l: usize,
@@ -29,8 +31,9 @@ pub struct SetupParams {
 }
 
 impl SetupParams {
-    pub fn from_path(path: &str) -> io::Result<Self> {
-        let abs_path = env::current_dir()?.join(path);
+    pub fn from_path(path: &str) -> io::Result<Self> { 
+        let abs_path = env::current_dir()?.join(QAP_COMPILER_PATH_PREFIX).join(path);
+        println!("{:?}", abs_path);
         let file = File::open(abs_path)?;
         let reader = BufReader::new(file);
         let data = from_reader(reader)?;
@@ -130,7 +133,7 @@ pub struct SubcircuitInfo {
 }
 impl SubcircuitInfo {
     pub fn from_path(path: &str) -> io::Result<Box<[Self]>> {
-        let abs_path = env::current_dir()?.join(path);
+        let abs_path = env::current_dir()?.join(QAP_COMPILER_PATH_PREFIX).join(path);
         let file = File::open(abs_path)?;
         let reader = BufReader::new(file);
         let vec_data: Vec<Self> = from_reader(reader)?;
@@ -138,8 +141,8 @@ impl SubcircuitInfo {
     }
 }
 
-pub fn read_json_as_boxed_boxed_numbers(path: &str) -> io::Result<Box<[Box<[usize]>]>> {
-    let abs_path = env::current_dir()?.join(path);
+pub fn read_global_wire_list_as_boxed_boxed_numbers(path: &str) -> io::Result<Box<[Box<[usize]>]>> {
+    let abs_path = env::current_dir()?.join(QAP_COMPILER_PATH_PREFIX).join(path);
     let file = File::open(abs_path)?;
     let reader = BufReader::new(file);
 
@@ -159,7 +162,7 @@ struct Constraints {
 
 impl Constraints {
     fn from_path(path: &str) -> io::Result<Self> {
-        let abs_path = env::current_dir()?.join(path);
+        let abs_path = env::current_dir()?.join(QAP_COMPILER_PATH_PREFIX).join(path);
         let file = File::open(abs_path)?;
         let reader = BufReader::new(file);
         let constraints = from_reader(reader)?;

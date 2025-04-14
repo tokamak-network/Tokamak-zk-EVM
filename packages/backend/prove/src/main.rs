@@ -1,11 +1,13 @@
+use icicle_runtime::memory::HostSlice;
+use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::iotools::{Permutation, PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use libs::field_structures::{Tau};
-use libs::iotools::{read_json_as_boxed_boxed_numbers};
+use libs::iotools::{read_global_wire_list_as_boxed_boxed_numbers};
 use libs::vector_operations::gen_evaled_lagrange_bases;
 use libs::group_structures::{Sigma1, Sigma};
-use libs::polynomial_structures::{gen_aX, gen_bXY, gen_uXY, gen_vXY, gen_wXY, gen_arbit_poly};
-use icicle_bls12_381::curve::{ScalarField, CurveCfg, G2CurveCfg};
-use icicle_core::traits::{Arithmetic, FieldImpl};
+use libs::polynomial_structures::{gen_aX, gen_bXY, gen_uXY, gen_vXY, gen_wXY};
+use icicle_bls12_381::curve::{ScalarField, ScalarCfg, CurveCfg, G2CurveCfg};
+use icicle_core::traits::{Arithmetic, FieldImpl, FieldConfig, GenerateRandom};
 use icicle_core::ntt;
 use icicle_core::curve::Curve;
 
@@ -51,6 +53,25 @@ fn main() {
         panic!("m_I is not a power of two.");
     }
 
+    // Generate fixed constants and polynomials
+    let mut t_n_coeffs = vec![ScalarField::zero(); n + 1];
+    t_n_coeffs[0] = ScalarField::zero() - ScalarField::one();
+    t_n_coeffs[n] = ScalarField::one();
+    let t_n = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_n_coeffs), n + 1, 1);
+    drop(t_n_coeffs);
+
+    let mut t_smax_coeffs = vec![ScalarField::zero(); s_max + 1];
+    t_smax_coeffs[0] = ScalarField::zero() - ScalarField::one();
+    t_smax_coeffs[s_max] = ScalarField::one();
+    let t_smax = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_smax_coeffs), 1, s_max + 1);
+    drop(t_smax_coeffs);
+
+    let mut t_mi_coeffs = vec![ScalarField::zero(); m_i + 1];
+    t_mi_coeffs[0] = ScalarField::zero() - ScalarField::one();
+    t_mi_coeffs[m_i] = ScalarField::one();
+    let t_mi = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_mi_coeffs), m_i + 1, 1);
+    drop(t_mi_coeffs);
+
     // Load subcircuit information
     println!("Loading subcircuit information...");
     let subcircuit_path = "setup/trusted-setup/inputs/subcircuitInfo.json";
@@ -71,7 +92,7 @@ fn main() {
     // Load global wire list
     println!("Loading global wire list...");
     let global_wire_path = "setup/trusted-setup/inputs/globalWireList.json";
-    let global_wire_list = read_json_as_boxed_boxed_numbers(global_wire_path).unwrap();
+    let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_path).unwrap();
     
     // Load Sigma (reference string)
     println!("Loading the reference string...");
@@ -101,6 +122,20 @@ fn main() {
     let vXY = gen_vXY(&placement_variables, &compact_library_R1CS, &setup_params);
     println!("Generating w(X,Y)...");
     let wXY = gen_wXY(&placement_variables, &compact_library_R1CS, &setup_params);
+
+    // Arithmetic constraints argument polynomials
+    let p_0 = &( &uXY * &vXY ) - &wXY;
+    let (q_0, q_1) = p_0.div_by_vanishing(n as i64, s_max as i64);
+    #[cfg(feature = "testing-mode")] {
+        let x_e = ScalarCfg::generate_random(1)[0];
+        let y_e = ScalarCfg::generate_random(1)[0];
+        let p_0_eval = p_0.eval(&x_e, &y_e);
+        let q_0_eval = q_0.eval(&x_e, &y_e);
+        let q_1_eval = q_1.eval(&x_e, &y_e);
+        let t_n_eval = t_n.eval(&x_e, &y_e);
+        let t_smax_eval = t_smax.eval(&x_e, &y_e);
+        assert!( p_0_eval.eq( &(q_0_eval * t_n_eval + q_1_eval * t_smax_eval) ) );
+    }
     
     // Generating a permutation matrix
     println!("Converting the permutation into polynomials s^0 and s^1...");
