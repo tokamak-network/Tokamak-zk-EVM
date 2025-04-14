@@ -1,7 +1,7 @@
 import { hexToBytes } from "@synthesizer-libs/util"
 
 import { createEVM } from '../../src/constructors.js'
-
+import { finalize } from '../../src/tokamak/core/finalize.js'
 const main = async () => {
   const evm = await createEVM()
   //복합 MUL 연산 테스트
@@ -59,6 +59,8 @@ const main = async () => {
 
     index++
   }
+
+  const permutation = await finalize(res.runState!.synthesizer.placements, undefined, true)
 }
 
 void main().catch((error) => {

@@ -2,6 +2,7 @@
 members = [
     "libs",
     "setup/trusted-setup",
+    "prove"
 ]
 
 [workspace.package]
@@ -11,7 +12,8 @@ version = "0.1.0"
 [workspace.dependencies]
 icicle-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.5.0", package = "icicle-runtime" }
 icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.5.0", package = "icicle-core" }
-icicle-bls12-381 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.5.0", package = "icicle-bls12-381" }
+icicle-bls12-381 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.5.0", package = "icicle-bls12-381"}
+ark-circom = "0.5.0"
 libs = { path = "libs" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

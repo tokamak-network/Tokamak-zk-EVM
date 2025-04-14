@@ -4,7 +4,7 @@
  */
 import { Address, hexToBytes } from '@synthesizer-libs/util';
 import { EVM } from '../evm.js';
-import { finalize } from '../tokamak/core/finalize.js';
+import { finalize, Permutation } from '../tokamak/core/finalize.js';
 import { setupEVMFromCalldata } from '../tokamak/utils/erc20EvmSetup.js';
 import { setupUSDCFromCalldata } from '../tokamak/utils/usdcEvmSetup.js';
 import { createEVM } from '../constructors.js';
@@ -22,13 +22,11 @@ import {
   USDC_IMPLEMENTATION_V1,
   USDC_IMPLEMENTATION_V2,
 } from '../constants/index.js';
-import { PlacementInstances } from '../tokamak/types/synthesizer.js';
+import { PlacementVariables } from '../tokamak/types/synthesizer.js';
 import { ExecResult } from '../types.js';
 
 import {
-  STORAGE_IN_PLACEMENT_INDEX,
-  RETURN_PLACEMENT_INDEX,
-  STORAGE_OUT_PLACEMENT_INDEX,
+  PRV_OUT_PLACEMENT_INDEX,
 } from '../tokamak/constant/constants.js';
 
 const TOKEN_CONFIGS = {
@@ -105,14 +103,10 @@ export class SynthesizerAdapter {
   }
 
   public get placementIndices(): {
-    storageIn: number;
     return: number;
-    storageOut: number;
   } {
     return {
-      storageIn: STORAGE_IN_PLACEMENT_INDEX,
-      return: RETURN_PLACEMENT_INDEX,
-      storageOut: STORAGE_OUT_PLACEMENT_INDEX,
+      return: PRV_OUT_PLACEMENT_INDEX,
     };
   }
 
@@ -124,36 +118,13 @@ export class SynthesizerAdapter {
       evm.synthesizer.logPt = [];
 
       const returnPlacement = evm.synthesizer.placements.get(
-        RETURN_PLACEMENT_INDEX,
+        PRV_OUT_PLACEMENT_INDEX,
       );
       if (returnPlacement) {
         returnPlacement.inPts = [];
         returnPlacement.outPts = [];
         console.log(
           'SynthesizerAdapter.parseTransaction: Cleared logPt and outPts arrays',
-        );
-      }
-      // Initialize STORAGE_IN_PLACEMENT's inPts and outPts arrays
-      const storageInPlacement = evm.synthesizer.placements.get(
-        STORAGE_IN_PLACEMENT_INDEX,
-      );
-      if (storageInPlacement) {
-        storageInPlacement.inPts = [];
-        storageInPlacement.outPts = [];
-        console.log(
-          'SynthesizerAdapter.parseTransaction: Cleared STORAGE_IN_PLACEMENT arrays',
-        );
-      }
-
-      // Initialize STORAGE_OUT_PLACEMENT's inPts and outPts arrays
-      const storageOutPlacement = evm.synthesizer.placements.get(
-        STORAGE_OUT_PLACEMENT_INDEX,
-      );
-      if (storageOutPlacement) {
-        storageOutPlacement.inPts = [];
-        storageOutPlacement.outPts = [];
-        console.log(
-          'SynthesizerAdapter.parseTransaction: Cleared STORAGE_OUT_PLACEMENT arrays',
         );
       }
     }
@@ -170,8 +141,8 @@ export class SynthesizerAdapter {
    *   evm: EVM,
    *   executionResult: ExecResult,
    *   permutation: Permutation,
-   *   placementInstance: PlacementInstances
-   * }>} Returns EVM instance, execution result, permutation and placementInstance
+   *   placementVariables: PlacementVariables
+   * }>} Returns EVM instance, execution result, permutation and placementVariables
    */
   public async parseTransaction({
     contractAddr,
@@ -184,8 +155,7 @@ export class SynthesizerAdapter {
   }): Promise<{
     evm: EVM;
     executionResult: ExecResult;
-    permutation: any;
-    placementInstance: PlacementInstances;
+    permutation: Permutation;
   }> {
     if (!this.isSupportedToken(contractAddr)) {
       throw new Error(
@@ -241,18 +211,16 @@ export class SynthesizerAdapter {
     });
 
     // validate 옵션을 false로 설정하여 testInstances 함수를 건너뜁니다
-    const { permutation, placementInstance } = await finalize(
+    const permutation = await finalize(
       executionResult.runState!.synthesizer.placements,
       undefined,
       false, // validate를 false로 변경
-      false,
     );
 
     return {
       evm,
       executionResult,
       permutation,
-      placementInstance,
     };
   }
 }

@@ -43,16 +43,25 @@ export type SubcircuitId = {
  * @property {bigint} value - Data value.
  */
 export interface CreateDataPointParams {
-  source?: string | number
+  // if data comes from external
+  extSource?: string
+  // if data is provided to external
+  extDest?: string
+  // external data type
   type?: string
-  key?: bigint
+  // key if the external data comes from or goes to a DB
+  key?: string
+  // offset if the external data comes from a memory
   offset?: number
-  wireIndex?: number
+  // used for pairing the Keccak input and output (as input can be longer than 256 bit)
   pairedInputWireIndices?: number[]
-  dest?: string
+  // placement index at which the dataPt comes from
+  source: number
+  // wire index at which the dataPt comes from
+  wireIndex: number
   sourceSize: number
   value: bigint
-  identifier?: string
+  // identifier?: string
 }
 export type DataPt = CreateDataPointParams & { valueHex: string }
 
@@ -67,12 +76,9 @@ export type PlacementEntry = {
 export type Placements = Map<number, PlacementEntry>
 export type Auxin = Map<bigint, number>
 
-export type PlacementInstanceEntry = {
-  placementIndex: number
+export type PlacementVariableEntry = {
   subcircuitId: number
-  instructionName: string
-  inValues: string[]
-  outValues: string[]
+  variables: string[]
 }
 
-export type PlacementInstances = PlacementInstanceEntry[]
+export type PlacementVariables = PlacementVariableEntry[]

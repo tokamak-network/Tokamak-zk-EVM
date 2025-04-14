@@ -3,7 +3,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
 use icicle_core::traits::FieldImpl;
 
-use libs::vectors::{outer_product_two_vecs, outer_product_two_vecs_rayon};
+use libs::vector_operations::{outer_product_two_vecs, outer_product_two_vecs_rayon};
 
 fn bench_outer_products(c: &mut Criterion) {
     // 테스트할 벡터 크기 설정 (예: 512 x 512)
