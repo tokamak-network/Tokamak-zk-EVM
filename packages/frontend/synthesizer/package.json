@@ -1,7 +1,7 @@
 {
   "name": "@tokamak-zk-evm/synthesizer",
   "version": "0.0.9",
-  "description": "Tokamak zk-EVM Synthesizer - Processes Ethereum transactions into wire maps for Tokamak zk-SNARK proof generation",
+  "description": "Tokamak zk-EVM Synthesizer - Interprets an Ethereum transaction as a combination of the library subcircuits.",
   "keywords": [
     "ethereum",
     "zk-EVM",
@@ -22,7 +22,7 @@
   "license": "MPL-2.0",
   "author": "Tokamak Network",
   "contributors": [
-    "Jake Jang <jake@tokamak.network>",
+    "JehyukJang <https://github.com/JehyukJang>",
     "Ale Son <ale@tokamak.network>"
   ],
   "type": "module",
