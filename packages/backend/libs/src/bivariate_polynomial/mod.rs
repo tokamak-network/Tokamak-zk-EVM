@@ -1,5 +1,5 @@
 use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
-use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
+use icicle_core::traits::{Arithmetic, FieldImpl, FieldConfig, GenerateRandom};
 use icicle_core::polynomials::UnivariatePolynomial;
 use icicle_core::ntt;
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
@@ -9,6 +9,7 @@ use std::{
     cmp,
     ops::{Add, AddAssign, Mul, Sub, Neg},
 };
+use super::vector_operations::{*};
 use rayon::prelude::*;
 
 fn _find_size_as_twopower(target_x_size: usize, target_y_size: usize) -> (usize, usize) {
@@ -25,20 +26,6 @@ fn _find_size_as_twopower(target_x_size: usize, target_y_size: usize) -> (usize,
         new_y_size = 1 << (usize::BITS - target_y_size.leading_zeros());
     }
     (new_x_size, new_y_size)
-}
-
-// Method to divide a univariate polynomial by (X-x)
-fn _div_uni_coeffs_by_ruffini(poly_coeffs_vec: &[ScalarField], x: ScalarField) -> (Vec<ScalarField>, ScalarField) {
-    let len = poly_coeffs_vec.len();
-    let mut q_coeffs_vec = vec![ScalarField::zero(); len];
-    let mut b = poly_coeffs_vec[len - 1];
-    q_coeffs_vec[len - 2] = b;
-    for i in 3.. len + 1 {
-        b = poly_coeffs_vec[len - i + 1] + b*x;
-        q_coeffs_vec[len - i] = b;
-    }
-    let r = poly_coeffs_vec[0] + b*x;
-    (q_coeffs_vec, r)
 }
 
 
@@ -200,6 +187,46 @@ impl Mul<&DensePolynomialExt> for &ScalarField {
     }
 }
 
+// scalar + poly
+impl Add<&DensePolynomialExt> for &ScalarField {
+    type Output = DensePolynomialExt;
+
+    fn add(self: Self, rhs: &DensePolynomialExt) -> Self::Output {
+        let x_size = rhs.x_size;
+        let y_size = rhs.y_size;
+        let mut coefs = vec![ScalarField::zero(); x_size * y_size];
+        coefs[0] = *self;
+        let const_poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coefs), x_size, y_size);
+        DensePolynomialExt {
+            poly: &const_poly.poly + &rhs.poly,
+            x_degree: rhs.x_degree,
+            y_degree: rhs.y_degree,
+            x_size: rhs.x_size,
+            y_size: rhs.y_size,
+        }
+    }
+}
+
+// poly + scalar
+impl Add<&ScalarField> for &DensePolynomialExt {
+    type Output = DensePolynomialExt;
+
+    fn add(self: Self, rhs: &ScalarField) -> Self::Output {
+        let x_size = self.x_size;
+        let y_size = self.y_size;
+        let mut coefs = vec![ScalarField::zero(); x_size * y_size];
+        coefs[0] = *rhs;
+        let const_poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coefs), x_size, y_size);
+        DensePolynomialExt {
+            poly: &self.poly + &const_poly.poly,
+            x_degree: self.x_degree,
+            y_degree: self.y_degree,
+            x_size: self.x_size,
+            y_size: self.y_size,
+        }
+    }
+}
+
 impl Neg for &DensePolynomialExt {
     type Output = DensePolynomialExt;
 
@@ -223,7 +250,7 @@ where
     // Method to evaluate the polynomial over the roots-of-unity domain for power-of-two sized domain
     fn to_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(&self, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>, evals: &mut S);
     
-    fn find_degree(coeffs: &DensePolynomial, x_size: usize, y_size: usize) -> (i64, i64);
+    fn find_degree(&self) -> (i64, i64);
 
     // Method to divide this polynomial by vanishing polynomials 'X^{x_degree}-1' and 'Y^{y_degree}-1'.
     fn div_by_vanishing(&self, x_degree: i64, y_degree: i64) -> (Self, Self) where Self: Sized;
@@ -286,7 +313,23 @@ where
     // Method to divide this polynomial by another, returning quotient and remainder.
     fn divide_y(&self, denominator: &Self) -> (Self, Self) where Self: Sized;
 
+    fn _divide_uni(&self, denom: &Self, y_dir: bool) -> (Self, Self) where Self: Sized;
+
     fn _neg(&self) -> Self;
+
+    // Method to divide a univariate polynomial by (X-x)
+    fn _div_uni_coeffs_by_ruffini(poly_coeffs_vec: &[ScalarField], x: ScalarField) -> (Vec<ScalarField>, ScalarField) {
+        let len = poly_coeffs_vec.len();
+        let mut q_coeffs_vec = vec![ScalarField::zero(); len];
+        let mut b = poly_coeffs_vec[len - 1];
+        q_coeffs_vec[len - 2] = b;
+        for i in 3.. len + 1 {
+            b = poly_coeffs_vec[len - i + 1] + b*x;
+            q_coeffs_vec[len - i] = b;
+        }
+        let r = poly_coeffs_vec[0] + b*x;
+        (q_coeffs_vec, r)
+    }
 
 }
 
@@ -294,7 +337,10 @@ impl BivariatePolynomial for DensePolynomialExt {
     type Field = ScalarField;
     type FieldConfig = ScalarCfg;
 
-    fn find_degree(poly: &DensePolynomial, x_size: usize, y_size: usize) -> (i64, i64) {
+    fn find_degree(&self) -> (i64, i64) {
+        let poly = &self.poly;
+        let x_size = self.x_size;
+        let y_size = self.y_size;
         let (min_size, is_min_x) = if x_size <= y_size {
             (x_size, true)
         } else {
@@ -307,10 +353,10 @@ impl BivariatePolynomial for DensePolynomialExt {
         for ind in 0..min_size as i64 {
             let sub_poly = if is_min_x {
                 // sub-polynomial of y
-                poly.slice(ind as u64, x_size as u64, y_size as u64)
+                poly.slice(ind as u64 * y_size as u64, 1, y_size as u64)
             } else {
                 // sub-polynomial of x
-                poly.slice(ind as u64 * x_size as u64, 1, x_size as u64)
+                poly.slice(ind as u64, y_size as u64, x_size as u64)
             };
             // DensePolynomial::degree() returns -1 if the poly is zero.
             let curr_degree = sub_poly.degree() as i64;
@@ -369,11 +415,11 @@ impl BivariatePolynomial for DensePolynomialExt {
         
         // IFFT along X
         cfg.batch_size = y_size as i32;
-        cfg.columns_batch = false;
+        cfg.columns_batch = true;
         ntt::ntt(evals, ntt::NTTDir::kInverse, &cfg, &mut coeffs).unwrap();
         // IFFT along Y
         cfg.batch_size = x_size as i32;
-        cfg.columns_batch = true;
+        cfg.columns_batch = false;
         ntt::ntt_inplace(&mut coeffs, ntt::NTTDir::kInverse, &cfg).unwrap();
 
         ntt::release_domain::<Self::Field>().unwrap();
@@ -383,25 +429,10 @@ impl BivariatePolynomial for DensePolynomialExt {
 
         if let Some(_factor) = coset_x {
             let factor = _factor.inv();
-            let mut _right_scale = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
-            let mut scaler = Self::Field::one();
-            for ind in 0..x_size {
-                _right_scale[ind * y_size .. (ind+1) * y_size].copy_from_host(HostSlice::from_slice(&vec![scaler; y_size])).unwrap();
-                scaler = scaler.mul(factor);
-            }
-            let mut right_scale = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
-            Self::FieldConfig::transpose(&_right_scale, x_size as u32, y_size as u32, &mut right_scale, &vec_ops_cfg).unwrap();
-            let mut temp = DeviceVec::<Self::Field>::device_malloc( size ).unwrap();
-            Self::FieldConfig::mul(&scaled_coeffs, &right_scale, &mut temp, &vec_ops_cfg).unwrap();
-            scaled_coeffs = temp;
-        }
-
-        if let Some(_factor) = coset_y {
-            let factor = _factor.inv();
             let mut left_scale = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
             let mut scaler = Self::Field::one();
-            for ind in 0..y_size {
-                left_scale[ind * x_size .. (ind+1) * x_size].copy_from_host(HostSlice::from_slice(&vec![scaler; x_size])).unwrap();
+            for ind in 0..x_size {
+                left_scale[ind * y_size .. (ind+1) * y_size].copy_from_host(HostSlice::from_slice(&vec![scaler; y_size])).unwrap();
                 scaler = scaler.mul(factor);
             }
             let mut temp = DeviceVec::<Self::Field>::device_malloc(size ).unwrap();
@@ -409,6 +440,20 @@ impl BivariatePolynomial for DensePolynomialExt {
             scaled_coeffs = temp;
         }
 
+        if let Some(_factor) = coset_y {
+            let factor = _factor.inv();
+            let mut _right_scale = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
+            let mut scaler = Self::Field::one();
+            for ind in 0..y_size {
+                _right_scale[ind * x_size .. (ind+1) * x_size].copy_from_host(HostSlice::from_slice(&vec![scaler; x_size])).unwrap();
+                scaler = scaler.mul(factor);
+            }
+            let mut right_scale = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
+            Self::FieldConfig::transpose(&_right_scale, y_size as u32, x_size as u32, &mut right_scale, &vec_ops_cfg).unwrap();
+            let mut temp = DeviceVec::<Self::Field>::device_malloc( size ).unwrap();
+            Self::FieldConfig::mul(&scaled_coeffs, &right_scale, &mut temp, &vec_ops_cfg).unwrap();
+            scaled_coeffs = temp;
+        }
         DensePolynomialExt::from_coeffs(&scaled_coeffs, x_size, y_size)
     }
 
@@ -417,6 +462,38 @@ impl BivariatePolynomial for DensePolynomialExt {
         if evals.len() < size {
             panic!("Insufficient buffer length for to_rou_evals")
         }
+        let mut coeffs = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
+        self.copy_coeffs(0, &mut coeffs);
+
+        let mut scaled_coeffs = coeffs;
+        let vec_ops_cfg = VecOpsConfig::default();
+
+        if let Some(factor) = coset_x {
+            let mut left_scale = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
+            let mut scaler = Self::Field::one();
+            for ind in 0..self.x_size {
+                left_scale[ind * self.y_size .. (ind+1) * self.y_size].copy_from_host(HostSlice::from_slice(&vec![scaler; self.y_size])).unwrap();
+                scaler = scaler.mul(*factor);
+            }
+            let mut temp = DeviceVec::<Self::Field>::device_malloc(size ).unwrap();
+            Self::FieldConfig::mul(&scaled_coeffs, &mut left_scale, &mut temp, &vec_ops_cfg).unwrap();
+            scaled_coeffs = temp;
+        }
+
+        if let Some(factor) = coset_y {
+            let mut _right_scale = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
+            let mut scaler = Self::Field::one();
+            for ind in 0..self.y_size {
+                _right_scale[ind * self.x_size .. (ind+1) * self.x_size].copy_from_host(HostSlice::from_slice(&vec![scaler; self.x_size])).unwrap();
+                scaler = scaler.mul(*factor);
+            }
+            let mut right_scale = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
+            Self::FieldConfig::transpose(&_right_scale, self.y_size as u32, self.x_size as u32, &mut right_scale, &vec_ops_cfg).unwrap();
+            let mut temp = DeviceVec::<Self::Field>::device_malloc( size ).unwrap();
+            Self::FieldConfig::mul(&scaled_coeffs, &mut right_scale, &mut temp, &vec_ops_cfg).unwrap();
+            scaled_coeffs = temp;
+        }
+
         ntt::initialize_domain::<Self::Field>(
             ntt::get_root_of_unity::<Self::Field>(
                 size.try_into()
@@ -425,47 +502,15 @@ impl BivariatePolynomial for DensePolynomialExt {
             &ntt::NTTInitDomainConfig::default(),
         )
         .unwrap();
-        
-        let mut coeffs = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
-        self.copy_coeffs(0, &mut coeffs);
-
-        let mut scaled_coeffs = coeffs;
-        let vec_ops_cfg = VecOpsConfig::default();
-
-        if let Some(factor) = coset_x {
-            let mut _right_scale = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
-            let mut scaler = Self::Field::one();
-            for ind in 0..self.x_size {
-                _right_scale[ind * self.y_size .. (ind+1) * self.y_size].copy_from_host(HostSlice::from_slice(&vec![scaler; self.y_size])).unwrap();
-                scaler = scaler.mul(*factor);
-            }
-            let mut right_scale = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
-            Self::FieldConfig::transpose(&_right_scale, self.x_size as u32, self.y_size as u32, &mut right_scale, &vec_ops_cfg).unwrap();
-            let mut temp = DeviceVec::<Self::Field>::device_malloc( size ).unwrap();
-            Self::FieldConfig::mul(&scaled_coeffs, &mut right_scale, &mut temp, &vec_ops_cfg).unwrap();
-            scaled_coeffs = temp;
-        }
-
-        if let Some(factor) = coset_y {
-            let mut left_scale = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
-            let mut scaler = Self::Field::one();
-            for ind in 0..self.y_size {
-                left_scale[ind * self.x_size .. (ind+1) * self.x_size].copy_from_host(HostSlice::from_slice(&vec![scaler; self.x_size])).unwrap();
-                scaler = scaler.mul(*factor);
-            }
-            let mut temp = DeviceVec::<Self::Field>::device_malloc(size ).unwrap();
-            Self::FieldConfig::mul(&scaled_coeffs, &mut left_scale, &mut temp, &vec_ops_cfg).unwrap();
-            scaled_coeffs = temp;
-        }
-
         let mut cfg = ntt::NTTConfig::<Self::Field>::default();
         // FFT along X
         cfg.batch_size = self.y_size as i32;
-        cfg.columns_batch = false;
+        cfg.columns_batch = true;
         ntt::ntt(&scaled_coeffs, ntt::NTTDir::kForward, &cfg, evals).unwrap();
+        
         // FFT along Y
         cfg.batch_size = self.x_size as i32;
-        cfg.columns_batch = true;
+        cfg.columns_batch = false;
         ntt::ntt_inplace(evals, ntt::NTTDir::kForward, &cfg).unwrap();
 
         ntt::release_domain::<Self::Field>().unwrap();
@@ -496,11 +541,11 @@ impl BivariatePolynomial for DensePolynomialExt {
         let orig_coeffs = HostSlice::from_mut_slice(&mut orig_coeffs_vec);
         self.poly.copy_coeffs(0, orig_coeffs);
 
-        for row_idx in 0..self.y_size{
-            let row_vec = &orig_coeffs_vec[row_idx * self.x_size .. (row_idx + 1) * self.x_size];
-            for col_idx in 0..self.x_size {
-                let block_idx = (col_idx / block_x_size) + num_blocks_x * (row_idx / block_y_size);
-                let in_block_idx = (col_idx % block_x_size) + block_x_size * (row_idx % block_y_size);
+        for row_idx in 0..self.x_size{
+            let row_vec = &orig_coeffs_vec[row_idx * self.y_size .. (row_idx + 1) * self.y_size];
+            for col_idx in 0..self.y_size {
+                let block_idx = num_blocks_y * (row_idx / block_x_size) + (col_idx / block_y_size);
+                let in_block_idx = block_y_size * (row_idx % block_x_size) + (col_idx % block_y_size) ;
                 blocks[block_idx][in_block_idx] = row_vec[col_idx].clone();
             }
         }
@@ -544,13 +589,13 @@ impl BivariatePolynomial for DensePolynomialExt {
         if !(idx_x <= self.x_size as u64 && idx_y <= self.y_size as u64){
             panic!("The index at which to get a coefficient exceeds the coefficient size.");
         }
-        let idx = idx_x + idx_y * self.x_size as u64;
+        let idx = idx_x * self.y_size as u64 + idx_y;
         self.poly.get_coeff(idx)
     }
 
     fn get_univariate_polynomial_x(&self, idx_y:u64) -> Self {
         Self {
-            poly: self.poly.slice(idx_y * self.x_size as u64, 1, self.x_size as u64),
+            poly: self.poly.slice(idx_y, self.y_size as u64, self.x_size as u64),
             x_size: self.x_size.clone(),
             y_size: 1,
             x_degree: self.x_degree.clone(),
@@ -560,7 +605,7 @@ impl BivariatePolynomial for DensePolynomialExt {
 
     fn get_univariate_polynomial_y(&self, idx_x:u64) -> Self {
         Self {
-            poly: self.poly.slice(idx_x, self.x_size as u64, self.y_size as u64),
+            poly: self.poly.slice(idx_x * self.y_size as u64, 1, self.y_size as u64),
             x_size: 1,
             y_size: self.y_size.clone(),
             x_degree: 0,
@@ -581,10 +626,10 @@ impl BivariatePolynomial for DensePolynomialExt {
         self.copy_coeffs(0, orig_coeffs);
 
         let mut res_coeffs_vec = vec![Self::Field::zero(); new_size];
-        for i in 0 .. cmp::min(self.y_size, new_y_size) {
-            let each_x_size = cmp::min(self.x_size, new_x_size);
-            res_coeffs_vec[new_x_size * i .. new_x_size * i + each_x_size].copy_from_slice(
-                &orig_coeffs_vec[self.x_size * i .. self.x_size * i + each_x_size]
+        for i in 0 .. cmp::min(self.x_size, new_x_size) {
+            let each_y_size = cmp::min(self.y_size, new_y_size);
+            res_coeffs_vec[new_y_size * i .. new_y_size * i + each_y_size].copy_from_slice(
+                &orig_coeffs_vec[self.y_size * i .. self.y_size * i + each_y_size]
             );  
         }
 
@@ -596,9 +641,12 @@ impl BivariatePolynomial for DensePolynomialExt {
     }
 
     fn optimize_size(&mut self) {
-        let target_x_size = self.x_degree as usize + 1;
-        let target_y_size = self.y_degree as usize + 1;
-        self.resize(target_x_size, target_y_size);
+        let (updated_x_degree, updated_y_degree) = self.find_degree();
+        let target_x_size = updated_x_degree + 1;
+        let target_y_size = updated_y_degree + 1;
+        self.resize(target_x_size as usize, target_y_size as usize);
+        self.x_degree = updated_x_degree;
+        self.y_degree = updated_y_degree;
     }
 
     fn mul_monomial(&self, x_exponent: usize, y_exponent: usize) -> Self {
@@ -616,9 +664,9 @@ impl BivariatePolynomial for DensePolynomialExt {
             let new_size: usize = new_x_size * new_y_size;
             
             let mut res_coeffs_vec = vec![Self::Field::zero(); new_size];
-            for i in 0 .. self.y_size {
-                res_coeffs_vec[new_x_size * (i + y_exponent) + x_exponent .. new_x_size * (i + y_exponent) + self.x_size + x_exponent].copy_from_slice(
-                    &orig_coeffs_vec[self.x_size * i .. self.x_size * (i+1)]
+            for i in 0 .. self.x_size {
+                res_coeffs_vec[new_y_size * (i + x_exponent) + y_exponent .. new_y_size * (i + x_exponent) + self.y_size + y_exponent].copy_from_slice(
+                    &orig_coeffs_vec[self.y_size * i .. self.y_size * (i+1)]
                 );
             }
 
@@ -690,40 +738,7 @@ impl BivariatePolynomial for DensePolynomialExt {
             );
         }
 
-        let quo_x_degree = numer_x_degree - denom_x_degree;
-        let quo_y_degree = numer_y_degree;
-        let rem_x_degree = denom_x_degree - 1;
-        let rem_y_degree = numer_y_degree;
-        let quo_x_size = quo_x_degree as usize + 1;
-        let quo_y_size = quo_y_degree as usize + 1;
-        let rem_x_size = rem_x_degree as usize + 1;
-        let rem_y_size = rem_y_degree as usize + 1;
-        let quo_size = quo_x_size * quo_y_size;
-        let rem_size = rem_x_size * rem_y_size;
-
-        let mut quo_coeffs_vec = vec![Self::Field::zero(); quo_size];
-        let mut rem_coeffs_vec = vec![Self::Field::zero(); rem_size];
-
-        for offset in 0..self.y_degree as usize + 1 {
-            let sub_xpoly = self.get_univariate_polynomial_x(offset as u64);
-            let (sub_quo_poly, sub_rem_poly) = sub_xpoly.poly.divide(&denominator.poly);
-            let mut sub_quo_coeffs_vec = vec![Self::Field::zero(); quo_x_size];
-            let mut sub_rem_coeffs_vec = vec![Self::Field::zero(); rem_x_size];
-            let sub_quo_coeffs = HostSlice::from_mut_slice(&mut sub_quo_coeffs_vec);
-            let sub_rem_coeffs = HostSlice::from_mut_slice(&mut sub_rem_coeffs_vec);
-            sub_quo_poly.copy_coeffs(0, sub_quo_coeffs);
-            sub_rem_poly.copy_coeffs(0, sub_rem_coeffs);
-            if offset <= quo_y_size {
-                quo_coeffs_vec[offset * quo_x_size .. (offset + 1) * quo_x_size].copy_from_slice(&sub_quo_coeffs_vec);
-            }
-            if offset <= rem_y_size {
-                rem_coeffs_vec[offset * rem_x_size .. (offset + 1) * rem_x_size].copy_from_slice(&sub_rem_coeffs_vec);
-            }
-        }
-
-        let quo_coeffs = HostSlice::from_mut_slice(&mut quo_coeffs_vec);
-        let rem_coeffs = HostSlice::from_mut_slice(&mut rem_coeffs_vec);
-        (DensePolynomialExt::from_coeffs(quo_coeffs, quo_x_size, quo_y_size), DensePolynomialExt::from_coeffs(rem_coeffs, rem_x_size, rem_y_size))
+        return self._divide_uni(denominator, false)
     }
 
     fn divide_y(&self, denominator: &Self) -> (Self, Self) where Self: Sized {
@@ -733,7 +748,7 @@ impl BivariatePolynomial for DensePolynomialExt {
             panic!("Denominator for divide_y must be Y-univariate");
         }
         if numer_y_degree < denom_y_degree{
-            panic!("Numer.y_degree < Denom.y_degree for divide_y");
+            panic!("Numer.degree < Denom.degree for divide_y");
         }
         if denom_y_degree == 0 {
             if Self::Field::eq(&(denominator.get_coeff(0, 0).inv()), &Self::Field::zero()) {
@@ -747,49 +762,54 @@ impl BivariatePolynomial for DensePolynomialExt {
             );
         }
 
-        let quo_x_degree = numer_x_degree;
-        let quo_y_degree = numer_y_degree - denom_y_degree;
-        let rem_x_degree = numer_x_degree;
-        let rem_y_degree = denom_y_degree - 1;
-        let quo_x_size = quo_x_degree as usize + 1;
-        let quo_y_size = quo_y_degree as usize + 1;
-        let rem_x_size = rem_x_degree as usize + 1;
-        let rem_y_size = rem_y_degree as usize + 1;
-        let quo_size = quo_x_size * quo_y_size;
-        let rem_size = rem_x_size * rem_y_size;
+        return self._divide_uni(denominator, true)
+    }
 
-        let mut quo_coeffs_vec = vec![Self::Field::zero(); quo_size];
-        let mut rem_coeffs_vec = vec![Self::Field::zero(); rem_size];
+    fn _divide_uni(&self, denominator: &Self, y_dir: bool) -> (Self, Self) where Self: Sized {       
+        // Division along Y (denom is assumed to be a polynomial of Y)
+        let quo_size = if y_dir {
+            self.y_size
+        } else {
+            self.x_size
+        };
+        let rem_size = quo_size;
+        let sweep_dir = if y_dir {
+            self.x_size
+        } else {
+            self.y_size
+        };
 
-        for offset in 0..self.x_degree as usize + 1 {
-            let sub_ypoly = self.get_univariate_polynomial_y(offset as u64);
-            let (sub_quo_poly, sub_rem_poly) = sub_ypoly.poly.divide(&denominator.poly);
-            let mut sub_quo_coeffs_vec = vec![Self::Field::zero(); quo_y_size];
-            let mut sub_rem_coeffs_vec = vec![Self::Field::zero(); rem_y_size];
+        let mut quo_coeffs_vec = vec![ScalarField::zero(); self.x_size * self.y_size];
+        let mut rem_coeffs_vec = vec![ScalarField::zero(); self.x_size * self.y_size];
+
+        for offset in 0..sweep_dir {
+            let sub_poly = if y_dir {
+                self.get_univariate_polynomial_y(offset as u64)
+            } else {
+                self.get_univariate_polynomial_x(offset as u64)
+            };
+            let (sub_quo_poly, sub_rem_poly) = sub_poly.poly.divide(&denominator.poly);
+            let mut sub_quo_coeffs_vec = vec![Self::Field::zero(); quo_size];
+            let mut sub_rem_coeffs_vec = vec![Self::Field::zero(); rem_size];
             let sub_quo_coeffs = HostSlice::from_mut_slice(&mut sub_quo_coeffs_vec);
             let sub_rem_coeffs = HostSlice::from_mut_slice(&mut sub_rem_coeffs_vec);
             sub_quo_poly.copy_coeffs(0, sub_quo_coeffs);
             sub_rem_poly.copy_coeffs(0, sub_rem_coeffs);
-            if offset <= quo_x_size {
-                quo_coeffs_vec[offset * quo_y_size .. (offset + 1) * quo_y_size].copy_from_slice(&sub_quo_coeffs_vec);
-            }
-            if offset <= rem_x_size {
-                rem_coeffs_vec[offset * rem_y_size .. (offset + 1) * rem_y_size].copy_from_slice(&sub_rem_coeffs_vec);
-            }
+            quo_coeffs_vec[offset * quo_size .. (offset + 1) * quo_size].copy_from_slice(&sub_quo_coeffs_vec);
+            rem_coeffs_vec[offset * rem_size .. (offset + 1) * rem_size].copy_from_slice(&sub_rem_coeffs_vec);
         }
-        let quo_coeffs_tr = HostSlice::from_slice(&quo_coeffs_vec);
-        let rem_coeffs_tr = HostSlice::from_slice(&rem_coeffs_vec);
 
-        let mut quo_coeffs_vec2 = vec![Self::Field::zero(); quo_size];
-        let quo_coeffs = HostSlice::from_mut_slice(&mut quo_coeffs_vec2);
-        let mut rem_coeffs_vec2 = vec![Self::Field::zero(); rem_size];
-        let rem_coeffs = HostSlice::from_mut_slice(&mut rem_coeffs_vec2);
-
-        let vec_ops_cfg = VecOpsConfig::default();
-        //vec_ops_cfg.batch_size = self.x_size as i32;
-        ScalarCfg::transpose(quo_coeffs_tr, quo_x_size as u32, quo_y_size as u32, quo_coeffs, &vec_ops_cfg).unwrap();
-        ScalarCfg::transpose(rem_coeffs_tr, rem_x_size as u32, rem_y_size as u32, rem_coeffs, &vec_ops_cfg).unwrap();
-        (DensePolynomialExt::from_coeffs(quo_coeffs, quo_x_size, quo_y_size), DensePolynomialExt::from_coeffs(rem_coeffs, rem_x_size, rem_y_size))
+        if !y_dir {
+            transpose_inplace(&mut quo_coeffs_vec, self.y_size, self.x_size);
+            transpose_inplace(&mut rem_coeffs_vec, self.y_size, self.x_size);
+        }
+        
+        let quo_coeffs = HostSlice::from_mut_slice(&mut quo_coeffs_vec);
+        let rem_coeffs = HostSlice::from_mut_slice(&mut rem_coeffs_vec);
+        return (
+            DensePolynomialExt::from_coeffs(quo_coeffs, self.x_size, self.y_size),
+            DensePolynomialExt::from_coeffs(rem_coeffs, self.x_size, self.y_size)
+        )
     }
 
     fn div_by_vanishing(&self, denom_x_degree: i64, denom_y_degree: i64) -> (Self, Self) {
@@ -808,14 +828,12 @@ impl BivariatePolynomial for DensePolynomialExt {
         let n = numer_y_size / denom_y_degree as usize;
         let c = denom_x_degree as usize;
         let d = denom_y_degree as usize;
-        if m != 2 || n < 2 {
-            panic!("div_by_vanishing currently does not support this numerator (x_degree is too large). Use divide_x and divide_y, instead.");
-        }
-
+        
         let zeta = Self::FieldConfig::generate_random(1)[0];
         let xi = zeta;
         let vec_ops_cfg: VecOpsConfig = VecOpsConfig::default();
-        if n == 2 { // A faster method for n==2, but not cover n>2.
+        if m>=2 && n== 2 {
+            // A faster method for n==2, but not cover n>2.
             let block = vec![Self::Field::zero(); c * d];
             let mut blocks = vec![block; m * n];
             self._slice_coeffs_into_blocks(m,n, &mut blocks);
@@ -831,15 +849,15 @@ impl BivariatePolynomial for DensePolynomialExt {
                 for j in 0..m {
                     Self::FieldConfig::accumulate(
                         sub_acc_block, 
-                        HostSlice::from_slice(&blocks[j + i*m]), 
+                        HostSlice::from_slice(&blocks[j*m + i]), 
                         &vec_ops_cfg
                     ).unwrap();
                 }
                 let mut sub_scaled_acc_block = DeviceVec::<Self::Field>::device_malloc(c * d).unwrap();
-                let acc_xi_d_vec = vec![acc_xi_d; c * d];
-                Self::FieldConfig::mul(
-                    sub_acc_block,
+                let acc_xi_d_vec = vec![acc_xi_d; 1];
+                Self::FieldConfig::scalar_mul(
                     HostSlice::<Self::Field>::from_slice(&acc_xi_d_vec),
+                    sub_acc_block,
                     &mut sub_scaled_acc_block,
                     &vec_ops_cfg
                 ).unwrap();
@@ -856,10 +874,10 @@ impl BivariatePolynomial for DensePolynomialExt {
             let mut acc_block_eval = DeviceVec::<Self::Field>::device_malloc(c * d).unwrap();
             acc_block_poly.to_rou_evals(None, Some(&xi), &mut acc_block_eval);
             // Computing Q_Z_tilde (eval of quo_y on rou-X and coset-Y)
-            let _denom_vec = vec![xi_d - Self::Field::one(); c * d];
+            let _denom_vec = vec![(xi_d - Self::Field::one()).inv(); 1];
             let _denom = HostSlice::from_slice(&_denom_vec);
             let mut quo_y_eval = DeviceVec::<Self::Field>::device_malloc(c * d).unwrap();
-            Self::FieldConfig::div(&acc_block_eval, _denom, &mut quo_y_eval, &vec_ops_cfg).unwrap();
+            Self::FieldConfig::scalar_mul(_denom, &acc_block_eval, &mut quo_y_eval, &vec_ops_cfg).unwrap();
             // Computing Q_Z (quo_y polynomial)
             let quo_y = DensePolynomialExt::from_rou_evals(&quo_y_eval, c, d, None, Some(&xi));
             // Computing R = quo_y * (y^d - 1)
@@ -878,11 +896,11 @@ impl BivariatePolynomial for DensePolynomialExt {
             let zeta_c = zeta.pow(c);
             let mut acc_zeta_c = Self::Field::one();
             for i in 0..m {
-                let acc_zeta_c_vec = vec![acc_zeta_c; c * (n*d)];
+                let acc_zeta_c_vec = vec![acc_zeta_c; 1];
                 let mut scaled_block = DeviceVec::<Self::Field>::device_malloc(c * (n*d)).unwrap();
-                Self::FieldConfig::mul(
-                    HostSlice::from_slice(&blocks[i]),
+                Self::FieldConfig::scalar_mul(
                     HostSlice::<Self::Field>::from_slice(&acc_zeta_c_vec),
+                    HostSlice::from_slice(&blocks[i]),
                     &mut scaled_block,
                     &vec_ops_cfg
                 ).unwrap(); 
@@ -906,144 +924,133 @@ impl BivariatePolynomial for DensePolynomialExt {
             // Computing Q_Y (quo_x)
             let quo_x = DensePolynomialExt::from_rou_evals(&quo_x_eval, c, n*d, Some(&zeta), None);
             (quo_x, quo_y)
-            
-        } else { // More general method for n>=2, which also covers n=2 but maybe slower.
-            let block = vec![Self::Field::zero(); c * (n*d)];
-            let mut blocks = vec![block; m];
-            self._slice_coeffs_into_blocks(m,1, &mut blocks);
-            // Computing A' (accumulation of blocks of the numerator)
-            let mut acc_block_vec = vec![Self::Field::zero(); c * (n*d)];
-            let acc_block = HostSlice::from_mut_slice(&mut acc_block_vec);
-            for i in 0..m {
-                Self::FieldConfig::accumulate(
-                    acc_block, 
-                    HostSlice::from_slice(&blocks[i]), 
-                    &vec_ops_cfg
-                ).unwrap();
-            }
-            let acc_block_poly = DensePolynomialExt::from_coeffs(acc_block, c,n*d);
-            // Computing R_tilde (eval of A' on rou-X and coset-nY)
-            let mut acc_block_eval = DeviceVec::<Self::Field>::device_malloc(c * (n*d)).unwrap();
-            acc_block_poly.to_rou_evals(None, Some(&xi), &mut acc_block_eval);
-            // Computing Q_Z_tilde (eval of quo_y on rou-X and coset-nY)
-            let mut denom_coeffs_vec = vec![Self::Field::zero(); 1 * (n*d)];
-            denom_coeffs_vec[0] = Self::Field::zero() - Self::Field::one();
-            denom_coeffs_vec[d] = Self::Field::one();
-            let denom_coeffs = unsafe{DeviceSlice::from_slice(&denom_coeffs_vec)};
-            //let denom_coeffs = HostSlice::from_slice(&denom_coeffs_vec);
-            let denom_poly = DensePolynomialExt::from_coeffs(denom_coeffs, 1, n*d);
-            let mut denom_evals_vec = vec![Self::Field::zero(); n*d];
-            //let denom_evals = unsafe{DeviceSlice::from_mut_slice(&mut denom_evals_vec)};
-            let denom_evals = HostSlice::from_mut_slice(&mut denom_evals_vec);
-            denom_poly.to_rou_evals(None, Some(&xi), denom_evals);
-            let mut denom_evals_ext_vec = vec![Self::Field::zero(); c * (n*d)];
-            for ind in 0..(n*d) {
-                denom_evals_ext_vec[ind*c .. (ind + 1)*c].copy_from_slice(&vec![denom_evals_vec[ind]; c]);
-            }
-            let denom_evals_ext = unsafe{DeviceSlice::from_slice(&denom_evals_ext_vec)};
-            let mut quo_y_eval = DeviceVec::<Self::Field>::device_malloc(c * (n*d)).unwrap();
-            Self::FieldConfig::div(&acc_block_eval, denom_evals_ext, &mut quo_y_eval, &vec_ops_cfg).unwrap();
-            // Computing Q_Z (quo_y polynomial)
-            let quo_y = DensePolynomialExt::from_rou_evals(&quo_y_eval, c, n*d, None, Some(&xi));
-            // Computing R = quo_y * (y^d - 1)
-            let mut rem_x = &quo_y.mul_monomial(0, d) - &quo_y;
-            rem_x.resize(m*c, n*d);
-            // Computing B = quo_x * (x^c - 1)
-            let lhs = self - &rem_x;
-            // Computing B' (accumulation of blocks of B)
-            let block = vec![Self::Field::zero(); c * (n*d)];
-            let mut blocks = vec![block; m];
-            lhs._slice_coeffs_into_blocks(m,1, &mut blocks);
-
-            let mut scaled_acc_block_vec = vec![Self::Field::zero(); c * (n*d)];
-            let scaled_acc_block = HostSlice::from_mut_slice(&mut scaled_acc_block_vec);
-
-            let zeta_c = zeta.pow(c);
-            let mut acc_zeta_c = Self::Field::one();
-            for i in 0..m {
-                let acc_zeta_c_vec = vec![acc_zeta_c; c * (n*d)];
-                let mut scaled_block = DeviceVec::<Self::Field>::device_malloc(c * (n*d)).unwrap();
-                Self::FieldConfig::mul(
-                    HostSlice::from_slice(&blocks[i]),
-                    HostSlice::<Self::Field>::from_slice(&acc_zeta_c_vec),
-                    &mut scaled_block,
-                    &vec_ops_cfg
-                ).unwrap(); 
-                Self::FieldConfig::accumulate(
-                    scaled_acc_block, 
-                    &scaled_block, 
-                    &vec_ops_cfg
-                ).unwrap();
-
-                acc_zeta_c = acc_zeta_c * zeta_c;
-            }
-            let acc_block_poly = DensePolynomialExt::from_coeffs(scaled_acc_block, c, n*d);
-            //Computing B_tilde (eval of B' on coset-X and rou-Y)
-            let mut acc_block_eval = DeviceVec::device_malloc(c * (n*d)).unwrap();
-            acc_block_poly.to_rou_evals(Some(&zeta), None, &mut acc_block_eval);
-            // Computing Q_Y_tilde (eval of quo_x on coset-X and rou-Y)
-            let _denom_vec = vec![zeta_c - Self::Field::one(); c * (n*d)];
-            let _denom = HostSlice::from_slice(&_denom_vec);
-            let mut quo_x_eval = DeviceVec::<Self::Field>::device_malloc(c * (n*d)).unwrap();
-            Self::FieldConfig::div(&acc_block_eval, _denom, &mut quo_x_eval, &vec_ops_cfg).unwrap();
-            // Computing Q_Y (quo_x)
-            let quo_x = DensePolynomialExt::from_rou_evals(&quo_x_eval, c, n*d, Some(&zeta), None);
-            (quo_x, quo_y)
+        } else {
+            panic!("div_by_vanishing currently does not support this numerator (x_degree is too large). Use divide_x and divide_y, instead.");
         }
+            
+        // } else { // More general method for n>=2, which also covers n=2 but maybe slower.
+        //     let block = vec![Self::Field::zero(); c * (n*d)];
+        //     let mut blocks = vec![block; m];
+        //     self._slice_coeffs_into_blocks(m,1, &mut blocks);
+        //     // Computing A' (accumulation of blocks of the numerator)
+        //     let mut acc_block_vec = vec![Self::Field::zero(); c * (n*d)];
+        //     let acc_block = HostSlice::from_mut_slice(&mut acc_block_vec);
+        //     for i in 0..m {
+        //         Self::FieldConfig::accumulate(
+        //             acc_block, 
+        //             HostSlice::from_slice(&blocks[i]), 
+        //             &vec_ops_cfg
+        //         ).unwrap();
+        //     }
+        //     let acc_block_poly = DensePolynomialExt::from_coeffs(acc_block, c,n*d);
+        //     // Computing R_tilde (eval of A' on rou-X and coset-nY)
+        //     let mut acc_block_eval = DeviceVec::<Self::Field>::device_malloc(c * (n*d)).unwrap();
+        //     acc_block_poly.to_rou_evals(None, Some(&xi), &mut acc_block_eval);
+        //     // Computing Q_Z_tilde (eval of quo_y on rou-X and coset-nY)
+        //     let mut denom_coeffs_vec = vec![Self::Field::zero(); 1 * (n*d)];
+        //     denom_coeffs_vec[0] = Self::Field::zero() - Self::Field::one();
+        //     denom_coeffs_vec[d] = Self::Field::one();
+        //     let denom_coeffs = unsafe{DeviceSlice::from_slice(&denom_coeffs_vec)};
+        //     //let denom_coeffs = HostSlice::from_slice(&denom_coeffs_vec);
+        //     let denom_poly = DensePolynomialExt::from_coeffs(denom_coeffs, 1, n*d);
+        //     let mut denom_evals_vec = vec![Self::Field::zero(); n*d];
+        //     //let denom_evals = unsafe{DeviceSlice::from_mut_slice(&mut denom_evals_vec)};
+        //     let denom_evals = HostSlice::from_mut_slice(&mut denom_evals_vec);
+        //     denom_poly.to_rou_evals(None, Some(&xi), denom_evals);
+        //     let mut denom_evals_ext_vec = vec![Self::Field::zero(); c * (n*d)];
+        //     for ind in 0..(n*d) {
+        //         denom_evals_ext_vec[ind*c .. (ind + 1)*c].copy_from_slice(&vec![denom_evals_vec[ind]; c]);
+        //     }
+        //     let denom_evals_ext = unsafe{DeviceSlice::from_slice(&denom_evals_ext_vec)};
+        //     let mut quo_y_eval = DeviceVec::<Self::Field>::device_malloc(c * (n*d)).unwrap();
+        //     Self::FieldConfig::div(&acc_block_eval, denom_evals_ext, &mut quo_y_eval, &vec_ops_cfg).unwrap();
+        //     // Computing Q_Z (quo_y polynomial)
+        //     let quo_y = DensePolynomialExt::from_rou_evals(&quo_y_eval, c, n*d, None, Some(&xi));
+        //     // Computing R = quo_y * (y^d - 1)
+        //     let mut rem_x = &quo_y.mul_monomial(0, d) - &quo_y;
+        //     rem_x.resize(m*c, n*d);
+        //     // Computing B = quo_x * (x^c - 1)
+        //     let lhs = self - &rem_x;
+        //     // Computing B' (accumulation of blocks of B)
+        //     let block = vec![Self::Field::zero(); c * (n*d)];
+        //     let mut blocks = vec![block; m];
+        //     lhs._slice_coeffs_into_blocks(m,1, &mut blocks);
+
+        //     let mut scaled_acc_block_vec = vec![Self::Field::zero(); c * (n*d)];
+        //     let scaled_acc_block = HostSlice::from_mut_slice(&mut scaled_acc_block_vec);
+
+        //     let zeta_c = zeta.pow(c);
+        //     let mut acc_zeta_c = Self::Field::one();
+        //     for i in 0..m {
+        //         let acc_zeta_c_vec = vec![acc_zeta_c; c * (n*d)];
+        //         let mut scaled_block = DeviceVec::<Self::Field>::device_malloc(c * (n*d)).unwrap();
+        //         Self::FieldConfig::mul(
+        //             HostSlice::from_slice(&blocks[i]),
+        //             HostSlice::<Self::Field>::from_slice(&acc_zeta_c_vec),
+        //             &mut scaled_block,
+        //             &vec_ops_cfg
+        //         ).unwrap(); 
+        //         Self::FieldConfig::accumulate(
+        //             scaled_acc_block, 
+        //             &scaled_block, 
+        //             &vec_ops_cfg
+        //         ).unwrap();
+
+        //         acc_zeta_c = acc_zeta_c * zeta_c;
+        //     }
+        //     let acc_block_poly = DensePolynomialExt::from_coeffs(scaled_acc_block, c, n*d);
+        //     //Computing B_tilde (eval of B' on coset-X and rou-Y)
+        //     let mut acc_block_eval = DeviceVec::device_malloc(c * (n*d)).unwrap();
+        //     acc_block_poly.to_rou_evals(Some(&zeta), None, &mut acc_block_eval);
+        //     // Computing Q_Y_tilde (eval of quo_x on coset-X and rou-Y)
+        //     let _denom_vec = vec![zeta_c - Self::Field::one(); c * (n*d)];
+        //     let _denom = HostSlice::from_slice(&_denom_vec);
+        //     let mut quo_x_eval = DeviceVec::<Self::Field>::device_malloc(c * (n*d)).unwrap();
+        //     Self::FieldConfig::div(&acc_block_eval, _denom, &mut quo_x_eval, &vec_ops_cfg).unwrap();
+        //     // Computing Q_Y (quo_x)
+        //     let quo_x = DensePolynomialExt::from_rou_evals(&quo_x_eval, c, n*d, Some(&zeta), None);
+        //     (quo_x, quo_y)
+        // }
 
     }
 
     fn div_by_ruffini(&self, x: Self::Field, y: Self:: Field) -> (Self, Self, Self::Field) where Self: Sized {
-        // P(X,Y) = Q_Y(X,Y)(Y-y) + R_Y(X)
-        // R_Y(X) = Q_X(X)(X-x) + R_X
+        // P(X,Y) = Q_X(X,Y)(X-x) + R_X(Y)
+        // R_X(Y) = Q_Y(Y)(Y-y) + R_Y
         
         // Lengths of coeffs of P
         let x_len = self.x_size;
         let y_len = self.y_size;
 
-        // Step 1: Extract the coefficients of univariate polynomials in Y for each X-degree
-        // P(X,Y) = X^{deg-1} (P_{deg-1}(Y)) + X^{deg-2} (P_{deg-2}(Y)) + ... + X^{0} (P_{0}(Y))
-        let mut p_i_coeffs_iter = vec![vec![Self::Field::zero();y_len]; x_len];
-        for i in 0..x_len as u64 {
-            let mut temp_vec = vec![Self::Field::zero(); y_len];
+        // Step 1: Extract the coefficients of univariate polynomials in X for each Y-degree
+        // P(X,Y) = Y^{deg-1} P_{deg-1}(X) + Y^{deg-2} P_{deg-2}(X) + ... + Y^{0} (P_{0}(X))
+        let mut p_i_coeffs_iter = vec![vec![Self::Field::zero();x_len]; y_len];
+        for i in 0..y_len as u64 {
+            let mut temp_vec = vec![Self::Field::zero(); x_len];
             let temp_buf = HostSlice::from_mut_slice(&mut temp_vec);
-            self.get_univariate_polynomial_y(i).copy_coeffs(0, temp_buf);
-            p_i_coeffs_iter[i as usize] = temp_vec;
+            self.get_univariate_polynomial_x(i).copy_coeffs(0, temp_buf);
+            p_i_coeffs_iter[i as usize].clone_from_slice(&temp_vec);
         }
         
-        // Step 2: Divide each polynomial P_i(Y) by (Y-y).
-        let (q_y_coeffs_vec, r_y_coeffs_vec): (Vec<_>, Vec<_>) =  p_i_coeffs_iter
+        // Step 2: Divide each polynomial P_i(X) by (X-x).
+        let (q_x_coeffs_vec, r_x_coeffs_vec): (Vec<Vec<_>>, Vec<_>) =  p_i_coeffs_iter
             .into_par_iter()
             .map(|coeffs| {
-                let (q_i_y, r_i) = _div_uni_coeffs_by_ruffini(&coeffs, y);
-                (q_i_y, r_i)
+                let (q_i_x, r_i) = DensePolynomialExt::_div_uni_coeffs_by_ruffini(&coeffs, x);
+                (q_i_x, r_i)
             })
             .unzip();
 
-        // // let mut q_y_coeffs_vec = vec![Self::Field::zero(); x_len * y_len];      
-        // // let mut r_y_coeffs_vec = vec![Self::Field::zero(); x_len];
-        // for i in 0..(x_deg + 1) as usize {
-        //     let (q_i_y, r_i) = uni_polys_iter[i].div_uni_by_ruffini(y);
-        //     let mut q_i_y_coeffs_vec = vec![Self::Field::zero(); y_len];
-        //     let q_i_y_coeffs = HostSlice::from_mut_slice(&mut q_i_y_coeffs_vec);
-        //     q_i_y.copy_coeffs(0, q_i_y_coeffs);
-        //     q_y_coeffs_vec[i * y_len..(i+1)*y_len].copy_from_slice(&q_i_y_coeffs_vec);
-        //     r_y_coeffs_vec[i] = r_i
-        // }   
+        // Q_X(X,Y) = Y^0 q_0_X(X) + Y^1 q_1_X(X) + ... + Y^{deg-1} q_{deg-1}_X(X)
+        // Flatten q_x_coeffs_vec
+        let mut q_x_coeffs_vec_flat: Vec<Self::Field> = q_x_coeffs_vec.into_par_iter().flatten().collect();
+        transpose_inplace(&mut q_x_coeffs_vec_flat, y_len, x_len);
+        let q_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_x_coeffs_vec_flat), x_len, y_len);
 
-        // Flatten q_y_coeffs_vec
-        let q_y_coeffs_vec_flat: Vec<_> = q_y_coeffs_vec.into_par_iter().flatten().collect();
-        let q_y_coeff_transpose = HostSlice::from_slice(&q_y_coeffs_vec_flat);
-        let mut q_y_coeffs = DeviceVec::<Self::Field>::device_malloc(x_len * y_len).unwrap();
-        let vec_ops_cfg = VecOpsConfig::default();
-        ScalarCfg::transpose(q_y_coeff_transpose, x_len as u32, y_len as u32, &mut q_y_coeffs, &vec_ops_cfg).unwrap();
-
-        let q_y = DensePolynomialExt::from_coeffs(&q_y_coeffs, x_len, y_len);
-
-        // Divide R_Y(X) by (X-x).
-        let (q_x_coeffs_vec, r_x) = _div_uni_coeffs_by_ruffini(&r_y_coeffs_vec, x);
-        let q_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_x_coeffs_vec), x_len, 1);
-        (q_x, q_y, r_x)
+        // Divide R_X(Y) by (Y-y).
+        let (q_y_coeffs_vec, r_y) = DensePolynomialExt::_div_uni_coeffs_by_ruffini(&r_x_coeffs_vec, y);
+        let q_y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_y_coeffs_vec), 1, y_len);
+        (q_x, q_y, r_y)
     }
 
 }

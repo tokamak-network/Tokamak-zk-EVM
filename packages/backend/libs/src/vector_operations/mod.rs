@@ -249,7 +249,25 @@ pub fn resize_monomial_vec (
     } else {
         res.copy_from_slice(&mono_vec[0..res.len()]);
     }
-}   
+}
+
+pub fn resize(
+    mat: &Box<[ScalarField]>,
+    curr_row_size: usize,
+    curr_col_size: usize, 
+    target_row_size: usize, 
+    target_col_size: usize
+) -> Box<[ScalarField]> {
+    let target_size: usize = target_row_size * target_col_size;
+    let mut res_coeffs_vec = vec![ScalarField::zero(); target_size];
+    for i in 0 .. std::cmp::min(curr_row_size, target_row_size) {
+        let each_col_size = std::cmp::min(curr_col_size, target_col_size);
+        res_coeffs_vec[target_col_size * i .. target_col_size * i + each_col_size].copy_from_slice(
+            &mat[curr_col_size * i .. curr_col_size * i + each_col_size]
+        );  
+    }
+    return res_coeffs_vec.into_boxed_slice()
+}
 
 pub fn scaled_outer_product(
     col_vec: &Box<[ScalarField]>, 
