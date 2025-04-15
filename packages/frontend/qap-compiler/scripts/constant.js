@@ -1,1 +1,1 @@
-const S_MAX = 16
+const S_MAX = 256

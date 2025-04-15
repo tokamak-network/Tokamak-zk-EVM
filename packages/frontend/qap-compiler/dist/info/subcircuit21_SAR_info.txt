@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 22
+non-linear constraints: 1146
+linear constraints: 88
+public inputs: 4
+private inputs: 0
+public outputs: 2
+wires: 1213
+labels: 1355
+[32mWritten successfully:[0m ../subcircuits/library/SAR_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library/SAR_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library/SAR_circuit_js/SAR_circuit.wasm
+[32mEverything went okay[0m
