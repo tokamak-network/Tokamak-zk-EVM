@@ -1,7 +1,7 @@
 {
   "name": "@tokamak-zk-evm/qap-compiler",
   "version": "0.0.1",
-  "description": "Library of subcircuits for basic EVM operations on Tokamak-zk-EVM",
+  "description": "Library subcircuits for Tokamak zk-EVM",
   "keywords": [
     "ethereum",
     "zk-EVM",
@@ -22,6 +22,11 @@
   ],
   "license": "MPL-2.0",
   "author": "Tokamak Network",
+  "contributors": [
+    "JehyukJang <https://github.com/JehyukJang>",
+    "Sungyun Seo <https://github.com/pleiadex>",
+    "donghyun <https://github.com/jdhyun09>"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
