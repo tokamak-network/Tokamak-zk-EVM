@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 15
+non-linear constraints: 351
+linear constraints: 25
+public inputs: 4
+private inputs: 0
+public outputs: 2
+wires: 373
+labels: 421
+[32mWritten successfully:[0m ../subcircuits/library/SHR_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library/SHR_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library/SHR_circuit_js/SHR_circuit.wasm
+[32mEverything went okay[0m
