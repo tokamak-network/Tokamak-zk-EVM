@@ -22,12 +22,9 @@ import {
   USDC_IMPLEMENTATION_V1,
   USDC_IMPLEMENTATION_V2,
 } from '../constants/index.js';
-import { PlacementVariables } from '../tokamak/types/synthesizer.js';
 import { ExecResult } from '../types.js';
 
-import {
-  PRV_OUT_PLACEMENT_INDEX,
-} from '../tokamak/constant/constants.js';
+import { PRV_OUT_PLACEMENT_INDEX } from '../tokamak/constant/constants.js';
 
 const TOKEN_CONFIGS = {
   TON: {
@@ -56,6 +53,12 @@ const TOKEN_CONFIGS = {
     setupFunction: setupUSDCFromCalldata,
   },
 } as const;
+
+/**
+ * @todo: apply valueHexMerge util when it's needed for the interface or playground
+ * @date 2025-04-16
+ * @author: Ale
+ */
 
 export class SynthesizerAdapter {
   private evm: Promise<EVM> | EVM;

@@ -8,7 +8,6 @@ import {
 } from '../../src/adapters/utils/valueHexMerger';
 
 describe('ValueHexMerger', () => {
-  // 테스트 데이터
   const testData = {
     privateInputBuffer: {
       name: 'bufferPrvIn',
