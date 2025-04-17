@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use icicle_runtime::stream::IcicleStream;
 use libs::iotools::{SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use libs::field_structures::{Tau, from_r1cs_to_evaled_qap_mixture};

@@ -8,6 +8,8 @@ use std::cmp;
 
 #[cfg(test)]
 mod tests {
+    use icicle_core::ntt;
+
     use super::*;
     use crate::vector_operations::{*};
     use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
@@ -378,50 +380,57 @@ mod tests {
 
     #[test]
     fn test_mul_polynomial() {
-        // Create two simple 2x2 polynomials
-        let coeffs1 = vec![
-            ScalarField::from_u32(1),  // Constant
-            ScalarField::from_u32(3),  // y
-            ScalarField::from_u32(2),  // x
-            ScalarField::from_u32(4),  // xy
-        ];
-        let poly1 = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs1), 2, 2);
+        let m = 5;
+        let n = 3;
+        let p1_x_size = 2usize.pow(m);
+        let p1_y_size = 2usize.pow(0);
+        let p2_x_size = 2usize.pow(m);
+        let p2_y_size = 2usize.pow(n);
+
+        let p1_coeffs_vec = ScalarCfg::generate_random(p1_x_size * p1_y_size);
+        let p2_coeffs_vec = ScalarCfg::generate_random(p2_x_size * p2_y_size);
+        let p1 = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&p1_coeffs_vec),
+            p1_x_size,
+            p1_y_size
+        );
+        let p2 = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&p2_coeffs_vec),
+            p2_x_size, 
+            p2_y_size
+        );
+
+        let p3 = &p1 * &p2;
         
-        let coeffs2 = vec![
-            ScalarField::from_u32(1),  // Constant
-            ScalarField::from_u32(1),  // y
-            ScalarField::from_u32(1),  // x
-            ScalarField::from_u32(1),  // xy
-        ];
-        let poly2 = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs2), 2, 2);
-        
-        // Multiply the polynomials
-        let result = &poly1 * &poly2;
-        
-        // Verify result dimensions are powers of two
-        assert_eq!(result.x_size.is_power_of_two(), true);
-        assert_eq!(result.y_size.is_power_of_two(), true);
-        
-        // In the implemented code, the degrees are calculated as size-1, so we test against that
-        assert_eq!(result.x_degree, result.x_size as i64 - 1);
-        assert_eq!(result.y_degree, result.y_size as i64 - 1);
-        
-        // (1 + 2x + 3y + 4xy) * (1 + x + y + xy)
-        // Verify some coefficients
-        assert_eq!(result.get_coeff(0, 0), ScalarField::from_u32(1));   // Constant term
-        assert_eq!(result.get_coeff(1, 0), ScalarField::from_u32(3));   // x coefficient (1*x + 2*1)
-        assert_eq!(result.get_coeff(0, 1), ScalarField::from_u32(4));   // y coefficient (1*y + 3*1)
-        
-        // The xy coefficient should be 1*xy + 2*y + 3*x + 4*1 = 10
-        assert_eq!(result.get_coeff(1, 1), ScalarField::from_u32(10));
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+
+        let p1_eval = p1.eval(&x, &y);
+        let p2_eval = p2.eval(&x, &y);
+        let p3_eval = p3.eval(&x, &y);
+
+        assert!( p3_eval.eq(&(p1_eval * p2_eval)));
+
+        let omega_x = ntt::get_root_of_unity::<ScalarField>(2u64.pow(m));
+        let omega_y = ntt::get_root_of_unity::<ScalarField>(2u64.pow(n));
+        let mut flag = true;
+        for i in 0..2usize.pow(m) {
+            for j  in 0..2usize.pow(n) {
+                let x = omega_x.pow(i);
+                let y = omega_y.pow(j);
+                if !p3.eval(&x, &y).eq(&(p1.eval(&x, &y) * p2.eval(&x, &y))) {
+                    flag = false;
+                }
+            }
+        }
+        assert!(flag);
+
     }
 
 
     // Test for div_by_vanishing - requires specific conditions
     #[test]
     fn test_div_by_vanishing_basic() {
-
-        // According to the code, we need m>=2, n==2 condition
         // Case m=2 and n=2:
 
         let c = 2usize.pow(4);
@@ -483,8 +492,10 @@ mod tests {
         assert_eq!(q_y.y_degree, q_y_found.y_degree);
         println!("Case m=2 and n=2 passed");
 
-        // Case m=3 and n=2:
+        // Case m=4 and n=2:
 
+        let m = 3;
+        let n = 2;
         let c = 2usize.pow(4);
         let d = 2usize.pow(3);
         let mut t_x_coeffs = vec![ScalarField::zero(); 2*c];
@@ -540,6 +551,7 @@ mod tests {
         assert_eq!(q_x.y_degree, q_x_found.y_degree);
         assert_eq!(q_y.x_degree, q_y_found.x_degree);
         assert_eq!(q_y.y_degree, q_y_found.y_degree);
+        println!("Case m=4 and n=2 passed");
 
     }
 

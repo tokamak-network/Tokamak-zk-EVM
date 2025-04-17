@@ -7,11 +7,11 @@ use crate::vector_operations::{*};
 use serde::{Deserialize, Serialize};
 
 
-macro_rules! resize_monomial_vec {
+macro_rules! extend_monomial_vec {
     ($mono_vec: expr, $target_size: expr) => {
         {
             let mut res = vec![ScalarField::zero(); $target_size].into_boxed_slice();
-            resize_monomial_vec($mono_vec, &mut res);
+            extend_monomial_vec($mono_vec, &mut res);
             res
         }
     };
@@ -45,8 +45,8 @@ macro_rules! type_scaled_outer_product_1d {
 macro_rules! type_scaled_monomials_1d {
     ( $cached_col_vec: expr, $cached_row_vec: expr, $col_size: expr, $row_size: expr, $scaler: expr, $g1_gen: expr ) => {
         {
-            let col_vec = resize_monomial_vec!($cached_col_vec, $col_size);
-            let row_vec = resize_monomial_vec!($cached_row_vec, $row_size);
+            let col_vec = extend_monomial_vec!($cached_col_vec, $col_size);
+            let row_vec = extend_monomial_vec!($cached_row_vec, $row_size);
             let res = type_scaled_outer_product_1d!(&col_vec, &row_vec, $g1_gen, $scaler);
             res
         }
@@ -96,11 +96,11 @@ impl Sigma1 {
         
         // Calculate elements of the form {x^h y^i}
         println!("Generating xy_powers of size {}...", h_max * (2*s_max-2));
-        let x_pows_vec = resize_monomial_vec!(
+        let x_pows_vec = extend_monomial_vec!(
             &vec![ScalarField::one(), tau.x].into_boxed_slice(), 
             h_max
         );
-        let y_pows_vec = resize_monomial_vec!(
+        let y_pows_vec = extend_monomial_vec!(
             &vec![ScalarField::one(), tau.y].into_boxed_slice(), 
             2*s_max-2
         );
