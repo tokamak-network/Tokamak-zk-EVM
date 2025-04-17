@@ -52,12 +52,8 @@ macro_rules! define_gen_qapXY {
                 let d_len = active_wires.len();
                 if d_len > 0 {
                     let mut d_vec = vec![ScalarField::zero(); d_len].into_boxed_slice();
-                    let mut acc = 0;
-                    for (idx, val) in variables.iter().enumerate() {
-                        if active_wires.contains(&idx) {
-                            d_vec[acc] = ScalarField::from_hex(val);
-                            acc += 1;
-                        }
+                    for (compact_idx, &local_idx) in active_wires.iter().enumerate() {
+                        d_vec[compact_idx] = ScalarField::from_hex(&variables[local_idx]);
                     }
                     let mut frag_eval = vec![ScalarField::zero(); n].into_boxed_slice();
                     matrix_matrix_mul(&d_vec, compact_mat, 1, d_len, n, &mut frag_eval);

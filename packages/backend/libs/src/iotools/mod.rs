@@ -1,4 +1,5 @@
 use icicle_bls12_381::curve::{ScalarField, ScalarCfg, G1Affine, G2Affine, BaseField, G2BaseField};
+use icicle_core::ntt;
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use crate::group_structures::Sigma;
@@ -19,6 +20,7 @@ use serde::ser::{Serializer, SerializeStruct};
 use serde_json::{from_reader, to_writer_pretty};
 
 const QAP_COMPILER_PATH_PREFIX: &str = "../frontend/qap-compiler/subcircuits/library";
+const SYNTHESIZER_PATH_PREFIX: &str = "../frontend/synthesizer/examples/outputs";
 
 #[derive(Debug, Deserialize)]
 pub struct SetupParams {
@@ -33,7 +35,6 @@ pub struct SetupParams {
 impl SetupParams {
     pub fn from_path(path: &str) -> io::Result<Self> { 
         let abs_path = env::current_dir()?.join(QAP_COMPILER_PATH_PREFIX).join(path);
-        println!("{:?}", abs_path);
         let file = File::open(abs_path)?;
         let reader = BufReader::new(file);
         let data = from_reader(reader)?;
@@ -73,7 +74,7 @@ pub struct PlacementVariables {
 
 impl PlacementVariables {
     pub fn from_path(path: &str) -> io::Result<Box<[Self]>> {
-        let abs_path = env::current_dir()?.join(path);
+        let abs_path = env::current_dir()?.join(SYNTHESIZER_PATH_PREFIX).join(path);
         let file = File::open(abs_path)?;
         let reader = BufReader::new(file);
         let box_data: Box<[Self]> = from_reader(reader)?;
@@ -85,32 +86,35 @@ impl PlacementVariables {
 pub struct Permutation {
     pub row: usize,
     pub col: usize,
-    pub X: u32,
-    pub Y: u32,
+    pub X: usize,
+    pub Y: usize,
 }
 
 impl Permutation {
     pub fn from_path(path: &str) -> io::Result<Vec<Self>> {
-        let abs_path = env::current_dir()?.join(path);
+        let abs_path = env::current_dir()?.join(SYNTHESIZER_PATH_PREFIX).join(path);
         let file = File::open(abs_path)?;
         let reader = BufReader::new(file);
         let vec_data: Vec<Self> = from_reader(reader)?;
         Ok(vec_data)
     }
     pub fn to_poly(perm_raw: &Vec<Self>, m_i: usize, s_max: usize) -> (DensePolynomialExt, DensePolynomialExt) {
+        let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
+        let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
         let mut s0_evals_vec = vec![ScalarField::zero(); m_i * s_max];
         let mut s1_evals_vec = vec![ScalarField::zero(); m_i * s_max];
         // Initialization
         for row_idx in 0..m_i {
             for col_idx in 0..s_max {
-                s0_evals_vec[row_idx * s_max + col_idx] = ScalarField::from_u32(row_idx as u32);
-                s1_evals_vec[row_idx * s_max + col_idx] = ScalarField::from_u32(col_idx as u32);
+                s0_evals_vec[row_idx * s_max + col_idx] = omega_m_i.pow(row_idx);
+                s1_evals_vec[row_idx * s_max + col_idx] = omega_s_max.pow(col_idx);
             }
         }
+        // Reflecting the actual values
         for i in 0..perm_raw.len() {
             let idx = perm_raw[i].row * s_max + perm_raw[i].col;
-            s0_evals_vec[idx] = ScalarField::from_u32(perm_raw[i].X);
-            s1_evals_vec[idx] = ScalarField::from_u32(perm_raw[i].Y);            
+            s0_evals_vec[idx] = omega_m_i.pow(perm_raw[i].X);
+            s1_evals_vec[idx] = omega_s_max.pow(perm_raw[i].Y);            
         }
         let s0_evals = HostSlice::from_slice(&s0_evals_vec);
         let s1_evals = HostSlice::from_slice(&s1_evals_vec);
@@ -194,9 +198,9 @@ pub struct SubcircuitR1CS{
     pub A_compact_col_mat: Vec<ScalarField>,
     pub B_compact_col_mat: Vec<ScalarField>,
     pub C_compact_col_mat: Vec<ScalarField>,
-    pub A_active_wires: HashSet<usize>,
-    pub B_active_wires: HashSet<usize>,
-    pub C_active_wires: HashSet<usize>,
+    pub A_active_wires: Vec<usize>,
+    pub B_active_wires: Vec<usize>,
+    pub C_active_wires: Vec<usize>,
 }
 
 impl SubcircuitR1CS{
@@ -205,17 +209,24 @@ impl SubcircuitR1CS{
         Constraints::convert_values_to_hex(&mut constraints);
 
         // active wire indices를 직접 확장합니다.
-        let mut A_active_wire_indices = HashSet::<usize>::new();
-        let mut B_active_wire_indices = HashSet::<usize>::new();
-        let mut C_active_wire_indices = HashSet::<usize>::new();
+        let mut A_active_wire_indices_set = HashSet::<usize>::new();
+        let mut B_active_wire_indices_set = HashSet::<usize>::new();
+        let mut C_active_wire_indices_set = HashSet::<usize>::new();
 
         for const_idx in 0..subcircuit_info.Nconsts {
             let constraint = &constraints.constraints[const_idx];
             // 각 constraint의 키들을 active set에 확장(재할당 없이)
-            A_active_wire_indices.extend(constraint[0].keys().copied());
-            B_active_wire_indices.extend(constraint[1].keys().copied());
-            C_active_wire_indices.extend(constraint[2].keys().copied());
-        }     
+            A_active_wire_indices_set.extend(constraint[0].keys().copied());
+            B_active_wire_indices_set.extend(constraint[1].keys().copied());
+            C_active_wire_indices_set.extend(constraint[2].keys().copied());
+        }
+
+        let mut A_active_wire_indices: Vec<usize> = A_active_wire_indices_set.iter().map(|&idx| idx).collect();
+        A_active_wire_indices.sort();
+        let mut B_active_wire_indices: Vec<usize> = B_active_wire_indices_set.iter().map(|&idx| idx).collect();
+        B_active_wire_indices.sort();
+        let mut C_active_wire_indices: Vec<usize> = C_active_wire_indices_set.iter().map(|&idx| idx).collect();
+        C_active_wire_indices.sort();     
 
         let n = setup_params.n; // used as the number of rows.
         if n < subcircuit_info.Nconsts {
@@ -241,19 +252,25 @@ impl SubcircuitR1CS{
             let c_constraint = &constraint[2];
         
             // a_constraint 처리: 각 wire_idx에 대해 'wire_idx * column_size'를 한 번만 계산하도록 함.
-            for (&col_idx, hex_val) in a_constraint {
-                let idx = A_len * row_idx + col_idx;
-                A_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
+            for col_idx in 0..A_len {
+                if let Some(hex_val) = a_constraint.get(&A_active_wire_indices[col_idx]) {
+                    let idx = A_len * row_idx + col_idx;
+                    A_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
+                }
             }
             // b_constraint 처리
-            for (&col_idx, hex_val) in b_constraint {
-                let idx = B_len * row_idx + col_idx;
-                B_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
+            for col_idx in 0..B_len {
+                if let Some(hex_val) = b_constraint.get(&B_active_wire_indices[col_idx]) {
+                    let idx = B_len * row_idx + col_idx;
+                    B_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
+                }
             }
             // c_constraint 처리
-            for (&col_idx, hex_val) in c_constraint {
-                let idx = C_len * row_idx + col_idx;
-                C_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
+            for col_idx in 0..C_len {
+                if let Some(hex_val) = c_constraint.get(&C_active_wire_indices[col_idx]) {
+                    let idx = C_len * row_idx + col_idx;
+                    C_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
+                }
             }
         }
         // IMPORTANT: A, B, C matrices are of size A_len-by-n, B_len-by-n, and C_len-by-n, respectively.

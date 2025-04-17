@@ -1,1 +1,1 @@
-const S_MAX = 256
+module.exports.S_MAX = 8
