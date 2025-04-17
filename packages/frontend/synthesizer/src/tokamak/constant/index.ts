@@ -44,3 +44,4 @@ export const wasmDir = path.join(
   __dirname,
   '../../../node_modules/@tokamak-zk-evm/qap-compiler/dist/wasm',
 );
+

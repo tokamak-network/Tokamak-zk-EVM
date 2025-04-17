@@ -1,0 +1,1502 @@
+{
+  "privateInputBuffer": {
+    "name": "bufferPrvIn",
+    "subcircuitId": 2,
+    "inPts": [
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 1,
+        "source": 2,
+        "wireIndex": 0,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000080",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000080",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "CALLVALUE",
+        "offset": 0,
+        "sourceSize": 32,
+        "source": 2,
+        "wireIndex": 4,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000000",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 19,
+        "source": 2,
+        "wireIndex": 8,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000004",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000004",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "CALLDATASIZE",
+        "offset": 0,
+        "sourceSize": 32,
+        "source": 2,
+        "wireIndex": 10,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000044",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000044",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Calldata(User)",
+        "offset": 0,
+        "sourceSize": 32,
+        "source": 2,
+        "wireIndex": 16,
+        "valueHex": "0xa9059cbb0000000000000000000000000ce8f6c9d4ad12e56e54018313761487",
+        "merged": true,
+        "originalLower": "0x0ce8f6c9d4ad12e56e54018313761487",
+        "originalUpper": "0xa9059cbb000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 30,
+        "source": 2,
+        "wireIndex": 18,
+        "sourceSize": 1,
+        "valueHex": "0x00000000000000000000000000000000000000000000000000000000000000e0",
+        "merged": true,
+        "originalLower": "0x000000000000000000000000000000e0",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 34,
+        "source": 2,
+        "wireIndex": 20,
+        "sourceSize": 4,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000070a08231",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000070a08231",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 45,
+        "source": 2,
+        "wireIndex": 24,
+        "sourceSize": 4,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000098650275",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000098650275",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 56,
+        "source": 2,
+        "wireIndex": 28,
+        "sourceSize": 4,
+        "valueHex": "0x00000000000000000000000000000000000000000000000000000000aa271e1a",
+        "merged": true,
+        "originalLower": "0x000000000000000000000000aa271e1a",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 116,
+        "source": 2,
+        "wireIndex": 32,
+        "sourceSize": 4,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000098650275",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000098650275",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 127,
+        "source": 2,
+        "wireIndex": 36,
+        "sourceSize": 4,
+        "valueHex": "0x00000000000000000000000000000000000000000000000000000000a457c2d7",
+        "merged": true,
+        "originalLower": "0x000000000000000000000000a457c2d7",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 138,
+        "source": 2,
+        "wireIndex": 40,
+        "sourceSize": 4,
+        "valueHex": "0x00000000000000000000000000000000000000000000000000000000a9059cbb",
+        "merged": true,
+        "originalLower": "0x000000000000000000000000a9059cbb",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 1284,
+        "source": 2,
+        "wireIndex": 46,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000004",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000004",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 1289,
+        "source": 2,
+        "wireIndex": 48,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000040",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000040",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 1304,
+        "source": 2,
+        "wireIndex": 52,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000001",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 1306,
+        "source": 2,
+        "wireIndex": 54,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000001",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 1308,
+        "source": 2,
+        "wireIndex": 56,
+        "sourceSize": 1,
+        "valueHex": "0x00000000000000000000000000000000000000000000000000000000000000a0",
+        "merged": true,
+        "originalLower": "0x000000000000000000000000000000a0",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Calldata(User)",
+        "offset": 4,
+        "sourceSize": 32,
+        "source": 2,
+        "wireIndex": 58,
+        "valueHex": "0x0000000000000000000000000ce8f6c9d4ad12e56e54018313761487d2d1fee9",
+        "merged": true,
+        "originalLower": "0xd4ad12e56e54018313761487d2d1fee9",
+        "originalUpper": "0x0000000000000000000000000ce8f6c9"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 1316,
+        "source": 2,
+        "wireIndex": 60,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000020",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000020",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Calldata(User)",
+        "offset": 36,
+        "sourceSize": 32,
+        "source": 2,
+        "wireIndex": 62,
+        "valueHex": "0x00000000000000000000000000000000000000000000006c6b935b8bbd400000",
+        "merged": true,
+        "originalLower": "0x000000000000006c6b935b8bbd400000",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "ADDRESS",
+        "offset": 0,
+        "sourceSize": 32,
+        "source": 2,
+        "wireIndex": 74,
+        "valueHex": "0x000000000000000000000000c2c30e79392a2d1a05288b172f205541a56fc20d",
+        "merged": true,
+        "originalLower": "0x392a2d1a05288b172f205541a56fc20d",
+        "originalUpper": "0x000000000000000000000000c2c30e79"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6202,
+        "source": 2,
+        "wireIndex": 82,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000001",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6204,
+        "source": 2,
+        "wireIndex": 84,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000001",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6206,
+        "source": 2,
+        "wireIndex": 86,
+        "sourceSize": 1,
+        "valueHex": "0x00000000000000000000000000000000000000000000000000000000000000a0",
+        "merged": true,
+        "originalLower": "0x000000000000000000000000000000a0",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6271,
+        "source": 2,
+        "wireIndex": 90,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000001",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6273,
+        "source": 2,
+        "wireIndex": 92,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000001",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6275,
+        "source": 2,
+        "wireIndex": 94,
+        "sourceSize": 1,
+        "valueHex": "0x00000000000000000000000000000000000000000000000000000000000000a0",
+        "merged": true,
+        "originalLower": "0x000000000000000000000000000000a0",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6348,
+        "source": 2,
+        "wireIndex": 102,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000060",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000060",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6359,
+        "source": 2,
+        "wireIndex": 108,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000020",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000020",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6369,
+        "source": 2,
+        "wireIndex": 118,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000001",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6371,
+        "source": 2,
+        "wireIndex": 120,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000001",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6373,
+        "source": 2,
+        "wireIndex": 122,
+        "sourceSize": 1,
+        "valueHex": "0x00000000000000000000000000000000000000000000000000000000000000a0",
+        "merged": true,
+        "originalLower": "0x000000000000000000000000000000a0",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6379,
+        "source": 2,
+        "wireIndex": 124,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000000",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "Load storage: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "key": "0xf903343320db59a6e85d0dbb1bc7d72220af07748adbb0932a59cfb9ad012354",
+        "source": 2,
+        "wireIndex": 130,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000006c6b935b8bbd4003e8"
+      },
+      {
+        "extSource": "Load storage: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "key": "0xf903343320db59a6e85d0dbb1bc7d72220af07748adbb0932a59cfb9ad012354",
+        "source": 2,
+        "wireIndex": 131,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6396,
+        "source": 2,
+        "wireIndex": 132,
+        "sourceSize": 4,
+        "valueHex": "0x00000000000000000000000000000000000000000000000000000000ffffffff",
+        "merged": true,
+        "originalLower": "0x000000000000000000000000ffffffff",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6401,
+        "source": 2,
+        "wireIndex": 134,
+        "sourceSize": 2,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000001179",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000001179",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6407,
+        "source": 2,
+        "wireIndex": 140,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000001",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6409,
+        "source": 2,
+        "wireIndex": 142,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000001",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6411,
+        "source": 2,
+        "wireIndex": 144,
+        "sourceSize": 1,
+        "valueHex": "0x00000000000000000000000000000000000000000000000000000000000000a0",
+        "merged": true,
+        "originalLower": "0x000000000000000000000000000000a0",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6418,
+        "source": 2,
+        "wireIndex": 146,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000000",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "Load storage: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "key": "0x81f4f96b68c216b824fb32a8c09bd5a81f924fe321c5cf7ad7a47b57891fbcb0",
+        "source": 2,
+        "wireIndex": 152,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "Load storage: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "key": "0x81f4f96b68c216b824fb32a8c09bd5a81f924fe321c5cf7ad7a47b57891fbcb0",
+        "source": 2,
+        "wireIndex": 153,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6449,
+        "source": 2,
+        "wireIndex": 156,
+        "sourceSize": 4,
+        "valueHex": "0x00000000000000000000000000000000000000000000000000000000ffffffff",
+        "merged": true,
+        "originalLower": "0x000000000000000000000000ffffffff",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6454,
+        "source": 2,
+        "wireIndex": 158,
+        "sourceSize": 2,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000fb2",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000fb2",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6460,
+        "source": 2,
+        "wireIndex": 164,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000001",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6462,
+        "source": 2,
+        "wireIndex": 166,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000001",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6464,
+        "source": 2,
+        "wireIndex": 168,
+        "sourceSize": 1,
+        "valueHex": "0x00000000000000000000000000000000000000000000000000000000000000a0",
+        "merged": true,
+        "originalLower": "0x000000000000000000000000000000a0",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6471,
+        "source": 2,
+        "wireIndex": 170,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000000",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6476,
+        "source": 2,
+        "wireIndex": 172,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000020",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000020",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 6504,
+        "source": 2,
+        "wireIndex": 176,
+        "sourceSize": 32,
+        "valueHex": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+        "merged": true,
+        "originalLower": "0x952ba7f163c4a11628f55a4df523b3ef",
+        "originalUpper": "0xddf252ad1be2c89b69c2b068fc378daa"
+      },
+      {
+        "extSource": "Load storage: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "key": "0x7",
+        "source": 2,
+        "wireIndex": 180,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "Load storage: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "key": "0x7",
+        "source": 2,
+        "wireIndex": 181,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 4640,
+        "source": 2,
+        "wireIndex": 182,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000001",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 4642,
+        "source": 2,
+        "wireIndex": 184,
+        "sourceSize": 1,
+        "valueHex": "0x00000000000000000000000000000000000000000000000000000000000000a8",
+        "merged": true,
+        "originalLower": "0x000000000000000000000000000000a8",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 4647,
+        "source": 2,
+        "wireIndex": 186,
+        "sourceSize": 1,
+        "valueHex": "0x00000000000000000000000000000000000000000000000000000000000000ff",
+        "merged": true,
+        "originalLower": "0x000000000000000000000000000000ff",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 1805,
+        "source": 2,
+        "wireIndex": 192,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000001",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extSource": "code: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "type": "Reading ROM value",
+        "offset": 642,
+        "source": 2,
+        "wireIndex": 196,
+        "sourceSize": 1,
+        "valueHex": "0x0000000000000000000000000000000000000000000000000000000000000020",
+        "merged": true,
+        "originalLower": "0x00000000000000000000000000000020",
+        "originalUpper": "0x00000000000000000000000000000000"
+      }
+    ],
+    "outPts": [
+      {
+        "source": 2,
+        "wireIndex": 0,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000080"
+      },
+      {
+        "source": 2,
+        "wireIndex": 1,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 4,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 5,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 8,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000004"
+      },
+      {
+        "source": 2,
+        "wireIndex": 9,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 10,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000044"
+      },
+      {
+        "source": 2,
+        "wireIndex": 11,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 16,
+        "sourceSize": 32,
+        "valueHex": "0x0ce8f6c9d4ad12e56e54018313761487"
+      },
+      {
+        "source": 2,
+        "wireIndex": 17,
+        "sourceSize": 32,
+        "valueHex": "0xa9059cbb000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 18,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000000000e0"
+      },
+      {
+        "source": 2,
+        "wireIndex": 19,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 20,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000070a08231"
+      },
+      {
+        "source": 2,
+        "wireIndex": 21,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 24,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000098650275"
+      },
+      {
+        "source": 2,
+        "wireIndex": 25,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 28,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000aa271e1a"
+      },
+      {
+        "source": 2,
+        "wireIndex": 29,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 32,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000098650275"
+      },
+      {
+        "source": 2,
+        "wireIndex": 33,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 36,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000a457c2d7"
+      },
+      {
+        "source": 2,
+        "wireIndex": 37,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 40,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000a9059cbb"
+      },
+      {
+        "source": 2,
+        "wireIndex": 41,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 46,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000004"
+      },
+      {
+        "source": 2,
+        "wireIndex": 47,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 48,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000040"
+      },
+      {
+        "source": 2,
+        "wireIndex": 49,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 52,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000001"
+      },
+      {
+        "source": 2,
+        "wireIndex": 53,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 54,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000001"
+      },
+      {
+        "source": 2,
+        "wireIndex": 55,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 56,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000000000a0"
+      },
+      {
+        "source": 2,
+        "wireIndex": 57,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 58,
+        "sourceSize": 32,
+        "valueHex": "0xd4ad12e56e54018313761487d2d1fee9"
+      },
+      {
+        "source": 2,
+        "wireIndex": 59,
+        "sourceSize": 32,
+        "valueHex": "0x0000000000000000000000000ce8f6c9"
+      },
+      {
+        "source": 2,
+        "wireIndex": 60,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000020"
+      },
+      {
+        "source": 2,
+        "wireIndex": 61,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 62,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000006c6b935b8bbd400000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 63,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 74,
+        "sourceSize": 32,
+        "valueHex": "0x392a2d1a05288b172f205541a56fc20d"
+      },
+      {
+        "source": 2,
+        "wireIndex": 75,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000c2c30e79"
+      },
+      {
+        "source": 2,
+        "wireIndex": 82,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000001"
+      },
+      {
+        "source": 2,
+        "wireIndex": 83,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 84,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000001"
+      },
+      {
+        "source": 2,
+        "wireIndex": 85,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 86,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000000000a0"
+      },
+      {
+        "source": 2,
+        "wireIndex": 87,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 90,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000001"
+      },
+      {
+        "source": 2,
+        "wireIndex": 91,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 92,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000001"
+      },
+      {
+        "source": 2,
+        "wireIndex": 93,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 94,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000000000a0"
+      },
+      {
+        "source": 2,
+        "wireIndex": 95,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 102,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000060"
+      },
+      {
+        "source": 2,
+        "wireIndex": 103,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 108,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000020"
+      },
+      {
+        "source": 2,
+        "wireIndex": 109,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 118,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000001"
+      },
+      {
+        "source": 2,
+        "wireIndex": 119,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 120,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000001"
+      },
+      {
+        "source": 2,
+        "wireIndex": 121,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 122,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000000000a0"
+      },
+      {
+        "source": 2,
+        "wireIndex": 123,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 124,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 125,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 130,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000006c6b935b8bbd4003e8"
+      },
+      {
+        "source": 2,
+        "wireIndex": 131,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 132,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000ffffffff"
+      },
+      {
+        "source": 2,
+        "wireIndex": 133,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 134,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000001179"
+      },
+      {
+        "source": 2,
+        "wireIndex": 135,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 140,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000001"
+      },
+      {
+        "source": 2,
+        "wireIndex": 141,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 142,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000001"
+      },
+      {
+        "source": 2,
+        "wireIndex": 143,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 144,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000000000a0"
+      },
+      {
+        "source": 2,
+        "wireIndex": 145,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 146,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 147,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 152,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 153,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 156,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000ffffffff"
+      },
+      {
+        "source": 2,
+        "wireIndex": 157,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 158,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000fb2"
+      },
+      {
+        "source": 2,
+        "wireIndex": 159,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 164,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000001"
+      },
+      {
+        "source": 2,
+        "wireIndex": 165,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 166,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000001"
+      },
+      {
+        "source": 2,
+        "wireIndex": 167,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 168,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000000000a0"
+      },
+      {
+        "source": 2,
+        "wireIndex": 169,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 170,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 171,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 172,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000020"
+      },
+      {
+        "source": 2,
+        "wireIndex": 173,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 176,
+        "sourceSize": 32,
+        "valueHex": "0x952ba7f163c4a11628f55a4df523b3ef"
+      },
+      {
+        "source": 2,
+        "wireIndex": 177,
+        "sourceSize": 32,
+        "valueHex": "0xddf252ad1be2c89b69c2b068fc378daa"
+      },
+      {
+        "source": 2,
+        "wireIndex": 180,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 181,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 182,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000001"
+      },
+      {
+        "source": 2,
+        "wireIndex": 183,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 184,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000000000a8"
+      },
+      {
+        "source": 2,
+        "wireIndex": 185,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 186,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000000000ff"
+      },
+      {
+        "source": 2,
+        "wireIndex": 187,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 192,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000001"
+      },
+      {
+        "source": 2,
+        "wireIndex": 193,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 196,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000020"
+      },
+      {
+        "source": 2,
+        "wireIndex": 197,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      }
+    ]
+  },
+  "privateOutputBuffer": {
+    "name": "bufferPrvOut",
+    "subcircuitId": 3,
+    "inPts": [
+      {
+        "source": 34,
+        "wireIndex": 0,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000000003e8"
+      },
+      {
+        "source": 34,
+        "wireIndex": 1,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 40,
+        "wireIndex": 0,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000006c6b935b8bbd400000"
+      },
+      {
+        "source": 40,
+        "wireIndex": 1,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 62,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000006c6b935b8bbd400000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 63,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 176,
+        "sourceSize": 32,
+        "valueHex": "0x952ba7f163c4a11628f55a4df523b3ef"
+      },
+      {
+        "source": 2,
+        "wireIndex": 177,
+        "sourceSize": 32,
+        "valueHex": "0xddf252ad1be2c89b69c2b068fc378daa"
+      },
+      {
+        "source": 46,
+        "wireIndex": 0,
+        "sourceSize": 32,
+        "valueHex": "0x392a2d1a05288b172f205541a56fc20d"
+      },
+      {
+        "source": 46,
+        "wireIndex": 1,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000c2c30e79"
+      },
+      {
+        "source": 45,
+        "wireIndex": 0,
+        "sourceSize": 32,
+        "valueHex": "0xd4ad12e56e54018313761487d2d1fee9"
+      },
+      {
+        "source": 45,
+        "wireIndex": 1,
+        "sourceSize": 32,
+        "valueHex": "0x0000000000000000000000000ce8f6c9"
+      }
+    ],
+    "outPts": [
+      {
+        "extDest": "Write storage: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "key": "0xf903343320db59a6e85d0dbb1bc7d72220af07748adbb0932a59cfb9ad012354",
+        "source": 3,
+        "wireIndex": 0,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000000003e8"
+      },
+      {
+        "extDest": "Write storage: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "key": "0xf903343320db59a6e85d0dbb1bc7d72220af07748adbb0932a59cfb9ad012354",
+        "source": 3,
+        "wireIndex": 1,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "extDest": "Write storage: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "key": "0x81f4f96b68c216b824fb32a8c09bd5a81f924fe321c5cf7ad7a47b57891fbcb0",
+        "source": 3,
+        "wireIndex": 2,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000006c6b935b8bbd400000"
+      },
+      {
+        "extDest": "Write storage: 0x2be5e8c109e2197d077d13a82daead6a9b3433c5",
+        "key": "0x81f4f96b68c216b824fb32a8c09bd5a81f924fe321c5cf7ad7a47b57891fbcb0",
+        "source": 3,
+        "wireIndex": 3,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "extDest": "LOG",
+        "key": "0x0",
+        "type": "value",
+        "source": 3,
+        "wireIndex": 4,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000000000000000006c6b935b8bbd400000",
+        "merged": true,
+        "originalLower": "0x000000000000006c6b935b8bbd400000",
+        "originalUpper": "0x00000000000000000000000000000000"
+      },
+      {
+        "extDest": "LOG",
+        "key": "0x0",
+        "type": "topic1",
+        "source": 3,
+        "wireIndex": 6,
+        "sourceSize": 32,
+        "valueHex": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+        "merged": true,
+        "originalLower": "0x952ba7f163c4a11628f55a4df523b3ef",
+        "originalUpper": "0xddf252ad1be2c89b69c2b068fc378daa"
+      },
+      {
+        "extDest": "LOG",
+        "key": "0x0",
+        "type": "topic2",
+        "source": 3,
+        "wireIndex": 8,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000c2c30e79392a2d1a05288b172f205541a56fc20d",
+        "merged": true,
+        "originalLower": "0x392a2d1a05288b172f205541a56fc20d",
+        "originalUpper": "0x000000000000000000000000c2c30e79"
+      },
+      {
+        "extDest": "LOG",
+        "key": "0x0",
+        "type": "topic3",
+        "source": 3,
+        "wireIndex": 10,
+        "sourceSize": 32,
+        "valueHex": "0x0000000000000000000000000ce8f6c9d4ad12e56e54018313761487d2d1fee9",
+        "merged": true,
+        "originalLower": "0xd4ad12e56e54018313761487d2d1fee9",
+        "originalUpper": "0x0000000000000000000000000ce8f6c9"
+      }
+    ]
+  }
+}
