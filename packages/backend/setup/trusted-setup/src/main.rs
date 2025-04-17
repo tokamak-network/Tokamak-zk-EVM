@@ -2,7 +2,7 @@
 use icicle_runtime::stream::IcicleStream;
 use libs::iotools::{SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use libs::field_structures::{Tau, from_r1cs_to_evaled_qap_mixture};
-use libs::iotools::{read_json_as_boxed_boxed_numbers};
+use libs::iotools::{read_global_wire_list_as_boxed_boxed_numbers};
 use libs::vector_operations::gen_evaled_lagrange_bases;
 use libs::group_structures::{Sigma1, Sigma};
 use icicle_bls12_381::curve::{ScalarField as Field, CurveCfg, G2CurveCfg};
@@ -29,8 +29,8 @@ fn main() {
     
     // Load setup parameters from JSON file
     println!("Loading setup parameters...");
-    let setup_path = "setup/trusted-setup/inputs/setupParams.json";
-    let setup_params = SetupParams::from_path(setup_path).unwrap();
+    let setup_file_name = "setupParams.json";
+    let setup_params = SetupParams::from_path(setup_file_name).unwrap();
 
     // Extract key parameters from setup_params
     let m_d = setup_params.m_D; // Total number of wires
@@ -67,13 +67,13 @@ fn main() {
     
     // Load subcircuit information
     println!("Loading subcircuit information...");
-    let subcircuit_path = "setup/trusted-setup/inputs/subcircuitInfo.json";
-    let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_path).unwrap();
+    let subcircuit_file_name = "subcircuitInfo.json";
+    let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_file_name).unwrap();
 
     // Load global wire list
     println!("Loading global wire list...");
-    let global_wire_path = "setup/trusted-setup/inputs/globalWireList.json";
-    let global_wire_list = read_json_as_boxed_boxed_numbers(global_wire_path).unwrap();
+    let global_wire_file_name = "globalWireList.json";
+    let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_file_name).unwrap();
     
     // ------------------- Generate Polynomial Evaluations -------------------
     let start = Instant::now();
@@ -107,7 +107,7 @@ fn main() {
         // Process each subcircuit
         for i in 0..s_d {
             println!("Processing subcircuit id {}", i);
-            let r1cs_path: String = format!("setup/trusted-setup/inputs/json/subcircuit{i}.json");
+            let r1cs_path: String = format!("json/subcircuit{i}.json");
 
             // Evaluate QAP for the current subcircuit
             let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();

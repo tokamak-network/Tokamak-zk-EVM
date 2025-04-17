@@ -392,11 +392,10 @@ fn main() {
         println!("Checked: r(X,Y) satisfy the recursion for the copy constraints.")
     }
 
-
-
     // Load Sigma (reference string)
     println!("Loading the reference string...");
     let sigma_path = "setup/trusted-setup/output/combined_sigma.json";
-    let sigma = Sigma::read_from_json(&sigma_path).unwrap();
+    let sigma = Sigma::read_from_json(&sigma_path)
+    .expect("No reference string is found. Run the Setup first.");
 
 }
