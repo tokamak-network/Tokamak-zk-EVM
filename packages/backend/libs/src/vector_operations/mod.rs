@@ -299,7 +299,7 @@ pub fn scaled_outer_product(
         scaled_vec.clone_from_slice(col_vec);
     }
     outer_product_two_vecs(
-        &scaled_vec, 
+        &scaled_vec,
         row_vec, 
         res
     );

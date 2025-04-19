@@ -43,10 +43,10 @@ macro_rules! type_scaled_outer_product_1d {
 
 
 macro_rules! type_scaled_monomials_1d {
-    ( $cached_col_vec: expr, $cached_row_vec: expr, $col_size: expr, $row_size: expr, $scaler: expr, $g1_gen: expr ) => {
+    ( $cached_x_vec: expr, $cached_y_vec: expr, $x_size: expr, $y_size: expr, $scaler: expr, $g1_gen: expr ) => {
         {
-            let col_vec = extend_monomial_vec!($cached_col_vec, $col_size);
-            let row_vec = extend_monomial_vec!($cached_row_vec, $row_size);
+            let col_vec = extend_monomial_vec!($cached_x_vec, $x_size);
+            let row_vec = extend_monomial_vec!($cached_y_vec, $y_size);
             let res = type_scaled_outer_product_1d!(&col_vec, &row_vec, $g1_gen, $scaler);
             res
         }
@@ -55,7 +55,7 @@ macro_rules! type_scaled_monomials_1d {
 
 /// CRS's AC component
 /// This corresponds to σ_A,C in the mathematical formulation
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Sigma1 {
     // Elements of the form {x^h y^i}_{h=0,i=0}^{max(2n-2,3m_D-3),2*s_max-2}
     pub xy_powers: Box<[G1serde]>,
@@ -104,7 +104,7 @@ impl Sigma1 {
             &vec![ScalarField::one(), tau.y].into_boxed_slice(), 
             2*s_max-2
         );
-        let xy_powers = type_scaled_monomials_1d!(&y_pows_vec, &x_pows_vec, 2*s_max-2, h_max, None, g1_gen);
+        let xy_powers = type_scaled_monomials_1d!(&x_pows_vec, &y_pows_vec, h_max, 2*s_max-2, None, g1_gen);
 
         // Split output vector into input, output, intermediate, and private parts
         let o_pub_vec = &o_vec[0..l].to_vec().into_boxed_slice();
@@ -133,17 +133,17 @@ impl Sigma1 {
         }
         
         // Generate η^(-1)L_i(y)(o_{j+l}(x) + α^k K_j(x)) for intermediate wires
-        println!("Generating eta_inv_li_o_inter_alpha4_kj of size {}...", s_max * m_i);
+        println!("Generating eta_inv_li_o_inter_alpha4_kj of size {}...", m_i * s_max);
         let mut alpha4_kj_vec = vec![ScalarField::zero(); m_i].into_boxed_slice();
         scale_vec(tau.alpha.pow(4), k_vec, &mut alpha4_kj_vec);
         let mut o_inter_alpha4_kj_vec = vec![ScalarField::zero(); m_i].into_boxed_slice();
         point_add_two_vecs(o_inter_vec, &alpha4_kj_vec, &mut o_inter_alpha4_kj_vec);
-        let eta_inv_li_o_inter_alpha4_kj = type_scaled_outer_product_2d!(o_inter_vec, &alpha4_kj_vec, g1_gen, Some(&tau.eta.inv()));
+        let eta_inv_li_o_inter_alpha4_kj = type_scaled_outer_product_2d!(&o_inter_alpha4_kj_vec, l_vec, g1_gen, Some(&tau.eta.inv()));
         drop(alpha4_kj_vec);
         drop(o_inter_alpha4_kj_vec);
         
         // Generate δ^(-1)L_i(y)o_j(x) for private wires
-        println!("Generating delta_inv_li_o_prv of size {}...", s_max * (m_d - (l + m_i)));
+        println!("Generating delta_inv_li_o_prv of size {}...", (m_d - (l + m_i)) * s_max );
         let delta_inv_li_o_prv = type_scaled_outer_product_2d!(o_prv_vec, l_vec, g1_gen, Some(&tau.delta.inv()));
         
         // Generate δ^(-1)α^k x^h t_n(x) for a vanishing polynomial in x
@@ -202,10 +202,9 @@ impl Sigma1 {
         
     }
 }
-
-#[derive(Deserialize, Serialize)]
 /// This corresponds to σ_2 in the paper:
 /// σ_2 := (α, α^2, α^3, α^4, γ, δ, η, x, y)
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Sigma2 {
     pub alpha: G2serde,
     pub alpha2: G2serde,
@@ -251,7 +250,7 @@ impl Sigma2 {
 
 /// CRS (Common Reference String) structure
 /// This corresponds to σ = ([σ_1]_1, [σ_2]_2) defined in the paper
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Sigma {
     pub G: G1serde,
     pub H: G2serde,

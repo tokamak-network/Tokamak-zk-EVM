@@ -4,14 +4,15 @@ use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::iotools::{Permutation, PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use libs::field_structures::{Tau};
 use libs::iotools::{read_global_wire_list_as_boxed_boxed_numbers};
-use libs::vector_operations::{gen_evaled_lagrange_bases, point_div_two_vecs, point_mul_two_vecs, transpose_inplace};
+use libs::vector_operations::{gen_evaled_lagrange_bases, point_div_two_vecs, point_mul_two_vecs, resize, transpose_inplace};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
-use libs::group_structures::{Sigma1, Sigma};
+use libs::group_structures::{Sigma, Sigma1, Sigma2};
 use libs::polynomial_structures::{gen_aX, gen_bXY, gen_uXY, gen_vXY, gen_wXY};
-use icicle_bls12_381::curve::{ScalarField, ScalarCfg, CurveCfg, G2CurveCfg};
+use icicle_bls12_381::curve::{self, BaseField, CurveCfg, G1Affine, G2Affine, G2BaseField, G2CurveCfg, ScalarCfg, ScalarField, G1Projective};
 use icicle_core::traits::{Arithmetic, FieldImpl, FieldConfig, GenerateRandom};
 use icicle_core::ntt;
-use icicle_core::curve::Curve;
+use icicle_core::msm::{self, MSMConfig};
+use libs::iotools::{G1serde, G2serde};
 
 use std::{vec, cmp};
 use std::time::Instant;
@@ -23,6 +24,14 @@ use icicle_core::ntt::{
     CUDA_NTT_FAST_TWIDDLES_MODE,
 };
 
+// include!("../../setup/trusted-setup/output/combined_sigma.rs");
+
+macro_rules! poly_comb {
+    ($a:expr) => { $a };
+    ($a:expr, $($rest:expr),+) => {
+        &$a + &poly_comb!($($rest),+)
+    };
+}
 
 
 fn main() {   
@@ -93,10 +102,28 @@ fn main() {
     println!("Loading a permutation...");
     let permutation_path = "permutation.json";
     let permutation_raw = Permutation::from_path(&permutation_path).unwrap();
-    
+
     // Parsing the inputs
+    // Fixed polynomials
+    println!("Generating useful fixed polynomials...");
+    let mut t_n_coeffs = vec![ScalarField::zero(); 2*n];
+    t_n_coeffs[0] = ScalarField::zero() - ScalarField::one();
+    t_n_coeffs[n] = ScalarField::one();
+    let t_n = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_n_coeffs), 2*n, 1);
+    let mut t_mi_coeffs = vec![ScalarField::zero(); 2*m_i];
+    t_mi_coeffs[0] = ScalarField::zero() - ScalarField::one();
+    t_mi_coeffs[m_i] = ScalarField::one();
+    let t_mi = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_mi_coeffs), 2*m_i, 1);
+    let mut t_smax_coeffs = vec![ScalarField::zero(); 2*s_max];
+    t_smax_coeffs[0] = ScalarField::zero() - ScalarField::one();
+    t_smax_coeffs[s_max] = ScalarField::one();
+    let t_smax = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_smax_coeffs), 1, 2*s_max);
+    // Generating permutation polynomials
+    println!("Converting the permutation matrices into polynomials s^0 and s^1...");
+    let (s0XY, s1XY) = Permutation::to_poly(&permutation_raw, m_i, s_max);
+    
     // Parsing the variables
-    println!("Parsing the input variables...");
+    println!("Parsing the instance and witness...");
     println!("Generating a(X)...");
     let aX = gen_aX(&placement_variables, &subcircuit_infos, &setup_params);
     println!("Generating b(X,Y)...");
@@ -109,7 +136,7 @@ fn main() {
     let wXY = gen_wXY(&placement_variables, &compact_library_R1CS, &setup_params);
 
     // Arithmetic constraints argument polynomials
-    println!("Generating p_0(X,Y)...");
+    println!("Building a polynomial p_0(X,Y) for the arithmetic constraints and quotients of it...");
     let mut p0XY = &( &uXY * &vXY ) - &wXY;
     let (q0XY, q1XY) = p0XY.div_by_vanishing(n as i64, s_max as i64);
     #[cfg(feature = "testing-mode")] {
@@ -131,16 +158,6 @@ fn main() {
         }
         assert!(flag);
 
-        let mut t_n_coeffs = vec![ScalarField::zero(); 2*n];
-        t_n_coeffs[0] = ScalarField::zero() - ScalarField::one();
-        t_n_coeffs[n] = ScalarField::one();
-        let t_n = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_n_coeffs), 2*n, 1);
-
-        let mut t_smax_coeffs = vec![ScalarField::zero(); 2*s_max];
-        t_smax_coeffs[0] = ScalarField::zero() - ScalarField::one();
-        t_smax_coeffs[s_max] = ScalarField::one();
-        let t_smax = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_smax_coeffs), 1, 2*s_max);
-
         let x_e = ScalarCfg::generate_random(1)[0];
         let y_e = ScalarCfg::generate_random(1)[0];
         let p_0_eval = p0XY.eval(&x_e, &y_e);
@@ -151,14 +168,100 @@ fn main() {
         assert!( p_0_eval.eq( &(q_0_eval * t_n_eval + q_1_eval * t_smax_eval) ) );
         println!("Checked: u(X,Y), v(X,Y), and w(X,Y) satisfy the arithmetic constraints.")
     }
+
+    // Adding zero-knowledge
+    println!("Adding zero-knowledge to the arithmetic constraints witnesses...");
+    let rU_X = ScalarCfg::generate_random(1)[0];
+    let rU_Y = ScalarCfg::generate_random(1)[0];
+    let rV_X = ScalarCfg::generate_random(1)[0];
+    let rV_Y = ScalarCfg::generate_random(1)[0];
+    let mut rW_X_coeffs = ScalarCfg::generate_random(3);
+    resize(&rW_X_coeffs, 3, 1, 4, 1);
+    let rW_X = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rW_X_coeffs), 4, 1);
+    let mut rW_Y_coeffs = ScalarCfg::generate_random(3);
+    resize(&rW_Y_coeffs, 1, 3, 1, 4);
+    let rW_Y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rW_Y_coeffs), 1, 4);
+    let U = poly_comb!(
+        uXY,
+        &rU_X * &t_n,
+        &rU_Y * &t_smax
+    );
+    let V = poly_comb!(
+        vXY,
+        &rV_X * &t_n,
+        &rV_Y * &t_smax
+    );
+    let W = poly_comb!(
+        wXY,
+        &rW_X * &t_n,
+        &rW_Y * &t_smax
+    );
+    let Q_AX = poly_comb!(
+        q0XY,
+        &rU_X * &vXY,
+        &rV_X * &uXY,
+        -&rW_X,
+        &(rU_X * rV_X) * &t_n,
+        &(rU_Y * rV_X) * &t_smax
+    );
+    let Q_AY = poly_comb!(
+        q1XY,
+        &rU_Y * &vXY,
+        &rV_Y * &uXY,
+        -&rW_Y,
+        &(rU_X * rV_Y) * &t_n,
+        &(rU_Y * rV_Y) * &t_smax
+    );
+    // TODO: CHALLENGE
+    let chi = ScalarCfg::generate_random(1)[0];
+    let zeta = ScalarCfg::generate_random(1)[0];
+    let kappa1 = ScalarCfg::generate_random(1)[0];
     
-    // Generating permutation polynomials
-    println!("Converting the permutation matrices into polynomials s^0 and s^1...");
-    let (s0XY, s1XY) = Permutation::to_poly(&permutation_raw, m_i, s_max);
+    let t_n_eval = t_n.eval(&chi, &ScalarField::one());
+    let t_smax_eval = t_smax.eval(&ScalarField::one(), &zeta);
+    let V_eval = V.eval(&chi, &zeta);
+    let small_v_eval = vXY.eval(&chi, &zeta);
+    let mut LHS_for_Arith = poly_comb!(
+        &kappa1 * &(&V - &V_eval),
+
+        &uXY * &small_v_eval,
+        -&wXY,
+        -&(&q0XY * &t_n_eval),
+        -&(&q1XY * &t_smax_eval),
+
+        &( &(small_v_eval * rU_X) * &t_n ) + &( &(small_v_eval * rU_Y) * &t_smax ),
+        -&(&vXY * &( (rU_X * t_n_eval) + (rU_Y * t_smax_eval) )),
+        &rW_X * &(&t_n_eval - &t_n),
+        &rW_Y * &( &t_smax_eval - &t_smax )
+    );
+
+    let (mut Pi_A_X, mut Pi_A_Y, rem) = LHS_for_Arith.div_by_ruffini(&chi, &zeta);
+
+    #[cfg(feature = "testing-mode")] {
+        assert!(rem.eq(&ScalarField::zero()));
+
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+
+        let mut coeffs1 = vec![ScalarField::zero(); Pi_A_X.x_size * Pi_A_X.y_size];
+        Pi_A_X.copy_coeffs(0, HostSlice::from_mut_slice(&mut coeffs1));
+        let mut coeffs2 = vec![ScalarField::zero(); Pi_A_Y.x_size * Pi_A_Y.y_size];
+        Pi_A_Y.copy_coeffs(0, HostSlice::from_mut_slice(&mut coeffs2));
+        
+        let LHS_test = poly_comb!(
+            &V_eval * &U,
+            -&W,
+            &kappa1 * &(&V - &V_eval),
+            -&(&t_n_eval * &Q_AX),
+            -&(&t_smax_eval * &Q_AY)
+        );
+        assert!(LHS_test.eval(&x, &y).eq(&(Pi_A_X.eval(&x, &y) * (x-chi) + Pi_A_Y.eval(&x, &y) * (y-zeta))));
+        println!("Checked: U(X,Y), V(X,Y), and W(X,Y) with zero-knowledge satisfy the arithmetic constraints.")
+    }
+
 
     // TODO: CHALLENGE
     let thetas = ScalarCfg::generate_random(3);
-    let fXY = &( &(&bXY + &(&thetas[0] * &s0XY)) + &(&thetas[1] * &s1XY)) + &thetas[2];
 
     let mut X_mono_coef = vec![ScalarField::zero(); m_i];
     X_mono_coef[1] = ScalarField::one();
@@ -170,6 +273,7 @@ fn main() {
     let Y_mono = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&Y_mono_coef), 1, s_max);
     drop(Y_mono_coef);
 
+    let fXY = &( &(&bXY + &(&thetas[0] * &s0XY)) + &(&thetas[1] * &s1XY)) + &thetas[2];
     let gXY = &( &(&bXY + &(&thetas[0] * &X_mono)) + &(&thetas[1] * &Y_mono)) + &thetas[2];
 
     let mut fXY_evals = vec![ScalarField::zero(); m_i*s_max].into_boxed_slice();
@@ -288,8 +392,8 @@ fn main() {
         None
     );
 
-    let r_omegaX_Y = rXY.scale_coeffs_x(omega_m_i.inv());
-    let r_omegaX_omegaY = r_omegaX_Y.scale_coeffs_y(omega_s_max.inv());
+    let r_omegaX_Y = rXY.scale_coeffs_x(&omega_m_i.inv());
+    let r_omegaX_omegaY = r_omegaX_Y.scale_coeffs_y(&omega_s_max.inv());
 
     // #[cfg(feature = "testing-mode")] {
     //     let mut flag1 = true;
@@ -348,8 +452,10 @@ fn main() {
         None
     );
     drop(l_evals);
+
+    let lagrange_KL_XY = &lagrange_K_XY * &lagrange_L_XY;
     
-    let mut p1XY = &(&rXY - &ScalarField::one()) * &(&lagrange_K_XY * &lagrange_L_XY);
+    let mut p1XY = &(&rXY - &ScalarField::one()) * &(lagrange_KL_XY);
     let mut p2XY = &(&X_mono - &ScalarField::one()) * &(
         &(&rXY * &gXY) - &(&r_omegaX_Y * &fXY)
     );
@@ -362,16 +468,6 @@ fn main() {
     let (q6XY, q7XY) = p3XY.div_by_vanishing(m_i as i64, s_max as i64);
 
     #[cfg(feature = "testing-mode")] {
-        let mut t_mi_coeffs = vec![ScalarField::zero(); 2*m_i];
-        t_mi_coeffs[0] = ScalarField::zero() - ScalarField::one();
-        t_mi_coeffs[m_i] = ScalarField::one();
-        let t_mi = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_mi_coeffs), 2*m_i, 1);
-
-        let mut t_smax_coeffs = vec![ScalarField::zero(); 2*s_max];
-        t_smax_coeffs[0] = ScalarField::zero() - ScalarField::one();
-        t_smax_coeffs[s_max] = ScalarField::one();
-        let t_smax = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_smax_coeffs), 1, 2*s_max);
-
         let x_e = ScalarCfg::generate_random(1)[0];
         let y_e = ScalarCfg::generate_random(1)[0];
         let p_1_eval = p1XY.eval(&x_e, &y_e);
@@ -391,11 +487,293 @@ fn main() {
         assert!( p_3_eval.eq( &(q_6_eval * t_mi_eval + q_7_eval * t_smax_eval) ) );
         println!("Checked: r(X,Y) satisfy the recursion for the copy constraints.")
     }
+    
+    // Adding zero-knowledge to the copy constraint argument
+    println!("Adding zero-knowledge to the copy constraints witnesses...");
+    let rB_X_coeffs = ScalarCfg::generate_random(2);
+    let rB_X = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rB_X_coeffs), 2, 1);
+    let rB_Y_coeffs = ScalarCfg::generate_random(2);
+    let rB_Y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rB_Y_coeffs), 1, 2);
+    let term_B_zero = &(&rB_X * &t_mi) + &(&rB_Y * &t_smax);
+    let B = &bXY + &term_B_zero;
+
+    let rR_X = ScalarCfg::generate_random(1)[0];
+    let rR_Y = ScalarCfg::generate_random(1)[0];
+    let R = &rXY + &(&(&rR_X * &t_mi) + &(&rR_Y * &t_smax));
+    let R_omegaX_Y = R.scale_coeffs_x(&omega_m_i.inv());
+    let R_omegaX_omegaY = R_omegaX_Y.scale_coeffs_y(&omega_s_max.inv());
+
+    let r_D1 = &rXY - &r_omegaX_Y; 
+    let r_D2 = &rXY - &r_omegaX_omegaY;
+    let g_D = &gXY - &fXY;
+
+    // TODO: CHALLENGE
+    let kappa0 = ScalarCfg::generate_random(1)[0];
+
+    let term1 = poly_comb!(
+        &(&rB_X * &(&X_mono - &ScalarField::one())) * &r_D1,
+        &(&rR_X * &(&X_mono - &ScalarField::one())) * &g_D
+    );
+    let term2 = poly_comb!(
+        &(&rB_X * &lagrange_K0_XY) * &r_D2,
+        &(&rR_X * &lagrange_K0_XY) * &g_D
+    );
+    let Q_CX = poly_comb!(
+        q2XY,
+        &kappa0 * &q4XY,
+        &kappa0.pow(2) * &q6XY,
+        &rR_X * &lagrange_KL_XY,
+        &kappa0 * &term1,
+        &kappa0.pow(2) * &term2
+    );
+    drop(term1);
+    drop(term2);
+
+    let term3 = poly_comb!(
+        &(&rB_Y * &(&X_mono - &ScalarField::one())) * &r_D1,
+        &(&rR_Y * &(&X_mono - &ScalarField::one())) * &g_D
+    );
+    let term4 = poly_comb!(
+        &(&rB_Y * &lagrange_K0_XY) * &r_D2,
+        &(&rR_Y * &lagrange_K0_XY) * &g_D
+    );
+    let Q_CY = poly_comb!(
+        q3XY,
+        &kappa0 * &q5XY,
+        &kappa0.pow(2) * &q7XY,
+        &rR_Y * &lagrange_KL_XY,
+        &kappa0 * &term3,
+        &kappa0.pow(2) * &term4
+    );
+    drop(term3);
+    drop(term4);
+
+    let small_r_eval = rXY.eval(&chi, &zeta);
+    let small_r_omegaX_Y_eval = r_omegaX_Y.eval(&chi, &zeta);
+    let small_r_omegaX_omegaY_eval = r_omegaX_omegaY.eval(&chi, &zeta);
+    let R_eval = R.eval(&chi, &zeta);
+    let R_omegaX_Y_eval = R_omegaX_Y.eval(&chi, &zeta);
+    let R_omegaX_omegaY_eval = R_omegaX_omegaY.eval(&chi, &zeta);
+    let t_mi_eval = t_mi.eval(&chi, &zeta);
+    let lagrange_K0_eval = lagrange_K0_XY.eval(&chi, &zeta);
+    let term5 = poly_comb!(
+        &small_r_eval * &gXY,
+        -&(&small_r_omegaX_Y_eval * &fXY)
+    );
+    let term6 = poly_comb!(
+        &small_r_eval * &gXY,
+        -&(&small_r_omegaX_omegaY_eval * &fXY)
+    );
+    let term7 = poly_comb!(
+        q2XY,
+        &kappa0 * &q4XY,
+        &kappa0.pow(2) * &q6XY
+    );
+    let term8 = poly_comb!(
+        q3XY,
+        &kappa0 * &q5XY,
+        &kappa0.pow(2) * &q7XY
+    );
+    let pC_XY = poly_comb!(
+        &(small_r_eval - ScalarField::one()) * &lagrange_KL_XY,
+        &(kappa0 * (chi - ScalarField::one()) ) * &term5,
+        &(kappa0.pow(2) * lagrange_K0_eval ) * &term6,
+        -&(&t_mi_eval * &term7),
+        -&(&t_smax_eval * &term8)
+    );
+    drop(term5);
+    drop(term6);
+    drop(term7);
+    drop(term8);
+
+    let term9 = &(&t_mi_eval * &rB_X) + &(&t_smax_eval * &rB_Y);
+    let term10 = &(rR_X * t_mi_eval + rR_Y * t_smax_eval) * &g_D;
+
+    let LHS_zk1 = poly_comb!(
+        &( (chi - ScalarField::one()) * r_D1.eval(&chi, &zeta) ) * &term_B_zero,
+        -&( &( &(&X_mono - &ScalarField::one()) * &r_D1 ) * &term9 ),
+        &term10 * &(&chi - &X_mono)
+    );
+    let LHS_zk2 = poly_comb!(
+        &( lagrange_K0_eval * r_D2.eval(&chi, &zeta) ) * &term_B_zero,
+        -&( &(&lagrange_K0_XY * &r_D2) * &term9 ),
+        &term10 * &(&lagrange_K0_eval - &lagrange_K0_XY)
+    );
+    drop(term9);
+    drop(term10);
+
+    let LHS_for_copy = poly_comb!(
+        &kappa1.pow(2) * &pC_XY,
+        &(kappa1.pow(2) * kappa0) * &LHS_zk1,
+        &(kappa1.pow(2) * kappa0.pow(2)) * &LHS_zk2,
+        &kappa1.pow(3) * &(&R - &R_eval)
+    );
+    
+    let (Pi_C_X, Pi_C_Y, rem1) = LHS_for_copy.div_by_ruffini(&chi, &zeta);
+    let (M_X, M_Y, rem2) = (&R - &R_omegaX_Y_eval).div_by_ruffini(
+        &(omega_m_i.inv() * chi), 
+        &zeta
+    );
+    let (N_X, N_Y, rem3) = (&R - &R_omegaX_omegaY_eval).div_by_ruffini(
+        &(omega_m_i.inv() * chi), 
+        &(omega_s_max.inv() * zeta)
+    );
+    
+    #[cfg(feature = "testing-mode")] {
+        assert_eq!(rem1, ScalarField::zero());
+        assert_eq!(rem2, ScalarField::zero());
+        assert_eq!(rem3, ScalarField::zero());
+        let kappa2 = ScalarCfg::generate_random(1)[0];
+        let x_e = ScalarCfg::generate_random(1)[0];
+        let y_e = ScalarCfg::generate_random(1)[0];
+        let FXY = &( &(&B + &(&thetas[0] * &s0XY)) + &(&thetas[1] * &s1XY)) + &thetas[2];
+        let GXY = &( &(&B + &(&thetas[0] * &X_mono)) + &(&thetas[1] * &Y_mono)) + &thetas[2];
+        let F_ = FXY.eval(&x_e, &y_e);
+        let G_ = GXY.eval(&x_e, &y_e);
+        let lagrange_KL_ = lagrange_KL_XY.eval(&x_e, &y_e);
+        let Q_CX_ = Q_CX.eval(&x_e, &y_e);
+        let Q_CY_ = Q_CY.eval(&x_e, &y_e);
+        let R_ = R.eval(&x_e, &y_e);
+        let Pi_C_X_ = Pi_C_X.eval(&x_e, &y_e);
+        let Pi_C_Y_ = Pi_C_Y.eval(&x_e, &y_e);
+        let M_X_ = M_X.eval(&x_e, &y_e);
+        let M_Y_ = M_Y.eval(&x_e, &y_e);
+        let N_X_ = N_X.eval(&x_e, &y_e);
+        let N_Y_ = N_Y.eval(&x_e, &y_e);
+        let LHS_test = kappa1.pow(2) * (
+            (R_eval - ScalarField::one()) * lagrange_KL_
+            + kappa0 * (chi - ScalarField::one()) * (R_eval * G_ - R_omegaX_Y_eval * F_)
+            + kappa0.pow(2) * lagrange_K0_eval * (R_eval * G_ - R_omegaX_omegaY_eval * F_)
+            - (t_mi_eval * Q_CX_) - (t_smax_eval * Q_CY_)
+        ) + kappa1.pow(3) * (
+            R_ - R_eval
+        ) + kappa2 * (
+            R_ - R_omegaX_Y_eval
+        ) + kappa2.pow(2) * (
+            R_ - R_omegaX_omegaY_eval
+        ) + ( //AUX
+            chi * Pi_C_X_ 
+            + kappa2 * omega_m_i.inv() * chi * M_X_
+            + kappa2.pow(2) * omega_m_i.inv() * chi * N_X_
+            + zeta * Pi_C_Y_
+            + kappa2 * zeta * M_Y_
+            + kappa2.pow(2) * omega_s_max.inv() * zeta * N_Y_
+        );
+        let RHS_test = x_e * (
+            Pi_C_X_ + kappa2 * M_X_ + kappa2.pow(2) * N_X_
+        ) + y_e * (
+            Pi_C_Y_ + kappa2 * M_Y_ + kappa2.pow(2) * N_Y_
+        );
+        assert_eq!(LHS_test, RHS_test);
+        println!("Checked: B(X,Y) and R(X,Y) with zero-knowledge satisfy the copy constraints.")
+    }
 
     // Load Sigma (reference string)
     println!("Loading the reference string...");
     let sigma_path = "setup/trusted-setup/output/combined_sigma.json";
     let sigma = Sigma::read_from_json(&sigma_path)
     .expect("No reference string is found. Run the Setup first.");
+
+    let rO_mid = ScalarCfg::generate_random(1)[0];
+    let mut nVar: usize = 0;
+    for i in 0..s_max {
+        let subcircuit_id = placement_variables[i].subcircuitId;
+        let subcircuit_info = &subcircuit_infos[subcircuit_id];
+        if i == 0 {
+            // Public input placement
+            nVar = nVar + subcircuit_info.Out_idx[1]; // Number of output wires
+        } else if i == 1 {
+            // Public output placement
+            nVar = nVar + subcircuit_info.In_idx[1]; // Number of input wires
+        } else {
+            nVar = nVar + subcircuit_info.Out_idx[1] + subcircuit_info.In_idx[1];
+        }
+    }
+
+    let mut aligned_rs = vec![G1Affine::zero(); nVar];
+    let mut aligned_wtns = vec![ScalarField::zero(); nVar];
+    let mut cnt: usize = 0;
+    for i in 0..s_max {
+        let subcircuit_id = placement_variables[i].subcircuitId;
+        let variables = &placement_variables[i].variables;
+        let subcircuit_info = &subcircuit_infos[subcircuit_id];
+        let flatten_map = &subcircuit_info.flattenMap;
+        let start_idx = if i==0 {
+            // Public input placement
+            subcircuit_info.Out_idx[0]
+        } else if i==1 {
+            // Public output placement
+            subcircuit_info.In_idx[0]
+        } else {
+            subcircuit_info.Out_idx[0]
+        };
+        let end_idx_exclusive = if i==0 {
+            // Public input placement
+            subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1]
+        } else if i==1 {
+            // Public output placement
+            subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1]
+        } else {
+            subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1] + subcircuit_info.In_idx[1]
+        };
+
+        for j in start_idx..end_idx_exclusive {
+            aligned_wtns[cnt] = ScalarField::from_hex(&variables[j]);
+            let global_idx = flatten_map[j] - l;
+            let curve_point = sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj[global_idx][i].0;
+            aligned_rs[cnt] = curve_point;
+            cnt += 1;
+        }        
+    }
+    let mut res = vec![G1Projective::zero(); 1];
+    msm::msm(
+        HostSlice::from_slice(&aligned_wtns),
+        HostSlice::from_slice(&aligned_rs),
+        &MSMConfig::default(),
+        HostSlice::from_mut_slice(&mut res)
+    ).unwrap();
+    let O_mid = G1serde(
+        G1Affine::from(
+        res[0] 
+        + sigma.sigma_1.delta.0.to_projective() * rO_mid)
+    );
+
+
+
+
+
+    // // testing
+    // let tau = Tau::gen();
+    // // let lagrange_Kj_XY = Vec::new();
+    // // for j in 0..m_i {
+    // //     let mut zero_vec = vec![ScalarField::zero(); m_i];
+    // //     zero_vec[j] = ScalarField::one();
+    // //     lagrange_Kj_XY.push(
+    // //         DensePolynomialExt::from_rou_evals(
+    // //             HostSlice::from_slice(&zero_vec),
+    // //             m_i,
+    // //             1,
+    // //             None,
+    // //             None
+    // //         )
+    // //     );
+    // // }
+    // let O_mid = &(&tau.eta.inv() * &poly_comb!(
+    //     &tau.alpha * &uXY,
+    //     &tau.alpha.pow(2) * &vXY,
+    //     &tau.alpha.pow(3) * &wXY,
+    //     &tau.alpha.pow(4) * &bXY 
+    // )) + &(rO_mid * tau.delta) ;
+    // let O_prv = poly_comb!(
+
+    // )
+    #[cfg(feature = "testing-mode")] {
+        
+    }
+    
+    
+
+
+    
 
 }

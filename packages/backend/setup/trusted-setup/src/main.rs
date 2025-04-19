@@ -162,11 +162,15 @@ fn main() {
     let lap = start.elapsed();
     println!("The sigma generation time: {:.6} seconds", lap.as_secs_f64());
 
-    // Writing the sigma into JSON
     let start = Instant::now();
+    // Writing the sigma into JSON
     println!("Writing the sigma into JSON...");
     let output_path = "setup/trusted-setup/output/combined_sigma.json";
     sigma.write_into_json(output_path).unwrap();
+    // // Writing the sigma into rust code
+    // println!("Writing the sigma into a rust code...");
+    // let output_path = "setup/trusted-setup/output/combined_sigma.rs";
+    // sigma.write_into_rust_code(output_path).unwrap();
     let lap = start.elapsed();
     println!("The sigma writing time: {:.6} seconds", lap.as_secs_f64());
 
