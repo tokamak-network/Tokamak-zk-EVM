@@ -7,6 +7,8 @@
   export const setupParams = 
  {
   "l": 16,
+  "l_in": 11,
+  "l_out": 1,
   "l_D": 80,
   "m_D": 939,
   "n": 1024,

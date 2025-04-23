@@ -504,14 +504,16 @@ mod tests {
             (m-1)*c-2, 
             n*d -2,
             (m-1)*c, 
-            n*d
+            n*d,
+            ScalarField::zero()
         );
         let q_y_coeffs = resize(
             &q_y_coeffs_opt.into_boxed_slice(), 
             c-1, 
             (n-1)*d-2, 
             c, 
-            (n-1)*d
+            (n-1)*d,
+            ScalarField::zero()
         );
         let mut q_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_x_coeffs), (m-1)*c, n*d);
         let mut q_y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_y_coeffs), c, (n-1)*d);
@@ -565,14 +567,16 @@ mod tests {
             (m-1)*c-3, 
             n*d -2,
             (m-1)*c, 
-            n*d
+            n*d,
+            ScalarField::zero()
         );
         let q_y_coeffs = resize(
             &q_y_coeffs_opt.into_boxed_slice(), 
             c-1, 
             (n-1)*d-2, 
             c, 
-            (n-1)*d
+            (n-1)*d,
+            ScalarField::zero()
         );
         let mut q_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_x_coeffs), (m-1)*c, n*d);
         let mut q_y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_y_coeffs), c, (n-1)*d);
@@ -719,6 +723,18 @@ mod tests_vectors {
         let mut res = vec![ScalarField::zero(); size].into_boxed_slice();
         gen_evaled_lagrange_bases(&x, size, &mut res);
         
+    }
+    #[test]
+    fn test_resize() {
+        let rW_X_coeffs = ScalarCfg::generate_random(3);
+        let rW_X_coeffs_resized = resize(&rW_X_coeffs, 3, 1, 4, 1, ScalarField::zero());
+        let rW_Y_coeffs = ScalarCfg::generate_random(3);
+        let rW_Y_coeffs_resized = resize(&rW_Y_coeffs, 1, 3, 1, 4, ScalarField::zero());
+
+        println!("X_orig: {:?}", rW_X_coeffs);
+        println!("X_ext: {:?}", rW_X_coeffs_resized);
+        println!("Y_orig: {:?}", rW_Y_coeffs);
+        println!("Y_ext: {:?}", rW_Y_coeffs_resized);
     }
 
 

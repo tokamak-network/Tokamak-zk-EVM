@@ -376,10 +376,13 @@ impl BivariatePolynomial for DensePolynomialExt {
         if x_size == 0 || y_size == 0 {
             panic!("Invalid matrix size for from_coeffs");
         }
+        if x_size * y_size != coeffs.len() {
+            panic!("Mismatch between the coefficient vector and the polynomial size")
+        }
         if x_size.is_power_of_two() == false || y_size.is_power_of_two() == false {
             panic!("The input sizes for from_coeffs must be powers of two.")
         }
-        let poly = DensePolynomial::from_coeffs(coeffs, x_size as usize * y_size as usize);
+        let poly = DensePolynomial::from_coeffs(coeffs, x_size * y_size);
         //let (x_degree, y_degree) = DensePolynomialExt::_find_degree(&poly, x_size, y_size);
         Self {
             poly,
@@ -577,7 +580,7 @@ impl BivariatePolynomial for DensePolynomialExt {
         let mut result_slice = vec![Self::Field::zero(); self.y_size];
         let result = HostSlice::from_mut_slice(&mut result_slice);
 
-        for offset in 0..self.y_degree as usize + 1 {
+        for offset in 0..(self.y_degree + 1) as usize  {
             let sub_xpoly = self.get_univariate_polynomial_x(offset as u64);
             result[offset] = sub_xpoly.poly.eval(x);
         }
@@ -589,7 +592,7 @@ impl BivariatePolynomial for DensePolynomialExt {
         let mut result_slice = vec![Self::Field::zero(); self.x_size];
         let result = HostSlice::from_mut_slice(&mut result_slice);
 
-        for offset in 0..self.x_degree as usize + 1 {
+        for offset in 0..(self.x_degree + 1) as usize {
             let sub_ypoly = self.get_univariate_polynomial_y(offset as u64); 
             result[offset] = sub_ypoly.poly.eval(y);
         }
@@ -664,11 +667,14 @@ impl BivariatePolynomial for DensePolynomialExt {
     fn optimize_size(&mut self) {
         self.update_degree();
         let (updated_x_degree, updated_y_degree) = self.degree();
-        let target_x_size = updated_x_degree + 1;
-        let target_y_size = updated_y_degree + 1;
-        self.resize(target_x_size as usize, target_y_size as usize);
         self.x_degree = updated_x_degree;
         self.y_degree = updated_y_degree;
+        let target_x_size = updated_x_degree + 1;
+        let target_y_size = updated_y_degree + 1;
+        if target_x_size == 0 || target_y_size == 0 {
+            return
+        }
+        self.resize(target_x_size as usize, target_y_size as usize);
     }
 
     fn mul_monomial(&self, x_exponent: usize, y_exponent: usize) -> Self {
@@ -680,8 +686,8 @@ impl BivariatePolynomial for DensePolynomialExt {
             let orig_coeffs = HostSlice::from_mut_slice(&mut orig_coeffs_vec);
             self.copy_coeffs(0, orig_coeffs);
 
-            let target_x_size = self.x_degree as usize + x_exponent + 1;
-            let target_y_size = self.y_degree as usize + y_exponent + 1;
+            let target_x_size = (self.x_degree + 1) as usize + x_exponent;
+            let target_y_size = (self.y_degree + 1) as usize + y_exponent;
             let (new_x_size, new_y_size) = _find_size_as_twopower(target_x_size, target_y_size);
             let new_size: usize = new_x_size * new_y_size;
             
@@ -945,18 +951,19 @@ impl BivariatePolynomial for DensePolynomialExt {
     }
 
     fn _div_uni_coeffs_by_ruffini(poly_coeffs_vec: &[Self::Field], x: &Self::Field) -> (Vec<Self::Field>, Self::Field) {
-        {
-            let len = poly_coeffs_vec.len();
-            let mut q_coeffs_vec = vec![Self::Field::zero(); len];
-            let mut b = poly_coeffs_vec[len - 1];
-            q_coeffs_vec[len - 2] = b;
-            for i in 3.. len + 1 {
-                b = poly_coeffs_vec[len - i + 1] + b * *x;
-                q_coeffs_vec[len - i] = b;
-            }
-            let r = poly_coeffs_vec[0] + b * *x;
-            (q_coeffs_vec, r)
+        if poly_coeffs_vec.len() < 2 {
+            return (vec![ScalarField::zero()], poly_coeffs_vec[0])
         }
+        let len = poly_coeffs_vec.len();
+        let mut q_coeffs_vec = vec![Self::Field::zero(); len];
+        let mut b = poly_coeffs_vec[len - 1];
+        q_coeffs_vec[len - 2] = b;
+        for i in 3.. len + 1 {
+            b = poly_coeffs_vec[len - i + 1] + b * *x;
+            q_coeffs_vec[len - i] = b;
+        }
+        let r = poly_coeffs_vec[0] + b * *x;
+        (q_coeffs_vec, r)
     }
 
 }

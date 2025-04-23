@@ -1,8 +1,12 @@
 use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
-use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
-use crate::iotools::{SubcircuitR1CS, SubcircuitInfo, SetupParams};
+use icicle_core::{field::Field, traits::{Arithmetic, FieldImpl, GenerateRandom}};
+use crate::iotools::{PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use super::vector_operations::{*};
 use std::collections::HashSet;
+use rand::Rng;
+use std::{
+    ops::{Add, Mul, Sub},
+};
 
 macro_rules! impl_Tau_struct {
     ( $($ScalarField:ident),* ) => {
@@ -101,3 +105,109 @@ pub fn from_r1cs_to_evaled_qap_mixture(
     
     return evaled_o_vec
 }
+
+impl PlacementVariables {
+    pub fn gen_dummy(setup_params: &SetupParams, subcircuit_infos: &[SubcircuitInfo]) -> Box<[Self]> {
+        let dummy = Self { subcircuitId: 0, variables: vec!['0'.to_string()].into_boxed_slice() };
+        let mut placement_variables_dummy: Box<[Self]> = vec![ dummy; setup_params.s_max].into_boxed_slice();
+        for i in 0..setup_params.s_max {
+            let mut rng = rand::thread_rng();
+            let subcircuit_id: usize = if i == 0 {
+                1
+            } else if i== 1 {
+                0
+            } else {
+                rng.gen_range(2..setup_params.s_D)
+            };
+
+            let variables_val = ScalarCfg::generate_random(subcircuit_infos[subcircuit_id].Nwires);
+            let variables_hex: Vec<String> = variables_val.iter().map(|x| x.to_string()).collect();
+            placement_variables_dummy[i] = Self {
+                subcircuitId: subcircuit_id,
+                variables: variables_hex.into_boxed_slice()
+            };
+        }
+
+        return  placement_variables_dummy
+    }
+}
+#[derive(Clone, Debug, Copy, PartialEq)]
+pub struct FieldSerde(pub ScalarField);
+impl Add for FieldSerde {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        FieldSerde(self.0 + other.0)
+    }
+}
+
+impl Sub for FieldSerde {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        FieldSerde(self.0 - other.0)
+    }
+}
+
+impl Mul for FieldSerde {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> Self {
+        FieldSerde(self.0 * other.0)
+    }
+}
+
+// serde - original
+impl Sub<ScalarField> for FieldSerde {
+    type Output = Self;
+
+    fn sub(self, other: ScalarField) -> Self {
+        FieldSerde(self.0 - other)
+    }
+}
+
+// original - serde
+impl Sub<FieldSerde> for ScalarField {
+    type Output = FieldSerde;
+
+    fn sub(self, other: FieldSerde) -> Self::Output {
+        FieldSerde(self - other.0)
+    }
+}
+
+// serde + original
+impl Add<ScalarField> for FieldSerde {
+    type Output = Self;
+
+    fn add(self, other: ScalarField) -> Self {
+        FieldSerde(self.0 + other)
+    }
+}
+
+// original + serde
+impl Add<FieldSerde> for ScalarField {
+    type Output = FieldSerde;
+
+    fn add(self, other: FieldSerde) -> Self::Output {
+        FieldSerde(self + other.0)
+    }
+}
+
+// serde * original
+impl Mul<ScalarField> for FieldSerde {
+    type Output = Self;
+
+    fn mul(self, other: ScalarField) -> Self {
+        FieldSerde(self.0 * other)
+    }
+}
+
+// original * serde
+impl Mul<FieldSerde> for ScalarField {
+    type Output = FieldSerde;
+
+    fn mul(self, other: FieldSerde) -> Self::Output {
+        FieldSerde(self * other.0)
+    }
+}
+

@@ -1,8 +1,9 @@
-use icicle_bls12_381::curve::{ScalarField, ScalarCfg, G1Affine, G2Affine, BaseField, G2BaseField};
+use icicle_bls12_381::curve::{ScalarField, ScalarCfg, G1Affine, G2Affine, BaseField, G2BaseField, G1Projective, CurveCfg};
 use icicle_core::ntt;
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
-use crate::group_structures::{Sigma, Sigma1, Sigma2};
+use crate::field_structures::FieldSerde;
+use crate::group_structures::{Sigma, Sigma1, Sigma2, G1serde, G2serde};
 use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use crate::vector_operations::transpose_inplace;
 
@@ -11,12 +12,13 @@ use super::vector_operations::{*};
 use icicle_runtime::memory::{HostSlice, DeviceVec};
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, stdout, Write};
-use std::env;
+use std::{env, fmt};
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use serde::ser::{Serializer, SerializeStruct};
+use serde::de::{Deserializer, Visitor, Error};
 use serde_json::{from_reader, to_writer_pretty};
 
 const QAP_COMPILER_PATH_PREFIX: &str = "../frontend/qap-compiler/subcircuits/library";
@@ -48,6 +50,8 @@ fn byte_slice_to_literal(bytes: &[u8]) -> String {
 #[derive(Debug, Deserialize)]
 pub struct SetupParams {
     pub l: usize,
+    pub l_in: usize,
+    pub l_out: usize,
     pub l_D: usize, //m_I = l_D - 1
     pub m_D: usize,
     pub n: usize,
@@ -177,7 +181,7 @@ impl Sigma2 {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct PlacementVariables {
     pub subcircuitId: usize,
     pub variables: Box<[String]>,
@@ -202,14 +206,14 @@ pub struct Permutation {
 }
 
 impl Permutation {
-    pub fn from_path(path: &str) -> io::Result<Vec<Self>> {
+    pub fn from_path(path: &str) -> io::Result<Box<[Self]>> {
         let abs_path = env::current_dir()?.join(SYNTHESIZER_PATH_PREFIX).join(path);
         let file = File::open(abs_path)?;
         let reader = BufReader::new(file);
-        let vec_data: Vec<Self> = from_reader(reader)?;
+        let vec_data: Box<[Self]> = from_reader(reader)?;
         Ok(vec_data)
     }
-    pub fn to_poly(perm_raw: &Vec<Self>, m_i: usize, s_max: usize) -> (DensePolynomialExt, DensePolynomialExt) {
+    pub fn to_poly(perm_raw: &Box<[Self]>, m_i: usize, s_max: usize) -> (DensePolynomialExt, DensePolynomialExt) {
         let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
         let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
         let mut s0_evals_vec = vec![ScalarField::zero(); m_i * s_max];
@@ -402,9 +406,49 @@ impl SubcircuitR1CS{
     
 }
 
+impl Serialize for FieldSerde {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: serde::Serializer {
+        let bytes = self.0.to_bytes_le();
+        serializer.serialize_bytes(&bytes)
+    }
+}
 
-#[derive(Clone, Debug, Copy)]
-pub struct G1serde(pub G1Affine);
+impl<'de> Deserialize<'de> for FieldSerde {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where D: Deserializer<'de>
+    {
+        struct FieldVisitor;
+
+        impl<'de> Visitor<'de> for FieldVisitor {
+            type Value = FieldSerde;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a byte array representing ScalarField")
+            }
+
+            fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+            where E: Error,
+            {
+                const EXPECTED_LEN: usize = 32; // For ICICLE BLS12-381
+
+                if v.len() != EXPECTED_LEN {
+                    return Err(E::custom(format!(
+                        "expected {} bytes, got {}",
+                        EXPECTED_LEN,
+                        v.len()
+                    )));
+                }
+
+                let scalar = ScalarField::from_bytes_le(v);
+                Ok(FieldSerde(scalar))
+            }
+        }
+
+        deserializer.deserialize_bytes(FieldVisitor)
+    }
+}
+
 impl Serialize for G1serde {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: serde::Serializer {
@@ -432,9 +476,6 @@ impl<'de> Deserialize<'de> for G1serde {
     }
 }
 impl G1serde {
-    pub fn zero() -> Self {
-        G1serde(G1Affine::zero())
-    }
     pub fn to_rust_code(&self) -> String {
         let x_bytes = self.0.x.to_bytes_le();
         let y_bytes = self.0.y.to_bytes_le();
@@ -447,8 +488,6 @@ impl G1serde {
     }
 }
 
-#[derive(Clone, Debug, Copy)]
-pub struct G2serde(pub G2Affine);
 impl Serialize for G2serde {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: serde::Serializer {
@@ -496,8 +535,8 @@ pub fn scaled_outer_product_2d(
     scaler: Option<&ScalarField>, 
     res: &mut Box<[Box<[G1serde]>]>
 ) {
-    let col_size = col_vec.len();
-    let row_size = row_vec.len();
+    let row_size = col_vec.len();
+    let col_size = row_vec.len();
     let size = col_size * row_size;
     if res.len() > 0 {
         if res.len() * res[0].len() != size {

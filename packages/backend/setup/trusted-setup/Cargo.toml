@@ -12,3 +12,6 @@ icicle-bls12-381 = { workspace = true }
 libs = { workspace = true }
 rayon = { workspace = true }
 
+[features]
+default = []
+testing-mode = ["libs/testing-mode"]

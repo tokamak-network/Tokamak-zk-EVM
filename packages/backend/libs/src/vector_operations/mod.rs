@@ -1,5 +1,5 @@
 use super::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
-use super::iotools::G1serde;
+use super::group_structures::G1serde;
 use icicle_bls12_381::vec_ops;
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField, G1Affine, G2Affine};
@@ -156,41 +156,26 @@ pub fn outer_product_two_vecs(col_vec: &[ScalarField], row_vec: &[ScalarField], 
         panic!("Insufficient buffer length");
     }
 
-    let col_len = col_vec.len();
-    let row_len = row_vec.len();
+    let row_len = col_vec.len();
+    let col_len = row_vec.len();
 
-    let vec_ops_cfg = VecOpsConfig::default();
+    // let vec_ops_cfg = VecOpsConfig::default();
     let min_len = std::cmp::min(row_len, col_len);
     let max_len = std::cmp::max(row_len, col_len);
-    let max_dir = if max_len == row_len {true } else {false};
+    let max_col = if max_len == row_len {true } else {false};
 
-    let base_vec = if max_dir { row_vec } else { col_vec };
+    let base_vec = if max_col { col_vec } else { row_vec };
      
-    let mut res_untransposed = vec![ScalarField::zero(); res.len()];
+    // let mut res_untransposed = vec![ScalarField::zero(); res.len()];
     for ind in 0 .. min_len {
-        let scaler = if max_dir {col_vec[ind]} else {row_vec[ind]};
-        let scaler_vec = vec![scaler];
-        let mut res_vec = vec![ScalarField::zero(); max_len];
-        ScalarCfg::scalar_mul(
-            HostSlice::from_slice(&scaler_vec),
-            HostSlice::from_slice(&base_vec),
-            HostSlice::from_mut_slice(&mut res_vec),
-            &vec_ops_cfg
-        ).unwrap();
-        res_untransposed[ind * max_len .. (ind + 1) * max_len].copy_from_slice(&res_vec);
+        let scaler = if max_col {row_vec[ind]} else {col_vec[ind]};
+        let mut _res_vec = vec![ScalarField::zero(); max_len];
+        scale_vec(scaler, base_vec, &mut _res_vec);
+        res[ind * max_len .. (ind + 1) * max_len].copy_from_slice(&_res_vec);
     }
     
-    if !max_dir {
-        let res_untranposed_buf = HostSlice::from_slice(&res_untransposed);
-        let res_buf = HostSlice::from_mut_slice(res);
-        ScalarCfg::transpose(
-            res_untranposed_buf,
-            min_len as u32,
-            max_len as u32,
-            res_buf,
-            &vec_ops_cfg).unwrap();
-    } else {
-        res.clone_from_slice(&res_untransposed);
+    if max_col {
+        transpose_inplace(res, min_len, max_len);
     }
 }
 
@@ -262,15 +247,18 @@ pub fn extend_monomial_vec (
     }
 }
 
-pub fn resize(
-    mat: &[ScalarField],
+pub fn resize<F>(
+    mat: &[F],
     curr_row_size: usize,
     curr_col_size: usize, 
     target_row_size: usize, 
-    target_col_size: usize
-) ->  Vec<ScalarField> {
+    target_col_size: usize,
+    zero: F
+) ->  Vec<F> 
+where F: Copy,
+{
     let target_size: usize = target_row_size * target_col_size;
-    let mut res_coeffs_vec = vec![ScalarField::zero(); target_size];
+    let mut res_coeffs_vec = vec![zero; target_size];
     for i in 0 .. std::cmp::min(curr_row_size, target_row_size) {
         let each_col_size = std::cmp::min(curr_col_size, target_col_size);
         res_coeffs_vec[target_col_size * i .. target_col_size * i + each_col_size].copy_from_slice(
