@@ -1,12 +1,26 @@
-use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
-use icicle_core::{field::Field, traits::{Arithmetic, FieldImpl, GenerateRandom}};
+use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
+use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use crate::iotools::{PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use super::vector_operations::{*};
-use std::collections::HashSet;
 use rand::Rng;
-use std::{
-    ops::{Add, Mul, Sub},
-};
+use std::ops::{Add, Mul, Sub};
+use icicle_runtime::memory::HostSlice;
+use icicle_core::hash::HashConfig;
+use icicle_hash::keccak::Keccak256;
+
+pub fn hashing(seed: &Vec<u8>) -> ScalarField {
+    let keccak_hasher = Keccak256::new(0 /* default input size */).unwrap();
+    let mut res_bytes = vec![0u8; 32]; // 32-byte output buffer
+    keccak_hasher
+    .hash(
+        HostSlice::from_slice(seed),  // Input data
+        &HashConfig::default(),                       // Default configuration
+        HostSlice::from_mut_slice(&mut res_bytes),       // Output buffer
+    )
+    .unwrap();
+    res_bytes[31] &= 0b0011_1111;
+    return ScalarField::from_bytes_le(&res_bytes)
+}
 
 macro_rules! impl_Tau_struct {
     ( $($ScalarField:ident),* ) => {

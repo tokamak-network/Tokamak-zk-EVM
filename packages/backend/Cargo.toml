@@ -2,7 +2,9 @@
 members = [
     "libs",
     "setup/trusted-setup",
-    "prove"
+    "prove",
+    "verify/verify-rust",
+    "protocol-script"
 ]
 
 [workspace.package]
@@ -18,6 +20,8 @@ ark-bls12-381 = "0.5.0"
 ark-ec = "0.5.0"
 ark-ff = "0.5.0"
 libs = { path = "libs" }
+prove = { path = "prove" }
+verify = { path = "verify/verify-rust" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 byteorder = "1.4"

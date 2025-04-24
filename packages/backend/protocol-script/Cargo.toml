@@ -1,0 +1,21 @@
+[package]
+name = "protocol-script"
+version = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+icicle-runtime = { workspace = true }
+icicle-core = { workspace = true }
+icicle-hash = { workspace = true }
+icicle-bls12-381 = { workspace = true }
+libs = { workspace = true }
+rayon = { workspace = true }
+bincode = { workspace = true }
+verify = {workspace = true }
+prove = {workspace = true }
+
+[features]
+default = []
+testing-mode = []

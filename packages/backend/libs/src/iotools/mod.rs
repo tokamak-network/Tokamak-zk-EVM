@@ -617,6 +617,10 @@ pub fn from_coef_vec_to_g1serde_vec(coef: &Box<[ScalarField]>, gen: &G1Affine, r
         });
     print!("\r");
 
+    // HostSlice 두개
+    // coeff으 ㅣ벡터와 gen 포인트 하나.
+    // coeff의 벡터 하나와 gen을 복사해서 벡터로.
+
     // println!("Number of nonzero coefficients: {:?}", coef.len() - nzeros);
 }
 
