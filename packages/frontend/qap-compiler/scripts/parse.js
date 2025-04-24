@@ -35,20 +35,21 @@ function _buildWireFlattenMap(globalWireList, subcircuitInfos, globalWireIndex, 
 
 function parseWireList(subcircuitInfos, mode = 0) {
   let numTotalWires = 0
-  let numPublicWires = 0
+  let numPublicInWires = 0
+  let numPublicOutWires = 0
   let numInterfaceWires = 0
   const subcircuitInfoByName = new Map()
   for (const subcircuit of subcircuitInfos) {
     numTotalWires += subcircuit.Nwires
 
     if ( listPublicIn.has(subcircuit.name) ){
-      numPublicWires += subcircuit.In_idx[1]
+      numPublicInWires += subcircuit.In_idx[1]
     } else {
       numInterfaceWires += subcircuit.In_idx[1]
     }
 
     if ( listPublicOut.has(subcircuit.name) ){
-      numPublicWires += subcircuit.Out_idx[1]
+      numPublicOutWires += subcircuit.Out_idx[1]
     } else {
       numInterfaceWires += subcircuit.Out_idx[1]
     }
@@ -64,13 +65,16 @@ function parseWireList(subcircuitInfos, mode = 0) {
     subcircuitInfoByName.set(subcircuit.name, entryObject)
   }
 
+  const l_out = numPublicOutWires
+  const l_in = numPublicInWires
+
   let twosPower = 1
-  while (twosPower < numPublicWires) {
+  while (twosPower < l_out + l_in) {
     twosPower <<= 1
   }
   // twosPower >= numPublicWires
-  const numDiff_l = twosPower - numPublicWires
-  const l = numPublicWires + numDiff_l
+  const numDiff_l = twosPower - (l_out + l_in)
+  const l = l_in + l_out + numDiff_l
   // numDiff_l makes the parameter l to be power of two.
   
   twosPower = 1
@@ -200,6 +204,8 @@ function parseWireList(subcircuitInfos, mode = 0) {
   }
 
   return {
+    l_in: l_in,
+    l_out: l_out,
     l: l,
     l_D: l_D,
     m_D: m_D,
@@ -273,6 +279,8 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
 
   const setupParams = {
     l: globalWireInfo.l,
+    l_in: globalWireInfo.l_in,
+    l_out: globalWireInfo.l_out,
     l_D: globalWireInfo.l_D,
     m_D: globalWireInfo.m_D,
     n,

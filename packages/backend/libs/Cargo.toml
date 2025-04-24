@@ -7,6 +7,7 @@ edition = { workspace = true }
 icicle-runtime = { workspace = true }
 icicle-core = { workspace = true }
 icicle-bls12-381 = { workspace = true }
+icicle-hash = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 byteorder = { workspace = true }
@@ -15,7 +16,15 @@ num-traits = { workspace = true }
 rayon = { workspace = true }
 criterion = "0.3"
 hex = "0.4.3"
+ark-bls12-381 = { workspace = true }
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
+rand = { workspace = true }
 
 [[bench]]
 name = "outer_product_bench"
 harness = false
+
+[features]
+default = []
+testing-mode = []

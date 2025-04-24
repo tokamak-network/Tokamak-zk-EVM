@@ -6,7 +6,7 @@ private inputs: 0
 public outputs: 2
 wires: 554
 labels: 591
-[32mWritten successfully:[0m ../subcircuits/library/MUL_circuit.r1cs
-[32mConstraints written in:[0m ../subcircuits/library/MUL_circuit_constraints.json
-[32mWritten successfully:[0m ../subcircuits/library/MUL_circuit_js/MUL_circuit.wasm
+[32mWritten successfully:[0m ../subcircuits/library\MUL_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library\MUL_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library\MUL_circuit_js\MUL_circuit.wasm
 [32mEverything went okay[0m

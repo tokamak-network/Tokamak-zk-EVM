@@ -133,16 +133,63 @@ mod tests {
 
     #[test]
     fn test_mul_scalar() { // pass
-        let poly = create_simple_polynomial();
-        let scalar = ScalarField::from_u32(2);
+        let x_size = 2usize.pow(10);
+        let y_size = 2usize.pow(5);
+        let poly = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&ScalarCfg::generate_random(x_size * y_size)), 
+            x_size, 
+            y_size
+        );
+        let scalar = ScalarCfg::generate_random(1)[0];
         
-        let result = &poly * &scalar;
+        let result1 = &poly * &scalar;
+        let result2 = &scalar * &poly;
         
         // Verify scalar multiplication results
-        assert_eq!(result.get_coeff(0, 0), ScalarField::from_u32(1) * ScalarField::from_u32(2));  // 1*2
-        assert_eq!(result.get_coeff(1, 0), ScalarField::from_u32(2) * ScalarField::from_u32(2));  // 2*2
-        assert_eq!(result.get_coeff(0, 1), ScalarField::from_u32(3) * ScalarField::from_u32(2));  // 3*2
-        assert_eq!(result.get_coeff(1, 1), ScalarField::from_u32(4) * ScalarField::from_u32(2));  // 4*2
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+        assert_eq!(result1.eval(&x, &y), poly.eval(&x, &y) * scalar);
+        assert_eq!(result1.eval(&x, &y), result2.eval(&x, &y));
+    }
+
+    #[test]
+    fn test_sub_scalar() { // pass
+        let x_size = 2usize.pow(10);
+        let y_size = 2usize.pow(5);
+        let poly = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&ScalarCfg::generate_random(x_size * y_size)), 
+            x_size, 
+            y_size
+        );
+        let scalar = ScalarCfg::generate_random(1)[0];
+        let result1 = &poly - &scalar;
+        let result2 = &scalar - &poly;
+
+        // Verify scalar multiplication results
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+        assert_eq!(result1.eval(&x, &y), poly.eval(&x, &y) - scalar);
+        assert_eq!(result2.eval(&x, &y), scalar - poly.eval(&x, &y));  
+    }
+
+    #[test]
+    fn test_add_scalar() { // pass
+        let x_size = 2usize.pow(10);
+        let y_size = 2usize.pow(5);
+        let poly = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&ScalarCfg::generate_random(x_size * y_size)), 
+            x_size, 
+            y_size
+        );
+        let scalar = ScalarCfg::generate_random(1)[0];
+        let result1 = &poly + &scalar;
+        let result2 = &scalar + &poly;
+        
+        // Verify scalar multiplication results
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+        assert_eq!(result1.eval(&x, &y), poly.eval(&x, &y) + scalar);
+        assert_eq!(result1.eval(&x, &y), result2.eval(&x, &y));
     }
 
     #[test]
@@ -291,7 +338,7 @@ mod tests {
         let x = ScalarCfg::generate_random(1)[0];
         let y = ScalarCfg::generate_random(1)[0];
         
-        let (q_x, q_y, r) = p.div_by_ruffini(x, y);
+        let (q_x, q_y, r) = p.div_by_ruffini(&x, &y);
         let a = ScalarCfg::generate_random(1)[0];
         let b = ScalarCfg::generate_random(1)[0];
         let q_x_eval = q_x.eval(&a, &b);
@@ -457,14 +504,16 @@ mod tests {
             (m-1)*c-2, 
             n*d -2,
             (m-1)*c, 
-            n*d
+            n*d,
+            ScalarField::zero()
         );
         let q_y_coeffs = resize(
             &q_y_coeffs_opt.into_boxed_slice(), 
             c-1, 
             (n-1)*d-2, 
             c, 
-            (n-1)*d
+            (n-1)*d,
+            ScalarField::zero()
         );
         let mut q_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_x_coeffs), (m-1)*c, n*d);
         let mut q_y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_y_coeffs), c, (n-1)*d);
@@ -518,14 +567,16 @@ mod tests {
             (m-1)*c-3, 
             n*d -2,
             (m-1)*c, 
-            n*d
+            n*d,
+            ScalarField::zero()
         );
         let q_y_coeffs = resize(
             &q_y_coeffs_opt.into_boxed_slice(), 
             c-1, 
             (n-1)*d-2, 
             c, 
-            (n-1)*d
+            (n-1)*d,
+            ScalarField::zero()
         );
         let mut q_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_x_coeffs), (m-1)*c, n*d);
         let mut q_y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_y_coeffs), c, (n-1)*d);
@@ -600,6 +651,23 @@ mod tests_vectors {
     }
 
     #[test]
+    fn test_scaled_outer_product() {
+        let vec1 = scalar_vec![1, 2, 3];
+        let vec2 = scalar_vec![4, 5];
+        let vec3 = scalar_vec![2, 0, 2, 4];
+        let scaler = ScalarField::from_u32(2);
+
+        let mut res = vec![ScalarField::zero(); 6].into_boxed_slice();
+        scaled_outer_product(&vec1, &vec2, Some(&scaler), &mut res);
+        println!("res : {:?}", res);
+
+        let mut res = vec![ScalarField::zero(); 8].into_boxed_slice();
+        scaled_outer_product(&vec3, &vec2, None, &mut res);
+        println!("res : {:?}", res);
+
+    }
+
+    #[test]
     fn test_matrix_matrix_mul_small() {
         // example size: 2x3 * 3x2 = 2x2
         // LHS: 2x3
@@ -655,6 +723,18 @@ mod tests_vectors {
         let mut res = vec![ScalarField::zero(); size].into_boxed_slice();
         gen_evaled_lagrange_bases(&x, size, &mut res);
         
+    }
+    #[test]
+    fn test_resize() {
+        let rW_X_coeffs = ScalarCfg::generate_random(3);
+        let rW_X_coeffs_resized = resize(&rW_X_coeffs, 3, 1, 4, 1, ScalarField::zero());
+        let rW_Y_coeffs = ScalarCfg::generate_random(3);
+        let rW_Y_coeffs_resized = resize(&rW_Y_coeffs, 1, 3, 1, 4, ScalarField::zero());
+
+        println!("X_orig: {:?}", rW_X_coeffs);
+        println!("X_ext: {:?}", rW_X_coeffs_resized);
+        println!("Y_orig: {:?}", rW_Y_coeffs);
+        println!("Y_ext: {:?}", rW_Y_coeffs_resized);
     }
 
 
