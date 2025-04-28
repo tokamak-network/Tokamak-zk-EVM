@@ -1,6 +1,5 @@
 pragma circom 2.1.6;
 include "templates/128bit/divider.circom";
-include "../node_modules/circomlib/circuits/comparators.circom";
 
 //256bits(a*2^128+b) x 256bits(c*2^128+d)
 template Mul () {
@@ -30,22 +29,6 @@ template Mul () {
     d[2] <== split_in2_upper.r;
     d[3] <== split_in2_upper.q;
 
-    // Need to confirm that c[0..3] and d[0..3] are less than 2^64.
-    // It was ensured by Divider(64) that c[0], c[2], d[0], d[2] are less than 2^64.
-    // So, we check c[1], c[3], d[1], d[3].
-    var Field = (1<<64);
-    component lt[4];
-    for (var i = 0; i < 2; i++) {
-        lt[i] = LessThan(64);
-        lt[i].in[0] <== c[i * 2 + 1];
-        lt[i].in[1] <== Field;
-        lt[i].out === 1;
-        lt[i+2] = LessThan(64);
-        lt[i+2].in[0] <== d[i * 2 + 1];
-        lt[i+2].in[1] <== Field;
-        lt[i+2].out === 1;
-    }
-
     signal inter[6];
 
     inter[0] <== c[3]*d[0];
@@ -62,8 +45,8 @@ template Mul () {
     signal bits_64 <== c[0]*d[0];
 
     signal e[2];
-    e[0] <== (bits_128 * (2**64)) + bits_64;
-    e[1] <== (bits_256 * (2**64)) + bits_192;
+    e[0] <== (bits_128)*(2**64) + bits_64;
+    e[1] <== (bits_256)*(2**64) + bits_192;
 
     component out_lower = Divider(128);
     out_lower.in <== e[0];

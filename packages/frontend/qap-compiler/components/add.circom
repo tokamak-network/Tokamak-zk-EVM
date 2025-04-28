@@ -1,21 +1,11 @@
 pragma circom 2.1.6;
 include "templates/128bit/adder.circom";
-include "../node_modules/circomlib/circuits/comparators.circom";
 
 template Add () {
     signal input in[4]; // 256-bit integers consisting of two 128-bit integers; in[0]: lower, in[1]: upper
-
-    var Field = (1<<128);
-    component lt[4];
-    for (var i = 0; i < 4; i++) {
-        lt[i] = LessThan(128);
-        lt[i].in[0] <== in[i];
-        lt[i].in[1] <== Field;
-        lt[i].out === 1;
-    }
-    
     signal in1[2] <== [in[0], in[1]];
     signal in2[2] <== [in[2], in[3]];
+
 
     component adder_lower = Adder128();
     adder_lower.in <== [in1[0], in2[0]];
