@@ -1,28 +1,404 @@
 {
-  "publicInputBuffer": {
-    "name": "bufferPubIn",
-    "subcircuitId": 1,
-    "inPts": [],
-    "outPts": []
-  },
   "publicOutputBuffer": {
     "name": "bufferPubOut",
     "subcircuitId": 0,
-    "inPts": [],
-    "outPts": []
+    "inPts": [
+      {
+        "source": 30,
+        "wireIndex": 0,
+        "sourceSize": 32,
+        "valueHex": "0x392a2d1a05288b172f205541a56fc20d"
+      },
+      {
+        "source": 30,
+        "wireIndex": 1,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000c2c30e79"
+      },
+      {
+        "source": 2,
+        "wireIndex": 124,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 125,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 37,
+        "wireIndex": 0,
+        "sourceSize": 32,
+        "valueHex": "0x392a2d1a05288b172f205541a56fc20d"
+      },
+      {
+        "source": 37,
+        "wireIndex": 1,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000c2c30e79"
+      },
+      {
+        "source": 2,
+        "wireIndex": 146,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 147,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 38,
+        "wireIndex": 0,
+        "sourceSize": 32,
+        "valueHex": "0xd4ad12e56e54018313761487d2d1fee9"
+      },
+      {
+        "source": 38,
+        "wireIndex": 1,
+        "sourceSize": 32,
+        "valueHex": "0x0000000000000000000000000ce8f6c9"
+      },
+      {
+        "source": 2,
+        "wireIndex": 146,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 147,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 45,
+        "wireIndex": 0,
+        "sourceSize": 32,
+        "valueHex": "0xd4ad12e56e54018313761487d2d1fee9"
+      },
+      {
+        "source": 45,
+        "wireIndex": 1,
+        "sourceSize": 32,
+        "valueHex": "0x0000000000000000000000000ce8f6c9"
+      },
+      {
+        "source": 2,
+        "wireIndex": 170,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "source": 2,
+        "wireIndex": 171,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      }
+    ],
+    "outPts": [
+      {
+        "extDest": "KeccakIn",
+        "key": "0x0",
+        "offset": 0,
+        "source": 1,
+        "wireIndex": 0,
+        "sourceSize": 32,
+        "valueHex": "0x392a2d1a05288b172f205541a56fc20d"
+      },
+      {
+        "extDest": "KeccakIn",
+        "key": "0x0",
+        "offset": 0,
+        "source": 1,
+        "wireIndex": 1,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000c2c30e79"
+      },
+      {
+        "extDest": "KeccakIn",
+        "key": "0x0",
+        "offset": 1,
+        "source": 1,
+        "wireIndex": 2,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "extDest": "KeccakIn",
+        "key": "0x0",
+        "offset": 1,
+        "source": 1,
+        "wireIndex": 3,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "extDest": "KeccakIn",
+        "key": "0x1",
+        "offset": 0,
+        "source": 1,
+        "wireIndex": 4,
+        "sourceSize": 32,
+        "valueHex": "0x392a2d1a05288b172f205541a56fc20d"
+      },
+      {
+        "extDest": "KeccakIn",
+        "key": "0x1",
+        "offset": 0,
+        "source": 1,
+        "wireIndex": 5,
+        "sourceSize": 32,
+        "valueHex": "0x000000000000000000000000c2c30e79"
+      },
+      {
+        "extDest": "KeccakIn",
+        "key": "0x1",
+        "offset": 1,
+        "source": 1,
+        "wireIndex": 6,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "extDest": "KeccakIn",
+        "key": "0x1",
+        "offset": 1,
+        "source": 1,
+        "wireIndex": 7,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "extDest": "KeccakIn",
+        "key": "0x2",
+        "offset": 0,
+        "source": 1,
+        "wireIndex": 8,
+        "sourceSize": 32,
+        "valueHex": "0xd4ad12e56e54018313761487d2d1fee9"
+      },
+      {
+        "extDest": "KeccakIn",
+        "key": "0x2",
+        "offset": 0,
+        "source": 1,
+        "wireIndex": 9,
+        "sourceSize": 32,
+        "valueHex": "0x0000000000000000000000000ce8f6c9"
+      },
+      {
+        "extDest": "KeccakIn",
+        "key": "0x2",
+        "offset": 1,
+        "source": 1,
+        "wireIndex": 10,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "extDest": "KeccakIn",
+        "key": "0x2",
+        "offset": 1,
+        "source": 1,
+        "wireIndex": 11,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "extDest": "KeccakIn",
+        "key": "0x3",
+        "offset": 0,
+        "source": 1,
+        "wireIndex": 12,
+        "sourceSize": 32,
+        "valueHex": "0xd4ad12e56e54018313761487d2d1fee9"
+      },
+      {
+        "extDest": "KeccakIn",
+        "key": "0x3",
+        "offset": 0,
+        "source": 1,
+        "wireIndex": 13,
+        "sourceSize": 32,
+        "valueHex": "0x0000000000000000000000000ce8f6c9"
+      },
+      {
+        "extDest": "KeccakIn",
+        "key": "0x3",
+        "offset": 1,
+        "source": 1,
+        "wireIndex": 14,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      },
+      {
+        "extDest": "KeccakIn",
+        "key": "0x3",
+        "offset": 1,
+        "source": 1,
+        "wireIndex": 15,
+        "sourceSize": 32,
+        "valueHex": "0x00000000000000000000000000000000"
+      }
+    ]
+  },
+  "publicInputBuffer": {
+    "name": "bufferPubIn",
+    "subcircuitId": 1,
+    "inPts": [
+      {
+        "extSource": "KeccakOut",
+        "key": "0x0",
+        "source": 0,
+        "wireIndex": 0,
+        "sourceSize": 32,
+        "valueHex": "0x20af07748adbb0932a59cfb9ad012354"
+      },
+      {
+        "extSource": "KeccakOut",
+        "key": "0x0",
+        "source": 0,
+        "wireIndex": 1,
+        "sourceSize": 32,
+        "valueHex": "0xf903343320db59a6e85d0dbb1bc7d722"
+      },
+      {
+        "extSource": "KeccakOut",
+        "key": "0x1",
+        "source": 0,
+        "wireIndex": 2,
+        "sourceSize": 32,
+        "valueHex": "0x20af07748adbb0932a59cfb9ad012354"
+      },
+      {
+        "extSource": "KeccakOut",
+        "key": "0x1",
+        "source": 0,
+        "wireIndex": 3,
+        "sourceSize": 32,
+        "valueHex": "0xf903343320db59a6e85d0dbb1bc7d722"
+      },
+      {
+        "extSource": "KeccakOut",
+        "key": "0x2",
+        "source": 0,
+        "wireIndex": 4,
+        "sourceSize": 32,
+        "valueHex": "0x1f924fe321c5cf7ad7a47b57891fbcb0"
+      },
+      {
+        "extSource": "KeccakOut",
+        "key": "0x2",
+        "source": 0,
+        "wireIndex": 5,
+        "sourceSize": 32,
+        "valueHex": "0x81f4f96b68c216b824fb32a8c09bd5a8"
+      },
+      {
+        "extSource": "KeccakOut",
+        "key": "0x3",
+        "source": 0,
+        "wireIndex": 6,
+        "sourceSize": 32,
+        "valueHex": "0x1f924fe321c5cf7ad7a47b57891fbcb0"
+      },
+      {
+        "extSource": "KeccakOut",
+        "key": "0x3",
+        "source": 0,
+        "wireIndex": 7,
+        "sourceSize": 32,
+        "valueHex": "0x81f4f96b68c216b824fb32a8c09bd5a8"
+      }
+    ],
+    "outPts": [
+      {
+        "source": 0,
+        "wireIndex": 0,
+        "sourceSize": 32,
+        "valueHex": "0x20af07748adbb0932a59cfb9ad012354"
+      },
+      {
+        "source": 0,
+        "wireIndex": 1,
+        "sourceSize": 32,
+        "valueHex": "0xf903343320db59a6e85d0dbb1bc7d722"
+      },
+      {
+        "source": 0,
+        "wireIndex": 2,
+        "sourceSize": 32,
+        "valueHex": "0x20af07748adbb0932a59cfb9ad012354"
+      },
+      {
+        "source": 0,
+        "wireIndex": 3,
+        "sourceSize": 32,
+        "valueHex": "0xf903343320db59a6e85d0dbb1bc7d722"
+      },
+      {
+        "source": 0,
+        "wireIndex": 4,
+        "sourceSize": 32,
+        "valueHex": "0x1f924fe321c5cf7ad7a47b57891fbcb0"
+      },
+      {
+        "source": 0,
+        "wireIndex": 5,
+        "sourceSize": 32,
+        "valueHex": "0x81f4f96b68c216b824fb32a8c09bd5a8"
+      },
+      {
+        "source": 0,
+        "wireIndex": 6,
+        "sourceSize": 32,
+        "valueHex": "0x1f924fe321c5cf7ad7a47b57891fbcb0"
+      },
+      {
+        "source": 0,
+        "wireIndex": 7,
+        "sourceSize": 32,
+        "valueHex": "0x81f4f96b68c216b824fb32a8c09bd5a8"
+      }
+    ]
   },
   "a": [
+    "0x392a2d1a05288b172f205541a56fc20d",
+    "0xc2c30e79",
     "0x00",
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null
+    "0x00",
+    "0x392a2d1a05288b172f205541a56fc20d",
+    "0xc2c30e79",
+    "0x00",
+    "0x00",
+    "0xd4ad12e56e54018313761487d2d1fee9",
+    "0x0ce8f6c9",
+    "0x00",
+    "0x00",
+    "0xd4ad12e56e54018313761487d2d1fee9",
+    "0x0ce8f6c9",
+    "0x00",
+    "0x00",
+    "0x20af07748adbb0932a59cfb9ad012354",
+    "0xf903343320db59a6e85d0dbb1bc7d722",
+    "0x20af07748adbb0932a59cfb9ad012354",
+    "0xf903343320db59a6e85d0dbb1bc7d722",
+    "0x1f924fe321c5cf7ad7a47b57891fbcb0",
+    "0x81f4f96b68c216b824fb32a8c09bd5a8",
+    "0x1f924fe321c5cf7ad7a47b57891fbcb0",
+    "0x81f4f96b68c216b824fb32a8c09bd5a8",
+    "0x00",
+    "0x00",
+    "0x00",
+    "0x00",
+    "0x00",
+    "0x00",
+    "0x00",
+    "0x00"
   ]
 }

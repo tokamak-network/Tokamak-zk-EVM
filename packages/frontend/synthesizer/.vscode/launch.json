@@ -6,7 +6,7 @@
       "request": "launch",
       "name": "Launch with tsx",
       "runtimeExecutable": "tsx",
-      "program": "${workspaceFolder}/examples/erc20/usdt-transfer.ts",
+      "program": "${workspaceFolder}/examples/synthesizer/fibonacci.ts",
       "args": [],
       "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],

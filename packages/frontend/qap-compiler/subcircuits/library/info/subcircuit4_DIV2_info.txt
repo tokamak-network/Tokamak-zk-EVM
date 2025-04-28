@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 6
+non-linear constraints: 774
+linear constraints: 22
+public inputs: 4
+private inputs: 2
+public outputs: 2
+wires: 795
+labels: 841
+[32mWritten successfully:[0m ../subcircuits/library\DIV2_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library\DIV2_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library\DIV2_circuit_js\DIV2_circuit.wasm
+[32mEverything went okay[0m
