@@ -2,10 +2,9 @@
 use icicle_runtime::memory::HostSlice;
 use icicle_runtime::stream::IcicleStream;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
-use libs::iotools::{PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
+use libs::iotools::{PublicInstance, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use libs::field_structures::{Tau, from_r1cs_to_evaled_qap_mixture};
 use libs::iotools::{read_global_wire_list_as_boxed_boxed_numbers};
-use libs::polynomial_structures::{gen_aX, gen_bXY, gen_uXY, gen_vXY, gen_wXY};
 use libs::vector_operations::{gen_evaled_lagrange_bases, resize};
 use libs::group_structures::{Sigma1, Sigma, pairing, G1serde};
 use icicle_bls12_381::curve::{ScalarField, ScalarCfg, CurveCfg, G2CurveCfg, G1Affine, G1Projective};
@@ -22,16 +21,13 @@ fn main() {
     let start1 = Instant::now();
     
     // Generate random affine points on the elliptic curve (G1 and G2)
-    println!("Generating random generator points...");
     let g1_gen = CurveCfg::generate_random_affine_points(1)[0];
     let g2_gen = G2CurveCfg::generate_random_affine_points(1)[0];
     
     // Generate a random secret parameter tau (x and y only, no z as per the paper)
-    println!("Generating random tau parameter...");
     let tau = Tau::gen();
     
     // Load setup parameters from JSON file
-    println!("Loading setup parameters...");
     let setup_file_name = "setupParams.json";
     let setup_params = SetupParams::from_path(setup_file_name).unwrap();
 
@@ -40,15 +36,17 @@ fn main() {
     let s_d = setup_params.s_D; // Number of subcircuits
     let n = setup_params.n;     // Number of constraints per subcircuit
     let s_max = setup_params.s_max; // The maximum number of placements.
+    // Additional wire-related parameters
+    let l = setup_params.l;     // Number of public I/O wires
+    let l_d = setup_params.l_D; // Number of interface wires
+    // The last wire-related parameter
+    let m_i = l_d - l;
+    println!("Setup parameters: \n n = {:?}, \n s_max = {:?}, \n l = {:?}, \n m_I = {:?}, \n m_D = {:?}", n, s_max, l, m_i, m_d);
     
     // Verify n is a power of two
     if !n.is_power_of_two() {
         panic!("n is not a power of two.");
     }
-    
-    // Additional wire-related parameters
-    let l = setup_params.l;     // Number of public I/O wires
-    let l_d = setup_params.l_D; // Number of interface wires
     
     if !(l.is_power_of_two() || l==0) {
         panic!("l is not a power of two.");
@@ -60,47 +58,37 @@ fn main() {
         panic!("s_max is not a power of two.");
     }
     
-    // The last wire-related parameter
-    let m_i = l_d - l;
-    
     // Verify m_I is a power of two
     if !m_i.is_power_of_two() {
         panic!("m_I is not a power of two.");
     }
     
     // Load subcircuit information
-    println!("Loading subcircuit information...");
     let subcircuit_file_name = "subcircuitInfo.json";
     let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_file_name).unwrap();
 
     // Load global wire list
-    println!("Loading global wire list...");
     let global_wire_file_name = "globalWireList.json";
     let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_file_name).unwrap();
     
     // ------------------- Generate Polynomial Evaluations -------------------
     let start = Instant::now();
-    println!("Generating polynomial evaluations...");
 
     // Compute k_evaled_vec: Lagrange polynomial evaluations at τ.x of size m_I
-    println!("Computing Lagrange polynomial evaluations (k_evaled_vec)...");
     let mut k_evaled_vec = vec![ScalarField::zero(); m_i].into_boxed_slice();
     gen_evaled_lagrange_bases(&tau.x, m_i, &mut k_evaled_vec);
 
     // Compute l_evaled_vec: Lagrange polynomial evaluations at τ.y of size s_max
-    println!("Computing Lagrange polynomial evaluations (l_evaled_vec)...");
     let mut l_evaled_vec = vec![ScalarField::zero(); s_max].into_boxed_slice();
     gen_evaled_lagrange_bases(&tau.y, s_max, &mut l_evaled_vec);
     
     // Compute m_evaled_vec: Lagrange polynomial evaluations at τ.x of size l
-    println!("Computing Lagrange polynomial evaluations (m_evaled_vec)...");
     let mut m_evaled_vec = vec![ScalarField::zero(); l].into_boxed_slice();
     if l>0 {
         gen_evaled_lagrange_bases(&tau.x, l, &mut m_evaled_vec);
     }
 
     // Compute o_evaled_vec: Wire polynomial evaluations
-    println!("Computing wire polynomial evaluations (o_evaled_vec)...");
     let mut o_evaled_vec = vec![ScalarField::zero(); m_d].into_boxed_slice();
 
     {
@@ -349,13 +337,19 @@ fn main() {
 
     let start = Instant::now();
     // Writing the sigma into JSON
+    let mut output_path: &str;
     println!("Writing the sigma into JSON...");
-    let output_path = "setup/trusted-setup/output/combined_sigma.json";
+    output_path = "setup/trusted-setup/output/combined_sigma.json";
     sigma.write_into_json(output_path).unwrap();
     // // Writing the sigma into rust code
     // println!("Writing the sigma into a rust code...");
     // let output_path = "setup/trusted-setup/output/combined_sigma.rs";
     // sigma.write_into_rust_code(output_path).unwrap();
+
+    output_path = "setup/trusted-setup/output/sigma_verify.json";
+    sigma.write_into_json_for_verify(output_path).unwrap();
+    output_path = "setup/trusted-setup/output/sigma_preprocess.json";
+    sigma.write_into_json_for_preprocess(output_path).unwrap();
     let lap = start.elapsed();
     println!("The sigma writing time: {:.6} seconds", lap.as_secs_f64());
 

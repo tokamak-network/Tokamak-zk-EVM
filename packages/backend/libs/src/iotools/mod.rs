@@ -2,8 +2,9 @@ use icicle_bls12_381::curve::{ScalarField, ScalarCfg, G1Affine, G2Affine, BaseFi
 use icicle_core::ntt;
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
+use icicle_core::msm::{self, MSMConfig};
 use crate::field_structures::FieldSerde;
-use crate::group_structures::{Sigma, Sigma1, Sigma2, G1serde, G2serde};
+use crate::group_structures::{G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify, Preprocess};
 use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use crate::vector_operations::transpose_inplace;
 
@@ -23,6 +24,37 @@ use serde_json::{from_reader, to_writer_pretty};
 
 const QAP_COMPILER_PATH_PREFIX: &str = "../frontend/qap-compiler/subcircuits/library";
 const SYNTHESIZER_PATH_PREFIX: &str = "../frontend/synthesizer/examples/outputs";
+
+macro_rules! impl_read_from_json {
+    ($t:ty) => {
+        impl $t {
+            pub fn read_from_json(path: &str) -> io::Result<Self> {
+                let abs_path = env::current_dir()?.join(path);
+                let file = File::open(abs_path)?;
+                let reader = BufReader::new(file);
+                let res: Self = from_reader(reader)?;
+                Ok(res)
+            }
+        }
+    };
+}
+
+macro_rules! impl_write_into_json {
+    ($t:ty) => {
+        impl $t {
+            pub fn write_into_json(&self, path: &str) -> io::Result<()> {
+                let abs_path = env::current_dir()?.join(path);
+                if let Some(parent) = abs_path.parent() {
+                    fs::create_dir_all(parent)?;
+                }
+                let file = File::create(&abs_path)?;
+                let writer = BufWriter::new(file);
+                to_writer_pretty(writer, self)?;
+                Ok(())
+            }
+        }
+    };
+}
 
 fn g1_vec_to_code(v: &Box<[G1serde]>) -> String {
     let inner = v.iter()
@@ -69,26 +101,46 @@ impl SetupParams {
     }
 }
 
+impl_read_from_json!(Sigma);
+impl_read_from_json!(SigmaPreprocess);
+impl_read_from_json!(SigmaVerify);
+impl_read_from_json!(Preprocess);
+impl_write_into_json!(Sigma);
+impl_write_into_json!(Preprocess);
+
 impl Sigma {
-    /// Write full CRS from JSON
-    pub fn read_from_json(path: &str) -> io::Result<Self> {
-        let abs_path = env::current_dir()?.join(path);
-        let file = File::open(abs_path)?;
-        let reader = BufReader::new(file);
-        let sigma: Self = from_reader(reader)?;
-        Ok(sigma)
-    }
-    
-    /// Write full CRS into JSON
-    pub fn write_into_json(&self, path: &str) -> io::Result<()> {
+    /// Write verifier CRS into JSON
+    pub fn write_into_json_for_verify(&self, path: &str) -> io::Result<()> {
         let abs_path = env::current_dir()?.join(path);
         if let Some(parent) = abs_path.parent() {
             fs::create_dir_all(parent)?;
         }
         let file = File::create(&abs_path)?;
         let writer = BufWriter::new(file);
-        to_writer_pretty(writer, self)?;
-        println!("Sigma has been saved at {:?}", abs_path);
+        let partial_sigma1_verify: PartialSigma1Verify = PartialSigma1Verify { x: self.sigma_1.x, y: self.sigma_1.y };
+        let sigma_verify: SigmaVerify = SigmaVerify {
+            G: self.G,
+            H: self.H,
+            sigma_1: partial_sigma1_verify,
+            sigma_2: self.sigma_2
+        };
+        to_writer_pretty(writer, &sigma_verify)?;
+        Ok(())
+    }
+
+    /// Write preprocess CRS into JSON
+    pub fn write_into_json_for_preprocess(&self, path: &str) -> io::Result<()> {
+        let abs_path = env::current_dir()?.join(path);
+        if let Some(parent) = abs_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let file = File::create(&abs_path)?;
+        let writer = BufWriter::new(file);
+        let partial_sigma_1: PartialSigma1 = PartialSigma1 { xy_powers: self.sigma_1.xy_powers.clone() };
+        let sigma_preprocess: SigmaPreprocess = SigmaPreprocess {
+            sigma_1: partial_sigma_1
+        };
+        to_writer_pretty(writer, &sigma_preprocess)?;
         Ok(())
     }
 
@@ -181,6 +233,7 @@ impl Sigma2 {
     }
 }
 
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct PlacementVariables {
     pub subcircuitId: usize,
@@ -194,6 +247,21 @@ impl PlacementVariables {
         let reader = BufReader::new(file);
         let box_data: Box<[Self]> = from_reader(reader)?;
         Ok(box_data)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PublicInstance {
+    pub a: Vec<String>,
+}
+
+impl PublicInstance {
+    pub fn from_path(path: &str) -> io::Result<Self> {
+        let abs_path = env::current_dir()?.join(SYNTHESIZER_PATH_PREFIX).join(path);
+        let file = File::open(abs_path)?;
+        let reader = BufReader::new(file);
+        let res: Self = from_reader(reader)?;
+        Ok(res)
     }
 }
 
@@ -323,7 +391,6 @@ impl SubcircuitR1CS{
         let mut constraints = Constraints::from_path(path)?;
         Constraints::convert_values_to_hex(&mut constraints);
 
-        // active wire indices를 직접 확장합니다.
         let mut A_active_wire_indices_set = HashSet::<usize>::new();
         let mut B_active_wire_indices_set = HashSet::<usize>::new();
         let mut C_active_wire_indices_set = HashSet::<usize>::new();
@@ -558,11 +625,11 @@ pub fn scaled_outer_product_2d(
 }
 
 pub fn scaled_outer_product_1d(
-    col_vec: &Box<[ScalarField]>, 
-    row_vec: &Box<[ScalarField]>,
+    col_vec: &[ScalarField], 
+    row_vec: &[ScalarField],
     g1_gen: &G1Affine, 
     scaler: Option<&ScalarField>, 
-    res: &mut Box<[G1serde]>
+    res: &mut [G1serde]
 ) {
     let col_size = col_vec.len();
     let row_size = row_vec.len();
@@ -579,7 +646,7 @@ pub fn scaled_outer_product_1d(
     );
 }
 
-pub fn from_coef_vec_to_g1serde_vec(coef: &Box<[ScalarField]>, gen: &G1Affine, res: &mut Box<[G1serde]>) {
+pub fn from_coef_vec_to_g1serde_vec(coef: &[ScalarField], gen: &G1Affine, res: &mut [G1serde]) {
     use std::sync::atomic::{AtomicU32, Ordering};
     use rayon::prelude::*;
     use std::io::{stdout, Write};
@@ -624,6 +691,74 @@ pub fn from_coef_vec_to_g1serde_vec(coef: &Box<[ScalarField]>, gen: &G1Affine, r
     // println!("Number of nonzero coefficients: {:?}", coef.len() - nzeros);
 }
 
+pub fn gen_g1serde_vec_of_xy_monomials(
+    x: ScalarField,
+    y: ScalarField,
+    gen: &G1Affine,
+    x_size: usize,
+    y_size: usize,
+    res: &mut [G1serde],
+) {
+    use rayon::prelude::*;
+    if res.len() != x_size * y_size {
+        panic!("Not enough buffer length.")
+    }
+    if x_size * y_size == 0 {
+        return
+    }
+
+    let gen_proj = G1Projective::from(*gen);
+
+    let is_row_base = if x_size <= y_size {
+        true
+    } else {
+        false
+    };
+    
+    let outer_loop_len = if is_row_base { x_size } else { y_size };
+    let inner_loop_len = if is_row_base { y_size } else { x_size };
+    let mut res_projective = vec![G1Projective::zero(); x_size * y_size]; 
+
+    let mut base_vec = vec![G1Projective::zero(); inner_loop_len];
+    let base_multiplier = if is_row_base {y} else {x};
+    base_vec
+        .par_iter_mut()
+        .enumerate()
+        .for_each(|(i, b)| {
+            *b = gen_proj * base_multiplier.pow(i);
+        });
+
+    res_projective[0..inner_loop_len].clone_from_slice(&base_vec);
+    drop(base_vec);
+
+    let acc_multiplier = if is_row_base {x} else {y};
+    let mut msm_cfg = MSMConfig::default();
+    msm_cfg.batch_size = inner_loop_len.try_into().unwrap();
+    for i in 1..outer_loop_len {
+        let (head, tail) = res_projective.split_at_mut(i * inner_loop_len);
+        let prev_vec = &head[(i - 1) * inner_loop_len .. i * inner_loop_len];
+        let prev_vec_affine: Vec<G1Affine> = prev_vec.iter().map(|&x| G1Affine::from(x)).collect();
+        let curr_vec = &mut tail[0..inner_loop_len];
+        msm::msm(
+            HostSlice::from_slice(&vec![acc_multiplier; inner_loop_len]),
+            HostSlice::from_slice(&prev_vec_affine),
+            &msm_cfg,
+            HostSlice::from_mut_slice(curr_vec)
+        ).unwrap();
+    }
+    for i in 0..x_size {
+        for j in 0..y_size {
+            if is_row_base {
+                res[i * y_size + j] = G1serde(G1Affine::from(res_projective[i * inner_loop_len + j]));
+            }
+            else {
+                res[i * y_size + j] = G1serde(G1Affine::from(res_projective[j * inner_loop_len + i]));
+            }
+        }
+    }
+}
+
+
 pub fn from_coef_vec_to_g1serde_mat(coef: &Box<[ScalarField]>, r_size: usize, c_size: usize, gen: &G1Affine, res: &mut Box<[Box<[G1serde]>]>) {
     if res.len() != r_size || res.len() == 0 {
         panic!("Not enough buffer row length.")
@@ -635,5 +770,90 @@ pub fn from_coef_vec_to_g1serde_mat(coef: &Box<[ScalarField]>, r_size: usize, c_
             panic!("Not enough buffer column length.")
         }
         res[i].copy_from_slice(&temp_vec[i * c_size .. (i + 1) * c_size]);
+    }
+}
+
+pub fn read_R1CS_gen_uvwXY(
+    placement_variables: &Box<[PlacementVariables]>,
+    subcircuit_infos: &Box<[SubcircuitInfo]>,
+    setup_params: &SetupParams,
+) -> (DensePolynomialExt, DensePolynomialExt, DensePolynomialExt)  {
+    let n = setup_params.n;
+    let s_max = setup_params.s_max;
+
+    let mut u_eval = vec![ScalarField::zero(); s_max * n];
+    let mut v_eval = vec![ScalarField::zero(); s_max * n];
+    let mut w_eval = vec![ScalarField::zero(); s_max * n];
+    for i in 0..placement_variables.len() {
+        let subcircuit_id = placement_variables[i].subcircuitId;
+        let r1cs_path: String = format!("json/subcircuit{subcircuit_id}.json");
+        let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[subcircuit_id]).unwrap();
+        let variables = &placement_variables[i].variables;
+        
+        _from_r1cs_to_eval(
+            &variables, 
+            &compact_r1cs.A_compact_col_mat, 
+            &compact_r1cs.A_active_wires, 
+            i, 
+            n, 
+            &mut u_eval
+        );
+        _from_r1cs_to_eval(
+            &variables, 
+            &compact_r1cs.B_compact_col_mat, 
+            &compact_r1cs.B_active_wires, 
+            i, 
+            n, 
+            &mut v_eval
+        );
+        _from_r1cs_to_eval(
+            &variables, 
+            &compact_r1cs.C_compact_col_mat, 
+            &compact_r1cs.C_active_wires, 
+            i, 
+            n, 
+            &mut w_eval
+        );
+    }
+
+    transpose_inplace(&mut u_eval, s_max, n);
+    transpose_inplace(&mut v_eval, s_max, n);
+    transpose_inplace(&mut w_eval, s_max, n);
+
+    return (
+        DensePolynomialExt::from_rou_evals(
+            HostSlice::from_slice(&u_eval),
+            n,
+            s_max,
+            None,
+            None
+        ),
+        DensePolynomialExt::from_rou_evals(
+            HostSlice::from_slice(&v_eval),
+            n,
+            s_max,
+            None,
+            None
+        ),
+        DensePolynomialExt::from_rou_evals(
+            HostSlice::from_slice(&w_eval),
+            n,
+            s_max,
+            None,
+            None
+        )
+    )
+}
+
+fn _from_r1cs_to_eval(variables: &Box<[String]>, compact_mat: &Vec<ScalarField>, active_wires: &Vec<usize>, i: usize, n: usize, eval: &mut Vec<ScalarField>)  {
+    let d_len_A = active_wires.len();
+    if d_len_A > 0 {
+        let mut d_vec = vec![ScalarField::zero(); d_len_A].into_boxed_slice();
+        for (compact_idx, &local_idx) in active_wires.iter().enumerate() {
+            d_vec[compact_idx] = ScalarField::from_hex(&variables[local_idx]);
+        }
+        let mut frag_eval = vec![ScalarField::zero(); n].into_boxed_slice();
+        matrix_matrix_mul(&d_vec, compact_mat, 1, d_len_A, n, &mut frag_eval);
+        eval[i*n .. (i+1)*n].clone_from_slice(&frag_eval);
     }
 }

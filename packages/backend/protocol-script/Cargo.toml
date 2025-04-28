@@ -13,8 +13,8 @@ icicle-bls12-381 = { workspace = true }
 libs = { workspace = true }
 rayon = { workspace = true }
 bincode = { workspace = true }
-verify = {workspace = true }
-prove = {workspace = true }
+verify = { workspace = true }
+prove = { workspace = true }
 
 [features]
 default = []

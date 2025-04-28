@@ -4,7 +4,8 @@ members = [
     "setup/trusted-setup",
     "prove",
     "verify/verify-rust",
-    "protocol-script"
+    "protocol-script",
+    "verify/preprocess"
 ]
 
 [workspace.package]
