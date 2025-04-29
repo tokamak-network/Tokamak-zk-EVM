@@ -2,22 +2,26 @@ use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
 use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
 use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice};
 use std::cmp;
+use std::time::Instant;
 
 // Assuming the implementation of DensePolynomialExt and BivariatePolynomial is already available
 // This mod tests can be placed in a separate file
 
 #[cfg(test)]
 mod tests {
+    use icicle_core::ntt;
+
     use super::*;
-    use crate::polynomials::{DensePolynomialExt, BivariatePolynomial};
+    use crate::vector_operations::{*};
+    use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
 
     // Helper function: Create a simple 2D polynomial
     fn create_simple_polynomial() -> DensePolynomialExt {
         // Simple 2x2 polynomial: 1 + 2x + 3y + 4xy (coefficient matrix: [[1, 3], [2, 4]])
         let coeffs = vec![
             ScalarField::from_u32(1),  // Constant term
-            ScalarField::from_u32(2),  // x coefficient
-            ScalarField::from_u32(3),  // y coefficient
+            ScalarField::from_u32(3),  // x coefficient
+            ScalarField::from_u32(2),  // y coefficient
             ScalarField::from_u32(4),  // xy coefficient
         ];
         DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 2, 2)
@@ -67,6 +71,31 @@ mod tests {
         assert_eq!(poly.get_coeff(0, 1), ScalarField::from_u32(3));
         assert_eq!(poly.get_coeff(1, 1), ScalarField::from_u32(4));
     }
+    #[test]
+    fn test_from_evals() {
+        let x_size = 2048;
+        let y_size = 1;
+        let evals = ScalarCfg::generate_random(x_size * y_size);
+        
+        let poly = DensePolynomialExt::from_rou_evals(
+            HostSlice::from_slice(&evals),
+            x_size,
+            y_size,
+            None,
+            None
+        );
+        let mut recoevered_evals = vec![ScalarField::zero(); x_size * y_size];
+        let buff = HostSlice::from_mut_slice(&mut recoevered_evals);
+        poly.to_rou_evals(None, None, buff);
+        
+        let mut flag = true;
+        for i in 0..x_size * y_size {
+            if !evals[i].eq(&recoevered_evals[i]) {
+                flag = false;
+            }
+        }
+        assert!(flag);
+    }
 
     #[test]
     fn test_add() { // pass
@@ -88,8 +117,8 @@ mod tests {
         // Create a polynomial with different coefficients
         let coeffs2 = vec![
             ScalarField::from_u32(5),  // Constant
-            ScalarField::from_u32(1),  // x
-            ScalarField::from_u32(2),  // y
+            ScalarField::from_u32(2),  // x
+            ScalarField::from_u32(1),  // y
             ScalarField::from_u32(3),  // xy
         ];
         let poly2 = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs2), 2, 2);
@@ -105,16 +134,63 @@ mod tests {
 
     #[test]
     fn test_mul_scalar() { // pass
-        let poly = create_simple_polynomial();
-        let scalar = ScalarField::from_u32(2);
+        let x_size = 2usize.pow(10);
+        let y_size = 2usize.pow(5);
+        let poly = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&ScalarCfg::generate_random(x_size * y_size)), 
+            x_size, 
+            y_size
+        );
+        let scalar = ScalarCfg::generate_random(1)[0];
         
-        let result = &poly * &scalar;
+        let result1 = &poly * &scalar;
+        let result2 = &scalar * &poly;
         
         // Verify scalar multiplication results
-        assert_eq!(result.get_coeff(0, 0), ScalarField::from_u32(1) * ScalarField::from_u32(2));  // 1*2
-        assert_eq!(result.get_coeff(1, 0), ScalarField::from_u32(2) * ScalarField::from_u32(2));  // 2*2
-        assert_eq!(result.get_coeff(0, 1), ScalarField::from_u32(3) * ScalarField::from_u32(2));  // 3*2
-        assert_eq!(result.get_coeff(1, 1), ScalarField::from_u32(4) * ScalarField::from_u32(2));  // 4*2
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+        assert_eq!(result1.eval(&x, &y), poly.eval(&x, &y) * scalar);
+        assert_eq!(result1.eval(&x, &y), result2.eval(&x, &y));
+    }
+
+    #[test]
+    fn test_sub_scalar() { // pass
+        let x_size = 2usize.pow(10);
+        let y_size = 2usize.pow(5);
+        let poly = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&ScalarCfg::generate_random(x_size * y_size)), 
+            x_size, 
+            y_size
+        );
+        let scalar = ScalarCfg::generate_random(1)[0];
+        let result1 = &poly - &scalar;
+        let result2 = &scalar - &poly;
+
+        // Verify scalar multiplication results
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+        assert_eq!(result1.eval(&x, &y), poly.eval(&x, &y) - scalar);
+        assert_eq!(result2.eval(&x, &y), scalar - poly.eval(&x, &y));  
+    }
+
+    #[test]
+    fn test_add_scalar() { // pass
+        let x_size = 2usize.pow(10);
+        let y_size = 2usize.pow(5);
+        let poly = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&ScalarCfg::generate_random(x_size * y_size)), 
+            x_size, 
+            y_size
+        );
+        let scalar = ScalarCfg::generate_random(1)[0];
+        let result1 = &poly + &scalar;
+        let result2 = &scalar + &poly;
+        
+        // Verify scalar multiplication results
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+        assert_eq!(result1.eval(&x, &y), poly.eval(&x, &y) + scalar);
+        assert_eq!(result1.eval(&x, &y), result2.eval(&x, &y));
     }
 
     #[test]
@@ -255,117 +331,68 @@ mod tests {
     }
 
     #[test]
+    fn test_div_by_ruffini() {
+        let x_size = 2usize.pow(10);
+        let y_size = 2usize.pow(5);
+        let p_coeffs_vec = ScalarCfg::generate_random(x_size * y_size);
+        let p = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&p_coeffs_vec), x_size, y_size);
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+        
+        let (q_x, q_y, r) = p.div_by_ruffini(&x, &y);
+        let a = ScalarCfg::generate_random(1)[0];
+        let b = ScalarCfg::generate_random(1)[0];
+        let q_x_eval = q_x.eval(&a, &b);
+        let q_y_eval = q_y.eval(&a, &b);
+        let estimated_p_eval = (q_x_eval * (a - x)) + (q_y_eval * (b - y)) + r;
+        let true_p_eval = p.eval(&a, &b);
+        assert!(estimated_p_eval.eq(&true_p_eval));
+    }
+
+    #[test]
     fn test_divide_x() {
-        // Looking at the divide_x implementation, we need to ensure:
-        // 1. The quotient and remainder sizes will be powers of two
-        // 2. The denominator must be X-univariate (y_size=1)
+        let x_size = 2usize.pow(10);
+        let y_size = 2usize.pow(5);
+        let p_coeffs_vec = ScalarCfg::generate_random(x_size * y_size);
+        let p = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&p_coeffs_vec), x_size, y_size);
+
+        let denom_x_size = 2usize.pow(6);
+        let denom_y_size = 1;
+        let denom_coeffs_vec = ScalarCfg::generate_random(denom_x_size * denom_y_size);
+        let denom = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&denom_coeffs_vec), denom_x_size, denom_y_size);
         
-        // Let's create a very specific case that works:
-        // Numerator: (x+1)(x+1) = x^2 + 2x + 1 with x_size=4, y_size=1
-        let coeffs1 = vec![
-            ScalarField::from_u32(1),  // Constant
-            ScalarField::from_u32(2),  // x
-            ScalarField::from_u32(1),  // x^2
-            ScalarField::from_u32(0),  // Padding to power of 2
-        ];
-        let numerator = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs1), 4, 1);
-        
-        // Denominator: x+1 with x_size=2, y_size=1
-        let coeffs2 = vec![
-            ScalarField::from_u32(1),  // Constant
-            ScalarField::from_u32(1),  // x
-        ];
-        let denominator = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs2), 2, 1);
-        
-        // Using _find_size_as_twopower to ensure quo_x_size and rem_x_size will be powers of two
-        let numer_x_degree = numerator.x_degree; // Should be 3
-        let denom_x_degree = denominator.x_degree; // Should be 1
-        let quo_x_degree = numer_x_degree - denom_x_degree; // 3-1=2
-        let quo_x_size = quo_x_degree as usize + 1; // 3
-        
-        // quo_x_size=3 is not a power of two, so divide_x might fail.
-        // Let's modify our test case:
-        
-        // Now try the division - this should be (x^2 + 2x + 1) / (x + 1) = (x + 1) with remainder 0
-        // We skip the actual assertions since the function might internally have issues
-        // with sizes not being powers of two
-        
-        // Let's try with a special case that's more likely to work:
-        // Numerator: x^3 + 0x^2 + 0x + 1 with x_size=4, y_size=1
-        let coeffs3 = vec![
-            ScalarField::from_u32(1),  // Constant
-            ScalarField::from_u32(0),  // x
-            ScalarField::from_u32(0),  // x^2
-            ScalarField::from_u32(1),  // x^3
-        ];
-        let numerator2 = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs3), 4, 1);
-        
-        // Denominator: x^2 + 0x + 1 with x_size=4, y_size=1 (padding with zeros)
-        let coeffs4 = vec![
-            ScalarField::from_u32(1),  // Constant
-            ScalarField::from_u32(0),  // x
-            ScalarField::from_u32(1),  // x^2
-            ScalarField::from_u32(0),  // Padding
-        ];
-        let denominator2 = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs4), 4, 1);
-        
-        // This should be (x^3 + 1) / (x^2 + 1) = x with remainder 1
-        // Quotient should have x_size=2, y_size=1 - both powers of two
-        let (quotient, remainder) = numerator2.divide_x(&denominator2);
-        
-        // Verify quotient - should be x
-        assert_eq!(quotient.x_size, 2); // Power of two
-        assert_eq!(quotient.y_size, 1); // Power of two
-        assert_eq!(quotient.get_coeff(0, 0), ScalarField::from_u32(0)); // Constant term = 0
-        assert_eq!(quotient.get_coeff(1, 0), ScalarField::from_u32(1)); // x coefficient = 1
-        
-        // Verify remainder - should be 1
-        assert_eq!(remainder.x_size, 2); // Power of two
-        assert_eq!(remainder.y_size, 1); // Power of two
-        assert_eq!(remainder.get_coeff(0, 0), ScalarField::from_u32(1)); // Constant term = 1
-        assert_eq!(remainder.get_coeff(1, 0), ScalarField::from_u32(0)); // x coefficient = 0
+        let (q, r) = p.divide_x(&denom);
+        let a = ScalarCfg::generate_random(1)[0];
+        let b = ScalarCfg::generate_random(1)[0];
+        let denom_eval = denom.eval(&a, &b);
+        let q_eval = q.eval(&a, &b);
+        let r_eval = r.eval(&a, &b);
+        let estimated_p_eval = (q_eval * denom_eval) + r_eval;
+        let true_p_eval = p.eval(&a, &b);
+        assert!(estimated_p_eval.eq(&true_p_eval));
     }
 
     #[test]
     fn test_divide_y() {
-        // Looking at the divide_y implementation, we need to ensure:
-        // 1. The quotient and remainder sizes will be powers of two
-        // 2. The denominator must be Y-univariate (x_size=1)
+        let x_size = 2usize.pow(5);
+        let y_size = 2usize.pow(10);
+        let p_coeffs_vec = ScalarCfg::generate_random(x_size * y_size);
+        let p = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&p_coeffs_vec), x_size, y_size);
+
+        let denom_y_size = 2usize.pow(6);
+        let denom_x_size = 1;
+        let denom_coeffs_vec = ScalarCfg::generate_random(denom_x_size * denom_y_size);
+        let denom = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&denom_coeffs_vec), denom_x_size, denom_y_size);
         
-        // Let's create a special case designed to work:
-        // Numerator: y^3 + 0y^2 + 0y + 1 with x_size=1, y_size=4
-        let coeffs1 = vec![
-            ScalarField::from_u32(1),  // Constant
-            ScalarField::from_u32(0),  // y
-            ScalarField::from_u32(0),  // y^2
-            ScalarField::from_u32(1),  // y^3
-        ];
-        let numerator = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs1), 1, 4);
-        
-        // Denominator: y^2 + 0y + 1 with x_size=1, y_size=4 (padding with zeros)
-        let coeffs2 = vec![
-            ScalarField::from_u32(1),  // Constant
-            ScalarField::from_u32(0),  // y
-            ScalarField::from_u32(1),  // y^2
-            ScalarField::from_u32(0),  // Padding
-        ];
-        let denominator = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs2), 1, 4);
-        
-        // This should be (y^3 + 1) / (y^2 + 1) = y with remainder 1
-        // Quotient should have x_size=1, y_size=2 - both powers of two
-        let (quotient, remainder) = numerator.divide_y(&denominator);
-        
-        // Verify quotient - should be y
-        assert_eq!(quotient.x_size, 1); // Power of two
-        assert_eq!(quotient.y_size, 2); // Power of two
-        assert_eq!(quotient.get_coeff(0, 0), ScalarField::from_u32(0)); // Constant term = 0
-        assert_eq!(quotient.get_coeff(0, 1), ScalarField::from_u32(1)); // y coefficient = 1
-        
-        // Verify remainder - should be 1
-        assert_eq!(remainder.x_size, 1); // Power of two
-        assert_eq!(remainder.y_size, 2); // Power of two
-        assert_eq!(remainder.get_coeff(0, 0), ScalarField::from_u32(1)); // Constant term = 1
-        assert_eq!(remainder.get_coeff(0, 1), ScalarField::from_u32(0)); // y coefficient = 0
+        let (q, r) = p.divide_y(&denom);
+        let a = ScalarCfg::generate_random(1)[0];
+        let b = ScalarCfg::generate_random(1)[0];
+        let denom_eval = denom.eval(&a, &b);
+        let q_eval = q.eval(&a, &b);
+        let r_eval = r.eval(&a, &b);
+        let estimated_p_eval = (q_eval * denom_eval) + r_eval;
+        let true_p_eval = p.eval(&a, &b);
+        assert!(estimated_p_eval.eq(&true_p_eval));
     }
 
     #[test]
@@ -373,8 +400,8 @@ mod tests {
         // Create a simple 2x2 polynomial: 1 + 2x + 3y + 4xy
         let coeffs = vec![
             ScalarField::from_u32(1),  // Constant
-            ScalarField::from_u32(2),  // x
-            ScalarField::from_u32(3),  // y
+            ScalarField::from_u32(3),  // x
+            ScalarField::from_u32(2),  // y
             ScalarField::from_u32(4),  // xy
         ];
         let poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 2, 2);
@@ -401,64 +428,231 @@ mod tests {
 
     #[test]
     fn test_mul_polynomial() {
-        // Create two simple 2x2 polynomials
-        let coeffs1 = vec![
-            ScalarField::from_u32(1),  // Constant
-            ScalarField::from_u32(2),  // x
-            ScalarField::from_u32(3),  // y
-            ScalarField::from_u32(4),  // xy
-        ];
-        let poly1 = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs1), 2, 2);
+        let m = 5;
+        let n = 3;
+        let p1_x_size = 2usize.pow(m);
+        let p1_y_size = 2usize.pow(0);
+        let p2_x_size = 2usize.pow(m);
+        let p2_y_size = 2usize.pow(n);
+
+        let p1_coeffs_vec = ScalarCfg::generate_random(p1_x_size * p1_y_size);
+        let p2_coeffs_vec = ScalarCfg::generate_random(p2_x_size * p2_y_size);
+        let p1 = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&p1_coeffs_vec),
+            p1_x_size,
+            p1_y_size
+        );
+        let p2 = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&p2_coeffs_vec),
+            p2_x_size, 
+            p2_y_size
+        );
+
+        let p3 = &p1 * &p2;
         
-        let coeffs2 = vec![
-            ScalarField::from_u32(1),  // Constant
-            ScalarField::from_u32(1),  // x
-            ScalarField::from_u32(1),  // y
-            ScalarField::from_u32(1),  // xy
-        ];
-        let poly2 = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs2), 2, 2);
-        
-        // Multiply the polynomials
-        let result = &poly1 * &poly2;
-        
-        // Verify result dimensions are powers of two
-        assert_eq!(result.x_size.is_power_of_two(), true);
-        assert_eq!(result.y_size.is_power_of_two(), true);
-        
-        // In the implemented code, the degrees are calculated as size-1, so we test against that
-        assert_eq!(result.x_degree, result.x_size as i64 - 1);
-        assert_eq!(result.y_degree, result.y_size as i64 - 1);
-        
-        // (1 + 2x + 3y + 4xy) * (1 + x + y + xy)
-        // Verify some coefficients
-        assert_eq!(result.get_coeff(0, 0), ScalarField::from_u32(1));   // Constant term
-        assert_eq!(result.get_coeff(1, 0), ScalarField::from_u32(3));   // x coefficient (1*x + 2*1)
-        assert_eq!(result.get_coeff(0, 1), ScalarField::from_u32(4));   // y coefficient (1*y + 3*1)
-        
-        // The xy coefficient should be 1*xy + 2*y + 3*x + 4*1 = 10
-        assert_eq!(result.get_coeff(1, 1), ScalarField::from_u32(10));
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+
+        let p1_eval = p1.eval(&x, &y);
+        let p2_eval = p2.eval(&x, &y);
+        let p3_eval = p3.eval(&x, &y);
+
+        assert!( p3_eval.eq(&(p1_eval * p2_eval)));
+
+        let omega_x = ntt::get_root_of_unity::<ScalarField>(2u64.pow(m));
+        let omega_y = ntt::get_root_of_unity::<ScalarField>(2u64.pow(n));
+        let mut flag = true;
+        for i in 0..2usize.pow(m) {
+            for j  in 0..2usize.pow(n) {
+                let x = omega_x.pow(i);
+                let y = omega_y.pow(j);
+                if !p3.eval(&x, &y).eq(&(p1.eval(&x, &y) * p2.eval(&x, &y))) {
+                    flag = false;
+                }
+            }
+        }
+        assert!(flag);
+
     }
 
 
     // Test for div_by_vanishing - requires specific conditions
     #[test]
     fn test_div_by_vanishing_basic() {
-        // This test is more complex and depends on the actual implementation details
-        // Here we just set up a basic scenario that should be compatible with the requirements
+        // Case m=2 and n=2:
+
+        let c = 2usize.pow(4);
+        let d = 2usize.pow(3);
+        let m = 2;
+        let n = 2;
+        let mut t_x_coeffs = vec![ScalarField::zero(); 2*c];
+        let mut t_y_coeffs = vec![ScalarField::zero(); 2*d];
+        t_x_coeffs[c] = ScalarField::one();
+        t_x_coeffs[0] = ScalarField::zero() - ScalarField::one();
+        t_y_coeffs[d] = ScalarField::one();
+        t_y_coeffs[0] = ScalarField::zero() - ScalarField::one();
+        let mut t_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_x_coeffs), 2*c, 1);
+        let mut t_y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_y_coeffs), 1, 2*d);
+        t_x.optimize_size();
+        t_y.optimize_size();
+        println!("t_x_xdeg: {:?}", t_x.x_degree);
+        println!("t_y_ydeg: {:?}", t_y.y_degree);
+
+        let q_x_coeffs_opt = ScalarCfg::generate_random(((m-1)*c-2) * (n*d -2) );
+        let q_y_coeffs_opt = ScalarCfg::generate_random((c-1) * ((n-1)*d-2));
+        let q_x_coeffs = resize(
+            &q_x_coeffs_opt.into_boxed_slice(), 
+            (m-1)*c-2, 
+            n*d -2,
+            (m-1)*c, 
+            n*d,
+            ScalarField::zero()
+        );
+        let q_y_coeffs = resize(
+            &q_y_coeffs_opt.into_boxed_slice(), 
+            c-1, 
+            (n-1)*d-2, 
+            c, 
+            (n-1)*d,
+            ScalarField::zero()
+        );
+        let mut q_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_x_coeffs), (m-1)*c, n*d);
+        let mut q_y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_y_coeffs), c, (n-1)*d);
+        q_x.optimize_size();
+        q_y.optimize_size();
+        let mut p = &(&q_x * &t_x) + &(&q_y * &t_y);
+        p.optimize_size();
+        println!("p_xsize: {:?}", p.x_size);
+        println!("p_ysize: {:?}", p.y_size);
         
-        // Create a polynomial with random coefficients
-        let coeffs = ScalarCfg::generate_random(16);  // 4x4 polynomial
-        let poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 4, 4);
+        let (mut q_x_found, mut q_y_found) = p.div_by_vanishing(c as i64, d as i64);
+        q_x_found.optimize_size();
+        q_y_found.optimize_size();
+        let p_reconstruct = &(&q_x_found * &t_x) + &(&q_y_found * &t_y);
+
+        let a = ScalarCfg::generate_random(1)[0];
+        let b = ScalarCfg::generate_random(1)[0];
         
-        // According to the code, we need m=2, n>=2 condition
-        // Try dividing by vanishing polynomials with x_degree=1, y_degree=1
+        let p_evaled = p.eval(&a, &b);
+        let p_reconstruct_evaled = p_reconstruct.eval(&a, &b);
+        assert!(p_evaled.eq(&p_reconstruct_evaled));
+        assert_eq!(q_x.x_degree, q_x_found.x_degree);
+        assert_eq!(q_x.y_degree, q_x_found.y_degree);
+        assert_eq!(q_y.x_degree, q_y_found.x_degree);
+        assert_eq!(q_y.y_degree, q_y_found.y_degree);
+        println!("Case m=2 and n=2 passed");
+
+        // Case m=4 and n=2:
+
+        let m = 3;
+        let n = 2;
+        let c = 2usize.pow(4);
+        let d = 2usize.pow(3);
+        let mut t_x_coeffs = vec![ScalarField::zero(); 2*c];
+        let mut t_y_coeffs = vec![ScalarField::zero(); 2*d];
+        t_x_coeffs[c] = ScalarField::one();
+        t_x_coeffs[0] = ScalarField::zero() - ScalarField::one();
+        t_y_coeffs[d] = ScalarField::one();
+        t_y_coeffs[0] = ScalarField::zero() - ScalarField::one();
+        let mut t_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_x_coeffs), 2*c, 1);
+        let mut t_y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_y_coeffs), 1, 2*d);
+        t_x.optimize_size();
+        t_y.optimize_size();
+        println!("t_x_xdeg: {:?}", t_x.x_degree);
+        println!("t_y_ydeg: {:?}", t_y.y_degree);
+
+        let q_x_coeffs_opt = ScalarCfg::generate_random(((m-1)*c-3) * (n*d -2) );
+        let q_y_coeffs_opt = ScalarCfg::generate_random((c-1) * ((n-1)*d-2));
+        let q_x_coeffs = resize(
+            &q_x_coeffs_opt.into_boxed_slice(), 
+            (m-1)*c-3, 
+            n*d -2,
+            (m-1)*c, 
+            n*d,
+            ScalarField::zero()
+        );
+        let q_y_coeffs = resize(
+            &q_y_coeffs_opt.into_boxed_slice(), 
+            c-1, 
+            (n-1)*d-2, 
+            c, 
+            (n-1)*d,
+            ScalarField::zero()
+        );
+        let mut q_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_x_coeffs), (m-1)*c, n*d);
+        let mut q_y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_y_coeffs), c, (n-1)*d);
+        q_x.optimize_size();
+        q_y.optimize_size();
+        let mut p = &(&q_x * &t_x) + &(&q_y * &t_y);
+        p.optimize_size();
+        println!("p_xsize: {:?}", p.x_size);
+        println!("p_ysize: {:?}", p.y_size);
         
-        // This test might not actually run as it depends on specific implementation details
-        // let (quo_x, quo_y) = poly.div_by_vanishing(1, 1);
+        let (mut q_x_found, mut q_y_found) = p.div_by_vanishing(c as i64, d as i64);
+        q_x_found.optimize_size();
+        q_y_found.optimize_size();
+        let p_reconstruct = &(&q_x_found * &t_x) + &(&q_y_found * &t_y);
+
+        let a = ScalarCfg::generate_random(1)[0];
+        let b = ScalarCfg::generate_random(1)[0];
         
-        // Additional validation would be needed in a real testing environment
+        let p_evaled = p.eval(&a, &b);
+        let p_reconstruct_evaled = p_reconstruct.eval(&a, &b);
+        assert!(p_evaled.eq(&p_reconstruct_evaled));
+        assert_eq!(q_x.x_degree, q_x_found.x_degree);
+        assert_eq!(q_x.y_degree, q_x_found.y_degree);
+        assert_eq!(q_y.x_degree, q_y_found.x_degree);
+        assert_eq!(q_y.y_degree, q_y_found.y_degree);
+        println!("Case m=4 and n=2 passed");
+
     }
 
+    #[test]
+    fn update_degree_general_case() {
+        let x_size = 2usize.pow(12);
+        let y_size = 2usize.pow(6);
+        // let x_degree= 2i64.pow(9);
+        // let y_degree = 0;
+        let x_degree: i64 = (x_size - 1) as i64;
+        let y_degree: i64 = (y_size - 1) as i64;
+
+        let dense_coeffs = ScalarCfg::generate_random(((x_degree + 1) * (y_degree + 1)) as usize);
+        let dense_coeffs_resized = resize(&dense_coeffs, 
+            (x_degree + 1) as usize, 
+            (y_degree + 1) as usize, 
+            x_size, 
+            y_size, 
+            ScalarField::zero()
+        );
+        let mut _dense_p = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&dense_coeffs_resized), x_size, y_size);
+
+        let time_parallel = Instant::now();
+        let (x_deg, y_deg) = _dense_p.find_degree();
+        assert_eq!(x_deg, x_degree);
+        assert_eq!(y_deg, y_degree);
+        println!("find_degree time: {:.6} seconds", time_parallel.elapsed().as_secs_f64());
+
+        let x_degree= 0;
+        let y_degree = 0;
+
+        let sparse_coeffs = ScalarCfg::generate_random(((x_degree + 1) * (y_degree + 1)) as usize);
+        let sparse_coeffs_resized = resize(&sparse_coeffs, 
+            (x_degree + 1) as usize, 
+            (y_degree + 1) as usize, 
+            x_size, 
+            y_size, 
+            ScalarField::zero()
+        );
+        let mut _sparse_p = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&sparse_coeffs_resized), x_size, y_size);
+
+        let time_parallel = Instant::now();
+        let (x_deg, y_deg) = _sparse_p.find_degree();
+        assert_eq!(x_deg, x_degree);
+        assert_eq!(y_deg, y_degree);
+        println!("find_degree time: {:.6} seconds", time_parallel.elapsed().as_secs_f64());
+
+
+    }
     // More tests can be added as needed
 }
 
@@ -469,7 +663,7 @@ mod tests_vectors {
     use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice};
     use std::cmp;
     
-    use crate::vectors::{outer_product_two_vecs, point_mul_two_vecs};
+    use crate::vector_operations::{*};
 
     macro_rules! scalar_vec {
         ( $( $x:expr ),* ) => {
@@ -501,5 +695,131 @@ mod tests_vectors {
         outer_product_two_vecs(&vec3, &vec2, &mut res);
         println!("res : {:?}", res);
 
+    }
+
+    #[test]
+    fn test_scaled_outer_product() {
+        let vec1 = scalar_vec![1, 2, 3];
+        let vec2 = scalar_vec![4, 5];
+        let vec3 = scalar_vec![2, 0, 2, 4];
+        let scaler = ScalarField::from_u32(2);
+
+        let mut res = vec![ScalarField::zero(); 6].into_boxed_slice();
+        scaled_outer_product(&vec1, &vec2, Some(&scaler), &mut res);
+        println!("res : {:?}", res);
+
+        let mut res = vec![ScalarField::zero(); 8].into_boxed_slice();
+        scaled_outer_product(&vec3, &vec2, None, &mut res);
+        println!("res : {:?}", res);
+
+    }
+
+    #[test]
+    fn test_matrix_matrix_mul_small() {
+        // example size: 2x3 * 3x2 = 2x2
+        // LHS: 2x3
+        // [1 2 3]
+        // [4 5 6]
+        let lhs = vec![
+            ScalarField::from_u32(1u32),
+            ScalarField::from_u32(2u32),
+            ScalarField::from_u32(3u32),
+            ScalarField::from_u32(4u32),
+            ScalarField::from_u32(5u32),
+            ScalarField::from_u32(6u32),
+        ]
+        .into_boxed_slice();
+
+        // RHS: 3x2
+        // [7  8]
+        // [9 10]
+        // [11 12]
+        let rhs = vec![
+            ScalarField::from_u32(7u32),
+            ScalarField::from_u32(8u32),
+            ScalarField::from_u32(9u32),
+            ScalarField::from_u32(10u32),
+            ScalarField::from_u32(11u32),
+            ScalarField::from_u32(12u32),
+        ]
+        .into_boxed_slice();
+
+        // expected result: 2x2
+        // [1*7+2*9+3*11, 1*8+2*10+3*12] = [58, 64]
+        // [4*7+5*9+6*11, 4*8+5*10+6*12] = [139, 154]
+        let expected = vec![
+            ScalarField::from_u32(58u32),
+            ScalarField::from_u32(64u32),
+            ScalarField::from_u32(139u32),
+            ScalarField::from_u32(154u32),
+        ]
+        .into_boxed_slice();
+
+        let mut res = vec![ScalarField::zero(); 4].into_boxed_slice();
+        matrix_matrix_mul(&lhs, &rhs, 2, 3, 2, &mut res);
+
+        for i in 0..4 {
+            assert_eq!(res[i], expected[i], "Mismatch at index {}", i);
+        }
+    }
+
+    #[test]
+    fn test_gen_evaled_lagrange_bases() {
+        let x = ScalarCfg::generate_random(1)[0];
+        let size = 2048;
+        let mut res = vec![ScalarField::zero(); size].into_boxed_slice();
+        gen_evaled_lagrange_bases(&x, size, &mut res);
+        
+    }
+    #[test]
+    fn test_resize() {
+        let rW_X_coeffs = ScalarCfg::generate_random(3);
+        let rW_X_coeffs_resized = resize(&rW_X_coeffs, 3, 1, 4, 1, ScalarField::zero());
+        let rW_Y_coeffs = ScalarCfg::generate_random(3);
+        let rW_Y_coeffs_resized = resize(&rW_Y_coeffs, 1, 3, 1, 4, ScalarField::zero());
+
+        println!("X_orig: {:?}", rW_X_coeffs);
+        println!("X_ext: {:?}", rW_X_coeffs_resized);
+        println!("Y_orig: {:?}", rW_Y_coeffs);
+        println!("Y_ext: {:?}", rW_Y_coeffs_resized);
+    }
+
+
+}
+
+mod tests_iotools {
+    use crate::iotools::{from_coef_vec_to_g1serde_vec, gen_g1serde_vec_of_xy_monomials, scaled_outer_product_1d};
+    use crate::vector_operations::extend_monomial_vec;
+    use icicle_bls12_381::curve::{ScalarField, ScalarCfg, G1Affine, CurveCfg};
+    use icicle_core::traits::{FieldImpl, GenerateRandom};
+    use crate::group_structures::{G1serde};
+    use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
+    use icicle_core::curve::Curve;
+    use std::time::Instant;
+
+    #[test]
+    fn test_scalar_to_G1_conversion() {
+        let x_size = 2usize.pow(10);
+        let y_size = 2usize.pow(4);
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+        let gen = CurveCfg::generate_random_affine_points(1)[0];
+        let mut res = vec![G1serde::zero(); x_size * y_size];
+        
+        let time_rayon = Instant::now();
+        let mut x_powers_vec = vec![ScalarField::zero(); x_size];
+        let mut y_powers_vec = vec![ScalarField::zero(); y_size];
+        extend_monomial_vec(&vec![ScalarField::one(), x], &mut x_powers_vec);
+        extend_monomial_vec(&vec![ScalarField::one(), y], &mut y_powers_vec);
+        scaled_outer_product_1d(&x_powers_vec, &y_powers_vec, &gen, None, &mut res);
+        let duration_rayon = time_rayon.elapsed();
+        println!("Scalar_to_G1 time with rayon: {:.6} seconds", duration_rayon.as_secs_f64());
+        drop(res);
+
+        let mut res = vec![G1serde::zero(); x_size * y_size];
+        let time_msm = Instant::now();
+        gen_g1serde_vec_of_xy_monomials(x, y, &gen, x_size, y_size, &mut res);
+        let duration_msm = time_msm.elapsed();
+        println!("Scalar_to_G1 time with hybrid of rayon and msm: {:.6} seconds", duration_msm.as_secs_f64());
     }
 }

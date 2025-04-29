@@ -1,0 +1,11 @@
+[package]
+name = "preprocess"
+version = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+libs = { workspace = true }
+
+[features]
+default = []
+testing-mode = ["libs/testing-mode"]

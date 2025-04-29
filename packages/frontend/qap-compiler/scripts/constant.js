@@ -1,0 +1,1 @@
+module.exports.S_MAX = 64

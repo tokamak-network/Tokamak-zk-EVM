@@ -29,7 +29,25 @@ export class ArithmeticOperations {
     return (a - b) & ArithmeticOperations.MAX_UINT256
   }
 
+  /**
+   * @deprecated
+   * Exponentiation operation
+   */
   static div(a: bigint, b: bigint): bigint {
+    return b === 0n ? 0n : a / b
+  }
+
+  static div1(a: bigint, b: bigint): bigint {
+    let q = b === 0n ? 0n : a / b
+    return q * b
+  }
+  static div2(a: bigint, b: bigint): bigint {
+    let q = b === 0n ? 0n : a / b
+    let inter = q * b
+    let r = b === 0n ? a : a % b
+    return inter + r
+  }
+  static div3(a: bigint, b: bigint): bigint {
     return b === 0n ? 0n : a / b
   }
 
@@ -239,4 +257,7 @@ export const OPERATION_MAPPING: Record<ArithmeticOperator, ArithmeticFunction> =
   SIGNEXTEND: ArithmeticOperations.signextend,
   DecToBit: ArithmeticOperations.decToBit,
   SubEXP: ArithmeticOperations.subEXP,
+  Div1: ArithmeticOperations.div1,
+  Div2: ArithmeticOperations.div2,
+  Div3: ArithmeticOperations.div3,
 } as const

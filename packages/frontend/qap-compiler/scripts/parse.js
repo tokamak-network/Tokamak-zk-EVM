@@ -1,10 +1,11 @@
 //const {opcodeDictionary} = require('./opcode.js')
+const {S_MAX} = require('./constant.js')
 const fs = require('fs')
 
 const numOfLinesPerCircuit = 13
 
-const listPublicIn = new Map().set('bufferPubInPrvOut', true)
-const listPublicOut = new Map().set('bufferPrvInPubOut', true)
+const listPublicIn = new Map().set('bufferPubIn', true)
+const listPublicOut = new Map().set('bufferPubOut', true)
 
 function _buildWireFlattenMap(globalWireList, subcircuitInfos, globalWireIndex, subcircuitId, subcircuitWireId) {
   if (subcircuitId >= 0 ){
@@ -34,20 +35,21 @@ function _buildWireFlattenMap(globalWireList, subcircuitInfos, globalWireIndex, 
 
 function parseWireList(subcircuitInfos, mode = 0) {
   let numTotalWires = 0
-  let numPublicWires = 0
+  let numPublicInWires = 0
+  let numPublicOutWires = 0
   let numInterfaceWires = 0
   const subcircuitInfoByName = new Map()
   for (const subcircuit of subcircuitInfos) {
     numTotalWires += subcircuit.Nwires
 
     if ( listPublicIn.has(subcircuit.name) ){
-      numPublicWires += subcircuit.In_idx[1]
+      numPublicInWires += subcircuit.In_idx[1]
     } else {
       numInterfaceWires += subcircuit.In_idx[1]
     }
 
     if ( listPublicOut.has(subcircuit.name) ){
-      numPublicWires += subcircuit.Out_idx[1]
+      numPublicOutWires += subcircuit.Out_idx[1]
     } else {
       numInterfaceWires += subcircuit.Out_idx[1]
     }
@@ -63,17 +65,27 @@ function parseWireList(subcircuitInfos, mode = 0) {
     subcircuitInfoByName.set(subcircuit.name, entryObject)
   }
 
-  const l = numPublicWires
-  const l_D_minus_l = numInterfaceWires
+  const l_out = numPublicOutWires
+  const l_in = numPublicInWires
+
   let twosPower = 1
-  while (twosPower < l_D_minus_l) {
+  while (twosPower < l_out + l_in) {
+    twosPower <<= 1
+  }
+  // twosPower >= numPublicWires
+  const numDiff_l = twosPower - (l_out + l_in)
+  const l = l_in + l_out + numDiff_l
+  // numDiff_l makes the parameter l to be power of two.
+  
+  twosPower = 1
+  while (twosPower < numInterfaceWires) {
     twosPower <<= 1
   }
   // twosPower >= numInterfaceWires
-  const numDiff = twosPower - numInterfaceWires
-  const l_D = numInterfaceWires + numDiff + l
-  const m_D = numTotalWires + numDiff
-  // numDiff makes l_D - l to be power of two.
+  const numDiff_m_I = twosPower - numInterfaceWires
+  const l_D = numInterfaceWires + numDiff_m_I + l
+  const m_D = numTotalWires + numDiff_l + numDiff_m_I
+  // numDiff_m_I makes the parameter m_I = l_D - l to be power of two.
 
   const globalWireList = []
 
@@ -106,6 +118,16 @@ function parseWireList(subcircuitInfos, mode = 0) {
         )
       }
     }
+  }
+
+  for (let i = 0; i < numDiff_l; i++) {
+    _buildWireFlattenMap(
+      globalWireList,
+      subcircuitInfos,
+      ind++,
+      -1,
+      -1,
+    )
   }
 
   if (ind !== l) {
@@ -142,7 +164,7 @@ function parseWireList(subcircuitInfos, mode = 0) {
     }
   }
 
-  for (let i = 0; i < numDiff; i++) {
+  for (let i = 0; i < numDiff_m_I; i++) {
     _buildWireFlattenMap(
       globalWireList,
       subcircuitInfos,
@@ -182,6 +204,8 @@ function parseWireList(subcircuitInfos, mode = 0) {
   }
 
   return {
+    l_in: l_in,
+    l_out: l_out,
     l: l,
     l_D: l_D,
     m_D: m_D,
@@ -252,12 +276,16 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
   while (n < _n) {
       n <<= 1
   }
+
   const setupParams = {
     l: globalWireInfo.l,
+    l_in: globalWireInfo.l_in,
+    l_out: globalWireInfo.l_out,
     l_D: globalWireInfo.l_D,
     m_D: globalWireInfo.m_D,
     n,
     s_D: subcircuits.length,
+    s_max: S_MAX,
   }
   const globalWireList = globalWireInfo.wireList
 
@@ -274,6 +302,13 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
       console.log('Successfully wrote the TypeScript file');
     }
   })
+  fs.writeFile('../subcircuits/library/subcircuitInfo.json', JSON.stringify(subcircuits, null), (err) => {
+    if (err) {
+      console.log('Error writing the JSON file', err);
+    } else {
+      console.log('Successfully wrote the JSON file');
+    }
+  })
 
   const tsGlobalWireList = `// This is a map that describes how each library wire (global wire) is related to the subcircuit wires (local wires), i.e., 'globalWireList' is the inverse of 'flattenMap' in the subcircuitInfo file.
   // globalWireList[index][0] indicates subcircuitId to which this wire belongs.
@@ -284,6 +319,13 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
       console.log('Error writing the TypeScript file', err);
     } else {
       console.log('Successfully wrote the TypeScript file');
+    }
+  })
+  fs.writeFile('../subcircuits/library/globalWireList.json', JSON.stringify(globalWireList, null), (err) => {
+    if (err) {
+      console.log('Error writing the JSON file', err);
+    } else {
+      console.log('Successfully wrote the JSON file');
     }
   })
 
@@ -299,6 +341,13 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
       console.log('Error writing the TypeScript file', err);
     } else {
       console.log('Successfully wrote the TypeScript file');
+    }
+  })
+  fs.writeFile('../subcircuits/library/setupParams.json', JSON.stringify(setupParams, null, 2), (err) => {
+    if (err) {
+      console.log('Error writing the JSON file', err);
+    } else {
+      console.log('Successfully wrote the JSON file');
     }
   })
 })

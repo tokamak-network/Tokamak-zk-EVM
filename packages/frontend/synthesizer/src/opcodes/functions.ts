@@ -568,7 +568,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       if (bytesToBigInt(data) !== dataRecovered) {
         throw new Error(`Synthesizer: KECCAK256: Data loaded to be hashed mismatch`)
       }
-      runState.stackPt.push(runState.synthesizer.loadKeccak(chunkDataPts, r, length))
+      runState.stackPt.push(runState.synthesizer.loadAndStoreKeccak(chunkDataPts, r, length))
       if (runState.stack.peek(1)[0] !== runState.stackPt.peek(1)[0].value) {
         throw new Error(`Synthesizer: KECCAK256: Output data mismatch`)
       }

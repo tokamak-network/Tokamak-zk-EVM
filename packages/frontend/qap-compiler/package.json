@@ -1,4 +1,38 @@
 {
+  "name": "@tokamak-zk-evm/qap-compiler",
+  "version": "0.0.2",
+  "description": "Library subcircuits for Tokamak zk-EVM",
+  "keywords": [
+    "ethereum",
+    "zk-EVM",
+    "zero-knowledge",
+    "zk-SNARK",
+    "tokamak",
+    "layer2",
+    "tokamak-network"
+  ],
+  "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/frontend/qap-compiler#readme",
+  "bugs": {
+    "url": "https://github.com/tokamak-network/tokamak-zk-evm/issues"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MPL-2.0",
+  "author": "Tokamak Network",
+  "contributors": [
+    "JehyukJang <https://github.com/JehyukJang>",
+    "Sungyun Seo <https://github.com/pleiadex>",
+    "donghyun <https://github.com/jdhyun09>"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
   "dependencies": {
     "chai": "^4.3.6",
     "circom": "^0.5.46",
@@ -6,5 +40,8 @@
     "circomlib": "^2.0.5",
     "ffjavascript": "^0.2.55",
     "mocha": "^11.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
   }
 }

@@ -8,3 +8,4 @@ stats.html
 !.vscode/**
 
 dist/
+**/outputs
