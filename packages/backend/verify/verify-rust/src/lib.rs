@@ -1,9 +1,8 @@
 #![allow(non_snake_case)]
 use icicle_runtime::memory::HostSlice;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
-use libs::iotools::{Permutation, PlacementVariables, SetupParams, SubcircuitInfo};
-use libs::group_structures::{Sigma, G1serde};
-use libs::polynomial_structures::gen_aX;
+use libs::iotools::{Permutation, PublicInstance, SetupParams, SubcircuitInfo};
+use libs::group_structures::{G1serde, Preprocess, Sigma, SigmaVerify};
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::ntt;
@@ -12,21 +11,15 @@ use libs::group_structures::pairing;
 
 use std::vec;
 
-pub struct Preprocess {
-    pub aX: DensePolynomialExt,
-    pub s0: G1serde,
-    pub s1: G1serde,
-    pub lagrange_KL: G1serde
-}
 pub struct Verifier {
-    pub sigma: Sigma,
+    pub sigma: SigmaVerify,
+    pub aX: DensePolynomialExt,
     pub preprocess: Preprocess,
     pub setup_params: SetupParams,
 }
 impl Verifier {
     pub fn init() -> Self {
         // Load setup parameters from JSON file
-        println!("Loading setup parameters...");
         let setup_path = "setupParams.json";
         let setup_params = SetupParams::from_path(setup_path).unwrap();
 
@@ -56,68 +49,23 @@ impl Verifier {
             panic!("m_I is not a power of two.");
         }
 
-        // TODO: Only take instance
-        // Load subcircuit information
-        println!("Loading subcircuit information...");
-        let subcircuit_path = "subcircuitInfo.json";
-        let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_path).unwrap();
-
-        // Load local variables of placements (public instance + interface witness + internal witness)
-        println!("Loading placement variables...");
-        let placement_variables_path = "placementVariables.json";
-        let placement_variables = PlacementVariables::from_path(&placement_variables_path).unwrap();
+        // Load public instance
+        let public_instance_path = "publicInstance.json";
+        let public_instance = PublicInstance::from_path(&public_instance_path).unwrap();
+        // Parsing the inputs
+        let aX = public_instance.gen_aX(&setup_params);
 
         // Load Sigma (reference string)
-        println!("Loading the reference string...");
-        let sigma_path = "setup/trusted-setup/output/combined_sigma.json";
-        let sigma = Sigma::read_from_json(&sigma_path)
+        let sigma_path = "setup/trusted-setup/output/sigma_verify.json";
+        let sigma = SigmaVerify::read_from_json(&sigma_path)
         .expect("No reference string is found. Run the Setup first.");
 
-        let preprocess: Preprocess = {
-            // Load permutation (copy constraints of the variables)
-            println!("Loading a permutation...");
-            let permutation_path = "permutation.json";
-            let permutation_raw = Permutation::from_path(&permutation_path).unwrap();
+        // Load Verifier preprocess
+        let preprocess_path = "verify/preprocess/output/preprocess.json";
+        let preprocess = Preprocess::read_from_json(&preprocess_path)
+        .expect("No Verifier preprocess is found. Run the Preprocess first.");
 
-            // Parsing the inputs
-            println!("Generating a(X)...");
-            let mut aX = gen_aX(&placement_variables, &subcircuit_infos, &setup_params);
-            aX.optimize_size();
-            // Generating permutation polynomials
-            println!("Converting the permutation matrices into polynomials s^0 and s^1...");
-            let (mut s0XY, mut s1XY) = Permutation::to_poly(&permutation_raw, m_i, s_max);
-            s0XY.optimize_size();
-            s1XY.optimize_size();
-            let s0 = sigma.sigma_1.encode_poly(&s0XY, &setup_params);
-            let s1 = sigma.sigma_1.encode_poly(&s1XY, &setup_params);
-
-            let mut lagrange_KL_XY = {
-                let mut k_evals = vec![ScalarField::zero(); m_i];
-                k_evals[m_i - 1] = ScalarField::one();
-                let lagrange_K_XY = DensePolynomialExt::from_rou_evals(
-                    HostSlice::from_slice(&k_evals),
-                    m_i,
-                    1,
-                    None,
-                    None
-                );
-                let mut l_evals = vec![ScalarField::zero(); s_max];
-                l_evals[s_max - 1] = ScalarField::one();
-                let lagrange_L_XY = DensePolynomialExt::from_rou_evals(
-                    HostSlice::from_slice(&l_evals),
-                    1,
-                    s_max,
-                    None,
-                    None
-                );
-                &lagrange_K_XY * &lagrange_L_XY
-            };
-            lagrange_KL_XY.optimize_size();
-            let lagrange_KL = sigma.sigma_1.encode_poly(&lagrange_KL_XY, &setup_params);
-            Preprocess {aX, s0, s1, lagrange_KL}
-        };
-
-        return Self {sigma, setup_params, preprocess}
+        return Self {sigma, aX, setup_params, preprocess}
     }
     
     pub fn verify_all(&self, binding: &Binding, proof0: &Proof0, proof1: &Proof1, proof2: &Proof2, proof3: &Proof3, proof4: &Proof4) -> bool {
@@ -135,7 +83,7 @@ impl Verifier {
         let t_mi_eval = chi.pow(m_i) - ScalarField::one();
         let t_smax_eval = zeta.pow(s_max) - ScalarField::one();
 
-        let A_eval = self.preprocess.aX.eval(&chi, &zeta);
+        let A_eval = self.aX.eval(&chi, &zeta);
         
         let lagrange_K0_eval = {
             let lagrange_K0_XY = {
@@ -166,8 +114,8 @@ impl Verifier {
             + self.sigma.G * thetas[2];
         let G = 
             proof0.B
-            + self.sigma.sigma_1.xy_powers[2 * s_max] * thetas[0] // [x]_1 (reference string size: 2*max(n,m_I) \times 2*s_max)
-            + self.sigma.sigma_1.xy_powers[1] * thetas[1] //[y]_1
+            + self.sigma.sigma_1.x * thetas[0]
+            + self.sigma.sigma_1.y * thetas[1]
             + self.sigma.G * thetas[2];
         let LHS_C_term1 = 
             self.preprocess.lagrange_KL * (proof3.R_eval - ScalarField::one())
@@ -276,8 +224,8 @@ impl Verifier {
             + self.sigma.G * thetas[2];
         let G = 
             proof0.B
-            + self.sigma.sigma_1.xy_powers[2 * s_max] * thetas[0] // [x]_1 (reference string size: 2*max(n,m_I) \times 2*s_max)
-            + self.sigma.sigma_1.xy_powers[1] * thetas[1] //[y]_1
+            + self.sigma.sigma_1.x * thetas[0]
+            + self.sigma.sigma_1.y * thetas[1]
             + self.sigma.G * thetas[2];
         let LHS_C_term1 = 
             self.preprocess.lagrange_KL * (proof3.R_eval - ScalarField::one())
@@ -331,7 +279,7 @@ impl Verifier {
         let t_mi_eval = chi.pow(m_i) - ScalarField::one();
         let t_smax_eval = zeta.pow(s_max) - ScalarField::one();
 
-        let A_eval = self.preprocess.aX.eval(&chi, &zeta);
+        let A_eval = self.aX.eval(&chi, &zeta);
         
         let lagrange_K0_eval = {
             let lagrange_K0_XY = {

@@ -4,7 +4,7 @@ include "../../components/templates/comparators.circom";
 // Input wires are private, and output wires are public.
 
 template Buffer () {
-    var N = 1;
+    var N = 16;
     signal input in[N];
     // This subcircuit is used as a buffer, so it is expected to have the constraints in === out.
     // However, CIRCOM doesn't allow a buffer, as "out <== in" or "out[i] - in[i] === 0" produce no constraints at all.

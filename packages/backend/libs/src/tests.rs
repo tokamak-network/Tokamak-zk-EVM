@@ -2,6 +2,7 @@ use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
 use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
 use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice};
 use std::cmp;
+use std::time::Instant;
 
 // Assuming the implementation of DensePolynomialExt and BivariatePolynomial is already available
 // This mod tests can be placed in a separate file
@@ -606,6 +607,52 @@ mod tests {
 
     }
 
+    #[test]
+    fn update_degree_general_case() {
+        let x_size = 2usize.pow(12);
+        let y_size = 2usize.pow(6);
+        // let x_degree= 2i64.pow(9);
+        // let y_degree = 0;
+        let x_degree: i64 = (x_size - 1) as i64;
+        let y_degree: i64 = (y_size - 1) as i64;
+
+        let dense_coeffs = ScalarCfg::generate_random(((x_degree + 1) * (y_degree + 1)) as usize);
+        let dense_coeffs_resized = resize(&dense_coeffs, 
+            (x_degree + 1) as usize, 
+            (y_degree + 1) as usize, 
+            x_size, 
+            y_size, 
+            ScalarField::zero()
+        );
+        let mut _dense_p = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&dense_coeffs_resized), x_size, y_size);
+
+        let time_parallel = Instant::now();
+        let (x_deg, y_deg) = _dense_p.find_degree();
+        assert_eq!(x_deg, x_degree);
+        assert_eq!(y_deg, y_degree);
+        println!("find_degree time: {:.6} seconds", time_parallel.elapsed().as_secs_f64());
+
+        let x_degree= 0;
+        let y_degree = 0;
+
+        let sparse_coeffs = ScalarCfg::generate_random(((x_degree + 1) * (y_degree + 1)) as usize);
+        let sparse_coeffs_resized = resize(&sparse_coeffs, 
+            (x_degree + 1) as usize, 
+            (y_degree + 1) as usize, 
+            x_size, 
+            y_size, 
+            ScalarField::zero()
+        );
+        let mut _sparse_p = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&sparse_coeffs_resized), x_size, y_size);
+
+        let time_parallel = Instant::now();
+        let (x_deg, y_deg) = _sparse_p.find_degree();
+        assert_eq!(x_deg, x_degree);
+        assert_eq!(y_deg, y_degree);
+        println!("find_degree time: {:.6} seconds", time_parallel.elapsed().as_secs_f64());
+
+
+    }
     // More tests can be added as needed
 }
 
@@ -738,4 +785,41 @@ mod tests_vectors {
     }
 
 
+}
+
+mod tests_iotools {
+    use crate::iotools::{from_coef_vec_to_g1serde_vec, gen_g1serde_vec_of_xy_monomials, scaled_outer_product_1d};
+    use crate::vector_operations::extend_monomial_vec;
+    use icicle_bls12_381::curve::{ScalarField, ScalarCfg, G1Affine, CurveCfg};
+    use icicle_core::traits::{FieldImpl, GenerateRandom};
+    use crate::group_structures::{G1serde};
+    use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
+    use icicle_core::curve::Curve;
+    use std::time::Instant;
+
+    #[test]
+    fn test_scalar_to_G1_conversion() {
+        let x_size = 2usize.pow(10);
+        let y_size = 2usize.pow(4);
+        let x = ScalarCfg::generate_random(1)[0];
+        let y = ScalarCfg::generate_random(1)[0];
+        let gen = CurveCfg::generate_random_affine_points(1)[0];
+        let mut res = vec![G1serde::zero(); x_size * y_size];
+        
+        let time_rayon = Instant::now();
+        let mut x_powers_vec = vec![ScalarField::zero(); x_size];
+        let mut y_powers_vec = vec![ScalarField::zero(); y_size];
+        extend_monomial_vec(&vec![ScalarField::one(), x], &mut x_powers_vec);
+        extend_monomial_vec(&vec![ScalarField::one(), y], &mut y_powers_vec);
+        scaled_outer_product_1d(&x_powers_vec, &y_powers_vec, &gen, None, &mut res);
+        let duration_rayon = time_rayon.elapsed();
+        println!("Scalar_to_G1 time with rayon: {:.6} seconds", duration_rayon.as_secs_f64());
+        drop(res);
+
+        let mut res = vec![G1serde::zero(); x_size * y_size];
+        let time_msm = Instant::now();
+        gen_g1serde_vec_of_xy_monomials(x, y, &gen, x_size, y_size, &mut res);
+        let duration_msm = time_msm.elapsed();
+        println!("Scalar_to_G1 time with hybrid of rayon and msm: {:.6} seconds", duration_msm.as_secs_f64());
+    }
 }

@@ -144,20 +144,30 @@ function refactoryPlacement(placements: Placements): Placements {
       outPts: newOutPts,
     })
   }
+  let flags: boolean[] = Array(5).fill(true);
+  
   if (outPlacements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length > subcircuitInfoByName.get('bufferPrvIn')!.In_idx[1]) {
-    throw new Error(`Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for longer buffers.`)
+    flags[0] = false;
+    console.log(`Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: ${outPlacements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length}).`)
   }
   if (outPlacements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.length > subcircuitInfoByName.get('bufferPrvOut')!.Out_idx[1]) {
-    throw new Error(`Synthesizer: Insufficient private output buffer length. Ask the qap-compiler for longer buffers.`)
+    flags[1] = false;
+    console.log(`Error: Synthesizer: Insufficient private output buffer length. Ask the qap-compiler for a longer buffer (required length: ${outPlacements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.length}).`)
   }
   if (outPlacements.get(PUB_IN_PLACEMENT_INDEX)!.inPts.length > subcircuitInfoByName.get('bufferPubIn')!.In_idx[1]) {
-    throw new Error(`Synthesizer: Insufficient public input buffer length. Ask the qap-compiler for longer buffers.`)
+    flags[2] = false;
+    console.log(`Error: Synthesizer: Insufficient public input buffer length. Ask the qap-compiler for a longer buffer (required length: ${outPlacements.get(PUB_IN_PLACEMENT_INDEX)!.inPts.length}).`)
   }
   if (outPlacements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts.length > subcircuitInfoByName.get('bufferPubOut')!.Out_idx[1]) {
-    throw new Error(`Synthesizer: Insufficient public output buffer length. Ask the qap-compiler for longer buffers.`)
+    flags[3] = false;
+    console.log(`Error: Synthesizer: Insufficient public output buffer length. Ask the qap-compiler for a longer buffer (required length: ${outPlacements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts.length}).`)
   }
   if (outPlacements.size > setupParams.s_max) {
-    throw new Error(`Synthesizer: The number of placements exceeds the parameter s_max. Ask the qap-compiler for more placements.`)
+    flags[4] = false;
+    console.log(`Error: Synthesizer: The number of placements exceeds the parameter s_max. Ask the qap-compiler for more placements (required slots: ${outPlacements.size})`)
+  }
+  if (flags.includes(false)) {
+    throw new Error("Resolve above errors.")
   }
   return outPlacements
 }
@@ -219,6 +229,7 @@ class IdxSet {
   idxOut: number
   idxIn: number
   idxPrv: number
+  flattenMap: number[]
   constructor(subcircuitInfo: SubcircuitInfoByNameEntry) {
     this.NOutWires = subcircuitInfo.NOutWires
     this.NInWires = subcircuitInfo.NInWires
@@ -226,6 +237,7 @@ class IdxSet {
     this.idxOut = this.NConstWires
     this.idxIn = this.idxOut + this.NOutWires
     this.idxPrv = this.idxIn + this.NInWires
+    this.flattenMap = subcircuitInfo.flattenMap!
   }
 }
 
@@ -344,15 +356,19 @@ export class Permutation {
     // Extracting public instance from the placement variables
     let idxSetPubIn = new IdxSet(this.subcircuitInfoByName.get(this.placements.get(PUB_IN_PLACEMENT_INDEX)!.name)!)
     let idxSetPubOut = new IdxSet(this.subcircuitInfoByName.get(this.placements.get(PUB_OUT_PLACEMENT_INDEX)!.name)!)
-    let a: string[] = []
+    let a: string[] = Array(setupParams.l).fill("0x00");
     if (idxSetPubIn.NInWires + idxSetPubOut.NOutWires > setupParams.l) {
       throw new Error('Incorrectness in the number of input and output variables.')
     }
-    for (let globalIdx = 0; globalIdx < idxSetPubIn.NInWires; globalIdx++){
-      a[globalIdx] = placementVariables[this.flattenMapInverse[globalIdx][0]].variables[this.flattenMapInverse[globalIdx][1]]
+    for (let i = 0; i < idxSetPubOut.NOutWires; i++){
+      let localIdx = idxSetPubOut.idxOut + i;
+      let val = placementVariables[PUB_OUT_PLACEMENT_INDEX].variables[localIdx] ?? "0x00"
+      a[idxSetPubOut.flattenMap[localIdx]] = val
     }
-    for (let globalIdx = idxSetPubIn.NInWires; globalIdx <idxSetPubIn.NInWires + idxSetPubOut.NOutWires; globalIdx++){
-      a[globalIdx] = placementVariables[this.flattenMapInverse[globalIdx][0]].variables[this.flattenMapInverse[globalIdx][1]]
+    for (let i = 0; i < idxSetPubIn.NInWires; i++){
+      let localIdx = idxSetPubIn.idxIn + i;
+      let val = placementVariables[PUB_IN_PLACEMENT_INDEX].variables[localIdx] ?? "0x00"
+      a[idxSetPubIn.flattenMap[localIdx]] = val
     }
 
     // Packaging public instance
@@ -367,8 +383,8 @@ export class Permutation {
       outPts: this.placements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts.map(({ value, ...rest }) => rest),
     }
     const publicInstance = {
-      publicInputBuffer,
       publicOutputBuffer,
+      publicInputBuffer,
       a
     }
     // Packaging private external interface buffers for developers

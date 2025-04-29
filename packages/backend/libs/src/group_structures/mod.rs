@@ -8,14 +8,13 @@ use ark_ff::{Field, PrimeField, Fp12};
 use icicle_runtime::memory::HostSlice;
 use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
 use crate::field_structures::{FieldSerde, Tau};
-use crate::iotools::{from_coef_vec_to_g1serde_mat, from_coef_vec_to_g1serde_vec, scaled_outer_product_1d, scaled_outer_product_2d, PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
+use crate::iotools::{from_coef_vec_to_g1serde_mat, from_coef_vec_to_g1serde_vec, scaled_outer_product_1d, scaled_outer_product_2d, Permutation, PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use crate::vector_operations::{*};
 
 use serde::{Deserialize, Serialize};
 use std::{
     ops::{Add, Mul, Sub},
 };
-
 
 macro_rules! extend_monomial_vec {
     ($mono_vec: expr, $target_size: expr) => {
@@ -51,7 +50,7 @@ macro_rules! type_scaled_outer_product_1d {
     };  
 }
 
-
+#[macro_export]
 macro_rules! type_scaled_monomials_1d {
     ( $cached_x_vec: expr, $cached_y_vec: expr, $x_size: expr, $y_size: expr, $scaler: expr, $g1_gen: expr ) => {
         {
@@ -63,12 +62,122 @@ macro_rules! type_scaled_monomials_1d {
     };
 }
 
+macro_rules! impl_encode_poly {
+    ($t:ty) => {
+        impl $t {
+            pub fn encode_poly(
+                &self,
+                poly: &mut DensePolynomialExt,
+                params: &SetupParams
+            ) -> G1serde {
+                poly.optimize_size();
+                let x_size = poly.x_size;
+                let y_size = poly.y_size;
+                let rs_x_size = std::cmp::max(2*params.n, 2*(params.l_D - params.l) );
+                let rs_y_size = params.s_max*2;
+                let target_x_size = (poly.x_degree + 1) as usize;
+                let target_y_size = (poly.y_degree + 1) as usize;
+                if target_x_size > rs_x_size || target_y_size > rs_y_size {
+                    panic!("Insufficient length of sigma.sigma_1.xy_powers");
+                }
+                if target_x_size * target_y_size == 0 {
+                    return G1serde::zero()
+                }
+                let poly_coeffs_vec_compact = {
+                    let mut poly_coeffs_vec = vec![ScalarField::zero(); x_size * y_size];
+                    let poly_coeffs = HostSlice::from_mut_slice(&mut poly_coeffs_vec);
+                    poly.copy_coeffs(0, poly_coeffs);
+                    resize(
+                        &poly_coeffs_vec,
+                        x_size,
+                        y_size,
+                        target_x_size,
+                        target_y_size,
+                        ScalarField::zero()
+                    )
+                };
+                
+                let rs_unpacked: Vec<G1Affine> = {
+                    let rs_resized = resize(
+                        &self.xy_powers, 
+                        rs_x_size, 
+                        rs_y_size, 
+                        target_x_size, 
+                        target_y_size,
+                        G1serde::zero()
+                    );
+                    rs_resized.iter().map(|x| x.0).collect()
+                };
+
+                let mut msm_res = vec![G1Projective::zero(); 1];
+                
+                msm::msm(
+                    HostSlice::from_slice(
+                        &poly_coeffs_vec_compact
+                    ),
+                    HostSlice::from_slice(
+                        &rs_unpacked
+                    ),
+                    &MSMConfig::default(),
+                    HostSlice::from_mut_slice(&mut msm_res)
+                ).unwrap();
+                G1serde(G1Affine::from(msm_res[0]))
+            }
+        }
+    };
+}
+
+pub fn pairing(lhs: &[G1serde], rhs: &[G2serde]) -> PairingOutput<Bls12_381> {
+    let lhs_ark: Vec<ArkG1Affine> = lhs.iter().map(|x| icicle_g1_affine_to_ark(&x.0)).collect();
+    let rhs_ark: Vec<ArkG2Affine> = rhs.iter().map(|x| icicle_g2_affine_to_ark(&x.0)).collect();
+    Bls12_381::multi_pairing(
+        lhs_ark, 
+        rhs_ark
+    )
+}
+
+/// CRS (Common Reference String) structure
+/// This corresponds to σ = ([σ_1]_1, [σ_2]_2) defined in the paper
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Sigma {
+    pub G: G1serde,
+    pub H: G2serde,
+    pub sigma_1: Sigma1,
+    pub sigma_2: Sigma2,
+}
+
+impl Sigma {
+    /// Generate full CRS
+    pub fn gen(
+        params: &SetupParams,
+        tau: &Tau,
+        o_vec: &Box<[ScalarField]>,
+        l_vec: &Box<[ScalarField]>,
+        k_vec: &Box<[ScalarField]>,
+        m_vec: &Box<[ScalarField]>,
+        g1_gen: &G1Affine,
+        g2_gen: &G2Affine
+    ) -> Self {
+        println!("Generating a sigma (σ)...");
+        let sigma_1 = Sigma1::gen(params, tau, o_vec, l_vec, k_vec, m_vec, g1_gen);
+        let sigma_2 = Sigma2::gen(tau, g2_gen);
+        Self {
+            G: G1serde(*g1_gen),
+            H: G2serde(*g2_gen),
+            sigma_1,
+            sigma_2
+        }
+    }
+}
+
 /// CRS's AC component
 /// This corresponds to σ_A,C in the mathematical formulation
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Sigma1 {
     // Elements of the form {x^h y^i}_{h=0,i=0}^{max(2n-2,3m_D-3),2*s_max-2}
     pub xy_powers: Box<[G1serde]>,
+    pub x: G1serde,
+    pub y: G1serde,
     pub delta: G1serde,
     pub eta: G1serde,
     pub gamma_inv_o_pub_mj: Box<[G1serde]>, // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}_{t=0,j=0}^{1,l-1} where t=0 for j∈[0,l_in-1] and t=1 for j∈[l_in,l-1]
@@ -78,6 +187,8 @@ pub struct Sigma1 {
     pub delta_inv_alpha4_xj_tx: Box<[G1serde]>, // {δ^(-1)α^4 x^j t_{m_I}(x)}_{j=0}^{1}
     pub delta_inv_alphak_yi_ty: Box<[Box<[G1serde]>]>, // {δ^(-1)α^k y^i t_{s_max}(y)}_{i=0,k=1}^{2,4}
 }
+
+impl_encode_poly!(Sigma1);
 
 impl Sigma1 {
     pub fn gen(
@@ -123,7 +234,8 @@ impl Sigma1 {
         let o_prv_vec = &o_vec[l+m_i..m_d].to_vec().into_boxed_slice();
         
         // Generate delta = G1serde · δ and eta = G1serde · η
-        println!("Generating delta and eta...");
+        let x = G1serde(G1Affine::from((*g1_gen).to_projective() * tau.x));
+        let y = G1serde(G1Affine::from((*g1_gen).to_projective() * tau.y));
         let delta = G1serde(G1Affine::from((*g1_gen).to_projective() * tau.delta));
         let eta = G1serde(G1Affine::from((*g1_gen).to_projective() * tau.eta));
         
@@ -201,6 +313,8 @@ impl Sigma1 {
 
         Self {
             xy_powers,
+            x,
+            y,
             delta,
             eta,
             gamma_inv_o_pub_mj,
@@ -211,55 +325,6 @@ impl Sigma1 {
             delta_inv_alphak_yi_ty
         }
         
-    }
-
-    pub fn encode_poly(
-        &self,
-        poly: &DensePolynomialExt,
-        params: &SetupParams
-    ) -> G1serde {
-        let x_size = poly.x_size;
-        let y_size = poly.y_size;
-        let rs_x_size = std::cmp::max(2*params.n, 2*(params.l_D - params.l) );
-        let rs_y_size = params.s_max*2;
-        let target_x_size = (poly.x_degree + 1) as usize;
-        let target_y_size = (poly.y_degree + 1) as usize;
-        if target_x_size > rs_x_size || target_y_size > rs_y_size {
-            panic!("Insufficient length of sigma.sigma_1.xy_powers");
-        }
-        if target_x_size * target_y_size == 0 {
-            return G1serde::zero()
-        }
-        let mut poly_coeffs_vec = vec![ScalarField::zero(); x_size * y_size];
-        let poly_coeffs = HostSlice::from_mut_slice(&mut poly_coeffs_vec);
-        poly.copy_coeffs(0, poly_coeffs);
-        let mut msm_res = vec![G1Projective::zero(); 1];
-        let rs: Vec<G1Affine> = self.xy_powers.iter().map(|x| x.0).collect();
-        msm::msm(
-            HostSlice::from_slice(
-                &resize(
-                    &poly_coeffs_vec, 
-                    x_size, 
-                    y_size, 
-                    target_x_size, 
-                    target_y_size,
-                    ScalarField::zero()
-                )
-            ),
-            HostSlice::from_slice(
-                &resize(
-                    &rs, 
-                    rs_x_size, 
-                    rs_y_size, 
-                    target_x_size, 
-                    target_y_size,
-                    G1Affine::zero()
-                )
-            ),
-            &MSMConfig::default(),
-            HostSlice::from_mut_slice(&mut msm_res)
-        ).unwrap();
-        G1serde(G1Affine::from(msm_res[0]))
     }
 
     pub fn encode_O_pub(
@@ -425,7 +490,7 @@ impl Sigma1 {
 }
 /// This corresponds to σ_2 in the paper:
 /// σ_2 := (α, α^2, α^3, α^4, γ, δ, η, x, y)
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Copy)]
 pub struct Sigma2 {
     pub alpha: G2serde,
     pub alpha2: G2serde,
@@ -469,153 +534,71 @@ impl Sigma2 {
     }
 }
 
-/// CRS (Common Reference String) structure
-/// This corresponds to σ = ([σ_1]_1, [σ_2]_2) defined in the paper
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Sigma {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SigmaPreprocess {
+    pub sigma_1: PartialSigma1
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PartialSigma1 {
+    pub xy_powers: Box<[G1serde]>
+}
+impl_encode_poly!(PartialSigma1);
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PartialSigma1Verify {
+    pub x: G1serde,
+    pub y: G1serde
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SigmaVerify {
     pub G: G1serde,
     pub H: G2serde,
-    pub sigma_1: Sigma1,
-    pub sigma_2: Sigma2,
+    pub sigma_1: PartialSigma1Verify,
+    pub sigma_2: Sigma2
 }
 
-impl Sigma {
-    /// Generate full CRS
-    pub fn gen(
-        params: &SetupParams,
-        tau: &Tau,
-        o_vec: &Box<[ScalarField]>,
-        l_vec: &Box<[ScalarField]>,
-        k_vec: &Box<[ScalarField]>,
-        m_vec: &Box<[ScalarField]>,
-        g1_gen: &G1Affine,
-        g2_gen: &G2Affine
-    ) -> Self {
-        println!("Generating a sigma (σ)...");
-        let sigma_1 = Sigma1::gen(params, tau, o_vec, l_vec, k_vec, m_vec, g1_gen);
-        let sigma_2 = Sigma2::gen(tau, g2_gen);
-        Self {
-            G: G1serde(*g1_gen),
-            H: G2serde(*g2_gen),
-            sigma_1,
-            sigma_2
-        }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Preprocess {
+    pub s0: G1serde,
+    pub s1: G1serde,
+    pub lagrange_KL: G1serde
+}
+
+impl Preprocess {
+    pub fn gen(sigma: &SigmaPreprocess, permutation_raw: &Box<[Permutation]>, setup_params: &SetupParams) -> Self {
+        let m_i = setup_params.l_D - setup_params.l;
+        let s_max = setup_params.s_max;
+        // Generating permutation polynomials
+        println!("Converting the permutation matrices into polynomials s^0 and s^1...");
+        let (mut s0XY, mut s1XY) = Permutation::to_poly(&permutation_raw, m_i, s_max);
+        let s0 = sigma.sigma_1.encode_poly(&mut s0XY, &setup_params);
+        let s1 = sigma.sigma_1.encode_poly(&mut s1XY, &setup_params);
+
+        let mut lagrange_KL_XY = {
+            let mut k_evals = vec![ScalarField::zero(); m_i];
+            k_evals[m_i - 1] = ScalarField::one();
+            let lagrange_K_XY = DensePolynomialExt::from_rou_evals(
+                HostSlice::from_slice(&k_evals),
+                m_i,
+                1,
+                None,
+                None
+            );
+            let mut l_evals = vec![ScalarField::zero(); s_max];
+            l_evals[s_max - 1] = ScalarField::one();
+            let lagrange_L_XY = DensePolynomialExt::from_rou_evals(
+                HostSlice::from_slice(&l_evals),
+                1,
+                s_max,
+                None,
+                None
+            );
+            &lagrange_K_XY * &lagrange_L_XY
+        };
+        let lagrange_KL = sigma.sigma_1.encode_poly(&mut lagrange_KL_XY, &setup_params);
+        return Preprocess {s0, s1, lagrange_KL}
     }
 }
-
-pub fn pairing(lhs: &[G1serde], rhs: &[G2serde]) -> PairingOutput<Bls12_381> {
-    let lhs_ark: Vec<ArkG1Affine> = lhs.iter().map(|x| icicle_g1_affine_to_ark(&x.0)).collect();
-    let rhs_ark: Vec<ArkG2Affine> = rhs.iter().map(|x| icicle_g2_affine_to_ark(&x.0)).collect();
-    Bls12_381::multi_pairing(
-        lhs_ark, 
-        rhs_ark
-    )
-}
-
-
-// fn g1_affine_to_json(point: &G1Affine) -> Value {
-//     json!({
-//         "x": point.x.to_string(),
-//         "y": point.y.to_string(),
-//     })
-// }
-
-// fn g2_affine_to_json(point: &G2Affine) -> Value {
-//     json!({
-//         "x": point.x.to_string(),
-//         "y": point.y.to_string(),
-//     })
-// }
-
-// fn g1_affine_from_json(json_value: &Value) -> Result<G1Affine, Box<dyn std::error::Error>> {
-//     let x_str = json_value["x"].as_str().ok_or("Missing x coordinate")?;
-//     let y_str = json_value["y"].as_str().ok_or("Missing y coordinate")?;
-    
-//     let x_bytes = hex::decode(x_str.trim_start_matches("0x"))?;
-//     let y_bytes = hex::decode(y_str.trim_start_matches("0x"))?;
-    
-//     let x_field = BaseField::from_bytes_le(&x_bytes);
-//     let y_field = BaseField::from_bytes_le(&y_bytes);
-    
-//     Ok(G1Affine {
-//         x: x_field,
-//         y: y_field,
-//     })
-// }
-
-
-// fn g2_affine_from_json(json_value: &Value) -> Result<G2Affine, Box<dyn std::error::Error>> {
-//     let x_str = json_value["x"].as_str().ok_or("Missing x coordinate")?;
-//     let y_str = json_value["y"].as_str().ok_or("Missing y coordinate")?;
-    
-//     let x_bytes = hex::decode(x_str.trim_start_matches("0x"))?;
-//     let y_bytes = hex::decode(y_str.trim_start_matches("0x"))?;
-    
-//     let x_field = G2BaseField::from_bytes_le(&x_bytes);
-//     let y_field = G2BaseField::from_bytes_le(&y_bytes);
-        
-//     Ok(G2Affine {
-//         x: x_field,
-//         y: y_field,
-//     })
-// }
-
-// fn g1_affine_array_from_json(json_value: &Value) -> Result<Box<[G1Affine]>, Box<dyn std::error::Error>> {
-//     let array = json_value.as_array().ok_or("Expected array")?;
-//     let mut result = Vec::with_capacity(array.len());
-    
-//     for item in array {
-//         result.push(g1_affine_from_json(item)?);
-//     }
-    
-//     Ok(result.into_boxed_slice())
-// }
-
-// fn g2_affine_array_from_json(json_value: &Value) -> Result<Box<[G2Affine]>, Box<dyn std::error::Error>> {
-//     let array = json_value.as_array().ok_or("Expected array")?;
-//     let mut result = Vec::with_capacity(array.len());
-    
-//     for item in array {
-//         result.push(g2_affine_from_json(item)?);
-//     }
-    
-//     Ok(result.into_boxed_slice())
-// }
-
-// fn g1_affine_2d_array_from_json(json_value: &Value) -> Result<Box<[Box<[G1Affine]>]>, Box<dyn std::error::Error>> {
-//     let array = json_value.as_array().ok_or("Expected array")?;
-//     let mut result = Vec::with_capacity(array.len());
-    
-//     for row in array {
-//         result.push(g1_affine_array_from_json(row)?);
-//     }
-    
-//     Ok(result.into_boxed_slice())
-// }
-
-// fn g1_affine_array_to_json(array: &Box<[G1Affine]>) -> Value {
-//     let mut json_array = Vec::new();
-//     for point in array.iter() {
-//         json_array.push(g1_affine_to_json(point));
-//     }
-//     Value::Array(json_array)
-// }
-
-// fn g1_affine_2d_array_to_json(array: &Box<[Box<[G1Affine]>]>) -> Value {
-//     let mut json_array = Vec::new();
-//     for row in array.iter() {
-//         json_array.push(g1_affine_array_to_json(row));
-//     }
-//     Value::Array(json_array)
-// }
-
-// fn g2_affine_array_to_json(array: &Box<[G2Affine]>) -> Value {
-//     let mut json_array = Vec::new();
-//     for point in array.iter() {
-//         json_array.push(g2_affine_to_json(point));
-//     }
-//     Value::Array(json_array)
-// }
 
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub struct G1serde(pub G1Affine);
