@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/synthesizer",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Tokamak zk-EVM Synthesizer - Interprets an Ethereum transaction as a combination of the library subcircuits.",
   "keywords": [
     "ethereum",
