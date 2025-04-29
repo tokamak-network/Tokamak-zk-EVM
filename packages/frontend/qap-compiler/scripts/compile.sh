@@ -1,4 +1,5 @@
-names=("bufferPubOut" "bufferPubIn" "bufferPrvIn" "bufferPrvOut" "ADD" "MUL" "SUB" "DIV" "SDIV" "MOD" "SMOD" "ADDMOD" "MULMOD" "EQ" "ISZERO" "SHL" "SHR" "LT" "GT" "NOT" "BYTE" "SAR" "SIGNEXTEND" "SLT" "SGT" "AND" "OR" "XOR" "DecToBit" "SubEXP")
+# names=("bufferPubOut" "bufferPubIn" "bufferPrvIn" "bufferPrvOut" "ADD" "MUL" "SUB" "DIV" "SDIV" "MOD" "SMOD" "ADDMOD" "MULMOD" "EQ" "ISZERO" "SHL" "SHR" "LT" "GT" "NOT" "BYTE" "SAR" "SIGNEXTEND" "SLT" "SGT" "AND" "OR" "XOR" "DecToBit" "SubEXP")
+names=("bufferPubOut" "bufferPubIn" "bufferPrvIn" "bufferPrvOut" "ADD" "MUL" "SUB" "DIV" "EQ" "ISZERO" "SHL" "SHR" "LT" "GT" "AND") # For TON transfer
 # names=("bufferPubOut" "bufferPubIn" "bufferPrvIn" "bufferPrvOut" "ADD" "MUL") # For testing backends
 CURVE_NAME="bls12381"
 

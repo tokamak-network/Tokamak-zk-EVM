@@ -82,9 +82,6 @@ export const synthesizerArith = (
     case 'EXP':
       outPts = [runState.synthesizer.placeEXP(inPts)]
       break
-    case 'DIV':
-      outPts = [runState.synthesizer.placeDIV(inPts)]
-      break
     default:
       outPts = runState.synthesizer.placeArith(op, inPts)
       break
@@ -698,19 +695,6 @@ export class Synthesizer {
     return chPts[chPts.length - 1]
   }
 
-  public placeDIV(inPts: DataPt[]): DataPt {
-    SynthesizerValidator.validateSubcircuitName('Div1', this.subcircuitNames)
-    SynthesizerValidator.validateSubcircuitName('Div2', this.subcircuitNames)
-    SynthesizerValidator.validateSubcircuitName('Div3', this.subcircuitNames)
-    // a / b
-
-    const div1OutPts = this.placeArith('Div1', inPts);
-    const div2OutPts = this.placeArith('Div2', [...inPts, div1OutPts[0]])
-    const div3OutPts = this.placeArith('Div3', [...inPts, div2OutPts[0]])
-
-    return div3OutPts[0]
-  }
-
   /**
    * Adds a new MLOAD placement.
    *
@@ -748,9 +732,6 @@ export class Synthesizer {
     NOT: 1,
     DecToBit: 1,
     SubEXP: 3,
-    Div1: 2,
-    Div2: 3,
-    Div3: 3
   } as const
   private validateOperation(name: ArithmeticOperator, inPts: DataPt[]): void {
     // Default is 2, check REQUIRED_INPUTS only for exceptional cases

@@ -786,6 +786,7 @@ pub fn read_R1CS_gen_uvwXY(
     let mut w_eval = vec![ScalarField::zero(); s_max * n];
     for i in 0..placement_variables.len() {
         let subcircuit_id = placement_variables[i].subcircuitId;
+        // println!("TEST: Subcircuit Name: {:?}", subcircuit_infos[subcircuit_id].name);
         let r1cs_path: String = format!("json/subcircuit{subcircuit_id}.json");
         let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[subcircuit_id]).unwrap();
         let variables = &placement_variables[i].variables;
