@@ -6,6 +6,7 @@ Tokamak-zk-EVM is a zero-knowledge Ethereum Virtual Machine implementation that 
 ![Tokamak-zk-EVM Flow Chart](.github/assets/flowchart.png)
 
 ## Usage
+We provide [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds), a graphical user interface that helps you easily follow the execution of Tokamak zk-EVM.
 ### With Playground (in progress)
 Will be updated soon.
 ### Without Playground
