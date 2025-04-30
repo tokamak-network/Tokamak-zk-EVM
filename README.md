@@ -2,6 +2,66 @@
 
 Tokamak-zk-EVM is a zero-knowledge Ethereum Virtual Machine implementation that enables scalable and private smart contract execution.
 
+## Tokamak-zk-EVM flow chart
+![Tokamak-zk-EVM Flow Chart](.github/assets/flowchart.png)
+
+## Usage
+### With Playground (in progress)
+Will be updated soon.
+### Without Playground
+Here is an example of generating a zk proof of the correct execution of an [ERC-20 transfer transaction for the TON contract](./packages/frontend/synthesizer/examples/erc20/ton-transfer.ts).
+1. Make sure that you have installed
+    - [Node.js](https://nodejs.org/en),
+    - [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm),
+    - [tsx](https://www.npmjs.com/package/tsx),
+    - [Circom](https://docs.circom.io/getting-started/installation/), and
+    - [Rust](https://www.rust-lang.org/tools/install)
+    - (+ [Docker](https://www.docker.com/get-started/) if you use Windows)
+3. Clone the zk-evm repository (the main branch)
+    
+    ```bash
+    git clone https://github.com/tokamak-network/Tokamak-zk-EVM
+    ```
+    
+4. Open the “Tokamak-zk-EVM” folder.
+5. Run `qap-compiler` (requiring Node.js, npm, and Circom)
+    
+    ```bash
+    cd "$pwd/packages/frontend/qap-compiler"
+    npm install
+    ./scripts/compile.sh
+    ```
+    
+6. Run `synthesizer` (requiring Node.js, npm, and tsx)
+    
+    ```bash
+    cd "$pwd/packages/frontend/synthesizer"
+    npm install
+    tsx ./examples/erc20/ton-transfer.ts
+    ```
+    
+7. Run `setup` (requiring Rust)
+    
+    ```bash
+    cd "$pwd/packages/backend"
+    cargo run -p trusted-setup
+    ```
+    
+8. Run `preprocess` (requiring Rust)
+    
+    ```bash
+    cd "$pwd/packages/backend"
+    cargo run -p preprocess
+    ```
+    
+9. Run `prove` and `verify` (requiring Rust)
+    
+    ```bash
+    cd "$pwd/packages/backend"
+    cargo run -p protocol-script
+    ```
+
+
 ## Package Composition
 
 This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
@@ -44,8 +104,6 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 - Production-ready release
 - Full system integration and testing
 
-## Tokamak-zk-EVM flow chart
-![Tokamak-zk-EVM Flow Chart](.github/assets/flowchart.png)
 
 ## Ethereum compatibility
 > 📝 **Note**: This section will be updated as new EVM features are implemented
