@@ -13,11 +13,9 @@ Will be updated soon.
 Here is an example of generating a zk proof of the correct execution of an [ERC-20 transfer transaction for the TON contract](./packages/frontend/synthesizer/examples/erc20/ton-transfer.ts).
 1. Make sure that you have installed
     - [Node.js](https://nodejs.org/en),
-    - [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm),
-    - [tsx](https://www.npmjs.com/package/tsx),
     - [Circom](https://docs.circom.io/getting-started/installation/),
-    - [Rust](https://www.rust-lang.org/tools/install).
-    - (+ [Docker](https://www.docker.com/get-started/) for backend algorithms, if you use Windows)
+    - [Rust](https://www.rust-lang.org/tools/install),
+    - [CMAKE](https://cmake.org/download) (+ [Docker](https://www.docker.com/get-started/) would be helpful to install CMAKE, if you use Windows).
 3. Clone the zk-evm repository (the main branch)
     
     ```bash
@@ -25,7 +23,7 @@ Here is an example of generating a zk proof of the correct execution of an [ERC-
     ```
     
 4. Open the “Tokamak-zk-EVM” folder.
-5. Run `qap-compiler` (requiring Node.js, npm, and Circom)
+5. Run `qap-compiler` (requiring Node.js and Circom)
     
     ```bash
     cd "$pwd/packages/frontend/qap-compiler"
@@ -33,7 +31,7 @@ Here is an example of generating a zk proof of the correct execution of an [ERC-
     ./scripts/compile.sh
     ```
     
-6. Run `synthesizer` (requiring Node.js, npm, and tsx)
+6. Run `synthesizer` (requiring Node.js)
     
     ```bash
     cd "$pwd/packages/frontend/synthesizer"
