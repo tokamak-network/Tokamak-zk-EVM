@@ -15,8 +15,8 @@ Here is an example of generating a zk proof of the correct execution of an [ERC-
     - [Node.js](https://nodejs.org/en),
     - [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm),
     - [tsx](https://www.npmjs.com/package/tsx),
-    - [Circom](https://docs.circom.io/getting-started/installation/), and
-    - [Rust](https://www.rust-lang.org/tools/install)
+    - [Circom](https://docs.circom.io/getting-started/installation/),
+    - [Rust](https://www.rust-lang.org/tools/install).
     - (+ [Docker](https://www.docker.com/get-started/) for backend algorithms, if you use Windows)
 3. Clone the zk-evm repository (the main branch)
     
