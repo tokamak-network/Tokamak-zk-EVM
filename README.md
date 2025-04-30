@@ -13,9 +13,9 @@ Will be updated soon.
 Here is an example of generating a zk proof of the correct execution of an [ERC-20 transfer transaction for the TON contract](./packages/frontend/synthesizer/examples/erc20/ton-transfer.ts).
 1. Make sure that you have installed
     - [Node.js](https://nodejs.org/en),
-    - [Circom](https://docs.circom.io/getting-started/installation/),
-    - [Rust](https://www.rust-lang.org/tools/install),
-    - [CMAKE](https://cmake.org/download) (+ [Docker](https://www.docker.com/get-started/) would be helpful to install CMAKE, if you use Windows).
+    - [Circom](https://docs.circom.io),
+    - [Rust](https://www.rust-lang.org),
+    - [CMake](https://cmake.org) (+ [Docker](https://www.docker.com) would be helpful for installing and using CMAKE, if you use Windows).
 3. Clone the zk-evm repository (the main branch)
     
     ```bash
@@ -39,21 +39,21 @@ Here is an example of generating a zk proof of the correct execution of an [ERC-
     npx vitest run ./examples/erc20/ton-transfer.ts
     ```
     
-7. Run `setup` (requiring Rust)
+7. Run `setup` (requiring Rust and CMake)
     
     ```bash
     cd "$pwd/packages/backend"
     cargo run -p trusted-setup
     ```
     
-8. Run `preprocess` (requiring Rust)
+8. Run `preprocess` (requiring Rust and CMake)
     
     ```bash
     cd "$pwd/packages/backend"
     cargo run -p preprocess
     ```
     
-9. Run `prove` and `verify` (requiring Rust)
+9. Run `prove` and `verify` (requiring Rust and CMake)
     
     ```bash
     cd "$pwd/packages/backend"
