@@ -36,7 +36,7 @@ Here is an example of generating a zk proof of the correct execution of an [ERC-
     ```bash
     cd "$pwd/packages/frontend/synthesizer"
     npm install
-    npx tsx run ./examples/erc20/ton-transfer.ts
+    npx tsx ./examples/erc20/ton-transfer.ts
     ```
     
 7. Run `setup` (requiring Rust and CMake)
