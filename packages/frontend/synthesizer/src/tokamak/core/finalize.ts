@@ -406,6 +406,7 @@ export class Permutation {
     const placementVariablesJson = `${JSON.stringify(placementVariables, null, 2)}`
     const publicInstanceJson = `${JSON.stringify(publicInstance, null, 2)}`
     const privateExternalInterfaceJson = `${JSON.stringify(privateExternalInterface, null, 2)}`
+    console.log(_path)
     const filePath1 = _path === undefined ? path.resolve(
       appRootPath.path,
       'examples/outputs/placementVariables.json',
