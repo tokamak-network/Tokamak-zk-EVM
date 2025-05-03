@@ -1,7 +1,10 @@
 #![allow(non_snake_case)]
+use hex::FromHex;
+use icicle_core::hash::HashConfig;
+use icicle_hash::keccak::Keccak256;
 use icicle_runtime::memory::HostSlice;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
-use libs::iotools::{Permutation, PublicInstance, SetupParams, SubcircuitInfo};
+use libs::iotools::{Instance, Permutation, PublicInputBuffer, PublicOutputBuffer, SetupParams, SubcircuitInfo};
 use libs::group_structures::{G1serde, Preprocess, Sigma, SigmaVerify};
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
@@ -13,9 +16,12 @@ use std::vec;
 
 pub struct Verifier {
     pub sigma: SigmaVerify,
-    pub aX: DensePolynomialExt,
+    pub a_pub: Box<[ScalarField]>,
+    pub publicInputBuffer: PublicInputBuffer,
+    pub publicOutputBuffer: PublicOutputBuffer,
     pub preprocess: Preprocess,
     pub setup_params: SetupParams,
+    pub proof: Proof,
 }
 impl Verifier {
     pub fn init() -> Self {
@@ -29,10 +35,15 @@ impl Verifier {
         let s_d = setup_params.s_D; // Number of subcircuits
         let n = setup_params.n;     // Number of constraints per subcircuit
         let s_max = setup_params.s_max; // The maximum number of placements
+        let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
+        let l_prv = setup_params.l_prv_in + setup_params.l_prv_out;
         
-        // Assert l is a power of two
-        if !l.is_power_of_two() {
-            panic!("l is not a power of two.");
+        if !(l_pub.is_power_of_two() || l_pub==0) {
+            panic!("l_pub is not a power of two.");
+        }
+    
+        if !(l_prv.is_power_of_two()) {
+            panic!("l_prv is not a power of two.");
         }
         // Assert n is a power of two
         if !n.is_power_of_two() {
@@ -49,11 +60,14 @@ impl Verifier {
             panic!("m_I is not a power of two.");
         }
 
-        // Load public instance
-        let public_instance_path = "publicInstance.json";
-        let public_instance = PublicInstance::from_path(&public_instance_path).unwrap();
+        // Load instance
+        let instance_path = "instance.json";
+        let instance = Instance::from_path(&instance_path).unwrap();
         // Parsing the inputs
-        let aX = public_instance.gen_aX(&setup_params);
+        let mut a_pub = vec![ScalarField::zero(); l_pub].into_boxed_slice();
+        for i in 0..l_pub {
+            a_pub[i] = ScalarField::from_hex(&instance.a[i]);
+        }
 
         // Load Sigma (reference string)
         let sigma_path = "setup/trusted-setup/output/sigma_verify.json";
@@ -65,10 +79,120 @@ impl Verifier {
         let preprocess = Preprocess::read_from_json(&preprocess_path)
         .expect("No Verifier preprocess is found. Run the Preprocess first.");
 
-        return Self {sigma, aX, setup_params, preprocess}
+        // Load Proof
+        let proof_path = "prove/output/proof.json";
+        let proof = Proof::read_from_json(&proof_path)
+        .expect("No proof is found. Run the Prove first.");
+
+        return Self {
+            sigma, 
+            a_pub, 
+            publicInputBuffer: instance.publicInputBuffer, 
+            publicOutputBuffer: instance.publicOutputBuffer, 
+            setup_params, 
+            preprocess,
+            proof
+        }
+    }
+
+    pub fn verify_keccak256(&self) -> bool {
+        let l_pub_out = self.setup_params.l_pub_out;
+        let keccak_in_pts = &self.publicOutputBuffer.outPts;
+        let keccak_out_pts = &self.publicInputBuffer.inPts;
+        
+        let mut keccak_inputs_be_bytes= Vec::new();
+        let mut prev_key: usize = 0;
+        let mut data_restored: Vec<u8> = Vec::new();
+        for i in 0..keccak_in_pts.len()/2 {
+            let keccak_in_lsb = &keccak_in_pts[2 * i];
+            let keccak_in_msb = &keccak_in_pts[2 * i + 1];
+            if keccak_in_lsb.extDest != "KeccakIn" || keccak_in_msb.extDest != "KeccakIn" {
+                panic!("The pointed data is not a Keccak input.")
+            }
+            if !ScalarField::from_hex(&keccak_in_lsb.valueHex).eq(&self.a_pub[2 * i]) || !ScalarField::from_hex(&keccak_in_msb.valueHex).eq(&self.a_pub[2 * i + 1]) {
+                panic!("a_pub does not match with the publicOutputBuffer items.")
+            }
+            let this_key = usize::from_str_radix(&keccak_in_lsb.key.trim_start_matches("0x"), 16).unwrap();
+            let _this_key = usize::from_str_radix(&keccak_in_msb.key.trim_start_matches("0x"), 16).unwrap();
+            if this_key != _this_key {
+                panic!("Pointed two keccak inputs have different key values")
+            }
+            let msb_string = keccak_in_msb.valueHex.trim_start_matches("0x");
+            let lsb_string = keccak_in_lsb.valueHex.trim_start_matches("0x");
+            let input_string = [msb_string.to_string(), lsb_string.to_string()].concat();
+            let mut input_be_bytes = Vec::from_hex(&input_string).expect("Invalid hex");
+
+            if this_key != prev_key {
+                keccak_inputs_be_bytes.push(data_restored);
+                data_restored = input_be_bytes.clone();
+            } else {
+                data_restored.append(&mut input_be_bytes);
+            }
+            prev_key = this_key;
+        }
+        keccak_inputs_be_bytes.push(data_restored);
+
+        let mut keccak_outputs_be_bytes= Vec::new();
+        let mut prev_key: usize = 0;
+        let mut data_restored: Vec<u8> = Vec::new();
+        for i in 0..keccak_out_pts.len()/2 {
+            let keccak_out_lsb = &keccak_out_pts[2 * i];
+            let keccak_out_msb = &keccak_out_pts[2 * i + 1];
+            if keccak_out_lsb.extSource != "KeccakOut" || keccak_out_msb.extSource != "KeccakOut" {
+                panic!("The pointed data is not a Keccak output.")
+            }
+            if !ScalarField::from_hex(&keccak_out_lsb.valueHex).eq(&self.a_pub[l_pub_out + 2 * i]) || !ScalarField::from_hex(&keccak_out_msb.valueHex).eq(&self.a_pub[l_pub_out + 2 * i + 1]) {
+                panic!("a_pub does not match with the publicInputBuffer items.")
+            }
+            let this_key = usize::from_str_radix(&keccak_out_lsb.key.trim_start_matches("0x"), 16).unwrap();
+            let _this_key = usize::from_str_radix(&keccak_out_msb.key.trim_start_matches("0x"), 16).unwrap();
+            if this_key != _this_key {
+                panic!("Pointed two keccak outputs have different key values")
+            }
+            let msb_string = keccak_out_msb.valueHex.trim_start_matches("0x");
+            let lsb_string = keccak_out_lsb.valueHex.trim_start_matches("0x");
+            let output_string = [msb_string.to_string(), lsb_string.to_string()].concat();
+            let mut output_be_bytes = Vec::from_hex(&output_string).expect("Invalid hex");
+
+            if this_key != prev_key {
+                keccak_outputs_be_bytes.push(data_restored);
+                data_restored = output_be_bytes.clone();
+            } else {
+                data_restored.append(&mut output_be_bytes);
+            }
+            prev_key = this_key;
+        }
+        keccak_outputs_be_bytes.push(data_restored);
+
+        let keccak_hasher = Keccak256::new(0 /* default input size */).unwrap();
+        let mut flag = true;
+        if keccak_inputs_be_bytes.len() != keccak_outputs_be_bytes.len() {
+            panic!("Length mismatch between Keccak inputs and outputs.")
+        }
+        for i in 0..keccak_inputs_be_bytes.len() {
+            let data_in = &keccak_inputs_be_bytes[i];
+            let mut res_bytes = vec![0u8; 32]; // 32-byte output buffer
+            keccak_hasher
+            .hash(
+                HostSlice::from_slice(&data_in),  // Input data
+                &HashConfig::default(),                       // Default configuration
+                HostSlice::from_mut_slice(&mut res_bytes),       // Output buffer
+            )
+            .unwrap();
+            if res_bytes != keccak_outputs_be_bytes[i] {
+                flag = false;
+            }
+        }
+        return flag
     }
     
-    pub fn verify_all(&self, binding: &Binding, proof0: &Proof0, proof1: &Proof1, proof2: &Proof2, proof3: &Proof3, proof4: &Proof4) -> bool {
+    pub fn verify_snark(&self) -> bool {
+        let binding = &self.proof.binding;
+        let proof0 = &self.proof.proof0;
+        let proof1= &self.proof.proof1;
+        let proof2 = &self.proof.proof2;
+        let proof3 = &self.proof.proof3; 
+        let proof4 = &self.proof.proof4;
         let thetas = proof0.verify0();
         let kappa0 = proof1.verify1();
         let (chi, zeta) = proof2.verify2();
@@ -83,7 +207,14 @@ impl Verifier {
         let t_mi_eval = chi.pow(m_i) - ScalarField::one();
         let t_smax_eval = zeta.pow(s_max) - ScalarField::one();
 
-        let A_eval = self.aX.eval(&chi, &zeta);
+        let a_pub_X = DensePolynomialExt::from_rou_evals(
+            HostSlice::from_slice(&self.a_pub),
+            self.setup_params.l_pub_in + self.setup_params.l_pub_out,
+            1,
+            None,
+            None
+        );
+        let A_eval = a_pub_X.eval(&chi, &zeta);
         
         let lagrange_K0_eval = {
             let lagrange_K0_XY = {
@@ -152,7 +283,7 @@ impl Verifier {
             &[self.sigma.H, self.sigma.sigma_2.alpha4,  self.sigma.sigma_2.alpha,   self.sigma.sigma_2.alpha2,  self.sigma.sigma_2.alpha3]
         );
         let right_pair = pairing(
-            &[binding.O_pub,            binding.O_mid,          binding.O_prv,              AUX_X,                  AUX_Y               ],
+            &[binding.O_inst,            binding.O_mid,          binding.O_prv,              AUX_X,                  AUX_Y               ],
             &[self.sigma.sigma_2.gamma, self.sigma.sigma_2.eta, self.sigma.sigma_2.delta,   self.sigma.sigma_2.x,   self.sigma.sigma_2.y]
         );
         return left_pair.eq(&right_pair)
@@ -279,7 +410,14 @@ impl Verifier {
         let t_mi_eval = chi.pow(m_i) - ScalarField::one();
         let t_smax_eval = zeta.pow(s_max) - ScalarField::one();
 
-        let A_eval = self.aX.eval(&chi, &zeta);
+        let a_pub_X = DensePolynomialExt::from_rou_evals(
+            HostSlice::from_slice(&self.a_pub),
+            self.setup_params.l_pub_in + self.setup_params.l_pub_out,
+            1,
+            None,
+            None
+        );
+        let A_eval = a_pub_X.eval(&chi, &zeta);
         
         let lagrange_K0_eval = {
             let lagrange_K0_XY = {
@@ -306,7 +444,7 @@ impl Verifier {
             &[self.sigma.H,     self.sigma.sigma_2.alpha4,  self.sigma.sigma_2.alpha,   self.sigma.sigma_2.alpha2,  self.sigma.sigma_2.alpha3]
         );
         let right_pair = pairing(
-            &[binding.O_pub,            binding.O_mid,          binding.O_prv,              proof4.Pi_B * kappa2    ],
+            &[binding.O_inst,            binding.O_mid,          binding.O_prv,              proof4.Pi_B * kappa2    ],
             &[self.sigma.sigma_2.gamma, self.sigma.sigma_2.eta, self.sigma.sigma_2.delta,   self.sigma.sigma_2.x    ]
         );
         return left_pair.eq(&right_pair)

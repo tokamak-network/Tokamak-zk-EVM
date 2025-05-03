@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+use libs::bivariate_polynomial::BivariatePolynomial;
 use prove::{*};
 use verify::{*};
 use std::time::{Instant, Duration};
@@ -78,7 +79,8 @@ fn main() {
     {
         println!("Verifying the proof...");
         timer = Instant::now();
-        let res = verifier.verify_all(&binding, &proof0, &proof1, &proof2, &proof3, &proof4);
+        let bb = verifier.verify_keccak256();
+        let res = verifier.verify_snark();
         lap = timer.elapsed();
         println!("Verification time: {:.6} seconds", lap.as_secs_f64());
         println!("Verification: {:?}", res);

@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 use icicle_runtime::memory::HostSlice;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
-use libs::iotools::{Permutation, PublicInstance, PlacementVariables, SetupParams, SubcircuitInfo, read_R1CS_gen_uvwXY};
+use libs::iotools::{Permutation, Instance, PlacementVariables, SetupParams, SubcircuitInfo, read_R1CS_gen_uvwXY};
 use libs::field_structures::{FieldSerde, hashing};
 use libs::vector_operations::{point_div_two_vecs, resize, transpose_inplace};
 use libs::group_structures::{Sigma, G1serde};
@@ -12,8 +12,12 @@ use icicle_core::ntt;
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use serde::{Deserialize, Serialize};
 use bincode;
+use serde_json::{from_reader, to_writer_pretty};
 
-use std::{vec, cmp};
+use std::fs::File;
+use std::io::{self, BufReader, BufWriter};
+use std::{cmp, env, fs, vec};
+use std::time::{Instant, Duration};
 
 macro_rules! poly_comb {
     (($c:expr, $p:expr), $(($rest_c:expr, $rest_p:expr)),+ $(,)?) => {{
@@ -45,13 +49,13 @@ pub struct Compiler{
     pub placement_variables: Box<[PlacementVariables]>,
     pub permutation_raw: Box<[Permutation]>
 }
-pub struct Instance{
+pub struct InstancePolynomials{
     pub s0XY: DensePolynomialExt,
     pub s1XY: DensePolynomialExt,
     pub t_n: DensePolynomialExt,
     pub t_mi: DensePolynomialExt,
     pub t_smax: DensePolynomialExt,
-    pub aX: DensePolynomialExt,
+    pub a_pub_X: DensePolynomialExt,
 }
 pub struct Witness{
     pub bXY: DensePolynomialExt,
@@ -80,14 +84,47 @@ pub struct Challenge{
 pub struct Prover{
     pub setup_params: SetupParams,
     pub sigma: Sigma,
-    pub instance: Instance,
+    pub instance: InstancePolynomials,
     pub witness: Witness,
     pub mixer: Mixer,
     pub quotients: Quotients
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Proof {
+    pub binding: Binding,
+    pub proof0: Proof0,
+    pub proof1: Proof1,
+    pub proof2: Proof2,
+    pub proof3: Proof3,
+    pub proof4: Proof4,
+}
+
+impl Proof {
+    pub fn write_into_json(&self, path: &str) -> io::Result<()> {
+        let abs_path = env::current_dir()?.join(path);
+        if let Some(parent) = abs_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let file = File::create(&abs_path)?;
+        let writer = BufWriter::new(file);
+        to_writer_pretty(writer, self)?;
+        Ok(())
+    }
+
+    pub fn read_from_json(path: &str) -> io::Result<Self> {
+        let abs_path = env::current_dir()?.join(path);
+        let file = File::open(abs_path)?;
+        let reader = BufReader::new(file);
+        let res: Self = from_reader(reader)?;
+        Ok(res)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Binding {
     pub A: G1serde,
-    pub O_pub: G1serde,
+    pub O_inst: G1serde,
     pub O_mid: G1serde,
     pub O_prv: G1serde
 }
@@ -201,10 +238,15 @@ impl Prover{
         let s_d = setup_params.s_D; // Number of subcircuits
         let n = setup_params.n;     // Number of constraints per subcircuit
         let s_max = setup_params.s_max; // The maximum number of placements
+        let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
+        let l_prv = setup_params.l_prv_in + setup_params.l_prv_out;
         
-        // Assert l is a power of two
-        if !l.is_power_of_two() {
-            panic!("l is not a power of two.");
+        if !(l_pub.is_power_of_two() || l_pub==0) {
+            panic!("l_pub is not a power of two.");
+        }
+    
+        if !(l_prv.is_power_of_two()) {
+            panic!("l_prv is not a power of two.");
         }
         // Assert n is a power of two
         if !n.is_power_of_two() {
@@ -224,10 +266,6 @@ impl Prover{
         // Load subcircuit information
         let subcircuit_path = "subcircuitInfo.json";
         let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_path).unwrap();
-
-        // Load public instance
-        let public_instance_path = "publicInstance.json";
-        let public_instance = PublicInstance::from_path(&public_instance_path).unwrap();
 
         // Load local variables of placements (public instance + interface witness + internal witness)
         let placement_variables_path = "placementVariables.json";
@@ -267,9 +305,13 @@ impl Prover{
         let permutation_path = "permutation.json";
         let permutation_raw = Permutation::from_path(&permutation_path).unwrap();
 
-        let mut instance: Instance = {
+        let mut instance: InstancePolynomials = {
+            // Load instance
+            let instance_path = "instance.json";
+            let _instance = Instance::from_path(&instance_path).unwrap();
+
             // Parsing the inputs
-            let aX = public_instance.gen_aX(&setup_params);
+            let a_pub_X = _instance.gen_a_pub_X(&setup_params);
             // Fixed polynomials
             let mut t_n_coeffs = vec![ScalarField::zero(); 2*n];
             t_n_coeffs[0] = ScalarField::zero() - ScalarField::one();
@@ -286,7 +328,7 @@ impl Prover{
             // Generating permutation polynomials
             let (s0XY, s1XY) = Permutation::to_poly(&permutation_raw, m_i, s_max);
 
-            Instance {aX, t_n, t_mi, t_smax, s0XY, s1XY}
+            InstancePolynomials {a_pub_X, t_n, t_mi, t_smax, s0XY, s1XY}
         };
 
         #[cfg(feature = "testing-mode")] {
@@ -406,9 +448,9 @@ impl Prover{
         };
 
         let binding: Binding = {
-            let A = sigma.sigma_1.encode_poly(&mut instance.aX, &setup_params);
-            let O_pub = sigma.sigma_1.encode_O_pub(&placement_variables, &subcircuit_infos, &setup_params);
-            sigma.sigma_1.gamma_inv_o_pub_mj = vec![G1serde::zero()].into_boxed_slice();
+            let A = sigma.sigma_1.encode_poly(&mut instance.a_pub_X, &setup_params);
+            let O_inst = sigma.sigma_1.encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params);
+            sigma.sigma_1.gamma_inv_o_inst = vec![G1serde::zero()].into_boxed_slice();
             let O_mid_core = sigma.sigma_1.encode_O_mid_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
             sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj = vec![vec![G1serde::zero()].into_boxed_slice()].into_boxed_slice();
             let O_mid = 
@@ -443,7 +485,7 @@ impl Prover{
                     sigma.sigma_1.delta_inv_alphak_yi_ty[3][0] * mixer.rB_Y[0]
                     + sigma.sigma_1.delta_inv_alphak_yi_ty[3][1] * mixer.rB_Y[1]
                 );
-            Binding {A, O_pub, O_mid, O_prv}
+            Binding {A, O_inst, O_mid, O_prv}
         };
         return (
             Self {sigma, setup_params, instance, witness, mixer, quotients},
@@ -1055,8 +1097,8 @@ impl Prover{
         }
         drop(RXY);
         let Pi_B = {
-            let A_eval = self.instance.aX.eval(&chi, &zeta);
-            let (mut pi_B_XY, _, _) = (&self.instance.aX - &A_eval).div_by_ruffini(&chi, &zeta);
+            let A_eval = self.instance.a_pub_X.eval(&chi, &zeta);
+            let (mut pi_B_XY, _, _) = (&self.instance.a_pub_X - &A_eval).div_by_ruffini(&chi, &zeta);
             self.sigma.sigma_1.encode_poly(&mut pi_B_XY, &self.setup_params) * kappa1.pow(4)
         };
 
@@ -1068,6 +1110,4 @@ impl Prover{
             Proof4Test {Pi_CX, Pi_CY, Pi_AX, Pi_AY, Pi_B, M_X, M_Y, N_X, N_Y}
         )
     }
-
-
 }
