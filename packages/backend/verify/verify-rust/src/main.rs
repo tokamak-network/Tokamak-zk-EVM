@@ -12,7 +12,7 @@ fn main() {
     println!("Verifying the proof...");
     timer = Instant::now();
     let res_keccak = verifier.verify_keccak256();
-    let res_snark = verifier.verify_all();
+    let res_snark = verifier.verify_snark();
     lap = timer.elapsed();
     println!("Verification time: {:.6} seconds", lap.as_secs_f64());
     println!("Verification result: {:?}, {:?}", res_snark, res_keccak);

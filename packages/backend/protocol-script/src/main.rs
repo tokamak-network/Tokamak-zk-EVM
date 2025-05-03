@@ -80,7 +80,7 @@ fn main() {
         println!("Verifying the proof...");
         timer = Instant::now();
         let bb = verifier.verify_keccak256();
-        let res = verifier.verify_all();
+        let res = verifier.verify_snark();
         lap = timer.elapsed();
         println!("Verification time: {:.6} seconds", lap.as_secs_f64());
         println!("Verification: {:?}", res);

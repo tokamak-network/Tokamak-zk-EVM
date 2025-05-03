@@ -186,7 +186,7 @@ impl Verifier {
         return flag
     }
     
-    pub fn verify_all(&self) -> bool {
+    pub fn verify_snark(&self) -> bool {
         let binding = &self.proof.binding;
         let proof0 = &self.proof.proof0;
         let proof1= &self.proof.proof1;
