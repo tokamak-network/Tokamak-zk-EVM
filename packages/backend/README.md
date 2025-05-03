@@ -31,7 +31,8 @@ More specifically,
 - Run the main protocol to generate a transaction-specific proof and verify it.
 - Make sure you are in "Tokamak-zk-EVM/packages/backend" and enter
     ```shell
-    cargo run -p protocol-script
+    cargo run -p prove
+    cargo run -p verify
     ```
 
 ## Description for the Setup input and output
