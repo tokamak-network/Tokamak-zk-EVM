@@ -82,8 +82,10 @@ fn byte_slice_to_literal(bytes: &[u8]) -> String {
 #[derive(Debug, Deserialize)]
 pub struct SetupParams {
     pub l: usize,
-    pub l_in: usize,
-    pub l_out: usize,
+    pub l_pub_in: usize,
+    pub l_pub_out: usize,
+    pub l_prv_in: usize,
+    pub l_prv_out: usize,
     pub l_D: usize, //m_I = l_D - 1
     pub m_D: usize,
     pub n: usize,
@@ -186,7 +188,7 @@ impl Sigma1 {
                 xy_powers: {},
                 delta: {},
                 eta: {},
-                gamma_inv_o_pub_mj: {},
+                gamma_inv_o_inst: {},
                 eta_inv_li_o_inter_alpha4_kj: {},
                 delta_inv_li_o_prv: {},
                 delta_inv_alphak_xh_tx: {},
@@ -196,7 +198,7 @@ impl Sigma1 {
             g1_vec_to_code(&self.xy_powers),
             self.delta.to_rust_code(),
             self.eta.to_rust_code(),
-            g1_vec_to_code(&self.gamma_inv_o_pub_mj),
+            g1_vec_to_code(&self.gamma_inv_o_inst),
             g1_mat_to_code(&self.eta_inv_li_o_inter_alpha4_kj),
             g1_mat_to_code(&self.delta_inv_li_o_prv),
             g1_mat_to_code(&self.delta_inv_alphak_xh_tx),
@@ -251,11 +253,36 @@ impl PlacementVariables {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct PublicInstance {
+pub struct OutPts {
+    pub extDest: String,
+    pub key: String,
+    pub offset: usize,
+    pub valueHex: String,
+}
+#[derive(Debug, Deserialize)]
+pub struct PublicOutputBuffer {
+    pub outPts: Box<[OutPts]>
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InPts {
+    pub extSource: String,
+    pub key: String,
+    pub valueHex: String,
+}
+#[derive(Debug, Deserialize)]
+pub struct PublicInputBuffer {
+    pub inPts: Box<[InPts]>
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Instance {
+    pub publicOutputBuffer: PublicOutputBuffer,
+    pub publicInputBuffer: PublicInputBuffer,
     pub a: Vec<String>,
 }
 
-impl PublicInstance {
+impl Instance {
     pub fn from_path(path: &str) -> io::Result<Self> {
         let abs_path = env::current_dir()?.join(SYNTHESIZER_PATH_PREFIX).join(path);
         let file = File::open(abs_path)?;
@@ -476,8 +503,8 @@ impl SubcircuitR1CS{
 impl Serialize for FieldSerde {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: serde::Serializer {
-        let bytes = self.0.to_bytes_le();
-        serializer.serialize_bytes(&bytes)
+        let string = self.0.to_string();
+        serializer.serialize_str(&string)
     }
 }
 
@@ -491,28 +518,19 @@ impl<'de> Deserialize<'de> for FieldSerde {
             type Value = FieldSerde;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a byte array representing ScalarField")
+                formatter.write_str("a hex string representing ScalarField")
             }
 
-            fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
-            where E: Error,
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: Error,
             {
-                const EXPECTED_LEN: usize = 32; // For ICICLE BLS12-381
-
-                if v.len() != EXPECTED_LEN {
-                    return Err(E::custom(format!(
-                        "expected {} bytes, got {}",
-                        EXPECTED_LEN,
-                        v.len()
-                    )));
-                }
-
-                let scalar = ScalarField::from_bytes_le(v);
+                let scalar = ScalarField::from_hex(v);
                 Ok(FieldSerde(scalar))
             }
         }
 
-        deserializer.deserialize_bytes(FieldVisitor)
+        deserializer.deserialize_str(FieldVisitor)
     }
 }
 
