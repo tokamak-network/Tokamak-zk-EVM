@@ -445,6 +445,10 @@ impl Prover{
                 );
             Binding {A, O_pub, O_mid, O_prv}
         };
+        println!("A: {:?}", binding.A.0);
+        println!("O_pub: {:?}", binding.O_pub.0);
+        println!("O_mid: {:?}", binding.O_mid.0);
+        println!("O_prv: {:?}", binding.O_prv.0);
         return (
             Self {sigma, setup_params, instance, witness, mixer, quotients},
             binding
@@ -553,6 +557,12 @@ impl Prover{
             let mut BXY = &self.witness.bXY + &term_B_zk;
             self.sigma.sigma_1.encode_poly(&mut BXY, &self.setup_params)
         };
+        println!("U: {:?}", U.0);
+        println!("V: {:?}", V.0);
+        println!("W: {:?}", W.0);
+        println!("Q_AX: {:?}", Q_AX.0);
+        println!("Q_AY: {:?}", Q_AY.0);
+        println!("B: {:?}", B.0);
 
         return Proof0 {U, V, W, Q_AX, Q_AY, B}
     }
@@ -625,6 +635,7 @@ impl Prover{
         // Adding zero-knowledge to the copy constraint argument
         let mut RXY = &self.witness.rXY + &(&(&self.mixer.rR_X * &self.instance.t_mi) + &(&self.mixer.rR_Y * &self.instance.t_smax));
         let R = self.sigma.sigma_1.encode_poly(&mut RXY, &self.setup_params);
+        println!("R: {:?}", R.0);
         return Proof1 {R}
     }
     
@@ -633,6 +644,8 @@ impl Prover{
         let s_max = self.setup_params.s_max;
         let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
         let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
+        println!("omega_m_i: {}", &omega_m_i.inv());
+        println!("omega_s_smax: {}", &omega_s_max.inv());
         let r_omegaX = self.witness.rXY.scale_coeffs_x(&omega_m_i.inv());
         let r_omegaX_omegaY = r_omegaX.scale_coeffs_y(&omega_s_max.inv());
         #[cfg(feature = "testing-mode")] {
@@ -783,6 +796,8 @@ impl Prover{
             );
             self.sigma.sigma_1.encode_poly(&mut Q_CY_XY, &self.setup_params)
         };
+        println!("Q_CX: {:?}", Q_CX.0);
+        println!("Q_CY: {:?}", Q_CY.0);
         return Proof2 {Q_CX, Q_CY}
     }
 
@@ -810,7 +825,10 @@ impl Prover{
 
         let R_omegaX_omegaY_XY = R_omegaX_XY.scale_coeffs_y(&omega_s_max.inv());
         let R_omegaX_omegaY_eval = R_omegaX_omegaY_XY.eval(&chi, &zeta);
-
+        println!("V_eval: {:?}", V_eval);
+        println!("R_eval: {:?}", R_eval);
+        println!("R_omegaX_eval: {:?}", R_omegaX_eval);
+        println!("R_omegaX_omegaY_eval: {:?}", R_omegaX_omegaY_eval);
         return Proof3 {
             V_eval: FieldSerde(V_eval), 
             R_eval: FieldSerde(R_eval), 
@@ -1062,7 +1080,15 @@ impl Prover{
 
         let Pi_X = Pi_AX + Pi_CX + Pi_B;
         let Pi_Y = Pi_AY + Pi_CY;
-
+        println!("Pi_AX: {:?}", Pi_AX.0);
+        println!("Pi_AY: {:?}", Pi_AY.0);
+        println!("Pi_CX: {:?}", Pi_CX.0);
+        println!("Pi_CY: {:?}", Pi_CY.0);
+        println!("Pi_B: {:?}", Pi_B.0);        
+        println!("M_X: {:?}", M_X.0);
+        println!("M_Y: {:?}", M_Y.0);
+        println!("N_X: {:?}", N_X.0);
+        println!("N_Y: {:?}", N_Y.0);
         return (
             Proof4 {Pi_X, Pi_Y, M_X, M_Y, N_X, N_Y},
             Proof4Test {Pi_CX, Pi_CY, Pi_AX, Pi_AY, Pi_B, M_X, M_Y, N_X, N_Y}
