@@ -53,12 +53,19 @@ Here is an example of generating a zk proof of the correct execution of an [ERC-
     cargo run -p preprocess
     ```
     
-9. Run `prove` and `verify` (requiring Rust and CMake)
+9. Run `prove` (requiring Rust and CMake)
     
     ```bash
     cd "$pwd/packages/backend"
-    cargo run -p protocol-script
+    cargo run -p prove
     ```
+
+10. Run `verify` (requiring Rust and CMake)
+
+```bash
+cd "$pwd/packages/backend"
+cargo run -p verify
+```
 
 
 ## Package Composition

@@ -180,7 +180,7 @@ pub struct Sigma1 {
     pub y: G1serde,
     pub delta: G1serde,
     pub eta: G1serde,
-    pub gamma_inv_o_pub_mj: Box<[G1serde]>, // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}_{t=0,j=0}^{1,l-1} where t=0 for j∈[0,l_in-1] and t=1 for j∈[l_in,l-1]
+    pub gamma_inv_o_inst: Box<[G1serde]>, // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}_{t=0,j=0}^{1,l-1} where t=0 for j∈[0,l_in-1] and t=1 for j∈[l_in,l-1]
     pub eta_inv_li_o_inter_alpha4_kj: Box<[Box<[G1serde]>]>, // {η^(-1)L_i(y)(o_{j+l}(x) + α^4 K_j(x))}_{i=0,j=0}^{s_max-1,m_I-1}
     pub delta_inv_li_o_prv: Box<[Box<[G1serde]>]>, // {δ^(-1)L_i(y)o_j(x)}_{i=0,j=l+m_I}^{s_max-1,m_I-1}
     pub delta_inv_alphak_xh_tx: Box<[Box<[G1serde]>]>, // {δ^(-1)α^k x^h t_n(x)}_{h=0,k=1}^{2,3}
@@ -207,7 +207,10 @@ impl Sigma1 {
         if l % 2 == 1 {
             panic!("l is an odd number.");
         }
-        let l_out = params.l_out;
+        let l_pub_out = params.l_pub_out;
+        let l_pub_in = params.l_pub_in;
+        let l_prv_out = params.l_prv_out;
+        let l_prv_in = params.l_prv_in;
         let m_i = params.l_D - l;
         
         println!("Generating Sigma1 components...");
@@ -229,7 +232,7 @@ impl Sigma1 {
         println!("");
 
         // Split output vector into input, output, intermediate, and private parts
-        let o_pub_vec = &o_vec[0..l].to_vec().into_boxed_slice();
+        let o_inst_vec = &o_vec[0..l].to_vec().into_boxed_slice();
         let o_inter_vec = &o_vec[l..l+m_i].to_vec().into_boxed_slice();
         let o_prv_vec = &o_vec[l+m_i..m_d].to_vec().into_boxed_slice();
         
@@ -239,20 +242,28 @@ impl Sigma1 {
         let delta = G1serde(G1Affine::from((*g1_gen).to_projective() * tau.delta));
         let eta = G1serde(G1Affine::from((*g1_gen).to_projective() * tau.eta));
         
-        // Generate combined γ^(-1)(L_t(y)o_j(x) + M_j(x)) for all wires (input and output)
-        println!("Generating gamma_inv_o_pub_mj of size {}...", l);
-        let mut gamma_inv_o_pub_mj = vec![G1serde::zero(); l].into_boxed_slice();
-        
-        // Process input wires (j∈[0,l_in-1], t=0)
+        // Generate γ^(-1)(L_t(y)o_j(x) + M_j(x)) for public instance wires j∈[0,l_pub-1], t={0, 1} and γ^(-1)L_t(y)o_j(x) for private instance wires j∈[l_pub,l-1], t={2, 3}
+        println!("Generating gamma_inv_o_inst of size {}...", l);
+        let mut gamma_inv_o_inst = vec![G1serde::zero(); l].into_boxed_slice();
         {
-            let scaler_vec = [vec![l_vec[1]; l_out], vec![l_vec[0]; l - l_out]].concat().into_boxed_slice();
-            let mut l_o_pub_vec = vec![ScalarField::zero(); l].into_boxed_slice();
-            point_mul_two_vecs(&scaler_vec, o_pub_vec, &mut l_o_pub_vec);
-            let mut l_o_pub_mj_vec = vec![ScalarField::zero(); l].into_boxed_slice();
-            point_add_two_vecs(&l_o_pub_vec, m_vec, &mut l_o_pub_mj_vec);
-            let mut gamma_inv_o_pub_mj_vec = vec![ScalarField::zero(); l].into_boxed_slice();
-            scale_vec(tau.gamma.inv(), &l_o_pub_mj_vec, &mut gamma_inv_o_pub_mj_vec);
-            from_coef_vec_to_g1serde_vec(&gamma_inv_o_pub_mj_vec, g1_gen, &mut gamma_inv_o_pub_mj);
+            // For the indices of l_vec, see tokamak-zk-evm/packages/frontend/synthesizer/src/tokamak/constant/constants.ts
+            let scaler_vec = [
+                vec![l_vec[1]; l_pub_out], 
+                vec![l_vec[0]; l_pub_in], 
+                vec![l_vec[3]; l_prv_out], 
+                vec![l_vec[2]; l_prv_in], 
+                ].concat().into_boxed_slice();
+            let l_pub = l_pub_in + l_pub_out;
+            let l_prv = l_prv_in + l_prv_out;
+            let mut l_o_inst_vec = vec![ScalarField::zero(); l].into_boxed_slice();
+            point_mul_two_vecs(&scaler_vec, &o_inst_vec, &mut l_o_inst_vec);
+            drop(scaler_vec);
+            let mut l_o_inst_pub_mj_vec = vec![ScalarField::zero(); l_pub].into_boxed_slice();
+            point_add_two_vecs(&l_o_inst_vec[0..l_pub], m_vec, &mut l_o_inst_pub_mj_vec);
+            let l_o_inst_pub_mj_prv_vec = [l_o_inst_pub_mj_vec, l_o_inst_vec[l_pub..l].into()].concat().into_boxed_slice();
+            let mut gamma_inv_o_inst_vec = vec![ScalarField::zero(); l].into_boxed_slice();
+            scale_vec(tau.gamma.inv(), &l_o_inst_pub_mj_prv_vec, &mut gamma_inv_o_inst_vec);
+            from_coef_vec_to_g1serde_vec(&gamma_inv_o_inst_vec, g1_gen, &mut gamma_inv_o_inst);
         }
         
         // Generate η^(-1)L_i(y)(o_{j+l}(x) + α^k K_j(x)) for intermediate wires
@@ -317,7 +328,7 @@ impl Sigma1 {
             y,
             delta,
             eta,
-            gamma_inv_o_pub_mj,
+            gamma_inv_o_inst,
             eta_inv_li_o_inter_alpha4_kj,
             delta_inv_li_o_prv,
             delta_inv_alphak_xh_tx,
@@ -327,7 +338,7 @@ impl Sigma1 {
         
     }
 
-    pub fn encode_O_pub(
+    pub fn encode_O_inst(
         &self,
         placement_variables: &[PlacementVariables],
         subcircuit_infos: &[SubcircuitInfo],
@@ -336,30 +347,42 @@ impl Sigma1 {
         let mut aligned_rs = vec![G1Affine::zero(); setup_params.l];
         let mut aligned_wtns = vec![ScalarField::zero(); setup_params.l];
         let mut cnt: usize = 0;
-        for i in 0..2 {
+        for i in 0..4 {
             let subcircuit_id = placement_variables[i].subcircuitId;
             let variables = &placement_variables[i].variables;
             let subcircuit_info = &subcircuit_infos[subcircuit_id];
             let flatten_map = &subcircuit_info.flattenMap;
-            let start_idx = if i==0 {
+            let start_idx = if i == 0 {
                 // Public input placement
                 subcircuit_info.In_idx[0]
-            } else {
+            } else if i == 1 {
                 // Public output placement
+                subcircuit_info.Out_idx[0]
+            } else if i == 2 {
+                // Private input placement
+                subcircuit_info.In_idx[0]
+            } else {
+                // Private output placement
                 subcircuit_info.Out_idx[0]
             };
             let end_idx_exclusive = if i==0 {
                 // Public input placement
                 subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1]
-            } else {
+            } else if i == 1 {
                 // Public output placement
+                subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1]
+            } else if i == 2 {
+                // Private input placement
+                subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1]
+            } else {
+                // Private output placement
                 subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1]
             };
 
             for j in start_idx..end_idx_exclusive {
                 aligned_wtns[cnt] = ScalarField::from_hex(&variables[j]);
                 let global_idx = flatten_map[j];
-                let curve_point = self.gamma_inv_o_pub_mj[global_idx].0;
+                let curve_point = self.gamma_inv_o_inst[global_idx].0;
                 aligned_rs[cnt] = curve_point;
                 cnt += 1;
             }        
@@ -407,11 +430,18 @@ impl Sigma1 {
             let variables = &placement_variables[i].variables;
             let subcircuit_info = &subcircuit_infos[subcircuit_id];
             let flatten_map = &subcircuit_info.flattenMap;
+            // Filterling out interface wires
             let start_idx = if i==0 {
                 // Public input placement
                 subcircuit_info.Out_idx[0]
             } else if i==1 {
                 // Public output placement
+                subcircuit_info.In_idx[0]
+            } else if i==2 {
+                // Private input placement
+                subcircuit_info.Out_idx[0]
+            } else if i==3 {
+                // Private output placement
                 subcircuit_info.In_idx[0]
             } else {
                 subcircuit_info.Out_idx[0]
@@ -422,7 +452,13 @@ impl Sigma1 {
             } else if i==1 {
                 // Public output placement
                 subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1]
-            } else {
+            } else if i==2 {
+                // Private input placement
+                subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1]
+            } else if i==3 {
+                // Private output placement
+                subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1]
+            }else {
                 subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1] + subcircuit_info.In_idx[1]
             };
 
