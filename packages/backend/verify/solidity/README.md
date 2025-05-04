@@ -1,66 +1,27 @@
-## Foundry
+# Tokamak zkEVM Contracts
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+This repository implements the zkSNARK on-chain verifier used by the consensus contract when proving batches.
 
-Foundry consists of:
+## Test Suite
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+The contracts are rigorously tested with:
 
-## Documentation
+### Tests
+- **Proof Verification**: Valid/invalid proof handling
+- **Gas Benchmarking**: Verification cost analysis
 
-https://book.getfoundry.sh/
 
-## Usage
+## Getting Started
 
-### Build
+### Prerequisites
+- Foundry (forge, anvil, cast)
+- Node.js 16+
+- Solidity 0.8.23
 
-```shell
-$ forge build
-```
+### Installation
 
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
+```bash
+cd "$pwd/packages/backend/verify/solidity"
+forge install
+forge test -vvvv
 ```

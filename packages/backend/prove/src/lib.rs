@@ -488,7 +488,7 @@ impl Prover{
             Binding {A, O_inst, O_mid, O_prv}
         };
         println!("A: {:?}", binding.A.0);
-        println!("O_pub: {:?}", binding.O_pub.0);
+        //println!("O_pub: {:?}", binding.O_pub.0);
         println!("O_mid: {:?}", binding.O_mid.0);
         println!("O_prv: {:?}", binding.O_prv.0);
         return (
