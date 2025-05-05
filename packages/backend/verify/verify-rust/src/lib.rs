@@ -208,23 +208,6 @@ impl Verifier {
         let t_mi_eval = chi.pow(m_i) - ScalarField::one();
         let t_smax_eval = zeta.pow(s_max) - ScalarField::one();
 
-<<<<<<< HEAD
-        println!("thetas: {:?}", thetas);
-        println!("kappa0: {:?}", kappa0);
-        println!("kappa1: {:?}", kappa1);
-        println!("kappa2: {:?}", kappa2);
-        println!("chi: {:?}", chi);
-        println!("zeta: {:?}", zeta);
-        println!("m_i: {:?}", m_i);
-        println!("s_max: {:?}", s_max);
-        println!("omega_m_i: {:?}", omega_m_i);
-        println!("omega_s_max: {:?}", omega_s_max);
-        println!("t_n_eval: {:?}", t_n_eval);
-        println!("t_mi_eval: {:?}", t_mi_eval);
-        println!("t_smax_eval: {:?}", t_smax_eval);
-
-        let A_eval = self.aX.eval(&chi, &zeta);
-=======
         let a_pub_X = DensePolynomialExt::from_rou_evals(
             HostSlice::from_slice(&self.a_pub),
             self.setup_params.l_pub_in + self.setup_params.l_pub_out,
@@ -233,7 +216,6 @@ impl Verifier {
             None
         );
         let A_eval = a_pub_X.eval(&chi, &zeta);
->>>>>>> ff09cca4778b088449543ca0d901d953719c5ff1
         
         let lagrange_K0_eval = {
             let lagrange_K0_XY = {
@@ -453,7 +435,6 @@ impl Verifier {
             };
             lagrange_K0_XY.eval(&chi, &zeta)
         };
-        println!("A_pub: {:?}", A_eval);
         let LHS_B =
             binding.A * ( ScalarField::one() + (kappa2 * kappa1.pow(4)) )
             - self.sigma.G * (kappa2 * kappa1.pow(4) * A_eval);
