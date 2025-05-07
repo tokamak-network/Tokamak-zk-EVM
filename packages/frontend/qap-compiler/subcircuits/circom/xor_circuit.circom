@@ -1,4 +1,4 @@
 pragma circom 2.1.6;
-include "../../components/xor.circom";
+include "../../templates/256bit/bitwise.circom";
 
-component main {public [in]} = Xor();
+component main {public [in1, in2]} = Xor256();

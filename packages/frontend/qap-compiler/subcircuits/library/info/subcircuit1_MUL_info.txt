@@ -1,11 +1,11 @@
-[32mtemplate instances[0m: 7
-non-linear constraints: 788
-linear constraints: 39
+[32mtemplate instances[0m: 2
+non-linear constraints: 16
+linear constraints: 27
 public inputs: 4
 private inputs: 0
-public outputs: 2
-wires: 818
-labels: 867
+public outputs: 4
+wires: 62
+labels: 109
 [32mWritten successfully:[0m ../subcircuits/library\MUL_circuit.r1cs
 [32mConstraints written in:[0m ../subcircuits/library\MUL_circuit_constraints.json
 [32mWritten successfully:[0m ../subcircuits/library\MUL_circuit_js\MUL_circuit.wasm

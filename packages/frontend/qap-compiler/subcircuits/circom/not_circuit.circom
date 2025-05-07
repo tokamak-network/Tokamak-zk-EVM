@@ -1,4 +1,4 @@
 pragma circom 2.1.6;
-include "../../components/not.circom";
+include "../../templates/256bit/arithmetic_unsafe_in_out.circom";
 
-component main {public [in]} = Not();
+component main {public [in]} = Not256_unsafe();

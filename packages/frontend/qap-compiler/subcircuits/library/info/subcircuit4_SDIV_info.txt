@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 17
+non-linear constraints: 330
+linear constraints: 68
+public inputs: 4
+private inputs: 0
+public outputs: 4
+wires: 429
+labels: 697
+[32mWritten successfully:[0m ../subcircuits/library\SDIV_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library\SDIV_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library\SDIV_circuit_js\SDIV_circuit.wasm
+[32mEverything went okay[0m

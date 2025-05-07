@@ -1,4 +1,4 @@
 pragma circom 2.1.6;
-include "../../components/and.circom";
+include "../../templates/256bit/bitwise.circom";
 
-component main {public [in]} = And();
+component main {public [in1, in2]} = And256();

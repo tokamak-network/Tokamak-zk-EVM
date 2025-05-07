@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 5
+non-linear constraints: 42
+linear constraints: 58
+public inputs: 6
+private inputs: 0
+public outputs: 4
+wires: 133
+labels: 254
+[32mWritten successfully:[0m ../subcircuits/library\SubEXP_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library\SubEXP_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library\SubEXP_circuit_js\SubEXP_circuit.wasm
+[32mEverything went okay[0m

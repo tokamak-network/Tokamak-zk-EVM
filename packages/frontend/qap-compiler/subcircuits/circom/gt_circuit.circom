@@ -1,4 +1,4 @@
 pragma circom 2.1.6;
-include "../../components/gt.circom";
+include "../../templates/256bit/compare.circom";
 
-component main {public [in]} = GT();
+component main {public [in1, in2]} = Gt256();

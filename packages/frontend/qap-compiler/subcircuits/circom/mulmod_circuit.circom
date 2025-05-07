@@ -1,4 +1,4 @@
 pragma circom 2.1.6;
-include "../../components/mulmod.circom";
+include "../../templates/256bit/arithmetic_unsafe_in.circom";
 
-component main {public [in]} = MulMod();
+component main {public [in1, in2, in3]} = MulMod256_unsafe();

@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 11
+non-linear constraints: 41
+linear constraints: 79
+public inputs: 6
+private inputs: 0
+public outputs: 2
+wires: 173
+labels: 404
+[32mWritten successfully:[0m ../subcircuits/library\ADDMOD_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library\ADDMOD_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library\ADDMOD_circuit_js\ADDMOD_circuit.wasm
+[32mEverything went okay[0m

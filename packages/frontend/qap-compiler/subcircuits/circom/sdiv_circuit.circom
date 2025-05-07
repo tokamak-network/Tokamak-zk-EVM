@@ -1,4 +1,4 @@
 pragma circom 2.1.6;
-include "../../components/sdiv.circom";
+include "../../templates/256bit/arithmetic_unsafe_in.circom";
 
-component main {public [in]} = SDiv();
+component main {public [in1, in2]} = SignedDiv256_unsafe();

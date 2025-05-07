@@ -1,4 +1,4 @@
 pragma circom 2.1.6;
-include "../../components/iszero.circom";
+include "../../templates/256bit/compare.circom";
 
 component main {public [in]} = IsZero256();

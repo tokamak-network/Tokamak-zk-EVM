@@ -1,4 +1,4 @@
 pragma circom 2.1.6;
-include "../../components/sub.circom";
+include "../../templates/256bit/arithmetic_unsafe_in_out.circom";
 
-component main {public [in]} = Sub();
+component main {public [in1, in2]} = Sub256_unsafe();
