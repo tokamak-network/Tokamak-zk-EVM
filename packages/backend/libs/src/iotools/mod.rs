@@ -646,6 +646,48 @@ pub fn scaled_outer_product_1d(
     );
 }
 
+/// 수정된 MSM 기반 from_coef_vec_to_g1serde_vec 함수
+pub fn from_coef_vec_to_g1serde_vec_msm(
+    coef: &Box<[ScalarField]>,
+    gen: &G1Affine,
+    res: &mut [G1serde],
+) {
+    let n = coef.len();
+    assert_eq!(res.len(), n, "버퍼 길이가 coef 길이와 같아야 합니다");
+
+    // 1) 스칼라를 호스트 슬라이스로 사용
+    let scalars_host = HostSlice::from_slice(coef.as_ref());
+
+    // 2) G1 point 벡터 준비: 동일 gen_proj 반복
+    let points_host_vec = vec![*gen; n];
+    let points_host = HostSlice::from_slice(&points_host_vec);
+
+    // 3) 결과용 DeviceVec 할당
+    let mut result_dev = DeviceVec::<G1Projective>::device_malloc(n).unwrap();
+
+    // 4) MSM 구성 및 실행
+    let mut cfg = msm::MSMConfig::default();
+    msm::msm(
+        scalars_host,                 // &[ScalarField]
+        points_host,                  // &[G1Affine]
+        &cfg,
+        &mut result_dev[..],          // &mut DeviceSlice<G1Projective>
+    )
+    .unwrap();
+
+    // 5) 결과를 호스트로 복사
+    let mut host_out = vec![G1Projective::zero(); n];
+    result_dev
+        .copy_to_host(HostSlice::from_mut_slice(&mut host_out))
+        .unwrap();
+
+    // 6) G1Projective -> G1Affine 변환 후 res 채우기
+    for (i, p) in host_out.into_iter().enumerate() {
+        res[i] = G1serde(G1Affine::from(p));
+    }
+}
+
+
 pub fn from_coef_vec_to_g1serde_vec(coef: &[ScalarField], gen: &G1Affine, res: &mut [G1serde]) {
     use std::sync::atomic::{AtomicU32, Ordering};
     use rayon::prelude::*;
