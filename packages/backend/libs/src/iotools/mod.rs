@@ -3,6 +3,7 @@ use icicle_core::ntt;
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use icicle_core::msm::{self, MSMConfig};
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use crate::field_structures::FieldSerde;
 use crate::group_structures::{G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify, Preprocess};
 use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
@@ -259,6 +260,7 @@ pub struct OutPts {
     pub offset: usize,
     pub valueHex: String,
 }
+
 #[derive(Debug, Deserialize)]
 pub struct PublicOutputBuffer {
     pub outPts: Box<[OutPts]>
@@ -270,6 +272,7 @@ pub struct InPts {
     pub key: String,
     pub valueHex: String,
 }
+
 #[derive(Debug, Deserialize)]
 pub struct PublicInputBuffer {
     pub inPts: Box<[InPts]>
@@ -657,53 +660,81 @@ pub fn scaled_outer_product_1d(
     }
     let mut res_coef = vec![ScalarField::zero(); size].into_boxed_slice();
     scaled_outer_product(col_vec, row_vec, scaler, &mut res_coef);
-    from_coef_vec_to_g1serde_vec(
+    from_coef_vec_to_g1serde_vec_msm_timed(
         &res_coef,
         g1_gen,
         res,
     );
 }
 
-/// 수정된 MSM 기반 from_coef_vec_to_g1serde_vec 함수
-pub fn from_coef_vec_to_g1serde_vec_msm(
+
+// use rayon::prelude::*;
+
+
+pub fn from_coef_vec_to_g1serde_vec_msm_timed(
     coef: &Box<[ScalarField]>,
     gen: &G1Affine,
     res: &mut [G1serde],
 ) {
+    println!("msm");
     let n = coef.len();
-    assert_eq!(res.len(), n, "버퍼 길이가 coef 길이와 같아야 합니다");
+    assert_eq!(res.len(), n, "res.len() must equal coef.len()");
 
-    // 1) 스칼라를 호스트 슬라이스로 사용
+    // 전체 시작
+    let t_start = Instant::now();
+
+    // 1) 스칼라 호스트 슬라이스
+    let t1 = Instant::now();
     let scalars_host = HostSlice::from_slice(coef.as_ref());
+    println!("Step 1: scalars_host creation: {:?}", t1.elapsed());
 
-    // 2) G1 point 벡터 준비: 동일 gen_proj 반복
-    let points_host_vec = vec![*gen; n];
-    let points_host = HostSlice::from_slice(&points_host_vec);
+    // 2) generator 포인트 복제 후 호스트 슬라이스
+    let t2 = Instant::now();
+    let mut pts = Vec::with_capacity(n);
+    pts.resize(n, *gen);
+    let points_host = HostSlice::from_slice(&pts);
+    println!("Step 2: points_host creation: {:?}", t2.elapsed());
 
     // 3) 결과용 DeviceVec 할당
-    let mut result_dev = DeviceVec::<G1Projective>::device_malloc(n).unwrap();
+    let t3 = Instant::now();
+    let mut result_dev = DeviceVec::<G1Projective>::device_malloc(n)
+        .expect("device_malloc failed");
+    println!("Step 3: device_malloc: {:?}", t3.elapsed());
 
     // 4) MSM 구성 및 실행
-    let mut cfg = msm::MSMConfig::default();
+    let t4 = Instant::now();
+    let cfg = msm::MSMConfig::default();
     msm::msm(
-        scalars_host,                 // &[ScalarField]
-        points_host,                  // &[G1Affine]
+        scalars_host,       // &[ScalarField]
+        points_host,        // &[G1Affine]
         &cfg,
-        &mut result_dev[..],          // &mut DeviceSlice<G1Projective>
+        &mut result_dev[..] // &mut DeviceSlice<G1Projective>
     )
-    .unwrap();
+    .expect("msm failed");
+    println!("Step 4: msm execution: {:?}", t4.elapsed());
 
-    // 5) 결과를 호스트로 복사
+    // 5) 디바이스 → 호스트 복사
+    let t5 = Instant::now();
     let mut host_out = vec![G1Projective::zero(); n];
     result_dev
         .copy_to_host(HostSlice::from_mut_slice(&mut host_out))
-        .unwrap();
+        .expect("copy_to_host failed");
+    println!("Step 5: copy_to_host: {:?}", t5.elapsed());
 
-    // 6) G1Projective -> G1Affine 변환 후 res 채우기
-    for (i, p) in host_out.into_iter().enumerate() {
-        res[i] = G1serde(G1Affine::from(p));
-    }
+    // 6) Projective→Affine→G1serde 변환 (rayon 병렬)
+    let t6 = Instant::now();
+    host_out
+        .into_par_iter()
+        .zip(res.par_iter_mut())
+        .for_each(|(proj, slot)| {
+            *slot = G1serde(G1Affine::from(proj));
+        });
+    println!("Step 6: parallel conversion: {:?}", t6.elapsed());
+
+    // 전체 소요
+    println!("Total elapsed: {:?}", t_start.elapsed());
 }
+
 
 
 pub fn from_coef_vec_to_g1serde_vec(coef: &[ScalarField], gen: &G1Affine, res: &mut [G1serde]) {

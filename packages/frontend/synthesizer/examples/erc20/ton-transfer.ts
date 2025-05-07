@@ -14,13 +14,12 @@ import TON_CONTRACT from "../../src/constants/bytecodes/TON.json" assert { type:
 import { logAfterTransaction } from "examples/utils/balanceUnit.js"
 import { getStorageSlot } from "examples/utils/getStorageSlot.js"
 
-// USDC contract bytecode
+// TON contract bytecode
 const contractCode = TON_CONTRACT.bytecode
 
 const main = async () => {
   const evm = await createEVM()
 
-  // 계정 설정
   const contractAddr = new Address(hexToBytes('0x2be5e8c109e2197D077D13A82dAead6a9b3433C5'))
  
   const calldata = "0xa9059cbb0000000000000000000000000ce8f6c9d4ad12e56e54018313761487d2d1fee900000000000000000000000000000000000000000000006c6b935b8bbd400000"
