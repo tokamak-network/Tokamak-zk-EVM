@@ -28,6 +28,28 @@ fn _find_size_as_twopower(target_x_size: usize, target_y_size: usize) -> (usize,
     (new_x_size, new_y_size)
 }
 
+// fn _find_size_as_twopower(target_x_size: usize, target_y_size: usize) -> (usize, usize) {
+//     // 0 사이즈는 1로 간주
+//     let new_x_size = if target_x_size == 0 {
+//         1
+//     } else if target_x_size.is_power_of_two() {
+//         target_x_size
+//     } else {
+//         // 가장 가까운 상위 2의 거듭제곱
+//         1 << (usize::BITS - target_x_size.leading_zeros())
+//     };
+
+//     let new_y_size = if target_y_size == 0 {
+//         1
+//     } else if target_y_size.is_power_of_two() {
+//         target_y_size
+//     } else {
+//         1 << (usize::BITS - target_y_size.leading_zeros())
+//     };
+
+//     (new_x_size, new_y_size)
+// }
+
 
 pub struct DensePolynomialExt {
     pub poly: DensePolynomial,
@@ -494,6 +516,7 @@ impl BivariatePolynomial for DensePolynomialExt {
         if x_size == 0 || y_size == 0 {
             panic!("Invalid matrix size for from_rou_evals");
         }
+        // println!("from rou");
         if x_size.is_power_of_two() == false || y_size.is_power_of_two() == false {
             panic!("The input sizes for from_rou_evals must be powers of two.")
         }
@@ -543,6 +566,7 @@ impl BivariatePolynomial for DensePolynomialExt {
 
     fn to_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(&self, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>, evals: &mut S) {
         let size = self.x_size * self.y_size;
+        
         if evals.len() < size {
             panic!("Insufficient buffer length for to_rou_evals")
         }
@@ -562,7 +586,7 @@ impl BivariatePolynomial for DensePolynomialExt {
             
             scaled_poly.copy_coeffs(0, scaled_coeffs);
         }
-
+        
         ntt::initialize_domain::<Self::Field>(
             ntt::get_root_of_unity::<Self::Field>(
                 size.try_into()
@@ -575,14 +599,15 @@ impl BivariatePolynomial for DensePolynomialExt {
         // FFT along X
         cfg.batch_size = self.y_size as i32;
         cfg.columns_batch = true;
+        
         ntt::ntt(scaled_coeffs, ntt::NTTDir::kForward, &cfg, evals).unwrap();
         drop(scaled_coeffs_vec);
         
         // FFT along Y
         cfg.batch_size = self.x_size as i32;
         cfg.columns_batch = false;
+        
         ntt::ntt_inplace(evals, ntt::NTTDir::kForward, &cfg).unwrap();
-
         ntt::release_domain::<Self::Field>().unwrap();
     }
 
@@ -895,7 +920,10 @@ impl BivariatePolynomial for DensePolynomialExt {
         let numer_x_degree = self.x_degree;
         let numer_y_degree = self.y_degree;
         if numer_x_degree < denom_x_degree || numer_y_degree < denom_y_degree {
-            panic!("The numerator must have grater degrees than denominators.")
+            let zero_coeff = vec![Self::Field::zero(); 1];
+            let zero_poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&zero_coeff), 1, 1);
+            // remainder는 self 전체
+            return (zero_poly, self.clone())
         }
         let m = numer_x_size / denom_x_degree as usize;
         let n = numer_y_size / denom_y_degree as usize;

@@ -11,6 +11,7 @@ use icicle_bls12_381::curve::{ScalarField, ScalarCfg, CurveCfg, G2CurveCfg, G1Af
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::ntt;
 use icicle_core::curve::Curve;
+use icicle_runtime::{self, Device};
 
 use std::{vec, cmp};
 use std::time::Instant;
@@ -18,7 +19,22 @@ use std::fs::File;
 use std::io::Write;
 
 fn main() {
+    let _ = icicle_runtime::load_backend_from_env_or_default();
+
+    // Check if GPU is available
+    let device_cpu = Device::new("CPU", 0);
+    let mut device_gpu = Device::new("CUDA", 0);
+    let is_cuda_device_available = icicle_runtime::is_device_available(&device_gpu);
+    if is_cuda_device_available {
+        println!("GPU is available");
+        icicle_runtime::set_device(&device_gpu).expect("Failed to set device");
+    } else {
+        println!("GPU is not available, falling back to CPU only");
+        device_gpu = device_cpu.clone();
+    }
+    
     let start1 = Instant::now();
+
     
     // Generate random affine points on the elliptic curve (G1 and G2)
     let g1_gen = CurveCfg::generate_random_affine_points(1)[0];

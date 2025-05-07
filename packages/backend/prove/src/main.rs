@@ -1,5 +1,6 @@
 use std::time::{Duration, Instant};
 use prove::{Prover, Proof};
+use icicle_runtime::{self, Device};
 
 fn main() {
     let prove_start = Instant::now();

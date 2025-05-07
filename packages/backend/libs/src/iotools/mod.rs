@@ -660,7 +660,7 @@ pub fn scaled_outer_product_1d(
     }
     let mut res_coef = vec![ScalarField::zero(); size].into_boxed_slice();
     scaled_outer_product(col_vec, row_vec, scaler, &mut res_coef);
-    from_coef_vec_to_g1serde_vec_msm_timed(
+    from_coef_vec_to_g1serde_vec_msm(
         &res_coef,
         g1_gen,
         res,
@@ -669,15 +669,18 @@ pub fn scaled_outer_product_1d(
 
 
 // use rayon::prelude::*;
+use icicle_runtime::{self, Device};
 
-
-pub fn from_coef_vec_to_g1serde_vec_msm_timed(
+pub fn from_coef_vec_to_g1serde_vec_msm(
     coef: &Box<[ScalarField]>,
     gen: &G1Affine,
     res: &mut [G1serde],
 ) {
-    println!("msm");
+    println!("msm gpu");
+    
+
     let n = coef.len();
+    println!("coef.len(): {:?}", n);
     assert_eq!(res.len(), n, "res.len() must equal coef.len()");
 
     // 전체 시작
@@ -692,6 +695,7 @@ pub fn from_coef_vec_to_g1serde_vec_msm_timed(
     let t2 = Instant::now();
     let mut pts = Vec::with_capacity(n);
     pts.resize(n, *gen);
+    println!("pts len(): {:?}", pts.len());
     let points_host = HostSlice::from_slice(&pts);
     println!("Step 2: points_host creation: {:?}", t2.elapsed());
 
@@ -700,7 +704,7 @@ pub fn from_coef_vec_to_g1serde_vec_msm_timed(
     let mut result_dev = DeviceVec::<G1Projective>::device_malloc(n)
         .expect("device_malloc failed");
     println!("Step 3: device_malloc: {:?}", t3.elapsed());
-
+    
     // 4) MSM 구성 및 실행
     let t4 = Instant::now();
     let cfg = msm::MSMConfig::default();
@@ -742,12 +746,16 @@ pub fn from_coef_vec_to_g1serde_vec(coef: &[ScalarField], gen: &G1Affine, res: &
     use rayon::prelude::*;
     use std::io::{stdout, Write};
 
+    println!("msm cpu");
+    let t_start = Instant::now();
+
     if res.len() != coef.len() {
         panic!("Not enough buffer length.")
     }
     if coef.len() == 0 {
         return
     }
+    println!("coef.len(): {:?}", coef.len());
 
     let gen_proj = gen.to_projective(); 
 
@@ -773,6 +781,8 @@ pub fn from_coef_vec_to_g1serde_vec(coef: &[ScalarField], gen: &G1Affine, res: &
                 }
             }
         });
+    println!("\n");
+    println!("Total elapsed: {:?}", t_start.elapsed());
     print!("\r");
 
     // HostSlice 두개
@@ -855,7 +865,7 @@ pub fn from_coef_vec_to_g1serde_mat(coef: &Box<[ScalarField]>, r_size: usize, c_
         panic!("Not enough buffer row length.")
     }
     let mut temp_vec = vec![G1serde::zero(); r_size * c_size].into_boxed_slice();
-    from_coef_vec_to_g1serde_vec(coef, gen, &mut temp_vec);
+    from_coef_vec_to_g1serde_vec_msm(coef, gen, &mut temp_vec);
     for i in 0..r_size {
         if res[i].len() != c_size {
             panic!("Not enough buffer column length.")

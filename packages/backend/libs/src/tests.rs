@@ -8,6 +8,45 @@ use std::time::Instant;
 // This mod tests can be placed in a separate file
 
 #[cfg(test)]
+mod msm_vs_rayon_tests {
+    use super::*;
+    use icicle_bls12_381::curve::{CurveCfg, G1Affine, G1Projective, ScalarCfg, ScalarField};
+    use crate::iotools::{from_coef_vec_to_g1serde_vec, from_coef_vec_to_g1serde_vec_msm};
+    use crate::group_structures::G1serde;
+    use icicle_core::curve::Curve;
+
+    #[test]
+    fn cpu_and_gpu_versions_produce_same() {
+        // 1) 테스트 크기
+        let n = 256;
+        // 2) 랜덤 계수 생성
+        let coef_vec: Vec<ScalarField> = ScalarCfg::generate_random(n);
+        // 3) generator point
+        let gen = CurveCfg::generate_random_affine_points(n)[0];
+
+        // 4) 결과 버퍼 준비
+        let mut res_cpu = vec![G1serde(G1Affine::zero()); n];
+        let mut res_gpu = vec![G1serde(G1Affine::zero()); n];
+
+        // 5) 호출
+        from_coef_vec_to_g1serde_vec(&coef_vec, &gen, &mut res_cpu);
+        from_coef_vec_to_g1serde_vec_msm(&Box::from(coef_vec.clone().into_boxed_slice()), &gen, &mut res_gpu);
+
+        // 6) 비교
+        assert_eq!(res_cpu.len(), res_gpu.len());
+        for i in 0..n {
+            assert_eq!(
+                res_cpu[i].0, 
+                res_gpu[i].0,
+                "mismatch at index {}: cpu={:?}, gpu={:?}",
+                i, res_cpu[i].0, res_gpu[i].0
+            );
+        }
+    }
+}
+
+
+#[cfg(test)]
 mod tests {
     use icicle_core::ntt;
 
