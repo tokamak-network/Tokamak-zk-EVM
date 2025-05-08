@@ -1,11 +1,11 @@
 [32mtemplate instances[0m: 11
 non-linear constraints: 57
-linear constraints: 104
+linear constraints: 140
 public inputs: 6
 private inputs: 0
 public outputs: 2
-wires: 226
-labels: 505
+wires: 274
+labels: 527
 [32mWritten successfully:[0m ../subcircuits/library\MULMOD_circuit.r1cs
 [32mConstraints written in:[0m ../subcircuits/library\MULMOD_circuit_constraints.json
 [32mWritten successfully:[0m ../subcircuits/library\MULMOD_circuit_js\MULMOD_circuit.wasm

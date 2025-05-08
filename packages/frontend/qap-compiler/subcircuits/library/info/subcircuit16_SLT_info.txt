@@ -1,11 +1,11 @@
 [32mtemplate instances[0m: 15
 non-linear constraints: 296
-linear constraints: 24
+linear constraints: 23
 public inputs: 4
 private inputs: 0
-public outputs: 2
-wires: 329
-labels: 443
+public outputs: 1
+wires: 328
+labels: 434
 [32mWritten successfully:[0m ../subcircuits/library\SLT_circuit.r1cs
 [32mConstraints written in:[0m ../subcircuits/library\SLT_circuit_constraints.json
 [32mWritten successfully:[0m ../subcircuits/library\SLT_circuit_js\SLT_circuit.wasm

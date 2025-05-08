@@ -102,6 +102,13 @@ function _div256 (a, b) {
     }
 }
 
+function _div128(in1, in2) {
+    if (in2 == 0) {
+        return [0, in1];
+    }
+    return [in1 / in2, in1 % in2];
+}
+
 function _div512by256(in1, in2) {
     // INPUTS:
     //   in1[4] : 4 × 128-bit limbs, least-significant first  (represents a 512-bit integer)

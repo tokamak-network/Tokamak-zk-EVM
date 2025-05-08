@@ -1,11 +1,11 @@
 [32mtemplate instances[0m: 3
 non-linear constraints: 5
-linear constraints: 3
+linear constraints: 2
 public inputs: 4
 private inputs: 0
-public outputs: 2
-wires: 13
-labels: 21
+public outputs: 1
+wires: 12
+labels: 20
 [32mWritten successfully:[0m ../subcircuits/library\EQ_circuit.r1cs
 [32mConstraints written in:[0m ../subcircuits/library\EQ_circuit_constraints.json
 [32mWritten successfully:[0m ../subcircuits/library\EQ_circuit_js\EQ_circuit.wasm

@@ -1,7 +1,6 @@
 pragma circom 2.1.6;
 include "../../functions/arithmetic.circom";
 include "../128bit/arithmetic.circom";
-include "../../node_modules/circomlib/circuits/comparators.circom";
 
 
 // Each input is an 256-bit integer represented by two 128-bit integers; e.g.) in1[0]: lower 128 bits, in1[1]: upper 128 bits
@@ -61,38 +60,19 @@ template Mul256_unsafe() {
 
     // Then, out = ac X^2 + ad X + bc X + bd.
     // We compute each coefficient.
-    
-    // let b = g Y + h and d = i Y + j, where Y = 2^64.
-    signal g <-- b / SUB_FIELD_SIZE;
-    signal h <-- b % SUB_FIELD_SIZE;
-    signal i <-- d / SUB_FIELD_SIZE;
-    signal j <-- d % SUB_FIELD_SIZE;
-    b === g * SUB_FIELD_SIZE + h;
-    d === i * SUB_FIELD_SIZE + j;
 
-    // bd = gi Y^2 + gj Y + hi Y + hj.
     // let bd = kX + l.
-    signal kl[2] <== Mul128_unsafe()([g, h], [i, j]);
+    signal kl[2] <== Mul128_unsafe()(b, d);
     signal k <== kl[1];
     signal l <== kl[0];
     
-    // let c = m Y + n.
-    signal m <-- c / SUB_FIELD_SIZE;
-    signal n <-- c % SUB_FIELD_SIZE;
-    c === m * SUB_FIELD_SIZE + n;
-    // bc = gm Y^2 + gn Y + hm Y + hn.
     // let bc = oX + p.
-    signal op[2] <== Mul128_unsafe()([g, h], [m, n]);
+    signal op[2] <== Mul128_unsafe()(b, c);
     signal o <== op[1];
     signal p <== op[0];
 
-    // let a = q Y + r.
-    signal q <-- a / SUB_FIELD_SIZE;
-    signal r <-- a % SUB_FIELD_SIZE;
-    a === q * SUB_FIELD_SIZE + r;
-    // ad = qi Y^2 + qj Y + rg Y + rj.
     // let ad = sX + t.
-    signal st[2] <== Mul128_unsafe()([q, r], [i, j]);
+    signal st[2] <== Mul128_unsafe()(a, d);
     signal s <== st[1];
     signal t <== st[0];
 
@@ -102,7 +82,7 @@ template Mul256_unsafe() {
     k + p + t === u * FIELD_SIZE + v;
 
     // let ac = wX + x.
-    signal wx[2] <== Mul128_unsafe()([q, r], [m, n]);
+    signal wx[2] <== Mul128_unsafe()(a, c);
     signal w <== wx[1];
     signal x <== wx[0];
 
@@ -119,44 +99,88 @@ template Mul256_unsafe() {
     carry[0] <== z;
 }
 
+// template Mul256_unsafe() {
+//     // Need range checks on the inputs and output to be safe.
+//     var FIELD_SIZE = 1<<128;
+//     var SUB_FIELD_SIZE = 1<<64;
+//     signal input in1[2], in2[2];
+//     // let in1 = aX + b, in2 = cX + d, where X = 2^128.
+//     signal a <== in1[1];
+//     signal b <== in1[0];
+//     signal c <== in2[1];
+//     signal d <== in2[0];
+    
+//     // let in1 * in2 = carry * X^2 + out
+//     signal output out[2], carry[2];
+//     // let out = eX + f.
+//     // let carry = yX + z.
+//     // then in1 * in2 = yX^3 + zX^2 + eX + f.
+    
+
+//     // Then, out = ac X^2 + ad X + bc X + bd.
+//     // We compute each coefficient.
+    
+//     // let b = g Y + h and d = i Y + j, where Y = 2^64.
+//     signal g <-- b / SUB_FIELD_SIZE;
+//     signal h <-- b % SUB_FIELD_SIZE;
+//     signal i <-- d / SUB_FIELD_SIZE;
+//     signal j <-- d % SUB_FIELD_SIZE;
+//     b === g * SUB_FIELD_SIZE + h;
+//     d === i * SUB_FIELD_SIZE + j;
+
+//     // bd = gi Y^2 + gj Y + hi Y + hj.
+//     // let bd = kX + l.
+//     signal kl[2] <== Mul128_unsafe()([g, h], [i, j]);
+//     signal k <== kl[1];
+//     signal l <== kl[0];
+    
+//     // let c = m Y + n.
+//     signal m <-- c / SUB_FIELD_SIZE;
+//     signal n <-- c % SUB_FIELD_SIZE;
+//     c === m * SUB_FIELD_SIZE + n;
+//     // bc = gm Y^2 + gn Y + hm Y + hn.
+//     // let bc = oX + p.
+//     signal op[2] <== Mul128_unsafe()([g, h], [m, n]);
+//     signal o <== op[1];
+//     signal p <== op[0];
+
+//     // let a = q Y + r.
+//     signal q <-- a / SUB_FIELD_SIZE;
+//     signal r <-- a % SUB_FIELD_SIZE;
+//     a === q * SUB_FIELD_SIZE + r;
+//     // ad = qi Y^2 + qj Y + rg Y + rj.
+//     // let ad = sX + t.
+//     signal st[2] <== Mul128_unsafe()([q, r], [i, j]);
+//     signal s <== st[1];
+//     signal t <== st[0];
+
+//     // let (k + p + t) X = u X^2 + vX.
+//     signal v <-- (k + p + t) % FIELD_SIZE;
+//     signal u <-- (k + p + t) / FIELD_SIZE;
+//     k + p + t === u * FIELD_SIZE + v;
+
+//     // let ac = wX + x.
+//     signal wx[2] <== Mul128_unsafe()([q, r], [m, n]);
+//     signal w <== wx[1];
+//     signal x <== wx[0];
+
+//     // let (o + s + x + u) X^2 = (yX + z) X^2
+//     signal z <-- (o + s + x + u) % FIELD_SIZE;
+//     signal y <-- (o + s + x + u) / FIELD_SIZE;
+//     o + s + x + u === y * FIELD_SIZE + z;
+
+//     // e
+//     out[1] <== v;
+//     // f
+//     out[0] <== l;
+//     carry[1] <== w + y;
+//     carry[0] <== z;
+// }
+
 template Not256_unsafe() {
     signal input in[2];
     signal output out[2];
     out[0] <== (1<<128) - in[0] - 1;
     out[1] <== (1<<128) - in[1] - 1;
 }
-
-template ShiftLeft256_unsafe() {
-    signal input shift, in[2];
-    signal output out[2];
-    var FIELD_SIZE = (1 << 128);
-
-    signal is_shift_gt_255 <== GreaterThan(8)(shift, 255);
-    signal is_shift_gt_127 <== GreaterThan(7)(shift, 127);
-    signal shift_up <== shift - 128;
-
-    if (shift > 255) {
-        out[0] <-- 0;
-        out[1] <-- 0;
-    } else if (shift > 127) {
-        out[0] <-- 0;
-        out[1] <-- (in[0] << shift_up) % FIELD_SIZE; 
-    } else {
-        out[0] <-- (in[0] << shift) % FIELD_SIZE;
-        out[1] <-- (in[0] << shift) / FIELD_SIZE + (in[1] << shift) % FIELD_SIZE;
-    }
-    
-    signal case1_check[2] <== IsZero256()(out);
-    signal case2_out1[2] <== Mul128_unsafe()(in[0], 1<<shift_up);
-    signal case2_check[2] <== Eq256()(out, [0, case2_out1[0]]);
-    signal case3_out0[2] <== Mul128_unsafe()(in[0], 1<<shift);
-    signal case3_out1[2] <== Mul128_unsafe()(in[1], 1<<shift);
-    signal case3_out[2] <== [ case3_out0[0], case3_out0[1] + case3_out1[0] ];
-    signal case3_check[2] <== Eq256()(out, case3_out);
-
-    signal check_inter <== case2_check[0] * is_shift_gt_127 + case3_check[0] * (1 - is_shift_gt_127);
-    signal check_final <== case1_check[0] * is_shift_gt_255 + check_inter * (1 - is_shift_gt_255);
-    check_final === 1;
-}
-
 

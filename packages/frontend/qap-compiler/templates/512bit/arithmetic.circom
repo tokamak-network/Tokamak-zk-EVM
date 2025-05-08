@@ -118,7 +118,7 @@ template Div512by256_unsafe() {
     }
     carry3 === 0;
 
-    signal is_zero_denom[2] <== IsZero256()(in2);
+    signal is_zero_denom <== IsZero256()(in2);
 
     /* These checks must be included for Div256 to be safe.
     //Ensure 0 <= remainder < divisor when diviser > 0
@@ -127,5 +127,5 @@ template Div512by256_unsafe() {
     */
 
     // Return r = 0 if in2 is zero.
-    rem <== Mux512()(is_zero_denom[0], [0, 0, 0, 0], r_temp);
+    rem <== Mux512()(is_zero_denom, [0, 0, 0, 0], r_temp);
 }

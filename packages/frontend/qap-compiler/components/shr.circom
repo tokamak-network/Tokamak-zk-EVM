@@ -13,8 +13,8 @@ template _SHR () {
   signal is_zero_out <== IsZero()(in1);
   
   // 2) in1 > 0: out = in2 >> in1
-  signal exp1 <== BinaryExp128()(in1);
-  signal exp2 <== BinaryExp128()(128 - in1);
+  signal exp1 <== TwosExp128()(in1);
+  signal exp2 <== TwosExp128()(128 - in1);
 
   component upper_divider = Divider128();
   upper_divider.in <== [in2[1], exp1];

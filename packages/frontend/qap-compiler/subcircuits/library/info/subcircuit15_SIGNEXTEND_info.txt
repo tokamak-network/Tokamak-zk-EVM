@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 23
+non-linear constraints: 406
+linear constraints: 96
+public inputs: 3
+private inputs: 0
+public outputs: 2
+wires: 521
+labels: 747
+[32mWritten successfully:[0m ../subcircuits/library\SIGNEXTEND_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library\SIGNEXTEND_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library\SIGNEXTEND_circuit_js\SIGNEXTEND_circuit.wasm
+[32mEverything went okay[0m

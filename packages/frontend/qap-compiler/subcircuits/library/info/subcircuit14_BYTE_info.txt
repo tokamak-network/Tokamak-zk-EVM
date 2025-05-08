@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 20
+non-linear constraints: 252
+linear constraints: 84
+public inputs: 3
+private inputs: 0
+public outputs: 1
+wires: 355
+labels: 509
+[32mWritten successfully:[0m ../subcircuits/library\BYTE_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library\BYTE_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library\BYTE_circuit_js\BYTE_circuit.wasm
+[32mEverything went okay[0m

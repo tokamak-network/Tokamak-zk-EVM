@@ -19,12 +19,15 @@ function _getSignAndAbs(x, sign_offset) {
     // }
 
     var x_256 = x[0] + x[1] * FIELD_SIZE;
-    x_256 = x_256 & ((1<<256) - 1); // Forcing x_256 to be in 256 bit length.
+    x_256 = x_256 & ((1 << 256) - 1);
     var isNeg = (x_256 >> sign_offset) & 1;
+    var VARIABLE_SIZE = (1 << sign_offset + 1);
+    var x_256_truncated = x_256 % VARIABLE_SIZE;
+    var abs_x_256;
     if (isNeg == 1) {
-        abs_x_256 = (1<<256) - x_256;
+        abs_x_256 = VARIABLE_SIZE - x_256_truncated;
     } else {
-        abs_x_256 = x_256;
+        abs_x_256 = x_256_truncated;
     }
 
     var abs_x_low = abs_x_256 % FIELD_SIZE;
