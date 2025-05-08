@@ -514,7 +514,6 @@ impl Prover{
             assert!( p_0_eval.eq( &(q_0_eval * t_n_eval + q_1_eval * t_smax_eval) ) );
             println!("Checked: u(X,Y), v(X,Y), and w(X,Y) satisfy the arithmetic constraints.")
         }
-        println!("a");
         // Adding zero-knowledge
         let rW_X = DensePolynomialExt::from_coeffs(
             HostSlice::from_slice(&self.mixer.rW_X), 
@@ -527,8 +526,6 @@ impl Prover{
             self.mixer.rW_Y.len()
         );
 
-        println!("b");
-
         let U = {
             let mut UXY = poly_comb!(
                 (ScalarField::one(), self.witness.uXY),
@@ -538,8 +535,6 @@ impl Prover{
             self.sigma.sigma_1.encode_poly(&mut UXY, &self.setup_params)
         };
 
-        println!("c");
-
         let V = {
             let mut VXY = poly_comb!(
                 (ScalarField::one(), self.witness.vXY),
@@ -548,8 +543,6 @@ impl Prover{
             );
             self.sigma.sigma_1.encode_poly(&mut VXY, &self.setup_params)
         };
-
-        println!("d");
         
         let W = {
             let mut WXY = poly_comb!(
@@ -559,8 +552,6 @@ impl Prover{
             );
             self.sigma.sigma_1.encode_poly(&mut WXY, &self.setup_params)
         };
-
-        println!("e");
         
         let Q_AX = {
             let mut Q_AX_XY = poly_comb!(

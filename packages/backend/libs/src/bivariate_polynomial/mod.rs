@@ -28,28 +28,6 @@ fn _find_size_as_twopower(target_x_size: usize, target_y_size: usize) -> (usize,
     (new_x_size, new_y_size)
 }
 
-// fn _find_size_as_twopower(target_x_size: usize, target_y_size: usize) -> (usize, usize) {
-//     // 0 사이즈는 1로 간주
-//     let new_x_size = if target_x_size == 0 {
-//         1
-//     } else if target_x_size.is_power_of_two() {
-//         target_x_size
-//     } else {
-//         // 가장 가까운 상위 2의 거듭제곱
-//         1 << (usize::BITS - target_x_size.leading_zeros())
-//     };
-
-//     let new_y_size = if target_y_size == 0 {
-//         1
-//     } else if target_y_size.is_power_of_two() {
-//         target_y_size
-//     } else {
-//         1 << (usize::BITS - target_y_size.leading_zeros())
-//     };
-
-//     (new_x_size, new_y_size)
-// }
-
 
 pub struct DensePolynomialExt {
     pub poly: DensePolynomial,
@@ -537,8 +515,12 @@ impl BivariatePolynomial for DensePolynomialExt {
         
         // IFFT along X
         cfg.batch_size = y_size as i32;
-        cfg.columns_batch = true;
+        cfg.columns_batch = if y_size == evals.len() || y_size < 4 { false } else { true };
+        // cfg.columns_batch = true ;
+        // println!("batch size in from_rou: {:?}", y_size);
+        // println!("evals size: {:?}", evals.len());
         ntt::ntt(evals, ntt::NTTDir::kInverse, &cfg, &mut coeffs).unwrap();
+        
         // IFFT along Y
         cfg.batch_size = x_size as i32;
         cfg.columns_batch = false;
@@ -598,9 +580,12 @@ impl BivariatePolynomial for DensePolynomialExt {
         let mut cfg = ntt::NTTConfig::<Self::Field>::default();
         // FFT along X
         cfg.batch_size = self.y_size as i32;
-        cfg.columns_batch = true;
-        
+        cfg.columns_batch = if scaled_coeffs.len() == self.y_size || self.y_size < 4 { false } else { true };
+        // cfg.columns_batch = true;
+        // println!("batch size in to_rou: {:?}, {:?}, {:?}", self.y_size, scaled_coeffs.len(), self.y_size == scaled_coeffs.len());
+
         ntt::ntt(scaled_coeffs, ntt::NTTDir::kForward, &cfg, evals).unwrap();
+        // println!("aaa");
         drop(scaled_coeffs_vec);
         
         // FFT along Y
@@ -920,10 +905,7 @@ impl BivariatePolynomial for DensePolynomialExt {
         let numer_x_degree = self.x_degree;
         let numer_y_degree = self.y_degree;
         if numer_x_degree < denom_x_degree || numer_y_degree < denom_y_degree {
-            let zero_coeff = vec![Self::Field::zero(); 1];
-            let zero_poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&zero_coeff), 1, 1);
-            // remainder는 self 전체
-            return (zero_poly, self.clone())
+            panic!("The numerator must have grater degrees than denominators.")
         }
         let m = numer_x_size / denom_x_degree as usize;
         let n = numer_y_size / denom_y_degree as usize;
