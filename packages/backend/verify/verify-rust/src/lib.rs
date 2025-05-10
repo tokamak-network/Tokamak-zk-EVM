@@ -73,7 +73,6 @@ impl Verifier {
         let sigma_path = "setup/trusted-setup/output/sigma_verify.json";
         let sigma = SigmaVerify::read_from_json(&sigma_path)
         .expect("No reference string is found. Run the Setup first.");
-        println!{"sigma.sigma_1.x: {:?}", sigma.sigma_1.x}
 
         // Load Verifier preprocess
         let preprocess_path = "verify/preprocess/output/preprocess.json";
@@ -348,7 +347,6 @@ impl Verifier {
             };
             lagrange_K0_XY.eval(&chi, &zeta)
         };
-        println!("K0: {:?}", lagrange_K0_eval);
 
         let F = 
             proof0.B
