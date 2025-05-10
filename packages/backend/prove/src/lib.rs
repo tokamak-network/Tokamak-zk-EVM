@@ -595,7 +595,6 @@ impl Prover{
             let mut BXY = &self.witness.bXY + &term_B_zk;
             self.sigma.sigma_1.encode_poly(&mut BXY, &self.setup_params)
         };
-
         return Proof0 {U, V, W, Q_AX, Q_AY, B}
     }
 
@@ -852,7 +851,6 @@ impl Prover{
 
         let R_omegaX_omegaY_XY = R_omegaX_XY.scale_coeffs_y(&omega_s_max.inv());
         let R_omegaX_omegaY_eval = R_omegaX_omegaY_XY.eval(&chi, &zeta);
-
         return Proof3 {
             V_eval: FieldSerde(V_eval), 
             R_eval: FieldSerde(R_eval), 
@@ -1104,7 +1102,6 @@ impl Prover{
 
         let Pi_X = Pi_AX + Pi_CX + Pi_B;
         let Pi_Y = Pi_AY + Pi_CY;
-
         return (
             Proof4 {Pi_X, Pi_Y, M_X, M_Y, N_X, N_Y},
             Proof4Test {Pi_CX, Pi_CY, Pi_AX, Pi_AY, Pi_B, M_X, M_Y, N_X, N_Y}
