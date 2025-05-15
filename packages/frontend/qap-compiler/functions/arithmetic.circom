@@ -1,4 +1,56 @@
 pragma circom 2.1.6;
+function _add256 (a, b) {
+    var FIELD_SIZE = 1 << 128;
+    var c[2];
+    c[0] = (a[0] + b[0]) % FIELD_SIZE;
+    var carry_low = (a[0] + b[0]) \ FIELD_SIZE;
+    c[1] = (a[1] + b[1] + carry_low) % FIELD_SIZE;
+    var carry = (a[1] + b[1] + carry_low) \ FIELD_SIZE;
+    return [c[0], c[1], carry];
+}
+
+
+function _sub256 (a, b) {
+    var FIELD_SIZE = 1 << 128;
+    // var borrow_low;
+    // var c[2] = [0, 0];
+    // if (a[0] < b[0]) {
+    //     borrow_low = 1;
+    //     var minusb0 = FIELD_SIZE - b[0];
+    //     c[0] = a[0] + minusb0; 
+    // } else {
+    //     borrow_low = 0;
+    //     c[0] = a[0] - b[0];
+    // }
+    // var upper_a_new;
+    // if (a[1] < borrow_low) {
+    //     var minusBorrow = FIELD_SIZE - borrow_low;
+    //     upper_a_new = a[1] + minusBorrow;
+    // } else {
+    //     upper_a_new = a[1] - borrow_low;
+    // }
+
+    // if (upper_a_new < b[1]) {
+    //     var minusb1 = FIELD_SIZE - b[1];
+    //     c[1] = upper_a_new + minusb1;
+    // } else {    
+    //     c[1] = upper_a_new - b[1];
+    // }
+
+    var c_unwrapped[2];
+    var borrow = 0;
+    if (a[0] < b[0]) {
+        borrow = 1;
+    }
+    c_unwrapped[0] = FIELD_SIZE + a[0] - b[0];
+    c_unwrapped[1] = FIELD_SIZE + a[1] - borrow - b[1];
+    var c[2] = [
+        c_unwrapped[0] % FIELD_SIZE,
+        c_unwrapped[1] % FIELD_SIZE
+    ];
+
+    return c;
+}
 
 function euclidean_div (a, b) {
     var r = a % b;
@@ -106,55 +158,87 @@ function _div128(in1, in2) {
     if (in2 == 0) {
         return [0, in1];
     }
-    return [in1 / in2, in1 % in2];
+    return [in1 \ in2, in1 % in2];
 }
 
-function _div512by256(in1, in2) {
+function greater_or_equal_than(a, b) {
+    // check a[4] >= b[4]
+    var ge = 0;
+    var eq = 1;
+
+    for (var i = 3; i >= 0; i--) {
+        var gt = a[i] > b[i] ? 1 : 0;
+        var lt = a[i] < b[i] ? 1 : 0;
+
+        ge += eq * gt;
+        eq *= 1 - gt - lt;
+    }
+
+    return ge;
+}
+
+function _div512by256(a, b) {
     // INPUTS:
-    //   in1[4] : 4 × 128-bit limbs, least-significant first  (represents a 512-bit integer)
-    //   in2[2] : 2 × 128-bit limbs, least-significant first  (represents a 256-bit integer)
+    //   a[4] : 4 × 128-bit limbs, least-significant first  (represents a 512-bit integer)
+    //   b[2] : 2 × 128-bit limbs, least-significant first  (represents a 256-bit integer)
     // OUTPUTS:
     //   q[4]   : 4 × 128-bit limbs of the quotient
     //   r[4]   : 4 × 128-bit limbs of the remainder.
     // Word base: 2^128
-    var X = 1 << 128;
-    var q[4], r[4];
 
     // If divisor == 0, define quotient=0, remainder=low-2 limbs of in1
-    if (in2[0] == 0 && in2[1] == 0) {
-        q = [0, 0, 0, 0];
-        r = in1;
-        return [q, r];
+    if (b[0] == 0 && b[1] == 0){
+        return [[0, 0, 0, 0], a];
     }
 
-    // Reassemble into large BigInts
-    var A = in1[0]
-          + in1[1] * X
-          + in1[2] * X * X
-          + in1[3] * X * X * X;
-    var B = in2[0]
-          + in2[1] * X;
+    var q[4] = [0, 0, 0, 0];
+    var r[4] = [0, 0, 0, 0];
 
-    // Pure BigInt division & modulo (no size limit here)
-    var Q = A / B;
-    var R = A % B;
+    for (var i = 3; i >= 0; i--) {
+        for (var j = 127; j >= 0; j--) {
+            // 1. Shift r left by 1 bit
+            var carry = 0;
+            for (var k = 0; k < 4; k++) {
+                var new_carry = r[k] >> 127;
+                r[k] = ((r[k] << 1) & ((1 << 128) - 1)) | carry;
+                carry = new_carry;
+            }
 
-    // Peel off 128-bit limbs of the quotient (LSB first)
-    q = [0, 0, 0, 0];
-    for (var i = 0; i < 4; i++) {
-        q[i] = Q % X;
-        Q    = Q / X;
-    }
+            // 2. Bring down 1 bit from a[i]
+            var a_bit = (a[i] >> j) & 1;
+            r[0] = r[0] | a_bit;
 
-    // Peel off 128-bit limbs of the remainder
-    r = [0, 0, 0, 0];
-    for (var j = 0; j < 2; j++) {
-        r[j] = R % X;
-        R    = R / X;
+            // 3. Compare r >= b
+            // Pad b to 4 limbs
+            var b_pad[4] = [b[0], b[1], 0, 0];
+            var greater_or_equal = greater_or_equal_than(r, b_pad);
+
+            // 4. If r >= b: subtract and set quotient bit
+            if (greater_or_equal == 1) {
+                var borrow = 0;
+                for (var k = 0; k < 4; k++) {
+                    var tmp = r[k] - b_pad[k] - borrow;
+                    if (tmp < 0) {
+                        tmp += 1 << 128;
+                        borrow = 1;
+                    } else {
+                        borrow = 0;
+                    }
+                    r[k] = tmp;
+                }
+
+                // Set bit in quotient
+                var bit_pos = i * 128 + j;
+                var q_limb = bit_pos \ 128;
+                var q_bit = bit_pos % 128;
+                q[q_limb] = q[q_limb] | (1 << q_bit);
+            }
+        }
     }
 
     return [q, r];
 }
+
 
 function mul128 (a, b) {
     var c[2] = euclidean_div(a, 2**64);

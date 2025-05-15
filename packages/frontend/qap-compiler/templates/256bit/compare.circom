@@ -3,7 +3,7 @@ include "../../node_modules/circomlib/circuits/comparators.circom";
 include "../../node_modules/circomlib/circuits/gates.circom";
 include "two_complement.circom";
 
-template Eq256 () {
+template IsEqual256 () {
     signal input in1[2], in2[2];
     signal output out;
 
@@ -12,7 +12,7 @@ template Eq256 () {
     out <== eq_lower_out * eq_upper_out;
 }
 
-template Lt256 () {
+template LessThan256 () {
     // in1 < in2
     signal input in1[2], in2[2];
     signal output out;
@@ -27,7 +27,7 @@ template Lt256 () {
     out <== eq_out * lt_lower_out + temp;
 }
 
-// template LEq256 () {
+// template LIsEqual256 () {
 //     signal input in1[2], in2[2]; // 256-bit integers consisting of two 128-bit integers; in[0]: lower, in[1]: upper
 //     signal output out;
 //     signal eq_128 <== IsEqual()([((2**128) - 1),in2[0]]);
@@ -41,21 +41,21 @@ template Lt256 () {
 //     out <== eq_out * lt_lower_out + temp;
 // }
 
-template Gt256 () {
+template GreaterThan256 () {
     // 256-bit integers consisting of two 128-bit integers; in[0]: lower, in[1]: upper
     signal input in1[2], in2[2];
-    signal output out <== Lt256()(in2, in1);
+    signal output out <== LessThan256()(in2, in1);
 }
 
-template SignedLt256 () {
+template SignedLessThan256 () {
     // in1 < in2
     signal input in1[2], in2[2];
     signal output out;
     signal (isNeg_in1, abs_in1[2]) <== getSignAndAbs256()(in1);
     signal (isNeg_in2, abs_in2[2]) <== getSignAndAbs256()(in2);
 
-    signal lt_out <== Lt256()(abs_in1, abs_in2);
-    signal eq_out <== Eq256()(abs_in1, abs_in2);
+    signal lt_out <== LessThan256()(abs_in1, abs_in2);
+    signal eq_out <== IsEqual256()(abs_in1, abs_in2);
     signal gt_out <== (1 - lt_out) * (1 - eq_out);
     signal xor_out <== XOR()(isNeg_in1, isNeg_in2);
 
@@ -82,10 +82,10 @@ template SignedLt256 () {
     out <== inter1 + inter5;
 }
 
-template SignedGt256 () {
+template SignedGreaterThan256 () {
   // 256-bit integers consisting of two 128-bit integers; in[0]: lower, in[1]: upper
   signal input in1[2], in2[2];
-  signal output out <== SignedLt256()(in2, in1);
+  signal output out <== SignedLessThan256()(in2, in1);
 }
 
 template IsZero256 () {

@@ -6,6 +6,7 @@ include "two_complement.circom";
 include "../../node_modules/circomlib/circuits/gates.circom";
 include "compare.circom";
 include "../../node_modules/circomlib/circuits/comparators.circom";
+include "../../functions/two_complement.circom";
 
 // Templates here include the range check on outputs.
 
@@ -22,7 +23,7 @@ template Div256_unsafe () {
     signal (inter[2], carry1[2]) <== Mul256_unsafe()(q, in2);
     signal (res[2], carry2) <== Add256_unsafe()(inter, r_temp);
     signal (inter2[2], carry3) <== Add256_unsafe()(carry1, [carry2, 0]);
-    signal check_res <== Eq256()(res, in1);
+    signal check_res <== IsEqual256()(res, in1);
     check_res === 1;
     for (var i = 0; i < 2; i++) {
         inter2[i] === 0;
@@ -32,7 +33,7 @@ template Div256_unsafe () {
     signal is_zero_denom <== IsZero256()(in2);
 
     //Ensure 0 <= remainder < divisor when diviser > 0
-    signal lt_divisor <== Lt256()(r_temp, in2);
+    signal lt_divisor <== LessThan256()(r_temp, in2);
     lt_divisor === 1 * (1 - is_zero_denom);
 
     // Return r = 0 if in2 is zero.
@@ -55,6 +56,7 @@ template MulMod256_unsafe() {
     signal output out[2];
 
     signal (mul_res[2], carry[2]) <== Mul256_unsafe()(in1, in2);
+    // log("div left: ", mul_res[0], mul_res[1], carry[0], carry[1], ", div right: ", in3[0], in3[1]);
     signal (quo[4], rem[4]) <== Div512by256_unsafe()([mul_res[0], mul_res[1], carry[0], carry[1]], in3);
 
     out[0] <== rem[0];
@@ -74,128 +76,110 @@ template SignedDiv256_unsafe() {
   r <== recoverSignedInteger256()(isNeg_in1, abs_rem);
 }
 
-template ShiftLeft256_unsafe() {
-    // shift: an 254-bit integer
-    // in: an 256-bit integer of two 128-bit limbs (LE)
-    signal input shift, in[2];
-    // out: an 256-bit integer of two 128-bit limbs (LE)
-    signal output out[2];
-    var FIELD_SIZE = (1 << 128);
+template _FindShiftingTwosPower(N) {
+    signal input shift;
+    signal output twos_power[2], is_shift_gt_255;
 
-    signal is_shift_gt_255 <== GreaterThan(8)([shift, 255]);
-    signal is_shift_gt_127 <== GreaterThan(7)([shift, 127]);
+    // case 1
+    is_shift_gt_255 <== GreaterThan(N)([shift, 255]);
+    // case 2
+    signal is_shift_gt_127 <== GreaterThan(N)([shift, 127]);
+    // case 3: !is_shift_gt_127
+
     signal shift_up_inter <== (shift - 128) * is_shift_gt_127;
     signal shift_up <== (1 - is_shift_gt_255) * shift_up_inter;
     signal shift_masked <== shift * (1 - is_shift_gt_127);
 
-    // var _out[2];
-    // if (shift > 255) {
-    //     // case 1
-    //     _out[0] = 0;
-    //     _out[1] = 0;
-    // } else if (shift > 127) {
-    //     // case 2
-    //     _out[0] = 0;
-    //     _out[1] = (in[0] << shift_up) % FIELD_SIZE; 
-    // } else {
-    //     // case 3
-    //     _out[0] = (in[0] << shift) % FIELD_SIZE;
-    //     _out[1] = (in[0] << shift) / FIELD_SIZE + (in[1] << shift) % FIELD_SIZE;
-    // }
-    // out <-- _out;
-
-    // Check case 1
-    signal case1_out[2] <== [0, 0];
-    // Check case 2 and 3
+    // case 2 and 3
     signal (exp_shift_case2, exp_shift_case3) <== TwosExp128TwoInput()(shift_up, shift_masked);
-    signal exp_shift[2] <== Mux256()(is_shift_gt_127, [0, exp_shift_case2], [exp_shift_case3, 0]);
-    signal (case23_out[2], carry[2]) <== Mul256_unsafe()(in, exp_shift);
-
-    out <== Mux256()(is_shift_gt_255, case1_out, case23_out);
+    signal case23_out[2] <== Mux256()(is_shift_gt_127, [0, exp_shift_case2], [exp_shift_case3, 0]);
+    twos_power <== Mux256()(is_shift_gt_255, [0, 0], case23_out);
 }
 
-template ShiftRight256_unsafe() {
-    // shift: an 254-bit integer
+template ShiftLeft256_unsafe(N) {
+    // This is about shifting left on a BE-represented integer.
+    
+    // shift: a 8-bit integer
+    // in: a 256-bit integer of two 128-bit limbs (LE)
+    signal input shift, in[2];
+    // out: a 256-bit integer of two 128-bit limbs (LE)
+    signal output out[2];
+
+    signal (exp_shift[2], is_shift_gt_255) <== _FindShiftingTwosPower(N)(shift);
+    signal (res[2], carry[2]) <== Mul256_unsafe()(in, exp_shift);
+    out <== res;
+}
+
+template ShiftRight256_unsafe(N) {
+    // This is about shifting right on a BE-represented integer.
+
+    // shift: a 8-bit integer
     // in: an 256-bit integer of two 128-bit limbs (LE)
     signal input shift, in[2];
     // out: an 256-bit integer of two 128-bit limbs (LE)
     signal output out[2];
     var FIELD_SIZE = (1 << 128);
 
-    signal is_shift_gt_255 <== GreaterThan(8)([shift, 255]);
-    signal is_shift_gt_127 <== GreaterThan(7)([shift, 127]);
-    signal shift_low_inter <== (shift - 128) * is_shift_gt_127;
-    signal shift_low <== (1 - is_shift_gt_255) * shift_low_inter;
-    signal shift_masked <== shift * (1 - is_shift_gt_127);
-
-    // var _out[2];
-    // if (shift > 255) {
-    //     // case 1
-    //     _out[0] = 0;
-    //     _out[1] = 0;
-    // } else if (shift > 127) {
-    //     // case 2
-    //     _out[0] = (in[1] >> shift_low);
-    //     _out[1] = 0;
-    // } else {
-    //     // case 3
-    //     var inv_shift = 128 - shift;
-    //     _out[0] = (in[1] << inv_shift) % FIELD_SIZE + (in[0] >> shift);
-    //     _out[1] = (in[1] >> shift);
-    // }
-    // out <-- _out;
-    // Check case 1
-    signal case1_out[2] <== [0, 0];
-    // Check case 2 and 3
-    signal (exp_shift_case2, exp_shift_case3) <== TwosExp128TwoInput()(shift_low, shift_masked);
-    signal exp_shift[2] <== Mux256()(is_shift_gt_127, [0, exp_shift_case2], [exp_shift_case3, 0]);
-    signal (case23_out[2], rem[2]) <== Div256_unsafe()(in, exp_shift);
-
-    out <== Mux256()(is_shift_gt_255, case1_out, case23_out);
+    signal (exp_shift[2], is_shift_gt_255) <== _FindShiftingTwosPower(N)(shift);
+    
+    var _divout[2][2] = _div256(in, exp_shift); //potential shift 
+    out <-- _divout[0];
+    signal rem[2] <-- _divout[1];
+    // log("out: ", out[0], out[1]);
+    signal restored_in_up_part[2] <== ShiftLeft256_unsafe(8)(shift, out);
+    // log("in: ", in[0], in[1]);
+    signal (restored_in[2], carry) <== Add256_unsafe()(restored_in_up_part, rem);
+    // log("restored_in: ", restored_in[0], restored_in[1]);
+    signal compare <== IsEqual256()(in, restored_in);
+    signal safe_compare <== (1 - is_shift_gt_255) * compare;
+    signal iszero <== IsZero256()(out);
+    signal final_compare <== safe_compare + is_shift_gt_255 * iszero;
+    final_compare === 1;
 }
 
 template SignExtend256_unsafe() {
-    signal input sign_offset_byte, in[2];
+    // byte_minus_one (8-bit): size in byte - 1 of the integer "in" to be sign-extended.
+    // in: 256 bit integer of two 128 bit limbs to sign extend.
+    signal input byte_minus_one, in[2];
+    // out: 256 bit integer of two 128 bit limbs.
     signal output out[2];
-    signal sign_offset <== sign_offset_byte * 8;
+
+    out <-- _signExtend(in, byte_minus_one);
+    // log("out:", out[0], out[1]);
+    signal bit_size <== byte_minus_one * 8 + 8;
+    signal (masker_plus_one[2], is_size_gt_255) <== _FindShiftingTwosPower(11)(bit_size);
+    signal (quo[2], masked_in[2]) <== Div256_unsafe()(in, masker_plus_one);
+    signal safe_masked_in[2] <== Mux256()(is_size_gt_255, in, masked_in);
+    signal expected_filler[2] <== Sub256_unsafe()([0, 0], masker_plus_one);
+    signal sub_res[2] <== Sub256_unsafe()(out, safe_masked_in);
+    // log("sub_res:", sub_res[0], sub_res[1]);
+    // log("expected_filler:", expected_filler[0], expected_filler[1]);
+    signal compare_pos_case <== IsZero256()(sub_res);
+    signal compare_neg_case <== IsEqual256()(sub_res, expected_filler);
+    signal safe_compare_neg_case <== (1 - is_size_gt_255) * compare_neg_case;
+    signal compare <== XOR()(compare_pos_case, safe_compare_neg_case);
+    compare === 1;
     
-    // We extract valid bits from the input by dividing it by a two's power.
-    // Computing the divisor requires multiplexing.
-    // case 1
-    signal is_offset_gt_255 <== GreaterThan(8)([sign_offset, 255]);
-    // case 2
-    signal is_offset_gt_127 <== GreaterThan(7)([sign_offset, 127]);
-    // case 3: !is_offset_gt_127
+    
+    // signal sign_discrimer <== bit_size - 1;
 
-    signal offset_low_inter <== (sign_offset - 128) * is_offset_gt_127;
-    signal offset_low <== (1 - is_offset_gt_255) * offset_low_inter;
-    signal offset_masked <== sign_offset * (1 - is_offset_gt_127);
-
-    // We fill the untouched higher bits with zeros or ones by adding the above extraction with a two's power - 1.
-    signal filler_size <== 256 - (sign_offset + 1);
-    // case 4
-    signal is_filler_size_negative <== is_offset_gt_255;
-    // case 5
-    signal is_filler_size_gt_127 <== 1 - is_offset_gt_127;
-    // case 6: !is_filler_size_gt_127
-
-    signal filler_size_low_inter <== (filler_size - 128) * is_filler_size_gt_127;
-    signal filler_size_low <== (1 - is_filler_size_negative) * filler_size_low_inter;
-    signal filler_size_masked <== filler_size * (1 - is_filler_size_gt_127);
-
-    // Computing the divisor and adder simultaneously.
-    signal (divisor_case2, divisor_case3, filler_case5, filler_case6) <== TwosExp128FourInput()(offset_low, offset_masked, filler_size_low, filler_size_masked);
-
-    signal divisor[2] <== Mux256()(is_offset_gt_127, [0, divisor_case2], [divisor_case3, 0]);
-    signal (quo_in[2], rem_in[2]) <== Div256_unsafe()(in, divisor);
-
-    signal filler_plus_one[2] <== Mux256()(is_filler_size_gt_127, [0, filler_case5], [filler_case6, 0]);
-    signal _filler[2] <== Sub256_unsafe()(filler_plus_one, [1, 0]);
-
-    signal isPos_in <== IsZero256()(quo_in);
-    signal filler[2] <== Mux256()(isPos_in, [0, 0], _filler);
-    signal (_out[2], carry) <== Add256_unsafe()(filler, rem_in);
-    out <== _out;
+    // // Truncnate lower bits.
+    // signal (divisor[2], is_exponent_gt_255) <== _FindShiftingTwosPower(11)(sign_discrimer);
+    // // log("divisor: ", divisor[0], divisor[1]);
+    // // if is_exponent_gt_255 = 1, diviso = 0, which is incorrect. 
+    // signal (quo_in_small_div[2], rem_in_small_div[2]) <== Div256_unsafe()(in, divisor);
+    // signal adjusted_quo_in[2] <== Mux256()(is_exponent_gt_255, [0, 0], quo_in_small_div);
+    // signal adjusted_rem_in[2] <== Mux256()(is_exponent_gt_255, in, rem_in_small_div);
+    // signal isPos_in <== IsZero256()(adjusted_quo_in);
+    
+    // // Filling the empty high bits.
+    // signal (divisor2x[2], carry1[2]) <== Mul256_unsafe()(divisor, [2, 0]);
+    // signal neg_filler[2] <== Sub256_unsafe()([0, 0], divisor2x);
+    // signal filler[2] <== Mux256()(isPos_in, [0, 0], neg_filler);
+    // // log("adjusted_rem_in: ", adjusted_rem_in[0], adjusted_rem_in[1]);
+    // // log("filler: ", filler[0], filler[1]);
+    // signal (_out[2], carry2) <== Add256_unsafe()(filler, adjusted_rem_in);
+    // out <== _out;
 }
 
 template Byte256_unsafe(){
@@ -206,31 +190,42 @@ template Byte256_unsafe(){
     signal output out;
 
     signal shift <== offset_byte * 8;
-    signal inter1[2] <== ShiftLeft256_unsafe()(shift, in);
-    out <== ShiftRight128_unsafe()(15 * 8, inter1[1]);
+    signal inter1[2] <== ShiftLeft256_unsafe(11)(shift, in);
+    out <== ShiftRight128_unsafe(7)(15 * 8, inter1[1]);
 }
 
-template SightShiftRight256_unsafe(){
-    // shift: an 254-bit integer
-    // in: an 256-bit integer of two 128-bit limbs (LE)
+template SignedShiftRight256_unsafe(){
+    // This is about shifting right on a BE-represented integer.
+
+    // shift: a 8-bit integer
+    // in: a 256-bit integer of two 128-bit limbs (LE)
     signal input shift, in[2];
-    // out: an 256-bit integer of two 128-bit limbs (LE)
+    // out: a 256-bit integer of two 128-bit limbs (LE)
     signal output out[2];
 
-    signal shifted[2] <== ShiftRight256_unsafe(shift, in);
+    // Extract the sign
+    signal (isNeg_in, abs[2]) <== getSignAndAbs256()(in);
 
-    // We fill the higher bits with zeros or ones by adding it a two's power - 1.
-    signal filler_size <== 256 - shift;
-    // case 1
-    signal is_filler_size_256 <== IsZero256()(shifted);
-    // case 2
-    signal is_filler_size_gt_127 <== GreaterThan(7)([filler_size, 127]);
-    // case 3: !is_filler_size_gt_127
+    // // ShiftRight256
+    // signal (exp_shift[2], is_shift_gt_255) <== _FindShiftingTwosPower()(shift);
+    // signal (shifted_out[2], rem[2]) <== Div256_unsafe()(in, exp_shift);
+    // // Filling the empty high bits.
+    // signal neg_filler_unshifted[2] <== Sub256_unsafe()([0, 0], exp_shift);
+    // signal filler_unshifted[2] <== Mux256()(isNeg_in, neg_filler_unshifted, [0, 0]);
+    // signal (_out[2], carry) <== Add256_unsafe()(filler, shifted_out);
+    // out <== _out;
 
-    signal filler_size_low_inter <== (filler_size - 128) * is_filler_size_gt_127;
-    signal filler_size_low <== (1 - is_filler_size_negative) * filler_size_low_inter;
-    signal filler_size_masked <== filler_size * (1 - is_filler_size_gt_127);
-
-
-    
+    signal shifted_out[2] <== ShiftRight256_unsafe(8)(shift, in);
+    signal inv_shift <== 256 - shift;
+    signal (exp_shift[2], is_shift_gt_255) <== _FindShiftingTwosPower(8)(inv_shift);
+    // is_shift_gt_255 = 1 & shift = 0 => no shift => filler = 0.
+    // is_shift_gt_255 = 1 & shift != 0 => inv_shift is overflowed => shift is greater than 256 => neg_filler = 111...11
+    signal neg_filler[2] <== Sub256_unsafe()([0, 0], exp_shift);
+    signal max_filler[2] <== [2**128 - 1, 2**128 - 1];
+    signal adjusted_neg_filler[2] <== Mux256()(is_shift_gt_255, max_filler, neg_filler);
+    signal filler[2] <== Mux256()(isNeg_in, adjusted_neg_filler, [0, 0]);
+    signal is_shift_zero <== IsZero()(shift);
+    signal safe_filler[2] <== Mux256()(is_shift_zero, [0, 0], filler);
+    signal (_out[2], carry) <== Add256_unsafe()(safe_filler, shifted_out);
+    out <== _out;
 }

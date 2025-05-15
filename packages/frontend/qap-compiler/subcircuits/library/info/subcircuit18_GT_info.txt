@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 8
+non-linear constraints: 262
+linear constraints: 9
+public inputs: 4
+private inputs: 0
+public outputs: 2
+wires: 274
+labels: 296
+[32mWritten successfully:[0m ../subcircuits/library\GT_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library\GT_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library\GT_circuit_js\GT_circuit.wasm
+[32mEverything went okay[0m

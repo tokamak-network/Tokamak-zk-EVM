@@ -7,8 +7,8 @@ include "../../node_modules/circomlib/circuits/gates.circom";
 
 template getSignAndAbs256() {
     signal input in[2];
-    var _res[3] = _getSignAndAbs(in, 255);  
     signal output isNeg, abs[2];
+    var _res[3] = _getSignAndAbs(in, 255);  
     isNeg <-- _res[0];
     abs <-- [_res[1], _res[2]];
 

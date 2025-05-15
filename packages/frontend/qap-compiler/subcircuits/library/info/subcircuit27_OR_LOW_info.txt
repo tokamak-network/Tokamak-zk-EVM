@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 5
+non-linear constraints: 384
+linear constraints: 3
+public inputs: 2
+private inputs: 0
+public outputs: 1
+wires: 388
+labels: 1034
+[32mWritten successfully:[0m ../subcircuits/library\OR_LOW_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library\OR_LOW_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library\OR_LOW_circuit_js\OR_LOW_circuit.wasm
+[32mEverything went okay[0m

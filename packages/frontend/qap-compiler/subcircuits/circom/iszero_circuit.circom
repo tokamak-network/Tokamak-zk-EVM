@@ -1,4 +1,12 @@
 pragma circom 2.1.6;
 include "../../templates/256bit/compare.circom";
 
-component main {public [in]} = IsZero256();
+template ISZERO() {
+    signal input in[2];
+    signal output out[2];
+
+    out[0] <== IsZero256()([in[0], in[1]]);
+    out[1] <== 0;
+}
+
+component main {public [in]} = ISZERO();

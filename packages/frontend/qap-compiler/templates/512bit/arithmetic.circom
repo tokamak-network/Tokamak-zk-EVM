@@ -91,7 +91,7 @@ template Add512_unsafe() {
     //    then add the carry from the low 256-bit addition
     component H1 = Add256_unsafe();
     H1.in1 <== H0.out;               // sum of high halves
-    H1.in2 <== [H0.carry, A0.carry]; // carry0 into low limb, 0 into high limb
+    H1.in2 <== [A0.carry, H0.carry];
     // write out limbs 2–3
     out[2] <== H1.out[0];
     out[3] <== H1.out[1];
@@ -106,9 +106,17 @@ template Div512by256_unsafe() {
 
     signal res_temp[2][4] <-- _div512by256(in1, in2);
     quo <== res_temp[0];
+    // log("in1: ", in1[0],  in1[1], in1[2], in1[3]);
+    // log("in2: ", in2[0],  in2[1]);
+    // log("_quo: ", quo[0],  quo[1], quo[2], quo[3]);
     signal r_temp[4] <== res_temp[1];
+    // log("_rem: ", r_temp[0],  r_temp[1], r_temp[2], r_temp[3]);
     signal (inter1[4], carry1[2]) <== Mul512by256_unsafe()(quo, in2);
+    // log("inter1: ", inter1[0], inter1[1], inter1[2], inter1[3]);
+    // log("carry1: ", carry1[0], carry1[1]);
     signal (inter2[4], carry2) <== Add512_unsafe()(inter1, r_temp);
+    // log("inter2: ", inter2[0], inter2[1], inter2[2], inter2[3]);
+    // log("carry2: ", carry2);
     signal (inter3[2], carry3) <== Add256_unsafe()(carry1, [carry2, 0]);
     for (var i = 0; i < 4; i++){
         inter2[i] === in1[i];

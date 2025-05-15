@@ -4,12 +4,23 @@ include "../../node_modules/circomlib/circuits/comparators.circom";
 
 
 template SubEXP () {
-    signal input c_prev[2], a_prev[2], b[2];
+    // in[0]: lower 128 bit of c_prev
+    // in[1]: upper 128 bit of c_prev
+    // in[2]: lower 128 bit of a_prev
+    // in[3]: upper 128 bit of a_prev
+    // in[4]: binary input b
+    signal input in[5];
     signal output c_next[2], a_next[2];
 
-    // Constraint 1: Ensure b is binary (b ∈ {[0,0], [1,0]})
-    b[0] * ( 1 - b[0] ) === 0;
-    b[1] * b[1] === 0;
+    signal c_prev[2];
+    c_prev[0] <== in[0];
+    c_prev[1] <== in[1];
+    signal a_prev[2];
+    a_prev[0] <== in[2];
+    a_prev[1] <== in[3];
+    signal b <== in[4];
+    // Constraint 1: Ensure b is binary
+    b * ( 1 - b ) === 0;
 
     // Constraint 2: a_next <== a_prev * a_prev
     signal carry1[2];
@@ -20,9 +31,9 @@ template SubEXP () {
     signal inter1[2];
     signal inter2[2];
     signal inter3[2];
-    inter1 <== [1 - b[0], 0];
-    inter2 <== [b[0] * a_prev[0], b[0] * a_prev[1]]; // a_prev * b
-    signal bool3 <== IsEqual()([1, b[0]]);
+    inter1 <== [1 - b, 0];
+    inter2 <== [b * a_prev[0], b * a_prev[1]]; // a_prev * b
+    signal bool3 <== IsEqual()([1, b]);
     signal bool4 <== IsEqual()([(2**128)-1, inter2[0]]);
     signal bool5 <== bool3 * bool4;
     signal carry <== bool5;
@@ -34,4 +45,4 @@ template SubEXP () {
     // carry2 is thrown away according to the EVM spec.
 }
 
-component main {public [c_prev, a_prev, b]} = SubEXP();
+component main {public [in]} = SubEXP();

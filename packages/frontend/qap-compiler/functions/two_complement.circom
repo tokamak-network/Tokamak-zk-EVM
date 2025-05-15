@@ -1,81 +1,152 @@
 pragma circom 2.1.6;
 
 function _getSignAndAbs(x, sign_offset) {
-    var x_low = x[0];
-    var x_up = x[1];
     var FIELD_SIZE = 1 << 128;
-    // var MASK = FIELD_SIZE - 1;
-    // var isNeg = x_up >> 127;
-    // var abs_x_low;
-    // var abs_x_up;
+    var bit_length = sign_offset + 1;
 
-    // if (isNeg == 1) {
-    //     abs_x_low = ((x_low ^ MASK) + 1 ) % FIELD_SIZE;
-    //     var abs_x_low_carry = ((x_low ^ MASK) + 1 ) / FIELD_SIZE;
-    //     abs_x_up = ((x_up ^ MASK) + abs_x_low_carry) % FIELD_SIZE;
-    // } else {
-    //     abs_x_low = x_low;
-    //     abs_x_up = x_up;
-    // }
-
-    var x_256 = x[0] + x[1] * FIELD_SIZE;
-    x_256 = x_256 & ((1 << 256) - 1);
-    var isNeg = (x_256 >> sign_offset) & 1;
-    var VARIABLE_SIZE = (1 << sign_offset + 1);
-    var x_256_truncated = x_256 % VARIABLE_SIZE;
-    var abs_x_256;
-    if (isNeg == 1) {
-        abs_x_256 = VARIABLE_SIZE - x_256_truncated;
-    } else {
-        abs_x_256 = x_256_truncated;
+    if (bit_length >= 256) {
+        var is_neg = x[1] >> 127;
+        if (is_neg) {  
+            var not_x[2] = [
+                x[0] ^ (FIELD_SIZE - 1),
+                x[1] ^ (FIELD_SIZE - 1)
+            ];
+            var add_res[3] = _add256(not_x, [1, 0]);
+            return [is_neg, add_res[0], add_res[1]];
+        } else {
+            return [is_neg, x[0], x[1]];
+        }
     }
 
-    var abs_x_low = abs_x_256 % FIELD_SIZE;
-    var abs_x_up = abs_x_256 / FIELD_SIZE;
-
-    return [isNeg, abs_x_low, abs_x_up];
-}
-
-function _recoverSignedInteger(isNeg, abs, sign_offset) {
-    var abs_low = abs[0];
-    var abs_up = abs[1];
-    var FIELD_SIZE = 1 << 128;
-    var TARGET_SIZE = 1 << (sign_offset + 1);
-    // var MASK = FIELD_SIZE - 1;
-    // var x_low;
-    // var x_up;
-
-    // if (isNeg == 1) {
-    //     x_low = ((abs_low ^ MASK) + 1 ) % FIELD_SIZE;
-    //     var x_low_carry = ((abs_low ^ MASK) + 1 ) / FIELD_SIZE;
-    //     x_up = ((abs_up ^ MASK) + x_low_carry) % FIELD_SIZE;
-    // } else {
-    //     x_low = abs_low;
-    //     x_up = abs_up;
-    // }
-
-    var abs_256 = abs[0] + abs[1] * FIELD_SIZE;
-    var abs_fit = abs_256 % TARGET_SIZE;
-    var x_fit;
-    if (isNeg == 1) {
-        x_fit = TARGET_SIZE - abs_fit;
+    var is_neg = 0;
+    var abs_x[2];
+    if ( bit_length > 128 ) {
+        var bit_length_high = bit_length - 128;
+        var x_high_mask = (1 << bit_length_high) - 1;
+        var masked_x[2] = [
+            x[0],
+            x[1] & x_high_mask
+        ];
+        var sign_tester = 1 << (bit_length_high - 1);
+        if ( (masked_x[1] & sign_tester) > 0) {
+            is_neg = 1;
+            var not_x[2] = [
+                masked_x[0] ^ (FIELD_SIZE - 1), 
+                masked_x[1] ^ x_high_mask
+            ];
+            var add_res[3] = _add256(not_x, [1, 0]);
+            abs_x = [
+                add_res[0], 
+                add_res[1] & x_high_mask
+            ]; 
+        } else {
+            abs_x = masked_x;
+        }
     } else {
-        x_fit = abs_fit;
+        var bit_length_low = bit_length;
+        var x_low_mask = (1 << bit_length_low) - 1;
+        var masked_x[2] = [
+            x[0] & x_low_mask,
+            0
+        ];
+        var sign_tester = 1 << (bit_length_low - 1);
+        if ( (masked_x[0] & sign_tester) > 0) {
+            is_neg = 1;
+            var not_x[2] = [
+                masked_x[0] ^ x_low_mask, 
+                0
+            ];
+            var add_res[3] = _add256(not_x, [1, 0]);
+            abs_x = [add_res[0] & x_low_mask, 0]; 
+        } else {
+            abs_x = masked_x;
+        }
     }
 
-    var x_low = x_fit % FIELD_SIZE;
-    var x_up = x_fit / FIELD_SIZE;
-    return [x_low, x_up];
+    return [is_neg, abs_x[0], abs_x[1]];
+}
+
+function _recoverSignedInteger(is_neg, x, sign_offset) {
+    var FIELD_SIZE = 1 << 128;
+    var bit_length = sign_offset + 1;
+    if (!is_neg) {
+        return [x[0], x[1]];
+    }
+
+    if (bit_length >= 256) {
+        var not_x[2] = [
+            x[0] ^ (FIELD_SIZE - 1),
+            x[1] ^ (FIELD_SIZE - 1)
+        ];
+        var add_res[3] = _add256(not_x, [1, 0]);
+        return [add_res[0], add_res[1]];
+    }
+
+    var signed_x[2];
+    if ( bit_length > 128 ) {
+        var bit_length_high = bit_length - 128;
+        var x_high_mask = (1 << bit_length_high) - 1;
+        var masked_x[2] = [
+            x[0],
+            x[1] & x_high_mask
+        ];
+        var not_x[2] = [
+            masked_x[0] ^ (FIELD_SIZE - 1), 
+            masked_x[1] ^ x_high_mask
+        ];
+        var add_res[3] = _add256(not_x, [1, 0]);
+        signed_x = [
+            add_res[0], 
+            add_res[1] & x_high_mask
+        ];
+    } else {
+        var bit_length_low = bit_length;
+        var x_low_mask = (1 << bit_length_low) - 1;
+        var masked_x[2] = [
+            x[0] & x_low_mask,
+            0
+        ];
+        var not_x[2] = [
+            masked_x[0] ^ x_low_mask, 
+            0
+        ];
+        var add_res[3] = _add256(not_x, [1, 0]);
+        signed_x = [
+            add_res[0] & x_low_mask, 
+            0
+        ];
+    }
+
+    return [signed_x[0], signed_x[1]];
 }
 
 
-function _signExtend(x, sign_offset) {
-    var FIELD_SIZE = 1 << 128;
-    var signAndAbs = _getSignAndAbs(x, sign_offset);
-    var isNeg = signAndAbs[0];
-    var abs[2];
-    abs[0] = signAndAbs[1];
-    abs[1] = signAndAbs[2];
-    var extended_x = _recoverSignedInteger(isNeg, abs, 255);
+function _signExtend(x, k) { 
+    if (k >= 31) return x;
+    var bit_length = 8 * (k + 1);
+    var sign_offset = bit_length - 1;
+
+    var _res[3] = _getSignAndAbs(x, sign_offset);
+    var is_neg = _res[0];
+    var masked_x[2] = _recoverSignedInteger(is_neg, [_res[1], _res[2]], sign_offset);
+    if (!is_neg) return masked_x;
+
+    var extended_x[2];
+    if (bit_length > 128) {
+        var bit_length_high = bit_length - 128;
+        var filler_high = ((1 << 128) - 1) - ( (1 << bit_length_high) - 1 );
+        extended_x = [
+            x[0],
+            masked_x[1] + filler_high
+        ];
+    } else {
+        var bit_length_low = bit_length;
+        var filler_high = (1 << 128) - 1;
+        var filler_low = ((1 << 128) - 1) - ( (1 << bit_length_low) - 1 );
+        extended_x = [
+            masked_x[0] + filler_low,
+            filler_high
+        ];
+    }
     return extended_x;
 }

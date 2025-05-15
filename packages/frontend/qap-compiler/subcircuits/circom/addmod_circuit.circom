@@ -1,4 +1,16 @@
 pragma circom 2.1.6;
 include "../../templates/256bit/arithmetic_unsafe_in.circom";
 
-component main {public [in1, in2, in3]} = AddMod256_unsafe();
+template ADDMOD() {
+    signal input in[6];
+    signal output out[2];
+
+
+    out <== AddMod256_unsafe()(
+        [in[0], in[1]], 
+        [in[2], in[3]],
+        [in[4], in[5]]
+    );
+}
+
+component main {public [in]} = ADDMOD();

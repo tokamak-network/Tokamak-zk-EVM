@@ -11,11 +11,11 @@ template Mul128_unsafe() {
 
     signal in1[2], in2[2];
     in1[0] <-- in1_128 % SUB_FIELD_SIZE;
-    in1[1] <-- in1_128 / SUB_FIELD_SIZE;
+    in1[1] <-- in1_128 \ SUB_FIELD_SIZE;
     signal inter1 <== in1[1] * SUB_FIELD_SIZE;
     in1_128 === inter1 + in1[0];
     in2[0] <-- in2_128 % SUB_FIELD_SIZE;
-    in2[1] <-- in2_128 / SUB_FIELD_SIZE;
+    in2[1] <-- in2_128 \ SUB_FIELD_SIZE;
     signal inter2 <== in2[1] * SUB_FIELD_SIZE;
     in2_128 === inter2 + in2[0];
     signal second_inter1 <== in1[1] * in2[0];
@@ -25,11 +25,11 @@ template Mul128_unsafe() {
     signal second_inter5 <== second_inter2 + second_inter4;
     signal second <== second_inter5 + in1[0] * in2[0];
     signal t <-- second % FIELD_SIZE;
-    signal t_carry <-- second / FIELD_SIZE;
+    signal t_carry <-- second \ FIELD_SIZE;
     second === t_carry * FIELD_SIZE + t;
     signal first <== in1[1] * in2[1] + t_carry;
     signal s <-- first % FIELD_SIZE;
-    signal s_carry <-- first / FIELD_SIZE;
+    signal s_carry <-- first \ FIELD_SIZE;
     first === s_carry * FIELD_SIZE + s;
     out[1] <== s;
     out[0] <== t;
@@ -41,10 +41,11 @@ template Add128_unsafe () {
     // outputs are 128 bit
     signal output out, carry;
     
-    var FIELD_SIZE = 1<<128;
+    var FIELD_SIZE = 1 << 128;
+    signal sum <== in1 + in2;
     out <-- (in1 + in2) % FIELD_SIZE;
-    carry <-- (in1 + in2) / FIELD_SIZE;
-    (in1 + in2) === out * FIELD_SIZE + carry;
+    carry <-- (in1 + in2) \ FIELD_SIZE;
+    sum === out + carry * FIELD_SIZE;
 }
 
 template Div128_unsafe() {
@@ -74,7 +75,7 @@ template Div128_unsafe() {
     r <== (1 - is_zero_denom) * r_temp;
 }
 
-template ShiftRight128_unsafe() {
+template ShiftRight128_unsafe(N) {
     // shift: a field element
     // in: an 128-bit integer
     signal input shift, in;
@@ -82,7 +83,7 @@ template ShiftRight128_unsafe() {
     signal output out;
     var FIELD_SIZE = (1 << 128);
 
-    signal is_shift_gt_127 <== GreaterThan(7)([shift, 127]);
+    signal is_shift_gt_127 <== GreaterThan(N)([shift, 127]);
     signal shift_safe <== shift * (1 - is_shift_gt_127);
     signal exp_shift <== TwosExp128()(shift_safe);
     signal (quo, rem) <== Div128_unsafe()(in, exp_shift);
