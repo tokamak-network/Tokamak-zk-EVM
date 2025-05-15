@@ -1,12 +1,14 @@
 use std::time::{Duration, Instant};
 use prove::{Prover, Proof};
 
+pub mod transcript;
+
 fn main() {
     let prove_start = Instant::now();
     
     let mut timer: Instant;
     let mut lap: Duration;
-
+    
     println!("Prover initialization...");
     timer = Instant::now();
     let (mut prover, binding) = Prover::init();
@@ -20,13 +22,13 @@ fn main() {
     println!("prove0 running time: {:.6} seconds", lap.as_secs_f64());
 
     let thetas = proof0.verify0();
-    
+    /*
     println!("Running prove1...");
     timer = Instant::now();
     let proof1 = prover.prove1(&thetas);
     lap = timer.elapsed();
     println!("prove1 running time: {:.6} seconds", lap.as_secs_f64());
-
+    
     let kappa0 = proof1.verify1();
     
     println!("Running prove2...");
@@ -59,4 +61,5 @@ fn main() {
     proof.write_into_json(output_path).unwrap();
 
     println!("Total proving time: {:.6} seconds", prove_start.elapsed().as_secs_f64());
+    */
 }

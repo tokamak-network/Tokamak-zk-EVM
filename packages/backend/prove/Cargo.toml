@@ -13,6 +13,14 @@ icicle-bls12-381 = { workspace = true }
 libs = { workspace = true }
 rayon = { workspace = true }
 bincode = { workspace = true }
+tiny-keccak = "1.5"
+blake2-rfc = { version = "0.2.18", optional = true }
+blake2s_simd = { version = "0.5" }
+lazy_static = "1"
+hex = "0.4"
+byteorder = "1" 
+ff = "0.13"            
+pairing = "0.23.0"
 
 [features]
 default = []
