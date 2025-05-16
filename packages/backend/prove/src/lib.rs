@@ -9,15 +9,17 @@ use libs::polynomial_structures::gen_bXY;
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::ntt;
-use icicle_core::vec_ops::{VecOps, VecOpsConfig};
+use icicle_core::vec_ops::VecOpsConfig;
 use serde::{Deserialize, Serialize};
 use bincode;
 use serde_json::{from_reader, to_writer_pretty};
 
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter};
-use std::{cmp, env, fs, vec};
-use std::time::{Instant, Duration};
+use std::{env, fs, vec};
+use byteorder::{BigEndian, ByteOrder};
+use tiny_keccak::Keccak;
+
 
 macro_rules! poly_comb {
     (($c:expr, $p:expr), $(($rest_c:expr, $rest_p:expr)),+ $(,)?) => {{
@@ -74,13 +76,53 @@ pub struct Quotients{
     pub q6XY: DensePolynomialExt,
     pub q7XY: DensePolynomialExt,
 }
-pub struct Challenge{
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ChallengeSerde {
+    pub thetas: Vec<String>,
+    pub chi: String,
+    pub zeta: String,
+    pub kappa0: String,
+    pub kappa1: String,
+    pub kappa2: String,
+}
+
+impl From<Challenge> for ChallengeSerde {
+    fn from(challenge: Challenge) -> Self {
+        // Convert each field element to a base64 string for serialization
+        let thetas_vec: Vec<String> = challenge.thetas.iter()
+            .map(|theta| {
+                let bytes = theta.to_bytes_le();
+                base64::encode(&bytes)
+            })
+            .collect();
+        
+        // Helper function to convert a field element to base64 string
+        let to_b64 = |field: &ScalarField| {
+            let bytes = field.to_bytes_le();
+            base64::encode(&bytes)
+        };
+        
+        ChallengeSerde {
+            thetas: thetas_vec,
+            chi: to_b64(&challenge.chi),
+            zeta: to_b64(&challenge.zeta),
+            kappa0: to_b64(&challenge.kappa0),
+            kappa1: to_b64(&challenge.kappa1),
+            kappa2: to_b64(&challenge.kappa2),
+        }
+    }
+}
+
+pub struct Challenge {
     pub thetas: Box<[ScalarField]>,
     pub chi: ScalarField,
     pub zeta: ScalarField,
     pub kappa0: ScalarField,
     pub kappa1: ScalarField,
+    pub kappa2: ScalarField,
 }
+
 pub struct Prover{
     pub setup_params: SetupParams,
     pub sigma: Sigma,
@@ -98,6 +140,214 @@ pub struct Proof {
     pub proof2: Proof2,
     pub proof3: Proof3,
     pub proof4: Proof4,
+    pub challenge: ChallengeSerde
+}
+
+// ===== TRANSCRIPT =====
+
+#[derive(Clone)]
+pub struct RollingKeccakTranscript {
+    state_part_0: [u8; 32],
+    state_part_1: [u8; 32],
+    challenge_counter: u32,
+}
+
+impl RollingKeccakTranscript {
+    const DST_0_TAG: u32 = 0;
+    const DST_1_TAG: u32 = 1;
+    const CHALLENGE_DST_TAG: u32 = 2;
+
+    pub fn new() -> Self {
+        Self {
+            state_part_0: [0u8; 32],
+            state_part_1: [0u8; 32],
+            challenge_counter: 0,
+        }
+    }
+
+    fn update(&mut self, bytes: &[u8]) {
+        let old_state_0 = self.state_part_0;
+
+        let mut input = vec![0u8; bytes.len() + 32 + 32 + 4];
+        BigEndian::write_u32(&mut input[0..4], Self::DST_0_TAG);
+        input[4..36].copy_from_slice(&old_state_0[..]);
+        input[36..68].copy_from_slice(&self.state_part_1[..]);
+        input[68..].copy_from_slice(bytes);
+
+        let mut hasher = Keccak::new_keccak256();
+        hasher.update(&input);
+        hasher.finalize(&mut self.state_part_0);
+
+        let mut input = vec![0u8; bytes.len() + 32 + 32 + 4];
+        BigEndian::write_u32(&mut input[0..4], Self::DST_1_TAG);
+        input[4..36].copy_from_slice(&old_state_0[..]);
+        input[36..68].copy_from_slice(&self.state_part_1[..]);
+        input[68..].copy_from_slice(bytes);
+
+        let mut hasher = Keccak::new_keccak256();
+        hasher.update(&input);
+        hasher.finalize(&mut self.state_part_1);
+    }
+
+    fn query(&mut self) -> [u8; 32] {
+        let mut input = vec![0u8; 4 + 32 + 32 + 4];
+        BigEndian::write_u32(&mut input[0..4], Self::CHALLENGE_DST_TAG);
+        input[4..36].copy_from_slice(&self.state_part_0[..]);
+        input[36..68].copy_from_slice(&self.state_part_1[..]);
+        BigEndian::write_u32(&mut input[68..72], self.challenge_counter);
+
+        self.challenge_counter += 1;
+
+        let mut value = [0u8; 32];
+        let mut hasher = Keccak::new_keccak256();
+        hasher.update(&input);
+        hasher.finalize(&mut value);
+
+        value
+    }
+    
+    pub fn commit_bytes(&mut self, bytes: &[u8]) {
+        self.update(bytes);
+    }
+    
+    // Method for committing a generic field element that implements FieldImpl
+    pub fn commit_field_as_bytes(&mut self, field: &impl FieldImpl) {
+        let bytes = field.to_bytes_le();
+        self.update(&bytes);
+    }
+    
+    // Note: we keep this method for compatibility, but don't use it.
+    pub fn commit_g1_coord(&mut self, coord: &[u8]) {
+        // Part 1: padding the first 32 bytes
+        let mut part1 = [0u8; 32];
+        part1[32 - 16..].copy_from_slice(&coord[..16]);
+        self.commit_bytes(&part1);
+        
+        // Part 2: the last 32 bytes
+        let mut part2 = [0u8; 32];
+        part2.copy_from_slice(&coord[16..]);
+        self.commit_bytes(&part2);
+    }
+    
+    pub fn commit_field_element(&mut self, element: &ScalarField) {
+        self.commit_field_as_bytes(element);
+    }
+    
+    pub fn get_challenge(&mut self) -> ScalarField {
+        let value = self.query();
+    
+        // Masquer le bit de poids fort pour s'assurer que la valeur est dans le champ
+        let mut bytes = value;
+        bytes[0] &= 0x7F; // Pour BLS12-381
+        
+        // La méthode from_bytes_le retourne directement un ScalarField
+        let result = ScalarField::from_bytes_le(&bytes);
+        
+        // Vérifier si result est égal à zéro en comparant avec zero()
+        if result == ScalarField::zero() {
+            // Si c'est zéro, retourner one() comme fallback
+            ScalarField::one()
+        } else {
+            result
+        }
+    }
+    
+    pub fn get_challenges(&mut self, n: usize) -> Vec<ScalarField> {
+        let mut challenges = Vec::with_capacity(n);
+        for _ in 0..n {
+            challenges.push(self.get_challenge());
+        }
+        challenges
+    }
+}
+
+// TranscriptManager for managing transcript across proof stages
+#[derive(Clone)]
+pub struct TranscriptManager {
+    pub transcript: RollingKeccakTranscript
+}
+
+impl TranscriptManager {
+    pub fn new() -> Self {
+        Self {
+            transcript: RollingKeccakTranscript::new()
+        }
+    }
+    
+    pub fn add_proof0(&mut self, proof: &Proof0) {
+        println!("Adding proof0 commitments to transcript...");
+        self.transcript.commit_field_as_bytes(&proof.U.0.x);
+        self.transcript.commit_field_as_bytes(&proof.U.0.y);
+        self.transcript.commit_field_as_bytes(&proof.V.0.x);
+        self.transcript.commit_field_as_bytes(&proof.V.0.y);
+        self.transcript.commit_field_as_bytes(&proof.W.0.x);
+        self.transcript.commit_field_as_bytes(&proof.W.0.y);
+        self.transcript.commit_field_as_bytes(&proof.Q_AX.0.x);
+        self.transcript.commit_field_as_bytes(&proof.Q_AX.0.y);
+        self.transcript.commit_field_as_bytes(&proof.Q_AY.0.x);
+        self.transcript.commit_field_as_bytes(&proof.Q_AY.0.y);
+        self.transcript.commit_field_as_bytes(&proof.B.0.x);
+        self.transcript.commit_field_as_bytes(&proof.B.0.y);
+    }
+    
+    pub fn get_thetas(&mut self) -> Vec<ScalarField> {
+        println!("Generating thetas from transcript...");
+        let thetas = self.transcript.get_challenges(3);
+        println!("Thetas generated: {:?}", thetas);
+        thetas
+    }
+    
+    pub fn add_proof1(&mut self, proof: &Proof1) {
+        println!("Adding proof1 commitments to transcript...");
+        self.transcript.commit_field_as_bytes(&proof.R.0.x);
+        self.transcript.commit_field_as_bytes(&proof.R.0.y);
+    }
+    
+    pub fn get_kappa0(&mut self) -> ScalarField {
+        println!("Generating kappa0 from transcript...");
+        let kappa0 = self.transcript.get_challenge();
+        println!("Kappa0 generated: {:?}", kappa0);
+        kappa0
+    }
+    
+    pub fn add_proof2(&mut self, proof: &Proof2) {
+        println!("Adding proof2 commitments to transcript...");
+        self.transcript.commit_field_as_bytes(&proof.Q_CX.0.x);
+        self.transcript.commit_field_as_bytes(&proof.Q_CX.0.y);
+        self.transcript.commit_field_as_bytes(&proof.Q_CY.0.x);
+        self.transcript.commit_field_as_bytes(&proof.Q_CY.0.y);
+    }
+    
+    pub fn get_chi_zeta(&mut self) -> (ScalarField, ScalarField) {
+        println!("Generating chi and zeta from transcript...");
+        let chi = self.transcript.get_challenge();
+        let zeta = self.transcript.get_challenge();
+        println!("Chi generated: {:?}", chi);
+        println!("Zeta generated: {:?}", zeta);
+        (chi, zeta)
+    }
+    
+    pub fn add_proof3(&mut self, proof: &Proof3) {
+        println!("Adding proof3 commitments to transcript...");
+        self.transcript.commit_field_as_bytes(&proof.V_eval.0);
+        self.transcript.commit_field_as_bytes(&proof.R_eval.0);
+        self.transcript.commit_field_as_bytes(&proof.R_omegaX_eval.0);
+        self.transcript.commit_field_as_bytes(&proof.R_omegaX_omegaY_eval.0);
+    }
+    
+    pub fn get_kappa1(&mut self) -> ScalarField {
+        println!("Generating kappa1 from transcript...");
+        let kappa1 = self.transcript.get_challenge();
+        println!("Kappa1 generated: {:?}", kappa1);
+        kappa1
+    }
+    
+    pub fn get_kappa2(&mut self) -> ScalarField {
+        println!("Generating kappa2 from transcript...");
+        let kappa2 = self.transcript.get_challenge();
+        println!("Kappa2 generated: {:?}", kappa2);
+        kappa2
+    }
 }
 
 impl Proof {
@@ -139,36 +389,62 @@ pub struct Proof0 {
     pub B: G1serde
 }
 impl Proof0 {
-    pub fn verify0(&self) -> Vec<ScalarField>{
-        // TODO: Generate thetas
-        let mut theta0_seed = bincode::serialize(&self).unwrap();
-        theta0_seed.extend(&(0u64).to_le_bytes());
+    pub fn verify0(&self) -> Vec<ScalarField> {
+        let mut transcript = RollingKeccakTranscript::new();
         
-        let mut theta1_seed = bincode::serialize(&self).unwrap();
-        theta1_seed.extend(&(1u64).to_le_bytes());
-
-        let mut theta2_seed = bincode::serialize(&self).unwrap();
-        theta2_seed.extend(&(2u64).to_le_bytes());
+        println!("Committing U.x...");
+        transcript.commit_field_as_bytes(&self.U.0.x);
+        transcript.commit_field_as_bytes(&self.U.0.y);
         
-        return vec![
-            hashing(&theta0_seed), 
-            hashing(&theta1_seed),
-            hashing(&theta2_seed)
-            ]
-
+        transcript.commit_field_as_bytes(&self.V.0.x);
+        transcript.commit_field_as_bytes(&self.V.0.y);
+        
+        transcript.commit_field_as_bytes(&self.W.0.x);
+        transcript.commit_field_as_bytes(&self.W.0.y);
+        
+        transcript.commit_field_as_bytes(&self.Q_AX.0.x);
+        transcript.commit_field_as_bytes(&self.Q_AX.0.y);
+        
+        transcript.commit_field_as_bytes(&self.Q_AY.0.x);
+        transcript.commit_field_as_bytes(&self.Q_AY.0.y);
+        
+        transcript.commit_field_as_bytes(&self.B.0.x);
+        transcript.commit_field_as_bytes(&self.B.0.y);
+        
+        let thetas = transcript.get_challenges(3);
+        println!("Thetas generated: {:?}", thetas);
+        thetas
+    }
+    
+    pub fn verify0_with_manager(&self, manager: &mut TranscriptManager) -> Vec<ScalarField> {
+        manager.add_proof0(self);
+        manager.get_thetas()
     }
 }
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Proof1 {
     pub R: G1serde
 }
 impl Proof1 {
-    pub fn verify1(&self) -> ScalarField{
-        // TODO: Generate kappa_0
-        let seed = bincode::serialize(&self).unwrap();
-        return hashing(&seed)
+    pub fn verify1(&self) -> ScalarField {
+        let mut transcript = RollingKeccakTranscript::new();
+        
+        println!("Committing R.x...");
+        transcript.commit_field_as_bytes(&self.R.0.x);
+        transcript.commit_field_as_bytes(&self.R.0.y);
+        
+        let kappa0 = transcript.get_challenge();
+        println!("Kappa0 generated: {:?}", kappa0);
+        kappa0
+    }
+    
+    pub fn verify1_with_manager(&self, manager: &mut TranscriptManager) -> ScalarField {
+        manager.add_proof1(self);
+        manager.get_kappa0()
     }
 }
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Proof2 {
     pub Q_CX: G1serde,
@@ -176,17 +452,24 @@ pub struct Proof2 {
 }
 impl Proof2 {
     pub fn verify2(&self) -> (ScalarField, ScalarField) {
-        // TODO: Generate chi and zeta
-        let mut chi_seed = bincode::serialize(&self).unwrap();
-        chi_seed.extend(&(0u64).to_le_bytes());
+        let mut transcript = RollingKeccakTranscript::new();
         
-        let mut zeta_seed = bincode::serialize(&self).unwrap();
-        zeta_seed.extend(&(1u64).to_le_bytes());
-
-        return (
-            hashing(&chi_seed), 
-            hashing(&zeta_seed)
-        )
+        println!("Committing Q_CX and Q_CY...");
+        transcript.commit_field_as_bytes(&self.Q_CX.0.x);
+        transcript.commit_field_as_bytes(&self.Q_CX.0.y);
+        transcript.commit_field_as_bytes(&self.Q_CY.0.x);
+        transcript.commit_field_as_bytes(&self.Q_CY.0.y);
+        
+        let chi = transcript.get_challenge();
+        let zeta = transcript.get_challenge();
+        println!("Chi generated: {:?}", chi);
+        println!("Zeta generated: {:?}", zeta);
+        (chi, zeta)
+    }
+    
+    pub fn verify2_with_manager(&self, manager: &mut TranscriptManager) -> (ScalarField, ScalarField) {
+        manager.add_proof2(self);
+        manager.get_chi_zeta()
     }
 }
 
@@ -199,11 +482,25 @@ pub struct Proof3 {
 }
 impl Proof3 {
     pub fn verify3(&self) -> ScalarField {
-        // TODO: Generate kappa1
-        let seed = bincode::serialize(&self).unwrap();
-        return hashing(&seed)
+        let mut transcript = RollingKeccakTranscript::new();
+        
+        println!("Committing evaluation values...");
+        transcript.commit_field_as_bytes(&self.V_eval.0);
+        transcript.commit_field_as_bytes(&self.R_eval.0);
+        transcript.commit_field_as_bytes(&self.R_omegaX_eval.0);
+        transcript.commit_field_as_bytes(&self.R_omegaX_omegaY_eval.0);
+        
+        let kappa1 = transcript.get_challenge();
+        println!("Kappa1 generated: {:?}", kappa1);
+        kappa1
+    }
+    
+    pub fn verify3_with_manager(&self, manager: &mut TranscriptManager) -> ScalarField {
+        manager.add_proof3(self);
+        manager.get_kappa1()
     }
 }
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Proof4 {
     pub Pi_X: G1serde,
