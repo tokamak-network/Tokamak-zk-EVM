@@ -204,7 +204,7 @@
     ]
   },
   {
-    "subcircuitId": 2,
+    "subcircuitId": 3,
     "variables": [
       "0x01",
       "0x80",
@@ -722,7 +722,7 @@
     ]
   },
   {
-    "subcircuitId": 3,
+    "subcircuitId": 2,
     "variables": [
       "0x01",
       "0x03e8",
