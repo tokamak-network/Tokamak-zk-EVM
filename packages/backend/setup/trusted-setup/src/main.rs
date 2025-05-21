@@ -5,6 +5,7 @@ use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::iotools::{Instance, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use libs::field_structures::{Tau, from_r1cs_to_evaled_qap_mixture};
 use libs::iotools::{read_global_wire_list_as_boxed_boxed_numbers};
+use libs::polynomial_structures::{gen_bXY, gen_uXY, gen_vXY, gen_wXY, QAP};
 use libs::vector_operations::{gen_evaled_lagrange_bases, resize};
 use libs::group_structures::{Sigma1, Sigma, pairing, G1serde};
 use icicle_bls12_381::curve::{ScalarField, ScalarCfg, CurveCfg, G2CurveCfg, G1Affine, G1Projective};
@@ -138,6 +139,19 @@ fn main() {
             }
         }
     }
+
+    #[cfg(feature = "testing-mode")] {
+        for j in 0..m_d {
+            let qap = QAP::gen_from_R1CS(&subcircuit_infos, &setup_params);
+            let o_eval = o_evaled_vec[j];
+            let u_eval = qap.u_j_X[j].eval(&tau.x, &ScalarField::one());
+            let v_eval = qap.v_j_X[j].eval(&tau.x, &ScalarField::one());
+            let w_eval = qap.w_j_X[j].eval(&tau.x, &ScalarField::one());
+            let o_eval_est = tau.alpha * u_eval + tau.alpha.pow(2) * v_eval + tau.alpha.pow(3) * w_eval;
+            assert_eq!(o_eval, o_eval_est);
+        }
+        println!("QAP loading");
+    }
     
     let duration = start.elapsed();
     println!("Polynomial evaluation computation time: {:.6} seconds", duration.as_secs_f64());
@@ -163,7 +177,7 @@ fn main() {
         let poly_coefs = resize(&poly_coefs_opt, n+10, s_max+10, 2*n, 2*s_max, ScalarField::zero());
         let mut poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&poly_coefs), 2*n, 2*s_max);
         poly.optimize_size();
-        let encoding = sigma.sigma_1.encode_poly(&poly, &setup_params);
+        let encoding = sigma.sigma_1.encode_poly(&mut poly, &setup_params);
         let poly_eval = poly.eval(&tau.x, &tau.y);
         let direct = G1Affine::from(g1_gen.to_projective() * poly_eval);
         assert_eq!(sigma.sigma_1.xy_powers[2*s_max].0.to_projective(), g1_gen.to_projective() * tau.x);
@@ -179,21 +193,18 @@ fn main() {
             let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
             compact_library_R1CS.push(compact_r1cs);
         }
-        let mut aX = gen_aX(&placement_variables, &subcircuit_infos, &setup_params);
+        let public_instance_path = "publicInstance.json";
+        let public_instance = PublicInstance::from_path(&public_instance_path).unwrap();
+        let mut aX = public_instance.gen_aX(&setup_params);
         let mut bXY = gen_bXY(&placement_variables, &subcircuit_infos, &setup_params);
         let mut uXY = gen_uXY(&placement_variables, &compact_library_R1CS, &setup_params);
         let mut vXY = gen_vXY(&placement_variables, &compact_library_R1CS, &setup_params);
         let mut wXY = gen_wXY(&placement_variables, &compact_library_R1CS, &setup_params);
-        aX.optimize_size();
-        let a_encoding = sigma.sigma_1.encode_poly(&aX, &setup_params);
-        bXY.optimize_size();
-        let b_encoding = sigma.sigma_1.encode_poly(&bXY, &setup_params);
-        uXY.optimize_size();
-        let u_encoding = sigma.sigma_1.encode_poly(&uXY, &setup_params);
-        vXY.optimize_size();
-        let v_encoding = sigma.sigma_1.encode_poly(&vXY, &setup_params);
-        wXY.optimize_size();
-        let w_encoding = sigma.sigma_1.encode_poly(&wXY, &setup_params);
+        let a_encoding = sigma.sigma_1.encode_poly(&mut aX, &setup_params);
+        let b_encoding = sigma.sigma_1.encode_poly(&mut bXY, &setup_params);
+        let u_encoding = sigma.sigma_1.encode_poly(&mut uXY, &setup_params);
+        let v_encoding = sigma.sigma_1.encode_poly(&mut vXY, &setup_params);
+        let w_encoding = sigma.sigma_1.encode_poly(&mut wXY, &setup_params);
         let O_pub = sigma.sigma_1.encode_O_pub(&placement_variables, &subcircuit_infos, &setup_params);
         let O_mid = sigma.sigma_1.encode_O_mid_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
         let O_prv = sigma.sigma_1.encode_O_prv_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
@@ -275,30 +286,26 @@ fn main() {
         let rB_Y_coeffs = ScalarCfg::generate_random(2);
         let rB_Y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rB_Y_coeffs), 1, 2);
         let mut rB_X_t_x = &rB_X * &t_mi;
-        rB_X_t_x.optimize_size();
         let mut rB_Y_t_y = &rB_Y * &t_smax;
-        rB_Y_t_y.optimize_size();
         let mut rW_X_t_x = &rW_X * &t_n;
-        rW_X_t_x.optimize_size();
         let mut rW_Y_t_y = &rW_Y * &t_smax;
-        rW_Y_t_y.optimize_size();
         let B_zk = G1serde(G1Affine::from(
-            sigma.sigma_1.encode_poly(&rB_X_t_x, &setup_params).0.to_projective()
-            + sigma.sigma_1.encode_poly(&rB_Y_t_y, &setup_params).0.to_projective()
+            sigma.sigma_1.encode_poly(&mut rB_X_t_x, &setup_params).0.to_projective()
+            + sigma.sigma_1.encode_poly(&mut rB_Y_t_y, &setup_params).0.to_projective()
         ));
         let U_zk = G1serde(G1Affine::from(
-            sigma.sigma_1.encode_poly(&(&rU_X * &t_n), &setup_params).0.to_projective()
-            + sigma.sigma_1.encode_poly(&(&rU_Y * &t_smax), &setup_params).0.to_projective()
+            sigma.sigma_1.encode_poly(&mut (&rU_X * &t_n), &setup_params).0.to_projective()
+            + sigma.sigma_1.encode_poly(&mut (&rU_Y * &t_smax), &setup_params).0.to_projective()
         ));
         let V_zk = G1serde(G1Affine::from(
-            sigma.sigma_1.encode_poly(&(&rV_X * &t_n), &setup_params).0.to_projective()
-            + sigma.sigma_1.encode_poly(&(&rV_Y * &t_smax), &setup_params).0.to_projective()
+            sigma.sigma_1.encode_poly(&mut (&rV_X * &t_n), &setup_params).0.to_projective()
+            + sigma.sigma_1.encode_poly(&mut (&rV_Y * &t_smax), &setup_params).0.to_projective()
         ));
         let W_zk1 = G1serde(G1Affine::from(
-            sigma.sigma_1.encode_poly(&rW_X_t_x, &setup_params).0.to_projective()
+            sigma.sigma_1.encode_poly(&mut rW_X_t_x, &setup_params).0.to_projective()
         ));
         let W_zk2 = G1serde(G1Affine::from(
-            sigma.sigma_1.encode_poly(&rW_Y_t_y, &setup_params).0.to_projective()
+            sigma.sigma_1.encode_poly(&mut rW_Y_t_y, &setup_params).0.to_projective()
         ));
 
         let B_zk_rhs = G1serde(G1Affine::from(
