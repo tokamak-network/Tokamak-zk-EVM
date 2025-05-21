@@ -20,10 +20,22 @@ template Div () {
     signal eq[2] <== Eq()(res, in1);
     eq[0] === 1;
 
-    signal is_zero_denom[2] <== IsZero256()(in2);
+    //rc => Range Check
+    signal rc_divisor[2];
+    rc_divisor[0] <== in2[0] + is_zero_out[0];
+    rc_divisor[1] <== in2[1] + is_zero_out[0];
 
-    //Ensure 0 <= remainder < divisor when diviser > 0
-    signal lt_divisor[2] <== LT()([remainder[0], remainder[1], in2[0], in2[1]]);
+    signal rc_remainder[2];
+    rc_remainder[0] <== (1 - is_zero_out[0])*remainder[0];
+    rc_remainder[1] <== (1 - is_zero_out[0])*remainder[1];
 
-    lt_divisor[0] === 1 * (1 - is_zero_denom[0]);
+    //Ensure 0 <= rc_remainder < rc_divisor
+    //signal lt_r[2] <== LEqT()([0,0],rc_remainder);
+    signal lt_divisor[2] <== LT()([rc_remainder[0], rc_remainder[1], rc_divisor[0], rc_divisor[1]]);
+
+    lt_divisor[0] === 1;
+
+    // Ensure out is zero if in2 is zero
+    is_zero_out[0] * out[0] === 0;
+    is_zero_out[0] * out[1] === 0;
 }
