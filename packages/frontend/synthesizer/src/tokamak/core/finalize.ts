@@ -342,21 +342,9 @@ export class Permutation {
             const filledOuts = outValues.concat(Array(expectedOutsLen - outValues.length).fill('0x00'))
             outValues = filledOuts
           }
-          console.log(`placementId: ${placementId}`)
-          console.log(`subcircuit name: ${placement.name}`)
-          console.log(`subcircuit id: ${placement.subcircuitId}`)
-          console.log(`operation name: ${placement.usage}`)
-          console.log(`circuit inputs: ${inValues}`)
-          if (placementId === 57) {
-            console.log('here')
-          }
           let variables = await generateSubcircuitWitness(placement.subcircuitId!, inValues)
           for (let i = 1; i <= outValues.length; i++) {
             if (BigInt(variables[i]) !== BigInt(outValues[i - 1])) {
-              console.log(`circuit output index: ${i}`)
-              const circuitOutputValues = variables.slice(1, outValues.length + 1);
-              console.log(`circuit outputs: ${circuitOutputValues.map(BigInt)}`);
-              console.log(`synthesizer outputs: ${outValues.map(BigInt)}`);
               throw new Error(
                 `Instance check failed in the ${placementId}-th placement (subcircuit name: ${placement.name})`,
               )

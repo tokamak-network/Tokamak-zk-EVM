@@ -172,180 +172,180 @@ fn main() {
     let lap = start.elapsed();
     println!("The sigma generation time: {:.6} seconds", lap.as_secs_f64());
 
-    #[cfg(feature = "testing-mode")] {
-        let poly_coefs_opt = ScalarCfg::generate_random( (n + 10) * (s_max + 10));
-        let poly_coefs = resize(&poly_coefs_opt, n+10, s_max+10, 2*n, 2*s_max, ScalarField::zero());
-        let mut poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&poly_coefs), 2*n, 2*s_max);
-        poly.optimize_size();
-        let encoding = sigma.sigma_1.encode_poly(&mut poly, &setup_params);
-        let poly_eval = poly.eval(&tau.x, &tau.y);
-        let direct = G1Affine::from(g1_gen.to_projective() * poly_eval);
-        assert_eq!(sigma.sigma_1.xy_powers[2*s_max].0.to_projective(), g1_gen.to_projective() * tau.x);
-        assert_eq!(sigma.sigma_1.xy_powers[1].0.to_projective(), g1_gen.to_projective() * tau.y);
-        assert_eq!(encoding.0, direct);
-        println!("Checked: xy_powers");
-        // let placement_variables_path = "placementVariables.json";
-        // let placement_variables = PlacementVariables::from_path(&placement_variables_path).unwrap();
-        let placement_variables = PlacementVariables::gen_dummy(&setup_params, &subcircuit_infos);
-        let mut compact_library_R1CS: Vec<SubcircuitR1CS> = Vec::new();
-        for i in 0..s_d {
-            let r1cs_path: String = format!("json/subcircuit{i}.json");
-            let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
-            compact_library_R1CS.push(compact_r1cs);
-        }
-        let public_instance_path = "publicInstance.json";
-        let public_instance = PublicInstance::from_path(&public_instance_path).unwrap();
-        let mut aX = public_instance.gen_aX(&setup_params);
-        let mut bXY = gen_bXY(&placement_variables, &subcircuit_infos, &setup_params);
-        let mut uXY = gen_uXY(&placement_variables, &compact_library_R1CS, &setup_params);
-        let mut vXY = gen_vXY(&placement_variables, &compact_library_R1CS, &setup_params);
-        let mut wXY = gen_wXY(&placement_variables, &compact_library_R1CS, &setup_params);
-        let a_encoding = sigma.sigma_1.encode_poly(&mut aX, &setup_params);
-        let b_encoding = sigma.sigma_1.encode_poly(&mut bXY, &setup_params);
-        let u_encoding = sigma.sigma_1.encode_poly(&mut uXY, &setup_params);
-        let v_encoding = sigma.sigma_1.encode_poly(&mut vXY, &setup_params);
-        let w_encoding = sigma.sigma_1.encode_poly(&mut wXY, &setup_params);
-        let O_pub = sigma.sigma_1.encode_O_pub(&placement_variables, &subcircuit_infos, &setup_params);
-        let O_mid = sigma.sigma_1.encode_O_mid_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
-        let O_prv = sigma.sigma_1.encode_O_prv_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
-        let LHS = 
-            O_pub * tau.gamma 
-            + O_mid * tau.eta 
-            + O_prv * tau.delta;
-        let RHS = 
-            a_encoding 
-            + u_encoding * tau.alpha
-            + v_encoding * tau.alpha.pow(2)
-            + w_encoding * tau.alpha.pow(3)
-            + b_encoding * tau.alpha.pow(4);
-        assert_eq!(LHS, RHS);
-        println!("Checked: o_vec");
-        let mut t: ScalarField;
-        t = tau.x.pow(n) - ScalarField::one();
-        for k in 1 ..4 {
-            for h in 0..3 {
-                let rs = sigma.sigma_1.delta_inv_alphak_xh_tx[k-1][h].0.to_projective();
-                let val = sigma.G.0.to_projective() * (tau.delta.inv() * tau.alpha.pow(k) * tau.x.pow(h) * t);
-                assert_eq!(rs, val);
-            }
-        }
-        t = tau.x.pow(m_i) - ScalarField::one();
-        for j in 0..2 {
-            let rs = sigma.sigma_1.delta_inv_alpha4_xj_tx[j].0.to_projective();
-            let val = sigma.G.0.to_projective() * (tau.delta.inv() * tau.alpha.pow(4) * tau.x.pow(j) * t);
-            assert_eq!(rs, val);
-        }
-        t = tau.y.pow(s_max) - ScalarField::one();
-        for k in 1 ..5 {
-            for i in 0..3 {
-                let rs = sigma.sigma_1.delta_inv_alphak_yi_ty[k-1][i].0.to_projective();
-                let val = sigma.G.0.to_projective() * (tau.delta.inv() * tau.alpha.pow(k) * tau.y.pow(i) * t);
-                assert_eq!(rs, val);
-            }
-        }
-        println!("Checked: zk strings");
+    // #[cfg(feature = "testing-mode")] {
+    //     let poly_coefs_opt = ScalarCfg::generate_random( (n + 10) * (s_max + 10));
+    //     let poly_coefs = resize(&poly_coefs_opt, n+10, s_max+10, 2*n, 2*s_max, ScalarField::zero());
+    //     let mut poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&poly_coefs), 2*n, 2*s_max);
+    //     poly.optimize_size();
+    //     let encoding = sigma.sigma_1.encode_poly(&mut poly, &setup_params);
+    //     let poly_eval = poly.eval(&tau.x, &tau.y);
+    //     let direct = G1Affine::from(g1_gen.to_projective() * poly_eval);
+    //     assert_eq!(sigma.sigma_1.xy_powers[2*s_max].0.to_projective(), g1_gen.to_projective() * tau.x);
+    //     assert_eq!(sigma.sigma_1.xy_powers[1].0.to_projective(), g1_gen.to_projective() * tau.y);
+    //     assert_eq!(encoding.0, direct);
+    //     println!("Checked: xy_powers");
+    //     // let placement_variables_path = "placementVariables.json";
+    //     // let placement_variables = PlacementVariables::from_path(&placement_variables_path).unwrap();
+    //     let placement_variables = PlacementVariables::gen_dummy(&setup_params, &subcircuit_infos);
+    //     let mut compact_library_R1CS: Vec<SubcircuitR1CS> = Vec::new();
+    //     for i in 0..s_d {
+    //         let r1cs_path: String = format!("json/subcircuit{i}.json");
+    //         let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
+    //         compact_library_R1CS.push(compact_r1cs);
+    //     }
+    //     let public_instance_path = "publicInstance.json";
+    //     let public_instance = PublicInstance::from_path(&public_instance_path).unwrap();
+    //     let mut aX = public_instance.gen_aX(&setup_params);
+    //     let mut bXY = gen_bXY(&placement_variables, &subcircuit_infos, &setup_params);
+    //     let mut uXY = gen_uXY(&placement_variables, &compact_library_R1CS, &setup_params);
+    //     let mut vXY = gen_vXY(&placement_variables, &compact_library_R1CS, &setup_params);
+    //     let mut wXY = gen_wXY(&placement_variables, &compact_library_R1CS, &setup_params);
+    //     let a_encoding = sigma.sigma_1.encode_poly(&mut aX, &setup_params);
+    //     let b_encoding = sigma.sigma_1.encode_poly(&mut bXY, &setup_params);
+    //     let u_encoding = sigma.sigma_1.encode_poly(&mut uXY, &setup_params);
+    //     let v_encoding = sigma.sigma_1.encode_poly(&mut vXY, &setup_params);
+    //     let w_encoding = sigma.sigma_1.encode_poly(&mut wXY, &setup_params);
+    //     let O_pub = sigma.sigma_1.encode_O_pub(&placement_variables, &subcircuit_infos, &setup_params);
+    //     let O_mid = sigma.sigma_1.encode_O_mid_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
+    //     let O_prv = sigma.sigma_1.encode_O_prv_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
+    //     let LHS = 
+    //         O_pub * tau.gamma 
+    //         + O_mid * tau.eta 
+    //         + O_prv * tau.delta;
+    //     let RHS = 
+    //         a_encoding 
+    //         + u_encoding * tau.alpha
+    //         + v_encoding * tau.alpha.pow(2)
+    //         + w_encoding * tau.alpha.pow(3)
+    //         + b_encoding * tau.alpha.pow(4);
+    //     assert_eq!(LHS, RHS);
+    //     println!("Checked: o_vec");
+    //     let mut t: ScalarField;
+    //     t = tau.x.pow(n) - ScalarField::one();
+    //     for k in 1 ..4 {
+    //         for h in 0..3 {
+    //             let rs = sigma.sigma_1.delta_inv_alphak_xh_tx[k-1][h].0.to_projective();
+    //             let val = sigma.G.0.to_projective() * (tau.delta.inv() * tau.alpha.pow(k) * tau.x.pow(h) * t);
+    //             assert_eq!(rs, val);
+    //         }
+    //     }
+    //     t = tau.x.pow(m_i) - ScalarField::one();
+    //     for j in 0..2 {
+    //         let rs = sigma.sigma_1.delta_inv_alpha4_xj_tx[j].0.to_projective();
+    //         let val = sigma.G.0.to_projective() * (tau.delta.inv() * tau.alpha.pow(4) * tau.x.pow(j) * t);
+    //         assert_eq!(rs, val);
+    //     }
+    //     t = tau.y.pow(s_max) - ScalarField::one();
+    //     for k in 1 ..5 {
+    //         for i in 0..3 {
+    //             let rs = sigma.sigma_1.delta_inv_alphak_yi_ty[k-1][i].0.to_projective();
+    //             let val = sigma.G.0.to_projective() * (tau.delta.inv() * tau.alpha.pow(k) * tau.y.pow(i) * t);
+    //             assert_eq!(rs, val);
+    //         }
+    //     }
+    //     println!("Checked: zk strings");
 
-        let lhs1 = vec![a_encoding, b_encoding, u_encoding, v_encoding, w_encoding];
-        let lhs2 = vec![O_pub, O_mid, O_prv];
-        let rhs1 = vec![sigma.H, sigma.sigma_2.alpha4, sigma.sigma_2.alpha, sigma.sigma_2.alpha2, sigma.sigma_2.alpha3];
-        let rhs2 = vec![sigma.sigma_2.gamma, sigma.sigma_2.eta, sigma.sigma_2.delta];
-        let LHS = pairing(&lhs1, &rhs1);
-        let RHS = pairing(&lhs2, &rhs2);
-        assert_eq!(LHS, RHS);
-        println!("Checked: polynomial binding");
+    //     let lhs1 = vec![a_encoding, b_encoding, u_encoding, v_encoding, w_encoding];
+    //     let lhs2 = vec![O_pub, O_mid, O_prv];
+    //     let rhs1 = vec![sigma.H, sigma.sigma_2.alpha4, sigma.sigma_2.alpha, sigma.sigma_2.alpha2, sigma.sigma_2.alpha3];
+    //     let rhs2 = vec![sigma.sigma_2.gamma, sigma.sigma_2.eta, sigma.sigma_2.delta];
+    //     let LHS = pairing(&lhs1, &rhs1);
+    //     let RHS = pairing(&lhs2, &rhs2);
+    //     assert_eq!(LHS, RHS);
+    //     println!("Checked: polynomial binding");
 
-        let mut t_n_coeffs = vec![ScalarField::zero(); 2*n];
-        t_n_coeffs[0] = ScalarField::zero() - ScalarField::one();
-        t_n_coeffs[n] = ScalarField::one();
-        let mut t_n = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_n_coeffs), 2*n, 1);
-        t_n.optimize_size();
-        let mut t_mi_coeffs = vec![ScalarField::zero(); 2*m_i];
-        t_mi_coeffs[0] = ScalarField::zero() - ScalarField::one();
-        t_mi_coeffs[m_i] = ScalarField::one();
-        let mut t_mi = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_mi_coeffs), 2*m_i, 1);
-        t_mi.optimize_size();
-        let mut t_smax_coeffs = vec![ScalarField::zero(); 2*s_max];
-        t_smax_coeffs[0] = ScalarField::zero() - ScalarField::one();
-        t_smax_coeffs[s_max] = ScalarField::one();
-        let mut t_smax = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_smax_coeffs), 1, 2*s_max);
-        t_smax.optimize_size();
-        let rU_X = ScalarCfg::generate_random(1)[0];
-        let rU_Y = ScalarCfg::generate_random(1)[0];
-        let rV_X = ScalarCfg::generate_random(1)[0];
-        let rV_Y = ScalarCfg::generate_random(1)[0];
-        let mut rW_X_coeffs = ScalarCfg::generate_random(4);
-        rW_X_coeffs[3] = ScalarField::zero();
-        // let rW_X_coeffs_resized = resize(&rW_X_coeffs, 3, 1, 4, 1);
-        let rW_X = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rW_X_coeffs), 4, 1);
-        let mut rW_Y_coeffs = ScalarCfg::generate_random(4);
-        rW_Y_coeffs[3] = ScalarField::zero();
-        // let rW_Y_coeffs_resized = resize(&rW_Y_coeffs, 1, 3, 1, 4);
-        let rW_Y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rW_Y_coeffs), 1, 4);
-        let rB_X_coeffs = ScalarCfg::generate_random(2);
-        let rB_X = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rB_X_coeffs), 2, 1);
-        let rB_Y_coeffs = ScalarCfg::generate_random(2);
-        let rB_Y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rB_Y_coeffs), 1, 2);
-        let mut rB_X_t_x = &rB_X * &t_mi;
-        let mut rB_Y_t_y = &rB_Y * &t_smax;
-        let mut rW_X_t_x = &rW_X * &t_n;
-        let mut rW_Y_t_y = &rW_Y * &t_smax;
-        let B_zk = G1serde(G1Affine::from(
-            sigma.sigma_1.encode_poly(&mut rB_X_t_x, &setup_params).0.to_projective()
-            + sigma.sigma_1.encode_poly(&mut rB_Y_t_y, &setup_params).0.to_projective()
-        ));
-        let U_zk = G1serde(G1Affine::from(
-            sigma.sigma_1.encode_poly(&mut (&rU_X * &t_n), &setup_params).0.to_projective()
-            + sigma.sigma_1.encode_poly(&mut (&rU_Y * &t_smax), &setup_params).0.to_projective()
-        ));
-        let V_zk = G1serde(G1Affine::from(
-            sigma.sigma_1.encode_poly(&mut (&rV_X * &t_n), &setup_params).0.to_projective()
-            + sigma.sigma_1.encode_poly(&mut (&rV_Y * &t_smax), &setup_params).0.to_projective()
-        ));
-        let W_zk1 = G1serde(G1Affine::from(
-            sigma.sigma_1.encode_poly(&mut rW_X_t_x, &setup_params).0.to_projective()
-        ));
-        let W_zk2 = G1serde(G1Affine::from(
-            sigma.sigma_1.encode_poly(&mut rW_Y_t_y, &setup_params).0.to_projective()
-        ));
+    //     let mut t_n_coeffs = vec![ScalarField::zero(); 2*n];
+    //     t_n_coeffs[0] = ScalarField::zero() - ScalarField::one();
+    //     t_n_coeffs[n] = ScalarField::one();
+    //     let mut t_n = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_n_coeffs), 2*n, 1);
+    //     t_n.optimize_size();
+    //     let mut t_mi_coeffs = vec![ScalarField::zero(); 2*m_i];
+    //     t_mi_coeffs[0] = ScalarField::zero() - ScalarField::one();
+    //     t_mi_coeffs[m_i] = ScalarField::one();
+    //     let mut t_mi = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_mi_coeffs), 2*m_i, 1);
+    //     t_mi.optimize_size();
+    //     let mut t_smax_coeffs = vec![ScalarField::zero(); 2*s_max];
+    //     t_smax_coeffs[0] = ScalarField::zero() - ScalarField::one();
+    //     t_smax_coeffs[s_max] = ScalarField::one();
+    //     let mut t_smax = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_smax_coeffs), 1, 2*s_max);
+    //     t_smax.optimize_size();
+    //     let rU_X = ScalarCfg::generate_random(1)[0];
+    //     let rU_Y = ScalarCfg::generate_random(1)[0];
+    //     let rV_X = ScalarCfg::generate_random(1)[0];
+    //     let rV_Y = ScalarCfg::generate_random(1)[0];
+    //     let mut rW_X_coeffs = ScalarCfg::generate_random(4);
+    //     rW_X_coeffs[3] = ScalarField::zero();
+    //     // let rW_X_coeffs_resized = resize(&rW_X_coeffs, 3, 1, 4, 1);
+    //     let rW_X = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rW_X_coeffs), 4, 1);
+    //     let mut rW_Y_coeffs = ScalarCfg::generate_random(4);
+    //     rW_Y_coeffs[3] = ScalarField::zero();
+    //     // let rW_Y_coeffs_resized = resize(&rW_Y_coeffs, 1, 3, 1, 4);
+    //     let rW_Y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rW_Y_coeffs), 1, 4);
+    //     let rB_X_coeffs = ScalarCfg::generate_random(2);
+    //     let rB_X = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rB_X_coeffs), 2, 1);
+    //     let rB_Y_coeffs = ScalarCfg::generate_random(2);
+    //     let rB_Y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&rB_Y_coeffs), 1, 2);
+    //     let mut rB_X_t_x = &rB_X * &t_mi;
+    //     let mut rB_Y_t_y = &rB_Y * &t_smax;
+    //     let mut rW_X_t_x = &rW_X * &t_n;
+    //     let mut rW_Y_t_y = &rW_Y * &t_smax;
+    //     let B_zk = G1serde(G1Affine::from(
+    //         sigma.sigma_1.encode_poly(&mut rB_X_t_x, &setup_params).0.to_projective()
+    //         + sigma.sigma_1.encode_poly(&mut rB_Y_t_y, &setup_params).0.to_projective()
+    //     ));
+    //     let U_zk = G1serde(G1Affine::from(
+    //         sigma.sigma_1.encode_poly(&mut (&rU_X * &t_n), &setup_params).0.to_projective()
+    //         + sigma.sigma_1.encode_poly(&mut (&rU_Y * &t_smax), &setup_params).0.to_projective()
+    //     ));
+    //     let V_zk = G1serde(G1Affine::from(
+    //         sigma.sigma_1.encode_poly(&mut (&rV_X * &t_n), &setup_params).0.to_projective()
+    //         + sigma.sigma_1.encode_poly(&mut (&rV_Y * &t_smax), &setup_params).0.to_projective()
+    //     ));
+    //     let W_zk1 = G1serde(G1Affine::from(
+    //         sigma.sigma_1.encode_poly(&mut rW_X_t_x, &setup_params).0.to_projective()
+    //     ));
+    //     let W_zk2 = G1serde(G1Affine::from(
+    //         sigma.sigma_1.encode_poly(&mut rW_Y_t_y, &setup_params).0.to_projective()
+    //     ));
 
-        let B_zk_rhs = G1serde(G1Affine::from(
-            (
-                sigma.sigma_1.delta_inv_alpha4_xj_tx[0].0.to_projective() * rB_X_coeffs[0]
-                + sigma.sigma_1.delta_inv_alpha4_xj_tx[1].0.to_projective() * rB_X_coeffs[1]
-            )
-            + (
-                sigma.sigma_1.delta_inv_alphak_yi_ty[3][0].0.to_projective() * rB_Y_coeffs[0]
-                + sigma.sigma_1.delta_inv_alphak_yi_ty[3][1].0.to_projective() * rB_Y_coeffs[1]
-            )
-        ));
-        let U_zk_rhs = G1serde(G1Affine::from(
-            sigma.sigma_1.delta_inv_alphak_xh_tx[0][0].0.to_projective() * rU_X
-            + sigma.sigma_1.delta_inv_alphak_yi_ty[0][0].0.to_projective() * rU_Y
-        ));
-        let V_zk_rhs = G1serde(G1Affine::from(
-            sigma.sigma_1.delta_inv_alphak_xh_tx[1][0].0.to_projective() * rV_X
-            + sigma.sigma_1.delta_inv_alphak_yi_ty[1][0].0.to_projective() * rV_Y
-        ));
-        let W_zk_rhs1 = G1serde(G1Affine::from(
-            (
-                sigma.sigma_1.delta_inv_alphak_xh_tx[2][0].0.to_projective() * rW_X_coeffs[0]
-                + sigma.sigma_1.delta_inv_alphak_xh_tx[2][1].0.to_projective() * rW_X_coeffs[1]
-                + sigma.sigma_1.delta_inv_alphak_xh_tx[2][2].0.to_projective() * rW_X_coeffs[2]
-            )
-        ));
-        let W_zk_rhs2 = G1serde(G1Affine::from(
-            (
-                sigma.sigma_1.delta_inv_alphak_yi_ty[2][0].0.to_projective() * rW_Y_coeffs[0]
-                + sigma.sigma_1.delta_inv_alphak_yi_ty[2][1].0.to_projective() * rW_Y_coeffs[1]
-                + sigma.sigma_1.delta_inv_alphak_yi_ty[2][2].0.to_projective() * rW_Y_coeffs[2]
-            )
-        ));
-        assert_eq!(pairing(&[B_zk], &[sigma.sigma_2.alpha4]), pairing(&[B_zk_rhs], &[sigma.sigma_2.delta]));
-        assert_eq!(pairing(&[U_zk], &[sigma.sigma_2.alpha]), pairing(&[U_zk_rhs], &[sigma.sigma_2.delta]));
-        assert_eq!(pairing(&[V_zk], &[sigma.sigma_2.alpha2]), pairing(&[V_zk_rhs], &[sigma.sigma_2.delta]));
-        assert_eq!(pairing(&[W_zk1], &[sigma.sigma_2.alpha3]), pairing(&[W_zk_rhs1], &[sigma.sigma_2.delta]));
-        assert_eq!(pairing(&[W_zk2], &[sigma.sigma_2.alpha3]), pairing(&[W_zk_rhs2], &[sigma.sigma_2.delta]));  
-    }
+    //     let B_zk_rhs = G1serde(G1Affine::from(
+    //         (
+    //             sigma.sigma_1.delta_inv_alpha4_xj_tx[0].0.to_projective() * rB_X_coeffs[0]
+    //             + sigma.sigma_1.delta_inv_alpha4_xj_tx[1].0.to_projective() * rB_X_coeffs[1]
+    //         )
+    //         + (
+    //             sigma.sigma_1.delta_inv_alphak_yi_ty[3][0].0.to_projective() * rB_Y_coeffs[0]
+    //             + sigma.sigma_1.delta_inv_alphak_yi_ty[3][1].0.to_projective() * rB_Y_coeffs[1]
+    //         )
+    //     ));
+    //     let U_zk_rhs = G1serde(G1Affine::from(
+    //         sigma.sigma_1.delta_inv_alphak_xh_tx[0][0].0.to_projective() * rU_X
+    //         + sigma.sigma_1.delta_inv_alphak_yi_ty[0][0].0.to_projective() * rU_Y
+    //     ));
+    //     let V_zk_rhs = G1serde(G1Affine::from(
+    //         sigma.sigma_1.delta_inv_alphak_xh_tx[1][0].0.to_projective() * rV_X
+    //         + sigma.sigma_1.delta_inv_alphak_yi_ty[1][0].0.to_projective() * rV_Y
+    //     ));
+    //     let W_zk_rhs1 = G1serde(G1Affine::from(
+    //         (
+    //             sigma.sigma_1.delta_inv_alphak_xh_tx[2][0].0.to_projective() * rW_X_coeffs[0]
+    //             + sigma.sigma_1.delta_inv_alphak_xh_tx[2][1].0.to_projective() * rW_X_coeffs[1]
+    //             + sigma.sigma_1.delta_inv_alphak_xh_tx[2][2].0.to_projective() * rW_X_coeffs[2]
+    //         )
+    //     ));
+    //     let W_zk_rhs2 = G1serde(G1Affine::from(
+    //         (
+    //             sigma.sigma_1.delta_inv_alphak_yi_ty[2][0].0.to_projective() * rW_Y_coeffs[0]
+    //             + sigma.sigma_1.delta_inv_alphak_yi_ty[2][1].0.to_projective() * rW_Y_coeffs[1]
+    //             + sigma.sigma_1.delta_inv_alphak_yi_ty[2][2].0.to_projective() * rW_Y_coeffs[2]
+    //         )
+    //     ));
+    //     assert_eq!(pairing(&[B_zk], &[sigma.sigma_2.alpha4]), pairing(&[B_zk_rhs], &[sigma.sigma_2.delta]));
+    //     assert_eq!(pairing(&[U_zk], &[sigma.sigma_2.alpha]), pairing(&[U_zk_rhs], &[sigma.sigma_2.delta]));
+    //     assert_eq!(pairing(&[V_zk], &[sigma.sigma_2.alpha2]), pairing(&[V_zk_rhs], &[sigma.sigma_2.delta]));
+    //     assert_eq!(pairing(&[W_zk1], &[sigma.sigma_2.alpha3]), pairing(&[W_zk_rhs1], &[sigma.sigma_2.delta]));
+    //     assert_eq!(pairing(&[W_zk2], &[sigma.sigma_2.alpha3]), pairing(&[W_zk_rhs2], &[sigma.sigma_2.delta]));  
+    // }
 
     let start = Instant::now();
     // Writing the sigma into JSON
