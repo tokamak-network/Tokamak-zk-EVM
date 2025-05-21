@@ -26,6 +26,4 @@ export type ArithmeticOperator =
   | 'SIGNEXTEND'
   | 'DecToBit'
   | 'SubEXP'
-  | 'Div1'
-  | 'Div2'
-  | 'Div3'
+  | 'Accumulator'
