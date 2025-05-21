@@ -1,5 +1,5 @@
 pragma circom 2.1.6;
-include "../../templates/256bit/bitify.circom";
+include "../../templates/256bit/bitify_safe.circom";
 
 template DecToBit () {
     signal input in[2]; // A 256-bit integer consisting of two 128-bit integers; in[0]: lower, in[1]: upper

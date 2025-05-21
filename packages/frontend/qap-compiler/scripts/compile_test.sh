@@ -1,4 +1,4 @@
-names=("ADD" "MUL" "SUB" "DIV" "SDIV" "MOD" "SMOD" "ADDMOD" "MULMOD" "EQ" "ISZERO" "SHL" "SHR" "LT" "GT" "NOT" "BYTE" "SAR" "SIGNEXTEND" "SLT" "SGT" "AND_LOW" "AND_HIGH" "OR_LOW" "OR_HIGH" "XOR_LOW" "XOR_HIGH" "DecToBit" "SubEXP")
+names=("ALU1" "ALU2" "ALU3" "ALU4" "ALU5" "OR" "XOR" "AND" "DecToBit" "Accumulator")
 CURVE_NAME="bls12381"
 
 # get the directory of the script

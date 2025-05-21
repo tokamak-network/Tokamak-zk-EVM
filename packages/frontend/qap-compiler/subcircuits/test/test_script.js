@@ -21,67 +21,53 @@ describe("EVM arithmetic & logical opcode tests", function () {
   this.timeout(1000 * 1000);
 
   const tests = [
-    { opcode: "add", file: "add_circuit.wasm" },
-    { opcode: "mul", file: "mul_circuit.wasm" },
-    { opcode: "sub", file: "sub_circuit.wasm" },
-    { opcode: "div", file: "div_circuit.wasm" },
-    { opcode: "sdiv", file: "sdiv_circuit.wasm" },
-    { opcode: "mod", file: "mod_circuit.wasm" },
-    { opcode: "smod", file: "smod_circuit.wasm" },
-    { opcode: "addmod", file: "addmod_circuit.wasm" },
-    { opcode: "mulmod", file: "mulmod_circuit.wasm" },
-    { opcode: "sub_exp", file: "SubEXP_circuit.wasm" },
-    { opcode: "signextend", file: "signextend_circuit.wasm" },
-    { opcode: "lt", file: "lt_circuit.wasm" },
-    { opcode: "gt", file: "gt_circuit.wasm" },
-    { opcode: "slt", file: "slt_circuit.wasm" },
-    { opcode: "sgt", file: "sgt_circuit.wasm" },
-    { opcode: "eq", file: "eq_circuit.wasm" },
-    { opcode: "iszero", file: "iszero_circuit.wasm" },
-    { opcode: "and_low", file: "and_low_circuit.wasm" },
-    { opcode: "and_high", file: "and_high_circuit.wasm" },
-    { opcode: "or_low", file: "or_low_circuit.wasm" },
-    { opcode: "or_high", file: "or_high_circuit.wasm" },
-    { opcode: "xor_low", file: "xor_low_circuit.wasm" },
-    { opcode: "xor_high", file: "xor_high_circuit.wasm" },
-    { opcode: "not", file: "not_circuit.wasm" },
-    { opcode: "byte", file: "byte_circuit.wasm" },
-    { opcode: "shl", file: "shl_circuit.wasm" },
-    { opcode: "shr", file: "shr_circuit.wasm" },
-    { opcode: "sar", file: "sar_circuit.wasm" },
+    { op: "add", selector: 1n<<1n, file: "ALU1_circuit.wasm" },
+    { op: "mul", selector: 1n<<2n, file: "ALU1_circuit.wasm" },
+    { op: "sub", selector: 1n<<3n, file: "ALU1_circuit.wasm" },
+    { op: "div", selector: 1n<<4n, file: "ALU2_circuit.wasm" },
+    { op: "sdiv", selector: 1n<<5n, file: "ALU2_circuit.wasm" },
+    { op: "mod", selector: 1n<<6n, file: "ALU2_circuit.wasm" },
+    { op: "smod", selector: 1n<<7n, file: "ALU2_circuit.wasm" },
+    { op: "addmod", selector: 1n<<8n, file: "ALU2_circuit.wasm" },
+    { op: "mulmod", selector: 1n<<9n, file: "ALU2_circuit.wasm" },
+    { op: "sub_exp", selector: 1n<<10n, file: "ALU1_circuit.wasm" },
+    { op: "signextend", selector: 1n<<11n, file: "ALU5_circuit.wasm" },
+    { op: "lt", selector: 1n<<16n, file: "ALU4_circuit.wasm" },
+    { op: "gt", selector: 1n<<17n, file: "ALU4_circuit.wasm" },
+    { op: "slt", selector: 1n<<18n, file: "ALU4_circuit.wasm" },
+    { op: "sgt", selector: 1n<<19n, file: "ALU4_circuit.wasm" },
+    { op: "eq", selector: 1n<<20n, file: "ALU1_circuit.wasm" },
+    { op: "iszero", selector: 1n<<21n, file: "ALU1_circuit.wasm" },
+    { op: "and", selector: undefined, file: "and_circuit.wasm" },
+    { op: "or", selector: undefined, file: "or_circuit.wasm" },
+    { op: "xor", selector: undefined, file: "xor_circuit.wasm" },
+    { op: "not", selector: 1n<<25n, file: "ALU1_circuit.wasm" },
+    { op: "byte", selector: 1n<<26n, file: "ALU5_circuit.wasm" },
+    { op: "shl", selector: 1n<<27n, file: "ALU3_circuit.wasm" },
+    { op: "shr", selector: 1n<<28n, file: "ALU3_circuit.wasm" },
+    { op: "sar", selector: 1n<<29n, file: "ALU3_circuit.wasm" },
   ];
 
-  for (const { opcode, file } of tests) {
-    describe(`${opcode.toUpperCase()} test`, function () {
-        const targetWasmPath = path.join(__dirname, "wasm", file)
-        let witnessCalculator
-        before(async function() {
-            const buffer = readFileSync(targetWasmPath);
-            witnessCalculator = await builder(buffer)
-        });
+  for (const { op, selector, file } of tests) {
+    describe(`${op.toUpperCase()} test`, function () {
+      const targetWasmPath = path.join(__dirname, "wasm", file)
+      let witnessCalculator
+      before(async function() {
+          const buffer = readFileSync(targetWasmPath);
+          witnessCalculator = await builder(buffer)
+      });
 
       for (let i = 0; i < NTestSamples; i++) {
-        const input = test_case[opcode];
+        const input = test_case[op];
         let in1, in2, in3, out1, out2;
-        if ( !opcode.includes("and_") && !opcode.includes("or_") && !opcode.includes("xor_") ) {
-          in1 = input.in1 ? split256BitInteger(input.in1[i]) : undefined;
-          in2 = input.in2 ? split256BitInteger(input.in2[i]) : undefined;
-          out1 = input.out1 ? split256BitInteger(input.out1[i]) : undefined;
-          out2 = input.out2 ? split256BitInteger(input.out2[i]) : undefined;
-        } else {
-          in1 = input.in1 ? input.in1[i] : undefined;
-          in2 = input.in2 ? input.in2[i] : undefined;
-          out1 = input.out1 ? input.out1[i] : undefined;
-          out2 = input.out2 ? input.out2[i] : undefined;
-        }
-        if ( !opcode.includes("sub_exp") && !opcode.includes("and_") && !opcode.includes("or_") && !opcode.includes("xor_") ) {
-          in3 = input.in3 ? split256BitInteger(input.in3[i]) : undefined;
-        } else {
-          in3 = input.in3 ? input.in3[i] : undefined;
-        }
-
-        it(`${opcode.toUpperCase()} test vector ${i} with in1: ${in1}, in2: ${in2}, in3: ${in3}`, async () => {
-            const in_vec = [in1, in2, in3].filter((x) => x !== undefined);
+        in1 = input.in1 ? split256BitInteger(input.in1[i]) : selector === undefined ? undefined : [0n, 0n];
+        in2 = input.in2 ? split256BitInteger(input.in2[i]) : selector === undefined ? undefined : [0n, 0n];
+        in3 = input.in3 ? split256BitInteger(input.in3[i]) : selector === undefined ? undefined : [0n, 0n];
+        out1 = input.out1 ? split256BitInteger(input.out1[i]) : undefined;
+        out2 = input.out2 ? split256BitInteger(input.out2[i]) : undefined;
+    
+        it(`${op.toUpperCase()} test vector ${i} with in1: ${in1}, in2: ${in2}, in3: ${in3}`, async () => {
+            const in_vec = [selector, in1, in2, in3].filter((x) => x !== undefined);
             const witness = await witnessCalculator.calculateWitness(
               {
                 in: in_vec,
@@ -90,16 +76,16 @@ describe("EVM arithmetic & logical opcode tests", function () {
             );
             if ( out2 === undefined ) {
               for (let i = 0; i < out1.length; i++) {
-                // console.log(`Expected out: ${out1[i]}, Circuit out: ${witness[i+1]}`)
+                console.log(`Expected out: ${out1[i]}, Circuit out: ${witness[i+1]}`)
                 assert(Fr.eq(Fr.e(witness[i+1]), Fr.e(out1[i])));
               }
             } else {
               for (let i = 0; i < out1.length; i++) {
-                // console.log(`Expected out1: ${out1[i]}, Circuit out: ${witness[i+1]}`)
+                console.log(`Expected out1: ${out1[i]}, Circuit out: ${witness[i+1]}`)
                 assert(Fr.eq(Fr.e(witness[i+1]), Fr.e(out1[i])));
               }
               for (let i = 0; i < out2.length; i++) {
-                // console.log(`Expected out2: ${out2[i]}, Circuit out: ${witness[i+1+out1.length]}`)
+                console.log(`Expected out2: ${out2[i]}, Circuit out: ${witness[i+1+out1.length]}`)
                 assert(Fr.eq(Fr.e(witness[i+1+out1.length]), Fr.e(out2[i])));
               }
               

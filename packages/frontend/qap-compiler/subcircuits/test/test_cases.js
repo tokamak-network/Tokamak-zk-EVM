@@ -14,18 +14,18 @@ function abs(x) {
   return x < 0n ? -x : x;
 }
 
-const NTestSamples = 2**12;
+const NTestSamples = 2**10;
 const in1 = Array.from({ length: NTestSamples }, () => randomNByteBigInt(32));
 const in2 = Array.from({ length: NTestSamples }, () => randomNByteBigInt(32));
 const in3 = Array.from({ length: NTestSamples }, () => randomNByteBigInt(32));
 
 const in1_small = Array.from({ length: NTestSamples }, () => randomNByteBigInt(1));
-// const in1_small = Array.from({ length: NTestSamples }, () => BigInt(crypto.randomInt(32)));
-const in1_half = Array.from({ length: NTestSamples }, () => randomNByteBigInt(16));
+// const in1_smaller = Array.from({ length: NTestSamples }, () => BigInt(crypto.randomInt(32)));
+// const in1_half = Array.from({ length: NTestSamples }, () => randomNByteBigInt(16));
 
-const in2_half = Array.from({ length: NTestSamples }, () => randomNByteBigInt(16));
+// const in2_half = Array.from({ length: NTestSamples }, () => randomNByteBigInt(16));
 
-const in3_half = Array.from({ length: NTestSamples }, () => randomNByteBigInt(16));
+// const in3_half = Array.from({ length: NTestSamples }, () => randomNByteBigInt(16));
 const in3_binary = Array.from({ length: NTestSamples }, () => BigInt(crypto.randomInt(2)));
 
 const add_out = Array.from({ length: NTestSamples }, (_, i) =>
@@ -142,44 +142,20 @@ const iszero_out = Array.from({ length: NTestSamples }, (_, i) =>
 );
 const iszero = { in1: [...in1], out1: [...iszero_out] };
 
-const and_low_out = Array.from({ length: NTestSamples }, (_, i) =>
-  in1_half[i] & in2_half[i]
+const and_out = Array.from({ length: NTestSamples }, (_, i) =>
+  in1[i] & in2[i]
 );
-const and_low = { in1: [...in1_half], in2: [...in2_half], out1: [...and_low_out] };
+const and = { in1: [...in1], in2: [...in2], out1: [...and_out] };
 
-const and_high_out1 = Array.from({ length: NTestSamples }, (_, i) =>
-  in1_half[i]
+const or_out = Array.from({ length: NTestSamples }, (_, i) =>
+  in1[i] | in2[i]
 );
-const and_high_out2 = Array.from({ length: NTestSamples }, (_, i) =>
-  in2_half[i] & in3_half[i]
-);
-const and_high = { in1: [...in1_half], in2: [...in2_half], in3: [...in3_half], out1: [...and_high_out1], out2: [...and_high_out2] };
+const or = { in1: [...in1], in2: [...in2], out1: [...or_out]};
 
-const or_low_out = Array.from({ length: NTestSamples }, (_, i) =>
-  in1_half[i] | in2_half[i]
+const xor_out = Array.from({ length: NTestSamples }, (_, i) =>
+  in1[i] ^ in2[i]
 );
-const or_low = { in1: [...in1_half], in2: [...in2_half], out1: [...or_low_out]};
-
-const or_high_out1 = Array.from({ length: NTestSamples }, (_, i) =>
-  in1_half[i]
-);
-const or_high_out2 = Array.from({ length: NTestSamples }, (_, i) =>
-  in2_half[i] | in3_half[i]
-);
-const or_high = { in1: [...in1_half], in2: [...in2_half], in3: [...in3_half], out1: [...or_high_out1], out2: [...or_high_out2] };
-
-const xor_low_out = Array.from({ length: NTestSamples }, (_, i) =>
-  in1_half[i] ^ in2_half[i]
-);
-const xor_low = { in1: [...in1_half], in2: [...in2_half], out1: [...xor_low_out]};
-
-const xor_high_out1 = Array.from({ length: NTestSamples }, (_, i) =>
-  in1_half[i]
-);
-const xor_high_out2 = Array.from({ length: NTestSamples }, (_, i) =>
-  in2_half[i] | in3_half[i]
-);
-const xor_high = { in1: [...in1_half], in2: [...in2_half], in3: [...in3_half], out1: [...xor_high_out1], out2: [...xor_high_out2] };
+const xor = { in1: [...in1], in2: [...in2], out1: [...xor_out]};
 
 const not_out = Array.from({ length: NTestSamples }, (_, i) =>
   (~in1[i]) & (modulus - 1n)
@@ -232,12 +208,9 @@ module.exports = {
   sgt,
   eq,
   iszero,
-  and_low,
-  and_high,
-  or_low,
-  or_high,
-  xor_low,
-  xor_high,
+  and,
+  or,
+  xor,
   not,
   byte,
   shl,

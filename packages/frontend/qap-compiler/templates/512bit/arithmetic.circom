@@ -1,5 +1,5 @@
 pragma circom 2.1.6;
-include "../256bit/arithmetic_unsafe_in_out.circom";
+include "../256bit/arithmetic_unsafe_type1.circom";
 include "../128bit/arithmetic.circom";
 include "../../functions/arithmetic.circom";
 include "mux.circom";

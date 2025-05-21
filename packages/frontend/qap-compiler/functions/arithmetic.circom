@@ -162,19 +162,43 @@ function _div128(in1, in2) {
 }
 
 function greater_or_equal_than(a, b) {
-    // check a[4] >= b[4]
-    var ge = 0;
-    var eq = 1;
+    var result = 1;
+    var decided = 0;
 
     for (var i = 3; i >= 0; i--) {
-        var gt = a[i] > b[i] ? 1 : 0;
-        var lt = a[i] < b[i] ? 1 : 0;
+        var gt = 0;
+        var lt = 0;
 
-        ge += eq * gt;
-        eq *= 1 - gt - lt;
+        if (a[i] > b[i]) {
+            gt = 1;
+        } else {
+            gt = 0;
+        }
+
+        if (a[i] < b[i]) {
+            lt = 1;
+        } else {
+            lt = 0;
+        }
+
+        var neq = gt + lt;  // 1 if a[i] ≠ b[i], 0 otherwise
+
+        // result ← keep current if already decided, else follow gt/lt
+        if (decided == 0) {
+            if (gt == 1) {
+                result = 1;
+            }
+            if (lt == 1) {
+                result = 0;
+            }
+        }
+
+        if (decided == 0 && neq == 1) {
+            decided = 1;
+        }
     }
 
-    return ge;
+    return result;
 }
 
 function _div512by256(a, b) {

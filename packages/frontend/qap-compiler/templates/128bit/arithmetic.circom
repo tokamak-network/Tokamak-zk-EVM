@@ -80,14 +80,15 @@ template ShiftRight128_unsafe(N) {
     // in: an 128-bit integer
     signal input shift, in;
     // out: an 128-bit integer
-    signal output out;
+    signal output out, rem, exp_shift;
     var FIELD_SIZE = (1 << 128);
 
     signal is_shift_gt_127 <== GreaterThan(N)([shift, 127]);
     signal shift_safe <== shift * (1 - is_shift_gt_127);
-    signal exp_shift <== TwosExp128()(shift_safe);
-    signal (quo, rem) <== Div128_unsafe()(in, exp_shift);
+    exp_shift <== TwosExp128()(shift_safe);
+    signal (quo, _rem) <== Div128_unsafe()(in, exp_shift);
     out <== quo * (1 - is_shift_gt_127);
+    rem <== _rem;
 }
 
 template TwosExp128 () {

@@ -35,51 +35,32 @@ export async function finalize(
   return permutation
 }
 
-const halveWordSizeOfWires = (newDataPts: DataPt[], prevDataPt: DataPt, index: number): void => {
-  const indLow = BigInt(index * 2)
-  const indHigh = indLow + 1n
+const halveWordSizeOfWires = (newDataPts: DataPt[], origDataPt: DataPt): number[] => {
+  const newIndex = newDataPts.length
+  const indLow = newIndex
+  const indHigh = indLow + 1
 
-  try {
-    newDataPts[Number(indLow)] = { ...prevDataPt }
-    newDataPts[Number(indHigh)] = { ...prevDataPt }
+  if (origDataPt.sourceSize > 16) {
 
-    if (prevDataPt.wireIndex !== undefined) {
-      const wireIndex = BigInt(prevDataPt.wireIndex)
-      newDataPts[Number(indLow)].wireIndex = Number(wireIndex * 2n)
-      newDataPts[Number(indHigh)].wireIndex = Number(wireIndex * 2n + 1n)
-    }
-
-    if (prevDataPt.pairedInputWireIndices !== undefined) {
-      const convertIndices = (ind: number) => {
-        const bigInd = BigInt(ind)
-        return [Number(bigInd * 2n), Number(bigInd * 2n + 1n)]
-      }
-
-      newDataPts[Number(indHigh)].pairedInputWireIndices = prevDataPt.pairedInputWireIndices.flatMap(convertIndices)
-      newDataPts[Number(indLow)].pairedInputWireIndices = prevDataPt.pairedInputWireIndices.flatMap(convertIndices)
-    }
-
-    // value가 문자열로 들어올 경우를 대비
-    const value = typeof prevDataPt.value === 'string' ? BigInt(prevDataPt.value) : prevDataPt.value
+    newDataPts[indLow] = { ...origDataPt}
+    newDataPts[indLow].wireIndex = indLow
+    newDataPts[indHigh] = { ...origDataPt}
+    newDataPts[indHigh].wireIndex = indHigh
     
-    newDataPts[Number(indHigh)].value = value >> 128n
-    newDataPts[Number(indLow)].value = value & ((2n ** 128n) - 1n)
+    newDataPts[indHigh].value = origDataPt.value >> 128n
+    newDataPts[indLow].value = origDataPt.value & ((2n ** 128n) - 1n)
 
-    newDataPts[Number(indHigh)].valueHex = bytesToHex(
-      setLengthLeft(bigIntToBytes(newDataPts[Number(indHigh)].value), 16)
+    newDataPts[indHigh].valueHex = bytesToHex(
+      setLengthLeft(bigIntToBytes(newDataPts[indHigh].value), 16)
     )
-    newDataPts[Number(indLow)].valueHex = bytesToHex(
-      setLengthLeft(bigIntToBytes(newDataPts[Number(indLow)].value), 16)
+    newDataPts[indLow].valueHex = bytesToHex(
+      setLengthLeft(bigIntToBytes(newDataPts[indLow].value), 16)
     )
-
-  } catch (error) {
-    console.error('Error in halveWordSizeOfWires:', {
-      error,
-      prevDataPt,
-      index,
-      valueType: typeof prevDataPt.value
-    });
-    throw error;
+    return [indLow, indHigh]
+  } else {
+    newDataPts[newIndex] = { ...origDataPt }
+    newDataPts[newIndex].wireIndex = newIndex
+    return [newIndex]
   }
 }
 
@@ -123,27 +104,53 @@ function refactoryPlacement(placements: Placements): Placements {
     subcircuitInfoByName.set(subcircuitInfo.name, {id: subcircuitInfo.id, Out_idx: subcircuitInfo.Out_idx, In_idx: subcircuitInfo.In_idx})
   }
   const dietLoadPlacment = removeUnusedLoadWires(placements)
-  const outPlacements: Placements = new Map()
+  let outPlacements: Placements = new Map()
+  const outWireIndexChangeTracker: Map<number, Map<number, number[]>> = new Map()
+
+  for (const key of placements.keys()) {
+    const _wireIndexTracker: Map<number, number[]> = new Map()
+    const placement = key === PRV_IN_PLACEMENT_INDEX ? dietLoadPlacment : placements.get(key)
+
+    const newOutPts: DataPt[] = []
+    const outPts = placement!.outPts
+
+    for (const outPt of outPts) {
+      const newInd  = halveWordSizeOfWires(newOutPts, outPt)
+      _wireIndexTracker.set(outPt.wireIndex, newInd)
+    }
+    outWireIndexChangeTracker.set(key, _wireIndexTracker); 
+    
+    outPlacements.set(key, {
+      name: placement!.name,
+      usage: placement!.usage,
+      subcircuitId: subcircuitInfoByName.get(placement!.name)!.id,
+      inPts: placement!.inPts,
+      outPts: [...newOutPts],
+    })
+  }
+
   for (const key of placements.keys()) {
     const placement = key === PRV_IN_PLACEMENT_INDEX ? dietLoadPlacment : placements.get(key)
 
     const newInPts: DataPt[] = []
-    const newOutPts: DataPt[] = []
     const inPts = placement!.inPts
-    const outPts = placement!.outPts
-    for (const [ind, inPt] of inPts.entries()) {
-      halveWordSizeOfWires(newInPts, inPt, ind)
+
+    for (const inPt of inPts) {
+      const newInd = halveWordSizeOfWires(newInPts, inPt)
+      const oldRefSource = inPt.source
+      const oldRefWireInd = inPt.wireIndex
+      if ( oldRefSource !== key ) {
+        // console.log(`curr source, target source = (${key}, ${oldRefSource})`)
+        const newRefWireIndices = outWireIndexChangeTracker.get(oldRefSource)!.get(oldRefWireInd)!
+        for (const [i, newRefWireInd] of newRefWireIndices.entries()){
+          newInPts[newInd[i]!].wireIndex = newRefWireInd
+        }
+      }
     }
-    for (const [ind, outPt] of outPts.entries()) {
-      halveWordSizeOfWires(newOutPts, outPt, ind)
-    }
-    outPlacements.set(key, {
-      name: placement!.name,
-      subcircuitId: subcircuitInfoByName.get(placement!.name)!.id,
-      inPts: newInPts,
-      outPts: newOutPts,
-    })
+    
+    outPlacements.get(key)!.inPts = [...newInPts] 
   }
+
   let flags: boolean[] = Array(5).fill(true);
   
   if (outPlacements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length > subcircuitInfoByName.get('bufferPrvIn')!.In_idx[1]) {
@@ -320,24 +327,36 @@ export class Permutation {
         Array.from(placements.entries()).map(async ([placementId, placement]) => {
           let inValues = placement.inPts.map((pt) => pt.valueHex)
           //Formatting
-          if (placement.subcircuitId < INITIAL_PLACEMENT_INDEX) {
-            const expectedInsLen = subcircuitInfos[placement.subcircuitId].In_idx[1]
-            if (expectedInsLen > inValues.length) {
-              const filledIns = inValues.concat(Array(expectedInsLen - inValues.length).fill('0x00'))
-              inValues = filledIns
-            }
-            // const expectedOutsLen = subcircuitInfos[entry.subcircuitId].Out_idx[1]
-            // if (expectedOutsLen > outs.length) {
-            //   const filledOuts = outs.concat(Array(expectedOutsLen - outs.length).fill('0x00'))
-            //   result[i].outValues = filledOuts
-            // }
+          // if (placement.subcircuitId < INITIAL_PLACEMENT_INDEX) {
+          const expectedInsLen = subcircuitInfos[placement.subcircuitId].In_idx[1]
+          if (expectedInsLen > inValues.length) {
+            const filledIns = inValues.concat(Array(expectedInsLen - inValues.length).fill('0x00'))
+            inValues = filledIns
           }
+          // }
           
           //Generating placement local variables
           let outValues = placement.outPts.map((pt) => pt.valueHex)
+          const expectedOutsLen = subcircuitInfos[placement.subcircuitId].Out_idx[1]
+          if (expectedOutsLen > outValues.length) {
+            const filledOuts = outValues.concat(Array(expectedOutsLen - outValues.length).fill('0x00'))
+            outValues = filledOuts
+          }
+          console.log(`placementId: ${placementId}`)
+          console.log(`subcircuit name: ${placement.name}`)
+          console.log(`subcircuit id: ${placement.subcircuitId}`)
+          console.log(`operation name: ${placement.usage}`)
+          console.log(`circuit inputs: ${inValues}`)
+          if (placementId === 57) {
+            console.log('here')
+          }
           let variables = await generateSubcircuitWitness(placement.subcircuitId!, inValues)
           for (let i = 1; i <= outValues.length; i++) {
             if (BigInt(variables[i]) !== BigInt(outValues[i - 1])) {
+              console.log(`circuit output index: ${i}`)
+              const circuitOutputValues = variables.slice(1, outValues.length + 1);
+              console.log(`circuit outputs: ${circuitOutputValues.map(BigInt)}`);
+              console.log(`synthesizer outputs: ${outValues.map(BigInt)}`);
               throw new Error(
                 `Instance check failed in the ${placementId}-th placement (subcircuit name: ${placement.name})`,
               )
