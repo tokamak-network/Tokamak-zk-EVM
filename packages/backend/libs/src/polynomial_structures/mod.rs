@@ -2,7 +2,7 @@ use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
 use icicle_core::traits::FieldImpl;
 use icicle_core::vec_ops::transpose_matrix;
 use icicle_runtime::memory::HostSlice;
-use crate::iotools::{read_global_wire_list_as_boxed_boxed_numbers, PlacementVariables, PublicInstance, SetupParams, SubcircuitInfo, SubcircuitR1CS};
+use crate::iotools::{PlacementVariables, Instance, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
 use crate::field_structures::Tau;
 use crate::vector_operations::{*};
@@ -129,13 +129,16 @@ macro_rules! define_gen_qapXY {
     };
 }
 
-impl PublicInstance {
-    pub fn gen_aX(&self, setup_params: &SetupParams) -> DensePolynomialExt {
-        let l = setup_params.l;
-        let public_instance: Vec<ScalarField>  = self.a.iter().map(|x| ScalarField::from_hex(x)).collect();
+impl Instance {
+    pub fn gen_a_pub_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
+        let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
+        let mut public_instance = vec![ScalarField::zero(); l_pub];
+        for i in 0..l_pub {
+            public_instance[i] = ScalarField::from_hex(&self.a[i]);
+        }
         return DensePolynomialExt::from_rou_evals(
             HostSlice::from_slice(&public_instance),
-            l,
+            l_pub,
             1,
             None,
             None

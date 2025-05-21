@@ -2,6 +2,80 @@
 
 Tokamak-zk-EVM is a zero-knowledge Ethereum Virtual Machine implementation that enables scalable and private smart contract execution.
 
+## Tokamak-zk-EVM flow chart
+![Tokamak-zk-EVM Flow Chart](.github/assets/flowchart.png)
+
+## Usage
+We provide [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds), a graphical user interface that helps you easily follow the execution of Tokamak zk-EVM.
+### With Playground (in progress)
+Will be updated soon.
+### Without Playground
+Here is an example of generating a zk proof of the correct execution of an [ERC-20 transfer transaction for the TON contract](./packages/frontend/synthesizer/examples/erc20/ton-transfer.ts).
+1. Make sure that you have installed
+    - [Node.js](https://nodejs.org/en),
+    - [Circom](https://docs.circom.io),
+    - [Rust](https://www.rust-lang.org),
+    - [CMake](https://cmake.org) (+ [Docker](https://www.docker.com) would be helpful for installing and using CMAKE, if you use Windows).
+3. Clone the zk-evm repository (the main branch)
+    
+    ```bash
+    git clone https://github.com/tokamak-network/Tokamak-zk-EVM
+    ```
+    
+4. Open the “Tokamak-zk-EVM” folder.
+5. Run `qap-compiler` (requiring Node.js and Circom)
+    
+    ```bash
+    cd "$pwd/packages/frontend/qap-compiler"
+    npm install
+    ./scripts/compile.sh
+    ```
+    
+6. Run `synthesizer` (requiring Node.js)
+    
+    ```bash
+    cd "$pwd/packages/frontend/synthesizer"
+    npm install
+    npx tsx ./examples/erc20/ton-transfer.ts
+    ```
+    
+7. Run `setup` (requiring Rust and CMake)
+    
+    ```bash
+    cd "$pwd/packages/backend"
+    cargo run -p trusted-setup
+    ```
+    
+8. Run `preprocess` (requiring Rust and CMake)
+    
+    ```bash
+    cd "$pwd/packages/backend"
+    cargo run -p preprocess
+    ```
+    
+9. Run `prove` (requiring Rust and CMake)
+    
+    ```bash
+    cd "$pwd/packages/backend"
+    cargo run -p prove
+    ```
+
+    10. Run `verify` (requiring Rust and CMake)
+
+    ```bash
+    cd "$pwd/packages/backend"
+    cargo run -p verify
+    ```
+
+    11. Run `solidity verify` (requiring Foundry and Solidity)
+
+    ```bash
+    cd "$pwd/packages/backend/verify/solidity"
+    forge install
+    forge test -vvvv
+    ```
+
+
 ## Package Composition
 
 This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
@@ -30,7 +104,7 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 | `mpc-setup` | - | 🚧 Planned |
 | `trusted-setup` | - | 🚧 Planned |
 | `verify-rust` | - | 🚧 Planned |
-| `verify-sol` | - | 🚧 Planned |
+| `verify-sol` | - | 🔥  Alpha |
 
 
 ### Version Strategy
@@ -44,16 +118,14 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 - Production-ready release
 - Full system integration and testing
 
-## Tokamak-zk-EVM flow chart
-![Tokamak-zk-EVM Flow Chart](.github/assets/flowchart.png)
 
 ## Ethereum compatibility
 > 📝 **Note**: This section will be updated as new EVM features are implemented
 
 ## Documentation
-- [Project Tokamak zk-EVM(Medium)](https://medium.com/tokamak-network/project-tokamak-zk-evm-67483656fd21) (Outdated. Will be updated soon)
+- [Project Tokamak zk-EVM(Medium)](https://medium.com/tokamak-network/project-tokamak-zk-evm-67483656fd21) (Last updated in Apr. 2025)
 - [Project Tokamak zk-EVM(Slide)](https://drive.google.com/file/d/1RAmyGDVteAzuBxJ05XEGIjfHC0MY-2_5/view) (Outdated. Will be updated soon)
-- [Tokamak zk-SNARK Paper](https://eprint.iacr.org/2024/507)
+- [Tokamak zk-SNARK Paper](https://eprint.iacr.org/2024/507) (Last updated in Mar. 2025)
 - Frontend
     - [Synthesizer](https://tokamak.notion.site/Synthesizer-documentation-164d96a400a3808db0f0f636e20fca24)
 <!-- - [API Reference](./docs/api) -->

@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/qap-compiler",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Library subcircuits for Tokamak zk-EVM",
   "keywords": [
     "ethereum",

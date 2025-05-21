@@ -372,11 +372,13 @@ export class Permutation {
     console.log('')
     console.log(`Synthesizer: All the placement instances passed the subcircuits`)
 
-    // Extracting public instance from the placement variables
+    // Extracting instance from the placement variables
     let idxSetPubIn = new IdxSet(this.subcircuitInfoByName.get(this.placements.get(PUB_IN_PLACEMENT_INDEX)!.name)!)
     let idxSetPubOut = new IdxSet(this.subcircuitInfoByName.get(this.placements.get(PUB_OUT_PLACEMENT_INDEX)!.name)!)
+    let idxSetPrvIn = new IdxSet(this.subcircuitInfoByName.get(this.placements.get(PRV_IN_PLACEMENT_INDEX)!.name)!)
+    let idxSetPrvOut = new IdxSet(this.subcircuitInfoByName.get(this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.name)!)
     let a: string[] = Array(setupParams.l).fill("0x00");
-    if (idxSetPubIn.NInWires + idxSetPubOut.NOutWires > setupParams.l) {
+    if (idxSetPubIn.NInWires + idxSetPrvIn.NInWires + idxSetPubOut.NOutWires + idxSetPrvOut.NOutWires > setupParams.l) {
       throw new Error('Incorrectness in the number of input and output variables.')
     }
     for (let i = 0; i < idxSetPubOut.NOutWires; i++){
@@ -388,6 +390,16 @@ export class Permutation {
       let localIdx = idxSetPubIn.idxIn + i;
       let val = placementVariables[PUB_IN_PLACEMENT_INDEX].variables[localIdx] ?? "0x00"
       a[idxSetPubIn.flattenMap[localIdx]] = val
+    }
+    for (let i = 0; i < idxSetPrvOut.NOutWires; i++){
+      let localIdx = idxSetPrvOut.idxOut + i;
+      let val = placementVariables[PRV_OUT_PLACEMENT_INDEX].variables[localIdx] ?? "0x00"
+      a[idxSetPrvOut.flattenMap[localIdx]] = val
+    }
+    for (let i = 0; i < idxSetPrvIn.NInWires; i++){
+      let localIdx = idxSetPrvIn.idxIn + i;
+      let val = placementVariables[PRV_IN_PLACEMENT_INDEX].variables[localIdx] ?? "0x00"
+      a[idxSetPrvIn.flattenMap[localIdx]] = val
     }
 
     // Packaging public instance
@@ -401,12 +413,6 @@ export class Permutation {
       inPts: this.placements.get(PUB_OUT_PLACEMENT_INDEX)!.inPts.map(({ value, ...rest }) => rest),
       outPts: this.placements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts.map(({ value, ...rest }) => rest),
     }
-    const publicInstance = {
-      publicOutputBuffer,
-      publicInputBuffer,
-      a
-    }
-    // Packaging private external interface buffers for developers
     const privateInputBuffer = {
       ...this.placements.get(PRV_IN_PLACEMENT_INDEX)!,
       inPts: this.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.map(({ value, ...rest }) => rest),
@@ -417,28 +423,26 @@ export class Permutation {
       inPts: this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.inPts.map(({ value, ...rest }) => rest),
       outPts: this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.map(({ value, ...rest }) => rest),
     }
-    const privateExternalInterface = {
-      privateInputBuffer,
+    const Instance = {
+      publicOutputBuffer,
+      publicInputBuffer,
       privateOutputBuffer,
+      privateInputBuffer,
+      a
     }
 
     const placementVariablesJson = `${JSON.stringify(placementVariables, null, 2)}`
-    const publicInstanceJson = `${JSON.stringify(publicInstance, null, 2)}`
-    const privateExternalInterfaceJson = `${JSON.stringify(privateExternalInterface, null, 2)}`
+    const instanceJson = `${JSON.stringify(Instance, null, 2)}`
     const filePath1 = _path === undefined ? path.resolve(
       appRootPath.path,
       'examples/outputs/placementVariables.json',
     ) : path.resolve(_path!, 'placementVariables.json')
     const filePath2 = _path === undefined ? path.resolve(
       appRootPath.path,
-      'examples/outputs/publicInstance.json',
-    ) : path.resolve(_path!, 'publicInstance.json')
-    const filePath3 = _path === undefined ? path.resolve(
-      appRootPath.path,
-      'examples/outputs/privateExternalInterface.json',
-    ) : path.resolve(_path!, 'privateExternalInterface.json')
-    const files = [placementVariablesJson, publicInstanceJson, privateExternalInterfaceJson]
-    const filePaths = [filePath1, filePath2, filePath3]
+      'examples/outputs/instance.json',
+    ) : path.resolve(_path!, 'instance.json')
+    const files = [placementVariablesJson, instanceJson]
+    const filePaths = [filePath1, filePath2]
     for (const [idx, path_i] of filePaths.entries()){
       const dir = path.dirname(path_i)
       if (!fs.existsSync(dir)) {

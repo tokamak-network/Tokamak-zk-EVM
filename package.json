@@ -1,5 +1,5 @@
 {
-  "name": "my-monorepo",
+  "name": "tokamak-zk-evm-monorepo",
   "private": true,
   "workspaces": [
     "packages/frontend/synthesizer/libs/*"

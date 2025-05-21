@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/synthesizer",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Tokamak zk-EVM Synthesizer - Interprets an Ethereum transaction as a combination of the library subcircuits.",
   "keywords": [
     "ethereum",
@@ -68,7 +68,7 @@
     "@synthesizer-libs/statemanager": "^0.0.4",
     "@synthesizer-libs/util": "^0.0.3",
     "@synthesizer-libs/verkle": "^0.0.2",
-    "@tokamak-zk-evm/qap-compiler": "^0.0.1",
+    "@tokamak-zk-evm/qap-compiler": "^0.0.2",
     "@types/debug": "^4.1.9",
     "@vitest/coverage-v8": "^2.1.8",
     "app-root-path": "^3.1.0",

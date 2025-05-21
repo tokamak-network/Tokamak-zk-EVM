@@ -2,7 +2,7 @@
 use icicle_runtime::memory::HostSlice;
 use icicle_runtime::stream::IcicleStream;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
-use libs::iotools::{PlacementVariables, PublicInstance, SetupParams, SubcircuitInfo, SubcircuitR1CS};
+use libs::iotools::{Instance, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use libs::field_structures::{Tau, from_r1cs_to_evaled_qap_mixture};
 use libs::iotools::{read_global_wire_list_as_boxed_boxed_numbers};
 use libs::polynomial_structures::{gen_bXY, gen_uXY, gen_vXY, gen_wXY, QAP};
@@ -39,6 +39,8 @@ fn main() {
     let s_max = setup_params.s_max; // The maximum number of placements.
     // Additional wire-related parameters
     let l = setup_params.l;     // Number of public I/O wires
+    let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
+    let l_prv = setup_params.l_prv_in + setup_params.l_prv_out;
     let l_d = setup_params.l_D; // Number of interface wires
     // The last wire-related parameter
     let m_i = l_d - l;
@@ -49,10 +51,13 @@ fn main() {
         panic!("n is not a power of two.");
     }
     
-    if !(l.is_power_of_two() || l==0) {
-        panic!("l is not a power of two.");
+    if !(l_pub.is_power_of_two() || l_pub==0) {
+        panic!("l_pub is not a power of two.");
     }
-    // let l_in = l / 2;  // Number of input wires
+
+    if !(l_prv.is_power_of_two()) {
+        panic!("l_prv is not a power of two.");
+    }
 
     // Verify s_max is a power of two
     if !s_max.is_power_of_two() {
@@ -84,9 +89,9 @@ fn main() {
     gen_evaled_lagrange_bases(&tau.y, s_max, &mut l_evaled_vec);
     
     // Compute m_evaled_vec: Lagrange polynomial evaluations at τ.x of size l
-    let mut m_evaled_vec = vec![ScalarField::zero(); l].into_boxed_slice();
+    let mut m_evaled_vec = vec![ScalarField::zero(); l_pub].into_boxed_slice();
     if l>0 {
-        gen_evaled_lagrange_bases(&tau.x, l, &mut m_evaled_vec);
+        gen_evaled_lagrange_bases(&tau.x, l_pub, &mut m_evaled_vec);
     }
 
     // Compute o_evaled_vec: Wire polynomial evaluations
