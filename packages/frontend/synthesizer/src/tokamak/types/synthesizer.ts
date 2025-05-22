@@ -1,3 +1,6 @@
+import { ArithmeticOperations } from "../operations/arithmetic.js"
+import { SubcircuitNames } from "./subcircuits.js"
+
 /**
  * @property {number} subcircuitId - Identifier of the subcircuit.
  * @property {number} nWire - Number of wires in the subcircuit.
@@ -53,8 +56,8 @@ export interface CreateDataPointParams {
   key?: string
   // offset if the external data comes from a memory
   offset?: number
-  // used for pairing the Keccak input and output (as input can be longer than 256 bit)
-  pairedInputWireIndices?: number[]
+  // // used for pairing the Keccak input and output (as input can be longer than 256 bit)
+  // pairedInputWireIndices?: number[]
   // placement index at which the dataPt comes from
   source: number
   // wire index at which the dataPt comes from
@@ -66,8 +69,8 @@ export interface CreateDataPointParams {
 export type DataPt = CreateDataPointParams & { valueHex: string }
 
 export type PlacementEntry = {
-  name: string
-  usage?: string
+  name: SubcircuitNames
+  usage: string | ArithmeticOperations
   subcircuitId: number
   inPts: DataPt[]
   outPts: DataPt[]
