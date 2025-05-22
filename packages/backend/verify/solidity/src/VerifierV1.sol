@@ -300,9 +300,9 @@ contract VerifierV1 is IVerifier {
     // s_max
     uint256 internal constant CONSTANT_SMAX = 64;
     // m_i
-    uint256 internal constant CONSTANT_MI = 512;
+    uint256 internal constant CONSTANT_MI = 256;
     // l
-    uint256 internal constant CONSTANT_L = 32;
+    uint256 internal constant CONSTANT_L = 288;
 
     // ω_{m_i}^{-1}
     uint256 internal constant OMEGA_MI_MINUS_1 = 0x1907a56e80f82b2df675522e37ad4eca1c510ebfb4543a3efb350dbef02a116e;
@@ -551,9 +551,21 @@ contract VerifierV1 is IVerifier {
                     leave
                 }
 
-                // Calculate Q_MOD - y
-                if lt(Q_MOD_PART2, y1) {
-                    // If Q_MOD_PART2 < y1, we need to borrow from the high part
+                // Calculate p - y where p is the field modulus (Q_MOD)
+                if lt(y1, Q_MOD_PART2) {
+                    // Simple case: no borrowing needed
+                    negY1 := sub(Q_MOD_PART2, y1)
+                    negY0 := sub(Q_MOD_PART1, y0)
+                }
+                
+                if eq(y1, Q_MOD_PART2) {
+                    // y1 equals the lower part of Q_MOD
+                    negY1 := 0
+                    negY0 := sub(Q_MOD_PART1, y0)
+                }
+                
+                if gt(y1, Q_MOD_PART2) {
+                    // Need to borrow from higher part
                     // Calculate (2^256 + Q_MOD_PART2) - y1
                     negY1 := add(not(y1), 1) // 2^256 - y1 = complement(y1) + 1
                     negY1 := add(negY1, Q_MOD_PART2)
@@ -561,10 +573,6 @@ contract VerifierV1 is IVerifier {
                     negY0 := sub(Q_MOD_PART1, 1)
                     // Subtract y0 from the high part
                     negY0 := sub(negY0, y0)
-                } 
-                if gt(Q_MOD_PART2, y1) {
-                    negY1 := sub(Q_MOD_PART2, y1)
-                    negY0 := sub(Q_MOD_PART1, y0)
                 }
 
                 // If the result is exactly Q, we return 0
@@ -614,7 +622,7 @@ contract VerifierV1 is IVerifier {
                 mstore(0xe0, minus_y2_part2)        // -y2
 
                 if iszero(staticcall(gas(), 0x0b, 0x00, 0x100, dest, 0x80)) {
-                    revertWithMessage(28, "pointSubAssign: G1ADD failed")
+                    revertWithMessage(28, "pointSubIntoDest: G1ADD failed")
                 }
             }
 
@@ -1496,22 +1504,22 @@ contract VerifierV1 is IVerifier {
             initializeTranscript()
 
             // Step3: computation of [F]_1, [G]_1, t_n(χ), t_smax(ζ) and t_ml(χ), K0(χ) and A_pub
-            //prepareQueries()
-            //computeAPUB()
+            prepareQueries()
+            computeAPUB()
 
 
             // Step4: computation of the final polynomial commitments
-            //prepareLHSA()
-            //prepareLHSB()
-            //prepareLHSC()
-            //prepareRHS1()
-            //prepareRHS2()
-            //prepareAggregatedCommitment()
+            prepareLHSA()
+            prepareLHSB()
+            prepareLHSC()
+            prepareRHS1()
+            prepareRHS2()
+            prepareAggregatedCommitment()
 
             // Step5: final pairing
             //finalPairing()
             
-            result := mload(CHALLENGE_KAPPA_2_SLOT)
+            result := mload(INTERMEDIARY_SCALAR_APUB_SLOT)
         }
     }
 }

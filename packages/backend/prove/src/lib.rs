@@ -92,17 +92,19 @@
             // Convert each field element to a hex string for serialization
             let thetas_vec: Vec<String> = challenge.thetas.iter()
                 .map(|theta| {
-                    let bytes = theta.to_bytes_le();
+                    let mut bytes = theta.to_bytes_le();
+                    bytes.reverse(); // ✅ Reverse bytes to match verifier
                     // Convert to hex format without 0x prefix
                     bytes.iter()
                         .map(|byte| format!("{:02x}", byte))
                         .collect::<String>()
                 })
                 .collect();
-            
+                
             // Helper function to convert a field element to hex string
             let to_hex = |field: &ScalarField| {
-                let bytes = field.to_bytes_le();
+                let mut bytes = field.to_bytes_le();
+                bytes.reverse(); // ✅ Reverse bytes to match verifier
                 bytes.iter()
                     .map(|byte| format!("{:02x}", byte))
                     .collect::<String>()
@@ -299,6 +301,8 @@
             // Apply the field reduction - mask the top bits to ensure it's within the field
             // This matches the Solidity FR_MASK = 0x1fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
             result[0] &= 0x1f;
+
+            result.reverse();
             
             if self.debug_mode {
                 println!("[Challenge Masked] 0x{}", hex_encode(&result));
@@ -670,34 +674,7 @@
         pub Q_AY: G1serde,
         pub B: G1serde
     }
-    impl Proof0 {
-        pub fn verify0(&self) -> Vec<ScalarField> {
-            let mut transcript = RollingKeccakTranscript::new();
-            
-            println!("Committing U.x...");
-            transcript.commit_field_as_bytes(&self.U.0.x);
-            transcript.commit_field_as_bytes(&self.U.0.y);
-            
-            transcript.commit_field_as_bytes(&self.V.0.x);
-            transcript.commit_field_as_bytes(&self.V.0.y);
-            
-            transcript.commit_field_as_bytes(&self.W.0.x);
-            transcript.commit_field_as_bytes(&self.W.0.y);
-            
-            transcript.commit_field_as_bytes(&self.Q_AX.0.x);
-            transcript.commit_field_as_bytes(&self.Q_AX.0.y);
-            
-            transcript.commit_field_as_bytes(&self.Q_AY.0.x);
-            transcript.commit_field_as_bytes(&self.Q_AY.0.y);
-            
-            transcript.commit_field_as_bytes(&self.B.0.x);
-            transcript.commit_field_as_bytes(&self.B.0.y);
-            
-            let thetas = transcript.get_challenges(3);
-            println!("Thetas generated: {:?}", thetas);
-            thetas
-        }
-        
+    impl Proof0 {        
         pub fn verify0_with_manager(&self, manager: &mut TranscriptManager) -> Vec<ScalarField> {
             manager.add_proof0(self);
             manager.get_thetas()
@@ -708,19 +685,7 @@
     pub struct Proof1 {
         pub R: G1serde
     }
-    impl Proof1 {
-        pub fn verify1(&self) -> ScalarField {
-            let mut transcript = RollingKeccakTranscript::new();
-            
-            println!("Committing R.x...");
-            transcript.commit_field_as_bytes(&self.R.0.x);
-            transcript.commit_field_as_bytes(&self.R.0.y);
-            
-            let kappa0 = transcript.get_challenge();
-            println!("Kappa0 generated: {:?}", kappa0);
-            kappa0
-        }
-        
+    impl Proof1 {        
         pub fn verify1_with_manager(&self, manager: &mut TranscriptManager) -> ScalarField {
             manager.add_proof1(self);
             manager.get_kappa0()
@@ -732,23 +697,7 @@
         pub Q_CX: G1serde,
         pub Q_CY: G1serde
     }
-    impl Proof2 {
-        pub fn verify2(&self) -> (ScalarField, ScalarField) {
-            let mut transcript = RollingKeccakTranscript::new();
-            
-            println!("Committing Q_CX and Q_CY...");
-            transcript.commit_field_as_bytes(&self.Q_CX.0.x);
-            transcript.commit_field_as_bytes(&self.Q_CX.0.y);
-            transcript.commit_field_as_bytes(&self.Q_CY.0.x);
-            transcript.commit_field_as_bytes(&self.Q_CY.0.y);
-            
-            let chi = transcript.get_challenge();
-            let zeta = transcript.get_challenge();
-            println!("Chi generated: {:?}", chi);
-            println!("Zeta generated: {:?}", zeta);
-            (chi, zeta)
-        }
-        
+    impl Proof2 {        
         pub fn verify2_with_manager(&self, manager: &mut TranscriptManager) -> (ScalarField, ScalarField) {
             manager.add_proof2(self);
             manager.get_chi_zeta()
@@ -763,23 +712,10 @@
         pub R_omegaX_omegaY_eval: FieldSerde
     }
     impl Proof3 {
-        pub fn verify3(&self) -> ScalarField {
-            let mut transcript = RollingKeccakTranscript::new();
-            
-            println!("Committing evaluation values...");
-            transcript.commit_field_as_bytes(&self.V_eval.0);
-            transcript.commit_field_as_bytes(&self.R_eval.0);
-            transcript.commit_field_as_bytes(&self.R_omegaX_eval.0);
-            transcript.commit_field_as_bytes(&self.R_omegaX_omegaY_eval.0);
-            
-            let kappa1 = transcript.get_challenge();
-            println!("Kappa1 generated: {:?}", kappa1);
-            kappa1
-        }
-        
         pub fn verify3_with_manager(&self, manager: &mut TranscriptManager) -> ScalarField {
             manager.add_proof3(self);
-            manager.get_kappa1()
+            let kappa1 = manager.get_kappa1();
+            kappa1  // Only return kappa1
         }
     }
 
@@ -1023,6 +959,7 @@
                 let rO_mid = ScalarCfg::generate_random(1)[0];
                 let rR_X = ScalarCfg::generate_random(1)[0];
                 let rR_Y = ScalarCfg::generate_random(1)[0];
+
                 Mixer {rB_X, rB_Y, rR_X, rR_Y, rU_X, rU_Y, rV_X, rV_Y, rW_X, rW_Y, rO_mid}
             };
 

@@ -24,7 +24,7 @@ fn main() {
 
     // Use the manager to get thetas
     let thetas = proof0.verify0_with_manager(&mut manager);
-    
+        
     println!("Running prove1...");
     timer = Instant::now();
     let proof1 = prover.prove1(&thetas);
@@ -49,10 +49,8 @@ fn main() {
     lap = timer.elapsed();
     println!("prove3 running time: {:.6} seconds", lap.as_secs_f64());
 
-    // Use the manager to get kappa1
+    // Use the manager to get kappa1 and kappa2
     let kappa1 = proof3.verify3_with_manager(&mut manager);
-    
-    // Get kappa2
     let kappa2 = manager.get_kappa2();
     
     println!("Running prove4...");
@@ -73,7 +71,7 @@ fn main() {
 
     // Convert to serializable version
     let challenge_serde = ChallengeSerde::from(challenge);
-
+    
     let proof = Proof {
         binding, 
         proof0, 
