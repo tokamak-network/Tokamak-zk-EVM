@@ -8,7 +8,8 @@ interface IVerifier {
     /// Note: The function may revert execution instead of returning false in some cases.
     function verify(
         uint128[] calldata _proof_part1,
-        uint256[] calldata _proof_part2
-    ) external view returns (bytes32 result);
+        uint256[] calldata _proof_part2,
+        uint256[] calldata publicInputs
+    ) external view returns (bytes32 final_result);
 
 }

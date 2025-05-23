@@ -235,19 +235,35 @@ impl Verifier {
             lagrange_K0_XY.eval(&chi, &zeta)
         };
 
+        // Add debug prints
+        println!("First few a_pub values (evaluations):");
+        for i in 0..5 {
+            println!("  a_pub[{}] = {:?}", i, self.a_pub[i]);
+        }
+
+        // After IFFT, print coefficients
+        let mut coeffs = vec![ScalarField::zero(); 32];
+        a_pub_X.copy_coeffs(0, HostSlice::from_mut_slice(&mut coeffs));
+        println!("First few coefficients after IFFT:");
+        for i in 0..5 {
+            println!("  coeff[{}] = {:?}", i, coeffs[i]);
+        }
+
+        println!("chi = {:?}", chi);
+        let A_eval = a_pub_X.eval(&chi, &zeta);
+        println!("A_eval = {:?}", A_eval);
+
         let LHS_A = 
             (proof0.U * proof3.V_eval)
             - proof0.W
             +(proof0.V - self.sigma.G * proof3.V_eval) * kappa1
             - proof0.Q_AX * t_n_eval
             - proof0.Q_AY * t_smax_eval;
-        
         let F = 
             proof0.B
             + self.preprocess.s0 * thetas[0]
             + self.preprocess.s1 * thetas[1]
             + self.sigma.G * thetas[2];
-        
         let G = 
             proof0.B
             + self.sigma.sigma_1.x * thetas[0]
