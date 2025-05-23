@@ -418,7 +418,7 @@ export class MemoryPt {
     const targetRange = createRangeSet(offset, offset + size - 1)
     for (const element of validRange) {
       if (!targetRange.has(element)) {
-        throw new Error('Error: arg2 is not a subset of arg1')
+        throw new Error('MemoryPt: target data range is not a subset of the view range.')
       }
     }
 

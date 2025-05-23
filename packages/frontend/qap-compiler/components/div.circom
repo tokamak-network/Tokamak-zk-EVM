@@ -1,25 +1,23 @@
 pragma circom 2.1.6;
-include "add.circom";
+include "../templates/256bit/add.circom";
 include "mul.circom";
 include "eq.circom";
 include "lt.circom";
-include "iszero.circom";
-include "templates/arithmetic_func.circom";
+include "../templates/256bit/iszero.circom";
+include "../functions/arithmetic.circom";
 
 template Div () {
-    signal input in[4];
-    signal in1[2] <== [in[0], in[1]];
-    signal in2[2] <== [in[2], in[3]];
+    // 256-bit integers consisting of two 128-bit integers; in[0]: lower, in[1]: upper
+    signal input in1[2], in2[2];
 
-    signal is_zero_out[2] <== IsZero256()(in2);
-
-    var q[2][2] = div(in1, in2); //div 
+    var q[2][2] = div256(in1, in2); //div 
     signal output out[2] <-- q[0];
     signal remainder[2] <-- q[1];
 
-    signal inter[2] <== Mul()([out[0], out[1], in2[0], in2[1]]);
-    signal res[2] <== Add()([inter[0], inter[1], remainder[0], remainder[1]]);
-    signal eq[2] <== Eq()([res[0], res[1], in1[0], in1[1]]);
+    // Check whether the division is correct.
+    signal inter[2] <== Mul()(out, in2);
+    signal res[2] <== Add()(inter, remainder);
+    signal eq[2] <== Eq()(res, in1);
     eq[0] === 1;
 
     //rc => Range Check

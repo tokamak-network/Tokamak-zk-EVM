@@ -1,1263 +1,196 @@
-const add = [
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(10)
-  },
-  {
-    "in1": BigInt(2**254),
-    "in2": BigInt(2**254)
-  },
-  {
-    "in1": BigInt(2**255),
-    "in2": BigInt(2**255)
-  },
-  {
-    "in1": BigInt(2**256) - 1n,
-    "in2": BigInt(2**256) - 1n
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(1)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(2)
+const crypto = require("crypto");
+const modulus = 1n << 256n;
+const N = 115792089237316195423570985008687907853269984665640564039457584007913129639936n;
+
+function randomNByteBigInt(N) {
+  const buf = crypto.randomBytes(N);
+  let result = 0n;
+  for (let i = 0; i < N; i++) {
+    result = (result << 8n) + BigInt(buf[i]);
   }
-]
+  return result;
+}
+function abs(x) {
+  return x < 0n ? -x : x;
+}
 
-const mul = [
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(10)
-  },
-  {
-    "in1": BigInt(2**254),
-    "in2": BigInt(2)
-  },
-  {
-    "in1": BigInt(2**255),
-    "in2": BigInt(2**255)
-  },
-  {
-    "in1": BigInt(2**256) - 1n,
-    "in2": BigInt(2**256) - 1n
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(1)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(2)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(0)
-  },
-  {
-    "in1": BigInt(2**128) - BigInt(1),
-    "in2": BigInt(2**128)
-  }
-]
+const NTestSamples = 2**10;
+const in1 = Array.from({ length: NTestSamples }, () => randomNByteBigInt(32));
+const in2 = Array.from({ length: NTestSamples }, () => randomNByteBigInt(32));
+const in3 = Array.from({ length: NTestSamples }, () => randomNByteBigInt(32));
 
-const sub = [
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(10)
-  },
-  {
-    "in1": BigInt(2**255),
-    "in2": BigInt(2**255)
-  },
-  {
-    "in1": BigInt(2**254),
-    "in2": BigInt(2)
-  },
-  {
-    "in1": BigInt(2),
-    "in2": BigInt(2**254)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(199)
-  },
-  {
-    "in1": BigInt(1),
-    "in2": BigInt(2**256) - BigInt(1)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(1)
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": BigInt(1)
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": BigInt(2**128) - BigInt(1)
-  }
-]
+const in1_small = Array.from({ length: NTestSamples }, () => randomNByteBigInt(1));
+// const in1_smaller = Array.from({ length: NTestSamples }, () => BigInt(crypto.randomInt(32)));
+// const in1_half = Array.from({ length: NTestSamples }, () => randomNByteBigInt(16));
 
-const div = [
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(2**128) + BigInt(10)
-  },
-  {
-    "in1": BigInt(2**128) - BigInt(1),
-    "in2": BigInt(2**128) + BigInt(10)
-  },
-  {
-    "in1": BigInt(2**128) + BigInt(10),
-    "in2": BigInt(2**128) + BigInt(10)
-  },
-  {
-    "in1": BigInt(2**250) + BigInt(10),
-    "in2": BigInt(2**128) + BigInt(10)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(2**128) + BigInt(10)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(3)
-  },
-  {
-    "in1": BigInt(7),
-    "in2": BigInt(3)
-  },
-  {
-    "in1": BigInt(7) * BigInt(2**128) + BigInt(2**128) - BigInt(1),
-    "in2": BigInt(3)
-  },
-  {
-    "in1": BigInt(7) * BigInt(2**128) + BigInt(1),
-    "in2": BigInt(3)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(0)
-  },
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(0)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(10)
-  },
-  {
-    "in1": BigInt(10) << 128n,
-    "in2": BigInt(0)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(10) << 128n
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(3)
-  },
-  {
-    "in1": BigInt(3*(2**128))+BigInt(6),
-    "in2": BigInt((2**128))+BigInt(8)
-  },
-  {
-    "in1": BigInt(3) * BigInt(2**128) + BigInt(6),
-    "in2": BigInt(2**128) + BigInt(8)
-  },
-  {
-    "in1": BigInt(3) * BigInt(2**128) + BigInt(6),
-    "in2": BigInt(2) * BigInt(2**128) + BigInt(5)
-  },
-  {
-    "in1": (BigInt(2**127) - BigInt(1)) * BigInt(2**128) + BigInt(2**128) - BigInt(1),
-    "in2": BigInt(2**128) - BigInt(1)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(2)) * BigInt(2**128) + BigInt(2**128) - BigInt(2),
-    "in2": BigInt(2**128) - BigInt(1)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(2)) * BigInt(2**128) + BigInt(2**128) - BigInt(2),
-    "in2": BigInt(2) * BigInt(2**128) - BigInt(1)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(2)) * BigInt(2**128) + BigInt(2**128) - BigInt(2),
-    "in2": BigInt(3) * BigInt(2**128) - BigInt(2)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(2)) * BigInt(2**128) + BigInt(2**128) - BigInt(2),
-    "in2": BigInt(3) * BigInt(2**128) - BigInt(5)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(2)) * BigInt(2**128) + BigInt(2**128) - BigInt(2),
-    "in2": BigInt(2**32) * BigInt(2**128) - BigInt(5)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(2)) * BigInt(2**128) + BigInt(2**128) - BigInt(2),
-    "in2": BigInt(6) * BigInt(2**128) + BigInt(2**42) + BigInt(1)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(2**22)) * BigInt(2**128) + BigInt(2**128) - BigInt(2**81),
-    "in2": BigInt(8) * BigInt(2**128) + BigInt(2**111) + BigInt(5)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(6666)) * BigInt(2**128) + BigInt(2**128) - BigInt(2),
-    "in2": BigInt(1111) * BigInt(2**128) + BigInt(2**88) + BigInt(3333)
-  },
-  {
-    "in1": (BigInt(2**127)) * BigInt(2**128) + BigInt(2**127),
-    "in2": BigInt(3) * BigInt(2**128) + BigInt(3)
-  },
-  {
-    "in1": (BigInt(2**127)) * BigInt(2**128) + BigInt(2**127),
-    "in2": BigInt(2) * BigInt(2**128)
-  },
-  {
-    "in1": (BigInt(2**127) + BigInt(2**23)) * BigInt(2**128) + BigInt(2**127) + BigInt(2**111),
-    "in2": (BigInt(2**54)) * BigInt(2**128) + BigInt(2**127) + BigInt(2**55)
-  }
-]
+// const in2_half = Array.from({ length: NTestSamples }, () => randomNByteBigInt(16));
 
-const sdiv = [
-  {
-    "in1": 9n,
-    "in2": 20n,
-  },
-  {
-    "in1": 20n,
-    "in2": 9n,
-  },
-  {
-    "in1": BigInt(2**256) - 7n,
-    "in2": 3n,
-  },
-  {
-    "in1": 7n,
-    "in2": BigInt(2**256) - 3n,
-  },
-  {
-    "in1": BigInt(2**256) - 7n,
-    "in2": BigInt(2**256) - 3n
-  },
-  {
-    "in1": BigInt(2**256) - 3n,
-    "in2": BigInt(2**256) - 7n,
-  },
-  {
-    "in1": 100n,
-    "in2": 0n,
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": 0n,
-  },
-  {
-    "in1": BigInt(2**255),
-    "in2": 2n**256n - 1n,
-  },
-]
+// const in3_half = Array.from({ length: NTestSamples }, () => randomNByteBigInt(16));
+const in3_binary = Array.from({ length: NTestSamples }, () => BigInt(crypto.randomInt(2)));
 
-const mod = [
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(2**128) + BigInt(10)
-  },
-  {
-    "in1": BigInt(2**128) - BigInt(1),
-    "in2": BigInt(2**128) + BigInt(10)
-  },
-  {
-    "in1": BigInt(2**128) + BigInt(10),
-    "in2": BigInt(2**128) + BigInt(10)
-  },
-  {
-    "in1": BigInt(2**250) + BigInt(10),
-    "in2": BigInt(2**128) + BigInt(10)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(2**128) + BigInt(10)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(3)
-  },
-  {
-    "in1": BigInt(7),
-    "in2": BigInt(3)
-  },
-  {
-    "in1": BigInt(7) * BigInt(2**128) + BigInt(2**128) - BigInt(1),
-    "in2": BigInt(3)
-  },
-  {
-    "in1": BigInt(7) * BigInt(2**128) + BigInt(1),
-    "in2": BigInt(3)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(0)
-  },
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(0)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(10)
-  },
-  {
-    "in1": BigInt(10) << 128n,
-    "in2": BigInt(0)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(10) << 128n
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(3)
-  },
-  {
-    "in1": BigInt(3*(2**128))+BigInt(6),
-    "in2": BigInt((2**128))+BigInt(8)
-  },
-  {
-    "in1": BigInt(3) * BigInt(2**128) + BigInt(6),
-    "in2": BigInt(2**128) + BigInt(8)
-  },
-  {
-    "in1": BigInt(3) * BigInt(2**128) + BigInt(6),
-    "in2": BigInt(2) * BigInt(2**128) + BigInt(5)
-  },
-  {
-    "in1": (BigInt(2**127) - BigInt(1)) * BigInt(2**128) + BigInt(2**128) - BigInt(1),
-    "in2": BigInt(2**128) - BigInt(1)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(2)) * BigInt(2**128) + BigInt(2**128) - BigInt(2),
-    "in2": BigInt(2**128) - BigInt(1)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(2)) * BigInt(2**128) + BigInt(2**128) - BigInt(2),
-    "in2": BigInt(2) * BigInt(2**128) - BigInt(1)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(2)) * BigInt(2**128) + BigInt(2**128) - BigInt(2),
-    "in2": BigInt(3) * BigInt(2**128) - BigInt(2)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(2)) * BigInt(2**128) + BigInt(2**128) - BigInt(2),
-    "in2": BigInt(3) * BigInt(2**128) - BigInt(5)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(2)) * BigInt(2**128) + BigInt(2**128) - BigInt(2),
-    "in2": BigInt(2**32) * BigInt(2**128) - BigInt(5)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(2)) * BigInt(2**128) + BigInt(2**128) - BigInt(2),
-    "in2": BigInt(6) * BigInt(2**128) + BigInt(2**42) + BigInt(1)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(2**22)) * BigInt(2**128) + BigInt(2**128) - BigInt(2**81),
-    "in2": BigInt(8) * BigInt(2**128) + BigInt(2**111) + BigInt(5)
-  },
-  {
-    "in1": (BigInt(2**128) - BigInt(6666)) * BigInt(2**128) + BigInt(2**128) - BigInt(2),
-    "in2": BigInt(1111) * BigInt(2**128) + BigInt(2**88) + BigInt(3333)
-  },
-  {
-    "in1": (BigInt(2**127)) * BigInt(2**128) + BigInt(2**127),
-    "in2": BigInt(3) * BigInt(2**128) + BigInt(3)
-  },
-  {
-    "in1": (BigInt(2**127)) * BigInt(2**128) + BigInt(2**127),
-    "in2": BigInt(2) * BigInt(2**128)
-  },
-  {
-    "in1": (BigInt(2**127) + BigInt(2**23)) * BigInt(2**128) + BigInt(2**127) + BigInt(2**111),
-    "in2": (BigInt(2**54)) * BigInt(2**128) + BigInt(2**127) + BigInt(2**55)
-  }
-]
+const add_out = Array.from({ length: NTestSamples }, (_, i) =>
+  (in1[i] + in2[i]) % modulus
+);
+const add = { in1: [...in1], in2: [...in2], out1: [...add_out] };
 
-const smod = [
-  {
-    "in1": 9n,
-    "in2": 20n,
-  },
-  {
-    "in1": 20n,
-    "in2": 9n,
-  },
-  {
-    "in1": BigInt(2**256) - 7n,
-    "in2": 3n,
-  },
-  {
-    "in1": 7n,
-    "in2": BigInt(2**256) - 3n,
-  },
-  {
-    "in1": BigInt(2**256) - 7n,
-    "in2": BigInt(2**256) - 3n
-  },
-  {
-    "in1": BigInt(2**256) - 3n,
-    "in2": BigInt(2**256) - 7n,
-  },
-  {
-    "in1": 100n,
-    "in2": 0n,
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": 0n,
-  },
-  {
-    "in1": BigInt(2**255),
-    "in2": 2n**256n - 1n,
-  },
-]
+const mul_out = Array.from({ length: NTestSamples }, (_, i) =>
+  (in1[i] * in2[i]) % modulus
+);
+const mul = { in1: [...in1], in2: [...in2], out1: [...mul_out] };
 
-const addmod = [
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(10),
-    "in3": BigInt(2**128) + BigInt(10)
-  },
-  {
-    "in1": BigInt(2**128) - BigInt(1),
-    "in2": BigInt(2**128) + BigInt(10),
-    "in3": BigInt(2**128) + BigInt(10)
-  },
-  {
-    "in1": BigInt(2**128) + BigInt(10),
-    "in2": BigInt(2**128) + BigInt(10),
-    "in3": BigInt(2**128) + BigInt(10),
-  },
-  {
-    "in1": BigInt(2**250) + BigInt(10),
-    "in2": BigInt(2**128) + BigInt(10),
-    "in3": BigInt(2**128) + BigInt(10),
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": 0n,
-    "in3": BigInt(2**128) + BigInt(10),
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(0),
-    "in3": BigInt(3),
-  },
-  {
-    "in1": BigInt(7),
-    "in2": BigInt(7),
-    "in3": BigInt(3),
-  },
-  {
-    "in1": BigInt(7) * BigInt(2**128) + BigInt(2**128) - BigInt(1),
-    "in2": BigInt(7) * BigInt(2**128) + BigInt(2**128) - BigInt(1),
-    "in3": BigInt(3)
-  },
-  {
-    "in1": BigInt(7) * BigInt(2**128) + BigInt(1),
-    "in2": BigInt(7) * BigInt(2**128) + BigInt(1),
-    "in3": BigInt(3)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(2**256) - BigInt(1),
-    "in3": BigInt(3)
-  },
+const sub_out = Array.from({ length: NTestSamples }, (_, i) =>
+  (in1[i] - in2[i]) % modulus
+);
+const sub = { in1: [...in1], in2: [...in2], out1: [...sub_out] };
 
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(0),
-    "in3": BigInt(0)
-  },
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(0),
-    "in3": BigInt(0)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(0),
-    "in3": BigInt(10)
-  },
-  {
-    "in1": BigInt(10) * BigInt(2**128),
-    "in2": BigInt(10) * BigInt(2**128),
-    "in3": BigInt(0)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(0),
-    "in3": BigInt(10) * BigInt(2**128),
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(2),
-    "in3": BigInt(10)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(2**10),
-    "in2": BigInt(2**256) - BigInt(1),
-    "in3": BigInt(1111)
-  },
-  {
-    "in1": BigInt(2**100),
-    "in2": BigInt(2**123),
-    "in3": BigInt(2**130) - BigInt(123)
-  },
-  {
-    "in1": BigInt(2**255),
-    "in2": BigInt(2**255),
-    "in3": BigInt(2**200) - BigInt(11111)
-  },
-]
+const div_out = Array.from({ length: NTestSamples }, (_, i) =>
+  in2[i] === 0n ? 0n : in1[i] / in2[i]
+);
+const div = { in1: [randomNByteBigInt(32), ...in1], in2: [0n, ...in2], out1: [0n, ...div_out] };
 
-const mulmod = [
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(10),
-    "in3": BigInt(2**128) + BigInt(10)
-  },
-  {
-    "in1": BigInt(2**128) - BigInt(1),
-    "in2": BigInt(2**128) + BigInt(10),
-    "in3": BigInt(2**128) + BigInt(10)
-  },
-  {
-    "in1": BigInt(2**128) + BigInt(10),
-    "in2": BigInt(2**128) + BigInt(10),
-    "in3": BigInt(2**128) + BigInt(10),
-  },
-  {
-    "in1": BigInt(2**250) + BigInt(10),
-    "in2": BigInt(2**128) + BigInt(10),
-    "in3": BigInt(2**128) + BigInt(10),
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": 0n,
-    "in3": BigInt(2**128) + BigInt(10),
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(0),
-    "in3": BigInt(3),
-  },
-  {
-    "in1": BigInt(7),
-    "in2": BigInt(7),
-    "in3": BigInt(3),
-  },
-  {
-    "in1": BigInt(7) * BigInt(2**128) + BigInt(2**128) - BigInt(1),
-    "in2": BigInt(7) * BigInt(2**128) + BigInt(2**128) - BigInt(1),
-    "in3": BigInt(3)
-  },
-  {
-    "in1": BigInt(7) * BigInt(2**128) + BigInt(1),
-    "in2": BigInt(7) * BigInt(2**128) + BigInt(1),
-    "in3": BigInt(3)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(2**256) - BigInt(1),
-    "in3": BigInt(3)
-  },
+const sdiv_out = Array.from({ length: NTestSamples }, (_, i) => {
+  const a = in1[i] < modulus / 2n ? in1[i] : in1[i] - modulus;
+  const b = in2[i] < modulus / 2n ? in2[i] : in2[i] - modulus;
+  if (b === 0n) return 0n;
+  const q = (a < 0n !== b < 0n) ? -(abs(a) / abs(b)) : abs(a) / abs(b);
+  return (q + modulus) % modulus;
+});
+const sdiv = { in1: [randomNByteBigInt(32), ...in1], in2: [0n, ...in2], out1: [0n, ...sdiv_out] };
 
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(0),
-    "in3": BigInt(0)
-  },
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(0),
-    "in3": BigInt(0)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(0),
-    "in3": BigInt(10)
-  },
-  {
-    "in1": BigInt(10) * BigInt(2**128),
-    "in2": BigInt(10) * BigInt(2**128),
-    "in3": BigInt(0)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(0),
-    "in3": BigInt(10) * BigInt(2**128),
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(2),
-    "in3": BigInt(10)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(2**10),
-    "in2": BigInt(2**256) - BigInt(1),
-    "in3": BigInt(1111)
-  },
-  {
-    "in1": BigInt(2**100),
-    "in2": BigInt(2**123),
-    "in3": BigInt(2**130) - BigInt(123)
-  },
-  {
-    "in1": BigInt(2**255),
-    "in2": BigInt(2**255),
-    "in3": BigInt(2**200) - BigInt(11111)
-  },
-]
+const mod_out = Array.from({ length: NTestSamples }, (_, i) =>
+  in2[i] === 0n ? 0n : in1[i] % in2[i]
+);
+const mod = { in1: [randomNByteBigInt(32), ...in1], in2: [0n, ...in2], out1: [0n, ...mod_out] };
 
-const exp = [
-  {
-    "in1": BigInt(2),
-    "in2": BigInt(0)
-  },
-  {
-    "in1": BigInt(2),
-    "in2": BigInt(10)
-  },
-  {
-    "in1": BigInt(2),
-    "in2": BigInt(100)
-  },
-  {
-    "in1": BigInt(2),
-    "in2": BigInt(128)
-  },
-  {
-    "in1": BigInt(2),
-    "in2": BigInt(255)
-  },
-  {
-    "in1": BigInt(7),
-    "in2": BigInt(0)
-  },
-  {
-    "in1": BigInt(7),
-    "in2": BigInt(10)
-  },
-  {
-    "in1": BigInt(7),
-    "in2": BigInt(100)
-  },
-  {
-    "in1": BigInt(7),
-    "in2": BigInt(110)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(10)
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": BigInt(0)
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": BigInt(1)
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": BigInt(2)
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": BigInt(100)
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": BigInt(128)
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": BigInt(255)
-  },
-  {
-    "in1": BigInt(2**128) + BigInt(1),
-    "in2": BigInt(2)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(10)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(0)
-  },
-]
+const smod_out = Array.from({ length: NTestSamples }, (_, i) => {
+  const a = in1[i] < modulus / 2n ? in1[i] : in1[i] - modulus;
+  const b = in2[i] < modulus / 2n ? in2[i] : in2[i] - modulus;
+  if (b === 0n) return 0n;
+  const r = abs(a) % abs(b);
+  const signed = a < 0n ? -r : r;
+  return (signed + modulus) % modulus;
+});
+const smod = { in1: [randomNByteBigInt(32), ...in1], in2: [0n, ...in2], out1: [0n, ...smod_out] };
 
-const subexp = [
-  {
-    "c_prev": 0n,
-    "a_prev": 0n,
-    "b": 0n,
-  },
-  {
-    "c_prev": 0n,
-    "a_prev": 0n,
-    "b": 1n,
-  },
-  {
-    "c_prev": 0n,
-    "a_prev": 1n,
-    "b": 0n,
-  },
-  {
-    "c_prev": 0n,
-    "a_prev": 1n,
-    "b": 1n,
-  },
-  {
-    "c_prev": 1n,
-    "a_prev": 0n,
-    "b": 0n,
-  },
-  {
-    "c_prev": 1n,
-    "a_prev": 0n,
-    "b": 1n,
-  },
-  {
-    "c_prev": 1n,
-    "a_prev": 1n,
-    "b": 0n,
-  },
-  {
-    "c_prev": 1n,
-    "a_prev": 1n,
-    "b": 1n,
-  },
-  {
-    "c_prev": 3n,
-    "a_prev": 2n,
-    "b": 1n,
-  },
-  {
-    "c_prev": 3n,
-    "a_prev": 2n,
-    "b": 0n,
-  },
-  {
-    "c_prev": 79307445816451805851365181209357760720539584842636925064515918291782772015283n,
-    "a_prev": 68982677485738143007635082075378790226422481181846051008067279080312775283603n,
-    "b": 0n,
-  },
-  {
-    "c_prev": 19919471428995712098664454943189411347638626288585453107793261732047004488933n,
-    "a_prev": 49541943135053843434197449734201053093077012989071644887563885261448905873522n,
-    "b": 1n,
-  },
-  {
-    "c_prev": BigInt(2^256-2),
-    "a_prev": BigInt(2^256-2),
-    "b": 1n,
-  },
-  {
-    "c_prev": BigInt(2^256-2),
-    "a_prev": BigInt(2^256-2),
-    "b": 0n,
-  }
-]
+const addmod_out = Array.from({ length: NTestSamples }, (_, i) =>
+  in3[i] === 0n ? 0n : (in1[i] + in2[i]) % in3[i]
+);
+const addmod = { in1: [randomNByteBigInt(32), ...in1], in2: [randomNByteBigInt(32), ...in2], in3: [0n, ...in3], out1: [0n, ...addmod_out] };
 
-const signextend = [
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(0xf077fF)
-  },
-  {
-    "in1": BigInt(1),
-    "in2": BigInt(0xf077fF)
-  },
-  {
-    "in1": BigInt(2),
-    "in2": BigInt(0xf077fF)
-  },
-  {
-    "in1": BigInt(15),
-    "in2": BigInt(0xf077fF)
-  },
-  {
-    "in1": BigInt(16),
-    "in2": BigInt(0xf077fF)
-  },
-  {
-    "in1": BigInt(29),
-    "in2": BigInt(0xf077fF)
-  },
-  {
-    "in1": BigInt(30),
-    "in2": BigInt(0xf077fF)
-  },
-  {
-    "in1": BigInt(31),
-    "in2": BigInt(0xf077fF)
-  },
-  {
-    "in1": BigInt(32),
-    "in2": BigInt(0xf077fF)
-  },
-  {
-    "in1": BigInt(200),
-    "in2": BigInt(0xf077fF)
-  },
-  {
-    "in1": BigInt(10000),
-    "in2": BigInt(0xf077fF)
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(2**255) + BigInt("0xf077fF")
-  },
-  {
-    "in1": BigInt(15),
-    "in2": BigInt(2**255) + BigInt("0xf077fF")
-  },
-  {
-    "in1": BigInt(16),
-    "in2": BigInt(2**255) + BigInt("0xf077fF")
-  },
-  {
-    "in1": BigInt(29),
-    "in2": BigInt(2**255) + BigInt("0xf077fF")
-  },
-  {
-    "in1": BigInt(30),
-    "in2": BigInt(2**255) + BigInt("0xf077fF")
-  },
-  {
-    "in1": BigInt(31),
-    "in2": BigInt(2**255) + BigInt("0xf077fF")
-  },
-  {
-    "in1": BigInt(0),
-    "in2": (BigInt("0xf077fF") << 128n) + BigInt("0xf077fF")
-  },
-  {
-    "in1": BigInt(15),
-    "in2": (BigInt("0xf077fF") << 128n) + BigInt("0xf077fF")
-  },
-  {
-    "in1": BigInt(16),
-    "in2": (BigInt("0xf077fF") << 128n) + BigInt("0xf077fF")
-  },
-  {
-    "in1": BigInt(17),
-    "in2": (BigInt("0xf077fF") << 128n) + BigInt("0xf077fF")
-  },
-  {
-    "in1": BigInt(31),
-    "in2": (BigInt("0xf077fF") << 128n) + BigInt("0xf077fF")
-  },
-  {
-    "in1": BigInt(32),
-    "in2": (BigInt("0xf077fF") << 128n) + BigInt("0xf077fF")
-  },
-  {
-    "in1": BigInt(100),
-    "in2": (BigInt("0xf077fF") << 128n) + BigInt("0xf077fF")
-  },
-]
+const mulmod_out = Array.from({ length: NTestSamples }, (_, i) =>
+  in3[i] === 0n ? 0n : (in1[i] * in2[i]) % in3[i]
+);
+const mulmod = { in1: [randomNByteBigInt(32), ...in1], in2: [randomNByteBigInt(32), ...in2], in3: [0n, ...in3], out1: [0n, ...mulmod_out] };
 
-const lt = [
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(100)
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": BigInt(2**128) + BigInt(1)
-  },
-  {
-    "in1": BigInt(2**254),
-    "in2": BigInt(2**253) + BigInt(1)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(2**255)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(1)
-  },
-]
+const sub_exp_out1 = Array.from({ length: NTestSamples }, (_, i) => {
+  const c_prev = in1[i];
+  const a_prev = in2[i];
+  const b = in3_binary[i];
+  const c_next = (c_prev * (a_prev * b + (1n-b))) % N;
+  return c_next
+});
+const sub_exp_out2 = Array.from({ length: NTestSamples }, (_, i) => {
+  const a_prev = in2[i];
+  const a_next = (a_prev * a_prev) % N;
+  return a_next
+});
+const sub_exp = { in1: [...in1], in2: [...in2], in3: [...in3_binary], out1: [...sub_exp_out1], out2: [...sub_exp_out2] };
 
-const gt = [
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(100)
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": BigInt(2**128) + BigInt(1)
-  },
-  {
-    "in1": BigInt(2**254),
-    "in2": BigInt(2**253) + BigInt(1)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(2**255)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(1)
-  },
-]
+const signextend_out = Array.from({ length: NTestSamples }, (_, i) => {
+  const k = in1_small[i];
+  const x = in2[i];
+  if (k >= 31n) return x;
+  const bit_length = 8n * (k + 1n);
+  const sign_tester = 1n << (bit_length - 1n);
+  const x_mask = (1n << bit_length) - 1n;
+  const masked_x = x & x_mask;
+  return masked_x & sign_tester ? ( masked_x | (~x_mask & (modulus - 1n)) ) : masked_x;
+});
+const signextend = { in1: [...in1_small], in2: [...in2], out1: [...signextend_out] };
 
-const slt = [
-  {
-    "in1": BigInt(1),
-    "in2": BigInt(200)
-  },
-  {
-    "in1": BigInt(1000),
-    "in2": BigInt(200)
-  },
-  {
-    "in1": BigInt(2**254),
-    "in2": BigInt(2**256) - BigInt(1)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(2**254),
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(200)
-  },
-  {
-    "in1": BigInt(200),
-    "in2": BigInt(2**256) - BigInt(1),
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(2**256) - BigInt(10)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(10),
-    "in2": BigInt(2**256) - BigInt(1),
-  },
-]
+const lt_out = Array.from({ length: NTestSamples }, (_, i) =>
+  in1[i] < in2[i] ? 1n : 0n
+);
+const lt = { in1: [...in1], in2: [...in2], out1: [...lt_out] };
 
-const sgt = [
-  {
-    "in1": BigInt(1),
-    "in2": BigInt(200)
-  },
-  {
-    "in1": BigInt(1000),
-    "in2": BigInt(200)
-  },
-  {
-    "in1": BigInt(2**254),
-    "in2": BigInt(2**256) - BigInt(1)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(2**254),
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(200)
-  },
-  {
-    "in1": BigInt(200),
-    "in2": BigInt(2**256) - BigInt(1),
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(2**256) - BigInt(10)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(10),
-    "in2": BigInt(2**256) - BigInt(1),
-  },
-]
+const gt_out = Array.from({ length: NTestSamples }, (_, i) =>
+  in1[i] > in2[i] ? 1n : 0n
+);
+const gt = { in1: [...in1], in2: [...in2], out1: [...gt_out] };
 
-const eq = [
-  {
-    "in1": BigInt(100),
-    "in2": BigInt(100)
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": BigInt(2**128)
-  },
-  {
-    "in1": BigInt(2**254),
-    "in2": BigInt(2)
-  },
-  {
-    "in1": BigInt(30),
-    "in2": BigInt(30 * 2**128)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(1)
-  },
-]
+const slt_out = Array.from({ length: NTestSamples }, (_, i) => {
+  const a = in1[i] < modulus / 2n ? in1[i] : in1[i] - modulus;
+  const b = in2[i] < modulus / 2n ? in2[i] : in2[i] - modulus;
+  return a < b ? 1n : 0n;
+});
+const slt = { in1: [...in1], in2: [...in2], out1: [...slt_out] };
 
-const iszero = [
-  {
-    "in": BigInt(0)
-  },
-  {
-    "in": BigInt(2**128)
-  },
-  {
-    "in": BigInt(2**254)
-  },
-  {
-    "in": BigInt(2**256) - BigInt(1)
-  }
-]
+const sgt_out = Array.from({ length: NTestSamples }, (_, i) => {
+  const a = in1[i] < modulus / 2n ? in1[i] : in1[i] - modulus;
+  const b = in2[i] < modulus / 2n ? in2[i] : in2[i] - modulus;
+  return a > b ? 1n : 0n;
+});
+const sgt = { in1: [...in1], in2: [...in2], out1: [...sgt_out] };
 
-const and = [
-  {
-    "in1": BigInt(100),
-    "in2": BigInt(100)
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": BigInt(0)
-  },
-  {
-    "in1": BigInt(2**254),
-    "in2": BigInt(2)
-  },
-  {
-    "in1": BigInt(30),
-    "in2": BigInt(30 * 2**128)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(200)
-  },
-]
+const eq_out = Array.from({ length: NTestSamples }, (_, i) =>
+  in1[i] === in2[i] ? 1n : 0n
+);
+const eq = { in1: [...in1], in2: [...in2], out1: [...eq_out] };
 
-const or = [
-  {
-    "in1": BigInt(100),
-    "in2": BigInt(100)
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": BigInt(0)
-  },
-  {
-    "in1": BigInt(2**254),
-    "in2": BigInt(2)
-  },
-  {
-    "in1": BigInt(30),
-    "in2": BigInt(30 * 2**128)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(200)
-  },
-]
+const iszero_out = Array.from({ length: NTestSamples }, (_, i) =>
+  in1[i] === 0n ? 1n : 0n
+);
+const iszero = { in1: [...in1], out1: [...iszero_out] };
 
-const xor = [
-  {
-    "in1": BigInt(100),
-    "in2": BigInt(100)
-  },
-  {
-    "in1": BigInt(2**128),
-    "in2": BigInt(0)
-  },
-  {
-    "in1": BigInt(2**254),
-    "in2": BigInt(2)
-  },
-  {
-    "in1": BigInt(30),
-    "in2": BigInt(30 * 2**128)
-  },
-  {
-    "in1": BigInt(2**256) - BigInt(1),
-    "in2": BigInt(200)
-  },
-]
+const and_out = Array.from({ length: NTestSamples }, (_, i) =>
+  in1[i] & in2[i]
+);
+const and = { in1: [...in1], in2: [...in2], out1: [...and_out] };
 
-const not = [
-  {
-    "in": BigInt(100)
-  },
-  {
-    "in": BigInt(0)
-  },
-  {
-    "in": BigInt(2**254)
-  },
-  {
-    "in": BigInt(30)
-  },
-  {
-    "in": BigInt(2**256) - BigInt(1)
-  },
-]
+const or_out = Array.from({ length: NTestSamples }, (_, i) =>
+  in1[i] | in2[i]
+);
+const or = { in1: [...in1], in2: [...in2], out1: [...or_out]};
 
-const byte = [
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(0x12345678),
-  },
-  {
-    "in1": BigInt(31),
-    "in2": BigInt(0x12345678),
-  },
-  {
-    "in1": BigInt(32),
-    "in2": BigInt(0x12345678),
-  },
-  {
-    "in1": BigInt(2**256 - 1),
-    "in2": BigInt(0x12345678),
-  },
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(0x12345678) * BigInt(2**128),
-  },
-  {
-    "in1": BigInt(12),
-    "in2": BigInt(0x12345678) * BigInt(2**128),
-  },
-  {
-    "in1": BigInt(15),
-    "in2": BigInt(0x12345678) * BigInt(2**128),
-  },
-  {
-    "in1": BigInt(16),
-    "in2": BigInt(0x12345678) * BigInt(2**128),
-  },
-  {
-    "in1": BigInt(28),
-    "in2":BigInt(0x12345678) * BigInt(2**128),
-  },
-]
+const xor_out = Array.from({ length: NTestSamples }, (_, i) =>
+  in1[i] ^ in2[i]
+);
+const xor = { in1: [...in1], in2: [...in2], out1: [...xor_out]};
 
-const shl = [
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(2**10),
-  },
-  {
-    "in1": BigInt(1),
-    "in2": BigInt(2**128),
-  },
-  {
-    "in1": BigInt(500),
-    "in2": BigInt(3**30),
-  },
-  {
-    "in1": BigInt(50),
-    "in2": BigInt(7),
-  },
-  {
-    "in1": BigInt(128),
-    "in2": BigInt(2**128) - BigInt(1),
-  },
-  {
-    "in1": BigInt(200),
-    "in2": BigInt(2**250) - BigInt(1),
-  },
-]
+const not_out = Array.from({ length: NTestSamples }, (_, i) =>
+  (~in1[i]) & (modulus - 1n)
+);
+const not = { in1: [...in1], out1: [...not_out] };
 
-const shr = [
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(2**10),
-  },
-  {
-    "in1": BigInt(1),
-    "in2": BigInt(2**128),
-  },
-  {
-    "in1": BigInt(500),
-    "in2": BigInt(3**30),
-  },
-  {
-    "in1": BigInt(50),
-    "in2": BigInt(7),
-  },
-  {
-    "in1": BigInt(128),
-    "in2": BigInt(2**128) - BigInt(1),
-  },
-  {
-    "in1": BigInt(200),
-    "in2": BigInt(2**250) - BigInt(1),
-  },
-]
+const byte_out = Array.from({ length: NTestSamples }, (_, i) => {
+  if (in1_small[i] >= 32n) return 0n;
+  const shift = 248n - 8n * in1_small[i];
+  return (in2[i] >> shift) & 0xffn;
+});
+const byte = { in1: [...in1_small], in2: [...in2], out1: [...byte_out] };
 
-const sar = [
-  {
-    "in1": BigInt(0),
-    "in2": BigInt(2**255),
-  },
-  {
-    "in1": BigInt(64),
-    "in2": BigInt(2**255),
-  },
-  {
-    "in1": BigInt(128),
-    "in2": BigInt(2**255),
-  },
-  {
-    "in1": BigInt(196),
-    "in2": BigInt(2**255),
-  },
-  {
-    "in1": BigInt(256),
-    "in2": BigInt(2**255),
-  },
-  {
-    "in1": BigInt(1),
-    "in2": BigInt(2**128),
-  },
-  {
-    "in1": BigInt(500),
-    "in2": BigInt(3**30),
-  },
-  {
-    "in1": BigInt(10),
-    "in2": BigInt(2**256) - BigInt(1),
-  },
-  {
-    "in1": BigInt(255),
-    "in2": BigInt(2**256) - BigInt(1),
-  },
-  {
-    "in1": BigInt(256),
-    "in2": BigInt(2**256) - BigInt(1),
-  },
-  {
-    "in1": BigInt(128),
-    "in2": BigInt(2**128) - BigInt(1),
-  },
-  {
-    "in1": BigInt(200),
-    "in2": BigInt(2**255) - BigInt(1),
-  },
-]
+const shl_out = Array.from({ length: NTestSamples }, (_, i) => {
+  const shift = in1_small[i];
+  return (in2[i] << shift) % modulus;
+});
+const shl = { in1: [...in1_small], in2: [...in2], out1: [...shl_out] };
+
+const shr_out = Array.from({ length: NTestSamples }, (_, i) => {
+  const shift = in1_small[i];
+  return in2[i] >> shift;
+});
+const shr = { in1: [...in1_small], in2: [...in2], out1: [...shr_out] };
+
+const sar_out = Array.from({ length: NTestSamples }, (_, i) => {
+  const shift = in1_small[i];
+  const x = in2[i] < modulus / 2n ? in2[i] : in2[i] - modulus;
+  const shifted = x >> shift;
+  return (shifted + modulus) % modulus;
+});
+const sar = { in1: [...in1_small], in2: [...in2], out1: [...sar_out] };
 
 module.exports = {
+  NTestSamples,
   add,
   mul,
   sub,
@@ -1267,8 +200,7 @@ module.exports = {
   smod,
   addmod,
   mulmod,
-  exp,
-  subexp,
+  sub_exp,
   signextend,
   lt,
   gt,
