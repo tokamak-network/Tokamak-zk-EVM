@@ -70,11 +70,11 @@ export const synthesizerArith = (
 
   for (let i = 0; i < ins.length; i++) {
     if (inPts[i].value !== ins[i]) {
-      const stackValue = BigInt(inPts[i].value)
-      const inputValue = BigInt(ins[i])
-      console.log(`Value mismatch at index ${i}:`)
-      console.log(`Stack value: ${stackValue}`)
-      console.log(`Input value: ${inputValue}`)
+      // const stackValue = BigInt(inPts[i].value)
+      // const inputValue = BigInt(ins[i])
+      // console.log(`Value mismatch at index ${i}:`)
+      // console.log(`Stack value: ${stackValue}`)
+      // console.log(`Input value: ${inputValue}`)
       throw new Error(`Synthesizer: ${op}: Input data mismatch`)
     }
   }
