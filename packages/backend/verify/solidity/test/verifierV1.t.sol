@@ -3,6 +3,8 @@ pragma solidity ^0.8.23;
 
 import {Test} from "forge-std/Test.sol";
 import {VerifierV1} from "../src/VerifierV1.sol";
+import {VerifierV2} from "../src/VerifierV2.sol";
+
 import "forge-std/console.sol";
 
 contract testTokamakVerifier is Test {
@@ -21,99 +23,100 @@ contract testTokamakVerifier is Test {
         // serializedProofPart2: Last 32 bytes (64 hex chars) of each coordinate
 
         // SERIALIZED PROOF PART 1 (First 16 bytes)
-        serializedProofPart1.push(0x0a7522841d458f62af27437cb5244f59); // s^{(0)}(x,y)_X
-        serializedProofPart1.push(0x0ce2fcf4d137e6aec9a37a551d1d0a5e); // s^{(0)}(x,y)_Y
-        serializedProofPart1.push(0x02412f1fbf10874e464b79b533a49f8a); // s^{(1)}(x,y)_X
-        serializedProofPart1.push(0x0b99f633381e1e8f6c8e8e8e7bdd7720); // s^{(1)}(x,y)_Y      
-        serializedProofPart1.push(0x11844befc6048859163e6691de5240bd); // U_X
-        serializedProofPart1.push(0x18f2009f3621bdd2e63b21dbd3a5f608); // U_Y       
-        serializedProofPart1.push(0x03761eeb1a06cc4cc6eb1c36e51a15a3); // V_X
-        serializedProofPart1.push(0x185fe7b4060fee9b8017c332eed51352); // V_Y
-        serializedProofPart1.push(0x1101d4f194eb8f1a9ff4bff39be4fd07); // W_X 
-        serializedProofPart1.push(0x1884a078d7b494ef1743d9719eda1c54); // W_Y
-        serializedProofPart1.push(0x020155b34880e04e86ebee7277cfc7b0); // O_mid_X
-        serializedProofPart1.push(0x0bf3323a94d4ceace86f0418f6ba41e8); // O_mid_Y
-        serializedProofPart1.push(0x06b64c03e8df9d31d36a7728bba031f5); // O_prv_X 
-        serializedProofPart1.push(0x036d82bf851b8e1ede44983e1a756d96); // O_prv_Y
-        serializedProofPart1.push(0x188314f3bc9acab369704c5a7df5040d); // Q_{AX}_X
-        serializedProofPart1.push(0x06326eb6df441c795871c71358b10ba9); // Q_{AX}_Y
-        serializedProofPart1.push(0x0e2741d654689a399cc9362fb923b97d); // Q_{AY}_X
-        serializedProofPart1.push(0x072d214a9b5b7ebb2059cdf5e6ea6034); // Q_{AY}_Y
-        serializedProofPart1.push(0x08c66e8b65767f9010051f5c8f1f0bc9); // Q_{CX}_X
-        serializedProofPart1.push(0x0f335226a9ed0987fad946dc3d6d797d); // Q_{CX}_Y
-        serializedProofPart1.push(0x148a2cab790432fe858ca981c33e6722); // Q_{CY}_X
-        serializedProofPart1.push(0x19c4865744ccc2b20f31400a7868b3c8); // Q_{CY}_Y
-        serializedProofPart1.push(0x0bfa50ac94eeae7540b3fa9662650945); // Π_{χ}_X
-        serializedProofPart1.push(0x14963375bf1bb19c758dc697cc97c002); // Π_{χ}_Y
-        serializedProofPart1.push(0x150d49e3ab2a63b7709a9847f4a616d5); // Π_{ζ}_X
-        serializedProofPart1.push(0x056df4b23377f7e8f3d18134e13ba44e); // Π_{ζ}_Y
-        serializedProofPart1.push(0x0df5ac46da7f5456a31301bca31c7f71); // B_X
-        serializedProofPart1.push(0x06224fbdff5aab4c8cb494913523300d); // B_Y
-        serializedProofPart1.push(0x1222802627381f919dcbfd9e974173cc); // R_X
-        serializedProofPart1.push(0x12d56e74e425eaa60c6637a488dfb44c); // R_Y
-        serializedProofPart1.push(0x147b30140a3475396e4d8af5b3a70fe2); // M_ζ_X
-        serializedProofPart1.push(0x19d9b7789c511ff3e0ff84b0f6c4723f); // M_ζ_Y
-        serializedProofPart1.push(0x0195fb6b8d61fa0a8e101752784c42a3); // M_χ_X
-        serializedProofPart1.push(0x08109b15f36060f24af20b6f95d79486); // M_χ_Y
-        serializedProofPart1.push(0x0651ae695dc0988f976bcd5160ae35b3); // N_ζ_X
-        serializedProofPart1.push(0x0a4030be32e87953fbb3a50a88427c74); // N_ζ_Y
-        serializedProofPart1.push(0x0195fb6b8d61fa0a8e101752784c42a3); // N_χ_X
-        serializedProofPart1.push(0x08109b15f36060f24af20b6f95d79486); // N_χ_Y
-        serializedProofPart1.push(0x1927909bdd7428945e0cf005d56da9c6); // O_pub_X
-        serializedProofPart1.push(0x05d348b8f08a05c622f6f4da9923c501); // O_pub_Y
-        serializedProofPart1.push(0x0e6aabe11a92c32023ceb5c85b89b659); // A_X
-        serializedProofPart1.push(0x16291dafb2d4df703cff9bfcae1d3494); // A_Y
+        serializedProofPart1.push(0x077c80356d88deb5ebe84fb95a81abe9); // s^{(0)}(x,y)_X
+        serializedProofPart1.push(0x13813c6ee01fd65e40c264448804ca5c); // s^{(0)}(x,y)_Y
+        serializedProofPart1.push(0x09fab082bd8ea9ad40d86ae3d136fb29); // s^{(1)}(x,y)_X
+        serializedProofPart1.push(0x15e2520871889bdb334f70ee1e911d3a); // s^{(1)}(x,y)_Y      
+        serializedProofPart1.push(0x0390a1fc2751ddba4d4a312efe6b3f27); // U_X
+        serializedProofPart1.push(0x111e07280ab0d318dd92d59562fd14ff); // U_Y       
+        serializedProofPart1.push(0x135926d87d79dbff068243125ae93573); // V_X
+        serializedProofPart1.push(0x1382b8fffe7e841a27247a168b64931e); // V_Y
+        serializedProofPart1.push(0x1870053ca5509160d73191431358dafa); // W_X 
+        serializedProofPart1.push(0x191552c7705ef59f52b90ff03d2c53f7); // W_Y
+        serializedProofPart1.push(0x0bd5b6caea13491f31b90a0abe02b796); // O_mid_X
+        serializedProofPart1.push(0x0778be8eb4de8c0083190fce602b1ea5); // O_mid_Y
+        serializedProofPart1.push(0x0041d56a3ddc6a8a58290dac5ebf7f16); // O_prv_X 
+        serializedProofPart1.push(0x1976d107b27d1a0b4e633907c37cbea9); // O_prv_Y
+        serializedProofPart1.push(0x02db0a30f99d2a2a476e56c701ebf493); // Q_{AX}_X
+        serializedProofPart1.push(0x07dbee3f1022a59fa066c41cb7c63f3b); // Q_{AX}_Y
+        serializedProofPart1.push(0x07a93d7a2a8f7eddaba53f7058ec7e6b); // Q_{AY}_X
+        serializedProofPart1.push(0x023806dd920eb142d8c7dbd01deddd30); // Q_{AY}_Y
+        serializedProofPart1.push(0x1996c0881cf1c89cec49f9b87545e8c0); // Q_{CX}_X
+        serializedProofPart1.push(0x0185320d21e78722d0c1989758ebffa8); // Q_{CX}_Y
+        serializedProofPart1.push(0x032d03a45e7660e25dc8791302ba2d0a); // Q_{CY}_X
+        serializedProofPart1.push(0x037517d765f39d24cb621e0c884f5625); // Q_{CY}_Y
+        serializedProofPart1.push(0x0651267aa2dfc2cf245e54537f20c028); // Π_{χ}_X
+        serializedProofPart1.push(0x0350257ef37b189ccdf64e777bdfe4e8); // Π_{χ}_Y
+        serializedProofPart1.push(0x15be07817e12b9ae4b393e838b173d94); // Π_{ζ}_X
+        serializedProofPart1.push(0x090c4b6bcfa819cfbfe61db9559fb182); // Π_{ζ}_Y
+        serializedProofPart1.push(0x02d2e4a95854e0bba41f8be17c908323); // B_X
+        serializedProofPart1.push(0x123ca84bbd0440ad4d246abcb4143c4a); // B_Y
+        serializedProofPart1.push(0x140f65da72be0aa05d8f1971a8363832); // R_X
+        serializedProofPart1.push(0x081d4169cf849bf0836ce01dfe528fb3); // R_Y
+        serializedProofPart1.push(0x16e4948cfe232b8be317627831386272); // M_ζ_X
+        serializedProofPart1.push(0x11c12b8dd0d836ac0da3e193e5daff53); // M_ζ_Y
+        serializedProofPart1.push(0x112a41fa55af07699e3e5fb24555deac); // M_χ_X
+        serializedProofPart1.push(0x05b61bc9a7dc918646b502cb701eadeb); // M_χ_Y
+        serializedProofPart1.push(0x02309178a605d68e91305c5d000d8f85); // N_ζ_X
+        serializedProofPart1.push(0x11e3361adcc15ffe5b19a527e8be6f53); // N_ζ_Y
+        serializedProofPart1.push(0x112a41fa55af07699e3e5fb24555deac); // N_χ_X
+        serializedProofPart1.push(0x05b61bc9a7dc918646b502cb701eadeb); // N_χ_Y
+        serializedProofPart1.push(0x10f60eed2752ae69f770f10c41c879d0); // O_pub_X
+        serializedProofPart1.push(0x13a8e662cac04b1e7daf5faf8d769b64); // O_pub_Y
+        serializedProofPart1.push(0x037faccf42e7fcef469f22db2f44ef10); // A_X
+        serializedProofPart1.push(0x06e6ff0a5f92e820189a13e1dd43c2eb); // A_Y
 
-// SERIALIZED PROOF PART 2 (Last 32 bytes)
-        serializedProofPart2.push(0xae7cf86bb507cfe3a27b947941115c9ff58c2af7fb36d56dcfa52a54fe5cee36); // s^{(0)}(x,y)_X
-        serializedProofPart2.push(0x6e0ceb22eaffe99a8c1a4737716d595621d0c8c5c00905c2eb5b2437fd486faf); // s^{(0)}(x,y)_Y
-        serializedProofPart2.push(0x9ec2524960ce06c1189a7540763a2e17323c72866b53f9e59dfb1650fac283c4); // s^{(1)}(x,y)_X
-        serializedProofPart2.push(0x16b4696f4e7a4586d339c6fd7318d1131a35499b40666cfe7830fb273d3d8459); // s^{(1)}(x,y)_Y
-        serializedProofPart2.push(0x8f381a1a79cef342f99b79735c8bdcc9177baa25948e38508d36d49586c31623); // U_X
-        serializedProofPart2.push(0x7e1272baccaabfd94b6900dba4b958a8edc3a76718daefcbf79ebeda6cf6719b); // U_Y
-        serializedProofPart2.push(0xe699fb6eebe6db8a974ca8a45f559f487e8b4944f0e786d415077f2f743d5c32); // V_X
-        serializedProofPart2.push(0x33d800f6ebd6b5f6a3ccab23961794c3856db7b2bf43e797af5a3786866433fe); // V_Y
-        serializedProofPart2.push(0x3b4ced9cd9026ee7b1700ec58ec770328ac0163c536ea9fc764469a9ebf8a1fb); // W_X
-        serializedProofPart2.push(0x5e2a3ce48fdf63dd0c385d8d8115e170574ca2dc1f9742e57a0541cef17167de); // W_Y
-        serializedProofPart2.push(0x03564cf86115dd0a72f69cd72c1a581ea23f1aa90db8c404ef30f4856693ca19); // O_mid_X
-        serializedProofPart2.push(0xbbef3b2a66f76d40c3f42f464a6bce9efb151619fb8918b55ef7d410993ef899); // O_mid_Y
-        serializedProofPart2.push(0xbdeb03e80b731860c902c97c7ab47de7420c1f1257beefca1d5a9900cec51327); // O_prv_X 
-        serializedProofPart2.push(0xccfa83b124018ecd1a9419815b2e651896f7fe87b66f5bd2ffb4793975e25557); // O_prv_Y
-        serializedProofPart2.push(0x7870d1e4cdec2d999e971908ca56d648f56d4c418f6c42da69142815f6ff54a5); // Q_{AX}_X
-        serializedProofPart2.push(0xa830afff36f44737189a243e952a54205c6e5b4fde53c1f4199b6cb7fad5d365); // Q_{AX}_Y
-        serializedProofPart2.push(0x215d72829a2e7e7562c197e2ff6b9f6cffd634375ca5a98b8a97c2f363d2d720); // Q_{AY}_X
-        serializedProofPart2.push(0x4a062951da3a74d7914bd5af9d3eb24e94ede7de9ff1db83874aa48f3eb2c4ad); // Q_{AY}_Y
-        serializedProofPart2.push(0x558223b733c4aa49ef200ac1146ebb7c0013e9dc803b831cf0d9b9addeb723b5); // Q_{CX}_X
-        serializedProofPart2.push(0xdf5ab7964638d58e822c36ecc4edd602dc1c6462c38ce4c849109ed110f34255); // Q_{CX}_Y
-        serializedProofPart2.push(0xecfb3de5cc53a2db08055e816a8620cc04731a177dc31551cebe52e272f913e1); // Q_{CY}_X
-        serializedProofPart2.push(0x5a8e1687dfb1c0365ae82ccb13e77d44f617fc89465033d27dadc9cb0611fb80); // Q_{CY}_Y
-        serializedProofPart2.push(0x6d2c7e2d6a1aebee3ccaa7c8a9ee5f00903dffaec7f3e53480b4a3d16eeb5ed9); // Pi_X_X
-        serializedProofPart2.push(0xd3fa2bdc26344d0ddc367c9842fda51cc36e853fe3fd569e6b7b82cea56fc0f2); // Pi_X_Y
-        serializedProofPart2.push(0x6ad463a886bd2414604595aaf05c1c5bc5a724a3a6d23c2c5820a414acf7d545); // Pi_Y_X
-        serializedProofPart2.push(0xb701dfe4ae3e6014bf3a618526101f36ec5d2b712f880aa77c08c5bbb158dcae); // Pi_Y_Y
-        serializedProofPart2.push(0x7d2ce31f572429dca490fa2fa5d70d796a96e31fba41e42a412dbddbcb3fb3d9); // B_X
-        serializedProofPart2.push(0x40651840a2a5d0c0b4e449911e4eb66035c0b02ca8060222aadfba2397178c44); // B_Y
-        serializedProofPart2.push(0xba403ed624b1c50fc5710108e86c21a64344d91759797c65cd9f2763675586d5); // R_X
-        serializedProofPart2.push(0x56825343fe4e3692a7edd6f243500c2cf033dfdc7ce831c1f124d4be42cd771b); // R_Y
-        serializedProofPart2.push(0xd351b2f6822b74447cf37dc3d5da8121040c774eb6658133b5b2147baaff51f5); // M_Y_X
-        serializedProofPart2.push(0x07f5dcc6324122fcfb33c8453c89f3abaa12fd10b466d06ce7e30d6f014777af); // M_Y_Y
-        serializedProofPart2.push(0xf0edcdacb129dd81bd1291b2f56a2bb57f67019be823b98928603088426d5b20); // M_X_X
-        serializedProofPart2.push(0x158d2245790f315248f47c1232163b923b889ae1bc71be3df444b368077cadf9); // M_X_Y
-        serializedProofPart2.push(0x551c2df12590232edc31076606c9a618957ff372ef4ee56a66c54e68ad8ebc33); // N_Y_X
-        serializedProofPart2.push(0xfb34b18352d5e94706c9e694f30cd3619aa20293d5ee6a9d7b23b43313c222c6); // N_Y_Y
-        serializedProofPart2.push(0xf0edcdacb129dd81bd1291b2f56a2bb57f67019be823b98928603088426d5b20); // N_X_X
-        serializedProofPart2.push(0x158d2245790f315248f47c1232163b923b889ae1bc71be3df444b368077cadf9); // N_X_Y
-        serializedProofPart2.push(0x5c063927fb155d03861d86972a0f47cc123f4f83757f6868705f86b9f7d68505); // O_pub_X
-        serializedProofPart2.push(0x95cdf0a292654462c55a5487222839ad16bcaa628b8a1b065b5052ad872ea3c6); // O_pub_Y
-        serializedProofPart2.push(0x7d8141e56b71667356ea60db8e544bcd99985f127bae12a1dd9bfa2263796467); // A_X
-        serializedProofPart2.push(0xf25d2e7b476aa88bf520469f519c6ecccc9019668689f2e0ca7894bc2ccad975); // A_Y
+        // SERIALIZED PROOF PART 2 (Last 32 bytes)
+        serializedProofPart2.push(0xcf0f85b57b3b8d79b7f3de8c9751710285f679970092e49a4eea303ca2bcb002); // s^{(0)}(x,y)_X
+        serializedProofPart2.push(0xcd519447b8b7399f99b51dc18c47abae7a4bb20dfcec2ecc50a03aa620d1f4c0); // s^{(0)}(x,y)_Y
+        serializedProofPart2.push(0x6e571fd2aa48989a845e2803827d32c2115a885c9d5b41c94493ae42393306e5); // s^{(1)}(x,y)_X
+        serializedProofPart2.push(0xc637f91a0288f7453557dccb4b083650f0cc90452cfe372a50dc4c500e4c3252); // s^{(1)}(x,y)_Y
+        serializedProofPart2.push(0x2751350045c792dbd03b2f0f712d5d56db451d3637e2be8a3016b9bbae351e58); // U_X
+        serializedProofPart2.push(0x6a0ec8b3c2bed6ca73007d4092f77ed4b5feffb85b218483bb954f266f4edbb8); // U_Y
+        serializedProofPart2.push(0xd0356416e4ee5e6358895dcbeb600ca088bc11dbed27d4f1689ebdfe54668fe8); // V_X
+        serializedProofPart2.push(0xe826ff08eb490b675c839d6b0e8c6eaf0ffc99031cfc07ba9ea7f170565d0216); // V_Y
+        serializedProofPart2.push(0x197cc251eb3b14112e8f3b1da635f49a81c4dbef53bbd66c5ba4fd00209c2a89); // W_X
+        serializedProofPart2.push(0x148ffda5915af04cc219611c14c978307425f37c44966a035eb27cbf22dfc5b3); // W_Y
+        serializedProofPart2.push(0xa76091483b6027d02da753be3244280e1762834de867461c4af8549625e622a1); // O_mid_X
+        serializedProofPart2.push(0x968e8f27c53534229f6fe7a45d558844174e031c7799a1cfa42bf74d512944e4); // O_mid_Y
+        serializedProofPart2.push(0xa92454b13f231247c3d48f48e007b66a9686efc7fe7134c121d88de4da0e8771); // O_prv_X 
+        serializedProofPart2.push(0x11a0380996c4e947e34f58fd01dc6b9437a24144063058bf41366968988c5aeb); // O_prv_Y
+        serializedProofPart2.push(0x991eacc990d2138301284737ec10f7b050245f92d0063c6c151c1405ddc2b2b3); // Q_{AX}_X
+        serializedProofPart2.push(0x5ce432125c6c27399d11f0ee345c2b3fdecbe68ee8d3d5fee422d3d7bf268d7f); // Q_{AX}_Y
+        serializedProofPart2.push(0x3538f8b064bc50f1b0fa8c0b9cf3d4d0a8a5a89b36205c2c092630c20cb1fa72); // Q_{AY}_X
+        serializedProofPart2.push(0xa175b9a622e195340f9274c209e411e855a76e4d882af292ab508ce8c894a428); // Q_{AY}_Y
+        serializedProofPart2.push(0x7641ae7e7548a7da8887d063e925276902635a74433dfc8f0b6b9f75faab4c03); // Q_{CX}_X
+        serializedProofPart2.push(0xddc87446c7ea7e661ab47ffb3747e1a783bc8b730a7945f540191dadc72f5873); // Q_{CX}_Y
+        serializedProofPart2.push(0xe23f72c0febe2f96b2c9774de1d6d83d448e64d6eebbbb8d6b6c34bd4d91a7b2); // Q_{CY}_X
+        serializedProofPart2.push(0x99ad127dd35a5e74ad10584a8cbfb77f23958cd9cae3c2924f49d41bb97148a9); // Q_{CY}_Y
+        serializedProofPart2.push(0x224be1baef8c5d1613b4d84176e06f43dc030c9e238cc3ff554a38a5b4b683ff); // Pi_X_X
+        serializedProofPart2.push(0x274fb775f0f095b7a6d87af22bdcbaa0645fb57f70979c7515ed32acc00d364f); // Pi_X_Y
+        serializedProofPart2.push(0xefab506979b8f03f7fccbc5e74d1a081d56061bd9d1319dd48560f2b191b9b9c); // Pi_Y_X
+        serializedProofPart2.push(0x4fb92a8bd1a7cd22e242e315c645e0f7c2338aec1b86da5efab7b1805f4003ec); // Pi_Y_Y
+        serializedProofPart2.push(0xf14136568274d294c09b0f4efd62730559fee1efa5309bb1d64c55cd590135c4); // B_X
+        serializedProofPart2.push(0x092e6f9218c5953f0a0eeeca7a7df336c28809f44c8db725de9f300297d9ed56); // B_Y
+        serializedProofPart2.push(0x955743bb57bf6f5ac082a24c9f7951106d99883363c9bcd96ac83b6c709ed277); // R_X
+        serializedProofPart2.push(0x8c58fe30a4249102ed761572338afbd1a8169da814a9343ec7a6221cc4ffdab8); // R_Y
+        serializedProofPart2.push(0xd0a281775d883e236bd14fd34a72100d7785f2afc475e2a2b2f5c8809fd591bc); // M_Y_X
+        serializedProofPart2.push(0x8459de420453ed62170e6e13580882bfd8c27e56722c079e318c80639ca22d5e); // M_Y_Y
+        serializedProofPart2.push(0xa6dfba90dac2a966b5d8bd164092451b15236dd2e73651a2a1bbee07a9c219ae); // M_X_X
+        serializedProofPart2.push(0x72fda77ee321d9fc31ed7c39f9ec1522613277d5ad7676155386064897820a71); // M_X_Y
+        serializedProofPart2.push(0x01e3b0ba7fe4f66509200714daa9483dd156b08c800bbcfcf922f7504102ad54); // N_Y_X
+        serializedProofPart2.push(0xffd44d55fa21569200f070e17f4c76b59b4410c26c1f3abe5bf03874d3c6e433); // N_Y_Y
+        serializedProofPart2.push(0xa6dfba90dac2a966b5d8bd164092451b15236dd2e73651a2a1bbee07a9c219ae); // N_X_X
+        serializedProofPart2.push(0x72fda77ee321d9fc31ed7c39f9ec1522613277d5ad7676155386064897820a71); // N_X_Y
+        serializedProofPart2.push(0x0690b9da80233ee82fe221f9c7a0251c9fc193c97dff55bcebe77a34e78a257d); // O_pub_X
+        serializedProofPart2.push(0xc3e9a673161be659d97fa4efedbaa00a6c307b089cadede89ce9145e282b56ca); // O_pub_Y
+        serializedProofPart2.push(0x7893621690e58fc1bdf84ab8befbcad4ff5f6d4f1aecec3a169a4c7820c55a7c); // A_X
+        serializedProofPart2.push(0xc091ebad6e8d5e3a590ae8153490ebc1135eb38a2d6e6b296324c7be1641eb5d); // A_Y
 
         // evaluations
-        serializedProofPart2.push(0x2419edfac6e3f2978611c9154e97cfeed279b632385de5bd4fb21d2d1284e4d3); // R_eval
-        serializedProofPart2.push(0x07ea803e6db9b192abf7027aac9ba0c02da8a20c32d7d39816b5e1cd3718ba78); // R_omegaX_eval
-        serializedProofPart2.push(0x1c0cb23b89831997fd2b2a902b5249bb4a1bb09d4f662e4ef19bcd2be6093637); // R_omegaX_omegaY_eval
-        serializedProofPart2.push(0x13653e529610a57c1b93d9b1cb85bf08779d987e82b15f390baf78a5d95c879f); // V_eval
+        serializedProofPart2.push(0x1e82ea8dd3e27616ad00d5ba984411c80178dfa7d67312d7a5b4e41cf740739b); // R_eval
+        serializedProofPart2.push(0x4c08d01c225f4a335316e76c70cca30c0e3dc3c819bc11cc549aa48b74ad690e); // R_omegaX_eval
+        serializedProofPart2.push(0x30c54d986b78274933d3cbe26ab5b92b4556283358eb6414d70ff2e0a99b9dd8); // R_omegaX_omegaY_eval
+        serializedProofPart2.push(0x675e8d9efabde223e32f97f2cc54d311855a9e24ef3f24a7108344556c57efc6); // V_eval
 
+        // Elements 0-31
         publicInputs.push(0x00000000000000000000000000000000392a2d1a05288b172f205541a56fc20d);
         publicInputs.push(0x00000000000000000000000000000000000000000000000000000000c2c30e79);
         publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
@@ -130,6 +133,58 @@ contract testTokamakVerifier is Test {
         publicInputs.push(0x000000000000000000000000000000000000000000000000000000000ce8f6c9);
         publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
         publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+
+        // Elements 32-63 (all zeros)
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+
+        // Elements 64-71 (non-zero values)
         publicInputs.push(0x0000000000000000000000000000000020af07748adbb0932a59cfb9ad012354);
         publicInputs.push(0x00000000000000000000000000000000f903343320db59a6e85d0dbb1bc7d722);
         publicInputs.push(0x0000000000000000000000000000000020af07748adbb0932a59cfb9ad012354);
@@ -138,6 +193,55 @@ contract testTokamakVerifier is Test {
         publicInputs.push(0x0000000000000000000000000000000081f4f96b68c216b824fb32a8c09bd5a8);
         publicInputs.push(0x000000000000000000000000000000001f924fe321c5cf7ad7a47b57891fbcb0);
         publicInputs.push(0x0000000000000000000000000000000081f4f96b68c216b824fb32a8c09bd5a8);
+
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
+        publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
         publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
         publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
         publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
@@ -147,6 +251,7 @@ contract testTokamakVerifier is Test {
         publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
         publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
     }
+
     function testVerifier() public view {
         uint256 gasBefore = gasleft();
         bytes32 result = verifier.verify(serializedProofPart1, serializedProofPart2, publicInputs);

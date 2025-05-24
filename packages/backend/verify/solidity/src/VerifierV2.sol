@@ -11,7 +11,7 @@ import {IVerifier} from "./interface/IVerifier.sol";
 /// * Original Tokamak zkEVM Paper: https://eprint.iacr.org/2024/507.pdf
 /// The notation used in the code is the same as in the papers.
 /* solhint-enable max-line-length */
-contract VerifierV1 is IVerifier {
+contract VerifierV2 is IVerifier {
 
 
     /*//////////////////////////////////////////////////////////////
@@ -294,19 +294,24 @@ contract VerifierV1 is IVerifier {
     uint256 internal constant FR_MASK = 0x1fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 
     // n 
-    uint256 internal constant CONSTANT_N = 1024;
+    uint256 internal constant CONSTANT_N = 2048;
+    // ω_n
+    uint256 internal constant CONSTANT_OMEGA_N = 0x43527a8bca252472eb674a1a620890d7a534af14b61e0abe74a1f6718c130477;
     // ω_32
-    uint256 internal constant OMEGA_128 = 0x07d0c802a94a946e8cbe2437f0b4b276501dff643be95635b750da4cab28e208;
+    uint256 internal constant OMEGA_32 = 0x476fa2fb6162ffabd84f8612c8b6cc00bd7fdf9c77487ae79733f3a6ba60eaa6;
     // s_max
     uint256 internal constant CONSTANT_SMAX = 64;
     // m_i
-    uint256 internal constant CONSTANT_MI = 1024;
+    uint256 internal constant CONSTANT_MI = 256;
+    // l
+    uint256 internal constant CONSTANT_L = 288;
+
 
     // ω_{m_i}^{-1}
-    uint256 internal constant OMEGA_MI_MINUS_1 = 0x2bcd9508a3dad316105f067219141f4450a32c41aa67e0beb0ad80034eb71aa6;
+    uint256 internal constant OMEGA_MI_MINUS_1 = 0x2e95da59a33dcbf232a732ae1a3b0aef752c84f3154125602cabadec2fe322b8;
 
     // ω_smax^{-1}
-    uint256 internal constant OMEGA_SMAX_MINUS_1 = 0x199cdaee7b3c79d6566009b5882952d6a41e85011d426b52b891fa3f982b68c5;
+    uint256 internal constant OMEGA_SMAX_MINUS_1 = 0x0e4840ac57f86f5e293b1d67bc8de5d9a12a70a615d0b8e4d2fc5e69ac5db47f;
 
 
     /*//////////////////////////////////////////////////////////////
@@ -318,104 +323,104 @@ contract VerifierV1 is IVerifier {
     // Format: X0_PART1, X0_PART2, X1_PART1, X1_PART2, Y0_PART1, Y0_PART2, Y1_PART1, Y1_PART2
 
     // [1]_2 (Identity/Generator point H)
-    uint256 internal constant IDENTITY2_X0_PART1 = 0x0000000000000000000000000000000003824d0e89b70de8abe5197973a4a01a;
-    uint256 internal constant IDENTITY2_X0_PART2 = 0x76f5d69bd255fac5a2a677c89ca9a65ed563d66d4fb375d44a2d9a234a22ecd1;
-    uint256 internal constant IDENTITY2_X1_PART1 = 0x000000000000000000000000000000001912706f6e9ca92c8f7e69eefe2c209a;
-    uint256 internal constant IDENTITY2_X1_PART2 = 0x8680cc3ceaf8037ad7e94ba536c312b421a16f43ba8da6d108ab11f5bdc9a671;
-    uint256 internal constant IDENTITY2_Y0_PART1 = 0x000000000000000000000000000000000746551d2d990b47eb80ae44a012ffbf;
-    uint256 internal constant IDENTITY2_Y0_PART2 = 0xc00d490ac238c7755c31b6655d084b7afd0ca4c306e94c5e075b35afdaddd666;
-    uint256 internal constant IDENTITY2_Y1_PART1 = 0x0000000000000000000000000000000011833377a4fd7334bd30359c27f815bd;
-    uint256 internal constant IDENTITY2_Y1_PART2 = 0xaa9e97d7147f0b3e131634f29a03e924e0cd20e17ab80fa82911bbf4045a0d1e;
+    uint256 internal constant IDENTITY2_X0_PART1 = 0x00000000000000000000000000000000186ccda76f1249a02d72fbd64e9b5de9;
+    uint256 internal constant IDENTITY2_X0_PART2 = 0x77042778e751ad03535cde4725e063319b30708b1ba330733bf329e866887a7d;
+    uint256 internal constant IDENTITY2_X1_PART1 = 0x00000000000000000000000000000000063896896dd55e36386d4dc7361df734;
+    uint256 internal constant IDENTITY2_X1_PART2 = 0xdfb5a481c12841e8210929394983fb6f0925e82eca41f20d135911d362edcdac;
+    uint256 internal constant IDENTITY2_Y0_PART1 = 0x0000000000000000000000000000000012926a2378e6ae41e5e975eecc61018a;
+    uint256 internal constant IDENTITY2_Y0_PART2 = 0x884c8baf629a1bd9d62a0e4b1c88a0c3ee9dbb3859610b34a72b5298d46fb58d;
+    uint256 internal constant IDENTITY2_Y1_PART1 = 0x00000000000000000000000000000000072d8b55b3e44f545069550d3af27bbb;
+    uint256 internal constant IDENTITY2_Y1_PART2 = 0x81ace903f37d58f6489a8015659804bcc1a0bceb476815b2a1a4ab68297e3bc3;
 
     // [α]_2
-    uint256 internal constant ALPHA_X0_PART1 = 0x000000000000000000000000000000000a627f531eb03637658d3376a60adbb9;
-    uint256 internal constant ALPHA_X0_PART2 = 0x4d3345ae29505fb4a64b205d057ad74e2288ab6317c672a6cd1192279ae5db00;
-    uint256 internal constant ALPHA_X1_PART1 = 0x0000000000000000000000000000000013f9ef29bb681d596f975a142e246c36;
-    uint256 internal constant ALPHA_X1_PART2 = 0x3b414315288d559d5d2aeb91f853b2fa7033cbbd4131c5aac09f75af01902f7b;
-    uint256 internal constant ALPHA_Y0_PART1 = 0x000000000000000000000000000000000281db577b3b9719f9e78e811237294e;
-    uint256 internal constant ALPHA_Y0_PART2 = 0x30292bcbb0f758be3772f41c2fbbc667db395253ccbdc57d604a559b575bc414;
-    uint256 internal constant ALPHA_Y1_PART1 = 0x000000000000000000000000000000000375539c496ffaa5eb7813ee8667a7d5;
-    uint256 internal constant ALPHA_Y1_PART2 = 0xd8f2644880d8ac933d53152eba0634fcb37a696f546b4ec09f2024ba5a127b55;
+    uint256 internal constant ALPHA_X0_PART1 = 0x000000000000000000000000000000000eb6438f9c17fcc815bb06d0580fc565;
+    uint256 internal constant ALPHA_X0_PART2 = 0x63b8ffcd0a291a03d0588b9f9304870a8cecad6ce4cf6520df0aa2ec28cfef59;
+    uint256 internal constant ALPHA_X1_PART1 = 0x000000000000000000000000000000000f73b280ae0c875d29c1052979ea5fb8;
+    uint256 internal constant ALPHA_X1_PART2 = 0xb944c52a4cad23506861822f0382db1e1ecdf18fcb6f825837714508736a9c50;
+    uint256 internal constant ALPHA_Y0_PART1 = 0x00000000000000000000000000000000084bc446f32d46fc9a79b286f3d0b64d;
+    uint256 internal constant ALPHA_Y0_PART2 = 0xb2728798119ed13e08526e22f6b8a0b342c5a24b89c68ebd3c54a97e1007e5db;
+    uint256 internal constant ALPHA_Y1_PART1 = 0x000000000000000000000000000000000bb876c872d806c3585da18d2d62c1bd;
+    uint256 internal constant ALPHA_Y1_PART2 = 0xf52b272348c57b1cb84cc5f134b606ec5eb94f2997683969bab9d440b364dced;
 
     // [α^2]_2
-    uint256 internal constant ALPHA_POWER2_X0_PART1 = 0x0000000000000000000000000000000010cd7bdc926b520555a89ad1f9c507a5;
-    uint256 internal constant ALPHA_POWER2_X0_PART2 = 0x391076dbfe2c793be350968f661f8f8dd036c3a3a6d9bc8e7c66b6bfc69c8c20;
-    uint256 internal constant ALPHA_POWER2_X1_PART1 = 0x0000000000000000000000000000000014a27ad329bc498ad6085eb0b09ff376;
-    uint256 internal constant ALPHA_POWER2_X1_PART2 = 0xc167bb7a35e18c3abebd3725c29c624bce62fd143a0f3fe78f72ef290d1a53dc;
-    uint256 internal constant ALPHA_POWER2_Y0_PART1 = 0x0000000000000000000000000000000003b53fa8d4d5b2f103521ad59ba38de9;
-    uint256 internal constant ALPHA_POWER2_Y0_PART2 = 0x8bad546b6eab90b37bb6b0f09da30932beaac1d3c5184dfd5f4333850a0a5626;
-    uint256 internal constant ALPHA_POWER2_Y1_PART1 = 0x0000000000000000000000000000000006a33f8dda316a829cf1d0b5b60a87b6;
-    uint256 internal constant ALPHA_POWER2_Y1_PART2 = 0x70ef4499fdf1bf5da58ab4ccb3d908e68dea9d122f363cc63c334c8d6ce78caf;
+    uint256 internal constant ALPHA_POWER2_X0_PART1 = 0x00000000000000000000000000000000039cf61db4a3ca2d28eb14589170d865;
+    uint256 internal constant ALPHA_POWER2_X0_PART2 = 0x98814d6d6206d295c4f2ae0864fea3d7bdfb694fcdd23ef60774a02e372b1d9e;
+    uint256 internal constant ALPHA_POWER2_X1_PART1 = 0x00000000000000000000000000000000153d7b93fa701207c119d878e299d40e;
+    uint256 internal constant ALPHA_POWER2_X1_PART2 = 0x686803a2f7afe386615974b842cbe1d0b270310c4dffb540e3c4336d9d6aaf2b;
+    uint256 internal constant ALPHA_POWER2_Y0_PART1 = 0x0000000000000000000000000000000013a5dd2d215e683e963e533b157e780d;
+    uint256 internal constant ALPHA_POWER2_Y0_PART2 = 0xab50d7a83edd41201b95f2218907cf10a93ad128bd78bb3cd1ee7be87349b2d4;
+    uint256 internal constant ALPHA_POWER2_Y1_PART1 = 0x000000000000000000000000000000000844969243d290285d5ded5b70d5e98b;
+    uint256 internal constant ALPHA_POWER2_Y1_PART2 = 0x15d3a1133b59faf76656ac9fde0e6167f150b44d481fae7c06473ed7258d5620;
 
     // [α^3]_2
-    uint256 internal constant ALPHA_POWER3_X0_PART1 = 0x0000000000000000000000000000000000eb79d6a9b4f702191165cd4446da8f;
-    uint256 internal constant ALPHA_POWER3_X0_PART2 = 0x93ba93696768f62b00190c85d96c070001e5aba811e77a61277402bd7966fa5a;
-    uint256 internal constant ALPHA_POWER3_X1_PART1 = 0x00000000000000000000000000000000117c9dce9bae14279a8aa1898c9fa669;
-    uint256 internal constant ALPHA_POWER3_X1_PART2 = 0xcc71a0caa9e9d601e24bae73a8ff649a60a16d2904ff9bda1573b93f1e782d56;
-    uint256 internal constant ALPHA_POWER3_Y0_PART1 = 0x000000000000000000000000000000000a20e4e9acb70c19a47246a35b316c73;
-    uint256 internal constant ALPHA_POWER3_Y0_PART2 = 0xb51f0c8a74ba71ee5300b7fd7884cc0d6cdc459e0f4d244ec4a5198cd0423c1c;
-    uint256 internal constant ALPHA_POWER3_Y1_PART1 = 0x0000000000000000000000000000000012c9564ac16696180c28fef1b647eb11;
-    uint256 internal constant ALPHA_POWER3_Y1_PART2 = 0x8dba6de69cd1f7171fdb71f0280e0ff75b8c9007045d6baa3674e226b352a75e;
+    uint256 internal constant ALPHA_POWER3_X0_PART1 = 0x0000000000000000000000000000000019c0b9f04e922de759faeee7a7ceafd2;
+    uint256 internal constant ALPHA_POWER3_X0_PART2 = 0x3a0487525a40730e41c693d4c1cbc256534e77bf4b4c826145ed88c68adca7c1;
+    uint256 internal constant ALPHA_POWER3_X1_PART1 = 0x00000000000000000000000000000000152bacf1a299e3bc4adfaeaa803b9b2a;
+    uint256 internal constant ALPHA_POWER3_X1_PART2 = 0x1dba5be9f6a098bf1c4d83efedbaa6cd058942cda6d82b096f4f689a932e6774;
+    uint256 internal constant ALPHA_POWER3_Y0_PART1 = 0x0000000000000000000000000000000010300103c92adc1deac0f0003ada2f53;
+    uint256 internal constant ALPHA_POWER3_Y0_PART2 = 0x92f75f99f9f879416f9acfb407f97174d96a58568df638c5765dc1ee290df484;
+    uint256 internal constant ALPHA_POWER3_Y1_PART1 = 0x0000000000000000000000000000000015aaa2131a34a5b78b7590c983bd2cd1;
+    uint256 internal constant ALPHA_POWER3_Y1_PART2 = 0xc81da070ab24c80c36ea05c8cbf46f324d7ca9eeda0b5d8cde1d219a73052d2f;
 
     // [α^4]_2
-    uint256 internal constant ALPHA_POWER4_X0_PART1 = 0x000000000000000000000000000000000fe5a62217cc18e4f00bfc55fbf4993a;
-    uint256 internal constant ALPHA_POWER4_X0_PART2 = 0x498d33816adeea942619df2f9a564e072a3333ba7b776114704a6a3e30456933;
-    uint256 internal constant ALPHA_POWER4_X1_PART1 = 0x00000000000000000000000000000000008a11ba28985082b486decaf7a31b40;
-    uint256 internal constant ALPHA_POWER4_X1_PART2 = 0x82dfcbfca82c143149c8e5830a75293ecc57b109413657de61cccbb9836af014;
-    uint256 internal constant ALPHA_POWER4_Y0_PART1 = 0x00000000000000000000000000000000039b6307cc2d3e4c63c5deccea277100;
-    uint256 internal constant ALPHA_POWER4_Y0_PART2 = 0xd57699d3c9560b3ec0b73ea4bb62354c1fe89adc1489cc91d11da24c9fb3235c;
-    uint256 internal constant ALPHA_POWER4_Y1_PART1 = 0x000000000000000000000000000000000d5e7a33b65fdb526fab69e3040bcf89;
-    uint256 internal constant ALPHA_POWER4_Y1_PART2 = 0xed7fb1503fbf481625d89ed7922e45e2b610a1c3d92baec52a7799682954c40e;
+    uint256 internal constant ALPHA_POWER4_X0_PART1 = 0x00000000000000000000000000000000103059743a9f143b32a4e266211c3818;
+    uint256 internal constant ALPHA_POWER4_X0_PART2 = 0xa80441b4dc2ec8ac79b118323b7d687b336b69365f1410528592d7312d561858;
+    uint256 internal constant ALPHA_POWER4_X1_PART1 = 0x000000000000000000000000000000000ed1177a0deac59ebb6c5a85141e56e0;
+    uint256 internal constant ALPHA_POWER4_X1_PART2 = 0x15b4fdf5cb6b2f4dbfa97371aa5e2b9d6ed06e6ee0c4cf4d71386401a02e88ee;
+    uint256 internal constant ALPHA_POWER4_Y0_PART1 = 0x000000000000000000000000000000000f93d2de735689a98a8aae5b6d7caa8a;
+    uint256 internal constant ALPHA_POWER4_Y0_PART2 = 0x2bd79fd47ecb05d731f4ce234b55ff61fbdfae3c5b2dbb04474b076a4c46c922;
+    uint256 internal constant ALPHA_POWER4_Y1_PART1 = 0x0000000000000000000000000000000008e86c0c319cb2368bf691d1b0f0f565;
+    uint256 internal constant ALPHA_POWER4_Y1_PART2 = 0x42de7d390928a284e5ff35c390bed00ab6cb0197de1bacbf30dfb7b0a0774cd5;
 
-    // -[γ]_2 (negated for pairing)
-    uint256 internal constant GAMMA_X0_PART1 = 0x00000000000000000000000000000000075ba679ca23147bd545ff016ae65fc7;
-    uint256 internal constant GAMMA_X0_PART2 = 0x4bc17baddaaa6b261934bc111779533e6823fc357df999fe0fd8d5bbed91da39;
-    uint256 internal constant GAMMA_X1_PART1 = 0x000000000000000000000000000000000d876718c137037a3a157c02173fa544;
-    uint256 internal constant GAMMA_X1_PART2 = 0xb01060ac3b093bd3201b448a37a78e1e5ce134b596cb3a0815627327708d6a91;
-    uint256 internal constant GAMMA_MINUS_Y0_PART1 = 0x00000000000000000000000000000000169459b88979ff8d41f8a33afc2dc39a;
-    uint256 internal constant GAMMA_MINUS_Y0_PART2 = 0xc74ed1df2dab89f716eb43767a7fa5228c99144e4220d89e875f3fcd47d01506;
-    uint256 internal constant GAMMA_MINUS_Y1_PART1 = 0x00000000000000000000000000000000f4845cf9f0cc9ffa72fae23b8a8a3e83;
-    uint256 internal constant GAMMA_MINUS_Y1_PART2 = 0xfc812b7383f4b56f54721b0b8c2664964a311349cf06557de7a5fa5e50f13e21;
+    // -[γ]_2
+    uint256 internal constant GAMMA_X0_PART1 = 0x0000000000000000000000000000000005f9073082025f423e1e7185f68ecd58;
+    uint256 internal constant GAMMA_X0_PART2 = 0x71a4a7aaa8c23c96b330f62974a7fe2313fae5371734b473352ef7514703b9c6;
+    uint256 internal constant GAMMA_X1_PART1 = 0x0000000000000000000000000000000000cba5ea303e6dd9f117839358d3c0fb;
+    uint256 internal constant GAMMA_X1_PART2 = 0x4d2e4593f3ab2af10c2f8c0460b3a8fbb91ca1d237b64aafe67e80560c9e6029;
+    uint256 internal constant GAMMA_MINUS_Y0_PART1 = 0x000000000000000000000000000000000f94aa0ea533159a4ee98f05e114c32d;
+    uint256 internal constant GAMMA_MINUS_Y0_PART2 = 0x23f5bb3af98cd95c3f437300749859e27c433037ac8c8506adf7f2d603d884b7;
+    uint256 internal constant GAMMA_MINUS_Y1_PART1 = 0x0000000000000000000000000000000015a8ccba6d8b42fcdec1ea25fd0bb289;
+    uint256 internal constant GAMMA_MINUS_Y1_PART2 = 0x4f4ac7b63e0adec31854450f8a50577e996f95958a20f3cec59609c58c6a01f1;
 
-    // -[δ]_2 (negated for pairing)
-    uint256 internal constant DELTA_X0_PART1 = 0x0000000000000000000000000000000015bb22e6285ccf7bc620f9a178ecc910;
-    uint256 internal constant DELTA_X0_PART2 = 0xf178611ff91aaa064d27d29c9e53d3ed8138d16b0406c6a378bc4b5da2cf9118;
-    uint256 internal constant DELTA_X1_PART1 = 0x000000000000000000000000000000000bcc21cb32e57d1039a5e73bb7d82159;
-    uint256 internal constant DELTA_X1_PART2 = 0x8a4275cb10c2c203603128461d25d428b9847948dcbf0264fbdd3cac5381c082;
-    uint256 internal constant DELTA_MINUS_Y0_PART1 = 0x000000000000000000000000000000000790d1ba4d4d248c8164c470813f6525;
-    uint256 internal constant DELTA_MINUS_Y0_PART2 = 0x81c61f08f73cee57a7124f412b4cfb6b1f86ef4d4755d2052858860b7ad47be7;
-    uint256 internal constant DELTA_MINUS_Y1_PART1 = 0x00000000000000000000000000000000eb9ff625c28cd1a8eb5e86af9f110884;
-    uint256 internal constant DELTA_MINUS_Y1_PART2 = 0x8be4db7ed7945e8c4445bc37b452d7cb63bc44fd74be8b840d37853f56af8734;
+    // -[δ]_2
+    uint256 internal constant DELTA_X0_PART1 = 0x000000000000000000000000000000000076963b9cfdab74a641e20be964d46f;
+    uint256 internal constant DELTA_X0_PART2 = 0xfc568b5b230f524a47d71049fd8d2e8284201bb8e63b41458bf91c2d966cb38b;
+    uint256 internal constant DELTA_X1_PART1 = 0x000000000000000000000000000000000198caf7adddde564d071befa0effa30;
+    uint256 internal constant DELTA_X1_PART2 = 0x214ef8d48d822b4237bcb25ce8b3a1a5671e0e3bf054229ac9831e3e7f9b0ba6;
+    uint256 internal constant DELTA_MINUS_Y0_PART1 = 0x0000000000000000000000000000000017fe5e3b56aea2ccba6b99e4877b5f3f;
+    uint256 internal constant DELTA_MINUS_Y0_PART2 = 0x56ce4875158b360a4e7bd2794fd3d0f3fa774c466ef59a9233a9e30c37bdbec4;
+    uint256 internal constant DELTA_MINUS_Y1_PART1 = 0x0000000000000000000000000000000016e3839e16a03ccb9be1c09436d7ff3b;
+    uint256 internal constant DELTA_MINUS_Y1_PART2 = 0xa65b2a89e9c1d0ac0f77cce6ddf4a4d702ac0e9241a708208bdccbd7b9e31124;
 
-    // -[η]_2 (negated for pairing)
-    uint256 internal constant ETA_X0_PART1 = 0x00000000000000000000000000000000017109390e5da842b51ab386ba69318b;
-    uint256 internal constant ETA_X0_PART2 = 0x2a3cc7ffde1117528c84e2802651212678d71f0f6af5904485a49f6710ccc7de;
-    uint256 internal constant ETA_X1_PART1 = 0x0000000000000000000000000000000008416b3eb073ead7741f8ef4e5770abb;
-    uint256 internal constant ETA_X1_PART2 = 0x0d06e8780c3608ff872d281c18e03f06579649f9bf0b542fe929c17a7ecfe72b;
-    uint256 internal constant ETA_MINUS_Y0_PART1 = 0x00000000000000000000000000000000017421594a9b1872c0e503d1d238cfd7;
-    uint256 internal constant ETA_MINUS_Y0_PART2 = 0x42f3b8b85ab92af1c1f204157a4d4e7feb0f0b1df61318bad69888cf9848c033;
-    uint256 internal constant ETA_MINUS_Y1_PART1 = 0x00000000000000000000000000000000f7ba1a21dbc6e6b3ce2b4810a9fef5a8;
-    uint256 internal constant ETA_MINUS_Y1_PART2 = 0x635679e318cfdf08fb2672ffcc0d3967cf3069640f9ce7945d8dc0c4c42f2ef8;
+    // -[η]_2
+    uint256 internal constant ETA_X0_PART1 = 0x000000000000000000000000000000000c1d2609b92b1e8df721d24696130b7b;
+    uint256 internal constant ETA_X0_PART2 = 0x85d2ef196bc3a71d29e8faf55f45f7f87e35c74fd5459ca2d6481fcdb8fe34e7;
+    uint256 internal constant ETA_X1_PART1 = 0x000000000000000000000000000000000ae3edcfae523cdebc05f459e8212da5;
+    uint256 internal constant ETA_X1_PART2 = 0xa90a0e0032014e00e3ebd660b911ec342ac0a8552cfa6dcc6fd1d02951449554;
+    uint256 internal constant ETA_MINUS_Y0_PART1 = 0x00000000000000000000000000000000103bb1f4dffe0c0819dc75412beef12e;
+    uint256 internal constant ETA_MINUS_Y0_PART2 = 0x68d53c78b76da4464d1513ebe01773baea584c851a55f5d1603cf2aec73307eb;
+    uint256 internal constant ETA_MINUS_Y1_PART1 = 0x000000000000000000000000000000000bbf54800f1d02972cc5eb6115172a6f;
+    uint256 internal constant ETA_MINUS_Y1_PART2 = 0x68386efa959a78f769c1c56f7b0049ce4acf2099fcfa3083bc38b67407fd95fc;
 
-    // -[x]_2 (negated for pairing)
-    uint256 internal constant X_X0_PART1 = 0x000000000000000000000000000000000f298e39ca877265be26e1be7b999b33;
-    uint256 internal constant X_X0_PART2 = 0xc209fdd249c37665ee6e3a0b6548d90d61f7cc52d8e7756fe362ba248992d981;
-    uint256 internal constant X_X1_PART1 = 0x0000000000000000000000000000000000622464a5681e1e75e57c2b9b9c218e;
-    uint256 internal constant X_X1_PART2 = 0x3890993d14524b369be23bfcb928d2ddb2b75759acfbea837206f077b8393e18;
-    uint256 internal constant X_MINUS_Y0_PART1 = 0x0000000000000000000000000000000000c03b62137bfdad7cb3f57fe11ba9cd;
-    uint256 internal constant X_MINUS_Y0_PART2 = 0x270dba2f29d9d817e20bc56b5420b1c9974f06bf33ecc66ffd22cb87b021cecd;
-    uint256 internal constant X_MINUS_Y1_PART1 = 0x000000000000000000000000000000004f9af9a14b1b5abb5e32840c8958f2af;
-    uint256 internal constant X_MINUS_Y1_PART2 = 0x6d378d94f49f977c79c7f075ae936e2b6efee64cf76b5d97a5db8c4c1607e0ca;
+    // -[x]_2
+    uint256 internal constant X_X0_PART1 = 0x0000000000000000000000000000000004c452a00c7ecfa2f9f1d596e92c07f5;
+    uint256 internal constant X_X0_PART2 = 0x6442456bdb818f998cc5a42df667c362ac0b1dd3bdcbd656ac0f483dbca5a3fc;
+    uint256 internal constant X_X1_PART1 = 0x0000000000000000000000000000000018e7a4f67cd2d9838b30d28aecf7cafd;
+    uint256 internal constant X_X1_PART2 = 0x0ec31d7befc7d1e5b5ab284255f7063ef46328b179b403fa3d926e773072263f;
+    uint256 internal constant X_MINUS_Y0_PART1 = 0x0000000000000000000000000000000001b018f44c88e74cff55da4f5e7bcb07;
+    uint256 internal constant X_MINUS_Y0_PART2 = 0x0ebdba2a94bfa60534a629bd3af9a5a07333511daff12a667fb59c6f99f8154a;
+    uint256 internal constant X_MINUS_Y1_PART1 = 0x000000000000000000000000000000000dc83a457d396d146f766e420c9e9f0c;
+    uint256 internal constant X_MINUS_Y1_PART2 = 0xbcdd169510d0bba2baa6f93fe305730fd634eade0bd4699dd9d6e121ae5bb9c7;
 
-    // -[y]_2 (negated for pairing)
-    uint256 internal constant Y_X0_PART1 = 0x00000000000000000000000000000000020c2c3d916edb9e20596edff73b11e6;
-    uint256 internal constant Y_X0_PART2 = 0x512632b12093ecb7f000e842615064506e5aaab0603ad814f1e3c39be6001284;
-    uint256 internal constant Y_X1_PART1 = 0x0000000000000000000000000000000009f3d7fee42315873cad4ad8607c3450;
-    uint256 internal constant Y_X1_PART2 = 0xd158166e64e332ebbdac591b0098cab51817518141128c12bfcdf707eeae7118;
-    uint256 internal constant Y_MINUS_Y0_PART1 = 0x00000000000000000000000000000000019dcc2b32f5235faa8af539e1b841db;
-    uint256 internal constant Y_MINUS_Y0_PART2 = 0x89b9c7bbbabeba7b5db7ef3373f3f910ab617d524ebc7d754c7fcb1d831097c2;
-    uint256 internal constant Y_MINUS_Y1_PART1 = 0x00000000000000000000000000000000ef9affda4cdacef54e7b1a5e60ef8a43;
-    uint256 internal constant Y_MINUS_Y1_PART2 = 0x626f2a43dde7bde3a7bdd1f76d32967cb34bbfd11a8fbe87d2a8a0fe6b8a8a62;
+    // -[y]_2
+    uint256 internal constant Y_X0_PART1 = 0x0000000000000000000000000000000009c03e9d6f7293be598fe2bf531b7e41;
+    uint256 internal constant Y_X0_PART2 = 0xda2cd4280a5b3cd27fd2459026deafba34fd4214f455c52462aa393d553831c6;
+    uint256 internal constant Y_X1_PART1 = 0x0000000000000000000000000000000012d76d6b06ebea8eae71e843c4cdcc8e;
+    uint256 internal constant Y_X1_PART2 = 0x2d3db3d1cf4cc4c226ecba9f4190e65ff1e98ae86cd079d50c6b0d66744cdac0;
+    uint256 internal constant Y_MINUS_Y0_PART1 = 0x00000000000000000000000000000000058cd64f7f8cc800ab1c5c2a1545410a;
+    uint256 internal constant Y_MINUS_Y0_PART2 = 0x0fa34ed15c8fd2d058ee463b197ec28803f805021a25af838c94f29b9bb0f3d6;
+    uint256 internal constant Y_MINUS_Y1_PART1 = 0x0000000000000000000000000000000000e1fec1655bfe406f1a92f2be9c17eb;
+    uint256 internal constant Y_MINUS_Y1_PART2 = 0x48d3c10278c6c0f81a841b82a9a4c3a492dd2b3827d788cefeeff042d7b501a2;
 
 
     /// @notice Load verification keys to memory in runtime.
@@ -425,28 +430,28 @@ contract VerifierV1 is IVerifier {
     function _loadVerificationKey() internal pure virtual {
         assembly {
             // preproccessed KL commitment vk         
-            mstore(VK_POLY_KXLX_X_PART1, 0x0000000000000000000000000000000004702217702c15b8fbc14f44e9fc997d)
-            mstore(VK_POLY_KXLX_X_PART2, 0x3e0d6153041a0516a9a2bf5ea44a71e8d03325fba7d83148d58128d7ec81a13b)
-            mstore(VK_POLY_KXLX_Y_PART1, 0x000000000000000000000000000000000a53f1cdda5e40fc5f2cfc3d784f0b95)
-            mstore(VK_POLY_KXLX_Y_PART2, 0x077d16bad242edfc60b70762cbbdcca8e3c0da2116ca12752fe91909a0804540)
+            mstore(VK_POLY_KXLX_X_PART1, 0x00000000000000000000000000000000189b894a1f85f9873aaab35caa668bdd)
+            mstore(VK_POLY_KXLX_X_PART2, 0x89322fe6129835076e76ff196f8f9099acf4431a1614af80f7102fa7d82df894)
+            mstore(VK_POLY_KXLX_Y_PART1, 0x0000000000000000000000000000000016dddae1189e9482b202b6f2a80bfe73)
+            mstore(VK_POLY_KXLX_Y_PART2, 0x4e68ac0e9db460e6e76daa92d9e1fc5e9876a24d74c6fb749867cd93813b0732)
 
             // [1]_1 (Generator/Identity point)
-            mstore(VK_IDENTITY_X_PART1, 0x00000000000000000000000000000000093110c1e17af482c24da081b18150da)
-            mstore(VK_IDENTITY_X_PART2, 0x1ed5d7a2ec47083d1595226e6b9ccf9b1914c1b40a4265b56bea755627c7a529)
-            mstore(VK_IDENTITY_Y_PART1, 0x00000000000000000000000000000000162bbf889ec519a6d2b08f3aa0cc7519)
-            mstore(VK_IDENTITY_Y_PART2, 0xc13ca16533f31be91e15b1405a0f950adcce70bf9fbefe297ed1a61db4658240)
+            mstore(VK_IDENTITY_X_PART1, 0x000000000000000000000000000000000037ab1f8d39058011b226cb7a60d6a7)
+            mstore(VK_IDENTITY_X_PART2, 0x2f1d8a1a2c259fff099953479165488ccfacd45c6988c00f3981853e116af536)
+            mstore(VK_IDENTITY_Y_PART1, 0x000000000000000000000000000000001958c0164780dbab949dead073ba57c9)
+            mstore(VK_IDENTITY_Y_PART2, 0xcb4e29001562a019fcf224ea64b05cf8219d80a62fcd5083c36a3f64aa562b79)
 
             // [x]_1 (Polynomial evaluation point)
-            mstore(VK_POLY_X_X_PART1, 0x000000000000000000000000000000000d52fe1e33aed4b0c7a2be18a77424b4)
-            mstore(VK_POLY_X_X_PART2, 0xc0f132822bab835ef030b1e432b9a56b2d9824617d40164a3ce8199413750a20)
-            mstore(VK_POLY_X_Y_PART1, 0x00000000000000000000000000000000192797f314a539cf97986287868d8de9)
-            mstore(VK_POLY_X_Y_PART2, 0x34ebad3744bf3c5749785e615b8dd99d33c17f430c47d1ba644d0dd37d60da2e)
+            mstore(VK_POLY_X_X_PART1, 0x00000000000000000000000000000000134e443b601946d3decf942ef8e25ec5)
+            mstore(VK_POLY_X_X_PART2, 0x80979eba4aaa6790cab1988b9ce4dc7d1feed9644187e718cdb3e24490be1482)
+            mstore(VK_POLY_X_Y_PART1, 0x0000000000000000000000000000000003fab6eec90bfb32f8d6d4990af3a720)
+            mstore(VK_POLY_X_Y_PART2, 0xf96b08bc3c4e5718cec072675d97ec631005f96eb5a2eb820c1e29c98240a31c)
 
             // [y]_1 (Polynomial evaluation point)
-            mstore(VK_POLY_Y_X_PART1, 0x00000000000000000000000000000000052d85f426b28bbb0315173642ceda71)
-            mstore(VK_POLY_Y_X_PART2, 0xf877369927eeae4c82f2cbd126c849618bf7941daf0018dcb6a62eeb62dd21ae)
-            mstore(VK_POLY_Y_Y_PART1, 0x000000000000000000000000000000000208b068fc7ec703b86e792ba42ca383)
-            mstore(VK_POLY_Y_Y_PART2, 0x0e3274bd89871d29a3eb5a77702f3ea60c56e40bfc0f1f6d0906d4760adb3c1f)
+            mstore(VK_POLY_Y_X_PART1, 0x000000000000000000000000000000001324f00c38ca12b35cb9a0d80ca2d319)
+            mstore(VK_POLY_Y_X_PART2, 0x53c65107d4a9591f6d7df3f13660901d4f01a364013354ad4df0c6c75329c1b0)
+            mstore(VK_POLY_Y_Y_PART1, 0x00000000000000000000000000000000083d2d9d63a7c380303333a1e4e9e945)
+            mstore(VK_POLY_Y_Y_PART2, 0x11d455c4bfe4b1db2ff3efc988f10132e0757ae479da6b137435e20a400c77fc)
         }
     }
 
@@ -595,59 +600,6 @@ contract VerifierV1 is IVerifier {
                 
                 // Perform the addition
                 if iszero(staticcall(gas(), 0x0b, 0x00, 0x100, p1, 0x80)) {
-                    revertWithMessage(28, "pointSubAssign: G1ADD failed")
-                }
-            }
-
-            /// @dev Performs a point subtraction operation and updates dest with the result.
-            function g1pointSubIntoDest(p1, p2, dest) {
-                // We'll use the fact that for BLS12-381 with 48-byte coordinates,
-                // the precompile expects the full 384-bit representation
-                
-                // Copy p1 to memory
-                mstore(0x00, mload(p1))
-                mstore(0x20, mload(add(p1, 0x20)))
-                mstore(0x40, mload(add(p1, 0x40)))
-                mstore(0x60, mload(add(p1, 0x60)))
-                
-                // Copy p2's x-coordinate
-                mstore(0x80, mload(p2))
-                mstore(0xa0, mload(add(p2, 0x20)))
-                
-                // For the y-coordinate, we need to negate it
-                // In BLS12-381, -y = q - y where q is the field modulus
-                let y_low := mload(add(p2, 0x60))
-                let y_high := mload(add(p2, 0x40))
-                
-                // Perform q - y
-                let neg_y_low, neg_y_high
-                
-                // Since we're working with 384-bit numbers split into two 256-bit parts,
-                // and the high 128 bits of the high part are always zero for valid field elements
-                let borrow := 0
-                
-                // Subtract low part
-                switch lt(Q_MOD_PART2, y_low)
-                case 1 {
-                    // Need to borrow from high part
-                    neg_y_low := sub(Q_MOD_PART2, y_low)
-                    neg_y_low := add(neg_y_low, not(0)) // Add 2^256
-                    neg_y_low := add(neg_y_low, 1)
-                    borrow := 1
-                }
-                default {
-                    neg_y_low := sub(Q_MOD_PART2, y_low)
-                }
-                
-                // Subtract high part with borrow
-                neg_y_high := sub(sub(Q_MOD_PART1, y_high), borrow)
-            
-                
-                mstore(0xc0, neg_y_high)
-                mstore(0xe0, neg_y_low)
-                
-                // Perform the addition
-                if iszero(staticcall(gas(), 0x0b, 0x00, 0x100, dest, 0x80)) {
                     revertWithMessage(28, "pointSubAssign: G1ADD failed")
                 }
             }
@@ -1087,84 +1039,78 @@ contract VerifierV1 is IVerifier {
             }
 
             function computeAPUB() {
-                let chi := mload(CHALLENGE_CHI_SLOT)
                 let offset := calldataload(0x44)
+                let publicInputsLength := calldataload(add(offset, 0x04))
                 
-                let n := 128
-                let omega := OMEGA_128
+                if iszero(eq(publicInputsLength, 128)) {
+                    revertWithMessage(26, "Invalid public inputs length")
+                }
                 
-                // Compute chi^128 - 1
-                let chi_n := modexp(chi, n)
-                let chi_n_minus_1 := addmod(chi_n, sub(R_MOD, 1), R_MOD)
+                let chi := mload(CHALLENGE_CHI_SLOT)
+                let omega := OMEGA_32
+                let l := 32
                 
-                // Check if chi is a 128th root of unity
-                if iszero(chi_n_minus_1) {
-                    // Special case: find and return the corresponding value
-                    let omega_power := 1
-                    for { let i := 0 } lt(i, n) { i := add(i, 1) } {
-                        if eq(chi, omega_power) {
-                            let val := calldataload(add(add(offset, 0x24), mul(i, 0x20)))
-                            mstore(INTERMEDIARY_SCALAR_APUB_SLOT, val)
+                // First check if chi is a root of unity
+                let chi_power_l := chi
+                for { let i := 0 } lt(i, 5) { i := add(i, 1) } {
+                    chi_power_l := mulmod(chi_power_l, chi_power_l, R_MOD)
+                }
+                
+                if eq(chi_power_l, 1) {
+                    let omega_j := 1
+                    for { let j := 0 } lt(j, l) { j := add(j, 1) } {
+                        if eq(chi, omega_j) {
+                            let a_j := calldataload(add(offset, add(0x24, mul(j, 0x20))))
+                            mstore(INTERMEDIARY_SCALAR_APUB_SLOT, mod(a_j, R_MOD))
                             leave
                         }
-                        omega_power := mulmod(omega_power, omega, R_MOD)
+                        omega_j := mulmod(omega_j, omega, R_MOD)
                     }
                 }
                 
-                // Normal case: compute weighted sum
-                let weightedSum := 0
-                let inv_n := modexp(n, sub(R_MOD, 2))
-                
-                // First pass: count non-zero values and store their indices
-                let nonZeroCount := 0
-                let tempOffset := 0x2000 // Temporary storage location
-                
-                for { let i := 0 } lt(i, n) { i := add(i, 1) } {
-                    let val := calldataload(add(add(offset, 0x24), mul(i, 0x20)))
-                    if val {
-                        // Store index and value
-                        mstore(add(tempOffset, mul(nonZeroCount, 0x40)), i)
-                        mstore(add(tempOffset, add(mul(nonZeroCount, 0x40), 0x20)), val)
-                        nonZeroCount := add(nonZeroCount, 1)
-                    }
+                // Precompute all omega^j values using the constants
+                let omegaPtr := 0x3000
+                mstore(omegaPtr, 1) // omega^0 = 1
+                mstore(add(omegaPtr, 0x20), omega) // omega^1
+                let omega_power := omega
+                for { let j := 2 } lt(j, 32) { j := add(j, 1) } {
+                    omega_power := mulmod(omega_power, omega, R_MOD)
+                    mstore(add(omegaPtr, mul(j, 0x20)), omega_power)
                 }
                 
-                // Second pass: process only non-zero values
-                for { let j := 0 } lt(j, nonZeroCount) { j := add(j, 1) } {
-                    let i := mload(add(tempOffset, mul(j, 0x40)))
-                    let val := mload(add(tempOffset, add(mul(j, 0x40), 0x20)))
+                // Standard case: Compute using Lagrange formula with precomputed omega values
+                let result := 0
+                
+                for { let j := 0 } lt(j, l) { j := add(j, 1) } {
+                    // Get a_j
+                    let a_j := calldataload(add(offset, add(0x24, mul(j, 0x20))))
+                    a_j := mod(a_j, R_MOD)
                     
-                    // Compute omega^i using efficient method based on i
-                    let omega_i := 1
+                    // Get precomputed omega^j
+                    let omega_j := mload(add(omegaPtr, mul(j, 0x20)))
                     
-                    // For small i, use repeated multiplication
-                    if lt(i, 16) {
-                        for { let k := 0 } lt(k, i) { k := add(k, 1) } {
-                            omega_i := mulmod(omega_i, omega, R_MOD)
+                    // Compute M_j(chi) = Π(m≠j) (chi - omega^m) / (omega^j - omega^m)
+                    let M_j := 1
+                    
+                    for { let m := 0 } lt(m, l) { m := add(m, 1) } {
+                        if iszero(eq(m, j)) {
+                            // Get precomputed omega^m
+                            let omega_m := mload(add(omegaPtr, mul(m, 0x20)))
+                            
+                            // Numerator: chi - omega^m
+                            let num := addmod(chi, sub(R_MOD, omega_m), R_MOD)
+                            
+                            // Denominator: omega^j - omega^m
+                            let denom := addmod(omega_j, sub(R_MOD, omega_m), R_MOD)
+                            let denom_inv := modexp(denom, sub(R_MOD, 2))
+                            
+                            M_j := mulmod(M_j, mulmod(num, denom_inv, R_MOD), R_MOD)
                         }
                     }
-                    // For larger i, use modexp
-                    if iszero(lt(i, 16)) {
-                        omega_i := modexp(omega, i)
-                    }
                     
-                    // Compute contribution
-                    let denominator := addmod(chi, sub(R_MOD, omega_i), R_MOD)
-                    
-                    if iszero(denominator) {
-                        mstore(INTERMEDIARY_SCALAR_APUB_SLOT, val)
-                        leave
-                    }
-                    
-                    let inv_denominator := modexp(denominator, sub(R_MOD, 2))
-                    let numerator := mulmod(val, omega_i, R_MOD)
-                    let contribution := mulmod(numerator, inv_denominator, R_MOD)
-                    weightedSum := addmod(weightedSum, contribution, R_MOD)
+                    // Add a_j * M_j(chi) to result
+                    result := addmod(result, mulmod(a_j, M_j, R_MOD), R_MOD)
                 }
-                
-                // Final result: (chi^n - 1) * weightedSum / n
-                let result := mulmod(chi_n_minus_1, weightedSum, R_MOD)
-                result := mulmod(result, inv_n, R_MOD)
                 
                 mstore(INTERMEDIARY_SCALAR_APUB_SLOT, result)
             }
@@ -1179,8 +1125,8 @@ contract VerifierV1 is IVerifier {
             ///
             /// where
             ///
-            /// [LHS_A]_1 := V_{x,y}[U]_1 - [W]_1 + κ1([V]_1 - V_{x,y}[G]_1) - t_n(χ)[Q_{A,X}]_1 - t_{s_{max}}(ζ)[Q_{A,Y}]_1 
-            ///               
+            /// [LHS_A]_1 :=  V_{x,y}[U]_1 - [W]_1 + κ1[V]_1 
+            ///               - t_n(χ)[Q_{A,X}]_1 - t_{s_{max}}(ζ)[Q_{A,Y}]_1
             ///
             /// and where
             ///
@@ -1202,64 +1148,48 @@ contract VerifierV1 is IVerifier {
             ///             κ2^2 * ω_{m_i}^{-1} * χ *[M_{χ}]_1 + κ2^2 * ζ * [M_{ζ}]_1 + κ2^3 * ω_{m_i}^{-1} * χ * [N_{χ}]_1 + κ_2^3 ω_smax^{-1} * ζ * [N_{ζ}]
             /// 
 
-            /// @dev calculate [LHS_A]_1 = V_{x,y}[U]_1 - [W]_1 + κ1([V]_1 - V_{x,y}[G]_1) - t_n(χ)[Q_{A,X}]_1 - t_{s_{max}}(ζ)[Q_{A,Y}]_1            
+            /// @dev calculate [LHS_A]_1 = V_{x,y}[U]_1 - [W]_1 + κ1[V]_1 - t_n(χ)[Q_{A,X}]_1 - t_{s_{max}}(ζ)[Q_{A,Y}]_1            
             function prepareLHSA() {
-                // V_{x,y}[U]_1
                 g1pointMulIntoDest(PROOF_POLY_U_X_SLOT_PART1, mload(PROOF_VXY_SLOT), AGG_LHS_A_X_SLOT_PART1)
-                
-                // V_{x,y}[U]_1 - [W]_1
                 g1pointSubAssign(AGG_LHS_A_X_SLOT_PART1, PROOF_POLY_W_X_SLOT_PART1)
 
-                // V_{x,y}[G]_1 (where G is the generator/identity point)
-                g1pointMulIntoDest(VK_IDENTITY_X_PART1, mload(PROOF_VXY_SLOT), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                
-                // [V]_1 - V_{x,y}[G]_1
-                g1pointSubIntoDest(PROOF_POLY_V_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                
-                // κ1([V]_1 - V_{x,y}[G]_1)
-                g1pointMulIntoDest(BUFFER_AGGREGATED_POLY_X_SLOT_PART1, mload(CHALLENGE_KAPPA_1_SLOT), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
+                //κ1[V]_1
+                g1pointMulIntoDest(PROOF_POLY_V_X_SLOT_PART1, mload(CHALLENGE_KAPPA_1_SLOT), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
 
-                // (V_{x,y}[U]_1 - [W]_1) + κ1([V]_1 - V_{x,y}[G]_1)
+
+                // (V_{x,y}[U]_1 - [W]_1) + κ1[V]_1
                 g1pointAddIntoDest(AGG_LHS_A_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1, AGG_LHS_A_X_SLOT_PART1)
 
                 // t_n(χ)[Q_{A,X}]_1
                 g1pointMulIntoDest(PROOF_POLY_QAX_X_SLOT_PART1, mload(INTERMERDIARY_SCALAR_T_N_CHI_SLOT), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
                 
-                // ... - t_n(χ)[Q_{A,X}]_1
+                // (V_{x,y}[U]_1 - [W]_1) + (κ1 * ([V]_1 - V_{x,y}[1]_1)) - t_n(χ)[Q_{A,X}]_1
                 g1pointSubAssign(AGG_LHS_A_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
 
                 // t_{s_{max}}(ζ)[Q_{A,Y}]_1
                 g1pointMulIntoDest(PROOF_POLY_QAY_X_SLOT_PART1, mload(INTERMERDIARY_SCALAR_T_SMAX_ZETA_SLOT), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                
-                // ... - t_{s_{max}}(ζ)[Q_{A,Y}]_1
+                // V_{x,y}[U]_1 - [W]_1 + κ1 * ([V]_1 - V_{x,y}[1]_1) - t_n(χ)[Q_{A,X}]_1 - t_{s_{max}}(ζ)[Q_{A,Y}]_1
                 g1pointSubAssign(AGG_LHS_A_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
             }
 
-            /// @dev [LHS_B]_1 := (1+κ2κ1^4)[A]_1 - κ2κ1^4A_pub[1]_1
+            /// @dev [LHS_B]_1 := (1+κ2κ1^4)[A]_1
             function prepareLHSB() {
                 let kappa2 := mload(CHALLENGE_KAPPA_2_SLOT)
                 let kappa1 := mload(CHALLENGE_KAPPA_1_SLOT)
                 let A_pub := mload(INTERMEDIARY_SCALAR_APUB_SLOT)
 
-                // (1+κ2κ1^4)
+                // κ2κ1^4
                 let coeff1 := addmod(1, mulmod(kappa2, modexp(kappa1, 4), R_MOD), R_MOD)
 
-                // κ2κ1^4A_pub
+                // (1+κ2κ1^4) * A_{pub}
                 let coeff2 := mulmod(mulmod(kappa2, modexp(kappa1, 4), R_MOD), A_pub, R_MOD)
 
                 // (1+κ2κ1^4)[A]_1
                 g1pointMulIntoDest(PROOF_POLY_A_X_SLOT_PART1, coeff1, AGG_LHS_B_X_SLOT_PART1)
-
-                // κ2κ1^4A_pub[1]_1
-                g1pointMulIntoDest(VK_IDENTITY_X_PART1, coeff2, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-
-                // (1+κ2κ1^4)[A]_1 - κ2κ1^4A_pub[1]_1
-                g1pointSubAssign(AGG_LHS_B_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
             }
 
-            ///  @dev [LHS_C]_1 := κ1^2((R_{x,y}-1)[K_{-1}(x)L_{-1}(y)]_1 + κ0(\chi-1)(R_{x,y}[G]_1-R'_{x,y}[F]_1) 
-            ///                     +κ0^2K_0(\chi)(R_{x,y}[G]_1-R''_{x,y}[F]_1) - t_{m_l}(\chi)[Q_{C,X}]_1 - t_{s_{max}}(\zeta)[Q_{C,Y}]_1) 
-            ///                     + κ1^3([R]_1-R_{x,y}[1]_1) + κ2([R]_1-R'_{x,y}[1]_1) + κ2^2([R]_1-R''_{x,y}[1]_1)
+            ///  @dev [LHS_C]_1 := κ1^2(R_{x,y} - 1) * [K_{-1}(X)L_{-1}(X)]_1 + a[G]_1 
+            ///                    - b[F]_1 - κ1^2 * t_{m_l}(χ) * [Q_{C,X}]_1 - κ1^2 * t_{s_{max}}(ζ) * [Q_{C,Y}]_1) + c[R]_1 + d[1]_1
             function prepareLHSC() {
                 let kappa0 := mload(CHALLENGE_KAPPA_0_SLOT)
                 let kappa1 := mload(CHALLENGE_KAPPA_1_SLOT)
@@ -1273,63 +1203,42 @@ contract VerifierV1 is IVerifier {
                 let r2 := mload(PROOF_R2XY_SLOT)
                 let r3 := mload(PROOF_R3XY_SLOT)
                 let k0 := mload(INTERMEDIARY_SCALAR_KO_SLOT)
+                let V_xy := mload(PROOF_VXY_SLOT)
+                let A_pub := mload(INTERMEDIARY_SCALAR_APUB_SLOT)
                 let t_ml := mload(INTERMERDIARY_SCALAR_T_MI_CHI_SLOT)
                 let t_smax := mload(INTERMERDIARY_SCALAR_T_SMAX_ZETA_SLOT)
 
-                // Start with κ1^2(R_{x,y}-1)[K_{-1}(x)L_{-1}(y)]_1
-                let kappa1_pow2_r_minus_1 := mulmod(kappa1_pow2, addmod(r1, sub(R_MOD, 1), R_MOD), R_MOD)
-                g1pointMulIntoDest(VK_POLY_KXLX_X_PART1, kappa1_pow2_r_minus_1, AGG_LHS_C_X_SLOT_PART1)
+                // a := κ1^2 * κ0 * R_{x,y} * ((χ-1) + κ0 * K_0(χ))
+                let a := mulmod(mulmod(mulmod(mulmod(kappa1, kappa1, R_MOD), kappa0, R_MOD),r1, R_MOD), addmod(chi_minus_1, mulmod(kappa0, k0, R_MOD), R_MOD), R_MOD)
+                // b := κ1^2 * κ0 * ((χ-1) R’_{x,y} + κ0K_0(χ)R’’_{x,y})
+                let b := mulmod(mulmod(kappa1_pow2, kappa0, R_MOD), addmod(mulmod(chi_minus_1, r2, R_MOD), mulmod(mulmod(kappa0, k0, R_MOD), r3, R_MOD), R_MOD), R_MOD)
+                // c := κ1^3 + κ2 + κ2^2
+                let c := addmod(kappa1_pow3, addmod(kappa2, kappa2_pow2, R_MOD), R_MOD)
+                //    d := -κ1^3R_{x,y} - κ2R’_{x,y} - κ2^2R’’_{x,y} - κ1V_{x,y} - κ1^4A_{pub} 
+                // => d := - (κ1^3R_{x,y} + κ2R’_{x,y} + κ2^2R’’_{x,y} + κ1V_{x,y} + κ1^4A_{pub})
+                let d := sub(R_MOD,addmod(addmod(addmod(mulmod(kappa1_pow3, r1, R_MOD),mulmod(kappa2, r2, R_MOD), R_MOD), mulmod(kappa2_pow2, r3, R_MOD), R_MOD), addmod(mulmod(kappa1, V_xy, R_MOD),mulmod(mulmod(kappa1, kappa1_pow3, R_MOD), A_pub, R_MOD),R_MOD),R_MOD))                
+                // κ1^2(R_x,y - 1)
+                let kappa1_r_minus_1 := mulmod(mulmod(kappa1, kappa1, R_MOD), sub(r1, 1), R_MOD)
+                // κ1^2 * t_{m_l}(χ)
+                let kappa1_tml := mulmod(kappa1_pow2, t_ml, R_MOD)
+                // κ1^2 * t_{s_{max}}(ζ)
+                let kappa1_tsmax := mulmod(kappa1_pow2, t_smax, R_MOD)
+                
+                g1pointMulIntoDest(VK_POLY_KXLX_X_PART1, kappa1_r_minus_1, AGG_LHS_C_X_SLOT_PART1)
+                g1pointMulAndAddIntoDest(INTERMERDIARY_POLY_G_X_SLOT_PART1, a, AGG_LHS_C_X_SLOT_PART1)
 
-                // Add κ1^2 * κ0 * (χ-1) * (R_{x,y}[G]_1 - R'_{x,y}[F]_1)
-                let kappa1_pow2_kappa0_chi_minus_1 := mulmod(mulmod(kappa1_pow2, kappa0, R_MOD), chi_minus_1, R_MOD)
-                
-                // R_{x,y}[G]_1
-                g1pointMulIntoDest(INTERMERDIARY_POLY_G_X_SLOT_PART1, mulmod(kappa1_pow2_kappa0_chi_minus_1, r1, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                g1pointAddIntoDest(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1, AGG_LHS_C_X_SLOT_PART1)
-                
-                // -R'_{x,y}[F]_1
-                g1pointMulIntoDest(INTERMERDIARY_POLY_F_X_SLOT_PART1, mulmod(kappa1_pow2_kappa0_chi_minus_1, r2, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
+                g1pointMulIntoDest(INTERMERDIARY_POLY_F_X_SLOT_PART1, b, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
                 g1pointSubAssign(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
 
-                // Add κ1^2 * κ0^2 * K_0(χ) * (R_{x,y}[G]_1 - R''_{x,y}[F]_1)
-                let kappa1_pow2_kappa0_pow2_k0 := mulmod(mulmod(kappa1_pow2, mulmod(kappa0, kappa0, R_MOD), R_MOD), k0, R_MOD)
-                
-                // R_{x,y}[G]_1
-                g1pointMulIntoDest(INTERMERDIARY_POLY_G_X_SLOT_PART1, mulmod(kappa1_pow2_kappa0_pow2_k0, r1, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                g1pointAddIntoDest(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1, AGG_LHS_C_X_SLOT_PART1)
-                
-                // -R''_{x,y}[F]_1
-                g1pointMulIntoDest(INTERMERDIARY_POLY_F_X_SLOT_PART1, mulmod(kappa1_pow2_kappa0_pow2_k0, r3, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
+                g1pointMulIntoDest(PROOF_POLY_QCX_X_SLOT_PART1, kappa1_tml, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
                 g1pointSubAssign(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
 
-                // Subtract κ1^2 * t_{m_l}(χ) * [Q_{C,X}]_1
-                g1pointMulIntoDest(PROOF_POLY_QCX_X_SLOT_PART1, mulmod(kappa1_pow2, t_ml, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
+                g1pointMulIntoDest(PROOF_POLY_QCY_X_SLOT_PART1, kappa1_tsmax, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
                 g1pointSubAssign(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
 
-                // Subtract κ1^2 * t_{s_{max}}(ζ) * [Q_{C,Y}]_1
-                g1pointMulIntoDest(PROOF_POLY_QCY_X_SLOT_PART1, mulmod(kappa1_pow2, t_smax, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                g1pointSubAssign(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
+                g1pointMulAndAddIntoDest(PROOF_POLY_R_X_SLOT_PART1, c, AGG_LHS_C_X_SLOT_PART1)
+                g1pointMulAndAddIntoDest(VK_IDENTITY_X_PART1, d, AGG_LHS_C_X_SLOT_PART1)
 
-                // Add κ1^3([R]_1 - R_{x,y}[1]_1)
-                g1pointMulIntoDest(PROOF_POLY_R_X_SLOT_PART1, kappa1_pow3, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                g1pointAddIntoDest(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1, AGG_LHS_C_X_SLOT_PART1)
-                
-                g1pointMulIntoDest(VK_IDENTITY_X_PART1, mulmod(kappa1_pow3, r1, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                g1pointSubAssign(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-
-                // Add κ2([R]_1 - R'_{x,y}[1]_1)
-                g1pointMulIntoDest(PROOF_POLY_R_X_SLOT_PART1, kappa2, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                g1pointAddIntoDest(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1, AGG_LHS_C_X_SLOT_PART1)
-                
-                g1pointMulIntoDest(VK_IDENTITY_X_PART1, mulmod(kappa2, r2, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                g1pointSubAssign(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-
-                // Add κ2^2([R]_1 - R''_{x,y}[1]_1)
-                g1pointMulIntoDest(PROOF_POLY_R_X_SLOT_PART1, kappa2_pow2, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                g1pointAddIntoDest(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1, AGG_LHS_C_X_SLOT_PART1)
-                
-                g1pointMulIntoDest(VK_IDENTITY_X_PART1, mulmod(kappa2_pow2, r3, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                g1pointSubAssign(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
             }
 
             /// @dev [RHS_1]_1 := κ2[Π_{χ}]_1 + κ2^2[M_{χ}]_1 + κ2^3[N_{χ}]_1
@@ -1387,26 +1296,28 @@ contract VerifierV1 is IVerifier {
                     let kappa2_pow3_omega_ml_chi := mulmod(mulmod(mulmod(mulmod(kappa2, kappa2, R_MOD), kappa2, R_MOD), omega_ml, R_MOD), chi, R_MOD)
                     let kappa2_pow3_omega_smax_zeta := mulmod(mulmod(mulmod(mulmod(kappa2, kappa2, R_MOD), kappa2, R_MOD), omega_smax, R_MOD), zeta, R_MOD)
 
+
                     // [AUX]_1 accumulation
                     // κ2 * χ * [Π_{χ}]_1
                     g1pointMulIntoDest(PROOF_POLY_PI_CHI_X_SLOT_PART1, kappa2_chi, PAIRING_AGG_AUX_X_SLOT_PART1)
                     // += κ2 * ζ *[Π_ζ]_1
-                    g1pointMulAndAddIntoDest(PROOF_POLY_PI_ZETA_X_SLOT_PART1, kappa2_zeta, PAIRING_AGG_AUX_X_SLOT_PART1)
-                    // += κ2^2 * ω_{m_I}^{-1} * χ *[M_{χ}]_1
+                    g1pointMulAndAddIntoDest(PROOF_POLY_PI_ZETA_X_SLOT_PART1,kappa2_zeta, PAIRING_AGG_AUX_X_SLOT_PART1)
+                    // += κ2^2 * ω_{m_l}^{-1} * χ *[M_{χ}]_1
                     g1pointMulAndAddIntoDest(PROOF_POLY_M_CHI_X_SLOT_PART1, kappa2_pow2_omega_ml_chi, PAIRING_AGG_AUX_X_SLOT_PART1)
                     // += κ2^2 * ζ * [M_ζ]_1
-                    g1pointMulAndAddIntoDest(PROOF_POLY_M_ZETA_X_SLOT_PART1, kappa2_pow2_zeta, PAIRING_AGG_AUX_X_SLOT_PART1)
-                    // += κ2^3 * ω_{m_I}^{-1} * χ * [N_{χ}]_1
+                    g1pointMulAndAddIntoDest(PROOF_POLY_M_ZETA_X_SLOT_PART1,kappa2_pow2_zeta,PAIRING_AGG_AUX_X_SLOT_PART1)
+                    // κ2^3 * ω_{m_l}^{-1} * χ * [N_{χ}]_1
                     g1pointMulAndAddIntoDest(PROOF_POLY_N_CHI_X_SLOT_PART1, kappa2_pow3_omega_ml_chi, PAIRING_AGG_AUX_X_SLOT_PART1)
-                    // += κ2^3 * ω_smax^{-1} * ζ * [N_{ζ}]_1
-                    g1pointMulAndAddIntoDest(PROOF_POLY_N_ZETA_X_SLOT_PART1, kappa2_pow3_omega_smax_zeta, PAIRING_AGG_AUX_X_SLOT_PART1)
+                    // κ2^3 * ω_smax^{-1} * ζ * [N_{ζ}]
+                    g1pointMulAndAddIntoDest(PROOF_POLY_N_ZETA_X_SLOT_PART1,kappa2_pow3_omega_smax_zeta, PAIRING_AGG_AUX_X_SLOT_PART1)
+
                 }
-/*
+
                 // calculate [LHS]_1 + [AUX]_1
                 {
                     g1pointAddIntoDest(PAIRING_AGG_LHS_X_SLOT_PART1, PAIRING_AGG_AUX_X_SLOT_PART1, PAIRING_AGG_LHS_AUX_X_SLOT_PART1)
                 }
-*/
+
             }
 
 
@@ -1608,33 +1519,27 @@ contract VerifierV1 is IVerifier {
 
         
             // Step4: computation of the final polynomial commitments
-            prepareLHSA()
-            prepareLHSB()
-            prepareLHSC()
-            prepareRHS1()
-            prepareRHS2()
-            prepareAggregatedCommitment()
+            //prepareLHSA()
+            //prepareLHSB()
+            //prepareLHSC()
+            //prepareRHS1()
+            //prepareRHS2()
+            //prepareAggregatedCommitment()
 
             // Step5: final pairing
-            finalPairing()
+            //finalPairing()
         
-            final_result := mload(PAIRING_AGG_AUX_X_SLOT_PART1)
+            final_result := mload(INTERMEDIARY_SCALAR_APUB_SLOT)
             /*
-            t_n_eval: 0x6e1d002ee22e6fbca0f7553c6f21fc32dfcebe7d51efd783e198d393e5af5e77 => same result
-            t_mi_eval: 0x6e1d002ee22e6fbca0f7553c6f21fc32dfcebe7d51efd783e198d393e5af5e77 => same result 
-            t_smax_eval: 0x03fe3e668633183071c4a7c6b63206a1659cd9de77f9349ac8db1cc03635e3c7 => same result
-            A_eval: 0x3d4ee49b8412bc46347b9f70c0ea99d8e043df51d60b7f2195760d0554e40abc => same result (not optimized)
-            lagrange_K0_eval: 0x19234065bb46d873ed20ae705a09a8a01fa3174aae28a1431485bc1b591555b4 => same result
-            F: { x: 0x025042a7d12d6f285d67679153b6b6655abc9664a188de6efb4dbb5cbe624b52a4a9cee5c727216d89c11f1da7f34ee8, y: 0x14faf93ad39bf1eda88f78e56e9d33cf25c0b85d49a713fc2cbacce52312c2120d2a9943996e7dec019b5fe21b96f52d }
+            t_n_eval: 0x3aa592eea88e3a00037229b84b7df934d3e81cbcec2acddad1c7da845b88736c => same result
+            t_mi_eval: 0x0883c82ebdc59dd811060a75f1310e02bb050fec3cf175c854a9678a89139d44 => same result 
+            t_smax_eval: 0x0152cbc130b7d836b46839c49a1291ff735ed1d42e3d33683412fb9e1a7091df => same result
+            A_eval: 0x11693fa845da02884057edaa7be23c75e3e0a9001f2b70e8e2506a25d22fe418 => same result (not optimized)
+            lagrange_K0_eval: 0x38f43d88ce0f0e9eace5e3a7f3c85b4fcf288463b5897bb418eabc3ac76d7181 => same result
+            LHS_A: G1serde(Affine { x: 0x05904540f92b2c98923df47d997523e08cca0dc6158dccad58111e1e5e39b065b272ce2841af8c0b561c77b23634992b, y: 0x1729dfb8307c8048f7be52e9c285761ba1be4a79f1dfd8c563566a5f7e738a794459b827e4b2c319895f396a039bd9c3 })
+                => different result
+            F: G1serde(Affine { x: 0x0a5358b3d72d562fb227613b150e064f5220dd25f8aa005367cff2daf2edef9d4d719661497d1ba2e7c2f89f4e85d94e, y: 0x15e586da79fc25b684bed8fb7945af89063ce22411f314f4e75070e71303ea3662e97ca03c125b8ddbc93394a9c3f032 }) 
                 => same result
-            G: { x: 0x0ecd36cc7437de12119c160466b4519fdeba6e24ee1acb5a6a26637079d03196217d2a3e40bfbb58c462a61c692f1920, y: 0x00a73d86409500afe5bd78ecd0446e5d6d015bfb2127f0fae476e541a9cc4f2d3626d4457f09705ec95fc664b912ee42 })
-            LHS_A: { x: 0x04def809c9b36cfc35444c75e688914c3b4aade0bf3b543306fba59502cb6975919d8d50ccdf7c67fa44539d6adcfc31, y: 0x15ee671313bdebf368f422cd93cac703b0d0641c539bd74ab139fd0c6a458c54118481de875ac8488505c0b937a7b14b })
-            LHS_B: { x: 0x00746bb96bbe9b976fafdddabede5e61325d2f49164c0ad756ca29d0c66db49b59bc0b3a5d65db98453734d523248b68, y: 0x0b6740b40d8932667dee0bf1146cadb1c90ff26cb5fb064473b55c46654c9848e8e1633b941b74f54d11d0fc07eb9f73 })
-            LHS_C: { x: 0x08e4deebcb96839d8ef02516291f6be3b504210e97a4d800c37b33132b5159a36f1cec2e7b4765f7a1cbe2712c2dc44a, y: 0x03a4fcabf9fea1e6cdbd34811937afc4006a6675958d002c957f279dd293d81b5d4bb25df56461a7082608b9e7700ae2 })
-            LHS: { x: 0x171e470ec1dcbcf53eeaae9261c4da3e6aece4fa558859a9619c87c40ee8eb55ca227d3e3d9f0a330c0ec482936c721c, y: 0x0a678e77aeee6c4fdb930afd5050c4e2cb77d2b8b12250c79e6a42e2a42dfa2a86a310f2969d86477b909f91f3109179 })
-            AUX: { x: 0x044bd715bfa536f65150e4204de0618d69269f9a0cf40ebeaa153a18759ca2e34fd163e64bff3c4148be082d926af84a, y: 0x0c71bea90848486bc9aaaa7ca18fb72aee3d0725ff29b21a038dfde3f9fbf0b264538ce2e957c8a0f74b8d3e1071a3dc })
-            AUX_X: { x: 0x1634ddca5f2bc8fb136a46359be7a7a1bcd4b1ad24f0cfeeb1e50a3123b18c609fb2db9ce84f753c63d78dcb48cb5035, y: 0x0f754a4c9a83746bfa8018b8511deee807b3cf3daeba3f7ba05dd4451309f1a4bcec4d726e94bc6a94e45fb7e26476c3 })
-            AUX_Y: { x: 0x0f8486dee049417512d0f8cd6d0c00419988b15e40698263e590f58009173d22ae729f543dd0f77bae559076bf992aca, y: 0x14e3843ddfe784619a97cc6dfa88cfdb9f3ae21719ff3c25abbb9ca6b5cca7219b9569c5d41d9a72a0e08bd4b02937de })
             */
         }
 
