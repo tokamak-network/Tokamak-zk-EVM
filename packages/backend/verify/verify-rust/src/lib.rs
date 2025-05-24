@@ -193,12 +193,16 @@ impl Verifier {
         let proof2 = &self.proof.proof2;
         let proof3 = &self.proof.proof3; 
         let proof4 = &self.proof.proof4;
-        let thetas = proof0.verify0();
-        let kappa0 = proof1.verify1();
-        let (chi, zeta) = proof2.verify2();
-        let kappa1 = proof3.verify3();
-        let kappa2 = ScalarCfg::generate_random(1)[0];
 
+        let mut transcript_manager = TranscriptManager::new();
+
+        // Compute challenges using the transcript manager
+        let thetas = proof0.verify0_with_manager(&mut transcript_manager);
+        let kappa0 = proof1.verify1_with_manager(&mut transcript_manager);
+        let (chi, zeta) = proof2.verify2_with_manager(&mut transcript_manager);
+        let kappa1 = proof3.verify3_with_manager(&mut transcript_manager);
+        let kappa2 = transcript_manager.get_kappa2();
+        
         let m_i = self.setup_params.l_D - self.setup_params.l;
         let s_max = self.setup_params.s_max;
         let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
@@ -231,13 +235,30 @@ impl Verifier {
             lagrange_K0_XY.eval(&chi, &zeta)
         };
 
+        // Add debug prints
+        println!("First few a_pub values (evaluations):");
+        for i in 0..5 {
+            println!("  a_pub[{}] = {:?}", i, self.a_pub[i]);
+        }
+
+        // After IFFT, print coefficients
+        let mut coeffs = vec![ScalarField::zero(); 32];
+        a_pub_X.copy_coeffs(0, HostSlice::from_mut_slice(&mut coeffs));
+        println!("First few coefficients after IFFT:");
+        for i in 0..5 {
+            println!("  coeff[{}] = {:?}", i, coeffs[i]);
+        }
+
+        println!("chi = {:?}", chi);
+        let A_eval = a_pub_X.eval(&chi, &zeta);
+        println!("A_eval = {:?}", A_eval);
+
         let LHS_A = 
             (proof0.U * proof3.V_eval)
             - proof0.W
             +(proof0.V - self.sigma.G * proof3.V_eval) * kappa1
             - proof0.Q_AX * t_n_eval
             - proof0.Q_AY * t_smax_eval;
-
         let F = 
             proof0.B
             + self.preprocess.s0 * thetas[0]
@@ -278,6 +299,7 @@ impl Verifier {
             proof4.Pi_Y * kappa2
             + proof4.M_Y * kappa2.pow(2)
             + proof4.N_Y * kappa2.pow(3);
+
         let left_pair = pairing(
             &[LHS + AUX,    proof0.B,                   proof0.U,                   proof0.V,                   proof0.W                 ],
             &[self.sigma.H, self.sigma.sigma_2.alpha4,  self.sigma.sigma_2.alpha,   self.sigma.sigma_2.alpha2,  self.sigma.sigma_2.alpha3]
@@ -286,9 +308,10 @@ impl Verifier {
             &[binding.O_inst,            binding.O_mid,          binding.O_prv,              AUX_X,                  AUX_Y               ],
             &[self.sigma.sigma_2.gamma, self.sigma.sigma_2.eta, self.sigma.sigma_2.delta,   self.sigma.sigma_2.x,   self.sigma.sigma_2.y]
         );
+
         return left_pair.eq(&right_pair)
     }
-
+    /*
     pub fn verify_arith(&self, binding: &Binding, proof0: &Proof0, proof1: &Proof1, proof2: &Proof2, proof3: &Proof3, proof4: &Proof4Test) -> bool {
         let (chi, zeta) = proof2.verify2();
         let kappa1 = proof3.verify3();
@@ -449,4 +472,5 @@ impl Verifier {
         return left_pair.eq(&right_pair)
     }
 
+*/
 }
