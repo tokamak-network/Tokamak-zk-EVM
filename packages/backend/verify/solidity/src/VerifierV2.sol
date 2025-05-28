@@ -459,7 +459,7 @@ contract VerifierV2 is IVerifier {
         uint128[] calldata, //_proof part1 (16 bytes)
         uint256[] calldata, // _proof part2 (32 bytes)
         uint256[] calldata // publicInputs (used for computing A_pub)
-    ) public view virtual returns (bytes32 final_result) {
+    ) public view virtual returns (bool) {
         // No memory was accessed yet, so keys can be loaded into the right place and not corrupt any other memory.
         _loadVerificationKey();
 
@@ -1527,9 +1527,11 @@ contract VerifierV2 is IVerifier {
             //prepareAggregatedCommitment()
 
             // Step5: final pairing
-            //finalPairing()
+            finalPairing()
+            return(0, mload(INTERMEDIARY_SCALAR_APUB_SLOT))
+            //mstore(0, true)
+            //return(0, 32)
         
-            final_result := mload(INTERMEDIARY_SCALAR_APUB_SLOT)
             /*
             t_n_eval: 0x3aa592eea88e3a00037229b84b7df934d3e81cbcec2acddad1c7da845b88736c => same result
             t_mi_eval: 0x0883c82ebdc59dd811060a75f1310e02bb050fec3cf175c854a9678a89139d44 => same result 
