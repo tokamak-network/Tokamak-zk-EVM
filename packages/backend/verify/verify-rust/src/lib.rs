@@ -433,7 +433,6 @@ impl Verifier {
             };
             lagrange_K0_XY.eval(&chi, &zeta)
         };
-
         let LHS_B =
             binding.A * ( ScalarField::one() + (kappa2 * kappa1.pow(4)) )
             - self.sigma.G * (kappa2 * kappa1.pow(4) * A_eval);

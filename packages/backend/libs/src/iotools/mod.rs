@@ -6,6 +6,7 @@ use icicle_core::msm::{self, MSMConfig};
 use crate::field_structures::FieldSerde;
 use crate::group_structures::{G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify, Preprocess};
 use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
+use crate::polynomial_structures::{from_subcircuit_to_QAP, QAP};
 use crate::vector_operations::transpose_inplace;
 
 use super::vector_operations::{*};
@@ -497,6 +498,58 @@ impl SubcircuitR1CS{
             C_active_wires: C_active_wire_indices,
         })
     }
+    
+}
+
+impl QAP{
+    pub fn gen_from_R1CS(
+        subcircuit_infos: &Box<[SubcircuitInfo]>,
+        setup_params: &SetupParams,
+    ) -> Self {
+        let m_d = setup_params.m_D;
+        let s_d = setup_params.s_D;
+
+        let global_wire_file_name = "globalWireList.json";
+        let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_file_name).unwrap();
+
+        let zero_coef_vec = [ScalarField::zero()];
+        let zero_coef = HostSlice::from_slice(&zero_coef_vec);
+        let zero_poly = DensePolynomialExt::from_coeffs(zero_coef, 1, 1);
+        let mut u_j_X = vec![zero_poly.clone(); m_d];
+        let mut v_j_X = vec![zero_poly.clone(); m_d];
+        let mut w_j_X = vec![zero_poly.clone(); m_d];
+
+        for i in 0..s_d {
+            println!("Processing subcircuit id {}", i);
+            let r1cs_path: String = format!("json/subcircuit{i}.json");
+
+            let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
+            let (u_j_X_local, v_j_X_local, w_j_X_local) = from_subcircuit_to_QAP(
+                &compact_r1cs,
+                &setup_params,
+                &subcircuit_infos[i]
+            );
+            
+            // Map local wire indices to global wire indices
+            let flatten_map = &subcircuit_infos[i].flattenMap;
+
+            for local_idx in 0..subcircuit_infos[i].Nwires {
+                let global_idx = flatten_map[local_idx];
+
+                // Verify global wire list consistency with flatten map
+                if (global_wire_list[global_idx][0] != subcircuit_infos[i].id) || 
+                   (global_wire_list[global_idx][1] != local_idx) {
+                    panic!("GlobalWireList is not the inverse of flattenMap.");
+                }
+
+                u_j_X[global_idx] = u_j_X_local[local_idx].clone();
+                v_j_X[global_idx] = v_j_X_local[local_idx].clone();
+                w_j_X[global_idx] = w_j_X_local[local_idx].clone();
+            }
+        }
+        return Self {u_j_X, v_j_X, w_j_X}
+    }
+
     
 }
 
