@@ -11,9 +11,7 @@ This repository provides a library of subcircuits for EVM's basic operations. Co
 - Combined with Synthesizer, almost any type of transaction can be circuited.
 
 ### Version
-- In the current version, the subcircuit library is a set of subcircuits for all arithmetic and logical operations in [the EVM instruction set](https://www.evm.codes/).
-   - However, we found that the current set is not a minimal basis, since some elements can be expressed as combinations of other elements by [Synthesizer](../synthesizer).
-- In the next version, we will reduce and optimize the library, which will further accelerates [the backend](../../backend).
+- In the current version, the subcircuit library is a set of subcircuits that support almost [EVM instructions](https://www.evm.codes/), except for the instructions related to creating or destroying accounts (there is no need to support these instructions for our purposes).
 
 ## Installation
 
@@ -26,96 +24,52 @@ npm install
 ```
 
 ## Usage
-1. Configure the number of inputs and outputs in buffer subcircuits by changing the variable $N$ in [this code](./circuits/buffer.circom) (default: $N = 256$).
-   > - There is no limit to $N$. However, the larger they are, the more time it takes to generate a zkp proof.
-   > - If $N$ is insufficient, fewer types of Ethereum transactions can be circuited, and the Synthesizer may throw errors for more complicated transactions.
-2. Run the script below in terminal. Windows users will need to use GitBash as their terminal.
+1. Configure the sizes of four buffer subcircuits.
+   > - If the sizes of buffers are insufficient, [frontend/synthesizer](../synthesizer) will throw an error.
+   > - The default sizes are sufficient for testing ERC-20 transactions for TON, USDT, and USDC contracts.
+   > - Higher buffer sizes may result in slowing down [the backend algorithms](../../backend).
+2. Run the script below in terminal (Windows users need to use GitBash):
 ```shell
 ./scripts/compile.sh
 ```
-3. Check your [output library subcircuits](./subcircuits/library) 
+3. Check your output, [a library of subcircuits](./subcircuits/library) 
 
-## Composition of the subcircuit library
-
-```text
-circuits
-├── templates
-│   ├── 128bit
-│   │   ├── adder.circom
-│   │   ├── divider.circom
-│   │   ├── exp.circom
-│   │   └── multiplier.circom
-│   ├── arithmetic_func.circom
-│   ├── bit_extractor.circom
-│   ├── comparators.circom
-│   ├── divider.circom
-│   └── two_to_the_power_of_n.circom
-├── add.circom
-├── addmod.circom
-├── and.circom
-├── buffer.circom
-├── byte.circom
-├── div.circom
-├── eq.circom
-├── exp.circom
-├── gt.circom
-├── iszero.circom
-├── load.circom
-├── lt.circom
-├── mod.circom
-├── mul.circom
-├── mulmod.circom
-├── not.circom
-├── or.circom
-├── sar.circom
-├── sdiv.circom
-├── sgt.circom
-├── sha3.circom
-├── shl.circom
-├── shr.circom
-├── signextend.circom
-├── slt.circom
-├── smod.circom
-├── sub.circom
-├── subexp.circom
-└── xor.circom
-```
-
+## Subcircuits
 - All subcircuits are written Circom language (for details, visit [Circom official document](https://docs.circom.io/).
-- `templates`: The set of modules and functions frequently used by the sub-circuits. The circuits under `128bit` assume to take 128-bit length values.
+- [subcircuits/circom](./subcircuits/circom) folder contains the list of subcircuits with implementation.
 - The list of subcircuits does not explicitly mean the compatibility with EVM. Synthesizer will combine these subcircuits to represent all signal processing performed within the EVM. Thus, the EVM-compatiblity depends on Synthesizer, and additions and changes to the subcircuits will be determined based on the needs of the Synthesizer.
 
-## Subcircuits design
-- All subcircuits are compatible with the EVM's basic operations on 256-bit words.
-  - Due to the nature of finite fields for pairing-friendly elliptic curves (e.g., BN128), Circom supports 254-bit words.
-  - So, each input and output of target operations will be split (by Synthesizer) into two 128-bit length values before being applied to the subcircuits.
-  - As the result, the subcircuits have twice as many inputs and outputs as target operations.
+### ALU subcircuits
+- There are 5 Arithmetic and Logical Units (ALU) in the library.
+- Each ALU deals with the following 256-bit operations for EVM:
+   - ALU1: ADD, MUL, SUB, SubExp (a single loop for EXP), EQ, ISZERO, NOT
+   - ALU2: DIV, SDIV, MOD, SMOD, ADDMOD, MULMOD
+   - ALU3: SHL, SHR, SAR
+   - ALU4: LT, GT, SLT, SGT
+   - ALU5: SIGNEXTEND, BYTE
+### KECCAK256
+Implementing Keccak hashing directly in a circuit, such as [Keccak256-circom](https://github.com/vocdoni/keccak256-circom), is computationally inefficient, resulting in approximately 151k constraints. Thus, we have chosen not to implement a Keccak circuit. Instead, Synthesizer will buffer subcircuits to emit the KECCAK256 input values from the circuit and reintroduce the KECCAK256 output values back into the circuit. Outside the circuit, the Keccak hash computation can be run by the verifier of the Tokamak-zk SNARK. Find details from [Synthesizer Doc.](https://tokamak-network-zk-evm.gitbook.io/tokamak-network-zk-evm)
+### Testing subcircuits
+Enter the following commands in terminal (Windows users need to use GitBash):
+```shell
+./scripts/compile_test.sh
+mocha ./subcircuits/test/test_script.js
+```
 
-- KECCAK256
-    - Implementing Keccak hashing directly in a circuit, such as [Keccak256-circom](https://github.com/vocdoni/keccak256-circom), is computationally inefficient, resulting in approximately 151k constraints. Thus, we have chosen not to implement a Keccak circuit. Instead, Synthesizer will buffer subcircuits to emit the KECCAK256 input values from the circuit and reintroduce the KECCAK256 output values back into the circuit. Outside the circuit, the Keccak hash computation can be run by the verifier of the Tokamak-zk SNARK. Find details from [Synthesizer Doc.](https://tokamak.notion.site/Synthesizer-documentation-164d96a400a3808db0f0f636e20fca24?pvs=4)
-
-- Number of constraints
-
+### Number of constraints
 
 | Subcircuit name | # of constraints |
-|-------------|---------------------|
-| 0x01 ADD    | 256                 |
-| 0x02 MUL    | 522                 |
-| 0x03 SUB    | 256                 |
-| 0x04 DIV    | 1054                |
-| 0x05 SDIV   | 4155                |
-| 0x06 MOD    | 1054                |
-| 0x07 SMOD   | 4155                |
-| 0x08 ADDMOD | 1445                |
-| 0x09 MULMOD | 2239                |
-| 0x0A EXP    | 7982                |
-| 0x0B SIGNEXTEND | 2823            |
-| 0x12 SLT    | 520                 |
-| 0x13 SGT    | 520                 |
-| 0x1A BYTE   | 308                 |
-| 0x1B SHL    | 326                 |
-| 0x1C SHR    | 325                 |
-| 0x1D SAR    | 1063                |
+|-----------------|------------------|
+| ALU1            | 803              |
+| ALU2            | 993              |
+| ALU3            | 816              |
+| ALU4            | 629              |
+| ALU5            | 819              |
+| OR              | 774              |
+| XOR             | 774              |
+| AND             | 774              |
+| DecToBit        | 258              |
+| Accumulator     | 329              |
 
 ## Contributing
 We welcome contributions! Please see our [Contributing Guidelines](../../../CONTRIBUTING.md) for details.
@@ -124,7 +78,7 @@ We welcome contributions! Please see our [Contributing Guidelines](../../../CONT
 - [Tokamak zk-SNARK paper](https://eprint.iacr.org/2024/507)
 
 ## Original contribution
-- [JehyukJang](https://github.com/JehyukJang): Subcircuits planning and consulting
+- [JehyukJang](https://github.com/JehyukJang): Overall planning and direction. Constraints optimization.
 - [pleiadex](https://github.com/pleiadex): Initial subcircuits design and implementation. Script development.
 - [jdhyun09](https://github.com/jdhyun09): Improvement of EVM-compatability. Constraints optimization.
 
