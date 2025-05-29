@@ -1,5 +1,5 @@
 use std::time::{Duration, Instant};
-use prove::{Prover, Proof, TranscriptManager, Challenge, ChallengeSerde};
+use prove::{Prover, Proof, TranscriptManager};
 
 fn main() {
     let prove_start = Instant::now();
@@ -49,9 +49,7 @@ fn main() {
     lap = timer.elapsed();
     println!("prove3 running time: {:.6} seconds", lap.as_secs_f64());
 
-    // Use the manager to get kappa1 and kappa2
     let kappa1 = proof3.verify3_with_manager(&mut manager);
-    let kappa2 = manager.get_kappa2();
     
     println!("Running prove4...");
     timer = Instant::now();
@@ -59,18 +57,17 @@ fn main() {
     lap = timer.elapsed();
     println!("prove4 running time: {:.6} seconds", lap.as_secs_f64());
 
-    // Create the challenge struct
-    let challenge = Challenge {
-        thetas: thetas.into_boxed_slice(),
-        chi,
-        zeta,
-        kappa0,
-        kappa1,
-        kappa2,
-    };
+    // // Create the challenge struct
+    // let challenge = Challenge {
+    //     thetas: thetas.into_boxed_slice(),
+    //     chi,
+    //     zeta,
+    //     kappa0,
+    //     kappa1,
+    // };
 
-    // Convert to serializable version
-    let challenge_serde = ChallengeSerde::from(challenge);
+    // // Convert to serializable version
+    // let challenge_serde = ChallengeSerde::from(challenge);
     
     let proof = Proof {
         binding, 
@@ -79,7 +76,7 @@ fn main() {
         proof2, 
         proof3, 
         proof4,
-        challenge: challenge_serde,
+        // challenge: challenge_serde,
     };
     
     println!("Writing the proof into JSON...");

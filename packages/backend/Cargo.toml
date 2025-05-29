@@ -4,7 +4,6 @@ members = [
     "setup/trusted-setup",
     "prove",
     "verify/verify-rust",
-    "protocol-script",
     "verify/preprocess"
 ]
 

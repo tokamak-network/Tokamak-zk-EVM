@@ -201,7 +201,7 @@ impl Verifier {
         let kappa0 = proof1.verify1_with_manager(&mut transcript_manager);
         let (chi, zeta) = proof2.verify2_with_manager(&mut transcript_manager);
         let kappa1 = proof3.verify3_with_manager(&mut transcript_manager);
-        let kappa2 = transcript_manager.get_kappa2();
+        let kappa2 = ScalarCfg::generate_random(1)[0];
         
         let m_i = self.setup_params.l_D - self.setup_params.l;
         let s_max = self.setup_params.s_max;
@@ -234,24 +234,6 @@ impl Verifier {
             };
             lagrange_K0_XY.eval(&chi, &zeta)
         };
-
-        // Add debug prints
-        println!("First few a_pub values (evaluations):");
-        for i in 0..5 {
-            println!("  a_pub[{}] = {:?}", i, self.a_pub[i]);
-        }
-
-        // After IFFT, print coefficients
-        let mut coeffs = vec![ScalarField::zero(); 32];
-        a_pub_X.copy_coeffs(0, HostSlice::from_mut_slice(&mut coeffs));
-        println!("First few coefficients after IFFT:");
-        for i in 0..5 {
-            println!("  coeff[{}] = {:?}", i, coeffs[i]);
-        }
-
-        println!("chi = {:?}", chi);
-        let A_eval = a_pub_X.eval(&chi, &zeta);
-        println!("A_eval = {:?}", A_eval);
 
         let LHS_A = 
             (proof0.U * proof3.V_eval)
