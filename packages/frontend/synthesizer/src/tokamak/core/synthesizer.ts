@@ -21,6 +21,8 @@ import {
   PRV_IN_PLACEMENT_INDEX,
   PRV_OUT_PLACEMENT,
   PRV_OUT_PLACEMENT_INDEX,
+  SUBCIRCUIT_MAPPING,
+  ACCUMULATOR_INPUT_LIMIT,
   // KECCAK_IN_PLACEMENT,
   // KECCAK_IN_PLACEMENT_INDEX,
   // KECCAK_OUT_PLACEMENT,
@@ -36,7 +38,7 @@ import {
 } from '../constant/index.js'
 
 import { subcircuits } from '../constant/index.js'
-import { OPERATION_MAPPING } from '../operations/index.js'
+import { ArithmeticOperations, OPERATION_MAPPING } from '../operations/index.js'
 import { DataPointFactory, simulateMemoryPt } from '../pointers/index.js'
 import { addPlacement } from '../utils/utils.js'
 import {
@@ -55,6 +57,7 @@ import type {
   Placements,
   SubcircuitInfoByName,
   SubcircuitInfoByNameEntry,
+  SubcircuitNames,
 } from '../types/index.js'
 
 export const synthesizerArith = (
@@ -67,11 +70,11 @@ export const synthesizerArith = (
 
   for (let i = 0; i < ins.length; i++) {
     if (inPts[i].value !== ins[i]) {
-      const stackValue = BigInt(inPts[i].value)
-      const inputValue = BigInt(ins[i])
-      console.log(`Value mismatch at index ${i}:`)
-      console.log(`Stack value: ${stackValue}`)
-      console.log(`Input value: ${inputValue}`)
+      // const stackValue = BigInt(inPts[i].value)
+      // const inputValue = BigInt(ins[i])
+      // console.log(`Value mismatch at index ${i}:`)
+      // console.log(`Stack value: ${stackValue}`)
+      // console.log(`Input value: ${inputValue}`)
       throw new Error(`Synthesizer: ${op}: Input data mismatch`)
     }
   }
@@ -356,7 +359,7 @@ export class Synthesizer {
       source: placementId,
       wireIndex: outWireIndex,
       value: inPt.value,
-      sourceSize: DEFAULT_SOURCE_SIZE,
+      sourceSize: inPt.sourceSize,
     }
     const outPt = DataPointFactory.create(outPtRaw)
 
@@ -403,19 +406,20 @@ export class Synthesizer {
   ): DataPt {
     const inPtRaw: CreateDataPointParams = {
       extSource: `code: ${codeAddress}`,
-      type: 'Reading ROM value',
+      type: `PUSH${size}`,
       offset: programCounter + 1,
       source: PRV_IN_PLACEMENT_INDEX,
       wireIndex: this.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length,
       value,
-      sourceSize: size,
+      sourceSize: DEFAULT_SOURCE_SIZE,
     }
     const inPt: DataPt = DataPointFactory.create(inPtRaw)
 
     return this._addWireToInBuffer(inPt, PRV_IN_PLACEMENT_INDEX)
   }
 
-  public loadAuxin(value: bigint): DataPt {
+  public loadAuxin(value: bigint, size?: number): DataPt {
+    const sourceSize = size?? DEFAULT_SOURCE_SIZE
     if (this.auxin.has(value)) {
       return this.placements.get(PRV_IN_PLACEMENT_INDEX)!.outPts[this.auxin.get(value)!]
     }
@@ -424,7 +428,7 @@ export class Synthesizer {
       source: PRV_IN_PLACEMENT_INDEX,
       wireIndex: this.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length,
       value,
-      sourceSize: DEFAULT_SOURCE_SIZE,
+      sourceSize,
     }
     const inPt = DataPointFactory.create(inPtRaw)
     const outPt = this._addWireToInBuffer(inPt, PRV_IN_PLACEMENT_INDEX)
@@ -517,7 +521,6 @@ export class Synthesizer {
     let outWireIndex = this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.length
     // Create output data point
     const outPtRaw: CreateDataPointParams = {
-      // To Ale: 기존에 pairedInputWireIndices를 사용해서 같은 Log들을 분류하던 것을 key에 넘버링하는 방식으로 변경하였습니다. GUI에 반영이 필요합니다.
       extDest: 'LOG',
       key: '0x'+logKey.toString(16),
       type: 'value',
@@ -659,7 +662,7 @@ export class Synthesizer {
           sourceSize: truncSize,
         }
         const outPts: DataPt[] = [DataPointFactory.create(rawOutPt)]
-        this._place(subcircuitName, inPts, outPts)
+        this._place(subcircuitName, inPts, outPts, subcircuitName)
 
         return outPts[0]
       }
@@ -670,7 +673,6 @@ export class Synthesizer {
   }
 
   public placeEXP(inPts: DataPt[]): DataPt {
-    SynthesizerValidator.validateSubcircuitName('SubEXP', this.subcircuitNames)
     // a^b
     const aPt = inPts[0]
     const bPt = inPts[1]
@@ -722,56 +724,90 @@ export class Synthesizer {
   }
 
 
-  /**
-  @todo: Validation needed for newDataPt size variable
-   */
-  private static readonly REQUIRED_INPUTS: Partial<Record<string, number>> = {
-    ADDMOD: 3,
-    MULMOD: 3,
-    ISZERO: 1,
-    NOT: 1,
-    DecToBit: 1,
-    SubEXP: 3,
-  } as const
-  private validateOperation(name: ArithmeticOperator, inPts: DataPt[]): void {
-    // Default is 2, check REQUIRED_INPUTS only for exceptional cases
-    const requiredInputs = Synthesizer.REQUIRED_INPUTS[name] ?? 2
-    SynthesizerValidator.validateInputCount(name, inPts.length, requiredInputs)
-    SynthesizerValidator.validateInputs(inPts)
-  }
+  // /**
+  // @todo: Validation needed for newDataPt size variable
+  //  */
+  // private static readonly REQUIRED_INPUTS: Partial<Record<string, number>> = {
+  //   ADDMOD: 3,
+  //   MULMOD: 3,
+  //   ISZERO: 1,
+  //   NOT: 1,
+  //   DecToBit: 1,
+  //   SubEXP: 3,
+  // } as const
+  // private validateOperation(name: ArithmeticOperator, inPts: DataPt[]): void {
+  //   // Default is 2, check REQUIRED_INPUTS only for exceptional cases
+  //   const requiredInputs = Synthesizer.REQUIRED_INPUTS[name] ?? 2
+  //   SynthesizerValidator.validateInputCount(name, inPts.length, requiredInputs)
+  //   SynthesizerValidator.validateInputs(inPts)
+  // }
 
   private executeOperation(name: ArithmeticOperator, values: bigint[]): bigint | bigint[] {
     const operation = OPERATION_MAPPING[name]
-    return operation(...values)
+    if (name === 'Accumulator') {
+      return operation(values)
+    } else {
+      return operation(...values)
+    }
+    
   }
 
-  private createOutputPoint(value: bigint, _wireIndex?: number): DataPt {
-    const wireIndex = _wireIndex ?? 0
-    return DataPointFactory.create({
-      source: this.placementIndex,
-      wireIndex,
-      value,
-      sourceSize: DEFAULT_SOURCE_SIZE,
-    })
-  }
+  // private createOutputPoint(value: bigint, wireIndex: number, sourceSize: number): DataPt {
+  //   return DataPointFactory.create({
+  //     source: this.placementIndex,
+  //     wireIndex,
+  //     value,
+  //     sourceSize,
+  //   })
+  // }
 
-  private handleBinaryOp(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
+
+  /**
+   * Adds a new arithmetic placement.
+   *
+   * @param {string} name - Name of the placement. Examples: 'ADD', 'SUB', 'MUL', 'DIV'.
+   * @param {DataPt[]} inPts - Array of input data points.
+   * @returns {DataPt[]} Array of generated output data points.
+   * @throws {Error} If an undefined subcircuit name is provided.
+   */
+  public placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
     try {
-      // 1. Validate inputs
-      this.validateOperation(name, inPts)
-
-      // 2. Execute operation
+      // 1. Execute operation
       const values = inPts.map((pt) => pt.value)
       const outValue = this.executeOperation(name, values)
 
-      // 3. Generate output
-      let wireIndex = 0
+      // 2. Generate output
+      const source = this.placementIndex
+      // The outputs of DecToBit are binary, so sourceSize is set to 1.
+      const sourceSize = name === 'DecToBit' ? 1 : DEFAULT_SOURCE_SIZE
       const outPts = Array.isArray(outValue)
-        ? outValue.map((value) => this.createOutputPoint(value, wireIndex++))
-        : [this.createOutputPoint(outValue)]
+        ? outValue.map((value, index) => DataPointFactory.create({source, wireIndex: index, value, sourceSize}))
+        : [DataPointFactory.create({source, wireIndex: 0, value: outValue, sourceSize})]
+      
+      // 3. Load selector as an auxiliary input
+      const [subcircuit_name, selector] = SUBCIRCUIT_MAPPING[name]
 
+      let subcircuitInfo = this.subcircuitInfoByName.get(subcircuit_name)
+      if (subcircuitInfo === undefined) {
+        throw new Error(`Synthesizer: ${subcircuit_name} subcircuit is not found for operation ${name}. Check qap-compiler.`)
+      }
+
+        // It is hardcoded in qap-compiler that if the selector is defined, the first input must be the selector.
+      let selectorPt: DataPt
+      let newInPts: DataPt[] = inPts
+      if (selector !== undefined) {
+        // selector is just a small number (0 - 29), so sourceSize is set to 1.
+        selectorPt = this.loadAuxin(selector, 1)
+        newInPts = [selectorPt, ...inPts]
+      }
+        // For optimization, it is hardcoded in qap-compiler that the first argument value (not selector) for ALU3 and ALU5 should be less than 256.
+        if (subcircuit_name === 'ALU3' || subcircuit_name === 'ALU5') {
+          if (values[0] > 255n) {
+            throw new Error(`Synthesizer: Operation ${name} has a shift or size value greater than 255. Adjust ${subcircuit_name} subcircuit in qap-compiler.`)
+          }
+        }
       // 4. Add placement
-      this._place(name, inPts, outPts)
+      this._place(subcircuit_name, newInPts, outPts, name)
 
       return outPts
     } catch (error) {
@@ -785,20 +821,6 @@ export class Synthesizer {
       }
       throw error
     }
-  }
-
-  /**
-   * Adds a new arithmetic placement.
-   *
-   * @param {string} name - Name of the placement. Examples: 'ADD', 'SUB', 'MUL', 'DIV'.
-   * @param {DataPt[]} inPts - Array of input data points.
-   * @returns {DataPt[]} Array of generated output data points.
-   * @throws {Error} If an undefined subcircuit name is provided.
-   */
-  public placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
-    SynthesizerValidator.validateSubcircuitName(name, this.subcircuitNames)
-    SynthesizerValidator.validateImplementedOpcode(name)
-    return this.handleBinaryOp(name, inPts)
   }
 
   public adjustMemoryPts = (
@@ -851,27 +873,24 @@ export class Synthesizer {
    * @returns {DataPt} Generated data point.
    */
   private _resolveDataAlias(dataAliasInfos: DataAliasInfos): DataPt {
-    const ADDTargets: { subcircuitID: number; wireID: number }[] = []
+    const ADDTargets: DataPt[] = []
     // First, shift each dataPt and AND with mask
     const initPlacementIndex = this.placementIndex
     for (const info of dataAliasInfos) {
       let prevPlacementIndex = this.placementIndex
       // this method may increases the placementIndex
-      this._applyShiftAndMask(info)
-      if (prevPlacementIndex !== this.placementIndex) {
-        ADDTargets.push({ subcircuitID: this.placementIndex - 1, wireID: 0 })
-      } else {
-        ADDTargets.push({
-          subcircuitID: Number(info.dataPt.source),
-          wireID: info.dataPt.wireIndex!,
-        })
-      }
+      let shift_and_masked_data_pt = this._applyShiftAndMask(info)
+      // There is possibility that _applyShiftAndMask does nothing.
+      ADDTargets.push(shift_and_masked_data_pt)
     }
 
     const nDataAlias = ADDTargets.length
 
     if (nDataAlias > 1) {
-      this._addAndPlace(ADDTargets)
+      if (nDataAlias > ACCUMULATOR_INPUT_LIMIT) {
+        throw new Error(`Synthesizer: Go to qap-compiler and unlimit the number of inputs.`)
+      }
+      this.placeArith('Accumulator', ADDTargets)
     }
 
     if (initPlacementIndex === this.placementIndex) {
@@ -889,7 +908,7 @@ export class Synthesizer {
       masker: info.masker,
       shift: info.shift,
     }
-    let maskOutPt = modInfo.dataPt
+    let maskOutPt: DataPt
     maskOutPt = this._applyMask(modInfo)
     return maskOutPt
   }
@@ -940,28 +959,7 @@ export class Synthesizer {
     return outPts[0]
   }
 
-  /**
-   * Adds all AND results together.
-   *
-   * @param {{subcircuitID: number, wireID: number}[]} addTargets - OR operation target indices array.
-   */
-  private _addAndPlace(addTargets: { subcircuitID: number; wireID: number }[]): void {
-    let inPts: DataPt[] = [
-      this.placements.get(addTargets[0].subcircuitID)!.outPts[addTargets[0].wireID],
-      this.placements.get(addTargets[1].subcircuitID)!.outPts[addTargets[1].wireID],
-    ]
-    this.placeArith('ADD', inPts)
-
-    for (let i = 2; i < addTargets.length; i++) {
-      inPts = [
-        this.placements.get(this.placementIndex - 1)!.outPts[0],
-        this.placements.get(addTargets[i].subcircuitID)!.outPts[addTargets[i].wireID],
-      ]
-      this.placeArith('ADD', inPts)
-    }
-  }
-
-  private _place(name: string, inPts: DataPt[], outPts: DataPt[]) {
+  private _place(name: SubcircuitNames, inPts: DataPt[], outPts: DataPt[], usage: ArithmeticOperations) {
     if (!this.subcircuitNames.includes(name)) {
       throw new Error(`Subcircuit name ${name} is not defined`)
     }
@@ -974,6 +972,7 @@ export class Synthesizer {
     }
     addPlacement(this.placements, {
       name,
+      usage,
       subcircuitId: this.subcircuitInfoByName.get(name)!.id,
       inPts,
       outPts,

@@ -24,6 +24,7 @@ export class SynthesizerValidator {
   }
 
   /**
+   * @deprecated
    * Validates if the subcircuit name is valid
    *
    * @param name Subcircuit name
