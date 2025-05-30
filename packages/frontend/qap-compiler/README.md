@@ -35,9 +35,9 @@ npm install
 3. Check your output, [a library of subcircuits](./subcircuits/library) 
 
 ## Subcircuits
-- All subcircuits are written Circom language (for details, visit [Circom official document](https://docs.circom.io/).
-- [subcircuits/circom](./subcircuits/circom) folder contains the list of subcircuits with implementation.
-- The list of subcircuits does not explicitly mean the compatibility with EVM. Synthesizer will combine these subcircuits to represent all signal processing performed within the EVM. Thus, the EVM-compatiblity depends on Synthesizer, and additions and changes to the subcircuits will be determined based on the needs of the Synthesizer.
+- All subcircuits are written in [Circom](https://docs.circom.io/).
+- They are defined in the [subcircuits/circom](./subcircuits/circom) folder.
+- The library of subcircuits does not explicitly determine the compatibility with EVM. Synthesizer will combine these subcircuits to represent all signal processing performed within the EVM. Thus, the EVM-compatiblity is more likely to depend on Synthesizer, and the subcircuit library is kept to a minimum, depending on the Synthesizer's requirements.
 
 ### ALU subcircuits
 - There are 5 Arithmetic and Logical Units (ALU) in the library.
