@@ -11,6 +11,9 @@ icicle-core = { workspace = true }
 icicle-bls12-381 = { workspace = true }
 libs = { workspace = true }
 rayon = { workspace = true }
+lazy_static = "1.5.0"
+bincode = "1.3.3"
+memmap2 = "0.9.5"
 
 [features]
 default = []

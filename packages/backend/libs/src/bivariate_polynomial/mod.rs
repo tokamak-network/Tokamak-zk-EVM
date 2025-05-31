@@ -55,6 +55,10 @@ impl DensePolynomialExt {
     pub fn degree(&self) -> (i64, i64) {
         (self.x_degree, self.y_degree)
     }
+
+    pub fn is_zero(&self) -> bool {
+        self.x_size <= 1 && self.y_size <= 1 && self.get_coeff(0,0) == ScalarField::zero()
+    }
 }
 
 // impl Drop for DensePolynomialExt {
