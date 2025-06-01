@@ -4,16 +4,17 @@ use icicle_core::msm;
 use icicle_core::msm::MSMConfig;
 use icicle_core::traits::FieldImpl;
 use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice};
-use libs::bivariate_polynomial::DensePolynomialExt;
+use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::group_structures::{G1serde, Sigma, Sigma1, Sigma2};
 use libs::iotools::SetupParams;
+use libs::vector_operations::outer_product_two_vecs_rayon;
 use mpc_setup::accumulator::Accumulator;
 use mpc_setup::mpc_utils::{
     poly_mult, thread_safe_compute_langrange_i_coeffs, thread_safe_compute_langrange_i_poly,
 };
 pub use mpc_setup::prepare::QAP;
 use rayon::iter::ParallelIterator;
-use rayon::prelude::IntoParallelRefIterator;
+use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
 use std::ops::Sub;
 use std::time::Instant;
@@ -80,8 +81,12 @@ fn main() {
     )).expect("cannot read from qap_all.bin");
 
     println!("The qap load time: {:.6} seconds", start1.elapsed().as_secs_f64());
+    let mut kj_x_vec: Vec<DensePolynomialExt> = vec![];
+    for i in 0..m_i {
+        let kj_x = thread_safe_compute_langrange_i_poly(i, m_i, 1);
+        kj_x_vec.push(kj_x);
+    }
     let mut li_y_vec: Vec<DensePolynomialExt> = vec![];
-
     for i in 0..s_max {
         let li_y = thread_safe_compute_langrange_i_poly(i, 1, s_max);
         li_y_vec.push(li_y);
@@ -91,6 +96,7 @@ fn main() {
     let alpha1xyG1s = latest_acc.get_alphaxy_g1_range(1, n, li_y_vec[0].y_size);
     let alpha2xyG1s = latest_acc.get_alphaxy_g1_range(2, n, li_y_vec[0].y_size);
     let alpha3xyG1s = latest_acc.get_alphaxy_g1_range(3, n, li_y_vec[0].y_size);
+    let alpha4xyG1s = latest_acc.get_alphaxy_g1_range(4, kj_x_vec[0].x_size, li_y_vec[0].y_size);
 
     compute_gamma_part_i(
         0,
@@ -204,71 +210,12 @@ fn main() {
     );
     let start1 = Instant::now();
 
-    let mut multpxy_coeffs = vec![ScalarField::zero(); n * li_y_vec[0].y_size];
     // {η^(-1)L_i(y)(o_{j+l}(x) + α^4 K_j(x))}_{i=0,j=0}^{s_max-1,m_I-1}
     let mut eta_inv_li_o_inter_alpha4_kj =
         vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_i].into_boxed_slice();
-    let mut kj_x_vec: Vec<DensePolynomialExt> = vec![];
-    for i in 0..m_i {
-        let kj_x = thread_safe_compute_langrange_i_poly(i, m_i, 1);
-        kj_x_vec.push(kj_x);
-    }
-    let mut xy_coeffs = vec![ScalarField::zero(); li_y_vec[0].y_size * kj_x_vec[0].x_size];
-    let alpha4xyG1s = latest_acc.get_alphaxy_g1_range(4, kj_x_vec[0].x_size, li_y_vec[0].y_size);
+
     println!("len of (eta_inv_li_o_inter_alpha4_kj) is {}", m_i * s_max);
-
-    let start2 = Instant::now();
-    for i in 0..s_max {
-        for j in 0..m_i {
-            //let mut out = G1serde::zero();
-            let mut coeffs: Vec<ScalarField> = Vec::with_capacity(multpxy_coeffs.len() * 3 + xy_coeffs.len());
-            let mut commits: Vec<G1Affine> = Vec::with_capacity(multpxy_coeffs.len() * 3 + xy_coeffs.len());
-            //lookup with alpha x^i y^j
-            if !qap.u_j_X[j + l].is_zero() {
-                //  let mut multpxy_coeffs = vec![ScalarField::zero(); qap.u_j_X[j].x_size * li_y.y_size];
-                poly_mult(&qap.u_j_X[j + l], &li_y_vec[i], &mut multpxy_coeffs);
-                //  let alphaxyG1s = acc.get_alphaxy_g1_range(1, qap.u_j_X[j].x_size, li_y.y_size);
-                // out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha1xyG1s);
-                coeffs.extend(&multpxy_coeffs);
-                commits.extend(&alpha1xyG1s);
-            }
-            //lookup with alpha^2 x^i y^j
-            if !qap.v_j_X[j + l].is_zero() {
-                // let mut multpxy_coeffs = vec![ScalarField::zero(); qap.v_j_X[j].x_size * li_y.y_size];
-                poly_mult(&qap.v_j_X[j + l], &li_y_vec[i], &mut multpxy_coeffs);
-                //  let alphaxyG1s = acc.get_alphaxy_g1_range(2, qap.v_j_X[j].x_size, li_y.y_size);
-                // out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha2xyG1s);
-                coeffs.extend(&multpxy_coeffs);
-                commits.extend(&alpha2xyG1s);
-            }
-            //lookup with alpha^3 x^i y^j
-            if !qap.w_j_X[j + l].is_zero() {
-                //  let mut multpxy_coeffs = vec![ScalarField::zero(); qap.w_j_X[j].x_size * li_y.y_size];
-                poly_mult(&qap.w_j_X[j + l], &li_y_vec[i], &mut multpxy_coeffs);
-                //  let alphaxyG1s = acc.get_alphaxy_g1_range(3, qap.w_j_X[j].x_size, li_y.y_size);
-                //out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha3xyG1s);
-                coeffs.extend(&multpxy_coeffs);
-                commits.extend(&alpha3xyG1s);
-            }
-
-            poly_mult(&kj_x_vec[j], &li_y_vec[i], &mut xy_coeffs);
-            coeffs.extend(&xy_coeffs);
-            commits.extend(&alpha4xyG1s);
-            // out = out + sum_vector_dot_product(&xy_coeffs, &alpha4xyG1s);
-            // eta_inv_li_o_inter_alpha4_kj[j][i] = out;
-            
-            //println!("len of (coeffs) is {}", coeffs.len());
-            eta_inv_li_o_inter_alpha4_kj[j][i] = sum_vector_dot_product(&coeffs, &commits);
-
-            if j % 10 == 0 {
-                let avg = start2.elapsed().as_secs_f64() / (j + 256 * i) as f64;
-                println!("avg eta per second {}", 1f64 / avg);
-                println!("eta_inv_li_o_inter_alpha4_kj[{}][{}] = {:?}", j, i, eta_inv_li_o_inter_alpha4_kj[j][i].0.x);
-            }
-        }
-    }
-
-    // {δ^(-1)L_i(y)o_j(x)}_{i=0,j=l+m_I}^{s_max-1,m_I-1}
+    // {δ^(-1)L_i(y)o_j(x)}_{i=0,j=l+m_I}^{s_max-1,m_D-1}
     let mut delta_inv_li_o_prv =
         vec![vec![G1serde::zero(); s_max].into_boxed_slice(); (m_d - (l + m_i))].into_boxed_slice();
     //for private wires,
@@ -276,51 +223,80 @@ fn main() {
         "len of (delta_inv_li_o_prv) is {}",
         s_max * (m_d - (l + m_i))
     );
-    let start2 = Instant::now();
-    let mut cache: Vec<(usize, usize, Vec<ScalarField>, Vec<G1Affine>)> = vec![];
+    
+    let shared_points_u = alpha1xyG1s;
+    let shared_points_v = alpha2xyG1s;
+    let shared_points_w = alpha3xyG1s;
+    let shared_points_lk = alpha4xyG1s;
 
-    for i in 0..s_max {
-        for j in (l + m_i)..m_d {
-            let mut coeffs: Vec<ScalarField> = Vec::with_capacity(multpxy_coeffs.len() * 3);
-            let mut commits: Vec<G1Affine> = Vec::with_capacity(multpxy_coeffs.len() * 3);
-            //let mut out = G1serde::zero();
-            //Li(y)oj(x)
-            //lookup with alpha x^i y^j
-            if !qap.u_j_X[j].is_zero() {
-                poly_mult(&qap.u_j_X[j], &li_y_vec[i], &mut multpxy_coeffs);
-                //out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha1xyG1s);
-                coeffs.extend(&multpxy_coeffs);
-                commits.extend(&alpha1xyG1s);
-            }
-            //lookup with alpha^2 x^i y^j
-            if !qap.v_j_X[j].is_zero() {
-                poly_mult(&qap.v_j_X[j], &li_y_vec[i], &mut multpxy_coeffs);
-                //out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha2xyG1s);
-                coeffs.extend(&multpxy_coeffs);
-                commits.extend(&alpha2xyG1s);
-            }
-            //lookup with alpha^3 x^i y^j
-            if !qap.w_j_X[j].is_zero() {
-                poly_mult(&qap.w_j_X[j], &li_y_vec[i], &mut multpxy_coeffs);
-                //out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha3xyG1s);
-                coeffs.extend(&multpxy_coeffs);
-                commits.extend(&alpha3xyG1s);
-            }
-            if coeffs.len() > 0 {
-                // delta_inv_li_o_prv[j - (l + m_i)][i] = sum_vector_dot_product(&coeffs, &commits);
-                cache.push((j - (l + m_i), i, coeffs, commits));
-            }
-            if cache.len() > 10 {
-                run_sum_vector_dot_product2(&cache, &mut delta_inv_li_o_prv);
-                cache.clear();
-                let avg = start2.elapsed().as_secs_f64() / (j - (l + m_i) + (m_d - (l + m_i)) * i) as f64;
-                println!("avg delta per second {}", 1f64 / avg);
+    for j in l..m_d {
+        let mut scalars_u = vec![ScalarField::zero(); n * s_max * s_max ];
+        let mut scalars_v = vec![ScalarField::zero(); n * s_max * s_max ];
+        let mut scalars_w = vec![ScalarField::zero(); n * s_max * s_max ];
+        let mut scalars_lk = vec![ScalarField::zero(); m_i * s_max * s_max ];
+
+        let mut cached_u = vec![G1serde::zero(); s_max];
+        let mut cached_v = vec![G1serde::zero(); s_max];
+        let mut cached_w = vec![G1serde::zero(); s_max];
+        let mut cached_lk = vec![G1serde::zero(); s_max];
+
+        for i in 0..s_max {
+            let mut buffer_xy = vec![ScalarField::zero(); 3 * n * s_max];
+            let mut buffer_x = Vec::<ScalarField>::with_capacity(3 * n);
+            let mut buffer_y = vec![ScalarField::zero(); s_max];
+            li_y_vec[i].copy_coeffs(0, HostSlice::from_mut_slice(&mut buffer_y));
+
+            let mut _buffer_x = vec![ScalarField::zero(); n];
+            qap.u_j_X[j].copy_coeffs(0, HostSlice::from_mut_slice(&mut _buffer_x));
+            buffer_x.extend(&_buffer_x);
+
+            let mut _buffer_x = vec![ScalarField::zero(); n];
+            qap.v_j_X[j].copy_coeffs(0, HostSlice::from_mut_slice(&mut _buffer_x));
+            buffer_x.extend(&_buffer_x);
+
+            let mut _buffer_x = vec![ScalarField::zero(); n];
+            qap.w_j_X[j].copy_coeffs(0, HostSlice::from_mut_slice(&mut _buffer_x));
+            buffer_x.extend(&_buffer_x);
+            outer_product_two_vecs_rayon(&buffer_x, &buffer_y, &mut buffer_xy);
+
+            scalars_u[i * (n * s_max) .. (i + 1) * (n * s_max)].copy_from_slice(&buffer_xy[0 * n * s_max .. 1 * n * s_max]);
+            scalars_v[i * (n * s_max) .. (i + 1) * (n * s_max)].copy_from_slice(&buffer_xy[1 * n * s_max .. 2 * n * s_max]);
+            scalars_w[i * (n * s_max) .. (i + 1) * (n * s_max)].copy_from_slice(&buffer_xy[2 * n * s_max .. 3 * n * s_max]);
+
+            if j < l + m_i {
+                std::mem::drop(buffer_xy);
+                std::mem::drop(buffer_x);
+                let mut buffer_xy = vec![ScalarField::zero(); m_i * s_max];
+                let mut buffer_x = vec![ScalarField::zero(); m_i];
+                kj_x_vec[j - l].copy_coeffs(0, HostSlice::from_mut_slice(&mut buffer_x));
+                outer_product_two_vecs_rayon(&buffer_x, &buffer_y, &mut buffer_xy);
+                scalars_lk[i * (m_i * s_max) .. (i + 1) * (m_i * s_max)].copy_from_slice(&buffer_xy);
             }
         }
-        if cache.len() > 0 {
-            run_sum_vector_dot_product2(&cache, &mut delta_inv_li_o_prv);
-            cache.clear();
+
+        batch_sum_vector_dot_product(&scalars_u, &shared_points_u, &mut cached_u);
+        batch_sum_vector_dot_product(&scalars_v, &shared_points_v, &mut cached_v);
+        batch_sum_vector_dot_product(&scalars_w, &shared_points_w, &mut cached_w);
+        if j < l + m_i {
+            batch_sum_vector_dot_product(&scalars_lk, &shared_points_lk, &mut cached_lk);
         }
+
+        if j < l + m_i {
+            eta_inv_li_o_inter_alpha4_kj[j - l]
+                .par_iter_mut()
+                .enumerate()
+                .for_each(|(i, dst)| {
+                    *dst = cached_u[i] + cached_v[i] + cached_w[i] + cached_lk[i];
+                });
+        } else {
+            delta_inv_li_o_prv[j - (l + m_i)]
+                .par_iter_mut()
+                .enumerate()
+                .for_each(|(i, dst)| {
+                    *dst = cached_u[i] + cached_v[i] + cached_w[i];
+                });
+        }
+        
     }
 
     #[cfg(feature = "testing-mode")] {
@@ -479,30 +455,32 @@ fn sum_vector_dot_product(scalars: &Vec<ScalarField>, commit: &[G1Affine]) -> G1
 }
 
 fn batch_sum_vector_dot_product(
-    all_scalars: &[ScalarField], // length = N × chunk_size
-    all_commits: &[G1Affine],    // same length
-    chunk_size: usize,           // size of each MSM
-) -> Vec<G1serde> {
-    assert_eq!(all_scalars.len(), all_commits.len());
+    scalars: &[ScalarField],    // length = N × chunk_size
+    shared_points: &[G1Affine],   //  length = chunk_size
+    out: &mut [G1serde]
+) {
+    let chunk_size = shared_points.len();
+    let out_dim = scalars.len() / chunk_size;
+    assert_eq!(scalars.len() % chunk_size, 0);
+    assert_eq!(out.len(), out_dim);
 
-    let n = all_scalars.len() / chunk_size;
-
-    let mut outputs = vec![G1Projective::zero(); n];
+    let mut _out = vec![G1Projective::zero(); out_dim];
 
     let mut config = MSMConfig::default();
     config.batch_size = chunk_size as i32;
-    config.are_points_shared_in_batch = false;
+    config.are_points_shared_in_batch = true;
 
     msm::msm(
-        HostSlice::from_slice(all_scalars),
-        HostSlice::from_slice(all_commits),
+        HostSlice::from_slice(scalars),
+        HostSlice::from_slice(shared_points),
         &mut config,
-        HostSlice::from_mut_slice(&mut outputs),
+        HostSlice::from_mut_slice(&mut _out),
     )
         .unwrap();
 
-    outputs
-        .into_iter()
-        .map(|p| G1serde(G1Affine::from(p)))
-        .collect()
+    out.par_iter_mut()
+        .zip(_out.into_par_iter())
+        .for_each(|(out_elem, proj)| {
+            *out_elem = G1serde(G1Affine::from(proj));
+        });
 }

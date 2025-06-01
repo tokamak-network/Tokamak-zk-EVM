@@ -218,7 +218,7 @@ impl Sigma1 {
         
         println!("Generating Sigma1 components...");
         
-        // Calculate max(2n-2, 3m_I-3) for h upper bound
+        // Calculate max(2n, 2m_I) for h upper bound
         let h_max = std::cmp::max(2*n, 2*m_i);
         
         // Calculate elements of the form {x^h y^i}
