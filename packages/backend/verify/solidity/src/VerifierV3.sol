@@ -292,7 +292,7 @@
 
         /// @dev flip of 0xe000000000000000000000000000000000000000000000000000000000000000;
         uint256 internal constant FR_MASK = 0x1fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
-
+    
         // n 
         uint256 internal constant CONSTANT_N = 1024;
         // ω_32
@@ -1385,7 +1385,7 @@
                 // e(P1, P2)*e(G1, -G2) = 1
 
 
-                function finalPairing() -> success {
+                function finalPairing() {
                     // load [LHS]_1 + [AUX]_1
                     mstore(0x000, mload(PAIRING_AGG_LHS_AUX_X_SLOT_PART1))
                     mstore(0x020, mload(PAIRING_AGG_LHS_AUX_X_SLOT_PART2))
@@ -1547,7 +1547,13 @@
                     mstore(0xee0, Y_Y0_PART2)
 
                     // precompile call
-                    success := staticcall(gas(), 0x0f, 0, 0xf00, 0x00, 0x20)
+                    let success := staticcall(gas(), 0x0f, 0, 0xf00, 0x00, 0x20)
+                    if iszero(success) {
+                        revertWithMessage(32, "finalPairing: precompile failure")
+                    }
+                    if iszero(mload(0)) {
+                        revertWithMessage(29, "finalPairing: pairing failure")
+                    }
                 }
 
                 // Step1: Load the PI/proof
@@ -1571,7 +1577,8 @@
                 prepareAggregatedCommitment()
             
                 // Step5: final pairing
-                final_result := finalPairing()
+                finalPairing()
+                final_result := true
                 mstore(0x00, final_result)
                 return(0x00, 0x20)
             }

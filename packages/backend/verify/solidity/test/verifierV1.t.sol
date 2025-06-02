@@ -358,30 +358,66 @@ contract testTokamakVerifier is Test {
 
     function testVerifierV1() public view {
         uint256 gasBefore = gasleft();
-        bool result = verifier1.verify(serializedProof, publicInputs);
+        bool success = verifier1.verify(serializedProof, publicInputs);
         uint256 gasAfter = gasleft();
         uint256 gasUsed = gasBefore - gasAfter;
         
         console.log("Gas used:", gasUsed);
+        assert(success);
     }
 
     function testVerifierV2() public view {
         uint256 gasBefore = gasleft();
-        bool result = verifier2.verify(serializedProofPart1, serializedProofPart2, publicInputs);
+        bool success = verifier2.verify(serializedProofPart1, serializedProofPart2, publicInputs);
         uint256 gasAfter = gasleft();
         uint256 gasUsed = gasBefore - gasAfter;
         
         console.log("Gas used:", gasUsed);
+        assert(success);
     }
 
     function testVerifierV3() public view {
         uint256 gasBefore = gasleft();
-        bool result = verifier3.verify(serializedProofPart1, serializedProofPart2, publicInputs);
+        bool success = verifier3.verify(serializedProofPart1, serializedProofPart2, publicInputs);
         uint256 gasAfter = gasleft();
         uint256 gasUsed = gasBefore - gasAfter;
         
         console.log("Gas used:", gasUsed);
+        assert(success);
     }
 
+    function testWrongProof_shouldRevert() public {
+        serializedProofPart1[4] = 0x0cf3e4f4ddb78781cd5740f3f2a1a3db; // Wrong U_X part1
+        serializedProofPart1[5] = 0x0f4b46798d566e5f6653c4fe4df20e83; // Wrong U_Y part1
 
+        serializedProofPart2[4] = 0xd3e45812526acc1d689ce05e186d3a8b9e921ad3a4701013336f3f00c654c908; // Wrong U_X part2
+        serializedProofPart2[5] = 0x76983b4b6af2d6a17be232aeeb9fdd374990fdcbd9b1a4654bfbbc5f4bba7e13; // Wrong U_X part2
+        vm.expectRevert(bytes("finalPairing: pairing failure"));
+        verifier3.verify(serializedProofPart1, serializedProofPart2, publicInputs);
+    }
+
+    function testEmptyPublicInput_shouldRevert() public {
+        uint256[] memory newPublicInputs;
+        vm.expectRevert(bytes("finalPairing: pairing failure"));
+        verifier3.verify(serializedProofPart1, serializedProofPart2, newPublicInputs);
+    }
+
+    function testWrongSizeProof_shouldRevert() public {
+        serializedProofPart1.push(0x0d8838cc826baa7ccd8cfe0692e8a13d); // new point X
+        serializedProofPart1.push(0x103aeb959c53fdd5f13b70a350363881); // new point Y
+        serializedProofPart2.push(0xbbae56c781b300594dac0753e75154a00b83cc4e6849ef3f07bb56610a02c828); // new point X
+        serializedProofPart2.push(0xf3447285889202e7e24cd08a058a758a76ee4c8440131be202ad8bc0cc91ee70); // new point Y
+
+        vm.expectRevert(bytes("loadProof: Proof is invalid"));
+        verifier3.verify(serializedProofPart1, serializedProofPart2, publicInputs);
+
+    }
+
+    function testEmptyProof_shouldRevert() public {
+        uint128[] memory newSerializedProofPart1;
+        uint256[] memory newSerializedProofPart2;
+
+        vm.expectRevert(bytes("loadProof: Proof is invalid"));
+        verifier3.verify(newSerializedProofPart1, newSerializedProofPart2, publicInputs);
+    }
 }
