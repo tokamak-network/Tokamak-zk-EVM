@@ -24,9 +24,9 @@ struct Config {
     #[arg(
         long,
         value_name = "BLOCKHASH",
-        help = "Hex-encoded 32-byte Bitcoin block hash (64 characters)"
+        help = "Optional Hex-encoded 32-byte Bitcoin block hash (64 characters)"
     )]
-    blockhash: String,
+    blockhash: Option<String>,
 
     /// Output folder path (must exist and be writeable)
     #[arg(long, value_name = "SETUP_PARAMS_FILE")]
@@ -49,20 +49,20 @@ struct Config {
 /*
 cargo run --release --bin phase1_initialize -- \
   --s-max 128 \
-  --blockhash aabbccddeeff11223344556677889900aabbccddeeff11223344556677889900 \
   --mode testing \
+  --setup-params-file setupParams.json  \
+  --outfolder ./setup/mpc-setup/output
+
+  cargo run --release --bin phase1_initialize -- \
+  --s-max 128 \
+  --blockhash aabbccddeeff11223344556677889900aabbccddeeff11223344556677889900 \
+  --mode random \
   --setup-params-file setupParams.json  \
   --outfolder ./setup/mpc-setup/output
 */
 fn main() {
     let config = Config::parse();
 
-
-    // Optional: Validate blockhash length
-    if config.blockhash.len() != 64 || !config.blockhash.chars().all(|c| c.is_ascii_hexdigit()) {
-        eprintln!("Error: blockhash must be a 64-character hex string.");
-        std::process::exit(1);
-    }
     let setup_params = SetupParams::from_path(&config.setup_params_file).unwrap();
     let m_i = setup_params.l_D - setup_params.l;
     let x_degree = 2 * max(setup_params.n,m_i);
@@ -70,17 +70,25 @@ fn main() {
     println!("Parsed config: {:?}", config);
     println!("x_degree = {}", x_degree);
     println!("y_degree = {}", y_degree);
-    println!("blockhash = {}", config.blockhash);
 
-    let blockhash = hex::decode(config.blockhash).unwrap();
-    let mut scalar: ScalarField = ScalarField::from_bytes_le(blockhash.as_ref());
+     let mut scalar: ScalarField = ScalarField::from_u32(1);
 
     match config.mode {
         Testing => {
             println!("Running testing mode");
             scalar = ScalarField::from_u32(1);
         }
-        _ => (),
+        _ => {
+            // Optional: Validate blockhash length
+            let blockhash = config.blockhash.unwrap();
+            println!("blockhash = {}", blockhash);
+            if blockhash.len() != 64 || !blockhash.chars().all(|c| c.is_ascii_hexdigit()) {
+                eprintln!("Error: blockhash must be a 64-character hex string.");
+                std::process::exit(1);
+            }
+            let hash = hex::decode(&blockhash).unwrap();
+            scalar = ScalarField::from_bytes_le(hash.as_ref())-ScalarField::from_u32(0);
+        },
     }
 
     let start = Instant::now();
@@ -96,7 +104,7 @@ fn main() {
         .expect("cannot write to file");
 }
 
-fn test_compute5() {
+fn test_compute5() {   // For internal test
     let rng = &mut RandomGenerator::new(SystemRandom, [0u8; 32]);
     let start = Instant::now();
     //initialize
