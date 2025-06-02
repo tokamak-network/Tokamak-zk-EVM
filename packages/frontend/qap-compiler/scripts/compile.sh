@@ -1,6 +1,7 @@
 # The buffers must be placed in the following order: "bufferPubOut" "bufferPubIn" "bufferPrvOut" "bufferPrvIn"
 # names=("bufferPubOut" "bufferPubIn" "bufferPrvOut" "bufferPrvIn" "ALU1" "ALU2" "ALU3" "ALU4" "ALU5" "OR" "XOR" "AND" "DecToBit" "Accumulator")
-names=("bufferPubOut" "bufferPubIn" "bufferPrvOut" "bufferPrvIn") # For testing MPC setup
+# names=("bufferPubOut" "bufferPubIn" "bufferPrvOut" "bufferPrvIn" "Sparse") # For testing MPC setup 1
+names=("bufferPubOut" "bufferPubIn" "bufferPrvOut" "bufferPrvIn" "Dense") # For testing MPC setup 2
 
 CURVE_NAME="bls12381"
 

@@ -3,7 +3,7 @@ include "../../templates/256bit/arithmetic_unsafe_type1.circom";
 include "../../templates/256bit/compare_safe.circom";
 
 template Accumulator() {
-    var N = 8;
+    var N = 32;
     signal input in[2 * N];
     signal output out[2];
 

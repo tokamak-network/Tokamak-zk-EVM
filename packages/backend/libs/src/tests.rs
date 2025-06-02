@@ -654,6 +654,41 @@ mod tests {
 
     }
     // More tests can be added as needed
+
+    #[test]
+    fn bench_poly_mul_vs_outer_product() {
+        let m = 10;
+        let n = 7;
+        let p1_x_size = 2usize.pow(m);
+        let p1_y_size = 2usize.pow(0);
+        let p2_x_size = 2usize.pow(0);
+        let p2_y_size = 2usize.pow(n);
+
+        let p1_coeffs_vec = ScalarCfg::generate_random(p1_x_size * p1_y_size);
+        let p2_coeffs_vec = ScalarCfg::generate_random(p2_x_size * p2_y_size);
+        let p1 = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&p1_coeffs_vec),
+            p1_x_size,
+            p1_y_size
+        );
+        let p2 = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&p2_coeffs_vec),
+            p2_x_size, 
+            p2_y_size
+        );
+
+        let mut timer: Instant;
+        timer = Instant::now();
+        let p3 = &p1 * &p2;
+        let mut buffer = vec![ScalarField::zero(); p1.x_size * p2.y_size];
+        p3.copy_coeffs(0, HostSlice::from_mut_slice(&mut buffer));
+        println!("poly mul time: {:.6} seconds", timer.elapsed().as_secs_f32());
+        
+        timer = Instant::now();
+        let mut buffer = vec![ScalarField::zero(); p1_coeffs_vec.len() * p2_coeffs_vec.len()];
+        outer_product_two_vecs_rayon(&p1_coeffs_vec, &p2_coeffs_vec, &mut buffer);
+        println!("outer product time: {:.6} seconds", timer.elapsed().as_secs_f32());
+    }
 }
 
 #[cfg(test)]

@@ -7,7 +7,7 @@ use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::field_structures::Tau;
 use libs::group_structures::G1serde;
 use libs::iotools::from_coef_vec_to_g1serde_vec;
-use libs::vector_operations::gen_evaled_lagrange_bases;
+use libs::vector_operations::{gen_evaled_lagrange_bases, outer_product_two_vecs_rayon};
 use rayon::prelude::*;
 use std::ops::{Add, Mul};
 use std::sync::Mutex;
@@ -52,12 +52,22 @@ pub fn thread_safe_compute_langrange_i_poly(i: usize, max_x: usize, max_y: usize
     // Mutex guard dropped here
     DensePolynomialExt::from_coeffs(HostSlice::from_slice(&lag_coeffs), max_x, max_y)
 }
+pub fn poly_mult_using_outer_product(poly1: &DensePolynomialExt, poly2: &DensePolynomialExt, multpxy_coeffs: &mut Vec<ScalarField>) {
+    let mut buffer_x = vec![ScalarField::zero(); poly1.x_size];
+    let mut buffer_y = vec![ScalarField::zero(); poly2.y_size];
+    assert_eq!(multpxy_coeffs.len(), poly1.x_size * poly2.y_size);
+    poly1.copy_coeffs(0, HostSlice::from_mut_slice(&mut buffer_x));
+    poly2.copy_coeffs(0, HostSlice::from_mut_slice(&mut buffer_y));
+    outer_product_two_vecs_rayon(&buffer_x, &buffer_y, multpxy_coeffs);
+}
+
 pub fn poly_mult(poly1: &DensePolynomialExt, poly2: &DensePolynomialExt, multpxy_coeffs: &mut Vec<ScalarField>) {
     let multpxy = poly1.mul(poly2);
     let cached_val_pows = HostSlice::from_mut_slice(multpxy_coeffs);
     multpxy.copy_coeffs(0, cached_val_pows);
     // Mutex guard dropped here
 }
+
 pub fn thread_safe_compute_langrange_i_coeffs(i: usize, max_x: usize, max_y: usize, res: &mut [ScalarField]) {
     let _guard = FFT_MUTEX.lock().unwrap(); // Lock before unsafe call
     compute_langrange_i_coeffs(i, max_x, max_y, res);

@@ -7,7 +7,7 @@ use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice};
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::group_structures::{G1serde, Sigma, Sigma1, Sigma2};
 use libs::iotools::SetupParams;
-use libs::vector_operations::outer_product_two_vecs_rayon;
+use libs::vector_operations::{outer_product_two_vecs, outer_product_two_vecs_rayon};
 use mpc_setup::accumulator::Accumulator;
 use mpc_setup::mpc_utils::{
     poly_mult, thread_safe_compute_langrange_i_coeffs, thread_safe_compute_langrange_i_poly,
@@ -229,17 +229,19 @@ fn main() {
     let shared_points_w = alpha3xyG1s;
     let shared_points_lk = alpha4xyG1s;
 
+    let mut micro_timer = Instant::now();
     for j in l..m_d {
         let mut scalars_u = vec![ScalarField::zero(); n * s_max * s_max ];
         let mut scalars_v = vec![ScalarField::zero(); n * s_max * s_max ];
         let mut scalars_w = vec![ScalarField::zero(); n * s_max * s_max ];
         let mut scalars_lk = vec![ScalarField::zero(); m_i * s_max * s_max ];
 
-        let mut cached_u = vec![G1serde::zero(); s_max];
-        let mut cached_v = vec![G1serde::zero(); s_max];
-        let mut cached_w = vec![G1serde::zero(); s_max];
-        let mut cached_lk = vec![G1serde::zero(); s_max];
+        let mut cached_u = vec![G1Projective::zero(); s_max];
+        let mut cached_v = vec![G1Projective::zero(); s_max];
+        let mut cached_w = vec![G1Projective::zero(); s_max];
+        let mut cached_lk = vec![G1Projective::zero(); s_max];
 
+        micro_timer = Instant::now();
         for i in 0..s_max {
             let mut buffer_xy = vec![ScalarField::zero(); 3 * n * s_max];
             let mut buffer_x = Vec::<ScalarField>::with_capacity(3 * n);
@@ -257,6 +259,7 @@ fn main() {
             let mut _buffer_x = vec![ScalarField::zero(); n];
             qap.w_j_X[j].copy_coeffs(0, HostSlice::from_mut_slice(&mut _buffer_x));
             buffer_x.extend(&_buffer_x);
+
             outer_product_two_vecs_rayon(&buffer_x, &buffer_y, &mut buffer_xy);
 
             scalars_u[i * (n * s_max) .. (i + 1) * (n * s_max)].copy_from_slice(&buffer_xy[0 * n * s_max .. 1 * n * s_max]);
@@ -273,29 +276,36 @@ fn main() {
                 scalars_lk[i * (m_i * s_max) .. (i + 1) * (m_i * s_max)].copy_from_slice(&buffer_xy);
             }
         }
+        println!("outer product time: {:.6} seconds", micro_timer.elapsed().as_secs_f32());
 
+        micro_timer = Instant::now();
         batch_sum_vector_dot_product(&scalars_u, &shared_points_u, &mut cached_u);
         batch_sum_vector_dot_product(&scalars_v, &shared_points_v, &mut cached_v);
         batch_sum_vector_dot_product(&scalars_w, &shared_points_w, &mut cached_w);
         if j < l + m_i {
             batch_sum_vector_dot_product(&scalars_lk, &shared_points_lk, &mut cached_lk);
         }
+        println!("msm time: {:.6} seconds", micro_timer.elapsed().as_secs_f32());
 
+        micro_timer = Instant::now();
         if j < l + m_i {
             eta_inv_li_o_inter_alpha4_kj[j - l]
                 .par_iter_mut()
                 .enumerate()
                 .for_each(|(i, dst)| {
-                    *dst = cached_u[i] + cached_v[i] + cached_w[i] + cached_lk[i];
+                    *dst = G1serde(G1Affine::from(cached_u[i] + cached_v[i] + cached_w[i] + cached_lk[i]));
                 });
         } else {
             delta_inv_li_o_prv[j - (l + m_i)]
                 .par_iter_mut()
                 .enumerate()
                 .for_each(|(i, dst)| {
-                    *dst = cached_u[i] + cached_v[i] + cached_w[i];
+                    *dst = G1serde(G1Affine::from(cached_u[i] + cached_v[i] + cached_w[i]));
                 });
         }
+        println!("addition time: {:.6} seconds", micro_timer.elapsed().as_secs_f32());
+
+        println!("Progress {:?} out of {:?}", j, m_d);
         
     }
 
@@ -457,7 +467,7 @@ fn sum_vector_dot_product(scalars: &Vec<ScalarField>, commit: &[G1Affine]) -> G1
 fn batch_sum_vector_dot_product(
     scalars: &[ScalarField],    // length = N × chunk_size
     shared_points: &[G1Affine],   //  length = chunk_size
-    out: &mut [G1serde]
+    out: &mut [G1Projective]
 ) {
     let chunk_size = shared_points.len();
     let out_dim = scalars.len() / chunk_size;
@@ -477,10 +487,4 @@ fn batch_sum_vector_dot_product(
         HostSlice::from_mut_slice(&mut _out),
     )
         .unwrap();
-
-    out.par_iter_mut()
-        .zip(_out.into_par_iter())
-        .for_each(|(out_elem, proj)| {
-            *out_elem = G1serde(G1Affine::from(proj));
-        });
 }

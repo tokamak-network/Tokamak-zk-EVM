@@ -3,4 +3,4 @@ include "../../templates/buffer.circom";
 
 // Input and output wires are private.
 // component main{public [in]} = Buffer(256);
-component main{public [in]} = Buffer(4);
+component main{public [in]} = Buffer(1);
