@@ -25,10 +25,10 @@ cd "$pwd/packages/backend"
 This step initializes Phase 1 quickly (takes a few seconds):
 
 cargo run --release --bin phase1_initialize -- \
-  --smax-x 9192 \
-  --smax-y 256 \
+  --s-max 128 \
   --blockhash aabbccddeeff11223344556677889900aabbccddeeff11223344556677889900 \
   --mode testing \
+  --setup-params-file setupParams.json  \
   --outfolder ./setup/mpc-setup/output
 
 🔄 Next Contributor (few minutes)

@@ -50,7 +50,7 @@ fn main() {
 
     println!("Number of contributors: {}", contributor_count);
 
-    let mut current_acc = Accumulator::load_from_json(
+    let mut current_acc = Accumulator::read_from_json(
         phase1_files
             .get(&format!("{}{}", PHASE1_ACC_PREFIX, 0))
             .expect("Initial accumulator not found")
@@ -73,7 +73,7 @@ fn main() {
     }
 
     // Final verification
-    let latest_acc = Accumulator::load_from_json(
+    let latest_acc = Accumulator::read_from_json(
         phase1_files
             .get(LATEST_CHALLENGE_KEY)
             .expect("Latest challenge not found")

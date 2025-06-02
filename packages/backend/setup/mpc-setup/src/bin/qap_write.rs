@@ -5,11 +5,7 @@ pub use mpc_setup::prepare::QAP;
 
 //cargo run --release --bin qap_write
 fn main() {
-    // Elements of the form {x^h y^i}_{h=0,i=0}^{max(2n-2,3m_D-3),2*s_max-2}
-    //xy_powers: Box<[G1serde]>,
-    //gamma_inv_o_inst: Box<[G1serde]>, // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}_{t=0,j=0}^{1,l-1} where t=0 for j∈[0,l_in-1] and t=1 for j∈[l_in,l-1]
-    let mut tau = Tau::gen();
-
+   
     // Load setup parameters from JSON file
     let setup_file_name = "setupParams.json";
     let mut setup_params = SetupParams::from_path(setup_file_name).unwrap();
