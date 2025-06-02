@@ -4,12 +4,15 @@ pragma solidity ^0.8.23;
 import {Test} from "forge-std/Test.sol";
 import {VerifierV1} from "../src/VerifierV1.sol";
 import {VerifierV2} from "../src/VerifierV2.sol";
+import {VerifierV3} from "../src/VerifierV3.sol";
 
 import "forge-std/console.sol";
 
 contract testTokamakVerifier is Test {
     VerifierV1 verifier1;
     VerifierV2 verifier2;
+    VerifierV3 verifier3;
+
 
     uint128[] public serializedProofPart1;
     uint256[] public serializedProofPart2;
@@ -20,6 +23,8 @@ contract testTokamakVerifier is Test {
     function setUp() public virtual {
         verifier1 = new VerifierV1();
         verifier2 = new VerifierV2();
+        verifier3 = new VerifierV3();
+
         
         // Complete test suite proof data
         // serializedProofPart1: First 16 bytes (32 hex chars) of each coordinate
@@ -351,21 +356,32 @@ contract testTokamakVerifier is Test {
         publicInputs.push(0x0000000000000000000000000000000000000000000000000000000000000000);
     }
 
-    function testVerifier1() public view {
+    function testVerifierV1() public view {
         uint256 gasBefore = gasleft();
-        bool result = verifier1.verify(serializedProofPart1, serializedProofPart2, publicInputs);
+        bool result = verifier1.verify(serializedProof, publicInputs);
         uint256 gasAfter = gasleft();
         uint256 gasUsed = gasBefore - gasAfter;
         
         console.log("Gas used:", gasUsed);
     }
 
-    function testVerifier2() public view {
+    function testVerifierV2() public view {
         uint256 gasBefore = gasleft();
-        bool result = verifier2.verify(serializedProof, publicInputs);
+        bool result = verifier2.verify(serializedProofPart1, serializedProofPart2, publicInputs);
         uint256 gasAfter = gasleft();
         uint256 gasUsed = gasBefore - gasAfter;
         
         console.log("Gas used:", gasUsed);
     }
+
+    function testVerifierV3() public view {
+        uint256 gasBefore = gasleft();
+        bool result = verifier3.verify(serializedProofPart1, serializedProofPart2, publicInputs);
+        uint256 gasAfter = gasleft();
+        uint256 gasUsed = gasBefore - gasAfter;
+        
+        console.log("Gas used:", gasUsed);
+    }
+
+
 }

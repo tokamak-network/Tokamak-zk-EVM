@@ -1,7 +1,7 @@
     // SPDX-License-Identifier: MIT
     pragma solidity ^0.8.23;
 
-    import {IVerifier} from "./interface/IVerifier.sol";
+    import {IVerifierV1} from "./interface/IVerifierV1.sol";
 
     /* solhint-disable max-line-length */
     /// @author Project Ooo team
@@ -11,7 +11,7 @@
     /// * Original Tokamak zkEVM Paper: https://eprint.iacr.org/2024/507.pdf
     /// The notation used in the code is the same as in the papers.
     /* solhint-enable max-line-length */
-    contract VerifierV1 is IVerifier {
+    contract VerifierV1 is IVerifierV1 {
 
 
         /*//////////////////////////////////////////////////////////////
@@ -450,8 +450,7 @@
         }
 
         function verify(
-            uint128[] calldata, //_proof part1 (16 bytes)
-            uint256[] calldata, // _proof part2 (32 bytes)
+            uint256[] calldata, //_proof
             uint256[] calldata // publicInputs (used for computing A_pub)
         ) public view virtual returns (bool final_result) {
             // No memory was accessed yet, so keys can be loaded into the right place and not corrupt any other memory.
@@ -496,160 +495,160 @@
                     res := mload(0x00)
                 }
 
-            /// @dev Performs a G1 point multiplication operation and stores the result in a given memory destination.
-            function g1pointMulIntoDest(point, s, dest) {
-                mstore(0x00, mload(point))
-                mstore(0x20, mload(add(point, 0x20)))
-                mstore(0x40, mload(add(point, 0x40)))
-                mstore(0x60, mload(add(point, 0x60)))
-                mstore(0x80, s)  
-                // BLS12-381 G1MSM at address 0x0c
-                if iszero(staticcall(gas(), 0x0c, 0, 0xa0, dest, 0x80)) {
-                    revertWithMessage(30, "g1pointMulIntoDest: G1MSM failed")
+                /// @dev Performs a G1 point multiplication operation and stores the result in a given memory destination.
+                function g1pointMulIntoDest(point, s, dest) {
+                    mstore(0x00, mload(point))
+                    mstore(0x20, mload(add(point, 0x20)))
+                    mstore(0x40, mload(add(point, 0x40)))
+                    mstore(0x60, mload(add(point, 0x60)))
+                    mstore(0x80, s)  
+                    // BLS12-381 G1MSM at address 0x0c
+                    if iszero(staticcall(gas(), 0x0c, 0, 0xa0, dest, 0x80)) {
+                        revertWithMessage(30, "g1pointMulIntoDest: G1MSM failed")
+                    }
                 }
-            }
 
-            /// @dev Performs a G1 point addition operation and stores the result in a given memory destination.
-            function g1pointAddIntoDest(p1, p2, dest) {
-                mstore(0x00, mload(p1))
-                mstore(0x20, mload(add(p1, 0x20)))
-                mstore(0x40, mload(add(p1, 0x40)))
-                mstore(0x60, mload(add(p1, 0x60)))
-                mstore(0x80, mload(p2))
-                mstore(0xa0, mload(add(p2, 0x20)))
-                mstore(0xc0, mload(add(p2, 0x40)))
-                mstore(0xe0, mload(add(p2, 0x60)))
-                //  BLS12-381 G1ADDat address 0x0b
-                if iszero(staticcall(gas(), 0x0b, 0x00, 0x100, dest, 0x80)) {
-                    revertWithMessage(30, "g1pointAddIntoDest: G1ADD failed")
+                /// @dev Performs a G1 point addition operation and stores the result in a given memory destination.
+                function g1pointAddIntoDest(p1, p2, dest) {
+                    mstore(0x00, mload(p1))
+                    mstore(0x20, mload(add(p1, 0x20)))
+                    mstore(0x40, mload(add(p1, 0x40)))
+                    mstore(0x60, mload(add(p1, 0x60)))
+                    mstore(0x80, mload(p2))
+                    mstore(0xa0, mload(add(p2, 0x20)))
+                    mstore(0xc0, mload(add(p2, 0x40)))
+                    mstore(0xe0, mload(add(p2, 0x60)))
+                    //  BLS12-381 G1ADDat address 0x0b
+                    if iszero(staticcall(gas(), 0x0b, 0x00, 0x100, dest, 0x80)) {
+                        revertWithMessage(30, "g1pointAddIntoDest: G1ADD failed")
+                    }
                 }
-            }
 
-            /// @dev Performs a G1 point multiplication and addition operations and stores the result in a given memory destination.
-            function g1pointMulAndAddIntoDest(point, s, dest) {
-                mstore(0x00, mload(point))
-                mstore(0x20, mload(add(point, 0x20)))
-                mstore(0x40, mload(add(point, 0x40)))
-                mstore(0x60, mload(add(point, 0x60)))
-                mstore(0x80, s) 
-                let success := staticcall(gas(), 0x0c, 0, 0xa0, 0, 0x80)
+                /// @dev Performs a G1 point multiplication and addition operations and stores the result in a given memory destination.
+                function g1pointMulAndAddIntoDest(point, s, dest) {
+                    mstore(0x00, mload(point))
+                    mstore(0x20, mload(add(point, 0x20)))
+                    mstore(0x40, mload(add(point, 0x40)))
+                    mstore(0x60, mload(add(point, 0x60)))
+                    mstore(0x80, s) 
+                    let success := staticcall(gas(), 0x0c, 0, 0xa0, 0, 0x80)
 
-                mstore(0x80, mload(dest))
-                mstore(0xa0, mload(add(dest, 0x20)))
-                mstore(0xc0, mload(add(dest, 0x40)))
-                mstore(0xe0, mload(add(dest, 0x60)))
-                success := and(success, staticcall(gas(), 0x0b, 0x00, 0x100, dest, 0x80))
+                    mstore(0x80, mload(dest))
+                    mstore(0xa0, mload(add(dest, 0x20)))
+                    mstore(0xc0, mload(add(dest, 0x40)))
+                    mstore(0xe0, mload(add(dest, 0x60)))
+                    success := and(success, staticcall(gas(), 0x0b, 0x00, 0x100, dest, 0x80))
 
-                if iszero(success) {
-                    revertWithMessage(22, "g1pointMulAndAddIntoDest")
+                    if iszero(success) {
+                        revertWithMessage(22, "g1pointMulAndAddIntoDest")
+                    }
                 }
-            }
 
-            /// @dev Performs a point subtraction operation and updates the first point with the result.
-            function g1pointSubAssign(p1, p2) {
-                // We'll use the fact that for BLS12-381 with 48-byte coordinates,
-                // the precompile expects the full 384-bit representation
+                /// @dev Performs a point subtraction operation and updates the first point with the result.
+                function g1pointSubAssign(p1, p2) {
+                    // We'll use the fact that for BLS12-381 with 48-byte coordinates,
+                    // the precompile expects the full 384-bit representation
+                    
+                    // Copy p1 to memory
+                    mstore(0x00, mload(p1))
+                    mstore(0x20, mload(add(p1, 0x20)))
+                    mstore(0x40, mload(add(p1, 0x40)))
+                    mstore(0x60, mload(add(p1, 0x60)))
+                    
+                    // Copy p2's x-coordinate
+                    mstore(0x80, mload(p2))
+                    mstore(0xa0, mload(add(p2, 0x20)))
+                    
+                    // For the y-coordinate, we need to negate it
+                    // In BLS12-381, -y = q - y where q is the field modulus
+                    let y_low := mload(add(p2, 0x60))
+                    let y_high := mload(add(p2, 0x40))
+                    
+                    // Perform q - y
+                    let neg_y_low, neg_y_high
+                    
+                    // Since we're working with 384-bit numbers split into two 256-bit parts,
+                    // and the high 128 bits of the high part are always zero for valid field elements
+                    let borrow := 0
+                    
+                    // Subtract low part
+                    switch lt(Q_MOD_PART2, y_low)
+                    case 1 {
+                        // Need to borrow from high part
+                        neg_y_low := sub(Q_MOD_PART2, y_low)
+                        neg_y_low := add(neg_y_low, not(0)) // Add 2^256
+                        neg_y_low := add(neg_y_low, 1)
+                        borrow := 1
+                    }
+                    default {
+                        neg_y_low := sub(Q_MOD_PART2, y_low)
+                    }
+                    
+                    // Subtract high part with borrow
+                    neg_y_high := sub(sub(Q_MOD_PART1, y_high), borrow)
                 
-                // Copy p1 to memory
-                mstore(0x00, mload(p1))
-                mstore(0x20, mload(add(p1, 0x20)))
-                mstore(0x40, mload(add(p1, 0x40)))
-                mstore(0x60, mload(add(p1, 0x60)))
-                
-                // Copy p2's x-coordinate
-                mstore(0x80, mload(p2))
-                mstore(0xa0, mload(add(p2, 0x20)))
-                
-                // For the y-coordinate, we need to negate it
-                // In BLS12-381, -y = q - y where q is the field modulus
-                let y_low := mload(add(p2, 0x60))
-                let y_high := mload(add(p2, 0x40))
-                
-                // Perform q - y
-                let neg_y_low, neg_y_high
-                
-                // Since we're working with 384-bit numbers split into two 256-bit parts,
-                // and the high 128 bits of the high part are always zero for valid field elements
-                let borrow := 0
-                
-                // Subtract low part
-                switch lt(Q_MOD_PART2, y_low)
-                case 1 {
-                    // Need to borrow from high part
-                    neg_y_low := sub(Q_MOD_PART2, y_low)
-                    neg_y_low := add(neg_y_low, not(0)) // Add 2^256
-                    neg_y_low := add(neg_y_low, 1)
-                    borrow := 1
+                    
+                    mstore(0xc0, neg_y_high)
+                    mstore(0xe0, neg_y_low)
+                    
+                    // Perform the addition
+                    if iszero(staticcall(gas(), 0x0b, 0x00, 0x100, p1, 0x80)) {
+                        revertWithMessage(28, "pointSubAssign: G1ADD failed")
+                    }
                 }
-                default {
-                    neg_y_low := sub(Q_MOD_PART2, y_low)
-                }
-                
-                // Subtract high part with borrow
-                neg_y_high := sub(sub(Q_MOD_PART1, y_high), borrow)
-            
-                
-                mstore(0xc0, neg_y_high)
-                mstore(0xe0, neg_y_low)
-                
-                // Perform the addition
-                if iszero(staticcall(gas(), 0x0b, 0x00, 0x100, p1, 0x80)) {
-                    revertWithMessage(28, "pointSubAssign: G1ADD failed")
-                }
-            }
 
-            /// @dev Performs a point subtraction operation and updates dest with the result.
-            function g1pointSubIntoDest(p1, p2, dest) {
-                // We'll use the fact that for BLS12-381 with 48-byte coordinates,
-                // the precompile expects the full 384-bit representation
+                /// @dev Performs a point subtraction operation and updates dest with the result.
+                function g1pointSubIntoDest(p1, p2, dest) {
+                    // We'll use the fact that for BLS12-381 with 48-byte coordinates,
+                    // the precompile expects the full 384-bit representation
+                    
+                    // Copy p1 to memory
+                    mstore(0x00, mload(p1))
+                    mstore(0x20, mload(add(p1, 0x20)))
+                    mstore(0x40, mload(add(p1, 0x40)))
+                    mstore(0x60, mload(add(p1, 0x60)))
+                    
+                    // Copy p2's x-coordinate
+                    mstore(0x80, mload(p2))
+                    mstore(0xa0, mload(add(p2, 0x20)))
+                    
+                    // For the y-coordinate, we need to negate it
+                    // In BLS12-381, -y = q - y where q is the field modulus
+                    let y_low := mload(add(p2, 0x60))
+                    let y_high := mload(add(p2, 0x40))
+                    
+                    // Perform q - y
+                    let neg_y_low, neg_y_high
+                    
+                    // Since we're working with 384-bit numbers split into two 256-bit parts,
+                    // and the high 128 bits of the high part are always zero for valid field elements
+                    let borrow := 0
+                    
+                    // Subtract low part
+                    switch lt(Q_MOD_PART2, y_low)
+                    case 1 {
+                        // Need to borrow from high part
+                        neg_y_low := sub(Q_MOD_PART2, y_low)
+                        neg_y_low := add(neg_y_low, not(0)) // Add 2^256
+                        neg_y_low := add(neg_y_low, 1)
+                        borrow := 1
+                    }
+                    default {
+                        neg_y_low := sub(Q_MOD_PART2, y_low)
+                    }
+                    
+                    // Subtract high part with borrow
+                    neg_y_high := sub(sub(Q_MOD_PART1, y_high), borrow)
                 
-                // Copy p1 to memory
-                mstore(0x00, mload(p1))
-                mstore(0x20, mload(add(p1, 0x20)))
-                mstore(0x40, mload(add(p1, 0x40)))
-                mstore(0x60, mload(add(p1, 0x60)))
-                
-                // Copy p2's x-coordinate
-                mstore(0x80, mload(p2))
-                mstore(0xa0, mload(add(p2, 0x20)))
-                
-                // For the y-coordinate, we need to negate it
-                // In BLS12-381, -y = q - y where q is the field modulus
-                let y_low := mload(add(p2, 0x60))
-                let y_high := mload(add(p2, 0x40))
-                
-                // Perform q - y
-                let neg_y_low, neg_y_high
-                
-                // Since we're working with 384-bit numbers split into two 256-bit parts,
-                // and the high 128 bits of the high part are always zero for valid field elements
-                let borrow := 0
-                
-                // Subtract low part
-                switch lt(Q_MOD_PART2, y_low)
-                case 1 {
-                    // Need to borrow from high part
-                    neg_y_low := sub(Q_MOD_PART2, y_low)
-                    neg_y_low := add(neg_y_low, not(0)) // Add 2^256
-                    neg_y_low := add(neg_y_low, 1)
-                    borrow := 1
+                    
+                    mstore(0xc0, neg_y_high)
+                    mstore(0xe0, neg_y_low)
+                    
+                    // Perform the addition
+                    if iszero(staticcall(gas(), 0x0b, 0x00, 0x100, dest, 0x80)) {
+                        revertWithMessage(28, "pointSubAssign: G1ADD failed")
+                    }
                 }
-                default {
-                    neg_y_low := sub(Q_MOD_PART2, y_low)
-                }
-                
-                // Subtract high part with borrow
-                neg_y_high := sub(sub(Q_MOD_PART1, y_high), borrow)
-            
-                
-                mstore(0xc0, neg_y_high)
-                mstore(0xe0, neg_y_low)
-                
-                // Perform the addition
-                if iszero(staticcall(gas(), 0x0b, 0x00, 0x100, dest, 0x80)) {
-                    revertWithMessage(28, "pointSubAssign: G1ADD failed")
-                }
-            }
 
                 /*//////////////////////////////////////////////////////////////
                                         Transcript helpers
@@ -680,206 +679,249 @@
 
                 function loadProof() {
                     let offset := calldataload(0x04)
-                    let offset2 := calldataload(0x24)
                     let part1LengthInWords := calldataload(add(offset, 0x04))
-                    let isValid := eq(part1LengthInWords, 42) 
+                    let isValid := eq(part1LengthInWords, 88) 
                     // S PERMUTATION POLYNOMIALS
                     {
-                        let x0 := calldataload(add(offset, 0x024))
-                        let y0 := calldataload(add(offset, 0x044))
-                        let x1 := calldataload(add(offset, 0x064))
-                        let y1 := calldataload(add(offset, 0x084))
-                        mstore(PUBLIC_INPUTS_S_0_X_SLOT_PART1, x0)
-                        mstore(PUBLIC_INPUTS_S_0_Y_SLOT_PART1, y0)
-                        mstore(PUBLIC_INPUTS_S_1_X_SLOT_PART1, x1)
-                        mstore(PUBLIC_INPUTS_S_1_Y_SLOT_PART1, y1)
-                        x0 := calldataload(add(offset2, 0x024))
-                        y0 := calldataload(add(offset2, 0x044))
-                        x1 := calldataload(add(offset2, 0x064))
-                        y1 := calldataload(add(offset2, 0x084))
-                        mstore(PUBLIC_INPUTS_S_0_X_SLOT_PART2, x0)
-                        mstore(PUBLIC_INPUTS_S_0_Y_SLOT_PART2, y0)
-                        mstore(PUBLIC_INPUTS_S_1_X_SLOT_PART2, x1)
-                        mstore(PUBLIC_INPUTS_S_1_Y_SLOT_PART2, y1)
+                        // s0
+                        let x0_0 := calldataload(add(offset, 0x024))
+                        let x0_1 := calldataload(add(offset, 0x044))
+                        let y0_0 := calldataload(add(offset, 0x064))
+                        let y0_1 := calldataload(add(offset, 0x084))
+                        //s1
+                        let x1_0 := calldataload(add(offset, 0x0a4))
+                        let x1_1 := calldataload(add(offset, 0x0c4))
+                        let y1_0 := calldataload(add(offset, 0x0e4))
+                        let y1_1 := calldataload(add(offset, 0x104))
+
+                        mstore(PUBLIC_INPUTS_S_0_X_SLOT_PART1, x0_0)
+                        mstore(PUBLIC_INPUTS_S_0_X_SLOT_PART2, x0_1)
+                        mstore(PUBLIC_INPUTS_S_0_Y_SLOT_PART1, y0_0)
+                        mstore(PUBLIC_INPUTS_S_0_Y_SLOT_PART2, y0_1)
+
+                        mstore(PUBLIC_INPUTS_S_1_X_SLOT_PART1, x1_0)
+                        mstore(PUBLIC_INPUTS_S_1_X_SLOT_PART2, x1_1)
+                        mstore(PUBLIC_INPUTS_S_1_Y_SLOT_PART1, y1_0)
+                        mstore(PUBLIC_INPUTS_S_1_Y_SLOT_PART2, y1_1)
                     }
                     // PROOF U, V & W 
                     {
-                        let x0 := calldataload(add(offset, 0x0a4))
-                        let y0 := calldataload(add(offset, 0x0c4))
-                        let x1 := calldataload(add(offset, 0x0e4))
-                        let y1 := calldataload(add(offset, 0x104))
-                        let x2 := calldataload(add(offset, 0x124))
-                        let y2 := calldataload(add(offset, 0x144))
-                        mstore(PROOF_POLY_U_X_SLOT_PART1, x0)
-                        mstore(PROOF_POLY_U_Y_SLOT_PART1, y0)
-                        mstore(PROOF_POLY_V_X_SLOT_PART1, x1)
-                        mstore(PROOF_POLY_V_Y_SLOT_PART1, y1)
-                        mstore(PROOF_POLY_W_X_SLOT_PART1, x2)
-                        mstore(PROOF_POLY_W_Y_SLOT_PART1, y2)
-                        x0 := calldataload(add(offset2, 0x0a4))
-                        y0 := calldataload(add(offset2, 0x0c4))
-                        x1 := calldataload(add(offset2, 0x0e4))
-                        y1 := calldataload(add(offset2, 0x104))
-                        x2 := calldataload(add(offset2, 0x124))
-                        y2 := calldataload(add(offset2, 0x144))
-                        mstore(PROOF_POLY_U_X_SLOT_PART2, x0)
-                        mstore(PROOF_POLY_U_Y_SLOT_PART2, y0)
-                        mstore(PROOF_POLY_V_X_SLOT_PART2, x1)
-                        mstore(PROOF_POLY_V_Y_SLOT_PART2, y1)
-                        mstore(PROOF_POLY_W_X_SLOT_PART2, x2)
-                        mstore(PROOF_POLY_W_Y_SLOT_PART2, y2)
+                        //U
+                        let x0_0 := calldataload(add(offset, 0x124))
+                        let x0_1 := calldataload(add(offset, 0x144))
+                        let y0_0 := calldataload(add(offset, 0x164))
+                        let y0_1 := calldataload(add(offset, 0x184))
+                        //V
+                        let x1_0 := calldataload(add(offset, 0x1a4))
+                        let x1_1 := calldataload(add(offset, 0x1c4))
+                        let y1_0 := calldataload(add(offset, 0x1e4))
+                        let y1_1 := calldataload(add(offset, 0x204))
+                        //W
+                        let x2_0 := calldataload(add(offset, 0x224))
+                        let x2_1 := calldataload(add(offset, 0x244))
+                        let y2_0 := calldataload(add(offset, 0x264))
+                        let y2_1 := calldataload(add(offset, 0x284))
+                        mstore(PROOF_POLY_U_X_SLOT_PART1, x0_0)
+                        mstore(PROOF_POLY_U_X_SLOT_PART2, x0_1)
+                        mstore(PROOF_POLY_U_Y_SLOT_PART1, y0_0)
+                        mstore(PROOF_POLY_U_Y_SLOT_PART2, y0_1)
+
+                        mstore(PROOF_POLY_V_X_SLOT_PART1, x1_0)
+                        mstore(PROOF_POLY_V_X_SLOT_PART2, x1_1)
+                        mstore(PROOF_POLY_V_Y_SLOT_PART1, y1_0)
+                        mstore(PROOF_POLY_V_Y_SLOT_PART2, y1_1)
+
+                        mstore(PROOF_POLY_W_X_SLOT_PART1, x2_0)
+                        mstore(PROOF_POLY_W_X_SLOT_PART2, x2_1)
+                        mstore(PROOF_POLY_W_Y_SLOT_PART1, y2_0)
+                        mstore(PROOF_POLY_W_Y_SLOT_PART2, y2_1)
                     }
                     // PROOF O_MID & O_PRV
                     {
-                        let x0 := calldataload(add(offset, 0x164))
-                        let y0 := calldataload(add(offset, 0x184))
-                        let x1 := calldataload(add(offset, 0x1a4))
-                        let y1 := calldataload(add(offset, 0x1c4))
-                        mstore(PROOF_POLY_OMID_X_SLOT_PART1, x0)
-                        mstore(PROOF_POLY_OMID_Y_SLOT_PART1, y0)
-                        mstore(PROOF_POLY_OPRV_X_SLOT_PART1, x1)
-                        mstore(PROOF_POLY_OPRV_Y_SLOT_PART1, y1)
-                        x0 := calldataload(add(offset2, 0x164))
-                        y0 := calldataload(add(offset2, 0x184))
-                        x1 := calldataload(add(offset2, 0x1a4))
-                        y1 := calldataload(add(offset2, 0x1c4))
-                        mstore(PROOF_POLY_OMID_X_SLOT_PART2, x0)
-                        mstore(PROOF_POLY_OMID_Y_SLOT_PART2, y0)
-                        mstore(PROOF_POLY_OPRV_X_SLOT_PART2, x1)
-                        mstore(PROOF_POLY_OPRV_Y_SLOT_PART2, y1)
+                        //O_MID
+                        let x0_0 := calldataload(add(offset, 0x2a4))
+                        let x0_1 := calldataload(add(offset, 0x2c4))
+                        let y0_0 := calldataload(add(offset, 0x2e4))
+                        let y0_1 := calldataload(add(offset, 0x304))
+                        //O_PRV
+                        let x1_0 := calldataload(add(offset, 0x324))
+                        let x1_1 := calldataload(add(offset, 0x344))
+                        let y1_0 := calldataload(add(offset, 0x364))
+                        let y1_1 := calldataload(add(offset, 0x384))
+
+                        mstore(PROOF_POLY_OMID_X_SLOT_PART1, x0_0)
+                        mstore(PROOF_POLY_OMID_X_SLOT_PART2, x0_1)
+                        mstore(PROOF_POLY_OMID_Y_SLOT_PART1, y0_0)
+                        mstore(PROOF_POLY_OMID_Y_SLOT_PART2, y0_1)
+
+                        mstore(PROOF_POLY_OPRV_X_SLOT_PART1, x1_0)
+                        mstore(PROOF_POLY_OPRV_X_SLOT_PART2, x1_1)
+                        mstore(PROOF_POLY_OPRV_Y_SLOT_PART1, y1_0)
+                        mstore(PROOF_POLY_OPRV_Y_SLOT_PART2, y1_1)
                     }
                     // PROOF Q_AX, Q_AY, Q_CX & Q_CY 
                     {
-                        let x0 := calldataload(add(offset, 0x1e4))
-                        let y0 := calldataload(add(offset, 0x204))
-                        let x1 := calldataload(add(offset, 0x224))
-                        let y1 := calldataload(add(offset, 0x244))
-                        let x2 := calldataload(add(offset, 0x264))
-                        let y2 := calldataload(add(offset, 0x284))
-                        let x3 := calldataload(add(offset, 0x2a4))
-                        let y3 := calldataload(add(offset, 0x2c4))
-                        mstore(PROOF_POLY_QAX_X_SLOT_PART1, x0)
-                        mstore(PROOF_POLY_QAX_Y_SLOT_PART1, y0)
-                        mstore(PROOF_POLY_QAY_X_SLOT_PART1, x1)
-                        mstore(PROOF_POLY_QAY_Y_SLOT_PART1, y1)
-                        mstore(PROOF_POLY_QCX_X_SLOT_PART1, x2)
-                        mstore(PROOF_POLY_QCX_Y_SLOT_PART1, y2)
-                        mstore(PROOF_POLY_QCY_X_SLOT_PART1, x3)
-                        mstore(PROOF_POLY_QCY_Y_SLOT_PART1, y3)
-                        x0 := calldataload(add(offset2, 0x1e4))
-                        y0 := calldataload(add(offset2, 0x204))
-                        x1 := calldataload(add(offset2, 0x224))
-                        y1 := calldataload(add(offset2, 0x244))
-                        x2 := calldataload(add(offset2, 0x264))
-                        y2 := calldataload(add(offset2, 0x284))
-                        x3 := calldataload(add(offset2, 0x2a4))
-                        y3 := calldataload(add(offset2, 0x2c4))
-                        mstore(PROOF_POLY_QAX_X_SLOT_PART2, x0)
-                        mstore(PROOF_POLY_QAX_Y_SLOT_PART2, y0)
-                        mstore(PROOF_POLY_QAY_X_SLOT_PART2, x1)
-                        mstore(PROOF_POLY_QAY_Y_SLOT_PART2, y1)
-                        mstore(PROOF_POLY_QCX_X_SLOT_PART2, x2)
-                        mstore(PROOF_POLY_QCX_Y_SLOT_PART2, y2)
-                        mstore(PROOF_POLY_QCY_X_SLOT_PART2, x3)
-                        mstore(PROOF_POLY_QCY_Y_SLOT_PART2, y3)
+                        //Q_AX
+                        let x0_0 := calldataload(add(offset, 0x3a4))
+                        let x0_1 := calldataload(add(offset, 0x3c4))
+                        let y0_0 := calldataload(add(offset, 0x3e4))
+                        let y0_1 := calldataload(add(offset, 0x404))
+                        //Q_AY
+                        let x1_0 := calldataload(add(offset, 0x424))
+                        let x1_1 := calldataload(add(offset, 0x444))
+                        let y1_0 := calldataload(add(offset, 0x464))
+                        let y1_1 := calldataload(add(offset, 0x484))
+                        //Q_CX
+                        let x2_0 := calldataload(add(offset, 0x4a4))
+                        let x2_1 := calldataload(add(offset, 0x4c4))
+                        let y2_0 := calldataload(add(offset, 0x4e4))
+                        let y2_1 := calldataload(add(offset, 0x504))
+                        //Q_CY
+                        let x3_0 := calldataload(add(offset, 0x524))
+                        let x3_1 := calldataload(add(offset, 0x544))
+                        let y3_0 := calldataload(add(offset, 0x564))
+                        let y3_1 := calldataload(add(offset, 0x584))
+
+                        mstore(PROOF_POLY_QAX_X_SLOT_PART1, x0_0)
+                        mstore(PROOF_POLY_QAX_X_SLOT_PART2, x0_1)
+                        mstore(PROOF_POLY_QAX_Y_SLOT_PART1, y0_0)
+                        mstore(PROOF_POLY_QAX_Y_SLOT_PART2, y0_1)
+
+                        mstore(PROOF_POLY_QAY_X_SLOT_PART1, x1_0)
+                        mstore(PROOF_POLY_QAY_X_SLOT_PART2, x1_1)
+                        mstore(PROOF_POLY_QAY_Y_SLOT_PART1, y1_0)
+                        mstore(PROOF_POLY_QAY_Y_SLOT_PART2, y1_1)
+
+                        mstore(PROOF_POLY_QCX_X_SLOT_PART1, x2_0)
+                        mstore(PROOF_POLY_QCX_X_SLOT_PART2, x2_1)
+                        mstore(PROOF_POLY_QCX_Y_SLOT_PART1, y2_0)
+                        mstore(PROOF_POLY_QCX_Y_SLOT_PART2, y2_1)
+
+                        mstore(PROOF_POLY_QCY_X_SLOT_PART1, x3_0)
+                        mstore(PROOF_POLY_QCY_X_SLOT_PART2, x3_1)
+                        mstore(PROOF_POLY_QCY_Y_SLOT_PART1, y3_0)
+                        mstore(PROOF_POLY_QCY_Y_SLOT_PART2, y3_1)
                     }
                     // PROOF Π_{χ}, Π_{ζ}
                     {
-                        let x0 := calldataload(add(offset, 0x2e4))
-                        let y0 := calldataload(add(offset, 0x304))
-                        let x1 := calldataload(add(offset, 0x324))
-                        let y1 := calldataload(add(offset, 0x344))
-                        mstore(PROOF_POLY_PI_CHI_X_SLOT_PART1, x0)
-                        mstore(PROOF_POLY_PI_CHI_Y_SLOT_PART1, y0)
-                        mstore(PROOF_POLY_PI_ZETA_X_SLOT_PART1, x1)
-                        mstore(PROOF_POLY_PI_ZETA_Y_SLOT_PART1, y1)
-                        x0 := calldataload(add(offset2, 0x2e4))
-                        y0 := calldataload(add(offset2, 0x304))
-                        x1 := calldataload(add(offset2, 0x324))
-                        y1 := calldataload(add(offset2, 0x344))
-                        mstore(PROOF_POLY_PI_CHI_X_SLOT_PART2, x0)
-                        mstore(PROOF_POLY_PI_CHI_Y_SLOT_PART2, y0)
-                        mstore(PROOF_POLY_PI_ZETA_X_SLOT_PART2, x1)
-                        mstore(PROOF_POLY_PI_ZETA_Y_SLOT_PART2, y1)
+                        //Π_{χ}
+                        let x0_0 := calldataload(add(offset, 0x5a4))
+                        let x0_1 := calldataload(add(offset, 0x5c4))
+                        let y0_0 := calldataload(add(offset, 0x5e4))
+                        let y0_1 := calldataload(add(offset, 0x604))
+
+                        //Π_{ζ}
+                        let x1_0 := calldataload(add(offset, 0x624))
+                        let x1_1 := calldataload(add(offset, 0x644))
+                        let y1_0 := calldataload(add(offset, 0x664))
+                        let y1_1 := calldataload(add(offset, 0x684))
+                    
+                        mstore(PROOF_POLY_PI_CHI_X_SLOT_PART1, x0_0)
+                        mstore(PROOF_POLY_PI_CHI_X_SLOT_PART2, x0_1)
+                        mstore(PROOF_POLY_PI_CHI_Y_SLOT_PART1, y0_0)
+                        mstore(PROOF_POLY_PI_CHI_Y_SLOT_PART2, y0_1)
+
+                        mstore(PROOF_POLY_PI_ZETA_X_SLOT_PART1, x1_0)
+                        mstore(PROOF_POLY_PI_ZETA_X_SLOT_PART2, x1_1)
+                        mstore(PROOF_POLY_PI_ZETA_Y_SLOT_PART1, y1_0)
+                        mstore(PROOF_POLY_PI_ZETA_Y_SLOT_PART2, y1_1)
                     }
                     // PROOF B & R 
                     {
-                        let x0 := calldataload(add(offset, 0x364))
-                        let y0 := calldataload(add(offset, 0x384))
-                        let x1 := calldataload(add(offset, 0x3a4))
-                        let y1 := calldataload(add(offset, 0x3c4))
-                        mstore(PROOF_POLY_B_X_SLOT_PART1, x0)
-                        mstore(PROOF_POLY_B_Y_SLOT_PART1, y0)
-                        mstore(PROOF_POLY_R_X_SLOT_PART1, x1)
-                        mstore(PROOF_POLY_R_Y_SLOT_PART1, y1)
-                        x0 := calldataload(add(offset2, 0x364))
-                        y0 := calldataload(add(offset2, 0x384))
-                        x1 := calldataload(add(offset2, 0x3a4))
-                        y1 := calldataload(add(offset2, 0x3c4))
-                        mstore(PROOF_POLY_B_X_SLOT_PART2, x0)
-                        mstore(PROOF_POLY_B_Y_SLOT_PART2, y0)
-                        mstore(PROOF_POLY_R_X_SLOT_PART2, x1)
-                        mstore(PROOF_POLY_R_Y_SLOT_PART2, y1)
+                        // B
+                        let x0_0 := calldataload(add(offset, 0x6a4))
+                        let x0_1 := calldataload(add(offset, 0x6c4))
+                        let y0_0 := calldataload(add(offset, 0x6e4))
+                        let y0_1 := calldataload(add(offset, 0x704))
+
+                        // R
+                        let x1_0 := calldataload(add(offset, 0x724))
+                        let x1_1 := calldataload(add(offset, 0x744))
+                        let y1_0 := calldataload(add(offset, 0x764))
+                        let y1_1 := calldataload(add(offset, 0x784))
+
+                        mstore(PROOF_POLY_B_X_SLOT_PART1, x0_0)
+                        mstore(PROOF_POLY_B_X_SLOT_PART2, x0_1)
+                        mstore(PROOF_POLY_B_Y_SLOT_PART1, y0_0)
+                        mstore(PROOF_POLY_B_Y_SLOT_PART2, y0_1)
+
+                        mstore(PROOF_POLY_R_X_SLOT_PART1, x1_0)
+                        mstore(PROOF_POLY_R_X_SLOT_PART2, x1_1)
+                        mstore(PROOF_POLY_R_Y_SLOT_PART1, y1_0)
+                        mstore(PROOF_POLY_R_Y_SLOT_PART2, y1_1)
                     }
-                    // PROOF M_ζ, M_χ, N_ζ & N_χ
+                    // PROOF M_χ, M_ζ, N_χ, N_ζ
                     {
-                        let x0 := calldataload(add(offset, 0x3e4))
-                        let y0 := calldataload(add(offset, 0x404))
-                        let x1 := calldataload(add(offset, 0x424))
-                        let y1 := calldataload(add(offset, 0x444))
-                        let x2 := calldataload(add(offset, 0x464))
-                        let y2 := calldataload(add(offset, 0x484))
-                        let x3 := calldataload(add(offset, 0x4a4))
-                        let y3 := calldataload(add(offset, 0x4c4))
-                        mstore(PROOF_POLY_M_ZETA_X_SLOT_PART1, x0)
-                        mstore(PROOF_POLY_M_ZETA_Y_SLOT_PART1, y0)
-                        mstore(PROOF_POLY_M_CHI_X_SLOT_PART1, x1)
-                        mstore(PROOF_POLY_M_CHI_Y_SLOT_PART1, y1)
-                        mstore(PROOF_POLY_N_ZETA_X_SLOT_PART1, x2)
-                        mstore(PROOF_POLY_N_ZETA_Y_SLOT_PART1, y2)
-                        mstore(PROOF_POLY_N_CHI_X_SLOT_PART1, x3)
-                        mstore(PROOF_POLY_N_CHI_Y_SLOT_PART1, y3)
-                        x0 := calldataload(add(offset2, 0x3e4))
-                        y0 := calldataload(add(offset2, 0x404))
-                        x1 := calldataload(add(offset2, 0x424))
-                        y1 := calldataload(add(offset2, 0x444))
-                        x2 := calldataload(add(offset2, 0x464))
-                        y2 := calldataload(add(offset2, 0x484))
-                        x3 := calldataload(add(offset2, 0x4a4))
-                        y3 := calldataload(add(offset2, 0x4c4))
-                        mstore(PROOF_POLY_M_ZETA_X_SLOT_PART2, x0)
-                        mstore(PROOF_POLY_M_ZETA_Y_SLOT_PART2, y0)
-                        mstore(PROOF_POLY_M_CHI_X_SLOT_PART2, x1)
-                        mstore(PROOF_POLY_M_CHI_Y_SLOT_PART2, y1)
-                        mstore(PROOF_POLY_N_ZETA_X_SLOT_PART2, x2)
-                        mstore(PROOF_POLY_N_ZETA_Y_SLOT_PART2, y2)
-                        mstore(PROOF_POLY_N_CHI_X_SLOT_PART2, x3)
-                        mstore(PROOF_POLY_N_CHI_Y_SLOT_PART2, y3)
+                        //M_χ
+                        let x0_0 := calldataload(add(offset, 0x7a4))
+                        let x0_1 := calldataload(add(offset, 0x7c4))
+                        let y0_0 := calldataload(add(offset, 0x7e4))
+                        let y0_1 := calldataload(add(offset, 0x804))
+                        //M_ζ
+                        let x1_0 := calldataload(add(offset, 0x824))
+                        let x1_1 := calldataload(add(offset, 0x844))
+                        let y1_0 := calldataload(add(offset, 0x864))
+                        let y1_1 := calldataload(add(offset, 0x884))
+                        //N_χ
+                        let x2_0 := calldataload(add(offset, 0x8a4))
+                        let x2_1 := calldataload(add(offset, 0x8c4))
+                        let y2_0 := calldataload(add(offset, 0x8e4))
+                        let y2_1 := calldataload(add(offset, 0x904))
+                        //N_ζ
+                        let x3_0 := calldataload(add(offset, 0x924))
+                        let x3_1 := calldataload(add(offset, 0x944))
+                        let y3_0 := calldataload(add(offset, 0x964))
+                        let y3_1 := calldataload(add(offset, 0x984))
+
+                        mstore(PROOF_POLY_M_CHI_X_SLOT_PART1, x0_0)
+                        mstore(PROOF_POLY_M_CHI_X_SLOT_PART2, x0_1)
+                        mstore(PROOF_POLY_M_CHI_Y_SLOT_PART1, y0_0)
+                        mstore(PROOF_POLY_M_CHI_Y_SLOT_PART2, y0_1)
+
+                        mstore(PROOF_POLY_M_ZETA_X_SLOT_PART1, x1_0)
+                        mstore(PROOF_POLY_M_ZETA_X_SLOT_PART2, x1_1)
+                        mstore(PROOF_POLY_M_ZETA_Y_SLOT_PART1, y1_0)
+                        mstore(PROOF_POLY_M_ZETA_Y_SLOT_PART2, y1_1)
+
+                        mstore(PROOF_POLY_N_CHI_X_SLOT_PART1, x2_0)
+                        mstore(PROOF_POLY_N_CHI_X_SLOT_PART2, x2_1)
+                        mstore(PROOF_POLY_N_CHI_Y_SLOT_PART1, y2_0)
+                        mstore(PROOF_POLY_N_CHI_Y_SLOT_PART2, y2_1)
+
+                        mstore(PROOF_POLY_N_ZETA_X_SLOT_PART1, x3_0)
+                        mstore(PROOF_POLY_N_ZETA_X_SLOT_PART2, x3_1)
+                        mstore(PROOF_POLY_N_ZETA_Y_SLOT_PART1, y3_0)
+                        mstore(PROOF_POLY_N_ZETA_Y_SLOT_PART2, y3_1)
                     }
                     // PROOF O_PUB & A 
                     {
-                        let x0 := calldataload(add(offset, 0x4e4))
-                        let y0 := calldataload(add(offset, 0x504))
-                        let x1 := calldataload(add(offset, 0x524))
-                        let y1 := calldataload(add(offset, 0x544))
-                        mstore(PROOF_POLY_OPUB_X_SLOT_PART1, x0)
-                        mstore(PROOF_POLY_OPUB_Y_SLOT_PART1, y0)
-                        mstore(PROOF_POLY_A_X_SLOT_PART1, x1)
-                        mstore(PROOF_POLY_A_Y_SLOT_PART1, y1)
-                        x0 := calldataload(add(offset2, 0x4e4))
-                        y0 := calldataload(add(offset2, 0x504))
-                        x1 := calldataload(add(offset2, 0x524))
-                        y1 := calldataload(add(offset2, 0x544))
-                        mstore(PROOF_POLY_OPUB_X_SLOT_PART2, x0)
-                        mstore(PROOF_POLY_OPUB_Y_SLOT_PART2, y0)
-                        mstore(PROOF_POLY_A_X_SLOT_PART2, x1)
-                        mstore(PROOF_POLY_A_Y_SLOT_PART2, y1)
+                        // O_PUB
+                        let x0_0 := calldataload(add(offset, 0x9a4))
+                        let x0_1 := calldataload(add(offset, 0x9c4))
+                        let y0_0 := calldataload(add(offset, 0x9e4))
+                        let y0_1 := calldataload(add(offset, 0xa04))
+
+                        // A
+                        let x1_0 := calldataload(add(offset, 0xa24))
+                        let x1_1 := calldataload(add(offset, 0xa44))
+                        let y1_0 := calldataload(add(offset, 0xa64))
+                        let y1_1 := calldataload(add(offset, 0xa84))
+
+                        mstore(PROOF_POLY_OPUB_X_SLOT_PART1, x0_0)
+                        mstore(PROOF_POLY_OPUB_X_SLOT_PART2, x0_1)
+                        mstore(PROOF_POLY_OPUB_Y_SLOT_PART1, y0_0)
+                        mstore(PROOF_POLY_OPUB_Y_SLOT_PART2, y0_1)
+
+                        mstore(PROOF_POLY_A_X_SLOT_PART1, x1_0)
+                        mstore(PROOF_POLY_A_X_SLOT_PART2, x1_1)
+                        mstore(PROOF_POLY_A_Y_SLOT_PART1, y1_0)
+                        mstore(PROOF_POLY_A_Y_SLOT_PART2, y1_1)
                     }
 
-                    mstore(PROOF_R1XY_SLOT, mod(calldataload(add(offset2, 0x564)), R_MOD))
-                    mstore(PROOF_R2XY_SLOT, mod(calldataload(add(offset2, 0x584)), R_MOD))
-                    mstore(PROOF_R3XY_SLOT, mod(calldataload(add(offset2, 0x5a4)), R_MOD))
-                    mstore(PROOF_VXY_SLOT, mod(calldataload(add(offset2, 0x5c4)), R_MOD))
+                    mstore(PROOF_R1XY_SLOT, mod(calldataload(add(offset, 0xaa4)), R_MOD))
+                    mstore(PROOF_R2XY_SLOT, mod(calldataload(add(offset, 0xac4)), R_MOD))
+                    mstore(PROOF_R3XY_SLOT, mod(calldataload(add(offset, 0xae4)), R_MOD))
+                    mstore(PROOF_VXY_SLOT, mod(calldataload(add(offset, 0xb04)), R_MOD))
 
                     // Revert if the length of the proof is not valid
                     if iszero(isValid) {
@@ -1087,7 +1129,7 @@
 
                 function computeAPUB() {
                     let chi := mload(CHALLENGE_CHI_SLOT)
-                    let offset := calldataload(0x44)
+                    let offset := calldataload(0x24)
                     
                     let n := 128
                     let omega := OMEGA_128
@@ -1611,10 +1653,11 @@
             
                 // Step5: final pairing
                 final_result := finalPairing()
+                
+                // Ensure clean stack state by storing result in scratch space
                 mstore(0x00, final_result)
                 return(0x00, 0x20)
             }
-
         }
 
     }

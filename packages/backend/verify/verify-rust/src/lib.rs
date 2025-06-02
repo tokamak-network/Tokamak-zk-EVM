@@ -236,12 +236,6 @@ impl Verifier {
             lagrange_K0_XY.eval(&chi, &zeta)
         };
 
-        /*
-        for i in 0..self.a_pub.len() {
-            println!("a_pub[{}]: {:?}", i, self.a_pub[i]);
-        }
-        */
-
         let LHS_A = 
             (proof0.U * proof3.V_eval)
             - proof0.W
@@ -297,23 +291,7 @@ impl Verifier {
             &[binding.O_inst,            binding.O_mid,          binding.O_prv,              AUX_X,                  AUX_Y               ],
             &[self.sigma.sigma_2.gamma, self.sigma.sigma_2.eta, self.sigma.sigma_2.delta,   self.sigma.sigma_2.x,   self.sigma.sigma_2.y]
         );
-        /*
-        println!("lagrange_K0_eval: {:?}", lagrange_K0_eval);
-        println!("A_eval: {:?}", A_eval);
-        println!("t_n(chi): {:?}", t_n_eval);
-        println!("t_mi(chi): {:?}", t_mi_eval);
-        println!("t_smax(zeta): {:?}", t_smax_eval);
-        println!("F: {:?}", F);
-        println!("G: {:?}", G);
-        println!("LHS_A: {:?}", LHS_A);
-        println!("LHS_B: {:?}", LHS_B);
-        println!("LHS_C: {:?}", LHS_C);
-        println!("LHS: {:?}", LHS);
-        println!("AUX: {:?}", AUX);
-        println!("LHS + AUX: {:?}", LHS + AUX);
-        println!("AUX_X: {:?}", AUX_X);
-        println!("AUX_Y: {:?}", AUX_Y);
-        */
+
         assert_eq!(left_pair, right_pair);
 
         // test pairing LHS only
@@ -343,25 +321,8 @@ impl Verifier {
                 G2serde::zero() - self.sigma.sigma_2.y
             ]
         );
-        let LHSAUX = LHS + AUX;
-        println!("-[LHSAUX]:  {:?}", G1serde::zero() - LHSAUX);
-        println!("-U: {:?}",  G1serde::zero() - proof0.U);
-        println!("-V: {:?}",  G1serde::zero() - proof0.V);
-        println!("-W: {:?}",  G1serde::zero() - proof0.W);
-        println!("-O_prv: {:?}",  G1serde::zero() - binding.O_prv);
-        println!("-O_mid: {:?}",  G1serde::zero() - binding.O_mid);
-        println!("-O_pub: {:?}",  G1serde::zero() - binding.O_inst);
-
-        println!("-M(Y): {:?}",  G1serde::zero() - proof4.M_Y);
-        println!("-M(X): {:?}",  G1serde::zero() - proof4.M_X);
-
-        println!("-M(X): {:?}",  G1serde::zero() - proof4.M_X);
-        println!("-Q_CX: {:?}",  G1serde::zero() - proof2.Q_CX);
-
-        println!("-PI_X: {:?}",  G1serde::zero() - proof4.Pi_X);
-        println!("-PI_Y: {:?}",  G1serde::zero() - proof4.Pi_Y);
-        println!("-R: {:?}",  G1serde::zero() - proof1.R);
-        println!("-B: {:?}",  G1serde::zero() - proof0.B);
+        println!("[LHS]:  {:?}", LHS);
+        
 
         assert_eq!(pairing.0.is_one(), true);
         return left_pair.eq(&right_pair)

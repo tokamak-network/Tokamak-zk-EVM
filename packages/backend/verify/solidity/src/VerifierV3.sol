@@ -11,7 +11,7 @@
     /// * Original Tokamak zkEVM Paper: https://eprint.iacr.org/2024/507.pdf
     /// The notation used in the code is the same as in the papers.
     /* solhint-enable max-line-length */
-    contract VerifierV2 is IVerifierV2 {
+    contract VerifierV3 is IVerifierV2 {
 
 
         /*//////////////////////////////////////////////////////////////
@@ -1201,64 +1201,45 @@
                 ///             κ2^2 * ω_{m_i}^{-1} * χ *[M_{χ}]_1 + κ2^2 * ζ * [M_{ζ}]_1 + κ2^3 * ω_{m_i}^{-1} * χ * [N_{χ}]_1 + κ_2^3 ω_smax^{-1} * ζ * [N_{ζ}]
                 /// 
 
-                /// @dev calculate [LHS_A]_1 = V_{x,y}[U]_1 - [W]_1 + κ1([V]_1 - V_{x,y}[G]_1) - t_n(χ)[Q_{A,X}]_1 - t_{s_{max}}(ζ)[Q_{A,Y}]_1            
+                /// @dev calculate [LHS_A]_1 = V_{x,y}[U]_1 - [W]_1 + κ1[V]_1 - t_n(χ)[Q_{A,X}]_1 - t_{s_{max}}(ζ)[Q_{A,Y}]_1            
                 function prepareLHSA() {
-                    // V_{x,y}[U]_1
                     g1pointMulIntoDest(PROOF_POLY_U_X_SLOT_PART1, mload(PROOF_VXY_SLOT), AGG_LHS_A_X_SLOT_PART1)
-                    
-                    // V_{x,y}[U]_1 - [W]_1
                     g1pointSubAssign(AGG_LHS_A_X_SLOT_PART1, PROOF_POLY_W_X_SLOT_PART1)
 
-                    // V_{x,y}[G]_1 (where G is the generator/identity point)
-                    g1pointMulIntoDest(VK_IDENTITY_X_PART1, mload(PROOF_VXY_SLOT), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                    
-                    // [V]_1 - V_{x,y}[G]_1
-                    g1pointSubIntoDest(PROOF_POLY_V_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                    
-                    // κ1([V]_1 - V_{x,y}[G]_1)
-                    g1pointMulIntoDest(BUFFER_AGGREGATED_POLY_X_SLOT_PART1, mload(CHALLENGE_KAPPA_1_SLOT), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
+                    //κ1[V]_1
+                    g1pointMulIntoDest(PROOF_POLY_V_X_SLOT_PART1, mload(CHALLENGE_KAPPA_1_SLOT), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
 
-                    // (V_{x,y}[U]_1 - [W]_1) + κ1([V]_1 - V_{x,y}[G]_1)
+
+                    // (V_{x,y}[U]_1 - [W]_1) + κ1[V]_1
                     g1pointAddIntoDest(AGG_LHS_A_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1, AGG_LHS_A_X_SLOT_PART1)
 
                     // t_n(χ)[Q_{A,X}]_1
                     g1pointMulIntoDest(PROOF_POLY_QAX_X_SLOT_PART1, mload(INTERMERDIARY_SCALAR_T_N_CHI_SLOT), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
                     
-                    // ... - t_n(χ)[Q_{A,X}]_1
+                    // (V_{x,y}[U]_1 - [W]_1) + (κ1 * ([V]_1 - V_{x,y}[1]_1)) - t_n(χ)[Q_{A,X}]_1
                     g1pointSubAssign(AGG_LHS_A_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
 
                     // t_{s_{max}}(ζ)[Q_{A,Y}]_1
                     g1pointMulIntoDest(PROOF_POLY_QAY_X_SLOT_PART1, mload(INTERMERDIARY_SCALAR_T_SMAX_ZETA_SLOT), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                    
-                    // ... - t_{s_{max}}(ζ)[Q_{A,Y}]_1
+                    // V_{x,y}[U]_1 - [W]_1 + κ1 * ([V]_1 - V_{x,y}[1]_1) - t_n(χ)[Q_{A,X}]_1 - t_{s_{max}}(ζ)[Q_{A,Y}]_1
                     g1pointSubAssign(AGG_LHS_A_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
                 }
 
-                /// @dev [LHS_B]_1 := (1+κ2κ1^4)[A]_1 - κ2κ1^4A_pub[1]_1
+                /// @dev [LHS_B]_1 := (1+κ2κ1^4)[A]_1
                 function prepareLHSB() {
                     let kappa2 := mload(CHALLENGE_KAPPA_2_SLOT)
                     let kappa1 := mload(CHALLENGE_KAPPA_1_SLOT)
                     let A_pub := mload(INTERMEDIARY_SCALAR_APUB_SLOT)
 
-                    // (1+κ2κ1^4)
+                    // 1+κ2κ1^4
                     let coeff1 := addmod(1, mulmod(kappa2, modexp(kappa1, 4), R_MOD), R_MOD)
-
-                    // κ2κ1^4A_pub
-                    let coeff2 := mulmod(mulmod(kappa2, modexp(kappa1, 4), R_MOD), A_pub, R_MOD)
 
                     // (1+κ2κ1^4)[A]_1
                     g1pointMulIntoDest(PROOF_POLY_A_X_SLOT_PART1, coeff1, AGG_LHS_B_X_SLOT_PART1)
-
-                    // κ2κ1^4A_pub[1]_1
-                    g1pointMulIntoDest(VK_IDENTITY_X_PART1, coeff2, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-
-                    // (1+κ2κ1^4)[A]_1 - κ2κ1^4A_pub[1]_1
-                    g1pointSubAssign(AGG_LHS_B_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
                 }
 
-                ///  @dev [LHS_C]_1 := κ1^2((R_{x,y}-1)[K_{-1}(x)L_{-1}(y)]_1 + κ0(\chi-1)(R_{x,y}[G]_1-R'_{x,y}[F]_1) 
-                ///                     +κ0^2K_0(\chi)(R_{x,y}[G]_1-R''_{x,y}[F]_1) - t_{m_l}(\chi)[Q_{C,X}]_1 - t_{s_{max}}(\zeta)[Q_{C,Y}]_1) 
-                ///                     + κ1^3([R]_1-R_{x,y}[1]_1) + κ2([R]_1-R'_{x,y}[1]_1) + κ2^2([R]_1-R''_{x,y}[1]_1)
+                ///  @dev [LHS_C]_1 := κ1^2(R_{x,y} - 1) * [K_{-1}(X)L_{-1}(X)]_1 + a[G]_1 
+                ///                    - b[F]_1 - κ1^2 * t_{m_i}(χ) * [Q_{C,X}]_1 - κ1^2 * t_{s_{max}}(ζ) * [Q_{C,Y}]_1) + c[R]_1 + d[1]_1
                 function prepareLHSC() {
                     let kappa0 := mload(CHALLENGE_KAPPA_0_SLOT)
                     let kappa1 := mload(CHALLENGE_KAPPA_1_SLOT)
@@ -1267,68 +1248,47 @@
                     let kappa2 := mload(CHALLENGE_KAPPA_2_SLOT)
                     let kappa2_pow2 := mulmod(kappa2, kappa2, R_MOD)
                     let chi := mload(CHALLENGE_CHI_SLOT)
-                    let chi_1 := addmod(chi, sub(R_MOD, 1), R_MOD)
+                    let chi_minus_1 := addmod(chi, sub(R_MOD, 1), R_MOD)
                     let r1 := mload(PROOF_R1XY_SLOT)
                     let r2 := mload(PROOF_R2XY_SLOT)
                     let r3 := mload(PROOF_R3XY_SLOT)
                     let k0 := mload(INTERMEDIARY_SCALAR_KO_SLOT)
+                    let V_xy := mload(PROOF_VXY_SLOT)
+                    let A_pub := mload(INTERMEDIARY_SCALAR_APUB_SLOT)
                     let t_ml := mload(INTERMERDIARY_SCALAR_T_MI_CHI_SLOT)
                     let t_smax := mload(INTERMERDIARY_SCALAR_T_SMAX_ZETA_SLOT)
 
-                    // Start with κ1^2(R_{x,y}-1)[K_{-1}(x)L_{-1}(y)]_1
-                    let kappa1_pow2_r_1 := mulmod(kappa1_pow2, addmod(r1, sub(R_MOD, 1), R_MOD), R_MOD)
-                    g1pointMulIntoDest(VK_POLY_KXLX_X_PART1, kappa1_pow2_r_1, AGG_LHS_C_X_SLOT_PART1)
+                    // a := κ1^2 * κ0 * R_{x,y} * ((χ-1) + κ0 * K_0(χ))
+                    let a := mulmod(mulmod(mulmod(mulmod(kappa1, kappa1, R_MOD), kappa0, R_MOD),r1, R_MOD), addmod(chi_minus_1, mulmod(kappa0, k0, R_MOD), R_MOD), R_MOD)
+                    // b := κ1^2 * κ0 * ((χ-1) R’_{x,y} + κ0K_0(χ)R’’_{x,y})
+                    let b := mulmod(mulmod(kappa1_pow2, kappa0, R_MOD), addmod(mulmod(chi_minus_1, r2, R_MOD), mulmod(mulmod(kappa0, k0, R_MOD), r3, R_MOD), R_MOD), R_MOD)
+                    // c := κ1^3 + κ2 + κ2^2
+                    let c := addmod(kappa1_pow3, addmod(kappa2, kappa2_pow2, R_MOD), R_MOD)
+                    //    d := -κ1^3R_{x,y} - κ2R’_{x,y} - κ2^2R’’_{x,y} - κ1V_{x,y} - κ1^4A_{pub} 
+                    // => d := - (κ1^3R_{x,y} + κ2R’_{x,y} + κ2^2R’’_{x,y} + κ1V_{x,y} + κ1^4A_{pub})
+                    let d := sub(R_MOD,addmod(addmod(addmod(mulmod(kappa1_pow3, r1, R_MOD),mulmod(kappa2, r2, R_MOD), R_MOD), mulmod(kappa2_pow2, r3, R_MOD), R_MOD), addmod(mulmod(kappa1, V_xy, R_MOD),mulmod(mulmod(kappa1, kappa1_pow3, R_MOD), A_pub, R_MOD),R_MOD),R_MOD))                
+                    // κ1^2(R_x,y - 1)
+                    let kappa1_r_minus_1 := mulmod(mulmod(kappa1, kappa1, R_MOD), sub(r1, 1), R_MOD)
+                    // κ1^2 * t_{m_l}(χ)
+                    let kappa1_tml := mulmod(kappa1_pow2, t_ml, R_MOD)
+                    // κ1^2 * t_{s_{max}}(ζ)
+                    let kappa1_tsmax := mulmod(kappa1_pow2, t_smax, R_MOD)
+                    
+                    g1pointMulIntoDest(VK_POLY_KXLX_X_PART1, kappa1_r_minus_1, AGG_LHS_C_X_SLOT_PART1)
+                    g1pointMulAndAddIntoDest(INTERMERDIARY_POLY_G_X_SLOT_PART1, a, AGG_LHS_C_X_SLOT_PART1)
 
-                    // Add κ1^2 * κ0 * (χ-1) * (R_{x,y}[G]_1 - R'_{x,y}[F]_1)
-                    let kappa1_pow2_kappa0_chi_1 := mulmod(mulmod(kappa1_pow2, kappa0, R_MOD), chi_1, R_MOD)
-                    
-                    // R_{x,y}[G]_1
-                    g1pointMulIntoDest(INTERMERDIARY_POLY_G_X_SLOT_PART1, mulmod(kappa1_pow2_kappa0_chi_1, r1, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                    g1pointAddIntoDest(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1, AGG_LHS_C_X_SLOT_PART1)
-                    
-                    // -R'_{x,y}[F]_1
-                    g1pointMulIntoDest(INTERMERDIARY_POLY_F_X_SLOT_PART1, mulmod(kappa1_pow2_kappa0_chi_1, r2, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
+                    g1pointMulIntoDest(INTERMERDIARY_POLY_F_X_SLOT_PART1, b, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
                     g1pointSubAssign(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
 
-                    // Add κ1^2 * κ0^2 * K_0(χ) * (R_{x,y}[G]_1 - R''_{x,y}[F]_1)
-                    let kappa1_pow2_kappa0_pow2_k0 := mulmod(mulmod(kappa1_pow2, mulmod(kappa0, kappa0, R_MOD), R_MOD), k0, R_MOD)
-                    
-                    // R_{x,y}[G]_1
-                    g1pointMulIntoDest(INTERMERDIARY_POLY_G_X_SLOT_PART1, mulmod(kappa1_pow2_kappa0_pow2_k0, r1, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                    g1pointAddIntoDest(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1, AGG_LHS_C_X_SLOT_PART1)
-                    
-                    // -R''_{x,y}[F]_1
-                    g1pointMulIntoDest(INTERMERDIARY_POLY_F_X_SLOT_PART1, mulmod(kappa1_pow2_kappa0_pow2_k0, r3, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
+                    g1pointMulIntoDest(PROOF_POLY_QCX_X_SLOT_PART1, kappa1_tml, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
                     g1pointSubAssign(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
 
-                    // Subtract κ1^2 * t_{m_l}(χ) * [Q_{C,X}]_1
-                    g1pointMulIntoDest(PROOF_POLY_QCX_X_SLOT_PART1, mulmod(kappa1_pow2, t_ml, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
+                    g1pointMulIntoDest(PROOF_POLY_QCY_X_SLOT_PART1, kappa1_tsmax, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
                     g1pointSubAssign(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
 
-                    // Subtract κ1^2 * t_{s_{max}}(ζ) * [Q_{C,Y}]_1
-                    g1pointMulIntoDest(PROOF_POLY_QCY_X_SLOT_PART1, mulmod(kappa1_pow2, t_smax, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                    g1pointSubAssign(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
+                    g1pointMulAndAddIntoDest(PROOF_POLY_R_X_SLOT_PART1, c, AGG_LHS_C_X_SLOT_PART1)
+                    g1pointMulAndAddIntoDest(VK_IDENTITY_X_PART1, d, AGG_LHS_C_X_SLOT_PART1)
 
-                    // Add κ1^3([R]_1 - R_{x,y}[1]_1)
-                    g1pointMulIntoDest(PROOF_POLY_R_X_SLOT_PART1, kappa1_pow3, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                    g1pointAddIntoDest(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1, AGG_LHS_C_X_SLOT_PART1)
-                    
-                    g1pointMulIntoDest(VK_IDENTITY_X_PART1, mulmod(kappa1_pow3, r1, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                    g1pointSubAssign(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-
-                    // Add κ2([R]_1 - R'_{x,y}[1]_1)
-                    g1pointMulIntoDest(PROOF_POLY_R_X_SLOT_PART1, kappa2, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                    g1pointAddIntoDest(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1, AGG_LHS_C_X_SLOT_PART1)
-                    
-                    g1pointMulIntoDest(VK_IDENTITY_X_PART1, mulmod(kappa2, r2, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                    g1pointSubAssign(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-
-                    // Add κ2^2([R]_1 - R''_{x,y}[1]_1)
-                    g1pointMulIntoDest(PROOF_POLY_R_X_SLOT_PART1, kappa2_pow2, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                    g1pointAddIntoDest(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1, AGG_LHS_C_X_SLOT_PART1)
-                    
-                    g1pointMulIntoDest(VK_IDENTITY_X_PART1, mulmod(kappa2_pow2, r3, R_MOD), BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
-                    g1pointSubAssign(AGG_LHS_C_X_SLOT_PART1, BUFFER_AGGREGATED_POLY_X_SLOT_PART1)
                 }
 
                 /// @dev [RHS_1]_1 := κ2[Π_{χ}]_1 + κ2^2[M_{χ}]_1 + κ2^3[N_{χ}]_1
@@ -1385,26 +1345,27 @@
                         let kappa2_pow2_zeta := mulmod(mulmod(kappa2, kappa2, R_MOD), zeta, R_MOD)
                         let kappa2_pow3_omega_ml_chi := mulmod(mulmod(mulmod(mulmod(kappa2, kappa2, R_MOD), kappa2, R_MOD), omega_ml, R_MOD), chi, R_MOD)
                         let kappa2_pow3_omega_smax_zeta := mulmod(mulmod(mulmod(mulmod(kappa2, kappa2, R_MOD), kappa2, R_MOD), omega_smax, R_MOD), zeta, R_MOD)
-
                         // [AUX]_1 accumulation
                         // κ2 * χ * [Π_{χ}]_1
                         g1pointMulIntoDest(PROOF_POLY_PI_CHI_X_SLOT_PART1, kappa2_chi, PAIRING_AGG_AUX_X_SLOT_PART1)
                         // += κ2 * ζ *[Π_ζ]_1
-                        g1pointMulAndAddIntoDest(PROOF_POLY_PI_ZETA_X_SLOT_PART1, kappa2_zeta, PAIRING_AGG_AUX_X_SLOT_PART1)
-                        // += κ2^2 * ω_{m_I}^{-1} * χ *[M_{χ}]_1
+                        g1pointMulAndAddIntoDest(PROOF_POLY_PI_ZETA_X_SLOT_PART1,kappa2_zeta, PAIRING_AGG_AUX_X_SLOT_PART1)
+                        // += κ2^2 * ω_{m_l}^{-1} * χ *[M_{χ}]_1
                         g1pointMulAndAddIntoDest(PROOF_POLY_M_CHI_X_SLOT_PART1, kappa2_pow2_omega_ml_chi, PAIRING_AGG_AUX_X_SLOT_PART1)
                         // += κ2^2 * ζ * [M_ζ]_1
-                        g1pointMulAndAddIntoDest(PROOF_POLY_M_ZETA_X_SLOT_PART1, kappa2_pow2_zeta, PAIRING_AGG_AUX_X_SLOT_PART1)
-                        // += κ2^3 * ω_{m_I}^{-1} * χ * [N_{χ}]_1
+                        g1pointMulAndAddIntoDest(PROOF_POLY_M_ZETA_X_SLOT_PART1,kappa2_pow2_zeta,PAIRING_AGG_AUX_X_SLOT_PART1)
+                        // κ2^3 * ω_{m_l}^{-1} * χ * [N_{χ}]_1
                         g1pointMulAndAddIntoDest(PROOF_POLY_N_CHI_X_SLOT_PART1, kappa2_pow3_omega_ml_chi, PAIRING_AGG_AUX_X_SLOT_PART1)
-                        // += κ2^3 * ω_smax^{-1} * ζ * [N_{ζ}]_1
-                        g1pointMulAndAddIntoDest(PROOF_POLY_N_ZETA_X_SLOT_PART1, kappa2_pow3_omega_smax_zeta, PAIRING_AGG_AUX_X_SLOT_PART1)
+                        // κ2^3 * ω_smax^{-1} * ζ * [N_{ζ}]
+                        g1pointMulAndAddIntoDest(PROOF_POLY_N_ZETA_X_SLOT_PART1,kappa2_pow3_omega_smax_zeta, PAIRING_AGG_AUX_X_SLOT_PART1)
+
                     }
 
                     // calculate [LHS]_1 + [AUX]_1
                     {
                         g1pointAddIntoDest(PAIRING_AGG_LHS_X_SLOT_PART1, PAIRING_AGG_AUX_X_SLOT_PART1, PAIRING_AGG_LHS_AUX_X_SLOT_PART1)
                     }
+        
                 }
 
 
@@ -1614,7 +1575,6 @@
                 mstore(0x00, final_result)
                 return(0x00, 0x20)
             }
-
         }
 
     }

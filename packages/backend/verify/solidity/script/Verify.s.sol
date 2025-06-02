@@ -2,14 +2,14 @@
 pragma solidity ^0.8.23;
 
 import {Script} from "forge-std/Script.sol";
-import {VerifierV1} from "../src/VerifierV1.sol";
+import {VerifierV2} from "../src/VerifierV2.sol";
 
 contract VerifyScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address verifierAddress = vm.envAddress("VERIFIER_ADDRESS");
         
-        VerifierV1 verifier = VerifierV1(verifierAddress);
+        VerifierV2 verifier = VerifierV2(verifierAddress);
         
         // Prepare proof data
         uint128[] memory serializedProofPart1 = new uint128[](42);
