@@ -2,111 +2,111 @@
 pragma solidity ^0.8.23;
 
 import {Script} from "forge-std/Script.sol";
-import {VerifierV2} from "../src/VerifierV2.sol";
+import {VerifierV3} from "../src/VerifierV3.sol";
 
 contract VerifyScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address verifierAddress = vm.envAddress("VERIFIER_ADDRESS");
         
-        VerifierV2 verifier = VerifierV2(verifierAddress);
+        VerifierV3 verifier = VerifierV3(verifierAddress);
         
         // Prepare proof data
         uint128[] memory serializedProofPart1 = new uint128[](42);
         uint256[] memory serializedProofPart2 = new uint256[](46);
         uint256[] memory publicInputs = new uint256[](128);
         
-        // Fill serializedProofPart1
-        serializedProofPart1[0] = 0x077c80356d88deb5ebe84fb95a81abe9;
-        serializedProofPart1[1] = 0x13813c6ee01fd65e40c264448804ca5c;
-        serializedProofPart1[2] = 0x09fab082bd8ea9ad40d86ae3d136fb29;
-        serializedProofPart1[3] = 0x15e2520871889bdb334f70ee1e911d3a;
-        serializedProofPart1[4] = 0x0390a1fc2751ddba4d4a312efe6b3f27;
-        serializedProofPart1[5] = 0x111e07280ab0d318dd92d59562fd14ff;
-        serializedProofPart1[6] = 0x135926d87d79dbff068243125ae93573;
-        serializedProofPart1[7] = 0x1382b8fffe7e841a27247a168b64931e;
-        serializedProofPart1[8] = 0x1870053ca5509160d73191431358dafa;
-        serializedProofPart1[9] = 0x191552c7705ef59f52b90ff03d2c53f7;
-        serializedProofPart1[10] = 0x0bd5b6caea13491f31b90a0abe02b796;
-        serializedProofPart1[11] = 0x0778be8eb4de8c0083190fce602b1ea5;
-        serializedProofPart1[12] = 0x0041d56a3ddc6a8a58290dac5ebf7f16;
-        serializedProofPart1[13] = 0x1976d107b27d1a0b4e633907c37cbea9;
-        serializedProofPart1[14] = 0x02db0a30f99d2a2a476e56c701ebf493;
-        serializedProofPart1[15] = 0x07dbee3f1022a59fa066c41cb7c63f3b;
-        serializedProofPart1[16] = 0x07a93d7a2a8f7eddaba53f7058ec7e6b;
-        serializedProofPart1[17] = 0x023806dd920eb142d8c7dbd01deddd30;
-        serializedProofPart1[18] = 0x1996c0881cf1c89cec49f9b87545e8c0;
-        serializedProofPart1[19] = 0x0185320d21e78722d0c1989758ebffa8;
-        serializedProofPart1[20] = 0x032d03a45e7660e25dc8791302ba2d0a;
-        serializedProofPart1[21] = 0x037517d765f39d24cb621e0c884f5625;
-        serializedProofPart1[22] = 0x0651267aa2dfc2cf245e54537f20c028;
-        serializedProofPart1[23] = 0x0350257ef37b189ccdf64e777bdfe4e8;
-        serializedProofPart1[24] = 0x15be07817e12b9ae4b393e838b173d94;
-        serializedProofPart1[25] = 0x090c4b6bcfa819cfbfe61db9559fb182;
-        serializedProofPart1[26] = 0x02d2e4a95854e0bba41f8be17c908323;
-        serializedProofPart1[27] = 0x123ca84bbd0440ad4d246abcb4143c4a;
-        serializedProofPart1[28] = 0x140f65da72be0aa05d8f1971a8363832;
-        serializedProofPart1[29] = 0x081d4169cf849bf0836ce01dfe528fb3;
-        serializedProofPart1[30] = 0x16e4948cfe232b8be317627831386272;
-        serializedProofPart1[31] = 0x11c12b8dd0d836ac0da3e193e5daff53;
-        serializedProofPart1[32] = 0x112a41fa55af07699e3e5fb24555deac;
-        serializedProofPart1[33] = 0x05b61bc9a7dc918646b502cb701eadeb;
-        serializedProofPart1[34] = 0x02309178a605d68e91305c5d000d8f85;
-        serializedProofPart1[35] = 0x11e3361adcc15ffe5b19a527e8be6f53;
-        serializedProofPart1[36] = 0x112a41fa55af07699e3e5fb24555deac;
-        serializedProofPart1[37] = 0x05b61bc9a7dc918646b502cb701eadeb;
-        serializedProofPart1[38] = 0x10f60eed2752ae69f770f10c41c879d0;
-        serializedProofPart1[39] = 0x13a8e662cac04b1e7daf5faf8d769b64;
-        serializedProofPart1[40] = 0x037faccf42e7fcef469f22db2f44ef10;
-        serializedProofPart1[41] = 0x06e6ff0a5f92e820189a13e1dd43c2eb;
+        // SERIALIZED PROOF PART 1 (First 16 bytes - 32 hex chars)
+        serializedProofPart1[0] = 0x0d8838cc826baa7ccd8cfe0692e8a13d; // s^{(0)}(x,y)_X
+        serializedProofPart1[1] = 0x103aeb959c53fdd5f13b70a350363881; // s^{(0)}(x,y)_Y
+        serializedProofPart1[2] = 0x09f0f94fd2dc8976bfeab5da30e1fa04; // s^{(1)}(x,y)_X
+        serializedProofPart1[3] = 0x17cb62f5e698fe087b0f334e2fb2439c; // s^{(1)}(x,y)_Y
+        serializedProofPart1[4] = 0x07be8e1a551012b701722c13889c649b; // U_X
+        serializedProofPart1[5] = 0x0bdc6b8a4be68fb371fa4633afad2e93; // U_Y
+        serializedProofPart1[6] = 0x0cf3e4f4ddb78781cd5740f3f2a1a3db; // V_X
+        serializedProofPart1[7] = 0x0f4b46798d566e5f6653c4fe4df20e83; // V_Y
+        serializedProofPart1[8] = 0x05ecf1d1f0e418d463fb000216fcc5cf; // W_X
+        serializedProofPart1[9] = 0x040de0d20cae206f450f5924fdc1ed66; // W_Y
+        serializedProofPart1[10] = 0x0d553694a909ee5e9f3995cf19aba69d; // O_mid_X
+        serializedProofPart1[11] = 0x07a5608c528f6a6d64cfbc45d59c4ef0; // O_mid_Y
+        serializedProofPart1[12] = 0x160c379d635cef2e6ab1c812d653dbbb; // O_prv_X
+        serializedProofPart1[13] = 0x04533f945b5ed1a3fd870f5e3393856e; // O_prv_Y
+        serializedProofPart1[14] = 0x12dbdc50f14c7d5f518913d7306cd9ba; // Q_{AX}_X
+        serializedProofPart1[15] = 0x09e5bf0fcabb6f5f23395f9aa66f4dcf; // Q_{AX}_Y
+        serializedProofPart1[16] = 0x03712e78aa9feb469f95030b0d0db407; // Q_{AY}_X
+        serializedProofPart1[17] = 0x0bc20f18f993c7f5d840251dfb681f95; // Q_{AY}_Y
+        serializedProofPart1[18] = 0x09425c00e69be170921c5c644f808b2f; // Q_{CX}_X
+        serializedProofPart1[19] = 0x0732ae2d40b088f9b999a2e586579f0f; // Q_{CX}_Y
+        serializedProofPart1[20] = 0x10263f40213c831b0a1d567f5cd3d959; // Q_{CY}_X
+        serializedProofPart1[21] = 0x0c9eac42b0747eec1851b135fa0fa335; // Q_{CY}_Y
+        serializedProofPart1[22] = 0x185e7e0f4b001a53ecdd9184d95e3f89; // Π_{χ}_X
+        serializedProofPart1[23] = 0x0a94341611a2e279a588e1efac586568; // Π_{χ}_Y
+        serializedProofPart1[24] = 0x05af40405eea010ce0847f7e1392a580; // Π_{ζ}_X
+        serializedProofPart1[25] = 0x1933d39dfac2a86c918ccd0e451fffd9; // Π_{ζ}_Y
+        serializedProofPart1[26] = 0x0e8142abf240b6b8adaae2e2b0280188; // B_X
+        serializedProofPart1[27] = 0x0b67e1b400c4d8cafce07fd4a3092336; // B_Y
+        serializedProofPart1[28] = 0x17d7e8e84587b347b0fc870b56579666; // R_X
+        serializedProofPart1[29] = 0x1504e135d8d92faec7b55dbf8933e0d6; // R_Y
+        serializedProofPart1[30] = 0x0cdd08105800de156a4377510dc3dea3; // M_ζ_X (M_Y_X)
+        serializedProofPart1[31] = 0x09b80f41fc5ef9789ef81e42ff66534a; // M_ζ_Y (M_Y_Y)
+        serializedProofPart1[32] = 0x19561b90817c39e7731f860064df30f5; // M_χ_X (M_X_X)
+        serializedProofPart1[33] = 0x0db0d8bca26eaa06959b4670905bf13c; // M_χ_Y (M_X_Y)
+        serializedProofPart1[34] = 0x0d23aa8257f29f44fa08284a84ad1369; // N_ζ_X (N_Y_X)
+        serializedProofPart1[35] = 0x14e4284c4967d35696b543d05da9ef56; // N_ζ_Y (N_Y_Y)
+        serializedProofPart1[36] = 0x19561b90817c39e7731f860064df30f5; // N_χ_X (N_X_X)
+        serializedProofPart1[37] = 0x0db0d8bca26eaa06959b4670905bf13c; // N_χ_Y (N_X_Y)
+        serializedProofPart1[38] = 0x0883ed3c97b3e674ebfc683481742daa; // O_pub_X
+        serializedProofPart1[39] = 0x0f697de543d92f067e8ff95912513e49; // O_pub_Y
+        serializedProofPart1[40] = 0x097d7a0fe6430f3dfe4e10c2db6ec878; // A_X
+        serializedProofPart1[41] = 0x104de32201c5ba649cc17df4cf759a1f; // A_Y
         
-        // Fill serializedProofPart2
-        serializedProofPart2[0] = 0xcf0f85b57b3b8d79b7f3de8c9751710285f679970092e49a4eea303ca2bcb002;
-        serializedProofPart2[1] = 0xcd519447b8b7399f99b51dc18c47abae7a4bb20dfcec2ecc50a03aa620d1f4c0;
-        serializedProofPart2[2] = 0x6e571fd2aa48989a845e2803827d32c2115a885c9d5b41c94493ae42393306e5;
-        serializedProofPart2[3] = 0xc637f91a0288f7453557dccb4b083650f0cc90452cfe372a50dc4c500e4c3252;
-        serializedProofPart2[4] = 0x2751350045c792dbd03b2f0f712d5d56db451d3637e2be8a3016b9bbae351e58;
-        serializedProofPart2[5] = 0x6a0ec8b3c2bed6ca73007d4092f77ed4b5feffb85b218483bb954f266f4edbb8;
-        serializedProofPart2[6] = 0xd0356416e4ee5e6358895dcbeb600ca088bc11dbed27d4f1689ebdfe54668fe8;
-        serializedProofPart2[7] = 0xe826ff08eb490b675c839d6b0e8c6eaf0ffc99031cfc07ba9ea7f170565d0216;
-        serializedProofPart2[8] = 0x197cc251eb3b14112e8f3b1da635f49a81c4dbef53bbd66c5ba4fd00209c2a89;
-        serializedProofPart2[9] = 0x148ffda5915af04cc219611c14c978307425f37c44966a035eb27cbf22dfc5b3;
-        serializedProofPart2[10] = 0xa76091483b6027d02da753be3244280e1762834de867461c4af8549625e622a1;
-        serializedProofPart2[11] = 0x968e8f27c53534229f6fe7a45d558844174e031c7799a1cfa42bf74d512944e4;
-        serializedProofPart2[12] = 0xa92454b13f231247c3d48f48e007b66a9686efc7fe7134c121d88de4da0e8771;
-        serializedProofPart2[13] = 0x11a0380996c4e947e34f58fd01dc6b9437a24144063058bf41366968988c5aeb;
-        serializedProofPart2[14] = 0x991eacc990d2138301284737ec10f7b050245f92d0063c6c151c1405ddc2b2b3;
-        serializedProofPart2[15] = 0x5ce432125c6c27399d11f0ee345c2b3fdecbe68ee8d3d5fee422d3d7bf268d7f;
-        serializedProofPart2[16] = 0x3538f8b064bc50f1b0fa8c0b9cf3d4d0a8a5a89b36205c2c092630c20cb1fa72;
-        serializedProofPart2[17] = 0xa175b9a622e195340f9274c209e411e855a76e4d882af292ab508ce8c894a428;
-        serializedProofPart2[18] = 0x7641ae7e7548a7da8887d063e925276902635a74433dfc8f0b6b9f75faab4c03;
-        serializedProofPart2[19] = 0xddc87446c7ea7e661ab47ffb3747e1a783bc8b730a7945f540191dadc72f5873;
-        serializedProofPart2[20] = 0xe23f72c0febe2f96b2c9774de1d6d83d448e64d6eebbbb8d6b6c34bd4d91a7b2;
-        serializedProofPart2[21] = 0x99ad127dd35a5e74ad10584a8cbfb77f23958cd9cae3c2924f49d41bb97148a9;
-        serializedProofPart2[22] = 0x224be1baef8c5d1613b4d84176e06f43dc030c9e238cc3ff554a38a5b4b683ff;
-        serializedProofPart2[23] = 0x274fb775f0f095b7a6d87af22bdcbaa0645fb57f70979c7515ed32acc00d364f;
-        serializedProofPart2[24] = 0xefab506979b8f03f7fccbc5e74d1a081d56061bd9d1319dd48560f2b191b9b9c;
-        serializedProofPart2[25] = 0x4fb92a8bd1a7cd22e242e315c645e0f7c2338aec1b86da5efab7b1805f4003ec;
-        serializedProofPart2[26] = 0xf14136568274d294c09b0f4efd62730559fee1efa5309bb1d64c55cd590135c4;
-        serializedProofPart2[27] = 0x092e6f9218c5953f0a0eeeca7a7df336c28809f44c8db725de9f300297d9ed56;
-        serializedProofPart2[28] = 0x955743bb57bf6f5ac082a24c9f7951106d99883363c9bcd96ac83b6c709ed277;
-        serializedProofPart2[29] = 0x8c58fe30a4249102ed761572338afbd1a8169da814a9343ec7a6221cc4ffdab8;
-        serializedProofPart2[30] = 0xd0a281775d883e236bd14fd34a72100d7785f2afc475e2a2b2f5c8809fd591bc;
-        serializedProofPart2[31] = 0x8459de420453ed62170e6e13580882bfd8c27e56722c079e318c80639ca22d5e;
-        serializedProofPart2[32] = 0xa6dfba90dac2a966b5d8bd164092451b15236dd2e73651a2a1bbee07a9c219ae;
-        serializedProofPart2[33] = 0x72fda77ee321d9fc31ed7c39f9ec1522613277d5ad7676155386064897820a71;
-        serializedProofPart2[34] = 0x01e3b0ba7fe4f66509200714daa9483dd156b08c800bbcfcf922f7504102ad54;
-        serializedProofPart2[35] = 0xffd44d55fa21569200f070e17f4c76b59b4410c26c1f3abe5bf03874d3c6e433;
-        serializedProofPart2[36] = 0xa6dfba90dac2a966b5d8bd164092451b15236dd2e73651a2a1bbee07a9c219ae;
-        serializedProofPart2[37] = 0x72fda77ee321d9fc31ed7c39f9ec1522613277d5ad7676155386064897820a71;
-        serializedProofPart2[38] = 0x0690b9da80233ee82fe221f9c7a0251c9fc193c97dff55bcebe77a34e78a257d;
-        serializedProofPart2[39] = 0xc3e9a673161be659d97fa4efedbaa00a6c307b089cadede89ce9145e282b56ca;
-        serializedProofPart2[40] = 0x7893621690e58fc1bdf84ab8befbcad4ff5f6d4f1aecec3a169a4c7820c55a7c;
-        serializedProofPart2[41] = 0xc091ebad6e8d5e3a590ae8153490ebc1135eb38a2d6e6b296324c7be1641eb5d;
-        serializedProofPart2[42] = 0x1e82ea8dd3e27616ad00d5ba984411c80178dfa7d67312d7a5b4e41cf740739b;
-        serializedProofPart2[43] = 0x4c08d01c225f4a335316e76c70cca30c0e3dc3c819bc11cc549aa48b74ad690e;
-        serializedProofPart2[44] = 0x30c54d986b78274933d3cbe26ab5b92b4556283358eb6414d70ff2e0a99b9dd8;
-        serializedProofPart2[45] = 0x675e8d9efabde223e32f97f2cc54d311855a9e24ef3f24a7108344556c57efc6;
+        // SERIALIZED PROOF PART 2 (Last 32 bytes - 64 hex chars)
+        serializedProofPart2[0] = 0xbbae56c781b300594dac0753e75154a00b83cc4e6849ef3f07bb56610a02c828; // s^{(0)}(x,y)_X 
+        serializedProofPart2[1] = 0xf3447285889202e7e24cd08a058a758a76ee4c8440131be202ad8bc0cc91ee70; // s^{(0)}(x,y)_Y 
+        serializedProofPart2[2] = 0x76e577ad778dc4476b10709945e71e289be5ca05c412ca04c133c485ae8bc757; // s^{(1)}(x,y)_X 
+        serializedProofPart2[3] = 0x7ada41cb993109dc7c194693dbcc461f8512755054966319bcbdea3a1da86938; // s^{(1)}(x,y)_Y 
+        serializedProofPart2[4] = 0x9edeb17d8280b6477fee7f034dd01f5af930d2e2712c1e0d7d699e4a06305cb3; // U_X
+        serializedProofPart2[5] = 0x18c3dcf9d39177c0279a710093830f6bf5368fa5090e5b12dee85a4858706cd6; // U_Y
+        serializedProofPart2[6] = 0xd3e45812526acc1d689ce05e186d3a8b9e921ad3a4701013336f3f00c654c908; // V_X
+        serializedProofPart2[7] = 0x76983b4b6af2d6a17be232aeeb9fdd374990fdcbd9b1a4654bfbbc5f4bba7e13; // V_Y
+        serializedProofPart2[8] = 0x74d917514a9dd3e6f116a8b4752ad44db8fc96cbc772e3e9e3c0164e5a123567; // W_X
+        serializedProofPart2[9] = 0x905603ff601a61f28aeb0f60fdb78c36db1802d6f04b06a456c0ea8ed9d2f82b; // W_Y
+        serializedProofPart2[10] = 0xe537cd0d08e9730fc764dc8b8b4e2ddcf32367e83c66d4a7db0547be5c88a290; // O_mid_X
+        serializedProofPart2[11] = 0x66b49b624da84b0d2e62a47446744f63f260a9d0bb72f5949210feb2746b53b0; // O_mid_Y
+        serializedProofPart2[12] = 0x1ba613714db2513c2501908825189503afc8c7318913638ff3f4d4a5656bec10; // O_prv_X
+        serializedProofPart2[13] = 0xa496ef65633f9bf053f230db3baf78742514001f69556e276d5c3060bf1e1167; // O_prv_Y
+        serializedProofPart2[14] = 0xe86d83b514c7a3bb2985ae7b5cb4eaaf115fe0358e833da4697161abf51a996f; // Q_{AX}_X
+        serializedProofPart2[15] = 0x8da5569ab4c1070898b61553dcbcb46b9eb844ce2bcedaaee175e1a3f663ff8a; // Q_{AX}_Y
+        serializedProofPart2[16] = 0x90be9a439848e3a75c43a644f2f06d5d9cd4681e93a945d15981a951bf74d951; // Q_{AY}_X
+        serializedProofPart2[17] = 0x4f7c15c37480e98955ac518d2c9bec86a548249a4464ad30d58ea84ea371a44a; // Q_{AY}_Y
+        serializedProofPart2[18] = 0xeed958228ed5152ab7ed01fb39edc1890b0563aa8f00bb8079c0574d795089e8; // Q_{CX}_X
+        serializedProofPart2[19] = 0xb60b0d793e1efcade6a6e4e2477e482866a12f082d88095184ef0419c1c7f375; // Q_{CX}_Y
+        serializedProofPart2[20] = 0x8fe5d5ae68b314952017ec9b38a4b2d87954f9d837626a6cfc28ad84fe3b9b4e; // Q_{CY}_X
+        serializedProofPart2[21] = 0xc9fd377b2407228bff26cd9c333e2250f4cfb64d9e609f807b050d6dda76a2f9; // Q_{CY}_Y
+        serializedProofPart2[22] = 0x57cc84295124fa34e17f325fdd5af13caea896d366e6191a4c41f30b0c014bd0; // Π_{χ}_X
+        serializedProofPart2[23] = 0xf4c963a10ed90c02f99ab4b618e8b0b894ae86dfb091939cd1117a0385bcf889; // Π_{χ}_Y
+        serializedProofPart2[24] = 0xaec2097e1ab5b06d41c1b9ee45a2e5ddfca43c44721000bd4176482d38f7e906; // Π_{ζ}_X
+        serializedProofPart2[25] = 0xc9c2aaa53f49bac0a1075ed039e55ef9f7e5559cf4ea3fad3cdc4511b4b0d682; // Π_{ζ}_Y
+        serializedProofPart2[26] = 0x562c0bb2804518c6f6e13987354108ffe24ce5e67b4a6755f7ff887d7d9eb9fa; // B_X
+        serializedProofPart2[27] = 0x2d9a8285799c20f7eca1612674a8f8b8ab97a070706a3fd419907aaca417aaa1; // B_Y
+        serializedProofPart2[28] = 0x2c39aea497deb8f9d2f54f17c11125648f479a44f2434f4b257027e1398b5e24; // R_X
+        serializedProofPart2[29] = 0x17fd42d81cccf58cbb6a3062399773369eebd07e48b793c969119aa08eee9a0b; // R_Y
+        serializedProofPart2[30] = 0xd9057ea049abbd430d005497b48d7cb7f00b67cd7088cdf6e34d61c086d67d86; // M_ζ_X
+        serializedProofPart2[31] = 0x0f6792836a03fc8d08104812452863d3610043888de457cadc9ae30c1035ec5a; // M_ζ_Y
+        serializedProofPart2[32] = 0xdcbc91ffa5ec76b03a78d6addf99557c1b6457ff44d23215d5e0b99dcc8d70ce; // M_χ_X
+        serializedProofPart2[33] = 0x3b2752a469a489851b3211d1782da55b840ea4cacd35c2a787604b94d847fde1; // M_χ_Y
+        serializedProofPart2[34] = 0x34a6507f2334f47b61536477b4487c7ba595b079669bdb6926a004df355b27f4; // N_ζ_X
+        serializedProofPart2[35] = 0x052afacbc8f5e75bba4c8bc3b2be2e1e502fe1700c31bbfc86951a78a44c0032; // N_ζ_Y
+        serializedProofPart2[36] = 0xdcbc91ffa5ec76b03a78d6addf99557c1b6457ff44d23215d5e0b99dcc8d70ce; // N_χ_X
+        serializedProofPart2[37] = 0x3b2752a469a489851b3211d1782da55b840ea4cacd35c2a787604b94d847fde1; // N_χ_Y
+        serializedProofPart2[38] = 0xda9079a92f7bfe749313cd11fd1faf480cbd6829a27de4e182a9c699a459af59; // O_pub_X
+        serializedProofPart2[39] = 0x9c500eac60a728c7e61f88269a1ed9317e763608e3917f78a9697bda457c9955; // O_pub_Y
+        serializedProofPart2[40] = 0x4d66b638321b58bbfdf6b0a17a44a9d9cda67b1a74eea5d0846a99769f18bb17; // A_X
+        serializedProofPart2[41] = 0x4109049c345548f5d1c05fc481a4594d4764dc966bb22dd42a45cc10cd38a7e2; // A_Y
+        serializedProofPart2[42] = 0x348b5f3bc87d29ea5e72d93c53b693cd5ef0b7e7af0f1f12cc0c48c23962cf6a; // R_eval
+        serializedProofPart2[43] = 0x089a1a15af704787c629415ac86767993eb41dcaf85698570c7a42fe70e794a1; // R_omegaX_eval
+        serializedProofPart2[44] = 0x0877ff319922ffed9bb7d64983da74126b2f31108ac4fc290ef3ea87f5053a66; // R_omegaX_omegaY_eval
+        serializedProofPart2[45] = 0x73217f78c593b99fafef45085119bc4f43d578f607da8ce9726d4d14cd8b76a1; // V_eval
         
         // Fill publicInputs - only non-zero values
         publicInputs[0] = 0x00000000000000000000000000000000392a2d1a05288b172f205541a56fc20d;
@@ -130,8 +130,7 @@ contract VerifyScript is Script {
         
         vm.startBroadcast(deployerPrivateKey);
         
-        bool result = verifier.verify(serializedProofPart1, serializedProofPart2, publicInputs);
-        
+        bool result = verifier.verify(serializedProofPart1, serializedProofPart2, publicInputs);        
         vm.stopBroadcast();
     }
 }
