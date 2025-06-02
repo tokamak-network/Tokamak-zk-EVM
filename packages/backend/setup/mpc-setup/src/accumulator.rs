@@ -1,3 +1,8 @@
+use serde_json::from_reader;
+use std::io;
+use ark_std::fs;
+use serde_json::to_writer_pretty;
+use ark_std::env;
 use crate::utils::{compute5, icicle_g1_generator, icicle_g2_generator, verify5, PairSerde, Phase1Proof, RandomGenerator, SerialSerde};
 use blake2::{Blake2b, Digest};
 use icicle_bls12_381::curve::G1Affine;
@@ -5,6 +10,7 @@ use libs::group_structures::{G1serde, G2serde};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
+use crate::{impl_read_from_json, impl_write_into_json};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Accumulator {
@@ -22,6 +28,8 @@ pub struct Accumulator {
     #[serde(skip)]
     marker: std::marker::PhantomData<G2serde>,
 }
+impl_write_into_json!(Accumulator);
+impl_read_from_json!(Accumulator);
 
 impl Accumulator {
     pub fn get_boxed_xypower(&self) -> Box<[G1serde]> {
@@ -203,7 +211,7 @@ impl Accumulator {
         result.copy_from_slice(&hash[..32]);
         result
     }
-    /// Save the Accumulator to a JSON file
+   /* /// Save the Accumulator to a JSON file
     pub fn save_to_json(&self, path: &str) -> std::io::Result<()> {
         let file = File::create(path)?;
         let mut writer = BufWriter::new(file);
@@ -222,7 +230,7 @@ impl Accumulator {
         let acc: Accumulator = serde_json::from_str(&json_str)
             .expect("JSON deserialization failed");
         Ok(acc)
-    }
+    }*/
 }
 
 #[cfg(test)]
@@ -274,9 +282,9 @@ mod tests {
         let g1 = icicle_g1_generator();
         let g2 = icicle_g2_generator();
         let accumulator = Accumulator::new(g1, g2, 2, 4, 8);
-        accumulator.save_to_json("accumulator.json").expect("Failed to save");
+        accumulator.write_into_json("accumulator.json").expect("Failed to save");
 
-        let loaded_accumulator = Accumulator::load_from_json("accumulator.json").expect("Failed to load");
+        let loaded_accumulator = Accumulator::read_from_json("accumulator.json").expect("Failed to load");
         println!("Loaded Accumulator: {:?}", loaded_accumulator);
         assert_eq!(accumulator, loaded_accumulator);
     }

@@ -1,12 +1,14 @@
 use ark_ff::Zero;
+use icicle_runtime::{memory::{DeviceVec, HostSlice}, stream::IcicleStream, Device};
+
 use icicle_bls12_381::curve::{G1Affine, G1Projective, ScalarField};
 use icicle_core::msm;
 use icicle_core::msm::MSMConfig;
 use icicle_core::traits::FieldImpl;
-use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice};
+use icicle_runtime::memory::{HostOrDeviceSlice};
 use libs::bivariate_polynomial::DensePolynomialExt;
 use libs::group_structures::{G1serde, Sigma, Sigma1, Sigma2};
-use libs::iotools::SetupParams;
+use libs::iotools::{SetupParams, SubcircuitInfo};
 use mpc_setup::accumulator::Accumulator;
 use mpc_setup::mpc_utils::{
     poly_mult, thread_safe_compute_langrange_i_coeffs, thread_safe_compute_langrange_i_poly,
@@ -26,10 +28,22 @@ struct Config {
     /// Output folder path (must exist and be writeable)
     #[arg(long, value_name = "OUTFOLDER")]
     outfolder: String,
-    
+
 }
-// cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output 
+// cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output
 fn main() {
+   /* let _ = icicle_runtime::load_backend_from_env_or_default();
+    // Check if GPU is available
+    let device_cpu = Device::new("CPU", 0);
+    let mut device_gpu = Device::new("METAL", 0);
+    let is_metal_device_available = icicle_runtime::is_device_available(&device_gpu);
+    if is_metal_device_available {
+        println!("GPU is available");
+        icicle_runtime::set_device(&device_gpu).expect("Failed to set device");
+    } else {
+        println!("GPU is not available, falling back to CPU only");
+        device_gpu = device_cpu.clone();
+    }*/
     ThreadPoolBuilder::new()
         .num_threads(num_cpus::get() - 1)
         .build_global()
@@ -37,19 +51,13 @@ fn main() {
 
     let config = Config::parse();
 
-    // Validate outfolder
-    if let Err(e) = check_outfolder_writable(&config.outfolder) {
-        eprintln!(
-            "Error: output folder '{}' is not accessible: {}",
-            config.outfolder, e
-        );
-        std::process::exit(1);
-    }
 
-    let latest_acc = Accumulator::load_from_json(&format!(
+    let latest_acc = Accumulator::read_from_json(&format!(
         "{}/phase1_latest_challenge.json",
         config.outfolder
     )).expect("cannot read from phase1_latest_challenge.json");
+
+    let sigma_trusted = Sigma::read_from_json("setup/trusted-setup/output/combined_sigma.json").unwrap();
 
     let g1 = latest_acc.g1;
     let g2 = latest_acc.g2;
@@ -72,12 +80,15 @@ fn main() {
     );
 
     let start1 = Instant::now();
-
+    let subcircuit_file_name = "subcircuitInfo.json";
+    let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_file_name).unwrap();
+    let qap = QAP::gen_from_R1CS(&subcircuit_infos, &setup_params);
     
-    let qap = QAP::load_from_json(&format!(
+    /*let qap = QAP::load_from_json(&format!(
         "{}/qap_all.bin",
         config.outfolder
-    )).expect("cannot read from qap_all.bin");
+    )).expect("cannot read from qap_all.bin");*/
+    
 
     println!("The qap load time: {:.6} seconds", start1.elapsed().as_secs_f64());
     let mut li_y_vec: Vec<DensePolynomialExt> = vec![];
@@ -146,6 +157,7 @@ fn main() {
         &alpha3xyG1s,
         &mut gamma_inv_o_inst,
     );
+    assert_eq!(sigma_trusted.sigma_1.gamma_inv_o_inst, gamma_inv_o_inst);
 
     // {δ^(-1)α^k x^h t_n(x)}_{h=0,k=1}^{2,3}
     let mut delta_inv_alphak_xh_tx =
@@ -178,6 +190,10 @@ fn main() {
         );
     }
 
+    assert_eq!(
+        sigma_trusted.sigma_1.delta_inv_alpha4_xj_tx,
+        delta_inv_alpha4_xj_tx
+    );
 
     // {δ^(-1)α^k y^i t_{s_max}(y)}_{i=0,k=1}^{2,4}
     let mut delta_inv_alphak_yi_ty =
@@ -195,8 +211,10 @@ fn main() {
             );
         }
     }
-
-
+    assert_eq!(
+        sigma_trusted.sigma_1.delta_inv_alphak_yi_ty,
+        delta_inv_alphak_yi_ty
+    );
     let lap = start1.elapsed();
     println!(
         "The total time for first part: {:.6} seconds",
@@ -256,7 +274,7 @@ fn main() {
             commits.extend(&alpha4xyG1s);
             // out = out + sum_vector_dot_product(&xy_coeffs, &alpha4xyG1s);
             // eta_inv_li_o_inter_alpha4_kj[j][i] = out;
-            
+
             //println!("len of (coeffs) is {}", coeffs.len());
             eta_inv_li_o_inter_alpha4_kj[j][i] = sum_vector_dot_product(&coeffs, &commits);
 
@@ -324,24 +342,24 @@ fn main() {
     }
 
     #[cfg(feature = "testing-mode")] {
-        let sigma_old = Sigma::read_from_json("setup/mpc-setup/output/combined_sigma_o.json").unwrap();
-        assert_eq!(sigma_old.sigma_1.gamma_inv_o_inst, gamma_inv_o_inst);
+        let sigma_trusted = Sigma::read_from_json("setup/trusted-setup/output/combined_sigma.json").unwrap();
+        assert_eq!(sigma_trusted.sigma_1.gamma_inv_o_inst, gamma_inv_o_inst);
         assert_eq!(
-            sigma_old.sigma_1.delta_inv_alphak_xh_tx,
+            sigma_trusted.sigma_1.delta_inv_alphak_xh_tx,
             delta_inv_alphak_xh_tx
         );
         assert_eq!(
-            sigma_old.sigma_1.delta_inv_alpha4_xj_tx,
+            sigma_trusted.sigma_1.delta_inv_alpha4_xj_tx,
             delta_inv_alpha4_xj_tx
         );
         assert_eq!(
-            sigma_old.sigma_1.delta_inv_alphak_yi_ty,
+            sigma_trusted.sigma_1.delta_inv_alphak_yi_ty,
             delta_inv_alphak_yi_ty
         );
-        assert_eq!(eta_inv_li_o_inter_alpha4_kj, sigma_old.sigma_1.eta_inv_li_o_inter_alpha4_kj);
+        assert_eq!(eta_inv_li_o_inter_alpha4_kj, sigma_trusted.sigma_1.eta_inv_li_o_inter_alpha4_kj);
         assert_eq!(
             delta_inv_li_o_prv,
-            sigma_old.sigma_1.delta_inv_li_o_prv);
+            sigma_trusted.sigma_1.delta_inv_li_o_prv);
     }
 
     let sigma = Sigma {
@@ -374,7 +392,7 @@ fn main() {
             y: latest_acc.y.g2,
         },
     };
-    
+
     sigma.write_into_json(&format!(
             "{}/phase2_latest_combined_sigma.json",
             config.outfolder

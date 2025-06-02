@@ -29,20 +29,11 @@ struct Config {
 fn main() {
     let config = Config::parse();
 
-    // Validate outfolder
-    if let Err(e) = check_outfolder_writable(&config.outfolder) {
-        eprintln!(
-            "Error: output folder '{}' is not accessible: {}",
-            config.outfolder, e
-        );
-        std::process::exit(1);
-    }
-
     let totalStart = Instant::now();
 
     let mut rng = initialize_random_generator(config.mode);
 
-    let latest_acc = Accumulator::load_from_json(&format!(
+    let latest_acc = Accumulator::read_from_json(&format!(
         "{}/phase1_latest_challenge.json",
         config.outfolder
     ))
@@ -54,7 +45,7 @@ fn main() {
             "previous contributor index: {}",
             latest_acc.contributor_index
         );
-        let prev_acc = Accumulator::load_from_json(&format!(
+        let prev_acc = Accumulator::read_from_json(&format!(
             "{}/phase1_acc_{}.json",
             config.outfolder,
             latest_acc.contributor_index - 1
@@ -126,7 +117,7 @@ fn main() {
     );
 
     new_acc
-        .save_to_json(&format!(
+        .write_into_json(&format!(
             "{}/phase1_latest_challenge.json",
             config.outfolder
         ))
