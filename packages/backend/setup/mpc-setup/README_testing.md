@@ -22,21 +22,32 @@ cd "$pwd/packages/backend"
 
 🛠️ Initialize Phase 1
 
-This step initializes Phase 1 quickly (takes a few seconds):
+This step initializes Phase 1 (takes a few seconds): 
+For testing initialization:
+cargo run --release --bin phase1_initialize -- \    
+  --s-max 128 \
+  --mode testing \
+  --setup-params-file setupParams.json  \
+  --outfolder ./setup/mpc-setup/output
 
-cargo run --release --bin phase1_initialize -- \
+For random initialization:
+ cargo run --release --bin phase1_initialize -- \
   --s-max 128 \
   --blockhash aabbccddeeff11223344556677889900aabbccddeeff11223344556677889900 \
-  --mode testing \
+  --mode random \
   --setup-params-file setupParams.json  \
   --outfolder ./setup/mpc-setup/output
 
 🔄 Next Contributor (few minutes)
 
-Each next contributor should run:
+Each next contributor will run:
 
+For testing mode:
 cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode testing
 (for testing purpose run this once as we want to generate the same combined_sigma as trusted setup)
+
+For actual run:
+cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode random
 
 🌐 Beacon Contribution (optional - skip this for testing)
 
@@ -50,11 +61,7 @@ Each "Next Contributor" run includes verification automatically, but for batch v
 
 cargo run --release --bin verify_phase1_computations -- --outfolder ./setup/mpc-setup/output
 
-📝 QAP Write (run once before prepare_phase2, takes few minutes)
-
-cargo run --release --bin qap_write
-
-🚧 Prepare Phase 2
+📝 Prepare Phase 2
 
 ⚠️ Note: This step can take a significant amount of time (days):
 

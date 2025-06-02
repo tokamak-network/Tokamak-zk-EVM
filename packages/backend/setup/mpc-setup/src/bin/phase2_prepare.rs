@@ -31,6 +31,7 @@ struct Config {
 
 }
 // cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output
+
 fn main() {
    /* let _ = icicle_runtime::load_backend_from_env_or_default();
     // Check if GPU is available
