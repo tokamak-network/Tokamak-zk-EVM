@@ -23,5 +23,5 @@ The contracts are rigorously tested with:
 ```bash
 cd "$pwd/packages/backend/verify/solidity"
 forge install
-forge test -vvvv
+forge test -vvv
 ```
