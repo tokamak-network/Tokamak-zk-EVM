@@ -5,13 +5,12 @@ use icicle_hash::keccak::Keccak256;
 use icicle_runtime::memory::HostSlice;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::iotools::{Instance, Permutation, PublicInputBuffer, PublicOutputBuffer, SetupParams, SubcircuitInfo};
-use libs::group_structures::{G1serde, G2serde, Preprocess, Sigma, SigmaVerify};
+use libs::group_structures::{G1serde, Preprocess, Sigma, SigmaVerify};
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::ntt;
 use prove::{*};
 use libs::group_structures::pairing;
-use ark_ff::{BigInt, Fp2, One};
 
 use std::vec;
 
@@ -202,7 +201,7 @@ impl Verifier {
         let kappa0 = proof1.verify1_with_manager(&mut transcript_manager);
         let (chi, zeta) = proof2.verify2_with_manager(&mut transcript_manager);
         let kappa1 = proof3.verify3_with_manager(&mut transcript_manager);
-        let kappa2 = transcript_manager.get_kappa2();
+        let kappa2 = ScalarCfg::generate_random(1)[0];
         
         let m_i = self.setup_params.l_D - self.setup_params.l;
         let s_max = self.setup_params.s_max;
@@ -220,7 +219,7 @@ impl Verifier {
             None
         );
         let A_eval = a_pub_X.eval(&chi, &zeta);
-         
+        
         let lagrange_K0_eval = {
             let lagrange_K0_XY = {
                 let mut k0_evals = vec![ScalarField::zero(); m_i];
@@ -292,42 +291,8 @@ impl Verifier {
             &[self.sigma.sigma_2.gamma, self.sigma.sigma_2.eta, self.sigma.sigma_2.delta,   self.sigma.sigma_2.x,   self.sigma.sigma_2.y]
         );
 
-        assert_eq!(left_pair, right_pair);
-
-        // test pairing LHS only
-        let pairing = pairing(
-            &[
-                LHS + AUX,
-                proof0.B,
-                proof0.U,
-                proof0.V,
-                proof0.W,
-                binding.O_inst,
-                binding.O_mid,
-                binding.O_prv,
-                AUX_X,
-                AUX_Y
-            ],
-            &[
-                self.sigma.H, 
-                self.sigma.sigma_2.alpha4,  
-                self.sigma.sigma_2.alpha,   
-                self.sigma.sigma_2.alpha2,  
-                self.sigma.sigma_2.alpha3,
-                G2serde::zero() - self.sigma.sigma_2.gamma,
-                G2serde::zero() - self.sigma.sigma_2.eta,
-                G2serde::zero() - self.sigma.sigma_2.delta,
-                G2serde::zero() - self.sigma.sigma_2.x,
-                G2serde::zero() - self.sigma.sigma_2.y
-            ]
-        );
-        println!("[LHS]:  {:?}", LHS);
-        
-
-        assert_eq!(pairing.0.is_one(), true);
         return left_pair.eq(&right_pair)
     }
-
     /*
     pub fn verify_arith(&self, binding: &Binding, proof0: &Proof0, proof1: &Proof1, proof2: &Proof2, proof3: &Proof3, proof4: &Proof4Test) -> bool {
         let (chi, zeta) = proof2.verify2();
