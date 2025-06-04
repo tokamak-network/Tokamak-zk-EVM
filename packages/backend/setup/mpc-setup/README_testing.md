@@ -1,4 +1,4 @@
-**MPC Ceremony for Tokamak zk-EVM**
+# 🚀 MPC Ceremony test guidelines
 
 This guide provides step-by-step instructions to run the MPC (Multi-Party Computation) tests for Tokamak zk-EVM setup.
 

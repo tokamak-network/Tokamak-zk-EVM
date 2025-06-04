@@ -1,4 +1,4 @@
-**MPC Ceremony for Tokamak zk-EVM**
+# 🚀MPC Ceremony Guidlines for Tokamak zk-EVM
 
 This guide provides step-by-step instructions to run the MPC (Multi-Party Computation) ceremony for Tokamak zk-EVM setup.
 
@@ -51,7 +51,7 @@ Optionally, you can add extra entropy from unpredictable deterministic inputs (l
 cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode beacon
 ```
 
-✅ Batch Verification (30 mins to a couple of hours based on the number participants)
+✅ **Batch Verification** (30 mins to a couple of hours based on the number participants)
 Each "Next Contributor's execution" includes verification of the previous contributor automatically, but for batch verification of all contributions run:
 ```bash
 cargo run --release --bin verify_phase1_computations -- --outfolder ./setup/mpc-setup/output
