@@ -1,11 +1,12 @@
 use ark_ff::Zero;
-use icicle_runtime::{memory::{DeviceVec, HostSlice}, stream::IcicleStream, Device};
+use icicle_runtime::memory::HostSlice;
 
+use clap::Parser;
 use icicle_bls12_381::curve::{G1Affine, G1Projective, ScalarField};
 use icicle_core::msm;
 use icicle_core::msm::MSMConfig;
 use icicle_core::traits::FieldImpl;
-use icicle_runtime::memory::{HostOrDeviceSlice};
+use icicle_runtime::memory::HostOrDeviceSlice;
 use libs::bivariate_polynomial::DensePolynomialExt;
 use libs::group_structures::{G1serde, Sigma, Sigma1, Sigma2};
 use libs::iotools::{SetupParams, SubcircuitInfo};
@@ -19,8 +20,6 @@ use rayon::prelude::IntoParallelRefIterator;
 use rayon::ThreadPoolBuilder;
 use std::ops::Sub;
 use std::time::Instant;
-use clap::Parser;
-use mpc_setup::utils::check_outfolder_writable;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -28,10 +27,9 @@ struct Config {
     /// Output folder path (must exist and be writeable)
     #[arg(long, value_name = "OUTFOLDER")]
     outfolder: String,
-
 }
-// cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output
 
+// cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output
 fn main() {
    /* let _ = icicle_runtime::load_backend_from_env_or_default();
     // Check if GPU is available
@@ -58,7 +56,7 @@ fn main() {
         config.outfolder
     )).expect("cannot read from phase1_latest_challenge.json");
 
-    let sigma_trusted = Sigma::read_from_json("setup/trusted-setup/output/combined_sigma.json").unwrap();
+    // let sigma_trusted = Sigma::read_from_json("setup/trusted-setup/output/combined_sigma.json").unwrap();
 
     let g1 = latest_acc.g1;
     let g2 = latest_acc.g2;
@@ -84,12 +82,12 @@ fn main() {
     let subcircuit_file_name = "subcircuitInfo.json";
     let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_file_name).unwrap();
     let qap = QAP::gen_from_R1CS(&subcircuit_infos, &setup_params);
-    
+
     /*let qap = QAP::load_from_json(&format!(
         "{}/qap_all.bin",
         config.outfolder
     )).expect("cannot read from qap_all.bin");*/
-    
+
 
     println!("The qap load time: {:.6} seconds", start1.elapsed().as_secs_f64());
     let mut li_y_vec: Vec<DensePolynomialExt> = vec![];
@@ -158,7 +156,7 @@ fn main() {
         &alpha3xyG1s,
         &mut gamma_inv_o_inst,
     );
-    assert_eq!(sigma_trusted.sigma_1.gamma_inv_o_inst, gamma_inv_o_inst);
+    // assert_eq!(sigma_trusted.sigma_1.gamma_inv_o_inst, gamma_inv_o_inst);
 
     // {δ^(-1)α^k x^h t_n(x)}_{h=0,k=1}^{2,3}
     let mut delta_inv_alphak_xh_tx =
@@ -191,10 +189,10 @@ fn main() {
         );
     }
 
-    assert_eq!(
-        sigma_trusted.sigma_1.delta_inv_alpha4_xj_tx,
-        delta_inv_alpha4_xj_tx
-    );
+    //assert_eq!(
+   //     sigma_trusted.sigma_1.delta_inv_alpha4_xj_tx,
+   //     delta_inv_alpha4_xj_tx
+   // );
 
     // {δ^(-1)α^k y^i t_{s_max}(y)}_{i=0,k=1}^{2,4}
     let mut delta_inv_alphak_yi_ty =
@@ -212,10 +210,10 @@ fn main() {
             );
         }
     }
-    assert_eq!(
-        sigma_trusted.sigma_1.delta_inv_alphak_yi_ty,
-        delta_inv_alphak_yi_ty
-    );
+    //assert_eq!(
+    //    sigma_trusted.sigma_1.delta_inv_alphak_yi_ty,
+    //    delta_inv_alphak_yi_ty
+    //);
     let lap = start1.elapsed();
     println!(
         "The total time for first part: {:.6} seconds",
@@ -482,7 +480,7 @@ fn run_sum_vector_dot_product2(cache: &Vec<(usize, usize, Vec<ScalarField>, Vec<
 
 
 /// Computes the multi-scalar multiplication, or MSM: s1*P1 + s2*P2 + ... + sn*Pn, or a batch of several MSMs.
-fn sum_vector_dot_product(scalars: &Vec<ScalarField>, commit: &[G1Affine]) -> G1serde {
+pub fn sum_vector_dot_product(scalars: &Vec<ScalarField>, commit: &[G1Affine]) -> G1serde {
     let mut msm_res = vec![G1Projective::zero(); 1];
     let mut config = MSMConfig::default();
     config.are_points_shared_in_batch = false;

@@ -1,10 +1,14 @@
+use crate::conversions::{
+    deserialize_g1serde, deserialize_g2serde, serialize_g1serde, serialize_g2serde,
+};
 pub(crate) use crate::conversions::{
-    hash_to_g2, icicle_g1_generator, icicle_g2_generator, serialize_g1_affine_compressed,
+    hash_to_g2, icicle_g1_generator, icicle_g2_generator, serialize_g1_affine,
 };
 use ark_bls12_381::Bls12_381;
 use ark_ec::pairing::PairingOutput;
 use ark_ec::{AffineRepr, PrimeGroup};
 use ark_ff::One;
+use ark_serialize::Compress;
 use blake2::{Blake2b, Digest};
 use blake3::Hasher;
 use clap::ValueEnum;
@@ -16,7 +20,9 @@ use libs::group_structures::{pairing, G1serde, G2serde, Sigma};
 use rand::Rng;
 use rayon::join;
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use serde::ser::{SerializeStruct, SerializeTuple};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
@@ -24,6 +30,7 @@ use std::ops::{Add, Mul, Sub};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use std::{fs, io};
+
 // Import rayon prelude
 pub fn list_files_map(folder: &str) -> io::Result<HashMap<String, PathBuf>> {
     let mut file_map = HashMap::new();
@@ -109,10 +116,35 @@ macro_rules! impl_write_into_json {
     };
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SerialSerde {
     pub g1: Vec<G1serde>, //[xG1, x^2G1, x^3G1, ..., x^s_maxG1]
     pub g2: G2serde,      //xG2
+}
+impl SerialSerde {
+    pub fn serialize_with_compress(&self, compress: Compress) -> (Vec<String>, String) {
+        let g1 = self
+            .g1
+            .iter()
+            .map(|g| serialize_g1serde(g, compress))
+            .collect();
+        let g2 = serialize_g2serde(&self.g2, compress);
+        (g1, g2)
+    }
+
+    pub fn deserialize_with_compress(
+        g1_vec: Vec<String>,
+        g2_str: String,
+        compress: Compress,
+    ) -> Self {
+        SerialSerde {
+            g1: g1_vec
+                .iter()
+                .map(|s| deserialize_g1serde(s, compress))
+                .collect(),
+            g2: deserialize_g2serde(&g2_str, compress),
+        }
+    }
 }
 impl SerialSerde {
     //xr, xr^2, xr^3...xr^n where n is the length of xr vector
@@ -147,12 +179,26 @@ impl SerialSerde {
     }
 }
 
-#[derive(Clone, Debug, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Copy, PartialEq)]
 pub struct PairSerde {
     pub g1: G1serde, //xG1
     pub g2: G2serde, //xG2
 }
+impl PairSerde {
+    pub fn serialize_with_compress(&self, compress: Compress) -> (String, String) {
+        (
+            serialize_g1serde(&self.g1, compress),
+            serialize_g2serde(&self.g2, compress),
+        )
+    }
 
+    pub fn deserialize_with_compress(g1: &str, g2: &str, compress: Compress) -> Self {
+        PairSerde {
+            g1: deserialize_g1serde(g1, compress),
+            g2: deserialize_g2serde(g2, compress),
+        }
+    }
+}
 impl PairSerde {
     pub(crate) fn mul(&self, p0: ScalarField) -> PairSerde {
         let g1 = &self.g1;
@@ -975,7 +1021,7 @@ pub fn same_ratio(g1_0: G1serde, g1_1: G1serde, g2_0: G2serde, g2_1: G2serde) ->
 pub fn ro(a: &G1serde, v: &[u8]) -> G2serde {
     let mut h = Blake2b::default();
     h.input(v);
-    h.input(serialize_g1_affine_compressed(&a.0));
+    h.input(serialize_g1_affine(&a.0, Compress::No));
     hash_to_g2(h.result().as_ref())
 }
 
