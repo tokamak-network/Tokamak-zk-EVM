@@ -10,9 +10,13 @@ use libs::group_structures::{G1serde, G2serde};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
+use ark_serialize::Compress;
+use clap::builder::Str;
+use serde::ser::SerializeStruct;
 use crate::{impl_read_from_json, impl_write_into_json};
+use crate::conversions::{deserialize_g1serde, deserialize_g2serde, serialize_g1serde, serialize_g2serde};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug,Clone, PartialEq)]
 pub struct Accumulator {
     pub contributor_index: usize,
     pub g1: G1serde,
@@ -24,9 +28,97 @@ pub struct Accumulator {
     pub alpha_y: Vec<G1serde>,
     pub xy: Vec<G1serde>,
     pub alpha_xy: Vec<G1serde>,
-    /// Keep parameters here as a marker
-    #[serde(skip)]
-    marker: std::marker::PhantomData<G2serde>,
+    pub compress: bool, // ← this is the controlling flag
+ }
+impl Serialize for Accumulator {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: serde::Serializer {
+        let mut state = serializer.serialize_struct("Accumulator", 11)?;
+
+        let compress = if self.compress { Compress::Yes } else { Compress::No };
+
+        let to_str_vec = |v: &Vec<G1serde>| -> Vec<String> {
+            v.iter().map(|g| serialize_g1serde(g, compress)).collect()
+        };
+
+        state.serialize_field("contributor_index", &self.contributor_index)?;
+        state.serialize_field("g1", &serialize_g1serde(&self.g1, compress))?;
+        state.serialize_field("g2", &serialize_g2serde(&self.g2, compress))?;
+        state.serialize_field("compress", &format!("{:?}", compress == Compress::Yes))?;
+
+        state.serialize_field("alpha", &self.alpha.iter().map(|p| p.serialize_with_compress(compress)).collect::<Vec<_>>())?;
+        state.serialize_field("x", &self.x.iter().map(|p| p.serialize_with_compress(compress)).collect::<Vec<_>>())?;
+
+        let (y_g1, y_g2) = self.y.serialize_with_compress(compress);
+        state.serialize_field("y_g1", &y_g1)?;
+        state.serialize_field("y_g2", &y_g2)?;
+
+        state.serialize_field("alpha_x", &to_str_vec(&self.alpha_x))?;
+        state.serialize_field("alpha_y", &to_str_vec(&self.alpha_y))?;
+        state.serialize_field("xy", &to_str_vec(&self.xy))?;
+        state.serialize_field("alpha_xy", &to_str_vec(&self.alpha_xy))?;
+
+        state.end()
+    }
+}
+impl<'de> Deserialize<'de> for Accumulator {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where D: serde::Deserializer<'de> {
+        #[derive(Deserialize)]
+        struct Helper {
+            contributor_index: usize,
+            g1: String,
+            g2: String,
+            compress: String,
+            alpha: Vec<(String, String)>,
+            x: Vec<(String, String)>,
+            y_g1: Vec<String>,
+            y_g2: String,
+            alpha_x: Vec<String>,
+            alpha_y: Vec<String>,
+            xy: Vec<String>,
+            alpha_xy: Vec<String>,
+        }
+
+        let Helper {
+            contributor_index,
+            g1,
+            g2,
+            compress,
+            alpha,
+            x,
+            y_g1,
+            y_g2,
+            alpha_x,
+            alpha_y,
+            xy,
+            alpha_xy,
+        } = Helper::deserialize(deserializer)?;
+
+        let compress_mode = match compress.as_str() {
+            "true" => Compress::Yes,
+            "false" => Compress::No,
+            _ => return Err(serde::de::Error::custom("Invalid compress flag")),
+        };
+
+        let parse_vec = |v: Vec<String>| -> Vec<G1serde> {
+            v.iter().map(|s| deserialize_g1serde(s, compress_mode)).collect()
+        };
+
+        Ok(Accumulator {
+            contributor_index,
+            g1: deserialize_g1serde(&g1, compress_mode),
+            g2: deserialize_g2serde(&g2, compress_mode),
+            alpha: alpha.iter().map(|(a, b)| PairSerde::deserialize_with_compress(a, b, compress_mode)).collect(),
+            x: x.iter().map(|(a, b)| PairSerde::deserialize_with_compress(a, b, compress_mode)).collect(),
+            y: SerialSerde::deserialize_with_compress(y_g1, y_g2, compress_mode),
+            alpha_x: parse_vec(alpha_x),
+            alpha_y: parse_vec(alpha_y),
+            xy: parse_vec(xy),
+            alpha_xy: parse_vec(alpha_xy),
+            compress: compress_mode == Compress::Yes,
+        })
+    }
 }
 impl_write_into_json!(Accumulator);
 impl_read_from_json!(Accumulator);
@@ -45,7 +137,7 @@ impl Accumulator {
 }
 
 impl Accumulator {
-    pub fn new(g1: G1serde, g2: G2serde, power_alpha_length: usize, power_x_length: usize, power_y_length: usize) -> Self {
+    pub fn new(g1: G1serde, g2: G2serde, power_alpha_length: usize, power_x_length: usize, power_y_length: usize, compress : bool) -> Self {
         let acc = Accumulator {
             g1,
             g2,
@@ -63,7 +155,7 @@ impl Accumulator {
             xy: vec![g1; power_x_length * power_y_length],
             alpha_xy: vec![g1; power_alpha_length * power_x_length * power_y_length],
             contributor_index: 0,
-            marker: Default::default(),
+            compress,
         };
         acc
     }
@@ -189,8 +281,8 @@ impl Accumulator {
             alpha_y: cur_alphay,
             xy: cur_xy,
             alpha_xy: cur_alphaxy,
-            marker: Default::default(),
-            contributor_index: self.contributor_index + 1,
+             contributor_index: self.contributor_index + 1,
+            compress:self.compress,
         };
         proof_5.contributor_index = acc.contributor_index;
         (acc, proof_5)
@@ -211,26 +303,6 @@ impl Accumulator {
         result.copy_from_slice(&hash[..32]);
         result
     }
-   /* /// Save the Accumulator to a JSON file
-    pub fn save_to_json(&self, path: &str) -> std::io::Result<()> {
-        let file = File::create(path)?;
-        let mut writer = BufWriter::new(file);
-        let json_str = serde_json::to_string_pretty(&self)
-            .expect("JSON serialization failed");
-        writer.write_all(json_str.as_bytes())?;
-        Ok(())
-    }
-
-    /// Load the Accumulator from a JSON file and recalculate the hash
-    pub fn load_from_json(path: &str) -> std::io::Result<Self> {
-        let file = File::open(path)?;
-        let mut reader = BufReader::new(file);
-        let mut json_str = String::new();
-        reader.read_to_string(&mut json_str)?;
-        let acc: Accumulator = serde_json::from_str(&json_str)
-            .expect("JSON deserialization failed");
-        Ok(acc)
-    }*/
 }
 
 #[cfg(test)]
@@ -253,8 +325,8 @@ mod tests {
             alpha_y: vec![g1; 2],
             xy: vec![g1; 4],
             alpha_xy: vec![g1; 8],
-            marker: std::marker::PhantomData,
-            contributor_index: 0,
+             contributor_index: 0,
+            compress:false
         };
 
         // Serialize the Accumulator to JSON
@@ -281,7 +353,7 @@ mod tests {
     fn test_save_load_accumulator() {
         let g1 = icicle_g1_generator();
         let g2 = icicle_g2_generator();
-        let accumulator = Accumulator::new(g1, g2, 2, 4, 8);
+        let accumulator = Accumulator::new(g1, g2, 2, 4, 8,true);
         accumulator.write_into_json("accumulator.json").expect("Failed to save");
 
         let loaded_accumulator = Accumulator::read_from_json("accumulator.json").expect("Failed to load");

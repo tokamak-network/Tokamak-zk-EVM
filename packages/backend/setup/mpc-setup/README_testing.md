@@ -1,6 +1,6 @@
 **MPC Ceremony for Tokamak zk-EVM**
 
-This guide provides step-by-step instructions to run the MPC (Multi-Party Computation) ceremony necessary for Tokamak zk-EVM setup.
+This guide provides step-by-step instructions to run the MPC (Multi-Party Computation) tests for Tokamak zk-EVM setup.
 
 ⚙️ Prerequisites
 
@@ -17,26 +17,30 @@ There are two modes available:
 🛡️ Phase 1: Testing Mode
 
 Navigate to the backend directory:
-
+```bash
 cd "$pwd/packages/backend"
-
+```
 🛠️ Initialize Phase 1
 
 This step initializes Phase 1 (takes a few seconds): 
+
 For testing initialization:
-cargo run --release --bin phase1_initialize -- \    
+```bash
+cargo run --release --bin phase1_initialize -- \
   --s-max 128 \
   --mode testing \
   --setup-params-file setupParams.json  \
-  --outfolder ./setup/mpc-setup/output
-
+  --outfolder ./setup/mpc-setup/output \
+  --compress true
+```
 For random initialization:
  cargo run --release --bin phase1_initialize -- \
   --s-max 128 \
-  --blockhash aabbccddeeff11223344556677889900aabbccddeeff11223344556677889900 \
+  --blockhash 000000000000000000010d25c535f487edea60d3088b0166a627d6e85c3d2d05 \
   --mode random \
   --setup-params-file setupParams.json  \
-  --outfolder ./setup/mpc-setup/output
+  --outfolder ./setup/mpc-setup/output \
+  --compress true
 
 🔄 Next Contributor (few minutes)
 
@@ -57,7 +61,7 @@ cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-set
 
 ✅ Batch Verification
 
-Each "Next Contributor" run includes verification automatically, but for batch verification of all contributions:
+Each "Next Contributor's execution" includes verification of the previous contributor automatically, but for batch verification of all contributions run:
 
 cargo run --release --bin verify_phase1_computations -- --outfolder ./setup/mpc-setup/output
 
@@ -75,7 +79,7 @@ Note that for testing purpose in trusted setup we basically set \alpha = 7, x = 
 
 cargo run --release --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output --mode random
 
-phase2_latest_combined_sigma.json is your CRC output. We use the same structure with Tokamak zk-EVM trusted set-up output.
+phase2_latest_combined_sigma.json is the CRC output. We use the same structure with Tokamak zk-EVM trusted set-up output.
 Now use "phase2_latest_combined_sigma.json" to check Tokamak zk-EVM Prove and Verify.
 
 💡 Switching to Random Mode

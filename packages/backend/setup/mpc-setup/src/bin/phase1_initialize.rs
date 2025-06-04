@@ -1,17 +1,19 @@
 extern crate memmap;
 
-use std::cmp::max;
 use crate::Mode::Testing;
 use clap::{Parser, ValueEnum};
 use icicle_bls12_381::curve::ScalarField;
 use icicle_core::traits::FieldImpl;
+use libs::iotools::SetupParams;
 use mpc_setup::accumulator::Accumulator;
 use mpc_setup::conversions::{icicle_g1_generator, icicle_g2_generator};
 use mpc_setup::utils::RandomStrategy::SystemRandom;
-use mpc_setup::utils::{check_outfolder_writable, compute5, verify5, Mode, PairSerde, RandomGenerator, SerialSerde};
+use mpc_setup::utils::{
+    check_outfolder_writable, compute5, verify5, Mode, PairSerde, RandomGenerator, SerialSerde,
+};
+use std::cmp::max;
 use std::ops::Mul;
 use std::time::Instant;
-use libs::iotools::SetupParams;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -19,6 +21,14 @@ struct Config {
     /// Maximum value in y dimension
     #[arg(long, value_name = "S_MAX")]
     s_max: usize,
+
+    /// Enable compression (true for compressed, false for uncompressed)
+    #[arg(
+        long,
+        value_name = "COMPRESS",
+        help = "Enable compressed serialization (true or false)"
+    )]
+    compress: String,
 
     /// Bitcoin blockhash as a hex string (64 characters)
     #[arg(
@@ -51,27 +61,34 @@ cargo run --release --bin phase1_initialize -- \
   --s-max 128 \
   --mode testing \
   --setup-params-file setupParams.json  \
-  --outfolder ./setup/mpc-setup/output
+  --outfolder ./setup/mpc-setup/output \
+  --compress true
 
   cargo run --release --bin phase1_initialize -- \
-  --s-max 128 \
+  --s-max 64 \
   --blockhash aabbccddeeff11223344556677889900aabbccddeeff11223344556677889900 \
   --mode random \
   --setup-params-file setupParams.json  \
-  --outfolder ./setup/mpc-setup/output
+  --outfolder ./setup/mpc-setup/output \
+  --compress true
 */
 fn main() {
     let config = Config::parse();
 
     let setup_params = SetupParams::from_path(&config.setup_params_file).unwrap();
     let m_i = setup_params.l_D - setup_params.l;
-    let x_degree = 2 * max(setup_params.n,m_i);
+    let x_degree = 2 * max(setup_params.n, m_i);
     let y_degree = 2 * config.s_max;
     println!("Parsed config: {:?}", config);
     println!("x_degree = {}", x_degree);
     println!("y_degree = {}", y_degree);
+    if config.compress.parse::<bool>().unwrap() {
+        println!("Accumulator points will be written as compressed mode");
+    } else {
+        println!("Accumulator points will be written as uncompressed mode");
+    }
 
-     let mut scalar: ScalarField = ScalarField::from_u32(1);
+    let mut scalar: ScalarField = ScalarField::from_u32(1);
 
     match config.mode {
         Testing => {
@@ -87,8 +104,8 @@ fn main() {
                 std::process::exit(1);
             }
             let hash = hex::decode(&blockhash).unwrap();
-            scalar = ScalarField::from_bytes_le(hash.as_ref())-ScalarField::from_u32(0);
-        },
+            scalar = ScalarField::from_bytes_le(hash.as_ref()) - ScalarField::from_u32(0);
+        }
     }
 
     let start = Instant::now();
@@ -96,7 +113,9 @@ fn main() {
     let g1 = icicle_g1_generator().mul(scalar);
     let g2 = icicle_g2_generator().mul(scalar);
 
-    let acc = Accumulator::new(g1, g2, power_alpha_length, x_degree, y_degree);
+    let compress_mod = config.compress.parse::<bool>().unwrap();
+
+    let acc = Accumulator::new(g1, g2, power_alpha_length, x_degree, y_degree, compress_mod);
     println!("Time elapsed: {:?}", start.elapsed().as_secs_f64());
 
     let outfile = format!("{}/phase1_latest_challenge.json", config.outfolder);
@@ -104,7 +123,7 @@ fn main() {
         .expect("cannot write to file");
 }
 
-fn test_compute5() {   // For internal test
+fn test_compute5() {
     let rng = &mut RandomGenerator::new(SystemRandom, [0u8; 32]);
     let start = Instant::now();
     //initialize

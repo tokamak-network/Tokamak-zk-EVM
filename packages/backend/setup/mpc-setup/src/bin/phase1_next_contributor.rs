@@ -1,9 +1,11 @@
+use clap::builder::TypedValueParser;
 use clap::Parser;
+use icicle_runtime::Device;
 use mpc_setup::accumulator::Accumulator;
 use mpc_setup::utils::{check_outfolder_writable, initialize_random_generator, Mode, Phase1Proof};
+use std::cmp::max;
 use std::fs;
 use std::time::Instant;
-
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -28,23 +30,35 @@ struct Config {
 
 fn main() {
     let config = Config::parse();
-
     let totalStart = Instant::now();
 
     let mut rng = initialize_random_generator(config.mode);
+    println!("loading latest challenge and proof...");
 
     let latest_acc = Accumulator::read_from_json(&format!(
         "{}/phase1_latest_challenge.json",
         config.outfolder
     ))
     .expect("cannot read from phase1_latest_challenge.json");
-    println!("loading latest challenge and proof...");
+    println!(
+        "loaded latest challenge and proof in as {} seconds ",
+        totalStart.elapsed().as_secs_f64()
+    );
+
+    println!("x_degree = {}", latest_acc.x.len());
+    println!("y_degree = {}", latest_acc.y.len_g1());
+    if latest_acc.compress {
+        println!("Accumulator points will be written as compressed mode");
+    } else {
+        println!("Accumulator points will be written as uncompressed mode");
+    }
 
     if latest_acc.contributor_index > 0 {
         println!(
             "previous contributor index: {}",
             latest_acc.contributor_index
         );
+        println!("loading previous challenge and proof...");
         let prev_acc = Accumulator::read_from_json(&format!(
             "{}/phase1_acc_{}.json",
             config.outfolder,
@@ -57,11 +71,11 @@ fn main() {
         println!("previous contributor's proof verification started.");
 
         let start = Instant::now();
-         assert_eq!(
+        assert_eq!(
             prev_acc.verify(&latest_acc, &latest_proof),
             true,
             "verification failed"
-        ); 
+        );
         println!("previous contributor's proof is verified.");
         println!(
             "Time elapsed for verification of the previous contribution: {:?}",
@@ -78,6 +92,7 @@ fn main() {
             latest_acc.alpha.len(),
             latest_acc.x.len(),
             latest_acc.y.len_g1(),
+            latest_acc.compress,
         );
         assert_eq!(
             latest_acc.hash(),

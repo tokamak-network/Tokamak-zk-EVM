@@ -49,6 +49,8 @@ fn main() {
         .count();
 
     println!("Number of contributors: {}", contributor_count);
+    
+    println!("loading accumulator and proof files...");
 
     let mut current_acc = Accumulator::read_from_json(
         phase1_files
@@ -119,10 +121,12 @@ fn verify_contribution(
     contributor_index: usize,
 ) -> io::Result<(Accumulator, f64)> {
     let start_time = Instant::now();
+    println!("another accumulator is loading  ...");
 
     let prev_acc: Accumulator = load_json_file(
         &get_file_path(phase1_files, PHASE1_ACC_PREFIX, contributor_index - 1)?
     )?;
+    println!("another accumulator is loading  ...");
 
     let current_acc: Accumulator = load_json_file(
         &get_file_path(phase1_files, PHASE1_ACC_PREFIX, contributor_index)?
