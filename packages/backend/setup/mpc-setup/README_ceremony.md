@@ -4,7 +4,7 @@ This guide provides step-by-step instructions to run the MPC (Multi-Party Comput
 
 ⚙️ Prerequisites
 
-Before running the MPC ceremony, ensure you follow the main prerequisites[View Markdown](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/README.md) of Tokamak zk-EVM. Ensure the frontend is running properly.
+Before running the MPC ceremony, ensure you follow the [prerequisites](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/README.md) of Tokamak zk-EVM (at least until end of step 4). Ensure the frontend is running properly.
 
 🛡️ **Phase 1:**
 Navigate to the backend directory:
@@ -15,7 +15,7 @@ cd "$pwd/packages/backend"
 🛠️ **Initialize Phase 1**
 
 This step initializes Phase 1 (takes a few seconds): 
-
+Here replace the **blockhash** value with a data that is not predictable inadvance. 
 For initialization (compressed form):
 ```bash
  cargo run --release --bin phase1_initialize -- \
@@ -37,38 +37,37 @@ For initialization (uncompressed form):
   --compress false
 ```
 
-🔄 **Next Contributor** (40~60 minutes)
+🔄 **Next Contributor Phase-1** (40~60 minutes)
 
 Each next contributor will run:
 ```bash
 cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode random
 ```
 
-🌐 Beacon Contribution (optional - skip this for testing)
+🌐 **Beacon Contribution** (optional)
 
 Optionally, you can add extra entropy from unpredictable deterministic inputs (like future Bitcoin block hashes):
 ```bash
 cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode beacon
 ```
 
-✅ Batch Verification (30mins to a couple of hours based on number participants)
-
+✅ Batch Verification (30 mins to a couple of hours based on the number participants)
 Each "Next Contributor's execution" includes verification of the previous contributor automatically, but for batch verification of all contributions run:
 ```bash
 cargo run --release --bin verify_phase1_computations -- --outfolder ./setup/mpc-setup/output
 ```
 
-📝 Prepare Phase 2
+📝 **Prepare Phase-2**
 
 ⚠️ Note: This step can take a significant amount of time (days):
 ```bash
 cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output
 ```
 
-🔄 Next Contributor Phase 2 (few minutes each)
+🔄 **Next Contributor Phase-2** (few minutes each)
 ```bash
 cargo run --release --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output --mode random
 ```
 
-**CRC output**: phase2_latest_combined_sigma.json. We use the same structure with Tokamak zk-EVM trusted set-up output.
-Now use "phase2_latest_combined_sigma.json" to check Tokamak zk-EVM Prove and Verify.
+**CRC output** is the *phase2_latest_combined_sigma.json* file. We use the same structure with Tokamak zk-EVM trusted set-up output.
+Now use "*phase2_latest_combined_sigma.json*" to check Tokamak zk-EVM Prove and Verify.
