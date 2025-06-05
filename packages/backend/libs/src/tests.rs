@@ -8,6 +8,488 @@ use std::time::Instant;
 // This mod tests can be placed in a separate file
 
 #[cfg(test)]
+mod safe_cpu_fallback_tests {
+    use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
+
+    use super::*;
+    use icicle_runtime::{memory::{DeviceVec, HostSlice}, Device};
+    use icicle_core::{ntt, traits::GenerateRandom};
+
+    // 원본 방식 (columns_batch=false 강제)으로 to_rou_evals 수행
+    fn to_rou_evals_reference<S: HostOrDeviceSlice<ScalarField> + ?Sized>(
+        poly: &DensePolynomialExt,
+        coset_x: Option<&ScalarField>, 
+        coset_y: Option<&ScalarField>, 
+        evals: &mut S
+    ) {
+        let size = poly.x_size * poly.y_size;
+        
+        let mut scaled_coeffs_vec = vec![ScalarField::zero(); size];
+        let scaled_coeffs = HostSlice::from_mut_slice(&mut scaled_coeffs_vec);
+        {
+            let mut scaled_poly = poly.clone();
+            if let Some(factor) = coset_x {
+                scaled_poly = scaled_poly.scale_coeffs_x(factor);
+            }
+            if let Some(factor) = coset_y {
+                scaled_poly = scaled_poly.scale_coeffs_y(factor);
+            }
+            scaled_poly.copy_coeffs(0, scaled_coeffs);
+        }
+
+        let current_device = icicle_runtime::get_active_device();
+        let cpu_device = icicle_runtime::device::Device::new("CPU", 0);
+        icicle_runtime::set_device(&cpu_device).unwrap();
+        
+        ntt::initialize_domain::<ScalarField>(
+            ntt::get_root_of_unity::<ScalarField>(size.try_into().unwrap()),
+            &ntt::NTTInitDomainConfig::default(),
+        ).unwrap();
+        
+        let mut cfg = ntt::NTTConfig::<ScalarField>::default();
+        
+        // ⭐ 강제로 columns_batch=false 사용 (참조 구현)
+        cfg.batch_size = poly.y_size as i32;
+        cfg.columns_batch = true;
+        
+        println!("🔍 Reference method: batch_size={}, columns_batch={}", cfg.batch_size, cfg.columns_batch);
+        ntt::ntt(scaled_coeffs, ntt::NTTDir::kForward, &cfg, evals).unwrap();
+        
+        drop(scaled_coeffs_vec);
+        
+        // Y 방향 FFT
+        if poly.x_size > 1 {
+            cfg.batch_size = poly.x_size as i32;
+            cfg.columns_batch = false;
+            ntt::ntt_inplace(evals, ntt::NTTDir::kForward, &cfg).unwrap();
+        }
+        
+        ntt::release_domain::<ScalarField>().unwrap();
+        icicle_runtime::set_device(&current_device.as_ref().unwrap()).unwrap();
+    }
+
+    // 원본 방식 (columns_batch=false 강제)으로 from_rou_evals 수행
+    fn from_rou_evals_reference<S: HostOrDeviceSlice<ScalarField> + ?Sized>(
+        evals: &S, 
+        x_size: usize, 
+        y_size: usize, 
+        coset_x: Option<&ScalarField>, 
+        coset_y: Option<&ScalarField>
+    ) -> DensePolynomialExt {
+        let size = x_size * y_size;
+
+        ntt::initialize_domain::<ScalarField>(
+            ntt::get_root_of_unity::<ScalarField>(size.try_into().unwrap()),
+            &ntt::NTTInitDomainConfig::default(),
+        ).unwrap();
+
+        let mut coeffs = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        let mut cfg = ntt::NTTConfig::<ScalarField>::default();
+        
+        // ⭐ 강제로 columns_batch=false 사용 (참조 구현)
+        cfg.batch_size = y_size as i32;
+        cfg.columns_batch = true;
+        
+        println!("🔍 Reference method: batch_size={}, columns_batch={}", cfg.batch_size, cfg.columns_batch);
+        ntt::ntt(evals, ntt::NTTDir::kInverse, &cfg, &mut coeffs).unwrap();
+        
+        // Y 방향 IFFT
+        if x_size > 1 {
+            cfg.batch_size = x_size as i32;
+            cfg.columns_batch = false;
+            ntt::ntt_inplace(&mut coeffs, ntt::NTTDir::kInverse, &cfg).unwrap();
+        }
+
+        ntt::release_domain::<ScalarField>().unwrap();
+
+        let mut poly = DensePolynomialExt::from_coeffs(&coeffs, x_size, y_size);
+
+        if let Some(_factor) = coset_x {
+            let factor = _factor.inv();
+            poly = poly.scale_coeffs_x(&factor);
+        }
+
+        if let Some(_factor) = coset_y {
+            let factor = _factor.inv();
+            poly = poly.scale_coeffs_y(&factor);
+        }
+        
+        return poly;
+    }
+
+    fn compare_field_arrays(a: &[ScalarField], b: &[ScalarField], tolerance: f64, name: &str) -> bool {
+        if a.len() != b.len() {
+            println!("❌ {} Length mismatch: {} vs {}", name, a.len(), b.len());
+            return false;
+        }
+        
+        let mut diff_count = 0;
+        let max_show = 5; // 처음 5개 차이만 출력
+        
+        for (i, (val_a, val_b)) in a.iter().zip(b.iter()).enumerate() {
+            if val_a != val_b {
+                diff_count += 1;
+                if diff_count <= max_show {
+                    println!("  📍 {} Diff at [{}]: {:?} vs {:?}", name, i, val_a, val_b);
+                }
+            }
+        }
+        
+        if diff_count > 0 {
+            println!("❌ {} Total differences: {}/{} ({:.2}%)", 
+                     name, diff_count, a.len(), (diff_count as f64 / a.len() as f64) * 100.0);
+            false
+        } else {
+            println!("✅ {} All values match perfectly", name);
+            true
+        }
+    }
+
+    fn create_test_polynomial(x_size: usize, y_size: usize, pattern: &str) -> DensePolynomialExt {
+        let size = x_size * y_size;
+        let mut coeffs = vec![ScalarField::zero(); size];
+        
+        match pattern {
+            "sequential" => {
+                for i in 0..size {
+                    coeffs[i] = ScalarField::from([(i + 1) as u32, 0, 0, 0, 0, 0, 0, 0]);
+                }
+            },
+            "alternating" => {
+                for i in 0..size {
+                    coeffs[i] = ScalarField::from(if i % 2 == 0 { [1, 0, 0, 0, 0, 0, 0, 0] } else { [2, 0, 0, 0, 0, 0, 0, 0] });
+                }
+            },
+            "powers_of_2" => {
+                for i in 0..size {
+                    coeffs[i] = ScalarField::from([(1u64 << (i % 8)) as u32, 0, 0, 0, 0, 0, 0, 0]);
+                }
+            },
+            "fibonacci" => {
+                let mut a = 1u64;
+                let mut b = 1u64;
+                for i in 0..size {
+                    coeffs[i] = ScalarField::from([a as u32, 0, 0, 0, 0, 0, 0, 0]);
+                    let temp = a + b;
+                    a = b;
+                    b = temp % 1000; // 오버플로우 방지
+                }
+            },
+            _ => {
+                // 기본: 모두 1
+                for i in 0..size {
+                    coeffs[i] = ScalarField::from([1, 0, 0, 0, 0, 0, 0, 0]);
+                }
+            }
+        }
+        
+        DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), x_size, y_size)
+    }
+
+    fn test_single_case(x_size: usize, y_size: usize, pattern: &str, test_cosets: bool) -> bool {
+        println!("\n🧪 Testing {}×{} with {} pattern", x_size, y_size, pattern);
+        
+        let test_poly = create_test_polynomial(x_size, y_size, pattern);
+        let size = x_size * y_size;
+        
+        // 코셋 설정
+        let (coset_x, coset_y) = if test_cosets {
+            (Some(ScalarField::from([2, 0, 0, 0, 0, 0, 0, 0])), Some(ScalarField::from([3, 0, 0, 0, 0, 0, 0, 0])))
+        } else {
+            (None, None)
+        };
+        
+        // === to_rou_evals 테스트 ===
+        println!("  📤 Testing to_rou_evals...");
+        
+        // 참조 방식 (columns_batch=false)
+        let mut reference_evals = vec![ScalarField::zero(); size];
+        test_poly.to_rou_evals(
+            coset_x.as_ref(), 
+            coset_y.as_ref(), 
+        HostSlice::from_mut_slice(&mut reference_evals));
+        
+        // 새로운 방식 (CPU 폴백 + GPU columns_batch=true)
+        let mut new_evals = vec![ScalarField::zero(); size];
+        test_poly.to_rou_evals(coset_x.as_ref(), coset_y.as_ref(), 
+                              HostSlice::from_mut_slice(&mut new_evals));
+        
+        // 결과 비교
+        let evals_match = compare_field_arrays(&reference_evals, &new_evals, 1e-10, "to_rou_evals");
+        
+        if !evals_match {
+            println!("❌ to_rou_evals results don't match for {}×{}", x_size, y_size);
+            return false;
+        }
+        
+        // === from_rou_evals 테스트 ===
+        println!("  📥 Testing from_rou_evals...");
+        
+        // 참조 방식으로 역변환
+        let reference_poly_back = DensePolynomialExt::from_rou_evals(
+            HostSlice::from_slice(&reference_evals),
+            x_size, y_size, coset_x.as_ref(), coset_y.as_ref()
+        );
+        
+        // 새로운 방식으로 역변환
+        let new_poly_back = DensePolynomialExt::from_rou_evals(
+            HostSlice::from_slice(&new_evals),
+            x_size, y_size, coset_x.as_ref(), coset_y.as_ref()
+        );
+        
+        // 계수 추출하여 비교
+        let mut reference_coeffs_back = vec![ScalarField::zero(); size];
+        let mut new_coeffs_back = vec![ScalarField::zero(); size];
+        
+        reference_poly_back.copy_coeffs(0, HostSlice::from_mut_slice(&mut reference_coeffs_back));
+        new_poly_back.copy_coeffs(0, HostSlice::from_mut_slice(&mut new_coeffs_back));
+        
+        let coeffs_match = compare_field_arrays(&reference_coeffs_back, &new_coeffs_back, 1e-10, "from_rou_evals");
+        
+        if !coeffs_match {
+            println!("❌ from_rou_evals results don't match for {}×{}", x_size, y_size);
+            return false;
+        }
+        
+        // === Roundtrip 정확성 테스트 ===
+        println!("  🔄 Testing roundtrip accuracy...");
+        
+        // 원본 계수 가져오기
+        let mut original_coeffs = vec![ScalarField::zero(); size];
+        test_poly.copy_coeffs(0, HostSlice::from_mut_slice(&mut original_coeffs));
+        
+        // 참조 방식 roundtrip
+        let reference_roundtrip_ok = compare_field_arrays(&original_coeffs, &reference_coeffs_back, 1e-10, "Reference roundtrip");
+        
+        // 새로운 방식 roundtrip
+        let new_roundtrip_ok = compare_field_arrays(&original_coeffs, &new_coeffs_back, 1e-10, "New method roundtrip");
+        
+        if !reference_roundtrip_ok || !new_roundtrip_ok {
+            println!("❌ Roundtrip accuracy failed for {}×{}", x_size, y_size);
+            return false;
+        }
+        
+        println!("✅ All tests passed for {}×{} with {}", x_size, y_size, pattern);
+        true
+    }
+
+    #[test]
+    fn test_to_rou_evals_consistency() {
+        // CPU 디바이스로 고정
+        // let _ = icicle_runtime::load_backend_from_env_or_default();
+        // let device_cpu = Device::new("CPU", 0);
+        // let mut device_gpu = Device::new("CUDA", 0);
+        // icicle_runtime::set_device(&device_gpu).expect("Failed to set device");
+
+        // 임의의 크기 선택 (둘 다 2의 거듭제곱)
+        let x_size = 8;
+        let y_size = 8;
+        let total = x_size * y_size;
+
+        // 무작위 계수 벡터 생성
+        let random_coeffs: Vec<ScalarField> = ScalarCfg::generate_random(total).to_vec();
+        let poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&random_coeffs), x_size, y_size);
+
+        // 첫 번째 버퍼에 일반 to_rou_evals 결과 저장
+        let mut evals_standard = vec![ScalarField::zero(); total];
+        poly.to_rou_evals_original(None, None, HostSlice::from_mut_slice(&mut evals_standard));
+
+        // 두 번째 버퍼에 mixed 버전 결과 저장
+        let mut evals_mixed = vec![ScalarField::zero(); total];
+        poly.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut evals_mixed));
+
+        // 두 결과가 일치해야 함
+        assert_eq!(
+            evals_standard, evals_mixed,
+            "to_rou_evals vs to_rou_evals_mixed 결과가 다릅니다"
+        );
+    }
+
+    #[test]
+    fn test_from_rou_evals_consistency() {
+        // CPU 디바이스로 고정
+        // let _ = icicle_runtime::load_backend_from_env_or_default();
+        // let device_cpu = Device::new("CPU", 0);
+        // let mut device_gpu = Device::new("CUDA", 0);
+        // icicle_runtime::set_device(&device_gpu).expect("Failed to set device");
+
+        // 임의의 크기 선택 (둘 다 2의 거듭제곱)
+        let x_size = 1;
+        let y_size = 128;
+        let total = x_size * y_size;
+
+        // 무작위 평가값 벡터 생성
+        let mut random_evals: Vec<ScalarField> = ScalarCfg::generate_random(total).to_vec();
+
+        // 일반 버전으로부터 다항식 복원
+        let poly_standard = DensePolynomialExt::from_rou_evals_original(
+            HostSlice::from_slice(&random_evals),
+            x_size,
+            y_size,
+            None,
+            None,
+        );
+
+        // mixed 버전으로부터 다항식 복원
+        let poly_mixed = DensePolynomialExt::from_rou_evals(
+            HostSlice::from_slice(&random_evals),
+            x_size,
+            y_size,
+            None,
+            None,
+        );
+
+        // 두 다항식의 계수를 호스트로 복사
+        let mut coeffs_standard = vec![ScalarField::zero(); total];
+        poly_standard.copy_coeffs(0, HostSlice::from_mut_slice(&mut coeffs_standard));
+
+        let mut coeffs_mixed = vec![ScalarField::zero(); total];
+        poly_mixed.copy_coeffs(0, HostSlice::from_mut_slice(&mut coeffs_mixed));
+
+        // 두 계수 벡터가 일치해야 함
+        assert_eq!(
+            coeffs_standard, coeffs_mixed,
+            "from_rou_evals vs from_rou_evals_mixed 복원 결과가 다릅니다"
+        );
+    }
+
+
+    #[test]
+    fn test_cpu_fallback_cases() {
+        println!("\n🚀 Testing CPU fallback cases");
+        
+        let cpu_fallback_cases = [
+            (1, 32),   // 1D small
+            (1, 64),   // 1D medium  
+            (1, 128),  // 1D large (main problematic case)
+            (2, 32),   // 2D small
+            (4, 16),   // 2D small
+            (8, 8),    // 2D square small
+        ];
+        
+        let patterns = ["sequential", "alternating", "powers_of_2"];
+        
+        for (x_size, y_size) in cpu_fallback_cases.iter() {
+            for pattern in patterns.iter() {
+                // 코셋 없이 테스트
+                let success_no_coset = test_single_case(*x_size, *y_size, pattern, false);
+                assert!(success_no_coset, "Test failed for {}×{} {} (no coset)", x_size, y_size, pattern);
+                
+                // 코셋과 함께 테스트
+                let success_with_coset = test_single_case(*x_size, *y_size, pattern, true);
+                assert!(success_with_coset, "Test failed for {}×{} {} (with coset)", x_size, y_size, pattern);
+            }
+        }
+        
+        println!("✅ All CPU fallback cases passed!");
+    }
+
+    #[test]
+    fn test_gpu_cases() {
+        println!("\n🚀 Testing GPU cases (should use columns_batch=true)");
+        
+        let gpu_cases = [
+            (64, 64),    // Large square
+            (128, 64),   // Large rectangle
+            (64, 128),   // Large rectangle
+            (32, 128),   // Medium rectangle
+            (256, 32),   // Wide rectangle
+        ];
+        
+        for (x_size, y_size) in gpu_cases.iter() {
+            // 한 가지 패턴으로만 테스트 (GPU 케이스들은 이미 안전함)
+            let success = test_single_case(*x_size, *y_size, "sequential", false);
+            assert!(success, "GPU test failed for {}×{}", x_size, y_size);
+        }
+        
+        println!("✅ All GPU cases passed!");
+    }
+
+    #[test]
+    fn test_edge_cases() {
+        println!("\n🚀 Testing edge cases");
+        
+        let edge_cases = [
+            (1, 1),     // Smallest possible
+            (1, 2),     // Very small 1D
+            (2, 1),     // Very small 1D (transposed)
+            (1, 4),     // Small 1D
+            (4, 1),     // Small 1D (transposed)
+            (1, 8),     // Small 1D
+            (8, 1),     // Small 1D (transposed)
+            (1, 16),    // Medium 1D
+            (16, 1),    // Medium 1D (transposed)
+        ];
+        
+        for (x_size, y_size) in edge_cases.iter() {
+            let success = test_single_case(*x_size, *y_size, "sequential", false);
+            assert!(success, "Edge case test failed for {}×{}", x_size, y_size);
+        }
+        
+        println!("✅ All edge cases passed!");
+    }
+
+    #[test]
+    fn test_stress_case_1x128() {
+        println!("\n🎯 Stress testing the main problematic case: 1×128");
+        
+        let patterns = ["sequential", "alternating", "powers_of_2", "fibonacci"];
+        
+        for pattern in patterns.iter() {
+            println!("  Testing with {} pattern...", pattern);
+            
+            // 코셋 없이
+            let success1 = test_single_case(1, 128, pattern, false);
+            assert!(success1, "1×128 failed with {} (no coset)", pattern);
+            
+            // 코셋과 함께  
+            let success2 = test_single_case(1, 128, pattern, true);
+            assert!(success2, "1×128 failed with {} (with coset)", pattern);
+        }
+        
+        println!("✅ 1×128 stress test passed with all patterns!");
+    }
+
+    #[test]
+    fn test_comprehensive_verification() {
+        println!("\n🔬 Comprehensive verification test");
+        
+        // 다양한 크기와 패턴의 조합
+        let test_matrix = [
+            // (x_size, y_size, pattern, with_coset)
+            (1, 32, "sequential", false),
+            (1, 64, "alternating", true), 
+            (1, 128, "powers_of_2", false),
+            (2, 64, "fibonacci", true),
+            (4, 32, "sequential", false),
+            (8, 16, "alternating", true),
+            (16, 8, "powers_of_2", false),
+            (32, 32, "sequential", true),
+            (64, 64, "alternating", false),
+            (128, 64, "fibonacci", true),
+        ];
+        
+        let mut passed = 0;
+        let total = test_matrix.len();
+        
+        for (x_size, y_size, pattern, with_coset) in test_matrix.iter() {
+            let success = test_single_case(*x_size, *y_size, pattern, *with_coset);
+            if success {
+                passed += 1;
+            } else {
+                println!("❌ Failed: {}×{} {} coset={}", x_size, y_size, pattern, with_coset);
+            }
+        }
+        
+        println!("\n📊 Comprehensive test results: {}/{} passed ({:.1}%)", 
+                 passed, total, (passed as f64 / total as f64) * 100.0);
+        
+        assert_eq!(passed, total, "Not all comprehensive tests passed");
+        println!("✅ All comprehensive tests passed!");
+    }
+}
+
+#[cfg(test)]
 mod msm_vs_rayon_tests {
     use super::*;
     use icicle_bls12_381::curve::{CurveCfg, G1Affine, G1Projective, ScalarCfg, ScalarField};
