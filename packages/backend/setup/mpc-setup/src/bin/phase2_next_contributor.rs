@@ -1,7 +1,7 @@
 use icicle_core::traits::Arithmetic;
 use libs::group_structures::{G1serde, G2serde, Sigma};
 use mpc_setup::utils::RandomStrategy::{Hybrid, Testing, UserInput};
-use mpc_setup::utils::{check_outfolder_writable, check_pok, consistent, hash_sigma, initialize_random_generator, pok, ro, scalar_from_user_input, Mode, RandomGenerator};
+use mpc_setup::utils::{check_outfolder_writable, check_pok, consistent, hash_sigma, initialize_random_generator, pok, ro, scalar_from_user_random_input, Mode, RandomGenerator};
 use mpc_setup::{impl_read_from_json, impl_write_into_json};
 use rayon::iter::IndexedParallelIterator;
 use rayon::iter::ParallelIterator;
@@ -53,7 +53,7 @@ fn main() {
     }
 
     let start = Instant::now();
-    let mut rng = initialize_random_generator(config.mode);
+    let mut rng = initialize_random_generator(&config.mode);
 
     let latest_sigma = load_latest_sigma(&config.outfolder);
 

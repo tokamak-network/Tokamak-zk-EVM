@@ -1,7 +1,7 @@
 extern crate memmap;
 
 use crate::Mode::Testing;
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use icicle_bls12_381::curve::ScalarField;
 use icicle_core::traits::FieldImpl;
 use libs::iotools::SetupParams;
@@ -9,7 +9,7 @@ use mpc_setup::accumulator::Accumulator;
 use mpc_setup::conversions::{icicle_g1_generator, icicle_g2_generator};
 use mpc_setup::utils::RandomStrategy::SystemRandom;
 use mpc_setup::utils::{
-    check_outfolder_writable, compute5, verify5, Mode, PairSerde, RandomGenerator, SerialSerde,
+    compute5, verify5, Mode, PairSerde, RandomGenerator, SerialSerde,
 };
 use std::cmp::max;
 use std::ops::Mul;

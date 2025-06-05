@@ -1,10 +1,13 @@
-use clap::builder::TypedValueParser;
+use chrono::Local;
 use clap::Parser;
-use icicle_runtime::Device;
 use mpc_setup::accumulator::Accumulator;
-use mpc_setup::utils::{check_outfolder_writable, initialize_random_generator, Mode, Phase1Proof};
-use std::cmp::max;
+use mpc_setup::contributor::{get_device_info, ContributorInfo};
+use mpc_setup::utils::{
+    initialize_random_generator, prompt_user_input, Mode, Phase1Proof,
+};
 use std::fs;
+use std::fs::File;
+use std::io::{BufWriter, Write};
 use std::time::Instant;
 
 #[derive(Parser, Debug)]
@@ -32,7 +35,17 @@ fn main() {
     let config = Config::parse();
     let totalStart = Instant::now();
 
-    let mut rng = initialize_random_generator(config.mode);
+    let mut rng = initialize_random_generator(&config.mode);
+    let mut contributor_name = String::new();
+    let mut location = String::new();
+
+    if matches!(config.mode, Mode::Random) {
+        contributor_name = prompt_user_input("Enter your name :");
+        location = prompt_user_input("Enter your location:");
+    }
+    let device = get_device_info();
+    println!("device info: {:?}", device);
+
     println!("loading latest challenge and proof...");
 
     let latest_acc = Accumulator::read_from_json(&format!(
@@ -52,6 +65,9 @@ fn main() {
     } else {
         println!("Accumulator points will be written as uncompressed mode");
     }
+
+    let mut previous_acc_hash = [0u8; 64];
+    let mut previous_proof_hash = [0u8; 64];
 
     if latest_acc.contributor_index > 0 {
         println!(
@@ -81,6 +97,9 @@ fn main() {
             "Time elapsed for verification of the previous contribution: {:?}",
             start.elapsed().as_secs_f64()
         );
+
+        previous_proof_hash = latest_proof.blake2b_hash();
+        previous_acc_hash = latest_acc.blake2b_hash();
     } else {
         //first contributor
         println!("previous contributor is genesis");
@@ -100,6 +119,7 @@ fn main() {
             "genesis hash is not correct"
         );
         println!("genesis hash is verified.");
+        previous_acc_hash = acc_check.blake2b_hash();
     }
     println!(
         "current contributor index: {}",
@@ -141,6 +161,32 @@ fn main() {
         .save_to_json(&format!("{}/phase1_latest_proof.json", config.outfolder))
         .expect("cannot write new_proof to file");
 
-    let duration = totalStart.elapsed();
-    println!("Time elapsed: {:?}", duration.as_secs());
+    if matches!(config.mode, Mode::Random) {
+        let duration = totalStart.elapsed();
+        println!("Time elapsed: {:?}", duration.as_secs());
+        let current_date = Local::now().format("%Y-%m-%d").to_string();
+        let cont = ContributorInfo {
+            contributor_no: new_acc.contributor_index as u32,
+            date: current_date,
+            name: contributor_name,
+            location,
+            devices: get_device_info().to_string(),
+            prev_acc_hash: hex::encode(previous_acc_hash),
+            prev_proof_hash: hex::encode(previous_proof_hash),
+            current_acc_hash: hex::encode(new_acc.blake2b_hash()),
+            current_proof_hash: hex::encode(new_proof.blake2b_hash()),
+            time_taken_seconds: duration.as_secs_f64(),
+        };
+
+        let fpath = &format!(
+            "{}/phase1_contributor_{}.txt",
+            config.outfolder, new_acc.contributor_index
+        );
+        let file = File::create(fpath).expect("cannot create file");
+
+        let mut writer = BufWriter::new(file);
+        writer
+            .write_all(cont.to_string().as_bytes())
+            .expect("cannot write to file");
+    }
 }

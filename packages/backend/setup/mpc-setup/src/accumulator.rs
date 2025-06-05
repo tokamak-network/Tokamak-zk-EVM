@@ -1,22 +1,27 @@
-use serde_json::from_reader;
-use std::io;
-use ark_std::fs;
-use serde_json::to_writer_pretty;
+use crate::conversions::{
+    deserialize_g1serde, deserialize_g2serde, serialize_g1serde, serialize_g2serde,
+};
+use crate::utils::{
+    compute5, icicle_g1_generator, icicle_g2_generator, verify5, PairSerde, Phase1Proof,
+    RandomGenerator, SerialSerde,
+};
+use crate::{impl_read_from_json, impl_write_into_json};
+use ark_serialize::Compress;
 use ark_std::env;
-use crate::utils::{compute5, icicle_g1_generator, icicle_g2_generator, verify5, PairSerde, Phase1Proof, RandomGenerator, SerialSerde};
+use ark_std::fs;
 use blake2::{Blake2b, Digest};
+use clap::builder::Str;
 use icicle_bls12_381::curve::G1Affine;
 use libs::group_structures::{G1serde, G2serde};
-use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Write};
-use ark_serialize::Compress;
-use clap::builder::Str;
 use serde::ser::SerializeStruct;
-use crate::{impl_read_from_json, impl_write_into_json};
-use crate::conversions::{deserialize_g1serde, deserialize_g2serde, serialize_g1serde, serialize_g2serde};
+use serde::{Deserialize, Serialize};
+use serde_json::from_reader;
+use serde_json::to_writer_pretty;
+use std::fs::File;
+use std::io;
+use std::io::{BufReader, BufWriter, Read, Write};
 
-#[derive(Debug,Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Accumulator {
     pub contributor_index: usize,
     pub g1: G1serde,
@@ -29,13 +34,19 @@ pub struct Accumulator {
     pub xy: Vec<G1serde>,
     pub alpha_xy: Vec<G1serde>,
     pub compress: bool, // ← this is the controlling flag
- }
+}
 impl Serialize for Accumulator {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: serde::Serializer {
+    where
+        S: serde::Serializer,
+    {
         let mut state = serializer.serialize_struct("Accumulator", 11)?;
 
-        let compress = if self.compress { Compress::Yes } else { Compress::No };
+        let compress = if self.compress {
+            Compress::Yes
+        } else {
+            Compress::No
+        };
 
         let to_str_vec = |v: &Vec<G1serde>| -> Vec<String> {
             v.iter().map(|g| serialize_g1serde(g, compress)).collect()
@@ -46,8 +57,22 @@ impl Serialize for Accumulator {
         state.serialize_field("g2", &serialize_g2serde(&self.g2, compress))?;
         state.serialize_field("compress", &format!("{:?}", compress == Compress::Yes))?;
 
-        state.serialize_field("alpha", &self.alpha.iter().map(|p| p.serialize_with_compress(compress)).collect::<Vec<_>>())?;
-        state.serialize_field("x", &self.x.iter().map(|p| p.serialize_with_compress(compress)).collect::<Vec<_>>())?;
+        state.serialize_field(
+            "alpha",
+            &self
+                .alpha
+                .iter()
+                .map(|p| p.serialize_with_compress(compress))
+                .collect::<Vec<_>>(),
+        )?;
+        state.serialize_field(
+            "x",
+            &self
+                .x
+                .iter()
+                .map(|p| p.serialize_with_compress(compress))
+                .collect::<Vec<_>>(),
+        )?;
 
         let (y_g1, y_g2) = self.y.serialize_with_compress(compress);
         state.serialize_field("y_g1", &y_g1)?;
@@ -63,7 +88,9 @@ impl Serialize for Accumulator {
 }
 impl<'de> Deserialize<'de> for Accumulator {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where D: serde::Deserializer<'de> {
+    where
+        D: serde::Deserializer<'de>,
+    {
         #[derive(Deserialize)]
         struct Helper {
             contributor_index: usize,
@@ -102,15 +129,22 @@ impl<'de> Deserialize<'de> for Accumulator {
         };
 
         let parse_vec = |v: Vec<String>| -> Vec<G1serde> {
-            v.iter().map(|s| deserialize_g1serde(s, compress_mode)).collect()
+            v.iter()
+                .map(|s| deserialize_g1serde(s, compress_mode))
+                .collect()
         };
 
         Ok(Accumulator {
             contributor_index,
             g1: deserialize_g1serde(&g1, compress_mode),
             g2: deserialize_g2serde(&g2, compress_mode),
-            alpha: alpha.iter().map(|(a, b)| PairSerde::deserialize_with_compress(a, b, compress_mode)).collect(),
-            x: x.iter().map(|(a, b)| PairSerde::deserialize_with_compress(a, b, compress_mode)).collect(),
+            alpha: alpha
+                .iter()
+                .map(|(a, b)| PairSerde::deserialize_with_compress(a, b, compress_mode))
+                .collect(),
+            x: x.iter()
+                .map(|(a, b)| PairSerde::deserialize_with_compress(a, b, compress_mode))
+                .collect(),
             y: SerialSerde::deserialize_with_compress(y_g1, y_g2, compress_mode),
             alpha_x: parse_vec(alpha_x),
             alpha_y: parse_vec(alpha_y),
@@ -137,7 +171,14 @@ impl Accumulator {
 }
 
 impl Accumulator {
-    pub fn new(g1: G1serde, g2: G2serde, power_alpha_length: usize, power_x_length: usize, power_y_length: usize, compress : bool) -> Self {
+    pub fn new(
+        g1: G1serde,
+        g2: G2serde,
+        power_alpha_length: usize,
+        power_x_length: usize,
+        power_y_length: usize,
+        compress: bool,
+    ) -> Self {
         let acc = Accumulator {
             g1,
             g2,
@@ -240,7 +281,12 @@ impl Accumulator {
         *self.xy.get(idx).unwrap()
     }
 
-    pub fn get_alphaxy_g1_range(&self, exp_alpha: usize, exp_x_max: usize, exp_y_max: usize) -> Vec<G1Affine> {
+    pub fn get_alphaxy_g1_range(
+        &self,
+        exp_alpha: usize,
+        exp_x_max: usize,
+        exp_y_max: usize,
+    ) -> Vec<G1Affine> {
         let mut out = vec![G1Affine::zero(); exp_x_max * exp_y_max];
         for i in 0..exp_x_max {
             for k in 0..exp_y_max {
@@ -263,13 +309,28 @@ impl Accumulator {
             return self.get_alphax_g1(exp_alpha, exp_x);
         }
         //TODO check if this is correct
-        let idx = (exp_alpha - 1) * (self.x.len() * self.y.len_g1()) + (exp_x - 1) * self.y.len_g1() + exp_y - 1;
+        let idx = (exp_alpha - 1) * (self.x.len() * self.y.len_g1())
+            + (exp_x - 1) * self.y.len_g1()
+            + exp_y
+            - 1;
         *self.alpha_xy.get(idx).unwrap()
     }
 
     pub fn compute(&self, rng: &mut RandomGenerator) -> (Accumulator, Phase1Proof) {
         let (cur_alphaxy, cur_xy, cur_alphax, cur_alphay, cur_alpha, cur_x, cur_y, mut proof_5) =
-            compute5(rng, &self.g1, &self.g2, &self.alpha_xy, &self.xy, &self.alpha_x, &self.alpha_y, &self.alpha, &self.x, &self.y, &self.hash());
+            compute5(
+                rng,
+                &self.g1,
+                &self.g2,
+                &self.alpha_xy,
+                &self.xy,
+                &self.alpha_x,
+                &self.alpha_y,
+                &self.alpha,
+                &self.x,
+                &self.y,
+                &self.hash(),
+            );
 
         let acc = Accumulator {
             g1: self.g1,
@@ -281,26 +342,43 @@ impl Accumulator {
             alpha_y: cur_alphay,
             xy: cur_xy,
             alpha_xy: cur_alphaxy,
-             contributor_index: self.contributor_index + 1,
-            compress:self.compress,
+            contributor_index: self.contributor_index + 1,
+            compress: self.compress,
         };
         proof_5.contributor_index = acc.contributor_index;
         (acc, proof_5)
     }
     pub fn verify(&self, cur: &Accumulator, cur_proof: &Phase1Proof) -> bool {
-        verify5(&self.g1, &self.g2, &self.alpha, &self.x, &self.y, &cur.alpha_xy, &cur.xy, &cur.alpha_x, &cur.alpha_y, &cur.alpha, &cur.x, &cur.y, &cur_proof)
+        verify5(
+            &self.g1,
+            &self.g2,
+            &self.alpha,
+            &self.x,
+            &self.y,
+            &cur.alpha_xy,
+            &cur.xy,
+            &cur.alpha_x,
+            &cur.alpha_y,
+            &cur.alpha,
+            &cur.x,
+            &cur.y,
+            &cur_proof,
+        )
     }
     pub fn hash(&self) -> [u8; 32] {
+        let out = self.blake2b_hash();
+        let mut result = [0u8; 32];
+        result.copy_from_slice(&out[..32]);
+        result
+    }
+    pub fn blake2b_hash(&self) -> [u8; 64] {
         // Serialize without the hash field
-        let serialized = bincode::serialize(&self)
-            .expect("Serialization failed for Accumulator");
+        let serialized = bincode::serialize(&self).expect("Serialization failed for Accumulator");
 
-        // Calculate Blake2b hash (32-byte output)
         let hash = Blake2b::digest(&serialized);
 
-        // Convert GenericArray into [u8; 32]
-        let mut result = [0u8; 32];
-        result.copy_from_slice(&hash[..32]);
+        let mut result = [0u8; 64];
+        result.copy_from_slice(&hash[..64]);
         result
     }
 }
@@ -325,8 +403,8 @@ mod tests {
             alpha_y: vec![g1; 2],
             xy: vec![g1; 4],
             alpha_xy: vec![g1; 8],
-             contributor_index: 0,
-            compress:false
+            contributor_index: 0,
+            compress: false,
         };
 
         // Serialize the Accumulator to JSON
@@ -336,34 +414,40 @@ mod tests {
         println!("Serialized Accumulator:\n{}", serialized);
 
         // Deserialize JSON back into Accumulator
-        let deserialized: Accumulator = serde_json::from_str(&serialized)
-            .expect("Deserialization of Accumulator failed");
+        let deserialized: Accumulator =
+            serde_json::from_str(&serialized).expect("Deserialization of Accumulator failed");
 
         // Verify integrity (assuming Accumulator implements PartialEq)
         assert_eq!(accumulator.alpha, deserialized.alpha, "alpha mismatch");
         assert_eq!(accumulator.x, deserialized.x, "x mismatch");
         assert_eq!(accumulator.y, deserialized.y, "y mismatch");
-        assert_eq!(accumulator.alpha_x, deserialized.alpha_x, "alpha_x mismatch");
-        assert_eq!(accumulator.alpha_y, deserialized.alpha_y, "alpha_y mismatch");
+        assert_eq!(
+            accumulator.alpha_x, deserialized.alpha_x,
+            "alpha_x mismatch"
+        );
+        assert_eq!(
+            accumulator.alpha_y, deserialized.alpha_y,
+            "alpha_y mismatch"
+        );
         assert_eq!(accumulator.xy, deserialized.xy, "xy mismatch");
-        assert_eq!(accumulator.alpha_xy, deserialized.alpha_xy, "alpha_xy mismatch");
+        assert_eq!(
+            accumulator.alpha_xy, deserialized.alpha_xy,
+            "alpha_xy mismatch"
+        );
         assert_eq!(accumulator.hash(), deserialized.hash(), "hash mismatch");
     }
     #[test]
     fn test_save_load_accumulator() {
         let g1 = icicle_g1_generator();
         let g2 = icicle_g2_generator();
-        let accumulator = Accumulator::new(g1, g2, 2, 4, 8,true);
-        accumulator.write_into_json("accumulator.json").expect("Failed to save");
+        let accumulator = Accumulator::new(g1, g2, 2, 4, 8, true);
+        accumulator
+            .write_into_json("accumulator.json")
+            .expect("Failed to save");
 
-        let loaded_accumulator = Accumulator::read_from_json("accumulator.json").expect("Failed to load");
+        let loaded_accumulator =
+            Accumulator::read_from_json("accumulator.json").expect("Failed to load");
         println!("Loaded Accumulator: {:?}", loaded_accumulator);
         assert_eq!(accumulator, loaded_accumulator);
     }
 }
-
-
-
-
-
-
