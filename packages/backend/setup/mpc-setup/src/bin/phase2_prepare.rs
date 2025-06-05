@@ -56,7 +56,7 @@ fn main() {
         config.outfolder
     )).expect("cannot read from phase1_latest_challenge.json");
 
-    // let sigma_trusted = Sigma::read_from_json("setup/trusted-setup/output/combined_sigma.json").unwrap();
+    //let sigma_trusted = Sigma::read_from_json("setup/trusted-setup/output/combined_sigma.json").unwrap();
 
     let g1 = latest_acc.g1;
     let g2 = latest_acc.g2;
@@ -98,25 +98,25 @@ fn main() {
     }
     // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}_{t=0,j=0}^{1,l-1} where t=0 for j∈[0,l_in-1] and t=1 for j∈[l_in,l-1]
     let mut gamma_inv_o_inst = vec![G1serde::zero(); l].into_boxed_slice();
-    let alpha1xyG1s = latest_acc.get_alphaxy_g1_range(1, n, li_y_vec[0].y_size);
-    let alpha2xyG1s = latest_acc.get_alphaxy_g1_range(2, n, li_y_vec[0].y_size);
-    let alpha3xyG1s = latest_acc.get_alphaxy_g1_range(3, n, li_y_vec[0].y_size);
+    let alpha1xy_g1s = latest_acc.get_alphaxy_g1_range(1, n, li_y_vec[0].y_size);
+    let alpha2xy_g1s = latest_acc.get_alphaxy_g1_range(2, n, li_y_vec[0].y_size);
+    let alpha3xy_g1s = latest_acc.get_alphaxy_g1_range(3, n, li_y_vec[0].y_size);
 
     compute_gamma_part_i(
         0,
         l_pub_out,
         &qap,
         &li_y_vec[1],
-        &alpha1xyG1s,
-        &alpha2xyG1s,
-        &alpha3xyG1s,
+        &alpha1xy_g1s,
+        &alpha2xy_g1s,
+        &alpha3xy_g1s,
         &mut gamma_inv_o_inst,
     );
-    let xiG1s = latest_acc.get_x_g1_range(0, l_pub - 1);
+    let xi_g1s = latest_acc.get_x_g1_range(0, l_pub - 1);
     for j in 0..l_pub_out {
         let mut m_j_x_coeffs = vec![ScalarField::zero(); l_pub];
         thread_safe_compute_langrange_i_coeffs(j, l_pub, 1, &mut m_j_x_coeffs);
-        gamma_inv_o_inst[j] = gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xiG1s);
+        gamma_inv_o_inst[j] = gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
         println!("gamma_inv_o_inst[{}] = {:?}", j, gamma_inv_o_inst[j].0.x);
     }
 
@@ -125,15 +125,15 @@ fn main() {
         l_pub,
         &qap,
         &li_y_vec[0],
-        &alpha1xyG1s,
-        &alpha2xyG1s,
-        &alpha3xyG1s,
+        &alpha1xy_g1s,
+        &alpha2xy_g1s,
+        &alpha3xy_g1s,
         &mut gamma_inv_o_inst,
     );
     for j in l_pub_out..l_pub {
         let mut m_j_x_coeffs = vec![ScalarField::zero(); l_pub];
         thread_safe_compute_langrange_i_coeffs(j, l_pub, 1, &mut m_j_x_coeffs);
-        gamma_inv_o_inst[j] = gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xiG1s);
+        gamma_inv_o_inst[j] = gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
         println!("gamma_inv_o_inst[{}] = {:?}", j, gamma_inv_o_inst[j].0.x);
     }
     compute_gamma_part_i(
@@ -141,9 +141,9 @@ fn main() {
         l_pub + l_prv_out,
         &qap,
         &li_y_vec[3],
-        &alpha1xyG1s,
-        &alpha2xyG1s,
-        &alpha3xyG1s,
+        &alpha1xy_g1s,
+        &alpha2xy_g1s,
+        &alpha3xy_g1s,
         &mut gamma_inv_o_inst,
     );
     compute_gamma_part_i(
@@ -151,12 +151,12 @@ fn main() {
         l,
         &qap,
         &li_y_vec[2],
-        &alpha1xyG1s,
-        &alpha2xyG1s,
-        &alpha3xyG1s,
+        &alpha1xy_g1s,
+        &alpha2xy_g1s,
+        &alpha3xy_g1s,
         &mut gamma_inv_o_inst,
     );
-    // assert_eq!(sigma_trusted.sigma_1.gamma_inv_o_inst, gamma_inv_o_inst);
+    //assert_eq!(sigma_trusted.sigma_1.gamma_inv_o_inst, gamma_inv_o_inst);
 
     // {δ^(-1)α^k x^h t_n(x)}_{h=0,k=1}^{2,3}
     let mut delta_inv_alphak_xh_tx =
@@ -190,9 +190,9 @@ fn main() {
     }
 
     //assert_eq!(
-   //     sigma_trusted.sigma_1.delta_inv_alpha4_xj_tx,
-   //     delta_inv_alpha4_xj_tx
-   // );
+     //   sigma_trusted.sigma_1.delta_inv_alpha4_xj_tx,
+    //    delta_inv_alpha4_xj_tx
+    //);
 
     // {δ^(-1)α^k y^i t_{s_max}(y)}_{i=0,k=1}^{2,4}
     let mut delta_inv_alphak_yi_ty =
@@ -210,10 +210,10 @@ fn main() {
             );
         }
     }
-    //assert_eq!(
-    //    sigma_trusted.sigma_1.delta_inv_alphak_yi_ty,
-    //    delta_inv_alphak_yi_ty
-    //);
+   // assert_eq!(
+   //     sigma_trusted.sigma_1.delta_inv_alphak_yi_ty,
+   //     delta_inv_alphak_yi_ty
+   // );
     let lap = start1.elapsed();
     println!(
         "The total time for first part: {:.6} seconds",
@@ -245,27 +245,27 @@ fn main() {
                 //  let mut multpxy_coeffs = vec![ScalarField::zero(); qap.u_j_X[j].x_size * li_y.y_size];
                 poly_mult(&qap.u_j_X[j + l], &li_y_vec[i], &mut multpxy_coeffs);
                 //  let alphaxyG1s = acc.get_alphaxy_g1_range(1, qap.u_j_X[j].x_size, li_y.y_size);
-                // out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha1xyG1s);
+                // out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha1xy_g1s);
                 coeffs.extend(&multpxy_coeffs);
-                commits.extend(&alpha1xyG1s);
+                commits.extend(&alpha1xy_g1s);
             }
             //lookup with alpha^2 x^i y^j
             if !qap.v_j_X[j + l].is_zero() {
                 // let mut multpxy_coeffs = vec![ScalarField::zero(); qap.v_j_X[j].x_size * li_y.y_size];
                 poly_mult(&qap.v_j_X[j + l], &li_y_vec[i], &mut multpxy_coeffs);
                 //  let alphaxyG1s = acc.get_alphaxy_g1_range(2, qap.v_j_X[j].x_size, li_y.y_size);
-                // out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha2xyG1s);
+                // out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha2xy_g1s);
                 coeffs.extend(&multpxy_coeffs);
-                commits.extend(&alpha2xyG1s);
+                commits.extend(&alpha2xy_g1s);
             }
             //lookup with alpha^3 x^i y^j
             if !qap.w_j_X[j + l].is_zero() {
                 //  let mut multpxy_coeffs = vec![ScalarField::zero(); qap.w_j_X[j].x_size * li_y.y_size];
                 poly_mult(&qap.w_j_X[j + l], &li_y_vec[i], &mut multpxy_coeffs);
                 //  let alphaxyG1s = acc.get_alphaxy_g1_range(3, qap.w_j_X[j].x_size, li_y.y_size);
-                //out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha3xyG1s);
+                //out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha3xy_g1s);
                 coeffs.extend(&multpxy_coeffs);
-                commits.extend(&alpha3xyG1s);
+                commits.extend(&alpha3xy_g1s);
             }
 
             poly_mult(&kj_x_vec[j], &li_y_vec[i], &mut xy_coeffs);
@@ -305,23 +305,23 @@ fn main() {
             //lookup with alpha x^i y^j
             if !qap.u_j_X[j].is_zero() {
                 poly_mult(&qap.u_j_X[j], &li_y_vec[i], &mut multpxy_coeffs);
-                //out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha1xyG1s);
+                //out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha1xy_g1s);
                 coeffs.extend(&multpxy_coeffs);
-                commits.extend(&alpha1xyG1s);
+                commits.extend(&alpha1xy_g1s);
             }
             //lookup with alpha^2 x^i y^j
             if !qap.v_j_X[j].is_zero() {
                 poly_mult(&qap.v_j_X[j], &li_y_vec[i], &mut multpxy_coeffs);
-                //out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha2xyG1s);
+                //out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha2xy_g1s);
                 coeffs.extend(&multpxy_coeffs);
-                commits.extend(&alpha2xyG1s);
+                commits.extend(&alpha2xy_g1s);
             }
             //lookup with alpha^3 x^i y^j
             if !qap.w_j_X[j].is_zero() {
                 poly_mult(&qap.w_j_X[j], &li_y_vec[i], &mut multpxy_coeffs);
-                //out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha3xyG1s);
+                //out = out + sum_vector_dot_product(&multpxy_coeffs, &alpha3xy_g1s);
                 coeffs.extend(&multpxy_coeffs);
-                commits.extend(&alpha3xyG1s);
+                commits.extend(&alpha3xy_g1s);
             }
             if coeffs.len() > 0 {
                 // delta_inv_li_o_prv[j - (l + m_i)][i] = sum_vector_dot_product(&coeffs, &commits);

@@ -215,7 +215,7 @@ impl PairSerde {
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Proof2 {
-    pub x_rG1: G1serde, //latest x_r contribution
+    pub x_r_g1: G1serde, //latest x_r contribution
     pub pok_x: G2serde,
     pub v: [u8; 32],
 }
@@ -245,6 +245,16 @@ impl Phase1Proof {
         let proof: Phase1Proof = serde_json::from_str(&json_str)
             .expect(format!("JSON deserialization failed: path {}", path).as_str());
         Ok(proof)
+    }
+    pub fn blake2b_hash(&self) -> [u8; 64] {
+        // Serialize without the hash field
+        let serialized = bincode::serialize(&self).expect("Serialization failed for Accumulator");
+
+        let hash = Blake2b::digest(&serialized);
+
+        let mut result = [0u8; 64];
+        result.copy_from_slice(&hash[..64]);
+        result
     }
 }
 //type 1: compute1
@@ -300,11 +310,11 @@ pub fn verify2(
     cur_x: &SerialSerde,
     proof2: &Proof2,
 ) -> bool {
-    if !check_pok(&proof2.x_rG1, g1, proof2.pok_x, proof2.v.as_ref()) {
+    if !check_pok(&proof2.x_r_g1, g1, proof2.pok_x, proof2.v.as_ref()) {
         return false;
     }
 
-    let r_alpha = ro(&proof2.x_rG1, proof2.v.as_ref());
+    let r_alpha = ro(&proof2.x_r_g1, proof2.v.as_ref());
 
     if !consistent(
         &[prev_x.get_g1(0), cur_x.get_g1(0)],
@@ -330,11 +340,11 @@ pub fn verify2i(
     cur_x: &Vec<PairSerde>,
     proof2: &Proof2,
 ) -> bool {
-    if !check_pok(&proof2.x_rG1, g1, proof2.pok_x, proof2.v.as_ref()) {
+    if !check_pok(&proof2.x_r_g1, g1, proof2.pok_x, proof2.v.as_ref()) {
         return false;
     }
 
-    let r_alpha = ro(&proof2.x_rG1, proof2.v.as_ref());
+    let r_alpha = ro(&proof2.x_r_g1, proof2.v.as_ref());
 
     if !consistent(
         &[prev_x[0].g1, cur_x[0].g1],
@@ -367,7 +377,7 @@ fn compute2_temp(
     (
         cur_x,
         Proof2 {
-            x_rG1,
+            x_r_g1: x_rG1,
             pok_x,
             v: *v,
         },
@@ -396,7 +406,7 @@ fn compute2_tempi(
     (
         cur_x,
         Proof2 {
-            x_rG1,
+            x_r_g1: x_rG1,
             pok_x,
             v: *v,
         },
@@ -469,10 +479,19 @@ impl RandomGenerator {
         out
     }
 }
+/// Prompts user for initial random input
+pub fn prompt_user_input(title : &str) -> String {
+    print!("{}", title);
+    io::stdout().flush().unwrap();
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+    input.trim().to_string()
+}
 
 /// Prompts user for initial random input
-pub fn scalar_from_user_input() -> [u8; 32] {
-    print!("Enter seed input for randomization: ");
+pub fn scalar_from_user_random_input(title : &str) -> [u8; 32] {
+    print!("{}", title);
     io::stdout().flush().unwrap();
 
     let mut input = String::new();
@@ -494,7 +513,7 @@ pub enum Mode {
     Beacon, //deterministic from a given seed
 }
 /// Initializes a random generator based on the specified mode
-pub fn initialize_random_generator(mode: Mode) -> RandomGenerator {
+pub fn initialize_random_generator(mode: &Mode) -> RandomGenerator {
     let (strategy, message, seed) = match mode {
         Mode::Testing => (
             RandomStrategy::Testing,
@@ -504,12 +523,12 @@ pub fn initialize_random_generator(mode: Mode) -> RandomGenerator {
         Mode::Beacon => (
             RandomStrategy::UserInput,
             "Initializing random generator in deterministic mode",
-            scalar_from_user_input(),
+            scalar_from_user_random_input("Enter seed input for randomization: "),
         ),
         Mode::Random => (
             RandomStrategy::Hybrid,
             "Initializing random generator in hybrid random mode",
-            scalar_from_user_input(),
+            scalar_from_user_random_input("Enter seed input for randomization: "),
         ),
     };
 
@@ -552,7 +571,7 @@ pub fn compute3(
 
     let x_r = rng.next_random();
     let proof2_x = Proof2 {
-        x_rG1: g1.mul(x_r),
+        x_r_g1: g1.mul(x_r),
         pok_x: pok(g1, x_r, v),
         v: *v,
     };
@@ -732,7 +751,7 @@ pub fn compute5(
         compute3(rng, &g1, &prev_xy, &prev_x, &prev_y, &v);
     let (cur_alpha, proof2_alpha, alpha_powers) = compute2_tempi(rng, g1, prev_alpha, v);
 
-    let mut alphaxy_powers = vector_product(&alpha_powers, &xy_powers);
+    let alphaxy_powers = vector_product(&alpha_powers, &xy_powers);
     let cur_alphaxy: Vec<G1serde> = prev_alphaxy
         .par_iter()
         .zip(alphaxy_powers.par_iter())
