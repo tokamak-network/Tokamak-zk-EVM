@@ -350,15 +350,15 @@ export class Permutation {
               )
             }
           }
-          process.stdout.write('\r' + ' '.repeat(100) + '\r');
-          process.stdout.write(`Synthesizer: Instances of the ${placementId}-th placement passed the ${placement.subcircuitId}-th subcircuit.`)
+          // process.stdout.write('\r' + ' '.repeat(100) + '\r');
+          // process.stdout.write(`Synthesizer: Instances of the ${placementId}-th placement passed the ${placement.subcircuitId}-th subcircuit.`)
 
           return {subcircuitId: placement.subcircuitId, variables}
         }
       )
     )
     console.log('')
-    console.log(`Synthesizer: All the placement instances passed the subcircuits`)
+    console.log(`Synthesizer: All ${placements.size} placement instances passed the subcircuits`)
 
     // Extracting instance from the placement variables
     let idxSetPubIn = new IdxSet(this.subcircuitInfoByName.get(this.placements.get(PUB_IN_PLACEMENT_INDEX)!.name)!)
