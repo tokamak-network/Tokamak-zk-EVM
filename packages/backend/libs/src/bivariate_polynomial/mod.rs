@@ -274,81 +274,14 @@ where
     fn from_coeffs<S: HostOrDeviceSlice<Self::Field> + ?Sized>(coeffs: &S, x_size: usize, y_size: usize) -> Self;
     fn from_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(evals: &S, x_size: usize, y_size: usize, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>) -> Self;
 
-    fn from_rou_evals_original<S: HostOrDeviceSlice<Self::Field> + ?Sized>(evals: &S, x_size: usize, y_size: usize, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>) -> Self;
-    // fn copy_result_to_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-    //     final_result: &[Self::Field],
-    //     original_size: usize,
-    //     evals: &mut S
-    // );
+    // fn from_rou_evals_original<S: HostOrDeviceSlice<Self::Field> + ?Sized>(evals: &S, x_size: usize, y_size: usize, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>) -> Self;
 
-    fn copy_evals_to_host<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        &self,
-        evals: &S,
-        buffer: &mut [Self::Field]
-    );
 
-    fn copy_result_to_evals_256<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        &self,
-        final_result: &[Self::Field],
-        original_size: usize,
-        evals: &mut S
-    );
-
-    fn from_rou_evals_cpu_fallback<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        evals: &S,
-        x_size: usize,
-        y_size: usize,
-        coset_x: Option<&Self::Field>, 
-        coset_y: Option<&Self::Field>
-    ) -> Self;
-
-    fn safe_device_to_host_copy<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        device_slice: &S,
-        host_buffer: &mut [Self::Field]
-    );
-
-    fn from_rou_evals_safe_cpu_complete<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        evals: &S,
-        x_size: usize,
-        y_size: usize,
-        coset_x: Option<&Self::Field>, 
-        coset_y: Option<&Self::Field>
-    ) -> Self;
-
-    fn to_rou_evals_safe_cpu_complete<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        &self,
-        coset_x: Option<&Self::Field>, 
-        coset_y: Option<&Self::Field>, 
-        evals: &mut S
-    );
-
-    fn safe_host_to_device_copy<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        &self,
-        host_data: &[Self::Field],
-        device_evals: &mut S
-    );
-   
-    fn calculate_safe_padding_to_256(original_x_size: usize, original_y_size: usize) -> (usize, usize);
-    // fn determine_reshape_dimensions(&self, original_x_size: usize, original_y_size: usize) -> (usize, usize);
-    fn to_rou_evals_with_padding_to_256<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        &self,
-        coset_x: Option<&Self::Field>, 
-        coset_y: Option<&Self::Field>, 
-        evals: &mut S
-    );
-
-    fn from_rou_evals_with_padding_to_256<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        evals: &S,
-        x_size: usize,
-        y_size: usize,
-        coset_x: Option<&Self::Field>, 
-        coset_y: Option<&Self::Field>
-    ) -> Self;
     fn is_problematic_combination(x_size: usize, y_size: usize) -> bool;
 
     // Method to evaluate the polynomial over the roots-of-unity domain for power-of-two sized domain
     fn to_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(&self, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>, evals: &mut S);
-    fn to_rou_evals_original<S: HostOrDeviceSlice<Self::Field> + ?Sized>(&self, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>, evals: &mut S);
+    // fn to_rou_evals_original<S: HostOrDeviceSlice<Self::Field> + ?Sized>(&self, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>, evals: &mut S);
     
     fn find_degree(&self) -> (i64, i64);
 
@@ -565,68 +498,203 @@ impl BivariatePolynomial for DensePolynomialExt {
         }
     }
 
-    fn from_rou_evals_original<S: HostOrDeviceSlice<Self::Field> + ?Sized>(evals: &S, x_size: usize, y_size: usize, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>) -> Self {
+    // fn from_rou_evals_original<S: HostOrDeviceSlice<Self::Field> + ?Sized>(evals: &S, x_size: usize, y_size: usize, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>) -> Self {
+    //     if x_size == 0 || y_size == 0 {
+    //         panic!("Invalid matrix size for from_rou_evals");
+    //     }
+    //     // println!("from rou");
+    //     if x_size.is_power_of_two() == false || y_size.is_power_of_two() == false {
+    //         panic!("The input sizes for from_rou_evals must be powers of two.")
+    //     }
+
+    //     let size = x_size * y_size;
+
+    //     ntt::initialize_domain::<Self::Field>(
+    //         ntt::get_root_of_unity::<Self::Field>(
+    //             size.try_into()
+    //                 .unwrap(),
+    //         ),
+    //         &ntt::NTTInitDomainConfig::default(),
+    //     )
+    //     .unwrap();
+
+    //     let mut coeffs = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
+    //     let mut cfg = ntt::NTTConfig::<Self::Field>::default();
+        
+    //     // IFFT along X
+    //     cfg.batch_size = y_size as i32;
+    //     // cfg.columns_batch = 
+    //     // if evals.len() == y_size && size > 128 {
+    //     //     println!("from_rou_evals evals_len {:?}, y_size {:?}, x_size {:?}", evals.len(), y_size, x_size);
+    //     // } 
+    //     cfg.columns_batch = true ;
+    //     // cfg.columns_batch = if size > 128 { true } else  { false };
+    //     // println!("batch size in from_rou: {:?}", y_size);
+    //     // println!("evals size: {:?}", evals.len());
+    //     ntt::ntt(evals, ntt::NTTDir::kInverse, &cfg, &mut coeffs).unwrap();
+        
+    //     // IFFT along Y
+    //     cfg.batch_size = x_size as i32;
+    //     cfg.columns_batch = false;
+    //     ntt::ntt_inplace(&mut coeffs, ntt::NTTDir::kInverse, &cfg).unwrap();
+
+    //     ntt::release_domain::<Self::Field>().unwrap();
+
+    //     let mut poly = DensePolynomialExt::from_coeffs(
+    //         &coeffs,
+    //         x_size,
+    //         y_size
+    //     );
+
+    //     if let Some(_factor) = coset_x {
+    //         let factor = _factor.inv();
+    //         poly = poly.scale_coeffs_x(&factor);
+    //     }
+
+    //     if let Some(_factor) = coset_y {
+    //         let factor = _factor.inv();
+    //         poly = poly.scale_coeffs_y(&factor);
+    //     }
+    //     return poly
+    // }
+
+    // fn to_rou_evals_original<S: HostOrDeviceSlice<Self::Field> + ?Sized>(&self, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>, evals: &mut S) {
+    //     let size = self.x_size * self.y_size;
+
+    //     if evals.len() < size {
+    //         panic!("Insufficient buffer length for to_rou_evals")
+    //     }
+    //     let mut scaled_coeffs_vec = vec![Self::Field::zero(); self.x_size * self.y_size];
+    //     let scaled_coeffs = HostSlice::from_mut_slice(&mut scaled_coeffs_vec);
+    //     {
+    //         let mut scaled_poly = self.clone();
+
+    //         if let Some(factor) = coset_x {
+    //             scaled_poly = scaled_poly.scale_coeffs_x(factor);
+    //         }
+
+    //         if let Some(factor) = coset_y {
+    //             scaled_poly = scaled_poly.scale_coeffs_y(factor);
+    //         }
+
+            
+    //         scaled_poly.copy_coeffs(0, scaled_coeffs);
+    //     }
+        
+    //     ntt::initialize_domain::<Self::Field>(
+    //         ntt::get_root_of_unity::<Self::Field>(
+    //             size.try_into()
+    //                 .unwrap(),
+    //         ),
+    //         &ntt::NTTInitDomainConfig::default(),
+    //     )
+    //     .unwrap();
+    //     let mut cfg = ntt::NTTConfig::<Self::Field>::default();
+    //     // FFT along X
+    //     cfg.batch_size = self.y_size as i32;
+    //     cfg.columns_batch = true;
+
+    //     ntt::ntt(scaled_coeffs, ntt::NTTDir::kForward, &cfg, evals).unwrap();
+    //     // println!("aaa");
+    //     drop(scaled_coeffs_vec);
+        
+    //     // FFT along Y
+    //     cfg.batch_size = self.x_size as i32;
+    //     cfg.columns_batch = false;
+        
+    //     ntt::ntt_inplace(evals, ntt::NTTDir::kForward, &cfg).unwrap();
+    //     ntt::release_domain::<Self::Field>().unwrap();
+    // }
+
+
+    fn from_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
+        evals: &S,
+        x_size: usize,
+        y_size: usize,
+        coset_x: Option<&Self::Field>,
+        coset_y: Option<&Self::Field>
+    ) -> Self {
         if x_size == 0 || y_size == 0 {
             panic!("Invalid matrix size for from_rou_evals");
         }
-        // println!("from rou");
-        if x_size.is_power_of_two() == false || y_size.is_power_of_two() == false {
+        if !x_size.is_power_of_two() || !y_size.is_power_of_two() {
             panic!("The input sizes for from_rou_evals must be powers of two.")
         }
-
+    
         let size = x_size * y_size;
-
+        let problematic = Self::is_problematic_combination(x_size, y_size);
+    
         ntt::initialize_domain::<Self::Field>(
-            ntt::get_root_of_unity::<Self::Field>(
-                size.try_into()
-                    .unwrap(),
-            ),
+            ntt::get_root_of_unity::<Self::Field>(size.try_into().unwrap()),
             &ntt::NTTInitDomainConfig::default(),
-        )
-        .unwrap();
-
+        ).unwrap();
+    
         let mut coeffs = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
         let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-        
-        // IFFT along X
-        cfg.batch_size = y_size as i32;
-        // cfg.columns_batch = 
-        // if evals.len() == y_size && size > 128 {
-        //     println!("from_rou_evals evals_len {:?}, y_size {:?}, x_size {:?}", evals.len(), y_size, x_size);
-        // } 
-        cfg.columns_batch = true ;
-        // cfg.columns_batch = if size > 128 { true } else  { false };
-        // println!("batch size in from_rou: {:?}", y_size);
-        // println!("evals size: {:?}", evals.len());
-        ntt::ntt(evals, ntt::NTTDir::kInverse, &cfg, &mut coeffs).unwrap();
-        
-        // IFFT along Y
+    
+        if problematic {
+            println!("Problematic case: x_size={} y_size={}", x_size, y_size);
+            let mut input_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+            let mut output_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+            let vec_ops_cfg = VecOpsConfig::default();
+    
+            ScalarCfg::transpose(
+                evals,
+                x_size as u32,
+                y_size as u32,
+                &mut input_tr,
+                &vec_ops_cfg,
+            ).unwrap();
+    
+            cfg.batch_size = y_size as i32;
+            cfg.columns_batch = false;
+            ntt::ntt(&input_tr, ntt::NTTDir::kInverse, &cfg, &mut output_tr).unwrap();
+    
+            ScalarCfg::transpose(
+                &output_tr,
+                y_size as u32,
+                x_size as u32,
+                &mut coeffs,
+                &vec_ops_cfg,
+            ).unwrap();
+        } else {
+            cfg.batch_size = y_size as i32;
+            cfg.columns_batch = true;
+
+            ntt::ntt(evals, ntt::NTTDir::kInverse, &cfg, &mut coeffs).unwrap();            
+        }
+
         cfg.batch_size = x_size as i32;
         cfg.columns_batch = false;
         ntt::ntt_inplace(&mut coeffs, ntt::NTTDir::kInverse, &cfg).unwrap();
-
+    
         ntt::release_domain::<Self::Field>().unwrap();
-
+    
         let mut poly = DensePolynomialExt::from_coeffs(
             &coeffs,
             x_size,
-            y_size
+            y_size,
         );
-
+    
         if let Some(_factor) = coset_x {
             let factor = _factor.inv();
             poly = poly.scale_coeffs_x(&factor);
         }
-
         if let Some(_factor) = coset_y {
             let factor = _factor.inv();
             poly = poly.scale_coeffs_y(&factor);
         }
-        return poly
+        poly
     }
-
-    fn to_rou_evals_original<S: HostOrDeviceSlice<Self::Field> + ?Sized>(&self, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>, evals: &mut S) {
+    
+    fn to_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
+        &self,
+        coset_x: Option<&Self::Field>,
+        coset_y: Option<&Self::Field>,
+        evals: &mut S,
+    ) {
         let size = self.x_size * self.y_size;
+        let problematic = Self::is_problematic_combination(self.x_size, self.y_size);
 
         if evals.len() < size {
             panic!("Insufficient buffer length for to_rou_evals")
@@ -654,21 +722,48 @@ impl BivariatePolynomial for DensePolynomialExt {
                     .unwrap(),
             ),
             &ntt::NTTInitDomainConfig::default(),
-        )
-        .unwrap();
+        ).unwrap();
+        
         let mut cfg = ntt::NTTConfig::<Self::Field>::default();
         // FFT along X
-        cfg.batch_size = self.y_size as i32;
-        // if evals.len() == self.y_size && size > 128 {
-        //     println!("to_rou_evals evals_len {:?}, y_size {:?}, x_size {:?}", evals.len(), self.y_size, self.x_size);
-        // }
-        cfg.columns_batch = true;
-        // cfg.columns_batch = if size > 128 { true } else  { false };
-        // cfg.columns_batch = if scaled_coeffs.len() == self.y_size || self.y_size < 4 { false } else { true };
-        // println!("batch size in to_rou: {:?}, {:?}, {:?}", self.y_size, scaled_coeffs.len(), self.y_size == scaled_coeffs.len());
+        if problematic {
+            println!("Problematic case: x_size={} y_size={}", self.x_size, self.y_size);
+            let mut input_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+            let mut output_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+            let vec_ops_cfg = VecOpsConfig::default();
 
-        ntt::ntt(scaled_coeffs, ntt::NTTDir::kForward, &cfg, evals).unwrap();
-        // println!("aaa");
+            input_tr.copy_from_host(&scaled_coeffs).unwrap();
+
+            ScalarCfg::transpose(
+                &input_tr,
+                self.x_size as u32,
+                self.y_size as u32,
+                &mut output_tr,
+                &vec_ops_cfg,
+            ).unwrap();
+
+            let mut out_b = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+
+            cfg.batch_size = self.y_size as i32;
+            cfg.columns_batch = false;
+
+            ntt::ntt(&output_tr, ntt::NTTDir::kForward, &cfg, &mut out_b).unwrap();
+
+            ScalarCfg::transpose(
+                &out_b,
+                self.y_size as u32,
+                self.x_size as u32,
+                evals,
+                &vec_ops_cfg,
+            ).unwrap();
+
+        } else {
+            cfg.batch_size = self.y_size as i32;
+            cfg.columns_batch = true;
+            
+            ntt::ntt(scaled_coeffs, ntt::NTTDir::kForward, &cfg, evals).unwrap();
+        }
+        
         drop(scaled_coeffs_vec);
         
         // FFT along Y
@@ -678,564 +773,9 @@ impl BivariatePolynomial for DensePolynomialExt {
         ntt::ntt_inplace(evals, ntt::NTTDir::kForward, &cfg).unwrap();
         ntt::release_domain::<Self::Field>().unwrap();
     }
-
-
-    fn from_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        evals: &S, 
-        x_size: usize, 
-        y_size: usize, 
-        coset_x: Option<&Self::Field>, 
-        coset_y: Option<&Self::Field>
-    ) -> Self {
-        if x_size == 0 || y_size == 0 {
-            panic!("Invalid matrix size for from_rou_evals");
-        }
-        if x_size * y_size != evals.len() {
-            panic!("Mismatch between the coefficient vector and the polynomial size")
-        }
-        if x_size.is_power_of_two() == false || y_size.is_power_of_two() == false {
-            panic!("The input sizes for from_rou_evals must be powers of two.")
-        }
-        
-        let size = x_size * y_size;
-        let needs_cpu_fallback = size <= 128 || size == y_size;
-        // let needs_cpu_fallback = false;
-        println!("from_rou_evals evals_len {:?}, x_size {:?}, y_size {:?}", evals.len(), x_size, y_size);
-        if needs_cpu_fallback {
-            // ⭐ CPU 폴백으로 정확한 결과 보장
-            return Self::from_rou_evals_safe_cpu_complete(evals, x_size, y_size, coset_x, coset_y);
-        }
-    
-        // GPU에서 안전한 경우만 일반 처리
-        ntt::initialize_domain::<Self::Field>(
-            ntt::get_root_of_unity::<Self::Field>(size.try_into().unwrap()),
-            &ntt::NTTInitDomainConfig::default(),
-        ).unwrap();
-    
-        let mut coeffs = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
-        let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-        
-        cfg.batch_size = y_size as i32;
-        cfg.columns_batch = true;  
-        
-        ntt::ntt(evals, ntt::NTTDir::kInverse, &cfg, &mut coeffs).unwrap();
-        
-        if x_size > 1 {
-            cfg.batch_size = x_size as i32;
-            cfg.columns_batch = false;
-            ntt::ntt_inplace(&mut coeffs, ntt::NTTDir::kInverse, &cfg).unwrap();
-        }
-    
-        ntt::release_domain::<Self::Field>().unwrap();
-    
-        let mut poly = DensePolynomialExt::from_coeffs(&coeffs, x_size, y_size);
-    
-        if let Some(_factor) = coset_x {
-            let factor = _factor.inv();
-            poly = poly.scale_coeffs_x(&factor);
-        }
-    
-        if let Some(_factor) = coset_y {
-            let factor = _factor.inv();
-            poly = poly.scale_coeffs_y(&factor);
-        }
-        
-        return poly;
-    }
-
-    fn to_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        &self, 
-        coset_x: Option<&Self::Field>, 
-        coset_y: Option<&Self::Field>, 
-        evals: &mut S
-    ) {
-        let original_size = self.x_size * self.y_size;
-        let needs_cpu_fallback = original_size <= 128 || original_size == self.y_size;
-        
-        println!("to_rou_evals evals_len {:?}, x_size {:?}, y_size {:?}", evals.len(), self.x_size, self.y_size);
-        if needs_cpu_fallback {
-            // ⭐ CPU 폴백으로 정확한 결과 보장
-            self.to_rou_evals_safe_cpu_complete(coset_x, coset_y, evals);
-            return;
-        }
-        
-        // GPU에서 안전한 경우만 일반 처리
-        if evals.len() < original_size {
-            panic!("Insufficient buffer length for to_rou_evals")
-        }
-        
-        let mut scaled_coeffs_vec = vec![Self::Field::zero(); original_size];
-        let scaled_coeffs = HostSlice::from_mut_slice(&mut scaled_coeffs_vec);
-        {
-            let mut scaled_poly = self.clone();
-            if let Some(factor) = coset_x {
-                scaled_poly = scaled_poly.scale_coeffs_x(factor);
-            }
-            if let Some(factor) = coset_y {
-                scaled_poly = scaled_poly.scale_coeffs_y(factor);
-            }
-            scaled_poly.copy_coeffs(0, scaled_coeffs);
-        }
-        
-        ntt::initialize_domain::<Self::Field>(
-            ntt::get_root_of_unity::<Self::Field>(original_size.try_into().unwrap()),
-            &ntt::NTTInitDomainConfig::default(),
-        ).unwrap();
-        
-        let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-        cfg.batch_size = self.y_size as i32;
-        cfg.columns_batch = true;  // GPU에서 안전한 경우만
-        
-        ntt::ntt(scaled_coeffs, ntt::NTTDir::kForward, &cfg, evals).unwrap();
-        
-        drop(scaled_coeffs_vec);
-        
-        if self.x_size > 1 {
-            cfg.batch_size = self.x_size as i32;
-            cfg.columns_batch = false;
-            ntt::ntt_inplace(evals, ntt::NTTDir::kForward, &cfg).unwrap();
-        }
-        
-        ntt::release_domain::<Self::Field>().unwrap();
-    }
-
-
-    fn from_rou_evals_safe_cpu_complete<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        evals: &S,
-        x_size: usize,
-        y_size: usize,
-        coset_x: Option<&Self::Field>,
-        coset_y: Option<&Self::Field>,
-    ) -> Self {
-        println!("🔄 Safe CPU fallback for from_rou_evals {}×{}", x_size, y_size);
-    
-        let size = x_size * y_size;
-    
-        // ─── 1단계: evals 데이터를 호스트 메모리로 복사 ─────────────────────────
-        // evals가 GPU(DeviceSlice) 위에 올라 있을 수 있으므로, 반드시 HostSlice로 꺼내야 함
-        let mut input_evals = vec![Self::Field::zero(); size];
-        {
-            // evals → input_evals (host Vec)로 안전하게 복사
-            // safe_device_to_host_copy 내부에서 “identity NTT”를 이용하여 변형 없이 복사
-            Self::safe_device_to_host_copy(evals, &mut input_evals);
-        }
-    
-        // ─── 2단계: 현재 활성 디바이스를 기억해 두고, CPU로 전환 ────────────────
-        let current_device = icicle_runtime::get_active_device();
-        let cpu_device = icicle_runtime::device::Device::new("CPU", 0);
-        icicle_runtime::set_device(&cpu_device).unwrap();
-        println!("🖥️  Switched to CPU device");
-    
-        // ─── 3단계: CPU 상에서 완전히 호스트 메모리만 써서 IFFT 수행 ────────
-        let final_coeffs: Vec<Self::Field> = {
-            // CPU 도메인 초기화
-            ntt::initialize_domain::<Self::Field>(
-                ntt::get_root_of_unity::<Self::Field>(size.try_into().unwrap()),
-                &ntt::NTTInitDomainConfig::default(),
-            )
-            .unwrap();
-    
-            let mut coeffs_result = vec![Self::Field::zero(); size];
-            {
-                // 첫 번째 방향(IFFT X-방향)
-                let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-                cfg.batch_size = y_size as i32;
-                cfg.columns_batch = true; // CPU에서는 columns_batch=true가 안전합니다.
-                println!(
-                    "from_rou_evals cpu evals_len {:?}, x_size {:?}, y_size {:?}",
-                    input_evals.len(),
-                    x_size,
-                    y_size
-                );
-    
-                // HostSlice::from_slice(&input_evals) → HostSlice::from_mut_slice(&mut coeffs_result)
-                ntt::ntt(
-                    HostSlice::from_slice(&input_evals),
-                    ntt::NTTDir::kInverse,
-                    &cfg,
-                    HostSlice::from_mut_slice(&mut coeffs_result),
-                )
-                .unwrap();
-    
-                // 두 번째 방향(IFFT Y-방향)
-                cfg.batch_size = x_size as i32;
-                cfg.columns_batch = false;
-                ntt::ntt_inplace(HostSlice::from_mut_slice(&mut coeffs_result), ntt::NTTDir::kInverse, &cfg)
-                    .unwrap();
-            }
-    
-            // CPU 도메인 해제
-            ntt::release_domain::<Self::Field>().unwrap();
-            coeffs_result
-        };
-    
-        // ─── 4단계: 원래 활성 디바이스(=GPU)로 복원 ────────────────────────────
-        icicle_runtime::set_device(&current_device.as_ref().unwrap()).unwrap();
-        println!("🔙 Restored to GPU device: {:?}", current_device);
-    
-        // ─── 5단계: coset 인버스 적용 후, 다항식 생성 ──────────────────────────
-        let mut poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&final_coeffs), x_size, y_size);
-        if let Some(_factor) = coset_x {
-            let factor = _factor.inv();
-            poly = poly.scale_coeffs_x(&factor);
-        }
-        if let Some(_factor) = coset_y {
-            let factor = _factor.inv();
-            poly = poly.scale_coeffs_y(&factor);
-        }
-    
-        println!("✅ Safe CPU fallback completed");
-        poly
-    }
-    
-    fn safe_device_to_host_copy<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        device_slice: &S,
-        host_buffer: &mut [Self::Field],
-    ) {
-        let size = host_buffer.len();
-        assert_eq!(
-            device_slice.len(),
-            size,
-            "safe_device_to_host_copy: device_slice.len={} vs host_buffer.len={}",
-            device_slice.len(),
-            size
-        );
-    
-        // 1) 임시 DeviceVec 할당 (GPU 메모리 혹은 현재 활성 디바이스 메모리)
-        let mut temp_device = DeviceVec::<Self::Field>::device_malloc(size)
-            .expect("DeviceVec 할당 실패");
-    
-        // 2) device_slice → temp_device로 복사 (GPU→GPU 혹은 CPU→CPU)
-        temp_device
-            .copy_from_host(HostSlice::from_slice(host_buffer))
-            .unwrap_or_else(|_| {
-                // 만약 device_slice가 GPU(DeviceSlice)이면 여기서 HostSlice→DeviceVec 복사,
-                // 만약 HostSlice라면, 그냥 동일한 버퍼 복사가 이루어집니다.
-                panic!("safe_device_to_host_copy: copy_from_host 실패")
-            });
-    
-        // 3) “도메인 크기 = 1짜리 NTT” 초기화
-        ntt::initialize_domain::<Self::Field>(
-            ntt::get_root_of_unity::<Self::Field>(1),
-            &ntt::NTTInitDomainConfig::default(),
-        )
-        .unwrap();
-    
-        // 4) identity NTT 설정: N→1→N 로 복사만 해 주기
-        let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-        cfg.batch_size = size as i32;
-        cfg.columns_batch = false;
-    
-        // 5) temp_device → host_buffer(HostSlice)로 “길이 1짜리 NTT를 size개 배치로 돌리는” 꼴로 복사
-        println!("safe_device_to_host_copy: NTT 시작, size={}", size);
-        ntt::ntt(
-            &temp_device,
-            ntt::NTTDir::kForward,
-            &cfg,
-            HostSlice::from_mut_slice(host_buffer),
-        )
-        .unwrap();
-    
-        ntt::release_domain::<Self::Field>().unwrap();
-        // temp_device는 scope를 벗어나면 drop→메모리 해제
-    }
-    
-    
-    fn from_rou_evals_cpu_fallback<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        evals: &S,
-        x_size: usize,
-        y_size: usize,
-        coset_x: Option<&Self::Field>, 
-        coset_y: Option<&Self::Field>
-    ) -> Self {
-        println!("Using CPU fallback for from_rou_evals {}×{}", x_size, y_size);
-        
-        // CPU로 전환하여 정확한 처리
-        let current_device = icicle_runtime::get_active_device();
-        let cpu_device = Device::new("CPU", 0);
-        icicle_runtime::set_device(&cpu_device).unwrap();
-        
-        // CPU에서 동일한 로직으로 처리 (columns_batch=true 안전)
-        let size = x_size * y_size;
-    
-        ntt::initialize_domain::<Self::Field>(
-            ntt::get_root_of_unity::<Self::Field>(size.try_into().unwrap()),
-            &ntt::NTTInitDomainConfig::default(),
-        ).unwrap();
-    
-        let mut coeffs = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
-        let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-        
-        cfg.batch_size = y_size as i32;
-        cfg.columns_batch = true;  // CPU에서는 안전
-        println!("from_rou_evals cpu evals_len {:?}, x_size {:?}, y_size {:?}", evals.len(), x_size, y_size);
-        ntt::ntt(evals, ntt::NTTDir::kInverse, &cfg, &mut coeffs).unwrap();
-        
-        cfg.batch_size = x_size as i32;
-        cfg.columns_batch = false;
-        ntt::ntt_inplace(&mut coeffs, ntt::NTTDir::kInverse, &cfg).unwrap();
-    
-        ntt::release_domain::<Self::Field>().unwrap();
-    
-        let mut poly = DensePolynomialExt::from_coeffs(&coeffs, x_size, y_size);
-    
-        if let Some(_factor) = coset_x {
-            let factor = _factor.inv();
-            poly = poly.scale_coeffs_x(&factor);
-        }
-    
-        if let Some(_factor) = coset_y {
-            let factor = _factor.inv();
-            poly = poly.scale_coeffs_y(&factor);
-        }
-        
-        // GPU로 복원
-        icicle_runtime::set_device(current_device.as_ref().unwrap()).unwrap();
-        
-        return poly;
-    }
-
-    
-    
-    fn to_rou_evals_safe_cpu_complete<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        &self,
-        coset_x: Option<&Self::Field>,
-        coset_y: Option<&Self::Field>,
-        evals: &mut S,
-    ) {
-        println!("🔄 Safe CPU fallback for to_rou_evals {}×{}", self.x_size, self.y_size);
-
-        let size = self.x_size * self.y_size;
-
-        // ─── 1단계: 모든 데이터를 호스트 벡터로 꺼냅니다 ─────────────────────────────
-        let mut input_coeffs = vec![Self::Field::zero(); size];
-        {
-            // 코셋이 주어졌다면 계수를 스케일링
-            let mut scaled_poly = self.clone();
-            if let Some(f) = coset_x {
-                scaled_poly = scaled_poly.scale_coeffs_x(f);
-            }
-            if let Some(f) = coset_y {
-                scaled_poly = scaled_poly.scale_coeffs_y(f);
-            }
-            // 호스트 메모리에 복사
-            scaled_poly.copy_coeffs(0, HostSlice::from_mut_slice(&mut input_coeffs));
-        }
-
-        // ─── 2단계: 현재 활성 디바이스를 저장한 뒤, CPU(“CPU”, 0)로 전환 ─────────────────
-        let current_device = icicle_runtime::get_active_device();
-        println!("💾 Current device saved: {:?}", current_device);
-
-        let cpu_device = icicle_runtime::device::Device::new("CPU", 0);
-        icicle_runtime::set_device(&cpu_device).unwrap();
-        println!("🖥️  Switched to CPU device");
-
-        // ─── 3단계: 호스트 메모리 완전 NTT(Forward) 수행 ─────────────────────────────────
-        // (원본 to_rou_evals는 “Forward NTT X-방향 → Forward NTT Y-방향” 순서였음)
-        let final_result = {
-            // CPU 쪽 Domain 초기화
-            ntt::initialize_domain::<Self::Field>(
-                ntt::get_root_of_unity::<Self::Field>(size.try_into().unwrap()),
-                &ntt::NTTInitDomainConfig::default(),
-            )
-            .unwrap();
-
-            // 중간 결과 저장용 벡터
-            let mut intermediate = vec![Self::Field::zero(); size];
-
-            {
-                let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-                // X-방향 FFT
-                cfg.batch_size = self.y_size as i32;
-                cfg.columns_batch = true; // CPU에서는 안전
-                println!(
-                    "🧮 CPU NTT X-direction: batch_size={}, columns_batch=true",
-                    cfg.batch_size
-                );
-                ntt::ntt(
-                    HostSlice::from_slice(&input_coeffs),
-                    ntt::NTTDir::kForward,
-                    &cfg,
-                    HostSlice::from_mut_slice(&mut intermediate),
-                )
-                .unwrap();
-
-                // Y-방향 FFT
-                cfg.batch_size = self.x_size as i32;
-                cfg.columns_batch = false;
-                println!(
-                    "🧮 CPU NTT Y-direction: batch_size={}, columns_batch=false",
-                    cfg.batch_size
-                );
-                ntt::ntt_inplace(
-                    HostSlice::from_mut_slice(&mut intermediate),
-                    ntt::NTTDir::kForward,
-                    &cfg,
-                )
-                .unwrap();
-            }
-
-            ntt::release_domain::<Self::Field>().unwrap();
-            println!("✅ CPU NTT completed");
-            intermediate
-        };
-
-        // ─── 4단계: 원래 디바이스로 복원 ───────────────────────────────────────────────
-        if let Ok(dev) = current_device.as_ref() {
-            icicle_runtime::set_device(dev).unwrap();
-            println!("🔙 Restored to GPU device: {:?}", current_device);
-        }
-
-        // ─── 5단계: 최종 결과를 `evals`(HostSlice 또는 DeviceSlice)에 복사 ──────────────
-        //
-        // 만약 `evals`가 실제로 HostSlice라면, 아래 copy 과정 또한 자동으로 “호스트 복사” 경로를 통해
-        // HostSlice에 데이터를 채워 넣습니다. 반대로 `evals`가 DeviceSlice라면 GPU로 안전히 전송됩니다.
-        self.safe_host_to_device_copy(&final_result, evals);
-
-        println!("✅ Safe CPU fallback completed successfully");
-        println!(
-            " final_result.len() = {}, evals.len() = {}",
-            final_result.len(),
-            evals.len()
-        );
-    }
-    
-    fn safe_host_to_device_copy<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        &self,
-        host_data: &[Self::Field],  // 길이가 N
-        device_evals: &mut S,       // 길이가 동일한 HostOrDeviceSlice
-    ) {
-        let size = host_data.len();
-        assert_eq!(
-            device_evals.len(),
-            size,
-            "safe_host_to_device_copy: device_evals.len={} vs host_data.len={}",
-            device_evals.len(),
-            size
-        );
-
-        // 1) 임시 DeviceVec을 size 길이만큼 할당 (실제로 GPU 메모리나 DeviceSlice 메모리)
-        let mut temp_device = DeviceVec::<Self::Field>::device_malloc(size)
-            .expect("DeviceVec 할당 실패");
-
-        // 2) 호스트 데이터를 한 번 “temp_device”로 복사
-        temp_device
-            .copy_from_host(HostSlice::from_slice(host_data))
-            .unwrap();
-
-        // 3) “도메인 크기 1짜리 NTT”용으로 초기화
-        //    → get_root_of_unity::<Field>(1) 을 써서 길이 1짜리 도메인을 만든다
-        ntt::initialize_domain::<Self::Field>(
-            ntt::get_root_of_unity::<Self::Field>(1), // 도메인 크기 = 1
-            &ntt::NTTInitDomainConfig::default(),
-        )
-        .unwrap();
-
-        // 4) batch_size = size, columns_batch = true 로 설정하면,
-        //    “길이 1 NTT”를 size번 반복해서 수행하는 꼴이 된다.
-        let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-        cfg.batch_size = size as i32;
-        cfg.columns_batch = false;
-
-        // 5) 이 identity NTT를 통해 temp_device → device_evals에 복사한다
-        //
-        //    - 만약 `device_evals`가 GPU(DeviceSlice)라면, GPU 상에서 “길이 1짜리 NTT”를
-        //      size번 돌려서 각 요소를 그대로 복사해 준다. (실제 계산량은 0)
-        //
-        //    - 만약 `device_evals`가 HostSlice라면, 내부적으로 ntt() 호출이 “호스트 경로”를
-        //      타고 가서 최종적으로 HostSlice를 덮어쓰게 된다. (역시 계산량은 0)
-        ntt::ntt(&temp_device, ntt::NTTDir::kForward, &cfg, device_evals)
-            .unwrap();
-
-        ntt::release_domain::<Self::Field>().unwrap();
-        // temp_device는 scope를 벗어나면 drop → 메모리 해제
-    }
-
-    fn copy_result_to_evals_256<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        &self,
-        final_result: &[Self::Field],
-        original_size: usize,
-        evals: &mut S
-    ) {
-        // DeviceVec을 통한 간접 복사
-        let mut temp_device = DeviceVec::<Self::Field>::device_malloc(original_size).unwrap();
-        temp_device.copy_from_host(HostSlice::from_slice(final_result)).unwrap();
-        
-        // identity 변환을 통해 evals에 복사
-        ntt::initialize_domain::<Self::Field>(
-            ntt::get_root_of_unity::<Self::Field>(original_size.try_into().unwrap()),
-            &ntt::NTTInitDomainConfig::default(),
-        ).unwrap();
-        
-        let mut identity_cfg = ntt::NTTConfig::<Self::Field>::default();
-        identity_cfg.batch_size = 1;
-        identity_cfg.columns_batch = false;
-        
-        // "identity" NTT를 통한 복사
-        ntt::ntt(&temp_device, ntt::NTTDir::kForward, &identity_cfg, evals).unwrap();
-        
-        ntt::release_domain::<Self::Field>().unwrap();
-    }
-
-    fn copy_evals_to_host<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        &self,
-        evals: &S,
-        buffer: &mut [Self::Field]
-    ) {
-        // HostOrDeviceSlice에서 데이터를 host로 복사하는 안전한 방법
-        // DeviceVec을 중간 매개체로 사용
-        let size = buffer.len();
-        let mut temp_device = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
-        
-        // evals에서 temp_device로 복사하는 identity NTT
-        let mut identity_cfg = ntt::NTTConfig::<Self::Field>::default();
-        identity_cfg.batch_size = 1;
-        identity_cfg.columns_batch = false;
-        
-        ntt::initialize_domain::<Self::Field>(
-            ntt::get_root_of_unity::<Self::Field>(size.try_into().unwrap()),
-            &ntt::NTTInitDomainConfig::default(),
-        ).unwrap();
-        
-        ntt::ntt(evals, ntt::NTTDir::kForward, &identity_cfg, &mut temp_device).unwrap();
-        
-        ntt::release_domain::<Self::Field>().unwrap();
-        
-        // temp_device에서 host buffer로 복사
-        temp_device.copy_to_host(HostSlice::from_mut_slice(buffer)).unwrap();
-    }
     
 
-    fn calculate_safe_padding_to_256(original_x_size: usize, original_y_size: usize) -> (usize, usize) {
-        let total_original = original_x_size * original_y_size;
-        
-        // ⭐ 1D 케이스는 1D 구조 유지하면서 패딩
-        if original_x_size == 1 {
-            // 1×N → 1×(더 큰 크기)로 패딩
-            let safe_y_size = if original_y_size <= 64 {
-                256  // 1×256
-            } else if original_y_size <= 128 {
-                512  // 1×512  
-            } else if original_y_size <= 256 {
-                1024 // 1×1024
-            } else {
-                original_y_size.next_power_of_two() * 4
-            };
-            
-            println!("1D case: {}×{} → 1×{} (keeping 1D structure)", 
-                     original_x_size, original_y_size, safe_y_size);
-            return (1, safe_y_size);
-        }
-        
-        // 2D 케이스만 2D 패딩 적용
-        if total_original <= 512 {
-            (32, 32)   // 1024 total
-        } else if total_original <= 1024 {
-            (64, 32)   // 2048 total
-        } else {
-            (64, 64)   // 4096 total
-        }
-    }
+
     
     fn is_problematic_combination(x_size: usize, y_size: usize) -> bool {
         let total = x_size * y_size;
@@ -1264,261 +804,6 @@ impl BivariatePolynomial for DensePolynomialExt {
         }
         
         false
-    }
-
-    fn to_rou_evals_with_padding_to_256<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        &self,
-        coset_x: Option<&Self::Field>, 
-        coset_y: Option<&Self::Field>, 
-        evals: &mut S
-    ) {
-        let original_x_size = self.x_size;
-        let original_y_size = self.y_size;
-        let original_size = original_x_size * original_y_size;
-        
-        // 256으로 패딩할 때 항상 2D가 되도록 보장
-        let (padded_x_size, padded_y_size) = Self::calculate_safe_padding_to_256(original_x_size, original_y_size);
-        let padded_size = padded_x_size * padded_y_size; // = 256
-        
-        // 패딩된 계수 배열 준비
-        let mut padded_coeffs = vec![Self::Field::zero(); padded_size];
-        
-        {
-            let mut scaled_poly = self.clone();
-            if let Some(factor) = coset_x {
-                scaled_poly = scaled_poly.scale_coeffs_x(factor);
-            }
-            if let Some(factor) = coset_y {
-                scaled_poly = scaled_poly.scale_coeffs_y(factor);
-            }
-            
-            // 원본 데이터 가져오기
-            let mut original_coeffs = vec![Self::Field::zero(); original_size];
-            scaled_poly.copy_coeffs(0, HostSlice::from_mut_slice(&mut original_coeffs));
-            
-            // 1D → 2D 재배열 적용
-            if original_x_size == 1 && padded_x_size == 1 {
-                // ⭐ 1D → 1D 패딩 (구조 유지)
-                for y in 0..original_y_size {
-                    if y < padded_y_size {
-                        padded_coeffs[y] = original_coeffs[y];  // 1D 인덱싱
-                    }
-                }
-                // 나머지는 0으로 패딩 (이미 초기화됨)
-                println!("1D→1D: {} elements → {} elements (padded)", 
-                         original_y_size, padded_y_size);
-            } else if original_x_size == 1 {
-                // 1D → 2D factorization (기존 로직)
-                for i in 0..original_y_size {
-                    let target_x = i % padded_x_size;
-                    let target_y = i / padded_x_size;
-                    if target_y < padded_y_size {
-                        padded_coeffs[target_y * padded_x_size + target_x] = original_coeffs[i];
-                    }
-                }
-                println!("1D→2D proper: {} elements → {}×{} factorized", 
-                         original_y_size, padded_x_size, padded_y_size);
-            } else {
-                // 2D → 2D (기존 로직)
-                for y in 0..original_y_size.min(padded_y_size) {
-                    for x in 0..original_x_size.min(padded_x_size) {
-                        padded_coeffs[y * padded_x_size + x] = original_coeffs[y * original_x_size + x];
-                    }
-                }
-            }
-        }
-        
-        // 256 크기로 NTT 수행
-        ntt::initialize_domain::<Self::Field>(
-            ntt::get_root_of_unity::<Self::Field>(padded_size.try_into().unwrap()),
-            &ntt::NTTInitDomainConfig::default(),
-        ).unwrap();
-        
-        let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-        let padded_coeffs_slice = HostSlice::from_slice(&padded_coeffs);
-        
-        let mut padded_evals = DeviceVec::<Self::Field>::device_malloc(padded_size).unwrap();
-        
-        // X 방향 FFT - 패딩된 크기로 columns_batch=true 사용
-        cfg.batch_size = original_y_size as i32;
-        cfg.columns_batch = true;  // 이제 항상 x_size > 1이므로 안전
-        println!("to_rou_evals evals_len {:?}, y_size {:?}, x_size {:?}", evals.len(), self.y_size, self.x_size);
-        println!("to_rou_evals reshape evals_len {:?}, y_size {:?}, x_size {:?}", padded_coeffs_slice.len(), padded_y_size, padded_x_size);
-        ntt::ntt(padded_coeffs_slice, ntt::NTTDir::kForward, &cfg, &mut padded_evals).unwrap();
-        
-        // Y 방향 FFT
-        cfg.batch_size = padded_x_size as i32;
-        cfg.columns_batch = false;
-        ntt::ntt_inplace(&mut padded_evals, ntt::NTTDir::kForward, &cfg).unwrap();
-        
-        ntt::release_domain::<Self::Field>().unwrap();
-        
-        // 결과에서 원본 크기만 추출하여 evals에 복사
-        let mut padded_result = vec![Self::Field::zero(); padded_size];
-        padded_evals.copy_to_host(HostSlice::from_mut_slice(&mut padded_result)).unwrap();
-        
-        // 2D → 1D 역재배열 적용
-        let mut final_result = vec![Self::Field::zero(); original_size];
-        if original_x_size == 1 && padded_x_size == 1 {
-            // ⭐ 1D → 1D 추출
-            for y in 0..original_y_size {
-                if y < padded_y_size {
-                    final_result[y] = padded_result[y];  // 1D 인덱싱
-                }
-            }
-            println!("1D→1D: {} elements extracted from {} elements", 
-                     original_y_size, padded_y_size);
-        } else if original_x_size == 1 {
-            // 2D → 1D reverse factorization (기존 로직)
-            for i in 0..original_y_size {
-                let source_x = i % padded_x_size;
-                let source_y = i / padded_x_size;
-                if source_y < padded_y_size {
-                    final_result[i] = padded_result[source_y * padded_x_size + source_x];
-                }
-            }
-        } else {
-            // 2D → 2D (기존 로직)
-            for y in 0..original_y_size {
-                for x in 0..original_x_size {
-                    final_result[y * original_x_size + x] = padded_result[y * padded_x_size + x];
-                }
-            }
-        }
-        
-        // ⭐ self를 통해 메서드 호출
-        self.copy_result_to_evals_256(&final_result, original_size, evals);
-    }
-    
-    fn from_rou_evals_with_padding_to_256<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        evals: &S,
-        x_size: usize,
-        y_size: usize,
-        coset_x: Option<&Self::Field>, 
-        coset_y: Option<&Self::Field>
-    ) -> Self {
-        let original_size = x_size * y_size;
-        
-        // ⭐ Y 크기를 유지하면서 안전한 패딩 크기 계산
-        let (padded_x_size, padded_y_size) = Self::calculate_safe_padding_to_256(x_size, y_size);
-        let padded_size = padded_x_size * padded_y_size;
-        
-        // 원본 evals를 패딩된 크기로 확장
-        let mut padded_evals = vec![Self::Field::zero(); padded_size];
-        
-        // evals에서 host로 데이터 복사
-        let mut temp_evals = vec![Self::Field::zero(); original_size];
-        
-        let temp_poly = DensePolynomialExt {
-            poly: DensePolynomial::from_coeffs(HostSlice::from_slice(&vec![Self::Field::zero(); 1]), 1),
-            x_degree: 0,
-            y_degree: 0,
-            x_size: 1,
-            y_size: 1,
-        };
-        temp_poly.copy_evals_to_host(evals, &mut temp_evals);
-        
-        // ⭐ Y 크기 유지하면서 X 방향만 확장
-        if x_size == 1 && padded_x_size == 1 {
-            // 1D → 1D 패딩 (구조 유지)
-            for y in 0..y_size {
-                if y < padded_y_size {
-                    padded_evals[y] = temp_evals[y];  // 1D 인덱싱
-                }
-            }
-            // 나머지는 0으로 패딩 (이미 초기화됨)
-            println!("1D→1D evals: {} elements → {} elements (padded)", y_size, padded_y_size);
-        } else if x_size == 1 {
-            // 1D → 2D factorization
-            for i in 0..y_size {
-                let target_x = i % padded_x_size;
-                let target_y = i / padded_x_size;
-                if target_y < padded_y_size {
-                    padded_evals[target_y * padded_x_size + target_x] = temp_evals[i];
-                }
-            }
-            println!("1D→2D evals: {} elements → {}×{} factorized", y_size, padded_x_size, padded_y_size);
-        } else {
-            // 2D → 2D 직접 복사
-            for y in 0..y_size.min(padded_y_size) {
-                for x in 0..x_size.min(padded_x_size) {
-                    padded_evals[y * padded_x_size + x] = temp_evals[y * x_size + x];
-                }
-            }
-            println!("2D→2D evals: {}×{} → {}×{}", x_size, y_size, padded_x_size, padded_y_size);
-        }
-            
-        // 패딩된 크기로 IFFT 수행
-        ntt::initialize_domain::<Self::Field>(
-            ntt::get_root_of_unity::<Self::Field>(padded_size.try_into().unwrap()),
-            &ntt::NTTInitDomainConfig::default(),
-        ).unwrap();
-    
-        let mut coeffs = DeviceVec::<Self::Field>::device_malloc(padded_size).unwrap();
-        let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-        
-        cfg.batch_size = y_size as i32;
-        cfg.columns_batch = true;
-        println!("from_rou_evals evals_len {:?}, y_size {:?}, x_size {:?}", evals.len(), y_size, x_size);
-        println!("from_rou_evals reshape evals_len {:?}, y_size {:?}, x_size {:?}", padded_evals.len(), padded_y_size, padded_x_size);
-        println!("Y size preserved: {} → {} (same: {})", y_size, padded_y_size, y_size <= padded_y_size);
-        
-        ntt::ntt(HostSlice::from_slice(&padded_evals), ntt::NTTDir::kInverse, &cfg, &mut coeffs).unwrap();
-        
-        // Y 방향 IFFT
-        cfg.batch_size = padded_x_size as i32;
-        cfg.columns_batch = false;
-        ntt::ntt_inplace(&mut coeffs, ntt::NTTDir::kInverse, &cfg).unwrap();
-    
-        ntt::release_domain::<Self::Field>().unwrap();
-    
-        // 결과에서 원본 크기만 추출
-        let mut padded_coeffs = vec![Self::Field::zero(); padded_size];
-        coeffs.copy_to_host(HostSlice::from_mut_slice(&mut padded_coeffs)).unwrap();
-        
-        let mut final_coeffs = vec![Self::Field::zero(); original_size];
-        
-        // ⭐ 수정된 역재배열 로직
-        if x_size == 1 && padded_x_size == 1 {
-            // 1D → 1D 추출
-            for y in 0..y_size {
-                if y < padded_y_size {
-                    final_coeffs[y] = padded_coeffs[y];  // 1D 인덱싱
-                }
-            }
-            println!("1D→1D coeffs: {} elements extracted from {} elements", y_size, padded_y_size);
-        } else if x_size == 1 {
-            // 2D → 1D reverse factorization
-            for i in 0..y_size {
-                let source_x = i % padded_x_size;
-                let source_y = i / padded_x_size;
-                if source_y < padded_y_size {
-                    final_coeffs[i] = padded_coeffs[source_y * padded_x_size + source_x];
-                }
-            }
-            println!("2D→1D coeffs: {}×{} factorized → {} elements", padded_x_size, padded_y_size, y_size);
-        } else {
-            // 2D → 2D 직접 복사
-            for y in 0..y_size {
-                for x in 0..x_size {
-                    final_coeffs[y * x_size + x] = padded_coeffs[y * padded_x_size + x];
-                }
-            }
-            println!("2D→2D coeffs: {}×{} → {}×{}", padded_x_size, padded_y_size, x_size, y_size);
-        }
-        let mut poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&final_coeffs), x_size, y_size);
-    
-        if let Some(_factor) = coset_x {
-            let factor = _factor.inv();
-            poly = poly.scale_coeffs_x(&factor);
-        }
-    
-        if let Some(_factor) = coset_y {
-            let factor = _factor.inv();
-            poly = poly.scale_coeffs_y(&factor);
-        }
-        
-        return poly;
     }
     
 
