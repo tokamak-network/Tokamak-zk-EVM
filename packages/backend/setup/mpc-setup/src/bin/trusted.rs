@@ -14,9 +14,9 @@ use icicle_runtime::Device;
 use libs::bivariate_polynomial::BivariatePolynomial;
 use mpc_setup::conversions::icicle_g1_generator;
 use mpc_setup::prepare::QAP;
+use mpc_setup::sigma::SigmaV2;
 
 fn main() {
-
     let start1 = Instant::now();
 
     // Generate random affine points on the elliptic curve (G1 and G2)
@@ -153,7 +153,7 @@ fn main() {
 
     // Generate sigma components using the computed polynomial evaluations
     let start = Instant::now();
-    let sigma = Sigma::gen(
+    let sigma = SigmaV2::gen(
         &setup_params,
         &tau,
         &o_evaled_vec,
@@ -366,7 +366,7 @@ fn main() {
     sigma.write_into_json_for_preprocess(output_path).unwrap();
     let lap = start.elapsed();
     println!("The sigma writing time: {:.6} seconds", lap.as_secs_f64());
-
+ 
     let total_duration = start1.elapsed();
     println!("Total setup time: {:.6} seconds", total_duration.as_secs_f64());
 

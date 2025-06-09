@@ -140,7 +140,6 @@ pub fn pairing(lhs: &[G1serde], rhs: &[G2serde]) -> PairingOutput<Bls12_381> {
 /// This corresponds to σ = ([σ_1]_1, [σ_2]_2) defined in the paper
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Sigma {
-    pub contributor_index: usize,
     pub G: G1serde,
     pub H: G2serde,
     pub sigma_1: Sigma1,
@@ -163,7 +162,6 @@ impl Sigma {
         let sigma_1 = Sigma1::gen(params, tau, o_vec, l_vec, k_vec, m_vec, g1_gen);
         let sigma_2 = Sigma2::gen(tau, g2_gen);
         Self {
-            contributor_index: 0,
             G: G1serde(*g1_gen),
             H: G2serde(*g2_gen),
             sigma_1,
@@ -182,7 +180,6 @@ pub struct Sigma1 {
     pub y: G1serde,
     pub delta: G1serde,
     pub eta: G1serde,
-    pub gamma: G1serde,
     pub gamma_inv_o_inst: Box<[G1serde]>, // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}_{t=0,j=0}^{1,l-1} where t=0 for j∈[0,l_in-1] and t=1 for j∈[l_in,l-1]
     pub eta_inv_li_o_inter_alpha4_kj: Box<[Box<[G1serde]>]>, // {η^(-1)L_i(y)(o_{j+l}(x) + α^4 K_j(x))}_{i=0,j=0}^{s_max-1,m_I-1}
     pub delta_inv_li_o_prv: Box<[Box<[G1serde]>]>, // {δ^(-1)L_i(y)o_j(x)}_{i=0,j=l+m_I}^{s_max-1,m_I-1}
@@ -244,7 +241,6 @@ impl Sigma1 {
         let y = G1serde(G1Affine::from((*g1_gen).to_projective() * tau.y));
         let delta = G1serde(G1Affine::from((*g1_gen).to_projective() * tau.delta));
         let eta = G1serde(G1Affine::from((*g1_gen).to_projective() * tau.eta));
-        let gamma = G1serde(G1Affine::from((*g1_gen).to_projective() * tau.gamma));
         
         // Generate γ^(-1)(L_t(y)o_j(x) + M_j(x)) for public instance wires j∈[0,l_pub-1], t={0, 1} and γ^(-1)L_t(y)o_j(x) for private instance wires j∈[l_pub,l-1], t={2, 3}
         println!("Generating gamma_inv_o_inst of size {}...", l);
@@ -332,7 +328,6 @@ impl Sigma1 {
             y,
             delta,
             eta,
-            gamma,
             gamma_inv_o_inst,
             eta_inv_li_o_inter_alpha4_kj,
             delta_inv_li_o_prv,

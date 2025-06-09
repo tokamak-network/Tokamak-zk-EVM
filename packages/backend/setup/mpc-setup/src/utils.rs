@@ -30,6 +30,7 @@ use std::ops::{Add, Mul, Sub};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use std::{fs, io};
+use crate::sigma::SigmaV2;
 
 // Import rayon prelude
 pub fn list_files_map(folder: &str) -> io::Result<HashMap<String, PathBuf>> {
@@ -213,11 +214,29 @@ impl PairSerde {
         PairSerde { g1, g2 }
     }
 }
+fn serialize_as_hex<S>(bytes: &[u8; 64], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(&hex::encode(bytes))
+}
+fn deserialize_hex<'de, D>(deserializer: D) -> Result<[u8; 64], D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    let bytes = hex::decode(s).map_err(serde::de::Error::custom)?;
+    let array: [u8; 64] = bytes
+        .try_into()
+        .map_err(|_| serde::de::Error::custom("Expected a 64-byte hex string"))?;
+    Ok(array)
+}
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Proof2 {
     pub x_r_g1: G1serde, //latest x_r contribution
     pub pok_x: G2serde,
-    pub v: [u8; 32],
+    #[serde(serialize_with = "serialize_as_hex", deserialize_with = "deserialize_hex")]
+    pub v: [u8; 64],
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Phase1Proof {
@@ -296,7 +315,7 @@ pub fn compute2(
     rng: &mut RandomGenerator,
     g1: &G1serde,
     prev_x: &SerialSerde,
-    v: &[u8; 32],
+    v: &[u8; 64],
 ) -> (SerialSerde, Proof2) {
     let (cur_x, proof2, _) = compute2_temp(rng, &g1, prev_x, v);
     (cur_x, proof2)
@@ -364,7 +383,7 @@ fn compute2_temp(
     rng: &mut RandomGenerator,
     g1: &G1serde,
     prev_x: &SerialSerde,
-    v: &[u8; 32],
+    v: &[u8; 64],
 ) -> (SerialSerde, Proof2, Vec<ScalarField>) {
     let x_r = rng.next_random();
     let pok_x = pok(g1, x_r, v);
@@ -388,7 +407,7 @@ fn compute2_tempi(
     rng: &mut RandomGenerator,
     g1: &G1serde,
     prev_x: &Vec<PairSerde>,
-    v: &[u8; 32],
+    v: &[u8; 64],
 ) -> (Vec<PairSerde>, Proof2, Vec<ScalarField>) {
     let x_r = rng.next_random();
     let pok_x = pok(g1, x_r, v);
@@ -536,7 +555,7 @@ pub fn initialize_random_generator(mode: &Mode) -> RandomGenerator {
     RandomGenerator::new(strategy, seed)
 }
 
-pub fn hash_sigma(sigma: &Sigma) -> [u8; 32] {
+pub fn hash_sigma(sigma: &SigmaV2) -> [u8; 32] {
     // Serialize without the hash field
     let serialized = bincode::serialize(sigma).expect("Serialization failed for Accumulator");
 
@@ -556,7 +575,7 @@ pub fn compute3(
     prev_xy: &Vec<G1serde>,
     prev_x: &Vec<PairSerde>,
     prev_y: &SerialSerde,
-    v: &[u8; 32],
+    v: &[u8; 64],
 ) -> (
     Vec<G1serde>,
     Vec<PairSerde>,
@@ -682,7 +701,7 @@ pub fn test_compute3() {
     let s_max1: usize = 4;
     let s_max2: usize = 5;
 
-    let v = [34u8; 32];
+    let v = [34u8; 64];
     let mut prev_x = vec![
         PairSerde {
             g1: g1.clone(),
@@ -736,7 +755,7 @@ pub fn compute5(
     prev_alpha: &Vec<PairSerde>,
     prev_x: &Vec<PairSerde>,
     prev_y: &SerialSerde,
-    v: &[u8; 32],
+    v: &[u8; 64],
 ) -> (
     Vec<G1serde>,
     Vec<G1serde>,
@@ -899,7 +918,7 @@ pub fn test_compute5() {
     let s_max1: usize = 16; //x^i
     let s_max2: usize = 32; //y^k
 
-    let v = [34u8; 32];
+    let v = [34u8; 64];
     let mut prev_alpha = vec![
         PairSerde {
             g1: g1.clone(),
@@ -1177,7 +1196,7 @@ pub fn test_compute2() {
 
     let x = vec![ScalarField::one(); s_max];
 
-    let v = [34u8; 32];
+    let v = [34u8; 64];
     let mut prev_x_serial = SerialSerde::new(*g1, *g2, s_max);
 
     // first participant

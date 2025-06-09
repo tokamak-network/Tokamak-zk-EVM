@@ -20,6 +20,8 @@ use serde_json::to_writer_pretty;
 use std::fs::File;
 use std::io;
 use std::io::{BufReader, BufWriter, Read, Write};
+use std::time::Instant;
+use crate::utils::RandomStrategy::SystemRandom;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Accumulator {
@@ -365,10 +367,10 @@ impl Accumulator {
             &cur_proof,
         )
     }
-    pub fn hash(&self) -> [u8; 32] {
+    pub fn hash(&self) -> [u8; 64] {
         let out = self.blake2b_hash();
-        let mut result = [0u8; 32];
-        result.copy_from_slice(&out[..32]);
+        let mut result = [0u8; 64];
+        result.copy_from_slice(&out[..64]);
         result
     }
     pub fn blake2b_hash(&self) -> [u8; 64] {
@@ -450,4 +452,89 @@ mod tests {
         println!("Loaded Accumulator: {:?}", loaded_accumulator);
         assert_eq!(accumulator, loaded_accumulator);
     }
+}
+#[test]
+fn test_compute5() {
+    let rng = &mut RandomGenerator::new(SystemRandom, [0u8; 32]);
+    let start = Instant::now();
+    //initialize
+    let g1 = icicle_g1_generator();
+    let g2 = icicle_g2_generator();
+
+    let alpha_degree: usize = 4; //alpha
+    let x_degree: usize = 64; //x^i
+    let y_degree: usize = 128; //y^k
+
+    let v = [34u8; 64];
+    let mut prev_alpha = vec![PairSerde::new(g1.clone(), g2.clone()); alpha_degree];
+    let mut prev_x = vec![PairSerde::new(g1.clone(), g2.clone()); x_degree];
+    let mut prev_y = SerialSerde::new(g1, g2, y_degree);
+    let mut prev_xy = vec![g1; x_degree * y_degree];
+    let mut prev_alphax = vec![g1; alpha_degree * x_degree];
+    let mut prev_alphay = vec![g1; alpha_degree * y_degree];
+
+    let mut prev_alphaxy = vec![g1; alpha_degree * x_degree * y_degree];
+
+    // first participant
+    let (cur_alphaxy, cur_xy, cur_alphax, cur_alphay, cur_alpha, cur_x, cur_y, proof5) = compute5(
+        rng,
+        &g1,
+        &g2,
+        &prev_alphaxy,
+        &prev_xy,
+        &prev_alphax,
+        &prev_alphay,
+        &prev_alpha,
+        &prev_x,
+        &prev_y,
+        &v,
+    );
+
+    assert_eq!(
+        verify5(
+            &g1,
+            &g2,
+            &prev_alpha,
+            &prev_x,
+            &prev_y,
+            &cur_alphaxy,
+            &cur_xy,
+            &cur_alphax,
+            &cur_alphay,
+            &cur_alpha,
+            &cur_x,
+            &cur_y,
+            &proof5
+        ),
+        true,
+    );
+
+    println!("proof is verified.");
+    prev_alpha = cur_alpha;
+    prev_x = cur_x;
+    prev_y = cur_y;
+    prev_xy = cur_xy;
+    prev_alphaxy = cur_alphaxy;
+    prev_alphax = cur_alphax;
+    prev_alphay = cur_alphay;
+
+    // second participant
+    let (_cur_alphaxy, _cur_xy, _cur_alphax, _cur_alphay, _cur_alpha, _cur_x, _cur_y, _proof5) =
+        compute5(
+            rng,
+            &g1,
+            &g2,
+            &prev_alphaxy,
+            &prev_xy,
+            &prev_alphax,
+            &prev_alphay,
+            &prev_alpha,
+            &prev_x,
+            &prev_y,
+            &v,
+        );
+
+    let duration = start.elapsed();
+
+    println!("Time elapsed: {:?}", duration.as_secs());
 }
