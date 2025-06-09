@@ -6,13 +6,13 @@
   // s_D: The number of subcircuits in the library
   export const setupParams = 
  {
-  "l": 1024,
-  "l_pub_in": 256,
-  "l_pub_out": 256,
-  "l_prv_in": 256,
-  "l_prv_out": 256,
-  "l_D": 3072,
-  "m_D": 12164,
+  "l": 640,
+  "l_pub_in": 48,
+  "l_pub_out": 80,
+  "l_prv_in": 362,
+  "l_prv_out": 150,
+  "l_D": 1664,
+  "m_D": 9928,
   "n": 1024,
   "s_D": 14,
   "s_max": 256
