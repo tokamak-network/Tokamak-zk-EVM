@@ -1,12 +1,12 @@
 {
-  "l": 640,
-  "l_pub_in": 64,
-  "l_pub_out": 64,
-  "l_prv_in": 496,
-  "l_prv_out": 16,
-  "l_D": 1664,
-  "m_D": 8708,
+  "l": 4,
+  "l_pub_in": 1,
+  "l_pub_out": 1,
+  "l_prv_in": 1,
+  "l_prv_out": 1,
+  "l_D": 516,
+  "m_D": 7560,
   "n": 1024,
   "s_D": 14,
-  "s_max": 128
+  "s_max": 4
 }
