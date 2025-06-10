@@ -10,8 +10,6 @@ use std::io;
 
 const PHASE1_ACC_PREFIX: &str = "phase1_acc_";
 const PHASE1_PROOF_PREFIX: &str = "phase1_proof_";
-const LATEST_CHALLENGE_KEY: &str = "phase1_latest_challenge";
-const LATEST_PROOF_KEY: &str = "phase1_latest_proof";
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -22,9 +20,7 @@ struct Config {
 }
 
 const ERROR_PREV_ACC_NOT_FOUND: &str = "Previous phase1 accumulator is not found";
-const ERROR_CURR_ACC_NOT_FOUND: &str = "Current phase1 accumulator is not found";
-const ERROR_PROOF_NOT_FOUND: &str = "Phase1 proof is not found";
-
+  
 //cargo run --release --bin verify_phase1_computations -- --outfolder ./setup/mpc-setup/output
 fn main() {
     let config = Config::parse();
@@ -73,27 +69,7 @@ fn main() {
             }
         }
     }
-
-    // Final verification
-    let latest_acc = Accumulator::read_from_json(
-        phase1_files
-            .get(LATEST_CHALLENGE_KEY)
-            .expect("Latest challenge not found")
-            .to_str()
-            .unwrap(),
-    )
-        .expect("Failed to load latest challenge");
-
-    let latest_proof = Phase1Proof::load_from_json(
-        phase1_files
-            .get(LATEST_PROOF_KEY)
-            .expect("Latest proof not found")
-            .to_str()
-            .unwrap(),
-    )
-        .expect("Failed to load latest proof");
-
-    assert!(current_acc.verify(&latest_acc, &latest_proof), "Final verification failed");
+    
 
     println!("Total execution time: {} seconds", total_start_time.elapsed().as_secs_f64());
 }

@@ -16,11 +16,11 @@ use std::io::{self, BufReader, BufWriter};
 use std::ops::Mul;
 use std::time::Instant;
 use clap::{Parser, ValueEnum};
-use mpc_setup::accumulator::Accumulator;
+ use mpc_setup::sigma::{SigmaV2};
 
 impl_read_from_json!(Phase2Proof);
 impl_write_into_json!(Phase2Proof);
- 
+
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -41,7 +41,6 @@ struct Config {
 
 // cargo run --release --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output --mode testing
 fn main() {
-
     let config = Config::parse();
     // Validate outfolder
     if let Err(e) = check_outfolder_writable(&config.outfolder) {
@@ -66,8 +65,8 @@ fn main() {
         println!("previous contributor is genesis");
     }
     rename_latest_sigma_file(&config.outfolder, &latest_sigma);
-    
-    
+
+
     println!("computing new challenge and proof...");
     let (new_sigma, new_proof) = compute_new_sigma(&mut rng, &latest_sigma);
 
@@ -76,15 +75,15 @@ fn main() {
     verify_and_save_results(&config.outfolder, &latest_sigma, &new_sigma, &new_proof);
     println!("Time elapsed: {:?}", start.elapsed().as_secs_f64());
 }
-fn rename_latest_sigma_file(outfolder: &str, latest_sigma: &Sigma) {
+fn rename_latest_sigma_file(outfolder: &str, latest_sigma: &SigmaV2) {
     fs::rename(
         &format!("{}/phase2_latest_combined_sigma.json", outfolder),
         &format!("{}/phase2_combined_sigma_{}.json", outfolder, latest_sigma.contributor_index)
     ).expect("cannot rename phase2_latest_sigma.json");
 }
 
-fn process_existing_contributor(outfolder: &str, latest_sigma: &Sigma) {
-    let prev_sigma = Sigma::read_from_json(&format!(
+fn process_existing_contributor(outfolder: &str, latest_sigma: &SigmaV2) {
+    let prev_sigma = SigmaV2::read_from_json(&format!(
         "{}/phase2_combined_sigma_{}.json",
         outfolder,
         latest_sigma.contributor_index - 1
@@ -105,17 +104,17 @@ fn process_existing_contributor(outfolder: &str, latest_sigma: &Sigma) {
     ).expect("cannot rename phase2 latest proof file");
 }
 
-fn load_latest_sigma(outfolder: &str) -> Sigma {
-    Sigma::read_from_json(&format!(
+fn load_latest_sigma(outfolder: &str) -> SigmaV2 {
+    SigmaV2::read_from_json(&format!(
         "{}/phase2_latest_combined_sigma.json",
         outfolder
     )).unwrap()
 }
 
-fn verify_and_save_results(outfolder: &str, latest_sigma: &Sigma, new_sigma: &Sigma, new_proof: &Phase2Proof) {
+fn verify_and_save_results(outfolder: &str, latest_sigma: &SigmaV2, new_sigma: &SigmaV2, new_proof: &Phase2Proof) {
     assert!(new_proof.verify(latest_sigma, new_sigma), "proof verification failed");
 
-    Sigma::write_into_json(new_sigma, &format!(
+    SigmaV2::write_into_json(new_sigma, &format!(
         "{}/phase2_latest_combined_sigma.json",
         outfolder
     )).expect("cannot write new combined_sigma to file");
@@ -143,87 +142,87 @@ pub struct Phase2Proof {
 
 
 impl Phase2Proof {
-    pub fn verify(&self, sigma_old: &Sigma, sigma_cur: &Sigma) -> bool {
+    pub fn verify(&self, sigma_old: &SigmaV2, sigma_cur: &SigmaV2) -> bool {
         let v = hash_sigma(&sigma_old);
 
-        assert_eq!(sigma_old.G, sigma_cur.G);
-        assert_eq!(sigma_old.H, sigma_cur.H);
+        assert_eq!(sigma_old.sigma.G, sigma_cur.sigma.G);
+        assert_eq!(sigma_old.sigma.H, sigma_cur.sigma.H);
 
-        assert_eq!(check_pok(&self.delta_t_g1, &sigma_cur.G, self.pok_delta, &v), true);
-        assert_eq!(check_pok(&self.gamma_t_g1, &sigma_cur.G, self.pok_gamma, &v), true);
-        assert_eq!(check_pok(&self.eta_t_g1, &sigma_cur.G, self.pok_eta, &v), true);
+        assert_eq!(check_pok(&self.delta_t_g1, &sigma_cur.sigma.G, self.pok_delta, &v), true);
+        assert_eq!(check_pok(&self.gamma_t_g1, &sigma_cur.sigma.G, self.pok_gamma, &v), true);
+        assert_eq!(check_pok(&self.eta_t_g1, &sigma_cur.sigma.G, self.pok_eta, &v), true);
 
         let ro_tGamma = ro(&self.gamma_t_g1, &v);
         let ro_tEta = ro(&self.eta_t_g1, &v);
         let ro_tDelta = ro(&self.delta_t_g1, &v);
 
-        assert_eq!(consistent(&[sigma_old.sigma_1.gamma, sigma_cur.sigma_1.gamma], &[], &[ro_tGamma, self.pok_gamma]), true);
-        assert_eq!(consistent(&[sigma_old.sigma_1.eta, sigma_cur.sigma_1.eta], &[], &[ro_tEta, self.pok_eta]), true);
-        assert_eq!(consistent(&[sigma_old.sigma_1.delta, sigma_cur.sigma_1.delta], &[], &[ro_tDelta, self.pok_delta]), true);
+        assert_eq!(consistent(&[sigma_old.gamma, sigma_cur.gamma], &[], &[ro_tGamma, self.pok_gamma]), true);
+        assert_eq!(consistent(&[sigma_old.sigma.sigma_1.eta, sigma_cur.sigma.sigma_1.eta], &[], &[ro_tEta, self.pok_eta]), true);
+        assert_eq!(consistent(&[sigma_old.sigma.sigma_1.delta, sigma_cur.sigma.sigma_1.delta], &[], &[ro_tDelta, self.pok_delta]), true);
 
-        assert_eq!(consistent(&[sigma_old.sigma_1.gamma, sigma_cur.sigma_1.gamma], &[], &[sigma_old.sigma_2.gamma, sigma_cur.sigma_2.gamma]), true);
-        assert_eq!(consistent(&[sigma_old.sigma_1.eta, sigma_cur.sigma_1.eta], &[], &[sigma_old.sigma_2.eta, sigma_cur.sigma_2.eta]), true);
-        assert_eq!(consistent(&[sigma_old.sigma_1.delta, sigma_cur.sigma_1.delta], &[], &[sigma_old.sigma_2.delta, sigma_cur.sigma_2.delta]), true);
+        assert_eq!(consistent(&[sigma_old.gamma, sigma_cur.gamma], &[], &[sigma_old.sigma.sigma_2.gamma, sigma_cur.sigma.sigma_2.gamma]), true);
+        assert_eq!(consistent(&[sigma_old.sigma.sigma_1.eta, sigma_cur.sigma.sigma_1.eta], &[], &[sigma_old.sigma.sigma_2.eta, sigma_cur.sigma.sigma_2.eta]), true);
+        assert_eq!(consistent(&[sigma_old.sigma.sigma_1.delta, sigma_cur.sigma.sigma_1.delta], &[], &[sigma_old.sigma.sigma_2.delta, sigma_cur.sigma.sigma_2.delta]), true);
 
-        let consistent_all = sigma_cur.sigma_1.gamma_inv_o_inst.par_iter().zip(sigma_old.sigma_1.gamma_inv_o_inst.par_iter()).all(|(cur, prev)| {
-            consistent(&[*cur, *prev], &[], &[sigma_cur.H, self.gamma_t_g2])
+        let consistent_all = sigma_cur.sigma.sigma_1.gamma_inv_o_inst.par_iter().zip(sigma_old.sigma.sigma_1.gamma_inv_o_inst.par_iter()).all(|(cur, prev)| {
+            consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.gamma_t_g2])
         });
         assert_eq!(consistent_all, true);
         println!("consistent_all for gamma_inv_o_inst: {}", consistent_all);
 
-        let consistent_all = sigma_cur.sigma_1.delta_inv_alpha4_xj_tx.par_iter().zip(sigma_old.sigma_1.delta_inv_alpha4_xj_tx.par_iter()).all(|(cur, prev)| {
-            consistent(&[*cur, *prev], &[], &[sigma_cur.H, self.delta_t_g2])
+        let consistent_all = sigma_cur.sigma.sigma_1.delta_inv_alpha4_xj_tx.par_iter().zip(sigma_old.sigma.sigma_1.delta_inv_alpha4_xj_tx.par_iter()).all(|(cur, prev)| {
+            consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
         });
         assert_eq!(consistent_all, true);
 
         println!("consistent_all for delta_inv_alpha4_xj_tx: {}", consistent_all);
-        let consistent_all = sigma_cur.sigma_1.delta_inv_alphak_xh_tx
+        let consistent_all = sigma_cur.sigma.sigma_1.delta_inv_alphak_xh_tx
             .par_iter()
-            .zip(sigma_old.sigma_1.delta_inv_alphak_xh_tx.par_iter())
+            .zip(sigma_old.sigma.sigma_1.delta_inv_alphak_xh_tx.par_iter())
             .all(|(cur_inner, old_inner)| {
                 cur_inner.par_iter().zip(old_inner.par_iter()).all(|(cur, prev)| {
-                    consistent(&[*cur, *prev], &[], &[sigma_cur.H, self.delta_t_g2])
+                    consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
                 })
             });
         assert_eq!(consistent_all, true);
         println!("consistent_all for delta_inv_alphak_xh_tx: {}", consistent_all);
 
-        let consistent_all = sigma_cur.sigma_1.delta_inv_alphak_yi_ty
+        let consistent_all = sigma_cur.sigma.sigma_1.delta_inv_alphak_yi_ty
             .par_iter()
-            .zip(sigma_old.sigma_1.delta_inv_alphak_yi_ty.par_iter())
+            .zip(sigma_old.sigma.sigma_1.delta_inv_alphak_yi_ty.par_iter())
             .all(|(cur_inner, old_inner)| {
                 cur_inner.par_iter().zip(old_inner.par_iter()).all(|(cur, prev)| {
-                    consistent(&[*cur, *prev], &[], &[sigma_cur.H, self.delta_t_g2])
+                    consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
                 })
             });
         assert_eq!(consistent_all, true);
         println!("consistent_all for delta_inv_alphak_yi_ty: {}", consistent_all);
 
-        let consistent_all = sigma_cur.sigma_1.eta_inv_li_o_inter_alpha4_kj
+        let consistent_all = sigma_cur.sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj
             .par_iter()
-            .zip(sigma_old.sigma_1.eta_inv_li_o_inter_alpha4_kj.par_iter())
+            .zip(sigma_old.sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj.par_iter())
             .all(|(cur_inner, old_inner)| {
                 cur_inner.par_iter().zip(old_inner.par_iter()).all(|(cur, prev)| {
-                    consistent(&[*cur, *prev], &[], &[sigma_cur.H, self.eta_t_g2])
+                    consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.eta_t_g2])
                 })
             });
 
         assert_eq!(consistent_all, true);
         println!("consistent_all for eta_inv_li_o_inter_alpha4_kj: {}", consistent_all);
 
-        let consistent_all = sigma_cur.sigma_1.delta_inv_li_o_prv
+        let consistent_all = sigma_cur.sigma.sigma_1.delta_inv_li_o_prv
             .par_iter()
-            .zip(sigma_old.sigma_1.delta_inv_li_o_prv.par_iter())
+            .zip(sigma_old.sigma.sigma_1.delta_inv_li_o_prv.par_iter())
             .all(|(cur_inner, old_inner)| {
                 cur_inner.par_iter().zip(old_inner.par_iter()).all(|(cur, prev)| {
-                    consistent(&[*cur, *prev], &[], &[sigma_cur.H, self.delta_t_g2])
+                    consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
                 })
             });
         assert_eq!(consistent_all, true);
         true
     }
 }
-fn compute_new_sigma(rng: &mut RandomGenerator, sigma_old: &Sigma) -> (Sigma, Phase2Proof) {
+fn compute_new_sigma(rng: &mut RandomGenerator, sigma_old: &SigmaV2) -> (SigmaV2, Phase2Proof) {
     let mut sigma_new = sigma_old.clone();
     sigma_new.contributor_index = sigma_old.contributor_index + 1;
     let delta = rng.next_random();
@@ -239,38 +238,38 @@ fn compute_new_sigma(rng: &mut RandomGenerator, sigma_old: &Sigma) -> (Sigma, Ph
     let phase2Proof = Phase2Proof {
         contributor_index: sigma_new.contributor_index,
         v: v.to_vec(),
-        delta_t_g1: sigma_old.G.mul(delta),
-        gamma_t_g1: sigma_old.G.mul(gamma),
-        eta_t_g1: sigma_old.G.mul(eta),
-        pok_delta: pok(&sigma_old.G, delta, &v),
-        pok_gamma: pok(&sigma_old.G, gamma, &v),
-        pok_eta: pok(&sigma_old.G, eta, &v),
-        delta_t_g2: sigma_old.H.mul(delta),
-        gamma_t_g2: sigma_old.H.mul(gamma),
-        eta_t_g2: sigma_old.H.mul(eta),
+        delta_t_g1: sigma_old.sigma.G.mul(delta),
+        gamma_t_g1: sigma_old.sigma.G.mul(gamma),
+        eta_t_g1: sigma_old.sigma.G.mul(eta),
+        pok_delta: pok(&sigma_old.sigma.G, delta, &v),
+        pok_gamma: pok(&sigma_old.sigma.G, gamma, &v),
+        pok_eta: pok(&sigma_old.sigma.G, eta, &v),
+        delta_t_g2: sigma_old.sigma.H.mul(delta),
+        gamma_t_g2: sigma_old.sigma.H.mul(gamma),
+        eta_t_g2: sigma_old.sigma.H.mul(eta),
     };
 
-    sigma_new.sigma_1.delta = sigma_old.sigma_1.delta.mul(delta);
-    sigma_new.sigma_1.gamma = sigma_old.sigma_1.gamma.mul(gamma);
-    sigma_new.sigma_1.eta = sigma_old.sigma_1.eta.mul(eta);
+    sigma_new.sigma.sigma_1.delta = sigma_old.sigma.sigma_1.delta.mul(delta);
+    sigma_new.gamma = sigma_old.gamma.mul(gamma);
+    sigma_new.sigma.sigma_1.eta = sigma_old.sigma.sigma_1.eta.mul(eta);
 
-    sigma_new.sigma_2.delta = sigma_old.sigma_2.delta.mul(delta);
-    sigma_new.sigma_2.gamma = sigma_old.sigma_2.gamma.mul(gamma);
-    sigma_new.sigma_2.eta = sigma_old.sigma_2.eta.mul(eta);
+    sigma_new.sigma.sigma_1.delta = sigma_old.sigma.sigma_1.delta.mul(delta);
+    sigma_new.gamma = sigma_old.gamma.mul(gamma);
+    sigma_new.sigma.sigma_1.eta = sigma_old.sigma.sigma_1.eta.mul(eta);
 
-    sigma_new.sigma_1.gamma_inv_o_inst
+    sigma_new.sigma.sigma_1.gamma_inv_o_inst
         .par_iter_mut()
         .for_each(|n| *n = n.mul(gamma_inv));
 
     sigma_new
-        .sigma_1
+        .sigma.sigma_1
         .eta_inv_li_o_inter_alpha4_kj
         .par_iter_mut()
         .for_each(|inner_box| {
             inner_box.par_iter_mut().for_each(|g| *g = g.mul(eta_inv));
         });
     sigma_new
-        .sigma_1
+        .sigma.sigma_1
         .delta_inv_li_o_prv
         .par_iter_mut()
         .for_each(|inner_box| {
@@ -278,7 +277,7 @@ fn compute_new_sigma(rng: &mut RandomGenerator, sigma_old: &Sigma) -> (Sigma, Ph
         });
 
     sigma_new
-        .sigma_1
+        .sigma.sigma_1
         .delta_inv_alphak_xh_tx
         .par_iter_mut()
         .for_each(|inner_box| {
@@ -287,14 +286,14 @@ fn compute_new_sigma(rng: &mut RandomGenerator, sigma_old: &Sigma) -> (Sigma, Ph
 
 
     sigma_new
-        .sigma_1
+        .sigma.sigma_1
         .delta_inv_alphak_yi_ty
         .par_iter_mut()
         .for_each(|inner_box| {
             inner_box.par_iter_mut().for_each(|g| *g = g.mul(delta_inv));
         });
 
-    sigma_new.sigma_1.delta_inv_alpha4_xj_tx
+    sigma_new.sigma.sigma_1.delta_inv_alpha4_xj_tx
         .par_iter_mut()
         .for_each(|n| *n = n.mul(delta_inv));
 

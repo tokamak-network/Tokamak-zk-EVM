@@ -11,6 +11,9 @@ use libs::vector_operations::gen_evaled_lagrange_bases;
 use rayon::prelude::*;
 use std::ops::{Add, Mul};
 use std::sync::Mutex;
+use icicle_bls12_381::polynomials::DensePolynomial;
+use icicle_core::ntt;
+use icicle_core::polynomials::UnivariatePolynomial;
 
 lazy_static! {
     static ref FFT_MUTEX: Mutex<()> = Mutex::new(());
@@ -21,7 +24,7 @@ lazy_static! {
 #[test]
 fn test_eval_lagrange_bases() {
     let g1_gen = CurveCfg::generate_random_affine_points(1)[0];
-    let mut tau = Tau::gen();
+    let tau = Tau::gen();
 
     const S_MAX: usize = 64;
 
@@ -44,9 +47,7 @@ fn test_eval_lagrange_bases() {
 
     assert_eq!(result.into_boxed_slice(), x_evaledCommit);
 }
-pub fn thread_safe_compute_langrange_i_poly(i: usize, max_x: usize, max_y: usize) -> DensePolynomialExt {
-    let _guard = FFT_MUTEX.lock().unwrap(); // Lock before unsafe call
-
+pub fn compute_langrange_i_poly(i: usize, max_x: usize, max_y: usize) -> DensePolynomialExt {
     let mut lag_coeffs = vec![ScalarField::zero(); max_x * max_y];
     compute_langrange_i_coeffs(i, max_x, max_y, &mut lag_coeffs);
     // Mutex guard dropped here
@@ -58,11 +59,7 @@ pub fn poly_mult(poly1: &DensePolynomialExt, poly2: &DensePolynomialExt, multpxy
     multpxy.copy_coeffs(0, cached_val_pows);
     // Mutex guard dropped here
 }
-pub fn thread_safe_compute_langrange_i_coeffs(i: usize, max_x: usize, max_y: usize, res: &mut [ScalarField]) {
-    let _guard = FFT_MUTEX.lock().unwrap(); // Lock before unsafe call
-    compute_langrange_i_coeffs(i, max_x, max_y, res);
-    // Mutex guard dropped here
-}
+
 // given x_g1 = [x^i*G1, x^i*G1, ..., x_max^i*G1]
 // it evaluates the lagrange bases foreach i = 0, ..., s_max-1
 // return x_evaled_vec = [x_0^i, x_1^i, ..., x_s_max^i]
@@ -71,12 +68,12 @@ pub fn eval_langrange_bases(x_g1: &Vec<G1serde>, x_evaled_vec: &mut Vec<G1serde>
     assert_eq!(x_evaled_vec.len(), s_max);
 
     x_evaled_vec
-        .par_iter_mut()
+        .iter_mut()
         .enumerate()
         .for_each(|(i, out)| {
             let mut lag_coeffs = vec![ScalarField::zero(); s_max];
 
-            thread_safe_compute_langrange_i_coeffs(i, s_max, 1, &mut lag_coeffs);
+            compute_langrange_i_coeffs(i, s_max, 1, &mut lag_coeffs);
             // evaluate lagrange base for i
             let result = x_g1
                 .iter()
@@ -98,8 +95,18 @@ fn compute_powers(x_r: ScalarField, len_x: usize) -> Vec<ScalarField> {
     }
     x_powers
 }
+pub fn initialize_domain(size: usize){
+    ntt::initialize_domain::<ScalarField>(
+        ntt::get_root_of_unity::<ScalarField>(
+            size.try_into()
+                .unwrap(),
+        ),
+        &ntt::NTTInitDomainConfig::default(),
+    )
+        .unwrap();
+}
 
-fn compute_langrange_i_coeffs(i: usize, max_x: usize, max_y: usize, res: &mut [ScalarField]) {
+pub fn compute_langrange_i_coeffs(i: usize, max_x: usize, max_y: usize, res: &mut [ScalarField]) {
     let mut l_evals = vec![ScalarField::zero(); max_x * max_y];
     l_evals[i] = ScalarField::one();
     let lagrange_L_XY = DensePolynomialExt::from_rou_evals(
@@ -112,3 +119,4 @@ fn compute_langrange_i_coeffs(i: usize, max_x: usize, max_y: usize, res: &mut [S
     let cached_val_pows = HostSlice::from_mut_slice(res);
     lagrange_L_XY.copy_coeffs(0, cached_val_pows);
 }
+
