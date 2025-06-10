@@ -8,5 +8,6 @@ remappings = [
 viaIr = true
 optimizer = true
 optimizer_runs = 200
+gas_limit = 30_000_000
 
 evm_version = "prague"
