@@ -114,6 +114,9 @@ pub fn transpose_inplace (a_vec: &mut [ScalarField], row_size: usize, col_size:u
     if a_vec.len() != row_size * col_size {
         panic!("Error in transpose")
     } 
+    if row_size * col_size == 0 {
+        return
+    }
     let vec_ops_cfg = VecOpsConfig::default();
     let a = HostSlice::from_slice(&a_vec);
     let mut res_vec = vec![ScalarField::zero(); row_size * col_size];
@@ -124,6 +127,10 @@ pub fn transpose_inplace (a_vec: &mut [ScalarField], row_size: usize, col_size:u
 pub fn matrix_matrix_mul(lhs_mat: &[ScalarField], rhs_mat: &[ScalarField], m: usize, n:usize, l:usize, res_mat: &mut [ScalarField]) {
     if lhs_mat.len() != m * n || rhs_mat.len() != n * l || res_mat.len() != m * l {
         panic!("Incorrect sizes for the matrix multiplication")
+    }
+    if lhs_mat.is_empty() || rhs_mat.is_empty() {
+        res_mat.fill(ScalarField::zero());
+        return;
     }
     // size of LHS: m-by-n
     // size of RHS: n-by-l

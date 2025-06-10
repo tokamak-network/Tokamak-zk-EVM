@@ -75,6 +75,7 @@ console.log("Sender balance after:", Buffer.from(balanceAfter).toString('hex'));
 
   // Generate proof
   const permutation = await finalize(result.runState!.synthesizer.placements, undefined, true)
+  console.log('')
 }
 
 void main().catch(console.error)

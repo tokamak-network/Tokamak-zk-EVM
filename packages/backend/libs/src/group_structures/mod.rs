@@ -263,7 +263,7 @@ impl Sigma1 {
             let l_o_inst_pub_mj_prv_vec = [l_o_inst_pub_mj_vec, l_o_inst_vec[l_pub..l].into()].concat().into_boxed_slice();
             let mut gamma_inv_o_inst_vec = vec![ScalarField::zero(); l].into_boxed_slice();
             scale_vec(tau.gamma.inv(), &l_o_inst_pub_mj_prv_vec, &mut gamma_inv_o_inst_vec);
-            from_coef_vec_to_g1serde_vec_msm(&gamma_inv_o_inst_vec, g1_gen, &mut gamma_inv_o_inst);
+            from_coef_vec_to_g1serde_vec(&gamma_inv_o_inst_vec, g1_gen, &mut gamma_inv_o_inst);
         }
         
         // Generate η^(-1)L_i(y)(o_{j+l}(x) + α^k K_j(x)) for intermediate wires
@@ -304,7 +304,7 @@ impl Sigma1 {
             for j in 0..=1 {
                 delta_inv_alpha4_xj_tx_vec[j] = tau.delta.inv() * tau.alpha.pow(4) * tau.x.pow(j) * t_x;
             }
-            from_coef_vec_to_g1serde_vec_msm(&delta_inv_alpha4_xj_tx_vec, g1_gen, &mut delta_inv_alpha4_xj_tx);
+            from_coef_vec_to_g1serde_vec(&delta_inv_alpha4_xj_tx_vec, g1_gen, &mut delta_inv_alpha4_xj_tx);
         }
         
         // Generate δ^(-1)α^k y^i t_{s_max}(y) for a vanishing polynomial in y

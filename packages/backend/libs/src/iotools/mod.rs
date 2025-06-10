@@ -3,15 +3,16 @@ use icicle_core::ntt;
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use icicle_core::msm::{self, MSMConfig};
+use icicle_runtime::{self, Device, memory::{HostSlice, DeviceVec}};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use crate::field_structures::FieldSerde;
 use crate::group_structures::{G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify, Preprocess};
 use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
+use crate::polynomial_structures::{from_subcircuit_to_QAP, QAP};
 use crate::vector_operations::transpose_inplace;
 
 use super::vector_operations::{*};
 
-use icicle_runtime::memory::{HostSlice, DeviceVec};
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, stdout, Write};
 use std::{env, fmt};
@@ -503,6 +504,58 @@ impl SubcircuitR1CS{
     
 }
 
+impl QAP{
+    pub fn gen_from_R1CS(
+        subcircuit_infos: &Box<[SubcircuitInfo]>,
+        setup_params: &SetupParams,
+    ) -> Self {
+        let m_d = setup_params.m_D;
+        let s_d = setup_params.s_D;
+
+        let global_wire_file_name = "globalWireList.json";
+        let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_file_name).unwrap();
+
+        let zero_coef_vec = [ScalarField::zero()];
+        let zero_coef = HostSlice::from_slice(&zero_coef_vec);
+        let zero_poly = DensePolynomialExt::from_coeffs(zero_coef, 1, 1);
+        let mut u_j_X = vec![zero_poly.clone(); m_d];
+        let mut v_j_X = vec![zero_poly.clone(); m_d];
+        let mut w_j_X = vec![zero_poly.clone(); m_d];
+
+        for i in 0..s_d {
+            println!("Processing subcircuit id {}", i);
+            let r1cs_path: String = format!("json/subcircuit{i}.json");
+
+            let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
+            let (u_j_X_local, v_j_X_local, w_j_X_local) = from_subcircuit_to_QAP(
+                &compact_r1cs,
+                &setup_params,
+                &subcircuit_infos[i]
+            );
+            
+            // Map local wire indices to global wire indices
+            let flatten_map = &subcircuit_infos[i].flattenMap;
+
+            for local_idx in 0..subcircuit_infos[i].Nwires {
+                let global_idx = flatten_map[local_idx];
+
+                // Verify global wire list consistency with flatten map
+                if (global_wire_list[global_idx][0] != subcircuit_infos[i].id) || 
+                   (global_wire_list[global_idx][1] != local_idx) {
+                    panic!("GlobalWireList is not the inverse of flattenMap.");
+                }
+
+                u_j_X[global_idx] = u_j_X_local[local_idx].clone();
+                v_j_X[global_idx] = v_j_X_local[local_idx].clone();
+                w_j_X[global_idx] = w_j_X_local[local_idx].clone();
+            }
+        }
+        return Self {u_j_X, v_j_X, w_j_X}
+    }
+
+    
+}
+
 impl Serialize for FieldSerde {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: serde::Serializer {
@@ -660,16 +713,12 @@ pub fn scaled_outer_product_1d(
     }
     let mut res_coef = vec![ScalarField::zero(); size].into_boxed_slice();
     scaled_outer_product(col_vec, row_vec, scaler, &mut res_coef);
-    from_coef_vec_to_g1serde_vec_msm(
+    from_coef_vec_to_g1serde_vec(
         &res_coef,
         g1_gen,
         res,
     );
 }
-
-
-// use rayon::prelude::*;
-use icicle_runtime::{self, Device};
 
 pub fn from_coef_vec_to_g1serde_vec_msm(
     coef: &Box<[ScalarField]>,
@@ -677,21 +726,17 @@ pub fn from_coef_vec_to_g1serde_vec_msm(
     res: &mut [G1serde],
 ) {
     println!("msm gpu");
-    
 
     let n = coef.len();
     println!("coef.len(): {:?}", n);
     assert_eq!(res.len(), n, "res.len() must equal coef.len()");
 
-    // 전체 시작
     let t_start = Instant::now();
 
-    // 1) 스칼라 호스트 슬라이스
     let t1 = Instant::now();
     let scalars_host = HostSlice::from_slice(coef.as_ref());
     println!("Step 1: scalars_host creation: {:?}", t1.elapsed());
 
-    // 2) generator 포인트 복제 후 호스트 슬라이스
     let t2 = Instant::now();
     let mut pts = Vec::with_capacity(n);
     pts.resize(n, *gen);
@@ -699,13 +744,11 @@ pub fn from_coef_vec_to_g1serde_vec_msm(
     let points_host = HostSlice::from_slice(&pts);
     println!("Step 2: points_host creation: {:?}", t2.elapsed());
 
-    // 3) 결과용 DeviceVec 할당
     let t3 = Instant::now();
     let mut result_dev = DeviceVec::<G1Projective>::device_malloc(n)
         .expect("device_malloc failed");
     println!("Step 3: device_malloc: {:?}", t3.elapsed());
     
-    // 4) MSM 구성 및 실행
     let t4 = Instant::now();
     let cfg = msm::MSMConfig::default();
     msm::msm(
@@ -713,11 +756,9 @@ pub fn from_coef_vec_to_g1serde_vec_msm(
         points_host,        // &[G1Affine]
         &cfg,
         &mut result_dev[..] // &mut DeviceSlice<G1Projective>
-    )
-    .expect("msm failed");
+    ).expect("msm failed");
     println!("Step 4: msm execution: {:?}", t4.elapsed());
 
-    // 5) 디바이스 → 호스트 복사
     let t5 = Instant::now();
     let mut host_out = vec![G1Projective::zero(); n];
     result_dev
@@ -725,7 +766,6 @@ pub fn from_coef_vec_to_g1serde_vec_msm(
         .expect("copy_to_host failed");
     println!("Step 5: copy_to_host: {:?}", t5.elapsed());
 
-    // 6) Projective→Affine→G1serde 변환 (rayon 병렬)
     let t6 = Instant::now();
     host_out
         .into_par_iter()
@@ -735,61 +775,59 @@ pub fn from_coef_vec_to_g1serde_vec_msm(
         });
     println!("Step 6: parallel conversion: {:?}", t6.elapsed());
 
-    // 전체 소요
     println!("Total elapsed: {:?}", t_start.elapsed());
 }
 
-
+fn is_gpu_available() -> bool {
+    let device_gpu = Device::new("CUDA", 0);
+    icicle_runtime::is_device_available(&device_gpu)
+}
 
 pub fn from_coef_vec_to_g1serde_vec(coef: &[ScalarField], gen: &G1Affine, res: &mut [G1serde]) {
-    use std::sync::atomic::{AtomicU32, Ordering};
-    use rayon::prelude::*;
-    use std::io::{stdout, Write};
+    if is_gpu_available() {
+        from_coef_vec_to_g1serde_vec_msm(&coef.to_vec().into_boxed_slice(), gen, res);
+    } else {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        use rayon::prelude::*;
+        use std::io::{stdout, Write};
 
-    println!("msm cpu");
-    let t_start = Instant::now();
+        let t_start = Instant::now();
 
-    if res.len() != coef.len() {
-        panic!("Not enough buffer length.")
-    }
-    if coef.len() == 0 {
-        return
-    }
-    println!("coef.len(): {:?}", coef.len());
+        if res.len() != coef.len() {
+            panic!("Not enough buffer length.")
+        }
+        if coef.len() == 0 {
+            return
+        }
 
-    let gen_proj = gen.to_projective(); 
+        let gen_proj = gen.to_projective(); 
 
-    let cnt = AtomicU32::new(1);
-    let progress = AtomicU32::new(0);
-    let _tick: u32 = std::cmp::max(coef.len() as u32 / 10, 1);
-    let tick = AtomicU32::new(_tick);
-    res.par_iter_mut()
-        .zip(coef.par_iter())
-        .for_each(|(r, &c)| {
-            *r = G1serde(G1Affine::from(gen_proj * c));
-            let current_cnt = cnt.fetch_add(1, Ordering::Relaxed);
-            let target_tick = tick.load(Ordering::Relaxed);
-            if current_cnt >= target_tick {
-                if tick
-                .compare_exchange(target_tick, target_tick + _tick, Ordering::Relaxed, Ordering::Relaxed)
-                .is_ok()
-                {
-                    progress.fetch_add(10, Ordering::Relaxed);
-                    let new_progress = progress.load(Ordering::Relaxed);
-                    print!("\rProgress: {}%, {} elements out of {}.", new_progress, current_cnt, coef.len());
-                    stdout().flush().unwrap();
+        let cnt = AtomicU32::new(1);
+        let progress = AtomicU32::new(0);
+        let _tick: u32 = std::cmp::max(coef.len() as u32 / 10, 1);
+        let tick = AtomicU32::new(_tick);
+        res.par_iter_mut()
+            .zip(coef.par_iter())
+            .for_each(|(r, &c)| {
+                *r = G1serde(G1Affine::from(gen_proj * c));
+                let current_cnt = cnt.fetch_add(1, Ordering::Relaxed);
+                let target_tick = tick.load(Ordering::Relaxed);
+                if current_cnt >= target_tick {
+                    if tick
+                    .compare_exchange(target_tick, target_tick + _tick, Ordering::Relaxed, Ordering::Relaxed)
+                    .is_ok()
+                    {
+                        progress.fetch_add(10, Ordering::Relaxed);
+                        let new_progress = progress.load(Ordering::Relaxed);
+                        print!("\rProgress: {}%, {} elements out of {}.", new_progress, current_cnt, coef.len());
+                        stdout().flush().unwrap();
+                    }
                 }
-            }
-        });
-    println!("\n");
-    println!("Total elapsed: {:?}", t_start.elapsed());
-    print!("\r");
-
-    // HostSlice 두개
-    // coeff으 ㅣ벡터와 gen 포인트 하나.
-    // coeff의 벡터 하나와 gen을 복사해서 벡터로.
-
-    // println!("Number of nonzero coefficients: {:?}", coef.len() - nzeros);
+            });
+        println!("\n");
+        println!("Total elapsed: {:?}", t_start.elapsed());
+        print!("\r");
+    }
 }
 
 pub fn gen_g1serde_vec_of_xy_monomials(
@@ -865,7 +903,7 @@ pub fn from_coef_vec_to_g1serde_mat(coef: &Box<[ScalarField]>, r_size: usize, c_
         panic!("Not enough buffer row length.")
     }
     let mut temp_vec = vec![G1serde::zero(); r_size * c_size].into_boxed_slice();
-    from_coef_vec_to_g1serde_vec_msm(coef, gen, &mut temp_vec);
+    from_coef_vec_to_g1serde_vec(coef, gen, &mut temp_vec);
     for i in 0..r_size {
         if res[i].len() != c_size {
             panic!("Not enough buffer column length.")

@@ -1,5 +1,5 @@
 use std::time::{Duration, Instant};
-use prove::{Prover, Proof};
+use prove::{Prover, Proof, TranscriptManager};
 use icicle_runtime::{self, Device};
 
 fn main() {
@@ -21,12 +21,15 @@ fn main() {
     
     let mut timer: Instant;
     let mut lap: Duration;
-
+    
     println!("Prover initialization...");
     timer = Instant::now();
     let (mut prover, binding) = Prover::init();
     lap = timer.elapsed();
     println!("Prover init time: {:.6} seconds", lap.as_secs_f64());
+
+    // Initialize the transcript manager
+    let mut manager = TranscriptManager::new();
 
     println!("Running prove0...");
     timer = Instant::now();
@@ -34,15 +37,17 @@ fn main() {
     lap = timer.elapsed();
     println!("prove0 running time: {:.6} seconds", lap.as_secs_f64());
 
-    let thetas = proof0.verify0();
-    
+    // Use the manager to get thetas
+    let thetas = proof0.verify0_with_manager(&mut manager);
+        
     println!("Running prove1...");
     timer = Instant::now();
     let proof1 = prover.prove1(&thetas);
     lap = timer.elapsed();
     println!("prove1 running time: {:.6} seconds", lap.as_secs_f64());
-
-    let kappa0 = proof1.verify1();
+    
+    // Use the manager to get kappa0
+    let kappa0 = proof1.verify1_with_manager(&mut manager);
     
     println!("Running prove2...");
     timer = Instant::now();
@@ -50,7 +55,8 @@ fn main() {
     lap = timer.elapsed();
     println!("prove2 running time: {:.6} seconds", lap.as_secs_f64());
 
-    let (chi, zeta) = proof2.verify2();
+    // Use the manager to get chi and zeta
+    let (chi, zeta) = proof2.verify2_with_manager(&mut manager);
     
     println!("Running prove3...");
     timer = Instant::now();
@@ -58,7 +64,7 @@ fn main() {
     lap = timer.elapsed();
     println!("prove3 running time: {:.6} seconds", lap.as_secs_f64());
 
-    let kappa1 = proof3.verify3();
+    let kappa1 = proof3.verify3_with_manager(&mut manager);
     
     println!("Running prove4...");
     timer = Instant::now();
@@ -66,9 +72,28 @@ fn main() {
     lap = timer.elapsed();
     println!("prove4 running time: {:.6} seconds", lap.as_secs_f64());
 
+    // // Create the challenge struct
+    // let challenge = Challenge {
+    //     thetas: thetas.into_boxed_slice(),
+    //     chi,
+    //     zeta,
+    //     kappa0,
+    //     kappa1,
+    // };
+
+    // // Convert to serializable version
+    // let challenge_serde = ChallengeSerde::from(challenge);
+    
     let proof = Proof {
-        binding, proof0, proof1, proof2, proof3, proof4
+        binding, 
+        proof0, 
+        proof1, 
+        proof2, 
+        proof3, 
+        proof4,
+        // challenge: challenge_serde,
     };
+    
     println!("Writing the proof into JSON...");
     let output_path = "prove/output/proof.json";
     proof.write_into_json(output_path).unwrap();
