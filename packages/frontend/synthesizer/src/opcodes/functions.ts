@@ -63,6 +63,7 @@ import { DEFAULT_SOURCE_SIZE } from "../tokamak/constant/constants.js"
 import {
   SynthesizerValidator,
 } from '../tokamak/validation/index.js'
+import { chunkMemory } from "src/tokamak/utils/functions.js"
 
 export interface SyncOpHandler {
   (runState: RunState, common: Common): void
@@ -544,27 +545,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       if (offsetPt.value !== offset || lengthPt.value !== length) {
         throw new Error(`Synthesizer: KECCAK256: Input data mismatch`)
       }
-      const offsetNum = Number(offset)
-      const lengthNum = Number(length)
-      let nChunks = 1
-      if (lengthNum > 32) {
-        nChunks = Math.ceil(lengthNum / 32)
-      }
-      const chunkDataPts = []
-      let dataRecovered = BIGINT_0
-      let lengthLeft = lengthNum
-      for (let i = 0; i < nChunks; i++) {
-        const _offset = offsetNum + 32 * i
-        const _length = lengthLeft > 32 ? 32 : lengthLeft
-        lengthLeft -= _length
-        const dataAliasInfos = runState.memoryPt.getDataAlias(_offset, _length)
-        if (dataAliasInfos.length > 0) {
-          chunkDataPts[i] = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
-        } else {
-          chunkDataPts[i] = runState.synthesizer.loadAuxin(BIGINT_0)
-        }
-        dataRecovered += chunkDataPts[i].value << BigInt((nChunks - i - 1) * 32 * 8)
-      }
+      const {chunkDataPts, dataRecovered} = chunkMemory(offset, length, runState.memoryPt, runState.synthesizer)
       if (bytesToBigInt(data) !== dataRecovered) {
         throw new Error(`Synthesizer: KECCAK256: Data loaded to be hashed mismatch`)
       }
@@ -893,7 +874,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         // Therefore, push the hash of EOFBYTES to the stack
         runState.stack.push(bytesToBigInt(EOFHASH))
 
-        // For Synthesizer //
+        // For Synthesizer (YET IMPLEMENTED PROPERLY) //
         await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
         return
       } else if (common.isActivatedEIP(7702)) {
@@ -935,6 +916,9 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xec, 'EXTCODEHASH')
     },
   ],
   // 0x3d: RETURNDATASIZE
@@ -1649,9 +1633,11 @@ export const handlers: Map<number, OpHandler> = new Map([
           throw new Error(`Synthesizer: 'LOG': Input data mismatch`)
         }
       }
-      const dataAlias = runState.memoryPt.getDataAlias(Number(memOffset), Number(memLength))
-      const dataPt = runState.synthesizer.placeMemoryToStack(dataAlias)
-      runState.synthesizer.storeLog(dataPt, topicPts)
+      const {chunkDataPts, dataRecovered} = chunkMemory(memOffset, memLength, runState.memoryPt, runState.synthesizer)
+      if (bytesToBigInt(mem) !== dataRecovered) {
+        throw new Error(`Synthesizer: LOG: Data loaded to be logged mismatch`)
+      }
+      runState.synthesizer.storeLog(chunkDataPts, topicPts)
     },
   ],
   // 0xd0: DATALOAD

@@ -235,7 +235,8 @@ export async function synthesizerEnvInf(
       if (codePt.value === BIGINT_0) {
         dataPt = runState.synthesizer.loadAuxin(BIGINT_0)
       } else {
-        dataPt = runState.synthesizer.loadAndStoreKeccak([codePt], runState.stack.peek(1)[0])
+        // THIS IS NOT PROPERLY IMPLEMENTED
+        dataPt = runState.synthesizer.loadAndStoreKeccak([codePt], runState.stack.peek(1)[0], 32n)
       }
       break
     }
@@ -277,7 +278,7 @@ export class Synthesizer {
   public envInf: Map<string, { value: bigint; wireIndex: number }>
   public blkInf: Map<string, { value: bigint; wireIndex: number }>
   public storagePt: Map<string, DataPt>
-  public logPt: { topicPts: DataPt[]; valPt: DataPt }[]
+  public logPt: { topicPts: DataPt[]; valPts: DataPt[] }[]
   public keccakPt: {inValues: bigint[]; outValue: bigint}[]
   public TStoragePt: Map<string, Map<bigint, DataPt>>
   protected placementIndex: number
@@ -515,32 +516,16 @@ export class Synthesizer {
     this._addWireToOutBuffer(inPt, outPt, PRV_OUT_PLACEMENT_INDEX)
   }
 
-  public storeLog(valPt: DataPt, topicPts: DataPt[]): void {
-    this.logPt.push({ valPt, topicPts })
+  public storeLog(valPts: DataPt[], topicPts: DataPt[]): void {
+    this.logPt.push({ valPts, topicPts })
     let logKey = BigInt(this.logPt.length - 1)
     let outWireIndex = this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.length
-    // Create output data point
-    const outPtRaw: CreateDataPointParams = {
-      extDest: 'LOG',
-      key: '0x'+logKey.toString(16),
-      type: 'value',
-      // pairedInputWireIndices: [inWireIndex],
-      source: PRV_OUT_PLACEMENT_INDEX,
-      wireIndex: outWireIndex++,
-      value: valPt.value,
-      sourceSize: DEFAULT_SOURCE_SIZE,
-    }
-    const valOutPt = DataPointFactory.create(outPtRaw)
-    // Add input-output pair to the buffer
-    this._addWireToOutBuffer(valPt, valOutPt, PRV_OUT_PLACEMENT_INDEX)
-
     // Create output data point for topics
     for (const [index, topicPt] of topicPts.entries()) {
       const outPtRaw: CreateDataPointParams = {
         extDest: 'LOG',
         key: '0x'+logKey.toString(16),
-        type: `topic${index+1}`,
-        // pairedInputWireIndices: [inWireIndex],
+        type: `topic${index}`,
         source: PRV_OUT_PLACEMENT_INDEX,
         wireIndex: outWireIndex++,
         value: topicPt.value,
@@ -549,6 +534,22 @@ export class Synthesizer {
       const topicOutPt = DataPointFactory.create(outPtRaw)
       // Add input-output pair to the buffer
       this._addWireToOutBuffer(topicPt, topicOutPt, PRV_OUT_PLACEMENT_INDEX)
+    }
+
+    // Create output data point
+    for (const [index, valPt] of valPts.entries()) {
+      const outPtRaw: CreateDataPointParams = {
+        extDest: 'LOG',
+        key: '0x'+logKey.toString(16),
+        type: `value${index}`,
+        source: PRV_OUT_PLACEMENT_INDEX,
+        wireIndex: outWireIndex++,
+        value: valPt.value,
+        sourceSize: DEFAULT_SOURCE_SIZE,
+      }
+      const valOutPt = DataPointFactory.create(outPtRaw)
+      // Add input-output pair to the buffer
+      this._addWireToOutBuffer(valPt, valOutPt, PRV_OUT_PLACEMENT_INDEX)
     }
   }
 
@@ -579,21 +580,26 @@ export class Synthesizer {
     return outPt
   }
 
-  public loadAndStoreKeccak(inPts: DataPt[], outValue: bigint, length?: bigint): DataPt {
+  public loadAndStoreKeccak(inPts: DataPt[], outValue: bigint, length: bigint): DataPt {
     // KECCAK uses both PUB_IN_PLACEMENT and PUB_OUT_PLACEMENT.
     // Parsing the input
     const nChunks = inPts.length
+    const lengthNum = Number(length)
     let value = BIGINT_0
     let inValues: bigint[] = []
+    let lengthLeft = lengthNum
     for (let i = 0; i < nChunks; i++) {
-      value += inPts[i].value << BigInt((nChunks - i - 1) * 32 * 8)
+      const _length = lengthLeft > 32 ? 32 : lengthLeft
+      lengthLeft -= _length
+      // value += inPts[i].value << BigInt((nChunks - i - 1) * 32 * 8)
+      value += inPts[i].value << BigInt( lengthLeft * 8)
       inValues[i] = inPts[i].value
     }
     this.keccakPt.push({ inValues, outValue })
     let keccakKey = BigInt( this.keccakPt.length - 1 )
     // Execute operation
     const valueInBytes = bigIntToBytes(value)
-    const data = setLengthLeft(valueInBytes, Number(length) ?? valueInBytes.length)
+    const data = setLengthLeft(valueInBytes, lengthNum ?? valueInBytes.length)
     const _outValue = BigInt(bytesToHex(keccak256(data)))
     if (_outValue !== outValue) {
       throw new Error(`Synthesizer: loadAndStoreKeccak: The Keccak hash may be customized`)
@@ -921,13 +927,16 @@ export class Synthesizer {
    * @returns {bigint} Shifted value.
    */
   private _applyShift(info: DataAliasInfoEntry): DataPt {
-    const { shift, dataPt } = info
+    const { dataPt: dataPt, shift: shift } = info
     let outPts = [dataPt]
     if (Math.abs(shift) > 0) {
       // The relationship between shift value and shift direction is defined in MemoryPt
       const subcircuitName: ArithmeticOperator = shift > 0 ? 'SHL' : 'SHR'
       const absShift = Math.abs(shift)
       const inPts: DataPt[] = [this.loadAuxin(BigInt(absShift)), dataPt]
+      if (absShift === 11264) {
+        console.log('HERE')
+      }
       outPts = this.placeArith(subcircuitName, inPts)
     }
     return outPts[0]

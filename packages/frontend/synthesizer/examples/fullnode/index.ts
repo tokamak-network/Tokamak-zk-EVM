@@ -15,8 +15,8 @@ dotenv.config({
 });
 
 const TRANSACTION_HASH =
-  '0x80eb2fa4852833833f9ae086688431ffebc9ea3cc891ab7df848cfb3fa8cb5be';
-const RPC_URL = process.env.RPC_URL;
+  '0xa923c73dd87b55f77073c5faad37f1a94eeaec6882b2d2022c076dd7465b3b1a';
+const RPC_URL = 'https://eth-sepolia.g.alchemy.com/v2/PbqCcGx1oHN7yNaFdUJUYqPEN0QSp23S';
 
 const main = async () => {
   if (!RPC_URL) {
