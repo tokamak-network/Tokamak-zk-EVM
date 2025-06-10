@@ -34,7 +34,7 @@ RUN curl -L https://go.dev/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz | tar -xz -
 ENV PATH="/usr/local/go/bin:${PATH}"
 
 # Clone specific repository and branch
-RUN git clone --branch muhammed-mpc_setup https://github.com/mabingol/Tokamak-zk-EVM.git /app
+RUN git clone --branch muhammed-mpc_setup https://github.com/tokamak-network/Tokamak-zk-EVM.git /app
 
 # Set working directory
 WORKDIR /app/packages/backend
@@ -58,7 +58,6 @@ RUN echo '#!/bin/bash\ncargo run --release --bin drive -- --outfolder setup/mpc-
 # Set environment variables
 
 EXPOSE 7878
-
 
 # Default command
 CMD ["bash"]
