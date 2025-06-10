@@ -15,7 +15,7 @@ dotenv.config({
 });
 
 const TRANSACTION_HASH =
-  '0xa923c73dd87b55f77073c5faad37f1a94eeaec6882b2d2022c076dd7465b3b1a';
+  '0x94cf64e16d26fa4b8b710a110b43e9583d7267ae042be25c43999d245e1041dc';
 const RPC_URL = 'https://eth-sepolia.g.alchemy.com/v2/PbqCcGx1oHN7yNaFdUJUYqPEN0QSp23S';
 
 const main = async () => {
@@ -51,8 +51,7 @@ const main = async () => {
     blockNumber,
   );
 
-  // Now run the transfer
-  const result = await evm.runCall({
+  const evmInput = {
     to: new Address(hexToBytes(to)),
     caller: new Address(hexToBytes(from)),
     data: hexToBytes(data),
@@ -71,7 +70,9 @@ const main = async () => {
       },
     },
     skipBalance: true,
-  });
+  }
+  // Now run the transfer
+  const result = await evm.runCall(evmInput);
 
   // console.log('result.execResult : ', result.execResult);
 

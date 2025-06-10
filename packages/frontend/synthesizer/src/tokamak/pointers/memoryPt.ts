@@ -11,34 +11,7 @@ import { Memory } from '../../memory.js'
 import type { RunState } from '../../interpreter.js'
 import type { DataPt } from '../types/index.js'
 
-/**
- * Key differences between Memory and MemoryPt classes
- *
- * 1. Data Structure
- *    - Memory: Uint8Array (continuous byte array)
- *    - MemoryPt: Map<number, { memOffset, containerSize, dataPt }> (memory pointer map)
- *
- * 2. Storage Method
- *    - Memory: Directly stores actual byte values in continuous memory
- *    - MemoryPt: Manages data location and size information through pointers
- *
- * 3. Read/Write Operations
- *    - Memory: Direct read/write to actual memory
- *    - MemoryPt:
- *      - Write: Creates new data pointers and manages overlapping regions
- *      - Read: Returns data alias information through getDataAlias
- *
- * 4. Purpose
- *    - Memory: Memory manipulation during actual EVM execution
- *    - MemoryPt: Memory tracking and analysis for symbolic execution
- *
- * 5. Characteristics
- *    - Memory: Continuous memory space, simple byte manipulation
- *    - MemoryPt:
- *      - Timestamp-based data management
- *      - Memory region conflict detection
- *      - Data alias information generation
- */
+export const CONTAINER_SIZE = 8192
 
 /**
  * Structure representing data alias information.
@@ -158,13 +131,35 @@ export const copyMemoryRegion = (
   return toMemoryPts
 }
 
-/*eslint-disable */
-const CONTAINER_SIZE = 8192
-
 /**
- * Memory implements a simple memory model
- * for the ethereum virtual machine.
+ * Key differences between Memory and MemoryPt classes
+ *
+ * 1. Data Structure
+ *    - Memory: Uint8Array (continuous byte array)
+ *    - MemoryPt: Map<number, { memOffset, containerSize, dataPt }> (memory pointer map)
+ *
+ * 2. Storage Method
+ *    - Memory: Directly stores actual byte values in continuous memory
+ *    - MemoryPt: Manages data location and size information through pointers
+ *
+ * 3. Read/Write Operations
+ *    - Memory: Direct read/write to actual memory
+ *    - MemoryPt:
+ *      - Write: Creates new data pointers and manages overlapping regions
+ *      - Read: Returns data alias information through getDataAlias
+ *
+ * 4. Purpose
+ *    - Memory: Memory manipulation during actual EVM execution
+ *    - MemoryPt: Memory tracking and analysis for symbolic execution
+ *
+ * 5. Characteristics
+ *    - Memory: Continuous memory space, simple byte manipulation
+ *    - MemoryPt:
+ *      - Timestamp-based data management
+ *      - Memory region conflict detection
+ *      - Data alias information generation
  */
+
 export class MemoryPt {
   _storePt: TMemoryPt
   private _timeStamp: number
@@ -196,9 +191,9 @@ export class MemoryPt {
    * @param containerSize - How many bytes to write
    * @param dataPt - Data pointer
    */
-  write(offset: number, size: number, dataPt: DataPt) {
+  write(offset: number, size: number, dataPt: DataPt): Uint8Array {
     if (size === 0) {
-      return
+      return this.viewMemory(offset, size)
     }
 
     // if setLengthLeft(bigIntToBytes(dataPt.value), 32).length !== size) throw new Error('Invalid value size')
@@ -210,6 +205,7 @@ export class MemoryPt {
       containerSize: size,
       dataPt,
     })
+    return this.viewMemory(offset, size)
   }
 
   /**
