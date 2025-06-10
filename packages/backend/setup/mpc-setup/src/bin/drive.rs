@@ -1,4 +1,3 @@
-use std::env;
 use clap::{Parser, ValueEnum};
 use drive_v3::objects::{File, Permission, UploadType};
 use drive_v3::{Credentials, Drive};
@@ -8,14 +7,15 @@ use hyper::body::HttpBody;
 use hyper_rustls::HttpsConnectorBuilder;
 use mpc_setup::utils::prompt_user_input;
 use oauth2::ServiceAccountAuthenticator;
+use std::env;
 use std::fs::File as StdFile;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use tempfile::NamedTempFile;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use zip::write::{ExtendedFileOptions, FileOptions};
 use zip::ZipArchive;
-use tempfile::NamedTempFile;
 
 #[derive(Debug, Clone, ValueEnum)]
 enum Mode {
@@ -34,21 +34,13 @@ struct Config {
     mode: Mode,
 }
 
-
 //cargo run --release --bin drive -- --outfolder ./setup/mpc-setup/output --mode upload
 //cargo run --release --bin drive -- --outfolder ./setup/mpc-setup/output --mode download
-//export SHARED_FOLDER_ID=
-//export CLIENT_ACCOUNT_JSON=
-//export SERVICE_ACCOUNT_JSON=
-//docker build -t tokamak-mpc .
-//docker run --rm -it tokamak-mpc
-//docker run -it --network=host tokamak-mpc
-//docker run -d -p 7878:7878 --name tokamak-mpc
-//docker build --platform=linux/amd64 -t tokamak-mpc .
+
 #[tokio::main]
 async fn main() {
     let shared_folder_id = std::env::var("SHARED_FOLDER_ID").unwrap();
-    println!("shared folder id: {}",shared_folder_id);
+    println!("shared folder id: {}", shared_folder_id);
 
     let config = Config::parse();
     let contributor_index = prompt_user_input("enter your contributor index (uint > 0) :")
@@ -56,13 +48,17 @@ async fn main() {
         .expect("Please enter a valid number");
     match config.mode {
         Mode::Upload => {
-            upload_contributor_file(&config, contributor_index,shared_folder_id.as_str()).await;
+            upload_contributor_file(&config, contributor_index, shared_folder_id.as_str()).await;
             println!("contributor files uploaded");
         }
         Mode::Download => {
-            use_service_account_download(&config.outfolder, contributor_index, shared_folder_id.as_str())
-                .await
-                .unwrap();
+            use_service_account_download(
+                &config.outfolder,
+                contributor_index,
+                shared_folder_id.as_str(),
+            )
+            .await
+            .unwrap();
             println!("latest files downloaded");
         }
     }
@@ -98,10 +94,24 @@ async fn upload_contributor_file(config: &Config, contributor_index: u32, shared
 
     let credentials = Credentials::from_client_secrets_file(&client_scr_path, &scopes)
         .expect("Failed to read credentials");
-    println!("credentials: {:?}", credentials);
 
     let drive = Drive::new(&credentials);
+    //check file exists
+    {
+        let names_query = format!(
+            "name = '{}'",
+            format!("phase1_contributor_{}.zip", contributor_index)
+        );
+        let query = format!("'{}' in parents and ({})", shared_folder_id, names_query);
+        let result = drive.files.list().q(&query).execute().expect("");
 
+        let files = result.files.unwrap_or_default();
+        // Extract all file IDs
+        let file_ids: Vec<String> = files.iter().filter_map(|file| file.id.clone()).collect();
+        if !file_ids.is_empty() {
+            panic!("you cannot upload this contribution because it is already uploaded with file IDs: {:?}", file_ids);
+        }
+    }
     // Set what information the uploaded file will have
     let metadata = File {
         name: Some(format!("phase1_contributor_{}.zip", contributor_index)),
@@ -151,7 +161,8 @@ async fn upload_contributor_file(config: &Config, contributor_index: u32, shared
 
 pub async fn use_service_account_download(
     dest_folder: &str,
-    contributor_index: u32,shared_folder_id: &str
+    contributor_index: u32,
+    shared_folder_id: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if contributor_index == 0 {
         panic!("contributor index must be greater than 0");
@@ -162,7 +173,7 @@ pub async fn use_service_account_download(
     ];
 
     let service_path = write_env_to_temp_file("SERVICE_ACCOUNT_JSON").unwrap();
-   // let base_path = std::env::current_dir()?;
+    // let base_path = std::env::current_dir()?;
     //let fpath = base_path.join("setup/mpc-setup/service-account.json");
 
     let service_account_json = fs::read_to_string(service_path).await?;
@@ -214,7 +225,7 @@ pub async fn use_service_account_download(
     for file_id in file_ids {
         // Prepare output path
         let output_path: PathBuf = [dest_folder, &format!("{}.zip", file_id)].iter().collect();
-        let mut file = fs::File::create(&output_path).await?;
+        let mut file = fs::File::create(&output_path).await.expect("Failed to create file");
 
         let (_response, body) = hub
             .files()
@@ -232,6 +243,7 @@ pub async fn use_service_account_download(
             let data = chunk?;
             file.write_all(&data).await?;
         }
+        file.sync_all().await.expect("Failed to sync file");
         unzip_flat(output_path.as_path().to_str().unwrap(), dest_folder)
             .expect("zip file is corrupted");
         println!("File downloaded successfully to {:?}", output_path);
@@ -262,7 +274,7 @@ fn zip_files(output_zip: &str, files: &[&str]) -> io::Result<()> {
         zip.write_all(&buffer)?;
     }
 
-    zip.finish()?;
+    zip.finish().expect("Failed to finish zip");
     Ok(())
 }
 fn unzip_flat(zip_file: &str, output_dir: &str) -> io::Result<()> {
@@ -276,7 +288,6 @@ fn unzip_flat(zip_file: &str, output_dir: &str) -> io::Result<()> {
         if file_in_zip.is_dir() {
             continue;
         }
-
         // Extract only file name to flatten structure
         let filename = Path::new(file_in_zip.name())
             .file_name()
@@ -286,6 +297,7 @@ fn unzip_flat(zip_file: &str, output_dir: &str) -> io::Result<()> {
 
         let mut outfile = StdFile::create(&outpath)?;
         io::copy(&mut file_in_zip, &mut outfile)?;
+        outfile.sync_all().expect("Failed to sync file");
         println!("Extracted {:?}", outpath);
     }
 
