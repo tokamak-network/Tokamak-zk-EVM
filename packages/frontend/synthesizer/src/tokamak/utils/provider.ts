@@ -12,8 +12,6 @@ export async function getBlockHeaderFromRPC(
     throw new Error(`RPC에서 블록 ${blockNumber}를 찾을 수 없습니다.`);
   }
 
-  console.log('block : ', block);
-
   const mixHash = block.mixHash
     ? hexToBytes(block.mixHash)
     : hexToBytes(

@@ -5,16 +5,17 @@
 
 import { Address, hexToBytes } from '@synthesizer-libs/util';
 import { ethers } from 'ethers';
-import { createEVM } from '../../../src/constructors.js';
-import { finalize } from '../../../src/tokamak/core/finalize.js';
-import { getBlockHeaderFromRPC } from '../../../src/tokamak/utils/index.js';
+import { createEVM } from '../../src/constructors.js';
+import { finalize } from '../../src/tokamak/core/finalize.js';
+import { getBlockHeaderFromRPC } from '../../src/tokamak/utils/index.js';
 import dotenv from 'dotenv';
+
 dotenv.config({
-  path: '../../../.env',
+  path: '../../.env',
 });
 
 const TRANSACTION_HASH =
-  '0x4e059251c79166524f146c44ba9c6fbb02a40b4adaceda15172d32cf24e56b80';
+  '0x80eb2fa4852833833f9ae086688431ffebc9ea3cc891ab7df848cfb3fa8cb5be';
 const RPC_URL = process.env.RPC_URL;
 
 const main = async () => {
@@ -72,9 +73,9 @@ const main = async () => {
     skipBalance: true,
   });
 
-  console.log('result.execResult : ', result.execResult);
+  // console.log('result.execResult : ', result.execResult);
 
-  const permutation = await finalize(
+  await finalize(
     result.execResult.runState!.synthesizer.placements,
     undefined,
     true,
