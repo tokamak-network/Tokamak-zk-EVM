@@ -725,31 +725,20 @@ pub fn from_coef_vec_to_g1serde_vec_msm(
     gen: &G1Affine,
     res: &mut [G1serde],
 ) {
-    println!("msm gpu");
-
     let n = coef.len();
-    println!("coef.len(): {:?}", n);
-    assert_eq!(res.len(), n, "res.len() must equal coef.len()");
 
     let t_start = Instant::now();
 
-    let t1 = Instant::now();
     let scalars_host = HostSlice::from_slice(coef.as_ref());
-    println!("Step 1: scalars_host creation: {:?}", t1.elapsed());
 
-    let t2 = Instant::now();
     let mut pts = Vec::with_capacity(n);
     pts.resize(n, *gen);
-    println!("pts len(): {:?}", pts.len());
-    let points_host = HostSlice::from_slice(&pts);
-    println!("Step 2: points_host creation: {:?}", t2.elapsed());
 
-    let t3 = Instant::now();
+    let points_host = HostSlice::from_slice(&pts);
+
     let mut result_dev = DeviceVec::<G1Projective>::device_malloc(n)
         .expect("device_malloc failed");
-    println!("Step 3: device_malloc: {:?}", t3.elapsed());
-    
-    let t4 = Instant::now();
+
     let cfg = msm::MSMConfig::default();
     msm::msm(
         scalars_host,       // &[ScalarField]
@@ -757,23 +746,18 @@ pub fn from_coef_vec_to_g1serde_vec_msm(
         &cfg,
         &mut result_dev[..] // &mut DeviceSlice<G1Projective>
     ).expect("msm failed");
-    println!("Step 4: msm execution: {:?}", t4.elapsed());
 
-    let t5 = Instant::now();
     let mut host_out = vec![G1Projective::zero(); n];
     result_dev
         .copy_to_host(HostSlice::from_mut_slice(&mut host_out))
         .expect("copy_to_host failed");
-    println!("Step 5: copy_to_host: {:?}", t5.elapsed());
-
-    let t6 = Instant::now();
+  
     host_out
         .into_par_iter()
         .zip(res.par_iter_mut())
         .for_each(|(proj, slot)| {
             *slot = G1serde(G1Affine::from(proj));
         });
-    println!("Step 6: parallel conversion: {:?}", t6.elapsed());
 
     println!("Total elapsed: {:?}", t_start.elapsed());
 }
