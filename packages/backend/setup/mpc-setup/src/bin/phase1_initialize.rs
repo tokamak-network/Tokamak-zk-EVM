@@ -63,6 +63,9 @@ struct Config {
     )]
     mode: Mode,
 }
+
+//curl http://localhost:7878/?state=a6fd0ebe973ecd09b59ae3d7c10e0402f0ab3ba98bf9b5f462188e38804672f9&code=4/0AUJR-x4BoWJZIxcgk_vMDooaffimYPVGYa-VEDUQnb3c7err_SVF5AnbalchNYpkJyGTlQ&scope=https://www.googleapis.com/auth/drive.metadata.readonly%20https://www.googleapis.com/auth/drive.file
+//docker exec -it 0f1d390ea076 /bin/bash
 //  --blockhash aabbccddeeff11223344556677889900aabbccddeeff11223344556677889900 \
 /*
 cargo run --release --bin phase1_initialize -- --s-max 128 --mode testing --setup-params-file setupParams.json  --outfolder ./setup/mpc-setup/output --compress true
@@ -80,8 +83,8 @@ async fn main() {
     let config = Config::parse();
     let (contributor_name, location) = if matches!(config.mode, Mode::Random) {
         (
-            prompt_user_input("enter your full name :"),
-            prompt_user_input("enter your location name :"),
+            prompt_user_input("Enter your name :"),
+            prompt_user_input("Enter location :"),
         )
     } else {
         (String::new(), String::new())

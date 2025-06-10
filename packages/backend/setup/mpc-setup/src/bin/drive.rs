@@ -42,6 +42,9 @@ struct Config {
 //export SERVICE_ACCOUNT_JSON=
 //docker build -t tokamak-mpc .
 //docker run --rm -it tokamak-mpc
+//docker run -it --network=host tokamak-mpc
+//docker run -d -p 7878:7878 --name tokamak-mpc
+//docker build --platform=linux/amd64 -t tokamak-mpc .
 #[tokio::main]
 async fn main() {
     let shared_folder_id = std::env::var("SHARED_FOLDER_ID").unwrap();
@@ -85,17 +88,18 @@ async fn upload_contributor_file(config: &Config, contributor_index: u32, shared
     println!("all files are zipped");
 
     let base_path = std::env::current_dir().unwrap();
-    
+
     // The OAuth scopes you need
     let scopes: [&'static str; 2] = [
         "https://www.googleapis.com/auth/drive.metadata.readonly",
         "https://www.googleapis.com/auth/drive.file",
     ];
     let client_scr_path = write_env_to_temp_file("CLIENT_ACCOUNT_JSON").unwrap();
-    
+
     let credentials = Credentials::from_client_secrets_file(&client_scr_path, &scopes)
         .expect("Failed to read credentials");
-  
+    println!("credentials: {:?}", credentials);
+
     let drive = Drive::new(&credentials);
 
     // Set what information the uploaded file will have
@@ -130,7 +134,7 @@ async fn upload_contributor_file(config: &Config, contributor_index: u32, shared
     let permission = Permission {
         role: Some("writer".to_string()), //owner
         permission_type: Some("user".to_string()),
-        email_address: Some("mabingol@gmail.com".to_string()),
+        email_address: Some("muhammed@tokamak.network".to_string()),
         ..Default::default()
     };
     let file_id = my_new_file.id.unwrap();
@@ -162,7 +166,7 @@ pub async fn use_service_account_download(
     //let fpath = base_path.join("setup/mpc-setup/service-account.json");
 
     let service_account_json = fs::read_to_string(service_path).await?;
-   // println!("service account json: {:?}", service_account_json);
+    println!("service account json: {:?}", service_account_json);
     let service_account_key: oauth2::ServiceAccountKey =
         serde_json::from_str(&service_account_json)?;
 

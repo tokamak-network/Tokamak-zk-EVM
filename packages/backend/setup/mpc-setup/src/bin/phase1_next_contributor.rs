@@ -100,8 +100,8 @@ impl ContributorSession {
         
         
         if matches!(self.config.mode, Mode::Random) {
-              name = prompt_user_input("enter your full name :");
-              location = prompt_user_input("enter your location name :");
+              name = prompt_user_input("Enter your name :");
+              location = prompt_user_input("Enter location :");
         }
 
         let latest_acc = self.load_and_verify_accumulator()?;
