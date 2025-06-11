@@ -598,8 +598,13 @@ export class Synthesizer {
     this.keccakPt.push({ inValues, outValue })
     let keccakKey = BigInt( this.keccakPt.length - 1 )
     // Execute operation
-    const valueInBytes = bigIntToBytes(value)
-    const data = setLengthLeft(valueInBytes, lengthNum ?? valueInBytes.length)
+    let data: Uint8Array
+    if ( value !== 0n ) {
+      const valueInBytes = bigIntToBytes(value)
+      data = setLengthLeft(valueInBytes, lengthNum ?? valueInBytes.length)
+    } else {
+      data = new Uint8Array(0);
+    }
     const _outValue = BigInt(bytesToHex(keccak256(data)))
     if (_outValue !== outValue) {
       throw new Error(`Synthesizer: loadAndStoreKeccak: The Keccak hash may be customized`)

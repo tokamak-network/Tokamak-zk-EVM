@@ -1,7 +1,9 @@
 import { BIGINT_0 } from "@synthesizer-libs/util"
 import { DataPt } from "../types/synthesizer.js"
-import { MemoryPt } from "../pointers/memoryPt.js"
+import { copyMemoryRegion, MemoryPt } from "../pointers/memoryPt.js"
 import { Synthesizer } from "../core/synthesizer.js"
+import { RunState } from "src/interpreter.js";
+import { getDataSlice } from "src/opcodes/util.js";
 
 export function chunkMemory(
     offset: bigint,
@@ -33,4 +35,20 @@ export function chunkMemory(
     }
   
     return { chunkDataPts, dataRecovered };
-  }
+}
+
+export function writeCallOutputPt(runState: RunState, outOffset: bigint, outLength: bigint): Uint8Array {
+    const returnMemoryPts = runState.interpreter.getReturnMemoryPts()
+    if (returnMemoryPts.length > 0) {
+        const acceptMemoryPts = copyMemoryRegion(runState, BIGINT_0, outLength, returnMemoryPts)
+        for (const entry of acceptMemoryPts) {
+        // the lower index, the older data
+        runState.memoryPt.write(
+            Number(outOffset) + entry.memOffset,
+            entry.containerSize,
+            entry.dataPt,
+        )
+        }
+    }
+    return runState.memoryPt.viewMemory(Number(outOffset), Number(outLength))
+}

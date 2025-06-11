@@ -15,7 +15,7 @@ dotenv.config({
 });
 
 const TRANSACTION_HASH =
-  '0x674f1c5605fee4812a09292515f8a9813675a38d766de26891d658bbdf95c693';
+  '0x94cf64e16d26fa4b8b710a110b43e9583d7267ae042be25c43999d245e1041dc';
 const RPC_URL = process.env.RPC_URL;
 
 const main = async () => {
@@ -51,8 +51,7 @@ const main = async () => {
     blockNumber,
   );
 
-  // Now run the transfer
-  const result = await evm.runCall({
+  const evmInput = {
     to: new Address(hexToBytes(to)),
     caller: new Address(hexToBytes(from)),
     data: hexToBytes(data),
@@ -71,7 +70,9 @@ const main = async () => {
       },
     },
     skipBalance: true,
-  });
+  }
+  // Now run the transfer
+  const result = await evm.runCall(evmInput);
 
   // console.log('result.execResult : ', result.execResult);
 
