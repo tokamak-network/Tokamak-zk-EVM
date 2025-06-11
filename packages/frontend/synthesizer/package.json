@@ -84,6 +84,7 @@
     "@types/benchmark": "^1.0.33",
     "@types/core-js": "^2.5.0",
     "@types/minimist": "^1.2.2",
+    "@types/node": "^22.15.14",
     "@types/node-dir": "^0.0.34",
     "@types/rollup-plugin-visualizer": "^4.2.4",
     "benchmark": "^2.1.4",

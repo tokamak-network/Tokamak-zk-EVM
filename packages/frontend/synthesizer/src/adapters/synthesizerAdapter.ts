@@ -213,6 +213,8 @@ export class SynthesizerAdapter {
       data: _calldata,
     });
 
+    console.log(executionResult.runState!.synthesizer.placements)
+
     // validate 옵션을 false로 설정하여 testInstances 함수를 건너뜁니다
     const permutation = await finalize(
       executionResult.runState!.synthesizer.placements,

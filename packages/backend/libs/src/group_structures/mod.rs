@@ -8,7 +8,7 @@ use ark_ff::{Field, PrimeField, Fp12};
 use icicle_runtime::memory::HostSlice;
 use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
 use crate::field_structures::{FieldSerde, Tau};
-use crate::iotools::{from_coef_vec_to_g1serde_mat, from_coef_vec_to_g1serde_vec, scaled_outer_product_1d, scaled_outer_product_2d, Permutation, PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
+use crate::iotools::{from_coef_vec_to_g1serde_mat, from_coef_vec_to_g1serde_vec, from_coef_vec_to_g1serde_vec_msm, scaled_outer_product_1d, scaled_outer_product_2d, Permutation, PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use crate::vector_operations::{*};
 
 use serde::{Deserialize, Serialize};
