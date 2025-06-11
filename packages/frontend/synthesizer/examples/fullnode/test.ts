@@ -9,7 +9,7 @@ import {
   TRANSACTION_HASHES_BATCH_3,
   TRANSACTION_HASHES_BATCH_4,
   TRANSACTION_HASHES_BATCH_5,
-} from './test-cases/index.js';
+} from './test-cases/index';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
@@ -21,7 +21,7 @@ dotenv.config({
 });
 
 // User: Add your transaction hashes here
-const TRANSACTION_HASHES = TRANSACTION_HASHES_BATCH_5;
+const TRANSACTION_HASHES = TRANSACTION_HASHES_BATCH_2;
 
 const RPC_URL = process.env.RPC_URL;
 

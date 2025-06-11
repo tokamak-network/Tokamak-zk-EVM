@@ -70,14 +70,18 @@ const main = async () => {
       },
     },
     skipBalance: true,
-  }
+  };
   // Now run the transfer
   const result = await evm.runCall(evmInput);
 
   // console.log('result.execResult : ', result.execResult);
 
+  if (result.execResult.runState === undefined) {
+    throw new Error('No synthesizer found');
+  }
+
   await finalize(
-    result.execResult.runState!.synthesizer.placements,
+    result.execResult.runState.synthesizer.placements,
     undefined,
     true,
   );
