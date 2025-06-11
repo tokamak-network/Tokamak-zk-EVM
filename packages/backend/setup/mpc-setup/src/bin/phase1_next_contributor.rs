@@ -39,7 +39,6 @@ async fn main() -> Result<(), ContributorError> {
 
     let mut session = ContributorSession::new(config, contributor_index);
     session.run().await?;
-    println!("thanks for your contribution...");
 
     Ok(())
 }
@@ -109,6 +108,7 @@ impl ContributorSession {
         let latest_acc = self.load_and_verify_accumulator()?;
         let (new_acc, new_proof) = self.compute_contribution(&latest_acc, &mut rng)?;
         self.save_results(&new_acc, &new_proof, name, location)?;
+        println!("thanks for your contribution...");
 
         Ok(())
     }
