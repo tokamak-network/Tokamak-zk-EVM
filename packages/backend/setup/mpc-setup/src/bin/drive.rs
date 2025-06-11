@@ -40,7 +40,7 @@ struct Config {
 #[tokio::main]
 async fn main() {
     let shared_folder_id = std::env::var("SHARED_FOLDER_ID").unwrap();
-    println!("shared folder id: {}", shared_folder_id);
+    //println!("shared folder id: {}", shared_folder_id);
 
     let config = Config::parse();
     let contributor_index = prompt_user_input("enter your contributor index (uint > 0) :")
@@ -177,7 +177,7 @@ pub async fn use_service_account_download(
     //let fpath = base_path.join("setup/mpc-setup/service-account.json");
 
     let service_account_json = fs::read_to_string(service_path).await?;
-    println!("service account json: {:?}", service_account_json);
+    //println!("service account json: {:?}", service_account_json);
     let service_account_key: oauth2::ServiceAccountKey =
         serde_json::from_str(&service_account_json)?;
 

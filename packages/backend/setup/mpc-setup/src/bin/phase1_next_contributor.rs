@@ -29,7 +29,8 @@ struct Config {
 // cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode beacon
 #[tokio::main]
 async fn main() -> Result<(), ContributorError> {
-    let config = Config::parse();
+    
+     let config = Config::parse();
     let contributor_index = prompt_user_input("enter your contributor index (uint > 0) :")
         .parse::<u32>()
         .expect("Please enter a valid number");
@@ -38,6 +39,7 @@ async fn main() -> Result<(), ContributorError> {
 
     let mut session = ContributorSession::new(config, contributor_index);
     session.run().await?;
+    println!("thanks for your contribution...");
 
     Ok(())
 }
@@ -258,6 +260,7 @@ impl ContributorSession {
     }
 
     fn create_contributor_info(&self, acc: &Accumulator, proof: &Phase1Proof, name : String, location: String) -> ContributorInfo {
+        println!("Total time elapsed: {:?}", self.start_time.elapsed().as_secs_f64());
         ContributorInfo {
             contributor_no: acc.contributor_index as u32,
             date: Local::now().format("%Y-%m-%d").to_string(),
