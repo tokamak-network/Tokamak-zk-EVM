@@ -1,20 +1,33 @@
 #!/bin/bash
 
 set -e
-# chmod +x icicle_auto_install.sh
 
-# 1. Detect OS and choose download URL
-OS_TYPE="$(uname -s)"
-ARCH_TYPE="$(uname -m)"
-LINUX_DIST=""
-TARBALL_URL=""
-TARBALL_NAME=""
+# Root detection for Docker/Local
+if [ "$(id -u)" == "0" ]; then
+    SUDO=""
+else
+    SUDO="sudo"
+fi
+
 INSTALL_DIR="/opt/icicle"
 
+# OS detection
+OS_TYPE="$(uname -s)"
+LINUX_DIST=""
+LINUX_VER=""
+CUDA_BACKEND=""
+COMMON_TARBALL=""
+BACKEND_TARBALL=""
+COMMON_URL=""
+BACKEND_URL=""
+BACKEND_TYPE=""
+
 if [[ "$OS_TYPE" == "Darwin" ]]; then
-    # macOS (Metal)
-    TARBALL_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/icicle_3_7_0-macOS-Metal.tar.gz"
-    TARBALL_NAME="icicle_3_7_0-macOS-Metal.tar.gz"
+    # macOS
+    COMMON_TARBALL="icicle_3_7_0-macOS.tar.gz"
+    BACKEND_TARBALL="icicle_3_7_0-macOS-Metal.tar.gz"
+    COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$COMMON_TARBALL"
+    BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$BACKEND_TARBALL"
     BACKEND_TYPE="metal"
 elif [[ "$OS_TYPE" == "Linux" ]]; then
     if [ -f /etc/os-release ]; then
@@ -28,12 +41,16 @@ elif [[ "$OS_TYPE" == "Linux" ]]; then
 
     if [[ "$LINUX_DIST" == "ubuntu" ]]; then
         if [[ "$LINUX_VER" == 20.* ]]; then
-            TARBALL_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/icicle_3_7_0-ubuntu20-cuda122.tar.gz"
-            TARBALL_NAME="icicle_3_7_0-ubuntu20-cuda122.tar.gz"
+            COMMON_TARBALL="icicle_3_7_0-ubuntu20.tar.gz"
+            BACKEND_TARBALL="icicle_3_7_0-ubuntu20-cuda122.tar.gz"
+            COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$COMMON_TARBALL"
+            BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$BACKEND_TARBALL"
             BACKEND_TYPE="cuda"
         elif [[ "$LINUX_VER" == 22.* ]]; then
-            TARBALL_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/icicle_3_7_0-ubuntu22-cuda122.tar.gz"
-            TARBALL_NAME="icicle_3_7_0-ubuntu22-cuda122.tar.gz"
+            COMMON_TARBALL="icicle_3_7_0-ubuntu22.tar.gz"
+            BACKEND_TARBALL="icicle_3_7_0-ubuntu22-cuda122.tar.gz"
+            COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$COMMON_TARBALL"
+            BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$BACKEND_TARBALL"
             BACKEND_TYPE="cuda"
         else
             echo "Unsupported Ubuntu version: $LINUX_VER. Only Ubuntu 20 and 22 are supported."
@@ -48,44 +65,36 @@ else
     exit 1
 fi
 
-echo "[*] Detected OS: $OS_TYPE $LINUX_DIST $LINUX_VER"
-echo "[*] Downloading $TARBALL_URL ..."
+echo "[*] Downloading backend package..."
+wget -O $BACKEND_TARBALL "$BACKEND_URL"
+echo "[*] Downloading common runtime package..."
+wget -O $COMMON_TARBALL "$COMMON_URL"
 
-# 2. Download and extract
-wget -O $TARBALL_NAME "$TARBALL_URL"
-echo "[*] Extracting..."
-tar -xzf $TARBALL_NAME
+echo "[*] Extracting packages..."
+tar -xzf $BACKEND_TARBALL
+tar -xzf $COMMON_TARBALL
 
-# 3. Install to target directory
 echo "[*] Installing to $INSTALL_DIR ..."
-sudo mkdir -p $INSTALL_DIR
-sudo cp -r icicle/* $INSTALL_DIR/
+$SUDO mkdir -p $INSTALL_DIR
+$SUDO cp -r icicle/* $INSTALL_DIR/
 
-# 4. Copy field libraries to backend folders
-echo "[*] Copying field libraries to backend $BACKEND_TYPE folders..."
-for curve in bn254 m31 bw6_761 bls12_377 grumpkin koalabear babybear stark252 bls12_381
-do
-  if [[ "$BACKEND_TYPE" == "metal" ]]; then
-    SRC="$INSTALL_DIR/lib/libicicle_field_${curve}.dylib"
-    DEST="$INSTALL_DIR/lib/backend/${curve}/metal/"
-  else
-    SRC="$INSTALL_DIR/lib/libicicle_field_${curve}.so"
-    DEST="$INSTALL_DIR/lib/backend/${curve}/cuda/"
-  fi
-
-  if [ -f "$SRC" ] && [ -d "$DEST" ]; then
-    echo "  - Copying $SRC → $DEST"
-    sudo cp "$SRC" "$DEST"
-  else
-    echo "  - Skipping $curve (missing file or folder)"
-  fi
+# Copy all dynamic libs to backend folders (cuda/metal)
+echo "[*] Copying all shared libraries to backend $BACKEND_TYPE folders..."
+for libfile in $INSTALL_DIR/lib/*.{so,dylib}; do
+    [ -e "$libfile" ] || continue # skip if glob doesn't match
+    libname=$(basename "$libfile")
+    # extract curve name: libicicle_{field,curve}_bn254.{so,dylib}
+    curve=$(echo "$libname" | sed -E 's/libicicle_(field|curve)_([a-z0-9_]+)\.(so|dylib)/\2/')
+    dest="$INSTALL_DIR/lib/backend/$curve/$BACKEND_TYPE/"
+    if [ -d "$dest" ]; then
+        echo "  - Copying $libname to $dest"
+        $SUDO cp "$libfile" "$dest"
+    fi
 done
 
-# 5. Cleanup: remove downloaded files and extracted temp folder
 echo "[*] Cleaning up temporary files..."
-rm -rf $TARBALL_NAME icicle
+rm -rf $BACKEND_TARBALL $COMMON_TARBALL icicle
 
-# 6. Output environment variable setup instructions
 if [[ "$BACKEND_TYPE" == "metal" ]]; then
     ENV_LINE="export DYLD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib/backend/bn254/metal:\$DYLD_LIBRARY_PATH"
     echo ""
@@ -96,12 +105,20 @@ if [[ "$BACKEND_TYPE" == "metal" ]]; then
     echo ""
     echo "You may want to add this to your ~/.zshrc or ~/.bash_profile."
     echo "=================================================================="
-    # Optionally set it for current session
     eval "$ENV_LINE"
     echo "[*] DYLD_LIBRARY_PATH environment variable is set for this session."
 else
+    ENV_LINE="export LD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib/backend/bn254/cuda:\$LD_LIBRARY_PATH"
     echo ""
-    echo "[*] If you are using CUDA, you may need to set the LD_LIBRARY_PATH environment variable as well."
+    echo "=================================================================="
+    echo "[*] Please set the LD_LIBRARY_PATH environment variable:"
+    echo ""
+    echo "   $ENV_LINE"
+    echo ""
+    echo "You may want to add this to your ~/.bashrc or ~/.zshrc."
+    echo "=================================================================="
+    eval "$ENV_LINE"
+    echo "[*] LD_LIBRARY_PATH environment variable is set for this session."
 fi
 
 echo "[*] Done! Icicle backend ($BACKEND_TYPE) installation and setup complete."
