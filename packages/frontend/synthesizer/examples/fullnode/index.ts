@@ -9,13 +9,14 @@ import { createEVM } from '../../src/constructors.js';
 import { finalize } from '../../src/tokamak/core/finalize.js';
 import { getBlockHeaderFromRPC } from '../../src/tokamak/utils/index.js';
 import dotenv from 'dotenv';
+import path from 'path';
 
 dotenv.config({
-  path: '../../.env',
+  path: path.resolve(process.cwd(), '.env'),
 });
 
 const TRANSACTION_HASH =
-  '0x94cf64e16d26fa4b8b710a110b43e9583d7267ae042be25c43999d245e1041dc';
+  '0x694cf4cddd45dedea896dd1f0d9ec512a5bd69410973410bcb2a257c606618b2';
 const RPC_URL = process.env.RPC_URL;
 
 const main = async () => {

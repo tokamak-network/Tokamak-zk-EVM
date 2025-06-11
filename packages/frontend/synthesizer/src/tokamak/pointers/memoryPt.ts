@@ -322,6 +322,10 @@ export class MemoryPt {
   private _viewMemoryConflict(offset: number, size: number): _DataFragments {
     const dataFragments: _DataFragments = new Map()
     const endOffset = offset + size - 1
+    if (!(endOffset >= offset)) {
+      return dataFragments
+    }
+
     const sortedTimeStamps = Array.from(this._storePt.keys()).sort((a, b) => a - b)
 
     let i = 0

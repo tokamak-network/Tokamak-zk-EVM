@@ -554,23 +554,26 @@ export class Synthesizer {
   }
 
   public loadBlkInf(blkNumber: bigint, type: string, value: bigint): DataPt {
-    const whereItFrom = {
+    let hexRaw = value.toString(16);
+    const paddedHex = hexRaw.length % 2 === 1 ? '0' + hexRaw : hexRaw;
+    const valueHex = '0x' + paddedHex;
+    const blockInfo = {
       extSource: `block number: ${Number(blkNumber)}`,
       type,
+      valueHex,
     }
-    const key = JSON.stringify(whereItFrom)
+    const key = JSON.stringify(blockInfo)
     if (this.blkInf.has(key)) {
       // Warm access
       return this.placements.get(PRV_IN_PLACEMENT_INDEX)!.outPts[this.blkInf.get(key)!.wireIndex]
     }
-    const inPtRaw: CreateDataPointParams = {
-      ...whereItFrom,
+    const inPt: DataPt = {
+      ...blockInfo,
       source: PRV_IN_PLACEMENT_INDEX,
       wireIndex: this.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length,
       value,
       sourceSize: DEFAULT_SOURCE_SIZE,
     }
-    const inPt = DataPointFactory.create(inPtRaw)
     const outPt = this._addWireToInBuffer(inPt, PRV_IN_PLACEMENT_INDEX)
     const blkInfEntry = {
       value,
@@ -599,7 +602,7 @@ export class Synthesizer {
     let keccakKey = BigInt( this.keccakPt.length - 1 )
     // Execute operation
     let data: Uint8Array
-    if ( value !== 0n ) {
+    if ( length !== 0n ) {
       const valueInBytes = bigIntToBytes(value)
       data = setLengthLeft(valueInBytes, lengthNum ?? valueInBytes.length)
     } else {
@@ -939,9 +942,6 @@ export class Synthesizer {
       const subcircuitName: ArithmeticOperator = shift > 0 ? 'SHL' : 'SHR'
       const absShift = Math.abs(shift)
       const inPts: DataPt[] = [this.loadAuxin(BigInt(absShift)), dataPt]
-      if (absShift === 11264) {
-        console.log('HERE')
-      }
       outPts = this.placeArith(subcircuitName, inPts)
     }
     return outPts[0]
