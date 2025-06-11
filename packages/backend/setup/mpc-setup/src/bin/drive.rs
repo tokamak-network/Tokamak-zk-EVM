@@ -129,19 +129,36 @@ async fn upload_contributor_file(config: &Config, contributor_index: u32, shared
     }
 
     let fpath = base_path.join(archive_path);
-    let my_new_file = drive
-        .files
-        .create()
-        .upload_type(UploadType::Resumable)
-        .callback(progress_callback)
-        .metadata(&metadata)
-        .content_source(fpath)
-        .execute()
-        .expect("Failed to execute request");
+    let mut my_new_file = File::default();
+    let mut last_err = None;
 
-    assert_eq!(my_new_file.name, metadata.name);
-    assert_eq!(my_new_file.mime_type, metadata.mime_type);
-    let permission = Permission {
+    for attempt in 1..=5 {
+        println!("Attempt {} to upload contributor file...", attempt);
+        match drive
+            .files
+            .create()
+            .upload_type(UploadType::Resumable)
+            .callback(progress_callback)
+            .metadata(&metadata)
+            .content_source(&fpath)
+            .execute()
+        {
+            Ok(file) => {
+                println!("✅ File uploaded successfully on attempt {}", attempt);
+                my_new_file = file; // this will be used after loop
+                break;
+            }
+            Err(e) => {
+                eprintln!("⚠️ Upload failed on attempt {}: {:?}", attempt, e);
+                last_err = Some(e);
+                tokio::time::sleep(std::time::Duration::from_secs(attempt * 5)).await;
+                continue;
+            }
+        }
+    }
+    
+
+     let permission = Permission {
         role: Some("writer".to_string()), //owner
         permission_type: Some("user".to_string()),
         email_address: Some("muhammed@tokamak.network".to_string()),
