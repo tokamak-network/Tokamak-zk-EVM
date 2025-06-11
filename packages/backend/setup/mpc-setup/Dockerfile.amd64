@@ -47,7 +47,7 @@ RUN cargo build --release
 RUN mkdir -p setup/mpc-setup/output && chmod -R 755 setup/mpc-setup/output
 
 # Add convenience scripts
-RUN echo '#!/bin/bash\ncargo run --release --bin phase1_initialize -- --s-max 512 --mode random --setup-params-file setupParams.json --outfolder setup/mpc-setup/output --compress true' > /usr/local/bin/phase1_initialize && chmod +x /usr/local/bin/phase1_initialize
+RUN echo '#!/bin/bash\ncargo run --release --bin phase1_initialize -- --s-max 256 --mode random --setup-params-file setupParams.json --outfolder setup/mpc-setup/output --compress true' > /usr/local/bin/phase1_initialize && chmod +x /usr/local/bin/phase1_initialize
 
 RUN echo '#!/bin/bash\ncargo run --release --bin phase1_next_contributor -- --outfolder setup/mpc-setup/output --mode random' > /usr/local/bin/phase1_next_contributor && chmod +x /usr/local/bin/phase1_next_contributor
 
@@ -58,6 +58,7 @@ RUN echo '#!/bin/bash\ncargo run --release --bin drive -- --outfolder setup/mpc-
 # Set environment variables
 
 EXPOSE 7878
+
 
 # Default command
 CMD ["bash"]

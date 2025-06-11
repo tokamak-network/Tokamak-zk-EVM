@@ -74,6 +74,8 @@ fn main() {
 
     verify_and_save_results(&config.outfolder, &latest_sigma, &new_sigma, &new_proof);
     println!("Time elapsed: {:?}", start.elapsed().as_secs_f64());
+    println!("thanks for your contribution...");
+
 }
 fn rename_latest_sigma_file(outfolder: &str, latest_sigma: &SigmaV2) {
     fs::rename(

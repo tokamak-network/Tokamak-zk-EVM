@@ -126,7 +126,6 @@ async fn main() {
         .write_into_json(&outfile)
         .expect("cannot write to file");
 
-    println!("Time elapsed: {:?}", start.elapsed().as_secs_f64());
 
     if matches!(config.mode, Mode::Random) {
         let fpath = format!(
@@ -142,6 +141,8 @@ async fn main() {
         )
         .expect("cannot write to file");
     }
+    println!("Time elapsed: {:?}", start.elapsed().as_secs_f64());
+    println!("thanks for your contribution...");
 }
 
 fn initialize_scalar(mode: &Mode, blockhash: Option<&String>) -> Result<ScalarField, String> {
