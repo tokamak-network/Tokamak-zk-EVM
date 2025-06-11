@@ -9,7 +9,8 @@
     "paths": {
       "@synthesizer-libs/util": [
         "./node_modules/@synthesizer-libs/util/src/index.js"
-      ]
+      ],
+      "@tokamak/utils": ["./src/tokamak/utils/index.js"]
     }
   },
   "include": ["src"],
