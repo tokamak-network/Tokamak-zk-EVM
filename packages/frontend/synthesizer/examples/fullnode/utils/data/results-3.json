@@ -2,11 +2,7 @@
   {
     "txHash": "0xafa02a2c73c7a0db9d495af2d2f848f2d7d50a1823d638a93070a3c92041d255",
     "methodId": "0x5f575529",
-    "prvIn": 2981,
-    "prvOut": 102,
-    "pubIn": 60,
-    "pubOut": 122,
-    "sMax": 2266
+    "error": "Synthesizer: SELFBALANCE: Output data mismatch"
   },
   {
     "txHash": "0xb3c2fe1c6af8b064b9c34c0b5529f2a4c7f6b2aa5e99a96236afc38b39f96935",
@@ -52,11 +48,7 @@
   {
     "txHash": "0x23c66c5f1f01e9c06c73703fb5b9596b5369472eee1c5ed148367bad47a2db11",
     "methodId": "0x07ed2379",
-    "prvIn": 3342,
-    "prvOut": 132,
-    "pubIn": 84,
-    "pubOut": 166,
-    "sMax": 2428
+    "error": "Synthesizer: SELFBALANCE: Output data mismatch"
   },
   {
     "txHash": "0x85ce6150f027d16158ace16f86a37d9033511f10107a78ac53edfd5247a8c9ec",
@@ -71,20 +63,12 @@
   {
     "txHash": "0x96ce856077132d7c95ff1e5428ab7a2236e35b8ab789f8a4c0b734b940207b00",
     "methodId": "0x07ed2379",
-    "prvIn": 2074,
-    "prvOut": 108,
-    "pubIn": 100,
-    "pubOut": 200,
-    "sMax": 1369
+    "error": "Synthesizer: SELFBALANCE: Output data mismatch"
   },
   {
     "txHash": "0x7afed494c6c1e6b48cee0fd8c6bd9c6a7917ba9b702f68a1a7314c5681f93b2b",
     "methodId": "0x6e305f80",
-    "prvIn": 2025,
-    "prvOut": 76,
-    "pubIn": 50,
-    "pubOut": 100,
-    "sMax": 1521
+    "error": "Synthesizer: SELFBALANCE: Output data mismatch"
   },
   {
     "txHash": "0x5493f4db7d238e10e1f03cdc98496853bbca0bd7727d12c8e7af570ca038b288",
@@ -94,20 +78,12 @@
   {
     "txHash": "0xfd9fd4ec33afde625591683e771b2ef031e5c3f9fcdd0a16dba673ef279dfbc8",
     "methodId": "0x68cdab9c",
-    "prvIn": 1876,
-    "prvOut": 72,
-    "pubIn": 52,
-    "pubOut": 108,
-    "sMax": 1435
+    "error": "Cannot convert 0x to a BigInt"
   },
   {
     "txHash": "0xd744c322a1445e0f3e1df05f2c55d827922c53eb13c31c0b05d9223e5a98c818",
     "methodId": "0x75713a08",
-    "prvIn": 1930,
-    "prvOut": 86,
-    "pubIn": 52,
-    "pubOut": 108,
-    "sMax": 1438
+    "error": "Cannot convert 0x to a BigInt"
   },
   {
     "txHash": "0x602d6c2d52109d2654388bd32051372e1704f72de388ac4e1179b2e53adcddfa",
@@ -120,11 +96,7 @@
   {
     "txHash": "0x540c1efe95363c368423010e0fcfda44944b7d580590164804613285d4d2a3d4",
     "methodId": "0x09c182c3",
-    "prvIn": 2485,
-    "prvOut": 90,
-    "pubIn": 56,
-    "pubOut": 116,
-    "sMax": 1789
+    "error": "Cannot convert 0x to a BigInt"
   },
   {
     "txHash": "0xd004b37d3121fecf2d631893fa4efab8dc6b0e769a10457914cb506c83bb1331",
@@ -249,11 +221,7 @@
   {
     "txHash": "0x2060e0c85aeedcb65b6fa90b43d5377f99d1e0871999ee044c95196c0fae4887",
     "methodId": "0x6e305f80",
-    "prvIn": 2025,
-    "prvOut": 76,
-    "pubIn": 50,
-    "pubOut": 100,
-    "sMax": 1521
+    "error": "Synthesizer: SELFBALANCE: Output data mismatch"
   },
   {
     "txHash": "0x2e94b089117330ff370c183197f80dac2bffc0d8b9c43bef318d1a9877436b57",
@@ -308,7 +276,7 @@
   {
     "txHash": "0xd455038aaca9ef9ca04e4bb04222046cc3bac6f22bcd8d8a0090e1ebb7d6bbd7",
     "methodId": "0xb9a5e9dc",
-    "error": "Precompile is yet implemented in Synthesizer. Will be updated."
+    "error": "Synthesizer: loadAndStoreKeccak: The Keccak hash may be customized"
   },
   {
     "txHash": "0xe6a357a3a3b3b9e4c0148a257f6a58c3e708f07b76f7b9b65fd86a16d354c399",
@@ -363,11 +331,7 @@
   {
     "txHash": "0xae0bf16311d67eff8c084c001415fd714ce713a80c954f0d2dfdce23b894e5f1",
     "methodId": "0x5f575529",
-    "prvIn": 5888,
-    "prvOut": 126,
-    "pubIn": 166,
-    "pubOut": 318,
-    "sMax": 4913
+    "error": "Synthesizer: SELFBALANCE: Output data mismatch"
   },
   {
     "txHash": "0x3250ed87385a9f878988eeaa6eb0826dffca050e55c293069232e860c1e16540",
@@ -442,11 +406,7 @@
   {
     "txHash": "0x24eb602c74415fc8aea6f28a10e516bb9d1f29eb19d2e1321671a0411318bdde",
     "methodId": "0x3593564c",
-    "prvIn": 2888,
-    "prvOut": 120,
-    "pubIn": 84,
-    "pubOut": 172,
-    "sMax": 2006
+    "error": "Cannot convert 0x to a BigInt"
   },
   {
     "txHash": "0x61ef78b8a902e177d06f20a0271ca2e47b85d79e3e844a5c263f4a32b278aa4f",

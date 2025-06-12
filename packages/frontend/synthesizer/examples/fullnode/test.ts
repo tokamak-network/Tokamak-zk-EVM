@@ -21,7 +21,7 @@ dotenv.config({
 });
 
 // User: Add your transaction hashes here
-const TRANSACTION_HASHES = TRANSACTION_HASHES_BATCH_2;
+const TRANSACTION_HASHES = TRANSACTION_HASHES_BATCH_3;
 
 const RPC_URL = process.env.RPC_URL;
 
