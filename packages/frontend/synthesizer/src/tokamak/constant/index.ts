@@ -1,38 +1,19 @@
-// For development
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { pathToFileURL } from 'url';
-
-export * from './constants.js';
+import { subcircuits } from '@qap-compiler/library/subcircuitInfo.js';
+import { globalWireList } from '@qap-compiler/library/globalWireList.js';
+import { setupParams } from '@qap-compiler/library/setupParams.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-let modulePath = path.join(
-  __dirname,
-  '../../../../qap-compiler/subcircuits/library/subcircuitInfo.js',
-);
-let moduleUrl = pathToFileURL(modulePath).href;
-const { subcircuits } = await import(moduleUrl);
-modulePath = path.join(
-  __dirname,
-  '../../../../qap-compiler/subcircuits/library/globalWireList.js',
-);
-moduleUrl = pathToFileURL(modulePath).href;
-const { globalWireList } = await import(moduleUrl);
-modulePath = path.join(
-  __dirname,
-  '../../../../qap-compiler/subcircuits/library/setupParams.js',
-);
-moduleUrl = pathToFileURL(modulePath).href;
-const { setupParams } = await import(moduleUrl);
-
-export { subcircuits, globalWireList, setupParams };
-
-export const wasmDir = path.join(
+const wasmDir = path.join(
   __dirname,
   '../../../../qap-compiler/subcircuits/library/wasm',
 );
+
+export * from './constants.js';
+export { subcircuits, globalWireList, setupParams, wasmDir };
 
 // // For user interface
 // import path from 'path';
