@@ -3,29 +3,36 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { pathToFileURL } from 'url';
 
-export * from './constants.js'
+export * from './constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// export * from './globalWireList.js'
-// export * from './subcircuitInfo.js'
-// export * from './setupParams.js'
-
-let modulePath = path.join(__dirname, '../../../../qap-compiler/subcircuits/library/subcircuitInfo.js');
+let modulePath = path.join(
+  __dirname,
+  '../../../../qap-compiler/subcircuits/library/subcircuitInfo.js',
+);
 let moduleUrl = pathToFileURL(modulePath).href;
 const { subcircuits } = await import(moduleUrl);
-modulePath = path.join(__dirname, '../../../../qap-compiler/subcircuits/library/globalWireList.js');
+modulePath = path.join(
+  __dirname,
+  '../../../../qap-compiler/subcircuits/library/globalWireList.js',
+);
 moduleUrl = pathToFileURL(modulePath).href;
 const { globalWireList } = await import(moduleUrl);
-modulePath = path.join(__dirname, '../../../../qap-compiler/subcircuits/library/setupParams.js');
+modulePath = path.join(
+  __dirname,
+  '../../../../qap-compiler/subcircuits/library/setupParams.js',
+);
 moduleUrl = pathToFileURL(modulePath).href;
 const { setupParams } = await import(moduleUrl);
 
-export {subcircuits, globalWireList, setupParams}
+export { subcircuits, globalWireList, setupParams };
 
-// export const wasmDir = path.join(__dirname, '../constant/wasm')
-export const wasmDir = path.join(__dirname, '../../../../qap-compiler/subcircuits/library/wasm')
+export const wasmDir = path.join(
+  __dirname,
+  '../../../../qap-compiler/subcircuits/library/wasm',
+);
 
 // // For user interface
 // import path from 'path';
@@ -44,4 +51,3 @@ export const wasmDir = path.join(__dirname, '../../../../qap-compiler/subcircuit
 //   __dirname,
 //   '../../../node_modules/@tokamak-zk-evm/qap-compiler/dist/wasm',
 // );
-
