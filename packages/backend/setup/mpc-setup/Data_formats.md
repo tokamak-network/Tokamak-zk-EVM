@@ -10,8 +10,10 @@ This document defines the data format used for `phase1_proof_index.json`, which 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ 4 bytes                ┃  contributor_index          ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
+````
 ### proof2_alpha
+
+````
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃  G1_POINT_SIZE        ┃  alpha_r_g1                  ┃ { "x": "hex string", "y": "hex string" } ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
@@ -21,8 +23,9 @@ This document defines the data format used for `phase1_proof_index.json`, which 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃  64 bytes            ┃  v                            ┃  encoded as a 128-character hexadecimal string ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
+````
 ### proof2_x
+````
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃  G1_POINT_SIZE        ┃  x                           ┃ { "x": "hex string", "y": "hex string" } ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
@@ -32,8 +35,10 @@ This document defines the data format used for `phase1_proof_index.json`, which 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃  64 bytes            ┃  v                            ┃  encoded as a 128-character hexadecimal string ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+````
 
 ### proof2_y
+````
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃  G1_POINT_SIZE        ┃  alpha_y                     ┃ { "x": "hex string", "y": "hex string" } ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
@@ -43,8 +48,6 @@ This document defines the data format used for `phase1_proof_index.json`, which 
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃  64 bytes            ┃  v                            ┃  encoded as a 128-character hexadecimal string ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-
 ````
 The cryptographic curve is BLS12-381. https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-pairing-friendly-curves-10
 
@@ -111,12 +114,13 @@ This document describes the structure of the accumulator file `phase1_acc_index.
 ┃a_deg*x_deg*y_deg*G1_POINT_SIZE ┃  alpha_xy         ┃    List of G1 points representing                         ┃           
 ┃                                ┃                   ┃       { "x": "hex string"|| "y": "hex string" }           ┃                    
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
+````
 
 ## C. phase2_proof_index.json Format Specification
 
 This document specifies the structure and meaning of `phase2_proof_1.json`, which represents a participant's proof contribution in Phase 2 of the Tokamak MPC setup ceremony.
 
+````
 ┏━━━━━━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ 4 bytes                ┃  contributor_index           ┃  
 ┗━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
@@ -150,16 +154,17 @@ This document specifies the structure and meaning of `phase2_proof_1.json`, whic
 ┏━━━━━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃  G2_POINT_SIZE        ┃  eta_t_g2          ┃ { "x": "hex string", "y": "hex string" } ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━ ━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
+````
 
 ## D. `phase2_acc_index.json` Format Specification
 This document defines the format for the accumulator file `phase2_acc_index.json`, used in Phase 2 of the Tokamak MPC setup ceremony. 
-
+````
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ 4 bytes                ┃  contributor_index          ┃  
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
+````
 ### "sigma"
+````
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃  G1_POINT_SIZE            ┃  G                ┃  The base points of the curve in \( G_1 \),                         ┃ 
 ┃                           ┃                   ┃ (X-coordinate ||  Y-coordinate) Represented as hexadecimal string.  ┃                    
@@ -168,9 +173,10 @@ This document defines the format for the accumulator file `phase2_acc_index.json
 ┃  G2_POINT_SIZE            ┃  H                ┃  The base points of the curve in \( G_2 \),                         ┃ 
 ┃                           ┃                   ┃ (X-coordinate ||  Y-coordinate) Represented as hexadecimal string.  ┃                    
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
+````
 
 ### "sigma_1"
+````
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ x_deg * y_deg * G1_POINT_SIZE ┃  xy_powers        ┃    List of G1 points representing                         ┃           
 ┃                               ┃                   ┃       { "x": "hex string"|| "y": "hex string" }           ┃                    
@@ -208,9 +214,10 @@ This document defines the format for the accumulator file `phase2_acc_index.json
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃  12 * G1_POINT_SIZE                ┃  delta_inv_alphak_yi_ty              ┃ { "x": "hex string", "y": "hex string" } ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
+````
 
 ### "sigma_2"
+````
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃  G2_POINT_SIZE            ┃  alpha            ┃ { "x": "hex string", "y": "hex string" } ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
@@ -238,7 +245,7 @@ This document defines the format for the accumulator file `phase2_acc_index.json
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━┓━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃  G1_POINT_SIZE            ┃  gamma            ┃ { "x": "hex string", "y": "hex string" } ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
+````
 
 - ** m_i = l_d - l;
 
