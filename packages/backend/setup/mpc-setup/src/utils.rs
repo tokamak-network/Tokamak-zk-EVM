@@ -4,6 +4,7 @@ use crate::conversions::{
 pub(crate) use crate::conversions::{
     hash_to_g2, icicle_g1_generator, icicle_g2_generator, serialize_g1_affine,
 };
+use crate::sigma::SigmaV2;
 use ark_bls12_381::Bls12_381;
 use ark_ec::pairing::PairingOutput;
 use ark_ec::{AffineRepr, PrimeGroup};
@@ -15,6 +16,7 @@ use clap::ValueEnum;
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::curve::Curve;
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
+use icicle_runtime::Device;
 use libs::field_structures::Tau;
 use libs::group_structures::{pairing, G1serde, G2serde, Sigma};
 use rand::Rng;
@@ -30,8 +32,26 @@ use std::ops::{Add, Mul, Sub};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use std::{fs, io};
-use crate::sigma::SigmaV2;
 
+pub fn load_gpu_if_possible() -> bool {
+    let mut is_gpu_enabled = false;
+
+    let _ = icicle_runtime::load_backend_from_env_or_default();
+    // Check if GPU is available
+    let device_metal_gpu = Device::new("METAL", 0);
+    let device_cuda_gpu = Device::new("CUDA", 0);
+
+    if icicle_runtime::is_device_available(&device_metal_gpu) {
+        println!("METAL GPU is available");
+        icicle_runtime::set_device(&device_metal_gpu).expect("Failed to set metal device");
+        is_gpu_enabled = true;
+    } else if icicle_runtime::is_device_available(&device_cuda_gpu) {
+        println!("CUDA GPU is available");
+        icicle_runtime::set_device(&device_cuda_gpu).expect("Failed to set cuda device");
+        is_gpu_enabled = true;
+    }
+    is_gpu_enabled
+}
 // Import rayon prelude
 pub fn list_files_map(folder: &str) -> io::Result<HashMap<String, PathBuf>> {
     let mut file_map = HashMap::new();
@@ -235,7 +255,10 @@ where
 pub struct Proof2 {
     pub x_r_g1: G1serde, //latest x_r contribution
     pub pok_x: G2serde,
-    #[serde(serialize_with = "serialize_as_hex", deserialize_with = "deserialize_hex")]
+    #[serde(
+        serialize_with = "serialize_as_hex",
+        deserialize_with = "deserialize_hex"
+    )]
     pub v: [u8; 64],
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -499,7 +522,7 @@ impl RandomGenerator {
     }
 }
 /// Prompts user for initial random input
-pub fn prompt_user_input(title : &str) -> String {
+pub fn prompt_user_input(title: &str) -> String {
     print!("{}", title);
     io::stdout().flush().unwrap();
 
@@ -509,7 +532,7 @@ pub fn prompt_user_input(title : &str) -> String {
 }
 
 /// Prompts user for initial random input
-pub fn scalar_from_user_random_input(title : &str) -> [u8; 32] {
+pub fn scalar_from_user_random_input(title: &str) -> [u8; 32] {
     print!("{}", title);
     io::stdout().flush().unwrap();
 

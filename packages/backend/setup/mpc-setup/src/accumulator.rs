@@ -21,6 +21,7 @@ use std::fs::File;
 use std::io;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::time::Instant;
+use crate::sigma::{AaccExt, SigmaV2, HASH_BYTES_LEN};
 use crate::utils::RandomStrategy::SystemRandom;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -367,20 +368,26 @@ impl Accumulator {
             &cur_proof,
         )
     }
-    pub fn hash(&self) -> [u8; 64] {
+    pub fn hash(&self) -> [u8; HASH_BYTES_LEN] {
         let out = self.blake2b_hash();
-        let mut result = [0u8; 64];
-        result.copy_from_slice(&out[..64]);
+        let mut result = [0u8; HASH_BYTES_LEN];
+        result.copy_from_slice(&out[..HASH_BYTES_LEN]);
         result
     }
-    pub fn blake2b_hash(&self) -> [u8; 64] {
+}
+
+impl AaccExt for Accumulator{
+    fn get_contributor_index (&self) -> u32 {
+        self.contributor_index as u32
+    }
+    fn blake2b_hash(&self) -> [u8; HASH_BYTES_LEN] {
         // Serialize without the hash field
         let serialized = bincode::serialize(&self).expect("Serialization failed for Accumulator");
 
         let hash = Blake2b::digest(&serialized);
 
-        let mut result = [0u8; 64];
-        result.copy_from_slice(&hash[..64]);
+        let mut result = [0u8; HASH_BYTES_LEN];
+        result.copy_from_slice(&hash[..HASH_BYTES_LEN]);
         result
     }
 }
