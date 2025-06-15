@@ -16,6 +16,7 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::Mul;
 use std::time::Instant;
+use mpc_setup::sigma::AaccExt;
 
 pub mod drive;
 
@@ -68,7 +69,7 @@ struct Config {
 //docker exec -it 0f1d390ea076 /bin/bash
 //  --blockhash aabbccddeeff11223344556677889900aabbccddeeff11223344556677889900 \
 /*
-cargo run --release --bin phase1_initialize -- --s-max 128 --mode testing --setup-params-file setupParams.json  --outfolder ./setup/mpc-setup/output --compress true
+cargo run --release --bin phase1_initialize -- --s-max 128 --mode testing --setup-params-file setupParams.json  --outfolder ./setup/mpc-setup/output --compress false
 
  cargo run --release --bin phase1_initialize -- \
   --s-max 64 \
@@ -127,20 +128,18 @@ async fn main() {
         .expect("cannot write to file");
 
 
-    if matches!(config.mode, Mode::Random) {
-        let fpath = format!(
-            "{}/phase1_contributor_{}.txt",
-            config.outfolder, genesis_acc.contributor_index
-        );
-        save_contributor_info(
-            &genesis_acc,
-            start.elapsed(),
-            &contributor_name,
-            &location,
-            fpath
-        )
+    let fpath = format!(
+        "{}/phase1_contributor_{}.txt",
+        config.outfolder, genesis_acc.contributor_index
+    );
+    save_contributor_info(
+        &genesis_acc,
+        start.elapsed(),
+        &contributor_name,
+        &location,
+        fpath
+    )
         .expect("cannot write to file");
-    }
     println!("Time elapsed: {:?}", start.elapsed().as_secs_f64());
     println!("thanks for your contribution...");
 }

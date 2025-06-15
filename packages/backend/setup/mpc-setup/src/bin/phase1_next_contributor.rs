@@ -1,8 +1,10 @@
+use std::env;
 use chrono::Local;
 use clap::Parser;
 use mpc_setup::accumulator::Accumulator;
 use mpc_setup::contributor::{get_device_info, ContributorInfo};
-use mpc_setup::utils::{initialize_random_generator, prompt_user_input, Mode, Phase1Proof};
+use mpc_setup::sigma::AaccExt;
+use mpc_setup::utils::{initialize_random_generator, load_gpu_if_possible, prompt_user_input, Mode, Phase1Proof};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
@@ -30,7 +32,17 @@ struct Config {
 #[tokio::main]
 async fn main() -> Result<(), ContributorError> {
     
-     let config = Config::parse();
+    let config = Config::parse();
+
+    let use_gpu: bool = env::var("USE_GPU")
+        .ok()
+        .and_then(|v| v.parse::<bool>().ok())
+        .unwrap_or(false); // default to false
+    let mut is_gpu_enabled = false;
+    if use_gpu {
+        is_gpu_enabled = load_gpu_if_possible()
+    }
+    
     let contributor_index = prompt_user_input("enter your contributor index (uint > 0) :")
         .parse::<u32>()
         .expect("Please enter a valid number");
@@ -219,9 +231,7 @@ impl ContributorSession {
         self.save_accumulator(new_acc)?;
         self.save_proof(new_proof)?;
 
-        if matches!(self.config.mode, Mode::Random) {
-            self.save_contributor_info(new_acc, new_proof,name, location)?;
-        }
+        self.save_contributor_info(new_acc, new_proof,name, location)?;
 
         Ok(())
     }

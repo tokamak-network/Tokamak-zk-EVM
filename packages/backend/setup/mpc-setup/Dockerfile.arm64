@@ -34,11 +34,11 @@ RUN curl -L https://go.dev/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz | tar -xz -
 ENV PATH="/usr/local/go/bin:${PATH}"
 
 # Clone specific repository and branch
-RUN git clone --branch muhammed-mpc_setup https://github.com/tokamak-network/Tokamak-zk-EVM.git /app
+# TODO RUN git clone --branch muhammed-mpc_setup https://github.com/tokamak-network/Tokamak-zk-EVM.git /app
+COPY ./ /app
 
 # Set working directory
 WORKDIR /app/packages/backend
-
 
 # Build the Rust project
 RUN cargo build --release
@@ -51,14 +51,23 @@ RUN echo '#!/bin/bash\ncargo run --release --bin phase1_initialize -- --s-max 25
 
 RUN echo '#!/bin/bash\ncargo run --release --bin phase1_next_contributor -- --outfolder setup/mpc-setup/output --mode random' > /usr/local/bin/phase1_next_contributor && chmod +x /usr/local/bin/phase1_next_contributor
 
-RUN echo '#!/bin/bash\ncargo run --release --bin drive -- --outfolder setup/mpc-setup/output --mode upload' > /usr/local/bin/drive_upload && chmod +x /usr/local/bin/drive_upload
+RUN echo '#!/bin/bash\ncargo run --release --bin drive -- --outfolder setup/mpc-setup/output --mode upload --phase-type 1' > /usr/local/bin/drive_upload_phase1 && chmod +x /usr/local/bin/drive_upload_phase1
 
-RUN echo '#!/bin/bash\ncargo run --release --bin drive -- --outfolder setup/mpc-setup/output --mode download' > /usr/local/bin/drive_download && chmod +x /usr/local/bin/drive_download
+RUN echo '#!/bin/bash\ncargo run --release --bin drive -- --outfolder setup/mpc-setup/output --mode download --phase-type 1' > /usr/local/bin/drive_download_phase1 && chmod +x /usr/local/bin/drive_download_phase1
+
+RUN echo '#!/bin/bash\ncargo run --release --bin drive -- --outfolder setup/mpc-setup/output --mode upload --phase-type 2' > /usr/local/bin/drive_upload_phase2 && chmod +x /usr/local/bin/drive_upload_phase2
+
+RUN echo '#!/bin/bash\ncargo run --release --bin drive -- --outfolder setup/mpc-setup/output --mode download --phase-type 2' > /usr/local/bin/drive_download_phase2 && chmod +x /usr/local/bin/drive_download_phase2
+
+RUN echo '#!/bin/bash\ncargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output' > /usr/local/bin/phase2_prepare && chmod +x /usr/local/bin/phase2_prepare
+
+RUN echo '#!/bin/bash\ncargo run --release --bin phase2_testing_prepare' > /usr/local/bin/phase2_testing_prepare && chmod +x /usr/local/bin/phase2_testing_prepare
+
+RUN echo '#!/bin/bash\ncargo run --release --bin phase2_next_contributor -- --outfolder setup/mpc-setup/output --mode random' > /usr/local/bin/phase2_next_contributor && chmod +x /usr/local/bin/phase2_next_contributor
 
 # Set environment variables
 
 EXPOSE 7878
-
 
 # Default command
 CMD ["bash"]

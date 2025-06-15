@@ -29,13 +29,16 @@ struct Config {
     #[arg(long, value_name = "OUTFOLDER")]
     outfolder: String,
 
+    #[arg(long, value_name = "PHASE_TYPE")]
+    phase_type: u32,
+
     /// Operation mode: upload or download
     #[arg(long, value_enum, value_name = "MODE")]
     mode: Mode,
 }
 
-//cargo run --release --bin drive -- --outfolder ./setup/mpc-setup/output --mode upload
-//cargo run --release --bin drive -- --outfolder ./setup/mpc-setup/output --mode download
+//cargo run --release --bin drive -- --outfolder ./setup/mpc-setup/output --mode upload --phase_type 1
+//cargo run --release --bin drive -- --outfolder ./setup/mpc-setup/output --mode download --phase_type 1
 
 #[tokio::main]
 async fn main() {
@@ -53,6 +56,7 @@ async fn main() {
         }
         Mode::Download => {
             use_service_account_download(
+                config.phase_type,
                 &config.outfolder,
                 contributor_index,
                 shared_folder_id.as_str(),
@@ -64,11 +68,32 @@ async fn main() {
     }
 }
 async fn upload_contributor_file(config: &Config, contributor_index: u32, shared_folder_id: &str) {
-    let archive_path = format!("phase1_contributor_{}.zip", contributor_index);
 
-    let contributor_file = build_file_path(&config.outfolder, "contributor", contributor_index);
-    let acc_file = build_file_path(&config.outfolder, "acc", contributor_index);
-    let proof_file = build_file_path(&config.outfolder, "proof", contributor_index);
+    let mail = env::var("MAIL_NOTIFICATION").unwrap();
+    
+    let archive_path = format!(
+        "phase{}_contributor_{}.zip",
+        config.phase_type, contributor_index
+    );
+
+    let contributor_file = build_file_path(
+        config.phase_type,
+        &config.outfolder,
+        "contributor",
+        contributor_index,
+    );
+    let acc_file = build_file_path(
+        config.phase_type,
+        &config.outfolder,
+        "acc",
+        contributor_index,
+    );
+    let proof_file = build_file_path(
+        config.phase_type,
+        &config.outfolder,
+        "proof",
+        contributor_index,
+    );
 
     let files = if contributor_index == 0 {
         vec![&contributor_file, &acc_file]
@@ -79,7 +104,7 @@ async fn upload_contributor_file(config: &Config, contributor_index: u32, shared
     .map(|s| s.as_str())
     .collect::<Vec<&str>>();
 
-    println!("all files are zipping into {:?}", archive_path);
+    println!("all files ({:?}) are zipping into {:?}", files,archive_path);
     zip_files(&archive_path, &files).expect("Failed to zip files");
     println!("all files are zipped");
 
@@ -100,7 +125,10 @@ async fn upload_contributor_file(config: &Config, contributor_index: u32, shared
     {
         let names_query = format!(
             "name = '{}'",
-            format!("phase1_contributor_{}.zip", contributor_index)
+            format!(
+                "phase{}_contributor_{}.zip",
+                config.phase_type, contributor_index
+            )
         );
         let query = format!("'{}' in parents and ({})", shared_folder_id, names_query);
         let result = drive.files.list().q(&query).execute().expect("");
@@ -114,7 +142,10 @@ async fn upload_contributor_file(config: &Config, contributor_index: u32, shared
     }
     // Set what information the uploaded file will have
     let metadata = File {
-        name: Some(format!("phase1_contributor_{}.zip", contributor_index)),
+        name: Some(format!(
+            "phase{}_contributor_{}.zip",
+            config.phase_type, contributor_index
+        )),
         mime_type: Some("application/zip".to_string()),
         parents: Some(vec![shared_folder_id.to_string()]),
         ..Default::default()
@@ -156,12 +187,11 @@ async fn upload_contributor_file(config: &Config, contributor_index: u32, shared
             }
         }
     }
-    
 
-     let permission = Permission {
+    let permission = Permission {
         role: Some("writer".to_string()), //owner
         permission_type: Some("user".to_string()),
-        email_address: Some("muhammed@tokamak.network".to_string()),
+        email_address: Some(mail.to_string()),
         ..Default::default()
     };
     let file_id = my_new_file.id.unwrap();
@@ -177,6 +207,7 @@ async fn upload_contributor_file(config: &Config, contributor_index: u32, shared
 }
 
 pub async fn use_service_account_download(
+    phase_type: u32,
     dest_folder: &str,
     contributor_index: u32,
     shared_folder_id: &str,
@@ -185,8 +216,16 @@ pub async fn use_service_account_download(
         panic!("contributor index must be greater than 0");
     }
     let file_names = vec![
-        format!("phase1_contributor_{}.zip", contributor_index - 1),
-        format!("phase1_contributor_{}.zip", contributor_index - 2),
+        format!(
+            "phase{}_contributor_{}.zip",
+            phase_type,
+            contributor_index - 1
+        ),
+        format!(
+            "phase{}_contributor_{}.zip",
+            phase_type,
+            contributor_index - 2
+        ),
     ];
 
     let service_path = write_env_to_temp_file("SERVICE_ACCOUNT_JSON").unwrap();
@@ -242,7 +281,9 @@ pub async fn use_service_account_download(
     for file_id in file_ids {
         // Prepare output path
         let output_path: PathBuf = [dest_folder, &format!("{}.zip", file_id)].iter().collect();
-        let mut file = fs::File::create(&output_path).await.expect("Failed to create file");
+        let mut file = fs::File::create(&output_path)
+            .await
+            .expect("Failed to create file");
 
         let (_response, body) = hub
             .files()
@@ -320,10 +361,11 @@ fn unzip_flat(zip_file: &str, output_dir: &str) -> io::Result<()> {
 
     Ok(())
 }
-fn build_file_path(base_path: &str, file_type: &str, index: u32) -> String {
+fn build_file_path(phase_type: u32, base_path: &str, file_type: &str, index: u32) -> String {
     format!(
-        "{}/phase1_{}_{}.{}",
+        "{}/phase{}_{}_{}.{}",
         base_path,
+        phase_type,
         file_type,
         index,
         match file_type {
