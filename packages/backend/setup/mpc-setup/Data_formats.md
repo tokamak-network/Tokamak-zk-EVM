@@ -4,7 +4,7 @@ The MPC setup ceremony produces two outputs for each phase: a proof and an accum
 
 ## A. phase1_proof_index.json Format Specification
 
-This document defines the data format used for `phase1_proof_index.json`, which is a JSON representation of the zero-knowledge proof contributions made by a specific participant in Phase 1 of the Tokamak MPC setup ceremony. The format includes multiple non-interactive zero-knowledge proofs for elements \(\alpha\), \(x\), and \(y\).
+This document defines the data format used for `phase1_proof_index.json`, which is a JSON representation of the zero-knowledge proof contributions made by a specific participant in Phase 1 of the Tokamak MPC setup ceremony. The format includes multiple non-interactive zero-knowledge proofs for elements $\alpha$, $x$, and $y$.
 
 ````
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -247,6 +247,6 @@ This document defines the format for the accumulator file `phase2_acc_index.json
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 ````
 
-- ** $m_i = l_d - l$;
+- $m_i = l_d - l$;
 
-- ** for delta_inv_li_o_prv the calculation :  $( m_D - m_l - l = m_D - l_D )$
+- for delta_inv_li_o_prv the calculation :  $( m_D - m_l - l = m_D - l_D )$
