@@ -247,6 +247,6 @@ This document defines the format for the accumulator file `phase2_acc_index.json
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━┛━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 ````
 
-- ** m_i = l_d - l;
+- ** $m_i = l_d - l$;
 
-- ** for delta_inv_li_o_prv the calculation :  ( m_D - m_l - l = m_D - l_D )
+- ** for delta_inv_li_o_prv the calculation :  $( m_D - m_l - l = m_D - l_D )$
