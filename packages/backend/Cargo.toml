@@ -2,6 +2,7 @@
 members = [
     "libs",
     "setup/trusted-setup",
+    "setup/mpc-setup",
     "prove",
     "verify/verify-rust",
     "verify/preprocess"

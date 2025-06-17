@@ -55,6 +55,14 @@ impl DensePolynomialExt {
     pub fn degree(&self) -> (i64, i64) {
         (self.x_degree, self.y_degree)
     }
+
+    pub fn is_zero(&self) -> bool {
+        let (x_degree, y_degree) = self.find_degree();
+        if x_degree == -1 && y_degree == -1 {
+            return true
+        }
+        return false
+    }
 }
 
 // impl Drop for DensePolynomialExt {
