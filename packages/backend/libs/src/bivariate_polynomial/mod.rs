@@ -57,7 +57,11 @@ impl DensePolynomialExt {
     }
 
     pub fn is_zero(&self) -> bool {
-        self.x_size <= 1 && self.y_size <= 1 && self.get_coeff(0,0) == ScalarField::zero()
+        let (x_degree, y_degree) = self.find_degree();
+        if x_degree == -1 && y_degree == -1 {
+            return true
+        }
+        return false
     }
 }
 
