@@ -5,6 +5,7 @@ This guide provides step-by-step instructions to run the MPC (Multi-Party Comput
 ⚙️ Prerequisites
 
 Before running the MPC ceremony, ensure you follow the [prerequisites](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/README.md) of Tokamak zk-EVM (at least until end of step 4). Ensure the frontend is running properly.
+Install openSSL on your system. 
 
 🛡️ **Phase 1:**
 Navigate to the backend directory:
@@ -19,30 +20,47 @@ Here replace the **blockhash** value with a data that is not predictable inadvan
 For initialization (compressed form):
 ```bash
  cargo run --release --bin phase1_initialize -- \
-  --s-max 512 \
-  --blockhash 000000000000000000010d25c535f487edea60d3088b0166a627d6e85c3d2d05 \
+  --s-max 256 \
   --mode random \
   --setup-params-file setupParams.json  \
   --outfolder ./setup/mpc-setup/output \
   --compress true
 ```
+
 For initialization (uncompressed form):
 ```bash
  cargo run --release --bin phase1_initialize -- \
-  --s-max 512 \
-  --blockhash 000000000000000000010d25c535f487edea60d3088b0166a627d6e85c3d2d05 \
+  --s-max 256 \
   --mode random \
   --setup-params-file setupParams.json  \
   --outfolder ./setup/mpc-setup/output \
   --compress false
 ```
+For the initialization phase, it prompts to enter a blockhash for an unpredictable input. Give a hash output of a block (eg. Bitcoin block hash https://www.blockchain.com/explorer/blocks/btc/).
+It should be *64 hexadecimal characters* (eg: for 901,620th Bitcoin Block
+0000000000000000000111043d2144755ed8bdf0c6a91fa292d3e544ebee963b)
+
+For testing mode
+```bash
+cargo run --release --bin phase1_initialize -- \
+  --s-max 256 \
+  --mode testing \
+  --setup-params-file setupParams.json  \
+  --outfolder ./setup/mpc-setup/output \
+  --compress true
+```
 
 🔄 **Next Contributor Phase-1** (40~60 minutes)
 
-Each next contributor will run:
+Each next contributor in Phase-1 runs:
 ```bash
 cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode random
 ```
+For testing mode:
+```bash
+cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode testing
+```
+(for testing purpose run this once as we want to generate the same combined_sigma as trusted setup)
 
 🌐 **Beacon Contribution** (optional)
 
@@ -59,16 +77,30 @@ cargo run --release --bin verify_phase1_computations -- --outfolder ./setup/mpc-
 
 📝 **Prepare Phase-2**
 
+The following starts the prepare phase-2.
 ⚠️ Note: This step can take a significant amount of time (days):
 ```bash
 cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output
 ```
-When it prompts *enter accumulator file name (e.g., phase1_acc_x.json):* please type the file name *phase1_acc_index.json* where *index* is the latest contributor's index in Phase-1.
+When it prompts *Enter the last contributor's index* please type the *index* i of the last phase1_acc_i.json file generated in Phase-1.
 
-🔄 **Next Contributor Phase-2** (few minutes each)
+For testing only, instead of running the above phase2_prepare run the following once to generate *phase2_acc_0.json* to be able to prepare phase-2 initial files for testing:
+```bash
+cargo run --release --bin phase2_testing_prepare
+```
+
+🔄 **Next Contributor Phase-2**
+Each next contributor in Phase-2 runs:
 ```bash
 cargo run --release --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output --mode random
 ```
 
-**CRC output** is the *phase2_latest_combined_sigma.json* file. We use the same structure with Tokamak zk-EVM trusted set-up output.
-Now use "*phase2_latest_combined_sigma.json*" to check Tokamak zk-EVM Prove and Verify.
+📝 **Generate final output files**
+Run this code once to generate final outputs: 
+```bash
+cargo run --release --bin phase2_gen_files -- --outfolder ./setup/mpc-setup/output
+```
+When it prompts *Enter the last contributor's index* please type the *index* i of the last *phase2_acc_i.json* file generated in Phase-1.
+The final output files are: "sigma_preprocess.json", "sigma_verify.json" and "combined_sigma.json"
+
+**CRC output** is the *combined_sigma.json* file. 
