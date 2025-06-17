@@ -63,6 +63,8 @@ cargo run --release --bin verify_phase1_computations -- --outfolder ./setup/mpc-
 ```bash
 cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output
 ```
+When it prompts *enter accumulator file name (e.g., phase1_acc_x.json):* please type the file name *phase1_acc_index.json* where *index* is the latest contributor's index in Phase-1.
+
 Alternatively, for testing purpose, use the existing output from the trusted setup. Copy combined_sigma.json from trusted setup.
 Rename it as phase2_latest_combined_sigma.json. Paste it into the ./setup/mpc-setup/output folder. 
 Note that for testing purpose in trusted setup we basically set \alpha = 7, x = 3, y = 5, \gamma = 1, \delta = 1, \etha = 1.

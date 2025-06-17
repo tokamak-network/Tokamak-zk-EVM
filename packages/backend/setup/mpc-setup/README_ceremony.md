@@ -63,6 +63,7 @@ cargo run --release --bin verify_phase1_computations -- --outfolder ./setup/mpc-
 ```bash
 cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output
 ```
+When it prompts *enter accumulator file name (e.g., phase1_acc_x.json):* please type the file name *phase1_acc_index.json* where *index* is the latest contributor's index in Phase-1.
 
 🔄 **Next Contributor Phase-2** (few minutes each)
 ```bash
