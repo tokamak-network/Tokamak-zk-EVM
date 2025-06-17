@@ -1076,8 +1076,8 @@ export class Interpreter {
       msg.createdAddresses = createdAddresses
     }
 
-    // empty the return data Uint8Array
-    this._runState.returnBytes = new Uint8Array(0)
+    // empty the return data Pt
+    this._runState.returnMemoryPts = []
 
     // Check if account has enough ether and max depth not exceeded
     if (
