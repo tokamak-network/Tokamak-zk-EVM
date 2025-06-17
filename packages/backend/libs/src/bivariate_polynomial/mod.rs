@@ -38,11 +38,6 @@ pub struct DensePolynomialExt {
     pub y_size: usize,
 }
 
-impl DensePolynomialExt {
-    pub fn is_zero(&self) -> bool {
-        self.x_size <= 1 && self.y_size <= 1 && self.get_coeff(0,0) == ScalarField::zero()
-    }
-}
 
 impl DensePolynomialExt {
     // Inherit DensePolynomial
@@ -61,6 +56,13 @@ impl DensePolynomialExt {
     // Method to get the degree of the polynomial.
     pub fn degree(&self) -> (i64, i64) {
         (self.x_degree, self.y_degree)
+    }
+    pub fn is_zero(&self) -> bool {
+        let (x_degree, y_degree) = self.find_degree();
+        if x_degree == -1 && y_degree == -1 {
+            return true
+        }
+        return false
     }
 }
 
