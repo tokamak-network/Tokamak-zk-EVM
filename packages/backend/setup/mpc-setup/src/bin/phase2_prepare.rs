@@ -40,7 +40,7 @@ fn main() {
         is_gpu_enabled = load_gpu_if_possible()
     }
     let config = Config::parse();
-    let contributor_index = prompt_user_input("enter last contributor index (e.g., phase1_acc_x.json) :")
+    let contributor_index = prompt_user_input("Enter the last phase-1 contributor's index:")
         .parse::<usize>()
         .expect("Please enter a valid number");
 
