@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {Script} from "forge-std/Script.sol";
-import {VerifierV1} from "../src/VerifierV1.sol";
+import {VerifierV3} from "../src/VerifierV3.sol";
 
 contract DeployScript is Script {
     function run() external {
@@ -10,7 +10,7 @@ contract DeployScript is Script {
         
         vm.startBroadcast(deployerPrivateKey);
         
-        VerifierV1 verifier = new VerifierV1();
+        VerifierV3 verifier = new VerifierV3();
         
         vm.stopBroadcast();
         

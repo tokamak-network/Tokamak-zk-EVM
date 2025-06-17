@@ -63,6 +63,7 @@ import { DEFAULT_SOURCE_SIZE } from "../tokamak/constant/constants.js"
 import {
   SynthesizerValidator,
 } from '../tokamak/validation/index.js'
+import { chunkMemory, writeCallOutputPt } from "src/tokamak/utils/index.js"
 
 export interface SyncOpHandler {
   (runState: RunState, common: Common): void
@@ -544,27 +545,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       if (offsetPt.value !== offset || lengthPt.value !== length) {
         throw new Error(`Synthesizer: KECCAK256: Input data mismatch`)
       }
-      const offsetNum = Number(offset)
-      const lengthNum = Number(length)
-      let nChunks = 1
-      if (lengthNum > 32) {
-        nChunks = Math.ceil(lengthNum / 32)
-      }
-      const chunkDataPts = []
-      let dataRecovered = BIGINT_0
-      let lengthLeft = lengthNum
-      for (let i = 0; i < nChunks; i++) {
-        const _offset = offsetNum + 32 * i
-        const _length = lengthLeft > 32 ? 32 : lengthLeft
-        lengthLeft -= _length
-        const dataAliasInfos = runState.memoryPt.getDataAlias(_offset, _length)
-        if (dataAliasInfos.length > 0) {
-          chunkDataPts[i] = runState.synthesizer.placeMemoryToStack(dataAliasInfos)
-        } else {
-          chunkDataPts[i] = runState.synthesizer.loadAuxin(BIGINT_0)
-        }
-        dataRecovered += chunkDataPts[i].value << BigInt((nChunks - i - 1) * 32 * 8)
-      }
+      const {chunkDataPts, dataRecovered} = chunkMemory(offset, length, runState.memoryPt, runState.synthesizer)
       if (bytesToBigInt(data) !== dataRecovered) {
         throw new Error(`Synthesizer: KECCAK256: Data loaded to be hashed mismatch`)
       }
@@ -893,7 +874,7 @@ export const handlers: Map<number, OpHandler> = new Map([
         // Therefore, push the hash of EOFBYTES to the stack
         runState.stack.push(bytesToBigInt(EOFHASH))
 
-        // For Synthesizer //
+        // For Synthesizer (YET IMPLEMENTED PROPERLY) //
         await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
         return
       } else if (common.isActivatedEIP(7702)) {
@@ -935,6 +916,9 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt)
+
+      // for opcode not implemented with Synthesizer
+      SynthesizerValidator.validateOpcodeImplemented(0xec, 'EXTCODEHASH')
     },
   ],
   // 0x3d: RETURNDATASIZE
@@ -978,7 +962,7 @@ export const handlers: Map<number, OpHandler> = new Map([
           runState,
           returnDataOffset,
           dataLength,
-          runState.returnMemoryPts,
+          runState.interpreter.getReturnMemoryPts(),
           memOffset,
         )
         for (const entry of copiedMemoryPts) {
@@ -1281,9 +1265,12 @@ export const handlers: Map<number, OpHandler> = new Map([
           console.log('stack', runState.stack)
           console.log('stackPt : ', runState.stackPt)
         }
-        throw new Error(`MSTORE: Data mismatch between stackPt and stack`)
+        throw new Error(`MSTORE: Data to store mismatch between stackPt and stack`)
       }
-      runState.memoryPt.write(offsetNum, truncSize, newDataPt)
+      const _view = runState.memoryPt.write(offsetNum, truncSize, newDataPt)
+      if (!equalsBytes(runState.memory.read(offsetNum, truncSize, true), _view)) {
+        throw new Error(`MSTORE: Stored data mismatch between memoryPt and memory`)
+      }
     },
   ],
   // 0x53: MSTORE8
@@ -1314,7 +1301,10 @@ export const handlers: Map<number, OpHandler> = new Map([
       if (_offsetNum !== offsetNum || newDataPt.value !== bytesToBigInt(buf)) {
         throw new Error(`MSTORE8: Data mismatch between stackPt and stack`)
       }
-      runState.memoryPt.write(offsetNum, truncSize, newDataPt)
+      const _view = runState.memoryPt.write(offsetNum, truncSize, newDataPt)
+      if (!equalsBytes(runState.memory.read(offsetNum, truncSize, true), _view)) {
+        throw new Error(`MSTORE8: Stored data mismatch between memoryPt and memory`)
+      }
     },
   ],
   // 0x54: SLOAD
@@ -1649,9 +1639,11 @@ export const handlers: Map<number, OpHandler> = new Map([
           throw new Error(`Synthesizer: 'LOG': Input data mismatch`)
         }
       }
-      const dataAlias = runState.memoryPt.getDataAlias(Number(memOffset), Number(memLength))
-      const dataPt = runState.synthesizer.placeMemoryToStack(dataAlias)
-      runState.synthesizer.storeLog(dataPt, topicPts)
+      const {chunkDataPts, dataRecovered} = chunkMemory(memOffset, memLength, runState.memoryPt, runState.synthesizer)
+      if (bytesToBigInt(mem) !== dataRecovered) {
+        throw new Error(`Synthesizer: LOG: Data loaded to be logged mismatch`)
+      }
+      runState.synthesizer.storeLog(chunkDataPts, topicPts)
     },
   ],
   // 0xd0: DATALOAD
@@ -2155,6 +2147,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       ) {
         throw new Error(`Synthesizer: CALL: Input data mismatch`)
       }
+      if (toAddr >= 1n && toAddr <= 10n) {
+        throw new Error(`Precompile is yet implemented in Synthesizer. Will be updated.`)
+      }
       const calldataMemoryPts = copyMemoryRegion(runState, inOffset, inLength)
 
       // for debugging
@@ -2173,9 +2168,14 @@ export const handlers: Map<number, OpHandler> = new Map([
         calldataMemoryPts,
       )
 
-      // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
+      
+      // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
+      const _view = writeCallOutputPt(runState, outOffset, outLength)
+      if (!equalsBytes(_view, runState.memory.read(Number(outOffset), Number(outLength)))) {
+        throw new Error(`Synthesizer: CALL: Output data stored in the parent context mismatch. Maybe the transaction is using precompiles (yet implemented in Synthesizer)`)
+      }
       runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
     },
   ],
@@ -2215,6 +2215,9 @@ export const handlers: Map<number, OpHandler> = new Map([
       ) {
         throw new Error(`Synthesizer: CALLCODE: Input data mismatch`)
       }
+      if (toAddr >= 1n && toAddr <= 10n) {
+        throw new Error(`Precompile is yet implemented in Synthesizer. Will be updated.`)
+      }
       const calldataMemoryPts = copyMemoryRegion(runState, inOffset, inLength)
 
       // for debugging
@@ -2233,9 +2236,14 @@ export const handlers: Map<number, OpHandler> = new Map([
         calldataMemoryPts,
       )
 
-      // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
+      
+      // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
+      const _view = writeCallOutputPt(runState, outOffset, outLength)
+      if (!equalsBytes(_view, runState.memory.read(Number(outOffset), Number(outLength)))) {
+        throw new Error(`Synthesizer: CALLCODE: Output data stored in the parent context mismatch. Maybe the transaction is using precompiles (yet implemented in Synthesizer)`)
+      }
       runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
     },
   ],
@@ -2269,14 +2277,16 @@ export const handlers: Map<number, OpHandler> = new Map([
       ) {
         throw new Error(`Synthesizer: DELEGATECALL: Input data mismatch`)
       }
-
+      if (toAddr >= 1n && toAddr <= 10n) {
+        throw new Error(`Precompile is yet implemented in Synthesizer. Will be updated.`)
+      }
       const calldataMemoryPts = copyMemoryRegion(runState, inOffset, inLength)
 
       // for debugging
       const simCalldataMemoryPt = simulateMemoryPt(calldataMemoryPts)
       const _data = simCalldataMemoryPt.viewMemory(0, Number(inLength))
       if (!equalsBytes(_data, data)) {
-        throw new Error(`Synthesizer: DELEGATECALL: Output data mismatch`)
+        throw new Error(`Synthesizer: DELEGATECALL: Calldata mismatch`)
       }
       ////
 
@@ -2288,11 +2298,15 @@ export const handlers: Map<number, OpHandler> = new Map([
         calldataMemoryPts,
       )
 
-      // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
+      
+      // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
+      const _view = writeCallOutputPt(runState, outOffset, outLength)
+      if (!equalsBytes(_view, runState.memory.read(Number(outOffset), Number(outLength)))) {
+        throw new Error(`Synthesizer: DELEGATECALL: Output data stored in the parent context mismatch. Maybe the transaction is using precompiles (yet implemented in Synthesizer)`)
+      }
       runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
-
     },
   ],
   // 0xf8: EXTCALL
@@ -2412,13 +2426,16 @@ export const handlers: Map<number, OpHandler> = new Map([
       ) {
         throw new Error(`Synthesizer: STATICCALL: Input data mismatch`)
       }
+      if (toAddr >= 1n && toAddr <= 10n) {
+        throw new Error(`Precompile is yet implemented in Synthesizer. Will be updated.`)
+      }
       const calldataMemoryPts = copyMemoryRegion(runState, inOffset, inLength)
 
       // for debugging
       const simCalldataMemoryPt = simulateMemoryPt(calldataMemoryPts)
       const _data = simCalldataMemoryPt.viewMemory(0, Number(inLength))
       if (!equalsBytes(_data, data)) {
-        throw new Error(`Synthesizer: STATICCALL: Output data mismatch`)
+        throw new Error(`Synthesizer: STATICCALL: Calldata mismatch`)
       }
       ////
 
@@ -2430,9 +2447,14 @@ export const handlers: Map<number, OpHandler> = new Map([
         calldataMemoryPts,
       )
 
-      // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
       writeCallOutput(runState, outOffset, outLength)
       runState.stack.push(ret)
+      
+      // Modified writeCallOutput for Synthesizer (Write the return data on the memory)
+      const _view = writeCallOutputPt(runState, outOffset, outLength)
+      if (!equalsBytes(_view, runState.memory.read(Number(outOffset), Number(outLength)))) {
+        throw new Error(`Synthesizer: STATICCALL: Output data stored in the parent context mismatch. Maybe the transaction is using precompiles (yet implemented in Synthesizer)`)
+      }
       runState.stackPt.push(runState.synthesizer.loadAuxin(ret))
     },
   ],
@@ -2496,6 +2518,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       if (!equalsBytes(_returnData, returnData)) {
         throw new Error(`Synthesizer: RETURN: Output data mismatch`)
       }
+
       // Halt the current code run
       runState.interpreter.finish(returnData)
     },
@@ -2509,10 +2532,12 @@ export const handlers: Map<number, OpHandler> = new Map([
       if (length !== BIGINT_0) {
         returnData = runState.memory.read(Number(offset), Number(length))
       }
-      runState.interpreter.revert(returnData)
 
       // for opcode not implemented with Synthesizer
       SynthesizerValidator.validateOpcodeImplemented(0xfd, 'REVERT')
+      ///
+      
+      runState.interpreter.revert(returnData)
     },
   ],
   // '0x70', range - other
