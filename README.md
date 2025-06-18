@@ -98,7 +98,7 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 | Package | Current Version | Status |
 |---------|----------------|---------|
 | `qap-compiler` | v0.5.0 | 🧪 Beta |
-| `synthesizer` | v0.5.0 | 🧪 Beta |
+| `synthesizer` | v0.5.1 | 🧪 Beta |
 | `libs` | v0.5.0 | 🧪 Beta |
 | `prove` | v0.5.0 | 🧪 Beta |
 | `mpc-setup` | - | 🚧 Planned |
