@@ -35,26 +35,40 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
    git clone https://github.com/tokamak-network/Tokamak-zk-EVM.git
    cd Tokamak-zk-EVM
    ```
-- Make sure you have installed [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds/tree/dev/packages/synthesizer-playground).
 ### B. **Package install**
-1. Open a new terminal and go to the package directory.
-2. Install dependencies:
-    ```shell
+1. Open a new terminal and go to the Tokamak-zk-EVM folder.
+3. Install dependencies:
+    ```bash
+    cd packages/frontend/synthesizer
     npm install
     ```
     This package install includes some packages in [EthereumJS-monorepo](https://github.com/ethereumjs/ethereumjs-monorepo/).
 
-### C. **Play Synthesizer through Playground**
-1. Install and run [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds/tree/dev/packages/synthesizer-playground)
-2. In the Playground GUI, type a target transaction ID, which is the hash of the target transaction to run Synthesizer. You can get a transaction ID from [etherscan.io](https://etherscan.io).
-3. Click the button "Process".
-4. If the transaction contains logs, the GUI will display the outputs of your ZKP circuit, which are expected to be the same as the transaction logs. Verify that the displayed outputs match the transaction logs
-   - _In order for Synthesizer to process a random transaction, it needs the state data of the contracts related to the transaction, which requires the installation of an Ethereum full node._
-   - _For testing purposes, we provide dummy states for **TON, USDC, and USDT** contracts as default, usable for **all standard ERC-20 transactions** without the need full nodes._
-![image](https://github.com/user-attachments/assets/3572fc8f-bbc1-4ccb-9c3c-78a37f37e7a4)
-![image](https://github.com/user-attachments/assets/4695e0d2-0b0d-49fc-88aa-028e79df2fb1)
+### C. **Get your Alchemy API key**
+For testing Synthesizer, you will need an Alchemy API key to retrieve transaction data from an Ethereum full node (or Sepolia).
+  1. Go to [Alchemy](https://www.alchemy.com/) and sign in.
+  2. Go to "App" -> "+ Create new app".
+  3. Create a new app for Ethereum with activating "Node API" service.
+  4. Copy your "Network URL".
+  5. Go back to the "synthesizer" folder.
+  6. Create ".env" file with the content:
+      ```text
+      RPC_URL= // PASTE YOUR NETWORK URL HERE //
+      ```
+### D. **Pick any transaction to test Synthesizer**
+1. Go to [Etherscan](https://etherscan.io/) and pick any contract call transaction.
+2. Copy the transaction hash.
+3. Find the file "synthesizer/examples/fullnode/index.ts" and open it
+4. Modify the variable named "TRANSACTION_HASH".
+![image](https://github.com/user-attachments/assets/743d7219-e850-4ca3-97af-95a18cfa0b59)
 
-5. Now you are ready to move on to [the backend of Tokamak zk-EVM](../../backend/)
+### E. **Run Synthesizer**
+1. Make sure you are in the folder "synthesizer".
+2. Run
+   ```bash
+   tsx ./examples/fullnode/index
+   ```
+3. Now you are ready to move on to [the backend of Tokamak zk-EVM](../../backend/)
 
 ## Description for the Synthesizer input and output
 ### Input
@@ -65,8 +79,7 @@ Synthesizer takes its input from two paths:
 You can find the Synthesizer outputs from [the "outputs" folder](./examples/outputs), which contains:
 - placementVariables.json: A combination of the library subcircuits (with allowing repetition) and the instance and witness of each subcircuit.
 - permutation.json: It defines how to connect each subcircuit (i.e., copy constraints between the subcircuit instances).
-- privateExternalInterface.json: Just a refinement of the "placementVariables.json" that extracts the transaction execution result for Playground GUI display.
-- publicInstance.json: Just a refinement of the "placementVariables.json" that extracts public inputs for [the backend Verify](../../backend/verify/).
+- Instance.json: Just a refinement of the "placementVariables.json" that extracts inputs for [the backend Verify](../../backend/verify/).
 
 ## Supported EVM Operations
 | Opcode | Name         | Description                                              | Status |
