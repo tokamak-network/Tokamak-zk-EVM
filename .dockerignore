@@ -1,0 +1,16 @@
+# Git
+.git
+.gitignore
+
+# Node
+node_modules
+npm-debug.log
+
+# Build artifacts
+/packages/backend/target
+/packages/frontend/synthesizer/dist
+
+# IDE / OS specific
+.vscode
+.idea
+.DS_Store

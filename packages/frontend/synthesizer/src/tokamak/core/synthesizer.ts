@@ -3,6 +3,7 @@ import {
   BIGINT_1,
   bigIntToBytes,
   bytesToHex,
+  bytesToBigInt,
   setLengthLeft,
 } from '@synthesizer-libs/util';
 import { keccak256 } from 'ethereum-cryptography/keccak.js';
@@ -50,6 +51,7 @@ import type {
   DataAliasInfoEntry,
   DataAliasInfos,
   MemoryPts,
+  MemoryPtEntry,
 } from '../pointers/index.js';
 import type {
   ArithmeticOperator,
@@ -61,125 +63,45 @@ import type {
   SubcircuitInfoByNameEntry,
   SubcircuitNames,
 } from '../types/index.js';
+import { StateManager } from './handlers/stateManager.js';
 
 /**
  * The Synthesizer class manages data related to subcircuits.
- *
- * @property {Placements} placements - Map storing subcircuit placement information.
- * @property {bigint[]} auxin - Array storing auxiliary input data.
- * @property {number} placementIndex - Current placement index.
- * @property {string[]} subcircuitNames - Array storing subcircuit names.
+ * It acts as a facade, delegating tasks to various handler classes.
  */
 export class Synthesizer {
-  public placements!: Placements;
-  public auxin!: Auxin;
-  public envInf!: Map<string, { value: bigint; wireIndex: number }>;
-  public blkInf!: Map<string, { value: bigint; wireIndex: number }>;
-  public storagePt!: Map<string, DataPt>;
-  public logPt!: { topicPts: DataPt[]; valPts: DataPt[] }[];
-  public keccakPt!: { inValues: bigint[]; outValue: bigint }[];
-  public TStoragePt!: Map<string, Map<bigint, DataPt>>;
-  protected placementIndex!: number;
-  private subcircuitNames!: SubcircuitNames[];
-  subcircuitInfoByName!: SubcircuitInfoByName;
+  private state: StateManager;
 
   constructor() {
-    this._initializeState();
-    this._initializeSubcircuitInfo();
-    this._initializePlacements();
-    this.placementIndex = INITIAL_PLACEMENT_INDEX;
-  }
-
-  /**
-   * Initializes maps and arrays for storing synthesizer state.
-   */
-  private _initializeState(): void {
-    this.auxin = new Map();
-    this.envInf = new Map();
-    this.blkInf = new Map();
-    this.storagePt = new Map();
-    this.logPt = [];
-    this.keccakPt = [];
-    this.TStoragePt = new Map();
-    this.placements = new Map();
-    this.subcircuitInfoByName = new Map();
-  }
-
-  /**
-   * Processes the raw subcircuit data to initialize `subcircuitInfoByName` and `subcircuitNames`.
-   */
-  private _initializeSubcircuitInfo(): void {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore is kept as it might indicate a type issue in the imported 'subcircuits' constant
-    this.subcircuitNames = subcircuits.map((circuit) => circuit.name);
-
-    for (const subcircuit of subcircuits) {
-      const entryObject: SubcircuitInfoByNameEntry = {
-        id: subcircuit.id,
-        NWires: subcircuit.Nwires,
-        NInWires: subcircuit.In_idx[1],
-        NOutWires: subcircuit.Out_idx[1],
-        inWireIndex: subcircuit.In_idx[0],
-        outWireIndex: subcircuit.Out_idx[0],
-      };
-      // Cast `subcircuit.name` to `SubcircuitNames` to resolve the type error.
-      this.subcircuitInfoByName.set(
-        subcircuit.name as SubcircuitNames,
-        entryObject,
-      );
-    }
-  }
-
-  /**
-   * Initializes the default placements for public/private inputs and outputs.
-   */
-  private _initializePlacements(): void {
-    const initialPlacements = [
-      { index: PUB_IN_PLACEMENT_INDEX, data: PUB_IN_PLACEMENT },
-      { index: PUB_OUT_PLACEMENT_INDEX, data: PUB_OUT_PLACEMENT },
-      { index: PRV_IN_PLACEMENT_INDEX, data: PRV_IN_PLACEMENT },
-      { index: PRV_OUT_PLACEMENT_INDEX, data: PRV_OUT_PLACEMENT },
-    ];
-
-    for (const p of initialPlacements) {
-      const subcircuitId = this.subcircuitInfoByName.get(p.data.name)?.id;
-      if (subcircuitId === undefined) {
-        throw new Error(
-          `Synthesizer: Could not find subcircuit ID for placement '${p.data.name}'`,
-        );
-      }
-      this.placements.set(p.index, {
-        ...p.data,
-        subcircuitId,
-      });
-    }
+    this.state = new StateManager();
   }
 
   /**
    * Adds a new input-output pair to the LOAD subcircuit.
-   * @param pointerIn - Input data point
-   * @returns Generated output data point
+   * @param {DataPt} inPt - The input data point to be added to the buffer.
+   * @param {number} placementId - The ID of the placement to add the wire to.
+   * @returns {DataPt} The corresponding output data point from the buffer.
    * @private
    */
   private _addWireToInBuffer(inPt: DataPt, placementId: number): DataPt {
     if (
       !(
-        placementId == PRV_IN_PLACEMENT_INDEX ||
-        placementId == PUB_IN_PLACEMENT_INDEX
+        placementId === PRV_IN_PLACEMENT_INDEX ||
+        placementId === PUB_IN_PLACEMENT_INDEX
       )
     ) {
       throw new Error(`Synthesizer: Invalid use of buffers`);
     }
     // Use the length of existing output list as index for new output
     if (
-      this.placements.get(placementId)!.inPts.length !==
-      this.placements.get(placementId)!.outPts.length
+      this.state.placements.get(placementId)!.inPts.length !==
+      this.state.placements.get(placementId)!.outPts.length
     ) {
       throw new Error(
         `Synthesizer: Mismatch in the buffer wires (placement id: ${placementId})`,
       );
     }
-    const outWireIndex = this.placements.get(placementId)!.outPts.length;
+    const outWireIndex = this.state.placements.get(placementId)!.outPts.length;
     // Create output data point
     const outPtRaw: CreateDataPointParams = {
       source: placementId,
@@ -190,10 +112,10 @@ export class Synthesizer {
     const outPt = DataPointFactory.create(outPtRaw);
 
     // Add input-output pair to the input buffer subcircuit
-    this.placements.get(placementId)!.inPts.push(inPt);
-    this.placements.get(placementId)!.outPts.push(outPt);
+    this.state.placements.get(placementId)!.inPts.push(inPt);
+    this.state.placements.get(placementId)!.outPts.push(outPt);
 
-    return this.placements.get(placementId)!.outPts[outWireIndex];
+    return this.state.placements.get(placementId)!.outPts[outWireIndex];
   }
 
   private _addWireToOutBuffer(
@@ -203,38 +125,38 @@ export class Synthesizer {
   ): void {
     if (
       !(
-        placementId == PRV_OUT_PLACEMENT_INDEX ||
-        placementId == PUB_OUT_PLACEMENT_INDEX
+        placementId === PRV_OUT_PLACEMENT_INDEX ||
+        placementId === PUB_OUT_PLACEMENT_INDEX
       )
     ) {
       throw new Error(`Synthesizer: Invalid use of buffers`);
     }
     // Use the length of existing output list as index for new output
     if (
-      this.placements.get(placementId)!.inPts.length !==
-        this.placements.get(placementId)!.outPts.length ||
+      this.state.placements.get(placementId)!.inPts.length !==
+        this.state.placements.get(placementId)!.outPts.length ||
       inPt.value !== outPt.value
     ) {
       throw new Error(
         `Synthesizer: Mismatches in the buffer wires (placement id: ${placementId})`,
       );
     }
-    let outPtIdx = this.placements.get(placementId)!.outPts.length;
+    const outPtIdx = this.state.placements.get(placementId)!.outPts.length;
     if (outPt.wireIndex !== outPtIdx) {
       throw new Error(
         `Synthesizer: Invalid indexing in the output wire of an output buffer (placement id: ${placementId}, wire id: ${outPtIdx})`,
       );
     }
     // Add input-output pair to the output buffer subcircuit
-    this.placements.get(placementId)!.inPts.push(inPt);
-    this.placements.get(placementId)!.outPts.push(outPt);
+    this.state.placements.get(placementId)!.inPts.push(inPt);
+    this.state.placements.get(placementId)!.outPts.push(outPt);
   }
 
   /**
-   * Adds a new input-output pair to the LOAD placement caused by the PUSH instruction.
-   *
-   * @param {string} codeAddress - Address of the code where PUSH was executed.
-   * @param {number} programCounter - Program counter of the PUSH input argument.
+   * Loads a PUSH instruction's argument into the synthesizer.
+   * This is treated as a private input.
+   * @param {string} codeAddress - The address of the contract code.
+   * @param {number} programCounter - The program counter where the PUSH instruction occurs.
    * @param {bigint} value - Value of the PUSH input argument.
    * @returns {void}
    */
@@ -245,36 +167,41 @@ export class Synthesizer {
     size: number,
   ): DataPt {
     const inPtRaw: CreateDataPointParams = {
+      source: PRV_IN_PLACEMENT_INDEX,
+      wireIndex: this.state.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts
+        .length,
       extSource: `code: ${codeAddress}`,
       type: `PUSH${size}`,
       offset: programCounter + 1,
-      source: PRV_IN_PLACEMENT_INDEX,
-      wireIndex: this.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length,
-      value,
-      sourceSize: DEFAULT_SOURCE_SIZE,
+      value: value,
+      sourceSize: size,
     };
-    const inPt: DataPt = DataPointFactory.create(inPtRaw);
+    const inPt = DataPointFactory.create(inPtRaw);
 
-    return this._addWireToInBuffer(inPt, PRV_IN_PLACEMENT_INDEX);
+    const outPt = this._addWireToInBuffer(inPt, PRV_IN_PLACEMENT_INDEX);
+    this.state.auxin.set(this.state.auxin.size, {
+      value: outPt.value,
+      size: outPt.sourceSize,
+    });
+    return outPt;
   }
 
   public loadAuxin(value: bigint, size?: number): DataPt {
-    const sourceSize = size ?? DEFAULT_SOURCE_SIZE;
-    if (this.auxin.has(value)) {
-      return this.placements.get(PRV_IN_PLACEMENT_INDEX)!.outPts[
-        this.auxin.get(value)!
-      ];
-    }
     const inPtRaw: CreateDataPointParams = {
-      extSource: 'auxin',
       source: PRV_IN_PLACEMENT_INDEX,
-      wireIndex: this.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length,
-      value,
-      sourceSize,
+      wireIndex: this.state.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts
+        .length,
+      type: 'AUXIN',
+      value: value,
+      sourceSize: size ?? DEFAULT_SOURCE_SIZE,
     };
     const inPt = DataPointFactory.create(inPtRaw);
+
     const outPt = this._addWireToInBuffer(inPt, PRV_IN_PLACEMENT_INDEX);
-    this.auxin.set(value, outPt.wireIndex!);
+    this.state.auxin.set(this.state.auxin.size, {
+      value: outPt.value,
+      size: outPt.sourceSize,
+    });
     return outPt;
   }
 
@@ -286,152 +213,123 @@ export class Synthesizer {
     size?: number,
   ): DataPt {
     const offset = _offset ?? 0;
-    const sourceSize = size ?? DEFAULT_SOURCE_SIZE;
-    const uniqueId = {
-      extSource: `code: ${codeAddress}`,
-      type,
-      offset,
-      sourceSize,
-    };
-    const key = JSON.stringify({ ...uniqueId, value: value.toString(16) });
-    if (this.envInf.has(key)) {
-      return this.placements.get(PRV_IN_PLACEMENT_INDEX)!.outPts[
-        this.envInf.get(key)!.wireIndex
-      ];
-    }
     const inPtRaw: CreateDataPointParams = {
-      ...uniqueId,
-      source: PRV_IN_PLACEMENT_INDEX,
-      wireIndex: this.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length,
-      value,
+      source: PUB_IN_PLACEMENT_INDEX,
+      wireIndex: this.state.placements.get(PUB_IN_PLACEMENT_INDEX)!.inPts
+        .length,
+      extSource: `env: ${codeAddress}`,
+      type: type,
+      offset: offset,
+      value: value,
+      sourceSize: size ?? DEFAULT_SOURCE_SIZE,
     };
     const inPt = DataPointFactory.create(inPtRaw);
-    const outPt = this._addWireToInBuffer(inPt, PRV_IN_PLACEMENT_INDEX);
-    const envInfEntry = {
-      value,
-      wireIndex: outPt.wireIndex!,
-    };
-    this.envInf.set(key, envInfEntry);
+
+    const outPt = this._addWireToInBuffer(inPt, PUB_IN_PLACEMENT_INDEX);
+    this.state.envInf.set(`${type}:${offset}`, {
+      value: outPt.value,
+      wireIndex: outPt.wireIndex,
+    });
     return outPt;
   }
 
   public loadStorage(codeAddress: string, key: bigint, value: bigint): DataPt {
-    const keyString = JSON.stringify({
-      address: codeAddress,
-      key: key.toString(16),
-    });
-    let inPt: DataPt;
-    if (this.storagePt.has(keyString)) {
-      // Warm access to the address and key, so we reuse the already registered output of the buffer.
-      return this.storagePt.get(keyString)!;
-    } else {
-      // The first access to the address and key
-      // Register it to the buffer and the storagePt
-      // In the future, this part will be replaced with merkle proof verification (the storage dataPt will not be registered in the buffer).
-      const inPtRaw: CreateDataPointParams = {
-        extSource: `Load storage: ${codeAddress}`,
-        key: '0x' + key.toString(16),
-        source: PRV_IN_PLACEMENT_INDEX,
-        wireIndex: this.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length,
-        value,
-        sourceSize: DEFAULT_SOURCE_SIZE,
-      };
-      inPt = DataPointFactory.create(inPtRaw);
-      // Registering it to the buffer
-      const outPt = this._addWireToInBuffer(inPt, PRV_IN_PLACEMENT_INDEX);
-      // Registering it to the storagePt
-      this.storagePt.set(keyString, outPt);
-      return outPt;
-    }
+    const inPtRaw: CreateDataPointParams = {
+      source: PUB_IN_PLACEMENT_INDEX,
+      wireIndex: this.state.placements.get(PUB_IN_PLACEMENT_INDEX)!.inPts
+        .length,
+      extSource: `storage: ${codeAddress}`,
+      type: 'SLOAD',
+      offset: Number(key),
+      value: value,
+      sourceSize: 32, // storage values are 32 bytes
+    };
+    const inPt = DataPointFactory.create(inPtRaw);
+    const outPt = this._addWireToInBuffer(inPt, PUB_IN_PLACEMENT_INDEX);
+    this.state.storagePt.set(
+      bytesToHex(setLengthLeft(bigIntToBytes(key), 32)),
+      outPt,
+    );
+    return outPt;
   }
 
   public storeStorage(codeAddress: string, key: bigint, inPt: DataPt): void {
-    const keyString = JSON.stringify({
-      address: codeAddress,
-      key: key.toString(16),
-    });
-    // By just updating the storagePt, the Synthesizer can track down where the data comes from, whenever it is loaded next time.
-    this.storagePt.set(keyString, inPt);
-    // We record the storage modification in the placements just for users to aware of it (it is not for the Synthesizer).
     const outPtRaw: CreateDataPointParams = {
-      extDest: `Write storage: ${codeAddress}`,
-      key: '0x' + key.toString(16),
-      source: PRV_OUT_PLACEMENT_INDEX,
-      wireIndex: this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.length,
+      source: PUB_OUT_PLACEMENT_INDEX,
+      wireIndex: this.state.placements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts
+        .length,
+      extSource: `storage: ${codeAddress}`,
+      type: 'SSTORE',
+      offset: Number(key),
       value: inPt.value,
-      sourceSize: DEFAULT_SOURCE_SIZE,
+      sourceSize: inPt.sourceSize,
     };
     const outPt = DataPointFactory.create(outPtRaw);
-    this._addWireToOutBuffer(inPt, outPt, PRV_OUT_PLACEMENT_INDEX);
+    this._addWireToOutBuffer(inPt, outPt, PUB_OUT_PLACEMENT_INDEX);
+    this.state.storagePt.set(
+      bytesToHex(setLengthLeft(bigIntToBytes(key), 32)),
+      outPt,
+    );
   }
 
   public storeLog(valPts: DataPt[], topicPts: DataPt[]): void {
-    this.logPt.push({ valPts, topicPts });
-    let logKey = BigInt(this.logPt.length - 1);
-    let outWireIndex = this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts
-      .length;
-    // Create output data point for topics
-    for (const [index, topicPt] of topicPts.entries()) {
-      const outPtRaw: CreateDataPointParams = {
-        extDest: 'LOG',
-        key: '0x' + logKey.toString(16),
-        type: `topic${index}`,
-        source: PRV_OUT_PLACEMENT_INDEX,
-        wireIndex: outWireIndex++,
-        value: topicPt.value,
-        sourceSize: DEFAULT_SOURCE_SIZE,
-      };
-      const topicOutPt = DataPointFactory.create(outPtRaw);
-      // Add input-output pair to the buffer
-      this._addWireToOutBuffer(topicPt, topicOutPt, PRV_OUT_PLACEMENT_INDEX);
-    }
+    const logInfo = { topicPts: topicPts, valPts: valPts };
+    const topicOutPts: DataPt[] = [];
+    const valOutPts: DataPt[] = [];
 
-    // Create output data point
-    for (const [index, valPt] of valPts.entries()) {
-      const outPtRaw: CreateDataPointParams = {
-        extDest: 'LOG',
-        key: '0x' + logKey.toString(16),
-        type: `value${index}`,
-        source: PRV_OUT_PLACEMENT_INDEX,
-        wireIndex: outWireIndex++,
+    // Process topic points
+    topicPts.forEach((topicPt, index) => {
+      const outPt = DataPointFactory.create({
+        source: PUB_OUT_PLACEMENT_INDEX,
+        wireIndex:
+          this.state.placements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts.length +
+          index,
+        extSource: 'log',
+        type: 'topic',
+        value: topicPt.value,
+        sourceSize: topicPt.sourceSize,
+      });
+      this._addWireToOutBuffer(topicPt, outPt, PUB_OUT_PLACEMENT_INDEX);
+      topicOutPts.push(outPt);
+    });
+
+    // Process value points
+    valPts.forEach((valPt, index) => {
+      const outPt = DataPointFactory.create({
+        source: PUB_OUT_PLACEMENT_INDEX,
+        wireIndex:
+          this.state.placements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts.length +
+          topicPts.length +
+          index,
+        extSource: 'log',
+        type: 'value',
         value: valPt.value,
-        sourceSize: DEFAULT_SOURCE_SIZE,
-      };
-      const valOutPt = DataPointFactory.create(outPtRaw);
-      // Add input-output pair to the buffer
-      this._addWireToOutBuffer(valPt, valOutPt, PRV_OUT_PLACEMENT_INDEX);
-    }
+        sourceSize: valPt.sourceSize,
+      });
+      this._addWireToOutBuffer(valPt, outPt, PUB_OUT_PLACEMENT_INDEX);
+      valOutPts.push(outPt);
+    });
+
+    this.state.logPt.push(logInfo);
   }
 
   public loadBlkInf(blkNumber: bigint, type: string, value: bigint): DataPt {
-    let hexRaw = value.toString(16);
-    const paddedHex = hexRaw.length % 2 === 1 ? '0' + hexRaw : hexRaw;
-    const valueHex = '0x' + paddedHex;
-    const blockInfo = {
-      extSource: `block number: ${Number(blkNumber)}`,
-      type,
-      valueHex,
+    const inPtRaw: CreateDataPointParams = {
+      source: PUB_IN_PLACEMENT_INDEX,
+      wireIndex: this.state.placements.get(PUB_IN_PLACEMENT_INDEX)!.inPts
+        .length,
+      extSource: `blk: ${blkNumber.toString()}`,
+      type: type,
+      offset: 0,
+      value: value,
+      sourceSize: 32, // block info is typically 32 bytes
     };
-    const key = JSON.stringify(blockInfo);
-    if (this.blkInf.has(key)) {
-      // Warm access
-      return this.placements.get(PRV_IN_PLACEMENT_INDEX)!.outPts[
-        this.blkInf.get(key)!.wireIndex
-      ];
-    }
-    const inPt: DataPt = {
-      ...blockInfo,
-      source: PRV_IN_PLACEMENT_INDEX,
-      wireIndex: this.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length,
-      value,
-      sourceSize: DEFAULT_SOURCE_SIZE,
-    };
-    const outPt = this._addWireToInBuffer(inPt, PRV_IN_PLACEMENT_INDEX);
-    const blkInfEntry = {
-      value,
-      wireIndex: outPt.wireIndex!,
-    };
-    this.blkInf.set(key, blkInfEntry);
+    const inPt = DataPointFactory.create(inPtRaw);
+    const outPt = this._addWireToInBuffer(inPt, PUB_IN_PLACEMENT_INDEX);
+    this.state.blkInf.set(`${type}:0`, {
+      value: outPt.value,
+      wireIndex: outPt.wireIndex,
+    });
     return outPt;
   }
 
@@ -439,17 +337,22 @@ export class Synthesizer {
     inPts: DataPt[],
     length: bigint,
   ): { value: bigint; inValues: bigint[] } {
-    const nChunks = inPts.length;
-    const lengthNum = Number(length);
     let value = BIGINT_0;
-    const inValues: bigint[] = [];
-    let lengthLeft = lengthNum;
-
-    for (let i = 0; i < nChunks; i++) {
-      const _length = lengthLeft > 32 ? 32 : lengthLeft;
-      lengthLeft -= _length;
-      value += inPts[i].value << BigInt(lengthLeft * 8);
-      inValues[i] = inPts[i].value;
+    const inValues = [];
+    let currentSize = BIGINT_0;
+    for (const inPt of inPts) {
+      if (inPt.sourceSize) {
+        currentSize += BigInt(inPt.sourceSize);
+      } else {
+        throw new Error(
+          'Synthesizer: Keccak input data point must have a source size',
+        );
+      }
+      value = value * (1n << BigInt(inPt.sourceSize * 8)) + inPt.value;
+      inValues.push(inPt.value);
+    }
+    if (currentSize !== length) {
+      throw new Error('Synthesizer: Invalid total length of Keccak inputs');
     }
     return { value, inValues };
   }
@@ -459,55 +362,50 @@ export class Synthesizer {
     length: bigint,
     expectedOutValue: bigint,
   ): void {
-    const lengthNum = Number(length);
-    let data: Uint8Array;
-    if (length !== 0n) {
-      const valueInBytes = bigIntToBytes(value);
-      data = setLengthLeft(valueInBytes, lengthNum ?? valueInBytes.length);
-    } else {
-      data = new Uint8Array(0);
-    }
-    const actualOutValue = BigInt(bytesToHex(keccak256(data)));
-    if (actualOutValue !== expectedOutValue) {
-      throw new Error(
-        `Synthesizer: loadAndStoreKeccak: The Keccak hash may be customized`,
-      );
+    const outValue = bytesToBigInt(
+      keccak256(setLengthLeft(bigIntToBytes(value), Number(length))),
+    );
+    if (outValue !== expectedOutValue) {
+      throw new Error('Synthesizer: Keccak output mismatch');
     }
   }
 
-  private _recordKeccakToBuffers(
-    inPts: DataPt[],
-    outValue: bigint,
-    keccakKey: bigint,
-  ): DataPt {
-    // Add the inputs to the public output buffer
-    let outWireIndex = this.placements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts
-      .length;
-    for (let i = 0; i < inPts.length; i++) {
-      const outPtRaw: CreateDataPointParams = {
-        extDest: 'KeccakIn',
-        key: '0x' + keccakKey.toString(16),
-        offset: i,
-        source: PUB_OUT_PLACEMENT_INDEX,
-        wireIndex: outWireIndex++,
-        value: inPts[i].value,
-        sourceSize: DEFAULT_SOURCE_SIZE,
-      };
-      const outPt = DataPointFactory.create(outPtRaw);
-      this._addWireToOutBuffer(inPts[i], outPt, PUB_OUT_PLACEMENT_INDEX);
-    }
-
-    // Add the output to the public input buffer
-    const inPtRaw: CreateDataPointParams = {
-      extSource: 'KeccakOut',
-      key: '0x' + keccakKey.toString(16),
-      source: PUB_IN_PLACEMENT_INDEX,
-      wireIndex: this.placements.get(PUB_IN_PLACEMENT_INDEX)!.inPts.length,
+  private _recordKeccakToBuffers(inPts: DataPt[], outValue: bigint): DataPt {
+    const keccakInPts = inPts.map((inPt, i) =>
+      DataPointFactory.create({
+        source: PUB_IN_PLACEMENT_INDEX,
+        wireIndex:
+          this.state.placements.get(PUB_IN_PLACEMENT_INDEX)!.inPts.length + i,
+        extSource: 'keccak',
+        type: 'keccak_in',
+        value: inPt.value,
+        sourceSize: inPt.sourceSize,
+      }),
+    );
+    const keccakOutPt = DataPointFactory.create({
+      source: PUB_OUT_PLACEMENT_INDEX,
+      wireIndex: this.state.placements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts
+        .length,
+      extSource: 'keccak',
+      type: 'keccak_out',
       value: outValue,
-      sourceSize: DEFAULT_SOURCE_SIZE,
-    };
-    const inPt = DataPointFactory.create(inPtRaw);
-    return this._addWireToInBuffer(inPt, PUB_IN_PLACEMENT_INDEX);
+      sourceSize: 32, // keccak output is 32 bytes
+    });
+
+    for (const p of keccakInPts) {
+      this._addWireToInBuffer(p, PUB_IN_PLACEMENT_INDEX);
+    }
+    this._addWireToOutBuffer(
+      keccakInPts[0],
+      keccakOutPt,
+      PUB_OUT_PLACEMENT_INDEX,
+    );
+    this.state.keccakPt.push({
+      inValues: keccakInPts.map((p) => p.value),
+      outValue: keccakOutPt.value,
+    });
+
+    return keccakOutPt;
   }
 
   public loadAndStoreKeccak(
@@ -515,13 +413,11 @@ export class Synthesizer {
     outValue: bigint,
     length: bigint,
   ): DataPt {
-    const { value, inValues } = this._processKeccakInputs(inPts, length);
+    const { value } = this._processKeccakInputs(inPts, length);
     this._executeAndValidateKeccak(value, length, outValue);
-
-    this.keccakPt.push({ inValues, outValue });
-    const keccakKey = BigInt(this.keccakPt.length - 1);
-
-    return this._recordKeccakToBuffers(inPts, outValue, keccakKey);
+    const outPt = this._recordKeccakToBuffers(inPts, outValue);
+    // TODO: Consider to add keccak subcircuit
+    return outPt;
   }
 
   /**
@@ -540,31 +436,18 @@ export class Synthesizer {
    * only the lower bytes of data are stored, and the upper bytes are discarded. The modified data point is returned.
    */
   public placeMSTORE(dataPt: DataPt, truncSize: number): DataPt {
-    // MSTORE8 is used as truncSize=1, storing only the lowest 1 byte of data and discarding the rest.
-    if (truncSize < dataPt.sourceSize) {
-      // Since there is a modification in the original data, create a virtual operation to track this in Placements.
-      // MSTORE8's modification is possible with AND operation (= AND(data, 0xff))
-      const maskerString = '0x' + 'FF'.repeat(truncSize);
-
-      const outValue = dataPt.value & BigInt(maskerString);
-      if (dataPt.value !== outValue) {
-        const subcircuitName = 'AND';
-        const inPts: DataPt[] = [this.loadAuxin(BigInt(maskerString)), dataPt];
-        const rawOutPt: CreateDataPointParams = {
-          source: this.placementIndex,
-          wireIndex: 0,
-          value: outValue,
-          sourceSize: truncSize,
-        };
-        const outPts: DataPt[] = [DataPointFactory.create(rawOutPt)];
-        this._place(subcircuitName, inPts, outPts, subcircuitName);
-
-        return outPts[0];
-      }
+    const bitmask = (1n << BigInt(truncSize * 8)) - 1n;
+    const maskPt = this.loadAuxin(bitmask, 32);
+    const truncOutPts = this.placeArith('AND', [dataPt, maskPt]);
+    if (truncOutPts.length !== 1) {
+      throw new SynthesizerError(
+        'placeMSTORE',
+        'Bitwise operation should return a single DataPt',
+      );
     }
-    const outPt = dataPt;
-    outPt.sourceSize = truncSize;
-    return outPt;
+
+    this._place('Memory', [dataPt], truncOutPts, ArithmeticOperations.MSTORE);
+    return truncOutPts[0];
   }
 
   /**
@@ -575,22 +458,32 @@ export class Synthesizer {
    * @returns {DataPt} Generated data point.
    */
   public placeMemoryToStack(dataAliasInfos: DataAliasInfos): DataPt {
-    if (dataAliasInfos.length === 0) {
-      throw new Error(`Synthesizer: placeMemoryToStack: Noting tho load`);
+    const transformedDataPts = dataAliasInfos.map((info) =>
+      this._transformMemorySlice(info),
+    );
+
+    if (transformedDataPts.length === 0) {
+      throw new SynthesizerError(
+        'placeMemoryToStack',
+        'No data slices to process',
+      );
     }
-    return this._combineMemorySlices(dataAliasInfos);
+
+    let combinedData = transformedDataPts[0];
+    for (let i = 1; i < transformedDataPts.length; i++) {
+      combinedData = this.placeArith('OR', [
+        combinedData,
+        transformedDataPts[i],
+      ])[0];
+    }
+    return combinedData;
   }
 
   public placeMemoryToMemory(dataAliasInfos: DataAliasInfos): DataPt[] {
-    if (dataAliasInfos.length === 0) {
-      throw new Error(`Synthesizer: placeMemoryToMemory: Nothing to load`);
-    }
-    const copiedDataPts: DataPt[] = [];
-    for (const info of dataAliasInfos) {
-      // the lower index, the older data
-      copiedDataPts.push(this._applyMask(info, true));
-    }
-    return copiedDataPts;
+    const transformedDataPts = dataAliasInfos.map((info) =>
+      this._transformMemorySlice(info),
+    );
+    return transformedDataPts;
   }
 
   // /**
@@ -615,29 +508,31 @@ export class Synthesizer {
     name: ArithmeticOperator,
     values: bigint[],
   ): bigint | bigint[] {
-    const operation = OPERATION_MAPPING[name];
-    if (name === 'Accumulator') {
-      return operation(values);
-    } else {
-      return operation(...values);
+    const operation: ArithmeticFunction = OPERATION_MAPPING[name];
+    if (!operation) {
+      throw new SynthesizerError(
+        'executeOperation',
+        `Unsupported arithmetic operation: ${name}`,
+      );
     }
+    return operation(values);
   }
 
   private _createArithmeticOutput(
     name: ArithmeticOperator,
     inPts: DataPt[],
   ): DataPt[] {
-    const values = inPts.map((pt) => pt.value);
+    const values = inPts.map((p) => p.value);
     const outValue = this.executeOperation(name, values);
 
-    const source = this.placementIndex;
+    const source = this.state.getNextPlacementIndex();
     const sourceSize = name === 'DecToBit' ? 1 : DEFAULT_SOURCE_SIZE;
     return Array.isArray(outValue)
-      ? outValue.map((value, index) =>
+      ? outValue.map((v, i) =>
           DataPointFactory.create({
             source,
-            wireIndex: index,
-            value,
+            wireIndex: i,
+            value: v,
             sourceSize,
           }),
         )
@@ -657,26 +552,15 @@ export class Synthesizer {
   ): { subcircuitName: SubcircuitNames; finalInPts: DataPt[] } {
     const [subcircuitName, selector] = SUBCIRCUIT_MAPPING[name];
 
-    if (this.subcircuitInfoByName.get(subcircuitName) === undefined) {
+    if (this.state.subcircuitInfoByName.get(subcircuitName) === undefined) {
       throw new Error(
         `Synthesizer: ${subcircuitName} subcircuit is not found for operation ${name}. Check qap-compiler.`,
       );
     }
 
-    let finalInPts: DataPt[] = inPts;
-    if (selector !== undefined) {
-      const selectorPt = this.loadAuxin(selector, 1);
-      finalInPts = [selectorPt, ...inPts];
-    }
-
-    if (subcircuitName === 'ALU3' || subcircuitName === 'ALU5') {
-      const values = inPts.map((pt) => pt.value);
-      if (values[0] > 255n) {
-        throw new Error(
-          `Synthesizer: Operation ${name} has a shift or size value greater than 255. Adjust ${subcircuitName} subcircuit in qap-compiler.`,
-        );
-      }
-    }
+    // If the operation requires a selector, load it as an auxiliary input.
+    const finalInPts =
+      selector !== undefined ? [this.loadAuxin(selector, 1), ...inPts] : inPts;
 
     return { subcircuitName, finalInPts };
   }
@@ -690,79 +574,79 @@ export class Synthesizer {
    * @throws {Error} If an undefined subcircuit name is provided.
    */
   public placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
-    try {
-      const outPts = this._createArithmeticOutput(name, inPts);
-      const { subcircuitName, finalInPts } = this._prepareSubcircuitInputs(
-        name,
-        inPts,
-      );
-      this._place(subcircuitName, finalInPts, outPts, name);
+    const { subcircuitName, finalInPts } = this._prepareSubcircuitInputs(
+      name,
+      inPts,
+    );
+    const outPts = this._createArithmeticOutput(name, inPts);
 
-      return outPts;
-    } catch (error) {
-      if (error instanceof InvalidInputCountError) {
-        /*eslint-disable*/
-        console.error(`Invalid input count for ${name}: ${error.message}`);
-      }
-      if (error instanceof SynthesizerError) {
-        /*eslint-disable*/
-        console.error(`Synthesizer error in ${name}: ${error.message}`);
-      }
-      throw error;
-    }
+    this._place(
+      subcircuitName,
+      finalInPts,
+      outPts,
+      OPERATION_MAPPING[name].usage,
+    );
+    return outPts;
   }
 
   private _calculateViewAdjustment(
-    memoryPt: MemoryPts[number],
+    memoryPt: MemoryPtEntry,
     srcOffset: number,
     dstOffset: number,
     viewLength: number,
   ) {
-    const { memOffset: containerOffset, containerSize } = memoryPt;
-    const containerEndPos = containerOffset + containerSize;
-
-    const actualOffset = Math.max(srcOffset, containerOffset);
-    const actualEndPos = Math.min(srcOffset + viewLength, containerEndPos);
-
-    const adjustedOffset = actualOffset - srcOffset + dstOffset;
-    const actualContainerSize = actualEndPos - actualOffset;
-    const endingGap = containerEndPos - actualEndPos;
-
-    return { adjustedOffset, actualContainerSize, endingGap };
+    const startPos = dstOffset - memoryPt.memOffset;
+    const endPos = startPos + viewLength;
+    const startingGap = Math.max(0, startPos);
+    const endingGap = Math.max(0, memoryPt.containerSize - endPos);
+    const shift = (srcOffset - dstOffset + startingGap) * 8;
+    return { startingGap, endingGap, shift };
   }
 
   private _truncateDataPt(dataPt: DataPt, endingGap: number): DataPt {
-    if (endingGap <= 0) {
-      return dataPt;
+    let truncatedPt = dataPt;
+    if (endingGap > 0) {
+      const mask =
+        (1n << BigInt(dataPt.sourceSize * 8)) - (1n << BigInt(endingGap * 8));
+      const maskPt = this.loadAuxin(mask, dataPt.sourceSize);
+      [truncatedPt] = this.placeArith('AND', [dataPt, maskPt]);
     }
-    // SHR data to truncate the ending part
-    const [truncatedPt] = this.placeArith('SHR', [
-      this.loadAuxin(BigInt(endingGap * 8)),
-      dataPt,
-    ]);
     return truncatedPt;
   }
 
   public adjustMemoryPts(
-    dataPts: DataPt[],
     memoryPts: MemoryPts,
+    dataPts: DataPt[],
     srcOffset: number,
     dstOffset: number,
     viewLength: number,
   ): void {
-    for (const [index, memoryPt] of memoryPts.entries()) {
-      const { adjustedOffset, actualContainerSize, endingGap } =
-        this._calculateViewAdjustment(
-          memoryPt,
-          srcOffset,
-          dstOffset,
-          viewLength,
-        );
+    const memoryOverlaps = simulateMemoryPt(memoryPts).getOverlaps(
+      dstOffset,
+      viewLength,
+    );
 
-      memoryPt.memOffset = adjustedOffset;
-      memoryPt.containerSize = actualContainerSize;
-      memoryPt.dataPt = this._truncateDataPt(dataPts[index], endingGap);
-    }
+    memoryOverlaps.forEach((memoryPt: MemoryPtEntry) => {
+      const { endingGap, shift } = this._calculateViewAdjustment(
+        memoryPt,
+        srcOffset,
+        dstOffset,
+        viewLength,
+      );
+      let dataToShift = this._truncateDataPt(
+        dataPts[memoryPt.index],
+        endingGap,
+      );
+
+      if (shift !== 0) {
+        const shiftAbs = BigInt(Math.abs(shift));
+        const shiftPt = this.loadAuxin(shiftAbs, 32);
+        const op: ArithmeticOperator = shift > 0 ? 'SHL' : 'SHR';
+        [dataToShift] = this.placeArith(op, [dataToShift, shiftPt]);
+      }
+
+      this._place('Memory', [dataToShift], [], ArithmeticOperations.MSTORE);
+    });
   }
 
   /**
@@ -788,23 +672,25 @@ export class Synthesizer {
    * @returns {DataPt} The final, combined data point.
    */
   private _combineMemorySlices(dataAliasInfos: DataAliasInfos): DataPt {
-    const transformedSlices = dataAliasInfos.map((info) =>
-      this._transformMemorySlice(info),
-    );
-
-    if (transformedSlices.length === 1) {
-      return transformedSlices[0];
+    let combinedData: DataPt | undefined = undefined;
+    for (const info of dataAliasInfos) {
+      const transformedSlice = this._transformMemorySlice(info);
+      if (combinedData) {
+        combinedData = this.placeArith('OR', [
+          combinedData,
+          transformedSlice,
+        ])[0];
+      } else {
+        combinedData = transformedSlice;
+      }
     }
-
-    if (transformedSlices.length > ACCUMULATOR_INPUT_LIMIT) {
-      throw new Error(
-        `Synthesizer: Go to qap-compiler and unlimit the number of inputs for the Accumulator.`,
+    if (combinedData === undefined) {
+      throw new SynthesizerError(
+        '_combineMemorySlices',
+        'No data slices to combine',
       );
     }
-
-    // placeArith returns an array of outPts, but Accumulator returns one.
-    const [accumulatedPt] = this.placeArith('Accumulator', transformedSlices);
-    return accumulatedPt;
+    return combinedData;
   }
 
   /**
@@ -814,13 +700,8 @@ export class Synthesizer {
    * @returns {DataPt} The transformed data point.
    */
   private _transformMemorySlice(info: DataAliasInfoEntry): DataPt {
-    const shiftedPt = this._applyShift(info);
-    const modInfo: DataAliasInfoEntry = {
-      dataPt: shiftedPt,
-      masker: info.masker,
-      shift: info.shift,
-    };
-    return this._applyMask(modInfo);
+    const masked = this._applyMask(info);
+    return this._applyShift({ ...info, dataPt: masked });
   }
 
   /**
@@ -831,16 +712,14 @@ export class Synthesizer {
    * @returns {bigint} Shifted value.
    */
   private _applyShift(info: DataAliasInfoEntry): DataPt {
-    const { dataPt: dataPt, shift: shift } = info;
-    let outPts = [dataPt];
-    if (Math.abs(shift) > 0) {
-      // The relationship between shift value and shift direction is defined in MemoryPt
-      const subcircuitName: ArithmeticOperator = shift > 0 ? 'SHL' : 'SHR';
-      const absShift = Math.abs(shift);
-      const inPts: DataPt[] = [this.loadAuxin(BigInt(absShift)), dataPt];
-      outPts = this.placeArith(subcircuitName, inPts);
+    let dataPt = info.dataPt;
+    if (info.shift !== 0) {
+      const shiftAbs = BigInt(Math.abs(info.shift));
+      const shiftPt = this.loadAuxin(shiftAbs, 32);
+      const op: ArithmeticOperator = info.shift > 0 ? 'SHL' : 'SHR';
+      [dataPt] = this.placeArith(op, [dataPt, shiftPt]);
     }
-    return outPts[0];
+    return dataPt;
   }
 
   /**
@@ -850,23 +729,17 @@ export class Synthesizer {
    * @param {bigint} dataPt - Pointer to apply the mask.
    */
   private _applyMask(info: DataAliasInfoEntry, unshift?: boolean): DataPt {
-    let masker = info.masker;
-    const { shift, dataPt } = info;
-    if (unshift === true) {
-      const maskerBigint = BigInt(masker);
-      const unshiftMaskerBigint =
-        shift > 0
-          ? maskerBigint >> BigInt(Math.abs(shift))
-          : maskerBigint << BigInt(Math.abs(shift));
-      masker = '0x' + unshiftMaskerBigint.toString(16);
+    let dataPt = info.dataPt;
+    const mask = (1n << BigInt(info.viewLength * 8)) - 1n;
+    const maskPt = this.loadAuxin(mask, info.dataPt.sourceSize);
+    [dataPt] = this.placeArith('AND', [dataPt, maskPt]);
+
+    if (unshift && info.shift < 0) {
+      const shiftAbs = BigInt(Math.abs(info.shift));
+      const shiftPt = this.loadAuxin(shiftAbs, 32);
+      [dataPt] = this.placeArith('SHL', [dataPt, shiftPt]);
     }
-    const maskOutValue = dataPt.value & BigInt(masker);
-    let outPts = [dataPt];
-    if (maskOutValue !== dataPt.value) {
-      const inPts: DataPt[] = [this.loadAuxin(BigInt(masker)), dataPt];
-      outPts = this.placeArith('AND', inPts);
-    }
-    return outPts[0];
+    return dataPt;
   }
 
   private _place(
@@ -875,23 +748,29 @@ export class Synthesizer {
     outPts: DataPt[],
     usage: ArithmeticOperations,
   ) {
-    if (!this.subcircuitNames.includes(name)) {
-      throw new Error(`Subcircuit name ${name} is not defined`);
+    const subcircuitInfo = this.state.subcircuitInfoByName.get(name);
+    if (!subcircuitInfo) {
+      throw new SynthesizerError(
+        '_place',
+        `Subcircuit information for '${name}' not found.`,
+      );
     }
-    for (const inPt of inPts) {
-      if (typeof inPt.source !== 'number') {
-        throw new Error(
-          `Synthesizer: Placing a subcircuit: Input wires to a new placement must be connected to the output wires of other placements.`,
-        );
-      }
+
+    if (
+      inPts.length > subcircuitInfo.NInWires ||
+      outPts.length > subcircuitInfo.NOutWires
+    ) {
+      throw new InvalidInputCountError(
+        name,
+        inPts.length,
+        outPts.length,
+        subcircuitInfo,
+      );
     }
-    addPlacement(this.placements, {
-      name,
-      usage,
-      subcircuitId: this.subcircuitInfoByName.get(name)!.id,
-      inPts,
-      outPts,
+
+    const placementId = this.state.getNextPlacementIndex();
+    addPlacement(this.state.placements, placementId, name, inPts, outPts, {
+      op: usage,
     });
-    this.placementIndex++;
   }
 }

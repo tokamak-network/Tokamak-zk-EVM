@@ -12,7 +12,11 @@ const wasmDir = path.join(
   '../../../../qap-compiler/subcircuits/library/wasm',
 );
 
-export * from './constants.js';
+export * from './circuits.js';
+export * from './common.js';
+export * from './placements.js';
+export * from './arithmetic.js';
+
 export { subcircuits, globalWireList, setupParams, wasmDir };
 
 // // For user interface
