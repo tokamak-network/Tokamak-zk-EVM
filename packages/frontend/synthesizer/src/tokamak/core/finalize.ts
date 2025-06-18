@@ -119,7 +119,7 @@ const removeUnusedLoadWires = (placements: Placements): PlacementEntry => {
 function _processOutputWires(
   placements: Placements,
   dietLoadPlacment: PlacementEntry,
-  subcircuitInfoByName: Map<any, any>,
+  subcircuitInfoByName: SubcircuitInfoByName,
 ): {
   outPlacements: Placements;
   outWireIndexChangeTracker: Map<number, Map<number, number[]>>;
@@ -214,13 +214,13 @@ function refactoryPlacement(synthesizer: Synthesizer): Placements {
 
 function _validateBufferSizes(
   outPlacements: Placements,
-  subcircuitInfoByName: Map<any, any>,
+  subcircuitInfoByName: SubcircuitInfoByName,
 ) {
   const flags: boolean[] = Array(5).fill(true);
 
   if (
     outPlacements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length >
-    subcircuitInfoByName.get('bufferPrvIn' as SubcircuitNames)!.In_idx[1]
+    subcircuitInfoByName.get('bufferPrvIn' as SubcircuitNames)!.NInWires
   ) {
     flags[0] = false;
     console.log(
@@ -229,7 +229,7 @@ function _validateBufferSizes(
   }
   if (
     outPlacements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.length >
-    subcircuitInfoByName.get('bufferPrvOut' as SubcircuitNames)!.Out_idx[1]
+    subcircuitInfoByName.get('bufferPrvOut' as SubcircuitNames)!.NOutWires
   ) {
     flags[1] = false;
     console.log(
@@ -238,7 +238,7 @@ function _validateBufferSizes(
   }
   if (
     outPlacements.get(PUB_IN_PLACEMENT_INDEX)!.inPts.length >
-    subcircuitInfoByName.get('bufferPubIn' as SubcircuitNames)!.In_idx[1]
+    subcircuitInfoByName.get('bufferPubIn' as SubcircuitNames)!.NInWires
   ) {
     flags[2] = false;
     console.log(
@@ -247,7 +247,7 @@ function _validateBufferSizes(
   }
   if (
     outPlacements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts.length >
-    subcircuitInfoByName.get('bufferPubOut' as SubcircuitNames)!.Out_idx[1]
+    subcircuitInfoByName.get('bufferPubOut' as SubcircuitNames)!.NOutWires
   ) {
     flags[3] = false;
     console.log(
