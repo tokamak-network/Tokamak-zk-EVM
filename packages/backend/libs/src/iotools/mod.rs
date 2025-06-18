@@ -725,6 +725,7 @@ pub fn from_coef_vec_to_g1serde_vec_msm(
     gen: &G1Affine,
     res: &mut [G1serde],
 ) {
+    println!("msm");
     let n = coef.len();
 
     let t_start = Instant::now();
@@ -740,6 +741,7 @@ pub fn from_coef_vec_to_g1serde_vec_msm(
         .expect("device_malloc failed");
 
     let cfg = msm::MSMConfig::default();
+
     msm::msm(
         scalars_host,       // &[ScalarField]
         points_host,        // &[G1Affine]
@@ -752,6 +754,10 @@ pub fn from_coef_vec_to_g1serde_vec_msm(
         .copy_to_host(HostSlice::from_mut_slice(&mut host_out))
         .expect("copy_to_host failed");
   
+    drop(result_dev);
+    // drop(points_host);
+    // drop(scalars_host);
+    
     host_out
         .into_par_iter()
         .zip(res.par_iter_mut())
