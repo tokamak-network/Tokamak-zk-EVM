@@ -60,14 +60,14 @@ Here is an example of generating a zk proof of the correct execution of an [ERC-
     cargo run -p prove
     ```
 
-    10. Run `verify` (requiring Rust and CMake)
+10. Run `verify` (requiring Rust and CMake)
 
     ```bash
     cd "$pwd/packages/backend"
     cargo run -p verify
     ```
 
-    11. Run `solidity verify` (requiring Foundry and Solidity)
+11. Run `solidity verify` (requiring Foundry and Solidity)
 
     ```bash
     cd "$pwd/packages/backend/verify/solidity"
