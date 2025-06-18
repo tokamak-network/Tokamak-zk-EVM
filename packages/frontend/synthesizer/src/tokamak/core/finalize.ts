@@ -33,14 +33,15 @@ import type {
   SubcircuitInfoByNameEntry,
   SubcircuitNames,
 } from '../types/index.js';
+import type { Synthesizer } from './synthesizer.js';
 type PlacementWireIndex = { globalWireId: number; placementId: number };
 
 export async function finalize(
-  placements: Placements,
+  synthesizer: Synthesizer,
   _path?: string,
   writeToFS: boolean = true,
 ): Promise<Permutation> {
-  const refactoriedPlacements = refactoryPlacement(placements);
+  const refactoriedPlacements = refactoryPlacement(synthesizer);
   let permutation = new Permutation(refactoriedPlacements, _path);
   permutation.placementVariables = await permutation.outputPlacementVariables(
     refactoriedPlacements,
@@ -189,15 +190,9 @@ function _processInputWires(
   return outPlacements;
 }
 
-function refactoryPlacement(placements: Placements): Placements {
-  const subcircuitInfoByName = new Map();
-  for (const subcircuitInfo of subcircuitInfos) {
-    subcircuitInfoByName.set(subcircuitInfo.name as SubcircuitNames, {
-      id: subcircuitInfo.id,
-      Out_idx: subcircuitInfo.Out_idx,
-      In_idx: subcircuitInfo.In_idx,
-    });
-  }
+function refactoryPlacement(synthesizer: Synthesizer): Placements {
+  const placements = synthesizer.state.placements;
+  const subcircuitInfoByName = synthesizer.state.subcircuitInfoByName;
   const dietLoadPlacment = removeUnusedLoadWires(placements);
 
   const { outPlacements, outWireIndexChangeTracker } = _processOutputWires(

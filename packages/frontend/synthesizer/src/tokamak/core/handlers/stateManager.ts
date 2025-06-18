@@ -33,7 +33,7 @@ export class StateManager {
   public TStoragePt!: Map<string, Map<bigint, DataPt>>;
   public placementIndex!: number;
   public subcircuitInfoByName!: SubcircuitInfoByName;
-  private subcircuitNames!: SubcircuitNames[];
+  public subcircuitNames!: SubcircuitNames[];
 
   constructor() {
     this._initializeState();
@@ -42,6 +42,10 @@ export class StateManager {
     this.placementIndex = INITIAL_PLACEMENT_INDEX;
   }
 
+  /**
+   * Returns the current placement index and then increments it.
+   * @returns {number} The current placement index before incrementing.
+   */
   public getNextPlacementIndex(): number {
     return this.placementIndex++;
   }
@@ -59,7 +63,6 @@ export class StateManager {
     this.TStoragePt = new Map();
     this.placements = new Map();
     this.subcircuitInfoByName = new Map();
-    this.subcircuitNames = [];
   }
 
   /**

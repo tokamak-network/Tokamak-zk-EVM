@@ -80,11 +80,7 @@ const main = async () => {
     throw new Error('No synthesizer found');
   }
 
-  await finalize(
-    result.execResult.runState.synthesizer.placements,
-    undefined,
-    true,
-  );
+  await finalize(result.execResult.runState.synthesizer, undefined, true);
 };
 
 void main().catch(console.error);
