@@ -31,12 +31,12 @@ Here is an example of generating a zk proof of the correct execution of an [ERC-
     ./scripts/compile.sh
     ```
     
-6. Run `synthesizer` (requiring Node.js)
+6. Run `synthesizer` (requiring Node.js and Alchemy API key)
     
     ```bash
     cd "$pwd/packages/frontend/synthesizer"
     npm install
-    npx tsx ./examples/erc20/ton-transfer.ts
+    npx tsx ./examples/fullnode/index.ts
     ```
     
 7. Run `setup` (requiring Rust and CMake)
@@ -66,15 +66,6 @@ Here is an example of generating a zk proof of the correct execution of an [ERC-
     cd "$pwd/packages/backend"
     cargo run -p verify
     ```
-
-11. Run `solidity verify` (requiring Foundry and Solidity)
-
-    ```bash
-    cd "$pwd/packages/backend/verify/solidity"
-    forge install
-    forge test -vvvv
-    ```
-
 
 ## Package Composition
 
