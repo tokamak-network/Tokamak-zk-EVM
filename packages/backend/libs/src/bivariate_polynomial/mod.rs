@@ -1,11 +1,10 @@
 use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
 use icicle_core::traits::{Arithmetic, FieldImpl, FieldConfig, GenerateRandom};
 use icicle_core::polynomials::UnivariatePolynomial;
-use icicle_core::ntt;
+use icicle_core::ntt::{self, NTTDir};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use icicle_bls12_381::polynomials::DensePolynomial;
 use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice, DeviceSlice, DeviceVec};
-use icicle_runtime::Device;
 use std::{
     cmp,
     ops::{Add, AddAssign, Mul, Sub, Neg},
@@ -28,7 +27,6 @@ fn _find_size_as_twopower(target_x_size: usize, target_y_size: usize) -> (usize,
     }
     (new_x_size, new_y_size)
 }
-
 
 pub struct DensePolynomialExt {
     pub poly: DensePolynomial,
@@ -278,6 +276,8 @@ where
     type Field: FieldImpl;
     type FieldConfig: FieldConfig;
 
+    fn _biNTT<In: HostOrDeviceSlice<Self::Field> + ?Sized, Out: HostOrDeviceSlice<Self::Field> + ?Sized>( in_mat: &In, x_size: usize, y_size: usize, dir: NTTDir, out_mat: &mut Out);
+
     // Methods to create polynomials from coefficients or roots-of-unity evaluations.
     fn from_coeffs<S: HostOrDeviceSlice<Self::Field> + ?Sized>(coeffs: &S, x_size: usize, y_size: usize) -> Self;
     fn from_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(evals: &S, x_size: usize, y_size: usize, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>) -> Self;
@@ -388,11 +388,65 @@ impl BivariatePolynomial for DensePolynomialExt {
     //     self.y_degree = y_deg;
     // }
 
+    fn _biNTT<In, Out>(
+        in_mat: &In, 
+        x_size: usize, 
+        y_size: usize, 
+        dir: NTTDir, 
+        out_mat: &mut Out
+    ) where 
+        In: HostOrDeviceSlice<Self::Field> + ?Sized,
+        Out: HostOrDeviceSlice<Self::Field> + ?Sized 
+    {
+        let size = x_size * y_size;
+        ntt::initialize_domain::<Self::Field>(
+            ntt::get_root_of_unity::<Self::Field>(size.try_into().unwrap()),
+            &ntt::NTTInitDomainConfig::default(),
+        ).unwrap();
+
+        let mut cfg = ntt::NTTConfig::<Self::Field>::default();
+        let vec_ops_cfg = VecOpsConfig::default();
+
+        {
+            // IFFT along Y coeffs
+            let mut out_y = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
+            cfg.batch_size = x_size as i32;
+            cfg.columns_batch = false;
+            ntt::ntt(in_mat, dir, &cfg, &mut out_y).unwrap();
+
+            // IFFT along X coeffs (GPU does not work with columns_batch == true, so we manually transpose the matrix)
+            let mut out_y_tr = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
+            Self::FieldConfig::transpose(
+                &out_y,
+                x_size as u32,
+                y_size as u32,
+                &mut out_y_tr,
+                &vec_ops_cfg,
+            ).unwrap();
+            drop(out_y);
+
+            cfg.batch_size = y_size as i32;
+            cfg.columns_batch = false;
+            let mut out_x_tr = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
+            ntt::ntt(&out_y_tr, dir, &cfg, &mut out_x_tr).unwrap();
+            drop(out_y_tr);
+
+            Self::FieldConfig::transpose(
+                &out_x_tr,
+                y_size as u32,
+                x_size as u32,
+                out_mat,
+                &vec_ops_cfg,
+            ).unwrap();
+        }
+        ntt::release_domain::<Self::Field>().unwrap();
+    }
+
     fn find_degree(&self) -> (i64, i64) {
         let size = self.x_size * self.y_size;
         let mut buf = vec![ScalarField::zero(); size];
         {
-            let mut slice = HostSlice::from_mut_slice(&mut buf);
+            let slice = HostSlice::from_mut_slice(&mut buf);
             self.poly.copy_coeffs(0, slice);
         }
         let x_size = self.x_size;
@@ -515,45 +569,10 @@ impl BivariatePolynomial for DensePolynomialExt {
         }
 
         let size = x_size * y_size;
-
-        ntt::initialize_domain::<Self::Field>(
-            ntt::get_root_of_unity::<Self::Field>(size.try_into().unwrap()),
-            &ntt::NTTInitDomainConfig::default(),
-        ).unwrap();
-
+        let ntt_dir = ntt::NTTDir::kInverse;
         let mut coeffs = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
-        let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-
-        let mut input_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
-        let mut output_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
-        let vec_ops_cfg = VecOpsConfig::default();
-
-        ScalarCfg::transpose(
-            evals,
-            x_size as u32,
-            y_size as u32,
-            &mut input_tr,
-            &vec_ops_cfg,
-        ).unwrap();
-
-        cfg.batch_size = y_size as i32;
-        cfg.columns_batch = false;
-        ntt::ntt(&input_tr, ntt::NTTDir::kInverse, &cfg, &mut output_tr).unwrap();
-
-        ScalarCfg::transpose(
-            &output_tr,
-            y_size as u32,
-            x_size as u32,
-            &mut coeffs,
-            &vec_ops_cfg,
-        ).unwrap();
-
-
-        cfg.batch_size = x_size as i32;
-        cfg.columns_batch = false;
-        ntt::ntt_inplace(&mut coeffs, ntt::NTTDir::kInverse, &cfg).unwrap();
-
-        ntt::release_domain::<Self::Field>().unwrap();
+        
+        Self::_biNTT(evals, x_size, y_size, ntt_dir, &mut coeffs);
 
         let mut poly = DensePolynomialExt::from_coeffs(
             &coeffs,
@@ -600,53 +619,11 @@ impl BivariatePolynomial for DensePolynomialExt {
             scaled_poly.copy_coeffs(0, scaled_coeffs);
         }
 
-        ntt::initialize_domain::<Self::Field>(
-            ntt::get_root_of_unity::<Self::Field>(
-                size.try_into()
-                    .unwrap(),
-            ),
-            &ntt::NTTInitDomainConfig::default(),
-        ).unwrap();
+        let ntt_dir = ntt::NTTDir::kForward;
+        let mut in_mat = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        in_mat.copy_from_host(&scaled_coeffs).unwrap();
 
-        let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-
-        let mut input_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
-        let mut output_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
-        let vec_ops_cfg = VecOpsConfig::default();
-
-        input_tr.copy_from_host(&scaled_coeffs).unwrap();
-
-        ScalarCfg::transpose(
-            &input_tr,
-            self.x_size as u32,
-            self.y_size as u32,
-            &mut output_tr,
-            &vec_ops_cfg,
-        ).unwrap();
-
-        let mut out_b = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
-
-        cfg.batch_size = self.y_size as i32;
-        cfg.columns_batch = false;
-
-        ntt::ntt(&output_tr, ntt::NTTDir::kForward, &cfg, &mut out_b).unwrap();
-
-        ScalarCfg::transpose(
-            &out_b,
-            self.y_size as u32,
-            self.x_size as u32,
-            evals,
-            &vec_ops_cfg,
-        ).unwrap();
-
-        drop(scaled_coeffs_vec);
-
-        // FFT along Y
-        cfg.batch_size = self.x_size as i32;
-        cfg.columns_batch = false;
-
-        ntt::ntt_inplace(evals, ntt::NTTDir::kForward, &cfg).unwrap();
-        ntt::release_domain::<Self::Field>().unwrap();
+        Self::_biNTT(&in_mat, self.x_size, self.y_size, ntt_dir, evals);
     }
 
 
