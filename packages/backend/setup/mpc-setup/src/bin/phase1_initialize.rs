@@ -141,7 +141,7 @@ async fn main() {
     )
         .expect("cannot write to file");
     println!("Time elapsed: {:?}", start.elapsed().as_secs_f64());
-    println!("thanks for your contribution...");
+    println!("Thanks for your contribution...");
 }
 
 fn initialize_scalar(mode: &Mode, blockhash: Option<&String>) -> Result<ScalarField, String> {
@@ -150,7 +150,7 @@ fn initialize_scalar(mode: &Mode, blockhash: Option<&String>) -> Result<ScalarFi
         _ => {
             let blockhash_str = match blockhash {
                 Some(hash) => hash.trim_start_matches("0x").to_string(),
-                None => prompt_user_input("enter blockhash (in hex string):")
+                None => prompt_user_input("Enter blockhash (64 hex characters):")
                     .trim_start_matches("0x")
                     .to_string(),
             };

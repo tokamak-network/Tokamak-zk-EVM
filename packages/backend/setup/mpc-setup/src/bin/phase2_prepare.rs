@@ -40,8 +40,12 @@ fn main() {
         is_gpu_enabled = load_gpu_if_possible()
     }
     let config = Config::parse();
-    let accumulator = prompt_user_input("enter accumulator file name (e.g., phase1_acc_x.json):");
+    let contributor_index = prompt_user_input("Enter the last phase-1 contributor's index:")
+        .parse::<usize>()
+        .expect("Please enter a valid number");
 
+    let accumulator = format!("phase1_acc_{}.json", contributor_index);
+    
     let setup_file_name = "setupParams.json";
     let setup_params = SetupParams::from_path(setup_file_name).unwrap();
     let n = setup_params.n; // Number of constraints per subcircuit
