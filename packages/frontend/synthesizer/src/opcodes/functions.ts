@@ -38,7 +38,7 @@ import {
   synthesizerArith,
   synthesizerBlkInf,
   synthesizerEnvInf,
-} from '../tokamak/core/synthesizer-handlers.js';
+} from '../tokamak/core/handlers/synthesizerHandlers.js';
 import {
   copyMemoryRegion,
   simulateMemoryPt,

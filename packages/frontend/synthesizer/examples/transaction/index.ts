@@ -6,7 +6,7 @@
 import { Address, hexToBytes } from '@synthesizer-libs/util';
 import { ethers } from 'ethers';
 import { createEVM } from '../../src/constructors.js';
-import { finalize } from '../../src/tokamak/core/finalize.js';
+import { Finalizer } from '../../src/tokamak/core/finalizer.js';
 import { getBlockHeaderFromRPC } from '../../src/tokamak/utils/index.js';
 
 const main = async () => {
@@ -74,11 +74,8 @@ const main = async () => {
     throw new Error('No synthesizer found');
   }
 
-  await finalize(
-    result.execResult.runState.synthesizer.placements,
-    undefined,
-    true,
-  );
+  const finalizer = new Finalizer(result.execResult.runState.synthesizer);
+  await finalizer.exec(undefined, true);
 
   console.log(`✅ Successfully processed transaction: ${TRANSACTION_HASH}`);
 };
