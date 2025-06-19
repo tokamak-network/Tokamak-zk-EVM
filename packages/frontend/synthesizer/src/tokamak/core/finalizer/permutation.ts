@@ -13,16 +13,16 @@ import {
   globalWireList,
   setupParams,
   wasmDir,
-} from '../constant/index.js';
+} from '../../constant/index.js';
 import {
   INITIAL_PLACEMENT_INDEX,
   PRV_IN_PLACEMENT_INDEX,
   PRV_OUT_PLACEMENT_INDEX,
   PUB_IN_PLACEMENT_INDEX,
   PUB_OUT_PLACEMENT_INDEX,
-} from '../constant/index.js';
+} from '../../constant/index.js';
 
-import { builder } from '../utils/witness_calculator.js';
+import { builder } from '../../utils/witness_calculator.js';
 
 import type {
   DataPt,
@@ -32,256 +32,9 @@ import type {
   SubcircuitInfoByName,
   SubcircuitInfoByNameEntry,
   SubcircuitNames,
-} from '../types/index.js';
-import type { Synthesizer } from './synthesizer.js';
+} from '../../types/index.js';
 
 type PlacementWireIndex = { globalWireId: number; placementId: number };
-
-export class Finalizer {
-  private synthesizer: Synthesizer;
-
-  constructor(synthesizer: Synthesizer) {
-    this.synthesizer = synthesizer;
-  }
-
-  public async exec(
-    _path?: string,
-    writeToFS: boolean = true,
-  ): Promise<Permutation> {
-    const refactoriedPlacements = this.refactoryPlacement();
-    let permutation = new Permutation(refactoriedPlacements, _path);
-    permutation.placementVariables = await permutation.outputPlacementVariables(
-      refactoriedPlacements,
-      _path,
-    );
-    permutation.outputPermutation(_path);
-    return permutation;
-  }
-
-  private halveWordSizeOfWires(
-    newDataPts: DataPt[],
-    origDataPt: DataPt,
-  ): number[] {
-    const newIndex = newDataPts.length;
-    const indLow = newIndex;
-    const indHigh = indLow + 1;
-
-    if (origDataPt.sourceSize > 16) {
-      newDataPts[indLow] = { ...origDataPt };
-      newDataPts[indLow].wireIndex = indLow;
-      newDataPts[indHigh] = { ...origDataPt };
-      newDataPts[indHigh].wireIndex = indHigh;
-
-      newDataPts[indHigh].value = origDataPt.value >> 128n;
-      newDataPts[indLow].value = origDataPt.value & (2n ** 128n - 1n);
-
-      newDataPts[indHigh].valueHex = bytesToHex(
-        setLengthLeft(bigIntToBytes(newDataPts[indHigh].value), 16),
-      );
-      newDataPts[indLow].valueHex = bytesToHex(
-        setLengthLeft(bigIntToBytes(newDataPts[indLow].value), 16),
-      );
-      return [indLow, indHigh];
-    } else {
-      newDataPts[newIndex] = { ...origDataPt };
-      newDataPts[newIndex].wireIndex = newIndex;
-      return [newIndex];
-    }
-  }
-
-  private removeUnusedLoadWires(placements: Placements): PlacementEntry {
-    const outLoadPlacement = { ...placements.get(PRV_IN_PLACEMENT_INDEX)! };
-    const newInPts = [...outLoadPlacement.inPts];
-    const newOutPts = [...outLoadPlacement.outPts];
-    for (let ind = 0; ind < outLoadPlacement.outPts.length; ind++) {
-      let flag = 0;
-      for (const key of placements.keys()) {
-        if (key !== PRV_IN_PLACEMENT_INDEX) {
-          const placement = placements.get(key)!;
-          for (const [_ind, _inPt] of placement.inPts.entries()) {
-            if (
-              _inPt.source! === PRV_IN_PLACEMENT_INDEX &&
-              _inPt.wireIndex === outLoadPlacement.outPts[ind].wireIndex
-            ) {
-              flag = 1;
-              break;
-            }
-          }
-        }
-        if (flag) break;
-      }
-      if (!flag) {
-        const arrayIdx = newOutPts.findIndex(
-          (outPt) =>
-            outPt.wireIndex! === outLoadPlacement.outPts[ind].wireIndex!,
-        );
-        newInPts.splice(arrayIdx, 1);
-        newOutPts.splice(arrayIdx, 1);
-      }
-    }
-    outLoadPlacement.inPts = newInPts;
-    outLoadPlacement.outPts = newOutPts;
-    return outLoadPlacement;
-  }
-
-  private _processOutputWires(
-    placements: Placements,
-    dietLoadPlacment: PlacementEntry,
-    subcircuitInfoByName: SubcircuitInfoByName,
-  ): {
-    outPlacements: Placements;
-    outWireIndexChangeTracker: Map<number, Map<number, number[]>>;
-  } {
-    const outPlacements: Placements = new Map();
-    const outWireIndexChangeTracker: Map<
-      number,
-      Map<number, number[]>
-    > = new Map();
-
-    for (const key of placements.keys()) {
-      const _wireIndexTracker: Map<number, number[]> = new Map();
-      const placement =
-        key === PRV_IN_PLACEMENT_INDEX ? dietLoadPlacment : placements.get(key);
-
-      const newOutPts: DataPt[] = [];
-      const outPts = placement!.outPts;
-
-      for (const outPt of outPts) {
-        const newInd = this.halveWordSizeOfWires(newOutPts, outPt);
-        _wireIndexTracker.set(outPt.wireIndex, newInd);
-      }
-      outWireIndexChangeTracker.set(key, _wireIndexTracker);
-
-      outPlacements.set(key, {
-        name: placement!.name,
-        usage: placement!.usage,
-        subcircuitId: subcircuitInfoByName.get(
-          placement!.name as SubcircuitNames,
-        )!.id,
-        inPts: placement!.inPts,
-        outPts: [...newOutPts],
-      });
-    }
-    return { outPlacements, outWireIndexChangeTracker };
-  }
-
-  private _processInputWires(
-    placements: Placements,
-    dietLoadPlacment: PlacementEntry,
-    outPlacements: Placements,
-    outWireIndexChangeTracker: Map<number, Map<number, number[]>>,
-  ) {
-    for (const key of placements.keys()) {
-      const placement =
-        key === PRV_IN_PLACEMENT_INDEX ? dietLoadPlacment : placements.get(key);
-
-      const newInPts: DataPt[] = [];
-      const inPts = placement!.inPts;
-
-      for (const inPt of inPts) {
-        const newInd = this.halveWordSizeOfWires(newInPts, inPt);
-        const oldRefSource = inPt.source;
-        const oldRefWireInd = inPt.wireIndex;
-        if (oldRefSource !== key) {
-          // console.log(`curr source, target source = (${key}, ${oldRefSource})`)
-          const newRefWireIndices = outWireIndexChangeTracker
-            .get(oldRefSource)!
-            .get(oldRefWireInd)!;
-          for (const [i, newRefWireInd] of newRefWireIndices.entries()) {
-            newInPts[newInd[i]!].wireIndex = newRefWireInd;
-          }
-        }
-      }
-
-      outPlacements.get(key)!.inPts = [...newInPts];
-    }
-    return outPlacements;
-  }
-
-  private refactoryPlacement(): Placements {
-    const placements = this.synthesizer.state.placements;
-    const subcircuitInfoByName = this.synthesizer.state.subcircuitInfoByName;
-    const dietLoadPlacment = this.removeUnusedLoadWires(placements);
-
-    const { outPlacements, outWireIndexChangeTracker } =
-      this._processOutputWires(
-        placements,
-        dietLoadPlacment,
-        subcircuitInfoByName,
-      );
-
-    const finalPlacements = this._processInputWires(
-      placements,
-      dietLoadPlacment,
-      outPlacements,
-      outWireIndexChangeTracker,
-    );
-
-    this._validateBufferSizes(finalPlacements, subcircuitInfoByName);
-    return finalPlacements;
-  }
-
-  private _validateBufferSizes(
-    outPlacements: Placements,
-    subcircuitInfoByName: SubcircuitInfoByName,
-  ) {
-    const flags: boolean[] = Array(5).fill(true);
-
-    if (
-      outPlacements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length >
-      subcircuitInfoByName.get('bufferPrvIn' as SubcircuitNames)!.NInWires
-    ) {
-      flags[0] = false;
-      console.log(
-        `Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: ${
-          outPlacements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length
-        }).`,
-      );
-    }
-    if (
-      outPlacements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.length >
-      subcircuitInfoByName.get('bufferPrvOut' as SubcircuitNames)!.NOutWires
-    ) {
-      flags[1] = false;
-      console.log(
-        `Error: Synthesizer: Insufficient private output buffer length. Ask the qap-compiler for a longer buffer (required length: ${
-          outPlacements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.length
-        }).`,
-      );
-    }
-    if (
-      outPlacements.get(PUB_IN_PLACEMENT_INDEX)!.inPts.length >
-      subcircuitInfoByName.get('bufferPubIn' as SubcircuitNames)!.NInWires
-    ) {
-      flags[2] = false;
-      console.log(
-        `Error: Synthesizer: Insufficient public input buffer length. Ask the qap-compiler for a longer buffer (required length: ${
-          outPlacements.get(PUB_IN_PLACEMENT_INDEX)!.inPts.length
-        }).`,
-      );
-    }
-    if (
-      outPlacements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts.length >
-      subcircuitInfoByName.get('bufferPubOut' as SubcircuitNames)!.NOutWires
-    ) {
-      flags[3] = false;
-      console.log(
-        `Error: Synthesizer: Insufficient public output buffer length. Ask the qap-compiler for a longer buffer (required length: ${
-          outPlacements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts.length
-        }).`,
-      );
-    }
-    if (outPlacements.size > setupParams.s_max) {
-      flags[4] = false;
-      console.log(
-        `Error: Synthesizer: The number of placements exceeds the parameter s_max. Ask the qap-compiler for more placements (required slots: ${outPlacements.size})`,
-      );
-    }
-    if (flags.includes(false)) {
-      throw new Error('Resolve above errors.');
-    }
-  }
-}
 
 // An auxiliary class
 class IdxSet {
@@ -305,9 +58,9 @@ class IdxSet {
 }
 
 // This class instantiates the compiler model in Section "3.1 Compilers" of the Tokamak zk-SNARK paper.
-class Permutation {
+export class Permutation {
   // flattenMapInverse: {0, 1, ..., m_D-1} -> \union_{j=0}^{s_D - 1} {j} \times {0, 1, ...,m^{(j)}-1} }
-  private flattenMapInverse;
+  private flattenMapInverse: any; // Type 'any' because it's from a global constant
   public placementVariables: PlacementVariables;
   private subcircuitInfoByName: SubcircuitInfoByName;
   public placements: Placements;
@@ -563,9 +316,9 @@ class Permutation {
     return placementVariables;
   }
 
-  private _retrieveDataPtFromPlacementWireId = (
+  private _retrieveDataPtFromPlacementWireId(
     inputIdx: PlacementWireIndex,
-  ): DataPt => {
+  ): DataPt {
     const localWireId = this.flattenMapInverse[inputIdx.globalWireId][1];
     const placement = this.placements.get(inputIdx.placementId)!;
     const identifier = this.subcircuitInfoByName.get(placement.name)!.NOutWires;
@@ -576,7 +329,7 @@ class Permutation {
       // input wire
       return placement.inPts[localWireId - (identifier + 1)];
     }
-  };
+  }
   private _correctPermutation(): {
     row: number;
     col: number;
@@ -650,7 +403,7 @@ class Permutation {
     }
   }
 
-  private _buildPermGroup = (): Map<string, boolean>[] => {
+  private _buildPermGroup(): Map<string, boolean>[] {
     // Initialize group representatives.
     // Each output wire of every placement is picked as a representative and forms a new group, if it is not a public wire.
     let permGroup: Map<string, boolean>[] = [];
@@ -771,7 +524,7 @@ class Permutation {
       // console.log(`a`)
     }
     return permGroup;
-  };
+  }
 
   private _validatePermutation(): void {
     if (this.placementVariables.length === 0) {
@@ -872,11 +625,4 @@ function searchInsert(
   throw new Error(
     'Synthesizer: A wire has a parent, which however does not belong to any group.',
   );
-  // If the parent does not belong to any group, they form a new group with the codes below.
-  // However, THIS MUST NOT HAPPEN.
-  // const groupEntry: Map<string, boolean> = new Map()
-  // groupEntry.set(parentString, true)
-  // groupEntry.set(childString, true)
-  // permGroup.push(groupEntry)
 }
-// Todo: Compresss permutation

@@ -6,7 +6,7 @@
 import { Address, hexToBytes } from '@synthesizer-libs/util';
 import { ethers } from 'ethers';
 import { createEVM } from '../../src/constructors.js';
-import { Finalizer } from '../../src/tokamak/core/finalizer.js';
+import { Finalizer } from '../../src/tokamak/core';
 import { getBlockHeaderFromRPC } from '../../src/tokamak/utils/index.js';
 import dotenv from 'dotenv';
 
