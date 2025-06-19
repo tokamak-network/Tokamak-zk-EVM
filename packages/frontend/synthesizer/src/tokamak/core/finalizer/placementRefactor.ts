@@ -18,18 +18,18 @@ import type {
   SubcircuitInfoByName,
   SubcircuitNames,
 } from '../../types/index.js';
-import type { Synthesizer } from '../synthesizer.js';
+import type { StateManager } from '../handlers/stateManager.js';
 
 export class PlacementRefactor {
-  private synthesizer: Synthesizer;
+  private state: StateManager;
 
-  constructor(synthesizer: Synthesizer) {
-    this.synthesizer = synthesizer;
+  constructor(stateManager: StateManager) {
+    this.state = stateManager;
   }
 
   public refactor(): Placements {
-    const placements = this.synthesizer.state.placements;
-    const subcircuitInfoByName = this.synthesizer.state.subcircuitInfoByName;
+    const placements = this.state.placements;
+    const subcircuitInfoByName = this.state.subcircuitInfoByName;
     const dietLoadPlacment = this.removeUnusedLoadWires(placements);
 
     const { outPlacements, outWireIndexChangeTracker } =

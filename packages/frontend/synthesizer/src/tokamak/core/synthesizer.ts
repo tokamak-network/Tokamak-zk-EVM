@@ -66,6 +66,7 @@ import { StateManager } from './handlers/stateManager.js';
 import { OperationHandler } from './handlers/operationHandler.js';
 import { DataLoader } from './handlers/dataLoader.js';
 import { MemoryManager } from './handlers/memoryManager.js';
+import { BufferManager } from './handlers/bufferManager.js';
 import type { ISynthesizerProvider } from './handlers/synthesizerProvider.js';
 import type { IDataLoaderProvider } from './handlers/dataLoaderProvider.js';
 import type { IMemoryManagerProvider } from './handlers/memoryManagerProvider.js';
@@ -81,12 +82,14 @@ export class Synthesizer
   private operationHandler: OperationHandler;
   private dataLoader: DataLoader;
   private memoryManager: MemoryManager;
+  private bufferManager: BufferManager;
 
   constructor() {
     this._state = new StateManager();
     this.operationHandler = new OperationHandler(this, this._state);
     this.dataLoader = new DataLoader(this, this._state);
     this.memoryManager = new MemoryManager(this, this._state);
+    this.bufferManager = new BufferManager(this, this._state);
   }
 
   public get state(): StateManager {
@@ -94,38 +97,7 @@ export class Synthesizer
   }
 
   public addWireToInBuffer(inPt: DataPt, placementId: number): DataPt {
-    if (
-      !(
-        placementId == PRV_IN_PLACEMENT_INDEX ||
-        placementId == PUB_IN_PLACEMENT_INDEX
-      )
-    ) {
-      throw new Error(`Synthesizer: Invalid use of buffers`);
-    }
-    // Use the length of existing output list as index for new output
-    if (
-      this._state.placements.get(placementId)!.inPts.length !==
-      this._state.placements.get(placementId)!.outPts.length
-    ) {
-      throw new Error(
-        `Synthesizer: Mismatch in the buffer wires (placement id: ${placementId})`,
-      );
-    }
-    const outWireIndex = this._state.placements.get(placementId)!.outPts.length;
-    // Create output data point
-    const outPtRaw: CreateDataPointParams = {
-      source: placementId,
-      wireIndex: outWireIndex,
-      value: inPt.value,
-      sourceSize: inPt.sourceSize,
-    };
-    const outPt = DataPointFactory.create(outPtRaw);
-
-    // Add input-output pair to the input buffer subcircuit
-    this._state.placements.get(placementId)!.inPts.push(inPt);
-    this._state.placements.get(placementId)!.outPts.push(outPt);
-
-    return this._state.placements.get(placementId)!.outPts[outWireIndex];
+    return this.bufferManager.addWireToInBuffer(inPt, placementId);
   }
 
   public addWireToOutBuffer(
@@ -133,33 +105,7 @@ export class Synthesizer
     outPt: DataPt,
     placementId: number,
   ): void {
-    if (
-      !(
-        placementId == PRV_OUT_PLACEMENT_INDEX ||
-        placementId == PUB_OUT_PLACEMENT_INDEX
-      )
-    ) {
-      throw new Error(`Synthesizer: Invalid use of buffers`);
-    }
-    // Use the length of existing output list as index for new output
-    if (
-      this._state.placements.get(placementId)!.inPts.length !==
-        this._state.placements.get(placementId)!.outPts.length ||
-      inPt.value !== outPt.value
-    ) {
-      throw new Error(
-        `Synthesizer: Mismatches in the buffer wires (placement id: ${placementId})`,
-      );
-    }
-    let outPtIdx = this._state.placements.get(placementId)!.outPts.length;
-    if (outPt.wireIndex !== outPtIdx) {
-      throw new Error(
-        `Synthesizer: Invalid indexing in the output wire of an output buffer (placement id: ${placementId}, wire id: ${outPtIdx})`,
-      );
-    }
-    // Add input-output pair to the output buffer subcircuit
-    this._state.placements.get(placementId)!.inPts.push(inPt);
-    this._state.placements.get(placementId)!.outPts.push(outPt);
+    this.bufferManager.addWireToOutBuffer(inPt, outPt, placementId);
   }
 
   public loadPUSH(
