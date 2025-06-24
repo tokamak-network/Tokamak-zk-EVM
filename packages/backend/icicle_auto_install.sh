@@ -22,6 +22,21 @@ COMMON_URL=""
 BACKEND_URL=""
 BACKEND_TYPE=""
 
+# Helper: check CUDA (Linux) or Metal (macOS) support
+function check_backend_support() {
+    if [[ "$1" == "cuda" ]]; then
+        if ! command -v nvidia-smi &> /dev/null; then
+            echo "CUDA not detected (nvidia-smi not found). Please install CUDA drivers or use a CPU/Metal backend."
+            exit 0
+        fi
+    elif [[ "$1" == "metal" ]]; then
+        if ! system_profiler SPDisplaysDataType | grep -q 'Metal Support:'; then
+            echo "Metal not supported on this Mac. Exiting."
+            exit 0
+        fi
+    fi
+}
+
 if [[ "$OS_TYPE" == "Darwin" ]]; then
     # macOS
     COMMON_TARBALL="icicle_3_7_0-macOS.tar.gz"
@@ -29,6 +44,7 @@ if [[ "$OS_TYPE" == "Darwin" ]]; then
     COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$COMMON_TARBALL"
     BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$BACKEND_TARBALL"
     BACKEND_TYPE="metal"
+    check_backend_support metal
 elif [[ "$OS_TYPE" == "Linux" ]]; then
     if [ -f /etc/os-release ]; then
         . /etc/os-release
@@ -46,12 +62,14 @@ elif [[ "$OS_TYPE" == "Linux" ]]; then
             COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$COMMON_TARBALL"
             BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$BACKEND_TARBALL"
             BACKEND_TYPE="cuda"
+            check_backend_support cuda
         elif [[ "$LINUX_VER" == 22.* ]]; then
             COMMON_TARBALL="icicle_3_7_0-ubuntu22.tar.gz"
             BACKEND_TARBALL="icicle_3_7_0-ubuntu22-cuda122.tar.gz"
             COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$COMMON_TARBALL"
             BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$BACKEND_TARBALL"
             BACKEND_TYPE="cuda"
+            check_backend_support cuda
         else
             echo "Unsupported Ubuntu version: $LINUX_VER. Only Ubuntu 20 and 22 are supported."
             exit 1
@@ -66,9 +84,9 @@ else
 fi
 
 echo "[*] Downloading backend package..."
-wget -O $BACKEND_TARBALL "$BACKEND_URL"
+curl -L -o $BACKEND_TARBALL "$BACKEND_URL"
 echo "[*] Downloading common runtime package..."
-wget -O $COMMON_TARBALL "$COMMON_URL"
+curl -L -o $COMMON_TARBALL "$COMMON_URL"
 
 echo "[*] Extracting packages..."
 tar -xzf $BACKEND_TARBALL
@@ -83,7 +101,7 @@ echo "[*] Copying all shared libraries to backend $BACKEND_TYPE folders..."
 for libfile in $INSTALL_DIR/lib/*.{so,dylib}; do
     [ -e "$libfile" ] || continue # skip if glob doesn't match
     libname=$(basename "$libfile")
-    # extract curve name: libicicle_{field,curve}_bn254.{so,dylib}
+    # extract curve name: libicicle_{field,curve}_bls12_381.{so,dylib}
     curve=$(echo "$libname" | sed -E 's/libicicle_(field|curve)_([a-z0-9_]+)\.(so|dylib)/\2/')
     dest="$INSTALL_DIR/lib/backend/$curve/$BACKEND_TYPE/"
     if [ -d "$dest" ]; then
@@ -95,8 +113,10 @@ done
 echo "[*] Cleaning up temporary files..."
 rm -rf $BACKEND_TARBALL $COMMON_TARBALL icicle
 
+# Only set env for bls12_381
+curve="bls12_381"
 if [[ "$BACKEND_TYPE" == "metal" ]]; then
-    ENV_LINE="export DYLD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib/backend/bn254/metal:\$DYLD_LIBRARY_PATH"
+    ENV_LINE="export DYLD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib/backend/$curve/metal:\$DYLD_LIBRARY_PATH"
     echo ""
     echo "=================================================================="
     echo "[*] Please set the DYLD_LIBRARY_PATH environment variable:"
@@ -108,7 +128,7 @@ if [[ "$BACKEND_TYPE" == "metal" ]]; then
     eval "$ENV_LINE"
     echo "[*] DYLD_LIBRARY_PATH environment variable is set for this session."
 else
-    ENV_LINE="export LD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib/backend/bn254/cuda:\$LD_LIBRARY_PATH"
+    ENV_LINE="export LD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib/backend/$curve/cuda:\$LD_LIBRARY_PATH"
     echo ""
     echo "=================================================================="
     echo "[*] Please set the LD_LIBRARY_PATH environment variable:"
@@ -121,4 +141,4 @@ else
     echo "[*] LD_LIBRARY_PATH environment variable is set for this session."
 fi
 
-echo "[*] Done! Icicle backend ($BACKEND_TYPE) installation and setup complete."
+echo "[*] Done! Icicle backend ($BACKEND_TYPE, bls12_381) installation and setup complete."

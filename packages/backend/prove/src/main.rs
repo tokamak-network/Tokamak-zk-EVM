@@ -9,7 +9,7 @@ fn main() {
 
     // Check if GPU is available
     let device_cpu = Device::new("CPU", 0);
-    let mut device_gpu = Device::new("CUDA", 0);
+    let mut device_gpu = Device::new("METAL", 0);
     let is_cuda_device_available = icicle_runtime::is_device_available(&device_gpu);
     if is_cuda_device_available {
         println!("GPU is available");
