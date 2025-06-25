@@ -90,7 +90,7 @@ formatLogs(result.logs);
   )
 
   // Generate proof
-  const permutation = await finalize(result.runState!.synthesizer.placements, true)
+  const permutation = await finalize(result.runState!.synthesizer.placements, undefined, true)
 }
 
 void main()

@@ -1,6 +1,10 @@
-use std::time::{Duration, Instant};
-use prove::{Prover, Proof, TranscriptManager};
+#![allow(non_snake_case)]
+use libs::bivariate_polynomial::BivariatePolynomial;
+use prove::{*};
+use verify::{*};
+use std::time::{Instant, Duration};
 use icicle_runtime::{self, Device};
+// include!("../../setup/trusted-setup/output/combined_sigma.rs");
 
 fn main() {
     let prove_start = Instant::now();
@@ -9,7 +13,7 @@ fn main() {
 
     // Check if GPU is available
     let device_cpu = Device::new("CPU", 0);
-    let mut device_gpu = Device::new("METAL", 0);
+    let mut device_gpu = Device::new("CUDA", 0);
     let is_cuda_device_available = icicle_runtime::is_device_available(&device_gpu);
     if is_cuda_device_available {
         println!("GPU is available");
@@ -21,33 +25,28 @@ fn main() {
     
     let mut timer: Instant;
     let mut lap: Duration;
-    
+
     println!("Prover initialization...");
     timer = Instant::now();
     let (mut prover, binding) = Prover::init();
     lap = timer.elapsed();
     println!("Prover init time: {:.6} seconds", lap.as_secs_f64());
 
-    // Initialize the transcript manager
-    let mut manager = TranscriptManager::new();
-
     println!("Running prove0...");
     timer = Instant::now();
-    let proof0 = prover.prove0();
+    let proof0: Proof0 = prover.prove0();
     lap = timer.elapsed();
     println!("prove0 running time: {:.6} seconds", lap.as_secs_f64());
 
-    // Use the manager to get thetas
-    let thetas = proof0.verify0_with_manager(&mut manager);
-        
+    let thetas = proof0.verify0();
+    
     println!("Running prove1...");
     timer = Instant::now();
     let proof1 = prover.prove1(&thetas);
     lap = timer.elapsed();
     println!("prove1 running time: {:.6} seconds", lap.as_secs_f64());
-    
-    // Use the manager to get kappa0
-    let kappa0 = proof1.verify1_with_manager(&mut manager);
+
+    let kappa0 = proof1.verify1();
     
     println!("Running prove2...");
     timer = Instant::now();
@@ -55,8 +54,7 @@ fn main() {
     lap = timer.elapsed();
     println!("prove2 running time: {:.6} seconds", lap.as_secs_f64());
 
-    // Use the manager to get chi and zeta
-    let (chi, zeta) = proof2.verify2_with_manager(&mut manager);
+    let (chi, zeta) = proof2.verify2();
     
     println!("Running prove3...");
     timer = Instant::now();
@@ -64,7 +62,7 @@ fn main() {
     lap = timer.elapsed();
     println!("prove3 running time: {:.6} seconds", lap.as_secs_f64());
 
-    let kappa1 = proof3.verify3_with_manager(&mut manager);
+    let kappa1 = proof3.verify3();
     
     println!("Running prove4...");
     timer = Instant::now();
@@ -72,31 +70,34 @@ fn main() {
     lap = timer.elapsed();
     println!("prove4 running time: {:.6} seconds", lap.as_secs_f64());
 
-    // // Create the challenge struct
-    // let challenge = Challenge {
-    //     thetas: thetas.into_boxed_slice(),
-    //     chi,
-    //     zeta,
-    //     kappa0,
-    //     kappa1,
-    // };
-
-    // // Convert to serializable version
-    // let challenge_serde = ChallengeSerde::from(challenge);
-    
-    let proof = Proof {
-        binding, 
-        proof0, 
-        proof1, 
-        proof2, 
-        proof3, 
-        proof4,
-        // challenge: challenge_serde,
-    };
-    
-    println!("Writing the proof into JSON...");
-    let output_path = "prove/output/proof.json";
-    proof.write_into_json(output_path).unwrap();
-
     println!("Total proving time: {:.6} seconds", prove_start.elapsed().as_secs_f64());
+
+    println!("Verifier initialization...");
+    timer = Instant::now();
+    let verifier = Verifier::init();
+    lap = timer.elapsed();
+    println!("Verifier init time: {:.6} seconds", lap.as_secs_f64());
+
+    #[cfg(feature = "testing-mode")]
+    {
+        
+        let res_arith = verifier.verify_arith(&binding, &proof0, &proof1, &proof2, &proof3, &proof4_test);
+        println!("Verification_arith: {:?}", res_arith);
+        let res_copy = verifier.verify_copy(&binding, &proof0, &proof1, &proof2, &proof3, &proof4_test);
+        println!("Verification_copy: {:?}", res_copy);
+        let res_binding = verifier.verify_binding(&binding, &proof0, &proof1, &proof2, &proof3, &proof4_test);
+        println!("Verification_binding: {:?}", res_binding);
+    }
+
+    #[cfg(not(feature = "testing-mode"))]
+    {
+        println!("Verifying the proof...");
+        timer = Instant::now();
+        let bb = verifier.verify_keccak256();
+        let res = verifier.verify_snark();
+        lap = timer.elapsed();
+        println!("Verification time: {:.6} seconds", lap.as_secs_f64());
+        println!("Verification: {:?}", res);
+    }
+    
 }

@@ -5,6 +5,7 @@ use icicle_core::ntt::{self, NTTDir};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use icicle_bls12_381::polynomials::DensePolynomial;
 use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice, DeviceSlice, DeviceVec};
+use icicle_runtime::Device;
 use std::{
     cmp,
     ops::{Add, AddAssign, Mul, Sub, Neg},
@@ -567,19 +568,38 @@ impl BivariatePolynomial for DensePolynomialExt {
         if !x_size.is_power_of_two() || !y_size.is_power_of_two() {
             panic!("The input sizes for from_rou_evals must be powers of two.")
         }
-
+    
         let size = x_size * y_size;
-        let ntt_dir = ntt::NTTDir::kInverse;
+
+        ntt::initialize_domain::<Self::Field>(
+            ntt::get_root_of_unity::<Self::Field>(
+                size.try_into()
+                    .unwrap(),
+            ),
+            &ntt::NTTInitDomainConfig::default(),
+        )
+        .unwrap();
+
         let mut coeffs = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
+        let mut cfg = ntt::NTTConfig::<Self::Field>::default();
         
-        Self::_biNTT(evals, x_size, y_size, ntt_dir, &mut coeffs);
+        // IFFT along X
+        cfg.batch_size = y_size as i32;
+        cfg.columns_batch = true;
+        ntt::ntt(evals, ntt::NTTDir::kInverse, &cfg, &mut coeffs).unwrap();
+        // IFFT along Y
+        cfg.batch_size = x_size as i32;
+        cfg.columns_batch = false;
+        ntt::ntt_inplace(&mut coeffs, ntt::NTTDir::kInverse, &cfg).unwrap();
+
+        ntt::release_domain::<Self::Field>().unwrap();
 
         let mut poly = DensePolynomialExt::from_coeffs(
             &coeffs,
             x_size,
             y_size,
         );
-
+    
         if let Some(_factor) = coset_x {
             let factor = _factor.inv();
             poly = poly.scale_coeffs_x(&factor);
@@ -591,12 +611,7 @@ impl BivariatePolynomial for DensePolynomialExt {
         poly
     }
 
-    fn to_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
-        &self,
-        coset_x: Option<&Self::Field>,
-        coset_y: Option<&Self::Field>,
-        evals: &mut S,
-    ) {
+    fn to_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(&self, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>, evals: &mut S) {
         let size = self.x_size * self.y_size;
 
         if evals.len() < size {
@@ -619,13 +634,28 @@ impl BivariatePolynomial for DensePolynomialExt {
             scaled_poly.copy_coeffs(0, scaled_coeffs);
         }
 
-        let ntt_dir = ntt::NTTDir::kForward;
-        let mut in_mat = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
-        in_mat.copy_from_host(&scaled_coeffs).unwrap();
+        ntt::initialize_domain::<Self::Field>(
+            ntt::get_root_of_unity::<Self::Field>(
+                size.try_into()
+                    .unwrap(),
+            ),
+            &ntt::NTTInitDomainConfig::default(),
+        )
+        .unwrap();
+        let mut cfg = ntt::NTTConfig::<Self::Field>::default();
+        // FFT along X
+        cfg.batch_size = self.y_size as i32;
+        cfg.columns_batch = true;
+        ntt::ntt(scaled_coeffs, ntt::NTTDir::kForward, &cfg, evals).unwrap();
+        drop(scaled_coeffs_vec);
+        
+        // FFT along Y
+        cfg.batch_size = self.x_size as i32;
+        cfg.columns_batch = false;
+        ntt::ntt_inplace(evals, ntt::NTTDir::kForward, &cfg).unwrap();
 
-        Self::_biNTT(&in_mat, self.x_size, self.y_size, ntt_dir, evals);
+        ntt::release_domain::<Self::Field>().unwrap();
     }
-
 
     fn copy_coeffs<S: HostOrDeviceSlice<Self::Field> + ?Sized>(&self, start_idx: u64, coeffs: &mut S) {
         self.poly.copy_coeffs(start_idx, coeffs);
