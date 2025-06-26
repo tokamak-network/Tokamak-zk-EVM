@@ -769,7 +769,7 @@ pub fn from_coef_vec_to_g1serde_vec_msm(
 }
 
 fn is_gpu_available() -> bool {
-    let device_gpu = Device::new("CUDA", 0);
+    let device_gpu = Device::new("METAL", 0);
     icicle_runtime::is_device_available(&device_gpu)
 }
 

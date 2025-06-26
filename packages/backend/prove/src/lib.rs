@@ -19,6 +19,8 @@
     use std::{env, fs, vec};
     use byteorder::{BigEndian, ByteOrder};
     use tiny_keccak::Keccak;
+    use std::time::{Duration, Instant};
+    use rayon::prelude::*;
 
 
     macro_rules! poly_comb {
@@ -740,9 +742,13 @@
 
     impl Prover{
         pub fn init() -> (Self, Binding) {
+            let total_start = Instant::now();
+            
             // Load setup parameters from JSON file
+            let setup_timer = Instant::now();
             let setup_path = "setupParams.json";
             let setup_params = SetupParams::from_path(setup_path).unwrap();
+            println!("Setup params loading: {:?}", setup_timer.elapsed());
 
             // Extract key parameters from setup_params
             let l = setup_params.l;     // Number of public I/O wires
@@ -776,47 +782,55 @@
             }
 
             // Load subcircuit information
+            let subcircuit_timer = Instant::now();
             let subcircuit_path = "subcircuitInfo.json";
             let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_path).unwrap();
+            println!("Subcircuit info loading: {:?}", subcircuit_timer.elapsed());
 
             // Load local variables of placements (public instance + interface witness + internal witness)
+            let placement_timer = Instant::now();
             let placement_variables_path = "placementVariables.json";
             let placement_variables = PlacementVariables::from_path(&placement_variables_path).unwrap();
+            println!("Placement variables loading: {:?}", placement_timer.elapsed());
 
+            let witness_timer = Instant::now();
             let witness: Witness = {
-                // // Load subcircuit library R1CS
-                // println!("Loading subcircuits...");
-                // let mut compact_library_R1CS: Vec<SubcircuitR1CS> = Vec::new();
-                // for i in 0..s_d {
-                //     println!("Loading subcircuit id {}", i);
-                //     let r1cs_path: String = format!("json/subcircuit{i}.json");
-                //     let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
-                //     compact_library_R1CS.push(compact_r1cs);
-                // }
-
                 // Parsing the variables
                 let bXY = gen_bXY(&placement_variables, &subcircuit_infos, &setup_params);
                 let (uXY, vXY, wXY) = read_R1CS_gen_uvwXY(&placement_variables, &subcircuit_infos, &setup_params);
-                let rXY = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&vec![ScalarField::zero()]), 1, 1);
+                
+                // Reuse zero scalar instead of creating a new vector
+                let zero_scalar = vec![ScalarField::zero()];
+                let rXY = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&zero_scalar), 1, 1);
                 Witness {bXY, uXY, vXY, wXY, rXY}
             };
+            println!("Witness generation: {:?}", witness_timer.elapsed());
 
+            let quotients_timer = Instant::now();
             let quotients: Quotients = {
-                let q0XY = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&vec![ScalarField::zero()]), 1, 1);
-                let q1XY = q0XY.clone();
-                let q2XY = q0XY.clone();
-                let q3XY = q0XY.clone();
-                let q4XY = q0XY.clone();
-                let q5XY = q0XY.clone();
-                let q6XY = q0XY.clone();
-                let q7XY = q0XY.clone();
-                Quotients {q0XY, q1XY, q2XY, q3XY, q4XY, q5XY, q6XY, q7XY}
+                // Create a single zero polynomial and reuse it
+                let zero_scalar = vec![ScalarField::zero()];
+                let zero_poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&zero_scalar), 1, 1);
+                Quotients {
+                    q0XY: zero_poly.clone(),
+                    q1XY: zero_poly.clone(),
+                    q2XY: zero_poly.clone(),
+                    q3XY: zero_poly.clone(),
+                    q4XY: zero_poly.clone(),
+                    q5XY: zero_poly.clone(),
+                    q6XY: zero_poly.clone(),
+                    q7XY: zero_poly
+                }
             };
+            println!("Quotients initialization: {:?}", quotients_timer.elapsed());
 
             // Load permutation (copy constraints of the variables)
+            let permutation_timer = Instant::now();
             let permutation_path = "permutation.json";
             let permutation_raw = Permutation::from_path(&permutation_path).unwrap();
+            println!("Permutation loading: {:?}", permutation_timer.elapsed());
 
+            let instance_timer = Instant::now();
             let mut instance: InstancePolynomials = {
                 // Load instance
                 let instance_path = "instance.json";
@@ -824,68 +838,92 @@
 
                 // Parsing the inputs
                 let a_pub_X = _instance.gen_a_pub_X(&setup_params);
-                // Fixed polynomials
+                
+                // Pre-allocate vectors to avoid multiple allocations
                 let mut t_n_coeffs = vec![ScalarField::zero(); 2*n];
                 t_n_coeffs[0] = ScalarField::zero() - ScalarField::one();
                 t_n_coeffs[n] = ScalarField::one();
                 let t_n = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_n_coeffs), 2*n, 1);
+                
+                // Reuse the same pattern for t_mi and t_smax
                 let mut t_mi_coeffs = vec![ScalarField::zero(); 2*m_i];
                 t_mi_coeffs[0] = ScalarField::zero() - ScalarField::one();
                 t_mi_coeffs[m_i] = ScalarField::one();
                 let t_mi = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_mi_coeffs), 2*m_i, 1);
+                
                 let mut t_smax_coeffs = vec![ScalarField::zero(); 2*s_max];
                 t_smax_coeffs[0] = ScalarField::zero() - ScalarField::one();
                 t_smax_coeffs[s_max] = ScalarField::one();
                 let t_smax = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_smax_coeffs), 1, 2*s_max);
+                
                 // Generating permutation polynomials
                 let (s0XY, s1XY) = Permutation::to_poly(&permutation_raw, m_i, s_max);
 
                 InstancePolynomials {a_pub_X, t_n, t_mi, t_smax, s0XY, s1XY}
             };
+            println!("Instance polynomials generation: {:?}", instance_timer.elapsed());
 
             #[cfg(feature = "testing-mode")] {
+                let testing_timer = Instant::now();
                 // Checking Lemma 3
+                
+                // Pre-allocate all evaluation vectors at once
                 let mut bXY_evals = vec![ScalarField::zero(); m_i*s_max];
-                witness.bXY.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut bXY_evals));
                 let mut s0XY_evals = vec![ScalarField::zero(); m_i*s_max];
-                instance.s0XY.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut s0XY_evals));
                 let mut s1XY_evals = vec![ScalarField::zero(); m_i*s_max];
+                
+                witness.bXY.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut bXY_evals));
+                instance.s0XY.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut s0XY_evals));
                 instance.s1XY.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut s1XY_evals));
 
+                // Create X_mono and Y_mono polynomials efficiently
                 let mut X_mono_coef = vec![ScalarField::zero(); m_i];
                 X_mono_coef[1] = ScalarField::one();
                 let X_mono = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&X_mono_coef), m_i, 1);
-                drop(X_mono_coef);
+                
                 let mut Y_mono_coef = vec![ScalarField::zero(); s_max];
                 Y_mono_coef[1] = ScalarField::one();
                 let Y_mono = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&Y_mono_coef), 1, s_max);
-                drop(Y_mono_coef);
+                
+                // Pre-allocate evaluation vectors
                 let mut X_mono_evals = vec![ScalarField::zero(); m_i];
-                X_mono.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut X_mono_evals));
                 let mut Y_mono_evals = vec![ScalarField::zero(); s_max];
+                
+                X_mono.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut X_mono_evals));
                 Y_mono.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut Y_mono_evals));
 
                 let thetas = ScalarCfg::generate_random(3);
                 let fXY = &( &(&witness.bXY + &(&thetas[0] * &instance.s0XY)) + &(&thetas[1] * &instance.s1XY)) + &thetas[2];
                 let gXY = &( &(&witness.bXY + &(&thetas[0] * &X_mono)) + &(&thetas[1] * &Y_mono)) + &thetas[2];
-                let mut fXY_evals = vec![ScalarField::zero(); m_i*s_max].into_boxed_slice();
+                
+                // Pre-allocate evaluation vectors for fXY and gXY
+                let mut fXY_evals = vec![ScalarField::zero(); m_i*s_max];
+                let mut gXY_evals = vec![ScalarField::zero(); m_i*s_max];
+                
                 fXY.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut fXY_evals));
-                let mut gXY_evals = vec![ScalarField::zero(); m_i*s_max].into_boxed_slice();
                 gXY.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut gXY_evals));
+                
                 let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
                 let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
+
+                // pow 값 미리 캐싱
+                let omega_m_i_pows: Vec<_> = (0..m_i).map(|i| omega_m_i.pow(i)).collect();
+                let omega_s_max_pows: Vec<_> = (0..s_max).map(|j| omega_s_max.pow(j)).collect();
         
                 for i in 0..m_i {
-                    for j in 0..s_max {
-                        assert!(X_mono_evals[i].eq(&omega_m_i.pow(i)));
-                        assert!(Y_mono_evals[j].eq(&omega_s_max.pow(j)));
-                    }
+                    assert!(X_mono_evals[i].eq(&omega_m_i_pows[i]));
                 }
+                for j in 0..s_max {
+                    assert!(Y_mono_evals[j].eq(&omega_s_max_pows[j]));
+                }
+
+                // permutation 검사 루프 최적화
                 let mut flag_b = true;
                 let mut flag_s0 = true;
                 let mut flag_s1 = true;
                 let mut flag_r = true;
                 for permEntry in &permutation_raw {
+                    if !(flag_b || flag_s0 || flag_s1 || flag_r) { break; }
                     let this_wire_idx = permEntry.row;
                     let this_placement_idx = permEntry.col;
                     let next_wire_idx = permEntry.X as usize;
@@ -894,16 +932,16 @@
                     let this_idx = this_wire_idx * s_max + this_placement_idx;
                     let next_idx = next_wire_idx * s_max + next_placement_idx;
         
-                    if !bXY_evals[this_idx].eq(&bXY_evals[next_idx]) {
+                    if flag_b && !bXY_evals[this_idx].eq(&bXY_evals[next_idx]) {
                         flag_b = false;
                     }
-                    if !s0XY_evals[this_idx].eq(&X_mono_evals[next_wire_idx]) {
+                    if flag_s0 && !s0XY_evals[this_idx].eq(&omega_m_i_pows[next_wire_idx]) {
                         flag_s0 = false;
                     }
-                    if !s1XY_evals[this_idx].eq(&Y_mono_evals[next_placement_idx]) {
+                    if flag_s1 && !s1XY_evals[this_idx].eq(&omega_s_max_pows[next_placement_idx]) {
                         flag_s1 = false;
                     }
-                    if !fXY_evals[this_idx].eq(&gXY_evals[next_idx]) {
+                    if flag_r && !fXY_evals[this_idx].eq(&gXY_evals[next_idx]) {
                         flag_r = false;
                     }
                 }
@@ -916,27 +954,40 @@
                 assert!(flag_r);
                 println!("Checked: f(X,Y) and g(X,Y) are well-formed.");
         
+                // Pre-allocate result vectors
                 let mut LHS = vec![ScalarField::zero(); 1];
                 let mut RHS = vec![ScalarField::zero(); 1];
                 let vec_ops = VecOpsConfig::default();
                 ScalarCfg::product(HostSlice::from_slice(&fXY_evals), HostSlice::from_mut_slice(&mut LHS), &vec_ops).unwrap();
                 ScalarCfg::product(HostSlice::from_slice(&gXY_evals), HostSlice::from_mut_slice(&mut RHS), &vec_ops).unwrap();
                 assert!( LHS[0].eq( &RHS[0] ) );
-                println!("Checked: Lemma 3");        
+                println!("Checked: Lemma 3");
+                println!("Testing mode checks: {:?}", testing_timer.elapsed());
             }
 
             // Load Sigma (reference string)
+            let sigma_timer = Instant::now();
             let sigma_path = "setup/trusted-setup/output/combined_sigma.json";
             let mut sigma = Sigma::read_from_json(&sigma_path)
             .expect("No reference string is found. Run the Setup first.");
+            println!("Sigma loading: {:?}", sigma_timer.elapsed());
 
+            let mixer_timer = Instant::now();
             let mixer: Mixer = {
-                let rU_X = ScalarCfg::generate_random(1)[0];
-                let rU_Y = ScalarCfg::generate_random(1)[0];
-                let rV_X = ScalarCfg::generate_random(1)[0];
-                let rV_Y = ScalarCfg::generate_random(1)[0];
+                // Generate all random values in batches to reduce function calls
+                let random_values = ScalarCfg::generate_random(10); // Generate 10 values at once
+                let rU_X = random_values[0];
+                let rU_Y = random_values[1];
+                let rV_X = random_values[2];
+                let rV_Y = random_values[3];
+                let rO_mid = random_values[4];
+                let rR_X = random_values[5];
+                let rR_Y = random_values[6];
+                
+                // Generate rW_X and rW_Y efficiently
+                let rW_random = ScalarCfg::generate_random(6);
                 let rW_X = resize(
-                    &ScalarCfg::generate_random(3), 
+                    &rW_random[0..3], 
                     3, 
                     1, 
                     4, 
@@ -944,22 +995,24 @@
                     ScalarField::zero()
                 );
                 let rW_Y = resize(
-                    &ScalarCfg::generate_random(3), 
+                    &rW_random[3..6], 
                     1, 
                     3, 
                     1, 
                     4, 
                     ScalarField::zero()
                 );
-                let rB_X = ScalarCfg::generate_random(2);
-                let rB_Y = ScalarCfg::generate_random(2);
-                let rO_mid = ScalarCfg::generate_random(1)[0];
-                let rR_X = ScalarCfg::generate_random(1)[0];
-                let rR_Y = ScalarCfg::generate_random(1)[0];
+                
+                // Generate rB_X and rB_Y
+                let rB_random = ScalarCfg::generate_random(4);
+                let rB_X = vec![rB_random[0], rB_random[1]];
+                let rB_Y = vec![rB_random[2], rB_random[3]];
 
                 Mixer {rB_X, rB_Y, rR_X, rR_Y, rU_X, rU_Y, rV_X, rV_Y, rW_X, rW_Y, rO_mid}
             };
+            println!("Mixer generation: {:?}", mixer_timer.elapsed());
 
+            let binding_timer = Instant::now();
             let binding: Binding = {
                 let A = sigma.sigma_1.encode_poly(&mut instance.a_pub_X, &setup_params);
                 let O_inst = sigma.sigma_1.encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params);
@@ -1000,6 +1053,9 @@
                     );
                 Binding {A, O_inst, O_mid, O_prv}
             };
+            println!("Binding generation: {:?}", binding_timer.elapsed());
+            
+            println!("Total Prover::init() time: {:?}", total_start.elapsed());
             return (
                 Self {sigma, setup_params, instance, witness, mixer, quotients},
                 binding
