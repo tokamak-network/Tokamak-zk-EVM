@@ -570,30 +570,46 @@ impl BivariatePolynomial for DensePolynomialExt {
         }
     
         let size = x_size * y_size;
-
+    
         ntt::initialize_domain::<Self::Field>(
-            ntt::get_root_of_unity::<Self::Field>(
-                size.try_into()
-                    .unwrap(),
-            ),
+            ntt::get_root_of_unity::<Self::Field>(size.try_into().unwrap()),
             &ntt::NTTInitDomainConfig::default(),
-        )
-        .unwrap();
-
+        ).unwrap();
+    
         let mut coeffs = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
         let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-        
-        // IFFT along X
+
+        let mut input_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        let mut output_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        let vec_ops_cfg = VecOpsConfig::default();
+
+        ScalarCfg::transpose(
+            evals,
+            x_size as u32,
+            y_size as u32,
+            &mut input_tr,
+            &vec_ops_cfg,
+        ).unwrap();
+
         cfg.batch_size = y_size as i32;
-        cfg.columns_batch = true;
-        ntt::ntt(evals, ntt::NTTDir::kInverse, &cfg, &mut coeffs).unwrap();
-        // IFFT along Y
+        cfg.columns_batch = false;
+        ntt::ntt(&input_tr, ntt::NTTDir::kInverse, &cfg, &mut output_tr).unwrap();
+
+        ScalarCfg::transpose(
+            &output_tr,
+            y_size as u32,
+            x_size as u32,
+            &mut coeffs,
+            &vec_ops_cfg,
+        ).unwrap();
+    
+
         cfg.batch_size = x_size as i32;
         cfg.columns_batch = false;
         ntt::ntt_inplace(&mut coeffs, ntt::NTTDir::kInverse, &cfg).unwrap();
-
+    
         ntt::release_domain::<Self::Field>().unwrap();
-
+    
         let mut poly = DensePolynomialExt::from_coeffs(
             &coeffs,
             x_size,
@@ -610,8 +626,13 @@ impl BivariatePolynomial for DensePolynomialExt {
         }
         poly
     }
-
-    fn to_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(&self, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>, evals: &mut S) {
+    
+    fn to_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
+        &self,
+        coset_x: Option<&Self::Field>,
+        coset_y: Option<&Self::Field>,
+        evals: &mut S,
+    ) {
         let size = self.x_size * self.y_size;
 
         if evals.len() < size {
@@ -630,30 +651,56 @@ impl BivariatePolynomial for DensePolynomialExt {
                 scaled_poly = scaled_poly.scale_coeffs_y(factor);
             }
 
-
+            
             scaled_poly.copy_coeffs(0, scaled_coeffs);
         }
-
+        
         ntt::initialize_domain::<Self::Field>(
             ntt::get_root_of_unity::<Self::Field>(
                 size.try_into()
                     .unwrap(),
             ),
             &ntt::NTTInitDomainConfig::default(),
-        )
-        .unwrap();
+        ).unwrap();
+        
         let mut cfg = ntt::NTTConfig::<Self::Field>::default();
-        // FFT along X
+       
+        let mut input_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        let mut output_tr = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+        let vec_ops_cfg = VecOpsConfig::default();
+
+        input_tr.copy_from_host(&scaled_coeffs).unwrap();
+
+        ScalarCfg::transpose(
+            &input_tr,
+            self.x_size as u32,
+            self.y_size as u32,
+            &mut output_tr,
+            &vec_ops_cfg,
+        ).unwrap();
+
+        let mut out_b = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
+
         cfg.batch_size = self.y_size as i32;
-        cfg.columns_batch = true;
-        ntt::ntt(scaled_coeffs, ntt::NTTDir::kForward, &cfg, evals).unwrap();
+        cfg.columns_batch = false;
+
+        ntt::ntt(&output_tr, ntt::NTTDir::kForward, &cfg, &mut out_b).unwrap();
+
+        ScalarCfg::transpose(
+            &out_b,
+            self.y_size as u32,
+            self.x_size as u32,
+            evals,
+            &vec_ops_cfg,
+        ).unwrap();
+        
         drop(scaled_coeffs_vec);
         
         // FFT along Y
         cfg.batch_size = self.x_size as i32;
         cfg.columns_batch = false;
+        
         ntt::ntt_inplace(evals, ntt::NTTDir::kForward, &cfg).unwrap();
-
         ntt::release_domain::<Self::Field>().unwrap();
     }
 
