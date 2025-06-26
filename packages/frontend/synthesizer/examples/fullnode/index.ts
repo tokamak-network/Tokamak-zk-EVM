@@ -18,7 +18,7 @@ dotenv.config({
 const TRANSACTION_HASH =
   '0x196baedfd6f903003a004e28cab71176569cf755b42a37db180338a60bce57f0';
 
-  const RPC_URL = process.env.RPC_URL;
+const RPC_URL = 'https://eth-mainnet.g.alchemy.com/v2/c2Dn1Qtwvl5xUtM9JVC5ZomqOTwSaUAf';
 
 const main = async () => {
   if (!RPC_URL) {
