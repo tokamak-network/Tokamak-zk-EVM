@@ -5,6 +5,7 @@ pub mod iotools;
 pub mod group_structures;
 pub mod polynomial_structures;
 pub mod field_structures;
+pub mod utils;
 
 #[doc(hidden)]
 pub mod tests;

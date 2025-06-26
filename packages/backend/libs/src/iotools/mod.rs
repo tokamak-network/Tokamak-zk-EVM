@@ -9,6 +9,7 @@ use crate::field_structures::FieldSerde;
 use crate::group_structures::{G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify, Preprocess};
 use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use crate::polynomial_structures::{from_subcircuit_to_QAP, QAP};
+use crate::utils::{check_device, check_gpu};
 use crate::vector_operations::transpose_inplace;
 
 use super::vector_operations::{*};
@@ -768,13 +769,8 @@ pub fn from_coef_vec_to_g1serde_vec_msm(
     println!("Total elapsed: {:?}", t_start.elapsed());
 }
 
-fn is_gpu_available() -> bool {
-    let device_gpu = Device::new("CUDA", 0);
-    icicle_runtime::is_device_available(&device_gpu)
-}
-
 pub fn from_coef_vec_to_g1serde_vec(coef: &[ScalarField], gen: &G1Affine, res: &mut [G1serde]) {
-    if is_gpu_available() {
+    if check_gpu() {
         from_coef_vec_to_g1serde_vec_msm(&coef.to_vec().into_boxed_slice(), gen, res);
     } else {
         use std::sync::atomic::{AtomicU32, Ordering};

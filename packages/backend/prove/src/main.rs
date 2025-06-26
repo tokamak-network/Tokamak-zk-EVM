@@ -1,24 +1,13 @@
 use std::time::{Duration, Instant};
 use prove::{Prover, Proof, TranscriptManager};
 use icicle_runtime::{self, Device};
+use libs::utils::check_device;
 
 fn main() {
     let prove_start = Instant::now();
 
-    let _ = icicle_runtime::load_backend_from_env_or_default();
+    check_device();
 
-    // Check if GPU is available
-    let device_cpu = Device::new("CPU", 0);
-    let mut device_gpu = Device::new("METAL", 0);
-    let is_cuda_device_available = icicle_runtime::is_device_available(&device_gpu);
-    if is_cuda_device_available {
-        println!("GPU is available");
-        icicle_runtime::set_device(&device_gpu).expect("Failed to set device");
-    } else {
-        println!("GPU is not available, falling back to CPU only");
-        device_gpu = device_cpu.clone();
-    }
-    
     let mut timer: Instant;
     let mut lap: Duration;
     
