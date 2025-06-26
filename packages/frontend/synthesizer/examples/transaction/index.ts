@@ -9,21 +9,14 @@ import { createEVM } from '../../src/constructors.js';
 import { Finalizer } from '../../src/tokamak/core/finalizer/index.js';
 import { getBlockHeaderFromRPC } from '../../src/tokamak/utils/index.js';
 
-const main = async () => {
-  const [, , RPC_URL, TRANSACTION_HASH] = process.argv;
-
-  if (!TRANSACTION_HASH || !RPC_URL) {
-    console.error('Usage: tsx index.ts <TRANSACTION_HASH> <RPC_URL>');
-    process.exit(1);
-  }
-
+export const processTransaction = async (rpcUrl: string, txHash: string) => {
   const evm = await createEVM({
-    txHash: TRANSACTION_HASH,
-    rpcUrl: RPC_URL,
+    txHash,
+    rpcUrl,
   });
 
-  const provider = new ethers.JsonRpcProvider(RPC_URL);
-  const tx = await provider.getTransaction(TRANSACTION_HASH);
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const tx = await provider.getTransaction(txHash);
 
   if (tx === null || tx.blockNumber === null) {
     throw new Error('Transaction not found or not yet mined');
@@ -41,7 +34,7 @@ const main = async () => {
   const { blockNumber, from, to, data, value, gasLimit } = tx;
 
   const actualTargetBlockHeader = await getBlockHeaderFromRPC(
-    RPC_URL,
+    rpcUrl,
     blockNumber,
   );
 
@@ -76,7 +69,16 @@ const main = async () => {
 
   const finalizer = new Finalizer(result.execResult.runState.synthesizer);
   await finalizer.exec(undefined, true);
+};
 
+const main = async () => {
+  const [, , RPC_URL, TRANSACTION_HASH] = process.argv;
+
+  if (!TRANSACTION_HASH || !RPC_URL) {
+    console.error('Usage: tsx index.ts <TRANSACTION_HASH> <RPC_URL>');
+    process.exit(1);
+  }
+  await processTransaction(RPC_URL, TRANSACTION_HASH);
   console.log(`✅ Successfully processed transaction: ${TRANSACTION_HASH}`);
 };
 

@@ -80,8 +80,12 @@ const main = async () => {
     throw new Error('No synthesizer found');
   }
 
-  const finalizer = new Finalizer(result.execResult.runState.synthesizer);
+  const finalizer = new Finalizer(result.execResult.runState.synthesizer.state);
   await finalizer.exec(undefined, true);
+
+  console.log(
+    `✅ Synthesizer E2E test passed for transaction: ${TRANSACTION_HASH}`,
+  );
 };
 
 void main().catch(console.error);

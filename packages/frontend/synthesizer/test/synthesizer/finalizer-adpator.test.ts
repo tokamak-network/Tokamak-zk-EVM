@@ -74,7 +74,11 @@ const main = async () => {
     throw new Error('No synthesizer found');
   }
 
-  const finalizer = new Finalizer(result.execResult.runState.synthesizer);
+  if (result.execResult.runState.stateManager === undefined) {
+    throw new Error('No state manager found');
+  }
+
+  const finalizer = new Finalizer(result.execResult.runState.synthesizer.state);
   await finalizer.exec(undefined, true);
 
   console.log(`✅ Successfully processed transaction: ${TRANSACTION_HASH}`);

@@ -1,24 +1,3 @@
-import {
-  bigIntToBytes,
-  bytesToHex,
-  setLengthLeft,
-} from '@synthesizer-libs/util';
-
-import { setupParams } from '../../constant/index.js';
-import {
-  PRV_IN_PLACEMENT_INDEX,
-  PRV_OUT_PLACEMENT_INDEX,
-  PUB_IN_PLACEMENT_INDEX,
-  PUB_OUT_PLACEMENT_INDEX,
-} from '../../constant/index.js';
-
-import type {
-  DataPt,
-  PlacementEntry,
-  Placements,
-  SubcircuitInfoByName,
-  SubcircuitNames,
-} from '../../types/index.js';
 import type { StateManager } from '../handlers/stateManager.js';
 import { Permutation } from './permutation.js';
 import { PlacementRefactor } from './placementRefactor.js';

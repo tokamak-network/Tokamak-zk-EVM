@@ -1,6 +1,9 @@
 /**
  * Run this file with:
- * DEBUG=ethjs,evm:*,evm:*:* tsx finalizer.test.ts <TRANSACTION_HASH> <RPC_URL>
+ * DEBUG=ethjs,evm:*,evm:*:* tsx index.ts <TRANSACTION_HASH> <RPC_URL>
+ *
+ * Example:
+ * DEBUG=ethjs,evm:*,evm:*:* tsx packages/frontend/synthesizer/examples/transaction/index.ts 0x04dbba13b0ef81a08a3aba9cee145dae19c4d6c09bcfacb22b8d4c385c6c3d77 <YOUR_RPC_URL>
  */
 
 import { Address, hexToBytes } from '@synthesizer-libs/util';
@@ -13,7 +16,7 @@ const main = async () => {
   const [, , RPC_URL, TRANSACTION_HASH] = process.argv;
 
   if (!TRANSACTION_HASH || !RPC_URL) {
-    console.error('Usage: tsx finalizer.test.ts <TRANSACTION_HASH> <RPC_URL>');
+    console.error('Usage: tsx index.ts <TRANSACTION_HASH> <RPC_URL>');
     process.exit(1);
   }
 
