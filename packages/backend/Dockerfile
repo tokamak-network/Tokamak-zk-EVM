@@ -2,7 +2,7 @@
 # FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
 
 # Use Ubuntu as base image (No CUDA)
-FROM ubuntu:22.04
+FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
 
 # Update and install dependencies
 RUN apt-get update && apt-get install -y \
@@ -15,6 +15,8 @@ RUN apt-get update && apt-get install -y \
     clang \
     libclang-dev \
     lldb \
+    jq \
+    dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
 RUN echo 'export PS1="\w\$ "' >> /root/.bashrc
@@ -22,7 +24,6 @@ RUN echo 'export PS1="\w\$ "' >> /root/.bashrc
 # Install Rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
-
 
 
 # Install Golang
@@ -35,6 +36,9 @@ WORKDIR /app
 
 # Copy the content of the local directory to the working directory
 COPY . .
+
+# Fix CRLF line endings in shell scripts
+RUN sed -i 's/\r$//' ./*.sh
 
 # Specify the default command for the container
 CMD ["bash"]

@@ -15,10 +15,15 @@ dotenv.config({
   path: path.resolve(process.cwd(), '.env'),
 });
 
-const TRANSACTION_HASH =
-  '0x196baedfd6f903003a004e28cab71176569cf755b42a37db180338a60bce57f0';
+const TRANSACTION_HASH = process.argv[2];
+if (!TRANSACTION_HASH) {
+  console.error('Please provide a transaction hash as an argument.');
+  process.exit(1);
+}
 
-  const RPC_URL = process.env.RPC_URL;
+const RPC_URL =
+  process.env.RPC_URL ||
+  'https://eth-mainnet.g.alchemy.com/v2/R5QaE9XnxicowAsSli_rMoNL9IpfVmBi';
 
 const main = async () => {
   if (!RPC_URL) {

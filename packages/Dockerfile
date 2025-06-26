@@ -2,10 +2,13 @@
 # FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
 
 # Use Ubuntu as base image (No CUDA)
-FROM ubuntu:22.04
+FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
+
+# Switch to a Korean mirror to avoid apt-get hash mismatch errors
+RUN sed -i -e 's|http://archive.ubuntu.com|http://kr.archive.ubuntu.com|g' -e 's|http://security.ubuntu.com|http://kr.archive.ubuntu.com|g' /etc/apt/sources.list
 
 # Update and install dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     cmake \
     protobuf-compiler \
@@ -15,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     clang \
     libclang-dev \
     lldb \
+    jq \
     && rm -rf /var/lib/apt/lists/*
 
 # 기본 프롬프트 변경
