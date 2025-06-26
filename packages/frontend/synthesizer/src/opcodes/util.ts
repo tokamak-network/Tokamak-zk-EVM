@@ -204,20 +204,6 @@ export function writeCallOutput(runState: RunState, outOffset: bigint, outLength
     runState.memory.extend(memOffset, dataLength)
     runState.memory.write(memOffset, dataLength, data)
   }
-
-  // For synthesizer
-  const returnMemoryPts = runState.interpreter.getReturnMemoryPts()
-  if (returnMemoryPts.length > 0) {
-    const acceptMemoryPts = copyMemoryRegion(runState, BIGINT_0, outLength, returnMemoryPts)
-    for (const entry of acceptMemoryPts) {
-      // the lower index, the older data
-      runState.memoryPt.write(
-        Number(outOffset) + entry.memOffset,
-        entry.containerSize,
-        entry.dataPt,
-      )
-    }
-  }
 }
 
 /**

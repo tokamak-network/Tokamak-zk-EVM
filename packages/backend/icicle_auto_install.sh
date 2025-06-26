@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 # Root detection for Docker/Local
@@ -10,6 +9,7 @@ else
 fi
 
 INSTALL_DIR="/opt/icicle"
+
 
 # OS detection
 OS_TYPE="$(uname -s)"
@@ -22,7 +22,6 @@ COMMON_URL=""
 BACKEND_URL=""
 BACKEND_TYPE=""
 
-# Helper: check CUDA (Linux) or Metal (macOS) support
 function check_backend_support() {
     if [[ "$1" == "cuda" ]]; then
         if ! command -v nvidia-smi &> /dev/null; then
@@ -38,7 +37,6 @@ function check_backend_support() {
 }
 
 if [[ "$OS_TYPE" == "Darwin" ]]; then
-    # macOS
     COMMON_TARBALL="icicle_3_7_0-macOS.tar.gz"
     BACKEND_TARBALL="icicle_3_7_0-macOS-Metal.tar.gz"
     COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$COMMON_TARBALL"
@@ -96,12 +94,10 @@ echo "[*] Installing to $INSTALL_DIR ..."
 $SUDO mkdir -p $INSTALL_DIR
 $SUDO cp -r icicle/* $INSTALL_DIR/
 
-# Copy all dynamic libs to backend folders (cuda/metal)
 echo "[*] Copying all shared libraries to backend $BACKEND_TYPE folders..."
 for libfile in $INSTALL_DIR/lib/*.{so,dylib}; do
-    [ -e "$libfile" ] || continue # skip if glob doesn't match
+    [ -e "$libfile" ] || continue
     libname=$(basename "$libfile")
-    # extract curve name: libicicle_{field,curve}_bls12_381.{so,dylib}
     curve=$(echo "$libname" | sed -E 's/libicicle_(field|curve)_([a-z0-9_]+)\.(so|dylib)/\2/')
     dest="$INSTALL_DIR/lib/backend/$curve/$BACKEND_TYPE/"
     if [ -d "$dest" ]; then
@@ -113,16 +109,13 @@ done
 echo "[*] Cleaning up temporary files..."
 rm -rf $BACKEND_TARBALL $COMMON_TARBALL icicle
 
-# Only set env for bls12_381
 curve="bls12_381"
 if [[ "$BACKEND_TYPE" == "metal" ]]; then
     ENV_LINE="export DYLD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib/backend/$curve/metal:\$DYLD_LIBRARY_PATH"
     echo ""
     echo "=================================================================="
     echo "[*] Please set the DYLD_LIBRARY_PATH environment variable:"
-    echo ""
     echo "   $ENV_LINE"
-    echo ""
     echo "You may want to add this to your ~/.zshrc or ~/.bash_profile."
     echo "=================================================================="
     eval "$ENV_LINE"
@@ -132,9 +125,7 @@ else
     echo ""
     echo "=================================================================="
     echo "[*] Please set the LD_LIBRARY_PATH environment variable:"
-    echo ""
     echo "   $ENV_LINE"
-    echo ""
     echo "You may want to add this to your ~/.bashrc or ~/.zshrc."
     echo "=================================================================="
     eval "$ENV_LINE"

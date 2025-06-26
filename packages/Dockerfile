@@ -24,8 +24,6 @@ RUN echo 'export PS1="\w\$ "' >> /root/.bashrc
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-
-
 # Install Golang
 ENV GOLANG_VERSION 1.21.1
 RUN curl -L https://go.dev/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz | tar -xz -C /usr/local
