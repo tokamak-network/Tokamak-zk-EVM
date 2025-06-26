@@ -39,5 +39,8 @@ WORKDIR /app
 # Copy the content of the local directory to the working directory
 COPY . .
 
+# Fix CRLF line endings in shell scripts to prevent "^M" error
+RUN sed -i 's/\r$//' ./*.sh
+
 # Specify the default command for the container
 CMD ["bash"]
