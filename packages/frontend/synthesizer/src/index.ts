@@ -1,8 +1,8 @@
-import { EOFContainer, validateEOF } from './eof/container.js'
-import { EVM } from './evm.js'
-import { ERROR as EVMErrorMessage, EvmError } from './exceptions.js'
-import { Message } from './message.js'
-import { getOpcodesForHF } from './opcodes/index.js'
+import { EOFContainer, validateEOF } from './eof/container.js';
+import { EVM } from './evm.js';
+import { ERROR as EVMErrorMessage, EvmError } from './exceptions.js';
+import { Message } from './message.js';
+import { getOpcodesForHF } from './opcodes/index.js';
 import {
   MCLBLS,
   NobleBLS,
@@ -10,10 +10,10 @@ import {
   type PrecompileInput,
   RustBN254,
   getActivePrecompiles,
-} from './precompiles/index.js'
-import { EVMMockBlockchain } from './types.js'
+} from './precompiles/index.js';
+import { EVMMockBlockchain } from './types.js';
 
-import type { InterpreterStep } from './interpreter.js'
+import type { InterpreterStep } from './interpreter.js';
 import type {
   EVMBLSInterface,
   EVMBN254Interface,
@@ -25,8 +25,8 @@ import type {
   EVMRunCodeOpts,
   ExecResult,
   Log,
-} from './types.js'
-export * from './logger.js'
+} from './types.js';
+export * from './logger.js';
 
 export type {
   EVMBLSInterface,
@@ -41,7 +41,7 @@ export type {
   InterpreterStep,
   Log,
   PrecompileInput,
-}
+};
 
 export {
   EOFContainer,
@@ -57,8 +57,7 @@ export {
   NobleBN254,
   RustBN254,
   validateEOF,
-}
+};
 
-export * from './constructors.js'
-export * from './params.js'
-export {SynthesizerAdapter} from './adapters/synthesizerAdapter.js'
+export * from './constructors.js';
+export * from './params.js';
