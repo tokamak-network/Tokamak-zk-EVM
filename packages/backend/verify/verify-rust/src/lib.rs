@@ -103,6 +103,7 @@ impl Verifier {
         let mut keccak_inputs_be_bytes= Vec::new();
         let mut prev_key: usize = 0;
         let mut data_restored: Vec<u8> = Vec::new();
+        println!("1");
         for i in 0..keccak_in_pts.len()/2 {
             let keccak_in_lsb = &keccak_in_pts[2 * i];
             let keccak_in_msb = &keccak_in_pts[2 * i + 1];
@@ -135,6 +136,7 @@ impl Verifier {
         let mut keccak_outputs_be_bytes= Vec::new();
         let mut prev_key: usize = 0;
         let mut data_restored: Vec<u8> = Vec::new();
+        println!("2");
         for i in 0..keccak_out_pts.len()/2 {
             let keccak_out_lsb = &keccak_out_pts[2 * i];
             let keccak_out_msb = &keccak_out_pts[2 * i + 1];
@@ -169,9 +171,11 @@ impl Verifier {
         if keccak_inputs_be_bytes.len() != keccak_outputs_be_bytes.len() {
             panic!("Length mismatch between Keccak inputs and outputs.")
         }
+        println!("3");
         for i in 0..keccak_inputs_be_bytes.len() {
             let data_in = &keccak_inputs_be_bytes[i];
             let mut res_bytes = vec![0u8; 32]; // 32-byte output buffer
+            println!("4, {:?}", data_in);
             keccak_hasher
             .hash(
                 HostSlice::from_slice(&data_in),  // Input data
@@ -179,6 +183,7 @@ impl Verifier {
                 HostSlice::from_mut_slice(&mut res_bytes),       // Output buffer
             )
             .unwrap();
+        println!("5, {:?}", res_bytes);
             if res_bytes != keccak_outputs_be_bytes[i] {
                 flag = false;
             }

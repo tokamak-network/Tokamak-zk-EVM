@@ -391,15 +391,31 @@ export class Permutation {
     }
 
     // Packaging public instance
+    const publicInputBufferPlacement = this.placements.get(PUB_IN_PLACEMENT_INDEX)!;
+    const publicOutputBufferPlacement = this.placements.get(PUB_OUT_PLACEMENT_INDEX)!;
+
+    if (
+      publicInputBufferPlacement.inPts.length === 0 &&
+      publicInputBufferPlacement.outPts.length === 0
+    ) {
+      throw new Error('Error: publicInputBuffer inPts and outPts are both empty.');
+    }
+    if (
+      publicOutputBufferPlacement.inPts.length === 0 &&
+      publicOutputBufferPlacement.outPts.length === 0
+    ) {
+      throw new Error('Error: publicOutputBuffer inPts and outPts are both empty.');
+    }
+
     const publicInputBuffer = {
-      ...this.placements.get(PUB_IN_PLACEMENT_INDEX)!,
-      inPts: this.placements.get(PUB_IN_PLACEMENT_INDEX)!.inPts.map(({ value, ...rest }) => rest),
-      outPts: this.placements.get(PUB_IN_PLACEMENT_INDEX)!.outPts.map(({ value, ...rest }) => rest),
+      ...publicInputBufferPlacement,
+      inPts: publicInputBufferPlacement.inPts.map(({ value, ...rest }) => rest),
+      outPts: publicInputBufferPlacement.outPts.map(({ value, ...rest }) => rest),
     }
     const publicOutputBuffer = {
-      ...this.placements.get(PUB_OUT_PLACEMENT_INDEX)!,
-      inPts: this.placements.get(PUB_OUT_PLACEMENT_INDEX)!.inPts.map(({ value, ...rest }) => rest),
-      outPts: this.placements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts.map(({ value, ...rest }) => rest),
+      ...publicOutputBufferPlacement,
+      inPts: publicOutputBufferPlacement.inPts.map(({ value, ...rest }) => rest),
+      outPts: publicOutputBufferPlacement.outPts.map(({ value, ...rest }) => rest),
     }
     const privateInputBuffer = {
       ...this.placements.get(PRV_IN_PLACEMENT_INDEX)!,

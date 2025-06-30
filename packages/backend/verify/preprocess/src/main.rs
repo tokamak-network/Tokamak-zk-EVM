@@ -1,7 +1,10 @@
 use libs::group_structures::{SigmaPreprocess, Preprocess};
 use libs::iotools::{Permutation, SetupParams};
+use libs::utils::check_device;
 
 fn main() {
+    check_device();
+
     let setup_path = "setupParams.json";
     let setup_params = SetupParams::from_path(setup_path).unwrap();
     let sigma_path = "setup/trusted-setup/output/sigma_preprocess.json";
