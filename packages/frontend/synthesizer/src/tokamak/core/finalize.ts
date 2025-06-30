@@ -151,31 +151,54 @@ function refactoryPlacement(placements: Placements): Placements {
     outPlacements.get(key)!.inPts = [...newInPts] 
   }
 
-  let flags: boolean[] = Array(5).fill(true);
+  let flags: boolean[] = Array(9).fill(true);
+
+  const pubIn = outPlacements.get(PUB_IN_PLACEMENT_INDEX)!;
+  const pubOut = outPlacements.get(PUB_OUT_PLACEMENT_INDEX)!;
+  const prvIn = outPlacements.get(PRV_IN_PLACEMENT_INDEX)!;
+  const prvOut = outPlacements.get(PRV_OUT_PLACEMENT_INDEX)!;
   
-  if (outPlacements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length > subcircuitInfoByName.get('bufferPrvIn')!.In_idx[1]) {
+  if (prvIn.inPts.length > subcircuitInfoByName.get('bufferPrvIn')!.In_idx[1]) {
     flags[0] = false;
-    console.log(`Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: ${outPlacements.get(PRV_IN_PLACEMENT_INDEX)!.inPts.length}).`)
+    console.log(`Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: ${prvIn.inPts.length}).`)
   }
-  if (outPlacements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.length > subcircuitInfoByName.get('bufferPrvOut')!.Out_idx[1]) {
+  if (prvOut.outPts.length > subcircuitInfoByName.get('bufferPrvOut')!.Out_idx[1]) {
     flags[1] = false;
-    console.log(`Error: Synthesizer: Insufficient private output buffer length. Ask the qap-compiler for a longer buffer (required length: ${outPlacements.get(PRV_OUT_PLACEMENT_INDEX)!.outPts.length}).`)
+    console.log(`Error: Synthesizer: Insufficient private output buffer length. Ask the qap-compiler for a longer buffer (required length: ${prvOut.outPts.length}).`)
   }
-  if (outPlacements.get(PUB_IN_PLACEMENT_INDEX)!.inPts.length > subcircuitInfoByName.get('bufferPubIn')!.In_idx[1]) {
+  if (pubIn.inPts.length > subcircuitInfoByName.get('bufferPubIn')!.In_idx[1]) {
     flags[2] = false;
-    console.log(`Error: Synthesizer: Insufficient public input buffer length. Ask the qap-compiler for a longer buffer (required length: ${outPlacements.get(PUB_IN_PLACEMENT_INDEX)!.inPts.length}).`)
+    console.log(`Error: Synthesizer: Insufficient public input buffer length. Ask the qap-compiler for a longer buffer (required length: ${pubIn.inPts.length}).`)
   }
-  if (outPlacements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts.length > subcircuitInfoByName.get('bufferPubOut')!.Out_idx[1]) {
+  if (pubOut.outPts.length > subcircuitInfoByName.get('bufferPubOut')!.Out_idx[1]) {
     flags[3] = false;
-    console.log(`Error: Synthesizer: Insufficient public output buffer length. Ask the qap-compiler for a longer buffer (required length: ${outPlacements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts.length}).`)
+    console.log(`Error: Synthesizer: Insufficient public output buffer length. Ask the qap-compiler for a longer buffer (required length: ${pubOut.outPts.length}).`)
   }
   if (outPlacements.size > setupParams.s_max) {
     flags[4] = false;
     console.log(`Error: Synthesizer: The number of placements exceeds the parameter s_max. Ask the qap-compiler for more placements (required slots: ${outPlacements.size})`)
   }
+  if (pubIn.inPts.length === 0 && pubIn.outPts.length === 0) {
+    flags[5] = false;
+    console.log('Error: No public input buffer: inPts and outPts are both empty.');
+  }
+  if (pubOut.inPts.length === 0 && pubOut.outPts.length === 0) {
+    flags[6] = false;
+    console.log('Error: No public output buffer: inPts and outPts are both empty.');
+  }
+  if (prvIn.inPts.length === 0 && prvIn.outPts.length === 0) {
+    flags[7] = false;
+    console.log('Error: No private input buffer: inPts and outPts are both empty.');
+  }
+  if (prvOut.inPts.length === 0 && prvOut.outPts.length === 0) {
+    flags[8] = false;
+    console.log('Error: No private output buffer: inPts and outPts are both empty.');
+  }
+
   if (flags.includes(false)) {
     throw new Error("Resolve above errors.")
   }
+
   return outPlacements
 }
 
@@ -390,32 +413,15 @@ export class Permutation {
       a[idxSetPrvIn.flattenMap[localIdx]] = val
     }
 
-    // Packaging public instance
-    const publicInputBufferPlacement = this.placements.get(PUB_IN_PLACEMENT_INDEX)!;
-    const publicOutputBufferPlacement = this.placements.get(PUB_OUT_PLACEMENT_INDEX)!;
-
-    if (
-      publicInputBufferPlacement.inPts.length === 0 &&
-      publicInputBufferPlacement.outPts.length === 0
-    ) {
-      throw new Error('Error: publicInputBuffer inPts and outPts are both empty.');
-    }
-    if (
-      publicOutputBufferPlacement.inPts.length === 0 &&
-      publicOutputBufferPlacement.outPts.length === 0
-    ) {
-      throw new Error('Error: publicOutputBuffer inPts and outPts are both empty.');
-    }
-
     const publicInputBuffer = {
-      ...publicInputBufferPlacement,
-      inPts: publicInputBufferPlacement.inPts.map(({ value, ...rest }) => rest),
-      outPts: publicInputBufferPlacement.outPts.map(({ value, ...rest }) => rest),
+      ...this.placements.get(PUB_IN_PLACEMENT_INDEX)!,
+      inPts: this.placements.get(PUB_IN_PLACEMENT_INDEX)!.inPts.map(({ value, ...rest }) => rest),
+      outPts: this.placements.get(PUB_IN_PLACEMENT_INDEX)!.outPts.map(({ value, ...rest }) => rest),
     }
     const publicOutputBuffer = {
-      ...publicOutputBufferPlacement,
-      inPts: publicOutputBufferPlacement.inPts.map(({ value, ...rest }) => rest),
-      outPts: publicOutputBufferPlacement.outPts.map(({ value, ...rest }) => rest),
+      ...this.placements.get(PUB_OUT_PLACEMENT_INDEX)!,
+      inPts: this.placements.get(PUB_OUT_PLACEMENT_INDEX)!.inPts.map(({ value, ...rest }) => rest),
+      outPts: this.placements.get(PUB_OUT_PLACEMENT_INDEX)!.outPts.map(({ value, ...rest }) => rest),
     }
     const privateInputBuffer = {
       ...this.placements.get(PRV_IN_PLACEMENT_INDEX)!,
