@@ -13,7 +13,7 @@ fn main() {
     let is_cuda_device_available = icicle_runtime::is_device_available(&device_gpu);
     if is_cuda_device_available {
         println!("GPU is available");
-        icicle_runtime::set_device(&device_gpu).expect("Failed to set device");
+        icicle_runtime::set_device(&device_cpu).expect("Failed to set device");
     } else {
         println!("GPU is not available, falling back to CPU only");
         device_gpu = device_cpu.clone();

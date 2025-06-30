@@ -38,7 +38,7 @@ pub fn load_gpu_if_possible() -> bool {
 
     let _ = icicle_runtime::load_backend_from_env_or_default();
     // Check if GPU is available
-    let device_metal_gpu = Device::new("METAL", 0);
+    let device_metal_gpu = Device::new("CUDA", 0);
     let device_cuda_gpu = Device::new("CUDA", 0);
 
     if icicle_runtime::is_device_available(&device_metal_gpu) {
