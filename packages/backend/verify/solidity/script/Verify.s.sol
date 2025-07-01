@@ -15,6 +15,7 @@ contract VerifyScript is Script {
         uint128[] memory serializedProofPart1 = new uint128[](42);
         uint256[] memory serializedProofPart2 = new uint256[](46);
         uint256[] memory publicInputs = new uint256[](128);
+        uint256 smax;
         
         // SERIALIZED PROOF PART 1 (First 16 bytes - 32 hex chars)
         serializedProofPart1[0] = 0x0d8838cc826baa7ccd8cfe0692e8a13d; // s^{(0)}(x,y)_X
@@ -126,11 +127,13 @@ contract VerifyScript is Script {
         publicInputs[70] = 0x000000000000000000000000000000001f924fe321c5cf7ad7a47b57891fbcb0;
         publicInputs[71] = 0x0000000000000000000000000000000081f4f96b68c216b824fb32a8c09bd5a8;
         
+        smax = 64;
+
         // All other indices are zero by default in Solidity
         
         vm.startBroadcast(deployerPrivateKey);
         
-        bool result = verifier.verify(serializedProofPart1, serializedProofPart2, publicInputs);        
+        bool result = verifier.verify(serializedProofPart1, serializedProofPart2, publicInputs, smax);        
         vm.stopBroadcast();
     }
 }
