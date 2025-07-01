@@ -516,9 +516,7 @@ impl QAP{
         let global_wire_file_name = "globalWireList.json";
         let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_file_name).unwrap();
 
-        let zero_coef_vec = [ScalarField::zero()];
-        let zero_coef = HostSlice::from_slice(&zero_coef_vec);
-        let zero_poly = DensePolynomialExt::from_coeffs(zero_coef, 1, 1);
+        let zero_poly = DensePolynomialExt::zero();
         let mut u_j_X = vec![zero_poly.clone(); m_d];
         let mut v_j_X = vec![zero_poly.clone(); m_d];
         let mut w_j_X = vec![zero_poly.clone(); m_d];
