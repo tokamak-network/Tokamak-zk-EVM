@@ -13,20 +13,17 @@ contract testTokamakVerifier is Test {
     VerifierV2 verifier2;
     VerifierV3 verifier3;
 
-
     uint128[] public serializedProofPart1;
     uint256[] public serializedProofPart2;
     uint256[] public serializedProof;
     uint256[] public publicInputs;
     uint256 public smax;
-    
 
     function setUp() public virtual {
         verifier1 = new VerifierV1();
         verifier2 = new VerifierV2();
         verifier3 = new VerifierV3();
 
-        
         // Complete test suite proof data
         // serializedProofPart1: First 16 bytes (32 hex chars) of each coordinate
         // serializedProofPart2: Last 32 bytes (64 hex chars) of each coordinate
@@ -76,10 +73,10 @@ contract testTokamakVerifier is Test {
         serializedProofPart1.push(0x104de32201c5ba649cc17df4cf759a1f); // A_Y
 
         // SERIALIZED PROOF PART 2 (Last 32 bytes - 64 hex chars)
-        serializedProofPart2.push(0xbbae56c781b300594dac0753e75154a00b83cc4e6849ef3f07bb56610a02c828); // s^{(0)}(x,y)_X 
-        serializedProofPart2.push(0xf3447285889202e7e24cd08a058a758a76ee4c8440131be202ad8bc0cc91ee70); // s^{(0)}(x,y)_Y 
-        serializedProofPart2.push(0x76e577ad778dc4476b10709945e71e289be5ca05c412ca04c133c485ae8bc757); // s^{(1)}(x,y)_X 
-        serializedProofPart2.push(0x7ada41cb993109dc7c194693dbcc461f8512755054966319bcbdea3a1da86938); // s^{(1)}(x,y)_Y 
+        serializedProofPart2.push(0xbbae56c781b300594dac0753e75154a00b83cc4e6849ef3f07bb56610a02c828); // s^{(0)}(x,y)_X
+        serializedProofPart2.push(0xf3447285889202e7e24cd08a058a758a76ee4c8440131be202ad8bc0cc91ee70); // s^{(0)}(x,y)_Y
+        serializedProofPart2.push(0x76e577ad778dc4476b10709945e71e289be5ca05c412ca04c133c485ae8bc757); // s^{(1)}(x,y)_X
+        serializedProofPart2.push(0x7ada41cb993109dc7c194693dbcc461f8512755054966319bcbdea3a1da86938); // s^{(1)}(x,y)_Y
         serializedProofPart2.push(0x12f31df6476c99289584549ae13292a824df5e10f546a9659d08479cf55b3bb2); // U_X
         serializedProofPart2.push(0xd28e43565c5c0a0b6d625a4572e02fbb6de2b255911ebe90f551a43a48c52ec0); // U_Y
         serializedProofPart2.push(0x185457d5b78e0dd03fb83b4af872c2f9800e0d4d3bbb1e36ca85a9d8ce763e55); // V_X
@@ -125,19 +122,18 @@ contract testTokamakVerifier is Test {
         serializedProofPart2.push(0x416c2033250efefa6a38b627ba05c7ba67e800b681f9783a079f27c15f2aac32); // R_omegaX_omegaY_eval
         serializedProofPart2.push(0x130694604026116d02cbb135233c3219dce6a8527f02960cb4217dc0b8b17d17); // V_eval
 
-
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        serializedProof.push(0x000000000000000000000000000000000d8838cc826baa7ccd8cfe0692e8a13d); // s^{(0)}(x,y)_X 
-        serializedProof.push(0xbbae56c781b300594dac0753e75154a00b83cc4e6849ef3f07bb56610a02c828); // s^{(0)}(x,y)_X 
+        serializedProof.push(0x000000000000000000000000000000000d8838cc826baa7ccd8cfe0692e8a13d); // s^{(0)}(x,y)_X
+        serializedProof.push(0xbbae56c781b300594dac0753e75154a00b83cc4e6849ef3f07bb56610a02c828); // s^{(0)}(x,y)_X
         serializedProof.push(0x00000000000000000000000000000000103aeb959c53fdd5f13b70a350363881); // s^{(0)}(x,y)_Y
-        serializedProof.push(0xf3447285889202e7e24cd08a058a758a76ee4c8440131be202ad8bc0cc91ee70); // s^{(0)}(x,y)_Y 
-        serializedProof.push(0x0000000000000000000000000000000009f0f94fd2dc8976bfeab5da30e1fa04); // s^{(1)}(x,y)_X 
-        serializedProof.push(0x76e577ad778dc4476b10709945e71e289be5ca05c412ca04c133c485ae8bc757); // s^{(1)}(x,y)_X 
-        serializedProof.push(0x0000000000000000000000000000000017cb62f5e698fe087b0f334e2fb2439c); // s^{(1)}(x,y)_Y 
-        serializedProof.push(0x7ada41cb993109dc7c194693dbcc461f8512755054966319bcbdea3a1da86938); // s^{(1)}(x,y)_Y 
+        serializedProof.push(0xf3447285889202e7e24cd08a058a758a76ee4c8440131be202ad8bc0cc91ee70); // s^{(0)}(x,y)_Y
+        serializedProof.push(0x0000000000000000000000000000000009f0f94fd2dc8976bfeab5da30e1fa04); // s^{(1)}(x,y)_X
+        serializedProof.push(0x76e577ad778dc4476b10709945e71e289be5ca05c412ca04c133c485ae8bc757); // s^{(1)}(x,y)_X
+        serializedProof.push(0x0000000000000000000000000000000017cb62f5e698fe087b0f334e2fb2439c); // s^{(1)}(x,y)_Y
+        serializedProof.push(0x7ada41cb993109dc7c194693dbcc461f8512755054966319bcbdea3a1da86938); // s^{(1)}(x,y)_Y
         serializedProof.push(0x0000000000000000000000000000000007be8e1a551012b701722c13889c649b); // U_X
         serializedProof.push(0x9edeb17d8280b6477fee7f034dd01f5af930d2e2712c1e0d7d699e4a06305cb3); // U_X
         serializedProof.push(0x000000000000000000000000000000000bdc6b8a4be68fb371fa4633afad2e93); // U_Y
@@ -364,7 +360,7 @@ contract testTokamakVerifier is Test {
         bool success = verifier1.verify(serializedProof, publicInputs);
         uint256 gasAfter = gasleft();
         uint256 gasUsed = gasBefore - gasAfter;
-        
+
         console.log("Gas used:", gasUsed);
         assert(success);
     }
@@ -374,7 +370,7 @@ contract testTokamakVerifier is Test {
         bool success = verifier2.verify(serializedProofPart1, serializedProofPart2, publicInputs);
         uint256 gasAfter = gasleft();
         uint256 gasUsed = gasBefore - gasAfter;
-        
+
         console.log("Gas used:", gasUsed);
         assert(success);
     }
@@ -384,7 +380,7 @@ contract testTokamakVerifier is Test {
         bool success = verifier3.verify(serializedProofPart1, serializedProofPart2, publicInputs, smax);
         uint256 gasAfter = gasleft();
         uint256 gasUsed = gasBefore - gasAfter;
-        
+
         console.log("Gas used:", gasUsed);
         assert(success);
     }
@@ -413,7 +409,6 @@ contract testTokamakVerifier is Test {
 
         vm.expectRevert(bytes("loadProof: Proof is invalid"));
         verifier3.verify(serializedProofPart1, serializedProofPart2, publicInputs, smax);
-
     }
 
     function testEmptyProof_shouldRevert() public {

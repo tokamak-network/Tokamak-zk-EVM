@@ -8,15 +8,15 @@ contract VerifyScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address verifierAddress = vm.envAddress("VERIFIER_ADDRESS");
-        
+
         VerifierV3 verifier = VerifierV3(verifierAddress);
-        
+
         // Prepare proof data
         uint128[] memory serializedProofPart1 = new uint128[](42);
         uint256[] memory serializedProofPart2 = new uint256[](46);
         uint256[] memory publicInputs = new uint256[](128);
         uint256 smax;
-        
+
         // SERIALIZED PROOF PART 1 (First 16 bytes - 32 hex chars)
         serializedProofPart1[0] = 0x0d8838cc826baa7ccd8cfe0692e8a13d; // s^{(0)}(x,y)_X
         serializedProofPart1[1] = 0x103aeb959c53fdd5f13b70a350363881; // s^{(0)}(x,y)_Y
@@ -60,12 +60,12 @@ contract VerifyScript is Script {
         serializedProofPart1[39] = 0x0f697de543d92f067e8ff95912513e49; // O_pub_Y
         serializedProofPart1[40] = 0x097d7a0fe6430f3dfe4e10c2db6ec878; // A_X
         serializedProofPart1[41] = 0x104de32201c5ba649cc17df4cf759a1f; // A_Y
-        
+
         // SERIALIZED PROOF PART 2 (Last 32 bytes - 64 hex chars)
-        serializedProofPart2[0] = 0xbbae56c781b300594dac0753e75154a00b83cc4e6849ef3f07bb56610a02c828; // s^{(0)}(x,y)_X 
-        serializedProofPart2[1] = 0xf3447285889202e7e24cd08a058a758a76ee4c8440131be202ad8bc0cc91ee70; // s^{(0)}(x,y)_Y 
-        serializedProofPart2[2] = 0x76e577ad778dc4476b10709945e71e289be5ca05c412ca04c133c485ae8bc757; // s^{(1)}(x,y)_X 
-        serializedProofPart2[3] = 0x7ada41cb993109dc7c194693dbcc461f8512755054966319bcbdea3a1da86938; // s^{(1)}(x,y)_Y 
+        serializedProofPart2[0] = 0xbbae56c781b300594dac0753e75154a00b83cc4e6849ef3f07bb56610a02c828; // s^{(0)}(x,y)_X
+        serializedProofPart2[1] = 0xf3447285889202e7e24cd08a058a758a76ee4c8440131be202ad8bc0cc91ee70; // s^{(0)}(x,y)_Y
+        serializedProofPart2[2] = 0x76e577ad778dc4476b10709945e71e289be5ca05c412ca04c133c485ae8bc757; // s^{(1)}(x,y)_X
+        serializedProofPart2[3] = 0x7ada41cb993109dc7c194693dbcc461f8512755054966319bcbdea3a1da86938; // s^{(1)}(x,y)_Y
         serializedProofPart2[4] = 0x9edeb17d8280b6477fee7f034dd01f5af930d2e2712c1e0d7d699e4a06305cb3; // U_X
         serializedProofPart2[5] = 0x18c3dcf9d39177c0279a710093830f6bf5368fa5090e5b12dee85a4858706cd6; // U_Y
         serializedProofPart2[6] = 0xd3e45812526acc1d689ce05e186d3a8b9e921ad3a4701013336f3f00c654c908; // V_X
@@ -108,7 +108,7 @@ contract VerifyScript is Script {
         serializedProofPart2[43] = 0x089a1a15af704787c629415ac86767993eb41dcaf85698570c7a42fe70e794a1; // R_omegaX_eval
         serializedProofPart2[44] = 0x0877ff319922ffed9bb7d64983da74126b2f31108ac4fc290ef3ea87f5053a66; // R_omegaX_omegaY_eval
         serializedProofPart2[45] = 0x73217f78c593b99fafef45085119bc4f43d578f607da8ce9726d4d14cd8b76a1; // V_eval
-        
+
         // Fill publicInputs - only non-zero values
         publicInputs[0] = 0x00000000000000000000000000000000392a2d1a05288b172f205541a56fc20d;
         publicInputs[1] = 0x00000000000000000000000000000000000000000000000000000000c2c30e79;
@@ -126,14 +126,14 @@ contract VerifyScript is Script {
         publicInputs[69] = 0x0000000000000000000000000000000081f4f96b68c216b824fb32a8c09bd5a8;
         publicInputs[70] = 0x000000000000000000000000000000001f924fe321c5cf7ad7a47b57891fbcb0;
         publicInputs[71] = 0x0000000000000000000000000000000081f4f96b68c216b824fb32a8c09bd5a8;
-        
+
         smax = 64;
 
         // All other indices are zero by default in Solidity
-        
+
         vm.startBroadcast(deployerPrivateKey);
-        
-        bool result = verifier.verify(serializedProofPart1, serializedProofPart2, publicInputs, smax);        
+
+        bool result = verifier.verify(serializedProofPart1, serializedProofPart2, publicInputs, smax);
         vm.stopBroadcast();
     }
 }

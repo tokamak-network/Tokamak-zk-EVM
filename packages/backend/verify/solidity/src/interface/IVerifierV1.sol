@@ -6,9 +6,5 @@ pragma solidity ^0.8.30;
 interface IVerifierV1 {
     /// @dev Verifies a zk-SNARK proof.
     /// Note: The function may revert execution instead of returning false in some cases.
-    function verify(
-        uint256[] calldata proof,
-        uint256[] calldata publicInputs
-    ) external view returns (bool);
-
+    function verify(uint256[] calldata proof, uint256[] calldata publicInputs) external view returns (bool);
 }
