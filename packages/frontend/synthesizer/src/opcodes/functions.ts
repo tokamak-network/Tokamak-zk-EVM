@@ -1516,7 +1516,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       }
 
       // For Synthesizer //
-      runState.stackPt.popN(2); // stackPt도 동일하게 pop
+      runState.stackPt.popN(2);
     },
   ],
   // 0x58: PC
@@ -1525,8 +1525,14 @@ export const handlers: Map<number, OpHandler> = new Map([
     function (runState) {
       runState.stack.push(BigInt(runState.programCounter - 1));
 
-      // for opcode not implemented with Synthesizer
-      SynthesizerValidator.validateOpcodeImplemented(0x58, 'PC');
+      // For Synthesizer
+      const dataPt = runState.synthesizer.loadAuxin(
+        BigInt(runState.programCounter - 1),
+      );
+      runState.stackPt.push(dataPt);
+      if (runState.stackPt.peek(1)[0].value !== runState.stack.peek(1)[0]) {
+        throw new Error(`Synthesizer: 'PC': Output data mismatch`);
+      }
     },
   ],
   // 0x59: MSIZE
@@ -1535,8 +1541,14 @@ export const handlers: Map<number, OpHandler> = new Map([
     function (runState) {
       runState.stack.push(runState.memoryWordCount * BIGINT_32);
 
-      // for opcode not implemented with Synthesizer
-      SynthesizerValidator.validateOpcodeImplemented(0x59, 'MSIZE');
+      // For Synthesizer
+      const dataPt = runState.synthesizer.loadAuxin(
+        runState.memoryWordCount * BIGINT_32,
+      );
+      runState.stackPt.push(dataPt);
+      if (runState.stackPt.peek(1)[0].value !== runState.stack.peek(1)[0]) {
+        throw new Error(`Synthesizer: 'PC': Output data mismatch`);
+      }
     },
   ],
   // 0x5a: GAS
@@ -1545,7 +1557,7 @@ export const handlers: Map<number, OpHandler> = new Map([
     function (runState) {
       runState.stack.push(runState.interpreter.getGasLeft());
 
-      // For Synthesizer. Temporary handling. Will be updated.
+      // For Synthesizer
       const dataPt = runState.synthesizer.loadAuxin(
         runState.interpreter.getGasLeft(),
       );
