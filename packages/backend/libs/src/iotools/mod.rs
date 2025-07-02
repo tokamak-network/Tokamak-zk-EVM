@@ -5,6 +5,7 @@ use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use icicle_core::msm::{self, MSMConfig};
 use icicle_runtime::{self, Device, memory::{HostSlice, DeviceVec}};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::prelude::*;
 use crate::field_structures::FieldSerde;
 use crate::group_structures::{G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify, Preprocess};
 use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
@@ -902,72 +903,71 @@ pub fn read_R1CS_gen_uvwXY(
     placement_variables: &Box<[PlacementVariables]>,
     subcircuit_infos: &Box<[SubcircuitInfo]>,
     setup_params: &SetupParams,
-) -> (DensePolynomialExt, DensePolynomialExt, DensePolynomialExt)  {
+) -> (DensePolynomialExt, DensePolynomialExt, DensePolynomialExt) {
     let n = setup_params.n;
     let s_max = setup_params.s_max;
+
+    // 각 스레드별로 (i, u_frag, v_frag, w_frag) 튜플을 만듦
+    let partials: Vec<(usize, Vec<ScalarField>, Vec<ScalarField>, Vec<ScalarField>)> =
+        placement_variables
+            .par_iter()
+            .enumerate()
+            .map(|(i, pv)| {
+                let subcircuit_id = pv.subcircuitId;
+                let r1cs_path: String = format!("json/subcircuit{subcircuit_id}.json");
+                let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[subcircuit_id]).unwrap();
+                let variables = &pv.variables;
+
+                let mut u_frag = vec![ScalarField::zero(); n];
+                let mut v_frag = vec![ScalarField::zero(); n];
+                let mut w_frag = vec![ScalarField::zero(); n];
+
+                _from_r1cs_to_eval(
+                    variables,
+                    &compact_r1cs.A_compact_col_mat,
+                    &compact_r1cs.A_active_wires,
+                    0,
+                    n,
+                    &mut u_frag,
+                );
+                _from_r1cs_to_eval(
+                    variables,
+                    &compact_r1cs.B_compact_col_mat,
+                    &compact_r1cs.B_active_wires,
+                    0,
+                    n,
+                    &mut v_frag,
+                );
+                _from_r1cs_to_eval(
+                    variables,
+                    &compact_r1cs.C_compact_col_mat,
+                    &compact_r1cs.C_active_wires,
+                    0,
+                    n,
+                    &mut w_frag,
+                );
+                (i, u_frag, v_frag, w_frag)
+            })
+            .collect();
 
     let mut u_eval = vec![ScalarField::zero(); s_max * n];
     let mut v_eval = vec![ScalarField::zero(); s_max * n];
     let mut w_eval = vec![ScalarField::zero(); s_max * n];
-    for i in 0..placement_variables.len() {
-        let subcircuit_id = placement_variables[i].subcircuitId;
-        // println!("TEST: Subcircuit Name: {:?}", subcircuit_infos[subcircuit_id].name);
-        let r1cs_path: String = format!("json/subcircuit{subcircuit_id}.json");
-        let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[subcircuit_id]).unwrap();
-        let variables = &placement_variables[i].variables;
-        
-        _from_r1cs_to_eval(
-            &variables, 
-            &compact_r1cs.A_compact_col_mat, 
-            &compact_r1cs.A_active_wires, 
-            i, 
-            n, 
-            &mut u_eval
-        );
-        _from_r1cs_to_eval(
-            &variables, 
-            &compact_r1cs.B_compact_col_mat, 
-            &compact_r1cs.B_active_wires, 
-            i, 
-            n, 
-            &mut v_eval
-        );
-        _from_r1cs_to_eval(
-            &variables, 
-            &compact_r1cs.C_compact_col_mat, 
-            &compact_r1cs.C_active_wires, 
-            i, 
-            n, 
-            &mut w_eval
-        );
+
+    for (i, u_frag, v_frag, w_frag) in partials {
+        u_eval[i * n..(i + 1) * n].copy_from_slice(&u_frag);
+        v_eval[i * n..(i + 1) * n].copy_from_slice(&v_frag);
+        w_eval[i * n..(i + 1) * n].copy_from_slice(&w_frag);
     }
 
     transpose_inplace(&mut u_eval, s_max, n);
     transpose_inplace(&mut v_eval, s_max, n);
     transpose_inplace(&mut w_eval, s_max, n);
 
-    return (
-        DensePolynomialExt::from_rou_evals(
-            HostSlice::from_slice(&u_eval),
-            n,
-            s_max,
-            None,
-            None
-        ),
-        DensePolynomialExt::from_rou_evals(
-            HostSlice::from_slice(&v_eval),
-            n,
-            s_max,
-            None,
-            None
-        ),
-        DensePolynomialExt::from_rou_evals(
-            HostSlice::from_slice(&w_eval),
-            n,
-            s_max,
-            None,
-            None
-        )
+    (
+        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&u_eval), n, s_max, None, None),
+        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&v_eval), n, s_max, None, None),
+        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&w_eval), n, s_max, None, None),
     )
 }
 

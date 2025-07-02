@@ -7,6 +7,7 @@ use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
 use crate::field_structures::Tau;
 use crate::vector_operations::{*};
 use std::collections::HashSet;
+use rayon::prelude::*;
 
 pub struct QAP{
     pub u_j_X: Vec<DensePolynomialExt>,
@@ -146,32 +147,48 @@ impl Instance {
     }
 }
 
-pub fn gen_bXY(placement_variables: &Box<[PlacementVariables]>, subcircuit_infos: &Box<[SubcircuitInfo]>, setup_params: &SetupParams) -> DensePolynomialExt {
+pub fn gen_bXY(
+    placement_variables: &Box<[PlacementVariables]>,
+    subcircuit_infos: &Box<[SubcircuitInfo]>,
+    setup_params: &SetupParams,
+) -> DensePolynomialExt {
     let l = setup_params.l;
     let l_d = setup_params.l_D;
     let s_max = setup_params.s_max;
     let m_i = l_d - l;
-    let mut interface_witness  = vec![ScalarField::zero(); m_i * s_max].into_boxed_slice();
-    for i in 0..placement_variables.len() {
-        let local_variables = &placement_variables[i].variables;
-        let global_idx_set = &subcircuit_infos[placement_variables[i].subcircuitId].flattenMap;
-        if local_variables.len() != global_idx_set.len(){
-            panic!("Corrupted placement variables.")
-        }
-        for j in 0..global_idx_set.len() {
-            let global_idx = global_idx_set[j];
-            let val_str: &str = &local_variables[j];
-            if global_idx >= l && global_idx < l_d && val_str != "0x0" {
-                interface_witness[(global_idx-l) * s_max + i] = ScalarField::from_hex(val_str);
-            } 
+
+    // 각 스레드별로 로컬 벡터를 만들고, 마지막에 합침
+    let partials: Vec<Vec<(usize, ScalarField)>> = placement_variables
+        .par_iter()
+        .enumerate()
+        .map(|(i, pv)| {
+            let mut local = Vec::new();
+            let local_variables = &pv.variables;
+            let global_idx_set = &subcircuit_infos[pv.subcircuitId].flattenMap;
+            for j in 0..global_idx_set.len() {
+                let global_idx = global_idx_set[j];
+                let val_str: &str = &local_variables[j];
+                if global_idx >= l && global_idx < l_d && val_str != "0x0" {
+                    local.push(((global_idx - l) * s_max + i, ScalarField::from_hex(val_str)));
+                }
+            }
+            local
+        })
+        .collect();
+
+    let mut interface_witness = vec![ScalarField::zero(); m_i * s_max];
+    for local in partials {
+        for (idx, val) in local {
+            interface_witness[idx] = val;
         }
     }
-    return DensePolynomialExt::from_rou_evals(
+
+    DensePolynomialExt::from_rou_evals(
         HostSlice::from_slice(&interface_witness),
         m_i,
         s_max,
         None,
-        None
+        None,
     )
 }
 

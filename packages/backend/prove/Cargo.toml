@@ -17,6 +17,7 @@ tiny-keccak = "1.5"
 hex = "0.4"
 byteorder = "1" 
 base64 = "0.13.0"
+crossbeam-utils = "0.8"
 
 [features]
 default = []

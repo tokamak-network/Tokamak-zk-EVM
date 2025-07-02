@@ -21,6 +21,7 @@
     use tiny_keccak::Keccak;
     use std::time::{Duration, Instant};
     use rayon::prelude::*;
+    use crossbeam_utils::thread;
 
 
     macro_rules! poly_comb {
@@ -750,56 +751,23 @@
             let setup_params = SetupParams::from_path(setup_path).unwrap();
             println!("Setup params loading: {:?}", setup_timer.elapsed());
 
-            // Extract key parameters from setup_params
-            let l = setup_params.l;     // Number of public I/O wires
-            let l_d = setup_params.l_D; // Number of interface wires
-            let s_d = setup_params.s_D; // Number of subcircuits
-            let n = setup_params.n;     // Number of constraints per subcircuit
-            let s_max = setup_params.s_max; // The maximum number of placements
-            let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
-            let l_prv = setup_params.l_prv_in + setup_params.l_prv_out;
-            
-            if !(l_pub.is_power_of_two() || l_pub==0) {
-                panic!("l_pub is not a power of two.");
-            }
-        
-            if !(l_prv.is_power_of_two()) {
-                panic!("l_prv is not a power of two.");
-            }
-            // Assert n is a power of two
-            if !n.is_power_of_two() {
-                panic!("n is not a power of two.");
-            }
-            // Assert s_max is a power of two
-            if !s_max.is_power_of_two() {
-                panic!("s_max is not a power of two.");
-            }
-            // The last wire-related parameter
-            let m_i = l_d - l;
-            // Assert m_I is a power of two
-            if !m_i.is_power_of_two() {
-                panic!("m_I is not a power of two.");
-            }
-
-            // Load subcircuit information
-            let subcircuit_timer = Instant::now();
-            let subcircuit_path = "subcircuitInfo.json";
-            let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_path).unwrap();
-            println!("Subcircuit info loading: {:?}", subcircuit_timer.elapsed());
-
-            // Load local variables of placements (public instance + interface witness + internal witness)
-            let placement_timer = Instant::now();
-            let placement_variables_path = "placementVariables.json";
-            let placement_variables = PlacementVariables::from_path(&placement_variables_path).unwrap();
-            println!("Placement variables loading: {:?}", placement_timer.elapsed());
+            // Parallel load subcircuitInfo, placementVariables, permutation
+            let (subcircuit_infos, placement_variables, permutation_raw) = thread::scope(|s| {
+                let subcircuit_handle = s.spawn(|_| SubcircuitInfo::from_path("subcircuitInfo.json").unwrap());
+                let placement_handle = s.spawn(|_| PlacementVariables::from_path("placementVariables.json").unwrap());
+                let permutation_handle = s.spawn(|_| Permutation::from_path("permutation.json").unwrap());
+                (
+                    subcircuit_handle.join().unwrap(),
+                    placement_handle.join().unwrap(),
+                    permutation_handle.join().unwrap(),
+                )
+            }).unwrap();
+            println!("Parallel JSON loading done");
 
             let witness_timer = Instant::now();
             let witness: Witness = {
-                // Parsing the variables
                 let bXY = gen_bXY(&placement_variables, &subcircuit_infos, &setup_params);
                 let (uXY, vXY, wXY) = read_R1CS_gen_uvwXY(&placement_variables, &subcircuit_infos, &setup_params);
-                
-                // Reuse zero scalar instead of creating a new vector
                 let zero_scalar = vec![ScalarField::zero()];
                 let rXY = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&zero_scalar), 1, 1);
                 Witness {bXY, uXY, vXY, wXY, rXY}
@@ -808,7 +776,6 @@
 
             let quotients_timer = Instant::now();
             let quotients: Quotients = {
-                // Create a single zero polynomial and reuse it
                 let zero_scalar = vec![ScalarField::zero()];
                 let zero_poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&zero_scalar), 1, 1);
                 Quotients {
@@ -824,43 +791,34 @@
             };
             println!("Quotients initialization: {:?}", quotients_timer.elapsed());
 
-            // Load permutation (copy constraints of the variables)
-            let permutation_timer = Instant::now();
-            let permutation_path = "permutation.json";
-            let permutation_raw = Permutation::from_path(&permutation_path).unwrap();
-            println!("Permutation loading: {:?}", permutation_timer.elapsed());
-
             let instance_timer = Instant::now();
-            let mut instance: InstancePolynomials = {
-                // Load instance
-                let instance_path = "instance.json";
-                let _instance = Instance::from_path(&instance_path).unwrap();
-
-                // Parsing the inputs
-                let a_pub_X = _instance.gen_a_pub_X(&setup_params);
-                
-                // Pre-allocate vectors to avoid multiple allocations
-                let mut t_n_coeffs = vec![ScalarField::zero(); 2*n];
+            // InstancePolynomials 생성 (병렬화 불가, 순차 실행)
+            let t_n = {
+                let mut t_n_coeffs = vec![ScalarField::zero(); 2*setup_params.n];
                 t_n_coeffs[0] = ScalarField::zero() - ScalarField::one();
-                t_n_coeffs[n] = ScalarField::one();
-                let t_n = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_n_coeffs), 2*n, 1);
-                
-                // Reuse the same pattern for t_mi and t_smax
+                t_n_coeffs[setup_params.n] = ScalarField::one();
+                DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_n_coeffs), 2*setup_params.n, 1)
+            };
+            let t_mi = {
+                let m_i = setup_params.l_D - setup_params.l;
                 let mut t_mi_coeffs = vec![ScalarField::zero(); 2*m_i];
                 t_mi_coeffs[0] = ScalarField::zero() - ScalarField::one();
                 t_mi_coeffs[m_i] = ScalarField::one();
-                let t_mi = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_mi_coeffs), 2*m_i, 1);
-                
-                let mut t_smax_coeffs = vec![ScalarField::zero(); 2*s_max];
-                t_smax_coeffs[0] = ScalarField::zero() - ScalarField::one();
-                t_smax_coeffs[s_max] = ScalarField::one();
-                let t_smax = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_smax_coeffs), 1, 2*s_max);
-                
-                // Generating permutation polynomials
-                let (s0XY, s1XY) = Permutation::to_poly(&permutation_raw, m_i, s_max);
-
-                InstancePolynomials {a_pub_X, t_n, t_mi, t_smax, s0XY, s1XY}
+                DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_mi_coeffs), 2*m_i, 1)
             };
+            let t_smax = {
+                let mut t_smax_coeffs = vec![ScalarField::zero(); 2*setup_params.s_max];
+                t_smax_coeffs[0] = ScalarField::zero() - ScalarField::one();
+                t_smax_coeffs[setup_params.s_max] = ScalarField::one();
+                DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_smax_coeffs), 1, 2*setup_params.s_max)
+            };
+            let (s0XY, s1XY) = Permutation::to_poly(&permutation_raw, setup_params.l_D - setup_params.l, setup_params.s_max);
+            let a_pub_X = {
+                let instance_path = "instance.json";
+                let _instance = Instance::from_path(&instance_path).unwrap();
+                _instance.gen_a_pub_X(&setup_params)
+            };
+            let mut instance = InstancePolynomials {a_pub_X, t_n, t_mi, t_smax, s0XY, s1XY};
             println!("Instance polynomials generation: {:?}", instance_timer.elapsed());
 
             #[cfg(feature = "testing-mode")] {
