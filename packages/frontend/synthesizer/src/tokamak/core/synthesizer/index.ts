@@ -1,75 +1,24 @@
 import {
-  BIGINT_0,
-  BIGINT_1,
-  bigIntToBytes,
-  bytesToHex,
-  setLengthLeft,
-} from '@synthesizer-libs/util';
-import { keccak256 } from 'ethereum-cryptography/keccak.js';
-
-import {
   DEFAULT_SOURCE_SIZE,
-  INITIAL_PLACEMENT_INDEX,
-  PUB_IN_PLACEMENT,
-  PUB_IN_PLACEMENT_INDEX,
-  PUB_OUT_PLACEMENT,
-  PUB_OUT_PLACEMENT_INDEX,
-  PRV_IN_PLACEMENT,
   PRV_IN_PLACEMENT_INDEX,
-  PRV_OUT_PLACEMENT,
-  PRV_OUT_PLACEMENT_INDEX,
-  SUBCIRCUIT_MAPPING,
-  ACCUMULATOR_INPUT_LIMIT,
-  // KECCAK_IN_PLACEMENT,
-  // KECCAK_IN_PLACEMENT_INDEX,
-  // KECCAK_OUT_PLACEMENT,
-  // KECCAK_OUT_PLACEMENT_INDEX,
-  // LOAD_PLACEMENT,
-  // LOAD_PLACEMENT_INDEX,
-  // RETURN_PLACEMENT,
-  // RETURN_PLACEMENT_INDEX,
-  // STORAGE_IN_PLACEMENT,
-  // STORAGE_IN_PLACEMENT_INDEX,
-  // STORAGE_OUT_PLACEMENT,
-  // STORAGE_OUT_PLACEMENT_INDEX,
-} from '../constant/index.js';
-
-import { subcircuits } from '../constant/index.js';
-import {
-  ArithmeticOperations,
-  OPERATION_MAPPING,
-} from '../operations/index.js';
-import { DataPointFactory, simulateMemoryPt } from '../pointers/index.js';
-import { addPlacement } from '../utils/utils.js';
-import {
-  InvalidInputCountError,
-  SynthesizerError,
-} from '../validation/index.js';
-
-import type {
-  DataAliasInfoEntry,
-  DataAliasInfos,
-  MemoryPts,
-} from '../pointers/index.js';
+} from '../../constant/index.js';
+import { DataAliasInfos, MemoryPts } from '../../pointers/index.js';
 import type {
   ArithmeticOperator,
-  Auxin,
   CreateDataPointParams,
   DataPt,
-  Placements,
-  SubcircuitInfoByName,
-  SubcircuitInfoByNameEntry,
   SubcircuitNames,
-} from '../types/index.js';
-import type { PlacementEntry } from '../types/synthesizer.js';
-import { StateManager } from './handlers/stateManager.js';
-import { OperationHandler } from './handlers/operationHandler.js';
-import { DataLoader } from './handlers/dataLoader.js';
-import { MemoryManager } from './handlers/memoryManager.js';
-import { BufferManager } from './handlers/bufferManager.js';
-import type { ISynthesizerProvider } from './handlers/synthesizerProvider.js';
-import type { IDataLoaderProvider } from './handlers/dataLoaderProvider.js';
-import type { IMemoryManagerProvider } from './handlers/memoryManagerProvider.js';
+} from '../../types/index.js';
+import type { PlacementEntry } from '../../types/synthesizer.js';
+import { StateManager } from '../handlers/stateManager.js';
+import { OperationHandler } from '../handlers/operationHandler.js';
+import { DataLoader } from '../handlers/dataLoader.js';
+import { MemoryManager } from '../handlers/memoryManager.js';
+import { BufferManager } from '../handlers/bufferManager.js';
+import type { ISynthesizerProvider } from '../handlers/synthesizerProvider.js';
+import type { IDataLoaderProvider } from '../handlers/dataLoaderProvider.js';
+import type { IMemoryManagerProvider } from '../handlers/memoryManagerProvider.js';
+import { DataPointFactory } from '../../pointers/dataPointFactory.js';
 
 /**
  * The Synthesizer class manages data related to subcircuits.
