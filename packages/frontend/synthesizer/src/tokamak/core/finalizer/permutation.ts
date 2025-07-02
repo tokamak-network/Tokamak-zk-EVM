@@ -8,12 +8,7 @@ import { readFileSync } from 'fs';
 import path from 'path';
 import appRootPath from 'app-root-path';
 
-import {
-  subcircuits as subcircuitInfos,
-  globalWireList,
-  setupParams,
-  wasmDir,
-} from '../../constant/index.js';
+import { globalWireList, setupParams, wasmDir } from '../../constant/index.js';
 import {
   INITIAL_PLACEMENT_INDEX,
   PRV_IN_PLACEMENT_INDEX,
@@ -35,10 +30,9 @@ import type {
   GlobalWireList,
   SubcircuitInfoWithFlattenMap,
 } from '../../types/index.js';
-import {
-  hasValidFlattenMap,
-  isValidSubcircuitName,
-} from '../../types/index.js';
+import { hasValidFlattenMap } from '../../types/index.js';
+import { SubcircuitRegistry } from '../../utils/index.js';
+import { subcircuits as subcircuitInfos } from '../../constant/index.js';
 
 type PlacementWireIndex = { globalWireId: number; placementId: number };
 
@@ -93,28 +87,7 @@ export class Permutation {
     this.flattenMapInverse = globalWireList as GlobalWireList;
     this.subcircuitInfoByName = new Map();
 
-    for (const subcircuit of subcircuitInfos) {
-      const entryObject: SubcircuitInfoByNameEntry = {
-        id: subcircuit.id,
-        NWires: subcircuit.Nwires,
-        NInWires: subcircuit.In_idx[1],
-        NOutWires: subcircuit.Out_idx[1],
-        inWireIndex: subcircuit.In_idx[0],
-        outWireIndex: subcircuit.Out_idx[0],
-        // wireFlattenMap: \union_{j=0}^{s_D - 1} {j} \times {0, 1, ...,m^{(j)}-1} } -> {0, 1, ..., m_D-1}
-        flattenMap: subcircuit.flattenMap,
-      };
-
-      // Type-safe subcircuit name handling
-      const subcircuitName = subcircuit.name;
-      if (!isValidSubcircuitName(subcircuitName)) {
-        throw new Error(
-          `Permutation: Invalid subcircuit name: ${subcircuitName}`,
-        );
-      }
-
-      this.subcircuitInfoByName.set(subcircuitName, entryObject);
-    }
+    this.subcircuitInfoByName = SubcircuitRegistry.createForPermutation();
     // Construct permutation
     this.permGroup = this._buildPermGroup();
 

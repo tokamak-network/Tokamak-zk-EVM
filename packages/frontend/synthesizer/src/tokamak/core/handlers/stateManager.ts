@@ -8,17 +8,15 @@ import {
   PUB_IN_PLACEMENT_INDEX,
   PUB_OUT_PLACEMENT,
   PUB_OUT_PLACEMENT_INDEX,
-  subcircuits,
 } from '../../constant/index.js';
 import type {
   Auxin,
   DataPt,
   Placements,
   SubcircuitInfoByName,
-  SubcircuitInfoByNameEntry,
   SubcircuitNames,
 } from '../../types/index.js';
-import { isValidSubcircuitName } from '../../types/index.js';
+import { SubcircuitRegistry } from '../../utils/index.js';
 
 /**
  * Manages the state of the synthesizer, including placements, auxin, and subcircuit information.
@@ -70,32 +68,10 @@ export class StateManager {
    * Processes the raw subcircuit data to initialize `subcircuitInfoByName` and `subcircuitNames`.
    */
   private _initializeSubcircuitInfo(): void {
-    // Map subcircuit names with proper type checking
-    this.subcircuitNames = subcircuits
-      .map((circuit) => circuit.name)
-      .filter((name): name is SubcircuitNames => isValidSubcircuitName(name));
-
-    for (const subcircuit of subcircuits) {
-      const entryObject: SubcircuitInfoByNameEntry = {
-        id: subcircuit.id,
-        NWires: subcircuit.Nwires,
-        NInWires: subcircuit.In_idx[1],
-        NOutWires: subcircuit.Out_idx[1],
-        inWireIndex: subcircuit.In_idx[0],
-        outWireIndex: subcircuit.Out_idx[0],
-      };
-
-      // Type-safe subcircuit name handling
-      const subcircuitName = subcircuit.name;
-      if (!isValidSubcircuitName(subcircuitName)) {
-        console.warn(
-          `StateManager: Skipping invalid subcircuit name: ${subcircuitName}`,
-        );
-        continue;
-      }
-
-      this.subcircuitInfoByName.set(subcircuitName, entryObject);
-    }
+    const { subcircuitInfoByName, subcircuitNames } =
+      SubcircuitRegistry.createForStateManager();
+    this.subcircuitInfoByName = subcircuitInfoByName;
+    this.subcircuitNames = subcircuitNames;
   }
 
   /**
