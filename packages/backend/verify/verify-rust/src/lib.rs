@@ -14,6 +14,13 @@ use libs::group_structures::pairing;
 
 use std::vec;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeccakVerificationResult {
+    True,
+    False,
+    NoKeccakData,
+}
+
 pub struct Verifier {
     pub sigma: SigmaVerify,
     pub a_pub: Box<[ScalarField]>,
@@ -95,10 +102,13 @@ impl Verifier {
         }
     }
 
-    pub fn verify_keccak256(&self) -> bool {
+    pub fn verify_keccak256(&self) -> KeccakVerificationResult {
         let l_pub_out = self.setup_params.l_pub_out;
         let keccak_in_pts = &self.publicOutputBuffer.outPts;
         let keccak_out_pts = &self.publicInputBuffer.inPts;
+        if keccak_out_pts.len() == 0 {
+            return KeccakVerificationResult::NoKeccakData
+        }
         
         let mut keccak_inputs_be_bytes= Vec::new();
         let mut prev_key: usize = 0;
@@ -165,7 +175,7 @@ impl Verifier {
         keccak_outputs_be_bytes.push(data_restored);
 
         let keccak_hasher = Keccak256::new(0 /* default input size */).unwrap();
-        let mut flag = true;
+        let mut flag = KeccakVerificationResult::True;
         if keccak_inputs_be_bytes.len() != keccak_outputs_be_bytes.len() {
             panic!("Length mismatch between Keccak inputs and outputs.")
         }
@@ -180,7 +190,7 @@ impl Verifier {
             )
             .unwrap();
             if res_bytes != keccak_outputs_be_bytes[i] {
-                flag = false;
+                flag = KeccakVerificationResult::False;
             }
         }
         return flag
