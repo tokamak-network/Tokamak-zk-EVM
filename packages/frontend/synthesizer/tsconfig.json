@@ -10,7 +10,8 @@
       "@synthesizer-libs/util": [
         "./node_modules/@synthesizer-libs/util/src/index.js"
       ],
-      "@tokamak/utils": ["./src/tokamak/utils/index.js"]
+      "@tokamak/utils": ["./src/tokamak/utils/index.js"],
+      "@qap-compiler/*": ["../qap-compiler/subcircuits/*"]
     }
   },
   "include": ["src"],

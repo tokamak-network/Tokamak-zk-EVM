@@ -1,11 +1,11 @@
-import { hexToBytes } from "@synthesizer-libs/util"
+import { hexToBytes } from '@synthesizer-libs/util';
 
-import { createEVM } from '../../src/constructors.js'
-import { finalize } from '../../src/tokamak/core/finalize.js'
+import { createEVM } from '../../src/constructors.js';
+import { Finalizer } from '../../src/tokamak/core/index.js';
 const main = async () => {
-  const evm = await createEVM()
+  const evm = await createEVM();
   //복합 MUL 연산 테스트
-  console.log('\nTesting Complex MUL Operations:')
+  console.log('\nTesting Complex MUL Operations:');
   const res = await evm.runCode({
     code: hexToBytes(
       '0x' +
@@ -27,27 +27,30 @@ const main = async () => {
         '51' + // MLOAD
         '02', // MUL 연산 추가
     ),
-  })
+  });
 
   // 결과 출력
-  console.log('\nStack-Placement Value Comparison Test')
-  const stackValue = res.runState?.stack.peek(1)[0]
+  console.log('\nStack-Placement Value Comparison Test');
+  const stackValue = res.runState?.stack.peek(1)[0];
 
-  const placementsArray = Array.from(res.runState!.synthesizer.placements.values())
-  const lastPlacement = placementsArray[placementsArray.length - 1]
-  const lastOutPtValue = lastPlacement.outPts[lastPlacement.outPts.length - 1].value
+  const placementsArray = Array.from(
+    res.runState!.synthesizer.state.placements.values(),
+  );
+  const lastPlacement = placementsArray[placementsArray.length - 1];
+  const lastOutPtValue =
+    lastPlacement.outPts[lastPlacement.outPts.length - 1].value;
 
-  console.log(`Last Stack Value: ${stackValue?.toString(16)}`)
-  console.log(`Last Placement OutPt Value: ${lastOutPtValue}`)
+  console.log(`Last Stack Value: ${stackValue?.toString(16)}`);
+  console.log(`Last Placement OutPt Value: ${lastOutPtValue}`);
 
   //생성된 모든 서킷 출력
-  console.log('\nGenerated Circuits:')
-  let index = 1
+  console.log('\nGenerated Circuits:');
+  let index = 1;
   for (const placement of placementsArray) {
-    console.log(`\nCircuit ${index}:`)
-    console.log(`Operation: ${placement.name}`)
-    console.log(`Number of inputs: ${placement.inPts.length}`)
-    console.log(`Number of outputs: ${placement.outPts.length}`)
+    console.log(`\nCircuit ${index}:`);
+    console.log(`Operation: ${placement.name}`);
+    console.log(`Number of inputs: ${placement.inPts.length}`);
+    console.log(`Number of outputs: ${placement.outPts.length}`);
     console.log(
       'Placement details:',
       JSON.stringify(
@@ -55,15 +58,16 @@ const main = async () => {
         (key, value) => (typeof value === 'bigint' ? value.toString() : value),
         2,
       ),
-    )
+    );
 
-    index++
+    index++;
   }
 
-  const permutation = await finalize(res.runState!.synthesizer.placements, undefined, true)
-}
+  const finalizer = new Finalizer(res.runState!.synthesizer.state);
+  const permutation = await finalizer.exec(undefined, true);
+};
 
 void main().catch((error) => {
-  console.error(error)
-  process.exit(1)
-})
+  console.error(error);
+  process.exit(1);
+});

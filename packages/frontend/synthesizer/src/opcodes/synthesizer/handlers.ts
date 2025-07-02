@@ -5,7 +5,7 @@ import {
   synthesizerEnvInf,
   synthesizerBlkInf,
   prepareEXTCodePt,
-} from '../../tokamak/core/synthesizer.js';
+} from '../../tokamak/core/index.js';
 import {
   copyMemoryRegion,
   simulateMemoryPt,

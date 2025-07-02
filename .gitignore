@@ -22,3 +22,5 @@ coverage.json
 # Misc
 .DS_Store
 *.log
+
+#Cursor

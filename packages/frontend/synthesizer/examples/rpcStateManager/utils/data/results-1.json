@@ -1,0 +1,403 @@
+[
+  {
+    "txHash": "0x30e616d040997cfc0b44c95868e8ad73174cd4540a842c7fab94d45db24d3270",
+    "methodId": "0x0162e2d0",
+    "prvIn": 1734,
+    "prvOut": 82,
+    "pubIn": 40,
+    "pubOut": 84,
+    "sMax": 1330
+  },
+  {
+    "txHash": "0xd154e86a856592e12fe16474299a8ec0115f47603e2c89b626b7d69a6d2c4758",
+    "methodId": "0x095ea7b3",
+    "prvIn": 117,
+    "prvOut": 10,
+    "pubIn": 8,
+    "pubOut": 16,
+    "sMax": 61
+  },
+  {
+    "txHash": "0x740ef0ec4cae1dc9fbf863567164f851fe856799a7ba7324d0c5f28cd4df2da0",
+    "methodId": "0x252dba42",
+    "error": "Precompile is yet implemented in Synthesizer. Will be updated."
+  },
+  {
+    "txHash": "0x27a1a4d9360494e0efef7be8f57d2ec77e49179cdd058bca262290017f891cfc",
+    "methodId": "0x095ea7b3",
+    "prvIn": 61,
+    "prvOut": 10,
+    "pubIn": 4,
+    "pubOut": 8,
+    "sMax": 27
+  },
+  {
+    "txHash": "0xe5c60052659b0765bc2e78f3aa459e5bb0e8b30e10b619bf1300d234fefb875f",
+    "methodId": "0x12aa3caf",
+    "error": "Synthesizer: SELFBALANCE: Output data mismatch"
+  },
+  {
+    "txHash": "0x8ad418fca879fc5f33cee26b4a8fd01578e24db52e9ea7d1ef44923ed472b448",
+    "methodId": "0x095ea7b3",
+    "prvIn": 94,
+    "prvOut": 10,
+    "pubIn": 4,
+    "pubOut": 8,
+    "sMax": 47
+  },
+  {
+    "txHash": "0x08347807190cb257fa5c64a38e240f22ed96c1b36e492dd6981fc30f91292fb9",
+    "methodId": "0xa9059cbb",
+    "prvIn": 254,
+    "prvOut": 16,
+    "sMax": 153
+  },
+  {
+    "txHash": "0x16a3ff16115d61afde5aab7f206e91a26339db3a8846219bd71213e3670295cb",
+    "methodId": "0x095ea7b3",
+    "prvIn": 87,
+    "prvOut": 10,
+    "pubIn": 4,
+    "pubOut": 8,
+    "sMax": 41
+  },
+  {
+    "txHash": "0x8b06a91622be4a1df5105b36830fe2bde19fff2bf6377f794614dbfaa2a6a8ae",
+    "methodId": "0xa9059cbb",
+    "prvIn": 102,
+    "prvOut": 12,
+    "pubIn": 6,
+    "pubOut": 12,
+    "sMax": 52
+  },
+  {
+    "txHash": "0x1357db8868d6832c6a22c808a7af0fc399ae0babc9782666d8ec0cb90c1ffc96",
+    "methodId": "0xa9059cbb",
+    "prvIn": 106,
+    "prvOut": 12,
+    "pubIn": 4,
+    "pubOut": 8,
+    "sMax": 54
+  },
+  {
+    "txHash": "0xe30557772283c2ee8cf5f102897bf84523daefba41b1dae757534835890d9a51",
+    "methodId": "0x095ea7b3",
+    "prvIn": 75,
+    "prvOut": 10,
+    "pubIn": 4,
+    "pubOut": 8,
+    "sMax": 35
+  },
+  {
+    "txHash": "0x1e07319484d6f7a42fce9e42a0bddd6a264b3882d873c0fcedbf15feaeae5e00",
+    "methodId": "0xc8f94f4e",
+    "prvIn": 1201,
+    "prvOut": 100,
+    "pubIn": 18,
+    "pubOut": 32,
+    "sMax": 1167
+  },
+  {
+    "txHash": "0xa22c91dcb308dd018fc1a60351e3686714fe999f376c6405fc6695f23780980d",
+    "methodId": "0x2213bc0b",
+    "error": "Synthesizer: Opcode REVERT (0xfd) is not implemented yet"
+  },
+  {
+    "txHash": "0xe4f8691c4d3fc3a35ce7c3f0b5d76204933160188b84ae20fc4406161ed8461e",
+    "methodId": "0x095ea7b3",
+    "prvIn": 77,
+    "prvOut": 10,
+    "pubIn": 4,
+    "pubOut": 8,
+    "sMax": 36
+  },
+  {
+    "txHash": "0x81209cec932b70f40a734f58fbac070404d6a05e6bec2c4f42563751f30c9c3d",
+    "methodId": "0x57ecfd28",
+    "error": "Precompile is yet implemented in Synthesizer. Will be updated."
+  },
+  {
+    "txHash": "0x9ca1b37869830c9f91c881dc6fea6d9e76672b1f20b98171ff3fd6abfa224694",
+    "methodId": "0x095ea7b3",
+    "prvIn": 109,
+    "prvOut": 10,
+    "pubIn": 4,
+    "pubOut": 8,
+    "sMax": 53
+  },
+  {
+    "txHash": "0xec8f5ad4f5b491565681cdad075ce7bed5878dc41bf41d3ba64624b50c7d63ba",
+    "methodId": "0x4d7ab5a5",
+    "error": "Cannot read properties of undefined (reading 'synthesizer')"
+  },
+  {
+    "txHash": "0xe568c5fb0b7a5a8ee2da4173f7476db1f86b45f2a77ca4197627717d106e5aa8",
+    "methodId": "0x587df6a7",
+    "error": "Cannot read properties of undefined (reading 'synthesizer')"
+  },
+  {
+    "txHash": "0xe34a77e7a9254bd554f5750b97823b78b57bafdf9ff88a64d917414b7918c8ba",
+    "methodId": "0x1bc672a6",
+    "error": "Cannot read properties of undefined (reading 'synthesizer')"
+  },
+  {
+    "txHash": "0x3727a017d055d9aa5f409ed9f3e61080265b2ded08c0a3d00d77c0c9f4147413",
+    "methodId": "0x095ea7b3",
+    "prvIn": 75,
+    "prvOut": 10,
+    "pubIn": 4,
+    "pubOut": 8,
+    "sMax": 35
+  },
+  {
+    "txHash": "0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc",
+    "methodId": "0x23b872dd",
+    "prvIn": 201,
+    "prvOut": 14,
+    "pubIn": 32,
+    "pubOut": 64,
+    "sMax": 106
+  },
+  {
+    "txHash": "0xeea2b31043fa555d623fb1a5929b61964a98eabbdf259ef9b00534200d3af02d",
+    "methodId": "0x23b872dd",
+    "prvIn": 201,
+    "prvOut": 14,
+    "pubIn": 32,
+    "pubOut": 64,
+    "sMax": 106
+  },
+  {
+    "txHash": "0x616c2286269bf67960ce7bc05291c025ac36ca8b96627912faf23aeb4bcbc850",
+    "methodId": "0x23b872dd",
+    "prvIn": 201,
+    "prvOut": 14,
+    "pubIn": 32,
+    "pubOut": 64,
+    "sMax": 106
+  },
+  {
+    "txHash": "0x635583627cc4998d61ab641450cf30622b7e56266f1a7eb58541fd731de6eda2",
+    "methodId": "0x23b872dd",
+    "prvIn": 201,
+    "prvOut": 14,
+    "pubIn": 32,
+    "pubOut": 64,
+    "sMax": 106
+  },
+  {
+    "txHash": "0x7afa0f05d46dbdcebbd18e07fa8a0041e5bc769261ee79028136aaf2c4e7979d",
+    "methodId": "0x23b872dd",
+    "error": "Synthesizer: Opcode REVERT (0xfd) is not implemented yet"
+  },
+  {
+    "txHash": "0xd8fb3a56c65d24d6cfb5b7c0a80d924eaab7e18b5ac25e1279b839f8b0cd32ac",
+    "methodId": "0x2213bc0b",
+    "error": "Synthesizer: SELFBALANCE: Output data mismatch"
+  },
+  {
+    "txHash": "0x62c3c9ee700983fd6c71443305fb76eefff6c312900ff4fb78bc55e0bc99d5bd",
+    "methodId": "0xa9059cbb",
+    "prvIn": 470,
+    "prvOut": 20,
+    "pubIn": 12,
+    "pubOut": 24,
+    "sMax": 351
+  },
+  {
+    "txHash": "0x4b914bdc733b7179f779e0e0a335f4e5a057fed2b1cf3786a12628b1c8565f68",
+    "methodId": "0x2213bc0b",
+    "prvIn": 3141,
+    "prvOut": 82,
+    "pubIn": 98,
+    "pubOut": 200,
+    "sMax": 2460
+  },
+  {
+    "txHash": "0x2639ea02f9e17cfc607615a87187cd38d324d3297304a4200409a07bca7ecba7",
+    "methodId": "0x2213bc0b",
+    "error": "Precompile is yet implemented in Synthesizer. Will be updated."
+  },
+  {
+    "txHash": "0xeebcd9887cdee666ef718b9abe7f62ae56f394c526856e024ac7af4cf8077df4",
+    "methodId": "0xde9cfa1a",
+    "prvIn": 49,
+    "prvOut": 10,
+    "sMax": 23
+  },
+  {
+    "txHash": "0x2fe9ed1722535bc0bfe2aa8089f847fcac48dcd0fe82e204c9e46b8cc3b5f3b5",
+    "methodId": "0xe1e13847",
+    "prvIn": 879,
+    "prvOut": 48,
+    "pubIn": 30,
+    "pubOut": 58,
+    "sMax": 596
+  },
+  {
+    "txHash": "0x2dcaa470dcfa22c17912c7af09e9c3b5ccd606eb8db61c2b85fc9d45efec03cb",
+    "methodId": "0xa9059cbb",
+    "prvIn": 211,
+    "prvOut": 12,
+    "pubIn": 10,
+    "pubOut": 20,
+    "sMax": 124
+  },
+  {
+    "txHash": "0x58f078d9a24ba12c069c170cb28c73bd54bd6d74a015262b089a55385935214e",
+    "methodId": "0x095ea7b3",
+    "prvIn": 77,
+    "prvOut": 10,
+    "pubIn": 4,
+    "pubOut": 8,
+    "sMax": 36
+  },
+  {
+    "txHash": "0x84c8a62dab62e31dcb02d0b69be47bf62bb8631ec4bfeb0e728d8d69be67d786",
+    "methodId": "0x3593564c",
+    "prvIn": 1770,
+    "prvOut": 86,
+    "pubIn": 62,
+    "pubOut": 126,
+    "sMax": 1224
+  },
+  {
+    "txHash": "0xf6780cd963077ae503713b28e85cbe27c5908649402d584e7b7aac4b7c872e7f",
+    "methodId": "0x744ced3d",
+    "prvIn": 338,
+    "prvOut": 38,
+    "pubIn": 10,
+    "pubOut": 28,
+    "sMax": 198
+  },
+  {
+    "txHash": "0x37bce6b1c519f81af974ad9355741528909bc16082ac8cdd8a819834c1dcc6fa",
+    "methodId": "0x13d79a0b",
+    "error": "fetch failed"
+  },
+  {
+    "txHash": "0x77cbc6143dac48e2b3c27d81ea60ec25fb929fbfaf9fa96dee79b5bbd23ea896",
+    "methodId": "0x2da03409",
+    "prvIn": 435,
+    "prvOut": 12,
+    "pubIn": 22,
+    "pubOut": 44,
+    "sMax": 281
+  },
+  {
+    "txHash": "0xbf72cd89e9007b61e1dd8fd1bc20008c39ee55c2f4c12fd4e2f7cd1f6a8c3aec",
+    "methodId": "0x2e1a7d4d",
+    "error": "Synthesizer: Opcode REVERT (0xfd) is not implemented yet"
+  },
+  {
+    "txHash": "0xd9222641edfa7c28dccfae645d32d54285f5dec74f9677193c30ae65c99b101c",
+    "methodId": "0x161430a4",
+    "error": "Cannot convert 0x to a BigInt"
+  },
+  {
+    "txHash": "0xddb0839fd5e2d529ba0d61947e9fa32a786a79a93f57632928e02aff95e936f3",
+    "methodId": "0x252f7b01",
+    "prvIn": 1481,
+    "prvOut": 46,
+    "pubIn": 56,
+    "pubOut": 128,
+    "sMax": 1178
+  },
+  {
+    "txHash": "0xaaf3382a727274e57bb7e6de472e24cb6a5e6869acafadd4b75426d240ec55b0",
+    "methodId": "0xcfc32570",
+    "prvIn": 1165,
+    "prvOut": 110,
+    "pubIn": 72,
+    "pubOut": 246,
+    "sMax": 1202
+  },
+  {
+    "txHash": "0xa2a7348a78e2033f85073f7d70959cb8a9dddcdfa8d24fb56eaf730214fb4ba9",
+    "methodId": "0xcfc32570",
+    "prvIn": 746,
+    "prvOut": 40,
+    "pubIn": 50,
+    "pubOut": 102,
+    "sMax": 535
+  },
+  {
+    "txHash": "0xe5344e85f7313ec05cebe1e2d95aed02a524787278d695ef9d3db0c515e000ea",
+    "methodId": "0x0894edf1",
+    "prvIn": 597,
+    "prvOut": 18,
+    "pubIn": 52,
+    "pubOut": 104,
+    "sMax": 370
+  },
+  {
+    "txHash": "0x01f8b95aedb23d1255483359bcab84032552aa098a2b6711cf2cec22c0fb2a2f",
+    "methodId": "0x0894edf1",
+    "prvIn": 607,
+    "prvOut": 18,
+    "pubIn": 54,
+    "pubOut": 108,
+    "sMax": 372
+  },
+  {
+    "txHash": "0xe220abcf5e539e757c41ae03ebd306454d91f857f878319fb5435d92fe2a72a4",
+    "methodId": "0x0894edf1",
+    "prvIn": 607,
+    "prvOut": 18,
+    "pubIn": 54,
+    "pubOut": 108,
+    "sMax": 372
+  },
+  {
+    "txHash": "0x27b3c394d81e5bc26bdb8ed566e0f7704bce89bc961c5f09543de37673bdbb6a",
+    "methodId": "0x70000000",
+    "error": "Cannot convert 0x to a BigInt"
+  },
+  {
+    "txHash": "0x9e5b74c31fdbc7e7edabbe39e580ce98a98b964cba324d08f90fb3eb3a36e6b3",
+    "methodId": "0xa9059cbb",
+    "prvIn": 123,
+    "prvOut": 12,
+    "pubIn": 6,
+    "pubOut": 12,
+    "sMax": 58
+  },
+  {
+    "txHash": "0x298f74cc8db22160fe3d9fdbe0ce5b7ee103a6efa504fd8b166703af3d82fdb1",
+    "methodId": "0xa9059cbb",
+    "prvIn": 172,
+    "prvOut": 12,
+    "pubIn": 10,
+    "pubOut": 20,
+    "sMax": 94
+  },
+  {
+    "txHash": "0xa6100e173147fe457e0702f09c478da7c78474445f611490571647324042c309",
+    "methodId": "0xac9650d8",
+    "error": "Synthesizer: loadAndStoreKeccak: The Keccak hash may be customized"
+  },
+  {
+    "txHash": "0x892f774e3ad84e779d2c8dd80ffb96946ae020dbb49d0e93da45b6c00b5a7840",
+    "methodId": "0x6e305f80",
+    "error": "Precompile is yet implemented in Synthesizer. Will be updated."
+  },
+  {
+    "txHash": "0x6b8fa08c34b2b846f14ac902f4c6b44739f2f929c0f40d292939ec376a50821d",
+    "methodId": "0x6e305f80",
+    "error": "Precompile is yet implemented in Synthesizer. Will be updated."
+  },
+  {
+    "txHash": "0x5550dc24b480bc9e37ebf3a551d8c5ce7b67f0872c7772af0b6bdddef6915f03",
+    "methodId": "0x83bd37f9",
+    "error": "Precompile is yet implemented in Synthesizer. Will be updated."
+  },
+  {
+    "txHash": "0x29673b437333c2cc0197dd4c11c0031d81d794ba6b91a93d1636772b654fabdd",
+    "methodId": "0xa9059cbb",
+    "prvIn": 112,
+    "prvOut": 12,
+    "pubIn": 6,
+    "pubOut": 12,
+    "sMax": 53
+  }
+]
