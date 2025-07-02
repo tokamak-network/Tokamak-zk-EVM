@@ -32,6 +32,12 @@ import type {
   SubcircuitInfoByName,
   SubcircuitInfoByNameEntry,
   SubcircuitNames,
+  GlobalWireList,
+  SubcircuitInfoWithFlattenMap,
+} from '../../types/index.js';
+import {
+  hasValidFlattenMap,
+  isValidSubcircuitName,
 } from '../../types/index.js';
 
 type PlacementWireIndex = { globalWireId: number; placementId: number };
@@ -53,14 +59,20 @@ class IdxSet {
     this.idxOut = this.NConstWires;
     this.idxIn = this.idxOut + this.NOutWires;
     this.idxPrv = this.idxIn + this.NInWires;
-    this.flattenMap = subcircuitInfo.flattenMap!;
+
+    if (!hasValidFlattenMap(subcircuitInfo)) {
+      throw new Error(
+        `IdxSet: SubcircuitInfo is missing required flattenMap for ${subcircuitInfo.id}`,
+      );
+    }
+    this.flattenMap = subcircuitInfo.flattenMap;
   }
 }
 
 // This class instantiates the compiler model in Section "3.1 Compilers" of the Tokamak zk-SNARK paper.
 export class Permutation {
   // flattenMapInverse: {0, 1, ..., m_D-1} -> \union_{j=0}^{s_D - 1} {j} \times {0, 1, ...,m^{(j)}-1} }
-  private flattenMapInverse: any; // Type 'any' because it's from a global constant
+  private flattenMapInverse: GlobalWireList;
   public placementVariables: PlacementVariables;
   private subcircuitInfoByName: SubcircuitInfoByName;
   public placements: Placements;
@@ -78,8 +90,9 @@ export class Permutation {
   constructor(placements: Placements, _path?: string) {
     this.placements = placements;
     this.placementVariables = [];
-    this.flattenMapInverse = globalWireList;
+    this.flattenMapInverse = globalWireList as GlobalWireList;
     this.subcircuitInfoByName = new Map();
+
     for (const subcircuit of subcircuitInfos) {
       const entryObject: SubcircuitInfoByNameEntry = {
         id: subcircuit.id,
@@ -91,10 +104,16 @@ export class Permutation {
         // wireFlattenMap: \union_{j=0}^{s_D - 1} {j} \times {0, 1, ...,m^{(j)}-1} } -> {0, 1, ..., m_D-1}
         flattenMap: subcircuit.flattenMap,
       };
-      this.subcircuitInfoByName.set(
-        subcircuit.name as SubcircuitNames,
-        entryObject,
-      );
+
+      // Type-safe subcircuit name handling
+      const subcircuitName = subcircuit.name;
+      if (!isValidSubcircuitName(subcircuitName)) {
+        throw new Error(
+          `Permutation: Invalid subcircuit name: ${subcircuitName}`,
+        );
+      }
+
+      this.subcircuitInfoByName.set(subcircuitName, entryObject);
     }
     // Construct permutation
     this.permGroup = this._buildPermGroup();
@@ -319,15 +338,47 @@ export class Permutation {
   private _retrieveDataPtFromPlacementWireId(
     inputIdx: PlacementWireIndex,
   ): DataPt {
-    const localWireId = this.flattenMapInverse[inputIdx.globalWireId][1];
-    const placement = this.placements.get(inputIdx.placementId)!;
-    const identifier = this.subcircuitInfoByName.get(placement.name)!.NOutWires;
+    const wireEntry = this.flattenMapInverse[inputIdx.globalWireId];
+    if (!wireEntry || wireEntry.length !== 2) {
+      throw new Error(
+        `Permutation: Invalid global wire ID: ${inputIdx.globalWireId}`,
+      );
+    }
+
+    const localWireId = wireEntry[1];
+    const placement = this.placements.get(inputIdx.placementId);
+    if (!placement) {
+      throw new Error(
+        `Permutation: Placement not found: ${inputIdx.placementId}`,
+      );
+    }
+
+    const subcircuitInfo = this.subcircuitInfoByName.get(placement.name);
+    if (!subcircuitInfo) {
+      throw new Error(
+        `Permutation: Subcircuit info not found for: ${placement.name}`,
+      );
+    }
+
+    const identifier = subcircuitInfo.NOutWires;
     if (localWireId <= identifier) {
       // output wire
-      return placement.outPts[localWireId - 1];
+      const outPt = placement.outPts[localWireId - 1];
+      if (!outPt) {
+        throw new Error(
+          `Permutation: Output point not found at index ${localWireId - 1}`,
+        );
+      }
+      return outPt;
     } else {
       // input wire
-      return placement.inPts[localWireId - (identifier + 1)];
+      const inPt = placement.inPts[localWireId - (identifier + 1)];
+      if (!inPt) {
+        throw new Error(
+          `Permutation: Input point not found at index ${localWireId - (identifier + 1)}`,
+        );
+      }
+      return inPt;
     }
   }
   private _correctPermutation(): {

@@ -18,6 +18,7 @@ import type {
   SubcircuitInfoByNameEntry,
   SubcircuitNames,
 } from '../../types/index.js';
+import { isValidSubcircuitName } from '../../types/index.js';
 
 /**
  * Manages the state of the synthesizer, including placements, auxin, and subcircuit information.
@@ -69,9 +70,10 @@ export class StateManager {
    * Processes the raw subcircuit data to initialize `subcircuitInfoByName` and `subcircuitNames`.
    */
   private _initializeSubcircuitInfo(): void {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore is kept as it might indicate a type issue in the imported 'subcircuits' constant
-    this.subcircuitNames = subcircuits.map((circuit) => circuit.name);
+    // Map subcircuit names with proper type checking
+    this.subcircuitNames = subcircuits
+      .map((circuit) => circuit.name)
+      .filter((name): name is SubcircuitNames => isValidSubcircuitName(name));
 
     for (const subcircuit of subcircuits) {
       const entryObject: SubcircuitInfoByNameEntry = {
@@ -82,11 +84,17 @@ export class StateManager {
         inWireIndex: subcircuit.In_idx[0],
         outWireIndex: subcircuit.Out_idx[0],
       };
-      // Cast `subcircuit.name` to `SubcircuitNames` to resolve the type error.
-      this.subcircuitInfoByName.set(
-        subcircuit.name as SubcircuitNames,
-        entryObject,
-      );
+
+      // Type-safe subcircuit name handling
+      const subcircuitName = subcircuit.name;
+      if (!isValidSubcircuitName(subcircuitName)) {
+        console.warn(
+          `StateManager: Skipping invalid subcircuit name: ${subcircuitName}`,
+        );
+        continue;
+      }
+
+      this.subcircuitInfoByName.set(subcircuitName, entryObject);
     }
   }
 
@@ -102,15 +110,16 @@ export class StateManager {
     ];
 
     for (const p of initialPlacements) {
-      const subcircuitId = this.subcircuitInfoByName.get(p.data.name)?.id;
-      if (subcircuitId === undefined) {
+      const subcircuitInfo = this.subcircuitInfoByName.get(p.data.name);
+      if (!subcircuitInfo) {
         throw new Error(
-          `StateManager: Could not find subcircuit ID for placement '${p.data.name}'`,
+          `StateManager: Could not find subcircuit info for placement '${p.data.name}'`,
         );
       }
+
       this.placements.set(p.index, {
         ...p.data,
-        subcircuitId,
+        subcircuitId: subcircuitInfo.id,
       });
     }
   }
