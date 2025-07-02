@@ -1,7 +1,7 @@
 import { Address, hexToBytes } from '@synthesizer-libs/util';
 import { ethers } from 'ethers';
 import { createEVM } from '../../src/constructors.js';
-import { finalize } from '../../src/tokamak/core/finalize.js';
+import { Finalizer } from '../../src/tokamak/core/index.js';
 import { getBlockHeaderFromRPC } from '../../src/tokamak/utils/index.js';
 import dotenv from 'dotenv';
 
@@ -108,11 +108,10 @@ const analyzeTransactionInWorker = async (
       skipBalance: true,
     });
 
-    await finalize(
-      runCallResult.execResult.runState!.synthesizer.placements,
-      undefined,
-      true,
+    const finalizer = new Finalizer(
+      runCallResult.execResult.runState!.synthesizer.state,
     );
+    const permutation = await finalizer.exec(undefined, true);
   } catch (e: any) {
     if (e.message !== 'Resolve above errors.') {
       result.error = e.message;

@@ -81,7 +81,7 @@ const main = async () => {
   }
 
   const finalizer = new Finalizer(result.execResult.runState.synthesizer.state);
-  await finalizer.exec(undefined, true);
+  const permutation = await finalizer.exec(undefined, true);
 };
 
 void main().catch(console.error);
