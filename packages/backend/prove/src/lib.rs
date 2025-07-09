@@ -925,9 +925,10 @@
 
             // Load Sigma (reference string)
             let sigma_timer = Instant::now();
-            let sigma_path = "setup/trusted-setup/output/combined_sigma.json";
-            let mut sigma = Sigma::read_from_json(&sigma_path)
-            .expect("No reference string is found. Run the Setup first.");
+            let sigma_path = "setup/trusted-setup/output/combined_sigma.bin";
+            let file = File::open(&sigma_path).expect("No reference string is found. Run the Setup first.");
+            let reader = BufReader::new(file);
+            let mut sigma: Sigma = bincode::deserialize_from(reader).expect("Failed to load sigma from bincode");
             println!("Sigma loading: {:?}", sigma_timer.elapsed());
 
             let mixer_timer = Instant::now();
