@@ -1,11 +1,12 @@
 [
   {
     "tx_hash": "0x30e616d040997cfc0b44c95868e8ad73174cd4540a842c7fab94d45db24d3270",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "9s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 1734)."
   },
   {
     "tx_hash": "0xd154e86a856592e12fe16474299a8ec0115f47603e2c89b626b7d69a6d2c4758",
@@ -13,15 +14,17 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "200s",
     "error": ""
   },
   {
     "tx_hash": "0x740ef0ec4cae1dc9fbf863567164f851fe856799a7ba7324d0c5f28cd4df2da0",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "4s",
+    "error": "Error: Precompile is yet implemented in Synthesizer. Will be updated."
   },
   {
     "tx_hash": "0x27a1a4d9360494e0efef7be8f57d2ec77e49179cdd058bca262290017f891cfc",
@@ -29,15 +32,17 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "176s",
     "error": ""
   },
   {
     "tx_hash": "0xe5c60052659b0765bc2e78f3aa459e5bb0e8b30e10b619bf1300d234fefb875f",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "8s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 2653)."
   },
   {
     "tx_hash": "0x8ad418fca879fc5f33cee26b4a8fd01578e24db52e9ea7d1ef44923ed472b448",
@@ -45,6 +50,7 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "189s",
     "error": ""
   },
   {
@@ -52,8 +58,9 @@
     "synthesizer": "success",
     "preprocess": "success",
     "prove": "success",
-    "verify": "success",
-    "error": ""
+    "verify": "failure",
+    "duration": "247s",
+    "error": "[DEBUG] Failed to load /opt/icicle/lib/backend/bls12_377/cuda/libicicle_backend_cuda_field_bls12_377.so: libicicle_field_bls12_377.so: cannot open shared object file: No such file or directory"
   },
   {
     "tx_hash": "0x16a3ff16115d61afde5aab7f206e91a26339db3a8846219bd71213e3670295cb",
@@ -61,6 +68,7 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "183s",
     "error": ""
   },
   {
@@ -69,6 +77,7 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "187s",
     "error": ""
   },
   {
@@ -77,6 +86,7 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "189s",
     "error": ""
   },
   {
@@ -85,23 +95,26 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "179s",
     "error": ""
   },
   {
     "tx_hash": "0x1e07319484d6f7a42fce9e42a0bddd6a264b3882d873c0fcedbf15feaeae5e00",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "6s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 1201)."
   },
   {
     "tx_hash": "0xa22c91dcb308dd018fc1a60351e3686714fe999f376c6405fc6695f23780980d",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "8s",
+    "error": "Error: Synthesizer: Opcode REVERT (0xfd) is not implemented yet"
   },
   {
     "tx_hash": "0xe4f8691c4d3fc3a35ce7c3f0b5d76204933160188b84ae20fc4406161ed8461e",
@@ -109,15 +122,17 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "182s",
     "error": ""
   },
   {
     "tx_hash": "0x81209cec932b70f40a734f58fbac070404d6a05e6bec2c4f42563751f30c9c3d",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "4s",
+    "error": "Error: Precompile is yet implemented in Synthesizer. Will be updated."
   },
   {
     "tx_hash": "0x9ca1b37869830c9f91c881dc6fea6d9e76672b1f20b98171ff3fd6abfa224694",
@@ -125,31 +140,35 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "191s",
     "error": ""
   },
   {
     "tx_hash": "0xec8f5ad4f5b491565681cdad075ce7bed5878dc41bf41d3ba64624b50c7d63ba",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "3s",
+    "error": "Error: No synthesizer found"
   },
   {
     "tx_hash": "0xe568c5fb0b7a5a8ee2da4173f7476db1f86b45f2a77ca4197627717d106e5aa8",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "3s",
+    "error": "Error: No synthesizer found"
   },
   {
     "tx_hash": "0xe34a77e7a9254bd554f5750b97823b78b57bafdf9ff88a64d917414b7918c8ba",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "2s",
+    "error": "Error: No synthesizer found"
   },
   {
     "tx_hash": "0x3727a017d055d9aa5f409ed9f3e61080265b2ded08c0a3d00d77c0c9f4147413",
@@ -157,6 +176,7 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "178s",
     "error": ""
   },
   {
@@ -165,6 +185,7 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "219s",
     "error": ""
   },
   {
@@ -173,6 +194,7 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "219s",
     "error": ""
   },
   {
@@ -181,6 +203,7 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "219s",
     "error": ""
   },
   {
@@ -189,63 +212,71 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "218s",
     "error": ""
   },
   {
     "tx_hash": "0x7afa0f05d46dbdcebbd18e07fa8a0041e5bc769261ee79028136aaf2c4e7979d",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "4s",
+    "error": "Error: Synthesizer: Opcode REVERT (0xfd) is not implemented yet"
   },
   {
     "tx_hash": "0xd8fb3a56c65d24d6cfb5b7c0a80d924eaab7e18b5ac25e1279b839f8b0cd32ac",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "10s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 1599)."
   },
   {
     "tx_hash": "0x62c3c9ee700983fd6c71443305fb76eefff6c312900ff4fb78bc55e0bc99d5bd",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "6s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 470)."
   },
   {
     "tx_hash": "0x4b914bdc733b7179f779e0e0a335f4e5a057fed2b1cf3786a12628b1c8565f68",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "11s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 3141)."
   },
   {
     "tx_hash": "0x2639ea02f9e17cfc607615a87187cd38d324d3297304a4200409a07bca7ecba7",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "7s",
+    "error": "Error: Precompile is yet implemented in Synthesizer. Will be updated."
   },
   {
     "tx_hash": "0xeebcd9887cdee666ef718b9abe7f62ae56f394c526856e024ac7af4cf8077df4",
     "synthesizer": "success",
     "preprocess": "success",
     "prove": "success",
-    "verify": "success",
-    "error": ""
+    "verify": "failure",
+    "duration": "171s",
+    "error": "[DEBUG] Failed to load /opt/icicle/lib/backend/bls12_377/cuda/libicicle_backend_cuda_field_bls12_377.so: libicicle_field_bls12_377.so: cannot open shared object file: No such file or directory"
   },
   {
     "tx_hash": "0x2fe9ed1722535bc0bfe2aa8089f847fcac48dcd0fe82e204c9e46b8cc3b5f3b5",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "9s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 879)."
   },
   {
     "tx_hash": "0x2dcaa470dcfa22c17912c7af09e9c3b5ccd606eb8db61c2b85fc9d45efec03cb",
@@ -253,6 +284,7 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "244s",
     "error": ""
   },
   {
@@ -261,15 +293,17 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "179s",
     "error": ""
   },
   {
     "tx_hash": "0x84c8a62dab62e31dcb02d0b69be47bf62bb8631ec4bfeb0e728d8d69be67d786",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "8s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 1770)."
   },
   {
     "tx_hash": "0xf6780cd963077ae503713b28e85cbe27c5908649402d584e7b7aac4b7c872e7f",
@@ -277,95 +311,107 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "283s",
     "error": ""
   },
   {
     "tx_hash": "0x37bce6b1c519f81af974ad9355741528909bc16082ac8cdd8a819834c1dcc6fa",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "15s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 4529)."
   },
   {
     "tx_hash": "0x77cbc6143dac48e2b3c27d81ea60ec25fb929fbfaf9fa96dee79b5bbd23ea896",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "5s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 435)."
   },
   {
     "tx_hash": "0xbf72cd89e9007b61e1dd8fd1bc20008c39ee55c2f4c12fd4e2f7cd1f6a8c3aec",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "4s",
+    "error": "Error: Synthesizer: Opcode REVERT (0xfd) is not implemented yet"
   },
   {
     "tx_hash": "0xd9222641edfa7c28dccfae645d32d54285f5dec74f9677193c30ae65c99b101c",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "39s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 13284)."
   },
   {
     "tx_hash": "0xddb0839fd5e2d529ba0d61947e9fa32a786a79a93f57632928e02aff95e936f3",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "10s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 1481)."
   },
   {
     "tx_hash": "0xaaf3382a727274e57bb7e6de472e24cb6a5e6869acafadd4b75426d240ec55b0",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "8s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 1165)."
   },
   {
     "tx_hash": "0xa2a7348a78e2033f85073f7d70959cb8a9dddcdfa8d24fb56eaf730214fb4ba9",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "8s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 746)."
   },
   {
     "tx_hash": "0xe5344e85f7313ec05cebe1e2d95aed02a524787278d695ef9d3db0c515e000ea",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "5s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 597)."
   },
   {
     "tx_hash": "0x01f8b95aedb23d1255483359bcab84032552aa098a2b6711cf2cec22c0fb2a2f",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "5s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 607)."
   },
   {
     "tx_hash": "0xe220abcf5e539e757c41ae03ebd306454d91f857f878319fb5435d92fe2a72a4",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "6s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 607)."
   },
   {
     "tx_hash": "0x27b3c394d81e5bc26bdb8ed566e0f7704bce89bc961c5f09543de37673bdbb6a",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "7s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 2069)."
   },
   {
     "tx_hash": "0x9e5b74c31fdbc7e7edabbe39e580ce98a98b964cba324d08f90fb3eb3a36e6b3",
@@ -373,6 +419,7 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "192s",
     "error": ""
   },
   {
@@ -381,46 +428,52 @@
     "preprocess": "success",
     "prove": "success",
     "verify": "success",
+    "duration": "213s",
     "error": ""
   },
   {
     "tx_hash": "0xa6100e173147fe457e0702f09c478da7c78474445f611490571647324042c309",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "11s",
+    "error": "Error: Synthesizer: Insufficient private input buffer length. Ask the qap-compiler for a longer buffer (required length: 2739)."
   },
   {
     "tx_hash": "0x892f774e3ad84e779d2c8dd80ffb96946ae020dbb49d0e93da45b6c00b5a7840",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "9s",
+    "error": "Error: Precompile is yet implemented in Synthesizer. Will be updated."
   },
   {
     "tx_hash": "0x6b8fa08c34b2b846f14ac902f4c6b44739f2f929c0f40d292939ec376a50821d",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "8s",
+    "error": "Error: Precompile is yet implemented in Synthesizer. Will be updated."
   },
   {
     "tx_hash": "0x5550dc24b480bc9e37ebf3a551d8c5ce7b67f0872c7772af0b6bdddef6915f03",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "8s",
+    "error": "Error: Precompile is yet implemented in Synthesizer. Will be updated."
   },
   {
     "tx_hash": "0x29673b437333c2cc0197dd4c11c0031d81d794ba6b91a93d1636772b654fabdd ",
-    "synthesizer": "success",
-    "preprocess": "success",
-    "prove": "success",
-    "verify": "success",
-    "error": ""
+    "synthesizer": "failure",
+    "preprocess": "not_run",
+    "prove": "not_run",
+    "verify": "not_run",
+    "duration": "2s",
+    "error": "Error: could not coalesce error (error={ \"code\": -32602, \"data\": \"odd number of digits at line 1 column 69\", \"message\": \"Invalid params\" }, payload={ \"id\": 2, \"jsonrpc\": \"2.0\", \"method\": \"eth_getTransactionByHash\", \"params\": [ \"0x29673b437333c2cc0197dd4c11c0031d81d794ba6b91a93d1636772b654fabdd \" ] }, code=UNKNOWN_ERROR, version=6.14.3)"
   }
 ]

@@ -19,7 +19,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libclang-dev \
     lldb \
     jq \
+    ca-certificates \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js
+RUN mkdir -p /etc/apt/keyrings
+RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+RUN echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+RUN apt-get update && apt-get install nodejs -y
 
 # 기본 프롬프트 변경
 RUN echo 'export PS1="\w\$ "' >> /root/.bashrc
@@ -39,8 +47,11 @@ WORKDIR /app
 # Copy the content of the local directory to the working directory
 COPY . .
 
+# Install frontend dependencies
+RUN cd frontend/synthesizer && npm install
+
 # Fix CRLF line endings in shell scripts to prevent "^M" error
-RUN sed -i 's/\r$//' ./*.sh
+RUN find . -type f -name "*.sh" -exec sed -i 's/\r$//' {} +
 
 # Specify the default command for the container
 CMD ["bash"]

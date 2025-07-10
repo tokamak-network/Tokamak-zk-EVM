@@ -39,8 +39,8 @@ function check_backend_support() {
 if [[ "$OS_TYPE" == "Darwin" ]]; then
     COMMON_TARBALL="icicle_3_7_0-macOS.tar.gz"
     BACKEND_TARBALL="icicle_3_7_0-macOS-Metal.tar.gz"
-    COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$COMMON_TARBALL"
-    BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$BACKEND_TARBALL"
+    COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
+    BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$BACKEND_TARBALL"
     BACKEND_TYPE="metal"
     check_backend_support metal
 elif [[ "$OS_TYPE" == "Linux" ]]; then
@@ -57,15 +57,15 @@ elif [[ "$OS_TYPE" == "Linux" ]]; then
         if [[ "$LINUX_VER" == 20.* ]]; then
             COMMON_TARBALL="icicle_3_7_0-ubuntu20.tar.gz"
             BACKEND_TARBALL="icicle_3_7_0-ubuntu20-cuda122.tar.gz"
-            COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$COMMON_TARBALL"
-            BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$BACKEND_TARBALL"
+            COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
+            BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$BACKEND_TARBALL"
             BACKEND_TYPE="cuda"
             check_backend_support cuda
         elif [[ "$LINUX_VER" == 22.* ]]; then
             COMMON_TARBALL="icicle_3_7_0-ubuntu22.tar.gz"
             BACKEND_TARBALL="icicle_3_7_0-ubuntu22-cuda122.tar.gz"
-            COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$COMMON_TARBALL"
-            BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.7.0/$BACKEND_TARBALL"
+            COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
+            BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$BACKEND_TARBALL"
             BACKEND_TYPE="cuda"
             check_backend_support cuda
         else

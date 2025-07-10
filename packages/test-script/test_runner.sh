@@ -27,6 +27,8 @@ while IFS= read -r tx_hash || [[ -n "$tx_hash" ]]; do
         continue
     fi
 
+    start_time=$(date +%s)
+
     echo "=================================================="
     echo "Processing transaction: $tx_hash"
     echo "=================================================="
@@ -41,10 +43,11 @@ while IFS= read -r tx_hash || [[ -n "$tx_hash" ]]; do
     echo "Running synthesizer..."
     # Capture both stdout and stderr to check for errors, as the script might exit with 0 even on failure.
     synth_output=$( (cd "$SYNTHESIZER_DIR" && npx tsx ./examples/fullnode/index.ts "$tx_hash") 2>&1 )
+    synth_exit_code=$?
     
-    if [[ "$synth_output" == *"Error:"* ]]; then
+    if [ $synth_exit_code -ne 0 ] || [[ "$synth_output" == *"Error:"* ]]; then
         synthesizer_status="failure"
-        error_message=$(echo "$synth_output" | grep -m 1 "Error:")
+        error_message=$(echo "$synth_output" | grep -m 1 -E 'Error:|error:|command not found')
         echo "Synthesizer failed."
     else
         synthesizer_status="success"
@@ -96,6 +99,9 @@ while IFS= read -r tx_hash || [[ -n "$tx_hash" ]]; do
         fi
     fi
 
+    end_time=$(date +%s)
+    duration=$((end_time - start_time))
+
     # Append result to JSON file
     jq \
       --arg tx_hash "$tx_hash" \
@@ -103,6 +109,7 @@ while IFS= read -r tx_hash || [[ -n "$tx_hash" ]]; do
       --arg preprocess_status "$preprocess_status" \
       --arg prove_status "$prove_status" \
       --arg verify_status "$verify_status" \
+      --arg duration "${duration}s" \
       --arg error_message "$error_message" \
       '. += [{
           "tx_hash": $tx_hash,
@@ -110,6 +117,7 @@ while IFS= read -r tx_hash || [[ -n "$tx_hash" ]]; do
           "preprocess": $preprocess_status,
           "prove": $prove_status,
           "verify": $verify_status,
+          "duration": $duration,
           "error": $error_message
       }]' "$RESULTS_FILE" > tmp.$$.json && mv tmp.$$.json "$RESULTS_FILE"
 
