@@ -1,11 +1,12 @@
     #![allow(non_snake_case)]
     use icicle_runtime::memory::HostSlice;
     use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
-    use libs::iotools::{Permutation, Instance, PlacementVariables, SetupParams, SubcircuitInfo, read_R1CS_gen_uvwXY};
+    use libs::iotools::{*};
     use libs::field_structures::{FieldSerde, hashing};
     use libs::vector_operations::{point_div_two_vecs, resize, transpose_inplace};
     use libs::group_structures::{Sigma, G1serde};
     use libs::polynomial_structures::gen_bXY;
+    use libs::{impl_read_from_json, impl_write_into_json, split_push, pop_recover};
     use icicle_bls12_381::curve::{BaseField, G1Affine, ScalarCfg, ScalarField};
     use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
     use icicle_core::ntt;
@@ -19,7 +20,6 @@
     use std::{env, fs, vec};
     use byteorder::{BigEndian, ByteOrder};
     use tiny_keccak::Keccak;
-    use hex::decode_to_slice;
 
 
     macro_rules! poly_comb {
@@ -30,25 +30,6 @@
             )+
             acc
         }};
-    }
-
-    // Helper function to convert a scalar field element to a hex string
-    pub fn hex_string(field: &ScalarField) -> String {
-        let bytes = field.to_bytes_le();
-        format!("0x{}", hex_encode(&bytes))
-    }
-
-    // More generic helper function for any FieldImpl
-    pub fn any_field_to_hex<T: FieldImpl>(field: &T) -> String {
-        let bytes = field.to_bytes_le();
-        format!("0x{}", hex_encode(&bytes))
-    }
-
-    // Helper function to encode bytes as hex string
-    pub fn hex_encode(bytes: &[u8]) -> String {
-        bytes.iter()
-            .map(|byte| format!("{:02x}", byte))
-            .collect::<String>()
     }
 
     pub struct Mixer{
@@ -169,26 +150,10 @@
         pub proof4: Proof4
     }
 
+    impl_read_from_json!(Proof);
+    impl_write_into_json!(Proof);
+
     impl Proof {
-        pub fn write_into_json(&self, path: &str) -> io::Result<()> {
-            let abs_path = env::current_dir()?.join(path);
-            if let Some(parent) = abs_path.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            let file = File::create(&abs_path)?;
-            let writer = BufWriter::new(file);
-            to_writer_pretty(writer, self)?;
-            Ok(())
-        }
-
-        pub fn read_from_json(path: &str) -> io::Result<Self> {
-            let abs_path = env::current_dir()?.join(path);
-            let file = File::open(abs_path)?;
-            let reader = BufReader::new(file);
-            let res: Self = from_reader(reader)?;
-            Ok(res)
-        }
-
         pub fn convert_format_for_solidity_verifier(&self) -> FormattedProof {
             // Formatting the proof for the Solidity verifier
             // Part1 is a tuple of hex strings of the first 16 bytes of each proof component
@@ -196,55 +161,8 @@
             // Part2 is a tuple of hex strings of the last 32 bytes of each proof component
             let mut proof_entries_part2 = Vec::<String>::new();
             
-            // Helper function to split a G1 point into part1 (16 bytes) and part2 (32 bytes)
-            let split_g1 = |point: &G1serde| -> (String, String, String, String) {
-                // Get X coordinate bytes in little-endian and convert to big-endian
-                let mut x_bytes = point.0.x.to_bytes_le();
-                x_bytes.reverse(); // Convert to big-endian
-                
-                // Get Y coordinate bytes in little-endian and convert to big-endian
-                let mut y_bytes = point.0.y.to_bytes_le();
-                y_bytes.reverse(); // Convert to big-endian
-                
-                // For BLS12-381 Fp elements, we have 48 bytes
-                // For X: first 16 bytes go to part1, last 32 bytes to part2
-                let x_part1 = format!("0x{}", hex_encode(&x_bytes[0..16]));
-                let x_part2 = format!("0x{}", hex_encode(&x_bytes[16..48]));
-                
-                // For Y: first 16 bytes go to part1, last 32 bytes to part2
-                let y_part1 = format!("0x{}", hex_encode(&y_bytes[0..16]));
-                let y_part2 = format!("0x{}", hex_encode(&y_bytes[16..48]));
-                
-                (x_part1, x_part2, y_part1, y_part2)
-            };
-            
-            // Helper function to format scalar field as 256-bit hex
-            let scalar_to_hex = |scalar: &ScalarField| -> String {
-                let mut bytes = scalar.to_bytes_le();
-                bytes.reverse(); // Convert to big-endian
-                // Pad to 32 bytes if necessary
-                while bytes.len() < 32 {
-                    bytes.push(0);
-                }
-                format!("0x{}", hex_encode(&bytes))
-            };
-
-            macro_rules! split_push {
-                ($( $point:expr ),+ $(,)?) => {
-                    $(
-                        {
-                            let (x_p1, x_p2, y_p1, y_p2) = split_g1($point);
-                            proof_entries_part1.push(x_p1);
-                            proof_entries_part2.push(x_p2);
-                            proof_entries_part1.push(y_p1);
-                            proof_entries_part2.push(y_p2);
-                        }
-                    )+
-                };
-            }
-            
             // Process the rest of the proof commitments
-            split_push!(
+            split_push!(proof_entries_part1, proof_entries_part2,
                 // U
                 &self.proof0.U,
                 // V
@@ -302,50 +220,11 @@
         pub proof_entries_part2: Vec<String>,
     }
 
+    impl_read_from_json!(FormattedProof);
+    impl_write_into_json!(FormattedProof);
+
     impl FormattedProof {
-         pub fn write_into_json(&self, path: &str) -> io::Result<()> {
-            let abs_path = env::current_dir()?.join(path);
-            if let Some(parent) = abs_path.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            let file = File::create(&abs_path)?;
-            let writer = BufWriter::new(file);
-            to_writer_pretty(writer, &self)?;
-            Ok(())
-        }
-
-        pub fn read_from_json(path: &str) -> io::Result<Self> {
-            let abs_path = env::current_dir()?.join(path);
-            let file = File::open(abs_path)?;
-            let reader = BufReader::new(file);
-            let res: Self = from_reader(reader)?;
-            Ok(res)
-        }
-
         pub fn recover_proof_from_format(&self) -> Proof {
-            // Helper function to recover a BaseField from part1 (16 bytes) and part2 (32 bytes)
-            let recover_basefield = |part1: &String, part2: &String| -> BaseField {
-                let mut bytes = [0u8; 48];
-
-                decode_to_slice(
-                    part1.trim_start_matches("0x"),
-                    &mut bytes[0..16],
-                )
-                .expect("Invalid format");
-
-                decode_to_slice(
-                    part2.trim_start_matches("0x"),
-                    &mut bytes[16..48],
-                )
-                .expect("Invalid format");
-                bytes.reverse();            // to little Edian
-
-                /* ---------------------------------------------------------
-                * 4) limbs  →  BaseField
-                * --------------------------------------------------------- */
-                return BaseField::from_bytes_le(&bytes);
-            };
-
             let p1 = &self.proof_entries_part1;
             let p2 = &self.proof_entries_part2;
 
@@ -356,26 +235,9 @@
             assert_eq!(p2.len(), G1_CNT * 2 + SCALAR_CNT);
             
             let mut idx = 0;
-            let mut next_point = || -> G1serde {
-                let bx = recover_basefield(&p1[idx], &p2[idx]);       
-                let by = recover_basefield(&p1[idx + 1], &p2[idx + 1]);
-                idx += 2;
 
-                return G1serde(G1Affine {
-                    x: bx,
-                    y: by,
-                });
-            };
-
-            macro_rules! pop_recover {
-                ($( $point:ident ),+ $(,)?) => {
-                    $(
-                        let $point = next_point();
-                    )+
-                };
-            }
             // Must follow the same order of inputs as split_push!
-            pop_recover!(
+            pop_recover!(idx, p1, p2,
                 U,
                 V,
                 W,
@@ -1589,10 +1451,6 @@
             if scalar == ScalarField::zero() {
                 self.debug_print("Challenge was zero, returning one instead");
                 return ScalarField::one();
-            }
-            
-            if self.debug_mode {
-                println!("[Challenge Final] 0x{}", hex_string(&scalar));
             }
             
             scalar

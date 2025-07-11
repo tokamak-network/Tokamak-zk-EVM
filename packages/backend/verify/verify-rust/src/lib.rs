@@ -5,12 +5,13 @@ use icicle_hash::keccak::Keccak256;
 use icicle_runtime::memory::HostSlice;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::iotools::{Instance, Permutation, PublicInputBuffer, PublicOutputBuffer, SetupParams, SubcircuitInfo};
-use libs::group_structures::{G1serde, Preprocess, Sigma, SigmaVerify};
+use libs::group_structures::{G1serde, Sigma, SigmaVerify};
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::ntt;
 use prove::{*};
 use libs::group_structures::pairing;
+use preprocess::{Preprocess, FormattedPreprocess};
 
 use std::vec;
 
@@ -75,8 +76,9 @@ impl Verifier {
 
         // Load Verifier preprocess
         let preprocess_path = "verify/preprocess/output/preprocess.json";
-        let preprocess = Preprocess::read_from_json(&preprocess_path)
-        .expect("No Verifier preprocess is found. Run the Preprocess first.");
+        let preprocess = FormattedPreprocess::read_from_json(&preprocess_path)
+        .expect("No Verifier preprocess is found. Run the Preprocess first.")
+        .recover_proof_from_format();
 
         // Load Proof
         let proof_path = "prove/output/proof.json";
@@ -253,7 +255,7 @@ impl Verifier {
             + self.sigma.sigma_1.y * thetas[1]
             + self.sigma.G * thetas[2];
         let LHS_C_term1 = 
-            self.preprocess.lagrange_KL * (proof3.R_eval - ScalarField::one())
+            self.sigma.lagrange_KL * (proof3.R_eval - ScalarField::one())
             + (G * proof3.R_eval - F * proof3.R_omegaX_eval) * (kappa0 * (chi - ScalarField::one()))
             + (G * proof3.R_eval - F * proof3.R_omegaX_omegaY_eval) * (kappa0.pow(2) * lagrange_K0_eval)
             - proof2.Q_CX * t_mi_eval

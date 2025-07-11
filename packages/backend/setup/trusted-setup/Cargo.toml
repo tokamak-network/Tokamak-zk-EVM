@@ -11,6 +11,7 @@ icicle-core = { workspace = true }
 icicle-bls12-381 = { workspace = true }
 libs = { workspace = true }
 rayon = { workspace = true }
+hex = { workspace = true }
 
 [features]
 default = []
