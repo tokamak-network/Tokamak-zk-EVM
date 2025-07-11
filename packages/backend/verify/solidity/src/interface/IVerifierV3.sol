@@ -9,6 +9,8 @@ interface IVerifierV3 {
     function verify(
         uint128[] calldata _proof_part1,
         uint256[] calldata _proof_part2,
+        uint128[] calldata preprocessedPart1,
+        uint256[] calldata preprocessedPart2,
         uint256[] calldata publicInputs,
         uint256 smax
     ) external view returns (bool);

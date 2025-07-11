@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.30;
+pragma solidity ^0.8.23;
 
 /// @title The interface of the Verifier contract, responsible for the zero knowledge proof verification.
 /// @author TOKAMAK project Ooo
