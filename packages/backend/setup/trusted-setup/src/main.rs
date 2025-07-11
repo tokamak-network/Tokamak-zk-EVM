@@ -24,9 +24,7 @@ fn main() {
     // Generate random affine points on the elliptic curve (G1 and G2)
     let g1_gen = CurveCfg::generate_random_affine_points(1)[0];
     let g2_gen = G2CurveCfg::generate_random_affine_points(1)[0];
-    let test = G1serde(g1_gen);
-    println!("{:?}", g1_gen.x.to_bytes_le());
-    println!("{:?}", g1_gen.x.to_string().len());
+
     // Generate a random secret parameter tau (x and y only, no z as per the paper)
     let tau = Tau::gen();
     
