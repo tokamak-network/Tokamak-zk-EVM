@@ -6,7 +6,7 @@
     use libs::vector_operations::{point_div_two_vecs, resize, transpose_inplace};
     use libs::group_structures::{Sigma, G1serde};
     use libs::polynomial_structures::gen_bXY;
-    use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
+    use icicle_bls12_381::curve::{BaseField, G1Affine, ScalarCfg, ScalarField};
     use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
     use icicle_core::ntt;
     use icicle_core::vec_ops::VecOpsConfig;
@@ -19,6 +19,7 @@
     use std::{env, fs, vec};
     use byteorder::{BigEndian, ByteOrder};
     use tiny_keccak::Keccak;
+    use hex::decode_to_slice;
 
 
     macro_rules! poly_comb {
@@ -29,6 +30,25 @@
             )+
             acc
         }};
+    }
+
+    // Helper function to convert a scalar field element to a hex string
+    pub fn hex_string(field: &ScalarField) -> String {
+        let bytes = field.to_bytes_le();
+        format!("0x{}", hex_encode(&bytes))
+    }
+
+    // More generic helper function for any FieldImpl
+    pub fn any_field_to_hex<T: FieldImpl>(field: &T) -> String {
+        let bytes = field.to_bytes_le();
+        format!("0x{}", hex_encode(&bytes))
+    }
+
+    // Helper function to encode bytes as hex string
+    pub fn hex_encode(bytes: &[u8]) -> String {
+        bytes.iter()
+            .map(|byte| format!("{:02x}", byte))
+            .collect::<String>()
     }
 
     pub struct Mixer{
@@ -77,58 +97,58 @@
         pub q7XY: DensePolynomialExt,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct ChallengeSerde {
-        pub thetas: Vec<String>,
-        pub chi: String,
-        pub zeta: String,
-        pub kappa0: String,
-        pub kappa1: String,
-        pub kappa2: String,
-    }
+    // #[derive(Debug, Serialize, Deserialize)]
+    // pub struct ChallengeSerde {
+    //     pub thetas: Vec<String>,
+    //     pub chi: String,
+    //     pub zeta: String,
+    //     pub kappa0: String,
+    //     pub kappa1: String,
+    //     pub kappa2: String,
+    // }
 
-    impl From<Challenge> for ChallengeSerde {
-        fn from(challenge: Challenge) -> Self {
-            // Convert each field element to a hex string for serialization
-            let thetas_vec: Vec<String> = challenge.thetas.iter()
-                .map(|theta| {
-                    let mut bytes = theta.to_bytes_le();
-                    bytes.reverse(); // ✅ Reverse bytes to match verifier
-                    // Convert to hex format without 0x prefix
-                    bytes.iter()
-                        .map(|byte| format!("{:02x}", byte))
-                        .collect::<String>()
-                })
-                .collect();
+    // impl From<Challenge> for ChallengeSerde {
+    //     fn from(challenge: Challenge) -> Self {
+    //         // Convert each field element to a hex string for serialization
+    //         let thetas_vec: Vec<String> = challenge.thetas.iter()
+    //             .map(|theta| {
+    //                 let mut bytes = theta.to_bytes_le();
+    //                 bytes.reverse(); // ✅ Reverse bytes to match verifier
+    //                 // Convert to hex format without 0x prefix
+    //                 bytes.iter()
+    //                     .map(|byte| format!("{:02x}", byte))
+    //                     .collect::<String>()
+    //             })
+    //             .collect();
                 
-            // Helper function to convert a field element to hex string
-            let to_hex = |field: &ScalarField| {
-                let mut bytes = field.to_bytes_le();
-                bytes.reverse(); // ✅ Reverse bytes to match verifier
-                bytes.iter()
-                    .map(|byte| format!("{:02x}", byte))
-                    .collect::<String>()
-            };
+    //         // Helper function to convert a field element to hex string
+    //         let to_hex = |field: &ScalarField| {
+    //             let mut bytes = field.to_bytes_le();
+    //             bytes.reverse(); // ✅ Reverse bytes to match verifier
+    //             bytes.iter()
+    //                 .map(|byte| format!("{:02x}", byte))
+    //                 .collect::<String>()
+    //         };
             
-            ChallengeSerde {
-                thetas: thetas_vec,
-                chi: to_hex(&challenge.chi),
-                zeta: to_hex(&challenge.zeta),
-                kappa0: to_hex(&challenge.kappa0),
-                kappa1: to_hex(&challenge.kappa1),
-                kappa2: to_hex(&challenge.kappa2),
-            }
-        }
-    }
+    //         ChallengeSerde {
+    //             thetas: thetas_vec,
+    //             chi: to_hex(&challenge.chi),
+    //             zeta: to_hex(&challenge.zeta),
+    //             kappa0: to_hex(&challenge.kappa0),
+    //             kappa1: to_hex(&challenge.kappa1),
+    //             kappa2: to_hex(&challenge.kappa2),
+    //         }
+    //     }
+    // }
 
-    pub struct Challenge {
-        pub thetas: Box<[ScalarField]>,
-        pub chi: ScalarField,
-        pub zeta: ScalarField,
-        pub kappa0: ScalarField,
-        pub kappa1: ScalarField,
-        pub kappa2: ScalarField,
-    }
+    // pub struct Challenge {
+    //     pub thetas: Box<[ScalarField]>,
+    //     pub chi: ScalarField,
+    //     pub zeta: ScalarField,
+    //     pub kappa0: ScalarField,
+    //     pub kappa1: ScalarField,
+    //     pub kappa2: ScalarField,
+    // }
 
     pub struct Prover{
         pub setup_params: SetupParams,
@@ -146,504 +166,7 @@
         pub proof1: Proof1,
         pub proof2: Proof2,
         pub proof3: Proof3,
-        pub proof4: Proof4,
-        pub challenge: ChallengeSerde
-    }
-
-    // ===== TRANSCRIPT =====
-
-    #[derive(Clone)]
-    pub struct RollingKeccakTranscript {
-        state_part_0: [u8; 32],
-        state_part_1: [u8; 32],
-        challenge_counter: u32,
-        debug_mode: bool,
-    }
-
-    impl RollingKeccakTranscript {
-        // Constants
-        const DST_0_TAG: u8 = 0;
-        const DST_1_TAG: u8 = 1;
-        const CHALLENGE_DST_TAG: u8 = 2;
-
-        pub fn new() -> Self {
-            Self {
-                state_part_0: [0u8; 32],
-                state_part_1: [0u8; 32],
-                challenge_counter: 0,
-                debug_mode: false,
-            }
-        }
-        
-        // Enable or disable debug mode
-        pub fn set_debug(&mut self, enable: bool) {
-            self.debug_mode = enable;
-        }
-        
-        // Debug print helper
-        fn debug_print(&self, message: &str) {
-            if self.debug_mode {
-                println!("[Transcript Debug] {}", message);
-            }
-        }
-        
-        // Update function that exactly matches the Solidity memory layout
-        fn update(&mut self, bytes: &[u8]) -> Result<(), &'static str> {
-            if bytes.len() > 32 {
-                return Err("Input must be 32 bytes or less");
-            }
-            
-            if self.debug_mode {
-                println!("[Transcript Update] Adding value: 0x{}", hex_encode(bytes));
-            }
-            
-            // Save the old states
-            let old_state_0 = self.state_part_0;
-            let old_state_1 = self.state_part_1;
-            
-            // Create a buffer that exactly matches the Solidity memory layout
-            // This layout is critical to match exactly
-            let mut hash_input = [0u8; 100]; // 0x64 bytes (100 bytes)
-            
-            // Set the DST tag at offset 0x03
-            hash_input[3] = Self::DST_0_TAG;
-            
-            // Copy the state values
-            hash_input[4..36].copy_from_slice(&old_state_0);   // STATE_0 at offset 0x04
-            hash_input[36..68].copy_from_slice(&old_state_1);  // STATE_1 at offset 0x24
-            
-            // Copy the value bytes (32 bytes) at offset 0x44
-            // Ensure right-alignment in the 32-byte slot
-            let start_idx = 100 - bytes.len();
-            hash_input[start_idx..100].copy_from_slice(bytes);
-            
-            // Print the entire input for debugging
-            if self.debug_mode {
-                println!("[Hash Input for state_0] 0x{}", hex_encode(&hash_input));
-            }
-            
-            // Hash for state_0 update
-            let mut hasher = Keccak::new_keccak256();
-            hasher.update(&hash_input);
-            hasher.finalize(&mut self.state_part_0);
-            
-            if self.debug_mode {
-                println!("[Transcript State] After DST_0_TAG: state_0=0x{}", hex_encode(&self.state_part_0));
-            }
-            
-            // Now for state_1, update the DST tag to 0x01
-            hash_input[3] = Self::DST_1_TAG;
-            
-            if self.debug_mode {
-                println!("[Hash Input for state_1] 0x{}", hex_encode(&hash_input));
-            }
-            
-            // Hash for state_1 update
-            let mut hasher = Keccak::new_keccak256();
-            hasher.update(&hash_input);
-            hasher.finalize(&mut self.state_part_1);
-            
-            if self.debug_mode {
-                println!("[Transcript State] After DST_1_TAG: state_1=0x{}", hex_encode(&self.state_part_1));
-            }
-            
-            Ok(())
-        }
-        
-        // GetChallenge function that strictly follows the provided documentation
-        fn get_challenge_raw(&mut self) -> [u8; 32] {
-            self.debug_print(&format!("Generating challenge #{}", self.challenge_counter));
-            
-            // Create a buffer that exactly matches the Solidity memory layout for challenge generation
-            let mut hash_input = [0u8; 72]; // 0x48 bytes (72 bytes)
-            
-            // Set the DST tag at offset 0x03
-            hash_input[3] = Self::CHALLENGE_DST_TAG;
-            
-            // Copy current state
-            hash_input[4..36].copy_from_slice(&self.state_part_0);  // STATE_0 at offset 0x04
-            hash_input[36..68].copy_from_slice(&self.state_part_1); // STATE_1 at offset 0x24
-            
-            // Set the challenge counter - shifted left by 224 bits (28 bytes)
-            // This puts the counter in the most significant position in a 32-byte word
-            // In Solidity: shl(224, numberOfChallenge)
-            hash_input[68] = (self.challenge_counter >> 24) as u8;  // Most significant byte
-            hash_input[69] = (self.challenge_counter >> 16) as u8;
-            hash_input[70] = (self.challenge_counter >> 8) as u8;
-            hash_input[71] = self.challenge_counter as u8;          // Least significant byte
-            
-            if self.debug_mode {
-                println!("[Challenge #{} Input] Full hash input: 0x{}", 
-                        self.challenge_counter, 
-                        hex_encode(&hash_input));
-            }
-            
-            // Increment the counter AFTER using it for this challenge
-            let current_counter = self.challenge_counter;
-            self.challenge_counter += 1;
-            
-            let mut value = [0u8; 32];
-            let mut hasher = Keccak::new_keccak256();
-            hasher.update(&hash_input);
-            hasher.finalize(&mut value);
-            
-            if self.debug_mode {
-                println!("[Challenge #{} Raw] 0x{}", current_counter, hex_encode(&value));
-            }
-            
-            value
-        }
-        
-        // Get a challenge as a ScalarField element
-        fn get_challenge(&mut self) -> ScalarField {
-            let mut result = self.get_challenge_raw();
-            
-            // Apply the field reduction - mask the top bits to ensure it's within the field
-            // This matches the Solidity FR_MASK = 0x1fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-            result[0] &= 0x1f;
-
-            result.reverse();
-            
-            if self.debug_mode {
-                println!("[Challenge Masked] 0x{}", hex_encode(&result));
-            }
-            
-            // Convert to scalar field
-            let scalar = ScalarField::from_bytes_le(&result);
-            
-            // Ensure never zero
-            if scalar == ScalarField::zero() {
-                self.debug_print("Challenge was zero, returning one instead");
-                return ScalarField::one();
-            }
-            
-            if self.debug_mode {
-                println!("[Challenge Final] 0x{}", hex_string(&scalar));
-            }
-            
-            scalar
-        }
-        
-        // Helper method to convert a field element to bytes, aligned for Solidity
-        fn field_to_bytes<T: FieldImpl>(&self, element: &T) -> [u8; 32] {
-            let mut le_bytes = element.to_bytes_le();
-            
-            // Ensure it's no more than 32 bytes
-            if le_bytes.len() > 32 {
-                let len = le_bytes.len();
-                le_bytes = le_bytes[(len-32)..].to_vec();
-            }
-            
-            // Convert to big-endian
-            le_bytes.reverse();
-            
-            // Create a properly aligned 32-byte array
-            let mut result = [0u8; 32];
-            let start_idx = 32 - le_bytes.len();
-            result[start_idx..].copy_from_slice(&le_bytes);
-            
-            result
-        }
-        
-        // Commit a standard 32-byte scalar field element
-        // This is used for BLS12-381 scalar field elements (Fr)
-        pub fn commit_field_as_bytes<T: FieldImpl>(&mut self, element: &T) -> Result<(), &'static str> {
-            let bytes = self.field_to_bytes(element);
-            
-            if self.debug_mode {
-                println!("[Scalar Field Commit] BE bytes: 0x{}", hex_encode(&bytes));
-            }
-            
-            self.update(&bytes)
-        }
-        
-        // Commit a BLS12-381 field element (split into two parts)
-        pub fn commit_bls12_381_field_element<T: FieldImpl>(&mut self, element: &T) -> Result<(), &'static str> {
-            // Get field element as bytes (little-endian)
-            let mut le_bytes = element.to_bytes_le();
-            
-            // Ensure it's 48 bytes (384 bits) long
-            while le_bytes.len() < 48 {
-                le_bytes.push(0);
-            }
-            
-            // Convert to big-endian
-            le_bytes.reverse();
-            
-            // Split into part1 (first 16 bytes) and part2 (remaining 32 bytes)
-            let part1 = &le_bytes[0..16];
-            let part2 = &le_bytes[16..48];
-            
-            if self.debug_mode {
-                println!("[BLS12-381 Field] Original (BE): 0x{}", hex_encode(&le_bytes));
-                println!("[BLS12-381 Field] Part1 (16 bytes): 0x{}", hex_encode(part1));
-                println!("[BLS12-381 Field] Part2 (32 bytes): 0x{}", hex_encode(part2));
-            }
-            
-            // Create padded part1 (16 bytes of zeros + 16 bytes of part1)
-            let mut part1_padded = [0u8; 32];
-            part1_padded[16..32].copy_from_slice(part1);
-            
-            if self.debug_mode {
-                println!("[BLS12-381 Field] Part1 padded (32 bytes): 0x{}", hex_encode(&part1_padded));
-            }
-            
-            // Commit each part separately
-            self.update(&part1_padded)?;
-            self.update(part2)?;
-            
-            Ok(())
-        }
-        
-        // Helper function to commit a G1 point
-        pub fn commit_g1_point(&mut self, point: &G1serde) -> Result<(), &'static str> {
-            // Since we've had issues with the G1 point commitments, let's be extra careful here
-            // and commit each part individually with complete state information
-            let x = &point.0.x;
-            let y = &point.0.y;
-            
-            if self.debug_mode {
-                println!("[G1 Point Commit] Committing X: {}", any_field_to_hex(x));
-            }
-            self.commit_bls12_381_field_element(x)?;
-            
-            if self.debug_mode {
-                println!("[G1 Point Commit] Committing Y: {}", any_field_to_hex(y));
-            }
-            self.commit_bls12_381_field_element(y)?;
-            
-            Ok(())
-        }
-        
-        // Get multiple challenges
-        pub fn get_challenges(&mut self, count: usize) -> Vec<ScalarField> {
-            let mut challenges = Vec::with_capacity(count);
-            for _ in 0..count {
-                challenges.push(self.get_challenge());
-            }
-            challenges
-        }
-        
-        // Commit raw bytes (mainly for testing)
-        pub fn commit_bytes(&mut self, bytes: &[u8]) -> Result<(), &'static str> {
-            self.update(bytes)
-        }
-    }
-
-
-    #[derive(Clone)]
-    pub struct TranscriptManager {
-        pub transcript: RollingKeccakTranscript
-    }
-
-    impl TranscriptManager {
-        pub fn new() -> Self {
-            Self {
-                transcript: RollingKeccakTranscript::new()
-            }
-        }
-        
-        pub fn add_proof0(&mut self, proof: &Proof0) {
-            //println!("Adding proof0 commitments to transcript...");
-            
-            // Add each field element individually to match the verifier exactly
-            // Order is critical: U_x, U_y, V_x, V_y, etc.
-            match self.transcript.commit_bls12_381_field_element(&proof.U.0.x) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit U.x: {}", e)
-            }
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.U.0.y) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit U.y: {}", e)
-            }
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.V.0.x) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit V.x: {}", e)
-            }
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.V.0.y) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit V.y: {}", e)
-            }
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.W.0.x) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit W.x: {}", e)
-            }
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.W.0.y) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit W.y: {}", e)
-            }
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.Q_AX.0.x) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit Q_AX.x: {}", e)
-            }
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.Q_AX.0.y) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit Q_AX.y: {}", e)
-            }
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.Q_AY.0.x) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit Q_AY.x: {}", e)
-            }
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.Q_AY.0.y) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit Q_AY.y: {}", e)
-            }
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.B.0.x) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit B.x: {}", e)
-            }
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.B.0.y) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit B.y: {}", e)
-            }
-        }
-        
-        pub fn get_thetas(&mut self) -> Vec<ScalarField> {
-            //println!("Generating thetas from transcript...");
-            let thetas = self.transcript.get_challenges(3);
-            
-            // Print challenges for debugging
-            /*
-            for (i, theta) in thetas.iter().enumerate() {
-                println!("Theta_{}: {}", i, hex_string(theta));
-            }
-            */
-            thetas
-        }
-        
-        pub fn add_proof1(&mut self, proof: &Proof1) {
-            //println!("Adding proof1 commitments to transcript...");
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.R.0.x) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit R.x: {}", e)
-            }
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.R.0.y) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit R.y: {}", e)
-            }
-        }
-        
-        pub fn get_kappa0(&mut self) -> ScalarField {
-            //println!("Generating kappa0 from transcript...");
-            let kappa0 = self.transcript.get_challenge();
-            //println!("Kappa0: {}", hex_string(&kappa0));
-            kappa0
-        }
-        
-        pub fn add_proof2(&mut self, proof: &Proof2) {
-            //println!("Adding proof2 commitments to transcript...");
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.Q_CX.0.x) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit Q_CX.x: {}", e)
-            }
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.Q_CX.0.y) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit Q_CX.y: {}", e)
-            }
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.Q_CY.0.x) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit Q_CY.x: {}", e)
-            }
-            
-            match self.transcript.commit_bls12_381_field_element(&proof.Q_CY.0.y) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit Q_CY.y: {}", e)
-            }
-        }
-        
-        pub fn get_chi_zeta(&mut self) -> (ScalarField, ScalarField) {
-            //println!("Generating chi and zeta from transcript...");
-            let chi = self.transcript.get_challenge();
-            let zeta = self.transcript.get_challenge();
-            
-            //println!("Chi: {}", hex_string(&chi));
-            //println!("Zeta: {}", hex_string(&zeta));
-            
-            (chi, zeta)
-        }
-        
-        pub fn add_proof3(&mut self, proof: &Proof3) {
-            //println!("Adding proof3 commitments to transcript...");
-            
-            match self.transcript.commit_field_as_bytes(&proof.V_eval.0) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit V_eval: {}", e)
-            }
-            
-            match self.transcript.commit_field_as_bytes(&proof.R_eval.0) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit R_eval: {}", e)
-            }
-            
-            match self.transcript.commit_field_as_bytes(&proof.R_omegaX_eval.0) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit R_omegaX_eval: {}", e)
-            }
-            
-            match self.transcript.commit_field_as_bytes(&proof.R_omegaX_omegaY_eval.0) {
-                Ok(_) => {},
-                Err(e) => panic!("Failed to commit R_omegaX_omegaY_eval: {}", e)
-            }
-        }
-        
-        pub fn get_kappa1(&mut self) -> ScalarField {
-            //println!("Generating kappa1 from transcript...");
-            let kappa1 = self.transcript.get_challenge();
-            //println!("Kappa1: {}", hex_string(&kappa1));
-            kappa1
-        }
-        
-        pub fn get_kappa2(&mut self) -> ScalarField {
-            //println!("Generating kappa2 from transcript...");
-            let kappa2 = self.transcript.get_challenge();
-            //println!("Kappa2: {}", hex_string(&kappa2));
-            kappa2
-        }
-    }
-
-    // Helper function to convert a scalar field element to a hex string
-    pub fn hex_string(field: &ScalarField) -> String {
-        let bytes = field.to_bytes_le();
-        format!("0x{}", hex_encode(&bytes))
-    }
-
-    // More generic helper function for any FieldImpl
-    pub fn any_field_to_hex<T: FieldImpl>(field: &T) -> String {
-        let bytes = field.to_bytes_le();
-        format!("0x{}", hex_encode(&bytes))
-    }
-
-    // Helper function to encode bytes as hex string
-    pub fn hex_encode(bytes: &[u8]) -> String {
-        bytes.iter()
-            .map(|byte| format!("{:02x}", byte))
-            .collect::<String>()
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct SerializedProof {
-        pub preprocessedPart1: Vec<String>,
-        pub preprocessedPart2: Vec<String>,
-        pub serializedProofPart1: Vec<String>,
-        pub serializedProofPart2: Vec<String>,
-        pub publicInputs: Vec<String>,
-        pub smax: u64,
+        pub proof4: Proof4
     }
 
     impl Proof {
@@ -666,14 +189,15 @@
             Ok(res)
         }
 
-        pub fn to_serialized(&self, s0_commitment: &G1serde, s1_commitment: &G1serde, public_inputs: &[ScalarField], smax: u64) -> SerializedProof {
-            let mut preprocessed_part1 = Vec::new();
-            let mut preprocessed_part2 = Vec::new();
-            let mut part1 = Vec::new();
-            let mut part2 = Vec::new();
+        pub fn convert_format_for_solidity_verifier(&self) -> FormattedProof {
+            // Formatting the proof for the Solidity verifier
+            // Part1 is a tuple of hex strings of the first 16 bytes of each proof component
+            let mut proof_entries_part1 = Vec::<String>::new();
+            // Part2 is a tuple of hex strings of the last 32 bytes of each proof component
+            let mut proof_entries_part2 = Vec::<String>::new();
             
             // Helper function to split a G1 point into part1 (16 bytes) and part2 (32 bytes)
-            let split_g1_point = |point: &G1serde| -> (String, String, String, String) {
+            let split_g1 = |point: &G1serde| -> (String, String, String, String) {
                 // Get X coordinate bytes in little-endian and convert to big-endian
                 let mut x_bytes = point.0.x.to_bytes_le();
                 x_bytes.reverse(); // Convert to big-endian
@@ -695,7 +219,7 @@
             };
             
             // Helper function to format scalar field as 256-bit hex
-            let format_scalar = |scalar: &ScalarField| -> String {
+            let scalar_to_hex = |scalar: &ScalarField| -> String {
                 let mut bytes = scalar.to_bytes_le();
                 bytes.reverse(); // Convert to big-endian
                 // Pad to 32 bytes if necessary
@@ -704,186 +228,202 @@
                 }
                 format!("0x{}", hex_encode(&bytes))
             };
-            
-            // Add preprocessed commitments (s0 and s1)
-            let (s0_x_p1, s0_x_p2, s0_y_p1, s0_y_p2) = split_g1_point(s0_commitment);
-            preprocessed_part1.push(s0_x_p1);
-            preprocessed_part2.push(s0_x_p2);
-            preprocessed_part1.push(s0_y_p1);
-            preprocessed_part2.push(s0_y_p2);
-            
-            let (s1_x_p1, s1_x_p2, s1_y_p1, s1_y_p2) = split_g1_point(s1_commitment);
-            preprocessed_part1.push(s1_x_p1);
-            preprocessed_part2.push(s1_x_p2);
-            preprocessed_part1.push(s1_y_p1);
-            preprocessed_part2.push(s1_y_p2);
+
+            macro_rules! split_push {
+                ($( $point:expr ),+ $(,)?) => {
+                    $(
+                        {
+                            let (x_p1, x_p2, y_p1, y_p2) = split_g1($point);
+                            proof_entries_part1.push(x_p1);
+                            proof_entries_part2.push(x_p2);
+                            proof_entries_part1.push(y_p1);
+                            proof_entries_part2.push(y_p2);
+                        }
+                    )+
+                };
+            }
             
             // Process the rest of the proof commitments
-            // U
-            let (u_x_p1, u_x_p2, u_y_p1, u_y_p2) = split_g1_point(&self.proof0.U);
-            part1.push(u_x_p1);
-            part2.push(u_x_p2);
-            part1.push(u_y_p1);
-            part2.push(u_y_p2);
-            
-            // V
-            let (v_x_p1, v_x_p2, v_y_p1, v_y_p2) = split_g1_point(&self.proof0.V);
-            part1.push(v_x_p1);
-            part2.push(v_x_p2);
-            part1.push(v_y_p1);
-            part2.push(v_y_p2);
-            
-            // W
-            let (w_x_p1, w_x_p2, w_y_p1, w_y_p2) = split_g1_point(&self.proof0.W);
-            part1.push(w_x_p1);
-            part2.push(w_x_p2);
-            part1.push(w_y_p1);
-            part2.push(w_y_p2);
-            
-            // O_mid from binding
-            let (omid_x_p1, omid_x_p2, omid_y_p1, omid_y_p2) = split_g1_point(&self.binding.O_mid);
-            part1.push(omid_x_p1);
-            part2.push(omid_x_p2);
-            part1.push(omid_y_p1);
-            part2.push(omid_y_p2);
-            
-            // O_prv from binding
-            let (oprv_x_p1, oprv_x_p2, oprv_y_p1, oprv_y_p2) = split_g1_point(&self.binding.O_prv);
-            part1.push(oprv_x_p1);
-            part2.push(oprv_x_p2);
-            part1.push(oprv_y_p1);
-            part2.push(oprv_y_p2);
-            
-            // Q_AX
-            let (qax_x_p1, qax_x_p2, qax_y_p1, qax_y_p2) = split_g1_point(&self.proof0.Q_AX);
-            part1.push(qax_x_p1);
-            part2.push(qax_x_p2);
-            part1.push(qax_y_p1);
-            part2.push(qax_y_p2);
-            
-            // Q_AY
-            let (qay_x_p1, qay_x_p2, qay_y_p1, qay_y_p2) = split_g1_point(&self.proof0.Q_AY);
-            part1.push(qay_x_p1);
-            part2.push(qay_x_p2);
-            part1.push(qay_y_p1);
-            part2.push(qay_y_p2);
-            
-            // Q_CX
-            let (qcx_x_p1, qcx_x_p2, qcx_y_p1, qcx_y_p2) = split_g1_point(&self.proof2.Q_CX);
-            part1.push(qcx_x_p1);
-            part2.push(qcx_x_p2);
-            part1.push(qcx_y_p1);
-            part2.push(qcx_y_p2);
-            
-            // Q_CY
-            let (qcy_x_p1, qcy_x_p2, qcy_y_p1, qcy_y_p2) = split_g1_point(&self.proof2.Q_CY);
-            part1.push(qcy_x_p1);
-            part2.push(qcy_x_p2);
-            part1.push(qcy_y_p1);
-            part2.push(qcy_y_p2);
-            
-            // Pi_X
-            let (pix_x_p1, pix_x_p2, pix_y_p1, pix_y_p2) = split_g1_point(&self.proof4.Pi_X);
-            part1.push(pix_x_p1);
-            part2.push(pix_x_p2);
-            part1.push(pix_y_p1);
-            part2.push(pix_y_p2);
-            
-            // Pi_Y
-            let (piy_x_p1, piy_x_p2, piy_y_p1, piy_y_p2) = split_g1_point(&self.proof4.Pi_Y);
-            part1.push(piy_x_p1);
-            part2.push(piy_x_p2);
-            part1.push(piy_y_p1);
-            part2.push(piy_y_p2);
-            
-            // B
-            let (b_x_p1, b_x_p2, b_y_p1, b_y_p2) = split_g1_point(&self.proof0.B);
-            part1.push(b_x_p1);
-            part2.push(b_x_p2);
-            part1.push(b_y_p1);
-            part2.push(b_y_p2);
-            
-            // R
-            let (r_x_p1, r_x_p2, r_y_p1, r_y_p2) = split_g1_point(&self.proof1.R);
-            part1.push(r_x_p1);
-            part2.push(r_x_p2);
-            part1.push(r_y_p1);
-            part2.push(r_y_p2);
-            
-            // M_Y (appears as M_ζ in comments)
-            let (my_x_p1, my_x_p2, my_y_p1, my_y_p2) = split_g1_point(&self.proof4.M_Y);
-            part1.push(my_x_p1);
-            part2.push(my_x_p2);
-            part1.push(my_y_p1);
-            part2.push(my_y_p2);
-            
-            // M_X (appears as M_χ in comments)
-            let (mx_x_p1, mx_x_p2, mx_y_p1, mx_y_p2) = split_g1_point(&self.proof4.M_X);
-            part1.push(mx_x_p1);
-            part2.push(mx_x_p2);
-            part1.push(mx_y_p1);
-            part2.push(mx_y_p2);
-            
-            // N_Y (appears as N_ζ in comments)
-            let (ny_x_p1, ny_x_p2, ny_y_p1, ny_y_p2) = split_g1_point(&self.proof4.N_Y);
-            part1.push(ny_x_p1);
-            part2.push(ny_x_p2);
-            part1.push(ny_y_p1);
-            part2.push(ny_y_p2);
-            
-            // N_X (appears as N_χ in comments)
-            let (nx_x_p1, nx_x_p2, nx_y_p1, nx_y_p2) = split_g1_point(&self.proof4.N_X);
-            part1.push(nx_x_p1);
-            part2.push(nx_x_p2);
-            part1.push(nx_y_p1);
-            part2.push(nx_y_p2);
-            
-            // O_inst from binding (appears to be O_pub in the test)
-            let (oinst_x_p1, oinst_x_p2, oinst_y_p1, oinst_y_p2) = split_g1_point(&self.binding.O_inst);
-            part1.push(oinst_x_p1);
-            part2.push(oinst_x_p2);
-            part1.push(oinst_y_p1);
-            part2.push(oinst_y_p2);
-            
-            // A from binding
-            let (a_x_p1, a_x_p2, a_y_p1, a_y_p2) = split_g1_point(&self.binding.A);
-            part1.push(a_x_p1);
-            part2.push(a_x_p2);
-            part1.push(a_y_p1);
-            part2.push(a_y_p2);
+            split_push!(
+                // U
+                &self.proof0.U,
+                // V
+                &self.proof0.V,
+                // W
+                &self.proof0.W,
+                // O_mid
+                &self.binding.O_mid,
+                // O_prv
+                &self.binding.O_prv,
+                // Q_AX
+                &self.proof0.Q_AX,
+                // Q_AY
+                &self.proof0.Q_AY,
+                // Q_CX
+                &self.proof2.Q_CX,
+                // Q_CY
+                &self.proof2.Q_CY,
+                // Pi_X
+                &self.proof4.Pi_X,
+                // Pi_Y
+                &self.proof4.Pi_Y,
+                // B
+                &self.proof0.B,
+                // R
+                &self.proof1.R,
+                // M_Y (appears as M_ζ in comments)
+                &self.proof4.M_Y,
+                // M_X (appears as M_χ in comments)
+                &self.proof4.M_X,
+                // N_Y (appears as N_ζ in comments)
+                &self.proof4.N_Y,
+                // N_X (appears as N_χ in comments)
+                &self.proof4.N_X,
+                // O_inst from binding (appears to be O_pub in the test)
+                &self.binding.O_inst,
+                // A from binding
+                &self.binding.A
+            );
             
             // Add evaluations to part2 only (they're scalar fields, not G1 points)
-            part2.push(format_scalar(&self.proof3.R_eval.0));
-            part2.push(format_scalar(&self.proof3.R_omegaX_eval.0));
-            part2.push(format_scalar(&self.proof3.R_omegaX_omegaY_eval.0));
-            part2.push(format_scalar(&self.proof3.V_eval.0));
+            proof_entries_part2.push(scalar_to_hex(&self.proof3.R_eval.0));
+            proof_entries_part2.push(scalar_to_hex(&self.proof3.R_omegaX_eval.0));
+            proof_entries_part2.push(scalar_to_hex(&self.proof3.R_omegaX_omegaY_eval.0));
+            proof_entries_part2.push(scalar_to_hex(&self.proof3.V_eval.0));
+
+            return FormattedProof { proof_entries_part1, proof_entries_part2 };
             
-            // Format public inputs
-            let formatted_inputs: Vec<String> = public_inputs.iter()
-                .map(|input| format_scalar(input))
-                .collect();
-            
-            SerializedProof {
-                preprocessedPart1: preprocessed_part1,
-                preprocessedPart2: preprocessed_part2,
-                serializedProofPart1: part1,
-                serializedProofPart2: part2,
-                publicInputs: formatted_inputs,
-                smax,
-            }
         }
-        
-        pub fn write_serialized_json(&self, path: &str, s0_commitment: &G1serde, s1_commitment: &G1serde, public_inputs: &[ScalarField], smax: u64) -> io::Result<()> {
-            let serialized = self.to_serialized(s0_commitment, s1_commitment, public_inputs, smax);
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct FormattedProof {
+        pub proof_entries_part1: Vec<String>,
+        pub proof_entries_part2: Vec<String>,
+    }
+
+    impl FormattedProof {
+         pub fn write_into_json(&self, path: &str) -> io::Result<()> {
             let abs_path = env::current_dir()?.join(path);
             if let Some(parent) = abs_path.parent() {
                 fs::create_dir_all(parent)?;
             }
             let file = File::create(&abs_path)?;
             let writer = BufWriter::new(file);
-            to_writer_pretty(writer, &serialized)?;
+            to_writer_pretty(writer, &self)?;
             Ok(())
         }
+
+        pub fn read_from_json(path: &str) -> io::Result<Self> {
+            let abs_path = env::current_dir()?.join(path);
+            let file = File::open(abs_path)?;
+            let reader = BufReader::new(file);
+            let res: Self = from_reader(reader)?;
+            Ok(res)
+        }
+
+        pub fn recover_proof_from_format(&self) -> Proof {
+            // Helper function to recover a BaseField from part1 (16 bytes) and part2 (32 bytes)
+            let recover_basefield = |part1: &String, part2: &String| -> BaseField {
+                let mut bytes = [0u8; 48];
+
+                decode_to_slice(
+                    part1.trim_start_matches("0x"),
+                    &mut bytes[0..16],
+                )
+                .expect("Invalid format");
+
+                decode_to_slice(
+                    part2.trim_start_matches("0x"),
+                    &mut bytes[16..48],
+                )
+                .expect("Invalid format");
+                bytes.reverse();            // to little Edian
+
+                /* ---------------------------------------------------------
+                * 4) limbs  →  BaseField
+                * --------------------------------------------------------- */
+                return BaseField::from_bytes_le(&bytes);
+            };
+
+            let p1 = &self.proof_entries_part1;
+            let p2 = &self.proof_entries_part2;
+
+            const G1_CNT: usize = 19;      // The number of G1 points 
+            const SCALAR_CNT: usize = 4;   // The number of Scalars
+
+            assert_eq!(p1.len(), G1_CNT * 2);
+            assert_eq!(p2.len(), G1_CNT * 2 + SCALAR_CNT);
+            
+            let mut idx = 0;
+            let mut next_point = || -> G1serde {
+                let bx = recover_basefield(&p1[idx], &p2[idx]);       
+                let by = recover_basefield(&p1[idx + 1], &p2[idx + 1]);
+                idx += 2;
+
+                return G1serde(G1Affine {
+                    x: bx,
+                    y: by,
+                });
+            };
+
+            macro_rules! pop_recover {
+                ($( $point:ident ),+ $(,)?) => {
+                    $(
+                        let $point = next_point();
+                    )+
+                };
+            }
+            // Must follow the same order of inputs as split_push!
+            pop_recover!(
+                U,
+                V,
+                W,
+                O_mid,
+                O_prv,
+                Q_AX,
+                Q_AY,
+                Q_CX,
+                Q_CY,
+                Pi_X,
+                Pi_Y,
+                B,
+                R,
+                M_Y,
+                M_X,
+                N_Y,
+                N_X,
+                O_inst,
+                A
+            );
+
+
+            let binding = Binding { A, O_inst, O_mid, O_prv};
+            let proof0 = Proof0 { U, V, W, Q_AX, Q_AY, B };
+            let proof1 = Proof1 { R };
+            let proof2 = Proof2 { Q_CX, Q_CY };
+            let proof4 = Proof4 { Pi_X, Pi_Y, M_X, M_Y, N_X, N_Y };
+
+            let scalar_slice = &p2[G1_CNT * 2..];
+            assert_eq!(scalar_slice.len(), SCALAR_CNT);
+
+            let proof3 = Proof3 {
+                R_eval               : FieldSerde(ScalarField::from_hex(&scalar_slice[0])),
+                R_omegaX_eval        : FieldSerde(ScalarField::from_hex(&scalar_slice[1])),
+                R_omegaX_omegaY_eval : FieldSerde(ScalarField::from_hex(&scalar_slice[2])),
+                V_eval               : FieldSerde(ScalarField::from_hex(&scalar_slice[3])),
+            };
+
+            return Proof {
+                binding,
+                proof0,
+                proof1,
+                proof2,
+                proof3,
+                proof4,
+            };
+        }
+            
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -1239,34 +779,34 @@
             )
         }
 
-        // Add method to encode s0XY and s1XY polynomials
-        pub fn get_preprocessed_commitments(&mut self) -> (G1serde, G1serde) {
-            let s0_commitment = self.sigma.sigma_1.encode_poly(&mut self.instance.s0XY, &self.setup_params);
-            let s1_commitment = self.sigma.sigma_1.encode_poly(&mut self.instance.s1XY, &self.setup_params);
-            (s0_commitment, s1_commitment)
-        }
+        // // Add method to encode s0XY and s1XY polynomials
+        // pub fn get_preprocessed_commitments(&mut self) -> (G1serde, G1serde) {
+        //     let s0_commitment = self.sigma.sigma_1.encode_poly(&mut self.instance.s0XY, &self.setup_params);
+        //     let s1_commitment = self.sigma.sigma_1.encode_poly(&mut self.instance.s1XY, &self.setup_params);
+        //     (s0_commitment, s1_commitment)
+        // }
         
-        pub fn get_public_inputs_from_instance(&self) -> Vec<ScalarField> {
-            // Load instance again to get the raw a values
-            let instance_path = "instance.json";
-            let instance = Instance::from_path(&instance_path).unwrap();
+        // pub fn get_public_inputs_from_instance(&self) -> Vec<ScalarField> {
+        //     // Load instance again to get the raw a values
+        //     let instance_path = "instance.json";
+        //     let instance = Instance::from_path(&instance_path).unwrap();
             
-            let l_pub = self.setup_params.l_pub_in + self.setup_params.l_pub_out;
+        //     let l_pub = self.setup_params.l_pub_in + self.setup_params.l_pub_out;
             
-            // Extract a_pub from instance.a array
-            let mut a_pub = Vec::with_capacity(l_pub);
-            for i in 0..l_pub {
-                a_pub.push(ScalarField::from_hex(&instance.a[i]));
-            }
+        //     // Extract a_pub from instance.a array
+        //     let mut a_pub = Vec::with_capacity(l_pub);
+        //     for i in 0..l_pub {
+        //         a_pub.push(ScalarField::from_hex(&instance.a[i]));
+        //     }
             
-            // Based on the test data, we need exactly 128 public inputs
-            // Pad with zeros if necessary
-            while a_pub.len() < 128 {
-                a_pub.push(ScalarField::zero());
-            }
+        //     // Based on the test data, we need exactly 128 public inputs
+        //     // Pad with zeros if necessary
+        //     while a_pub.len() < 128 {
+        //         a_pub.push(ScalarField::zero());
+        //     }
             
-            a_pub
-        }
+        //     a_pub
+        // }
 
         pub fn prove0(&mut self) -> Proof0 {
             // Arithmetic constraints argument polynomials
@@ -1881,5 +1421,472 @@
                 Proof4 {Pi_X, Pi_Y, M_X, M_Y, N_X, N_Y},
                 Proof4Test {Pi_CX, Pi_CY, Pi_AX, Pi_AY, Pi_B, M_X, M_Y, N_X, N_Y}
             )
+        }
+    }
+
+    // ===== TRANSCRIPT =====
+
+    #[derive(Clone)]
+    pub struct RollingKeccakTranscript {
+        state_part_0: [u8; 32],
+        state_part_1: [u8; 32],
+        challenge_counter: u32,
+        debug_mode: bool,
+    }
+
+    impl RollingKeccakTranscript {
+        // Constants
+        const DST_0_TAG: u8 = 0;
+        const DST_1_TAG: u8 = 1;
+        const CHALLENGE_DST_TAG: u8 = 2;
+
+        pub fn new() -> Self {
+            Self {
+                state_part_0: [0u8; 32],
+                state_part_1: [0u8; 32],
+                challenge_counter: 0,
+                debug_mode: false,
+            }
+        }
+        
+        // Enable or disable debug mode
+        pub fn set_debug(&mut self, enable: bool) {
+            self.debug_mode = enable;
+        }
+        
+        // Debug print helper
+        fn debug_print(&self, message: &str) {
+            if self.debug_mode {
+                println!("[Transcript Debug] {}", message);
+            }
+        }
+        
+        // Update function that exactly matches the Solidity memory layout
+        fn update(&mut self, bytes: &[u8]) -> Result<(), &'static str> {
+            if bytes.len() > 32 {
+                return Err("Input must be 32 bytes or less");
+            }
+            
+            if self.debug_mode {
+                println!("[Transcript Update] Adding value: 0x{}", hex_encode(bytes));
+            }
+            
+            // Save the old states
+            let old_state_0 = self.state_part_0;
+            let old_state_1 = self.state_part_1;
+            
+            // Create a buffer that exactly matches the Solidity memory layout
+            // This layout is critical to match exactly
+            let mut hash_input = [0u8; 100]; // 0x64 bytes (100 bytes)
+            
+            // Set the DST tag at offset 0x03
+            hash_input[3] = Self::DST_0_TAG;
+            
+            // Copy the state values
+            hash_input[4..36].copy_from_slice(&old_state_0);   // STATE_0 at offset 0x04
+            hash_input[36..68].copy_from_slice(&old_state_1);  // STATE_1 at offset 0x24
+            
+            // Copy the value bytes (32 bytes) at offset 0x44
+            // Ensure right-alignment in the 32-byte slot
+            let start_idx = 100 - bytes.len();
+            hash_input[start_idx..100].copy_from_slice(bytes);
+            
+            // Print the entire input for debugging
+            if self.debug_mode {
+                println!("[Hash Input for state_0] 0x{}", hex_encode(&hash_input));
+            }
+            
+            // Hash for state_0 update
+            let mut hasher = Keccak::new_keccak256();
+            hasher.update(&hash_input);
+            hasher.finalize(&mut self.state_part_0);
+            
+            if self.debug_mode {
+                println!("[Transcript State] After DST_0_TAG: state_0=0x{}", hex_encode(&self.state_part_0));
+            }
+            
+            // Now for state_1, update the DST tag to 0x01
+            hash_input[3] = Self::DST_1_TAG;
+            
+            if self.debug_mode {
+                println!("[Hash Input for state_1] 0x{}", hex_encode(&hash_input));
+            }
+            
+            // Hash for state_1 update
+            let mut hasher = Keccak::new_keccak256();
+            hasher.update(&hash_input);
+            hasher.finalize(&mut self.state_part_1);
+            
+            if self.debug_mode {
+                println!("[Transcript State] After DST_1_TAG: state_1=0x{}", hex_encode(&self.state_part_1));
+            }
+            
+            Ok(())
+        }
+        
+        // GetChallenge function that strictly follows the provided documentation
+        fn get_challenge_raw(&mut self) -> [u8; 32] {
+            self.debug_print(&format!("Generating challenge #{}", self.challenge_counter));
+            
+            // Create a buffer that exactly matches the Solidity memory layout for challenge generation
+            let mut hash_input = [0u8; 72]; // 0x48 bytes (72 bytes)
+            
+            // Set the DST tag at offset 0x03
+            hash_input[3] = Self::CHALLENGE_DST_TAG;
+            
+            // Copy current state
+            hash_input[4..36].copy_from_slice(&self.state_part_0);  // STATE_0 at offset 0x04
+            hash_input[36..68].copy_from_slice(&self.state_part_1); // STATE_1 at offset 0x24
+            
+            // Set the challenge counter - shifted left by 224 bits (28 bytes)
+            // This puts the counter in the most significant position in a 32-byte word
+            // In Solidity: shl(224, numberOfChallenge)
+            hash_input[68] = (self.challenge_counter >> 24) as u8;  // Most significant byte
+            hash_input[69] = (self.challenge_counter >> 16) as u8;
+            hash_input[70] = (self.challenge_counter >> 8) as u8;
+            hash_input[71] = self.challenge_counter as u8;          // Least significant byte
+            
+            if self.debug_mode {
+                println!("[Challenge #{} Input] Full hash input: 0x{}", 
+                        self.challenge_counter, 
+                        hex_encode(&hash_input));
+            }
+            
+            // Increment the counter AFTER using it for this challenge
+            let current_counter = self.challenge_counter;
+            self.challenge_counter += 1;
+            
+            let mut value = [0u8; 32];
+            let mut hasher = Keccak::new_keccak256();
+            hasher.update(&hash_input);
+            hasher.finalize(&mut value);
+            
+            if self.debug_mode {
+                println!("[Challenge #{} Raw] 0x{}", current_counter, hex_encode(&value));
+            }
+            
+            value
+        }
+        
+        // Get a challenge as a ScalarField element
+        fn get_challenge(&mut self) -> ScalarField {
+            let mut result = self.get_challenge_raw();
+            
+            // Apply the field reduction - mask the top bits to ensure it's within the field
+            // This matches the Solidity FR_MASK = 0x1fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+            result[0] &= 0x1f;
+
+            result.reverse();
+            
+            if self.debug_mode {
+                println!("[Challenge Masked] 0x{}", hex_encode(&result));
+            }
+            
+            // Convert to scalar field
+            let scalar = ScalarField::from_bytes_le(&result);
+            
+            // Ensure never zero
+            if scalar == ScalarField::zero() {
+                self.debug_print("Challenge was zero, returning one instead");
+                return ScalarField::one();
+            }
+            
+            if self.debug_mode {
+                println!("[Challenge Final] 0x{}", hex_string(&scalar));
+            }
+            
+            scalar
+        }
+        
+        // Helper method to convert a field element to bytes, aligned for Solidity
+        fn field_to_bytes<T: FieldImpl>(&self, element: &T) -> [u8; 32] {
+            let mut le_bytes = element.to_bytes_le();
+            
+            // Ensure it's no more than 32 bytes
+            if le_bytes.len() > 32 {
+                let len = le_bytes.len();
+                le_bytes = le_bytes[(len-32)..].to_vec();
+            }
+            
+            // Convert to big-endian
+            le_bytes.reverse();
+            
+            // Create a properly aligned 32-byte array
+            let mut result = [0u8; 32];
+            let start_idx = 32 - le_bytes.len();
+            result[start_idx..].copy_from_slice(&le_bytes);
+            
+            result
+        }
+        
+        // Commit a standard 32-byte scalar field element
+        // This is used for BLS12-381 scalar field elements (Fr)
+        pub fn commit_field_as_bytes<T: FieldImpl>(&mut self, element: &T) -> Result<(), &'static str> {
+            let bytes = self.field_to_bytes(element);
+            
+            if self.debug_mode {
+                println!("[Scalar Field Commit] BE bytes: 0x{}", hex_encode(&bytes));
+            }
+            
+            self.update(&bytes)
+        }
+        
+        // Commit a BLS12-381 field element (split into two parts)
+        pub fn commit_bls12_381_field_element<T: FieldImpl>(&mut self, element: &T) -> Result<(), &'static str> {
+            // Get field element as bytes (little-endian)
+            let mut le_bytes = element.to_bytes_le();
+            
+            // Ensure it's 48 bytes (384 bits) long
+            while le_bytes.len() < 48 {
+                le_bytes.push(0);
+            }
+            
+            // Convert to big-endian
+            le_bytes.reverse();
+            
+            // Split into part1 (first 16 bytes) and part2 (remaining 32 bytes)
+            let part1 = &le_bytes[0..16];
+            let part2 = &le_bytes[16..48];
+            
+            if self.debug_mode {
+                println!("[BLS12-381 Field] Original (BE): 0x{}", hex_encode(&le_bytes));
+                println!("[BLS12-381 Field] Part1 (16 bytes): 0x{}", hex_encode(part1));
+                println!("[BLS12-381 Field] Part2 (32 bytes): 0x{}", hex_encode(part2));
+            }
+            
+            // Create padded part1 (16 bytes of zeros + 16 bytes of part1)
+            let mut part1_padded = [0u8; 32];
+            part1_padded[16..32].copy_from_slice(part1);
+            
+            if self.debug_mode {
+                println!("[BLS12-381 Field] Part1 padded (32 bytes): 0x{}", hex_encode(&part1_padded));
+            }
+            
+            // Commit each part separately
+            self.update(&part1_padded)?;
+            self.update(part2)?;
+            
+            Ok(())
+        }
+        
+        // Helper function to commit a G1 point
+        pub fn commit_g1_point(&mut self, point: &G1serde) -> Result<(), &'static str> {
+            // Since we've had issues with the G1 point commitments, let's be extra careful here
+            // and commit each part individually with complete state information
+            let x = &point.0.x;
+            let y = &point.0.y;
+            
+            if self.debug_mode {
+                println!("[G1 Point Commit] Committing X: {}", any_field_to_hex(x));
+            }
+            self.commit_bls12_381_field_element(x)?;
+            
+            if self.debug_mode {
+                println!("[G1 Point Commit] Committing Y: {}", any_field_to_hex(y));
+            }
+            self.commit_bls12_381_field_element(y)?;
+            
+            Ok(())
+        }
+        
+        // Get multiple challenges
+        pub fn get_challenges(&mut self, count: usize) -> Vec<ScalarField> {
+            let mut challenges = Vec::with_capacity(count);
+            for _ in 0..count {
+                challenges.push(self.get_challenge());
+            }
+            challenges
+        }
+        
+        // Commit raw bytes (mainly for testing)
+        pub fn commit_bytes(&mut self, bytes: &[u8]) -> Result<(), &'static str> {
+            self.update(bytes)
+        }
+    }
+
+
+    #[derive(Clone)]
+    pub struct TranscriptManager {
+        pub transcript: RollingKeccakTranscript
+    }
+
+    impl TranscriptManager {
+        pub fn new() -> Self {
+            Self {
+                transcript: RollingKeccakTranscript::new()
+            }
+        }
+        
+        pub fn add_proof0(&mut self, proof: &Proof0) {
+            //println!("Adding proof0 commitments to transcript...");
+            
+            // Add each field element individually to match the verifier exactly
+            // Order is critical: U_x, U_y, V_x, V_y, etc.
+            match self.transcript.commit_bls12_381_field_element(&proof.U.0.x) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit U.x: {}", e)
+            }
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.U.0.y) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit U.y: {}", e)
+            }
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.V.0.x) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit V.x: {}", e)
+            }
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.V.0.y) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit V.y: {}", e)
+            }
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.W.0.x) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit W.x: {}", e)
+            }
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.W.0.y) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit W.y: {}", e)
+            }
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.Q_AX.0.x) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit Q_AX.x: {}", e)
+            }
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.Q_AX.0.y) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit Q_AX.y: {}", e)
+            }
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.Q_AY.0.x) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit Q_AY.x: {}", e)
+            }
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.Q_AY.0.y) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit Q_AY.y: {}", e)
+            }
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.B.0.x) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit B.x: {}", e)
+            }
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.B.0.y) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit B.y: {}", e)
+            }
+        }
+        
+        pub fn get_thetas(&mut self) -> Vec<ScalarField> {
+            //println!("Generating thetas from transcript...");
+            let thetas = self.transcript.get_challenges(3);
+            
+            // Print challenges for debugging
+            /*
+            for (i, theta) in thetas.iter().enumerate() {
+                println!("Theta_{}: {}", i, hex_string(theta));
+            }
+            */
+            thetas
+        }
+        
+        pub fn add_proof1(&mut self, proof: &Proof1) {
+            //println!("Adding proof1 commitments to transcript...");
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.R.0.x) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit R.x: {}", e)
+            }
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.R.0.y) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit R.y: {}", e)
+            }
+        }
+        
+        pub fn get_kappa0(&mut self) -> ScalarField {
+            //println!("Generating kappa0 from transcript...");
+            let kappa0 = self.transcript.get_challenge();
+            //println!("Kappa0: {}", hex_string(&kappa0));
+            kappa0
+        }
+        
+        pub fn add_proof2(&mut self, proof: &Proof2) {
+            //println!("Adding proof2 commitments to transcript...");
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.Q_CX.0.x) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit Q_CX.x: {}", e)
+            }
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.Q_CX.0.y) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit Q_CX.y: {}", e)
+            }
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.Q_CY.0.x) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit Q_CY.x: {}", e)
+            }
+            
+            match self.transcript.commit_bls12_381_field_element(&proof.Q_CY.0.y) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit Q_CY.y: {}", e)
+            }
+        }
+        
+        pub fn get_chi_zeta(&mut self) -> (ScalarField, ScalarField) {
+            //println!("Generating chi and zeta from transcript...");
+            let chi = self.transcript.get_challenge();
+            let zeta = self.transcript.get_challenge();
+            
+            //println!("Chi: {}", hex_string(&chi));
+            //println!("Zeta: {}", hex_string(&zeta));
+            
+            (chi, zeta)
+        }
+        
+        pub fn add_proof3(&mut self, proof: &Proof3) {
+            //println!("Adding proof3 commitments to transcript...");
+            
+            match self.transcript.commit_field_as_bytes(&proof.V_eval.0) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit V_eval: {}", e)
+            }
+            
+            match self.transcript.commit_field_as_bytes(&proof.R_eval.0) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit R_eval: {}", e)
+            }
+            
+            match self.transcript.commit_field_as_bytes(&proof.R_omegaX_eval.0) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit R_omegaX_eval: {}", e)
+            }
+            
+            match self.transcript.commit_field_as_bytes(&proof.R_omegaX_omegaY_eval.0) {
+                Ok(_) => {},
+                Err(e) => panic!("Failed to commit R_omegaX_omegaY_eval: {}", e)
+            }
+        }
+        
+        pub fn get_kappa1(&mut self) -> ScalarField {
+            //println!("Generating kappa1 from transcript...");
+            let kappa1 = self.transcript.get_challenge();
+            //println!("Kappa1: {}", hex_string(&kappa1));
+            kappa1
+        }
+        
+        pub fn get_kappa2(&mut self) -> ScalarField {
+            //println!("Generating kappa2 from transcript...");
+            let kappa2 = self.transcript.get_challenge();
+            //println!("Kappa2: {}", hex_string(&kappa2));
+            kappa2
         }
     }

@@ -32,7 +32,6 @@ impl Verifier {
         // Extract key parameters from setup_params
         let l = setup_params.l;     // Number of public I/O wires
         let l_d = setup_params.l_D; // Number of interface wires
-        let s_d = setup_params.s_D; // Number of subcircuits
         let n = setup_params.n;     // Number of constraints per subcircuit
         let s_max = setup_params.s_max; // The maximum number of placements
         let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
@@ -81,8 +80,10 @@ impl Verifier {
 
         // Load Proof
         let proof_path = "prove/output/proof.json";
-        let proof = Proof::read_from_json(&proof_path)
-        .expect("No proof is found. Run the Prove first.");
+        // let proof = Proof::read_from_json(&proof_path)
+        // .expect("No proof is found. Run the Prove first.");
+        let proof = FormattedProof::read_from_json(&proof_path)
+        .expect("No proof is found. Run the Prove first.").recover_proof_from_format();
 
         return Self {
             sigma, 

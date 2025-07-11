@@ -461,21 +461,18 @@ impl SubcircuitR1CS{
             let b_constraint = &constraint[1];
             let c_constraint = &constraint[2];
         
-            // a_constraint 처리: 각 wire_idx에 대해 'wire_idx * column_size'를 한 번만 계산하도록 함.
             for col_idx in 0..A_len {
                 if let Some(hex_val) = a_constraint.get(&A_active_wire_indices[col_idx]) {
                     let idx = A_len * row_idx + col_idx;
                     A_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
                 }
             }
-            // b_constraint 처리
             for col_idx in 0..B_len {
                 if let Some(hex_val) = b_constraint.get(&B_active_wire_indices[col_idx]) {
                     let idx = B_len * row_idx + col_idx;
                     B_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
                 }
             }
-            // c_constraint 처리
             for col_idx in 0..C_len {
                 if let Some(hex_val) = c_constraint.get(&C_active_wire_indices[col_idx]) {
                     let idx = C_len * row_idx + col_idx;
