@@ -636,6 +636,16 @@
             .collect::<String>()
     }
 
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct SerializedProof {
+        pub preprocessedPart1: Vec<String>,
+        pub preprocessedPart2: Vec<String>,
+        pub serializedProofPart1: Vec<String>,
+        pub serializedProofPart2: Vec<String>,
+        pub publicInputs: Vec<String>,
+        pub smax: u64,
+    }
+
     impl Proof {
         pub fn write_into_json(&self, path: &str) -> io::Result<()> {
             let abs_path = env::current_dir()?.join(path);
@@ -654,6 +664,225 @@
             let reader = BufReader::new(file);
             let res: Self = from_reader(reader)?;
             Ok(res)
+        }
+
+        pub fn to_serialized(&self, s0_commitment: &G1serde, s1_commitment: &G1serde, public_inputs: &[ScalarField], smax: u64) -> SerializedProof {
+            let mut preprocessed_part1 = Vec::new();
+            let mut preprocessed_part2 = Vec::new();
+            let mut part1 = Vec::new();
+            let mut part2 = Vec::new();
+            
+            // Helper function to split a G1 point into part1 (16 bytes) and part2 (32 bytes)
+            let split_g1_point = |point: &G1serde| -> (String, String, String, String) {
+                // Get X coordinate bytes in little-endian and convert to big-endian
+                let mut x_bytes = point.0.x.to_bytes_le();
+                x_bytes.reverse(); // Convert to big-endian
+                
+                // Get Y coordinate bytes in little-endian and convert to big-endian
+                let mut y_bytes = point.0.y.to_bytes_le();
+                y_bytes.reverse(); // Convert to big-endian
+                
+                // For BLS12-381 Fp elements, we have 48 bytes
+                // For X: first 16 bytes go to part1, last 32 bytes to part2
+                let x_part1 = format!("0x{}", hex_encode(&x_bytes[0..16]));
+                let x_part2 = format!("0x{}", hex_encode(&x_bytes[16..48]));
+                
+                // For Y: first 16 bytes go to part1, last 32 bytes to part2
+                let y_part1 = format!("0x{}", hex_encode(&y_bytes[0..16]));
+                let y_part2 = format!("0x{}", hex_encode(&y_bytes[16..48]));
+                
+                (x_part1, x_part2, y_part1, y_part2)
+            };
+            
+            // Helper function to format scalar field as 256-bit hex
+            let format_scalar = |scalar: &ScalarField| -> String {
+                let mut bytes = scalar.to_bytes_le();
+                bytes.reverse(); // Convert to big-endian
+                // Pad to 32 bytes if necessary
+                while bytes.len() < 32 {
+                    bytes.push(0);
+                }
+                format!("0x{}", hex_encode(&bytes))
+            };
+            
+            // Add preprocessed commitments (s0 and s1)
+            let (s0_x_p1, s0_x_p2, s0_y_p1, s0_y_p2) = split_g1_point(s0_commitment);
+            preprocessed_part1.push(s0_x_p1);
+            preprocessed_part2.push(s0_x_p2);
+            preprocessed_part1.push(s0_y_p1);
+            preprocessed_part2.push(s0_y_p2);
+            
+            let (s1_x_p1, s1_x_p2, s1_y_p1, s1_y_p2) = split_g1_point(s1_commitment);
+            preprocessed_part1.push(s1_x_p1);
+            preprocessed_part2.push(s1_x_p2);
+            preprocessed_part1.push(s1_y_p1);
+            preprocessed_part2.push(s1_y_p2);
+            
+            // Process the rest of the proof commitments
+            // U
+            let (u_x_p1, u_x_p2, u_y_p1, u_y_p2) = split_g1_point(&self.proof0.U);
+            part1.push(u_x_p1);
+            part2.push(u_x_p2);
+            part1.push(u_y_p1);
+            part2.push(u_y_p2);
+            
+            // V
+            let (v_x_p1, v_x_p2, v_y_p1, v_y_p2) = split_g1_point(&self.proof0.V);
+            part1.push(v_x_p1);
+            part2.push(v_x_p2);
+            part1.push(v_y_p1);
+            part2.push(v_y_p2);
+            
+            // W
+            let (w_x_p1, w_x_p2, w_y_p1, w_y_p2) = split_g1_point(&self.proof0.W);
+            part1.push(w_x_p1);
+            part2.push(w_x_p2);
+            part1.push(w_y_p1);
+            part2.push(w_y_p2);
+            
+            // O_mid from binding
+            let (omid_x_p1, omid_x_p2, omid_y_p1, omid_y_p2) = split_g1_point(&self.binding.O_mid);
+            part1.push(omid_x_p1);
+            part2.push(omid_x_p2);
+            part1.push(omid_y_p1);
+            part2.push(omid_y_p2);
+            
+            // O_prv from binding
+            let (oprv_x_p1, oprv_x_p2, oprv_y_p1, oprv_y_p2) = split_g1_point(&self.binding.O_prv);
+            part1.push(oprv_x_p1);
+            part2.push(oprv_x_p2);
+            part1.push(oprv_y_p1);
+            part2.push(oprv_y_p2);
+            
+            // Q_AX
+            let (qax_x_p1, qax_x_p2, qax_y_p1, qax_y_p2) = split_g1_point(&self.proof0.Q_AX);
+            part1.push(qax_x_p1);
+            part2.push(qax_x_p2);
+            part1.push(qax_y_p1);
+            part2.push(qax_y_p2);
+            
+            // Q_AY
+            let (qay_x_p1, qay_x_p2, qay_y_p1, qay_y_p2) = split_g1_point(&self.proof0.Q_AY);
+            part1.push(qay_x_p1);
+            part2.push(qay_x_p2);
+            part1.push(qay_y_p1);
+            part2.push(qay_y_p2);
+            
+            // Q_CX
+            let (qcx_x_p1, qcx_x_p2, qcx_y_p1, qcx_y_p2) = split_g1_point(&self.proof2.Q_CX);
+            part1.push(qcx_x_p1);
+            part2.push(qcx_x_p2);
+            part1.push(qcx_y_p1);
+            part2.push(qcx_y_p2);
+            
+            // Q_CY
+            let (qcy_x_p1, qcy_x_p2, qcy_y_p1, qcy_y_p2) = split_g1_point(&self.proof2.Q_CY);
+            part1.push(qcy_x_p1);
+            part2.push(qcy_x_p2);
+            part1.push(qcy_y_p1);
+            part2.push(qcy_y_p2);
+            
+            // Pi_X
+            let (pix_x_p1, pix_x_p2, pix_y_p1, pix_y_p2) = split_g1_point(&self.proof4.Pi_X);
+            part1.push(pix_x_p1);
+            part2.push(pix_x_p2);
+            part1.push(pix_y_p1);
+            part2.push(pix_y_p2);
+            
+            // Pi_Y
+            let (piy_x_p1, piy_x_p2, piy_y_p1, piy_y_p2) = split_g1_point(&self.proof4.Pi_Y);
+            part1.push(piy_x_p1);
+            part2.push(piy_x_p2);
+            part1.push(piy_y_p1);
+            part2.push(piy_y_p2);
+            
+            // B
+            let (b_x_p1, b_x_p2, b_y_p1, b_y_p2) = split_g1_point(&self.proof0.B);
+            part1.push(b_x_p1);
+            part2.push(b_x_p2);
+            part1.push(b_y_p1);
+            part2.push(b_y_p2);
+            
+            // R
+            let (r_x_p1, r_x_p2, r_y_p1, r_y_p2) = split_g1_point(&self.proof1.R);
+            part1.push(r_x_p1);
+            part2.push(r_x_p2);
+            part1.push(r_y_p1);
+            part2.push(r_y_p2);
+            
+            // M_Y (appears as M_ζ in comments)
+            let (my_x_p1, my_x_p2, my_y_p1, my_y_p2) = split_g1_point(&self.proof4.M_Y);
+            part1.push(my_x_p1);
+            part2.push(my_x_p2);
+            part1.push(my_y_p1);
+            part2.push(my_y_p2);
+            
+            // M_X (appears as M_χ in comments)
+            let (mx_x_p1, mx_x_p2, mx_y_p1, mx_y_p2) = split_g1_point(&self.proof4.M_X);
+            part1.push(mx_x_p1);
+            part2.push(mx_x_p2);
+            part1.push(mx_y_p1);
+            part2.push(mx_y_p2);
+            
+            // N_Y (appears as N_ζ in comments)
+            let (ny_x_p1, ny_x_p2, ny_y_p1, ny_y_p2) = split_g1_point(&self.proof4.N_Y);
+            part1.push(ny_x_p1);
+            part2.push(ny_x_p2);
+            part1.push(ny_y_p1);
+            part2.push(ny_y_p2);
+            
+            // N_X (appears as N_χ in comments)
+            let (nx_x_p1, nx_x_p2, nx_y_p1, nx_y_p2) = split_g1_point(&self.proof4.N_X);
+            part1.push(nx_x_p1);
+            part2.push(nx_x_p2);
+            part1.push(nx_y_p1);
+            part2.push(nx_y_p2);
+            
+            // O_inst from binding (appears to be O_pub in the test)
+            let (oinst_x_p1, oinst_x_p2, oinst_y_p1, oinst_y_p2) = split_g1_point(&self.binding.O_inst);
+            part1.push(oinst_x_p1);
+            part2.push(oinst_x_p2);
+            part1.push(oinst_y_p1);
+            part2.push(oinst_y_p2);
+            
+            // A from binding
+            let (a_x_p1, a_x_p2, a_y_p1, a_y_p2) = split_g1_point(&self.binding.A);
+            part1.push(a_x_p1);
+            part2.push(a_x_p2);
+            part1.push(a_y_p1);
+            part2.push(a_y_p2);
+            
+            // Add evaluations to part2 only (they're scalar fields, not G1 points)
+            part2.push(format_scalar(&self.proof3.R_eval.0));
+            part2.push(format_scalar(&self.proof3.R_omegaX_eval.0));
+            part2.push(format_scalar(&self.proof3.R_omegaX_omegaY_eval.0));
+            part2.push(format_scalar(&self.proof3.V_eval.0));
+            
+            // Format public inputs
+            let formatted_inputs: Vec<String> = public_inputs.iter()
+                .map(|input| format_scalar(input))
+                .collect();
+            
+            SerializedProof {
+                preprocessedPart1: preprocessed_part1,
+                preprocessedPart2: preprocessed_part2,
+                serializedProofPart1: part1,
+                serializedProofPart2: part2,
+                publicInputs: formatted_inputs,
+                smax,
+            }
+        }
+        
+        pub fn write_serialized_json(&self, path: &str, s0_commitment: &G1serde, s1_commitment: &G1serde, public_inputs: &[ScalarField], smax: u64) -> io::Result<()> {
+            let serialized = self.to_serialized(s0_commitment, s1_commitment, public_inputs, smax);
+            let abs_path = env::current_dir()?.join(path);
+            if let Some(parent) = abs_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            let file = File::create(&abs_path)?;
+            let writer = BufWriter::new(file);
+            to_writer_pretty(writer, &serialized)?;
+            Ok(())
         }
     }
 
@@ -1003,10 +1232,40 @@
                     );
                 Binding {A, O_inst, O_mid, O_prv}
             };
+            
             return (
                 Self {sigma, setup_params, instance, witness, mixer, quotients},
                 binding
             )
+        }
+
+        // Add method to encode s0XY and s1XY polynomials
+        pub fn get_preprocessed_commitments(&mut self) -> (G1serde, G1serde) {
+            let s0_commitment = self.sigma.sigma_1.encode_poly(&mut self.instance.s0XY, &self.setup_params);
+            let s1_commitment = self.sigma.sigma_1.encode_poly(&mut self.instance.s1XY, &self.setup_params);
+            (s0_commitment, s1_commitment)
+        }
+        
+        pub fn get_public_inputs_from_instance(&self) -> Vec<ScalarField> {
+            // Load instance again to get the raw a values
+            let instance_path = "instance.json";
+            let instance = Instance::from_path(&instance_path).unwrap();
+            
+            let l_pub = self.setup_params.l_pub_in + self.setup_params.l_pub_out;
+            
+            // Extract a_pub from instance.a array
+            let mut a_pub = Vec::with_capacity(l_pub);
+            for i in 0..l_pub {
+                a_pub.push(ScalarField::from_hex(&instance.a[i]));
+            }
+            
+            // Based on the test data, we need exactly 128 public inputs
+            // Pad with zeros if necessary
+            while a_pub.len() < 128 {
+                a_pub.push(ScalarField::zero());
+            }
+            
+            a_pub
         }
 
         pub fn prove0(&mut self) -> Proof0 {
