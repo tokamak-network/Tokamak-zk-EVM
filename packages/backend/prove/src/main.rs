@@ -12,12 +12,6 @@ fn main() {
     let (mut prover, binding) = Prover::init();
     lap = timer.elapsed();
     println!("Prover init time: {:.6} seconds", lap.as_secs_f64());
-
-    // Get preprocessed commitments (s0 and s1)
-    let (s0_commitment, s1_commitment) = prover.get_preprocessed_commitments();
-    
-    // Get public inputs from instance.json
-    let public_inputs = prover.get_public_inputs_from_instance();
     
     // Get smax from setup parameters
     let smax = prover.setup_params.s_max as u64;
@@ -97,7 +91,7 @@ fn main() {
     
     println!("Writing the proof into JSON (new serialized format)...");
     let serialized_output_path = "prove/output/verifier_input.json";
-    proof.write_serialized_json(serialized_output_path, &s0_commitment, &s1_commitment, &public_inputs, smax).unwrap();
+    proof.write_serialized_json(serialized_output_path).unwrap();
 
     println!("Total proving time: {:.6} seconds", prove_start.elapsed().as_secs_f64());
 }

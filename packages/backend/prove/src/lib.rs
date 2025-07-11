@@ -638,12 +638,8 @@
 
     #[derive(Debug, Serialize, Deserialize)]
     pub struct SerializedProof {
-        pub preprocessedPart1: Vec<String>,
-        pub preprocessedPart2: Vec<String>,
         pub serializedProofPart1: Vec<String>,
         pub serializedProofPart2: Vec<String>,
-        pub publicInputs: Vec<String>,
-        pub smax: u64,
     }
 
     impl Proof {
@@ -666,9 +662,7 @@
             Ok(res)
         }
 
-        pub fn to_serialized(&self, s0_commitment: &G1serde, s1_commitment: &G1serde, public_inputs: &[ScalarField], smax: u64) -> SerializedProof {
-            let mut preprocessed_part1 = Vec::new();
-            let mut preprocessed_part2 = Vec::new();
+        pub fn to_serialized(&self) -> SerializedProof {
             let mut part1 = Vec::new();
             let mut part2 = Vec::new();
             
@@ -704,19 +698,6 @@
                 }
                 format!("0x{}", hex_encode(&bytes))
             };
-            
-            // Add preprocessed commitments (s0 and s1)
-            let (s0_x_p1, s0_x_p2, s0_y_p1, s0_y_p2) = split_g1_point(s0_commitment);
-            preprocessed_part1.push(s0_x_p1);
-            preprocessed_part2.push(s0_x_p2);
-            preprocessed_part1.push(s0_y_p1);
-            preprocessed_part2.push(s0_y_p2);
-            
-            let (s1_x_p1, s1_x_p2, s1_y_p1, s1_y_p2) = split_g1_point(s1_commitment);
-            preprocessed_part1.push(s1_x_p1);
-            preprocessed_part2.push(s1_x_p2);
-            preprocessed_part1.push(s1_y_p1);
-            preprocessed_part2.push(s1_y_p2);
             
             // Process the rest of the proof commitments
             // U
@@ -857,24 +838,16 @@
             part2.push(format_scalar(&self.proof3.R_omegaX_eval.0));
             part2.push(format_scalar(&self.proof3.R_omegaX_omegaY_eval.0));
             part2.push(format_scalar(&self.proof3.V_eval.0));
-            
-            // Format public inputs
-            let formatted_inputs: Vec<String> = public_inputs.iter()
-                .map(|input| format_scalar(input))
-                .collect();
+        
             
             SerializedProof {
-                preprocessedPart1: preprocessed_part1,
-                preprocessedPart2: preprocessed_part2,
                 serializedProofPart1: part1,
                 serializedProofPart2: part2,
-                publicInputs: formatted_inputs,
-                smax,
             }
         }
         
-        pub fn write_serialized_json(&self, path: &str, s0_commitment: &G1serde, s1_commitment: &G1serde, public_inputs: &[ScalarField], smax: u64) -> io::Result<()> {
-            let serialized = self.to_serialized(s0_commitment, s1_commitment, public_inputs, smax);
+        pub fn write_serialized_json(&self, path: &str) -> io::Result<()> {
+            let serialized = self.to_serialized();
             let abs_path = env::current_dir()?.join(path);
             if let Some(parent) = abs_path.parent() {
                 fs::create_dir_all(parent)?;
@@ -1237,35 +1210,6 @@
                 Self {sigma, setup_params, instance, witness, mixer, quotients},
                 binding
             )
-        }
-
-        // Add method to encode s0XY and s1XY polynomials
-        pub fn get_preprocessed_commitments(&mut self) -> (G1serde, G1serde) {
-            let s0_commitment = self.sigma.sigma_1.encode_poly(&mut self.instance.s0XY, &self.setup_params);
-            let s1_commitment = self.sigma.sigma_1.encode_poly(&mut self.instance.s1XY, &self.setup_params);
-            (s0_commitment, s1_commitment)
-        }
-        
-        pub fn get_public_inputs_from_instance(&self) -> Vec<ScalarField> {
-            // Load instance again to get the raw a values
-            let instance_path = "instance.json";
-            let instance = Instance::from_path(&instance_path).unwrap();
-            
-            let l_pub = self.setup_params.l_pub_in + self.setup_params.l_pub_out;
-            
-            // Extract a_pub from instance.a array
-            let mut a_pub = Vec::with_capacity(l_pub);
-            for i in 0..l_pub {
-                a_pub.push(ScalarField::from_hex(&instance.a[i]));
-            }
-            
-            // Based on the test data, we need exactly 128 public inputs
-            // Pad with zeros if necessary
-            while a_pub.len() < 128 {
-                a_pub.push(ScalarField::zero());
-            }
-            
-            a_pub
         }
 
         pub fn prove0(&mut self) -> Proof0 {
