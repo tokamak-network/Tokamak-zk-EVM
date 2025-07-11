@@ -8,7 +8,7 @@ use ark_ff::{Field, PrimeField, Fp12};
 use icicle_runtime::memory::HostSlice;
 use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
 use crate::field_structures::{FieldSerde, Tau};
-use crate::iotools::{from_coef_vec_to_g1serde_mat, from_coef_vec_to_g1serde_vec, scaled_outer_product_1d, scaled_outer_product_2d, Permutation, PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
+use crate::iotools::{from_coef_vec_to_g1serde_mat, from_coef_vec_to_g1serde_vec, from_coef_vec_to_g1serde_vec_msm, scaled_outer_product_1d, scaled_outer_product_2d, Permutation, PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use crate::vector_operations::{*};
 
 use serde::{Deserialize, Serialize};
@@ -694,10 +694,63 @@ impl Mul<G1serde> for FieldSerde {
 }
 
 
-
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, PartialEq)]
 pub struct G2serde(pub G2Affine);
+impl G2serde {
+    pub fn zero() -> Self {
+        Self(G2Affine::zero())
+    }
+}
+//new added for G2Serde
+impl Add for G2serde {
+    type Output = Self;
 
+    fn add(self, other: Self) -> Self {
+        G2serde(G2Affine::from(self.0.to_projective() + other.0.to_projective()))
+    }
+}
+
+impl Sub for G2serde {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        G2serde(G2Affine::from(self.0.to_projective() - other.0.to_projective()))
+    }
+}
+
+// G2serde * original field
+impl Mul<ScalarField> for G2serde {
+    type Output = Self;
+
+    fn mul(self, other: ScalarField) -> Self {
+        G2serde(G2Affine::from(self.0.to_projective() * other))
+    }
+}
+// original field * G2serde
+impl Mul<G2serde> for ScalarField {
+    type Output = G2serde;
+
+    fn mul(self, other: G2serde) -> Self::Output {
+        G2serde(G2Affine::from(other.0.to_projective() * self))
+    }
+}
+
+// G2serde * FieldSerde
+impl Mul<FieldSerde> for G2serde {
+    type Output = Self;
+
+    fn mul(self, other: FieldSerde) -> Self {
+        G2serde(G2Affine::from(self.0.to_projective() * other.0))
+    }
+}
+// original field * G2serde
+impl Mul<G2serde> for FieldSerde {
+    type Output = G2serde;
+
+    fn mul(self, other: G2serde) -> Self::Output {
+        G2serde(G2Affine::from(other.0.to_projective() * self.0))
+    }
+}
 
 pub fn icicle_g1_affine_to_ark(g: &G1Affine) -> ArkG1Affine {
     let x_bytes = g.x.to_bytes_le();

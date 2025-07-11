@@ -2,9 +2,9 @@
 members = [
     "libs",
     "setup/trusted-setup",
+    "setup/mpc-setup",
     "prove",
     "verify/verify-rust",
-    "protocol-script",
     "verify/preprocess"
 ]
 
@@ -13,10 +13,10 @@ edition = "2021"
 version = "0.1.0"
 
 [workspace.dependencies]
-icicle-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.7.0", package = "icicle-runtime" }
-icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.7.0", package = "icicle-core" }
-icicle-hash = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.7.0", package = "icicle-hash" }
-icicle-bls12-381 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.7.0", package = "icicle-bls12-381"}
+icicle-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-runtime" }
+icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-core" }
+icicle-hash = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-hash" }
+icicle-bls12-381 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-bls12-381"}
 ark-bls12-381 = "0.5.0"
 ark-ec = "0.5.0"
 ark-ff = "0.5.0"

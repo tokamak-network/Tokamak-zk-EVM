@@ -77,14 +77,6 @@
         pub q7XY: DensePolynomialExt,
     }
 
-    pub struct Challenge {
-        pub thetas: Box<[ScalarField]>,
-        pub chi: ScalarField,
-        pub zeta: ScalarField,
-        pub kappa0: ScalarField,
-        pub kappa1: ScalarField,
-        pub kappa2: ScalarField,
-    }
 
     pub struct Prover{
         pub setup_params: SetupParams,
@@ -564,12 +556,12 @@
             kappa1
         }
         
-        pub fn get_kappa2(&mut self) -> ScalarField {
-            //println!("Generating kappa2 from transcript...");
-            let kappa2 = self.transcript.get_challenge();
-            //println!("Kappa2: {}", hex_string(&kappa2));
-            kappa2
-        }
+        // pub fn get_kappa2(&mut self) -> ScalarField {
+        //     //println!("Generating kappa2 from transcript...");
+        //     let kappa2 = self.transcript.get_challenge();
+        //     //println!("Kappa2: {}", hex_string(&kappa2));
+        //     kappa2
+        // }
     }
 
     // Helper function to convert a scalar field element to a hex string

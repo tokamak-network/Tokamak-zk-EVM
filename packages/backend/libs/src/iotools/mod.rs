@@ -3,15 +3,17 @@ use icicle_core::ntt;
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use icicle_core::msm::{self, MSMConfig};
+use icicle_runtime::{self, Device, memory::{HostSlice, DeviceVec}};
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use crate::field_structures::FieldSerde;
 use crate::group_structures::{G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify, Preprocess};
 use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use crate::polynomial_structures::{from_subcircuit_to_QAP, QAP};
+use crate::utils::{check_device, check_gpu};
 use crate::vector_operations::transpose_inplace;
 
 use super::vector_operations::{*};
 
-use icicle_runtime::memory::{HostSlice, DeviceVec};
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, stdout, Write};
 use std::{env, fmt};
@@ -260,6 +262,7 @@ pub struct OutPts {
     pub offset: usize,
     pub valueHex: String,
 }
+
 #[derive(Debug, Deserialize)]
 pub struct PublicOutputBuffer {
     pub outPts: Box<[OutPts]>
@@ -271,6 +274,7 @@ pub struct InPts {
     pub key: String,
     pub valueHex: String,
 }
+
 #[derive(Debug, Deserialize)]
 pub struct PublicInputBuffer {
     pub inPts: Box<[InPts]>
@@ -512,9 +516,7 @@ impl QAP{
         let global_wire_file_name = "globalWireList.json";
         let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_file_name).unwrap();
 
-        let zero_coef_vec = [ScalarField::zero()];
-        let zero_coef = HostSlice::from_slice(&zero_coef_vec);
-        let zero_poly = DensePolynomialExt::from_coeffs(zero_coef, 1, 1);
+        let zero_poly = DensePolynomialExt::zero();
         let mut u_j_X = vec![zero_poly.clone(); m_d];
         let mut v_j_X = vec![zero_poly.clone(); m_d];
         let mut w_j_X = vec![zero_poly.clone(); m_d];
@@ -717,49 +719,99 @@ pub fn scaled_outer_product_1d(
     );
 }
 
-pub fn from_coef_vec_to_g1serde_vec(coef: &[ScalarField], gen: &G1Affine, res: &mut [G1serde]) {
-    use std::sync::atomic::{AtomicU32, Ordering};
-    use rayon::prelude::*;
-    use std::io::{stdout, Write};
+pub fn from_coef_vec_to_g1serde_vec_msm(
+    coef: &Box<[ScalarField]>,
+    gen: &G1Affine,
+    res: &mut [G1serde],
+) {
+    println!("msm");
+    let n = coef.len();
 
-    if res.len() != coef.len() {
-        panic!("Not enough buffer length.")
-    }
-    if coef.len() == 0 {
-        return
-    }
+    let t_start = Instant::now();
 
-    let gen_proj = gen.to_projective(); 
+    let scalars_host = HostSlice::from_slice(coef.as_ref());
 
-    let cnt = AtomicU32::new(1);
-    let progress = AtomicU32::new(0);
-    let _tick: u32 = std::cmp::max(coef.len() as u32 / 10, 1);
-    let tick = AtomicU32::new(_tick);
-    res.par_iter_mut()
-        .zip(coef.par_iter())
-        .for_each(|(r, &c)| {
-            *r = G1serde(G1Affine::from(gen_proj * c));
-            let current_cnt = cnt.fetch_add(1, Ordering::Relaxed);
-            let target_tick = tick.load(Ordering::Relaxed);
-            if current_cnt >= target_tick {
-                if tick
-                .compare_exchange(target_tick, target_tick + _tick, Ordering::Relaxed, Ordering::Relaxed)
-                .is_ok()
-                {
-                    progress.fetch_add(10, Ordering::Relaxed);
-                    let new_progress = progress.load(Ordering::Relaxed);
-                    print!("\rProgress: {}%, {} elements out of {}.", new_progress, current_cnt, coef.len());
-                    stdout().flush().unwrap();
-                }
-            }
+    let mut pts = Vec::with_capacity(n);
+    pts.resize(n, *gen);
+
+    let points_host = HostSlice::from_slice(&pts);
+
+    let mut result_dev = DeviceVec::<G1Projective>::device_malloc(n)
+        .expect("device_malloc failed");
+
+    let cfg = msm::MSMConfig::default();
+
+    msm::msm(
+        scalars_host,       // &[ScalarField]
+        points_host,        // &[G1Affine]
+        &cfg,
+        &mut result_dev[..] // &mut DeviceSlice<G1Projective>
+    ).expect("msm failed");
+
+    let mut host_out = vec![G1Projective::zero(); n];
+    result_dev
+        .copy_to_host(HostSlice::from_mut_slice(&mut host_out))
+        .expect("copy_to_host failed");
+  
+    drop(result_dev);
+    // drop(points_host);
+    // drop(scalars_host);
+    
+    host_out
+        .into_par_iter()
+        .zip(res.par_iter_mut())
+        .for_each(|(proj, slot)| {
+            *slot = G1serde(G1Affine::from(proj));
         });
-    print!("\r");
 
-    // HostSlice 두개
-    // coeff으 ㅣ벡터와 gen 포인트 하나.
-    // coeff의 벡터 하나와 gen을 복사해서 벡터로.
+    println!("Total elapsed: {:?}", t_start.elapsed());
+}
 
-    // println!("Number of nonzero coefficients: {:?}", coef.len() - nzeros);
+pub fn from_coef_vec_to_g1serde_vec(coef: &[ScalarField], gen: &G1Affine, res: &mut [G1serde]) {
+    if check_gpu() {
+        from_coef_vec_to_g1serde_vec_msm(&coef.to_vec().into_boxed_slice(), gen, res);
+    } else {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        use rayon::prelude::*;
+        use std::io::{stdout, Write};
+
+        let t_start = Instant::now();
+
+        if res.len() != coef.len() {
+            panic!("Not enough buffer length.")
+        }
+        if coef.len() == 0 {
+            return
+        }
+
+        let gen_proj = gen.to_projective(); 
+
+        let cnt = AtomicU32::new(1);
+        let progress = AtomicU32::new(0);
+        let _tick: u32 = std::cmp::max(coef.len() as u32 / 10, 1);
+        let tick = AtomicU32::new(_tick);
+        res.par_iter_mut()
+            .zip(coef.par_iter())
+            .for_each(|(r, &c)| {
+                *r = G1serde(G1Affine::from(gen_proj * c));
+                let current_cnt = cnt.fetch_add(1, Ordering::Relaxed);
+                let target_tick = tick.load(Ordering::Relaxed);
+                if current_cnt >= target_tick {
+                    if tick
+                    .compare_exchange(target_tick, target_tick + _tick, Ordering::Relaxed, Ordering::Relaxed)
+                    .is_ok()
+                    {
+                        progress.fetch_add(10, Ordering::Relaxed);
+                        let new_progress = progress.load(Ordering::Relaxed);
+                        print!("\rProgress: {}%, {} elements out of {}.", new_progress, current_cnt, coef.len());
+                        stdout().flush().unwrap();
+                    }
+                }
+            });
+        println!("\n");
+        println!("Total elapsed: {:?}", t_start.elapsed());
+        print!("\r");
+    }
 }
 
 pub fn gen_g1serde_vec_of_xy_monomials(
