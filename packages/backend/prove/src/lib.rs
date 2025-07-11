@@ -77,50 +77,6 @@
         pub q7XY: DensePolynomialExt,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct ChallengeSerde {
-        pub thetas: Vec<String>,
-        pub chi: String,
-        pub zeta: String,
-        pub kappa0: String,
-        pub kappa1: String,
-        pub kappa2: String,
-    }
-
-    impl From<Challenge> for ChallengeSerde {
-        fn from(challenge: Challenge) -> Self {
-            // Convert each field element to a hex string for serialization
-            let thetas_vec: Vec<String> = challenge.thetas.iter()
-                .map(|theta| {
-                    let mut bytes = theta.to_bytes_le();
-                    bytes.reverse(); // ✅ Reverse bytes to match verifier
-                    // Convert to hex format without 0x prefix
-                    bytes.iter()
-                        .map(|byte| format!("{:02x}", byte))
-                        .collect::<String>()
-                })
-                .collect();
-                
-            // Helper function to convert a field element to hex string
-            let to_hex = |field: &ScalarField| {
-                let mut bytes = field.to_bytes_le();
-                bytes.reverse(); // ✅ Reverse bytes to match verifier
-                bytes.iter()
-                    .map(|byte| format!("{:02x}", byte))
-                    .collect::<String>()
-            };
-            
-            ChallengeSerde {
-                thetas: thetas_vec,
-                chi: to_hex(&challenge.chi),
-                zeta: to_hex(&challenge.zeta),
-                kappa0: to_hex(&challenge.kappa0),
-                kappa1: to_hex(&challenge.kappa1),
-                kappa2: to_hex(&challenge.kappa2),
-            }
-        }
-    }
-
     pub struct Challenge {
         pub thetas: Box<[ScalarField]>,
         pub chi: ScalarField,
@@ -147,7 +103,6 @@
         pub proof2: Proof2,
         pub proof3: Proof3,
         pub proof4: Proof4,
-        pub challenge: ChallengeSerde
     }
 
     // ===== TRANSCRIPT =====

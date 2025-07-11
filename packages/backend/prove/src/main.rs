@@ -1,5 +1,5 @@
 use std::time::{Duration, Instant};
-use prove::{Prover, Proof, TranscriptManager, Challenge, ChallengeSerde};
+use prove::{Prover, Proof, TranscriptManager, Challenge};
 
 fn main() {
     let prove_start = Instant::now();
@@ -71,9 +71,6 @@ fn main() {
         kappa1,
         kappa2,
     };
-
-    // Convert to serializable version
-    let challenge_serde = ChallengeSerde::from(challenge);
     
     let proof = Proof {
         binding, 
@@ -81,8 +78,7 @@ fn main() {
         proof1, 
         proof2, 
         proof3, 
-        proof4,
-        challenge: challenge_serde,
+        proof4
     };
     
     println!("Writing the proof into JSON (old format)...");
