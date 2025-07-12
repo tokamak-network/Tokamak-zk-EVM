@@ -1,13 +1,9 @@
 use std::time::{Duration, Instant};
-use prove::{Prover, Proof, TranscriptManager, Challenge};
-use icicle_runtime::{self, Device};
-use libs::utils::check_device;
+use prove::{Prover, Proof, TranscriptManager};
 
 fn main() {
     let prove_start = Instant::now();
-
-    check_device();
-
+    
     let mut timer: Instant;
     let mut lap: Duration;
     
@@ -16,9 +12,6 @@ fn main() {
     let (mut prover, binding) = Prover::init();
     lap = timer.elapsed();
     println!("Prover init time: {:.6} seconds", lap.as_secs_f64());
-    
-    // Get smax from setup parameters
-    let smax = prover.setup_params.s_max as u64;
 
     // Initialize the transcript manager
     let mut manager = TranscriptManager::new();
@@ -56,7 +49,9 @@ fn main() {
     lap = timer.elapsed();
     println!("prove3 running time: {:.6} seconds", lap.as_secs_f64());
 
+    // Use the manager to get kappa1 and kappa2
     let kappa1 = proof3.verify3_with_manager(&mut manager);
+    // let kappa2 = manager.get_kappa2();
     
     println!("Running prove4...");
     timer = Instant::now();
@@ -64,16 +59,18 @@ fn main() {
     lap = timer.elapsed();
     println!("prove4 running time: {:.6} seconds", lap.as_secs_f64());
 
+    // // Create the challenge struct
+    // let challenge = Challenge {
+    //     thetas: thetas.into_boxed_slice(),
+    //     chi,
+    //     zeta,
+    //     kappa0,
+    //     kappa1,
+    //     kappa2,
+    // };
 
-    // Create the challenge struct
-    let challenge = Challenge {
-        thetas: thetas.into_boxed_slice(),
-        chi,
-        zeta,
-        kappa0,
-        kappa1,
-        kappa2,
-    };
+    // // Convert to serializable version
+    // let challenge_serde = ChallengeSerde::from(challenge);
     
     let proof = Proof {
         binding, 
@@ -81,16 +78,18 @@ fn main() {
         proof1, 
         proof2, 
         proof3, 
-        proof4
+        proof4,
+        // challenge: challenge_serde,
     };
     
-    println!("Writing the proof into JSON (old format)...");
-    let output_path = "prove/output/proof.json";
-    proof.write_into_json(output_path).unwrap();
+    // println!("Writing the proof into JSON (old format)...");
+    // let output_path = "prove/output/proof.json";
+    // proof.write_into_json(output_path).unwrap();
     
-    println!("Writing the proof into JSON (new serialized format)...");
-    let serialized_output_path = "prove/output/verifier_input.json";
-    proof.write_serialized_json(serialized_output_path).unwrap();
+    println!("Writing the proof into JSON (formatted for Solidity verifier)...");
+    let formatted_proof = proof.convert_format_for_solidity_verifier();
+    let output_path = "prove/output/proof.json";
+    formatted_proof.write_into_json(output_path).unwrap();
 
     println!("Total proving time: {:.6} seconds", prove_start.elapsed().as_secs_f64());
 }
