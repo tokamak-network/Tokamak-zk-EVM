@@ -92,42 +92,38 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 | [`mpc-setup`](./packages/backend/setup/mpc-setup) | Tokamak zk-SNARK's setup alogirhtm (multi-party computation version) | rust |
 | [`trusted-setup`](./packages/backend/setup/trusted-setup) | Tokamak zk-SNARK's setup algorithm (trusted single entity version) | rust |
 | [`prover`](./packages/backend/prove) | Tokamak zk-SNARK's proving algorithm | rust |
-| [`verify`](./packages/backend/verify) | Tokamak zk-SNARK's verifying algorithm | rust, solidity, javascript |
+| [`verify`](./packages/backend/verify) | Tokamak zk-SNARK's verifying algorithm | rust, solidity |
 
 ## Package Versions
 | Package | Current Version | Status |
 |---------|----------------|---------|
-| `qap-compiler` | v0.2.0 | 🧪 Beta |
-| `synthesizer` | v0.1.2 | 🔥 Alpha |
-| `libs` | v0.1.0 | 🔥 Alpha |
-| `prover` | - | 🚧 Planned |
+| `qap-compiler` | v0.5.0 | 🧪 Beta |
+| `synthesizer` | v0.5.0 | 🧪 Beta |
+| `libs` | v0.5.0 | 🧪 Beta |
+| `prove` | v0.5.0 | 🧪 Beta |
 | `mpc-setup` | - | 🚧 Planned |
-| `trusted-setup` | - | 🚧 Planned |
-| `verify-rust` | - | 🚧 Planned |
-| `verify-sol` | - | 🔥  Alpha |
+| `trusted-setup` | v0.5.0 | 🧪 Beta |
+| `verify-rust` | v0.5.0 | 🧪 Beta |
+| `verify-sol` | v0.0.1 | 🔥  Alpha |
 
 
 ### Version Strategy
-🔥 Alpha (v0.1.x)
+🔥 Alpha
 - Initial implementation and testing
 
-🧪 Beta (v0.2.x)
+🧪 Beta
 - System-wide testing and optimization
 
 ⭐️ Stable (v1.0.0)
 - Production-ready release
 - Full system integration and testing
 
-
-## Ethereum compatibility
-> 📝 **Note**: This section will be updated as new EVM features are implemented
-
 ## Documentation
 - [Project Tokamak zk-EVM(Medium)](https://medium.com/tokamak-network/project-tokamak-zk-evm-67483656fd21) (Last updated in Apr. 2025)
-- [Project Tokamak zk-EVM(Slide)](https://drive.google.com/file/d/1RAmyGDVteAzuBxJ05XEGIjfHC0MY-2_5/view) (Outdated. Will be updated soon)
-- [Tokamak zk-SNARK Paper](https://eprint.iacr.org/2024/507) (Last updated in Mar. 2025)
+- [Project Tokamak zk-EVM(Slide)](https://docs.google.com/presentation/d/1D49fRElwkZYbEvQXB_rp5DEy22HFsabnXyeMQdNgjRw/edit?usp=sharing) (Last updated in Jul. 2025)
+- [Tokamak zk-SNARK Paper](https://eprint.iacr.org/2024/507) (Last updated in Apr. 2025)
 - Frontend
-    - [Synthesizer](https://tokamak.notion.site/Synthesizer-documentation-164d96a400a3808db0f0f636e20fca24)
+    - [Synthesizer](https://tokamak-network-zk-evm.gitbook.io/tokamak-network-zk-evm)
 <!-- - [API Reference](./docs/api) -->
 
 ## Contributing
