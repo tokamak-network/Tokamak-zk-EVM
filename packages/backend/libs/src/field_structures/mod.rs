@@ -224,4 +224,3 @@ impl Mul<FieldSerde> for ScalarField {
         FieldSerde(self * other.0)
     }
 }
-

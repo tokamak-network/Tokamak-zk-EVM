@@ -1,22 +1,24 @@
 #![allow(non_snake_case)]
-use libs::iotools::{SetupParams, SubcircuitInfo, SubcircuitR1CS};
+use icicle_runtime::memory::HostSlice;
+use icicle_runtime::stream::IcicleStream;
+use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
+use libs::iotools::{Instance, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use libs::field_structures::{Tau, from_r1cs_to_evaled_qap_mixture};
 use libs::iotools::{read_global_wire_list_as_boxed_boxed_numbers};
-// use libs::polynomial_structures::{gen_bXY, gen_uXY, gen_vXY, gen_wXY, QAP};
-use libs::utils::check_device;
-use libs::vector_operations::gen_evaled_lagrange_bases;
-use libs::group_structures::Sigma;
-use icicle_bls12_381::curve::{ScalarField, CurveCfg, G2CurveCfg};
-use icicle_core::traits::FieldImpl;
-// use icicle_core::ntt;
+use libs::polynomial_structures::{gen_bXY, gen_uXY, gen_vXY, gen_wXY, QAP};
+use libs::vector_operations::{gen_evaled_lagrange_bases, resize};
+use libs::group_structures::{Sigma1, Sigma, pairing, G1serde};
+use icicle_bls12_381::curve::{ScalarField, ScalarCfg, CurveCfg, G2CurveCfg, G1Affine, G1Projective};
+use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
+use icicle_core::ntt;
 use icicle_core::curve::Curve;
 
 use std::{vec, cmp};
 use std::time::Instant;
-
+use std::fs::File;
+use std::io::Write;
 
 fn main() {
-    check_device();
     let start1 = Instant::now();
     
     // Generate random affine points on the elliptic curve (G1 and G2)
@@ -94,7 +96,6 @@ fn main() {
 
     // Compute o_evaled_vec: Wire polynomial evaluations
     let mut o_evaled_vec = vec![ScalarField::zero(); m_d].into_boxed_slice();
-
     {
         // Generate cached powers of τ.x for more efficient computation
         let mut x_evaled_lagrange_vec = vec![ScalarField::zero(); n].into_boxed_slice();
@@ -365,58 +366,4 @@ fn main() {
 
     let total_duration = start1.elapsed();
     println!("Total setup time: {:.6} seconds", total_duration.as_secs_f64());
-    
-//     // ------------------- read JSON file -------------------
-//     println!("\n----- Testing reconstruction of the sigma from JSON -----");
-//     let read_start = Instant::now();
-    
-//     match Sigma::read_from_json(output_path) {
-//         Ok(loaded_sigma) => {
-//             let read_duration = read_start.elapsed();
-//             println!("Successfully loaded sigma from file in {:.6} seconds", read_duration.as_secs_f64());
-            
-//             println!("\nLoaded Sigma components summary:");
-//             println!("  - Sigma1:");
-//             println!("      * Sigma1: {} xy_powers elements", loaded_sigma.sigma_1.xy_powers.len());
-//             println!("      * gamma_inv_l_oj_mj: {} elements", loaded_sigma.sigma_1.gamma_inv_l_oj_mj.len());
-//             println!("      * eta_inv_li_ojl_ak_kj: {}x{} matrix", 
-//                     loaded_sigma.sigma_b.eta_inv_li_ojl_ak_kj.len(),
-//                     if loaded_sigma.sigma_b.eta_inv_li_ojl_ak_kj.len() > 0 { loaded_sigma.sigma_b.eta_inv_li_ojl_ak_kj[0].len() } else { 0 });
-//             println!("      * delta_inv_li_oj_prv: {}x{} matrix", 
-//                     loaded_sigma.sigma_b.delta_inv_li_oj_prv.len(),
-//                     if loaded_sigma.sigma_b.delta_inv_li_oj_prv.len() > 0 { loaded_sigma.sigma_b.delta_inv_li_oj_prv[0].len() } else { 0 });
-//             println!("      * delta_inv_ak_xh_tn: {} elements", loaded_sigma.sigma_b.delta_inv_ak_xh_tn.len());
-//             println!("      * delta_inv_ak_xi_tm: {} elements", loaded_sigma.sigma_b.delta_inv_ak_xi_tm.len());
-//             println!("      * delta_inv_ak_yi_ts: {} elements", loaded_sigma.sigma_b.delta_inv_ak_yi_ts.len());
-            
-//             // Check first few elements of each component to verify they are valid
-//             if loaded_sigma.sigma_ac.xy_powers.len() > 0 {
-//                 println!("\nSample values from SigmaAC:");
-//                 println!("  First xy_power x: {}", loaded_sigma.sigma_ac.xy_powers[0].x);
-//                 println!("  First xy_power y: {}", loaded_sigma.sigma_ac.xy_powers[0].y);
-//             }
-            
-//             println!("\nSample values from SigmaB:");
-//             println!("  delta x: {}", loaded_sigma.sigma_b.delta.x);
-//             println!("  delta y: {}", loaded_sigma.sigma_b.delta.y);
-//             println!("  eta x: {}", loaded_sigma.sigma_b.eta.x);
-//             println!("  eta y: {}", loaded_sigma.sigma_b.eta.y);
-            
-//             println!("\nSample values from SigmaV:");
-//             println!("  alpha x: {}", loaded_sigma.sigma_v.alpha.x);
-//             println!("  alpha y: {}", loaded_sigma.sigma_v.alpha.y);
-//             println!("  gamma x: {}", loaded_sigma.sigma_v.gamma.x);
-//             println!("  gamma y: {}", loaded_sigma.sigma_v.gamma.y);
-            
-//             println!("\nJSON deserialization test completed successfully!");
-//         },
-//         Err(e) => {
-//             println!("Error loading sigma from file: {}", e);
-//         }
-//     }
-    
-//     if let Ok(metadata) = std::fs::metadata(output_path) {
-//         let file_size = metadata.len();
-//         println!("\nJSON file size: {} bytes ({:.2} MB)", file_size, file_size as f64 / (1024.0 * 1024.0));
-//     }
 }

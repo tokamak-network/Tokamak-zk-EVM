@@ -8,7 +8,7 @@ use ark_ff::{Field, PrimeField, Fp12};
 use icicle_runtime::memory::HostSlice;
 use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
 use crate::field_structures::{FieldSerde, Tau};
-use crate::iotools::{from_coef_vec_to_g1serde_mat, from_coef_vec_to_g1serde_vec, from_coef_vec_to_g1serde_vec_msm, scaled_outer_product_1d, scaled_outer_product_2d, Permutation, PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
+use crate::iotools::{from_coef_vec_to_g1serde_mat, from_coef_vec_to_g1serde_vec, scaled_outer_product_1d, scaled_outer_product_2d, Permutation, PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use crate::vector_operations::{*};
 
 use serde::{Deserialize, Serialize};
@@ -144,6 +144,7 @@ pub struct Sigma {
     pub H: G2serde,
     pub sigma_1: Sigma1,
     pub sigma_2: Sigma2,
+    pub lagrange_KL: G1serde,
 }
 
 impl Sigma {
@@ -159,13 +160,15 @@ impl Sigma {
         g2_gen: &G2Affine
     ) -> Self {
         println!("Generating a sigma (σ)...");
+        let lagrange_KL = (l_vec[params.s_max - 1] * k_vec[params.l_D - params.l - 1]) * G1serde(*g1_gen);
         let sigma_1 = Sigma1::gen(params, tau, o_vec, l_vec, k_vec, m_vec, g1_gen);
         let sigma_2 = Sigma2::gen(tau, g2_gen);
         Self {
             G: G1serde(*g1_gen),
             H: G2serde(*g2_gen),
             sigma_1,
-            sigma_2
+            sigma_2,
+            lagrange_KL,
         }
     }
 }
@@ -590,50 +593,8 @@ pub struct SigmaVerify {
     pub G: G1serde,
     pub H: G2serde,
     pub sigma_1: PartialSigma1Verify,
-    pub sigma_2: Sigma2
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Preprocess {
-    pub s0: G1serde,
-    pub s1: G1serde,
+    pub sigma_2: Sigma2,
     pub lagrange_KL: G1serde
-}
-
-impl Preprocess {
-    pub fn gen(sigma: &SigmaPreprocess, permutation_raw: &Box<[Permutation]>, setup_params: &SetupParams) -> Self {
-        let m_i = setup_params.l_D - setup_params.l;
-        let s_max = setup_params.s_max;
-        // Generating permutation polynomials
-        println!("Converting the permutation matrices into polynomials s^0 and s^1...");
-        let (mut s0XY, mut s1XY) = Permutation::to_poly(&permutation_raw, m_i, s_max);
-        let s0 = sigma.sigma_1.encode_poly(&mut s0XY, &setup_params);
-        let s1 = sigma.sigma_1.encode_poly(&mut s1XY, &setup_params);
-
-        let mut lagrange_KL_XY = {
-            let mut k_evals = vec![ScalarField::zero(); m_i];
-            k_evals[m_i - 1] = ScalarField::one();
-            let lagrange_K_XY = DensePolynomialExt::from_rou_evals(
-                HostSlice::from_slice(&k_evals),
-                m_i,
-                1,
-                None,
-                None
-            );
-            let mut l_evals = vec![ScalarField::zero(); s_max];
-            l_evals[s_max - 1] = ScalarField::one();
-            let lagrange_L_XY = DensePolynomialExt::from_rou_evals(
-                HostSlice::from_slice(&l_evals),
-                1,
-                s_max,
-                None,
-                None
-            );
-            &lagrange_K_XY * &lagrange_L_XY
-        };
-        let lagrange_KL = sigma.sigma_1.encode_poly(&mut lagrange_KL_XY, &setup_params);
-        return Preprocess {s0, s1, lagrange_KL}
-    }
 }
 
 #[derive(Clone, Debug, Copy, PartialEq)]
@@ -694,63 +655,10 @@ impl Mul<G1serde> for FieldSerde {
 }
 
 
-#[derive(Clone, Debug, Copy, PartialEq)]
+
+#[derive(Clone, Debug, Copy)]
 pub struct G2serde(pub G2Affine);
-impl G2serde {
-    pub fn zero() -> Self {
-        Self(G2Affine::zero())
-    }
-}
-//new added for G2Serde
-impl Add for G2serde {
-    type Output = Self;
 
-    fn add(self, other: Self) -> Self {
-        G2serde(G2Affine::from(self.0.to_projective() + other.0.to_projective()))
-    }
-}
-
-impl Sub for G2serde {
-    type Output = Self;
-
-    fn sub(self, other: Self) -> Self {
-        G2serde(G2Affine::from(self.0.to_projective() - other.0.to_projective()))
-    }
-}
-
-// G2serde * original field
-impl Mul<ScalarField> for G2serde {
-    type Output = Self;
-
-    fn mul(self, other: ScalarField) -> Self {
-        G2serde(G2Affine::from(self.0.to_projective() * other))
-    }
-}
-// original field * G2serde
-impl Mul<G2serde> for ScalarField {
-    type Output = G2serde;
-
-    fn mul(self, other: G2serde) -> Self::Output {
-        G2serde(G2Affine::from(other.0.to_projective() * self))
-    }
-}
-
-// G2serde * FieldSerde
-impl Mul<FieldSerde> for G2serde {
-    type Output = Self;
-
-    fn mul(self, other: FieldSerde) -> Self {
-        G2serde(G2Affine::from(self.0.to_projective() * other.0))
-    }
-}
-// original field * G2serde
-impl Mul<G2serde> for FieldSerde {
-    type Output = G2serde;
-
-    fn mul(self, other: G2serde) -> Self::Output {
-        G2serde(G2Affine::from(other.0.to_projective() * self.0))
-    }
-}
 
 pub fn icicle_g1_affine_to_ark(g: &G1Affine) -> ArkG1Affine {
     let x_bytes = g.x.to_bytes_le();

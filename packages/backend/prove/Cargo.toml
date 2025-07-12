@@ -14,7 +14,7 @@ libs = { workspace = true }
 rayon = { workspace = true }
 bincode = { workspace = true }
 tiny-keccak = "1.5"
-hex = "0.4"
+hex = { workspace = true }
 byteorder = "1" 
 base64 = "0.13.0"
 
