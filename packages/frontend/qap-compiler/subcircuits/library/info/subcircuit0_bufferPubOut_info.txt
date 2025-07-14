@@ -6,7 +6,7 @@ private inputs: 0
 public outputs: 100
 wires: 201
 labels: 201
-[32mWritten successfully:[0m ../subcircuits/library\bufferPubOut_circuit.r1cs
-[32mConstraints written in:[0m ../subcircuits/library\bufferPubOut_circuit_constraints.json
-[32mWritten successfully:[0m ../subcircuits/library\bufferPubOut_circuit_js\bufferPubOut_circuit.wasm
+[32mWritten successfully:[0m ../subcircuits/library/bufferPubOut_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library/bufferPubOut_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library/bufferPubOut_circuit_js/bufferPubOut_circuit.wasm
 [32mEverything went okay[0m
