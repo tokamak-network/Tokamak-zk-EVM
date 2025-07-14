@@ -5,21 +5,15 @@ use icicle_hash::keccak::Keccak256;
 use icicle_runtime::memory::HostSlice;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::iotools::{Instance, Permutation, PublicInputBuffer, PublicOutputBuffer, SetupParams, SubcircuitInfo};
-use libs::group_structures::{G1serde, Preprocess, Sigma, SigmaVerify};
+use libs::group_structures::{G1serde, Sigma, SigmaVerify};
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::ntt;
 use prove::{*};
 use libs::group_structures::pairing;
+use preprocess::{Preprocess, FormattedPreprocess};
 
 use std::vec;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum KeccakVerificationResult {
-    True,
-    False,
-    NoKeccakData,
-}
 
 pub struct Verifier {
     pub sigma: SigmaVerify,
@@ -39,7 +33,6 @@ impl Verifier {
         // Extract key parameters from setup_params
         let l = setup_params.l;     // Number of public I/O wires
         let l_d = setup_params.l_D; // Number of interface wires
-        let s_d = setup_params.s_D; // Number of subcircuits
         let n = setup_params.n;     // Number of constraints per subcircuit
         let s_max = setup_params.s_max; // The maximum number of placements
         let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
@@ -83,13 +76,16 @@ impl Verifier {
 
         // Load Verifier preprocess
         let preprocess_path = "verify/preprocess/output/preprocess.json";
-        let preprocess = Preprocess::read_from_json(&preprocess_path)
-        .expect("No Verifier preprocess is found. Run the Preprocess first.");
+        let preprocess = FormattedPreprocess::read_from_json(&preprocess_path)
+        .expect("No Verifier preprocess is found. Run the Preprocess first.")
+        .recover_proof_from_format();
 
         // Load Proof
         let proof_path = "prove/output/proof.json";
-        let proof = Proof::read_from_json(&proof_path)
-        .expect("No proof is found. Run the Prove first.");
+        // let proof = Proof::read_from_json(&proof_path)
+        // .expect("No proof is found. Run the Prove first.");
+        let proof = FormattedProof::read_from_json(&proof_path)
+        .expect("No proof is found. Run the Prove first.").recover_proof_from_format();
 
         return Self {
             sigma, 
@@ -102,13 +98,10 @@ impl Verifier {
         }
     }
 
-    pub fn verify_keccak256(&self) -> KeccakVerificationResult {
+    pub fn verify_keccak256(&self) -> bool {
         let l_pub_out = self.setup_params.l_pub_out;
         let keccak_in_pts = &self.publicOutputBuffer.outPts;
         let keccak_out_pts = &self.publicInputBuffer.inPts;
-        if keccak_out_pts.len() == 0 {
-            return KeccakVerificationResult::NoKeccakData
-        }
         
         let mut keccak_inputs_be_bytes= Vec::new();
         let mut prev_key: usize = 0;
@@ -175,7 +168,7 @@ impl Verifier {
         keccak_outputs_be_bytes.push(data_restored);
 
         let keccak_hasher = Keccak256::new(0 /* default input size */).unwrap();
-        let mut flag = KeccakVerificationResult::True;
+        let mut flag = true;
         if keccak_inputs_be_bytes.len() != keccak_outputs_be_bytes.len() {
             panic!("Length mismatch between Keccak inputs and outputs.")
         }
@@ -190,7 +183,7 @@ impl Verifier {
             )
             .unwrap();
             if res_bytes != keccak_outputs_be_bytes[i] {
-                flag = KeccakVerificationResult::False;
+                flag = false;
             }
         }
         return flag
@@ -262,7 +255,7 @@ impl Verifier {
             + self.sigma.sigma_1.y * thetas[1]
             + self.sigma.G * thetas[2];
         let LHS_C_term1 = 
-            self.preprocess.lagrange_KL * (proof3.R_eval - ScalarField::one())
+            self.sigma.lagrange_KL * (proof3.R_eval - ScalarField::one())
             + (G * proof3.R_eval - F * proof3.R_omegaX_eval) * (kappa0 * (chi - ScalarField::one()))
             + (G * proof3.R_eval - F * proof3.R_omegaX_omegaY_eval) * (kappa0.pow(2) * lagrange_K0_eval)
             - proof2.Q_CX * t_mi_eval

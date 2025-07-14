@@ -3,17 +3,15 @@ use icicle_core::ntt;
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use icicle_core::msm::{self, MSMConfig};
-use icicle_runtime::{self, Device, memory::{HostSlice, DeviceVec}};
-use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use crate::field_structures::FieldSerde;
-use crate::group_structures::{G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify, Preprocess};
+use crate::group_structures::{G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify};
 use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use crate::polynomial_structures::{from_subcircuit_to_QAP, QAP};
-use crate::utils::{check_device, check_gpu};
 use crate::vector_operations::transpose_inplace;
 
 use super::vector_operations::{*};
 
+use icicle_runtime::memory::{HostSlice, DeviceVec};
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, stdout, Write};
 use std::{env, fmt};
@@ -24,14 +22,19 @@ use serde::{Deserialize, Serialize};
 use serde::ser::{Serializer, SerializeStruct};
 use serde::de::{Deserializer, Visitor, Error};
 use serde_json::{from_reader, to_writer_pretty};
+use hex::decode_to_slice;
 
 const QAP_COMPILER_PATH_PREFIX: &str = "../frontend/qap-compiler/subcircuits/library";
 const SYNTHESIZER_PATH_PREFIX: &str = "../frontend/synthesizer/examples/outputs";
-
+#[macro_export]
 macro_rules! impl_read_from_json {
     ($t:ty) => {
         impl $t {
-            pub fn read_from_json(path: &str) -> io::Result<Self> {
+            pub fn read_from_json(path: &str) -> std::io::Result<Self> {
+                use std::io::BufReader;
+                use std::env;
+                use std::fs::File;
+                use serde_json::from_reader;
                 let abs_path = env::current_dir()?.join(path);
                 let file = File::open(abs_path)?;
                 let reader = BufReader::new(file);
@@ -41,11 +44,15 @@ macro_rules! impl_read_from_json {
         }
     };
 }
-
+#[macro_export]
 macro_rules! impl_write_into_json {
     ($t:ty) => {
         impl $t {
-            pub fn write_into_json(&self, path: &str) -> io::Result<()> {
+            pub fn write_into_json(&self, path: &str) -> std::io::Result<()> {
+                use std::io::BufWriter;
+                use std::env;
+                use std::fs::{self, File};
+                use serde_json::to_writer_pretty;
                 let abs_path = env::current_dir()?.join(path);
                 if let Some(parent) = abs_path.parent() {
                     fs::create_dir_all(parent)?;
@@ -109,9 +116,7 @@ impl SetupParams {
 impl_read_from_json!(Sigma);
 impl_read_from_json!(SigmaPreprocess);
 impl_read_from_json!(SigmaVerify);
-impl_read_from_json!(Preprocess);
 impl_write_into_json!(Sigma);
-impl_write_into_json!(Preprocess);
 
 impl Sigma {
     /// Write verifier CRS into JSON
@@ -127,7 +132,8 @@ impl Sigma {
             G: self.G,
             H: self.H,
             sigma_1: partial_sigma1_verify,
-            sigma_2: self.sigma_2
+            sigma_2: self.sigma_2,
+            lagrange_KL: self.lagrange_KL,
         };
         to_writer_pretty(writer, &sigma_verify)?;
         Ok(())
@@ -262,7 +268,6 @@ pub struct OutPts {
     pub offset: usize,
     pub valueHex: String,
 }
-
 #[derive(Debug, Deserialize)]
 pub struct PublicOutputBuffer {
     pub outPts: Box<[OutPts]>
@@ -274,7 +279,6 @@ pub struct InPts {
     pub key: String,
     pub valueHex: String,
 }
-
 #[derive(Debug, Deserialize)]
 pub struct PublicInputBuffer {
     pub inPts: Box<[InPts]>
@@ -465,21 +469,18 @@ impl SubcircuitR1CS{
             let b_constraint = &constraint[1];
             let c_constraint = &constraint[2];
         
-            // a_constraint 처리: 각 wire_idx에 대해 'wire_idx * column_size'를 한 번만 계산하도록 함.
             for col_idx in 0..A_len {
                 if let Some(hex_val) = a_constraint.get(&A_active_wire_indices[col_idx]) {
                     let idx = A_len * row_idx + col_idx;
                     A_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
                 }
             }
-            // b_constraint 처리
             for col_idx in 0..B_len {
                 if let Some(hex_val) = b_constraint.get(&B_active_wire_indices[col_idx]) {
                     let idx = B_len * row_idx + col_idx;
                     B_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
                 }
             }
-            // c_constraint 처리
             for col_idx in 0..C_len {
                 if let Some(hex_val) = c_constraint.get(&C_active_wire_indices[col_idx]) {
                     let idx = C_len * row_idx + col_idx;
@@ -516,7 +517,9 @@ impl QAP{
         let global_wire_file_name = "globalWireList.json";
         let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_file_name).unwrap();
 
-        let zero_poly = DensePolynomialExt::zero();
+        let zero_coef_vec = [ScalarField::zero()];
+        let zero_coef = HostSlice::from_slice(&zero_coef_vec);
+        let zero_poly = DensePolynomialExt::from_coeffs(zero_coef, 1, 1);
         let mut u_j_X = vec![zero_poly.clone(); m_d];
         let mut v_j_X = vec![zero_poly.clone(); m_d];
         let mut w_j_X = vec![zero_poly.clone(); m_d];
@@ -719,99 +722,49 @@ pub fn scaled_outer_product_1d(
     );
 }
 
-pub fn from_coef_vec_to_g1serde_vec_msm(
-    coef: &Box<[ScalarField]>,
-    gen: &G1Affine,
-    res: &mut [G1serde],
-) {
-    println!("msm");
-    let n = coef.len();
-
-    let t_start = Instant::now();
-
-    let scalars_host = HostSlice::from_slice(coef.as_ref());
-
-    let mut pts = Vec::with_capacity(n);
-    pts.resize(n, *gen);
-
-    let points_host = HostSlice::from_slice(&pts);
-
-    let mut result_dev = DeviceVec::<G1Projective>::device_malloc(n)
-        .expect("device_malloc failed");
-
-    let cfg = msm::MSMConfig::default();
-
-    msm::msm(
-        scalars_host,       // &[ScalarField]
-        points_host,        // &[G1Affine]
-        &cfg,
-        &mut result_dev[..] // &mut DeviceSlice<G1Projective>
-    ).expect("msm failed");
-
-    let mut host_out = vec![G1Projective::zero(); n];
-    result_dev
-        .copy_to_host(HostSlice::from_mut_slice(&mut host_out))
-        .expect("copy_to_host failed");
-  
-    drop(result_dev);
-    // drop(points_host);
-    // drop(scalars_host);
-    
-    host_out
-        .into_par_iter()
-        .zip(res.par_iter_mut())
-        .for_each(|(proj, slot)| {
-            *slot = G1serde(G1Affine::from(proj));
-        });
-
-    println!("Total elapsed: {:?}", t_start.elapsed());
-}
-
 pub fn from_coef_vec_to_g1serde_vec(coef: &[ScalarField], gen: &G1Affine, res: &mut [G1serde]) {
-    if check_gpu() {
-        from_coef_vec_to_g1serde_vec_msm(&coef.to_vec().into_boxed_slice(), gen, res);
-    } else {
-        use std::sync::atomic::{AtomicU32, Ordering};
-        use rayon::prelude::*;
-        use std::io::{stdout, Write};
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use rayon::prelude::*;
+    use std::io::{stdout, Write};
 
-        let t_start = Instant::now();
-
-        if res.len() != coef.len() {
-            panic!("Not enough buffer length.")
-        }
-        if coef.len() == 0 {
-            return
-        }
-
-        let gen_proj = gen.to_projective(); 
-
-        let cnt = AtomicU32::new(1);
-        let progress = AtomicU32::new(0);
-        let _tick: u32 = std::cmp::max(coef.len() as u32 / 10, 1);
-        let tick = AtomicU32::new(_tick);
-        res.par_iter_mut()
-            .zip(coef.par_iter())
-            .for_each(|(r, &c)| {
-                *r = G1serde(G1Affine::from(gen_proj * c));
-                let current_cnt = cnt.fetch_add(1, Ordering::Relaxed);
-                let target_tick = tick.load(Ordering::Relaxed);
-                if current_cnt >= target_tick {
-                    if tick
-                    .compare_exchange(target_tick, target_tick + _tick, Ordering::Relaxed, Ordering::Relaxed)
-                    .is_ok()
-                    {
-                        progress.fetch_add(10, Ordering::Relaxed);
-                        let new_progress = progress.load(Ordering::Relaxed);
-                        print!("\rProgress: {}%, {} elements out of {}.", new_progress, current_cnt, coef.len());
-                        stdout().flush().unwrap();
-                    }
-                }
-            });
-        println!("\n");
-        println!("Total elapsed: {:?}", t_start.elapsed());
-        print!("\r");
+    if res.len() != coef.len() {
+        panic!("Not enough buffer length.")
     }
+    if coef.len() == 0 {
+        return
+    }
+
+    let gen_proj = gen.to_projective(); 
+
+    let cnt = AtomicU32::new(1);
+    let progress = AtomicU32::new(0);
+    let _tick: u32 = std::cmp::max(coef.len() as u32 / 10, 1);
+    let tick = AtomicU32::new(_tick);
+    res.par_iter_mut()
+        .zip(coef.par_iter())
+        .for_each(|(r, &c)| {
+            *r = G1serde(G1Affine::from(gen_proj * c));
+            let current_cnt = cnt.fetch_add(1, Ordering::Relaxed);
+            let target_tick = tick.load(Ordering::Relaxed);
+            if current_cnt >= target_tick {
+                if tick
+                .compare_exchange(target_tick, target_tick + _tick, Ordering::Relaxed, Ordering::Relaxed)
+                .is_ok()
+                {
+                    progress.fetch_add(10, Ordering::Relaxed);
+                    let new_progress = progress.load(Ordering::Relaxed);
+                    print!("\rProgress: {}%, {} elements out of {}.", new_progress, current_cnt, coef.len());
+                    stdout().flush().unwrap();
+                }
+            }
+        });
+    print!("\r");
+
+    // HostSlice 두개
+    // coeff으 ㅣ벡터와 gen 포인트 하나.
+    // coeff의 벡터 하나와 gen을 복사해서 벡터로.
+
+    // println!("Number of nonzero coefficients: {:?}", coef.len() - nzeros);
 }
 
 pub fn gen_g1serde_vec_of_xy_monomials(
@@ -981,3 +934,105 @@ fn _from_r1cs_to_eval(variables: &Box<[String]>, compact_mat: &Vec<ScalarField>,
         eval[i*n .. (i+1)*n].clone_from_slice(&frag_eval);
     }
 }
+
+// More generic helper function for any FieldImpl
+pub fn any_field_to_hex<T: FieldImpl>(field: &T) -> String {
+    let bytes = field.to_bytes_le();
+    format!("0x{}", hex_encode(&bytes))
+}
+
+// Helper function to encode bytes as hex string
+pub fn hex_encode(bytes: &[u8]) -> String {
+    bytes.iter()
+        .map(|byte| format!("{:02x}", byte))
+        .collect::<String>()
+}
+
+// Helper function to split a G1 point into part1 (16 bytes) and part2 (32 bytes)
+pub fn split_g1(point: &G1serde) -> (String, String, String, String) {
+    // Get X coordinate bytes in little-endian and convert to big-endian
+    let mut x_bytes = point.0.x.to_bytes_le();
+    x_bytes.reverse(); // Convert to big-endian
+    
+    // Get Y coordinate bytes in little-endian and convert to big-endian
+    let mut y_bytes = point.0.y.to_bytes_le();
+    y_bytes.reverse(); // Convert to big-endian
+    
+    // For BLS12-381 Fp elements, we have 48 bytes
+    // For X: first 16 bytes go to part1, last 32 bytes to part2
+    let x_part1 = format!("0x{}", hex_encode(&x_bytes[0..16]));
+    let x_part2 = format!("0x{}", hex_encode(&x_bytes[16..48]));
+    
+    // For Y: first 16 bytes go to part1, last 32 bytes to part2
+    let y_part1 = format!("0x{}", hex_encode(&y_bytes[0..16]));
+    let y_part2 = format!("0x{}", hex_encode(&y_bytes[16..48]));
+    
+    (x_part1, x_part2, y_part1, y_part2)
+}
+
+// Helper function to format scalar field as 256-bit hex
+pub fn scalar_to_hex(scalar: &ScalarField) -> String {
+    let mut bytes = scalar.to_bytes_le();
+    bytes.reverse(); // Convert to big-endian
+    // Pad to 32 bytes if necessary
+    while bytes.len() < 32 {
+        bytes.push(0);
+    }
+    format!("0x{}", hex_encode(&bytes))
+}
+
+#[macro_export]
+macro_rules! split_push {
+    ($part1: ident, $part2: ident, $( $point:expr ),+ $(,)?) => {
+        $(
+            {
+                let (x_p1, x_p2, y_p1, y_p2) = split_g1($point);
+                $part1.push(x_p1);
+                $part2.push(x_p2);
+                $part1.push(y_p1);
+                $part2.push(y_p2);
+            }
+        )+
+    };
+}
+
+// Helper function to recover a BaseField from part1 (16 bytes) and part2 (32 bytes)
+fn recover_basefield(part1: &String, part2: &String) -> BaseField {
+    let mut bytes = [0u8; 48];
+
+    decode_to_slice(
+        part1.trim_start_matches("0x"),
+        &mut bytes[0..16],
+    )
+    .expect("Invalid format");
+
+    decode_to_slice(
+        part2.trim_start_matches("0x"),
+        &mut bytes[16..48],
+    )
+    .expect("Invalid format");
+    bytes.reverse();            // to little Edian
+
+    return BaseField::from_bytes_le(&bytes);
+}
+
+pub fn next_point(idx: usize, part1: &Vec<String>, part2: &Vec<String>) -> G1serde {
+    let bx = recover_basefield(&part1[idx], &part2[idx]);       
+    let by = recover_basefield(&part1[idx + 1], &part2[idx + 1]);
+
+    return G1serde(G1Affine {
+        x: bx,
+        y: by,
+    });
+}
+
+#[macro_export]
+macro_rules! pop_recover {
+    ($idx: ident, $part1: expr, $part2: expr, $( $point: ident),+ $(,)?) => {
+        $(
+            let $point = next_point($idx, $part1, $part2);
+            $idx += 2;
+        )+
+    };
+}
+

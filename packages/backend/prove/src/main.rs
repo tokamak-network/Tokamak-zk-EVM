@@ -1,13 +1,9 @@
 use std::time::{Duration, Instant};
 use prove::{Prover, Proof, TranscriptManager};
-use icicle_runtime::{self, Device};
-use libs::utils::check_device;
 
 fn main() {
     let prove_start = Instant::now();
-
-    check_device();
-
+    
     let mut timer: Instant;
     let mut lap: Duration;
     
@@ -53,7 +49,9 @@ fn main() {
     lap = timer.elapsed();
     println!("prove3 running time: {:.6} seconds", lap.as_secs_f64());
 
+    // Use the manager to get kappa1 and kappa2
     let kappa1 = proof3.verify3_with_manager(&mut manager);
+    // let kappa2 = manager.get_kappa2();
     
     println!("Running prove4...");
     timer = Instant::now();
@@ -68,6 +66,7 @@ fn main() {
     //     zeta,
     //     kappa0,
     //     kappa1,
+    //     kappa2,
     // };
 
     // // Convert to serializable version
@@ -83,9 +82,14 @@ fn main() {
         // challenge: challenge_serde,
     };
     
-    println!("Writing the proof into JSON...");
+    // println!("Writing the proof into JSON (old format)...");
+    // let output_path = "prove/output/proof.json";
+    // proof.write_into_json(output_path).unwrap();
+    
+    println!("Writing the proof into JSON (formatted for Solidity verifier)...");
+    let formatted_proof = proof.convert_format_for_solidity_verifier();
     let output_path = "prove/output/proof.json";
-    proof.write_into_json(output_path).unwrap();
+    formatted_proof.write_into_json(output_path).unwrap();
 
     println!("Total proving time: {:.6} seconds", prove_start.elapsed().as_secs_f64());
 }

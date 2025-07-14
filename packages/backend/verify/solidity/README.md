@@ -1,4 +1,4 @@
-# Tokamak zkEVM Contracts
+# Tokamak zkEVM Solidity verifier
 
 A Solidity implementation of zkSNARK on-chain verifiers for the Tokamak zkEVM consensus layer. This repository contains smart contracts that verify zero-knowledge proofs submitted during batch processing, ensuring the validity of state transitions without revealing the underlying computations.
 
@@ -154,7 +154,7 @@ forge fmt --check
 
 ## Security
 
-This implementation handles critical consensus operations. If you discover a security vulnerability, please report it responsibly to [security@tokamak.network](mailto:mehdi@tokamak.network).
+This implementation handles critical consensus operations. If you discover a security vulnerability, please report it responsibly to [mehdi@tokamak.network](mailto:mehdi@tokamak.network).
 
 ## License
 

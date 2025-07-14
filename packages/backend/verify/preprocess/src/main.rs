@@ -1,5 +1,6 @@
-use libs::group_structures::{SigmaPreprocess, Preprocess};
+use libs::group_structures::{SigmaPreprocess};
 use libs::iotools::{Permutation, SetupParams};
+use preprocess::Preprocess;
 
 fn main() {
     let setup_path = "setupParams.json";
@@ -12,6 +13,9 @@ fn main() {
     let permutation_path = "permutation.json";
     let permutation_raw = Permutation::from_path(&permutation_path).unwrap();
     let preprocess = Preprocess::gen(&sigma, &permutation_raw, &setup_params);
+    // let output_path = "verify/preprocess/output/preprocess.json";
+    // preprocess.write_into_json(&output_path).unwrap();
+    let formatted_preprocess = preprocess.convert_format_for_solidity_verifier();
     let output_path = "verify/preprocess/output/preprocess.json";
-    preprocess.write_into_json(&output_path).unwrap();
+    formatted_preprocess.write_into_json(&output_path).unwrap();
 }
