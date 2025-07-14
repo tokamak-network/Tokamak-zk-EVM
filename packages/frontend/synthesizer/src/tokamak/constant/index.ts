@@ -1,8 +1,8 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { subcircuits } from '@qap-compiler/library/subcircuitInfo.js';
-import { globalWireList } from '@qap-compiler/library/globalWireList.js';
-import { setupParams } from '@qap-compiler/library/setupParams.js';
+import { subcircuits } from '../../../../qap-compiler/subcircuits/library/subcircuitInfo.js';
+import { globalWireList } from '../../../../qap-compiler/subcircuits/library/globalWireList.js';
+import { setupParams } from '../../../../qap-compiler/subcircuits/library/setupParams.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
