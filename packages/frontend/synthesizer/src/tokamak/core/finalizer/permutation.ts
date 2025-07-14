@@ -92,11 +92,11 @@ export class Permutation {
     this.permGroup = this._buildPermGroup();
 
     // Initialization for the permutation polynomials in equation 8 of the paper
-    const numPlacements = setupParams.l_D - setupParams.l;
-    const numWires = this.placements.size;
+    const numWires = setupParams.l_D - setupParams.l;
+    const numPlacements = this.placements.size;
 
-    this.permutationY = Array.from({ length: numPlacements }, (_, h) =>
-      Array.from({ length: numWires }, (_, i) => i),
+    this.permutationY = Array.from({ length: numWires }, (_, h) =>
+      Array.from({ length: numPlacements }, (_, i) => i),
     );
     // Example:
     // [
@@ -105,8 +105,8 @@ export class Permutation {
     //   [0, 1, 2, 3]
     // ]
 
-    this.permutationX = Array.from({ length: numPlacements }, (_, h) =>
-      Array.from({ length: numWires }, (_, i) => h),
+    this.permutationX = Array.from({ length: numWires }, (_, h) =>
+      Array.from({ length: numPlacements }, (_, i) => h),
     );
     // Example:
     // [
