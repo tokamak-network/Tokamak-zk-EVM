@@ -29,7 +29,6 @@
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "type": "commonjs",
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build"
