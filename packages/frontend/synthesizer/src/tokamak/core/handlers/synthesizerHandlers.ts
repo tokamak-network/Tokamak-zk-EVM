@@ -1,4 +1,4 @@
-import { BIGINT_0, bytesToBigInt } from '@synthesizer-libs/util';
+import { BIGINT_0, bigIntToHex, bytesToBigInt } from '@synthesizer-libs/util';
 import { EOFBYTES, isEOF } from '../../../eof/util.js';
 import {
   createAddressFromStackBigInt,
@@ -179,16 +179,11 @@ export async function synthesizerEnvInf(
       if (target !== runState.stackPt.pop().value) {
         throw new Error(`Synthesizer: ${op}: Input data mismatch`);
       }
-      const codePt = await prepareEXTCodePt(runState, target);
-      if (codePt.value === BIGINT_0) {
-        dataPt = runState.synthesizer.loadAuxin(BIGINT_0);
-      } else {
-        dataPt = runState.synthesizer.loadAndStoreKeccak(
-          [codePt],
-          runState.stack.peek(1)[0],
-          32n,
-        );
-      }
+      dataPt = runState.synthesizer.loadEnvInf(
+        bigIntToHex(target),
+        op,
+        runState.stack.peek(1)[0],
+      );
       break;
     }
     case 'ADDRESS':
