@@ -1,0 +1,26 @@
+{
+  "name": "mtmanager",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev":   "tsx watch src/index.ts",
+    "start": "tsx src/cli.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MPL-2.0",
+  "description": "",
+
+  "type": "module",
+  "dependencies": {
+    "@zk-kit/lean-imt": "^2.2.3",
+    "poseidon-bls12381": "^1.0.2",
+    "dotenv": "^17.2.0",
+    "ethers": "^6.15.0",
+    "ffjavascript": "^0.3.1"
+  },
+  "devDependencies": {
+    "@types/circomlibjs": "^0.1.6"
+  }
+}
