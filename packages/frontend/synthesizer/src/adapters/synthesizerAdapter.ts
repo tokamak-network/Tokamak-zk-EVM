@@ -13,9 +13,11 @@ import { PRV_OUT_PLACEMENT_INDEX } from '../tokamak/constant/constants.js';
 
 export class SynthesizerAdapter {
   private rpcUrl: string;
+  private isMainnet: boolean;
 
-  constructor(rpcUrl: string) {
+  constructor(rpcUrl: string, isMainnet: boolean = true) {
     this.rpcUrl = rpcUrl;
+    this.isMainnet = isMainnet;
   }
 
   public get placementIndices(): {
@@ -30,6 +32,7 @@ export class SynthesizerAdapter {
     const evm = await createEVM({
       txHash,
       rpcUrl: this.rpcUrl,
+      isMainnet: this.isMainnet,
     });
 
     // Initialize placements inPts and outPts arrays
@@ -129,8 +132,6 @@ export class SynthesizerAdapter {
       code: contractCode,
       data: _calldata,
     });
-
-    console.log(executionResult.runState!.synthesizer.state.placements);
 
     // Use Finalizer class to process placements
     const finalizer = new Finalizer(
