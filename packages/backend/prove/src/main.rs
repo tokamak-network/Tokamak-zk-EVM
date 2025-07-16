@@ -83,9 +83,14 @@ fn main() {
         // challenge: challenge_serde,
     };
     
-    println!("Writing the proof into JSON...");
+    // println!("Writing the proof into JSON (old format)...");
+    // let output_path = "prove/output/proof.json";
+    // proof.write_into_json(output_path).unwrap();
+
+    println!("Writing the proof into JSON (formatted for Solidity verifier)...");
+    let formatted_proof = proof.convert_format_for_solidity_verifier();
     let output_path = "prove/output/proof.json";
-    proof.write_into_json(output_path).unwrap();
+    formatted_proof.write_into_json(output_path).unwrap();
 
     println!("Total proving time: {:.6} seconds", prove_start.elapsed().as_secs_f64());
 }
