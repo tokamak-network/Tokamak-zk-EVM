@@ -333,8 +333,16 @@ contract VerifierV3 is IVerifierV3 {
 
     // n
     uint256 internal constant CONSTANT_N = 1024;
-    // ω_32
+    // ω_128
     uint256 internal constant OMEGA_128 = 0x07d0c802a94a946e8cbe2437f0b4b276501dff643be95635b750da4cab28e208;
+    // ω_256
+    uint256 internal constant OMEGA_256 = 0x2e95da59a33dcbf232a732ae1a3b0aef752c84f3154125602cabadec2fe322b8;
+    // ω_512
+    uint256 internal constant OMEGA_512 = 0x1bb466679a5d88b1ecfbede342dee7f415c1ad4c687f28a233811ea1fe0c65f4;
+    // ω_1024
+    uint256 internal constant OMEGA_1024 = 0x2f27b09858f43cef3ed6d55a6350721d79efd6b0570bf109d58a5af42d010ff9;
+    // ω_2048
+    uint256 internal constant OMEGA_2048 = 0x43527a8bca252472eb674a1a620890d7a534af14b61e0abe74a1f6718c130477;
     // m_i
     uint256 internal constant CONSTANT_MI = 1024;
 
@@ -1135,14 +1143,45 @@ contract VerifierV3 is IVerifierV3 {
                 mstore(INTERMEDIARY_SCALAR_KO_SLOT, r)
             }
 
-            function computeAPUB() {
+            function computeAEVAL() {
                 let chi := mload(CHALLENGE_CHI_SLOT)
                 let offset := calldataload(0x84)
-
+                
+                // Get the actual length of the array from calldata
+                let arrayLength := calldataload(offset)
+                
                 let n := 128
                 let omega := OMEGA_128
 
-                // Compute chi^128 - 1
+                if gt(arrayLength, 256) {
+                    if iszero(gt(arrayLength, 256)) {
+                        n := 256
+                        omega := OMEGA_256
+                    }
+                }
+
+                if gt(arrayLength, 512) {
+                    if iszero(gt(arrayLength, 512)) {
+                        n := 512
+                        omega := OMEGA_512
+                    }
+                }
+
+                if gt(arrayLength, 1024) {
+                    if iszero(gt(arrayLength, 1024)) {
+                        n := 1024
+                        omega := OMEGA_1024
+                    }
+                }
+
+                if gt(arrayLength, 2048) {
+                    if iszero(gt(arrayLength, 2048)) {
+                        n := 2048
+                        omega := OMEGA_2048
+                    }
+                }
+
+                // Compute chi^n - 1
                 let chi_n := modexp(chi, n)
                 let chi_n_1 := addmod(chi_n, sub(R_MOD, 1), R_MOD)
 
@@ -1664,10 +1703,10 @@ contract VerifierV3 is IVerifierV3 {
             // Step2: Recompute all the challenges with the transcript
             initializeTranscript()
 
-            // Step3: computation of [F]_1, [G]_1, t_n(χ), t_smax(ζ) and t_ml(χ), K0(χ) and A_pub
+            // Step3: computation of [F]_1, [G]_1, t_n(χ), t_smax(ζ) and t_ml(χ), K0(χ) and A_eval
             prepareQueries()
             computeLagrangeK0Eval()
-            computeAPUB()
+            computeAEVAL()
 
             // Step4: computation of the final polynomial commitments
             prepareLHSA()

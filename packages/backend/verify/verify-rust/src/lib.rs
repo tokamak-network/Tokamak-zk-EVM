@@ -294,6 +294,53 @@ impl Verifier {
             &[self.sigma.sigma_2.gamma, self.sigma.sigma_2.eta, self.sigma.sigma_2.delta,   self.sigma.sigma_2.x,   self.sigma.sigma_2.y]
         );
 
+        let omega_128 = ntt::get_root_of_unity::<ScalarField>(128);
+        let omega_256 = ntt::get_root_of_unity::<ScalarField>(256);
+        let omega_512 = ntt::get_root_of_unity::<ScalarField>(512);
+        let omega_1024 = ntt::get_root_of_unity::<ScalarField>(1024);
+        let omega_2048 = ntt::get_root_of_unity::<ScalarField>(2048);
+        
+        // Convert to bytes and then to hex string
+        let omega_128_bytes = omega_128.to_bytes_le();
+        let omega_256_bytes = omega_256.to_bytes_le();
+        let omega_512_bytes = omega_512.to_bytes_le();
+        let omega_1024_bytes = omega_1024.to_bytes_le();
+        let omega_2048_bytes = omega_2048.to_bytes_le();
+        
+        // Convert bytes to hex strings
+        let omega_128_hex: String = omega_128_bytes.iter()
+            .rev() // Reverse for big-endian representation in hex
+            .map(|b| format!("{:02x}", b))
+            .collect();
+        
+        let omega_256_hex: String = omega_256_bytes.iter()
+            .rev()
+            .map(|b| format!("{:02x}", b))
+            .collect();
+            
+        let omega_512_hex: String = omega_512_bytes.iter()
+            .rev()
+            .map(|b| format!("{:02x}", b))
+            .collect();
+
+        let omega_1024_hex: String = omega_1024_bytes.iter()
+            .rev()
+            .map(|b| format!("{:02x}", b))
+            .collect();
+
+        let omega_2048_hex: String = omega_2048_bytes.iter()
+            .rev()
+            .map(|b| format!("{:02x}", b))
+            .collect();
+        
+        // Also print as decimal for verification
+        println!("\nAs decimal:");
+        println!("OMEGA_128 = {}", omega_128);
+        println!("OMEGA_256 = {}", omega_256);
+        println!("OMEGA_512 = {}", omega_512);
+        println!("OMEGA_1024 = {}", omega_1024);
+        println!("OMEGA_2048 = {}", omega_2048);
+
         return left_pair.eq(&right_pair)
     }
     /*
