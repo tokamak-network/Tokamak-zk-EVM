@@ -13,5 +13,8 @@
     "outDir": "dist",
     "declaration": true          
   },
+  "references": [
+    { "path": "../synthesizer" }
+  ],
   "include": ["src/**/*"]
 }

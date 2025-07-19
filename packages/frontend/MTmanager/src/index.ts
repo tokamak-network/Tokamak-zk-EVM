@@ -1,96 +1,97 @@
-import { LeanIMT } from "@zk-kit/lean-imt"
-import { poseidon2 } from "poseidon-bls12381"
-import { extractStorage } from "./state"
-import { toBigInt } from 'ethers'
+import { StateL2 } from './L2StateManager';
+import { extractL1Storage } from './L1StateManager';
+import { TransactionManager } from './transactionManager';
 
-// Extract storage state of target address
-const addrList: string[] = [
-    '0x3F6EE584a7eA3AD7f68C2cd831994Ae8157Aa98a',
-    '0x22e30A60FC173b3d4D8e42875250feB3Af371aCf',
-    '0xd852b64f4e231746d5b22e1a1c5c4a6b04FEde8a',
-    '0xdF0BBB5FEf046EA1e2f39c4A8Aa688911551769b',
-    '0xa26e73C8E9507D50bF808B7A2CA9D5dE4fcC4A04',
-    '0x772970238fd1587854a30Fcf4f791d8248D21a28',
-    '0x85085B8126129729c1Eb7D1446eb6817D749682B',
-    '0x100f121DA0C3B3a28600472F74a7815b69F4c872',
-]
+// --- Initial Setup ---
 
-const addrs = new Set<string>()
-for (const addrRaw of addrList) {
-    addrs.add(addrRaw.toLowerCase())
+// Real USDC Contract Address on Ethereum Mainnet
+const USDC_CONTRACT_ADDR = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+
+// Some arbitrary L2 addresses for users (can be derived from public keys in a real system)
+const USER_A_L2_ADDR = '0x3F6EE584a7eA3AD7f68C2cd831994Ae8157Aa98a'; 
+const USER_B_L2_ADDR = '0x22e30A60FC173b3d4D8e42875250feB3Af371aCf';
+
+// Addresses that will be part of our L2 state (for simplicity, including the contract itself)
+const L2_STATE_ADDRESSES: string[] = [
+    USER_A_L2_ADDR,
+    USER_B_L2_ADDR,
+    USDC_CONTRACT_ADDR, // Include the contract address in the L2 state for its storage
+];
+
+// Storage slot 0 is used for the balances mapping in our simulated token
+const SLOTS = [0]; 
+
+// A recent block number on Ethereum Mainnet where USDC contract exists.
+// This is crucial for getBytecode and extractL1Storage to work.
+const BLOCK_NUMBER = 20000000; // Example: Use a block number from mid-2024 or earlier for stability
+
+async function main() {
+    console.log("--- Step 1: Initial State Setup ---");
+
+    // Fetch initial state from L1 (can be empty or pre-populated)
+    // We are extracting storage for the USDC_CONTRACT_ADDR at slot 0 for our L2_STATE_ADDRESSES
+    const L1Db = await extractL1Storage(USDC_CONTRACT_ADDR, SLOTS, L2_STATE_ADDRESSES, BLOCK_NUMBER);
+    console.log(`Initial L1 state extracted:\n`, L1Db);
+
+    // Build the L2 state from the L1 snapshot
+    const stateL2 = await StateL2.build(USDC_CONTRACT_ADDR, SLOTS, BLOCK_NUMBER, L2_STATE_ADDRESSES, L2_STATE_ADDRESSES, L1Db);
+    console.log("L2 Merkle trees constructed successfully.\n");
+
+    // --- Step 2: Initialize Transaction Manager for a User ---
+    console.log("--- Step 2: Initialize Transaction Manager ---");
+    // We'll create a manager for User A
+    const userA_Manager = new TransactionManager(stateL2);
+    console.log(`User A Public Key: ${userA_Manager.publicKey}`);
+    console.log(`Initial nonce: 0\n`);
+
+    // --- Step 3: Create and Sign a Transaction ---
+    console.log("--- Step 3: User A creates a transaction ---");
+    // User A wants to transfer 100 tokens to User B.
+    const transferAmount = 100n;
+
+    // Manually construct the ERC20 transfer calldata
+    // transfer(address to, uint256 amount)
+    // Function selector: 0xa9059cbb
+    const functionSelector = "0xa9059cbb";
+    const toAddressPadded = USER_B_L2_ADDR.substring(2).padStart(64, '0');
+    const amountPadded = transferAmount.toString(16).padStart(64, '0');
+    const calldata = functionSelector + toAddressPadded + amountPadded;
+
+    console.log(`Transaction Details:`);
+    console.log(`  To (Contract): ${USDC_CONTRACT_ADDR}`);
+    console.log(`  Data (Calldata): ${calldata.substring(0, 42)}...`);
+
+    const signedTx = await userA_Manager.createAndSignTransaction(USDC_CONTRACT_ADDR, calldata);
+    console.log(`\nTransaction signed successfully!`);
+    console.log(`  Signature: ${signedTx.signature.substring(0, 40)}...`);
+
+    // --- Step 4: Submit the Transaction to the L2 Network ---
+    console.log("\n--- Step 4: Submitting transaction to the network ---");
+    // Pass the BLOCK_NUMBER to submitTransaction for L1 context
+    const success = await userA_Manager.submitTransaction(signedTx, BLOCK_NUMBER);
+
+    if (success) {
+        console.log("\nTransaction processed successfully!\n");
+    } else {
+        console.error("\nTransaction failed!\n");
+        return; // Exit if failed
+    }
+
+    // --- Step 5: Verify Final State ---
+    console.log("--- Step 5: Verifying final L2 state ---");
+    const finalL1State = stateL2.reconstructL1State();
+    // In our simplified ZkProver, it only updates the receiver's balance to the amount.
+    // So, we expect User B's balance to be `transferAmount`.
+    const finalUserBBalance = finalL1State[0][USER_B_L2_ADDR]; // slot 0, user B
+
+    console.log(`Final reconstructed L1 state:\n`, finalL1State);
+    console.log(`\nFinal balance of User B (${USER_B_L2_ADDR}) is: ${finalUserBBalance}`);
+
+    if (finalUserBBalance === transferAmount) {
+        console.log("✅ Verification successful: User B's balance is correct!");
+    } else {
+        console.error("❌ Verification failed: User B's balance is incorrect! Expected: " + transferAmount + ", Got: " + finalUserBBalance);
+    }
 }
 
-const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
-const slot = 9 // Balance slot of USDC
-const blockNumber = 22920848
-const state = await extractStorage(USDC, addrs, slot, blockNumber)
-
-// Hash function used to compute the tree nodes.
-const hash = (a: bigint, b: bigint): bigint => poseidon2([a, b])
-
-// To create an instance of a LeanIMT, you must provide the hash function.
-const tree = new LeanIMT(hash)
-
-// You can also initialize a tree with a given list of leaves.
-// const leaves = [1n, 2n, 3n]
-// new LeanIMT(hash, leaves)
-
-// LeanIMT is strictly typed. Default type for nodes is 'bigint',
-// but you can set your own type.
-// new LeanIMT<number>((a, b) => a + b)
-
-// Insert (incrementally) a leaf with a value of 1.
-const gamma = hash(toBigInt(addrList[0]), toBigInt(addrList[1]))
-for (const [addr, val] of Object.entries(state)) {
-    const addrF = toBigInt(addr)
-    const valF = toBigInt(val)
-    const RLC = addrF + gamma * valF
-    tree.insert(RLC)
-}
-
-console.log(`Root: ${tree.root}`)
-console.log(`Depth: ${tree.depth}`)
-console.log(`Size: ${tree.size}`)
-console.log(`Leaves: ${tree.leaves}`)
-
-
-
-// // Get the index of the leaf with value 3n.
-// const idx = tree.indexOf(3n)
-// // 1
-// console.log(idx)
-
-// // Check if the tree contains a leaf with value 4n.
-// const has = tree.has(4n)
-// // false
-// console.log(tree.has(4n))
-
-// // Update the value of the leaf at position 1 to 2n.
-// tree.update(1, 2n)
-// // [1n, 2n]
-// console.log(tree.leaves)
-
-// // If you want to delete a leaf with LeanIMT you can use the update function with an
-// // arbitrary value to be used for the removed leaves.
-// // Update the value of the leaf at position 1 to 0n (deletion).
-// tree.update(1, 0n)
-// // [1n, 0n]
-// console.log(tree.leaves)
-
-// // Compute a Merkle Inclusion Proof (proof of membership) for the leaf with index 1.
-// // The proof is only valid if the value 1 is found in a leaf of the tree.
-// const proof = tree.generateProof(1)
-// // true
-// console.log(tree.verifyProof(proof))
-
-// // Export all the tree nodes.
-// const nodes = tree.export()
-
-// // Import the nodes.
-// const tree2 = LeanIMT.import(hash, nodes)
-
-// // Node types are converted from strings to bigints by default.
-// // The third parameter can be used to convert strings to other types.
-
-// // Import the nodes converting their types to numbers.
-// // const tree3 = LeanIMT.import<number>(hash, nodes, Number)
+main().catch(console.error);
