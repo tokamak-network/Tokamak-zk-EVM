@@ -394,6 +394,23 @@ program
     console.log(`- Sepolia: ${DEFAULT_RPC_URLS.sepolia}`);
   });
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  program.parse();
-}
+// Force program to parse for Windows + tsx compatibility
+// Original condition: if (import.meta.url === `file://${process.argv[1]}`) {
+
+// More robust cross-platform solution (if needed):
+// const isMainModule = () => {
+//   try {
+//     const moduleUrl = import.meta.url;
+//     const scriptPath = `file://${process.argv[1]}`;
+//     return moduleUrl === scriptPath ||
+//            moduleUrl.replace(/\\/g, '/') === scriptPath.replace(/\\/g, '/') ||
+//            process.argv[1].endsWith('src/cli/index.ts');
+//   } catch {
+//     return true; // Default to true for CLI usage
+//   }
+// };
+// if (isMainModule()) {
+//   program.parse();
+// }
+
+program.parse();
