@@ -64,7 +64,7 @@ import type { Common } from '@synthesizer-libs/common';
 import { DEFAULT_SOURCE_SIZE } from '../tokamak/constant/constants.js';
 
 import { SynthesizerValidator } from '../tokamak/validation/index.js';
-import { chunkMemory, writeCallOutputPt } from 'src/tokamak/utils/index.js';
+import { chunkMemory, writeCallOutputPt } from '../tokamak/utils/index.js';
 
 export interface SyncOpHandler {
   (runState: RunState, common: Common): void;

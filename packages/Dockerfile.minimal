@@ -1,0 +1,29 @@
+# Minimal runtime-only image
+FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
+
+# Switch to a Korean mirror
+RUN sed -i -e 's|http://archive.ubuntu.com|http://kr.archive.ubuntu.com|g' -e 's|http://security.ubuntu.com|http://kr.archive.ubuntu.com|g' /etc/apt/sources.list
+
+# Install only essential runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js (runtime only)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Change default prompt
+RUN echo 'export PS1="\w\$ "' >> /root/.bashrc
+
+WORKDIR /app
+
+# Copy only the essential application files
+# You'll need to build your application outside and copy the built artifacts
+COPY frontend/synthesizer/dist ./frontend/synthesizer/dist
+COPY scripts ./scripts
+
+CMD ["bash"] 
