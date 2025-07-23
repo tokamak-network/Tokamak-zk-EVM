@@ -96,6 +96,9 @@ RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg -
 RUN echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
 RUN apt-get update && apt-get install nodejs -y && rm -rf /var/lib/apt/lists/*
 
+# Install tsx globally for TypeScript execution
+RUN npm install -g tsx
+
 # Install Rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
@@ -124,22 +127,22 @@ RUN echo '#!/bin/bash\n\
 echo "=== Tokamak zkEVM Container Started ==="\n\
 echo "GPU available: $(nvidia-smi --query-gpu=name --format=csv,noheader,nounits 2>/dev/null || echo "No GPU detected")"\n\
 \n\
-cd /app/packages/backend\n\
+cd /app/packages\n\
 \n\
 # Check if icicle is installed, if not install it\n\
-if [ ! -d "/opt/icicle/lib" ]; then\n\
-    echo "Installing icicle for GPU support..."\n\
-    if [ -f "icicle_auto_install.sh" ]; then\n\
-        sed -i "s/\\r$//" icicle_auto_install.sh\n\
-        chmod +x icicle_auto_install.sh\n\
-        bash ./icicle_auto_install.sh\n\
-    else\n\
-        echo "Warning: icicle_auto_install.sh not found"\n\
-    fi\n\
-fi\n\
+# if [ ! -d "/opt/icicle/lib" ]; then\n\
+#     echo "Installing icicle for GPU support..."\n\
+#     if [ -f "icicle_auto_install.sh" ]; then\n\
+#         sed -i "s/\\r$//" icicle_auto_install.sh\n\
+#         chmod +x icicle_auto_install.sh\n\
+#         bash ./icicle_auto_install.sh\n\
+#     else\n\
+#         echo "Warning: icicle_auto_install.sh not found"\n\
+#     fi\n\
+# fi\n\
 \n\
 # Set icicle environment variables\n\
-export LD_LIBRARY_PATH="/opt/icicle/lib:/opt/icicle/lib/backend/bls12_381/cuda:$LD_LIBRARY_PATH"\n\
+# export LD_LIBRARY_PATH="/opt/icicle/lib:/opt/icicle/lib/backend/bls12_381/cuda:$LD_LIBRARY_PATH"\n\
 \n\
 echo "Environment ready!"\n\
 echo "To run trusted-setup: cargo run -p trusted-setup"\n\
