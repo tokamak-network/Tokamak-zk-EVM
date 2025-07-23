@@ -42,24 +42,6 @@ export const executeContractCallTransaction = async (
     
 ): Promise<{ trace: ExecutionTrace, diff: StateDiff }> => {
     console.log(`[EthJsExecEngine] Executing tx for contract ${ca} using EthereumJS VM...`);
-
-    const stateManager = new MerkleStateManager()
-    const contractAddress = new Address(hexToBytes(addHexPrefix(ca)))
-    const byteCode = hexToBytes(addHexPrefix(bytecode))
-    await stateManager.putCode(contractAddress, byteCode)
-    
-    for (const slotStr in reconstructedL1Db) {
-        for (const l1Addr in reconstructedL1Db[slotStr]) {
-            const addrBytes = setLengthLeft(hexToBytes(addHexPrefix(l1Addr)), 32)
-            const slotBytes = setLengthLeft(hexToBytes(addHexPrefix(slotStr)), 32)
-            const valueBytes = bigIntToBytes(reconstructedL1Db[slotStr][l1Addr])
-            const key = keccak256(concatBytes(...[addrBytes, slotBytes]))
-            await stateManager.putStorage(contractAddress, key, valueBytes)
-        }
-    }
-
-    
-
     await runTx
 
     const common = new Common({ chain: Mainnet, hardfork: Hardfork.Shanghai })

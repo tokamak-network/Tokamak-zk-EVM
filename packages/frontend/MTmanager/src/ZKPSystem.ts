@@ -16,7 +16,7 @@ export class ZKPSystem {
      * @param proof The ZK proof string.
      * @returns Always returns true in this simulation.
      */
-    public verify(publicInput: bigint[], proof: string): boolean {
+    public verify(publicInput: string[], proof: string): boolean {
         console.log(`[Verifier] Verifying proof: ${proof}`)
         if (!this.crs.startsWith('crs')) {
             console.error("[Verifier] CRS format is incorrect.")
@@ -28,7 +28,7 @@ export class ZKPSystem {
             return false
         }
         for(const val of publicInput) {
-            if (typeof val !== 'bigint') {
+            if (typeof val !== 'string') {
                 return false
             }
         }

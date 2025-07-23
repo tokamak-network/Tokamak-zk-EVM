@@ -8,12 +8,10 @@ import { getBytecode, getBlockInfo, BlockInfo } from './L1StateManager';
 import { createLegacyTx, LegacyTx, LegacyTxData} from '@ethereumjs/tx';
 import { addHexPrefix, createAddressFromString, hexToBytes, concatBytes, setLengthLeft, bigIntToBytes} from '@ethereumjs/util';
 
-
 export function createErc20Transfer(contractAddress: string, to: string, amount: bigint): LegacyTx {
     const txData: LegacyTxData = {
         to: createAddressFromString(addHexPrefix(contractAddress)),
         value: 0n,
-        type: 0,
         data: concatBytes( ...[
             hexToBytes('0xa9059cbb'), 
             setLengthLeft(hexToBytes(addHexPrefix(to)), 20), 

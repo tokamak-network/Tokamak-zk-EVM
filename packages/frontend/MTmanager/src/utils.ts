@@ -7,20 +7,20 @@ export async function fetchBlockHeaderFromRPC(blockNumber: number, rpcUrl: strin
 }
 
 export function pairL1L2Address(L1Addrs: string[], L2Addrs: string[]): {
-    addrPairFromL1ToL2: Map<Address, Address>, 
-    addrPairFromL2ToL1: Map<Address, Address>
+    addrPairFromL1ToL2: Map<string, Address>, 
+    addrPairFromL2ToL1: Map<string, Address>
 } {
     const strToAddr = (addrStr: string): Address => {
         return createAddressFromString(addHexPrefix(addrStr))
     }
-    const fromL1ToL2 = new Map<Address, Address>()
-    const fromL2ToL1 = new Map<Address, Address>()
-    if (checkAddressDuplication(L1Addrs, L2Addrs)) {
+    const fromL1ToL2 = new Map<string, Address>()
+    const fromL2ToL1 = new Map<string, Address>()
+    if (!checkAddressDuplication(L1Addrs, L2Addrs)) {
         throw new Error("Address duplication or length mismatch.");
     }
     for (const [idx, L1Addr] of L1Addrs.entries()) {
-        fromL1ToL2.set(strToAddr(L1Addr), strToAddr(L2Addrs[idx]))
-        fromL2ToL1.set(strToAddr(L2Addrs[idx]), strToAddr(L1Addr))
+        fromL1ToL2.set(L1Addr, strToAddr(L2Addrs[idx]))
+        fromL2ToL1.set(L2Addrs[idx], strToAddr(L1Addr))
     }
     
     return {
