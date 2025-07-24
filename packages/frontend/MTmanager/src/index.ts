@@ -1,47 +1,76 @@
 
 
+import { keccak256, solidityPacked, solidityPackedKeccak256 } from "ethers";
 import { MPT } from "./MPTManager";
+import { addHexPrefix, bytesToHex, hexToBytes, setLengthLeft } from "@ethereumjs/util";
+import { getStorageKey } from "./utils";
 
-// Real USDC Contract Address on Ethereum Mainnet
-const USDC_CONTRACT_ADDR = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+// Real TON Contract Address on Ethereum Mainnet
+const TON_CONTRACT_ADDR = '0x2be5e8c109e2197D077D13A82dAead6a9b3433C5';
 
 const L1ADDRS = [
-    // '0xC23bb7A0204C536F0EB41aC2b46d63eA2583C2B5',
-    '0xedAD1e35D420b1E67CDBC84aAc3b62bFFCb0847C',
-    '0x1c92c40AD9bdF31CcEe1B3e7dB856b158A7F63e7',
-    '0xa91948FBa077BbA448809E90A6b40C533AD5f96A',
-    '0xaeEfe9b5fd62Afc2FBB2537cF7761b5609a72aCC',
-    '0x2c831F3dBB66945AaB2dbD08D6A9feb4DE4C8497',
-    '0xD07C3B2e2E0f51c9D91B50b92347923a50b460F6',
-    '0xd302043F6a3b79353a5FeD05C55E1123C1aF91aa'
+    '0xd8eE65121e51aa8C75A6Efac74C4Bbd3C439F78f',
+    '0x838F176D94990E06af9B57E470047F9978403195',
+    '0x01E371b2aD92aDf90254df20EB73F68015E9A000',
+    '0xbD224229Bf9465ea4318D45a8ea102627d6c27c7',
+    '0x6FD430995A19a57886d94f8B5AF2349b8F40e887',
+    '0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9',
+    '0x60be9978F805Dd4619F94a449a4a798155a05A56'
+
 ]
 
 const L2ADDRS = [
-    // '0xC23bb7A0204C536F0EB41aC2b46d63eA2583C2B5',
-    '0xedAD1e35D420b1E67CDBC84aAc3b62bFFCb0847C',
-    '0x1c92c40AD9bdF31CcEe1B3e7dB856b158A7F63e7',
-    '0xa91948FBa077BbA448809E90A6b40C533AD5f96A',
-    '0xaeEfe9b5fd62Afc2FBB2537cF7761b5609a72aCC',
-    '0x2c831F3dBB66945AaB2dbD08D6A9feb4DE4C8497',
-    '0xD07C3B2e2E0f51c9D91B50b92347923a50b460F6',
-    '0xd302043F6a3b79353a5FeD05C55E1123C1aF91aa'
+    '0xd8eE65121e51aa8C75A6Efac74C4Bbd3C439F78f',
+    '0x838F176D94990E06af9B57E470047F9978403195',
+    '0x01E371b2aD92aDf90254df20EB73F68015E9A000',
+    '0xbD224229Bf9465ea4318D45a8ea102627d6c27c7',
+    '0x6FD430995A19a57886d94f8B5AF2349b8F40e887',
+    '0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9',
+    '0x60be9978F805Dd4619F94a449a4a798155a05A56'
 ]
 
 
-const SLOTS = [9]; 
+const USERSLOTS = [0]
+const CONTRACTSLOTS: number[] = [] 
 
 const BLOCK_NUMBER = 20000000; // Example: Use a block number from mid-2024 or earlier for stability
 
 const RPCURL = 'https://eth-mainnet.g.alchemy.com/v2/e_QJd40sb7aiObJisG_8Q'
-const USER_PRVKEY = 'Jake'
+const USER_PRVKEY = setLengthLeft(hexToBytes(addHexPrefix(solidityPackedKeccak256(['string'], [
+    "Jake's wallet"
+]))), 32)
 
 
 async function main() {
-    const mpt = await MPT.buildFromRPC(BLOCK_NUMBER, USDC_CONTRACT_ADDR, SLOTS, L1ADDRS, L2ADDRS, RPCURL)
-    const tx = mpt.createErc20Transfer(USER_PRVKEY, L1ADDRS[2], '0x10')
-    console.log(tx.getSenderAddress())
-    const simulated_mpt = await mpt.simulateTransactionBatch([tx])
+    // SMARTCONTRACT
+    // Layer1 MPT -> Layer2 MPT
+    const mpt = await MPT.buildFromRPC(BLOCK_NUMBER, TON_CONTRACT_ADDR, CONTRACTSLOTS, USERSLOTS, L1ADDRS, L2ADDRS, RPCURL)
+    // L2MPT -> MT conversion
 
+    // Layer2
+    const tx = await mpt.createErc20Transfer(USER_PRVKEY, L1ADDRS[2], '0xce1e1ff314be3c0000', USERSLOTS[0])
+    let log
+    // log = await mpt.serializeUserStorageLeaves()
+    // console.log(log)
+    const simulatedMPTSequence = await mpt.simulateTransactionBatch([tx])
+    log = await simulatedMPTSequence[0].serializeUserStorageLeaves()
+    console.log(log)
+    log = await simulatedMPTSequence[1].serializeUserStorageLeaves()
+    console.log(log)
+    // Updated MPT -> MT conversion -> Simulated MT
+    // Simulated MT -> ZKP generation
+    // ZKP -> Verify -> Accept updated MPT
+    // Updated MPT -> Accept simulated MT
+
+
+    // Send Layer2 MPT -> Layer1 MPT
+
+
+
+    const prevVal = await mpt.getStorage(9, L1ADDRS[2])
+    const key = keccak256(solidityPacked(['uint256','uint256'], [L1ADDRS[2], 9]))
+    const keyBytes = hexToBytes(addHexPrefix(key))
+    const afterVal = await simulatedMPTSequence[1].getStorage(9, L1ADDRS[2])
 }
 
 main()

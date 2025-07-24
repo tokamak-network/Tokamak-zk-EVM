@@ -10,33 +10,21 @@ import { pairL1L2Address } from "./utils";
 import { HeaderData } from "@ethereumjs/block";
 import { MerkleStateManager } from "@ethereumjs/statemanager";
 
-// Type definitions
-type RawLeavesByL2Addr = Record<string, { index: number; value: bigint }>;
-export type L2DataBaseBySlot = Record<number, RawLeavesByL2Addr>;
-
-// Holds the state before and after a transaction for ZKP generation.
-interface PendingState {
-    oldRoots: Record<number, bigint>;
-    newRoots: Record<number, bigint>;
-    oldRawLeaves: L2DataBaseBySlot;
-    newRawLeaves: L2DataBaseBySlot;
-    newTrees: Record<number, LeanIMT>;
-}
 
 type RootBySlot = Record<number, bigint>
 
 export class MT {
-    // Current, committed state
-    public rootSequence: Record<number, string[]> = {}
-
     public blockNumber: number
     public blockHeaderData: HeaderData = {}
     public contractAddress: Address
-    public slots: number[]
+    public contractSlots: number[]
+    public userSlots: number[]
     public addrPairsFromL2toL1: Map<string, Address> = new Map()
     public addrPairsFromL1ToL2: Map<string, Address> = new Map()
-    public rootHistoryByNonce: Record<number, RootBySlot> = {}
-    private _treesBySlot: Record<number, LeanIMT> = {}
+    public userStorageRootsByNonce: Record<number, RootBySlot> = {}
+    public hash = (a: bigint, b: bigint): bigint => poseidon2([a, b])
+    private _userStorageBySlot: Record<number, LeanIMT> = {}
+    private _contractStorage: LeanIMT = new LeanIMT<bigint>(this.hash)
     private _field: any
     private _nonce: number
     
@@ -47,14 +35,16 @@ export class MT {
     private constructor(
         blockNumber: number, 
         ca: Address, 
-        slots: number[],
+        contractSlots: number[],
+        userSlots: number[],
         addrPairFromL2ToL1: Map<string, Address>,
         addrPairFromL1ToL2: Map<string, Address>, 
         field: any,
     ) {
         this._field = field
         this.contractAddress = ca
-        this.slots = slots
+        this.contractSlots = contractSlots
+        this.userSlots = userSlots
         this.blockNumber = blockNumber
         this.addrPairsFromL2toL1 = addrPairFromL2ToL1
         this.addrPairsFromL1ToL2 = addrPairFromL1ToL2
@@ -65,9 +55,9 @@ export class MT {
         mpt: MPT
     ): Promise<MT> {
         const bls12381 = await getCurveFromName("BLS12381", true)
-        const mt = new MT(mpt.blockNumber , mpt.contractAddress, mpt.slots, mpt.addrPairsFromL1ToL2, mpt.addrPairsFromL1ToL2, bls12381.Fr)
+        const mt = new MT(mpt.blockNumber , mpt.contractAddress, mpt.contractSlots, mpt.userSlots, mpt.addrPairsFromL1ToL2, mpt.addrPairsFromL1ToL2, bls12381.Fr)
         const rootBySlot: RootBySlot = await mt.fetchMPT(mpt)
-        mt.rootHistoryByNonce[mt._nonce] = {...rootBySlot}
+        mt.userStorageRootsByNonce[mt._nonce] = {...rootBySlot}
         return mt
     }
 
@@ -75,19 +65,19 @@ export class MT {
         const simulated_mt = structuredClone(this)
         const rootBySlot: RootBySlot = await simulated_mt.fetchMPT(mpt)
         simulated_mt._nonce ++
-        simulated_mt.rootHistoryByNonce[simulated_mt._nonce] = {...rootBySlot}
+        simulated_mt.userStorageRootsByNonce[simulated_mt._nonce] = {...rootBySlot}
         return simulated_mt
     }
 
     public applySimulatedMT(simulated_mt: MT) {
         this._nonce = simulated_mt._nonce
-        this._treesBySlot = structuredClone(simulated_mt._treesBySlot)
-        this.rootHistoryByNonce = structuredClone(simulated_mt.rootHistoryByNonce)
+        this._userStorageBySlot = structuredClone(simulated_mt._userStorageBySlot)
+        this._userStorageBySlot = structuredClone(simulated_mt._userStorageBySlot)
     }
 
     private async fetchMPT(mpt: MPT): Promise<RootBySlot> {
         const rootBySlot: RootBySlot = {}
-        for (const slot of this.slots) {
+        for (const slot of this.userSlots) {
             const leaves: bigint[] = []
             for (const L1Addr in this.addrPairsFromL1ToL2) {
                 const valBytes = await mpt.getStorage(slot, L1Addr)
@@ -98,23 +88,35 @@ export class MT {
                     throw new Error('Error while fetching MT')
                 }
                 const L2AddrStr = L2Addr.toString()
-                const leaf = this.RLC(slot, L2AddrStr, bytesToBigInt(valBytes))
+                const leaf = this.RLCForUserStorage(slot, L2AddrStr, bytesToBigInt(valBytes))
                 leaves.push(leaf) 
             }
-            this._treesBySlot[slot].insertMany(leaves)
-            rootBySlot[slot] = this._treesBySlot[slot].root
+            this._userStorageBySlot[slot] = new LeanIMT<bigint>(this.hash, leaves)
+            rootBySlot[slot] = this._userStorageBySlot[slot].root
         }
+
+        const leaves: bigint[] = []
+        for (const slot of this.contractSlots) {
+            const valBytes = await mpt.getStorage(slot)
+            const leaf = this.RLCForContractStorage(slot, bytesToBigInt(valBytes))
+            leaves.push(leaf) 
+        }
+        this._contractStorage.insertMany(leaves)
         return rootBySlot
     }
 
-    public hash = (a: bigint, b: bigint): bigint => poseidon2([a, b]);
-
-    private RLC(slot: number, L2Addr: string, value: bigint): bigint {
+    private RLCForUserStorage(slot: number, L2Addr: string, value: bigint): bigint {
         const fieldToBigInt = (val: Uint8Array): bigint => toBigInt('0x' + this._field.toString(val, 16))
         const L2AddrF = toBigInt(L2Addr)
-        const prevRoot = this._nonce == 0 ? slot : this.rootHistoryByNonce[this._nonce - 1][slot]
+        const prevRoot = this._nonce == 0 ? slot : this.userStorageRootsByNonce[this._nonce - 1][slot]
         const gamma = this.hash(toBigInt(prevRoot), L2AddrF)
         return fieldToBigInt(this._field.e(L2AddrF + gamma * value))
+    }
+
+    private RLCForContractStorage(slot: number, value: bigint): bigint {
+        const fieldToBigInt = (val: Uint8Array): bigint => toBigInt('0x' + this._field.toString(val, 16))
+        const gamma = this.hash(toBigInt(slot), 0n)
+        return fieldToBigInt(this._field.e(toBigInt(slot) + gamma * value))
     }
     
 }
