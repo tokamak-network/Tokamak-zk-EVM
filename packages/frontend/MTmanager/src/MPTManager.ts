@@ -1,26 +1,29 @@
 import { ethers, keccak256, solidityPacked } from 'ethers'
 import { Block, BlockHeader, HeaderData, createBlock, createBlockHeader } from '@ethereumjs/block'
 import { MerkleStateManager } from '@ethereumjs/statemanager'
-import { Account, addHexPrefix, Address, bigIntToBytes, bytesToBigInt, bytesToHex, concatBytes, createAccount, createAccountFromRLP, createAddressFromString, hexToBigInt, hexToBytes, PrefixedHexString, setLengthLeft } from '@ethereumjs/util'
-import { fetchBlockHeaderFromRPC, getStorageKey, pairL1L2Address } from './utils.ts'
+import { Account, addHexPrefix, Address, bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, concatBytes, createAccount, createAccountFromRLP, createAddressFromString, hexToBigInt, hexToBytes, PrefixedHexString, setLengthLeft } from '@ethereumjs/util'
+import { fetchBlockHeaderFromRPC, getStorageKey } from './utils.ts'
 import { createLegacyTx, LegacyTx, LegacyTxData } from '@ethereumjs/tx'
 import { Common, Hardfork, Mainnet } from '@ethereumjs/common'
 import { createVM, runTx, RunTxOpts, RunTxResult } from '@ethereumjs/vm'
 import { ZKPSystem } from './ZKPSystem.ts'
-import { SignatureSystem } from './signatureSystem.ts'
+import { L2SignatureSystem } from './signatureSystem.ts'
 import { LeanIMT } from '@zk-kit/lean-imt'
 import { MT } from './MTManager.ts'
+import { L1Address, L2Address } from './types.ts'
 
 export class MPT {
   public blockNumber: number
   public blockHeaderData: HeaderData
-  public contractAddress: Address
+  public contractAddress: L1Address
   public contractSlots: number[]
   public userSlots: number[]
-  public addrPairsFromL1ToL2: Map<string, Address>
-  public addrPairsFromL2toL1: Map<string, Address>
+  public addrPairsFromL1ToL2: Map<string, L2Address>
+  public addrPairsFromL2toL1: Map<string, L1Address>
+  public L2Signature: L2SignatureSystem
   private _stateTrie = new MerkleStateManager()
   private _isFetched: boolean
+  private _userL2PubKeys: Uint8Array[]
 
   constructor(
     blockNumber: number,
@@ -28,7 +31,7 @@ export class MPT {
     contractSlots: number[],
     userSlots: number[],
     L1Addrs: string[],
-    L2Addrs: string[],
+    userL2PubKeys: Uint8Array[],
   ){
     this._isFetched = false
     this.blockNumber = blockNumber
@@ -36,7 +39,9 @@ export class MPT {
     this.contractAddress = createAddressFromString(addHexPrefix(contractAddress))
     this.contractSlots = [...contractSlots]
     this.userSlots = [...userSlots]
-    const addrPairs = pairL1L2Address(L1Addrs, L2Addrs)
+    this._userL2PubKeys = userL2PubKeys
+    this.L2Signature = L2SignatureSystem.keyGen('sys prv key')
+    const addrPairs = this.pairL1L2Address(L1Addrs, userL2PubKeys)
     this.addrPairsFromL1ToL2 = addrPairs.addrPairFromL1ToL2
     this.addrPairsFromL2toL1 = addrPairs.addrPairFromL2ToL1
   }
@@ -47,10 +52,10 @@ export class MPT {
     contractSlots: number[],
     userSlots: number[],
     L1Addrs: string[],
-    L2Addrs: string[],
+    userL2PubKeys: Uint8Array[],
     rpcUrl: string,
   ) {
-    const mpt = new MPT(blockNumber, contractAddress, contractSlots, userSlots, L1Addrs, L2Addrs)
+    const mpt = new MPT(blockNumber, contractAddress, contractSlots, userSlots, L1Addrs, userL2PubKeys)
     mpt.blockHeaderData =  await fetchBlockHeaderFromRPC(mpt.blockNumber, rpcUrl)
     await mpt.fetchContractStateFromRPC(rpcUrl)
     return mpt
@@ -58,7 +63,7 @@ export class MPT {
 
   public shallowCopy(): MPT {
     const l1Arr = [...this.addrPairsFromL1ToL2.keys()]
-    const l2Arr = [...this.addrPairsFromL1ToL2.values()].map(a => a.toString())
+    const userL2PubKeys = [...this._userL2PubKeys]
 
     const cloned = new MPT(
       this.blockNumber,
@@ -66,18 +71,49 @@ export class MPT {
       [...this.contractSlots],
       [...this.userSlots],
       l1Arr,
-      l2Arr
+      userL2PubKeys
     )
 
     cloned.blockHeaderData = { ...this.blockHeaderData }
-
-    cloned.addrPairsFromL1ToL2 = new Map(this.addrPairsFromL1ToL2)
-    cloned.addrPairsFromL2toL1 = new Map(this.addrPairsFromL2toL1)
 
     cloned._stateTrie = this._stateTrie.shallowCopy()
     cloned._isFetched = this._isFetched
 
     return cloned
+  }
+
+  private pairL1L2Address(L1Addrs: string[], userL2PubKeys: Uint8Array[]): {
+    addrPairFromL1ToL2: Map<string, Address>, 
+    addrPairFromL2ToL1: Map<string, Address>
+  } {
+    const strToAddr = (addrStr: string): L1Address | L2Address => {
+      return createAddressFromString(addHexPrefix(addrStr))
+    }
+    const fromL1ToL2 = new Map<string, L2Address>()
+    const fromL2ToL1 = new Map<string, L1Address>()
+    if (!this.checkAddressDuplication(L1Addrs)) {
+      throw new Error("Address duplication or length mismatch.")
+    }
+    for (const [idx, L1Addr] of L1Addrs.entries()) {
+      const userL2PubKey = userL2PubKeys[idx]
+      this._userL2PubKeys[idx] = userL2PubKey
+      const L2Addr = this.L2Signature.createAddressFromPublicKey(userL2PubKey)
+      fromL1ToL2.set(L1Addr, L2Addr)
+      fromL2ToL1.set(L2Addr.toString(), strToAddr(L1Addr))
+    }
+    return {
+        addrPairFromL1ToL2: fromL1ToL2,
+        addrPairFromL2ToL1: fromL2ToL1,
+    }
+  }
+
+  private checkAddressDuplication(L1Addrs: string[]): boolean {
+    const L1AddrSet = new Set(L1Addrs);
+    if (L1AddrSet.size !== L1Addrs.length) return false
+    const L2AddrSet = new Set(this._userL2PubKeys.map(val => bytesToHex(val)))
+    if (L2AddrSet.size !== this._userL2PubKeys.length) return false
+    if (L1Addrs.length !== this._userL2PubKeys.length) return false
+    return true;
   }
 
   private async fetchContractStateFromRPC (rpcUrl: string) {
@@ -224,36 +260,49 @@ export class MPT {
     return await this._stateTrie.getStorage(this.contractAddress, key)
   }
 
-  public async createErc20Transfer(prvKey: Uint8Array, toStr: string, amountStr: string, balanceSlot: number): Promise<LegacyTx> {
-    const to = addHexPrefix(toStr)
-    if (!this.addrPairsFromL1ToL2.has(to)) {
-      throw new Error('invalid "to" address')
+  public async createErc20Transfers(prvKey: Uint8Array, toStrs: string[], amounts: bigint[], balanceSlot: number): Promise<LegacyTx[]> {
+    if (toStrs.length !== amounts.length){
+      throw new Error('Mismatch between the numbers of to addresses and amounts')
     }
-    const txData: LegacyTxData = {
-          to: this.contractAddress,
-          value: 0n,
-          data: concatBytes( ...[
-              hexToBytes('0xa9059cbb'), 
-              setLengthLeft(hexToBytes(addHexPrefix(toStr)), 32), 
-              setLengthLeft(hexToBytes(addHexPrefix(amountStr)), 32)
-          ]),
-          gasLimit: 999999n,
-          gasPrice: 4936957717n,
+    const txBatch: LegacyTx[] = []
+    for (const [idx, toStr] of toStrs.entries()){
+      const to = addHexPrefix(toStr)
+      const amountStr = bigIntToHex(amounts[idx])
+      if (!this.addrPairsFromL1ToL2.has(to)) {
+        throw new Error('invalid "to" address')
+      }
+      const txData: LegacyTxData = {
+            to: this.contractAddress,
+            value: 0n,
+            data: concatBytes( ...[
+                hexToBytes('0xa9059cbb'), 
+                setLengthLeft(hexToBytes(addHexPrefix(toStr)), 32), 
+                setLengthLeft(hexToBytes(addHexPrefix(amountStr)), 32)
+            ]),
+            gasLimit: 999999n,
+            gasPrice: 4936957717n,
+      }
+      const tx = createLegacyTx(txData)
+      const signedTx = tx.sign(prvKey)
+      const senderL1Addr: L1Address = signedTx.getSenderAddress()
+      const senderL2PubKey = this.L2Signature.privateToPublic(prvKey)
+      const senderL2Addr: L2Address = this.L2Signature.createAddressFromPublicKey(senderL2PubKey)
+      if (!this.addrPairsFromL1ToL2.has(senderL1Addr.toString())) {
+        this.addrPairsFromL1ToL2.set(senderL1Addr.toString(), senderL2Addr)
+        this.addrPairsFromL2toL1.set(senderL2Addr.toString(), senderL1Addr)
+        this._userL2PubKeys.push(senderL2PubKey)
+      }
+      //// This part add sufficient balance to the sender. Must be removed in the future
+      const key = getStorageKey([senderL1Addr.toString(), balanceSlot])
+      const val = await this._stateTrie.getStorage(this.contractAddress, key)
+      if (hexToBigInt(addHexPrefix(amountStr)) > bytesToBigInt(val)) {
+        const newVal = bigIntToBytes(bytesToBigInt(val) + 10n * hexToBigInt(addHexPrefix(amountStr)))
+        await this._stateTrie.putStorage(this.contractAddress, key, newVal)
+      }
+      ////
+      txBatch.push(signedTx)
     }
-    const tx = createLegacyTx(txData)
-    const signedTx = tx.sign(prvKey)
-    const senderAddr = signedTx.getSenderAddress()
-    if (!this.addrPairsFromL1ToL2.has(senderAddr.toString())) {
-      this.addrPairsFromL1ToL2.set(senderAddr.toString(), senderAddr)
-      this.addrPairsFromL2toL1.set(senderAddr.toString(), senderAddr)
-    }
-    const key = getStorageKey([senderAddr.toString(), balanceSlot])
-    const val = await this._stateTrie.getStorage(this.contractAddress, key)
-    if (hexToBigInt(addHexPrefix(amountStr)) > bytesToBigInt(val)) {
-      const newVal = bigIntToBytes(bytesToBigInt(val) + 9n * hexToBigInt(addHexPrefix(amountStr)))
-      await this._stateTrie.putStorage(this.contractAddress, key, newVal)
-    }
-    return signedTx
+    
+    return txBatch
   }
-
 }

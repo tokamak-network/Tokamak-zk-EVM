@@ -17,7 +17,6 @@ export class ZKPSystem {
      * @returns Always returns true in this simulation.
      */
     public verify(publicInput: string[], proof: string): boolean {
-        console.log(`[Verifier] Verifying proof: ${proof}`)
         if (!this.crs.startsWith('crs')) {
             console.error("[Verifier] CRS format is incorrect.")
             return false
@@ -36,13 +35,13 @@ export class ZKPSystem {
         return true;
     }
 
-    public prove(publicInput: bigint[], privateInput: bigint[]): string {
+    public prove(publicInput: string[], privateInput: string[]): string {
         let proof = 'dummy-zk-proof-string' + this.crs
         for (const val of publicInput) {
-            proof += val.toString
+            proof += val
         }
         for (const val of privateInput) {
-            proof += val.toString
+            proof += val
         }
         return proof
     }
