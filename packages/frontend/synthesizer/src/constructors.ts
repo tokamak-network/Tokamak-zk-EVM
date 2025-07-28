@@ -24,7 +24,7 @@ export async function createEVM(
   },
 ) {
   const opts = createOpts ?? ({} as EVMOpts);
-  const isMainnet = createOpts?.isMainnet ?? false;
+  const isMainnet = createOpts?.isMainnet ?? true;
   const txHash = createOpts?.txHash;
   const rpcUrl = createOpts?.rpcUrl;
 
@@ -43,16 +43,14 @@ export async function createEVM(
     const tx = await provider.getTransaction(txHash);
 
     if (!tx) {
-      throw new Error(
-        `트랜잭션 해시 ${txHash}에 해당하는 트랜잭션을 찾을 수 없습니다.`,
-      );
+      throw new Error(`Transaction not found for hash: ${txHash}`);
     }
     if (!tx.from) {
-      throw new Error(`트랜잭션 ${txHash}의 'from' 주소가 없습니다.`);
+      throw new Error(`Transaction ${txHash} has no 'from' address`);
     }
 
     if (tx.blockNumber === null) {
-      throw new Error(`트랜잭션 ${txHash}가 아직 블록에 포함되지 않았습니다.`);
+      throw new Error(`Transaction ${txHash} is not yet included in a block`);
     }
     const targetBlockNumber = tx.blockNumber;
 

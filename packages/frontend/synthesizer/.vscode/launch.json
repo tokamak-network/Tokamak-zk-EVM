@@ -6,9 +6,9 @@
       "request": "launch",
       "name": "Launch with tsx",
       "runtimeExecutable": "tsx",
-      "program": "${workspaceFolder}/examples/demo/index.ts",
+      "program": "${workspaceFolder}/examples/fullnode/index.ts",
       "args": [],
-      "cwd": "${workspaceFolder}/examples/demo",
+      "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],
       "console": "integratedTerminal", 
     }
