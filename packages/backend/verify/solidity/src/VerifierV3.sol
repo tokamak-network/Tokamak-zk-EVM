@@ -166,7 +166,6 @@ contract VerifierV3 is IVerifierV3 {
     uint256 internal constant CHALLENGE_KAPPA_1_SLOT = 0x8000 + 0x200 + 0x120 + 0xa20 + 0x80 + 0x080;
     uint256 internal constant CHALLENGE_KAPPA_2_SLOT = 0x8000 + 0x200 + 0x120 + 0xa20 + 0x80 + 0x0a0;
     uint256 internal constant CHALLENGE_ZETA_SLOT = 0x8000 + 0x200 + 0x120 + 0xa20 + 0x80 + 0x0c0;
-    uint256 internal constant CHALLENGE_XI_SLOT = 0x8000 + 0x200 + 0x120 + 0xa20 + 0x80 + 0x0e0;
     uint256 internal constant CHALLENGE_CHI_SLOT = 0x8000 + 0x200 + 0x120 + 0xa20 + 0x80 + 0x100;
 
     /*//////////////////////////////////////////////////////////////
@@ -1150,46 +1149,46 @@ contract VerifierV3 is IVerifierV3 {
                 // Get the actual length of the array from calldata
                 let arrayLength := calldataload(offset)
                 
-                let n := 128
+                let l := 128
                 let omega := OMEGA_128
 
                 if gt(arrayLength, 256) {
                     if iszero(gt(arrayLength, 256)) {
-                        n := 256
+                        l := 256
                         omega := OMEGA_256
                     }
                 }
 
                 if gt(arrayLength, 512) {
                     if iszero(gt(arrayLength, 512)) {
-                        n := 512
+                        l := 512
                         omega := OMEGA_512
                     }
                 }
 
                 if gt(arrayLength, 1024) {
                     if iszero(gt(arrayLength, 1024)) {
-                        n := 1024
+                        l := 1024
                         omega := OMEGA_1024
                     }
                 }
 
                 if gt(arrayLength, 2048) {
                     if iszero(gt(arrayLength, 2048)) {
-                        n := 2048
+                        l := 2048
                         omega := OMEGA_2048
                     }
                 }
 
-                // Compute chi^n - 1
-                let chi_n := modexp(chi, n)
-                let chi_n_1 := addmod(chi_n, sub(R_MOD, 1), R_MOD)
+                // Compute chi^l - 1
+                let chi_l := modexp(chi, l)
+                let chi_l_1 := addmod(chi_l, sub(R_MOD, 1), R_MOD)
 
-                // Check if chi is a 128th root of unity
-                if iszero(chi_n_1) {
+                // Check if chi is a x^th root of unity
+                if iszero(chi_l_1) {
                     // Special case: find and return the corresponding value
                     let omega_power := 1
-                    for { let i := 0 } lt(i, n) { i := add(i, 1) } {
+                    for { let i := 0 } lt(i, l) { i := add(i, 1) } {
                         if eq(chi, omega_power) {
                             let val := calldataload(add(add(offset, 0x24), mul(i, 0x20)))
                             mstore(INTERMEDIARY_SCALAR_APUB_SLOT, val)
@@ -1201,13 +1200,13 @@ contract VerifierV3 is IVerifierV3 {
 
                 // Normal case: compute weighted sum
                 let weightedSum := 0
-                let inv_n := modexp(n, sub(R_MOD, 2))
+                let inv_l := modexp(l, sub(R_MOD, 2))
 
                 // First pass: count non-zero values and store their indices
                 let nonZeroCount := 0
                 let tempOffset := 0x2000 // Temporary storage location
 
-                for { let i := 0 } lt(i, n) { i := add(i, 1) } {
+                for { let i := 0 } lt(i, l) { i := add(i, 1) } {
                     let val := calldataload(add(add(offset, 0x24), mul(i, 0x20)))
                     if val {
                         // Store index and value
@@ -1246,9 +1245,9 @@ contract VerifierV3 is IVerifierV3 {
                     weightedSum := addmod(weightedSum, contribution, R_MOD)
                 }
 
-                // Final result: (chi^n - 1) * weightedSum / n
-                let result := mulmod(chi_n_1, weightedSum, R_MOD)
-                result := mulmod(result, inv_n, R_MOD)
+                // Final result: (chi^l - 1) * weightedSum / n
+                let result := mulmod(chi_l_1, weightedSum, R_MOD)
+                result := mulmod(result, inv_l, R_MOD)
 
                 mstore(INTERMEDIARY_SCALAR_APUB_SLOT, result)
             }
