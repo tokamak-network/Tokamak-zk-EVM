@@ -11,7 +11,7 @@ const Fr = new F1Field(exports.p)
 const builder = require("./wasm/witness_calculator.js")
 const { readFileSync } = require("fs")
 const assert = chai.assert
-const { split256BitInteger, signExtend, signedDivide, signedMod} = require("./helper_functions")
+const { split256BitInteger, signExtend, signedDivide, signedMod} = require("./helper_functions.js")
 const test_case = require("./test_cases.js")
 const N = 115792089237316195423570985008687907853269984665640564039457584007913129639936n
 

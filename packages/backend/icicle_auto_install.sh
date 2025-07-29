@@ -26,6 +26,20 @@ function check_backend_support() {
     if [[ "$1" == "cuda" ]]; then
         if ! command -v nvidia-smi &> /dev/null; then
             echo "CUDA not detected (nvidia-smi not found). Please install CUDA drivers or use a CPU/Metal backend."
+            
+            if [ -d "$INSTALL_DIR" ]; then
+                echo "[*] Checking for existing files in $INSTALL_DIR..."
+                if [ "$(ls -A $INSTALL_DIR 2>/dev/null)" ]; then
+                    echo "[*] Found existing files in $INSTALL_DIR. Removing them..."
+                    $SUDO rm -rf "$INSTALL_DIR"/*
+                    echo "[*] Files in $INSTALL_DIR have been removed."
+                else
+                    echo "[*] $INSTALL_DIR is empty."
+                fi
+            else
+                echo "[*] $INSTALL_DIR directory does not exist."
+            fi
+            
             exit 0
         fi
     elif [[ "$1" == "metal" ]]; then
