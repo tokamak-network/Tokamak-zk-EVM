@@ -56,13 +56,13 @@ async function main() {
     const zkp = ZKPSystem.setup()
     ///////////////////////////////////////////
     console.log(`
-        2. The preparation has been done:\n
+        Once the preparation has been done,\n
         \t- The initial roots of MPT and MTs have been recorded on-chain,\n
         \t- Pairing between users' L1 and L2 addresses have been recorded on-chain.\n
     `)
 
     console.log(`
-        3. Based on the initial MPT and MTs generated on-chain, an L2 user creates a batch of transactions.\n
+        2. Based on the initial MPT and MTs generated on-chain, an L2 user creates a batch of transactions.\n
     `)
     //// Layer2////////////////////////////////////
     // Creating transactions by a user
@@ -70,12 +70,12 @@ async function main() {
     const amounts = Array.from({length: nTx}, () => 10000000n)
     const txBatch: LegacyTx[] = await mpt.createErc20Transfers(USER_PRVKEY, L1ADDRS, amounts, USERSLOTS[0])
     console.log(`
-        4. The transaction batch is then sent to the leader.\n
+        The transaction batch is then sent to the leader.\n
     `)
 
     // Both user and leader simulates update of the MPT
     console.log(`
-        5. The transaction batch is simulated by both the user and leader. The simulation is not applied to the L2 MPT yet.\n
+        3. The transaction batch is simulated by both the user and leader. The simulation is not applied to the L2 MPT yet.\n
     `)
     const simulatedMPTSequence = await mpt.simulateTransactionBatch(txBatch)
     const initialStorageLeaves = await simulatedMPTSequence[0].serializeUserStorageLeaves()
@@ -84,7 +84,7 @@ async function main() {
     // console.log(`Leaves of the final storage trie in [Storage Key, Slot, L1 Address, Value]:\n${finalStorageLeaves}`)
     
     console.log(`
-        6. Given the simulated MPT, The user and leader both simulate updates on MTs, which provide inputs for ZKP.\n
+        Given the simulated MPT, The user and leader both simulate updates on MTs, which provide inputs for ZKP.\n
     `)
     // Both user and leader simulates update of the MT (from the simulated MPT)
     const simulatedMt = await mt.simulateUpdatedMPT(simulatedMPTSequence)
@@ -112,12 +112,16 @@ async function main() {
         USER_PRVKEY.toString(),
     ]
     console.log(`
-        7. Given the simulated MPT and MTs, the user generates a ZKP and submits it to the leader.\n
+        4. Given the simulated MPT and MTs, the user generates a ZKP.\n
     `)
     const proof = zkp.prove(publicInput, privateInput)
+
+    console.log(`
+        5. The user sends the ZKP to the leader.\n
+    `)
     
     console.log(`
-        8. The leader verifies the ZKP and, if it is valid, he finally applies the simulated MPT to the L2 MPT.\n
+        6. The leader verifies the ZKP and, if it is valid, he finally applies the simulated MPT to the L2 MPT.\n
     `)
     // User submits the proof to the leader
     // Leader verifies the proof
