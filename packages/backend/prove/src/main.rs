@@ -1,4 +1,7 @@
 use std::time::{Duration, Instant};
+use std::fs::File;
+use std::io::Write;
+use std::env;
 use prove::{Prover, Proof, TranscriptManager};
 use icicle_runtime::{self, Device};
 use libs::utils::check_device;
@@ -91,6 +94,11 @@ fn main() {
     let formatted_proof = proof.convert_format_for_solidity_verifier();
     let output_path = "prove/output/proof.json";
     formatted_proof.write_into_json(output_path).unwrap();
+
+    let bench_path = "prove/output/bench.txt";
+    let abs_path = env::current_dir().unwrap().join(bench_path);
+    let mut file = File::create(abs_path).unwrap();
+    writeln!(file, "Proof generation time: {:.6} seconds", prove_start.elapsed().as_secs_f64()).unwrap();
 
     println!("Total proving time: {:.6} seconds", prove_start.elapsed().as_secs_f64());
 }

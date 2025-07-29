@@ -15,7 +15,7 @@ dotenv.config({
 });
 
 const TRANSACTION_HASH =
-  '0xcc957f310d76af31f9f28d7d1e6d06c9bf882087eed09d954e1481f3ac78c3eb';
+  '0x2fc67302edd645958b58f22dc77013fac44ff51235f3fc16b64e51f561d701c8';
 const RPC_URL = process.env.RPC_URL;
 
 const main = async () => {

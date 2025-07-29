@@ -584,6 +584,8 @@
                 Mixer {rB_X, rB_Y, rR_X, rR_Y, rU_X, rU_Y, rV_X, rV_Y, rW_X, rW_Y, rO_mid}
             };
 
+            println!("Check point: Fetched input data from the frontend compilers");
+
             let binding: Binding = {
                 let A = sigma.sigma_1.encode_poly(&mut instance.a_pub_X, &setup_params);
                 let O_inst = sigma.sigma_1.encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params);
@@ -624,6 +626,9 @@
                     );
                 Binding {A, O_inst, O_mid, O_prv}
             };
+
+            println!("Check point: Encoded binding polynomials");
+
             return (
                 Self {sigma, setup_params, instance, witness, mixer, quotients},
                 binding
@@ -664,6 +669,8 @@
                 self.mixer.rW_Y.len()
             );
 
+            println!("Check point: Computed quotient polynomials for Arithmetic constraint argument");
+
             let U = {
                 let mut UXY = poly_comb!(
                     (ScalarField::one(), self.witness.uXY),
@@ -690,6 +697,8 @@
                 );
                 self.sigma.sigma_1.encode_poly(&mut WXY, &self.setup_params)
             };
+
+            println!("Check point: Encoded witness polynomials for Arithmetic constraint argument");
             
             let Q_AX = {
                 let mut Q_AX_XY = poly_comb!(
@@ -717,6 +726,8 @@
             drop(rW_X);
             drop(rW_Y);
 
+            println!("Check point: Encoded the quotient polynomials for Arithmetic constraint argument");
+
             let B = {
                 let rB_X = DensePolynomialExt::from_coeffs(
                     HostSlice::from_slice(&self.mixer.rB_X), 
@@ -732,6 +743,8 @@
                 let mut BXY = &self.witness.bXY + &term_B_zk;
                 self.sigma.sigma_1.encode_poly(&mut BXY, &self.setup_params)
             };
+
+            println!("Check point: Encoded the witness polynomial for Copy constraint argument");
             return Proof0 {U, V, W, Q_AX, Q_AY, B}
         }
 
@@ -802,7 +815,14 @@
             
             // Adding zero-knowledge to the copy constraint argument
             let mut RXY = &self.witness.rXY + &(&(&self.mixer.rR_X * &self.instance.t_mi) + &(&self.mixer.rR_Y * &self.instance.t_smax));
+
+            println!("Check point: Computed a recursion polynomial for Copy constraint argument");
+
+
             let R = self.sigma.sigma_1.encode_poly(&mut RXY, &self.setup_params);
+
+            println!("Check point: Encoded the recursion polynomial for Copy constraint argument");
+
             return Proof1 {R}
         }
         
@@ -883,6 +903,8 @@
                 let (q6, q7) = p3XY.div_by_vanishing(m_i as i64, s_max as i64);
                 (q2, q3, q4, q5, q6, q7)
             };
+
+            println!("Check point: Computed quotient polynomials for Copy constraint argument");
             
             #[cfg(feature = "testing-mode")] {
                 let x_e = ScalarCfg::generate_random(1)[0];
@@ -961,6 +983,8 @@
                 );
                 self.sigma.sigma_1.encode_poly(&mut Q_CY_XY, &self.setup_params)
             };
+
+            println!("Check point: Encoded quotient polynomials for Copy constraint argument");
             return Proof2 {Q_CX, Q_CY}
         }
 
@@ -988,6 +1012,9 @@
 
             let R_omegaX_omegaY_XY = R_omegaX_XY.scale_coeffs_y(&omega_s_max.inv());
             let R_omegaX_omegaY_eval = R_omegaX_omegaY_XY.eval(&chi, &zeta);
+
+            println!("Check point: Computed KZG openings");
+
             return Proof3 {
                 V_eval: FieldSerde(V_eval), 
                 R_eval: FieldSerde(R_eval), 
@@ -1039,11 +1066,16 @@
                     );
                     pA_XY.div_by_ruffini(&chi, &zeta)
                 };
+
+                println!("Check point: Computed KZG proofs for Arithmetic constraint argument");
+
                 (
                     self.sigma.sigma_1.encode_poly(&mut Pi_AX_XY, &self.setup_params),
                     self.sigma.sigma_1.encode_poly(&mut Pi_AY_XY, &self.setup_params)
                 )
             };
+
+            println!("Check point: Encoded the KZG proofs for Arithmetic constraint argument");
 
             let m_i = self.setup_params.l_D - self.setup_params.l;
             let s_max = self.setup_params.s_max;
@@ -1063,11 +1095,16 @@
                     let rhs = M_X_XY.eval(&x_e, &y_e) * (x_e - omega_m_i.inv() * chi) + M_Y_XY.eval(&x_e, &y_e) * (y_e - zeta);
                     assert_eq!(lhs, rhs);
                 }
+
+                println!("Check point: Computed KZG proofs for the recursion polynomials (1/2)");
+
                 (
                     self.sigma.sigma_1.encode_poly(&mut M_X_XY, &self.setup_params),
                     self.sigma.sigma_1.encode_poly(&mut M_Y_XY, &self.setup_params)
                 )
             };
+
+            println!("Check point: Encoded the KZG proofs for the recursion polynomials (1/2)");
 
             let (N_X, N_Y) = {
                 let (mut N_X_XY, mut N_Y_XY, rem3) = (&RXY - &proof3.R_omegaX_omegaY_eval.0).div_by_ruffini(
@@ -1082,11 +1119,16 @@
                     let rhs = N_X_XY.eval(&x_e, &y_e) * (x_e - omega_m_i.inv() * chi) + N_Y_XY.eval(&x_e, &y_e) * (y_e - omega_s_max.inv() * zeta);
                     assert_eq!(lhs, rhs);
                 }
+
+                println!("Check point: Computed KZG proofs for the recursion polynomials (2/2)");
+
                 (
                     self.sigma.sigma_1.encode_poly(&mut N_X_XY, &self.setup_params),
                     self.sigma.sigma_1.encode_poly(&mut N_Y_XY, &self.setup_params)
                 )
             };
+
+            println!("Check point: Encoded the KZG proofs for the recursion polynomials (2/2)");
             
             let (Pi_CX, Pi_CY) = {
                 let LHS_for_copy = {
@@ -1222,6 +1264,9 @@
                     let rhs = Pi_CX_XY.eval(&x_e, &y_e) * (x_e - chi) + Pi_CY_XY.eval(&x_e, &y_e) * (y_e - zeta);
                     assert_eq!(lhs, rhs);
                 }
+
+                println!("Check point: Computed KZG proofs for Copy constraint argument");
+
                 (
                     self.sigma.sigma_1.encode_poly(&mut Pi_CX_XY, &self.setup_params),
                     self.sigma.sigma_1.encode_poly(&mut Pi_CY_XY, &self.setup_params)
@@ -1230,12 +1275,20 @@
             #[cfg(feature = "testing-mode")] {
                 println!("Checked: B(X,Y) and R(X,Y) with zero-knowledge satisfy the copy constraints.")
             }
+
+            println!("Check point: Encoded the KZG proofs for Copy constraint argument");
+
             drop(RXY);
             let Pi_B = {
                 let A_eval = self.instance.a_pub_X.eval(&chi, &zeta);
                 let (mut pi_B_XY, _, _) = (&self.instance.a_pub_X - &A_eval).div_by_ruffini(&chi, &zeta);
+
+                println!("Check point: Computed a KZG proof for public instance");
+
                 self.sigma.sigma_1.encode_poly(&mut pi_B_XY, &self.setup_params) * kappa1.pow(4)
             };
+
+            println!("Check point: Encoded the KZG proof for public instance");
 
             let Pi_X = Pi_AX + Pi_CX + Pi_B;
             let Pi_Y = Pi_AY + Pi_CY;
