@@ -41,55 +41,92 @@ const USER_PRVKEY = setLengthLeft(hexToBytes(addHexPrefix(solidityPackedKeccak25
 
 
 async function main() {
-    let log
-
-    //// Layer 1 SMARTCONTRACT
+    console.log(`
+        1. Preparation for opening a Layer2, conducted on Layer 1, which includes:\n
+        \t- Reconstruction of a small-scaled version of contract state, called MPT,\n
+        \t- Conversion of MPT to Merkle Trees,\n
+        \t- Setup ZKP system.\n
+    `)
+    //// Layer 1 SMARTCONTRACT//////////////////////
     // Layer1 MPT -> Layer2 MPT
-    const mpt = await MPT.buildFromRPC(BLOCK_NUMBER, TON_CONTRACT_ADDR, CONTRACTSLOTS, USERSLOTS, L1ADDRS, USERL2PUBKEYS, RPCURL)
+    let mpt = await MPT.buildFromRPC(BLOCK_NUMBER, TON_CONTRACT_ADDR, CONTRACTSLOTS, USERSLOTS, L1ADDRS, USERL2PUBKEYS, RPCURL)
     // L2MPT -> MT conversion
     const mt = await MT.buildFromMPT(mpt)
     // ZKP setup
     const zkp = ZKPSystem.setup()
-    ////
+    ///////////////////////////////////////////
+    console.log(`
+        2. The preparation has been done:\n
+        \t- The initial roots of MPT and MTs have been recorded on-chain,\n
+        \t- Pairing between users' L1 and L2 addresses have been recorded on-chain.\n
+    `)
 
-    //// Layer2
+    console.log(`
+        3. Based on the initial MPT and MTs generated on-chain, an L2 user creates a batch of transactions.\n
+    `)
+    //// Layer2////////////////////////////////////
     // Creating transactions by a user
     const nTx = 7
     const amounts = Array.from({length: nTx}, () => 10000000n)
     const txBatch: LegacyTx[] = await mpt.createErc20Transfers(USER_PRVKEY, L1ADDRS, amounts, USERSLOTS[0])
-    // User simulates update of the MPT
+    console.log(`
+        4. The transaction batch is then sent to the leader.\n
+    `)
+
+    // Both user and leader simulates update of the MPT
+    console.log(`
+        5. The transaction batch is simulated by both the user and leader. The simulation is not applied to the L2 MPT yet.\n
+    `)
     const simulatedMPTSequence = await mpt.simulateTransactionBatch(txBatch)
     const initialStorageLeaves = await simulatedMPTSequence[0].serializeUserStorageLeaves()
-    console.log(`Leaves of the initial storage trie in [Storage Key, Slot, L1 Address, Value]:\n${initialStorageLeaves}`)
+    // console.log(`Leaves of the initial storage trie in [Storage Key, Slot, L1 Address, Value]:\n${initialStorageLeaves}`)
     const finalStorageLeaves = await simulatedMPTSequence[nTx].serializeUserStorageLeaves()
-    console.log(`Leaves of the final storage trie in [Storage Key, Slot, L1 Address, Value]:\n${finalStorageLeaves}`)
-    // User simulates update of the MT (from the simulated MPT)
+    // console.log(`Leaves of the final storage trie in [Storage Key, Slot, L1 Address, Value]:\n${finalStorageLeaves}`)
+    
+    console.log(`
+        6. Given the simulated MPT, The user and leader both simulate updates on MTs, which provide inputs for ZKP.\n
+    `)
+    // Both user and leader simulates update of the MT (from the simulated MPT)
     const simulatedMt = await mt.simulateUpdatedMPT(simulatedMPTSequence)
-    const mtRootSequence = simulatedMt.userStorageRootsByNonce[nTx][USERSLOTS[0]]
-    console.log(`History of the roots of the balance Merkle tree:\n${mtRootSequence}`)
+    const mtRootSequence = simulatedMt.userStorageRootSequenceBySlot[USERSLOTS[0]]
+    // console.log(`History of the roots of the balance Merkle tree:\n${mtRootSequence}`)
     // User generates zkp proof
+    const userPubKey = mpt.L2Signature.privateToPublic(USER_PRVKEY).toString()
     const publicInput = [
         ...initialStorageLeaves,
         ...finalStorageLeaves,
-        mpt.L2Signature.privateToPublic(USER_PRVKEY).toString(),
+        userPubKey,
         ...mtRootSequence.toString(),
     ]
-    zkp.prove()
+    const mptDetails = []
+    for (const simulatedMPT of simulatedMPTSequence) {
+        mptDetails.push( ...await simulatedMPT.serializeUserStorageLeaves() )
+    }
+    const txDetails = []
+    for (const tx of txBatch) {
+        txDetails.push( tx.data.toString() )
+    }
+    const privateInput = [
+        ...mptDetails,
+        ...txDetails,
+        USER_PRVKEY.toString(),
+    ]
+    console.log(`
+        7. Given the simulated MPT and MTs, the user generates a ZKP and submits it to the leader.\n
+    `)
+    const proof = zkp.prove(publicInput, privateInput)
+    
+    console.log(`
+        8. The leader verifies the ZKP and, if it is valid, he finally applies the simulated MPT to the L2 MPT.\n
+    `)
+    // User submits the proof to the leader
+    // Leader verifies the proof
+    const result = zkp.verify(publicInput, proof)
+    // If the ZKP is valid, the leader accepts the updated MPT.
+    if (result === true){
+        mpt = simulatedMPTSequence.at(-1)!
+    }
 
-    // Updated MPT -> MT conversion -> Simulated MT
-    // Simulated MT -> ZKP generation
-    // ZKP -> Verify -> Accept updated MPT
-    // Updated MPT -> Accept simulated MT
-
-
-    // Send Layer2 MPT -> Layer1 MPT
-
-
-
-    const prevVal = await mpt.getStorage(9, L1ADDRS[2])
-    const key = keccak256(solidityPacked(['uint256','uint256'], [L1ADDRS[2], 9]))
-    const keyBytes = hexToBytes(addHexPrefix(key))
-    const afterVal = await simulatedMPTSequence[1].getStorage(9, L1ADDRS[2])
 }
 
 main()

@@ -6,10 +6,10 @@ export class ZKPSystem {
         this.crs = ''
     }
 
-    public static setup() {
+    public static setup(): ZKPSystem {
         const zkpSys =  new ZKPSystem()
         zkpSys.crs = 'crs'
-
+        return zkpSys
     }
     /**
      * Simulates the verification of a ZK proof.
