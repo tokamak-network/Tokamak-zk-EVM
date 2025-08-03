@@ -8,13 +8,20 @@ import { ethers } from 'ethers';
 import { createEVM } from '../../src/constructors.js';
 import { Finalizer } from '../../src/tokamak/core/finalizer/index.js';
 import { getBlockHeaderFromRPC } from '../../src/tokamak/utils/index.js';
+import dotenv from 'dotenv';
+import path from 'path';
+
+dotenv.config({
+  path: path.join(process.cwd(), '.env'),
+});
+
+const TRANSACTION_HASH =
+  '0x8ba48ca9d9cdc88d9c179df454dff1b583d60327844b0cf664cd88ba797b98ef';
+const RPC_URL = process.env.RPC_URL;
 
 const main = async () => {
-  const [, , RPC_URL, TRANSACTION_HASH] = process.argv;
-
-  if (!TRANSACTION_HASH || !RPC_URL) {
-    console.error('Usage: tsx finalizer.test.ts <TRANSACTION_HASH> <RPC_URL>');
-    process.exit(1);
+  if (!RPC_URL) {
+    throw new Error('RPC_URL is not set');
   }
 
   const evm = await createEVM({
@@ -84,8 +91,20 @@ const main = async () => {
   console.log(`✅ Successfully processed transaction: ${TRANSACTION_HASH}`);
 };
 
-void main().catch((err) => {
-  console.error(err);
-  console.error(`❌ Failed to process transaction.`);
-  process.exit(1);
+// Convert to proper test suite
+import { describe, test, expect } from 'vitest';
+
+describe('Finalizer Adapter Tests', () => {
+  test('should process transaction with finalizer', async () => {
+    await expect(main()).resolves.not.toThrow();
+  }, 30000); // 30 second timeout for blockchain calls
 });
+
+// Keep the ability to run as standalone script
+if (process.argv[1]?.endsWith('finalizer-adpator.test.ts')) {
+  void main().catch((err) => {
+    console.error(err);
+    console.error(`❌ Failed to process transaction.`);
+    process.exit(1);
+  });
+}

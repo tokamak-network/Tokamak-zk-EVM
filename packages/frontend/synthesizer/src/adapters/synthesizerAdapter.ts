@@ -9,7 +9,11 @@ import { Finalizer } from '../tokamak/core/finalizer/index.js';
 import { Permutation } from '../tokamak/core/finalizer/permutation.js';
 import { createEVM } from '../constructors.js';
 import { ExecResult } from '../types.js';
-import { PRV_OUT_PLACEMENT_INDEX } from '../tokamak/constant/constants.js';
+import {
+  PRV_OUT_PLACEMENT_INDEX,
+  PUB_IN_PLACEMENT_INDEX,
+  PUB_OUT_PLACEMENT_INDEX,
+} from '../tokamak/constant/constants.js';
 
 export class SynthesizerAdapter {
   private rpcUrl: string;
@@ -21,9 +25,13 @@ export class SynthesizerAdapter {
   }
 
   public get placementIndices(): {
+    storageIn: number;
+    storageOut: number;
     return: number;
   } {
     return {
+      storageIn: PUB_IN_PLACEMENT_INDEX,
+      storageOut: PUB_OUT_PLACEMENT_INDEX,
       return: PRV_OUT_PLACEMENT_INDEX,
     };
   }

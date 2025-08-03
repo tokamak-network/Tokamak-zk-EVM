@@ -9,9 +9,10 @@ import { createEVM } from '../../src/constructors.js';
 import { Finalizer } from '../../src/tokamak/core/finalizer/index.js';
 import { getBlockHeaderFromRPC } from '../../src/tokamak/utils/index.js';
 import dotenv from 'dotenv';
+import path from 'path';
 
 dotenv.config({
-  path: '../../.env',
+  path: path.join(process.cwd(), '.env'),
 });
 
 const TRANSACTION_HASH =
@@ -88,4 +89,16 @@ const main = async () => {
   );
 };
 
-void main().catch(console.error);
+// Convert to proper test suite
+import { describe, test, expect } from 'vitest';
+
+describe('Synthesizer E2E Tests', () => {
+  test('should process transaction successfully', async () => {
+    await expect(main()).resolves.not.toThrow();
+  }, 30000); // 30 second timeout for blockchain calls
+});
+
+// Keep the ability to run as standalone script
+if (import.meta.main) {
+  void main().catch(console.error);
+}

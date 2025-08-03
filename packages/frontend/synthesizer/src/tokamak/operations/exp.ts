@@ -1,6 +1,6 @@
 import { BIGINT_1 } from '@synthesizer-libs/util';
 
-import type { Synthesizer } from '../core/synthesizer.js';
+import type { Synthesizer } from '../core/synthesizer/index.js';
 import type { DataPt } from '../types/index.js';
 
 /**
