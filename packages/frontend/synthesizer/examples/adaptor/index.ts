@@ -3,14 +3,10 @@
  * DEBUG=ethjs,evm:*,evm:*:* tsx index.ts <TRANSACTION_HASH> <RPC_URL>
  *
  * Example:
- * DEBUG=ethjs,evm:*,evm:*:* tsx packages/frontend/synthesizer/examples/transaction/index.ts 0x04dbba13b0ef81a08a3aba9cee145dae19c4d6c09bcfacb22b8d4c385c6c3d77 <YOUR_RPC_URL>
+ * DEBUG=ethjs,evm:*,evm:*:* tsx packages/frontend/synthesizer/examples/adaptor/index.ts 0x04dbba13b0ef81a08a3aba9cee145dae19c4d6c09bcfacb22b8d4c385c6c3d77 <YOUR_RPC_URL>
  */
 
-import { Address, hexToBytes } from '@synthesizer-libs/util';
-import { ethers } from 'ethers';
-import { createEVM } from '../../src/constructors.js';
-import { Finalizer } from '../../src/tokamak/core/finalizer/index.js';
-import { getBlockHeaderFromRPC } from '../../src/tokamak/utils/index.js';
+import { SynthesizerAdapter } from '../../src/adapters/synthesizerAdapter.js';
 
 const main = async () => {
   const [, , RPC_URL, TRANSACTION_HASH] = process.argv;
@@ -20,67 +16,64 @@ const main = async () => {
     process.exit(1);
   }
 
-  const evm = await createEVM({
-    txHash: TRANSACTION_HASH,
-    rpcUrl: RPC_URL,
-  });
+  console.log(`🔍 Processing transaction: ${TRANSACTION_HASH}`);
+  console.log(`🌐 Using RPC: ${RPC_URL}`);
 
-  const provider = new ethers.JsonRpcProvider(RPC_URL);
-  const tx = await provider.getTransaction(TRANSACTION_HASH);
+  try {
+    // Create SynthesizerAdapter instance
+    const adapter = new SynthesizerAdapter(RPC_URL, true); // true for mainnet
 
-  if (tx === null || tx.blockNumber === null) {
-    throw new Error('Transaction not found or not yet mined');
+    // Get placement indices for reference
+    const placementIndices = adapter.placementIndices;
+    console.log('📊 Placement Indices:', placementIndices);
+
+    // Parse transaction using the adapter
+    const { evm, executionResult, permutation } =
+      await adapter.parseTransactionByHash(TRANSACTION_HASH);
+
+    console.log('✅ Transaction processed successfully!');
+    console.log('📈 Execution Result:', {
+      gasUsed: executionResult.executionGasUsed?.toString(),
+      exceptionError: executionResult.exceptionError,
+      returnValue: executionResult.returnValue
+        ? Buffer.from(executionResult.returnValue).toString('hex')
+        : undefined,
+    });
+
+    console.log('🔄 Permutation:', {
+      permutationY: permutation.permutationY,
+      permutationX: permutation.permutationX,
+      permutationFile: permutation.permutationFile,
+      placementVariables: permutation.placementVariables,
+    });
+
+    // Access synthesizer state for additional data
+    const synthesizerState = evm.synthesizer?.state;
+    if (synthesizerState) {
+      console.log('🏗️  Synthesizer State:', {
+        placementsCount: synthesizerState.placements.size,
+        logPtCount: synthesizerState.logPt?.length || 0,
+      });
+
+      // Show sample placement data
+      const samplePlacement = Array.from(
+        synthesizerState.placements.values(),
+      )[0];
+      if (samplePlacement) {
+        console.log('📋 Sample Placement:', {
+          name: samplePlacement.name,
+          usage: samplePlacement.usage,
+          inPtsCount: samplePlacement.inPts.length,
+          outPtsCount: samplePlacement.outPts.length,
+        });
+      }
+    }
+
+    return { evm, executionResult, permutation };
+  } catch (error) {
+    console.error('❌ Error processing transaction:', error);
+    process.exit(1);
   }
-  if (tx.to === null) {
-    throw new Error('Transaction to address is null');
-  }
-  if (tx.from === null) {
-    throw new Error('Transaction from address is null');
-  }
-  if (tx.data === null) {
-    throw new Error('Transaction data is null');
-  }
-
-  const { blockNumber, from, to, data, value, gasLimit } = tx;
-
-  const actualTargetBlockHeader = await getBlockHeaderFromRPC(
-    RPC_URL,
-    blockNumber,
-  );
-
-  const evmInput = {
-    to: new Address(hexToBytes(to)),
-    caller: new Address(hexToBytes(from)),
-    data: hexToBytes(data),
-    value: BigInt(value),
-    gasLimit: BigInt(gasLimit),
-    block: {
-      header: {
-        number: actualTargetBlockHeader.number,
-        timestamp: actualTargetBlockHeader.timestamp,
-        coinbase: actualTargetBlockHeader.coinbase,
-        difficulty: actualTargetBlockHeader.difficulty,
-        prevRandao: actualTargetBlockHeader.mixHash,
-        gasLimit: actualTargetBlockHeader.gasLimit,
-        baseFeePerGas: actualTargetBlockHeader.baseFeePerGas,
-        getBlobGasPrice: actualTargetBlockHeader.getBlobGasPrice,
-      },
-    },
-    skipBalance: true,
-  };
-  // Now run the transfer
-  const result = await evm.runCall(evmInput);
-
-  // console.log('result.execResult : ', result.execResult);
-
-  if (result.execResult.runState === undefined) {
-    throw new Error('No synthesizer found');
-  }
-
-  const finalizer = new Finalizer(result.execResult.runState.synthesizer.state);
-  await finalizer.exec(undefined, true);
-
-  console.log(`✅ Successfully processed transaction: ${TRANSACTION_HASH}`);
 };
 
 void main().catch((err) => {
