@@ -67,8 +67,13 @@ export const processTransaction = async (rpcUrl: string, txHash: string) => {
     throw new Error('No synthesizer found');
   }
 
-  const finalizer = new Finalizer(result.execResult.runState.synthesizer);
-  await finalizer.exec(undefined, true);
+  const finalizer = new Finalizer(result.execResult.runState.synthesizer.state);
+  const finalizerResult = await finalizer.exec(undefined, true);
+
+  return {
+    result: result.execResult,
+    finalizer: finalizer,
+  };
 };
 
 const main = async () => {

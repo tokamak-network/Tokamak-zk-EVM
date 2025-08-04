@@ -38,7 +38,6 @@ WORKDIR /app
 
 # Copy project structure first
 COPY package*.json ./
-COPY scripts/ ./scripts/
 
 # Copy frontend files (including pre-generated files from Windows)
 COPY packages/frontend/ ./packages/frontend/
@@ -111,7 +110,6 @@ WORKDIR /app
 
 # Copy essential project files
 COPY package*.json ./
-COPY scripts/ ./scripts/
 
 # Copy frontend files (only what's needed)
 COPY packages/frontend/synthesizer/ ./packages/frontend/synthesizer/
