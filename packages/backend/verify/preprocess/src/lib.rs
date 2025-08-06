@@ -34,6 +34,7 @@ impl Preprocess {
         let (mut s0XY, mut s1XY) = Permutation::to_poly(&permutation_raw, m_i, s_max);
         let s0 = sigma.sigma_1.encode_poly(&mut s0XY, &setup_params);
         let s1 = sigma.sigma_1.encode_poly(&mut s1XY, &setup_params);
+        
 
         // let mut lagrange_KL_XY = {
         //     let mut k_evals = vec![ScalarField::zero(); m_i];
