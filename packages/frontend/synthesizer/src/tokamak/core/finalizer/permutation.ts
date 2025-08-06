@@ -192,16 +192,26 @@ export class Permutation {
         this.placements.get(PRV_OUT_PLACEMENT_INDEX)!.name,
       )!,
     );
-    let a: string[] = Array(setupParams.l).fill('0x00');
+    let l_pub = setupParams.l_pub_in + setupParams.l_pub_out
+    let l_prv = setupParams.l_prv_in + setupParams.l_prv_out
+    let a_pub: string[] = Array(l_pub).fill('0x00');
+    let a_prv: string[] = Array(l_prv).fill('0x00')
     if (
       idxSetPubIn.NInWires +
-        idxSetPrvIn.NInWires +
-        idxSetPubOut.NOutWires +
-        idxSetPrvOut.NOutWires >
-      setupParams.l
+        idxSetPubOut.NOutWires >
+      l_pub
     ) {
       throw new Error(
-        'Incorrectness in the number of input and output variables.',
+        'Incorrectness in the number of public buffer variables.',
+      );
+    }
+    if (
+        idxSetPrvIn.NInWires +
+        idxSetPrvOut.NOutWires >
+      l_prv
+    ) {
+      throw new Error(
+        'Incorrectness in the number of private buffer variables.',
       );
     }
     for (let i = 0; i < idxSetPubOut.NOutWires; i++) {
@@ -209,28 +219,28 @@ export class Permutation {
       let val =
         placementVariables[PUB_OUT_PLACEMENT_INDEX].variables[localIdx] ??
         '0x00';
-      a[idxSetPubOut.flattenMap[localIdx]] = val;
+      a_pub[idxSetPubOut.flattenMap[localIdx]] = val;
     }
     for (let i = 0; i < idxSetPubIn.NInWires; i++) {
       let localIdx = idxSetPubIn.idxIn + i;
       let val =
         placementVariables[PUB_IN_PLACEMENT_INDEX].variables[localIdx] ??
         '0x00';
-      a[idxSetPubIn.flattenMap[localIdx]] = val;
+      a_pub[idxSetPubIn.flattenMap[localIdx]] = val;
     }
     for (let i = 0; i < idxSetPrvOut.NOutWires; i++) {
       let localIdx = idxSetPrvOut.idxOut + i;
       let val =
         placementVariables[PRV_OUT_PLACEMENT_INDEX].variables[localIdx] ??
         '0x00';
-      a[idxSetPrvOut.flattenMap[localIdx]] = val;
+      a_prv[idxSetPrvOut.flattenMap[localIdx] - l_pub] = val;
     }
     for (let i = 0; i < idxSetPrvIn.NInWires; i++) {
       let localIdx = idxSetPrvIn.idxIn + i;
       let val =
         placementVariables[PRV_IN_PLACEMENT_INDEX].variables[localIdx] ??
         '0x00';
-      a[idxSetPrvIn.flattenMap[localIdx]] = val;
+      a_prv[idxSetPrvIn.flattenMap[localIdx] - l_pub] = val;
     }
 
     // Packaging public instance
@@ -275,7 +285,8 @@ export class Permutation {
       publicInputBuffer,
       privateOutputBuffer,
       privateInputBuffer,
-      a,
+      a_pub,
+      a_prv,
     };
 
     const placementVariablesJson = `${JSON.stringify(placementVariables, null, 2)}`;

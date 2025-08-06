@@ -294,7 +294,8 @@ pub struct PublicInputBuffer {
 pub struct Instance {
     pub publicOutputBuffer: PublicOutputBuffer,
     pub publicInputBuffer: PublicInputBuffer,
-    pub a: Vec<String>,
+    pub a_pub: Vec<String>,
+    pub a_prv: Vec<String>,
 }
 
 impl Instance {
