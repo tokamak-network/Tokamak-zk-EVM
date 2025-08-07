@@ -28,8 +28,7 @@ else
     SUDO="sudo"
 fi
 
-INSTALL_DIR="/opt/icicle"
-
+# INSTALL_DIR="./icicle"
 
 # OS detection
 OS_TYPE="$(uname -s)"
@@ -50,18 +49,18 @@ check_backend_support() {
         if [[ -z "$flag" ]]; then
             echo "CUDA not detected (nvidia-smi not found). Please install CUDA drivers or use a CPU/Metal backend."
             
-            if [ -d "$INSTALL_DIR" ]; then
-                echo "[*] Checking for existing files in $INSTALL_DIR..."
-                if [ "$(ls -A $INSTALL_DIR 2>/dev/null)" ]; then
-                    echo "[*] Found existing files in $INSTALL_DIR. Removing them..."
-                    $SUDO rm -rf "$INSTALL_DIR"/*
-                    echo "[*] Files in $INSTALL_DIR have been removed."
-                else
-                    echo "[*] $INSTALL_DIR is empty."
-                fi
-            else
-                echo "[*] $INSTALL_DIR directory does not exist."
-            fi
+            # if [ -d "$INSTALL_DIR" ]; then
+            #     echo "[*] Checking for existing files in $INSTALL_DIR..."
+            #     if [ "$(ls -A $INSTALL_DIR 2>/dev/null)" ]; then
+            #         echo "[*] Found existing files in $INSTALL_DIR. Removing them..."
+            #         $SUDO rm -rf "$INSTALL_DIR"/*
+            #         echo "[*] Files in $INSTALL_DIR have been removed."
+            #     else
+            #         echo "[*] $INSTALL_DIR is empty."
+            #     fi
+            # else
+            #     echo "[*] $INSTALL_DIR directory does not exist."
+            # fi
 
             echo "Exiting. Do not need to run this script."
             return 1
@@ -135,12 +134,12 @@ fi
 
 echo "[*] Downloading backend package..."
 curl -L -o $BACKEND_TARBALL "$BACKEND_URL"
-# echo "[*] Downloading common runtime package..."
-# curl -L -o $COMMON_TARBALL "$COMMON_URL"
+echo "[*] Downloading common runtime package..."
+curl -L -o $COMMON_TARBALL "$COMMON_URL"
 
 echo "[*] Extracting packages..."
 tar -xzf $BACKEND_TARBALL
-# tar -xzf $COMMON_TARBALL
+tar -xzf $COMMON_TARBALL
 
 # echo "[*] Installing to $INSTALL_DIR ..."
 # $SUDO mkdir -p $INSTALL_DIR
@@ -160,18 +159,18 @@ tar -xzf $BACKEND_TARBALL
 
 echo "[*] Cleaning up temporary files..."
 # rm -rf $BACKEND_TARBALL $COMMON_TARBALL icicle
-rm -rf $BACKEND_TARBALL
+rm -rf $BACKEND_TARBALL $COMMON_TARBALL
 
 curve="bls12_381"
 # if [[ "$BACKEND_TYPE" == "metal" ]]; then
 if [[ "$OS_TYPE" == "Darwin" ]]; then
     # ENV_LINE="export DYLD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib:\$DYLD_LIBRARY_PATH"
-    ENV_LINE="export DYLD_LIBRARY_PATH=icicle/lib"
+    ENV_LINE="export DYLD_LIBRARY_PATH=$(pwd)/icicle/lib"
     eval "$ENV_LINE"
     echo "[*] DYLD_LIBRARY_PATH environment variable is set for this session."
 else
     # ENV_LINE="export LD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib/backend/$curve/cuda:\$LD_LIBRARY_PATH"
-    ENV_LINE="export LD_LIBRARY_PATH=icicle/lib"
+    ENV_LINE="export LD_LIBRARY_PATH=$(pwd)/icicle/lib"
     eval "$ENV_LINE"
     echo "[*] LD_LIBRARY_PATH environment variable is set for this session."
 fi
