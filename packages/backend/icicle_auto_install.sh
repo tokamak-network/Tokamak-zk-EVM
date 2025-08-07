@@ -4,20 +4,22 @@
 # ---------------------------------------------------------------------------
 # Sourcing detection
 # ---------------------------------------------------------------------------
+# If the script is executed (SOURCED=0) we abort with an error message
+# because this installer must be *sourced* so that the exported variables
+# persist in the parent shell.
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
     SOURCED=1
 else
     SOURCED=0
 fi
 
+if [ "$SOURCED" -eq 0 ]; then
+    echo "[✗] Error: Please run this script with 'source ./icicle_auto_install.sh'."
+    exit 1
+fi
+
 # # Helper that behaves like exit/return depending on context
 safe_exit() { return "${1:-0}"; }
-
-if [ "$SOURCED" -eq 1 ]; then
-    echo "[✗] Error: Please run this script without 'source'"
-    safe_exit 1
-    return
-fi
 
 # Root detection for Docker/Local
 if [ "$(id -u)" -eq "0" ]; then
@@ -26,7 +28,8 @@ else
     SUDO="sudo"
 fi
 
-# INSTALL_DIR="./icicle"
+INSTALL_DIR="/opt/icicle"
+
 
 # OS detection
 OS_TYPE="$(uname -s)"
@@ -47,37 +50,40 @@ check_backend_support() {
         if [[ -z "$flag" ]]; then
             echo "CUDA not detected (nvidia-smi not found). Please install CUDA drivers or use a CPU/Metal backend."
             
-            # if [ -d "$INSTALL_DIR" ]; then
-            #     echo "[*] Checking for existing files in $INSTALL_DIR..."
-            #     if [ "$(ls -A $INSTALL_DIR 2>/dev/null)" ]; then
-            #         echo "[*] Found existing files in $INSTALL_DIR. Removing them..."
-            #         $SUDO rm -rf "$INSTALL_DIR"/*
-            #         echo "[*] Files in $INSTALL_DIR have been removed."
-            #     else
-            #         echo "[*] $INSTALL_DIR is empty."
-            #     fi
-            # else
-            #     echo "[*] $INSTALL_DIR directory does not exist."
-            # fi
+            if [ -d "$INSTALL_DIR" ]; then
+                echo "[*] Checking for existing files in $INSTALL_DIR..."
+                if [ "$(ls -A $INSTALL_DIR 2>/dev/null)" ]; then
+                    echo "[*] Found existing files in $INSTALL_DIR. Removing them..."
+                    $SUDO rm -rf "$INSTALL_DIR"/*
+                    echo "[*] Files in $INSTALL_DIR have been removed."
+                else
+                    echo "[*] $INSTALL_DIR is empty."
+                fi
+            else
+                echo "[*] $INSTALL_DIR directory does not exist."
+            fi
 
             echo "Exiting. Do not need to run this script."
-            exit 0
+            return 1
         fi
         return 0
     elif [[ "$1" == "metal" ]]; then
         if ! system_profiler SPDisplaysDataType | grep -q 'Metal Support:'; then
             echo "Metal not supported on this Mac. Exiting. Do not need to run this script."
-            exit 0
+            return 1
         fi
         return 0
     fi
 
     echo "Unknown backend type: $backend"
-    exit 1
+    return 1
 }
 
 if [[ "$OS_TYPE" == "Darwin" ]]; then
-    # check_backend_support "metal"
+    if ! check_backend_support "metal"; then
+        safe_exit 1
+        return
+    fi
     COMMON_TARBALL="icicle_3_8_0-macOS.tar.gz"
     BACKEND_TARBALL="icicle_3_8_0-macOS-Metal.tar.gz"
     COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
@@ -90,11 +96,15 @@ elif [[ "$OS_TYPE" == "Linux" ]]; then
         LINUX_VER=$VERSION_ID
     else
         echo "Cannot determine Linux distribution."
-        exit 1
+        safe_exit 1
+        return
     fi
 
     if [[ "$LINUX_DIST" == "ubuntu" ]]; then
-        # check_backend_support "cuda"
+        if ! check_backend_support "cuda"; then
+            safe_exit 1
+            return
+        fi
         if [[ "$LINUX_VER" == 20.* ]]; then
             COMMON_TARBALL="icicle_3_8_0-ubuntu20.tar.gz"
             BACKEND_TARBALL="icicle_3_8_0-ubuntu20-cuda122.tar.gz"
@@ -109,15 +119,18 @@ elif [[ "$OS_TYPE" == "Linux" ]]; then
             # BACKEND_TYPE="cuda"
         else
             echo "Unsupported Ubuntu version: $LINUX_VER. Only Ubuntu 20 and 22 are supported."
-            exit 1
+            safe_exit 1
+            return
         fi
     else
         echo "Unsupported Linux distribution: $LINUX_DIST. Only Ubuntu 20/22 is supported."
-        exit 1
+        safe_exit 1
+        return
     fi
 else
     echo "Unsupported OS: $OS_TYPE. Only macOS and Ubuntu 20/22 are supported."
-    exit 1
+    safe_exit 1
+    return
 fi
 
 echo "[*] Downloading backend package..."
@@ -129,9 +142,9 @@ echo "[*] Extracting packages..."
 tar -xzf $BACKEND_TARBALL
 tar -xzf $COMMON_TARBALL
 
-# echo "[*] Installing to $INSTALL_DIR ..."
-# $SUDO mkdir -p $INSTALL_DIR
-# $SUDO cp -r icicle/* $INSTALL_DIR/
+echo "[*] Installing to $INSTALL_DIR ..."
+$SUDO mkdir -p $INSTALL_DIR
+$SUDO cp -r icicle/* $INSTALL_DIR/
 
 # echo "[*] Copying all shared libraries to backend $BACKEND_TYPE folders..."
 # for libfile in ./icicle/lib/*.{so,dylib}; do
@@ -146,22 +159,21 @@ tar -xzf $COMMON_TARBALL
 # done
 
 echo "[*] Cleaning up temporary files..."
-# rm -rf $BACKEND_TARBALL $COMMON_TARBALL icicle
-rm -rf $BACKEND_TARBALL $COMMON_TARBALL
+rm -rf $BACKEND_TARBALL $COMMON_TARBALL icicle
 
-# curve="bls12_381"
-# # if [[ "$BACKEND_TYPE" == "metal" ]]; then
-# if [[ "$OS_TYPE" == "Darwin" ]]; then
-#     # ENV_LINE="export DYLD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib:\$DYLD_LIBRARY_PATH"
-#     ENV_LINE="export DYLD_LIBRARY_PATH=$(pwd)/icicle/lib"
-#     eval "$ENV_LINE"
-#     echo "[*] DYLD_LIBRARY_PATH environment variable is set for this session."
-# else
-#     # ENV_LINE="export LD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib/backend/$curve/cuda:\$LD_LIBRARY_PATH"
-#     ENV_LINE="export LD_LIBRARY_PATH=$(pwd)/icicle/lib"
-#     eval "$ENV_LINE"
-#     echo "[*] LD_LIBRARY_PATH environment variable is set for this session."
-# fi
+curve="bls12_381"
+# if [[ "$BACKEND_TYPE" == "metal" ]]; then
+if [[ "$OS_TYPE" == "Darwin" ]]; then
+    # ENV_LINE="export DYLD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib:\$DYLD_LIBRARY_PATH"
+    ENV_LINE="export DYLD_LIBRARY_PATH=$INSTALL_DIR/lib"
+    eval "$ENV_LINE"
+    echo "[*] DYLD_LIBRARY_PATH environment variable is set for this session."
+else
+    # ENV_LINE="export LD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib/backend/$curve/cuda:\$LD_LIBRARY_PATH"
+    ENV_LINE="export LD_LIBRARY_PATH=$INSTALL_DIR/lib"
+    eval "$ENV_LINE"
+    echo "[*] LD_LIBRARY_PATH environment variable is set for this session."
+fi
 
 echo "[*] Done! Icicle backend ($OS_TYPE, bls12_381) installation and setup complete."
 
