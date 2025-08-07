@@ -77,7 +77,7 @@ check_backend_support() {
 }
 
 if [[ "$OS_TYPE" == "Darwin" ]]; then
-    check_backend_support "metal"
+    # check_backend_support "metal"
     COMMON_TARBALL="icicle_3_8_0-macOS.tar.gz"
     BACKEND_TARBALL="icicle_3_8_0-macOS-Metal.tar.gz"
     COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
@@ -94,17 +94,17 @@ elif [[ "$OS_TYPE" == "Linux" ]]; then
     fi
 
     if [[ "$LINUX_DIST" == "ubuntu" ]]; then
-        check_backend_support "cuda"
+        # check_backend_support "cuda"
         if [[ "$LINUX_VER" == 20.* ]]; then
-            # COMMON_TARBALL="icicle_3_8_0-ubuntu20.tar.gz"
+            COMMON_TARBALL="icicle_3_8_0-ubuntu20.tar.gz"
             BACKEND_TARBALL="icicle_3_8_0-ubuntu20-cuda122.tar.gz"
-            # COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
+            COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
             BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$BACKEND_TARBALL"
             # BACKEND_TYPE="cuda"
         elif [[ "$LINUX_VER" == 22.* ]]; then
-            # COMMON_TARBALL="icicle_3_8_0-ubuntu22.tar.gz"
+            COMMON_TARBALL="icicle_3_8_0-ubuntu22.tar.gz"
             BACKEND_TARBALL="icicle_3_8_0-ubuntu22-cuda122.tar.gz"
-            # COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
+            COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
             BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$BACKEND_TARBALL"
             # BACKEND_TYPE="cuda"
         else
