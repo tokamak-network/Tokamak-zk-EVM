@@ -18,15 +18,8 @@ if [ "$SOURCED" -eq 0 ]; then
     exit 1
 fi
 
-# Helper that behaves like exit/return depending on context
-safe_exit() {
-    local code="${1:-0}"
-    if [ "$SOURCED" -eq 1 ]; then
-        return "$code"
-    else
-        exit "$code"
-    fi
-}
+# # Helper that behaves like exit/return depending on context
+safe_exit() { return "${1:-0}"; }
 
 # Root detection for Docker/Local
 if [ "$(id -u)" -eq "0" ]; then
@@ -50,8 +43,11 @@ BACKEND_URL=""
 BACKEND_TYPE=""
 
 check_backend_support() {
+    echo "Checking GPU backend..."
     if [[ "$1" == "cuda" ]]; then
-        if ! command -v nvidia-smi &> /dev/null; then
+        flag=$(command -v nvidia-smi)
+        echo "nvidia-smi path: ${flag:-<not found>}"
+        if [[ -z "$flag" ]]; then
             echo "CUDA not detected (nvidia-smi not found). Please install CUDA drivers or use a CPU/Metal backend."
             
             if [ -d "$INSTALL_DIR" ]; then
@@ -66,24 +62,33 @@ check_backend_support() {
             else
                 echo "[*] $INSTALL_DIR directory does not exist."
             fi
-            
-            safe_exit 0
+
+            echo "Exiting. Do not need to run this script."
+            return 1
         fi
+        return 0
     elif [[ "$1" == "metal" ]]; then
         if ! system_profiler SPDisplaysDataType | grep -q 'Metal Support:'; then
-            echo "Metal not supported on this Mac. Exiting."
-            safe_exit 0
+            echo "Metal not supported on this Mac. Exiting. Do not need to run this script."
+            return 1
         fi
+        return 0
     fi
+
+    echo "Unknown backend type: $backend"
+    return 1
 }
 
 if [[ "$OS_TYPE" == "Darwin" ]]; then
+    if ! check_backend_support "metal"; then
+        safe_exit 1
+        return
+    fi
     COMMON_TARBALL="icicle_3_8_0-macOS.tar.gz"
     BACKEND_TARBALL="icicle_3_8_0-macOS-Metal.tar.gz"
     COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
     BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$BACKEND_TARBALL"
     # BACKEND_TYPE="metal"
-    # check_backend_support metal
 elif [[ "$OS_TYPE" == "Linux" ]]; then
     if [ -f /etc/os-release ]; then
         . /etc/os-release
@@ -92,48 +97,54 @@ elif [[ "$OS_TYPE" == "Linux" ]]; then
     else
         echo "Cannot determine Linux distribution."
         safe_exit 1
+        return
     fi
 
     if [[ "$LINUX_DIST" == "ubuntu" ]]; then
+        if ! check_backend_support "cuda"; then
+            safe_exit 1
+            return
+        fi
         if [[ "$LINUX_VER" == 20.* ]]; then
-            COMMON_TARBALL="icicle_3_8_0-ubuntu20.tar.gz"
+            # COMMON_TARBALL="icicle_3_8_0-ubuntu20.tar.gz"
             BACKEND_TARBALL="icicle_3_8_0-ubuntu20-cuda122.tar.gz"
-            COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
-            BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$BACKEND_TARBALL"
-            BACKEND_TYPE="cuda"
-            check_backend_support cuda
-        elif [[ "$LINUX_VER" == 22.* ]]; then
-            COMMON_TARBALL="icicle_3_8_0-ubuntu22.tar.gz"
-            BACKEND_TARBALL="icicle_3_8_0-ubuntu22-cuda122.tar.gz"
-            COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
+            # COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
             BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$BACKEND_TARBALL"
             # BACKEND_TYPE="cuda"
-            # check_backend_support cuda
+        elif [[ "$LINUX_VER" == 22.* ]]; then
+            # COMMON_TARBALL="icicle_3_8_0-ubuntu22.tar.gz"
+            BACKEND_TARBALL="icicle_3_8_0-ubuntu22-cuda122.tar.gz"
+            # COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
+            BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$BACKEND_TARBALL"
+            # BACKEND_TYPE="cuda"
         else
             echo "Unsupported Ubuntu version: $LINUX_VER. Only Ubuntu 20 and 22 are supported."
             safe_exit 1
+            return
         fi
     else
         echo "Unsupported Linux distribution: $LINUX_DIST. Only Ubuntu 20/22 is supported."
         safe_exit 1
+        return
     fi
 else
     echo "Unsupported OS: $OS_TYPE. Only macOS and Ubuntu 20/22 are supported."
     safe_exit 1
+    return
 fi
 
 echo "[*] Downloading backend package..."
 curl -L -o $BACKEND_TARBALL "$BACKEND_URL"
-echo "[*] Downloading common runtime package..."
-curl -L -o $COMMON_TARBALL "$COMMON_URL"
+# echo "[*] Downloading common runtime package..."
+# curl -L -o $COMMON_TARBALL "$COMMON_URL"
 
 echo "[*] Extracting packages..."
 tar -xzf $BACKEND_TARBALL
-tar -xzf $COMMON_TARBALL
+# tar -xzf $COMMON_TARBALL
 
-echo "[*] Installing to $INSTALL_DIR ..."
-$SUDO mkdir -p $INSTALL_DIR
-$SUDO cp -r icicle/* $INSTALL_DIR/
+# echo "[*] Installing to $INSTALL_DIR ..."
+# $SUDO mkdir -p $INSTALL_DIR
+# $SUDO cp -r icicle/* $INSTALL_DIR/
 
 # echo "[*] Copying all shared libraries to backend $BACKEND_TYPE folders..."
 # for libfile in ./icicle/lib/*.{so,dylib}; do
@@ -148,18 +159,19 @@ $SUDO cp -r icicle/* $INSTALL_DIR/
 # done
 
 echo "[*] Cleaning up temporary files..."
-rm -rf $BACKEND_TARBALL $COMMON_TARBALL icicle
+# rm -rf $BACKEND_TARBALL $COMMON_TARBALL icicle
+rm -rf $BACKEND_TARBALL
 
 curve="bls12_381"
 # if [[ "$BACKEND_TYPE" == "metal" ]]; then
 if [[ "$OS_TYPE" == "Darwin" ]]; then
     # ENV_LINE="export DYLD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib:\$DYLD_LIBRARY_PATH"
-    ENV_LINE="export DYLD_LIBRARY_PATH=$INSTALL_DIR/lib"
+    ENV_LINE="export DYLD_LIBRARY_PATH=icicle/lib"
     eval "$ENV_LINE"
     echo "[*] DYLD_LIBRARY_PATH environment variable is set for this session."
 else
     # ENV_LINE="export LD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib/backend/$curve/cuda:\$LD_LIBRARY_PATH"
-    ENV_LINE="export LD_LIBRARY_PATH=$INSTALL_DIR/lib"
+    ENV_LINE="export LD_LIBRARY_PATH=icicle/lib"
     eval "$ENV_LINE"
     echo "[*] LD_LIBRARY_PATH environment variable is set for this session."
 fi
