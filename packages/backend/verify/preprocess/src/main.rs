@@ -1,5 +1,7 @@
+use icicle_bls12_381::curve::ScalarField;
+use icicle_core::traits::FieldImpl;
 use libs::group_structures::{SigmaPreprocess};
-use libs::iotools::{Permutation, SetupParams};
+use libs::iotools::{Instance, Permutation, SetupParams};
 use preprocess::Preprocess;
 
 fn main() {

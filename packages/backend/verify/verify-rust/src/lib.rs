@@ -74,7 +74,7 @@ impl Verifier {
         // Parsing the inputs
         let mut a_pub = vec![ScalarField::zero(); l_pub].into_boxed_slice();
         for i in 0..l_pub {
-            a_pub[i] = ScalarField::from_hex(&instance.a[i]);
+            a_pub[i] = ScalarField::from_hex(&instance.a_pub[i]);
         }
 
         // Load Sigma (reference string)

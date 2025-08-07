@@ -132,7 +132,7 @@ impl Instance {
         let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
         let mut public_instance = vec![ScalarField::zero(); l_pub];
         for i in 0..l_pub {
-            public_instance[i] = ScalarField::from_hex(&self.a[i]);
+            public_instance[i] = ScalarField::from_hex(&self.a_pub[i]);
         }
         return DensePolynomialExt::from_rou_evals(
             HostSlice::from_slice(&public_instance),
