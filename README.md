@@ -111,7 +111,7 @@ This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 
 ## Documentation
 - [Project Tokamak zk-EVM(Medium)](https://medium.com/tokamak-network/project-tokamak-zk-evm-67483656fd21) (Last updated in Apr. 2025)
-- [Project Tokamak zk-EVM(Slide)](https://drive.google.com/file/d/1RAmyGDVteAzuBxJ05XEGIjfHC0MY-2_5/view) (Outdated. Will be updated soon)
+- [Project Tokamak zk-EVM(Slide)](https://docs.google.com/presentation/d/18GA0Dv6zZcikwaAsob1aPTErocRJVidvE4KsNA_R3Lo/edit?usp=sharing) (Last updated in Jul. 2025)
 - [Tokamak zk-SNARK Paper](https://eprint.iacr.org/2024/507) (Last updated in Apr. 2025)
 - Frontend
     - [Synthesizer](https://tokamak-network-zk-evm.gitbook.io/tokamak-network-zk-evm)
