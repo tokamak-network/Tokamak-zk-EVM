@@ -5,7 +5,7 @@ use icicle_hash::keccak::Keccak256;
 use icicle_runtime::memory::HostSlice;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::iotools::{Instance, Permutation, PublicInputBuffer, PublicOutputBuffer, SetupParams, SubcircuitInfo};
-use libs::group_structures::{G1serde, Sigma, SigmaVerify};
+use libs::group_structures::{G1serde, G2serde, Sigma, SigmaVerify};
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::ntt;
@@ -305,6 +305,19 @@ impl Verifier {
             &[self.sigma.sigma_2.gamma, self.sigma.sigma_2.eta, self.sigma.sigma_2.delta,   self.sigma.sigma_2.x,   self.sigma.sigma_2.y]
         );
 
+        /*
+        println!("H: {:?}",  self.sigma.H);
+        println!("alpha: {:?}",  self.sigma.sigma_2.alpha);
+        println!("alpha2: {:?}",  self.sigma.sigma_2.alpha2);
+        println!("alpha3: {:?}",  self.sigma.sigma_2.alpha3);
+        println!("alpha4: {:?}",  self.sigma.sigma_2.alpha4);
+
+        println!("-gamma: {:?}",  G2serde::zero() - self.sigma.sigma_2.gamma);
+        println!("-eta: {:?}",  G2serde::zero() - self.sigma.sigma_2.eta);
+        println!("-delta: {:?}",  G2serde::zero() - self.sigma.sigma_2.delta);
+        println!("-x: {:?}",  G2serde::zero() - self.sigma.sigma_2.x);
+        println!("-y: {:?}",  G2serde::zero() - self.sigma.sigma_2.y);
+        */
         return left_pair.eq(&right_pair)
     }
     /*
