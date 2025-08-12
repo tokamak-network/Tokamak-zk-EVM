@@ -41,6 +41,7 @@
   ],
   "scripts": {
     "build": "../../../config/monorepo-js/cli/ts-build.sh",
+    "build:binary": "./build-binary.sh",
     "clean": "../../../config/monorepo-js//cli/clean-package.sh",
     "cli": "tsx src/cli/index.ts",
     "lint": "../../../config/monorepo-js//cli/lint.sh",
