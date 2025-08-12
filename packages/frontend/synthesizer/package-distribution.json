@@ -1,0 +1,25 @@
+{
+  "name": "tokamak-synthesizer-cli",
+  "version": "0.0.10",
+  "description": "Tokamak zk-EVM Synthesizer CLI - Standalone distribution",
+  "main": "synthesizer.cjs",
+  "bin": {
+    "synthesizer": "synthesizer.cjs"
+  },
+  "scripts": {
+    "start": "node synthesizer.cjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "ethereum",
+    "zk-EVM",
+    "zero-knowledge",
+    "zk-SNARK",
+    "tokamak",
+    "layer2"
+  ],
+  "license": "MPL-2.0",
+  "author": "Tokamak Network"
+}
