@@ -71,11 +71,13 @@ export class SynthesizerAdapter {
     contractAddr,
     calldata,
     sender,
+    outputPath,
   }: {
     txHash: string;
     contractAddr?: string;
     calldata?: string;
     sender?: string;
+    outputPath?: string;
   }): Promise<{
     evm: EVM;
     executionResult: ExecResult;
@@ -137,7 +139,7 @@ export class SynthesizerAdapter {
     const finalizer = new Finalizer(
       executionResult.runState!.synthesizer.state,
     );
-    const permutation = await finalizer.exec(undefined, false); // Don't write to filesystem
+    const permutation = await finalizer.exec(outputPath, true); // Write to filesystem with custom path
 
     return {
       evm,

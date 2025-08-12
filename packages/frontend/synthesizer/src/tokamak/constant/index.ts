@@ -18,13 +18,31 @@ async function importQapModule(relativePath: string, exportName: string) {
 
 // Dynamic imports for QAP compiler generated files
 const BASE_PATH = '../../../../qap-compiler/subcircuits/library';
-const [subcircuits, globalWireList, setupParams] = await Promise.all([
-  importQapModule(`${BASE_PATH}/subcircuitInfo.js`, 'subcircuits'),
-  importQapModule(`${BASE_PATH}/globalWireList.js`, 'globalWireList'),
-  importQapModule(`${BASE_PATH}/setupParams.js`, 'setupParams'),
-]);
 
-export { subcircuits, globalWireList, setupParams };
+let subcircuits: any;
+let globalWireList: any;
+let setupParams: any;
 
-// WASM directory path
-export const wasmDir = path.join(__dirname, BASE_PATH, 'wasm');
+async function loadQapModules() {
+  if (!subcircuits) {
+    const [s, g, p] = await Promise.all([
+      importQapModule(`${BASE_PATH}/subcircuitInfo.js`, 'subcircuits'),
+      importQapModule(`${BASE_PATH}/globalWireList.js`, 'globalWireList'),
+      importQapModule(`${BASE_PATH}/setupParams.js`, 'setupParams'),
+    ]);
+    subcircuits = s;
+    globalWireList = g;
+    setupParams = p;
+  }
+  return { subcircuits, globalWireList, setupParams };
+}
+
+// Use static imports for binary compilation
+export {
+  subcircuits,
+  globalWireList,
+  setupParams,
+  wasmDir,
+} from './qap-static.js';
+
+// WASM directory path - now exported from qap-static.js

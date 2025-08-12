@@ -1,0 +1,13 @@
+[build]
+# QAP compiler files need to be bundled as assets
+assets = [
+  "qap-compiler/**/*",
+  "examples/**/*"
+]
+
+# Include all dependencies
+external = []
+
+# Bundle everything
+minify = true
+target = "bun" 

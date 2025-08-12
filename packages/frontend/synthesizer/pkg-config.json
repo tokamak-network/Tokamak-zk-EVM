@@ -1,0 +1,14 @@
+{
+  "pkg": {
+    "assets": [
+      "dist/**/*",
+      "node_modules/**/*",
+      "qap-compiler/**/*",
+      "src/**/*"
+    ],
+    "scripts": [
+      "dist/**/*.js",
+      "src/**/*.ts"
+    ]
+  }
+}

@@ -42,6 +42,10 @@ program
   .option('-d, --calldata <data>', 'Calldata to verify')
   .option('--sender <address>', 'Sender address to verify')
   .option('-o, --output <file>', 'Output file for results (optional)')
+  .option(
+    '--output-dir <dir>',
+    'Output directory for synthesis files (default: current directory)',
+  )
   .option('-v, --verbose', 'Verbose output')
   .action(async (options) => {
     try {
@@ -69,6 +73,21 @@ program
       console.log(`📋 Transaction: ${txHash}`);
       console.log('');
 
+      // Set output directory - default to directory where binary is located
+      const outputDir =
+        options.outputDir ||
+        (() => {
+          // Check if running as binary (pkg or bun) or in development
+          if ((process as any).pkg || (process as any).isBun) {
+            // Running as binary - use directory where binary is located
+            return require('path').dirname(process.execPath);
+          } else {
+            // Running in development - use current working directory
+            return process.cwd();
+          }
+        })();
+      console.log(`📁 Output directory: ${outputDir}`);
+
       const adapter = new SynthesizerAdapter(rpcUrl, !options.sepolia);
 
       console.log('📡 Fetching transaction data...');
@@ -77,6 +96,7 @@ program
         contractAddr: options.contract,
         calldata: options.calldata,
         sender: options.sender,
+        outputPath: outputDir,
       });
 
       console.log('✅ Transaction parsed successfully!');
@@ -127,6 +147,10 @@ program
   .description('Interactive demo mode - run multiple transactions')
   .option('-s, --sepolia', 'Use sepolia testnet (default: mainnet)')
   .option('-r, --rpc-url <url>', 'Custom RPC URL (overrides default)')
+  .option(
+    '--output-dir <dir>',
+    'Output directory for synthesis files (default: current directory)',
+  )
   .action(async (options) => {
     console.log('🚀 Starting Interactive Demo Mode...');
     console.log('');
@@ -142,6 +166,19 @@ program
     console.log('');
 
     console.log('🔄 Initializing Synthesizer...');
+
+    // Set output directory for demo mode
+    const outputDir =
+      options.outputDir ||
+      (() => {
+        if ((process as any).pkg || (process as any).isBun) {
+          return require('path').dirname(process.execPath);
+        } else {
+          return process.cwd();
+        }
+      })();
+    console.log(`📁 Output directory: ${outputDir}`);
+
     const adapter = new SynthesizerAdapter(rpcUrl, !options.sepolia);
 
     let continueDemo = true;
@@ -167,6 +204,7 @@ program
         const startTime = Date.now();
         const result = await adapter.parseTransaction({
           txHash: txHash,
+          outputPath: outputDir,
         });
         const endTime = Date.now();
 
@@ -394,6 +432,17 @@ program
     console.log(`- Sepolia: ${DEFAULT_RPC_URLS.sepolia}`);
   });
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Check if this file is being run directly (works for both CommonJS and ES modules)
+const isMainModule = (() => {
+  try {
+    // ES modules
+    return import.meta.url === `file://${process.argv[1]}`;
+  } catch {
+    // CommonJS
+    return require.main === module;
+  }
+})();
+
+if (isMainModule) {
   program.parse();
 }
