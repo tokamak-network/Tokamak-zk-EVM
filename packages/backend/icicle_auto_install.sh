@@ -167,7 +167,7 @@ if [[ "$OS_TYPE" == "Darwin" ]]; then
     # ENV_LINE="export DYLD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib:\$DYLD_LIBRARY_PATH"
     ENV_LINE="export DYLD_LIBRARY_PATH=$INSTALL_DIR/lib"
     eval "$ENV_LINE"
-    echo "[*] DYLD_LIBRARY_PATH environment variable is set for this session."
+    echo "[*] DYLD_LIBRARY_PATH environment variable is set for this session. $ENV_LINE"
 else
     # ENV_LINE="export LD_LIBRARY_PATH=$INSTALL_DIR/lib:$INSTALL_DIR/lib/backend/$curve/cuda:\$LD_LIBRARY_PATH"
     ENV_LINE="export LD_LIBRARY_PATH=$INSTALL_DIR/lib"

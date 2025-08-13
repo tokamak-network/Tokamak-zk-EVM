@@ -17,6 +17,7 @@
 
     use std::fs::File;
     use std::io::{self, BufReader, BufWriter};
+    use std::path::{Path, PathBuf};
     use std::{env, fs, vec};
     use byteorder::{BigEndian, ByteOrder};
     use tiny_keccak::Keccak;
@@ -31,6 +32,13 @@
             acc
         }};
     }
+
+    pub struct ProveInputPaths<'a> {
+        pub qap_path: &'a str,
+        pub synthesizer_path: &'a str,
+        pub setup_path: &'a str,
+        pub output_path: &'a str,
+    }   
 
     pub struct Mixer{
         pub rU_X: ScalarField,
@@ -363,10 +371,10 @@
     }
 
     impl Prover{
-        pub fn init() -> (Self, Binding) {
+        pub fn init(paths: &ProveInputPaths) -> (Self, Binding) {
             // Load setup parameters from JSON file
-            let setup_path = "setupParams.json";
-            let setup_params = SetupParams::from_path(setup_path).unwrap();
+            let setup_params_path = PathBuf::from(paths.qap_path).join("setupParams.json");
+            let setup_params = SetupParams::read_from_json(setup_params_path).unwrap();
 
             // Extract key parameters from setup_params
             let l = setup_params.l;     // Number of public I/O wires
@@ -400,12 +408,12 @@
             }
 
             // Load subcircuit information
-            let subcircuit_path = "subcircuitInfo.json";
-            let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_path).unwrap();
+            let subcircuit_infos_path = PathBuf::from(paths.qap_path).join("subcircuitInfo.json");
+            let subcircuit_infos = SubcircuitInfo::read_box_from_json(subcircuit_infos_path).unwrap();
 
             // Load local variables of placements (public instance + interface witness + internal witness)
-            let placement_variables_path = "placementVariables.json";
-            let placement_variables = PlacementVariables::from_path(&placement_variables_path).unwrap();
+            let placement_variables_path = PathBuf::from(paths.synthesizer_path).join("placementVariables.json");
+            let placement_variables = PlacementVariables::read_box_from_json(placement_variables_path).unwrap();
 
             let witness: Witness = {
                 // // Load subcircuit library R1CS
@@ -420,7 +428,7 @@
 
                 // Parsing the variables
                 let bXY = gen_bXY(&placement_variables, &subcircuit_infos, &setup_params);
-                let (uXY, vXY, wXY) = read_R1CS_gen_uvwXY(&placement_variables, &subcircuit_infos, &setup_params);
+                let (uXY, vXY, wXY) = read_R1CS_gen_uvwXY(&paths.qap_path, &placement_variables, &subcircuit_infos, &setup_params);
                 let rXY = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&vec![ScalarField::zero()]), 1, 1);
                 Witness {bXY, uXY, vXY, wXY, rXY}
             };
@@ -438,13 +446,13 @@
             };
 
             // Load permutation (copy constraints of the variables)
-            let permutation_path = "permutation.json";
-            let permutation_raw = Permutation::from_path(&permutation_path).unwrap();
+            let permutation_path = PathBuf::from(paths.synthesizer_path).join("permutation.json");
+            let permutation_raw = Permutation::read_box_from_json(permutation_path).unwrap();
 
             let mut instance: InstancePolynomials = {
                 // Load instance
-                let instance_path = "instance.json";
-                let _instance = Instance::from_path(&instance_path).unwrap();
+                let instance_path = PathBuf::from(paths.synthesizer_path).join("instance.json");
+                let _instance = Instance::read_from_json(instance_path).unwrap();
 
                 // Parsing the inputs
                 let a_pub_X = _instance.gen_a_pub_X(&setup_params);
@@ -550,8 +558,8 @@
             }
 
             // Load Sigma (reference string)
-            let sigma_path = "setup/trusted-setup/output/combined_sigma.json";
-            let mut sigma = Sigma::read_from_json(&sigma_path)
+            let sigma_path = PathBuf::from(paths.setup_path).join("combined_sigma.json");
+            let mut sigma = Sigma::read_from_json(sigma_path)
             .expect("No reference string is found. Run the Setup first.");
 
             let mixer: Mixer = {
