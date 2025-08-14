@@ -8,7 +8,7 @@ import { readFileSync } from 'fs';
 import path from 'path';
 import appRootPath from 'app-root-path';
 
-// import { globalWireList, setupParams, wasmDir } from '../../constant/index.js';
+import { globalWireList, setupParams, wasmDir } from '../../constant/index.js';
 import {
   INITIAL_PLACEMENT_INDEX,
   PRV_IN_PLACEMENT_INDEX,
@@ -32,7 +32,7 @@ import type {
 } from '../../types/index.js';
 import { hasValidFlattenMap } from '../../types/index.js';
 import { SubcircuitRegistry } from '../../utils/index.js';
-// import { subcircuits as subcircuitInfos } from '../../constant/index.js';
+import { subcircuits as subcircuitInfos } from '../../constant/index.js';
 
 type PlacementWireIndex = { globalWireId: number; placementId: number };
 
@@ -70,10 +70,6 @@ export class Permutation {
   public placementVariables: PlacementVariables;
   private subcircuitInfoByName: SubcircuitInfoByName;
   public placements: Placements;
-  private qapPath: string;
-  public globalWireList!: GlobalWireList;
-  public setupParams!: any;
-  public subcircuitInfos!: any;
 
   // Each entry in permGroup represents a permutation subgroup.
   // Each subgroup will be expressed in a Map to efficiently check whether it involves a wire or not.
@@ -85,9 +81,8 @@ export class Permutation {
   public permutationX: number[][];
   public permutationFile: { row: number; col: number; X: number; Y: number }[];
 
-  constructor(placements: Placements, QAP_PATH: string) {
+  constructor(placements: Placements, _path?: string) {
     this.placements = placements;
-    this.qapPath = QAP_PATH;
     this.placementVariables = [];
     this.flattenMapInverse = globalWireList as GlobalWireList;
     this.subcircuitInfoByName = new Map();
@@ -123,62 +118,6 @@ export class Permutation {
 
     // Now finally correct permutationY and permutationX according to permGroup
     this.permutationFile = this._correctPermutation();
-  }
-
-  async initQAP() {
-    // this.qap_path는 폴더를 가리키는 경로이고, 그 폴더에는 다음의 파일들이 있다:
-    // - globalWireList.json
-    // - setupParams.json
-    // - subcircuitInfo.json
-    // 위 세 파일을 읽어서 각각 다음의 변수에 저장하라:
-    // - this.globalWireList
-    // - this.setupParams
-    // - this.subcircuitInfos
-
-    if (!this.qapPath) {
-      throw new Error('initQAP: qapPath is not set');
-    }
-    const globalWireListPath = path.resolve(this.qapPath, 'globalWireList.json');
-    const setupParamsPath = path.resolve(this.qapPath, 'setupParams.json');
-    const subcircuitInfoPath = path.resolve(this.qapPath, 'subcircuitInfo.json');
-
-    let gContent: string;
-    let sContent: string;
-    let subContent: string;
-    try {
-      gContent = readFileSync(globalWireListPath, 'utf-8');
-    } catch (e) {
-      throw new Error(`initQAP: failed to read globalWireList.json at '${globalWireListPath}'`);
-    }
-    try {
-      sContent = readFileSync(setupParamsPath, 'utf-8');
-    } catch (e) {
-      throw new Error(`initQAP: failed to read setupParams.json at '${setupParamsPath}'`);
-    }
-    try {
-      subContent = readFileSync(subcircuitInfoPath, 'utf-8');
-    } catch (e) {
-      throw new Error(`initQAP: failed to read subcircuitInfo.json at '${subcircuitInfoPath}'`);
-    }
-
-    try {
-      this.globalWireList = JSON.parse(gContent) as GlobalWireList;
-    } catch (e) {
-      throw new Error('initQAP: invalid JSON in globalWireList.json');
-    }
-    try {
-      this.setupParams = JSON.parse(sContent);
-    } catch (e) {
-      throw new Error('initQAP: invalid JSON in setupParams.json');
-    }
-    try {
-      this.subcircuitInfos = JSON.parse(subContent);
-    } catch (e) {
-      throw new Error('initQAP: invalid JSON in subcircuitInfo.json');
-    }
-
-    // 동적으로 불러온 값을 내부 필드에도 반영 (가능한 경우)
-    this.flattenMapInverse = this.globalWireList as GlobalWireList;
   }
 
   async outputPlacementVariables(
