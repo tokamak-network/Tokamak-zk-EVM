@@ -74,6 +74,6 @@ echo "✅ Signed"
 echo "[*] Packaging and notarying..."
 rm -f "$OUT_ZIP"
 ( cd "$TARGET" && ditto -c -k --sequesterRsrc . "../$OUT_ZIP" )
-# xcrun notarytool submit "$OUT_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
+xcrun notarytool submit "$OUT_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
 # xcrun stapler staple "$OUT_ZIP"
 echo "✅ Packaging for MacOS has been completed"
