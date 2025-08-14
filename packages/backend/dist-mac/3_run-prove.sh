@@ -6,4 +6,4 @@ IFS=$'\n\t'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_PROVE="$SCRIPT_DIR/bin/prove"
 
-exec "$LOCAL_PROVE" "$SCRIPT_DIR/resource/qap_compiler/library" "$SCRIPT_DIR/resource/synthesizer/outputs" "$SCRIPT_DIR/resource/setup/output" "$SCRIPT_DIR/resource/prove/output"
+exec "$LOCAL_PROVE" "$SCRIPT_DIR/resource/qap-compiler/library" "$SCRIPT_DIR/resource/synthesizer/outputs" "$SCRIPT_DIR/resource/setup/output" "$SCRIPT_DIR/resource/prove/output"

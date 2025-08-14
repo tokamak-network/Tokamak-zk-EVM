@@ -19,6 +19,14 @@ APP_SIGN_ID='3524416ED3903027378EA41BB258070785F977F9'
 NOTARY_PROFILE='tokamak-zk-evm-backend'
 OUT_ZIP='tokamak-zk-evm-mac.zip'
 
+
+echo "[*] Copying frontend resource..."
+mkdir -p "${TARGET}/resource/qap-compiler/library"
+cp -r ../frontend/qap-compiler/subcircuits/library/* "${TARGET}/resource/qap-compiler/library"
+mkdir -p "${TARGET}/resource/synthesizer/outputs"
+cp -r ../frontend/synthesizer/examples/outputs/* "${TARGET}/resource/synthesizer/outputs"
+echo "✅ copied to ${TARGET}/resource"
+
 command -v curl >/dev/null 2>&1 || { echo "curl is required but not found"; exit 1; }
 command -v tar  >/dev/null 2>&1 || { echo "tar is required but not found"; exit 1; }
 
@@ -66,6 +74,6 @@ echo "✅ Signed"
 echo "[*] Packaging and notarying..."
 rm -f "$OUT_ZIP"
 ( cd "$TARGET" && ditto -c -k --sequesterRsrc . "../$OUT_ZIP" )
-xcrun notarytool submit "$OUT_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
+# xcrun notarytool submit "$OUT_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
 # xcrun stapler staple "$OUT_ZIP"
 echo "✅ Packaging for MacOS has been completed"
