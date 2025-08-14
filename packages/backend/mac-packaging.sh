@@ -61,7 +61,6 @@ echo "[*] Configuring @rpath of the binaries..."
 RPATH="@executable_path/../${BACKEND_PATH}/lib"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
 
 install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/trusted-setup"
 install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/prove"

@@ -5,6 +5,7 @@ use icicle_bls12_381::curve::ScalarField;
 use icicle_core::traits::FieldImpl;
 use libs::group_structures::{SigmaPreprocess};
 use libs::iotools::{Instance, Permutation, SetupParams};
+use libs::utils::check_device;
 use preprocess::{Preprocess, PreprocessInputPaths};
 
 fn main() {
@@ -24,6 +25,8 @@ fn main() {
         setup_path: &args[3],
         output_path: &args[4],
     };
+
+    check_device();
 
     let setup_path = PathBuf::from(paths.qap_path).join("setupParams.json");
     let setup_params = SetupParams::read_from_json(setup_path).unwrap();

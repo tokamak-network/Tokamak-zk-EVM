@@ -3,14 +3,18 @@
 .gitignore
 
 # Node
-node_modules
+**/node_modules
 npm-debug.log
+yarn.lock
+pnpm-lock.yaml
 
-# Build artifacts
-/packages/backend/target
-/packages/frontend/synthesizer/dist
+# Rust / Build artifacts
+**/target
+**/dist
+**/build
 
-# IDE / OS specific
+# IDE / OS
 .vscode
 .idea
 .DS_Store
+Thumbs.db

@@ -1,0 +1,26 @@
+{
+  "name": "poseidon-verifier",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --inspect-brk ./node_modules/mocha/bin/mocha --timeout 10000 dist/test/verify.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@types/chai": "^5.2.2",
+    "@types/mocha": "^10.0.10",
+    "chai": "^5.2.1",
+    "ethers": "^6.15.0",
+    "mocha": "^11.7.1",
+    "poseidon-bls12381": "^1.0.2",
+    "poseidon-bls12381-circom": "^1.0.0",
+    "snarkjs": "^0.7.5",
+    "ts-node": "^10.9.2"
+  },
+  "devDependencies": {
+    "circom_tester": "^0.0.24"
+  }
+}
