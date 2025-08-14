@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 31
+non-linear constraints: 566
+linear constraints: 427
+public inputs: 7
+private inputs: 0
+public outputs: 2
+wires: 1180
+labels: 2329
+[32mWritten successfully:[0m ../subcircuits/library/ALU2_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library/ALU2_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library/ALU2_circuit_js/ALU2_circuit.wasm
+[32mEverything went okay[0m

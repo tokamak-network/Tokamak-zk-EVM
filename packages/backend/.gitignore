@@ -1,5 +1,7 @@
 /target
 **/output
 /icicle
-tokamak-zk-evm-bin.tar.gz
-/dist/bin
+**/bin
+**/backend-lib
+*.zip
+*.tar.gz
