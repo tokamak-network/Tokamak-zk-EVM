@@ -675,14 +675,29 @@ use tiny_keccak::Keccak;
         }
 
         pub fn prove0(&mut self) -> Proof0 {
-            // Arithmetic constraints argument polynomials
-            (self.quotients.q0XY, self.quotients.q1XY) = {
-                let mut p0XY = &( &self.witness.uXY * &self.witness.vXY ) - &self.witness.wXY;
-                p0XY.div_by_vanishing(
+            let total_start = Instant::now();
+            println!("[Timing] Starting prove0...");
+            
+            // Arithmetic constraints argument polynomials with detailed timing
+            let quotient_start = Instant::now();
+            
+            // Step 1: Polynomial multiplication and subtraction
+            let poly_op_start = Instant::now();
+            let mut p0XY = &( &self.witness.uXY * &self.witness.vXY ) - &self.witness.wXY;
+            let poly_op_duration = poly_op_start.elapsed();
+            println!("[Timing] Polynomial operations (u*v - w): {:?}", poly_op_duration);
+            
+            // Step 2: Division by vanishing polynomial
+            let div_start = Instant::now();
+            (self.quotients.q0XY, self.quotients.q1XY) = p0XY.div_by_vanishing(
                 self.setup_params.n as i64, 
                 self.setup_params.s_max as i64
-                )
-            };
+            );
+            let div_duration = div_start.elapsed();
+            println!("[Timing] Division by vanishing polynomial: {:?}", div_duration);
+            
+            let quotient_duration = quotient_start.elapsed();
+            println!("[Timing] Quotient polynomials computation: {:?}", quotient_duration);
 
             #[cfg(feature = "testing-mode")] {
                 let x_e = ScalarCfg::generate_random(1)[0];
@@ -710,6 +725,10 @@ use tiny_keccak::Keccak;
 
             println!("Check point: Computed quotient polynomials for Arithmetic constraint argument");
 
+            let encoding_start = Instant::now();
+            
+            // Step 1: U polynomial encoding
+            let u_encoding_start = Instant::now();
             let U = {
                 let mut UXY = poly_comb!(
                     (ScalarField::one(), self.witness.uXY),
@@ -718,7 +737,11 @@ use tiny_keccak::Keccak;
                 );
                 self.sigma.sigma_1.encode_poly(&mut UXY, &self.setup_params)
             };
-
+            let u_encoding_duration = u_encoding_start.elapsed();
+            println!("[Timing] U polynomial encoding: {:?}", u_encoding_duration);
+            
+            // Step 2: V polynomial encoding
+            let v_encoding_start = Instant::now();
             let V = {
                 let mut VXY = poly_comb!(
                     (ScalarField::one(), self.witness.vXY),
@@ -727,7 +750,11 @@ use tiny_keccak::Keccak;
                 );
                 self.sigma.sigma_1.encode_poly(&mut VXY, &self.setup_params)
             };
+            let v_encoding_duration = v_encoding_start.elapsed();
+            println!("[Timing] V polynomial encoding: {:?}", v_encoding_duration);
             
+            // Step 3: W polynomial encoding
+            let w_encoding_start = Instant::now();
             let W = {
                 let mut WXY = poly_comb!(
                     (ScalarField::one(), self.witness.wXY),
@@ -736,10 +763,11 @@ use tiny_keccak::Keccak;
                 );
                 self.sigma.sigma_1.encode_poly(&mut WXY, &self.setup_params)
             };
-
-            println!("Check point: Encoded witness polynomials for Arithmetic constraint argument");
+            let w_encoding_duration = w_encoding_start.elapsed();
+            println!("[Timing] W polynomial encoding: {:?}", w_encoding_duration);
             
             let Q_AX = {
+                let qax_encoding_start = Instant::now();
                 let mut Q_AX_XY = poly_comb!(
                     (ScalarField::one(), self.quotients.q0XY),
                     (self.mixer.rU_X, self.witness.vXY),
@@ -748,10 +776,14 @@ use tiny_keccak::Keccak;
                     (self.mixer.rU_X * self.mixer.rV_X, self.instance.t_n),
                     (self.mixer.rU_Y * self.mixer.rV_X, self.instance.t_smax)
                 );
-                self.sigma.sigma_1.encode_poly(&mut Q_AX_XY, &self.setup_params)
+                let result = self.sigma.sigma_1.encode_poly(&mut Q_AX_XY, &self.setup_params);
+                let qax_encoding_duration = qax_encoding_start.elapsed();
+                println!("[Timing] Q_AX polynomial encoding: {:?}", qax_encoding_duration);
+                (result, qax_encoding_duration)
             };
 
             let Q_AY = {
+                let qay_encoding_start = Instant::now();
                 let mut Q_AY_XY = poly_comb!(
                     (ScalarField::one(), self.quotients.q1XY),
                     (self.mixer.rU_Y, self.witness.vXY),
@@ -760,7 +792,10 @@ use tiny_keccak::Keccak;
                     (self.mixer.rU_X * self.mixer.rV_Y, self.instance.t_n),
                     (self.mixer.rU_Y * self.mixer.rV_Y, self.instance.t_smax)
                 );
-                self.sigma.sigma_1.encode_poly(&mut Q_AY_XY, &self.setup_params)
+                let result = self.sigma.sigma_1.encode_poly(&mut Q_AY_XY, &self.setup_params);
+                let qay_encoding_duration = qay_encoding_start.elapsed();
+                println!("[Timing] Q_AY polynomial encoding: {:?}", qay_encoding_duration);
+                (result, qay_encoding_duration)
             };
             drop(rW_X);
             drop(rW_Y);
@@ -768,6 +803,7 @@ use tiny_keccak::Keccak;
             println!("Check point: Encoded the quotient polynomials for Arithmetic constraint argument");
 
             let B = {
+                let b_encoding_start = Instant::now();
                 let rB_X = DensePolynomialExt::from_coeffs(
                     HostSlice::from_slice(&self.mixer.rB_X), 
                     self.mixer.rB_X.len(), 
@@ -780,14 +816,42 @@ use tiny_keccak::Keccak;
                 );
                 let term_B_zk = &(&rB_X * &self.instance.t_mi) + &(&rB_Y * &self.instance.t_smax);
                 let mut BXY = &self.witness.bXY + &term_B_zk;
-                self.sigma.sigma_1.encode_poly(&mut BXY, &self.setup_params)
+                let result = self.sigma.sigma_1.encode_poly(&mut BXY, &self.setup_params);
+                let b_encoding_duration = b_encoding_start.elapsed();
+                println!("[Timing] B polynomial encoding: {:?}", b_encoding_duration);
+                (result, b_encoding_duration)
             };
 
+            // Extract the actual values and durations
+            let (Q_AX, qax_encoding_duration) = Q_AX;
+            let (Q_AY, qay_encoding_duration) = Q_AY;
+            let (B, b_encoding_duration) = B;
+
             println!("Check point: Encoded the witness polynomial for Copy constraint argument");
+            
+            let encoding_duration = encoding_start.elapsed();
+            let total_duration = total_start.elapsed();
+            println!("[Timing] prove0 completed in: {:?}", total_duration);
+            println!("[Timing] prove0 breakdown:");
+            println!("  - Polynomial operations (u*v - w): {:?}", poly_op_duration);
+            println!("  - Division by vanishing polynomial: {:?}", div_duration);
+            println!("  - U polynomial encoding: {:?}", u_encoding_duration);
+            println!("  - V polynomial encoding: {:?}", v_encoding_duration);
+            println!("  - W polynomial encoding: {:?}", w_encoding_duration);
+            println!("  - Q_AX polynomial encoding: {:?}", qax_encoding_duration);
+            println!("  - Q_AY polynomial encoding: {:?}", qay_encoding_duration);
+            println!("  - B polynomial encoding: {:?}", b_encoding_duration);
+            println!("  - Total encoding time: {:?}", encoding_duration);
+            println!("  - Quotient polynomials: {:?}", quotient_duration);
+            println!("  - Polynomial encoding: {:?}", encoding_duration);
+            
             return Proof0 {U, V, W, Q_AX, Q_AY, B}
         }
 
         pub fn prove1(&mut self, thetas: &Vec<ScalarField>) -> Proof1{
+            let total_start = Instant::now();
+            println!("[Timing] Starting prove1...");
+            
             let m_i = self.setup_params.l_D - self.setup_params.l;
             let s_max = self.setup_params.s_max;
 
@@ -810,6 +874,7 @@ use tiny_keccak::Keccak;
             gXY.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut gXY_evals));
 
             // Generating the recursion polynomial r(X,Y)
+            let recursion_start = Instant::now();
             let mut rXY_evals = vec![ScalarField::zero(); m_i * s_max];
             let mut scalers_tr = vec![ScalarField::zero(); m_i * s_max];
             point_div_two_vecs(&gXY_evals, &fXY_evals, &mut scalers_tr);
@@ -819,6 +884,8 @@ use tiny_keccak::Keccak;
                 rXY_evals[idx] = rXY_evals[idx+1] * scalers_tr[idx+1];
             }
             transpose_inplace(&mut rXY_evals, s_max, m_i);
+            let recursion_duration = recursion_start.elapsed();
+            println!("[Timing] Recursion polynomial generation: {:?}", recursion_duration);
 
             self.witness.rXY = DensePolynomialExt::from_rou_evals(
                 HostSlice::from_slice(&rXY_evals),
@@ -857,15 +924,26 @@ use tiny_keccak::Keccak;
 
             println!("Check point: Computed a recursion polynomial for Copy constraint argument");
 
-
+            let encoding_start = Instant::now();
             let R = self.sigma.sigma_1.encode_poly(&mut RXY, &self.setup_params);
+            let encoding_duration = encoding_start.elapsed();
+            println!("[Timing] R polynomial encoding: {:?}", encoding_duration);
 
             println!("Check point: Encoded the recursion polynomial for Copy constraint argument");
+
+            let total_duration = total_start.elapsed();
+            println!("[Timing] prove1 completed in: {:?}", total_duration);
+            println!("[Timing] prove1 breakdown:");
+            println!("  - Recursion polynomial generation: {:?}", recursion_duration);
+            println!("  - R polynomial encoding: {:?}", encoding_duration);
 
             return Proof1 {R}
         }
         
         pub fn prove2(&mut self, thetas: &Vec<ScalarField>, kappa0: ScalarField) -> Proof2 {
+            let total_start = Instant::now();
+            println!("[Timing] Starting prove2...");
+            
             let m_i = self.setup_params.l_D - self.setup_params.l;
             let s_max = self.setup_params.s_max;
             let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
@@ -929,19 +1007,42 @@ use tiny_keccak::Keccak;
             );
             drop(k0_evals);
 
-            (self.quotients.q2XY, self.quotients.q3XY, self.quotients.q4XY, self.quotients.q5XY, self.quotients.q6XY, self.quotients.q7XY) = {
-                let mut p1XY = &(&self.witness.rXY - &ScalarField::one()) * &(lagrange_KL_XY);
-                let mut p2XY = &(&X_mono - &ScalarField::one()) * &(
-                    &(&self.witness.rXY * &gXY) - &(&r_omegaX * &fXY)
-                );
-                let mut p3XY = &lagrange_K0_XY * &(
-                    &(&self.witness.rXY * &gXY) - &(&r_omegaX_omegaY * &fXY)
-                );
-                let (q2, q3) = p1XY.div_by_vanishing(m_i as i64, s_max as i64);
-                let (q4, q5) = p2XY.div_by_vanishing(m_i as i64, s_max as i64);
-                let (q6, q7) = p3XY.div_by_vanishing(m_i as i64, s_max as i64);
-                (q2, q3, q4, q5, q6, q7)
-            };
+            let quotient_start = Instant::now();
+            
+            // Step 1: p1XY computation and division
+            let p1_start = Instant::now();
+            let mut p1XY = &(&self.witness.rXY - &ScalarField::one()) * &(lagrange_KL_XY);
+            let (q2, q3) = p1XY.div_by_vanishing(m_i as i64, s_max as i64);
+            let p1_duration = p1_start.elapsed();
+            println!("[Timing] p1XY computation and division: {:?}", p1_duration);
+            
+            // Step 2: p2XY computation and division
+            let p2_start = Instant::now();
+            let mut p2XY = &(&X_mono - &ScalarField::one()) * &(
+                &(&self.witness.rXY * &gXY) - &(&r_omegaX * &fXY)
+            );
+            let (q4, q5) = p2XY.div_by_vanishing(m_i as i64, s_max as i64);
+            let p2_duration = p2_start.elapsed();
+            println!("[Timing] p2XY computation and division: {:?}", p2_duration);
+            
+            // Step 3: p3XY computation and division
+            let p3_start = Instant::now();
+            let mut p3XY = &lagrange_K0_XY * &(
+                &(&self.witness.rXY * &gXY) - &(&r_omegaX_omegaY * &fXY)
+            );
+            let (q6, q7) = p3XY.div_by_vanishing(m_i as i64, s_max as i64);
+            let p3_duration = p3_start.elapsed();
+            println!("[Timing] p3XY computation and division: {:?}", p3_duration);
+            
+            (self.quotients.q2XY, self.quotients.q3XY, self.quotients.q4XY, self.quotients.q5XY, self.quotients.q6XY, self.quotients.q7XY) = (q2, q3, q4, q5, q6, q7);
+            
+            let quotient_duration = quotient_start.elapsed();
+            println!("[Timing] Quotient polynomials computation: {:?}", quotient_duration);
+            println!("[Timing] prove2 breakdown:");
+            println!("  - p1XY computation and division: {:?}", p1_duration);
+            println!("  - p2XY computation and division: {:?}", p2_duration);
+            println!("  - p3XY computation and division: {:?}", p3_duration);
+            println!("  - Quotient polynomials computation: {:?}", quotient_duration);
 
             println!("Check point: Computed quotient polynomials for Copy constraint argument");
             
@@ -973,6 +1074,8 @@ use tiny_keccak::Keccak;
             drop(gXY);
             drop(fXY);
 
+            let encoding_start = Instant::now();
+            
             let Q_CX: G1serde = {
                 let rB_X = DensePolynomialExt::from_coeffs(
                     HostSlice::from_slice(&self.mixer.rB_X), 
@@ -1024,12 +1127,26 @@ use tiny_keccak::Keccak;
             };
 
             println!("Check point: Encoded quotient polynomials for Copy constraint argument");
+            
+            let encoding_duration = encoding_start.elapsed();
+            let total_duration = total_start.elapsed();
+            println!("[Timing] prove2 completed in: {:?}", total_duration);
+            println!("[Timing] prove2 breakdown:");
+            println!("  - Quotient polynomials computation: {:?}", quotient_duration);
+            println!("  - Q_CX and Q_CY encoding: {:?}", encoding_duration);
+            
             return Proof2 {Q_CX, Q_CY}
         }
 
         pub fn prove3(&self, chi: ScalarField, zeta: ScalarField) -> Proof3 {
+            let total_start = Instant::now();
+            println!("[Timing] Starting prove3...");
+            
             let m_i = self.setup_params.l_D - self.setup_params.l;
             let s_max = self.setup_params.s_max;
+            
+            let evaluation_start = Instant::now();
+            
             let V_eval: ScalarField = {
                 let VXY = poly_comb!(
                     (ScalarField::one(), self.witness.vXY),
@@ -1051,8 +1168,15 @@ use tiny_keccak::Keccak;
 
             let R_omegaX_omegaY_XY = R_omegaX_XY.scale_coeffs_y(&omega_s_max.inv());
             let R_omegaX_omegaY_eval = R_omegaX_omegaY_XY.eval(&chi, &zeta);
+            
+            let evaluation_duration = evaluation_start.elapsed();
+            println!("[Timing] KZG openings computation: {:?}", evaluation_duration);
 
             println!("Check point: Computed KZG openings");
+
+            let total_duration = total_start.elapsed();
+            println!("[Timing] prove3 completed in: {:?}", total_duration);
+            println!("[Timing] prove3: KZG openings computation");
 
             return Proof3 {
                 V_eval: FieldSerde(V_eval), 
@@ -1063,7 +1187,11 @@ use tiny_keccak::Keccak;
         }
 
         pub fn prove4(&self, proof3: &Proof3, thetas: &Vec<ScalarField>, kappa0: ScalarField, chi: ScalarField, zeta: ScalarField, kappa1: ScalarField) -> (Proof4, Proof4Test) {
-            let (Pi_AX, Pi_AY) = {
+            let total_start = Instant::now();
+            println!("[Timing] Starting prove4...");
+            
+            let (Pi_AX, Pi_AY, pi_ax_ay_duration) = {
+                let pi_ax_ay_start = Instant::now();
                 let (mut Pi_AX_XY, mut Pi_AY_XY, rem) = {
                     let t_n_eval = self.instance.t_n.eval(&chi, &ScalarField::one());
                     let t_smax_eval = self.instance.t_smax.eval(&ScalarField::one(), &zeta);
@@ -1108,9 +1236,13 @@ use tiny_keccak::Keccak;
 
                 println!("Check point: Computed KZG proofs for Arithmetic constraint argument");
 
+                let pi_ax_ay_duration = pi_ax_ay_start.elapsed();
+                println!("[Timing] Pi_AX and Pi_AY computation: {:?}", pi_ax_ay_duration);
+
                 (
                     self.sigma.sigma_1.encode_poly(&mut Pi_AX_XY, &self.setup_params),
-                    self.sigma.sigma_1.encode_poly(&mut Pi_AY_XY, &self.setup_params)
+                    self.sigma.sigma_1.encode_poly(&mut Pi_AY_XY, &self.setup_params),
+                    pi_ax_ay_duration
                 )
             };
 
@@ -1121,7 +1253,8 @@ use tiny_keccak::Keccak;
             let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
             let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
             let RXY = &self.witness.rXY + &(&(&self.mixer.rR_X * &self.instance.t_mi) + &(&self.mixer.rR_Y * &self.instance.t_smax));
-            let (M_X, M_Y) = {
+            let (M_X, M_Y, m_x_y_duration) = {
+                let m_x_y_start = Instant::now();
                 let (mut M_X_XY, mut M_Y_XY, rem2) = (&RXY - &proof3.R_omegaX_eval.0).div_by_ruffini(
                     &(omega_m_i.inv() * chi), 
                     &zeta
@@ -1137,9 +1270,13 @@ use tiny_keccak::Keccak;
 
                 println!("Check point: Computed KZG proofs for the recursion polynomials (1/2)");
 
+                let m_x_y_duration = m_x_y_start.elapsed();
+                println!("[Timing] M_X and M_Y computation: {:?}", m_x_y_duration);
+
                 (
                     self.sigma.sigma_1.encode_poly(&mut M_X_XY, &self.setup_params),
-                    self.sigma.sigma_1.encode_poly(&mut M_Y_XY, &self.setup_params)
+                    self.sigma.sigma_1.encode_poly(&mut M_Y_XY, &self.setup_params),
+                    m_x_y_duration
                 )
             };
 
@@ -1318,6 +1455,7 @@ use tiny_keccak::Keccak;
             println!("Check point: Encoded the KZG proofs for Copy constraint argument");
 
             drop(RXY);
+            let Pi_B_start = Instant::now();
             let Pi_B = {
                 let A_eval = self.instance.a_pub_X.eval(&chi, &zeta);
                 let (mut pi_B_XY, _, _) = (&self.instance.a_pub_X - &A_eval).div_by_ruffini(&chi, &zeta);
@@ -1326,11 +1464,22 @@ use tiny_keccak::Keccak;
 
                 self.sigma.sigma_1.encode_poly(&mut pi_B_XY, &self.setup_params) * kappa1.pow(4)
             };
+            let Pi_B_duration = Pi_B_start.elapsed();
+            println!("[Timing] Pi_B computation: {:?}", Pi_B_duration);
 
             println!("Check point: Encoded the KZG proof for public instance");
 
             let Pi_X = Pi_AX + Pi_CX + Pi_B;
             let Pi_Y = Pi_AY + Pi_CY;
+            
+            let total_duration = total_start.elapsed();
+            println!("[Timing] prove4 completed in: {:?}", total_duration);
+            println!("[Timing] prove4 breakdown:");
+            println!("  - Pi_AX and Pi_AY computation: {:?}", pi_ax_ay_duration);
+            println!("  - M_X and M_Y computation: {:?}", m_x_y_duration);
+            println!("  - Pi_B computation: {:?}", Pi_B_duration);
+            println!("  - Total KZG proofs time: {:?}", total_duration);
+            
             return (
                 Proof4 {Pi_X, Pi_Y, M_X, M_Y, N_X, N_Y},
                 Proof4Test {Pi_CX, Pi_CY, Pi_AX, Pi_AY, Pi_B, M_X, M_Y, N_X, N_Y}
