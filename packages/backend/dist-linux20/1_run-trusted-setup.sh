@@ -29,6 +29,9 @@ if check_backend_support "cuda"; then
   export ICICLE_BACKEND_INSTALL_DIR="${SCRIPT_DIR}/backend-lib/icicle/lib/backend"
 fi
 
+echo "${LD_LIBRARY_PATH}"
+
+
 LOCAL="$SCRIPT_DIR/bin/trusted-setup"
 exec "$LOCAL" \
   "$SCRIPT_DIR/resource/qap-compiler/library" \

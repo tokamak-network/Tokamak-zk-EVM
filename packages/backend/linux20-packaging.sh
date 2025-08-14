@@ -64,6 +64,13 @@ cp -r icicle/* "${TARGET}/${BACKEND_PATH}"
 echo "[*] Cleaning up temporary files..."
 rm -rf "$BACKEND_TARBALL" "$COMMON_TARBALL" icicle
 
+# echo "[*] Configuring @rpath of the binaries..."
+# RPATH='$ORIGIN/../backend-lib/icicle/lib'
+# for bin in trusted-setup preprocess prove verify; do
+#   patchelf --set-rpath "$RPATH" "target/release/$bin"
+# done
+# echo "✅ @rpath set to ${RPATH}"
+
 # =========================
 # Copy executable binaries
 # =========================

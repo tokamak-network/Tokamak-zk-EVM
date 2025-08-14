@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bash ca-certificates curl wget gnupg jq \
     build-essential cmake pkg-config libssl-dev \
     git clang libclang-dev lldb \
-    protobuf-compiler dos2unix \
+    protobuf-compiler dos2unix patchelf \
  && rm -rf /var/lib/apt/lists/*
 
 # Node.js 20

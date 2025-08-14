@@ -1,0 +1,148 @@
+# Multi-stage build for optimized image size
+# Stage 1: Build environment
+FROM ubuntu:22.04 AS builder
+# Build on macOS Apple Silicon with: docker buildx build --platform linux/arm64 -t tokamak:mac-cpu --load -f packages/Dockerfile.optimized.mac.arm .
+
+# Set timezone and non-interactive mode
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Seoul
+
+# Update and install build dependencies
+RUN apt-get clean && \
+    apt-get update --fix-missing && \
+    apt-get install -y --no-install-recommends \
+    protobuf-compiler \
+    curl \
+    build-essential \
+    git \
+    clang \
+    libclang-dev \
+    ca-certificates \
+    gnupg \
+    wget \
+    cmake \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js
+RUN mkdir -p /etc/apt/keyrings
+RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+RUN echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+RUN apt-get update && apt-get install nodejs -y && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install Golang
+ENV GOLANG_VERSION=1.21.1
+RUN curl -L https://go.dev/dl/go${GOLANG_VERSION}.linux-arm64.tar.gz | tar -xz -C /usr/local
+ENV PATH="/usr/local/go/bin:${PATH}"
+
+# Set the working directory
+WORKDIR /app
+
+# Copy project structure first
+COPY package*.json ./
+
+# Copy frontend files (including pre-generated files from Windows)
+COPY packages/frontend/ ./packages/frontend/
+
+# Copy backend files explicitly
+COPY packages/backend/Cargo.toml ./packages/backend/
+COPY packages/backend/Cargo.lock ./packages/backend/
+COPY packages/backend/icicle_auto_install.sh ./packages/backend/
+COPY packages/backend/libs/ ./packages/backend/libs/
+COPY packages/backend/prove/ ./packages/backend/prove/
+COPY packages/backend/setup/ ./packages/backend/setup/
+COPY packages/backend/verify/ ./packages/backend/verify/
+COPY packages/backend/protocol-script/ ./packages/backend/protocol-script/
+
+# Move to backend directory for setup
+WORKDIR /app/packages/backend
+
+# Ensure required JSON files exist (create dummy ones if needed)
+RUN test -f setupParams.json || echo '{"n":256,"s_max":128,"l":32,"l_D":64,"m_D":512,"s_D":16,"l_pub_in":8,"l_pub_out":8,"l_prv_in":8,"l_prv_out":8}' > setupParams.json
+RUN test -f subcircuitInfo.json || echo '[]' > subcircuitInfo.json
+RUN test -f placementVariables.json || echo '[]' > placementVariables.json
+RUN test -f permutation.json || echo '[]' > permutation.json
+
+# Note: icicle installation and trusted-setup will be run at container runtime
+# Docker build doesn't run those steps here
+
+# Build the application (if needed)
+# RUN cargo build --release  # Uncomment if you need to build Rust binaries
+
+# Stage 2: Runtime environment
+FROM ubuntu:22.04
+
+# Set timezone and non-interactive mode
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Seoul
+
+# Install runtime dependencies including build tools for Rust
+RUN apt-get clean && \
+    apt-get update --fix-missing && \
+    apt-get install -y --no-install-recommends \
+    bash \
+    curl \
+    ca-certificates \
+    build-essential \
+    protobuf-compiler \
+    clang \
+    libclang-dev \
+    git \
+    g++ \
+    make \
+    libssl-dev \
+    pkg-config \
+    cmake \
+    wget \
+    dos2unix \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js runtime (smaller footprint)
+RUN mkdir -p /etc/apt/keyrings
+RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+RUN echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+RUN apt-get update && apt-get install nodejs -y && rm -rf /var/lib/apt/lists/*
+
+# Install tsx globally for TypeScript execution
+RUN npm install -g tsx
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Change default prompt
+RUN echo 'export PS1="\w\$ "' >> /root/.bashrc
+
+# Set the working directory
+WORKDIR /app
+
+# Copy essential project files
+COPY package*.json ./
+
+# Copy frontend files (only what's needed)
+COPY packages/frontend/synthesizer/ ./packages/frontend/synthesizer/
+COPY packages/frontend/qap-compiler/subcircuits/ ./packages/frontend/qap-compiler/subcircuits/
+
+# Copy backend files
+COPY packages/backend/ ./packages/backend/
+
+# Create startup script
+RUN echo '#!/bin/bash\n\
+echo "=== Tokamak zkEVM Container Started ==="\n\
+echo "Running in CPU-only (linux/arm64) container"\n\
+\n\
+cd /app/packages\n\
+\n\
+echo "Environment ready!"\n\
+echo "To run trusted-setup: cargo run -p trusted-setup"\n\
+echo "To run prove: cargo run -p prove"\n\
+exec "$@"' > /usr/local/bin/startup.sh
+
+RUN chmod +x /usr/local/bin/startup.sh
+
+ENTRYPOINT ["/usr/local/bin/startup.sh"]
+CMD ["bash"]
