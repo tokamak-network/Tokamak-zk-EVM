@@ -16,11 +16,11 @@
     use serde_json::{from_reader, to_writer_pretty};
 
     use std::fs::File;
-    use std::io::{self, BufReader, BufWriter};
-    use std::path::{Path, PathBuf};
-    use std::{env, fs, vec};
-    use byteorder::{BigEndian, ByteOrder};
-    use tiny_keccak::Keccak;
+use std::io::{self, BufReader, BufWriter};
+use std::path::{Path, PathBuf};
+use std::{env, fs, vec, time::Instant};
+use byteorder::{BigEndian, ByteOrder};
+use tiny_keccak::Keccak;
 
 
     macro_rules! poly_comb {
@@ -372,9 +372,15 @@
 
     impl Prover{
         pub fn init(paths: &ProveInputPaths) -> (Self, Binding) {
+            let total_start = Instant::now();
+            println!("[Timing] Starting Prover::init...");
+            
             // Load setup parameters from JSON file
+            let setup_start = Instant::now();
             let setup_params_path = PathBuf::from(paths.qap_path).join("setupParams.json");
             let setup_params = SetupParams::read_from_json(setup_params_path).unwrap();
+            let setup_duration = setup_start.elapsed();
+            println!("[Timing] Setup parameters loaded in: {:?}", setup_duration);
 
             // Extract key parameters from setup_params
             let l = setup_params.l;     // Number of public I/O wires
@@ -408,13 +414,20 @@
             }
 
             // Load subcircuit information
+            let subcircuit_start = Instant::now();
             let subcircuit_infos_path = PathBuf::from(paths.qap_path).join("subcircuitInfo.json");
             let subcircuit_infos = SubcircuitInfo::read_box_from_json(subcircuit_infos_path).unwrap();
+            let subcircuit_duration = subcircuit_start.elapsed();
+            println!("[Timing] Subcircuit info loaded in: {:?}", subcircuit_duration);
 
             // Load local variables of placements (public instance + interface witness + internal witness)
+            let placement_start = Instant::now();
             let placement_variables_path = PathBuf::from(paths.synthesizer_path).join("placementVariables.json");
             let placement_variables = PlacementVariables::read_box_from_json(placement_variables_path).unwrap();
+            let placement_duration = placement_start.elapsed();
+            println!("[Timing] Placement variables loaded in: {:?}", placement_duration);
 
+            let witness_start = Instant::now();
             let witness: Witness = {
                 // // Load subcircuit library R1CS
                 // println!("Loading subcircuits...");
@@ -432,7 +445,10 @@
                 let rXY = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&vec![ScalarField::zero()]), 1, 1);
                 Witness {bXY, uXY, vXY, wXY, rXY}
             };
+            let witness_duration = witness_start.elapsed();
+            println!("[Timing] Witness generation completed in: {:?}", witness_duration);
 
+            let quotients_start = Instant::now();
             let quotients: Quotients = {
                 let q0XY = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&vec![ScalarField::zero()]), 1, 1);
                 let q1XY = q0XY.clone();
@@ -444,11 +460,17 @@
                 let q7XY = q0XY.clone();
                 Quotients {q0XY, q1XY, q2XY, q3XY, q4XY, q5XY, q6XY, q7XY}
             };
+            let quotients_duration = quotients_start.elapsed();
+            println!("[Timing] Quotients initialization completed in: {:?}", quotients_duration);
 
             // Load permutation (copy constraints of the variables)
+            let permutation_start = Instant::now();
             let permutation_path = PathBuf::from(paths.synthesizer_path).join("permutation.json");
             let permutation_raw = Permutation::read_box_from_json(permutation_path).unwrap();
+            let permutation_duration = permutation_start.elapsed();
+            println!("[Timing] Permutation loaded in: {:?}", permutation_duration);
 
+            let instance_start = Instant::now();
             let mut instance: InstancePolynomials = {
                 // Load instance
                 let instance_path = PathBuf::from(paths.synthesizer_path).join("instance.json");
@@ -474,6 +496,8 @@
 
                 InstancePolynomials {a_pub_X, t_n, t_mi, t_smax, s0XY, s1XY}
             };
+            let instance_duration = instance_start.elapsed();
+            println!("[Timing] Instance polynomials generation completed in: {:?}", instance_duration);
 
             #[cfg(feature = "testing-mode")] {
                 // Checking Lemma 3
@@ -558,10 +582,14 @@
             }
 
             // Load Sigma (reference string)
+            let sigma_start = Instant::now();
             let sigma_path = PathBuf::from(paths.setup_path).join("combined_sigma.json");
             let mut sigma = Sigma::read_from_json(sigma_path)
             .expect("No reference string is found. Run the Setup first.");
+            let sigma_duration = sigma_start.elapsed();
+            println!("[Timing] Sigma (reference string) loaded in: {:?}", sigma_duration);
 
+            let mixer_start = Instant::now();
             let mixer: Mixer = {
                 let rU_X = ScalarCfg::generate_random(1)[0];
                 let rU_Y = ScalarCfg::generate_random(1)[0];
@@ -591,9 +619,12 @@
 
                 Mixer {rB_X, rB_Y, rR_X, rR_Y, rU_X, rU_Y, rV_X, rV_Y, rW_X, rW_Y, rO_mid}
             };
+            let mixer_duration = mixer_start.elapsed();
+            println!("[Timing] Mixer (random values) generation completed in: {:?}", mixer_duration);
 
             println!("Check point: Fetched input data from the frontend compilers");
 
+            let binding_start = Instant::now();
             let binding: Binding = {
                 let A = sigma.sigma_1.encode_poly(&mut instance.a_pub_X, &setup_params);
                 let O_inst = sigma.sigma_1.encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params);
@@ -634,8 +665,8 @@
                     );
                 Binding {A, O_inst, O_mid, O_prv}
             };
-
-            println!("Check point: Encoded binding polynomials");
+            let binding_duration = binding_start.elapsed();
+            println!("[Timing] Binding polynomials encoding completed in: {:?}", binding_duration);
 
             return (
                 Self {sigma, setup_params, instance, witness, mixer, quotients},
