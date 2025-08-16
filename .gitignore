@@ -24,3 +24,5 @@ coverage.json
 *.log
 
 #Cursor
+
+./your_proof

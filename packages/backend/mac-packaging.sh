@@ -19,6 +19,13 @@ APP_SIGN_ID='3524416ED3903027378EA41BB258070785F977F9'
 NOTARY_PROFILE='tokamak-zk-evm-backend'
 OUT_ZIP='tokamak-zk-evm-mac.zip'
 
+# Parse arguments: enable signing/notarization only when --sign is present
+DO_SIGN=false
+for a in "$@"; do
+  if [[ "$a" == "--sign" ]]; then
+    DO_SIGN=true
+  fi
+done
 
 echo "[*] Copying resource..."
 rm -rf -- "${TARGET}/resource"
@@ -68,14 +75,27 @@ install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/preprocess"
 install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/verify"
 echo "✅ @rpath set to ${RPATH}"
 
-echo "[*] Signing on all distribution..."
-find "$TARGET" -type f \( -perm -111 -o -name "*.dylib" -o -name "*.so" \) -print0 | xargs -0 -I{} codesign --force --options runtime --timestamp -s "$APP_SIGN_ID" "{}"
-# find "$TARGET" -type f \( -perm -u+x -o -name '*.dylib' -o -name '*.so' \) -print0 | xargs -0 -I{} codesign --verify --strict --verbose=2 "{}"
-echo "✅ Signed"
+if [[ "$DO_SIGN" == "true" ]]; then
+  echo "[*] Signing on all distribution..."
+  find "$TARGET" -type f \( -perm -111 -o -name "*.dylib" -o -name "*.so" \) -print0 | xargs -0 -I{} codesign --force --options runtime --timestamp -s "$APP_SIGN_ID" "{}"
+  # find "$TARGET" -type f \( -perm -u+x -o -name '*.dylib' -o -name '*.so' \) -print0 | xargs -0 -I{} codesign --verify --strict --verbose=2 "{}"
+  echo "✅ Signed"
+else
+  echo "ℹ️ Skipping code signing (run with --sign to enable)"
+fi
 
-echo "[*] Packaging and notarying..."
+echo "[*] Packaging..."
 rm -f "$OUT_ZIP"
 ( cd "$TARGET" && ditto -c -k --sequesterRsrc . "../$OUT_ZIP" )
-xcrun notarytool submit "$OUT_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
-# xcrun stapler staple "$OUT_ZIP"
+echo "✅ Packaged: $OUT_ZIP"
+
+if [[ "$DO_SIGN" == "true" ]]; then
+  echo "[*] Notarizing..."
+  xcrun notarytool submit "$OUT_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
+  # xcrun stapler staple "$OUT_ZIP"
+  echo "✅ Notarization completed"
+else
+  echo "ℹ️ Skipping notarization (run with --sign to enable)"
+fi
+
 echo "✅ Packaging for MacOS has been completed"
