@@ -8,79 +8,105 @@ Tokamak-zk-EVM is a zero-knowledge Ethereum Virtual Machine implementation that 
 
 ## Usage
 
-We provide [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds), a graphical user interface that helps you easily follow the execution of Tokamak zk-EVM.
+We provide [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds), a graphical user interface that helps you easily follow the execution of Tokamak zk‑EVM.
 
-### With Playground (in progress)
+This section describes how to use the **main CLI** named **`tokamak-cli`**.
 
-Will be updated soon.
+### Prerequisites
 
-### Without Playground
+Make sure the following are installed:
 
-Here is an example of generating a zk proof of the correct execution of an [ERC-20 transfer transaction for the TON contract](./packages/frontend/synthesizer/examples/erc20/ton-transfer.ts).
+- **Node.js** – https://nodejs.org/
+- **Circom** – https://docs.circom.io/getting-started/installation/
+- **Rust** – https://www.rust-lang.org/tools/install
+- **CMake** – https://cmake.org/download/
+- **Docker (Windows only, recommended)** – https://docs.docker.com/desktop/install/windows-install/
 
-1. Make sure that you have installed
-   - [Node.js](https://nodejs.org/en),
-   - [Circom](https://docs.circom.io),
-   - [Rust](https://www.rust-lang.org),
-   - [CMake](https://cmake.org) (+ [Docker](https://www.docker.com) would be helpful for installing and using CMAKE, if you use Windows).
-2. Clone the zk-evm repository (the main branch)
+You will also need an **Alchemy API key**:
 
-   ```bash
-   git clone https://github.com/tokamak-network/Tokamak-zk-EVM
-   ```
+1. Create an Alchemy account and log in to the dashboard (https://dashboard.alchemy.com/).
+2. Create a new app/project for **Ethereum Mainnet**.
+3. Copy the **API Key** (the short token).  
+   You will pass this key to the CLI as `--setup <API_KEY>` (do **not** paste the full RPC URL).
 
-3. Open the “Tokamak-zk-EVM” folder.
-4. Run `qap-compiler` (requiring Node.js and Circom)
+> Tip: The CLI writes `RPC_URL='https://eth-mainnet.g.alchemy.com/v2/<API_KEY>'` into `packages/frontend/synthesizer/.env`.
 
-   ```bash
-   cd "$pwd/packages/frontend/qap-compiler"
-   npm install
-   ./scripts/compile.sh
-   ```
+---
 
-5. Run `synthesizer` (requiring Node.js)
+### Windows users (Docker)
 
-   ```bash
-   cd "$pwd/packages/frontend/synthesizer"
-   npm install
-   npx tsx ./examples/demo/index.ts
-   ```
+A Dockerfile named **`Docker-for-Windows`** is provided for Windows users. Build the image and start a container from the **repo root**:
 
-6. Run `setup` (requiring Rust and CMake)
+**PowerShell**
+```powershell
+cd C:\path\to\Tokamak-zk-EVM
+docker build -f Docker-for-Windows -t tokamak-zkevm:win .
+docker run --rm -it -v "${PWD}:/workspace" -w /workspace tokamak-zkevm:win bash
+```
 
-   ```bash
-   cd "$pwd/packages/backend"
-   cargo run -p trusted-setup
-   ```
+**Git Bash**
+```bash
+cd /c/path/to/Tokamak-zk-EVM
+docker build -f Docker-for-Windows -t tokamak-zkevm:win .
+docker run --rm -it -v "$(pwd):/workspace" -w /workspace tokamak-zkevm:win bash
+```
 
-7. Run `preprocess` (requiring Rust and CMake)
+Once inside the container shell, follow the **All platforms** steps below (run `./tokamak-cli …` from `/workspace`).
 
-   ```bash
-   cd "$pwd/packages/backend"
-   cargo run -p preprocess
-   ```
+---
 
-8. Run `prove` (requiring Rust and CMake)
+### Before first run (line endings & permissions)
 
-   ```bash
-   cd "$pwd/packages/backend"
-   cargo run -p prove
-   ```
+To avoid compatibility/permission issues on the main script itself:
 
-   10. Run `verify` (requiring Rust and CMake)
+- Convert CRLF → LF on the CLI script:
+  ```bash
+  # Run from the repo root
+  dos2unix tokamak-cli
+  ```
+  > Note: Our CLI automatically normalizes and fixes permissions for *sub* scripts it calls,
+  > but the **main** `tokamak-cli` file itself must be runnable.
 
-   ```bash
-   cd "$pwd/packages/backend"
-   cargo run -p verify
-   ```
+- Make the CLI executable:
+  ```bash
+  chmod +x tokamak-cli
+  ```
 
-   11. Run `solidity verify` (requiring Foundry and Solidity)
 
-   ```bash
-   cd "$pwd/packages/backend/verify/solidity"
-   forge install
-   forge test -vvvv
-   ```
+### All platforms (macOS, Linux, Windows-in-Docker)
+
+From the repository root:
+
+1) **Build** (install frontend deps, run OS-specific backend packaging)
+```bash
+./tokamak-cli --build
+```
+
+2) **Setup** (compile circuits, write RPC URL using your **Alchemy API key**, run trusted setup)
+```bash
+./tokamak-cli --setup <YOUR_ALCHEMY_API_KEY>
+```
+
+3) **Prove** (generate and verify a proof for a transaction; copy artifacts)
+```bash
+# Save to a custom directory (recommended)
+./tokamak-cli --prove <TX_HASH> <PATH_TO_SAVE_PROOF>
+
+# Or omit the directory to use the default path:
+./tokamak-cli --prove <TX_HASH>
+# → artifacts are copied to ./.your_proof by default
+```
+
+> Notes
+> - Run the commands from the **repo root**.
+> - The CLI auto-detects your OS to use the correct backend dist (`dist-mac`, `dist-linux20`, or `dist-linux22`).
+> - Ensure your transaction hash is on the **Ethereum Mainnet**, matching the Alchemy RPC URL written in `.env`.
+
+## Disclaimer
+
+- The Tokamak‑zk‑EVM project and its maintainers are **not responsible for any leakage or misuse of your API keys or credentials**.
+- For local testing, use a **free, non‑sensitive Alchemy API key**. Do **not** use production or paid keys, or keys tied to sensitive data.
+- During `--setup`, the CLI writes your RPC endpoint to `packages/frontend/synthesizer/.env`. We **recommend deleting `.env` after use** (or rotating the key) and ensuring it is **not committed** to version control.
 
 ## Package Composition
 

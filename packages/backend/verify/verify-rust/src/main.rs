@@ -2,7 +2,7 @@ use std::{env, process, time::Instant};
 
 use icicle_runtime::Device;
 use libs::utils::check_device;
-use verify::{Verifier, VerifyInputPaths};
+use verify::{KeccakVerificationResult, Verifier, VerifyInputPaths};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -37,5 +37,5 @@ fn main() {
     let res_snark = verifier.verify_snark();
     lap = timer.elapsed();
     println!("Verification time: {:.6} seconds", lap.as_secs_f64());
-    println!("Verification result: {:?}, {:?}", res_snark, res_keccak);
+    println!("{}", res_snark && res_keccak == KeccakVerificationResult::True );
 }
