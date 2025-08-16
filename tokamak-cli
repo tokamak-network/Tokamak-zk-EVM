@@ -6,7 +6,7 @@
 # Commands:
 #   --build                      Install frontend deps and run backend packaging for the current OS
 #   --setup <API_KEY>            Compile qap-compiler, write RPC_URL to synthesizer/.env, run dist-*/1_run-trusted-setup.sh
-#   --prove <TX_HASH> [<DIR>]    Generate and verify a proof; copy artifacts to <DIR> (default: ./.your_proof)
+#   --prove <TX_HASH> [<DIR>]    Generate and verify a proof; copy the proof to <DIR> (default: ./.your_proof)
 #   --help                       Show usage
 #
 # This script intentionally supports ONLY the four commands above.
@@ -160,6 +160,10 @@ step_prove() {
   [[ -n "$tx_hash" ]] || { err "--prove requires <TX_HASH> [<SAVE_PATH>]"; exit 1; }
   [[ -n "$save_path" ]] || save_path="./.your_proof"
 
+  # Ensure save directory exists and persist the provided transaction hash
+  mkdir -p "$save_path"
+  printf '%s\n' "$tx_hash" > "$save_path/transaction_hash.txt"
+
   log "Prove: synthesize from tx=$tx_hash"
   pushd "$FE_SYN" >/dev/null
   npx tsx ./examples/demo/index.ts "$tx_hash"
@@ -189,7 +193,7 @@ step_prove() {
   log "Prove: verify output => $verify_out"
 
   if [[ "$verify_out" == "true" || "$verify_out" == "true"$'\r' ]]; then
-    log "Prove: verification ok; copying artifacts"
+    log "Prove: verification ok; copying proof"
     mkdir -p "$save_path"
     if [[ -d "$dist_dir/resource/prove/output" ]]; then
       cp -a "$dist_dir/resource/prove/output/." "$save_path/"
@@ -231,11 +235,11 @@ Commands:
       3) Run dist-*/1_run-trusted-setup.sh for the current OS
 
   --prove <TX_HASH> [<SAVE_PATH>]
-      1) Run packages/frontend/synthesizer/examples/demo/index.ts with <TX_HASH>
-      2) Sync examples/outputs → dist-*/resource/synthesizer/outputs
-      3) Run dist-*/2_run-preprocess.sh, 3_run-prove.sh, 4_run-verify.sh
-      4) If verify prints "true", copy dist-*/resource/prove/output → <SAVE_PATH>
-         (default: ./.your_proof)
+      1) Save <TX_HASH> to <SAVE_PATH>/transaction_hash.txt (default: ./.your_proof)
+      2) Run packages/frontend/synthesizer/examples/demo/index.ts with <TX_HASH>
+      3) Sync examples/outputs → dist-*/resource/synthesizer/outputs
+      4) Run dist-*/2_run-preprocess.sh, 3_run-prove.sh, 4_run-verify.sh
+      5) If verify prints "true", copy dist-*/resource/prove/output → <SAVE_PATH>
 
   --help
       Show this help

@@ -20,6 +20,25 @@ Make sure the following are installed:
 - **Circom** – https://docs.circom.io/getting-started/installation/
 - **Rust** – https://www.rust-lang.org/tools/install
 - **CMake** – https://cmake.org/download/
+- **CUDA (Linux only, for GPU acceleration)**  
+  - Install the **NVIDIA GPU driver** appropriate for your distro (verify with `nvidia-smi`).  
+    Docs: https://docs.nvidia.com/cuda/
+  - Install **CUDA runtime libraries** (matching your driver’s supported CUDA version).  
+    Follow the **CUDA Installation Guide for Linux** in the docs above.
+  - (If you will run inside Docker) install the **NVIDIA Container Toolkit** so containers can access the GPU:  
+    https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
+  - Quick checks:
+    ```bash
+    # On host
+    nvidia-smi
+    ldconfig -p | grep -E 'libcudart|libcublas|libcudnn' || true
+    
+    # With Docker (should print the GPU info)
+    docker run --rm --gpus all nvidia/cuda:12.2.0-runtime-ubuntu22.04 nvidia-smi
+    ```
+
+  > **Windows users (Docker):** You can skip installing CUDA libraries on the host. The provided Docker image (`Docker_for_Windows`, based on `nvidia/cuda:12.2.0-runtime-ubuntu22.04`) already includes the CUDA runtime.
+
 - **Docker (Windows only, recommended)** – https://docs.docker.com/desktop/install/windows-install/
 
 You will also need an **Alchemy API key**:
@@ -37,19 +56,29 @@ You will also need an **Alchemy API key**:
 
 A Dockerfile named **`Docker-for-Windows`** is provided for Windows users. Build the image and start a container from the **repo root**:
 
+> Note: You do **not** need to install CUDA libraries on Windows. The Docker image builds with the CUDA runtime included; you only need an NVIDIA driver on the host and to run the container with `--gpus all`.
+
 **PowerShell**
 ```powershell
 cd C:\path\to\Tokamak-zk-EVM
 docker build -f Docker-for-Windows -t tokamak-zkevm:win .
-docker run --rm -it -v "${PWD}:/workspace" -w /workspace tokamak-zkevm:win bash
+docker run --rm -it \
+  -v "$(pwd -W):/workspace" \
+  tokamak-zkevm:win \
+  bash -lc "cd /workspace && exec bash"
 ```
 
-**Git Bash**
+
+**Git Bash (fix path conversion)**
 ```bash
 cd /c/path/to/Tokamak-zk-EVM
 docker build -f Docker-for-Windows -t tokamak-zkevm:win .
-docker run --rm -it -v "$(pwd):/workspace" -w /workspace tokamak-zkevm:win bash
+MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL="*" docker run --rm -it -v "$(pwd -W):/workspace" -w /workspace tokamak-zkevm:win bash
 ```
+
+> If you see an error like:
+> `docker: Error response from daemon: the working directory 'C:/Program Files/Git/workspace' is invalid, it needs to be an absolute path`,
+> Git Bash converted `/workspace` into a Windows path. The command above disables MSYS path conversion (`MSYS_NO_PATHCONV` and `MSYS2_ARG_CONV_EXCL`) and passes a proper Windows form for the host path (`$(pwd -W)`).
 
 Once inside the container shell, follow the **All platforms** steps below (run `./tokamak-cli …` from `/workspace`).
 
