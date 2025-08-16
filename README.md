@@ -4,7 +4,7 @@ Tokamak-zk-EVM is a zero-knowledge Ethereum Virtual Machine implementation that 
 
 ## Usage
 
-This section describes how to use the **main CLI** named **`tokamak-cli`** for developers. We also provide [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds), an one-click app for non-developers.
+This section describes how to use the **main CLI** named **`tokamak-cli`** for developers. We also provide [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds), a one-click application designed for non-developers (no prerequisite installation).
 
 ### Prerequisites by OS
 #### Alchemy API key (all platforms)
