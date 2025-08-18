@@ -1,1 +1,0 @@
-뭐하는데 너 멍청이냐? witness는 Record가 아니라 bigint의 배열이다. witness에서 원하는 출력을 가져어로면 getOutput 함수를 써야 할 것 아니냐. getOutput(witness, {out:3}) 하면 되잖아.

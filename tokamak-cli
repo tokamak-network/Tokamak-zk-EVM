@@ -4,7 +4,7 @@
 #   - Before executing any internal shell script, this CLI normalizes line endings via dos2unix
 #     and ensures the script is executable, to avoid Windows CRLF issues.
 # Commands:
-#   --install <API_KEY>          Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
+#   --install <API_KEY|RPC_URL>  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
 #   --prove <TX_HASH> [<DIR>]    Generate and verify a proof; copy the proof to <DIR> (default: ./.your_proof)
 #   --help                       Show usage
 #
@@ -109,8 +109,8 @@ sync_synth_outputs_to_dist() {
 }
 
 step_install() {
-  local api_key="${1:-}"
-  [[ -n "$api_key" ]] || { err "--install requires <API_KEY>"; exit 1; }
+  local install_arg="${1:-}"
+  [[ -n "$install_arg" ]] || { err "--install requires <API_KEY|RPC_URL>"; exit 1; }
 
   log "Install: installing frontend dependencies"
   npm_install_safe "$FE_QAP"
@@ -136,7 +136,11 @@ step_install() {
 
   log "Install: writing synthesizer .env"
   local rpc_url
-  rpc_url="https://eth-mainnet.g.alchemy.com/v2/${api_key}"
+  if [[ "$install_arg" == https://* ]]; then
+    rpc_url="$install_arg"
+  else
+    rpc_url="https://eth-mainnet.g.alchemy.com/v2/${install_arg}"
+  fi
   printf "RPC_URL='%s'\n" "$rpc_url" > "$FE_SYN/.env"
 
   ok "Install complete"
@@ -202,12 +206,12 @@ print_usage() {
 tokamak-zk-evm — orchestrate the Tokamak-zk-EVM toolchain
 
 Usage:
-  tokamak-zk-evm --install <API_KEY>
+  tokamak-zk-evm --install <API_KEY|RPC_URL>
   tokamak-zk-evm --prove <TX_HASH> [<SAVE_PATH>]
   tokamak-zk-evm --help
 
 Commands:
-  --install <API_KEY>
+  --install <API_KEY|RPC_URL>
       1) npm install in packages/frontend/qap-compiler
       2) npm install in packages/frontend/synthesizer
       3) Run backend packaging script:
@@ -215,8 +219,11 @@ Commands:
          Ubuntu 20.x → linux20-packaging.sh
          Ubuntu 22.x → linux22-packaging.sh
       4) Compile qap-compiler (packages/frontend/qap-compiler/scripts/compile.sh)
-      5) Write RPC_URL to packages/frontend/synthesizer/.env as:
-         RPC_URL='https://eth-mainnet.g.alchemy.com/v2/<API_KEY>'
+      5) Write RPC_URL to packages/frontend/synthesizer/.env:
+         - If ARG starts with https://, use it as-is:
+           RPC_URL='<ARG>'
+         - Else treat ARG as an Alchemy API key and write:
+           RPC_URL='https://eth-mainnet.g.alchemy.com/v2/<API_KEY>'
 
   --prove <TX_HASH> [<SAVE_PATH>]
       1) Save <TX_HASH> to <SAVE_PATH>/transaction_hash.txt (default: ./.your_proof)
@@ -235,7 +242,7 @@ USAGE
 
 CMD=""; ARG1=""; ARG2=""
 case "$1" in
-  --install) CMD="install"; ARG1="${2:-}"; [[ -n "$ARG1" ]] || { err "--install requires <API_KEY>"; exit 1; } ;;
+  --install) CMD="install"; ARG1="${2:-}"; [[ -n "$ARG1" ]] || { err "--install requires <API_KEY|RPC_URL>"; exit 1; } ;;
   --prove) CMD="prove"; ARG1="${2:-}"; ARG2="${3:-}"; [[ -n "$ARG1" ]] || { err "--prove requires <TX_HASH> [<SAVE_PATH>]"; exit 1; } ;;
   --help|-h) print_usage; exit 0 ;;
   *) err "Unknown option: $1"; print_usage; exit 1 ;;
