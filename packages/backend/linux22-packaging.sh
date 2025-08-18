@@ -94,7 +94,10 @@ echo "✅ copied to ${TARGET}/bin"
 # echo "✅ RPATH set to ${RPATH}"
 
 echo "[*] Running trusted-setup..."
-./dist-linux22/1_run-trusted-setup.sh
+SETUP_SCRIPT="./dist-linux22/1_run-trusted-setup.sh"
+dos2unix "$SETUP_SCRIPT"
+chmod +x "$SETUP_SCRIPT"
+"$SETUP_SCRIPT"
 echo "✅ CRS has been generated"
 
 # =========================
