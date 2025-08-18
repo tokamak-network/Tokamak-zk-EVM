@@ -33,8 +33,6 @@ mkdir -p "${TARGET}/resource/qap-compiler/library"
 cp -r ../frontend/qap-compiler/subcircuits/library/* "${TARGET}/resource/qap-compiler/library"
 mkdir -p "${TARGET}/resource/synthesizer/outputs"
 cp -r ../frontend/synthesizer/examples/outputs/* "${TARGET}/resource/synthesizer/outputs"
-mkdir -p "${TARGET}/resource/setup/output"
-cp -r setup/trusted-setup/output/* "${TARGET}/resource/setup/output"
 echo "✅ copied to ${TARGET}/resource"
 
 command -v curl >/dev/null 2>&1 || { echo "curl is required but not found"; exit 1; }
@@ -74,6 +72,10 @@ install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/prove"
 install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/preprocess"
 install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/verify"
 echo "✅ @rpath set to ${RPATH}"
+
+echo "[*] Running trusted-setup..."
+./dist-mac/1_run-trusted-setup.sh
+echo "✅ CRS has been generated"
 
 if [[ "$DO_SIGN" == "true" ]]; then
   echo "[*] Signing on all distribution..."

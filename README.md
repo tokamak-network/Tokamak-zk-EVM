@@ -15,26 +15,23 @@ This section describes how to use the **main CLI** named **`tokamak-cli`** for d
 
 #### Windows
 1. Install Docker Desktop for Windows – https://docs.docker.com/desktop/install/windows-install/
-2. Run Docker
-    - PowerShell
-    ```powershell
-    cd C:\path\to\Tokamak-zk-EVM
-    docker build -f Docker-for-Windows -t tokamak-zkevm:win .
-    docker run --rm -it \
-      -v "$(pwd -W):/workspace" \
-      tokamak-zkevm:win \
-      bash -lc "cd /workspace && exec bash"
-    ```
+2. (If you will use CUDA/GPU) Install **NVIDIA GPU driver** on Windows and verify Docker GPU pass-through.
+   - Install [the latest NVIDIA driver](https://developer.nvidia.com/cuda/wsl).
+   - Ensure Docker Desktop is using **Linux containers** with the **WSL 2** backend.
+   - (Optional) Test that CUDA is visible inside containers:
+     ```
+     # Host (Windows terminal)
+     nvidia-smi
 
-    - Git Bash
+     # Container (should print the same GPU info)
+     docker run --rm --gpus all nvidia/cuda:12.2.0-runtime-ubuntu22.04 nvidia-smi
+     ```
+3. Run Docker
+    - Make sure that you are in the root directory, `Tokamak-zk-evm`.
     ```bash
-    cd /c/path/to/Tokamak-zk-EVM
-    docker build -f Docker-for-Windows -t tokamak-zkevm:win .
-    docker run --rm -it \
-      -v "$(pwd -W):/workspace" \
-      tokamak-zkevm:win \
-      bash -lc "cd /workspace && exec bash" \
-      --gpus all
+    docker build -f Docker_for_Windows -t tokamak-zkevm:win .
+
+    docker run --gpus all --rm -it -v "${PWD}:/workspace" tokamak-zkevm:win bash -lc "cd /workspace && exec bash"
     ```
 
 #### macOS
