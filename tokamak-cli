@@ -4,12 +4,11 @@
 #   - Before executing any internal shell script, this CLI normalizes line endings via dos2unix
 #     and ensures the script is executable, to avoid Windows CRLF issues.
 # Commands:
-#   --build                      Install frontend deps and run backend packaging for the current OS
-#   --setup <API_KEY>            Compile qap-compiler, write RPC_URL to synthesizer/.env, run dist-*/1_run-trusted-setup.sh
+#   --install <API_KEY>          Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
 #   --prove <TX_HASH> [<DIR>]    Generate and verify a proof; copy the proof to <DIR> (default: ./.your_proof)
 #   --help                       Show usage
 #
-# This script intentionally supports ONLY the four commands above.
+# This script intentionally supports ONLY the three commands above.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -109,9 +108,11 @@ sync_synth_outputs_to_dist() {
   ok "Synth outputs copied"
 }
 
-# ---------- Flows ----------
-step_build() {
-  log "Build: installing frontend dependencies"
+step_install() {
+  local api_key="${1:-}"
+  [[ -n "$api_key" ]] || { err "--install requires <API_KEY>"; exit 1; }
+
+  log "Install: installing frontend dependencies"
   npm_install_safe "$FE_QAP"
   npm_install_safe "$FE_SYN"
 
@@ -119,39 +120,26 @@ step_build() {
   target="$(detect_target)"
   script="$(packaging_script_for_target "$target")"
 
-  log "Build: running backend packaging for target=$target -> $(basename "$script")"
+  log "Install: running backend packaging for target=$target -> $(basename "$script")"
   pushd "$BE_ROOT" >/dev/null
   [[ -f "$script" ]] || { err "Packaging script missing: $script"; exit 1; }
   to_unix_exec "$script"
   bash "$script"
   popd >/dev/null
-  ok "Build complete"
-}
 
-step_setup() {
-  local api_key="${1:-}"
-  [[ -n "$api_key" ]] || { err "--setup requires <API_KEY>"; exit 1; }
-
-  log "Setup: compiling qap-compiler"
+  log "Install: compiling qap-compiler"
   pushd "$FE_QAP" >/dev/null
   [[ -f "./scripts/compile.sh" ]] || { err "Missing: $FE_QAP/scripts/compile.sh"; exit 1; }
   to_unix_exec "./scripts/compile.sh"
   bash "./scripts/compile.sh"
   popd >/dev/null
 
-  log "Setup: writing synthesizer .env"
-  printf "RPC_URL='https://eth-mainnet.g.alchemy.com/v2/%s'\n" "$api_key" > "$FE_SYN/.env"
+  log "Install: writing synthesizer .env"
+  local rpc_url
+  rpc_url="https://eth-mainnet.g.alchemy.com/v2/${api_key}"
+  printf "RPC_URL='%s'\n" "$rpc_url" > "$FE_SYN/.env"
 
-  local target dist_dir run1
-  target="$(detect_target)"
-  dist_dir="$(dist_dir_for_target "$target")"
-  run1="$dist_dir/1_run-trusted-setup.sh"
-
-  log "Setup: running $(basename "$run1") (target=$target)"
-  [[ -f "$run1" ]] || { err "Missing: $run1"; exit 1; }
-  to_unix_exec "$run1"
-  bash "$run1"
-  ok "Setup complete"
+  ok "Install complete"
 }
 
 step_prove() {
@@ -214,25 +202,21 @@ print_usage() {
 tokamak-zk-evm — orchestrate the Tokamak-zk-EVM toolchain
 
 Usage:
-  tokamak-zk-evm --build
-  tokamak-zk-evm --setup <API_KEY>
+  tokamak-zk-evm --install <API_KEY>
   tokamak-zk-evm --prove <TX_HASH> [<SAVE_PATH>]
   tokamak-zk-evm --help
 
 Commands:
-  --build
+  --install <API_KEY>
       1) npm install in packages/frontend/qap-compiler
       2) npm install in packages/frontend/synthesizer
       3) Run backend packaging script:
          mac → mac-packaging.sh
          Ubuntu 20.x → linux20-packaging.sh
          Ubuntu 22.x → linux22-packaging.sh
-
-  --setup <API_KEY>
-      1) Run packages/frontend/qap-compiler/scripts/compile.sh
-      2) Write RPC_URL to packages/frontend/synthesizer/.env:
+      4) Compile qap-compiler (packages/frontend/qap-compiler/scripts/compile.sh)
+      5) Write RPC_URL to packages/frontend/synthesizer/.env as:
          RPC_URL='https://eth-mainnet.g.alchemy.com/v2/<API_KEY>'
-      3) Run dist-*/1_run-trusted-setup.sh for the current OS
 
   --prove <TX_HASH> [<SAVE_PATH>]
       1) Save <TX_HASH> to <SAVE_PATH>/transaction_hash.txt (default: ./.your_proof)
@@ -246,13 +230,12 @@ Commands:
 USAGE
 }
 
-# Parse args (only the four supported commands)
+# Parse args (only the three supported commands)
 [[ $# -gt 0 ]] || { print_usage; exit 1; }
 
 CMD=""; ARG1=""; ARG2=""
 case "$1" in
-  --build) CMD="build" ;;
-  --setup) CMD="setup"; ARG1="${2:-}"; [[ -n "$ARG1" ]] || { err "--setup requires <API_KEY>"; exit 1; } ;;
+  --install) CMD="install"; ARG1="${2:-}"; [[ -n "$ARG1" ]] || { err "--install requires <API_KEY>"; exit 1; } ;;
   --prove) CMD="prove"; ARG1="${2:-}"; ARG2="${3:-}"; [[ -n "$ARG1" ]] || { err "--prove requires <TX_HASH> [<SAVE_PATH>]"; exit 1; } ;;
   --help|-h) print_usage; exit 0 ;;
   *) err "Unknown option: $1"; print_usage; exit 1 ;;
@@ -260,7 +243,6 @@ esac
 
 # Dispatch
 case "$CMD" in
-  build) step_build ;;
-  setup) step_setup "$ARG1" ;;
+  install) step_install "$ARG1" ;;
   prove) step_prove "$ARG1" "${ARG2:-}" ;;
 esac
