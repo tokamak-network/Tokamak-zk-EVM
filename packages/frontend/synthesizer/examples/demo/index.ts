@@ -8,15 +8,17 @@ import { createEVM } from '../../src/constructors.js';
 import { Finalizer } from '../../src/tokamak/core';
 import { getBlockHeaderFromRPC } from '../../src/tokamak/utils/index.js';
 import dotenv from 'dotenv';
+import path from 'path';
+
+const envPath = path.resolve(process.cwd(), '.env'); // resolve using terminal CWD
 dotenv.config({
-  path: '../../.env',
+  path: envPath,
+  override: true,
 });
 
-const TRANSACTION_HASH =
-  '0x2fc67302edd645958b58f22dc77013fac44ff51235f3fc16b64e51f561d701c8';
 const RPC_URL = process.env.RPC_URL;
 
-const main = async () => {
+const main = async (TRANSACTION_HASH: string): Promise<void> => {
   if (!RPC_URL) {
     throw new Error('RPC_URL is not set');
   }
@@ -74,4 +76,14 @@ const main = async () => {
   const permutation = await finalizer.exec(undefined, true);
 };
 
-void main().catch(console.error);
+(async () => {
+  const tx = process.argv[2]
+  if (!tx) {
+    console.error('Usage: tsx packages/frontend/synthesizer/examples/demo/index.ts <TRANSACTION_HASH>')
+    process.exit(1)
+  }
+  await main(tx)
+})().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})

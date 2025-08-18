@@ -12,9 +12,6 @@ BACKEND_TARBALL="icicle_3_8_0-ubuntu22-cuda122.tar.gz"
 COMMON_URL="${BASE_URL}/${COMMON_TARBALL}"
 BACKEND_URL="${BASE_URL}/${BACKEND_TARBALL}"
 
-# (선택) 디버그
-# [[ "${DEBUG_ICICLE:-}" == "1" ]] && set -x
-
 # =========================
 # Build (Rust)
 # =========================
@@ -34,7 +31,6 @@ mkdir -p "${TARGET}/resource/setup/output"
 
 cp -r ../frontend/qap-compiler/subcircuits/library/* "${TARGET}/resource/qap-compiler/library"
 cp -r ../frontend/synthesizer/examples/outputs/* "${TARGET}/resource/synthesizer/outputs"
-cp -r setup/trusted-setup/output/* "${TARGET}/resource/setup/output"
 echo "✅ copied to ${TARGET}/resource"
 
 # =========================
@@ -84,8 +80,6 @@ echo "✅ copied to ${TARGET}/bin"
 
 # # =========================
 # # Set RPATH for Linux ELF (patchelf)
-# #  - $ORIGIN 은 실행 파일의 위치
-# #  - backend 공용 lib 경로 + 백엔드별 경로를 추가
 # # =========================
 # echo "[*] Configuring RPATH..."
 # RPATH="\$ORIGIN/../${BACKEND_PATH}/lib:\$ORIGIN/../${BACKEND_PATH}/lib/backend/${CURVE}/${BACKEND_TYPE}"
@@ -98,6 +92,13 @@ echo "✅ copied to ${TARGET}/bin"
 #   fi
 # done
 # echo "✅ RPATH set to ${RPATH}"
+
+echo "[*] Running trusted-setup..."
+SETUP_SCRIPT="./dist-linux22/1_run-trusted-setup.sh"
+dos2unix "$SETUP_SCRIPT"
+chmod +x "$SETUP_SCRIPT"
+"$SETUP_SCRIPT"
+echo "✅ CRS has been generated"
 
 # =========================
 # Package (.tar.gz)

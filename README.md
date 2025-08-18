@@ -2,87 +2,111 @@
 
 Tokamak-zk-EVM is a zero-knowledge Ethereum Virtual Machine implementation that enables scalable and private smart contract execution.
 
-## Tokamak-zk-EVM flow chart
-
-![Tokamak-zk-EVM Flow Chart](.github/assets/flowchart.png)
-
 ## Usage
 
-We provide [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds), a graphical user interface that helps you easily follow the execution of Tokamak zk-EVM.
+This section describes how to use the **main CLI** named **`tokamak-cli`** for developers. We also provide [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds), a one-click application designed for non-developers (no prerequisite installation).
 
-### With Playground (in progress)
+### Prerequisites by OS
+#### Alchemy API key (all platforms)
+1. Create an Alchemy account and log in to the dashboard (https://dashboard.alchemy.com/).
+2. Create a new app/project for **Ethereum Mainnet**.
+3. Copy the **API Key** (the short token).  
+   You will pass this key to the CLI as `--setup <API_KEY>` (do **not** paste the full RPC URL).
 
-Will be updated soon.
+#### Windows
+1. Install Docker Desktop for Windows – https://docs.docker.com/desktop/install/windows-install/
+2. (If you will use CUDA/GPU) Install **NVIDIA GPU driver** on Windows and verify Docker GPU pass-through.
+   - Install [the latest NVIDIA driver](https://developer.nvidia.com/cuda/wsl).
+   - Ensure Docker Desktop is using **Linux containers** with the **WSL 2** backend.
+   - (Optional) Test that CUDA is visible inside containers:
+     ```
+     # Host (Windows terminal)
+     nvidia-smi
 
-### Without Playground
+     # Container (should print the same GPU info)
+     docker run --rm --gpus all nvidia/cuda:12.2.0-runtime-ubuntu22.04 nvidia-smi
+     ```
+3. Run Docker
+    - Make sure that you are in the root directory, `Tokamak-zk-evm`.
+    ```bash
+    docker build -f Docker_for_Windows -t tokamak-zkevm:win .
 
-Here is an example of generating a zk proof of the correct execution of an [ERC-20 transfer transaction for the TON contract](./packages/frontend/synthesizer/examples/erc20/ton-transfer.ts).
+    docker run --gpus all --rm -it -v "${PWD}:/workspace" tokamak-zkevm:win bash -lc "cd /workspace && exec bash"
+    ```
 
-1. Make sure that you have installed
-   - [Node.js](https://nodejs.org/en),
-   - [Circom](https://docs.circom.io),
-   - [Rust](https://www.rust-lang.org),
-   - [CMake](https://cmake.org) (+ [Docker](https://www.docker.com) would be helpful for installing and using CMAKE, if you use Windows).
-2. Clone the zk-evm repository (the main branch)
+#### macOS
+- Install Node.js – https://nodejs.org/
+- Install Circom – https://docs.circom.io/getting-started/installation/
+- Install Rust – https://www.rust-lang.org/tools/install
+- Install CMake – https://cmake.org/download/
 
-   ```bash
-   git clone https://github.com/tokamak-network/Tokamak-zk-EVM
-   ```
+#### Linux
+- Install Node.js – https://nodejs.org/
+- Install Circom – https://docs.circom.io/getting-started/installation/
+- Install Rust – https://www.rust-lang.org/tools/install
+- Install CMake – https://cmake.org/download/
+- Install dos2unix
+  - For example, Ubuntu/Debian:
+    ```bash
+    sudo apt-get update && sudo apt-get install -y dos2unix
+    ```
+- If you will use CUDA for GPU acceleration:
+  1. Install the **NVIDIA GPU driver** appropriate for your distro (verify with `nvidia-smi`).  
+    Docs: https://docs.nvidia.com/cuda/
+  2. Install **CUDA runtime libraries** (matching your driver’s supported CUDA version).  
+    Follow the **CUDA Installation Guide for Linux** in the docs above.
+  3. (Optional) Quick checks:
+        ```bash
+        nvidia-smi
+        ldconfig -p | grep -E 'libcudart|libcublas|libcudnn' || true
+        ```
+---
 
-3. Open the “Tokamak-zk-EVM” folder.
-4. Run `qap-compiler` (requiring Node.js and Circom)
+### Before first run (line endings & permissions)
 
-   ```bash
-   cd "$pwd/packages/frontend/qap-compiler"
-   npm install
-   ./scripts/compile.sh
-   ```
+To avoid compatibility/permission issues on the main script itself:
 
-5. Run `synthesizer` (requiring Node.js)
+- Convert CRLF → LF on the CLI script:
+  ```bash
+  # Run from the repo root
+  dos2unix tokamak-cli
+  ```
 
-   ```bash
-   cd "$pwd/packages/frontend/synthesizer"
-   npm install
-   npx tsx ./examples/demo/index.ts
-   ```
+- Make the CLI executable:
+  ```bash
+  chmod +x tokamak-cli
+  ```
 
-6. Run `setup` (requiring Rust and CMake)
+### How to run for all platforms (macOS, Linux, Windows-in-Docker)
 
-   ```bash
-   cd "$pwd/packages/backend"
-   cargo run -p trusted-setup
-   ```
+From the repository root:
 
-7. Run `preprocess` (requiring Rust and CMake)
+1) **Build and Setup** (Build source code, compile circuits, write RPC URL using your **Alchemy API key**, run trusted setup, then run OS-specific backend packaging)
+```bash
+./tokamak-cli --install <YOUR_ALCHEMY_API_KEY>
+```
 
-   ```bash
-   cd "$pwd/packages/backend"
-   cargo run -p preprocess
-   ```
+2) **Prove** (generate and verify a proof for a transaction; copy artifacts)
+```bash
+# Save to a custom directory (recommended)
+./tokamak-cli --prove <TX_HASH> <PATH_TO_SAVE_PROOF>
 
-8. Run `prove` (requiring Rust and CMake)
+# Or omit the directory to use the default path:
+./tokamak-cli --prove <TX_HASH>
+# → artifacts are copied to ./.your_proof by default
+```
 
-   ```bash
-   cd "$pwd/packages/backend"
-   cargo run -p prove
-   ```
+> Notes
+> - The CLI auto-detects your OS to use the correct backend dist (`dist-mac`, `dist-linux20`, or `dist-linux22`).
+> - Ensure your transaction hash is on the **Ethereum Mainnet**, matching the Alchemy RPC URL written in `.env`.
 
-   10. Run `verify` (requiring Rust and CMake)
-
-   ```bash
-   cd "$pwd/packages/backend"
-   cargo run -p verify
-   ```
-
-   11. Run `solidity verify` (requiring Foundry and Solidity)
-
-   ```bash
-   cd "$pwd/packages/backend/verify/solidity"
-   forge install
-   forge test -vvvv
-   ```
+> Disclaimer
+> - The Tokamak‑zk‑EVM project and its maintainers are **not responsible for any leakage or misuse of your API keys or credentials**.
+> - For local testing, use a **free, non‑sensitive Alchemy API key**. Do **not** use production or paid keys, or keys tied to sensitive data.
+> - During `--setup`, the CLI writes your RPC endpoint to `packages/frontend/synthesizer/.env`. We **recommend deleting `.env` after use** (or rotating the key) and ensuring it is **not committed** to version control.
 
 ## Package Composition
+![Tokamak-zk-EVM Flow Chart](.github/assets/flowchart.png)
 
 This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
 

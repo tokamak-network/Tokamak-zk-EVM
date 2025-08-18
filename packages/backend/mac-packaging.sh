@@ -19,6 +19,13 @@ APP_SIGN_ID='3524416ED3903027378EA41BB258070785F977F9'
 NOTARY_PROFILE='tokamak-zk-evm-backend'
 OUT_ZIP='tokamak-zk-evm-mac.zip'
 
+# Parse arguments: enable signing/notarization only when --sign is present
+DO_SIGN=false
+for a in "$@"; do
+  if [[ "$a" == "--sign" ]]; then
+    DO_SIGN=true
+  fi
+done
 
 echo "[*] Copying resource..."
 rm -rf -- "${TARGET}/resource"
@@ -26,8 +33,6 @@ mkdir -p "${TARGET}/resource/qap-compiler/library"
 cp -r ../frontend/qap-compiler/subcircuits/library/* "${TARGET}/resource/qap-compiler/library"
 mkdir -p "${TARGET}/resource/synthesizer/outputs"
 cp -r ../frontend/synthesizer/examples/outputs/* "${TARGET}/resource/synthesizer/outputs"
-mkdir -p "${TARGET}/resource/setup/output"
-cp -r setup/trusted-setup/output/* "${TARGET}/resource/setup/output"
 echo "✅ copied to ${TARGET}/resource"
 
 command -v curl >/dev/null 2>&1 || { echo "curl is required but not found"; exit 1; }
@@ -68,14 +73,34 @@ install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/preprocess"
 install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/verify"
 echo "✅ @rpath set to ${RPATH}"
 
-echo "[*] Signing on all distribution..."
-find "$TARGET" -type f \( -perm -111 -o -name "*.dylib" -o -name "*.so" \) -print0 | xargs -0 -I{} codesign --force --options runtime --timestamp -s "$APP_SIGN_ID" "{}"
-# find "$TARGET" -type f \( -perm -u+x -o -name '*.dylib' -o -name '*.so' \) -print0 | xargs -0 -I{} codesign --verify --strict --verbose=2 "{}"
-echo "✅ Signed"
+echo "[*] Running trusted-setup..."
+SETUP_SCRIPT="./dist-mac/1_run-trusted-setup.sh"
+dos2unix "$SETUP_SCRIPT"
+chmod +x "$SETUP_SCRIPT"
+"$SETUP_SCRIPT"
+echo "✅ CRS has been generated"
 
-echo "[*] Packaging and notarying..."
+if [[ "$DO_SIGN" == "true" ]]; then
+  echo "[*] Signing on all distribution..."
+  find "$TARGET" -type f \( -perm -111 -o -name "*.dylib" -o -name "*.so" \) -print0 | xargs -0 -I{} codesign --force --options runtime --timestamp -s "$APP_SIGN_ID" "{}"
+  # find "$TARGET" -type f \( -perm -u+x -o -name '*.dylib' -o -name '*.so' \) -print0 | xargs -0 -I{} codesign --verify --strict --verbose=2 "{}"
+  echo "✅ Signed"
+else
+  echo "ℹ️ Skipping code signing (run with --sign to enable)"
+fi
+
+echo "[*] Packaging..."
 rm -f "$OUT_ZIP"
 ( cd "$TARGET" && ditto -c -k --sequesterRsrc . "../$OUT_ZIP" )
-xcrun notarytool submit "$OUT_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
-# xcrun stapler staple "$OUT_ZIP"
+echo "✅ Packaged: $OUT_ZIP"
+
+if [[ "$DO_SIGN" == "true" ]]; then
+  echo "[*] Notarizing..."
+  xcrun notarytool submit "$OUT_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
+  # xcrun stapler staple "$OUT_ZIP"
+  echo "✅ Notarization completed"
+else
+  echo "ℹ️ Skipping notarization (run with --sign to enable)"
+fi
+
 echo "✅ Packaging for MacOS has been completed"
