@@ -74,7 +74,10 @@ install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/verify"
 echo "✅ @rpath set to ${RPATH}"
 
 echo "[*] Running trusted-setup..."
-./dist-mac/1_run-trusted-setup.sh
+SETUP_SCRIPT="./dist-mac/1_run-trusted-setup.sh"
+dos2unix "$SETUP_SCRIPT"
+chmod +x "$SETUP_SCRIPT"
+"$SETUP_SCRIPT"
 echo "✅ CRS has been generated"
 
 if [[ "$DO_SIGN" == "true" ]]; then

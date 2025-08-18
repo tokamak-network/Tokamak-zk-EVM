@@ -45,6 +45,11 @@ This section describes how to use the **main CLI** named **`tokamak-cli`** for d
 - Install Circom – https://docs.circom.io/getting-started/installation/
 - Install Rust – https://www.rust-lang.org/tools/install
 - Install CMake – https://cmake.org/download/
+- Install dos2unix
+  - For example, Ubuntu/Debian:
+    ```bash
+    sudo apt-get update && sudo apt-get install -y dos2unix
+    ```
 - If you will use CUDA for GPU acceleration:
   1. Install the **NVIDIA GPU driver** appropriate for your distro (verify with `nvidia-smi`).  
     Docs: https://docs.nvidia.com/cuda/
