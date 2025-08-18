@@ -76,17 +76,12 @@ To avoid compatibility/permission issues on the main script itself:
 
 From the repository root:
 
-1) **Build** (install frontend deps, run OS-specific backend packaging)
+1) **Build and Setup** (Build source code, compile circuits, write RPC URL using your **Alchemy API key**, run trusted setup, then run OS-specific backend packaging)
 ```bash
-./tokamak-cli --build
+./tokamak-cli --install <YOUR_ALCHEMY_API_KEY>
 ```
 
-2) **Setup** (compile circuits, write RPC URL using your **Alchemy API key**, run trusted setup)
-```bash
-./tokamak-cli --setup <YOUR_ALCHEMY_API_KEY>
-```
-
-3) **Prove** (generate and verify a proof for a transaction; copy artifacts)
+2) **Prove** (generate and verify a proof for a transaction; copy artifacts)
 ```bash
 # Save to a custom directory (recommended)
 ./tokamak-cli --prove <TX_HASH> <PATH_TO_SAVE_PROOF>
