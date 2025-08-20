@@ -39,6 +39,10 @@ This section describes how to use the **main CLI** named **`tokamak-cli`** for d
 - Install Circom – https://docs.circom.io/getting-started/installation/
 - Install Rust – https://www.rust-lang.org/tools/install
 - Install CMake – https://cmake.org/download/
+- Install dos2unix
+    ```zsh
+    brew install dos2unix
+    ```
 
 #### Linux
 - Install Node.js – https://nodejs.org/
