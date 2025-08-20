@@ -116,6 +116,13 @@ step_install() {
   npm_install_safe "$FE_QAP"
   npm_install_safe "$FE_SYN"
 
+  log "Install: compiling qap-compiler"
+  pushd "$FE_QAP" >/dev/null
+  [[ -f "./scripts/compile.sh" ]] || { err "Missing: $FE_QAP/scripts/compile.sh"; exit 1; }
+  to_unix_exec "./scripts/compile.sh"
+  bash "./scripts/compile.sh"
+  popd >/dev/null
+
   local target script
   target="$(detect_target)"
   script="$(packaging_script_for_target "$target")"
@@ -125,13 +132,6 @@ step_install() {
   [[ -f "$script" ]] || { err "Packaging script missing: $script"; exit 1; }
   to_unix_exec "$script"
   bash "$script"
-  popd >/dev/null
-
-  log "Install: compiling qap-compiler"
-  pushd "$FE_QAP" >/dev/null
-  [[ -f "./scripts/compile.sh" ]] || { err "Missing: $FE_QAP/scripts/compile.sh"; exit 1; }
-  to_unix_exec "./scripts/compile.sh"
-  bash "./scripts/compile.sh"
   popd >/dev/null
 
   log "Install: writing synthesizer .env"
