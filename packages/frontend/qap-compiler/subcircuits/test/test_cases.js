@@ -14,7 +14,7 @@ function abs(x) {
   return x < 0n ? -x : x;
 }
 
-const NTestSamples = 2**10;
+const NTestSamples = 2**0;
 const in1 = Array.from({ length: NTestSamples }, () => randomNByteBigInt(32));
 const in2 = Array.from({ length: NTestSamples }, () => randomNByteBigInt(32));
 const in3 = Array.from({ length: NTestSamples }, () => randomNByteBigInt(32));

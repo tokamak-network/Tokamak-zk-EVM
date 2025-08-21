@@ -6,7 +6,7 @@ use icicle_core::msm::{self, MSMConfig};
 use icicle_runtime::{self, Device, memory::{HostSlice, DeviceVec}};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use crate::field_structures::FieldSerde;
-use crate::group_structures::{G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify, Preprocess};
+use crate::group_structures::{G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify};
 use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use crate::polynomial_structures::{from_subcircuit_to_QAP, QAP};
 use crate::utils::{check_device, check_gpu};
@@ -16,6 +16,7 @@ use super::vector_operations::{*};
 
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, stdout, Write};
+use std::path::PathBuf;
 use std::{env, fmt};
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
@@ -24,16 +25,21 @@ use serde::{Deserialize, Serialize};
 use serde::ser::{Serializer, SerializeStruct};
 use serde::de::{Deserializer, Visitor, Error};
 use serde_json::{from_reader, to_writer_pretty};
+use hex::decode_to_slice;
 
 const QAP_COMPILER_PATH_PREFIX: &str = "../frontend/qap-compiler/subcircuits/library";
 const SYNTHESIZER_PATH_PREFIX: &str = "../frontend/synthesizer/examples/outputs";
 
+#[macro_export]
 macro_rules! impl_read_from_json {
     ($t:ty) => {
         impl $t {
-            pub fn read_from_json(path: &str) -> io::Result<Self> {
-                let abs_path = env::current_dir()?.join(path);
-                let file = File::open(abs_path)?;
+            pub fn read_from_json(path: PathBuf) -> std::io::Result<Self> {
+                use std::io::BufReader;
+                use std::fs::File;
+                use serde_json::from_reader;
+                // let abs_path = env::current_dir()?.join(path);
+                let file = File::open(path)?;
                 let reader = BufReader::new(file);
                 let res: Self = from_reader(reader)?;
                 Ok(res)
@@ -42,15 +48,37 @@ macro_rules! impl_read_from_json {
     };
 }
 
+#[macro_export]
+macro_rules! impl_read_box_from_json {
+    ($t:ty) => {
+        impl $t {
+            pub fn read_box_from_json(path: PathBuf) -> io::Result<Box<[Self]>> {
+                use std::io::BufReader;
+                use std::fs::File;
+                use serde_json::from_reader;
+                // let abs_path = env::current_dir()?.join(path);
+                let file = File::open(path)?;
+                let reader = BufReader::new(file);
+                let box_data: Box<[Self]> = from_reader(reader)?;
+                Ok(box_data)
+            }
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! impl_write_into_json {
     ($t:ty) => {
         impl $t {
-            pub fn write_into_json(&self, path: &str) -> io::Result<()> {
-                let abs_path = env::current_dir()?.join(path);
-                if let Some(parent) = abs_path.parent() {
+            pub fn write_into_json(&self, path: PathBuf) -> std::io::Result<()> {
+                use std::io::BufWriter;
+                use std::env;
+                use std::fs::{self, File};
+                use serde_json::to_writer_pretty;
+                if let Some(parent) = path.parent() {
                     fs::create_dir_all(parent)?;
                 }
-                let file = File::create(&abs_path)?;
+                let file = File::create(&path)?;
                 let writer = BufWriter::new(file);
                 to_writer_pretty(writer, self)?;
                 Ok(())
@@ -96,27 +124,15 @@ pub struct SetupParams {
     pub s_max: usize
 }
 
-impl SetupParams {
-    pub fn from_path(path: &str) -> io::Result<Self> { 
-        let abs_path = env::current_dir()?.join(QAP_COMPILER_PATH_PREFIX).join(path);
-        let file = File::open(abs_path)?;
-        let reader = BufReader::new(file);
-        let data = from_reader(reader)?;
-        Ok(data)
-    }
-}
-
+impl_read_from_json!(SetupParams);
 impl_read_from_json!(Sigma);
 impl_read_from_json!(SigmaPreprocess);
 impl_read_from_json!(SigmaVerify);
-impl_read_from_json!(Preprocess);
 impl_write_into_json!(Sigma);
-impl_write_into_json!(Preprocess);
 
 impl Sigma {
     /// Write verifier CRS into JSON
-    pub fn write_into_json_for_verify(&self, path: &str) -> io::Result<()> {
-        let abs_path = env::current_dir()?.join(path);
+    pub fn write_into_json_for_verify(&self, abs_path: PathBuf) -> io::Result<()> {
         if let Some(parent) = abs_path.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -127,15 +143,15 @@ impl Sigma {
             G: self.G,
             H: self.H,
             sigma_1: partial_sigma1_verify,
-            sigma_2: self.sigma_2
+            sigma_2: self.sigma_2,
+            lagrange_KL: self.lagrange_KL,
         };
         to_writer_pretty(writer, &sigma_verify)?;
         Ok(())
     }
 
     /// Write preprocess CRS into JSON
-    pub fn write_into_json_for_preprocess(&self, path: &str) -> io::Result<()> {
-        let abs_path = env::current_dir()?.join(path);
+    pub fn write_into_json_for_preprocess(&self, abs_path: PathBuf) -> io::Result<()> {
         if let Some(parent) = abs_path.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -245,15 +261,7 @@ pub struct PlacementVariables {
     pub variables: Box<[String]>,
 }
 
-impl PlacementVariables {
-    pub fn from_path(path: &str) -> io::Result<Box<[Self]>> {
-        let abs_path = env::current_dir()?.join(SYNTHESIZER_PATH_PREFIX).join(path);
-        let file = File::open(abs_path)?;
-        let reader = BufReader::new(file);
-        let box_data: Box<[Self]> = from_reader(reader)?;
-        Ok(box_data)
-    }
-}
+impl_read_box_from_json!(PlacementVariables);
 
 #[derive(Debug, Deserialize)]
 pub struct OutPts {
@@ -284,18 +292,11 @@ pub struct PublicInputBuffer {
 pub struct Instance {
     pub publicOutputBuffer: PublicOutputBuffer,
     pub publicInputBuffer: PublicInputBuffer,
-    pub a: Vec<String>,
+    pub a_pub: Vec<String>,
+    pub a_prv: Vec<String>,
 }
 
-impl Instance {
-    pub fn from_path(path: &str) -> io::Result<Self> {
-        let abs_path = env::current_dir()?.join(SYNTHESIZER_PATH_PREFIX).join(path);
-        let file = File::open(abs_path)?;
-        let reader = BufReader::new(file);
-        let res: Self = from_reader(reader)?;
-        Ok(res)
-    }
-}
+impl_read_from_json!(Instance);
 
 #[derive(Debug, Deserialize)]
 pub struct Permutation {
@@ -305,14 +306,9 @@ pub struct Permutation {
     pub Y: usize,
 }
 
+impl_read_box_from_json!(Permutation);
+
 impl Permutation {
-    pub fn from_path(path: &str) -> io::Result<Box<[Self]>> {
-        let abs_path = env::current_dir()?.join(SYNTHESIZER_PATH_PREFIX).join(path);
-        let file = File::open(abs_path)?;
-        let reader = BufReader::new(file);
-        let vec_data: Box<[Self]> = from_reader(reader)?;
-        Ok(vec_data)
-    }
     pub fn to_poly(perm_raw: &Box<[Self]>, m_i: usize, s_max: usize) -> (DensePolynomialExt, DensePolynomialExt) {
         let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
         let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
@@ -350,19 +346,12 @@ pub struct SubcircuitInfo {
     pub In_idx: Box<[usize]>,
     pub flattenMap: Box<[usize]>,
 }
-impl SubcircuitInfo {
-    pub fn from_path(path: &str) -> io::Result<Box<[Self]>> {
-        let abs_path = env::current_dir()?.join(QAP_COMPILER_PATH_PREFIX).join(path);
-        let file = File::open(abs_path)?;
-        let reader = BufReader::new(file);
-        let vec_data: Vec<Self> = from_reader(reader)?;
-        Ok(vec_data.into_boxed_slice())
-    }
-}
 
-pub fn read_global_wire_list_as_boxed_boxed_numbers(path: &str) -> io::Result<Box<[Box<[usize]>]>> {
-    let abs_path = env::current_dir()?.join(QAP_COMPILER_PATH_PREFIX).join(path);
-    let file = File::open(abs_path)?;
+impl_read_box_from_json!(SubcircuitInfo);
+
+pub fn read_global_wire_list_as_boxed_boxed_numbers(path: PathBuf) -> io::Result<Box<[Box<[usize]>]>> {
+    // let abs_path = env::current_dir()?.join(QAP_COMPILER_PATH_PREFIX).join(path);
+    let file = File::open(path)?;
     let reader = BufReader::new(file);
 
     let vec_of_vecs:Vec<Vec<i32>> = serde_json::from_reader(reader)?;
@@ -379,14 +368,9 @@ struct Constraints {
     constraints: Vec<Vec<HashMap<usize, String>>>,
 }
 
+impl_read_from_json!(Constraints);
+
 impl Constraints {
-    fn from_path(path: &str) -> io::Result<Self> {
-        let abs_path = env::current_dir()?.join(QAP_COMPILER_PATH_PREFIX).join(path);
-        let file = File::open(abs_path)?;
-        let reader = BufReader::new(file);
-        let constraints = from_reader(reader)?;
-        Ok(constraints)
-    }
 
     fn convert_values_to_hex(constraints: &mut Self) {
         for constraint_group in constraints.constraints.iter_mut() {
@@ -419,8 +403,8 @@ pub struct SubcircuitR1CS{
 }
 
 impl SubcircuitR1CS{
-    pub fn from_path(path: &str, setup_params: &SetupParams, subcircuit_info: &SubcircuitInfo) -> io::Result<Self> {
-        let mut constraints = Constraints::from_path(path)?;
+    pub fn from_path(path: PathBuf, setup_params: &SetupParams, subcircuit_info: &SubcircuitInfo) -> io::Result<Self> {
+        let mut constraints = Constraints::read_from_json(path)?;
         Constraints::convert_values_to_hex(&mut constraints);
 
         let mut A_active_wire_indices_set = HashSet::<usize>::new();
@@ -465,21 +449,20 @@ impl SubcircuitR1CS{
             let b_constraint = &constraint[1];
             let c_constraint = &constraint[2];
         
-            // a_constraint 처리: 각 wire_idx에 대해 'wire_idx * column_size'를 한 번만 계산하도록 함.
             for col_idx in 0..A_len {
                 if let Some(hex_val) = a_constraint.get(&A_active_wire_indices[col_idx]) {
                     let idx = A_len * row_idx + col_idx;
                     A_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
                 }
             }
-            // b_constraint 처리
+
             for col_idx in 0..B_len {
                 if let Some(hex_val) = b_constraint.get(&B_active_wire_indices[col_idx]) {
                     let idx = B_len * row_idx + col_idx;
                     B_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
                 }
             }
-            // c_constraint 처리
+
             for col_idx in 0..C_len {
                 if let Some(hex_val) = c_constraint.get(&C_active_wire_indices[col_idx]) {
                     let idx = C_len * row_idx + col_idx;
@@ -507,14 +490,15 @@ impl SubcircuitR1CS{
 
 impl QAP{
     pub fn gen_from_R1CS(
+        qap_path: &str,
         subcircuit_infos: &Box<[SubcircuitInfo]>,
         setup_params: &SetupParams,
     ) -> Self {
         let m_d = setup_params.m_D;
         let s_d = setup_params.s_D;
 
-        let global_wire_file_name = "globalWireList.json";
-        let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_file_name).unwrap();
+        let global_wire_list_path = PathBuf::from(qap_path).join("globalWireList.json");
+        let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_list_path).unwrap();
 
         let zero_poly = DensePolynomialExt::zero();
         let mut u_j_X = vec![zero_poly.clone(); m_d];
@@ -523,9 +507,9 @@ impl QAP{
 
         for i in 0..s_d {
             println!("Processing subcircuit id {}", i);
-            let r1cs_path: String = format!("json/subcircuit{i}.json");
 
-            let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
+            let r1cs_path = PathBuf::from(qap_path).join(format!("json/subcircuit{i}.json"));
+            let compact_r1cs = SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
             let (u_j_X_local, v_j_X_local, w_j_X_local) = from_subcircuit_to_QAP(
                 &compact_r1cs,
                 &setup_params,
@@ -897,6 +881,7 @@ pub fn from_coef_vec_to_g1serde_mat(coef: &Box<[ScalarField]>, r_size: usize, c_
 }
 
 pub fn read_R1CS_gen_uvwXY(
+    qap_path: &str,
     placement_variables: &Box<[PlacementVariables]>,
     subcircuit_infos: &Box<[SubcircuitInfo]>,
     setup_params: &SetupParams,
@@ -910,8 +895,8 @@ pub fn read_R1CS_gen_uvwXY(
     for i in 0..placement_variables.len() {
         let subcircuit_id = placement_variables[i].subcircuitId;
         // println!("TEST: Subcircuit Name: {:?}", subcircuit_infos[subcircuit_id].name);
-        let r1cs_path: String = format!("json/subcircuit{subcircuit_id}.json");
-        let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[subcircuit_id]).unwrap();
+        let r1cs_path = PathBuf::from(qap_path).join(format!("json/subcircuit{subcircuit_id}.json"));
+        let compact_r1cs = SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[subcircuit_id]).unwrap();
         let variables = &placement_variables[i].variables;
         
         _from_r1cs_to_eval(
@@ -980,4 +965,105 @@ fn _from_r1cs_to_eval(variables: &Box<[String]>, compact_mat: &Vec<ScalarField>,
         matrix_matrix_mul(&d_vec, compact_mat, 1, d_len_A, n, &mut frag_eval);
         eval[i*n .. (i+1)*n].clone_from_slice(&frag_eval);
     }
+}
+
+// More generic helper function for any FieldImpl
+pub fn any_field_to_hex<T: FieldImpl>(field: &T) -> String {
+    let bytes = field.to_bytes_le();
+    format!("0x{}", hex_encode(&bytes))
+}
+
+// Helper function to encode bytes as hex string
+pub fn hex_encode(bytes: &[u8]) -> String {
+    bytes.iter()
+        .map(|byte| format!("{:02x}", byte))
+        .collect::<String>()
+}
+
+// Helper function to split a G1 point into part1 (16 bytes) and part2 (32 bytes)
+pub fn split_g1(point: &G1serde) -> (String, String, String, String) {
+    // Get X coordinate bytes in little-endian and convert to big-endian
+    let mut x_bytes = point.0.x.to_bytes_le();
+    x_bytes.reverse(); // Convert to big-endian
+
+    // Get Y coordinate bytes in little-endian and convert to big-endian
+    let mut y_bytes = point.0.y.to_bytes_le();
+    y_bytes.reverse(); // Convert to big-endian
+
+    // For BLS12-381 Fp elements, we have 48 bytes
+    // For X: first 16 bytes go to part1, last 32 bytes to part2
+    let x_part1 = format!("0x{}", hex_encode(&x_bytes[0..16]));
+    let x_part2 = format!("0x{}", hex_encode(&x_bytes[16..48]));
+
+    // For Y: first 16 bytes go to part1, last 32 bytes to part2
+    let y_part1 = format!("0x{}", hex_encode(&y_bytes[0..16]));
+    let y_part2 = format!("0x{}", hex_encode(&y_bytes[16..48]));
+
+    (x_part1, x_part2, y_part1, y_part2)
+}
+
+// Helper function to format scalar field as 256-bit hex
+pub fn scalar_to_hex(scalar: &ScalarField) -> String {
+    let mut bytes = scalar.to_bytes_le();
+    bytes.reverse(); // Convert to big-endian
+    // Pad to 32 bytes if necessary
+    while bytes.len() < 32 {
+        bytes.push(0);
+    }
+    format!("0x{}", hex_encode(&bytes))
+}
+
+#[macro_export]
+macro_rules! split_push {
+    ($part1: ident, $part2: ident, $( $point:expr ),+ $(,)?) => {
+        $(
+            {
+                let (x_p1, x_p2, y_p1, y_p2) = split_g1($point);
+                $part1.push(x_p1);
+                $part2.push(x_p2);
+                $part1.push(y_p1);
+                $part2.push(y_p2);
+            }
+        )+
+    };
+}
+
+// Helper function to recover a BaseField from part1 (16 bytes) and part2 (32 bytes)
+fn recover_basefield(part1: &String, part2: &String) -> BaseField {
+    let mut bytes = [0u8; 48];
+
+    decode_to_slice(
+        part1.trim_start_matches("0x"),
+        &mut bytes[0..16],
+    )
+    .expect("Invalid format");
+
+    decode_to_slice(
+        part2.trim_start_matches("0x"),
+        &mut bytes[16..48],
+    )
+    .expect("Invalid format");
+    bytes.reverse();            // to little Edian
+
+    return BaseField::from_bytes_le(&bytes);
+}
+
+pub fn next_point(idx: usize, part1: &Vec<String>, part2: &Vec<String>) -> G1serde {
+    let bx = recover_basefield(&part1[idx], &part2[idx]);       
+    let by = recover_basefield(&part1[idx + 1], &part2[idx + 1]);
+
+    return G1serde(G1Affine {
+        x: bx,
+        y: by,
+    });
+}
+
+#[macro_export]
+macro_rules! pop_recover {
+    ($idx: ident, $part1: expr, $part2: expr, $( $point: ident),+ $(,)?) => {
+        $(
+            let $point = next_point($idx, $part1, $part2);
+            $idx += 2;
+        )+
+    };
 }

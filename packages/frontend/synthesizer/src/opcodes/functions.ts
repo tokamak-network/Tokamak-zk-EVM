@@ -948,10 +948,14 @@ export const handlers: Map<number, OpHandler> = new Map([
         // Therefore, push the hash of EOFBYTES to the stack
         runState.stack.push(bytesToBigInt(EOFHASH));
 
-        // For Synthesizer (YET IMPLEMENTED PROPERLY) //
         await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt);
         return;
       } else if (common.isActivatedEIP(7702)) {
+        // For Synthesizer //
+        // for EIP7702, this opcode is yet implemented in Synthesizer
+        SynthesizerValidator.validateOpcodeImplemented(0x3f, 'EXTCODEHASH');
+        ////
+
         const possibleDelegatedAddress = getEIP7702DelegatedAddress(code);
         if (possibleDelegatedAddress !== undefined) {
           const account = await runState.stateManager.getAccount(
@@ -959,22 +963,12 @@ export const handlers: Map<number, OpHandler> = new Map([
           );
           if (!account || account.isEmpty()) {
             runState.stack.push(BIGINT_0);
-
-            // For Synthesizer //
-            await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt);
             return;
           }
-
           runState.stack.push(BigInt(bytesToHex(account.codeHash)));
-
-          // For Synthesizer //
-          await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt);
           return;
         } else {
           runState.stack.push(bytesToBigInt(keccak256(code)));
-
-          // For Synthesizer //
-          await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt);
           return;
         }
       }
@@ -992,9 +986,6 @@ export const handlers: Map<number, OpHandler> = new Map([
 
       // For Synthesizer //
       await synthesizerEnvInf('EXTCODEHASH', runState, addressBigInt);
-
-      // for opcode not implemented with Synthesizer
-      SynthesizerValidator.validateOpcodeImplemented(0xec, 'EXTCODEHASH');
     },
   ],
   // 0x3d: RETURNDATASIZE

@@ -1,6 +1,7 @@
 # Tokamak-zk-EVM/synthesizer
 
 ## What is Synthesizer
+
 You can convert your Ethereum transactions into zero-knowledge proofs (zkp) even if you don't know zkp.
 
 Synthesizer is a compiler that takes an Ethereum transaction as input and returns a wire map (in the form of a permutation map). Combined with the library subcircuits in [qap-compiler package](../qap-compiler), this wire map forms a zkp circuit specialized for the transaction. The transaction specific-circuit will be used as preprocessed input for [Tokamak zk-SNARK](https://eprint.iacr.org/2024/507).
@@ -8,6 +9,7 @@ Synthesizer is a compiler that takes an Ethereum transaction as input and return
 For technical details, see [Synthesizer Documentation](https://tokamak.notion.site/Synthesizer-documentation-164d96a400a3808db0f0f636e20fca24?pvs=4).
 
 ### Features
+
 - Preliminary work for zero-knowledge proof generation and verification
 - Seamless integration with Ethereum's EVM
 - Efficient witness calculation for zk-proofs
@@ -15,11 +17,12 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
 - Synthesizer is built on top of [@ethereumJS/evm](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/evm) as a hardfork.
 
 ### Version
+
 - In the current release, Synthesizer generates a circuit that verifies correctness of transaciton execution: given transaction inputs such as calldata and state data, are claimed transaction outputs such as storage and event logs correct?
 - In the future release, Synthesizer will generate a more general circuit that includes the verification of:
-   - integrity of the retrieved input state,
-   - correctness of transaction execution, and
-   - correctness of updating the state with the transaction output.
+  - integrity of the retrieved input state,
+  - correctness of transaction execution, and
+  - correctness of updating the state with the transaction output.
 
 ## How to use Synthesizer
 
@@ -27,136 +30,201 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
 
 - Make sure you have the following installed on your system:
 
-   - **Node.js** (v18 or later)
-   - **git** (v2 or later)
-      
+  - **Node.js** (v18 or later)
+  - **git** (v2 or later)
+
 - Make sure you have the Tokamak zk-EVM repository cloned on your system. For example,
-   ```bash
-   git clone https://github.com/tokamak-network/Tokamak-zk-EVM.git
-   cd Tokamak-zk-EVM
-   ```
-- Make sure you have installed [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds/tree/dev/packages/synthesizer-playground).
+  ```bash
+  git clone https://github.com/tokamak-network/Tokamak-zk-EVM.git
+  cd Tokamak-zk-EVM
+  ```
+
 ### B. **Package install**
-1. Open a new terminal and go to the package directory.
+
+1. Open a new terminal and go to the Tokamak-zk-EVM folder.
 2. Install dependencies:
-    ```shell
-    npm install
-    ```
-    This package install includes some packages in [EthereumJS-monorepo](https://github.com/ethereumjs/ethereumjs-monorepo/).
+   ```bash
+   cd packages/frontend/synthesizer
+   npm install
+   ```
+   This package install includes some packages in [EthereumJS-monorepo](https://github.com/ethereumjs/ethereumjs-monorepo/).
 
-### C. **Play Synthesizer through Playground**
-1. Install and run [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds/tree/dev/packages/synthesizer-playground)
-2. In the Playground GUI, type a target transaction ID, which is the hash of the target transaction to run Synthesizer. You can get a transaction ID from [etherscan.io](https://etherscan.io).
-3. Click the button "Process".
-4. If the transaction contains logs, the GUI will display the outputs of your ZKP circuit, which are expected to be the same as the transaction logs. Verify that the displayed outputs match the transaction logs
-   - _In order for Synthesizer to process a random transaction, it needs the state data of the contracts related to the transaction, which requires the installation of an Ethereum full node._
-   - _For testing purposes, we provide dummy states for **TON, USDC, and USDT** contracts as default, usable for **all standard ERC-20 transactions** without the need full nodes._
-![image](https://github.com/user-attachments/assets/3572fc8f-bbc1-4ccb-9c3c-78a37f37e7a4)
-![image](https://github.com/user-attachments/assets/4695e0d2-0b0d-49fc-88aa-028e79df2fb1)
+### C. **Get your Alchemy API key**
 
-5. Now you are ready to move on to [the backend of Tokamak zk-EVM](../../backend/)
+For testing Synthesizer, you will need an Alchemy API key to retrieve transaction data from an Ethereum full node (or Sepolia).
+
+1. Go to [Alchemy](https://www.alchemy.com/) and sign in.
+2. Go to "App" -> "+ Create new app".
+3. Create a new app for Ethereum with activating "Node API" service.
+4. Copy your "Network URL".
+5. Go back to the "synthesizer" folder.
+6. Create ".env" file with the content:
+   ```text
+   RPC_URL= // PASTE YOUR NETWORK URL HERE //
+   ```
+
+### D. **Test Synthesizer with CLI**
+
+1. Go to [Etherscan](https://etherscan.io/) and pick any contract call transaction.
+2. Copy the transaction hash.
+3. Use the CLI command to synthesize the transaction:
+   ```bash
+   npm run synthesizer <YOUR_TRANSACTION_HASH>
+   ```
+   For example:
+   ```bash
+   npm run synthesizer 0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc
+   ```
+
+### E. **CLI Commands Available**
+
+Make sure you are in the `synthesizer` package directory, then you can use:
+
+- **Direct synthesis with transaction hash:**
+  ```bash
+  npm run synthesizer <TX_HASH>
+  ```
+- **Interactive demo mode (process multiple transactions):**
+  ```bash
+  npm run cli demo
+  ```
+- **Detailed parsing with options:**
+  ```bash
+  npm run cli parse -t <TX_HASH> [options]
+  ```
+
+**Options:**
+
+- `--sepolia`: Use Sepolia testnet instead of mainnet
+- `--verbose`: Show detailed output
+- `--rpc-url <url>`: Use custom RPC URL
+
+**Example usage:**
+
+```bash
+# Mainnet transaction (default)
+npm run synthesizer -- 0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc
+
+# Sepolia testnet transaction
+npm run synthesizer -- 0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc --sepolia
+
+# Interactive demo mode
+npm run cli demo
+
+# Show synthesizer info
+npm run cli info
+```
+
+Now you are ready to move on to [the backend of Tokamak zk-EVM](../../backend/)
 
 ## Description for the Synthesizer input and output
+
 ### Input
+
 Synthesizer takes its input from two paths:
+
 - [A library of subcircuits](../qap-compiler/subcircuits/library) generated by the QAP-compiler package. This input would be more likely fixed. It will be changed whenever there is a change in the EVM's spec.
 - The ID (hash) of any random transaction to synthesize.
+
 ### Output
+
 You can find the Synthesizer outputs from [the "outputs" folder](./examples/outputs), which contains:
+
 - placementVariables.json: A combination of the library subcircuits (with allowing repetition) and the instance and witness of each subcircuit.
 - permutation.json: It defines how to connect each subcircuit (i.e., copy constraints between the subcircuit instances).
-- privateExternalInterface.json: Just a refinement of the "placementVariables.json" that extracts the transaction execution result for Playground GUI display.
-- publicInstance.json: Just a refinement of the "placementVariables.json" that extracts public inputs for [the backend Verify](../../backend/verify/).
+- Instance.json: Just a refinement of the "placementVariables.json" that extracts inputs for [the backend Verify](../../backend/verify/).
 
 ## Supported EVM Operations
-| Opcode | Name         | Description                                              | Status |
-|--------|--------------|----------------------------------------------------------|--------|
-| 0      | STOP         | Halts execution                                          | ✅      |
-| 1      | ADD          | Addition operation                                       | ✅      |
-| 2      | MUL          | Multiplication operation                                 | ✅      |
-| 3      | SUB          | Subtraction operation                                    | ✅      |
-| 4      | DIV          | Integer division operation                               | ✅      |
-| 5      | SDIV         | Signed integer division operation (truncated)           | ✅      |
-| 6      | MOD          | Modulo remainder operation                               | ✅      |
-| 7      | SMOD         | Signed modulo remainder operation                        | ✅      |
-| 8      | ADDMOD       | Modulo addition operation                                | ✅      |
-| 9      | MULMOD       | Modulo multiplication operation                          | ✅      |
-| 0a     | EXP          | Exponential operation                                    | ✅      |
-| 0b     | SIGNEXTEND   | Extend length of two’s complement signed integer         | ✅      |
-| 10     | LT           | Less-than comparison                                     | ✅      |
-| 11     | GT           | Greater-than comparison                                  | ✅      |
-| 12     | SLT          | Signed less-than comparison                              | ✅      |
-| 13     | SGT          | Signed greater-than comparison                           | ✅      |
-| 14     | EQ           | Equality comparison                                      | ✅      |
-| 15     | ISZERO       | Is-zero comparison                                       | ✅      |
-| 16     | AND          | Bitwise AND operation                                    | ✅      |
-| 17     | OR           | Bitwise OR operation                                     | ✅      |
-| 18     | XOR          | Bitwise XOR operation                                    | ✅      |
-| 19     | NOT          | Bitwise NOT operation                                    | ✅      |
-| 1a     | BYTE         | Retrieve single byte from word                           | ✅      |
-| 1b     | SHL          | Left shift operation                                     | ✅      |
-| 1c     | SHR          | Logical right shift operation                            | ✅      |
-| 1d     | SAR          | Arithmetic (signed) right shift operation               | ✅      |
-| 20     | KECCAK256    | Compute Keccak-256 hash                                  | ⚠️      |
-| 30     | ADDRESS      | Get address of currently executing account               | ✅      |
-| 31     | BALANCE      | Get balance of the given account                         | ✅      |
-| 32     | ORIGIN       | Get execution origination address                        | ✅      |
-| 33     | CALLER       | Get caller address                                       | ✅      |
-| 34     | CALLVALUE    | Get deposited value by the instruction/transaction       | ✅      |
-| 35     | CALLDATALOAD | Get input data of current environment                    | ✅      |
-| 36     | CALLDATASIZE | Get size of input data in current environment            | ✅      |
-| 37     | CALLDATACOPY | Copy input data in current environment to memory         | ✅      |
-| 38     | CODESIZE     | Get size of code running in current environment          | ✅      |
-| 39     | CODECOPY     | Copy code running in current environment to memory       | ✅      |
-| 3a     | GASPRICE     | Get price of gas in current environment                  | ✅      |
-| 3b     | EXTCODESIZE  | Get size of an account’s code                            | ✅      |
-| 3c     | EXTCODECOPY  | Copy an account’s code to memory                         | ✅      |
-| 3d     | RETURNDATASIZE | Get size of output data from the previous call         | ✅      |
-| 3e     | RETURNDATACOPY | Copy output data from the previous call to memory      | ✅      |
-| 3f     | EXTCODEHASH  | Get hash of an account’s code                            | ✅      |
-| 40     | BLOCKHASH    | Get the hash of one of the 256 most recent complete blocks | ✅    |
-| 41     | COINBASE     | Get the block’s beneficiary address                      | ✅      |
-| 42     | TIMESTAMP    | Get the block’s timestamp                                | ✅      |
-| 43     | NUMBER       | Get the block’s number                                   | ✅      |
-| 44     | PREVRANDAO   | Get the block’s difficulty                               | ✅      |
-| 45     | GASLIMIT     | Get the block’s gas limit                                | ✅      |
-| 46     | CHAINID      | Get the chain ID                                         | ✅      |
-| 47     | SELFBALANCE  | Get balance of currently executing account               | ✅      |
-| 48     | BASEFEE      | Get the base fee                                         | ✅      |
-| 49     | BLOBHASH     | Get versioned hashes                                     | ✅      |
-| 4a     | BLOBBASEFEE  | Returns the value of the blob base-fee                   | ✅      |
-| 50     | POP          | Remove item from stack                                   | ✅      |
-| 51     | MLOAD        | Load word from memory                                    | ✅      |
-| 52     | MSTORE       | Save word to memory                                      | ✅      |
-| 53     | MSTORE8      | Save byte to memory                                      | ✅      |
-| 54     | SLOAD        | Load word from storage                                   | ✅      |
-| 55     | SSTORE       | Save word to storage                                     | ✅      |
-| 56     | JUMP         | Alter the program counter                                | ✅      |
-| 57     | JUMPI        | Conditionally alter the program counter                  | ✅      |
-| 58     | PC           | Get the value of the program counter                     | ✅      |
-| 59     | MSIZE        | Get the size of active memory in bytes                   | ✅      |
-| 5a     | GAS          | Get the amount of available gas                          | ✅      |
-| 5b     | JUMPDEST     | Mark a valid destination for jumps                       | ✅      |
-| 5c     | TLOAD        | Load word from transient storage                         | ✅      |
-| 5d     | TSTORE       | Save word to transient storage                           | ✅      |
-| 5e     | MCOPY        | Copy memory areas                                        | ✅      |
-| 5f     | PUSH0        | Place value 0 on stack                                   | ✅      |
-| 60 - 7f| PUSHx        | Place x byte item on stack                               | ✅      |
-| 80 - 8f| DUPx         | Duplicate xst stack item                                 | ✅      |
-| 90 - 9f| SWAPx        | Exchange 1st and xnd stack items                         | ✅      |
-| a0 - a4| LOGx         | Append log record with x topics                          | ✅      |
-| f0     | CREATE       | Create a new account with associated code                | ❌      |
-| f1     | CALL         | Message-call into an account                             | ✅      |
-| f2     | CALLCODE     | Message-call into this account with alternative code     | ✅      |
-| f3     | RETURN       | Halt execution returning output data                     | ✅      |
-| f4     | DELEGATECALL | Static message-call into an account                      | ✅      |
-| f5     | CREATE2      | Create a new account with associated code at predictable | ❌      |
-| fa     | STATICCALL   | Static message-call into an account                      | ✅      |
-| fd     | REVERT       | Halt execution reverting state changes                   | ❌      |
-| fe     | INVALID      | Designated invalid instruction                           | ✅      |
-| ff     | SELFDESTRUCT | Halt execution and delete account                        | ❌      |
+
+| Opcode  | Name           | Description                                                | Status |
+| ------- | -------------- | ---------------------------------------------------------- | ------ |
+| 0       | STOP           | Halts execution                                            | ✅     |
+| 1       | ADD            | Addition operation                                         | ✅     |
+| 2       | MUL            | Multiplication operation                                   | ✅     |
+| 3       | SUB            | Subtraction operation                                      | ✅     |
+| 4       | DIV            | Integer division operation                                 | ✅     |
+| 5       | SDIV           | Signed integer division operation (truncated)              | ✅     |
+| 6       | MOD            | Modulo remainder operation                                 | ✅     |
+| 7       | SMOD           | Signed modulo remainder operation                          | ✅     |
+| 8       | ADDMOD         | Modulo addition operation                                  | ✅     |
+| 9       | MULMOD         | Modulo multiplication operation                            | ✅     |
+| 0a      | EXP            | Exponential operation                                      | ✅     |
+| 0b      | SIGNEXTEND     | Extend length of two’s complement signed integer           | ✅     |
+| 10      | LT             | Less-than comparison                                       | ✅     |
+| 11      | GT             | Greater-than comparison                                    | ✅     |
+| 12      | SLT            | Signed less-than comparison                                | ✅     |
+| 13      | SGT            | Signed greater-than comparison                             | ✅     |
+| 14      | EQ             | Equality comparison                                        | ✅     |
+| 15      | ISZERO         | Is-zero comparison                                         | ✅     |
+| 16      | AND            | Bitwise AND operation                                      | ✅     |
+| 17      | OR             | Bitwise OR operation                                       | ✅     |
+| 18      | XOR            | Bitwise XOR operation                                      | ✅     |
+| 19      | NOT            | Bitwise NOT operation                                      | ✅     |
+| 1a      | BYTE           | Retrieve single byte from word                             | ✅     |
+| 1b      | SHL            | Left shift operation                                       | ✅     |
+| 1c      | SHR            | Logical right shift operation                              | ✅     |
+| 1d      | SAR            | Arithmetic (signed) right shift operation                  | ✅     |
+| 20      | KECCAK256      | Compute Keccak-256 hash                                    | ⚠️     |
+| 30      | ADDRESS        | Get address of currently executing account                 | ✅     |
+| 31      | BALANCE        | Get balance of the given account                           | ✅     |
+| 32      | ORIGIN         | Get execution origination address                          | ✅     |
+| 33      | CALLER         | Get caller address                                         | ✅     |
+| 34      | CALLVALUE      | Get deposited value by the instruction/transaction         | ✅     |
+| 35      | CALLDATALOAD   | Get input data of current environment                      | ✅     |
+| 36      | CALLDATASIZE   | Get size of input data in current environment              | ✅     |
+| 37      | CALLDATACOPY   | Copy input data in current environment to memory           | ✅     |
+| 38      | CODESIZE       | Get size of code running in current environment            | ✅     |
+| 39      | CODECOPY       | Copy code running in current environment to memory         | ✅     |
+| 3a      | GASPRICE       | Get price of gas in current environment                    | ✅     |
+| 3b      | EXTCODESIZE    | Get size of an account’s code                              | ✅     |
+| 3c      | EXTCODECOPY    | Copy an account’s code to memory                           | ✅     |
+| 3d      | RETURNDATASIZE | Get size of output data from the previous call             | ✅     |
+| 3e      | RETURNDATACOPY | Copy output data from the previous call to memory          | ✅     |
+| 3f      | EXTCODEHASH    | Get hash of an account’s code                              | ✅     |
+| 40      | BLOCKHASH      | Get the hash of one of the 256 most recent complete blocks | ✅     |
+| 41      | COINBASE       | Get the block’s beneficiary address                        | ✅     |
+| 42      | TIMESTAMP      | Get the block’s timestamp                                  | ✅     |
+| 43      | NUMBER         | Get the block’s number                                     | ✅     |
+| 44      | PREVRANDAO     | Get the block’s difficulty                                 | ✅     |
+| 45      | GASLIMIT       | Get the block’s gas limit                                  | ✅     |
+| 46      | CHAINID        | Get the chain ID                                           | ✅     |
+| 47      | SELFBALANCE    | Get balance of currently executing account                 | ✅     |
+| 48      | BASEFEE        | Get the base fee                                           | ✅     |
+| 49      | BLOBHASH       | Get versioned hashes                                       | ✅     |
+| 4a      | BLOBBASEFEE    | Returns the value of the blob base-fee                     | ✅     |
+| 50      | POP            | Remove item from stack                                     | ✅     |
+| 51      | MLOAD          | Load word from memory                                      | ✅     |
+| 52      | MSTORE         | Save word to memory                                        | ✅     |
+| 53      | MSTORE8        | Save byte to memory                                        | ✅     |
+| 54      | SLOAD          | Load word from storage                                     | ✅     |
+| 55      | SSTORE         | Save word to storage                                       | ✅     |
+| 56      | JUMP           | Alter the program counter                                  | ✅     |
+| 57      | JUMPI          | Conditionally alter the program counter                    | ✅     |
+| 58      | PC             | Get the value of the program counter                       | ✅     |
+| 59      | MSIZE          | Get the size of active memory in bytes                     | ✅     |
+| 5a      | GAS            | Get the amount of available gas                            | ✅     |
+| 5b      | JUMPDEST       | Mark a valid destination for jumps                         | ✅     |
+| 5c      | TLOAD          | Load word from transient storage                           | ✅     |
+| 5d      | TSTORE         | Save word to transient storage                             | ✅     |
+| 5e      | MCOPY          | Copy memory areas                                          | ✅     |
+| 5f      | PUSH0          | Place value 0 on stack                                     | ✅     |
+| 60 - 7f | PUSHx          | Place x byte item on stack                                 | ✅     |
+| 80 - 8f | DUPx           | Duplicate xst stack item                                   | ✅     |
+| 90 - 9f | SWAPx          | Exchange 1st and xnd stack items                           | ✅     |
+| a0 - a4 | LOGx           | Append log record with x topics                            | ✅     |
+| f0      | CREATE         | Create a new account with associated code                  | ❌     |
+| f1      | CALL           | Message-call into an account                               | ✅     |
+| f2      | CALLCODE       | Message-call into this account with alternative code       | ✅     |
+| f3      | RETURN         | Halt execution returning output data                       | ✅     |
+| f4      | DELEGATECALL   | Static message-call into an account                        | ✅     |
+| f5      | CREATE2        | Create a new account with associated code at predictable   | ❌     |
+| fa      | STATICCALL     | Static message-call into an account                        | ✅     |
+| fd      | REVERT         | Halt execution reverting state changes                     | ❌     |
+| fe      | INVALID        | Designated invalid instruction                             | ✅     |
+| ff      | SELFDESTRUCT   | Halt execution and delete account                          | ❌     |
 
 > **Notes**
+>
 > - This list is based on [Cancun hardfork](https://www.evm.codes/).
 > - ❌: Will be supported in the future release
 > - ⚠️: Implemented in a different way than the zkp circuit
@@ -165,11 +233,14 @@ You can find the Synthesizer outputs from [the "outputs" folder](./examples/outp
 > - Find details in [Synthesizer Doc](https://tokamak.notion.site/Synthesizer-documentation-164d96a400a3808db0f0f636e20fca24?pvs=4)
 
 ## Contributing
+
 We welcome contributions! Please see our [Contributing Guidelines](../../../CONTRIBUTING.md) for details.
 
 ## Original contribution
+
 - [JehyukJang](https://github.com/JehyukJang): Algorithm design and development. Core functionality implementation.
 - [SonYoungsung](https://github.com/SonYoungsung): Auxiliary functionality implementation. Code organization and optimization. Interface implementation.
 
 ## License
+
 [MPL-2.0]

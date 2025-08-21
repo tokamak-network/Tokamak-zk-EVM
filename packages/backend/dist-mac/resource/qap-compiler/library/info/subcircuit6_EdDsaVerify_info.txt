@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 3
+non-linear constraints: 19
+linear constraints: 1
+public inputs: 0
+private inputs: 6
+public outputs: 0
+wires: 22
+labels: 36
+[32mWritten successfully:[0m ../subcircuits/library/EdDsaVerify_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library/EdDsaVerify_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library/EdDsaVerify_circuit_js/EdDsaVerify_circuit.wasm
+[32mEverything went okay[0m

@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 5
+non-linear constraints: 1010
+linear constraints: 10
+public inputs: 0
+private inputs: 2
+public outputs: 504
+wires: 1019
+labels: 2039
+[32mWritten successfully:[0m ../subcircuits/library/PrepareEdDsaScalars_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library/PrepareEdDsaScalars_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library/PrepareEdDsaScalars_circuit_js/PrepareEdDsaScalars_circuit.wasm
+[32mEverything went okay[0m

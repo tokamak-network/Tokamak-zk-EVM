@@ -8,7 +8,7 @@
       "runtimeExecutable": "tsx",
       "program": "${workspaceFolder}/examples/demo/index.ts",
       "args": [],
-      "cwd": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}/examples/demo",
       "skipFiles": ["<node_internals>/**"],
       "console": "integratedTerminal", 
     }

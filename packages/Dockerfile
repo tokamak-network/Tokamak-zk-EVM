@@ -1,53 +1,40 @@
-# 3GB 이하 목표, '하이브리드' 실행 환경 Dockerfile
-# (Frontend 의존성은 사전 설치, Backend는 환경만 제공)
-# [중요] 이 Dockerfile은 프로젝트의 최상위 루트에서 빌드해야 합니다.
+# 개발용: 코드(COPY) 없이 툴체인만 포함. 실행 시 -v로 소스 마운트
+FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
 
-# 1. 초경량 OS 'Debian Slim'으로 시작
-FROM debian:12-slim
-
-# Docker 빌드 시 호스트의 CPU 아키텍처를 전달받음
-ARG TARGETARCH
-
-# ENV를 사용하여 버전 정보 및 PATH를 한 번에 관리
-ENV GOLANG_VERSION=1.21.1 \
-    NODE_VERSION=20.11.1 \
-    PATH="/root/.cargo/bin:/usr/local/go/bin:/usr/local/bin:${PATH}"
-
-# 2. 필수 개발 도구만 설치하고 즉시 정리
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Seoul
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash \
-    cmake \
-    protobuf-compiler \
-    curl \
-    build-essential \
-    git \
-    clang \
-    libclang-dev \
-    xz-utils \
-    ca-certificates \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    bash ca-certificates curl wget gnupg jq \
+    build-essential cmake pkg-config libssl-dev \
+    git clang libclang-dev lldb \
+    protobuf-compiler dos2unix patchelf \
+ && rm -rf /var/lib/apt/lists/*
 
-# 3. Rust 'minimal' 프로파일로 최소 설치
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+# Node.js 20
+RUN mkdir -p /etc/apt/keyrings \
+ && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+ | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+ && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" \
+ | tee /etc/apt/sources.list.d/nodesource.list \
+ && apt-get update && apt-get install -y nodejs \
+ && rm -rf /var/lib/apt/lists/*
 
-# 4. Golang 설치
-RUN curl -L "https://go.dev/dl/go${GOLANG_VERSION}.linux-${TARGETARCH}.tar.gz" | tar -xz -C /usr/local
+# Rust (rustup)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+ | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
 
-# 5. Node.js 및 pnpm, tsx 설치 후 즉시 캐시 정리
-RUN case ${TARGETARCH} in "amd64") NODE_ARCH="x64" ;; "arm64") NODE_ARCH="arm64" ;; esac && \
-    curl -L "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" | tar -xJ -C /usr/local --strip-components=1 && \
-    npm install -g pnpm tsx && \
-    npm cache clean --force
+# Go (amd64). arm64가 필요하면 linux-arm64로 변경
+ENV GOLANG_VERSION=1.21.1
+RUN curl -L https://go.dev/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz \
+ | tar -xz -C /usr/local
+ENV PATH="/usr/local/go/bin:${PATH}"
 
-# 작업 디렉토리 설정
-WORKDIR /app
+# 프롬프트 가독성
+RUN echo 'export PS1="\\w\\$ "' >> /root/.bashrc
 
-# [중요] 프로젝트 전체 소스 코드를 복사 (.dockerignore 필수)
-COPY . .
+# 작업 디렉터리(호스트를 -v로 /workspace에 마운트)
+WORKDIR /workspace
 
-# [핵심 변경점] pnpm --filter 옵션을 사용하여 frontend 패키지들의 의존성만 설치
-# 이렇게 하면 synthesizer 등을 바로 실행할 수 있고, 백엔드 빌드 캐시는 포함되지 않아 용량이 절약됩니다.
-RUN pnpm install --filter "./packages/frontend/**" && pnpm cache clean
-
-# 컨테이너 실행 시 기본적으로 bash 셸을 시작
+# 엔트리
 CMD ["bash"]
