@@ -1,7 +1,7 @@
     // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {IVerifier} from "./interface/IVerifier.sol";
+import {IVerifierLatest} from "./interface/IVerifierLatest.sol";
 
 /* solhint-disable max-line-length */
 /// @author Project Ooo team
