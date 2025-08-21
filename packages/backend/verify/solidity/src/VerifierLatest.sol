@@ -12,7 +12,7 @@ import {IVerifierLatest} from "./interface/IVerifierLatest.sol";
 /// * Original Tokamak zkSNARK Paper: https://eprint.iacr.org/2024/507.pdf
 /// The notation used in the code is the same as in the papers.
 /* solhint-enable max-line-length */
-contract Verifier is IVerifier {
+contract Verifier is IVerifierLatest {
     /*//////////////////////////////////////////////////////////////
                                     Proof
     //////////////////////////////////////////////////////////////*/
