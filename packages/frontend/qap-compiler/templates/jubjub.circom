@@ -15,7 +15,7 @@ function jubjubconst() {
 
 
 // Affine coordinate system
-template JubjubCheck() {
+template jubjubCheck() {
     signal input in[2];
     signal x_sq;
     x_sq <== in[0] * in[0];
@@ -28,7 +28,7 @@ template JubjubCheck() {
     (A * x_sq + y_sq) === (1 + D * x_sq * y_sq);
 }
 
-template JubjubAdd() {
+template jubjubAdd() {
     // Input points in Affine (X, Y)
     signal input in1[2], in2[2];
     // Output point P3 = P1 + P2
@@ -66,7 +66,7 @@ template JubjubAdd() {
     numY === out[1] * denY;
 }
 
-template JubjubSubExp() {
+template jubjubSubExp() {
     // b is the i-th bit of input scalar s.
     signal input P_prev[2], G_prev[2], b;
     signal output P_next[2], G_next[2];
@@ -74,11 +74,11 @@ template JubjubSubExp() {
     b * (1 - b) === 0;
 
     // G_next <== G_prev + G_prev
-    G_next <== JubjubAdd()(G_prev, G_prev);
+    G_next <== jubjubAdd()(G_prev, G_prev);
 
     // P_next <== P_prev + ( b ? G_next : O )
     signal accP[2];
-    accP <== JubjubAdd()(P_prev, G_next);
+    accP <== jubjubAdd()(P_prev, G_next);
     signal inter[2];
     inter[0] <== b * accP[0];
     inter[1] <== b * accP[1];
@@ -86,7 +86,7 @@ template JubjubSubExp() {
     P_next[1] <== (1 - b) * P_prev[1] + inter[1];
 }
 
-template JubjubExp(N) {
+template jubjubExp(N) {
     signal input P_prev[2], G_prev[2], b[N];
     signal output P_next[2], G_next[2];
 
@@ -96,7 +96,7 @@ template JubjubExp(N) {
     inter_G[0] <== G_prev;
     component subExp[N];
     for(var i = 0; i < N; i++){
-        subExp[i] = JubjubSubExp();
+        subExp[i] = jubjubSubExp();
         subExp[i].P_prev <== inter_P[i];
         subExp[i].G_prev <== inter_G[i];
         subExp[i].b <== b[i];
@@ -113,8 +113,8 @@ template JubjubExp(N) {
 //     var CONSTS[3] = jubjubconst();
 //     var n = CONSTS[2];
 
-//     JubjubCheck()(R);
-//     JubjubCheck()(A);
+//     jubjubCheck()(R);
+//     jubjubCheck()(A);
 //     // Make sure that s is 252-bit.
 //     Num2Bits(252)(s);
 //     // Make sure that s is less than n
@@ -122,7 +122,7 @@ template JubjubExp(N) {
 //     lt === 1;
 // }
 
-template SafeDecToJubjubBit() {
+template safeDecToJubjubBit() {
     signal input in;
     signal output out_bit[252];
 
@@ -140,12 +140,12 @@ template SafeDecToJubjubBit() {
     in === quo * n + rem;
 }
 
-template PrepareEdDsaScalars() {
+template prepareEdDsaScalars() {
     signal input s, e;
     signal output s_bit[252], e_bit[252];
 
-    s_bit <== SafeDecToJubjubBit()(s);
-    e_bit <== SafeDecToJubjubBit()(e);
+    s_bit <== safeDecToJubjubBit()(s);
+    e_bit <== safeDecToJubjubBit()(e);
 }
 
 // template BeginJubjubExp(){
@@ -156,12 +156,12 @@ template PrepareEdDsaScalars() {
 
 // }
 
-template EdDsaVerify() {
+template edDsaVerify() {
     signal input SG[2], R[2], eA[2];
-    JubjubCheck()(SG);
-    JubjubCheck()(R);
-    JubjubCheck()(eA);
-    signal RHS[2] <== JubjubAdd()(R, eA);
+    jubjubCheck()(SG);
+    jubjubCheck()(R);
+    jubjubCheck()(eA);
+    signal RHS[2] <== jubjubAdd()(R, eA);
     SG[0] === RHS[0];
     SG[1] === RHS[1];
 }
