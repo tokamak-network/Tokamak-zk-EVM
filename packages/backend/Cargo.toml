@@ -33,3 +33,67 @@ rayon = "1.7"
 rand = "0.8"
 bincode = "1.3"
 hex = "0.4"
+
+# 🚀 워크스페이스 전체 최적화 설정
+[profile.release]
+opt-level = 3                    # 최고 수준 최적화
+lto = "fat"                      # Link Time Optimization
+codegen-units = 1               # 단일 코드 생성 단위 (LTO 최적화)
+panic = "abort"                 # 패닉 시 즉시 중단
+strip = true                    # 디버그 심볼 제거
+overflow-checks = false         # 오버플로우 체크 비활성화
+debug = false                   # 디버그 정보 제거
+
+# 🚀 추가 최적화 플래그
+[profile.release.build-override]
+opt-level = 3
+codegen-units = 1
+
+# 🚀 PGO 설정 (Profile-Guided Optimization)
+[profile.release.package."*"]
+opt-level = 3
+
+# 🚀 ICICLE 라이브러리 특화 최적화
+[profile.release.package.icicle-runtime]
+opt-level = 3
+codegen-units = 1
+debug = false
+
+[profile.release.package.icicle-core]
+opt-level = 3
+codegen-units = 1
+debug = false
+
+[profile.release.package.icicle-hash]
+opt-level = 3
+codegen-units = 1
+debug = false
+
+[profile.release.package.icicle-bls12-381]
+opt-level = 3
+codegen-units = 1
+debug = false
+
+# 🚀 libs 최적화
+[profile.release.package.libs]
+opt-level = 3
+codegen-units = 1
+debug = false
+
+# 🚀 prove 최적화
+[profile.release.package.prove]
+opt-level = 3
+codegen-units = 1
+debug = false
+
+# 🚀 verify 최적화
+[profile.release.package.verify]
+opt-level = 3
+codegen-units = 1
+debug = false
+
+# 🚀 preprocess 최적화
+[profile.release.package.preprocess]
+opt-level = 3
+codegen-units = 1
+debug = false

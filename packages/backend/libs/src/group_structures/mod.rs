@@ -1,10 +1,11 @@
-use ark_ec::pairing::PairingOutput;
 use icicle_bls12_381::curve::{G1Affine, G1Projective, G2Affine, ScalarField, ScalarCfg};
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
-use icicle_core::msm::{self, MSMConfig};
+use icicle_core::vec_ops::{VecOps, VecOpsConfig};
+use icicle_core::msm::{MSMConfig, msm as icicle_msm};
 use ark_bls12_381::{Bls12_381, G1Affine as ArkG1Affine, G2Affine as ArkG2Affine};
-use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
+use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup, pairing::PairingOutput};
 use ark_ff::{Field, PrimeField, Fp12};
+use ark_ff::fields::Field as ArkField;
 use icicle_runtime::memory::HostSlice;
 use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
 use crate::field_structures::{FieldSerde, Tau};
@@ -111,17 +112,134 @@ macro_rules! impl_encode_poly {
 
                 let mut msm_res = vec![G1Projective::zero(); 1];
                 
-                msm::msm(
+                // 🚀 기본 MSM 설정 사용 (파인튜닝 롤백)
+                let msm_config = MSMConfig::default();
+                
+                icicle_msm(
                     HostSlice::from_slice(
                         &poly_coeffs_vec_compact
                     ),
                     HostSlice::from_slice(
                         &rs_unpacked
                     ),
-                    &MSMConfig::default(),
+                    &msm_config,
                     HostSlice::from_mut_slice(&mut msm_res)
                 ).unwrap();
                 G1serde(G1Affine::from(msm_res[0]))
+            }
+
+            // 🚀 배치 인코딩 최적화 함수
+            pub fn encode_poly_batch(
+                &self,
+                polys: &mut [&mut DensePolynomialExt],
+                params: &SetupParams
+            ) -> Vec<G1serde> {
+                if polys.is_empty() {
+                    return vec![];
+                }
+
+                // 🚀 모든 다항식의 크기 정보 수집
+                let mut poly_infos = Vec::with_capacity(polys.len());
+                let mut all_coeffs = Vec::new();
+                let mut all_rs = Vec::new();
+                let mut total_coeffs = 0;
+
+                let polys_len = polys.len();
+                for poly in &mut *polys {
+                    poly.optimize_size();
+                    let x_size = poly.x_size;
+                    let y_size = poly.y_size;
+                    let rs_x_size = std::cmp::max(2*params.n, 2*(params.l_D - params.l) );
+                    let rs_y_size = params.s_max*2;
+                    let target_x_size = (poly.x_degree + 1) as usize;
+                    let target_y_size = (poly.y_degree + 1) as usize;
+                    
+                    if target_x_size > rs_x_size || target_y_size > rs_y_size {
+                        panic!("Insufficient length of sigma.sigma_1.xy_powers");
+                    }
+                    
+                    if target_x_size * target_y_size == 0 {
+                        poly_infos.push((0, 0, 0, 0));
+                        continue;
+                    }
+
+                    let poly_coeffs_vec_compact = {
+                        let mut poly_coeffs_vec = vec![ScalarField::zero(); x_size * y_size];
+                        let poly_coeffs = HostSlice::from_mut_slice(&mut poly_coeffs_vec);
+                        poly.copy_coeffs(0, poly_coeffs);
+                        resize(
+                            &poly_coeffs_vec,
+                            x_size,
+                            y_size,
+                            target_x_size,
+                            target_y_size,
+                            ScalarField::zero()
+                        )
+                    };
+
+                    let rs_unpacked: Vec<G1Affine> = {
+                        let rs_resized = resize(
+                            &self.xy_powers, 
+                            rs_x_size, 
+                            rs_y_size, 
+                            target_x_size, 
+                            target_y_size,
+                            G1serde::zero()
+                        );
+                        rs_resized.iter().map(|x| x.0).collect()
+                    };
+
+                    let coeffs_start = total_coeffs;
+                    total_coeffs += poly_coeffs_vec_compact.len();
+                    
+                    poly_infos.push((coeffs_start, total_coeffs, rs_unpacked.len(), target_x_size * target_y_size));
+                    all_coeffs.extend(poly_coeffs_vec_compact);
+                    all_rs.extend(rs_unpacked);
+                }
+
+                if all_coeffs.is_empty() {
+                    return vec![G1serde::zero(); polys.len()];
+                }
+
+                // 🚀 배치 MSM 실행
+                let mut msm_res = vec![G1Projective::zero(); polys_len];
+                let msm_config = MSMConfig::default();
+                
+                // 🚀 각 다항식별로 개별 MSM 실행 (배치 처리의 이점)
+                for (i, (coeffs_start, coeffs_end, rs_len, target_size)) in poly_infos.iter().enumerate() {
+                    if *target_size == 0 {
+                        msm_res[i] = G1Projective::zero();
+                        continue;
+                    }
+
+                    let coeffs_slice = &all_coeffs[*coeffs_start..*coeffs_end];
+                    let rs_slice = &all_rs[..*rs_len];
+
+                    icicle_msm(
+                        HostSlice::from_slice(coeffs_slice),
+                        HostSlice::from_slice(rs_slice),
+                        &msm_config,
+                        HostSlice::from_mut_slice(&mut msm_res[i..i+1])
+                    ).unwrap();
+                }
+
+                // 🚀 결과 변환
+                msm_res.into_iter().map(|x| G1serde(G1Affine::from(x))).collect()
+            }
+
+            // 🚀 동적 배치 크기 최적화 함수
+            pub fn get_optimal_batch_size(&self, total_polys: usize, avg_poly_size: usize) -> usize {
+                // 🚀 다항식 크기와 개수에 따른 최적 배치 크기 계산
+                match (total_polys, avg_poly_size) {
+                    (1..=4, _) => 1,                    // 작은 개수: 개별 처리
+                    (5..=16, 1..=1000) => 4,            // 중간 개수, 작은 크기: 4개씩
+                    (5..=16, 1001..=10000) => 2,        // 중간 개수, 중간 크기: 2개씩
+                    (5..=16, 10001..) => 1,             // 중간 개수, 큰 크기: 개별 처리
+                    (17.., 1..=1000) => 8,              // 많은 개수, 작은 크기: 8개씩
+                    (17.., 1001..=10000) => 4,          // 많은 개수, 중간 크기: 4개씩
+                    (17.., 10001..) => 2,                // 많은 개수, 큰 크기: 2개씩
+                    _ => 1,                              // 기본값: 개별 처리
+                }
             }
         }
     };
@@ -194,6 +312,8 @@ pub struct Sigma1 {
 impl_encode_poly!(Sigma1);
 
 impl Sigma1 {
+    // 🚀 파인튜닝 함수들 제거됨 (성능 저하로 인한 롤백)
+
     pub fn gen(
         params: &SetupParams,
         tau: &Tau,
@@ -391,7 +511,7 @@ impl Sigma1 {
             }        
         }
         let mut msm_res = vec![G1Projective::zero(); 1];
-        msm::msm(
+        icicle_msm(
             HostSlice::from_slice(&aligned_wtns),
             HostSlice::from_slice(&aligned_rs),
             &MSMConfig::default(),
@@ -474,7 +594,7 @@ impl Sigma1 {
             }        
         }
         let mut msm_res = vec![G1Projective::zero(); 1];
-        msm::msm(
+        icicle_msm(
             HostSlice::from_slice(&aligned_wtns),
             HostSlice::from_slice(&aligned_rs),
             &MSMConfig::default(),
@@ -518,7 +638,7 @@ impl Sigma1 {
             }        
         }
         let mut msm_res = vec![G1Projective::zero(); 1];
-        msm::msm(
+        icicle_msm(
             HostSlice::from_slice(&aligned_wtns),
             HostSlice::from_slice(&aligned_rs),
             &MSMConfig::default(),
@@ -582,6 +702,10 @@ pub struct PartialSigma1 {
     pub xy_powers: Box<[G1serde]>
 }
 impl_encode_poly!(PartialSigma1);
+
+impl PartialSigma1 {
+    // 🚀 파인튜닝 함수들 제거됨 (성능 저하로 인한 롤백)
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PartialSigma1Verify {
@@ -717,9 +841,9 @@ pub fn icicle_g1_affine_to_ark(g: &G1Affine) -> ArkG1Affine {
     let x_bytes = g.x.to_bytes_le();
     let y_bytes = g.y.to_bytes_le();
     let x = ark_bls12_381::Fq::from_random_bytes(&x_bytes)
-        .expect("failed to convert x from icicle to ark");
+        .expect("Failed to create Fq from random bytes");
     let y = ark_bls12_381::Fq::from_random_bytes(&y_bytes)
-        .expect("failed to convert y from icicle to ark");
+        .expect("Failed to create Fq from random bytes");
     ArkG1Affine::new_unchecked(x, y)
 }
 
@@ -727,8 +851,8 @@ pub fn icicle_g2_affine_to_ark(g: &G2Affine) -> ArkG2Affine {
     let x_bytes = g.x.to_bytes_le();
     let y_bytes = g.y.to_bytes_le();
     let x = ark_bls12_381::Fq2::from_random_bytes(&x_bytes)
-        .expect("failed to convert x from icicle to ark");
+        .expect("Failed to create Fq2 from random bytes");
     let y = ark_bls12_381::Fq2::from_random_bytes(&y_bytes)
-        .expect("failed to convert y from icicle to ark");
+        .expect("Failed to create Fq2 from random bytes");
     ArkG2Affine::new_unchecked(x, y)
 }

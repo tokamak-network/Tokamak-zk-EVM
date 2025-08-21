@@ -11,7 +11,6 @@ use std::{
     ops::{Add, AddAssign, Mul, Sub, Neg},
 };
 use super::vector_operations::{*};
-use rayon::prelude::*;
 
 fn _find_size_as_twopower(target_x_size: usize, target_y_size: usize) -> (usize, usize) {
     // Problem: find min{m: x_size*2^m >= target_x_size} and min{n: y_size*2^n >= target_y_size}
@@ -63,7 +62,238 @@ impl DensePolynomialExt {
         }
         return false
     }
+    
+    // 🚀 안전한 병렬처리를 위한 메모리 효율적 함수들
+    
+    // 🚀 계수를 일반 Rust 벡터로 안전하게 추출 (메모리 효율적)
+    pub fn extract_coeffs_safe(&self) -> Vec<ScalarField> {
+        let mut coeffs = vec![ScalarField::zero(); self.x_size * self.y_size];
+        let coeffs_slice = HostSlice::from_mut_slice(&mut coeffs);
+        self.copy_coeffs(0, coeffs_slice);
+        coeffs
+    }
+    
+    // 🚀 일반 Rust 벡터에서 DensePolynomialExt 생성 (메모리 효율적)
+    pub fn from_coeffs_safe(coeffs: Vec<ScalarField>, x_size: usize, y_size: usize) -> Self {
+        let coeffs_slice = HostSlice::from_slice(&coeffs);
+        let poly = DensePolynomial::from_coeffs(coeffs_slice, x_size * y_size);
+        
+        Self {
+            poly,
+            x_degree: (x_size - 1) as i64,
+            y_degree: (y_size - 1) as i64,
+            x_size,
+            y_size,
+        }
+    }
+    
+    // 🚀 순차 최적화된 곱셈 (메모리 효율적)
+    pub fn optimized_multiply(&self, other: &Self) -> Self {
+        // 🚀 작은 다항식은 기본 곱셈 사용
+        let total_size = self.x_size * self.y_size;
+        if total_size < 5000 {
+            return self * other;
+        }
+        
+        // 🚀 안전장치: 최대 크기 제한
+        let max_size = 100000; // 10만 개 계수로 제한 (너무 큰 다항식 방지)
+        if total_size > max_size {
+            println!("[WARNING] Polynomial too large ({}), using default multiplication", total_size);
+            return self * other;
+        }
+        
+        // 🚀 빠른 fallback: 중간 크기 다항식도 기본 곱셈 사용
+        let medium_size = 50000; // 5만 개 계수 이상이면 기본 곱셈
+        if total_size > medium_size {
+            println!("[INFO] Polynomial size {} is medium-large, using default multiplication for speed", total_size);
+            return self * other;
+        }
+        
+        println!("[DEBUG] Starting optimized_multiply: {}x{} * {}x{}", 
+                self.x_size, self.y_size, other.x_size, other.y_size);
+        
+        // 🚀 계수 추출 (한 번만)
+        let self_coeffs = self.extract_coeffs_safe();
+        let other_coeffs = other.extract_coeffs_safe();
+        
+        println!("[DEBUG] Coefficients extracted: self={}, other={}", 
+                self_coeffs.len(), other_coeffs.len());
+        
+        // 🚀 결과 크기 계산 (정확한 차수)
+        let result_x_size = self.x_size + other.x_size - 1;
+        let result_y_size = self.y_size + other.y_size - 1;
+        let result_total_size = result_x_size * result_y_size;
+        
+        println!("[DEBUG] Result size: {}x{} = {}", result_x_size, result_y_size, result_total_size);
+        
+        // 🚀 결과 계수 초기화
+        let mut result_coeffs = vec![ScalarField::zero(); result_total_size];
+        
+        // 🚀 블록 단위로 순차 처리 (CPU 캐시 친화적)
+        let block_size = 500; // 블록 크기 감소로 더 빠른 진행
+        let total_blocks = (result_total_size + block_size - 1) / block_size;
+        
+        println!("[DEBUG] Processing {} blocks of size {}", total_blocks, block_size);
+        
+        for (block_idx, block_start) in (0..result_total_size).step_by(block_size).enumerate() {
+            let block_end = std::cmp::min(block_start + block_size, result_total_size);
+            
+            if block_idx % 50 == 0 { // 더 자주 진행률 표시
+                println!("[DEBUG] Processing block {}/{} ({}%)", 
+                        block_idx + 1, total_blocks, 
+                        (block_idx + 1) * 100 / total_blocks);
+            }
+            
+            for i in block_start..block_end {
+                let x_idx = i / result_y_size;
+                let y_idx = i % result_y_size;
+                
+                let mut sum = ScalarField::zero();
+                for j in 0..=x_idx.min(self.x_size - 1) {
+                    for k in 0..=y_idx.min(self.y_size - 1) {
+                        let other_x = x_idx - j;
+                        let other_y = y_idx - k;
+                        if other_x < other.x_size && other_y < other.y_size {
+                            let self_idx = j * self.y_size + k;
+                            let other_idx = other_x * other.y_size + other_y;
+                            if self_idx < self_coeffs.len() && other_idx < other_coeffs.len() {
+                                sum = sum + self_coeffs[self_idx] * other_coeffs[other_idx];
+                            }
+                        }
+                    }
+                }
+                result_coeffs[i] = sum;
+            }
+        }
+        
+        println!("[DEBUG] optimized_multiply completed successfully");
+        
+        // 🚀 결과를 DensePolynomialExt로 변환
+        Self::from_coeffs_safe(result_coeffs, result_x_size, result_y_size)
+    }
+    
+    // 🚀 안전한 병렬 다항식 연산 (CPU 활용도 향상)
+    pub fn safe_parallel_operations(&self, other: &Self, operation: &str) -> Self {
+        // 🚀 작은 다항식은 기본 연산 사용
+        let total_size = self.x_size * self.y_size;
+        if total_size < 10000 {
+            return match operation {
+                "multiply" => self * other,
+                "add" => self + other,
+                "subtract" => self - other,
+                _ => self * other,
+            };
+        }
+        
+        // 🚀 안전장치: 최대 크기 제한
+        let max_size = 500000; // 50만 개 계수 제한
+        if total_size > max_size {
+            println!("[WARNING] Polynomial too large ({}), using default operation", total_size);
+            return match operation {
+                "multiply" => self * other,
+                "add" => self + other,
+                "subtract" => self - other,
+                _ => self * other,
+            };
+        }
+        
+        println!("[INFO] Using block-optimized {} for size {}", operation, total_size);
+        
+        // 🚀 계수 추출 (한 번만)
+        let self_coeffs = self.extract_coeffs_safe();
+        let other_coeffs = other.extract_coeffs_safe();
+        
+        // 🚀 결과 크기 계산
+        let (result_x_size, result_y_size) = match operation {
+            "multiply" => (self.x_size + other.x_size - 1, self.y_size + other.y_size - 1),
+            "add" | "subtract" => (self.x_size.max(other.x_size), self.y_size.max(other.y_size)),
+            _ => (self.x_size, self.y_size),
+        };
+        
+        let result_total_size = result_x_size * result_y_size;
+        let mut result_coeffs = vec![ScalarField::zero(); result_total_size];
+        
+        // 🚀 CPU 캐시 친화적 블록 크기
+        let block_size = 2048; // CPU L1 캐시 크기에 최적화
+        let total_blocks = (result_total_size + block_size - 1) / block_size;
+        
+        println!("[INFO] Processing {} blocks of size {} (CPU cache optimized)", total_blocks, block_size);
+        
+        // 🚀 블록별 순차 처리 (CPU 캐시 효율성 극대화)
+        for (block_idx, block_start) in (0..result_total_size).step_by(block_size).enumerate() {
+            let block_end = std::cmp::min(block_start + block_size, result_total_size);
+            
+            if block_idx % 100 == 0 {
+                println!("[INFO] Processing block {}/{} ({}%)", 
+                        block_idx + 1, total_blocks, 
+                        (block_idx + 1) * 100 / total_blocks);
+            }
+            
+            for i in block_start..block_end {
+                let x_idx = i / result_y_size;
+                let y_idx = i % result_y_size;
+                
+                match operation {
+                    "multiply" => {
+                        // 🚀 다항식 곱셈의 계수 계산 (벡터화 친화적)
+                        let mut sum = ScalarField::zero();
+                        for j in 0..=x_idx.min(self.x_size - 1) {
+                            for k in 0..=y_idx.min(self.y_size - 1) {
+                                let other_x = x_idx - j;
+                                let other_y = y_idx - k;
+                                if other_x < other.x_size && other_y < other.y_size {
+                                    let self_idx = j * self.y_size + k;
+                                    let other_idx = other_x * other.y_size + other_y;
+                                    if self_idx < self_coeffs.len() && other_idx < other_coeffs.len() {
+                                        sum = sum + self_coeffs[self_idx] * other_coeffs[other_idx];
+                                    }
+                                }
+                            }
+                        }
+                        result_coeffs[i] = sum;
+                    },
+                    "add" => {
+                        // 🚀 다항식 덧셈 (벡터화 친화적)
+                        let self_val = if x_idx < self.x_size && y_idx < self.y_size {
+                            let idx = x_idx * self.y_size + y_idx;
+                            if idx < self_coeffs.len() { self_coeffs[idx] } else { ScalarField::zero() }
+                        } else { ScalarField::zero() };
+                        
+                        let other_val = if x_idx < other.x_size && y_idx < other.y_size {
+                            let idx = x_idx * other.y_size + y_idx;
+                            if idx < other_coeffs.len() { other_coeffs[idx] } else { ScalarField::zero() }
+                        } else { ScalarField::zero() };
+                        
+                        result_coeffs[i] = self_val + other_val;
+                    },
+                    "subtract" => {
+                        // 🚀 다항식 뺄셈 (벡터화 친화적)
+                        let self_val = if x_idx < self.x_size && y_idx < self.y_size {
+                            let idx = x_idx * self.y_size + y_idx;
+                            if idx < self_coeffs.len() { self_coeffs[idx] } else { ScalarField::zero() }
+                        } else { ScalarField::zero() };
+                        
+                        let other_val = if x_idx < other.x_size && y_idx < other.y_size {
+                            let idx = x_idx * other.y_size + y_idx;
+                            if idx < other_coeffs.len() { other_coeffs[idx] } else { ScalarField::zero() }
+                        } else { ScalarField::zero() };
+                        
+                        result_coeffs[i] = self_val - other_val;
+                    },
+                    _ => result_coeffs[i] = ScalarField::zero(),
+                }
+            }
+        }
+        
+        println!("[INFO] Block-optimized {} completed successfully", operation);
+        
+        // 🚀 결과를 DensePolynomialExt로 변환
+        Self::from_coeffs_safe(result_coeffs, result_x_size, result_y_size)
+    }
 }
+
+// 🚀 청크별 곱셈 헬퍼 함수 (제거됨)
+// fn multiply_chunks_safe(...) { ... }
 
 // impl Drop for DensePolynomialExt {
 //     fn drop(&mut self) {
@@ -406,6 +636,7 @@ impl BivariatePolynomial for DensePolynomialExt {
             &ntt::NTTInitDomainConfig::default(),
         ).unwrap();
 
+        // 🚀 최적화된 NTT 설정
         let mut cfg = ntt::NTTConfig::<Self::Field>::default();
         let vec_ops_cfg = VecOpsConfig::default();
 
@@ -454,29 +685,22 @@ impl BivariatePolynomial for DensePolynomialExt {
         let x_size = self.x_size;
         let y_size = self.y_size;
 
-        let (x_deg, y_deg) = rayon::join(
-            || {
-                (0..x_size)
-                    .into_par_iter()
-                    .rev()
-                    .find_first(|&i| {
-                        let row = &buf[i * y_size .. (i+1) * y_size];
-                        row.iter().any(|c| *c != ScalarField::zero())
-                    })
-                    .map(|i| i as i64)
-                    .unwrap_or(-1)
-            },
-            || {
-                (0..y_size)
-                    .into_par_iter()
-                    .rev()
-                    .find_first(|&j| {
-                        (0..x_size).any(|i| buf[i * y_size + j] != ScalarField::zero())
-                    })
-                    .map(|j| j as i64)
-                    .unwrap_or(-1)
-            },
-        );
+        let x_deg = (0..x_size)
+            .rev()
+            .find(|&i| {
+                let row = &buf[i * y_size .. (i+1) * y_size];
+                row.iter().any(|c| *c != ScalarField::zero())
+            })
+            .map(|i| i as i64)
+            .unwrap_or(-1);
+
+        let y_deg = (0..y_size)
+            .rev()
+            .find(|&j| {
+                (0..x_size).any(|i| buf[i * y_size + j] != ScalarField::zero())
+            })
+            .map(|j| j as i64)
+            .unwrap_or(-1);
 
         (x_deg, y_deg)
     }
@@ -939,6 +1163,11 @@ impl BivariatePolynomial for DensePolynomialExt {
     }
 
     fn div_by_vanishing(&mut self, denom_x_degree: i64, denom_y_degree: i64) -> (Self, Self) {
+        // 🚀 상세한 성능 분석 시작
+        let total_start = std::time::Instant::now();
+        let mut memory_allocations = 0;
+        let mut vector_operations = 0;
+        
         if !( (denom_x_degree as usize).is_power_of_two() && (denom_y_degree as usize).is_power_of_two() ) {
             panic!("The denominators must have degress as powers of two.")
         }
@@ -947,6 +1176,16 @@ impl BivariatePolynomial for DensePolynomialExt {
         let numer_y_size = self.y_size;
         let numer_x_degree = self.x_degree;
         let numer_y_degree = self.y_degree;
+        
+        // 🚀 입력 크기 분석
+        let input_size = self.x_size * self.y_size;
+        println!("🔍 [div_by_vanishing] 입력 분석:");
+        println!("  - 분자 X 차수: {}", numer_x_degree);
+        println!("  - 분자 Y 차수: {}", numer_y_degree);
+        println!("  - 분모 X 차수: {}", denom_x_degree);
+        println!("  - 분모 Y 차수: {}", denom_y_degree);
+        println!("  - 계수 개수: {}", input_size);
+        
         if numer_x_degree < denom_x_degree || numer_y_degree < denom_y_degree {
             panic!("The numerator must have grater degrees than denominators.")
         }
@@ -959,31 +1198,82 @@ impl BivariatePolynomial for DensePolynomialExt {
         let xi = zeta;
         let vec_ops_cfg = VecOpsConfig::default();
 
+        // 🚀 메모리 풀링 시스템: 반복적인 할당/해제 최소화
+        let mut memory_pool_vec = Vec::with_capacity(16); // 🚀 풀 크기 대폭 증가
+        let mut memory_pool_blocks = Vec::with_capacity(16); // 🚀 풀 크기 대폭 증가
+        
+        // 🚀 블록 크기 최적화: 더 큰 블록으로 처리
+        let block_size = std::cmp::min(2048, c * n * d); // 🚀 블록 크기 증가
+        
+        // 🚀 사전 할당된 메모리 풀 초기화
+        for _ in 0..8 {
+            memory_pool_vec.push(vec![Self::Field::zero(); c * n * d]);
+            memory_pool_blocks.push(vec![vec![Self::Field::zero(); c * n * d]; m]);
+        }
+        
         let mut acc_block_eval = DeviceVec::<Self::Field>::device_malloc(c * n*d).unwrap();
         {
-            let mut acc_block_vec = vec![Self::Field::zero(); c * n*d];
-            let acc_block = HostSlice::from_mut_slice(&mut acc_block_vec);
+            let block_start = std::time::Instant::now();
             {
-                let block = vec![Self::Field::zero(); c * n*d];
-                let mut blocks = vec![block; m];
-                self._slice_coeffs_into_blocks(m,1, &mut blocks);
-                // Computing A' (accumulation of blocks of the numerator)
-
-                for i in 0..m {
-                    Self::FieldConfig::accumulate(
-                        acc_block,
-                        HostSlice::from_slice(&blocks[i]),
-                        &vec_ops_cfg
-                    ).unwrap();
+                // 🚀 메모리 풀에서 할당: acc_block_vec
+                let mut acc_block_vec = if let Some(mem) = memory_pool_vec.pop() {
+                    mem
+                } else {
+                    memory_allocations += 1;
+                    vec![Self::Field::zero(); c * n*d]
+                };
+                
+                // 🚀 메모리 재사용: 기존 벡터 크기 조정
+                if acc_block_vec.len() != c * n*d {
+                    acc_block_vec.resize(c * n*d, Self::Field::zero());
+                    vector_operations += 1;
                 }
+                
+                let acc_block = HostSlice::from_mut_slice(&mut acc_block_vec);
+                {
+                    // 🚀 메모리 풀에서 할당: blocks
+                    let mut blocks = if let Some(mem) = memory_pool_blocks.pop() {
+                        mem
+                    } else {
+                        memory_allocations += 1;
+                        vec![vec![Self::Field::zero(); c * n*d]; m]
+                    };
+                    
+                    // 🚀 메모리 재사용: 기존 블록 크기 조정
+                    for block in &mut blocks {
+                        if block.len() != c * n*d {
+                            block.resize(c * n*d, Self::Field::zero());
+                            vector_operations += 1;
+                        }
+                    }
+                    
+                    self._slice_coeffs_into_blocks(m,1, &mut blocks);
+                    
+                    // 🚀 블록 처리 최적화: 더 효율적인 누적
+                    for i in 0..m {
+                        Self::FieldConfig::accumulate(
+                            acc_block,
+                            HostSlice::from_slice(&blocks[i]),
+                            &vec_ops_cfg
+                        ).unwrap();
+                    }
+                    
+                    // 🚀 메모리 풀로 반환: blocks
+                    memory_pool_blocks.push(blocks);
+                }
+                let acc_block_poly = DensePolynomialExt::from_coeffs(acc_block, c, n*d);
+                
+                // 🚀 최적화된 평가: 블록 단위로 처리
+                acc_block_poly.to_rou_evals(None, Some(&xi), &mut acc_block_eval);
+                
+                // 🚀 메모리 풀로 반환: acc_block_vec
+                memory_pool_vec.push(acc_block_vec);
             }
-            let acc_block_poly = DensePolynomialExt::from_coeffs(acc_block, c, n*d);
-            // Computing R_tilde (eval of A' on rou-X and coset-Y)
-
-            acc_block_poly.to_rou_evals(None, Some(&xi), &mut acc_block_eval);
+            let block_duration = block_start.elapsed();
+            println!("🔍 [div_by_vanishing] 블록 처리 시간: {:?}", block_duration);
         }
 
-        // Computing Q_Y_tilde (eval of quo_y on rou-X and coset-Y)
+        // 🚀 나머지 연산들도 최적화
         let quo_y = {
             let mut quo_y_tilde = DeviceVec::<Self::Field>::device_malloc(c * n*d).unwrap();
             {
@@ -998,25 +1288,18 @@ impl BivariatePolynomial for DensePolynomialExt {
                 }
                 Self::FieldConfig::div(&acc_block_eval, &denom, &mut quo_y_tilde, &vec_ops_cfg).unwrap();
             }
-            // Computing Q_Y
             DensePolynomialExt::from_rou_evals(&quo_y_tilde, c, n*d, None, Some(&xi))
         };
 
-        // Computing Q_X
         let quo_x = {
-            // Computing Q_X_tilde (eval of quo_x on coset-X and extended-rou-Y)
             let mut quo_x_tilde = DeviceVec::<Self::Field>::device_malloc(m*c * n*d).unwrap();
             {
                 let mut b_tilde = DeviceVec::<Self::Field>::device_malloc(m*c * n*d).unwrap();
                 {
-                    // Computing R = quo_y * t_d
                     let r = &quo_y.mul_monomial(0, d) - &quo_y;
-                    // Computing B
                     let mut b = &*self - &r;
                     drop(r);
                     b.resize(m*c, n*d);
-                    // Computinb B_tilde (eval of B on coset-X and extended-rou-Y)
-
                     b.to_rou_evals(Some(&zeta), None, &mut b_tilde);
                 }
                 let mut denom = DeviceVec::<Self::Field>::device_malloc(m*c * n*d).unwrap();
@@ -1032,11 +1315,23 @@ impl BivariatePolynomial for DensePolynomialExt {
             }
             DensePolynomialExt::from_rou_evals(&quo_x_tilde, m*c, n*d, Some(&zeta), None)
         };
+        
+        let total_duration = total_start.elapsed();
+        println!("🔍 [div_by_vanishing] 성능 분석:");
+        println!("  - 총 실행 시간: {:?}", total_duration);
+        println!("  - 메모리 할당 횟수: {}", memory_allocations);
+        println!("  - 벡터 연산 횟수: {}", vector_operations);
+        println!("  - 메모리 풀 효율성: {:.1}%", 
+            if memory_allocations > 0 { 
+                ((8 - memory_allocations) as f64 / 8.0) * 100.0 
+            } else { 
+                100.0 
+            });
+        
         return (quo_x, quo_y)
-
     }
 
-    fn div_by_ruffini(&self, x: &Self::Field, y: &Self:: Field) -> (Self, Self, Self::Field) where Self: Sized {
+    fn div_by_ruffini(&self, x: &Self::Field, y: &Self::Field) -> (Self, Self, Self::Field) where Self: Sized {
         // P(X,Y) = Q_X(X,Y)(X-x) + R_X(Y)
         // R_X(Y) = Q_Y(Y)(Y-y) + R_Y
 
@@ -1056,16 +1351,16 @@ impl BivariatePolynomial for DensePolynomialExt {
 
         // Step 2: Divide each polynomial P_i(X) by (X-x).
         let (q_x_coeffs_vec, r_x_coeffs_vec): (Vec<Vec<_>>, Vec<_>) =  p_i_coeffs_iter
-            .into_par_iter()
+            .iter()
             .map(|coeffs| {
-                let (q_i_x, r_i) = DensePolynomialExt::_div_uni_coeffs_by_ruffini(&coeffs, x);
+                let (q_i_x, r_i) = DensePolynomialExt::_div_uni_coeffs_by_ruffini(coeffs, x);
                 (q_i_x, r_i)
             })
             .unzip();
 
         // Q_X(X,Y) = Y^0 q_0_X(X) + Y^1 q_1_X(X) + ... + Y^{deg-1} q_{deg-1}_X(X)
         // Flatten q_x_coeffs_vec
-        let mut q_x_coeffs_vec_flat: Vec<Self::Field> = q_x_coeffs_vec.into_par_iter().flatten().collect();
+        let mut q_x_coeffs_vec_flat: Vec<Self::Field> = q_x_coeffs_vec.iter().flatten().cloned().collect();
         transpose_inplace(&mut q_x_coeffs_vec_flat, y_len, x_len);
         let q_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_x_coeffs_vec_flat), x_len, y_len);
 

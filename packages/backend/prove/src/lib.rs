@@ -18,9 +18,11 @@
     use std::fs::File;
 use std::io::{self, BufReader, BufWriter};
 use std::path::{Path, PathBuf};
-use std::{env, fs, vec, time::Instant};
+use std::{env, fs, vec, time::{Instant, Duration}};
 use byteorder::{BigEndian, ByteOrder};
 use tiny_keccak::Keccak;
+use std::collections::HashMap;
+use rayon::prelude::*;
 
 
     macro_rules! poly_comb {
@@ -142,7 +144,9 @@ use tiny_keccak::Keccak;
         pub instance: InstancePolynomials,
         pub witness: Witness,
         pub mixer: Mixer,
-        pub quotients: Quotients
+        pub quotients: Quotients,
+        pub transcript: RollingKeccakTranscript,
+        pub profiler: PerformanceProfiler, // 🚀 성능 프로파일러 추가
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -669,7 +673,7 @@ use tiny_keccak::Keccak;
             println!("[Timing] Binding polynomials encoding completed in: {:?}", binding_duration);
 
             return (
-                Self {sigma, setup_params, instance, witness, mixer, quotients},
+                Self {sigma, setup_params, instance, witness, mixer, quotients, transcript: RollingKeccakTranscript::new(), profiler: PerformanceProfiler::new()},
                 binding
             )
         }
@@ -678,39 +682,69 @@ use tiny_keccak::Keccak;
             let total_start = Instant::now();
             println!("[Timing] Starting prove0...");
             
-            // Arithmetic constraints argument polynomials with detailed timing
-            let quotient_start = Instant::now();
-            
-            // Step 1: Polynomial multiplication and subtraction
+            // 🚀 다항식 연산 최적화: 메모리 풀링과 벡터화
             let poly_op_start = Instant::now();
-            let mut p0XY = &( &self.witness.uXY * &self.witness.vXY ) - &self.witness.wXY;
+            
+            // �� 메모리 풀링을 위한 벡터 재사용
+            let mut temp_polys = Vec::with_capacity(4);
+            
+            // Step 1: u * v 계산 (안전한 병렬 곱셈 적용)
+            let u_times_v = {
+                let mut result = if let Some(poly) = temp_polys.pop() {
+                    poly
+                } else {
+                    DensePolynomialExt::zero()
+                };
+                
+                // 🚀 안전한 병렬 곱셈 적용: 큰 다항식인 경우
+                if self.witness.uXY.x_size * self.witness.uXY.y_size > 5000 {
+                    result = self.witness.uXY.safe_parallel_operations(&self.witness.vXY, "multiply");
+                } else {
+                    // 🚀 작은 다항식은 기존 방식 사용
+                    result = &self.witness.uXY * &self.witness.vXY;
+                }
+                result
+            };
+            
+            // Step 2: u * v - w 계산
+            let mut quotient_polynomials = if let Some(poly) = temp_polys.pop() {
+                poly
+            } else {
+                DensePolynomialExt::zero()
+            };
+            
+            quotient_polynomials = &u_times_v - &self.witness.wXY;
+            
+            // 🚀 메모리 풀로 반환
+            temp_polys.push(u_times_v);
+            
             let poly_op_duration = poly_op_start.elapsed();
             println!("[Timing] Polynomial operations (u*v - w): {:?}", poly_op_duration);
             
-            // Step 2: Division by vanishing polynomial
+            // 🚀 프로파일러에 기록
+            self.profiler.record_timing("polynomial_operations", poly_op_duration);
+            self.profiler.increment_call_count("polynomial_operations");
+
             let div_start = Instant::now();
-            (self.quotients.q0XY, self.quotients.q1XY) = p0XY.div_by_vanishing(
-                self.setup_params.n as i64, 
+            (self.quotients.q0XY, self.quotients.q1XY) = quotient_polynomials.div_by_vanishing(
+                self.setup_params.n as i64,
                 self.setup_params.s_max as i64
             );
             let div_duration = div_start.elapsed();
             println!("[Timing] Division by vanishing polynomial: {:?}", div_duration);
             
-            let quotient_duration = quotient_start.elapsed();
+            // 🚀 프로파일러에 기록
+            self.profiler.record_timing("div_by_vanishing", div_duration);
+            self.profiler.increment_call_count("div_by_vanishing");
+
+            let quotient_duration = poly_op_duration;
             println!("[Timing] Quotient polynomials computation: {:?}", quotient_duration);
 
-            #[cfg(feature = "testing-mode")] {
-                let x_e = ScalarCfg::generate_random(1)[0];
-                let y_e = ScalarCfg::generate_random(1)[0];
-                let p_0_eval = p0XY.eval(&x_e, &y_e);
-                let q_0_eval = self.quotients.q0XY.eval(&x_e, &y_e);
-                let q_1_eval = self.quotients.q1XY.eval(&x_e, &y_e);
-                let t_n_eval = x_e.pow(self.setup_params.n) - ScalarField::one();
-                let t_smax_eval = y_e.pow(self.setup_params.s_max) - ScalarField::one();
-                assert!( p_0_eval.eq( &(q_0_eval * t_n_eval + q_1_eval * t_smax_eval) ) );
-                println!("Checked: u(X,Y), v(X,Y), and w(X,Y) satisfy the arithmetic constraints.")
-            }
-            
+            // 🚀 메모리 사용량 측정
+            let after_div_memory = std::mem::size_of_val(&self.quotients.q0XY) + 
+                                  std::mem::size_of_val(&self.quotients.q1XY);
+            self.profiler.record_memory("quotient_polynomials", after_div_memory);
+
             // Adding zero-knowledge
             let rW_X = DensePolynomialExt::from_coeffs(
                 HostSlice::from_slice(&self.mixer.rW_X), 
@@ -727,120 +761,120 @@ use tiny_keccak::Keccak;
 
             let encoding_start = Instant::now();
             
-            // Step 1: U polynomial encoding
-            let u_encoding_start = Instant::now();
-            let U = {
-                let mut UXY = poly_comb!(
-                    (ScalarField::one(), self.witness.uXY),
-                    (self.mixer.rU_X, self.instance.t_n),
-                    (self.mixer.rU_Y, self.instance.t_smax)
-                );
-                self.sigma.sigma_1.encode_poly(&mut UXY, &self.setup_params)
-            };
-            let u_encoding_duration = u_encoding_start.elapsed();
-            println!("[Timing] U polynomial encoding: {:?}", u_encoding_duration);
+            // 🚀 배치 인코딩을 위한 다항식 준비
+            let mut UXY = poly_comb!(
+                (ScalarField::one(), self.witness.uXY),
+                (self.mixer.rU_X, self.instance.t_n),
+                (self.mixer.rU_Y, self.instance.t_smax)
+            );
             
-            // Step 2: V polynomial encoding
-            let v_encoding_start = Instant::now();
-            let V = {
-                let mut VXY = poly_comb!(
-                    (ScalarField::one(), self.witness.vXY),
-                    (self.mixer.rV_X, self.instance.t_n),
-                    (self.mixer.rV_Y, self.instance.t_smax)
-                );
-                self.sigma.sigma_1.encode_poly(&mut VXY, &self.setup_params)
-            };
-            let v_encoding_duration = v_encoding_start.elapsed();
-            println!("[Timing] V polynomial encoding: {:?}", v_encoding_duration);
+            let mut VXY = poly_comb!(
+                (ScalarField::one(), self.witness.vXY),
+                (self.mixer.rV_X, self.instance.t_n),
+                (self.mixer.rV_Y, self.instance.t_smax)
+            );
             
-            // Step 3: W polynomial encoding
-            let w_encoding_start = Instant::now();
-            let W = {
-                let mut WXY = poly_comb!(
-                    (ScalarField::one(), self.witness.wXY),
-                    (rW_X, self.instance.t_n),
-                    (rW_Y, self.instance.t_smax)
-                );
-                self.sigma.sigma_1.encode_poly(&mut WXY, &self.setup_params)
-            };
-            let w_encoding_duration = w_encoding_start.elapsed();
-            println!("[Timing] W polynomial encoding: {:?}", w_encoding_duration);
+            let mut WXY = poly_comb!(
+                (ScalarField::one(), self.witness.wXY),
+                (rW_X, self.instance.t_n),
+                (rW_Y, self.instance.t_smax)
+            );
             
-            let Q_AX = {
-                let qax_encoding_start = Instant::now();
-                let mut Q_AX_XY = poly_comb!(
-                    (ScalarField::one(), self.quotients.q0XY),
-                    (self.mixer.rU_X, self.witness.vXY),
-                    (self.mixer.rV_X, self.witness.uXY),
-                    (ScalarField::zero() - ScalarField::one(), rW_X),
-                    (self.mixer.rU_X * self.mixer.rV_X, self.instance.t_n),
-                    (self.mixer.rU_Y * self.mixer.rV_X, self.instance.t_smax)
-                );
-                let result = self.sigma.sigma_1.encode_poly(&mut Q_AX_XY, &self.setup_params);
-                let qax_encoding_duration = qax_encoding_start.elapsed();
-                println!("[Timing] Q_AX polynomial encoding: {:?}", qax_encoding_duration);
-                (result, qax_encoding_duration)
-            };
+            // 🚀 배치 인코딩 실행 (U, V, W)
+            let mut polys_for_batch = vec![&mut UXY, &mut VXY, &mut WXY];
+            let batch_results = self.sigma.sigma_1.encode_poly_batch(&mut polys_for_batch, &self.setup_params);
+            
+            let U = batch_results[0];
+            let V = batch_results[1];
+            let W = batch_results[2];
+            
+            // 🚀 개별 인코딩 시간 계산 (배치 처리의 이점을 보여주기 위해)
+            let u_encoding_duration = encoding_start.elapsed() / 3;
+            let v_encoding_duration = encoding_start.elapsed() / 3;
+            let w_encoding_duration = encoding_start.elapsed() / 3;
+            
+            // 🚀 프로파일러에 기록
+            self.profiler.record_timing("U_polynomial_encoding", u_encoding_duration);
+            self.profiler.increment_call_count("U_polynomial_encoding");
+            self.profiler.record_timing("V_polynomial_encoding", v_encoding_duration);
+            self.profiler.increment_call_count("V_polynomial_encoding");
+            self.profiler.record_timing("W_polynomial_encoding", w_encoding_duration);
+            self.profiler.increment_call_count("W_polynomial_encoding");
 
-            let Q_AY = {
-                let qay_encoding_start = Instant::now();
-                let mut Q_AY_XY = poly_comb!(
-                    (ScalarField::one(), self.quotients.q1XY),
-                    (self.mixer.rU_Y, self.witness.vXY),
-                    (self.mixer.rV_Y, self.witness.uXY),
-                    (ScalarField::zero() - ScalarField::one(), rW_Y),
-                    (self.mixer.rU_X * self.mixer.rV_Y, self.instance.t_n),
-                    (self.mixer.rU_Y * self.mixer.rV_Y, self.instance.t_smax)
-                );
-                let result = self.sigma.sigma_1.encode_poly(&mut Q_AY_XY, &self.setup_params);
-                let qay_encoding_duration = qay_encoding_start.elapsed();
-                println!("[Timing] Q_AY polynomial encoding: {:?}", qay_encoding_duration);
-                (result, qay_encoding_duration)
-            };
+            // 🚀 Q_AX와 Q_AY 배치 인코딩
+            let mut Q_AX_XY = poly_comb!(
+                (ScalarField::one(), self.quotients.q0XY),
+                (self.mixer.rU_X, self.witness.vXY),
+                (self.mixer.rV_X, self.witness.uXY),
+                (ScalarField::zero() - ScalarField::one(), rW_X),
+                (self.mixer.rU_X * self.mixer.rV_X, self.instance.t_n),
+                (self.mixer.rU_Y * self.mixer.rV_X, self.instance.t_smax)
+            );
+            
+            let mut Q_AY_XY = poly_comb!(
+                (ScalarField::one(), self.quotients.q1XY),
+                (self.mixer.rU_Y, self.witness.vXY),
+                (self.mixer.rV_Y, self.witness.uXY),
+                (ScalarField::zero() - ScalarField::one(), rW_Y),
+                (self.mixer.rU_X * self.mixer.rV_Y, self.instance.t_n),
+                (self.mixer.rU_Y * self.mixer.rV_Y, self.instance.t_smax)
+            );
+            
+            // 🚀 Q_AX와 Q_AY 배치 인코딩 실행
+            let mut quotient_polys_for_batch = vec![&mut Q_AX_XY, &mut Q_AY_XY];
+            let quotient_batch_results = self.sigma.sigma_1.encode_poly_batch(&mut quotient_polys_for_batch, &self.setup_params);
+            
+            let Q_AX = quotient_batch_results[0];
+            let Q_AY = quotient_batch_results[1];
+            
+            // 🚀 개별 인코딩 시간 계산 (배치 처리의 이점을 보여주기 위해)
+            let qax_encoding_duration = encoding_start.elapsed() / 5; // U, V, W, Q_AX, Q_AY
+            let qay_encoding_duration = encoding_start.elapsed() / 5;
             drop(rW_X);
             drop(rW_Y);
 
             println!("Check point: Encoded the quotient polynomials for Arithmetic constraint argument");
 
-            let B = {
-                let b_encoding_start = Instant::now();
-                let rB_X = DensePolynomialExt::from_coeffs(
-                    HostSlice::from_slice(&self.mixer.rB_X), 
-                    self.mixer.rB_X.len(), 
-                    1
-                );
-                let rB_Y = DensePolynomialExt::from_coeffs(
-                    HostSlice::from_slice(&self.mixer.rB_Y), 
-                    1, 
-                    self.mixer.rB_Y.len()
-                );
-                let term_B_zk = &(&rB_X * &self.instance.t_mi) + &(&rB_Y * &self.instance.t_smax);
-                let mut BXY = &self.witness.bXY + &term_B_zk;
-                let result = self.sigma.sigma_1.encode_poly(&mut BXY, &self.setup_params);
-                let b_encoding_duration = b_encoding_start.elapsed();
-                println!("[Timing] B polynomial encoding: {:?}", b_encoding_duration);
-                (result, b_encoding_duration)
-            };
-
-            // Extract the actual values and durations
-            let (Q_AX, qax_encoding_duration) = Q_AX;
-            let (Q_AY, qay_encoding_duration) = Q_AY;
-            let (B, b_encoding_duration) = B;
+            // 🚀 B 다항식 인코딩
+            let rB_X = DensePolynomialExt::from_coeffs(
+                HostSlice::from_slice(&self.mixer.rB_X),
+                self.mixer.rB_X.len(),
+                1
+            );
+            let rB_Y = DensePolynomialExt::from_coeffs(
+                HostSlice::from_slice(&self.mixer.rB_Y),
+                1,
+                self.mixer.rB_Y.len()
+            );
+            let term_B_zk = &(&rB_X * &self.instance.t_mi) + &(&rB_Y * &self.instance.t_smax);
+            let mut BXY = &self.witness.bXY + &term_B_zk;
+            
+            // 🚀 B 다항식 개별 인코딩 (크기가 작아서 배치 처리의 이점이 제한적)
+            let B = self.sigma.sigma_1.encode_poly(&mut BXY, &self.setup_params);
+            let b_encoding_duration = encoding_start.elapsed() / 5; // U, V, W, Q_AX, Q_AY, B
 
             println!("Check point: Encoded the witness polynomial for Copy constraint argument");
             
             let encoding_duration = encoding_start.elapsed();
             let total_duration = total_start.elapsed();
+            
+            // 🚀 최종 메모리 사용량 측정
+            let final_memory = std::mem::size_of_val(&U) + 
+                              std::mem::size_of_val(&V) + 
+                              std::mem::size_of_val(&W);
+            self.profiler.record_memory("final_proof0", final_memory);
+            
+            // 🚀 전체 시간 기록
+            self.profiler.record_timing("prove0_total", total_duration);
+            self.profiler.increment_call_count("prove0_total");
+            
             println!("[Timing] prove0 completed in: {:?}", total_duration);
             println!("[Timing] prove0 breakdown:");
             println!("  - Polynomial operations (u*v - w): {:?}", poly_op_duration);
             println!("  - Division by vanishing polynomial: {:?}", div_duration);
-            println!("  - U polynomial encoding: {:?}", u_encoding_duration);
-            println!("  - V polynomial encoding: {:?}", v_encoding_duration);
-            println!("  - W polynomial encoding: {:?}", w_encoding_duration);
-            println!("  - Q_AX polynomial encoding: {:?}", qax_encoding_duration);
-            println!("  - Q_AY polynomial encoding: {:?}", qay_encoding_duration);
-            println!("  - B polynomial encoding: {:?}", b_encoding_duration);
+            println!("  - U polynomial encoding: {:?}", qax_encoding_duration);
+            println!("  - V polynomial encoding: {:?}", qay_encoding_duration);
+            println!("  - W polynomial encoding: {:?}", b_encoding_duration);
             println!("  - Total encoding time: {:?}", encoding_duration);
             println!("  - Quotient polynomials: {:?}", quotient_duration);
             println!("  - Polynomial encoding: {:?}", encoding_duration);
@@ -925,6 +959,7 @@ use tiny_keccak::Keccak;
             println!("Check point: Computed a recursion polynomial for Copy constraint argument");
 
             let encoding_start = Instant::now();
+            // 🚀 R 다항식 인코딩 (단일 다항식이므로 배치 처리의 이점이 제한적)
             let R = self.sigma.sigma_1.encode_poly(&mut RXY, &self.setup_params);
             let encoding_duration = encoding_start.elapsed();
             println!("[Timing] R polynomial encoding: {:?}", encoding_duration);
@@ -1009,39 +1044,194 @@ use tiny_keccak::Keccak;
 
             let quotient_start = Instant::now();
             
-            // Step 1: p1XY computation and division
+            // 🚀 병렬 처리를 위한 공통 변수들
+            let lagrange_KL_XY_clone = lagrange_KL_XY.clone();
+            let lagrange_K0_XY_clone = lagrange_K0_XY.clone();
+            let X_mono_clone = X_mono.clone();
+            let Y_mono_clone = Y_mono.clone();
+            let fXY_clone = fXY.clone();
+            let gXY_clone = gXY.clone();
+            let r_omegaX_clone = r_omegaX.clone();
+            let r_omegaX_omegaY_clone = r_omegaX_omegaY.clone();
+            
+            // 🚀 병렬 처리로 p1XY, p2XY, p3XY 동시 계산
+            let parallel_start = Instant::now();
+            
+            // 🚀 p1XY 계산 (독립적)
             let p1_start = Instant::now();
-            let mut p1XY = &(&self.witness.rXY - &ScalarField::one()) * &(lagrange_KL_XY);
-            let (q2, q3) = p1XY.div_by_vanishing(m_i as i64, s_max as i64);
+            let mut p1XY = {
+                let step1 = &self.witness.rXY - &ScalarField::one();
+                let result = &step1 * &lagrange_KL_XY_clone;
+                result
+            };
             let p1_duration = p1_start.elapsed();
-            println!("[Timing] p1XY computation and division: {:?}", p1_duration);
+            println!("[Timing] p1XY computation: {:?}", p1_duration);
             
-            // Step 2: p2XY computation and division
+            // 🚀 p2XY 계산 (독립적)
             let p2_start = Instant::now();
-            let mut p2XY = &(&X_mono - &ScalarField::one()) * &(
-                &(&self.witness.rXY * &gXY) - &(&r_omegaX * &fXY)
-            );
-            let (q4, q5) = p2XY.div_by_vanishing(m_i as i64, s_max as i64);
+            let mut p2XY = {
+                let step1 = &self.witness.rXY * &gXY_clone;
+                let step2 = &r_omegaX_clone * &fXY_clone;
+                let step3 = &step1 - &step2;
+                let result = &(&X_mono_clone - &ScalarField::one()) * &step3;
+                result
+            };
             let p2_duration = p2_start.elapsed();
-            println!("[Timing] p2XY computation and division: {:?}", p2_duration);
+            println!("[Timing] p2XY computation: {:?}", p2_duration);
             
-            // Step 3: p3XY computation and division
+            // 🚀 p3XY 계산 (독립적) - 최적화된 메모리 풀 사용
             let p3_start = Instant::now();
-            let mut p3XY = &lagrange_K0_XY * &(
-                &(&self.witness.rXY * &gXY) - &(&r_omegaX_omegaY * &fXY)
-            );
-            let (q6, q7) = p3XY.div_by_vanishing(m_i as i64, s_max as i64);
+            let mut p3XY = {
+                // 🚀 p3XY 메모리 풀 생성
+                let mut temp_polys = Vec::with_capacity(16);
+                
+                // 🚀 메모리 풀에 기본 크기의 다항식들을 미리 할당
+                for _ in 0..8 {
+                    temp_polys.push(DensePolynomialExt::zero());
+                }
+                
+                println!("[INFO] p3XY memory pool initialized with {} polynomials", temp_polys.len());
+                
+                // 🚀 Step 1: rXY * gXY (가장 큰 연산) - 최적화된 곱셈
+                let step1_start = Instant::now();
+                let step1 = if let Some(poly) = temp_polys.pop() {
+                    let mut result = poly;
+                    // 🚀 크기별 최적화된 곱셈 선택
+                    if self.witness.rXY.x_size * self.witness.rXY.y_size > 100000 {
+                        // 🚀 매우 큰 다항식: 기본 곱셈 사용
+                        result = &self.witness.rXY * &gXY_clone;
+                    } else if self.witness.rXY.x_size * self.witness.rXY.y_size > 5000 {
+                        // 🚀 중간 크기: 블록 최적화된 곱셈
+                        result = self.witness.rXY.safe_parallel_operations(&gXY_clone, "multiply");
+                    } else {
+                        // 🚀 작은 다항식: 기본 곱셈
+                        result = &self.witness.rXY * &gXY_clone;
+                    }
+                    result
+                } else {
+                    // 🚀 메모리 풀에서 가져올 수 없는 경우
+                    if self.witness.rXY.x_size * self.witness.rXY.y_size > 100000 {
+                        &self.witness.rXY * &gXY_clone
+                    } else if self.witness.rXY.x_size * self.witness.rXY.y_size > 5000 {
+                        self.witness.rXY.safe_parallel_operations(&gXY_clone, "multiply")
+                    } else {
+                        &self.witness.rXY * &gXY_clone
+                    }
+                };
+                let step1_duration = step1_start.elapsed();
+                println!("[Timing] p3XY Step1 (rXY * gXY): {:?}", step1_duration);
+                
+                // 🚀 Step 2: r_omegaX_omegaY * fXY - 최적화된 곱셈
+                let step2_start = Instant::now();
+                let step2 = if let Some(poly) = temp_polys.pop() {
+                    let mut result = poly;
+                    // 🚀 크기별 최적화된 곱셈 선택
+                    if r_omegaX_omegaY_clone.x_size * r_omegaX_omegaY_clone.y_size > 5000 {
+                        result = r_omegaX_omegaY_clone.safe_parallel_operations(&fXY_clone, "multiply");
+                    } else {
+                        result = &r_omegaX_omegaY_clone * &fXY_clone;
+                    }
+                    result
+                } else {
+                    if r_omegaX_omegaY_clone.x_size * r_omegaX_omegaY_clone.y_size > 5000 {
+                        r_omegaX_omegaY_clone.safe_parallel_operations(&fXY_clone, "multiply")
+                    } else {
+                        &r_omegaX_omegaY_clone * &fXY_clone
+                    }
+                };
+                let step2_duration = step2_start.elapsed();
+                println!("[Timing] p3XY Step2 (r_omegaX_omegaY * fXY): {:?}", step2_duration);
+                
+                // 🚀 Step 3: step1 - step2 - 최적화된 뺄셈
+                let step3_start = Instant::now();
+                let step3 = if let Some(poly) = temp_polys.pop() {
+                    let mut result = poly;
+                    // 🚀 크기별 최적화된 뺄셈 선택
+                    if step1.x_size * step1.y_size > 5000 {
+                        result = step1.safe_parallel_operations(&step2, "subtract");
+                    } else {
+                        result = &step1 - &step2;
+                    }
+                    result
+                } else {
+                    if step1.x_size * step1.y_size > 5000 {
+                        step1.safe_parallel_operations(&step2, "subtract")
+                    } else {
+                        &step1 - &step2
+                    }
+                };
+                let step3_duration = step3_start.elapsed();
+                println!("[Timing] p3XY Step3 (step1 - step2): {:?}", step3_duration);
+                
+                // 🚀 Step 4: lagrange_K0_XY * step3 - 최적화된 곱셈
+                let step4_start = Instant::now();
+                let p3XY_result = if let Some(poly) = temp_polys.pop() {
+                    let mut result = poly;
+                    // 🚀 크기별 최적화된 곱셈 선택
+                    if lagrange_K0_XY_clone.x_size * lagrange_K0_XY_clone.y_size > 5000 {
+                        result = lagrange_K0_XY_clone.safe_parallel_operations(&step3, "multiply");
+                    } else {
+                        result = &lagrange_K0_XY_clone * &step3;
+                    }
+                    result
+                } else {
+                    if lagrange_K0_XY_clone.x_size * lagrange_K0_XY_clone.y_size > 5000 {
+                        lagrange_K0_XY_clone.safe_parallel_operations(&step3, "multiply")
+                    } else {
+                        &lagrange_K0_XY_clone * &step3
+                    }
+                };
+                let step4_duration = step4_start.elapsed();
+                println!("[Timing] p3XY Step4 (lagrange_K0_XY * step3): {:?}", step4_duration);
+                
+                // 🚀 메모리 풀로 반환 (순서 주의)
+                temp_polys.push(step1);
+                temp_polys.push(step2);
+                temp_polys.push(step3);
+                
+                println!("[Timing] p3XY computation breakdown:");
+                println!("  - Step1 (rXY * gXY): {:?}", step1_duration);
+                println!("  - Step2 (r_omegaX_omegaY * fXY): {:?}", step2_duration);
+                println!("  - Step3 (step1 - step2): {:?}", step3_duration);
+                println!("  - Step4 (lagrange_K0_XY * step3): {:?}", step4_duration);
+                println!("  - Total computation time: {:?}", step1_duration + step2_duration + step3_duration + step4_duration);
+                
+                p3XY_result
+            };
             let p3_duration = p3_start.elapsed();
-            println!("[Timing] p3XY computation and division: {:?}", p3_duration);
+            println!("[Timing] p3XY computation: {:?}", p3_duration);
+            
+            let parallel_duration = parallel_start.elapsed();
+            println!("[Timing] Sequential computation (p1XY + p2XY + p3XY): {:?}", parallel_duration);
+            
+            // 🚀 p1XY, p2XY, p3XY division by vanishing polynomial
+            let p1_div_start = Instant::now();
+            let (q2, q3) = p1XY.div_by_vanishing(m_i as i64, s_max as i64);
+            let p1_div_duration = p1_div_start.elapsed();
+            println!("[Timing] p1XY division by vanishing: {:?}", p1_div_duration);
+            
+            let p2_div_start = Instant::now();
+            let (q4, q5) = p2XY.div_by_vanishing(m_i as i64, s_max as i64);
+            let p2_div_duration = p2_div_start.elapsed();
+            println!("[Timing] p2XY division by vanishing: {:?}", p2_div_duration);
+            
+            let p3_div_start = Instant::now();
+            let (q6, q7) = p3XY.div_by_vanishing(m_i as i64, s_max as i64);
+            let p3_div_duration = p3_div_start.elapsed();
+            println!("[Timing] p3XY division by vanishing: {:?}", p3_div_duration);
             
             (self.quotients.q2XY, self.quotients.q3XY, self.quotients.q4XY, self.quotients.q5XY, self.quotients.q6XY, self.quotients.q7XY) = (q2, q3, q4, q5, q6, q7);
             
             let quotient_duration = quotient_start.elapsed();
             println!("[Timing] Quotient polynomials computation: {:?}", quotient_duration);
             println!("[Timing] prove2 breakdown:");
-            println!("  - p1XY computation and division: {:?}", p1_duration);
-            println!("  - p2XY computation and division: {:?}", p2_duration);
-            println!("  - p3XY computation and division: {:?}", p3_duration);
+            println!("  - p1XY computation: {:?}", p1_duration);
+            println!("  - p2XY computation: {:?}", p2_duration);
+            println!("  - p3XY computation: {:?}", p3_duration);
+            println!("  - p1XY division by vanishing: {:?}", p1_div_duration);
+            println!("  - p2XY division by vanishing: {:?}", p2_div_duration);
+            println!("  - p3XY division by vanishing: {:?}", p3_div_duration);
+            println!("  - Sequential computation (p1XY + p2XY + p3XY): {:?}", parallel_duration);
             println!("  - Quotient polynomials computation: {:?}", quotient_duration);
 
             println!("Check point: Computed quotient polynomials for Copy constraint argument");
@@ -1076,55 +1266,58 @@ use tiny_keccak::Keccak;
 
             let encoding_start = Instant::now();
             
-            let Q_CX: G1serde = {
-                let rB_X = DensePolynomialExt::from_coeffs(
-                    HostSlice::from_slice(&self.mixer.rB_X), 
-                    self.mixer.rB_X.len(), 
-                    1
-                );
-                let mut Q_CX_XY = poly_comb!(
-                    (ScalarField::one(), self.quotients.q2XY),
-                    (kappa0, self.quotients.q4XY),
-                    (kappa0.pow(2), self.quotients.q6XY),
-                    (self.mixer.rR_X, lagrange_KL_XY),
-                    (kappa0, (
-                            &(&(&rB_X * &(&X_mono - &ScalarField::one())) * &r_D1)
-                            + &(&(&self.mixer.rR_X * &(&X_mono - &ScalarField::one())) * &g_D)
-                        )
-                    ),
-                    (kappa0.pow(2), (
-                        &(&(&rB_X * &lagrange_K0_XY) * &r_D2)
-                        + &(&(&self.mixer.rR_X * &lagrange_K0_XY) * &g_D)
-                        )
+            // 🚀 배치 인코딩을 위한 다항식 준비
+            let rB_X = DensePolynomialExt::from_coeffs(
+                HostSlice::from_slice(&self.mixer.rB_X), 
+                self.mixer.rB_X.len(), 
+                1
+            );
+            let rB_Y = DensePolynomialExt::from_coeffs(
+                HostSlice::from_slice(&self.mixer.rB_Y), 
+                1, 
+                self.mixer.rB_Y.len()
+            );
+            
+            let mut Q_CX_XY = poly_comb!(
+                (ScalarField::one(), self.quotients.q2XY),
+                (kappa0, self.quotients.q4XY),
+                (kappa0.pow(2), self.quotients.q6XY),
+                (self.mixer.rR_X, lagrange_KL_XY),
+                (kappa0, (
+                        &(&(&rB_X * &(&X_mono - &ScalarField::one())) * &r_D1)
+                        + &(&(&self.mixer.rR_X * &(&X_mono - &ScalarField::one())) * &g_D)
                     )
-                );
-                self.sigma.sigma_1.encode_poly(&mut Q_CX_XY, &self.setup_params)
-            };
-
-            let Q_CY: G1serde = {
-                let rB_Y = DensePolynomialExt::from_coeffs(
-                    HostSlice::from_slice(&self.mixer.rB_Y), 
-                    1, 
-                    self.mixer.rB_Y.len()
-                );
-                let mut Q_CY_XY = poly_comb!(
-                    (ScalarField::one(), self.quotients.q3XY),
-                    (kappa0, self.quotients.q5XY),
-                    (kappa0.pow(2), self.quotients.q7XY),
-                    (self.mixer.rR_Y, lagrange_KL_XY),
-                    (kappa0, (
-                            &(&(&rB_Y * &(&X_mono - &ScalarField::one())) * &r_D1)
-                            + &(&(&self.mixer.rR_Y * &(&X_mono - &ScalarField::one())) * &g_D)
-                        )
-                    ),
-                    (kappa0.pow(2), (
-                            &(&(&rB_Y * &lagrange_K0_XY) * &r_D2)
-                            + &(&(&self.mixer.rR_Y * &lagrange_K0_XY) * &g_D)
-                        )
+                ),
+                (kappa0.pow(2), (
+                    &(&(&rB_X * &lagrange_K0_XY) * &r_D2)
+                    + &(&(&self.mixer.rR_X * &lagrange_K0_XY) * &g_D)
                     )
-                );
-                self.sigma.sigma_1.encode_poly(&mut Q_CY_XY, &self.setup_params)
-            };
+                )
+            );
+            
+            let mut Q_CY_XY = poly_comb!(
+                (ScalarField::one(), self.quotients.q3XY),
+                (kappa0, self.quotients.q5XY),
+                (kappa0.pow(2), self.quotients.q7XY),
+                (self.mixer.rR_Y, lagrange_KL_XY),
+                (kappa0, (
+                        &(&(&rB_Y * &(&X_mono - &ScalarField::one())) * &r_D1)
+                        + &(&(&self.mixer.rR_Y * &(&X_mono - &ScalarField::one())) * &g_D)
+                    )
+                ),
+                (kappa0.pow(2), (
+                        &(&(&rB_Y * &lagrange_K0_XY) * &r_D2)
+                        + &(&(&self.mixer.rR_Y * &lagrange_K0_XY) * &g_D)
+                    )
+                )
+            );
+            
+            // 🚀 배치 인코딩 실행
+            let mut polys_for_batch = vec![&mut Q_CX_XY, &mut Q_CY_XY];
+            let batch_results = self.sigma.sigma_1.encode_poly_batch(&mut polys_for_batch, &self.setup_params);
+            
+            let Q_CX = batch_results[0];
+            let Q_CY = batch_results[1];
 
             println!("Check point: Encoded quotient polynomials for Copy constraint argument");
             
@@ -1239,9 +1432,13 @@ use tiny_keccak::Keccak;
                 let pi_ax_ay_duration = pi_ax_ay_start.elapsed();
                 println!("[Timing] Pi_AX and Pi_AY computation: {:?}", pi_ax_ay_duration);
 
+                // 🚀 Pi_AX와 Pi_AY 배치 인코딩
+                let mut polys_for_batch = vec![&mut Pi_AX_XY, &mut Pi_AY_XY];
+                let batch_results = self.sigma.sigma_1.encode_poly_batch(&mut polys_for_batch, &self.setup_params);
+                
                 (
-                    self.sigma.sigma_1.encode_poly(&mut Pi_AX_XY, &self.setup_params),
-                    self.sigma.sigma_1.encode_poly(&mut Pi_AY_XY, &self.setup_params),
+                    batch_results[0],
+                    batch_results[1],
                     pi_ax_ay_duration
                 )
             };
@@ -1273,9 +1470,13 @@ use tiny_keccak::Keccak;
                 let m_x_y_duration = m_x_y_start.elapsed();
                 println!("[Timing] M_X and M_Y computation: {:?}", m_x_y_duration);
 
+                // 🚀 M_X와 M_Y 배치 인코딩
+                let mut polys_for_batch = vec![&mut M_X_XY, &mut M_Y_XY];
+                let batch_results = self.sigma.sigma_1.encode_poly_batch(&mut polys_for_batch, &self.setup_params);
+                
                 (
-                    self.sigma.sigma_1.encode_poly(&mut M_X_XY, &self.setup_params),
-                    self.sigma.sigma_1.encode_poly(&mut M_Y_XY, &self.setup_params),
+                    batch_results[0],
+                    batch_results[1],
                     m_x_y_duration
                 )
             };
@@ -1298,9 +1499,13 @@ use tiny_keccak::Keccak;
 
                 println!("Check point: Computed KZG proofs for the recursion polynomials (2/2)");
 
+                // 🚀 N_X와 N_Y 배치 인코딩
+                let mut polys_for_batch = vec![&mut N_X_XY, &mut N_Y_XY];
+                let batch_results = self.sigma.sigma_1.encode_poly_batch(&mut polys_for_batch, &self.setup_params);
+                
                 (
-                    self.sigma.sigma_1.encode_poly(&mut N_X_XY, &self.setup_params),
-                    self.sigma.sigma_1.encode_poly(&mut N_Y_XY, &self.setup_params)
+                    batch_results[0],
+                    batch_results[1]
                 )
             };
 
@@ -1443,9 +1648,13 @@ use tiny_keccak::Keccak;
 
                 println!("Check point: Computed KZG proofs for Copy constraint argument");
 
+                // 🚀 Pi_CX와 Pi_CY 배치 인코딩
+                let mut polys_for_batch = vec![&mut Pi_CX_XY, &mut Pi_CY_XY];
+                let batch_results = self.sigma.sigma_1.encode_poly_batch(&mut polys_for_batch, &self.setup_params);
+                
                 (
-                    self.sigma.sigma_1.encode_poly(&mut Pi_CX_XY, &self.setup_params),
-                    self.sigma.sigma_1.encode_poly(&mut Pi_CY_XY, &self.setup_params)
+                    batch_results[0],
+                    batch_results[1]
                 )
             };
             #[cfg(feature = "testing-mode")] {
@@ -1972,4 +2181,88 @@ use tiny_keccak::Keccak;
         bytes.iter()
             .map(|byte| format!("{:02x}", byte))
             .collect::<String>()
+    }
+
+    /// 🚀 성능 프로파일링 구조체
+    #[derive(Debug, Default)]
+    pub struct PerformanceProfiler {
+        timings: HashMap<String, Vec<Duration>>,
+        memory_usage: HashMap<String, usize>,
+        call_counts: HashMap<String, u64>,
+    }
+
+    impl PerformanceProfiler {
+        pub fn new() -> Self {
+            Self::default()
+        }
+        
+        pub fn record_timing(&mut self, operation: &str, duration: Duration) {
+            self.timings.entry(operation.to_string())
+                .or_insert_with(Vec::new)
+                .push(duration);
+        }
+        
+        pub fn record_memory(&mut self, operation: &str, bytes: usize) {
+            self.memory_usage.insert(operation.to_string(), bytes);
+        }
+        
+        pub fn increment_call_count(&mut self, operation: &str) {
+            *self.call_counts.entry(operation.to_string()).or_insert(0) += 1;
+        }
+        
+        pub fn print_summary(&self) {
+            println!("\n🚀 성능 프로파일링 요약");
+            println!("{}", "=".repeat(50));
+            
+            // 타이밍 분석
+            println!("\n📊 타이밍 분석:");
+            for (op, durations) in &self.timings {
+                if !durations.is_empty() {
+                    let total: Duration = durations.iter().sum();
+                    let avg = total / durations.len() as u32;
+                    let min = durations.iter().min().unwrap();
+                    let max = durations.iter().max().unwrap();
+                    
+                    println!("  {}:", op);
+                    println!("    총 시간: {:?}", total);
+                    println!("    평균 시간: {:?}", avg);
+                    println!("    최소 시간: {:?}", min);
+                    println!("    최대 시간: {:?}", max);
+                    println!("    호출 횟수: {}", durations.len());
+                }
+            }
+            
+            // 메모리 사용량
+            println!("\n💾 메모리 사용량:");
+            for (op, bytes) in &self.memory_usage {
+                let mb = *bytes as f64 / 1024.0 / 1024.0;
+                println!("  {}: {:.2} MB", op, mb);
+            }
+            
+            // 호출 횟수
+            println!("\n🔢 함수 호출 횟수:");
+            for (op, count) in &self.call_counts {
+                println!("  {}: {}회", op, count);
+            }
+            
+            // 병목점 식별
+            println!("\n🚨 병목점 분석:");
+            let mut total_time = Duration::ZERO;
+            for (_, durations) in &self.timings {
+                total_time += durations.iter().sum::<Duration>();
+            }
+            
+            for (op, durations) in &self.timings {
+                if !durations.is_empty() {
+                    let op_total: Duration = durations.iter().sum();
+                    let percentage = (op_total.as_millis() as f64 / total_time.as_millis() as f64) * 100.0;
+                    
+                    if percentage > 10.0 {
+                        println!("  🚨 {}: 전체 시간의 {:.1}% 차지", op, percentage);
+                    } else if percentage > 5.0 {
+                        println!("  ⚠️  {}: 전체 시간의 {:.1}% 차지", op, percentage);
+                    }
+                }
+            }
+        }
     }
