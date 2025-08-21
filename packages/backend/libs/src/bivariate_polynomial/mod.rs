@@ -1179,12 +1179,12 @@ impl BivariatePolynomial for DensePolynomialExt {
         
         // 🚀 입력 크기 분석
         let input_size = self.x_size * self.y_size;
-        println!("🔍 [div_by_vanishing] 입력 분석:");
-        println!("  - 분자 X 차수: {}", numer_x_degree);
-        println!("  - 분자 Y 차수: {}", numer_y_degree);
-        println!("  - 분모 X 차수: {}", denom_x_degree);
-        println!("  - 분모 Y 차수: {}", denom_y_degree);
-        println!("  - 계수 개수: {}", input_size);
+        // println!("🔍 [div_by_vanishing] 입력 분석:");
+        // println!("  - 분자 X 차수: {}", numer_x_degree);
+        // println!("  - 분자 Y 차수: {}", numer_y_degree);
+        // println!("  - 분모 X 차수: {}", denom_x_degree);
+        // println!("  - 분모 Y 차수: {}", denom_y_degree);
+        // println!("  - 계수 개수: {}", input_size);
         
         if numer_x_degree < denom_x_degree || numer_y_degree < denom_y_degree {
             panic!("The numerator must have grater degrees than denominators.")
@@ -1270,7 +1270,7 @@ impl BivariatePolynomial for DensePolynomialExt {
                 memory_pool_vec.push(acc_block_vec);
             }
             let block_duration = block_start.elapsed();
-            println!("🔍 [div_by_vanishing] 블록 처리 시간: {:?}", block_duration);
+            // println!("🔍 [div_by_vanishing] 블록 처리 시간: {:?}", block_duration);
         }
 
         // 🚀 나머지 연산들도 최적화
@@ -1317,16 +1317,17 @@ impl BivariatePolynomial for DensePolynomialExt {
         };
         
         let total_duration = total_start.elapsed();
-        println!("🔍 [div_by_vanishing] 성능 분석:");
-        println!("  - 총 실행 시간: {:?}", total_duration);
-        println!("  - 메모리 할당 횟수: {}", memory_allocations);
-        println!("  - 벡터 연산 횟수: {}", vector_operations);
-        println!("  - 메모리 풀 효율성: {:.1}%", 
-            if memory_allocations > 0 { 
-                ((8 - memory_allocations) as f64 / 8.0) * 100.0 
-            } else { 
-                100.0 
-            });
+        // println!("🔍 [div_by_vanishing] 성능 분석:");
+        // println!("  - 총 실행 시간: {:?}", total_duration);
+        // println!("  - 메모리 할당 횟수: {}", memory_allocations);
+        // println!("  - 벡터 연산 횟수: {}", vector_operations);
+        // println!("  - 메모리 풀 효율성: {:.1}%", 
+        //     if memory_allocations > 0 { 
+        //         ((8 - memory_allocations) as f64 / 8.0) * 100.0 
+        //     } else { 
+        //         100.0 
+        //     }
+        // );
         
         return (quo_x, quo_y)
     }

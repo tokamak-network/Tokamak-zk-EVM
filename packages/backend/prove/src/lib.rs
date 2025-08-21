@@ -1090,7 +1090,7 @@ use rayon::prelude::*;
                     temp_polys.push(DensePolynomialExt::zero());
                 }
                 
-                println!("[INFO] p3XY memory pool initialized with {} polynomials", temp_polys.len());
+
                 
                 // 🚀 Step 1: rXY * gXY (가장 큰 연산) - 최적화된 곱셈
                 let step1_start = Instant::now();
@@ -1119,7 +1119,7 @@ use rayon::prelude::*;
                     }
                 };
                 let step1_duration = step1_start.elapsed();
-                println!("[Timing] p3XY Step1 (rXY * gXY): {:?}", step1_duration);
+
                 
                 // 🚀 Step 2: r_omegaX_omegaY * fXY - 최적화된 곱셈
                 let step2_start = Instant::now();
@@ -1140,7 +1140,7 @@ use rayon::prelude::*;
                     }
                 };
                 let step2_duration = step2_start.elapsed();
-                println!("[Timing] p3XY Step2 (r_omegaX_omegaY * fXY): {:?}", step2_duration);
+
                 
                 // 🚀 Step 3: step1 - step2 - 최적화된 뺄셈
                 let step3_start = Instant::now();
@@ -1161,7 +1161,7 @@ use rayon::prelude::*;
                     }
                 };
                 let step3_duration = step3_start.elapsed();
-                println!("[Timing] p3XY Step3 (step1 - step2): {:?}", step3_duration);
+
                 
                 // 🚀 Step 4: lagrange_K0_XY * step3 - 최적화된 곱셈
                 let step4_start = Instant::now();
@@ -1182,57 +1182,43 @@ use rayon::prelude::*;
                     }
                 };
                 let step4_duration = step4_start.elapsed();
-                println!("[Timing] p3XY Step4 (lagrange_K0_XY * step3): {:?}", step4_duration);
+
                 
                 // 🚀 메모리 풀로 반환 (순서 주의)
                 temp_polys.push(step1);
                 temp_polys.push(step2);
                 temp_polys.push(step3);
                 
-                println!("[Timing] p3XY computation breakdown:");
-                println!("  - Step1 (rXY * gXY): {:?}", step1_duration);
-                println!("  - Step2 (r_omegaX_omegaY * fXY): {:?}", step2_duration);
-                println!("  - Step3 (step1 - step2): {:?}", step3_duration);
-                println!("  - Step4 (lagrange_K0_XY * step3): {:?}", step4_duration);
-                println!("  - Total computation time: {:?}", step1_duration + step2_duration + step3_duration + step4_duration);
+
                 
                 p3XY_result
             };
             let p3_duration = p3_start.elapsed();
-            println!("[Timing] p3XY computation: {:?}", p3_duration);
+
             
             let parallel_duration = parallel_start.elapsed();
-            println!("[Timing] Sequential computation (p1XY + p2XY + p3XY): {:?}", parallel_duration);
+
             
             // 🚀 p1XY, p2XY, p3XY division by vanishing polynomial
             let p1_div_start = Instant::now();
             let (q2, q3) = p1XY.div_by_vanishing(m_i as i64, s_max as i64);
             let p1_div_duration = p1_div_start.elapsed();
-            println!("[Timing] p1XY division by vanishing: {:?}", p1_div_duration);
+
             
             let p2_div_start = Instant::now();
             let (q4, q5) = p2XY.div_by_vanishing(m_i as i64, s_max as i64);
             let p2_div_duration = p2_div_start.elapsed();
-            println!("[Timing] p2XY division by vanishing: {:?}", p2_div_duration);
+
             
             let p3_div_start = Instant::now();
             let (q6, q7) = p3XY.div_by_vanishing(m_i as i64, s_max as i64);
             let p3_div_duration = p3_div_start.elapsed();
-            println!("[Timing] p3XY division by vanishing: {:?}", p3_div_duration);
+
             
             (self.quotients.q2XY, self.quotients.q3XY, self.quotients.q4XY, self.quotients.q5XY, self.quotients.q6XY, self.quotients.q7XY) = (q2, q3, q4, q5, q6, q7);
             
             let quotient_duration = quotient_start.elapsed();
-            println!("[Timing] Quotient polynomials computation: {:?}", quotient_duration);
-            println!("[Timing] prove2 breakdown:");
-            println!("  - p1XY computation: {:?}", p1_duration);
-            println!("  - p2XY computation: {:?}", p2_duration);
-            println!("  - p3XY computation: {:?}", p3_duration);
-            println!("  - p1XY division by vanishing: {:?}", p1_div_duration);
-            println!("  - p2XY division by vanishing: {:?}", p2_div_duration);
-            println!("  - p3XY division by vanishing: {:?}", p3_div_duration);
-            println!("  - Sequential computation (p1XY + p2XY + p3XY): {:?}", parallel_duration);
-            println!("  - Quotient polynomials computation: {:?}", quotient_duration);
+
 
             println!("Check point: Computed quotient polynomials for Copy constraint argument");
             

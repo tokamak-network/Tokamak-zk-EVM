@@ -103,5 +103,5 @@ fn main() {
     println!("✅ Total proving time: {:.6} seconds", prove_start.elapsed().as_secs_f64());
     
     // 🚀 성능 프로파일링 요약 출력
-    prover.profiler.print_summary();
+    // prover.profiler.print_summary();
 }
