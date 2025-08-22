@@ -158,7 +158,7 @@ step_prove() {
 
   log "Prove: synthesize from tx=$tx_hash"
   pushd "$FE_SYN" >/dev/null
-  npx tsx ./examples/demo/index.ts "$tx_hash"
+  npm run synthesizer "$tx_hash"
   popd >/dev/null
 
   sync_synth_outputs_to_dist
