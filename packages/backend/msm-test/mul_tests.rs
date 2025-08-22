@@ -378,8 +378,8 @@ mod tests {
         let mut stream_2 = IcicleStream::create().unwrap();
 
         // Test parameters
-        let num_msms = 10;
-        let msm_size = 1 << 13; // Size of each individual MSM
+        let num_msms = 100;
+        let msm_size = 1 << 18; // Size of each individual MSM
 
         println!("Testing {} MSMs of size {} each", num_msms, msm_size);
 
