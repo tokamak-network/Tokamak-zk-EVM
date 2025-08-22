@@ -1,0 +1,20 @@
+# Git
+.git
+.gitignore
+
+# Node
+**/node_modules
+npm-debug.log
+yarn.lock
+pnpm-lock.yaml
+
+# Rust / Build artifacts
+**/target
+**/dist
+**/build
+
+# IDE / OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db

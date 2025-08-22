@@ -1,47 +1,30 @@
-// For development
+// For development - uses dynamic imports to load QAP compiler generated files
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { pathToFileURL } from 'url';
 
-export * from './constants.js'
+export * from './constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// export * from './globalWireList.js'
-// export * from './subcircuitInfo.js'
-// export * from './setupParams.js'
+// Helper function to dynamically import modules from QAP compiler
+async function importQapModule(relativePath: string, exportName: string) {
+  const modulePath = path.join(__dirname, relativePath);
+  const moduleUrl = pathToFileURL(modulePath).href;
+  const module = await import(moduleUrl);
+  return module[exportName];
+}
 
-let modulePath = path.join(__dirname, '../../../../qap-compiler/subcircuits/library/subcircuitInfo.js');
-let moduleUrl = pathToFileURL(modulePath).href;
-const { subcircuits } = await import(moduleUrl);
-modulePath = path.join(__dirname, '../../../../qap-compiler/subcircuits/library/globalWireList.js');
-moduleUrl = pathToFileURL(modulePath).href;
-const { globalWireList } = await import(moduleUrl);
-modulePath = path.join(__dirname, '../../../../qap-compiler/subcircuits/library/setupParams.js');
-moduleUrl = pathToFileURL(modulePath).href;
-const { setupParams } = await import(moduleUrl);
+// Dynamic imports for QAP compiler generated files
+const BASE_PATH = '../../../../qap-compiler/subcircuits/library';
+const [subcircuits, globalWireList, setupParams] = await Promise.all([
+  importQapModule(`${BASE_PATH}/subcircuitInfo.js`, 'subcircuits'),
+  importQapModule(`${BASE_PATH}/globalWireList.js`, 'globalWireList'),
+  importQapModule(`${BASE_PATH}/setupParams.js`, 'setupParams'),
+]);
 
-export {subcircuits, globalWireList, setupParams}
+export { subcircuits, globalWireList, setupParams };
 
-// export const wasmDir = path.join(__dirname, '../constant/wasm')
-export const wasmDir = path.join(__dirname, '../../../../qap-compiler/subcircuits/library/wasm')
-
-// // For user interface
-// import path from 'path';
-// import { fileURLToPath } from 'url';
-// export * from './constants.js';
-
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
-
-// export {
-//   subcircuits,
-//   globalWireList,
-//   setupParams,
-// } from '@tokamak-zk-evm/qap-compiler';
-// export const wasmDir = path.join(
-//   __dirname,
-//   '../../../node_modules/@tokamak-zk-evm/qap-compiler/dist/wasm',
-// );
-
+// WASM directory path
+export const wasmDir = path.join(__dirname, BASE_PATH, 'wasm');

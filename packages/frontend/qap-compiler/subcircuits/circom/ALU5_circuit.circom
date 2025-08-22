@@ -5,16 +5,16 @@ template ALU5_() {
     signal input in[7];
     signal output out[2];
 
-    component alu = ALU5();
-    alu.selector <== in[0];
+    component alu5 = ALU5();
+    alu5.selector <== in[0];
 
-    alu.in1 <== [in[1], in[2]];
-    alu.in2 <== [in[3], in[4]];
+    alu5.in1 <== [in[1], in[2]];
+    alu5.in2 <== [in[3], in[4]];
     
-    out <== alu.out;
+    out <== alu5.out;
 
     // Assumption for optimization
-    alu.in1[1] === 0;
+    alu5.in1[1] === 0;
 }
 
 component main {public [in]} = ALU5_();

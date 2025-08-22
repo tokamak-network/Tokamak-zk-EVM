@@ -1,17 +1,14 @@
 # QAP compiler
 
 ## Overview
-You can convert your Ethereum transactions into zero-knowledge proofs (zkp) even if you don't know zkp.
+> You can convert your Ethereum transactions into zero-knowledge proofs (zkp) even if you don't know zkp.
 
-This repository provides a library of subcircuits for EVM's basic operations. Combined with Synthesizer in [synthesizer package](../synthesizer), you can build a zkp circuit specialized for each Ethereum transaction. The transaction specific-circuit will be used as preprocessed input for [Tokamak zk-SNARK](https://eprint.iacr.org/2024/507).
+This package provides a library of subcircuits for EVM's basic operations. Combined with Synthesizer in [synthesizer package](../synthesizer), you can build a zkp circuit specialized for each Ethereum transaction. The transaction specific-circuit will be used as preprocessed input for [Tokamak zk-SNARK](https://eprint.iacr.org/2024/507).
 
 ## Features
 - Preliminary work for zero-knowledge proof generation and verification
 - Compatible with Ethereum's EVM, which is based on 256-bit words.
 - Combined with Synthesizer, almost any type of transaction can be circuited.
-
-### Version
-- In the current version, the subcircuit library is a set of subcircuits that support almost [EVM instructions](https://www.evm.codes/), except for the instructions related to creating or destroying accounts (there is no need to support these instructions for our purposes).
 
 ## Installation
 
@@ -29,15 +26,15 @@ npm install
    > - The default sizes are sufficient for testing ERC-20 transactions for TON, USDT, and USDC contracts.
    > - Higher buffer sizes may result in slowing down [the backend algorithms](../../backend).
 2. Run the script below in terminal (Windows users need to use GitBash):
-```shell
-./scripts/compile.sh
-```
+    ```shell
+    ./scripts/compile.sh
+    ```
 3. Check your output, [a library of subcircuits](./subcircuits/library) 
 
 ## Subcircuits
 - All subcircuits are written in [Circom](https://docs.circom.io/).
 - They are defined in the [subcircuits/circom](./subcircuits/circom) folder.
-- The library of subcircuits does not explicitly determine the compatibility with EVM. Synthesizer will combine these subcircuits to represent all signal processing performed within the EVM. Thus, the EVM-compatiblity is more likely to depend on Synthesizer, and the subcircuit library is kept to a minimum, depending on the Synthesizer's requirements.
+> The library of subcircuits does not explicitly determine the compatibility with EVM. Synthesizer will combine these subcircuits to represent all signal processing performed within the EVM. Thus, the EVM-compatiblity is more likely to depend on Synthesizer, and the subcircuit library is kept to a minimum, depending on the Synthesizer's requirements.
 
 ### ALU subcircuits
 - There are 5 Arithmetic and Logical Units (ALU) in the library.

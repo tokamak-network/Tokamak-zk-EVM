@@ -28,9 +28,7 @@ pub fn from_subcircuit_to_QAP(
     let n = setup_params.n;
 
     // Reconstruct local u,v,w polynomials
-    let zero_coef_vec = [ScalarField::zero()];
-    let zero_coef = HostSlice::from_slice(&zero_coef_vec);
-    let zero_poly = DensePolynomialExt::from_coeffs(zero_coef, 1, 1);
+    let zero_poly = DensePolynomialExt::zero();
     let mut u_j_X = vec![zero_poly.clone(); subcircuit_info.Nwires];
     let mut v_j_X = vec![zero_poly.clone(); subcircuit_info.Nwires];
     let mut w_j_X = vec![zero_poly.clone(); subcircuit_info.Nwires];
@@ -134,7 +132,7 @@ impl Instance {
         let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
         let mut public_instance = vec![ScalarField::zero(); l_pub];
         for i in 0..l_pub {
-            public_instance[i] = ScalarField::from_hex(&self.a[i]);
+            public_instance[i] = ScalarField::from_hex(&self.a_pub[i]);
         }
         return DensePolynomialExt::from_rou_evals(
             HostSlice::from_slice(&public_instance),

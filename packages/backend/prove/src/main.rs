@@ -1,15 +1,40 @@
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use prove::{Prover, Proof, TranscriptManager};
+use std::fs::File;
+use std::io::Write;
+use std::{env, process};
+use prove::{Proof, ProveInputPaths, Prover, TranscriptManager};
+use icicle_runtime::{self, Device};
+use libs::utils::check_device;
 
 fn main() {
-    let prove_start = Instant::now();
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() != 5 {
+        eprintln!(
+            "Usage: {} <QAP_PATH> <SYNTHESIZER_PATH> <SETUP_PATH> <OUT_PATH> ",
+            args[0]
+        );
+        process::exit(1);
+    }
+
+    let paths = ProveInputPaths {
+        qap_path: &args[1],
+        synthesizer_path: &args[2],
+        setup_path: &args[3],
+        output_path: &args[4],
+    };
     
+    let prove_start = Instant::now();
+
+    check_device();
+
     let mut timer: Instant;
     let mut lap: Duration;
     
     println!("Prover initialization...");
     timer = Instant::now();
-    let (mut prover, binding) = Prover::init();
+    let (mut prover, binding) = Prover::init(&paths);
     lap = timer.elapsed();
     println!("Prover init time: {:.6} seconds", lap.as_secs_f64());
 
@@ -79,9 +104,18 @@ fn main() {
         // challenge: challenge_serde,
     };
     
-    println!("Writing the proof into JSON...");
-    let output_path = "prove/output/proof.json";
-    proof.write_into_json(output_path).unwrap();
+    // println!("Writing the proof into JSON (old format)...");
+    // let output_path = "prove/output/proof.json";
+    // proof.write_into_json(output_path).unwrap();
+
+    println!("Writing the proof into JSON (formatted for Solidity verifier)...");
+    let formatted_proof = proof.convert_format_for_solidity_verifier();
+    let output_path = PathBuf::from(paths.output_path).join("proof.json");
+    formatted_proof.write_into_json(output_path).unwrap();
+
+    let bench_path = PathBuf::from(paths.output_path).join("bench.txt");
+    let mut file = File::create(bench_path).unwrap();
+    writeln!(file, "Proof generation time: {:.6} seconds", prove_start.elapsed().as_secs_f64()).unwrap();
 
     println!("Total proving time: {:.6} seconds", prove_start.elapsed().as_secs_f64());
 }

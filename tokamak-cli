@@ -1,0 +1,255 @@
+#!/usr/bin/env bash
+# tokamak-zk-evm — helper CLI for Tokamak-zk-EVM
+# Notes:
+#   - Before executing any internal shell script, this CLI normalizes line endings via dos2unix
+#     and ensures the script is executable, to avoid Windows CRLF issues.
+# Commands:
+#   --install <API_KEY|RPC_URL>  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
+#   --prove <TX_HASH> [<DIR>]    Generate and verify a proof; copy the proof to <DIR> (default: ./.your_proof)
+#   --help                       Show usage
+#
+# This script intentionally supports ONLY the three commands above.
+
+set -Eeuo pipefail
+IFS=$'\n\t'
+
+# ---------- Pretty print ----------
+log() { echo -e "\033[1;34m[tokamak]\033[0m $*"; }
+ok()  { echo -e "\033[1;32m[ ok ]\033[0m $*"; }
+err() { echo -e "\033[1;31m[error]\033[0m $*" >&2; }
+
+# ---------- Helpers ----------
+npm_install_safe() {
+  local dir="$1"
+  pushd "$dir" >/dev/null
+  if [[ -f package-lock.json ]]; then
+    npm ci || npm install
+  else
+    npm install
+  fi
+  popd >/dev/null
+}
+
+# Normalize Windows CRLF to LF before executing a shell script (best-effort)
+to_unix_exec() {
+  local f="$1"
+  [[ -f "$f" ]] || return 0
+  if command -v dos2unix >/dev/null 2>&1; then
+    dos2unix -q "$f" || true
+  fi
+  chmod +x "$f" 2>/dev/null || true
+}
+
+# Discover repo root
+resolve_root() {
+  if [[ -n "${TOKAMAK_ZK_EVM_ROOT:-}" ]] && [[ -d "${TOKAMAK_ZK_EVM_ROOT}" ]]; then
+    echo "${TOKAMAK_ZK_EVM_ROOT}"; return
+  fi
+  if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git rev-parse --show-toplevel; return
+  fi
+  local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ -d "$script_dir/packages" ]]; then
+    echo "$script_dir"; return
+  fi
+  err "Cannot locate repo root. Set TOKAMAK_ZK_EVM_ROOT, or run inside the repo."
+  exit 1
+}
+
+ROOT="$(resolve_root)"
+FE_QAP="$ROOT/packages/frontend/qap-compiler"
+FE_SYN="$ROOT/packages/frontend/synthesizer"
+BE_ROOT="$ROOT/packages/backend"
+
+# OS target → script/dir mapping
+detect_target() {
+  local uname_s; uname_s="$(uname -s)"
+  if [[ "$uname_s" == "Darwin" ]]; then echo "mac"; return; fi
+  if [[ -f /etc/os-release ]]; then
+    . /etc/os-release
+    case "${VERSION_ID:-}" in
+      20*|20.*) echo "linux20"; return ;;
+      22*|22.*) echo "linux22"; return ;;
+    esac
+  fi
+  echo "linux22"
+}
+
+packaging_script_for_target() {
+  case "$1" in
+    mac)     echo "$BE_ROOT/mac-packaging.sh" ;;
+    linux20) echo "$BE_ROOT/linux20-packaging.sh" ;;
+    linux22) echo "$BE_ROOT/linux22-packaging.sh" ;;
+    *)       echo "$BE_ROOT/linux22-packaging.sh" ;;
+  esac
+}
+
+dist_dir_for_target() {
+  case "$1" in
+    mac)     echo "$BE_ROOT/dist-mac" ;;
+    linux20) echo "$BE_ROOT/dist-linux20" ;;
+    linux22) echo "$BE_ROOT/dist-linux22" ;;
+    *)       echo "$BE_ROOT/dist-linux22" ;;
+  esac
+}
+
+# Copy synthesizer outputs (after demo run) into backend dist resource
+sync_synth_outputs_to_dist() {
+  local src="$FE_SYN/examples/outputs"
+  local target dist_dir dest
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+  dest="$dist_dir/resource/synthesizer/outputs"
+
+  log "Sync Synth outputs → $dest (target=$target)"
+  [[ -d "$src" ]] || { err "Synth outputs not found: $src"; exit 1; }
+  mkdir -p "$dest"
+  cp -af "$src/." "$dest/"
+  ok "Synth outputs copied"
+}
+
+step_install() {
+  local install_arg="${1:-}"
+  [[ -n "$install_arg" ]] || { err "--install requires <API_KEY|RPC_URL>"; exit 1; }
+
+  log "Install: installing frontend dependencies"
+  npm_install_safe "$FE_QAP"
+  npm_install_safe "$FE_SYN"
+
+  log "Install: compiling qap-compiler"
+  pushd "$FE_QAP" >/dev/null
+  [[ -f "./scripts/compile.sh" ]] || { err "Missing: $FE_QAP/scripts/compile.sh"; exit 1; }
+  to_unix_exec "./scripts/compile.sh"
+  bash "./scripts/compile.sh"
+  popd >/dev/null
+
+  local target script
+  target="$(detect_target)"
+  script="$(packaging_script_for_target "$target")"
+
+  log "Install: running backend packaging for target=$target -> $(basename "$script")"
+  pushd "$BE_ROOT" >/dev/null
+  [[ -f "$script" ]] || { err "Packaging script missing: $script"; exit 1; }
+  to_unix_exec "$script"
+  bash "$script"
+  popd >/dev/null
+
+  log "Install: writing synthesizer .env"
+  local rpc_url
+  if [[ "$install_arg" == https://* ]]; then
+    rpc_url="$install_arg"
+  else
+    rpc_url="https://eth-mainnet.g.alchemy.com/v2/${install_arg}"
+  fi
+  printf "RPC_URL='%s'\n" "$rpc_url" > "$FE_SYN/.env"
+
+  ok "Install complete"
+}
+
+step_prove() {
+  local tx_hash="${1:-}"
+  local save_path="${2:-}"
+  [[ -n "$tx_hash" ]] || { err "--prove requires <TX_HASH> [<SAVE_PATH>]"; exit 1; }
+  [[ -n "$save_path" ]] || save_path="./.your_proof"
+
+  # Ensure save directory exists and persist the provided transaction hash
+  mkdir -p "$save_path"
+  printf '%s\n' "$tx_hash" > "$save_path/transaction_hash.txt"
+
+  log "Prove: synthesize from tx=$tx_hash"
+  pushd "$FE_SYN" >/dev/null
+  npm run synthesizer "$tx_hash"
+  popd >/dev/null
+
+  sync_synth_outputs_to_dist
+
+  local target dist_dir run2 run3 run4
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+  run2="$dist_dir/2_run-preprocess.sh"
+  run3="$dist_dir/3_run-prove.sh"
+  run4="$dist_dir/4_run-verify.sh"
+
+  log "Prove: running backend scripts 2→4 (target=$target)"
+  [[ -f "$run2" ]] || { err "Missing: $run2"; exit 1; }
+  [[ -f "$run3" ]] || { err "Missing: $run3"; exit 1; }
+  [[ -f "$run4" ]] || { err "Missing: $run4"; exit 1; }
+
+  to_unix_exec "$run2"
+  bash "$run2"
+  to_unix_exec "$run3"
+  bash "$run3"
+  to_unix_exec "$run4"
+  local verify_out
+  verify_out="$(bash "$run4" | tail -n1)"
+  log "Prove: verify output => $verify_out"
+
+  if [[ "$verify_out" == "true" || "$verify_out" == "true"$'\r' ]]; then
+    log "Prove: verification ok; copying proof"
+    mkdir -p "$save_path"
+    if [[ -d "$dist_dir/resource/prove/output" ]]; then
+      cp -a "$dist_dir/resource/prove/output/." "$save_path/"
+      ok "Artifacts copied → $save_path"
+    else
+      err "Output directory not found: $dist_dir/resource/prove/output"
+      exit 1
+    fi
+  else
+    err "Verification failed (expected 'true'). Aborting copy."
+    exit 1
+  fi
+}
+
+# ---------- CLI ----------
+print_usage() {
+  cat <<'USAGE'
+tokamak-zk-evm — orchestrate the Tokamak-zk-EVM toolchain
+
+Usage:
+  tokamak-zk-evm --install <API_KEY|RPC_URL>
+  tokamak-zk-evm --prove <TX_HASH> [<SAVE_PATH>]
+  tokamak-zk-evm --help
+
+Commands:
+  --install <API_KEY|RPC_URL>
+      1) npm install in packages/frontend/qap-compiler
+      2) npm install in packages/frontend/synthesizer
+      3) Run backend packaging script:
+         mac → mac-packaging.sh
+         Ubuntu 20.x → linux20-packaging.sh
+         Ubuntu 22.x → linux22-packaging.sh
+      4) Compile qap-compiler (packages/frontend/qap-compiler/scripts/compile.sh)
+      5) Write RPC_URL to packages/frontend/synthesizer/.env:
+         - If ARG starts with https://, use it as-is:
+           RPC_URL='<ARG>'
+         - Else treat ARG as an Alchemy API key and write:
+           RPC_URL='https://eth-mainnet.g.alchemy.com/v2/<API_KEY>'
+
+  --prove <TX_HASH> [<SAVE_PATH>]
+      1) Save <TX_HASH> to <SAVE_PATH>/transaction_hash.txt (default: ./.your_proof)
+      2) Run packages/frontend/synthesizer/examples/demo/index.ts with <TX_HASH>
+      3) Sync examples/outputs → dist-*/resource/synthesizer/outputs
+      4) Run dist-*/2_run-preprocess.sh, 3_run-prove.sh, 4_run-verify.sh
+      5) If verify prints "true", copy dist-*/resource/prove/output → <SAVE_PATH>
+
+  --help
+      Show this help
+USAGE
+}
+
+# Parse args (only the three supported commands)
+[[ $# -gt 0 ]] || { print_usage; exit 1; }
+
+CMD=""; ARG1=""; ARG2=""
+case "$1" in
+  --install) CMD="install"; ARG1="${2:-}"; [[ -n "$ARG1" ]] || { err "--install requires <API_KEY|RPC_URL>"; exit 1; } ;;
+  --prove) CMD="prove"; ARG1="${2:-}"; ARG2="${3:-}"; [[ -n "$ARG1" ]] || { err "--prove requires <TX_HASH> [<SAVE_PATH>]"; exit 1; } ;;
+  --help|-h) print_usage; exit 0 ;;
+  *) err "Unknown option: $1"; print_usage; exit 1 ;;
+esac
+
+# Dispatch
+case "$CMD" in
+  install) step_install "$ARG1" ;;
+  prove) step_prove "$ARG1" "${ARG2:-}" ;;
+esac

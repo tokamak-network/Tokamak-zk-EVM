@@ -5,6 +5,7 @@ use icicle_core::ntt::{self, NTTDir};
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use icicle_bls12_381::polynomials::DensePolynomial;
 use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice, DeviceSlice, DeviceVec};
+use icicle_runtime::Device;
 use std::{
     cmp,
     ops::{Add, AddAssign, Mul, Sub, Neg},
@@ -279,6 +280,7 @@ where
     fn _biNTT<In: HostOrDeviceSlice<Self::Field> + ?Sized, Out: HostOrDeviceSlice<Self::Field> + ?Sized>( in_mat: &In, x_size: usize, y_size: usize, dir: NTTDir, out_mat: &mut Out);
 
     // Methods to create polynomials from coefficients or roots-of-unity evaluations.
+    fn zero() -> Self;
     fn from_coeffs<S: HostOrDeviceSlice<Self::Field> + ?Sized>(coeffs: &S, x_size: usize, y_size: usize) -> Self;
     fn from_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(evals: &S, x_size: usize, y_size: usize, coset_x: Option<&Self::Field>, coset_y: Option<&Self::Field>) -> Self;
 
@@ -479,15 +481,27 @@ impl BivariatePolynomial for DensePolynomialExt {
         (x_deg, y_deg)
     }
 
-    fn from_coeffs<S: HostOrDeviceSlice<Self::Field> + ?Sized>(coeffs: &S, x_size: usize, y_size: usize) -> Self {
-        if x_size == 0 || y_size == 0 {
-            panic!("Invalid matrix size for from_coeffs");
+    fn zero() -> Self {
+        let zero_vec = [Self::Field::zero()];
+        Self {
+            poly: DensePolynomial::from_coeffs(HostSlice::from_slice(&zero_vec), 1),
+            x_degree: -1,
+            y_degree: -1,
+            x_size: 1,
+            y_size: 1,
         }
+    }
+    fn from_coeffs<S: HostOrDeviceSlice<Self::Field> + ?Sized>(coeffs: &S, x_size: usize, y_size: usize) -> Self {
+        
         if x_size * y_size != coeffs.len() {
             panic!("Mismatch between the coefficient vector and the polynomial size")
         }
         if x_size.is_power_of_two() == false || y_size.is_power_of_two() == false {
             panic!("The input sizes for from_coeffs must be powers of two.")
+        }
+        let size = x_size + y_size;
+        if size == 0 {
+            return Self::zero()
         }
         let poly = DensePolynomial::from_coeffs(coeffs, x_size * y_size);
         //let (x_degree, y_degree) = DensePolynomialExt::_find_degree(&poly, x_size, y_size);
@@ -561,25 +575,25 @@ impl BivariatePolynomial for DensePolynomialExt {
         coset_x: Option<&Self::Field>,
         coset_y: Option<&Self::Field>
     ) -> Self {
-        if x_size == 0 || y_size == 0 {
-            panic!("Invalid matrix size for from_rou_evals");
-        }
         if !x_size.is_power_of_two() || !y_size.is_power_of_two() {
             panic!("The input sizes for from_rou_evals must be powers of two.")
         }
-
+    
         let size = x_size * y_size;
-        let ntt_dir = ntt::NTTDir::kInverse;
+        if size == 0 {
+            return Self::zero()
+        }
         let mut coeffs = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
-        
-        Self::_biNTT(evals, x_size, y_size, ntt_dir, &mut coeffs);
 
+        let ntt_dir = ntt::NTTDir::kInverse;
+        Self::_biNTT(evals, x_size, y_size, ntt_dir, &mut coeffs);
+    
         let mut poly = DensePolynomialExt::from_coeffs(
             &coeffs,
             x_size,
             y_size,
         );
-
+    
         if let Some(_factor) = coset_x {
             let factor = _factor.inv();
             poly = poly.scale_coeffs_x(&factor);
@@ -590,7 +604,7 @@ impl BivariatePolynomial for DensePolynomialExt {
         }
         poly
     }
-
+    
     fn to_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
         &self,
         coset_x: Option<&Self::Field>,
@@ -615,25 +629,23 @@ impl BivariatePolynomial for DensePolynomialExt {
                 scaled_poly = scaled_poly.scale_coeffs_y(factor);
             }
 
-
+            
             scaled_poly.copy_coeffs(0, scaled_coeffs);
         }
-
-        let ntt_dir = ntt::NTTDir::kForward;
+        
         let mut in_mat = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
         in_mat.copy_from_host(&scaled_coeffs).unwrap();
 
+        let ntt_dir = ntt::NTTDir::kForward;
         Self::_biNTT(&in_mat, self.x_size, self.y_size, ntt_dir, evals);
     }
-
 
     fn copy_coeffs<S: HostOrDeviceSlice<Self::Field> + ?Sized>(&self, start_idx: u64, coeffs: &mut S) {
         self.poly.copy_coeffs(start_idx, coeffs);
     }
 
     fn _neg(&self) -> Self {
-        let zero_vec = vec![Self::Field::zero(); 1];
-        let zero_poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&zero_vec), 1, 1);
+        let zero_poly = Self::zero();
         &zero_poly - self
     }
 

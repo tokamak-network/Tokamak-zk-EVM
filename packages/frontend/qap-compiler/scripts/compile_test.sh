@@ -1,4 +1,4 @@
-names=("ALU1" "ALU2" "ALU3" "ALU4" "ALU5" "OR" "XOR" "AND" "DecToBit" "Accumulator")
+names=("bufferPubOut" "bufferPubIn" "bufferPrvOut" "bufferPrvIn" "ALU1" "ALU2" "ALU3" "ALU4" "ALU5" "OR" "XOR" "AND" "DecToBit" "Accumulator")
 CURVE_NAME="bls12381"
 
 # get the directory of the script
