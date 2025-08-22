@@ -3,20 +3,26 @@ export type GlobalWireEntry = [subcircuitId: number, localWireIndex: number];
 export type GlobalWireList = GlobalWireEntry[];
 
 export type SubcircuitNames =
-  | 'bufferPubOut'
-  | 'bufferPubIn'
-  | 'bufferPrvOut'
-  | 'bufferPrvIn'
+  // Alphabet order
+  | 'Accumulator'
   | 'ALU1'
   | 'ALU2'
   | 'ALU3'
   | 'ALU4'
   | 'ALU5'
   | 'AND'
-  | 'OR'
-  | 'XOR'
+  | 'bufferPubIn'
+  | 'bufferStateIn'
+  | 'bufferStateOut'
+  | 'bufferStaticIn'
+  | 'bufferTransactionIn'
   | 'DecToBit'
-  | 'Accumulator';
+  | 'EdDsaVerify'
+  | 'JubjubExp36'
+  | 'OR'
+  | 'Poseidon4'
+  | 'PrepareEdDsaScalars'
+  | 'XOR'
 
 export type SubcircuitInfoByNameEntry = {
   id: number;
@@ -51,22 +57,22 @@ export function hasValidFlattenMap(
 }
 
 // Type guard to check if a string is a valid SubcircuitNames
-export function isValidSubcircuitName(name: string): name is SubcircuitNames {
-  const validNames: SubcircuitNames[] = [
-    'bufferPubOut',
-    'bufferPubIn',
-    'bufferPrvOut',
-    'bufferPrvIn',
-    'ALU1',
-    'ALU2',
-    'ALU3',
-    'ALU4',
-    'ALU5',
-    'AND',
-    'OR',
-    'XOR',
-    'DecToBit',
-    'Accumulator',
-  ];
-  return validNames.includes(name as SubcircuitNames);
-}
+// export function isValidSubcircuitName(name: string): name is SubcircuitNames {
+//   const validNames: SubcircuitNames[] = [
+//     'bufferPubOut',
+//     'bufferPubIn',
+//     'bufferPrvOut',
+//     'bufferPrvIn',
+//     'ALU1',
+//     'ALU2',
+//     'ALU3',
+//     'ALU4',
+//     'ALU5',
+//     'AND',
+//     'OR',
+//     'XOR',
+//     'DecToBit',
+//     'Accumulator',
+//   ];
+//   return validNames.includes(name as SubcircuitNames);
+// }

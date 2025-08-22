@@ -25,7 +25,7 @@ import { DataPointFactory } from '../../pointers/dataPointFactory.js';
  * It acts as a facade, delegating tasks to various handler classes.
  */
 export class Synthesizer
-  implements ISynthesizerProvider, IDataLoaderProvider, IMemoryManagerProvider
+  implements ISynthesizerProvider, IDataLoaderProvider
 {
   private _state: StateManager;
   private operationHandler: OperationHandler;
@@ -66,25 +66,19 @@ export class Synthesizer
     return this.dataLoader.loadPUSH(codeAddress, programCounter, value, size);
   }
 
-  public loadAuxin(value: bigint, size?: number): DataPt {
-    const sourceSize = size ?? DEFAULT_SOURCE_SIZE;
-    if (this._state.auxin.has(value)) {
-      return this._state.placements.get(PRV_IN_PLACEMENT_INDEX)!.outPts[
-        this._state.auxin.get(value)!
-      ];
-    }
-    const inPtRaw: CreateDataPointParams = {
-      extSource: 'auxin',
-      source: PRV_IN_PLACEMENT_INDEX,
-      wireIndex: this._state.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts
-        .length,
-      value,
-      sourceSize,
-    };
-    const inPt = DataPointFactory.create(inPtRaw);
-    const outPt = this.addWireToInBuffer(inPt, PRV_IN_PLACEMENT_INDEX);
-    this._state.auxin.set(value, outPt.wireIndex!);
-    return outPt;
+  // public loadAuxin(
+  //   value: bigint, 
+  //   size?: number
+  // ): DataPt {
+  //   return this.dataLoader.loadAuxin(value, size)
+  // }
+
+  public loadStatic(
+    value: bigint, 
+    subcircuit: SubcircuitNames,
+    size?: number
+  ): DataPt {
+    return this.dataLoader.loadStatic(value, subcircuit, size)
   }
 
   public loadEnvInf(

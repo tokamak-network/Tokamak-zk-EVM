@@ -82,7 +82,8 @@
     "ethers": "^6.14.3",
     "eventemitter3": "^5.0.1",
     "verkle-cryptography-wasm": "^0.4.8",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "poseidon-bls12381": "^1.0.2"
   },
   "devDependencies": {
     "@paulmillr/trusted-setups": "^0.1.2",

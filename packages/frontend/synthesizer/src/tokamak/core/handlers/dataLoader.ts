@@ -8,13 +8,12 @@ import { keccak256 } from 'ethereum-cryptography/keccak.js';
 
 import {
   DEFAULT_SOURCE_SIZE,
-  PRV_IN_PLACEMENT_INDEX,
-  PRV_OUT_PLACEMENT_INDEX,
-  PUB_IN_PLACEMENT_INDEX,
-  PUB_OUT_PLACEMENT_INDEX,
+  STATE_IN_PLACEMENT_INDEX,
+  STATIC_IN_PLACEMENT,
+  STATIC_IN_PLACEMENT_INDEX,
 } from '../../constant/index.js';
 import { DataPointFactory } from '../../pointers/index.js';
-import type { CreateDataPointParams, DataPt } from '../../types/index.js';
+import type { CreateDataPointParams, DataPt, SubcircuitNames } from '../../types/index.js';
 import type { StateManager } from './stateManager.js';
 import type { IDataLoaderProvider } from './dataLoaderProvider.js';
 
@@ -30,19 +29,20 @@ export class DataLoader {
     value: bigint,
     size: number,
   ): DataPt {
+    const source = STATIC_IN_PLACEMENT_INDEX
     const inPtRaw: CreateDataPointParams = {
       extSource: `code: ${codeAddress}`,
       type: `PUSH${size}`,
       offset: programCounter + 1,
-      source: PRV_IN_PLACEMENT_INDEX,
-      wireIndex: this.state.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts
+      source,
+      wireIndex: this.state.placements.get(source)!.inPts
         .length,
       value,
       sourceSize: DEFAULT_SOURCE_SIZE,
     };
     const inPt: DataPt = DataPointFactory.create(inPtRaw);
 
-    return this.provider.addWireToInBuffer(inPt, PRV_IN_PLACEMENT_INDEX);
+    return this.provider.addWireToInBuffer(inPt, inPt.source);
   }
 
   public loadEnvInf(
@@ -54,6 +54,7 @@ export class DataLoader {
   ): DataPt {
     const offset = _offset ?? 0;
     const sourceSize = size ?? DEFAULT_SOURCE_SIZE;
+    const source = STATIC_IN_PLACEMENT_INDEX
     const uniqueId = {
       extSource: `code: ${codeAddress}`,
       type,
@@ -62,19 +63,19 @@ export class DataLoader {
     };
     const key = JSON.stringify({ ...uniqueId, value: value.toString(16) });
     if (this.state.envInf.has(key)) {
-      return this.state.placements.get(PRV_IN_PLACEMENT_INDEX)!.outPts[
+      return this.state.placements.get(source)!.outPts[
         this.state.envInf.get(key)!.wireIndex
       ];
     }
     const inPtRaw: CreateDataPointParams = {
       ...uniqueId,
-      source: PRV_IN_PLACEMENT_INDEX,
-      wireIndex: this.state.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts
+      source,
+      wireIndex: this.state.placements.get(source)!.inPts
         .length,
       value,
     };
     const inPt = DataPointFactory.create(inPtRaw);
-    const outPt = this.provider.addWireToInBuffer(inPt, PRV_IN_PLACEMENT_INDEX);
+    const outPt = this.provider.addWireToInBuffer(inPt, source);
     const envInfEntry = {
       value,
       wireIndex: outPt.wireIndex!,
@@ -96,11 +97,13 @@ export class DataLoader {
       // The first access to the address and key
       // Register it to the buffer and the storagePt
       // In the future, this part will be replaced with merkle proof verification (the storage dataPt will not be registered in the buffer).
+      // COMPUTE MERKLE PROOF
+      const source = STATE_IN_PLACEMENT_INDEX
       const inPtRaw: CreateDataPointParams = {
         extSource: `Load storage: ${codeAddress}`,
         key: '0x' + key.toString(16),
-        source: PRV_IN_PLACEMENT_INDEX,
-        wireIndex: this.state.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts
+        source,
+        wireIndex: this.state.placements.get(source)!.inPts
           .length,
         value,
         sourceSize: DEFAULT_SOURCE_SIZE,
@@ -109,7 +112,7 @@ export class DataLoader {
       // Registering it to the buffer
       const outPt = this.provider.addWireToInBuffer(
         inPt,
-        PRV_IN_PLACEMENT_INDEX,
+        inPt.source,
       );
       // Registering it to the storagePt
       this.state.storagePt.set(keyString, outPt);
@@ -183,7 +186,7 @@ export class DataLoader {
       );
     }
   }
-
+  
   public loadBlkInf(blkNumber: bigint, type: string, value: bigint): DataPt {
     let hexRaw = value.toString(16);
     const paddedHex = hexRaw.length % 2 === 1 ? '0' + hexRaw : hexRaw;
@@ -217,7 +220,44 @@ export class DataLoader {
     return outPt;
   }
 
-  private processKeccakInputs(
+  // public loadAuxin(value: bigint, size?: number): DataPt {
+  //   const sourceSize = size ?? DEFAULT_SOURCE_SIZE;
+  //   if (this.state.auxin.has(value)) {
+  //     return this.state.placements.get()!.outPts[
+  //       this.state.auxin.get(value)!
+  //     ];
+  //   }
+  //   const inPtRaw: CreateDataPointParams = {
+  //     extSource: 'auxin',
+  //     source: PRV_IN_PLACEMENT_INDEX,
+  //     wireIndex: this.state.placements.get(PRV_IN_PLACEMENT_INDEX)!.inPts
+  //       .length,
+  //     value,
+  //     sourceSize,
+  //   };
+  //   const inPt = DataPointFactory.create(inPtRaw);
+  //   const outPt = this.provider.addWireToInBuffer(inPt, PRV_IN_PLACEMENT_INDEX);
+  //   this.state.auxin.set(value, outPt.wireIndex!);
+  //   return outPt;
+  // }
+
+  public loadStatic(value: bigint, subcircuit: SubcircuitNames, size?: number): DataPt {
+    const sourceSize = size ?? DEFAULT_SOURCE_SIZE;
+    const source = STATIC_IN_PLACEMENT_INDEX
+    const inPtRaw: CreateDataPointParams = {
+      extSource: `Static input used for a subcircuit ${subcircuit}`,
+      source,
+      wireIndex: this.state.placements.get(STATIC_IN_PLACEMENT_INDEX)!.inPts
+        .length,
+      value,
+      sourceSize,
+    };
+    const inPt = DataPointFactory.create(inPtRaw);
+    const outPt = this.provider.addWireToInBuffer(inPt, source);
+    return outPt;
+  }
+
+  private _processKeccakInputs(
     inPts: DataPt[],
     length: bigint,
   ): { value: bigint; inValues: bigint[] } {
@@ -236,7 +276,7 @@ export class DataLoader {
     return { value, inValues };
   }
 
-  private executeAndValidateKeccak(
+  private _executeAndValidateKeccak(
     value: bigint,
     length: bigint,
     expectedOutValue: bigint,
@@ -257,7 +297,7 @@ export class DataLoader {
     }
   }
 
-  private recordKeccakToBuffers(
+  private _recordKeccakToBuffers(
     inPts: DataPt[],
     outValue: bigint,
     keccakKey: bigint,
@@ -302,12 +342,12 @@ export class DataLoader {
     outValue: bigint,
     length: bigint,
   ): DataPt {
-    const { value, inValues } = this.processKeccakInputs(inPts, length);
-    this.executeAndValidateKeccak(value, length, outValue);
+    const { value, inValues } = this._processKeccakInputs(inPts, length);
+    this._executeAndValidateKeccak(value, length, outValue);
 
     this.state.keccakPt.push({ inValues, outValue });
     const keccakKey = BigInt(this.state.keccakPt.length - 1);
 
-    return this.recordKeccakToBuffers(inPts, outValue, keccakKey);
+    return this._recordKeccakToBuffers(inPts, outValue, keccakKey);
   }
 }

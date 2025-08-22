@@ -4,50 +4,43 @@ export const DEFAULT_SOURCE_SIZE = 32
 
 export const ACCUMULATOR_INPUT_LIMIT = 32
 
-export const PUB_IN_PLACEMENT_INDEX = 0
-export const PUB_OUT_PLACEMENT_INDEX = 1
-export const PRV_IN_PLACEMENT_INDEX = 2
-export const PRV_OUT_PLACEMENT_INDEX = 3
-// export const KECCAK_IN_PLACEMENT_INDEX = 4
-// export const KECCAK_OUT_PLACEMENT_INDEX = 5
-export const INITIAL_PLACEMENT_INDEX = PRV_OUT_PLACEMENT_INDEX + 1
+export const STATE_OUT_PLACEMENT_INDEX = 0
+export const STATE_IN_PLACEMENT_INDEX = 1
+export const PUB_IN_PLACEMENT_INDEX = 2
+export const STATIC_IN_PLACEMENT_INDEX = 3
+export const TRANSACTION_IN_PLACEMENT_INDEX = 4
+export const INITIAL_PLACEMENT_INDEX = TRANSACTION_IN_PLACEMENT_INDEX + 1
 
+export const STATE_IN_PLACEMENT = {
+  name: 'bufferStateIn' as SubcircuitNames,
+  usage: 'Buffer to load initial state leaves',
+  inPts: [] as DataPt[],
+  outPts: [] as DataPt[],
+}
+export const STATE_OUT_PLACEMENT = {
+  name: 'bufferStateOut' as SubcircuitNames,
+  usage: 'Buffer to emit final state leaves',
+  inPts: [] as DataPt[],
+  outPts: [] as DataPt[],
+}
 export const PUB_IN_PLACEMENT = {
   name: 'bufferPubIn' as SubcircuitNames,
-  usage: 'Buffer to load public circuit inputs',
+  usage: 'Buffer to load public inputs',
   inPts: [] as DataPt[],
   outPts: [] as DataPt[],
 }
-export const PUB_OUT_PLACEMENT = {
-  name: 'bufferPubOut' as SubcircuitNames,
-  usage: 'Buffer to emit public circuit outputs',
+export const STATIC_IN_PLACEMENT = {
+  name: 'bufferStaticIn' as SubcircuitNames,
+  usage: 'Buffer to load public static input such as ROM or environmental data',
   inPts: [] as DataPt[],
   outPts: [] as DataPt[],
 }
-export const PRV_IN_PLACEMENT = {
-  name: 'bufferPrvIn' as SubcircuitNames,
-  usage: 'Buffer to load private circuit inputs',
+export const TRANSACTION_IN_PLACEMENT = {
+  name: 'bufferTransactionIn' as SubcircuitNames,
+  usage: 'Buffer to load transactions as private',
   inPts: [] as DataPt[],
   outPts: [] as DataPt[],
 }
-export const PRV_OUT_PLACEMENT = {
-  name: 'bufferPrvOut' as SubcircuitNames,
-  usage: 'Buffer to emit private circuit outputs',
-  inPts: [] as DataPt[],
-  outPts: [] as DataPt[],
-}
-// export const KECCAK_IN_PLACEMENT = {
-//   name: 'bufferPrvInPubOut',
-//   usage: 'Buffer to emit external Keccak inputs', 
-//   inPts: [],
-//   outPts: [],
-// }
-// export const KECCAK_OUT_PLACEMENT = {
-//   name: 'bufferPubInPrvOut',
-//   usage: 'Buffer to load external Keccak outputs',
-//   inPts: [],
-//   outPts: [],
-// }
 
 export const SUBCIRCUIT_MAPPING: Record<ArithmeticOperator, [SubcircuitNames, bigint | undefined]> = {
   ADD: ['ALU1', 1n << 1n],
@@ -77,5 +70,7 @@ export const SUBCIRCUIT_MAPPING: Record<ArithmeticOperator, [SubcircuitNames, bi
   SAR: ['ALU3', 1n << 29n],
   DecToBit: ['DecToBit', undefined],
   Accumulator: ['Accumulator', undefined],
-  EXP: ['ALU1', 1n << 10n],
+  // EXP: ['ALU1', 1n << 10n],
+  Poseidon4: ['Poseidon4', undefined],
+
 } as const;

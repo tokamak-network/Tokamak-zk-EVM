@@ -1,13 +1,13 @@
 import {
   INITIAL_PLACEMENT_INDEX,
-  PRV_IN_PLACEMENT,
-  PRV_IN_PLACEMENT_INDEX,
-  PRV_OUT_PLACEMENT,
-  PRV_OUT_PLACEMENT_INDEX,
-  PUB_IN_PLACEMENT,
-  PUB_IN_PLACEMENT_INDEX,
-  PUB_OUT_PLACEMENT,
-  PUB_OUT_PLACEMENT_INDEX,
+  STATE_IN_PLACEMENT,
+  STATE_IN_PLACEMENT_INDEX,
+  STATE_OUT_PLACEMENT,
+  STATE_OUT_PLACEMENT_INDEX,
+  STATIC_IN_PLACEMENT,
+  STATIC_IN_PLACEMENT_INDEX,
+  TRANSACTION_IN_PLACEMENT,
+  TRANSACTION_IN_PLACEMENT_INDEX,
 } from '../../constant/index.js';
 import type {
   Auxin,
@@ -79,10 +79,10 @@ export class StateManager {
    */
   private _initializePlacements(): void {
     const initialPlacements = [
-      { index: PUB_IN_PLACEMENT_INDEX, data: PUB_IN_PLACEMENT },
-      { index: PUB_OUT_PLACEMENT_INDEX, data: PUB_OUT_PLACEMENT },
-      { index: PRV_IN_PLACEMENT_INDEX, data: PRV_IN_PLACEMENT },
-      { index: PRV_OUT_PLACEMENT_INDEX, data: PRV_OUT_PLACEMENT },
+      { index: STATE_IN_PLACEMENT_INDEX, data: STATE_IN_PLACEMENT },      //input public
+      { index: STATE_OUT_PLACEMENT_INDEX, data: STATE_OUT_PLACEMENT },    //output public
+      { index: STATIC_IN_PLACEMENT_INDEX, data: STATIC_IN_PLACEMENT },    //input public          //input public
+      { index: TRANSACTION_IN_PLACEMENT_INDEX, data: TRANSACTION_IN_PLACEMENT }, //private
     ];
 
     for (const p of initialPlacements) {

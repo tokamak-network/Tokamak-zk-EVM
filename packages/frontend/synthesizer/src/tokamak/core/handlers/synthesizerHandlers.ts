@@ -9,6 +9,46 @@ import { simulateMemoryPt } from '../../pointers/index.js';
 
 import type { RunState } from '../../../interpreter.js';
 import type { ArithmeticOperator, DataPt } from '../../types/index.js';
+import { PUB_IN_PLACEMENT_INDEX, TRANSACTION_IN_PLACEMENT_INDEX } from 'src/tokamak/constant/constants.js';
+
+export const synthesizerVerifySign = (
+  op: ArithmeticOperator,
+  runState: RunState,
+): void => {
+  const TARGETTXDATAINDICES = [1, 2, 3, 4] as const
+  const messages: DataPt[] | undefined = runState.synthesizer.state.placements.get(TRANSACTION_IN_PLACEMENT_INDEX)?.outPts.slice(TARGETTXDATAINDICES[0], TARGETTXDATAINDICES[TARGETTXDATAINDICES.length - 1] + 1)
+  if (messages === undefined) {
+    throw new Error('Transactions are not initialized')
+  }
+  const PUBKEYINDEX = [5, 6] as const
+  const publicKey: DataPt[] | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts.slice(PUBKEYINDEX[0], PUBKEYINDEX[PUBKEYINDEX.length - 1] + 1)
+  if (publicKey === undefined) {
+    throw new Error('Public key is not initialized')
+  }
+  const RANDOMIZERINDEX = [7, 8] as const
+  const randomizer: DataPt[] | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts.slice(RANDOMIZERINDEX[0], RANDOMIZERINDEX[RANDOMIZERINDEX.length - 1] + 1)
+  if (randomizer === undefined) {
+    throw new Error('Randomizer is not initialized')
+  }
+  const SIGNATUREINDEX = 9 as const
+  const signature: DataPt | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts[SIGNATUREINDEX]
+  if (signature === undefined) {
+    throw new Error('Signature is not initialized')
+  }
+  const poseidonInter: DataPt[] = []
+  poseidonInter.push(...runState.synthesizer.placeArith('Poseidon4', messages))
+  poseidonInter.push(...runState.synthesizer.placeArith('Poseidon4', messages))
+  poseidonInter.push(...runState.synthesizer.placeArith('Poseidon4', messages))
+  poseidonInter.push(...runState.synthesizer.placeArith('Poseidon4', messages))
+  const poseidonOut: DataPt = runState.synthesizer.placeArith('Poseidon4', poseidonInter)[0]
+  const bitsOut: DataPt[] = runState.synthesizer.placeArith('PrepareEdDsaScalars', [signature, poseidonOut])
+  if (bitsOut.length !== 504) {
+    throw new Error('PrepareEdDsaScalar was expected to output 504 bits')
+  }
+  const signBits: DataPt[] = bitsOut.slice(0, 252)
+  const nonceBits: DataPt[] = bitsOut.slice(252, -1)
+  
+}
 
 export const synthesizerArith = (
   op: ArithmeticOperator,
@@ -26,6 +66,7 @@ export const synthesizerArith = (
   let outPts: DataPt[];
   switch (op) {
     case 'DecToBit':
+    case 'PrepareEdDsaScalars':
       throw new Error(
         `Synthesizer: ${op}: Cannot be called by "synthesizerArith"`,
       );
@@ -188,7 +229,10 @@ export async function synthesizerEnvInf(
     }
     case 'ADDRESS':
     case 'ORIGIN':
-    case 'CALLER':
+    case 'CALLER': {
+      placeArith
+      break
+    }
     case 'CALLVALUE':
     case 'CALLDATASIZE':
     case 'CODESIZE':

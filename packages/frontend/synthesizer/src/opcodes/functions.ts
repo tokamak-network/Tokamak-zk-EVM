@@ -609,7 +609,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.stack.push(runState.interpreter.getCaller());
 
       // For Synthesizer //
-      await synthesizerEnvInf('ADDRESS', runState);
+      await synthesizerEnvInf('CALLER', runState);
     },
   ],
   // 0x34: CALLVALUE

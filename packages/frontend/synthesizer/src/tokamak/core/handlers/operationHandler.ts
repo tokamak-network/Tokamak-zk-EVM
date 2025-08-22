@@ -37,11 +37,7 @@ export class OperationHandler {
     values: bigint[],
   ): bigint | bigint[] {
     const operation = OPERATION_MAPPING[name];
-    if (name === 'Accumulator') {
-      return operation(values);
-    } else {
-      return operation(...values);
-    }
+    return operation(values);
   }
 
   /**
@@ -59,8 +55,14 @@ export class OperationHandler {
     const outValue = this.executeOperation(name, values);
 
     const source = this.state.placementIndex;
-    const sourceSize = name === 'DecToBit' ? 1 : DEFAULT_SOURCE_SIZE;
-    return Array.isArray(outValue)
+    let sourceSize: number = DEFAULT_SOURCE_SIZE
+    if (name === 
+      'DecToBit'||
+      'preparedEdDsaScalars'
+    ) {
+      sourceSize = 1
+     }
+     return Array.isArray(outValue)
       ? outValue.map((value, index) =>
           DataPointFactory.create({
             source,
@@ -100,7 +102,7 @@ export class OperationHandler {
 
     let finalInPts: DataPt[] = inPts;
     if (selector !== undefined) {
-      const selectorPt = this.provider.loadAuxin(selector, 1);
+      const selectorPt = this.provider.loadStatic(selector, subcircuitName, 1);
       finalInPts = [selectorPt, ...inPts];
     }
 

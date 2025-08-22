@@ -27,3 +27,5 @@ export type ArithmeticOperator =
   | 'DecToBit'
   | 'SubEXP'
   | 'Accumulator'
+  | 'Poseidon4'
+  | 'PrepareEdDsaScalars'
