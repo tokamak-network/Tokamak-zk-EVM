@@ -1,10 +1,32 @@
 # Tokamak-zk-EVM
 
-Tokamak-zk-EVM is a zero-knowledge Ethereum Virtual Machine implementation that enables scalable and private smart contract execution.
+Tokamak zk-EVM is a tool that converts Ethereum transactions into ZKPs.
+
+It's currently under development. In the near future, you can generate ZKPs off-chain and use them to replace on-chain Ethereum transactions.
+
+## Development status
+### Status as of Aug. 2025
+- The Tokamak zk-SNARK backend is ready to use:
+    - MSM and NTT are accelerated by [ICICLE APIs](https://github.com/ingonyama-zk/icicle).
+    - It requires < 10GB memory.
+    - A ZKP can be generated in 1-2 mins on CUDA or Apple silicon.
+- The **alpha release** of our transaction-to-circuit compiler is ready to use:
+    - Given honest input Ethereum state and an honest transaction, the circuit verifies that the output Ethereum state is derived exactly as specified in the transaction. 
+### Future updates
+- The **beta release** of our transactions-to-circuit compiler, which covers:
+    - Signature verification of batch transactions,
+    - Merkle proof verification of input Ethereum state,
+    - Accurate derivation of output Ethereum state as specified by a sequence of transactions,
+    - Merkle root update based on output Ethereum state.
+- Off-chain tools for writing transactions and generating ZKPs.
+- Ethereum bridge contracts that provide communication protocols between the Ethereum main network and off-chain.
+
 
 ## Usage
 
-This section describes how to use the **main CLI** named **`tokamak-cli`** for developers. We also provide [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds), a one-click application designed for non-developers (no prerequisite installation).
+This section describes how to use the **main CLI** named **`tokamak-cli`** for developers.
+
+> Note: We also provide [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds), a one-click application designed for non-developers (no prerequisite installation).
 
 ### Prerequisites by OS
 #### Alchemy API key (all platforms)
@@ -18,21 +40,19 @@ This section describes how to use the **main CLI** named **`tokamak-cli`** for d
 2. (If you will use CUDA/GPU) Install **NVIDIA GPU driver** on Windows and verify Docker GPU pass-through.
    - Install [the latest NVIDIA driver](https://developer.nvidia.com/cuda/wsl).
    - Ensure Docker Desktop is using **Linux containers** with the **WSL 2** backend.
-   - (Optional) Test that CUDA is visible inside containers:
+   - (Optional) Test that CUDA is visible inside containers (at the host):
      ```
-     # Host (Windows terminal)
      nvidia-smi
 
-     # Container (should print the same GPU info)
      docker run --rm --gpus all nvidia/cuda:12.2.0-runtime-ubuntu22.04 nvidia-smi
      ```
 3. Run Docker
     - Make sure that you are in the root directory, `Tokamak-zk-evm`.
-    ```bash
-    docker build -f Docker_for_Windows -t tokamak-zkevm:win .
-
-    docker run --gpus all --rm -it -v "${PWD}:/workspace" tokamak-zkevm:win bash -lc "cd /workspace && exec bash"
-    ```
+        ```bash
+        docker build -f Docker_for_Windows -t tokamak-zkevm:win .
+    
+        docker run --gpus all --rm -it -v "${PWD}:/workspace" tokamak-zkevm:win bash -lc "cd /workspace && exec bash"
+        ```
 
 #### macOS
 - Install Node.js – https://nodejs.org/
@@ -40,7 +60,7 @@ This section describes how to use the **main CLI** named **`tokamak-cli`** for d
 - Install Rust – https://www.rust-lang.org/tools/install
 - Install CMake – https://cmake.org/download/
 - Install dos2unix
-    ```zsh
+    ```zsh 
     brew install dos2unix
     ```
 
@@ -64,7 +84,6 @@ This section describes how to use the **main CLI** named **`tokamak-cli`** for d
         nvidia-smi
         ldconfig -p | grep -E 'libcudart|libcublas|libcudnn' || true
         ```
----
 
 ### Before first run (line endings & permissions)
 
@@ -112,59 +131,33 @@ From the repository root:
 ## Package Composition
 ![Tokamak-zk-EVM Flow Chart](.github/assets/flowchart.png)
 
-This monorepo contains the core components of the Tokamak-zk-EVM ecosystem:
+### Frontend Packages (compilers)
 
-### Frontend Packages
-
-| Package                                            | Description                                                                        | Language   |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------- |
-| [`qap-compiler`](./packages/frontend/qap-compiler) | Library of subcircuits for basic EVM operations                                    | circom     |
-| [`synthesizer`](./packages/frontend/synthesizer)   | Compiler that converts an Ethereum transaction into a circuit for Tokamak zk-SNARK | javascript |
+| Package                                            | Description                                                                        | Language   | Status   |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------- | -------- |
+| [`qap-compiler`](./packages/frontend/qap-compiler) | Library of subcircuits for basic EVM operations                                    | circom     | 🔥 Alpha |
+| [`synthesizer`](./packages/frontend/synthesizer)   | Compiler that converts an Ethereum transaction into a circuit for Tokamak zk-SNARK | javascript | 🔥 Alpha |
 
 ### Backend Packages
 
-| Package                                                   | Description                                                                       | Language       |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------- |
-| [`libs`](./packages/backend/libs)                         | Mathematical and signal processing related library functions for Tokamak zk-SNARK | rust           |
-| [`mpc-setup`](./packages/backend/setup/mpc-setup)         | Tokamak zk-SNARK's setup alogirhtm (multi-party computation version)              | rust           |
-| [`trusted-setup`](./packages/backend/setup/trusted-setup) | Tokamak zk-SNARK's setup algorithm (trusted single entity version)                | rust           |
-| [`prover`](./packages/backend/prove)                      | Tokamak zk-SNARK's proving algorithm                                              | rust           |
-| [`verify`](./packages/backend/verify)                     | Tokamak zk-SNARK's verifying algorithm                                            | rust, solidity |
+| Package                                                   | Description                                                                       | Language       | Status  |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------- | ------- |
+| [`mpc-setup`](./packages/backend/setup/mpc-setup)         | Tokamak zk-SNARK's setup alogirhtm (multi-party computation version)              | rust           | 🧪 Beta |
+| [`trusted-setup`](./packages/backend/setup/trusted-setup) | Tokamak zk-SNARK's setup algorithm (trusted single entity version)                | rust           | 🧪 Beta |
+| [`prover`](./packages/backend/prove)                      | Tokamak zk-SNARK's proving algorithm                                              | rust           | 🧪 Beta |
+| [`verify`](./packages/backend/verify)                     | Tokamak zk-SNARK's verifying algorithm                                            | rust, solidity | 🧪 Beta |
 
-## Package Versions
-
-| Package         | Current Version | Status     |
-| --------------- | --------------- | ---------- |
-| `qap-compiler`  | v0.5.0          | 🧪 Beta    |
-| `synthesizer`   | v0.5.0          | 🧪 Beta    |
-| `libs`          | v0.5.0          | 🧪 Beta    |
-| `prove`         | v0.5.0          | 🧪 Beta    |
-| `mpc-setup`     | -               | 🚧 Planned |
-| `trusted-setup` | v0.5.0          | 🧪 Beta    |
-| `verify-rust`   | v0.5.0          | 🧪 Beta    |
-| `verify-sol`    | v0.0.1          | 🔥 Alpha   |
-
-### Version Strategy
-
-🔥 Alpha
-
-- Initial implementation and testing
-
-🧪 Beta
-
-- System-wide testing and optimization
-
-⭐️ Stable (v1.0.0)
-
-- Production-ready release
-- Full system integration and testing
+> Notes:
+> - 🔥 Alpha: Initial proof-of-concept for testing
+> - 🧪 Beta: Fully featured, but unstable and unoptimized
+> - ⭐️ Stable (v1.0.0): Fully featured, stable, and optimized
 
 ## Documentation
 
 - [Project Tokamak zk-EVM(Medium)](https://medium.com/tokamak-network/project-tokamak-zk-evm-67483656fd21) (Last updated in Apr. 2025)
 - [Project Tokamak zk-EVM(Slide)](https://docs.google.com/presentation/d/1D49fRElwkZYbEvQXB_rp5DEy22HFsabnXyeMQdNgjRw/edit?usp=sharing) (Last updated in Jul. 2025)
 - [Tokamak zk-SNARK Paper](https://eprint.iacr.org/2024/507) (Last updated in Apr. 2025)
-- Frontend - [Synthesizer](https://tokamak-network-zk-evm.gitbook.io/tokamak-network-zk-evm)
+- Frontend - [Synthesizer](https://tokamak-network-zk-evm.gitbook.io/tokamak-network-zk-evm) (work in progress)
 <!-- - [API Reference](./docs/api) -->
 
 ## Contributing

@@ -2,7 +2,7 @@
 
 ## What is Synthesizer
 
-You can convert your Ethereum transactions into zero-knowledge proofs (zkp) even if you don't know zkp.
+> You can convert your Ethereum transactions into zero-knowledge proofs (zkp) even if you don't know zkp.
 
 Synthesizer is a compiler that takes an Ethereum transaction as input and returns a wire map (in the form of a permutation map). Combined with the library subcircuits in [qap-compiler package](../qap-compiler), this wire map forms a zkp circuit specialized for the transaction. The transaction specific-circuit will be used as preprocessed input for [Tokamak zk-SNARK](https://eprint.iacr.org/2024/507).
 
@@ -15,14 +15,6 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
 - Efficient witness calculation for zk-proofs
 - TypeScript/JavaScript friendly API for blockchain developers
 - Synthesizer is built on top of [@ethereumJS/evm](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/evm) as a hardfork.
-
-### Version
-
-- In the current release, Synthesizer generates a circuit that verifies correctness of transaciton execution: given transaction inputs such as calldata and state data, are claimed transaction outputs such as storage and event logs correct?
-- In the future release, Synthesizer will generate a more general circuit that includes the verification of:
-  - integrity of the retrieved input state,
-  - correctness of transaction execution, and
-  - correctness of updating the state with the transaction output.
 
 ## How to use Synthesizer
 
@@ -75,47 +67,6 @@ For testing Synthesizer, you will need an Alchemy API key to retrieve transactio
    ```bash
    npm run synthesizer 0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc
    ```
-
-### E. **CLI Commands Available**
-
-Make sure you are in the `synthesizer` package directory, then you can use:
-
-- **Direct synthesis with transaction hash:**
-  ```bash
-  npm run synthesizer <TX_HASH>
-  ```
-- **Interactive demo mode (process multiple transactions):**
-  ```bash
-  npm run cli demo
-  ```
-- **Detailed parsing with options:**
-  ```bash
-  npm run cli parse -t <TX_HASH> [options]
-  ```
-
-**Options:**
-
-- `--sepolia`: Use Sepolia testnet instead of mainnet
-- `--verbose`: Show detailed output
-- `--rpc-url <url>`: Use custom RPC URL
-
-**Example usage:**
-
-```bash
-# Mainnet transaction (default)
-npm run synthesizer -- 0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc
-
-# Sepolia testnet transaction
-npm run synthesizer -- 0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc --sepolia
-
-# Interactive demo mode
-npm run cli demo
-
-# Show synthesizer info
-npm run cli info
-```
-
-Now you are ready to move on to [the backend of Tokamak zk-EVM](../../backend/)
 
 ## Description for the Synthesizer input and output
 
