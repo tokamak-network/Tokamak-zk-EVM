@@ -1,11 +1,12 @@
 [workspace]
 members = [
     "libs",
-    "setup/trusted-setup",
+    "setup/trusted-setup", 
     "setup/mpc-setup",
     "prove",
     "verify/verify-rust",
-    "verify/preprocess"
+    "verify/preprocess",
+    "msm-test"
 ]
 
 [workspace.package]
