@@ -24,5 +24,7 @@ coverage.json
 *.log
 
 #Cursor
+.cursor
 
+#Cli
 ./your_proof

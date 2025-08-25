@@ -147,7 +147,10 @@ function parseWireList(subcircuitInfos, mode = 0) {
   }
 
   if (ind !== l) {
-    throw new Error(`parseWireList: Error during flattening public wires`)
+    console.error(`parseWireList: Wire count mismatch. Expected: ${l}, Got: ${ind}`);
+    console.error(`Subcircuits processed: ${subcircuitInfos.length}`);
+    console.error(`Last subcircuit info:`, subcircuitInfos[subcircuitInfos.length - 1]);
+    throw new Error(`parseWireList: Error during flattening public wires. Expected ${l} wires, but processed ${ind}`)
   }
 
   for ( const subcircuitName of subcircuitInfoByName.keys() ){

@@ -63,14 +63,11 @@ jobs:
 
     strategy:
       matrix:
-        # 다양한 트랜잭션 타입으로 테스트
+        # TON Transfer 테스트만 실행
         test_case:
-          - name: 'simple-transfer'
-            tx_hash: '0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc'
-            description: 'Simple ETH transfer'
-          - name: 'contract-call'
-            tx_hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-            description: 'Contract interaction'
+          - name: 'ton-transfer'
+            tx_hash: '0x6c7903e420c5efb27639f5186a7474ef2137f12c786a90b4efdcb5d88dfdb002'
+            description: 'TON Transfer'
 
       fail-fast: false # 하나 실패해도 다른 테스트 계속 진행
 
@@ -167,7 +164,7 @@ jobs:
           echo "🚀 Running performance benchmark..."
 
           # 시간 측정하면서 증명 생성
-          TX_HASH="0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc"
+          TX_HASH="0x6c7903e420c5efb27639f5186a7474ef2137f12c786a90b4efdcb5d88dfdb002"
 
           start_time=$(date +%s)
           ./tokamak-cli --prove "$TX_HASH" "./perf_test"
@@ -189,7 +186,7 @@ jobs:
           echo "🧠 Testing memory usage..."
 
           # 메모리 사용량 모니터링하면서 실행
-          TX_HASH="0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc"
+          TX_HASH="0x6c7903e420c5efb27639f5186a7474ef2137f12c786a90b4efdcb5d88dfdb002"
 
           # 백그라운드에서 메모리 모니터링
           (while true; do
