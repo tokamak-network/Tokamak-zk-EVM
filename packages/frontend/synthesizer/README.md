@@ -115,6 +115,81 @@ npm run cli demo
 npm run cli info
 ```
 
+### F. **Binary Building**
+
+For production deployment or distribution, you can build standalone binary executables that don't require Node.js runtime.
+
+#### Prerequisites for Binary Building
+
+- **Bun** (latest version) - Install from [https://bun.sh](https://bun.sh)
+- All dependencies installed (`npm install`)
+
+#### Building Binaries
+
+The `build-binary.sh` script supports building for multiple platforms:
+
+```bash
+# Build for current platform (default)
+./build-binary.sh
+
+# Build for specific platform
+./build-binary.sh linux     # Linux x64
+./build-binary.sh windows   # Windows x64
+./build-binary.sh macos     # macOS (both ARM64 and x64)
+
+# Build for all platforms
+./build-binary.sh all
+```
+
+#### Platform Options
+
+| Platform      | Command                                            | Output Binary                     |
+| ------------- | -------------------------------------------------- | --------------------------------- |
+| Current       | `./build-binary.sh` or `./build-binary.sh current` | `bin/synthesizer-final`           |
+| Linux x64     | `./build-binary.sh linux`                          | `bin/synthesizer-linux-x64`       |
+| Windows x64   | `./build-binary.sh windows`                        | `bin/synthesizer-windows-x64.exe` |
+| macOS ARM64   | `./build-binary.sh macos`                          | `bin/synthesizer-macos-arm64`     |
+| macOS x64     | `./build-binary.sh macos`                          | `bin/synthesizer-macos-x64`       |
+| All platforms | `./build-binary.sh all`                            | All above binaries                |
+
+#### Using Built Binaries
+
+After building, you'll find the binaries in the `bin/` directory along with all necessary WASM files:
+
+```bash
+# Test the binary
+./bin/synthesizer-linux-x64 info
+
+# Run synthesis with binary
+./bin/synthesizer-linux-x64 parse -t 0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc
+
+# Interactive demo mode
+./bin/synthesizer-linux-x64 demo
+```
+
+#### Distribution
+
+To distribute the synthesizer:
+
+1. Copy the entire `bin/` directory to the target system
+2. The binary includes all dependencies and WASM files
+3. No Node.js installation required on the target system
+
+**Example:**
+
+```bash
+# Build for Linux
+./build-binary.sh linux
+
+# Copy to remote server
+scp -r bin/ user@server:/path/to/synthesizer/
+
+# Run on remote server
+ssh user@server
+cd /path/to/synthesizer/
+./synthesizer-linux-x64 info
+```
+
 Now you are ready to move on to [the backend of Tokamak zk-EVM](../../backend/)
 
 ## Description for the Synthesizer input and output

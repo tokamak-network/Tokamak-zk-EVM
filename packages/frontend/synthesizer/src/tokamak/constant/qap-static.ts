@@ -9,5 +9,25 @@ export const subcircuits = _subcircuits;
 export const globalWireList = _globalWireList;
 export const setupParams = _setupParams;
 
-// WASM directory path (static for binary)
-export const wasmDir = './qap-compiler/subcircuits/library/wasm';
+// WASM directory path (dynamic based on execution environment)
+function getWasmDir(): string {
+  const path = require('path');
+
+  // Check if running as Bun binary
+  if ((process as any).isBun && process.execPath) {
+    // Running as binary - use absolute path relative to binary location
+    const binaryDir = path.dirname(process.execPath);
+    return path.join(
+      binaryDir,
+      'qap-compiler',
+      'subcircuits',
+      'library',
+      'wasm',
+    );
+  }
+
+  // Running in development - use relative path
+  return './qap-compiler/subcircuits/library/wasm';
+}
+
+export const wasmDir = getWasmDir();
