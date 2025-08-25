@@ -35,9 +35,14 @@ export class OperationHandler {
   private executeOperation(
     name: ArithmeticOperator,
     values: bigint[],
-  ): bigint | bigint[] {
+  ): bigint[] {
     const operation = OPERATION_MAPPING[name];
-    return operation(values);
+    const out = operation(values)
+    if (!Array.isArray(out)) {
+      return [out]
+    } else {
+      return out
+    }
   }
 
   /**
@@ -52,17 +57,26 @@ export class OperationHandler {
     inPts: DataPt[],
   ): DataPt[] {
     const values = inPts.map((pt) => pt.value);
-    const outValue = this.executeOperation(name, values);
+    const outValue: bigint[] = this.executeOperation(name, values);
 
     const source = this.state.placementIndex;
     let sourceSize: number = DEFAULT_SOURCE_SIZE
     if (name === 
       'DecToBit'||
-      'preparedEdDsaScalars'
+      'PreparedEdDsaScalars'
     ) {
       sourceSize = 1
-     }
-     return Array.isArray(outValue)
+    }
+    if (name === 
+      'Poseidon4'||
+      'JubjubEXP36'||
+      'EdDsaVerify'
+    ) {
+      // TODO: sourceSize를 필드 종류로 정의
+      sourceSize = 255
+    }
+
+    return outValue.length > 0
       ? outValue.map((value, index) =>
           DataPointFactory.create({
             source,
@@ -71,14 +85,7 @@ export class OperationHandler {
             sourceSize,
           }),
         )
-      : [
-          DataPointFactory.create({
-            source,
-            wireIndex: 0,
-            value: outValue,
-            sourceSize,
-          }),
-        ];
+      : []
   }
 
   /**

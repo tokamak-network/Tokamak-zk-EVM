@@ -17,7 +17,6 @@ import { MemoryManager } from '../handlers/memoryManager.js';
 import { BufferManager } from '../handlers/bufferManager.js';
 import type { ISynthesizerProvider } from '../handlers/synthesizerProvider.js';
 import type { IDataLoaderProvider } from '../handlers/dataLoaderProvider.js';
-import type { IMemoryManagerProvider } from '../handlers/memoryManagerProvider.js';
 import { DataPointFactory } from '../../pointers/dataPointFactory.js';
 
 /**

@@ -1,6 +1,6 @@
 import { SubcircuitNames, DataPt, ArithmeticOperator} from "../types/index.js"
 
-export const DEFAULT_SOURCE_SIZE = 32
+export const DEFAULT_SOURCE_SIZE = 256
 
 export const ACCUMULATOR_INPUT_LIMIT = 32
 
@@ -70,7 +70,8 @@ export const SUBCIRCUIT_MAPPING: Record<ArithmeticOperator, [SubcircuitNames, bi
   SAR: ['ALU3', 1n << 29n],
   DecToBit: ['DecToBit', undefined],
   Accumulator: ['Accumulator', undefined],
-  // EXP: ['ALU1', 1n << 10n],
+  EXP: ['ALU1', 1n << 10n], // Not directly used
   Poseidon4: ['Poseidon4', undefined],
+  PrepareEdDsaScalars: ['PrepareEdDsaScalars', undefined],
 
 } as const;

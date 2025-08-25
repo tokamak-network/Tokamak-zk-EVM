@@ -1,6 +1,6 @@
 import { BIGINT_1 } from '@synthesizer-libs/util';
 
-import type { Synthesizer } from '../core/synthesizer.js';
+import type { Synthesizer } from '../core/synthesizer/index.js';
 import type { DataPt } from '../types/index.js';
 
 /**
@@ -41,4 +41,36 @@ export function placeExp(synthesizer: Synthesizer, inPts: DataPt[]): DataPt {
   }
 
   return chPts[chPts.length - 1];
+}
+
+export function placeJubjubExp(synthesizer:Synthesizer, inPts: DataPt[], PoI: DataPt[]): DataPt[] {
+  // Split each into 7 chunks of length 36
+  const CHUNK_SIZE = 36 as const
+  const NUM_CHUNKS = 7 as const
+
+  if (inPts.length !== 254) {
+    throw new Error('Invalid input to placeJubjubExp')
+  }
+  const base: DataPt[] = inPts.slice(0, 2)
+  const scalar_bits: DataPt[] = inPts.slice(2, -1)
+
+  const scalar_bits_chunk: DataPt[][] = Array.from({ length: NUM_CHUNKS }, (_, i) =>
+    scalar_bits.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE),
+  )
+
+  if (PoI.length !== 2) {
+    throw new Error('Invalid input to placeJubjubExp')
+  }
+  var P: DataPt[] = PoI
+  var G: DataPt[] = base
+  for (var i = 0; i < NUM_CHUNKS; i++) {
+    const inPts: DataPt[] = [...P, ...G, ...scalar_bits_chunk[i]]
+    const outPts: DataPt[] = synthesizer.placeArith('JubjubExp36', inPts)
+    if (outPts.length !== 4) {
+      throw new Error('Something wrong with JubjubExp36')
+    }
+    P = outPts.slice(0, 2)
+    G = outPts.slice(2, -1)
+  }
+  return P
 }

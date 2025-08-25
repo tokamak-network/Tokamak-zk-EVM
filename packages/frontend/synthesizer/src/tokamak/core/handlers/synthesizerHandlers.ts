@@ -4,26 +4,28 @@ import {
   createAddressFromStackBigInt,
   getDataSlice,
 } from '../../../opcodes/util.js';
-import { placeExp } from '../../operations/exp.js';
+import { placeExp, placeJubjubExp } from '../../operations/exp.js';
 import { simulateMemoryPt } from '../../pointers/index.js';
 
 import type { RunState } from '../../../interpreter.js';
 import type { ArithmeticOperator, DataPt } from '../../types/index.js';
-import { PUB_IN_PLACEMENT_INDEX, TRANSACTION_IN_PLACEMENT_INDEX } from 'src/tokamak/constant/constants.js';
+import { PUB_IN_PLACEMENT_INDEX, STATIC_IN_PLACEMENT_INDEX, TRANSACTION_IN_PLACEMENT_INDEX } from 'src/tokamak/constant/constants.js';
 
 export const synthesizerVerifySign = (
-  op: ArithmeticOperator,
   runState: RunState,
-): void => {
+): [DataPt, DataPt] => {
   const TARGETTXDATAINDICES = [1, 2, 3, 4] as const
   const messages: DataPt[] | undefined = runState.synthesizer.state.placements.get(TRANSACTION_IN_PLACEMENT_INDEX)?.outPts.slice(TARGETTXDATAINDICES[0], TARGETTXDATAINDICES[TARGETTXDATAINDICES.length - 1] + 1)
   if (messages === undefined) {
     throw new Error('Transactions are not initialized')
   }
   const PUBKEYINDEX = [5, 6] as const
-  const publicKey: DataPt[] | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts.slice(PUBKEYINDEX[0], PUBKEYINDEX[PUBKEYINDEX.length - 1] + 1)
-  if (publicKey === undefined) {
+  const _publicKey: DataPt[] | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts.slice(PUBKEYINDEX[0], PUBKEYINDEX[PUBKEYINDEX.length - 1] + 1)
+  let publicKey: [DataPt, DataPt]
+  if (_publicKey === undefined) {
     throw new Error('Public key is not initialized')
+  } else {
+    publicKey = [_publicKey[0], _publicKey[1]]
   }
   const RANDOMIZERINDEX = [7, 8] as const
   const randomizer: DataPt[] | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts.slice(RANDOMIZERINDEX[0], RANDOMIZERINDEX[RANDOMIZERINDEX.length - 1] + 1)
@@ -41,13 +43,39 @@ export const synthesizerVerifySign = (
   poseidonInter.push(...runState.synthesizer.placeArith('Poseidon4', messages))
   poseidonInter.push(...runState.synthesizer.placeArith('Poseidon4', messages))
   const poseidonOut: DataPt = runState.synthesizer.placeArith('Poseidon4', poseidonInter)[0]
-  const bitsOut: DataPt[] = runState.synthesizer.placeArith('PrepareEdDsaScalars', [signature, poseidonOut])
+  const bitsOut: DataPt[] = runState.synthesizer.placeArith('PrepareEdDsaScalars', [signature, poseidonOut]);
   if (bitsOut.length !== 504) {
-    throw new Error('PrepareEdDsaScalar was expected to output 504 bits')
+    throw new Error('PrepareEdDsaScalar was expected to output 504 bits');
   }
   const signBits: DataPt[] = bitsOut.slice(0, 252)
-  const nonceBits: DataPt[] = bitsOut.slice(252, -1)
-  
+  const challengeBits: DataPt[] = bitsOut.slice(252, -1)
+
+  const JUBJUBBASEINDEX = [10, 11] as const
+  const jubjubBase: DataPt[] | undefined = runState.synthesizer.state.placements.get(STATIC_IN_PLACEMENT_INDEX)?.outPts.slice(JUBJUBBASEINDEX[0], JUBJUBBASEINDEX[JUBJUBBASEINDEX.length - 1] + 1)
+  if (jubjubBase === undefined) {
+    throw new Error('Jubjub base point is not initialized')
+  }
+  const JUBJUBPOIINDEX = [12, 13] as const
+  const jubjubPoI: DataPt[] | undefined = runState.synthesizer.state.placements.get(STATIC_IN_PLACEMENT_INDEX)?.outPts.slice(JUBJUBPOIINDEX[0], JUBJUBPOIINDEX[JUBJUBPOIINDEX.length - 1] + 1)
+  if (jubjubPoI === undefined) {
+    throw new Error('Jubjub point at infinity is not initialized')
+  }
+
+  const sG: DataPt[] = placeJubjubExp(
+    runState.synthesizer,
+    [...jubjubBase, ...signBits],
+    jubjubPoI,
+  )
+
+  const eA: DataPt[] = placeJubjubExp(
+    runState.synthesizer,
+    [...publicKey, ...challengeBits],
+    jubjubPoI,
+  )
+
+  const _: DataPt[] = runState.synthesizer.placeArith('EdDsaVerify', [...sG, ...randomizer, ...eA])
+  runState.synthesizer.state.isTxVerified = true
+  return publicKey
 }
 
 export const synthesizerArith = (
@@ -230,7 +258,23 @@ export async function synthesizerEnvInf(
     case 'ADDRESS':
     case 'ORIGIN':
     case 'CALLER': {
-      placeArith
+      if (!runState.synthesizer.state.isTxVerified) {
+        const pubKeyPt: [DataPt, DataPt] = synthesizerVerifySign(runState)
+        const ZEROINDEX = 0
+        const zero: DataPt | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts[ZEROINDEX]
+        if (zero === undefined) {
+          throw new Error('zero is not initilaized in the public input buffer')
+        }
+        const hashPt: DataPt = runState.synthesizer.placeArith('Poseidon4', [...pubKeyPt, zero, zero])[0]
+        const ADDRESSMASKINDEX = 1
+        const addrMask: DataPt | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts[ADDRESSMASKINDEX]
+        if (addrMask === undefined) {
+          throw new Error('address mask is not initialized in the public input buffer')
+        }
+        dataPt = runState.synthesizer.placeArith('AND', [hashPt, addrMask])[0]
+      } else {
+        dataPt = runState.synthesizer.state.cachedCaller
+      }
       break
     }
     case 'CALLVALUE':

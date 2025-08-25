@@ -58,7 +58,7 @@ export class PlacementRefactor {
     const indLow = newIndex;
     const indHigh = indLow + 1;
 
-    if (origDataPt.sourceSize > 16) {
+    if (origDataPt.sourceSize > 255) { // 255 is the bit-length of bls12-381 modulus
       newDataPts[indLow] = { ...origDataPt };
       newDataPts[indLow].wireIndex = indLow;
       newDataPts[indHigh] = { ...origDataPt };

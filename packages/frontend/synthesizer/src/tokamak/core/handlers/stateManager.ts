@@ -33,6 +33,7 @@ export class StateManager {
   public placementIndex!: number;
   public subcircuitInfoByName!: SubcircuitInfoByName;
   public subcircuitNames!: SubcircuitNames[];
+  public isTxVerified!: boolean
 
   constructor() {
     this._initializeState();

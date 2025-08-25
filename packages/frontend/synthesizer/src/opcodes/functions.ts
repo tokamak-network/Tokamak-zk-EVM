@@ -1331,7 +1331,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.memory.write(offsetNum, 32, buf);
 
       // For Synthesizer //
-      const truncSize = 32;
+      const truncSize = 256;
       const dataPt = runState.stackPt.peek(2)[1];
       const memPt = runState.synthesizer.placeMSTORE(dataPt, truncSize);
       if (truncSize < dataPt.sourceSize) {
@@ -1384,7 +1384,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       runState.memory.write(offsetNum, 1, buf);
 
       // For Synthesizer //
-      const truncSize = 1; // MSTORE8 stores only the lowest byte and discards the higher bytes
+      const truncSize = 8; // MSTORE8 stores only the lowest byte and discards the higher bytes
       const dataPt = runState.stackPt.peek(2)[1]; // Return the top second pointer from StackPt (refer to stack.ts)
       // Track data modifications and reflect them in Placements
       const memPt = runState.synthesizer.placeMSTORE(dataPt, truncSize);

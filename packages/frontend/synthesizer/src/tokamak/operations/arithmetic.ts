@@ -347,6 +347,146 @@ export class ArithmeticOperations {
     return bits
   }
 
+  private static _bls12381Arith(): {mod: Function, add: Function, sub: Function, mul: Function} {
+    const mod = (x: bigint) => ((x % this.BLS12381MODULUS) + this.BLS12381MODULUS) % this.BLS12381MODULUS;
+    const add = (a: bigint, b: bigint) => mod(a + b);
+    const sub = (a: bigint, b: bigint) => mod(a - b);
+    const mul = (a: bigint, b: bigint) => mod(a * b);
+    return {mod, add, sub, mul}
+  }
+
+  /**
+   * JubjubAdd
+   */
+
+  private static _jubjubAdd(in1: bigint[], in2:bigint[]): bigint[] {
+    const D = 19257038036680949359750312669786877991949435402254120286184196891950884077233n;
+    const {mod, add, sub, mul} = this._bls12381Arith()
+    
+    const inv = (a: bigint): bigint => {
+      let t = 0n, newT = 1n;
+      let r = this.BLS12381MODULUS, newR = mod(a);
+      while (newR !== 0n) {
+        const q = r / newR;
+        [t, newT] = [newT, t - q * newT];
+        [r, newR] = [newR, r - q * newR];
+      }
+      if (r !== 1n) throw new Error("inverse does not exist");
+      return t < 0n ? t + this.BLS12381MODULUS : t;
+    }
+
+    // t = d * in1[0]*in2[0]*in1[1]*in2[1]
+    // denX = 1 + t;
+    // denY = 1 - t;
+    let denX: bigint, denY: bigint;
+    let inter1: bigint, inter2: bigint, inter3: bigint;
+
+    inter1 = mul(D, in1[0]);
+    inter2 = mul(inter1, in2[0]);
+    inter3 = mul(inter2, in1[1]);
+    denX = add(1n, mul(inter3, in2[1]));
+    denY = sub(1n, mul(inter3, in2[1]));
+
+    // Numerators
+    let numX: bigint;
+    const term1 = mul(in1[0], in2[1]);
+    numX = add(term1, mul(in1[1], in2[0]));
+    // in[1] numerator = in1[1]*in2[1] - a*in1[0]*in2[0]; with a = -1 => in1[1]*in2[1] + in1[0]*in2[0]
+    let numY: bigint;
+    const term2 = mul(in1[1], in2[1]);
+    numY = add(term2, mul(in1[0], in2[0]));
+
+    // Enforce out[0] = numX / denX  and  out[1] = numY / denY
+    // (division by multiplying both sides by denominators)
+    const out0 = mul(numX, inv(denX)); // out[0] <-- numX \ denX;  numX === out[0] * denX;
+    const out1 = mul(numY, inv(denY)); // out[1] <-- numY \ denY;  numY === out[1] * denY;
+    return [out0, out1];
+  }
+
+  private static _jubjubSubExp (P_prev: bigint[], G_prev: bigint[], b: 0n | 1n): { P_next: bigint[]; G_next: bigint[] } {
+    // G_next <== G_prev + G_prev
+    const G_next = this._jubjubAdd(G_prev, G_prev);
+
+    // P_next <== P_prev + ( b ? G_next : O )
+    const P_next = b === 0n ? P_prev : this._jubjubAdd(P_prev, G_next) 
+    return { P_next, G_next };
+  }
+
+  /**
+   * JubjubExp36
+   */
+  static jubjubExp36(in_vals: bigint[]): bigint[] {
+    const Nbits= 36
+    if (in_vals.length !== 4 + Nbits) {
+      throw new Error('jubjubExp36 expected exactly 40 input values')
+    }
+    for (var i = 0; i < 4; i++) {
+      if (in_vals[i] >= this.BLS12381MODULUS) {
+        throw new Error('jubjubExp36 input curve points must be of Jubjub')
+      }
+    }
+    let P_point: bigint[] = in_vals.slice(0, 2)
+    let G_point: bigint[] = in_vals.slice(2, 4)
+    const b_bits: (0n | 1n)[] = []
+    for (var i = 0; i < Nbits; i++) {
+      const bit = in_vals[i+4]
+      if (bit !== 0n && bit !== 1n) {
+        throw new Error('jubjubExp36 input scalar bits must be binary')
+      } else {
+        b_bits.push(bit)
+      }
+    }
+
+    for (let i = 0; i < Nbits; i++) {
+      const { P_next, G_next } = this._jubjubSubExp(P_point, G_point, b_bits[i]);
+      P_point = P_next
+      G_point = G_next
+    }
+    return [...P_point, ...G_point]
+  }
+
+  /**
+   * EdDsaVerify
+   */
+  static edDsaVerify(in_vals: bigint[]): bigint[] {
+    const {mod, add, sub, mul} = this._bls12381Arith()
+    
+    const jubjubCheck = (point: bigint[]): void => {
+      var A = 52435875175126190479447740508185965837690552500527637822603658699938581184512n;
+      var D = 19257038036680949359750312669786877991949435402254120286184196891950884077233n;
+      if (point.length !== 2) {
+        throw new Error ('Input is not a point')
+      }
+      const x_sq = mul(point[0], point[0])
+      const y_sq = mul(point[1], point[1])
+      const lhs = add(mul(A, x_sq), y_sq)
+      const rhs = add(mul(mul(x_sq, y_sq), D), 1n)
+      if (lhs !== rhs) {
+        throw new Error('jubjub point check failed')
+      }
+    }
+
+    if (in_vals.length !== 6 ) {
+      throw new Error('edDsaVerify expected three jubjub input points')
+    }
+    for (var i = 0; i < 6; i++) {
+      if (in_vals[i] >= this.BLS12381MODULUS) {
+        throw new Error('jubjubExp36 input curve points must be of Jubjub')
+      }
+    }
+
+    const sG: bigint[] = in_vals.slice(0, 2)
+    const R: bigint[] = in_vals.slice(2, 4)
+    const eA: bigint[] = in_vals.slice(4, 6)
+    jubjubCheck(sG)
+    jubjubCheck(R)
+    jubjubCheck(eA)
+    const RHS: bigint[] = this._jubjubAdd(R, eA)
+    if ( sG[0] !== RHS[0] || sG[1] !== RHS[1] ){
+      throw new Error('edDsaVerifiy failed')
+    }
+    return []
+  }
 }
 
 // Operator and function mapping
@@ -381,4 +521,6 @@ export const OPERATION_MAPPING: Record<ArithmeticOperator, ArithmeticFunction> =
   Accumulator: ArithmeticOperations.accumulator,
   Poseidon4: ArithmeticOperations.poseidon4,
   PrepareEdDsaScalars: ArithmeticOperations.prepareEdDsaScalars,
+  JubjubExp36: ArithmeticOperations.jubjubExp36,
+  EdDsaVerify: ArithmeticOperations.edDsaVerify,
 } as const

@@ -29,3 +29,5 @@ export type ArithmeticOperator =
   | 'Accumulator'
   | 'Poseidon4'
   | 'PrepareEdDsaScalars'
+  | 'JubjubExp36'
+  | 'EdDsaVerify'
