@@ -29,10 +29,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y dos2unix build-essential
 
+      - name: Install Rust and Cargo
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install circom
         run: |
-          # Install circom from pre-built binary (faster than building from source)
-          wget https://github.com/iden3/circom/releases/download/v2.1.6/circom-linux-amd64
+          # Install circom 2.2.2 to match local development environment
+          wget https://github.com/iden3/circom/releases/download/v2.2.2/circom-linux-amd64
           chmod +x circom-linux-amd64
           sudo mv circom-linux-amd64 /usr/local/bin/circom
           circom --version
@@ -50,32 +53,37 @@ jobs:
           echo "Node version: $(node --version)"
           echo "npm version: $(npm --version)"
           echo "OS: $(uname -a)"
-          
+
           # 파일 권한 및 라인 엔딩 수정
           echo "🔧 Fixing file permissions and line endings..."
           find . -name "*.sh" -exec chmod +x {} \;
           find . -name "*.sh" -exec dos2unix {} \; 2>/dev/null || true
-          
+
           # npm 의존성 문제 해결을 위해 npm install 사용
           echo "🔧 Installing dependencies with npm install instead of npm ci..."
           cd packages/frontend/qap-compiler && npm install --legacy-peer-deps
           cd ../synthesizer && npm install --legacy-peer-deps
           cd ../../..
-          
+
           # qap-compiler 디렉토리 상태 확인
           echo "🔍 qap-compiler directory structure:"
           ls -la packages/frontend/qap-compiler/
           echo "🔍 qap-compiler/scripts directory:"
           ls -la packages/frontend/qap-compiler/scripts/
-          
+
           # 설치 과정이 성공하는지 테스트
           echo "🚀 Starting tokamak-cli installation..."
           ./tokamak-cli --install "$ALCHEMY_API_KEY" || {
             echo "❌ tokamak-cli failed, checking qap-compiler compile logs..."
-            if [ -f packages/frontend/qap-compiler/temp.txt ]; then
-              echo "🔍 temp.txt content:"
-              cat packages/frontend/qap-compiler/temp.txt
-            fi
+            echo "🔍 Searching for temp.txt files:"
+            find . -name "temp.txt" -type f 2>/dev/null || echo "No temp.txt files found"
+            
+            echo "🔍 qap-compiler/scripts directory after failure:"
+            ls -la packages/frontend/qap-compiler/scripts/ 2>/dev/null || echo "scripts directory not accessible"
+            
+            echo "🔍 Checking for any generated files:"
+            find packages/frontend/qap-compiler -name "*.txt" -o -name "*.json" -o -name "*.js" | head -20
+            
             exit 1
           }
 
