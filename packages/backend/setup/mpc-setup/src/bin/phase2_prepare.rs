@@ -10,13 +10,14 @@ use icicle_core::traits::FieldImpl;
 use icicle_runtime::memory::HostOrDeviceSlice;
 use icicle_runtime::stream::IcicleStream;
 use libs::bivariate_polynomial::DensePolynomialExt;
-use libs::group_structures::{G1serde, Sigma, Sigma1, Sigma2};
+use libs::group_structures::{G1serde, PartialSigma1, Sigma, Sigma1, Sigma2, SigmaPreprocess};
 use libs::iotools::{SetupParams, SubcircuitInfo};
+use libs::polynomial_structures::QAP;
 use mpc_setup::accumulator::Accumulator;
 use mpc_setup::mpc_utils::{compute_langrange_i_coeffs, compute_langrange_i_poly, poly_mult};
-pub use mpc_setup::prepare::QAP;
 use mpc_setup::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
 use mpc_setup::utils::{load_gpu_if_possible, prompt_user_input};
+use mpc_setup::{compute_lagrange_kl, QAP_COMPILER_PATH_PREFIX};
 use rayon::iter::ParallelIterator;
 use rayon::prelude::IntoParallelRefIterator;
 use std::ops::Sub;
@@ -28,8 +29,24 @@ struct Config {
     /// Output folder path (must exist and be writeable)
     #[arg(long, value_name = "OUTFOLDER")]
     outfolder: String,
+
+    #[arg(long, value_name = "IS_CHECKING")]
+    is_checking: bool,
+
+    #[arg(long, value_name = "PART_NO", default_value = "1")]
+    part_no: Option<usize>,
+
+    #[arg(long, value_name = "TOTAL_PART", default_value = "1")]
+    total_part: Option<usize>,
+
+    #[arg(long, value_name = "MERGE_PARTS", default_value = "false")]
+    merge_parts: Option<bool>,
 }
+// cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output --is-checking
 // cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output
+//cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output --total-part 16 --part-no 0
+//cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output --total-part 16 --part-no 0 --merge-parts
+
 fn main() {
     let use_gpu: bool = env::var("USE_GPU")
         .ok()
@@ -40,17 +57,127 @@ fn main() {
         is_gpu_enabled = load_gpu_if_possible()
     }
     let config = Config::parse();
+    let outfolder = config.outfolder;
+    let start1 = Instant::now();
+    let part_no = config.part_no.unwrap();
+    let total_part = config.total_part.unwrap();
+    let is_merge = config.merge_parts.unwrap();
+    if is_merge {
+        let sigma: SigmaV2 = merge_all_parts(&outfolder, total_part);
+        sigma
+            .write_into_json(&format!("{}/phase2_acc_0.json", outfolder))
+            .expect("cannot write sigma into json");
+        return;
+    }
+    if total_part > 1 {
+        assert_eq!(part_no < total_part, true);
+        assert_eq!(is_power_of_two_bitwise(total_part), true);
+    }
     let contributor_index = prompt_user_input("Enter the last phase-1 contributor's index:")
         .parse::<usize>()
         .expect("Please enter a valid number");
+    let sigma = process_prepare(contributor_index, &outfolder, is_gpu_enabled, config.is_checking, total_part, part_no);
+    if config.part_no.is_some() && config.total_part.is_some() {
+        sigma
+            .write_into_json(&format!("{}/phase2_acc_0_{}_{}.json", outfolder, total_part, part_no))
+            .expect("cannot write sigma into json");
+    } else {
+        sigma
+            .write_into_json(&format!("{}/phase2_acc_0.json", outfolder))
+            .expect("cannot write sigma into json");
+    }
 
+    save_contributor_info(
+        &sigma,
+        start1.elapsed(),
+        "Phase2 Prepare",
+        "UK",
+        format!("{}/phase2_contributor_0.txt", outfolder),
+        hex::encode([0u8; HASH_BYTES_LEN]),
+        hex::encode([0u8; HASH_BYTES_LEN]),
+        hex::encode([0u8; HASH_BYTES_LEN]),
+    )
+        .expect("cannot write contributor info");
+    println!(
+        "The total time: {:.6} seconds",
+        start1.elapsed().as_secs_f64()
+    );
+}
+pub fn extend_boxed_2d_array(
+    target: &mut Box<[Box<[G1serde]>]>,
+    source: &Box<[Box<[G1serde]>]>,
+) {
+    let mut temp: Vec<Vec<G1serde>> = target.iter().map(|row| row.to_vec()).collect();
+    let source_vec: Vec<Vec<G1serde>> = source.iter().map(|row| row.to_vec()).collect();
+
+    temp.extend(source_vec);
+
+    *target = temp
+        .into_iter()
+        .map(|v| v.into_boxed_slice())
+        .collect::<Vec<_>>()
+        .into_boxed_slice();
+}
+fn merge_all_parts(outfolder: &str, total_part: usize) -> SigmaV2 {
+    let mut sigma = SigmaV2::read_from_json(&format!("{}/phase2_acc_0_{}_{}.json", outfolder, total_part, 0)).unwrap();
+    for part_no in 1..total_part {
+        let next = SigmaV2::read_from_json(&format!("{}/phase2_acc_0_{}_{}.json", outfolder, total_part, part_no)).unwrap();
+        //check some conditions
+        assert_eq!(sigma.gamma, next.gamma);
+        assert_eq!(sigma.sigma.G, next.sigma.G);
+        assert_eq!(sigma.sigma.H, next.sigma.H);
+        assert_eq!(sigma.sigma.sigma_2.gamma, next.sigma.sigma_2.gamma);
+        assert_eq!(sigma.sigma.sigma_2.y, next.sigma.sigma_2.y);
+        assert_eq!(sigma.sigma.sigma_2.x, next.sigma.sigma_2.x);
+        assert_eq!(sigma.sigma.sigma_2.delta, next.sigma.sigma_2.delta);
+        assert_eq!(sigma.sigma.sigma_2.eta, next.sigma.sigma_2.eta);
+        assert_eq!(sigma.sigma.sigma_2.alpha, next.sigma.sigma_2.alpha);
+        assert_eq!(sigma.sigma.sigma_2.alpha2, next.sigma.sigma_2.alpha2);
+        assert_eq!(sigma.sigma.sigma_2.alpha3, next.sigma.sigma_2.alpha3);
+        assert_eq!(sigma.sigma.sigma_2.alpha4, next.sigma.sigma_2.alpha4);
+        assert_eq!(sigma.sigma.sigma_1.x, next.sigma.sigma_1.x);
+        assert_eq!(sigma.sigma.sigma_1.y, next.sigma.sigma_1.y);
+        assert_eq!(sigma.sigma.sigma_1.eta, next.sigma.sigma_1.eta);
+        assert_eq!(sigma.sigma.sigma_1.delta, next.sigma.sigma_1.delta);
+        assert_eq!(sigma.sigma.sigma_1.gamma_inv_o_inst, next.sigma.sigma_1.gamma_inv_o_inst);
+        assert_eq!(sigma.sigma.sigma_1.delta_inv_alphak_yi_ty, next.sigma.sigma_1.delta_inv_alphak_yi_ty);
+        assert_eq!(sigma.sigma.sigma_1.delta_inv_alpha4_xj_tx, next.sigma.sigma_1.delta_inv_alpha4_xj_tx);
+        assert_eq!(sigma.sigma.sigma_1.delta_inv_alphak_xh_tx, next.sigma.sigma_1.delta_inv_alphak_xh_tx);
+
+        extend_boxed_2d_array(
+            &mut sigma.sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj,
+            &next.sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj,
+        );
+
+        extend_boxed_2d_array(
+            &mut sigma.sigma.sigma_1.delta_inv_li_o_prv,
+            &next.sigma.sigma_1.delta_inv_li_o_prv,
+        );
+    }
+    sigma
+}
+
+fn is_power_of_two_bitwise(n: usize) -> bool {
+    // Handle the special case of 0, which is not a power of two
+    // (unless you define it as 2^negative_infinity, which is generally not the case)
+    if n == 0 {
+        false
+    } else {
+        (n & (n - 1)) == 0
+    }
+}
+pub fn process_prepare(contributor_index: usize, outfolder: &str, is_gpu_enabled: bool, is_checking: bool, total_part: usize, part_no: usize) -> SigmaV2 {
+    let base_path = env::current_dir().unwrap();
+    let qap_path = base_path.join(QAP_COMPILER_PATH_PREFIX);
+
+    let start1 = Instant::now();
     let accumulator = format!("phase1_acc_{}.json", contributor_index);
-    
     let setup_file_name = "setupParams.json";
-    let setup_params = SetupParams::from_path(setup_file_name).unwrap();
+    let setup_params =
+        SetupParams::read_from_json(qap_path.join(&setup_file_name)).expect("cannot SetupParams read file");
     let n = setup_params.n; // Number of constraints per subcircuit
-
     let s_max = setup_params.s_max;
+    assert_eq!(total_part <= s_max / 2, true);
     let m_d = setup_params.m_D; // Total number of wires
     let l_pub_out = setup_params.l_pub_out;
     let l = setup_params.l; // Number of public I/O wires
@@ -63,9 +190,8 @@ fn main() {
         n, s_max, l, m_i, m_d, l_pub_out
     );
 
-    let start1 = Instant::now();
     let subcircuit_file_name = "subcircuitInfo.json";
-    let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_file_name).unwrap();
+    let subcircuit_infos = SubcircuitInfo::read_box_from_json(qap_path.join(&subcircuit_file_name)).unwrap();
 
     let mut li_y_vec: Vec<DensePolynomialExt> = vec![];
 
@@ -75,9 +201,16 @@ fn main() {
     }
     println!("loading latest accumulator json");
     let latest_acc =
-        Accumulator::read_from_json(&format!("{}/{}", config.outfolder, accumulator))
+        Accumulator::read_from_json(&format!("{}/{}", outfolder, accumulator))
             .expect("cannot read from latest accumulator json");
-    let sigma_trusted = SigmaV2::read_from_json("setup/mpc-setup/output/phase2_acc_0.json").unwrap();
+
+    let sigma_trusted = if is_checking {
+        println!("loading sigma_trusted json for testing purpose");
+        Some(SigmaV2::read_from_json("setup/mpc-setup/output/phase2_acc_0.json").unwrap())
+    } else {
+        None
+    };
+
 
     let g1 = latest_acc.g1;
     let g2 = latest_acc.g2;
@@ -88,7 +221,7 @@ fn main() {
     let alpha2xy_g1s = latest_acc.get_alphaxy_g1_range(2, n, li_y_vec[0].y_size);
     let alpha3xy_g1s = latest_acc.get_alphaxy_g1_range(3, n, li_y_vec[0].y_size);
 
-    let qap = QAP::gen_from_R1CS(&subcircuit_infos, &setup_params);
+    let qap = QAP::gen_from_R1CS(qap_path.to_str().unwrap(), &subcircuit_infos, &setup_params);
     println!(
         "The qap load time: {:.6} seconds",
         start1.elapsed().as_secs_f64()
@@ -103,6 +236,7 @@ fn main() {
         &alpha2xy_g1s,
         &alpha3xy_g1s,
         &mut gamma_inv_o_inst,
+        is_gpu_enabled,
     );
     let xi_g1s = latest_acc.get_x_g1_range(0, l_pub - 1);
     for j in 0..l_pub_out {
@@ -110,7 +244,9 @@ fn main() {
         compute_langrange_i_coeffs(j, l_pub, 1, &mut m_j_x_coeffs);
         gamma_inv_o_inst[j] = gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
         println!("gamma_inv_o_inst[{}] = {:?}", j, gamma_inv_o_inst[j].0.x);
-        assert_eq!(sigma_trusted.sigma.sigma_1.gamma_inv_o_inst[j], gamma_inv_o_inst[j]);
+        if let Some(sigma_for_check) = &sigma_trusted {
+            assert_eq!(sigma_for_check.sigma.sigma_1.gamma_inv_o_inst[j], gamma_inv_o_inst[j]);
+        }
     }
 
     compute_gamma_part_i(
@@ -122,14 +258,14 @@ fn main() {
         &alpha2xy_g1s,
         &alpha3xy_g1s,
         &mut gamma_inv_o_inst,
+        is_gpu_enabled,
     );
     for j in l_pub_out..l_pub {
         let mut m_j_x_coeffs = vec![ScalarField::zero(); l_pub];
         compute_langrange_i_coeffs(j, l_pub, 1, &mut m_j_x_coeffs);
         gamma_inv_o_inst[j] = gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
         println!("gamma_inv_o_inst[{}] = {:?}", j, gamma_inv_o_inst[j].0.x);
-        assert_eq!(sigma_trusted.sigma.sigma_1.gamma_inv_o_inst[j], gamma_inv_o_inst[j]);
-
+        if let Some(sigma_for_check) = &sigma_trusted { assert_eq!(sigma_for_check.sigma.sigma_1.gamma_inv_o_inst[j], gamma_inv_o_inst[j]); }
     }
     compute_gamma_part_i(
         l_pub,
@@ -140,9 +276,12 @@ fn main() {
         &alpha2xy_g1s,
         &alpha3xy_g1s,
         &mut gamma_inv_o_inst,
+        is_gpu_enabled,
     );
-    for i in l_pub..l_pub + l_prv_out {
-        assert_eq!(sigma_trusted.sigma.sigma_1.gamma_inv_o_inst[i], gamma_inv_o_inst[i]);
+    if let Some(sigma) = &sigma_trusted {
+        for i in l_pub..l_pub + l_prv_out {
+            assert_eq!(sigma.sigma.sigma_1.gamma_inv_o_inst[i], gamma_inv_o_inst[i]);
+        }
     }
     compute_gamma_part_i(
         l_pub + l_prv_out,
@@ -153,9 +292,12 @@ fn main() {
         &alpha2xy_g1s,
         &alpha3xy_g1s,
         &mut gamma_inv_o_inst,
+        is_gpu_enabled,
     );
-    for i in l_pub + l_prv_out..l {
-        assert_eq!(sigma_trusted.sigma.sigma_1.gamma_inv_o_inst[i], gamma_inv_o_inst[i]);
+    if let Some(sigma_for_check) = &sigma_trusted {
+        for i in l_pub + l_prv_out..l {
+            assert_eq!(sigma_for_check.sigma.sigma_1.gamma_inv_o_inst[i], gamma_inv_o_inst[i]);
+        }
     }
     // {δ^(-1)α^k x^h t_n(x)}_{h=0,k=1}^{2,3}
     let mut delta_inv_alphak_xh_tx =
@@ -188,7 +330,9 @@ fn main() {
         );
     }
 
-     assert_eq!(sigma_trusted.sigma.sigma_1.delta_inv_alpha4_xj_tx, delta_inv_alpha4_xj_tx);
+    if let Some(sigma_for_check) = &sigma_trusted {
+        assert_eq!(sigma_for_check.sigma.sigma_1.delta_inv_alpha4_xj_tx, delta_inv_alpha4_xj_tx);
+    }
 
     // {δ^(-1)α^k y^i t_{s_max}(y)}_{i=0,k=1}^{2,4}
     let mut delta_inv_alphak_yi_ty =
@@ -213,7 +357,6 @@ fn main() {
         "The total time for first part: {:.6} seconds",
         lap.as_secs_f64()
     );
-    let start1 = Instant::now();
 
     let mut multpxy_coeffs = vec![ScalarField::zero(); n * li_y_vec[0].y_size];
     // {η^(-1)L_i(y)(o_{j+l}(x) + α^4 K_j(x))}_{i=0,j=0}^{s_max-1,m_I-1}
@@ -230,10 +373,20 @@ fn main() {
     println!("len of (eta_inv_li_o_inter_alpha4_kj) is {}", m_i * s_max);
     let batch_count = env::var("BATCH_COUNT").unwrap_or("512".to_string()).parse::<usize>().unwrap();
 
+    let mut start = 0;
+    let mut end = s_max;
+
+    if total_part > 1 {
+        start = part_no * s_max / total_part;
+        end = (part_no + 1) * s_max / total_part;
+        if part_no == total_part - 1 {
+            end = s_max;
+        }
+    }
+
     let start2 = Instant::now();
     process_qap_component_for_eta(
         "u",
-        s_max,
         m_i,
         l,
         batch_count,
@@ -242,11 +395,12 @@ fn main() {
         &alpha1xy_g1s,
         &mut multpxy_coeffs,
         &mut eta_inv_li_o_inter_alpha4_kj,
+        is_gpu_enabled,
+        start, end,
     );
     println!("processing u for eta done");
     process_qap_component_for_eta(
         "v",
-        s_max,
         m_i,
         l,
         batch_count,
@@ -255,12 +409,13 @@ fn main() {
         &alpha2xy_g1s,
         &mut multpxy_coeffs,
         &mut eta_inv_li_o_inter_alpha4_kj,
+        is_gpu_enabled,
+        start, end,
     );
     println!("processing v for eta done");
 
     process_qap_component_for_eta(
         "w",
-        s_max,
         m_i,
         l,
         batch_count,
@@ -269,12 +424,13 @@ fn main() {
         &alpha3xy_g1s,
         &mut multpxy_coeffs,
         &mut eta_inv_li_o_inter_alpha4_kj,
+        is_gpu_enabled,
+        start, end,
     );
     println!("processing w for eta  done");
 
     process_qap_component_for_eta(
         "kjx",
-        s_max,
         m_i,
         0, // no offset needed for kj_x_vec
         batch_count,
@@ -283,16 +439,19 @@ fn main() {
         &alpha4xy_g1s,
         &mut xy_coeffs,
         &mut eta_inv_li_o_inter_alpha4_kj,
+        is_gpu_enabled,
+        start, end,
     );
     println!("processing kjx for eta  done");
-
-   for i in 0.. s_max {
+    for i in start..end {
         for j in 0..m_i {
             println!(
                 "eta_inv_li_o_inter_alpha4_kj[{}][{}] = {:?}",
                 j, i, eta_inv_li_o_inter_alpha4_kj[j][i].0.x
             );
-            assert_eq!(eta_inv_li_o_inter_alpha4_kj[j][i], sigma_trusted.sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj[j][i]);
+            if let Some(sigma_for_check) = &sigma_trusted {
+                assert_eq!(eta_inv_li_o_inter_alpha4_kj[j][i], sigma_for_check.sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj[j][i]);
+            }
         }
     }
     let avg = start2.elapsed().as_secs_f64() / (s_max * m_i) as f64;
@@ -317,10 +476,10 @@ fn main() {
         l,
         m_i,
         m_d,
-        s_max,
         &mut multpxy_coeffs,
         &mut delta_inv_li_o_prv,
         batch_count,
+        start, end,
     );
 
     process_qap_contributions_for_delta_inv(
@@ -331,10 +490,10 @@ fn main() {
         l,
         m_i,
         m_d,
-        s_max,
         &mut multpxy_coeffs,
         &mut delta_inv_li_o_prv,
         batch_count,
+        start, end,
     );
 
     process_qap_contributions_for_delta_inv(
@@ -345,45 +504,34 @@ fn main() {
         l,
         m_i,
         m_d,
-        s_max,
         &mut multpxy_coeffs,
         &mut delta_inv_li_o_prv,
         batch_count,
+        start, end,
     );
-    for i in 0.. s_max {
-         for j in (l + m_i)..m_d {
-             assert_eq!(delta_inv_li_o_prv[j - (l + m_i)][i], sigma_trusted.sigma.sigma_1.delta_inv_li_o_prv[j - (l + m_i)][i]);
-             println!("delta_inv_li_o_prv[{}][{}] = {:?}",j - (l + m_i),i, delta_inv_li_o_prv[j - (l + m_i)][i].0.x);
+
+    for i in start..end {
+        for j in (l + m_i)..m_d {
+            println!("delta_inv_li_o_prv[{}][{}] = {:?}", j - (l + m_i), i, delta_inv_li_o_prv[j - (l + m_i)][i].0.x);
+            if let Some(sigma_for_check) = &sigma_trusted {
+                assert_eq!(delta_inv_li_o_prv[j - (l + m_i)][i], sigma_for_check.sigma.sigma_1.delta_inv_li_o_prv[j - (l + m_i)][i]);
+            }
         }
     }
     let avg =
-        start2.elapsed().as_secs_f64() / (s_max * (m_d -(l + m_i))) as f64;
+        start2.elapsed().as_secs_f64() / (s_max * (m_d - (l + m_i))) as f64;
     println!("avg delta per second {}", 1f64 / avg);
-    #[cfg(feature = "testing-mode")]
-    {
-        let sigma_trusted =
-            Sigma::read_from_json("setup/trusted-setup/output/combined_sigma.json").unwrap();
-        assert_eq!(sigma_trusted.sigma_1.gamma_inv_o_inst, gamma_inv_o_inst);
-        assert_eq!(
-            sigma_trusted.sigma_1.delta_inv_alphak_xh_tx,
-            delta_inv_alphak_xh_tx
-        );
-        assert_eq!(
-            sigma_trusted.sigma_1.delta_inv_alpha4_xj_tx,
-            delta_inv_alpha4_xj_tx
-        );
-        assert_eq!(
-            sigma_trusted.sigma_1.delta_inv_alphak_yi_ty,
-            delta_inv_alphak_yi_ty
-        );
-        assert_eq!(
-            eta_inv_li_o_inter_alpha4_kj,
-            sigma_trusted.sigma_1.eta_inv_li_o_inter_alpha4_kj
-        );
-        assert_eq!(delta_inv_li_o_prv, sigma_trusted.sigma_1.delta_inv_li_o_prv);
-    }
 
-    let sigma = SigmaV2 {
+    let lagrange_kl = compute_lagrange_kl(
+        &SigmaPreprocess {
+            sigma_1: PartialSigma1 {
+                xy_powers: latest_acc.get_boxed_xypower(),
+            },
+        },
+        &setup_params,
+    );
+
+    SigmaV2 {
         contributor_index: 0,
         gamma: g1,
         sigma: Sigma {
@@ -413,33 +561,13 @@ fn main() {
                 x: latest_acc.x[0].g2,
                 y: latest_acc.y.g2,
             },
+            lagrange_KL: lagrange_kl,
         },
-    };
-
-    sigma
-        .write_into_json(&format!("{}/phase2_acc_0.json", config.outfolder))
-        .expect("cannot write sigma into json");
-
-    save_contributor_info(
-        &sigma,
-        start1.elapsed(),
-        "Phase2 Prepare",
-        "UK",
-        format!("{}/phase2_contributor_0.txt", config.outfolder),
-        hex::encode([0u8; HASH_BYTES_LEN]),
-        hex::encode([0u8; HASH_BYTES_LEN]),
-        hex::encode([0u8; HASH_BYTES_LEN]),
-    )
-    .expect("cannot write contributor info");
-    println!(
-        "The total time: {:.6} seconds",
-        start1.elapsed().as_secs_f64()
-    );
+    }
 }
 
-fn process_qap_component_for_eta<'a,F>(
+fn process_qap_component_for_eta<'a, F>(
     label: &str,
-    s_max: usize,
     m_i: usize,
     l: usize,
     batch_count: usize,
@@ -448,10 +576,13 @@ fn process_qap_component_for_eta<'a,F>(
     alpha_k_xy_g1s: &'a Vec<G1Affine>,
     coeff_buf: &mut Vec<ScalarField>,
     result_matrix: &mut Box<[Box<[G1serde]>]>,
+    is_gpu_enabled: bool,
+    start: usize, end: usize,
 ) where
     F: Fn(usize, usize) -> Option<&'a DensePolynomialExt>,
 {
-    for i in 0..s_max {
+    println!("processing eta: labeled = {} for start = {} end = {}", label, start, end);
+    for i in start..end {
         let mut coeffs = Vec::with_capacity(coeff_buf.len() * batch_count);
         let mut indexes = Vec::with_capacity(batch_count);
 
@@ -481,7 +612,6 @@ fn process_qap_component_for_eta<'a,F>(
 }
 
 
-
 fn process_qap_contributions_for_delta_inv(
     label: &str,
     qap_slice: &Vec<DensePolynomialExt>,
@@ -490,12 +620,13 @@ fn process_qap_contributions_for_delta_inv(
     l: usize,
     m_i: usize,
     m_d: usize,
-    s_max: usize,
     multpxy_coeffs: &mut Vec<ScalarField>,
     delta_inv_li_o_prv: &mut Box<[Box<[G1serde]>]>,
     batch_count: usize,
+    start: usize, end: usize,
 ) {
-    for i in 0.. s_max {
+    println!("processing delta_inv: labeled = {} for start = {} end = {}", label, start, end);
+    for i in start..end {
         let mut coeffs = Vec::with_capacity(multpxy_coeffs.len() * batch_count);
         let mut indexes = Vec::with_capacity(batch_count);
 
@@ -529,9 +660,12 @@ fn compute_gamma_part_i(
     alpha2xy_g1s: &Vec<G1Affine>,
     alpha3xy_g1s: &Vec<G1Affine>,
     gamma_inv_o_inst: &mut Box<[G1serde]>,
+    is_gpu_enabled: bool,
 ) {
     let mut multpxy_coeffs = vec![ScalarField::zero(); qap.w_j_X[start].x_size * lag_i.y_size];
     let mut cache: Vec<(usize, Vec<ScalarField>, Vec<G1Affine>)> = vec![];
+
+    let batch_size = if is_gpu_enabled { 1 } else { 7 };
 
     for j in start..end {
         let mut coeffs: Vec<ScalarField> = Vec::with_capacity(multpxy_coeffs.len() * 3);
@@ -560,24 +694,32 @@ fn compute_gamma_part_i(
             cache.push((j, coeffs, commits));
             //gamma_inv_o_inst[j] = sum_vector_dot_product(&coeffs, &commits);//out;
         }
-        if cache.len() > 7 {
-            run_sum_vector_dot_product(&cache, gamma_inv_o_inst);
+        if cache.len() > batch_size {
+            run_sum_vector_dot_product(&cache, gamma_inv_o_inst, is_gpu_enabled);
             cache.clear();
         }
     }
     if cache.len() > 0 {
-        run_sum_vector_dot_product(&cache, gamma_inv_o_inst);
+        run_sum_vector_dot_product(&cache, gamma_inv_o_inst, is_gpu_enabled);
     }
 }
 
 fn run_sum_vector_dot_product(
     cache: &Vec<(usize, Vec<ScalarField>, Vec<G1Affine>)>,
     gamma_inv_o_inst: &mut Box<[G1serde]>,
+    is_gpu_enabled: bool,
 ) {
-    let mut results: Vec<(usize, G1serde)> = cache
-        .iter() //par_iter
-        .map(|(j, coeffs, commits)| (*j, sum_vector_dot_product(coeffs, commits)))
-        .collect();
+    let mut results: Vec<(usize, G1serde)> = if is_gpu_enabled {
+        cache
+            .iter()
+            .map(|(j, coeffs, commits)| (*j, sum_vector_dot_product(coeffs, commits)))
+            .collect()
+    } else {
+        cache
+            .par_iter() //par_iter
+            .map(|(j, coeffs, commits)| (*j, sum_vector_dot_product(coeffs, commits)))
+            .collect()
+    };
 
     results.sort_by_key(|(j, _)| *j);
     for (j, val) in results {
@@ -590,7 +732,7 @@ fn run_sum_vector_dot_product2(
     p1: &mut Box<[Box<[G1serde]>]>,
 ) {
     let results: Vec<(usize, usize, G1serde)> = cache
-        .par_iter()//par_iter
+        .par_iter() //par_iter
         .map(|(j, i, coeffs, commits)| (*j, *i, sum_vector_dot_product(coeffs, commits)))
         .collect();
 
@@ -627,9 +769,10 @@ fn sum_batch_vector_dot_product(bases: &Vec<G1Affine>, scalars: &Vec<ScalarField
     msm_res
         .copy_to_host(HostSlice::from_mut_slice(&mut host_res[..]))
         .unwrap();
+    drop(msm_res);
 
     for (i, &(j, k)) in indexes.iter().enumerate() {
-        dest[j][k] = dest[j][k]  + G1serde(G1Affine::from(host_res[i]));
+        dest[j][k] = dest[j][k] + G1serde(G1Affine::from(host_res[i]));
     }
     stream.destroy().unwrap();
 }
@@ -657,8 +800,8 @@ pub fn sum_vector_dot_product(scalars: &Vec<ScalarField>, commit: &[G1Affine]) -
     msm_res
         .copy_to_host(HostSlice::from_mut_slice(&mut host_res[..]))
         .unwrap();
-
     stream.destroy().unwrap();
+    // drop(msm_res);
     G1serde(G1Affine::from(host_res[0]))
 }
 pub fn sum_vector_dot_product_chunked(
@@ -679,7 +822,7 @@ pub fn sum_vector_dot_product_chunked(
         .zip(commit.chunks(chunk_size))
     {
         let mut msm_res = DeviceVec::<G1Projective>::device_malloc(1)
-        .expect("device_malloc failed");
+            .expect("device_malloc failed");
         msm::msm(
             HostSlice::from_slice(scalar_chunk),
             HostSlice::from_slice(commit_chunk),
@@ -694,11 +837,9 @@ pub fn sum_vector_dot_product_chunked(
         let mut host_res = vec![G1Projective::zero(); 1];
         msm_res
             .copy_to_host(HostSlice::from_mut_slice(&mut host_res[..]))
-        .unwrap();
-
+            .unwrap();
+        drop(msm_res);
         partial_results.push(host_res[0]);
-
-
     }
     stream
         .destroy()
