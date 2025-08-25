@@ -32,7 +32,15 @@ rm -rf -- "${TARGET}/resource"
 mkdir -p "${TARGET}/resource/qap-compiler/library"
 cp -r ../frontend/qap-compiler/subcircuits/library/* "${TARGET}/resource/qap-compiler/library"
 mkdir -p "${TARGET}/resource/synthesizer/outputs"
-cp -r ../frontend/synthesizer/examples/outputs/* "${TARGET}/resource/synthesizer/outputs"
+
+# Copy synthesizer outputs if they exist (only after synthesizer has run)
+if [ -d "../frontend/synthesizer/examples/outputs" ] && [ "$(ls -A ../frontend/synthesizer/examples/outputs 2>/dev/null)" ]; then
+  cp -r ../frontend/synthesizer/examples/outputs/* "${TARGET}/resource/synthesizer/outputs"
+  echo "✅ copied synthesizer outputs"
+else
+  echo "ℹ️  synthesizer outputs not found (will be available after running synthesizer)"
+fi
+
 echo "✅ copied to ${TARGET}/resource"
 
 command -v curl >/dev/null 2>&1 || { echo "curl is required but not found"; exit 1; }
