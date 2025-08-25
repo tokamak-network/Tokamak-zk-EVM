@@ -151,17 +151,7 @@ function parseWireList(subcircuitInfos, mode = 0) {
   }
 
   if (ind !== l) {
-    console.error(
-      `parseWireList: Wire count mismatch. Expected: ${l}, Got: ${ind}`,
-    );
-    console.error(`Subcircuits processed: ${subcircuitInfos.length}`);
-    console.error(
-      `Last subcircuit info:`,
-      subcircuitInfos[subcircuitInfos.length - 1],
-    );
-    throw new Error(
-      `parseWireList: Error during flattening public wires. Expected ${l} wires, but processed ${ind}`,
-    );
+    throw new Error(`parseWireList: Error during flattening public wires`);
   }
 
   for (const subcircuitName of subcircuitInfoByName.keys()) {
@@ -249,21 +239,10 @@ const numConstsVec = [];
 fs.readFile('./temp.txt', 'utf8', function (err, data) {
   if (err) throw err;
 
-  console.log('🔍 DEBUG: temp.txt content:');
-  console.log('--- START temp.txt ---');
-  console.log(data);
-  console.log('--- END temp.txt ---');
-  console.log(`Total lines: ${data.split('\n').length}`);
-
   const subcircuits = [];
 
   const output = data.split('\n').slice(0, -1);
-  console.log(`🔍 DEBUG: Processing ${output.length} lines from temp.txt`);
   for (var i = 0; i < output.length; i += numOfLinesPerCircuit) {
-    console.log(`\n🔍 DEBUG: Processing subcircuit starting at line ${i}:`);
-    for (let j = 0; j < numOfLinesPerCircuit && (i + j) < output.length; j++) {
-      console.log(`  Line ${i + j}: "${output[i + j]}"`);
-    }
     // circuit id
     const id = Number(output[i].match(/\d+/)[0]);
 
@@ -288,23 +267,15 @@ fs.readFile('./temp.txt', 'utf8', function (err, data) {
     //const opcode = opcodeDictionary[name]
 
     // num_wires
-    console.log(`🔍 DEBUG: Extracting numWires from line ${i + 7}: "${output[i + 7]}"`);
-    const numWires = output[i + 7] ? output[i + 7].match(/\d+/)?.[0] : '0';
-    console.log(`🔍 DEBUG: numWires extracted: "${numWires}"`);
+    const numWires = output[i + 7].match(/\d+/)[0];
 
     // public output
-    console.log(`🔍 DEBUG: Extracting numOutput from line ${i + 6}: "${output[i + 6]}"`);
-    const numOutput = output[i + 6] ? output[i + 6].match(/\d+/)?.[0] : '0';
-    console.log(`🔍 DEBUG: numOutput extracted: "${numOutput}"`);
+    const numOutput = output[i + 6].match(/\d+/)[0];
 
     // public input
-    console.log(`🔍 DEBUG: Extracting numInput from lines ${i + 4} and ${i + 5}:`);
-    console.log(`🔍 DEBUG: Line ${i + 4}: "${output[i + 4]}"`);
-    console.log(`🔍 DEBUG: Line ${i + 5}: "${output[i + 5]}"`);
-    const numInput4 = output[i + 4] ? output[i + 4].match(/\d+/)?.[0] : '0';
-    const numInput5 = output[i + 5] ? output[i + 5].match(/\d+/)?.[0] : '0';
-    const numInput = Number(numInput4) + Number(numInput5);
-    console.log(`🔍 DEBUG: numInput calculated: ${numInput4} + ${numInput5} = ${numInput}`);
+    const numInput =
+      Number(output[i + 4].match(/\d+/)[0]) +
+      Number(output[i + 5].match(/\d+/)[0]);
 
     // num_constraints
     const numConsts =
@@ -320,17 +291,6 @@ fs.readFile('./temp.txt', 'utf8', function (err, data) {
       Out_idx: [1, Number(numOutput)],
       In_idx: [Number(numOutput) + 1, numInput],
     };
-
-    console.log(`🔍 DEBUG: Parsed subcircuit ${id} (${name}):`);
-    console.log(`  - numWires: ${numWires} -> Nwires: ${Number(numWires)}`);
-    console.log(
-      `  - numOutput: ${numOutput} -> Out_idx: [1, ${Number(numOutput)}]`,
-    );
-    console.log(
-      `  - numInput: ${numInput} -> In_idx: [${Number(numOutput) + 1}, ${numInput}]`,
-    );
-    console.log(`  - numConsts: ${numConsts}`);
-
     subcircuits.push(subcircuit);
   }
 
