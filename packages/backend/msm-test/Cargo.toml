@@ -25,11 +25,6 @@ ark-ec = { workspace = true }
 ark-ff = { workspace = true }
 rand = { workspace = true }
 
-[[bench]]
-name = "msm_bench"
-path = "benchmarks.rs"
-harness = false
-
 [features]
 default = []
 testing-mode = []

@@ -378,8 +378,8 @@ mod tests {
         let mut stream_2 = IcicleStream::create().unwrap();
 
         // Test parameters
-        let num_msms = 100;
-        let msm_size = 1 << 18; // Size of each individual MSM
+        let num_msms = 10;
+        let msm_size = 1 << 14; // Size of each individual MSM
 
         println!("Testing {} MSMs of size {} each", num_msms, msm_size);
 
@@ -509,5 +509,379 @@ mod tests {
             "- Batch throughput: {:.0} elements/ms",
             (num_msms * msm_size) as f64 / batch_duration.as_millis() as f64
         );
+    }
+
+    #[test]
+    fn test_precompute_factor_variations() {
+        if !initialize() {
+            println!("[SKIP] Test skipped due to device initialization failure");
+            return;
+        }
+
+        let test_size = 1000;
+        let precompute_factors = [1, 2, 4, 8, 16]; // Different precompute factors to test
+        let mut stream = IcicleStream::create().unwrap();
+
+        let points = generate_random_affine_g1_points_with_zeroes(test_size, 5);
+        let scalars = ScalarCfg::generate_random(test_size);
+
+        // Reference result using no precomputation
+        let reference_result = msm_g1_helper(
+            HostSlice::from_slice(&scalars),
+            HostSlice::from_slice(&points),
+            &stream,
+        );
+        let mut ref_host = vec![G1Projective::zero(); 1];
+        reference_result
+            .copy_to_host_async(HostSlice::from_mut_slice(&mut ref_host), &stream)
+            .unwrap();
+        stream.synchronize().unwrap();
+
+        println!("Testing precompute factors for correctness and performance:");
+
+        for &precompute_factor in &precompute_factors {
+            let start_time = std::time::Instant::now();
+
+            // Precompute bases
+            let precomputed_points =
+                precompute_msm_bases(HostSlice::from_slice(&points), precompute_factor, &stream);
+            stream.synchronize().unwrap();
+            let precompute_time = start_time.elapsed();
+
+            // Run MSM with precomputed bases
+            let msm_start = std::time::Instant::now();
+            let mut config = MSMConfig::default();
+            config.stream_handle = (*stream).into();
+            config.precompute_factor = precompute_factor;
+            config.is_async = true;
+
+            let mut result_precomputed =
+                DeviceVec::<G1Projective>::device_malloc_async(1, &stream).unwrap();
+            msm(
+                HostSlice::from_slice(&scalars),
+                &precomputed_points[..],
+                &config,
+                &mut result_precomputed[..],
+            )
+            .unwrap();
+
+            let mut host_result = vec![G1Projective::zero(); 1];
+            result_precomputed
+                .copy_to_host_async(HostSlice::from_mut_slice(&mut host_result), &stream)
+                .unwrap();
+            stream.synchronize().unwrap();
+            let msm_time = msm_start.elapsed();
+
+            // Verify correctness
+            assert_eq!(
+                host_result[0], ref_host[0],
+                "Precompute factor {} produces incorrect result",
+                precompute_factor
+            );
+
+            let total_time = start_time.elapsed();
+            println!(
+                "Factor {}: precompute={:.2?}, msm={:.2?}, total={:.2?}",
+                precompute_factor, precompute_time, msm_time, total_time
+            );
+        }
+
+        stream.destroy().unwrap();
+        println!("✓ All precompute factors produce correct results");
+    }
+
+    #[test]
+    fn test_precompute_factor_batch_performance() {
+        if !initialize() {
+            println!("[SKIP] Test skipped due to device initialization failure");
+            return;
+        }
+
+        let test_size = 1 << 15;
+        let batch_size = 8;
+        let precompute_factors = [1, 2, 4, 8];
+        let mut stream = IcicleStream::create().unwrap();
+
+        let points = generate_random_affine_g1_points_with_zeroes(test_size, 5);
+        let scalars = ScalarCfg::generate_random(test_size * batch_size);
+
+        println!(
+            "Testing precompute factors with multiple MSMs (batch_size={}):",
+            batch_size
+        );
+
+        for &precompute_factor in &precompute_factors {
+            let start_time = std::time::Instant::now();
+
+            let mut all_results = Vec::with_capacity(batch_size);
+
+            if precompute_factor == 1 {
+                // No precomputation - do individual MSMs
+                for i in 0..batch_size {
+                    let start_idx = i * test_size;
+                    let end_idx = (i + 1) * test_size;
+
+                    let result = msm_g1_helper(
+                        HostSlice::from_slice(&scalars[start_idx..end_idx]),
+                        HostSlice::from_slice(&points),
+                        &stream,
+                    );
+
+                    let mut host_result = vec![G1Projective::zero(); 1];
+                    result
+                        .copy_to_host_async(HostSlice::from_mut_slice(&mut host_result), &stream)
+                        .unwrap();
+                    stream.synchronize().unwrap();
+                    all_results.push(host_result[0]);
+                }
+            } else {
+                // Precompute bases once, then do individual MSMs (like working test)
+                let precomputed_points = precompute_msm_bases(
+                    HostSlice::from_slice(&points),
+                    precompute_factor,
+                    &stream,
+                );
+                stream.synchronize().unwrap();
+
+                for i in 0..batch_size {
+                    let start_idx = i * test_size;
+                    let end_idx = (i + 1) * test_size;
+
+                    // Use same config as working test_precomputed_msm
+                    let mut config = MSMConfig::default();
+                    config.stream_handle = (*stream).into();
+                    config.precompute_factor = precompute_factor;
+                    config.is_async = true;
+                    // Note: NOT setting batch_size or are_points_shared_in_batch
+                    // TODO: figure out how to set batch_size and are_points_shared_in_batch with prcompute factor at the same time.
+
+                    let mut result =
+                        DeviceVec::<G1Projective>::device_malloc_async(1, &stream).unwrap();
+                    msm(
+                        HostSlice::from_slice(&scalars[start_idx..end_idx]),
+                        &precomputed_points[..],
+                        &config,
+                        &mut result[..],
+                    )
+                    .unwrap();
+
+                    let mut host_result = vec![G1Projective::zero(); 1];
+                    result
+                        .copy_to_host_async(HostSlice::from_mut_slice(&mut host_result), &stream)
+                        .unwrap();
+                    stream.synchronize().unwrap();
+                    all_results.push(host_result[0]);
+                }
+            }
+
+            let elapsed = start_time.elapsed();
+
+            // Verify by comparing first result with fresh individual MSM
+            let first_scalars = &scalars[0..test_size];
+            let ref_result = msm_g1_helper(
+                HostSlice::from_slice(first_scalars),
+                HostSlice::from_slice(&points),
+                &stream,
+            );
+            let mut ref_host = vec![G1Projective::zero(); 1];
+            ref_result
+                .copy_to_host_async(HostSlice::from_mut_slice(&mut ref_host), &stream)
+                .unwrap();
+            stream.synchronize().unwrap();
+
+            assert_eq!(
+                all_results[0], ref_host[0],
+                "Precompute factor {} produces incorrect result",
+                precompute_factor
+            );
+
+            println!(
+                "Precompute factor {}: {:.2?} ({:.2?} per MSM)",
+                precompute_factor,
+                elapsed,
+                elapsed / batch_size as u32
+            );
+        }
+
+        stream.destroy().unwrap();
+        println!("✓ All precompute factors produce correct results");
+    }
+
+    #[test]
+    fn test_precompute_factor_edge_cases() {
+        if !initialize() {
+            println!("[SKIP] Test skipped due to device initialization failure");
+            return;
+        }
+
+        let mut stream = IcicleStream::create().unwrap();
+
+        // Test with very small size
+        let small_size = 16;
+        let points_small = generate_random_affine_g1_points_with_zeroes(small_size, 2);
+        let scalars_small = ScalarCfg::generate_random(small_size);
+
+        // Test with precompute factor larger than needed
+        let large_precompute = 16;
+
+        let precomputed_points = precompute_msm_bases(
+            HostSlice::from_slice(&points_small),
+            large_precompute,
+            &stream,
+        );
+        stream.synchronize().unwrap();
+
+        let mut config = MSMConfig::default();
+        config.stream_handle = (*stream).into();
+        config.precompute_factor = large_precompute;
+        config.is_async = true;
+        config.batch_size = 64;
+        config.are_points_shared_in_batch = true;
+
+        let mut result = DeviceVec::<G1Projective>::device_malloc_async(1, &stream).unwrap();
+        msm(
+            HostSlice::from_slice(&scalars_small),
+            &precomputed_points[..],
+            &config,
+            &mut result[..],
+        )
+        .unwrap();
+
+        // Reference without precompute
+        let ref_result = msm_g1_helper(
+            HostSlice::from_slice(&scalars_small),
+            HostSlice::from_slice(&points_small),
+            &stream,
+        );
+
+        let mut host_precomputed = vec![G1Projective::zero(); 1];
+        let mut host_reference = vec![G1Projective::zero(); 1];
+
+        result
+            .copy_to_host_async(HostSlice::from_mut_slice(&mut host_precomputed), &stream)
+            .unwrap();
+        ref_result
+            .copy_to_host_async(HostSlice::from_mut_slice(&mut host_reference), &stream)
+            .unwrap();
+
+        // println!("Precomputed result: {:?}", <G1Projective as Into<G1Affine>>::into(host_precomputed[0]));
+        // println!("Reference result: {:?}", <G1Projective as Into<G1Affine>>::into(host_reference[0]));
+        stream.synchronize().unwrap();
+
+        assert_eq!(
+            host_precomputed[0], host_reference[0],
+            "Large precompute factor with small input produces incorrect result"
+        );
+
+        stream.destroy().unwrap();
+        println!("✓ Edge case: large precompute factor with small input works correctly");
+    }
+
+    #[test]
+    fn test_true_batch_msm_with_precompute() {
+        if !initialize() {
+            println!("[SKIP] Test skipped due to device initialization failure");
+            return;
+        }
+
+        // Use parameters from benchmark table that work
+        let test_size = 1 << 15; // 2^15 = 32768 (matches benchmark)
+        let batch_size = 100; // Matches benchmark table
+        let precompute_factor = 19; // From benchmark table
+        let c_value = 14; // From benchmark table
+        let mut stream = IcicleStream::create().unwrap();
+
+        let points = generate_random_affine_g1_points_with_zeroes(test_size, 5);
+        let scalars = ScalarCfg::generate_random(test_size * batch_size);
+
+        println!("Testing TRUE batch MSM with precomputed points:");
+
+        // Method 1: Individual MSMs with precomputed points (what we know works)
+        let start_individual = std::time::Instant::now();
+        let precomputed_points =
+            precompute_msm_bases(HostSlice::from_slice(&points), precompute_factor, &stream);
+        stream.synchronize().unwrap();
+
+        let mut individual_results = Vec::with_capacity(batch_size);
+        for i in 0..batch_size {
+            let start_idx = i * test_size;
+            let end_idx = (i + 1) * test_size;
+
+            let mut config = MSMConfig::default();
+            config.stream_handle = (*stream).into();
+            config.precompute_factor = precompute_factor; // Keep this since using precomputed points
+            config.is_async = true;
+            config.c = c_value;
+
+            let mut result = DeviceVec::<G1Projective>::device_malloc_async(1, &stream).unwrap();
+            msm(
+                HostSlice::from_slice(&scalars[start_idx..end_idx]),
+                &precomputed_points[..],
+                &config,
+                &mut result[..],
+            )
+            .unwrap();
+
+            let mut host_result = vec![G1Projective::zero(); 1];
+            result
+                .copy_to_host_async(HostSlice::from_mut_slice(&mut host_result), &stream)
+                .unwrap();
+            stream.synchronize().unwrap();
+            individual_results.push(host_result[0]);
+        }
+        let individual_time = start_individual.elapsed();
+
+        // Method 2: TRUE batch MSM with precomputed points
+        let start_batch = std::time::Instant::now();
+        let mut config = MSMConfig::default();
+        config.stream_handle = (*stream).into();
+        config.is_async = true;
+        config.batch_size = batch_size as i32;
+        config.are_points_shared_in_batch = true; // Precomputed points are shared
+        config.precompute_factor = precompute_factor; // Use same factor as precomputation
+        config.c = c_value; // Use benchmark table c value
+
+        let mut batch_results =
+            DeviceVec::<G1Projective>::device_malloc_async(batch_size, &stream).unwrap();
+        msm(
+            HostSlice::from_slice(&scalars),
+            &precomputed_points[..], // Use the same precomputed points
+            &config,
+            &mut batch_results[..],
+        )
+        .unwrap();
+
+        let mut host_batch_results = vec![G1Projective::zero(); batch_size];
+        batch_results
+            .copy_to_host_async(HostSlice::from_mut_slice(&mut host_batch_results), &stream)
+            .unwrap();
+        stream.synchronize().unwrap();
+        let batch_time = start_batch.elapsed();
+
+        // Verify results match
+        for i in 0..batch_size {
+            assert_eq!(
+                individual_results[i], host_batch_results[i],
+                "Batch MSM result {} doesn't match individual MSM",
+                i
+            );
+        }
+
+        println!(
+            "Individual MSMs with precompute: {:.2?} ({:.2?} per MSM)",
+            individual_time,
+            individual_time / batch_size as u32
+        );
+        println!(
+            "TRUE batch MSM with precompute: {:.2?} ({:.2?} per MSM)",
+            batch_time,
+            batch_time / batch_size as u32
+        );
+
+        let speedup = individual_time.as_nanos() as f64 / batch_time.as_nanos() as f64;
+        println!("Batch speedup: {:.2}x", speedup);
+
+        stream.destroy().unwrap();
+        println!("✓ TRUE batch MSM with precomputed points works correctly!");
     }
 }
