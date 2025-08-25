@@ -837,7 +837,7 @@ export const synthesizerHandlers: Map<number, SynthesizerHandler> = new Map([
         Number(memLengthPt.value),
       );
       const dataPt = runState.synthesizer.placeMemoryToStack(dataAlias);
-      runState.synthesizer.storeLog(dataPt, topicPts);
+      runState.synthesizer.storeLog([dataPt], topicPts);
     },
   ],
 

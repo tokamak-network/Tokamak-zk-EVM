@@ -67,8 +67,10 @@ export class SubcircuitRegistry {
    */
   static getValidSubcircuitNames(): SubcircuitNames[] {
     return subcircuits
-      .map((circuit) => circuit.name)
-      .filter((name): name is SubcircuitNames => isValidSubcircuitName(name));
+      .map((circuit: any) => circuit.name)
+      .filter((name: any): name is SubcircuitNames =>
+        isValidSubcircuitName(name),
+      );
   }
 
   /**
