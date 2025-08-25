@@ -27,14 +27,22 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y dos2unix
+          sudo apt-get install -y dos2unix build-essential
+
+      - name: Install circom
+        run: |
+          # Install circom from pre-built binary (faster than building from source)
+          wget https://github.com/iden3/circom/releases/download/v2.1.6/circom-linux-amd64
+          chmod +x circom-linux-amd64
+          sudo mv circom-linux-amd64 /usr/local/bin/circom
+          circom --version
 
       - name: Make tokamak-cli executable
         run: chmod +x ./tokamak-cli
 
       - name: Run installation test
         env:
-          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
         run: |
           # 설치 과정이 성공하는지 테스트
           ./tokamak-cli --install "$ALCHEMY_API_KEY"
@@ -86,7 +94,7 @@ jobs:
 
       - name: Setup environment
         env:
-          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
         run: |
           ./tokamak-cli --install "$ALCHEMY_API_KEY"
 
@@ -150,7 +158,7 @@ jobs:
 
       - name: Setup environment
         env:
-          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
         run: |
           ./tokamak-cli --install "$ALCHEMY_API_KEY"
 
