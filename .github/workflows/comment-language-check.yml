@@ -1,0 +1,164 @@
+name: Comment Language Check
+
+on:
+  pull_request:
+    branches: [main, dev, ale-150]
+    paths:
+      - '**/*.ts'
+      - '**/*.tsx'
+      - '**/*.js'
+      - '**/*.jsx'
+  push:
+    branches: [ale-150]
+    paths:
+      - '**/*.ts'
+      - '**/*.tsx'
+      - '**/*.js'
+      - '**/*.jsx'
+      - '**/*.sh'
+      - '**/*.yml'
+      - '**/*.yaml'
+
+jobs:
+  check-comment-language:
+    name: Check Comments are in English
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          # Get list of changed files in this PR
+          git diff --name-only origin/${{ github.base_ref }}..HEAD > changed_files.txt
+          echo "Changed files:"
+          cat changed_files.txt
+
+      - name: Check for Korean comments in changed files
+        run: |
+          echo "🔍 Checking for Korean characters in comments..."
+
+          # Initialize error flag
+          has_korean_comments=false
+
+          # Check each changed file
+          while IFS= read -r file; do
+            # Skip if file doesn't exist (deleted files)
+            [[ -f "$file" ]] || continue
+            
+            # Only check code files
+            if [[ "$file" =~ \.(ts|tsx|js|jsx|sh|yml|yaml)$ ]]; then
+              echo "Checking: $file"
+              
+              # Look for Korean characters in comments
+              # This regex matches Korean Hangul characters
+              korean_lines=$(grep -n "[\u3131-\u3163\uac00-\ud7a3]" "$file" | grep -E "(//|#|/\*|\*)" || true)
+              
+              if [[ -n "$korean_lines" ]]; then
+                echo "❌ Korean characters found in comments in $file:"
+                echo "$korean_lines"
+                has_korean_comments=true
+              fi
+            fi
+          done < changed_files.txt
+
+          # Alternative method using Python for better Unicode handling
+          python3 << 'EOF'
+          import re
+          import sys
+          import os
+
+          korean_pattern = re.compile(r'[\u3131-\u3163\uac00-\ud7a3]')
+          comment_patterns = [
+              re.compile(r'//.*'),      # Single line comments
+              re.compile(r'#.*'),       # Shell/YAML comments  
+              re.compile(r'/\*.*?\*/', re.DOTALL),  # Multi-line comments
+          ]
+
+          has_korean = False
+
+          with open('changed_files.txt', 'r') as f:
+              changed_files = [line.strip() for line in f if line.strip()]
+
+          for file_path in changed_files:
+              if not os.path.exists(file_path):
+                  continue
+                  
+              if not file_path.endswith(('.ts', '.tsx', '.js', '.jsx', '.sh', '.yml', '.yaml')):
+                  continue
+                  
+              try:
+                  with open(file_path, 'r', encoding='utf-8') as f:
+                      content = f.read()
+                      lines = content.split('\n')
+                      
+                  for line_num, line in enumerate(lines, 1):
+                      # Check if line contains a comment
+                      is_comment = False
+                      for pattern in comment_patterns:
+                          if pattern.search(line):
+                              is_comment = True
+                              break
+                      
+                      # If it's a comment line and contains Korean
+                      if is_comment and korean_pattern.search(line):
+                          print(f"❌ Korean comment found in {file_path}:{line_num}")
+                          print(f"   {line.strip()}")
+                          has_korean = True
+                          
+              except Exception as e:
+                  print(f"Warning: Could not read {file_path}: {e}")
+
+          if has_korean:
+              sys.exit(1)
+          EOF
+
+          if [[ "$?" -ne 0 ]]; then
+            echo ""
+            echo "🚫 COMMENT LANGUAGE CHECK FAILED"
+            echo ""
+            echo "Found Korean characters in comments. Please follow these guidelines:"
+            echo "1. All comments must be written in English"
+            echo "2. Use clear, concise English for code documentation"
+            echo "3. Refer to .cursorrules for detailed guidelines"
+            echo ""
+            echo "Example fixes:"
+            echo "  ❌ // 증명을 생성합니다"
+            echo "  ✅ // Generate the proof"
+            echo ""
+            exit 1
+          fi
+
+          echo "✅ All comments are in English!"
+
+      - name: Check commit messages
+        run: |
+          echo "🔍 Checking commit messages for English..."
+
+          # Get commit messages in this PR
+          git log --pretty=format:"%s" origin/${{ github.base_ref }}..HEAD > commit_messages.txt
+
+          # Check for Korean in commit messages
+          if grep -q "[\u3131-\u3163\uac00-\ud7a3]" commit_messages.txt; then
+            echo "❌ Korean characters found in commit messages:"
+            grep "[\u3131-\u3163\uac00-\ud7a3]" commit_messages.txt
+            echo ""
+            echo "Please use English for commit messages following conventional commit format:"
+            echo "  feat(scope): description"
+            echo "  fix(scope): description"
+            echo "  docs(scope): description"
+            exit 1
+          fi
+
+          echo "✅ All commit messages are in English!"
+
+      - name: Success message
+        run: |
+          echo ""
+          echo "🎉 Comment Language Check Passed!"
+          echo "✅ All comments and commit messages are in English"
+          echo "✅ Code follows the established language guidelines"

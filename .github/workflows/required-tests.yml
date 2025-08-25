@@ -1,0 +1,227 @@
+name: Required Integration Tests
+
+on:
+  pull_request:
+    branches: [main, dev, ale-150]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main, dev, ale-150]
+
+jobs:
+  # Job 1: 환경 설정 및 기본 빌드 테스트
+  setup-and-build:
+    name: Setup and Build Test
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dos2unix
+
+      - name: Make tokamak-cli executable
+        run: chmod +x ./tokamak-cli
+
+      - name: Run installation test
+        env:
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+        run: |
+          # 설치 과정이 성공하는지 테스트
+          ./tokamak-cli --install "$ALCHEMY_API_KEY"
+
+      - name: Verify installation
+        run: |
+          # 필수 파일들이 생성되었는지 확인
+          test -f packages/frontend/synthesizer/.env
+          test -d packages/backend/dist-linux22
+          echo "✅ Installation verification passed"
+
+  # Job 2: 실제 트랜잭션으로 증명 생성 테스트
+  proof-generation-test:
+    name: Proof Generation Test
+    runs-on: ubuntu-22.04
+    needs: setup-and-build
+    timeout-minutes: 45
+
+    strategy:
+      matrix:
+        # 다양한 트랜잭션 타입으로 테스트
+        test_case:
+          - name: 'simple-transfer'
+            tx_hash: '0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc'
+            description: 'Simple ETH transfer'
+          - name: 'contract-call'
+            tx_hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+            description: 'Contract interaction'
+
+      fail-fast: false # 하나 실패해도 다른 테스트 계속 진행
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dos2unix
+
+      - name: Make tokamak-cli executable
+        run: chmod +x ./tokamak-cli
+
+      - name: Setup environment
+        env:
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+        run: |
+          ./tokamak-cli --install "$ALCHEMY_API_KEY"
+
+      - name: Generate proof for ${{ matrix.test_case.name }}
+        run: |
+          echo "🧪 Testing: ${{ matrix.test_case.description }}"
+          echo "📋 TX Hash: ${{ matrix.test_case.tx_hash }}"
+
+          # 증명 생성 시도
+          ./tokamak-cli --prove "${{ matrix.test_case.tx_hash }}" "./proof_${{ matrix.test_case.name }}"
+
+      - name: Validate proof artifacts
+        run: |
+          # 필수 파일들이 생성되었는지 확인
+          test -f "./proof_${{ matrix.test_case.name }}/transaction_hash.txt"
+          test -f "./proof_${{ matrix.test_case.name }}/proof.json"
+
+          # 트랜잭션 해시가 올바르게 저장되었는지 확인
+          stored_hash=$(cat "./proof_${{ matrix.test_case.name }}/transaction_hash.txt")
+          if [[ "$stored_hash" != "${{ matrix.test_case.tx_hash }}" ]]; then
+            echo "❌ Transaction hash mismatch!"
+            echo "Expected: ${{ matrix.test_case.tx_hash }}"
+            echo "Got: $stored_hash"
+            exit 1
+          fi
+
+          echo "✅ Proof validation passed for ${{ matrix.test_case.name }}"
+
+      - name: Upload proof artifacts
+        if: always() # 실패해도 아티팩트 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-artifacts-${{ matrix.test_case.name }}-${{ github.run_number }}
+          path: ./proof_${{ matrix.test_case.name }}/
+          retention-days: 7
+
+  # Job 3: 성능 및 안정성 테스트
+  performance-test:
+    name: Performance and Stability Test
+    runs-on: ubuntu-22.04
+    needs: setup-and-build
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dos2unix time
+
+      - name: Make tokamak-cli executable
+        run: chmod +x ./tokamak-cli
+
+      - name: Setup environment
+        env:
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+        run: |
+          ./tokamak-cli --install "$ALCHEMY_API_KEY"
+
+      - name: Performance benchmark
+        run: |
+          echo "🚀 Running performance benchmark..."
+
+          # 시간 측정하면서 증명 생성
+          TX_HASH="0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc"
+
+          start_time=$(date +%s)
+          ./tokamak-cli --prove "$TX_HASH" "./perf_test"
+          end_time=$(date +%s)
+
+          duration=$((end_time - start_time))
+          echo "⏱️ Proof generation took: ${duration} seconds"
+
+          # 성능 임계값 체크 (예: 10분 이내)
+          if [[ $duration -gt 600 ]]; then
+            echo "❌ Performance test failed: took ${duration}s (limit: 600s)"
+            exit 1
+          fi
+
+          echo "✅ Performance test passed: ${duration}s"
+
+      - name: Memory usage test
+        run: |
+          echo "🧠 Testing memory usage..."
+
+          # 메모리 사용량 모니터링하면서 실행
+          TX_HASH="0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc"
+
+          # 백그라운드에서 메모리 모니터링
+          (while true; do
+            ps aux | grep -E "(tokamak-cli|node|npm)" | grep -v grep >> memory_usage.log
+            sleep 5
+          done) &
+          monitor_pid=$!
+
+          ./tokamak-cli --prove "$TX_HASH" "./memory_test"
+
+          # 모니터링 중단
+          kill $monitor_pid 2>/dev/null || true
+
+          echo "✅ Memory usage test completed"
+
+  # Job 4: 최종 상태 체크
+  final-status:
+    name: Final Status Check
+    runs-on: ubuntu-22.04
+    needs: [setup-and-build, proof-generation-test, performance-test]
+    if: always()
+
+    steps:
+      - name: Check all tests passed
+        run: |
+          echo "🔍 Checking test results..."
+
+          # needs context에서 모든 job의 결과 확인
+          setup_result="${{ needs.setup-and-build.result }}"
+          proof_result="${{ needs.proof-generation-test.result }}"
+          perf_result="${{ needs.performance-test.result }}"
+
+          echo "Setup and Build: $setup_result"
+          echo "Proof Generation: $proof_result"
+          echo "Performance Test: $perf_result"
+
+          if [[ "$setup_result" != "success" || "$proof_result" != "success" || "$perf_result" != "success" ]]; then
+            echo "❌ One or more tests failed!"
+            echo "🚫 This PR cannot be merged until all tests pass."
+            exit 1
+          fi
+
+          echo "✅ All tests passed! Ready for merge."
