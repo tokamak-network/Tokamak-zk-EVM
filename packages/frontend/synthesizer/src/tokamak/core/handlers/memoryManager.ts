@@ -8,7 +8,6 @@ import type { CreateDataPointParams, DataPt } from '../../types/index.js';
 import type { ArithmeticOperator } from '../../types/arithmetic.js';
 import type { StateManager } from './stateManager.js';
 import { DataPointFactory } from '../../pointers/index.js';
-import type { IMemoryManagerProvider } from './memoryManagerProvider.js';
 import { ISynthesizerProvider } from './synthesizerProvider.js';
 
 export class MemoryManager {

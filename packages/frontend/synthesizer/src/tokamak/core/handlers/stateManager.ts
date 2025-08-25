@@ -33,7 +33,7 @@ export class StateManager {
   public placementIndex!: number;
   public subcircuitInfoByName!: SubcircuitInfoByName;
   public subcircuitNames!: SubcircuitNames[];
-  public isTxVerified!: boolean
+  public cachedCaller!: DataPt | undefined
 
   constructor() {
     this._initializeState();
@@ -63,6 +63,7 @@ export class StateManager {
     this.TStoragePt = new Map();
     this.placements = new Map();
     this.subcircuitInfoByName = new Map();
+    this.cachedCaller = undefined;
   }
 
   /**

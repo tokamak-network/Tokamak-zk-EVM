@@ -11,9 +11,9 @@ import type { RunState } from '../../../interpreter.js';
 import type { ArithmeticOperator, DataPt } from '../../types/index.js';
 import { PUB_IN_PLACEMENT_INDEX, STATIC_IN_PLACEMENT_INDEX, TRANSACTION_IN_PLACEMENT_INDEX } from 'src/tokamak/constant/constants.js';
 
-export const synthesizerVerifySign = (
+export const synthesizerGetCaller = (
   runState: RunState,
-): [DataPt, DataPt] => {
+): DataPt => {
   const TARGETTXDATAINDICES = [1, 2, 3, 4] as const
   const messages: DataPt[] | undefined = runState.synthesizer.state.placements.get(TRANSACTION_IN_PLACEMENT_INDEX)?.outPts.slice(TARGETTXDATAINDICES[0], TARGETTXDATAINDICES[TARGETTXDATAINDICES.length - 1] + 1)
   if (messages === undefined) {
@@ -73,9 +73,21 @@ export const synthesizerVerifySign = (
     jubjubPoI,
   )
 
-  const _: DataPt[] = runState.synthesizer.placeArith('EdDsaVerify', [...sG, ...randomizer, ...eA])
-  runState.synthesizer.state.isTxVerified = true
-  return publicKey
+  runState.synthesizer.placeArith('EdDsaVerify', [...sG, ...randomizer, ...eA])
+  
+  const ZEROINDEX = 0
+  const zero: DataPt | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts[ZEROINDEX]
+  if (zero === undefined) {
+    throw new Error('zero is not initilaized in the public input buffer')
+  }
+  const hashPt: DataPt = runState.synthesizer.placeArith('Poseidon4', [...publicKey, zero, zero])[0]
+  const ADDRESSMASKINDEX = 1
+  const addrMask: DataPt | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts[ADDRESSMASKINDEX]
+  if (addrMask === undefined) {
+    throw new Error('address mask is not initialized in the public input buffer')
+  }
+  runState.synthesizer.state.cachedCaller = runState.synthesizer.placeArith('AND', [hashPt, addrMask])[0]
+  return runState.synthesizer.state.cachedCaller
 }
 
 export const synthesizerArith = (
@@ -255,28 +267,16 @@ export async function synthesizerEnvInf(
       );
       break;
     }
-    case 'ADDRESS':
-    case 'ORIGIN':
     case 'CALLER': {
-      if (!runState.synthesizer.state.isTxVerified) {
-        const pubKeyPt: [DataPt, DataPt] = synthesizerVerifySign(runState)
-        const ZEROINDEX = 0
-        const zero: DataPt | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts[ZEROINDEX]
-        if (zero === undefined) {
-          throw new Error('zero is not initilaized in the public input buffer')
-        }
-        const hashPt: DataPt = runState.synthesizer.placeArith('Poseidon4', [...pubKeyPt, zero, zero])[0]
-        const ADDRESSMASKINDEX = 1
-        const addrMask: DataPt | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts[ADDRESSMASKINDEX]
-        if (addrMask === undefined) {
-          throw new Error('address mask is not initialized in the public input buffer')
-        }
-        dataPt = runState.synthesizer.placeArith('AND', [hashPt, addrMask])[0]
+      if (runState.synthesizer.state.cachedCaller === undefined) {
+        dataPt = synthesizerGetCaller(runState)
       } else {
         dataPt = runState.synthesizer.state.cachedCaller
       }
       break
     }
+    case 'ADDRESS':
+    case 'ORIGIN':
     case 'CALLVALUE':
     case 'CALLDATASIZE':
     case 'CODESIZE':
