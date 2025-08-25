@@ -64,6 +64,9 @@ jobs:
           cd packages/frontend/qap-compiler && npm install --legacy-peer-deps
           cd ../synthesizer && npm install --legacy-peer-deps
           cd ../../..
+          
+          # tsx 글로벌 설치 (synthesizer에서 필요)
+          npm install -g tsx
 
           # qap-compiler 디렉토리 상태 확인
           echo "🔍 qap-compiler directory structure:"
@@ -141,6 +144,8 @@ jobs:
         env:
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
         run: |
+          # tsx 글로벌 설치 (synthesizer에서 필요)
+          npm install -g tsx
           ./tokamak-cli --install "$ALCHEMY_API_KEY"
 
       - name: Generate proof for ${{ matrix.test_case.name }}
@@ -213,6 +218,8 @@ jobs:
         env:
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
         run: |
+          # tsx 글로벌 설치 (synthesizer에서 필요)
+          npm install -g tsx
           ./tokamak-cli --install "$ALCHEMY_API_KEY"
 
       - name: Performance benchmark
