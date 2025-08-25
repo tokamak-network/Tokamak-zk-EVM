@@ -10,12 +10,30 @@ use icicle_bls12_381::curve::{ScalarField, CurveCfg, G2CurveCfg};
 use icicle_core::traits::FieldImpl;
 // use icicle_core::ntt;
 use icicle_core::curve::Curve;
+use trusted_setup::SetupInputPaths;
 
-use std::{vec, cmp};
+use std::path::PathBuf;
+use std::{cmp, env, process, vec};
 use std::time::Instant;
 
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() != 4 {
+        eprintln!(
+            "Usage: {} <QAP_PATH> <SYNTHESIZER_PATH> <OUT_PATH> ",
+            args[0]
+        );
+        process::exit(1);
+    }
+
+    let paths = SetupInputPaths {
+        qap_path: &args[1],
+        synthesizer_path: &args[2],
+        output_path: &args[3],
+    };
+
     check_device();
     let start1 = Instant::now();
     
@@ -27,8 +45,8 @@ fn main() {
     let tau = Tau::gen();
     
     // Load setup parameters from JSON file
-    let setup_file_name = "setupParams.json";
-    let setup_params = SetupParams::from_path(setup_file_name).unwrap();
+    let setup_params_path = PathBuf::from(paths.qap_path).join("setupParams.json");
+    let setup_params = SetupParams::read_from_json(setup_params_path).unwrap();
 
     // Extract key parameters from setup_params
     let m_d = setup_params.m_D; // Total number of wires
@@ -68,12 +86,12 @@ fn main() {
     }
     
     // Load subcircuit information
-    let subcircuit_file_name = "subcircuitInfo.json";
-    let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_file_name).unwrap();
+    let subcircuit_infos_path = PathBuf::from(paths.qap_path).join("subcircuitInfo.json");
+    let subcircuit_infos = SubcircuitInfo::read_box_from_json(subcircuit_infos_path).unwrap();
 
     // Load global wire list
-    let global_wire_file_name = "globalWireList.json";
-    let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_file_name).unwrap();
+    let global_wire_list_path = PathBuf::from(paths.qap_path).join("globalWireList.json");
+    let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_list_path).unwrap();
     
     // ------------------- Generate Polynomial Evaluations -------------------
     let start = Instant::now();
@@ -102,10 +120,10 @@ fn main() {
         // Process each subcircuit
         for i in 0..s_d {
             println!("Processing subcircuit id {}", i);
-            let r1cs_path: String = format!("json/subcircuit{i}.json");
+            let r1cs_path = PathBuf::from(paths.qap_path).join(format!("json/subcircuit{i}.json"));
 
             // Evaluate QAP for the current subcircuit
-            let compact_r1cs = SubcircuitR1CS::from_path(&r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
+            let compact_r1cs = SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
             let o_evaled = from_r1cs_to_evaled_qap_mixture(
                 &compact_r1cs,
                 &setup_params,
@@ -347,19 +365,16 @@ fn main() {
 
     let start = Instant::now();
     // Writing the sigma into JSON
-    let mut output_path: &str;
     println!("Writing the sigma into JSON...");
-    output_path = "setup/trusted-setup/output/combined_sigma.json";
-    sigma.write_into_json(output_path).unwrap();
+    let output_dir_path = PathBuf::from(paths.output_path);
+    sigma.write_into_json(output_dir_path.join("combined_sigma.json")).unwrap();
     // // Writing the sigma into rust code
     // println!("Writing the sigma into a rust code...");
     // let output_path = "setup/trusted-setup/output/combined_sigma.rs";
     // sigma.write_into_rust_code(output_path).unwrap();
 
-    output_path = "setup/trusted-setup/output/sigma_verify.json";
-    sigma.write_into_json_for_verify(output_path).unwrap();
-    output_path = "setup/trusted-setup/output/sigma_preprocess.json";
-    sigma.write_into_json_for_preprocess(output_path).unwrap();
+    sigma.write_into_json_for_verify(output_dir_path.join("sigma_verify.json")).unwrap();
+    sigma.write_into_json_for_preprocess(output_dir_path.join("sigma_preprocess.json")).unwrap();
     let lap = start.elapsed();
     println!("The sigma writing time: {:.6} seconds", lap.as_secs_f64());
 

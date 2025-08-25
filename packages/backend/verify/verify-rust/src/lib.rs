@@ -13,7 +13,16 @@ use prove::{*};
 use libs::group_structures::pairing;
 use preprocess::{Preprocess, FormattedPreprocess};
 
+use std::path::{Path, PathBuf};
 use std::vec;
+
+pub struct VerifyInputPaths<'a> {
+    pub qap_path: &'a str,
+    pub synthesizer_path: &'a str,
+    pub setup_path: &'a str,
+    pub preprocess_path: &'a str,
+    pub proof_path: &'a str,
+}   
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeccakVerificationResult {
@@ -32,10 +41,10 @@ pub struct Verifier {
     pub proof: Proof,
 }
 impl Verifier {
-    pub fn init() -> Self {
+    pub fn init(paths: &VerifyInputPaths) -> Self {
         // Load setup parameters from JSON file
-        let setup_path = "setupParams.json";
-        let setup_params = SetupParams::from_path(setup_path).unwrap();
+        let setup_path = PathBuf::from(paths.qap_path).join("setupParams.json");
+        let setup_params = SetupParams::read_from_json(setup_path).unwrap();
 
         // Extract key parameters from setup_params
         let l = setup_params.l;     // Number of public I/O wires
@@ -69,8 +78,8 @@ impl Verifier {
         }
 
         // Load instance
-        let instance_path = "instance.json";
-        let instance = Instance::from_path(&instance_path).unwrap();
+        let instance_path = PathBuf::from(paths.synthesizer_path).join("instance.json");
+        let instance = Instance::read_from_json(instance_path).unwrap();
         // Parsing the inputs
         let mut a_pub = vec![ScalarField::zero(); l_pub].into_boxed_slice();
         for i in 0..l_pub {
@@ -78,21 +87,21 @@ impl Verifier {
         }
 
         // Load Sigma (reference string)
-        let sigma_path = "setup/trusted-setup/output/sigma_verify.json";
-        let sigma = SigmaVerify::read_from_json(&sigma_path)
+        let sigma_path = PathBuf::from(paths.setup_path).join("sigma_verify.json");
+        let sigma = SigmaVerify::read_from_json(sigma_path)
         .expect("No reference string is found. Run the Setup first.");
 
         // Load Verifier preprocess
-        let preprocess_path = "verify/preprocess/output/preprocess.json";
-        let preprocess = FormattedPreprocess::read_from_json(&preprocess_path)
+        let preprocess_path = PathBuf::from(paths.preprocess_path).join("preprocess.json");
+        let preprocess = FormattedPreprocess::read_from_json(preprocess_path)
             .expect("No Verifier preprocess is found. Run the Preprocess first.")
             .recover_proof_from_format();
 
         // Load Proof
-        let proof_path = "prove/output/proof.json";
+        let proof_path = PathBuf::from(paths.proof_path).join("proof.json");
         // let proof = Proof::read_from_json(&proof_path)
         // .expect("No proof is found. Run the Prove first.");
-        let proof = FormattedProof::read_from_json(&proof_path)
+        let proof = FormattedProof::read_from_json(proof_path)
         .expect("No proof is found. Run the Prove first.").recover_proof_from_format();
 
         return Self {

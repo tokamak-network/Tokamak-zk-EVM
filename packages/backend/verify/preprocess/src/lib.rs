@@ -15,8 +15,16 @@ use libs::vector_operations::{*};
 
 use serde::{Deserialize, Serialize};
 use std::{
+    path::PathBuf,
     ops::{Add, Mul, Sub},
 };
+
+pub struct PreprocessInputPaths<'a> {
+    pub qap_path: &'a str,
+    pub synthesizer_path: &'a str,
+    pub setup_path: &'a str,
+    pub output_path: &'a str,
+}   
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Preprocess {

@@ -2,25 +2,92 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug prove with testing-mode",
+      "name": "Debug trusted-setup (release)",
       "type": "lldb",
       "request": "launch",
       "cargo": {
-        "args": [
-          "build",
-          "-p", "verify",
-          "--features", "testing-mode"
-        ]
+        "args": ["build", "--release", "-p", "trusted-setup"],
+        "filter": { "name": "trusted-setup", "kind": "bin" }
       },
-      "program": "${workspaceFolder}/target/debug/verify",
-      "args": [],
+      "program": "${cargo:program}",
+      "args": [
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "${workspaceFolder}/../frontend/synthesizer/examples/outputs",
+        "${workspaceFolder}/setup/trusted-setup/output"
+      ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "LD_LIBRARY_PATH": "${workspaceFolder}/target/debug/deps/icicle/lib"
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+      },  
+      "sourceLanguages": ["rust"]
+    },
+    {
+      "name": "Debug preprocess (release)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "--release", "-p", "preprocess"],
+        "filter": { "name": "preprocess", "kind": "bin" }
       },
-      "sourceLanguages": [
-        "rust"
-      ]
+      "program": "${cargo:program}",
+      "args": [
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "${workspaceFolder}/../frontend/synthesizer/examples/outputs",
+        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/verify/preprocess/output"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+      },
+      "sourceLanguages": ["rust"]
+    },
+    {
+      "name": "Debug prove (release)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "--release", "-p", "prove"],
+        "filter": { "name": "prove", "kind": "bin" }
+      },
+      "program": "${cargo:program}",
+      "args": [
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "${workspaceFolder}/../frontend/synthesizer/examples/outputs",
+        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/prove/output"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+      },
+      "sourceLanguages": ["rust"]
+    },
+    {
+      "name": "Debug verify (release)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "--release", "-p", "verify"],
+        "filter": { "name": "verify", "kind": "bin" }
+      },
+      "program": "${cargo:program}",
+      "args": [
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "${workspaceFolder}/../frontend/synthesizer/examples/outputs",
+        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/verify/preprocess/output",
+        "${workspaceFolder}/prove/output"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+      },
+      "sourceLanguages": ["rust"]
     }
   ]
 }
