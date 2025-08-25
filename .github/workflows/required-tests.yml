@@ -8,11 +8,21 @@ on:
     branches: [main, dev, ale-150]
 
 jobs:
-  # Job 1: 환경 설정 및 기본 빌드 테스트
-  setup-and-build:
-    name: Setup and Build Test
+  # Job 1: 실제 트랜잭션으로 증명 생성 테스트
+  proof-generation-test:
+    name: Proof Generation Test
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+
+    strategy:
+      matrix:
+        # TON Transfer 테스트만 실행
+        test_case:
+          - name: 'ton-transfer'
+            tx_hash: '0x6c7903e420c5efb27639f5186a7474ef2137f12c786a90b4efdcb5d88dfdb002'
+            description: 'TON Transfer'
+
+      fail-fast: false # 하나 실패해도 다른 테스트 계속 진행
 
     steps:
       - name: Checkout code
@@ -43,17 +53,10 @@ jobs:
       - name: Make tokamak-cli executable
         run: chmod +x ./tokamak-cli
 
-      - name: Run installation test
+      - name: Setup environment
         env:
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
         run: |
-          # 환경 정보 출력
-          echo "🔍 Environment debugging:"
-          echo "PWD: $(pwd)"
-          echo "Node version: $(node --version)"
-          echo "npm version: $(npm --version)"
-          echo "OS: $(uname -a)"
-
           # 파일 권한 및 라인 엔딩 수정
           echo "🔧 Fixing file permissions and line endings..."
           find . -name "*.sh" -exec chmod +x {} \;
@@ -64,86 +67,7 @@ jobs:
           cd packages/frontend/qap-compiler && npm install --legacy-peer-deps
           cd ../synthesizer && npm install --legacy-peer-deps
           cd ../../..
-          
-          # tsx 글로벌 설치 (synthesizer에서 필요)
-          npm install -g tsx
 
-          # qap-compiler 디렉토리 상태 확인
-          echo "🔍 qap-compiler directory structure:"
-          ls -la packages/frontend/qap-compiler/
-          echo "🔍 qap-compiler/scripts directory:"
-          ls -la packages/frontend/qap-compiler/scripts/
-
-          # 설치 과정이 성공하는지 테스트
-          echo "🚀 Starting tokamak-cli installation..."
-          ./tokamak-cli --install "$ALCHEMY_API_KEY" || {
-            echo "❌ tokamak-cli failed, checking qap-compiler compile logs..."
-            echo "🔍 Searching for temp.txt files:"
-            find . -name "temp.txt" -type f 2>/dev/null || echo "No temp.txt files found"
-            
-            echo "🔍 qap-compiler/scripts directory after failure:"
-            ls -la packages/frontend/qap-compiler/scripts/ 2>/dev/null || echo "scripts directory not accessible"
-            
-            echo "🔍 Checking for any generated files:"
-            find packages/frontend/qap-compiler -name "*.txt" -o -name "*.json" -o -name "*.js" | head -20
-            
-            exit 1
-          }
-
-      - name: Verify installation
-        run: |
-          # 필수 파일들이 생성되었는지 확인
-          test -f packages/frontend/synthesizer/.env
-          test -d packages/backend/dist-mac
-          echo "✅ Installation verification passed"
-
-  # Job 2: 실제 트랜잭션으로 증명 생성 테스트
-  proof-generation-test:
-    name: Proof Generation Test
-    runs-on: macos-latest
-    needs: setup-and-build
-    timeout-minutes: 45
-
-    strategy:
-      matrix:
-        # TON Transfer 테스트만 실행
-        test_case:
-          - name: 'ton-transfer'
-            tx_hash: '0x6c7903e420c5efb27639f5186a7474ef2137f12c786a90b4efdcb5d88dfdb002'
-            description: 'TON Transfer'
-
-      fail-fast: false # 하나 실패해도 다른 테스트 계속 진행
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install system dependencies
-        run: |
-          # macOS에서는 homebrew 사용
-          brew install dos2unix
-
-      - name: Install circom
-        run: |
-          # Install circom 2.2.2 for macOS
-          wget https://github.com/iden3/circom/releases/download/v2.2.2/circom-macos-amd64
-          chmod +x circom-macos-amd64
-          sudo mv circom-macos-amd64 /usr/local/bin/circom
-          circom --version
-
-      - name: Make tokamak-cli executable
-        run: chmod +x ./tokamak-cli
-
-      - name: Setup environment
-        env:
-          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
-        run: |
           # tsx 글로벌 설치 (synthesizer에서 필요)
           npm install -g tsx
           ./tokamak-cli --install "$ALCHEMY_API_KEY"
@@ -185,7 +109,7 @@ jobs:
   performance-test:
     name: Performance and Stability Test
     runs-on: macos-latest
-    needs: setup-and-build
+    needs: proof-generation-test
     timeout-minutes: 60
 
     steps:
@@ -269,7 +193,7 @@ jobs:
   final-status:
     name: Final Status Check
     runs-on: macos-latest
-    needs: [setup-and-build, proof-generation-test, performance-test]
+    needs: [proof-generation-test, performance-test]
     if: always()
 
     steps:
