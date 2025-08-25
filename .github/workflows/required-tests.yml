@@ -123,8 +123,8 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y dos2unix
+          # macOS에서는 homebrew 사용
+          brew install dos2unix
 
       - name: Make tokamak-cli executable
         run: chmod +x ./tokamak-cli
@@ -187,8 +187,8 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y dos2unix time
+          # macOS에서는 homebrew 사용 (time은 macOS에 기본 포함)
+          brew install dos2unix
 
       - name: Make tokamak-cli executable
         run: chmod +x ./tokamak-cli
