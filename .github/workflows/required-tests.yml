@@ -11,7 +11,7 @@ jobs:
   # Job 1: 환경 설정 및 기본 빌드 테스트
   setup-and-build:
     name: Setup and Build Test
-    runs-on: ubuntu-22.04
+    runs-on: macos-latest
     timeout-minutes: 30
 
     steps:
@@ -26,18 +26,18 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y dos2unix build-essential
+          # macOS에서는 homebrew 사용
+          brew install dos2unix cmake
 
       - name: Install Rust and Cargo
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install circom
         run: |
-          # Install circom 2.2.2 to match local development environment
-          wget https://github.com/iden3/circom/releases/download/v2.2.2/circom-linux-amd64
-          chmod +x circom-linux-amd64
-          sudo mv circom-linux-amd64 /usr/local/bin/circom
+          # Install circom 2.2.2 for macOS
+          wget https://github.com/iden3/circom/releases/download/v2.2.2/circom-macos-amd64
+          chmod +x circom-macos-amd64
+          sudo mv circom-macos-amd64 /usr/local/bin/circom
           circom --version
 
       - name: Make tokamak-cli executable
@@ -91,13 +91,13 @@ jobs:
         run: |
           # 필수 파일들이 생성되었는지 확인
           test -f packages/frontend/synthesizer/.env
-          test -d packages/backend/dist-linux22
+          test -d packages/backend/dist-mac
           echo "✅ Installation verification passed"
 
   # Job 2: 실제 트랜잭션으로 증명 생성 테스트
   proof-generation-test:
     name: Proof Generation Test
-    runs-on: ubuntu-22.04
+    runs-on: macos-latest
     needs: setup-and-build
     timeout-minutes: 45
 
@@ -171,7 +171,7 @@ jobs:
   # Job 3: 성능 및 안정성 테스트
   performance-test:
     name: Performance and Stability Test
-    runs-on: ubuntu-22.04
+    runs-on: macos-latest
     needs: setup-and-build
     timeout-minutes: 60
 
@@ -245,7 +245,7 @@ jobs:
   # Job 4: 최종 상태 체크
   final-status:
     name: Final Status Check
-    runs-on: ubuntu-22.04
+    runs-on: macos-latest
     needs: [setup-and-build, proof-generation-test, performance-test]
     if: always()
 
