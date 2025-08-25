@@ -42,18 +42,15 @@ copy_wasm_files() {
     # Also create a backup wasm directory
     mkdir -p bin/wasm
     
-    # Copy WASM files from @tokamak-zk-evm/qap-compiler (primary source)
-    if [ -d "node_modules/@tokamak-zk-evm/qap-compiler/dist/wasm" ]; then
-        cp node_modules/@tokamak-zk-evm/qap-compiler/dist/wasm/*.wasm bin/qap-compiler/subcircuits/library/wasm/ 2>/dev/null || true
-        cp node_modules/@tokamak-zk-evm/qap-compiler/dist/wasm/*.wasm bin/wasm/ 2>/dev/null || true
-        echo "✅ Copied WASM files from @tokamak-zk-evm/qap-compiler to expected path"
-    fi
-    
-    # Copy WASM files from local qap-compiler (fallback)
-    if [ -d "qap-compiler/subcircuits/library/wasm" ]; then
-        cp qap-compiler/subcircuits/library/wasm/*.wasm bin/qap-compiler/subcircuits/library/wasm/ 2>/dev/null || true
-        cp qap-compiler/subcircuits/library/wasm/*.wasm bin/wasm/ 2>/dev/null || true
-        echo "✅ Copied WASM files from local qap-compiler to expected path"
+    # Copy WASM files from external qap-compiler package (only source)
+    if [ -d "../qap-compiler/subcircuits/library/wasm" ]; then
+        cp ../qap-compiler/subcircuits/library/wasm/*.wasm bin/qap-compiler/subcircuits/library/wasm/ 2>/dev/null || true
+        cp ../qap-compiler/subcircuits/library/wasm/*.wasm bin/wasm/ 2>/dev/null || true
+        echo "✅ Copied WASM files from external qap-compiler package to expected path"
+    else
+        echo "❌ Error: External qap-compiler package not found at ../qap-compiler/"
+        echo "Please ensure the qap-compiler package is available"
+        exit 1
     fi
     
     # Copy other essential WASM files (wasmcurves, etc.)

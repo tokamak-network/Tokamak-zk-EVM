@@ -19,30 +19,55 @@ async function importQapModule(relativePath: string, exportName: string) {
 // Dynamic imports for QAP compiler generated files
 const BASE_PATH = '../../../../qap-compiler/subcircuits/library';
 
-let subcircuits: any;
-let globalWireList: any;
-let setupParams: any;
+let _subcircuits: any;
+let _globalWireList: any;
+let _setupParams: any;
 
 async function loadQapModules() {
-  if (!subcircuits) {
+  if (!_subcircuits) {
     const [s, g, p] = await Promise.all([
       importQapModule(`${BASE_PATH}/subcircuitInfo.js`, 'subcircuits'),
       importQapModule(`${BASE_PATH}/globalWireList.js`, 'globalWireList'),
       importQapModule(`${BASE_PATH}/setupParams.js`, 'setupParams'),
     ]);
-    subcircuits = s;
-    globalWireList = g;
-    setupParams = p;
+    _subcircuits = s;
+    _globalWireList = g;
+    _setupParams = p;
   }
-  return { subcircuits, globalWireList, setupParams };
+  return {
+    subcircuits: _subcircuits,
+    globalWireList: _globalWireList,
+    setupParams: _setupParams,
+  };
 }
 
-// Use static imports for binary compilation
-export {
-  subcircuits,
-  globalWireList,
-  setupParams,
-  wasmDir,
-} from './qap-static.js';
+// Export QAP modules - conditional loading based on environment
+export async function getQapModules() {
+  // Check if running as Bun binary
+  if ((process as any).isBun && process.execPath) {
+    // Use static imports for binary compilation
+    const qapStatic = await import('./qap-static.js');
+    return {
+      subcircuits: qapStatic.subcircuits,
+      globalWireList: qapStatic.globalWireList,
+      setupParams: qapStatic.setupParams,
+      wasmDir: qapStatic.wasmDir,
+    };
+  } else {
+    // Use dynamic imports for runtime
+    const { subcircuits, globalWireList, setupParams } = await loadQapModules();
+    return {
+      subcircuits,
+      globalWireList,
+      setupParams,
+      wasmDir: '../qap-compiler/subcircuits/library/wasm',
+    };
+  }
+}
 
-// WASM directory path - now exported from qap-static.js
+// For backward compatibility, export individual modules
+const qapModules = await getQapModules();
+export const subcircuits = qapModules.subcircuits;
+export const globalWireList = qapModules.globalWireList;
+export const setupParams = qapModules.setupParams;
+export const wasmDir = qapModules.wasmDir;

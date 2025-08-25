@@ -16,14 +16,6 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
 - TypeScript/JavaScript friendly API for blockchain developers
 - Synthesizer is built on top of [@ethereumJS/evm](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/evm) as a hardfork.
 
-### Version
-
-- In the current release, Synthesizer generates a circuit that verifies correctness of transaciton execution: given transaction inputs such as calldata and state data, are claimed transaction outputs such as storage and event logs correct?
-- In the future release, Synthesizer will generate a more general circuit that includes the verification of:
-  - integrity of the retrieved input state,
-  - correctness of transaction execution, and
-  - correctness of updating the state with the transaction output.
-
 ## How to use Synthesizer
 
 ### A. Prerequisite

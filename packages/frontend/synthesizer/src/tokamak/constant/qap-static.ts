@@ -2,9 +2,9 @@
 // This replaces the dynamic imports that don't work in compiled binaries
 
 import path from 'path';
-import { subcircuits as _subcircuits } from '../../../qap-compiler/subcircuits/library/subcircuitInfo.js';
-import { globalWireList as _globalWireList } from '../../../qap-compiler/subcircuits/library/globalWireList.js';
-import { setupParams as _setupParams } from '../../../qap-compiler/subcircuits/library/setupParams.js';
+import { subcircuits as _subcircuits } from '../../../../qap-compiler/subcircuits/library/subcircuitInfo.js';
+import { globalWireList as _globalWireList } from '../../../../qap-compiler/subcircuits/library/globalWireList.js';
+import { setupParams as _setupParams } from '../../../../qap-compiler/subcircuits/library/setupParams.js';
 
 export const subcircuits = _subcircuits;
 export const globalWireList = _globalWireList;
@@ -25,8 +25,8 @@ function getWasmDir(): string {
     );
   }
 
-  // Running in development - use relative path
-  return './qap-compiler/subcircuits/library/wasm';
+  // Running in development - use external qap-compiler package path
+  return '../qap-compiler/subcircuits/library/wasm';
 }
 
 export const wasmDir = getWasmDir();
