@@ -44,6 +44,12 @@ jobs:
         env:
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
         run: |
+          # npm 의존성 문제 해결을 위해 npm install 사용
+          echo "🔧 Installing dependencies with npm install instead of npm ci..."
+          cd packages/frontend/qap-compiler && npm install --legacy-peer-deps
+          cd ../synthesizer && npm install --legacy-peer-deps
+          cd ../../..
+          
           # 설치 과정이 성공하는지 테스트
           ./tokamak-cli --install "$ALCHEMY_API_KEY"
 
