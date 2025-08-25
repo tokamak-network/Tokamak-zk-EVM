@@ -249,9 +249,16 @@ const numConstsVec = [];
 fs.readFile('./temp.txt', 'utf8', function (err, data) {
   if (err) throw err;
 
+  console.log('🔍 DEBUG: temp.txt content:');
+  console.log('--- START temp.txt ---');
+  console.log(data);
+  console.log('--- END temp.txt ---');
+  console.log(`Total lines: ${data.split('\n').length}`);
+
   const subcircuits = [];
 
   const output = data.split('\n').slice(0, -1);
+  console.log(`🔍 DEBUG: Processing ${output.length} lines from temp.txt`);
   for (var i = 0; i < output.length; i += numOfLinesPerCircuit) {
     // circuit id
     const id = Number(output[i].match(/\d+/)[0]);
@@ -301,6 +308,13 @@ fs.readFile('./temp.txt', 'utf8', function (err, data) {
       Out_idx: [1, Number(numOutput)],
       In_idx: [Number(numOutput) + 1, numInput],
     };
+    
+    console.log(`🔍 DEBUG: Parsed subcircuit ${id} (${name}):`);
+    console.log(`  - numWires: ${numWires} -> Nwires: ${Number(numWires)}`);
+    console.log(`  - numOutput: ${numOutput} -> Out_idx: [1, ${Number(numOutput)}]`);
+    console.log(`  - numInput: ${numInput} -> In_idx: [${Number(numOutput) + 1}, ${numInput}]`);
+    console.log(`  - numConsts: ${numConsts}`);
+    
     subcircuits.push(subcircuit);
   }
 
