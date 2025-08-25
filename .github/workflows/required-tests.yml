@@ -126,6 +126,14 @@ jobs:
           # macOS에서는 homebrew 사용
           brew install dos2unix
 
+      - name: Install circom
+        run: |
+          # Install circom 2.2.2 for macOS
+          wget https://github.com/iden3/circom/releases/download/v2.2.2/circom-macos-amd64
+          chmod +x circom-macos-amd64
+          sudo mv circom-macos-amd64 /usr/local/bin/circom
+          circom --version
+
       - name: Make tokamak-cli executable
         run: chmod +x ./tokamak-cli
 
@@ -189,6 +197,14 @@ jobs:
         run: |
           # macOS에서는 homebrew 사용 (time은 macOS에 기본 포함)
           brew install dos2unix
+
+      - name: Install circom
+        run: |
+          # Install circom 2.2.2 for macOS
+          wget https://github.com/iden3/circom/releases/download/v2.2.2/circom-macos-amd64
+          chmod +x circom-macos-amd64
+          sudo mv circom-macos-amd64 /usr/local/bin/circom
+          circom --version
 
       - name: Make tokamak-cli executable
         run: chmod +x ./tokamak-cli
