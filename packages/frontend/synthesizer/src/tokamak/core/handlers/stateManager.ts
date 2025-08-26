@@ -1,11 +1,13 @@
 import {
-  INITIAL_PLACEMENT_INDEX,
-  STATE_IN_PLACEMENT,
-  STATE_IN_PLACEMENT_INDEX,
-  STATE_OUT_PLACEMENT,
-  STATE_OUT_PLACEMENT_INDEX,
+  FIRST_ARITHMETIC_PLACEMENT_INDEX,
+  PUB_IN_PLACEMENT,
+  PUB_IN_PLACEMENT_INDEX,
+  PUB_OUT_PLACEMENT,
+  PUB_OUT_PLACEMENT_INDEX,
   STATIC_IN_PLACEMENT,
   STATIC_IN_PLACEMENT_INDEX,
+  STORAGE_IN_PLACEMENT,
+  STORAGE_IN_PLACEMENT_INDEX,
   TRANSACTION_IN_PLACEMENT,
   TRANSACTION_IN_PLACEMENT_INDEX,
 } from '../../constant/index.js';
@@ -23,13 +25,13 @@ import { SubcircuitRegistry } from '../../utils/index.js';
  */
 export class StateManager {
   public placements!: Placements;
-  public auxin!: Auxin;
-  public envInf!: Map<string, { value: bigint; wireIndex: number }>;
-  public blkInf!: Map<string, { value: bigint; wireIndex: number }>;
+  // public auxin!: Auxin;
+  // public envInf!: Map<string, { value: bigint; wireIndex: number }>;
+  // public blkInf!: Map<string, { value: bigint; wireIndex: number }>;
   public storagePt!: Map<string, DataPt>;
-  public logPt!: { topicPts: DataPt[]; valPts: DataPt[] }[];
-  public keccakPt!: { inValues: bigint[]; outValue: bigint }[];
-  public TStoragePt!: Map<string, Map<bigint, DataPt>>;
+  // public logPt!: { topicPts: DataPt[]; valPts: DataPt[] }[];
+  // public keccakPt!: { inValues: bigint[]; outValue: bigint }[];
+  // public TStoragePt!: Map<string, Map<bigint, DataPt>>;
   public placementIndex!: number;
   public subcircuitInfoByName!: SubcircuitInfoByName;
   public subcircuitNames!: SubcircuitNames[];
@@ -39,7 +41,7 @@ export class StateManager {
     this._initializeState();
     this._initializeSubcircuitInfo();
     this._initializePlacements();
-    this.placementIndex = INITIAL_PLACEMENT_INDEX;
+    this.placementIndex = FIRST_ARITHMETIC_PLACEMENT_INDEX;
   }
 
   /**
@@ -81,10 +83,11 @@ export class StateManager {
    */
   private _initializePlacements(): void {
     const initialPlacements = [
-      { index: STATE_IN_PLACEMENT_INDEX, data: STATE_IN_PLACEMENT },      //input public
-      { index: STATE_OUT_PLACEMENT_INDEX, data: STATE_OUT_PLACEMENT },    //output public
-      { index: STATIC_IN_PLACEMENT_INDEX, data: STATIC_IN_PLACEMENT },    //input public          //input public
-      { index: TRANSACTION_IN_PLACEMENT_INDEX, data: TRANSACTION_IN_PLACEMENT }, //private
+      { index: PUB_OUT_PLACEMENT_INDEX, data: PUB_OUT_PLACEMENT },                //output public, input private
+      { index: PUB_IN_PLACEMENT_INDEX, data: PUB_IN_PLACEMENT },                  //output private, input public
+      { index: STATIC_IN_PLACEMENT_INDEX, data: STATIC_IN_PLACEMENT },            //output private, input public
+      { index: TRANSACTION_IN_PLACEMENT_INDEX, data: TRANSACTION_IN_PLACEMENT },  //output private, input private
+      { index: STORAGE_IN_PLACEMENT_INDEX, data: STORAGE_IN_PLACEMENT},           //output private, input private
     ];
 
     for (const p of initialPlacements) {

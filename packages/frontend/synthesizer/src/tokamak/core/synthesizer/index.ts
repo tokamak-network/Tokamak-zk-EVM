@@ -1,6 +1,5 @@
 import {
   DEFAULT_SOURCE_SIZE,
-  PRV_IN_PLACEMENT_INDEX,
 } from '../../constant/index.js';
 import { DataAliasInfos, MemoryPts } from '../../pointers/index.js';
 import type {
