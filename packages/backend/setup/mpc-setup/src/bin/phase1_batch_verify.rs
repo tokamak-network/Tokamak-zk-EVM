@@ -3,10 +3,10 @@ use mpc_setup::accumulator::Accumulator;
 use mpc_setup::utils::{check_outfolder_writable, list_files_map, Phase1Proof};
 use std::collections::HashMap;
 use std::fs::File;
+use std::io;
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
 use std::time::Instant;
-use std::io;
 
 const PHASE1_ACC_PREFIX: &str = "phase1_acc_";
 const PHASE1_PROOF_PREFIX: &str = "phase1_proof_";
@@ -20,8 +20,8 @@ struct Config {
 }
 
 const ERROR_PREV_ACC_NOT_FOUND: &str = "Previous phase1 accumulator is not found";
-  
-//cargo run --release --bin verify_phase1_computations -- --outfolder ./setup/mpc-setup/output
+
+//cargo run --release --bin phase1_batch_verify -- --outfolder ./setup/mpc-setup/output
 fn main() {
     let config = Config::parse();
     let total_start_time = Instant::now();
@@ -45,7 +45,7 @@ fn main() {
         .count();
 
     println!("Number of contributors: {}", contributor_count);
-    
+
     println!("loading accumulator and proof files...");
 
     let mut current_acc = Accumulator::read_from_json(
@@ -69,7 +69,7 @@ fn main() {
             }
         }
     }
-    
+
 
     println!("Total execution time: {} seconds", total_start_time.elapsed().as_secs_f64());
 }

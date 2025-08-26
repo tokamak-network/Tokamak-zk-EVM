@@ -1,10 +1,10 @@
-use std::env;
 use chrono::Local;
 use clap::Parser;
 use mpc_setup::accumulator::Accumulator;
 use mpc_setup::contributor::{get_device_info, ContributorInfo};
 use mpc_setup::sigma::AaccExt;
 use mpc_setup::utils::{initialize_random_generator, load_gpu_if_possible, prompt_user_input, Mode, Phase1Proof};
+use std::env;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
@@ -31,7 +31,6 @@ struct Config {
 // cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode beacon
 #[tokio::main]
 async fn main() -> Result<(), ContributorError> {
-    
     let config = Config::parse();
 
     let use_gpu: bool = env::var("USE_GPU")
@@ -42,7 +41,7 @@ async fn main() -> Result<(), ContributorError> {
     if use_gpu {
         is_gpu_enabled = load_gpu_if_possible()
     }
-    
+
     let contributor_index = prompt_user_input("enter your contributor index (uint > 0) :")
         .parse::<u32>()
         .expect("Please enter a valid number");
@@ -110,11 +109,11 @@ impl ContributorSession {
 
         let mut name = String::new();
         let mut location = String::new();
-        
-        
+
+
         if matches!(self.config.mode, Mode::Random) {
-              name = prompt_user_input("Enter your name :");
-              location = prompt_user_input("Enter location :");
+            name = prompt_user_input("Enter your name :");
+            location = prompt_user_input("Enter location :");
         }
 
         let latest_acc = self.load_and_verify_accumulator()?;
@@ -227,11 +226,11 @@ impl ContributorSession {
         Ok((new_acc, new_proof))
     }
 
-    fn save_results(&self, new_acc: &Accumulator, new_proof: &Phase1Proof, name : String, location:String) -> Result<(), ContributorError> {
+    fn save_results(&self, new_acc: &Accumulator, new_proof: &Phase1Proof, name: String, location: String) -> Result<(), ContributorError> {
         self.save_accumulator(new_acc)?;
         self.save_proof(new_proof)?;
 
-        self.save_contributor_info(new_acc, new_proof,name, location)?;
+        self.save_contributor_info(new_acc, new_proof, name, location)?;
 
         Ok(())
     }
@@ -254,8 +253,8 @@ impl ContributorSession {
         proof.save_to_json(&path).map_err(ContributorError::Io)
     }
 
-    fn save_contributor_info(&self, acc: &Accumulator, proof: &Phase1Proof, name :String, location: String) -> Result<(), ContributorError> {
-        let info = self.create_contributor_info(acc, proof,name, location);
+    fn save_contributor_info(&self, acc: &Accumulator, proof: &Phase1Proof, name: String, location: String) -> Result<(), ContributorError> {
+        let info = self.create_contributor_info(acc, proof, name, location);
         let file_path = format!(
             "{}/{}",
             self.config.outfolder,
@@ -269,7 +268,7 @@ impl ContributorSession {
         Ok(())
     }
 
-    fn create_contributor_info(&self, acc: &Accumulator, proof: &Phase1Proof, name : String, location: String) -> ContributorInfo {
+    fn create_contributor_info(&self, acc: &Accumulator, proof: &Phase1Proof, name: String, location: String) -> ContributorInfo {
         println!("Total time elapsed: {:?}", self.start_time.elapsed().as_secs_f64());
         ContributorInfo {
             contributor_no: acc.contributor_index as u32,

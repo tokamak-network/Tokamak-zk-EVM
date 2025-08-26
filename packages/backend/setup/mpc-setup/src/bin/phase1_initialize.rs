@@ -9,14 +9,15 @@ use libs::iotools::SetupParams;
 use mpc_setup::accumulator::Accumulator;
 use mpc_setup::contributor::{get_device_info, ContributorInfo};
 use mpc_setup::conversions::{icicle_g1_generator, icicle_g2_generator};
+use mpc_setup::sigma::AaccExt;
 use mpc_setup::utils::{prompt_user_input, Mode};
+use mpc_setup::QAP_COMPILER_PATH_PREFIX;
 use std::cmp::max;
 use std::env;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::Mul;
 use std::time::Instant;
-use mpc_setup::sigma::AaccExt;
 
 pub mod drive;
 
@@ -69,7 +70,7 @@ struct Config {
 //docker exec -it 0f1d390ea076 /bin/bash
 //  --blockhash aabbccddeeff11223344556677889900aabbccddeeff11223344556677889900 \
 /*
-cargo run --release --bin phase1_initialize -- --s-max 128 --mode testing --setup-params-file setupParams.json  --outfolder ./setup/mpc-setup/output --compress false
+cargo run --release --bin phase1_initialize -- --s-max 512 --mode testing --setup-params-file setupParams.json  --outfolder ./setup/mpc-setup/output --compress false
 
  cargo run --release --bin phase1_initialize -- \
   --s-max 64 \
@@ -81,6 +82,9 @@ cargo run --release --bin phase1_initialize -- --s-max 128 --mode testing --setu
 
 #[tokio::main]
 async fn main() {
+    let base_path = env::current_dir().unwrap();
+    let qap_path = base_path.join(QAP_COMPILER_PATH_PREFIX);
+
     let config = Config::parse();
     let (contributor_name, location) = if matches!(config.mode, Mode::Random) {
         (
@@ -95,7 +99,7 @@ async fn main() {
     println!("Current directory: {:?}", env::current_dir().unwrap());
 
     let setup_params =
-        SetupParams::from_path(&config.setup_params_file).expect("cannot SetupParams read file");
+        SetupParams::read_from_json(qap_path.join(&config.setup_params_file)).expect("cannot SetupParams read file");
     let x_degree = 2 * max(setup_params.n, setup_params.l_D - setup_params.l);
     let y_degree = 2 * config.s_max;
 
@@ -137,7 +141,7 @@ async fn main() {
         start.elapsed(),
         &contributor_name,
         &location,
-        fpath
+        fpath,
     )
         .expect("cannot write to file");
     println!("Time elapsed: {:?}", start.elapsed().as_secs_f64());
@@ -174,7 +178,7 @@ fn save_contributor_info(
     duration: std::time::Duration,
     contributor_name: &str,
     location: &str,
-    fpath: String
+    fpath: String,
 ) -> std::io::Result<()> {
     let current_date = Local::now().format("%Y-%m-%d").to_string();
     let contributor_info = ContributorInfo {
