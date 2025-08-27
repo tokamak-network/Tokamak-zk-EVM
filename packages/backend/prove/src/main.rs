@@ -6,6 +6,7 @@ use std::{env, process};
 use prove::{Proof, ProveInputPaths, Prover, TranscriptManager};
 use icicle_runtime::{self, Device};
 use libs::utils::check_device;
+use libs::memory_pool::print_memory_pool_stats;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -118,4 +119,8 @@ fn main() {
     writeln!(file, "Proof generation time: {:.6} seconds", prove_start.elapsed().as_secs_f64()).unwrap();
 
     println!("Total proving time: {:.6} seconds", prove_start.elapsed().as_secs_f64());
+    
+    // 메모리 풀 최적화 결과 출력
+    println!("\n🚀 메모리 풀 최적화 결과:");
+    print_memory_pool_stats();
 }

@@ -1,2 +1,12 @@
 [build]
 rustflags = ["-C", "link-args=-Wl,-rpath,/app/target/debug/deps"]
+
+[target.aarch64-apple-darwin]
+# 🚀 Apple Silicon (M1/M2) 최적화
+rustflags = [
+    "-C", "target-cpu=native",           # 🎯 현재 CPU에 최적화
+    "-C", "target-feature=+neon,+aes",   # 🎯 ARM NEON 및 AES 가속
+    "-C", "llvm-args=-unroll-threshold=1000",  # 🎯 루프 언롤링 임계값
+    "-C", "llvm-args=-vectorize-loops",        # 🎯 루프 벡터화 활성화
+    "-C", "llvm-args=-vectorize-slp",          # 🎯 SLP 벡터화 활성화
+]

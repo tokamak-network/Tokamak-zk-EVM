@@ -11,6 +11,7 @@ use std::{
     ops::{Add, AddAssign, Mul, Sub, Neg},
 };
 use super::vector_operations::{*};
+use super::memory_pool::{get_global_scalar_field_buffer, return_global_scalar_field_buffer};
 use rayon::prelude::*;
 
 fn _find_size_as_twopower(target_x_size: usize, target_y_size: usize) -> (usize, usize) {
@@ -1048,10 +1049,11 @@ impl BivariatePolynomial for DensePolynomialExt {
         // P(X,Y) = Y^{deg-1} P_{deg-1}(X) + Y^{deg-2} P_{deg-2}(X) + ... + Y^{0} (P_{0}(X))
         let mut p_i_coeffs_iter = vec![vec![Self::Field::zero();x_len]; y_len];
         for i in 0..y_len as u64 {
-            let mut temp_vec = vec![Self::Field::zero(); x_len];
+            let mut temp_vec = get_global_scalar_field_buffer(x_len);
             let temp_buf = HostSlice::from_mut_slice(&mut temp_vec);
             self.get_univariate_polynomial_x(i).copy_coeffs(0, temp_buf);
             p_i_coeffs_iter[i as usize].clone_from_slice(&temp_vec);
+            return_global_scalar_field_buffer(temp_vec);
         }
 
         // Step 2: Divide each polynomial P_i(X) by (X-x).
@@ -1066,8 +1068,12 @@ impl BivariatePolynomial for DensePolynomialExt {
         // Q_X(X,Y) = Y^0 q_0_X(X) + Y^1 q_1_X(X) + ... + Y^{deg-1} q_{deg-1}_X(X)
         // Flatten q_x_coeffs_vec
         let mut q_x_coeffs_vec_flat: Vec<Self::Field> = q_x_coeffs_vec.into_par_iter().flatten().collect();
-        transpose_inplace(&mut q_x_coeffs_vec_flat, y_len, x_len);
-        let q_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_x_coeffs_vec_flat), x_len, y_len);
+        let total_size = y_len * x_len;
+        let mut q_x_coeffs_vec_flat_pooled = get_global_scalar_field_buffer(total_size);
+        q_x_coeffs_vec_flat_pooled.copy_from_slice(&q_x_coeffs_vec_flat);
+        transpose_inplace(&mut q_x_coeffs_vec_flat_pooled, y_len, x_len);
+        let q_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_x_coeffs_vec_flat_pooled), x_len, y_len);
+        return_global_scalar_field_buffer(q_x_coeffs_vec_flat_pooled);
 
         // Divide R_X(Y) by (Y-y).
         let (q_y_coeffs_vec, r_y) = DensePolynomialExt::_div_uni_coeffs_by_ruffini(&r_x_coeffs_vec, y);
@@ -1080,7 +1086,7 @@ impl BivariatePolynomial for DensePolynomialExt {
             return (vec![ScalarField::zero()], poly_coeffs_vec[0])
         }
         let len = poly_coeffs_vec.len();
-        let mut q_coeffs_vec = vec![Self::Field::zero(); len];
+        let mut q_coeffs_vec = get_global_scalar_field_buffer(len);
         let mut b = poly_coeffs_vec[len - 1];
         q_coeffs_vec[len - 2] = b;
         for i in 3.. len + 1 {
@@ -1088,7 +1094,9 @@ impl BivariatePolynomial for DensePolynomialExt {
             q_coeffs_vec[len - i] = b;
         }
         let r = poly_coeffs_vec[0] + b * *x;
-        (q_coeffs_vec, r)
+        let result = (q_coeffs_vec.clone(), r);
+        return_global_scalar_field_buffer(q_coeffs_vec);
+        result
     }
 
 }

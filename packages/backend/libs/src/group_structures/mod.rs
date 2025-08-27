@@ -10,6 +10,7 @@ use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
 use crate::field_structures::{FieldSerde, Tau};
 use crate::iotools::{from_coef_vec_to_g1serde_mat, from_coef_vec_to_g1serde_vec, from_coef_vec_to_g1serde_vec_msm, scaled_outer_product_1d, scaled_outer_product_2d, Permutation, PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use crate::vector_operations::{*};
+use crate::memory_pool::{get_global_scalar_field_buffer, return_global_scalar_field_buffer};
 
 use serde::{Deserialize, Serialize};
 use std::{
@@ -84,17 +85,19 @@ macro_rules! impl_encode_poly {
                     return G1serde::zero()
                 }
                 let poly_coeffs_vec_compact = {
-                    let mut poly_coeffs_vec = vec![ScalarField::zero(); x_size * y_size];
+                    let mut poly_coeffs_vec = get_global_scalar_field_buffer(x_size * y_size);
                     let poly_coeffs = HostSlice::from_mut_slice(&mut poly_coeffs_vec);
                     poly.copy_coeffs(0, poly_coeffs);
-                    resize(
+                    let result = resize(
                         &poly_coeffs_vec,
                         x_size,
                         y_size,
                         target_x_size,
                         target_y_size,
                         ScalarField::zero()
-                    )
+                    );
+                    return_global_scalar_field_buffer(poly_coeffs_vec);
+                    result
                 };
                 
                 let rs_unpacked: Vec<G1Affine> = {

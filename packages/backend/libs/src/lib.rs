@@ -6,6 +6,7 @@ pub mod group_structures;
 pub mod polynomial_structures;
 pub mod field_structures;
 pub mod utils;
+pub mod memory_pool;
 
 #[doc(hidden)]
 pub mod tests;
