@@ -1,7 +1,6 @@
 #![allow(non_snake_case)]
 
 use icicle_bls12_381::curve::ScalarField;
-use icicle_core::curve::Curve;
 use icicle_core::traits::{Arithmetic, FieldImpl};
 use libs::field_structures::{from_r1cs_to_evaled_qap_mixture, Tau};
 use libs::group_structures::{PartialSigma1, SigmaPreprocess};

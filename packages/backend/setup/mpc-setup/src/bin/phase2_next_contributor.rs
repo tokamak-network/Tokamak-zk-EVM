@@ -1,4 +1,3 @@
-use blake2::Digest;
 use chrono::Local;
 use clap::Parser;
 use icicle_core::traits::Arithmetic;
@@ -7,8 +6,6 @@ use mpc_setup::sigma::{AaccExt, SigmaV2, HASH_BYTES_LEN};
 use mpc_setup::utils::{hash_sigma, initialize_random_generator, pok, prompt_user_input, Mode, Phase2Proof, RandomGenerator};
 use rayon::iter::ParallelIterator;
 use rayon::prelude::IntoParallelRefMutIterator;
-use serde::de::Deserializer;
-use serde::ser::{SerializeStruct, Serializer};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::Mul;

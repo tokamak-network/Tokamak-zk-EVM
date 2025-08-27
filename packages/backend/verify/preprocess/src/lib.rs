@@ -1,22 +1,11 @@
 #![allow(non_snake_case)]
-use icicle_bls12_381::curve::{G1Affine, G1Projective, G2Affine, ScalarField, ScalarCfg};
-use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
-use icicle_core::msm::{self, MSMConfig};
-use ark_bls12_381::{Bls12_381, G1Affine as ArkG1Affine, G2Affine as ArkG2Affine};
-use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
-use ark_ff::{Field, PrimeField, Fp12};
-use icicle_runtime::memory::HostSlice;
-use libs::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
-use libs::group_structures::{G1serde, G2serde, SigmaPreprocess};
-use libs::field_structures::{FieldSerde, Tau};
+use libs::group_structures::{G1serde, SigmaPreprocess};
 use libs::iotools::{*};
 use libs::{impl_read_from_json, impl_write_into_json, split_push, pop_recover};
-use libs::vector_operations::{*};
 
 use serde::{Deserialize, Serialize};
 use std::{
-    path::PathBuf,
-    ops::{Add, Mul, Sub},
+    path::PathBuf
 };
 
 pub struct PreprocessInputPaths<'a> {

@@ -1,4 +1,3 @@
-use ark_ff::Zero;
 use icicle_runtime::memory::{DeviceVec, HostSlice};
 use std::env;
 
@@ -7,7 +6,6 @@ use icicle_bls12_381::curve::{G1Affine, G1Projective, ScalarField};
 use icicle_core::msm;
 use icicle_core::msm::MSMConfig;
 use icicle_core::traits::FieldImpl;
-use icicle_runtime::memory::HostOrDeviceSlice;
 use icicle_runtime::stream::IcicleStream;
 use libs::bivariate_polynomial::DensePolynomialExt;
 use libs::group_structures::{G1serde, PartialSigma1, Sigma, Sigma1, Sigma2, SigmaPreprocess};

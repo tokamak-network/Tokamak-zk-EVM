@@ -3,23 +3,17 @@
     use libs::{impl_read_from_json, impl_write_into_json, split_push, pop_recover};
     use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
     use libs::iotools::{*};
-    use libs::field_structures::{FieldSerde, hashing};
+    use libs::field_structures::{FieldSerde};
     use libs::vector_operations::{point_div_two_vecs, resize, transpose_inplace};
     use libs::group_structures::{Sigma, G1serde};
     use libs::polynomial_structures::gen_bXY;
     use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
     use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
     use icicle_core::ntt;
-    use icicle_core::vec_ops::VecOpsConfig;
     use serde::{Deserialize, Serialize};
-    use bincode;
-    use serde_json::{from_reader, to_writer_pretty};
 
-    use std::fs::File;
-    use std::io::{self, BufReader, BufWriter};
-    use std::path::{Path, PathBuf};
-    use std::{env, fs, vec};
-    use byteorder::{BigEndian, ByteOrder};
+    use std::path::{PathBuf};
+    use std::{vec};
     use tiny_keccak::Keccak;
 
 
@@ -476,6 +470,7 @@
             };
 
             #[cfg(feature = "testing-mode")] {
+                use icicle_core::vec_ops::VecOpsConfig;
                 // Checking Lemma 3
                 let mut bXY_evals = vec![ScalarField::zero(); m_i*s_max];
                 witness.bXY.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut bXY_evals));

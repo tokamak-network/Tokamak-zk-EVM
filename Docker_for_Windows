@@ -1,5 +1,4 @@
-# GPU-ready, slim Docker image for Windows Docker Desktop users
-# Mount your repo with -v and run with --gpus all
+
 FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
 
 ARG DEBIAN_FRONTEND=noninteractive

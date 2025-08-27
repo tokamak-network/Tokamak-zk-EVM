@@ -33,19 +33,19 @@ fi
 
 # Copy WASM files to bin directory
 copy_wasm_files() {
-    echo "📦 Copying WASM files to match constant/index.ts paths..."
+    echo "📦 Copying subcircuit library..."
     
     # Create the exact path structure that constant/index.ts expects
     # wasmDir = './qap-compiler/subcircuits/library/wasm'
-    mkdir -p bin/qap-compiler/subcircuits/library/wasm
+    mkdir -p resource/qap-compiler/library
     
-    # Also create a backup wasm directory
-    mkdir -p bin/wasm
+    # # Also create a backup wasm directory
+    # mkdir -p bin/wasm
     
     # Copy WASM files from external qap-compiler package (only source)
     if [ -d "../qap-compiler/subcircuits/library/wasm" ]; then
-        cp ../qap-compiler/subcircuits/library/wasm/*.wasm bin/qap-compiler/subcircuits/library/wasm/ 2>/dev/null || true
-        cp ../qap-compiler/subcircuits/library/wasm/*.wasm bin/wasm/ 2>/dev/null || true
+        cp -r ../qap-compiler/subcircuits/library/* resource/qap-compiler/library/ 2>/dev/null || true
+        # cp ../qap-compiler/subcircuits/library/wasm/*.wasm bin/wasm/ 2>/dev/null || true
         echo "✅ Copied WASM files from external qap-compiler package to expected path"
     else
         echo "❌ Error: External qap-compiler package not found at ../qap-compiler/"
@@ -53,23 +53,23 @@ copy_wasm_files() {
         exit 1
     fi
     
-    # Copy other essential WASM files (wasmcurves, etc.)
-    find node_modules -path "*/wasmcurves/build/*.wasm" -exec cp {} bin/qap-compiler/subcircuits/library/wasm/ \; 2>/dev/null || true
-    find node_modules -path "*/wasmcurves/build/*.wasm" -exec cp {} bin/wasm/ \; 2>/dev/null || true
+    # # Copy other essential WASM files (wasmcurves, etc.)
+    # find node_modules -path "*/wasmcurves/build/*.wasm" -exec cp {} bin/qap-compiler/subcircuits/library/wasm/ \; 2>/dev/null || true
+    # find node_modules -path "*/wasmcurves/build/*.wasm" -exec cp {} bin/wasm/ \; 2>/dev/null || true
     
-    # Copy circom runtime WASM files
-    find node_modules -path "*/circom_runtime/*/*.wasm" -exec cp {} bin/qap-compiler/subcircuits/library/wasm/ \; 2>/dev/null || true
-    find node_modules -path "*/circom_runtime/*/*.wasm" -exec cp {} bin/wasm/ \; 2>/dev/null || true
+    # # Copy circom runtime WASM files
+    # find node_modules -path "*/circom_runtime/*/*.wasm" -exec cp {} bin/qap-compiler/subcircuits/library/wasm/ \; 2>/dev/null || true
+    # find node_modules -path "*/circom_runtime/*/*.wasm" -exec cp {} bin/wasm/ \; 2>/dev/null || true
     
     # Count copied files
-    local expected_path_count=$(ls bin/qap-compiler/subcircuits/library/wasm/*.wasm 2>/dev/null | wc -l)
-    local backup_path_count=$(ls bin/wasm/*.wasm 2>/dev/null | wc -l)
+    local expected_path_count=$(ls resource/qap-compiler/library/wasm/*.wasm 2>/dev/null | wc -l)
+    # local backup_path_count=$(ls bin/wasm/*.wasm 2>/dev/null | wc -l)
     echo "✅ WASM files copied to expected path (./qap-compiler/subcircuits/library/wasm/): $expected_path_count"
-    echo "✅ WASM files copied to backup path (./wasm/): $backup_path_count"
+    # echo "✅ WASM files copied to backup path (./wasm/): $backup_path_count"
     
-    # List some key files to verify
-    echo "🔍 Key WASM files in expected location:"
-    ls bin/qap-compiler/subcircuits/library/wasm/subcircuit*.wasm 2>/dev/null | head -5 || echo "   No subcircuit WASM files found"
+    # # List some key files to verify
+    # echo "🔍 Key WASM files in expected location:"
+    # ls bin/qap-compiler/subcircuits/library/wasm/subcircuit*.wasm 2>/dev/null | head -5 || echo "   No subcircuit WASM files found"
 }
 
 # Build function for specific platform
