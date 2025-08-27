@@ -1,34 +1,30 @@
-use icicle_bls12_381::curve::{ScalarField, ScalarCfg, G1Affine, G2Affine, BaseField, G2BaseField, G1Projective, CurveCfg};
+use icicle_bls12_381::curve::{ScalarField, G1Affine, G2Affine, BaseField, G2BaseField, G1Projective};
 use icicle_core::ntt;
-use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
-use icicle_core::vec_ops::{VecOps, VecOpsConfig};
+use icicle_core::traits::{Arithmetic, FieldImpl};
 use icicle_core::msm::{self, MSMConfig};
-use icicle_runtime::{self, Device, memory::{HostSlice, DeviceVec}};
+use icicle_runtime::{self, memory::{HostSlice, DeviceVec}};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use crate::field_structures::FieldSerde;
 use crate::group_structures::{G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify};
 use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use crate::polynomial_structures::{from_subcircuit_to_QAP, QAP};
-use crate::utils::{check_device, check_gpu};
+use crate::utils::{check_gpu};
 use crate::vector_operations::transpose_inplace;
 
 use super::vector_operations::{*};
 
 use std::fs::{self, File};
-use std::io::{self, BufReader, BufWriter, stdout, Write};
+use std::io::{self, BufReader, BufWriter, Write};
 use std::path::PathBuf;
 use std::{env, fmt};
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
-use serde::ser::{Serializer, SerializeStruct};
+use serde::ser::{SerializeStruct};
 use serde::de::{Deserializer, Visitor, Error};
-use serde_json::{from_reader, to_writer_pretty};
+use serde_json::{to_writer_pretty};
 use hex::decode_to_slice;
-
-const QAP_COMPILER_PATH_PREFIX: &str = "../frontend/qap-compiler/subcircuits/library";
-const SYNTHESIZER_PATH_PREFIX: &str = "../frontend/synthesizer/examples/outputs";
 
 #[macro_export]
 macro_rules! impl_read_from_json {

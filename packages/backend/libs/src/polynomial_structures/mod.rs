@@ -1,12 +1,9 @@
-use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
+use icicle_bls12_381::curve::{ScalarField};
 use icicle_core::traits::FieldImpl;
-use icicle_core::vec_ops::transpose_matrix;
 use icicle_runtime::memory::HostSlice;
 use crate::iotools::{PlacementVariables, Instance, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
-use crate::field_structures::Tau;
 use crate::vector_operations::{*};
-use std::collections::HashSet;
 
 pub struct QAP{
     pub u_j_X: Vec<DensePolynomialExt>,

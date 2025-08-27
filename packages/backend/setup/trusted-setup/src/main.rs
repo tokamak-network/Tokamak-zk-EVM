@@ -13,7 +13,7 @@ use icicle_core::curve::Curve;
 use trusted_setup::SetupInputPaths;
 
 use std::path::PathBuf;
-use std::{cmp, env, process, vec};
+use std::{env, process, vec};
 use std::time::Instant;
 
 

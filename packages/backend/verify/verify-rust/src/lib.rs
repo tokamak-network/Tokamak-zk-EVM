@@ -4,8 +4,8 @@ use icicle_core::hash::HashConfig;
 use icicle_hash::keccak::Keccak256;
 use icicle_runtime::memory::HostSlice;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
-use libs::iotools::{Instance, Permutation, PublicInputBuffer, PublicOutputBuffer, SetupParams, SubcircuitInfo};
-use libs::group_structures::{G1serde, Sigma, SigmaVerify};
+use libs::iotools::{Instance, PublicInputBuffer, PublicOutputBuffer, SetupParams};
+use libs::group_structures::{SigmaVerify};
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::ntt;
@@ -13,7 +13,7 @@ use prove::{*};
 use libs::group_structures::pairing;
 use preprocess::{Preprocess, FormattedPreprocess};
 
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use std::vec;
 
 pub struct VerifyInputPaths<'a> {

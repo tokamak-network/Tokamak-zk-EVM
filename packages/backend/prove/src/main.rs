@@ -4,7 +4,6 @@ use std::fs::File;
 use std::io::Write;
 use std::{env, process};
 use prove::{Proof, ProveInputPaths, Prover, TranscriptManager};
-use icicle_runtime::{self, Device};
 use libs::utils::check_device;
 
 fn main() {
