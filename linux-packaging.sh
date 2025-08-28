@@ -156,7 +156,7 @@ echo "✅ CRS has been generated"
 if [[ "$DO_COMPRESS" == "true" ]]; then
   echo "[*] Packaging..."
   rm -f "$OUT_TGZ"
-  tar -C "$TARGET" -czf "$OUT_TGZ" .
+  tar -C "$TARGET" -czf "dist/$OUT_TGZ" .
   echo "✅ Packaging complete: ${OUT_TGZ}"
 else
   echo "ℹ️ Skipping compression (--no-compress)"

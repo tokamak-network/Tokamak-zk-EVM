@@ -111,7 +111,7 @@ echo "✅ CRS has been generated"
 
 if [[ "$DO_SIGN" == "true" ]]; then
   echo "[*] Signing on all distribution..."
-  find "$TARGET" -type f \( -perm -111 -o -name "*.dylib" -o -name "*.so" \) -print0 | xargs -0 -I{} codesign --force --options runtime --timestamp -s "$APP_SIGN_ID" "{}"
+  find "$TARGET" -type f \( -perm -111 -o -name "*.dylib" -o -name "*.so" \) -print0 | xargs -0 -I{} codesign --force --options runtime --entitlements entitlements.plist --timestamp -s "$APP_SIGN_ID" "{}"
   # find "$TARGET" -type f \( -perm -u+x -o -name '*.dylib' -o -name '*.so' \) -print0 | xargs -0 -I{} codesign --verify --strict --verbose=2 "{}"
   echo "✅ Signed"
 else

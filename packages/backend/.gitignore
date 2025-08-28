@@ -4,6 +4,3 @@
 **/backend-lib
 *.zip
 *.tar.gz
-dist-linux20/bin
-dist-linux22/bin
-dist-mac/bin
