@@ -905,6 +905,11 @@ pub fn read_R1CS_gen_uvwXY(
     // Avoiding loading the same subcircuit multiple times
     let mut r1cs_cache: HashMap<usize, SubcircuitR1CS> = HashMap::new();
     let mut cache_stats: HashMap<usize, usize> = HashMap::new(); // Track cache hits
+    
+    // Cache for hex string -> ScalarField conversions (massive speedup for repeated variables)
+    let mut hex_cache: HashMap<String, ScalarField> = HashMap::new();
+    let mut hex_cache_hits = 0usize;
+    let mut hex_cache_misses = 0usize;
         
     let time_start = Instant::now();
     for i in 0..placement_variables.len() {
@@ -928,35 +933,40 @@ pub fn read_R1CS_gen_uvwXY(
         let variables = &placement_variables[i].variables;
         
         let t = Instant::now();
-        _from_r1cs_to_eval(
+        _from_r1cs_to_eval_cached(
             &variables, 
             &compact_r1cs.A_compact_col_mat, 
             &compact_r1cs.A_active_wires, 
             i, 
             n, 
-            &mut u_eval
+            &mut u_eval,
+            &mut hex_cache,
+            &mut hex_cache_hits,
+            &mut hex_cache_misses
         );
-        println!("    🔄 Evaluating r1cs A {} took {:?}", subcircuit_id, t.elapsed());
-        let t = Instant::now();
-        _from_r1cs_to_eval(
+        _from_r1cs_to_eval_cached(
             &variables, 
             &compact_r1cs.B_compact_col_mat, 
             &compact_r1cs.B_active_wires, 
             i, 
             n, 
-            &mut v_eval
+            &mut v_eval,
+            &mut hex_cache,
+            &mut hex_cache_hits,
+            &mut hex_cache_misses
         );
-        println!("    🔄 Evaluating r1cs B {} took {:?}", subcircuit_id, t.elapsed());
-        let t = Instant::now();
-        _from_r1cs_to_eval(
+        _from_r1cs_to_eval_cached(
             &variables, 
             &compact_r1cs.C_compact_col_mat, 
             &compact_r1cs.C_active_wires, 
             i, 
             n, 
-            &mut w_eval
+            &mut w_eval,
+            &mut hex_cache,
+            &mut hex_cache_hits,
+            &mut hex_cache_misses
         );
-        println!("    🔄 Evaluating r1cs C {} took {:?}", subcircuit_id, t.elapsed());
+        println!("    ⚡ Processing r1cs A,B,C {} took {:?}", subcircuit_id, t.elapsed());
     }
     println!("🔄 Loading r1cs took {:?}", time_start.elapsed());
     
@@ -971,6 +981,14 @@ pub fn read_R1CS_gen_uvwXY(
         if hits > 0 {
             println!("  📋 Subcircuit {} used {} times (cached)", subcircuit_id, hits + 1);
         }
+    }
+    
+    // Report hex parsing cache statistics
+    let total_hex_ops = hex_cache_hits + hex_cache_misses;
+    if total_hex_ops > 0 {
+        println!("🔢 Hex cache stats: {} unique values, {} total conversions, {} hits ({:.1}% hit rate)",
+            hex_cache.len(), total_hex_ops, hex_cache_hits,
+            (hex_cache_hits as f64 / total_hex_ops as f64) * 100.0);
     }
 
     let time_start = Instant::now();
@@ -1015,6 +1033,44 @@ fn _from_r1cs_to_eval(variables: &Box<[String]>, compact_mat: &Vec<ScalarField>,
         let mut frag_eval = vec![ScalarField::zero(); n].into_boxed_slice();
         matrix_matrix_mul(&d_vec, compact_mat, 1, d_len_A, n, &mut frag_eval);
         eval[i*n .. (i+1)*n].clone_from_slice(&frag_eval);
+    }
+}
+
+// with hex caching
+fn _from_r1cs_to_eval_cached(
+    variables: &Box<[String]>, 
+    compact_mat: &Vec<ScalarField>, 
+    active_wires: &Vec<usize>, 
+    i: usize, 
+    n: usize, 
+    eval: &mut Vec<ScalarField>,
+    hex_cache: &mut HashMap<String, ScalarField>,
+    hex_cache_hits: &mut usize,
+    hex_cache_misses: &mut usize
+) {
+    let d_len_A = active_wires.len();
+    if d_len_A > 0 {
+        let mut d_vec = Vec::with_capacity(d_len_A);
+
+        for &local_idx in active_wires.iter() {
+            let hex_str = &variables[local_idx];
+            let scalar_field = if let Some(&cached_value) = hex_cache.get(hex_str) {
+                // Cache hit
+                *hex_cache_hits += 1;
+                cached_value
+            } else {
+                // Cache miss - parse and cache
+                let parsed_value = ScalarField::from_hex(hex_str);
+                hex_cache.insert(hex_str.clone(), parsed_value);
+                *hex_cache_misses += 1;
+                parsed_value
+            };
+            d_vec.push(scalar_field);
+        }
+        
+        // Direct write to the output slice - avoid temporary allocation
+        let eval_slice = &mut eval[i*n .. (i+1)*n];
+        matrix_matrix_mul(&d_vec, compact_mat, 1, d_len_A, n, eval_slice);
     }
 }
 
