@@ -901,13 +901,33 @@ pub fn read_R1CS_gen_uvwXY(
     let mut u_eval = vec![ScalarField::zero(); s_max * n];
     let mut v_eval = vec![ScalarField::zero(); s_max * n];
     let mut w_eval = vec![ScalarField::zero(); s_max * n];
+    
+    // Avoiding loading the same subcircuit multiple times
+    let mut r1cs_cache: HashMap<usize, SubcircuitR1CS> = HashMap::new();
+    let mut cache_stats: HashMap<usize, usize> = HashMap::new(); // Track cache hits
+        
+    let time_start = Instant::now();
     for i in 0..placement_variables.len() {
         let subcircuit_id = placement_variables[i].subcircuitId;
-        // println!("TEST: Subcircuit Name: {:?}", subcircuit_infos[subcircuit_id].name);
-        let r1cs_path = PathBuf::from(qap_path).join(format!("json/subcircuit{subcircuit_id}.json"));
-        let compact_r1cs = SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[subcircuit_id]).unwrap();
+        
+        // Check cache first
+        let compact_r1cs = if let Some(cached) = r1cs_cache.get(&subcircuit_id) {
+            // Cache hit == no file I/O needed!
+            *cache_stats.entry(subcircuit_id).or_insert(0) += 1;
+            cached
+        } else {
+            // Cache miss - load and cache the subcircuit
+            let r1cs_path = PathBuf::from(qap_path).join(format!("json/subcircuit{subcircuit_id}.json")); // TODO: use bincode instead.
+            let t = Instant::now();
+            let loaded_r1cs = SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[subcircuit_id]).unwrap();
+            println!("    🔄 Loading r1cs {} took {:?} (first time)", subcircuit_id, t.elapsed());
+            r1cs_cache.insert(subcircuit_id, loaded_r1cs);
+            cache_stats.insert(subcircuit_id, 0);
+            r1cs_cache.get(&subcircuit_id).unwrap()
+        };
         let variables = &placement_variables[i].variables;
         
+        let t = Instant::now();
         _from_r1cs_to_eval(
             &variables, 
             &compact_r1cs.A_compact_col_mat, 
@@ -916,6 +936,8 @@ pub fn read_R1CS_gen_uvwXY(
             n, 
             &mut u_eval
         );
+        println!("    🔄 Evaluating r1cs A {} took {:?}", subcircuit_id, t.elapsed());
+        let t = Instant::now();
         _from_r1cs_to_eval(
             &variables, 
             &compact_r1cs.B_compact_col_mat, 
@@ -924,6 +946,8 @@ pub fn read_R1CS_gen_uvwXY(
             n, 
             &mut v_eval
         );
+        println!("    🔄 Evaluating r1cs B {} took {:?}", subcircuit_id, t.elapsed());
+        let t = Instant::now();
         _from_r1cs_to_eval(
             &variables, 
             &compact_r1cs.C_compact_col_mat, 
@@ -932,11 +956,29 @@ pub fn read_R1CS_gen_uvwXY(
             n, 
             &mut w_eval
         );
+        println!("    🔄 Evaluating r1cs C {} took {:?}", subcircuit_id, t.elapsed());
+    }
+    println!("🔄 Loading r1cs took {:?}", time_start.elapsed());
+    
+    // Report cache statistics
+    let total_cache_hits: usize = cache_stats.values().sum();
+    let unique_subcircuits = r1cs_cache.len();
+    let total_subcircuit_uses = placement_variables.len();
+    println!("📊 Cache stats: {} unique subcircuits, {} total uses, {} cache hits ({:.1}% hit rate)", 
+        unique_subcircuits, total_subcircuit_uses, total_cache_hits, 
+        (total_cache_hits as f64 / total_subcircuit_uses.max(1) as f64) * 100.0);
+    for (&subcircuit_id, &hits) in cache_stats.iter() {
+        if hits > 0 {
+            println!("  📋 Subcircuit {} used {} times (cached)", subcircuit_id, hits + 1);
+        }
     }
 
+    let time_start = Instant::now();
     transpose_inplace(&mut u_eval, s_max, n);
     transpose_inplace(&mut v_eval, s_max, n);
     transpose_inplace(&mut w_eval, s_max, n);
+    println!("🔄 Transposing r1cs took {:?}", time_start.elapsed());
+
 
     return (
         DensePolynomialExt::from_rou_evals(
