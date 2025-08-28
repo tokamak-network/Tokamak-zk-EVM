@@ -45,6 +45,18 @@ macro_rules! impl_read_from_json {
 }
 
 #[macro_export]
+macro_rules! impl_read_from_bincode {
+    ($t:ty) => {
+        impl $t {
+            pub fn read_from_bincode(path: PathBuf) -> std::io::Result<Self> {
+                let data = std::fs::read(path)?;
+                bincode::deserialize(&data).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+            }
+        }
+    }
+}
+
+#[macro_export]
 macro_rules! impl_read_box_from_json {
     ($t:ty) => {
         impl $t {
@@ -125,6 +137,7 @@ impl_read_from_json!(Sigma);
 impl_read_from_json!(SigmaPreprocess);
 impl_read_from_json!(SigmaVerify);
 impl_write_into_json!(Sigma);
+impl_read_from_bincode!(Sigma);
 
 impl Sigma {
     /// Write verifier CRS into JSON

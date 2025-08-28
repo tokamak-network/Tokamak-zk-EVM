@@ -561,9 +561,8 @@
 
             // Load Sigma (reference string)
             let time_start = Instant::now();
-            let sigma_path = PathBuf::from(paths.setup_path).join("combined_sigma.json");
-            let mut sigma = Sigma::read_from_json(sigma_path)
-            .expect("No reference string is found. Run the Setup first.");
+            let sigma_bincode_path = PathBuf::from(paths.setup_path).join("combined_sigma.bin");
+            let mut sigma = Sigma::read_from_bincode(sigma_bincode_path).expect("No reference string is found. Run the Setup first.");
             println!("🔄 Loading Sigma took {:?}", time_start.elapsed());
 
             let mixer: Mixer = {

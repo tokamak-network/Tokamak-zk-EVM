@@ -364,10 +364,16 @@ fn main() {
     // }
 
     let start = Instant::now();
-    // Writing the sigma into JSON
+    // Writing the sigma into JSON and bincode
     println!("Writing the sigma into JSON...");
     let output_dir_path = PathBuf::from(paths.output_path);
     sigma.write_into_json(output_dir_path.join("combined_sigma.json")).unwrap();
+    
+    // Write bincode version for faster loading
+    println!("Writing the sigma into bincode...");
+    let bincode_data = bincode::serialize(&sigma).expect("Failed to serialize sigma to bincode");
+    std::fs::write(output_dir_path.join("combined_sigma.bin"), bincode_data).expect("Failed to write bincode file");
+    
     // // Writing the sigma into rust code
     // println!("Writing the sigma into a rust code...");
     // let output_path = "setup/trusted-setup/output/combined_sigma.rs";
