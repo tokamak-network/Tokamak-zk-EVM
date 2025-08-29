@@ -50,8 +50,11 @@ This section describes how to use the **main CLI** named **`tokamak-cli`** for d
     - Make sure that you are in the root directory, `Tokamak-zk-evm`.
         ```bash
         docker build -f Docker_for_Windows -t tokamak-zkevm:win .
-    
-        docker run --gpus all --rm -it -v "${PWD}:/workspace" tokamak-zkevm:win bash -lc "cd /workspace && exec bash"
+
+        # If you will use CUDA/GPU
+        docker run --gpus all --rm -it -v "$(cygpath -m "$PWD"):/workspace" tokamak-zkevm:win bash 
+        # Else
+        docker run --rm -it -v "$(cygpath -m "$PWD"):/workspace" tokamak-zkevm:win bash 
         ```
 
 #### macOS
