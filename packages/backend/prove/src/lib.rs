@@ -11,6 +11,7 @@
     use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
     use icicle_core::ntt;
     use serde::{Deserialize, Serialize};
+    use std::time::Instant;
 
     use std::path::{PathBuf};
     use std::{vec};
@@ -409,6 +410,7 @@
             let placement_variables_path = PathBuf::from(paths.synthesizer_path).join("placementVariables.json");
             let placement_variables = PlacementVariables::read_box_from_json(placement_variables_path).unwrap();
 
+            let time_start = Instant::now();
             let witness: Witness = {
                 // // Load subcircuit library R1CS
                 // println!("Loading subcircuits...");
@@ -426,7 +428,9 @@
                 let rXY = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&vec![ScalarField::zero()]), 1, 1);
                 Witness {bXY, uXY, vXY, wXY, rXY}
             };
+            println!("🔄 Loading witness took {:?}", time_start.elapsed());
 
+            let time_start = Instant::now();
             let quotients: Quotients = {
                 let q0XY = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&vec![ScalarField::zero()]), 1, 1);
                 let q1XY = q0XY.clone();
@@ -438,11 +442,13 @@
                 let q7XY = q0XY.clone();
                 Quotients {q0XY, q1XY, q2XY, q3XY, q4XY, q5XY, q6XY, q7XY}
             };
+            println!("🔄 Loading quotients took {:?}", time_start.elapsed());
 
             // Load permutation (copy constraints of the variables)
             let permutation_path = PathBuf::from(paths.synthesizer_path).join("permutation.json");
             let permutation_raw = Permutation::read_box_from_json(permutation_path).unwrap();
 
+            let time_start = Instant::now();
             let mut instance: InstancePolynomials = {
                 // Load instance
                 let instance_path = PathBuf::from(paths.synthesizer_path).join("instance.json");
@@ -468,6 +474,7 @@
 
                 InstancePolynomials {a_pub_X, t_n, t_mi, t_smax, s0XY, s1XY}
             };
+            println!("🔄 Loading instance took {:?}", time_start.elapsed());
 
             #[cfg(feature = "testing-mode")] {
                 use icicle_core::vec_ops::VecOpsConfig;
@@ -553,9 +560,10 @@
             }
 
             // Load Sigma (reference string)
-            let sigma_path = PathBuf::from(paths.setup_path).join("combined_sigma.json");
-            let mut sigma = Sigma::read_from_json(sigma_path)
-            .expect("No reference string is found. Run the Setup first.");
+            let time_start = Instant::now();
+            let sigma_bincode_path = PathBuf::from(paths.setup_path).join("combined_sigma.bin");
+            let mut sigma = Sigma::read_from_bincode(sigma_bincode_path).expect("No reference string is found. Run the Setup first.");
+            println!("🔄 Loading Sigma took {:?}", time_start.elapsed());
 
             let mixer: Mixer = {
                 let rU_X = ScalarCfg::generate_random(1)[0];
@@ -589,6 +597,8 @@
 
             println!("Check point: Fetched input data from the frontend compilers");
 
+            let time_start = Instant::now();
+            println!("🔄 Starting binding computation (MSMs)...");
             let binding: Binding = {
                 let A = sigma.sigma_1.encode_poly(&mut instance.a_pub_X, &setup_params);
                 let O_inst = sigma.sigma_1.encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params);
@@ -629,6 +639,7 @@
                     );
                 Binding {A, O_inst, O_mid, O_prv}
             };
+            println!("🔄 Binding computation (MSMs) took {:?}", time_start.elapsed());
 
             println!("Check point: Encoded binding polynomials");
 

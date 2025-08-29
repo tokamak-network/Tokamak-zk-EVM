@@ -45,6 +45,18 @@ macro_rules! impl_read_from_json {
 }
 
 #[macro_export]
+macro_rules! impl_read_from_bincode {
+    ($t:ty) => {
+        impl $t {
+            pub fn read_from_bincode(path: PathBuf) -> std::io::Result<Self> {
+                let data = std::fs::read(path)?;
+                bincode::deserialize(&data).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+            }
+        }
+    }
+}
+
+#[macro_export]
 macro_rules! impl_read_box_from_json {
     ($t:ty) => {
         impl $t {
@@ -125,6 +137,7 @@ impl_read_from_json!(Sigma);
 impl_read_from_json!(SigmaPreprocess);
 impl_read_from_json!(SigmaVerify);
 impl_write_into_json!(Sigma);
+impl_read_from_bincode!(Sigma);
 
 impl Sigma {
     /// Write verifier CRS into JSON
@@ -888,42 +901,102 @@ pub fn read_R1CS_gen_uvwXY(
     let mut u_eval = vec![ScalarField::zero(); s_max * n];
     let mut v_eval = vec![ScalarField::zero(); s_max * n];
     let mut w_eval = vec![ScalarField::zero(); s_max * n];
+    
+    // Avoiding loading the same subcircuit multiple times
+    let mut r1cs_cache: HashMap<usize, SubcircuitR1CS> = HashMap::new();
+    let mut cache_stats: HashMap<usize, usize> = HashMap::new(); // Track cache hits
+    
+    // Cache for hex string -> ScalarField conversions (massive speedup for repeated variables)
+    let mut hex_cache: HashMap<String, ScalarField> = HashMap::new();
+    let mut hex_cache_hits = 0usize;
+    let mut hex_cache_misses = 0usize;
+        
+    let time_start = Instant::now();
     for i in 0..placement_variables.len() {
         let subcircuit_id = placement_variables[i].subcircuitId;
-        // println!("TEST: Subcircuit Name: {:?}", subcircuit_infos[subcircuit_id].name);
-        let r1cs_path = PathBuf::from(qap_path).join(format!("json/subcircuit{subcircuit_id}.json"));
-        let compact_r1cs = SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[subcircuit_id]).unwrap();
+        
+        // Check cache first
+        let compact_r1cs = if let Some(cached) = r1cs_cache.get(&subcircuit_id) {
+            // Cache hit == no file I/O needed!
+            *cache_stats.entry(subcircuit_id).or_insert(0) += 1;
+            cached
+        } else {
+            // Cache miss - load and cache the subcircuit
+            let r1cs_path = PathBuf::from(qap_path).join(format!("json/subcircuit{subcircuit_id}.json")); // TODO: use bincode instead.
+            let t = Instant::now();
+            let loaded_r1cs = SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[subcircuit_id]).unwrap();
+            println!("    🔄 Loading r1cs {} took {:?} (first time)", subcircuit_id, t.elapsed());
+            r1cs_cache.insert(subcircuit_id, loaded_r1cs);
+            cache_stats.insert(subcircuit_id, 0);
+            r1cs_cache.get(&subcircuit_id).unwrap()
+        };
         let variables = &placement_variables[i].variables;
         
-        _from_r1cs_to_eval(
+        let t = Instant::now();
+        _from_r1cs_to_eval_cached(
             &variables, 
             &compact_r1cs.A_compact_col_mat, 
             &compact_r1cs.A_active_wires, 
             i, 
             n, 
-            &mut u_eval
+            &mut u_eval,
+            &mut hex_cache,
+            &mut hex_cache_hits,
+            &mut hex_cache_misses
         );
-        _from_r1cs_to_eval(
+        _from_r1cs_to_eval_cached(
             &variables, 
             &compact_r1cs.B_compact_col_mat, 
             &compact_r1cs.B_active_wires, 
             i, 
             n, 
-            &mut v_eval
+            &mut v_eval,
+            &mut hex_cache,
+            &mut hex_cache_hits,
+            &mut hex_cache_misses
         );
-        _from_r1cs_to_eval(
+        _from_r1cs_to_eval_cached(
             &variables, 
             &compact_r1cs.C_compact_col_mat, 
             &compact_r1cs.C_active_wires, 
             i, 
             n, 
-            &mut w_eval
+            &mut w_eval,
+            &mut hex_cache,
+            &mut hex_cache_hits,
+            &mut hex_cache_misses
         );
+        println!("    ⚡ Processing r1cs A,B,C {} took {:?}", subcircuit_id, t.elapsed());
+    }
+    println!("🔄 Loading r1cs took {:?}", time_start.elapsed());
+    
+    // Report cache statistics
+    let total_cache_hits: usize = cache_stats.values().sum();
+    let unique_subcircuits = r1cs_cache.len();
+    let total_subcircuit_uses = placement_variables.len();
+    println!("📊 Cache stats: {} unique subcircuits, {} total uses, {} cache hits ({:.1}% hit rate)", 
+        unique_subcircuits, total_subcircuit_uses, total_cache_hits, 
+        (total_cache_hits as f64 / total_subcircuit_uses.max(1) as f64) * 100.0);
+    for (&subcircuit_id, &hits) in cache_stats.iter() {
+        if hits > 0 {
+            println!("  📋 Subcircuit {} used {} times (cached)", subcircuit_id, hits + 1);
+        }
+    }
+    
+    // Report hex parsing cache statistics
+    let total_hex_ops = hex_cache_hits + hex_cache_misses;
+    if total_hex_ops > 0 {
+        println!("🔢 Hex cache stats: {} unique values, {} total conversions, {} hits ({:.1}% hit rate)",
+            hex_cache.len(), total_hex_ops, hex_cache_hits,
+            (hex_cache_hits as f64 / total_hex_ops as f64) * 100.0);
     }
 
+    let time_start = Instant::now();
     transpose_inplace(&mut u_eval, s_max, n);
     transpose_inplace(&mut v_eval, s_max, n);
     transpose_inplace(&mut w_eval, s_max, n);
+    println!("🔄 Transposing r1cs took {:?}", time_start.elapsed());
+
 
     return (
         DensePolynomialExt::from_rou_evals(
@@ -960,6 +1033,44 @@ fn _from_r1cs_to_eval(variables: &Box<[String]>, compact_mat: &Vec<ScalarField>,
         let mut frag_eval = vec![ScalarField::zero(); n].into_boxed_slice();
         matrix_matrix_mul(&d_vec, compact_mat, 1, d_len_A, n, &mut frag_eval);
         eval[i*n .. (i+1)*n].clone_from_slice(&frag_eval);
+    }
+}
+
+// with hex caching
+fn _from_r1cs_to_eval_cached(
+    variables: &Box<[String]>, 
+    compact_mat: &Vec<ScalarField>, 
+    active_wires: &Vec<usize>, 
+    i: usize, 
+    n: usize, 
+    eval: &mut Vec<ScalarField>,
+    hex_cache: &mut HashMap<String, ScalarField>,
+    hex_cache_hits: &mut usize,
+    hex_cache_misses: &mut usize
+) {
+    let d_len_A = active_wires.len();
+    if d_len_A > 0 {
+        let mut d_vec = Vec::with_capacity(d_len_A);
+
+        for &local_idx in active_wires.iter() {
+            let hex_str = &variables[local_idx];
+            let scalar_field = if let Some(&cached_value) = hex_cache.get(hex_str) {
+                // Cache hit
+                *hex_cache_hits += 1;
+                cached_value
+            } else {
+                // Cache miss - parse and cache
+                let parsed_value = ScalarField::from_hex(hex_str);
+                hex_cache.insert(hex_str.clone(), parsed_value);
+                *hex_cache_misses += 1;
+                parsed_value
+            };
+            d_vec.push(scalar_field);
+        }
+        
+        // Direct write to the output slice - avoid temporary allocation
+        let eval_slice = &mut eval[i*n .. (i+1)*n];
+        matrix_matrix_mul(&d_vec, compact_mat, 1, d_len_A, n, eval_slice);
     }
 }
 
