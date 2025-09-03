@@ -8,7 +8,7 @@ on:
 jobs:
   proof-generation-test:
     name: Proof Generation Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 45
 
     strategy:
@@ -190,7 +190,7 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [proof-generation-test, build-macos, build-linux]
     if: success() # 모든 테스트와 빌드가 성공했을 때만 실행
 

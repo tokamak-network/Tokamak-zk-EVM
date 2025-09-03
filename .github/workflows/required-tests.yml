@@ -11,7 +11,7 @@ jobs:
   # Job 1: 실제 트랜잭션으로 증명 생성 테스트
   proof-generation-test:
     name: Proof Generation Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 45
 
     strategy:
@@ -109,7 +109,7 @@ jobs:
   # Job 2: 최종 상태 체크
   final-status:
     name: Final Status Check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: proof-generation-test
     if: always()
 
