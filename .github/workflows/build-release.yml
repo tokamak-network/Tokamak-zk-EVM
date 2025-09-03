@@ -1,0 +1,374 @@
+name: Test, Build & Release
+
+on:
+  push:
+    branches: [main, ale-150] # ale-150 브랜치 테스트 추가
+  workflow_dispatch: # 수동 실행 가능
+
+jobs:
+  proof-generation-test:
+    name: Proof Generation Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    strategy:
+      matrix:
+        # TON Transfer 테스트만 실행
+        test_case:
+          - name: 'ton-transfer'
+            tx_hash: '0x6c7903e420c5efb27639f5186a7474ef2137f12c786a90b4efdcb5d88dfdb002'
+            description: 'TON Transfer'
+
+      fail-fast: false # 하나 실패해도 다른 테스트 계속 진행
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install system dependencies
+        run: |
+          # Ubuntu에서는 apt 사용
+          sudo apt-get update
+          sudo apt-get install -y dos2unix cmake build-essential
+
+      - name: Install Rust and Cargo
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install circom
+        run: |
+          # Install circom 2.2.2 for Linux
+          wget https://github.com/iden3/circom/releases/download/v2.2.2/circom-linux-amd64
+          chmod +x circom-linux-amd64
+          sudo mv circom-linux-amd64 /usr/local/bin/circom
+          circom --version
+
+      - name: Make tokamak-cli executable
+        run: chmod +x ./tokamak-cli
+
+      - name: Setup environment
+        env:
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
+        run: |
+          # 파일 권한 및 라인 엔딩 수정
+          echo "🔧 Fixing file permissions and line endings..."
+          find . -name "*.sh" -exec chmod +x {} \;
+          find . -name "*.sh" -exec dos2unix {} \; 2>/dev/null || true
+
+          # npm 의존성 문제 해결을 위해 npm install 사용
+          echo "🔧 Installing dependencies with npm install instead of npm ci..."
+          cd packages/frontend/qap-compiler && npm install --legacy-peer-deps
+          cd ../synthesizer && npm install --legacy-peer-deps
+          cd ../../..
+
+          # tsx 글로벌 설치 (synthesizer에서 필요)
+          npm install -g tsx
+          ./tokamak-cli --install "$ALCHEMY_API_KEY"
+
+      - name: Generate proof for ${{ matrix.test_case.name }}
+        run: |
+          echo "🧪 Testing: ${{ matrix.test_case.description }}"
+          echo "📋 TX Hash: ${{ matrix.test_case.tx_hash }}"
+
+          # 증명 생성 시도
+          ./tokamak-cli --prove "${{ matrix.test_case.tx_hash }}" "./proof_${{ matrix.test_case.name }}"
+
+      - name: Validate proof artifacts
+        run: |
+          # 필수 파일들이 생성되었는지 확인
+          test -f "./proof_${{ matrix.test_case.name }}/transaction_hash.txt"
+          test -f "./proof_${{ matrix.test_case.name }}/proof.json"
+
+          # 트랜잭션 해시가 올바르게 저장되었는지 확인
+          stored_hash=$(cat "./proof_${{ matrix.test_case.name }}/transaction_hash.txt")
+          if [[ "$stored_hash" != "${{ matrix.test_case.tx_hash }}" ]]; then
+            echo "❌ Transaction hash mismatch!"
+            echo "Expected: ${{ matrix.test_case.tx_hash }}"
+            echo "Got: $stored_hash"
+            exit 1
+          fi
+
+          echo "✅ Proof validation passed for ${{ matrix.test_case.name }}"
+
+      - name: Upload proof artifacts
+        if: always() # 실패해도 아티팩트 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-artifacts-${{ matrix.test_case.name }}-${{ github.run_number }}
+          path: ./proof_${{ matrix.test_case.name }}/
+          retention-days: 7
+
+  build-macos:
+    name: Build macOS Binary
+    runs-on: macos-latest
+    needs: proof-generation-test # proof 테스트 통과 후 실행
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          # macOS 의존성 설치
+          brew install dos2unix
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/backend/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build macOS binary
+        working-directory: packages/backend
+        run: |
+          chmod +x mac-packaging.sh
+          ./mac-packaging.sh
+
+      - name: Upload macOS binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: tokamak-zk-evm-macos-${{ github.run_number }}
+          path: packages/backend/tokamak-zk-evm-mac.zip
+          retention-days: 30
+
+  build-linux:
+    name: Build Linux Binary
+    runs-on: ubuntu-22.04 # Linux 22 버전 명시
+    needs: proof-generation-test # proof 테스트 통과 후 실행
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          # Ubuntu 의존성 설치
+          sudo apt-get update
+          sudo apt-get install -y dos2unix build-essential curl
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/backend/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build Linux binary
+        working-directory: packages/backend
+        run: |
+          chmod +x linux22-packaging.sh
+          ./linux22-packaging.sh
+
+      - name: Upload Linux binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: tokamak-zk-evm-linux22-${{ github.run_number }}
+          path: packages/backend/tokamak-zk-evm-linux22.tar.gz
+          retention-days: 30
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [proof-generation-test, build-macos, build-linux]
+    if: success() # 모든 테스트와 빌드가 성공했을 때만 실행
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 전체 히스토리 가져오기 (태그 정보 필요)
+
+      - name: Generate version tag
+        id: version
+        run: |
+          # 브랜치에 따라 다른 버전 태그 생성
+          DATE=$(date +%Y.%m.%d)
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          BRANCH_NAME="${{ github.ref_name }}"
+
+          if [[ "$BRANCH_NAME" == "main" ]]; then
+            # 메인 브랜치: 정식 릴리즈 (v2024.01.15-abc1234)
+            VERSION="v${DATE}-${SHORT_SHA}"
+            IS_PRERELEASE="false"
+            RELEASE_TYPE="Release"
+          else
+            # 테스트 브랜치: 테스트 릴리즈 (test-ale-150-v2024.01.15-abc1234)
+            VERSION="test-${BRANCH_NAME}-v${DATE}-${SHORT_SHA}"
+            IS_PRERELEASE="true"
+            RELEASE_TYPE="Test Release"
+          fi
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "date=${DATE}" >> $GITHUB_OUTPUT
+          echo "sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "branch=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "is_prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
+          echo "release_type=${RELEASE_TYPE}" >> $GITHUB_OUTPUT
+
+          echo "🏷️ Generated version: ${VERSION}"
+          echo "🌿 Branch: ${BRANCH_NAME}"
+          echo "🏷️ Release type: ${RELEASE_TYPE}"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p ./release-assets
+
+          # macOS 바이너리 복사
+          if [ -d "./artifacts/tokamak-zk-evm-macos-${{ github.run_number }}" ]; then
+            cp "./artifacts/tokamak-zk-evm-macos-${{ github.run_number }}/tokamak-zk-evm-mac.zip" \
+               "./release-assets/tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip"
+            echo "✅ macOS binary prepared"
+          fi
+
+          # Linux 바이너리 복사
+          if [ -d "./artifacts/tokamak-zk-evm-linux22-${{ github.run_number }}" ]; then
+            cp "./artifacts/tokamak-zk-evm-linux22-${{ github.run_number }}/tokamak-zk-evm-linux22.tar.gz" \
+               "./release-assets/tokamak-zk-evm-${{ steps.version.outputs.version }}-linux22.tar.gz"
+            echo "✅ Linux binary prepared"
+          fi
+
+          ls -la ./release-assets/
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          # 최근 커밋들로부터 릴리즈 노트 생성
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -n "$LAST_TAG" ]; then
+            COMMITS=$(git log ${LAST_TAG}..HEAD --oneline --no-merges | head -20)
+          else
+            COMMITS=$(git log --oneline --no-merges | head -20)
+          fi
+
+          # 릴리즈 노트 작성
+          cat > release_notes.md << EOF
+          ## 🚀 Tokamak zkEVM ${{ steps.version.outputs.release_type }} ${{ steps.version.outputs.version }}
+
+          **Build Date:** ${{ steps.version.outputs.date }}  
+          **Branch:** \`${{ steps.version.outputs.branch }}\`  
+          **Commit:** [\`${{ steps.version.outputs.sha }}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+
+          ### 📦 Downloads
+
+          - **macOS**: \`tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip\`
+          - **Linux (Ubuntu 22.04)**: \`tokamak-zk-evm-${{ steps.version.outputs.version }}-linux22.tar.gz\`
+
+          EOF
+
+          # 테스트 브랜치일 때 추가 안내 메시지
+          if [[ "${{ steps.version.outputs.branch }}" != "main" ]]; then
+            cat >> release_notes.md << EOF
+
+          > ⚠️ **This is a test release** from branch \`${{ steps.version.outputs.branch }}\`  
+          > This release is for testing purposes only and should not be used in production.
+
+          EOF
+          fi
+
+          cat >> release_notes.md << EOF
+
+          ### ✅ Quality Assurance
+
+          - **Proof Generation Test**: Passed ✅
+          - **Transaction**: TON Transfer (0x6c7903e420c5efb27639f5186a7474ef2137f12c786a90b4efdcb5d88dfdb002)
+          - **Validation**: All proof artifacts verified
+
+          ### 🔧 What's Included
+
+          - \`trusted-setup\` - Trusted setup ceremony binary
+          - \`preprocess\` - Preprocessing binary  
+          - \`prove\` - Proof generation binary
+          - \`verify\` - Proof verification binary
+          - Required libraries and resources
+
+          ### 📋 Recent Changes
+
+          EOF
+
+          if [ -n "$COMMITS" ]; then
+            echo "$COMMITS" | while read line; do
+              echo "- $line" >> release_notes.md
+            done
+          else
+            echo "- Initial release" >> release_notes.md
+          fi
+
+          cat >> release_notes.md << EOF
+
+          ### 🛠️ Installation
+
+          1. Download the appropriate binary for your platform
+          2. Extract the archive
+          3. Run the setup script: \`./1_run-trusted-setup.sh\`
+          4. Use the binaries as needed
+
+          ### ⚠️ Requirements
+
+          - **macOS**: macOS 10.15+ (Catalina or later)
+          - **Linux**: Ubuntu 22.04 or compatible distribution
+          - **Hardware**: Minimum 8GB RAM, 10GB free disk space
+
+          ---
+
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${LAST_TAG}...${{ steps.version.outputs.version }}
+          EOF
+
+          echo "Generated release notes:"
+          cat release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: 'Tokamak zkEVM ${{ steps.version.outputs.release_type }} ${{ steps.version.outputs.version }}'
+          body_path: release_notes.md
+          files: |
+            ./release-assets/*
+          draft: false
+          prerelease: ${{ steps.version.outputs.is_prerelease }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update build summary
+        run: |
+          echo "## 🎉 ${{ steps.version.outputs.release_type }} Created Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Release Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type**: ${{ steps.version.outputs.release_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ steps.version.outputs.branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release URL**: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Available Downloads" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **macOS Binary**: tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Linux Binary**: tokamak-zk-evm-${{ steps.version.outputs.version }}-linux22.tar.gz" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **[View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }})**" >> $GITHUB_STEP_SUMMARY
