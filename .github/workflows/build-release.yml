@@ -162,77 +162,6 @@ jobs:
           path: ./proof_${{ matrix.test_case.name }}/
           retention-days: 7
 
-  build-macos:
-    name: Build macOS Binary
-    runs-on: macos-latest
-    needs: [test-synthesizer-build, proof-generation-test] # synthesizer 빌드 테스트 및 proof 테스트 통과 후 실행
-    timeout-minutes: 60
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install system dependencies
-        run: |
-          # macOS 의존성 설치
-          brew install dos2unix
-
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            packages/backend/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Build synthesizer binary (macOS)
-        working-directory: packages/frontend/synthesizer
-        run: |
-          echo "🔍 Setting up synthesizer build environment for macOS..."
-
-          # bin 디렉토리가 없으면 생성
-          mkdir -p bin
-
-          echo "🔍 Installing synthesizer dependencies..."
-          bun install
-
-          echo "🔍 Building synthesizer binary for macOS..."
-          if [ -f "./build-binary.sh" ]; then
-            chmod +x ./build-binary.sh
-            dos2unix ./build-binary.sh || true
-            ./build-binary.sh macos
-          else
-            echo "❌ build-binary.sh not found!"
-            exit 1
-          fi
-
-          echo "🔍 Checking synthesizer build results..."
-          ls -la bin/ || echo "❌ No bin directory after build"
-          ls -la bin/*macos* || echo "❌ No macOS binary found"
-
-      - name: Build macOS binary
-        run: |
-          chmod +x mac-packaging.sh
-          ./mac-packaging.sh
-
-      - name: Upload macOS binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: tokamak-zk-evm-macos-${{ github.run_number }}
-          path: tokamak-zk-evm-macOS.zip
-          retention-days: 30
-
   build-linux:
     name: Build Linux Binary
     runs-on: ubuntu-22.04 # Linux 22 버전 명시
@@ -257,7 +186,6 @@ jobs:
           g++ --version
           cmake --version
           dos2unix --version
-          bun --version
 
       - name: Cache Rust dependencies
         uses: actions/cache@v4
@@ -275,60 +203,11 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Build synthesizer binary
-        working-directory: packages/frontend/synthesizer
+      - name: Build Linux binary with CI script
         run: |
-          echo "🔍 Setting up synthesizer build environment..."
-
-          # bin 디렉토리가 없으면 생성
-          mkdir -p bin
-
-          echo "🔍 Installing synthesizer dependencies..."
-          bun install
-
-          echo "🔍 Building synthesizer binary for Linux..."
-          if [ -f "./build-binary.sh" ]; then
-            chmod +x ./build-binary.sh
-            dos2unix ./build-binary.sh || true
-            echo "🔍 Executing build-binary.sh with verbose output..."
-            set -x  # Enable verbose output
-            ./build-binary.sh linux || {
-              echo "❌ build-binary.sh failed with exit code $?"
-              echo "🔍 Checking what went wrong..."
-              exit 1
-            }
-            set +x  # Disable verbose output
-          else
-            echo "❌ build-binary.sh not found!"
-            exit 1
-          fi
-
-          echo "🔍 Checking synthesizer build results..."
-          ls -la bin/ || echo "❌ No bin directory after build"
-          ls -la bin/*linux* || echo "❌ No Linux binary found"
-
-          echo "🔍 Full directory structure after build:"
-          find . -name "*synthesizer*" -type f 2>/dev/null || echo "No synthesizer files found"
-
-          echo "🔍 Expected binary path check:"
-          if [ -f "bin/synthesizer-linux-x64" ]; then
-            echo "✅ synthesizer-linux-x64 exists!"
-            ls -la bin/synthesizer-linux-x64
-            
-            echo "🔍 Binary is ready for packaging step"
-          else
-            echo "❌ synthesizer-linux-x64 NOT found!"
-            echo "🔍 Available files in bin/:"
-            ls -la bin/ || echo "No bin directory"
-            exit 1
-          fi
-
-      - name: Build Linux binary
-        run: |
-          chmod +x linux-packaging.sh
-          echo "🔍 Starting Linux packaging..."
-          echo "🔍 Using --no-bun since synthesizer was already built in previous step"
-          ./linux-packaging.sh --no-bun
+          echo "🔍 Using dedicated CI/CD build script..."
+          chmod +x ci-linux-build.sh
+          ./ci-linux-build.sh
 
       - name: Upload Linux binary
         uses: actions/upload-artifact@v4
@@ -340,8 +219,7 @@ jobs:
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-22.04
-    needs:
-      [test-synthesizer-build, proof-generation-test, build-macos, build-linux]
+    needs: [test-synthesizer-build, proof-generation-test, build-linux]
     if: success() # 모든 테스트와 빌드가 성공했을 때만 실행
 
     steps:
@@ -390,18 +268,14 @@ jobs:
         run: |
           mkdir -p ./release-assets
 
-          # macOS 바이너리 복사
-          if [ -d "./artifacts/tokamak-zk-evm-macos-${{ github.run_number }}" ]; then
-            cp "./artifacts/tokamak-zk-evm-macos-${{ github.run_number }}/tokamak-zk-evm-mac.zip" \
-               "./release-assets/tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip"
-            echo "✅ macOS binary prepared"
-          fi
-
           # Linux 바이너리 복사
           if [ -d "./artifacts/tokamak-zk-evm-linux22-${{ github.run_number }}" ]; then
             cp "./artifacts/tokamak-zk-evm-linux22-${{ github.run_number }}/tokamak-zk-evm-linux22.tar.gz" \
                "./release-assets/tokamak-zk-evm-${{ steps.version.outputs.version }}-linux22.tar.gz"
             echo "✅ Linux binary prepared"
+          else
+            echo "❌ Linux binary not found"
+            exit 1
           fi
 
           ls -la ./release-assets/
@@ -428,7 +302,6 @@ jobs:
 
           ### 📦 Downloads
 
-          - **macOS**: \`tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip\`
           - **Linux (Ubuntu 22.04)**: \`tokamak-zk-evm-${{ steps.version.outputs.version }}-linux22.tar.gz\`
 
           EOF
@@ -518,7 +391,6 @@ jobs:
           echo "- **Release URL**: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Available Downloads" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **macOS Binary**: tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ **Linux Binary**: tokamak-zk-evm-${{ steps.version.outputs.version }}-linux22.tar.gz" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🔗 **[View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }})**" >> $GITHUB_STEP_SUMMARY
