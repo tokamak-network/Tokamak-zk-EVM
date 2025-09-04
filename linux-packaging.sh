@@ -58,16 +58,39 @@ cp -r packages/frontend/qap-compiler/subcircuits/library/* "${TARGET}/resource/q
 echo "✅ copied to ${TARGET}/resource"
 
 # =========================
-# Build
+# Build Synthesizer
 # =========================
 if [[ "$DO_BUN" == "true" ]]; then
   command -v bun >/dev/null 2>&1 || { echo "bun is required but not found"; exit 1; }
+  echo "[*] Building Synthesizer..."
   cd packages/frontend/synthesizer
+  
+  echo "🔍 Installing synthesizer dependencies..."
+  bun install
+  
+  echo "🔍 Creating bin directory..."
+  mkdir -p bin
+  
   BUN_SCRIPT="./build-binary.sh"
   dos2unix "$BUN_SCRIPT" || true
   chmod +x "$BUN_SCRIPT" 2>/dev/null || true
+  
+  echo "🔍 Building synthesizer binary for Linux..."
   "$BUN_SCRIPT" linux
+  
+  echo "🔍 Verifying synthesizer binary was created..."
+  if [ -f "bin/synthesizer-linux-x64" ]; then
+      echo "✅ SUCCESS: synthesizer-linux-x64 created!"
+      ls -la bin/synthesizer-linux-x64
+  else
+      echo "❌ FAILED: synthesizer-linux-x64 not found"
+      echo "🔍 Contents of bin directory:"
+      ls -la bin/ || echo "No bin directory"
+      exit 1
+  fi
+  
   cd "$SCRIPT_DIR"
+  echo "✅ built synthesizer"
 else
   echo "ℹ️ Skipping bun-based synthesizer build (--no-bun)"
 fi
@@ -80,6 +103,15 @@ cargo build -p prove --release
 cargo build -p verify --release
 cd "$SCRIPT_DIR"
 echo "✅ built backend"
+
+echo "[*] Building Synthesizer..."
+cd packages/frontend/synthesizer
+BUN_SCRIPT="./build-binary.sh"
+dos2unix "$BUN_SCRIPT" || true
+chmod +x "$BUN_SCRIPT" 2>/dev/null || true
+"$BUN_SCRIPT" linux
+cd "$SCRIPT_DIR"
+echo "✅ built synthesizer"
 
 # echo "[*] Configuring @rpath of the binaries..."
 # RPATH='$ORIGIN/../backend-lib/icicle/lib'
@@ -106,6 +138,7 @@ else
     find packages/frontend/synthesizer -name "*synthesizer*" -type f 2>/dev/null || echo "No synthesizer binaries found"
     exit 1
 fi
+
 # Copy Rust binaries with existence check
 for binary in trusted-setup preprocess prove verify; do
     BINARY_PATH="packages/backend/target/release/$binary"
@@ -118,6 +151,7 @@ for binary in trusted-setup preprocess prove verify; do
         exit 1
     fi
 done
+
 echo "✅ copied to ${TARGET}/bin"
 
 # # =========================

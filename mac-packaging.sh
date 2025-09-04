@@ -66,31 +66,12 @@ cd "$SCRIPT_DIR"
 
 echo "[*] Copying executable binaries..."
 mkdir -p "${TARGET}/bin"
-
-# Check if synthesizer binary exists and copy it
-SYNTHESIZER_PATH="packages/frontend/synthesizer/bin/synthesizer-macos-arm64"
-if [ -f "$SYNTHESIZER_PATH" ]; then
-    echo "✅ Found synthesizer binary at $SYNTHESIZER_PATH"
-    cp -vf "$SYNTHESIZER_PATH" "${TARGET}/bin"
-    mv "${TARGET}/bin/synthesizer-macos-arm64" "${TARGET}/bin/synthesizer"
-else
-    echo "❌ Error: synthesizer binary not found at $SYNTHESIZER_PATH"
-    echo "🔍 Checking if binary exists in other locations..."
-    find packages/frontend/synthesizer -name "*synthesizer*" -type f 2>/dev/null || echo "No synthesizer binaries found"
-    exit 1
-fi
-# Copy Rust binaries with existence check
-for binary in trusted-setup preprocess prove verify; do
-    BINARY_PATH="packages/backend/target/release/$binary"
-    if [ -f "$BINARY_PATH" ]; then
-        echo "✅ Found $binary binary at $BINARY_PATH"
-        cp -vf "$BINARY_PATH" "${TARGET}/bin"
-    else
-        echo "❌ Error: $binary binary not found at $BINARY_PATH"
-        echo "🔍 Make sure Rust binaries are built properly"
-        exit 1
-    fi
-done
+cp -vf packages/frontend/synthesizer/bin/synthesizer-macos-arm64 "${TARGET}/bin"
+mv "${TARGET}/bin/synthesizer-macos-arm64" "${TARGET}/bin/synthesizer"
+cp -vf packages/backend/target/release/trusted-setup "${TARGET}/bin"
+cp -vf packages/backend/target/release/preprocess "${TARGET}/bin"
+cp -vf packages/backend/target/release/prove "${TARGET}/bin"
+cp -vf packages/backend/target/release/verify "${TARGET}/bin"
 echo "✅ copied to ${TARGET}/bin"
 
 command -v curl >/dev/null 2>&1 || { echo "curl is required but not found"; exit 1; }
@@ -159,4 +140,3 @@ if [[ "$DO_COMPRESS" == "true" ]]; then
 else
   echo "ℹ️ Skipping compression (--no-compress)"
 fi
-

@@ -6,65 +6,6 @@ on:
   workflow_dispatch: # 수동 실행 가능
 
 jobs:
-  test-synthesizer-build:
-    name: Test Synthesizer Binary Build
-    runs-on: ubuntu-22.04
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Test synthesizer build only
-        working-directory: packages/frontend/synthesizer
-        run: |
-          echo "🔍 Testing synthesizer binary build..."
-
-          echo "🔍 Current directory: $(pwd)"
-          echo "🔍 Directory contents:"
-          ls -la
-
-          echo "🔍 Checking if build-binary.sh exists:"
-          if [ -f "./build-binary.sh" ]; then
-            echo "✅ build-binary.sh found"
-            ls -la build-binary.sh
-          else
-            echo "❌ build-binary.sh not found"
-            exit 1
-          fi
-
-          echo "🔍 Installing dependencies..."
-          bun install
-
-          echo "🔍 Creating bin directory..."
-          mkdir -p bin
-
-          echo "🔍 Making build script executable..."
-          chmod +x ./build-binary.sh
-          dos2unix ./build-binary.sh || true
-
-          echo "🔍 Running build script..."
-          ./build-binary.sh linux
-
-          echo "🔍 Checking build results..."
-          if [ -f "bin/synthesizer-linux-x64" ]; then
-            echo "✅ SUCCESS: synthesizer-linux-x64 created!"
-            ls -la bin/synthesizer-linux-x64
-            echo "📊 Binary size: $(du -h bin/synthesizer-linux-x64 | cut -f1)"
-          else
-            echo "❌ FAILED: synthesizer-linux-x64 not found"
-            echo "🔍 Contents of bin directory:"
-            ls -la bin/ || echo "No bin directory"
-            echo "🔍 All synthesizer files:"
-            find . -name "*synthesizer*" -type f
-            exit 1
-          fi
-
   proof-generation-test:
     name: Proof Generation Test
     runs-on: ubuntu-22.04
@@ -162,10 +103,57 @@ jobs:
           path: ./proof_${{ matrix.test_case.name }}/
           retention-days: 7
 
+  build-macos:
+    name: Build macOS Binary
+    runs-on: macos-latest
+    needs: proof-generation-test
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          # macOS 의존성 설치
+          brew install dos2unix
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/backend/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Build macOS binary
+        run: |
+          echo "🔍 Building macOS binary with native packaging..."
+          chmod +x mac-packaging.sh
+          ./mac-packaging.sh
+
+      - name: Upload macOS binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: tokamak-zk-evm-macos-${{ github.run_number }}
+          path: tokamak-zk-evm-macOS.zip
+          retention-days: 30
+
   build-linux:
     name: Build Linux Binary
     runs-on: ubuntu-22.04 # Linux 22 버전 명시
-    needs: [test-synthesizer-build, proof-generation-test] # synthesizer 빌드 테스트 및 proof 테스트 통과 후 실행
+    needs: proof-generation-test # proof 테스트 통과 후 실행
     timeout-minutes: 60
 
     steps:
@@ -203,11 +191,11 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Build Linux binary with CI script
+      - name: Build Linux binary
         run: |
-          echo "🔍 Using dedicated CI/CD build script..."
-          chmod +x ci-linux-build.sh
-          ./ci-linux-build.sh
+          echo "🔍 Building Linux binary with packaging script..."
+          chmod +x linux-packaging.sh
+          ./linux-packaging.sh
 
       - name: Upload Linux binary
         uses: actions/upload-artifact@v4
@@ -219,7 +207,7 @@ jobs:
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-22.04
-    needs: [test-synthesizer-build, proof-generation-test, build-linux]
+    needs: [proof-generation-test, build-macos, build-linux]
     if: success() # 모든 테스트와 빌드가 성공했을 때만 실행
 
     steps:
@@ -268,6 +256,16 @@ jobs:
         run: |
           mkdir -p ./release-assets
 
+          # macOS 바이너리 복사
+          if [ -d "./artifacts/tokamak-zk-evm-macos-${{ github.run_number }}" ]; then
+            cp "./artifacts/tokamak-zk-evm-macos-${{ github.run_number }}/tokamak-zk-evm-macOS.zip" \
+               "./release-assets/tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip"
+            echo "✅ macOS binary prepared"
+          else
+            echo "❌ macOS binary not found"
+            exit 1
+          fi
+
           # Linux 바이너리 복사
           if [ -d "./artifacts/tokamak-zk-evm-linux22-${{ github.run_number }}" ]; then
             cp "./artifacts/tokamak-zk-evm-linux22-${{ github.run_number }}/tokamak-zk-evm-linux22.tar.gz" \
@@ -302,6 +300,7 @@ jobs:
 
           ### 📦 Downloads
 
+          - **macOS**: \`tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip\`
           - **Linux (Ubuntu 22.04)**: \`tokamak-zk-evm-${{ steps.version.outputs.version }}-linux22.tar.gz\`
 
           EOF
@@ -391,6 +390,7 @@ jobs:
           echo "- **Release URL**: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Available Downloads" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **macOS Binary**: tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ **Linux Binary**: tokamak-zk-evm-${{ steps.version.outputs.version }}-linux22.tar.gz" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🔗 **[View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }})**" >> $GITHUB_STEP_SUMMARY
