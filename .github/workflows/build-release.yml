@@ -53,11 +53,41 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Verify Bun installation
+      - name: Verify Bun installation and setup PATH
         run: |
           echo "🔍 Verifying Bun installation..."
-          which bun
-          bun --version
+          echo "Current PATH: $PATH"
+
+          # Check if bun is in PATH
+          if command -v bun >/dev/null 2>&1; then
+            echo "✅ Bun found in PATH: $(which bun)"
+            bun --version
+          else
+            echo "❌ Bun not found in PATH, searching for it..."
+            # Common Bun installation paths
+            BUN_PATHS=(
+              "$HOME/.bun/bin/bun"
+              "/home/runner/.bun/bin/bun"
+              "/opt/hostedtoolcache/bun/*/x64/bin/bun"
+            )
+            
+            for bun_path in "${BUN_PATHS[@]}"; do
+              if [ -f "$bun_path" ] || ls $bun_path 2>/dev/null; then
+                echo "✅ Found Bun at: $bun_path"
+                export PATH="$(dirname $bun_path):$PATH"
+                echo "PATH=$PATH" >> $GITHUB_ENV
+                $bun_path --version
+                break
+              fi
+            done
+            
+            # Final check
+            if ! command -v bun >/dev/null 2>&1; then
+              echo "❌ Failed to locate Bun binary"
+              exit 1
+            fi
+          fi
+
           echo "✅ Bun is ready"
 
       - name: Make tokamak-cli executable
@@ -203,11 +233,41 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Verify Bun installation
+      - name: Verify Bun installation and setup PATH
         run: |
           echo "🔍 Verifying Bun installation..."
-          which bun
-          bun --version
+          echo "Current PATH: $PATH"
+
+          # Check if bun is in PATH
+          if command -v bun >/dev/null 2>&1; then
+            echo "✅ Bun found in PATH: $(which bun)"
+            bun --version
+          else
+            echo "❌ Bun not found in PATH, searching for it..."
+            # Common Bun installation paths
+            BUN_PATHS=(
+              "$HOME/.bun/bin/bun"
+              "/home/runner/.bun/bin/bun"
+              "/opt/hostedtoolcache/bun/*/x64/bin/bun"
+            )
+            
+            for bun_path in "${BUN_PATHS[@]}"; do
+              if [ -f "$bun_path" ] || ls $bun_path 2>/dev/null; then
+                echo "✅ Found Bun at: $bun_path"
+                export PATH="$(dirname $bun_path):$PATH"
+                echo "PATH=$PATH" >> $GITHUB_ENV
+                $bun_path --version
+                break
+              fi
+            done
+            
+            # Final check
+            if ! command -v bun >/dev/null 2>&1; then
+              echo "❌ Failed to locate Bun binary"
+              exit 1
+            fi
+          fi
+
           echo "✅ Bun is ready"
 
       - name: Build Linux binary
