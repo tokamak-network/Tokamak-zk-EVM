@@ -20,14 +20,17 @@ OUT_ZIP='tokamak-zk-evm-macOS.zip'
 # Parse arguments:
 #   --sign   → enable code signing & notarization
 #   --no-bun → skip bun-based synthesizer binary build
+#   --build-only → skip setup execution, build binaries only
 DO_SIGN=false
 DO_BUN=true
 DO_COMPRESS=true
+BUILD_ONLY=false
 for a in "$@"; do
     case "$a" in
       --sign) DO_SIGN=true ;;
       --no-bun) DO_BUN=false ;;
       --no-compress) DO_COMPRESS=false ;;
+      --build-only) BUILD_ONLY=true ;;
   esac
 done
 
@@ -153,32 +156,47 @@ install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/preprocess"
 install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/verify"
 echo "✅ @rpath set to ${RPATH}"
 
-# Check if prebuilt setup files are available
-if [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
-  echo "[*] Using prebuilt setup files from proof test..."
-  mkdir -p "${TARGET}/resource/setup/output"
-  cp -r ./prebuilt-setup/* "${TARGET}/resource/setup/output/"
-  echo "✅ Prebuilt setup files copied"
-  
-  # Verify setup files
-  if [ -f "${TARGET}/resource/setup/output/combined_sigma.json" ]; then
-    echo "✅ Setup files verified: $(ls -lh ${TARGET}/resource/setup/output/)"
+if [[ "$BUILD_ONLY" == "true" ]]; then
+  echo "ℹ️ Build-only mode: Skipping setup execution"
+  # Check if prebuilt setup files are available
+  if [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
+    echo "[*] Using prebuilt setup files from proof test..."
+    mkdir -p "${TARGET}/resource/setup/output"
+    cp -r ./prebuilt-setup/* "${TARGET}/resource/setup/output/"
+    echo "✅ Prebuilt setup files copied for packaging"
   else
-    echo "❌ Setup files verification failed, falling back to trusted-setup"
-    echo "[*] Running trusted-setup..."
+    echo "⚠️ No prebuilt setup files found, but build-only mode enabled"
+    echo "   Setup files will need to be provided separately"
+    mkdir -p "${TARGET}/resource/setup/output"
+  fi
+else
+  # Check if prebuilt setup files are available
+  if [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
+    echo "[*] Using prebuilt setup files from proof test..."
+    mkdir -p "${TARGET}/resource/setup/output"
+    cp -r ./prebuilt-setup/* "${TARGET}/resource/setup/output/"
+    echo "✅ Prebuilt setup files copied"
+    
+    # Verify setup files
+    if [ -f "${TARGET}/resource/setup/output/combined_sigma.json" ]; then
+      echo "✅ Setup files verified: $(ls -lh ${TARGET}/resource/setup/output/)"
+    else
+      echo "❌ Setup files verification failed, falling back to trusted-setup"
+      echo "[*] Running trusted-setup..."
+      SETUP_SCRIPT="./${TARGET}/1_run-trusted-setup.sh"
+      dos2unix "$SETUP_SCRIPT"
+      chmod +x "$SETUP_SCRIPT"
+      "$SETUP_SCRIPT"
+      echo "✅ CRS has been generated"
+    fi
+  else
+    echo "[*] No prebuilt setup files found, running trusted-setup..."
     SETUP_SCRIPT="./${TARGET}/1_run-trusted-setup.sh"
     dos2unix "$SETUP_SCRIPT"
     chmod +x "$SETUP_SCRIPT"
     "$SETUP_SCRIPT"
     echo "✅ CRS has been generated"
   fi
-else
-  echo "[*] No prebuilt setup files found, running trusted-setup..."
-  SETUP_SCRIPT="./${TARGET}/1_run-trusted-setup.sh"
-  dos2unix "$SETUP_SCRIPT"
-  chmod +x "$SETUP_SCRIPT"
-  "$SETUP_SCRIPT"
-  echo "✅ CRS has been generated"
 fi
 
 if [[ "$DO_SIGN" == "true" ]]; then
