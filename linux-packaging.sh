@@ -250,15 +250,15 @@ if [[ "$DO_COMPRESS" == "true" ]]; then
   rm -f "$OUT_TGZ"
   mkdir -p dist
   
-  # Use maximum compression with gzip
-  tar -C "$TARGET" -c . | gzip -9 > "dist/$OUT_TGZ"
+  # Use maximum compression with gzip - output to workspace root
+  tar -C "$TARGET" -c . | gzip -9 > "$OUT_TGZ"
   
   # Show compression stats
   UNCOMPRESSED_SIZE=$(du -sb "$TARGET" | cut -f1)
-  COMPRESSED_SIZE=$(stat -c%s "dist/$OUT_TGZ" 2>/dev/null || stat -f%z "dist/$OUT_TGZ")
+  COMPRESSED_SIZE=$(stat -c%s "$OUT_TGZ" 2>/dev/null || stat -f%z "$OUT_TGZ")
   COMPRESSION_RATIO=$(echo "scale=1; $COMPRESSED_SIZE * 100 / $UNCOMPRESSED_SIZE" | bc -l 2>/dev/null || echo "N/A")
   
-  echo "✅ Packaging complete: ${OUT_TGZ}"
+  echo "✅ Packaging complete: ${OUT_TGZ} (in workspace root)"
   echo "📊 Uncompressed: $(numfmt --to=iec $UNCOMPRESSED_SIZE 2>/dev/null || echo "${UNCOMPRESSED_SIZE} bytes")"
   echo "📊 Compressed: $(numfmt --to=iec $COMPRESSED_SIZE 2>/dev/null || echo "${COMPRESSED_SIZE} bytes")"
   echo "📊 Compression ratio: ${COMPRESSION_RATIO}%"
