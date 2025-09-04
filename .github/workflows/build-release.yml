@@ -166,7 +166,14 @@ jobs:
         run: |
           # Ubuntu 의존성 설치
           sudo apt-get update
-          sudo apt-get install -y dos2unix build-essential curl
+          sudo apt-get install -y dos2unix build-essential curl cmake
+
+          # 설치된 도구들 확인
+          gcc --version
+          g++ --version
+          cmake --version
+          dos2unix --version
+          bun --version
 
       - name: Cache Rust dependencies
         uses: actions/cache@v4
@@ -186,8 +193,36 @@ jobs:
 
       - name: Build Linux binary
         run: |
+          echo "🔍 Checking synthesizer build script..."
+          ls -la packages/frontend/synthesizer/build-binary.sh || echo "❌ build-binary.sh not found"
+
+          echo "🔍 Checking existing synthesizer binaries..."
+          ls -la packages/frontend/synthesizer/bin/ || echo "❌ bin directory not found"
+
+          echo "🔍 Testing Bun installation..."
+          which bun
+          bun --version
+
+          echo "🔍 Testing synthesizer build manually..."
+          cd packages/frontend/synthesizer
+          if [ -f "./build-binary.sh" ]; then
+            echo "✅ Found build-binary.sh, attempting manual build..."
+            chmod +x ./build-binary.sh
+            dos2unix ./build-binary.sh || true
+            ./build-binary.sh linux
+            echo "🔍 Manual build completed, checking results..."
+            ls -la bin/ || echo "❌ No bin directory after manual build"
+          else
+            echo "❌ build-binary.sh not found in synthesizer directory"
+          fi
+          cd ../../..
+
           chmod +x linux-packaging.sh
+          echo "🔍 Starting Linux packaging..."
           ./linux-packaging.sh
+
+          echo "🔍 Final check - synthesizer binary after packaging..."
+          ls -la packages/frontend/synthesizer/bin/ || echo "❌ bin directory still not found"
 
       - name: Upload Linux binary
         uses: actions/upload-artifact@v4
