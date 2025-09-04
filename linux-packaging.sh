@@ -62,11 +62,30 @@ echo "✅ copied to ${TARGET}/resource"
 # =========================
 if [[ "$DO_BUN" == "true" ]]; then
   command -v bun >/dev/null 2>&1 || { echo "bun is required but not found"; exit 1; }
+  echo "🔍 Building synthesizer binary..."
   cd packages/frontend/synthesizer
+  
+  echo "🔍 Current directory: $(pwd)"
+  echo "🔍 Directory contents before build:"
+  ls -la
+  
   BUN_SCRIPT="./build-binary.sh"
-  dos2unix "$BUN_SCRIPT" || true
-  chmod +x "$BUN_SCRIPT" 2>/dev/null || true
-  "$BUN_SCRIPT" linux
+  if [ -f "$BUN_SCRIPT" ]; then
+    echo "✅ Found build-binary.sh"
+    dos2unix "$BUN_SCRIPT" || true
+    chmod +x "$BUN_SCRIPT" 2>/dev/null || true
+    echo "🔍 Executing: $BUN_SCRIPT linux"
+    "$BUN_SCRIPT" linux
+    
+    echo "🔍 Directory contents after build:"
+    ls -la
+    echo "🔍 bin directory contents:"
+    ls -la bin/ || echo "❌ No bin directory"
+  else
+    echo "❌ build-binary.sh not found!"
+    exit 1
+  fi
+  
   cd "$SCRIPT_DIR"
 else
   echo "ℹ️ Skipping bun-based synthesizer build (--no-bun)"

@@ -240,6 +240,17 @@ jobs:
           echo "🔍 Checking synthesizer build results..."
           ls -la bin/ || echo "❌ No bin directory after build"
           ls -la bin/*linux* || echo "❌ No Linux binary found"
+          
+          echo "🔍 Full directory structure after build:"
+          find . -name "*synthesizer*" -type f 2>/dev/null || echo "No synthesizer files found"
+          
+          echo "🔍 Expected binary path check:"
+          if [ -f "bin/synthesizer-linux-x64" ]; then
+            echo "✅ synthesizer-linux-x64 exists!"
+            ls -la bin/synthesizer-linux-x64
+          else
+            echo "❌ synthesizer-linux-x64 NOT found!"
+          fi
 
       - name: Build Linux binary
         run: |
