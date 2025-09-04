@@ -48,6 +48,18 @@ jobs:
           sudo mv circom-linux-amd64 /usr/local/bin/circom
           circom --version
 
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Verify Bun installation
+        run: |
+          echo "🔍 Verifying Bun installation..."
+          which bun
+          bun --version
+          echo "✅ Bun is ready"
+
       - name: Make tokamak-cli executable
         run: chmod +x ./tokamak-cli
 
@@ -190,6 +202,13 @@ jobs:
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
+
+      - name: Verify Bun installation
+        run: |
+          echo "🔍 Verifying Bun installation..."
+          which bun
+          bun --version
+          echo "✅ Bun is ready"
 
       - name: Build Linux binary
         run: |

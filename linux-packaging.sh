@@ -61,7 +61,14 @@ echo "✅ copied to ${TARGET}/resource"
 # Build Synthesizer
 # =========================
 if [[ "$DO_BUN" == "true" ]]; then
-  command -v bun >/dev/null 2>&1 || { echo "bun is required but not found"; exit 1; }
+  echo "[*] Checking Bun installation..."
+  if ! command -v bun >/dev/null 2>&1; then
+    echo "❌ Error: Bun is not installed or not in PATH"
+    echo "Please install Bun from https://bun.sh"
+    exit 1
+  fi
+  echo "✅ Bun found: $(which bun)"
+  echo "✅ Bun version: $(bun --version)"
   echo "[*] Building Synthesizer..."
   cd packages/frontend/synthesizer
   
