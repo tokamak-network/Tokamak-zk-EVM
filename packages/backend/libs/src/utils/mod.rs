@@ -1,5 +1,4 @@
 use icicle_runtime::{self, Device};
-use std::env;
 
 /// Returns true if CUDA or METAL GPU is available.
 pub fn check_gpu() -> bool {

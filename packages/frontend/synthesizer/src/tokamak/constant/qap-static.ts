@@ -18,8 +18,9 @@ function getWasmDir(): string {
     const binaryDir = path.dirname(process.execPath);
     return path.join(
       binaryDir,
+      '..',
+      'resource',
       'qap-compiler',
-      'subcircuits',
       'library',
       'wasm',
     );

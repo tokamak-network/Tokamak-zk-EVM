@@ -1,11 +1,42 @@
 use super::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
-use super::group_structures::G1serde;
-use icicle_bls12_381::vec_ops;
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
-use icicle_bls12_381::curve::{ScalarCfg, ScalarField, G1Affine, G2Affine};
+use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::FieldImpl;
-use icicle_runtime::memory::HostSlice;
-use rayon::vec;
+use icicle_runtime::memory::{HostSlice, DeviceVec, DeviceSlice};
+use std::cell::RefCell;
+
+// Memory pool for reusing GPU buffers to minimize allocation overhead
+thread_local! {
+    static GPU_BUFFER_POOL: RefCell<Vec<Vec<ScalarField>>> = RefCell::new(Vec::new());
+}
+
+pub fn get_temp_buffer(min_size: usize) -> Vec<ScalarField> {
+    GPU_BUFFER_POOL.with(|pool| {
+        let mut pool = pool.borrow_mut();
+        
+        // Find a buffer that's large enough
+        for (i, buffer) in pool.iter().enumerate() {
+            if buffer.capacity() >= min_size {
+                let mut buffer = pool.swap_remove(i);
+                buffer.clear();
+                return buffer;
+            }
+        }
+        
+        // If no suitable buffer found, create a new one with some extra capacity
+        Vec::with_capacity((min_size * 3) / 2)
+    })
+}
+
+pub fn return_temp_buffer(buffer: Vec<ScalarField>) {
+    GPU_BUFFER_POOL.with(|pool| {
+        let mut pool = pool.borrow_mut();
+        if pool.len() < 10 {  // Limit pool size to prevent memory bloat
+            pool.push(buffer);
+        }
+    });
+}
+
 
 pub fn gen_evaled_lagrange_bases(val: &ScalarField, size: usize, res: &mut [ScalarField]) {
     let mut val_pows = vec![ScalarField::one(); size];
@@ -22,12 +53,18 @@ pub fn point_mul_two_vecs(lhs: &[ScalarField], rhs: &[ScalarField], res: &mut [S
     if lhs.len() != rhs.len() || lhs.len() != res.len() {
         panic!("Mismatch of sizes of vectors to be pointwise-multiplied");
     }
-    let vec_ops_cfg = VecOpsConfig::default();
+    let mut vec_ops_cfg = VecOpsConfig::default();
+    // Optimize for GPU memory coalescing
+    vec_ops_cfg.is_a_on_device = false;
+    vec_ops_cfg.is_b_on_device = false;
+    vec_ops_cfg.is_result_on_device = false;
+    
     let lhs_buff = HostSlice::from_slice(lhs);
     let rhs_buff = HostSlice::from_slice(rhs);
     let res_buff = HostSlice::from_mut_slice(res);
     ScalarCfg::mul(lhs_buff, rhs_buff, res_buff, &vec_ops_cfg).unwrap();
 }
+
 
 pub fn point_div_two_vecs(numer: &[ScalarField], denom: &[ScalarField], res: &mut [ScalarField]){
     if numer.len() != denom.len() || numer.len() != res.len() {
@@ -124,6 +161,7 @@ pub fn transpose_inplace (a_vec: &mut [ScalarField], row_size: usize, col_size:u
     ScalarCfg::transpose(a, row_size as u32, col_size as u32, res, &vec_ops_cfg).unwrap();
     a_vec.clone_from_slice(&res_vec);
 }
+
 pub fn matrix_matrix_mul(lhs_mat: &[ScalarField], rhs_mat: &[ScalarField], m: usize, n:usize, l:usize, res_mat: &mut [ScalarField]) {
     if lhs_mat.len() != m * n || rhs_mat.len() != n * l || res_mat.len() != m * l {
         panic!("Incorrect sizes for the matrix multiplication")
@@ -139,24 +177,41 @@ pub fn matrix_matrix_mul(lhs_mat: &[ScalarField], rhs_mat: &[ScalarField], m: us
     // Extended_RHS = [c1^T, c2^T c1^T, c2^T; c1^T, c2^T].
     // Then, LHS*RHS is a batched inner product of Extended_LHS and Extended_RHS.
     
-    let mut ext_lhs_mat = lhs_mat.to_vec();
+    // Use memory pool to reduce allocation overhead
+    let mut ext_lhs_mat = get_temp_buffer(m * n * l);
+    let mut ext_rhs_mat = get_temp_buffer(n * l * m);
+    let mut mul_res_vec = get_temp_buffer(m * n * l);
+    
+    // Build extended matrices more efficiently
+    ext_lhs_mat.extend_from_slice(lhs_mat);
     transpose_inplace(&mut ext_lhs_mat, m, n);
     _repeat_extend(&mut ext_lhs_mat, l);
     transpose_inplace(&mut ext_lhs_mat, l*n, m);
     
-    let mut ext_rhs_mat = rhs_mat.to_vec();
+    ext_rhs_mat.extend_from_slice(rhs_mat);
     transpose_inplace(&mut ext_rhs_mat, n, l);
     _repeat_extend(&mut ext_rhs_mat, m);
 
+    // Single GPU operation for multiplication and reduction
+    mul_res_vec.resize(m*n*l, ScalarField::zero());
     let mut vec_ops_cfg = VecOpsConfig::default();
-    let mut mul_res_vec = vec![ScalarField::zero(); m*n*l];
     let mul_res_buff = HostSlice::from_mut_slice(&mut mul_res_vec);
     ScalarCfg::mul(HostSlice::from_slice(&ext_lhs_mat), HostSlice::from_slice(&ext_rhs_mat), mul_res_buff, &vec_ops_cfg).unwrap();
+    
     vec_ops_cfg.batch_size = (m * l) as i32;
     vec_ops_cfg.columns_batch = false;
     let res = HostSlice::from_mut_slice(res_mat);
     ScalarCfg::sum(mul_res_buff, res, &vec_ops_cfg).unwrap();
+    
+    // Return buffers to pool for reuse
+    return_temp_buffer(ext_lhs_mat);
+    return_temp_buffer(ext_rhs_mat);
+    return_temp_buffer(mul_res_vec);
 }
+
+
+
+
 
 pub fn outer_product_two_vecs(col_vec: &[ScalarField], row_vec: &[ScalarField], res: &mut [ScalarField]){
     if col_vec.len() * row_vec.len() != res.len() {

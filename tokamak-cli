@@ -22,11 +22,7 @@ err() { echo -e "\033[1;31m[error]\033[0m $*" >&2; }
 npm_install_safe() {
   local dir="$1"
   pushd "$dir" >/dev/null
-  if [[ -f package-lock.json ]]; then
-    npm ci || npm install
-  else
-    npm install
-  fi
+  npm install
   popd >/dev/null
 }
 
@@ -77,19 +73,19 @@ detect_target() {
 
 packaging_script_for_target() {
   case "$1" in
-    mac)     echo "$BE_ROOT/mac-packaging.sh" ;;
-    linux20) echo "$BE_ROOT/linux20-packaging.sh" ;;
-    linux22) echo "$BE_ROOT/linux22-packaging.sh" ;;
-    *)       echo "$BE_ROOT/linux22-packaging.sh" ;;
+    mac)     echo "$ROOT/mac-packaging.sh" ;;
+    linux20) echo "$ROOT/linux-packaging.sh" ;;
+    linux22) echo "$ROOT/linux-packaging.sh" ;;
+    *)       echo "$ROOT/linux-packaging.sh" ;;
   esac
 }
 
 dist_dir_for_target() {
   case "$1" in
-    mac)     echo "$BE_ROOT/dist-mac" ;;
-    linux20) echo "$BE_ROOT/dist-linux20" ;;
-    linux22) echo "$BE_ROOT/dist-linux22" ;;
-    *)       echo "$BE_ROOT/dist-linux22" ;;
+    mac)     echo "$ROOT/dist/macOS" ;;
+    linux20) echo "$ROOT/dist/linux20" ;;
+    linux22) echo "$ROOT/dist/linux22" ;;
+    *)       echo "$ROOT/dist/linux22" ;;
   esac
 }
 
@@ -128,11 +124,11 @@ step_install() {
   script="$(packaging_script_for_target "$target")"
 
   log "Install: running backend packaging for target=$target -> $(basename "$script")"
-  pushd "$BE_ROOT" >/dev/null
+  # pushd "$BE_ROOT" >/dev/null
   [[ -f "$script" ]] || { err "Packaging script missing: $script"; exit 1; }
   to_unix_exec "$script"
-  bash "$script"
-  popd >/dev/null
+  bash "$script" --no-bun --no-compress
+  # popd >/dev/null
 
   log "Install: writing synthesizer .env"
   local rpc_url
@@ -166,22 +162,22 @@ step_prove() {
   local target dist_dir run2 run3 run4
   target="$(detect_target)"
   dist_dir="$(dist_dir_for_target "$target")"
-  run2="$dist_dir/2_run-preprocess.sh"
-  run3="$dist_dir/3_run-prove.sh"
-  run4="$dist_dir/4_run-verify.sh"
+  run3="$dist_dir/3_run-preprocess.sh"
+  run4="$dist_dir/4_run-prove.sh"
+  run5="$dist_dir/5_run-verify.sh"
 
   log "Prove: running backend scripts 2→4 (target=$target)"
-  [[ -f "$run2" ]] || { err "Missing: $run2"; exit 1; }
   [[ -f "$run3" ]] || { err "Missing: $run3"; exit 1; }
   [[ -f "$run4" ]] || { err "Missing: $run4"; exit 1; }
+  [[ -f "$run5" ]] || { err "Missing: $run5"; exit 1; }
 
-  to_unix_exec "$run2"
-  bash "$run2"
   to_unix_exec "$run3"
   bash "$run3"
   to_unix_exec "$run4"
+  bash "$run4"
+  to_unix_exec "$run5"
   local verify_out
-  verify_out="$(bash "$run4" | tail -n1)"
+  verify_out="$(bash "$run5" | tail -n1)"
   log "Prove: verify output => $verify_out"
 
   if [[ "$verify_out" == "true" || "$verify_out" == "true"$'\r' ]]; then
@@ -216,8 +212,7 @@ Commands:
       2) npm install in packages/frontend/synthesizer
       3) Run backend packaging script:
          mac → mac-packaging.sh
-         Ubuntu 20.x → linux20-packaging.sh
-         Ubuntu 22.x → linux22-packaging.sh
+         Ubuntu → linux-packaging.sh
       4) Compile qap-compiler (packages/frontend/qap-compiler/scripts/compile.sh)
       5) Write RPC_URL to packages/frontend/synthesizer/.env:
          - If ARG starts with https://, use it as-is:
@@ -229,7 +224,7 @@ Commands:
       1) Save <TX_HASH> to <SAVE_PATH>/transaction_hash.txt (default: ./.your_proof)
       2) Run packages/frontend/synthesizer/examples/demo/index.ts with <TX_HASH>
       3) Sync examples/outputs → dist-*/resource/synthesizer/outputs
-      4) Run dist-*/2_run-preprocess.sh, 3_run-prove.sh, 4_run-verify.sh
+      4) Run dist-*/3_run-preprocess.sh, 4_run-prove.sh, 5_run-verify.sh
       5) If verify prints "true", copy dist-*/resource/prove/output → <SAVE_PATH>
 
   --help

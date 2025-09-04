@@ -17,8 +17,8 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
-        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/../../dist/macOS/backend-lib/icicle/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/../../dist/linux22/backend-lib/icicle/lib"
       },  
       "sourceLanguages": ["rust"]
     },
@@ -39,9 +39,9 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
-        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
-      },
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/../../dist/macOS/backend-lib/icicle/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/../../dist/linux22/backend-lib/icicle/lib"
+      },  
       "sourceLanguages": ["rust"]
     },
     {
@@ -61,9 +61,9 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
-        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
-      },
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/../../dist/macOS/backend-lib/icicle/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/../../dist/linux22/backend-lib/icicle/lib"
+      },  
       "sourceLanguages": ["rust"]
     },
     {
@@ -84,9 +84,9 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
-        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
-      },
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/../../dist/macOS/backend-lib/icicle/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/../../dist/linux22/backend-lib/icicle/lib"
+      },  
       "sourceLanguages": ["rust"]
     }
   ]

@@ -1,10 +1,8 @@
 use std::{env, process};
 use std::path::PathBuf;
 
-use icicle_bls12_381::curve::ScalarField;
-use icicle_core::traits::FieldImpl;
 use libs::group_structures::{SigmaPreprocess};
-use libs::iotools::{Instance, Permutation, SetupParams};
+use libs::iotools::{Permutation, SetupParams};
 use libs::utils::check_device;
 use preprocess::{Preprocess, PreprocessInputPaths};
 

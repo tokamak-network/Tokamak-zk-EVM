@@ -5,8 +5,8 @@ use chrono::Local;
 use icicle_bls12_381::curve::{G1Affine, G2Affine, ScalarField};
 use libs::field_structures::Tau;
 use libs::group_structures::{
-    G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess,
-    SigmaVerify,
+    G1serde, Sigma
+    ,
 };
 use libs::iotools::SetupParams;
 use serde::{Deserialize, Serialize};
@@ -15,6 +15,8 @@ use std::env;
 use std::fs;
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter, Write};
+use std::path::PathBuf;
+
 pub const HASH_BYTES_LEN: usize = 64;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -48,13 +50,13 @@ impl SigmaV2 {
         }
     }
     /// Write verifier CRS into JSON
-    pub fn write_into_json_for_verify(&self, path: &str) -> io::Result<()> {
-        self.sigma.write_into_json_for_verify(path)
+    pub fn write_into_json_for_verify(&self, abs_path: PathBuf) -> io::Result<()> {
+        self.sigma.write_into_json_for_verify(abs_path)
     }
 
     /// Write preprocess CRS into JSON
-    pub fn write_into_json_for_preprocess(&self, path: &str) -> io::Result<()> {
-        self.sigma.write_into_json_for_preprocess(path)
+    pub fn write_into_json_for_preprocess(&self, abs_path: PathBuf) -> io::Result<()> {
+        self.sigma.write_into_json_for_preprocess(abs_path)
     }
 
     pub fn write_into_rust_code(&self, path: &str) -> io::Result<()> {

@@ -2,7 +2,7 @@
 
 ## What is Synthesizer
 
-You can convert your Ethereum transactions into zero-knowledge proofs (zkp) even if you don't know zkp.
+> You can convert your Ethereum transactions into zero-knowledge proofs (zkp) even if you don't know zkp.
 
 Synthesizer is a compiler that takes an Ethereum transaction as input and returns a wire map (in the form of a permutation map). Combined with the library subcircuits in [qap-compiler package](../qap-compiler), this wire map forms a zkp circuit specialized for the transaction. The transaction specific-circuit will be used as preprocessed input for [Tokamak zk-SNARK](https://eprint.iacr.org/2024/507).
 
@@ -31,7 +31,7 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
   cd Tokamak-zk-EVM
   ```
 
-### B. **Package install**
+### B. Package install
 
 1. Open a new terminal and go to the Tokamak-zk-EVM folder.
 2. Install dependencies:
@@ -41,7 +41,7 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
    ```
    This package install includes some packages in [EthereumJS-monorepo](https://github.com/ethereumjs/ethereumjs-monorepo/).
 
-### C. **Get your Alchemy API key**
+### C. Get your Alchemy API key
 
 For testing Synthesizer, you will need an Alchemy API key to retrieve transaction data from an Ethereum full node (or Sepolia).
 
@@ -55,7 +55,7 @@ For testing Synthesizer, you will need an Alchemy API key to retrieve transactio
    RPC_URL= // PASTE YOUR NETWORK URL HERE //
    ```
 
-### D. **Test Synthesizer with CLI**
+### D. Run Synthesizer
 
 1. Go to [Etherscan](https://etherscan.io/) and pick any contract call transaction.
 2. Copy the transaction hash.
@@ -68,55 +68,14 @@ For testing Synthesizer, you will need an Alchemy API key to retrieve transactio
    npm run synthesizer 0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc
    ```
 
-### E. **CLI Commands Available**
-
-Make sure you are in the `synthesizer` package directory, then you can use:
-
-- **Direct synthesis with transaction hash:**
-  ```bash
-  npm run synthesizer <TX_HASH>
-  ```
-- **Interactive demo mode (process multiple transactions):**
-  ```bash
-  npm run cli demo
-  ```
-- **Detailed parsing with options:**
-  ```bash
-  npm run cli parse -t <TX_HASH> [options]
-  ```
-
-**Options:**
-
-- `--sepolia`: Use Sepolia testnet instead of mainnet
-- `--verbose`: Show detailed output
-- `--rpc-url <url>`: Use custom RPC URL
-
-**Example usage:**
-
-```bash
-# Mainnet transaction (default)
-npm run synthesizer -- 0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc
-
-# Sepolia testnet transaction
-npm run synthesizer -- 0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc --sepolia
-
-# Interactive demo mode
-npm run cli demo
-
-# Show synthesizer info
-npm run cli info
-```
-
-### F. **Binary Building**
-
-For production deployment or distribution, you can build standalone binary executables that don't require Node.js runtime.
-
-#### Prerequisites for Binary Building
+## How to build a binary package
+For production deployment or distribution, you can build standalone binary executables that don't require any prerequisite installation including Node.js.
+### A. Prerequisites for binary building
 
 - **Bun** (latest version) - Install from [https://bun.sh](https://bun.sh)
 - All dependencies installed (`npm install`)
 
-#### Building Binaries
+### B. Building binaries
 
 The `build-binary.sh` script supports building for multiple platforms:
 
@@ -133,56 +92,17 @@ The `build-binary.sh` script supports building for multiple platforms:
 ./build-binary.sh all
 ```
 
-#### Platform Options
+### C. Using Built Binaries
 
-| Platform      | Command                                            | Output Binary                     |
-| ------------- | -------------------------------------------------- | --------------------------------- |
-| Current       | `./build-binary.sh` or `./build-binary.sh current` | `bin/synthesizer-final`           |
-| Linux x64     | `./build-binary.sh linux`                          | `bin/synthesizer-linux-x64`       |
-| Windows x64   | `./build-binary.sh windows`                        | `bin/synthesizer-windows-x64.exe` |
-| macOS ARM64   | `./build-binary.sh macos`                          | `bin/synthesizer-macos-arm64`     |
-| macOS x64     | `./build-binary.sh macos`                          | `bin/synthesizer-macos-x64`       |
-| All platforms | `./build-binary.sh all`                            | All above binaries                |
-
-#### Using Built Binaries
-
-After building, you'll find the binaries in the `bin/` directory along with all necessary WASM files:
+After building, you'll find the binaries in the `bin/` directory. For example, on a Linux system, you can try:
 
 ```bash
-# Test the binary
+# To see your setup information
 ./bin/synthesizer-linux-x64 info
 
 # Run synthesis with binary
 ./bin/synthesizer-linux-x64 parse -t 0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc
-
-# Interactive demo mode
-./bin/synthesizer-linux-x64 demo
 ```
-
-#### Distribution
-
-To distribute the synthesizer:
-
-1. Copy the entire `bin/` directory to the target system
-2. The binary includes all dependencies and WASM files
-3. No Node.js installation required on the target system
-
-**Example:**
-
-```bash
-# Build for Linux
-./build-binary.sh linux
-
-# Copy to remote server
-scp -r bin/ user@server:/path/to/synthesizer/
-
-# Run on remote server
-ssh user@server
-cd /path/to/synthesizer/
-./synthesizer-linux-x64 info
-```
-
-Now you are ready to move on to [the backend of Tokamak zk-EVM](../../backend/)
 
 ## Description for the Synthesizer input and output
 

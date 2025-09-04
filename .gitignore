@@ -29,3 +29,5 @@ coverage.json
 
 #Cli
 ./your_proof
+
+dist

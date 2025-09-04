@@ -1,6 +1,8 @@
 use crate::conversions::{
     deserialize_g1serde, deserialize_g2serde, serialize_g1serde, serialize_g2serde,
 };
+use crate::sigma::{AaccExt, HASH_BYTES_LEN};
+use crate::utils::RandomStrategy::SystemRandom;
 use crate::utils::{
     compute5, icicle_g1_generator, icicle_g2_generator, verify5, PairSerde, Phase1Proof,
     RandomGenerator, SerialSerde,
@@ -10,7 +12,6 @@ use ark_serialize::Compress;
 use ark_std::env;
 use ark_std::fs;
 use blake2::{Blake2b, Digest};
-use clap::builder::Str;
 use icicle_bls12_381::curve::G1Affine;
 use libs::group_structures::{G1serde, G2serde};
 use serde::ser::SerializeStruct;
@@ -21,8 +22,6 @@ use std::fs::File;
 use std::io;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::time::Instant;
-use crate::sigma::{AaccExt, SigmaV2, HASH_BYTES_LEN};
-use crate::utils::RandomStrategy::SystemRandom;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Accumulator {
