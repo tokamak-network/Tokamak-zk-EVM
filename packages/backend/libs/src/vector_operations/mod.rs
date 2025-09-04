@@ -146,6 +146,7 @@ pub fn transpose_device_inplace (a_vec: &mut DeviceSlice<ScalarField>, row_size:
     a_vec.copy(&res_vec).unwrap();
 }
 
+// TODO: benchmark this with a naive approach
 fn _repeat_extend_device(v: &DeviceSlice<ScalarField>, n: usize) -> DeviceVec<ScalarField> {
     let original_len = v.len();
     
