@@ -213,12 +213,12 @@ echo "✅ Distribution for MacOS has been generated"
 if [[ "$DO_COMPRESS" == "true" ]]; then
   echo "[*] Packaging..."
   rm -f "$OUT_ZIP"
-  ( cd "$TARGET" && ditto -c -k --sequesterRsrc . "../$OUT_ZIP" )
-  echo "✅ Packaged: $OUT_ZIP"
+  ( cd "$TARGET" && ditto -c -k --sequesterRsrc . "../../$OUT_ZIP" )
+  echo "✅ Packaged: $OUT_ZIP (in workspace root)"
 
   if [[ "$DO_SIGN" == "true" ]]; then
     echo "[*] Notarizing..."
-    xcrun notarytool submit "dist/$OUT_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
+    xcrun notarytool submit "$OUT_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
     ## Stapling is not allowed for ZIP packages.
     # xcrun stapler staple "$dist/OUT_ZIP"
     echo "✅ Notarization completed"
