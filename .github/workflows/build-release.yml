@@ -53,41 +53,9 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Verify Bun installation and setup PATH
+      - name: Verify Bun installation
         run: |
-          echo "🔍 Verifying Bun installation..."
-          echo "Current PATH: $PATH"
-
-          # Check if bun is in PATH
-          if command -v bun >/dev/null 2>&1; then
-            echo "✅ Bun found in PATH: $(which bun)"
-            bun --version
-          else
-            echo "❌ Bun not found in PATH, searching for it..."
-            # Common Bun installation paths
-            BUN_PATHS=(
-              "$HOME/.bun/bin/bun"
-              "/home/runner/.bun/bin/bun"
-              "/opt/hostedtoolcache/bun/*/x64/bin/bun"
-            )
-            
-            for bun_path in "${BUN_PATHS[@]}"; do
-              if [ -f "$bun_path" ] || ls $bun_path 2>/dev/null; then
-                echo "✅ Found Bun at: $bun_path"
-                export PATH="$(dirname $bun_path):$PATH"
-                echo "PATH=$PATH" >> $GITHUB_ENV
-                $bun_path --version
-                break
-              fi
-            done
-            
-            # Final check
-            if ! command -v bun >/dev/null 2>&1; then
-              echo "❌ Failed to locate Bun binary"
-              exit 1
-            fi
-          fi
-
+          bun --version
           echo "✅ Bun is ready"
 
       - name: Make tokamak-cli executable
@@ -145,6 +113,14 @@ jobs:
           path: ./proof_${{ matrix.test_case.name }}/
           retention-days: 7
 
+      - name: Upload setup files for reuse
+        if: success() # 성공했을 때만 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: setup-files-${{ github.run_number }}
+          path: dist/linux22/resource/setup/output/
+          retention-days: 7
+
   build-macos:
     name: Build macOS Binary
     runs-on: macos-latest
@@ -178,6 +154,12 @@ jobs:
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
+
+      - name: Download setup files from proof test
+        uses: actions/download-artifact@v4
+        with:
+          name: setup-files-${{ github.run_number }}
+          path: ./prebuilt-setup/
 
       - name: Build macOS binary
         run: |
@@ -233,42 +215,16 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Verify Bun installation and setup PATH
+      - name: Verify Bun installation
         run: |
-          echo "🔍 Verifying Bun installation..."
-          echo "Current PATH: $PATH"
-
-          # Check if bun is in PATH
-          if command -v bun >/dev/null 2>&1; then
-            echo "✅ Bun found in PATH: $(which bun)"
-            bun --version
-          else
-            echo "❌ Bun not found in PATH, searching for it..."
-            # Common Bun installation paths
-            BUN_PATHS=(
-              "$HOME/.bun/bin/bun"
-              "/home/runner/.bun/bin/bun"
-              "/opt/hostedtoolcache/bun/*/x64/bin/bun"
-            )
-            
-            for bun_path in "${BUN_PATHS[@]}"; do
-              if [ -f "$bun_path" ] || ls $bun_path 2>/dev/null; then
-                echo "✅ Found Bun at: $bun_path"
-                export PATH="$(dirname $bun_path):$PATH"
-                echo "PATH=$PATH" >> $GITHUB_ENV
-                $bun_path --version
-                break
-              fi
-            done
-            
-            # Final check
-            if ! command -v bun >/dev/null 2>&1; then
-              echo "❌ Failed to locate Bun binary"
-              exit 1
-            fi
-          fi
-
+          bun --version
           echo "✅ Bun is ready"
+
+      - name: Download setup files from proof test
+        uses: actions/download-artifact@v4
+        with:
+          name: setup-files-${{ github.run_number }}
+          path: ./prebuilt-setup/
 
       - name: Build Linux binary
         run: |
@@ -276,11 +232,31 @@ jobs:
           chmod +x linux-packaging.sh
           ./linux-packaging.sh
 
+      - name: Create setup files archive
+        run: |
+          echo "📦 Creating setup files archive..."
+          cd dist/linux22
+
+          # Setup 파일들만 별도 압축
+          tar -c resource/setup | gzip -9 > ../../tokamak-zk-evm-setup-files.tar.gz
+
+          echo "📊 Setup files archive created:"
+          ls -lh ../../tokamak-zk-evm-setup-files.tar.gz
+
+          cd ../..
+
       - name: Upload Linux binary
         uses: actions/upload-artifact@v4
         with:
           name: tokamak-zk-evm-linux22-${{ github.run_number }}
           path: tokamak-zk-evm-linux22.tar.gz
+          retention-days: 30
+
+      - name: Upload setup files
+        uses: actions/upload-artifact@v4
+        with:
+          name: tokamak-zk-evm-setup-files-${{ github.run_number }}
+          path: tokamak-zk-evm-setup-files.tar.gz
           retention-days: 30
 
   create-release:
@@ -304,8 +280,8 @@ jobs:
           BRANCH_NAME="${{ github.ref_name }}"
 
           if [[ "$BRANCH_NAME" == "main" ]]; then
-            # 메인 브랜치: 정식 릴리즈 (v2024.01.15-abc1234)
-            VERSION="v${DATE}-${SHORT_SHA}"
+            # 메인 브랜치: 정식 릴리즈 (v2024.01.15)
+            VERSION="v${DATE}"
             IS_PRERELEASE="false"
             RELEASE_TYPE="Release"
           else
@@ -355,7 +331,18 @@ jobs:
             exit 1
           fi
 
-          ls -la ./release-assets/
+          # Setup 파일들 복사
+          if [ -d "./artifacts/tokamak-zk-evm-setup-files-${{ github.run_number }}" ]; then
+            cp "./artifacts/tokamak-zk-evm-setup-files-${{ github.run_number }}/tokamak-zk-evm-setup-files.tar.gz" \
+               "./release-assets/tokamak-zk-evm-${{ steps.version.outputs.version }}-setup-files.tar.gz"
+            echo "✅ Setup files prepared"
+          else
+            echo "❌ Setup files not found"
+            exit 1
+          fi
+
+          echo "📦 All release assets prepared:"
+          ls -lh ./release-assets/
 
       - name: Generate release notes
         id: release_notes
@@ -381,6 +368,7 @@ jobs:
 
           - **macOS**: \`tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip\`
           - **Linux (Ubuntu 22.04)**: \`tokamak-zk-evm-${{ steps.version.outputs.version }}-linux22.tar.gz\`
+          - **Setup Files** (Optional): \`tokamak-zk-evm-${{ steps.version.outputs.version }}-setup-files.tar.gz\`
 
           EOF
 
@@ -404,11 +392,18 @@ jobs:
 
           ### 🔧 What's Included
 
+          **Main Binaries:**
           - \`trusted-setup\` - Trusted setup ceremony binary
           - \`preprocess\` - Preprocessing binary  
           - \`prove\` - Proof generation binary
           - \`verify\` - Proof verification binary
+          - \`synthesizer\` - Transaction synthesizer binary
           - Required libraries and resources
+
+          **Setup Files (Optional Download):**
+          - Pre-generated trusted setup parameters (~900MB compressed)
+          - Skip the time-consuming trusted setup process
+          - Extract to \`resource/setup/output/\` in your installation
 
           ### 📋 Recent Changes
 
@@ -471,5 +466,6 @@ jobs:
           echo "### 📦 Available Downloads" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ **macOS Binary**: tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ **Linux Binary**: tokamak-zk-evm-${{ steps.version.outputs.version }}-linux22.tar.gz" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Setup Files**: tokamak-zk-evm-${{ steps.version.outputs.version }}-setup-files.tar.gz (~900MB)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🔗 **[View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }})**" >> $GITHUB_STEP_SUMMARY

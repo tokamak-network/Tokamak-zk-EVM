@@ -111,14 +111,7 @@ cargo build -p verify --release
 cd "$SCRIPT_DIR"
 echo "✅ built backend"
 
-echo "[*] Building Synthesizer..."
-cd packages/frontend/synthesizer
-BUN_SCRIPT="./build-binary.sh"
-dos2unix "$BUN_SCRIPT" || true
-chmod +x "$BUN_SCRIPT" 2>/dev/null || true
-"$BUN_SCRIPT" linux
-cd "$SCRIPT_DIR"
-echo "✅ built synthesizer"
+# Synthesizer already built above
 
 # echo "[*] Configuring @rpath of the binaries..."
 # RPATH='$ORIGIN/../backend-lib/icicle/lib'
@@ -203,21 +196,59 @@ cp -r icicle/* "${TARGET}/${BACKEND_PATH}"
 echo "[*] Cleaning up temporary files..."
 rm -rf "$BACKEND_TARBALL" "$COMMON_TARBALL" icicle
 
-echo "[*] Running trusted-setup..."
-SETUP_SCRIPT="./${TARGET}/1_run-trusted-setup.sh"
-dos2unix "$SETUP_SCRIPT"
-chmod +x "$SETUP_SCRIPT"
-"$SETUP_SCRIPT"
-echo "✅ CRS has been generated"
+# Check if prebuilt setup files are available
+if [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
+  echo "[*] Using prebuilt setup files from proof test..."
+  mkdir -p "${TARGET}/resource/setup/output"
+  cp -r ./prebuilt-setup/* "${TARGET}/resource/setup/output/"
+  echo "✅ Prebuilt setup files copied"
+  
+  # Verify setup files
+  if [ -f "${TARGET}/resource/setup/output/combined_sigma.json" ]; then
+    echo "✅ Setup files verified: $(ls -lh ${TARGET}/resource/setup/output/)"
+  else
+    echo "❌ Setup files verification failed, falling back to trusted-setup"
+    echo "[*] Running trusted-setup..."
+    SETUP_SCRIPT="./${TARGET}/1_run-trusted-setup.sh"
+    dos2unix "$SETUP_SCRIPT"
+    chmod +x "$SETUP_SCRIPT"
+    "$SETUP_SCRIPT"
+    echo "✅ CRS has been generated"
+  fi
+else
+  echo "[*] No prebuilt setup files found, running trusted-setup..."
+  SETUP_SCRIPT="./${TARGET}/1_run-trusted-setup.sh"
+  dos2unix "$SETUP_SCRIPT"
+  chmod +x "$SETUP_SCRIPT"
+  "$SETUP_SCRIPT"
+  echo "✅ CRS has been generated"
+fi
 
 # =========================
 # Package (.tar.gz)
 # =========================
 if [[ "$DO_COMPRESS" == "true" ]]; then
-  echo "[*] Packaging..."
+  echo "[*] Packaging with high compression..."
   rm -f "$OUT_TGZ"
-  tar -C "$TARGET" -czf "dist/$OUT_TGZ" .
+  mkdir -p dist
+  
+  # Use maximum compression with gzip
+  tar -C "$TARGET" -c . | gzip -9 > "dist/$OUT_TGZ"
+  
+  # Show compression stats
+  UNCOMPRESSED_SIZE=$(du -sb "$TARGET" | cut -f1)
+  COMPRESSED_SIZE=$(stat -c%s "dist/$OUT_TGZ" 2>/dev/null || stat -f%z "dist/$OUT_TGZ")
+  COMPRESSION_RATIO=$(echo "scale=1; $COMPRESSED_SIZE * 100 / $UNCOMPRESSED_SIZE" | bc -l 2>/dev/null || echo "N/A")
+  
   echo "✅ Packaging complete: ${OUT_TGZ}"
+  echo "📊 Uncompressed: $(numfmt --to=iec $UNCOMPRESSED_SIZE 2>/dev/null || echo "${UNCOMPRESSED_SIZE} bytes")"
+  echo "📊 Compressed: $(numfmt --to=iec $COMPRESSED_SIZE 2>/dev/null || echo "${COMPRESSED_SIZE} bytes")"
+  echo "📊 Compression ratio: ${COMPRESSION_RATIO}%"
+  
+  # Check if approaching GitHub limit
+  if [ "$COMPRESSED_SIZE" -gt 1900000000 ]; then
+    echo "⚠️  WARNING: File size approaching GitHub 2GB limit!"
+  fi
 else
   echo "ℹ️ Skipping compression (--no-compress)"
 fi
