@@ -231,7 +231,14 @@ jobs:
           if [ -f "./build-binary.sh" ]; then
             chmod +x ./build-binary.sh
             dos2unix ./build-binary.sh || true
-            ./build-binary.sh linux
+            echo "🔍 Executing build-binary.sh with verbose output..."
+            set -x  # Enable verbose output
+            ./build-binary.sh linux || {
+              echo "❌ build-binary.sh failed with exit code $?"
+              echo "🔍 Checking what went wrong..."
+              exit 1
+            }
+            set +x  # Disable verbose output
           else
             echo "❌ build-binary.sh not found!"
             exit 1
@@ -240,23 +247,29 @@ jobs:
           echo "🔍 Checking synthesizer build results..."
           ls -la bin/ || echo "❌ No bin directory after build"
           ls -la bin/*linux* || echo "❌ No Linux binary found"
-          
+
           echo "🔍 Full directory structure after build:"
           find . -name "*synthesizer*" -type f 2>/dev/null || echo "No synthesizer files found"
-          
+
           echo "🔍 Expected binary path check:"
           if [ -f "bin/synthesizer-linux-x64" ]; then
             echo "✅ synthesizer-linux-x64 exists!"
             ls -la bin/synthesizer-linux-x64
+            
+            echo "🔍 Binary is ready for packaging step"
           else
             echo "❌ synthesizer-linux-x64 NOT found!"
+            echo "🔍 Available files in bin/:"
+            ls -la bin/ || echo "No bin directory"
+            exit 1
           fi
 
       - name: Build Linux binary
         run: |
           chmod +x linux-packaging.sh
           echo "🔍 Starting Linux packaging..."
-          ./linux-packaging.sh
+          echo "🔍 Using --no-bun since synthesizer was already built in previous step"
+          ./linux-packaging.sh --no-bun
 
       - name: Upload Linux binary
         uses: actions/upload-artifact@v4
