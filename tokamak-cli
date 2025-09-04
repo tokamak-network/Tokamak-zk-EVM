@@ -127,7 +127,7 @@ step_install() {
   # pushd "$BE_ROOT" >/dev/null
   [[ -f "$script" ]] || { err "Packaging script missing: $script"; exit 1; }
   to_unix_exec "$script"
-  bash "$script" --no-bun --no-compress
+  bash "$script" --no-compress
   # popd >/dev/null
 
   log "Install: writing synthesizer .env"
