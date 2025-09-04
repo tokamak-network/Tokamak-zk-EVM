@@ -137,6 +137,31 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Build synthesizer binary (macOS)
+        working-directory: packages/frontend/synthesizer
+        run: |
+          echo "🔍 Setting up synthesizer build environment for macOS..."
+
+          # bin 디렉토리가 없으면 생성
+          mkdir -p bin
+
+          echo "🔍 Installing synthesizer dependencies..."
+          bun install
+
+          echo "🔍 Building synthesizer binary for macOS..."
+          if [ -f "./build-binary.sh" ]; then
+            chmod +x ./build-binary.sh
+            dos2unix ./build-binary.sh || true
+            ./build-binary.sh macos
+          else
+            echo "❌ build-binary.sh not found, trying alternative build..."
+            bun run build:macos || bun run build || echo "❌ No build script found"
+          fi
+
+          echo "🔍 Checking synthesizer build results..."
+          ls -la bin/ || echo "❌ No bin directory after build"
+          ls -la bin/*macos* || echo "❌ No macOS binary found"
+
       - name: Build macOS binary
         run: |
           chmod +x mac-packaging.sh
@@ -191,38 +216,36 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Build Linux binary
+      - name: Build synthesizer binary
+        working-directory: packages/frontend/synthesizer
         run: |
-          echo "🔍 Checking synthesizer build script..."
-          ls -la packages/frontend/synthesizer/build-binary.sh || echo "❌ build-binary.sh not found"
+          echo "🔍 Setting up synthesizer build environment..."
 
-          echo "🔍 Checking existing synthesizer binaries..."
-          ls -la packages/frontend/synthesizer/bin/ || echo "❌ bin directory not found"
+          # bin 디렉토리가 없으면 생성
+          mkdir -p bin
 
-          echo "🔍 Testing Bun installation..."
-          which bun
-          bun --version
+          echo "🔍 Installing synthesizer dependencies..."
+          bun install
 
-          echo "🔍 Testing synthesizer build manually..."
-          cd packages/frontend/synthesizer
+          echo "🔍 Building synthesizer binary for Linux..."
           if [ -f "./build-binary.sh" ]; then
-            echo "✅ Found build-binary.sh, attempting manual build..."
             chmod +x ./build-binary.sh
             dos2unix ./build-binary.sh || true
             ./build-binary.sh linux
-            echo "🔍 Manual build completed, checking results..."
-            ls -la bin/ || echo "❌ No bin directory after manual build"
           else
-            echo "❌ build-binary.sh not found in synthesizer directory"
+            echo "❌ build-binary.sh not found, trying alternative build..."
+            bun run build:linux || bun run build || echo "❌ No build script found"
           fi
-          cd ../../..
 
+          echo "🔍 Checking synthesizer build results..."
+          ls -la bin/ || echo "❌ No bin directory after build"
+          ls -la bin/*linux* || echo "❌ No Linux binary found"
+
+      - name: Build Linux binary
+        run: |
           chmod +x linux-packaging.sh
           echo "🔍 Starting Linux packaging..."
           ./linux-packaging.sh
-
-          echo "🔍 Final check - synthesizer binary after packaging..."
-          ls -la packages/frontend/synthesizer/bin/ || echo "❌ bin directory still not found"
 
       - name: Upload Linux binary
         uses: actions/upload-artifact@v4
