@@ -133,7 +133,6 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Build macOS binary
-        working-directory: packages/backend
         run: |
           chmod +x mac-packaging.sh
           ./mac-packaging.sh
@@ -142,7 +141,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tokamak-zk-evm-macos-${{ github.run_number }}
-          path: packages/backend/tokamak-zk-evm-mac.zip
+          path: tokamak-zk-evm-macOS.zip
           retention-days: 30
 
   build-linux:
@@ -176,7 +175,6 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Build Linux binary
-        working-directory: packages/backend
         run: |
           chmod +x linux22-packaging.sh
           ./linux22-packaging.sh
@@ -185,7 +183,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tokamak-zk-evm-linux22-${{ github.run_number }}
-          path: packages/backend/tokamak-zk-evm-linux22.tar.gz
+          path: tokamak-zk-evm-linux22.tar.gz
           retention-days: 30
 
   create-release:
