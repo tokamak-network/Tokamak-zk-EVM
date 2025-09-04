@@ -154,8 +154,8 @@ jobs:
             dos2unix ./build-binary.sh || true
             ./build-binary.sh macos
           else
-            echo "❌ build-binary.sh not found, trying alternative build..."
-            bun run build:macos || bun run build || echo "❌ No build script found"
+            echo "❌ build-binary.sh not found!"
+            exit 1
           fi
 
           echo "🔍 Checking synthesizer build results..."
@@ -233,8 +233,8 @@ jobs:
             dos2unix ./build-binary.sh || true
             ./build-binary.sh linux
           else
-            echo "❌ build-binary.sh not found, trying alternative build..."
-            bun run build:linux || bun run build || echo "❌ No build script found"
+            echo "❌ build-binary.sh not found!"
+            exit 1
           fi
 
           echo "🔍 Checking synthesizer build results..."
