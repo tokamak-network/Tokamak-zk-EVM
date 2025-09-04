@@ -132,6 +132,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
       - name: Build macOS binary
         run: |
           chmod +x mac-packaging.sh
@@ -174,10 +179,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
       - name: Build Linux binary
         run: |
-          chmod +x linux22-packaging.sh
-          ./linux22-packaging.sh
+          chmod +x linux-packaging.sh
+          ./linux-packaging.sh
 
       - name: Upload Linux binary
         uses: actions/upload-artifact@v4
