@@ -3,7 +3,8 @@ import { bytesToBigInt } from "@synthesizer-libs/util"
 import { InvalidInputCountError, UndefinedSubcircuitError } from './errors.js'
 
 import type { RunState } from '../../interpreter.js'
-import type { ArithmeticOperator, DataPt } from '../types/index.js'
+import type { ArithmeticOperator, DataPt, DataPtDescription } from '../types/index.js'
+import { BLS12831MODULUS } from "../constant/constants.js"
 
 /**
  * Class responsible for Synthesizer-related validations
@@ -107,12 +108,19 @@ export class SynthesizerValidator {
    * @param value Value to validate
    * @throws {Error} If value is negative or exceeds word size
    */
-  static validateValue(value: bigint): void {
+  static validateValue(params: DataPtDescription, value: bigint): void {
     if (value < 0n) {
       throw new Error('Negative values are not allowed')
     }
     if (value > 2n ** 256n - 1n) {
       throw new Error('The value exceeds Ethereum word size')
+    }
+    const bitLength = value.toString(2).length
+    if (bitLength > params.sourceSize) {
+      throw new Error('The value exceeds the source size in its description')
+    }
+    if (params.sourceSize === 255 && value >= BLS12831MODULUS) {
+      throw new Error('The value is of 255 bit length but out of BLS12-381 scalar field')
     }
   }
 }

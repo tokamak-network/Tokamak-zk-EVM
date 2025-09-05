@@ -5,10 +5,7 @@ import {
 } from '@synthesizer-libs/util';
 
 import {
-  PRV_IN_PLACEMENT_INDEX,
-  PRV_OUT_PLACEMENT_INDEX,
-  PUB_IN_PLACEMENT_INDEX,
-  PUB_OUT_PLACEMENT_INDEX,
+  BUFFER_PLACEMENT,
   setupParams,
 } from '../../constant/index.js';
 import type {
@@ -82,17 +79,18 @@ export class PlacementRefactor {
   }
 
   private removeUnusedLoadWires(placements: Placements): PlacementEntry {
-    const outLoadPlacement = { ...placements.get(PRV_IN_PLACEMENT_INDEX)! };
+    const staticInPlacementIndex = BUFFER_PLACEMENT.STATIC_IN.placementIndex
+    const outLoadPlacement = { ...placements.get(staticInPlacementIndex)! };
     const newInPts = [...outLoadPlacement.inPts];
     const newOutPts = [...outLoadPlacement.outPts];
     for (let ind = 0; ind < outLoadPlacement.outPts.length; ind++) {
       let flag = 0;
       for (const key of placements.keys()) {
-        if (key !== PRV_IN_PLACEMENT_INDEX) {
+        if (key !== staticInPlacementIndex) {
           const placement = placements.get(key)!;
           for (const [_ind, _inPt] of placement.inPts.entries()) {
             if (
-              _inPt.source! === PRV_IN_PLACEMENT_INDEX &&
+              _inPt.source! === staticInPlacementIndex &&
               _inPt.wireIndex === outLoadPlacement.outPts[ind].wireIndex
             ) {
               flag = 1;

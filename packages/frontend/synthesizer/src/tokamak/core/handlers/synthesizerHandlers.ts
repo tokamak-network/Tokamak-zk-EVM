@@ -9,9 +9,9 @@ import { simulateMemoryPt } from '../../pointers/index.js';
 
 import type { RunState } from '../../../interpreter.js';
 import type { ArithmeticOperator, DataPt } from '../../types/index.js';
-import { PUB_IN_PLACEMENT_INDEX, STATIC_IN_PLACEMENT_INDEX, TRANSACTION_IN_PLACEMENT_INDEX } from 'src/tokamak/constant/constants.js';
+import { bigIntToAddressBytes, bytesToHex, createAddressFromBigInt } from '@ethereumjs/util';
 
-export const synthesizerGetCaller = (
+export const synthesizerGetOrigin = (
   runState: RunState,
 ): DataPt => {
   const TARGETTXDATAINDICES = [1, 2, 3, 4] as const
@@ -205,7 +205,62 @@ export async function synthesizerEnvInf(
   offset?: bigint,
 ): Promise<void> {
   let dataPt: DataPt;
+  const getOriginDataPt = (runState: RunState): DataPt => {
+    let dataPt: DataPt
+    if (runState.synthesizer.state.cachedOrigin === undefined) {
+      dataPt = synthesizerGetOrigin(runState)
+    } else {
+      dataPt = runState.synthesizer.state.cachedOrigin
+    }
+    if (dataPt.value !== runState.interpreter.getTxOrigin()) {
+      throw new Error('Mismatch of the origin between EVM and Synthesizer')
+    }
+    return dataPt
+  }
+  const getStaticInDataPt = (runState: RunState, op: string, target?: bigint): DataPt => {
+    const value = runState.stack.peek(1)[0]
+    const cachedDataPt = runState.synthesizer.state.cachedStaticIn.get(value)
+    const staticInDesc = `Static input for ${op} instruction at PC ${runState.programCounter} of code address ${runState.env.codeAddress.toString()} called by ${runState.env.address.toString()}`
+    let targetDesc = target === undefined ? `` : `(target: ${createAddressFromBigInt(target).toString()})`
+    return cachedDataPt ?? runState.synthesizer.loadStaticIn(
+      staticInDesc + targetDesc,
+      value,
+    )
+  }
   switch (op) {
+    case 'ADDRESS': {
+      const origin = runState.interpreter.getTxOrigin()
+      const thisAddress = bytesToBigInt(runState.interpreter.getAddress().toBytes())
+      if (origin === thisAddress) {
+        dataPt = getOriginDataPt(runState)
+      } else {
+        dataPt = getStaticInDataPt(runState, op)
+      }
+      break
+    }
+    case 'BALANCE': {
+      dataPt = getStaticInDataPt(runState, op)
+      break
+    }
+    case 'ORIGIN': {
+      dataPt = getOriginDataPt(runState)
+      break
+    } 
+    case 'CALLER': {
+      const origin = runState.interpreter.getTxOrigin()
+      const caller = runState.interpreter.getCaller()
+      if (origin === caller) {
+        dataPt = getOriginDataPt(runState)
+        
+      } else {
+        dataPt = getStaticInDataPt(runState, op)
+      }
+      break
+    }
+    case 'CALLVALUE': {
+      dataPt = getStaticInDataPt(runState, op)
+      break
+    }
     case 'CALLDATALOAD': {
       if (offset === undefined) {
         throw new Error(`Synthesizer: ${op}: Must have an input offset`);
@@ -238,56 +293,42 @@ export async function synthesizerEnvInf(
       }
       break;
     }
-    case 'BALANCE':
+    case 'CALLDATASIZE': {
+      dataPt = getStaticInDataPt(runState, op)
+      break
+    }
+    case 'CODESIZE': {
+      dataPt = getStaticInDataPt(runState, op)
+      break
+    }
+    case 'GASPRICE': {
+      dataPt = getStaticInDataPt(runState, op)
+      break
+    }
     case 'EXTCODESIZE': {
       if (target === undefined) {
-        throw new Error(`Synthesizer: ${op}: Must have an input address`);
+        throw new Error(`Synthesizer: ${op}: Must have an input address`)
       }
       if (target !== runState.stackPt.pop().value) {
-        throw new Error(`Synthesizer: ${op}: Input data mismatch`);
+        throw new Error(`Synthesizer: ${op}: Input data mismatch`)
       }
-      dataPt = runState.synthesizer.loadEnvInf(
-        target.toString(16),
-        op,
-        runState.stack.peek(1)[0],
-      );
-      break;
+      dataPt = getStaticInDataPt(runState, op, target)
+      break
+    }
+    case 'RETURNDATASIZE': {
+      dataPt = getStaticInDataPt(runState, op)
+      break
     }
     case 'EXTCODEHASH': {
       if (target === undefined) {
-        throw new Error(`Synthesizer: ${op}: Must have an input address`);
+        throw new Error(`Synthesizer: ${op}: Must have an input address`)
       }
       if (target !== runState.stackPt.pop().value) {
-        throw new Error(`Synthesizer: ${op}: Input data mismatch`);
+        throw new Error(`Synthesizer: ${op}: Input data mismatch`)
       }
-      dataPt = runState.synthesizer.loadEnvInf(
-        bigIntToHex(target),
-        op,
-        runState.stack.peek(1)[0],
-      );
-      break;
-    }
-    case 'CALLER': {
-      if (runState.synthesizer.state.cachedCaller === undefined) {
-        dataPt = synthesizerGetCaller(runState)
-      } else {
-        dataPt = runState.synthesizer.state.cachedCaller
-      }
+      dataPt = getStaticInDataPt(runState, op, target)
       break
     }
-    case 'ADDRESS':
-    case 'ORIGIN':
-    case 'CALLVALUE':
-    case 'CALLDATASIZE':
-    case 'CODESIZE':
-    case 'GASPRICE':
-    case 'RETURNDATASIZE':
-      dataPt = runState.synthesizer.loadEnvInf(
-        runState.env.address.toString(),
-        op,
-        runState.stack.peek(1)[0],
-      );
-      break;
     default:
       throw new Error(
         `Synthesizer: Dealing with invalid environment information instruction`,

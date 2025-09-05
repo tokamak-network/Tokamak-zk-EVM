@@ -1,19 +1,17 @@
 import { ACCUMULATOR_INPUT_LIMIT } from '../../constant/index.js';
-import type {
-  DataAliasInfoEntry,
-  DataAliasInfos,
-  MemoryPts,
+import {
+  DataPtFactory,
+  type DataAliasInfoEntry,
+  type DataAliasInfos,
+  type MemoryPts,
 } from '../../pointers/index.js';
-import type { CreateDataPointParams, DataPt } from '../../types/index.js';
-import type { ArithmeticOperator } from '../../types/arithmetic.js';
+import type { DataPt, DataPtDescription, ArithmeticOperator } from '../../types/index.ts';
 import type { StateManager } from './stateManager.js';
-import { DataPointFactory } from '../../pointers/index.js';
-import { ISynthesizerProvider } from './synthesizerProvider.js';
+import { ISynthesizerProvider } from './index.ts';
 
 export class MemoryManager {
   constructor(
-    private provider: ISynthesizerProvider,
-    private state: StateManager,
+    private parent: ISynthesizerProvider,
   ) {}
 
   public placeMSTORE(dataPt: DataPt, truncSize: number): DataPt {
@@ -27,17 +25,16 @@ export class MemoryManager {
       if (dataPt.value !== outValue) {
         const subcircuitName = 'AND';
         const inPts: DataPt[] = [
-          this.provider.loadAuxin(BigInt(maskerString)),
+          this.parent.loadArbitraryStatic('Masker for memory manipulation', BigInt(maskerString)),
           dataPt,
         ];
-        const rawOutPt: CreateDataPointParams = {
-          source: this.state.placementIndex,
+        const rawOutPt: DataPtDescription = {
+          source: this.parent.placementIndex,
           wireIndex: 0,
-          value: outValue,
           sourceSize: truncSize,
         };
-        const outPts: DataPt[] = [DataPointFactory.create(rawOutPt)];
-        this.provider.place(subcircuitName, inPts, outPts, subcircuitName);
+        const outPts: DataPt[] = [DataPtFactory.create(rawOutPt, outValue)];
+        this.parent.place(subcircuitName, inPts, outPts, subcircuitName);
 
         return outPts[0];
       }
@@ -90,8 +87,8 @@ export class MemoryManager {
       return dataPt;
     }
     // SHR data to truncate the ending part
-    const [truncatedPt] = this.provider.placeArith('SHR', [
-      this.provider.loadAuxin(BigInt(endingGap * 8)),
+    const [truncatedPt] = this.parent.placeArith('SHR', [
+      this.parent.loadArbitraryStatic('Shifter for memory manipulation', BigInt(endingGap * 8)),
       dataPt,
     ]);
     return truncatedPt;
@@ -135,7 +132,7 @@ export class MemoryManager {
     }
 
     // placeArith returns an array of outPts, but Accumulator returns one.
-    const [accumulatedPt] = this.provider.placeArith(
+    const [accumulatedPt] = this.parent.placeArith(
       'Accumulator',
       transformedSlices,
     );
@@ -160,10 +157,10 @@ export class MemoryManager {
       const subcircuitName: ArithmeticOperator = shift > 0 ? 'SHL' : 'SHR';
       const absShift = Math.abs(shift);
       const inPts: DataPt[] = [
-        this.provider.loadAuxin(BigInt(absShift)),
+        this.parent.loadArbitraryStatic('Shifter for memory manipulation', BigInt(absShift)),
         dataPt,
       ];
-      outPts = this.provider.placeArith(subcircuitName, inPts);
+      outPts = this.parent.placeArith(subcircuitName, inPts);
     }
     return outPts[0];
   }
@@ -182,8 +179,8 @@ export class MemoryManager {
     const maskOutValue = dataPt.value & BigInt(masker);
     let outPts = [dataPt];
     if (maskOutValue !== dataPt.value) {
-      const inPts: DataPt[] = [this.provider.loadAuxin(BigInt(masker)), dataPt];
-      outPts = this.provider.placeArith('AND', inPts);
+      const inPts: DataPt[] = [this.parent.loadArbitraryStatic('Masker for memory manipulation', BigInt(masker)), dataPt];
+      outPts = this.parent.placeArith('AND', inPts);
     }
     return outPts[0];
   }

@@ -1,5 +1,21 @@
+import { VMOpts } from '@ethereumjs/vm';
+import { SynthesizerVM } from '../core/EthereumJSExtension/index.ts';
 import { ArithmeticOperations } from '../operations/arithmetic.js';
+import { L2TxData } from './index.ts';
 import { SubcircuitNames } from './subcircuits.js';
+import { HeaderData } from '@ethereumjs/block';
+import { StateManagerInterface } from '@ethereumjs/common';
+
+export interface SynthesizerOpts {
+  initMerkleTreeRoot: bigint
+  eddsaPubKey: {
+        x: bigint,
+        y: bigint
+    }
+  transactions: L2TxData[]
+  blockHeader: HeaderData
+  state: StateManagerInterface
+}
 
 /**
  * @property {number} subcircuitId - Identifier of the subcircuit.
@@ -45,7 +61,7 @@ export type SubcircuitId = {
  * @property {number} sourceSize - Actual size of the data.
  * @property {bigint} value - Data value.
  */
-export interface CreateDataPointParams {
+export interface DataPtDescription {
   // if data comes from external
   extSource?: string;
   // if data is provided to external
@@ -61,12 +77,11 @@ export interface CreateDataPointParams {
   // placement index at which the dataPt comes from
   source: number;
   // wire index at which the dataPt comes from
-  wireIndex: number;
   sourceSize: number;
-  value: bigint;
+  wireIndex: number;
   // identifier?: string
 }
-export type DataPt = CreateDataPointParams & { valueHex: string };
+export type DataPt = DataPtDescription & { value: bigint, valueHex: string };
 
 export type PlacementEntry = {
   name: SubcircuitNames;
@@ -77,7 +92,6 @@ export type PlacementEntry = {
 };
 
 export type Placements = Map<number, PlacementEntry>;
-export type Auxin = Map<bigint, number>;
 
 export type PlacementVariableEntry = {
   subcircuitId: number;
@@ -86,13 +100,13 @@ export type PlacementVariableEntry = {
 
 export type PlacementVariables = PlacementVariableEntry[];
 
-export type SynthesizerState = {
-  placements: Placements;
-  auxin: Auxin;
-  envInf: Map<string, { value: bigint; wireIndex: number }>;
-  blkInf: Map<string, { value: bigint; wireIndex: number }>;
-  storagePt: Map<string, DataPt>;
-  logPt: { topicPts: DataPt[]; valPts: DataPt[] }[];
-  keccakPt: { inValues: bigint[]; outValue: bigint }[];
-  TStoragePt: Map<string, Map<bigint, DataPt>>;
-};
+// export type SynthesizerState = {
+//   placements: Placements;
+//   auxin: Auxin;
+//   envInf: Map<string, { value: bigint; wireIndex: number }>;
+//   blkInf: Map<string, { value: bigint; wireIndex: number }>;
+//   storagePt: Map<string, DataPt>;
+//   logPt: { topicPts: DataPt[]; valPts: DataPt[] }[];
+//   keccakPt: { inValues: bigint[]; outValue: bigint }[];
+//   TStoragePt: Map<string, Map<bigint, DataPt>>;
+// };

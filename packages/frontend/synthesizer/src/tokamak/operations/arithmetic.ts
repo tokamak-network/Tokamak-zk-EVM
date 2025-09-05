@@ -490,7 +490,7 @@ export class ArithmeticOperations {
 }
 
 // Operator and function mapping
-export const OPERATION_MAPPING: Record<ArithmeticOperator, ArithmeticFunction> = {
+export const ARITHMETIC_MAPPING: Record<ArithmeticOperator, ArithmeticFunction> = {
   ADD: ArithmeticOperations.add,
   MUL: ArithmeticOperations.mul,
   SUB: ArithmeticOperations.sub,

@@ -1,49 +1,47 @@
 import {
   DEFAULT_SOURCE_SIZE,
-  SUBCIRCUIT_MAPPING,
   ACCUMULATOR_INPUT_LIMIT,
-} from '../../constant/index.js';
-import { OPERATION_MAPPING } from '../../operations/index.js';
-import { DataPointFactory } from '../../pointers/index.js';
+} from '../../constant/index.ts';
 import {
   InvalidInputCountError,
   SynthesizerError,
-} from '../../validation/index.js';
-import { StateManager } from './stateManager.js';
-import type { ISynthesizerProvider } from './synthesizerProvider.js';
+} from '../../validation/index.ts';
+import { StateManager } from './stateManager.ts';
+import type { ISynthesizerProvider } from './index.ts';
 
-import type { ArithmeticOperator } from '../../types/arithmetic.js';
-import type {
-  DataPt,
-  SubcircuitNames,
-  CreateDataPointParams,
-} from '../../types/index.js';
+import type { ArithmeticOperator } from '../../types/index.ts';
+import {
+  SUBCIRCUIT_MAPPING,
+  type DataPt,
+  type SubcircuitNames,
+} from '../../types/index.ts';
+import { DataPtFactory } from 'src/tokamak/pointers/index.ts';
+import { ARITHMETIC_MAPPING } from 'src/tokamak/operations/index.ts';
 
-export class OperationHandler {
-  constructor(
-    private provider: ISynthesizerProvider,
-    private state: StateManager,
-  ) {}
-
-  /**
-   * Executes an arithmetic operation on the given values.
-   *
-   * @param {ArithmeticOperator} name - The name of the arithmetic operation.
-   * @param {bigint[]} values - An array of bigint values as input for the operation.
-   * @returns {bigint | bigint[]} The result of the operation.
-   */
-  private executeOperation(
-    name: ArithmeticOperator,
-    values: bigint[],
-  ): bigint[] {
-    const operation = OPERATION_MAPPING[name];
-    const out = operation(values)
-    if (!Array.isArray(out)) {
-      return [out]
-    } else {
-      return out
-    }
+/**
+ * Executes an arithmetic operation on the given values.
+ *
+ * @param {ArithmeticOperator} name - The name of the arithmetic operation.
+ * @param {bigint[]} values - An array of bigint values as input for the operation.
+ * @returns {bigint | bigint[]} The result of the operation.
+ */
+export function executeOperation(
+  name: ArithmeticOperator,
+  values: bigint[],
+): bigint[] {
+  const operation = ARITHMETIC_MAPPING[name];
+  const out = operation(values)
+  if (!Array.isArray(out)) {
+    return [out]
+  } else {
+    return out
   }
+}
+
+export class ArithmeticHandler {
+  constructor(
+    private parent: ISynthesizerProvider
+  ) {}
 
   /**
    * Creates the output data points for an arithmetic operation.
@@ -57,9 +55,9 @@ export class OperationHandler {
     inPts: DataPt[],
   ): DataPt[] {
     const values = inPts.map((pt) => pt.value);
-    const outValue: bigint[] = this.executeOperation(name, values);
+    const outValue: bigint[] = executeOperation(name, values);
 
-    const source = this.state.placementIndex;
+    const source = this.parent.placementIndex;
     let sourceSize: number = DEFAULT_SOURCE_SIZE
     if (name === 
       'DecToBit'||
@@ -72,18 +70,16 @@ export class OperationHandler {
       'JubjubEXP36'||
       'EdDsaVerify'
     ) {
-      // TODO: sourceSize를 필드 종류로 정의
       sourceSize = 255
     }
 
     return outValue.length > 0
       ? outValue.map((value, index) =>
-          DataPointFactory.create({
+          DataPtFactory.create({
             source,
             wireIndex: index,
-            value,
             sourceSize,
-          }),
+          }, value),
         )
       : []
   }
@@ -101,7 +97,7 @@ export class OperationHandler {
   ): { subcircuitName: SubcircuitNames; finalInPts: DataPt[] } {
     const [subcircuitName, selector] = SUBCIRCUIT_MAPPING[name];
 
-    if (this.state.subcircuitInfoByName.get(subcircuitName) === undefined) {
+    if (this.parent.state.subcircuitInfoByName.get(subcircuitName) === undefined) {
       throw new Error(
         `Synthesizer: ${subcircuitName} subcircuit is not found for operation ${name}. Check qap-compiler.`,
       );
@@ -109,7 +105,7 @@ export class OperationHandler {
 
     let finalInPts: DataPt[] = inPts;
     if (selector !== undefined) {
-      const selectorPt = this.provider.loadStatic(selector, subcircuitName, 1);
+      const selectorPt = this.parent.loadArbitraryStatic(`ALU selector for ${name} of ${subcircuitName}`, selector, 1);
       finalInPts = [selectorPt, ...inPts];
     }
 
@@ -141,7 +137,7 @@ export class OperationHandler {
         name,
         inPts,
       );
-      this.provider.place(subcircuitName, finalInPts, outPts, name);
+      this.parent.place(subcircuitName, finalInPts, outPts, name);
 
       return outPts;
     } catch (error) {

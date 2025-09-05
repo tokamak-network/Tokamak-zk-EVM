@@ -1,14 +1,27 @@
+import { LegacyTx } from '@ethereumjs/tx';
 import type { ArithmeticOperator } from '../../types/arithmetic.js';
-import type { DataPt, SubcircuitNames } from '../../types/index.js';
+import type { DataPt, Placements, ReservedVariable, SubcircuitNames } from '../../types/index.js';
+import { StateManager } from './stateManager.ts';
 
 export interface ISynthesizerProvider {
-  // loadAuxin(value: bigint, size?: number): DataPt;
-  loadStatic(value: bigint, subcircuit: SubcircuitNames, size?: number): DataPt;
-  placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[];
+  // from StateManager
+  get state(): StateManager
+  get placementIndex(): number
+  get placements(): Placements
+  get transactions(): LegacyTx[]
   place(
     name: SubcircuitNames,
     inPts: DataPt[],
     outPts: DataPt[],
     usage: ArithmeticOperator,
   ): void;
+  //from BufferManager
+  addWireToInBuffer(inPt: DataPt, placementId: number): DataPt
+  addWireToOutBuffer(inPt: DataPt, outPt: DataPt, placementId: number): void
+  readReservedVariableFromInputBuffer(varName: ReservedVariable, txNonce?: number): DataPt
+  //from DataLoader
+  loadArbitraryStatic(desc: string, value: bigint, size?: number): DataPt
+  //from ArithmeticHandler
+  placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[];
+
 }

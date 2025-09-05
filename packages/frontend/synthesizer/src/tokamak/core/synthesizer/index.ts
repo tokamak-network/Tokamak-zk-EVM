@@ -1,46 +1,58 @@
-import {
-  DEFAULT_SOURCE_SIZE,
-} from '../../constant/index.js';
 import { DataAliasInfos, MemoryPts } from '../../pointers/index.js';
 import type {
   ArithmeticOperator,
-  CreateDataPointParams,
   DataPt,
+  Placements,
+  ReservedVariable,
   SubcircuitNames,
 } from '../../types/index.js';
-import type { PlacementEntry } from '../../types/synthesizer.js';
-import { StateManager } from '../handlers/stateManager.js';
-import { OperationHandler } from '../handlers/operationHandler.js';
-import { DataLoader } from '../handlers/dataLoader.js';
-import { MemoryManager } from '../handlers/memoryManager.js';
-import { BufferManager } from '../handlers/bufferManager.js';
-import type { ISynthesizerProvider } from '../handlers/synthesizerProvider.js';
-import type { IDataLoaderProvider } from '../handlers/dataLoaderProvider.js';
-import { DataPointFactory } from '../../pointers/dataPointFactory.js';
+import type { PlacementEntry, SynthesizerOpts } from '../../types/index.ts';
+import { ArithmeticHandler, BufferManager, DataLoader, ISynthesizerProvider, MemoryManager, StateManager } from '../handlers/index.ts';
+import { LegacyTx } from '@ethereumjs/tx';
+import { createLegacyTxFromL2Tx } from '@tokamak/utils';
 
 /**
  * The Synthesizer class manages data related to subcircuits.
  * It acts as a facade, delegating tasks to various handler classes.
  */
 export class Synthesizer
-  implements ISynthesizerProvider, IDataLoaderProvider
+  implements ISynthesizerProvider
 {
   private _state: StateManager;
-  private operationHandler: OperationHandler;
+  private _transactions: LegacyTx[];
+  private arithmeticHandler: ArithmeticHandler;
   private dataLoader: DataLoader;
   private memoryManager: MemoryManager;
   private bufferManager: BufferManager;
-
-  constructor() {
-    this._state = new StateManager();
-    this.operationHandler = new OperationHandler(this, this._state);
-    this.dataLoader = new DataLoader(this, this._state);
-    this.memoryManager = new MemoryManager(this, this._state);
-    this.bufferManager = new BufferManager(this, this._state);
+  
+  constructor(opts: SynthesizerOpts) {
+    this._state = new StateManager(opts)
+    this.bufferManager = new BufferManager(this, opts)
+    this.dataLoader = new DataLoader(this)
+    this.arithmeticHandler = new ArithmeticHandler(this)
+    this.memoryManager = new MemoryManager(this)
+    
+    this._transactions = Array.from(opts.transactions, l2TxData => createLegacyTxFromL2Tx(l2TxData))
   }
 
   public get state(): StateManager {
     return this._state;
+  }
+
+  public get placementIndex(): number {
+    return this._state.placementIndex
+  }
+  
+  public get placements(): Placements {
+    return this._state.placements
+  }
+
+  public get transactions(): LegacyTx[] {
+    return this._transactions
+  }
+
+  public place(name: SubcircuitNames, inPts: DataPt[], outPts: DataPt[], usage: ArithmeticOperator): void {
+    this._state.place(name, inPts, outPts, usage)
   }
 
   public addWireToInBuffer(inPt: DataPt, placementId: number): DataPt {
@@ -52,7 +64,26 @@ export class Synthesizer
     outPt: DataPt,
     placementId: number,
   ): void {
-    this.bufferManager.addWireToOutBuffer(inPt, outPt, placementId);
+    this.bufferManager.addWireToOutBuffer(inPt, outPt, placementId)
+  }
+
+  public readReservedVariableFromInputBuffer(
+    varName: ReservedVariable, 
+    txNonce?: number
+  ): DataPt {
+    return this.bufferManager.readReservedVariableFromInputBuffer(varName, txNonce)
+  }
+
+  public loadArbitraryStatic(
+    desc: string,
+    value: bigint,
+    size?: number,
+  ): DataPt {
+    return this.dataLoader.loadArbitraryStatic(desc, value, size)
+  }
+
+  public placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
+    return this.arithmeticHandler.placeArith(name, inPts);
   }
 
   public loadPUSH(
@@ -62,31 +93,6 @@ export class Synthesizer
     size: number,
   ): DataPt {
     return this.dataLoader.loadPUSH(codeAddress, programCounter, value, size);
-  }
-
-  // public loadAuxin(
-  //   value: bigint, 
-  //   size?: number
-  // ): DataPt {
-  //   return this.dataLoader.loadAuxin(value, size)
-  // }
-
-  public loadStatic(
-    value: bigint, 
-    subcircuit: SubcircuitNames,
-    size?: number
-  ): DataPt {
-    return this.dataLoader.loadStatic(value, subcircuit, size)
-  }
-
-  public loadEnvInf(
-    codeAddress: string,
-    type: string,
-    value: bigint,
-    _offset?: number,
-    size?: number,
-  ): DataPt {
-    return this.dataLoader.loadEnvInf(codeAddress, type, value, _offset, size);
   }
 
   public loadStorage(codeAddress: string, key: bigint, value: bigint): DataPt {
@@ -125,9 +131,7 @@ export class Synthesizer
     return this.memoryManager.placeMemoryToMemory(dataAliasInfos);
   }
 
-  public placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
-    return this.operationHandler.placeArith(name, inPts);
-  }
+  
 
   public adjustMemoryPts(
     dataPts: DataPt[],
@@ -145,29 +149,5 @@ export class Synthesizer
     );
   }
 
-  public place(
-    name: SubcircuitNames,
-    inPts: DataPt[],
-    outPts: DataPt[],
-    usage: ArithmeticOperator,
-  ) {
-    if (!this._state.subcircuitNames.includes(name)) {
-      throw new Error(`Subcircuit name ${name} is not defined`);
-    }
-    for (const inPt of inPts) {
-      if (typeof inPt.source !== 'number') {
-        throw new Error(
-          `Synthesizer: Placing a subcircuit: Input wires to a new placement must be connected to the output wires of other placements.`,
-        );
-      }
-    }
-    const placement: PlacementEntry = {
-      name,
-      usage,
-      subcircuitId: this._state.subcircuitInfoByName.get(name)!.id,
-      inPts,
-      outPts,
-    };
-    this._state.placements.set(this._state.getNextPlacementIndex(), placement);
-  }
+  
 }

@@ -1,7 +1,7 @@
 import { BIGINT_0 } from "@synthesizer-libs/util"
 import { DataPt } from "../types/synthesizer.js"
 import { copyMemoryRegion, MemoryPt } from "../pointers/memoryPt.js"
-import { Synthesizer } from "../core/synthesizer.js"
+import { Synthesizer } from "../index.ts"
 import { RunState } from "src/interpreter.js";
 import { getDataSlice } from "src/opcodes/util.js";
 

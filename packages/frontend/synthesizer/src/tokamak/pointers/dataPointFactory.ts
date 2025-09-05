@@ -1,17 +1,30 @@
 import { SynthesizerValidator } from '../validation/index.js'
 
-import type { CreateDataPointParams, DataPt } from '../types/index.js'
+import type { DataPtDescription, DataPt } from '../types/index.js'
 
-export class DataPointFactory {
-  public static create(params: CreateDataPointParams): DataPt {
-    SynthesizerValidator.validateValue(params.value)
-    const hex = params.value.toString(16);
+export class DataPtFactory {
+  public static create(params: DataPtDescription, value: bigint): DataPt {
+    SynthesizerValidator.validateValue(params, value)
+    const hex = value.toString(16)
     const paddedHex = hex.length % 2 === 1 ? '0' + hex : hex;
     const valueHex = '0x' + paddedHex;
 
     return {
       ...params,
+      value,
       valueHex,
     }
+  }
+
+  public static createForBufferInit(params: DataPtDescription, value: bigint): {inPt: DataPt, outPt: DataPt} {
+    const inPt: DataPt = this.create(params, value)
+    const outPt: DataPt = {
+      source: inPt.source,
+      wireIndex: inPt.wireIndex,
+      sourceSize: inPt.sourceSize,
+      value: inPt.value,
+      valueHex: inPt.valueHex
+    };
+    return {inPt, outPt}
   }
 }
