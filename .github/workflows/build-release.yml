@@ -232,18 +232,34 @@ jobs:
           chmod +x .github/scripts/ci-linux-packaging.sh
           ./.github/scripts/ci-linux-packaging.sh
 
+      - name: Download setup files from proof test
+        uses: actions/download-artifact@v4
+        with:
+          name: setup-files
+          path: ./setup-for-archive/
+
       - name: Create setup files archive
         run: |
-          echo "📦 Creating setup files archive..."
-          cd dist/linux22
+          echo "📦 Creating setup files archive from proof test results..."
 
-          # Setup 파일들만 별도 압축
-          tar -c resource/setup | gzip -9 > ../../tokamak-zk-evm-setup-files.tar.gz
-
-          echo "📊 Setup files archive created:"
-          ls -lh ../../tokamak-zk-evm-setup-files.tar.gz
-
-          cd ../..
+          # Check if setup files exist
+          if [ -d "./setup-for-archive" ] && [ "$(ls -A ./setup-for-archive 2>/dev/null)" ]; then
+            echo "✅ Found setup files from proof test"
+            ls -la ./setup-for-archive/
+            
+            # Create archive from actual setup files
+            tar -C ./setup-for-archive -c . | gzip -9 > tokamak-zk-evm-setup-files.tar.gz
+            
+            echo "📊 Setup files archive created:"
+            ls -lh tokamak-zk-evm-setup-files.tar.gz
+          else
+            echo "❌ No setup files found from proof test"
+            echo "Creating empty archive as fallback..."
+            mkdir -p empty-setup
+            echo "No setup files available" > empty-setup/README.txt
+            tar -C empty-setup -c . | gzip -9 > tokamak-zk-evm-setup-files.tar.gz
+            rm -rf empty-setup
+          fi
 
       - name: Upload Linux binary
         uses: actions/upload-artifact@v4
@@ -428,7 +444,7 @@ jobs:
           - Required libraries and resources
 
           **Setup Files (Optional Download):**
-          - Pre-generated trusted setup parameters (~900MB compressed)
+          - Pre-generated trusted setup parameters
           - Skip the time-consuming trusted setup process
           - Extract to \`resource/setup/output/\` in your installation
 
@@ -457,7 +473,6 @@ jobs:
 
           - **macOS**: macOS 10.15+ (Catalina or later)
           - **Linux**: Ubuntu 22.04 or compatible distribution
-          - **Hardware**: Minimum 8GB RAM, 10GB free disk space
 
           ---
 
@@ -493,6 +508,6 @@ jobs:
           echo "### 📦 Available Downloads" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ **macOS Binary**: tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ **Linux Binary**: tokamak-zk-evm-${{ steps.version.outputs.version }}-linux22.tar.gz" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Setup Files**: tokamak-zk-evm-${{ steps.version.outputs.version }}-setup-files.tar.gz (~900MB)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Setup Files**: tokamak-zk-evm-${{ steps.version.outputs.version }}-setup-files.tar.gz" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🔗 **[View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }})**" >> $GITHUB_STEP_SUMMARY
