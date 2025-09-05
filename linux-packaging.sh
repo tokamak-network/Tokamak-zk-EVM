@@ -7,15 +7,12 @@ cd "$SCRIPT_DIR"
 
 # Parse arguments
 #   --no-bun  → skip bun-based synthesizer binary build
-#   --build-only → skip setup execution, build binaries only
 DO_BUN=true
 DO_COMPRESS=true
-BUILD_ONLY=false
 for a in "$@"; do
   case "$a" in
     --no-bun) DO_BUN=false ;;
     --no-compress) DO_COMPRESS=false ;;
-    --build-only) BUILD_ONLY=true ;;
   esac
 done
 
@@ -61,46 +58,16 @@ cp -r packages/frontend/qap-compiler/subcircuits/library/* "${TARGET}/resource/q
 echo "✅ copied to ${TARGET}/resource"
 
 # =========================
-# Build Synthesizer
+# Build
 # =========================
 if [[ "$DO_BUN" == "true" ]]; then
-  echo "[*] Checking Bun installation..."
-  if ! command -v bun >/dev/null 2>&1; then
-    echo "❌ Error: Bun is not installed or not in PATH"
-    echo "Please install Bun from https://bun.sh"
-    exit 1
-  fi
-  echo "✅ Bun found: $(which bun)"
-  echo "✅ Bun version: $(bun --version)"
-  echo "[*] Building Synthesizer..."
+  command -v bun >/dev/null 2>&1 || { echo "bun is required but not found"; exit 1; }
   cd packages/frontend/synthesizer
-  
-  echo "🔍 Installing synthesizer dependencies..."
-  bun install
-  
-  echo "🔍 Creating bin directory..."
-  mkdir -p bin
-  
   BUN_SCRIPT="./build-binary.sh"
   dos2unix "$BUN_SCRIPT" || true
   chmod +x "$BUN_SCRIPT" 2>/dev/null || true
-  
-  echo "🔍 Building synthesizer binary for Linux..."
   "$BUN_SCRIPT" linux
-  
-  echo "🔍 Verifying synthesizer binary was created..."
-  if [ -f "bin/synthesizer-linux-x64" ]; then
-      echo "✅ SUCCESS: synthesizer-linux-x64 created!"
-      ls -la bin/synthesizer-linux-x64
-  else
-      echo "❌ FAILED: synthesizer-linux-x64 not found"
-      echo "🔍 Contents of bin directory:"
-      ls -la bin/ || echo "No bin directory"
-      exit 1
-  fi
-  
   cd "$SCRIPT_DIR"
-  echo "✅ built synthesizer"
 else
   echo "ℹ️ Skipping bun-based synthesizer build (--no-bun)"
 fi
@@ -114,8 +81,6 @@ cargo build -p verify --release
 cd "$SCRIPT_DIR"
 echo "✅ built backend"
 
-# Synthesizer already built above
-
 # echo "[*] Configuring @rpath of the binaries..."
 # RPATH='$ORIGIN/../backend-lib/icicle/lib'
 # for bin in trusted-setup preprocess prove verify; do
@@ -128,33 +93,12 @@ echo "✅ built backend"
 # =========================
 echo "[*] Copying executable binaries..."
 mkdir -p "${TARGET}/bin"
-
-# Check if synthesizer binary exists and copy it
-SYNTHESIZER_PATH="packages/frontend/synthesizer/bin/synthesizer-linux-x64"
-if [ -f "$SYNTHESIZER_PATH" ]; then
-    echo "✅ Found synthesizer binary at $SYNTHESIZER_PATH"
-    cp -vf "$SYNTHESIZER_PATH" "${TARGET}/bin"
-    mv "${TARGET}/bin/synthesizer-linux-x64" "${TARGET}/bin/synthesizer"
-else
-    echo "❌ Error: synthesizer binary not found at $SYNTHESIZER_PATH"
-    echo "🔍 Checking if binary exists in other locations..."
-    find packages/frontend/synthesizer -name "*synthesizer*" -type f 2>/dev/null || echo "No synthesizer binaries found"
-    exit 1
-fi
-
-# Copy Rust binaries with existence check
-for binary in trusted-setup preprocess prove verify; do
-    BINARY_PATH="packages/backend/target/release/$binary"
-    if [ -f "$BINARY_PATH" ]; then
-        echo "✅ Found $binary binary at $BINARY_PATH"
-        cp -vf "$BINARY_PATH" "${TARGET}/bin"
-    else
-        echo "❌ Error: $binary binary not found at $BINARY_PATH"
-        echo "🔍 Make sure Rust binaries are built properly"
-        exit 1
-    fi
-done
-
+cp -vf packages/frontend/synthesizer/bin/synthesizer-linux-x64 "${TARGET}/bin"
+mv "${TARGET}/bin/synthesizer-linux-x64" "${TARGET}/bin/synthesizer"
+cp -vf packages/backend/target/release/trusted-setup "${TARGET}/bin"
+cp -vf packages/backend/target/release/preprocess     "${TARGET}/bin"
+cp -vf packages/backend/target/release/prove          "${TARGET}/bin"
+cp -vf packages/backend/target/release/verify         "${TARGET}/bin"
 echo "✅ copied to ${TARGET}/bin"
 
 # # =========================
@@ -199,74 +143,21 @@ cp -r icicle/* "${TARGET}/${BACKEND_PATH}"
 echo "[*] Cleaning up temporary files..."
 rm -rf "$BACKEND_TARBALL" "$COMMON_TARBALL" icicle
 
-if [[ "$BUILD_ONLY" == "true" ]]; then
-  echo "ℹ️ Build-only mode: Skipping setup execution"
-  # Check if prebuilt setup files are available
-  if [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
-    echo "[*] Using prebuilt setup files from proof test..."
-    mkdir -p "${TARGET}/resource/setup/output"
-    cp -r ./prebuilt-setup/* "${TARGET}/resource/setup/output/"
-    echo "✅ Prebuilt setup files copied for packaging"
-  else
-    echo "⚠️ No prebuilt setup files found, but build-only mode enabled"
-    echo "   Setup files will need to be provided separately"
-    mkdir -p "${TARGET}/resource/setup/output"
-  fi
-else
-  # Check if prebuilt setup files are available
-  if [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
-    echo "[*] Using prebuilt setup files from proof test..."
-    mkdir -p "${TARGET}/resource/setup/output"
-    cp -r ./prebuilt-setup/* "${TARGET}/resource/setup/output/"
-    echo "✅ Prebuilt setup files copied"
-    
-    # Verify setup files
-    if [ -f "${TARGET}/resource/setup/output/combined_sigma.json" ]; then
-      echo "✅ Setup files verified: $(ls -lh ${TARGET}/resource/setup/output/)"
-    else
-      echo "❌ Setup files verification failed, falling back to trusted-setup"
-      echo "[*] Running trusted-setup..."
-      SETUP_SCRIPT="./${TARGET}/1_run-trusted-setup.sh"
-      dos2unix "$SETUP_SCRIPT"
-      chmod +x "$SETUP_SCRIPT"
-      "$SETUP_SCRIPT"
-      echo "✅ CRS has been generated"
-    fi
-  else
-    echo "[*] No prebuilt setup files found, running trusted-setup..."
-    SETUP_SCRIPT="./${TARGET}/1_run-trusted-setup.sh"
-    dos2unix "$SETUP_SCRIPT"
-    chmod +x "$SETUP_SCRIPT"
-    "$SETUP_SCRIPT"
-    echo "✅ CRS has been generated"
-  fi
-fi
+echo "[*] Running trusted-setup..."
+SETUP_SCRIPT="./${TARGET}/1_run-trusted-setup.sh"
+dos2unix "$SETUP_SCRIPT"
+chmod +x "$SETUP_SCRIPT"
+"$SETUP_SCRIPT"
+echo "✅ CRS has been generated"
 
 # =========================
 # Package (.tar.gz)
 # =========================
 if [[ "$DO_COMPRESS" == "true" ]]; then
-  echo "[*] Packaging with high compression..."
+  echo "[*] Packaging..."
   rm -f "$OUT_TGZ"
-  mkdir -p dist
-  
-  # Use maximum compression with gzip - output to workspace root
-  tar -C "$TARGET" -c . | gzip -9 > "$OUT_TGZ"
-  
-  # Show compression stats
-  UNCOMPRESSED_SIZE=$(du -sb "$TARGET" | cut -f1)
-  COMPRESSED_SIZE=$(stat -c%s "$OUT_TGZ" 2>/dev/null || stat -f%z "$OUT_TGZ")
-  COMPRESSION_RATIO=$(echo "scale=1; $COMPRESSED_SIZE * 100 / $UNCOMPRESSED_SIZE" | bc -l 2>/dev/null || echo "N/A")
-  
-  echo "✅ Packaging complete: ${OUT_TGZ} (in workspace root)"
-  echo "📊 Uncompressed: $(numfmt --to=iec $UNCOMPRESSED_SIZE 2>/dev/null || echo "${UNCOMPRESSED_SIZE} bytes")"
-  echo "📊 Compressed: $(numfmt --to=iec $COMPRESSED_SIZE 2>/dev/null || echo "${COMPRESSED_SIZE} bytes")"
-  echo "📊 Compression ratio: ${COMPRESSION_RATIO}%"
-  
-  # Check if approaching GitHub limit
-  if [ "$COMPRESSED_SIZE" -gt 1900000000 ]; then
-    echo "⚠️  WARNING: File size approaching GitHub 2GB limit!"
-  fi
+  tar -C "$TARGET" -czf "dist/$OUT_TGZ" .
+  echo "✅ Packaging complete: ${OUT_TGZ}"
 else
   echo "ℹ️ Skipping compression (--no-compress)"
 fi

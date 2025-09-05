@@ -163,13 +163,9 @@ jobs:
 
       - name: Build macOS binary
         run: |
-          echo "🔍 Building macOS binary in build-only mode (verification already done)..."
-          chmod +x mac-packaging.sh
-          ./mac-packaging.sh --build-only
-
-          echo "🔍 Checking for generated files..."
-          find . -name "*.zip" -type f | head -10
-          ls -la *.zip 2>/dev/null || echo "No zip files in root directory"
+          echo "🔍 Building macOS binary using CI-specific script..."
+          chmod +x .github/scripts/ci-macos-packaging.sh
+          ./.github/scripts/ci-macos-packaging.sh
 
       - name: Upload macOS binary
         uses: actions/upload-artifact@v4
@@ -232,9 +228,9 @@ jobs:
 
       - name: Build Linux binary
         run: |
-          echo "🔍 Building Linux binary in build-only mode (verification already done)..."
-          chmod +x linux-packaging.sh
-          ./linux-packaging.sh --build-only
+          echo "🔍 Building Linux binary using CI-specific script..."
+          chmod +x .github/scripts/ci-linux-packaging.sh
+          ./.github/scripts/ci-linux-packaging.sh
 
       - name: Create setup files archive
         run: |

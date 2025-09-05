@@ -20,17 +20,14 @@ OUT_ZIP='tokamak-zk-evm-macOS.zip'
 # Parse arguments:
 #   --sign   → enable code signing & notarization
 #   --no-bun → skip bun-based synthesizer binary build
-#   --build-only → skip setup execution, build binaries only
 DO_SIGN=false
 DO_BUN=true
 DO_COMPRESS=true
-BUILD_ONLY=false
 for a in "$@"; do
     case "$a" in
       --sign) DO_SIGN=true ;;
       --no-bun) DO_BUN=false ;;
       --no-compress) DO_COMPRESS=false ;;
-      --build-only) BUILD_ONLY=true ;;
   esac
 done
 
@@ -49,43 +46,13 @@ cp -r packages/frontend/qap-compiler/subcircuits/library/* "${TARGET}/resource/q
 echo "✅ copied to ${TARGET}/resource"
 
 if [[ "$DO_BUN" == "true" ]]; then
-  echo "[*] Checking Bun installation..."
-  if ! command -v bun >/dev/null 2>&1; then
-    echo "❌ Error: Bun is not installed or not in PATH"
-    echo "Please install Bun from https://bun.sh"
-    exit 1
-  fi
-  echo "✅ Bun found: $(which bun)"
-  echo "✅ Bun version: $(bun --version)"
-  echo "[*] Building Synthesizer..."
+  command -v bun >/dev/null 2>&1 || { echo "bun is required but not found"; exit 1; }
   cd packages/frontend/synthesizer
-  
-  echo "🔍 Installing synthesizer dependencies..."
-  bun install
-  
-  echo "🔍 Creating bin directory..."
-  mkdir -p bin
-  
   BUN_SCRIPT="./build-binary.sh"
   dos2unix "$BUN_SCRIPT" || true
   chmod +x "$BUN_SCRIPT" 2>/dev/null || true
-  
-  echo "🔍 Building synthesizer binary for macOS..."
   "$BUN_SCRIPT" macos
-  
-  echo "🔍 Verifying synthesizer binary was created..."
-  if [ -f "bin/synthesizer-macos-arm64" ]; then
-      echo "✅ SUCCESS: synthesizer-macos-arm64 created!"
-      ls -la bin/synthesizer-macos-arm64
-  else
-      echo "❌ FAILED: synthesizer-macos-arm64 not found"
-      echo "🔍 Contents of bin directory:"
-      ls -la bin/ || echo "No bin directory"
-      exit 1
-  fi
-  
   cd "$SCRIPT_DIR"
-  echo "✅ built synthesizer"
 else
   echo "ℹ️ Skipping bun-based synthesizer build (--no-bun)"
 fi
@@ -99,33 +66,12 @@ cd "$SCRIPT_DIR"
 
 echo "[*] Copying executable binaries..."
 mkdir -p "${TARGET}/bin"
-
-# Check if synthesizer binary exists and copy it
-SYNTHESIZER_PATH="packages/frontend/synthesizer/bin/synthesizer-macos-arm64"
-if [ -f "$SYNTHESIZER_PATH" ]; then
-    echo "✅ Found synthesizer binary at $SYNTHESIZER_PATH"
-    cp -vf "$SYNTHESIZER_PATH" "${TARGET}/bin"
-    mv "${TARGET}/bin/synthesizer-macos-arm64" "${TARGET}/bin/synthesizer"
-else
-    echo "❌ Error: synthesizer binary not found at $SYNTHESIZER_PATH"
-    echo "🔍 Checking if binary exists in other locations..."
-    find packages/frontend/synthesizer -name "*synthesizer*" -type f 2>/dev/null || echo "No synthesizer binaries found"
-    exit 1
-fi
-
-# Copy Rust binaries with existence check
-for binary in trusted-setup preprocess prove verify; do
-    BINARY_PATH="packages/backend/target/release/$binary"
-    if [ -f "$BINARY_PATH" ]; then
-        echo "✅ Found $binary binary at $BINARY_PATH"
-        cp -vf "$BINARY_PATH" "${TARGET}/bin"
-    else
-        echo "❌ Error: $binary binary not found at $BINARY_PATH"
-        echo "🔍 Make sure Rust binaries are built properly"
-        exit 1
-    fi
-done
-
+cp -vf packages/frontend/synthesizer/bin/synthesizer-macos-arm64 "${TARGET}/bin"
+mv "${TARGET}/bin/synthesizer-macos-arm64" "${TARGET}/bin/synthesizer"
+cp -vf packages/backend/target/release/trusted-setup "${TARGET}/bin"
+cp -vf packages/backend/target/release/preprocess "${TARGET}/bin"
+cp -vf packages/backend/target/release/prove "${TARGET}/bin"
+cp -vf packages/backend/target/release/verify "${TARGET}/bin"
 echo "✅ copied to ${TARGET}/bin"
 
 command -v curl >/dev/null 2>&1 || { echo "curl is required but not found"; exit 1; }
@@ -156,48 +102,12 @@ install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/preprocess"
 install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/verify"
 echo "✅ @rpath set to ${RPATH}"
 
-if [[ "$BUILD_ONLY" == "true" ]]; then
-  echo "ℹ️ Build-only mode: Skipping setup execution"
-  # Check if prebuilt setup files are available
-  if [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
-    echo "[*] Using prebuilt setup files from proof test..."
-    mkdir -p "${TARGET}/resource/setup/output"
-    cp -r ./prebuilt-setup/* "${TARGET}/resource/setup/output/"
-    echo "✅ Prebuilt setup files copied for packaging"
-  else
-    echo "⚠️ No prebuilt setup files found, but build-only mode enabled"
-    echo "   Setup files will need to be provided separately"
-    mkdir -p "${TARGET}/resource/setup/output"
-  fi
-else
-  # Check if prebuilt setup files are available
-  if [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
-    echo "[*] Using prebuilt setup files from proof test..."
-    mkdir -p "${TARGET}/resource/setup/output"
-    cp -r ./prebuilt-setup/* "${TARGET}/resource/setup/output/"
-    echo "✅ Prebuilt setup files copied"
-    
-    # Verify setup files
-    if [ -f "${TARGET}/resource/setup/output/combined_sigma.json" ]; then
-      echo "✅ Setup files verified: $(ls -lh ${TARGET}/resource/setup/output/)"
-    else
-      echo "❌ Setup files verification failed, falling back to trusted-setup"
-      echo "[*] Running trusted-setup..."
-      SETUP_SCRIPT="./${TARGET}/1_run-trusted-setup.sh"
-      dos2unix "$SETUP_SCRIPT"
-      chmod +x "$SETUP_SCRIPT"
-      "$SETUP_SCRIPT"
-      echo "✅ CRS has been generated"
-    fi
-  else
-    echo "[*] No prebuilt setup files found, running trusted-setup..."
-    SETUP_SCRIPT="./${TARGET}/1_run-trusted-setup.sh"
-    dos2unix "$SETUP_SCRIPT"
-    chmod +x "$SETUP_SCRIPT"
-    "$SETUP_SCRIPT"
-    echo "✅ CRS has been generated"
-  fi
-fi
+echo "[*] Running trusted-setup..."
+SETUP_SCRIPT="./${TARGET}/1_run-trusted-setup.sh"
+dos2unix "$SETUP_SCRIPT"
+chmod +x "$SETUP_SCRIPT"
+"$SETUP_SCRIPT"
+echo "✅ CRS has been generated"
 
 if [[ "$DO_SIGN" == "true" ]]; then
   echo "[*] Signing on all distribution..."
@@ -213,12 +123,12 @@ echo "✅ Distribution for MacOS has been generated"
 if [[ "$DO_COMPRESS" == "true" ]]; then
   echo "[*] Packaging..."
   rm -f "$OUT_ZIP"
-  ( cd "$TARGET" && ditto -c -k --sequesterRsrc . "../../$OUT_ZIP" )
-  echo "✅ Packaged: $OUT_ZIP (in workspace root)"
+  ( cd "$TARGET" && ditto -c -k --sequesterRsrc . "../$OUT_ZIP" )
+  echo "✅ Packaged: $OUT_ZIP"
 
   if [[ "$DO_SIGN" == "true" ]]; then
     echo "[*] Notarizing..."
-    xcrun notarytool submit "$OUT_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
+    xcrun notarytool submit "dist/$OUT_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
     ## Stapling is not allowed for ZIP packages.
     # xcrun stapler staple "$dist/OUT_ZIP"
     echo "✅ Notarization completed"
