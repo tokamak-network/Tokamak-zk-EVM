@@ -33,7 +33,4 @@ echo "${LD_LIBRARY_PATH}"
 
 
 LOCAL="$SCRIPT_DIR/bin/trusted-setup"
-exec "$LOCAL" \
-  "$SCRIPT_DIR/resource/qap-compiler/library" \
-  "$SCRIPT_DIR/resource/synthesizer/outputs" \
-  "$SCRIPT_DIR/resource/setup/output"
+exec "$LOCAL" "$SCRIPT_DIR/resource/qap-compiler/library" "$SCRIPT_DIR/resource/setup/output" "--fixed-tau"

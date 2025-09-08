@@ -6,6 +6,7 @@
 # Commands:
 #   --install <API_KEY|RPC_URL>  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
 #   --prove <TX_HASH> [<DIR>]    Generate and verify a proof; copy the proof to <DIR> (default: ./.your_proof)
+#   --verify <SAVE_PATH>        Verify a proof at <SAVE_PATH>
 #   --help                       Show usage
 #
 # This script intentionally supports ONLY the three commands above.
@@ -104,6 +105,28 @@ sync_synth_outputs_to_dist() {
   ok "Synth outputs copied"
 }
 
+read_tx_hash() {
+  local f="$1"
+  [[ -f "$f" ]] || { err "transaction_hash.txt not found: $f"; exit 1; }
+  # Read and normalize: strip whitespace/CR, lowercase, drop optional 0x, validate 32-byte hex
+  local raw cleaned cleaned_lower no0x hex
+  raw="$(cat "$f")"
+  cleaned="$(printf '%s' "$raw" | tr -d '\r\n\t ' )"
+  cleaned_lower="$(printf '%s' "$cleaned" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$cleaned_lower" == 0x* ]]; then
+    no0x="${cleaned_lower:2}"
+  else
+    no0x="$cleaned_lower"
+  fi
+  if [[ "$no0x" =~ ^[0-9a-f]{64}$ ]]; then
+    hex="$no0x"
+  else
+    err "Invalid transaction hash in $f (expect 32-byte hex; got ${#no0x} chars)."
+    exit 1
+  fi
+  echo "0x$hex"
+}
+
 step_install() {
   local install_arg="${1:-}"
   [[ -n "$install_arg" ]] || { err "--install requires <API_KEY|RPC_URL>"; exit 1; }
@@ -159,14 +182,14 @@ step_prove() {
 
   sync_synth_outputs_to_dist
 
-  local target dist_dir run2 run3 run4
+  local target dist_dir run3 run4 run5
   target="$(detect_target)"
   dist_dir="$(dist_dir_for_target "$target")"
   run3="$dist_dir/3_run-preprocess.sh"
   run4="$dist_dir/4_run-prove.sh"
   run5="$dist_dir/5_run-verify.sh"
 
-  log "Prove: running backend scripts 2→4 (target=$target)"
+  log "Prove: running backend scripts 3→5 (target=$target)"
   [[ -f "$run3" ]] || { err "Missing: $run3"; exit 1; }
   [[ -f "$run4" ]] || { err "Missing: $run4"; exit 1; }
   [[ -f "$run5" ]] || { err "Missing: $run5"; exit 1; }
@@ -196,6 +219,46 @@ step_prove() {
   fi
 }
 
+step_verify() {
+  local save_path="${1:-}"
+  [[ -n "$save_path" ]] || { err "--verify requires <SAVE_PATH>"; exit 1; }
+  local tx_hash="$(read_tx_hash "./$save_path/transaction_hash.txt")"
+
+  local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local proof_path="$script_dir/$save_path"
+  [[ -f "$proof_path/proof.json" ]] || { err "proof.json not found in: ./$save_path"; exit 1; }
+
+  log "Verify: synthesize from tx=$tx_hash"
+  pushd "$FE_SYN" >/dev/null
+  npm run synthesizer "$tx_hash"
+  popd >/dev/null
+
+  sync_synth_outputs_to_dist
+
+  local target dist_dir run3 run5
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+  run3="$dist_dir/3_run-preprocess.sh"
+  run5="$dist_dir/5_run-verify.sh"
+
+  log "Verify: running verifier preprocess and verify (target=$target)"
+  [[ -f "$run3" ]] || { err "Missing: $run3"; exit 1; }
+  [[ -f "$run5" ]] || { err "Missing: $run5"; exit 1; }
+
+  to_unix_exec "$run3"
+  bash "$run3"
+  to_unix_exec "$run5"
+  export ICICLE_BACKEND_INSTALL_DIR="${dist_dir}/backend-lib/icicle/lib/backend"
+  verify_out="$(bash "$run5" "$proof_path" | tail -n1)"
+  if [[ "$verify_out" == "true" || "$verify_out" == "true"$'\r' ]]; then
+    ok "Verify: verify output => $verify_out"
+  else
+    err "Verify: verify output => $verify_out"
+    exit 1
+  fi
+
+}
+
 # ---------- CLI ----------
 print_usage() {
   cat <<'USAGE'
@@ -204,6 +267,7 @@ tokamak-zk-evm — orchestrate the Tokamak-zk-EVM toolchain
 Usage:
   tokamak-zk-evm --install <API_KEY|RPC_URL>
   tokamak-zk-evm --prove <TX_HASH> [<SAVE_PATH>]
+  tokamak-zk-evm --verify <SAVE_PATH>
   tokamak-zk-evm --help
 
 Commands:
@@ -227,6 +291,19 @@ Commands:
       4) Run dist-*/3_run-preprocess.sh, 4_run-prove.sh, 5_run-verify.sh
       5) If verify prints "true", copy dist-*/resource/prove/output → <SAVE_PATH>
 
+  --verify <PROOF_PATH>
+      Verify a proof saved at <PROOF_PATH>.
+      Requirements in <PROOF_PATH>:
+        - transaction_hash.txt  (tx hash; with or without 0x)
+        - proof.json
+      What it does:
+        1) Read transaction_hash.txt, strip whitespace/CR, normalize to 0x<64-hex>, and save back
+        2) Run packages/frontend/synthesizer/examples/demo/index.ts with the normalized tx hash
+        3) Sync examples/outputs → dist-*/resource/synthesizer/outputs
+        4) Run dist-*/3_run-preprocess.sh
+        5) Run dist-*/5_run-verify.sh <PROOF_PATH>
+        6) If verifier prints "true", exit 0; otherwise exit 1
+
   --help
       Show this help
 USAGE
@@ -239,6 +316,7 @@ CMD=""; ARG1=""; ARG2=""
 case "$1" in
   --install) CMD="install"; ARG1="${2:-}"; [[ -n "$ARG1" ]] || { err "--install requires <API_KEY|RPC_URL>"; exit 1; } ;;
   --prove) CMD="prove"; ARG1="${2:-}"; ARG2="${3:-}"; [[ -n "$ARG1" ]] || { err "--prove requires <TX_HASH> [<SAVE_PATH>]"; exit 1; } ;;
+  --verify) CMD="verify"; ARG1="${2:-}"; [[ -n "$ARG1" ]] || { err "--verify requires <SAVE_PATH>"; exit 1; } ;;
   --help|-h) print_usage; exit 0 ;;
   *) err "Unknown option: $1"; print_usage; exit 1 ;;
 esac
@@ -247,4 +325,5 @@ esac
 case "$CMD" in
   install) step_install "$ARG1" ;;
   prove) step_prove "$ARG1" "${ARG2:-}" ;;
+  verify) step_verify "$ARG1" ;;
 esac
