@@ -112,7 +112,7 @@ From the repository root:
 ./tokamak-cli --install <YOUR_ALCHEMY_API_KEY>
 ```
 
-2) **Prove** (generate and verify a proof for a transaction; copy artifacts)
+2) **Prove** (generate a proof for a transaction)
 ```bash
 # Save to a custom directory (recommended)
 ./tokamak-cli --prove <TX_HASH> <PATH_TO_SAVE_PROOF>
@@ -120,6 +120,11 @@ From the repository root:
 # Or omit the directory to use the default path:
 ./tokamak-cli --prove <TX_HASH>
 # → artifacts are copied to ./.your_proof by default
+```
+
+3) **Verify** (Verify a proof generated from the Prove command)
+```bash
+./tokamak-cli --prove <TX_HASH> <PATH_TO_PROOF>
 ```
 
 > Notes
