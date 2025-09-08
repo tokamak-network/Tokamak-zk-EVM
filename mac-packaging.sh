@@ -66,8 +66,10 @@ cd "$SCRIPT_DIR"
 
 echo "[*] Copying executable binaries..."
 mkdir -p "${TARGET}/bin"
-cp -vf packages/frontend/synthesizer/bin/synthesizer-macos-arm64 "${TARGET}/bin"
-mv "${TARGET}/bin/synthesizer-macos-arm64" "${TARGET}/bin/synthesizer"
+if [[ "$DO_BUN" == "true" ]]; then
+  cp -vf packages/frontend/synthesizer/bin/synthesizer-macos-arm64 "${TARGET}/bin"
+  mv "${TARGET}/bin/synthesizer-macos-arm64" "${TARGET}/bin/synthesizer"
+fi
 cp -vf packages/backend/target/release/trusted-setup "${TARGET}/bin"
 cp -vf packages/backend/target/release/preprocess "${TARGET}/bin"
 cp -vf packages/backend/target/release/prove "${TARGET}/bin"

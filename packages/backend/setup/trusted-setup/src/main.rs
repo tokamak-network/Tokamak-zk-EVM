@@ -20,9 +20,9 @@ use std::time::Instant;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() != 4 {
+    if args.len() != 3 {
         eprintln!(
-            "Usage: {} <QAP_PATH> <SYNTHESIZER_PATH> <OUT_PATH> ",
+            "Usage: {} <QAP_PATH> <OUT_PATH> ",
             args[0]
         );
         process::exit(1);
@@ -30,8 +30,7 @@ fn main() {
 
     let paths = SetupInputPaths {
         qap_path: &args[1],
-        synthesizer_path: &args[2],
-        output_path: &args[3],
+        output_path: &args[2],
     };
 
     check_device();
