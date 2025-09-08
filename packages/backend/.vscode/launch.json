@@ -12,7 +12,8 @@
       "program": "${cargo:program}",
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/setup/trusted-setup/output"
+        "${workspaceFolder}/setup/trusted-setup/output",
+        "--fixed-tau"
       ],
       "cwd": "${workspaceFolder}",
       "env": {
