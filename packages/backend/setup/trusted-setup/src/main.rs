@@ -6,7 +6,7 @@ use libs::iotools::{read_global_wire_list_as_boxed_boxed_numbers};
 use libs::utils::check_device;
 use libs::vector_operations::gen_evaled_lagrange_bases;
 use libs::group_structures::Sigma;
-use icicle_bls12_381::curve::{ScalarField, CurveCfg, G2CurveCfg};
+use icicle_bls12_381::curve::{BaseField, CurveCfg, G1Affine, G2Affine, G2BaseField, G2CurveCfg, ScalarField};
 use icicle_core::traits::FieldImpl;
 // use icicle_core::ntt;
 use icicle_core::curve::Curve;
@@ -20,13 +20,15 @@ use std::time::Instant;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() != 3 {
+    if args.len() < 3 || args.len() > 4 {
         eprintln!(
-            "Usage: {} <QAP_PATH> <OUT_PATH> ",
+            "Usage: {} <QAP_PATH> <OUT_PATH> [--fixed-tau]",
             args[0]
         );
         process::exit(1);
     }
+
+    let use_fixed_tau = args.len() == 4 && (args[3] == "--fixed-tau");
 
     let paths = SetupInputPaths {
         qap_path: &args[1],
@@ -36,12 +38,28 @@ fn main() {
     check_device();
     let start1 = Instant::now();
     
-    // Generate random affine points on the elliptic curve (G1 and G2)
-    let g1_gen = CurveCfg::generate_random_affine_points(1)[0];
-    let g2_gen = G2CurveCfg::generate_random_affine_points(1)[0];
-    
-    // Generate a random secret parameter tau (x and y only, no z as per the paper)
-    let tau = Tau::gen();
+    // Select base points for G1/G2
+    let (g1_gen, g2_gen, tau) = if use_fixed_tau {
+        println!("Using hardcoded G1, G2 generators and tau");
+        (
+            G1Affine::from_limbs(
+                BaseField::from_hex("0x0b001b4cc05fa01578be7d4e821d6ff58f2a05c584fba3cb31a37942dece65eadec9a878add2282f7c2513abb8d4ab05").into(), 
+                BaseField::from_hex("0x15e237775397ed22eef43dd36cdca277c9cf6fa7e4ffff0a5bb4b20a82392caacf0f63fb6cdb02bccf2f5af14970d6b9").into()
+            ), 
+            G2Affine::from_limbs(
+                G2BaseField::from_hex("0x1116094a7c01d4fd8abcfea69c658c92c037765bee00556b8d4063c33540b316ac68a2d913d3adc3b43c7d7cc7505cfc17206c8ae661f247979b3f1daa7fb6d5f7ce9c17b5ed1d7e8b421a2508b3f09a603e6a5fab3fcde7364fd178d656ac36").into(),
+                G2BaseField::from_hex("0x15bf297a4b9842fb1a3a6f2dbf6b94de06997b11b2f72436c22efbb48d2f74b0de7239ea182a2ee50c23ae3d0be6fdee09459611409874fe4b04b1a7e42cb84eb4ae01728dc55dbd1343fda8d0fe94a299fc757acc1d2602a49a005b4ff90190").into()
+            ),
+            Tau::gen_fixed()
+        )
+    } else {
+        (
+            CurveCfg::generate_random_affine_points(1)[0],
+            G2CurveCfg::generate_random_affine_points(1)[0],
+            // Generate a random secret parameter tau (x and y only, no z as per the paper)
+            Tau::gen()
+        )
+    };
     
     // Load setup parameters from JSON file
     let setup_params_path = PathBuf::from(paths.qap_path).join("setupParams.json");
