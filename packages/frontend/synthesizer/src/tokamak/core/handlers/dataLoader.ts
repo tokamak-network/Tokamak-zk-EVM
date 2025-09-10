@@ -40,17 +40,19 @@ export class DataLoader {
   }
 
   public loadArbitraryStatic(
-    desc: string,
     value: bigint,
-    size?: number
+    size?: number,
+    desc?: string,
   ): DataPt {
-    const cachedDataPt = this.parent.state.cachedStaticIn.get(value)
-    if (cachedDataPt !== undefined) {
-      return cachedDataPt
+    if (desc === undefined) {
+      const cachedDataPt = this.parent.state.cachedStaticIn.get(value)
+      if (cachedDataPt !== undefined) {
+        return cachedDataPt
+      }
     }
     const placementIndex = BUFFER_PLACEMENT.STATIC_IN.placementIndex
     const inPtRaw: DataPtDescription = {
-      extSource: desc,
+      extSource: desc ?? 'Constant',
       sourceSize: size ?? DEFAULT_SOURCE_SIZE,
       source: placementIndex,
       wireIndex: this.parent.placements.get(placementIndex)!.inPts.length,

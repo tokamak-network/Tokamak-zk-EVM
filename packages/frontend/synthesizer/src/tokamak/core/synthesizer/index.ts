@@ -75,11 +75,11 @@ export class Synthesizer
   }
 
   public loadArbitraryStatic(
-    desc: string,
     value: bigint,
     size?: number,
+    desc?: string,
   ): DataPt {
-    return this.dataLoader.loadArbitraryStatic(desc, value, size)
+    return this.dataLoader.loadArbitraryStatic(value, size, desc)
   }
 
   public placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {

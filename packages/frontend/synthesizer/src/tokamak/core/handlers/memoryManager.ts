@@ -6,7 +6,6 @@ import {
   type MemoryPts,
 } from '../../pointers/index.js';
 import type { DataPt, DataPtDescription, ArithmeticOperator } from '../../types/index.ts';
-import type { StateManager } from './stateManager.js';
 import { ISynthesizerProvider } from './index.ts';
 
 export class MemoryManager {
@@ -25,7 +24,7 @@ export class MemoryManager {
       if (dataPt.value !== outValue) {
         const subcircuitName = 'AND';
         const inPts: DataPt[] = [
-          this.parent.loadArbitraryStatic('Masker for memory manipulation', BigInt(maskerString)),
+          this.parent.loadArbitraryStatic(BigInt(maskerString), undefined, 'Masker for memory manipulation'),
           dataPt,
         ];
         const rawOutPt: DataPtDescription = {
@@ -88,7 +87,7 @@ export class MemoryManager {
     }
     // SHR data to truncate the ending part
     const [truncatedPt] = this.parent.placeArith('SHR', [
-      this.parent.loadArbitraryStatic('Shifter for memory manipulation', BigInt(endingGap * 8)),
+      this.parent.loadArbitraryStatic(BigInt(endingGap * 8), undefined, 'Shifter for memory manipulation'),
       dataPt,
     ]);
     return truncatedPt;
@@ -157,7 +156,7 @@ export class MemoryManager {
       const subcircuitName: ArithmeticOperator = shift > 0 ? 'SHL' : 'SHR';
       const absShift = Math.abs(shift);
       const inPts: DataPt[] = [
-        this.parent.loadArbitraryStatic('Shifter for memory manipulation', BigInt(absShift)),
+        this.parent.loadArbitraryStatic(BigInt(absShift), undefined, 'Shifter for memory manipulation'),
         dataPt,
       ];
       outPts = this.parent.placeArith(subcircuitName, inPts);
@@ -179,7 +178,7 @@ export class MemoryManager {
     const maskOutValue = dataPt.value & BigInt(masker);
     let outPts = [dataPt];
     if (maskOutValue !== dataPt.value) {
-      const inPts: DataPt[] = [this.parent.loadArbitraryStatic('Masker for memory manipulation', BigInt(masker)), dataPt];
+      const inPts: DataPt[] = [this.parent.loadArbitraryStatic(BigInt(masker), undefined, 'Masker for memory manipulation'), dataPt];
       outPts = this.parent.placeArith('AND', inPts);
     }
     return outPts[0];

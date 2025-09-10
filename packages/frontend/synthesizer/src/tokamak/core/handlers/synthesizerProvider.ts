@@ -20,7 +20,7 @@ export interface ISynthesizerProvider {
   addWireToOutBuffer(inPt: DataPt, outPt: DataPt, placementId: number): void
   readReservedVariableFromInputBuffer(varName: ReservedVariable, txNonce?: number): DataPt
   //from DataLoader
-  loadArbitraryStatic(desc: string, value: bigint, size?: number): DataPt
+  loadArbitraryStatic(value: bigint, size?: number, desc?: string): DataPt
   //from ArithmeticHandler
   placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[];
 

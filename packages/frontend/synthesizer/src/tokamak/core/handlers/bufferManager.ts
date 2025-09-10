@@ -1,6 +1,5 @@
 import { DataPtFactory } from '../../pointers/index.js';
 import { BUFFER_PLACEMENT, DataPtDescription, L2TxData, ReservedBuffer, SynthesizerOpts, VARIABLE_DESCRIPTION, type DataPt, type ReservedVariable } from '../../types/index.js';
-import type { StateManager } from './stateManager.js';
 import { MAX_TX_NUMBER } from 'src/tokamak/constant/index.ts';
 import { bytesToBigInt } from '@ethereumjs/util';
 import { jubjub } from '@noble/curves/misc';

@@ -1,93 +1,88 @@
-import { BIGINT_0, bigIntToHex, bytesToBigInt } from '@synthesizer-libs/util';
-import { EOFBYTES, isEOF } from '../../../eof/util.js';
+import { EOFBYTES, isEOF } from '../../../eof/util.ts';
 import {
   createAddressFromStackBigInt,
   getDataSlice,
-} from '../../../opcodes/util.js';
-import { placeExp, placeJubjubExp } from '../../operations/exp.js';
-import { simulateMemoryPt } from '../../pointers/index.js';
+} from '../../../opcodes/util.ts';
+import { placeExp, placeJubjubExp } from '../../operations/exp.ts';
+import { simulateMemoryPt } from '../../pointers/index.ts';
 
-import type { RunState } from '../../../interpreter.js';
-import type { ArithmeticOperator, DataPt } from '../../types/index.js';
-import { bigIntToAddressBytes, bytesToHex, createAddressFromBigInt } from '@ethereumjs/util';
+import type { RunState } from '../../../interpreter.ts';
+import type { ArithmeticOperator, DataPt, ReservedVariable } from '../../types/index.ts';
+import { bigIntToAddressBytes, bytesToBigInt, bytesToHex, createAddressFromBigInt } from '@ethereumjs/util';
 
-export const synthesizerGetOrigin = (
+const synthesizerGetOrigin = (
   runState: RunState,
 ): DataPt => {
-  const TARGETTXDATAINDICES = [1, 2, 3, 4] as const
-  const messages: DataPt[] | undefined = runState.synthesizer.state.placements.get(TRANSACTION_IN_PLACEMENT_INDEX)?.outPts.slice(TARGETTXDATAINDICES[0], TARGETTXDATAINDICES[TARGETTXDATAINDICES.length - 1] + 1)
-  if (messages === undefined) {
-    throw new Error('Transactions are not initialized')
+  const synthesizer = runState.synthesizer
+  const txNonce = synthesizer.state.txNonce
+  if (txNonce < 0) {
+    throw new Error('Negative txNonce')
   }
-  const PUBKEYINDEX = [5, 6] as const
-  const _publicKey: DataPt[] | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts.slice(PUBKEYINDEX[0], PUBKEYINDEX[PUBKEYINDEX.length - 1] + 1)
-  let publicKey: [DataPt, DataPt]
-  if (_publicKey === undefined) {
-    throw new Error('Public key is not initialized')
-  } else {
-    publicKey = [_publicKey[0], _publicKey[1]]
-  }
-  const RANDOMIZERINDEX = [7, 8] as const
-  const randomizer: DataPt[] | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts.slice(RANDOMIZERINDEX[0], RANDOMIZERINDEX[RANDOMIZERINDEX.length - 1] + 1)
-  if (randomizer === undefined) {
-    throw new Error('Randomizer is not initialized')
-  }
-  const SIGNATUREINDEX = 9 as const
-  const signature: DataPt | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts[SIGNATUREINDEX]
-  if (signature === undefined) {
-    throw new Error('Signature is not initialized')
-  }
+
+  const messageContent: ReservedVariable[][] = [
+    ['TRANSACTION_NONCE', 'CONTRACT_ADDRESS', 'FUNCTION_SELECTOR', 'TRANSACTION_INPUT0'],
+    ['TRANSACTION_INPUT1', 'TRANSACTION_INPUT2', 'TRANSACTION_INPUT3', 'TRANSACTION_INPUT4'],
+    ['TRANSACTION_INPUT5', 'TRANSACTION_INPUT6', 'TRANSACTION_INPUT7', 'TRANSACTION_INPUT8'],
+  ];
+
+  const read = (n: ReservedVariable) =>
+    synthesizer.readReservedVariableFromInputBuffer(n, txNonce)
+
+  const messagePts: DataPt[][] = messageContent.map(row => row.map(read))
+
+  if (messagePts.length !== 3 || messagePts.flat().length > 12) throw new Error('Excessive transaction messages')
+  
+  const publicKeyPt: DataPt[] = [
+    synthesizer.readReservedVariableFromInputBuffer('EDDSA_PUBLIC_KEY_X'),
+    synthesizer.readReservedVariableFromInputBuffer('EDDSA_PUBLIC_KEY_Y')
+  ]
+  const randomizerPt: DataPt[] = [
+    synthesizer.readReservedVariableFromInputBuffer('EDDSA_RANDOMIZER_X', txNonce),
+    synthesizer.readReservedVariableFromInputBuffer('EDDSA_RANDOMIZER_Y', txNonce)
+  ]
+  const signaturePt: DataPt = synthesizer.readReservedVariableFromInputBuffer('EDDSA_SIGNATURE', txNonce)
+  const firstPoseidonInput: DataPt[] = [...randomizerPt, ...publicKeyPt]
   const poseidonInter: DataPt[] = []
-  poseidonInter.push(...runState.synthesizer.placeArith('Poseidon4', messages))
-  poseidonInter.push(...runState.synthesizer.placeArith('Poseidon4', messages))
-  poseidonInter.push(...runState.synthesizer.placeArith('Poseidon4', messages))
-  poseidonInter.push(...runState.synthesizer.placeArith('Poseidon4', messages))
-  const poseidonOut: DataPt = runState.synthesizer.placeArith('Poseidon4', poseidonInter)[0]
-  const bitsOut: DataPt[] = runState.synthesizer.placeArith('PrepareEdDsaScalars', [signature, poseidonOut]);
+  poseidonInter.push(...synthesizer.placeArith('Poseidon4', firstPoseidonInput))
+  poseidonInter.push(...synthesizer.placeArith('Poseidon4', messagePts[0]))
+  poseidonInter.push(...synthesizer.placeArith('Poseidon4', messagePts[1]))
+  poseidonInter.push(...synthesizer.placeArith('Poseidon4', messagePts[2]))
+  const poseidonOut: DataPt = synthesizer.placeArith('Poseidon4', poseidonInter)[0]
+  const bitsOut: DataPt[] = synthesizer.placeArith('PrepareEdDsaScalars', [signaturePt, poseidonOut])
   if (bitsOut.length !== 504) {
     throw new Error('PrepareEdDsaScalar was expected to output 504 bits');
   }
   const signBits: DataPt[] = bitsOut.slice(0, 252)
   const challengeBits: DataPt[] = bitsOut.slice(252, -1)
 
-  const JUBJUBBASEINDEX = [10, 11] as const
-  const jubjubBase: DataPt[] | undefined = runState.synthesizer.state.placements.get(STATIC_IN_PLACEMENT_INDEX)?.outPts.slice(JUBJUBBASEINDEX[0], JUBJUBBASEINDEX[JUBJUBBASEINDEX.length - 1] + 1)
-  if (jubjubBase === undefined) {
-    throw new Error('Jubjub base point is not initialized')
-  }
-  const JUBJUBPOIINDEX = [12, 13] as const
-  const jubjubPoI: DataPt[] | undefined = runState.synthesizer.state.placements.get(STATIC_IN_PLACEMENT_INDEX)?.outPts.slice(JUBJUBPOIINDEX[0], JUBJUBPOIINDEX[JUBJUBPOIINDEX.length - 1] + 1)
-  if (jubjubPoI === undefined) {
-    throw new Error('Jubjub point at infinity is not initialized')
-  }
+  const jubjubBasePt: DataPt[] = [
+    synthesizer.readReservedVariableFromInputBuffer('JUBJUB_BASE_X'),
+    synthesizer.readReservedVariableFromInputBuffer('JUBJUB_BASE_Y')
+  ]
+  const jubjubPoIPt: DataPt[] = [
+    synthesizer.readReservedVariableFromInputBuffer('JUBJUB_POI_X'),
+    synthesizer.readReservedVariableFromInputBuffer('JUBJUB_POI_Y')
+  ]
 
   const sG: DataPt[] = placeJubjubExp(
-    runState.synthesizer,
-    [...jubjubBase, ...signBits],
-    jubjubPoI,
+    synthesizer,
+    [...jubjubBasePt, ...signBits],
+    jubjubPoIPt,
   )
 
   const eA: DataPt[] = placeJubjubExp(
-    runState.synthesizer,
-    [...publicKey, ...challengeBits],
-    jubjubPoI,
+    synthesizer,
+    [...publicKeyPt, ...challengeBits],
+    jubjubPoIPt,
   )
 
-  runState.synthesizer.placeArith('EdDsaVerify', [...sG, ...randomizer, ...eA])
+  synthesizer.placeArith('EdDsaVerify', [...sG, ...randomizerPt, ...eA])
   
-  const ZEROINDEX = 0
-  const zero: DataPt | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts[ZEROINDEX]
-  if (zero === undefined) {
-    throw new Error('zero is not initilaized in the public input buffer')
-  }
-  const hashPt: DataPt = runState.synthesizer.placeArith('Poseidon4', [...publicKey, zero, zero])[0]
-  const ADDRESSMASKINDEX = 1
-  const addrMask: DataPt | undefined = runState.synthesizer.state.placements.get(PUB_IN_PLACEMENT_INDEX)?.outPts[ADDRESSMASKINDEX]
-  if (addrMask === undefined) {
-    throw new Error('address mask is not initialized in the public input buffer')
-  }
-  runState.synthesizer.state.cachedCaller = runState.synthesizer.placeArith('AND', [hashPt, addrMask])[0]
-  return runState.synthesizer.state.cachedCaller
+  const zeroPt: DataPt = synthesizer.loadArbitraryStatic(0n, 1)
+  const hashPt: DataPt = synthesizer.placeArith('Poseidon4', [...publicKeyPt, zeroPt, zeroPt])[0]
+  const addrMaskPt: DataPt = synthesizer.readReservedVariableFromInputBuffer('ADDRESS_MASK')
+  synthesizer.state.cachedOrigin = synthesizer.placeArith('AND', [hashPt, addrMaskPt])[0]
+  return runState.synthesizer.state.cachedOrigin!
 }
 
 export const synthesizerArith = (
@@ -185,16 +180,9 @@ export async function prepareEXTCodePt(
   }
   const codeOffset = _offset ?? 0n;
   const dataLength = _size ?? BigInt(code.byteLength);
-  const data = getDataSlice(code, codeOffset, dataLength);
-  const dataBigint = bytesToBigInt(data);
-  const codeOffsetNum = Number(codeOffset);
-  const dataPt = runState.synthesizer.loadEnvInf(
-    address.toString(),
-    codeType,
-    dataBigint,
-    codeOffsetNum,
-    Number(dataLength),
-  );
+  const data = bytesToBigInt(getDataSlice(code, codeOffset, dataLength))
+  const desc = `External code from ${address.toString()}, offset ${Number(codeOffset)}, length ${Number(dataLength)}`
+  const dataPt = runState.synthesizer.loadArbitraryStatic(data, Number(dataLength), desc)
   return dataPt;
 }
 
@@ -222,9 +210,10 @@ export async function synthesizerEnvInf(
     const cachedDataPt = runState.synthesizer.state.cachedStaticIn.get(value)
     const staticInDesc = `Static input for ${op} instruction at PC ${runState.programCounter} of code address ${runState.env.codeAddress.toString()} called by ${runState.env.address.toString()}`
     let targetDesc = target === undefined ? `` : `(target: ${createAddressFromBigInt(target).toString()})`
-    return cachedDataPt ?? runState.synthesizer.loadStaticIn(
-      staticInDesc + targetDesc,
+    return cachedDataPt ?? runState.synthesizer.loadArbitraryStatic(
       value,
+      undefined,
+      staticInDesc + targetDesc,
     )
   }
   switch (op) {

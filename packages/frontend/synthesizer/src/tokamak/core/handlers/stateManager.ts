@@ -32,7 +32,7 @@ export class StateManager {
   public cachedStorage: Map<string, DataPt> = new Map()
   public subcircuitInfoByName: SubcircuitInfoByName = new Map()
   public cachedOrigin: DataPt | undefined = undefined
-  public txNonce: bigint = -1n
+  public txNonce: number = -1
   
   
   public lastMerkleRoot: bigint
