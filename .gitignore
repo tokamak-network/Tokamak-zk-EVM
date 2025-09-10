@@ -25,13 +25,10 @@ coverage.json
 *.log
 
 #Cursor
-<<<<<<< Updated upstream
 .cursor
+.cursorrules
 
 #Cli
-=======
-.cursor/
->>>>>>> Stashed changes
 ./your_proof
 
 dist
