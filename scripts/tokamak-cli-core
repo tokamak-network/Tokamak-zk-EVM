@@ -152,7 +152,9 @@ step_install() {
   to_unix_exec "$script"
   
   # Detect CI environment and set appropriate options
-  # Default behavior now includes setup generation (DO_SETUP=true by default)
+  # Different behavior based on CI job type:
+  # - Proof Generation Test: needs fresh setup generation (--bun only)
+  # - Binary Building: uses prebuilt setup (--bun --no-setup)
  
   local packaging_options="--no-compress"
   if [ -z "${GITHUB_ACTIONS:-}" ] && [ -z "${CI:-}" ] && [ -z "${CONTINUOUS_INTEGRATION:-}" ]; then
@@ -160,9 +162,17 @@ step_install() {
     packaging_options="--no-compress"
     log "Install: Local environment detected - using options: $packaging_options"
   else
-    # CI environment: use bun and skip compression only
-    packaging_options="--bun --no-compress"
-    log "Install: CI environment detected - using options: $packaging_options"
+    # CI environment: use bun for performance, always skip compression
+    # Note: setup generation depends on whether prebuilt files are available
+    if [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
+      # Prebuilt setup available (Binary Building jobs)
+      packaging_options="--bun --no-setup --no-compress"
+      log "Install: CI environment with prebuilt setup - using options: $packaging_options"
+    else
+      # No prebuilt setup (Proof Generation Test)
+      packaging_options="--bun --no-compress"
+      log "Install: CI environment, generating fresh setup - using options: $packaging_options"
+    fi
   fi
   
   bash "$script" $packaging_options
