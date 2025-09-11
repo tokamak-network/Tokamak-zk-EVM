@@ -25,11 +25,11 @@ APP_SIGN_ID='3524416ED3903027378EA41BB258070785F977F9'
 NOTARY_PROFILE='tokamak-zk-evm-backend'
 OUT_ZIP='tokamak-zk-evm-macOS.zip'
 
-# CI-specific defaults (optimized for build-only mode)
+# Default settings (full build with setup)
 DO_SIGN=false
 DO_BUN=true
 DO_COMPRESS=true
-BUILD_ONLY=true  # Default to build-only for CI
+BUILD_ONLY=false  # Default to full build with setup
 
 # Parse arguments (allow overriding defaults)
 for a in "$@"; do

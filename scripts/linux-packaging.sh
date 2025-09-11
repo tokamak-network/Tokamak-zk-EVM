@@ -13,10 +13,10 @@ cd "$WORKSPACE_ROOT"
 
 echo "🔍 CI Linux packaging script running from workspace root: $(pwd)"
 
-# CI-specific defaults (optimized for build-only mode)
+# Default settings (full build with setup)
 DO_BUN=true
 DO_COMPRESS=true
-BUILD_ONLY=true  # Default to build-only for CI
+BUILD_ONLY=false  # Default to full build with setup
 
 # Parse arguments (allow overriding defaults)
 for a in "$@"; do
