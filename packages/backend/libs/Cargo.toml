@@ -24,6 +24,10 @@ rand = { workspace = true }
 name = "outer_product_bench"
 harness = false
 
+[[bench]]
+name = "matrix_matrix_mul_bench"
+harness = false
+
 [features]
 default = []
 testing-mode = []
