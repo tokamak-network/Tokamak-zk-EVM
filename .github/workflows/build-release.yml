@@ -169,9 +169,9 @@ jobs:
 
       - name: Build macOS binary
         run: |
-          echo "🔍 Building macOS binary using CI-specific script..."
-          chmod +x scripts/ci-macos-packaging.sh
-          ./scripts/ci-macos-packaging.sh
+          echo "🔍 Building macOS binary using packaging script..."
+          chmod +x scripts/macos-packaging.sh
+          ./scripts/macos-packaging.sh
 
       - name: Upload macOS binary
         uses: actions/upload-artifact@v4
@@ -236,9 +236,9 @@ jobs:
 
       - name: Build Linux binary
         run: |
-          echo "🔍 Building Linux binary using CI-specific script..."
-          chmod +x scripts/ci-linux-packaging.sh
-          ./scripts/ci-linux-packaging.sh
+          echo "🔍 Building Linux binary using packaging script..."
+          chmod +x scripts/linux-packaging.sh
+          ./scripts/linux-packaging.sh
 
       - name: Download setup files from proof test
         uses: actions/download-artifact@v4

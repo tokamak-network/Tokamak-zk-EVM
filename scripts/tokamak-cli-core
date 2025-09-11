@@ -74,10 +74,10 @@ detect_target() {
 
 packaging_script_for_target() {
   case "$1" in
-    mac)     echo "$ROOT/mac-packaging.sh" ;;
-    linux20) echo "$ROOT/linux-packaging.sh" ;;
-    linux22) echo "$ROOT/linux-packaging.sh" ;;
-    *)       echo "$ROOT/linux-packaging.sh" ;;
+    mac)     echo "$ROOT/scripts/macos-packaging.sh" ;;
+    linux20) echo "$ROOT/scripts/linux-packaging.sh" ;;
+    linux22) echo "$ROOT/scripts/linux-packaging.sh" ;;
+    *)       echo "$ROOT/scripts/linux-packaging.sh" ;;
   esac
 }
 
