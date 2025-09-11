@@ -19,23 +19,11 @@ DO_COMPRESS=true
 DO_SETUP=true  # Default to full build with setup_SET
 
 # Parse arguments (allow overriding defaults)
-echo "🔍 DEBUG: Total arguments: $#"
-echo "🔍 DEBUG: All arguments: $*"
 for a in "$@"; do
-  echo "🔍 DEBUG: Processing argument: '$a'"
   case "$a" in
-    --bun) 
-      echo "🔍 DEBUG: Found --bun flag, setting DO_BUN=true"
-      DO_BUN=true ;;
-    --no-compress) 
-      echo "🔍 DEBUG: Found --no-compress flag, setting DO_COMPRESS=false"
-      DO_COMPRESS=false ;;
-    --no-setup) 
-      echo "🔍 DEBUG: Found --no-setup flag, setting DO_SETUP=false"
-      DO_SETUP=false ;;
-    *)
-      echo "🔍 DEBUG: Unknown argument: '$a'"
-      ;;
+    --bun) DO_BUN=true ;;
+    --no-compress) DO_COMPRESS=false ;;
+    --no-setup) DO_SETUP=false ;;  # Skip setup generation
   esac
 done
 
@@ -80,7 +68,6 @@ echo "✅ copied to ${TARGET}/resource"
 # =========================
 # Build Synthesizer
 # =========================
-echo "🔍 DEBUG: DO_BUN value is: '$DO_BUN'"
 if [[ "$DO_BUN" == "true" ]]; then
   echo "[*] Checking Bun installation..."
   if ! command -v bun >/dev/null 2>&1; then
@@ -120,10 +107,7 @@ if [[ "$DO_BUN" == "true" ]]; then
   cd "$WORKSPACE_ROOT"
   echo "✅ built synthesizer"
 else
-  echo "❌ ERROR: Synthesizer build requires --bun flag in CI environment"
-  echo "🔍 Current DO_BUN value: '$DO_BUN'"
-  echo "🔍 Arguments passed: $*"
-  exit 1
+  echo "ℹ️ Skipping bun-based synthesizer build (using npm by default)"
 fi
 
 echo "[*] Building backend..."

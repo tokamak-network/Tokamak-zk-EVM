@@ -156,27 +156,26 @@ step_install() {
   # - Proof Generation Test: needs fresh setup generation (--bun only)
   # - Binary Building: uses prebuilt setup (--bun --no-setup)
  
-  local packaging_options="--no-compress"
+  local packaging_options=()
   if [ -z "${GITHUB_ACTIONS:-}" ] && [ -z "${CI:-}" ] && [ -z "${CONTINUOUS_INTEGRATION:-}" ]; then
     # Local environment: use default settings (npm) and skip compression
-    packaging_options="--no-compress"
-    log "Install: Local environment detected - using options: $packaging_options"
+    packaging_options=("--no-compress")
+    log "Install: Local environment detected - using options: ${packaging_options[*]}"
   else
     # CI environment: use bun for performance, always skip compression
     # Note: setup generation depends on whether prebuilt files are available
     if [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
       # Prebuilt setup available (Binary Building jobs)
-      packaging_options="--bun --no-setup --no-compress"
-      log "Install: CI environment with prebuilt setup - using options: $packaging_options"
+      packaging_options=("--bun" "--no-setup" "--no-compress")
+      log "Install: CI environment with prebuilt setup - using options: ${packaging_options[*]}"
     else
       # No prebuilt setup (Proof Generation Test)
-      packaging_options="--bun --no-compress"
-      log "Install: CI environment, generating fresh setup - using options: $packaging_options"
+      packaging_options=("--bun" "--no-compress")
+      log "Install: CI environment, generating fresh setup - using options: ${packaging_options[*]}"
     fi
   fi
   
-  echo "🔍 DEBUG: Executing: bash \"$script\" $packaging_options"
-  bash "$script" $packaging_options
+  bash "$script" "${packaging_options[@]}"
   # popd >/dev/null
 
   log "Install: writing synthesizer .env"
