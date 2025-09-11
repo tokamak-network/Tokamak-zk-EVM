@@ -14,13 +14,14 @@ cd "$WORKSPACE_ROOT"
 echo "🔍 CI Linux packaging script running from workspace root: $(pwd)"
 
 # Default settings (full build with setup)
-DO_BUN=true
+DO_BUN=false  # Default to no bun for local development
 DO_COMPRESS=true
 BUILD_ONLY=false  # Default to full build with setup
 
 # Parse arguments (allow overriding defaults)
 for a in "$@"; do
   case "$a" in
+    --bun) DO_BUN=true ;;
     --no-bun) DO_BUN=false ;;
     --no-compress) DO_COMPRESS=false ;;
     --full-build) BUILD_ONLY=false ;;  # Allow full build if needed

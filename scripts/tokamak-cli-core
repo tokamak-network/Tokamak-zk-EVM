@@ -153,13 +153,15 @@ step_install() {
   
   # Detect CI environment and set appropriate options
   # Default behavior now includes setup generation (BUILD_ONLY=false by default)
+ 
   local packaging_options="--no-compress"
   if [ -z "${GITHUB_ACTIONS:-}" ] && [ -z "${CI:-}" ] && [ -z "${CONTINUOUS_INTEGRATION:-}" ]; then
     # Local environment: skip bun and compression
     packaging_options="--no-bun --no-compress"
     log "Install: Local environment detected - using options: $packaging_options"
   else
-    # CI environment: skip compression only
+    # CI environment: use bun and skip compression only
+    packaging_options="--bun --no-compress"
     log "Install: CI environment detected - using options: $packaging_options"
   fi
   

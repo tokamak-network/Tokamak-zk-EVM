@@ -27,17 +27,18 @@ OUT_ZIP='tokamak-zk-evm-macOS.zip'
 
 # Default settings (full build with setup)
 DO_SIGN=false
-DO_BUN=true
+DO_BUN=false  # Default to no bun for local development
 DO_COMPRESS=true
-BUILD_ONLY=false  # Default to full build with setup
+NO_SETUP=false  # Default to full build with setup
 
 # Parse arguments (allow overriding defaults)
 for a in "$@"; do
     case "$a" in
       --sign) DO_SIGN=true ;;
+      --bun) DO_BUN=true ;;
       --no-bun) DO_BUN=false ;;
       --no-compress) DO_COMPRESS=false ;;
-      --full-build) BUILD_ONLY=false ;;  # Allow full build if needed
+      --no-setup) NO_SETUP=true ;;  # Skip setup generation
   esac
 done
 
