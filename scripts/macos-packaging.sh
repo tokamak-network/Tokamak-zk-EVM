@@ -107,16 +107,18 @@ echo "[*] Copying executable binaries..."
 mkdir -p "${TARGET}/bin"
 
 # Check if synthesizer binary exists and copy it
-SYNTHESIZER_PATH="packages/frontend/synthesizer/bin/synthesizer-macos-arm64"
-if [ -f "$SYNTHESIZER_PATH" ]; then
-    echo "✅ Found synthesizer binary at $SYNTHESIZER_PATH"
-    cp -vf "$SYNTHESIZER_PATH" "${TARGET}/bin"
-    mv "${TARGET}/bin/synthesizer-macos-arm64" "${TARGET}/bin/synthesizer"
-else
-    echo "❌ Error: synthesizer binary not found at $SYNTHESIZER_PATH"
-    echo "🔍 Checking if binary exists in other locations..."
-    find packages/frontend/synthesizer -name "*synthesizer*" -type f 2>/dev/null || echo "No synthesizer binaries found"
-    exit 1
+if [[ "$DO_BUN" == "true" ]]; then
+  SYNTHESIZER_PATH="packages/frontend/synthesizer/bin/synthesizer-macos-arm64"
+  if [ -f "$SYNTHESIZER_PATH" ]; then
+      echo "✅ Found synthesizer binary at $SYNTHESIZER_PATH"
+      cp -vf "$SYNTHESIZER_PATH" "${TARGET}/bin"
+      mv "${TARGET}/bin/synthesizer-macos-arm64" "${TARGET}/bin/synthesizer"
+  else
+      echo "❌ Error: synthesizer binary not found at $SYNTHESIZER_PATH"
+      echo "🔍 Checking if binary exists in other locations..."
+      find packages/frontend/synthesizer -name "*synthesizer*" -type f 2>/dev/null || echo "No synthesizer binaries found"
+      exit 1
+  fi
 fi
 
 # Copy Rust binaries with existence check

@@ -30,6 +30,8 @@ coverage.json
 
 #Cli
 ./your_proof
-
 dist
 
+#Package
+*.zip
+*.tar.gz
