@@ -7,5 +7,5 @@
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Forward all arguments to the actual tokamak-cli script
-exec "${SCRIPT_DIR}/scripts/tokamak-cli" "$@"
+# Forward all arguments to the actual tokamak-cli-core script
+exec "${SCRIPT_DIR}/scripts/tokamak-cli-core" "$@"

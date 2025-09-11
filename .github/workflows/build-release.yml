@@ -63,7 +63,7 @@ jobs:
           echo "✅ Bun is ready"
 
       - name: Make tokamak-cli executable
-        run: chmod +x ./scripts/tokamak-cli
+        run: chmod +x ./scripts/tokamak-cli-core
 
       - name: Setup environment
         env:
@@ -82,7 +82,7 @@ jobs:
 
           # Install tsx globally (required for synthesizer)
           npm install -g tsx
-          ./scripts/tokamak-cli --install "$ALCHEMY_API_KEY"
+          ./scripts/tokamak-cli-core --install "$ALCHEMY_API_KEY"
 
       - name: Generate proof for ${{ matrix.test_case.name }}
         run: |
@@ -90,7 +90,7 @@ jobs:
           echo "📋 TX Hash: ${{ matrix.test_case.tx_hash }}"
 
           # Attempt proof generation
-          ./scripts/tokamak-cli --prove "${{ matrix.test_case.tx_hash }}" "./proof_${{ matrix.test_case.name }}"
+          ./scripts/tokamak-cli-core --prove "${{ matrix.test_case.tx_hash }}" "./proof_${{ matrix.test_case.name }}"
 
       - name: Validate proof artifacts
         run: |
