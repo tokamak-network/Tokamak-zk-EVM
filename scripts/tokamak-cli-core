@@ -73,12 +73,8 @@ detect_target() {
 }
 
 packaging_script_for_target() {
-  case "$1" in
-    mac)     echo "$ROOT/scripts/macos-packaging.sh" ;;
-    linux20) echo "$ROOT/scripts/linux-packaging.sh" ;;
-    linux22) echo "$ROOT/scripts/linux-packaging.sh" ;;
-    *)       echo "$ROOT/scripts/linux-packaging.sh" ;;
-  esac
+  # All platforms now use the unified packaging script
+  echo "$ROOT/scripts/packaging.sh"
 }
 
 dist_dir_for_target() {
@@ -157,20 +153,29 @@ step_install() {
   # - Binary Building: uses prebuilt setup (--bun --no-setup)
  
   local packaging_options=()
+  
+  # Add platform-specific option for unified script
+  case "$target" in
+    mac)     packaging_options+=("--macos") ;;
+    linux20) packaging_options+=("--linux") ;;
+    linux22) packaging_options+=("--linux") ;;
+    *)       packaging_options+=("--linux") ;;
+  esac
+  
   if [ -z "${GITHUB_ACTIONS:-}" ] && [ -z "${CI:-}" ] && [ -z "${CONTINUOUS_INTEGRATION:-}" ]; then
     # Local environment: use default settings (npm) and skip compression
-    packaging_options=("--no-compress")
+    packaging_options+=("--no-compress")
     log "Install: Local environment detected - using options: ${packaging_options[*]}"
   else
     # CI environment: use bun for performance, always skip compression
     # Note: setup generation depends on whether prebuilt files are available
     if [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
       # Prebuilt setup available (Binary Building jobs)
-      packaging_options=("--bun" "--no-setup" "--no-compress")
+      packaging_options+=("--bun" "--no-setup" "--no-compress")
       log "Install: CI environment with prebuilt setup - using options: ${packaging_options[*]}"
     else
       # No prebuilt setup (Proof Generation Test)
-      packaging_options=("--bun" "--no-compress")
+      packaging_options+=("--bun" "--no-compress")
       log "Install: CI environment, generating fresh setup - using options: ${packaging_options[*]}"
     fi
   fi
@@ -301,9 +306,8 @@ Commands:
   --install <API_KEY|RPC_URL>
       1) npm install in packages/frontend/qap-compiler
       2) npm install in packages/frontend/synthesizer
-      3) Run backend packaging script:
-         mac → mac-packaging.sh
-         Ubuntu → linux-packaging.sh
+      3) Run unified packaging script (packaging.sh):
+         Automatically detects platform (macOS/Linux) and builds accordingly
       4) Compile qap-compiler (packages/frontend/qap-compiler/scripts/compile.sh)
       5) Write RPC_URL to packages/frontend/synthesizer/.env:
          - If ARG starts with https://, use it as-is:
