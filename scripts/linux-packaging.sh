@@ -16,13 +16,12 @@ echo "🔍 CI Linux packaging script running from workspace root: $(pwd)"
 # Default settings (full build with setup)
 DO_BUN=false  # Default to no bun for local development
 DO_COMPRESS=true
-DO_SETUP=true  # Default to full build with setup이며_SET
+DO_SETUP=true  # Default to full build with setup_SET
 
 # Parse arguments (allow overriding defaults)
 for a in "$@"; do
   case "$a" in
     --bun) DO_BUN=true ;;
-    --no-bun) DO_BUN=false ;;
     --no-compress) DO_COMPRESS=false ;;
     --no-setup) DO_SETUP=false ;;  # Skip setup generation
   esac
@@ -108,7 +107,7 @@ if [[ "$DO_BUN" == "true" ]]; then
   cd "$WORKSPACE_ROOT"
   echo "✅ built synthesizer"
 else
-  echo "ℹ️ Skipping bun-based synthesizer build (--no-bun)"
+  echo "ℹ️ Skipping bun-based synthesizer build (using npm by default)"
 fi
 
 echo "[*] Building backend..."
