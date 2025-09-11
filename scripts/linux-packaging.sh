@@ -3,12 +3,12 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 
 # =========================
-# CI-specific Linux packaging script
-# This script is designed to run in GitHub Actions
+# Linux packaging script
+# This script works in both CI and local environments
 # =========================
 
-# Navigate to workspace root from .github/scripts/
-WORKSPACE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Navigate to workspace root from scripts/
+WORKSPACE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$WORKSPACE_ROOT"
 
 echo "🔍 CI Linux packaging script running from workspace root: $(pwd)"
