@@ -152,7 +152,7 @@ step_install() {
   to_unix_exec "$script"
   
   # Detect CI environment and set appropriate options
-  # Default behavior now includes setup generation (BUILD_ONLY=false by default)
+  # Default behavior now includes setup generation (DO_SETUP=true by default)
  
   local packaging_options="--no-compress"
   if [ -z "${GITHUB_ACTIONS:-}" ] && [ -z "${CI:-}" ] && [ -z "${CONTINUOUS_INTEGRATION:-}" ]; then

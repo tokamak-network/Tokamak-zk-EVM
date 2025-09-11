@@ -16,7 +16,7 @@ echo "🔍 CI Linux packaging script running from workspace root: $(pwd)"
 # Default settings (full build with setup)
 DO_BUN=false  # Default to no bun for local development
 DO_COMPRESS=true
-BUILD_ONLY=false  # Default to full build with setup
+DO_SETUP=true  # Default to full build with setup이며_SET
 
 # Parse arguments (allow overriding defaults)
 for a in "$@"; do
@@ -24,11 +24,11 @@ for a in "$@"; do
     --bun) DO_BUN=true ;;
     --no-bun) DO_BUN=false ;;
     --no-compress) DO_COMPRESS=false ;;
-    --full-build) BUILD_ONLY=false ;;  # Allow full build if needed
+    --no-setup) DO_SETUP=false ;;  # Skip setup generation
   esac
 done
 
-echo "ℹ️ CI Mode: BUILD_ONLY=${BUILD_ONLY}, DO_BUN=${DO_BUN}, DO_COMPRESS=${DO_COMPRESS}"
+echo "ℹ️ CI Mode: DO_SETUP=${DO_SETUP}, DO_BUN=${DO_BUN}, DO_COMPRESS=${DO_COMPRESS}"
 
 # =========================
 # Detect Ubuntu version (20 or 22) and set targets
@@ -180,7 +180,7 @@ cp -r icicle/* "${TARGET}/${BACKEND_PATH}"
 echo "[*] Cleaning up temporary files..."
 rm -rf "$BACKEND_TARBALL" "$COMMON_TARBALL" icicle
 
-if [[ "$BUILD_ONLY" == "true" ]]; then
+if [[ "$DO_SETUP" == "false" ]]; then
   echo "ℹ️ Build-only mode: Skipping setup execution and setup files"
   echo "ℹ️ Setup files are distributed separately to reduce binary size"
   mkdir -p "${TARGET}/resource/setup/output"

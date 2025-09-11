@@ -171,7 +171,7 @@ jobs:
         run: |
           echo "🔍 Building macOS binary using packaging script..."
           chmod +x scripts/macos-packaging.sh
-          ./scripts/macos-packaging.sh --bun --build-only
+          ./scripts/macos-packaging.sh --bun --no-setup
 
       - name: Upload macOS binary
         uses: actions/upload-artifact@v4
@@ -238,7 +238,7 @@ jobs:
         run: |
           echo "🔍 Building Linux binary using packaging script..."
           chmod +x scripts/linux-packaging.sh
-          ./scripts/linux-packaging.sh --bun --build-only
+          ./scripts/linux-packaging.sh --bun --no-setup
 
       - name: Download setup files from proof test
         uses: actions/download-artifact@v4

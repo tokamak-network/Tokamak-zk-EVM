@@ -29,7 +29,7 @@ OUT_ZIP='tokamak-zk-evm-macOS.zip'
 DO_SIGN=false
 DO_BUN=false  # Default to no bun for local development
 DO_COMPRESS=true
-NO_SETUP=false  # Default to full build with setup
+DO_SETUP=true  # Default to full build with setup
 
 # Parse arguments (allow overriding defaults)
 for a in "$@"; do
@@ -38,11 +38,11 @@ for a in "$@"; do
       --bun) DO_BUN=true ;;
       --no-bun) DO_BUN=false ;;
       --no-compress) DO_COMPRESS=false ;;
-      --no-setup) NO_SETUP=true ;;  # Skip setup generation
+      --no-setup) DO_SETUP=false ;;  # Skip setup generation
   esac
 done
 
-echo "ℹ️ CI Mode: BUILD_ONLY=${BUILD_ONLY}, DO_BUN=${DO_BUN}, DO_COMPRESS=${DO_COMPRESS}, DO_SIGN=${DO_SIGN}"
+echo "ℹ️ CI Mode: DO_SETUP=${DO_SETUP}, DO_BUN=${DO_BUN}, DO_COMPRESS=${DO_COMPRESS}, DO_SIGN=${DO_SIGN}"
 
 echo "[*] Copying scripts..."
 rm -rf -- "${TARGET}"
@@ -163,7 +163,7 @@ install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/preprocess"
 install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/verify"
 echo "✅ @rpath set to ${RPATH}"
 
-if [[ "$BUILD_ONLY" == "true" ]]; then
+if [[ "$DO_SETUP" == "false" ]]; then
   echo "ℹ️ Build-only mode: Skipping setup execution and setup files"
   echo "ℹ️ Setup files are distributed separately to reduce binary size"
   mkdir -p "${TARGET}/resource/setup/output"
