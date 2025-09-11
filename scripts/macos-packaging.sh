@@ -54,6 +54,7 @@ mkdir -p "${TARGET}/resource/qap-compiler/library"
 cp -r packages/frontend/qap-compiler/subcircuits/library/* "${TARGET}/resource/qap-compiler/library"
 echo "✅ copied to ${TARGET}/resource"
 
+echo "🔍 DEBUG: DO_BUN value is: '$DO_BUN'"
 if [[ "$DO_BUN" == "true" ]]; then
   echo "[*] Checking Bun installation..."
   if ! command -v bun >/dev/null 2>&1; then
@@ -93,7 +94,10 @@ if [[ "$DO_BUN" == "true" ]]; then
   cd "$WORKSPACE_ROOT"
   echo "✅ built synthesizer"
 else
-  echo "ℹ️ Skipping bun-based synthesizer build (using npm by default)"
+  echo "❌ ERROR: Synthesizer build requires --bun flag in CI environment"
+  echo "🔍 Current DO_BUN value: '$DO_BUN'"
+  echo "🔍 Arguments passed: $*"
+  exit 1
 fi
 
 cd packages/backend
