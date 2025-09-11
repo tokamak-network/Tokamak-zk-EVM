@@ -175,6 +175,7 @@ step_install() {
     fi
   fi
   
+  echo "🔍 DEBUG: Executing: bash \"$script\" $packaging_options"
   bash "$script" $packaging_options
   # popd >/dev/null
 

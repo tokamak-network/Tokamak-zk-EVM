@@ -19,11 +19,23 @@ DO_COMPRESS=true
 DO_SETUP=true  # Default to full build with setup_SET
 
 # Parse arguments (allow overriding defaults)
+echo "🔍 DEBUG: Total arguments: $#"
+echo "🔍 DEBUG: All arguments: $*"
 for a in "$@"; do
+  echo "🔍 DEBUG: Processing argument: '$a'"
   case "$a" in
-    --bun) DO_BUN=true ;;
-    --no-compress) DO_COMPRESS=false ;;
-    --no-setup) DO_SETUP=false ;;  # Skip setup generation
+    --bun) 
+      echo "🔍 DEBUG: Found --bun flag, setting DO_BUN=true"
+      DO_BUN=true ;;
+    --no-compress) 
+      echo "🔍 DEBUG: Found --no-compress flag, setting DO_COMPRESS=false"
+      DO_COMPRESS=false ;;
+    --no-setup) 
+      echo "🔍 DEBUG: Found --no-setup flag, setting DO_SETUP=false"
+      DO_SETUP=false ;;
+    *)
+      echo "🔍 DEBUG: Unknown argument: '$a'"
+      ;;
   esac
 done
 
