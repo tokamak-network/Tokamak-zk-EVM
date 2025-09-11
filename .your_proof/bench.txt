@@ -1,1 +1,0 @@
-Proof generation time: 85.729838 seconds

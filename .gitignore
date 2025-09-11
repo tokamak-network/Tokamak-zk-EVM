@@ -29,7 +29,9 @@ coverage.json
 .cursorrules
 
 #Cli
-./your_proof
+.your_proof
+**/your_proof/
+**/.your_proof/
 dist
 
 #Package
