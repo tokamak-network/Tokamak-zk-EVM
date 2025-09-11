@@ -14,7 +14,7 @@ jobs:
       - name: Get PR info
         id: pr-info
         run: |
-          # PR 번호와 브랜치 정보 추출
+          # Extract PR number and branch information
           PR_NUMBER=$(echo "${{ github.event.workflow_run.head_branch }}" | grep -o '[0-9]\+' || echo "unknown")
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
           echo "branch=${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT

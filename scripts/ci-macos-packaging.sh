@@ -3,7 +3,7 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 
 # =========================
-# CI-specific Linux packaging script
+# CI-specific macOS packaging script
 # This script is designed to run in GitHub Actions
 # =========================
 
@@ -11,63 +11,49 @@ IFS=$'\n\t'
 WORKSPACE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$WORKSPACE_ROOT"
 
-echo "🔍 CI Linux packaging script running from workspace root: $(pwd)"
+echo "🔍 CI macOS packaging script running from workspace root: $(pwd)"
+
+TARGET="dist/macOS"
+BACKEND_PATH="backend-lib/icicle"
+
+COMMON_TARBALL="icicle_3_8_0-macOS.tar.gz"
+BACKEND_TARBALL="icicle_3_8_0-macOS-Metal.tar.gz"
+COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
+BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$BACKEND_TARBALL"
+
+APP_SIGN_ID='3524416ED3903027378EA41BB258070785F977F9'
+NOTARY_PROFILE='tokamak-zk-evm-backend'
+OUT_ZIP='tokamak-zk-evm-macOS.zip'
 
 # CI-specific defaults (optimized for build-only mode)
+DO_SIGN=false
 DO_BUN=true
 DO_COMPRESS=true
 BUILD_ONLY=true  # Default to build-only for CI
 
 # Parse arguments (allow overriding defaults)
 for a in "$@"; do
-  case "$a" in
-    --no-bun) DO_BUN=false ;;
-    --no-compress) DO_COMPRESS=false ;;
-    --full-build) BUILD_ONLY=false ;;  # Allow full build if needed
+    case "$a" in
+      --sign) DO_SIGN=true ;;
+      --no-bun) DO_BUN=false ;;
+      --no-compress) DO_COMPRESS=false ;;
+      --full-build) BUILD_ONLY=false ;;  # Allow full build if needed
   esac
 done
 
-echo "ℹ️ CI Mode: BUILD_ONLY=${BUILD_ONLY}, DO_BUN=${DO_BUN}, DO_COMPRESS=${DO_COMPRESS}"
-
-# =========================
-# Detect Ubuntu version (20 or 22) and set targets
-# =========================
-UB_MAJOR="22"
-if [ -r /etc/os-release ]; then . /etc/os-release; fi
-if [ -n "${VERSION_ID:-}" ]; then UB_MAJOR="${VERSION_ID%%.*}"; fi
-if [ "$UB_MAJOR" != "22" ] && [ "$UB_MAJOR" != "20" ]; then
-  echo "[!] Unsupported Ubuntu VERSION_ID=${VERSION_ID:-unknown}; defaulting to 22"
-  UB_MAJOR="22"
-fi
-
-TARGET="dist/linux${UB_MAJOR}"
-BACKEND_PATH="backend-lib/icicle"
-OUT_TGZ="tokamak-zk-evm-linux${UB_MAJOR}.tar.gz"
-
-BASE_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0"
-COMMON_TARBALL="icicle_3_8_0-ubuntu${UB_MAJOR}.tar.gz"
-BACKEND_TARBALL="icicle_3_8_0-ubuntu${UB_MAJOR}-cuda122.tar.gz"
-COMMON_URL="${BASE_URL}/${COMMON_TARBALL}"
-BACKEND_URL="${BASE_URL}/${BACKEND_TARBALL}"
+echo "ℹ️ CI Mode: BUILD_ONLY=${BUILD_ONLY}, DO_BUN=${DO_BUN}, DO_COMPRESS=${DO_COMPRESS}, DO_SIGN=${DO_SIGN}"
 
 echo "[*] Copying scripts..."
 rm -rf -- "${TARGET}"
 mkdir -p "${TARGET}"
-cp -r .run_scripts/linux/* "${TARGET}"
+cp -r .run_scripts/macOS/* "${TARGET}"
 echo "✅ copied to ${TARGET}"
 
-# =========================
-# Copy resources
-# =========================
 echo "[*] Copying resource..."
 mkdir -p "${TARGET}/resource/qap-compiler/library"
-
 cp -r packages/frontend/qap-compiler/subcircuits/library/* "${TARGET}/resource/qap-compiler/library"
 echo "✅ copied to ${TARGET}/resource"
 
-# =========================
-# Build Synthesizer
-# =========================
 if [[ "$DO_BUN" == "true" ]]; then
   echo "[*] Checking Bun installation..."
   if ! command -v bun >/dev/null 2>&1; then
@@ -90,15 +76,15 @@ if [[ "$DO_BUN" == "true" ]]; then
   dos2unix "$BUN_SCRIPT" || true
   chmod +x "$BUN_SCRIPT" 2>/dev/null || true
   
-  echo "🔍 Building synthesizer binary for Linux..."
-  "$BUN_SCRIPT" linux
+  echo "🔍 Building synthesizer binary for macOS..."
+  "$BUN_SCRIPT" macos
   
   echo "🔍 Verifying synthesizer binary was created..."
-  if [ -f "bin/synthesizer-linux-x64" ]; then
-      echo "✅ SUCCESS: synthesizer-linux-x64 created!"
-      ls -la bin/synthesizer-linux-x64
+  if [ -f "bin/synthesizer-macos-arm64" ]; then
+      echo "✅ SUCCESS: synthesizer-macos-arm64 created!"
+      ls -la bin/synthesizer-macos-arm64
   else
-      echo "❌ FAILED: synthesizer-linux-x64 not found"
+      echo "❌ FAILED: synthesizer-macos-arm64 not found"
       echo "🔍 Contents of bin directory:"
       ls -la bin/ || echo "No bin directory"
       exit 1
@@ -110,27 +96,22 @@ else
   echo "ℹ️ Skipping bun-based synthesizer build (--no-bun)"
 fi
 
-echo "[*] Building backend..."
 cd packages/backend
 cargo build -p trusted-setup --release
 cargo build -p preprocess --release
 cargo build -p prove --release
 cargo build -p verify --release
 cd "$WORKSPACE_ROOT"
-echo "✅ built backend"
 
-# =========================
-# Copy executable binaries
-# =========================
 echo "[*] Copying executable binaries..."
 mkdir -p "${TARGET}/bin"
 
 # Check if synthesizer binary exists and copy it
-SYNTHESIZER_PATH="packages/frontend/synthesizer/bin/synthesizer-linux-x64"
+SYNTHESIZER_PATH="packages/frontend/synthesizer/bin/synthesizer-macos-arm64"
 if [ -f "$SYNTHESIZER_PATH" ]; then
     echo "✅ Found synthesizer binary at $SYNTHESIZER_PATH"
     cp -vf "$SYNTHESIZER_PATH" "${TARGET}/bin"
-    mv "${TARGET}/bin/synthesizer-linux-x64" "${TARGET}/bin/synthesizer"
+    mv "${TARGET}/bin/synthesizer-macos-arm64" "${TARGET}/bin/synthesizer"
 else
     echo "❌ Error: synthesizer binary not found at $SYNTHESIZER_PATH"
     echo "🔍 Checking if binary exists in other locations..."
@@ -153,19 +134,12 @@ done
 
 echo "✅ copied to ${TARGET}/bin"
 
-# =========================
-# Preflight
-# =========================
-command -v curl     >/dev/null 2>&1 || { echo "curl is required but not found"; exit 1; }
-command -v tar      >/dev/null 2>&1 || { echo "tar is required but not found"; exit 1; }
+command -v curl >/dev/null 2>&1 || { echo "curl is required but not found"; exit 1; }
+command -v tar  >/dev/null 2>&1 || { echo "tar is required but not found"; exit 1; }
 
-# =========================
-# Download / Extract Icicle
-# =========================
-echo "[*] Downloading backend package: ${BACKEND_TARBALL}"
+echo "[*] Downloading backend package..."
 curl -fL --retry 3 -o "$BACKEND_TARBALL" "$BACKEND_URL"
-
-echo "[*] Downloading common runtime package: ${COMMON_TARBALL}"
+echo "[*] Downloading common runtime package..."
 curl -fL --retry 3 -o "$COMMON_TARBALL" "$COMMON_URL"
 
 echo "[*] Extracting packages..."
@@ -179,6 +153,15 @@ cp -r icicle/* "${TARGET}/${BACKEND_PATH}"
 echo "[*] Cleaning up temporary files..."
 rm -rf "$BACKEND_TARBALL" "$COMMON_TARBALL" icicle
 
+echo "[*] Configuring @rpath of the binaries..."
+RPATH="@executable_path/../${BACKEND_PATH}/lib"
+
+install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/trusted-setup"
+install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/prove"
+install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/preprocess"
+install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/verify"
+echo "✅ @rpath set to ${RPATH}"
+
 if [[ "$BUILD_ONLY" == "true" ]]; then
   echo "ℹ️ Build-only mode: Skipping setup execution and setup files"
   echo "ℹ️ Setup files are distributed separately to reduce binary size"
@@ -186,9 +169,14 @@ if [[ "$BUILD_ONLY" == "true" ]]; then
   # Create placeholder file to maintain directory structure
   echo "Setup files not included in binary distribution. Download separately from GitHub Release." > "${TARGET}/resource/setup/output/README.txt"
 else
-  # Check if prebuilt setup files are available
-  if [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
-    echo "[*] Using prebuilt setup files from proof test..."
+  # Check if running in CI environment and prebuilt setup files are available
+  IS_CI_ENV=false
+  if [ -n "${GITHUB_ACTIONS:-}" ] || [ -n "${CI:-}" ] || [ -n "${CONTINUOUS_INTEGRATION:-}" ]; then
+    IS_CI_ENV=true
+  fi
+  
+  if [ "$IS_CI_ENV" = "true" ] && [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
+    echo "[*] CI environment detected - Using prebuilt setup files from proof test..."
     mkdir -p "${TARGET}/resource/setup/output"
     cp -r ./prebuilt-setup/* "${TARGET}/resource/setup/output/"
     echo "✅ Prebuilt setup files copied"
@@ -206,7 +194,11 @@ else
       echo "✅ CRS has been generated"
     fi
   else
-    echo "[*] No prebuilt setup files found, running trusted-setup..."
+    if [ "$IS_CI_ENV" = "false" ]; then
+      echo "[*] Local environment detected - Running fresh trusted-setup for safety..."
+    else
+      echo "[*] No prebuilt setup files found - Running trusted-setup..."
+    fi
     SETUP_SCRIPT="./${TARGET}/1_run-trusted-setup.sh"
     dos2unix "$SETUP_SCRIPT"
     chmod +x "$SETUP_SCRIPT"
@@ -215,33 +207,33 @@ else
   fi
 fi
 
-# =========================
-# Package (.tar.gz)
-# =========================
+if [[ "$DO_SIGN" == "true" ]]; then
+  echo "[*] Signing on all distribution..."
+  find "$TARGET" -type f \( -perm -111 -o -name "*.dylib" -o -name "*.so" \) -print0 | xargs -0 -I{} codesign --force --options runtime --entitlements entitlements.plist --timestamp -s "$APP_SIGN_ID" "{}"
+  echo "✅ Signed"
+else
+  echo "ℹ️ Skipping code signing (run with --sign to enable)"
+fi
+
+echo "✅ Distribution for MacOS has been generated"
+
 if [[ "$DO_COMPRESS" == "true" ]]; then
-  echo "[*] Packaging with high compression..."
-  rm -f "$OUT_TGZ"
-  mkdir -p dist
-  
-  # Use maximum compression with gzip - output to workspace root
-  tar -C "$TARGET" -c . | gzip -9 > "$OUT_TGZ"
-  
-  # Show compression stats
-  UNCOMPRESSED_SIZE=$(du -sb "$TARGET" | cut -f1)
-  COMPRESSED_SIZE=$(stat -c%s "$OUT_TGZ" 2>/dev/null || stat -f%z "$OUT_TGZ")
-  COMPRESSION_RATIO=$(echo "scale=1; $COMPRESSED_SIZE * 100 / $UNCOMPRESSED_SIZE" | bc -l 2>/dev/null || echo "N/A")
-  
-  echo "✅ Packaging complete: ${OUT_TGZ} (in workspace root)"
-  echo "📊 Uncompressed: $(numfmt --to=iec $UNCOMPRESSED_SIZE 2>/dev/null || echo "${UNCOMPRESSED_SIZE} bytes")"
-  echo "📊 Compressed: $(numfmt --to=iec $COMPRESSED_SIZE 2>/dev/null || echo "${COMPRESSED_SIZE} bytes")"
-  echo "📊 Compression ratio: ${COMPRESSION_RATIO}%"
-  
-  # Check if approaching GitHub limit
-  if [ "$COMPRESSED_SIZE" -gt 1900000000 ]; then
-    echo "⚠️  WARNING: File size approaching GitHub 2GB limit!"
+  echo "[*] Packaging..."
+  rm -f "$OUT_ZIP"
+  ( cd "$TARGET" && ditto -c -k --sequesterRsrc . "../../$OUT_ZIP" )
+  echo "✅ Packaged: $OUT_ZIP (in workspace root)"
+
+  if [[ "$DO_SIGN" == "true" ]]; then
+    echo "[*] Notarizing..."
+    xcrun notarytool submit "$OUT_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
+    echo "✅ Notarization completed"
+  else
+    echo "ℹ️ Skipping notarization (run with --sign to enable)"
   fi
+
+  echo "✅ Packaging for MacOS has been completed"
 else
   echo "ℹ️ Skipping compression (--no-compress)"
 fi
 
-echo "🎉 CI Linux packaging completed successfully!"
+echo "🎉 CI macOS packaging completed successfully!"

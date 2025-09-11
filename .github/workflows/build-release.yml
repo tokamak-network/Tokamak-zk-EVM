@@ -2,9 +2,9 @@ name: Test, Build & Release
 
 on:
   push:
-    branches: [main] # Execute when pushing to main branch
+    branches: [main, dev] # Execute when pushing to main or dev branch
   pull_request:
-    branches: [main] # Execute on PR creation and updates to main branch
+    branches: [main, dev] # Execute on PR creation and updates to main or dev branch
   workflow_dispatch: # Manual execution allowed
 
 jobs:
@@ -63,7 +63,7 @@ jobs:
           echo "✅ Bun is ready"
 
       - name: Make tokamak-cli executable
-        run: chmod +x ./tokamak-cli
+        run: chmod +x ./scripts/tokamak-cli
 
       - name: Setup environment
         env:
@@ -82,7 +82,7 @@ jobs:
 
           # Install tsx globally (required for synthesizer)
           npm install -g tsx
-          ./tokamak-cli --install "$ALCHEMY_API_KEY"
+          ./scripts/tokamak-cli --install "$ALCHEMY_API_KEY"
 
       - name: Generate proof for ${{ matrix.test_case.name }}
         run: |
@@ -90,7 +90,7 @@ jobs:
           echo "📋 TX Hash: ${{ matrix.test_case.tx_hash }}"
 
           # Attempt proof generation
-          ./tokamak-cli --prove "${{ matrix.test_case.tx_hash }}" "./proof_${{ matrix.test_case.name }}"
+          ./scripts/tokamak-cli --prove "${{ matrix.test_case.tx_hash }}" "./proof_${{ matrix.test_case.name }}"
 
       - name: Validate proof artifacts
         run: |
@@ -130,8 +130,8 @@ jobs:
     runs-on: macos-latest
     needs: proof-generation-test
     timeout-minutes: 60
-    # Execute on push to main or on any PR to main (for validation)
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    # Execute only for main branch (push/PR), skip dev branch
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
 
     steps:
       - name: Checkout code
@@ -170,8 +170,8 @@ jobs:
       - name: Build macOS binary
         run: |
           echo "🔍 Building macOS binary using CI-specific script..."
-          chmod +x .github/scripts/ci-macos-packaging.sh
-          ./.github/scripts/ci-macos-packaging.sh
+          chmod +x scripts/ci-macos-packaging.sh
+          ./scripts/ci-macos-packaging.sh
 
       - name: Upload macOS binary
         uses: actions/upload-artifact@v4
@@ -185,8 +185,8 @@ jobs:
     runs-on: ubuntu-22.04 # Specify Linux 22 version
     needs: proof-generation-test # Execute after proof test passes
     timeout-minutes: 60
-    # Execute on push to main or on any PR to main (for validation)
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    # Execute only for main branch (push/PR), skip dev branch
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
 
     steps:
       - name: Checkout code
@@ -237,8 +237,8 @@ jobs:
       - name: Build Linux binary
         run: |
           echo "🔍 Building Linux binary using CI-specific script..."
-          chmod +x .github/scripts/ci-linux-packaging.sh
-          ./.github/scripts/ci-linux-packaging.sh
+          chmod +x scripts/ci-linux-packaging.sh
+          ./scripts/ci-linux-packaging.sh
 
       - name: Download setup files from proof test
         uses: actions/download-artifact@v4
@@ -287,8 +287,8 @@ jobs:
     name: Create GitHub Release
     runs-on: ubuntu-22.04
     needs: [proof-generation-test, build-macos, build-linux]
-    # Execute only when all tests and builds succeed, and only on push to main (not on PR)
-    if: success() && github.event_name == 'push'
+    # Execute only when all tests and builds succeed, and only on push to main branch
+    if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
