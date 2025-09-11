@@ -184,11 +184,14 @@ step_prove() {
   local tx_hash="${1:-}"
   local save_path="${2:-}"
   [[ -n "$tx_hash" ]] || { err "--prove requires <TX_HASH> [<SAVE_PATH>]"; exit 1; }
-  [[ -n "$save_path" ]] || save_path="./.your_proof"
+  [[ -n "$save_path" ]] || save_path=".your_proof"
 
+  # Convert to absolute path based on ROOT
+  local abs_save_path="$ROOT/$save_path"
+  
   # Ensure save directory exists and persist the provided transaction hash
-  mkdir -p "$save_path"
-  printf '%s\n' "$tx_hash" > "$save_path/transaction_hash.txt"
+  mkdir -p "$abs_save_path"
+  printf '%s\n' "$tx_hash" > "$abs_save_path/transaction_hash.txt"
 
   log "Prove: synthesize from tx=$tx_hash"
   pushd "$FE_SYN" >/dev/null
@@ -220,10 +223,10 @@ step_prove() {
 
   if [[ "$verify_out" == "true" || "$verify_out" == "true"$'\r' ]]; then
     log "Prove: verification ok; copying proof"
-    mkdir -p "$save_path"
+    mkdir -p "$abs_save_path"
     if [[ -d "$dist_dir/resource/prove/output" ]]; then
-      cp -a "$dist_dir/resource/prove/output/." "$save_path/"
-      ok "Artifacts copied → $save_path"
+      cp -a "$dist_dir/resource/prove/output/." "$abs_save_path/"
+      ok "Artifacts copied → $abs_save_path"
     else
       err "Output directory not found: $dist_dir/resource/prove/output"
       exit 1
@@ -237,11 +240,10 @@ step_prove() {
 step_verify() {
   local save_path="${1:-}"
   [[ -n "$save_path" ]] || { err "--verify requires <SAVE_PATH>"; exit 1; }
-  local tx_hash="$(read_tx_hash "./$save_path/transaction_hash.txt")"
+  local proof_path="$ROOT/$save_path"
+  local tx_hash="$(read_tx_hash "$proof_path/transaction_hash.txt")"
 
-  local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  local proof_path="$script_dir/$save_path"
-  [[ -f "$proof_path/proof.json" ]] || { err "proof.json not found in: ./$save_path"; exit 1; }
+  [[ -f "$proof_path/proof.json" ]] || { err "proof.json not found in: $save_path"; exit 1; }
 
   log "Verify: synthesize from tx=$tx_hash"
   pushd "$FE_SYN" >/dev/null
