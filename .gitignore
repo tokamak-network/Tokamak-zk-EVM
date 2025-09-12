@@ -8,6 +8,7 @@ Cargo.lock
 node_modules/
 build/
 .env
+act.env
 
 # Solidity
 artifacts/
@@ -24,7 +25,15 @@ coverage.json
 *.log
 
 #Cursor
+.cursor
+.cursorrules
 
-./your_proof
-
+#Cli
+.your_proof
+**/your_proof/
+**/.your_proof/
 dist
+
+#Package
+*.zip
+*.tar.gz
