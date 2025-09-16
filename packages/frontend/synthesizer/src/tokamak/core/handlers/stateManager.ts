@@ -22,27 +22,31 @@ import { SubcircuitRegistry } from '../../utils/index.js';
 import {jubjub} from '@noble/curves/misc';
 import { bytesToBigInt } from '@synthesizer-libs/util';
 import { AddressLike } from '@ethereumjs/util';
+import { MemoryPt, StackPt } from 'src/tokamak/pointers/index.ts';
+import { ISynthesizerProvider } from './synthesizerProvider.ts';
 
 /**
  * Manages the state of the synthesizer, including placements, auxin, and subcircuit information.
  */
 export class StateManager {
+  public stackPt: StackPt = new StackPt()
+  public memoryPt: MemoryPt = new MemoryPt()
+  
   public placements: Placements = new Map()
   public cachedStaticIn: Map<bigint, DataPt> = new Map()
   public cachedStorage: Map<string, DataPt> = new Map()
   public subcircuitInfoByName: SubcircuitInfoByName = new Map()
   public cachedOrigin: DataPt | undefined = undefined
   public txNonce: number = -1
-  
+  public placementIndex: number = FIRST_ARITHMETIC_PLACEMENT_INDEX
+  public cachedCalldataMemoryPt: MemoryPt | undefined = undefined
   
   public lastMerkleRoot: bigint
-  public placementIndex: number
   public subcircuitNames!: SubcircuitNames[]
 
   constructor(opts: SynthesizerOpts) {
     this.lastMerkleRoot = opts.initMerkleTreeRoot
-    this._initializeSubcircuitInfo();
-    this.placementIndex = FIRST_ARITHMETIC_PLACEMENT_INDEX
+    this._initializeSubcircuitInfo()
   }
 
   public place(

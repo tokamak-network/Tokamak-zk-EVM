@@ -107,6 +107,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       const [a, b] = runState.stack.popN(2);
       const r = mod(a + b, TWO_POW256);
       runState.stack.push(r);
+
       // For Synthesizer //
       synthesizerArith('ADD', [a, b], r, runState);
     },

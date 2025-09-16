@@ -107,7 +107,7 @@ export const copyMemoryRegion = (
   const zeroMemoryPtEntry: MemoryPtEntry = {
     memOffset: dstOffsetNum,
     containerSize: lengthNum,
-    dataPt: runState.synthesizer.loadAuxin(BIGINT_0),
+    dataPt: runState.synthesizer.loadArbitraryStatic(BIGINT_0, 1),
   }
   if (toMemoryPts.length > 0) {
     const simToMemoryPt = simulateMemoryPt(toMemoryPts)

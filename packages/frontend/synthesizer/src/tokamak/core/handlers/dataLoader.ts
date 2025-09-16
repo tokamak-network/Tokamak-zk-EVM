@@ -10,13 +10,19 @@ import {
   DEFAULT_SOURCE_SIZE,
 } from '../../constant/index.js';
 import { DataPtFactory } from '../../pointers/index.js';
-import { BUFFER_PLACEMENT, ReservedVariable, type DataPt, type DataPtDescription, type SubcircuitNames } from '../../types/index.js';
+import { BUFFER_PLACEMENT, ReservedVariable, SynthesizerOpts, type DataPt, type DataPtDescription, type SubcircuitNames } from '../../types/index.js';
 import { ISynthesizerProvider } from './index.ts';
+import { createLegacyTxFromL2Tx } from '@tokamak/utils';
+import { LegacyTx } from '@ethereumjs/tx';
 
 export class DataLoader {
+  public transactions: LegacyTx[];
   constructor(
     private parent: ISynthesizerProvider,
-  ) {}
+    opts: SynthesizerOpts
+  ) {
+    this.transactions = Array.from(opts.transactions, l2TxData => createLegacyTxFromL2Tx(l2TxData))
+  }
 
   public loadPUSH(
     codeAddress: string,

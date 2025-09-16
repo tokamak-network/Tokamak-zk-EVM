@@ -9,6 +9,9 @@ import type { DataPt, DataPtDescription, ArithmeticOperator } from '../../types/
 import { ISynthesizerProvider } from './index.ts';
 
 export class MemoryManager {
+  public envCalldataMemorypts: MemoryPts = []
+  public envReturnMemorypts: MemoryPts = []
+
   constructor(
     private parent: ISynthesizerProvider,
   ) {}
