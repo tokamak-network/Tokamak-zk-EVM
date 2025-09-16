@@ -384,6 +384,7 @@ fn main() {
     
     // Write bincode version for faster loading
     let output_dir_path = PathBuf::from(paths.output_path);
+    std::fs::create_dir_all(&output_dir_path).expect("Failed to create output directory");
     println!("Writing the sigma into bincode...");
     let bincode_data = bincode::serialize(&sigma).expect("Failed to serialize sigma to bincode");
     std::fs::write(output_dir_path.join("combined_sigma.bin"), bincode_data).expect("Failed to write bincode file");
