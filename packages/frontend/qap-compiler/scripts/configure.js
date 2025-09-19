@@ -1,4 +1,4 @@
-module.exports.S_MAX = 512
+module.exports.S_MAX = 2048
 
 const listIn = new Map()
 listIn.set('bufferPubIn', 'public')
