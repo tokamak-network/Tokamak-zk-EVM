@@ -25,4 +25,7 @@ pub trait CurveConfig: 'static + Send + Sync + Clone + Debug {
     fn one() -> Self::ScalarField;
     fn generate_random(count: usize) -> Vec<Self::ScalarField>;
     fn from_bytes_le(bytes: &[u8]) -> Self::ScalarField;
+    fn is_zero(field: &Self::ScalarField) -> bool;
+    fn inverse(field: Self::ScalarField) -> Self::ScalarField;
+    fn negate(field: Self::ScalarField) -> Self::ScalarField;
 }
