@@ -43,7 +43,9 @@ import { Synthesizer } from '../synthesizer/index.ts';
 
 export interface EnvInfHandlerOpts {
     op: SynthesizerSupportedOpcodes,
-    offset?: bigint,
+    srcOffset?: bigint,
+    destOffset?: bigint,
+    size?: bigint,
     pc?: bigint,
     thisAddress?: string,
     callerAddress?: string,
@@ -75,8 +77,46 @@ export class InstructionHandlers {
 
   private _createSynthesizerHandlers(): void {
     this.synthesizerHandlers = new Map<number, SynthesizerOpHandler>()
-    const __createArithHandler = (opName: SynthesizerSupportedOpcodes, nIns: number): void => {
+    const __createArithHandler = (opName: SynthesizerSupportedOpcodes): void => {
       const op: number = synthesizerOpcodeByName[opName]
+      let nIns: number
+      // TODO: DEFINE THE OPCODE DETAILS IN TYPES
+      // based on https://www.evm.codes/
+      switch(opName) {
+        case 'ISZERO':
+        case 'NOT':
+          nIns = 1
+          break
+        case 'ADD':
+        case 'MUL':
+        case 'SUB':
+        case 'DIV':
+        case 'SDIV':
+        case 'MOD':
+        case 'SMOD':
+        case 'EXP':
+        case 'SIGNEXTEND':
+        case 'LT':
+        case 'GT':
+        case 'SLT':
+        case 'SGT':
+        case 'EQ':
+        case 'AND':
+        case 'OR':
+        case 'XOR':
+        case 'BYTE':
+        case 'SHL':
+        case 'SHR':
+        case 'SAR':
+          nIns = 2
+          break
+        case 'ADDMOD':
+        case 'MULMOD':
+          nIns = 3
+          break
+        default:
+          throw new Error('Implementation required')
+      }
       this.synthesizerHandlers.set(
         op,
         function (synthesizer, prevExecResult, afterExecResult) {
@@ -88,9 +128,107 @@ export class InstructionHandlers {
         },
       )
     }
-    __createArithHandler('ADD', 2)
-    __createArithHandler('MUL', 2)
-    // TODODODODODODODODODODO
+    const __createEnvInfoHandlers = (opName: SynthesizerSupportedOpcodes): void => {
+      const op: number = synthesizerOpcodeByName[opName]
+      this.synthesizerHandlers.set(
+        op,
+        function (synthesizer, prevExecResult, afterExecResult) {
+          const prevRunState = prevExecResult.runState!
+          const afterRunState = afterExecResult.runState!
+          const outVal: bigint = afterRunState.stack.peek(1)[0]
+          const opts: EnvInfHandlerOpts = {
+            op: opName,
+            srcOffset: undefined,
+            destOffset: undefined,
+            size: undefined,
+            pc: BigInt(prevRunState.programCounter - 1),
+            thisAddress: prevRunState.interpreter.getAddress().toString(),
+            callerAddress: createAddressFromBigInt(prevRunState.interpreter.getCaller()).toString(),
+            targetAddress: undefined,
+            originAddress: createAddressFromBigInt(prevRunState.interpreter.getTxOrigin()).toString(),
+          }
+          // TODO: DEFINE THE OPCODE DETAILS IN TYPES
+          // based on https://www.evm.codes/
+          switch(opName) {
+            case 'CALLDATALOAD':
+              opts.srcOffset = prevRunState.stack.peek(1)[0]
+              break
+            case 'BALANCE':
+            case 'EXTCODESIZE':
+            case 'EXTCODEHASH':
+              opts.targetAddress = createAddressFromBigInt(prevRunState.stack.peek(1)[0]).toString()
+              break
+            case 'CALLDATACOPY':
+            case 'CODECOPY':
+            case 'RETURNDATACOPY': {
+              const _args = prevRunState.stack.peek(3)
+              opts.destOffset = _args[0]
+              opts.srcOffset = _args[1]
+              opts.size = _args[2]
+              break
+            }
+            case 'EXTCODECOPY': {
+              const _args = prevRunState.stack.peek(4)
+              opts.targetAddress = createAddressFromBigInt(_args[0]).toString()
+              opts.destOffset = _args[1]
+              opts.srcOffset = _args[2]
+              opts.size = _args[3]
+            }
+            default:
+              break
+          }
+          synthesizer.handleEnvInf(outVal, opts)
+        },
+      )
+    }
+    // Start creating handlers
+    this.synthesizerHandlers.set(synthesizerOpcodeByName['STOP'], function(){})
+    ;([
+      'ADD',
+      'MUL',
+      'SUB',
+      'DIV',
+      'SDIV',
+      'MOD',
+      'SMOD',
+      'ADDMOD',
+      'MULMOD',
+      'EXP',
+      'SIGNEXTEND',
+      'LT',
+      'GT',
+      'SLT',
+      'SGT',
+      'EQ',
+      'ISZERO',
+      'AND',
+      'OR',
+      'XOR',
+      'NOT',
+      'BYTE',
+      'SHL',
+      'SHR',
+      'SAR',
+    ] satisfies SynthesizerSupportedOpcodes[]).forEach(__createArithHandler)
+    ;([
+      'ADDRESS',
+      'BALANCE',
+      'ORIGIN',
+      'CALLER',
+      'CALLVALUE',
+      'CALLDATALOAD',
+      'CALLDATASIZE',
+      'CALLDATACOPY',
+      'CODESIZE',
+      'CODECOPY',
+      'GASPRICE',
+      'EXTCODESIZE',
+      'EXTCODECOPY',
+      'RETURNDATASIZE',
+      'RETURNDATACOPY',
+      'EXTCODEHASH',
+    ] satisfies SynthesizerSupportedOpcodes[]).forEach(__createEnvInfoHandlers)
+
   }
 
   private _getOriginAddressPt = (): DataPt => {
@@ -178,15 +316,8 @@ export class InstructionHandlers {
       staticInDesc + targetDesc,
     )
   }
-
-  private _checkSupportedOpcode = (op: number): void => {
-    const opName = synthesizerOpcodeList[op]
-    if (opName === undefined) {
-      throw new Error(`Instruction '${opName}' is not supported by Synthesizer`)
-    }
-  }
   
-  private _handleArith = (
+  public handleArith = (
     op: SynthesizerSupportedOpcodes,
     ins: bigint[],
     out: bigint,
@@ -214,7 +345,7 @@ export class InstructionHandlers {
     stackPt.push(outPts[0]);
   }
 
-  private _handleBlkInf = (
+  public handleBlkInf = (
     op: SynthesizerSupportedOpcodes,
     output: bigint,
     target?: bigint,
@@ -261,7 +392,7 @@ export class InstructionHandlers {
     }
   }
 
-  private _handleEnvInf(
+  public handleEnvInf(
     output: bigint,
     opts: EnvInfHandlerOpts,
   ): void {
@@ -295,6 +426,7 @@ export class InstructionHandlers {
         break
       }
       case 'BALANCE': {
+        checkRequiredInput(opts.targetAddress)
         dataPt = this._getStaticInDataPt(output, opts)
         break
       }
@@ -397,7 +529,7 @@ export class InstructionHandlers {
     }
   }
 
-  private _prepareEXTCodePts(
+  public prepareEXTCodePts(
     extCode: Uint8Array<ArrayBufferLike>,
     targetAddress: string,
     _offset?: bigint,

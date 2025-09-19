@@ -51,8 +51,8 @@ export type SynthesizerSupportedOpcodes =
     | 'CHAINID'
     | 'SELFBALANCE'
     | 'BASEFEE'
-    | 'BLOBHASH'
-    | 'BLOBBASEFEE'
+    // | 'BLOBHASH'
+    // | 'BLOBBASEFEE'
     | 'POP'
     | 'MLOAD'
     | 'MSTORE'
@@ -202,8 +202,8 @@ export const synthesizerOpcodeList: Record<number, SynthesizerSupportedOpcodes> 
   0x46: 'CHAINID',
   0x47: 'SELFBALANCE',
   0x48: 'BASEFEE',
-  0x49: 'BLOBHASH',
-  0x4a: 'BLOBBASEFEE',
+//   0x49: 'BLOBHASH',
+//   0x4a: 'BLOBBASEFEE',
   0x50: 'POP',
   0x51: 'MLOAD',
   0x52: 'MSTORE',

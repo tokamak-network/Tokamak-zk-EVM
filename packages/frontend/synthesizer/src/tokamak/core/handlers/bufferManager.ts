@@ -160,11 +160,12 @@ export class BufferManager {
       }
     }
     const initialPlacements: ReservedBuffer[] = [
-      'PUB_OUT' as ReservedBuffer,                //output public, input private
-      'PUB_IN' as ReservedBuffer,                 //output private, input public
-      'STATIC_IN' as ReservedBuffer,              //output private, input public
-      'TRANSACTION_IN' as ReservedBuffer,         //output private, input private
-      'STORAGE_IN' as ReservedBuffer,             //output private, input private
+      'USER_OUT',                //output public, input private
+      'USER_IN',                 //output private, input public
+      'BLOCK_IN',               //output private, input public
+      'STATIC_IN',              //output private, input public
+      'TRANSACTION_IN',         //output private, input private
+      'STORAGE',             //output private, input private
     ];
 
     for (const p of initialPlacements) {
