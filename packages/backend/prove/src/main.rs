@@ -112,9 +112,5 @@ fn main() {
     let output_path = PathBuf::from(paths.output_path).join("proof.json");
     formatted_proof.write_into_json(output_path).unwrap();
 
-    let bench_path = PathBuf::from(paths.output_path).join("bench.txt");
-    let mut file = File::create(bench_path).unwrap();
-    writeln!(file, "Proof generation time: {:.6} seconds", prove_start.elapsed().as_secs_f64()).unwrap();
-
     println!("Total proving time: {:.6} seconds", prove_start.elapsed().as_secs_f64());
 }

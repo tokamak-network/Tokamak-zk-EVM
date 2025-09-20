@@ -15,7 +15,7 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 
 # ---------- Pretty print ----------
-log() { echo -e "\033[1;34m[tokamak]\033[0m $*"; }
+log() { echo -e "\033[1;34m[tokamak-cli]\033[0m $*"; }
 ok()  { echo -e "\033[1;32m[ ok ]\033[0m $*"; }
 err() { echo -e "\033[1;31m[error]\033[0m $*" >&2; }
 
@@ -28,6 +28,7 @@ npm_install_safe() {
 }
 
 # Normalize Windows CRLF to LF before executing a shell script (best-effort)
+
 to_unix_exec() {
   local f="$1"
   [[ -f "$f" ]] || return 0
@@ -35,6 +36,216 @@ to_unix_exec() {
     dos2unix -q "$f" || true
   fi
   chmod +x "$f" 2>/dev/null || true
+}
+
+# ---------- Minimal helpers for DRY ----------
+ensure_file() { local f="$1"; [[ -f "$f" ]] || { err "Missing: $f"; return 1; }; }
+
+# Run a script with timing; if second arg is 1, capture stdout to a temp log.
+# Sets globals: RUN_START_MS, RUN_END_MS, RUN_OK(true/false), RUN_LOG(path or empty)
+run_timed() {
+  local script="$1"; local capture="${2:-0}"
+  RUN_LOG=""; RUN_OK=true
+  to_unix_exec "$script"
+  RUN_START_MS="$(now_ms)"
+  if [[ "$capture" == 1 ]]; then
+    RUN_LOG="$(mktemp -t tokamak_stage.XXXXXX)"
+    if bash "$script" | tee "$RUN_LOG"; then RUN_OK=true; else RUN_OK=false; fi
+  else
+    if bash "$script"; then RUN_OK=true; else RUN_OK=false; fi
+  fi
+  RUN_END_MS="$(now_ms)"
+}
+
+# Build pretty JSON array of checkpoints from a log file; prints to stdout
+build_checkpoints_json_from_log() {
+  local logfile="$1"
+  [[ -s "$logfile" ]] || { echo "[]"; return; }
+  if ! grep -F "Check point:" "$logfile" >/dev/null 2>&1; then echo "[]"; return; fi
+  local lines
+  lines=$(sed -n 's/^.*Check point: /Check point: /p' "$logfile")
+  [[ -n "$lines" ]] || { echo "[]"; return; }
+  local out="" first=true esc
+  while IFS= read -r L; do
+    esc="$(printf '%s' "$L" | json_escape)"
+    if [[ "$first" == true ]]; then
+      printf -v out '%s[\n          "%s"' "" "$esc"
+      first=false
+    else
+      printf -v out '%s,\n          "%s"' "$out" "$esc"
+    fi
+  done <<< "$lines"
+  printf -v out '%s\n        ]' "$out"
+  echo "$out"
+}
+
+# ---------- Benchmark helpers ----------
+now_ms() {
+  # Prefer GNU date; fall back to python3/perl; last resort: seconds*1000
+  local out=""
+  if command -v gdate >/dev/null 2>&1; then
+    out="$(gdate +%s%3N 2>/dev/null || true)"
+    [[ "$out" =~ ^[0-9]{13,}$ ]] && { echo "$out"; return; }
+  fi
+  out="$(date +%s%3N 2>/dev/null || true)"
+  [[ "$out" =~ ^[0-9]{13,}$ ]] && { echo "$out"; return; }
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - <<'PY'
+import time
+print(int(time.time()*1000))
+PY
+    return
+  fi
+  if command -v perl >/dev/null 2>&1; then
+    perl -MTime::HiRes=time -e 'printf("%d\n", int(time()*1000))'
+    return
+  fi
+  echo $(( $(date +%s) * 1000 ))
+}
+
+iso_now() {
+  # ISO8601 UTC; millisecond precision if gdate available
+  if command -v gdate >/dev/null 2>&1; then
+    gdate -u +"%Y-%m-%dT%H:%M:%S.%3NZ"
+  else
+    date -u +"%Y-%m-%dT%H:%M:%SZ"
+  fi
+}
+
+rand_suffix() {
+  # Generate a short [a-z0-9] suffix without fragile pipelines (pipefail/SIGPIPE-safe)
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - <<'PY'
+import secrets,string
+alphabet='abcdefghijklmnopqrstuvwxyz0123456789'
+print(''.join(secrets.choice(alphabet) for _ in range(9)))
+PY
+    return
+  fi
+  if command -v hexdump >/dev/null 2>&1; then
+    # take 16 random bytes, hex-encode, then take first 9 chars
+    hexdump -n 16 -v -e '/1 "%02x"' /dev/urandom 2>/dev/null | cut -c1-9
+    return
+  fi
+  # last resort: timestamp-based fallback
+  date +%s | cut -c1-9
+}
+
+json_escape() {
+  # Escape a single line string for JSON (basic)
+  sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g' -e 's/\t/\\t/g' -e 's/\r/\\r/g' -e 's/\n/\\n/g'
+}
+
+gather_hardware_json() {
+  local platform release version arch cpu_model cores threads mem_total_gb mem_avail_gb gpu_name gpu_mem_mb cuda_supported
+  arch="$(uname -m 2>/dev/null || echo unknown)"
+
+  case "$(uname -s)" in
+    Darwin)
+      platform="macOS"
+      if command -v sw_vers >/dev/null 2>&1; then
+        release="$(sw_vers -productName) $(sw_vers -productVersion) $(sw_vers -buildVersion)"
+      else
+        release="macOS"
+      fi
+      version="darwin $(uname -r) ${arch}"
+      cpu_model="$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo unknown)"
+      cores="$(sysctl -n hw.physicalcpu 2>/dev/null || echo 0)"
+      threads="$(sysctl -n hw.logicalcpu 2>/dev/null || echo 0)"
+      # Memory
+      local mem_bytes page_size free_pages
+      mem_bytes="$(sysctl -n hw.memsize 2>/dev/null || echo 0)"
+      page_size="$(sysctl -n hw.pagesize 2>/dev/null || echo 4096)"
+      free_pages=$(vm_stat 2>/dev/null | awk '/free/ {gsub(".","",$3); print $3+0}' | head -n1)
+      if [[ -n "$mem_bytes" && "$mem_bytes" != 0 ]]; then
+        mem_total_gb=$(( mem_bytes / 1024 / 1024 / 1024 ))
+      else
+        mem_total_gb=0
+      fi
+      if [[ -n "$free_pages" && "$free_pages" != 0 ]]; then
+        mem_avail_gb=$(( (free_pages * page_size) / 1024 / 1024 / 1024 ))
+      else
+        mem_avail_gb=0
+      fi
+      # GPU (fast path without heavy system_profiler)
+      if command -v ioreg >/dev/null 2>&1; then
+        gpu_name="$(ioreg -rc IOAccelerator 2>/dev/null | awk -F'= ' '/DeviceName|model/{gsub(/"/,"",$2); if($2!="") {print $2; exit}}')"
+      fi
+      gpu_name=${gpu_name:-unknown}
+      gpu_mem_mb=0
+      cuda_supported=false
+      ;;
+    Linux)
+      platform="Linux"
+      if [[ -r /etc/os-release ]]; then
+        . /etc/os-release
+        release="${PRETTY_NAME:-Linux}"
+      else
+        release="Linux"
+      fi
+      version="linux $(uname -r) ${arch}"
+      cpu_model="$(awk -F: '/model name/ {gsub(/^ +/,"",$2); print $2; exit}' /proc/cpuinfo 2>/dev/null || echo unknown)"
+      threads="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 0)"
+      cores="$threads"  # best-effort
+      # Memory
+      local mt ma
+      mt="$(awk '/MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)" # kB
+      ma="$(awk '/MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)" # kB
+      mem_total_gb=$(( mt / 1024 / 1024 ))
+      mem_avail_gb=$(( ma / 1024 / 1024 ))
+      # GPU
+      if command -v nvidia-smi >/dev/null 2>&1; then
+        gpu_name="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -n1)"
+        gpu_mem_mb="$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -n1)"
+        cuda_supported=true
+      else
+        gpu_name="$(lspci 2>/dev/null | grep -Ei 'vga|3d|2d' | head -n1 | sed 's/^.*: //')"
+        gpu_mem_mb=0
+        cuda_supported=false
+      fi
+      ;;
+    *)
+      platform="unknown"; release="unknown"; version="unknown"; cpu_model="unknown"; cores=0; threads=0; mem_total_gb=0; mem_avail_gb=0; gpu_name="unknown"; gpu_mem_mb=0; cuda_supported=false ;;
+  esac
+
+  cat <<JSON
+{
+  "cpu": {
+    "model": "$(printf '%s' "$cpu_model" | json_escape)",
+    "cores": ${cores:-0},
+    "threads": ${threads:-0},
+    "architecture": "$(printf '%s' "$arch" | json_escape)"
+  },
+  "memory": {
+    "total": ${mem_total_gb:-0},
+    "available": ${mem_avail_gb:-0}
+  },
+  "os": {
+    "platform": "$(printf '%s' "$platform" | json_escape)",
+    "release": "$(printf '%s' "$release" | json_escape)",
+    "version": "$(printf '%s' "$version" | json_escape)"
+  },
+  "gpu": {
+    "name": "$(printf '%s' "$gpu_name" | json_escape)",
+    "memory": ${gpu_mem_mb:-0},
+    "cudaSupported": $( [[ "$cuda_supported" == true ]] && echo true || echo false )
+  }
+}
+JSON
+}
+
+make_zip() {
+  local src_dir="$1" out_name="$2"
+  ( cd "$src_dir" && rm -f "$out_name" && {
+      if command -v zip >/dev/null 2>&1; then
+        zip -r "$out_name" . >/dev/null
+      elif command -v ditto >/dev/null 2>&1; then
+        ditto -c -k --sequesterRsrc . "$out_name"
+      else
+        echo "zip tool not found (need 'zip' or macOS 'ditto')" >&2
+        exit 1
+      fi
+    } )
 }
 
 # Discover repo root
@@ -203,7 +414,12 @@ step_prove() {
 
   # Convert to absolute path based on ROOT
   local abs_save_path="$ROOT/$save_path"
-  
+  # Prepare session metadata
+  local session_start_ms session_end_ms session_id ts_iso
+  session_start_ms="$(now_ms)"
+  ts_iso="$(iso_now)"
+  session_id="benchmark_${session_start_ms}_$(rand_suffix)"
+
   # Ensure save directory exists and persist the provided transaction hash
   mkdir -p "$abs_save_path"
   printf '%s\n' "$tx_hash" > "$abs_save_path/transaction_hash.txt"
@@ -223,20 +439,42 @@ step_prove() {
   run5="$dist_dir/5_run-verify.sh"
 
   log "Prove: running backend scripts 3→5 (target=$target)"
-  [[ -f "$run3" ]] || { err "Missing: $run3"; exit 1; }
-  [[ -f "$run4" ]] || { err "Missing: $run4"; exit 1; }
-  [[ -f "$run5" ]] || { err "Missing: $run5"; exit 1; }
+  local missing=0
+  for s in "$run3" "$run4" "$run5"; do
+    ensure_file "$s" || missing=1
+  done
+  [[ $missing -eq 0 ]] || exit 1
 
-  to_unix_exec "$run3"
-  bash "$run3"
-  to_unix_exec "$run4"
-  bash "$run4"
-  to_unix_exec "$run5"
-  local verify_out
-  verify_out="$(bash "$run5" | tail -n1)"
+  # ---- preprocess ----
+  run_timed "$run3" 0
+  local pre_s="$RUN_START_MS" pre_e="$RUN_END_MS" pre_ok=$RUN_OK
+
+  # ---- prove (capture log) ----
+  run_timed "$run4" 1
+  local prove_s="$RUN_START_MS" prove_e="$RUN_END_MS" prove_ok=$RUN_OK
+  local checkpoints_json="[]" pinit p0 p1 p2 p3 p4 ptotal
+  if [[ -n "$RUN_LOG" && -s "$RUN_LOG" ]]; then
+    checkpoints_json="$(build_checkpoints_json_from_log "$RUN_LOG")"
+    pinit=$(sed -n 's/.*Prover init time: *\([0-9][0-9.]*\).*/\1/p' "$RUN_LOG" | tail -n1)
+    p0=$(sed -n 's/.*prove0 running time: *\([0-9][0-9.]*\).*/\1/p' "$RUN_LOG" | tail -n1)
+    p1=$(sed -n 's/.*prove1 running time: *\([0-9][0-9.]*\).*/\1/p' "$RUN_LOG" | tail -n1)
+    p2=$(sed -n 's/.*prove2 running time: *\([0-9][0-9.]*\).*/\1/p' "$RUN_LOG" | tail -n1)
+    p3=$(sed -n 's/.*prove3 running time: *\([0-9][0-9.]*\).*/\1/p' "$RUN_LOG" | tail -n1)
+    p4=$(sed -n 's/.*prove4 running time: *\([0-9][0-9.]*\).*/\1/p' "$RUN_LOG" | tail -n1)
+    ptotal=$(sed -n 's/.*Total proving time: *\([0-9][0-9.]*\).*/\1/p' "$RUN_LOG" | tail -n1)
+  fi
+
+  # ---- verify (capture last line) ----
+  run_timed "$run5" 1
+  local ver_s="$RUN_START_MS" ver_e="$RUN_END_MS" verify_out=""
+  if [[ -n "$RUN_LOG" && -s "$RUN_LOG" ]]; then
+    verify_out="$(tail -n1 "$RUN_LOG")"
+  fi
+  local ver_ok=true
+  if [[ "$verify_out" == "true" || "$verify_out" == "true"$'\r' ]]; then ver_ok=true; else ver_ok=false; fi
   log "Prove: verify output => $verify_out"
 
-  if [[ "$verify_out" == "true" || "$verify_out" == "true"$'\r' ]]; then
+  if [[ "$ver_ok" == true ]]; then
     log "Prove: verification ok; copying proof"
     mkdir -p "$abs_save_path"
     if [[ -d "$dist_dir/resource/prove/output" ]]; then
@@ -244,12 +482,79 @@ step_prove() {
       ok "Artifacts copied → $abs_save_path"
     else
       err "Output directory not found: $dist_dir/resource/prove/output"
-      exit 1
     fi
   else
-    err "Verification failed (expected 'true'). Aborting copy."
+    err "Verification failed (expected 'true')."
+  fi
+
+  session_end_ms="$(now_ms)"
+
+  # ---- hardware info JSON ----
+  local hw_json
+  hw_json="$(gather_hardware_json)"
+
+  # ---- build benchmark.json ----
+  local bench_json="$abs_save_path/benchmark.json"
+  local pre_dur=$(( pre_e - pre_s ))
+  local prove_dur=$(( prove_e - prove_s ))
+  local ver_dur=$(( ver_e - ver_s ))
+  local total_dur=$(( session_end_ms - session_start_ms ))
+
+  cat > "$bench_json" <<JSON
+{
+  "sessionId": "${session_id}",
+  "timestamp": "${ts_iso}",
+  "hardwareInfo": ${hw_json},
+  "processes": {
+    "preprocess": {
+      "startTime": ${pre_s},
+      "endTime": ${pre_e},
+      "duration": ${pre_dur},
+      "success": $( [[ "$pre_ok" == true ]] && echo true || echo false )
+    },
+    "prove": {
+      "startTime": ${prove_s},
+      "endTime": ${prove_e},
+      "duration": ${prove_dur},
+      "success": $( [[ "$prove_ok" == true ]] && echo true || echo false ),
+      "details": {
+        "checkPoints": ${checkpoints_json},
+        "proverInitTime": ${pinit:-null},
+        "prove0Time": ${p0:-null},
+        "prove1Time": ${p1:-null},
+        "prove2Time": ${p2:-null},
+        "prove3Time": ${p3:-null},
+        "prove4Time": ${p4:-null},
+        "totalProvingTime": ${ptotal:-null}
+      }
+    },
+    "verify": {
+      "startTime": ${ver_s},
+      "endTime": ${ver_e},
+      "duration": ${ver_dur},
+      "success": $( [[ "$ver_ok" == true ]] && echo true || echo false )
+    }
+  },
+  "metadata": {
+    "cudaEnabled": $( command -v nvidia-smi >/dev/null 2>&1 && echo true || echo false ),
+    "totalSessionDuration": ${total_dur}
+  }
+}
+JSON
+
+  ok "Benchmark written → $bench_json"
+
+  # ---- zip artifacts ----
+  local zip_name="tokamak-zk-evm-proof.zip"
+  if make_zip "$abs_save_path" "$zip_name"; then
+    ok "Zipped proof → $abs_save_path/$zip_name"
+  else
+    err "Failed to create zip archive"
     exit 1
   fi
+
+  # Final exit based on verify result (JSON/ZIP already written for diagnostics)
+  [[ "$ver_ok" == true ]] || exit 1
 }
 
 step_verify() {
@@ -294,46 +599,19 @@ step_verify() {
 # ---------- CLI ----------
 print_usage() {
   cat <<'USAGE'
-tokamak-zk-evm — orchestrate the Tokamak-zk-EVM toolchain
-
-Usage:
-  tokamak-zk-evm --install <API_KEY|RPC_URL>
-  tokamak-zk-evm --prove <TX_HASH> [<SAVE_PATH>]
-  tokamak-zk-evm --verify <SAVE_PATH>
-  tokamak-zk-evm --help
 
 Commands:
   --install <API_KEY|RPC_URL>
-      1) npm install in packages/frontend/qap-compiler
-      2) npm install in packages/frontend/synthesizer
-      3) Run unified packaging script (packaging.sh):
-         Automatically detects platform (macOS/Linux) and builds accordingly
-      4) Compile qap-compiler (packages/frontend/qap-compiler/scripts/compile.sh)
-      5) Write RPC_URL to packages/frontend/synthesizer/.env:
-         - If ARG starts with https://, use it as-is:
-           RPC_URL='<ARG>'
-         - Else treat ARG as an Alchemy API key and write:
-           RPC_URL='https://eth-mainnet.g.alchemy.com/v2/<API_KEY>'
+      Install and setup Tokamak ZKP 
 
   --prove <TX_HASH> [<SAVE_PATH>]
-      1) Save <TX_HASH> to <SAVE_PATH>/transaction_hash.txt (default: ./.your_proof)
-      2) Run packages/frontend/synthesizer/examples/demo/index.ts with <TX_HASH>
-      3) Sync examples/outputs → dist-*/resource/synthesizer/outputs
-      4) Run dist-*/3_run-preprocess.sh, 4_run-prove.sh, 5_run-verify.sh
-      5) If verify prints "true", copy dist-*/resource/prove/output → <SAVE_PATH>
+      Convert an Ethereum transaction into a zero-knowledge proof
 
   --verify <PROOF_PATH>
       Verify a proof saved at <PROOF_PATH>.
       Requirements in <PROOF_PATH>:
         - transaction_hash.txt  (tx hash; with or without 0x)
         - proof.json
-      What it does:
-        1) Read transaction_hash.txt, strip whitespace/CR, normalize to 0x<64-hex>, and save back
-        2) Run packages/frontend/synthesizer/examples/demo/index.ts with the normalized tx hash
-        3) Sync examples/outputs → dist-*/resource/synthesizer/outputs
-        4) Run dist-*/3_run-preprocess.sh
-        5) Run dist-*/5_run-verify.sh <PROOF_PATH>
-        6) If verifier prints "true", exit 0; otherwise exit 1
 
   --help
       Show this help
