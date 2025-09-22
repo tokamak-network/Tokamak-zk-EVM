@@ -4,40 +4,23 @@ Tokamak zk-EVM is a tool that converts Ethereum transactions into ZKPs.
 
 It's currently under development. In the near future, you can generate ZKPs off-chain and use them to replace on-chain Ethereum transactions.
 
-## Development status
-### Status as of Aug. 2025
-- The Tokamak zk-SNARK backend is ready to use:
-    - MSM and NTT are accelerated by [ICICLE APIs](https://github.com/ingonyama-zk/icicle).
-    - It requires < 10GB memory.
-    - A ZKP can be generated in 1-2 mins on CUDA or Apple silicon.
-- The **alpha release** of our transaction-to-circuit compiler is ready to use:
-    - Given honest input Ethereum state and an honest transaction, the circuit verifies that the output Ethereum state is derived exactly as specified in the transaction. 
-### Future updates
-- The **beta release** of our transactions-to-circuit compiler, which covers:
-    - Signature verification of batch transactions,
-    - Merkle proof verification of input Ethereum state,
-    - Accurate derivation of output Ethereum state as specified by a sequence of transactions,
-    - Merkle root update based on output Ethereum state.
-- Off-chain tools for writing transactions and generating ZKPs.
-- Ethereum bridge contracts that provide communication protocols between the Ethereum main network and off-chain.
-
-
-## Usage
+## Getting started
 
 This section describes how to use the **main CLI** named **`tokamak-cli`** for developers.
 
 > Note: We also provide [Playground](https://github.com/tokamak-network/Tokamak-zk-EVM-playgrounds), a one-click application designed for non-developers (no prerequisite installation).
 
-### Prerequisites by OS
-#### Alchemy API key (all platforms)
+### Prerequisites
+#### Alchemy API key
 1. Create an Alchemy account and log in to the dashboard (https://dashboard.alchemy.com/).
 2. Create a new app/project for **Ethereum Mainnet**.
 3. Copy the **API Key** (the short token).  
-   You will pass this key to the CLI as `--setup <API_KEY>` (do **not** paste the full RPC URL).
+   You will pass this key to the CLI as `--setup <API_KEY>`.
+> Note: You can paste the full RPC URL obtained from any provider other than Alchemy.
 
-#### Windows
+#### For Windows users
 1. Install Docker Desktop for Windows – https://docs.docker.com/desktop/install/windows-install/
-2. (If you will use CUDA/GPU) Install **NVIDIA GPU driver** on Windows and verify Docker GPU pass-through.
+2. (If you want to use CUDA/GPU) Install **NVIDIA GPU driver** on Windows and verify Docker GPU pass-through.
    - Install [the latest NVIDIA driver](https://developer.nvidia.com/cuda/wsl).
    - Ensure Docker Desktop is using **Linux containers** with the **WSL 2** backend.
    - (Optional) Test that CUDA is visible inside containers (at the host):
@@ -50,11 +33,14 @@ This section describes how to use the **main CLI** named **`tokamak-cli`** for d
     - Make sure that you are in the root directory, `Tokamak-zk-evm`.
         ```bash
         docker build -f Docker_for_Windows -t tokamak-zkevm:win .
-    
-        docker run --gpus all --rm -it -v "${PWD}:/workspace" tokamak-zkevm:win bash -lc "cd /workspace && exec bash"
+
+        # If you will use CUDA/GPU
+        docker run --gpus all --rm -it -v "$(cygpath -m "$PWD"):/workspace" tokamak-zkevm:win bash 
+        # Else
+        docker run --rm -it -v "$(cygpath -m "$PWD"):/workspace" tokamak-zkevm:win bash 
         ```
 
-#### macOS
+#### For MacOS users
 - Install Node.js – https://nodejs.org/
 - Install Circom – https://docs.circom.io/getting-started/installation/
 - Install Rust – https://www.rust-lang.org/tools/install
@@ -64,7 +50,7 @@ This section describes how to use the **main CLI** named **`tokamak-cli`** for d
     brew install dos2unix
     ```
 
-#### Linux
+#### For Linux users
 - Install Node.js – https://nodejs.org/
 - Install Circom – https://docs.circom.io/getting-started/installation/
 - Install Rust – https://www.rust-lang.org/tools/install
@@ -74,7 +60,7 @@ This section describes how to use the **main CLI** named **`tokamak-cli`** for d
     ```bash
     sudo apt-get update && sudo apt-get install -y dos2unix
     ```
-- If you will use CUDA for GPU acceleration:
+- If you want to use CUDA for GPU acceleration:
   1. Install the **NVIDIA GPU driver** appropriate for your distro (verify with `nvidia-smi`).  
     Docs: https://docs.nvidia.com/cuda/
   2. Install **CUDA runtime libraries** (matching your driver’s supported CUDA version).  
@@ -100,33 +86,33 @@ To avoid compatibility/permission issues on the main script itself:
   chmod +x tokamak-cli
   ```
 
-### How to run for all platforms (macOS, Linux, Windows-in-Docker)
+### How to run (for all platforms)
 
 From the repository root:
 
 1) **Build and Setup** (Build source code, compile circuits, write RPC URL using your **Alchemy API key**, run trusted setup, then run OS-specific backend packaging)
 ```bash
-./tokamak-cli --install <YOUR_ALCHEMY_API_KEY>
+./tokamak-cli --install <YOUR_ALCHEMY_API_KEY | FULL_RPC_URL>
 ```
 
-2) **Prove** (generate and verify a proof for a transaction; copy artifacts)
+2) **Prove** (generate a proof for a transaction)
 ```bash
 # Save to a custom directory (recommended)
-./tokamak-cli --prove <TX_HASH> <PATH_TO_SAVE_PROOF>
-
-# Or omit the directory to use the default path:
-./tokamak-cli --prove <TX_HASH>
-# → artifacts are copied to ./.your_proof by default
+./tokamak-cli --prove <TX_HASH> <PATH_TO_SAVE_PROOF?>
 ```
-
 > Notes
-> - The CLI auto-detects your OS to use the correct backend dist (`dist-mac`, `dist-linux20`, or `dist-linux22`).
+> - If <PATH_TO_SAVE_PROOF> is omitted, the cli will use the default path: `./.your_proof`
 > - Ensure your transaction hash is on the **Ethereum Mainnet**, matching the Alchemy RPC URL written in `.env`.
 
-> Disclaimer
-> - The Tokamak‑zk‑EVM project and its maintainers are **not responsible for any leakage or misuse of your API keys or credentials**.
-> - For local testing, use a **free, non‑sensitive Alchemy API key**. Do **not** use production or paid keys, or keys tied to sensitive data.
-> - During `--setup`, the CLI writes your RPC endpoint to `packages/frontend/synthesizer/.env`. We **recommend deleting `.env` after use** (or rotating the key) and ensuring it is **not committed** to version control.
+3) **Verify** (Verify a proof generated from the Prove command)
+```bash
+./tokamak-cli --verify <TX_HASH> <PATH_TO_PROOF>
+```
+
+## Disclaimer
+- The Tokamak‑zk‑EVM project and its maintainers are **not responsible for any leakage or misuse of your API keys or credentials**.
+- For local testing, use a **free, non‑sensitive Alchemy API key**. Do **not** use production or paid keys, or keys tied to sensitive data.
+- During `--setup`, the CLI writes your RPC endpoint to `packages/frontend/synthesizer/.env`. We **recommend deleting `.env` after use** (or rotating the key) and ensuring it is **not committed** to version control.
 
 ## Package Composition
 ![Tokamak-zk-EVM Flow Chart](.github/assets/flowchart.png)
@@ -152,6 +138,23 @@ From the repository root:
 > - 🔥 Alpha: Initial proof-of-concept for testing
 > - 🧪 Beta: Fully featured, but unstable and unoptimized
 > - ⭐️ Stable (v1.0.0): Fully featured, stable, and optimized
+
+## Development status
+### Status as of Aug. 2025
+- The Tokamak zk-SNARK backend is ready to use:
+    - MSM and NTT are accelerated by [ICICLE APIs](https://github.com/ingonyama-zk/icicle).
+    - It requires < 10GB memory.
+    - A ZKP can be generated in 1-2 mins on CUDA or Apple silicon.
+- The **alpha release** of our transaction-to-circuit compiler is ready to use:
+    - Given honest input Ethereum state and an honest transaction, the circuit verifies that the output Ethereum state is derived exactly as specified in the transaction. 
+### Future updates
+- The **beta release** of our transactions-to-circuit compiler, which covers:
+    - Signature verification of batch transactions,
+    - Merkle proof verification of input Ethereum state,
+    - Accurate derivation of output Ethereum state as specified by a sequence of transactions,
+    - Merkle root update based on output Ethereum state.
+- Off-chain tools for writing transactions and generating ZKPs.
+- Ethereum bridge contracts that provide communication protocols between the Ethereum main network and off-chain.
 
 ## Documentation
 

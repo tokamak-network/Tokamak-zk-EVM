@@ -4,7 +4,6 @@ use std::fs::File;
 use std::io::Write;
 use std::{env, process};
 use prove::{Proof, ProveInputPaths, Prover, TranscriptManager};
-use icicle_runtime::{self, Device};
 use libs::utils::check_device;
 
 fn main() {
@@ -112,10 +111,6 @@ fn main() {
     let formatted_proof = proof.convert_format_for_solidity_verifier();
     let output_path = PathBuf::from(paths.output_path).join("proof.json");
     formatted_proof.write_into_json(output_path).unwrap();
-
-    let bench_path = PathBuf::from(paths.output_path).join("bench.txt");
-    let mut file = File::create(bench_path).unwrap();
-    writeln!(file, "Proof generation time: {:.6} seconds", prove_start.elapsed().as_secs_f64()).unwrap();
 
     println!("Total proving time: {:.6} seconds", prove_start.elapsed().as_secs_f64());
 }

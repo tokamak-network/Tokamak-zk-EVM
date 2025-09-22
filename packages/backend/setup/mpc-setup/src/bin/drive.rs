@@ -37,8 +37,8 @@ struct Config {
     mode: Mode,
 }
 
-//cargo run --release --bin drive -- --outfolder ./setup/mpc-setup/output --mode upload --phase_type 1
-//cargo run --release --bin drive -- --outfolder ./setup/mpc-setup/output --mode download --phase_type 1
+//cargo run --release --bin drive -- --outfolder ./setup/mpc-setup/output --mode upload --phase-type 1
+//cargo run --release --bin drive -- --outfolder ./setup/mpc-setup/output --mode download --phase-type 1
 
 #[tokio::main]
 async fn main() {
@@ -46,51 +46,58 @@ async fn main() {
     //println!("shared folder id: {}", shared_folder_id);
 
     let config = Config::parse();
-    let contributor_index = prompt_user_input("enter your contributor index (uint > 0) :")
+    let contributor_index = prompt_user_input("enter your contributor index (uint >= 0) :")
         .parse::<u32>()
         .expect("Please enter a valid number");
+    let base_path = std::env::current_dir().unwrap();
+    let append = if base_path.ends_with("setup/mpc-setup/") {
+        "output/"
+    } else {
+        "setup/mpc-setup/output/"
+    };
+    let fpath = base_path.join(append);
     match config.mode {
         Mode::Upload => {
-            upload_contributor_file(&config, contributor_index, shared_folder_id.as_str()).await;
+            upload_contributor_file(config.phase_type, fpath.as_path().to_str().unwrap(), contributor_index, shared_folder_id.as_str()).await;
             println!("contributor files uploaded");
         }
         Mode::Download => {
             use_service_account_download(
                 config.phase_type,
-                &config.outfolder,
+                fpath.as_path().to_str().unwrap(),
                 contributor_index,
                 shared_folder_id.as_str(),
             )
-            .await
-            .unwrap();
+                .await
+                .unwrap();
             println!("latest files downloaded");
         }
     }
 }
-async fn upload_contributor_file(config: &Config, contributor_index: u32, shared_folder_id: &str) {
-
+async fn upload_contributor_file(phase_type: u32,
+                                 dest_folder: &str, contributor_index: u32, shared_folder_id: &str) {
     let mail = env::var("MAIL_NOTIFICATION").unwrap();
-    
+
     let archive_path = format!(
-        "phase{}_contributor_{}.zip",
-        config.phase_type, contributor_index
+        "{}phase{}_contributor_{}.zip",
+        dest_folder, phase_type, contributor_index
     );
 
     let contributor_file = build_file_path(
-        config.phase_type,
-        &config.outfolder,
+        phase_type,
+        &dest_folder,
         "contributor",
         contributor_index,
     );
     let acc_file = build_file_path(
-        config.phase_type,
-        &config.outfolder,
+        phase_type,
+        &dest_folder,
         "acc",
         contributor_index,
     );
     let proof_file = build_file_path(
-        config.phase_type,
-        &config.outfolder,
+        phase_type,
+        &dest_folder,
         "proof",
         contributor_index,
     );
@@ -100,11 +107,11 @@ async fn upload_contributor_file(config: &Config, contributor_index: u32, shared
     } else {
         vec![&contributor_file, &acc_file, &proof_file]
     }
-    .iter()
-    .map(|s| s.as_str())
-    .collect::<Vec<&str>>();
+        .iter()
+        .map(|s| s.as_str())
+        .collect::<Vec<&str>>();
 
-    println!("all files ({:?}) are zipping into {:?}", files,archive_path);
+    println!("all files ({:?}) are zipping into {:?}", files, archive_path);
     zip_files(&archive_path, &files).expect("Failed to zip files");
     println!("all files are zipped");
 
@@ -127,11 +134,11 @@ async fn upload_contributor_file(config: &Config, contributor_index: u32, shared
             "name = '{}'",
             format!(
                 "phase{}_contributor_{}.zip",
-                config.phase_type, contributor_index
+                phase_type, contributor_index
             )
         );
         let query = format!("'{}' in parents and ({})", shared_folder_id, names_query);
-        let result = drive.files.list().q(&query).execute().expect("");
+        let result = drive.files.list().q(&query).execute().expect("there is already a file with this name");
 
         let files = result.files.unwrap_or_default();
         // Extract all file IDs
@@ -144,7 +151,7 @@ async fn upload_contributor_file(config: &Config, contributor_index: u32, shared
     let metadata = File {
         name: Some(format!(
             "phase{}_contributor_{}.zip",
-            config.phase_type, contributor_index
+            phase_type, contributor_index
         )),
         mime_type: Some("application/zip".to_string()),
         parents: Some(vec![shared_folder_id.to_string()]),
@@ -160,10 +167,13 @@ async fn upload_contributor_file(config: &Config, contributor_index: u32, shared
     }
 
     let fpath = base_path.join(archive_path);
+
+    println!("uploading file: {:?}", fpath);
+
     let mut my_new_file = File::default();
     let mut last_err = None;
 
-    for attempt in 1..=5 {
+    for attempt in 1..=50 {
         println!("Attempt {} to upload contributor file...", attempt);
         match drive
             .files
@@ -281,6 +291,7 @@ pub async fn use_service_account_download(
     for file_id in file_ids {
         // Prepare output path
         let output_path: PathBuf = [dest_folder, &format!("{}.zip", file_id)].iter().collect();
+        println!("Downloading file to {:?}", output_path);
         let mut file = fs::File::create(&output_path)
             .await
             .expect("Failed to create file");
@@ -318,13 +329,22 @@ fn zip_files(output_zip: &str, files: &[&str]) -> io::Result<()> {
         .compression_method(zip::CompressionMethod::Deflated)
         .unix_permissions(0o755);
 
-    for &path in files {
-        let file_name = Path::new(path)
+    let base_path = std::env::current_dir().unwrap();
+    for &next in files {
+        let file_name = Path::new(next)
             .file_name()
             .and_then(|name| name.to_str())
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid file name"))?;
 
+        let path = base_path.join(next);
+        println!("adding file: {:?}", path);
+
+        if !Path::new(path.to_str().unwrap()).exists() {
+            panic!("❌ Required file not found {}", path.to_str().unwrap());
+        }
+
         let mut file = StdFile::open(path)?;
+
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)?;
 
@@ -363,7 +383,7 @@ fn unzip_flat(zip_file: &str, output_dir: &str) -> io::Result<()> {
 }
 fn build_file_path(phase_type: u32, base_path: &str, file_type: &str, index: u32) -> String {
     format!(
-        "{}/phase{}_{}_{}.{}",
+        "{}phase{}_{}_{}.{}",
         base_path,
         phase_type,
         file_type,

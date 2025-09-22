@@ -1,14 +1,18 @@
-use libs::field_structures::Tau;
 use libs::iotools::{SetupParams, SubcircuitInfo};
-pub use mpc_setup::prepare::QAP;
-
+use libs::polynomial_structures::QAP;
+use mpc_setup::QAP_COMPILER_PATH_PREFIX;
+use std::env;
 
 //cargo run --release --bin qap_write
 fn main() {
-   
+    let base_path = env::current_dir().unwrap();
+    let qap_path = base_path.join(QAP_COMPILER_PATH_PREFIX);
+
     // Load setup parameters from JSON file
     let setup_file_name = "setupParams.json";
-    let mut setup_params = SetupParams::from_path(setup_file_name).unwrap();
+
+    println!("qap_path: {:?}", qap_path.join(setup_file_name).display());
+    let mut setup_params = SetupParams::read_from_json(qap_path.join(setup_file_name)).unwrap();
 
     // Extract key parameters from setup_params
     let m_d = setup_params.m_D; // Total number of wires
@@ -52,13 +56,12 @@ fn main() {
 
     // Load subcircuit information
     let subcircuit_file_name = "subcircuitInfo.json";
-    let subcircuit_infos = SubcircuitInfo::from_path(subcircuit_file_name).unwrap();
+    let subcircuit_infos = SubcircuitInfo::read_box_from_json(qap_path.join(subcircuit_file_name)).unwrap();
+    let qap = QAP::gen_from_R1CS(&qap_path.to_str().unwrap(), &subcircuit_infos, &setup_params);
 
-    let qap = QAP::gen_from_R1CS(&subcircuit_infos, &setup_params);
-    qap.save_to_json("setup/mpc-setup/output/qap_all.bin").expect("cannot qap save to a json file");
-    let qap2 = QAP::load_from_json("setup/mpc-setup/output/qap_all.bin").unwrap();
-    println!("{}", qap.compare(&qap2));
+    println!("len_v {}", qap.v_j_X.len());
+    println!("len_u {}", qap.u_j_X.len());
+    println!("len_w {}", qap.w_j_X.len());
     //cargo run --release --bin prepare_phase2
 }
 
- 

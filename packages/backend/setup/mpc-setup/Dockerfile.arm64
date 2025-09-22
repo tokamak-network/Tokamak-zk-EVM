@@ -1,25 +1,23 @@
 # Base image
-FROM ubuntu:22.04
+FROM debian:bullseye-slim
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends\
+    curl \
     bash \
+    build-essential \
     cmake \
+    git \
     pkg-config \
     libssl-dev \
     protobuf-compiler \
-    curl \
-    build-essential \
-    git \
+    ca-certificates \
     clang \
     libclang-dev \
     lldb \
     && rm -rf /var/lib/apt/lists/*
 
-# Set environment variables for OpenSSL
-ENV OPENSSL_DIR=/usr
-ENV OPENSSL_LIB_DIR=/usr/lib/aarch64-linux-gnu
-ENV OPENSSL_INCLUDE_DIR=/usr/include/openssl
 
 # Customize bash prompt
 RUN echo 'export PS1="\w\$ "' >> /root/.bashrc
@@ -28,14 +26,8 @@ RUN echo 'export PS1="\w\$ "' >> /root/.bashrc
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# Install Golang
-ENV GOLANG_VERSION=1.21.1
-RUN curl -L https://go.dev/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz | tar -xz -C /usr/local
-ENV PATH="/usr/local/go/bin:${PATH}"
-
 # Clone specific repository and branch
-# TODO RUN git clone --branch muhammed-mpc_setup https://github.com/tokamak-network/Tokamak-zk-EVM.git /app
-COPY ./ /app
+RUN git clone --branch phase2-distributed-prepare https://github.com/mabingol/Tokamak-zk-EVM.git /app
 
 # Set working directory
 WORKDIR /app/packages/backend
@@ -64,6 +56,8 @@ RUN echo '#!/bin/bash\ncargo run --release --bin phase2_prepare -- --outfolder .
 RUN echo '#!/bin/bash\ncargo run --release --bin phase2_testing_prepare' > /usr/local/bin/phase2_testing_prepare && chmod +x /usr/local/bin/phase2_testing_prepare
 
 RUN echo '#!/bin/bash\ncargo run --release --bin phase2_next_contributor -- --outfolder setup/mpc-setup/output --mode random' > /usr/local/bin/phase2_next_contributor && chmod +x /usr/local/bin/phase2_next_contributor
+
+# Set environment variables
 
 # Set environment variables
 

@@ -64,7 +64,7 @@ import type { Common } from '@synthesizer-libs/common';
 import { DEFAULT_SOURCE_SIZE } from '../tokamak/constant/constants.js';
 
 import { SynthesizerValidator } from '../tokamak/validation/index.js';
-import { chunkMemory, writeCallOutputPt } from 'src/tokamak/utils/index.js';
+import { chunkMemory, writeCallOutputPt } from '../tokamak/utils/index.js';
 
 export interface SyncOpHandler {
   (runState: RunState, common: Common): void;
@@ -1574,7 +1574,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       if (key !== runState.stackPt.pop().value) {
         throw new Error(`Synthesizer: 'TLOAD': Input data mismatch`);
       }
-      let dataPt = runState.synthesizer.TStoragePt.get(
+      let dataPt = runState.synthesizer.state.TStoragePt.get(
         runState.env.address.toString(),
       )?.get(key);
       if (dataPt === undefined) {
@@ -1612,7 +1612,7 @@ export const handlers: Map<number, OpHandler> = new Map([
       if (key !== keyPt.value || val !== valPt.value) {
         throw new Error(`Synthesizer: 'TSTORE': Input data mismatch`);
       }
-      const TStoragePt = runState.synthesizer.TStoragePt;
+      const TStoragePt = runState.synthesizer.state.TStoragePt;
       const thisAddress = runState.env.address.toString();
       const entry = TStoragePt.get(thisAddress) ?? new Map();
       entry.set(key, valPt);
