@@ -249,6 +249,40 @@ export const synthesizerOpcodeList: Record<number, SynthesizerSupportedOpcodes> 
   // 0xff: 'SELFDESTRUCT', (unsupported per current status)
 } as const;
 
+export const arithInstInputNumber: Readonly<Partial<Record<SynthesizerSupportedOpcodes, number>>> = {
+  // based on https://www.evm.codes/
+  ISZERO: 1,
+  NOT: 1,
+
+  ADD: 2,
+  MUL: 2,
+  SUB: 2,
+  DIV: 2,
+  SDIV: 2,
+  MOD: 2,
+  SMOD: 2,
+  EXP: 2,
+  SIGNEXTEND: 2,
+
+  LT: 2,
+  GT: 2,
+  SLT: 2,
+  SGT: 2,
+  EQ: 2,
+
+  AND: 2,
+  OR: 2,
+  XOR: 2,
+  BYTE: 2,
+
+  SHL: 2,
+  SHR: 2,
+  SAR: 2,
+
+  ADDMOD: 3,
+  MULMOD: 3,
+} as const;
+
 /**
  * Reverse mapping: opcode name -> opcode number
  * Note: uses the declared list above as source of truth.

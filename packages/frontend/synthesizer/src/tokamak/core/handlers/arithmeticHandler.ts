@@ -106,7 +106,7 @@ export class ArithmeticHandler {
 
     let finalInPts: DataPt[] = inPts;
     if (selector !== undefined) {
-      const selectorPt = this.parent.loadArbitraryStatic(selector, 1, `ALU selector for ${name} of ${subcircuitName}`);
+      const selectorPt = this.parent.loadArbitraryStatic(selector, 128, `ALU selector for ${name} of ${subcircuitName}`);
       finalInPts = [selectorPt, ...inPts];
     }
 

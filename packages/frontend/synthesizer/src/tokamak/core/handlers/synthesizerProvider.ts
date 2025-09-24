@@ -24,9 +24,11 @@ export interface ISynthesizerProvider {
   //from BufferManager
   addWireToInBuffer(inPt: DataPt, placementId: number): DataPt
   addWireToOutBuffer(inPt: DataPt, outPt: DataPt, placementId: number): void
-  readReservedVariableFromInputBuffer(varName: ReservedVariable, txNonce?: number): DataPt
   //from DataLoader
+  loadReservedVariableFromBuffer(varName: ReservedVariable, txNonce?: number): DataPt
   loadArbitraryStatic(value: bigint, size?: number, desc?: string): DataPt
+  loadStorage(key: bigint): DataPt
+  storeStorage(key: bigint, inPt: DataPt): void
   //from ArithmeticHandler
   placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[];
   placeExp(inPts: DataPt[]): DataPt
@@ -34,6 +36,7 @@ export interface ISynthesizerProvider {
   //from memoryManager
   placeMemoryToMemory(dataAliasInfos: DataAliasInfos): DataPt[]
   placeMemoryToStack(dataAliasInfos: DataAliasInfos): DataPt
+  placeMSTORE(dataPt: DataPt, truncSize: number): DataPt
   //from instructionHandler
   handleArith(
       op: SynthesizerSupportedOpcodes,

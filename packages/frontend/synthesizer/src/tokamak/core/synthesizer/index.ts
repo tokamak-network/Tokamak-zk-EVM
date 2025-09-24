@@ -77,11 +77,11 @@ export class Synthesizer
     this._bufferManager.addWireToOutBuffer(inPt, outPt, placementId)
   }
 
-  public readReservedVariableFromInputBuffer(
+  public loadReservedVariableFromBuffer(
     varName: ReservedVariable, 
     txNonce?: number
   ): DataPt {
-    return this._bufferManager.readReservedVariableFromInputBuffer(varName, txNonce)
+    return this._dataLoader.loadReservedVariableFromBuffer(varName, txNonce)
   }
 
   public loadArbitraryStatic(
@@ -90,6 +90,14 @@ export class Synthesizer
     desc?: string,
   ): DataPt {
     return this._dataLoader.loadArbitraryStatic(value, size, desc)
+  }
+
+  public loadStorage(key: bigint): DataPt {
+    return this._dataLoader.loadStorage(key);
+  }
+
+  public storeStorage(key: bigint, inPt: DataPt): void {
+    this._dataLoader.storeStorage(key, inPt);
   }
 
   public placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
@@ -109,6 +117,10 @@ export class Synthesizer
 
   public placeMemoryToMemory(dataAliasInfos: DataAliasInfos): DataPt[] {
     return this._memoryManager.placeMemoryToMemory(dataAliasInfos);
+  }
+
+  public placeMSTORE(dataPt: DataPt, truncSize: number): DataPt {
+    return this._memoryManager.placeMSTORE(dataPt, truncSize);
   }
 
   public handleArith(
@@ -141,14 +153,6 @@ export class Synthesizer
   //   return this.dataLoader.loadPUSH(codeAddress, programCounter, value, size);
   // }
 
-  // public loadStorage(codeAddress: string, key: bigint, value: bigint): DataPt {
-  //   return this.dataLoader.loadStorage(codeAddress, key, value);
-  // }
-
-  // public storeStorage(codeAddress: string, key: bigint, inPt: DataPt): void {
-  //   this.dataLoader.storeStorage(codeAddress, key, inPt);
-  // }
-
   // public storeLog(valPts: DataPt[], topicPts: DataPt[]): void {
   //   this.dataLoader.storeLog(valPts, topicPts);
   // }
@@ -165,9 +169,7 @@ export class Synthesizer
   //   return this.dataLoader.loadAndStoreKeccak(inPts, outValue, length);
   // }
 
-  // public placeMSTORE(dataPt: DataPt, truncSize: number): DataPt {
-  //   return this.memoryManager.placeMSTORE(dataPt, truncSize);
-  // }
+  
 
   
 

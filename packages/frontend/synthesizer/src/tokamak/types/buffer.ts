@@ -1,3 +1,4 @@
+import { USER_INPUT_DYNAMIC_INDEX } from "../constant/constants.ts";
 import { SubcircuitNames } from "./subcircuits.js";
 import { DataPt, DataPtDescription } from "./synthesizer.js";
 
@@ -12,9 +13,11 @@ export type ReservedBuffer =
     | 'USER_OUT'
     | 'USER_IN'
     | 'BLOCK_IN'
+    | 'BLOCKHASH_IN'
     | 'STATIC_IN'
     | 'TRANSACTION_IN'
-    | 'STORAGE'
+    | 'STORAGE_IN'
+    | 'STORAGE_OUT'
 
 export type ReservedVariable =
     // USER_OUT
@@ -27,7 +30,15 @@ export type ReservedVariable =
     | 'EDDSA_RANDOMIZER_X'
     | 'EDDSA_RANDOMIZER_Y'
     // BLOCK_IN
-    | 'BLOCKHASH_0'
+    | 'COINBASE'
+    | 'TIMESTAMP'
+    | 'NUMBER'
+    | 'PREVRANDAO'
+    | 'GASLIMIT'
+    | 'CHAINID'
+    | 'SELFBALANCE'
+    | 'BASEFEE'
+    //BLOCKHASH_IN
     | 'BLOCKHASH_1'
     | 'BLOCKHASH_2'
     | 'BLOCKHASH_3'
@@ -283,14 +294,7 @@ export type ReservedVariable =
     | 'BLOCKHASH_253'
     | 'BLOCKHASH_254'
     | 'BLOCKHASH_255'
-    | 'COINBASE'
-    | 'TIMESTAMP'
-    | 'NUMBER'
-    | 'PREVRANDAO'
-    | 'GASLIMIT'
-    | 'CHAINID'
-    | 'SELFBALANCE'
-    | 'BASEFEE'
+    | 'BLOCKHASH_256'
     // STATIC_IN
     | 'ADDRESS_MASK'
     | 'JUBJUB_BASE_X'
@@ -310,6 +314,8 @@ export type ReservedVariable =
     | 'TRANSACTION_INPUT6'
     | 'TRANSACTION_INPUT7'
     | 'TRANSACTION_INPUT8'
+    // STORAGE_IN
+    | 'VALUE'
 
 
 export const BUFFER_PLACEMENT: Record<ReservedBuffer, {placementIndex: number, placement: BufferPlacement}> = {
@@ -317,7 +323,7 @@ export const BUFFER_PLACEMENT: Record<ReservedBuffer, {placementIndex: number, p
     placementIndex: 0,
     placement: {
       name: 'bufferUserOut' as SubcircuitNames,
-      usage: 'Buffer to emit public output',
+      usage: '[Public output & Private input] Buffer to emit user output',
       inPts: [] as DataPt[],
       outPts: [] as DataPt[],
     }
@@ -326,7 +332,7 @@ export const BUFFER_PLACEMENT: Record<ReservedBuffer, {placementIndex: number, p
     placementIndex: 1,
     placement: {
       name: 'bufferUserIn' as SubcircuitNames,
-      usage: 'Buffer to load public input',
+      usage: '[Private output & Public input] Buffer to load user input',
       inPts: [] as DataPt[],
       outPts: [] as DataPt[],
     }
@@ -335,39 +341,72 @@ export const BUFFER_PLACEMENT: Record<ReservedBuffer, {placementIndex: number, p
     placementIndex: 2, 
     placement: {
       name: 'bufferBlockIn' as SubcircuitNames,
-      usage: 'Buffer to load public block input',
+      usage: '[Private output & Public input] Buffer to load block input',
+      inPts: [] as DataPt[],
+      outPts: [] as DataPt[],
+    }
+  },
+  BLOCKHASH_IN: {
+    placementIndex: 3, 
+    placement: {
+      name: 'bufferBlockHashe' as SubcircuitNames,
+      usage: '[Private output & Public input] Buffer to load the hashes of the 256 most recent 256 blocks',
       inPts: [] as DataPt[],
       outPts: [] as DataPt[],
     }
   },
   STATIC_IN: {
-    placementIndex: 3, 
+    placementIndex: 4, 
     placement: {
       name: 'bufferStaticIn' as SubcircuitNames,
-      usage: 'Buffer to load public static input such as ROM, environmental data, or ALU selectors',
+      usage: '[Private output & Public input] Buffer to load public static input such as ROM, environmental data, or ALU selectors',
       inPts: [] as DataPt[],
       outPts: [] as DataPt[],
     }
   },
   TRANSACTION_IN: {
-    placementIndex: 4,
+    placementIndex: 5,
     placement: {
       name: 'bufferTransactionIn' as SubcircuitNames,
-      usage: 'Buffer to load transactions as private',
+      usage: '[Private output & Private input] Buffer to load transactions as private',
       inPts: [] as DataPt[],
       outPts: [] as DataPt[],
     }
   },
-  STORAGE: {
-    placementIndex: 5,
+  STORAGE_IN: {
+    placementIndex: 6,
     placement: {
       name: 'bufferStorageIn' as SubcircuitNames,
-      usage: 'Buffer to load initial storage data',
+      usage: '[Private output & Private input] Buffer to load initial storage data as private',
+      inPts: [] as DataPt[],
+      outPts: [] as DataPt[],
+    }
+  },
+  STORAGE_OUT: {
+    placementIndex: 7,
+    placement: {
+      name: 'bufferStorageOut' as SubcircuitNames,
+      usage: '[Private output & Private input] Buffer to store final storage data as private',
       inPts: [] as DataPt[],
       outPts: [] as DataPt[],
     }
   },
 }
+
+type BlockhashVars = Extract<ReservedVariable, `BLOCKHASH_${number}`>;
+
+const __BLOCKHASH_DESCRIPTIONS: Record<BlockhashVars, DataPtDescription> = (() => {
+  const m: Record<string, DataPtDescription> = {};
+  for (let i = 1; i <= 256; i++) {
+    m[`BLOCKHASH_${i}`] = {
+      extSource: `Block hash ${i} ${i === 1 ? 'block' : 'blocks'} ago`,
+      source: BUFFER_PLACEMENT.BLOCKHASH_IN.placementIndex,
+      sourceSize: 256,
+      wireIndex: i - 1,
+    };
+  }
+  return m as unknown as Record<BlockhashVars, DataPtDescription>;
+})();
 
 export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> = {
   RES_MERKLE_ROOT: {
@@ -399,20 +438,71 @@ export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> =
     extSource: `EdDSA signature of transaction`,
     source: BUFFER_PLACEMENT.USER_IN.placementIndex,
     sourceSize: 255,
-    wireIndex: 3,
+    wireIndex: USER_INPUT_DYNAMIC_INDEX,
   },
   EDDSA_RANDOMIZER_X: {
     extSource: `EdDSA randomizer (x coordinate)`,
     source: BUFFER_PLACEMENT.USER_IN.placementIndex,
     sourceSize: 255,
-    wireIndex: 4,
+    wireIndex: USER_INPUT_DYNAMIC_INDEX + 1,
   },
   EDDSA_RANDOMIZER_Y: {
     extSource: `EdDSA randomizer (y coordinate)`,
     source: BUFFER_PLACEMENT.USER_IN.placementIndex,
     sourceSize: 255,
+    wireIndex: USER_INPUT_DYNAMIC_INDEX + 2,
+  },
+
+  COINBASE: {
+    extSource: `COINBASE`,
+    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    sourceSize: 256,
+    wireIndex: 0,
+  },
+  TIMESTAMP: {
+    extSource: `TIMESTAMP`,
+    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    sourceSize: 256,
+    wireIndex: 1,
+  },
+  NUMBER:  {
+    extSource: `NUMBER`,
+    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    sourceSize: 256,
+    wireIndex: 2,
+  },
+  PREVRANDAO: {
+    extSource: `PREVRANDAO`,
+    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    sourceSize: 256,
+    wireIndex: 3,
+  },
+  GASLIMIT: {
+    extSource: `GASLIMIT`,
+    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    sourceSize: 256,
+    wireIndex: 4,
+  },
+  CHAINID: {
+    extSource: `CHAINID`,
+    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    sourceSize: 256,
     wireIndex: 5,
   },
+  SELFBALANCE: {
+    extSource: `SELFBALANCE`,
+    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    sourceSize: 256,
+    wireIndex: 6,
+  },
+  BASEFEE: {
+    extSource: `BASEFEE`,
+    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    sourceSize: 256,
+    wireIndex: 7,
+  },
+
+  ...__BLOCKHASH_DESCRIPTIONS,
 
   ADDRESS_MASK: {
     extSource: `Masker for Ethereum address (20 bytes)`,
@@ -517,4 +607,12 @@ export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> =
     sourceSize: 255,
     wireIndex: 11,
   },
+
+  VALUE: {
+    extSource: `Merkle tree leaf`,
+    source: BUFFER_PLACEMENT.STORAGE_IN.placementIndex,
+    sourceSize: 255,
+    wireIndex: 0,
+  },
+
 }

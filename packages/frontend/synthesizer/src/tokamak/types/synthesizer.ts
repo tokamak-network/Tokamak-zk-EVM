@@ -1,5 +1,4 @@
 import { VMOpts } from '@ethereumjs/vm';
-import { SynthesizerVM } from '../core/EthereumJSExtension/index.ts';
 import { ArithmeticOperations } from '../operations/arithmetic.js';
 import { L2TxData } from './index.ts';
 import { SubcircuitNames } from './subcircuits.js';
@@ -9,12 +8,23 @@ import { StateManagerInterface } from '@ethereumjs/common';
 export interface SynthesizerOpts {
   initMerkleTreeRoot: bigint
   eddsaPubKey: {
-        x: bigint,
-        y: bigint
-    }
+    x: bigint,
+    y: bigint
+  }
   transactions: L2TxData[]
-  blockHeader: HeaderData
-  state: StateManagerInterface
+  blockInput: {
+    coinBase: bigint,
+    timeStamp: bigint,
+    blockNumber: bigint,
+    prevRanDao: bigint,
+    gasLimit: bigint,
+    chainId: bigint,
+    selfBalance: bigint,
+    baseFee: bigint,
+  }
+  blockHashes: bigint[]
+  // <MPT_key, {MT_index, MT_RLC_value}>
+  storageInput: Map<bigint, {index: number, value: bigint}>
 }
 
 /**

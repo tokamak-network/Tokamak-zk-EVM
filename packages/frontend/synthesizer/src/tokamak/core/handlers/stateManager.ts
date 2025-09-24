@@ -31,14 +31,14 @@ import { ISynthesizerProvider } from './synthesizerProvider.ts';
 export class StateManager {
   public stackPt: StackPt = new StackPt()
   public memoryPt: MemoryPt = new MemoryPt()
-  
   public placements: Placements = new Map()
-  public cachedStaticIn: Map<bigint, DataPt> = new Map()
-  public cachedStorage: Map<string, DataPt> = new Map()
   public subcircuitInfoByName: SubcircuitInfoByName = new Map()
-  public cachedOrigin: DataPt | undefined = undefined
   public txNonce: number = -1
   public placementIndex: number = FIRST_ARITHMETIC_PLACEMENT_INDEX
+
+  public cachedStorage: Map<bigint, {index: number, dataPt: DataPt}> = new Map()
+  public cachedStaticIn: Map<bigint, DataPt> = new Map()
+  public cachedOrigin: DataPt | undefined = undefined
   public cachedCalldataMemoryPt: MemoryPt | undefined = undefined
   
   public lastMerkleRoot: bigint

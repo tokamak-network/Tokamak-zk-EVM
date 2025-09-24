@@ -1,7 +1,7 @@
 
 import { Common } from '@ethereumjs/common';
 import { simulateMemoryPt } from '../../pointers/index.ts';
-import { synthesizerOpcodeByName, synthesizerOpcodeList, type ArithmeticOperator, type DataPt, type ReservedVariable, type SynthesizerSupportedOpcodes } from '../../types/index.ts';
+import { arithInstInputNumber, DataPtDescription, synthesizerOpcodeByName, synthesizerOpcodeList, VARIABLE_DESCRIPTION, type ArithmeticOperator, type DataPt, type ReservedVariable, type SynthesizerSupportedOpcodes } from '../../types/index.ts';
 
 import {
   Address,
@@ -47,10 +47,10 @@ export interface EnvInfHandlerOpts {
     destOffset?: bigint,
     size?: bigint,
     pc?: bigint,
-    thisAddress?: string,
-    callerAddress?: string,
-    targetAddress?: string,
-    originAddress?: string,
+    thisAddress?: bigint,
+    callerAddress?: bigint,
+    targetAddress?: bigint,
+    originAddress?: bigint,
 }
 
 export interface SyncSynthesizerOpHandler {
@@ -79,56 +79,18 @@ export class InstructionHandlers {
     this.synthesizerHandlers = new Map<number, SynthesizerOpHandler>()
     const __createArithHandler = (opName: SynthesizerSupportedOpcodes): void => {
       const op: number = synthesizerOpcodeByName[opName]
-      let nIns: number
-      // TODO: DEFINE THE OPCODE DETAILS IN TYPES
-      // based on https://www.evm.codes/
-      switch(opName) {
-        case 'ISZERO':
-        case 'NOT':
-          nIns = 1
-          break
-        case 'ADD':
-        case 'MUL':
-        case 'SUB':
-        case 'DIV':
-        case 'SDIV':
-        case 'MOD':
-        case 'SMOD':
-        case 'EXP':
-        case 'SIGNEXTEND':
-        case 'LT':
-        case 'GT':
-        case 'SLT':
-        case 'SGT':
-        case 'EQ':
-        case 'AND':
-        case 'OR':
-        case 'XOR':
-        case 'BYTE':
-        case 'SHL':
-        case 'SHR':
-        case 'SAR':
-          nIns = 2
-          break
-        case 'ADDMOD':
-        case 'MULMOD':
-          nIns = 3
-          break
-        default:
-          throw new Error('Implementation required')
-      }
       this.synthesizerHandlers.set(
         op,
         function (synthesizer, prevExecResult, afterExecResult) {
           const prevRunState = prevExecResult.runState!
           const afterRunState = afterExecResult.runState!
-          const inVals = prevRunState.stack.peek(nIns)
+          const inVals = prevRunState.stack.peek(arithInstInputNumber[opName])
           const outVal = afterRunState.stack.peek(1)[0]
           synthesizer.handleArith(opName, inVals, outVal)
         },
       )
     }
-    const __createEnvInfoHandlers = (opName: SynthesizerSupportedOpcodes): void => {
+    const __createEnvInfHandler = (opName: SynthesizerSupportedOpcodes): void => {
       const op: number = synthesizerOpcodeByName[opName]
       this.synthesizerHandlers.set(
         op,
@@ -142,12 +104,11 @@ export class InstructionHandlers {
             destOffset: undefined,
             size: undefined,
             pc: BigInt(prevRunState.programCounter - 1),
-            thisAddress: prevRunState.interpreter.getAddress().toString(),
-            callerAddress: createAddressFromBigInt(prevRunState.interpreter.getCaller()).toString(),
+            thisAddress: bytesToBigInt(prevRunState.interpreter.getAddress().toBytes()),
+            callerAddress: prevRunState.interpreter.getCaller(),
             targetAddress: undefined,
-            originAddress: createAddressFromBigInt(prevRunState.interpreter.getTxOrigin()).toString(),
+            originAddress: prevRunState.interpreter.getTxOrigin(),
           }
-          // TODO: DEFINE THE OPCODE DETAILS IN TYPES
           // based on https://www.evm.codes/
           switch(opName) {
             case 'CALLDATALOAD':
@@ -156,7 +117,7 @@ export class InstructionHandlers {
             case 'BALANCE':
             case 'EXTCODESIZE':
             case 'EXTCODEHASH':
-              opts.targetAddress = createAddressFromBigInt(prevRunState.stack.peek(1)[0]).toString()
+              opts.targetAddress = prevRunState.stack.peek(1)[0]
               break
             case 'CALLDATACOPY':
             case 'CODECOPY':
@@ -169,7 +130,7 @@ export class InstructionHandlers {
             }
             case 'EXTCODECOPY': {
               const _args = prevRunState.stack.peek(4)
-              opts.targetAddress = createAddressFromBigInt(_args[0]).toString()
+              opts.targetAddress = _args[0]
               opts.destOffset = _args[1]
               opts.srcOffset = _args[2]
               opts.size = _args[3]
@@ -181,6 +142,20 @@ export class InstructionHandlers {
         },
       )
     }
+    const __createBlkInfHandler = (opName: SynthesizerSupportedOpcodes): void => {
+      const op: number = synthesizerOpcodeByName[opName]
+      this.synthesizerHandlers.set(
+        op,
+        function (synthesizer, prevExecResult, afterExecResult) {
+          const prevRunState = prevExecResult.runState!
+          const afterRunState = afterExecResult.runState!
+          const blockNumber = opName === 'BLOCKHASH' ? prevRunState.stack.peek(1)[0] : undefined
+          const outVal = afterRunState.stack.peek(1)[0]
+          synthesizer.handleBlkInf(opName, outVal, blockNumber)
+        },
+      )
+    }
+
     // Start creating handlers
     this.synthesizerHandlers.set(synthesizerOpcodeByName['STOP'], function(){})
     ;([
@@ -209,6 +184,7 @@ export class InstructionHandlers {
       'SHL',
       'SHR',
       'SAR',
+      //'KECCAK256',
     ] satisfies SynthesizerSupportedOpcodes[]).forEach(__createArithHandler)
     ;([
       'ADDRESS',
@@ -227,7 +203,43 @@ export class InstructionHandlers {
       'RETURNDATASIZE',
       'RETURNDATACOPY',
       'EXTCODEHASH',
-    ] satisfies SynthesizerSupportedOpcodes[]).forEach(__createEnvInfoHandlers)
+    ] satisfies SynthesizerSupportedOpcodes[]).forEach(__createEnvInfHandler)
+    ;([
+      'BLOCKHASH',
+      'COINBASE',
+      'TIMESTAMP',
+      'NUMBER',
+      'PREVRANDAO',
+      'GASLIMIT',
+      'CHAINID',
+      'SELFBALANCE',
+      'BASEFEE',
+      //'BLOBHASH',
+      //'BLOBBASEFEE',
+    ] satisfies SynthesizerSupportedOpcodes[]).forEach(__createBlkInfHandler)
+
+    this.synthesizerHandlers.set(synthesizerOpcodeByName['POP'], 
+      function (synthesizer, prevExecResult, afterExecResult) {
+        synthesizer.state.stackPt.pop()
+      }
+    )
+
+    this.synthesizerHandlers.set(synthesizerOpcodeByName['MLOAD'],
+      function (synthesizer, prevExecResult, afterExecResult) {
+        const prevRunState = prevExecResult.runState!
+        const afterRunState = afterExecResult.runState!
+        const pos = prevRunState.stack.peek(1)[0]
+
+        if (
+          !equalsBytes(runState.memory.read(offsetNum, truncSize, true), _view)
+        ) {
+          throw new Error(
+            `MSTORE: Stored data mismatch between memoryPt and memory`,
+          );
+        }
+      }
+    )
+
 
   }
 
@@ -245,21 +257,21 @@ export class InstructionHandlers {
     ];
 
     const read = (n: ReservedVariable) =>
-      synthesizer.readReservedVariableFromInputBuffer(n, txNonce)
+      synthesizer.loadReservedVariableFromBuffer(n, txNonce)
 
     const messagePts: DataPt[][] = messageContent.map(row => row.map(read))
 
     if (messagePts.length !== 3 || messagePts.flat().length > 12) throw new Error('Excessive transaction messages')
     
     const publicKeyPt: DataPt[] = [
-      synthesizer.readReservedVariableFromInputBuffer('EDDSA_PUBLIC_KEY_X'),
-      synthesizer.readReservedVariableFromInputBuffer('EDDSA_PUBLIC_KEY_Y')
+      synthesizer.loadReservedVariableFromBuffer('EDDSA_PUBLIC_KEY_X'),
+      synthesizer.loadReservedVariableFromBuffer('EDDSA_PUBLIC_KEY_Y')
     ]
     const randomizerPt: DataPt[] = [
-      synthesizer.readReservedVariableFromInputBuffer('EDDSA_RANDOMIZER_X', txNonce),
-      synthesizer.readReservedVariableFromInputBuffer('EDDSA_RANDOMIZER_Y', txNonce)
+      synthesizer.loadReservedVariableFromBuffer('EDDSA_RANDOMIZER_X', txNonce),
+      synthesizer.loadReservedVariableFromBuffer('EDDSA_RANDOMIZER_Y', txNonce)
     ]
-    const signaturePt: DataPt = synthesizer.readReservedVariableFromInputBuffer('EDDSA_SIGNATURE', txNonce)
+    const signaturePt: DataPt = synthesizer.loadReservedVariableFromBuffer('EDDSA_SIGNATURE', txNonce)
     const firstPoseidonInput: DataPt[] = [...randomizerPt, ...publicKeyPt]
     const poseidonInter: DataPt[] = []
     poseidonInter.push(...synthesizer.placeArith('Poseidon4', firstPoseidonInput))
@@ -275,12 +287,12 @@ export class InstructionHandlers {
     const challengeBits: DataPt[] = bitsOut.slice(252, -1)
 
     const jubjubBasePt: DataPt[] = [
-      synthesizer.readReservedVariableFromInputBuffer('JUBJUB_BASE_X'),
-      synthesizer.readReservedVariableFromInputBuffer('JUBJUB_BASE_Y')
+      synthesizer.loadReservedVariableFromBuffer('JUBJUB_BASE_X'),
+      synthesizer.loadReservedVariableFromBuffer('JUBJUB_BASE_Y')
     ]
     const jubjubPoIPt: DataPt[] = [
-      synthesizer.readReservedVariableFromInputBuffer('JUBJUB_POI_X'),
-      synthesizer.readReservedVariableFromInputBuffer('JUBJUB_POI_Y')
+      synthesizer.loadReservedVariableFromBuffer('JUBJUB_POI_X'),
+      synthesizer.loadReservedVariableFromBuffer('JUBJUB_POI_Y')
     ]
 
     const sG: DataPt[] = synthesizer.placeJubjubExp(
@@ -297,26 +309,11 @@ export class InstructionHandlers {
     
     const zeroPt: DataPt = synthesizer.loadArbitraryStatic(0n, 1)
     const hashPt: DataPt = synthesizer.placeArith('Poseidon4', [...publicKeyPt, zeroPt, zeroPt])[0]
-    const addrMaskPt: DataPt = synthesizer.readReservedVariableFromInputBuffer('ADDRESS_MASK')
+    const addrMaskPt: DataPt = synthesizer.loadReservedVariableFromBuffer('ADDRESS_MASK')
     synthesizer.state.cachedOrigin = synthesizer.placeArith('AND', [hashPt, addrMaskPt])[0]
     return synthesizer.state.cachedOrigin!
   }
 
-  
-
-  private _getStaticInDataPt = (output: bigint, opts: EnvInfHandlerOpts): DataPt => {
-    checkRequiredInput(opts.pc, opts.thisAddress, opts.callerAddress)
-    const value = output
-    const cachedDataPt = this.parent.state.cachedStaticIn.get(value)
-    const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc!} of code address ${opts.thisAddress!} called by ${opts.callerAddress!}`
-    let targetDesc = opts.targetAddress === undefined ? `` : `(target: ${opts.targetAddress})`
-    return cachedDataPt ?? this.parent.loadArbitraryStatic(
-      value,
-      undefined,
-      staticInDesc + targetDesc,
-    )
-  }
-  
   public handleArith = (
     op: SynthesizerSupportedOpcodes,
     ins: bigint[],
@@ -348,42 +345,31 @@ export class InstructionHandlers {
   public handleBlkInf = (
     op: SynthesizerSupportedOpcodes,
     output: bigint,
-    target?: bigint,
+    blockNumber?: bigint,
   ): void => {
     const stackPt = this.parent.state.stackPt
     let dataPt: DataPt;
     switch (op) {
-      case 'BLOCKHASH':
-      case 'BLOBHASH':
-        if (target === undefined) {
-          throw new Error(`Synthesizer: ${op}: Must have an input block number`);
-        }
-        if (target !== stackPt.pop().value) {
-          throw new Error(`Synthesizer: ${op}: Input data mismatch`);
-        }
-        dataPt = this.parent.loadBlkInf(
-          target,
-          op,
-          output,
-        );
-        break;
       case 'COINBASE':
       case 'TIMESTAMP':
       case 'NUMBER':
       case 'GASLIMIT':
       case 'CHAINID':
       case 'SELFBALANCE':
-      case 'BASEFEE':
-      case 'BLOBBASEFEE':
-        dataPt = this.parent.loadBlkInf(
-          target,
-          op,
-          output,
-        );
-        break;
+      case 'BASEFEE': {
+        dataPt = this.parent.loadReservedVariableFromBuffer(op)
+        break
+      }
+      case 'BLOCKHASH': {
+        checkRequiredInput(blockNumber)
+        const blockNumberDiff = this.parent.loadReservedVariableFromBuffer('NUMBER').value - blockNumber!
+        dataPt =  blockNumberDiff <= 0n && blockNumberDiff > 256n ? 
+          this.parent.loadArbitraryStatic(0n, 1) : 
+          this.parent.loadReservedVariableFromBuffer(`BLOCKHASH_${blockNumberDiff}` as ReservedVariable)
+      }
       default:
         throw new Error(
-          `Synthesizer: Dealing with invalid block information instruction`,
+          `Synthesizer: ${op} is unimplemented.`,
         );
     }
     stackPt.push(dataPt);
@@ -396,7 +382,7 @@ export class InstructionHandlers {
     output: bigint,
     opts: EnvInfHandlerOpts,
   ): void {
-    const getOriginDataPt = (): DataPt => {
+    const _getOriginDataPt = (): DataPt => {
       checkRequiredInput(opts.originAddress)
       let dataPt: DataPt
       if (this.parent.state.cachedOrigin === undefined) {
@@ -404,10 +390,23 @@ export class InstructionHandlers {
       } else {
         dataPt = this.parent.state.cachedOrigin
       }
-      if (dataPt.value !== bytesToBigInt(createAddressFromString(opts.originAddress!).toBytes())) {
+      if (dataPt.value !== opts.originAddress!) {
         throw new Error("Mismatch of the origin between EVM and Synthesizer")
       }
       return dataPt
+    }
+
+    const _getStaticInDataPt = (output: bigint, opts: EnvInfHandlerOpts): DataPt => {
+      checkRequiredInput(opts.pc, opts.thisAddress, opts.callerAddress)
+      const value = output
+      const cachedDataPt = this.parent.state.cachedStaticIn.get(value)
+      const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc!} of code address ${opts.thisAddress!} called by ${opts.callerAddress!}`
+      let targetDesc = opts.targetAddress === undefined ? `` : `(target: ${opts.targetAddress})`
+      return cachedDataPt ?? this.parent.loadArbitraryStatic(
+        value,
+        undefined,
+        staticInDesc + targetDesc,
+      )
     }
     
     let dataPt: DataPt
@@ -419,19 +418,19 @@ export class InstructionHandlers {
         const origin = opts.originAddress!
         const thisAddress = opts.thisAddress!
         if (origin === thisAddress) {
-          dataPt = getOriginDataPt()
+          dataPt = _getOriginDataPt()
         } else {
-          dataPt = this._getStaticInDataPt(output, opts)
+          dataPt = _getStaticInDataPt(output, opts)
         }
         break
       }
       case 'BALANCE': {
         checkRequiredInput(opts.targetAddress)
-        dataPt = this._getStaticInDataPt(output, opts)
+        dataPt = _getStaticInDataPt(output, opts)
         break
       }
       case 'ORIGIN': {
-        dataPt = getOriginDataPt()
+        dataPt = _getOriginDataPt()
         break
       } 
       case 'CALLER': {
@@ -439,23 +438,23 @@ export class InstructionHandlers {
         const origin = opts.originAddress!
         const caller = opts.callerAddress!
         if (origin === caller) {
-          dataPt = getOriginDataPt()
+          dataPt = _getOriginDataPt()
           
         } else {
-          dataPt = this._getStaticInDataPt(output, opts)
+          dataPt = _getStaticInDataPt(output, opts)
         }
         break
       }
       case 'CALLVALUE': {
-        dataPt = this._getStaticInDataPt(output, opts)
+        dataPt = _getStaticInDataPt(output, opts)
         break
       }
       case 'CALLDATALOAD': {
-        checkRequiredInput(opts.offset)
-        if (opts.offset !== stackPt.pop().value) {
+        checkRequiredInput(opts.srcOffset)
+        if (opts.srcOffset !== stackPt.pop().value) {
           throw new Error(`Synthesizer: ${op}: Input data mismatch`);
         }
-        const i = Number(opts.offset!);
+        const i = Number(opts.srcOffset!);
         const calldataMemoryPts = this.parent.envMemoryPts.calldataMemroyPts
         if (calldataMemoryPts.length > 0) {
           const calldataMemoryPt = simulateMemoryPt(calldataMemoryPts);
@@ -483,40 +482,40 @@ export class InstructionHandlers {
         break;
       }
       case 'CALLDATASIZE': {
-        dataPt = this._getStaticInDataPt(output, opts)
+        dataPt = _getStaticInDataPt(output, opts)
         break
       }
       case 'CODESIZE': {
-        dataPt = this._getStaticInDataPt(output, opts)
+        dataPt = _getStaticInDataPt(output, opts)
         break
       }
       case 'GASPRICE': {
-        dataPt = this._getStaticInDataPt(output, opts)
+        dataPt = _getStaticInDataPt(output, opts)
         break
       }
       case 'EXTCODESIZE': {
         checkRequiredInput(opts.targetAddress)
-        if (bytesToBigInt(createAddressFromString(opts.targetAddress!).toBytes()) !== stackPt.pop().value) {
+        if (opts.targetAddress! !== stackPt.pop().value) {
           throw new Error(`Synthesizer: ${op}: Input data mismatch`)
         }
-        dataPt = this._getStaticInDataPt(output, opts)
+        dataPt = _getStaticInDataPt(output, opts)
         break
       }
       case 'RETURNDATASIZE': {
-        dataPt = this._getStaticInDataPt(output, opts)
+        dataPt = _getStaticInDataPt(output, opts)
         break
       }
       case 'EXTCODEHASH': {
         checkRequiredInput(opts.targetAddress)
-        if (bytesToBigInt(createAddressFromString(opts.targetAddress!).toBytes()) !== stackPt.pop().value) {
+        if (opts.targetAddress! !== stackPt.pop().value) {
           throw new Error(`Synthesizer: ${op}: Input data mismatch`)
         }
-        dataPt = this._getStaticInDataPt(output, opts)
+        dataPt = _getStaticInDataPt(output, opts)
         break
       }
       case 'PC': {
         checkRequiredInput(opts.thisAddress)
-        dataPt = this._getStaticInDataPt(output, opts)
+        dataPt = _getStaticInDataPt(output, opts)
       }
       default:
         throw new Error(
@@ -527,6 +526,104 @@ export class InstructionHandlers {
     if (stackPt.peek(1)[0].value !== output) {
       throw new Error(`Synthesizer: ${op}: Output data mismatch`);
     }
+  }
+
+  public handleSystemFlow(
+    opts: EnvInfHandlerOpts,
+    ins: bigint[],
+    outs: bigint[],
+  ): void {
+    const _popAndInputConsistencyCheck = (nIns: number): DataPt[] => {
+      const dataPts = stackPt.popN(nIns)
+      for (var i = 0; i < nIns; i++) {
+        if (ins[i] !== dataPts[i].value){
+          throw new Error(`Synthesizer: ${op}: The ${i}-th input data mismatch`)
+        }
+      }
+      return dataPts
+    }
+    let dataPts: DataPt[] = []
+    const op = opts.op
+    const stackPt = this.parent.state.stackPt
+    const memoryPt = this.parent.state.memoryPt
+    switch (op) {
+      case 'POP': {
+        _popAndInputConsistencyCheck(1)
+        break
+      }
+      case 'MLOAD': {
+        _popAndInputConsistencyCheck(1)
+        const pos = ins[0]
+        const dataAliasInfos = memoryPt.getDataAlias(
+          Number(pos),
+          32,
+        )
+        const mutDataPt = dataAliasInfos.length === 0 ? this.parent.loadArbitraryStatic(0n, 1) : this.parent.placeMemoryToStack(dataAliasInfos)
+        dataPts.push(mutDataPt)
+        break
+      }
+      case 'MSTORE': 
+        let truncSize = 256
+      case 'MSTORE8': 
+        truncSize = 8
+        {
+          const inPts: DataPt[] = _popAndInputConsistencyCheck(2)
+          const offsetNum = Number(ins[0])
+          const originalDataPt = inPts[1]
+          const memPt = this.parent.placeMSTORE(originalDataPt, truncSize)
+          // Replace dataPt in StackPt with the tracked memPt
+          const newDataPt = truncSize < originalDataPt.sourceSize ? memPt : originalDataPt
+          memoryPt.write(offsetNum, truncSize, newDataPt)
+        }
+        break
+      case 'SLOAD': {
+        _popAndInputConsistencyCheck(1)
+        const key = ins[0]
+        stackPt.push(this.parent.loadStorage(key))
+        break
+      }
+      case 'SSTORE': {
+        const inPts: DataPt[] = _popAndInputConsistencyCheck(2)
+        const key = ins[0]
+        const dataPt = inPts[1]
+        this.parent.storeStorage(key, dataPt)
+        break
+      }
+      case 'JUMP': {
+        stackPt.pop()
+        break
+      }
+      case 'JUMPI': {
+        stackPt.popN(2)
+        break
+      }
+      case 'PC': {
+        checkRequiredInput(opts.thisAddress, opts.callerAddress)
+        const pc = outs[0]
+        const staticInDesc = `Static input for ${opts.op} instruction at PC ${pc} of code address ${opts.thisAddress!} called by ${opts.callerAddress!}`
+        stackPt.push(this.parent.loadArbitraryStatic(pc, undefined, staticInDesc))
+        break
+      }
+      case 'MSIZE': {
+        checkRequiredInput(opts.pc, opts.thisAddress, opts.callerAddress)
+        const msize = outs[0]
+        const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc} of code address ${opts.thisAddress!} called by ${opts.callerAddress!}`
+        stackPt.push(this.parent.loadArbitraryStatic(msize, undefined, staticInDesc))
+        break
+      }
+      case 'GAS': {
+        checkRequiredInput(opts.pc, opts.thisAddress, opts.callerAddress)
+        const gas = outs[0]
+        const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc} of code address ${opts.thisAddress!} called by ${opts.callerAddress!}`
+        stackPt.push(this.parent.loadArbitraryStatic(gas, undefined, staticInDesc))
+        break
+      }
+      case 'JUMPDEST': {break}
+      case 'MCOPY': {
+        
+      } 
+    }
+    
   }
 
   public prepareEXTCodePts(

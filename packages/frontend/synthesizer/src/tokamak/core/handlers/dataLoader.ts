@@ -10,10 +10,11 @@ import {
   DEFAULT_SOURCE_SIZE,
 } from '../../constant/index.js';
 import { DataPtFactory } from '../../pointers/index.js';
-import { BUFFER_PLACEMENT, ReservedVariable, SynthesizerOpts, type DataPt, type DataPtDescription, type SubcircuitNames } from '../../types/index.js';
+import { BUFFER_PLACEMENT, ReservedVariable, SynthesizerOpts, SynthesizerSupportedOpcodes, VARIABLE_DESCRIPTION, type DataPt, type DataPtDescription, type SubcircuitNames } from '../../types/index.js';
 import { ISynthesizerProvider } from './index.ts';
 import { createLegacyTxFromL2Tx } from '@tokamak/utils';
 import { LegacyTx } from '@ethereumjs/tx';
+import { bigIntToHex } from '@ethereumjs/util';
 
 export class DataLoader {
   public transactions: LegacyTx[];
@@ -45,6 +46,46 @@ export class DataLoader {
     return this.parent.addWireToInBuffer(inPt, inPt.source);
   }
 
+  public loadReservedVariableFromBuffer(varName: ReservedVariable, txNonce?: number): DataPt {
+      const placementIndex = VARIABLE_DESCRIPTION[varName].source
+      let wireIndex: number = VARIABLE_DESCRIPTION[varName].wireIndex
+      switch (varName) {
+        case 'EDDSA_SIGNATURE':
+        case 'EDDSA_RANDOMIZER_X':
+        case 'EDDSA_RANDOMIZER_Y':
+          if (txNonce === undefined) {
+            throw new Error('Reading transaction related variables requires transaction nonce')
+          }
+          wireIndex += txNonce * 3
+          break
+        case 'TRANSACTION_NONCE':
+        case 'CONTRACT_ADDRESS':
+        case 'FUNCTION_SELECTOR':
+        case 'TRANSACTION_INPUT0':
+        case 'TRANSACTION_INPUT1':
+        case 'TRANSACTION_INPUT2':
+        case 'TRANSACTION_INPUT3':
+        case 'TRANSACTION_INPUT4':
+        case 'TRANSACTION_INPUT5':
+        case 'TRANSACTION_INPUT6':
+        case 'TRANSACTION_INPUT7':
+        case 'TRANSACTION_INPUT8':
+          if (txNonce === undefined) {
+            throw new Error('Reading transaction related variables requires transaction nonce')
+          }
+          wireIndex += txNonce * 12
+          break
+        default:
+          break
+      }
+  
+      const outPt = this.parent.placements.get(placementIndex)!.outPts[wireIndex]
+      if (outPt.wireIndex !== wireIndex || outPt.source !== placementIndex) {
+        throw new Error('Invalid wire information')
+      }
+      return outPt
+    }
+
   public loadArbitraryStatic(
     value: bigint,
     size?: number,
@@ -58,7 +99,7 @@ export class DataLoader {
     }
     const placementIndex = BUFFER_PLACEMENT.STATIC_IN.placementIndex
     const inPtRaw: DataPtDescription = {
-      extSource: desc ?? 'Constant',
+      extSource: desc ?? 'Arbitrary constant',
       sourceSize: size ?? DEFAULT_SOURCE_SIZE,
       source: placementIndex,
       wireIndex: this.parent.placements.get(placementIndex)!.inPts.length,
@@ -69,60 +110,23 @@ export class DataLoader {
     return outPt
   }
 
-  public loadStorage(codeAddress: string, key: bigint, value: bigint): DataPt {
-    const keyString = JSON.stringify({
-      address: codeAddress,
-      key: key.toString(16),
-    });
-    let inPt: DataPt;
-    if (this.parent.state.cachedStorage.has(keyString)) {
-      // Warm access to the address and key, so we reuse the already registered output of the buffer.
-      return this.parent.state.cachedStorage.get(keyString)!;
-    } else {
-      // The first access to the address and key
-      // Register it to the buffer and the storagePt
-      // In the future, this part will be replaced with merkle proof verification (the storage dataPt will not be registered in the buffer).
-      // COMPUTE MERKLE PROOF
-      const source = BUFFER_PLACEMENT.STORAGE.placementIndex
-      const inPtRaw: DataPtDescription = {
-        extSource: `Load storage: ${codeAddress}`,
-        key: '0x' + key.toString(16),
-        source,
-        wireIndex: this.parent.placements.get(source)!.inPts
-          .length,
-        sourceSize: DEFAULT_SOURCE_SIZE,
-      };
-      inPt = DataPtFactory.create(inPtRaw, value);
-      // Registering it to the buffer
-      const outPt = this.parent.addWireToInBuffer(
-        inPt,
-        inPt.source,
-      );
-      // Registering it to the storagePt
-      this.parent.state.cachedStorage.set(keyString, outPt);
-      return outPt;
+  public loadStorage(key: bigint): DataPt {
+    const cache = this.parent.state.cachedStorage.get(key)
+    if (cache === undefined) {
+      throw new Error(`Invalid access to the storage at an unregistered key "${bigIntToHex(key)}"`)
     }
+    return cache.dataPt
   }
 
-  public storeStorage(codeAddress: string, key: bigint, inPt: DataPt): void {
-    const keyString = JSON.stringify({
-      address: codeAddress,
-      key: key.toString(16),
-    });
-    // By just updating the storagePt, the Synthesizer can track down where the data comes from, whenever it is loaded next time.
-    this.parent.state.cachedStorage.set(keyString, inPt);
-    // We record the storage modification in the placements just for users to aware of it (it is not for the Synthesizer).
-    const placementIndex = BUFFER_PLACEMENT.STORAGE.placementIndex
-    const outPtRaw: DataPtDescription = {
-      extDest: `Write storage: ${codeAddress}`,
-      key: '0x' + key.toString(16),
-      source: placementIndex,
-      wireIndex: this.parent.placements.get(placementIndex)!.outPts
-        .length,
-      sourceSize: DEFAULT_SOURCE_SIZE,
-    };
-    const outPt = DataPtFactory.create(outPtRaw, inPt.value);
-    this.parent.addWireToOutBuffer(inPt, outPt, placementIndex);
+  public storeStorage(key: bigint, inPt: DataPt): void {
+    const cache = this.parent.state.cachedStorage.get(key)
+    if (cache === undefined) {
+      throw new Error(`Invalid access to the storage at an unregistered key "${bigIntToHex(key)}"`)
+    }
+    this.parent.state.cachedStorage.set(key, {
+      index: cache.index,
+      dataPt: inPt,
+    })
   }
 
   // public storeLog(valPts: DataPt[], topicPts: DataPt[]): void {
@@ -170,14 +174,6 @@ export class DataLoader {
   //     );
   //   }
   // }
-  
-  public loadBlkInf(op: ReservedVariable, value: bigint): DataPt {
-    const outPt = this.parent.readReservedVariableFromInputBuffer(op)
-    if (outPt.value !== value) {
-      throw new Error('Block information mismatch')
-    }
-    return outPt;
-  }
 
   // public loadAuxin(value: bigint, size?: number): DataPt {
   //   const sourceSize = size ?? DEFAULT_SOURCE_SIZE;
