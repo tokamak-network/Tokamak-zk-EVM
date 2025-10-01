@@ -106,7 +106,7 @@ From the repository root:
 
 3) **Verify** (Verify a proof generated from the Prove command)
 ```bash
-./tokamak-cli --verify <TX_HASH> <PATH_TO_PROOF>
+./tokamak-cli --verify <PATH_TO_PROOF>
 ```
 
 ## Disclaimer
