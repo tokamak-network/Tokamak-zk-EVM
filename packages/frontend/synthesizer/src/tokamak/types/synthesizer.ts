@@ -87,7 +87,7 @@ export interface DataPtDescription {
   // placement index at which the dataPt comes from
   source: number;
   // wire index at which the dataPt comes from
-  sourceSize: number;
+  sourceBitSize: number;
   wireIndex: number;
   // identifier?: string
 }

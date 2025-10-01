@@ -31,7 +31,7 @@ export class BufferManager {
     const outPtRaw: DataPtDescription = {
       source: placementId,
       wireIndex: outWireIndex,
-      sourceSize: inPt.sourceSize,
+      sourceBitSize: inPt.sourceBitSize,
     };
     const outPt = DataPtFactory.create(outPtRaw, inPt.value);
 
@@ -93,7 +93,7 @@ export class BufferManager {
       const placement = this.parent.placements.get(placementIndex)!
       const inPtDesc: DataPtDescription = {
         source: placementIndex,
-        sourceSize: 1,
+        sourceBitSize: 1,
         wireIndex: placement.inPts.length
       }
       const {inPt, outPt} = DataPtFactory.createForBufferInit(inPtDesc, 0n)
@@ -211,6 +211,7 @@ export class BufferManager {
       }
       storageInputByIndex[index] = { key, value }
     }
+    // TODO: Will remove storage input buffers and place Merkle proof verification placements.
     // Storage inputs
     for (var i = 0; i < MAX_MT_LEAVES; i++) {
       const storageInput = storageInputByIndex[i]
@@ -221,4 +222,44 @@ export class BufferManager {
       }
     }
   }
+
+  public loadReservedVariableFromBuffer(varName: ReservedVariable, txNonce?: number): DataPt {
+      const placementIndex = VARIABLE_DESCRIPTION[varName].source
+      let wireIndex: number = VARIABLE_DESCRIPTION[varName].wireIndex
+      switch (varName) {
+        case 'EDDSA_SIGNATURE':
+        case 'EDDSA_RANDOMIZER_X':
+        case 'EDDSA_RANDOMIZER_Y':
+          if (txNonce === undefined) {
+            throw new Error('Reading transaction related variables requires transaction nonce')
+          }
+          wireIndex += txNonce * 3
+          break
+        case 'TRANSACTION_NONCE':
+        case 'CONTRACT_ADDRESS':
+        case 'FUNCTION_SELECTOR':
+        case 'TRANSACTION_INPUT0':
+        case 'TRANSACTION_INPUT1':
+        case 'TRANSACTION_INPUT2':
+        case 'TRANSACTION_INPUT3':
+        case 'TRANSACTION_INPUT4':
+        case 'TRANSACTION_INPUT5':
+        case 'TRANSACTION_INPUT6':
+        case 'TRANSACTION_INPUT7':
+        case 'TRANSACTION_INPUT8':
+          if (txNonce === undefined) {
+            throw new Error('Reading transaction related variables requires transaction nonce')
+          }
+          wireIndex += txNonce * 12
+          break
+        default:
+          break
+      }
+  
+      const outPt = this.parent.placements.get(placementIndex)!.outPts[wireIndex]
+      if (outPt.wireIndex !== wireIndex || outPt.source !== placementIndex) {
+        throw new Error('Invalid wire information')
+      }
+      return outPt
+    }
 }

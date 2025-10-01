@@ -1,6 +1,8 @@
 import { ACCUMULATOR_INPUT_LIMIT } from '../../constant/index.js';
 import {
   DataPtFactory,
+  MemoryPt,
+  MemoryPtEntry,
   type DataAliasInfoEntry,
   type DataAliasInfos,
   type MemoryPts,
@@ -16,12 +18,12 @@ export class MemoryManager {
     private parent: ISynthesizerProvider,
   ) {}
 
-  public placeMSTORE(dataPt: DataPt, truncSize: number): DataPt {
+  public placeMSTORE(dataPt: DataPt, truncBitSize: number): DataPt {
     // MSTORE8 is used as truncSize=1, storing only the lowest 1 byte of data and discarding the rest.
-    if (truncSize < dataPt.sourceSize) {
+    if (truncBitSize < dataPt.sourceBitSize) {
       // Since there is a modification in the original data, create a virtual operation to track this in Placements.
       // MSTORE8's modification is possible with AND operation (= AND(data, 0xff))
-      const maskerString = '0x' + 'FF'.repeat(truncSize);
+      const maskerString = '0x' + 'FF'.repeat(Math.ceil(truncBitSize / 8));
 
       const outValue = dataPt.value & BigInt(maskerString);
       if (dataPt.value !== outValue) {
@@ -33,7 +35,7 @@ export class MemoryManager {
         const rawOutPt: DataPtDescription = {
           source: this.parent.placementIndex,
           wireIndex: 0,
-          sourceSize: truncSize,
+          sourceBitSize: truncBitSize,
         };
         const outPts: DataPt[] = [DataPtFactory.create(rawOutPt, outValue)];
         this.parent.place(subcircuitName, inPts, outPts, subcircuitName);
@@ -42,7 +44,7 @@ export class MemoryManager {
       }
     }
     const outPt = dataPt;
-    outPt.sourceSize = truncSize;
+    outPt.sourceBitSize = truncBitSize;
     return outPt;
   }
 
@@ -71,8 +73,8 @@ export class MemoryManager {
     dstOffset: number,
     viewLength: number,
   ) {
-    const { memOffset: containerOffset, containerSize } = memoryPt;
-    const containerEndPos = containerOffset + containerSize;
+    const { memByteOffset: containerOffset, containerByteSize } = memoryPt;
+    const containerEndPos = containerOffset + containerByteSize;
 
     const actualOffset = Math.max(srcOffset, containerOffset);
     const actualEndPos = Math.min(srcOffset + viewLength, containerEndPos);
@@ -112,10 +114,48 @@ export class MemoryManager {
           viewLength,
         );
 
-      memoryPt.memOffset = adjustedOffset;
-      memoryPt.containerSize = actualContainerSize;
+      memoryPt.memByteOffset = adjustedOffset;
+      memoryPt.containerByteSize = actualContainerSize;
       memoryPt.dataPt = this.truncateDataPt(dataPts[index], endingGap);
     }
+  }
+
+  public copyMemoryPts(
+    target: MemoryPts,
+    srcOffset: bigint,
+    length: bigint,
+    dstOffset: bigint = 0n,
+  ): MemoryPts {
+    const srcOffsetNum = Number(srcOffset)
+    const dstOffsetNum = Number(dstOffset)
+    const lengthNum = Number(length)
+    const simFromMemoryPt = MemoryPt.simulateMemoryPt(target)
+    let toMemoryPts: MemoryPts = simFromMemoryPt.read(srcOffsetNum, lengthNum)
+    const zeroMemoryPtEntry: MemoryPtEntry = {
+      memByteOffset: dstOffsetNum,
+      containerByteSize: lengthNum,
+      dataPt: this.parent.loadArbitraryStatic(0n, 1),
+    }
+    if (toMemoryPts.length > 0) {
+      const simToMemoryPt = MemoryPt.simulateMemoryPt(toMemoryPts)
+      const dataAliasInfos = simToMemoryPt.getDataAlias(srcOffsetNum, lengthNum)
+      if (dataAliasInfos.length > 0) {
+        const resolvedDataPts = this.parent.placeMemoryToMemory(dataAliasInfos)
+        this.adjustMemoryPts(
+          resolvedDataPts,
+          toMemoryPts,
+          srcOffsetNum,
+          dstOffsetNum,
+          lengthNum,
+        )
+      } else {
+        toMemoryPts.push(zeroMemoryPtEntry)
+      }
+    } else {
+      toMemoryPts.push(zeroMemoryPtEntry)
+    }
+  
+    return toMemoryPts
   }
 
   private combineMemorySlices(dataAliasInfos: DataAliasInfos): DataPt {

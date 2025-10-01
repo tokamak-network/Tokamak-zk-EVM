@@ -1,5 +1,6 @@
 import { DataPtFactory } from 'src/tokamak/pointers/dataPointFactory.js';
 import {
+  DEFAULT_SOURCE_SIZE,
   FIRST_ARITHMETIC_PLACEMENT_INDEX,
   MAX_TX_NUMBER,
 } from '../../constant/index.js';
@@ -21,14 +22,16 @@ import {
 import { SubcircuitRegistry } from '../../utils/index.js';
 import {jubjub} from '@noble/curves/misc';
 import { bytesToBigInt } from '@synthesizer-libs/util';
-import { AddressLike } from '@ethereumjs/util';
-import { MemoryPt, StackPt } from 'src/tokamak/pointers/index.ts';
+import { AddressLike, bigIntToHex } from '@ethereumjs/util';
+import { MemoryPt, MemoryPts, StackPt } from 'src/tokamak/pointers/index.ts';
 import { ISynthesizerProvider } from './synthesizerProvider.ts';
 
 /**
  * Manages the state of the synthesizer, including placements, auxin, and subcircuit information.
  */
 export class StateManager {
+  private parent: ISynthesizerProvider
+
   public stackPt: StackPt = new StackPt()
   public memoryPt: MemoryPt = new MemoryPt()
   public placements: Placements = new Map()
@@ -39,12 +42,15 @@ export class StateManager {
   public cachedStorage: Map<bigint, {index: number, dataPt: DataPt}> = new Map()
   public cachedStaticIn: Map<bigint, DataPt> = new Map()
   public cachedOrigin: DataPt | undefined = undefined
-  public cachedCalldataMemoryPt: MemoryPt | undefined = undefined
+  public cachedReturnMemoryPts: MemoryPts = []
+
+  public callMemoryPtsStack: MemoryPts[] = []
   
   public lastMerkleRoot: bigint
   public subcircuitNames!: SubcircuitNames[]
 
-  constructor(opts: SynthesizerOpts) {
+  constructor(parent: ISynthesizerProvider, opts: SynthesizerOpts) {
+    this.parent = parent
     this.lastMerkleRoot = opts.initMerkleTreeRoot
     this._initializeSubcircuitInfo()
   }
@@ -91,5 +97,48 @@ export class StateManager {
       SubcircuitRegistry.createForStateManager();
     this.subcircuitInfoByName = subcircuitInfoByName;
     this.subcircuitNames = subcircuitNames;
+  }
+
+  public loadArbitraryStatic(
+    value: bigint,
+    bitSize?: number,
+    desc?: string,
+  ): DataPt {
+    if (desc === undefined) {
+      const cachedDataPt = this.cachedStaticIn.get(value)
+      if (cachedDataPt !== undefined) {
+        return cachedDataPt
+      }
+    }
+    const placementIndex = BUFFER_PLACEMENT.STATIC_IN.placementIndex
+    const inPtRaw: DataPtDescription = {
+      extSource: desc ?? 'Arbitrary constant',
+      sourceBitSize: bitSize ?? DEFAULT_SOURCE_SIZE * 8,
+      source: placementIndex,
+      wireIndex: this.placements.get(placementIndex)!.inPts.length,
+    };
+    const inPt = DataPtFactory.create(inPtRaw, value)
+    const outPt = this.parent.addWireToInBuffer(inPt, placementIndex)
+    this.parent.state.cachedStaticIn.set(value, outPt)
+    return outPt
+  }
+
+  public loadStorage(key: bigint): DataPt {
+    const cache = this.parent.state.cachedStorage.get(key)
+    if (cache === undefined) {
+      throw new Error(`Invalid access to the storage at an unregistered key "${bigIntToHex(key)}"`)
+    }
+    return cache.dataPt
+  }
+
+  public storeStorage(key: bigint, inPt: DataPt): void {
+    const cache = this.parent.state.cachedStorage.get(key)
+    if (cache === undefined) {
+      throw new Error(`Invalid access to the storage at an unregistered key "${bigIntToHex(key)}"`)
+    }
+    this.parent.state.cachedStorage.set(key, {
+      index: cache.index,
+      dataPt: inPt,
+    })
   }
 }

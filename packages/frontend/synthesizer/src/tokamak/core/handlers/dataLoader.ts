@@ -25,27 +25,6 @@ export class DataLoader {
     this.transactions = Array.from(opts.transactions, l2TxData => createLegacyTxFromL2Tx(l2TxData))
   }
 
-  public loadPUSH(
-    codeAddress: string,
-    programCounter: number,
-    value: bigint,
-    size: number,
-  ): DataPt {
-    const source = BUFFER_PLACEMENT.STATIC_IN.placementIndex
-    const inPtRaw: DataPtDescription = {
-      extSource: `code: ${codeAddress}`,
-      type: `PUSH${size}`,
-      offset: programCounter + 1,
-      source,
-      wireIndex: this.parent.placements.get(source)!.inPts
-        .length,
-      sourceSize: DEFAULT_SOURCE_SIZE,
-    };
-    const inPt: DataPt = DataPtFactory.create(inPtRaw, value);
-
-    return this.parent.addWireToInBuffer(inPt, inPt.source);
-  }
-
   public loadReservedVariableFromBuffer(varName: ReservedVariable, txNonce?: number): DataPt {
       const placementIndex = VARIABLE_DESCRIPTION[varName].source
       let wireIndex: number = VARIABLE_DESCRIPTION[varName].wireIndex
@@ -88,7 +67,7 @@ export class DataLoader {
 
   public loadArbitraryStatic(
     value: bigint,
-    size?: number,
+    bitSize?: number,
     desc?: string,
   ): DataPt {
     if (desc === undefined) {
@@ -100,7 +79,7 @@ export class DataLoader {
     const placementIndex = BUFFER_PLACEMENT.STATIC_IN.placementIndex
     const inPtRaw: DataPtDescription = {
       extSource: desc ?? 'Arbitrary constant',
-      sourceSize: size ?? DEFAULT_SOURCE_SIZE,
+      sourceBitSize: bitSize ?? DEFAULT_SOURCE_SIZE * 8,
       source: placementIndex,
       wireIndex: this.parent.placements.get(placementIndex)!.inPts.length,
     };

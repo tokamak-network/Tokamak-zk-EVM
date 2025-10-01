@@ -21,7 +21,7 @@ export class DataPtFactory {
     const outPt: DataPt = {
       source: inPt.source,
       wireIndex: inPt.wireIndex,
-      sourceSize: inPt.sourceSize,
+      sourceBitSize: inPt.sourceBitSize,
       value: inPt.value,
       valueHex: inPt.valueHex
     };

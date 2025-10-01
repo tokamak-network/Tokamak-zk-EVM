@@ -1,7 +1,6 @@
 
 import { Common } from '@ethereumjs/common';
-import { simulateMemoryPt } from '../../pointers/index.ts';
-import { arithInstInputNumber, DataPtDescription, synthesizerOpcodeByName, synthesizerOpcodeList, VARIABLE_DESCRIPTION, type ArithmeticOperator, type DataPt, type ReservedVariable, type SynthesizerSupportedOpcodes } from '../../types/index.ts';
+import { DataPtDescription, synthesizerOpcodeByName, synthesizerOpcodeList, SynthesizerSupportedArithOpcodes, SynthesizerSupportedBlkInfOpcodes, SynthesizerSupportedEnvInfOpcodes, SynthesizerSupportedSysFlowOpcodes, VARIABLE_DESCRIPTION, type ArithmeticOperator, type DataPt, type ReservedVariable, type SynthesizerSupportedOpcodes } from '../../types/index.ts';
 
 import {
   Address,
@@ -33,24 +32,26 @@ import {
   createAddressFromBigInt,
   createAddressFromString,
   hexToBigInt,
+  equalsBytes,
+  AddressLike,
+  bigIntToHex,
 } from '@ethereumjs/util'
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 import { ExecResult } from '@ethereumjs/evm'
 import { ISynthesizerProvider } from './index.ts'
 import { RunState } from 'src/interpreter.ts';
-import { getDataSlice } from 'src/opcodes/util.ts';
 import { Synthesizer } from '../synthesizer/index.ts';
+import { MemoryPt, MemoryPts } from 'src/tokamak/pointers/memoryPt.ts';
+import { DEFAULT_SOURCE_SIZE } from 'src/tokamak/constant/constants.ts';
 
-export interface EnvInfHandlerOpts {
+export interface HandlerOpts {
     op: SynthesizerSupportedOpcodes,
-    srcOffset?: bigint,
-    destOffset?: bigint,
-    size?: bigint,
     pc?: bigint,
     thisAddress?: bigint,
     callerAddress?: bigint,
-    targetAddress?: bigint,
     originAddress?: bigint,
+    memOut?: Uint8Array,
+    callDepth?: number,
 }
 
 export interface SyncSynthesizerOpHandler {
@@ -77,81 +78,188 @@ export class InstructionHandlers {
 
   private _createSynthesizerHandlers(): void {
     this.synthesizerHandlers = new Map<number, SynthesizerOpHandler>()
-    const __createArithHandler = (opName: SynthesizerSupportedOpcodes): void => {
+    const __getStaticInDataPt = (output: bigint, opts: HandlerOpts, targetAddress?: bigint): void => {
+      this._getStaticInDataPt(output, opts, targetAddress)
+    }
+    const __createArithHandler = (opName: SynthesizerSupportedArithOpcodes): void => {
       const op: number = synthesizerOpcodeByName[opName]
       this.synthesizerHandlers.set(
         op,
         function (synthesizer, prevExecResult, afterExecResult) {
           const prevRunState = prevExecResult.runState!
           const afterRunState = afterExecResult.runState!
-          const inVals = prevRunState.stack.peek(arithInstInputNumber[opName])
-          const outVal = afterRunState.stack.peek(1)[0]
-          synthesizer.handleArith(opName, inVals, outVal)
+          let nIns: number
+          // based on https://www.evm.codes/
+          switch(opName){
+            case 'ISZERO':
+            case 'NOT':
+              nIns = 1
+              break
+            case 'ADDMOD':
+            case 'MULMOD':
+              nIns = 3
+              break
+            default:
+              nIns = 2
+              break            
+          }
+          const ins = prevRunState.stack.peek(nIns)
+          const out = afterRunState.stack.peek(1)[0]
+          synthesizer.handleArith(opName, ins, out)
         },
       )
     }
-    const __createEnvInfHandler = (opName: SynthesizerSupportedOpcodes): void => {
+    const __createEnvInfHandler = (opName: SynthesizerSupportedEnvInfOpcodes): void => {
       const op: number = synthesizerOpcodeByName[opName]
       this.synthesizerHandlers.set(
         op,
         function (synthesizer, prevExecResult, afterExecResult) {
           const prevRunState = prevExecResult.runState!
           const afterRunState = afterExecResult.runState!
-          const outVal: bigint = afterRunState.stack.peek(1)[0]
-          const opts: EnvInfHandlerOpts = {
+          const out: bigint = afterRunState.stack.peek(1)[0]
+          const opts: HandlerOpts = {
             op: opName,
-            srcOffset: undefined,
-            destOffset: undefined,
-            size: undefined,
-            pc: BigInt(prevRunState.programCounter - 1),
+            pc: BigInt(prevRunState.programCounter),
             thisAddress: bytesToBigInt(prevRunState.interpreter.getAddress().toBytes()),
             callerAddress: prevRunState.interpreter.getCaller(),
-            targetAddress: undefined,
             originAddress: prevRunState.interpreter.getTxOrigin(),
+            callDepth: prevRunState.interpreter._env.depth,
           }
           // based on https://www.evm.codes/
+          let nIns: number
           switch(opName) {
-            case 'CALLDATALOAD':
-              opts.srcOffset = prevRunState.stack.peek(1)[0]
-              break
             case 'BALANCE':
+            case 'CALLDATALOAD':
             case 'EXTCODESIZE':
             case 'EXTCODEHASH':
-              opts.targetAddress = prevRunState.stack.peek(1)[0]
+              nIns = 1
               break
             case 'CALLDATACOPY':
             case 'CODECOPY':
-            case 'RETURNDATACOPY': {
-              const _args = prevRunState.stack.peek(3)
-              opts.destOffset = _args[0]
-              opts.srcOffset = _args[1]
-              opts.size = _args[2]
+            case 'RETURNDATACOPY':
+              nIns = 3
+              {
+                const ins = prevRunState.stack.peek(nIns)
+                const memOffset = ins[1]
+                const dataLength = ins[2]
+                opts.memOut = afterRunState.memory.read(Number(memOffset), Number(dataLength))
+              }
               break
-            }
-            case 'EXTCODECOPY': {
-              const _args = prevRunState.stack.peek(4)
-              opts.targetAddress = _args[0]
-              opts.destOffset = _args[1]
-              opts.srcOffset = _args[2]
-              opts.size = _args[3]
-            }
+            case 'EXTCODECOPY': 
+              nIns = 4
+              {
+                const ins = prevRunState.stack.peek(nIns)
+                const memOffset = ins[2]
+                const dataLength = ins[3]
+                opts.memOut = afterRunState.memory.read(Number(memOffset), Number(dataLength))
+              }
+              break
             default:
+              nIns = 0
               break
           }
-          synthesizer.handleEnvInf(outVal, opts)
+          const ins = prevRunState.stack.peek(nIns)
+          synthesizer.handleEnvInf(ins, out, opts)
         },
       )
     }
-    const __createBlkInfHandler = (opName: SynthesizerSupportedOpcodes): void => {
+    const __createBlkInfHandler = (opName: SynthesizerSupportedBlkInfOpcodes): void => {
       const op: number = synthesizerOpcodeByName[opName]
       this.synthesizerHandlers.set(
         op,
         function (synthesizer, prevExecResult, afterExecResult) {
           const prevRunState = prevExecResult.runState!
           const afterRunState = afterExecResult.runState!
-          const blockNumber = opName === 'BLOCKHASH' ? prevRunState.stack.peek(1)[0] : undefined
+          const blockNumber = opName === 'BLOCKHASH' ? prevRunState.stack.pop() : undefined
           const outVal = afterRunState.stack.peek(1)[0]
           synthesizer.handleBlkInf(opName, outVal, blockNumber)
+        },
+      )
+    }
+    const __createSysFlowHandlers = (opName: SynthesizerSupportedSysFlowOpcodes): void => {
+      const op: number = synthesizerOpcodeByName[opName]
+      this.synthesizerHandlers.set(
+        op,
+        function (synthesizer, prevExecResult, afterExecResult) {
+          const prevRunState = prevExecResult.runState!
+          const afterRunState = afterExecResult.runState!
+          const out: bigint = afterRunState.stack.peek(1)[0]
+          const opts: HandlerOpts = {
+            op: opName,
+            pc: BigInt(prevRunState.programCounter - 1),
+            thisAddress: bytesToBigInt(prevRunState.interpreter.getAddress().toBytes()),
+            callerAddress: prevRunState.interpreter.getCaller(),
+            originAddress: prevRunState.interpreter.getTxOrigin(),
+            callDepth: prevRunState.interpreter._env.depth,
+          }
+          // based on https://www.evm.codes/
+          let nIns: number
+          switch(opName) {
+            case 'POP':
+            case 'MLOAD':
+            case 'SLOAD':
+            case 'JUMP':
+              nIns = 1
+              break
+            case 'MSTORE':
+            case 'MSTORE8':
+              nIns = 2
+              {
+                const ins = prevRunState.stack.peek(nIns)
+                const memOffset = ins[0]
+                const dataLength = opName === 'MSTORE' ? DEFAULT_SOURCE_SIZE : 8
+                opts.memOut = afterRunState.memory.read(Number(memOffset), dataLength)
+              }
+              break
+            case 'SSTORE':
+            case 'JUMPI':
+              nIns = 2
+              break
+            case 'RETURN':
+            case 'REVERT':
+              nIns = 2
+              {
+                const ins = prevRunState.stack.peek(nIns)
+                const memOffset = ins[0]
+                const dataLength = ins[1]
+                opts.memOut = afterRunState.memory.read(Number(memOffset), Number(dataLength))
+              }
+              break
+            case 'MCOPY':
+              nIns = 3
+              {
+                const ins = prevRunState.stack.peek(nIns)
+                const memOffset = ins[1]
+                const dataLength = ins[2]
+                opts.memOut = afterRunState.memory.read(Number(memOffset), Number(dataLength))
+              }
+              break
+            case 'CALL':
+            case 'CALLCODE':
+              nIns = 7
+              {
+                const ins = prevRunState.stack.peek(nIns)
+                const memOffset = ins[5]
+                const dataLength = ins[6]
+                opts.memOut = afterRunState.memory.read(Number(memOffset), Number(dataLength))
+              }
+              break
+            case 'DELEGATECALL':
+            case 'STATICCALL':
+              nIns = 6
+              {
+                const ins = prevRunState.stack.peek(nIns)
+                const memOffset = ins[4]
+                const dataLength = ins[5]
+                opts.memOut = afterRunState.memory.read(Number(memOffset), Number(dataLength))
+              }
+              break
+            default:
+              nIns = 0
+              break
+          }
+          const ins = prevRunState.stack.peek(nIns)
+          synthesizer.handleSysFlow(ins, out, opts)
         },
       )
     }
@@ -217,30 +325,94 @@ export class InstructionHandlers {
       //'BLOBHASH',
       //'BLOBBASEFEE',
     ] satisfies SynthesizerSupportedOpcodes[]).forEach(__createBlkInfHandler)
+    ;(['POP'
+      ,'MLOAD'
+      , 'MSTORE'
+      , 'MSTORE8'
+      , 'SLOAD'
+      , 'SSTORE'
+      , 'JUMP'
+      , 'JUMPI'
+      , 'PC'
+      , 'MSIZE'
+      , 'GAS'
+      , 'JUMPDEST'
+      // , 'TLOAD'
+      // , 'TSTORE'
+      , 'MCOPY'
+      , 'PUSH0'
+      // , 'CREATE'
+      , 'CALL'
+      , 'CALLCODE'
+      , 'RETURN'
+      , 'DELEGATECALL'
+      // , 'CREATE2'
+      , 'STATICCALL'
+      , 'REVERT'
+      // , 'INVALID'
+      // , 'SELFDESTRUCT'
+    ] satisfies SynthesizerSupportedOpcodes[]).forEach(__createSysFlowHandlers)
 
-    this.synthesizerHandlers.set(synthesizerOpcodeByName['POP'], 
-      function (synthesizer, prevExecResult, afterExecResult) {
-        synthesizer.state.stackPt.pop()
-      }
-    )
-
-    this.synthesizerHandlers.set(synthesizerOpcodeByName['MLOAD'],
+    // PUSHs
+    this.synthesizerHandlers.set(
+      synthesizerOpcodeByName['PUSH1'],
       function (synthesizer, prevExecResult, afterExecResult) {
         const prevRunState = prevExecResult.runState!
         const afterRunState = afterExecResult.runState!
-        const pos = prevRunState.stack.peek(1)[0]
-
-        if (
-          !equalsBytes(runState.memory.read(offsetNum, truncSize, true), _view)
-        ) {
-          throw new Error(
-            `MSTORE: Stored data mismatch between memoryPt and memory`,
-          );
+        const out: bigint = afterRunState.stack.peek(1)[0]
+        const numToPush = prevRunState.opCode - 0x5f
+        const pc = prevRunState.programCounter
+        const thisAddress = prevRunState.interpreter.getAddress().toString()
+        const callerAdderss = createAddressFromBigInt(prevRunState.interpreter.getCaller()).toString()
+        const staticInDesc = `Static input for PUSH${numToPush} instruction at PC ${pc} of code address ${thisAddress} called by ${callerAdderss}`
+        synthesizer.state.stackPt.push(synthesizer.loadArbitraryStatic(
+          out,
+          numToPush * 8,
+          staticInDesc,
+        ))
+        if (synthesizer.state.stackPt.peek(1)[0].value !== out) {
+          throw new Error(`Synthesizer: PUSH${numToPush}: Output data mismatch`)
         }
-      }
+      },
     )
-
-
+    const pushFn = this.synthesizerHandlers.get(synthesizerOpcodeByName['PUSH1'])!
+    for (let i = 0x61; i <= 0x7f; i++) {
+      this.synthesizerHandlers.set(i, pushFn);
+    }
+    // DUPs
+    this.synthesizerHandlers.set(
+      synthesizerOpcodeByName['DUP1'],
+      function (synthesizer, prevExecResult, afterExecResult) {
+        const prevRunState = prevExecResult.runState!
+        const afterRunState = afterExecResult.runState!
+        const stackPos = prevRunState.opCode - 0x7f
+        synthesizer.state.stackPt.dup(stackPos)
+        if (synthesizer.state.stackPt.peek(1)[0].value !== afterRunState.stack.peek(1)[0]) {
+          throw new Error(`Synthesizer: DUP${stackPos}: Output data mismatch`)
+        }
+      },
+    )
+    const dupFn = this.synthesizerHandlers.get(synthesizerOpcodeByName['DUP1'])!
+    for (let i = 0x81; i <= 0x8f; i++) {
+      this.synthesizerHandlers.set(i, dupFn)
+    }
+    // SWAPs
+    this.synthesizerHandlers.set(
+      synthesizerOpcodeByName['SWAP1'],
+      function (synthesizer, prevExecResult, afterExecResult) {
+        const prevRunState = prevExecResult.runState!
+        const afterRunState = afterExecResult.runState!
+        const stackPos = prevRunState.opCode - 0x8f
+        synthesizer.state.stackPt.swap(stackPos)
+        if (synthesizer.state.stackPt.peek(1)[0].value !== afterRunState.stack.peek(1)[0]) {
+          throw new Error(`Synthesizer: SWAP${stackPos}: Output data mismatch`)
+        }
+      },
+    )
+    const swapFn = this.synthesizerHandlers.get(synthesizerOpcodeByName['SWAP1'])!
+    for (let i = 0x91; i <= 0x9f; i++) {
+      this.synthesizerHandlers.set(i, swapFn)
+    }
   }
 
   private _getOriginAddressPt = (): DataPt => {
@@ -315,18 +487,11 @@ export class InstructionHandlers {
   }
 
   public handleArith = (
-    op: SynthesizerSupportedOpcodes,
+    op: SynthesizerSupportedArithOpcodes,
     ins: bigint[],
     out: bigint,
   ): void => {
-    const stackPt = this.parent.state.stackPt
-    const inPts = stackPt.popN(ins.length);
-
-    for (let i = 0; i < ins.length; i++) {
-      if (inPts[i].value !== ins[i]) {
-        throw new Error(`Synthesizer: ${op}: Input data mismatch`);
-      }
-    }
+    const inPts = this._popStackPtAndCheckInputConsistency(ins)
     let outPts: DataPt[];
     switch (op) {
       case 'EXP':
@@ -339,12 +504,12 @@ export class InstructionHandlers {
     if (outPts.length !== 1 || outPts[0].value !== out) {
       throw new Error(`Synthesizer: ${op}: Output data mismatch`);
     }
-    stackPt.push(outPts[0]);
+    this.parent.state.stackPt.push(outPts[0]);
   }
 
   public handleBlkInf = (
-    op: SynthesizerSupportedOpcodes,
-    output: bigint,
+    op: SynthesizerSupportedBlkInfOpcodes,
+    out: bigint,
     blockNumber?: bigint,
   ): void => {
     const stackPt = this.parent.state.stackPt
@@ -361,7 +526,7 @@ export class InstructionHandlers {
         break
       }
       case 'BLOCKHASH': {
-        checkRequiredInput(blockNumber)
+        this._popStackPtAndCheckInputConsistency([blockNumber!])
         const blockNumberDiff = this.parent.loadReservedVariableFromBuffer('NUMBER').value - blockNumber!
         dataPt =  blockNumberDiff <= 0n && blockNumberDiff > 256n ? 
           this.parent.loadArbitraryStatic(0n, 1) : 
@@ -373,14 +538,39 @@ export class InstructionHandlers {
         );
     }
     stackPt.push(dataPt);
-    if (stackPt.peek(1)[0].value !== output) {
+    if (stackPt.peek(1)[0].value !== out) {
       throw new Error(`Synthesizer: ${op}: Output data mismatch`);
     }
   }
 
+  private _getStaticInDataPt = (output: bigint, opts: HandlerOpts, targetAddress?: bigint): DataPt => {
+    checkRequiredInput(opts.pc, opts.thisAddress, opts.callerAddress)
+    const value = output
+    const cachedDataPt = this.parent.state.cachedStaticIn.get(value)
+    const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc!} of code address ${createAddressFromBigInt(opts.thisAddress!).toString()} called by ${createAddressFromBigInt(opts.callerAddress!).toString()}`
+    let targetDesc = targetAddress === undefined ? `` : `(target: ${createAddressFromBigInt(targetAddress).toString()})`
+    return cachedDataPt ?? this.parent.loadArbitraryStatic(
+      value,
+      undefined,
+      staticInDesc + targetDesc,
+    )
+  }
+
+  private _popStackPtAndCheckInputConsistency = (ins: bigint[]): DataPt[] => {
+    const nIns = ins.length  
+    const dataPts = this.parent.state.stackPt.popN(nIns)
+      for (var i = 0; i < nIns; i++) {
+        if (ins[i] !== dataPts[i].value){
+          throw new Error(`Synthesizer: Handler: The ${i}-th input data mismatch`)
+        }
+      }
+      return dataPts
+    }
+
   public handleEnvInf(
-    output: bigint,
-    opts: EnvInfHandlerOpts,
+    ins: bigint[],
+    out: bigint,
+    opts: HandlerOpts,
   ): void {
     const _getOriginDataPt = (): DataPt => {
       checkRequiredInput(opts.originAddress)
@@ -395,243 +585,398 @@ export class InstructionHandlers {
       }
       return dataPt
     }
-
-    const _getStaticInDataPt = (output: bigint, opts: EnvInfHandlerOpts): DataPt => {
-      checkRequiredInput(opts.pc, opts.thisAddress, opts.callerAddress)
-      const value = output
-      const cachedDataPt = this.parent.state.cachedStaticIn.get(value)
-      const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc!} of code address ${opts.thisAddress!} called by ${opts.callerAddress!}`
-      let targetDesc = opts.targetAddress === undefined ? `` : `(target: ${opts.targetAddress})`
-      return cachedDataPt ?? this.parent.loadArbitraryStatic(
-        value,
-        undefined,
-        staticInDesc + targetDesc,
-      )
-    }
     
-    let dataPt: DataPt
     const stackPt = this.parent.state.stackPt
-    const op = opts.op
+    const memoryPt = this.parent.state.memoryPt
+    this._popStackPtAndCheckInputConsistency(ins)
+    const op = opts.op as SynthesizerSupportedEnvInfOpcodes
     switch (op) {
-      case 'ADDRESS': {
-        checkRequiredInput(opts.originAddress, opts.thisAddress)
-        const origin = opts.originAddress!
-        const thisAddress = opts.thisAddress!
-        if (origin === thisAddress) {
-          dataPt = _getOriginDataPt()
-        } else {
-          dataPt = _getStaticInDataPt(output, opts)
-        }
-        break
-      }
-      case 'BALANCE': {
-        checkRequiredInput(opts.targetAddress)
-        dataPt = _getStaticInDataPt(output, opts)
-        break
-      }
-      case 'ORIGIN': {
-        dataPt = _getOriginDataPt()
-        break
-      } 
-      case 'CALLER': {
-        checkRequiredInput(opts.originAddress, opts.thisAddress)
-        const origin = opts.originAddress!
-        const caller = opts.callerAddress!
-        if (origin === caller) {
-          dataPt = _getOriginDataPt()
-          
-        } else {
-          dataPt = _getStaticInDataPt(output, opts)
-        }
-        break
-      }
-      case 'CALLVALUE': {
-        dataPt = _getStaticInDataPt(output, opts)
-        break
-      }
-      case 'CALLDATALOAD': {
-        checkRequiredInput(opts.srcOffset)
-        if (opts.srcOffset !== stackPt.pop().value) {
-          throw new Error(`Synthesizer: ${op}: Input data mismatch`);
-        }
-        const i = Number(opts.srcOffset!);
-        const calldataMemoryPts = this.parent.envMemoryPts.calldataMemroyPts
-        if (calldataMemoryPts.length > 0) {
-          const calldataMemoryPt = simulateMemoryPt(calldataMemoryPts);
-          const dataAliasInfos = calldataMemoryPt.getDataAlias(i, 32);
-          if (dataAliasInfos.length > 0) {
-            dataPt = this.parent.placeMemoryToStack(dataAliasInfos);
+      case 'ADDRESS': 
+        {
+          checkRequiredInput(opts.originAddress, opts.thisAddress)
+          const origin = opts.originAddress!
+          const thisAddress = opts.thisAddress!
+          if (origin === thisAddress) {
+            stackPt.push(_getOriginDataPt())
           } else {
-            dataPt = this.parent.loadArbitraryStatic(BIGINT_0, 1)
-            // dataPt = runState.synthesizer.loadEnvInf(
-            //   runState.env.address.toString(),
-            //   'Calldata(Empty)',
-            //   runState.stack.peek(1)[0],
-            //   i,
-            // );
+            stackPt.push(this._getStaticInDataPt(out, opts))
           }
-        } else {
-          dataPt = this.parent.loadArbitraryStatic(BIGINT_0, 1)
-          // dataPt = runState.synthesizer.loadEnvInf(
-          //   runState.env.address.toString(),
-          //   'Calldata(User)',
-          //   runState.stack.peek(1)[0],
-          //   i,
-          // );
         }
-        break;
-      }
-      case 'CALLDATASIZE': {
-        dataPt = _getStaticInDataPt(output, opts)
         break
-      }
-      case 'CODESIZE': {
-        dataPt = _getStaticInDataPt(output, opts)
-        break
-      }
-      case 'GASPRICE': {
-        dataPt = _getStaticInDataPt(output, opts)
-        break
-      }
-      case 'EXTCODESIZE': {
-        checkRequiredInput(opts.targetAddress)
-        if (opts.targetAddress! !== stackPt.pop().value) {
-          throw new Error(`Synthesizer: ${op}: Input data mismatch`)
+      case 'BALANCE': 
+        {
+          const targetAddress = ins[0]
+          stackPt.push(this._getStaticInDataPt(out, opts, targetAddress))
         }
-        dataPt = _getStaticInDataPt(output, opts)
         break
-      }
-      case 'RETURNDATASIZE': {
-        dataPt = _getStaticInDataPt(output, opts)
+      case 'ORIGIN': 
+        stackPt.push(_getOriginDataPt())
         break
-      }
-      case 'EXTCODEHASH': {
-        checkRequiredInput(opts.targetAddress)
-        if (opts.targetAddress! !== stackPt.pop().value) {
-          throw new Error(`Synthesizer: ${op}: Input data mismatch`)
+      case 'CALLER': 
+        {
+          checkRequiredInput(opts.originAddress, opts.thisAddress)
+          const origin = opts.originAddress!
+          const caller = opts.callerAddress!
+          if (origin === caller) {
+            stackPt.push(_getOriginDataPt())
+            
+          } else {
+            stackPt.push(this._getStaticInDataPt(out, opts))
+          }  
         }
-        dataPt = _getStaticInDataPt(output, opts)
         break
-      }
-      case 'PC': {
-        checkRequiredInput(opts.thisAddress)
-        dataPt = _getStaticInDataPt(output, opts)
-      }
+      case 'CALLVALUE': 
+        stackPt.push(this._getStaticInDataPt(out, opts))
+        break
+      case 'CALLDATALOAD': 
+        {
+          const srcOffset = ins[0]
+          checkRequiredInput(opts.callDepth)
+          const i = Number(srcOffset);
+          const calldataMemoryPts = this.parent.state.callMemoryPtsStack[opts.callDepth!]
+          if (calldataMemoryPts.length > 0) {
+            const calldataMemoryPt = MemoryPt.simulateMemoryPt(calldataMemoryPts);
+            const dataAliasInfos = calldataMemoryPt.getDataAlias(i, 32);
+            if (dataAliasInfos.length > 0) {
+              stackPt.push(this.parent.placeMemoryToStack(dataAliasInfos))
+            } else {
+              stackPt.push(this.parent.loadArbitraryStatic(0n, 1))
+            }
+          } else {
+            stackPt.push(this.parent.loadArbitraryStatic(0n, 1))
+          }   
+        }
+        break
+      case 'CALLDATASIZE':
+        stackPt.push(this._getStaticInDataPt(out, opts))
+        break
+      case 'CALLDATACOPY':
+        {
+          const memOffset = ins[0]
+          const dataOffset = ins[1]
+          const dataLength = ins[2]
+          checkRequiredInput(opts.callDepth, opts.memOut)
+          if (dataLength !== BIGINT_0) {
+            const calldataMemoryPts = this.parent.state.callMemoryPtsStack[opts.callDepth!]
+            const memPts: MemoryPts = this.parent.copyMemoryPts(
+              calldataMemoryPts,
+              dataOffset,
+              dataLength,
+              memOffset,
+            )
+            memoryPt.writeBatch(memPts)
+          }
+          const _outData = memoryPt.viewMemory(
+            Number(memOffset),
+            Number(dataLength),
+          )
+          if (!equalsBytes(_outData, opts.memOut!)) {
+            throw new Error(`Synthesizer: ${op}: Output memory data mismatch`)
+          }
+        }
+        break
+      case 'CODESIZE':
+        stackPt.push(this._getStaticInDataPt(out, opts))
+        break
+      case 'CODECOPY':
+        {
+          const memOffset = ins[0]
+          const codeOffset = ins[1]
+          const dataLength = ins[2]
+          checkRequiredInput(opts.thisAddress, opts.memOut)
+          if (dataLength !== BIGINT_0) {
+            const memPts: MemoryPts = this._prepareCodeMemoryPts(
+              opts.memOut!,
+              opts.thisAddress!,
+              codeOffset,
+              dataLength,
+            )
+            memoryPt.writeBatch(memPts)
+          }
+
+          const _outData = memoryPt.viewMemory(
+            Number(memOffset),
+            Number(dataLength),
+          )
+          if (!equalsBytes(_outData, opts.memOut!)) {
+            throw new Error(`Synthesizer: ${op}: Output memory data mismatch`)
+          }
+        }
+        break
+      case 'GASPRICE': 
+        stackPt.push(this._getStaticInDataPt(out, opts))
+        break
+      case 'EXTCODESIZE': 
+        {
+          const targetAdderss = ins[0]
+          stackPt.push(this._getStaticInDataPt(out, opts, targetAdderss))  
+        }
+        break
+      case 'EXTCODECOPY':
+        {
+          const addressBigInt = ins[0]
+          const memOffset = ins[1]
+          const codeOffset = ins[2]
+          const dataLength = ins[3]
+          checkRequiredInput(opts.memOut)
+          if (dataLength !== BIGINT_0) {
+            const memPts: MemoryPts = this._prepareCodeMemoryPts(
+              opts.memOut!,
+              addressBigInt,
+              codeOffset,
+              dataLength,
+            )
+            memoryPt.writeBatch(memPts)
+          }
+          const _outData = memoryPt.viewMemory(
+            Number(memOffset),
+            Number(dataLength),
+          )
+          if (!equalsBytes(_outData, opts.memOut!)) {
+            throw new Error(`Synthesizer: ${op}: Output memory data mismatch`)
+          }
+        }
+        break
+      case 'RETURNDATASIZE': 
+        stackPt.push(this._getStaticInDataPt(out, opts))
+        break
+      case 'RETURNDATACOPY':
+        {
+          const memOffset = ins[0]
+          const returnDataOffset = ins[1]
+          const dataLength = ins[2]
+          checkRequiredInput(opts.callDepth, opts.memOut)
+          if (dataLength !== BIGINT_0) {
+            const copiedMemoryPts = this.parent.copyMemoryPts(
+              this.parent.state.cachedReturnMemoryPts,
+              returnDataOffset,
+              dataLength,
+              memOffset,
+            )
+            memoryPt.writeBatch(copiedMemoryPts)
+          }
+          const _outData = memoryPt.viewMemory(
+            Number(memOffset),
+            Number(dataLength),
+          );
+          if (!equalsBytes(_outData, opts.memOut!)) {
+            throw new Error(`Synthesizer: ${op}: Output memory data mismatch`)
+          }
+        }
+        break
+      case 'EXTCODEHASH': 
+        {
+          const targetAdderss = ins[0]
+          stackPt.push(this._getStaticInDataPt(out, opts, targetAdderss))
+        }
+        break
       default:
         throw new Error(
-          `Synthesizer: Dealing with invalid environment information instruction`,
-        );
+          `Synthesizer: ${op} is not implemented.`,
+        )
     }
-    stackPt.push(dataPt);
-    if (stackPt.peek(1)[0].value !== output) {
+    if (stackPt.peek(1)[0].value !== out) {
       throw new Error(`Synthesizer: ${op}: Output data mismatch`);
     }
   }
 
-  public handleSystemFlow(
-    opts: EnvInfHandlerOpts,
+  public handleSysFlow(
     ins: bigint[],
-    outs: bigint[],
+    out: bigint,
+    opts: HandlerOpts,
   ): void {
-    const _popAndInputConsistencyCheck = (nIns: number): DataPt[] => {
-      const dataPts = stackPt.popN(nIns)
-      for (var i = 0; i < nIns; i++) {
-        if (ins[i] !== dataPts[i].value){
-          throw new Error(`Synthesizer: ${op}: The ${i}-th input data mismatch`)
-        }
-      }
-      return dataPts
-    }
-    let dataPts: DataPt[] = []
-    const op = opts.op
+    const op = opts.op as SynthesizerSupportedSysFlowOpcodes
     const stackPt = this.parent.state.stackPt
     const memoryPt = this.parent.state.memoryPt
+    const inPts = this._popStackPtAndCheckInputConsistency(ins)
     switch (op) {
-      case 'POP': {
-        _popAndInputConsistencyCheck(1)
+      case 'POP': 
         break
-      }
-      case 'MLOAD': {
-        _popAndInputConsistencyCheck(1)
-        const pos = ins[0]
-        const dataAliasInfos = memoryPt.getDataAlias(
-          Number(pos),
-          32,
-        )
-        const mutDataPt = dataAliasInfos.length === 0 ? this.parent.loadArbitraryStatic(0n, 1) : this.parent.placeMemoryToStack(dataAliasInfos)
-        dataPts.push(mutDataPt)
-        break
-      }
-      case 'MSTORE': 
-        let truncSize = 256
-      case 'MSTORE8': 
-        truncSize = 8
+      case 'MLOAD':
         {
-          const inPts: DataPt[] = _popAndInputConsistencyCheck(2)
-          const offsetNum = Number(ins[0])
-          const originalDataPt = inPts[1]
-          const memPt = this.parent.placeMSTORE(originalDataPt, truncSize)
-          // Replace dataPt in StackPt with the tracked memPt
-          const newDataPt = truncSize < originalDataPt.sourceSize ? memPt : originalDataPt
-          memoryPt.write(offsetNum, truncSize, newDataPt)
+          const pos = ins[0]
+          const dataAliasInfos = memoryPt.getDataAlias(
+            Number(pos),
+            32,
+          )
+          const mutDataPt = dataAliasInfos.length === 0 ? this.parent.loadArbitraryStatic(0n, 1) : this.parent.placeMemoryToStack(dataAliasInfos)
+          stackPt.push(mutDataPt)
         }
         break
-      case 'SLOAD': {
-        _popAndInputConsistencyCheck(1)
-        const key = ins[0]
-        stackPt.push(this.parent.loadStorage(key))
+      case 'MSTORE': 
+      case 'MSTORE8': 
+        {
+          checkRequiredInput(opts.memOut)
+          const offsetNum = Number(ins[0])
+          const originalDataPt = inPts[1]
+          const truncByteSize = op === 'MSTORE' ? DEFAULT_SOURCE_SIZE : 8
+          const truncBitSize = truncByteSize * 8
+          // Replace dataPt in StackPt with the tracked memPt
+          const newDataPt = truncBitSize < originalDataPt.sourceBitSize ? this.parent.placeMSTORE(originalDataPt, truncBitSize) : originalDataPt
+          const _out = memoryPt.write(offsetNum, truncBitSize, newDataPt)
+          if ( !equalsBytes(_out, opts.memOut!) ) {
+            throw new Error(`Synthesizer: ${op}: Output memory data mismatch`)
+          } 
+        }
         break
-      }
-      case 'SSTORE': {
-        const inPts: DataPt[] = _popAndInputConsistencyCheck(2)
-        const key = ins[0]
-        const dataPt = inPts[1]
-        this.parent.storeStorage(key, dataPt)
+      case 'SLOAD': 
+        {
+          const key = ins[0]
+          stackPt.push(this.parent.loadStorage(key))
+        }
         break
-      }
-      case 'JUMP': {
-        stackPt.pop()
+      case 'SSTORE': 
+        {
+          const key = ins[0]
+          const dataPt = inPts[1]
+          this.parent.storeStorage(key, dataPt)
+          if ( dataPt.value !== ins[1] ) {
+            throw new Error(`Synthesizer: ${op}: Output storage data mismatch`)
+          } 
+        }
         break
-      }
-      case 'JUMPI': {
-        stackPt.popN(2)
+      case 'JUMP': 
+      case 'JUMPI': 
         break
-      }
-      case 'PC': {
-        checkRequiredInput(opts.thisAddress, opts.callerAddress)
-        const pc = outs[0]
-        const staticInDesc = `Static input for ${opts.op} instruction at PC ${pc} of code address ${opts.thisAddress!} called by ${opts.callerAddress!}`
-        stackPt.push(this.parent.loadArbitraryStatic(pc, undefined, staticInDesc))
+      case 'PC': 
+      case 'MSIZE':
+      case 'GAS':
+        {
+          checkRequiredInput(opts.pc, opts.thisAddress, opts.callerAddress)
+          const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc} of code address ${opts.thisAddress!} called by ${opts.callerAddress!}`
+          stackPt.push(this.parent.loadArbitraryStatic(out, undefined, staticInDesc))
+        }
         break
-      }
-      case 'MSIZE': {
-        checkRequiredInput(opts.pc, opts.thisAddress, opts.callerAddress)
-        const msize = outs[0]
-        const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc} of code address ${opts.thisAddress!} called by ${opts.callerAddress!}`
-        stackPt.push(this.parent.loadArbitraryStatic(msize, undefined, staticInDesc))
+      case 'JUMPDEST': 
         break
-      }
-      case 'GAS': {
-        checkRequiredInput(opts.pc, opts.thisAddress, opts.callerAddress)
-        const gas = outs[0]
-        const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc} of code address ${opts.thisAddress!} called by ${opts.callerAddress!}`
-        stackPt.push(this.parent.loadArbitraryStatic(gas, undefined, staticInDesc))
+      case 'MCOPY': 
+        {
+          const [dstOffset, srcOffset, length] = ins
+          checkRequiredInput(opts.memOut)
+          const _out = memoryPt.writeBatch(
+            this.parent.copyMemoryPts(
+              memoryPt.read(Number(srcOffset), Number(length)),
+              srcOffset,
+              length,
+              dstOffset,
+            )
+          )
+          if ( !equalsBytes(_out, opts.memOut!)) {
+            throw new Error(`Synthesizer: ${op}: Output memory data mismatch`)
+          }
+        }
         break
-      }
-      case 'JUMPDEST': {break}
-      case 'MCOPY': {
-        
-      } 
+      case 'CALL':
+      case 'CALLCODE':
+      case 'DELEGATECALL':
+      case 'STATICCALL':
+        // Only post-tasks after executing an interpreter call are listed here. See "preTasksForCalls" for the pre-tasks.
+        {
+          checkRequiredInput(opts.callDepth, opts.memOut, opts.pc, opts.thisAddress, opts.callerAddress)
+          const toAddr = ins[1]
+          const outOffset = op === 'DELEGATECALL' || op === 'STATICCALL' ? ins[4] : ins[5]
+          const outLength = op === 'DELEGATECALL' || op === 'STATICCALL' ? ins[5] : ins[6]
+          if (toAddr >= 1n && toAddr <= 10n) {
+            throw new Error(
+              `Synthesizer: Precompiles are not implemented in Synthesizer.`,
+            )
+          }
+          const _out = this.parent.state.memoryPt.writeBatch(
+            this.parent.copyMemoryPts(
+              this.parent.state.cachedReturnMemoryPts, 
+              0n, 
+              outLength, 
+              outOffset
+            )
+          )
+          if ( !equalsBytes(_out, opts.memOut!)) {
+            throw new Error(
+              `Synthesizer: ${op}: Return memory data mismatch`,
+            )
+          }
+          this.parent.state.stackPt.push(this.parent.loadArbitraryStatic(
+            out,
+            undefined,
+            `Call result of ${op} instruction at PC ${opts.pc!} of code address ${opts.thisAddress!.toString()} called by ${opts.callerAddress!.toString()}`,
+          ))
+        }
+        break
+      case 'RETURN':
+      case 'REVERT':
+        {
+          checkRequiredInput(opts.memOut)
+          const [offset, length] = ins
+          this.parent.state.cachedReturnMemoryPts = this.parent.state.memoryPt.read(Number(offset), Number(length))
+          
+          const simMemoryPt = MemoryPt.simulateMemoryPt(this.parent.state.cachedReturnMemoryPts);
+          const _out = simMemoryPt.viewMemory(0, Number(length));
+          if (!equalsBytes(_out, opts.memOut!)) {
+            throw new Error(`Synthesizer: ${op}: Output memory data mismatch`)
+          }
+        }
+        break
+      default:
+        throw new Error(`Synthesizer: ${op} is not implemented.`)
     }
-    
+    if (stackPt.peek(1)[0].value !== out) {
+      throw new Error(`Synthesizer: ${op}: Output data mismatch`)
+    }
   }
 
-  public prepareEXTCodePts(
-    extCode: Uint8Array<ArrayBufferLike>,
-    targetAddress: string,
-    _offset?: bigint,
-    _size?: bigint,
-  ): DataPt[] {
+  static preTasksForCalls (op: 'CALL' | 'CALLCODE' | 'DELEGATECALL' | 'STATICCALL', execResult: ExecResult, synthesizer:ISynthesizerProvider, ) {
+    const prevRunState = execResult.runState!
+    let toAddr: bigint
+    let inOffset: bigint
+    let inLength: bigint
+    switch(op){
+      case 'CALL':
+      case 'CALLCODE': {
+        const ins = prevRunState.stack.peek(7)
+        toAddr = ins[1]
+        inOffset = ins[3]
+        inLength = ins[4]
+      }
+      break
+      case 'DELEGATECALL':
+      case 'STATICCALL': {
+        const ins = prevRunState.stack.peek(6)
+        toAddr = ins[1]
+        inOffset = ins[2]
+        inLength = ins[3]
+      }
+      break
+      default: {
+        throw new Error(`Synthesizer: ${op} is not implemented.`)
+      }
+    }
+    if (toAddr >= 1n && toAddr <= 10n) {
+      throw new Error(
+        `Synthesizer: Precompiles are not implemented in Synthesizer.`,
+      )
+    }
+    const calldataMemoryPts = synthesizer.copyMemoryPts(
+      synthesizer.state.memoryPt.read(Number(inOffset), Number(inLength)),
+      inOffset,
+      inLength,
+    )
+    const callDepth = prevRunState.interpreter._env.depth
+    synthesizer.state.callMemoryPtsStack[callDepth! + 1] = calldataMemoryPts
+
+    const simCalldataMemoryPt = MemoryPt.simulateMemoryPt(calldataMemoryPts)
+    const syntheCallData = simCalldataMemoryPt.viewMemory(0, Number(inLength))
+    const actualCallData = prevRunState.memory.read(Number(inOffset), Number(inLength))
+    if (!equalsBytes(syntheCallData, actualCallData)) {
+      throw new Error(`Synthesizer: ${op}: Calldata memory data mismatch`)
+    }
+  }
+
+  private _prepareCodeMemoryPts(
+    code: Uint8Array<ArrayBufferLike>,
+    targetAddress: bigint,
+    memOffset: bigint,
+    codeOffset: bigint = 0n,
+    dataLength: bigint = BigInt(code.byteLength),
+  ): MemoryPts {
     // Copied from @ethereumjs/evm/src/opcdes/util.ts
     const getDataSlice = (data: Uint8Array, offset: bigint, length: bigint): Uint8Array => {
       const len = BigInt(data.length)
@@ -648,1752 +993,24 @@ export class InstructionHandlers {
       return data
     }
 
-    const codeOffset = _offset ?? 0n
-    const dataLength = _size ?? BigInt(extCode.byteLength)
-    let dataPts: DataPt[] = []
-    const nChunks = Math.ceil(Number(dataLength) / 32)
-    let currOffset = codeOffset
+    let memPts: MemoryPts = []
+    const nChunks = Math.ceil(Number(dataLength) / DEFAULT_SOURCE_SIZE)
+    let accOffsetShift = 0n
     let lengthLeft = Number(dataLength)
     for (let i = 0; i < nChunks; i++){
-      const sliceLength = Math.min(32, lengthLeft)
-      const dataSlice = bytesToBigInt(getDataSlice(extCode, currOffset, BigInt(sliceLength)))
-      const desc = `External code from ${targetAddress}, chunk: ${i+1} out of ${nChunks}, offset: ${Number(codeOffset)}, length: ${Number(dataLength)} bytes`
-      dataPts.push(this.parent.loadArbitraryStatic(dataSlice, undefined, desc))
-
+      const sliceLength = Math.min(DEFAULT_SOURCE_SIZE, lengthLeft)
+      const dataSlice = bytesToBigInt(getDataSlice(code, codeOffset + accOffsetShift, BigInt(sliceLength)))
+      const desc = `Code of address: ${bigIntToHex(targetAddress)}, offset: ${Number(codeOffset)}, length: ${Number(dataLength)} bytes, chunk: ${i+1} out of ${nChunks}.`
+      const dataPt = this.parent.loadArbitraryStatic(dataSlice, undefined, desc)
+      memPts.push({
+        memByteOffset: Number(memOffset + accOffsetShift),
+        containerByteSize: sliceLength,
+        dataPt
+      })
       lengthLeft -= sliceLength
-      currOffset += BigInt(sliceLength)
+      accOffsetShift += BigInt(sliceLength)
     }
     
-    return dataPts
+    return memPts
   }
-}
-
-// the opcode functions
-export const synthesizerHandlers: Map<number, SynthesizerOpHandler> = new Map([
-  // 0x00: STOP
-  [
-    0x00,
-    function () {
-      // Do nothing
-    },
-  ],
-  // 0x01: ADD
-  [
-    0x01,
-    function (synthesizer, prevExecResult, afterExecResult) {
-      checkSupportedOpcode(0x01)
-      const prevRunState = prevExecResult.runState!
-      const afterRunState = afterExecResult.runState!
-      const [a, b] = prevRunState.stack.peek(2)
-      const r = afterRunState.stack.peek(1)[0]
-      synthesizer.handleArith('ADD', [a, b], r)
-    },
-  ],
-  // // 0x02: MUL
-  // [
-  //   0x02,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     const r = mod(a * b, TWO_POW256)
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x03: SUB
-  // [
-  //   0x03,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     const r = mod(a - b, TWO_POW256)
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x04: DIV
-  // [
-  //   0x04,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     let r
-  //     if (b === BIGINT_0) {
-  //       r = BIGINT_0
-  //     } else {
-  //       r = mod(a / b, TWO_POW256)
-  //     }
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x05: SDIV
-  // [
-  //   0x05,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     let r
-  //     if (b === BIGINT_0) {
-  //       r = BIGINT_0
-  //     } else {
-  //       r = toTwos(fromTwos(a) / fromTwos(b))
-  //     }
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x06: MOD
-  // [
-  //   0x06,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     let r
-  //     if (b === BIGINT_0) {
-  //       r = b
-  //     } else {
-  //       r = mod(a, b)
-  //     }
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x07: SMOD
-  // [
-  //   0x07,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     let r
-  //     if (b === BIGINT_0) {
-  //       r = b
-  //     } else {
-  //       r = fromTwos(a) % fromTwos(b)
-  //     }
-  //     runState.stack.push(toTwos(r))
-  //   },
-  // ],
-  // // 0x08: ADDMOD
-  // [
-  //   0x08,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b, c] = runState.stack.popN(3)
-  //     let r
-  //     if (c === BIGINT_0) {
-  //       r = BIGINT_0
-  //     } else {
-  //       r = mod(a + b, c)
-  //     }
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x09: MULMOD
-  // [
-  //   0x09,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b, c] = runState.stack.popN(3)
-  //     let r
-  //     if (c === BIGINT_0) {
-  //       r = BIGINT_0
-  //     } else {
-  //       r = mod(a * b, c)
-  //     }
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x0a: EXP
-  // [
-  //   0x0a,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [base, exponent] = runState.stack.popN(2)
-  //     if (base === BIGINT_2) {
-  //       switch (exponent) {
-  //         case BIGINT_96:
-  //           runState.stack.push(BIGINT_2EXP96)
-  //           return
-  //         case BIGINT_160:
-  //           runState.stack.push(BIGINT_2EXP160)
-  //           return
-  //         case BIGINT_224:
-  //           runState.stack.push(BIGINT_2EXP224)
-  //           return
-  //       }
-  //     }
-  //     if (exponent === BIGINT_0) {
-  //       runState.stack.push(BIGINT_1)
-  //       return
-  //     }
-
-  //     if (base === BIGINT_0) {
-  //       runState.stack.push(base)
-  //       return
-  //     }
-  //     const r = exponentiation(base, exponent)
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x0b: SIGNEXTEND
-  // [
-  //   0x0b,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     /* eslint-disable-next-line prefer-const */
-  //     let [k, val] = runState.stack.popN(2)
-  //     if (k < BIGINT_31) {
-  //       const signBit = k * BIGINT_8 + BIGINT_7
-  //       const mask = (BIGINT_1 << signBit) - BIGINT_1
-  //       if ((val >> signBit) & BIGINT_1) {
-  //         val = val | BigInt.asUintN(256, ~mask)
-  //       } else {
-  //         val = val & mask
-  //       }
-  //     }
-  //     runState.stack.push(val)
-  //   },
-  // ],
-  // // 0x10 range - bit ops
-  // // 0x10: LT
-  // [
-  //   0x10,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     const r = a < b ? BIGINT_1 : BIGINT_0
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x11: GT
-  // [
-  //   0x11,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     const r = a > b ? BIGINT_1 : BIGINT_0
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x12: SLT
-  // [
-  //   0x12,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     const r = fromTwos(a) < fromTwos(b) ? BIGINT_1 : BIGINT_0
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x13: SGT
-  // [
-  //   0x13,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     const r = fromTwos(a) > fromTwos(b) ? BIGINT_1 : BIGINT_0
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x14: EQ
-  // [
-  //   0x14,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     const r = a === b ? BIGINT_1 : BIGINT_0
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x15: ISZERO
-  // [
-  //   0x15,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const a = runState.stack.pop()
-  //     const r = a === BIGINT_0 ? BIGINT_1 : BIGINT_0
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x16: AND
-  // [
-  //   0x16,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     const r = a & b
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x17: OR
-  // [
-  //   0x17,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     const r = a | b
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x18: XOR
-  // [
-  //   0x18,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     const r = a ^ b
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x19: NOT
-  // [
-  //   0x19,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const a = runState.stack.pop()
-  //     const r = BigInt.asUintN(256, ~a)
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x1a: BYTE
-  // [
-  //   0x1a,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [pos, word] = runState.stack.popN(2)
-  //     if (pos > BIGINT_32) {
-  //       runState.stack.push(BIGINT_0)
-  //       return
-  //     }
-
-  //     const r = (word >> ((BIGINT_31 - pos) * BIGINT_8)) & BIGINT_255
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x1b: SHL
-  // [
-  //   0x1b,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     if (a > BIGINT_256) {
-  //       runState.stack.push(BIGINT_0)
-  //       return
-  //     }
-
-  //     const r = (b << a) & MAX_INTEGER_BIGINT
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x1c: SHR
-  // [
-  //   0x1c,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-  //     if (a > 256) {
-  //       runState.stack.push(BIGINT_0)
-  //       return
-  //     }
-
-  //     const r = b >> a
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x1d: SAR
-  // [
-  //   0x1d,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [a, b] = runState.stack.popN(2)
-
-  //     let r
-  //     const bComp = BigInt.asIntN(256, b)
-  //     const isSigned = bComp < 0
-  //     if (a > 256) {
-  //       if (isSigned) {
-  //         r = MAX_INTEGER_BIGINT
-  //       } else {
-  //         r = BIGINT_0
-  //       }
-  //       runState.stack.push(r)
-  //       return
-  //     }
-
-  //     const c = b >> a
-  //     if (isSigned) {
-  //       const shiftedOutWidth = BIGINT_255 - a
-  //       const mask = (MAX_INTEGER_BIGINT >> shiftedOutWidth) << shiftedOutWidth
-  //       r = c | mask
-  //     } else {
-  //       r = c
-  //     }
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x20 range - crypto
-  // // 0x20: KECCAK256
-  // [
-  //   0x20,
-  //   function (runState, common) {
-  //     const [offset, length] = runState.stack.popN(2)
-  //     let data = new Uint8Array(0)
-  //     if (length !== BIGINT_0) {
-  //       data = runState.memory.read(Number(offset), Number(length))
-  //     }
-  //     const r = BigInt(bytesToHex((common.customCrypto.keccak256 ?? keccak256)(data)))
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x30 range - closure state
-  // // 0x30: ADDRESS
-  // [
-  //   0x30,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const address = bytesToBigInt(runState.interpreter.getAddress().bytes)
-  //     runState.stack.push(address)
-  //   },
-  // ],
-  // // 0x31: BALANCE
-  // [
-  //   0x31,
-  //   async function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const addressBigInt = runState.stack.pop()
-  //     const address = createAddressFromStackBigInt(addressBigInt)
-  //     const balance = await runState.interpreter.getExternalBalance(address)
-  //     runState.stack.push(balance)
-  //   },
-  // ],
-  // // 0x32: ORIGIN
-  // [
-  //   0x32,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.interpreter.getTxOrigin())
-  //   },
-  // ],
-  // // 0x33: CALLER
-  // [
-  //   0x33,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.interpreter.getCaller())
-  //   },
-  // ],
-  // // 0x34: CALLVALUE
-  // [
-  //   0x34,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.interpreter.getCallValue())
-  //   },
-  // ],
-  // // 0x35: CALLDATALOAD
-  // [
-  //   0x35,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const pos = runState.stack.pop()
-  //     if (pos > runState.interpreter.getCallDataSize()) {
-  //       runState.stack.push(BIGINT_0)
-  //       return
-  //     }
-
-  //     const i = Number(pos)
-  //     let loaded = runState.interpreter.getCallData().subarray(i, i + 32)
-  //     loaded = loaded.length ? loaded : Uint8Array.from([0])
-  //     let r = bytesToBigInt(loaded)
-  //     if (loaded.length < 32) {
-  //       r = r << (BIGINT_8 * BigInt(32 - loaded.length))
-  //     }
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x36: CALLDATASIZE
-  // [
-  //   0x36,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const r = runState.interpreter.getCallDataSize()
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0x37: CALLDATACOPY
-  // [
-  //   0x37,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [memOffset, dataOffset, dataLength] = runState.stack.popN(3)
-
-  //     if (dataLength !== BIGINT_0) {
-  //       const data = getDataSlice(runState.interpreter.getCallData(), dataOffset, dataLength)
-  //       const memOffsetNum = Number(memOffset)
-  //       const dataLengthNum = Number(dataLength)
-  //       runState.memory.write(memOffsetNum, dataLengthNum, data)
-  //     }
-  //   },
-  // ],
-  // // 0x38: CODESIZE
-  // [
-  //   0x38,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.interpreter.getCodeSize())
-  //   },
-  // ],
-  // // 0x39: CODECOPY
-  // [
-  //   0x39,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [memOffset, codeOffset, dataLength] = runState.stack.popN(3)
-
-  //     if (dataLength !== BIGINT_0) {
-  //       const data = getDataSlice(runState.interpreter.getCode(), codeOffset, dataLength)
-  //       const memOffsetNum = Number(memOffset)
-  //       const lengthNum = Number(dataLength)
-  //       runState.memory.write(memOffsetNum, lengthNum, data)
-  //     }
-  //   },
-  // ],
-  // // 0x3b: EXTCODESIZE
-  // [
-  //   0x3b,
-  //   async function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const addressBigInt = runState.stack.pop()
-  //     const address = createAddressFromStackBigInt(addressBigInt)
-  //     // EOF check
-  //     const code = await runState.stateManager.getCode(address)
-  //     if (isEOF(code)) {
-  //       // In legacy code, the target code is treated as to be "EOFBYTES" code
-  //       runState.stack.push(BigInt(EOFBYTES.length))
-  //       return
-  //     }
-
-  //     const size = BigInt(code.length)
-
-  //     runState.stack.push(size)
-  //   },
-  // ],
-  // // 0x3c: EXTCODECOPY
-  // [
-  //   0x3c,
-  //   async function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [addressBigInt, memOffset, codeOffset, dataLength] = runState.stack.popN(4)
-
-  //     if (dataLength !== BIGINT_0) {
-  //       const address = createAddressFromStackBigInt(addressBigInt)
-  //       let code = await runState.stateManager.getCode(address)
-
-  //       if (isEOF(code)) {
-  //         // In legacy code, the target code is treated as to be "EOFBYTES" code
-  //         code = EOFBYTES
-  //       }
-
-  //       const data = getDataSlice(code, codeOffset, dataLength)
-  //       const memOffsetNum = Number(memOffset)
-  //       const lengthNum = Number(dataLength)
-  //       runState.memory.write(memOffsetNum, lengthNum, data)
-  //     }
-  //   },
-  // ],
-  // // 0x3f: EXTCODEHASH
-  // [
-  //   0x3f,
-  //   async function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const addressBigInt = runState.stack.pop()
-  //     const address = createAddressFromStackBigInt(addressBigInt)
-
-  //     // EOF check
-  //     const code = await runState.stateManager.getCode(address)
-  //     if (isEOF(code)) {
-  //       // In legacy code, the target code is treated as to be "EOFBYTES" code
-  //       // Therefore, push the hash of EOFBYTES to the stack
-  //       runState.stack.push(bytesToBigInt(EOFHASH))
-  //       return
-  //     }
-
-  //     const account = await runState.stateManager.getAccount(address)
-  //     if (!account || account.isEmpty()) {
-  //       runState.stack.push(BIGINT_0)
-  //       return
-  //     }
-
-  //     runState.stack.push(BigInt(bytesToHex(account.codeHash)))
-  //   },
-  // ],
-  // // 0x3d: RETURNDATASIZE
-  // [
-  //   0x3d,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.interpreter.getReturnDataSize())
-  //   },
-  // ],
-  // // 0x3e: RETURNDATACOPY
-  // [
-  //   0x3e,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [memOffset, returnDataOffset, dataLength] = runState.stack.popN(3)
-
-  //     if (dataLength !== BIGINT_0) {
-  //       const data = getDataSlice(
-  //         runState.interpreter.getReturnData(),
-  //         returnDataOffset,
-  //         dataLength,
-  //       )
-  //       const memOffsetNum = Number(memOffset)
-  //       const lengthNum = Number(dataLength)
-  //       runState.memory.write(memOffsetNum, lengthNum, data)
-  //     }
-  //   },
-  // ],
-  // // 0x3a: GASPRICE
-  // [
-  //   0x3a,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.interpreter.getTxGasPrice())
-  //   },
-  // ],
-  // // '0x40' range - block operations
-  // // 0x40: BLOCKHASH
-  // [
-  //   0x40,
-  //   async function (runState, common) {
-  //     const number = runState.stack.pop()
-
-  //     if (common.isActivatedEIP(7709)) {
-  //       if (number >= runState.interpreter.getBlockNumber()) {
-  //         runState.stack.push(BIGINT_0)
-  //         return
-  //       }
-
-  //       const diff = runState.interpreter.getBlockNumber() - number
-  //       // block lookups must be within the original window even if historyStorageAddress's
-  //       // historyServeWindow is much greater than 256
-  //       if (diff > BIGINT_256 || diff <= BIGINT_0) {
-  //         runState.stack.push(BIGINT_0)
-  //         return
-  //       }
-
-  //       const historyAddress = new Address(
-  //         bigIntToAddressBytes(common.param('historyStorageAddress')),
-  //       )
-  //       const historyServeWindow = common.param('historyServeWindow')
-  //       const key = setLengthLeft(bigIntToBytes(number % historyServeWindow), 32)
-
-  //       if (common.isActivatedEIP(6800) || common.isActivatedEIP(7864)) {
-  //         // create witnesses and charge gas
-  //         const statelessGas = runState.env.accessWitness!.readAccountStorage(
-  //           historyAddress,
-  //           number,
-  //         )
-  //         runState.interpreter.useGas(statelessGas, `BLOCKHASH`)
-  //       }
-  //       const storage = await runState.stateManager.getStorage(historyAddress, key)
-
-  //       runState.stack.push(bytesToBigInt(storage))
-  //     } else {
-  //       const diff = runState.interpreter.getBlockNumber() - number
-  //       // block lookups must be within the past 256 blocks
-  //       if (diff > BIGINT_256 || diff <= BIGINT_0) {
-  //         runState.stack.push(BIGINT_0)
-  //         return
-  //       }
-
-  //       const block = await runState.blockchain.getBlock(Number(number))
-
-  //       runState.stack.push(bytesToBigInt(block.hash()))
-  //     }
-  //   },
-  // ],
-  // // 0x41: COINBASE
-  // [
-  //   0x41,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.interpreter.getBlockCoinbase())
-  //   },
-  // ],
-  // // 0x42: TIMESTAMP
-  // [
-  //   0x42,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.interpreter.getBlockTimestamp())
-  //   },
-  // ],
-  // // 0x43: NUMBER
-  // [
-  //   0x43,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.interpreter.getBlockNumber())
-  //   },
-  // ],
-  // // 0x44: DIFFICULTY (EIP-4399: supplanted as PREVRANDAO)
-  // [
-  //   0x44,
-  //   function (runState, common) {
-  //     if (common.isActivatedEIP(4399)) {
-  //       runState.stack.push(runState.interpreter.getBlockPrevRandao())
-  //     } else {
-  //       runState.stack.push(runState.interpreter.getBlockDifficulty())
-  //     }
-  //   },
-  // ],
-  // // 0x45: GASLIMIT
-  // [
-  //   0x45,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.interpreter.getBlockGasLimit())
-  //   },
-  // ],
-  // // 0x46: CHAINID
-  // [
-  //   0x46,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.interpreter.getChainId())
-  //   },
-  // ],
-  // // 0x47: SELFBALANCE
-  // [
-  //   0x47,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.interpreter.getSelfBalance())
-  //   },
-  // ],
-  // // 0x48: BASEFEE
-  // [
-  //   0x48,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.interpreter.getBlockBaseFee())
-  //   },
-  // ],
-  // // 0x49: BLOBHASH
-  // [
-  //   0x49,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const index = runState.stack.pop()
-  //     if (runState.env.blobVersionedHashes.length > Number(index)) {
-  //       runState.stack.push(BigInt(runState.env.blobVersionedHashes[Number(index)]))
-  //     } else {
-  //       runState.stack.push(BIGINT_0)
-  //     }
-  //   },
-  // ],
-  // // 0x4a: BLOBBASEFEE
-  // [
-  //   0x4a,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.interpreter.getBlobBaseFee())
-  //   },
-  // ],
-  // // 0x50 range - 'storage' and execution
-  // // 0x50: POP
-  // [
-  //   0x50,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.pop()
-  //   },
-  // ],
-  // // 0x51: MLOAD
-  // [
-  //   0x51,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const pos = runState.stack.pop()
-  //     const word = runState.memory.read(Number(pos), 32, true)
-  //     runState.stack.push(bytesToBigInt(word))
-  //   },
-  // ],
-  // // 0x52: MSTORE
-  // [
-  //   0x52,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [offset, word] = runState.stack.popN(2)
-  //     const buf = setLengthLeft(bigIntToBytes(word), 32)
-  //     const offsetNum = Number(offset)
-  //     runState.memory.write(offsetNum, 32, buf)
-  //   },
-  // ],
-  // // 0x53: MSTORE8
-  // [
-  //   0x53,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [offset, byte] = runState.stack.popN(2)
-
-  //     const buf = bigIntToBytes(byte & BIGINT_255)
-  //     const offsetNum = Number(offset)
-  //     runState.memory.write(offsetNum, 1, buf)
-  //   },
-  // ],
-  // // 0x54: SLOAD
-  // [
-  //   0x54,
-  //   async function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const key = runState.stack.pop()
-  //     const keyBuf = setLengthLeft(bigIntToBytes(key), 32)
-  //     const value = await runState.interpreter.storageLoad(keyBuf)
-  //     const valueBigInt = value.length ? bytesToBigInt(value) : BIGINT_0
-  //     runState.stack.push(valueBigInt)
-  //   },
-  // ],
-  // // 0x55: SSTORE
-  // [
-  //   0x55,
-  //   async function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [key, val] = runState.stack.popN(2)
-
-  //     const keyBuf = setLengthLeft(bigIntToBytes(key), 32)
-  //     // NOTE: this should be the shortest representation
-  //     let value
-  //     if (val === BIGINT_0) {
-  //       value = Uint8Array.from([])
-  //     } else {
-  //       value = bigIntToBytes(val)
-  //     }
-
-  //     await runState.interpreter.storageStore(keyBuf, value)
-  //   },
-  // ],
-  // // 0x56: JUMP
-  // [
-  //   0x56,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const dest = runState.stack.pop()
-  //     if (dest > runState.interpreter.getCodeSize()) {
-  //       trap(EVMError.errorMessages.INVALID_JUMP + ' at ' + describeLocation(runState))
-  //     }
-
-  //     const destNum = Number(dest)
-
-  //     if (!jumpIsValid(runState, destNum)) {
-  //       trap(EVMError.errorMessages.INVALID_JUMP + ' at ' + describeLocation(runState))
-  //     }
-
-  //     runState.programCounter = destNum
-  //   },
-  // ],
-  // // 0x57: JUMPI
-  // [
-  //   0x57,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [dest, cond] = runState.stack.popN(2)
-  //     if (cond !== BIGINT_0) {
-  //       if (dest > runState.interpreter.getCodeSize()) {
-  //         trap(EVMError.errorMessages.INVALID_JUMP + ' at ' + describeLocation(runState))
-  //       }
-
-  //       const destNum = Number(dest)
-
-  //       if (!jumpIsValid(runState, destNum)) {
-  //         trap(EVMError.errorMessages.INVALID_JUMP + ' at ' + describeLocation(runState))
-  //       }
-
-  //       runState.programCounter = destNum
-  //     }
-  //   },
-  // ],
-  // // 0x58: PC
-  // [
-  //   0x58,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(BigInt(runState.programCounter - 1))
-  //   },
-  // ],
-  // // 0x59: MSIZE
-  // [
-  //   0x59,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.memoryWordCount * BIGINT_32)
-  //   },
-  // ],
-  // // 0x5a: GAS
-  // [
-  //   0x5a,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(runState.interpreter.getGasLeft())
-  //   },
-  // ],
-  // // 0x5b: JUMPDEST
-  // [0x5b, function () {}],
-  // // 0x5c: TLOAD (EIP 1153)
-  // [
-  //   0x5c,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const key = runState.stack.pop()
-  //     const keyBuf = setLengthLeft(bigIntToBytes(key), 32)
-  //     const value = runState.interpreter.transientStorageLoad(keyBuf)
-  //     const valueBN = value.length ? bytesToBigInt(value) : BIGINT_0
-  //     runState.stack.push(valueBN)
-  //   },
-  // ],
-  // // 0x5d: TSTORE (EIP 1153)
-  // [
-  //   0x5d,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     // TSTORE
-  //     if (runState.interpreter.isStatic()) {
-  //       trap(EVMError.errorMessages.STATIC_STATE_CHANGE)
-  //     }
-  //     const [key, val] = runState.stack.popN(2)
-
-  //     const keyBuf = setLengthLeft(bigIntToBytes(key), 32)
-  //     // NOTE: this should be the shortest representation
-  //     let value
-  //     if (val === BIGINT_0) {
-  //       value = Uint8Array.from([])
-  //     } else {
-  //       value = bigIntToBytes(val)
-  //     }
-
-  //     runState.interpreter.transientStorageStore(keyBuf, value)
-  //   },
-  // ],
-  // // 0x5e: MCOPY (5656)
-  // [
-  //   0x5e,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [dst, src, length] = runState.stack.popN(3)
-  //     const data = runState.memory.read(Number(src), Number(length), true)
-  //     runState.memory.write(Number(dst), Number(length), data)
-  //   },
-  // ],
-  // // 0x5f: PUSH0
-  // [
-  //   0x5f,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     runState.stack.push(BIGINT_0)
-  //   },
-  // ],
-  // // 0x60: PUSH
-  // [
-  //   0x60,
-  //   function (runState, common) {
-  //     const numToPush = runState.opCode - 0x5f
-
-  //     if (
-  //       (common.isActivatedEIP(6800) || common.isActivatedEIP(7864)) &&
-  //       runState.env.chargeCodeAccesses === true
-  //     ) {
-  //       const contract = runState.interpreter.getAddress()
-  //       const startOffset = Math.min(runState.code.length, runState.programCounter + 1)
-  //       const endOffset = Math.min(runState.code.length, startOffset + numToPush - 1)
-  //       const statelessGas = runState.env.accessWitness!.readAccountCodeChunks(
-  //         contract,
-  //         startOffset,
-  //         endOffset,
-  //       )
-  //       runState.interpreter.useGas(statelessGas, `PUSH`)
-  //     }
-
-  //     if (!runState.shouldDoJumpAnalysis) {
-  //       runState.stack.push(runState.cachedPushes[runState.programCounter])
-  //       runState.programCounter += numToPush
-  //     } else {
-  //       let loadedBytes = runState.code.subarray(
-  //         runState.programCounter,
-  //         runState.programCounter + numToPush,
-  //       )
-  //       if (loadedBytes.length < numToPush) {
-  //         loadedBytes = setLengthRight(loadedBytes, numToPush)
-  //       }
-
-  //       runState.programCounter += numToPush
-  //       runState.stack.push(bytesToBigInt(loadedBytes))
-  //     }
-  //   },
-  // ],
-  // // 0x80: DUP
-  // [
-  //   0x80,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const stackPos = runState.opCode - 0x7f
-  //     runState.stack.dup(stackPos)
-  //   },
-  // ],
-  // // 0x90: SWAP
-  // [
-  //   0x90,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const stackPos = runState.opCode - 0x8f
-  //     runState.stack.swap(stackPos)
-  //   },
-  // ],
-  // // 0xa0: LOG
-  // [
-  //   0xa0,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [memOffset, memLength] = runState.stack.popN(2)
-
-  //     const topicsCount = runState.opCode - 0xa0
-
-  //     const topics = runState.stack.popN(topicsCount)
-  //     const topicsBuf = topics.map(function (a: bigint) {
-  //       return setLengthLeft(bigIntToBytes(a), 32)
-  //     })
-
-  //     let mem = new Uint8Array(0)
-  //     if (memLength !== BIGINT_0) {
-  //       mem = runState.memory.read(Number(memOffset), Number(memLength))
-  //     }
-
-  //     runState.interpreter.log(mem, topicsCount, topicsBuf)
-  //   },
-  // ],
-  // // 0xd0: DATALOAD
-  // [
-  //   0xd0,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     }
-  //     const pos = runState.stack.pop()
-  //     if (pos > runState.env.eof!.container.body.dataSection.length) {
-  //       runState.stack.push(BIGINT_0)
-  //       return
-  //     }
-
-  //     const i = Number(pos)
-  //     let loaded = runState.env.eof!.container.body.dataSection.subarray(i, i + 32)
-  //     loaded = loaded.length ? loaded : Uint8Array.from([0])
-  //     let r = bytesToBigInt(loaded)
-  //     // Pad the loaded length with 0 bytes in case it is smaller than 32
-  //     if (loaded.length < 32) {
-  //       r = r << (BIGINT_8 * BigInt(32 - loaded.length))
-  //     }
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0xd1: DATALOADN
-  // [
-  //   0xd1,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     }
-  //     const toLoad = Number(
-  //       bytesToBigInt(runState.code.subarray(runState.programCounter, runState.programCounter + 2)),
-  //     )
-  //     const data = bytesToBigInt(
-  //       runState.env.eof!.container.body.dataSection.subarray(toLoad, toLoad + 32),
-  //     )
-  //     runState.stack.push(data)
-  //     runState.programCounter += 2
-  //   },
-  // ],
-  // // 0xd2: DATASIZE
-  // [
-  //   0xd2,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     }
-  //     runState.stack.push(BigInt(runState.env.eof!.container.body.dataSection.length))
-  //   },
-  // ],
-  // // 0xd3: DATACOPY
-  // [
-  //   0xd3,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     }
-  //     const [memOffset, offset, size] = runState.stack.popN(3)
-  //     if (size !== BIGINT_0) {
-  //       const data = getDataSlice(runState.env.eof!.container.body.dataSection, offset, size)
-  //       const memOffsetNum = Number(memOffset)
-  //       const dataLengthNum = Number(size)
-  //       runState.memory.write(memOffsetNum, dataLengthNum, data)
-  //     }
-  //   },
-  // ],
-  // // 0xe0: RJUMP
-  // [
-  //   0xe0,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     } else {
-  //       const code = runState.env.code
-  //       const rjumpDest = new DataView(code.buffer).getInt16(runState.programCounter)
-  //       runState.programCounter += 2 + rjumpDest
-  //     }
-  //   },
-  // ],
-  // // 0xe1: RJUMPI
-  // [
-  //   0xe1,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     } else {
-  //       const cond = runState.stack.pop()
-  //       // Move PC to the PC post instruction
-  //       if (cond > 0) {
-  //         const code = runState.env.code
-  //         const rjumpDest = new DataView(code.buffer).getInt16(runState.programCounter)
-  //         runState.programCounter += rjumpDest
-  //       }
-  //       // In all cases, increment PC with 2 (also in the case if `cond` is `0`)
-  //       runState.programCounter += 2
-  //     }
-  //   },
-  // ],
-  // // 0xe2: RJUMPV
-  // [
-  //   0xe2,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     } else {
-  //       const code = runState.env.code
-  //       const jumptableEntries = code[runState.programCounter]
-  //       // Note: if the size of the immediate is `0`, this thus means that the actual size is `2`
-  //       // This allows for 256 entries in the table instead of 255
-  //       const jumptableSize = (jumptableEntries + 1) * 2
-  //       // Move PC to start of the jump table
-  //       runState.programCounter += 1
-  //       const jumptableCase = runState.stack.pop()
-  //       if (jumptableCase <= jumptableEntries) {
-  //         const rjumpDest = new DataView(code.buffer).getInt16(
-  //           runState.programCounter + Number(jumptableCase) * 2,
-  //         )
-  //         runState.programCounter += jumptableSize + rjumpDest
-  //       } else {
-  //         runState.programCounter += jumptableSize
-  //       }
-  //     }
-  //   },
-  // ],
-  // // 0xe3: CALLF
-  // [
-  //   0xe3,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     }
-  //     const sectionTarget = bytesToInt(
-  //       runState.code.slice(runState.programCounter, runState.programCounter + 2),
-  //     )
-  //     const stackItems = runState.stack.length
-  //     const typeSection = runState.env.eof!.container.body.typeSections[sectionTarget]
-  //     if (stackItems > 1024 - typeSection.maxStackHeight + typeSection.inputs) {
-  //       trap(EOFErrorMessage.STACK_OVERFLOW)
-  //     }
-  //     if (runState.env.eof!.eofRunState.returnStack.length >= 1024) {
-  //       trap(EOFErrorMessage.RETURN_STACK_OVERFLOW)
-  //     }
-  //     runState.env.eof?.eofRunState.returnStack.push(runState.programCounter + 2)
-
-  //     // Find out the opcode we should jump into
-  //     runState.programCounter = runState.env.eof!.container.header.getCodePosition(sectionTarget)
-  //   },
-  // ],
-  // // 0xe4: RETF
-  // [
-  //   0xe4,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     }
-  //     const newPc = runState.env.eof!.eofRunState.returnStack.pop()
-  //     if (newPc === undefined) {
-  //       // This should NEVER happen since it is validated that functions either terminate (the call frame) or return
-  //       trap(EOFErrorMessage.RETF_NO_RETURN)
-  //     }
-  //     runState.programCounter = newPc!
-  //   },
-  // ],
-  // // 0xe5: JUMPF
-  // [
-  //   0xe5,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     }
-  //     // NOTE: (and also TODO) this code is exactly the same as CALLF, except pushing to the return stack is now skipped
-  //     // (and also the return stack overflow check)
-  //     // It is commented out here
-  //     const sectionTarget = bytesToInt(
-  //       runState.code.slice(runState.programCounter, runState.programCounter + 2),
-  //     )
-  //     const stackItems = runState.stack.length
-  //     const typeSection = runState.env.eof!.container.body.typeSections[sectionTarget]
-  //     if (stackItems > 1024 - typeSection.maxStackHeight + typeSection.inputs) {
-  //       trap(EOFErrorMessage.STACK_OVERFLOW)
-  //     }
-  //     /*if (runState.env.eof!.eofRunState.returnStack.length >= 1024) {
-  //       trap(EOFErrorMessage.ReturnStackOverflow)
-  //     }
-  //     runState.env.eof?.eofRunState.returnStack.push(runState.programCounter + 2)*/
-
-  //     // Find out the opcode we should jump into
-  //     runState.programCounter = runState.env.eof!.container.header.getCodePosition(sectionTarget)
-  //   },
-  // ],
-  // // 0xe6: DUPN
-  // [
-  //   0xe6,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     }
-  //     const toDup =
-  //       Number(
-  //         bytesToBigInt(
-  //           runState.code.subarray(runState.programCounter, runState.programCounter + 1),
-  //         ),
-  //       ) + 1
-  //     runState.stack.dup(toDup)
-  //     runState.programCounter++
-  //   },
-  // ],
-  // // 0xe7: SWAPN
-  // [
-  //   0xe7,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     }
-  //     const toSwap =
-  //       Number(
-  //         bytesToBigInt(
-  //           runState.code.subarray(runState.programCounter, runState.programCounter + 1),
-  //         ),
-  //       ) + 1
-  //     runState.stack.swap(toSwap)
-  //     runState.programCounter++
-  //   },
-  // ],
-  // // 0xe8: EXCHANGE
-  // [
-  //   0xe8,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     }
-  //     const toExchange = Number(
-  //       bytesToBigInt(runState.code.subarray(runState.programCounter, runState.programCounter + 1)),
-  //     )
-  //     const n = (toExchange >> 4) + 1
-  //     const m = (toExchange & 0x0f) + 1
-  //     runState.stack.exchange(n, n + m)
-  //     runState.programCounter++
-  //   },
-  // ],
-  // // 0xec: EOFCREATE
-  // [
-  //   0xec,
-  //   async function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     } else {
-  //       if (runState.interpreter.isStatic()) {
-  //         trap(EVMError.errorMessages.STATIC_STATE_CHANGE)
-  //       }
-  //       // Read container index
-  //       const containerIndex = runState.env.code[runState.programCounter]
-  //       const containerCode = runState.env.eof!.container.body.containerSections[containerIndex]
-
-  //       // Pop stack values
-  //       const [value, salt, inputOffset, inputSize] = runState.stack.popN(4)
-
-  //       const gasLimit = runState.messageGasLimit!
-  //       runState.messageGasLimit = undefined
-
-  //       let data = new Uint8Array(0)
-  //       if (inputSize !== BIGINT_0) {
-  //         data = runState.memory.read(Number(inputOffset), Number(inputSize), true)
-  //       }
-
-  //       runState.programCounter++ // Jump over the immediate byte
-
-  //       const ret = await runState.interpreter.eofcreate(
-  //         gasLimit,
-  //         value,
-  //         containerCode,
-  //         setLengthLeft(bigIntToBytes(salt), 32),
-  //         data,
-  //       )
-  //       runState.stack.push(ret)
-  //     }
-  //   },
-  // ],
-  // // 0xee: RETURNCONTRACT
-  // [
-  //   0xee,
-  //   async function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     } else {
-  //       // Read container index
-  //       const containerIndex = runState.env.code[runState.programCounter]
-  //       const containerCode = runState.env.eof!.container.body.containerSections[containerIndex]
-
-  //       // Read deployContainer as EOFCreate (initcode) container
-  //       const deployContainer = new EOFContainer(containerCode, EOFContainerMode.Initmode)
-
-  //       // Pop stack values
-  //       const [auxDataOffset, auxDataSize] = runState.stack.popN(2)
-
-  //       let auxData = new Uint8Array(0)
-  //       if (auxDataSize !== BIGINT_0) {
-  //         auxData = runState.memory.read(Number(auxDataOffset), Number(auxDataSize))
-  //       }
-
-  //       const originalDataSize = deployContainer.header.dataSize
-  //       const preDeployDataSectionSize = deployContainer.body.dataSection.length
-  //       const actualSectionSize = preDeployDataSectionSize + Number(auxDataSize)
-
-  //       if (actualSectionSize < originalDataSize) {
-  //         trap(EOFErrorMessage.INVALID_RETURN_CONTRACT_DATA_SIZE)
-  //       }
-
-  //       if (actualSectionSize > 0xffff) {
-  //         // Data section size is now larger than the max data section size
-  //         // Temp: trap OOG?
-  //         trap(EVMError.errorMessages.OUT_OF_GAS)
-  //       }
-
-  //       const newSize = setLengthLeft(bigIntToBytes(BigInt(actualSectionSize)), 2)
-
-  //       // Write the bytes to the containerCode
-  //       const dataSizePtr = deployContainer.header.dataSizePtr
-  //       containerCode[dataSizePtr] = newSize[0]
-  //       containerCode[dataSizePtr + 1] = newSize[1]
-
-  //       const returnContainer = concatBytes(containerCode, auxData)
-
-  //       runState.interpreter.finish(returnContainer)
-  //     }
-  //   },
-  // ],
-  // // '0xf0' range - closures
-  // // 0xf0: CREATE
-  // [
-  //   0xf0,
-  //   async function (runState, common) {
-  //     const [value, offset, length] = runState.stack.popN(3)
-
-  //     if (
-  //       common.isActivatedEIP(3860) &&
-  //       length > Number(common.param('maxInitCodeSize')) &&
-  //       !runState.interpreter._evm.allowUnlimitedInitCodeSize
-  //     ) {
-  //       trap(EVMError.errorMessages.INITCODE_SIZE_VIOLATION)
-  //     }
-
-  //     const gasLimit = runState.messageGasLimit!
-  //     runState.messageGasLimit = undefined
-
-  //     let data = new Uint8Array(0)
-  //     if (length !== BIGINT_0) {
-  //       data = runState.memory.read(Number(offset), Number(length), true)
-  //     }
-
-  //     if (isEOF(data)) {
-  //       // Legacy cannot deploy EOF code
-  //       runState.stack.push(BIGINT_0)
-  //       return
-  //     }
-
-  //     const ret = await runState.interpreter.create(gasLimit, value, data)
-  //     runState.stack.push(ret)
-  //   },
-  // ],
-  // // 0xf5: CREATE2
-  // [
-  //   0xf5,
-  //   async function (runState, common) {
-  //     if (runState.interpreter.isStatic()) {
-  //       trap(EVMError.errorMessages.STATIC_STATE_CHANGE)
-  //     }
-
-  //     const [value, offset, length, salt] = runState.stack.popN(4)
-
-  //     if (
-  //       common.isActivatedEIP(3860) &&
-  //       length > Number(common.param('maxInitCodeSize')) &&
-  //       !runState.interpreter._evm.allowUnlimitedInitCodeSize
-  //     ) {
-  //       trap(EVMError.errorMessages.INITCODE_SIZE_VIOLATION)
-  //     }
-
-  //     const gasLimit = runState.messageGasLimit!
-  //     runState.messageGasLimit = undefined
-
-  //     let data = new Uint8Array(0)
-  //     if (length !== BIGINT_0) {
-  //       data = runState.memory.read(Number(offset), Number(length), true)
-  //     }
-
-  //     if (isEOF(data)) {
-  //       // Legacy cannot deploy EOF code
-  //       runState.stack.push(BIGINT_0)
-  //       return
-  //     }
-
-  //     const ret = await runState.interpreter.create2(
-  //       gasLimit,
-  //       value,
-  //       data,
-  //       setLengthLeft(bigIntToBytes(salt), 32),
-  //     )
-  //     runState.stack.push(ret)
-  //   },
-  // ],
-  // // 0xf1: CALL
-  // [
-  //   0xf1,
-  //   async function (runState: RunState, common: Common) {
-  //     const [_currentGasLimit, toAddr, value, inOffset, inLength, outOffset, outLength] =
-  //       runState.stack.popN(7)
-  //     const toAddress = createAddressFromStackBigInt(toAddr)
-
-  //     let data = new Uint8Array(0)
-  //     if (inLength !== BIGINT_0) {
-  //       data = runState.memory.read(Number(inOffset), Number(inLength), true)
-  //     }
-
-  //     let gasLimit = runState.messageGasLimit!
-  //     if (value !== BIGINT_0) {
-  //       const callStipend = common.param('callStipendGas')
-  //       runState.interpreter.addStipend(callStipend)
-  //       gasLimit += callStipend
-  //     }
-
-  //     runState.messageGasLimit = undefined
-
-  //     const ret = await runState.interpreter.call(gasLimit, toAddress, value, data)
-  //     // Write return data to memory
-  //     writeCallOutput(runState, outOffset, outLength)
-  //     runState.stack.push(ret)
-  //   },
-  // ],
-  // // 0xf2: CALLCODE
-  // [
-  //   0xf2,
-  //   async function (runState: RunState, common: Common) {
-  //     const [_currentGasLimit, toAddr, value, inOffset, inLength, outOffset, outLength] =
-  //       runState.stack.popN(7)
-  //     const toAddress = createAddressFromStackBigInt(toAddr)
-
-  //     let gasLimit = runState.messageGasLimit!
-  //     if (value !== BIGINT_0) {
-  //       const callStipend = common.param('callStipendGas')
-  //       runState.interpreter.addStipend(callStipend)
-  //       gasLimit += callStipend
-  //     }
-
-  //     runState.messageGasLimit = undefined
-
-  //     let data = new Uint8Array(0)
-  //     if (inLength !== BIGINT_0) {
-  //       data = runState.memory.read(Number(inOffset), Number(inLength), true)
-  //     }
-
-  //     const ret = await runState.interpreter.callCode(gasLimit, toAddress, value, data)
-  //     // Write return data to memory
-  //     writeCallOutput(runState, outOffset, outLength)
-  //     runState.stack.push(ret)
-  //   },
-  // ],
-  // // 0xf4: DELEGATECALL
-  // [
-  //   0xf4,
-  //   async function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const value = runState.interpreter.getCallValue()
-  //     const [_currentGasLimit, toAddr, inOffset, inLength, outOffset, outLength] =
-  //       runState.stack.popN(6)
-  //     const toAddress = createAddressFromStackBigInt(toAddr)
-
-  //     let data = new Uint8Array(0)
-  //     if (inLength !== BIGINT_0) {
-  //       data = runState.memory.read(Number(inOffset), Number(inLength), true)
-  //     }
-
-  //     const gasLimit = runState.messageGasLimit!
-  //     runState.messageGasLimit = undefined
-
-  //     const ret = await runState.interpreter.callDelegate(gasLimit, toAddress, value, data)
-  //     // Write return data to memory
-  //     writeCallOutput(runState, outOffset, outLength)
-  //     runState.stack.push(ret)
-  //   },
-  // ],
-  // // 0xf7: RETURNDATALOAD
-  // [
-  //   0xf7,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     }
-  //     const pos = runState.stack.pop()
-  //     if (pos > runState.interpreter.getReturnDataSize()) {
-  //       runState.stack.push(BIGINT_0)
-  //       return
-  //     }
-
-  //     const i = Number(pos)
-  //     let loaded = runState.interpreter.getReturnData().subarray(i, i + 32)
-  //     loaded = loaded.length ? loaded : Uint8Array.from([0])
-  //     let r = bytesToBigInt(loaded)
-  //     if (loaded.length < 32) {
-  //       r = r << (BIGINT_8 * BigInt(32 - loaded.length))
-  //     }
-  //     runState.stack.push(r)
-  //   },
-  // ],
-  // // 0xf8: EXTCALL
-  // [
-  //   0xf8,
-  //   async function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     } else {
-  //       const [toAddr, inOffset, inLength, value] = runState.stack.popN(4)
-
-  //       const gasLimit = runState.messageGasLimit!
-  //       runState.messageGasLimit = undefined
-
-  //       if (gasLimit === -BIGINT_1) {
-  //         // Special case, abort doing any logic (this logic is defined in `gas.ts`), and put `1` on stack per spec
-  //         runState.stack.push(BIGINT_1)
-  //         runState.returnBytes = new Uint8Array(0)
-  //         return
-  //       }
-
-  //       const toAddress = createAddressFromStackBigInt(toAddr)
-
-  //       let data = new Uint8Array(0)
-  //       if (inLength !== BIGINT_0) {
-  //         data = runState.memory.read(Number(inOffset), Number(inLength), true)
-  //       }
-
-  //       const ret = await runState.interpreter.call(gasLimit, toAddress, value, data)
-  //       // Write return data to memory
-
-  //       runState.stack.push(ret)
-  //     }
-  //   },
-  // ],
-  // // 0xf9: EXTDELEGATECALL
-  // [
-  //   0xf9,
-  //   async function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     } else {
-  //       const value = runState.interpreter.getCallValue()
-  //       const [toAddr, inOffset, inLength] = runState.stack.popN(3)
-
-  //       const gasLimit = runState.messageGasLimit!
-  //       runState.messageGasLimit = undefined
-
-  //       if (gasLimit === -BIGINT_1) {
-  //         // Special case, abort doing any logic (this logic is defined in `gas.ts`), and put `1` on stack per spec
-  //         runState.stack.push(BIGINT_1)
-  //         runState.returnBytes = new Uint8Array(0)
-  //         return
-  //       }
-
-  //       const toAddress = createAddressFromStackBigInt(toAddr)
-
-  //       const code = await runState.stateManager.getCode(toAddress)
-
-  //       if (!isEOF(code)) {
-  //         // EXTDELEGATECALL cannot call legacy contracts
-  //         runState.stack.push(BIGINT_1)
-  //         runState.returnBytes = new Uint8Array(0)
-  //         return
-  //       }
-
-  //       let data = new Uint8Array(0)
-  //       if (inLength !== BIGINT_0) {
-  //         data = runState.memory.read(Number(inOffset), Number(inLength), true)
-  //       }
-
-  //       const ret = await runState.interpreter.callDelegate(gasLimit, toAddress, value, data)
-  //       runState.stack.push(ret)
-  //     }
-  //   },
-  // ],
-  // // 0xfa: STATICCALL
-  // [
-  //   0xfa,
-  //   async function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const value = BIGINT_0
-  //     const [_currentGasLimit, toAddr, inOffset, inLength, outOffset, outLength] =
-  //       runState.stack.popN(6)
-  //     const toAddress = createAddressFromStackBigInt(toAddr)
-
-  //     const gasLimit = runState.messageGasLimit!
-  //     runState.messageGasLimit = undefined
-
-  //     let data = new Uint8Array(0)
-  //     if (inLength !== BIGINT_0) {
-  //       data = runState.memory.read(Number(inOffset), Number(inLength), true)
-  //     }
-
-  //     const ret = await runState.interpreter.callStatic(gasLimit, toAddress, value, data)
-  //     // Write return data to memory
-  //     writeCallOutput(runState, outOffset, outLength)
-  //     runState.stack.push(ret)
-  //   },
-  // ],
-  // // 0xfb: EXTSTATICCALL
-  // [
-  //   0xfb,
-  //   async function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     if (runState.env.eof === undefined) {
-  //       // Opcode not available in legacy contracts
-  //       trap(EVMError.errorMessages.INVALID_OPCODE)
-  //     } else {
-  //       const value = BIGINT_0
-  //       const [toAddr, inOffset, inLength] = runState.stack.popN(3)
-
-  //       const gasLimit = runState.messageGasLimit!
-  //       runState.messageGasLimit = undefined
-
-  //       if (gasLimit === -BIGINT_1) {
-  //         // Special case, abort doing any logic (this logic is defined in `gas.ts`), and put `1` on stack per spec
-  //         runState.stack.push(BIGINT_1)
-  //         runState.returnBytes = new Uint8Array(0)
-  //         return
-  //       }
-
-  //       const toAddress = createAddressFromStackBigInt(toAddr)
-
-  //       let data = new Uint8Array(0)
-  //       if (inLength !== BIGINT_0) {
-  //         data = runState.memory.read(Number(inOffset), Number(inLength), true)
-  //       }
-
-  //       const ret = await runState.interpreter.callStatic(gasLimit, toAddress, value, data)
-  //       runState.stack.push(ret)
-  //     }
-  //   },
-  // ],
-  // // 0xf3: RETURN
-  // [
-  //   0xf3,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [offset, length] = runState.stack.popN(2)
-  //     let returnData = new Uint8Array(0)
-  //     if (length !== BIGINT_0) {
-  //       returnData = runState.memory.read(Number(offset), Number(length))
-  //     }
-  //     runState.interpreter.finish(returnData)
-  //   },
-  // ],
-  // // 0xfd: REVERT
-  // [
-  //   0xfd,
-  //   function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const [offset, length] = runState.stack.popN(2)
-  //     let returnData = new Uint8Array(0)
-  //     if (length !== BIGINT_0) {
-  //       returnData = runState.memory.read(Number(offset), Number(length))
-  //     }
-  //     runState.interpreter.revert(returnData)
-  //   },
-  // ],
-  // // '0x70', range - other
-  // // 0xff: SELFDESTRUCT
-  // [
-  //   0xff,
-  //   async function (prevExecResult) {
-  //     const runState = prevExecResult.runState!
-  //     const selfdestructToAddressBigInt = runState.stack.pop()
-  //     const selfdestructToAddress = createAddressFromStackBigInt(selfdestructToAddressBigInt)
-  //     return runState.interpreter.selfDestruct(selfdestructToAddress)
-  //   },
-  // ],
-])
-
-// Fill in rest of PUSHn, DUPn, SWAPn, LOGn for handlers
-const pushFn = handlers.get(0x60)!
-for (let i = 0x61; i <= 0x7f; i++) {
-  handlers.set(i, pushFn)
-}
-const dupFn = handlers.get(0x80)!
-for (let i = 0x81; i <= 0x8f; i++) {
-  handlers.set(i, dupFn)
-}
-const swapFn = handlers.get(0x90)!
-for (let i = 0x91; i <= 0x9f; i++) {
-  handlers.set(i, swapFn)
-}
-const logFn = handlers.get(0xa0)!
-for (let i = 0xa1; i <= 0xa4; i++) {
-  handlers.set(i, logFn)
 }

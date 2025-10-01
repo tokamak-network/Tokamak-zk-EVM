@@ -1,14 +1,16 @@
-import { DataAliasInfos, MemoryPts } from '../../pointers/index.js';
+import { DataAliasInfos, MemoryPt, MemoryPts } from '../../pointers/index.js';
 import type {
   ArithmeticOperator,
   DataPt,
   Placements,
   ReservedVariable,
   SubcircuitNames,
+  SynthesizerSupportedArithOpcodes,
+  SynthesizerSupportedBlkInfOpcodes,
   SynthesizerSupportedOpcodes,
 } from '../../types/index.js';
 import type { PlacementEntry, SynthesizerOpts } from '../../types/index.ts';
-import { ArithmeticHandler, BufferManager, DataLoader, EnvInfHandlerOpts, InstructionHandlers, ISynthesizerProvider, MemoryManager, StateManager } from '../handlers/index.ts';
+import { ArithmeticManager, BufferManager, DataLoader, HandlerOpts, InstructionHandlers, ISynthesizerProvider, MemoryManager, StateManager } from '../handlers/index.ts';
 import { LegacyTx } from '@ethereumjs/tx';
 import { createLegacyTxFromL2Tx } from '@tokamak/utils';
 
@@ -20,19 +22,36 @@ export class Synthesizer
   implements ISynthesizerProvider
 {
   private _state: StateManager;
-  private _arithmeticHandler: ArithmeticHandler;
+  private _arithmeticManager: ArithmeticManager;
   private _dataLoader: DataLoader;
   private _memoryManager: MemoryManager;
   private _bufferManager: BufferManager;
   private _instructionHandlers: InstructionHandlers
   
   constructor(opts: SynthesizerOpts) {
-    this._state = new StateManager(opts)
+    this._state = new StateManager(this, opts)
     this._bufferManager = new BufferManager(this, opts)
     this._dataLoader = new DataLoader(this, opts)
-    this._arithmeticHandler = new ArithmeticHandler(this)
+    this._arithmeticManager = new ArithmeticManager(this)
     this._memoryManager = new MemoryManager(this)
     this._instructionHandlers =  new InstructionHandlers(this)
+  }
+
+  public loadTransaction(): void {
+    const nonce = this._state.txNonce++
+    this._state.callMemoryPtsStack = []
+    const selectorPt = this.loadReservedVariableFromBuffer('FUNCTION_SELECTOR', nonce)
+    const inPts: DataPt[] = Array.from({ length: 9 }, (_, i) =>
+      this.loadReservedVariableFromBuffer(`TRANSACTION_INPUT${i}` as ReservedVariable, nonce)
+    )
+    this._state.callMemoryPtsStack[0] = [
+      { memByteOffset: 0, containerByteSize: 4, dataPt: selectorPt },
+      ...inPts.map((dataPt, i) => ({
+        memByteOffset: 4 + 32 * i,
+        containerByteSize: 32,
+        dataPt,
+      })),
+    ]
   }
 
   public get state(): StateManager {
@@ -86,10 +105,10 @@ export class Synthesizer
 
   public loadArbitraryStatic(
     value: bigint,
-    size?: number,
+    bitSize?: number,
     desc?: string,
   ): DataPt {
-    return this._dataLoader.loadArbitraryStatic(value, size, desc)
+    return this._dataLoader.loadArbitraryStatic(value, bitSize, desc)
   }
 
   public loadStorage(key: bigint): DataPt {
@@ -101,47 +120,62 @@ export class Synthesizer
   }
 
   public placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {
-    return this._arithmeticHandler.placeArith(name, inPts);
+    return this._arithmeticManager.placeArith(name, inPts);
   }
 
   public placeExp(inPts: DataPt[]): DataPt {
-    return this._arithmeticHandler.placeExp(inPts)
+    return this._arithmeticManager.placeExp(inPts)
   }
   public placeJubjubExp(inPts: DataPt[], PoI: DataPt[]): DataPt[] {
-    return this._arithmeticHandler.placeJubjubExp(inPts, PoI)
+    return this._arithmeticManager.placeJubjubExp(inPts, PoI)
   }
 
   public placeMemoryToStack(dataAliasInfos: DataAliasInfos): DataPt {
     return this._memoryManager.placeMemoryToStack(dataAliasInfos);
   }
-
   public placeMemoryToMemory(dataAliasInfos: DataAliasInfos): DataPt[] {
     return this._memoryManager.placeMemoryToMemory(dataAliasInfos);
   }
-
-  public placeMSTORE(dataPt: DataPt, truncSize: number): DataPt {
-    return this._memoryManager.placeMSTORE(dataPt, truncSize);
+  public placeMSTORE(dataPt: DataPt, truncBitSize: number): DataPt {
+    return this._memoryManager.placeMSTORE(dataPt, truncBitSize);
+  }
+  public copyMemoryPts(
+    target: MemoryPts,
+    srcOffset: bigint,
+    length: bigint,
+    dstOffset?: bigint,
+  ): MemoryPts {
+    return this._memoryManager.copyMemoryPts(target, srcOffset, length, dstOffset)
   }
 
   public handleArith(
-      op: SynthesizerSupportedOpcodes,
+      op: SynthesizerSupportedArithOpcodes,
       ins: bigint[],
       out: bigint,
     ): void {
       return this._instructionHandlers.handleArith(op, ins, out)
     }
   public handleBlkInf (
-    op: SynthesizerSupportedOpcodes,
+    op: SynthesizerSupportedBlkInfOpcodes,
     output: bigint,
     target?: bigint,
   ): void {
     return this._instructionHandlers.handleBlkInf(op, output, target)
   }
   public handleEnvInf(
-    output: bigint,
-    opts: EnvInfHandlerOpts,
+    ins: bigint[],
+    out: bigint,
+    opts: HandlerOpts,
   ): void {
-    return this._instructionHandlers.handleEnvInf(output, opts)
+    return this._instructionHandlers.handleEnvInf(ins, out, opts)
+  }
+
+  public handleSysFlow(
+    ins: bigint[],
+    out: bigint,
+    opts: HandlerOpts,
+  ): void {
+    return this._instructionHandlers.handleSysFlow(ins, out, opts)
   }
 
   // public loadPUSH(
@@ -168,12 +202,6 @@ export class Synthesizer
   // ): DataPt {
   //   return this.dataLoader.loadAndStoreKeccak(inPts, outValue, length);
   // }
-
-  
-
-  
-
-  
 
   // public adjustMemoryPts(
   //   dataPts: DataPt[],

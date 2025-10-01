@@ -28,7 +28,7 @@ export type DataAliasInfos = DataAliasInfoEntry[]
  * @property {number} containerSize - Container size
  * @property {DataPt} dataPt - Data pointer
  */
-export type MemoryPtEntry = { memOffset: number; containerSize: number; dataPt: DataPt }
+export type MemoryPtEntry = { memByteOffset: number; containerByteSize: number; dataPt: DataPt }
 
 /**
  * Array of memory information. Lower indices represent older memory information.
@@ -78,58 +78,7 @@ const setMinus = (A: Set<number>, B: Set<number>): Set<number> => {
   return result
 }
 
-export const simulateMemoryPt = (memoryPts: MemoryPts): MemoryPt => {
-  const simMemPt = new MemoryPt()
-  for (let k = 0; k < memoryPts.length; k++) {
-    // the lower index, the older data
-    simMemPt.write(memoryPts[k].memOffset, memoryPts[k].containerSize, memoryPts[k].dataPt)
-  }
-  return simMemPt
-}
 
-export const copyMemoryRegion = (
-  runState: RunState,
-  srcOffset: bigint,
-  length: bigint,
-  fromMemoryPts?: MemoryPts,
-  dstOffset?: bigint,
-): MemoryPts => {
-  const srcOffsetNum = Number(srcOffset)
-  const dstOffsetNum = Number(dstOffset ?? 0)
-  const lengthNum = Number(length)
-  let toMemoryPts: MemoryPts
-  if (fromMemoryPts === undefined) {
-    toMemoryPts = runState.memoryPt.read(srcOffsetNum, lengthNum)
-  } else {
-    const simFromMemoryPt = simulateMemoryPt(fromMemoryPts)
-    toMemoryPts = simFromMemoryPt.read(srcOffsetNum, lengthNum)
-  }
-  const zeroMemoryPtEntry: MemoryPtEntry = {
-    memOffset: dstOffsetNum,
-    containerSize: lengthNum,
-    dataPt: runState.synthesizer.loadArbitraryStatic(BIGINT_0, 1),
-  }
-  if (toMemoryPts.length > 0) {
-    const simToMemoryPt = simulateMemoryPt(toMemoryPts)
-    const dataAliasInfos = simToMemoryPt.getDataAlias(srcOffsetNum, lengthNum)
-    if (dataAliasInfos.length > 0) {
-      const resolvedDataPts = runState.synthesizer.placeMemoryToMemory(dataAliasInfos)
-      runState.synthesizer.adjustMemoryPts(
-        resolvedDataPts,
-        toMemoryPts,
-        srcOffsetNum,
-        dstOffsetNum,
-        lengthNum,
-      )
-    } else {
-      toMemoryPts.push(zeroMemoryPtEntry)
-    }
-  } else {
-    toMemoryPts.push(zeroMemoryPtEntry)
-  }
-
-  return toMemoryPts
-}
 
 /**
  * Key differences between Memory and MemoryPt classes
@@ -169,13 +118,21 @@ export class MemoryPt {
     this._timeStamp = 0
   }
 
+  static simulateMemoryPt (memoryPts: MemoryPts): MemoryPt {
+    const simMemPt = new MemoryPt()
+    for (let k = 0; k < memoryPts.length; k++) {
+      // the lower index, the older data
+      simMemPt.write(memoryPts[k].memByteOffset, memoryPts[k].containerByteSize, memoryPts[k].dataPt)
+    }
+    return simMemPt
+  }
   /**
    * Cleans up memory pointers when new data is written.
    * If the newly written data completely overlaps existing data,
    * delete the existing key-value pair.
    */
   private _memPtCleanUp(newOffset: number, newSize: number) {
-    for (const [key, { memOffset: _offset, containerSize: _size }] of this._storePt) {
+    for (const [key, { memByteOffset: _offset, containerByteSize: _size }] of this._storePt) {
       // Condition where new data completely overlaps existing data
       const _endOffset = _offset + _size - 1
       const newEndOffset = newOffset + newSize - 1
@@ -201,11 +158,29 @@ export class MemoryPt {
 
     this._memPtCleanUp(offset, size)
     this._storePt.set(this._timeStamp++, {
-      memOffset: offset,
-      containerSize: size,
+      memByteOffset: offset,
+      containerByteSize: size,
       dataPt,
     })
     return this.viewMemory(offset, size)
+  }
+
+  writeBatch(memoryPts: MemoryPts): Uint8Array {
+    let minOffset: number = 0
+    let maxSize: number = 0
+    for (const entry of memoryPts) {
+      // the lower index, the older data
+      entry.memByteOffset < minOffset ? minOffset = entry.memByteOffset : {}
+      const thisEndPoint = entry.memByteOffset + entry.containerByteSize - 1
+      const maxEndPoint = minOffset + maxSize - 1
+      thisEndPoint > maxEndPoint ? maxSize = thisEndPoint - minOffset + 1 : {}
+      this.write(
+        entry.memByteOffset,
+        entry.containerByteSize,
+        entry.dataPt,
+      )
+    }
+    return this.viewMemory(minOffset, maxSize)
   }
 
   /**
@@ -225,8 +200,8 @@ export class MemoryPt {
         } else {
           const target = this._storePt.get(key)!
           const copy: MemoryPtEntry = {
-            memOffset: target.memOffset,
-            containerSize: target.containerSize,
+            memByteOffset: target.memByteOffset,
+            containerByteSize: target.containerByteSize,
             dataPt: target.dataPt,
           }
           returnMemoryPts.push(copy)
@@ -271,7 +246,7 @@ export class MemoryPt {
     for (const timeStamp of sortedTimeStamps) {
       const _value = dataFragments.get(timeStamp)!
       const dataEndOffset =
-        this._storePt.get(timeStamp)!.memOffset + this._storePt.get(timeStamp)!.containerSize - 1
+        this._storePt.get(timeStamp)!.memByteOffset + this._storePt.get(timeStamp)!.containerByteSize - 1
       const viewEndOffset = offset + size - 1
       dataAliasInfos.push({
         dataPt: this._storePt.get(timeStamp)!.dataPt,
@@ -288,8 +263,8 @@ export class MemoryPt {
     const memoryPts = this.read(offset, length)
     const simMem = new Memory()
     for (const memoryPtEntry of memoryPts) {
-      const containerOffset = memoryPtEntry.memOffset
-      const containerSize = memoryPtEntry.containerSize
+      const containerOffset = memoryPtEntry.memByteOffset
+      const containerSize = memoryPtEntry.containerByteSize
       const buf = setLengthLeft(bigIntToBytes(memoryPtEntry.dataPt.value), containerSize)
       simMem.write(containerOffset + BIAS, containerSize, buf)
 
@@ -297,8 +272,8 @@ export class MemoryPt {
       // const storedOffset = storedEndOffset - this._storePt.get(timeStamp)!.dataPt.sourceSize + 1
       // // If data is in the range
       // if (storedEndOffset >= offset && storedOffset <= endOffset) {
-      //   const _offset = this._storePt.get(timeStamp)!.memOffset // This data offset can be negative.
-      //   const _containerSize = this._storePt.get(timeStamp)!.containerSize
+      //   const _offset = this._storePt.get(timeStamp)!.memByteOffset // This data offset can be negative.
+      //   const _containerSize = this._storePt.get(timeStamp)!.containerByteSize
       //   const _actualSize = this._storePt.get(timeStamp)!.dataPt.sourceSize
       //   const value = this._storePt.get(timeStamp)!.dataPt.value
       //   let valuePadded = setLengthLeft(bigIntToBytes(value), _actualSize)
@@ -330,8 +305,8 @@ export class MemoryPt {
 
     let i = 0
     for (const timeStamp of sortedTimeStamps) {
-      const containerOffset = this._storePt.get(timeStamp)!.memOffset
-      const containerEndOffset = containerOffset + this._storePt.get(timeStamp)!.containerSize - 1
+      const containerOffset = this._storePt.get(timeStamp)!.memByteOffset
+      const containerEndOffset = containerOffset + this._storePt.get(timeStamp)!.containerByteSize - 1
       // Find the offset where nonzero value starts
       const sortedTimeStamps_firsts = sortedTimeStamps.slice(0, i)
       // If data is in the range
@@ -375,8 +350,8 @@ export class MemoryPt {
 
   //   let i = 0
   //   for (const timeStamp of sortedTimeStamps) {
-  //     const containerOffset = this._storePt.get(timeStamp)!.memOffset
-  //     const storedEndOffset = containerOffset + this._storePt.get(timeStamp)!.containerSize - 1
+  //     const containerOffset = this._storePt.get(timeStamp)!.memByteOffset
+  //     const storedEndOffset = containerOffset + this._storePt.get(timeStamp)!.containerByteSize - 1
   //     // Find the offset where nonzero value starts
   //     const storedOffset = storedEndOffset - this._storePt.get(timeStamp)!.dataPt.sourceSize + 1
   //     const sortedTimeStamps_firsts = sortedTimeStamps.slice(0, i)

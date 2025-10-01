@@ -39,7 +39,7 @@ export function executeOperation(
   }
 }
 
-export class ArithmeticHandler {
+export class ArithmeticManager {
   constructor(
     private parent: ISynthesizerProvider
   ) {}
@@ -59,19 +59,19 @@ export class ArithmeticHandler {
     const outValue: bigint[] = executeOperation(name, values);
 
     const source = this.parent.placementIndex;
-    let sourceSize: number = DEFAULT_SOURCE_SIZE
+    let sourceBitSize: number = DEFAULT_SOURCE_SIZE
     if (name === 
       'DecToBit'||
       'PreparedEdDsaScalars'
     ) {
-      sourceSize = 1
+      sourceBitSize = 1
     }
     if (name === 
       'Poseidon4'||
       'JubjubEXP36'||
       'EdDsaVerify'
     ) {
-      sourceSize = 255
+      sourceBitSize = 255
     }
 
     return outValue.length > 0
@@ -79,7 +79,7 @@ export class ArithmeticHandler {
           DataPtFactory.create({
             source,
             wireIndex: index,
-            sourceSize,
+            sourceBitSize,
           }, value),
         )
       : []
