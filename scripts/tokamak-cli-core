@@ -7,23 +7,33 @@
 #   --install <API_KEY|RPC_URL>  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
 #   --prove <TX_HASH> [<DIR>]    Generate and verify a proof; copy the proof to <DIR> (default: ./.your_proof)
 #   --verify <SAVE_PATH>        Verify a proof at <SAVE_PATH>
+#   --doctor                     Check system requirements and health
 #   --help                       Show usage
-#
-# This script intentionally supports ONLY the three commands above.
+# Options:
+#   --verbose                    Show detailed output
 
 set -Eeuo pipefail
 IFS=$'\n\t'
+
+# Global config
+VERBOSE=false
 
 # ---------- Pretty print ----------
 log() { echo -e "\033[1;34m[tokamak-cli]\033[0m $*"; }
 ok()  { echo -e "\033[1;32m[ ok ]\033[0m $*"; }
 err() { echo -e "\033[1;31m[error]\033[0m $*" >&2; }
+verbose() { if [[ "$VERBOSE" == true ]]; then echo -e "\033[1;36m[info]\033[0m $*" >&2; fi; }
 
 # ---------- Helpers ----------
 npm_install_safe() {
   local dir="$1"
+  verbose "Installing npm dependencies in: $dir"
   pushd "$dir" >/dev/null
-  npm install
+  if [[ "$VERBOSE" == true ]]; then
+    npm install
+  else
+    npm install --silent
+  fi
   popd >/dev/null
 }
 
@@ -412,6 +422,13 @@ step_prove() {
   [[ -n "$tx_hash" ]] || { err "--prove requires <TX_HASH> [<SAVE_PATH>]"; exit 1; }
   [[ -n "$save_path" ]] || save_path=".your_proof"
 
+  # Basic tx hash validation
+  if [[ ! "$tx_hash" =~ ^(0x)?[0-9a-fA-F]{64}$ ]]; then
+    err "Invalid transaction hash format: $tx_hash"
+    echo "💡 Transaction hash should be 64 hex characters, like: 0x1234567890abcdef..." >&2
+    exit 1
+  fi
+
   # Convert to absolute path based on ROOT
   local abs_save_path="$ROOT/$save_path"
   # Prepare session metadata
@@ -559,11 +576,43 @@ JSON
 
 step_verify() {
   local save_path="${1:-}"
-  [[ -n "$save_path" ]] || { err "--verify requires <SAVE_PATH>"; exit 1; }
+  [[ -n "$save_path" ]] || { 
+    err "--verify requires <SAVE_PATH>"
+    echo "💡 Specify the directory containing your proof files" >&2
+    exit 1
+  }
   local proof_path="$ROOT/$save_path"
   local tx_hash="$(read_tx_hash "$proof_path/transaction_hash.txt")"
 
-  [[ -f "$proof_path/proof.json" ]] || { err "proof.json not found in: $save_path"; exit 1; }
+  # Check for proof.json or extract from zip if needed
+  if [[ -f "$proof_path/proof.json" ]]; then
+    verbose "Found proof.json directly"
+  elif [[ -f "$proof_path/tokamak-zk-evm-proof.zip" ]]; then
+    verbose "Found zipped proof, checking contents..."
+    if command -v unzip >/dev/null 2>&1; then
+      # Check if zip contains proof.json
+      if unzip -l "$proof_path/tokamak-zk-evm-proof.zip" | grep -q "proof.json"; then
+        verbose "Extracting proof.json from zip..."
+        pushd "$proof_path" >/dev/null
+        unzip -o tokamak-zk-evm-proof.zip proof.json >/dev/null 2>&1
+        popd >/dev/null
+        verbose "Successfully extracted proof.json from zip"
+      else
+        verbose "Zip found but does not contain proof.json (contains benchmark data only)"
+        echo "💡 This appears to be a benchmark/metadata archive. To verify a proof, you need the actual proof.json file." >&2
+        echo "💡 The --prove command should generate both benchmark data and proof files." >&2
+        exit 1
+      fi
+    else
+      err "proof.json not found and unzip command not available"
+      echo "💡 Either provide proof.json directly or install unzip to extract from zip" >&2
+      exit 1
+    fi
+  else
+    err "proof.json not found in: $save_path"
+    echo "💡 Make sure your proof directory contains either proof.json or tokamak-zk-evm-proof.zip with proof data" >&2
+    exit 1
+  fi
 
   log "Verify: synthesize from tx=$tx_hash"
   pushd "$FE_SYN" >/dev/null
@@ -596,6 +645,90 @@ step_verify() {
 
 }
 
+# System health check
+step_doctor() {
+  log "Running system health check..."
+  
+  local all_good=true
+  
+  # Check basic requirements
+  for cmd in node npm circom rustc cmake dos2unix; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+      if [[ "$VERBOSE" == true ]]; then
+        case "$cmd" in
+          node) verbose "node: $(node --version)" ;;
+          npm) verbose "npm: $(npm --version)" ;;
+          circom) verbose "circom: $(circom --version | head -1)" ;;
+          rustc) verbose "rustc: $(rustc --version)" ;;
+          *) verbose "$cmd: found" ;;
+        esac
+      fi
+    else
+      err "$cmd: not found"
+      case "$cmd" in
+        node) echo "💡 Install from https://nodejs.org/" >&2 ;;
+        circom) echo "💡 Install from https://docs.circom.io/getting-started/installation/" >&2 ;;
+        rustc) echo "💡 Install from https://www.rust-lang.org/tools/install" >&2 ;;
+        cmake) echo "💡 Install from https://cmake.org/download/" >&2 ;;
+        dos2unix) echo "💡 Install with: brew install dos2unix (macOS) or apt-get install dos2unix (Ubuntu)" >&2 ;;
+      esac
+      all_good=false
+    fi
+  done
+  
+  # Check project structure
+  if [[ ! -d "$FE_QAP" ]]; then
+    err "QAP compiler directory missing: $FE_QAP"
+    all_good=false
+  else
+    verbose "QAP compiler directory: exists"
+  fi
+  
+  if [[ ! -d "$FE_SYN" ]]; then
+    err "Synthesizer directory missing: $FE_SYN"
+    all_good=false
+  else
+    verbose "Synthesizer directory: exists"
+  fi
+  
+  # Check if installed
+  if [[ ! -f "$FE_SYN/.env" ]]; then
+    err "Not installed - run --install first"
+    echo "💡 Run: ./tokamak-cli --install <YOUR_API_KEY>" >&2
+    all_good=false
+  else
+    verbose "Installation: complete (.env found)"
+  fi
+  
+  # Check disk space (basic)
+  local available_gb
+  case "$(uname -s)" in
+    Darwin)
+      available_gb=$(df -g . | awk 'NR==2 {print $4}')
+      ;;
+    Linux)
+      available_gb=$(df -BG . | awk 'NR==2 {print $4}' | tr -d 'G')
+      ;;
+    *)
+      available_gb=0
+      ;;
+  esac
+  
+  if [[ $available_gb -lt 5 ]]; then
+    err "Low disk space: ${available_gb}GB available (need 5GB+)"
+    all_good=false
+  else
+    verbose "Disk space: ${available_gb}GB available"
+  fi
+  
+  if [[ "$all_good" == true ]]; then
+    ok "System is ready! 🚀"
+  else
+    err "Found issues that need attention"
+    exit 1
+  fi
+}
+
 # ---------- CLI ----------
 print_usage() {
   cat <<'USAGE'
@@ -613,26 +746,61 @@ Commands:
         - transaction_hash.txt  (tx hash; with or without 0x)
         - proof.json
 
+  --doctor
+      Check system requirements and health
+
   --help
       Show this help
+
+Options:
+  --verbose       Show detailed output
 USAGE
 }
 
-# Parse args (only the three supported commands)
+# Parse args
 [[ $# -gt 0 ]] || { print_usage; exit 1; }
 
-CMD=""; ARG1=""; ARG2=""
-case "$1" in
-  --install) CMD="install"; ARG1="${2:-}"; [[ -n "$ARG1" ]] || { err "--install requires <API_KEY|RPC_URL>"; exit 1; } ;;
-  --prove) CMD="prove"; ARG1="${2:-}"; ARG2="${3:-}"; [[ -n "$ARG1" ]] || { err "--prove requires <TX_HASH> [<SAVE_PATH>]"; exit 1; } ;;
-  --verify) CMD="verify"; ARG1="${2:-}"; [[ -n "$ARG1" ]] || { err "--verify requires <SAVE_PATH>"; exit 1; } ;;
-  --help|-h) print_usage; exit 0 ;;
-  *) err "Unknown option: $1"; print_usage; exit 1 ;;
-esac
+# Handle flags first
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --verbose)
+      VERBOSE=true
+      shift
+      ;;
+    --install)
+      CMD="install"; ARG1="${2:-}"; 
+      [[ -n "$ARG1" ]] || { err "--install requires <API_KEY|RPC_URL>"; echo "💡 Get an API key from https://dashboard.alchemy.com/" >&2; exit 1; }
+      break
+      ;;
+    --prove)
+      CMD="prove"; ARG1="${2:-}"; ARG2="${3:-}"; 
+      [[ -n "$ARG1" ]] || { err "--prove requires <TX_HASH> [<SAVE_PATH>]"; echo "💡 Use a mainnet transaction hash like: 0x123abc..." >&2; exit 1; }
+      break
+      ;;
+    --verify)
+      CMD="verify"; ARG1="${2:-}"; 
+      [[ -n "$ARG1" ]] || { err "--verify requires <SAVE_PATH>"; echo "💡 Specify the directory containing your proof files" >&2; exit 1; }
+      break
+      ;;
+    --doctor)
+      CMD="doctor"
+      break
+      ;;
+    --help|-h)
+      print_usage; exit 0
+      ;;
+    *)
+      err "Unknown option: $1"; print_usage; exit 1
+      ;;
+  esac
+done
+
+[[ -n "${CMD:-}" ]] || { err "No command specified"; print_usage; exit 1; }
 
 # Dispatch
 case "$CMD" in
   install) step_install "$ARG1" ;;
   prove) step_prove "$ARG1" "${ARG2:-}" ;;
   verify) step_verify "$ARG1" ;;
+  doctor) step_doctor ;;
 esac
