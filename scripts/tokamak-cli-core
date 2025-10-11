@@ -348,6 +348,15 @@ step_install() {
   local install_arg="${1:-}"
   [[ -n "$install_arg" ]] || { err "--install requires <API_KEY|RPC_URL>"; exit 1; }
 
+  log "Install: writing synthesizer .env"
+  local rpc_url
+  if [[ "$install_arg" == https://* ]]; then
+    rpc_url="$install_arg"
+  else
+    rpc_url="https://eth-mainnet.g.alchemy.com/v2/${install_arg}"
+  fi
+  printf "RPC_URL='%s'\n" "$rpc_url" > "$FE_SYN/.env"
+
   log "Install: installing frontend dependencies"
   npm_install_safe "$FE_QAP"
   npm_install_safe "$FE_SYN"
@@ -403,15 +412,6 @@ step_install() {
   
   bash "$script" "${packaging_options[@]}"
   # popd >/dev/null
-
-  log "Install: writing synthesizer .env"
-  local rpc_url
-  if [[ "$install_arg" == https://* ]]; then
-    rpc_url="$install_arg"
-  else
-    rpc_url="https://eth-mainnet.g.alchemy.com/v2/${install_arg}"
-  fi
-  printf "RPC_URL='%s'\n" "$rpc_url" > "$FE_SYN/.env"
 
   ok "Install complete"
 }
