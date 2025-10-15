@@ -1,18 +1,15 @@
 import { SynthesizerValidator } from '../validation/index.js'
 
 import type { DataPtDescription, DataPt } from '../types/index.js'
+import { bigIntToHex } from '@ethereumjs/util'
 
 export class DataPtFactory {
   public static create(params: DataPtDescription, value: bigint): DataPt {
     SynthesizerValidator.validateValue(params, value)
-    const hex = value.toString(16)
-    const paddedHex = hex.length % 2 === 1 ? '0' + hex : hex;
-    const valueHex = '0x' + paddedHex;
-
     return {
       ...params,
       value,
-      valueHex,
+      valueHex: bigIntToHex(value),
     }
   }
 

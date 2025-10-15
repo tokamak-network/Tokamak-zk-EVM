@@ -1,4 +1,4 @@
-import { ACCUMULATOR_INPUT_LIMIT } from '../../constant/index.js';
+import { ACCUMULATOR_INPUT_LIMIT } from '../../../constant/index.ts';
 import {
   DataPtFactory,
   MemoryPt,
@@ -6,8 +6,8 @@ import {
   type DataAliasInfoEntry,
   type DataAliasInfos,
   type MemoryPts,
-} from '../../pointers/index.js';
-import type { DataPt, DataPtDescription, ArithmeticOperator } from '../../types/index.ts';
+} from '../../../pointers/index.ts';
+import type { DataPt, DataPtDescription, ArithmeticOperator } from '../../../types/index.ts';
 import { ISynthesizerProvider } from './index.ts';
 
 export class MemoryManager {

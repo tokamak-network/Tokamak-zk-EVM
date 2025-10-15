@@ -1,5 +1,5 @@
-import { DataPtFactory } from '../../pointers/index.js';
-import { BUFFER_PLACEMENT, DataPtDescription, L2TxData, ReservedBuffer, SynthesizerOpts, VARIABLE_DESCRIPTION, type DataPt, type ReservedVariable } from '../../types/index.js';
+import { DataPtFactory } from '../../../pointers/index.ts';
+import { BUFFER_PLACEMENT, DataPtDescription, ReservedBuffer, SynthesizerOpts, VARIABLE_DESCRIPTION, type DataPt, type ReservedVariable } from '../../../types/index.ts';
 import { MAX_MT_LEAVES, MAX_TX_NUMBER, USER_INPUT_DYNAMIC_INDEX } from 'src/tokamak/constant/index.ts';
 import { addHexPrefix, bytesToBigInt, hexToBigInt, PrefixedHexString } from '@ethereumjs/util';
 import { jubjub } from '@noble/curves/misc';

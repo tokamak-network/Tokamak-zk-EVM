@@ -1,20 +1,20 @@
 import {
-  DEFAULT_SOURCE_SIZE,
+  DEFAULT_SOURCE_BIT_SIZE,
   ACCUMULATOR_INPUT_LIMIT,
-} from '../../constant/index.ts';
+} from '../../../constant/index.ts';
 import {
   InvalidInputCountError,
   SynthesizerError,
-} from '../../validation/index.ts';
+} from '../../../validation/index.ts';
 import { StateManager } from './stateManager.ts';
 import type { ISynthesizerProvider } from './index.ts';
 
-import type { ArithmeticOperator } from '../../types/index.ts';
+import type { ArithmeticOperator } from '../../../types/index.ts';
 import {
   SUBCIRCUIT_MAPPING,
   type DataPt,
   type SubcircuitNames,
-} from '../../types/index.ts';
+} from '../../../types/index.ts';
 import { DataPtFactory } from 'src/tokamak/pointers/index.ts';
 import { ARITHMETIC_MAPPING } from 'src/tokamak/operations/index.ts';
 import { BIGINT_1 } from '@ethereumjs/util';
@@ -59,7 +59,7 @@ export class ArithmeticManager {
     const outValue: bigint[] = executeOperation(name, values);
 
     const source = this.parent.placementIndex;
-    let sourceBitSize: number = DEFAULT_SOURCE_SIZE
+    let sourceBitSize: number = DEFAULT_SOURCE_BIT_SIZE
     if (name === 
       'DecToBit'||
       'PreparedEdDsaScalars'

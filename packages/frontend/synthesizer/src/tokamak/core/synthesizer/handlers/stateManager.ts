@@ -1,9 +1,9 @@
 import { DataPtFactory } from 'src/tokamak/pointers/dataPointFactory.js';
 import {
-  DEFAULT_SOURCE_SIZE,
+  DEFAULT_SOURCE_BIT_SIZE,
   FIRST_ARITHMETIC_PLACEMENT_INDEX,
   MAX_TX_NUMBER,
-} from '../../constant/index.js';
+} from '../../../constant/index.ts';
 import {
   ArithmeticOperator,
   BUFFER_PLACEMENT,
@@ -11,17 +11,15 @@ import {
   VARIABLE_DESCRIPTION,
   type DataPt,
   type DataPtDescription,
-  type L2TxData,
   type Placements,
   type ReservedBuffer,
   type ReservedVariable,
   type SubcircuitInfoByName,
   type SubcircuitNames,
   type SynthesizerOpts,
-} from '../../types/index.js';
-import { SubcircuitRegistry } from '../../utils/index.js';
+} from '../../../types/index.ts';
+import { SubcircuitRegistry } from '../../../utils/index.ts';
 import {jubjub} from '@noble/curves/misc';
-import { bytesToBigInt } from '@synthesizer-libs/util';
 import { AddressLike, bigIntToHex } from '@ethereumjs/util';
 import { MemoryPt, MemoryPts, StackPt } from 'src/tokamak/pointers/index.ts';
 import { ISynthesizerProvider } from './synthesizerProvider.ts';
@@ -113,7 +111,7 @@ export class StateManager {
     const placementIndex = BUFFER_PLACEMENT.STATIC_IN.placementIndex
     const inPtRaw: DataPtDescription = {
       extSource: desc ?? 'Arbitrary constant',
-      sourceBitSize: bitSize ?? DEFAULT_SOURCE_SIZE * 8,
+      sourceBitSize: bitSize ?? DEFAULT_SOURCE_BIT_SIZE * 8,
       source: placementIndex,
       wireIndex: this.placements.get(placementIndex)!.inPts.length,
     };

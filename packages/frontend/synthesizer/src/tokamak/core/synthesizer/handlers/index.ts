@@ -1,6 +1,5 @@
-export * from './arithmeticHandler.ts'
+export * from './arithmeticManager.ts'
 export * from './bufferManager.ts'
-export * from './dataLoader.ts'
 export * from './memoryManager.ts'
 export * from './stateManager.ts'
 export * from './instructionHandlers.ts'

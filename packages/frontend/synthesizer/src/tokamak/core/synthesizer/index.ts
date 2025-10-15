@@ -1,3 +1,4 @@
+import { createVM, VMOpts } from '@ethereumjs/vm';
 import { DataAliasInfos, MemoryPt, MemoryPts } from '../../pointers/index.js';
 import type {
   ArithmeticOperator,
@@ -10,9 +11,13 @@ import type {
   SynthesizerSupportedOpcodes,
 } from '../../types/index.js';
 import type { PlacementEntry, SynthesizerOpts } from '../../types/index.ts';
-import { ArithmeticManager, BufferManager, DataLoader, HandlerOpts, InstructionHandlers, ISynthesizerProvider, MemoryManager, StateManager } from '../handlers/index.ts';
+import { ArithmeticManager, BufferManager, HandlerOpts, InstructionHandlers, ISynthesizerProvider, MemoryManager, StateManager } from './handlers/index.ts';
 import { LegacyTx } from '@ethereumjs/tx';
 import { createLegacyTxFromL2Tx } from '@tokamak/utils';
+import { Common, CommonOpts, Mainnet } from '@ethereumjs/common';
+import { customCrypto } from 'src/tokamak/VMExtension/index.ts';
+import { BlockHeader, HeaderData } from '@ethereumjs/block';
+import { createAddressFromBigInt } from '@ethereumjs/util';
 
 /**
  * The Synthesizer class manages data related to subcircuits.
@@ -21,20 +26,47 @@ import { createLegacyTxFromL2Tx } from '@tokamak/utils';
 export class Synthesizer
   implements ISynthesizerProvider
 {
-  private _state: StateManager;
-  private _arithmeticManager: ArithmeticManager;
-  private _dataLoader: DataLoader;
-  private _memoryManager: MemoryManager;
-  private _bufferManager: BufferManager;
+  private _state: StateManager
+  private _arithmeticManager: ArithmeticManager
+  private _memoryManager: MemoryManager
+  private _bufferManager: BufferManager
   private _instructionHandlers: InstructionHandlers
+  private _synthesizerOpts: SynthesizerOpts
   
   constructor(opts: SynthesizerOpts) {
-    this._state = new StateManager(this, opts)
-    this._bufferManager = new BufferManager(this, opts)
-    this._dataLoader = new DataLoader(this, opts)
+    this._synthesizerOpts = opts
+    this._state = new StateManager(this, this._synthesizerOpts)
+    this._bufferManager = new BufferManager(this, this._synthesizerOpts)
     this._arithmeticManager = new ArithmeticManager(this)
     this._memoryManager = new MemoryManager(this)
     this._instructionHandlers =  new InstructionHandlers(this)
+    
+  }
+
+  public synthesizeTransactions(
+    synthesizerOpts: SynthesizerOpts, 
+  ): void {
+    const commonOpts: CommonOpts = {
+      chain: {
+        ...Mainnet, 
+        chainId: Number(this.loadReservedVariableFromBuffer('CHAINID').value)
+      },
+      customCrypto: new customCrypto()
+    }
+    const blockOpts: HeaderData = {
+      parentHash: this.loadReservedVariableFromBuffer('BLOCKHASH_1').value,
+      coinbase: createAddressFromBigInt(this.loadReservedVariableFromBuffer('COINBASE').value),
+      difficulty: this.loadReservedVariableFromBuffer('PREVRANDAO').value,
+      number: this.loadReservedVariableFromBuffer('NUMBER').value,
+      gasLimit: this.loadReservedVariableFromBuffer('GASLIMIT').value,
+      timestamp: this.loadReservedVariableFromBuffer('TIMESTAMP').value,
+      baseFeePerGas: this.loadReservedVariableFromBuffer('BASEFEE').value,
+    }
+    const vmOpts: VMOpts = {
+      common: new Common(commonOpts)
+    }
+    const vm = createVM(vmOpts)
+    
   }
 
   public loadTransaction(): void {
@@ -64,10 +96,6 @@ export class Synthesizer
   
   public get placements(): Placements {
     return this._state.placements
-  }
-
-  public get transactions(): LegacyTx[] {
-    return this._dataLoader.transactions
   }
 
   get envMemoryPts(): {
@@ -100,7 +128,7 @@ export class Synthesizer
     varName: ReservedVariable, 
     txNonce?: number
   ): DataPt {
-    return this._dataLoader.loadReservedVariableFromBuffer(varName, txNonce)
+    return this._bufferManager.loadReservedVariableFromBuffer(varName, txNonce)
   }
 
   public loadArbitraryStatic(
@@ -108,15 +136,15 @@ export class Synthesizer
     bitSize?: number,
     desc?: string,
   ): DataPt {
-    return this._dataLoader.loadArbitraryStatic(value, bitSize, desc)
+    return this._state.loadArbitraryStatic(value, bitSize, desc)
   }
 
   public loadStorage(key: bigint): DataPt {
-    return this._dataLoader.loadStorage(key);
+    return this._state.loadStorage(key);
   }
 
   public storeStorage(key: bigint, inPt: DataPt): void {
-    this._dataLoader.storeStorage(key, inPt);
+    this._state.storeStorage(key, inPt);
   }
 
   public placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {

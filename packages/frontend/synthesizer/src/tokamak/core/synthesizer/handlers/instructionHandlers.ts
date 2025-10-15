@@ -1,6 +1,6 @@
 
 import { Common } from '@ethereumjs/common';
-import { DataPtDescription, synthesizerOpcodeByName, synthesizerOpcodeList, SynthesizerSupportedArithOpcodes, SynthesizerSupportedBlkInfOpcodes, SynthesizerSupportedEnvInfOpcodes, SynthesizerSupportedSysFlowOpcodes, VARIABLE_DESCRIPTION, type ArithmeticOperator, type DataPt, type ReservedVariable, type SynthesizerSupportedOpcodes } from '../../types/index.ts';
+import { DataPtDescription, synthesizerOpcodeByName, synthesizerOpcodeList, SynthesizerSupportedArithOpcodes, SynthesizerSupportedBlkInfOpcodes, SynthesizerSupportedEnvInfOpcodes, SynthesizerSupportedSysFlowOpcodes, VARIABLE_DESCRIPTION, type ArithmeticOperator, type DataPt, type ReservedVariable, type SynthesizerSupportedOpcodes } from '../../../types/index.ts';
 
 import {
   Address,
@@ -40,9 +40,9 @@ import { keccak256 } from 'ethereum-cryptography/keccak.js'
 import { ExecResult } from '@ethereumjs/evm'
 import { ISynthesizerProvider } from './index.ts'
 import { RunState } from 'src/interpreter.ts';
-import { Synthesizer } from '../synthesizer/index.ts';
+import { Synthesizer } from '../index.ts';
 import { MemoryPt, MemoryPts } from 'src/tokamak/pointers/memoryPt.ts';
-import { DEFAULT_SOURCE_SIZE } from 'src/tokamak/constant/constants.ts';
+import { DEFAULT_SOURCE_BIT_SIZE } from 'src/tokamak/constant/constants.ts';
 
 export interface HandlerOpts {
     op: SynthesizerSupportedOpcodes,
@@ -207,7 +207,7 @@ export class InstructionHandlers {
               {
                 const ins = prevRunState.stack.peek(nIns)
                 const memOffset = ins[0]
-                const dataLength = opName === 'MSTORE' ? DEFAULT_SOURCE_SIZE : 8
+                const dataLength = opName === 'MSTORE' ? 32 : 1
                 opts.memOut = afterRunState.memory.read(Number(memOffset), dataLength)
               }
               break
@@ -809,8 +809,7 @@ export class InstructionHandlers {
           checkRequiredInput(opts.memOut)
           const offsetNum = Number(ins[0])
           const originalDataPt = inPts[1]
-          const truncByteSize = op === 'MSTORE' ? DEFAULT_SOURCE_SIZE : 8
-          const truncBitSize = truncByteSize * 8
+          const truncBitSize = op === 'MSTORE' ? DEFAULT_SOURCE_BIT_SIZE : 8
           // Replace dataPt in StackPt with the tracked memPt
           const newDataPt = truncBitSize < originalDataPt.sourceBitSize ? this.parent.placeMSTORE(originalDataPt, truncBitSize) : originalDataPt
           const _out = memoryPt.write(offsetNum, truncBitSize, newDataPt)
@@ -994,11 +993,11 @@ export class InstructionHandlers {
     }
 
     let memPts: MemoryPts = []
-    const nChunks = Math.ceil(Number(dataLength) / DEFAULT_SOURCE_SIZE)
+    const nChunks = Math.ceil(Number(dataLength) / 32)
     let accOffsetShift = 0n
     let lengthLeft = Number(dataLength)
     for (let i = 0; i < nChunks; i++){
-      const sliceLength = Math.min(DEFAULT_SOURCE_SIZE, lengthLeft)
+      const sliceLength = Math.min(32, lengthLeft)
       const dataSlice = bytesToBigInt(getDataSlice(code, codeOffset + accOffsetShift, BigInt(sliceLength)))
       const desc = `Code of address: ${bigIntToHex(targetAddress)}, offset: ${Number(codeOffset)}, length: ${Number(dataLength)} bytes, chunk: ${i+1} out of ${nChunks}.`
       const dataPt = this.parent.loadArbitraryStatic(dataSlice, undefined, desc)

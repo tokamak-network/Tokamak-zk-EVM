@@ -1,6 +1,6 @@
 import { LegacyTx } from '@ethereumjs/tx';
-import type { ArithmeticOperator } from '../../types/arithmetic.js';
-import type { DataPt, Placements, ReservedVariable, SubcircuitNames, SynthesizerSupportedOpcodes } from '../../types/index.js';
+import type { ArithmeticOperator } from '../../../types/arithmetic.ts';
+import type { DataPt, Placements, ReservedVariable, SubcircuitNames, SynthesizerSupportedOpcodes } from '../../../types/index.ts';
 import { StateManager } from './stateManager.ts';
 import { DataAliasInfos, MemoryPts } from 'src/tokamak/pointers/memoryPt.ts';
 import { HandlerOpts } from './instructionHandlers.ts';
@@ -10,7 +10,6 @@ export interface ISynthesizerProvider {
   get state(): StateManager
   get placementIndex(): number
   get placements(): Placements
-  get transactions(): LegacyTx[]
   place(
     name: SubcircuitNames,
     inPts: DataPt[],

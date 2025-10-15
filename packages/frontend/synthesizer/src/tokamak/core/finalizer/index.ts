@@ -1,4 +1,4 @@
-import type { StateManager } from '../handlers/stateManager.js';
+import type { StateManager } from '../synthesizer/handlers/stateManager.ts';
 import { Permutation } from './permutation.js';
 import { PlacementRefactor } from './placementRefactor.js';
 

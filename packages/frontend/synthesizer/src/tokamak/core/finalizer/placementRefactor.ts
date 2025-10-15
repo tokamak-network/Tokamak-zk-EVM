@@ -15,7 +15,7 @@ import type {
   SubcircuitInfoByName,
   SubcircuitNames,
 } from '../../types/index.js';
-import type { StateManager } from '../handlers/stateManager.js';
+import type { StateManager } from '../synthesizer/handlers/stateManager.ts';
 
 export class PlacementRefactor {
   private state: StateManager;
