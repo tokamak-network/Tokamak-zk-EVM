@@ -32,7 +32,7 @@ import {
   getActivePrecompiles,
   getPrecompileName,
 } from './precompiles/index.js';
-import { Synthesizer } from './tokamak/core/synthesizer/index.js';
+import { Synthesizer } from './tokamak/core/synthesizer/synthesizer.ts';
 import { TransientStorage } from './transientStorage.js';
 import {
   type Block,

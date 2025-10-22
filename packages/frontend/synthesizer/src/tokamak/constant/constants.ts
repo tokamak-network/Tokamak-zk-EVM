@@ -1,5 +1,6 @@
 import { setLengthLeft, utf8ToBytes } from "@ethereumjs/util"
 import { BUFFER_PLACEMENT} from "../types/index.js"
+import { poseidon4 } from "poseidon-bls12381"
 
 export const BLS12831ARITHMODULUS = 52435875175126190479447740508185965837690552500527637822603658699938581184513n
 export const JUBJUBFIELDMODULUS = BLS12831ARITHMODULUS
@@ -9,9 +10,12 @@ export const ACCUMULATOR_INPUT_LIMIT = 32
 export const MAX_TX_NUMBER = 16
 export const MAX_MT_LEAVES = 16
 export const POSEIDON_INPUTS = 4
+export const poseidon_raw = poseidon4
 export const FIRST_ARITHMETIC_PLACEMENT_INDEX =
   Math.max(...Object.values(BUFFER_PLACEMENT).map(({ placementIndex }) => placementIndex)) + 1
 
-export const USER_INPUT_DYNAMIC_INDEX = 0x03
+export const USER_INPUT_DYNAMIC_OFFSET = 0x03
 export const DST_NONCE = setLengthLeft(utf8ToBytes("TokamakAuth‑EDDSA‑NONCE‑v1"), 32)
+export const NUMBER_OF_PREV_BLOCK_HASHES = 16
+
 

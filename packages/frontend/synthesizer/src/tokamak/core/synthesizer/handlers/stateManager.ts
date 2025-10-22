@@ -22,13 +22,14 @@ import { SubcircuitRegistry } from '../../../utils/index.ts';
 import {jubjub} from '@noble/curves/misc';
 import { AddressLike, bigIntToHex } from '@ethereumjs/util';
 import { MemoryPt, MemoryPts, StackPt } from 'src/tokamak/pointers/index.ts';
-import { ISynthesizerProvider } from './synthesizerProvider.ts';
+import { ISynthesizerProvider } from '../types.ts';
 
 /**
  * Manages the state of the synthesizer, including placements, auxin, and subcircuit information.
  */
 export class StateManager {
   private parent: ISynthesizerProvider
+  private cachedOpts: SynthesizerOpts
 
   public stackPt: StackPt = new StackPt()
   public memoryPt: MemoryPt = new MemoryPt()
@@ -37,19 +38,18 @@ export class StateManager {
   public txNonce: number = -1
   public placementIndex: number = FIRST_ARITHMETIC_PLACEMENT_INDEX
 
-  public cachedStorage: Map<bigint, {index: number, dataPt: DataPt}> = new Map()
+  public cachedStorage: Map<bigint, {index: number, keyPt: DataPt | undefined, valuePt: DataPt}> = new Map()
   public cachedStaticIn: Map<bigint, DataPt> = new Map()
   public cachedOrigin: DataPt | undefined = undefined
   public cachedReturnMemoryPts: MemoryPts = []
 
   public callMemoryPtsStack: MemoryPts[] = []
   
-  public lastMerkleRoot: bigint
   public subcircuitNames!: SubcircuitNames[]
 
-  constructor(parent: ISynthesizerProvider, opts: SynthesizerOpts) {
+  constructor(parent: ISynthesizerProvider) {
     this.parent = parent
-    this.lastMerkleRoot = opts.initMerkleTreeRoot
+    this.cachedOpts = parent.cachedOpts
     this._initializeSubcircuitInfo()
   }
 
@@ -126,7 +126,7 @@ export class StateManager {
     if (cache === undefined) {
       throw new Error(`Invalid access to the storage at an unregistered key "${bigIntToHex(key)}"`)
     }
-    return cache.dataPt
+    return cache.valuePt
   }
 
   public storeStorage(key: bigint, inPt: DataPt): void {
@@ -136,7 +136,8 @@ export class StateManager {
     }
     this.parent.state.cachedStorage.set(key, {
       index: cache.index,
-      dataPt: inPt,
+      keyPt: undefined,
+      valuePt: inPt,
     })
   }
 }

@@ -11,8 +11,8 @@ import type { DataPt, DataPtDescription, ArithmeticOperator } from '../../../typ
 import { ISynthesizerProvider } from './index.ts';
 
 export class MemoryManager {
-  public envCalldataMemorypts: MemoryPts = []
-  public envReturnMemorypts: MemoryPts = []
+  public envCalldataMemoryPts: MemoryPts = []
+  public envReturnMemoryPts: MemoryPts = []
 
   constructor(
     private parent: ISynthesizerProvider,

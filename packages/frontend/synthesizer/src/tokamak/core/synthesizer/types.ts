@@ -1,15 +1,22 @@
 import { LegacyTx } from '@ethereumjs/tx';
-import type { ArithmeticOperator } from '../../../types/arithmetic.ts';
-import type { DataPt, Placements, ReservedVariable, SubcircuitNames, SynthesizerSupportedOpcodes } from '../../../types/index.ts';
-import { StateManager } from './stateManager.ts';
+import type { ArithmeticOperator } from '../../types/arithmetic.ts';
+import type { DataPt, Placements, ReservedVariable, SubcircuitNames, SynthesizerOpts, SynthesizerSupportedOpcodes } from '../../types/index.ts';
+import { StateManager } from './handlers/stateManager.ts';
 import { DataAliasInfos, MemoryPts } from 'src/tokamak/pointers/memoryPt.ts';
-import { HandlerOpts } from './instructionHandlers.ts';
+import { HandlerOpts, SynthesizerOpHandler } from './handlers/instructionHandlers.ts';
+import { InterpreterStep } from '@ethereumjs/evm';
+import { RunTxResult } from '@ethereumjs/vm';
 
-export interface ISynthesizerProvider {
-  // from StateManager
+export interface SynthesizerInterface {
   get state(): StateManager
-  get placementIndex(): number
   get placements(): Placements
+  synthesizeTX(): Promise<RunTxResult>
+}
+
+export interface ISynthesizerProvider extends SynthesizerInterface {
+  cachedOpts: SynthesizerOpts,
+  // from StateManager
+  get placementIndex(): number
   place(
     name: SubcircuitNames,
     inPts: DataPt[],
@@ -34,24 +41,6 @@ export interface ISynthesizerProvider {
   placeMSTORE(dataPt: DataPt, truncBitSize: number): DataPt
   copyMemoryPts(target: MemoryPts, srcOffset: bigint, length: bigint, dstOffset?: bigint): MemoryPts
   //from instructionHandler
-  handleArith(
-      op: SynthesizerSupportedOpcodes,
-      ins: bigint[],
-      out: bigint,
-    ): void
-  handleBlkInf (
-    op: SynthesizerSupportedOpcodes,
-    output: bigint,
-    target?: bigint,
-  ): void
-  handleEnvInf(
-    ins: bigint[],
-    out: bigint,
-    opts: HandlerOpts,
-  ): void
-  handleSysFlow(
-    ins: bigint[],
-    out: bigint,
-    opts: HandlerOpts,
-  ): void
+  getOriginAddressPt(): DataPt
+  get synthesizerHandlers(): Map<number, SynthesizerOpHandler>
 }

@@ -37,32 +37,25 @@ import {
   bigIntToHex,
 } from '@ethereumjs/util'
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
-import { ExecResult } from '@ethereumjs/evm'
+import { ExecResult, InterpreterStep } from '@ethereumjs/evm'
 import { ISynthesizerProvider } from './index.ts'
 import { RunState } from 'src/interpreter.ts';
-import { Synthesizer } from '../index.ts';
 import { MemoryPt, MemoryPts } from 'src/tokamak/pointers/memoryPt.ts';
 import { DEFAULT_SOURCE_BIT_SIZE } from 'src/tokamak/constant/constants.ts';
 
 export interface HandlerOpts {
     op: SynthesizerSupportedOpcodes,
     pc?: bigint,
-    thisAddress?: bigint,
-    callerAddress?: bigint,
-    originAddress?: bigint,
+    thisAddress?: Address,
+    callerAddress?: Address,
+    originAddress?: Address,
     memOut?: Uint8Array,
     callDepth?: number,
 }
 
-export interface SyncSynthesizerOpHandler {
-  (synthesizer: ISynthesizerProvider, prevExecResult: ExecResult, afterExecResult: ExecResult): void
+export interface SynthesizerOpHandler {
+  (prevStepResult: InterpreterStep, afterStepResult: InterpreterStep): void
 }
-
-export interface AsyncSynthesizerOpHandler {
-  (synthesizer: ISynthesizerProvider, prevExecResult: ExecResult, afterExecResult: ExecResult): Promise<void>
-}
-
-export type SynthesizerOpHandler = SyncSynthesizerOpHandler | AsyncSynthesizerOpHandler
 
 const checkRequiredInput = (...input: unknown[]): void => {
   if (input.some(v => v === undefined)) throw new Error('Required inputs are missing')
@@ -78,16 +71,11 @@ export class InstructionHandlers {
 
   private _createSynthesizerHandlers(): void {
     this.synthesizerHandlers = new Map<number, SynthesizerOpHandler>()
-    const __getStaticInDataPt = (output: bigint, opts: HandlerOpts, targetAddress?: bigint): void => {
-      this._getStaticInDataPt(output, opts, targetAddress)
-    }
     const __createArithHandler = (opName: SynthesizerSupportedArithOpcodes): void => {
       const op: number = synthesizerOpcodeByName[opName]
       this.synthesizerHandlers.set(
         op,
-        function (synthesizer, prevExecResult, afterExecResult) {
-          const prevRunState = prevExecResult.runState!
-          const afterRunState = afterExecResult.runState!
+        (prevStepResult, afterStepResult) => {
           let nIns: number
           // based on https://www.evm.codes/
           switch(opName){
@@ -103,9 +91,9 @@ export class InstructionHandlers {
               nIns = 2
               break            
           }
-          const ins = prevRunState.stack.peek(nIns)
-          const out = afterRunState.stack.peek(1)[0]
-          synthesizer.handleArith(opName, ins, out)
+          const ins = prevStepResult.stack.slice(0, nIns)
+          const out = afterStepResult.stack[0]
+          this.handleArith(opName, ins, out)
         },
       )
     }
@@ -113,17 +101,15 @@ export class InstructionHandlers {
       const op: number = synthesizerOpcodeByName[opName]
       this.synthesizerHandlers.set(
         op,
-        function (synthesizer, prevExecResult, afterExecResult) {
-          const prevRunState = prevExecResult.runState!
-          const afterRunState = afterExecResult.runState!
-          const out: bigint = afterRunState.stack.peek(1)[0]
+        (prevStepResult, afterStepResult) => {
+          const out: bigint = afterStepResult.stack[0]
           const opts: HandlerOpts = {
             op: opName,
-            pc: BigInt(prevRunState.programCounter),
-            thisAddress: bytesToBigInt(prevRunState.interpreter.getAddress().toBytes()),
-            callerAddress: prevRunState.interpreter.getCaller(),
-            originAddress: prevRunState.interpreter.getTxOrigin(),
-            callDepth: prevRunState.interpreter._env.depth,
+            pc: BigInt(prevStepResult.pc - 1),
+            thisAddress: prevStepResult.codeAddress,
+            callerAddress: prevStepResult.address,
+            originAddress: createAddressFromBigInt(this.parent.state.cachedOrigin?.value ?? 0n),
+            callDepth: prevStepResult.depth,
           }
           // based on https://www.evm.codes/
           let nIns: number
@@ -139,27 +125,27 @@ export class InstructionHandlers {
             case 'RETURNDATACOPY':
               nIns = 3
               {
-                const ins = prevRunState.stack.peek(nIns)
+                const ins = prevStepResult.stack.slice(0, nIns)
                 const memOffset = ins[1]
                 const dataLength = ins[2]
-                opts.memOut = afterRunState.memory.read(Number(memOffset), Number(dataLength))
+                opts.memOut = afterStepResult.memory.slice(Number(memOffset), Number(dataLength))
               }
               break
             case 'EXTCODECOPY': 
               nIns = 4
               {
-                const ins = prevRunState.stack.peek(nIns)
+                const ins = prevStepResult.stack.slice(0, nIns)
                 const memOffset = ins[2]
                 const dataLength = ins[3]
-                opts.memOut = afterRunState.memory.read(Number(memOffset), Number(dataLength))
+                opts.memOut = afterStepResult.memory.slice(Number(memOffset), Number(dataLength))
               }
               break
             default:
               nIns = 0
               break
           }
-          const ins = prevRunState.stack.peek(nIns)
-          synthesizer.handleEnvInf(ins, out, opts)
+          const ins = prevStepResult.stack.slice(0, nIns)
+          this.handleEnvInf(ins, out, opts)
         },
       )
     }
@@ -167,12 +153,10 @@ export class InstructionHandlers {
       const op: number = synthesizerOpcodeByName[opName]
       this.synthesizerHandlers.set(
         op,
-        function (synthesizer, prevExecResult, afterExecResult) {
-          const prevRunState = prevExecResult.runState!
-          const afterRunState = afterExecResult.runState!
-          const blockNumber = opName === 'BLOCKHASH' ? prevRunState.stack.pop() : undefined
-          const outVal = afterRunState.stack.peek(1)[0]
-          synthesizer.handleBlkInf(opName, outVal, blockNumber)
+        (prevStepResult, afterStepResult) => {
+          const blockNumber = opName === 'BLOCKHASH' ? prevStepResult.stack[0] : undefined
+          const outVal = afterStepResult.stack[0]
+          this.handleBlkInf(opName, outVal, blockNumber)
         },
       )
     }
@@ -180,17 +164,15 @@ export class InstructionHandlers {
       const op: number = synthesizerOpcodeByName[opName]
       this.synthesizerHandlers.set(
         op,
-        function (synthesizer, prevExecResult, afterExecResult) {
-          const prevRunState = prevExecResult.runState!
-          const afterRunState = afterExecResult.runState!
-          const out: bigint = afterRunState.stack.peek(1)[0]
+        (prevStepResult, afterStepResult) => {
+          const out: bigint = afterStepResult.stack[0]
           const opts: HandlerOpts = {
             op: opName,
-            pc: BigInt(prevRunState.programCounter - 1),
-            thisAddress: bytesToBigInt(prevRunState.interpreter.getAddress().toBytes()),
-            callerAddress: prevRunState.interpreter.getCaller(),
-            originAddress: prevRunState.interpreter.getTxOrigin(),
-            callDepth: prevRunState.interpreter._env.depth,
+            pc: BigInt(prevStepResult.pc - 1),
+            thisAddress: prevStepResult.codeAddress,
+            callerAddress: prevStepResult.address,
+            originAddress: createAddressFromBigInt(this.parent.state.cachedOrigin?.value ?? 0n),
+            callDepth: prevStepResult.depth,
           }
           // based on https://www.evm.codes/
           let nIns: number
@@ -205,10 +187,10 @@ export class InstructionHandlers {
             case 'MSTORE8':
               nIns = 2
               {
-                const ins = prevRunState.stack.peek(nIns)
+                const ins = prevStepResult.stack.slice(0, nIns)
                 const memOffset = ins[0]
                 const dataLength = opName === 'MSTORE' ? 32 : 1
-                opts.memOut = afterRunState.memory.read(Number(memOffset), dataLength)
+                opts.memOut = afterStepResult.memory.slice(Number(memOffset), dataLength)
               }
               break
             case 'SSTORE':
@@ -219,47 +201,47 @@ export class InstructionHandlers {
             case 'REVERT':
               nIns = 2
               {
-                const ins = prevRunState.stack.peek(nIns)
+                const ins = prevStepResult.stack.slice(0, nIns)
                 const memOffset = ins[0]
                 const dataLength = ins[1]
-                opts.memOut = afterRunState.memory.read(Number(memOffset), Number(dataLength))
+                opts.memOut = afterStepResult.memory.slice(Number(memOffset), Number(dataLength))
               }
               break
             case 'MCOPY':
               nIns = 3
               {
-                const ins = prevRunState.stack.peek(nIns)
+                const ins = prevStepResult.stack.slice(0, nIns)
                 const memOffset = ins[1]
                 const dataLength = ins[2]
-                opts.memOut = afterRunState.memory.read(Number(memOffset), Number(dataLength))
+                opts.memOut = afterStepResult.memory.slice(Number(memOffset), Number(dataLength))
               }
               break
             case 'CALL':
             case 'CALLCODE':
               nIns = 7
               {
-                const ins = prevRunState.stack.peek(nIns)
+                const ins = prevStepResult.stack.slice(0, nIns)
                 const memOffset = ins[5]
                 const dataLength = ins[6]
-                opts.memOut = afterRunState.memory.read(Number(memOffset), Number(dataLength))
+                opts.memOut = afterStepResult.memory.slice(Number(memOffset), Number(dataLength))
               }
               break
             case 'DELEGATECALL':
             case 'STATICCALL':
               nIns = 6
               {
-                const ins = prevRunState.stack.peek(nIns)
+                const ins = prevStepResult.stack.slice(0, nIns)
                 const memOffset = ins[4]
                 const dataLength = ins[5]
-                opts.memOut = afterRunState.memory.read(Number(memOffset), Number(dataLength))
+                opts.memOut = afterStepResult.memory.slice(Number(memOffset), Number(dataLength))
               }
               break
             default:
               nIns = 0
               break
           }
-          const ins = prevRunState.stack.peek(nIns)
-          synthesizer.handleSysFlow(ins, out, opts)
+          const ins = prevStepResult.stack.slice(0, nIns)
+          this.handleSysFlow(ins, out, opts)
         },
       )
     }
@@ -356,21 +338,19 @@ export class InstructionHandlers {
     // PUSHs
     this.synthesizerHandlers.set(
       synthesizerOpcodeByName['PUSH1'],
-      function (synthesizer, prevExecResult, afterExecResult) {
-        const prevRunState = prevExecResult.runState!
-        const afterRunState = afterExecResult.runState!
-        const out: bigint = afterRunState.stack.peek(1)[0]
-        const numToPush = prevRunState.opCode - 0x5f
-        const pc = prevRunState.programCounter
-        const thisAddress = prevRunState.interpreter.getAddress().toString()
-        const callerAdderss = createAddressFromBigInt(prevRunState.interpreter.getCaller()).toString()
+      (prevStepResult, afterStepResult) => {
+        const out: bigint = afterStepResult.stack[0]
+        const numToPush = prevStepResult.opcode.code - 0x5f
+        const pc = prevStepResult.pc - 1
+        const thisAddress = prevStepResult.codeAddress.toString()
+        const callerAdderss = prevStepResult.address.toString()
         const staticInDesc = `Static input for PUSH${numToPush} instruction at PC ${pc} of code address ${thisAddress} called by ${callerAdderss}`
-        synthesizer.state.stackPt.push(synthesizer.loadArbitraryStatic(
+        this.parent.state.stackPt.push(this.parent.loadArbitraryStatic(
           out,
           numToPush * 8,
           staticInDesc,
         ))
-        if (synthesizer.state.stackPt.peek(1)[0].value !== out) {
+        if (this.parent.state.stackPt.peek(1)[0].value !== out) {
           throw new Error(`Synthesizer: PUSH${numToPush}: Output data mismatch`)
         }
       },
@@ -382,12 +362,10 @@ export class InstructionHandlers {
     // DUPs
     this.synthesizerHandlers.set(
       synthesizerOpcodeByName['DUP1'],
-      function (synthesizer, prevExecResult, afterExecResult) {
-        const prevRunState = prevExecResult.runState!
-        const afterRunState = afterExecResult.runState!
-        const stackPos = prevRunState.opCode - 0x7f
-        synthesizer.state.stackPt.dup(stackPos)
-        if (synthesizer.state.stackPt.peek(1)[0].value !== afterRunState.stack.peek(1)[0]) {
+      (prevStepResult, afterStepResult) => {
+        const stackPos = prevStepResult.opcode.code - 0x7f
+        this.parent.state.stackPt.dup(stackPos)
+        if (this.parent.state.stackPt.peek(1)[0].value !== afterStepResult.stack[0]) {
           throw new Error(`Synthesizer: DUP${stackPos}: Output data mismatch`)
         }
       },
@@ -399,12 +377,10 @@ export class InstructionHandlers {
     // SWAPs
     this.synthesizerHandlers.set(
       synthesizerOpcodeByName['SWAP1'],
-      function (synthesizer, prevExecResult, afterExecResult) {
-        const prevRunState = prevExecResult.runState!
-        const afterRunState = afterExecResult.runState!
-        const stackPos = prevRunState.opCode - 0x8f
-        synthesizer.state.stackPt.swap(stackPos)
-        if (synthesizer.state.stackPt.peek(1)[0].value !== afterRunState.stack.peek(1)[0]) {
+      (prevStepResult, afterStepResult) => {
+        const stackPos = prevStepResult.opcode.code - 0x8f
+        this.parent.state.stackPt.swap(stackPos)
+        if (this.parent.state.stackPt.peek(1)[0].value !== afterStepResult.stack[0]) {
           throw new Error(`Synthesizer: SWAP${stackPos}: Output data mismatch`)
         }
       },
@@ -415,9 +391,8 @@ export class InstructionHandlers {
     }
   }
 
-  private _getOriginAddressPt = (): DataPt => {
-    const synthesizer = this.parent
-    const txNonce = synthesizer.state.txNonce
+  getOriginAddressPt(): DataPt {
+    const txNonce = this.parent.state.txNonce
     if (txNonce < 0) {
       throw new Error('Negative txNonce')
     }
@@ -429,29 +404,29 @@ export class InstructionHandlers {
     ];
 
     const read = (n: ReservedVariable) =>
-      synthesizer.loadReservedVariableFromBuffer(n, txNonce)
+      this.parent.loadReservedVariableFromBuffer(n, txNonce)
 
     const messagePts: DataPt[][] = messageContent.map(row => row.map(read))
 
     if (messagePts.length !== 3 || messagePts.flat().length > 12) throw new Error('Excessive transaction messages')
     
     const publicKeyPt: DataPt[] = [
-      synthesizer.loadReservedVariableFromBuffer('EDDSA_PUBLIC_KEY_X'),
-      synthesizer.loadReservedVariableFromBuffer('EDDSA_PUBLIC_KEY_Y')
+      this.parent.loadReservedVariableFromBuffer('EDDSA_PUBLIC_KEY_X'),
+      this.parent.loadReservedVariableFromBuffer('EDDSA_PUBLIC_KEY_Y')
     ]
     const randomizerPt: DataPt[] = [
-      synthesizer.loadReservedVariableFromBuffer('EDDSA_RANDOMIZER_X', txNonce),
-      synthesizer.loadReservedVariableFromBuffer('EDDSA_RANDOMIZER_Y', txNonce)
+      this.parent.loadReservedVariableFromBuffer('EDDSA_RANDOMIZER_X', txNonce),
+      this.parent.loadReservedVariableFromBuffer('EDDSA_RANDOMIZER_Y', txNonce)
     ]
-    const signaturePt: DataPt = synthesizer.loadReservedVariableFromBuffer('EDDSA_SIGNATURE', txNonce)
+    const signaturePt: DataPt = this.parent.loadReservedVariableFromBuffer('EDDSA_SIGNATURE', txNonce)
     const firstPoseidonInput: DataPt[] = [...randomizerPt, ...publicKeyPt]
     const poseidonInter: DataPt[] = []
-    poseidonInter.push(...synthesizer.placeArith('Poseidon4', firstPoseidonInput))
-    poseidonInter.push(...synthesizer.placeArith('Poseidon4', messagePts[0]))
-    poseidonInter.push(...synthesizer.placeArith('Poseidon4', messagePts[1]))
-    poseidonInter.push(...synthesizer.placeArith('Poseidon4', messagePts[2]))
-    const poseidonOut: DataPt = synthesizer.placeArith('Poseidon4', poseidonInter)[0]
-    const bitsOut: DataPt[] = synthesizer.placeArith('PrepareEdDsaScalars', [signaturePt, poseidonOut])
+    poseidonInter.push(...this.parent.placeArith('Poseidon4', firstPoseidonInput))
+    poseidonInter.push(...this.parent.placeArith('Poseidon4', messagePts[0]))
+    poseidonInter.push(...this.parent.placeArith('Poseidon4', messagePts[1]))
+    poseidonInter.push(...this.parent.placeArith('Poseidon4', messagePts[2]))
+    const poseidonOut: DataPt = this.parent.placeArith('Poseidon4', poseidonInter)[0]
+    const bitsOut: DataPt[] = this.parent.placeArith('PrepareEdDsaScalars', [signaturePt, poseidonOut])
     if (bitsOut.length !== 504) {
       throw new Error('PrepareEdDsaScalar was expected to output 504 bits');
     }
@@ -459,31 +434,31 @@ export class InstructionHandlers {
     const challengeBits: DataPt[] = bitsOut.slice(252, -1)
 
     const jubjubBasePt: DataPt[] = [
-      synthesizer.loadReservedVariableFromBuffer('JUBJUB_BASE_X'),
-      synthesizer.loadReservedVariableFromBuffer('JUBJUB_BASE_Y')
+      this.parent.loadReservedVariableFromBuffer('JUBJUB_BASE_X'),
+      this.parent.loadReservedVariableFromBuffer('JUBJUB_BASE_Y')
     ]
     const jubjubPoIPt: DataPt[] = [
-      synthesizer.loadReservedVariableFromBuffer('JUBJUB_POI_X'),
-      synthesizer.loadReservedVariableFromBuffer('JUBJUB_POI_Y')
+      this.parent.loadReservedVariableFromBuffer('JUBJUB_POI_X'),
+      this.parent.loadReservedVariableFromBuffer('JUBJUB_POI_Y')
     ]
 
-    const sG: DataPt[] = synthesizer.placeJubjubExp(
+    const sG: DataPt[] = this.parent.placeJubjubExp(
       [...jubjubBasePt, ...signBits],
       jubjubPoIPt,
     )
 
-    const eA: DataPt[] = synthesizer.placeJubjubExp(
+    const eA: DataPt[] = this.parent.placeJubjubExp(
       [...publicKeyPt, ...challengeBits],
       jubjubPoIPt,
     )
 
-    synthesizer.placeArith('EdDsaVerify', [...sG, ...randomizerPt, ...eA])
+    this.parent.placeArith('EdDsaVerify', [...sG, ...randomizerPt, ...eA])
     
-    const zeroPt: DataPt = synthesizer.loadArbitraryStatic(0n, 1)
-    const hashPt: DataPt = synthesizer.placeArith('Poseidon4', [...publicKeyPt, zeroPt, zeroPt])[0]
-    const addrMaskPt: DataPt = synthesizer.loadReservedVariableFromBuffer('ADDRESS_MASK')
-    synthesizer.state.cachedOrigin = synthesizer.placeArith('AND', [hashPt, addrMaskPt])[0]
-    return synthesizer.state.cachedOrigin!
+    const zeroPt: DataPt = this.parent.loadArbitraryStatic(0n, 1)
+    const hashPt: DataPt = this.parent.placeArith('Poseidon4', [...publicKeyPt, zeroPt, zeroPt])[0]
+    const addrMaskPt: DataPt = this.parent.loadReservedVariableFromBuffer('ADDRESS_MASK')
+    this.parent.state.cachedOrigin = this.parent.placeArith('AND', [hashPt, addrMaskPt])[0]
+    return this.parent.state.cachedOrigin!
   }
 
   public handleArith = (
@@ -547,7 +522,7 @@ export class InstructionHandlers {
     checkRequiredInput(opts.pc, opts.thisAddress, opts.callerAddress)
     const value = output
     const cachedDataPt = this.parent.state.cachedStaticIn.get(value)
-    const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc!} of code address ${createAddressFromBigInt(opts.thisAddress!).toString()} called by ${createAddressFromBigInt(opts.callerAddress!).toString()}`
+    const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc!} of code address ${opts.thisAddress!.toString()} called by ${opts.callerAddress!.toString()}`
     let targetDesc = targetAddress === undefined ? `` : `(target: ${createAddressFromBigInt(targetAddress).toString()})`
     return cachedDataPt ?? this.parent.loadArbitraryStatic(
       value,
@@ -572,15 +547,15 @@ export class InstructionHandlers {
     out: bigint,
     opts: HandlerOpts,
   ): void {
-    const _getOriginDataPt = (): DataPt => {
+    const _retrieveOriginAddressPt = (): DataPt => {
       checkRequiredInput(opts.originAddress)
       let dataPt: DataPt
       if (this.parent.state.cachedOrigin === undefined) {
-        dataPt = this._getOriginAddressPt()
+        dataPt = this.getOriginAddressPt()
       } else {
         dataPt = this.parent.state.cachedOrigin
       }
-      if (dataPt.value !== opts.originAddress!) {
+      if (dataPt.value !== bytesToBigInt(opts.originAddress!.bytes)) {
         throw new Error("Mismatch of the origin between EVM and Synthesizer")
       }
       return dataPt
@@ -597,7 +572,7 @@ export class InstructionHandlers {
           const origin = opts.originAddress!
           const thisAddress = opts.thisAddress!
           if (origin === thisAddress) {
-            stackPt.push(_getOriginDataPt())
+            stackPt.push(_retrieveOriginAddressPt())
           } else {
             stackPt.push(this._getStaticInDataPt(out, opts))
           }
@@ -610,7 +585,7 @@ export class InstructionHandlers {
         }
         break
       case 'ORIGIN': 
-        stackPt.push(_getOriginDataPt())
+        stackPt.push(_retrieveOriginAddressPt())
         break
       case 'CALLER': 
         {
@@ -618,7 +593,7 @@ export class InstructionHandlers {
           const origin = opts.originAddress!
           const caller = opts.callerAddress!
           if (origin === caller) {
-            stackPt.push(_getOriginDataPt())
+            stackPt.push(_retrieveOriginAddressPt())
             
           } else {
             stackPt.push(this._getStaticInDataPt(out, opts))
@@ -687,7 +662,7 @@ export class InstructionHandlers {
           if (dataLength !== BIGINT_0) {
             const memPts: MemoryPts = this._prepareCodeMemoryPts(
               opts.memOut!,
-              opts.thisAddress!,
+              bytesToBigInt(opts.thisAddress!.bytes),
               codeOffset,
               dataLength,
             )
@@ -922,15 +897,15 @@ export class InstructionHandlers {
     }
   }
 
-  static preTasksForCalls (op: 'CALL' | 'CALLCODE' | 'DELEGATECALL' | 'STATICCALL', execResult: ExecResult, synthesizer:ISynthesizerProvider, ) {
-    const prevRunState = execResult.runState!
+  // Must run this function before EVM execute CALLs.
+  public preTasksForCalls(op: SynthesizerSupportedOpcodes, prevStepResult: InterpreterStep): void {
     let toAddr: bigint
     let inOffset: bigint
     let inLength: bigint
     switch(op){
       case 'CALL':
       case 'CALLCODE': {
-        const ins = prevRunState.stack.peek(7)
+        const ins = prevStepResult.stack.slice(0, 7)
         toAddr = ins[1]
         inOffset = ins[3]
         inLength = ins[4]
@@ -938,14 +913,14 @@ export class InstructionHandlers {
       break
       case 'DELEGATECALL':
       case 'STATICCALL': {
-        const ins = prevRunState.stack.peek(6)
+        const ins = prevStepResult.stack.slice(0, 6)
         toAddr = ins[1]
         inOffset = ins[2]
         inLength = ins[3]
       }
       break
       default: {
-        throw new Error(`Synthesizer: ${op} is not implemented.`)
+        return
       }
     }
     if (toAddr >= 1n && toAddr <= 10n) {
@@ -953,17 +928,17 @@ export class InstructionHandlers {
         `Synthesizer: Precompiles are not implemented in Synthesizer.`,
       )
     }
-    const calldataMemoryPts = synthesizer.copyMemoryPts(
-      synthesizer.state.memoryPt.read(Number(inOffset), Number(inLength)),
+    const calldataMemoryPts = this.parent.copyMemoryPts(
+      this.parent.state.memoryPt.read(Number(inOffset), Number(inLength)),
       inOffset,
       inLength,
     )
-    const callDepth = prevRunState.interpreter._env.depth
-    synthesizer.state.callMemoryPtsStack[callDepth! + 1] = calldataMemoryPts
+    const callDepth = prevStepResult.depth
+    this.parent.state.callMemoryPtsStack[callDepth! + 1] = calldataMemoryPts
 
     const simCalldataMemoryPt = MemoryPt.simulateMemoryPt(calldataMemoryPts)
     const syntheCallData = simCalldataMemoryPt.viewMemory(0, Number(inLength))
-    const actualCallData = prevRunState.memory.read(Number(inOffset), Number(inLength))
+    const actualCallData = prevStepResult.memory.subarray(Number(inOffset), Number(inLength))
     if (!equalsBytes(syntheCallData, actualCallData)) {
       throw new Error(`Synthesizer: ${op}: Calldata memory data mismatch`)
     }

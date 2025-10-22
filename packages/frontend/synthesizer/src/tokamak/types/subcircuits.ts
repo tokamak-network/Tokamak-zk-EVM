@@ -4,8 +4,10 @@ import { ArithmeticOperator } from "./arithmetic.ts";
 export type GlobalWireEntry = [subcircuitId: number, localWireIndex: number];
 export type GlobalWireList = GlobalWireEntry[];
 
+const subcircuits = ['A', 'B']
 export type SubcircuitNames =
   // Alphabet order
+  | typeof subcircuits[0]
   | 'Accumulator'
   | 'ALU1'
   | 'ALU2'

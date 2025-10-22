@@ -9,7 +9,7 @@ export type TokamakL2TxData = {
   /**
    * The transaction's nonce.
    */
-  nonce: BigIntLike
+  nonce?: BigIntLike
 
   /**
    * The transaction's the address is sent to.

@@ -1,4 +1,4 @@
-import { USER_INPUT_DYNAMIC_INDEX } from "../constant/constants.ts";
+import { USER_INPUT_DYNAMIC_OFFSET } from "../constant/constants.ts";
 import { SubcircuitNames } from "./subcircuits.js";
 import { DataPt, DataPtDescription } from "./synthesizer.js";
 
@@ -315,6 +315,7 @@ export type ReservedVariable =
     | 'TRANSACTION_INPUT7'
     | 'TRANSACTION_INPUT8'
     // STORAGE_IN
+    | 'MPT_KEY'
     | 'VALUE'
 
 
@@ -412,14 +413,14 @@ export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> =
   RES_MERKLE_ROOT: {
     extDest: `Resulting Merkle tree root hash`,
     source: BUFFER_PLACEMENT.USER_OUT.placementIndex,
-    sourceBitSize: 255,
+    sourceBitSize: 252,
     wireIndex: 0,
   },
 
   INI_MERKLE_ROOT: {
     extSource: `Initial Merkle tree root hash`,
     source: BUFFER_PLACEMENT.USER_IN.placementIndex,
-    sourceBitSize: 255,
+    sourceBitSize: 252,
     wireIndex: 0,
   },
   EDDSA_PUBLIC_KEY_X: {
@@ -438,19 +439,19 @@ export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> =
     extSource: `EdDSA signature of transaction`,
     source: BUFFER_PLACEMENT.USER_IN.placementIndex,
     sourceBitSize: 255,
-    wireIndex: USER_INPUT_DYNAMIC_INDEX,
+    wireIndex: USER_INPUT_DYNAMIC_OFFSET,
   },
   EDDSA_RANDOMIZER_X: {
     extSource: `EdDSA randomizer (x coordinate)`,
     source: BUFFER_PLACEMENT.USER_IN.placementIndex,
     sourceBitSize: 255,
-    wireIndex: USER_INPUT_DYNAMIC_INDEX + 1,
+    wireIndex: USER_INPUT_DYNAMIC_OFFSET + 1,
   },
   EDDSA_RANDOMIZER_Y: {
     extSource: `EdDSA randomizer (y coordinate)`,
     source: BUFFER_PLACEMENT.USER_IN.placementIndex,
     sourceBitSize: 255,
-    wireIndex: USER_INPUT_DYNAMIC_INDEX + 2,
+    wireIndex: USER_INPUT_DYNAMIC_OFFSET + 2,
   },
 
   COINBASE: {
@@ -535,84 +536,89 @@ export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> =
     wireIndex: 4,
   },
 
-  TRANSACTION_NONCE: {
-    extSource: `Transaction nonce`,
-    source: BUFFER_PLACEMENT.TRANSACTION_IN.placementIndex,
-    sourceBitSize: 255,
-    wireIndex: 0,
-  },
   CONTRACT_ADDRESS: {
     extSource: `Contract address to call`,
     source: BUFFER_PLACEMENT.TRANSACTION_IN.placementIndex,
     sourceBitSize: 160,
-    wireIndex: 1,
+    wireIndex: 0,
   },
   FUNCTION_SELECTOR: {
     extSource: `Selector for a function to call`,
     source: BUFFER_PLACEMENT.TRANSACTION_IN.placementIndex,
     sourceBitSize: 32,
+    wireIndex: 1,
+  },
+  TRANSACTION_NONCE: {
+    extSource: `Transaction nonce`,
+    source: BUFFER_PLACEMENT.TRANSACTION_IN.placementIndex,
+    sourceBitSize: 252,
     wireIndex: 2,
   },
   TRANSACTION_INPUT0: {
     extSource: `Zeroth input to the selected function`,
     source: BUFFER_PLACEMENT.TRANSACTION_IN.placementIndex,
-    sourceBitSize: 255,
+    sourceBitSize: 252,
     wireIndex: 3,
   },
   TRANSACTION_INPUT1: {
     extSource: `First input to the selected function`,
     source: BUFFER_PLACEMENT.TRANSACTION_IN.placementIndex,
-    sourceBitSize: 255,
+    sourceBitSize: 252,
     wireIndex: 4,
   },
   TRANSACTION_INPUT2: {
     extSource: `Second input to the selected function`,
     source: BUFFER_PLACEMENT.TRANSACTION_IN.placementIndex,
-    sourceBitSize: 255,
+    sourceBitSize: 252,
     wireIndex: 5,
   },
   TRANSACTION_INPUT3: {
     extSource: `Third input to the selected function`,
     source: BUFFER_PLACEMENT.TRANSACTION_IN.placementIndex,
-    sourceBitSize: 255,
+    sourceBitSize: 252,
     wireIndex: 6,
   },
   TRANSACTION_INPUT4: {
     extSource: `Fourth input to the selected function`,
     source: BUFFER_PLACEMENT.TRANSACTION_IN.placementIndex,
-    sourceBitSize: 255,
+    sourceBitSize: 252,
     wireIndex: 7,
   },
   TRANSACTION_INPUT5: {
     extSource: `Fifth input to the selected function`,
     source: BUFFER_PLACEMENT.TRANSACTION_IN.placementIndex,
-    sourceBitSize: 255,
+    sourceBitSize: 252,
     wireIndex: 8,
   },
   TRANSACTION_INPUT6: {
     extSource: `Sixth input to the selected function`,
     source: BUFFER_PLACEMENT.TRANSACTION_IN.placementIndex,
-    sourceBitSize: 255,
+    sourceBitSize: 252,
     wireIndex: 9,
   },
   TRANSACTION_INPUT7: {
     extSource: `Seventh input to the selected function`,
     source: BUFFER_PLACEMENT.TRANSACTION_IN.placementIndex,
-    sourceBitSize: 255,
+    sourceBitSize: 252,
     wireIndex: 10,
   },
   TRANSACTION_INPUT8: {
     extSource: `Eighth input to the selected function`,
     source: BUFFER_PLACEMENT.TRANSACTION_IN.placementIndex,
-    sourceBitSize: 255,
+    sourceBitSize: 252,
     wireIndex: 11,
   },
 
+  MPT_KEY: {
+    extSource: `Merkle Patricia trie key`,
+    source: BUFFER_PLACEMENT.STORAGE_IN.placementIndex,
+    sourceBitSize: 256,
+    wireIndex: 0,
+  },
   VALUE: {
     extSource: `Merkle tree leaf`,
     source: BUFFER_PLACEMENT.STORAGE_IN.placementIndex,
-    sourceBitSize: 255,
-    wireIndex: 0,
-  },
-
+    sourceBitSize: 256,
+    wireIndex: 1,
+  }
 }

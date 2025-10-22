@@ -1,30 +1,29 @@
 import { VMOpts } from '@ethereumjs/vm';
 import { ArithmeticOperations } from '../operations/arithmetic.js';
-import { L2TxData } from './index.ts';
 import { SubcircuitNames } from './subcircuits.js';
 import { HeaderData } from '@ethereumjs/block';
 import { StateManagerInterface } from '@ethereumjs/common';
+import { TokamakL2StateManager, TokamakL2Tx } from '../TokamakL2JS/index.ts';
+import { Address, AddressLike, BigIntLike } from '@ethereumjs/util';
+import { MerkleStateManager } from '@ethereumjs/statemanager';
+import { EdwardsPoint } from '@noble/curves/abstract/edwards';
+
+export type SynthesizerBlockInfo = {
+  coinBase: bigint,
+  timeStamp: bigint,
+  blockNumber: bigint,
+  prevRanDao: bigint,
+  gasLimit: bigint,
+  chainId: bigint,
+  selfBalance: bigint,
+  baseFee: bigint,
+  blockHashes: bigint[],
+}
 
 export interface SynthesizerOpts {
-  initMerkleTreeRoot: bigint
-  eddsaPubKey: {
-    x: bigint,
-    y: bigint
-  }
-  transactions: L2TxData[]
-  blockInput: {
-    coinBase: bigint,
-    timeStamp: bigint,
-    blockNumber: bigint,
-    prevRanDao: bigint,
-    gasLimit: bigint,
-    chainId: bigint,
-    selfBalance: bigint,
-    baseFee: bigint,
-  }
-  blockHashes: bigint[]
-  // <MPT_key, {MT_index, MT_RLC_value}>
-  storageInput: Map<bigint, {index: number, value: bigint}>
+  signedTransaction: TokamakL2Tx
+  blockInfo: SynthesizerBlockInfo
+  stateManager: TokamakL2StateManager
 }
 
 /**

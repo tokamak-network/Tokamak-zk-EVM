@@ -1,12 +1,11 @@
 import { jubjub } from "@noble/curves/misc";
-import { DST_NONCE, POSEIDON_INPUTS } from "../../constant/constants.ts";
+import { DST_NONCE, POSEIDON_INPUTS, poseidon_raw } from "../../constant/constants.ts";
 import { bigIntToBytes, bytesToBigInt, concatBytes, setLengthLeft } from "@ethereumjs/util";
-import { poseidon4 } from "poseidon-bls12381";
 import { EdwardsPoint } from "@noble/curves/abstract/edwards";
-import { batchBigIntTo32BytesEach } from "../utils/index.ts";
+import { batchBigIntTo32BytesEach, recoverJubJubPoint} from "../utils/index.ts";
 
 // To replace KECCAK256 with poseidon4. Example: 
-// const common = new Common({ chain: Mainnet, customCrypto: { poseidon } })
+// const common = new Common({ chain: Mainnet, customCrypto: { keccak256: poseidon } })
 // const block = createBlock({}, { common })
 export function poseidon(msg: Uint8Array): Uint8Array {
     const checkBLS12Modulus = (w: bigint) => {
@@ -36,7 +35,7 @@ export function poseidon(msg: Uint8Array): Uint8Array {
             const chunk = Array.from({ length: POSEIDON_INPUTS }, (_, k) => arr[i + k] ?? 0n);
             // Every word must be within the field [0, MOD)
             chunk.map(checkBLS12Modulus)
-            out.push(poseidon4(chunk as [bigint, bigint, bigint, bigint]));
+            out.push(poseidon_raw(chunk as [bigint, bigint, bigint, bigint]));
         }
         return out;
     };
@@ -47,6 +46,28 @@ export function poseidon(msg: Uint8Array): Uint8Array {
 
     // Return big-endian bytes of the field element; caller decides fixed-length padding if needed
     return setLengthLeft(bigIntToBytes(acc[0]), 32);
+}
+
+// To replace ecrecover with Eddsa public key recovery. Example: 
+// const common = new Common({ chain: Mainnet, customCrypto: { ecrecover: getEddsaPublicKey } })
+// const block = createBlock({}, { common })
+export function getEddsaPublicKey(
+    msgHash: Uint8Array,
+    v: bigint,
+    r: Uint8Array,
+    s: Uint8Array,
+    chainId?: bigint,
+): Uint8Array {
+    // msgHash must be the original message, not a hash.
+    if (chainId !== undefined) {
+        throw new Error("Eddsa does not require 'chainId' to recover a public key")
+    }
+    const pubKey = recoverJubJubPoint(v)
+    const randomizer = recoverJubJubPoint(bytesToBigInt(r))
+    if (!eddsaVerify([msgHash], pubKey, randomizer, bytesToBigInt(s))) {
+        throw new Error('Signature verification failed')
+    }
+    return batchBigIntTo32BytesEach(pubKey.X, pubKey.Y)
 }
 
 export function eddsaSign_unsafe(prvKey: bigint, msg: Uint8Array[], nonce?: Uint8Array): {randomizer: EdwardsPoint, signature: bigint} {

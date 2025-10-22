@@ -71,6 +71,8 @@
     "@ethereumjs/tx": "^10.0.0",
     "@ethereumjs/block": "^10.0.0",
     "@ethereumjs/rlp": "^10.0.0",
+    "@ethereumjs/statemanager": "^10.0.0",
+    "@zk-kit/imt": "2.0.0-beta.8",
     "@js-sdsl/ordered-map": "^4.4.2",
     "@tokamak-zk-evm/qap-compiler": "^0.0.2",
     "@types/debug": "^4.1.9",

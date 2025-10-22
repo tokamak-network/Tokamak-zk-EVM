@@ -1,2 +1,3 @@
-export { poseidon } from './crypto/index.ts'
+export { poseidon, getEddsaPublicKey } from './crypto/index.ts'
 export * from './tx/index.ts'
+export * from './stateManager/index.ts'
