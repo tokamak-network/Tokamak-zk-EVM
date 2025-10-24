@@ -5,10 +5,19 @@ import { SynthesizerAdapter } from '../adapters/synthesizerAdapter.js';
 import { createEVM } from '../constructors.js';
 import readline from 'readline';
 
+// load environment variables
+import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
+
+// tr to load .env 
+const envPath = path.resolve(process.cwd(), '.env');
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+}
+
 // Default RPC URLs
 const DEFAULT_RPC_URLS = {
-  mainnet:
-    'https://eth-mainnet.g.alchemy.com/v2/PbqCcGx1oHN7yNaFdUJUYqPEN0QSp23S',
   sepolia: 'https://rpc.ankr.com/eth_sepolia',
 };
 
@@ -62,9 +71,23 @@ program
         }
       }
 
-      // Get RPC URL - either from options or use default
+      // Get RPC URL - first options, then .env, then default for sepolia
       const network = options.sepolia ? 'sepolia' : 'mainnet';
-      const rpcUrl = options.rpcUrl || DEFAULT_RPC_URLS[network];
+      let rpcUrl = options.rpcUrl;
+      
+      if (!rpcUrl) {
+        if (network === 'mainnet') {
+          rpcUrl = process.env.RPC_URL;
+          if (!rpcUrl) {
+            console.error('Error: No RPC URL configured for mainnet');
+            console.error('Run: ./tokamak-cli --install <API_KEY>');
+            process.exit(1);
+          }
+        } else {
+          // For sepolia, use default public RPC
+          rpcUrl = DEFAULT_RPC_URLS[network];
+        }
+      }
 
       console.log(
         `🌐 Network: ${network.charAt(0).toUpperCase() + network.slice(1)}`,
@@ -156,7 +179,20 @@ program
     console.log('');
 
     const network = options.sepolia ? 'sepolia' : 'mainnet';
-    const rpcUrl = options.rpcUrl || DEFAULT_RPC_URLS[network];
+    let rpcUrl = options.rpcUrl;
+    
+    if (!rpcUrl) {
+      if (network === 'mainnet') {
+        rpcUrl = process.env.RPC_URL;
+        if (!rpcUrl) {
+          console.error('Error: No RPC URL configured');
+          console.error('Run: ./tokamak-cli --install <API_KEY>');
+          process.exit(1);
+        }
+      } else {
+        rpcUrl = DEFAULT_RPC_URLS[network];
+      }
+    }
 
     console.log('📋 Demo Configuration:');
     console.log(
@@ -306,7 +342,18 @@ program
       }
 
       const network = options.sepolia ? 'sepolia' : 'mainnet';
-      const rpcUrl = DEFAULT_RPC_URLS[network];
+      let rpcUrl;
+      
+      if (network === 'mainnet') {
+        rpcUrl = process.env.RPC_URL;
+        if (!rpcUrl) {
+          console.error('Error: No RPC URL configured');
+          console.error('Run: ./tokamak-cli --install <API_KEY>');
+          process.exit(1);
+        }
+      } else {
+        rpcUrl = DEFAULT_RPC_URLS[network];
+      }
 
       console.log(
         `🌐 Network: ${network.charAt(0).toUpperCase() + network.slice(1)}`,
@@ -366,7 +413,18 @@ program
       }
 
       const network = options.sepolia ? 'sepolia' : 'mainnet';
-      const rpcUrl = DEFAULT_RPC_URLS[network];
+      let rpcUrl;
+      
+      if (network === 'mainnet') {
+        rpcUrl = process.env.RPC_URL;
+        if (!rpcUrl) {
+          console.error('Error: No RPC URL configured');
+          console.error('Run: ./tokamak-cli --install <API_KEY>');
+          process.exit(1);
+        }
+      } else {
+        rpcUrl = DEFAULT_RPC_URLS[network];
+      }
 
       console.log(
         `🌐 Network: ${network.charAt(0).toUpperCase() + network.slice(1)}`,
