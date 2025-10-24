@@ -21,6 +21,10 @@ ark-ff = { workspace = true }
 rand = { workspace = true }
 
 [[bench]]
+name = "arithmetics_bench"
+harness = false
+
+[[bench]]
 name = "outer_product_bench"
 harness = false
 
