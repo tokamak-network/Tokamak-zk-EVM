@@ -1,0 +1,12 @@
+# Rust build artifacts
+/target/
+Cargo.lock
+
+# Output files from trusted setup
+/output/
+*.bin
+*.json
+
+# Temporary files
+temp_*
+test_*
