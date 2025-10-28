@@ -29,10 +29,10 @@ impl PowersOfTau {
     /// Generate Powers of Tau for a given circuit size
     /// circuit_size: Number of constraints in the circuit
     pub fn generate(circuit_size: usize) -> Result<Self> {
-        // Production circuit size limit
-        if circuit_size > 100_000 {
+        // Production circuit size limit - increased to handle real circuits
+        if circuit_size > 200_000 {
             return Err(Groth16Error::TrustedSetupError(
-                format!("Circuit size {} too large, maximum is 100,000", circuit_size)
+                format!("Circuit size {} too large, maximum is 200,000", circuit_size)
             ));
         }
         
@@ -43,7 +43,6 @@ impl PowersOfTau {
         println!("📊 This will generate {} G1 points, {} G2 points, and {} alpha/beta variants", 
                  max_degree + 1, max_degree + 1, 2 * (max_degree + 1));
         let total_operations = 4 * (max_degree + 1);
-        println!("⏱️  Estimated {} scalar multiplications (this may take 2-5 minutes)", total_operations);
         
         // Generate cryptographically secure toxicity parameters
         let tau = ScalarCfg::generate_random(1)[0];

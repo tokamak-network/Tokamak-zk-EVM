@@ -22,7 +22,7 @@ clean:
 circuits:
 	@echo "Compiling Groth16 circuits..."
 	mkdir -p build
-	cd circuits && ./circom-2.0 main_optimized.circom --r1cs --wasm --sym --output ../build/
+	cd circuits && ./circom-2.0 src/main_optimized.circom --r1cs --wasm --sym --output ../build/
 	@echo "Circuit compilation completed"
 
 # Build trusted setup
@@ -85,6 +85,18 @@ test-prover:
 test-verifier:
 	cd verifier && cargo test
 
+# Generate fixed trusted setup for the circuit
+generate-setup: circuits trusted-setup
+	@echo "Generating fixed trusted setup for the circuit..."
+	cd trusted-setup && cargo run --bin generate_fixed_setup
+	@echo "Fixed trusted setup generation completed"
+
+# Run prover demo with test data
+test-prover: generate-setup prover
+	@echo "Running prover demo with test data..."
+	cd prover && cargo run --bin prover_demo
+	@echo "Prover demo completed"
+
 # Build documentation
 docs:
 	@echo "Building documentation..."
@@ -121,6 +133,8 @@ help:
 	@echo "  verifier           - Build verifier component"
 	@echo "  setup-demo         - Run complete trusted setup ceremony (with circuits)"
 	@echo "  trusted-setup-only - Run Powers of Tau generation only (no circuit required)"
+	@echo "  generate-setup     - Generate fixed trusted setup for the circuit"
+	@echo "  test-prover        - Run prover demo with test data"
 	@echo "  test               - Run all tests"
 	@echo "  test-*             - Run specific component tests"
 	@echo "  docs               - Build documentation"

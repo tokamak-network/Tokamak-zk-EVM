@@ -1,9 +1,9 @@
 pragma circom 2.0.0;
 
 include "./poseidon_optimized_bls12381.circom";
-include "./node_modules/circomlib/circuits/comparators.circom";
+include "../node_modules/circomlib/circuits/comparators.circom";
 
-// StorageLeafComputation using optimized Poseidon4 BLS12-381
+// StorageLeafComputation using Poseidon4 BLS12-381
 template StorageLeafComputationOptimized(max_leaves) {
     signal input channel_id;
     signal input active_leaves;

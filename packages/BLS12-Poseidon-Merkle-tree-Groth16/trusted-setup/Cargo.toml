@@ -27,6 +27,9 @@ hex = "0.4"
 thiserror = "1.0"
 nom = "7.0"
 
+# Backend libs for serialization
+libs = { path = "../../backend/libs" }
+
 [dev-dependencies]
 tempfile = "3.0"
 
@@ -37,6 +40,10 @@ path = "src/bin/trusted_setup_demo.rs"
 [[bin]]
 name = "quick_test"
 path = "src/bin/quick_test.rs"
+
+[[bin]]
+name = "generate_fixed_setup"
+path = "src/bin/generate_fixed_setup.rs"
 
 [features]
 default = []

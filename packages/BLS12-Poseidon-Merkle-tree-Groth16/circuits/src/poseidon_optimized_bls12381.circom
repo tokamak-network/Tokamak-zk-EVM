@@ -2,8 +2,8 @@ pragma circom 2.0.0;
 
 include "./poseidon_bls12381_constants_complete.circom";
 
-// Optimized Poseidon4 for BLS12-381 with circom 2.0
-// Uses 32 rounds (160 constants) 
+// Standard 64-Round Poseidon4 for BLS12-381 with circom 2.0
+// Uses 64 rounds (320 constants) 
 
 // S-box (x^5) optimized for circom 2.0
 template SBox() {
@@ -80,14 +80,14 @@ template PoseidonRound(round, isPartial) {
     out[4] <== mds.out[4];
 }
 
-// Optimized Poseidon permutation: 4 full + 24 partial + 4 full = 32 rounds
+// Standard 64-Round Poseidon permutation: 4 full + 56 partial + 4 full = 64 rounds
 template PoseidonOptimizedBLS12381() {
     signal input in[5];
     signal output out[5];
     
     var FULL_ROUNDS_HALF = 4;
-    var PARTIAL_ROUNDS = 24;
-    var TOTAL_ROUNDS = 32;
+    var PARTIAL_ROUNDS = 56;
+    var TOTAL_ROUNDS = 64;
     
     signal state[TOTAL_ROUNDS + 1][5];
     
@@ -115,7 +115,7 @@ template PoseidonOptimizedBLS12381() {
         state[i + 1][4] <== rounds[i].out[4];
     }
     
-    // 24 partial rounds
+    // 56 partial rounds
     for (var i = 0; i < PARTIAL_ROUNDS; i++) {
         var round_idx = FULL_ROUNDS_HALF + i;
         rounds[round_idx] = PoseidonRound(round_idx, 1); // Partial round

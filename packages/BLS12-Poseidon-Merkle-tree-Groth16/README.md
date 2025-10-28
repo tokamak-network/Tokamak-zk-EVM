@@ -82,10 +82,16 @@ make prover         # Build prover
 make verifier       # Build verifier
 ```
 
-### 2. Run Trusted Setup
+### 2. Generate Fixed Trusted Setup
 ```bash
-# Generate Powers of Tau and circuit keys
-make setup-demo
+# Generate the single trusted setup for the fixed circuit
+cd trusted-setup
+cargo run --bin generate_fixed_setup
+
+# This creates the unified trusted setup in trusted-setup/output/
+# - proving_key.bin (for proof generation)
+# - verification_key.bin (for proof verification)
+# - verification_key.json (for Solidity verifier deployment)
 ```
 
 ### 3. Test Implementation
@@ -101,12 +107,21 @@ make test-verifier
 
 ### 4. Generate and Verify Proofs
 ```bash
-# Run prover (after implementing)
-cd prover && cargo run --release
+# Generate proofs using the fixed trusted setup
+cd prover
+cargo run --bin prover_demo
 
-# Run verifier (after implementing)
-cd verifier && cargo run --release
+# This will:
+# - Load R1CS from ../build/main_optimized.r1cs
+# - Load trusted setup from ../trusted-setup/output/
+# - Generate test inputs (5 storage entries, channel ID 999)
+# - Create witness and generate Groth16 proof
+# - Export proof.json and verification_key.json
 ```
+
+Expected output files in `prover/output/`:
+- `proof.json` - Groth16 proof for verification
+- `verification_key.json` - Public parameters for verification
 
 ## Implementation Notes
 
@@ -120,17 +135,17 @@ cd verifier && cargo run --release
 - ✅ x^5 S-box optimal for BLS12-381 scalar field
 - ✅ Proper full/partial round structure (32 rounds)
 - ✅ Security-focused design with proven cryptographic primitives
-- ❌ Trusted setup ceremony pending
+- ✅ Fixed trusted setup generation implemented
+- ✅ Single trusted setup for consistent circuit
 
 ### Production Requirements
 
 For production deployment, the following improvements are needed:
 
-1. **Proper Poseidon Implementation**: Replace simplified hash with full Poseidon permutation
-2. **Trusted Setup**: Generate proving and verification keys
-3. **Optimization**: Reduce constraint count for gas efficiency
-4. **Security Audit**: Formal verification of circuit constraints
-5. **Integration Testing**: End-to-end testing with actual storage data
+1. **Production Ceremony**: Replace development setup with proper multi-party ceremony
+2. **Optimization**: Further reduce constraint count for gas efficiency  
+3. **Security Audit**: Formal verification of circuit constraints
+4. **Integration Testing**: End-to-end testing with actual storage data
 
 ### Circuit Statistics
 
@@ -145,13 +160,35 @@ For production deployment, the following improvements are needed:
 - **Constants Used**: 160 out of 320 available BLS12-381 constants
 - **Security Level**: 128-bit (maintained through proper cryptographic design)
 
+## Trusted Setup Architecture
+
+### Fixed Circuit Design
+
+This implementation uses a **single fixed circuit** approach:
+
+- **One Circuit**: The same main_optimized.circom circuit is used for all participants
+- **One Trusted Setup**: All provers use the same trusted setup from `trusted-setup/output/`
+- **Consistent Parameters**: Fixed for 50 participants, quaternary Merkle tree, BLS12-381 curve
+
+### Setup Process
+
+1. **Generate Once**: Run `cargo run --bin generate_fixed_setup` in trusted-setup/
+2. **Use Everywhere**: All provers load from the same trusted-setup/output/ directory
+3. **No Fallbacks**: Provers require the fixed trusted setup to exist
+
+### Benefits
+
+- **Consistency**: All participants use identical cryptographic parameters
+- **Efficiency**: No need to regenerate setup for each prover instance
+- **Security**: Single ceremony reduces trust assumptions
+- **Simplicity**: Clear workflow with fixed parameters
+
 ## Next Steps
 
-1. **Optional: Full 72-round Poseidon**: Current 32-round version provides strong security
-2. **Trusted Setup**: Run ceremony for proving/verification keys
-3. **Verifier Contract**: Deploy Solidity verifier to blockchain
-4. **Backend Integration**: Connect with Tokamak bridge system
-5. **Performance Testing**: Benchmark with real channel data
+1. **Production Ceremony**: Replace development setup with proper multi-party ceremony
+2. **Verifier Contract**: Deploy Solidity verifier using verification_key.json
+3. **Backend Integration**: Connect with Tokamak bridge system
+4. **Performance Testing**: Benchmark with real channel data
 
 ## Security Considerations
 
@@ -160,7 +197,8 @@ For production deployment, the following improvements are needed:
 - ✅ Circom 2.0 with optimized compilation
 - ✅ Proper cryptographic primitives and constants
 - ✅ Security-focused 32-round design
-- ⚠️  Requires trusted setup ceremony for deployment
+- ✅ Fixed trusted setup generation implemented
+- ⚠️  Requires production ceremony for mainnet deployment
 
 ## Gas Cost Analysis
 

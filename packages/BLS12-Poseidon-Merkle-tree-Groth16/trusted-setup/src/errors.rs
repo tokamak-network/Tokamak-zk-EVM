@@ -34,6 +34,9 @@ pub enum Groth16Error {
     
     #[error("Cryptographic operation failed: {0}")]
     CryptographicError(String),
+    
+    #[error("Validation failed: {0}")]
+    ValidationError(String),
 }
 
 pub type Result<T> = std::result::Result<T, Groth16Error>;
