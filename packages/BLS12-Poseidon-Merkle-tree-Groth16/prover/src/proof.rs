@@ -64,14 +64,15 @@ impl Groth16Prover {
         // 3. Compute C commitment
         let c = self.compute_c_commitment(witness, r, s)?;
         
-        println!("Proof generation completed successfully");
+        println!("✅ Proof generation completed successfully");
         
         Ok(Groth16Proof { a, b, c })
     }
     
     /// Compute A = α + Σ(a_i · A_i(τ)) + r·δ
     fn compute_a_commitment(&self, witness: &CircuitWitness, r: ScalarField) -> Result<G1Affine> {
-        println!("Computing A commitment...");
+        println!("🔄 Computing A commitment...");
+        println!("   📊 Processing {} witness values for MSM", witness.full_assignment.len());
         
         // Start with α in G1
         let mut result = G1Projective::from(self.proving_key.alpha_g1);
@@ -91,7 +92,13 @@ impl Groth16Prover {
         
         // Perform MSM: Σ(a_i · A_i(τ))
         // For each witness value, multiply by corresponding A query point
+        println!("   🧮 Performing Multi-Scalar Multiplication (MSM) for A commitment...");
+        let chunk_size = 1000;
         for (i, &witness_val) in witness_values.iter().enumerate() {
+            if i % chunk_size == 0 && i > 0 {
+                println!("     ⚡ A MSM progress: {}/{} ({:.1}%)", 
+                        i, witness_values.len(), (i as f32 / witness_values.len() as f32) * 100.0);
+            }
             if i < a_query.len() {
                 let contribution = G1Projective::from(a_query[i]) * witness_val;
                 result = result + contribution;
@@ -101,13 +108,13 @@ impl Groth16Prover {
         // Add r·δ for zero-knowledge
         result = result + (G1Projective::from(self.proving_key.delta_g1) * r);
         
-        println!("A commitment computed successfully");
+        println!("   ✅ A commitment computed successfully");
         Ok(G1Affine::from(result))
     }
     
     /// Compute B = β + Σ(a_i · B_i(τ)) + s·δ
     fn compute_b_commitment(&self, witness: &CircuitWitness, s: ScalarField) -> Result<G2Affine> {
-        println!("Computing B commitment...");
+        println!("🔄 Computing B commitment (G2 MSM)...");
         
         // Start with β in G2
         let mut result = G2Projective::from(self.proving_key.beta_g2);
@@ -129,7 +136,13 @@ impl Groth16Prover {
             }
             
             // Perform MSM in G2: Σ(a_i · B_i(τ))
+            println!("   🧮 Performing G2 Multi-Scalar Multiplication for B commitment...");
+            let chunk_size = 1000;
             for (i, &witness_val) in witness_values.iter().enumerate() {
+                if i % chunk_size == 0 && i > 0 {
+                    println!("     ⚡ B MSM progress: {}/{} ({:.1}%)", 
+                            i, witness_values.len(), (i as f32 / witness_values.len() as f32) * 100.0);
+                }
                 if i < b_g2_query.len() {
                     let contribution = G2Projective::from(b_g2_query[i]) * witness_val;
                     result = result + contribution;
@@ -145,13 +158,13 @@ impl Groth16Prover {
         // Add s·δ for zero-knowledge
         result = result + (G2Projective::from(self.proving_key.delta_g2) * s);
         
-        println!("B commitment computed successfully");
+        println!("   ✅ B commitment computed successfully");
         Ok(G2Affine::from(result))
     }
     
     /// Compute C = (Σ(a_i · C_i(τ)) + h(τ)·t(τ) + s·A + r·B - rs·δ) / δ
     fn compute_c_commitment(&self, witness: &CircuitWitness, r: ScalarField, s: ScalarField) -> Result<G1Affine> {
-        println!("Computing C commitment...");
+        println!("🔄 Computing C commitment (most complex)...");
         
         // The C commitment is the most complex part of Groth16
         // C = (Σ(a_i · [(β·A_i(τ) + α·B_i(τ) + C_i(τ)]) + h(τ)·t(τ) + s·A + r·B - rs·δ) / δ
@@ -161,6 +174,7 @@ impl Groth16Prover {
         
         // 1. Add Σ(a_i · L_i(τ)) for private inputs using L query
         // L_i(τ) = (β·A_i(τ) + α·B_i(τ) + C_i(τ)) / δ (pre-computed in trusted setup)
+        println!("   🧮 Step 1: Computing L query MSM for private inputs...");
         if !self.proving_key.l_query.is_empty() {
             // L query typically starts after public inputs (skip first few)
             let public_input_count = witness.public_inputs.len();
@@ -177,6 +191,7 @@ impl Groth16Prover {
         // 2. Add h(τ)·t(τ) using H query
         // This requires computing the quotient polynomial h(x) = p(x) / t(x)
         // For now, we'll use a simplified computation based on available H query points
+        println!("   🧮 Step 2: Computing H query contribution...");
         if !self.proving_key.h_query.is_empty() {
             // In a full implementation, we would:
             // - Compute p(x) = A(x)·B(x) - C(x) using witness values
@@ -199,6 +214,7 @@ impl Groth16Prover {
         // Note: A and B here refer to the commitments we computed earlier
         // But for the C computation, we need the underlying polynomial evaluations
         // This is approximated by using alpha and beta from the proving key
+        println!("   🧮 Step 3: Adding randomization terms for zero-knowledge...");
         
         // Add s·α (approximation of s·A evaluation)
         result = result + (G1Projective::from(self.proving_key.alpha_g1) * s);
@@ -211,7 +227,7 @@ impl Groth16Prover {
         let rs = r * s;
         result = result - (G1Projective::from(self.proving_key.delta_g1) * rs);
         
-        println!("C commitment computed successfully");
+        println!("   ✅ C commitment computed successfully");
         Ok(G1Affine::from(result))
     }
     

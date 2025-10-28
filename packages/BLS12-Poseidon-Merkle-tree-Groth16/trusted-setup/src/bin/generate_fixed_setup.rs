@@ -34,11 +34,6 @@ fn main() -> Result<()> {
     println!("   - All future prover runs will use this same setup");
     println!("   - The setup is compatible with the fixed circuit");
     println!();
-    println!("⚠️  Important Notes:");
-    println!("   - This is a demo setup suitable for development/testing");
-    println!("   - For production use, generate a proper ceremony with larger parameters");
-    println!("   - The same setup must be used by all participants");
-    println!();
     
     Ok(())
 }

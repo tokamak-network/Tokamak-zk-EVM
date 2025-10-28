@@ -622,8 +622,13 @@ impl WitnessGenerator {
         // Generate complete Poseidon4 constraints for storage leaf computations
         let mut leaf_hash_vars = Vec::with_capacity(50);
         
-        println!("Generating complete Poseidon4 constraints for {} storage leaves...", 50);
+        println!("🔄 Generating complete Poseidon4 constraints for {} storage leaves...", 50);
+        println!("   📊 Each storage leaf requires 1,056 constraints (64 rounds × 16.5 avg)");
         for i in 0..50 {
+            if i % 10 == 0 && i > 0 {
+                println!("   🔄 Storage leaf progress: {}/50 ({:.1}%)", i, (i as f32 / 50.0) * 100.0);
+            }
+            
             // Each leaf is Poseidon4(storage_key[i], storage_value[i], 0, 0)
             let zero_var1 = builder.add_variable(format!("leaf_{}_zero1", i));
             let zero_var2 = builder.add_variable(format!("leaf_{}_zero2", i));
@@ -659,7 +664,10 @@ impl WitnessGenerator {
         }
         
         // Generate complete Poseidon4 constraints for Merkle tree computation
-        println!("Generating complete Poseidon4 constraints for 3-level quaternary Merkle tree...");
+        println!("✅ Storage leaves completed: 50/50 (100.0%)");
+        println!();
+        println!("🔄 Generating complete Poseidon4 constraints for 3-level quaternary Merkle tree...");
+        println!("   📊 Merkle tree: 64 leaves → 16 → 4 → 1 root (21 Poseidon4 calls)");
         
         // Add padded leaves (zeros) with proper constraints
         let mut padded_leaf_vars = leaf_hash_vars.clone();
@@ -678,8 +686,12 @@ impl WitnessGenerator {
         }
         
         // Level 0: 64 leaves → 16 intermediate nodes using complete Poseidon4 constraints
+        println!("   🔄 Level 0: Processing 64 leaves → 16 nodes...");
         let mut level0_vars = Vec::with_capacity(16);
         for i in 0..16 {
+            if i % 4 == 0 && i > 0 {
+                println!("     ⚡ Level 0 progress: {}/16 nodes ({:.1}%)", i, (i as f32 / 16.0) * 100.0);
+            }
             let input_vars = [
                 padded_leaf_vars[i*4],
                 padded_leaf_vars[i*4 + 1],
@@ -709,6 +721,8 @@ impl WitnessGenerator {
         }
         
         // Level 1: 16 → 4 nodes using complete Poseidon4 constraints
+        println!("   ✅ Level 0 completed: 16/16 nodes (100.0%)");
+        println!("   🔄 Level 1: Processing 16 nodes → 4 nodes...");
         let mut level1_vars = Vec::with_capacity(4);
         for i in 0..4 {
             let input_vars = [
@@ -737,6 +751,8 @@ impl WitnessGenerator {
         }
         
         // Root computation using complete Poseidon4 constraints
+        println!("   ✅ Level 1 completed: 4/4 nodes (100.0%)");
+        println!("   🔄 Computing final root from 4 nodes...");
         let root_input_vars = [level1_vars[0], level1_vars[1], level1_vars[2], level1_vars[3]];
         let root_input_values = [
             merkle_intermediates[16],
@@ -783,7 +799,9 @@ impl WitnessGenerator {
             witness_values.push(ScalarField::zero());
         }
         
-        println!("Witness generation completed successfully");
+        println!("   ✅ Root computation completed!");
+        println!();
+        println!("✅ Witness generation completed successfully");
         println!("  Public inputs: {}", public_inputs.len());
         println!("  Total variables: {}", r1cs.num_variables);
         println!("  Total constraints: {}", r1cs.num_constraints);

@@ -66,6 +66,7 @@ fn main() -> Result<()> {
     
     // Step 3: Generate witness
     println!("🧮 Step 3: Generating circuit witness...");
+    println!("⚡ This involves constraining 64-round Poseidon computations...");
     let witness_generator = WitnessGenerator::new()?;
     let witness = witness_generator.generate_witness(&inputs)?;
     
@@ -84,6 +85,7 @@ fn main() -> Result<()> {
     
     // Step 4: Generate proof
     println!("🔒 Step 4: Generating Groth16 proof...");
+    println!("🧮 This involves Multi-Scalar Multiplications (MSM) on elliptic curves...");
     let prover = Groth16Prover::new(proving_key);
     let proof = prover.prove_with_witness(&witness)?;
     
