@@ -82,3 +82,4 @@ impl Mul<FieldSerde> for ScalarField {
 }
 
 // TODO: move (de)serialize impl here
+// TODO: move the tests and add unit tests here.
