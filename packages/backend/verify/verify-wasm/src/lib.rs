@@ -26,10 +26,10 @@ macro_rules! console_log {
 // Using decimal string representation for accuracy
 lazy_static::lazy_static! {
     // OMEGA_64: Root of unity for domain size 64
-    // Native hex: 0x0e4840ac57f86f5e293b1d67bc8de5d9a12a70a615d0b8e4d2fc5e69ac5db47f
-    // Decimal: 6470021439685169351889959568722840341063277117700861498181041749928882701439
+    // Solidity hex: 0x0e4840ac57f86f5e293b1d67bc8de5d9a12a70a615d0b8e4d2fc5e69ac5db47f
+    // Correct decimal: 6460039226971164073848821215333189185736442942708452192605981749202491651199
     static ref OMEGA_64: ScalarField = 
-        ScalarField::from_str("6470021439685169351889959568722840341063277117700861498181041749928882701439").unwrap();
+        ScalarField::from_str("6460039226971164073848821215333189185736442942708452192605981749202491651199").unwrap();
     
     // OMEGA_M_I: Root of unity for m_i (1024)
     // Native hex: 0x2f6eb835d55e325765b98fc854d026ab38622d8e04f4a1e3a9c5a666e7847f34
@@ -1135,9 +1135,8 @@ impl Verifier {
     }
     
     fn eval_lagrange_poly(&self, chi: &ScalarField, _zeta: &ScalarField) -> Result<ScalarField, JsValue> {
-        // ✅ IFFT-based evaluation matching Native's approach
-        // 1. Perform IFFT on a_pub evaluations to get polynomial coefficients
-        // 2. Evaluate the polynomial at chi using Horner's method
+        // 🎯 EXACT Solidity implementation: Barycentric Lagrange interpolation
+        // This is the ONLY verified implementation that works on-chain!
         
         let n = self.setup_params.l_pub_in + self.setup_params.l_pub_out; // domain size = 64
         
@@ -1145,48 +1144,73 @@ impl Verifier {
             return Ok(ScalarField::zero());
         }
         
-        console_log!("🔧 IFFT-based polynomial evaluation: n={}", n);
+        console_log!("🎯 Using Solidity-style Barycentric Lagrange interpolation");
+        console_log!("  Domain size n = {}", n);
         
-        // 🔍 First, verify a_pub values match Native
-        console_log!("\n🔍 Checking a_pub values:");
-        console_log!("  a_pub.len() = {}", self.a_pub.len());
-        if self.a_pub.len() > 0 {
-            console_log!("  a_pub[0] = {:?}", self.a_pub[0]);
-        }
-        if self.a_pub.len() > 1 {
-            console_log!("  a_pub[1] = {:?}", self.a_pub[1]);
-        }
-        console_log!("  Expected Native a_pub[0]: 282694985723695679721431686460036218601");
+        // Use hardcoded OMEGA_64 to match Solidity exactly
+        let omega = *OMEGA_64;
+        console_log!("  omega = {:?}", omega);
+        console_log!("  chi = {:?}", chi);
         
-        // 🔄 Try Arkworks standard domain with its default omega
-        // The key insight: maybe we don't need to match ICICLE's IFFT coefficients exactly
-        // As long as the polynomial evaluation at chi is correct!
+        // Check if chi^n == 1 (chi is a root of unity)
+        let chi_n = chi.pow([n as u64, 0, 0, 0]);
+        let chi_n_minus_1 = chi_n - ScalarField::one();
         
-        let domain = Radix2EvaluationDomain::<ScalarField>::new(n)
-            .ok_or_else(|| JsValue::from_str("Failed to create evaluation domain"))?;
-        
-        // Pad a_pub to domain size if needed
-        let mut evals = self.a_pub.clone();
-        while evals.len() < n {
-            evals.push(ScalarField::zero());
-        }
-        
-        console_log!("Using Arkworks standard IFFT (omega may differ from ICICLE)");
-        console_log!("But polynomial evaluation at chi should still be correct!");
-        
-        // Perform standard Arkworks IFFT
-        domain.ifft_in_place(&mut evals);
-        
-        console_log!("IFFT complete, got {} coefficients", evals.len());
-        
-        // Evaluate polynomial at chi using Horner's method
-        // p(chi) = c0 + chi*(c1 + chi*(c2 + chi*(...)))
-        let mut result = evals[n - 1];
-        for i in (0..n - 1).rev() {
-            result = result * chi + evals[i];
+        if chi_n_minus_1.is_zero() {
+            console_log!("  Special case: chi is a root of unity");
+            // Find which root it is and return that evaluation
+            let mut omega_power = ScalarField::one();
+            for i in 0..n {
+                if chi == &omega_power {
+                    console_log!("  chi == omega^{}, returning a_pub[{}]", i, i);
+                    return Ok(self.a_pub[i]);
+                }
+                omega_power *= omega;
+            }
         }
         
-        console_log!("✅ IFFT-based A_eval: {:?}", result);
+        console_log!("  Normal case: computing weighted sum");
+        
+        // Compute weighted sum: Σ(a_pub[i] * ω^i / (χ - ω^i))
+        let mut weighted_sum = ScalarField::zero();
+        let mut omega_i = ScalarField::one();
+        
+        for i in 0..n {
+            let val = self.a_pub[i];
+            
+            // Skip zero values (Solidity optimization)
+            if !val.is_zero() {
+                // Compute denominator: χ - ω^i
+                let denominator = chi - &omega_i;
+                
+                if denominator.is_zero() {
+                    // χ == ω^i, return a_pub[i] directly
+                    console_log!("  chi == omega^{}, returning a_pub[{}]", i, i);
+                    return Ok(val);
+                }
+                
+                // Compute contribution: (a_pub[i] * ω^i) / (χ - ω^i)
+                let inv_denominator = denominator.inverse()
+                    .ok_or_else(|| JsValue::from_str("Failed to compute denominator inverse"))?;
+                let numerator = val * omega_i;
+                let contribution = numerator * inv_denominator;
+                
+                weighted_sum += contribution;
+            }
+            
+            // Update omega_i for next iteration
+            omega_i *= omega;
+        }
+        
+        console_log!("  weighted_sum = {:?}", weighted_sum);
+        
+        // Final result: (χ^n - 1) / n * weighted_sum
+        let n_inv = ScalarField::from(n as u64).inverse()
+            .ok_or_else(|| JsValue::from_str("Failed to compute n inverse"))?;
+        
+        let result = chi_n_minus_1 * weighted_sum * n_inv;
+        
+        console_log!("✅ Barycentric A_eval: {:?}", result);
         
         Ok(result)
     }

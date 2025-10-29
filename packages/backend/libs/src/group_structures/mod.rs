@@ -727,22 +727,10 @@ pub fn icicle_g2_affine_to_ark(g: &G2Affine) -> ArkG2Affine {
     let x_bytes = g.x.to_bytes_le();
     let y_bytes = g.y.to_bytes_le();
     
-    // Debug: Print byte representation
-    println!("🔍 ICICLE→Ark G2 conversion:");
-    println!("  x_bytes len: {}", x_bytes.len());
-    println!("  x_bytes hex: 0x{}", hex::encode(&x_bytes));
-    println!("  y_bytes len: {}", y_bytes.len());
-    println!("  y_bytes hex: 0x{}", hex::encode(&y_bytes));
-    
     let x = ark_bls12_381::Fq2::from_random_bytes(&x_bytes)
         .expect("failed to convert x from icicle to ark");
     let y = ark_bls12_381::Fq2::from_random_bytes(&y_bytes)
         .expect("failed to convert y from icicle to ark");
-    
-    println!("  Arkworks x.c0: {}", x.c0);
-    println!("  Arkworks x.c1: {}", x.c1);
-    println!("  Arkworks y.c0: {}", y.c0);
-    println!("  Arkworks y.c1: {}", y.c1);
     
     ArkG2Affine::new_unchecked(x, y)
 }
