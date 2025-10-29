@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tokamak zkEVM Verifier - Browser Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .section {
+            margin: 25px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        .file-input {
+            margin: 10px 0;
+        }
+
+        label {
+            font-weight: bold;
+            color: #667eea;
+            display: block;
+            margin: 10px 0 5px 0;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background: #e9ecef;
+        }
+
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔐 Tokamak zkEVM Verifier</h1>
+        <p>Browser-based zero-knowledge proof verification using WebAssembly</p>
+
+        <div class="section">
+            <h2>📂 Load Verification Data</h2>
+
+            <div class="file-input">
+                <label for="setupParams">Setup Parameters (setupParams.json):</label>
+                <input type="file" id="setupParams" accept=".json">
+            </div>
+
+            <div class="file-input">
+                <label for="instance">Instance Data (instance.json):</label>
+                <input type="file" id="instance" accept=".json">
+            </div>
+
+            <button onclick="loadFiles()">Load Files</button>
+
+            <div id="loadStatus" class="status" style="display:none;"></div>
+        </div>
+
+        <div class="section">
+            <h2>✅ Verification</h2>
+
+            <button id="verifyBtn" onclick="verify()" disabled>
+                Verify Keccak256
+            </button>
+
+            <div id="result"></div>
+        </div>
+
+        <div class="section">
+            <h2>📊 Details</h2>
+            <div id="details"></div>
+        </div>
+
+        <div class="section">
+            <h2>ℹ️ About</h2>
+            <p>
+                This demo runs the Tokamak zkEVM verifier entirely in your browser
+                using WebAssembly. All verification happens locally - no data is
+                sent to any server.
+            </p>
+            <p>
+                <strong>Features:</strong>
+            </p>
+            <ul>
+                <li>✅ Keccak256 hash verification</li>
+                <li>🔐 Client-side proof verification</li>
+                <li>🚀 No server required</li>
+                <li>🔒 Complete privacy</li>
+            </ul>
+        </div>
+    </div>
+
+    <script type="module">
+        import init, { Verifier } from './pkg-web/verify_wasm.js';
+
+        let wasmInitialized = false;
+        let setupParamsData = null;
+        let instanceData = null;
+
+        // Initialize WASM
+        async function initWasm() {
+            if (wasmInitialized) return;
+
+            try {
+                await init();
+                wasmInitialized = true;
+                console.log('WASM initialized successfully');
+            } catch (err) {
+                console.error('Failed to initialize WASM:', err);
+                throw err;
+            }
+        }
+
+        // Load file as JSON
+        async function loadFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const json = JSON.parse(e.target.result);
+                        resolve(json);
+                    } catch (err) {
+                        reject(new Error(`Invalid JSON: ${err.message}`));
+                    }
+                };
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsText(file);
+            });
+        }
+
+        // Load files
+        window.loadFiles = async function () {
+            const setupFile = document.getElementById('setupParams').files[0];
+            const instanceFile = document.getElementById('instance').files[0];
+            const statusDiv = document.getElementById('loadStatus');
+
+            statusDiv.style.display = 'block';
+            statusDiv.className = 'status';
+            statusDiv.innerHTML = 'Loading files...';
+
+            try {
+                if (!setupFile || !instanceFile) {
+                    throw new Error('Please select both files');
+                }
+
+                // Initialize WASM if not done
+                await initWasm();
+
+                // Load files
+                setupParamsData = await loadFile(setupFile);
+                instanceData = await loadFile(instanceFile);
+
+                statusDiv.innerHTML = `
+                    <div class="result success">
+                        ✅ Files loaded successfully!
+                        <ul style="margin-top: 10px;">
+                            <li>l_pub_in: ${setupParamsData.l_pub_in}</li>
+                            <li>l_pub_out: ${setupParamsData.l_pub_out}</li>
+                            <li>Public inputs: ${instanceData.a_pub.length}</li>
+                        </ul>
+                    </div>
+                `;
+
+                document.getElementById('verifyBtn').disabled = false;
+
+            } catch (err) {
+                statusDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ Error: ${err.message}
+                    </div>
+                `;
+                console.error(err);
+            }
+        };
+
+        // Verify
+        window.verify = async function () {
+            const resultDiv = document.getElementById('result');
+            const detailsDiv = document.getElementById('details');
+            const verifyBtn = document.getElementById('verifyBtn');
+
+            verifyBtn.disabled = true;
+            resultDiv.innerHTML = '<div class="result info">⏳ Verifying...</div>';
+            detailsDiv.innerHTML = '';
+
+            const startTime = performance.now();
+
+            try {
+                // Create verifier
+                const setupParamsJson = JSON.stringify(setupParamsData);
+                const instanceJson = JSON.stringify(instanceData);
+
+                console.log('Creating verifier...');
+                const verifier = new Verifier(setupParamsJson, instanceJson);
+
+                // Verify Keccak256
+                console.log('Verifying Keccak256...');
+                const keccakResult = verifier.verify_keccak256();
+
+                const endTime = performance.now();
+                const duration = ((endTime - startTime) / 1000).toFixed(3);
+
+                // Display results
+                let resultHtml = '';
+                let resultClass = '';
+
+                if (keccakResult === 0) { // True
+                    resultHtml = `✅ Keccak256 verification PASSED`;
+                    resultClass = 'success';
+                } else if (keccakResult === 1) { // False
+                    resultHtml = `❌ Keccak256 verification FAILED`;
+                    resultClass = 'error';
+                } else { // NoKeccakData
+                    resultHtml = `⚠️ No Keccak256 data to verify`;
+                    resultClass = 'warning';
+                }
+
+                resultDiv.innerHTML = `
+                    <div class="result ${resultClass}">
+                        ${resultHtml}
+                        <div style="margin-top: 10px; font-size: 14px;">
+                            Verification time: ${duration}s
+                        </div>
+                    </div>
+                `;
+
+                // Show details
+                detailsDiv.innerHTML = `
+                    <p><strong>Setup Parameters:</strong></p>
+                    <ul>
+                        <li>Public inputs: ${setupParamsData.l_pub_in}</li>
+                        <li>Public outputs: ${setupParamsData.l_pub_out}</li>
+                        <li>Constraints (n): ${setupParamsData.n}</li>
+                        <li>Max placements (s_max): ${setupParamsData.s_max}</li>
+                    </ul>
+                    <p><strong>Performance:</strong></p>
+                    <ul>
+                        <li>Total time: ${duration}s</li>
+                        <li>Verification: Client-side (WASM)</li>
+                    </ul>
+                `;
+
+                // Clean up
+                verifier.free();
+
+            } catch (err) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ Verification error: ${err.message || err}
+                    </div>
+                `;
+                console.error('Verification error:', err);
+            } finally {
+                verifyBtn.disabled = false;
+            }
+        };
+    </script>
+</body>
+
+</html>
