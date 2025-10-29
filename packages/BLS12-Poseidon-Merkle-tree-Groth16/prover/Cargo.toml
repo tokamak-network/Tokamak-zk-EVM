@@ -32,6 +32,7 @@ thiserror = "1.0"
 # MSM for efficient multi-scalar multiplication
 # Note: These will be used when implementing proper MSM operations
 
+
 [dev-dependencies]
 tempfile = "3.0"
 

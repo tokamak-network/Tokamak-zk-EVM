@@ -1,42 +1,43 @@
 use thiserror::Error;
 
-#[derive(Debug, Error)]
-pub enum Groth16Error {
-    #[error("Trusted setup failed: {0}")]
-    TrustedSetupError(String),
+/// Comprehensive error types for the Groth16 trusted setup
+#[derive(Error, Debug)]
+pub enum TrustedSetupError {
+    #[error("Circuit compilation error: {0}")]
+    CircuitError(String),
     
-    #[error("Powers of Tau generation failed: {0}")]
+    #[error("R1CS parsing/validation error: {0}")]
+    R1CSError(String),
+    
+    #[error("Powers of Tau generation error: {0}")]
     PowersOfTauError(String),
     
-    #[error("R1CS parsing failed: {0}")]
-    R1CSParsingError(String),
+    #[error("Ceremony orchestration error: {0}")]
+    CeremonyError(String),
     
-    #[error("Witness generation failed: {0}")]
-    WitnessError(String),
+    #[error("Cryptographic validation error: {0}")]
+    ValidationError(String),
     
-    #[error("Proof generation failed: {0}")]
-    ProvingError(String),
-    
-    #[error("Verification failed: {0}")]
-    VerificationError(String),
-    
-    #[error("Serialization error: {0}")]
+    #[error("Serialization/deserialization error: {0}")]
     SerializationError(String),
     
-    #[error("Invalid input: {0}")]
-    InvalidInput(String),
-    
-    #[error("IO error: {0}")]
+    #[error("File I/O error: {0}")]
     IoError(#[from] std::io::Error),
     
-    #[error("Constraint validation failed: {0}")]
-    ConstraintError(String),
+    #[error("JSON serialization error: {0}")]
+    JsonError(#[from] serde_json::Error),
     
-    #[error("Cryptographic operation failed: {0}")]
-    CryptographicError(String),
+    #[error("Circuit size {actual} exceeds maximum {max}")]
+    CircuitTooLarge { actual: usize, max: usize },
     
-    #[error("Validation failed: {0}")]
-    ValidationError(String),
+    #[error("Insufficient powers of tau: need {required}, have {available}")]
+    InsufficientPowers { required: usize, available: usize },
+    
+    #[error("Invalid ceremony participant: {0}")]
+    InvalidParticipant(String),
+    
+    #[error("Security constraint violation: {0}")]
+    SecurityViolation(String),
 }
 
-pub type Result<T> = std::result::Result<T, Groth16Error>;
+pub type Result<T> = std::result::Result<T, TrustedSetupError>;

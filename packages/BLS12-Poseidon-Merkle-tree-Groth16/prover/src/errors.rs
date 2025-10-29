@@ -17,6 +17,9 @@ pub enum ProverError {
     #[error("Serialization error: {0}")]
     SerializationError(String),
     
+    #[error("MSM computation error: {0}")]
+    MSMError(String),
+    
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
     

@@ -9,11 +9,8 @@ pub struct SolidityVerifierGenerator;
 impl SolidityVerifierGenerator {
     /// Generate Solidity verifier contract from verification key
     pub fn generate_verifier_contract(vk: &VerificationKey) -> Result<String> {
-        let template = include_str!("templates/verifier_template.sol");
-        
-        // TODO: Replace placeholders with actual verification key values
-        // For now, return basic template
-        Ok(template.to_string())
+        // Use the optimized Tokamak verifier instead of template
+        Self::generate_tokamak_verifier(vk)
     }
     
     /// Generate optimized verifier contract for Tokamak circuit

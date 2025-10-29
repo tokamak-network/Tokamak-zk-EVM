@@ -7,10 +7,12 @@ authors = ["Tokamak Network"]
 license = "MIT"
 
 [dependencies]
-# BLS12-381 curve operations (matching backend versions)
+# ICICLE for high-performance cryptographic operations
 icicle-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-runtime" }
 icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-core" }
-icicle-bls12-381 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-bls12-381"}
+icicle-bls12-381 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-bls12-381" }
+
+# arkworks for pairing operations and validation
 ark-bls12-381 = "0.5.0"
 ark-ec = "0.5.0"
 ark-ff = "0.5.0"
@@ -23,27 +25,20 @@ rayon = "1.7"
 rand = "0.8"
 hex = "0.4"
 
-# Additional dependencies for Groth16
+# Additional dependencies
 thiserror = "1.0"
 nom = "7.0"
+chrono = { version = "0.4", features = ["serde"] }
 
-# Backend libs for serialization
-libs = { path = "../../backend/libs" }
+# Backend libs for serialization (commented out - may not exist)
+# libs = { path = "../../backend/libs" }
 
 [dev-dependencies]
 tempfile = "3.0"
 
 [[bin]]
-name = "trusted_setup_demo"
-path = "src/bin/trusted_setup_demo.rs"
-
-[[bin]]
-name = "quick_test"
-path = "src/bin/quick_test.rs"
-
-[[bin]]
-name = "generate_fixed_setup"
-path = "src/bin/generate_fixed_setup.rs"
+name = "run_ceremony"
+path = "src/bin/run_ceremony.rs"
 
 [features]
 default = []

@@ -10,3 +10,4 @@ Cargo.lock
 # Temporary files
 temp_*
 test_*
+/claude/

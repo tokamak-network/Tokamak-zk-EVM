@@ -30,6 +30,11 @@ hex = "0.4"
 # Additional dependencies
 thiserror = "1.0"
 
+# Backend libs for pairing operations
+libs = { path = "../../backend/libs" }
+
+
+
 [dev-dependencies]
 tempfile = "3.0"
 

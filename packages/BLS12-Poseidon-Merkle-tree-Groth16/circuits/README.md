@@ -1,5 +1,4 @@
-# Tokamak Groth16 Circuit - Technical Documentation
-
+# Tokamak Groth16 Circuit
 ## Overview
 
 This document provides comprehensive technical documentation for the Tokamak Groth16 zero-knowledge circuit implementation. The circuit enables efficient storage proof verification for the Tokamak zkEVM using quaternary Merkle trees and Poseidon4 hashing over the BLS12-381 curve.

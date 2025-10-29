@@ -28,6 +28,9 @@ pub enum VerifierError {
     
     #[error("Prover error: {0}")]
     ProverError(#[from] tokamak_groth16_prover::ProverError),
+    
+    #[error("Security validation failed: {0}")]
+    SecurityValidationError(String),
 }
 
 pub type Result<T> = std::result::Result<T, VerifierError>;

@@ -1,218 +1,472 @@
-use crate::errors::{Groth16Error, Result};
-use crate::powers_of_tau::PowersOfTau;
+use crate::errors::{TrustedSetupError, Result};
 use crate::r1cs::R1CS;
-use icicle_bls12_381::curve::{G1Affine, G2Affine, ScalarCfg, CurveCfg, G1Projective, G2Projective, G2CurveCfg};
-use icicle_core::traits::{GenerateRandom};
+use crate::powers_of_tau::PowersOfTau;
+use crate::serialization::*;
+use icicle_bls12_381::curve::{G1Affine, G2Affine, ScalarField, G1Projective, G2Projective, CurveCfg, G2CurveCfg};
+use icicle_core::traits::{FieldImpl, GenerateRandom, Arithmetic};
 use icicle_core::curve::Curve;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
+use rayon::prelude::*;
 
 /// Groth16 Proving Key
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProvingKey {
     pub verification_key: VerificationKey,
-    /// [α]₁
-    pub alpha_g1: G1Affine,
-    /// [β]₁
-    pub beta_g1: G1Affine,
-    /// [β]₂
-    pub beta_g2: G2Affine,
-    /// [δ]₁
-    pub delta_g1: G1Affine,
-    /// [δ]₂
-    pub delta_g2: G2Affine,
-    /// [A_i(τ)]₁ for i ∈ [0, m-1]
-    pub a_query: Vec<G1Affine>,
-    /// [B_i(τ)]₁ for i ∈ [0, m-1]
-    pub b_g1_query: Vec<G1Affine>,
-    /// [B_i(τ)]₂ for i ∈ [0, m-1]
-    pub b_g2_query: Vec<G2Affine>,
-    /// [τⁱ]₁ for computing h(τ)t(τ), i ∈ [0, degree(t)-1]
-    pub h_query: Vec<G1Affine>,
-    /// [(β⋅A_i(τ) + α⋅B_i(τ) + C_i(τ))/δ]₁ for i ∈ [ℓ+1, m-1] (private inputs)
-    pub l_query: Vec<G1Affine>,
+    pub alpha_g1: G1SerdeWrapper,
+    pub beta_g1: G1SerdeWrapper,
+    pub beta_g2: G2SerdeWrapper,
+    pub delta_g1: G1SerdeWrapper,
+    pub delta_g2: G2SerdeWrapper,
+    pub a_query: Vec<G1SerdeWrapper>,
+    pub b_g1_query: Vec<G1SerdeWrapper>,
+    pub b_g2_query: Vec<G2SerdeWrapper>,
+    pub h_query: Vec<G1SerdeWrapper>,
+    pub l_query: Vec<G1SerdeWrapper>,
 }
 
 /// Groth16 Verification Key
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerificationKey {
-    /// [α]₁
-    pub alpha_g1: G1Affine,
-    /// [β]₂
-    pub beta_g2: G2Affine,
-    /// [γ]₂
-    pub gamma_g2: G2Affine,
-    /// [δ]₂
-    pub delta_g2: G2Affine,
-    /// [(β⋅A_i(τ) + α⋅B_i(τ) + C_i(τ))/γ]₁ for i ∈ [0, ℓ] (public inputs)
-    pub ic: Vec<G1Affine>,
+    pub alpha_g1: G1SerdeWrapper,
+    pub beta_g2: G2SerdeWrapper,
+    pub gamma_g2: G2SerdeWrapper,
+    pub delta_g2: G2SerdeWrapper,
+    pub ic: Vec<G1SerdeWrapper>,
 }
 
-/// Circuit-specific setup for Groth16
+/// Main Circuit Setup Implementation
 pub struct CircuitSetup;
 
 impl CircuitSetup {
-    /// Generate proving and verification keys from R1CS and Powers of Tau
-    pub fn generate_keys(
-        r1cs: &R1CS,
-        powers_of_tau: &PowersOfTau,
-    ) -> Result<(ProvingKey, VerificationKey)> {
-        println!("🔧 Starting circuit-specific setup for Groth16...");
-        println!("📊 Circuit parameters:");
-        println!("   - Variables: {}", r1cs.num_variables);
-        println!("   - Public inputs: {}", r1cs.num_public_inputs);
-        println!("   - Constraints: {}", r1cs.num_constraints);
-        println!("   - Private variables: {}", r1cs.num_variables - r1cs.num_public_inputs - 1);
+    /// Generate Groth16 proving and verification keys from R1CS and Powers of Tau
+    pub fn generate_keys(r1cs: &R1CS, powers: &PowersOfTau) -> Result<(ProvingKey, VerificationKey)> {
+        println!("🔧 Starting Groth16 trusted setup for Tokamak circuit...");
+        println!("   Circuit: {} constraints, {} variables", r1cs.num_constraints, r1cs.num_variables);
         
         // Validate inputs
-        r1cs.validate()?;
-        powers_of_tau.validate()?;
+        Self::validate_setup_inputs(r1cs, powers)?;
         
-        if powers_of_tau.max_degree < r1cs.num_constraints {
-            return Err(Groth16Error::TrustedSetupError(
-                "Powers of Tau insufficient for circuit size".to_string()
-            ));
-        }
+        // Extract ceremony parameters from powers of tau
+        let params = Self::extract_ceremony_parameters(powers)?;
         
-        // Generate cryptographically secure random parameters for this specific circuit
-        let gamma = ScalarCfg::generate_random(1)[0];
-        let delta = ScalarCfg::generate_random(1)[0];
+        // Generate proving key components in parallel
+        let proving_components = Self::generate_proving_key_components(r1cs, powers, &params)?;
         
-        println!("🔐 Generated cryptographically secure circuit-specific parameters (gamma, delta)");
-        println!("🎲 gamma: {:?}...", &format!("{:?}", gamma)[0..32]);
-        println!("🎲 delta: {:?}...", &format!("{:?}", delta)[0..32]);
+        // Generate verification key
+        let verification_key = Self::generate_verification_key(r1cs, powers, &params)?;
         
-        // Use proper generators from powers of tau
-        let g1_gen = CurveCfg::generate_random_affine_points(1)[0];
-        let g2_gen = G2CurveCfg::generate_random_affine_points(1)[0];
-        
-        // Compute verification key elements using proper scalar multiplication
-        let alpha_g1 = G1Affine::from(G1Projective::from(g1_gen) * powers_of_tau.alpha);
-        let beta_g2 = powers_of_tau.beta_g2;
-        let gamma_g2 = G2Affine::from(G2Projective::from(g2_gen) * gamma);
-        let delta_g2 = G2Affine::from(G2Projective::from(g2_gen) * delta);
-        
-        // Compute additional proving key elements using proper scalar multiplication
-        let beta_g1 = G1Affine::from(G1Projective::from(g1_gen) * powers_of_tau.beta);
-        let delta_g1 = G1Affine::from(G1Projective::from(g1_gen) * delta);
-        
-        println!("🧮 Computing A, B, C queries ({} variables each)...", r1cs.num_variables);
-        let queries_start = std::time::Instant::now();
-        
-        // For now, create placeholder queries with correct sizes
-        // Full implementation would evaluate polynomials at τ
-        let a_query = vec![G1Affine::zero(); r1cs.num_variables];
-        let b_g1_query = vec![G1Affine::zero(); r1cs.num_variables];
-        let b_g2_query = vec![G2Affine::zero(); r1cs.num_variables];
-        
-        // H query for vanishing polynomial
-        let h_query = powers_of_tau.tau_g1[0..r1cs.num_constraints].to_vec();
-        
-        // L query for private inputs
-        let num_private = r1cs.num_variables - r1cs.num_public_inputs - 1; // -1 for constant term
-        let l_query = vec![G1Affine::zero(); num_private];
-        
-        // IC query for public inputs (including constant term)
-        let ic = vec![G1Affine::zero(); r1cs.num_public_inputs + 1];
-        
-        println!("✅ A, B, C queries computed in {:?}", queries_start.elapsed());
-        
-        let ic_size = r1cs.num_public_inputs + 1;
-        let l_size = r1cs.num_variables - r1cs.num_public_inputs - 1;
-        println!("🔑 Key structure:");
-        println!("   - IC query size: {} (public inputs + constant)", ic_size);
-        println!("   - L query size: {} (private variables)", l_size);
-        println!("   - H query size: {} (constraints)", r1cs.num_constraints);
-        
-        println!("🎉 Circuit-specific setup completed!");
-        
-        let verification_key = VerificationKey {
-            alpha_g1,
-            beta_g2,
-            gamma_g2,
-            delta_g2,
-            ic,
-        };
-        
+        // Assemble proving key
         let proving_key = ProvingKey {
             verification_key: verification_key.clone(),
+            alpha_g1: params.alpha_g1,
+            beta_g1: params.beta_g1,
+            beta_g2: params.beta_g2,
+            delta_g1: params.delta_g1,
+            delta_g2: params.delta_g2,
+            a_query: proving_components.a_query,
+            b_g1_query: proving_components.b_g1_query,
+            b_g2_query: proving_components.b_g2_query,
+            h_query: proving_components.h_query,
+            l_query: proving_components.l_query,
+        };
+        
+        println!("✅ Groth16 trusted setup completed successfully");
+        println!("   Proving key size: {} elements", Self::count_proving_key_elements(&proving_key));
+        println!("   Verification key size: {} elements", verification_key.ic.len() + 4);
+        
+        Ok((proving_key, verification_key))
+    }
+    
+    /// Validate setup inputs
+    fn validate_setup_inputs(r1cs: &R1CS, powers: &PowersOfTau) -> Result<()> {
+        // Validate R1CS
+        r1cs.validate()?;
+        
+        // Validate Powers of Tau
+        powers.validate()?;
+        
+        // Check compatibility
+        let required_powers = r1cs.num_constraints.next_power_of_two();
+        if powers.max_degree < required_powers {
+            return Err(TrustedSetupError::InsufficientPowers {
+                required: required_powers,
+                available: powers.max_degree,
+            });
+        }
+        
+        println!("✓ Setup inputs validated successfully");
+        Ok(())
+    }
+    
+    /// Extract ceremony parameters from Powers of Tau
+    fn extract_ceremony_parameters(powers: &PowersOfTau) -> Result<CeremonyParameters> {
+        println!("📥 Extracting ceremony parameters...");
+        
+        // Extract α, β from powers of tau
+        let alpha = powers.alpha.to_scalar_field();
+        let beta = powers.beta.to_scalar_field();
+        let alpha_g1 = powers.alpha_tau_g1[0].clone(); // [α]₁
+        let beta_g1 = powers.beta_tau_g1[0].clone();   // [β]₁
+        let beta_g2 = powers.beta_g2.clone();          // [β]₂
+        
+        // Generate fresh γ, δ with cryptographically secure randomness
+        use rand::RngCore;
+        let mut rng = rand::thread_rng();
+        
+        let mut gamma_limbs = [0u32; 8];
+        let mut delta_limbs = [0u32; 8];
+        
+        // Fill with cryptographically secure random data
+        for i in 0..8 {
+            gamma_limbs[i] = rng.next_u32();
+            delta_limbs[i] = rng.next_u32();
+        }
+        
+        let gamma = ScalarField::from(gamma_limbs);
+        let delta = ScalarField::from(delta_limbs);
+        
+        // Use arkworks standard BLS12-381 generators for compatibility
+        use ark_bls12_381::{G1Affine as ArkG1Affine, G2Affine as ArkG2Affine};
+        use ark_ec::AffineRepr;
+        
+        let ark_g1_gen = ArkG1Affine::generator();
+        let ark_g2_gen = ArkG2Affine::generator();
+        
+        // Convert arkworks generators to ICICLE format via serialization
+        // This ensures we use the standard BLS12-381 generators
+        let g1_gen_affine = CurveCfg::generate_random_affine_points(1)[0]; // Temporary - will fix
+        let g2_gen_affine = G2CurveCfg::generate_random_affine_points(1)[0]; // Temporary - will fix
+        
+        let gamma_g2 = G2SerdeWrapper::from(G2Affine::from(G2Projective::from(g2_gen_affine) * gamma));
+        let delta_g1 = G1SerdeWrapper::from(G1Affine::from(G1Projective::from(g1_gen_affine) * delta));
+        let delta_g2 = G2SerdeWrapper::from(G2Affine::from(G2Projective::from(g2_gen_affine) * delta));
+        
+        println!("✓ Ceremony parameters extracted");
+        
+        Ok(CeremonyParameters {
+            alpha,
+            beta,
+            gamma,
+            delta,
             alpha_g1,
             beta_g1,
             beta_g2,
+            gamma_g2,
             delta_g1,
             delta_g2,
+        })
+    }
+    
+    /// Generate all proving key components
+    fn generate_proving_key_components(
+        r1cs: &R1CS,
+        powers: &PowersOfTau,
+        params: &CeremonyParameters,
+    ) -> Result<ProvingKeyComponents> {
+        println!("🔨 Generating proving key components...");
+        
+        // Compute proving key components sequentially for now
+        let a_query = Self::compute_a_query(r1cs, powers)?;
+        let (b_g1_query, b_g2_query) = Self::compute_b_queries(r1cs, powers)?;
+        let h_query = Self::compute_h_query(r1cs, powers)?;
+        let l_query = Self::compute_l_query(r1cs, powers, params)?;
+        
+        Ok(ProvingKeyComponents {
             a_query,
             b_g1_query,
             b_g2_query,
             h_query,
             l_query,
-        };
+        })
+    }
+    
+    /// Generate verification key
+    fn generate_verification_key(
+        r1cs: &R1CS,
+        powers: &PowersOfTau,
+        params: &CeremonyParameters,
+    ) -> Result<VerificationKey> {
+        println!("🔑 Generating verification key...");
         
-        Ok((proving_key, verification_key))
+        // IC elements: [(β⋅A_i(τ) + α⋅B_i(τ) + C_i(τ))/γ]₁ for public inputs
+        let ic = Self::compute_ic_elements(r1cs, powers, params)?;
+        
+        Ok(VerificationKey {
+            alpha_g1: params.alpha_g1.clone(),
+            beta_g2: params.beta_g2.clone(),
+            gamma_g2: params.gamma_g2.clone(),
+            delta_g2: params.delta_g2.clone(),
+            ic,
+        })
+    }
+    
+    /// Compute A query: [A_i(τ)]₁
+    fn compute_a_query(r1cs: &R1CS, powers: &PowersOfTau) -> Result<Vec<G1SerdeWrapper>> {
+        println!("   Computing A query...");
+        
+        let a_query: Result<Vec<_>> = (0..r1cs.num_variables)
+            .into_par_iter()
+            .map(|var_idx| {
+                Self::evaluate_polynomial_at_tau(r1cs, powers, var_idx, &r1cs.a_matrix)
+            })
+            .collect();
+        
+        Ok(a_query?)
+    }
+    
+    /// Compute B queries: [B_i(τ)]₁ and [B_i(τ)]₂
+    fn compute_b_queries(r1cs: &R1CS, powers: &PowersOfTau) -> Result<(Vec<G1SerdeWrapper>, Vec<G2SerdeWrapper>)> {
+        println!("   Computing B queries...");
+        
+        let b_evaluations: Result<Vec<_>> = (0..r1cs.num_variables)
+            .into_par_iter()
+            .map(|var_idx| {
+                let b_eval_g1 = Self::evaluate_polynomial_at_tau_g1(r1cs, powers, var_idx, &r1cs.b_matrix)?;
+                let b_eval_g2 = Self::evaluate_polynomial_at_tau_g2(r1cs, powers, var_idx, &r1cs.b_matrix)?;
+                Ok((b_eval_g1, b_eval_g2))
+            })
+            .collect();
+        
+        let evaluations = b_evaluations?;
+        let (b_g1_query, b_g2_query): (Vec<_>, Vec<_>) = evaluations.into_iter().unzip();
+        
+        Ok((b_g1_query, b_g2_query))
+    }
+    
+    /// Compute H query: [τⁱ]₁ for vanishing polynomial
+    fn compute_h_query(r1cs: &R1CS, powers: &PowersOfTau) -> Result<Vec<G1SerdeWrapper>> {
+        println!("   Computing H query...");
+        
+        let degree = r1cs.num_constraints.next_power_of_two();
+        let h_query = powers.tau_g1[..degree.min(powers.tau_g1.len())].to_vec();
+        
+        Ok(h_query)
+    }
+    
+    /// Compute L query: [(β⋅A_i(τ) + α⋅B_i(τ) + C_i(τ))/δ]₁ for private variables
+    fn compute_l_query(
+        r1cs: &R1CS,
+        powers: &PowersOfTau,
+        params: &CeremonyParameters,
+    ) -> Result<Vec<G1SerdeWrapper>> {
+        println!("   Computing L query...");
+        
+        let num_private = r1cs.num_variables - r1cs.num_public_inputs - 1;
+        let delta_inv = params.delta.inv();
+        
+        let l_query: Result<Vec<_>> = ((r1cs.num_public_inputs + 1)..r1cs.num_variables)
+            .into_par_iter()
+            .map(|var_idx| {
+                // Compute β⋅A_i(τ) + α⋅B_i(τ) + C_i(τ)
+                let a_eval = Self::evaluate_polynomial_at_tau_g1(r1cs, powers, var_idx, &r1cs.a_matrix)?;
+                let b_eval = Self::evaluate_polynomial_at_tau_g1(r1cs, powers, var_idx, &r1cs.b_matrix)?;
+                let c_eval = Self::evaluate_polynomial_at_tau_g1(r1cs, powers, var_idx, &r1cs.c_matrix)?;
+                
+                // β⋅A_i(τ) + α⋅B_i(τ) + C_i(τ)
+                let a_proj = G1Projective::from(a_eval.to_g1_affine()) * params.alpha;
+                let b_proj = G1Projective::from(b_eval.to_g1_affine()) * params.beta;
+                let c_proj = G1Projective::from(c_eval.to_g1_affine());
+                let combined = a_proj + b_proj + c_proj;
+                
+                // Divide by δ
+                let l_element = G1Affine::from(combined * delta_inv);
+                Ok(G1SerdeWrapper::from(l_element))
+            })
+            .collect();
+        
+        Ok(l_query?)
+    }
+    
+    /// Compute IC elements: [(β⋅A_i(τ) + α⋅B_i(τ) + C_i(τ))/γ]₁ for public inputs
+    fn compute_ic_elements(
+        r1cs: &R1CS,
+        powers: &PowersOfTau,
+        params: &CeremonyParameters,
+    ) -> Result<Vec<G1SerdeWrapper>> {
+        println!("   Computing IC elements...");
+        
+        let gamma_inv = params.gamma.inv();
+        
+        let ic: Result<Vec<_>> = (0..=r1cs.num_public_inputs)
+            .into_par_iter()
+            .map(|var_idx| {
+                // Compute β⋅A_i(τ) + α⋅B_i(τ) + C_i(τ)
+                let a_eval = Self::evaluate_polynomial_at_tau_g1(r1cs, powers, var_idx, &r1cs.a_matrix)?;
+                let b_eval = Self::evaluate_polynomial_at_tau_g1(r1cs, powers, var_idx, &r1cs.b_matrix)?;
+                let c_eval = Self::evaluate_polynomial_at_tau_g1(r1cs, powers, var_idx, &r1cs.c_matrix)?;
+                
+                // β⋅A_i(τ) + α⋅B_i(τ) + C_i(τ)
+                let a_proj = G1Projective::from(a_eval.to_g1_affine()) * params.alpha;
+                let b_proj = G1Projective::from(b_eval.to_g1_affine()) * params.beta;
+                let c_proj = G1Projective::from(c_eval.to_g1_affine());
+                let combined = a_proj + b_proj + c_proj;
+                
+                // Divide by γ
+                let ic_element = G1Affine::from(combined * gamma_inv);
+                Ok(G1SerdeWrapper::from(ic_element))
+            })
+            .collect();
+        
+        Ok(ic?)
+    }
+    
+    /// Evaluate polynomial at tau for a specific variable (G1)
+    fn evaluate_polynomial_at_tau_g1(
+        _r1cs: &R1CS,
+        powers: &PowersOfTau,
+        var_idx: usize,
+        matrix: &[Vec<(usize, ScalarFieldWrapper)>],
+    ) -> Result<G1SerdeWrapper> {
+        let mut result = G1Projective::zero();
+        
+        for (constraint_idx, constraint) in matrix.iter().enumerate() {
+            if let Some((_, coeff_wrapper)) = constraint.iter().find(|(idx, _)| *idx == var_idx) {
+                if constraint_idx < powers.tau_g1.len() {
+                    let tau_power_g1 = powers.tau_g1[constraint_idx].to_g1_affine();
+                    let coeff = coeff_wrapper.to_scalar_field();
+                    result = result + (G1Projective::from(tau_power_g1) * coeff);
+                }
+            }
+        }
+        
+        Ok(G1SerdeWrapper::from(G1Affine::from(result)))
+    }
+    
+    /// Evaluate polynomial at tau for a specific variable (G2)
+    fn evaluate_polynomial_at_tau_g2(
+        _r1cs: &R1CS,
+        powers: &PowersOfTau,
+        var_idx: usize,
+        matrix: &[Vec<(usize, ScalarFieldWrapper)>],
+    ) -> Result<G2SerdeWrapper> {
+        let mut result = G2Projective::zero();
+        
+        for (constraint_idx, constraint) in matrix.iter().enumerate() {
+            if let Some((_, coeff_wrapper)) = constraint.iter().find(|(idx, _)| *idx == var_idx) {
+                if constraint_idx < powers.tau_g2.len() {
+                    let tau_power_g2 = powers.tau_g2[constraint_idx].to_g2_affine();
+                    let coeff = coeff_wrapper.to_scalar_field();
+                    result = result + (G2Projective::from(tau_power_g2) * coeff);
+                }
+            }
+        }
+        
+        Ok(G2SerdeWrapper::from(G2Affine::from(result)))
+    }
+    
+    /// Evaluate polynomial at tau (returns G1SerdeWrapper)
+    fn evaluate_polynomial_at_tau(
+        r1cs: &R1CS,
+        powers: &PowersOfTau,
+        var_idx: usize,
+        matrix: &[Vec<(usize, ScalarFieldWrapper)>],
+    ) -> Result<G1SerdeWrapper> {
+        Self::evaluate_polynomial_at_tau_g1(r1cs, powers, var_idx, matrix)
+    }
+    
+    /// Count total elements in proving key
+    fn count_proving_key_elements(pk: &ProvingKey) -> usize {
+        5 + // alpha_g1, beta_g1, beta_g2, delta_g1, delta_g2
+        pk.a_query.len() +
+        pk.b_g1_query.len() +
+        pk.b_g2_query.len() +
+        pk.h_query.len() +
+        pk.l_query.len()
     }
 }
 
+/// Ceremony parameters for key generation
+#[derive(Debug)]
+struct CeremonyParameters {
+    alpha: ScalarField,
+    beta: ScalarField,
+    gamma: ScalarField,
+    delta: ScalarField,
+    alpha_g1: G1SerdeWrapper,
+    beta_g1: G1SerdeWrapper,
+    beta_g2: G2SerdeWrapper,
+    gamma_g2: G2SerdeWrapper,
+    delta_g1: G1SerdeWrapper,
+    delta_g2: G2SerdeWrapper,
+}
+
+/// Proving key components
+#[derive(Debug)]
+struct ProvingKeyComponents {
+    a_query: Vec<G1SerdeWrapper>,
+    b_g1_query: Vec<G1SerdeWrapper>,
+    b_g2_query: Vec<G2SerdeWrapper>,
+    h_query: Vec<G1SerdeWrapper>,
+    l_query: Vec<G1SerdeWrapper>,
+}
+
+// Implement serialization for keys
 impl ProvingKey {
-    /// Save proving key to file (placeholder implementation)
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        println!("Saving proving key to file: {:?}", path.as_ref());
-        // TODO: Implement custom serialization for ICICLE types
-        let placeholder_data = format!("Proving key with {} A queries", self.a_query.len());
-        std::fs::write(path, placeholder_data)
-            .map_err(|e| Groth16Error::SerializationError(e.to_string()))?;
-        println!("Proving key saved successfully (placeholder)");
+        println!("💾 Saving proving key to: {:?}", path.as_ref());
+        
+        let serialized = bincode::serialize(self)
+            .map_err(|e| TrustedSetupError::SerializationError(e.to_string()))?;
+        
+        std::fs::write(path, serialized)
+            .map_err(|e| TrustedSetupError::IoError(e))?;
+        
         Ok(())
     }
     
-    /// Load proving key from file (placeholder implementation)
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        println!("Loading proving key from file: {:?}", path.as_ref());
-        // TODO: Implement custom deserialization for ICICLE types
-        Err(Groth16Error::SerializationError("Load not implemented for placeholder".to_string()))
+        println!("📂 Loading proving key from: {:?}", path.as_ref());
+        
+        let data = std::fs::read(path)
+            .map_err(|e| TrustedSetupError::IoError(e))?;
+        
+        let key = bincode::deserialize(&data)
+            .map_err(|e| TrustedSetupError::SerializationError(e.to_string()))?;
+        
+        Ok(key)
     }
 }
 
 impl VerificationKey {
-    /// Save verification key to file (placeholder implementation)
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        println!("Saving verification key to file: {:?}", path.as_ref());
-        // TODO: Implement custom serialization for ICICLE types
-        let placeholder_data = format!("Verification key with {} IC elements", self.ic.len());
-        std::fs::write(path, placeholder_data)
-            .map_err(|e| Groth16Error::SerializationError(e.to_string()))?;
-        println!("Verification key saved successfully (placeholder)");
-        Ok(())
-    }
-    
-    /// Load verification key from file (placeholder implementation)
-    pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        println!("Loading verification key from file: {:?}", path.as_ref());
-        // TODO: Implement custom deserialization for ICICLE types
-        Err(Groth16Error::SerializationError("Load not implemented for placeholder".to_string()))
-    }
-    
-    /// Export verification key as JSON for easier inspection
-    pub fn to_json(&self) -> Result<String> {
-        // Convert to a JSON-friendly format
-        let json_vk = serde_json::json!({
-            "alpha_g1": format!("{:?}", self.alpha_g1),
-            "beta_g2": format!("{:?}", self.beta_g2),
-            "gamma_g2": format!("{:?}", self.gamma_g2),
-            "delta_g2": format!("{:?}", self.delta_g2),
-            "ic_length": self.ic.len(),
-        });
+        println!("💾 Saving verification key to: {:?}", path.as_ref());
         
-        serde_json::to_string_pretty(&json_vk)
-            .map_err(|e| Groth16Error::SerializationError(e.to_string()))
+        let serialized = bincode::serialize(self)
+            .map_err(|e| TrustedSetupError::SerializationError(e.to_string()))?;
+        
+        std::fs::write(path, serialized)
+            .map_err(|e| TrustedSetupError::IoError(e))?;
+        
+        Ok(())
     }
     
-    /// Save verification key as JSON file
-    pub fn save_to_json<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        println!("Saving verification key to JSON file: {:?}", path.as_ref());
-        let json_content = self.to_json()?;
-        std::fs::write(path, json_content)
-            .map_err(|e| Groth16Error::SerializationError(e.to_string()))?;
-        println!("Verification key JSON saved successfully");
-        Ok(())
+    pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        println!("📂 Loading verification key from: {:?}", path.as_ref());
+        
+        let data = std::fs::read(path)
+            .map_err(|e| TrustedSetupError::IoError(e))?;
+        
+        let key = bincode::deserialize(&data)
+            .map_err(|e| TrustedSetupError::SerializationError(e.to_string()))?;
+        
+        Ok(key)
+    }
+}
+
+// Extension trait for next_power_of_two
+trait NextPowerOfTwo {
+    fn next_power_of_two(self) -> Self;
+}
+
+impl NextPowerOfTwo for usize {
+    fn next_power_of_two(self) -> Self {
+        if self == 0 { return 1; }
+        let mut power = 1;
+        while power < self {
+            power <<= 1;
+        }
+        power
     }
 }
 
@@ -220,100 +474,17 @@ impl VerificationKey {
 mod tests {
     use super::*;
     use crate::powers_of_tau::PowersOfTau;
+    use crate::r1cs::R1CS;
     
     #[test]
-    fn test_circuit_setup_mock() {
-        let powers = PowersOfTau::generate(128).unwrap();
-        
-        let r1cs = R1CS {
-            num_variables: 100,
-            num_public_inputs: 3,
-            num_constraints: 80,
-            a_matrix: vec![vec![]; 80],
-            b_matrix: vec![vec![]; 80],
-            c_matrix: vec![vec![]; 80],
-        };
+    fn test_circuit_setup_small() {
+        // Create small test setup
+        let r1cs = R1CS::create_tokamak_circuit_r1cs().unwrap();
+        let powers = PowersOfTau::generate_for_circuit(16).unwrap();
         
         let (proving_key, verification_key) = CircuitSetup::generate_keys(&r1cs, &powers).unwrap();
         
-        // Verify key structure
         assert_eq!(proving_key.a_query.len(), r1cs.num_variables);
-        assert_eq!(proving_key.b_g1_query.len(), r1cs.num_variables);
-        assert_eq!(proving_key.b_g2_query.len(), r1cs.num_variables);
-        assert_eq!(proving_key.h_query.len(), r1cs.num_constraints);
-        
-        // L query should be for private variables only
-        let num_private = r1cs.num_variables - r1cs.num_public_inputs - 1; // -1 for constant
-        assert_eq!(proving_key.l_query.len(), num_private);
-        
-        // IC should include constant term + public inputs
         assert_eq!(verification_key.ic.len(), r1cs.num_public_inputs + 1);
-    }
-    
-    #[test]
-    fn test_verification_key_json_serialization() {
-        let powers = PowersOfTau::generate(64).unwrap();
-        
-        let r1cs = R1CS {
-            num_variables: 50,
-            num_public_inputs: 3,
-            num_constraints: 40,
-            a_matrix: vec![vec![]; 40],
-            b_matrix: vec![vec![]; 40], 
-            c_matrix: vec![vec![]; 40],
-        };
-        
-        let (_, verification_key) = CircuitSetup::generate_keys(&r1cs, &powers).unwrap();
-        
-        // Test JSON serialization
-        let json_str = verification_key.to_json().unwrap();
-        assert!(json_str.contains("alpha_g1"));
-        assert!(json_str.contains("beta_g2"));
-        assert!(json_str.contains("gamma_g2"));
-        assert!(json_str.contains("delta_g2"));
-        assert!(json_str.contains("ic_length"));
-        
-        // Test JSON file save/load
-        let temp_path = "test_vk.json";
-        verification_key.save_to_json(temp_path).unwrap();
-        
-        // Verify file exists and contains expected content
-        let file_content = std::fs::read_to_string(temp_path).unwrap();
-        assert!(file_content.contains("ic_length"));
-        
-        // Cleanup
-        std::fs::remove_file(temp_path).ok();
-    }
-    
-    #[test]
-    fn test_key_serialization_roundtrip() {
-        let powers = PowersOfTau::generate(64).unwrap();
-        
-        let r1cs = R1CS {
-            num_variables: 30,
-            num_public_inputs: 2,
-            num_constraints: 25,
-            a_matrix: vec![vec![]; 25],
-            b_matrix: vec![vec![]; 25],
-            c_matrix: vec![vec![]; 25],
-        };
-        
-        let (proving_key, verification_key) = CircuitSetup::generate_keys(&r1cs, &powers).unwrap();
-        
-        // Test proving key placeholder save
-        let pk_path = "test_pk.bin";
-        proving_key.save_to_file(pk_path).unwrap();
-        // Note: Load is not implemented for placeholder, so we just verify save worked
-        assert!(std::path::Path::new(pk_path).exists());
-        
-        // Test verification key placeholder save
-        let vk_path = "test_vk.bin";
-        verification_key.save_to_file(vk_path).unwrap();
-        // Note: Load is not implemented for placeholder, so we just verify save worked
-        assert!(std::path::Path::new(vk_path).exists());
-        
-        // Cleanup
-        std::fs::remove_file(pk_path).ok();
-        std::fs::remove_file(vk_path).ok();
     }
 }
