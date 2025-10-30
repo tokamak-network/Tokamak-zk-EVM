@@ -1,5 +1,5 @@
 [package]
-name = "verify-rust-wasm"
+name = "preprocess-wasm"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,9 +10,6 @@ crate-type = ["cdylib", "rlib"]
 [workspace]
 
 [dependencies]
-# WASM-compatible libs (Arkworks-based, replaces ICICLE-based libs)
-libs-wasm = { path = "../../libs-wasm" }
-
 # Arkworks for cryptographic operations
 ark-bls12-381 = "0.5.0"
 ark-ec = "0.5.0"
@@ -21,8 +18,9 @@ ark-poly = "0.5.0"
 ark-serialize = "0.5.0"
 ark-std = "0.5.0"
 
-# Keccak hashing (replaces icicle-hash)
-tiny-keccak = { version = "2.0", features = ["keccak"] }
+# Additional dependencies
+num-bigint = "0.4"
+num-traits = "0.2"
 
 # WASM bindings
 wasm-bindgen = "0.2"
@@ -53,5 +51,9 @@ wasm-bindgen-test = "0.3"
 [profile.release]
 opt-level = 3
 lto = true
+# Enable some optimizations for smaller WASM size
 codegen-units = 1
+
+[profile.release.package."*"]
+opt-level = 3
 
