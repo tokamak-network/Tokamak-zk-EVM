@@ -276,31 +276,15 @@ impl Sigma1 {
             let variables = &placement_variables[i].variables;
             let subcircuit_info = &subcircuit_infos[subcircuit_id];
             let flatten_map = &subcircuit_info.flattenMap;
-            let start_idx = if i == 0 {
-                // Public input placement
-                subcircuit_info.In_idx[0]
-            } else if i == 1 {
-                // Public output placement
-                subcircuit_info.Out_idx[0]
-            } else if i == 2 {
-                // Private input placement
-                subcircuit_info.In_idx[0]
-            } else {
-                // Private output placement
-                subcircuit_info.Out_idx[0]
+            let start_idx = match i {
+                0 | 2 => subcircuit_info.In_idx[0],
+                1 | 3 => subcircuit_info.Out_idx[0],
+                _ => unreachable!(),
             };
-            let end_idx_exclusive = if i == 0 {
-                // Public input placement
-                subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1]
-            } else if i == 1 {
-                // Public output placement
-                subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1]
-            } else if i == 2 {
-                // Private input placement
-                subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1]
-            } else {
-                // Private output placement
-                subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1]
+            let end_idx_exclusive = match i {
+                0 | 2 => subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1],
+                1 | 3 => subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1],
+                _ => unreachable!(),
             };
 
             for j in start_idx..end_idx_exclusive {
