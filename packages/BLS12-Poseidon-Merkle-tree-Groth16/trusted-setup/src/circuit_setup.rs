@@ -35,6 +35,32 @@ pub struct VerificationKey {
     pub ic: Vec<G1SerdeWrapper>,
 }
 
+/// JSON-friendly version of ProvingKey with hex string representations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProvingKeyJson {
+    pub verification_key: VerificationKeyJson,
+    pub alpha_g1: G1JsonWrapper,
+    pub beta_g1: G1JsonWrapper,
+    pub beta_g2: G2JsonWrapper,
+    pub delta_g1: G1JsonWrapper,
+    pub delta_g2: G2JsonWrapper,
+    pub a_query: Vec<G1JsonWrapper>,
+    pub b_g1_query: Vec<G1JsonWrapper>,
+    pub b_g2_query: Vec<G2JsonWrapper>,
+    pub h_query: Vec<G1JsonWrapper>,
+    pub l_query: Vec<G1JsonWrapper>,
+}
+
+/// JSON-friendly version of VerificationKey with hex string representations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerificationKeyJson {
+    pub alpha_g1: G1JsonWrapper,
+    pub beta_g2: G2JsonWrapper,
+    pub gamma_g2: G2JsonWrapper,
+    pub delta_g2: G2JsonWrapper,
+    pub ic: Vec<G1JsonWrapper>,
+}
+
 /// Main Circuit Setup Implementation
 pub struct CircuitSetup;
 
@@ -426,6 +452,50 @@ impl ProvingKey {
         
         Ok(key)
     }
+    
+    pub fn save_to_json<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        println!("💾 Saving proving key (JSON) to: {:?}", path.as_ref());
+        
+        // Create JSON-friendly version
+        let json_key = self.to_json_format();
+        
+        let json = serde_json::to_string_pretty(&json_key)
+            .map_err(|e| TrustedSetupError::SerializationError(e.to_string()))?;
+        
+        std::fs::write(path, json)
+            .map_err(|e| TrustedSetupError::IoError(e))?;
+        
+        Ok(())
+    }
+    
+    /// Convert to JSON-friendly format with hex strings
+    fn to_json_format(&self) -> ProvingKeyJson {
+        ProvingKeyJson {
+            verification_key: self.verification_key.to_json_format(),
+            alpha_g1: self.alpha_g1.to_json(),
+            beta_g1: self.beta_g1.to_json(),
+            beta_g2: self.beta_g2.to_json(),
+            delta_g1: self.delta_g1.to_json(),
+            delta_g2: self.delta_g2.to_json(),
+            a_query: self.a_query.iter().map(|p| p.to_json()).collect(),
+            b_g1_query: self.b_g1_query.iter().map(|p| p.to_json()).collect(),
+            b_g2_query: self.b_g2_query.iter().map(|p| p.to_json()).collect(),
+            h_query: self.h_query.iter().map(|p| p.to_json()).collect(),
+            l_query: self.l_query.iter().map(|p| p.to_json()).collect(),
+        }
+    }
+    
+    pub fn load_from_json<P: AsRef<Path>>(path: P) -> Result<Self> {
+        println!("📂 Loading proving key (JSON) from: {:?}", path.as_ref());
+        
+        let data = std::fs::read_to_string(path)
+            .map_err(|e| TrustedSetupError::IoError(e))?;
+        
+        let key = serde_json::from_str(&data)
+            .map_err(|e| TrustedSetupError::SerializationError(e.to_string()))?;
+        
+        Ok(key)
+    }
 }
 
 impl VerificationKey {
@@ -448,6 +518,44 @@ impl VerificationKey {
             .map_err(|e| TrustedSetupError::IoError(e))?;
         
         let key = bincode::deserialize(&data)
+            .map_err(|e| TrustedSetupError::SerializationError(e.to_string()))?;
+        
+        Ok(key)
+    }
+    
+    pub fn save_to_json<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        println!("💾 Saving verification key (JSON) to: {:?}", path.as_ref());
+        
+        // Create JSON-friendly version
+        let json_key = self.to_json_format();
+        
+        let json = serde_json::to_string_pretty(&json_key)
+            .map_err(|e| TrustedSetupError::SerializationError(e.to_string()))?;
+        
+        std::fs::write(path, json)
+            .map_err(|e| TrustedSetupError::IoError(e))?;
+        
+        Ok(())
+    }
+    
+    /// Convert to JSON-friendly format with hex strings
+    fn to_json_format(&self) -> VerificationKeyJson {
+        VerificationKeyJson {
+            alpha_g1: self.alpha_g1.to_json(),
+            beta_g2: self.beta_g2.to_json(),
+            gamma_g2: self.gamma_g2.to_json(),
+            delta_g2: self.delta_g2.to_json(),
+            ic: self.ic.iter().map(|p| p.to_json()).collect(),
+        }
+    }
+    
+    pub fn load_from_json<P: AsRef<Path>>(path: P) -> Result<Self> {
+        println!("📂 Loading verification key (JSON) from: {:?}", path.as_ref());
+        
+        let data = std::fs::read_to_string(path)
+            .map_err(|e| TrustedSetupError::IoError(e))?;
+        
+        let key = serde_json::from_str(&data)
             .map_err(|e| TrustedSetupError::SerializationError(e.to_string()))?;
         
         Ok(key)

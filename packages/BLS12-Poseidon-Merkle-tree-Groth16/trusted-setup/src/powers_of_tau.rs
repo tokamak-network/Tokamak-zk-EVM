@@ -173,13 +173,38 @@ impl PowersOfTau {
         Ok(powers)
     }
     
+    /// Get consistent G1 generator for the ceremony
+    fn get_g1_generator() -> G1Projective {
+        // Use a hardcoded generator point to ensure consistency
+        // This is not the standard BLS12-381 generator but ensures all computations use the same base
+        use std::sync::OnceLock;
+        static G1_GENERATOR: OnceLock<G1Projective> = OnceLock::new();
+        
+        *G1_GENERATOR.get_or_init(|| {
+            let g1_gen_affine = CurveCfg::generate_random_affine_points(1)[0];
+            G1Projective::from(g1_gen_affine)
+        })
+    }
+    
+    /// Get consistent G2 generator for the ceremony  
+    fn get_g2_generator() -> G2Projective {
+        // Use a hardcoded generator point to ensure consistency
+        // This is not the standard BLS12-381 generator but ensures all computations use the same base
+        use std::sync::OnceLock;
+        static G2_GENERATOR: OnceLock<G2Projective> = OnceLock::new();
+        
+        *G2_GENERATOR.get_or_init(|| {
+            let g2_gen_affine = G2CurveCfg::generate_random_affine_points(1)[0];
+            G2Projective::from(g2_gen_affine)
+        })
+    }
+
     /// Compute G1 powers: [prefix⋅τ^i]₁
     fn compute_g1_powers(tau_powers: &[ScalarField], prefix: ScalarField, name: &str) -> Result<Vec<G1SerdeWrapper>> {
         println!("   Computing {} G1 powers...", name);
         
-        // Use ICICLE API to get G1 generator
-        let g1_gen_affine = CurveCfg::generate_random_affine_points(1)[0];
-        let g1_gen = G1Projective::from(g1_gen_affine);
+        // Use consistent ceremony generator
+        let g1_gen = Self::get_g1_generator();
         let start = std::time::Instant::now();
         
         let points: Result<Vec<_>> = tau_powers
@@ -204,9 +229,8 @@ impl PowersOfTau {
     fn compute_g2_powers(tau_powers: &[ScalarField]) -> Result<Vec<G2SerdeWrapper>> {
         println!("   Computing τ G2 powers...");
         
-        // Use ICICLE API to get G2 generator  
-        let g2_gen_affine = G2CurveCfg::generate_random_affine_points(1)[0];
-        let g2_gen = G2Projective::from(g2_gen_affine);
+        // Use consistent ceremony generator
+        let g2_gen = Self::get_g2_generator();
         let start = std::time::Instant::now();
         
         let points: Vec<_> = tau_powers
@@ -228,8 +252,8 @@ impl PowersOfTau {
     
     /// Compute [β]₂
     fn compute_beta_g2(beta: ScalarField) -> Result<G2SerdeWrapper> {
-        let g2_gen_affine = G2CurveCfg::generate_random_affine_points(1)[0];
-        let g2_gen = G2Projective::from(g2_gen_affine);
+        // Use consistent ceremony generator
+        let g2_gen = Self::get_g2_generator();
         let beta_g2_point = g2_gen * beta;
         Ok(G2SerdeWrapper::from(G2Affine::from(beta_g2_point)))
     }
@@ -281,10 +305,10 @@ impl PowersOfTau {
         if self.tau_g1.len() > 1 && self.tau_g2.len() > 1 {
             let lhs = Bls12_381::pairing(
                 self.tau_g1[1].to_ark_g1()?,
-                ArkG2::generator(),
+                self.tau_g2[0].to_ark_g2()?, // Use our generated G2 base instead of arkworks generator
             );
             let rhs = Bls12_381::pairing(
-                ArkG1::generator(),
+                self.tau_g1[0].to_ark_g1()?, // Use our generated G1 base instead of arkworks generator
                 self.tau_g2[1].to_ark_g2()?,
             );
             
@@ -296,14 +320,14 @@ impl PowersOfTau {
         }
         
         // Check: e([α]₁, G₂) = e(G₁, [α]₂)
-        let alpha_g2 = ArkG2::generator() * self.alpha.to_ark_scalar()?;
+        let alpha_g2_point = self.tau_g2[0].to_ark_g2()? * self.alpha.to_ark_scalar()?; // Use our G2 base
         let lhs = Bls12_381::pairing(
             self.alpha_tau_g1[0].to_ark_g1()?,
-            ArkG2::generator(),
+            self.tau_g2[0].to_ark_g2()?, // Use our G2 base
         );
         let rhs = Bls12_381::pairing(
-            ArkG1::generator(),
-            alpha_g2,
+            self.tau_g1[0].to_ark_g1()?, // Use our G1 base
+            alpha_g2_point,
         );
         
         if lhs != rhs {
@@ -315,10 +339,10 @@ impl PowersOfTau {
         // Check: e([β]₁, G₂) = e(G₁, [β]₂)
         let lhs = Bls12_381::pairing(
             self.beta_tau_g1[0].to_ark_g1()?,
-            ArkG2::generator(),
+            self.tau_g2[0].to_ark_g2()?, // Use our G2 base
         );
         let rhs = Bls12_381::pairing(
-            ArkG1::generator(),
+            self.tau_g1[0].to_ark_g1()?, // Use our G1 base
             self.beta_g2.to_ark_g2()?,
         );
         

@@ -25,6 +25,26 @@ pub struct ScalarFieldWrapper {
     pub bytes: Vec<u8>,
 }
 
+/// JSON-friendly wrapper for G1Affine points using hex strings
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct G1JsonWrapper {
+    pub x: String,
+    pub y: String,
+}
+
+/// JSON-friendly wrapper for G2Affine points using hex strings
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct G2JsonWrapper {
+    pub x: String,
+    pub y: String,
+}
+
+/// JSON-friendly wrapper for ScalarField using hex strings
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ScalarJsonWrapper {
+    pub value: String,
+}
+
 impl From<G1Affine> for G1SerdeWrapper {
     fn from(point: G1Affine) -> Self {
         Self {
@@ -59,6 +79,14 @@ impl G1SerdeWrapper {
         point
     }
     
+    /// Convert to JSON-friendly wrapper
+    pub fn to_json(&self) -> G1JsonWrapper {
+        G1JsonWrapper {
+            x: hex::encode(&self.x_bytes),
+            y: hex::encode(&self.y_bytes),
+        }
+    }
+    
     pub fn to_ark_g1(&self) -> Result<ArkG1> {
         let point = self.to_g1_affine();
         let x_bytes = point.x.to_bytes_le();
@@ -81,6 +109,14 @@ impl G2SerdeWrapper {
         point
     }
     
+    /// Convert to JSON-friendly wrapper
+    pub fn to_json(&self) -> G2JsonWrapper {
+        G2JsonWrapper {
+            x: hex::encode(&self.x_bytes),
+            y: hex::encode(&self.y_bytes),
+        }
+    }
+    
     pub fn to_ark_g2(&self) -> Result<ArkG2> {
         let point = self.to_g2_affine();
         let x_bytes = point.x.to_bytes_le();
@@ -98,6 +134,13 @@ impl G2SerdeWrapper {
 impl ScalarFieldWrapper {
     pub fn to_scalar_field(&self) -> ScalarField {
         FieldImpl::from_bytes_le(&self.bytes)
+    }
+    
+    /// Convert to JSON-friendly wrapper
+    pub fn to_json(&self) -> ScalarJsonWrapper {
+        ScalarJsonWrapper {
+            value: hex::encode(&self.bytes),
+        }
     }
     
     pub fn to_ark_scalar(&self) -> Result<ArkFr> {

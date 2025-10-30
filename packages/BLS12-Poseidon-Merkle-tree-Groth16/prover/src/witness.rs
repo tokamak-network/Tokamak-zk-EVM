@@ -3,7 +3,7 @@ use crate::poseidon::PoseidonBLS12381;
 use icicle_bls12_381::curve::ScalarField;
 use icicle_core::traits::FieldImpl;
 use serde::{Deserialize, Serialize};
-use tokamak_groth16_trusted_setup::R1CS;
+use tokamak_groth16_trusted_setup::{R1CS, ScalarFieldWrapper};
 
 /// Circuit inputs for Tokamak storage proof
 #[derive(Debug, Clone)]
@@ -48,11 +48,11 @@ struct ConstraintBuilder {
     /// Current variable counter
     variable_counter: usize,
     /// A matrix constraints
-    a_constraints: Vec<Vec<(usize, ScalarField)>>,
+    a_constraints: Vec<Vec<(usize, ScalarFieldWrapper)>>,
     /// B matrix constraints  
-    b_constraints: Vec<Vec<(usize, ScalarField)>>,
+    b_constraints: Vec<Vec<(usize, ScalarFieldWrapper)>>,
     /// C matrix constraints
-    c_constraints: Vec<Vec<(usize, ScalarField)>>,
+    c_constraints: Vec<Vec<(usize, ScalarFieldWrapper)>>,
     /// Variable mapping for debugging
     variable_names: Vec<String>,
 }
@@ -81,9 +81,9 @@ impl ConstraintBuilder {
     
     fn add_constraint(
         &mut self,
-        a_coeffs: Vec<(usize, ScalarField)>,
-        b_coeffs: Vec<(usize, ScalarField)>,
-        c_coeffs: Vec<(usize, ScalarField)>,
+        a_coeffs: Vec<(usize, ScalarFieldWrapper)>,
+        b_coeffs: Vec<(usize, ScalarFieldWrapper)>,
+        c_coeffs: Vec<(usize, ScalarFieldWrapper)>,
     ) {
         self.a_constraints.push(a_coeffs);
         self.b_constraints.push(b_coeffs);
@@ -93,18 +93,18 @@ impl ConstraintBuilder {
     /// Add multiplication constraint: a * b = c
     fn add_multiplication_constraint(&mut self, a_var: usize, b_var: usize, c_var: usize) {
         self.add_constraint(
-            vec![(a_var, ScalarField::one())],
-            vec![(b_var, ScalarField::one())],
-            vec![(c_var, ScalarField::one())],
+            vec![(a_var, ScalarFieldWrapper::from(ScalarField::one()))],
+            vec![(b_var, ScalarFieldWrapper::from(ScalarField::one()))],
+            vec![(c_var, ScalarFieldWrapper::from(ScalarField::one()))],
         );
     }
     
     /// Add linear constraint: a1*x1 + a2*x2 + ... = c
-    fn add_linear_constraint(&mut self, left_coeffs: Vec<(usize, ScalarField)>, result_var: usize) {
+    fn add_linear_constraint(&mut self, left_coeffs: Vec<(usize, ScalarFieldWrapper)>, result_var: usize) {
         self.add_constraint(
             left_coeffs,
-            vec![(0, ScalarField::one())], // Multiply by 1
-            vec![(result_var, ScalarField::one())],
+            vec![(0, ScalarFieldWrapper::from(ScalarField::one()))], // Multiply by 1
+            vec![(result_var, ScalarFieldWrapper::from(ScalarField::one()))],
         );
     }
     
@@ -116,6 +116,8 @@ impl ConstraintBuilder {
             a_matrix: self.a_constraints,
             b_matrix: self.b_constraints,
             c_matrix: self.c_constraints,
+            circuit_name: "TokamakStorageMerkleProof".to_string(),
+            circuit_version: "1.0.0".to_string(),
         }
     }
 }
@@ -304,7 +306,7 @@ impl WitnessGenerator {
             // Constraint: input_state[i] + constant = const_added_var
             let constant_val = self.get_round_constant(round_constant_offset + i)?;
             builder.add_linear_constraint(
-                vec![(input_state[i], ScalarField::one()), (0, constant_val)],
+                vec![(input_state[i], ScalarFieldWrapper::from(ScalarField::one())), (0, ScalarFieldWrapper::from(constant_val))],
                 const_added_var
             );
             
@@ -369,7 +371,7 @@ impl WitnessGenerator {
             
             let constant_val = self.get_round_constant(round_constant_offset + i)?;
             builder.add_linear_constraint(
-                vec![(input_state[i], ScalarField::one()), (0, constant_val)],
+                vec![(input_state[i], ScalarFieldWrapper::from(ScalarField::one())), (0, ScalarFieldWrapper::from(constant_val))],
                 const_added_var
             );
             
@@ -490,7 +492,7 @@ impl WitnessGenerator {
             
             for j in 0..5 {
                 let mds_coeff = mds_matrix[i][j];
-                coeffs.push((input_state[j], mds_coeff));
+                coeffs.push((input_state[j], ScalarFieldWrapper::from(mds_coeff)));
                 
                 let input_val = if input_state[j] < witness_values.len() {
                     witness_values[input_state[j]]
@@ -775,7 +777,7 @@ impl WitnessGenerator {
         // Create difference variable: diff = computed_root - merkle_root
         let neg_one = ScalarField::zero() - ScalarField::one();
         builder.add_linear_constraint(
-            vec![(computed_root_var, ScalarField::one()), (merkle_root_var, neg_one)],
+            vec![(computed_root_var, ScalarFieldWrapper::from(ScalarField::one())), (merkle_root_var, ScalarFieldWrapper::from(neg_one))],
             root_diff_var
         );
         
@@ -834,27 +836,27 @@ impl WitnessGenerator {
             .enumerate() {
             
             // Compute A * witness
-            let a_value = a_coeffs.iter().fold(ScalarField::zero(), |acc, &(var_idx, coeff)| {
-                if var_idx < witness.len() {
-                    acc + (coeff * witness[var_idx])
+            let a_value = a_coeffs.iter().fold(ScalarField::zero(), |acc, (var_idx, coeff)| {
+                if *var_idx < witness.len() {
+                    acc + (coeff.to_scalar_field() * witness[*var_idx])
                 } else {
                     acc
                 }
             });
             
             // Compute B * witness
-            let b_value = b_coeffs.iter().fold(ScalarField::zero(), |acc, &(var_idx, coeff)| {
-                if var_idx < witness.len() {
-                    acc + (coeff * witness[var_idx])
+            let b_value = b_coeffs.iter().fold(ScalarField::zero(), |acc, (var_idx, coeff)| {
+                if *var_idx < witness.len() {
+                    acc + (coeff.to_scalar_field() * witness[*var_idx])
                 } else {
                     acc
                 }
             });
             
             // Compute C * witness
-            let c_value = c_coeffs.iter().fold(ScalarField::zero(), |acc, &(var_idx, coeff)| {
-                if var_idx < witness.len() {
-                    acc + (coeff * witness[var_idx])
+            let c_value = c_coeffs.iter().fold(ScalarField::zero(), |acc, (var_idx, coeff)| {
+                if *var_idx < witness.len() {
+                    acc + (coeff.to_scalar_field() * witness[*var_idx])
                 } else {
                     acc
                 }

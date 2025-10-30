@@ -113,6 +113,9 @@ fn run_ceremony_with_config(config: CeremonyConfig) -> Result<(), TrustedSetupEr
     println!("   Save intermediate: {}", config.save_intermediate);
     println!();
     
+    // Store output directory before moving config
+    let output_dir = config.output_directory.clone();
+    
     // Create ceremony
     let ceremony = TrustedSetupCeremony::with_config(config);
     
@@ -124,9 +127,11 @@ fn run_ceremony_with_config(config: CeremonyConfig) -> Result<(), TrustedSetupEr
     
     // Print file locations
     println!("📁 Generated files:");
-    println!("   Proving key: {}/proving_key.bin", result.ceremony_info.ceremony_name);
-    println!("   Verification key: {}/verification_key.bin", result.ceremony_info.ceremony_name);
-    println!("   Ceremony info: {}/ceremony_info.json", result.ceremony_info.ceremony_name);
+    println!("   Proving key (binary): {}/proving_key.bin", output_dir);
+    println!("   Proving key (JSON): {}/proving_key.json", output_dir);
+    println!("   Verification key (binary): {}/verification_key.bin", output_dir);
+    println!("   Verification key (JSON): {}/verification_key.json", output_dir);
+    println!("   Ceremony info: {}/ceremony_info.json", output_dir);
     
     if result.validation_report.failed_checks.is_empty() {
         println!("\n✅ All validation checks passed. Setup is ready for production use.");

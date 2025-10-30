@@ -11,3 +11,5 @@ Cargo.lock
 temp_*
 test_*
 /claude/
+
+/ceremony-output/

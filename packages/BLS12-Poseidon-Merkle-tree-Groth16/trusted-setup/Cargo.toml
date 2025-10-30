@@ -40,6 +40,14 @@ tempfile = "3.0"
 name = "run_ceremony"
 path = "src/bin/run_ceremony.rs"
 
+[[bin]]
+name = "convert_to_json"
+path = "src/bin/convert_to_json.rs"
+
+[[bin]]
+name = "convert_raw_json"
+path = "src/bin/convert_raw_json.rs"
+
 [features]
 default = []
 testing = []

@@ -24,7 +24,7 @@ pub enum ProverError {
     IoError(#[from] std::io::Error),
     
     #[error("Trusted setup error: {0}")]
-    TrustedSetupError(#[from] tokamak_groth16_trusted_setup::Groth16Error),
+    TrustedSetupError(#[from] tokamak_groth16_trusted_setup::TrustedSetupError),
 }
 
 pub type Result<T> = std::result::Result<T, ProverError>;

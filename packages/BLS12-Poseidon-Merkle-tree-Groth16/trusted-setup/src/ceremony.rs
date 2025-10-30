@@ -306,15 +306,25 @@ impl TrustedSetupCeremony {
         
         let output_dir = &self.ceremony_config.output_directory;
         
-        // Save proving key
+        // Save proving key (binary)
         let pk_path = format!("{}/proving_key.bin", output_dir);
         proving_key.save_to_file(&pk_path)?;
-        println!("   📄 Proving key saved to: {}", pk_path);
+        println!("   📄 Proving key (binary) saved to: {}", pk_path);
         
-        // Save verification key
+        // Save proving key (JSON)
+        let pk_json_path = format!("{}/proving_key.json", output_dir);
+        proving_key.save_to_json(&pk_json_path)?;
+        println!("   📄 Proving key (JSON) saved to: {}", pk_json_path);
+        
+        // Save verification key (binary)
         let vk_path = format!("{}/verification_key.bin", output_dir);
         verification_key.save_to_file(&vk_path)?;
-        println!("   📄 Verification key saved to: {}", vk_path);
+        println!("   📄 Verification key (binary) saved to: {}", vk_path);
+        
+        // Save verification key (JSON)
+        let vk_json_path = format!("{}/verification_key.json", output_dir);
+        verification_key.save_to_json(&vk_json_path)?;
+        println!("   📄 Verification key (JSON) saved to: {}", vk_json_path);
         
         // Save ceremony info
         let info_path = format!("{}/ceremony_info.json", output_dir);
