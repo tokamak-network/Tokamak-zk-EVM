@@ -1,17 +1,32 @@
-import { Address, bigIntToBytes, bytesToBigInt, setLengthLeft, bigIntToUnpaddedBytes, unpadBytes, concatBytes } from "@ethereumjs/util"
+import { Address, bigIntToBytes, bytesToBigInt, setLengthLeft, bigIntToUnpaddedBytes, unpadBytes, concatBytes, equalsBytes, bytesToHex } from "@ethereumjs/util"
 import { LegacyTx, TransactionInterface, TransactionType, createLegacyTx } from '@ethereumjs/tx'
 import { EthereumJSErrorWithoutCode } from "@ethereumjs/rlp"
 import { jubjub } from "@noble/curves/misc"
 import { EdwardsPoint } from "@noble/curves/abstract/edwards"
 import { eddsaSign_unsafe, eddsaVerify, getEddsaPublicKey, poseidon } from "../crypto/index.ts"
-import { batchBigIntTo32BytesEach, compressJubJubPoint, fromEdwardsToAddress, recoverJubJubPoint } from "../utils/index.ts"
+import { batchBigIntTo32BytesEach, fromEdwardsToAddress } from "../utils/index.ts"
 import { createTokamakL2Tx } from "./constructors.ts"
 
+// LegacyTx prohibits to add new members for extension. Bypassing this problem by the follow:
+const _senderPubKeyStore = new WeakMap<TokamakL2Tx, Uint8Array>();
+
 export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof TransactionType.Legacy> {
-    public override readonly to!: Address
-    // v: v = X * JUBJUBBaseFieldModulo + Y, for the X and Y coordinates of public key
-    // r: r = X * JUBJUBBaseFieldModulo + Y, for the X and Y coordinates of a randomizer for an EDDSA signature
+    declare readonly to: Address
+    // v: public key in bytes form
+    // r: randomizer in bytes form
     // s: The EDDSA signature (in JUBJUB scalar field)
+    
+    initSenderPubKey(key: Uint8Array): void {
+        if (_senderPubKeyStore.has(this)) {
+        throw new Error('Overwriting the sender public key is not allowed');
+        }
+        _senderPubKeyStore.set(this, key);
+    }
+    get senderPubKeyUnsafe(): Uint8Array {
+        const v = _senderPubKeyStore.get(this);
+        if (!v) throw new Error('The sender public key is not initialized');
+        return v;
+    }
 
     getFunctionSelector(): Uint8Array {
         if (this.data.length < 4) {
@@ -24,17 +39,18 @@ export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof
         const offset = 4 + 32 * index
         const endExclusiveIndex = offset + 32
         if (this.data.length < endExclusiveIndex) {
-            throw new Error('Insufficient transaction data')
+            // throw new Error('Insufficient transaction data')
+            return new Uint8Array()
         }
         return this.data.slice(offset, endExclusiveIndex)
     }
 
     getUnsafeEddsaRandomizer(): EdwardsPoint | undefined {
-        return this.r === undefined ? undefined : recoverJubJubPoint(this.r)
+        return this.r === undefined ? undefined : jubjub.Point.fromBytes(bigIntToBytes(this.r))
     }
 
-    getUnsafeEddsaPubKey(): EdwardsPoint | undefined {
-        return this.v === undefined ? undefined : recoverJubJubPoint(this.v)
+    getUnsafeEddsaPubKey(): EdwardsPoint {
+        return jubjub.Point.fromBytes(this.senderPubKeyUnsafe)
     }
 
     override isSigned(): boolean {
@@ -47,13 +63,13 @@ export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof
     
     override getMessageToSign(): Uint8Array[] {
         const messageRaw: Uint8Array[] = [
-        bigIntToUnpaddedBytes(this.nonce),
-        this.to.bytes,
-        this.getFunctionSelector(),
+            bigIntToUnpaddedBytes(this.nonce),
+            this.to.bytes,
+            this.getFunctionSelector(),
         ]
-            for (let inputIndex = 0; inputIndex < 9; inputIndex++) {
-                messageRaw.push(this.getFunctionInput(inputIndex))
-            }
+        for (let inputIndex = 0; inputIndex < 9; inputIndex++) {
+            messageRaw.push(this.getFunctionInput(inputIndex))
+        }
         return messageRaw.map(m => setLengthLeft(m, 32))
     }
 
@@ -61,7 +77,16 @@ export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof
         if (!this.isSigned()) {
             throw new Error('Public key can be recovered only from a signed transaction')
         }
-        return getEddsaPublicKey(concatBytes(...this.getMessageToSign()), this.v!, bigIntToBytes(this.r!), bigIntToBytes(this.s!))
+        const recovered = getEddsaPublicKey(
+            concatBytes(...this.getMessageToSign(), setLengthLeft(this.senderPubKeyUnsafe, 32)),
+            this.v!, 
+            bigIntToBytes(this.r!), 
+            bigIntToBytes(this.s!)
+        )
+        if (!equalsBytes(this.senderPubKeyUnsafe, recovered)) {
+            throw new Error('Recovered sender public key is different from the initialized one')
+        }
+        return recovered
     }
 
     override addSignature(
@@ -88,7 +113,8 @@ export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof
                 nonce: this.nonce,
                 to: this.to,
                 data: this.data,
-                v,
+                senderPubKey: this.senderPubKeyUnsafe,
+                v: 27n,
                 r: rBigint,
                 s: sBigint,
             },
@@ -108,7 +134,8 @@ export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof
 
     override getSenderAddress(): Address {
         const pubKeyByte = this.getSenderPublicKey()
-        return fromEdwardsToAddress(pubKeyByte)
+        const recovered = fromEdwardsToAddress(pubKeyByte)
+        return recovered
     }
 
     override sign(privateKey: Uint8Array, extraEntropy: Uint8Array | boolean = false): TokamakL2Tx {
@@ -133,13 +160,16 @@ export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof
         }
 
         const publicKey = jubjub.Point.BASE.multiply(sk)
+        if (!publicKey.equals(jubjub.Point.fromBytes(this.senderPubKeyUnsafe))) {
+            throw new Error("The public key initialized is not derived from the input private key")
+        }
         if (!eddsaVerify(msg, publicKey, sig.randomizer, sig.signature)) {
             throw new Error('Tried to sign but verification failure')
         }
 
         return this.addSignature(
-            compressJubJubPoint(publicKey),
-            compressJubJubPoint(sig.randomizer),
+            27n,
+            bytesToBigInt(sig.randomizer.toBytes()),
             sig.signature
         )
     }

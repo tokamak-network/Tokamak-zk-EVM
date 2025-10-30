@@ -1,10 +1,7 @@
-import { bytesToBigInt } from "@synthesizer-libs/util"
 
 import { InvalidInputCountError, UndefinedSubcircuitError } from './errors.js'
 
 import type { RunState } from '../../interpreter.js'
-import type { ArithmeticOperator, DataPt, DataPtDescription } from '../types/index.js'
-import { BLS12831MODULUS } from "../constant/constants.js"
 
 /**
  * Class responsible for Synthesizer-related validations

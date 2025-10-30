@@ -73,20 +73,21 @@ template jubjubSubExp() {
 
     b * (1 - b) === 0;
 
-    // G_next <== G_prev + G_prev
-    G_next <== jubjubAdd()(G_prev, G_prev);
-
-    // P_next <== P_prev + ( b ? G_next : O )
+    // P_next <== P_prev + ( b ? G_prev : O )
     signal accP[2];
-    accP <== jubjubAdd()(P_prev, G_next);
+    accP <== jubjubAdd()(P_prev, G_prev);
     signal inter[2];
     inter[0] <== b * accP[0];
     inter[1] <== b * accP[1];
     P_next[0] <== (1 - b) * P_prev[0] + inter[0];
     P_next[1] <== (1 - b) * P_prev[1] + inter[1];
+
+    // G_next <== G_prev + G_prev
+    G_next <== jubjubAdd()(G_prev, G_prev);
 }
 
 template jubjubExp(N) {
+    // b[N] is assumued MSB-left
     signal input P_prev[2], G_prev[2], b[N];
     signal output P_next[2], G_next[2];
 
@@ -99,7 +100,7 @@ template jubjubExp(N) {
         subExp[i] = jubjubSubExp();
         subExp[i].P_prev <== inter_P[i];
         subExp[i].G_prev <== inter_G[i];
-        subExp[i].b <== b[i];
+        subExp[i].b <== b[N - i - 1];
         inter_P[i+1] <== subExp[i].P_next;
         inter_G[i+1] <== subExp[i].G_next;
     }

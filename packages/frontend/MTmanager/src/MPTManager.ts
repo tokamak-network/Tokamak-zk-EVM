@@ -130,8 +130,13 @@ export class MPT {
       for (const slot of this.userSlots){
         const key = getStorageKey([L1Addr, slot])
         const v   = await provider.getStorage(this.contractAddress.toString(), bytesToBigInt(key), this.blockNumber)
+        console.log(`L1 Key: ${bytesToHex(key)}, Value: ${v}`)
         const vBytes = hexToBytes(addHexPrefix(v))
-        await this._stateTrie.putStorage(this.contractAddress, key, vBytes)
+
+        const L2key = getStorageKey(['0x000', L1Addr, slot])
+        await this._stateTrie.putStorage(this.contractAddress, L2key, vBytes)
+
+        console.log(`L2 Key: ${bytesToHex(L2key)}, Value: ${await this._stateTrie.getStorage(this.contractAddress, L2key)}`)
       }
     }
     for (const slot of this.contractSlots) {

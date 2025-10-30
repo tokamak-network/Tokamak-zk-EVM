@@ -1,1 +1,2 @@
-export { createSynthesizerOptsForSimulationFromRPC } from './rpc.ts'
+export { mapToStr } from './debugging/utils.ts'
+export { createSynthesizerOptsForSimulationFromRPC } from './rpc/rpc.ts'

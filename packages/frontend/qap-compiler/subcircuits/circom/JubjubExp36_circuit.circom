@@ -9,6 +9,7 @@ template JubjubExp(N) {
     module.P_prev <== [in[0], in[1]];
     module.G_prev <== [in[2], in[3]];
     for (var i = 0; i < N; i++){
+        // b[i] must be MSB-left
         module.b[i] <== in[4+i];
     }
     out[0] <== module.P_next[0];

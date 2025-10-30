@@ -2,14 +2,18 @@ import { TxOptions, TxValuesArray } from "@ethereumjs/tx"
 import { TokamakL2Tx } from "./TokamakL2Tx.ts"
 import { TokamakL2TxData } from "./types.ts"
 import { EthereumJSErrorWithoutCode, RLP } from "@ethereumjs/rlp"
-import { validateNoLeadingZeroes } from "@ethereumjs/util"
+import { bytesToHex, toBytes, validateNoLeadingZeroes } from "@ethereumjs/util"
+import { ANY_LARGE_GAS_LIMIT, ANY_LARGE_GAS_PRICE } from "src/tokamak/params/index.ts"
 
 
 export function createTokamakL2Tx(txData: TokamakL2TxData, opts: TxOptions) {
-    if (opts.common === undefined) {
-        throw new Error("Required 'common.chainID', 'common.chainName', and 'common.customCrypto")
+    if (opts.common?.customCrypto === undefined) {
+        throw new Error("Required 'common.customCrypto'")
     }
-    return new TokamakL2Tx(txData, opts)
+    // Set the minimum gasLimit to execute VM._runTx
+    const tx =  new TokamakL2Tx({...txData, gasLimit: ANY_LARGE_GAS_LIMIT, gasPrice: ANY_LARGE_GAS_PRICE}, opts)
+    tx.initSenderPubKey(toBytes(txData.senderPubKey))
+    return tx
 }
 
 /**

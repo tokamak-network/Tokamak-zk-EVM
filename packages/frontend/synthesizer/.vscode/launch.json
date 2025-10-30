@@ -6,7 +6,7 @@
       "request": "launch",
       "name": "Launch with tsx",
       "runtimeExecutable": "tsx",
-      "program": "${workspaceFolder}/examples/demo/index.ts",
+      "program": "${workspaceFolder}/examples/synthesizer/mcopy.ts",
       "args": [],
       "cwd": "${workspaceFolder}/examples/demo",
       "skipFiles": ["<node_internals>/**"],

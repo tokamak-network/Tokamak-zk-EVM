@@ -9,7 +9,7 @@ export type TokamakL2TxData = {
   /**
    * The transaction's nonce.
    */
-  nonce?: BigIntLike
+  nonce: BigIntLike
 
   /**
    * The transaction's the address is sent to.
@@ -20,6 +20,8 @@ export type TokamakL2TxData = {
    * This will contain the data of the message or the init of a contract.
    */
   data: BytesLike
+
+  senderPubKey: BytesLike
 
   /**
    * EDDSA public key.

@@ -1,28 +1,29 @@
-import { DataPtFactory } from 'src/tokamak/pointers/dataPointFactory.js';
+import { DataPtFactory } from 'src/tokamak/core/synthesizer/dataStructure/dataPt.ts';
 import {
-  DEFAULT_SOURCE_BIT_SIZE,
-  FIRST_ARITHMETIC_PLACEMENT_INDEX,
-  MAX_TX_NUMBER,
-} from '../../../constant/index.ts';
-import {
-  ArithmeticOperator,
   BUFFER_PLACEMENT,
+  ISynthesizerProvider,
+  MemoryPts,
   PlacementEntry,
   VARIABLE_DESCRIPTION,
   type DataPt,
   type DataPtDescription,
   type Placements,
-  type ReservedBuffer,
   type ReservedVariable,
-  type SubcircuitInfoByName,
-  type SubcircuitNames,
   type SynthesizerOpts,
-} from '../../../types/index.ts';
-import { SubcircuitRegistry } from '../../../utils/index.ts';
+} from '../types/index.ts';
 import {jubjub} from '@noble/curves/misc';
-import { AddressLike, bigIntToHex } from '@ethereumjs/util';
-import { MemoryPt, MemoryPts, StackPt } from 'src/tokamak/pointers/index.ts';
-import { ISynthesizerProvider } from '../types.ts';
+import { AddressLike, bigIntToHex, bytesToBigInt, equalsBytes } from '@ethereumjs/util';
+import { MemoryPt, StackPt } from '../dataStructure/index.ts';
+import { DEFAULT_SOURCE_BIT_SIZE } from 'src/tokamak/params/index.ts';
+import { ArithmeticOperator, SubcircuitInfoByName, SubcircuitNames } from 'src/tokamak/interface/qapCompiler/configuredTypes.ts';
+import { FIRST_ARITHMETIC_PLACEMENT_INDEX, subcircuitInfoByName } from 'src/tokamak/interface/qapCompiler/importedConstants.ts';
+
+type CachedStorageEntry = {
+  indexPt: DataPt | null,
+  keyPt: DataPt | null,
+  valuePt: DataPt,
+  access: 'Read' | 'Write'
+}
 
 /**
  * Manages the state of the synthesizer, including placements, auxin, and subcircuit information.
@@ -35,17 +36,14 @@ export class StateManager {
   public memoryPt: MemoryPt = new MemoryPt()
   public placements: Placements = new Map()
   public subcircuitInfoByName: SubcircuitInfoByName = new Map()
-  public txNonce: number = -1
   public placementIndex: number = FIRST_ARITHMETIC_PLACEMENT_INDEX
 
-  public cachedStorage: Map<bigint, {index: number, keyPt: DataPt | undefined, valuePt: DataPt}> = new Map()
-  public cachedStaticIn: Map<bigint, DataPt> = new Map()
+  public cachedStorage: Map<bigint, CachedStorageEntry> = new Map()
+  public cachedEVMIn: Map<bigint, DataPt> = new Map()
   public cachedOrigin: DataPt | undefined = undefined
   public cachedReturnMemoryPts: MemoryPts = []
 
   public callMemoryPtsStack: MemoryPts[] = []
-  
-  public subcircuitNames!: SubcircuitNames[]
 
   constructor(parent: ISynthesizerProvider) {
     this.parent = parent
@@ -59,9 +57,6 @@ export class StateManager {
     outPts: DataPt[],
     usage: ArithmeticOperator,
   ) {
-    if (!this.subcircuitNames.includes(name)) {
-      throw new Error(`Subcircuit name ${name} is not defined`);
-    }
     for (const inPt of inPts) {
       if (typeof inPt.source !== 'number') {
         throw new Error(
@@ -91,10 +86,7 @@ export class StateManager {
    * Processes the raw subcircuit data to initialize `subcircuitInfoByName` and `subcircuitNames`.
    */
   private _initializeSubcircuitInfo(): void {
-    const { subcircuitInfoByName, subcircuitNames } =
-      SubcircuitRegistry.createForStateManager();
     this.subcircuitInfoByName = subcircuitInfoByName;
-    this.subcircuitNames = subcircuitNames;
   }
 
   public loadArbitraryStatic(
@@ -103,12 +95,12 @@ export class StateManager {
     desc?: string,
   ): DataPt {
     if (desc === undefined) {
-      const cachedDataPt = this.cachedStaticIn.get(value)
+      const cachedDataPt = this.cachedEVMIn.get(value)
       if (cachedDataPt !== undefined) {
-        return cachedDataPt
+        return DataPtFactory.deepCopy(cachedDataPt)
       }
     }
-    const placementIndex = BUFFER_PLACEMENT.STATIC_IN.placementIndex
+    const placementIndex = BUFFER_PLACEMENT.EVM_IN.placementIndex
     const inPtRaw: DataPtDescription = {
       extSource: desc ?? 'Arbitrary constant',
       sourceBitSize: bitSize ?? DEFAULT_SOURCE_BIT_SIZE * 8,
@@ -116,28 +108,60 @@ export class StateManager {
       wireIndex: this.placements.get(placementIndex)!.inPts.length,
     };
     const inPt = DataPtFactory.create(inPtRaw, value)
-    const outPt = this.parent.addWireToInBuffer(inPt, placementIndex)
-    this.parent.state.cachedStaticIn.set(value, outPt)
-    return outPt
+    const outPt = DataPtFactory.createBufferTwin(inPt)
+    this.parent.addWirePairToBufferIn(inPt, outPt, true)
+    this.parent.state.cachedEVMIn.set(value, outPt)
+    return DataPtFactory.deepCopy(outPt)
   }
 
-  public loadStorage(key: bigint): DataPt {
-    const cache = this.parent.state.cachedStorage.get(key)
-    if (cache === undefined) {
-      throw new Error(`Invalid access to the storage at an unregistered key "${bigIntToHex(key)}"`)
+  public loadStorage(key: bigint, value: bigint): DataPt {
+    const cachedStorage = this.cachedStorage.get(key)
+    
+    if (cachedStorage === undefined) {
+      // Cold storage access
+
+      // Register the initial storage in STORAGE_IN buffer
+      let valuePt: DataPt
+      let indexPt: DataPt | null = null
+      let keyPt: DataPt | null = null
+      const MTIndex = this.cachedOpts.stateManager.getMTIndex(key)
+      if (MTIndex >= 0) {
+        indexPt = this.parent.addReservedVariableToBufferIn('IN_MT_INDEX', BigInt(MTIndex), true)
+        keyPt = this.parent.addReservedVariableToBufferIn('IN_MPT_KEY', key, true)
+        // const value = await stateManager.getStorage(
+        //   this.cachedOpts.signedTransaction.to, 
+        //   this.cachedOpts.stateManager.registeredKeys![MTIndex]
+        // )
+        valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', value, true)
+        // TODO: Verifiy Merkle proof
+        const merkleTreeRootPt = this.parent.getReservedVariableFromBuffer('INI_MERKLE_ROOT')
+        
+      } else {
+        valuePt = this.parent.addReservedVariableToBufferIn('OTHER_CONTRACT_STORAGE_IN', value, true)
+      }
+      // Cache the storage value pointer
+      this.cachedStorage.set(key, {indexPt, keyPt, valuePt, access: 'Read'})
+      return DataPtFactory.deepCopy(valuePt)
+      
+    } else {
+      // Warm storage access
+      return DataPtFactory.deepCopy(cachedStorage.valuePt)
     }
-    return cache.valuePt
+    
   }
 
-  public storeStorage(key: bigint, inPt: DataPt): void {
-    const cache = this.parent.state.cachedStorage.get(key)
-    if (cache === undefined) {
-      throw new Error(`Invalid access to the storage at an unregistered key "${bigIntToHex(key)}"`)
+  public storeStorage(key: bigint, symbolDataPt: DataPt): void {
+    const cachedStorage = this.cachedStorage.get(key)
+    if (cachedStorage === undefined) {
+      const MTIndex = this.cachedOpts.stateManager.getMTIndex(key)
+      if (MTIndex >= 0 ) {
+        throw new Error('Storage writing at a user slot must be a warm access')
+      } else {
+        const valuePt = this.parent.addReservedVariableToBufferOut('OTHER_CONTRACT_STORAGE_OUT', symbolDataPt, true)
+        this.cachedStorage.set(key, {indexPt: null, keyPt: null, valuePt, access: 'Write'})
+      }
+    } else {
+      this.cachedStorage.set(key, {...cachedStorage, valuePt: symbolDataPt, access: 'Write'})
     }
-    this.parent.state.cachedStorage.set(key, {
-      index: cache.index,
-      keyPt: undefined,
-      valuePt: inPt,
-    })
   }
 }

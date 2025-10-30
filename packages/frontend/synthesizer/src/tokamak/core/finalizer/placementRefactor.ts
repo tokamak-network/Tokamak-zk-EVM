@@ -1,21 +1,6 @@
-import {
-  bigIntToBytes,
-  bytesToHex,
-  setLengthLeft,
-} from '@synthesizer-libs/util';
 
-import {
-  BUFFER_PLACEMENT,
-  setupParams,
-} from '../../constant/index.js';
-import type {
-  DataPt,
-  PlacementEntry,
-  Placements,
-  SubcircuitInfoByName,
-  SubcircuitNames,
-} from '../../types/index.js';
 import type { StateManager } from '../synthesizer/handlers/stateManager.ts';
+import { Placements } from '../synthesizer/types/index.ts';
 
 export class PlacementRefactor {
   private state: StateManager;

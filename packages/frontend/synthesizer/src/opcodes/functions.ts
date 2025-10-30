@@ -38,7 +38,7 @@ import {
   synthesizerArith,
   synthesizerBlkInf,
   synthesizerEnvInf,
-} from '../tokamak/core/synthesizer/handlers/instructionHandlers.ts';
+} from '../tokamak/core/synthesizer/handlers/instructionHandler.ts';
 import {
   copyMemoryRegion,
   simulateMemoryPt,
@@ -61,7 +61,7 @@ import {
 import type { RunState } from '../interpreter.js';
 import type { MemoryPtEntry, MemoryPts } from '../tokamak/pointers/index.js';
 import type { Common } from '@synthesizer-libs/common';
-import { DEFAULT_SOURCE_SIZE } from '../tokamak/constant/constants.js';
+import { DEFAULT_SOURCE_SIZE } from '../tokamak/params/index.ts';
 
 import { SynthesizerValidator } from '../tokamak/validation/index.js';
 import { chunkMemory, writeCallOutputPt } from 'src/tokamak/utils/index.js';

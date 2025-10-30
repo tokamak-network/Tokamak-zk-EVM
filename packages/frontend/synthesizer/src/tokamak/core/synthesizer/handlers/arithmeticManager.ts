@@ -1,43 +1,16 @@
 import {
-  DEFAULT_SOURCE_BIT_SIZE,
-  ACCUMULATOR_INPUT_LIMIT,
-} from '../../../constant/index.ts';
-import {
   InvalidInputCountError,
   SynthesizerError,
 } from '../../../validation/index.ts';
-import { StateManager } from './stateManager.ts';
-import type { ISynthesizerProvider } from './index.ts';
-
-import type { ArithmeticOperator } from '../../../types/index.ts';
-import {
-  SUBCIRCUIT_MAPPING,
-  type DataPt,
-  type SubcircuitNames,
-} from '../../../types/index.ts';
-import { DataPtFactory } from 'src/tokamak/pointers/index.ts';
-import { ARITHMETIC_MAPPING } from 'src/tokamak/operations/index.ts';
 import { BIGINT_1 } from '@ethereumjs/util';
-
-/**
- * Executes an arithmetic operation on the given values.
- *
- * @param {ArithmeticOperator} name - The name of the arithmetic operation.
- * @param {bigint[]} values - An array of bigint values as input for the operation.
- * @returns {bigint | bigint[]} The result of the operation.
- */
-export function executeOperation(
-  name: ArithmeticOperator,
-  values: bigint[],
-): bigint[] {
-  const operation = ARITHMETIC_MAPPING[name];
-  const out = operation(values)
-  if (!Array.isArray(out)) {
-    return [out]
-  } else {
-    return out
-  }
-}
+import { DataPt, ISynthesizerProvider } from '../types/index.ts';
+import { poseidon4 } from 'poseidon-bls12381';
+import { DataPtFactory } from '../dataStructure/index.ts';
+import { DEFAULT_SOURCE_BIT_SIZE } from 'src/tokamak/params/index.ts';
+import { ArithmeticOperator, SUBCIRCUIT_MAPPING, SubcircuitNames } from 'src/tokamak/interface/qapCompiler/configuredTypes.ts';
+import { jubjub } from '@noble/curves/misc';
+import { ArithmeticOperations } from '../dataStructure/arithmeticOperations.ts';
+import { POSEIDON_INPUTS } from 'src/tokamak/interface/qapCompiler/importedConstants.ts';
 
 export class ArithmeticManager {
   constructor(
@@ -59,19 +32,19 @@ export class ArithmeticManager {
     const outValue: bigint[] = executeOperation(name, values);
 
     const source = this.parent.placementIndex;
-    let sourceBitSize: number = DEFAULT_SOURCE_BIT_SIZE
-    if (name === 
-      'DecToBit'||
-      'PreparedEdDsaScalars'
-    ) {
-      sourceBitSize = 1
-    }
-    if (name === 
-      'Poseidon4'||
-      'JubjubEXP36'||
-      'EdDsaVerify'
-    ) {
-      sourceBitSize = 255
+    let sourceBitSize: number
+    switch (name) {
+      case 'DecToBit':
+      case 'PrepareEdDsaScalars': 
+        sourceBitSize = 1
+        break
+      case 'Poseidon':
+      case 'JubjubExp36':
+      case 'EdDsaVerify':
+        sourceBitSize = 255
+        break
+      default:
+        sourceBitSize = DEFAULT_SOURCE_BIT_SIZE
     }
 
     return outValue.length > 0
@@ -140,7 +113,7 @@ export class ArithmeticManager {
       );
       this.parent.place(subcircuitName, finalInPts, outPts, name);
 
-      return outPts;
+      return DataPtFactory.deepCopy(outPts);
     } catch (error) {
       if (error instanceof InvalidInputCountError) {
         /*eslint-disable*/
@@ -154,6 +127,32 @@ export class ArithmeticManager {
     }
   }
 
+  public placePoseidon(inPts: DataPt[]): DataPt {
+    // Ensure arity matches the concrete Poseidon4 we call
+      if (POSEIDON_INPUTS !== 4) {
+          throw new Error(`POSEIDON_INPUTS=${POSEIDON_INPUTS} not supported: expected 4 for poseidon4()`);
+      }
+      // Fold in chunks of POSEIDON_INPUTS; zero-pad tail; **strict field check** (no modular reduction)
+      const foldOnce = (arr: DataPt[]): DataPt[] => {
+          const total = Math.ceil(arr.length / POSEIDON_INPUTS) * POSEIDON_INPUTS;
+          const out: DataPt[] = [];
+          for (let i = 0; i < total; i += POSEIDON_INPUTS) {
+              const chunk = Array.from({ length: POSEIDON_INPUTS }, (_, k) => arr[i + k] ?? this.parent.loadArbitraryStatic(0n, 1));
+              // Every word must be within the field [0, MOD)
+              // chunk.map(checkBLS12Modulus)
+              out.push(...this.placeArith('Poseidon', chunk));
+          }
+          return out;
+      };
+  
+      // Repeatedly fold until a single word remains
+      let acc = foldOnce(inPts);
+      while (acc.length > 1) acc = foldOnce(acc);
+  
+      // Return big-endian bytes of the field element; caller decides fixed-length padding if needed
+      return DataPtFactory.deepCopy(acc[0])
+  }
+
   public placeExp(inPts: DataPt[]): DataPt {
     const synthesizer = this.parent
     // a^b
@@ -163,10 +162,10 @@ export class ArithmeticManager {
 
     // Handle base cases for exponent
     if (bNum === 0) {
-      return synthesizer.loadArbitraryStatic(BIGINT_1, 1);
+      return DataPtFactory.deepCopy(synthesizer.loadArbitraryStatic(BIGINT_1, 1));
     }
     if (bNum === 1) {
-      return aPt;
+      return DataPtFactory.deepCopy(aPt);
     }
 
     const k = Math.floor(Math.log2(bNum)) + 1; //bit length of b
@@ -186,7 +185,7 @@ export class ArithmeticManager {
       ahPts.push(_outPts[1]);
     }
 
-    return chPts[chPts.length - 1];
+    return DataPtFactory.deepCopy(chPts[chPts.length - 1]);
   }
 
   public placeJubjubExp(inPts: DataPt[], PoI: DataPt[]): DataPt[] {
@@ -198,26 +197,97 @@ export class ArithmeticManager {
       throw new Error('Invalid input to placeJubjubExp')
     }
     const base: DataPt[] = inPts.slice(0, 2)
-    const scalar_bits: DataPt[] = inPts.slice(2, -1)
+    // Make sure that the input scalar bits are in MSB first
+    const scalar_bits_MSB: DataPt[] = inPts.slice(2, )
 
     const scalar_bits_chunk: DataPt[][] = Array.from({ length: NUM_CHUNKS }, (_, i) =>
-      scalar_bits.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE),
+      scalar_bits_MSB.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE),
     )
 
     if (PoI.length !== 2) {
       throw new Error('Invalid input to placeJubjubExp')
     }
-    var P: DataPt[] = PoI
-    var G: DataPt[] = base
+    var P: DataPt[] = PoI.slice()
+    var G: DataPt[] = base.slice()
     for (var i = 0; i < NUM_CHUNKS; i++) {
-      const inPts: DataPt[] = [...P, ...G, ...scalar_bits_chunk[i]]
-      const outPts: DataPt[] = this.parent.placeArith('JubjubExp36', inPts)
+      const prevP = P.slice()
+      const prevG = G.slice()
+      // LSB first
+      const chunkedInPts: DataPt[] = [...prevP, ...prevG, ...scalar_bits_chunk[NUM_CHUNKS - i - 1]]
+      const outPts: DataPt[] = this.parent.placeArith('JubjubExp36', chunkedInPts)
       if (outPts.length !== 4) {
         throw new Error('Something wrong with JubjubExp36')
       }
-      P = outPts.slice(0, 2)
-      G = outPts.slice(2, -1)
+      P = [outPts[0], outPts[1]]
+      G = outPts.slice(2, )
+
+      //TESTED
+      const base_edwards = jubjub.Point.fromAffine({x: base[0].value, y: base[1].value})
+      const exponent = scalar_bits_chunk.slice(NUM_CHUNKS - i - 1, ).flat().map(pt => pt.value).reduce((acc, b) => (acc << 1n) | b, 0n)
+      const P_plain = base_edwards.multiply(exponent)
+      const P_edwards = jubjub.Point.fromAffine({x: P[0].value, y: P[1].value})
+      if (!P_plain.equals(P_edwards)) {
+        throw new Error('JubjubExp mismatch from the reference')
+      }
     }
-    return P
+
+    return DataPtFactory.deepCopy(P)
   }
 }
+
+/**
+ * Executes an arithmetic operation on the given values.
+ *
+ * @param {ArithmeticOperator} name - The name of the arithmetic operation.
+ * @param {bigint[]} values - An array of bigint values as input for the operation.
+ * @returns {bigint | bigint[]} The result of the operation.
+ */
+function executeOperation(
+  name: ArithmeticOperator,
+  values: bigint[],
+): bigint[] {
+  const operation = ARITHMETIC_MAPPING[name];
+  const out = operation(values)
+  if (!Array.isArray(out)) {
+    return [out]
+  } else {
+    return out
+  }
+}
+
+// Operator and function mapping
+const ARITHMETIC_MAPPING: Record<ArithmeticOperator, (...args: any) => any> = {
+  ADD: ArithmeticOperations.add,
+  MUL: ArithmeticOperations.mul,
+  SUB: ArithmeticOperations.sub,
+  DIV: ArithmeticOperations.div,
+  SDIV: ArithmeticOperations.sdiv,
+  MOD: ArithmeticOperations.mod,
+  SMOD: ArithmeticOperations.smod,
+  ADDMOD: ArithmeticOperations.addmod,
+  MULMOD: ArithmeticOperations.mulmod,
+  EXP: ArithmeticOperations.subEXP, //not directly used
+  LT: ArithmeticOperations.lt,
+  GT: ArithmeticOperations.gt,
+  SLT: ArithmeticOperations.slt,
+  SGT: ArithmeticOperations.sgt,
+  EQ: ArithmeticOperations.eq,
+  ISZERO: ArithmeticOperations.iszero,
+  AND: ArithmeticOperations.and,
+  OR: ArithmeticOperations.or,
+  XOR: ArithmeticOperations.xor,
+  NOT: ArithmeticOperations.not,
+  SHL: ArithmeticOperations.shl,
+  SHR: ArithmeticOperations.shr,
+  SAR: ArithmeticOperations.sar,
+  BYTE: ArithmeticOperations.byte,
+  SIGNEXTEND: ArithmeticOperations.signextend,
+  DecToBit: ArithmeticOperations.decToBit,
+  SubEXP: ArithmeticOperations.subEXP,
+  Accumulator: ArithmeticOperations.accumulator,
+  Poseidon: ArithmeticOperations.poseidonN,
+  PrepareEdDsaScalars: ArithmeticOperations.prepareEdDsaScalars,
+  JubjubExp36: ArithmeticOperations.jubjubExp36,
+  EdDsaVerify: ArithmeticOperations.edDsaVerify,
+} as const
+

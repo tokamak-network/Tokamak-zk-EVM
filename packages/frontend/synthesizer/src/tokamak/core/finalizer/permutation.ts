@@ -1,38 +1,12 @@
-import {
-  bigIntToBytes,
-  bytesToHex,
-  setLengthLeft,
-} from '@synthesizer-libs/util';
 import fs from 'fs';
 import { readFileSync } from 'fs';
 import path from 'path';
 import appRootPath from 'app-root-path';
 
-import { globalWireList, setupParams, wasmDir } from '../../constant/index.js';
-import {
-  INITIAL_PLACEMENT_INDEX,
-  PRV_IN_PLACEMENT_INDEX,
-  PRV_OUT_PLACEMENT_INDEX,
-  PUB_IN_PLACEMENT_INDEX,
-  PUB_OUT_PLACEMENT_INDEX,
-} from '../../constant/index.js';
+import { globalWireList, setupParams, wasmDir } from '../../interface/qapCompiler/importedConstants.ts';
 
-import { builder } from '../../utils/witness_calculator.js';
+import { builder } from './witness_calculator.ts';
 
-import type {
-  DataPt,
-  PlacementEntry,
-  PlacementVariables,
-  Placements,
-  SubcircuitInfoByName,
-  SubcircuitInfoByNameEntry,
-  SubcircuitNames,
-  GlobalWireList,
-  SubcircuitInfoWithFlattenMap,
-} from '../../types/index.js';
-import { hasValidFlattenMap } from '../../types/index.js';
-import { SubcircuitRegistry } from '../../utils/index.js';
-import { subcircuits as subcircuitInfos } from '../../constant/index.js';
 
 type PlacementWireIndex = { globalWireId: number; placementId: number };
 

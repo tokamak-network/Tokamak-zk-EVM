@@ -1,19 +1,9 @@
-import { ACCUMULATOR_INPUT_LIMIT } from '../../../constant/index.ts';
-import {
-  DataPtFactory,
-  MemoryPt,
-  MemoryPtEntry,
-  type DataAliasInfoEntry,
-  type DataAliasInfos,
-  type MemoryPts,
-} from '../../../pointers/index.ts';
-import type { DataPt, DataPtDescription, ArithmeticOperator } from '../../../types/index.ts';
-import { ISynthesizerProvider } from './index.ts';
+import { DataAliasInfoEntry, DataAliasInfos, DataPt, DataPtDescription, ISynthesizerProvider, MemoryPtEntry, MemoryPts } from '../types/index.ts';
+import { DataPtFactory, MemoryPt } from '../dataStructure/index.ts';
+import { ACCUMULATOR_INPUT_LIMIT } from 'src/tokamak/interface/qapCompiler/importedConstants.ts';
+import { ArithmeticOperator } from 'src/tokamak/interface/qapCompiler/configuredTypes.ts';
 
 export class MemoryManager {
-  public envCalldataMemoryPts: MemoryPts = []
-  public envReturnMemoryPts: MemoryPts = []
-
   constructor(
     private parent: ISynthesizerProvider,
   ) {}
@@ -40,19 +30,19 @@ export class MemoryManager {
         const outPts: DataPt[] = [DataPtFactory.create(rawOutPt, outValue)];
         this.parent.place(subcircuitName, inPts, outPts, subcircuitName);
 
-        return outPts[0];
+        return DataPtFactory.deepCopy(outPts[0]);
       }
     }
     const outPt = dataPt;
     outPt.sourceBitSize = truncBitSize;
-    return outPt;
+    return DataPtFactory.deepCopy(outPt);
   }
 
   public placeMemoryToStack(dataAliasInfos: DataAliasInfos): DataPt {
     if (dataAliasInfos.length === 0) {
       throw new Error(`Synthesizer: placeMemoryToStack: Noting tho load`);
     }
-    return this.combineMemorySlices(dataAliasInfos);
+    return DataPtFactory.deepCopy(this.combineMemorySlices(dataAliasInfos));
   }
 
   public placeMemoryToMemory(dataAliasInfos: DataAliasInfos): DataPt[] {
@@ -64,7 +54,7 @@ export class MemoryManager {
       // the lower index, the older data
       copiedDataPts.push(this.applyMask(info, true));
     }
-    return copiedDataPts;
+    return DataPtFactory.deepCopy(copiedDataPts);
   }
 
   private calculateViewAdjustment(

@@ -9,7 +9,7 @@ import { Finalizer } from '../tokamak/core/finalizer/index.js';
 import { Permutation } from '../tokamak/core/finalizer/permutation.js';
 import { createEVM } from '../constructors.js';
 import { ExecResult } from '../types.js';
-import { PRV_OUT_PLACEMENT_INDEX } from '../tokamak/constant/constants.js';
+import { PRV_OUT_PLACEMENT_INDEX } from '../tokamak/params/index.ts';
 
 export class SynthesizerAdapter {
   private rpcUrl: string;
