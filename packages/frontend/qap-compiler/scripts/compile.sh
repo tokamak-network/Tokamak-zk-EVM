@@ -1,7 +1,7 @@
 # The buffers must be placed in the following order: "bufferPubOut" "bufferPubIn" "bufferPrvOut" "bufferPrvIn"
 
 # Library configuration for n=1024
-names=("bufferPubOut" "bufferPubIn" "bufferBlockIn" "bufferEVMIn" "bufferPrvIn" "ALU1" "ALU2" "ALU3" "ALU4" "ALU5" "OR" "XOR" "AND" "DecToBit" "Accumulator" "Poseidon" "PrepareEdDsaScalars" "JubjubExp36" "EdDsaVerify")
+names=("bufferPubOut" "bufferPubIn" "bufferBlockIn" "bufferEVMIn" "bufferPrvIn" "ALU1" "ALU2" "ALU3" "ALU4" "ALU5" "OR" "XOR" "AND" "DecToBit" "Accumulator" "Poseidon" "PrepareEdDsaScalars" "JubjubExp36" "EdDsaVerify" "VerifyMerkleProof")
 # names=("bufferPubOut" "bufferPubIn" "bufferPrvOut" "bufferPrvIn" "Poseidon" "PrepareEdDsaScalars" "JubjubExp36" "EdDsaVerify")
 
 # Library configuration for n=2048

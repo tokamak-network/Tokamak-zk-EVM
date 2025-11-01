@@ -14,12 +14,12 @@ import {
 } from '@ethereumjs/util'
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 import { ExecResult, InterpreterStep } from '@ethereumjs/evm'
-import { RunState } from 'src/interpreter.ts';
-import { DEFAULT_SOURCE_BIT_SIZE } from 'src/synthesizer/params/index.ts';
+import { DEFAULT_SOURCE_BIT_SIZE, poseidon_raw } from 'src/synthesizer/params/index.ts';
 import { DataPtFactory, MemoryPt } from '../dataStructure/index.ts';
 import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from 'src/interface/qapCompiler/configuredTypes.ts';
 import { poseidon } from 'src/TokamakL2JS/index.ts';
 import { jubjub } from '@noble/curves/misc';
+import { MT_DEPTH, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
 
 export interface HandlerOpts {
     op: SynthesizerSupportedOpcodes,
@@ -32,7 +32,7 @@ export interface HandlerOpts {
 }
 
 export interface SynthesizerOpHandler {
-  (prevStepResult: InterpreterStep, afterStepResult: InterpreterStep): void
+  (prevStepResult: InterpreterStep, afterStepResult: InterpreterStep): void | Promise<void>
 }
 
 const checkRequiredInput = (...input: unknown[]): void => {
@@ -158,7 +158,7 @@ export class InstructionHandler {
       const op: number = synthesizerOpcodeByName[opName]
       this.synthesizerHandlers.set(
         op,
-        (prevStepResult, afterStepResult) => {
+        async (prevStepResult, afterStepResult) => {
           const out: bigint | null = afterStepResult.stack[0] ?? null
           const opts: HandlerOpts = {
             op: opName,
@@ -235,7 +235,7 @@ export class InstructionHandler {
               break
           }
           const ins = prevStepResult.stack.slice(0, nIns)
-          this.handleSysFlow(ins, out, opts)
+          await this.handleSysFlow(ins, out, opts)
         },
       )
     }
@@ -450,6 +450,186 @@ export class InstructionHandler {
     const addrMaskPt: DataPt = this.parent.getReservedVariableFromBuffer('ADDRESS_MASK')
     this.parent.state.cachedOrigin = this.parent.placeArith('AND', [hashPt, addrMaskPt])[0]
     return DataPtFactory.deepCopy(this.parent.state.cachedOrigin!)
+  }
+
+  // public async loadStorage(key: bigint, value?: bigint, verify: boolean = true): Promise<DataPt> {
+  //   const cachedStorage = this.parent.state.cachedStorage.get(key)
+    
+  //   if (cachedStorage === undefined) {
+  //     // Cold storage access
+
+  //     // Register the initial storage in STORAGE_IN buffer
+  //     let valuePt: DataPt
+  //     let indexPt: DataPt | null = null
+  //     let keyPt: DataPt | null = null
+  //     const MTIndex = this.cachedOpts.stateManager.getMTIndex(key)
+  //     if (MTIndex >= 0) {
+  //       indexPt = this.parent.addReservedVariableToBufferIn('IN_MT_INDEX', BigInt(MTIndex), true)
+  //       keyPt = this.parent.addReservedVariableToBufferIn('IN_MPT_KEY', key, true, `at MT index ${MTIndex}`)
+  //       const valueStored = bytesToBigInt(await this.cachedOpts.stateManager.getStorage(
+  //         this.cachedOpts.signedTransaction.to, 
+  //         this.cachedOpts.stateManager.registeredKeys![MTIndex]
+  //       ))
+
+  //       if (value !== undefined) {
+  //         if (value !== valueStored) {
+  //           throw new Error('Mismatch in storage values') 
+  //         }
+  //       }
+  //       valuePt = this.parent.addReservedVariableToBufferIn(
+  //         'IN_VALUE', 
+  //         value ?? valueStored, 
+  //         true, 
+  //         `at MT index ${MTIndex}`
+  //       )
+        
+  //       if (verify === true) {
+  //         // pathIndices of this proof generation is incorrect. The indices are based on binary, but we are using 4-ary.
+  //         const merkleProof = this.cachedOpts.stateManager.initialMerkleTree.createProof(MTIndex)
+          
+  //         const computeParentNode = (childIndex: bigint, child: bigint, siblings: bigint[]): {parentIndex: bigint, parent: bigint} => {
+  //           if (siblings.length !== POSEIDON_INPUTS - 1) {
+  //             throw new Error(`Expected ${POSEIDON_INPUTS - 1} siblings, but got ${siblings.length} siblings`)
+  //           }
+  //           const localIndex = Number(childIndex) % POSEIDON_INPUTS
+  //           const arrangedChildren = [...siblings.slice(0, localIndex), child, ...siblings.slice(localIndex, )]
+  //           return {
+  //             parentIndex: BigInt(Math.floor(Number(childIndex) / POSEIDON_INPUTS)),
+  //             parent: poseidon_raw(arrangedChildren)
+  //           }
+  //         }
+  //         let childPt: DataPt = this.parent.placeArith('Poseidon', [indexPt, keyPt, valuePt, this.parent.loadArbitraryStatic(0n, 1)])[0]
+  //         let childIndexPt: DataPt = indexPt
+  //         for (var level = 0; level < MT_DEPTH - 1; level++) {
+  //           const {parentIndex, parent} = computeParentNode(childIndexPt.value, childPt.value, merkleProof.siblings[level])
+  //           const parentPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', parent, true, `for initial storage input indexed by ${MTIndex}`)
+  //           const parentIndexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', parentIndex, true, `for initial storage input indexed by ${MTIndex}`)
+  //           const siblingPts: DataPt[] = []
+  //           for (const sibling of merkleProof.siblings[level]) {
+  //             siblingPts.push(this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', sibling, true, `for initial storage input indexed by ${MTIndex}`))
+  //           }
+  //           this.parent.placeArith('VerifyMerkleProof', [
+  //             childIndexPt,
+  //             childPt,
+  //             ...siblingPts,
+  //             parentIndexPt,
+  //             parentPt,
+  //           ])
+  //           childIndexPt = parentIndexPt
+  //           childPt = parentPt
+  //         }
+  //         const siblingPts: DataPt[] = []
+  //         for (const sibling of merkleProof.siblings[MT_DEPTH - 1]) {
+  //             siblingPts.push(this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', sibling, true, `for initial storage input indexed by ${MTIndex}`))
+  //           }
+  //         this.parent.placeArith('VerifyMerkleProof', [
+  //           childIndexPt,
+  //           childPt,
+  //           ...siblingPts,
+  //           this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', 0n, true, `for initial storage input indexed by ${MTIndex}`),
+  //           this.parent.getReservedVariableFromBuffer('INI_MERKLE_ROOT'),
+  //         ])
+  //       }
+        
+  //     } else {
+  //       if (value === undefined) {
+  //         throw new Error('Storage value must be presented') 
+  //       }
+  //       valuePt = this.parent.addReservedVariableToBufferIn('OTHER_CONTRACT_STORAGE_IN', value, true, `at MPT key ${bigIntToHex(key)}`)
+  //     }
+  //     // Cache the storage value pointer
+  //     this.parent.state.cachedStorage.set(key, {indexPt, keyPt, valuePt, access: 'Read'})
+  //     return DataPtFactory.deepCopy(valuePt)
+      
+  //   } else {
+  //     // Warm storage access
+  //     return DataPtFactory.deepCopy(cachedStorage.valuePt)
+  //   }
+    
+  // }
+
+  public async loadStorage(key: bigint, value?: bigint): Promise<DataPt> {
+    const cached = this.parent.state.cachedStorage.get(key);
+
+    // Warm access: previously cached entries exist
+    if (cached && cached.length > 0) {
+      return DataPtFactory.deepCopy(cached[cached.length - 1]!.valuePt);
+    }
+
+    // Determine if this key is one of the registered user slots (Merkle tree indexed)
+    const MTIndex = this.cachedOpts.stateManager.getMTIndex(key);
+
+    if (MTIndex >= 0) {
+      // Cold access to user storage
+      const indexPt = this.parent.addReservedVariableToBufferIn('IN_MT_INDEX', BigInt(MTIndex), true);
+      const keyPt = this.parent.addReservedVariableToBufferIn('IN_MPT_KEY', key, true, `at MT index ${MTIndex}`);
+
+      const valueStored = bytesToBigInt(
+        await this.cachedOpts.stateManager.getStorage(
+          this.cachedOpts.signedTransaction.to,
+          this.cachedOpts.stateManager.registeredKeys![MTIndex],
+        ),
+      );
+
+      if (value !== undefined && value !== valueStored) {
+        throw new Error('Mismatch in storage values');
+      }
+
+      const resolved = value ?? valueStored;
+      const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', resolved, true, `at MT index ${MTIndex}`);
+
+      const entry = { indexPt, keyPt, valuePt, access: 'Read' as const };
+      if (cached) {
+        cached.push(entry);
+      } else {
+        this.parent.state.cachedStorage.set(key, [entry]);
+      }
+      return DataPtFactory.deepCopy(valuePt);
+    }
+
+    // Cold access to general contract storage (non-user slot)
+    if (value === undefined) {
+      throw new Error('Storage value must be presented');
+    }
+    const valuePt = this.parent.addReservedVariableToBufferIn(
+      'OTHER_CONTRACT_STORAGE_IN',
+      value,
+      true,
+      `at MPT key ${bigIntToHex(key)}`,
+    );
+    this.parent.state.cachedStorage.set(key, [{ indexPt: null, keyPt: null, valuePt, access: 'Read' }]);
+    return DataPtFactory.deepCopy(valuePt);
+  }
+
+  public async storeStorage(key: bigint, symbolDataPt: DataPt): Promise<void> {
+    const cached = this.parent.state.cachedStorage.get(key);
+    const MTIndex = this.cachedOpts.stateManager.getMTIndex(key);
+
+    if (MTIndex >= 0) {
+      // If no cache (or empty), this is a cold write
+      if (!cached || cached.length === 0) {
+         throw new Error('Storage writing at a user slot is expected to be warm access');
+        // For odd cases, you could warm it first then retry:
+        // await this.loadStorage(key, undefined, false);
+        // return this.storeStorage(key, symbolDataPt);
+      } else {
+        cached.push({ 
+          indexPt: cached[cached.length - 1].indexPt, 
+          keyPt: cached[cached.length - 1].keyPt, 
+          valuePt: symbolDataPt, 
+          access: 'Write' as const 
+        });
+        // User slot must be warm (already loaded via loadStorage)
+      }
+    } else {
+      if (!cached || cached.length === 0) {
+         this.parent.state.cachedStorage.set(key, [
+          { indexPt: null, keyPt: null, valuePt: symbolDataPt, access: 'Write' as const },
+        ]);
+      } else {
+        cached.push({ indexPt: null, keyPt: null, valuePt: symbolDataPt, access: 'Write' as const })
+      }
+    }
   }
 
   public handleArith = (
@@ -769,11 +949,11 @@ export class InstructionHandler {
     }
   }
 
-  public handleSysFlow(
+  public async handleSysFlow(
     ins: bigint[],
     out: bigint | null,
     opts: HandlerOpts,
-  ): void {
+  ): Promise<void> {
     const op = opts.op as SynthesizerSupportedSysFlowOpcodes
     const stackPt = this.parent.state.stackPt
     const memoryPt = this.parent.state.memoryPt
@@ -810,14 +990,14 @@ export class InstructionHandler {
       case 'SLOAD': 
         {
           const key = ins[0]
-          stackPt.push(this.parent.loadStorage(key, out!))
+          stackPt.push(await this.loadStorage(key, out!))
         }
         break
       case 'SSTORE': 
         {
           const key = ins[0]
           const dataPt = inPts[1]
-          this.parent.storeStorage(key, dataPt)
+          this.storeStorage(key, dataPt)
           if ( dataPt.value !== ins[1] ) {
             throw new Error(`Synthesizer: ${op}: Output storage data mismatch`)
           } 

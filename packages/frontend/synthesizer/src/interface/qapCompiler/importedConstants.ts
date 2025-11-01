@@ -29,8 +29,9 @@ export const wasmDir = fileURLToPath(new URL('wasm/', BASE_URL));
 const qapCompilerParams = await loadCircomConstants() as CircomConstMap
 export const ACCUMULATOR_INPUT_LIMIT = qapCompilerParams.nAccumulation
 // export const MAX_TX_NUMBER = qapCompilerParams.nTx
-export const MAX_MT_LEAVES = qapCompilerParams.nMtLeaves
+export const MT_DEPTH = qapCompilerParams.nMtDepth
 export const POSEIDON_INPUTS = qapCompilerParams.nPoseidonInputs
+export const MAX_MT_LEAVES = POSEIDON_INPUTS ** MT_DEPTH
 export const NUMBER_OF_PREV_BLOCK_HASHES = qapCompilerParams.nPrevBlockHashes
 
 export const FIRST_ARITHMETIC_PLACEMENT_INDEX = BUFFER_LIST.length

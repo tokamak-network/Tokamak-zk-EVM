@@ -9,7 +9,7 @@ export type BufferPlacement = {
 };
 
 export type ReservedVariable =
-    // PUBLIC_OUT (Static + Dynamic)
+    // PUBLIC_OUT (Dynamic)
     | 'RES_MERKLE_ROOT'
     | 'OTHER_CONTRACT_STORAGE_OUT'
     // PUBLIC_IN (Static + Dynmaic)
@@ -283,7 +283,7 @@ export type ReservedVariable =
     | 'BLOCKHASH_254'
     | 'BLOCKHASH_255'
     | 'BLOCKHASH_256'
-    // WITNESS (Static + Dynamic)
+    // PRIVATE_IN (Static + Dynamic)
     | 'TRANSACTION_NONCE'
     | 'CONTRACT_ADDRESS'
     | 'FUNCTION_SELECTOR'
@@ -302,12 +302,17 @@ export type ReservedVariable =
     | 'IN_MT_INDEX'
     | 'IN_MPT_KEY'
     | 'IN_VALUE'
+    | 'MERKLE_PROOF'
     // EVM_IN (Static + Dynamic)
     | 'ADDRESS_MASK'
     | 'JUBJUB_BASE_X'
     | 'JUBJUB_BASE_Y'
     | 'JUBJUB_POI_X'
     | 'JUBJUB_POI_Y'
+    | 'NULL_POSEIDON_LEVEL0'
+    | 'NULL_POSEIDON_LEVEL1'
+    | 'NULL_POSEIDON_LEVEL2'
+    | 'NULL_POSEIDON_LEVEL3'
     
     
 
@@ -382,7 +387,7 @@ export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> =
     extDest: `Resulting Merkle tree root hash`,
     source: BUFFER_PLACEMENT.PUBLIC_OUT.placementIndex,
     sourceBitSize: 255,
-    wireIndex: 0,
+    wireIndex: -1,
   },
   OTHER_CONTRACT_STORAGE_OUT: {
     extDest: `Writing general data on contract's storage other than users'`,
@@ -497,6 +502,30 @@ export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> =
     sourceBitSize: 255,
     wireIndex: 4,
   },
+  NULL_POSEIDON_LEVEL0: {
+    extSource: `Poseidon of zeros`,
+    source: BUFFER_PLACEMENT.EVM_IN.placementIndex,
+    sourceBitSize: 255,
+    wireIndex: 5,
+  },
+  NULL_POSEIDON_LEVEL1: {
+    extSource: `Poseidon of Poseidons of zeros`,
+    source: BUFFER_PLACEMENT.EVM_IN.placementIndex,
+    sourceBitSize: 255,
+    wireIndex: 6,
+  },
+  NULL_POSEIDON_LEVEL2: {
+    extSource: `Poseidon of Poseidons of Poseidons of zeros`,
+    source: BUFFER_PLACEMENT.EVM_IN.placementIndex,
+    sourceBitSize: 255,
+    wireIndex: 7,
+  },
+  NULL_POSEIDON_LEVEL3: {
+    extSource: `Poseidon of Poseidons of Poseidons of Poseidons of zeros`,
+    source: BUFFER_PLACEMENT.EVM_IN.placementIndex,
+    sourceBitSize: 255,
+    wireIndex: 8,
+  },
 
   CONTRACT_ADDRESS: {
     extSource: `Contract address to call`,
@@ -602,9 +631,15 @@ export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> =
     wireIndex: -1, //Dynamic
   },
   IN_VALUE: {
-    extSource: `A user's inital storage value`,
+    extSource: `A user's inital storage value (restricted to 255-bit word)`,
     source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
-    sourceBitSize: 256,
+    sourceBitSize: 255,
+    wireIndex: -1, //Dynamic
+  },
+  MERKLE_PROOF: {
+    extSource: `Merkle proof component`,
+    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
+    sourceBitSize: 255,
     wireIndex: -1, //Dynamic
   },
 

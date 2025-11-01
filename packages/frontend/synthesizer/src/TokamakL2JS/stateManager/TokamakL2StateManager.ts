@@ -2,7 +2,7 @@ import { MerkleStateManager } from "@ethereumjs/statemanager";
 import { TokamakL2StateManagerOpts } from "./types.ts";
 import { StateManagerInterface } from "@ethereumjs/common";
 import { jubjub } from "@noble/curves/misc";
-import { IMT, IMTHashFunction, IMTNode } from "@zk-kit/imt"
+import { IMT, IMTHashFunction, IMTMerkleProof, IMTNode } from "@zk-kit/imt"
 import { poseidon_raw } from "src/synthesizer/params/index.ts";
 import { addHexPrefix, Address, bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, concatBytes, createAccount, createAddressFromString, hexToBytes, setLengthLeft, setLengthRight, toBytes } from "@ethereumjs/util";
 import { MAX_MT_LEAVES, POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts";
@@ -15,7 +15,7 @@ import { RLP } from "@ethereumjs/rlp";
 export class TokamakL2StateManager extends MerkleStateManager implements StateManagerInterface {
     private _cachedOpts: TokamakL2StateManagerOpts | null = null
     private _registeredKeys: Uint8Array[] | null = null
-    private _merkleTreeRoots: Uint8Array[] = []
+    private _initialMerkleTree: IMT | null = null
 
     public async initTokamakExtendsFromRPC(rpcUrl: string, opts: TokamakL2StateManagerOpts): Promise<void> {
         if (opts.common.customCrypto.keccak256 === undefined) {
@@ -54,10 +54,10 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         }
         this._cachedOpts = opts
 
-        if (this._merkleTreeRoots[0] !== undefined) {
-            throw new Error('Merkle tree root is already initialized')
+        if (this._initialMerkleTree !== null) {
+            throw new Error('Merkle tree is already initialized')
         }
-        await this.getUpdatedMerkleTreeRoot(-1)
+        this._initialMerkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this)
     }
 
     public async convertLeavesIntoMerkleTreeLeaves(): Promise<bigint[]> {
@@ -68,15 +68,23 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
             if (key === undefined ) {
                 leaves[index] = 0n
             } else {
-                const val = setLengthLeft(await this.getStorage(contractAddress, key), 32)
-                leaves[index] = poseidon_raw([BigInt(index), bytesToBigInt(key), bytesToBigInt(val.subarray(16, 32)), bytesToBigInt(val.subarray(0, 16))])
+                const val = await this.getStorage(contractAddress, key)
+                leaves[index] = poseidon_raw([BigInt(index), bytesToBigInt(key), bytesToBigInt(val), 0n])
             }
         }
         return leaves
     }
 
     // getters
-    public async getUpdatedMerkleTreeRoot(txNonce?: number): Promise<bigint> {
+    public get initialMerkleTree(): IMT {
+        if (this._initialMerkleTree === null) {
+            throw new Error('Merkle tree is not initialized')
+        }
+        const imt = this._initialMerkleTree
+        return new IMT(poseidon_raw as IMTHashFunction, imt.depth, 0n, imt.arity, imt.leaves)
+    }
+
+    public async getUpdatedMerkleTreeRoot(): Promise<bigint> {
         // txNonce = -1 indicates initialization
         const merkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this)
         const _root = merkleTree.root
@@ -90,22 +98,29 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         if (typeof _root === 'number') {
             root = bigIntToBytes(BigInt(_root))
         }
-        if ( txNonce !== undefined ) {
-            if ( this._merkleTreeRoots.length !== txNonce + 1 ) {
-                throw new Error('Some previous transactions skipped updating the Merkle tree root')
-            }
-            this._merkleTreeRoots.push(root)
-        }
         return bytesToBigInt(root)
     }
 
-    public getInputMerkleTreeRootForTxNonce(txNonce: number) {
-        const val = this._merkleTreeRoots[txNonce]
-        if (val === undefined) {
-            throw new Error('The Merkle tree has not been updated')
-        }
-        return val
-    }
+    // public async getMerkleProof(leafIndex: number): Promise<IMTMerkleProof> {
+    //     const merkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this)
+    //     // pathIndices of this proof generation is incorrect. The indices are based on binary, but we are using 4-ary.
+    //     return merkleTree.createProof(leafIndex)
+    //     // const childIndex = Number(inVals[0])
+    //     // const child = inVals[1]
+    //     // const siblings = [...inVals.slice(2,)]
+    //     // const arrangedChildren = [...siblings.slice(0, childIndex), child, ...siblings.slice(childIndex, )]
+    //     // const parentIndex = BigInt(Math.floor(childIndex / 4))
+    //     // const parentNode = ArithmeticOperations.poseidonN(arrangedChildren)
+    //     // return [parentIndex, parentNode]
+    // }
+
+    // public getInputMerkleTreeRootForTxNonce(txNonce: number) {
+    //     const val = this._merkleTreeRoots[txNonce]
+    //     if (val === undefined) {
+    //         throw new Error('The Merkle tree has not been updated')
+    //     }
+    //     return val
+    // }
 
     public get registeredKeys() {return this._registeredKeys}
     public getMTIndex(key: bigint): number {

@@ -31,6 +31,7 @@ export const ARITHMETIC_OPERATOR_LIST = [
   'PrepareEdDsaScalars',
   'JubjubExp36',
   'EdDsaVerify',
+  'VerifyMerkleProof',
 ] as const
 
 export type ArithmeticOperator = (typeof ARITHMETIC_OPERATOR_LIST)[number]
@@ -68,6 +69,7 @@ export const SUBCIRCUIT_LIST = [
     'PrepareEdDsaScalars',
     'JubjubExp36',
     'EdDsaVerify',
+    'VerifyMerkleProof',
 ] as const
 
 export type SubcircuitNames = typeof SUBCIRCUIT_LIST[number]
@@ -120,7 +122,7 @@ export const SUBCIRCUIT_MAPPING: Record<ArithmeticOperator, [SubcircuitNames, bi
   PrepareEdDsaScalars: ['PrepareEdDsaScalars', undefined],
   EdDsaVerify: ['EdDsaVerify', undefined],
   JubjubExp36: ['JubjubExp36', undefined],
-
+  VerifyMerkleProof: ['VerifyMerkleProof', undefined],
 } as const;
 
 export const TX_MESSAGE_TO_HASH = [

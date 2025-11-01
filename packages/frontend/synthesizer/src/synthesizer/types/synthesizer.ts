@@ -42,13 +42,13 @@ export interface ISynthesizerProvider extends SynthesizerInterface {
     usage: ArithmeticOperator,
   ): void;
   loadArbitraryStatic(value: bigint, bitSize?: number, desc?: string): DataPt
-  loadStorage(key: bigint, value: bigint): DataPt
-  storeStorage(key: bigint, inPt: DataPt): void
+  loadStorage(key: bigint, value?: bigint): Promise<DataPt>
+  // storeStorage(key: bigint, inPt: DataPt): void
   //from BufferManager
   getReservedVariableFromBuffer(varName: ReservedVariable): DataPt
   addWirePairToBufferIn(inPt: DataPt, outPt: DataPt, dynamic?: boolean): DataPt
-  addReservedVariableToBufferIn(varName: ReservedVariable, value?: bigint, dynamic?: boolean): DataPt
-  addReservedVariableToBufferOut(varName: ReservedVariable, symbolDataPt: DataPt, dynamic?: boolean): DataPt
+  addReservedVariableToBufferIn(varName: ReservedVariable, value?: bigint, dynamic?: boolean, message?: string): DataPt
+  addReservedVariableToBufferOut(varName: ReservedVariable, symbolDataPt: DataPt, dynamic?: boolean, message?: string): DataPt
   //from ArithmeticHandler
   placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[];
   placeExp(inPts: DataPt[]): DataPt

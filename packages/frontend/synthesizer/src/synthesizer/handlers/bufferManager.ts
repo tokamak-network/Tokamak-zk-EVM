@@ -1,9 +1,10 @@
-import { NUMBER_OF_PREV_BLOCK_HASHES } from 'src/interface/qapCompiler/importedConstants.ts';
+import { NUMBER_OF_PREV_BLOCK_HASHES, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
 import { addHexPrefix, bigIntToBytes, bytesToBigInt, createAddressFromBigInt, hexToBigInt, PrefixedHexString, toBytes } from '@ethereumjs/util';
 import { jubjub } from '@noble/curves/misc';
 import { BUFFER_PLACEMENT, DataPt, DataPtDescription, ISynthesizerProvider, ReservedVariable, SynthesizerOpts, VARIABLE_DESCRIPTION } from '../types/index.ts';
 import { DataPtFactory } from '../dataStructure/index.ts';
 import { BUFFER_LIST } from 'src/interface/qapCompiler/configuredTypes.ts';
+import { poseidon_raw } from '../params/index.ts';
 
 export class BufferManager {
   private parent: ISynthesizerProvider
@@ -18,24 +19,23 @@ export class BufferManager {
   }
 
   public addWirePairToBufferIn(inPt: DataPt, outPt: DataPt, dynamic: boolean): DataPt {
-    const placementId = inPt.source
+    const thisPlacementId = outPt.source
     if (dynamic) {
       if (
         // double confirmation
-        this.parent.placements.get(placementId)!.inPts.length !== this.parent.placements.get(placementId)!.outPts.length
-        || this.parent.placements.get(placementId)!.inPts.length !== inPt.wireIndex
-        || this.parent.placements.get(placementId)!.outPts.length !== outPt.wireIndex
+        this.parent.placements.get(thisPlacementId)!.inPts.length !== this.parent.placements.get(thisPlacementId)!.outPts.length
+        || this.parent.placements.get(thisPlacementId)!.outPts.length !== outPt.wireIndex
       ) {
         throw new Error(
-          `Synthesizer: Mismatch in the buffer wires (placement id: ${placementId})`
+          `Synthesizer: Mismatch in the buffer wires (placement id: ${thisPlacementId})`
         );
       }
       // Add input-output pair to the input buffer subcircuit
-      this.parent.placements.get(placementId)!.inPts.push(inPt);
-      this.parent.placements.get(placementId)!.outPts.push(outPt);
+      this.parent.placements.get(thisPlacementId)!.inPts.push(inPt);
+      this.parent.placements.get(thisPlacementId)!.outPts.push(outPt);
     } else {
-      this.parent.placements.get(placementId)!.inPts[inPt.wireIndex] = inPt
-      this.parent.placements.get(placementId)!.outPts[outPt.wireIndex] = outPt
+      this.parent.placements.get(thisPlacementId)!.inPts[inPt.wireIndex] = inPt
+      this.parent.placements.get(thisPlacementId)!.outPts[outPt.wireIndex] = outPt
     }
     
     return DataPtFactory.deepCopy(outPt)
@@ -71,9 +71,9 @@ export class BufferManager {
   //   this.parent.placements.get(placementId)!.outPts.push(outPt);
   // }
 
-  public addReservedVariableToBufferIn(varName: ReservedVariable, value: bigint = 0n, dynamic: boolean = false): DataPt {
+  public addReservedVariableToBufferIn(varName: ReservedVariable, value: bigint = 0n, dynamic: boolean = false, message?: string): DataPt {
     const placementIndex = VARIABLE_DESCRIPTION[varName].source
-    const wireDesc: DataPtDescription = VARIABLE_DESCRIPTION[varName]
+    const wireDesc: DataPtDescription = {...VARIABLE_DESCRIPTION[varName], extSource: VARIABLE_DESCRIPTION[varName].extSource + (message ?? '')}
     const externalDataPt = DataPtFactory.create(wireDesc, value)
     if (dynamic) {
       if (wireDesc.wireIndex !== -1) {
@@ -85,9 +85,9 @@ export class BufferManager {
     return DataPtFactory.deepCopy(this.addWirePairToBufferIn(externalDataPt, symbolDataPt, dynamic))
   }
 
-  public addReservedVariableToBufferOut(varName: ReservedVariable, symbolDataPt: DataPt, dynamic: boolean = false): DataPt {
+  public addReservedVariableToBufferOut(varName: ReservedVariable, symbolDataPt: DataPt, dynamic: boolean = false, message?: string): DataPt {
     const placementIndex = VARIABLE_DESCRIPTION[varName].source
-    const wireDesc: DataPtDescription = VARIABLE_DESCRIPTION[varName]
+    const wireDesc: DataPtDescription = {...VARIABLE_DESCRIPTION[varName], extDest: VARIABLE_DESCRIPTION[varName].extDest + (message ?? '')}
     const externalDataPt = DataPtFactory.create(wireDesc, symbolDataPt.value)
     if (dynamic) {
       if (wireDesc.wireIndex !== -1) {
@@ -135,15 +135,21 @@ export class BufferManager {
     
 
     // Static public inputs
-    this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', bytesToBigInt(
-      this.cachedOpts.stateManager.getInputMerkleTreeRootForTxNonce(Number(this.cachedOpts.signedTransaction.nonce))
-    ))
+    this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', BigInt(this.cachedOpts.stateManager.initialMerkleTree.root))
 
     this.addReservedVariableToBufferIn('ADDRESS_MASK', (1n << 160n) - 1n)
     this.addReservedVariableToBufferIn('JUBJUB_BASE_X', jubjub.Point.BASE.toAffine().x)
     this.addReservedVariableToBufferIn('JUBJUB_BASE_Y', jubjub.Point.BASE.toAffine().y)
     this.addReservedVariableToBufferIn('JUBJUB_POI_X', jubjub.Point.ZERO.toAffine().x)
     this.addReservedVariableToBufferIn('JUBJUB_POI_Y', jubjub.Point.ZERO.toAffine().y)
+    const nullPoseidonL0 = poseidon_raw(Array(POSEIDON_INPUTS).fill(0n))
+    this.addReservedVariableToBufferIn('NULL_POSEIDON_LEVEL0', nullPoseidonL0)
+    const nullPoseidonL1 = poseidon_raw(Array(POSEIDON_INPUTS).fill(nullPoseidonL0))
+    this.addReservedVariableToBufferIn('NULL_POSEIDON_LEVEL1', nullPoseidonL1)
+    const nullPoseidonL2 = poseidon_raw(Array(POSEIDON_INPUTS).fill(nullPoseidonL1))
+    this.addReservedVariableToBufferIn('NULL_POSEIDON_LEVEL2', nullPoseidonL2)
+    const nullPoseidonL3 = poseidon_raw(Array(POSEIDON_INPUTS).fill(nullPoseidonL2))
+    this.addReservedVariableToBufferIn('NULL_POSEIDON_LEVEL3', nullPoseidonL3)
 
     this.addReservedVariableToBufferIn('COINBASE', this.cachedOpts.blockInfo.coinBase)
     this.addReservedVariableToBufferIn('TIMESTAMP', this.cachedOpts.blockInfo.timeStamp)

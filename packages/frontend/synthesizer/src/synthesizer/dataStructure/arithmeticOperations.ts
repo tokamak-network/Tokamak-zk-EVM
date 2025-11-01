@@ -522,4 +522,21 @@ export class ArithmeticOperations {
     }
     return []
   }
+
+  /**
+   * VerifyMerkleProof
+   */
+  static verifyMerkleProof(inVals: bigint[]): bigint[] {
+    if (inVals.length !== 1 + POSEIDON_INPUTS) {
+      throw new Error(`VerifyMerkleProof expected exactly ${1 + POSEIDON_INPUTS} input values, but got ${inVals.length} values`)
+    }
+    const children = inVals.slice(0, POSEIDON_INPUTS)
+    const parent = inVals.at(-1)
+    if (
+      parent !== poseidon_raw(children)
+    ) {
+      throw new Error('verifyMerkleProof failed')
+    }
+    return []
+  }
 }

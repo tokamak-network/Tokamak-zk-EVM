@@ -48,7 +48,7 @@ export const REQUIRED_CIRCOM_KEYS = [
   'nPrvIn',
   'nEVMIn',
   'nPoseidonInputs',
-  'nMtLeaves',
+  'nMtDepth',
   'nAccumulation',
   'nPrevBlockHashes',
 ] as const;

@@ -64,7 +64,7 @@ const main = async () => {
   const synthesizer = await createSynthesizer(synthesizerOpts)
   const runTxResult = await synthesizer.synthesizeTX()
   const stringPlacements = mapToStr(synthesizer.placements);
-  // console.log(`"placements": ${JSON.stringify(stringPlacements, null, 1)}`);
+  console.log(`"placements": ${JSON.stringify(stringPlacements, null, 1)}`);
   // console.log(runTxResult)
 };
 

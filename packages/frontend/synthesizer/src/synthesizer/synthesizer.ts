@@ -1,12 +1,16 @@
 import { createVM, runTx, RunTxOpts, RunTxResult, VM, VMOpts } from '@ethereumjs/vm';
 
 import { BlockData, BlockOptions, createBlock, HeaderData } from '@ethereumjs/block';
-import { bigIntToHex, bytesToHex, createAddressFromBigInt } from '@ethereumjs/util';
+import { bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromBigInt } from '@ethereumjs/util';
 
 import { createEVM, EVM, EVMOpts, EVMResult, InterpreterStep, Message } from '@ethereumjs/evm';
 import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable, SynthesizerInterface, SynthesizerOpts, SynthesizerSupportedOpcodes } from './types/index.ts';
 import { ArithmeticManager, BufferManager, InstructionHandler, MemoryManager, StateManager, SynthesizerOpHandler } from './handlers/index.ts';
 import { ArithmeticOperator, SubcircuitNames } from 'src/interface/qapCompiler/configuredTypes.ts';
+import { poseidon } from 'src/TokamakL2JS/index.ts';
+import { poseidon_raw } from './params/index.ts';
+import { MAX_MT_LEAVES, MT_DEPTH, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
+import { DataPtFactory } from './dataStructure/dataPt.ts';
 
 /**
  * The Synthesizer class manages data related to subcircuits.
@@ -44,29 +48,31 @@ export class Synthesizer implements SynthesizerInterface
       }
     })
     evm.events.on('step', (data: InterpreterStep, resolve?: (result?: any) => void) => {
-      try {
-        const currentInterpreterStep: InterpreterStep = {
-          ...data,
-          stack: data.stack.slice().reverse(),
-        }
-        // const currentInterpreterStep = {...data}
-        
-        if (this._prevInterpreterStep !== null) {
-          console.log(`stack: ${this._prevInterpreterStep.stack.map(x => bigIntToHex(x))}`)
-          console.log(`pc: ${this._prevInterpreterStep.pc}, opcode: ${this._prevInterpreterStep.opcode.name}`)
-          this._applySynthesizerHandler(this._prevInterpreterStep, currentInterpreterStep)
-        }
+      ; (async () => {
+        try {
+          const currentInterpreterStep: InterpreterStep = {
+            ...data,
+            stack: data.stack.slice().reverse(),
+          }
+          // const currentInterpreterStep = {...data}
+          
+          if (this._prevInterpreterStep !== null) {
+            console.log(`stack: ${this._prevInterpreterStep.stack.map(x => bigIntToHex(x))}`)
+            console.log(`pc: ${this._prevInterpreterStep.pc}, opcode: ${this._prevInterpreterStep.opcode.name}`)
+            await this._applySynthesizerHandler(this._prevInterpreterStep, currentInterpreterStep)
+          }
 
-      } catch (err) {
-        console.error('Synthesizer: step error:', err)
-      } finally {
-        this._prevInterpreterStep = {
-          ...data,
-          stack: data.stack.slice().reverse(),
+        } catch (err) {
+          console.error('Synthesizer: step error:', err)
+        } finally {
+          this._prevInterpreterStep = {
+            ...data,
+            stack: data.stack.slice().reverse(),
+          }
+          // this._prevInterpreterStep = {...data}
+          resolve?.()
         }
-        // this._prevInterpreterStep = {...data}
-        resolve?.()
-      }
+      }) () 
     })
     evm.events.on('afterMessage', (data: EVMResult, resolve?: (result?: any) => void) => {
       ; (async () => {
@@ -118,7 +124,7 @@ export class Synthesizer implements SynthesizerInterface
           if (!this._prevInterpreterStep) {
             throw new Error('Data loading failure when finalizing Synthesizer')
           }
-          this._applySynthesizerHandler(this._prevInterpreterStep, currentInterpreterStep)
+          await this._applySynthesizerHandler(this._prevInterpreterStep, currentInterpreterStep)
           console.log(`stack: ${currentInterpreterStep.stack.map(x => bigIntToHex(x))}`)
           console.log(`pc: ${currentInterpreterStep.pc}, opcode: ${currentInterpreterStep.opcode.name}`)
           await this.finalizeStorage()
@@ -155,13 +161,119 @@ export class Synthesizer implements SynthesizerInterface
   }
 
   public async finalizeStorage(): Promise<void> {
-    // TODO: Verifiy Merkle proofs
-    this.cachedOpts.stateManager.getUpdatedMerkleTreeRoot()
-    
-    for (const [key, valuePt] of this.state.cachedStorage.entries()) {
 
+    const computeParentsNodePts = (childrenPts: DataPt[], nullVal: bigint, level: number): DataPt[] => {
+      const numChunks = Math.ceil(childrenPts.length / POSEIDON_INPUTS) * POSEIDON_INPUTS;
+      const parentPts: DataPt[] = []
+      for (let i = 0; i < numChunks; i += POSEIDON_INPUTS) {
+          const chunk = Array.from({ length: POSEIDON_INPUTS }, (_, k) => childrenPts[i + k] ?? this.loadArbitraryStatic(0n, 1));
+          if (chunk.every(pt => pt.value === nullVal)) {
+            parentPts.push(this.getReservedVariableFromBuffer(`NULL_POSEIDON_LEVEL${level}` as ReservedVariable))
+          } else {
+            parentPts.push(this.placeArith('Poseidon', chunk)[0]);
+          }
+      }
+      return parentPts
     }
-    console.log('STORAGE UPDATE')
+
+    const padLeaves = (leavesPts: DataPt[], length: number = MAX_MT_LEAVES): void => {
+      if (leavesPts.length > length) {
+        throw new Error('Excessive leaves')
+      }
+      while (leavesPts.length < length) {
+        leavesPts.push(this.loadArbitraryStatic(0n, 1))
+      }      
+    }
+    // Fill cached storage and add unused user storage values into the buffer
+    for (const key of this.cachedOpts.stateManager.registeredKeys!) {
+      const keyBigInt = bytesToBigInt(key)
+      const cached = this.state.cachedStorage.get(keyBigInt)!
+      if (cached.length === 0) {
+      //   const storedValue = bytesToBigInt(await this.cachedOpts.stateManager.getStorage(this.cachedOpts.signedTransaction.to, key))
+      //   if (storedValue !== cached[0].valuePt.value) {
+      //     throw new Error('Mismatch between state manager and cached storage')
+      //   }
+      // } else {
+        // Make it warm and verified
+        await this.loadStorage(keyBigInt, undefined)
+      }
+    }
+    // Preparing initial Merkle tree leaves
+    const initialLeavesRaw: {indexPt: DataPt, keyPt: DataPt, valuePt: DataPt}[] = this.cachedOpts.stateManager.registeredKeys!.map(key => {
+      const indexPt = this.state.cachedStorage.get(bytesToBigInt(key))![0].indexPt
+      const keyPt = this.state.cachedStorage.get(bytesToBigInt(key))![0].keyPt
+      const valuePt = this.state.cachedStorage.get(bytesToBigInt(key))![0].valuePt
+      if (indexPt === null || keyPt === null) {
+        throw new Error('Something wrong in the load/store storage. Need to be debugged.')
+      }
+      return {indexPt, keyPt, valuePt}
+    })
+    const initialLeavesPts: DataPt[] = initialLeavesRaw.map(leafRaw => this.placeArith('Poseidon', [leafRaw.indexPt, leafRaw.keyPt, leafRaw.valuePt, this.loadArbitraryStatic(0n, 1)])[0])
+    padLeaves(initialLeavesPts)
+    let childrenPts: DataPt[]
+    let nullVal
+    // Constructing initial Merkle root
+    childrenPts = initialLeavesPts
+    nullVal = 0n
+    for (var level = 0; level < MT_DEPTH - 1; level++) {
+      childrenPts = computeParentsNodePts(childrenPts, nullVal, level)
+      nullVal = poseidon_raw(Array(POSEIDON_INPUTS).fill(nullVal))
+    }
+    padLeaves(childrenPts, 4)
+    this.placeArith('VerifyMerkleProof', [
+      ...childrenPts, 
+      this.getReservedVariableFromBuffer('INI_MERKLE_ROOT')
+    ])
+
+    // Preparing last Merkle tree leaves
+    const lastLeavesRaw: {indexPt: DataPt, keyPt: DataPt, valuePt: DataPt}[] = this.cachedOpts.stateManager.registeredKeys!.map(key => {
+      const indexPt = this.state.cachedStorage.get(bytesToBigInt(key))!.at(-1)!.indexPt
+      const keyPt = this.state.cachedStorage.get(bytesToBigInt(key))!.at(-1)!.keyPt
+      const valuePt = this.state.cachedStorage.get(bytesToBigInt(key))!.at(-1)!.valuePt
+      if (indexPt === null || keyPt === null) {
+        throw new Error('Something wrong in the load/store storage. Need to be debugged.')
+      }
+      return {indexPt, keyPt, valuePt}
+    })
+    const lastLeavesPts: DataPt[] = lastLeavesRaw.map(leafRaw => this.placeArith('Poseidon', [leafRaw.indexPt, leafRaw.keyPt, leafRaw.valuePt, this.loadArbitraryStatic(0n, 1)])[0])
+    padLeaves(lastLeavesPts)
+
+    // Constructing last Merkle root
+    childrenPts = lastLeavesPts
+    nullVal = 0n
+    for (var level = 0 ; level < MT_DEPTH; level++) {
+      childrenPts = computeParentsNodePts(childrenPts, nullVal, level)
+      nullVal = poseidon_raw(Array(POSEIDON_INPUTS).fill(nullVal))
+    }
+    if (childrenPts.length !== 1) {
+      throw new Error('Excessive number of leaves')
+    }
+    this.addReservedVariableToBufferOut('RES_MERKLE_ROOT', childrenPts[0], true)
+
+    // Register general storage writings
+    const userKeySet = new Set(
+      this.cachedOpts.stateManager.registeredKeys!.map(k => bytesToBigInt(k))
+    );
+    for (const [key, cache] of this.state.cachedStorage.entries()) {
+      if (!userKeySet.has(key)){
+        // General storage access
+        let lastWriteIndex = cache.length - 1
+        while(lastWriteIndex >= 0) {
+          if (cache[lastWriteIndex].access !== 'Write') {
+            break
+          }
+          lastWriteIndex--
+        }
+        if (lastWriteIndex >= 0) {
+          this.addReservedVariableToBufferOut(
+            'OTHER_CONTRACT_STORAGE_OUT',
+            cache[lastWriteIndex].valuePt,
+            true,
+            `at MPT key ${bigIntToHex(key)}`,
+          );
+        }
+      }
+    }
   }
 
   public async synthesizeTX(): Promise<RunTxResult> {
@@ -214,13 +326,13 @@ export class Synthesizer implements SynthesizerInterface
     return await runTx(vm, runTxOpts)
   }
 
-  private _applySynthesizerHandler = (prevInterpreterStep: InterpreterStep, currentInterpreterStep: InterpreterStep): void => {
+  private _applySynthesizerHandler = async (prevInterpreterStep: InterpreterStep, currentInterpreterStep: InterpreterStep): Promise<void> => {
     const opcode = prevInterpreterStep?.opcode
     const opHandler = this.synthesizerHandlers.get(opcode.code)
     if (opHandler === undefined) {
       throw new Error(`Undefined synthesizer handler for opcode ${opcode.name}`)
     }
-    opHandler.apply(null, [prevInterpreterStep, currentInterpreterStep])
+    await opHandler.apply(null, [prevInterpreterStep, currentInterpreterStep])
 
     // This function works if the input opcode is one of the follows: CALL, CALLCODE, DELEGATECALL, STATICCALL
     this._preTasksForCalls(
@@ -259,11 +371,11 @@ export class Synthesizer implements SynthesizerInterface
     return this._bufferManager.addWirePairToBufferIn(inPt, outPt, dynamic)
   }
 
-  addReservedVariableToBufferIn(varName: ReservedVariable, value?: bigint, dynamic?: boolean): DataPt {
-    return this._bufferManager.addReservedVariableToBufferIn(varName, value, dynamic)
+  addReservedVariableToBufferIn(varName: ReservedVariable, value?: bigint, dynamic?: boolean, message?: string): DataPt {
+    return this._bufferManager.addReservedVariableToBufferIn(varName, value, dynamic, message)
   }
-  addReservedVariableToBufferOut(varName: ReservedVariable, symbolDataPt: DataPt, dynamic?: boolean): DataPt {
-    return this._bufferManager.addReservedVariableToBufferOut(varName, symbolDataPt, dynamic)
+  addReservedVariableToBufferOut(varName: ReservedVariable, symbolDataPt: DataPt, dynamic?: boolean, message?: string): DataPt {
+    return this._bufferManager.addReservedVariableToBufferOut(varName, symbolDataPt, dynamic, message)
   }
 
   loadArbitraryStatic(
@@ -274,12 +386,8 @@ export class Synthesizer implements SynthesizerInterface
     return this._state.loadArbitraryStatic(value, bitSize, desc)
   }
 
-  loadStorage(key: bigint, value: bigint): DataPt {
-    return this._state.loadStorage(key, value);
-  }
-
-  storeStorage(key: bigint, inPt: DataPt): void {
-    this._state.storeStorage(key, inPt);
+  async loadStorage(key: bigint, value?: bigint): Promise<DataPt> {
+    return await this._instructionHandlers.loadStorage(key, value)
   }
 
   placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[] {

@@ -38,6 +38,7 @@ export class ArithmeticManager {
       case 'Poseidon':
       case 'JubjubExp36':
       case 'EdDsaVerify':
+      case 'VerifyMerkleProof':
         sourceBitSize = 255
         break
       default:
@@ -275,5 +276,6 @@ const ARITHMETIC_MAPPING: Record<ArithmeticOperator, (...args: any) => any> = {
   PrepareEdDsaScalars: ArithmeticOperations.prepareEdDsaScalars,
   JubjubExp36: ArithmeticOperations.jubjubExp36,
   EdDsaVerify: ArithmeticOperations.edDsaVerify,
+  VerifyMerkleProof: ArithmeticOperations.verifyMerkleProof,
 } as const
 
