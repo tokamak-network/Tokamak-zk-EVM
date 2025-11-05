@@ -337,13 +337,16 @@ export class ArithmeticOperations {
     }
     const sign = in_vals[0]
     const poseidonOut = in_vals[1]
-    const modded: bigint[] = [sign % ArithmeticOperations.JUBJUBMODULUS, poseidonOut % ArithmeticOperations.JUBJUBMODULUS]
+    const modded: bigint[] = [sign % jubjub.Point.Fn.ORDER, poseidonOut % jubjub.Point.Fn.ORDER]
     const bits: bigint[] = []
     for (const val of modded) {
+      // MSB-left
       const binaryString = val.toString(2)
       const paddedBinaryString = binaryString.padStart(252, '0')
-      bits.push(...Array.from(paddedBinaryString, (bit) => BigInt(bit)))
+      // LSB-left
+      bits.push(...Array.from(paddedBinaryString, (bit) => BigInt(bit)).reverse())
     }
+    
     return bits
   }
 
@@ -414,28 +417,70 @@ export class ArithmeticOperations {
     return [out0, out1];
   }
 
-  private static _jubjubSubExp (P_prev: bigint[], G_prev: bigint[], b: 0n | 1n): { P_next: bigint[]; G_next: bigint[] } {
+  // private static _jubjubSubExp (P_prev: bigint[], G_prev: bigint[], b: 0n | 1n): { P_next: bigint[]; G_next: bigint[] } {
     
-    // P_next <== P_prev + ( b ? G_prev : O )
-    const P_next = b === 0n ? P_prev : ArithmeticOperations._jubjubAdd(P_prev, G_prev) 
-    // G_next <== G_prev + G_prev
-    const G_next = ArithmeticOperations._jubjubAdd(G_prev, G_prev);
+  //   // P_next <== P_prev + ( b ? G_prev : O )
+  //   const P_next = b === 0n ? P_prev : ArithmeticOperations._jubjubAdd(P_prev, G_prev) 
+  //   // G_next <== G_prev + G_prev
+  //   const G_next = ArithmeticOperations._jubjubAdd(G_prev, G_prev);
 
-    //TESTED
-    const G_prev_point = jubjub.Point.fromAffine({x: G_prev[0], y:G_prev[1]})
-    const G_next_plain = G_prev_point.add(G_prev_point)
-    const G_next_point = jubjub.Point.fromAffine({x: G_next[0], y:G_next[1]})
-    const P_prev_point = jubjub.Point.fromAffine({x: P_prev[0], y:P_prev[1]})
-    const P_next_point = jubjub.Point.fromAffine({x: P_next[0], y:P_next[1]})
-    const P_next_plain = P_prev_point.add(b === 1n ? G_prev_point : jubjub.Point.ZERO)
-    if (!P_next_point.equals(P_next_plain) || !G_next_point.equals(G_next_plain)) {
-        throw new Error('Jubjub subExp mismatch from the reference')
-    }
+  //   //TESTED
+  //   const G_prev_point = jubjub.Point.fromAffine({x: G_prev[0], y:G_prev[1]})
+  //   const G_next_plain = G_prev_point.add(G_prev_point)
+  //   const G_next_point = jubjub.Point.fromAffine({x: G_next[0], y:G_next[1]})
+  //   const P_prev_point = jubjub.Point.fromAffine({x: P_prev[0], y:P_prev[1]})
+  //   const P_next_point = jubjub.Point.fromAffine({x: P_next[0], y:P_next[1]})
+  //   const P_next_plain = P_prev_point.add(b === 1n ? G_prev_point : jubjub.Point.ZERO)
+  //   if (!P_next_point.equals(P_next_plain) || !G_next_point.equals(G_next_plain)) {
+  //       throw new Error('Jubjub subExp mismatch from the reference')
+  //   }
 
-    return { P_next, G_next };
+  //   return { P_next, G_next };
 
     
-  }
+  // }
+
+  // /**
+  //  * JubjubExp36
+  //  */
+  // static jubjubExp36(in_vals: bigint[]): bigint[] {
+  //   const Nbits= 36
+  //   if (in_vals.length !== 4 + Nbits) {
+  //     throw new Error(`jubjubExp36 expected exactly 40 input values, but got ${in_vals.length} values`)
+  //   }
+  //   for (var i = 0; i < 4; i++) {
+  //     if (in_vals[i] >= ArithmeticOperations.BLS12381MODULUS) {
+  //       throw new Error('jubjubExp36 input curve points must be of Jubjub')
+  //     }
+  //   }
+  //   const _P_point: bigint[] = in_vals.slice(0, 2)
+  //   const _G_point: bigint[] = in_vals.slice(2, 4)
+  //   const scalarBitsMSB = in_vals.slice(4, 4 + Nbits)
+    
+  //   const b_bits: (0n | 1n)[] = scalarBitsMSB.map((b) => {
+  //       if (b !== 0n && b !== 1n) throw new Error('jubjubExp36 input scalar bits must be binary');
+  //       return b;
+  //   }).reverse();
+
+  //   let P_point = _P_point.slice()
+  //   let G_point = _G_point.slice()
+  //   for (let i = 0; i < Nbits; i++) {
+  //     const { P_next, G_next } = ArithmeticOperations._jubjubSubExp(P_point, G_point, b_bits[i]);
+  //     P_point = P_next
+  //     G_point = G_next
+  //   }
+
+  //   //TESTED
+  //   const G_edwards = jubjub.Point.fromAffine({x: _G_point[0], y: _G_point[1]})
+  //   const P_ini_edwards = jubjub.Point.fromAffine({x: _P_point[0], y: _P_point[1]})
+  //   const exponent = scalarBitsMSB.reduce((acc, b) => (acc << 1n) | b, 0n)
+  //   const P_plain = G_edwards.multiply(exponent).add(P_ini_edwards)
+  //   const P_edwards = jubjub.Point.fromAffine({x: P_point[0], y: P_point[1]})
+  //   if (!P_plain.equals(P_edwards)) {
+  //       throw new Error('JubjubExp36 mismatch from the reference')
+  //   }
+  //   return [...P_point, ...G_point]
+  // }
 
   /**
    * JubjubExp36
@@ -445,38 +490,19 @@ export class ArithmeticOperations {
     if (in_vals.length !== 4 + Nbits) {
       throw new Error(`jubjubExp36 expected exactly 40 input values, but got ${in_vals.length} values`)
     }
-    for (var i = 0; i < 4; i++) {
-      if (in_vals[i] >= ArithmeticOperations.BLS12381MODULUS) {
-        throw new Error('jubjubExp36 input curve points must be of Jubjub')
-      }
-    }
-    const _P_point: bigint[] = in_vals.slice(0, 2)
-    const _G_point: bigint[] = in_vals.slice(2, 4)
-    const scalarBitsMSB = in_vals.slice(4, 4 + Nbits)
-    
-    const b_bits: (0n | 1n)[] = scalarBitsMSB.map((b) => {
-        if (b !== 0n && b !== 1n) throw new Error('jubjubExp36 input scalar bits must be binary');
-        return b;
-    }).reverse();
+    const P_point: bigint[] = in_vals.slice(0, 2)
+    const G_point: bigint[] = in_vals.slice(2, 4)
+    const scalarBitsMSB = in_vals.slice(4, ).reverse()
 
-    let P_point = _P_point.slice()
-    let G_point = _G_point.slice()
-    for (let i = 0; i < Nbits; i++) {
-      const { P_next, G_next } = ArithmeticOperations._jubjubSubExp(P_point, G_point, b_bits[i]);
-      P_point = P_next
-      G_point = G_next
-    }
-
-    //TESTED
-    const G_edwards = jubjub.Point.fromAffine({x: _G_point[0], y: _G_point[1]})
-    const P_ini_edwards = jubjub.Point.fromAffine({x: _P_point[0], y: _P_point[1]})
-    const exponent = scalarBitsMSB.reduce((acc, b) => (acc << 1n) | b, 0n)
-    const P_plain = G_edwards.multiply(exponent).add(P_ini_edwards)
+    const G_edwards = jubjub.Point.fromAffine({x: G_point[0], y: G_point[1]})
     const P_edwards = jubjub.Point.fromAffine({x: P_point[0], y: P_point[1]})
-    if (!P_plain.equals(P_edwards)) {
-        throw new Error('JubjubExp36 mismatch from the reference')
-    }
-    return [...P_point, ...G_point]
+    const exponent = scalarBitsMSB.reduce((acc, b) => (acc << 1n) | b, 0n)
+    const G_next_edwards = G_edwards.multiply(BigInt(2**Nbits))
+    const P_next_edwards = G_edwards.multiply(exponent).add(P_edwards)
+    const P_next_point = [P_next_edwards.toAffine().x, P_next_edwards.toAffine().y]
+    const G_next_point = [G_next_edwards.toAffine().x, G_next_edwards.toAffine().y]
+  
+    return [...P_next_point, ...G_next_point]
   }
 
   /**
@@ -527,11 +553,14 @@ export class ArithmeticOperations {
    * VerifyMerkleProof
    */
   static verifyMerkleProof(inVals: bigint[]): bigint[] {
+
     if (inVals.length !== 1 + POSEIDON_INPUTS) {
       throw new Error(`VerifyMerkleProof expected exactly ${1 + POSEIDON_INPUTS} input values, but got ${inVals.length} values`)
     }
     const children = inVals.slice(0, POSEIDON_INPUTS)
-    const parent = inVals.at(-1)
+    const parent = inVals[inVals.length - 1]
+    // console.log(`children: ${children}`)
+    // console.log(`parent: ${parent}`)
     if (
       parent !== poseidon_raw(children)
     ) {

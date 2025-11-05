@@ -1,12 +1,6 @@
-import type { DataPt, DataPtDescription, Placements, SynthesizerOpts, SynthesizerSupportedOpcodes } from './index.ts'
+import { SUBCIRCUIT_BUFFER_MAPPING, subcircuitInfoByName } from 'src/interface/qapCompiler/importedConstants.ts';
+import type { DataPt, DataPtDescription, PlacementEntry, Placements, SynthesizerOpts, SynthesizerSupportedOpcodes } from './index.ts'
 import { BUFFER_LIST, ReservedBuffer, SubcircuitNames } from 'src/interface/qapCompiler/configuredTypes.ts';
-
-export type BufferPlacement = {
-    name: SubcircuitNames;
-    usage: string;
-    inPts: DataPt[];
-    outPts: DataPt[];
-};
 
 export type ReservedVariable =
     // PUBLIC_OUT (Dynamic)
@@ -314,59 +308,6 @@ export type ReservedVariable =
     | 'NULL_POSEIDON_LEVEL2'
     | 'NULL_POSEIDON_LEVEL3'
     
-    
-
-export const BUFFER_PLACEMENT: Record<ReservedBuffer, {placementIndex: number, placement: BufferPlacement}> = {
-  PUBLIC_OUT: {
-    placementIndex: 0,
-    placement: {
-      name: 'bufferPubOut',
-      usage: '[Public output & Private input] Buffer to emit user output',
-      inPts: [] as DataPt[],
-      outPts: [] as DataPt[],
-    }
-  },
-  PUBLIC_IN: {
-    placementIndex: 0,
-    placement: {
-      name: 'bufferPubIn',
-      usage: '[Private output & Public input] Buffer to load user input',
-      inPts: [] as DataPt[],
-      outPts: [] as DataPt[],
-    }
-  },
-  BLOCK_IN: {
-    placementIndex: 0, 
-    placement: {
-      name: 'bufferBlockIn',
-      usage: '[Private output & Public input] Buffer to load block input',
-      inPts: [] as DataPt[],
-      outPts: [] as DataPt[],
-    }
-  },
-  EVM_IN: {
-    placementIndex: 0, 
-    placement: {
-      name: 'bufferEVMIn',
-      usage: '[Private output & Public input] Buffer to load public static input such as ROM, environmental data, or ALU selectors',
-      inPts: [] as DataPt[],
-      outPts: [] as DataPt[],
-    }
-  },
-  PRIVATE_IN: {
-    placementIndex: 0,
-    placement: {
-      name: 'bufferPrvIn',
-      usage: '[Private output & Private input] Buffer to load witness as private, such as initial storage, transaction data, and Merkle tree proofs',
-      inPts: [] as DataPt[],
-      outPts: [] as DataPt[],
-    }
-  },
-}
-for (const [idx, buffer] of BUFFER_LIST.entries()) {
-  BUFFER_PLACEMENT[buffer].placementIndex = idx
-}
-
 type BlockhashVars = Extract<ReservedVariable, `BLOCKHASH_${number}`>;
 
 const __BLOCKHASH_DESCRIPTIONS: Record<BlockhashVars, DataPtDescription> = (() => {
@@ -374,7 +315,7 @@ const __BLOCKHASH_DESCRIPTIONS: Record<BlockhashVars, DataPtDescription> = (() =
   for (let i = 1; i <= 256; i++) {
     m[`BLOCKHASH_${i}`] = {
       extSource: `Block hash ${i} ${i === 1 ? 'block' : 'blocks'} ago`,
-      source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+      source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
       sourceBitSize: 256,
       wireIndex: 8 + i - 1,
     };
@@ -385,87 +326,87 @@ const __BLOCKHASH_DESCRIPTIONS: Record<BlockhashVars, DataPtDescription> = (() =
 export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> = {
   RES_MERKLE_ROOT: {
     extDest: `Resulting Merkle tree root hash`,
-    source: BUFFER_PLACEMENT.PUBLIC_OUT.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_OUT'),
     sourceBitSize: 255,
     wireIndex: -1,
   },
   OTHER_CONTRACT_STORAGE_OUT: {
     extDest: `Writing general data on contract's storage other than users'`,
-    source: BUFFER_PLACEMENT.PUBLIC_OUT.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_OUT'),
     sourceBitSize: 256,
     wireIndex: -1, // Dynamic
   },
 
   INI_MERKLE_ROOT: {
     extSource: `Initial Merkle tree root hash`,
-    source: BUFFER_PLACEMENT.PUBLIC_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
     sourceBitSize: 255,
     wireIndex: 0,
   },
   EDDSA_PUBLIC_KEY_X: {
     extSource: `EdDSA public key of caller (x coordinate)`,
-    source: BUFFER_PLACEMENT.PUBLIC_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
     sourceBitSize: 255,
     wireIndex: 1,
   },
   EDDSA_PUBLIC_KEY_Y: {
     extSource: `EdDSA public key of caller (y coordinate)`,
-    source: BUFFER_PLACEMENT.PUBLIC_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
     sourceBitSize: 255,
     wireIndex: 2,
   },
   OTHER_CONTRACT_STORAGE_IN: {
     extSource: `Access to general contract's storage data other than users'`,
-    source: BUFFER_PLACEMENT.PUBLIC_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
     sourceBitSize: 256,
     wireIndex: -1, // Dynamic
   },
 
   COINBASE: {
     extSource: `COINBASE`,
-    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
     sourceBitSize: 256,
     wireIndex: 0,
   },
   TIMESTAMP: {
     extSource: `TIMESTAMP`,
-    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
     sourceBitSize: 256,
     wireIndex: 1,
   },
   NUMBER:  {
     extSource: `NUMBER`,
-    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
     sourceBitSize: 256,
     wireIndex: 2,
   },
   PREVRANDAO: {
     extSource: `PREVRANDAO`,
-    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
     sourceBitSize: 256,
     wireIndex: 3,
   },
   GASLIMIT: {
     extSource: `GASLIMIT`,
-    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
     sourceBitSize: 256,
     wireIndex: 4,
   },
   CHAINID: {
     extSource: `CHAINID`,
-    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
     sourceBitSize: 256,
     wireIndex: 5,
   },
   SELFBALANCE: {
     extSource: `SELFBALANCE`,
-    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
     sourceBitSize: 256,
     wireIndex: 6,
   },
   BASEFEE: {
     extSource: `BASEFEE`,
-    source: BUFFER_PLACEMENT.BLOCK_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
     sourceBitSize: 256,
     wireIndex: 7,
   },
@@ -474,171 +415,171 @@ export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> =
 
   ADDRESS_MASK: {
     extSource: `Masker for Ethereum address (20 bytes)`,
-    source: BUFFER_PLACEMENT.EVM_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 160,
     wireIndex: 0,
   },
   JUBJUB_BASE_X: {
     extSource: `Base point of Jubjub curve (x coordinate)`,
-    source: BUFFER_PLACEMENT.EVM_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
     wireIndex: 1,
   },
   JUBJUB_BASE_Y: {
     extSource: `Base point of Jubjub curve (y coordinate)`,
-    source: BUFFER_PLACEMENT.EVM_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
     wireIndex: 2,
   },
   JUBJUB_POI_X: {
     extSource: `Point at infinity of Jubjub curve (x coordinate)`,
-    source: BUFFER_PLACEMENT.EVM_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
     wireIndex: 3,
   },
   JUBJUB_POI_Y: {
     extSource: `Point at infinity of Jubjub curve (y coordinate)`,
-    source: BUFFER_PLACEMENT.EVM_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
     wireIndex: 4,
   },
   NULL_POSEIDON_LEVEL0: {
     extSource: `Poseidon of zeros`,
-    source: BUFFER_PLACEMENT.EVM_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
     wireIndex: 5,
   },
   NULL_POSEIDON_LEVEL1: {
     extSource: `Poseidon of Poseidons of zeros`,
-    source: BUFFER_PLACEMENT.EVM_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
     wireIndex: 6,
   },
   NULL_POSEIDON_LEVEL2: {
     extSource: `Poseidon of Poseidons of Poseidons of zeros`,
-    source: BUFFER_PLACEMENT.EVM_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
     wireIndex: 7,
   },
   NULL_POSEIDON_LEVEL3: {
     extSource: `Poseidon of Poseidons of Poseidons of Poseidons of zeros`,
-    source: BUFFER_PLACEMENT.EVM_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
     wireIndex: 8,
   },
 
   CONTRACT_ADDRESS: {
     extSource: `Contract address to call`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 160,
     wireIndex: 0,
   },
   FUNCTION_SELECTOR: {
     extSource: `Selector for a function to call`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
-    sourceBitSize: 32,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
+    sourceBitSize: 255,
     wireIndex: 1,
   },
   TRANSACTION_NONCE: {
     extSource: `Transaction nonce`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
-    sourceBitSize: 252,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
+    sourceBitSize: 255,
     wireIndex: 2,
   },
   TRANSACTION_INPUT0: {
     extSource: `Zeroth input to the selected function`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
-    sourceBitSize: 252,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
+    sourceBitSize: 255,
     wireIndex: 3,
   },
   TRANSACTION_INPUT1: {
     extSource: `First input to the selected function`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
-    sourceBitSize: 252,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
+    sourceBitSize: 255,
     wireIndex: 4,
   },
   TRANSACTION_INPUT2: {
     extSource: `Second input to the selected function`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
-    sourceBitSize: 252,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
+    sourceBitSize: 255,
     wireIndex: 5,
   },
   TRANSACTION_INPUT3: {
     extSource: `Third input to the selected function`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
-    sourceBitSize: 252,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
+    sourceBitSize: 255,
     wireIndex: 6,
   },
   TRANSACTION_INPUT4: {
     extSource: `Fourth input to the selected function`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
-    sourceBitSize: 252,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
+    sourceBitSize: 255,
     wireIndex: 7,
   },
   TRANSACTION_INPUT5: {
     extSource: `Fifth input to the selected function`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
-    sourceBitSize: 252,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
+    sourceBitSize: 255,
     wireIndex: 8,
   },
   TRANSACTION_INPUT6: {
     extSource: `Sixth input to the selected function`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
-    sourceBitSize: 252,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
+    sourceBitSize: 255,
     wireIndex: 9,
   },
   TRANSACTION_INPUT7: {
     extSource: `Seventh input to the selected function`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
-    sourceBitSize: 252,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
+    sourceBitSize: 255,
     wireIndex: 10,
   },
   TRANSACTION_INPUT8: {
     extSource: `Eighth input to the selected function`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
-    sourceBitSize: 252,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
+    sourceBitSize: 255,
     wireIndex: 11,
   },
   EDDSA_SIGNATURE: {
     extSource: `EdDSA signature of transaction`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
     wireIndex: 12,
   },
   EDDSA_RANDOMIZER_X: {
     extSource: `EdDSA randomizer (x coordinate)`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
     wireIndex: 13,
   },
   EDDSA_RANDOMIZER_Y: {
     extSource: `EdDSA randomizer (y coordinate)`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
     wireIndex: 14,
   },
 
   IN_MT_INDEX: {
     extSource: `Index of the initial Merkle tree of users' storage values`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
-    sourceBitSize: 64,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
+    sourceBitSize: 255,
     wireIndex: -1, //Dynamic
   },
   IN_MPT_KEY: {
     extSource: `Merkle Patricia trie key (Poseidon) of a user's initial storage value`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
     wireIndex: -1, //Dynamic
   },
   IN_VALUE: {
     extSource: `A user's inital storage value (restricted to 255-bit word)`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
     wireIndex: -1, //Dynamic
   },
   MERKLE_PROOF: {
     extSource: `Merkle proof component`,
-    source: BUFFER_PLACEMENT.PRIVATE_IN.placementIndex,
+    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
     wireIndex: -1, //Dynamic
   },

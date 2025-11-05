@@ -1,15 +1,24 @@
 pragma circom 2.1.6;
-include "../node_modules/circomlib/circuits/bitify.circom";
-include "../node_modules/poseidon-bls12381-circom/circuits/poseidon255.circom";
-include "../node_modules/circomlib/circuits/comparators.circom";
+include "./poseidon.circom";
+include "../../node_modules/circomlib/circuits/comparators.circom";
+include "../../node_modules/circomlib/circuits/bitify.circom";
 
 template verifyParentNode(N) {
-    signal input children[N], parent;
-    component H = Poseidon255(4);
+    signal input children[N][2], parent[2];
+    component H = poseidonTokamak(N);
     for (var i = 0; i < N; i++){
         H.in[i] <== children[i];
     }
-    H.out === parent;
+    
+    log("Hash in[0]: ", children[0][0], children[0][1]);
+    log("Hash in[1]: ", children[1][0], children[1][1]);
+    log("Hash in[2]: ", children[2][0], children[2][1]);
+    log("Hash in[3]: ", children[3][0], children[3][1]);
+
+    log("Circuit hash: ", H.out[0], H.out[1]);
+    log("TS hash: ", parent[0], parent[1]);
+    H.out[0] === parent[0];
+    H.out[1] === parent[1];
 }
 
 template getParentNode() {

@@ -4,7 +4,7 @@ import { DataPt, ISynthesizerProvider } from '../types/index.ts';
 import { poseidon4 } from 'poseidon-bls12381';
 import { DataPtFactory } from '../dataStructure/index.ts';
 import { DEFAULT_SOURCE_BIT_SIZE } from 'src/synthesizer/params/index.ts';
-import { ArithmeticOperator, SUBCIRCUIT_MAPPING, SubcircuitNames } from 'src/interface/qapCompiler/configuredTypes.ts';
+import { ArithmeticOperator, SUBCIRCUIT_ALU_MAPPING, SubcircuitNames } from 'src/interface/qapCompiler/configuredTypes.ts';
 import { jubjub } from '@noble/curves/misc';
 import { ArithmeticOperations } from '../dataStructure/arithmeticOperations.ts';
 import { POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
@@ -28,7 +28,6 @@ export class ArithmeticManager {
     const values = inPts.map((pt) => pt.value);
     const outValue: bigint[] = executeOperation(name, values);
 
-    const source = this.parent.placementIndex;
     let sourceBitSize: number
     switch (name) {
       case 'DecToBit':
@@ -48,7 +47,7 @@ export class ArithmeticManager {
     return outValue.length > 0
       ? outValue.map((value, index) =>
           DataPtFactory.create({
-            source,
+            source: this.parent.placements.length,
             wireIndex: index,
             sourceBitSize,
           }, value),
@@ -67,7 +66,7 @@ export class ArithmeticManager {
     name: ArithmeticOperator,
     inPts: DataPt[],
   ): { subcircuitName: SubcircuitNames; finalInPts: DataPt[] } {
-    const [subcircuitName, selector] = SUBCIRCUIT_MAPPING[name];
+    const [subcircuitName, selector] = SUBCIRCUIT_ALU_MAPPING[name];
 
     const subcircuitInfo = this.parent.state.subcircuitInfoByName.get(subcircuitName)
     if (subcircuitInfo === undefined) {
@@ -78,7 +77,7 @@ export class ArithmeticManager {
 
     let finalInPts: DataPt[] = inPts;
     if (selector !== undefined) {
-      const selectorPt = this.parent.loadArbitraryStatic(selector, 128, `ALU selector for ${name} of ${subcircuitName}`);
+      const selectorPt = this.parent.loadArbitraryStatic(selector, 32, `ALU selector for ${name} of ${subcircuitName}`);
       finalInPts = [selectorPt, ...inPts];
     }
 
@@ -124,7 +123,7 @@ export class ArithmeticManager {
           const total = Math.ceil(arr.length / POSEIDON_INPUTS) * POSEIDON_INPUTS;
           const out: DataPt[] = [];
           for (let i = 0; i < total; i += POSEIDON_INPUTS) {
-              const chunk = Array.from({ length: POSEIDON_INPUTS }, (_, k) => arr[i + k] ?? this.parent.loadArbitraryStatic(0n, 1));
+              const chunk = Array.from({ length: POSEIDON_INPUTS }, (_, k) => arr[i + k] ?? this.parent.loadArbitraryStatic(0n));
               // Every word must be within the field [0, MOD)
               // chunk.map(checkBLS12Modulus)
               out.push(...this.placeArith('Poseidon', chunk));
@@ -149,7 +148,7 @@ export class ArithmeticManager {
 
     // Handle base cases for exponent
     if (bNum === 0) {
-      return DataPtFactory.deepCopy(synthesizer.loadArbitraryStatic(BIGINT_1, 1));
+      return DataPtFactory.deepCopy(synthesizer.loadArbitraryStatic(BIGINT_1));
     }
     if (bNum === 1) {
       return DataPtFactory.deepCopy(aPt);
@@ -162,7 +161,7 @@ export class ArithmeticManager {
 
     const chPts: DataPt[] = [];
     const ahPts: DataPt[] = [];
-    chPts.push(synthesizer.loadArbitraryStatic(BIGINT_1, 1));
+    chPts.push(synthesizer.loadArbitraryStatic(BIGINT_1));
     ahPts.push(aPt);
 
     for (let i = 1; i <= k; i++) {
@@ -184,11 +183,11 @@ export class ArithmeticManager {
       throw new Error('Invalid input to placeJubjubExp')
     }
     const base: DataPt[] = inPts.slice(0, 2)
-    // Make sure that the input scalar bits are in MSB first
-    const scalar_bits_MSB: DataPt[] = inPts.slice(2, )
+    // Make sure that the input scalar bits are in LSB-first
+    const scalar_bits_LSB: DataPt[] = inPts.slice(2, )
 
     const scalar_bits_chunk: DataPt[][] = Array.from({ length: NUM_CHUNKS }, (_, i) =>
-      scalar_bits_MSB.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE),
+      scalar_bits_LSB.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE),
     )
 
     if (PoI.length !== 2) {
@@ -200,7 +199,7 @@ export class ArithmeticManager {
       const prevP = P.slice()
       const prevG = G.slice()
       // LSB first
-      const chunkedInPts: DataPt[] = [...prevP, ...prevG, ...scalar_bits_chunk[NUM_CHUNKS - i - 1]]
+      const chunkedInPts: DataPt[] = [...prevP, ...prevG, ...scalar_bits_chunk[i]]
       const outPts: DataPt[] = this.parent.placeArith('JubjubExp36', chunkedInPts)
       if (outPts.length !== 4) {
         throw new Error('Something wrong with JubjubExp36')
@@ -208,14 +207,14 @@ export class ArithmeticManager {
       P = [outPts[0], outPts[1]]
       G = outPts.slice(2, )
 
-      //TESTED
-      const base_edwards = jubjub.Point.fromAffine({x: base[0].value, y: base[1].value})
-      const exponent = scalar_bits_chunk.slice(NUM_CHUNKS - i - 1, ).flat().map(pt => pt.value).reduce((acc, b) => (acc << 1n) | b, 0n)
-      const P_plain = base_edwards.multiply(exponent)
-      const P_edwards = jubjub.Point.fromAffine({x: P[0].value, y: P[1].value})
-      if (!P_plain.equals(P_edwards)) {
-        throw new Error('JubjubExp mismatch from the reference')
-      }
+      // //TESTED
+      // const base_edwards = jubjub.Point.fromAffine({x: base[0].value, y: base[1].value})
+      // const exponent = scalar_bits_chunk.slice(NUM_CHUNKS - i - 1, ).flat().map(pt => pt.value).reduce((acc, b) => (acc << 1n) | b, 0n)
+      // const P_plain = base_edwards.multiply(exponent)
+      // const P_edwards = jubjub.Point.fromAffine({x: P[0].value, y: P[1].value})
+      // if (!P_plain.equals(P_edwards)) {
+      //   throw new Error('JubjubExp mismatch from the reference')
+      // }
     }
 
     return DataPtFactory.deepCopy(P)

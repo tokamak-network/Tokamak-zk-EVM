@@ -1,7 +1,7 @@
 pragma circom 2.1.6;
-include "../node_modules/poseidon-bls12381-circom/circuits/poseidon255.circom";
-include "../node_modules/circomlib/circuits/comparators.circom";
-include "../node_modules/circomlib/circuits/bitify.circom";
+include "../../node_modules/poseidon-bls12381-circom/circuits/poseidon255.circom";
+include "../../node_modules/circomlib/circuits/comparators.circom";
+include "../../node_modules/circomlib/circuits/bitify.circom";
 
 function jubjubconst() {
     // Constants for Jubjub over BLS12-381 Fr
@@ -12,6 +12,32 @@ function jubjubconst() {
     return [A, D, n];
 }
 
+template splitJubjubInto128() {
+    signal input point[2];
+    signal output split_point[2][2];
+
+    var FIELD_SIZE = 1<<128;
+    split_point[0] <-- [
+        point[0] % FIELD_SIZE,
+        point[0] \ FIELD_SIZE
+    ];
+    split_point[1] <-- [
+        point[1] % FIELD_SIZE,
+        point[1] \ FIELD_SIZE
+    ];
+
+    point[0] === split_point[0][0] + split_point[0][1] * FIELD_SIZE;
+    point[1] === split_point[1][0] + split_point[1][1] * FIELD_SIZE;
+}
+
+template mergeJubjubInto255() {
+    signal input split_point[2][2];
+    signal output point[2];
+
+    var FIELD_SIZE = 1<<128;
+    point[0] <== split_point[0][0] + split_point[0][1] * FIELD_SIZE;
+    point[1] <== split_point[1][0] + split_point[1][1] * FIELD_SIZE;
+}
 
 
 // Affine coordinate system
@@ -60,8 +86,8 @@ template jubjubAdd() {
 
     // Enforce out[0] = numX / denX  and  out[1] = numY / denY
     // (division by multiplying both sides by denominators)
-    out[0] <-- numX \ denX;
-    out[1] <-- numY \ denY;
+    out[0] <-- numX / denX;
+    out[1] <-- numY / denY;
     numX === out[0] * denX;
     numY === out[1] * denY;
 }
@@ -87,9 +113,13 @@ template jubjubSubExp() {
 }
 
 template jubjubExp(N) {
-    // b[N] is assumued MSB-left
-    signal input P_prev[2], G_prev[2], b[N];
-    signal output P_next[2], G_next[2];
+    // b[N] is LSB-left
+    // P_prev and G_prev are Jubjub points of Affine form, each coordinate split into 128 bits
+    signal input _P_prev[2][2], _G_prev[2][2], b[N];
+    signal output _P_next[2][2], _G_next[2][2];
+
+    signal P_prev[2] <== mergeJubjubInto255()(_P_prev);
+    signal G_prev[2] <== mergeJubjubInto255()(_G_prev);
 
     signal inter_P[N+1][2];
     signal inter_G[N+1][2];
@@ -100,12 +130,15 @@ template jubjubExp(N) {
         subExp[i] = jubjubSubExp();
         subExp[i].P_prev <== inter_P[i];
         subExp[i].G_prev <== inter_G[i];
-        subExp[i].b <== b[N - i - 1];
+        subExp[i].b <== b[i];
         inter_P[i+1] <== subExp[i].P_next;
         inter_G[i+1] <== subExp[i].G_next;
     }
-    P_next <== inter_P[N];
-    G_next <== inter_G[N];
+    signal P_next[2] <== inter_P[N];
+    signal G_next[2] <== inter_G[N];
+
+    _P_next <== splitJubjubInto128()(P_next);
+    _G_next <== splitJubjubInto128()(G_next);
 }
 
 // template EdDsaInputCheck() {
@@ -123,30 +156,40 @@ template jubjubExp(N) {
 //     lt === 1;
 // }
 
+// Input is an 255-bit integer represented by two 128-bit LE limbs; e.g.) in1[0]: lower 128 bits, in1[1]: upper 128 bits
 template safeDecToJubjubBit() {
     signal input in;
-    signal output out_bit[252];
+    // LSB-left
+    signal output out_bit_LSB[252];
 
     var CONSTS[3] = jubjubconst();
     var n = CONSTS[2];
+    var FIELD_SIZE = 1<<128;
 
     signal quo <-- in \ n;
     signal rem <-- in % n;
 
     // Safe less than check
-    out_bit <== Num2Bits(252)(rem);
+    out_bit_LSB <== Num2Bits(252)(rem);
     signal lt <== LessThan(252)([rem, n]);
     lt === 1;
 
     in === quo * n + rem;
 }
 
-template prepareEdDsaScalars() {
-    signal input s, e;
-    signal output s_bit[252], e_bit[252];
 
-    s_bit <== safeDecToJubjubBit()(s);
-    e_bit <== safeDecToJubjubBit()(e);
+template prepareEdDsaScalars() {
+    // Each input is an 252-bit integer represented by two 128-bit LE limbs; e.g.) in1[0]: lower 128 bits, in1[1]: upper 128 bits
+    signal input _s[2], _e[2];
+    // LSB-left
+    signal output s_bit_LSB[252], e_bit_LSB[252];
+
+    var FIELD_SIZE = 1<<128;
+    signal s <== _s[0] + _s[1] * FIELD_SIZE;
+    signal e <== _e[0] + _e[1] * FIELD_SIZE;
+
+    s_bit_LSB <== safeDecToJubjubBit()(s);
+    e_bit_LSB <== safeDecToJubjubBit()(e);
 }
 
 // template BeginJubjubExp(){
@@ -158,7 +201,14 @@ template prepareEdDsaScalars() {
 // }
 
 template edDsaVerify() {
-    signal input SG[2], R[2], eA[2];
+    // Each input is Jubjub point as Affine form.
+    // Each 255-bit coordinate is split into 128-bits
+    signal input _SG[2][2], _R[2][2], _eA[2][2];
+
+    signal SG[2] <== mergeJubjubInto255()(_SG);
+    signal R[2] <== mergeJubjubInto255()(_R);
+    signal eA[2] <== mergeJubjubInto255()(_eA);
+
     jubjubCheck()(SG);
     jubjubCheck()(R);
     jubjubCheck()(eA);

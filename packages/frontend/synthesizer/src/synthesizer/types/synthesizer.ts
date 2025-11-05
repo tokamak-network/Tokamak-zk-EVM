@@ -34,17 +34,16 @@ export interface SynthesizerInterface {
 export interface ISynthesizerProvider extends SynthesizerInterface {
   cachedOpts: SynthesizerOpts,
   // from StateManager
-  get placementIndex(): number
   place(
     name: SubcircuitNames,
     inPts: DataPt[],
     outPts: DataPt[],
-    usage: ArithmeticOperator,
+    usage: string,
   ): void;
-  loadArbitraryStatic(value: bigint, bitSize?: number, desc?: string): DataPt
   loadStorage(key: bigint, value?: bigint): Promise<DataPt>
   // storeStorage(key: bigint, inPt: DataPt): void
   //from BufferManager
+  loadArbitraryStatic(value: bigint, bitSize?: number, desc?: string): DataPt
   getReservedVariableFromBuffer(varName: ReservedVariable): DataPt
   addWirePairToBufferIn(inPt: DataPt, outPt: DataPt, dynamic?: boolean): DataPt
   addReservedVariableToBufferIn(varName: ReservedVariable, value?: bigint, dynamic?: boolean, message?: string): DataPt

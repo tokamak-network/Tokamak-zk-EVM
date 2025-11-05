@@ -13,7 +13,7 @@ export const SETUP_PARAMS_KEYS = [
 
 // Shapes used by typed exports below
 export type SetupParams = Record<typeof SETUP_PARAMS_KEYS[number], number>;
-export type GlobalWireEntry = [subcircuitId: number, localWireIndex: number];
+export type GlobalWireEntry = readonly [subcircuitId: number, localWireIndex: number];
 export type GlobalWireList = GlobalWireEntry[];
 
 // Primitive validators

@@ -10,7 +10,27 @@ export type PlacementEntry = {
   outPts: DataPt[];
 };
 
-export type Placements = Map<number, PlacementEntry>;
+export type Placements = PlacementEntry[];
+
+export function placementEntryDeepCopy(placement: PlacementEntry): PlacementEntry {
+  return {
+    ...placement,
+    inPts: placement.inPts.slice(),
+    outPts: placement.outPts.slice(),
+  }
+}
+
+export function placementsDeepCopy(placements: Placements): Placements {
+  const copy: Placements = []
+  for (const placement of placements) {
+    copy.push({
+      ...placement,
+      inPts: placement.inPts.slice(),
+      outPts: placement.outPts.slice(),
+    })
+  }
+  return copy
+}
 
 export type PlacementVariableEntry = {
   subcircuitId: number;

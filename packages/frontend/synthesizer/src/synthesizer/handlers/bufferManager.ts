@@ -1,10 +1,10 @@
-import { NUMBER_OF_PREV_BLOCK_HASHES, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
+import { NUMBER_OF_PREV_BLOCK_HASHES, POSEIDON_INPUTS, SUBCIRCUIT_BUFFER_MAPPING } from 'src/interface/qapCompiler/importedConstants.ts';
 import { addHexPrefix, bigIntToBytes, bytesToBigInt, createAddressFromBigInt, hexToBigInt, PrefixedHexString, toBytes } from '@ethereumjs/util';
 import { jubjub } from '@noble/curves/misc';
-import { BUFFER_PLACEMENT, DataPt, DataPtDescription, ISynthesizerProvider, ReservedVariable, SynthesizerOpts, VARIABLE_DESCRIPTION } from '../types/index.ts';
+import { DataPt, DataPtDescription, ISynthesizerProvider, PlacementEntry, ReservedVariable, SynthesizerOpts, VARIABLE_DESCRIPTION } from '../types/index.ts';
 import { DataPtFactory } from '../dataStructure/index.ts';
-import { BUFFER_LIST } from 'src/interface/qapCompiler/configuredTypes.ts';
-import { poseidon_raw } from '../params/index.ts';
+import { BUFFER_DESCRIPTION, BUFFER_LIST } from 'src/interface/qapCompiler/configuredTypes.ts';
+import { DEFAULT_SOURCE_BIT_SIZE, poseidon_raw } from '../params/index.ts';
 
 export class BufferManager {
   private parent: ISynthesizerProvider
@@ -16,29 +16,6 @@ export class BufferManager {
     this.parent = parent
     this.cachedOpts = parent.cachedOpts
     this._initBuffers()
-  }
-
-  public addWirePairToBufferIn(inPt: DataPt, outPt: DataPt, dynamic: boolean): DataPt {
-    const thisPlacementId = outPt.source
-    if (dynamic) {
-      if (
-        // double confirmation
-        this.parent.placements.get(thisPlacementId)!.inPts.length !== this.parent.placements.get(thisPlacementId)!.outPts.length
-        || this.parent.placements.get(thisPlacementId)!.outPts.length !== outPt.wireIndex
-      ) {
-        throw new Error(
-          `Synthesizer: Mismatch in the buffer wires (placement id: ${thisPlacementId})`
-        );
-      }
-      // Add input-output pair to the input buffer subcircuit
-      this.parent.placements.get(thisPlacementId)!.inPts.push(inPt);
-      this.parent.placements.get(thisPlacementId)!.outPts.push(outPt);
-    } else {
-      this.parent.placements.get(thisPlacementId)!.inPts[inPt.wireIndex] = inPt
-      this.parent.placements.get(thisPlacementId)!.outPts[outPt.wireIndex] = outPt
-    }
-    
-    return DataPtFactory.deepCopy(outPt)
   }
 
   // public addWireToOutBuffer(
@@ -79,10 +56,10 @@ export class BufferManager {
       if (wireDesc.wireIndex !== -1) {
         throw new Error('This variable is static')
       }
-      externalDataPt.wireIndex = this.parent.placements.get(placementIndex)!.inPts.length
+      externalDataPt.wireIndex = this.parent.placements[placementIndex]!.inPts.length
     }
     const symbolDataPt = DataPtFactory.createBufferTwin(externalDataPt)
-    return DataPtFactory.deepCopy(this.addWirePairToBufferIn(externalDataPt, symbolDataPt, dynamic))
+    return DataPtFactory.deepCopy(this.parent.addWirePairToBufferIn(externalDataPt, symbolDataPt, dynamic))
   }
 
   public addReservedVariableToBufferOut(varName: ReservedVariable, symbolDataPt: DataPt, dynamic: boolean = false, message?: string): DataPt {
@@ -93,9 +70,34 @@ export class BufferManager {
       if (wireDesc.wireIndex !== -1) {
         throw new Error('This variable is static')
       }
-      externalDataPt.wireIndex = this.parent.placements.get(placementIndex)!.inPts.length
+      externalDataPt.wireIndex = this.parent.placements[placementIndex]!.inPts.length
     } 
-    return DataPtFactory.deepCopy(this.addWirePairToBufferIn(symbolDataPt, externalDataPt, dynamic))
+    return DataPtFactory.deepCopy(this.parent.addWirePairToBufferIn(symbolDataPt, externalDataPt, dynamic))
+  }
+
+  public loadArbitraryStatic(
+    value: bigint,
+    bitSize?: number,
+    desc?: string,
+  ): DataPt {
+    if (desc === undefined) {
+      const cachedDataPt = this.parent.state.cachedEVMIn.get(value)
+      if (cachedDataPt !== undefined) {
+        return DataPtFactory.deepCopy(cachedDataPt)
+      }
+    }
+    const placementIndex = BUFFER_LIST.findIndex(str => str === 'EVM_IN')
+    const inPtRaw: DataPtDescription = {
+      extSource: desc ?? 'Arbitrary constant',
+      sourceBitSize: bitSize ?? DEFAULT_SOURCE_BIT_SIZE,
+      source: placementIndex,
+      wireIndex: this.parent.placements[placementIndex]!.inPts.length,
+    };
+    const inPt = DataPtFactory.create(inPtRaw, value)
+    const outPt = DataPtFactory.createBufferTwin(inPt)
+    this.parent.addWirePairToBufferIn(inPt, outPt, true)
+    this.parent.state.cachedEVMIn.set(value, outPt)
+    return DataPtFactory.deepCopy(outPt)
   }
 
   /**
@@ -104,7 +106,7 @@ export class BufferManager {
   private _initBuffers(): void {
     // const _addUnusedBufferWire = (buffer: ReservedBuffer): void => {
     //   const placementIndex = BUFFER_PLACEMENT[buffer].placementIndex
-    //   const placement = this.parent.placements.get(placementIndex)!
+    //   const placement = this.parent.placements[placementIndex]!
     //   const inPtDesc: DataPtDescription = {
     //     source: placementIndex,
     //     sourceBitSize: 1,
@@ -114,23 +116,23 @@ export class BufferManager {
     //   if (outPt.wireIndex !== placement.outPts.length || inPt.wireIndex !== outPt.wireIndex) {
     //     throw new Error(`Wire index mismatch while initializing buffers`)
     //   }
-    //   this.parent.placements.get(placementIndex)!.inPts.push(inPt)
-    //   this.parent.placements.get(placementIndex)!.outPts.push(outPt)
+    //   this.parent.placements[placementIndex]!.inPts.push(inPt)
+    //   this.parent.placements[placementIndex]!.outPts.push(outPt)
     // }
 
-    for (const p of BUFFER_LIST) {
-      const buffer = BUFFER_PLACEMENT[p]
-      const subcircuitInfo = this.parent.state.subcircuitInfoByName.get(buffer.placement.name)
-      if (!subcircuitInfo) {
+    for (const buffer of BUFFER_LIST) {
+      const subcircuit = SUBCIRCUIT_BUFFER_MAPPING[buffer];
+      if (subcircuit === undefined) {
         throw new Error(
-          `StateManager: Could not find subcircuit info for placement '${buffer.placement.name}'`,
+          `Could not find subcircuit info for placement '${buffer}'`,
         )
       }
-
-      this.parent.placements.set(buffer.placementIndex, {
-        ...buffer.placement,
-        subcircuitId: subcircuitInfo.id,
-      })
+      this.parent.place(
+        subcircuit.name,
+        new Array<DataPt>(0),
+        new Array<DataPt>(0),
+        BUFFER_DESCRIPTION[buffer],
+      )
     }
     
 
@@ -167,18 +169,17 @@ export class BufferManager {
     this._initTransactionBuffer()
 
     // Check if omitted buffer wires
-    for (const p of BUFFER_LIST) {
-      const placementIndex = BUFFER_PLACEMENT[p].placementIndex
-      const actualNumberInWires = this.parent.placements.get(placementIndex)!.inPts.filter(wire => wire !== undefined).length
-      const actualNumberOutWires = this.parent.placements.get(placementIndex)!.outPts.filter(wire => wire !== undefined).length
+    for (const [placementIndex, buffer] of BUFFER_LIST.entries()) {
+      const actualNumberInWires = this.parent.placements[placementIndex]!.inPts.filter(wire => wire !== undefined).length
+      const actualNumberOutWires = this.parent.placements[placementIndex]!.outPts.filter(wire => wire !== undefined).length
       if ( 
-        actualNumberInWires -1 !== (this.parent.placements.get(placementIndex)!.inPts.at(-1)?.wireIndex ?? -1) ||
-        actualNumberOutWires -1 !== (this.parent.placements.get(placementIndex)!.outPts.at(-1)?.wireIndex ?? -1)
+        actualNumberInWires -1 !== (this.parent.placements[placementIndex]!.inPts.at(-1)?.wireIndex ?? -1) ||
+        actualNumberOutWires -1 !== (this.parent.placements[placementIndex]!.outPts.at(-1)?.wireIndex ?? -1)
       ) {
         throw new Error('Some wires are omitted while initializing buffers')
       }
       if ( actualNumberInWires !== actualNumberOutWires ) {
-        throw new Error(`Input and output wires mismatch in ${p} buffer`)
+        throw new Error(`Input and output wires mismatch in ${buffer} buffer`)
       }
     }
   }
@@ -253,7 +254,7 @@ export class BufferManager {
     //     break
     // }
 
-    const outPt = {...this.parent.placements.get(placementIndex)!.outPts[wireIndex]}
+    const outPt = this.parent.placements[placementIndex]!.outPts[wireIndex]
     if (outPt.wireIndex !== wireIndex || outPt.source !== placementIndex) {
       throw new Error('Invalid wire information')
     }

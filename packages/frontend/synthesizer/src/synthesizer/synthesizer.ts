@@ -171,6 +171,7 @@ export class Synthesizer implements SynthesizerInterface
             parentPts.push(this.getReservedVariableFromBuffer(`NULL_POSEIDON_LEVEL${level}` as ReservedVariable))
           } else {
             parentPts.push(this.placeArith('Poseidon', chunk)[0]);
+           
           }
       }
       return parentPts
@@ -345,10 +346,6 @@ export class Synthesizer implements SynthesizerInterface
     return this._state;
   }
 
-  public get placementIndex(): number {
-    return this._state.placementIndex
-  }
-  
   public get placements(): Placements {
     return this._state.placements
   }
@@ -357,7 +354,7 @@ export class Synthesizer implements SynthesizerInterface
       return this._instructionHandlers.synthesizerHandlers
     }
 
-  place(name: SubcircuitNames, inPts: DataPt[], outPts: DataPt[], usage: ArithmeticOperator): void {
+  place(name: SubcircuitNames, inPts: DataPt[], outPts: DataPt[], usage: string): void {
     this._state.place(name, inPts, outPts, usage)
   }
 
@@ -368,7 +365,7 @@ export class Synthesizer implements SynthesizerInterface
   }
 
   addWirePairToBufferIn(inPt: DataPt, outPt: DataPt, dynamic: boolean): DataPt {
-    return this._bufferManager.addWirePairToBufferIn(inPt, outPt, dynamic)
+    return this._state.addWirePairToBufferIn(inPt, outPt, dynamic)
   }
 
   addReservedVariableToBufferIn(varName: ReservedVariable, value?: bigint, dynamic?: boolean, message?: string): DataPt {
@@ -383,7 +380,7 @@ export class Synthesizer implements SynthesizerInterface
     bitSize?: number,
     desc?: string,
   ): DataPt {
-    return this._state.loadArbitraryStatic(value, bitSize, desc)
+    return this._bufferManager.loadArbitraryStatic(value, bitSize, desc)
   }
 
   async loadStorage(key: bigint, value?: bigint): Promise<DataPt> {

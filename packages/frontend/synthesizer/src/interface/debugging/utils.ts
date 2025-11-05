@@ -7,3 +7,7 @@ export const mapToStr = (map: Map<any, any>) => {
     ]),
   )
 }
+
+export function arrToStr(key: string, value: any) {
+  return typeof value === 'bigint' ? value.toString() : value
+}

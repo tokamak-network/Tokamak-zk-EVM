@@ -341,7 +341,7 @@ export class InstructionHandler {
         const staticInDesc = `Static input for PUSH${numToPush} instruction at PC ${pc} of code address ${thisAddress} called by ${callerAdderss}`
         this.parent.state.stackPt.push(this.parent.loadArbitraryStatic(
           out,
-          numToPush * 8,
+          DEFAULT_SOURCE_BIT_SIZE,
           staticInDesc,
         ))
         if (this.parent.state.stackPt.peek(1)[0].value !== out) {
@@ -445,7 +445,7 @@ export class InstructionHandler {
 
     this.parent.placeArith('EdDsaVerify', [...sG, ...randomizerPt, ...eA])
     
-    const zeroPt: DataPt = this.parent.loadArbitraryStatic(0n, 1)
+    const zeroPt: DataPt = this.parent.loadArbitraryStatic(0n)
     const hashPt: DataPt = this.parent.placeArith('Poseidon', [...publicKeyPt, zeroPt, zeroPt])[0]
     const addrMaskPt: DataPt = this.parent.getReservedVariableFromBuffer('ADDRESS_MASK')
     this.parent.state.cachedOrigin = this.parent.placeArith('AND', [hashPt, addrMaskPt])[0]
@@ -498,7 +498,7 @@ export class InstructionHandler {
   //             parent: poseidon_raw(arrangedChildren)
   //           }
   //         }
-  //         let childPt: DataPt = this.parent.placeArith('Poseidon', [indexPt, keyPt, valuePt, this.parent.loadArbitraryStatic(0n, 1)])[0]
+  //         let childPt: DataPt = this.parent.placeArith('Poseidon', [indexPt, keyPt, valuePt, this.parent.loadarbitraryStatic(0n)])[0]
   //         let childIndexPt: DataPt = indexPt
   //         for (var level = 0; level < MT_DEPTH - 1; level++) {
   //           const {parentIndex, parent} = computeParentNode(childIndexPt.value, childPt.value, merkleProof.siblings[level])
@@ -690,7 +690,7 @@ export class InstructionHandler {
         this._popStackPtAndCheckInputConsistency([blockNumber!])
         const blockNumberDiff = this.parent.getReservedVariableFromBuffer('NUMBER').value - blockNumber!
         dataPt =  blockNumberDiff <= 0n && blockNumberDiff > 256n ? 
-          this.parent.loadArbitraryStatic(0n, 1) : 
+          this.parent.loadArbitraryStatic(0n) : 
           this.parent.getReservedVariableFromBuffer(`BLOCKHASH_${blockNumberDiff}` as ReservedVariable)
       }
       default:
@@ -707,12 +707,13 @@ export class InstructionHandler {
   private _getStaticInDataPt = (output: bigint, opts: HandlerOpts, targetAddress?: bigint): DataPt => {
     checkRequiredInput(opts.pc, opts.callerAddress)
     const value = output
-    const cachedDataPt = this.parent.state.cachedEVMIn.get(value)
+    // const cachedDataPt = this.parent.state.cachedEVMIn.get(value)
     const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc!} of code address ${opts.thisAddress===undefined? this.cachedOpts.signedTransaction.to.toString() : opts.thisAddress.toString()} called by ${opts.callerAddress!.toString()}`
     let targetDesc = targetAddress === undefined ? `` : `(target: ${createAddressFromBigInt(targetAddress).toString()})`
-    return cachedDataPt ?? this.parent.loadArbitraryStatic(
+    // return cachedDataPt ?? this.parent.loadArbitraryStatic(
+    return this.parent.loadArbitraryStatic(
       value,
-      undefined,
+      DEFAULT_SOURCE_BIT_SIZE,
       staticInDesc + targetDesc,
     )
   }
@@ -801,10 +802,10 @@ export class InstructionHandler {
             if (dataAliasInfos.length > 0) {
               stackPt.push(this.parent.placeMemoryToStack(dataAliasInfos))
             } else {
-              stackPt.push(this.parent.loadArbitraryStatic(0n, 1))
+              stackPt.push(this.parent.loadArbitraryStatic(0n))
             }
           } else {
-            stackPt.push(this.parent.loadArbitraryStatic(0n, 1))
+            stackPt.push(this.parent.loadArbitraryStatic(0n))
           }   
         }
         break
@@ -968,7 +969,7 @@ export class InstructionHandler {
             Number(pos),
             32,
           )
-          const mutDataPt = dataAliasInfos.length === 0 ? this.parent.loadArbitraryStatic(0n, 1) : this.parent.placeMemoryToStack(dataAliasInfos)
+          const mutDataPt = dataAliasInfos.length === 0 ? this.parent.loadArbitraryStatic(0n) : this.parent.placeMemoryToStack(dataAliasInfos)
           stackPt.push(mutDataPt)
         }
         break
@@ -1012,7 +1013,7 @@ export class InstructionHandler {
         {
           checkRequiredInput(opts.pc, opts.callerAddress)
           const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc} of code address ${opts.thisAddress === undefined ? this.cachedOpts.signedTransaction.to.toString() : opts.thisAddress.toString()} called by ${opts.callerAddress!}`
-          stackPt.push(this.parent.loadArbitraryStatic(out!, undefined, staticInDesc))
+          stackPt.push(this.parent.loadArbitraryStatic(out!, DEFAULT_SOURCE_BIT_SIZE, staticInDesc))
         }
         break
       case 'JUMPDEST': 
@@ -1064,7 +1065,7 @@ export class InstructionHandler {
           }
           this.parent.state.stackPt.push(this.parent.loadArbitraryStatic(
             out!,
-            undefined,
+            DEFAULT_SOURCE_BIT_SIZE,
             `Call result of ${op} instruction at PC ${opts.pc!} of code address ${opts.thisAddress === undefined ? this.cachedOpts.signedTransaction.to.toString().toString() : opts.thisAddress.toString()} called by ${opts.callerAddress!.toString()}`,
           ))
         }
@@ -1175,7 +1176,7 @@ export class InstructionHandler {
       const sliceLength = Math.min(32, lengthLeft)
       const dataSlice = bytesToBigInt(getDataSlice(code, codeOffset + accOffsetShift, BigInt(sliceLength)))
       const desc = `Code of address: ${bigIntToHex(targetAddress)}, offset: ${Number(codeOffset)}, length: ${Number(dataLength)} bytes, chunk: ${i+1} out of ${nChunks}.`
-      const dataPt = this.parent.loadArbitraryStatic(dataSlice, undefined, desc)
+      const dataPt = this.parent.loadArbitraryStatic(dataSlice, DEFAULT_SOURCE_BIT_SIZE, desc)
       memPts.push({
         memByteOffset: Number(memOffset + accOffsetShift),
         containerByteSize: sliceLength,
@@ -1209,7 +1210,7 @@ export class InstructionHandler {
       if (dataAliasInfos.length > 0) {
         chunkDataPts[i] = this.parent.placeMemoryToStack(dataAliasInfos);
       } else {
-        chunkDataPts[i] = this.parent.loadArbitraryStatic(0n, 1);
+        chunkDataPts[i] = this.parent.loadArbitraryStatic(0n);
       }
   
       dataRecovered += chunkDataPts[i].value << BigInt(lengthLeft * 8);

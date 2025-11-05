@@ -1,3 +1,4 @@
+
 export const ARITHMETIC_OPERATOR_LIST = [
   'ADD',
   'MUL',
@@ -47,6 +48,14 @@ export const BUFFER_LIST = [
     'PRIVATE_IN',
 ] as const
 
+export const BUFFER_DESCRIPTION: Record<ReservedBuffer, string> = {
+  PUBLIC_OUT: '[Public output & Private input] Buffer to emit user output',
+  PUBLIC_IN: '[Private output & Public input] Buffer to load user input',
+  BLOCK_IN: '[Private output & Public input] Buffer to load block input',
+  EVM_IN: '[Private output & Public input] Buffer to load public static input such as ROM, environmental data, or ALU selectors',
+  PRIVATE_IN: '[Private output & Private input] Buffer to load witness as private, such as initial storage, transaction data, and Merkle tree proofs',
+} as const
+
 export type ReservedBuffer = (typeof BUFFER_LIST)[number]
 
 export const SUBCIRCUIT_LIST = [
@@ -75,13 +84,14 @@ export const SUBCIRCUIT_LIST = [
 export type SubcircuitNames = typeof SUBCIRCUIT_LIST[number]
 
 export type SubcircuitInfoByNameEntry = {
+  name: SubcircuitNames;
   id: number;
   NWires: number;
   inWireIndex: number;
   NInWires: number;
   outWireIndex: number;
   NOutWires: number;
-  flattenMap?: number[];
+  flattenMap: number[];
 };
 
 export type SubcircuitInfoByName = Map<
@@ -89,7 +99,7 @@ export type SubcircuitInfoByName = Map<
   SubcircuitInfoByNameEntry
 >;
 
-export const SUBCIRCUIT_MAPPING: Record<ArithmeticOperator, [SubcircuitNames, bigint | undefined]> = {
+export const SUBCIRCUIT_ALU_MAPPING: Record<ArithmeticOperator, [SubcircuitNames, bigint | undefined]> = {
   ADD: ['ALU1', 1n << 1n],
   MUL: ['ALU1', 1n << 2n],
   SUB: ['ALU1', 1n << 3n],

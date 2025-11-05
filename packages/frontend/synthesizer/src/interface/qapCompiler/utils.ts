@@ -67,6 +67,7 @@ export function createInfoByName(subcircuitInfo: SubcircuitInfo): SubcircuitInfo
   for (const subcircuit of subcircuitInfo) {
     const entryObject: SubcircuitInfoByNameEntry = {
       id: subcircuit.id,
+      name: subcircuit.name,
       NWires: subcircuit.Nwires,
       NInWires: subcircuit.In_idx[1],
       NOutWires: subcircuit.Out_idx[1],
