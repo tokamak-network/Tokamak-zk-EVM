@@ -10,7 +10,7 @@ use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::ntt;
 use prove::{*};
-use libs::group_structures::{pairing, icicle_g1_affine_to_ark};
+use libs::group_structures::pairing;
 use preprocess::{Preprocess, FormattedPreprocess};
 
 use std::path::{PathBuf};
@@ -224,13 +224,12 @@ impl Verifier {
         let kappa0 = proof1.verify1_with_manager(&mut transcript_manager);
         let (chi, zeta) = proof2.verify2_with_manager(&mut transcript_manager);
         let kappa1 = proof3.verify3_with_manager(&mut transcript_manager);
-        let kappa2 = ScalarField::one(); // ScalarCfg::generate_random(1)[0];
+        let kappa2 = ScalarCfg::generate_random(1)[0];
         
         let m_i = self.setup_params.l_D - self.setup_params.l;
         let s_max = self.setup_params.s_max;
         let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
         let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
-        
         let t_n_eval = chi.pow(self.setup_params.n) - ScalarField::one();
         let t_mi_eval = chi.pow(m_i) - ScalarField::one();
         let t_smax_eval = zeta.pow(s_max) - ScalarField::one();
@@ -242,7 +241,6 @@ impl Verifier {
             None,
             None
         );
-        
         let A_eval = a_pub_X.eval(&chi, &zeta);
         
         let lagrange_K0_eval = {
@@ -276,22 +274,21 @@ impl Verifier {
             + self.sigma.sigma_1.x * thetas[0]
             + self.sigma.sigma_1.y * thetas[1]
             + self.sigma.G * thetas[2];
-        
-        let LHS_C = 
-            ((self.sigma.lagrange_KL * (proof3.R_eval - ScalarField::one())
+        let LHS_C_term1 = 
+            self.sigma.lagrange_KL * (proof3.R_eval - ScalarField::one())
             + (G * proof3.R_eval - F * proof3.R_omegaX_eval) * (kappa0 * (chi - ScalarField::one()))
             + (G * proof3.R_eval - F * proof3.R_omegaX_omegaY_eval) * (kappa0.pow(2) * lagrange_K0_eval)
             - proof2.Q_CX * t_mi_eval
-            - proof2.Q_CY * t_smax_eval) * kappa1.pow(2))
+            - proof2.Q_CY * t_smax_eval;
+        let LHS_C = 
+            LHS_C_term1 * kappa1.pow(2)
             + (proof1.R - self.sigma.G * proof3.R_eval) * kappa1.pow(3)
             + (proof1.R - self.sigma.G * proof3.R_omegaX_eval) * kappa2
             + (proof1.R - self.sigma.G * proof3.R_omegaX_omegaY_eval) * kappa2.pow(2);
-        
-        let scalar_a = ScalarField::one() + (kappa2 * kappa1.pow(4));
-        let scalar_b = kappa2 * kappa1.pow(4) * A_eval;
-        
-        let LHS_B = (binding.A * scalar_a) - (self.sigma.G * scalar_b);
-        let LHS = LHS_B + ((LHS_A + LHS_C) * kappa2);
+        let LHS_B =
+            binding.A * ( ScalarField::one() + (kappa2 * kappa1.pow(4)) )
+            - self.sigma.G * (kappa2 * kappa1.pow(4) * A_eval);
+        let LHS = LHS_B + ( (LHS_A + LHS_C) * kappa2 );
         let AUX = 
             proof4.Pi_X * (kappa2 * chi)
             + proof4.Pi_Y * (kappa2 * zeta)
@@ -307,7 +304,7 @@ impl Verifier {
             proof4.Pi_Y * kappa2
             + proof4.M_Y * kappa2.pow(2)
             + proof4.N_Y * kappa2.pow(3);
-        
+
         let left_pair = pairing(
             &[LHS + AUX,    proof0.B,                   proof0.U,                   proof0.V,                   proof0.W                 ],
             &[self.sigma.H, self.sigma.sigma_2.alpha4,  self.sigma.sigma_2.alpha,   self.sigma.sigma_2.alpha2,  self.sigma.sigma_2.alpha3]
@@ -400,7 +397,6 @@ impl Verifier {
             + (proof1.R - self.sigma.G * proof3.R_eval) * kappa1.pow(3)
             + (proof1.R - self.sigma.G * proof3.R_omegaX_eval) * kappa2
             + (proof1.R - self.sigma.G * proof3.R_omegaX_omegaY_eval) * kappa2.pow(2);
-        
         let AUX_C = 
             proof4.Pi_CX * chi
             + proof4.Pi_CY * zeta
