@@ -1,0 +1,7 @@
+# Example transaction hashes for testing
+# These are real Ethereum mainnet transactions
+# Use this file for testing the workflow with a small set
+
+0xad6795bca9cf6b70f6ed2d728eae677d66510b3b25f2542f7f57920f858d9fd0
+0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321

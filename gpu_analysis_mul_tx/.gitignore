@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Results and data
+batch_results/
+results/
+*.csv
+*.json
+*.txt
+*.log
+
+# Plots
+*.png
+*.pdf
+*.svg
+
+# Keep example files
+!example_transactions.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
