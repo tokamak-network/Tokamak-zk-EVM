@@ -1,0 +1,22 @@
+# GPU Analysis Results
+results/
+*.csv
+*.log
+*.png
+*.jpg
+*.jpeg
+
+# Python virtual environment (stored at repo root)
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*~
+.DS_Store
