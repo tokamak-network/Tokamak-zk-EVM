@@ -12,7 +12,20 @@
 
 ## 🚀 Quick Start
 
-### 1. Build
+### Option A: Install from NPM (Recommended)
+
+```bash
+# For Web/Browser
+npm install @tokamak-zk-evm/verify-wasm-web
+
+# For Node.js
+npm install @tokamak-zk-evm/verify-wasm-nodejs
+
+# For Bundlers (Webpack, Vite, etc.)
+npm install @tokamak-zk-evm/verify-wasm-bundler
+```
+
+### Option B: Build from Source
 
 ```bash
 cd packages/backend/verify/verify-wasm
@@ -37,6 +50,8 @@ open http://localhost:8000/example-simple.html
 
 ### 3. Use in Your Code
 
+#### Using NPM Package (Web)
+
 ```html
 <!DOCTYPE html>
 <html>
@@ -48,8 +63,11 @@ open http://localhost:8000/example-simple.html
     <div id="result"></div>
 
     <script type="module">
-      // Import WASM module (runs directly in browser!)
-      import init, { Verifier } from './pkg-web/verify_wasm.js';
+      // Import from NPM package
+      import init, { Verifier } from '@tokamak-zk-evm/verify-wasm-web';
+
+      // Or if using local build:
+      // import init, { Verifier } from './pkg-web/verify_wasm.js';
 
       document.getElementById('verify').onclick = async () => {
         // Initialize WASM (~50ms)
@@ -107,7 +125,7 @@ open http://localhost:8000/example-simple.html
 
 ```typescript
 import { useEffect, useState } from 'react';
-import init, { Verifier } from 'verify-wasm';
+import init, { Verifier } from '@tokamak-zk-evm/verify-wasm-bundler';
 
 function VerifyButton() {
   const [result, setResult] = useState('');
@@ -149,7 +167,7 @@ function VerifyButton() {
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import init, { Verifier } from 'verify-wasm';
+import init, { Verifier } from '@tokamak-zk-evm/verify-wasm-bundler';
 
 const loading = ref(false);
 const result = ref('');
@@ -213,10 +231,16 @@ import init from './pkg-web/verify_wasm.js';
 wasm-pack build --target bundler --out-dir pkg
 ```
 
-Usage:
+Usage with NPM:
 
 ```javascript
-import init from 'verify-wasm';
+import init from '@tokamak-zk-evm/verify-wasm-bundler';
+```
+
+Or with local build:
+
+```javascript
+import init from './pkg/verify_wasm.js';
 ```
 
 ### For Node.js
@@ -225,7 +249,15 @@ import init from 'verify-wasm';
 wasm-pack build --target nodejs --out-dir pkg-node
 ```
 
-Usage:
+Usage with NPM:
+
+```javascript
+import { Verifier } from '@tokamak-zk-evm/verify-wasm-nodejs';
+// or
+const { Verifier } = require('@tokamak-zk-evm/verify-wasm-nodejs');
+```
+
+Or with local build:
 
 ```javascript
 import { Verifier } from './pkg-node/verify_wasm.js';
@@ -354,16 +386,6 @@ function validateSetupParams(params) {
 2. **Test**: Open `example-simple.html`
 3. **Integrate**: Add to your app
 4. **Deploy**: Enable compression and deploy
-
-## 💡 Key Benefits
-
-| Benefit                    | Description                       |
-| -------------------------- | --------------------------------- |
-| 🔒 **Privacy Preserving**  | All verification runs in browser  |
-| 🚀 **Reduce Server Costs** | Client-side processing, no server |
-| ⚡ **Low Latency**         | No network requests needed        |
-| 🌍 **Offline Capable**     | Works without internet            |
-| 📱 **Mobile Support**      | Works on iOS/Android              |
 
 ## 📚 References
 

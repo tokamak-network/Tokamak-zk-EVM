@@ -1,0 +1,26 @@
+{
+  "name": "@tokamak-network/zkevm-preprocess-wasm",
+  "version": "0.1.0",
+  "description": "Tokamak zkEVM Preprocess Generator - WASM implementation for Node.js (Server-side only, CPU-intensive)",
+  "keywords": ["tokamak", "zkevm", "snark", "preprocess", "wasm", "zero-knowledge"],
+  "author": "Tokamak Network",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tokamak-network/Tokamak-zk-EVM"
+  },
+  "scripts": {
+    "build": "wasm-pack build --target nodejs --out-dir pkg",
+    "build:web": "wasm-pack build --target web --out-dir pkg-web",
+    "build:node": "wasm-pack build --target nodejs --out-dir pkg-node",
+    "test": "node test-node.js",
+    "publish": "cd pkg && npm publish --access public"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "os": ["darwin", "linux"],
+  "cpu": ["x64", "arm64"]
+}
+
+
