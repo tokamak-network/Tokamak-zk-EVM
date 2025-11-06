@@ -726,9 +726,11 @@ pub fn icicle_g1_affine_to_ark(g: &G1Affine) -> ArkG1Affine {
 pub fn icicle_g2_affine_to_ark(g: &G2Affine) -> ArkG2Affine {
     let x_bytes = g.x.to_bytes_le();
     let y_bytes = g.y.to_bytes_le();
+    
     let x = ark_bls12_381::Fq2::from_random_bytes(&x_bytes)
         .expect("failed to convert x from icicle to ark");
     let y = ark_bls12_381::Fq2::from_random_bytes(&y_bytes)
         .expect("failed to convert y from icicle to ark");
+    
     ArkG2Affine::new_unchecked(x, y)
 }
