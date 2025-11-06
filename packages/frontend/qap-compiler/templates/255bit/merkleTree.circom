@@ -10,13 +10,6 @@ template verifyParentNode(N) {
         H.in[i] <== children[i];
     }
     
-    log("Hash in[0]: ", children[0][0], children[0][1]);
-    log("Hash in[1]: ", children[1][0], children[1][1]);
-    log("Hash in[2]: ", children[2][0], children[2][1]);
-    log("Hash in[3]: ", children[3][0], children[3][1]);
-
-    log("Circuit hash: ", H.out[0], H.out[1]);
-    log("TS hash: ", parent[0], parent[1]);
     H.out[0] === parent[0];
     H.out[1] === parent[1];
 }

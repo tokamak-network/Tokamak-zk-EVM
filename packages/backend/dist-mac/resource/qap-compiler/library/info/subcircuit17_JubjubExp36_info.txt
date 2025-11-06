@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 6
+non-linear constraints: 900
+linear constraints: 80
+public inputs: 0
+private inputs: 44
+public outputs: 8
+wires: 993
+labels: 1833
+[32mWritten successfully:[0m ../subcircuits/library/JubjubExp36_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library/JubjubExp36_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library/JubjubExp36_circuit_js/JubjubExp36_circuit.wasm
+[32mEverything went okay[0m

@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 1
+non-linear constraints: 170
+linear constraints: 170
+public inputs: 170
+private inputs: 0
+public outputs: 170
+wires: 341
+labels: 341
+[32mWritten successfully:[0m ../subcircuits/library/bufferEVMIn_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library/bufferEVMIn_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library/bufferEVMIn_circuit_js/bufferEVMIn_circuit.wasm
+[32mEverything went okay[0m

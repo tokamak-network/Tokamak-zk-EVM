@@ -12,7 +12,49 @@
       "program": "${cargo:program}",
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/../frontend/synthesizer/examples/outputs",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "${workspaceFolder}/setup/trusted-setup/output"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+      },  
+      "sourceLanguages": ["rust"]
+    },
+    {
+      "name": "Debug trusted-setup (coderun)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "-p", "trusted-setup"],
+        "filter": { "name": "trusted-setup", "kind": "bin" }
+      },
+      "program": "${cargo:program}",
+      "args": [
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "${workspaceFolder}/setup/trusted-setup/output"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+      },  
+      "sourceLanguages": ["rust"]
+    },
+    {
+      "name": "Debug trusted-setup (testing-mode)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "-p", "trusted-setup", "--features", "testing-mode"],
+        "filter": { "name": "trusted-setup", "kind": "bin" }
+      },
+      "program": "${cargo:program}",
+      "args": [
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
         "${workspaceFolder}/setup/trusted-setup/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -33,7 +75,29 @@
       "program": "${cargo:program}",
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/../frontend/synthesizer/examples/outputs",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/verify/preprocess/output"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+      },
+      "sourceLanguages": ["rust"]
+    },
+    {
+      "name": "Debug preprocess (coderun)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "-p", "preprocess"],
+        "filter": { "name": "preprocess", "kind": "bin" }
+      },
+      "program": "${cargo:program}",
+      "args": [
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
         "${workspaceFolder}/setup/trusted-setup/output",
         "${workspaceFolder}/verify/preprocess/output"
       ],
@@ -49,13 +113,57 @@
       "type": "lldb",
       "request": "launch",
       "cargo": {
-        "args": ["build", "--release", "-p", "prove"],
+        "args": ["build","--release", "-p", "prove"],
         "filter": { "name": "prove", "kind": "bin" }
       },
       "program": "${cargo:program}",
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/../frontend/synthesizer/examples/outputs",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/prove/output"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+      },
+      "sourceLanguages": ["rust"]
+    },
+    {
+      "name": "Debug prove (coderun)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "-p", "prove"],
+        "filter": { "name": "prove", "kind": "bin" }
+      },
+      "program": "${cargo:program}",
+      "args": [
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/prove/output"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+      },
+      "sourceLanguages": ["rust"]
+    },
+    {
+      "name": "Debug prove (testing-mode)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "-p", "prove", "--features", "testing-mode"],
+        "filter": { "name": "prove", "kind": "bin" }
+      },
+      "program": "${cargo:program}",
+      "args": [
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
         "${workspaceFolder}/setup/trusted-setup/output",
         "${workspaceFolder}/prove/output"
       ],
@@ -77,7 +185,53 @@
       "program": "${cargo:program}",
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/../frontend/synthesizer/examples/outputs",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/verify/preprocess/output",
+        "${workspaceFolder}/prove/output"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+      },
+      "sourceLanguages": ["rust"]
+    },
+    {
+      "name": "Debug verify (coderun)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "-p", "verify"],
+        "filter": { "name": "verify", "kind": "bin" }
+      },
+      "program": "${cargo:program}",
+      "args": [
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/verify/preprocess/output",
+        "${workspaceFolder}/prove/output"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+      },
+      "sourceLanguages": ["rust"]
+    },
+    {
+      "name": "Debug verify (testing-mode)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "-p", "verify", "--features", "testing-mode"],
+        "filter": { "name": "verify", "kind": "bin" }
+      },
+      "program": "${cargo:program}",
+      "args": [
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
         "${workspaceFolder}/setup/trusted-setup/output",
         "${workspaceFolder}/verify/preprocess/output",
         "${workspaceFolder}/prove/output"

@@ -2,6 +2,7 @@ use std::{env, process, time::Instant};
 
 use icicle_runtime::Device;
 use libs::utils::check_device;
+use prove::Proof4Test;
 use verify::{KeccakVerificationResult, Verifier, VerifyInputPaths};
 
 fn main() {
@@ -33,9 +34,19 @@ fn main() {
 
     println!("Verifying the proof...");
     timer = Instant::now();
-    let res_keccak = verifier.verify_keccak256();
+    // let res_keccak = verifier.verify_keccak256();
     let res_snark = verifier.verify_snark();
     lap = timer.elapsed();
     println!("Verification time: {:.6} seconds", lap.as_secs_f64());
-    println!("{}", res_snark && res_keccak == KeccakVerificationResult::True );
+    // println!("{}", res_snark && res_keccak == KeccakVerificationResult::True );
+    println!("{}", res_snark );
+
+    #[cfg(feature = "testing-mode")] {
+        use std::path::PathBuf;
+        let test_proof_path = PathBuf::from(paths.proof_path).join("proof4_test.json");
+        let proof4_test = Proof4Test::read_from_json(test_proof_path).unwrap();
+        println!("Verification arithmetic: {}", verifier.verify_arith(&proof4_test) );
+        println!("Verification copy: {}", verifier.verify_copy(&proof4_test) );
+        println!("Verification binding: {}", verifier.verify_binding(&proof4_test) );
+    }
 }

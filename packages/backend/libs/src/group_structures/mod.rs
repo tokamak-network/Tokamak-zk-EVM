@@ -151,6 +151,7 @@ impl Sigma {
     /// Generate full CRS
     pub fn gen(
         params: &SetupParams,
+        subcircuitInfos: &Box<[SubcircuitInfo]>,
         tau: &Tau,
         o_vec: &Box<[ScalarField]>,
         l_vec: &Box<[ScalarField]>,
@@ -161,7 +162,7 @@ impl Sigma {
     ) -> Self {
         println!("Generating a sigma (σ)...");
         let lagrange_KL = (l_vec[params.s_max - 1] * k_vec[params.l_D - params.l - 1]) * G1serde(*g1_gen);
-        let sigma_1 = Sigma1::gen(params, tau, o_vec, l_vec, k_vec, m_vec, g1_gen);
+        let sigma_1 = Sigma1::gen(params, subcircuitInfos, tau, o_vec, l_vec, k_vec, m_vec, g1_gen);
         let sigma_2 = Sigma2::gen(tau, g2_gen);
         Self {
             G: G1serde(*g1_gen),
@@ -196,6 +197,7 @@ impl_encode_poly!(Sigma1);
 impl Sigma1 {
     pub fn gen(
         params: &SetupParams,
+        subcircuitInfos: &Box<[SubcircuitInfo]>,
         tau: &Tau,
         o_vec: &Box<[ScalarField]>,
         l_vec: &Box<[ScalarField]>,
@@ -203,6 +205,7 @@ impl Sigma1 {
         m_vec: &Box<[ScalarField]>,
         g1_gen: &G1Affine
     ) -> Self {
+
         let n = params.n;
         let m_d = params.m_D;
         let l = params.l;
@@ -210,10 +213,6 @@ impl Sigma1 {
         if l % 2 == 1 {
             panic!("l is an odd number.");
         }
-        let l_pub_out = params.l_pub_out;
-        let l_pub_in = params.l_pub_in;
-        let l_prv_out = params.l_prv_out;
-        let l_prv_in = params.l_prv_in;
         let m_i = params.l_D - l;
         
         println!("Generating Sigma1 components...");
@@ -249,23 +248,30 @@ impl Sigma1 {
         println!("Generating gamma_inv_o_inst of size {}...", l);
         let mut gamma_inv_o_inst = vec![G1serde::zero(); l].into_boxed_slice();
         {
-            // For the indices of l_vec, see tokamak-zk-evm/packages/frontend/synthesizer/src/tokamak/constant/constants.ts
+            // For the order of indices of l_vec, see BUFFER_LIST of tokamak-zk-evm/packages/frontend/synthesizer/src/interface/qapCompiler/configuredTypes.ts
             let scaler_vec = [
-                vec![l_vec[1]; l_pub_out], 
-                vec![l_vec[0]; l_pub_in], 
-                vec![l_vec[3]; l_prv_out], 
-                vec![l_vec[2]; l_prv_in], 
+                vec![l_vec[0]; subcircuitInfos[0].Out_idx[1]], 
+                vec![l_vec[1]; subcircuitInfos[1].In_idx[1]], 
+                vec![l_vec[2]; subcircuitInfos[2].In_idx[1]], 
+                vec![l_vec[3]; subcircuitInfos[3].In_idx[1]],
+                vec![ScalarField::one(); 
+                l - (   subcircuitInfos[0].Out_idx[1] 
+                    +   subcircuitInfos[1].In_idx[1] 
+                    +   subcircuitInfos[2].In_idx[1] 
+                    +   subcircuitInfos[3].In_idx[1])
+                    ]
                 ].concat().into_boxed_slice();
-            let l_pub = l_pub_in + l_pub_out;
-            let l_prv = l_prv_in + l_prv_out;
             let mut l_o_inst_vec = vec![ScalarField::zero(); l].into_boxed_slice();
             point_mul_two_vecs(&scaler_vec, &o_inst_vec, &mut l_o_inst_vec);
             drop(scaler_vec);
-            let mut l_o_inst_pub_mj_vec = vec![ScalarField::zero(); l_pub].into_boxed_slice();
-            point_add_two_vecs(&l_o_inst_vec[0..l_pub], m_vec, &mut l_o_inst_pub_mj_vec);
-            let l_o_inst_pub_mj_prv_vec = [l_o_inst_pub_mj_vec, l_o_inst_vec[l_pub..l].into()].concat().into_boxed_slice();
+            // let mut l_o_inst_pub_mj_vec = vec![ScalarField::zero(); l_pub].into_boxed_slice();
+            // point_add_two_vecs(&l_o_inst_vec[0..l_pub], m_vec, &mut l_o_inst_pub_mj_vec);
+            // let l_o_inst_pub_mj_prv_vec = [l_o_inst_pub_mj_vec, l_o_inst_vec[l_pub..l].into()].concat().into_boxed_slice();
+            let mut l_o_inst_mj_vec = vec![ScalarField::zero(); l].into_boxed_slice();
+            point_add_two_vecs(&l_o_inst_vec, m_vec, &mut l_o_inst_mj_vec);
+            // let l_o_inst_pub_mj_prv_vec = [l_o_inst_pub_mj_vec, l_o_inst_vec[l_pub..l].into()].concat().into_boxed_slice();
             let mut gamma_inv_o_inst_vec = vec![ScalarField::zero(); l].into_boxed_slice();
-            scale_vec(tau.gamma.inv(), &l_o_inst_pub_mj_prv_vec, &mut gamma_inv_o_inst_vec);
+            scale_vec(tau.gamma.inv(), &l_o_inst_mj_vec, &mut gamma_inv_o_inst_vec);
             from_coef_vec_to_g1serde_vec(&gamma_inv_o_inst_vec, g1_gen, &mut gamma_inv_o_inst);
         }
         
@@ -355,31 +361,20 @@ impl Sigma1 {
             let variables = &placement_variables[i].variables;
             let subcircuit_info = &subcircuit_infos[subcircuit_id];
             let flatten_map = &subcircuit_info.flattenMap;
-            let start_idx = if i == 0 {
-                // Public input placement
-                subcircuit_info.In_idx[0]
-            } else if i == 1 {
-                // Public output placement
-                subcircuit_info.Out_idx[0]
-            } else if i == 2 {
-                // Private input placement
-                subcircuit_info.In_idx[0]
+            let (start_idx, end_idx_exclusive) = if subcircuit_info.name == "bufferPubOut" {
+                // PUBLIC_OUT
+                (subcircuit_info.Out_idx[0], subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1])
+            } else if subcircuit_info.name == "bufferPubIn" {
+                // PUBLIC_IN
+                (subcircuit_info.In_idx[0], subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
+            } else if subcircuit_info.name == "bufferBlockIn" {
+                // BLOCK_IN
+                (subcircuit_info.In_idx[0], subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
+            } else if subcircuit_info.name == "bufferEVMIn" {
+                // EVM_IN
+                (subcircuit_info.In_idx[0], subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
             } else {
-                // Private output placement
-                subcircuit_info.Out_idx[0]
-            };
-            let end_idx_exclusive = if i==0 {
-                // Public input placement
-                subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1]
-            } else if i == 1 {
-                // Public output placement
-                subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1]
-            } else if i == 2 {
-                // Private input placement
-                subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1]
-            } else {
-                // Private output placement
-                subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1]
+                panic!("Target placement is not a buffer")
             };
 
             for j in start_idx..end_idx_exclusive {
@@ -388,7 +383,7 @@ impl Sigma1 {
                 let curve_point = self.gamma_inv_o_inst[global_idx].0;
                 aligned_rs[cnt] = curve_point;
                 cnt += 1;
-            }        
+            }
         }
         let mut msm_res = vec![G1Projective::zero(); 1];
         msm::msm(
@@ -411,76 +406,73 @@ impl Sigma1 {
         for i in 0..placement_variables.len() {
             let subcircuit_id = placement_variables[i].subcircuitId;
             let subcircuit_info = &subcircuit_infos[subcircuit_id];
-            if i == 0 {
-                // Public input placement
-                nVar = nVar + subcircuit_info.Out_idx[1]; // Number of output wires
-            } else if i == 1 {
-                // Public output placement
+            if subcircuit_info.name == "bufferPubOut" {
+                // PUBLIC_OUT
                 nVar = nVar + subcircuit_info.In_idx[1]; // Number of input wires
+            } else if subcircuit_info.name == "bufferPubIn" {
+                // PUBLIC_IN
+                nVar = nVar + subcircuit_info.Out_idx[1]; // Number of output wires
+            } else if subcircuit_info.name == "bufferBlockIn"{
+                // BLOCK_IN
+                nVar = nVar + subcircuit_info.Out_idx[1]; // Number of output wires
+            } else if subcircuit_info.name == "bufferEVMIn"{
+                // EVM_IN
+                nVar = nVar + subcircuit_info.Out_idx[1]; // Number of output wires
             } else {
                 nVar = nVar + subcircuit_info.Out_idx[1] + subcircuit_info.In_idx[1];
             }
         }
-        // if nVar != m_i {
-        //     panic!("Mismatch between m_I and the actual number of interface wires.")
+
+        return self._encode_statement(
+            setup_params.l,
+            setup_params.l_D,
+            nVar, 
+            &self.eta_inv_li_o_inter_alpha4_kj, 
+            placement_variables, 
+            subcircuit_infos
+        );
+
+        // let mut aligned_rs = vec![G1Affine::zero(); nVar];
+        // let mut aligned_wtns = vec![ScalarField::zero(); nVar];
+        // let mut cnt: usize = 0;
+        // for i in 0..placement_variables.len() {
+        //     let subcircuit_id = placement_variables[i].subcircuitId;
+        //     let variables = &placement_variables[i].variables;
+        //     let subcircuit_info = &subcircuit_infos[subcircuit_id];
+        //     let flatten_map = &subcircuit_info.flattenMap;
+        //     // Filterling out interface wires
+        //     let (start_idx, end_idx_exclusive) = if subcircuit_info.name == "bufferPubOut" {
+        //         // PUBLIC_OUT
+        //         (subcircuit_info.In_idx[0],  subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
+        //     } else if subcircuit_info.name == "bufferPubIn" {
+        //         // PUBLIC_IN
+        //         (subcircuit_info.Out_idx[0], subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1])
+        //     } else if subcircuit_info.name == "bufferBlockIn" {
+        //         // BLOCK_IN
+        //         (subcircuit_info.Out_idx[0], subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1])
+        //     } else if subcircuit_info.name == "bufferEVMIn" {
+        //         // EVM_IN
+        //         (subcircuit_info.Out_idx[0], subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1])
+        //     } else {
+        //         (subcircuit_info.Out_idx[0], subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1] + subcircuit_info.In_idx[1])
+        //     };
+
+        //     for j in start_idx..end_idx_exclusive {
+        //         aligned_wtns[cnt] = ScalarField::from_hex(&variables[j]);
+        //         let global_idx = flatten_map[j] - setup_params.l;
+        //         let curve_point = self.eta_inv_li_o_inter_alpha4_kj[global_idx][i].0;
+        //         aligned_rs[cnt] = curve_point;
+        //         cnt += 1;
+        //     }        
         // }
-
-        let mut aligned_rs = vec![G1Affine::zero(); nVar];
-        let mut aligned_wtns = vec![ScalarField::zero(); nVar];
-        let mut cnt: usize = 0;
-        for i in 0..placement_variables.len() {
-            let subcircuit_id = placement_variables[i].subcircuitId;
-            let variables = &placement_variables[i].variables;
-            let subcircuit_info = &subcircuit_infos[subcircuit_id];
-            let flatten_map = &subcircuit_info.flattenMap;
-            // Filterling out interface wires
-            let start_idx = if i==0 {
-                // Public input placement
-                subcircuit_info.Out_idx[0]
-            } else if i==1 {
-                // Public output placement
-                subcircuit_info.In_idx[0]
-            } else if i==2 {
-                // Private input placement
-                subcircuit_info.Out_idx[0]
-            } else if i==3 {
-                // Private output placement
-                subcircuit_info.In_idx[0]
-            } else {
-                subcircuit_info.Out_idx[0]
-            };
-            let end_idx_exclusive = if i==0 {
-                // Public input placement
-                subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1]
-            } else if i==1 {
-                // Public output placement
-                subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1]
-            } else if i==2 {
-                // Private input placement
-                subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1]
-            } else if i==3 {
-                // Private output placement
-                subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1]
-            }else {
-                subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1] + subcircuit_info.In_idx[1]
-            };
-
-            for j in start_idx..end_idx_exclusive {
-                aligned_wtns[cnt] = ScalarField::from_hex(&variables[j]);
-                let global_idx = flatten_map[j] - setup_params.l;
-                let curve_point = self.eta_inv_li_o_inter_alpha4_kj[global_idx][i].0;
-                aligned_rs[cnt] = curve_point;
-                cnt += 1;
-            }        
-        }
-        let mut msm_res = vec![G1Projective::zero(); 1];
-        msm::msm(
-            HostSlice::from_slice(&aligned_wtns),
-            HostSlice::from_slice(&aligned_rs),
-            &MSMConfig::default(),
-            HostSlice::from_mut_slice(&mut msm_res)
-        ).unwrap();
-        return G1serde(G1Affine::from(msm_res[0]))
+        // let mut msm_res = vec![G1Projective::zero(); 1];
+        // msm::msm(
+        //     HostSlice::from_slice(&aligned_wtns),
+        //     HostSlice::from_slice(&aligned_rs),
+        //     &MSMConfig::default(),
+        //     HostSlice::from_mut_slice(&mut msm_res)
+        // ).unwrap();
+        // return G1serde(G1Affine::from(msm_res[0]))
     }
 
     pub fn encode_O_prv_no_zk(
@@ -495,12 +487,55 @@ impl Sigma1 {
             let subcircuit_info = &subcircuit_infos[subcircuit_id];
             nVar = nVar + ( subcircuit_info.Nwires - subcircuit_info.In_idx[1] - subcircuit_info.Out_idx[1] );
         }
-        // if nVar != m_d - l_d {
-        //     panic!("Mismatch between m_D and the actual number of internal wires.")
-        // }
 
+        return self._encode_statement(
+            setup_params.l_D,
+            setup_params.m_D,
+            nVar, 
+            &self.delta_inv_li_o_prv, 
+            placement_variables, 
+            subcircuit_infos
+        );
+
+        // let mut aligned_rs = vec![G1Affine::zero(); nVar];
+        // let mut aligned_wtns = vec![ScalarField::zero(); nVar];
+        // let mut cnt: usize = 0;
+        // for i in 0..placement_variables.len() {
+        //     let subcircuit_id = placement_variables[i].subcircuitId;
+        //     let variables = &placement_variables[i].variables;
+        //     let subcircuit_info = &subcircuit_infos[subcircuit_id];
+        //     let flatten_map = &subcircuit_info.flattenMap;
+        //     for j in 0..subcircuit_info.Nwires {
+        //         if flatten_map[j] >= setup_params.l_D {
+        //             let global_idx = flatten_map[j] - setup_params.l_D;
+        //             aligned_wtns[cnt] = ScalarField::from_hex(&variables[j]);
+        //             let curve_point = self.delta_inv_li_o_prv[global_idx][i].0;
+        //             aligned_rs[cnt] = curve_point;
+        //             cnt += 1;
+        //         }
+        //     }        
+        // }
+        // let mut msm_res = vec![G1Projective::zero(); 1];
+        // msm::msm(
+        //     HostSlice::from_slice(&aligned_wtns),
+        //     HostSlice::from_slice(&aligned_rs),
+        //     &MSMConfig::default(),
+        //     HostSlice::from_mut_slice(&mut msm_res)
+        // ).unwrap();
+        // return G1serde(G1Affine::from(msm_res[0]))
+    }
+
+    fn _encode_statement(
+        &self,
+        global_wire_index_offset: usize,
+        global_wire_index_end: usize,
+        nVar: usize,
+        bases: &Box<[Box<[G1serde]>]>,
+        placement_variables: &[PlacementVariables],
+        subcircuit_infos: &[SubcircuitInfo],
+    ) -> G1serde {
         let mut aligned_rs = vec![G1Affine::zero(); nVar];
-        let mut aligned_wtns = vec![ScalarField::zero(); nVar];
+        let mut aligned_variable = vec![ScalarField::zero(); nVar];
         let mut cnt: usize = 0;
         for i in 0..placement_variables.len() {
             let subcircuit_id = placement_variables[i].subcircuitId;
@@ -508,10 +543,10 @@ impl Sigma1 {
             let subcircuit_info = &subcircuit_infos[subcircuit_id];
             let flatten_map = &subcircuit_info.flattenMap;
             for j in 0..subcircuit_info.Nwires {
-                if flatten_map[j] >= setup_params.l_D {
-                    let global_idx = flatten_map[j] - setup_params.l_D;
-                    aligned_wtns[cnt] = ScalarField::from_hex(&variables[j]);
-                    let curve_point = self.delta_inv_li_o_prv[global_idx][i].0;
+                if flatten_map[j] >= global_wire_index_offset && flatten_map[j] < global_wire_index_end {
+                    let global_idx = flatten_map[j] - global_wire_index_offset;
+                    aligned_variable[cnt] = ScalarField::from_hex(&variables[j]);
+                    let curve_point = bases[global_idx][i].0;
                     aligned_rs[cnt] = curve_point;
                     cnt += 1;
                 }
@@ -519,7 +554,7 @@ impl Sigma1 {
         }
         let mut msm_res = vec![G1Projective::zero(); 1];
         msm::msm(
-            HostSlice::from_slice(&aligned_wtns),
+            HostSlice::from_slice(&aligned_variable),
             HostSlice::from_slice(&aligned_rs),
             &MSMConfig::default(),
             HostSlice::from_mut_slice(&mut msm_res)

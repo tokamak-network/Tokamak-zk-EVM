@@ -32,7 +32,7 @@ rm -rf -- "${TARGET}/resource"
 mkdir -p "${TARGET}/resource/qap-compiler/library"
 cp -r ../frontend/qap-compiler/subcircuits/library/* "${TARGET}/resource/qap-compiler/library"
 mkdir -p "${TARGET}/resource/synthesizer/outputs"
-cp -r ../frontend/synthesizer/examples/outputs/* "${TARGET}/resource/synthesizer/outputs"
+cp -r ../frontend/synthesizer/outputs/* "${TARGET}/resource/synthesizer/outputs"
 echo "✅ copied to ${TARGET}/resource"
 
 command -v curl >/dev/null 2>&1 || { echo "curl is required but not found"; exit 1; }

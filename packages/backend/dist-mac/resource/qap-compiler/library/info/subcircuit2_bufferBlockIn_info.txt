@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 1
+non-linear constraints: 48
+linear constraints: 48
+public inputs: 48
+private inputs: 0
+public outputs: 48
+wires: 97
+labels: 97
+[32mWritten successfully:[0m ../subcircuits/library/bufferBlockIn_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library/bufferBlockIn_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library/bufferBlockIn_circuit_js/bufferBlockIn_circuit.wasm
+[32mEverything went okay[0m
