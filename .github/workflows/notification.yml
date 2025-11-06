@@ -1,0 +1,70 @@
+name: Test Failure Notifications
+
+on:
+  workflow_run:
+    workflows: ['Required Integration Tests']
+    types: [completed]
+
+jobs:
+  notify-on-failure:
+    runs-on: ubuntu-22.04
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+
+    steps:
+      - name: Get PR info
+        id: pr-info
+        run: |
+          # Extract PR number and branch information
+          PR_NUMBER=$(echo "${{ github.event.workflow_run.head_branch }}" | grep -o '[0-9]\+' || echo "unknown")
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "branch=${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
+
+      - name: Notify Slack
+        if: ${{ env.SLACK_WEBHOOK_URL != '' }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{
+              "text": "🚨 Tokamak-zk-EVM Test Failure",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*🚨 Integration Tests Failed*\n\n*Branch:* `${{ steps.pr-info.outputs.branch }}`\n*PR:* #${{ steps.pr-info.outputs.pr_number }}\n*Workflow:* <${{ github.event.workflow_run.html_url }}|View Details>"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn", 
+                    "text": "❌ The tokamak-cli integration tests have failed.\n🚫 This branch cannot be merged until tests pass."
+                  }
+                }
+              ]
+            }' \
+            "$SLACK_WEBHOOK_URL"
+
+      - name: Comment on PR
+        if: ${{ steps.pr-info.outputs.pr_number != 'unknown' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: ${{ steps.pr-info.outputs.pr_number }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚨 Integration Tests Failed
+              
+              The required integration tests using \`tokamak-cli\` have failed for this PR.
+              
+              **Failed workflow:** [${{ github.event.workflow_run.name }}](${{ github.event.workflow_run.html_url }})
+              
+              ### What to do:
+              1. 🔍 Check the [workflow logs](${{ github.event.workflow_run.html_url }}) for details
+              2. 🛠️ Fix the issues in your code
+              3. 🔄 Push new commits to trigger tests again
+              
+              **This PR cannot be merged until all tests pass.** ✅`
+            });

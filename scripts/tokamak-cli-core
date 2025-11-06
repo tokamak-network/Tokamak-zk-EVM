@@ -1,0 +1,806 @@
+#!/usr/bin/env bash
+# tokamak-zk-evm — helper CLI for Tokamak-zk-EVM
+# Notes:
+#   - Before executing any internal shell script, this CLI normalizes line endings via dos2unix
+#     and ensures the script is executable, to avoid Windows CRLF issues.
+# Commands:
+#   --install <API_KEY|RPC_URL>  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
+#   --prove <TX_HASH> [<DIR>]    Generate and verify a proof; copy the proof to <DIR> (default: ./.your_proof)
+#   --verify <SAVE_PATH>        Verify a proof at <SAVE_PATH>
+#   --doctor                     Check system requirements and health
+#   --help                       Show usage
+# Options:
+#   --verbose                    Show detailed output
+
+set -Eeuo pipefail
+IFS=$'\n\t'
+
+# Global config
+VERBOSE=false
+
+# ---------- Pretty print ----------
+log() { echo -e "\033[1;34m[tokamak-cli]\033[0m $*"; }
+ok()  { echo -e "\033[1;32m[ ok ]\033[0m $*"; }
+err() { echo -e "\033[1;31m[error]\033[0m $*" >&2; }
+verbose() { if [[ "$VERBOSE" == true ]]; then echo -e "\033[1;36m[info]\033[0m $*" >&2; fi; }
+
+# ---------- Helpers ----------
+npm_install_safe() {
+  local dir="$1"
+  verbose "Installing npm dependencies in: $dir"
+  pushd "$dir" >/dev/null
+  if [[ "$VERBOSE" == true ]]; then
+    npm install
+  else
+    npm install --silent
+  fi
+  popd >/dev/null
+}
+
+# Normalize Windows CRLF to LF before executing a shell script (best-effort)
+
+to_unix_exec() {
+  local f="$1"
+  [[ -f "$f" ]] || return 0
+  if command -v dos2unix >/dev/null 2>&1; then
+    dos2unix -q "$f" || true
+  fi
+  chmod +x "$f" 2>/dev/null || true
+}
+
+# ---------- Minimal helpers for DRY ----------
+ensure_file() { local f="$1"; [[ -f "$f" ]] || { err "Missing: $f"; return 1; }; }
+
+# Run a script with timing; if second arg is 1, capture stdout to a temp log.
+# Sets globals: RUN_START_MS, RUN_END_MS, RUN_OK(true/false), RUN_LOG(path or empty)
+run_timed() {
+  local script="$1"; local capture="${2:-0}"
+  RUN_LOG=""; RUN_OK=true
+  to_unix_exec "$script"
+  RUN_START_MS="$(now_ms)"
+  if [[ "$capture" == 1 ]]; then
+    RUN_LOG="$(mktemp -t tokamak_stage.XXXXXX)"
+    if bash "$script" | tee "$RUN_LOG"; then RUN_OK=true; else RUN_OK=false; fi
+  else
+    if bash "$script"; then RUN_OK=true; else RUN_OK=false; fi
+  fi
+  RUN_END_MS="$(now_ms)"
+}
+
+# Build pretty JSON array of checkpoints from a log file; prints to stdout
+build_checkpoints_json_from_log() {
+  local logfile="$1"
+  [[ -s "$logfile" ]] || { echo "[]"; return; }
+  if ! grep -F "Check point:" "$logfile" >/dev/null 2>&1; then echo "[]"; return; fi
+  local lines
+  lines=$(sed -n 's/^.*Check point: /Check point: /p' "$logfile")
+  [[ -n "$lines" ]] || { echo "[]"; return; }
+  local out="" first=true esc
+  while IFS= read -r L; do
+    esc="$(printf '%s' "$L" | json_escape)"
+    if [[ "$first" == true ]]; then
+      printf -v out '%s[\n          "%s"' "" "$esc"
+      first=false
+    else
+      printf -v out '%s,\n          "%s"' "$out" "$esc"
+    fi
+  done <<< "$lines"
+  printf -v out '%s\n        ]' "$out"
+  echo "$out"
+}
+
+# ---------- Benchmark helpers ----------
+now_ms() {
+  # Prefer GNU date; fall back to python3/perl; last resort: seconds*1000
+  local out=""
+  if command -v gdate >/dev/null 2>&1; then
+    out="$(gdate +%s%3N 2>/dev/null || true)"
+    [[ "$out" =~ ^[0-9]{13,}$ ]] && { echo "$out"; return; }
+  fi
+  out="$(date +%s%3N 2>/dev/null || true)"
+  [[ "$out" =~ ^[0-9]{13,}$ ]] && { echo "$out"; return; }
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - <<'PY'
+import time
+print(int(time.time()*1000))
+PY
+    return
+  fi
+  if command -v perl >/dev/null 2>&1; then
+    perl -MTime::HiRes=time -e 'printf("%d\n", int(time()*1000))'
+    return
+  fi
+  echo $(( $(date +%s) * 1000 ))
+}
+
+iso_now() {
+  # ISO8601 UTC; millisecond precision if gdate available
+  if command -v gdate >/dev/null 2>&1; then
+    gdate -u +"%Y-%m-%dT%H:%M:%S.%3NZ"
+  else
+    date -u +"%Y-%m-%dT%H:%M:%SZ"
+  fi
+}
+
+rand_suffix() {
+  # Generate a short [a-z0-9] suffix without fragile pipelines (pipefail/SIGPIPE-safe)
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - <<'PY'
+import secrets,string
+alphabet='abcdefghijklmnopqrstuvwxyz0123456789'
+print(''.join(secrets.choice(alphabet) for _ in range(9)))
+PY
+    return
+  fi
+  if command -v hexdump >/dev/null 2>&1; then
+    # take 16 random bytes, hex-encode, then take first 9 chars
+    hexdump -n 16 -v -e '/1 "%02x"' /dev/urandom 2>/dev/null | cut -c1-9
+    return
+  fi
+  # last resort: timestamp-based fallback
+  date +%s | cut -c1-9
+}
+
+json_escape() {
+  # Escape a single line string for JSON (basic)
+  sed -e 's/\\/\\\\/g' -e 's/\"/\\\"/g' -e 's/\t/\\t/g' -e 's/\r/\\r/g' -e 's/\n/\\n/g'
+}
+
+gather_hardware_json() {
+  local platform release version arch cpu_model cores threads mem_total_gb mem_avail_gb gpu_name gpu_mem_mb cuda_supported
+  arch="$(uname -m 2>/dev/null || echo unknown)"
+
+  case "$(uname -s)" in
+    Darwin)
+      platform="macOS"
+      if command -v sw_vers >/dev/null 2>&1; then
+        release="$(sw_vers -productName) $(sw_vers -productVersion) $(sw_vers -buildVersion)"
+      else
+        release="macOS"
+      fi
+      version="darwin $(uname -r) ${arch}"
+      cpu_model="$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo unknown)"
+      cores="$(sysctl -n hw.physicalcpu 2>/dev/null || echo 0)"
+      threads="$(sysctl -n hw.logicalcpu 2>/dev/null || echo 0)"
+      # Memory
+      local mem_bytes page_size free_pages
+      mem_bytes="$(sysctl -n hw.memsize 2>/dev/null || echo 0)"
+      page_size="$(sysctl -n hw.pagesize 2>/dev/null || echo 4096)"
+      free_pages=$(vm_stat 2>/dev/null | awk '/free/ {gsub(".","",$3); print $3+0}' | head -n1)
+      if [[ -n "$mem_bytes" && "$mem_bytes" != 0 ]]; then
+        mem_total_gb=$(( mem_bytes / 1024 / 1024 / 1024 ))
+      else
+        mem_total_gb=0
+      fi
+      if [[ -n "$free_pages" && "$free_pages" != 0 ]]; then
+        mem_avail_gb=$(( (free_pages * page_size) / 1024 / 1024 / 1024 ))
+      else
+        mem_avail_gb=0
+      fi
+      # GPU (fast path without heavy system_profiler)
+      if command -v ioreg >/dev/null 2>&1; then
+        gpu_name="$(ioreg -rc IOAccelerator 2>/dev/null | awk -F'= ' '/DeviceName|model/{gsub(/"/,"",$2); if($2!="") {print $2; exit}}')"
+      fi
+      gpu_name=${gpu_name:-unknown}
+      gpu_mem_mb=0
+      cuda_supported=false
+      ;;
+    Linux)
+      platform="Linux"
+      if [[ -r /etc/os-release ]]; then
+        . /etc/os-release
+        release="${PRETTY_NAME:-Linux}"
+      else
+        release="Linux"
+      fi
+      version="linux $(uname -r) ${arch}"
+      cpu_model="$(awk -F: '/model name/ {gsub(/^ +/,"",$2); print $2; exit}' /proc/cpuinfo 2>/dev/null || echo unknown)"
+      threads="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 0)"
+      cores="$threads"  # best-effort
+      # Memory
+      local mt ma
+      mt="$(awk '/MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)" # kB
+      ma="$(awk '/MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)" # kB
+      mem_total_gb=$(( mt / 1024 / 1024 ))
+      mem_avail_gb=$(( ma / 1024 / 1024 ))
+      # GPU
+      if command -v nvidia-smi >/dev/null 2>&1; then
+        gpu_name="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -n1)"
+        gpu_mem_mb="$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -n1)"
+        cuda_supported=true
+      else
+        gpu_name="$(lspci 2>/dev/null | grep -Ei 'vga|3d|2d' | head -n1 | sed 's/^.*: //')"
+        gpu_mem_mb=0
+        cuda_supported=false
+      fi
+      ;;
+    *)
+      platform="unknown"; release="unknown"; version="unknown"; cpu_model="unknown"; cores=0; threads=0; mem_total_gb=0; mem_avail_gb=0; gpu_name="unknown"; gpu_mem_mb=0; cuda_supported=false ;;
+  esac
+
+  cat <<JSON
+{
+  "cpu": {
+    "model": "$(printf '%s' "$cpu_model" | json_escape)",
+    "cores": ${cores:-0},
+    "threads": ${threads:-0},
+    "architecture": "$(printf '%s' "$arch" | json_escape)"
+  },
+  "memory": {
+    "total": ${mem_total_gb:-0},
+    "available": ${mem_avail_gb:-0}
+  },
+  "os": {
+    "platform": "$(printf '%s' "$platform" | json_escape)",
+    "release": "$(printf '%s' "$release" | json_escape)",
+    "version": "$(printf '%s' "$version" | json_escape)"
+  },
+  "gpu": {
+    "name": "$(printf '%s' "$gpu_name" | json_escape)",
+    "memory": ${gpu_mem_mb:-0},
+    "cudaSupported": $( [[ "$cuda_supported" == true ]] && echo true || echo false )
+  }
+}
+JSON
+}
+
+make_zip() {
+  local src_dir="$1" out_name="$2"
+  ( cd "$src_dir" && rm -f "$out_name" && {
+      if command -v zip >/dev/null 2>&1; then
+        zip -r "$out_name" . >/dev/null
+      elif command -v ditto >/dev/null 2>&1; then
+        ditto -c -k --sequesterRsrc . "$out_name"
+      else
+        echo "zip tool not found (need 'zip' or macOS 'ditto')" >&2
+        exit 1
+      fi
+    } )
+}
+
+# Discover repo root
+resolve_root() {
+  if [[ -n "${TOKAMAK_ZK_EVM_ROOT:-}" ]] && [[ -d "${TOKAMAK_ZK_EVM_ROOT}" ]]; then
+    echo "${TOKAMAK_ZK_EVM_ROOT}"; return
+  fi
+  if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git rev-parse --show-toplevel; return
+  fi
+  local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ -d "$script_dir/packages" ]]; then
+    echo "$script_dir"; return
+  fi
+  err "Cannot locate repo root. Set TOKAMAK_ZK_EVM_ROOT, or run inside the repo."
+  exit 1
+}
+
+ROOT="$(resolve_root)"
+FE_QAP="$ROOT/packages/frontend/qap-compiler"
+FE_SYN="$ROOT/packages/frontend/synthesizer"
+BE_ROOT="$ROOT/packages/backend"
+
+# OS target → script/dir mapping
+detect_target() {
+  local uname_s; uname_s="$(uname -s)"
+  if [[ "$uname_s" == "Darwin" ]]; then echo "mac"; return; fi
+  if [[ -f /etc/os-release ]]; then
+    . /etc/os-release
+    case "${VERSION_ID:-}" in
+      20*|20.*) echo "linux20"; return ;;
+      22*|22.*) echo "linux22"; return ;;
+    esac
+  fi
+  echo "linux22"
+}
+
+packaging_script_for_target() {
+  # All platforms now use the unified packaging script
+  echo "$ROOT/scripts/packaging.sh"
+}
+
+dist_dir_for_target() {
+  case "$1" in
+    mac)     echo "$ROOT/dist/macOS" ;;
+    linux20) echo "$ROOT/dist/linux20" ;;
+    linux22) echo "$ROOT/dist/linux22" ;;
+    *)       echo "$ROOT/dist/linux22" ;;
+  esac
+}
+
+# Copy synthesizer outputs (after demo run) into backend dist resource
+sync_synth_outputs_to_dist() {
+  local src="$FE_SYN/examples/outputs"
+  local target dist_dir dest
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+  dest="$dist_dir/resource/synthesizer/outputs"
+
+  log "Sync Synth outputs → $dest (target=$target)"
+  [[ -d "$src" ]] || { err "Synth outputs not found: $src"; exit 1; }
+  mkdir -p "$dest"
+  cp -af "$src/." "$dest/"
+  ok "Synth outputs copied"
+}
+
+read_tx_hash() {
+  local f="$1"
+  [[ -f "$f" ]] || { err "transaction_hash.txt not found: $f"; exit 1; }
+  # Read and normalize: strip whitespace/CR, lowercase, drop optional 0x, validate 32-byte hex
+  local raw cleaned cleaned_lower no0x hex
+  raw="$(cat "$f")"
+  cleaned="$(printf '%s' "$raw" | tr -d '\r\n\t ' )"
+  cleaned_lower="$(printf '%s' "$cleaned" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$cleaned_lower" == 0x* ]]; then
+    no0x="${cleaned_lower:2}"
+  else
+    no0x="$cleaned_lower"
+  fi
+  if [[ "$no0x" =~ ^[0-9a-f]{64}$ ]]; then
+    hex="$no0x"
+  else
+    err "Invalid transaction hash in $f (expect 32-byte hex; got ${#no0x} chars)."
+    exit 1
+  fi
+  echo "0x$hex"
+}
+
+step_install() {
+  local install_arg="${1:-}"
+  [[ -n "$install_arg" ]] || { err "--install requires <API_KEY|RPC_URL>"; exit 1; }
+
+  log "Install: writing synthesizer .env"
+  local rpc_url
+  if [[ "$install_arg" == https://* ]]; then
+    rpc_url="$install_arg"
+  else
+    rpc_url="https://eth-mainnet.g.alchemy.com/v2/${install_arg}"
+  fi
+  printf "RPC_URL='%s'\n" "$rpc_url" > "$FE_SYN/.env"
+
+  log "Install: installing frontend dependencies"
+  npm_install_safe "$FE_QAP"
+  npm_install_safe "$FE_SYN"
+
+  log "Install: compiling qap-compiler"
+  pushd "$FE_QAP" >/dev/null
+  [[ -f "./scripts/compile.sh" ]] || { err "Missing: $FE_QAP/scripts/compile.sh"; exit 1; }
+  to_unix_exec "./scripts/compile.sh"
+  bash "./scripts/compile.sh"
+  popd >/dev/null
+
+  local target script
+  target="$(detect_target)"
+  script="$(packaging_script_for_target "$target")"
+
+  log "Install: running backend packaging for target=$target -> $(basename "$script")"
+  # pushd "$BE_ROOT" >/dev/null
+  [[ -f "$script" ]] || { err "Packaging script missing: $script"; exit 1; }
+  to_unix_exec "$script"
+  
+  # Detect CI environment and set appropriate options
+  # Different behavior based on CI job type:
+  # - Proof Generation Test: needs fresh setup generation (--bun only)
+  # - Binary Building: uses prebuilt setup (--bun --no-setup)
+ 
+  local packaging_options=()
+  
+  # Add platform-specific option for unified script
+  case "$target" in
+    mac)     packaging_options+=("--macos") ;;
+    linux20) packaging_options+=("--linux") ;;
+    linux22) packaging_options+=("--linux") ;;
+    *)       packaging_options+=("--linux") ;;
+  esac
+  
+  if [ -z "${GITHUB_ACTIONS:-}" ] && [ -z "${CI:-}" ] && [ -z "${CONTINUOUS_INTEGRATION:-}" ]; then
+    # Local environment: use default settings (npm) and skip compression
+    packaging_options+=("--no-compress")
+    log "Install: Local environment detected - using options: ${packaging_options[*]}"
+  else
+    # CI environment: use bun for performance, always skip compression
+    # Note: setup generation depends on whether prebuilt files are available
+    if [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
+      # Prebuilt setup available (Binary Building jobs)
+      packaging_options+=("--bun" "--no-setup" "--no-compress")
+      log "Install: CI environment with prebuilt setup - using options: ${packaging_options[*]}"
+    else
+      # No prebuilt setup (Proof Generation Test)
+      packaging_options+=("--bun" "--no-compress")
+      log "Install: CI environment, generating fresh setup - using options: ${packaging_options[*]}"
+    fi
+  fi
+  
+  bash "$script" "${packaging_options[@]}"
+  # popd >/dev/null
+
+  ok "Install complete"
+}
+
+step_prove() {
+  local tx_hash="${1:-}"
+  local save_path="${2:-}"
+  [[ -n "$tx_hash" ]] || { err "--prove requires <TX_HASH> [<SAVE_PATH>]"; exit 1; }
+  [[ -n "$save_path" ]] || save_path=".your_proof"
+
+  # Basic tx hash validation
+  if [[ ! "$tx_hash" =~ ^(0x)?[0-9a-fA-F]{64}$ ]]; then
+    err "Invalid transaction hash format: $tx_hash"
+    echo "💡 Transaction hash should be 64 hex characters, like: 0x1234567890abcdef..." >&2
+    exit 1
+  fi
+
+  # Convert to absolute path based on ROOT
+  local abs_save_path="$ROOT/$save_path"
+  # Prepare session metadata
+  local session_start_ms session_end_ms session_id ts_iso
+  session_start_ms="$(now_ms)"
+  ts_iso="$(iso_now)"
+  session_id="benchmark_${session_start_ms}_$(rand_suffix)"
+
+  # Ensure save directory exists and persist the provided transaction hash
+  mkdir -p "$abs_save_path"
+  printf '%s\n' "$tx_hash" > "$abs_save_path/transaction_hash.txt"
+
+  log "Prove: synthesize from tx=$tx_hash"
+  pushd "$FE_SYN" >/dev/null
+  npm run synthesizer "$tx_hash"
+  popd >/dev/null
+
+  sync_synth_outputs_to_dist
+
+  local target dist_dir run3 run4 run5
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+  run3="$dist_dir/3_run-preprocess.sh"
+  run4="$dist_dir/4_run-prove.sh"
+  run5="$dist_dir/5_run-verify.sh"
+
+  log "Prove: running backend scripts 3→5 (target=$target)"
+  local missing=0
+  for s in "$run3" "$run4" "$run5"; do
+    ensure_file "$s" || missing=1
+  done
+  [[ $missing -eq 0 ]] || exit 1
+
+  # ---- preprocess ----
+  run_timed "$run3" 0
+  local pre_s="$RUN_START_MS" pre_e="$RUN_END_MS" pre_ok=$RUN_OK
+
+  # ---- prove (capture log) ----
+  run_timed "$run4" 1
+  local prove_s="$RUN_START_MS" prove_e="$RUN_END_MS" prove_ok=$RUN_OK
+  local checkpoints_json="[]" pinit p0 p1 p2 p3 p4 ptotal
+  if [[ -n "$RUN_LOG" && -s "$RUN_LOG" ]]; then
+    checkpoints_json="$(build_checkpoints_json_from_log "$RUN_LOG")"
+    pinit=$(sed -n 's/.*Prover init time: *\([0-9][0-9.]*\).*/\1/p' "$RUN_LOG" | tail -n1)
+    p0=$(sed -n 's/.*prove0 running time: *\([0-9][0-9.]*\).*/\1/p' "$RUN_LOG" | tail -n1)
+    p1=$(sed -n 's/.*prove1 running time: *\([0-9][0-9.]*\).*/\1/p' "$RUN_LOG" | tail -n1)
+    p2=$(sed -n 's/.*prove2 running time: *\([0-9][0-9.]*\).*/\1/p' "$RUN_LOG" | tail -n1)
+    p3=$(sed -n 's/.*prove3 running time: *\([0-9][0-9.]*\).*/\1/p' "$RUN_LOG" | tail -n1)
+    p4=$(sed -n 's/.*prove4 running time: *\([0-9][0-9.]*\).*/\1/p' "$RUN_LOG" | tail -n1)
+    ptotal=$(sed -n 's/.*Total proving time: *\([0-9][0-9.]*\).*/\1/p' "$RUN_LOG" | tail -n1)
+  fi
+
+  # ---- verify (capture last line) ----
+  run_timed "$run5" 1
+  local ver_s="$RUN_START_MS" ver_e="$RUN_END_MS" verify_out=""
+  if [[ -n "$RUN_LOG" && -s "$RUN_LOG" ]]; then
+    verify_out="$(tail -n1 "$RUN_LOG")"
+  fi
+  local ver_ok=true
+  if [[ "$verify_out" == "true" || "$verify_out" == "true"$'\r' ]]; then ver_ok=true; else ver_ok=false; fi
+  log "Prove: verify output => $verify_out"
+
+  if [[ "$ver_ok" == true ]]; then
+    log "Prove: verification ok; copying proof"
+    mkdir -p "$abs_save_path"
+    if [[ -d "$dist_dir/resource/prove/output" ]]; then
+      cp -a "$dist_dir/resource/prove/output/." "$abs_save_path/"
+      ok "Artifacts copied → $abs_save_path"
+    else
+      err "Output directory not found: $dist_dir/resource/prove/output"
+    fi
+  else
+    err "Verification failed (expected 'true')."
+  fi
+
+  session_end_ms="$(now_ms)"
+
+  # ---- hardware info JSON ----
+  local hw_json
+  hw_json="$(gather_hardware_json)"
+
+  # ---- build benchmark.json ----
+  local bench_json="$abs_save_path/benchmark.json"
+  local pre_dur=$(( pre_e - pre_s ))
+  local prove_dur=$(( prove_e - prove_s ))
+  local ver_dur=$(( ver_e - ver_s ))
+  local total_dur=$(( session_end_ms - session_start_ms ))
+
+  cat > "$bench_json" <<JSON
+{
+  "sessionId": "${session_id}",
+  "timestamp": "${ts_iso}",
+  "hardwareInfo": ${hw_json},
+  "processes": {
+    "preprocess": {
+      "startTime": ${pre_s},
+      "endTime": ${pre_e},
+      "duration": ${pre_dur},
+      "success": $( [[ "$pre_ok" == true ]] && echo true || echo false )
+    },
+    "prove": {
+      "startTime": ${prove_s},
+      "endTime": ${prove_e},
+      "duration": ${prove_dur},
+      "success": $( [[ "$prove_ok" == true ]] && echo true || echo false ),
+      "details": {
+        "checkPoints": ${checkpoints_json},
+        "proverInitTime": ${pinit:-null},
+        "prove0Time": ${p0:-null},
+        "prove1Time": ${p1:-null},
+        "prove2Time": ${p2:-null},
+        "prove3Time": ${p3:-null},
+        "prove4Time": ${p4:-null},
+        "totalProvingTime": ${ptotal:-null}
+      }
+    },
+    "verify": {
+      "startTime": ${ver_s},
+      "endTime": ${ver_e},
+      "duration": ${ver_dur},
+      "success": $( [[ "$ver_ok" == true ]] && echo true || echo false )
+    }
+  },
+  "metadata": {
+    "cudaEnabled": $( command -v nvidia-smi >/dev/null 2>&1 && echo true || echo false ),
+    "totalSessionDuration": ${total_dur}
+  }
+}
+JSON
+
+  ok "Benchmark written → $bench_json"
+
+  # ---- zip artifacts ----
+  local zip_name="tokamak-zk-evm-proof.zip"
+  if make_zip "$abs_save_path" "$zip_name"; then
+    ok "Zipped proof → $abs_save_path/$zip_name"
+  else
+    err "Failed to create zip archive"
+    exit 1
+  fi
+
+  # Final exit based on verify result (JSON/ZIP already written for diagnostics)
+  [[ "$ver_ok" == true ]] || exit 1
+}
+
+step_verify() {
+  local save_path="${1:-}"
+  [[ -n "$save_path" ]] || { 
+    err "--verify requires <SAVE_PATH>"
+    echo "💡 Specify the directory containing your proof files" >&2
+    exit 1
+  }
+  local proof_path="$ROOT/$save_path"
+  local tx_hash="$(read_tx_hash "$proof_path/transaction_hash.txt")"
+
+  # Check for proof.json or extract from zip if needed
+  if [[ -f "$proof_path/proof.json" ]]; then
+    verbose "Found proof.json directly"
+  elif [[ -f "$proof_path/tokamak-zk-evm-proof.zip" ]]; then
+    verbose "Found zipped proof, checking contents..."
+    if command -v unzip >/dev/null 2>&1; then
+      # Check if zip contains proof.json
+      if unzip -l "$proof_path/tokamak-zk-evm-proof.zip" | grep -q "proof.json"; then
+        verbose "Extracting proof.json from zip..."
+        pushd "$proof_path" >/dev/null
+        unzip -o tokamak-zk-evm-proof.zip proof.json >/dev/null 2>&1
+        popd >/dev/null
+        verbose "Successfully extracted proof.json from zip"
+      else
+        verbose "Zip found but does not contain proof.json (contains benchmark data only)"
+        echo "💡 This appears to be a benchmark/metadata archive. To verify a proof, you need the actual proof.json file." >&2
+        echo "💡 The --prove command should generate both benchmark data and proof files." >&2
+        exit 1
+      fi
+    else
+      err "proof.json not found and unzip command not available"
+      echo "💡 Either provide proof.json directly or install unzip to extract from zip" >&2
+      exit 1
+    fi
+  else
+    err "proof.json not found in: $save_path"
+    echo "💡 Make sure your proof directory contains either proof.json or tokamak-zk-evm-proof.zip with proof data" >&2
+    exit 1
+  fi
+
+  log "Verify: synthesize from tx=$tx_hash"
+  pushd "$FE_SYN" >/dev/null
+  npm run synthesizer "$tx_hash"
+  popd >/dev/null
+
+  sync_synth_outputs_to_dist
+
+  local target dist_dir run3 run5
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+  run3="$dist_dir/3_run-preprocess.sh"
+  run5="$dist_dir/5_run-verify.sh"
+
+  log "Verify: running verifier preprocess and verify (target=$target)"
+  [[ -f "$run3" ]] || { err "Missing: $run3"; exit 1; }
+  [[ -f "$run5" ]] || { err "Missing: $run5"; exit 1; }
+
+  to_unix_exec "$run3"
+  bash "$run3"
+  to_unix_exec "$run5"
+  export ICICLE_BACKEND_INSTALL_DIR="${dist_dir}/backend-lib/icicle/lib/backend"
+  verify_out="$(bash "$run5" "$proof_path" | tail -n1)"
+  if [[ "$verify_out" == "true" || "$verify_out" == "true"$'\r' ]]; then
+    ok "Verify: verify output => $verify_out"
+  else
+    err "Verify: verify output => $verify_out"
+    exit 1
+  fi
+
+}
+
+# System health check
+step_doctor() {
+  log "Running system health check..."
+  
+  local all_good=true
+  
+  # Check basic requirements
+  for cmd in node npm circom rustc cmake dos2unix; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+      if [[ "$VERBOSE" == true ]]; then
+        case "$cmd" in
+          node) verbose "node: $(node --version)" ;;
+          npm) verbose "npm: $(npm --version)" ;;
+          circom) verbose "circom: $(circom --version | head -1)" ;;
+          rustc) verbose "rustc: $(rustc --version)" ;;
+          *) verbose "$cmd: found" ;;
+        esac
+      fi
+    else
+      err "$cmd: not found"
+      case "$cmd" in
+        node) echo "💡 Install from https://nodejs.org/" >&2 ;;
+        circom) echo "💡 Install from https://docs.circom.io/getting-started/installation/" >&2 ;;
+        rustc) echo "💡 Install from https://www.rust-lang.org/tools/install" >&2 ;;
+        cmake) echo "💡 Install from https://cmake.org/download/" >&2 ;;
+        dos2unix) echo "💡 Install with: brew install dos2unix (macOS) or apt-get install dos2unix (Ubuntu)" >&2 ;;
+      esac
+      all_good=false
+    fi
+  done
+  
+  # Check project structure
+  if [[ ! -d "$FE_QAP" ]]; then
+    err "QAP compiler directory missing: $FE_QAP"
+    all_good=false
+  else
+    verbose "QAP compiler directory: exists"
+  fi
+  
+  if [[ ! -d "$FE_SYN" ]]; then
+    err "Synthesizer directory missing: $FE_SYN"
+    all_good=false
+  else
+    verbose "Synthesizer directory: exists"
+  fi
+  
+  # Check if installed
+  if [[ ! -f "$FE_SYN/.env" ]]; then
+    err "Not installed - run --install first"
+    echo "💡 Run: ./tokamak-cli --install <YOUR_API_KEY>" >&2
+    all_good=false
+  else
+    verbose "Installation: complete (.env found)"
+  fi
+  
+  # Check disk space (basic)
+  local available_gb
+  case "$(uname -s)" in
+    Darwin)
+      available_gb=$(df -g . | awk 'NR==2 {print $4}')
+      ;;
+    Linux)
+      available_gb=$(df -BG . | awk 'NR==2 {print $4}' | tr -d 'G')
+      ;;
+    *)
+      available_gb=0
+      ;;
+  esac
+  
+  if [[ $available_gb -lt 5 ]]; then
+    err "Low disk space: ${available_gb}GB available (need 5GB+)"
+    all_good=false
+  else
+    verbose "Disk space: ${available_gb}GB available"
+  fi
+  
+  if [[ "$all_good" == true ]]; then
+    ok "System is ready! 🚀"
+  else
+    err "Found issues that need attention"
+    exit 1
+  fi
+}
+
+# ---------- CLI ----------
+print_usage() {
+  cat <<'USAGE'
+
+Commands:
+  --install <API_KEY|RPC_URL>
+      Install and setup Tokamak ZKP 
+
+  --prove <TX_HASH> [<SAVE_PATH>]
+      Convert an Ethereum transaction into a zero-knowledge proof
+
+  --verify <PROOF_PATH>
+      Verify a proof saved at <PROOF_PATH>.
+      Requirements in <PROOF_PATH>:
+        - transaction_hash.txt  (tx hash; with or without 0x)
+        - proof.json
+
+  --doctor
+      Check system requirements and health
+
+  --help
+      Show this help
+
+Options:
+  --verbose       Show detailed output
+USAGE
+}
+
+# Parse args
+[[ $# -gt 0 ]] || { print_usage; exit 1; }
+
+# Handle flags first
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --verbose)
+      VERBOSE=true
+      shift
+      ;;
+    --install)
+      CMD="install"; ARG1="${2:-}"; 
+      [[ -n "$ARG1" ]] || { err "--install requires <API_KEY|RPC_URL>"; echo "💡 Get an API key from https://dashboard.alchemy.com/" >&2; exit 1; }
+      break
+      ;;
+    --prove)
+      CMD="prove"; ARG1="${2:-}"; ARG2="${3:-}"; 
+      [[ -n "$ARG1" ]] || { err "--prove requires <TX_HASH> [<SAVE_PATH>]"; echo "💡 Use a mainnet transaction hash like: 0x123abc..." >&2; exit 1; }
+      break
+      ;;
+    --verify)
+      CMD="verify"; ARG1="${2:-}"; 
+      [[ -n "$ARG1" ]] || { err "--verify requires <SAVE_PATH>"; echo "💡 Specify the directory containing your proof files" >&2; exit 1; }
+      break
+      ;;
+    --doctor)
+      CMD="doctor"
+      break
+      ;;
+    --help|-h)
+      print_usage; exit 0
+      ;;
+    *)
+      err "Unknown option: $1"; print_usage; exit 1
+      ;;
+  esac
+done
+
+[[ -n "${CMD:-}" ]] || { err "No command specified"; print_usage; exit 1; }
+
+# Dispatch
+case "$CMD" in
+  install) step_install "$ARG1" ;;
+  prove) step_prove "$ARG1" "${ARG2:-}" ;;
+  verify) step_verify "$ARG1" ;;
+  doctor) step_doctor ;;
+esac

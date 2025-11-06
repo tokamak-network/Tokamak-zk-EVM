@@ -1,11 +1,9 @@
 use super::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
-use super::group_structures::G1serde;
-use icicle_bls12_381::vec_ops;
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
-use icicle_bls12_381::curve::{ScalarCfg, ScalarField, G1Affine, G2Affine};
+use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::FieldImpl;
-use icicle_runtime::memory::HostSlice;
-use rayon::vec;
+use icicle_runtime::memory::{HostSlice, DeviceVec, DeviceSlice, HostOrDeviceSlice};
+use std::cell::RefCell;
 
 pub fn gen_evaled_lagrange_bases(val: &ScalarField, size: usize, res: &mut [ScalarField]) {
     let mut val_pows = vec![ScalarField::one(); size];
@@ -22,12 +20,18 @@ pub fn point_mul_two_vecs(lhs: &[ScalarField], rhs: &[ScalarField], res: &mut [S
     if lhs.len() != rhs.len() || lhs.len() != res.len() {
         panic!("Mismatch of sizes of vectors to be pointwise-multiplied");
     }
-    let vec_ops_cfg = VecOpsConfig::default();
+    let mut vec_ops_cfg = VecOpsConfig::default();
+    // Optimize for GPU memory coalescing
+    vec_ops_cfg.is_a_on_device = false;
+    vec_ops_cfg.is_b_on_device = false;
+    vec_ops_cfg.is_result_on_device = false;
+    
     let lhs_buff = HostSlice::from_slice(lhs);
     let rhs_buff = HostSlice::from_slice(rhs);
     let res_buff = HostSlice::from_mut_slice(res);
     ScalarCfg::mul(lhs_buff, rhs_buff, res_buff, &vec_ops_cfg).unwrap();
 }
+
 
 pub fn point_div_two_vecs(numer: &[ScalarField], denom: &[ScalarField], res: &mut [ScalarField]){
     if numer.len() != denom.len() || numer.len() != res.len() {
@@ -124,6 +128,64 @@ pub fn transpose_inplace (a_vec: &mut [ScalarField], row_size: usize, col_size:u
     ScalarCfg::transpose(a, row_size as u32, col_size as u32, res, &vec_ops_cfg).unwrap();
     a_vec.clone_from_slice(&res_vec);
 }
+
+pub fn transpose_device_inplace (a_vec: &mut DeviceSlice<ScalarField>, row_size: usize, col_size:usize) {
+    if a_vec.len() != row_size * col_size {
+        panic!("Error in transpose")
+    }
+    if row_size * col_size == 0 {
+        return
+    }
+    let mut vec_ops_cfg = VecOpsConfig::default();
+    vec_ops_cfg.is_a_on_device = true;
+    vec_ops_cfg.is_result_on_device = true;
+
+    let mut res_vec = DeviceVec::device_malloc(row_size * col_size).expect("Failed to allocate device memory");
+
+    ScalarCfg::transpose(a_vec, row_size as u32, col_size as u32, &mut res_vec, &vec_ops_cfg).unwrap();
+    a_vec.copy(&res_vec).unwrap();
+}
+
+// TODO: benchmark this with a naive approach
+fn _repeat_extend_device(v: &DeviceSlice<ScalarField>, n: usize) -> DeviceVec<ScalarField> {
+    let original_len = v.len();
+    
+    if n == 0 {
+        return DeviceVec::device_malloc(0).unwrap();
+    }
+
+    if n == 1 {
+        // Direct copy
+        let mut result = DeviceVec::device_malloc(original_len).unwrap();
+        result.copy(v).unwrap();
+        return result;
+    }
+    
+    let target_len = original_len * n;
+    let mut extended_vec = DeviceVec::device_malloc(target_len).unwrap();
+    
+    // Optimized approach: Use exponential doubling to minimize kernel launches
+    // This reduces the number of copy operations from O(n) to O(log n)
+    
+    // First copy: original vector -> position 0
+    extended_vec[0..original_len].copy(v).unwrap();
+    
+    // Exponential doubling: each iteration doubles the amount of valid data
+    let mut current_len = original_len;
+    while current_len < target_len {
+        let copy_len = std::cmp::min(current_len, target_len - current_len);
+        
+        // Use a temporary buffer to avoid borrowing issues
+        let mut temp_buffer = DeviceVec::device_malloc(copy_len).unwrap();
+        temp_buffer.copy(&extended_vec[0..copy_len]).unwrap();
+        extended_vec[current_len..current_len + copy_len].copy(&temp_buffer).unwrap();
+        
+        current_len += copy_len;
+    }
+    
+    extended_vec
+}
+
 pub fn matrix_matrix_mul(lhs_mat: &[ScalarField], rhs_mat: &[ScalarField], m: usize, n:usize, l:usize, res_mat: &mut [ScalarField]) {
     if lhs_mat.len() != m * n || rhs_mat.len() != n * l || res_mat.len() != m * l {
         panic!("Incorrect sizes for the matrix multiplication")
@@ -132,30 +194,50 @@ pub fn matrix_matrix_mul(lhs_mat: &[ScalarField], rhs_mat: &[ScalarField], m: us
         res_mat.fill(ScalarField::zero());
         return;
     }
+
     // size of LHS: m-by-n
     // size of RHS: n-by-l
     // Extending LHS and RHS. E.g., say LHS = [r1; r2; r3] and RHS = [c1, c2] with m=3, l=2, where r_i are row vectors, and c_i are column vectors.
     // Extended_LHS = [r1, r1, r2, r2, r3, r3], and
     // Extended_RHS = [c1^T, c2^T c1^T, c2^T; c1^T, c2^T].
     // Then, LHS*RHS is a batched inner product of Extended_LHS and Extended_RHS.
-    
-    let mut ext_lhs_mat = lhs_mat.to_vec();
-    transpose_inplace(&mut ext_lhs_mat, m, n);
-    _repeat_extend(&mut ext_lhs_mat, l);
-    transpose_inplace(&mut ext_lhs_mat, l*n, m);
-    
-    let mut ext_rhs_mat = rhs_mat.to_vec();
-    transpose_inplace(&mut ext_rhs_mat, n, l);
-    _repeat_extend(&mut ext_rhs_mat, m);
 
+    // steps: 
+    // 1. [CPU -> GPU] copy host inputs matrices to device
+    // 2. [GPU] transpose the device matrices
+    // 3. [GPU] extend the device matrices
+    // 4. [GPU] transpose the device matrices
+    // 5. [GPU] multiply the device matrices
+    // 6. [GPU -> CPU] copy the device matrices to host
+
+    // Copy input matrices to device
+    let mut lhs_device = DeviceVec::device_malloc(m * n).unwrap();
+    lhs_device.as_mut_slice().copy_from_host(HostSlice::from_slice(lhs_mat)).unwrap();
+    let mut rhs_device = DeviceVec::device_malloc(n * l).unwrap();
+    rhs_device.as_mut_slice().copy_from_host(HostSlice::from_slice(rhs_mat)).unwrap();
+
+    // Build extended matrices on the GPU
+    let mut transposed_lhs = DeviceVec::device_malloc(m * n).unwrap();
     let mut vec_ops_cfg = VecOpsConfig::default();
-    let mut mul_res_vec = vec![ScalarField::zero(); m*n*l];
-    let mul_res_buff = HostSlice::from_mut_slice(&mut mul_res_vec);
-    ScalarCfg::mul(HostSlice::from_slice(&ext_lhs_mat), HostSlice::from_slice(&ext_rhs_mat), mul_res_buff, &vec_ops_cfg).unwrap();
+    vec_ops_cfg.is_a_on_device = true;
+    vec_ops_cfg.is_result_on_device = true;
+    ScalarCfg::transpose(&lhs_device, m as u32, n as u32, &mut transposed_lhs, &vec_ops_cfg).unwrap();
+    let mut extended_lhs = _repeat_extend_device(&transposed_lhs, l);
+    transpose_device_inplace(&mut extended_lhs, l*n, m);
+
+    let mut transposed_rhs = DeviceVec::device_malloc(n * l).unwrap();
+    ScalarCfg::transpose(&rhs_device, n as u32, l as u32, &mut transposed_rhs, &vec_ops_cfg).unwrap();
+    let extended_rhs = _repeat_extend_device(&transposed_rhs, m);
+
+    vec_ops_cfg.is_b_on_device = true;
+
+    let mut mul_res_device = DeviceVec::device_malloc(m * n * l).unwrap();
+    ScalarCfg::mul(&extended_lhs, &extended_rhs, &mut mul_res_device, &vec_ops_cfg).unwrap();
+
     vec_ops_cfg.batch_size = (m * l) as i32;
     vec_ops_cfg.columns_batch = false;
-    let res = HostSlice::from_mut_slice(res_mat);
-    ScalarCfg::sum(mul_res_buff, res, &vec_ops_cfg).unwrap();
+    vec_ops_cfg.is_result_on_device = false; // Result goes to host
+    ScalarCfg::sum(&mul_res_device, HostSlice::from_mut_slice(res_mat), &vec_ops_cfg).unwrap();
 }
 
 pub fn outer_product_two_vecs(col_vec: &[ScalarField], row_vec: &[ScalarField], res: &mut [ScalarField]){

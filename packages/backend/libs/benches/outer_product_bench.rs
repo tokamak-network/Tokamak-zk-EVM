@@ -1,6 +1,6 @@
 // benches/outer_product_bench.rs
 use criterion::{criterion_group, criterion_main, Criterion};
-use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
+use icicle_bls12_381::curve::{ScalarField};
 use icicle_core::traits::FieldImpl;
 
 use libs::vector_operations::{outer_product_two_vecs, outer_product_two_vecs_rayon};

@@ -1,10 +1,10 @@
 use ark_ec::pairing::PairingOutput;
-use icicle_bls12_381::curve::{G1Affine, G1Projective, G2Affine, ScalarField, ScalarCfg};
-use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
+use icicle_bls12_381::curve::{G1Affine, G1Projective, G2Affine, ScalarField};
+use icicle_core::traits::{Arithmetic, FieldImpl};
 use icicle_core::msm::{self, MSMConfig};
 use ark_bls12_381::{Bls12_381, G1Affine as ArkG1Affine, G2Affine as ArkG2Affine};
-use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
-use ark_ff::{Field, PrimeField, Fp12};
+use ark_ec::{pairing::Pairing};
+use ark_ff::{Field};
 use icicle_runtime::memory::HostSlice;
 use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
 use crate::field_structures::{FieldSerde, Tau};
@@ -761,9 +761,11 @@ pub fn icicle_g1_affine_to_ark(g: &G1Affine) -> ArkG1Affine {
 pub fn icicle_g2_affine_to_ark(g: &G2Affine) -> ArkG2Affine {
     let x_bytes = g.x.to_bytes_le();
     let y_bytes = g.y.to_bytes_le();
+    
     let x = ark_bls12_381::Fq2::from_random_bytes(&x_bytes)
         .expect("failed to convert x from icicle to ark");
     let y = ark_bls12_381::Fq2::from_random_bytes(&y_bytes)
         .expect("failed to convert y from icicle to ark");
+    
     ArkG2Affine::new_unchecked(x, y)
 }

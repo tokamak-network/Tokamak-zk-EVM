@@ -10,3 +10,7 @@ stats.html
 
 dist/
 **/outputs
+
+# binary
+bin/
+resource/

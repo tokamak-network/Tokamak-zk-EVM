@@ -5,10 +5,19 @@ import { SynthesizerAdapter } from '../adapters/synthesizerAdapter.js';
 import { createEVM } from '../constructors.js';
 import readline from 'readline';
 
+// load environment variables
+import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
+
+// tr to load .env 
+const envPath = path.resolve(process.cwd(), '.env');
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+}
+
 // Default RPC URLs
 const DEFAULT_RPC_URLS = {
-  mainnet:
-    'https://eth-mainnet.g.alchemy.com/v2/PbqCcGx1oHN7yNaFdUJUYqPEN0QSp23S',
   sepolia: 'https://rpc.ankr.com/eth_sepolia',
 };
 
@@ -42,6 +51,10 @@ program
   .option('-d, --calldata <data>', 'Calldata to verify')
   .option('--sender <address>', 'Sender address to verify')
   .option('-o, --output <file>', 'Output file for results (optional)')
+  .option(
+    '--output-dir <dir>',
+    'Output directory for synthesis files (default: current directory)',
+  )
   .option('-v, --verbose', 'Verbose output')
   .action(async (options) => {
     try {
@@ -58,9 +71,23 @@ program
         }
       }
 
-      // Get RPC URL - either from options or use default
+      // Get RPC URL - first options, then .env, then default for sepolia
       const network = options.sepolia ? 'sepolia' : 'mainnet';
-      const rpcUrl = options.rpcUrl || DEFAULT_RPC_URLS[network];
+      let rpcUrl = options.rpcUrl;
+      
+      if (!rpcUrl) {
+        if (network === 'mainnet') {
+          rpcUrl = process.env.RPC_URL;
+          if (!rpcUrl) {
+            console.error('Error: No RPC URL configured for mainnet');
+            console.error('Run: ./tokamak-cli --install <API_KEY>');
+            process.exit(1);
+          }
+        } else {
+          // For sepolia, use default public RPC
+          rpcUrl = DEFAULT_RPC_URLS[network];
+        }
+      }
 
       console.log(
         `🌐 Network: ${network.charAt(0).toUpperCase() + network.slice(1)}`,
@@ -68,6 +95,21 @@ program
       console.log(`📡 RPC URL: ${rpcUrl}`);
       console.log(`📋 Transaction: ${txHash}`);
       console.log('');
+
+      // Set output directory - default to directory where binary is located
+      const outputDir =
+        options.outputDir ||
+        (() => {
+          // Check if running as binary (pkg or bun) or in development
+          if ((process as any).pkg || (process as any).isBun) {
+            // Running as binary - use directory where binary is located
+            return require('path').dirname(process.execPath);
+          } else {
+            // Running in development - use current working directory
+            return process.cwd();
+          }
+        })();
+      console.log(`📁 Output directory: ${outputDir}`);
 
       const adapter = new SynthesizerAdapter(rpcUrl, !options.sepolia);
 
@@ -77,6 +119,7 @@ program
         contractAddr: options.contract,
         calldata: options.calldata,
         sender: options.sender,
+        outputPath: outputDir,
       });
 
       console.log('✅ Transaction parsed successfully!');
@@ -127,12 +170,29 @@ program
   .description('Interactive demo mode - run multiple transactions')
   .option('-s, --sepolia', 'Use sepolia testnet (default: mainnet)')
   .option('-r, --rpc-url <url>', 'Custom RPC URL (overrides default)')
+  .option(
+    '--output-dir <dir>',
+    'Output directory for synthesis files (default: current directory)',
+  )
   .action(async (options) => {
     console.log('🚀 Starting Interactive Demo Mode...');
     console.log('');
 
     const network = options.sepolia ? 'sepolia' : 'mainnet';
-    const rpcUrl = options.rpcUrl || DEFAULT_RPC_URLS[network];
+    let rpcUrl = options.rpcUrl;
+    
+    if (!rpcUrl) {
+      if (network === 'mainnet') {
+        rpcUrl = process.env.RPC_URL;
+        if (!rpcUrl) {
+          console.error('Error: No RPC URL configured');
+          console.error('Run: ./tokamak-cli --install <API_KEY>');
+          process.exit(1);
+        }
+      } else {
+        rpcUrl = DEFAULT_RPC_URLS[network];
+      }
+    }
 
     console.log('📋 Demo Configuration:');
     console.log(
@@ -142,6 +202,19 @@ program
     console.log('');
 
     console.log('🔄 Initializing Synthesizer...');
+
+    // Set output directory for demo mode
+    const outputDir =
+      options.outputDir ||
+      (() => {
+        if ((process as any).pkg || (process as any).isBun) {
+          return require('path').dirname(process.execPath);
+        } else {
+          return process.cwd();
+        }
+      })();
+    console.log(`📁 Output directory: ${outputDir}`);
+
     const adapter = new SynthesizerAdapter(rpcUrl, !options.sepolia);
 
     let continueDemo = true;
@@ -167,6 +240,7 @@ program
         const startTime = Date.now();
         const result = await adapter.parseTransaction({
           txHash: txHash,
+          outputPath: outputDir,
         });
         const endTime = Date.now();
 
@@ -268,7 +342,18 @@ program
       }
 
       const network = options.sepolia ? 'sepolia' : 'mainnet';
-      const rpcUrl = DEFAULT_RPC_URLS[network];
+      let rpcUrl;
+      
+      if (network === 'mainnet') {
+        rpcUrl = process.env.RPC_URL;
+        if (!rpcUrl) {
+          console.error('Error: No RPC URL configured');
+          console.error('Run: ./tokamak-cli --install <API_KEY>');
+          process.exit(1);
+        }
+      } else {
+        rpcUrl = DEFAULT_RPC_URLS[network];
+      }
 
       console.log(
         `🌐 Network: ${network.charAt(0).toUpperCase() + network.slice(1)}`,
@@ -328,7 +413,18 @@ program
       }
 
       const network = options.sepolia ? 'sepolia' : 'mainnet';
-      const rpcUrl = DEFAULT_RPC_URLS[network];
+      let rpcUrl;
+      
+      if (network === 'mainnet') {
+        rpcUrl = process.env.RPC_URL;
+        if (!rpcUrl) {
+          console.error('Error: No RPC URL configured');
+          console.error('Run: ./tokamak-cli --install <API_KEY>');
+          process.exit(1);
+        }
+      } else {
+        rpcUrl = DEFAULT_RPC_URLS[network];
+      }
 
       console.log(
         `🌐 Network: ${network.charAt(0).toUpperCase() + network.slice(1)}`,
@@ -394,6 +490,17 @@ program
     console.log(`- Sepolia: ${DEFAULT_RPC_URLS.sepolia}`);
   });
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Check if this file is being run directly (works for both CommonJS and ES modules)
+const isMainModule = (() => {
+  try {
+    // ES modules
+    return import.meta.url === `file://${process.argv[1]}`;
+  } catch {
+    // CommonJS
+    return require.main === module;
+  }
+})();
+
+if (isMainModule) {
   program.parse();
 }

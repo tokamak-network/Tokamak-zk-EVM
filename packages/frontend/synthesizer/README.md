@@ -26,11 +26,13 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
   - **git** (v2 or later)
 
 - Make sure you have the Tokamak zk-EVM repository cloned on your system. For example,
-   ```bash
-   git clone https://github.com/tokamak-network/Tokamak-zk-EVM.git
-   cd Tokamak-zk-EVM
-   ```
-### B. **Package install**
+  ```bash
+  git clone https://github.com/tokamak-network/Tokamak-zk-EVM.git
+  cd Tokamak-zk-EVM
+  ```
+
+### B. Package install
+
 1. Open a new terminal and go to the Tokamak-zk-EVM folder.
 3. Install dependencies:
     ```bash
@@ -39,18 +41,22 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
     ```
     This package install includes some packages in [EthereumJS-monorepo](https://github.com/ethereumjs/ethereumjs-monorepo/).
 
-### C. **Get your Alchemy API key**
+### C. Get your Alchemy API key
+
 For testing Synthesizer, you will need an Alchemy API key to retrieve transaction data from an Ethereum full node (or Sepolia).
-  1. Go to [Alchemy](https://www.alchemy.com/) and sign in.
-  2. Go to "App" -> "+ Create new app".
-  3. Create a new app for Ethereum with activating "Node API" service.
-  4. Copy your "Network URL".
-  5. Go back to the "synthesizer" folder.
-  6. Create ".env" file with the content:
-      ```text
-      RPC_URL= // PASTE YOUR NETWORK URL HERE //
-      ```
-### D. **Pick any transaction to test Synthesizer**
+
+1. Go to [Alchemy](https://www.alchemy.com/) and sign in.
+2. Go to "App" -> "+ Create new app".
+3. Create a new app for Ethereum with activating "Node API" service.
+4. Copy your "Network URL".
+5. Go back to the "synthesizer" folder.
+6. Create ".env" file with the content:
+   ```text
+   RPC_URL= // PASTE YOUR NETWORK URL HERE //
+   ```
+
+### D. Run Synthesizer
+
 1. Go to [Etherscan](https://etherscan.io/) and pick any contract call transaction.
 2. Copy the transaction hash.
 3. Find the file "synthesizer/examples/fullnode/index.ts" and open it
@@ -61,9 +67,48 @@ For testing Synthesizer, you will need an Alchemy API key to retrieve transactio
 1. Make sure you are in the folder "synthesizer".
 2. Run
    ```bash
-   tsx ./examples/fullnode/index
+   npm run synthesizer <YOUR_TRANSACTION_HASH>
    ```
-3. Now you are ready to move on to [the backend of Tokamak zk-EVM](../../backend/)
+   For example:
+   ```bash
+   npm run synthesizer 0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc
+   ```
+
+## How to build a binary package
+For production deployment or distribution, you can build standalone binary executables that don't require any prerequisite installation including Node.js.
+### A. Prerequisites for binary building
+
+- **Bun** (latest version) - Install from [https://bun.sh](https://bun.sh)
+- All dependencies installed (`npm install`)
+
+### B. Building binaries
+
+The `build-binary.sh` script supports building for multiple platforms:
+
+```bash
+# Build for current platform (default)
+./build-binary.sh
+
+# Build for specific platform
+./build-binary.sh linux     # Linux x64
+./build-binary.sh windows   # Windows x64
+./build-binary.sh macos     # macOS (both ARM64 and x64)
+
+# Build for all platforms
+./build-binary.sh all
+```
+
+### C. Using Built Binaries
+
+After building, you'll find the binaries in the `bin/` directory. For example, on a Linux system, you can try:
+
+```bash
+# To see your setup information
+./bin/synthesizer-linux-x64 info
+
+# Run synthesis with binary
+./bin/synthesizer-linux-x64 parse -t 0x3967fc48fafbee4de2d34655925dae0bb3070807251d5b4569997a58a46586bc
+```
 
 ## Description for the Synthesizer input and output
 

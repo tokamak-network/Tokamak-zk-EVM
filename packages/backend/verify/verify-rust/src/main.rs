@@ -1,6 +1,5 @@
 use std::{env, process, time::Instant};
 
-use icicle_runtime::Device;
 use libs::utils::check_device;
 use prove::Proof4Test;
 use verify::{KeccakVerificationResult, Verifier, VerifyInputPaths};
