@@ -6,14 +6,13 @@ use libs::iotools::{read_global_wire_list_as_boxed_boxed_numbers};
 use libs::utils::check_device;
 use libs::vector_operations::{gen_evaled_lagrange_bases};
 use libs::group_structures::{Sigma};
-use icicle_bls12_381::curve::{CurveCfg, G2CurveCfg, ScalarField};
+use icicle_bls12_381::curve::{BaseField, CurveCfg, G1Affine, G2Affine, G2BaseField, G2CurveCfg, ScalarField};
 use icicle_core::traits::{FieldImpl};
 // use icicle_core::ntt;
 use icicle_core::curve::Curve;
 use trusted_setup::SetupInputPaths;
 
 use std::path::PathBuf;
-use std::{env, process, vec};
 use std::{env, process, vec};
 use std::time::Instant;
 
