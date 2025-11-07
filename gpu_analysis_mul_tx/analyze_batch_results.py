@@ -150,31 +150,47 @@ def print_statistics(summary_data: List[Dict]):
     max_mem_utils = [row["max_mem_util_%"] for row in success_data]
 
     print(f"\n" + "=" * 70)
-    print(f"GPU UTILIZATION DURING PROVING")
+    print(f"GPU & MEMORY UTILIZATION DURING PROVING")
     print(f"=" * 70)
+
+    # Calculate statistical validity metrics
+    n_success = len(success_data)
+    sem_avg_gpu = np.std(avg_gpu_utils) / np.sqrt(n_success)
+    sem_avg_mem = np.std(avg_mem_utils) / np.sqrt(n_success)
+    ci_95_gpu = 1.96 * sem_avg_gpu
+    ci_95_mem = 1.96 * sem_avg_mem
+
     print(f"  Average GPU Utilization:")
     print(f"    Mean: {np.mean(avg_gpu_utils):.2f}%")
+    print(f"    95% Confidence Interval: ±{ci_95_gpu:.2f}%")
     print(f"    Median: {np.median(avg_gpu_utils):.2f}%")
-    print(f"    Min: {np.min(avg_gpu_utils):.2f}%")
-    print(f"    Max: {np.max(avg_gpu_utils):.2f}%")
     print(f"    Std Dev: {np.std(avg_gpu_utils):.2f}%")
+    print(f"    Range: [{np.min(avg_gpu_utils):.2f}%, {np.max(avg_gpu_utils):.2f}%]")
+    print(
+        f"    Coef. of Variation: {(np.std(avg_gpu_utils) / np.mean(avg_gpu_utils) * 100) if np.mean(avg_gpu_utils) > 0 else 0:.1f}%"
+    )
 
     print(f"\n  Peak GPU Utilization:")
     print(f"    Mean: {np.mean(max_gpu_utils):.2f}%")
     print(f"    Median: {np.median(max_gpu_utils):.2f}%")
-    print(f"    Min: {np.min(max_gpu_utils):.2f}%")
-    print(f"    Max: {np.max(max_gpu_utils):.2f}%")
     print(f"    Std Dev: {np.std(max_gpu_utils):.2f}%")
+    print(f"    Range: [{np.min(max_gpu_utils):.2f}%, {np.max(max_gpu_utils):.2f}%]")
 
     print(f"\n  Average Memory Utilization:")
     print(f"    Mean: {np.mean(avg_mem_utils):.2f}%")
+    print(f"    95% Confidence Interval: ±{ci_95_mem:.2f}%")
     print(f"    Median: {np.median(avg_mem_utils):.2f}%")
     print(f"    Std Dev: {np.std(avg_mem_utils):.2f}%")
+    print(f"    Range: [{np.min(avg_mem_utils):.2f}%, {np.max(avg_mem_utils):.2f}%]")
+    print(
+        f"    Coef. of Variation: {(np.std(avg_mem_utils) / np.mean(avg_mem_utils) * 100) if np.mean(avg_mem_utils) > 0 else 0:.1f}%"
+    )
 
     print(f"\n  Peak Memory Utilization:")
     print(f"    Mean: {np.mean(max_mem_utils):.2f}%")
     print(f"    Median: {np.median(max_mem_utils):.2f}%")
     print(f"    Std Dev: {np.std(max_mem_utils):.2f}%")
+    print(f"    Range: [{np.min(max_mem_utils):.2f}%, {np.max(max_mem_utils):.2f}%]")
 
     # Correlation between prove time and GPU utilization
     prove_gpu_corr = np.corrcoef(prove_times, avg_gpu_utils)[0, 1]
@@ -196,6 +212,51 @@ def print_statistics(summary_data: List[Dict]):
         print(
             f"    → Strong correlation: GPU utilization significantly affects prove time"
         )
+
+    # Statistical validity summary
+    print(f"\n" + "=" * 70)
+    print(f"STATISTICAL VALIDITY ASSESSMENT")
+    print(f"=" * 70)
+    print(f"  Sample Size: {n_success} successful transactions")
+    print(f"  Standard Error of Mean (GPU): {sem_avg_gpu:.3f}%")
+    print(f"  Standard Error of Mean (Memory): {sem_avg_mem:.3f}%")
+    print(f"\n  Data Quality Assessment:")
+    if n_success >= 20:
+        print(f"    ✓ GOOD - Large sample size (n={n_success})")
+        print(f"    → Statistical estimates are reliable")
+        print(f"    → Confidence intervals are narrow")
+    elif n_success >= 10:
+        print(f"    ✓ MODERATE - Moderate sample size (n={n_success})")
+        print(f"    → Results are indicative but could be refined")
+        print(f"    → Consider collecting more data for greater precision")
+    else:
+        print(f"    ⚠ LIMITED - Small sample size (n={n_success})")
+        print(f"    → Results should be interpreted with caution")
+        print(f"    → More data strongly recommended")
+
+    print(f"\n  Key Findings:")
+    print(
+        f"    • GPU Utilization: {np.mean(avg_gpu_utils):.2f}% ± {ci_95_gpu:.2f}% (95% CI)"
+    )
+    print(
+        f"    • Memory Utilization: {np.mean(avg_mem_utils):.2f}% ± {ci_95_mem:.2f}% (95% CI)"
+    )
+
+    # Interpretation
+    if np.mean(avg_gpu_utils) < 20:
+        print(f"    • ⚠ LOW GPU utilization - GPU is underutilized during proving")
+        print(f"    • Potential for optimization or GPU may not be critical bottleneck")
+    elif np.mean(avg_gpu_utils) < 60:
+        print(f"    • MODERATE GPU utilization - Balanced workload")
+    else:
+        print(f"    • HIGH GPU utilization - GPU is heavily utilized")
+
+    if np.mean(avg_mem_utils) < 20:
+        print(f"    • LOW Memory utilization - Memory is not a bottleneck")
+    elif np.mean(avg_mem_utils) < 60:
+        print(f"    • MODERATE Memory utilization - Balanced usage")
+    else:
+        print(f"    • HIGH Memory utilization - Consider memory optimization")
 
     print("=" * 70 + "\n")
 
@@ -433,7 +494,7 @@ def plot_aggregated_gpu_analysis(
     summary_data: List[Dict],
     output_dir: Path,
 ):
-    """Plot aggregated GPU analysis across all transactions."""
+    """Plot aggregated GPU analysis across all transactions with statistical validation."""
     success_data = [row for row in summary_data if row["status"] == "success"]
 
     if not success_data:
@@ -443,8 +504,6 @@ def plot_aggregated_gpu_analysis(
     # Aggregate GPU data from all transactions
     all_gpu_utils = []
     all_mem_utils = []
-    all_temps = []
-    all_powers = []
 
     for row in success_data:
         tx_num = row["tx_number"]
@@ -452,166 +511,283 @@ def plot_aggregated_gpu_analysis(
             tx_gpu = gpu_data[tx_num]
             all_gpu_utils.extend([d["gpu_util"] for d in tx_gpu])
             all_mem_utils.extend([d["mem_util"] for d in tx_gpu])
-            all_temps.extend([d["temp"] for d in tx_gpu])
-            all_powers.extend([d["power"] for d in tx_gpu])
 
     if not all_gpu_utils:
         print("Warning: No GPU data available for aggregation")
         return
 
-    fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+    # Create comprehensive statistical summary plot
+    fig = plt.figure(figsize=(18, 10))
+    gs = fig.add_gridspec(2, 3, hspace=0.3, wspace=0.3)
     fig.suptitle(
-        "Aggregated GPU Metrics - All Transactions",
-        fontsize=16,
+        "GPU & Memory Usage Statistics During Prove Operations",
+        fontsize=18,
         fontweight="bold",
     )
 
-    # Plot 1: GPU Utilization Distribution
-    axes[0, 0].hist(
-        all_gpu_utils, bins=50, color="skyblue", edgecolor="navy", alpha=0.7
+    # Main Plot 1: GPU Utilization - Enhanced with percentiles
+    ax1 = fig.add_subplot(gs[0, 0])
+    n, bins, patches = ax1.hist(
+        all_gpu_utils,
+        bins=50,
+        color="skyblue",
+        edgecolor="navy",
+        alpha=0.7,
+        density=False,
     )
-    axes[0, 0].axvline(
-        x=np.mean(all_gpu_utils),
+    mean_gpu = np.mean(all_gpu_utils)
+    median_gpu = np.median(all_gpu_utils)
+    std_gpu = np.std(all_gpu_utils)
+    q1_gpu = np.percentile(all_gpu_utils, 25)
+    q3_gpu = np.percentile(all_gpu_utils, 75)
+
+    ax1.axvline(
+        x=mean_gpu,
+        color="red",
+        linestyle="--",
+        linewidth=2.5,
+        label=f"Mean: {mean_gpu:.2f}%",
+    )
+    ax1.axvline(
+        x=median_gpu,
+        color="orange",
+        linestyle=":",
+        linewidth=2.5,
+        label=f"Median: {median_gpu:.2f}%",
+    )
+    ax1.axvline(
+        x=q1_gpu,
+        color="green",
+        linestyle=":",
+        linewidth=1.5,
+        alpha=0.6,
+        label=f"Q1/Q3: {q1_gpu:.1f}% / {q3_gpu:.1f}%",
+    )
+    ax1.axvline(
+        x=q3_gpu,
+        color="green",
+        linestyle=":",
+        linewidth=1.5,
+        alpha=0.6,
+    )
+
+    ax1.set_xlabel("GPU Utilization (%)", fontweight="bold", fontsize=11)
+    ax1.set_ylabel("Frequency (samples)", fontweight="bold", fontsize=11)
+    ax1.set_title("GPU Utilization Distribution", fontweight="bold", fontsize=12)
+    ax1.grid(True, alpha=0.3)
+    ax1.legend(loc="upper right", fontsize=9)
+
+    # Statistics text with more detail - moved to bottom right to avoid legend overlap
+    stats_text = f"n = {len(all_gpu_utils)}\nμ = {mean_gpu:.2f}%\nσ = {std_gpu:.2f}%\nCV = {(std_gpu / mean_gpu * 100) if mean_gpu > 0 else 0:.1f}%\nRange: [{np.min(all_gpu_utils):.1f}, {np.max(all_gpu_utils):.1f}]"
+    ax1.text(
+        0.98,
+        0.03,
+        stats_text,
+        transform=ax1.transAxes,
+        verticalalignment="bottom",
+        horizontalalignment="right",
+        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.9),
+        fontsize=9,
+    )
+
+    # Main Plot 2: Memory Utilization - Enhanced with percentiles
+    ax2 = fig.add_subplot(gs[0, 1])
+    n, bins, patches = ax2.hist(
+        all_mem_utils,
+        bins=50,
+        color="lightgreen",
+        edgecolor="darkgreen",
+        alpha=0.7,
+        density=False,
+    )
+    mean_mem = np.mean(all_mem_utils)
+    median_mem = np.median(all_mem_utils)
+    std_mem = np.std(all_mem_utils)
+    q1_mem = np.percentile(all_mem_utils, 25)
+    q3_mem = np.percentile(all_mem_utils, 75)
+
+    ax2.axvline(
+        x=mean_mem,
+        color="red",
+        linestyle="--",
+        linewidth=2.5,
+        label=f"Mean: {mean_mem:.2f}%",
+    )
+    ax2.axvline(
+        x=median_mem,
+        color="orange",
+        linestyle=":",
+        linewidth=2.5,
+        label=f"Median: {median_mem:.2f}%",
+    )
+    ax2.axvline(
+        x=q1_mem,
+        color="green",
+        linestyle=":",
+        linewidth=1.5,
+        alpha=0.6,
+        label=f"Q1/Q3: {q1_mem:.1f}% / {q3_mem:.1f}%",
+    )
+    ax2.axvline(
+        x=q3_mem,
+        color="green",
+        linestyle=":",
+        linewidth=1.5,
+        alpha=0.6,
+    )
+
+    ax2.set_xlabel("Memory Utilization (%)", fontweight="bold", fontsize=11)
+    ax2.set_ylabel("Frequency (samples)", fontweight="bold", fontsize=11)
+    ax2.set_title("Memory Utilization Distribution", fontweight="bold", fontsize=12)
+    ax2.grid(True, alpha=0.3)
+    ax2.legend(loc="upper right", fontsize=9)
+
+    stats_text = f"n = {len(all_mem_utils)}\nμ = {mean_mem:.2f}%\nσ = {std_mem:.2f}%\nCV = {(std_mem / mean_mem * 100) if mean_mem > 0 else 0:.1f}%\nRange: [{np.min(all_mem_utils):.1f}, {np.max(all_mem_utils):.1f}]"
+    ax2.text(
+        0.98,
+        0.03,
+        stats_text,
+        transform=ax2.transAxes,
+        verticalalignment="bottom",
+        horizontalalignment="right",
+        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.9),
+        fontsize=9,
+    )
+
+    # Box plot comparison: GPU vs Memory
+    ax3 = fig.add_subplot(gs[0, 2])
+    bp = ax3.boxplot(
+        [all_gpu_utils, all_mem_utils],
+        tick_labels=["GPU Util %", "Mem Util %"],
+        patch_artist=True,
+        showmeans=True,
+        meanline=True,
+    )
+    bp["boxes"][0].set_facecolor("skyblue")
+    bp["boxes"][1].set_facecolor("lightgreen")
+    for median in bp["medians"]:
+        median.set_color("red")
+        median.set_linewidth(2)
+    for mean in bp["means"]:
+        mean.set_color("blue")
+        mean.set_linewidth(2)
+        mean.set_linestyle("--")
+
+    ax3.set_ylabel("Utilization (%)", fontweight="bold", fontsize=11)
+    ax3.set_title("GPU vs Memory: Box Plot Comparison", fontweight="bold", fontsize=12)
+    ax3.grid(True, alpha=0.3, axis="y")
+    ax3.legend(
+        [bp["medians"][0], bp["means"][0]],
+        ["Median", "Mean"],
+        loc="upper right",
+        fontsize=9,
+    )
+
+    # Per-transaction averages - GPU
+    ax4 = fig.add_subplot(gs[1, 0])
+    avg_gpu_per_tx = [row["avg_gpu_util_%"] for row in success_data]
+    tx_nums = [row["tx_number"] for row in success_data]
+    ax4.bar(
+        tx_nums, avg_gpu_per_tx, color="cornflowerblue", edgecolor="navy", alpha=0.7
+    )
+    ax4.axhline(
+        y=np.mean(avg_gpu_per_tx),
         color="red",
         linestyle="--",
         linewidth=2,
-        label=f"Mean: {np.mean(all_gpu_utils):.1f}%",
+        label=f"Overall Mean: {np.mean(avg_gpu_per_tx):.2f}%",
     )
-    axes[0, 0].axvline(
-        x=np.median(all_gpu_utils),
-        color="orange",
-        linestyle=":",
-        linewidth=2,
-        label=f"Median: {np.median(all_gpu_utils):.1f}%",
+    ax4.set_xlabel("Transaction Number", fontweight="bold", fontsize=11)
+    ax4.set_ylabel("Avg GPU Utilization (%)", fontweight="bold", fontsize=11)
+    ax4.set_title(
+        "Average GPU Utilization per Transaction", fontweight="bold", fontsize=12
     )
-    axes[0, 0].set_xlabel("GPU Utilization (%)", fontweight="bold")
-    axes[0, 0].set_ylabel("Frequency (samples)")
-    axes[0, 0].set_title("GPU Utilization Distribution", fontweight="bold")
-    axes[0, 0].grid(True, alpha=0.3)
-    axes[0, 0].legend()
+    ax4.grid(True, alpha=0.3, axis="y")
+    ax4.legend(fontsize=9)
 
-    # Add statistics text
-    stats_text = f"σ = {np.std(all_gpu_utils):.1f}%\nMin = {np.min(all_gpu_utils):.1f}%\nMax = {np.max(all_gpu_utils):.1f}%\nSamples = {len(all_gpu_utils)}"
-    axes[0, 0].text(
-        0.98,
-        0.97,
-        stats_text,
-        transform=axes[0, 0].transAxes,
-        verticalalignment="top",
-        horizontalalignment="right",
-        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
+    # Per-transaction averages - Memory
+    ax5 = fig.add_subplot(gs[1, 1])
+    avg_mem_per_tx = [row["avg_mem_util_%"] for row in success_data]
+    ax5.bar(
+        tx_nums, avg_mem_per_tx, color="lightgreen", edgecolor="darkgreen", alpha=0.7
     )
-
-    # Plot 2: Memory Utilization Distribution
-    axes[0, 1].hist(
-        all_mem_utils, bins=50, color="lightgreen", edgecolor="darkgreen", alpha=0.7
-    )
-    axes[0, 1].axvline(
-        x=np.mean(all_mem_utils),
+    ax5.axhline(
+        y=np.mean(avg_mem_per_tx),
         color="red",
         linestyle="--",
         linewidth=2,
-        label=f"Mean: {np.mean(all_mem_utils):.1f}%",
+        label=f"Overall Mean: {np.mean(avg_mem_per_tx):.2f}%",
     )
-    axes[0, 1].axvline(
-        x=np.median(all_mem_utils),
-        color="orange",
-        linestyle=":",
-        linewidth=2,
-        label=f"Median: {np.median(all_mem_utils):.1f}%",
+    ax5.set_xlabel("Transaction Number", fontweight="bold", fontsize=11)
+    ax5.set_ylabel("Avg Memory Utilization (%)", fontweight="bold", fontsize=11)
+    ax5.set_title(
+        "Average Memory Utilization per Transaction", fontweight="bold", fontsize=12
     )
-    axes[0, 1].set_xlabel("Memory Utilization (%)", fontweight="bold")
-    axes[0, 1].set_ylabel("Frequency (samples)")
-    axes[0, 1].set_title("Memory Utilization Distribution", fontweight="bold")
-    axes[0, 1].grid(True, alpha=0.3)
-    axes[0, 1].legend()
+    ax5.grid(True, alpha=0.3, axis="y")
+    ax5.legend(fontsize=9)
 
-    stats_text = f"σ = {np.std(all_mem_utils):.1f}%\nMin = {np.min(all_mem_utils):.1f}%\nMax = {np.max(all_mem_utils):.1f}%"
-    axes[0, 1].text(
-        0.98,
-        0.97,
-        stats_text,
-        transform=axes[0, 1].transAxes,
+    # Statistical validity assessment panel
+    ax6 = fig.add_subplot(gs[1, 2])
+    ax6.axis("off")
+
+    # Calculate statistical validity metrics
+    n_transactions = len(success_data)
+    n_samples = len(all_gpu_utils)
+    sem_gpu = std_gpu / np.sqrt(n_samples)  # Standard error of mean
+    sem_mem = std_mem / np.sqrt(n_samples)
+    ci_95_gpu = 1.96 * sem_gpu  # 95% confidence interval
+    ci_95_mem = 1.96 * sem_mem
+
+    validity_text = "STATISTICAL VALIDITY ASSESSMENT\n" + "=" * 40 + "\n\n"
+    validity_text += f"Sample Size:\n"
+    validity_text += f"  • Transactions: {n_transactions}\n"
+    validity_text += f"  • Data points: {n_samples}\n"
+    validity_text += f"  • Samples/transaction: {n_samples / n_transactions:.1f}\n\n"
+
+    validity_text += f"GPU Utilization:\n"
+    validity_text += f"  • Mean: {mean_gpu:.2f}% ± {ci_95_gpu:.2f}% (95% CI)\n"
+    validity_text += f"  • SEM: {sem_gpu:.3f}%\n"
+    validity_text += f"  • Coef. of Variation: {(std_gpu / mean_gpu * 100) if mean_gpu > 0 else 0:.1f}%\n\n"
+
+    validity_text += f"Memory Utilization:\n"
+    validity_text += f"  • Mean: {mean_mem:.2f}% ± {ci_95_mem:.2f}% (95% CI)\n"
+    validity_text += f"  • SEM: {sem_mem:.3f}%\n"
+    validity_text += f"  • Coef. of Variation: {(std_mem / mean_mem * 100) if mean_mem > 0 else 0:.1f}%\n\n"
+
+    # Validity assessment
+    validity_text += "Data Validity: "
+    if n_transactions >= 20 and n_samples >= 100:
+        validity_text += "✓ GOOD\n"
+        validity_text += f"  Large sample size (n={n_transactions})\n"
+        validity_text += f"  provides reliable statistics"
+    elif n_transactions >= 10:
+        validity_text += "✓ MODERATE\n"
+        validity_text += f"  Moderate sample (n={n_transactions})\n"
+        validity_text += f"  results are indicative"
+    else:
+        validity_text += "⚠ LIMITED\n"
+        validity_text += f"  Small sample (n={n_transactions})\n"
+        validity_text += f"  more data recommended"
+
+    ax6.text(
+        0.05,
+        0.95,
+        validity_text,
+        transform=ax6.transAxes,
         verticalalignment="top",
-        horizontalalignment="right",
-        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
+        fontfamily="monospace",
+        fontsize=9,
+        bbox=dict(boxstyle="round", facecolor="lightblue", alpha=0.8),
     )
 
-    # Plot 3: Temperature Distribution
-    axes[1, 0].hist(all_temps, bins=50, color="salmon", edgecolor="darkred", alpha=0.7)
-    axes[1, 0].axvline(
-        x=np.mean(all_temps),
-        color="red",
-        linestyle="--",
-        linewidth=2,
-        label=f"Mean: {np.mean(all_temps):.1f}°C",
-    )
-    axes[1, 0].axvline(
-        x=np.median(all_temps),
-        color="orange",
-        linestyle=":",
-        linewidth=2,
-        label=f"Median: {np.median(all_temps):.1f}°C",
-    )
-    axes[1, 0].set_xlabel("Temperature (°C)", fontweight="bold")
-    axes[1, 0].set_ylabel("Frequency (samples)")
-    axes[1, 0].set_title("GPU Temperature Distribution", fontweight="bold")
-    axes[1, 0].grid(True, alpha=0.3)
-    axes[1, 0].legend()
-
-    stats_text = f"σ = {np.std(all_temps):.1f}°C\nMin = {np.min(all_temps):.1f}°C\nMax = {np.max(all_temps):.1f}°C"
-    axes[1, 0].text(
-        0.98,
-        0.97,
-        stats_text,
-        transform=axes[1, 0].transAxes,
-        verticalalignment="top",
-        horizontalalignment="right",
-        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
-    )
-
-    # Plot 4: Power Distribution
-    axes[1, 1].hist(all_powers, bins=50, color="plum", edgecolor="purple", alpha=0.7)
-    axes[1, 1].axvline(
-        x=np.mean(all_powers),
-        color="red",
-        linestyle="--",
-        linewidth=2,
-        label=f"Mean: {np.mean(all_powers):.1f}W",
-    )
-    axes[1, 1].axvline(
-        x=np.median(all_powers),
-        color="orange",
-        linestyle=":",
-        linewidth=2,
-        label=f"Median: {np.median(all_powers):.1f}W",
-    )
-    axes[1, 1].set_xlabel("Power Draw (W)", fontweight="bold")
-    axes[1, 1].set_ylabel("Frequency (samples)")
-    axes[1, 1].set_title("GPU Power Draw Distribution", fontweight="bold")
-    axes[1, 1].grid(True, alpha=0.3)
-    axes[1, 1].legend()
-
-    stats_text = f"σ = {np.std(all_powers):.1f}W\nMin = {np.min(all_powers):.1f}W\nMax = {np.max(all_powers):.1f}W"
-    axes[1, 1].text(
-        0.98,
-        0.97,
-        stats_text,
-        transform=axes[1, 1].transAxes,
-        verticalalignment="top",
-        horizontalalignment="right",
-        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
-    )
-
-    plt.tight_layout()
-    output_file = output_dir / "gpu_aggregated_metrics.png"
+    output_file = output_dir / "gpu_memory_usage_analysis.png"
     plt.savefig(output_file, dpi=300, bbox_inches="tight")
-    print(f"Saved aggregated GPU metrics plot: {output_file}")
+    print(f"Saved comprehensive GPU/Memory analysis: {output_file}")
     plt.close()
 
 
 def plot_correlation_analysis(summary_data: List[Dict], output_dir: Path):
-    """Plot correlation between timing and GPU utilization."""
+    """Plot correlation between prove time and GPU/Memory utilization."""
     success_data = [row for row in summary_data if row["status"] == "success"]
 
     if not success_data:
@@ -619,21 +795,21 @@ def plot_correlation_analysis(summary_data: List[Dict], output_dir: Path):
         return
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle("Correlation Analysis", fontsize=16, fontweight="bold")
+    fig.suptitle("Prove Time Correlation Analysis", fontsize=16, fontweight="bold")
 
-    total_times = [row["total_time_s"] for row in success_data]
     prove_times = [row["prove_time_s"] for row in success_data]
     avg_gpu = [row["avg_gpu_util_%"] for row in success_data]
     max_gpu = [row["max_gpu_util_%"] for row in success_data]
+    avg_mem = [row["avg_mem_util_%"] for row in success_data]
+    max_mem = [row["max_mem_util_%"] for row in success_data]
 
-    # Plot 1: Total time vs Avg GPU
-    axes[0, 0].scatter(total_times, avg_gpu, alpha=0.6, s=50)
-    axes[0, 0].set_xlabel("Total Time (s)")
+    # Plot 1: Prove time vs Avg GPU
+    axes[0, 0].scatter(prove_times, avg_gpu, alpha=0.6, s=50)
+    axes[0, 0].set_xlabel("Prove Time (s)")
     axes[0, 0].set_ylabel("Average GPU Utilization (%)")
-    axes[0, 0].set_title("Total Time vs Average GPU Utilization")
+    axes[0, 0].set_title("Prove Time vs Average GPU Utilization")
     axes[0, 0].grid(True, alpha=0.3)
-    # Add correlation coefficient
-    corr = np.corrcoef(total_times, avg_gpu)[0, 1]
+    corr = np.corrcoef(prove_times, avg_gpu)[0, 1]
     axes[0, 0].text(
         0.05,
         0.95,
@@ -642,13 +818,13 @@ def plot_correlation_analysis(summary_data: List[Dict], output_dir: Path):
         verticalalignment="top",
     )
 
-    # Plot 2: Prove time vs Avg GPU
-    axes[0, 1].scatter(prove_times, avg_gpu, alpha=0.6, s=50, color="green")
+    # Plot 2: Prove time vs Max GPU
+    axes[0, 1].scatter(prove_times, max_gpu, alpha=0.6, s=50, color="green")
     axes[0, 1].set_xlabel("Prove Time (s)")
-    axes[0, 1].set_ylabel("Average GPU Utilization (%)")
-    axes[0, 1].set_title("Prove Time vs Average GPU Utilization")
+    axes[0, 1].set_ylabel("Peak GPU Utilization (%)")
+    axes[0, 1].set_title("Prove Time vs Peak GPU Utilization")
     axes[0, 1].grid(True, alpha=0.3)
-    corr = np.corrcoef(prove_times, avg_gpu)[0, 1]
+    corr = np.corrcoef(prove_times, max_gpu)[0, 1]
     axes[0, 1].text(
         0.05,
         0.95,
@@ -657,13 +833,13 @@ def plot_correlation_analysis(summary_data: List[Dict], output_dir: Path):
         verticalalignment="top",
     )
 
-    # Plot 3: Total time vs Max GPU
-    axes[1, 0].scatter(total_times, max_gpu, alpha=0.6, s=50, color="red")
-    axes[1, 0].set_xlabel("Total Time (s)")
-    axes[1, 0].set_ylabel("Max GPU Utilization (%)")
-    axes[1, 0].set_title("Total Time vs Max GPU Utilization")
+    # Plot 3: Prove time vs Avg Memory
+    axes[1, 0].scatter(prove_times, avg_mem, alpha=0.6, s=50, color="red")
+    axes[1, 0].set_xlabel("Prove Time (s)")
+    axes[1, 0].set_ylabel("Average Memory Utilization (%)")
+    axes[1, 0].set_title("Prove Time vs Average Memory Utilization")
     axes[1, 0].grid(True, alpha=0.3)
-    corr = np.corrcoef(total_times, max_gpu)[0, 1]
+    corr = np.corrcoef(prove_times, avg_mem)[0, 1]
     axes[1, 0].text(
         0.05,
         0.95,
@@ -672,13 +848,13 @@ def plot_correlation_analysis(summary_data: List[Dict], output_dir: Path):
         verticalalignment="top",
     )
 
-    # Plot 4: Prove time vs Max GPU
-    axes[1, 1].scatter(prove_times, max_gpu, alpha=0.6, s=50, color="purple")
+    # Plot 4: Prove time vs Max Memory
+    axes[1, 1].scatter(prove_times, max_mem, alpha=0.6, s=50, color="purple")
     axes[1, 1].set_xlabel("Prove Time (s)")
-    axes[1, 1].set_ylabel("Max GPU Utilization (%)")
-    axes[1, 1].set_title("Prove Time vs Max GPU Utilization")
+    axes[1, 1].set_ylabel("Peak Memory Utilization (%)")
+    axes[1, 1].set_title("Prove Time vs Peak Memory Utilization")
     axes[1, 1].grid(True, alpha=0.3)
-    corr = np.corrcoef(prove_times, max_gpu)[0, 1]
+    corr = np.corrcoef(prove_times, max_mem)[0, 1]
     axes[1, 1].text(
         0.05,
         0.95,
@@ -862,14 +1038,14 @@ def main():
         print("  📈 gpu_utilization.png - GPU usage patterns per transaction")
         print("  📉 correlation_analysis.png - Prove time vs GPU correlation")
         print(
-            "  📊 gpu_aggregated_metrics.png - Aggregated GPU statistics (mean, std, distribution)"
+            "  📊 gpu_memory_usage_analysis.png - COMPREHENSIVE GPU/MEMORY STATISTICS"
         )
         print("  📋 ANALYSIS_REPORT.md - Comprehensive report")
         print(
-            "\n🎯 PRIMARY FOCUS: Check 'timing_distribution.png' for proving time analysis"
+            "\n🎯 PRIMARY FOCUS: Check 'gpu_memory_usage_analysis.png' for complete GPU/Memory analysis"
         )
         print(
-            "🎯 GPU STATISTICS: Check 'gpu_aggregated_metrics.png' for aggregated GPU data"
+            "🎯 STATISTICS: Includes mean, std dev, confidence intervals, and validity assessment"
         )
         print()
 
