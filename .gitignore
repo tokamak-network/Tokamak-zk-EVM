@@ -32,7 +32,11 @@ coverage.json
 .your_proof
 **/your_proof/
 **/.your_proof/
-dist
+
+# Distribution directories
+dist/
+dist-*/
+**/dist/
 
 #Package
 *.zip
