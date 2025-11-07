@@ -19,7 +19,7 @@
     "type": "git",
     "url": "https://github.com/tokamak-network/tokamak-zk-evm.git"
   },
-  "license": "MPL-2.0",
+  "license": "MIT OR Apache-2.0",
   "author": "Tokamak Network",
   "contributors": [
     "JehyukJang <https://github.com/JehyukJang>",
@@ -40,7 +40,10 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
+    "NOTICE"
   ],
   "scripts": {
     "build": "../../../config/monorepo-js/cli/ts-build.sh",
