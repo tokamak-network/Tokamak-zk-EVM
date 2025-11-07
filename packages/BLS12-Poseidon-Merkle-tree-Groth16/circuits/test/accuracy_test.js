@@ -18,10 +18,7 @@ describe("TokamakStorageMerkleProof Accuracy Tests", function () {
 
         it("Should accept valid inputs with minimal participants", async function () {
             const testInput = {
-                "active_leaves": "2",
-                "leaf_indices": ["0", "1", ...Array(48).fill("0")],
-                "merkle_keys": ["123456", "789012", ...Array(48).fill("0")],
-                "storage_values": ["1000", "2000", ...Array(48).fill("0")]
+                "leaves": ["1000", "2000", ...Array(62).fill("0")],
             };
 
             // First compute correct root
@@ -42,12 +39,9 @@ describe("TokamakStorageMerkleProof Accuracy Tests", function () {
             }
         });
 
-        it("Should handle maximum participants (50)", async function () {
+        it("Should handle maximum participants (64)", async function () {
             const testInput = {
-                "active_leaves": "50",
-                "leaf_indices": Array.from({length: 50}, (_, i) => i.toString()),
-                "merkle_keys": Array.from({length: 50}, (_, i) => ((i + 1) * 111111).toString()),
-                "storage_values": Array.from({length: 50}, (_, i) => ((i + 1) * 100).toString())
+                "leaves": Array.from({length: 64}, (_, i) => ((i + 1) * 100).toString())
             };
 
             const root = await computeValidRoot(testInput);
@@ -67,35 +61,9 @@ describe("TokamakStorageMerkleProof Accuracy Tests", function () {
     });
 
     describe("Constraint Validation Tests", function () {
-        it("Should enforce active_leaves <= 50", function () {
-            const invalidInput = {
-                "merkle_root": "0",
-                "active_leaves": "51", // Invalid: exceeds maximum
-                "leaf_indices": Array(50).fill("0"),
-                "merkle_keys": Array(50).fill("123456"),
-                "storage_values": Array(50).fill("100")
-            };
-
-            const inputFile = 'test_invalid.json';
-            fs.writeFileSync(inputFile, JSON.stringify(invalidInput, null, 2));
-
-            try {
-                execSync(`cd build/merkle_tree_circuit_js && node generate_witness.js merkle_tree_circuit.wasm ../../${inputFile} witness_invalid.wtns`, { stdio: 'pipe' });
-                fs.unlinkSync(inputFile);
-                throw new Error("Should have rejected active_leaves > 50");
-            } catch (error) {
-                fs.unlinkSync(inputFile);
-                console.log("✓ Correctly rejected active_leaves > 50");
-                // This is expected behavior
-            }
-        });
-
-        it("Should handle zero participants", async function () {
+        it("Should handle zero leaves (all zeros)", async function () {
             const testInput = {
-                "active_leaves": "0",
-                "leaf_indices": Array(50).fill("0"),
-                "merkle_keys": Array(50).fill("0"),
-                "storage_values": Array(50).fill("0")
+                "leaves": Array(64).fill("0")
             };
 
             const root = await computeValidRoot(testInput);
@@ -105,11 +73,11 @@ describe("TokamakStorageMerkleProof Accuracy Tests", function () {
 
             try {
                 execSync(`cd build/merkle_tree_circuit_js && node generate_witness.js merkle_tree_circuit.wasm ../../${inputFile} witness_zero.wtns`, { stdio: 'pipe' });
-                console.log("✓ Zero participants test passed");
+                console.log("✓ Zero leaves test passed");
                 fs.unlinkSync(inputFile);
             } catch (error) {
                 fs.unlinkSync(inputFile);
-                throw new Error(`Zero participants test failed: ${error.message}`);
+                throw new Error(`Zero leaves test failed: ${error.message}`);
             }
         });
     });
@@ -118,10 +86,7 @@ describe("TokamakStorageMerkleProof Accuracy Tests", function () {
         it("Should reject incorrect root", function () {
             const invalidInput = {
                 "merkle_root": "12345678901234567890", // Wrong root
-                "active_leaves": "2",
-                "leaf_indices": ["0", "1", ...Array(48).fill("0")],
-                "merkle_keys": ["123456", "789012", ...Array(48).fill("0")],
-                "storage_values": ["1000", "2000", ...Array(48).fill("0")]
+                "leaves": ["1000", "2000", ...Array(62).fill("0")]
             };
 
             const inputFile = 'test_wrong_root.json';
@@ -140,62 +105,47 @@ describe("TokamakStorageMerkleProof Accuracy Tests", function () {
     });
 
     describe("Data Integrity Tests", function () {
-        it("Should produce different roots for different leaf indices", async function () {
+        it("Should produce different roots for different leaves", async function () {
             const input1 = {
-                "active_leaves": "2",
-                "leaf_indices": ["0", "1", ...Array(48).fill("0")],
-                "merkle_keys": ["123456", "789012", ...Array(48).fill("0")],
-                "storage_values": ["1000", "2000", ...Array(48).fill("0")]
+                "leaves": ["1000", "2000", ...Array(62).fill("0")]
             };
 
             const input2 = {
-                "active_leaves": "2",
-                "leaf_indices": ["2", "3", ...Array(48).fill("0")],
-                "merkle_keys": ["123456", "789012", ...Array(48).fill("0")],
-                "storage_values": ["1000", "2000", ...Array(48).fill("0")]
+                "leaves": ["3000", "4000", ...Array(62).fill("0")]
             };
 
             const root1 = await computeValidRoot(input1);
             const root2 = await computeValidRoot(input2);
 
             if (root1 === root2) {
-                throw new Error("Different leaf indices should produce different roots");
+                throw new Error("Different leaves should produce different roots");
             }
-            console.log("✓ Different leaf indices produce different roots");
+            console.log("✓ Different leaves produce different roots");
         });
 
-        it("Should produce different roots for different storage data", async function () {
+        it("Should produce different roots for different leaf positions", async function () {
             const input1 = {
-                "active_leaves": "2",
-                "leaf_indices": ["0", "1", ...Array(48).fill("0")],
-                "merkle_keys": ["123456", "789012", ...Array(48).fill("0")],
-                "storage_values": ["1000", "2000", ...Array(48).fill("0")]
+                "leaves": ["1000", "2000", ...Array(62).fill("0")]
             };
 
             const input2 = {
-                "active_leaves": "2",
-                "leaf_indices": ["0", "1", ...Array(48).fill("0")],
-                "merkle_keys": ["333333", "444444", ...Array(48).fill("0")],
-                "storage_values": ["3000", "4000", ...Array(48).fill("0")]
+                "leaves": ["2000", "1000", ...Array(62).fill("0")]  // Swapped positions
             };
 
             const root1 = await computeValidRoot(input1);
             const root2 = await computeValidRoot(input2);
 
             if (root1 === root2) {
-                throw new Error("Different storage data should produce different roots");
+                throw new Error("Different leaf positions should produce different roots");
             }
-            console.log("✓ Different storage data produces different roots");
+            console.log("✓ Different leaf positions produce different roots");
         });
     });
 
     describe("Performance and Scale Tests", function () {
         it("Should generate consistent witness for identical inputs", async function () {
             const input = {
-                "active_leaves": "3",
-                "leaf_indices": ["0", "1", "2", ...Array(47).fill("0")],
-                "merkle_keys": ["777777", "888888", "999999", ...Array(47).fill("0")],
-                "storage_values": ["700", "800", "900", ...Array(47).fill("0")]
+                "leaves": ["700", "800", "900", ...Array(61).fill("0")]
             };
 
             const root1 = await computeValidRoot(input);
@@ -215,60 +165,29 @@ async function computeValidRoot(input) {
 pragma circom 2.0.0;
 
 include "node_modules/poseidon-bls12381-circom/circuits/poseidon255.circom";
-include "node_modules/circomlib/circuits/comparators.circom";
 
-template StorageLeafComputation(max_leaves) {
-    signal input active_leaves;
-    signal input leaf_indices[max_leaves];
-    signal input merkle_keys[max_leaves];
-    signal input storage_values[max_leaves];
-    signal output leaf_values[max_leaves];
-    
-    component poseidon4[max_leaves];
-    
-    for (var i = 0; i < max_leaves; i++) {
-        poseidon4[i] = Poseidon255(4);
-        poseidon4[i].in[0] <== leaf_indices[i];
-        poseidon4[i].in[1] <== merkle_keys[i];
-        poseidon4[i].in[2] <== storage_values[i];
-        poseidon4[i].in[3] <== 0;
-        leaf_values[i] <== poseidon4[i].out;
-    }
-    
-    component lt = LessThan(8);
-    lt.in[0] <== active_leaves;
-    lt.in[1] <== 51;
-    lt.out === 1;
-}
-
-template Poseidon4MerkleTree() {
-    signal input leaves[64];
-    signal input leaf_count;
+template Poseidon4MerkleTree(max_leaves) {
+    signal input leaves[max_leaves];
     signal output root;
     
-    component is_active[64];
-    for (var i = 0; i < 64; i++) {
-        is_active[i] = LessThan(8);
-        is_active[i].in[0] <== i;
-        is_active[i].in[1] <== leaf_count;
-    }
+    var level0_nodes = max_leaves / 4;
+    component level0[level0_nodes];
+    signal level0_outputs[level0_nodes];
     
-    component level0[16];
-    signal level0_outputs[16];
-    
-    for (var i = 0; i < 16; i++) {
+    for (var i = 0; i < level0_nodes; i++) {
         level0[i] = Poseidon255(4);
-        level0[i].in[0] <== is_active[i*4 + 0].out * leaves[i*4 + 0];
-        level0[i].in[1] <== is_active[i*4 + 1].out * leaves[i*4 + 1];
-        level0[i].in[2] <== is_active[i*4 + 2].out * leaves[i*4 + 2];
-        level0[i].in[3] <== is_active[i*4 + 3].out * leaves[i*4 + 3];
+        level0[i].in[0] <== leaves[i*4 + 0];
+        level0[i].in[1] <== leaves[i*4 + 1];
+        level0[i].in[2] <== leaves[i*4 + 2];
+        level0[i].in[3] <== leaves[i*4 + 3];
         level0_outputs[i] <== level0[i].out;
     }
     
-    component level1[4];
-    signal level1_outputs[4];
+    var level1_nodes = level0_nodes / 4;
+    component level1[level1_nodes];
+    signal level1_outputs[level1_nodes];
     
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < level1_nodes; i++) {
         level1[i] = Poseidon255(4);
         level1[i].in[0] <== level0_outputs[i*4 + 0];
         level1[i].in[1] <== level0_outputs[i*4 + 1];
@@ -287,42 +206,19 @@ template Poseidon4MerkleTree() {
 }
 
 template TestRoot() {
-    signal input active_leaves;
-    signal input leaf_indices[50];
-    signal input merkle_keys[50];
-    signal input storage_values[50];
+    signal input leaves[64];
     signal output computed_root;
     
-    component storage_leaves = StorageLeafComputation(50);
-    storage_leaves.active_leaves <== active_leaves;
-    
-    for (var i = 0; i < 50; i++) {
-        storage_leaves.leaf_indices[i] <== leaf_indices[i];
-        storage_leaves.merkle_keys[i] <== merkle_keys[i];
-        storage_leaves.storage_values[i] <== storage_values[i];
-    }
-    
-    signal padded_leaves[64];
-    
-    for (var i = 0; i < 50; i++) {
-        padded_leaves[i] <== storage_leaves.leaf_values[i];
-    }
-    
-    for (var i = 50; i < 64; i++) {
-        padded_leaves[i] <== 0;
-    }
-    
-    component merkle_tree = Poseidon4MerkleTree();
-    merkle_tree.leaf_count <== active_leaves;
+    component merkle_tree = Poseidon4MerkleTree(64);
     
     for (var i = 0; i < 64; i++) {
-        merkle_tree.leaves[i] <== padded_leaves[i];
+        merkle_tree.leaves[i] <== leaves[i];
     }
     
     computed_root <== merkle_tree.root;
 }
 
-component main{public [active_leaves]} = TestRoot();`;
+component main{public [leaves]} = TestRoot();`;
 
     const timestamp = Date.now();
     const fileName = `temp_test_${timestamp}`;
@@ -344,14 +240,8 @@ component main{public [active_leaves]} = TestRoot();`;
         // Read witness
         const witness = await snarkjs.wtns.exportJson(`./${fileName}_build/${fileName}_js/witness.wtns`);
         
-        // Find computed root
-        let computedRoot = witness[1].toString();
-        for (let i = 0; i < witness.length; i++) {
-            if (witness[i] > 1000000n) {
-                computedRoot = witness[i].toString();
-                break;
-            }
-        }
+        // Find computed root (last output signal)
+        let computedRoot = witness[witness.length - 1].toString();
         
         // Cleanup
         execSync(`rm -rf ${fileName}_build ${fileName}.circom ${inputFile}`);
