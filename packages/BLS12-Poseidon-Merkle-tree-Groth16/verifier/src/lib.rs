@@ -1,7 +1,7 @@
 pub mod verifier;
-pub mod solidity;
+pub mod arkworks_verifier;
 pub mod errors;
 
 pub use verifier::*;
-pub use solidity::*;
+pub use arkworks_verifier::*;
 pub use errors::*;

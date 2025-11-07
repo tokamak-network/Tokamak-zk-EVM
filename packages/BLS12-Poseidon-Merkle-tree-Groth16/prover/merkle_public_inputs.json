@@ -1,0 +1,11 @@
+{
+  "active_leaves": 8,
+  "channel_id": 12345,
+  "circuit_type": "TokamakStorageMerkleProof",
+  "merkle_root": "0x136b55ff996037a9744041c09a4b5086c55d434e93f61f2cddb4f136c85f2564",
+  "storage_summary": {
+    "active_entries": 8,
+    "first_key": "0xe803000000000000",
+    "first_value": "0x8813000000000000"
+  }
+}

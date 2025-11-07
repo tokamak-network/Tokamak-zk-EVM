@@ -1,7 +1,7 @@
 use crate::errors::{ProverError, Result};
 use crate::poseidon::PoseidonBLS12381;
-use icicle_bls12_381::curve::ScalarField;
-use icicle_core::traits::FieldImpl;
+use ark_bls12_381::Fr as ScalarField;
+use ark_ff::{Field, Zero, One};
 use serde::{Deserialize, Serialize};
 use tokamak_groth16_trusted_setup::{R1CS, ScalarFieldWrapper};
 
@@ -559,7 +559,7 @@ impl WitnessGenerator {
         // Create temporary inputs with placeholder root
         let temp_inputs = CircuitInputs {
             merkle_root: ScalarField::zero(),
-            active_leaves: ScalarField::from([50u32, 0, 0, 0, 0, 0, 0, 0]), // Use max for computation
+            active_leaves: ScalarField::from(50u32), // Use max for computation
             channel_id: ScalarField::zero(),
             storage_keys: *storage_keys,
             storage_values: *storage_values,
@@ -998,8 +998,8 @@ mod tests {
         
         let inputs = CircuitInputs {
             merkle_root: ScalarField::zero(),
-            active_leaves: ScalarField::from([10u32, 0, 0, 0, 0, 0, 0, 0]),
-            channel_id: ScalarField::from([12345u32, 0, 0, 0, 0, 0, 0, 0]),
+            active_leaves: ScalarField::from(10u32),
+            channel_id: ScalarField::from(12345u32),
             storage_keys: [ScalarField::zero(); 50],
             storage_values: [ScalarField::zero(); 50],
         };

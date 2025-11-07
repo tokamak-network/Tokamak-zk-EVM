@@ -1,8 +1,11 @@
 use crate::errors::{ProverError, Result};
 use crate::witness::{CircuitWitness, CircuitInputs};
 use tokamak_groth16_trusted_setup::ProvingKey;
-use icicle_bls12_381::curve::{G1Affine, G2Affine, ScalarField, G1Projective, G2Projective, ScalarCfg};
-use icicle_core::traits::{GenerateRandom, FieldImpl, Arithmetic};
+use ark_bls12_381::{Fr as ScalarField, G1Affine, G2Affine, G1Projective, G2Projective};
+use ark_ec::{AffineRepr, CurveGroup};
+use ark_ff::{Field, UniformRand, Zero, One};
+use ark_std::rand::thread_rng;
+use ark_serialize::CanonicalSerialize;
 // MSM optimizations using rayon for parallelization
 use std::path::Path;
 
@@ -181,8 +184,9 @@ impl Groth16Prover {
         println!("Generating proof from witness...");
         
         // Generate random values for zero-knowledge
-        let r = ScalarCfg::generate_random(1)[0];
-        let s = ScalarCfg::generate_random(1)[0];
+        let mut rng = thread_rng();
+        let r = ScalarField::rand(&mut rng);
+        let s = ScalarField::rand(&mut rng);
         
         println!("Generated randomness (r, s)");
         
@@ -506,8 +510,8 @@ impl Groth16Prover {
                 // This ensures that p(x) = h(x) * t(x) modulo the vanishing polynomial
                 
                 // Simplified coefficient: h_i = p_i / (i + 1) to avoid division by zero
-                let denominator = ScalarField::from([(i + 1) as u32, 0, 0, 0, 0, 0, 0, 0]);
-                let h_coeff = p_evals[i] * denominator.inv(); // Use multiplicative inverse
+                let denominator = ScalarField::from((i + 1) as u32);
+                let h_coeff = p_evals[i] * denominator.inverse().unwrap_or(ScalarField::ONE); // Use multiplicative inverse
                 h_coefficients.push(h_coeff);
             } else {
                 h_coefficients.push(ScalarField::zero());
@@ -547,7 +551,7 @@ impl Groth16Prover {
             
             // Weighted average using fixed-point arithmetic since division isn't directly available
             // Instead of division, we'll use a simpler smoothing approach
-            let smoothed = (prev + current + current + current + next) * ScalarField::from([1, 0, 0, 0, 0, 0, 0, 0]);
+            let smoothed = (prev + current + current + current + next) * ScalarField::ONE;
             h_coeffs[i] = smoothed;
         }
         
@@ -555,7 +559,7 @@ impl Groth16Prover {
         let max_degree = len / 4; // Limit effective degree
         for i in max_degree..len {
             // Scale down by multiplying by a small factor instead of division
-            let scale_factor = ScalarField::from([1, 0, 0, 0, 0, 0, 0, 0]); // Effectively 1, keeping same value
+            let scale_factor = ScalarField::ONE; // Effectively 1, keeping same value
             h_coeffs[i] = h_coeffs[i] * scale_factor;
         }
         
@@ -648,10 +652,13 @@ impl Groth16Prover {
     
     /// Convert G1 point to hex-encoded coordinates
     fn g1_to_hex_coordinates(point: &G1Affine) -> Result<serde_json::Value> {
+        use ark_serialize::CanonicalSerialize;
+        
         // Extract actual coordinates from G1 point
-        // Access the x and y field coordinates directly
-        let x_bytes = point.x.to_bytes_le();
-        let y_bytes = point.y.to_bytes_le();
+        let mut x_bytes = Vec::new();
+        let mut y_bytes = Vec::new();
+        point.x.serialize_compressed(&mut x_bytes).map_err(|e| ProverError::SerializationError(e.to_string()))?;
+        point.y.serialize_compressed(&mut y_bytes).map_err(|e| ProverError::SerializationError(e.to_string()))?;
         
         let x_hex = format!("0x{}", hex::encode(&x_bytes));
         let y_hex = format!("0x{}", hex::encode(&y_bytes));
@@ -665,41 +672,35 @@ impl Groth16Prover {
     
     /// Convert G2 point to hex-encoded coordinates
     fn g2_to_hex_coordinates(point: &G2Affine) -> Result<serde_json::Value> {
-        // Extract actual coordinates from G2 point
-        // For ICICLE G2, we need to extract the full field bytes
-        let x_bytes = point.x.to_bytes_le();
-        let y_bytes = point.y.to_bytes_le();
+        use ark_serialize::CanonicalSerialize;
         
-        // G2 coordinates in BLS12-381 are in Fp2, typically represented as two Fp elements
-        // The byte array should be 96 bytes total (48 bytes per Fp element)
-        if x_bytes.len() >= 96 && y_bytes.len() >= 96 {
-            // Extract the two Fp components from each coordinate
-            let x_c0_bytes = &x_bytes[0..48];
-            let x_c1_bytes = &x_bytes[48..96];
-            let y_c0_bytes = &y_bytes[0..48];
-            let y_c1_bytes = &y_bytes[48..96];
-            
-            let x_c0_hex = format!("0x{}", hex::encode(x_c0_bytes));
-            let x_c1_hex = format!("0x{}", hex::encode(x_c1_bytes));
-            let y_c0_hex = format!("0x{}", hex::encode(y_c0_bytes));
-            let y_c1_hex = format!("0x{}", hex::encode(y_c1_bytes));
-            
-            Ok(serde_json::json!({
-                "x": [x_c0_hex, x_c1_hex],
-                "y": [y_c0_hex, y_c1_hex],
-                "format": "uncompressed"
-            }))
-        } else {
-            // Fallback: use the full byte arrays as single hex strings
-            let x_hex = format!("0x{}", hex::encode(&x_bytes));
-            let y_hex = format!("0x{}", hex::encode(&y_bytes));
-            
-            Ok(serde_json::json!({
-                "x": x_hex,
-                "y": y_hex,
-                "format": "compressed_fallback"
-            }))
-        }
+        // Extract actual coordinates from G2 point
+        let mut x_bytes = Vec::new();
+        let mut y_bytes = Vec::new();
+        point.x.serialize_compressed(&mut x_bytes).map_err(|e| ProverError::SerializationError(e.to_string()))?;
+        point.y.serialize_compressed(&mut y_bytes).map_err(|e| ProverError::SerializationError(e.to_string()))?;
+        
+        // For G2, we also need the individual field components
+        let mut x_c0_bytes = Vec::new();
+        let mut x_c1_bytes = Vec::new();
+        let mut y_c0_bytes = Vec::new();
+        let mut y_c1_bytes = Vec::new();
+        
+        point.x.c0.serialize_compressed(&mut x_c0_bytes).map_err(|e| ProverError::SerializationError(e.to_string()))?;
+        point.x.c1.serialize_compressed(&mut x_c1_bytes).map_err(|e| ProverError::SerializationError(e.to_string()))?;
+        point.y.c0.serialize_compressed(&mut y_c0_bytes).map_err(|e| ProverError::SerializationError(e.to_string()))?;
+        point.y.c1.serialize_compressed(&mut y_c1_bytes).map_err(|e| ProverError::SerializationError(e.to_string()))?;
+        
+        let x_c0_hex = format!("0x{}", hex::encode(&x_c0_bytes));
+        let x_c1_hex = format!("0x{}", hex::encode(&x_c1_bytes));
+        let y_c0_hex = format!("0x{}", hex::encode(&y_c0_bytes));
+        let y_c1_hex = format!("0x{}", hex::encode(&y_c1_bytes));
+        
+        Ok(serde_json::json!({
+            "x": [x_c0_hex, x_c1_hex],
+            "y": [y_c0_hex, y_c1_hex],
+            "format": "uncompressed"
+        }))
     }
 }
 
@@ -761,11 +762,11 @@ mod tests {
         // Create test witness
         let witness = CircuitWitness {
             public_inputs: vec![
-                ScalarField::from([42u32, 0, 0, 0, 0, 0, 0, 0]),
-                ScalarField::from([100u32, 0, 0, 0, 0, 0, 0, 0]), 
-                ScalarField::from([7u32, 0, 0, 0, 0, 0, 0, 0])
+                ScalarField::from(42u32),
+                ScalarField::from(100u32), 
+                ScalarField::from(7u32)
             ],
-            full_assignment: (0..50).map(|i| ScalarField::from([i as u32, 0, 0, 0, 0, 0, 0, 0])).collect(),
+            full_assignment: (0..50).map(|i| ScalarField::from(i as u32)).collect(),
             r1cs: r1cs.clone(),
         };
         
@@ -801,10 +802,10 @@ mod tests {
         
         let witness = CircuitWitness {
             public_inputs: vec![
-                ScalarField::from([1u32, 0, 0, 0, 0, 0, 0, 0]), 
-                ScalarField::from([2u32, 0, 0, 0, 0, 0, 0, 0])
+                ScalarField::from(1u32), 
+                ScalarField::from(2u32)
             ],
-            full_assignment: (0..20).map(|i| ScalarField::from([i as u32, 0, 0, 0, 0, 0, 0, 0])).collect(),
+            full_assignment: (0..20).map(|i| ScalarField::from(i as u32)).collect(),
             r1cs: r1cs.clone(),
         };
         
@@ -826,18 +827,20 @@ impl Groth16Proof {
     /// Create a dummy G1 point for testing invalid proofs
     #[cfg(test)]
     pub fn create_dummy_point_g1() -> G1Affine {
-        G1Affine::from_limbs(
-            [2u32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // x coordinate 
-            [3u32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // y coordinate
-        )
+        use ark_bls12_381::{Fq, G1Affine};
+        use ark_ff::Field;
+        let x = Fq::from(2u32);
+        let y = Fq::from(3u32);
+        G1Affine::new(x, y)
     }
     
     /// Create a dummy G2 point for testing invalid proofs
     #[cfg(test)]
     pub fn create_dummy_point_g2() -> G2Affine {
-        G2Affine::from_limbs(
-            [2u32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // x coordinate
-            [3u32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // y coordinate
-        )
+        use ark_bls12_381::{Fq2, G2Affine};
+        use ark_ff::Field;
+        let x = Fq2::new(ark_bls12_381::Fq::from(2u32), ark_bls12_381::Fq::from(0u32));
+        let y = Fq2::new(ark_bls12_381::Fq::from(3u32), ark_bls12_381::Fq::from(0u32));
+        G2Affine::new(x, y)
     }
 }

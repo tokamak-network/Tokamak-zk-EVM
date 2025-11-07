@@ -10,13 +10,18 @@ license = "MIT"
 # Local dependencies
 tokamak-groth16-trusted-setup = { path = "../trusted-setup" }
 
-# BLS12-381 curve operations (matching backend versions)
-icicle-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-runtime" }
-icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-core" }
-icicle-bls12-381 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-bls12-381"}
+# BLS12-381 curve operations using Arkworks (unified with verifier)
 ark-bls12-381 = "0.5.0"
 ark-ec = "0.5.0"
 ark-ff = "0.5.0"
+ark-poly = "0.5.0"  # For FFT operations
+ark-std = "0.5.0"   # For standard utilities
+ark-serialize = "0.5.0"  # For serialization
+
+# Keep ICICLE temporarily for gradual migration
+icicle-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-runtime", optional = true }
+icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-core", optional = true }
+icicle-bls12-381 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-bls12-381", optional = true }
 
 # Serialization and utilities
 serde = { version = "1.0", features = ["derive"] }

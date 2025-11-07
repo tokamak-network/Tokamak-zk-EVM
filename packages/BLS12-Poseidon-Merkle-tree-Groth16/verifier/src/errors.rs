@@ -1,36 +1,39 @@
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Error, Debug)]
 pub enum VerifierError {
-    #[error("Verification failed: {0}")]
-    VerificationError(String),
-    
-    #[error("Invalid proof: {0}")]
-    InvalidProof(String),
-    
+    #[error("Invalid proof format: {0}")]
+    InvalidProofFormat(String),
+
     #[error("Invalid public inputs: {0}")]
     InvalidPublicInputs(String),
-    
-    #[error("Pairing computation failed: {0}")]
-    PairingError(String),
-    
-    #[error("Solidity generation failed: {0}")]
-    SolidityError(String),
-    
-    #[error("Serialization error: {0}")]
-    SerializationError(String),
-    
+
+    #[error("Verification key error: {0}")]
+    VerificationKeyError(String),
+
+    #[error("Pairing verification failed")]
+    PairingVerificationFailed,
+
+    #[error("JSON parsing error: {0}")]
+    JsonError(#[from] serde_json::Error),
+
+    #[error("Hex decoding error: {0}")]
+    HexError(#[from] hex::FromHexError),
+
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
-    
+
+    #[error("Field element error: {0}")]
+    FieldElementError(String),
+
+    #[error("Curve point error: {0}")]
+    CurvePointError(String),
+
+    #[error("Field conversion error: {0}")]
+    FieldConversionError(String),
+
     #[error("Trusted setup error: {0}")]
-    TrustedSetupError(#[from] tokamak_groth16_trusted_setup::Groth16Error),
-    
-    #[error("Prover error: {0}")]
-    ProverError(#[from] tokamak_groth16_prover::ProverError),
-    
-    #[error("Security validation failed: {0}")]
-    SecurityValidationError(String),
+    TrustedSetupError(#[from] tokamak_groth16_trusted_setup::TrustedSetupError),
 }
 
 pub type Result<T> = std::result::Result<T, VerifierError>;

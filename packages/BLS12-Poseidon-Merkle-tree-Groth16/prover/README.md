@@ -191,7 +191,7 @@ cd ../circuits && npm run compile-full
 
 Run with debug logging for detailed information:
 ```bash
-RUST_LOG=debug cargo run --bin prover_demo
+RUST_LOG=debug cargo run --bin generate_proof
 ```
 
 ### Memory Issues
@@ -199,7 +199,7 @@ RUST_LOG=debug cargo run --bin prover_demo
 For memory-constrained environments:
 - Ensure at least 1 GB available RAM
 - Close other applications during proof generation
-- Consider using release mode: `cargo run --release --bin prover_demo`
+- Consider using release mode: `cargo run --release --bin generate_merkle_proof`
 
 ## Integration
 
