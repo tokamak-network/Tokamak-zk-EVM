@@ -306,15 +306,22 @@ Output: 0x1fe788d0ce1b25ccc57253bd9656c766287e93ec6b23901238792b296b32fecc
 ### Running Tests
 
 ```bash
-# Compile the new simplified circuit
-npm run compile-simplified
+# Compile the circuit
+npm run compile
 
-# Run existing tests (may need updates for new circuit)
-npm test
+# Run comprehensive accuracy tests
+node test/run_accuracy_tests.js
 
-# Compile both versions for comparison
-npm run compile-full        # Original custom Poseidon implementation  
-npm run compile-simplified  # New external library implementation
+# Run individual test suites
+npx mocha test/accuracy_test.js        # Full test suite with circom_tester
+node test/verify_poseidon.js           # Poseidon hash verification tests
+
+# The tests verify:
+# - Circuit compilation and constraint checking
+# - Valid inputs with 1, 3, and 50 participants  
+# - Boundary conditions (0 participants, >50 rejection)
+# - Hash computation integrity and determinism
+# - Root verification with new leaf format
 ```
 
 
