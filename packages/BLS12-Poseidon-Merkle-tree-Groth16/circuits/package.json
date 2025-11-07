@@ -3,17 +3,11 @@
   "version": "1.0.0",
   "description": "Groth16 circuits for Tokamak zkEVM storage proof verification",
   "scripts": {
-    "compile": "./circom-2.0 src/main.circom --r1cs --wasm --sym --output ../build/",
-    "compile-full": "./circom-2.0 src/main_optimized.circom --r1cs --wasm --sym --output ../build/",
-    "setup": "snarkjs powersoftau new bls12-381 14 ../build/pot14_0000.ptau && snarkjs powersoftau contribute ../build/pot14_0000.ptau ../build/pot14_0001.ptau --name='First contribution' -v",
-    "trusted-setup": "node scripts/trusted-setup.js",
-    "generate-proof": "node scripts/generate-proof.js",
-    "verify-proof": "node scripts/verify-proof.js",
-    "test": "node scripts/test-circom2.js",
-    "build": "npm run compile-full && npm run setup"
+    "compile": "./circom-2.0 src/merkle_tree_circuit.circom --r1cs --wasm --sym --output ./build/"
   },
   "dependencies": {
-    "circomlib": "^2.0.5"
+    "circomlib": "^2.0.5",
+    "poseidon-bls12381-circom": "^1.0.0"
   },
   "devDependencies": {
     "circom_tester": "^0.0.19"

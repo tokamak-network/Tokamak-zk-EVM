@@ -1,25 +1,25 @@
 pragma circom 2.0.0;
 
-include "./poseidon_optimized_bls12381.circom";
+include "../node_modules/poseidon-bls12381-circom/circuits/poseidon255.circom";
 include "../node_modules/circomlib/circuits/comparators.circom";
 
-// StorageLeafComputation using Poseidon4 BLS12-381
-template StorageLeafComputationOptimized(max_leaves) {
+// StorageLeafComputation using the external Poseidon BLS12-381 library
+template StorageLeafComputation(max_leaves) {
     signal input channel_id;
     signal input active_leaves;
     signal input storage_keys[max_leaves];
     signal input storage_values[max_leaves];
     signal output leaf_values[max_leaves];
     
-    // Poseidon4 hash for each leaf
+    // Poseidon4 hash for each leaf using the library
     component poseidon4[max_leaves];
     
     for (var i = 0; i < max_leaves; i++) {
-        poseidon4[i] = Poseidon4OptimizedBLS12381();
+        poseidon4[i] = Poseidon255(4);  // 4-input Poseidon hash
         poseidon4[i].in[0] <== storage_keys[i];
         poseidon4[i].in[1] <== storage_values[i];
-        poseidon4[i].in[2] <== 0;
-        poseidon4[i].in[3] <== 0;
+        poseidon4[i].in[2] <== 0;  // padding
+        poseidon4[i].in[3] <== 0;  // padding
         leaf_values[i] <== poseidon4[i].out;
     }
     
@@ -30,8 +30,8 @@ template StorageLeafComputationOptimized(max_leaves) {
     lt.out === 1;
 }
 
-// Optimized Merkle Tree for 64 leaves (supports 50 participants)
-template Poseidon4MerkleTreeOptimized() {
+// Simplified Merkle Tree for 64 leaves (supports 50 participants)
+template Poseidon4MerkleTree() {
     signal input leaves[64];
     signal input leaf_count;
     signal output root;
@@ -49,7 +49,7 @@ template Poseidon4MerkleTreeOptimized() {
     signal level0_outputs[16];
     
     for (var i = 0; i < 16; i++) {
-        level0[i] = Poseidon4OptimizedBLS12381();
+        level0[i] = Poseidon255(4);  // 4-input Poseidon hash
         level0[i].in[0] <== is_active[i*4 + 0].out * leaves[i*4 + 0];
         level0[i].in[1] <== is_active[i*4 + 1].out * leaves[i*4 + 1];
         level0[i].in[2] <== is_active[i*4 + 2].out * leaves[i*4 + 2];
@@ -62,7 +62,7 @@ template Poseidon4MerkleTreeOptimized() {
     signal level1_outputs[4];
     
     for (var i = 0; i < 4; i++) {
-        level1[i] = Poseidon4OptimizedBLS12381();
+        level1[i] = Poseidon255(4);  // 4-input Poseidon hash
         level1[i].in[0] <== level0_outputs[i*4 + 0];
         level1[i].in[1] <== level0_outputs[i*4 + 1];
         level1[i].in[2] <== level0_outputs[i*4 + 2];
@@ -71,7 +71,7 @@ template Poseidon4MerkleTreeOptimized() {
     }
     
     // Level 2: Hash to get root (4 → 1 node)
-    component level2 = Poseidon4OptimizedBLS12381();
+    component level2 = Poseidon255(4);  // 4-input Poseidon hash
     level2.in[0] <== level1_outputs[0];
     level2.in[1] <== level1_outputs[1];
     level2.in[2] <== level1_outputs[2];
@@ -80,16 +80,19 @@ template Poseidon4MerkleTreeOptimized() {
     root <== level2.out;
 }
 
-// Main circuit with optimized implementation for 50 participants
-template TokamakStorageMerkleProofOptimized() {
+// Main circuit with simplified implementation using external Poseidon library
+template TokamakStorageMerkleProof() {
+    // Public inputs (first inputs are automatically public in Circom 2.0)
     signal input merkle_root;
-    signal input active_leaves;
+    signal input active_leaves; 
     signal input channel_id;
+    
+    // Private inputs
     signal input storage_keys[50];
     signal input storage_values[50];
     
     // Compute storage leaves for 50 participants
-    component storage_leaves = StorageLeafComputationOptimized(50);
+    component storage_leaves = StorageLeafComputation(50);
     storage_leaves.channel_id <== channel_id;
     storage_leaves.active_leaves <== active_leaves;
     
@@ -111,7 +114,7 @@ template TokamakStorageMerkleProofOptimized() {
     }
     
     // Compute Merkle tree
-    component merkle_tree = Poseidon4MerkleTreeOptimized();
+    component merkle_tree = Poseidon4MerkleTree();
     merkle_tree.leaf_count <== active_leaves;
     
     for (var i = 0; i < 64; i++) {
@@ -125,4 +128,4 @@ template TokamakStorageMerkleProofOptimized() {
     root_check.out === 1;
 }
 
-component main = TokamakStorageMerkleProofOptimized();
+component main{public [merkle_root, active_leaves, channel_id]} = TokamakStorageMerkleProof();
