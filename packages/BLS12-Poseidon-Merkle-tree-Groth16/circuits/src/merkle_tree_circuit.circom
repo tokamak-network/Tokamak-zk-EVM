@@ -80,8 +80,8 @@ template TokamakStorageMerkleProof() {
 
     computed_root <== merkle_tree.root;
 
-    // ✅ Enforce equality between computed and claimed roots
-    merkle_root <== computed_root;
+    // Enforce equality between computed and claimed roots
+    computed_root === merkle_root;
 }
 
 component main { public [merkle_keys, storage_values, merkle_root] } = TokamakStorageMerkleProof();
