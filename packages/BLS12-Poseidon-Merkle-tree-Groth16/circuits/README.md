@@ -1,26 +1,40 @@
 # Tokamak Groth16 Merkle Tree Circuit
 ## Overview
 
-This document provides comprehensive technical documentation for the Tokamak Groth16 zero-knowledge circuit implementation in `merkle_tree_circuit.circom`. The circuit enables efficient storage proof verification for the Tokamak zkEVM using quaternary Merkle trees and Poseidon4 hashing over the BLS12-381 curve.
+This document provides comprehensive technical documentation for the Tokamak Groth16 zero-knowledge circuit implementation in `merkle_tree_circuit.circom`. The circuit enables efficient Merkle root computation verification for channel initialization in the Tokamak zkEVM.
 
-**Updated Leaf Format**: `leaf = poseidon4(leaf_index, merkle_key, value, 32-byte zero pad)`
+## System Design
 
-The circuit uses the external `poseidon-bls12381-circom` library for optimized and proven Poseidon hash implementations.
+### Channel Initialization Workflow
 
-## Architecture
+The circuit serves a specific purpose in the Tokamak channel opening process:
 
-### System Design
+1. **Channel Leader** requests onchain verifiers to open a channel
+2. **Onchain Verifiers** possess integrity-guaranteed MPT keys and values from previous onchain blocks
+3. **Channel Leader** computes Merkle root off-chain and generates Groth16 proof
+4. **Onchain Verifiers** verify the proof to confirm honest root computation
+
+### Verifier Interface
+
+**Inputs**: 
+- Integrity-guaranteed MPT keys and values (from onchain blocks)
+- Claimed Merkle root (from channel leader)
+- ZKP (Groth16 proof)
+
+**Output**: True/False (verification result)
+
+### Circuit Architecture
 
 ```
-Public Inputs (2)                 Private Inputs (150)               Circuit Components
+Public Inputs (100)               Public Output (1)                  Circuit Components
 ┌─────────────────────┐           ┌─────────────────────┐             ┌─────────────────────────────┐
-│ merkle_root    (1)  │           │ leaf_indices[50]    │             │   StorageLeafComputation    │
-│ active_leaves  (1)  │ ─────────>│ merkle_keys[50]     │ ───────────>│                             │
-└─────────────────────┘           │ storage_values[50]  │             │ Poseidon4(index, key,       │
-                                  │   (150 total)       │             │   value, 0) → hash          │
-Public: verification parameters   └─────────────────────┘             │ (50 participant capacity)   │
-Private: L2 storage data                                              └─────────────────────────────┘
-Optimal zero-knowledge balance                                                       │
+│ mpt_keys[50]        │           │                     │             │   Leaf Computation          │
+│ values[50]          │ ─────────>│ merkle_root         │ ◄───────────│                             │
+└─────────────────────┘           │   (computed)        │             │ Poseidon4(index, mpt_key,   │
+                                  └─────────────────────┘             │   value, 0) → leaf          │
+Integrity-guaranteed from         Verifiable output                   │ (50 participant capacity)   │
+onchain blocks                                                        └─────────────────────────────┘
+                                                                                     │
                                                                                      ▼
                                                                      ┌─────────────────────────────┐
                                                                      │   Poseidon4MerkleTree       │
@@ -30,103 +44,37 @@ Optimal zero-knowledge balance                                                  
                                                                      │ Level 2: 1 root   (4→1)     │
                                                                      │ Tree depth: 3 levels        │
                                                                      └─────────────────────────────┘
-                                                                                     │
-                                                                                     ▼
-                                                                     ┌─────────────────────────────┐
-                                                                     │   Root Verification         │
-                                                                     │                             │
-                                                                     │ Constraint:                 │
-                                                                     │ merkle_root == computed_root│
-                                                                     └─────────────────────────────┘
 ```
 
 ## Core Components
 
-The circuit consists of three main templates that work together to create and verify Merkle tree proofs:
+The circuit consists of two main templates that work together to compute and output a verified Merkle root:
 
-### 1. StorageLeafComputation (`lines 7-31`)
+### 1. Poseidon4MerkleTree
 
-**Purpose**: Converts storage data into Poseidon4 leaf hashes using the updated leaf format
-
-```circom
-template StorageLeafComputation(max_leaves) {
-    signal input active_leaves;
-    signal input leaf_indices[max_leaves];    // Leaf index for each participant
-    signal input merkle_keys[max_leaves];     // L2 Merkle patricia trie keys  
-    signal input storage_values[max_leaves];  // Storage values (255-bit max)
-    signal output leaf_values[max_leaves];
-    
-    // Poseidon4 hash for each leaf using new format
-    component poseidon4[max_leaves];
-    
-    for (var i = 0; i < max_leaves; i++) {
-        poseidon4[i] = Poseidon255(4);  // 4-input Poseidon from library
-        poseidon4[i].in[0] <== leaf_indices[i];   // Leaf index
-        poseidon4[i].in[1] <== merkle_keys[i];    // L2 Merkle patricia trie key
-        poseidon4[i].in[2] <== storage_values[i]; // Value (255 bit)
-        poseidon4[i].in[3] <== 0;                 // 32-byte zero pad
-        leaf_values[i] <== poseidon4[i].out;
-    }
-    
-    // Bounds check - support up to 50 participants
-    component lt = LessThan(8);
-    lt.in[0] <== active_leaves;
-    lt.in[1] <== 51; // max_leaves + 1, where max is 50
-    lt.out === 1;
-}
-```
-
-**Key Features**:
-- **Updated leaf format**: `hash = Poseidon4(leaf_index, merkle_key, value, 0)`
-- **External Library**: Uses `poseidon-bls12381-circom` for proven implementations
-- **Supports up to 50 participants**: Enforced by bounds checking constraint
-- **L2 Integration**: Designed for L2 Merkle patricia trie compatibility
-
-### 2. Poseidon4MerkleTree (`lines 34-81`)
-
-**Purpose**: Constructs a 3-level quaternary Merkle tree with dynamic leaf activation
+**Purpose**: Constructs a 3-level quaternary Merkle tree for 64 leaves
 
 ```circom
 template Poseidon4MerkleTree() {
     signal input leaves[64];
-    signal input leaf_count;
     signal output root;
-    
-    // Dynamic leaf activation - only hash active leaves
-    component is_active[64];
-    for (var i = 0; i < 64; i++) {
-        is_active[i] = LessThan(8);
-        is_active[i].in[0] <== i;           // Leaf index
-        is_active[i].in[1] <== leaf_count;  // Active leaf count
-        // is_active[i].out = 1 if i < leaf_count, else 0
-    }
     
     // Level 0: Hash leaves in groups of 4 (64 → 16 nodes)
     component level0[16];
+    signal level0_outputs[16];
+    
     for (var i = 0; i < 16; i++) {
-        level0[i] = Poseidon255(4);  // External library
-        level0[i].in[0] <== is_active[i*4 + 0].out * leaves[i*4 + 0];
-        level0[i].in[1] <== is_active[i*4 + 1].out * leaves[i*4 + 1];
-        level0[i].in[2] <== is_active[i*4 + 2].out * leaves[i*4 + 2];
-        level0[i].in[3] <== is_active[i*4 + 3].out * leaves[i*4 + 3];
+        level0[i] = Poseidon255(4);  // 4-input Poseidon hash
+        level0[i].in[0] <== leaves[i*4 + 0];
+        level0[i].in[1] <== leaves[i*4 + 1];
+        level0[i].in[2] <== leaves[i*4 + 2];
+        level0[i].in[3] <== leaves[i*4 + 3];
+        level0_outputs[i] <== level0[i].out;
     }
     
     // Level 1: Hash intermediate nodes (16 → 4 nodes)
-    component level1[4];
-    for (var i = 0; i < 4; i++) {
-        level1[i] = Poseidon255(4);
-        level1[i].in[0] <== level0_outputs[i*4 + 0];
-        level1[i].in[1] <== level0_outputs[i*4 + 1];
-        level1[i].in[2] <== level0_outputs[i*4 + 2];
-        level1[i].in[3] <== level0_outputs[i*4 + 3];
-    }
-    
     // Level 2: Hash to get root (4 → 1 node)
-    component level2 = Poseidon255(4);
-    level2.in[0] <== level1_outputs[0];
-    level2.in[1] <== level1_outputs[1];
-    level2.in[2] <== level1_outputs[2];
-    level2.in[3] <== level1_outputs[3];
+    
     root <== level2.out;
 }
 ```
@@ -146,72 +94,64 @@ Depth: 3 levels
 Branching factor: 4
 ```
 
-**Key Innovation - Dynamic Leaf Activation**:
-- **Conditional hashing**: `is_active[i].out * leaves[i]` zeros out inactive leaves
-- **Variable participant support**: Supports 1-50 participants dynamically
-- **Consistent tree structure**: Always builds same 64-leaf tree regardless of active count
+### 2. TokamakStorageMerkleProof
 
-### 3. TokamakStorageMerkleProof (`lines 84-131`) 
-
-**Purpose**: Main circuit template implementing the new leaf format specification
+**Purpose**: Main circuit that computes Merkle root from public MPT inputs
 
 ```circom
 template TokamakStorageMerkleProof() {
-    // Public inputs (reduced from 3 to 2)
-    signal input merkle_root;              // Expected root (public)
-    signal input active_leaves;            // Number of active participants
+    // Public inputs - MPT keys and values from onchain blocks
+    signal input merkle_keys[50];       // L2 Merkle patricia trie keys
+    signal input storage_values[50];    // Storage values (255 bit max)
     
-    // Private inputs (updated format - 150 total)
-    signal input leaf_indices[50];         // Leaf indices for each participant
-    signal input merkle_keys[50];          // L2 Merkle patricia trie keys
-    signal input storage_values[50];       // Storage values (255 bit max)
+    // Public output - computed Merkle root
+    signal output merkle_root;
     
-    // Step 1: Generate leaf hashes with new format
-    component storage_leaves = StorageLeafComputation(50);
-    storage_leaves.active_leaves <== active_leaves;
+    // Step 1: Compute leaves using poseidon4(index, key, value, zero_pad)
+    component poseidon4[50];
+    signal leaf_values[50];
     
     for (var i = 0; i < 50; i++) {
-        storage_leaves.leaf_indices[i] <== leaf_indices[i];
-        storage_leaves.merkle_keys[i] <== merkle_keys[i];
-        storage_leaves.storage_values[i] <== storage_values[i];
+        poseidon4[i] = Poseidon255(4);  // 4-input Poseidon hash
+        poseidon4[i].in[0] <== i;                    // Leaf index (implicit)
+        poseidon4[i].in[1] <== merkle_keys[i];       // MPT key
+        poseidon4[i].in[2] <== storage_values[i];    // Value
+        poseidon4[i].in[3] <== 0;                    // Zero pad
+        leaf_values[i] <== poseidon4[i].out;
     }
     
-    // Step 2: Pad to 64 leaves (50 real + 14 zeros)
+    // Step 2: Pad to 64 leaves (50 actual + 14 zeros)
     signal padded_leaves[64];
     for (var i = 0; i < 50; i++) {
-        padded_leaves[i] <== storage_leaves.leaf_values[i];
+        padded_leaves[i] <== leaf_values[i];
     }
     for (var i = 50; i < 64; i++) {
         padded_leaves[i] <== 0;  // Zero padding
     }
     
-    // Step 3: Compute Merkle tree
+    // Step 3: Compute Merkle tree and output root
     component merkle_tree = Poseidon4MerkleTree();
-    merkle_tree.leaf_count <== active_leaves;
-    // Connect all 64 padded leaves...
+    for (var i = 0; i < 64; i++) {
+        merkle_tree.leaves[i] <== padded_leaves[i];
+    }
     
-    // Step 4: Verify root matches expected
-    component root_check = IsEqual();
-    root_check.in[0] <== merkle_root;        // Expected
-    root_check.in[1] <== merkle_tree.root;   // Computed  
-    root_check.out === 1;                    // Must be equal
+    merkle_root <== merkle_tree.root;
 }
 
-component main{public [merkle_root, active_leaves]} = TokamakStorageMerkleProof();
+component main{public [merkle_keys, storage_values]} = TokamakStorageMerkleProof();
 ```
 
 **Processing Flow**:
-1. **Leaf Generation**: Convert 50 (leaf_index, merkle_key, value) tuples → Poseidon4 hashes  
+1. **Leaf Computation**: Convert 50 (index, MPT key, value) tuples → Poseidon4 hashes
 2. **Padding**: Extend 50 hashes → 64 positions (with zeros)
 3. **Tree Construction**: Build 3-level quaternary tree from 64 leaves
-4. **Root Verification**: Constraint that computed root equals expected root
+4. **Root Output**: Return computed root for verifier to check
 
-**Key Updates**:
-- **Removed channel_id**: No longer part of leaf computation (was unused)
-- **Added leaf_indices**: Support for indexed storage positions
-- **Added merkle_keys**: L2 Merkle patricia trie key integration
-- **Reduced public inputs**: From 3 to 2 (removed channel_id)
-- **Increased private inputs**: From 100 to 150 (added indices and keys)
+**Key Features**:
+- **Public MPT inputs**: Keys and values are integrity-guaranteed from onchain blocks
+- **Public root output**: Computed root for verifier to compare against claimed root
+- **Simplified design**: No complex verification logic - just honest computation
+- **50 participant capacity**: Fixed array sizes eliminate dynamic bounds checking
 
 ## Cryptographic Implementation
 

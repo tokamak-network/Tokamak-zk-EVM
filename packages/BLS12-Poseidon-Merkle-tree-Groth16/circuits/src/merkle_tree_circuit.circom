@@ -3,46 +3,10 @@ pragma circom 2.0.0;
 include "../node_modules/poseidon-bls12381-circom/circuits/poseidon255.circom";
 include "../node_modules/circomlib/circuits/comparators.circom";
 
-// StorageLeafComputation with updated format: poseidon4(leaf_index, merkle_key, value, 32-byte zero pad)
-template StorageLeafComputation(max_leaves) {
-    signal input active_leaves;
-    signal input leaf_indices[max_leaves];
-    signal input merkle_keys[max_leaves];  // L2 Merkle patricia trie keys
-    signal input storage_values[max_leaves];  // 255-bit values
-    signal output leaf_values[max_leaves];
-    
-    // Poseidon4 hash for each leaf using the new format
-    component poseidon4[max_leaves];
-    
-    for (var i = 0; i < max_leaves; i++) {
-        poseidon4[i] = Poseidon255(4);  // 4-input Poseidon hash
-        poseidon4[i].in[0] <== leaf_indices[i];      // Leaf index
-        poseidon4[i].in[1] <== merkle_keys[i];       // L2 Merkle patricia trie key
-        poseidon4[i].in[2] <== storage_values[i];    // Value (255 bit)
-        poseidon4[i].in[3] <== 0;                    // 32-byte zero pad
-        leaf_values[i] <== poseidon4[i].out;
-    }
-    
-    // Bounds check - support up to 50 participants
-    component lt = LessThan(8);
-    lt.in[0] <== active_leaves;
-    lt.in[1] <== 51; // max_leaves + 1, where max is 50
-    lt.out === 1;
-}
-
 // Simplified Merkle Tree for 64 leaves (supports 50 participants)
 template Poseidon4MerkleTree() {
     signal input leaves[64];
-    signal input leaf_count;
     signal output root;
-    
-    // Pre-declare all is_active components for 64 leaves
-    component is_active[64];
-    for (var i = 0; i < 64; i++) {
-        is_active[i] = LessThan(8);
-        is_active[i].in[0] <== i;
-        is_active[i].in[1] <== leaf_count;
-    }
     
     // Level 0: Hash leaves in groups of 4 (64 leaves → 16 intermediate nodes)
     component level0[16];
@@ -50,10 +14,10 @@ template Poseidon4MerkleTree() {
     
     for (var i = 0; i < 16; i++) {
         level0[i] = Poseidon255(4);  // 4-input Poseidon hash
-        level0[i].in[0] <== is_active[i*4 + 0].out * leaves[i*4 + 0];
-        level0[i].in[1] <== is_active[i*4 + 1].out * leaves[i*4 + 1];
-        level0[i].in[2] <== is_active[i*4 + 2].out * leaves[i*4 + 2];
-        level0[i].in[3] <== is_active[i*4 + 3].out * leaves[i*4 + 3];
+        level0[i].in[0] <== leaves[i*4 + 0];
+        level0[i].in[1] <== leaves[i*4 + 1];
+        level0[i].in[2] <== leaves[i*4 + 2];
+        level0[i].in[3] <== leaves[i*4 + 3];
         level0_outputs[i] <== level0[i].out;
     }
     
@@ -80,32 +44,33 @@ template Poseidon4MerkleTree() {
     root <== level2.out;
 }
 
-// Main circuit implementing new leaf format: poseidon4(leaf_index, merkle_key, value, zero_pad)
+// Main circuit for Tokamak Storage Merkle Proof
 template TokamakStorageMerkleProof() {
-    // Public inputs (first inputs are automatically public in Circom 2.0)
-    signal input merkle_root;
-    signal input active_leaves;
-    
-    // Private inputs - updated format
-    signal input leaf_indices[50];      // Leaf indices for each participant
+    // Public inputs - MPT keys and values are integrity-guaranteed from onchain blocks
     signal input merkle_keys[50];       // L2 Merkle patricia trie keys
     signal input storage_values[50];    // Storage values (255 bit max)
     
-    // Compute storage leaves for 50 participants
-    component storage_leaves = StorageLeafComputation(50);
-    storage_leaves.active_leaves <== active_leaves;
+    // Public output - the computed Merkle root
+    signal output merkle_root;
+    
+    // Compute leaves using poseidon4(index, merkle_key, value, zero_pad) format
+    component poseidon4[50];
+    signal leaf_values[50];
     
     for (var i = 0; i < 50; i++) {
-        storage_leaves.leaf_indices[i] <== leaf_indices[i];
-        storage_leaves.merkle_keys[i] <== merkle_keys[i];
-        storage_leaves.storage_values[i] <== storage_values[i];
+        poseidon4[i] = Poseidon255(4);  // 4-input Poseidon hash
+        poseidon4[i].in[0] <== i;                    // Leaf index (implicit from array position)
+        poseidon4[i].in[1] <== merkle_keys[i];       // L2 Merkle patricia trie key
+        poseidon4[i].in[2] <== storage_values[i];    // Value (255 bit)
+        poseidon4[i].in[3] <== 0;                    // 32-byte zero pad
+        leaf_values[i] <== poseidon4[i].out;
     }
     
     // Pad to 64 leaves for the Merkle tree (50 actual + 14 padding)
     signal padded_leaves[64];
     
     for (var i = 0; i < 50; i++) {
-        padded_leaves[i] <== storage_leaves.leaf_values[i];
+        padded_leaves[i] <== leaf_values[i];
     }
     
     // Pad remaining slots with zeros
@@ -115,17 +80,13 @@ template TokamakStorageMerkleProof() {
     
     // Compute Merkle tree
     component merkle_tree = Poseidon4MerkleTree();
-    merkle_tree.leaf_count <== active_leaves;
     
     for (var i = 0; i < 64; i++) {
         merkle_tree.leaves[i] <== padded_leaves[i];
     }
     
-    // Verify root constraint - ensure computed root matches expected root
-    component root_check = IsEqual();
-    root_check.in[0] <== merkle_root;
-    root_check.in[1] <== merkle_tree.root;
-    root_check.out === 1;
+    // Output the computed root
+    merkle_root <== merkle_tree.root;
 }
 
-component main{public [merkle_root, active_leaves]} = TokamakStorageMerkleProof();
+component main{public [merkle_keys, storage_values]} = TokamakStorageMerkleProof();
