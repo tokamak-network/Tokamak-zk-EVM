@@ -46,8 +46,9 @@ template TokamakStorageMerkleProof() {
     // Public inputs: on-chain guaranteed (MPT) data
     signal input merkle_keys[50];
     signal input storage_values[50];
+    signal input merkle_root;       // Public input for verification
 
-    // Computed root
+    // Internal computed root
     signal computed_root;
 
     // Compute Poseidon4 hashes for each leaf: poseidon4(index, key, value, 0)
@@ -79,9 +80,8 @@ template TokamakStorageMerkleProof() {
 
     computed_root <== merkle_tree.root;
 
-    // Expose the root as public by constraint equality
-    signal input merkle_root;       // ← add this as public input for verification
-    merkle_root === computed_root;  // ← constraint: must match computed root
+    // Verification constraint: claimed root must match computed root
+    merkle_root === computed_root;
 }
 
 component main { public [merkle_keys, storage_values, merkle_root] } = TokamakStorageMerkleProof();

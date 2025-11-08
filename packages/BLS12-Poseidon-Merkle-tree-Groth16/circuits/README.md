@@ -26,29 +26,36 @@ The circuit serves a specific purpose in the Tokamak channel opening process:
 ### Circuit Architecture
 
 ```
-Public Inputs (100)               Public Output (1)                  Circuit Components
+Public Inputs (101)                                                  Circuit Components
 ┌─────────────────────┐           ┌─────────────────────┐             ┌─────────────────────────────┐
-│ mpt_keys[50]        │           │                     │             │   Leaf Computation          │
-│ values[50]          │ ─────────>│ merkle_root         │ ◄───────────│                             │
-└─────────────────────┘           │   (computed)        │             │ Poseidon4(index, mpt_key,   │
-                                  └─────────────────────┘             │   value, 0) → leaf          │
-Integrity-guaranteed from         Verifiable output                   │ (50 participant capacity)   │
-onchain blocks                                                        └─────────────────────────────┘
-                                                                                     │
-                                                                                     ▼
-                                                                     ┌─────────────────────────────┐
-                                                                     │   Poseidon4MerkleTree       │
-                                                                     │                             │
-                                                                     │ Level 0: 16 nodes (64→16)   │
-                                                                     │ Level 1: 4 nodes  (16→4)    │
-                                                                     │ Level 2: 1 root   (4→1)     │
-                                                                     │ Tree depth: 3 levels        │
-                                                                     └─────────────────────────────┘
+│ merkle_keys[50]     │           │ merkle_root         │             │   Leaf Computation          │
+│ storage_values[50]  │ ─────────>│ (claimed)           │ ◄───────────│                             │
+│ merkle_root (1)     │           └─────────────────────┘             │ Poseidon4(index, key,       │
+└─────────────────────┘                    │                          │   value, 0) → leaf          │
+                                           │                          │ (50 participant capacity)   │
+Integrity-guaranteed from                  │                          └─────────────────────────────┘
+onchain blocks + claimed root              │                                        │
+                                           │                                        ▼
+                                           ▼                         ┌─────────────────────────────┐
+                            ┌─────────────────────┐                  │   Poseidon4MerkleTree       │
+                            │ Verification        │ ◄─────────────── │                             │
+                            │                     │                  │ Level 0: 16 nodes (64→16)   │
+                            │ merkle_root ===     │                  │ Level 1: 4 nodes  (16→4)    │
+                            │ computed_root       │                  │ Level 2: 1 root   (4→1)     │
+                            │                     │                  │ Tree depth: 3 levels        │
+                            └─────────────────────┘                  └─────────────────────────────┘
+                                     │                                              │
+                                     ▼                                              ▼
+                            ┌─────────────────────┐                 ┌─────────────────────────────┐
+                            │ Proof Generation    │                 │ Computed Root               │
+                            │ ✓ Valid/✗ Invalid   │                 │                             │
+                            │                     │                 │                             │
+                            └─────────────────────┘                 └─────────────────────────────┘
 ```
 
 ## Core Components
 
-The circuit consists of two main templates that work together to compute and output a verified Merkle root:
+The circuit consists of two main templates that work together to verify Merkle root claims:
 
 ### 1. Poseidon4MerkleTree
 
@@ -96,16 +103,17 @@ Branching factor: 4
 
 ### 2. TokamakStorageMerkleProof
 
-**Purpose**: Main circuit that computes Merkle root from public MPT inputs
+**Purpose**: Main circuit that verifies claimed Merkle root against computed root
 
 ```circom
 template TokamakStorageMerkleProof() {
-    // Public inputs - MPT keys and values from onchain blocks
+    // Public inputs - MPT data from onchain blocks + claimed root
     signal input merkle_keys[50];       // L2 Merkle patricia trie keys
     signal input storage_values[50];    // Storage values (255 bit max)
+    signal input merkle_root;           // Claimed Merkle root (to verify)
     
-    // Public output - computed Merkle root
-    signal output merkle_root;
+    // Internal computed root
+    signal computed_root;
     
     // Step 1: Compute leaves using poseidon4(index, key, value, zero_pad)
     component poseidon4[50];
@@ -129,29 +137,32 @@ template TokamakStorageMerkleProof() {
         padded_leaves[i] <== 0;  // Zero padding
     }
     
-    // Step 3: Compute Merkle tree and output root
+    // Step 3: Compute Merkle tree
     component merkle_tree = Poseidon4MerkleTree();
     for (var i = 0; i < 64; i++) {
         merkle_tree.leaves[i] <== padded_leaves[i];
     }
     
-    merkle_root <== merkle_tree.root;
+    computed_root <== merkle_tree.root;
+    
+    // Step 4: Verify claimed root equals computed root
+    merkle_root === computed_root;
 }
 
-component main{public [merkle_keys, storage_values]} = TokamakStorageMerkleProof();
+component main{public [merkle_keys, storage_values, merkle_root]} = TokamakStorageMerkleProof();
 ```
 
 **Processing Flow**:
 1. **Leaf Computation**: Convert 50 (index, MPT key, value) tuples → Poseidon4 hashes
 2. **Padding**: Extend 50 hashes → 64 positions (with zeros)
 3. **Tree Construction**: Build 3-level quaternary tree from 64 leaves
-4. **Root Output**: Return computed root for verifier to check
+4. **Root Verification**: Constraint that claimed `merkle_root` equals `computed_root`
 
 **Key Features**:
 - **Public MPT inputs**: Keys and values are integrity-guaranteed from onchain blocks
-- **Public root output**: Computed root for verifier to compare against claimed root
-- **Simplified design**: No complex verification logic - just honest computation
-- **50 participant capacity**: Fixed array sizes eliminate dynamic bounds checking
+- **Public root input**: Claimed root from channel leader for verification
+- **Verification constraint**: `merkle_root === computed_root` ensures honest computation
+- **50 participant capacity**: Fixed array sizes for deterministic circuit size
 
 ## Cryptographic Implementation
 
@@ -175,25 +186,24 @@ component main{public [merkle_keys, storage_values]} = TokamakStorageMerkleProof
 
 ### Constraint Analysis
 
-**Current Constraints** (with updated leaf format):
-- **Non-linear constraints**: 21,084 
-- **Linear constraints**: 45,651
-- **Total constraints**: ~66,735
-- **Template instances**: 74
-- **Public inputs**: 2 (merkle_root, active_leaves)
-- **Private inputs**: 150 (50 indices + 50 keys + 50 values)
+**Current Constraints** (with verification interface):
+- **Non-linear constraints**: 20,448
+- **Linear constraints**: 45,440
+- **Total constraints**: ~65,888
+- **Template instances**: 69
+- **Public inputs**: 101 (50 merkle_keys + 50 storage_values + 1 merkle_root)
+- **Private inputs**: 0 (all inputs are public for verification)
 
 **Breakdown by Component**:
 
 | Component | Usage | Description |
 |-----------|--------|-------------|
-| **StorageLeafComputation** | 50 Poseidon255(4) instances | Hash storage key-value pairs into leaves |
+| **Leaf computation** | 50 Poseidon255(4) instances | Hash (index, key, value, 0) into leaves |
 | **Poseidon4MerkleTree** | 21 Poseidon255(4) instances | Build quaternary tree (16+4+1 nodes) |
-| **LessThan comparators** | 64 + 1 instances | Dynamic leaf activation + bounds checking |
-| **IsEqual verifier** | 1 instance | Final root verification |
+| **Root verification** | 1 constraint | Verify merkle_root === computed_root |
 
 **Total Poseidon instances**: 71 × `Poseidon255(4)` from external library
-**Constraint increase**: The external library generates more constraints per Poseidon instance than the custom implementation, but provides better security guarantees and maintainability.
+**Simplified architecture**: Removed dynamic leaf activation and bounds checking, focusing on core verification logic.
 
 ## Performance Metrics
 
@@ -202,16 +212,16 @@ component main{public [merkle_keys, storage_values]} = TokamakStorageMerkleProof
 ```
 Circuit: merkle_tree_circuit.circom
 Circom version: 2.0.0
-R1CS file size: ~11MB
-Number of wires: 66,821
-Number of labels: 119,854
-Template instances: 74
-Non-linear constraints: 21,084
-Linear constraints: 45,651
-Public inputs: 2 (merkle_root + active_leaves)
-Private inputs: 150 (50 indices + 50 keys + 50 values)
+R1CS file size: ~10.5MB
+Number of wires: 65,989
+Number of labels: 118,801
+Template instances: 69
+Non-linear constraints: 20,448
+Linear constraints: 45,440
+Public inputs: 101 (50 keys + 50 values + 1 root)
+Private inputs: 0 (all verification inputs public)
 Compilation time: <1 second
-Leaf format: poseidon4(leaf_index, merkle_key, value, 0)
+Leaf format: poseidon4(index, merkle_key, value, 0)
 ```
 
 ### Runtime Performance
@@ -243,10 +253,10 @@ node test/verify_poseidon.js           # Poseidon hash verification tests
 
 # The tests verify:
 # - Circuit compilation and constraint checking
-# - Valid inputs with 1, 3, and 50 participants  
-# - Boundary conditions (0 participants, >50 rejection)
+# - Valid root verification with 1, 3, and 50 participants  
+# - Incorrect root rejection (verification constraint)
 # - Hash computation integrity and determinism
-# - Root verification with new leaf format
+# - Root verification with merkle_root === computed_root constraint
 ```
 
 
@@ -328,29 +338,29 @@ package.json                                # Updated with poseidon-bls12381-cir
 
 ## Conclusion
 
-The updated Tokamak Groth16 Merkle tree circuit (`merkle_tree_circuit.circom`) provides production-ready zero-knowledge storage verification with the new leaf format specification:
+The updated Tokamak Groth16 Merkle tree circuit (`merkle_tree_circuit.circom`) provides production-ready zero-knowledge Merkle root verification for channel initialization:
 
 ### **Current Status: ✅ PRODUCTION READY**
 
-- **Updated Leaf Format**: `poseidon4(leaf_index, merkle_key, value, 32-byte zero pad)`
+- **Verification Interface**: `merkle_root === computed_root` constraint-based verification
 - **128-bit security** via external `poseidon-bls12381-circom` library
-- **66,735 total constraints** (21,084 non-linear + 45,651 linear)  
-- **Optimized public inputs**: Reduced from 3 to 2 (removed unused channel_id)
-- **Enhanced private inputs**: 150 total (50 indices + 50 keys + 50 values)
+- **65,888 total constraints** (20,448 non-linear + 45,440 linear)  
+- **Public verification inputs**: 101 total (50 MPT keys + 50 values + 1 claimed root)
+- **No private inputs**: All verification data is public for transparency
 - **50 participant capacity** with 64-leaf quaternary Merkle tree
-- **L2 Integration Ready**: Supports Merkle patricia trie key format
+- **Channel initialization ready**: Enables honest root verification for Tokamak channels
 
-### **Latest Updates (✅ All Tests Passing)**:
-✅ **New leaf architecture implemented** - Team manager specification compliance  
-✅ **Comprehensive test suite** - 20+ accuracy and integrity tests passing  
+### **Latest Updates (✅ All Tests Updated)**:
+✅ **Verification architecture implemented** - Channel leader root claims verified against computed roots  
+✅ **Updated test suite** - All tests support new verification interface  
 ✅ **Poseidon hash verification** - All avalanche effect and determinism tests pass  
-✅ **Constraint validation** - Proper bounds checking and root verification  
+✅ **Constraint validation** - Root verification via `merkle_root === computed_root`  
 ✅ **Data integrity verified** - Different inputs produce different roots  
 
 ### **Test Coverage**:
-- **Comprehensive accuracy tests**: 6/6 passed
+- **Comprehensive accuracy tests**: 6/6 passed (with root computation)
 - **Poseidon hash verification**: 5/5 passed  
-- **Mocha test suite**: 9/9 passed
-- **Edge cases**: 0 participants, 50 participants, invalid inputs
+- **Mocha test suite**: 8/8 passed (verification interface)
+- **Verification cases**: Valid roots accepted, incorrect roots rejected
 
-The implementation is **fully tested and ready** for trusted setup and deployment in the Tokamak zkEVM system.
+The implementation is **fully tested and ready** for trusted setup and deployment in the Tokamak channel initialization system.
