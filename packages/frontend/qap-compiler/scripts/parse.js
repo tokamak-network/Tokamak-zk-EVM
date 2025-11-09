@@ -35,7 +35,7 @@ function _buildWireFlattenMap(globalWireList, subcircuitInfos, globalWireIndex, 
 
 function parseWireList(subcircuitInfos, mode = 0) {
   let numTotalWires = 0
-  let numPubWires = 0
+  let numPubWires = []
   let numInterfaceWires = 0
   const subcircuitInfoByName = new Map()
   for (const subcircuit of subcircuitInfos) {
@@ -43,10 +43,10 @@ function parseWireList(subcircuitInfos, mode = 0) {
 
     if ( listPublic.has(subcircuit.name)) {
       if (listPublic.get(subcircuit.name) === 'out') {
-        numPubWires += subcircuit.Out_idx[1]
+        numPubWires.push(subcircuit.Out_idx[1])
         numInterfaceWires += subcircuit.In_idx[1]
       } else if (listPublic.get(subcircuit.name) === 'in') {
-        numPubWires += subcircuit.In_idx[1]
+        numPubWires.push(subcircuit.In_idx[1])
         numInterfaceWires += subcircuit.Out_idx[1]
       } else {
         throw new Error("listPublic items must have either 'in' or 'out'")
@@ -66,15 +66,17 @@ function parseWireList(subcircuitInfos, mode = 0) {
     }
     subcircuitInfoByName.set(subcircuit.name, entryObject)
   }
-  console.log(`l actual: ${numPubWires}`)
+
+  const l_actual = numPubWires.reduce( (a, b) => a+b, 0)
+  console.log(`l actual: ${l_actual}`)
   console.log(`m_I actual: ${numInterfaceWires}`)
   let twosPower = 1
-  while (twosPower < numPubWires) {
+  while (twosPower < l_actual) {
     twosPower <<= 1
   }
   // twosPower >= numPublicWires
-  const numDiff_l = twosPower - numPubWires
-  const l = numPubWires + numDiff_l
+  const numDiff_l = twosPower - l_actual
+  const l = l_actual + numDiff_l
   // numDiff_l makes the parameter l to be power of two.
 
   twosPower = 1
@@ -230,6 +232,7 @@ function parseWireList(subcircuitInfos, mode = 0) {
     l_D: l_D,
     m_D: m_D,
     wireList: globalWireList,
+    numPubWires
   }
 }
 
@@ -306,6 +309,7 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
     n,
     s_D: subcircuits.length,
     s_max: S_MAX,
+    num_public_wires: globalWireInfo.numPubWires
   }
   const globalWireList = globalWireInfo.wireList
 

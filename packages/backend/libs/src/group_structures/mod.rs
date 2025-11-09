@@ -151,7 +151,6 @@ impl Sigma {
     /// Generate full CRS
     pub fn gen(
         params: &SetupParams,
-        subcircuitInfos: &Box<[SubcircuitInfo]>,
         tau: &Tau,
         o_vec: &Box<[ScalarField]>,
         l_vec: &Box<[ScalarField]>,
@@ -162,7 +161,7 @@ impl Sigma {
     ) -> Self {
         println!("Generating a sigma (σ)...");
         let lagrange_KL = (l_vec[params.s_max - 1] * k_vec[params.l_D - params.l - 1]) * G1serde(*g1_gen);
-        let sigma_1 = Sigma1::gen(params, subcircuitInfos, tau, o_vec, l_vec, k_vec, m_vec, g1_gen);
+        let sigma_1 = Sigma1::gen(params, tau, o_vec, l_vec, k_vec, m_vec, g1_gen);
         let sigma_2 = Sigma2::gen(tau, g2_gen);
         Self {
             G: G1serde(*g1_gen),
@@ -197,7 +196,6 @@ impl_encode_poly!(Sigma1);
 impl Sigma1 {
     pub fn gen(
         params: &SetupParams,
-        subcircuitInfos: &Box<[SubcircuitInfo]>,
         tau: &Tau,
         o_vec: &Box<[ScalarField]>,
         l_vec: &Box<[ScalarField]>,
@@ -250,17 +248,12 @@ impl Sigma1 {
         {
             // For the order of indices of l_vec, see BUFFER_LIST of tokamak-zk-evm/packages/frontend/synthesizer/src/interface/qapCompiler/configuredTypes.ts
             let scaler_vec = [
-                vec![l_vec[0]; subcircuitInfos[0].Out_idx[1]], 
-                vec![l_vec[1]; subcircuitInfos[1].In_idx[1]], 
-                vec![l_vec[2]; subcircuitInfos[2].In_idx[1]], 
-                vec![l_vec[3]; subcircuitInfos[3].In_idx[1]],
-                vec![ScalarField::one(); 
-                l - (   subcircuitInfos[0].Out_idx[1] 
-                    +   subcircuitInfos[1].In_idx[1] 
-                    +   subcircuitInfos[2].In_idx[1] 
-                    +   subcircuitInfos[3].In_idx[1])
-                    ]
-                ].concat().into_boxed_slice();
+                vec![l_vec[0]; params.num_public_wires[0]], 
+                vec![l_vec[1]; params.num_public_wires[1]], 
+                vec![l_vec[2]; params.num_public_wires[2]], 
+                vec![l_vec[3]; params.num_public_wires[3]],
+                vec![ScalarField::one(); l - params.num_public_wires.iter().copied().sum::<usize>()],
+            ].concat().into_boxed_slice();
             let mut l_o_inst_vec = vec![ScalarField::zero(); l].into_boxed_slice();
             point_mul_two_vecs(&scaler_vec, &o_inst_vec, &mut l_o_inst_vec);
             drop(scaler_vec);

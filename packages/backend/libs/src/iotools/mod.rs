@@ -125,7 +125,8 @@ pub struct SetupParams {
     pub m_D: usize,
     pub n: usize,
     pub s_D: usize,
-    pub s_max: usize
+    pub s_max: usize,
+    pub num_public_wires: Box<[usize]>,
 }
 
 impl_read_from_json!(SetupParams);

@@ -197,7 +197,6 @@ fn main() {
     let start = Instant::now();
     let sigma = Sigma::gen(
         &setup_params,
-        &subcircuit_infos,
         &tau,
         &o_evaled_vec,
         &l_evaled_vec,
