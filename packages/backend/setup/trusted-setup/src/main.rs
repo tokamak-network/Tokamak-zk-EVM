@@ -20,7 +20,7 @@ use std::time::Instant;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() < 3 || args.len() > 4 {
+    if args.len() < 4 || args.len() > 4 {
         eprintln!(
             "Usage: {} <QAP_PATH> <OUT_PATH> [--fixed-tau]",
             args[0]
