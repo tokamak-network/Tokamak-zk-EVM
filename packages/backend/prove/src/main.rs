@@ -113,4 +113,12 @@ fn main() {
     formatted_proof.write_into_json(output_path).unwrap();
 
     println!("Total proving time: {:.6} seconds", prove_start.elapsed().as_secs_f64());
+
+    #[cfg(feature = "testing-mode")] {
+        let test_output_path = PathBuf::from(paths.output_path).join("proof4_test.json");
+        proof4_test.write_into_json(test_output_path).unwrap();
+
+        println!("kappa1: {}", kappa1.to_string());
+        println!("chi: {}", chi.to_string());
+    }
 }

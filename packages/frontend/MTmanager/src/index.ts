@@ -131,30 +131,6 @@ async function main() {
         mpt = simulatedMPTSequence.at(-1)!
     }
 
-    // Layer2
-    const tx = await mpt.createErc20Transfers(USER_PRVKEY, L1ADDRS[2], '0xce1e1ff314be3c0000', USERSLOTS[0])
-    let log
-    // log = await mpt.serializeUserStorageLeaves()
-    // console.log(log)
-    const simulatedMPTSequence = await mpt.simulateTransactionBatch([tx])
-    log = await simulatedMPTSequence[0].serializeUserStorageLeaves()
-    console.log(log)
-    log = await simulatedMPTSequence[1].serializeUserStorageLeaves()
-    console.log(log)
-    // Updated MPT -> MT conversion -> Simulated MT
-    // Simulated MT -> ZKP generation
-    // ZKP -> Verify -> Accept updated MPT
-    // Updated MPT -> Accept simulated MT
-
-
-    // Send Layer2 MPT -> Layer1 MPT
-
-
-
-    const prevVal = await mpt.getStorage(9, L1ADDRS[2])
-    const key = keccak256(solidityPacked(['uint256','uint256'], [L1ADDRS[2], 9]))
-    const keyBytes = hexToBytes(addHexPrefix(key))
-    const afterVal = await simulatedMPTSequence[1].getStorage(9, L1ADDRS[2])
 }
 
 main()

@@ -121,15 +121,12 @@ fn byte_slice_to_literal(bytes: &[u8]) -> String {
 #[derive(Debug, Deserialize)]
 pub struct SetupParams {
     pub l: usize,
-    pub l_pub_in: usize,
-    pub l_pub_out: usize,
-    pub l_prv_in: usize,
-    pub l_prv_out: usize,
     pub l_D: usize, //m_I = l_D - 1
     pub m_D: usize,
     pub n: usize,
     pub s_D: usize,
-    pub s_max: usize
+    pub s_max: usize,
+    pub num_public_wires: Box<[usize]>,
 }
 
 impl_read_from_json!(SetupParams);
@@ -299,10 +296,10 @@ pub struct PublicInputBuffer {
 
 #[derive(Debug, Deserialize)]
 pub struct Instance {
-    pub publicOutputBuffer: PublicOutputBuffer,
-    pub publicInputBuffer: PublicInputBuffer,
+    // pub publicOutputBuffer: PublicOutputBuffer,
+    // pub publicInputBuffer: PublicInputBuffer,
     pub a_pub: Vec<String>,
-    pub a_prv: Vec<String>,
+    // pub a_prv: Vec<String>,
 }
 
 impl_read_from_json!(Instance);
@@ -499,14 +496,14 @@ impl SubcircuitR1CS{
 
 impl QAP{
     pub fn gen_from_R1CS(
-        qap_path: &str,
+        qap_path: &PathBuf,
         subcircuit_infos: &Box<[SubcircuitInfo]>,
         setup_params: &SetupParams,
     ) -> Self {
         let m_d = setup_params.m_D;
         let s_d = setup_params.s_D;
 
-        let global_wire_list_path = PathBuf::from(qap_path).join("globalWireList.json");
+        let global_wire_list_path = qap_path.join("globalWireList.json");
         let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_list_path).unwrap();
 
         let zero_poly = DensePolynomialExt::zero();
@@ -516,8 +513,8 @@ impl QAP{
 
         for i in 0..s_d {
             println!("Processing subcircuit id {}", i);
-
-            let r1cs_path = PathBuf::from(qap_path).join(format!("json/subcircuit{i}.json"));
+            
+            let r1cs_path = qap_path.join(format!("json/subcircuit{i}.json"));
             let compact_r1cs = SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
             let (u_j_X_local, v_j_X_local, w_j_X_local) = from_subcircuit_to_QAP(
                 &compact_r1cs,
