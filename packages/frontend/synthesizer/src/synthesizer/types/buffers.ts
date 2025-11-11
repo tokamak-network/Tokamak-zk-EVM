@@ -5,6 +5,7 @@ import { BUFFER_LIST, ReservedBuffer, SubcircuitNames } from 'src/interface/qapC
 export type ReservedVariable =
     // PUBLIC_OUT (Dynamic)
     | 'RES_MERKLE_ROOT'
+    | 'TX_BATCH_HASH'
     | 'OTHER_CONTRACT_STORAGE_OUT'
     // PUBLIC_IN (Static + Dynmaic)
     | 'INI_MERKLE_ROOT'
@@ -326,6 +327,12 @@ const __BLOCKHASH_DESCRIPTIONS: Record<BlockhashVars, DataPtDescription> = (() =
 export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> = {
   RES_MERKLE_ROOT: {
     extDest: `Resulting Merkle tree root hash`,
+    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_OUT'),
+    sourceBitSize: 255,
+    wireIndex: -1,
+  },
+  TX_BATCH_HASH: {
+    extDest: `Poseidon of input transaction batch`,
     source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_OUT'),
     sourceBitSize: 255,
     wireIndex: -1,

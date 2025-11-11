@@ -11,6 +11,7 @@ import {
   bigIntToBytes,
   setLengthLeft,
   concatBytes,
+  hexToBigInt,
 } from '@ethereumjs/util'
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 import { ExecResult, InterpreterStep } from '@ethereumjs/evm'
@@ -22,13 +23,14 @@ import { jubjub } from '@noble/curves/misc';
 import { MT_DEPTH, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
 
 export interface HandlerOpts {
-    op: SynthesizerSupportedOpcodes,
-    pc?: bigint,
-    thisAddress?: Address,
-    callerAddress?: Address,
-    originAddress?: Address,
-    memOut?: Uint8Array,
-    callDepth?: number,
+  op: SynthesizerSupportedOpcodes,
+  pc: bigint,
+  thisAddress: Address,
+  codeAddress: Address,
+  originAddress?: Address,
+  callerAddress?: Address,
+  memOut?: Uint8Array,
+  callDepth: number,
 }
 
 export interface SynthesizerOpHandler {
@@ -49,6 +51,21 @@ export class InstructionHandler {
     this._createSynthesizerHandlers()
   }
 
+  private _createHandlerOps(opName: SynthesizerSupportedOpcodes, prevStepResult: InterpreterStep): HandlerOpts {
+    const depth = prevStepResult.depth
+    const callerAddr = this.parent.state.cachedCallers[depth].value
+    const originAddr = this.parent.state.cachedOrigin?.value
+    return {
+      op: opName,
+      pc: BigInt(prevStepResult.pc - 1),
+      codeAddress: prevStepResult.codeAddress ?? prevStepResult.address,
+      thisAddress: prevStepResult.address,
+      originAddress: originAddr === undefined ? undefined : createAddressFromBigInt(originAddr),
+      callerAddress: callerAddr === undefined ? undefined : createAddressFromBigInt(callerAddr),
+      callDepth: depth
+    }
+  }
+
   private _createSynthesizerHandlers(): void {
     this.synthesizerHandlers = new Map<number, SynthesizerOpHandler>()
     const __createArithHandler = (opName: SynthesizerSupportedArithOpcodes): void => {
@@ -57,10 +74,7 @@ export class InstructionHandler {
         op,
         (prevStepResult, afterStepResult) => {
           const out: bigint | null = afterStepResult.stack[0] ?? null
-          const opts: HandlerOpts = {
-            op: opName,
-          }
-
+          const opts = this._createHandlerOps(opName, prevStepResult)
           let nIns: number
           // based on https://www.evm.codes/
           switch(opName){
@@ -97,14 +111,7 @@ export class InstructionHandler {
         op,
         (prevStepResult, afterStepResult) => {
           const out: bigint | null = afterStepResult.stack[0] ?? null
-          const opts: HandlerOpts = {
-            op: opName,
-            pc: BigInt(prevStepResult.pc - 1),
-            thisAddress: prevStepResult.codeAddress,
-            callerAddress: prevStepResult.address,
-            originAddress: createAddressFromBigInt(this.parent.state.cachedOrigin?.value ?? 0n),
-            callDepth: prevStepResult.depth,
-          }
+          const opts = this._createHandlerOps(opName, prevStepResult)
           // based on https://www.evm.codes/
           let nIns: number
           switch(opName) {
@@ -160,14 +167,7 @@ export class InstructionHandler {
         op,
         async (prevStepResult, afterStepResult) => {
           const out: bigint | null = afterStepResult.stack[0] ?? null
-          const opts: HandlerOpts = {
-            op: opName,
-            pc: BigInt(prevStepResult.pc - 1),
-            thisAddress: prevStepResult.codeAddress,
-            callerAddress: prevStepResult.address,
-            originAddress: createAddressFromBigInt(this.parent.state.cachedOrigin?.value ?? 0n),
-            callDepth: prevStepResult.depth,
-          }
+          const opts = this._createHandlerOps(opName, prevStepResult)
           // based on https://www.evm.codes/
           let nIns: number
           switch(opName) {
@@ -336,9 +336,8 @@ export class InstructionHandler {
         const out: bigint = afterStepResult.stack[0]
         const numToPush = prevStepResult.opcode.code - 0x5f
         const pc = prevStepResult.pc - 1
-        const thisAddress = prevStepResult.codeAddress?.toString() ?? this.cachedOpts.signedTransaction.to.toString()
-        const callerAdderss = prevStepResult.address.toString()
-        const staticInDesc = `Static input for PUSH${numToPush} instruction at PC ${pc} of code address ${thisAddress} called by ${callerAdderss}`
+        const thisAddress = (prevStepResult.codeAddress ?? prevStepResult.address).toString()
+        const staticInDesc = `Static input for PUSH${numToPush} instruction at PC ${pc} of code address ${thisAddress} (depth: ${prevStepResult.depth})`
         this.parent.state.stackPt.push(this.parent.loadArbitraryStatic(
           out,
           DEFAULT_SOURCE_BIT_SIZE,
@@ -645,7 +644,7 @@ export class InstructionHandler {
         outPts = [this.parent.placeExp(inPts)];
         break;
       case 'KECCAK256': {
-          checkRequiredInput()
+          checkRequiredInput(opts.memOut)
           const memOffset = ins[0]
           const dataLength = ins[1]
           const { chunkDataPts, dataRecovered } = this._chunkMemory(
@@ -705,10 +704,9 @@ export class InstructionHandler {
   }
 
   private _getStaticInDataPt = (output: bigint, opts: HandlerOpts, targetAddress?: bigint): DataPt => {
-    checkRequiredInput(opts.pc, opts.callerAddress)
     const value = output
     // const cachedDataPt = this.parent.state.cachedEVMIn.get(value)
-    const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc!} of code address ${opts.thisAddress===undefined? this.cachedOpts.signedTransaction.to.toString() : opts.thisAddress.toString()} called by ${opts.callerAddress!.toString()}`
+    const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc} of code address ${opts.codeAddress} (depth : ${opts.callDepth})`
     let targetDesc = targetAddress === undefined ? `` : `(target: ${createAddressFromBigInt(targetAddress).toString()})`
     // return cachedDataPt ?? this.parent.loadArbitraryStatic(
     return this.parent.loadArbitraryStatic(
@@ -755,14 +753,19 @@ export class InstructionHandler {
     switch (op) {
       case 'ADDRESS': 
         {
-          checkRequiredInput(opts.originAddress)
-          const origin = opts.originAddress!
-          const thisAddress = opts.thisAddress ?? this.cachedOpts.signedTransaction.to
-          if (origin === thisAddress) {
-            stackPt.push(_retrieveOriginAddressPt())
-          } else {
-            stackPt.push(this._getStaticInDataPt(out!, opts))
+          const cache = this.parent.state.cachedToAddress
+          if (cache === undefined) {
+            throw new Error(`No cache for To Address`)
           }
+          stackPt.push(DataPtFactory.deepCopy(cache))
+          // checkRequiredInput(opts.originAddress)
+          // const origin = opts.originAddress!
+          // const thisAddress = opts.thisAddress ?? this.cachedOpts.signedTransaction.to
+          // if (origin === thisAddress) {
+          //   stackPt.push(_retrieveOriginAddressPt())
+          // } else {
+          //   stackPt.push(this._getStaticInDataPt(out!, opts))
+          // }
         }
         break
       case 'BALANCE': 
@@ -776,15 +779,16 @@ export class InstructionHandler {
         break
       case 'CALLER': 
         {
-          checkRequiredInput(opts.originAddress)
-          const origin = opts.originAddress!
-          const caller = opts.callerAddress!
-          if (origin === caller) {
-            stackPt.push(_retrieveOriginAddressPt())
-            
-          } else {
-            stackPt.push(this._getStaticInDataPt(out!, opts))
-          }  
+          const cache = this.parent.state.cachedCallers[opts.callDepth]
+          if (cache === undefined) {
+            throw new Error(`No cache for caller address`)
+          }
+          stackPt.push(DataPtFactory.deepCopy(cache))
+          // if (opts.callDepth === 0) {
+            // stackPt.push(_retrieveOriginAddressPt())
+          // } else {
+          //   stackPt.push(this._getStaticInDataPt(out!, opts))
+          // }  
         }
         break
       case 'CALLVALUE': 
@@ -793,9 +797,8 @@ export class InstructionHandler {
       case 'CALLDATALOAD': 
         {
           const srcOffset = ins[0]
-          checkRequiredInput(opts.callDepth)
           const i = Number(srcOffset);
-          const calldataMemoryPts = this.parent.state.callMemoryPtsStack[opts.callDepth!]
+          const calldataMemoryPts = this.parent.state.callMemoryPtsStack[opts.callDepth]
           if (calldataMemoryPts.length > 0) {
             const calldataMemoryPt = MemoryPt.simulateMemoryPt(calldataMemoryPts);
             const dataAliasInfos = calldataMemoryPt.getDataAlias(i, 32);
@@ -817,9 +820,9 @@ export class InstructionHandler {
           const memOffset = ins[0]
           const dataOffset = ins[1]
           const dataLength = ins[2]
-          checkRequiredInput(opts.callDepth, opts.memOut)
+          checkRequiredInput(opts.memOut)
           if (dataLength !== BIGINT_0) {
-            const calldataMemoryPts = this.parent.state.callMemoryPtsStack[opts.callDepth!]
+            const calldataMemoryPts = this.parent.state.callMemoryPtsStack[opts.callDepth]
             const memPts: MemoryPts = this.parent.copyMemoryPts(
               calldataMemoryPts,
               dataOffset,
@@ -909,7 +912,7 @@ export class InstructionHandler {
           const memOffset = ins[0]
           const returnDataOffset = ins[1]
           const dataLength = ins[2]
-          checkRequiredInput(opts.callDepth, opts.memOut)
+          checkRequiredInput(opts.memOut)
           if (dataLength !== BIGINT_0) {
             const copiedMemoryPts = this.parent.copyMemoryPts(
               this.parent.state.cachedReturnMemoryPts,
@@ -1011,8 +1014,7 @@ export class InstructionHandler {
       case 'MSIZE':
       case 'GAS':
         {
-          checkRequiredInput(opts.pc, opts.callerAddress)
-          const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc} of code address ${opts.thisAddress === undefined ? this.cachedOpts.signedTransaction.to.toString() : opts.thisAddress.toString()} called by ${opts.callerAddress!}`
+          const staticInDesc = `Static input for ${opts.op} instruction at PC ${opts.pc} of code address ${opts.codeAddress} (depth: ${opts.callDepth})`
           stackPt.push(this.parent.loadArbitraryStatic(out!, DEFAULT_SOURCE_BIT_SIZE, staticInDesc))
         }
         break
@@ -1041,7 +1043,7 @@ export class InstructionHandler {
       case 'STATICCALL':
         // Only post-tasks after executing an interpreter call are listed here. See "preTasksForCalls" for the pre-tasks.
         {
-          checkRequiredInput(opts.callDepth, opts.memOut, opts.pc, opts.callerAddress)
+          checkRequiredInput(opts.memOut)
           const toAddr = ins[1]
           const outOffset = op === 'DELEGATECALL' || op === 'STATICCALL' ? ins[4] : ins[5]
           const outLength = op === 'DELEGATECALL' || op === 'STATICCALL' ? ins[5] : ins[6]
@@ -1066,7 +1068,7 @@ export class InstructionHandler {
           this.parent.state.stackPt.push(this.parent.loadArbitraryStatic(
             out!,
             DEFAULT_SOURCE_BIT_SIZE,
-            `Call result of ${op} instruction at PC ${opts.pc!} of code address ${opts.thisAddress === undefined ? this.cachedOpts.signedTransaction.to.toString().toString() : opts.thisAddress.toString()} called by ${opts.callerAddress!.toString()}`,
+            `Call result of ${op} instruction at PC ${opts.pc} of code address ${opts.codeAddress} (depth: ${opts.callDepth})`,
           ))
         }
         break
@@ -1103,11 +1105,13 @@ export class InstructionHandler {
     let toAddr: bigint
     let inOffset: bigint
     let inLength: bigint
+    let toAddrPt: DataPt
     switch(op){
       case 'CALL':
       case 'CALLCODE': {
         const ins = prevStepResult.stack.slice(0, 7)
         toAddr = ins[1]
+        toAddrPt = DataPtFactory.deepCopy(this.parent.state.stackPt.peek(7)[1])
         inOffset = ins[3]
         inLength = ins[4]
       }
@@ -1116,6 +1120,7 @@ export class InstructionHandler {
       case 'STATICCALL': {
         const ins = prevStepResult.stack.slice(0, 6)
         toAddr = ins[1]
+        toAddrPt = DataPtFactory.deepCopy(this.parent.state.stackPt.peek(6)[1])
         inOffset = ins[2]
         inLength = ins[3]
       }
@@ -1135,7 +1140,16 @@ export class InstructionHandler {
       inLength,
     )
     const callDepth = prevStepResult.depth
-    this.parent.state.callMemoryPtsStack[callDepth! + 1] = calldataMemoryPts
+    this.parent.state.callMemoryPtsStack[callDepth + 1] = calldataMemoryPts
+    if (toAddr !== toAddrPt.value) {
+      throw new Error(`Address to call mismatch between EVM and Synthesizer`)
+    }
+    const callerAddressPt = this.parent.state.cachedToAddress
+    if (callerAddressPt === undefined) {
+      throw new Error(`Caller address DataPt cache is empty. Need to be debugged.`)
+    }
+    this.parent.state.cachedCallers[callDepth + 1] = DataPtFactory.deepCopy(callerAddressPt)
+    this.parent.state.cachedToAddress = toAddrPt
 
     const simCalldataMemoryPt = MemoryPt.simulateMemoryPt(calldataMemoryPts)
     const syntheCallData = simCalldataMemoryPt.viewMemory(0, Number(inLength))
