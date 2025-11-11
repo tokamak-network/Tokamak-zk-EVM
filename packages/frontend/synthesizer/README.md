@@ -237,4 +237,18 @@ We welcome contributions! Please see our [Contributing Guidelines](../../../CONT
 
 ## License
 
-[MPL-2.0]
+This package is dual-licensed under:
+
+- [MIT License](./LICENSE-MIT)
+- [Apache License 2.0](./LICENSE-APACHE)
+
+You may choose either license when using this software.
+
+### Third-Party Licenses
+
+This project incorporates code from [EthereumJS](https://github.com/ethereumjs/ethereumjs-monorepo), which is licensed under the Mozilla Public License 2.0 (MPL-2.0). The following packages in `libs/` maintain their original MPL-2.0 license:
+
+- `@synthesizer-libs/mpt` - MPL-2.0 (EthereumJS fork)
+- `@synthesizer-libs/util` - MPL-2.0 (EthereumJS fork)
+
+Other libraries maintain their respective licenses as indicated in their package directories.

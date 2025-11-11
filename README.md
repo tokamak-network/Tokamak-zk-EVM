@@ -170,4 +170,9 @@ We welcome contributions! Please see our [Contributing Guidelines](./CONTRIBUTIN
 
 ## License
 
-This project is licensed under [MPL-2.0](./LICENSE).
+This project is dual-licensed under:
+
+- [MIT License](./LICENSE-MIT)
+- [Apache License 2.0](./LICENSE-APACHE)
+
+You may choose either license when using this software. This dual-licensing approach is standard in the Rust ecosystem and provides maximum compatibility with other open-source projects.

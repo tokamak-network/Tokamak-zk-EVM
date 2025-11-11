@@ -157,6 +157,8 @@ export class Synthesizer implements SynthesizerInterface
       throw new Error(`Cached sender address must be clear`)
     } else {
       this.state.cachedOrigin = this._instructionHandlers.getOriginAddressPt()
+      this.state.cachedCallers[0] = DataPtFactory.deepCopy(this.state.cachedOrigin)
+      this.state.cachedToAddress = this.getReservedVariableFromBuffer('CONTRACT_ADDRESS')
     }
   }
 
