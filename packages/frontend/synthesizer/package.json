@@ -69,16 +69,20 @@
     "tsc": "../../../config/monorepo-js//cli/ts-compile.sh"
   },
   "dependencies": {
-    "@ethereumjs/util": "^9.1.0",
+    "@ethereumjs/util": "^10.0.0",
+    "@ethereumjs/vm": "^10.0.0",
+    "@ethereumjs/evm": "^10.0.0",
+    "@ethereumjs/common": "^10.0.0",
+    "@ethereumjs/tx": "^10.0.0",
+    "@ethereumjs/block": "^10.0.0",
+    "@ethereumjs/rlp": "^10.0.0",
+    "@ethereumjs/statemanager": "^10.0.0",
+    "@zk-kit/imt": "2.0.0-beta.8",
     "@js-sdsl/ordered-map": "^4.4.2",
-    "@synthesizer-libs/common": "^0.0.2",
-    "@synthesizer-libs/mpt": "^0.0.3",
-    "@synthesizer-libs/statemanager": "^0.0.4",
-    "@synthesizer-libs/util": "^0.0.3",
-    "@synthesizer-libs/verkle": "^0.0.2",
     "@tokamak-zk-evm/qap-compiler": "^0.0.2",
     "@types/debug": "^4.1.9",
     "@vitest/coverage-v8": "^2.1.8",
+    "@noble/curves": "^1.9.6",
     "app-root-path": "^3.1.0",
     "commander": "^12.0.0",
     "debug": "^4.3.3",
@@ -87,7 +91,8 @@
     "ethers": "^6.14.3",
     "eventemitter3": "^5.0.1",
     "verkle-cryptography-wasm": "^0.4.8",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "poseidon-bls12381": "^1.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",

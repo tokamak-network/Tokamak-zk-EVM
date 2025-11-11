@@ -3,8 +3,8 @@
     use libs::{impl_read_from_json, impl_write_into_json, split_push, pop_recover};
     use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
     use libs::iotools::{*};
-    use libs::field_structures::{FieldSerde};
-    use libs::vector_operations::{point_div_two_vecs, resize, transpose_inplace};
+    use libs::field_structures::{FieldSerde, hashing};
+    use libs::vector_operations::{point_add_two_vecs, point_div_two_vecs, point_mul_two_vecs, resize, transpose_inplace};
     use libs::group_structures::{Sigma, G1serde};
     use libs::polynomial_structures::gen_bXY;
     use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
@@ -352,7 +352,10 @@
         pub N_X: G1serde,
         pub N_Y: G1serde
     }
-
+    
+    impl_read_from_json!(Proof4Test);
+    impl_write_into_json!(Proof4Test);
+     #[derive(Debug, Serialize, Deserialize)]
     pub struct Proof4Test {
         pub Pi_AX: G1serde,
         pub Pi_AY: G1serde,
@@ -377,16 +380,16 @@
             let s_d = setup_params.s_D; // Number of subcircuits
             let n = setup_params.n;     // Number of constraints per subcircuit
             let s_max = setup_params.s_max; // The maximum number of placements
-            let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
-            let l_prv = setup_params.l_prv_in + setup_params.l_prv_out;
+            // let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
+            // let l_prv = setup_params.l_prv_in + setup_params.l_prv_out;
             
-            if !(l_pub.is_power_of_two() || l_pub==0) {
-                panic!("l_pub is not a power of two.");
+            if !(l.is_power_of_two() || l==0) {
+                panic!("l is not a power of two.");
             }
         
-            if !(l_prv.is_power_of_two()) {
-                panic!("l_prv is not a power of two.");
-            }
+            // if !(l_prv.is_power_of_two()) {
+            //     panic!("l_prv is not a power of two.");
+            // }
             // Assert n is a power of two
             if !n.is_power_of_two() {
                 panic!("n is not a power of two.");
@@ -477,7 +480,7 @@
             println!("🔄 Loading instance took {:?}", time_start.elapsed());
 
             #[cfg(feature = "testing-mode")] {
-                use icicle_core::vec_ops::VecOpsConfig;
+                use icicle_core::vec_ops::VecOps;
                 // Checking Lemma 3
                 let mut bXY_evals = vec![ScalarField::zero(); m_i*s_max];
                 witness.bXY.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut bXY_evals));
@@ -653,23 +656,62 @@
             // Arithmetic constraints argument polynomials
             (self.quotients.q0XY, self.quotients.q1XY) = {
                 let mut p0XY = &( &self.witness.uXY * &self.witness.vXY ) - &self.witness.wXY;
-                p0XY.div_by_vanishing(
-                self.setup_params.n as i64, 
-                self.setup_params.s_max as i64
-                )
+                #[cfg(feature = "testing-mode")] {
+                    let mut uXY_evals_vec = vec![ScalarField::zero(); self.witness.uXY.x_size * self.witness.uXY.y_size];
+                    let uXY_evals = HostSlice::from_mut_slice(&mut uXY_evals_vec);
+                    self.witness.uXY.to_rou_evals(None, None, uXY_evals);
+
+                    let mut vXY_evals_vec = vec![ScalarField::zero(); self.witness.vXY.x_size * self.witness.vXY.y_size];
+                    let vXY_evals = HostSlice::from_mut_slice(&mut vXY_evals_vec);
+                    self.witness.vXY.to_rou_evals(None, None, vXY_evals);
+
+                    let mut wXY_evals_vec = vec![ScalarField::zero(); self.witness.wXY.x_size * self.witness.wXY.y_size];
+                    let wXY_evals = HostSlice::from_mut_slice(&mut wXY_evals_vec);
+                    self.witness.wXY.to_rou_evals(None, None, wXY_evals);
+
+                    let mut LHS_mat = vec![ScalarField::zero(); self.witness.wXY.x_size * self.witness.wXY.y_size].into_boxed_slice();
+                    point_mul_two_vecs(&uXY_evals_vec.as_slice(), &vXY_evals_vec.as_slice(), &mut LHS_mat);
+                    
+                    let mut fullFlag = true;
+                    for col in 0..self.setup_params.s_max {
+                        let mut flag = true;
+                        for row in 0..self.setup_params.n {
+                            let index = col + row * self.setup_params.s_max;
+                            if LHS_mat[index] != wXY_evals_vec[index] {
+                                flag = false;
+                                break;
+                            }
+                        }
+                        if flag == false {
+                            println!("Placement indexed at {} does not satisfy R1CS", col);
+                            fullFlag = false;
+                        }
+                    }
+                    if fullFlag == true {
+                        println!("Checked: Evaluations of u(X,Y), v(X,Y), and w(X,Y) satisfy R1CS.");
+                    } else {
+                        panic!("Evaluations of u(X,Y), v(X,Y), and w(X,Y) do not satisfy R1CS.")
+                    }
+                }
+                let (q0XY, q1XY) = p0XY.div_by_vanishing(
+                    self.setup_params.n as i64, 
+                    self.setup_params.s_max as i64
+                );
+                #[cfg(feature = "testing-mode")] {
+                    let x_e = ScalarCfg::generate_random(1)[0];
+                    let y_e = ScalarCfg::generate_random(1)[0];
+                    let p_0_eval = p0XY.eval(&x_e, &y_e);
+                    let q_0_eval = q0XY.eval(&x_e, &y_e);
+                    let q_1_eval = q1XY.eval(&x_e, &y_e);
+                    let t_n_eval = x_e.pow(self.setup_params.n) - ScalarField::one();
+                    let t_smax_eval = y_e.pow(self.setup_params.s_max) - ScalarField::one();
+                    assert!( p_0_eval.eq( &(q_0_eval * t_n_eval + q_1_eval * t_smax_eval) ) );
+                    println!("Checked: u(X,Y), v(X,Y), and w(X,Y) satisfy the arithmetic constraints.")
+                }
+                (q0XY, q1XY)
             };
 
-            #[cfg(feature = "testing-mode")] {
-                let x_e = ScalarCfg::generate_random(1)[0];
-                let y_e = ScalarCfg::generate_random(1)[0];
-                let p_0_eval = p0XY.eval(&x_e, &y_e);
-                let q_0_eval = self.quotients.q0XY.eval(&x_e, &y_e);
-                let q_1_eval = self.quotients.q1XY.eval(&x_e, &y_e);
-                let t_n_eval = x_e.pow(self.setup_params.n) - ScalarField::one();
-                let t_smax_eval = y_e.pow(self.setup_params.s_max) - ScalarField::one();
-                assert!( p_0_eval.eq( &(q_0_eval * t_n_eval + q_1_eval * t_smax_eval) ) );
-                println!("Checked: u(X,Y), v(X,Y), and w(X,Y) satisfy the arithmetic constraints.")
-            }
+            
             
             // Adding zero-knowledge
             let rW_X = DensePolynomialExt::from_coeffs(
@@ -912,34 +954,36 @@
                 let mut p3XY = &lagrange_K0_XY * &(
                     &(&self.witness.rXY * &gXY) - &(&r_omegaX_omegaY * &fXY)
                 );
-                let (q2, q3) = p1XY.div_by_vanishing(m_i as i64, s_max as i64);
-                let (q4, q5) = p2XY.div_by_vanishing(m_i as i64, s_max as i64);
-                let (q6, q7) = p3XY.div_by_vanishing(m_i as i64, s_max as i64);
-                (q2, q3, q4, q5, q6, q7)
+                
+                let (q2XY, q3XY) = p1XY.div_by_vanishing(m_i as i64, s_max as i64);
+                let (q4XY, q5XY) = p2XY.div_by_vanishing(m_i as i64, s_max as i64);
+                let (q6XY, q7XY) = p3XY.div_by_vanishing(m_i as i64, s_max as i64);
+                #[cfg(feature = "testing-mode")] {
+                    let x_e = ScalarCfg::generate_random(1)[0];
+                    let y_e = ScalarCfg::generate_random(1)[0];
+                    let p_1_eval = p1XY.eval(&x_e, &y_e);
+                    let p_2_eval = p2XY.eval(&x_e, &y_e);
+                    let p_3_eval = p3XY.eval(&x_e, &y_e);
+                    let q_2_eval = q2XY.eval(&x_e, &y_e);
+                    let q_3_eval = q3XY.eval(&x_e, &y_e);
+                    let q_4_eval = q4XY.eval(&x_e, &y_e);
+                    let q_5_eval = q5XY.eval(&x_e, &y_e);
+                    let q_6_eval = q6XY.eval(&x_e, &y_e);
+                    let q_7_eval = q7XY.eval(&x_e, &y_e);
+            
+                    let t_mi_eval = x_e.pow(m_i) - ScalarField::one();
+                    let t_smax_eval = y_e.pow(s_max) - ScalarField::one();
+                    assert!( p_1_eval.eq( &(q_2_eval * t_mi_eval + q_3_eval * t_smax_eval) ) );
+                    assert!( p_2_eval.eq( &(q_4_eval * t_mi_eval + q_5_eval * t_smax_eval) ) );    
+                    assert!( p_3_eval.eq( &(q_6_eval * t_mi_eval + q_7_eval * t_smax_eval) ) );
+                    println!("Checked: r(X,Y) satisfy the recursion for the copy constraints.")
+                }
+                
+                (q2XY, q3XY, q4XY, q5XY, q6XY, q7XY)
             };
 
             println!("Check point: Computed quotient polynomials for Copy constraint argument");
             
-            #[cfg(feature = "testing-mode")] {
-                let x_e = ScalarCfg::generate_random(1)[0];
-                let y_e = ScalarCfg::generate_random(1)[0];
-                let p_1_eval = p1XY.eval(&x_e, &y_e);
-                let p_2_eval = p2XY.eval(&x_e, &y_e);
-                let p_3_eval = p3XY.eval(&x_e, &y_e);
-                let q_2_eval = self.quotients.q2XY.eval(&x_e, &y_e);
-                let q_3_eval = self.quotients.q3XY.eval(&x_e, &y_e);
-                let q_4_eval = self.quotients.q4XY.eval(&x_e, &y_e);
-                let q_5_eval = self.quotients.q5XY.eval(&x_e, &y_e);
-                let q_6_eval = self.quotients.q6XY.eval(&x_e, &y_e);
-                let q_7_eval = self.quotients.q7XY.eval(&x_e, &y_e);
-        
-                let t_mi_eval = x_e.pow(m_i) - ScalarField::one();
-                let t_smax_eval = y_e.pow(s_max) - ScalarField::one();
-                assert!( p_1_eval.eq( &(q_2_eval * t_mi_eval + q_3_eval * t_smax_eval) ) );
-                assert!( p_2_eval.eq( &(q_4_eval * t_mi_eval + q_5_eval * t_smax_eval) ) );    
-                assert!( p_3_eval.eq( &(q_6_eval * t_mi_eval + q_7_eval * t_smax_eval) ) );
-                println!("Checked: r(X,Y) satisfy the recursion for the copy constraints.")
-            }
             
             // Adding zero-knowledge to the copy constraint argument
             let r_D1 = &self.witness.rXY - &r_omegaX; 
