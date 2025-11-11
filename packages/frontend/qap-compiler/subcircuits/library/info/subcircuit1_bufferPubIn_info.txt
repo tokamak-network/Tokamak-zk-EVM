@@ -1,11 +1,11 @@
 [32mtemplate instances[0m: 1
-non-linear constraints: 20
-linear constraints: 20
-public inputs: 20
+non-linear constraints: 10
+linear constraints: 10
+public inputs: 10
 private inputs: 0
-public outputs: 20
-wires: 41
-labels: 41
+public outputs: 10
+wires: 21
+labels: 21
 [32mWritten successfully:[0m ../subcircuits/library/bufferPubIn_circuit.r1cs
 [32mConstraints written in:[0m ../subcircuits/library/bufferPubIn_circuit_constraints.json
 [32mWritten successfully:[0m ../subcircuits/library/bufferPubIn_circuit_js/bufferPubIn_circuit.wasm

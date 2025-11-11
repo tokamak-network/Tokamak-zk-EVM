@@ -1,0 +1,17 @@
+{
+  "name": "tokamak-groth16-circuits",
+  "version": "1.0.0",
+  "description": "Groth16 circuits for Tokamak zkEVM storage proof verification",
+  "scripts": {
+    "compile": "./circom-2.0 src/merkle_tree_circuit.circom --r1cs --wasm --sym --output ./build/"
+  },
+  "dependencies": {
+    "circomlib": "^2.0.5",
+    "poseidon-bls12381-circom": "^1.0.0"
+  },
+  "devDependencies": {
+    "circom_tester": "^0.0.19"
+  },
+  "author": "Tokamak Network",
+  "license": "MIT"
+}

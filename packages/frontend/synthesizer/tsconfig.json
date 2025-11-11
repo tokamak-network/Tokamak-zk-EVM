@@ -1,6 +1,9 @@
 {
   "extends": "../../../config/monorepo-js/tsconfig.json",
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "emitDeclarationOnly": true,
+
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node16",
     "allowJs": true,
@@ -12,7 +15,8 @@
       ],
       "@tokamak/utils": ["./src/tokamak/utils/index.js"],
       "@qap-compiler/*": ["../qap-compiler/subcircuits/*"]
-    }
+    },
+    "composite": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]

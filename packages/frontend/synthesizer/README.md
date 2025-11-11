@@ -34,12 +34,12 @@ For technical details, see [Synthesizer Documentation](https://tokamak.notion.si
 ### B. Package install
 
 1. Open a new terminal and go to the Tokamak-zk-EVM folder.
-2. Install dependencies:
-   ```bash
-   cd packages/frontend/synthesizer
-   npm install
-   ```
-   This package install includes some packages in [EthereumJS-monorepo](https://github.com/ethereumjs/ethereumjs-monorepo/).
+3. Install dependencies:
+    ```bash
+    cd packages/frontend/synthesizer
+    npm install
+    ```
+    This package install includes some packages in [EthereumJS-monorepo](https://github.com/ethereumjs/ethereumjs-monorepo/).
 
 ### C. Get your Alchemy API key
 
@@ -59,7 +59,13 @@ For testing Synthesizer, you will need an Alchemy API key to retrieve transactio
 
 1. Go to [Etherscan](https://etherscan.io/) and pick any contract call transaction.
 2. Copy the transaction hash.
-3. Use the CLI command to synthesize the transaction:
+3. Find the file "synthesizer/examples/fullnode/index.ts" and open it
+4. Modify the variable named "TRANSACTION_HASH".
+![image](https://github.com/user-attachments/assets/743d7219-e850-4ca3-97af-95a18cfa0b59)
+
+### E. **Run Synthesizer**
+1. Make sure you are in the folder "synthesizer".
+2. Run
    ```bash
    npm run synthesizer <YOUR_TRANSACTION_HASH>
    ```
@@ -119,6 +125,7 @@ You can find the Synthesizer outputs from [the "outputs" folder](./examples/outp
 
 - placementVariables.json: A combination of the library subcircuits (with allowing repetition) and the instance and witness of each subcircuit.
 - permutation.json: It defines how to connect each subcircuit (i.e., copy constraints between the subcircuit instances).
+- Instance.json: Just a refinement of the "placementVariables.json" that extracts inputs for [the backend Verify](../../backend/verify/).
 - Instance.json: Just a refinement of the "placementVariables.json" that extracts inputs for [the backend Verify](../../backend/verify/).
 
 ## Supported EVM Operations
