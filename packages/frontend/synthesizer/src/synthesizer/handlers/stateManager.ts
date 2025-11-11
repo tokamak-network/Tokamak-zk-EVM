@@ -45,6 +45,8 @@ export class StateManager {
   public cachedStorage: Map<bigint, CachedStorageEntry[]> = new Map()
   public cachedEVMIn: Map<bigint, DataPt> = new Map()
   public cachedOrigin: DataPt | undefined = undefined
+  public cachedCallers: DataPt[] = []
+  public cachedToAddress: DataPt | undefined = undefined
   public cachedReturnMemoryPts: MemoryPts = []
   public cachedMerkleTreeRoot: bigint | undefined = undefined
 

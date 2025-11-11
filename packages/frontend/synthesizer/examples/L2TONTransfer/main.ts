@@ -14,8 +14,8 @@ const senderL2PubKey = jubjub.Point.BASE.multiply(bytesToBigInt(senderL2PrvKey))
 // const {secretKey: senderL2PrvKey, publicKey: senderL2PubKey} = jubjub.keygen(setLengthLeft(utf8ToBytes(SENDER_L2_SEED), 32))
 
 // Reference: TON transfer transaction: 0xa0090893a2d5f79b67cebcb65eac3efc92820ec09dc4ad9fe2bc29bbdcad2e41
-// const AMOUNT: `0x${string}` = '0x4563918244f400000'
-const AMOUNT: `0x${string}` = '0x01'
+const AMOUNT: `0x${string}` = '0x4563918244f400000'
+// const AMOUNT: `0x${string}` = '0x00'
 const TOKEN_RECEPIENT_PUB_KEY = jubjub.keygen(setLengthLeft(utf8ToBytes("Recepient"), 32)).publicKey
 const TOKEN_RECEPIENT_ADDRESS = fromEdwardsToAddress(TOKEN_RECEPIENT_PUB_KEY)
 const CALLDATA = concatBytes(
@@ -67,7 +67,7 @@ const main = async () => {
   const runTxResult = await synthesizer.synthesizeTX()
   const circuitGenerator = await createCircuitGenerator(synthesizer)
   circuitGenerator.writeOutputs()
-  // console.log(runTxResult)
+  console.log(runTxResult.execResult.logs)
 };
 
 void main();

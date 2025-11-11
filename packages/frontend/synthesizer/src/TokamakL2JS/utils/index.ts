@@ -10,17 +10,18 @@ export function batchBigIntTo32BytesEach(...inVals: bigint[]): Uint8Array {
 }
 
 export function fromEdwardsToAddress(point: EdwardsPoint | Uint8Array): Address {
+    const edwardsToAffineBytes = (point: EdwardsPoint): Uint8Array => {
+        const affine = point.toAffine()
+        return batchBigIntTo32BytesEach(affine.x, affine.y)
+    }
     let pointBytes: Uint8Array
     if( point instanceof Uint8Array ) {
-        if (point.length === 64) {
-            // Uncompressed Affine coordinates
-            const x = bytesToBigInt(point.subarray(0, 32))
-            const y = bytesToBigInt(point.subarray(32, 64))
-            const edwards = jubjub.Point.fromAffine({x, y})
-            pointBytes = edwards.toBytes()
+        if (point.length === 32) {
+            // compressed point
+            pointBytes = edwardsToAffineBytes(jubjub.Point.fromBytes(point))
         }
-        else if (point.length === 32) {
-            // Compressed point
+        else if (point.length === 64) {
+            // Uncompressed Affine coordinates
             pointBytes = point
         }
         else {
@@ -28,7 +29,7 @@ export function fromEdwardsToAddress(point: EdwardsPoint | Uint8Array): Address 
         }
             
     } else {
-        pointBytes = point.toBytes()
+        pointBytes = edwardsToAffineBytes(point)
     }
     const addressByte = poseidon(pointBytes).subarray(-20)
     return new Address(addressByte)
