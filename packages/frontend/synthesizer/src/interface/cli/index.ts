@@ -461,12 +461,10 @@ program
       );
 
       // Helper to generate L2 key pairs
-      function generateL2KeyPair(l1Address: string, index: number) {
-        // Use address bytes + index as seed (addresses are 20 bytes)
-        const addressBytes = hexToBytes(l1Address);
-        const indexBytes = new Uint8Array(12);
-        new DataView(indexBytes.buffer).setUint32(0, index, false);
-        const seed = setLengthLeft(concatBytes(addressBytes, indexBytes), 32);
+      // Uses simple string seeds like the example code
+      function generateL2KeyPair(index: number) {
+        const seedString = `L2_SEED_${index}`;
+        const seed = setLengthLeft(utf8ToBytes(seedString), 32);
         const { secretKey, publicKey } = jubjub.keygen(seed);
         return { privateKey: secretKey, publicKey };
       }
@@ -522,7 +520,7 @@ program
 
       // Generate L2 key pairs
       console.log('🔐 Generating L2 key pairs for state channel...');
-      const l2KeyPairs = addressListL1.map((addr, idx) => generateL2KeyPair(addr, idx));
+      const l2KeyPairs = addressListL1.map((_, idx) => generateL2KeyPair(idx));
       const publicKeyListL2 = l2KeyPairs.map((kp) => kp.publicKey);
       const senderL2PrvKey = l2KeyPairs[0].privateKey;
 
