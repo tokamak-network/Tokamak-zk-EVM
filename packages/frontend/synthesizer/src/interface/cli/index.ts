@@ -400,10 +400,11 @@ program
     'Direct synthesis with transaction hash - npm run synthesizer <TX_HASH>',
   )
   .option('-s, --sepolia', 'Use sepolia testnet (default: mainnet)')
+  .option('-r, --rpc <url>', 'Custom RPC URL (overrides env)')
   .option('-v, --verbose', 'Verbose output')
   .action(async (txHash, options) => {
     try {
-      console.log('⚡ Direct Synthesis Mode');
+      console.log('⚡ Direct Synthesis Mode (L2 State Channel)');
       console.log('');
 
       if (!txHash) {
@@ -412,61 +413,177 @@ program
         process.exit(1);
       }
 
+      // Normalize tx hash
+      if (!txHash.startsWith('0x')) {
+        txHash = '0x' + txHash;
+      }
+
       const network = options.sepolia ? 'sepolia' : 'mainnet';
-      let rpcUrl;
+      let rpcUrl = options.rpc;
       
-      if (network === 'mainnet') {
-        rpcUrl = process.env.RPC_URL;
-        if (!rpcUrl) {
-          console.error('Error: No RPC URL configured');
-          console.error('Run: ./tokamak-cli --install <API_KEY>');
-          process.exit(1);
+      if (!rpcUrl) {
+        if (network === 'mainnet') {
+          rpcUrl = process.env.RPC_URL;
+          if (!rpcUrl) {
+            console.error('Error: No RPC URL configured');
+            console.error('Run: ./tokamak-cli --install <API_KEY>');
+            process.exit(1);
+          }
+        } else {
+          rpcUrl = DEFAULT_RPC_URLS[network];
         }
-      } else {
-        rpcUrl = DEFAULT_RPC_URLS[network];
       }
 
       console.log(
         `🌐 Network: ${network.charAt(0).toUpperCase() + network.slice(1)}`,
       );
-      console.log(`📡 RPC URL: ${rpcUrl}`);
+      console.log(`📡 RPC URL: ${rpcUrl.substring(0, 40)}...`);
       console.log(`📋 Transaction: ${txHash}`);
       console.log('');
 
-      const adapter = new SynthesizerAdapter(rpcUrl, !options.sepolia);
+      // Import L2 synthesizer modules
+      const { ethers } = await import('ethers');
+      const { jubjub } = await import('@noble/curves/misc');
+      const {
+        bytesToBigInt,
+        setLengthLeft,
+        utf8ToBytes,
+        hexToBytes,
+      } = await import('@ethereumjs/util');
+      const { fromEdwardsToAddress } = await import('../../TokamakL2JS/index.ts');
+      const {
+        createSynthesizerOptsForSimulationFromRPC,
+      } = await import('../rpc/rpc.ts');
+      const { createSynthesizer } = await import('../../synthesizer/index.ts');
+      const { createCircuitGenerator } = await import(
+        '../../circuitGenerator/circuitGenerator.ts'
+      );
+
+      // Helper to generate L2 key pairs
+      function generateL2KeyPair(l1Address: string) {
+        const seed = `L2_KEY_${l1Address.toLowerCase()}`;
+        const privateKey = jubjub.utils.randomPrivateKey(
+          setLengthLeft(utf8ToBytes(seed), 32)
+        );
+        const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(privateKey)).toBytes();
+        return { privateKey, publicKey };
+      }
+
+      console.log('📥 Fetching transaction details...');
+      const startTime = Date.now();
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const tx = await provider.getTransaction(txHash);
+
+      if (!tx || !tx.blockNumber) {
+        throw new Error(`Transaction ${txHash} not found`);
+      }
+
+      console.log(`✅ Transaction found in block ${tx.blockNumber}`);
+
+      // Extract addresses
+      const addresses = new Set<string>();
+      if (tx.from) addresses.add(tx.from.toLowerCase());
+      if (tx.to) addresses.add(tx.to.toLowerCase());
+
+      // Try to get receipt for more addresses
+      try {
+        const receipt = await provider.getTransactionReceipt(txHash);
+        if (receipt) {
+          if (receipt.contractAddress) {
+            addresses.add(receipt.contractAddress.toLowerCase());
+          }
+          receipt.logs.forEach((log) => addresses.add(log.address.toLowerCase()));
+        }
+      } catch (error) {
+        // Continue without receipt data
+      }
+
+      // Pad to minimum 8 addresses
+      const addressListL1 = [...addresses];
+      const commonAddresses = [
+        '0x85cc7da8Ee323325bcD678C7CFc4EB61e76657Fb',
+        '0xd8eE65121e51aa8C75A6Efac74C4Bbd3C439F78f',
+        '0x838F176D94990E06af9B57E470047F9978403195',
+        '0x01E371b2aD92aDf90254df20EB73F68015E9A000',
+        '0xbD224229Bf9465ea4318D45a8ea102627d6c27c7',
+        '0x6FD430995A19a57886d94f8B5AF2349b8F40e887',
+        '0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9',
+        '0x60be9978F805Dd4619F94a449a4a798155a05A56',
+      ];
+
+      for (const addr of commonAddresses) {
+        if (addressListL1.length >= 8) break;
+        if (!addressListL1.includes(addr.toLowerCase())) {
+          addressListL1.push(addr.toLowerCase());
+        }
+      }
+
+      // Generate L2 key pairs
+      console.log('🔐 Generating L2 key pairs for state channel...');
+      const l2KeyPairs = addressListL1.map((addr) => generateL2KeyPair(addr));
+      const publicKeyListL2 = l2KeyPairs.map((kp) => kp.publicKey);
+      const senderL2PrvKey = l2KeyPairs[0].privateKey;
+
+      // Build simulation options
+      const simulationOpts = {
+        txNonce: BigInt(tx.nonce),
+        rpcUrl,
+        senderL2PrvKey,
+        blockNumber: tx.blockNumber,
+        contractAddress: (tx.to || tx.from) as `0x${string}`,
+        userStorageSlots: [0],
+        addressListL1: addressListL1 as `0x${string}`[],
+        publicKeyListL2,
+        callData: hexToBytes(tx.data),
+      };
+
+      console.log('⚙️  Creating synthesizer with L2 state channel...');
+      const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(
+        simulationOpts
+      );
+      const synthesizer = await createSynthesizer(synthesizerOpts);
 
       console.log('🔄 Synthesizing transaction...');
-      const startTime = Date.now();
+      const runTxResult = await synthesizer.synthesizeTX();
 
-      const result = await adapter.parseTransaction({
-        txHash: txHash,
-      });
+      console.log('📝 Generating circuit outputs...');
+      const circuitGenerator = await createCircuitGenerator(synthesizer);
+      circuitGenerator.writeOutputs();
 
       const endTime = Date.now();
       console.log('✅ Synthesis completed!');
 
       console.log('\n📊 Results:');
       console.log(`- Processing Time: ${endTime - startTime}ms`);
-      console.log(`- Gas Used: ${result.executionResult.executionGasUsed}`);
-      console.log(`- Success: ${!result.executionResult.exceptionError}`);
-      console.log(
-        `- Placements: ${result.evm.synthesizer.state.placements.size}`,
-      );
+      console.log(`- Gas Used: ${runTxResult.totalGasSpent}`);
+      console.log(`- Success: ${!runTxResult.execResult.exceptionError}`);
+      console.log(`- L2 Addresses Mapped: ${addressListL1.length}`);
 
-      if (options.verbose && result.executionResult.exceptionError) {
-        console.log(`- Error: ${result.executionResult.exceptionError.error}`);
+      if (options.verbose) {
+        if (runTxResult.execResult.logs) {
+          console.log(`- Log Entries: ${runTxResult.execResult.logs.length}`);
+        }
+        if (runTxResult.execResult.exceptionError) {
+          console.log(`- Error: ${runTxResult.execResult.exceptionError.error}`);
+        }
       }
+
+      console.log('📁 Outputs written to: examples/outputs/');
     } catch (error) {
       console.error(
         '❌ Synthesis error:',
         error instanceof Error ? error.message : error,
       );
+      if (options.verbose && error instanceof Error) {
+        console.error(error.stack);
+      }
       console.log('');
       console.log('💡 Troubleshooting:');
       console.log('- Check if the transaction hash is valid (0x...)');
       console.log('- Verify the transaction exists on the network');
       console.log('- Try using --sepolia flag for testnet transactions');
       console.log('- Use --verbose flag for detailed error information');
+      console.log('- Make sure RPC_URL is configured in .env');
       process.exit(1);
     }
   });

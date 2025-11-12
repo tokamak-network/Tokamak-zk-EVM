@@ -443,7 +443,19 @@ step_prove() {
 
   log "Prove: synthesize from tx=$tx_hash"
   pushd "$FE_SYN" >/dev/null
-  npm run synthesizer "$tx_hash"
+  
+  # Check if .env exists and has RPC_URL, otherwise use environment variable
+  if [[ -f .env ]]; then
+    verbose "Using RPC_URL from synthesizer/.env"
+    npm run synthesizer "$tx_hash"
+  elif [[ -n "${RPC_URL:-}" ]]; then
+    verbose "Using RPC_URL from environment"
+    npm run synthesizer "$tx_hash" -- --rpc "$RPC_URL"
+  else
+    err "RPC_URL not configured. Run --install first or set RPC_URL environment variable"
+    exit 1
+  fi
+  
   popd >/dev/null
 
   sync_synth_outputs_to_dist
@@ -616,7 +628,19 @@ step_verify() {
 
   log "Verify: synthesize from tx=$tx_hash"
   pushd "$FE_SYN" >/dev/null
-  npm run synthesizer "$tx_hash"
+  
+  # Check if .env exists and has RPC_URL, otherwise use environment variable
+  if [[ -f .env ]]; then
+    verbose "Using RPC_URL from synthesizer/.env"
+    npm run synthesizer "$tx_hash"
+  elif [[ -n "${RPC_URL:-}" ]]; then
+    verbose "Using RPC_URL from environment"
+    npm run synthesizer "$tx_hash" -- --rpc "$RPC_URL"
+  else
+    err "RPC_URL not configured. Run --install first or set RPC_URL environment variable"
+    exit 1
+  fi
+  
   popd >/dev/null
 
   sync_synth_outputs_to_dist
