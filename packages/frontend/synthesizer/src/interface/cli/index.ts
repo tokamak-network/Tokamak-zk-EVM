@@ -460,16 +460,10 @@ program
       );
 
       // Helper to generate L2 key pairs
-      // Uses keccak256 hash to ensure valid scalar range for JubJub curve
-      async function generateL2KeyPair(l1Address: string) {
-        const { keccak256 } = await import('ethereum-cryptography/keccak');
-        const seed = utf8ToBytes(`L2_KEY_${l1Address.toLowerCase()}`);
-        const hash = keccak256(seed);
-        
-        // Ensure the value is in valid range [1, curve.n)
-        const privateKey = jubjub.utils.randomPrivateKey(hash);
-        const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(privateKey)).toBytes();
-        return { privateKey, publicKey };
+      function generateL2KeyPair(l1Address: string) {
+        const seed = setLengthLeft(utf8ToBytes(`L2_KEY_${l1Address.toLowerCase()}`), 32);
+        const { secretKey, publicKey } = jubjub.keygen(seed);
+        return { privateKey: secretKey, publicKey };
       }
 
       console.log('📥 Fetching transaction details...');
@@ -523,9 +517,7 @@ program
 
       // Generate L2 key pairs
       console.log('🔐 Generating L2 key pairs for state channel...');
-      const l2KeyPairs = await Promise.all(
-        addressListL1.map((addr) => generateL2KeyPair(addr))
-      );
+      const l2KeyPairs = addressListL1.map((addr) => generateL2KeyPair(addr));
       const publicKeyListL2 = l2KeyPairs.map((kp) => kp.publicKey);
       const senderL2PrvKey = l2KeyPairs[0].privateKey;
 
