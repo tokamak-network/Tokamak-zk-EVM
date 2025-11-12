@@ -449,6 +449,7 @@ program
         setLengthLeft,
         utf8ToBytes,
         hexToBytes,
+        concatBytes,
       } = await import('@ethereumjs/util');
       const { fromEdwardsToAddress } = await import('../../TokamakL2JS/index.ts');
       const {
@@ -460,8 +461,12 @@ program
       );
 
       // Helper to generate L2 key pairs
-      function generateL2KeyPair(l1Address: string) {
-        const seed = setLengthLeft(utf8ToBytes(`L2_KEY_${l1Address.toLowerCase()}`), 32);
+      function generateL2KeyPair(l1Address: string, index: number) {
+        // Use address bytes + index as seed (addresses are 20 bytes)
+        const addressBytes = hexToBytes(l1Address);
+        const indexBytes = new Uint8Array(12);
+        new DataView(indexBytes.buffer).setUint32(0, index, false);
+        const seed = setLengthLeft(concatBytes(addressBytes, indexBytes), 32);
         const { secretKey, publicKey } = jubjub.keygen(seed);
         return { privateKey: secretKey, publicKey };
       }
@@ -517,7 +522,7 @@ program
 
       // Generate L2 key pairs
       console.log('🔐 Generating L2 key pairs for state channel...');
-      const l2KeyPairs = addressListL1.map((addr) => generateL2KeyPair(addr));
+      const l2KeyPairs = addressListL1.map((addr, idx) => generateL2KeyPair(addr, idx));
       const publicKeyListL2 = l2KeyPairs.map((kp) => kp.publicKey);
       const senderL2PrvKey = l2KeyPairs[0].privateKey;
 
