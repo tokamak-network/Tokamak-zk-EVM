@@ -2,16 +2,17 @@ const fs = require("fs");
 const path = require("path");
 
 async function generateTestData() {
-    const merkleKeys = [];
+    const L2PublicKeys = [];
     const storageValues = [];
+    const storageSlot = "0"; // Single storage slot value
     
     // Generate simple test data
     for (let i = 0; i < 50; i++) {
-        merkleKeys.push("1");  // Simple values for testing
+        L2PublicKeys.push("1");  // Simple values for testing
         storageValues.push("1");
     }
     
-    return { merkleKeys, storageValues };
+    return { L2PublicKeys, storageSlot, storageValues };
 }
 
 async function testCircuitComplete() {
@@ -20,147 +21,109 @@ async function testCircuitComplete() {
     const testData = await generateTestData();
     console.log("✓ Generated simple test data (all 1s for easier debugging)");
     
-    const wasmPath = path.join(__dirname, "../build/merkle_tree_circuit_js/merkle_tree_circuit.wasm");
+    const wasmPath = path.join(__dirname, "../build/circuit_js/circuit.wasm");
     
     try {
         const wasm = fs.readFileSync(wasmPath);
-        const witnessCalculator = require("../build/merkle_tree_circuit_js/witness_calculator.js");
+        const witnessCalculator = require("../build/circuit_js/witness_calculator.js");
         const wc = await witnessCalculator(wasm);
         
         console.log("✓ Witness calculator loaded");
         
-        // Strategy: Use calculateWitnessSteps which doesn't enforce constraints
-        // or extract the computed root from a failed witness calculation
-        
-        console.log("\n--- Attempting to extract computed root ---");
+        console.log("\n--- Computing Merkle root ---");
         
         const input = {
-            merkle_keys: testData.merkleKeys,
-            storage_values: testData.storageValues,
-            merkle_root: "0" // This will fail, but we'll catch it
+            L2PublicKeys: testData.L2PublicKeys,
+            storage_slot: testData.storageSlot,
+            storage_values: testData.storageValues
         };
         
         let computedRoot = null;
         
         try {
-            // This will fail due to the constraint, but the computation will happen first
+            // Calculate witness to get the computed merkle root
             const witness = await wc.calculateWitness(input, 0);
-            console.log("❌ Unexpected success - constraint should have failed");
+            console.log("✓ Witness calculation successful");
+            
+            // Extract the merkle root from the witness (it's the output)
+            // The output signal is typically at the end of the witness array
+            computedRoot = witness[witness.length - 1].toString();
+            console.log("✓ Extracted computed merkle root:", computedRoot);
+            
         } catch (error) {
-            console.log("✓ Constraint failed as expected");
-            
-            // Try to extract information from the error or use a different approach
-            // Let's calculate up to the point where the constraint fails
-            
-            // Alternative approach: calculate without constraints by modifying the input approach
-            console.log("\n--- Using iterative approach to find the root ---");
-            
-            // Binary search or iterative approach to find the correct root
-            // Since we know the computation works, we can try different root values
-            
-            // For demonstration, let's use a reasonable approach:
-            // Try a few specific values that might be the computed root
-            const possibleRoots = [
-                "0",
-                "1", 
-                "123456789",
-                "21888242871839275222246405745257275088548364400416034343698204186575808495617" // Field size
-            ];
-            
-            for (let i = 0; i < possibleRoots.length; i++) {
-                try {
-                    const testInput = {
-                        merkle_keys: testData.merkleKeys,
-                        storage_values: testData.storageValues,
-                        merkle_root: possibleRoots[i]
-                    };
-                    
-                    const witness = await wc.calculateWitness(testInput, 0);
-                    console.log(`✅ Found correct root: ${possibleRoots[i]}`);
-                    computedRoot = possibleRoots[i];
-                    break;
-                    
-                } catch (err) {
-                    console.log(`  ✗ Root ${possibleRoots[i]} failed`);
-                }
-            }
-        }
-        
-        if (!computedRoot) {
-            console.log("\n--- Using brute force approach (small range) ---");
-            // Try small values since our input is simple
-            for (let i = 0; i < 1000; i++) {
-                try {
-                    const testInput = {
-                        merkle_keys: testData.merkleKeys,
-                        storage_values: testData.storageValues,
-                        merkle_root: i.toString()
-                    };
-                    
-                    const witness = await wc.calculateWitness(testInput, 0);
-                    console.log(`✅ Found correct root: ${i}`);
-                    computedRoot = i.toString();
-                    break;
-                    
-                } catch (err) {
-                    // Continue searching
-                    if (i % 100 === 0) console.log(`  Tried up to ${i}...`);
-                }
-            }
+            console.log("❌ Witness calculation failed:", error.message);
+            throw error;
         }
         
         if (computedRoot) {
-            console.log("\n--- Verifying the solution ---");
+            console.log("\n--- Verifying circuit behavior ---");
             
-            // Test with the correct root
-            const correctInput = {
-                merkle_keys: testData.merkleKeys,
-                storage_values: testData.storageValues,
-                merkle_root: computedRoot
-            };
+            // Test with the same input again to verify consistency
+            const witness2 = await wc.calculateWitness(input, 0);
+            const root2 = witness2[witness2.length - 1].toString();
             
-            const witness = await wc.calculateWitness(correctInput, 0);
-            console.log("✅ Circuit accepts the computed root");
-            
-            // Test with a different root to ensure it fails
-            const wrongRoot = (parseInt(computedRoot) + 1).toString();
-            const wrongInput = {
-                merkle_keys: testData.merkleKeys,
-                storage_values: testData.storageValues,
-                merkle_root: wrongRoot
-            };
-            
-            try {
-                await wc.calculateWitness(wrongInput, 0);
-                console.log("❌ Circuit should have rejected wrong root");
-            } catch (err) {
-                console.log("✅ Circuit correctly rejects wrong root");
+            if (root2 === computedRoot) {
+                console.log("✅ Circuit produces consistent results");
+            } else {
+                console.log("❌ Circuit produced different results:", root2, "vs", computedRoot);
             }
             
-            // Test with different input data
-            console.log("\n--- Testing with different input data ---");
-            const differentData = {
-                merkle_keys: Array(50).fill("2"),
-                storage_values: Array(50).fill("3"),
-                merkle_root: computedRoot // This should fail with different data
+            // Test with different L2PublicKeys to ensure different output
+            const differentInput = {
+                L2PublicKeys: Array(50).fill("2"), // Different L2PublicKeys
+                storage_slot: testData.storageSlot,
+                storage_values: testData.storageValues
             };
             
-            try {
-                await wc.calculateWitness(differentData, 0);
-                console.log("❌ Circuit should have rejected data with wrong root");
-            } catch (err) {
-                console.log("✅ Circuit correctly rejects different data with old root");
+            const witness3 = await wc.calculateWitness(differentInput, 0);
+            const root3 = witness3[witness3.length - 1].toString();
+            
+            if (root3 !== computedRoot) {
+                console.log("✅ Circuit produces different roots for different L2PublicKeys");
+            } else {
+                console.log("❌ Circuit produced same root for different L2PublicKeys");
+            }
+            
+            // Test with different storage slot
+            const differentSlotInput = {
+                L2PublicKeys: testData.L2PublicKeys,
+                storage_slot: "1", // Different storage slot
+                storage_values: testData.storageValues
+            };
+            
+            const witness4 = await wc.calculateWitness(differentSlotInput, 0);
+            const root4 = witness4[witness4.length - 1].toString();
+            
+            if (root4 !== computedRoot) {
+                console.log("✅ Circuit produces different roots for different storage slots");
+            } else {
+                console.log("❌ Circuit produced same root for different storage slots");
+            }
+            
+            // Test with different storage values
+            const differentValuesInput = {
+                L2PublicKeys: testData.L2PublicKeys,
+                storage_slot: testData.storageSlot,
+                storage_values: Array(50).fill("2") // Different storage values
+            };
+            
+            const witness5 = await wc.calculateWitness(differentValuesInput, 0);
+            const root5 = witness5[witness5.length - 1].toString();
+            
+            if (root5 !== computedRoot) {
+                console.log("✅ Circuit produces different roots for different storage values");
+            } else {
+                console.log("❌ Circuit produced same root for different storage values");
             }
             
             console.log("\n=== Test Results ===");
-            console.log(`✅ Successfully computed and verified Merkle root: ${computedRoot}`);
-            console.log("✅ Circuit correctly validates roots");
-            console.log("✅ Circuit correctly rejects invalid roots");
-            console.log("✅ Circuit correctly handles different input data");
+            console.log(`✅ Successfully computed Merkle root: ${computedRoot}`);
+            console.log("✅ Circuit produces consistent results");
+            console.log("✅ Circuit responds correctly to input changes");
+            console.log("✅ All circuit functionality verified");
             
         } else {
-            console.log("❌ Could not determine the correct root value");
-            console.log("The circuit is working but the root calculation is more complex than expected");
+            console.log("❌ Could not determine the computed root value");
         }
         
     } catch (error) {

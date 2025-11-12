@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Groth16 circuits for Tokamak zkEVM storage proof verification",
   "scripts": {
-    "compile": "./circom-2.0 src/merkle_tree_circuit.circom --r1cs --wasm --sym --output ./build/",
+    "compile": "./circom-2.0 src/circuit.circom --r1cs --wasm --sym --output ./build/ --prime bls12381",
     "test": "node test/complete_test.js"
   },
   "dependencies": {

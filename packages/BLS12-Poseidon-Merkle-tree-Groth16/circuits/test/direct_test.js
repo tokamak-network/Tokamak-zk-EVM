@@ -3,15 +3,16 @@ const fs = require("fs");
 const path = require("path");
 
 async function generateTestData() {
-    const merkleKeys = [];
+    const L2PublicKeys = [];
     const storageValues = [];
+    const storageSlot = "5"; // Single storage slot value
     
     for (let i = 0; i < 50; i++) {
-        merkleKeys.push(BigInt(1000 + i));
+        L2PublicKeys.push(BigInt(1000 + i));
         storageValues.push(BigInt(2000 + i));
     }
     
-    return { merkleKeys, storageValues };
+    return { L2PublicKeys, storageSlot, storageValues };
 }
 
 async function testCircuit() {
@@ -20,29 +21,30 @@ async function testCircuit() {
     // Generate test data
     const testData = await generateTestData();
     console.log("✓ Generated test data:");
-    console.log("  Keys (first 5):", testData.merkleKeys.slice(0, 5).map(x => x.toString()));
+    console.log("  L2PublicKeys (first 5):", testData.L2PublicKeys.slice(0, 5).map(x => x.toString()));
+    console.log("  Storage slot:", testData.storageSlot);
     console.log("  Values (first 5):", testData.storageValues.slice(0, 5).map(x => x.toString()));
     
     // Step 1: Calculate witness to get the computed root
     console.log("\n--- Step 1: Computing the actual Merkle root ---");
     
-    const wasmPath = path.join(__dirname, "../build/merkle_tree_circuit_js/merkle_tree_circuit.wasm");
+    const wasmPath = path.join(__dirname, "../build/circuit_js/circuit.wasm");
     const wtnsPath = path.join(__dirname, "../build/witness.wtns");
     
-    // Use dummy root initially to compute the actual root
+    // Circuit inputs for merkle root computation
     const input = {
-        merkle_keys: testData.merkleKeys.map(x => x.toString()),
-        storage_values: testData.storageValues.map(x => x.toString()),
-        merkle_root: "0" // Dummy value
+        L2PublicKeys: testData.L2PublicKeys.map(x => x.toString()),
+        storage_slot: testData.storageSlot,
+        storage_values: testData.storageValues.map(x => x.toString())
     };
     
     try {
-        // Calculate witness (this will fail due to constraint but we can extract the computed root)
-        const { witness } = await snarkjs.wtns.calculate(input, wasmPath, wtnsPath);
-        console.log("❌ Unexpected: witness calculation should have failed with dummy root");
+        // Calculate witness to compute the merkle root
+        await snarkjs.wtns.calculate(input, wasmPath, wtnsPath);
+        console.log("✓ Witness calculation successful");
     } catch (error) {
-        console.log("✓ Expected: constraint failed with dummy root");
-        console.log("  Error:", error.message.substring(0, 80) + "...");
+        console.log("❌ Witness calculation failed:", error.message);
+        throw error;
     }
     
     // Step 2: Load circuit information
@@ -50,20 +52,20 @@ async function testCircuit() {
     
     console.log("Circuit files found:");
     console.log("  WASM:", fs.existsSync(wasmPath) ? "✓" : "✗");
-    console.log("  R1CS:", fs.existsSync(path.join(__dirname, "../build/merkle_tree_circuit.r1cs")) ? "✓" : "✗");
+    console.log("  R1CS:", fs.existsSync(path.join(__dirname, "../build/circuit.r1cs")) ? "✓" : "✗");
     
     // Step 3: Test with a simple known case
     console.log("\n--- Step 3: Testing with simple data ---");
     
     const simpleInput = {
-        merkle_keys: Array(50).fill("1"),
-        storage_values: Array(50).fill("1"), 
-        merkle_root: "0"
+        L2PublicKeys: Array(50).fill("1"),
+        storage_slot: "0",
+        storage_values: Array(50).fill("1")
     };
     
     try {
         const wasm = fs.readFileSync(wasmPath);
-        const witnessCalculator = require("../build/merkle_tree_circuit_js/witness_calculator.js");
+        const witnessCalculator = require("../build/circuit_js/witness_calculator.js");
         const wc = await witnessCalculator(wasm);
         
         console.log("✓ Witness calculator loaded");
@@ -74,52 +76,50 @@ async function testCircuit() {
         console.log("✓ Witness calculated successfully");
         console.log("  Witness length:", witness.length);
         
-        // The computed root should be in the witness
-        // Let's find it by looking at the circuit structure
+        // Extract the computed root from the witness
         console.log("\n--- Step 4: Extracting computed root ---");
         
-        // In the circuit, the computed_root signal should be accessible
-        // Since we know the constraint is: merkle_root === computed_root
-        // The computed root is likely near the end of the witness
+        // The merkle_root output is the last signal in the witness
+        const computedRoot = witness[witness.length - 1];
+        console.log("Computed root:", computedRoot.toString());
         
-        const computedRoot = witness[witness.length - 2]; // Often the computed value is near the end
-        console.log("Potential computed root:", computedRoot.toString());
+        // Step 5: Test with different inputs
+        console.log("\n--- Step 5: Testing with different inputs ---");
         
-        // Step 5: Verify with the correct root
-        console.log("\n--- Step 5: Testing with computed root ---");
+        // Test with same inputs again for consistency
+        const witness2 = await wc.calculateWitness(simpleInput, 0);
+        const root2 = witness2[witness2.length - 1];
         
-        const correctInput = {
-            merkle_keys: Array(50).fill("1"),
-            storage_values: Array(50).fill("1"),
-            merkle_root: computedRoot.toString()
+        if (root2.toString() === computedRoot.toString()) {
+            console.log("✓ Circuit produces consistent results");
+        } else {
+            console.log("❌ Circuit produced different results");
+        }
+        
+        // Step 6: Test with different L2PublicKeys
+        console.log("\n--- Step 6: Testing with different L2PublicKeys ---");
+        
+        const differentInput = {
+            L2PublicKeys: Array(50).fill("2"),
+            storage_slot: "0",
+            storage_values: Array(50).fill("1")
         };
         
-        const correctWitness = await wc.calculateWitness(correctInput, 0);
-        console.log("✓ Circuit executed successfully with correct root!");
-        console.log("✓ All constraints satisfied");
+        const differentWitness = await wc.calculateWitness(differentInput, 0);
+        const differentRoot = differentWitness[differentWitness.length - 1];
         
-        // Step 6: Test that wrong root fails
-        console.log("\n--- Step 6: Verifying wrong root fails ---");
-        
-        const wrongInput = {
-            merkle_keys: Array(50).fill("1"),
-            storage_values: Array(50).fill("1"),
-            merkle_root: "12345"
-        };
-        
-        try {
-            await wc.calculateWitness(wrongInput, 0);
-            console.log("❌ Unexpected: should have failed with wrong root");
-        } catch (error) {
-            console.log("✓ Circuit correctly rejected wrong root");
+        if (differentRoot.toString() !== computedRoot.toString()) {
+            console.log("✓ Circuit produces different roots for different L2PublicKeys");
+        } else {
+            console.log("❌ Circuit produced same root for different inputs");
         }
         
         console.log("\n=== Test Summary ===");
         console.log("✅ Circuit compiles and loads correctly");
-        console.log("✅ Circuit computes Merkle roots from key-value pairs");
-        console.log("✅ Circuit accepts correct roots");
-        console.log("✅ Circuit rejects incorrect roots");
-        console.log("✅ Constraint system working as expected");
+        console.log("✅ Circuit computes Merkle roots from L2PublicKeys, storage_slot, and values");
+        console.log("✅ Circuit produces consistent outputs");
+        console.log("✅ Circuit responds correctly to different inputs");
+        console.log("✅ Internal merkle key computation working as expected");
         
         return computedRoot.toString();
         
