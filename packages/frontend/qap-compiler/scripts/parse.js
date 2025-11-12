@@ -44,16 +44,17 @@ function parseWireList(subcircuitInfos, mode = 0) {
     if ( listPublic.has(subcircuit.name)) {
       if (listPublic.get(subcircuit.name) === 'out') {
         numPubWires.push(subcircuit.Out_idx[1])
-        numInterfaceWires += subcircuit.In_idx[1]
+        numInterfaceWires += subcircuit.In_idx[1] + 1 // + 1 is for the constance wire
       } else if (listPublic.get(subcircuit.name) === 'in') {
         numPubWires.push(subcircuit.In_idx[1])
-        numInterfaceWires += subcircuit.Out_idx[1]
+        numInterfaceWires += subcircuit.Out_idx[1] + 1 // + 1 is for the constance wire
       } else {
         throw new Error("listPublic items must have either 'in' or 'out'")
       }
     } else {
       numInterfaceWires += subcircuit.Out_idx[1]
       numInterfaceWires += subcircuit.In_idx[1]
+      numInterfaceWires += 1 // + 1 is for the constance wire
     }
 
     const entryObject = {
@@ -139,6 +140,14 @@ function parseWireList(subcircuitInfos, mode = 0) {
   // Processing internal interface wires
   for ( const subcircuitName of subcircuitInfoByName.keys() ){
     const targetSubcircuit = subcircuitInfoByName.get(subcircuitName)
+    // Include the constance wire in the interface wire list
+    _buildWireFlattenMap(
+      globalWireList,
+      subcircuitInfos,
+      ind++,
+      targetSubcircuit.id,
+      0,
+    )
     if (listPublic.has(subcircuitName)) {
       if (listPublic.get(subcircuitName) === 'out') {
         const _numInterestWires = targetSubcircuit.NInWires
@@ -201,16 +210,16 @@ function parseWireList(subcircuitInfos, mode = 0) {
   if (ind !== l_D) {
     throw new Error(`parseWireList: Error during flattening interface wires`)
   }
-  
+  // Processing internal private wires
   for (const targetSubcircuit of subcircuitInfos) {
-    // The first wire is always for constant by Circom
-    _buildWireFlattenMap(
-      globalWireList,
-      subcircuitInfos,
-      ind++,
-      targetSubcircuit.id,
-      0,
-    )
+    // // The first wire is always for constant by Circom
+    // _buildWireFlattenMap(
+    //   globalWireList,
+    //   subcircuitInfos,
+    //   ind++,
+    //   targetSubcircuit.id,
+    //   0,
+    // )
     const _numInterestWires = targetSubcircuit.Nwires - (targetSubcircuit.Out_idx[1] + targetSubcircuit.In_idx[1]) - 1
     for (let i = 0; i < _numInterestWires; i++) {
       _buildWireFlattenMap(

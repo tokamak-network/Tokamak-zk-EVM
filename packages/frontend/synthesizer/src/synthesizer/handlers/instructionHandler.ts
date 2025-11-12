@@ -416,6 +416,7 @@ export class InstructionHandler {
     const signaturePt: DataPt = this.parent.getReservedVariableFromBuffer('EDDSA_SIGNATURE')
     const poseidonIn: DataPt[] = [...randomizerPt, ...publicKeyPt, ...messagePts]
     const poseidonOut: DataPt = this.parent.placePoseidon(poseidonIn)
+    this.parent.state.transactionHashes.push(DataPtFactory.deepCopy(poseidonOut))
     const bitsOut: DataPt[] = this.parent.placeArith('PrepareEdDsaScalars', [signaturePt, poseidonOut])
     if (bitsOut.length !== 504) {
       throw new Error(`PrepareEdDsaScalar was expected to output 504 bits, got ${bitsOut.length}`);

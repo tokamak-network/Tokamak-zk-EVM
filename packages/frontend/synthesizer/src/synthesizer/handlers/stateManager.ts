@@ -52,6 +52,8 @@ export class StateManager {
 
   public callMemoryPtsStack: MemoryPts[] = []
 
+  public transactionHashes: DataPt[] = []
+
   constructor(parent: ISynthesizerProvider) {
     this.parent = parent
     this.cachedOpts = parent.cachedOpts

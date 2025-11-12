@@ -139,6 +139,7 @@ export class BufferManager {
     // Static public inputs
     this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', BigInt(this.cachedOpts.stateManager.initialMerkleTree.root))
 
+    this.addReservedVariableToBufferIn('CIRCOM_CONST_ONE', 1n)
     this.addReservedVariableToBufferIn('ADDRESS_MASK', (1n << 160n) - 1n)
     this.addReservedVariableToBufferIn('JUBJUB_BASE_X', jubjub.Point.BASE.toAffine().x)
     this.addReservedVariableToBufferIn('JUBJUB_BASE_Y', jubjub.Point.BASE.toAffine().y)

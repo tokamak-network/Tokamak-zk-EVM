@@ -6,7 +6,7 @@ import { bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromBigInt } from 
 import { createEVM, EVM, EVMOpts, EVMResult, InterpreterStep, Message } from '@ethereumjs/evm';
 import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable, SynthesizerInterface, SynthesizerOpts, SynthesizerSupportedOpcodes } from './types/index.ts';
 import { ArithmeticManager, BufferManager, InstructionHandler, MemoryManager, StateManager, SynthesizerOpHandler } from './handlers/index.ts';
-import { ArithmeticOperator, SubcircuitNames } from 'src/interface/qapCompiler/configuredTypes.ts';
+import { ArithmeticOperator, SubcircuitNames, TX_MESSAGE_TO_HASH } from 'src/interface/qapCompiler/configuredTypes.ts';
 import { poseidon } from 'src/TokamakL2JS/index.ts';
 import { poseidon_raw } from './params/index.ts';
 import { MAX_MT_LEAVES, MT_DEPTH, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
@@ -127,7 +127,8 @@ export class Synthesizer implements SynthesizerInterface
           await this._applySynthesizerHandler(this._prevInterpreterStep, currentInterpreterStep)
           console.log(`stack: ${currentInterpreterStep.stack.map(x => bigIntToHex(x))}`)
           console.log(`pc: ${currentInterpreterStep.pc}, opcode: ${currentInterpreterStep.opcode.name}`)
-          await this.finalizeStorage()
+          await this._finalizeStorage()
+          this._reportTxBatchHash()
         } catch (err) {
           console.error('Synthesizer: afterMessage error:', err)
         } finally {
@@ -162,7 +163,7 @@ export class Synthesizer implements SynthesizerInterface
     }
   }
 
-  public async finalizeStorage(): Promise<void> {
+  private async _finalizeStorage(): Promise<void> {
 
     const computeParentsNodePts = (childrenPts: DataPt[], nullVal: bigint, level: number): DataPt[] => {
       const numChunks = Math.ceil(childrenPts.length / POSEIDON_INPUTS) * POSEIDON_INPUTS;
@@ -277,6 +278,10 @@ export class Synthesizer implements SynthesizerInterface
         }
       }
     }
+  }
+
+  private _reportTxBatchHash(): void {
+    this.addReservedVariableToBufferOut('TX_BATCH_HASH', this.placePoseidon(this.state.transactionHashes), true)
   }
 
   public async synthesizeTX(): Promise<RunTxResult> {
