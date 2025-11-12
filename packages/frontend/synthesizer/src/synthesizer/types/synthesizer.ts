@@ -50,7 +50,7 @@ export interface ISynthesizerProvider extends SynthesizerInterface {
   addReservedVariableToBufferOut(varName: ReservedVariable, symbolDataPt: DataPt, dynamic?: boolean, message?: string): DataPt
   //from ArithmeticHandler
   placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[];
-  placeExp(inPts: DataPt[]): DataPt
+  placeExp(inPts: DataPt[], reference?: bigint): DataPt
   placeJubjubExp(inPts: DataPt[], PoI: DataPt[], reference?: bigint): DataPt[]
   placePoseidon(inPts: DataPt[]): DataPt
   //from memoryManager

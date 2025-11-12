@@ -7,7 +7,7 @@ import { DEFAULT_SOURCE_BIT_SIZE } from 'src/synthesizer/params/index.ts';
 import { ArithmeticOperator, SUBCIRCUIT_ALU_MAPPING, SubcircuitNames } from 'src/interface/qapCompiler/configuredTypes.ts';
 import { jubjub } from '@noble/curves/misc';
 import { ArithmeticOperations } from '../dataStructure/arithmeticOperations.ts';
-import { JUBJUB_EXP_BATCH_SIZE, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
+import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
 
 export class ArithmeticManager {
   constructor(
@@ -139,43 +139,102 @@ export class ArithmeticManager {
       return DataPtFactory.deepCopy(acc[0])
   }
 
-  public placeExp(inPts: DataPt[]): DataPt {
-    const synthesizer = this.parent
+  // public placeExp(inPts: DataPt[]): DataPt {
+  //   const synthesizer = this.parent
+  //   // a^b
+  //   const aPt = inPts[0];
+  //   const bPt = inPts[1];
+  //   const bNum = Number(bPt.value);
+
+  //   // Handle base cases for exponent
+  //   if (bNum === 0) {
+  //     return DataPtFactory.deepCopy(synthesizer.loadArbitraryStatic(BIGINT_1));
+  //   }
+  //   if (bNum === 1) {
+  //     return DataPtFactory.deepCopy(aPt);
+  //   }
+
+  //   const k = Math.floor(Math.log2(bNum)) + 1; //bit length of b
+
+  //   const bitifyOutPts = synthesizer.placeArith('DecToBit', [bPt]).reverse();
+  //   // LSB at index 0
+
+  //   const chPts: DataPt[] = [];
+  //   const ahPts: DataPt[] = [];
+  //   chPts.push(synthesizer.loadArbitraryStatic(BIGINT_1));
+  //   ahPts.push(aPt);
+
+  //   for (let i = 1; i <= k; i++) {
+  //     const _inPts = [chPts[i - 1], ahPts[i - 1], bitifyOutPts[i - 1]];
+  //     const _outPts = synthesizer.placeArith('SubEXP', _inPts);
+  //     chPts.push(_outPts[0]);
+  //     ahPts.push(_outPts[1]);
+  //   }
+
+  //   return DataPtFactory.deepCopy(chPts[chPts.length - 1]);
+  // }
+
+  public placeExp(inPts: DataPt[], reference?: bigint): DataPt {
     // a^b
-    const aPt = inPts[0];
-    const bPt = inPts[1];
-    const bNum = Number(bPt.value);
-
-    // Handle base cases for exponent
-    if (bNum === 0) {
-      return DataPtFactory.deepCopy(synthesizer.loadArbitraryStatic(BIGINT_1));
+    const CHUNK_SIZE = ARITH_EXP_BATCH_SIZE
+    const NUM_CHUNKS = Math.ceil(DEFAULT_SOURCE_BIT_SIZE / CHUNK_SIZE)
+    if (inPts.length !== DEFAULT_SOURCE_BIT_SIZE + 1) {
+      throw new Error('Invalid input to SubExp')
     }
-    if (bNum === 1) {
-      return DataPtFactory.deepCopy(aPt);
-    }
-
-    const k = Math.floor(Math.log2(bNum)) + 1; //bit length of b
-
-    const bitifyOutPts = synthesizer.placeArith('DecToBit', [bPt]).reverse();
-    // LSB at index 0
-
-    const chPts: DataPt[] = [];
-    const ahPts: DataPt[] = [];
-    chPts.push(synthesizer.loadArbitraryStatic(BIGINT_1));
-    ahPts.push(aPt);
-
-    for (let i = 1; i <= k; i++) {
-      const _inPts = [chPts[i - 1], ahPts[i - 1], bitifyOutPts[i - 1]];
-      const _outPts = synthesizer.placeArith('SubEXP', _inPts);
-      chPts.push(_outPts[0]);
-      ahPts.push(_outPts[1]);
+    const base: DataPt= inPts[0]
+    // Make sure that the input scalar bits are in LSB-first
+    const scalar_bits_LSB: DataPt[] = inPts.slice(1, )
+    if (reference !== undefined) {
+      const recoverValueFromLSBString = (string: DataPt[]): bigint => {
+        return string.map(pt => pt.value).reduce((acc, b, i) => acc | (b << BigInt(i)), 0n);
+      }
+      if (reference !== recoverValueFromLSBString(scalar_bits_LSB)) {
+        throw new Error('The reference value cannot be recovered from the bit string')
+      }
     }
 
-    return DataPtFactory.deepCopy(chPts[chPts.length - 1]);
+    // const scalar_bits_chunk: DataPt[][] = Array.from({ length: NUM_CHUNKS }, (_, i) =>
+    //   scalar_bits_LSB.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE),
+    // )
+
+    const scalar_bits_chunk: DataPt[][] = Array.from({ length: NUM_CHUNKS }, (_, i) => {
+      const start = i * CHUNK_SIZE;
+      const end = (i + 1) * CHUNK_SIZE;
+      const chunk = scalar_bits_LSB.slice(start, end);
+      return chunk.length === CHUNK_SIZE
+        ? chunk
+        : chunk.concat(
+            Array.from({ length: CHUNK_SIZE - chunk.length },
+              () => this.parent.getReservedVariableFromBuffer('CIRCOM_CONST_ZERO'),
+            )
+          );
+    });
+
+    var c: DataPt = this.parent.loadArbitraryStatic(1n)
+    var a: DataPt = base
+    for (var i = 0; i < NUM_CHUNKS; i++) {
+      const prev_c = c
+      const prev_a = a
+      // LSB first
+      const chunkedInPts: DataPt[] = [prev_c, prev_a, ...scalar_bits_chunk[i]]
+      const outPts: DataPt[] = this.parent.placeArith('SubExpBatch', chunkedInPts)
+      if (outPts.length !== 2) {
+        throw new Error('Something wrong with SubExpBatch')
+      }
+      c = outPts[0]
+      a = outPts[1]
+    }
+
+    if (reference !== undefined) {
+      if ((base.value ** reference) % (1n<<256n) !== c.value) {
+        throw new Error(`SubExpBatch calculation is incorrect`)
+      }
+    }
+    
+    return DataPtFactory.deepCopy(c)
   }
 
   public placeJubjubExp(inPts: DataPt[], PoI: DataPt[], reference?: bigint): DataPt[] {
-    // Split each into 7 chunks of length 37
     const CHUNK_SIZE = JUBJUB_EXP_BATCH_SIZE
     const NUM_CHUNKS = Math.ceil(DEFAULT_SOURCE_BIT_SIZE / CHUNK_SIZE)
 
@@ -273,7 +332,7 @@ const ARITHMETIC_MAPPING: Record<ArithmeticOperator, (...args: any) => any> = {
   SMOD: ArithmeticOperations.smod,
   ADDMOD: ArithmeticOperations.addmod,
   MULMOD: ArithmeticOperations.mulmod,
-  EXP: ArithmeticOperations.subEXP, //not directly used
+  EXP: ArithmeticOperations.subExpBatch, //not directly used
   LT: ArithmeticOperations.lt,
   GT: ArithmeticOperations.gt,
   SLT: ArithmeticOperations.slt,
@@ -290,7 +349,8 @@ const ARITHMETIC_MAPPING: Record<ArithmeticOperator, (...args: any) => any> = {
   BYTE: ArithmeticOperations.byte,
   SIGNEXTEND: ArithmeticOperations.signextend,
   DecToBit: ArithmeticOperations.decToBit,
-  SubEXP: ArithmeticOperations.subEXP,
+  // SubEXP: ArithmeticOperations.subEXP,
+  SubExpBatch: ArithmeticOperations.subExpBatch,
   Accumulator: ArithmeticOperations.accumulator,
   Poseidon: ArithmeticOperations.poseidonN,
   // PrepareEdDsaScalars: ArithmeticOperations.prepareEdDsaScalars,

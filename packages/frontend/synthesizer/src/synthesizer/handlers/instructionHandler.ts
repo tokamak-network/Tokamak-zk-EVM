@@ -441,10 +441,6 @@ export class InstructionHandler {
       signaturePt.value
     )
 
-    console.log(`sign size: ${signaturePt.value >= jubjub.Point.Fn.ORDER}`)
-    console.log(`true sg: ${jubjub.Point.BASE.multiply(signaturePt.value)}`)
-    console.log(`efficient sg: ${jubjub.Point.fromAffine({x: sG[0].value, y: sG[1].value})}`)
-
     const eA: DataPt[] = this.parent.placeJubjubExp(
       [...publicKeyPt, ...challengeBits],
       jubjubPoIPt,
@@ -650,7 +646,10 @@ export class InstructionHandler {
     const op = opts.op as SynthesizerSupportedArithOpcodes
     switch (op) {
       case 'EXP':
-        outPts = [this.parent.placeExp(inPts)];
+        const basePt = inPts[0]
+        const exponentPt = inPts[1]
+        const exponentBits = this.parent.placeArith('DecToBit', [exponentPt])
+        outPts = [this.parent.placeExp([basePt, ...exponentBits], exponentPt.value)];
         break;
       case 'KECCAK256': {
           checkRequiredInput(opts.memOut)

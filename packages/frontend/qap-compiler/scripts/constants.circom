@@ -9,3 +9,4 @@ function nMtLeaves() {return nPoseidonInputs() ** nMtDepth();}
 function nAccumulation() {return 32;}
 function nPrevBlockHashes() {return 8;}
 function nJubjubExpBatch() {return 37;}
+function nSubExpBatch() {return 8;}

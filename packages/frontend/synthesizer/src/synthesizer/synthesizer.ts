@@ -398,8 +398,8 @@ export class Synthesizer implements SynthesizerInterface
     return this._arithmeticManager.placeArith(name, inPts);
   }
 
-  placeExp(inPts: DataPt[]): DataPt {
-    return this._arithmeticManager.placeExp(inPts)
+  placeExp(inPts: DataPt[], reference?: bigint): DataPt {
+    return this._arithmeticManager.placeExp(inPts, reference)
   }
   placeJubjubExp(inPts: DataPt[], PoI: DataPt[], reference?: bigint): DataPt[] {
     return this._arithmeticManager.placeJubjubExp(inPts, PoI, reference)
