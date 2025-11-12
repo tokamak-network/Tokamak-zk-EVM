@@ -417,13 +417,15 @@ export class InstructionHandler {
     const poseidonIn: DataPt[] = [...randomizerPt, ...publicKeyPt, ...messagePts]
     const poseidonOut: DataPt = this.parent.placePoseidon(poseidonIn)
     this.parent.state.transactionHashes.push(DataPtFactory.deepCopy(poseidonOut))
-    const bitsOut: DataPt[] = this.parent.placeArith('PrepareEdDsaScalars', [signaturePt, poseidonOut])
-    if (bitsOut.length !== 504) {
-      throw new Error(`PrepareEdDsaScalar was expected to output 504 bits, got ${bitsOut.length}`);
-    }
-    const signBits: DataPt[] = bitsOut.slice(0, 252)
-    const challengeBits: DataPt[] = bitsOut.slice(252, )
+    // const bitsOut: DataPt[] = this.parent.placeArith('PrepareEdDsaScalars', [signaturePt, poseidonOut])
+    // if (bitsOut.length !== 504) {
+    //   throw new Error(`PrepareEdDsaScalar was expected to output 504 bits, got ${bitsOut.length}`);
+    // }
+    // const signBits: DataPt[] = bitsOut.slice(0, 252)
+    // const challengeBits: DataPt[] = bitsOut.slice(252, )
 
+    const signBits = this.parent.placeArith('DecToBit', [signaturePt])
+    const challengeBits = this.parent.placeArith('DecToBit', [poseidonOut])
     const jubjubBasePt: DataPt[] = [
       this.parent.getReservedVariableFromBuffer('JUBJUB_BASE_X'),
       this.parent.getReservedVariableFromBuffer('JUBJUB_BASE_Y')
@@ -436,11 +438,17 @@ export class InstructionHandler {
     const sG: DataPt[] = this.parent.placeJubjubExp(
       [...jubjubBasePt, ...signBits],
       jubjubPoIPt,
+      signaturePt.value
     )
+
+    console.log(`sign size: ${signaturePt.value >= jubjub.Point.Fn.ORDER}`)
+    console.log(`true sg: ${jubjub.Point.BASE.multiply(signaturePt.value)}`)
+    console.log(`efficient sg: ${jubjub.Point.fromAffine({x: sG[0].value, y: sG[1].value})}`)
 
     const eA: DataPt[] = this.parent.placeJubjubExp(
       [...publicKeyPt, ...challengeBits],
       jubjubPoIPt,
+      poseidonOut.value
     )
 
     this.parent.placeArith('EdDsaVerify', [...sG, ...randomizerPt, ...eA])

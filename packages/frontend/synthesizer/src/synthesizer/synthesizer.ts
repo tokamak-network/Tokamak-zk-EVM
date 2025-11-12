@@ -401,8 +401,8 @@ export class Synthesizer implements SynthesizerInterface
   placeExp(inPts: DataPt[]): DataPt {
     return this._arithmeticManager.placeExp(inPts)
   }
-  placeJubjubExp(inPts: DataPt[], PoI: DataPt[]): DataPt[] {
-    return this._arithmeticManager.placeJubjubExp(inPts, PoI)
+  placeJubjubExp(inPts: DataPt[], PoI: DataPt[], reference?: bigint): DataPt[] {
+    return this._arithmeticManager.placeJubjubExp(inPts, PoI, reference)
   }
   placePoseidon(inPts: DataPt[]): DataPt {
     return this._arithmeticManager.placePoseidon(inPts)

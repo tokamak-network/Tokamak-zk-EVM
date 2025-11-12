@@ -1,7 +1,7 @@
 import { jubjub } from "@noble/curves/misc"
 import { poseidon4 } from "poseidon-bls12381"
-import { POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts"
-import { poseidon_raw } from "src/synthesizer/params/index.ts"
+import { JUBJUB_EXP_BATCH_SIZE, POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts"
+import { DEFAULT_SOURCE_BIT_SIZE, poseidon_raw } from "src/synthesizer/params/index.ts"
 
 const convertToSigned = (value: bigint): bigint => {
   const SIGN_BIT = 1n << 255n
@@ -283,9 +283,12 @@ export class ArithmeticOperations {
     if (ins.length !== 1){
       throw new Error('decToBit expected one input')
     }
-    const binaryString = ins[0].toString(2)
-    const paddedBinaryString = binaryString.padStart(256, '0')
-    const bits = Array.from(paddedBinaryString, (bit) => BigInt(bit))
+    const binaryString = ins[0].toString(2) // MSB-left
+    const paddedBinaryString = binaryString.padStart(256, '0') // left-padding
+    const bits = Array.from(paddedBinaryString, (bit) => BigInt(bit)).reverse() //LSB-left
+    if (bits.length > DEFAULT_SOURCE_BIT_SIZE) {
+      throw new Error('Input value exceeds 256-bit word')
+    }
     return bits
   }
 
@@ -328,27 +331,27 @@ export class ArithmeticOperations {
     return poseidon_raw(in_vals)
   }
 
-  /**
-   * PrepareEdDsaScalars
-   */
-  static prepareEdDsaScalars(in_vals: bigint[]): bigint[] {
-    if (in_vals.length !== 2) {
-      throw new Error('prepareEdDsaScalars expected exactly two input values')
-    }
-    const sign = in_vals[0]
-    const poseidonOut = in_vals[1]
-    const modded: bigint[] = [sign % jubjub.Point.Fn.ORDER, poseidonOut % jubjub.Point.Fn.ORDER]
-    const bits: bigint[] = []
-    for (const val of modded) {
-      // MSB-left
-      const binaryString = val.toString(2)
-      const paddedBinaryString = binaryString.padStart(252, '0')
-      // LSB-left
-      bits.push(...Array.from(paddedBinaryString, (bit) => BigInt(bit)).reverse())
-    }
+  // /**
+  //  * PrepareEdDsaScalars
+  //  */
+  // static prepareEdDsaScalars(in_vals: bigint[]): bigint[] {
+  //   if (in_vals.length !== 2) {
+  //     throw new Error('prepareEdDsaScalars expected exactly two input values')
+  //   }
+  //   const sign = in_vals[0]
+  //   const poseidonOut = in_vals[1]
+  //   const modded: bigint[] = [sign % jubjub.Point.Fn.ORDER, poseidonOut % jubjub.Point.Fn.ORDER]
+  //   const bits: bigint[] = []
+  //   for (const val of modded) {
+  //     // MSB-left
+  //     const binaryString = val.toString(2)
+  //     const paddedBinaryString = binaryString.padStart(252, '0')
+  //     // LSB-left
+  //     bits.push(...Array.from(paddedBinaryString, (bit) => BigInt(bit)).reverse())
+  //   }
     
-    return bits
-  }
+  //   return bits
+  // }
 
   private static _bls12381Arith(): {mod: Function, add: Function, sub: Function, mul: Function} {
     const mod = (x: bigint) => ((x % ArithmeticOperations.BLS12381MODULUS) + ArithmeticOperations.BLS12381MODULUS) % ArithmeticOperations.BLS12381MODULUS;
@@ -483,12 +486,12 @@ export class ArithmeticOperations {
   // }
 
   /**
-   * JubjubExp36
+   * JubjubExpBatch
    */
-  static jubjubExp36(in_vals: bigint[]): bigint[] {
-    const Nbits= 36
+  static jubjubExpBatch(in_vals: bigint[]): bigint[] {
+    const Nbits= JUBJUB_EXP_BATCH_SIZE
     if (in_vals.length !== 4 + Nbits) {
-      throw new Error(`jubjubExp36 expected exactly 40 input values, but got ${in_vals.length} values`)
+      throw new Error(`jubjubExpBatch expected exactly ${4 + Nbits} input values, but got ${in_vals.length} values`)
     }
     const P_point: bigint[] = in_vals.slice(0, 2)
     const G_point: bigint[] = in_vals.slice(2, 4)
@@ -531,7 +534,7 @@ export class ArithmeticOperations {
     }
     for (var i = 0; i < 6; i++) {
       if (in_vals[i] >= ArithmeticOperations.BLS12381MODULUS) {
-        throw new Error('jubjubExp36 input curve points must be of Jubjub')
+        throw new Error('jubjubExpBatch input curve points must be of Jubjub')
       }
     }
 

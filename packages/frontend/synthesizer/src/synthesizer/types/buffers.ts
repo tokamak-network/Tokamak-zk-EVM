@@ -300,6 +300,7 @@ export type ReservedVariable =
     | 'MERKLE_PROOF'
     // EVM_IN (Static + Dynamic)
     | 'CIRCOM_CONST_ONE'
+    | 'CIRCOM_CONST_ZERO'
     | 'ADDRESS_MASK'
     | 'JUBJUB_BASE_X'
     | 'JUBJUB_BASE_Y'
@@ -424,63 +425,70 @@ export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> =
   CIRCOM_CONST_ONE: {
     extSource: 'Arbitrary constant',
     source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-    sourceBitSize: 128,
+    sourceBitSize: 1,
     wireIndex: 0,
+  },
+
+  CIRCOM_CONST_ZERO: {
+    extSource: 'Arbitrary constant',
+    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
+    sourceBitSize: 1,
+    wireIndex: 1,
   },
 
   ADDRESS_MASK: {
     extSource: `Masker for Ethereum address (20 bytes)`,
     source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 160,
-    wireIndex: 1,
+    wireIndex: 2,
   },
   JUBJUB_BASE_X: {
     extSource: `Base point of Jubjub curve (x coordinate)`,
     source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
-    wireIndex: 2,
+    wireIndex: 3,
   },
   JUBJUB_BASE_Y: {
     extSource: `Base point of Jubjub curve (y coordinate)`,
     source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
-    wireIndex: 3,
+    wireIndex: 4,
   },
   JUBJUB_POI_X: {
     extSource: `Point at infinity of Jubjub curve (x coordinate)`,
     source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
-    wireIndex: 4,
+    wireIndex: 5,
   },
   JUBJUB_POI_Y: {
     extSource: `Point at infinity of Jubjub curve (y coordinate)`,
     source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
-    wireIndex: 5,
+    wireIndex: 6,
   },
   NULL_POSEIDON_LEVEL0: {
     extSource: `Poseidon of zeros`,
     source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
-    wireIndex: 6,
+    wireIndex: 7,
   },
   NULL_POSEIDON_LEVEL1: {
     extSource: `Poseidon of Poseidons of zeros`,
     source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
-    wireIndex: 7,
+    wireIndex: 8,
   },
   NULL_POSEIDON_LEVEL2: {
     extSource: `Poseidon of Poseidons of Poseidons of zeros`,
     source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
-    wireIndex: 8,
+    wireIndex: 9,
   },
   NULL_POSEIDON_LEVEL3: {
     extSource: `Poseidon of Poseidons of Poseidons of Poseidons of zeros`,
     source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
-    wireIndex: 9,
+    wireIndex: 10,
   },
 
   CONTRACT_ADDRESS: {

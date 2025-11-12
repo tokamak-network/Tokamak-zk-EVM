@@ -41,5 +41,6 @@ export const MT_DEPTH = qapCompilerParams.nMtDepth
 export const POSEIDON_INPUTS = qapCompilerParams.nPoseidonInputs
 export const MAX_MT_LEAVES = POSEIDON_INPUTS ** MT_DEPTH
 export const NUMBER_OF_PREV_BLOCK_HASHES = qapCompilerParams.nPrevBlockHashes
+export const JUBJUB_EXP_BATCH_SIZE = qapCompilerParams.nJubjubExpBatch
 
 export const FIRST_ARITHMETIC_PLACEMENT_INDEX = BUFFER_LIST.length

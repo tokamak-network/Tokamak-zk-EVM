@@ -51,7 +51,7 @@ export interface ISynthesizerProvider extends SynthesizerInterface {
   //from ArithmeticHandler
   placeArith(name: ArithmeticOperator, inPts: DataPt[]): DataPt[];
   placeExp(inPts: DataPt[]): DataPt
-  placeJubjubExp(inPts: DataPt[], PoI: DataPt[]): DataPt[]
+  placeJubjubExp(inPts: DataPt[], PoI: DataPt[], reference?: bigint): DataPt[]
   placePoseidon(inPts: DataPt[]): DataPt
   //from memoryManager
   placeMemoryToMemory(dataAliasInfos: DataAliasInfos): DataPt[]

@@ -7,10 +7,10 @@
   export const setupParams = 
  {
   "l": 256,
-  "l_D": 2304,
-  "m_D": 12673,
+  "l_D": 1280,
+  "m_D": 11161,
   "n": 1024,
-  "s_D": 20,
+  "s_D": 19,
   "s_max": 128,
   "num_public_wires": [
     6,

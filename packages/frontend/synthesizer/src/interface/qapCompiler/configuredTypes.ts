@@ -29,8 +29,8 @@ export const ARITHMETIC_OPERATOR_LIST = [
   'SubEXP',
   'Accumulator',
   'Poseidon',
-  'PrepareEdDsaScalars',
-  'JubjubExp36',
+  // 'PrepareEdDsaScalars',
+  'JubjubExpBatch',
   'EdDsaVerify',
   'VerifyMerkleProof',
 ] as const
@@ -75,8 +75,8 @@ export const SUBCIRCUIT_LIST = [
     'DecToBit',
     'Accumulator',
     'Poseidon',
-    'PrepareEdDsaScalars',
-    'JubjubExp36',
+    // 'PrepareEdDsaScalars',
+    'JubjubExpBatch',
     'EdDsaVerify',
     'VerifyMerkleProof',
 ] as const
@@ -129,9 +129,9 @@ export const SUBCIRCUIT_ALU_MAPPING: Record<ArithmeticOperator, [SubcircuitNames
   Accumulator: ['Accumulator', undefined],
   EXP: ['ALU1', 1n << 10n], // Not directly used
   Poseidon: ['Poseidon', undefined],
-  PrepareEdDsaScalars: ['PrepareEdDsaScalars', undefined],
+  // PrepareEdDsaScalars: ['PrepareEdDsaScalars', undefined],
   EdDsaVerify: ['EdDsaVerify', undefined],
-  JubjubExp36: ['JubjubExp36', undefined],
+  JubjubExpBatch: ['JubjubExpBatch', undefined],
   VerifyMerkleProof: ['VerifyMerkleProof', undefined],
 } as const;
 

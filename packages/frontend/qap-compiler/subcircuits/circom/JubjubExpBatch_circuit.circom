@@ -1,5 +1,6 @@
 pragma circom 2.1.6;
 include "../../templates/255bit/jubjub.circom";
+include "../../scripts/constants.circom";
 
 template JubjubExp(N) {
     signal input in[8+N];
@@ -26,4 +27,4 @@ template JubjubExp(N) {
     ];
 }
 
-component main = JubjubExp(36);
+component main = JubjubExp(nJubjubExpBatch());

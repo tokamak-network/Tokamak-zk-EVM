@@ -51,6 +51,7 @@ export const REQUIRED_CIRCOM_KEYS = [
   'nMtDepth',
   'nAccumulation',
   'nPrevBlockHashes',
+  'nJubjubExpBatch',
 ] as const;
 export type CircomKey = typeof REQUIRED_CIRCOM_KEYS[number];
 

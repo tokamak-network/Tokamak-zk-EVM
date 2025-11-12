@@ -7,7 +7,7 @@ import { DEFAULT_SOURCE_BIT_SIZE } from 'src/synthesizer/params/index.ts';
 import { ArithmeticOperator, SUBCIRCUIT_ALU_MAPPING, SubcircuitNames } from 'src/interface/qapCompiler/configuredTypes.ts';
 import { jubjub } from '@noble/curves/misc';
 import { ArithmeticOperations } from '../dataStructure/arithmeticOperations.ts';
-import { POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
+import { JUBJUB_EXP_BATCH_SIZE, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
 
 export class ArithmeticManager {
   constructor(
@@ -31,11 +31,11 @@ export class ArithmeticManager {
     let sourceBitSize: number
     switch (name) {
       case 'DecToBit':
-      case 'PrepareEdDsaScalars': 
+      // case 'PrepareEdDsaScalars': 
         sourceBitSize = 1
         break
       case 'Poseidon':
-      case 'JubjubExp36':
+      case 'JubjubExpBatch':
       case 'EdDsaVerify':
       case 'VerifyMerkleProof':
         sourceBitSize = 255
@@ -174,21 +174,42 @@ export class ArithmeticManager {
     return DataPtFactory.deepCopy(chPts[chPts.length - 1]);
   }
 
-  public placeJubjubExp(inPts: DataPt[], PoI: DataPt[]): DataPt[] {
-    // Split each into 7 chunks of length 36
-    const CHUNK_SIZE = 36 as const
-    const NUM_CHUNKS = 7 as const
+  public placeJubjubExp(inPts: DataPt[], PoI: DataPt[], reference?: bigint): DataPt[] {
+    // Split each into 7 chunks of length 37
+    const CHUNK_SIZE = JUBJUB_EXP_BATCH_SIZE
+    const NUM_CHUNKS = Math.ceil(DEFAULT_SOURCE_BIT_SIZE / CHUNK_SIZE)
 
-    if (inPts.length !== 254) {
+    if (inPts.length !== DEFAULT_SOURCE_BIT_SIZE + 2) {
       throw new Error('Invalid input to placeJubjubExp')
     }
     const base: DataPt[] = inPts.slice(0, 2)
     // Make sure that the input scalar bits are in LSB-first
     const scalar_bits_LSB: DataPt[] = inPts.slice(2, )
+    if (reference !== undefined) {
+      const recoverValueFromLSBString = (string: DataPt[]): bigint => {
+        return string.map(pt => pt.value).reduce((acc, b, i) => acc | (b << BigInt(i)), 0n);
+      }
+      if (reference !== recoverValueFromLSBString(scalar_bits_LSB)) {
+        throw new Error('The reference value cannot be recovered from the bit string')
+      }
+    }
 
-    const scalar_bits_chunk: DataPt[][] = Array.from({ length: NUM_CHUNKS }, (_, i) =>
-      scalar_bits_LSB.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE),
-    )
+    // const scalar_bits_chunk: DataPt[][] = Array.from({ length: NUM_CHUNKS }, (_, i) =>
+    //   scalar_bits_LSB.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE),
+    // )
+
+    const scalar_bits_chunk: DataPt[][] = Array.from({ length: NUM_CHUNKS }, (_, i) => {
+      const start = i * CHUNK_SIZE;
+      const end = (i + 1) * CHUNK_SIZE;
+      const chunk = scalar_bits_LSB.slice(start, end);
+      return chunk.length === CHUNK_SIZE
+        ? chunk
+        : chunk.concat(
+            Array.from({ length: CHUNK_SIZE - chunk.length },
+              () => this.parent.getReservedVariableFromBuffer('CIRCOM_CONST_ZERO'),
+            )
+          );
+    });
 
     if (PoI.length !== 2) {
       throw new Error('Invalid input to placeJubjubExp')
@@ -200,17 +221,17 @@ export class ArithmeticManager {
       const prevG = G.slice()
       // LSB first
       const chunkedInPts: DataPt[] = [...prevP, ...prevG, ...scalar_bits_chunk[i]]
-      const outPts: DataPt[] = this.parent.placeArith('JubjubExp36', chunkedInPts)
+      const outPts: DataPt[] = this.parent.placeArith('JubjubExpBatch', chunkedInPts)
       if (outPts.length !== 4) {
-        throw new Error('Something wrong with JubjubExp36')
+        throw new Error('Something wrong with JubjubExpBatch')
       }
       P = [outPts[0], outPts[1]]
       G = outPts.slice(2, )
 
       // //TESTED
       // const base_edwards = jubjub.Point.fromAffine({x: base[0].value, y: base[1].value})
-      // const exponent = scalar_bits_chunk.slice(NUM_CHUNKS - i - 1, ).flat().map(pt => pt.value).reduce((acc, b) => (acc << 1n) | b, 0n)
-      // const P_plain = base_edwards.multiply(exponent)
+      // const exponent = scalar_bits_chunk.slice(i, ).flat().map(pt => pt.value).reduce((acc, b, i) => acc | (b << BigInt(i)), 0n);
+      // const P_plain = base_edwards.multiply(exponent % jubjub.Point.Fn.ORDER)
       // const P_edwards = jubjub.Point.fromAffine({x: P[0].value, y: P[1].value})
       // if (!P_plain.equals(P_edwards)) {
       //   throw new Error('JubjubExp mismatch from the reference')
@@ -272,8 +293,8 @@ const ARITHMETIC_MAPPING: Record<ArithmeticOperator, (...args: any) => any> = {
   SubEXP: ArithmeticOperations.subEXP,
   Accumulator: ArithmeticOperations.accumulator,
   Poseidon: ArithmeticOperations.poseidonN,
-  PrepareEdDsaScalars: ArithmeticOperations.prepareEdDsaScalars,
-  JubjubExp36: ArithmeticOperations.jubjubExp36,
+  // PrepareEdDsaScalars: ArithmeticOperations.prepareEdDsaScalars,
+  JubjubExpBatch: ArithmeticOperations.jubjubExpBatch,
   EdDsaVerify: ArithmeticOperations.edDsaVerify,
   VerifyMerkleProof: ArithmeticOperations.verifyMerkleProof,
 } as const
