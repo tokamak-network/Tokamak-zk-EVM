@@ -83,7 +83,7 @@ jobs:
           # Install tsx globally (required for synthesizer)
           npm install -g tsx
           ./scripts/tokamak-cli-core --install "$ALCHEMY_API_KEY"
-          
+
           # Export RPC_URL for subsequent steps
           echo "RPC_URL=https://eth-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY" >> $GITHUB_ENV
 
