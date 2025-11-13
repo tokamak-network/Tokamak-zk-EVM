@@ -135,7 +135,7 @@ program
 
       // Build simulation options
       const simulationOpts = {
-        txNonce: BigInt(tx.nonce),
+        txNonce: 0n, // L2 state channel uses fresh nonce starting from 0
         rpcUrl,
         senderL2PrvKey,
         blockNumber: tx.blockNumber,
