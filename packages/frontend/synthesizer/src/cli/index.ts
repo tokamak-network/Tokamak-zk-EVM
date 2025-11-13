@@ -69,13 +69,23 @@ program
         '../circuitGenerator/circuitGenerator.js'
       );
 
-      // Helper: Generate deterministic L2 key pairs from L1 addresses
-      // Uses simple string seeds like the example code
+      // Helper: Generate deterministic L2 key pairs
+      // First key uses randomPrivateKey (sender), rest use keygen
+      // Matches L2TONTransfer/main.ts pattern
       function generateL2KeyPair(index: number) {
         const seedString = `L2_SEED_${index}`;
         const seed = setLengthLeft(utf8ToBytes(seedString), 32);
-        const { secretKey, publicKey } = jubjub.keygen(seed);
-        return { privateKey: secretKey, publicKey };
+        
+        if (index === 0) {
+          // First key (sender) uses randomPrivateKey like main.ts line 12
+          const privateKey = jubjub.utils.randomPrivateKey(seed);
+          const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(privateKey)).toBytes();
+          return { privateKey, publicKey };
+        } else {
+          // Other keys use keygen like main.ts line 19, 54-59
+          const { secretKey, publicKey } = jubjub.keygen(seed);
+          return { privateKey: secretKey, publicKey };
+        }
       }
 
       console.log('📥 Fetching transaction details...');

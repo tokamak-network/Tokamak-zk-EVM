@@ -17,10 +17,10 @@ jobs:
 
     strategy:
       matrix:
-        # Execute TON Transfer test only
+        # Execute TON Transfer test only - using same tx as L2TONTransfer example
         test_case:
           - name: 'ton-transfer'
-            tx_hash: '0x6c7903e420c5efb27639f5186a7474ef2137f12c786a90b4efdcb5d88dfdb002'
+            tx_hash: '0xa0090893a2d5f79b67cebcb65eac3efc92820ec09dc4ad9fe2bc29bbdcad2e41'
             description: 'TON Transfer'
 
       fail-fast: false # Continue other tests even if one fails
