@@ -40,7 +40,6 @@ export interface ISynthesizerProvider extends SynthesizerInterface {
     outPts: DataPt[],
     usage: string,
   ): void;
-  loadStorage(key: bigint, value?: bigint): Promise<DataPt>
   // storeStorage(key: bigint, inPt: DataPt): void
   //from BufferManager
   loadArbitraryStatic(value: bigint, bitSize?: number, desc?: string): DataPt

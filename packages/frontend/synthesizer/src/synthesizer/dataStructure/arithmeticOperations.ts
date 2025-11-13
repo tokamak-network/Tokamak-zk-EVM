@@ -580,20 +580,49 @@ export class ArithmeticOperations {
     return []
   }
 
+  // Old version: Reconstructing the Merkle tree root
+  // /**
+  //  * VerifyMerkleProof
+  //  */
+  // static verifyMerkleProof(inVals: bigint[]): bigint[] {
+
+  //   if (inVals.length !== 1 + POSEIDON_INPUTS) {
+  //     throw new Error(`VerifyMerkleProof expected exactly ${1 + POSEIDON_INPUTS} input values, but got ${inVals.length} values`)
+  //   }
+  //   const children = inVals.slice(0, POSEIDON_INPUTS)
+  //   const parent = inVals[inVals.length - 1]
+  //   // console.log(`children: ${children}`)
+  //   // console.log(`parent: ${parent}`)
+  //   if (
+  //     parent !== poseidon_raw(children)
+  //   ) {
+  //     throw new Error('verifyMerkleProof failed')
+  //   }
+  //   return []
+  // }
+
   /**
    * VerifyMerkleProof
    */
   static verifyMerkleProof(inVals: bigint[]): bigint[] {
-
-    if (inVals.length !== 1 + POSEIDON_INPUTS) {
-      throw new Error(`VerifyMerkleProof expected exactly ${1 + POSEIDON_INPUTS} input values, but got ${inVals.length} values`)
+    if (inVals.length !== 3 + POSEIDON_INPUTS) {
+      throw new Error(`VerifyMerkleProof expected exactly ${3 + POSEIDON_INPUTS} input values, but got ${inVals.length} values`)
     }
-    const children = inVals.slice(0, POSEIDON_INPUTS)
-    const parent = inVals[inVals.length - 1]
-    // console.log(`children: ${children}`)
-    // console.log(`parent: ${parent}`)
+    const childIndex = Number(inVals[0])
+    const child = inVals[1]
+    const siblings = inVals.slice(2, 2 + POSEIDON_INPUTS - 1)
+    const parentIndex = Number(inVals[2 + POSEIDON_INPUTS - 1])
+    const parent = inVals[2 + POSEIDON_INPUTS]
+
+    const children = [
+      ...siblings.slice(0, childIndex),
+      child,
+      ...siblings.slice(childIndex, ),
+    ]
+
     if (
-      parent !== poseidon_raw(children)
+      parent !== poseidon_raw(children) ||
+      parentIndex !== Math.floor(childIndex / POSEIDON_INPUTS)
     ) {
       throw new Error('verifyMerkleProof failed')
     }

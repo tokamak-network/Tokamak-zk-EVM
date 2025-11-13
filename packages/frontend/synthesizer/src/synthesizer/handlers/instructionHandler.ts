@@ -21,6 +21,7 @@ import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from 'src/interface/qapCompile
 import { poseidon } from 'src/TokamakL2JS/index.ts';
 import { jubjub } from '@noble/curves/misc';
 import { MT_DEPTH, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
+import { CachedStorageEntry } from './stateManager.ts';
 
 export interface HandlerOpts {
   op: SynthesizerSupportedOpcodes,
@@ -416,7 +417,6 @@ export class InstructionHandler {
     const signaturePt: DataPt = this.parent.getReservedVariableFromBuffer('EDDSA_SIGNATURE')
     const poseidonIn: DataPt[] = [...randomizerPt, ...publicKeyPt, ...messagePts]
     const poseidonOut: DataPt = this.parent.placePoseidon(poseidonIn)
-    this.parent.state.transactionHashes.push(DataPtFactory.deepCopy(poseidonOut))
     // const bitsOut: DataPt[] = this.parent.placeArith('PrepareEdDsaScalars', [signaturePt, poseidonOut])
     // if (bitsOut.length !== 504) {
     //   throw new Error(`PrepareEdDsaScalar was expected to output 504 bits, got ${bitsOut.length}`);
@@ -552,7 +552,8 @@ export class InstructionHandler {
     
   // }
 
-  public async loadStorage(key: bigint, value?: bigint): Promise<DataPt> {
+  public async loadStorage(keyPt: DataPt, value?: bigint): Promise<DataPt> {
+    const key = keyPt.value
     const cached = this.parent.state.cachedStorage.get(key);
 
     // Warm access: previously cached entries exist
@@ -565,8 +566,7 @@ export class InstructionHandler {
 
     if (MTIndex >= 0) {
       // Cold access to user storage
-      const indexPt = this.parent.addReservedVariableToBufferIn('IN_MT_INDEX', BigInt(MTIndex), true);
-      const keyPt = this.parent.addReservedVariableToBufferIn('IN_MPT_KEY', key, true, `at MT index ${MTIndex}`);
+      // const keyPt = this.parent.addReservedVariableToBufferIn('IN_MPT_KEY', key, true, `at MT index ${MTIndex}`);
 
       const valueStored = bytesToBigInt(
         await this.cachedOpts.stateManager.getStorage(
@@ -582,7 +582,7 @@ export class InstructionHandler {
       const resolved = value ?? valueStored;
       const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', resolved, true, `at MT index ${MTIndex}`);
 
-      const entry = { indexPt, keyPt, valuePt, access: 'Read' as const };
+      const entry: CachedStorageEntry = { keyPt, valuePt, access: 'Read' as const };
       if (cached) {
         cached.push(entry);
       } else {
@@ -601,11 +601,12 @@ export class InstructionHandler {
       true,
       `at MPT key ${bigIntToHex(key)}`,
     );
-    this.parent.state.cachedStorage.set(key, [{ indexPt: null, keyPt: null, valuePt, access: 'Read' }]);
+    this.parent.state.cachedStorage.set(key, [{ keyPt: null, valuePt, access: 'Read' }]);
     return DataPtFactory.deepCopy(valuePt);
   }
 
-  public async storeStorage(key: bigint, symbolDataPt: DataPt): Promise<void> {
+  public async storeStorage(keyPt: DataPt, symbolDataPt: DataPt): Promise<void> {
+    const key = keyPt.value
     const cached = this.parent.state.cachedStorage.get(key);
     const MTIndex = this.cachedOpts.stateManager.getMTIndex(key);
 
@@ -617,9 +618,12 @@ export class InstructionHandler {
         // await this.loadStorage(key, undefined, false);
         // return this.storeStorage(key, symbolDataPt);
       } else {
+        const cachedKeyPt = cached[cached.length - 1].keyPt
+        if (cachedKeyPt?.value !== keyPt.value) {
+          throw new Error('DataPts for a storage key are inconsistent between the cachedStorage and SSTORE input. Need to be debugged.')
+        }
         cached.push({ 
-          indexPt: cached[cached.length - 1].indexPt, 
-          keyPt: cached[cached.length - 1].keyPt, 
+          keyPt, 
           valuePt: symbolDataPt, 
           access: 'Write' as const 
         });
@@ -628,10 +632,10 @@ export class InstructionHandler {
     } else {
       if (!cached || cached.length === 0) {
          this.parent.state.cachedStorage.set(key, [
-          { indexPt: null, keyPt: null, valuePt: symbolDataPt, access: 'Write' as const },
+          { keyPt: null, valuePt: symbolDataPt, access: 'Write' as const },
         ]);
       } else {
-        cached.push({ indexPt: null, keyPt: null, valuePt: symbolDataPt, access: 'Write' as const })
+        cached.push({ keyPt: null, valuePt: symbolDataPt, access: 'Write' as const })
       }
     }
   }
@@ -1001,15 +1005,15 @@ export class InstructionHandler {
         break
       case 'SLOAD': 
         {
-          const key = ins[0]
-          stackPt.push(await this.loadStorage(key, out!))
+          const keyPt = inPts[0]
+          stackPt.push(await this.loadStorage(keyPt, out!))
         }
         break
       case 'SSTORE': 
         {
-          const key = ins[0]
+          const keyPt = inPts[0]
           const dataPt = inPts[1]
-          this.storeStorage(key, dataPt)
+          this.storeStorage(keyPt, dataPt)
           if ( dataPt.value !== ins[1] ) {
             throw new Error(`Synthesizer: ${op}: Output storage data mismatch`)
           } 
