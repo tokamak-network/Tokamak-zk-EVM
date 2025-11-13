@@ -167,7 +167,7 @@ program
 
       console.log('📝 Generating circuit outputs...');
       const circuitGenerator = await createCircuitGenerator(synthesizer);
-      circuitGenerator.writeOutputs();
+      circuitGenerator.writeOutputs('examples/outputs');
 
       const endTime = Date.now();
       console.log('');
