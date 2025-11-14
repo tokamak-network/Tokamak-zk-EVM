@@ -14,7 +14,7 @@ include "../../node_modules/circomlib/circuits/comparators.circom";
 template ALU1 () {
     var NUM_TOTAL_FUNCTIONS = 29; // number of functions over all ALUs
     var NUM_SELECTOR_BITS = NUM_TOTAL_FUNCTIONS + 1;
-    var NUM_ALU_FUNCTIONS = 7; // number of functions in this ALU
+    var NUM_ALU_FUNCTIONS = 6; // number of functions in this ALU
     // selector is expected to 2^(opcode).
     signal input in1[2], in2[2], in3[2], selector;
     signal output out1[2], out2[2];
@@ -67,15 +67,15 @@ template ALU1 () {
     flags[ind] <== b_selector[3];
     ind++;
 
-    // operator 0x0A (10): EXP (SubExp)
-    component subexp = SubExp_unsafe();
-    subexp.c_prev <== in1;
-    subexp.a_prev <== in2;
-    subexp.b <== in3[0];
-    outs1[ind] <== subexp.c_next;
-    outs2[ind] <== subexp.a_next;
-    flags[ind] <== b_selector[10];
-    ind++;
+    // // operator 0x0A (10): EXP (SubExp)
+    // component subexp = SubExp_unsafe();
+    // subexp.c_prev <== in1;
+    // subexp.a_prev <== in2;
+    // subexp.b <== in3[0];
+    // outs1[ind] <== subexp.c_next;
+    // outs2[ind] <== subexp.a_next;
+    // flags[ind] <== b_selector[10];
+    // ind++;
 
     // operator 0x14 (20): eq
     component eq = IsEqual256();

@@ -414,6 +414,7 @@ impl Sigma1 {
             } else {
                 nVar = nVar + subcircuit_info.Out_idx[1] + subcircuit_info.In_idx[1];
             }
+            nVar += 1; // Adding 1 for constant wires
         }
 
         return self._encode_statement(

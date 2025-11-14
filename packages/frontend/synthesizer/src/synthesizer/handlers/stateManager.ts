@@ -22,8 +22,7 @@ import { TokamakL2StateManager } from 'src/TokamakL2JS/index.ts';
 import { IMT, IMTMerkleProof } from '@zk-kit/imt';
 import { ArithmeticOperations } from '../dataStructure/arithmeticOperations.ts';
 
-type CachedStorageEntry = {
-  indexPt: DataPt | null,
+export type CachedStorageEntry = {
   keyPt: DataPt | null,
   valuePt: DataPt,
   access: 'Read' | 'Write'
@@ -51,6 +50,8 @@ export class StateManager {
   public cachedMerkleTreeRoot: bigint | undefined = undefined
 
   public callMemoryPtsStack: MemoryPts[] = []
+
+  public transactionHashes: DataPt[] = []
 
   constructor(parent: ISynthesizerProvider) {
     this.parent = parent
