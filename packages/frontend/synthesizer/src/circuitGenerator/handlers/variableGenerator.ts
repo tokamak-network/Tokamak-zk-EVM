@@ -12,6 +12,7 @@ import { builder } from "../witness_calculator.ts";
 import { readFileSync } from "fs";
 import appRootPath from "app-root-path";
 import path from "path";
+import { VARIABLE_DESCRIPTION } from "src/synthesizer/types/buffers.ts";
 
 export class VariableGenerator {
   private parent: CircuitGenerator;
@@ -174,6 +175,12 @@ export class VariableGenerator {
         }
       }
     }
+
+    // Forcely add CIRCOM_CONST_ONE wire to the referenced wire list
+    if (VARIABLE_DESCRIPTION.CIRCOM_CONST_ONE.source !== EVMInPlacementIndex) {
+      throw new Error(`CIRCOM_CONST_ONE wire must belong to EVM_IN buffer`)
+    }
+    referencedWireIndices.add(VARIABLE_DESCRIPTION.CIRCOM_CONST_ONE.wireIndex)
 
     // Filter outPts and inPts to keep only those referenced
     newEVMInPlacement.outPts = newEVMInPlacement.outPts.filter(outPt =>

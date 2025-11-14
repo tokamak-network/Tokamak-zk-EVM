@@ -14,12 +14,20 @@ template verifyParentNode(N) {
     H.out[1] === parent[1];
 }
 
-template getParentNode() {
-    // 4-ary Merkle tree
+template verifyMerkleProofStep() {
+    // Fixed for 4-ary Merkle tree
     // inputs
-    signal input childIndex, child, sib[3];
-    // outputs
-    signal output parentIndex, parent;
+    signal input _childIndex[2], _child[2], _sib[3][2], _parentIndex[2], _parent[2];
+
+    var FIELD_SIZE = 1<<128;
+
+    _childIndex[1] === 0;
+    signal childIndex <== _childIndex[0];
+    signal child <== _child[0] + _child[1] * FIELD_SIZE;
+    signal sib[3];
+    for (var i = 0; i < 3; i++) {
+        sib[i] <== _sib[i][0] + _sib[i][1] * FIELD_SIZE;
+    }
 
     // childIndex -> 2bits -> one-hot
     component nb = Num2Bits(2);
@@ -74,11 +82,14 @@ template getParentNode() {
     H.in[2] <== c2;
     H.in[3] <== c3;
 
-    parent <== H.out;
-    parentIndex <-- childIndex \ 4;
+    signal parent <== H.out;
+    signal parentIndex <-- childIndex \ 4;
     signal rem <-- childIndex % 4;
     childIndex === parentIndex * 4 + rem;
     signal check <== LessThan(3)([rem, 4]);
     check === 1;
 
+    _parentIndex[1] === 0;
+    _parentIndex[0] === parentIndex;
+    parent === _parent[0] + _parent[1] * FIELD_SIZE;
 }

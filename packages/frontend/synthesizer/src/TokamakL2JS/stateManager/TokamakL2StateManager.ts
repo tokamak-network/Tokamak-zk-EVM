@@ -85,7 +85,6 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
     }
 
     public async getUpdatedMerkleTreeRoot(): Promise<bigint> {
-        // txNonce = -1 indicates initialization
         const merkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this)
         const _root = merkleTree.root
         let root: Uint8Array = new Uint8Array([])
@@ -101,18 +100,11 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         return bytesToBigInt(root)
     }
 
-    // public async getMerkleProof(leafIndex: number): Promise<IMTMerkleProof> {
-    //     const merkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this)
-    //     // pathIndices of this proof generation is incorrect. The indices are based on binary, but we are using 4-ary.
-    //     return merkleTree.createProof(leafIndex)
-    //     // const childIndex = Number(inVals[0])
-    //     // const child = inVals[1]
-    //     // const siblings = [...inVals.slice(2,)]
-    //     // const arrangedChildren = [...siblings.slice(0, childIndex), child, ...siblings.slice(childIndex, )]
-    //     // const parentIndex = BigInt(Math.floor(childIndex / 4))
-    //     // const parentNode = ArithmeticOperations.poseidonN(arrangedChildren)
-    //     // return [parentIndex, parentNode]
-    // }
+    public async getMerkleProof(leafIndex: number): Promise<IMTMerkleProof> {
+        const merkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this)
+        // pathIndices of this proof generation is incorrect. The indices are based on binary, but we are using 4-ary.
+        return merkleTree.createProof(leafIndex)
+    }
 
     // public getInputMerkleTreeRootForTxNonce(txNonce: number) {
     //     const val = this._merkleTreeRoots[txNonce]

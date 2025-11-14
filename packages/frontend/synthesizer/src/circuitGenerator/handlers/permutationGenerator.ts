@@ -6,6 +6,7 @@ import { Placements, PlacementVariables } from 'src/synthesizer/types/placements
 import { BUFFER_DESCRIPTION, BUFFER_LIST, SubcircuitInfoByName, SubcircuitInfoByNameEntry } from 'src/interface/qapCompiler/configuredTypes.ts';
 import { DataPt } from 'src/synthesizer/types/dataStructure.ts';
 import { CircuitGenerator } from '../circuitGenerator.ts';
+import { VARIABLE_DESCRIPTION } from 'src/synthesizer/types/buffers.ts';
 
 
 type PlacementWireIndex = { globalWireId: number; placementId: number };
@@ -262,12 +263,34 @@ export class PermutationGenerator {
       // console.log(`checksum: ${checksum}`)
       // console.log(`a`)
     }
+
+    // Forcely adding special permutation for the constant wires of all library subcircuits
+    // The representative is CIRCOM_CONST_ONE, which should be in the current permGroup already.
+    const repWirePlacementId = VARIABLE_DESCRIPTION.CIRCOM_CONST_ONE.source
+    const repWirePlacementWireIndex = VARIABLE_DESCRIPTION.CIRCOM_CONST_ONE.wireIndex
+    if (this.circuitPlacements[repWirePlacementId].outPts[repWirePlacementWireIndex].value !== 1n) {
+      throw new Error(`Invalid pointer to CIRCOM_CONST_ONE wire`)
+    }
+    const repWireSubcircuitInfo = subcircuitInfoByName.get(this.circuitPlacements[repWirePlacementId].name)!
+    const repWireLocalId = repWireSubcircuitInfo.outWireIndex + repWirePlacementWireIndex
+    const repPermGroupKey = this._keyOf({ placementId: VARIABLE_DESCRIPTION.CIRCOM_CONST_ONE.source, globalWireId: repWireSubcircuitInfo.flattenMap[repWireLocalId]})
+    const repContainingGroupIndices: number[] = []
+    permGroup.forEach( (m, i) => { if (m.has(repPermGroupKey)) repContainingGroupIndices.push(i)})
+    if (repContainingGroupIndices.length !== 1) {
+      throw new Error(`Something wrong with searching CIRCOM_CONST_ONE wire from the permutation group`)
+    }
+    const circomConstPermGroup = permGroup[repContainingGroupIndices[0]]
+    for (const [placementId, placement] of this.circuitPlacements.entries()) {
+      const subcircuitInfo = subcircuitInfoByName.get(placement.name)!
+      const key = this._keyOf({ placementId, globalWireId: subcircuitInfo.flattenMap[0]})
+      circomConstPermGroup.set(key, true)
+    }
     return permGroup;
   }
 
   private _validatePermutation(): void {
     let permutationDetected = false;
-    const zeros = Array(setupParams.l_D).fill('0x00');
+    const circomConsts = Array(setupParams.l_D).fill('0x01');
     let b: string[][] = []; // ab.size = l_D \times s_max
     for (const [
       placementId,
@@ -281,7 +304,7 @@ export class PermutationGenerator {
       if (subcircuitInfo.flattenMap![idxSet.idxOut] >= setupParams.l_D) {
         throw new Error('Incorrect flatten map');
       }
-      let ab = [...zeros];
+      let ab = [...circomConsts];
       //Iterating for all output and input (local) variables
       for (let localIdx = idxSet.idxOut; localIdx < idxSet.idxPrv; localIdx++) {
         const globalIdx = subcircuitInfo.flattenMap![localIdx];
