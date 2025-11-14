@@ -2,7 +2,6 @@
 
 import { program } from 'commander';
 import { SynthesizerAdapter } from '../adapters/synthesizerAdapter.js';
-import { createEVM } from '../constructors.js';
 import readline from 'readline';
 
 // load environment variables
@@ -10,7 +9,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 
-// tr to load .env 
+// tr to load .env
 const envPath = path.resolve(process.cwd(), '.env');
 if (fs.existsSync(envPath)) {
   dotenv.config({ path: envPath });
@@ -18,6 +17,7 @@ if (fs.existsSync(envPath)) {
 
 // Default RPC URLs
 const DEFAULT_RPC_URLS = {
+  mainnet: '', // Mainnet requires API key, set via env or --rpc flag
   sepolia: 'https://rpc.ankr.com/eth_sepolia',
 };
 
@@ -28,18 +28,15 @@ function askQuestion(question: string): Promise<string> {
     output: process.stdout,
   });
 
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
+  return new Promise(resolve => {
+    rl.question(question, answer => {
       rl.close();
       resolve(answer.trim());
     });
   });
 }
 
-program
-  .name('synthesizer-cli')
-  .description('CLI tool for Tokamak zk-EVM Synthesizer')
-  .version('0.0.10');
+program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthesizer').version('0.0.10');
 
 program
   .command('parse')
@@ -51,12 +48,9 @@ program
   .option('-d, --calldata <data>', 'Calldata to verify')
   .option('--sender <address>', 'Sender address to verify')
   .option('-o, --output <file>', 'Output file for results (optional)')
-  .option(
-    '--output-dir <dir>',
-    'Output directory for synthesis files (default: current directory)',
-  )
+  .option('--output-dir <dir>', 'Output directory for synthesis files (default: current directory)')
   .option('-v, --verbose', 'Verbose output')
-  .action(async (options) => {
+  .action(async options => {
     try {
       console.log('🔄 Initializing Synthesizer...');
 
@@ -74,7 +68,7 @@ program
       // Get RPC URL - first options, then .env, then default for sepolia
       const network = options.sepolia ? 'sepolia' : 'mainnet';
       let rpcUrl = options.rpcUrl;
-      
+
       if (!rpcUrl) {
         if (network === 'mainnet') {
           rpcUrl = process.env.RPC_URL;
@@ -89,9 +83,7 @@ program
         }
       }
 
-      console.log(
-        `🌐 Network: ${network.charAt(0).toUpperCase() + network.slice(1)}`,
-      );
+      console.log(`🌐 Network: ${network.charAt(0).toUpperCase() + network.slice(1)}`);
       console.log(`📡 RPC URL: ${rpcUrl}`);
       console.log(`📋 Transaction: ${txHash}`);
       console.log('');
@@ -128,10 +120,7 @@ program
         console.log('\n📊 Execution Results:');
         console.log('- Gas Used:', result.executionResult.executionGasUsed);
         console.log('- Success:', !result.executionResult.exceptionError);
-        console.log(
-          '- Placements:',
-          result.evm.synthesizer.state.placements.size,
-        );
+        console.log('- Placements:', result.evm.synthesizer.state.placements.size);
 
         if (result.executionResult.exceptionError) {
           console.log('- Error:', result.executionResult.exceptionError.error);
@@ -147,8 +136,7 @@ program
           placements: result.evm.synthesizer.state.placements.size,
           permutation: {
             // Add relevant permutation data
-            placementVariables:
-              result.permutation.placementVariables?.length || 0,
+            placementVariables: result.permutation.placementVariables?.length || 0,
             permutationFile: result.permutation.permutationFile?.length || 0,
           },
         };
@@ -157,10 +145,7 @@ program
         console.log(`💾 Results saved to ${options.output}`);
       }
     } catch (error) {
-      console.error(
-        '❌ Error:',
-        error instanceof Error ? error.message : error,
-      );
+      console.error('❌ Error:', error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });
@@ -170,17 +155,14 @@ program
   .description('Interactive demo mode - run multiple transactions')
   .option('-s, --sepolia', 'Use sepolia testnet (default: mainnet)')
   .option('-r, --rpc-url <url>', 'Custom RPC URL (overrides default)')
-  .option(
-    '--output-dir <dir>',
-    'Output directory for synthesis files (default: current directory)',
-  )
-  .action(async (options) => {
+  .option('--output-dir <dir>', 'Output directory for synthesis files (default: current directory)')
+  .action(async options => {
     console.log('🚀 Starting Interactive Demo Mode...');
     console.log('');
 
     const network = options.sepolia ? 'sepolia' : 'mainnet';
     let rpcUrl = options.rpcUrl;
-    
+
     if (!rpcUrl) {
       if (network === 'mainnet') {
         rpcUrl = process.env.RPC_URL;
@@ -195,9 +177,7 @@ program
     }
 
     console.log('📋 Demo Configuration:');
-    console.log(
-      `- Network: ${network.charAt(0).toUpperCase() + network.slice(1)}`,
-    );
+    console.log(`- Network: ${network.charAt(0).toUpperCase() + network.slice(1)}`);
     console.log(`- RPC URL: ${rpcUrl}`);
     console.log('');
 
@@ -249,55 +229,35 @@ program
         console.log('📊 Results:');
         console.log(`- Processing Time: ${endTime - startTime}ms`);
         console.log(`- Gas Used: ${result.executionResult.executionGasUsed}`);
-        console.log(
-          `- Transaction Success: ${!result.executionResult.exceptionError}`,
-        );
-        console.log(
-          `- Total Placements: ${result.evm.synthesizer.state.placements.size}`,
-        );
+        console.log(`- Transaction Success: ${!result.executionResult.exceptionError}`);
+        console.log(`- Total Placements: ${result.evm.synthesizer.state.placements.size}`);
         console.log(`- Circuit Synthesis: Complete`);
 
         if (result.executionResult.exceptionError) {
-          console.log(
-            `- Execution Error: ${result.executionResult.exceptionError.error}`,
-          );
+          console.log(`- Execution Error: ${result.executionResult.exceptionError.error}`);
         }
 
         transactionCount++;
         console.log('');
 
         // Ask if user wants to continue
-        const continueChoice = await askQuestion(
-          '🔄 Do you want to process another transaction? (y/n): ',
-        );
+        const continueChoice = await askQuestion('🔄 Do you want to process another transaction? (y/n): ');
 
-        if (
-          continueChoice.toLowerCase() !== 'y' &&
-          continueChoice.toLowerCase() !== 'yes'
-        ) {
+        if (continueChoice.toLowerCase() !== 'y' && continueChoice.toLowerCase() !== 'yes') {
           continueDemo = false;
           console.log('');
           console.log('🎉 Demo session completed!');
           console.log(`📊 Total transactions processed: ${transactionCount}`);
           console.log('');
           console.log('💡 You can also use these commands:');
-          console.log(
-            '   npm run cli parse -t YOUR_TX_HASH    # Parse single transaction',
-          );
-          console.log(
-            '   npm run synthesize                   # Quick synthesis mode',
-          );
-          console.log(
-            '   npm run cli info                     # Show synthesizer info',
-          );
+          console.log('   npm run cli parse -t YOUR_TX_HASH    # Parse single transaction');
+          console.log('   npm run synthesize                   # Quick synthesis mode');
+          console.log('   npm run cli info                     # Show synthesizer info');
         } else {
           console.log('');
         }
       } catch (error) {
-        console.error(
-          '❌ Transaction processing error:',
-          error instanceof Error ? error.message : error,
-        );
+        console.error('❌ Transaction processing error:', error instanceof Error ? error.message : error);
         console.log('');
         console.log('💡 Troubleshooting:');
         console.log('- Check if the RPC URL is accessible');
@@ -307,14 +267,9 @@ program
         console.log('');
 
         // Ask if user wants to continue even after error
-        const continueChoice = await askQuestion(
-          '🔄 Do you want to try another transaction? (y/n): ',
-        );
+        const continueChoice = await askQuestion('🔄 Do you want to try another transaction? (y/n): ');
 
-        if (
-          continueChoice.toLowerCase() !== 'y' &&
-          continueChoice.toLowerCase() !== 'yes'
-        ) {
+        if (continueChoice.toLowerCase() !== 'y' && continueChoice.toLowerCase() !== 'yes') {
           continueDemo = false;
           console.log('');
           console.log('👋 Exiting demo mode...');
@@ -330,7 +285,7 @@ program
   .description('Quick synthesis - just provide transaction hash')
   .option('-s, --sepolia', 'Use sepolia testnet (default: mainnet)')
   .option('-v, --verbose', 'Verbose output')
-  .action(async (options) => {
+  .action(async options => {
     try {
       console.log('⚡ Quick Synthesize Mode');
       console.log('');
@@ -343,7 +298,7 @@ program
 
       const network = options.sepolia ? 'sepolia' : 'mainnet';
       let rpcUrl;
-      
+
       if (network === 'mainnet') {
         rpcUrl = process.env.RPC_URL;
         if (!rpcUrl) {
@@ -355,9 +310,7 @@ program
         rpcUrl = DEFAULT_RPC_URLS[network];
       }
 
-      console.log(
-        `🌐 Network: ${network.charAt(0).toUpperCase() + network.slice(1)}`,
-      );
+      console.log(`🌐 Network: ${network.charAt(0).toUpperCase() + network.slice(1)}`);
       console.log(`📡 RPC URL: ${rpcUrl}`);
       console.log(`📋 Transaction: ${txHash}`);
       console.log('');
@@ -378,32 +331,26 @@ program
       console.log(`- Processing Time: ${endTime - startTime}ms`);
       console.log(`- Gas Used: ${result.executionResult.executionGasUsed}`);
       console.log(`- Success: ${!result.executionResult.exceptionError}`);
-      console.log(
-        `- Placements: ${result.evm.synthesizer.state.placements.size}`,
-      );
+      console.log(`- Placements: ${result.evm.synthesizer.state.placements.size}`);
 
       if (options.verbose && result.executionResult.exceptionError) {
         console.log(`- Error: ${result.executionResult.exceptionError.error}`);
       }
     } catch (error) {
-      console.error(
-        '❌ Synthesis error:',
-        error instanceof Error ? error.message : error,
-      );
+      console.error('❌ Synthesis error:', error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });
 
 program
   .command('run <txHash>')
-  .description(
-    'Direct synthesis with transaction hash - npm run synthesizer <TX_HASH>',
-  )
+  .description('Direct synthesis with transaction hash - npm run synthesizer <TX_HASH>')
   .option('-s, --sepolia', 'Use sepolia testnet (default: mainnet)')
+  .option('-r, --rpc <url>', 'Custom RPC URL (overrides env)')
   .option('-v, --verbose', 'Verbose output')
   .action(async (txHash, options) => {
     try {
-      console.log('⚡ Direct Synthesis Mode');
+      console.log('⚡ Direct Synthesis Mode (L2 State Channel)');
       console.log('');
 
       if (!txHash) {
@@ -412,61 +359,166 @@ program
         process.exit(1);
       }
 
-      const network = options.sepolia ? 'sepolia' : 'mainnet';
-      let rpcUrl;
-      
-      if (network === 'mainnet') {
-        rpcUrl = process.env.RPC_URL;
-        if (!rpcUrl) {
-          console.error('Error: No RPC URL configured');
-          console.error('Run: ./tokamak-cli --install <API_KEY>');
-          process.exit(1);
-        }
-      } else {
-        rpcUrl = DEFAULT_RPC_URLS[network];
+      // Normalize tx hash
+      if (!txHash.startsWith('0x')) {
+        txHash = '0x' + txHash;
       }
 
-      console.log(
-        `🌐 Network: ${network.charAt(0).toUpperCase() + network.slice(1)}`,
-      );
-      console.log(`📡 RPC URL: ${rpcUrl}`);
+      const network = options.sepolia ? 'sepolia' : 'mainnet';
+      let rpcUrl = options.rpc;
+
+      if (!rpcUrl) {
+        if (network === 'mainnet') {
+          rpcUrl = process.env.RPC_URL;
+          if (!rpcUrl) {
+            console.error('Error: No RPC URL configured');
+            console.error('Run: ./tokamak-cli --install <API_KEY>');
+            process.exit(1);
+          }
+        } else {
+          rpcUrl = DEFAULT_RPC_URLS[network];
+        }
+      }
+
+      console.log(`🌐 Network: ${network.charAt(0).toUpperCase() + network.slice(1)}`);
+      console.log(`📡 RPC URL: ${rpcUrl.substring(0, 40)}...`);
       console.log(`📋 Transaction: ${txHash}`);
       console.log('');
 
-      const adapter = new SynthesizerAdapter(rpcUrl, !options.sepolia);
+      // Import L2 synthesizer modules
+      const { ethers } = await import('ethers');
+      const { jubjub } = await import('@noble/curves/misc');
+      const { bytesToBigInt, setLengthLeft, utf8ToBytes, hexToBytes, concatBytes } = await import('@ethereumjs/util');
+      const { fromEdwardsToAddress } = await import('../../TokamakL2JS/index.ts');
+      const { createSynthesizerOptsForSimulationFromRPC } = await import('../rpc/rpc.ts');
+      const { createSynthesizer } = await import('../../synthesizer/index.ts');
+      const { createCircuitGenerator } = await import('../../circuitGenerator/circuitGenerator.ts');
+
+      // Helper to generate L2 key pairs
+      // First key uses randomPrivateKey (sender), rest use keygen
+      // Matches L2TONTransfer/main.ts pattern
+      function generateL2KeyPair(index: number) {
+        const seedString = `L2_SEED_${index}`;
+        const seed = setLengthLeft(utf8ToBytes(seedString), 32);
+
+        if (index === 0) {
+          // First key (sender) uses randomPrivateKey like main.ts line 12
+          const privateKey = jubjub.utils.randomPrivateKey(seed);
+          const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(privateKey)).toBytes();
+          return { privateKey, publicKey };
+        } else {
+          // Other keys use keygen like main.ts line 19, 54-59
+          const { secretKey, publicKey } = jubjub.keygen(seed);
+          return { privateKey: secretKey, publicKey };
+        }
+      }
+
+      console.log('📥 Fetching transaction details...');
+      const startTime = Date.now();
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const tx = await provider.getTransaction(txHash);
+
+      if (!tx || !tx.blockNumber) {
+        throw new Error(`Transaction ${txHash} not found`);
+      }
+
+      console.log(`✅ Transaction found in block ${tx.blockNumber}`);
+
+      if (!tx.to) {
+        throw new Error('Transaction must have a recipient (contract) address');
+      }
+
+      // Extract EOA addresses only (tx.to is CA, not EOA)
+      // addressListL1 should contain at least 2 EOAs: token sender and receiver
+      const eoaAddresses = new Set<string>();
+      if (tx.from) {
+        eoaAddresses.add(tx.from.toLowerCase());
+      }
+
+      // Get receiver address from transaction logs
+      try {
+        const receipt = await provider.getTransactionReceipt(txHash);
+        if (receipt && receipt.logs.length > 0) {
+          // For ERC20 transfers, parse Transfer event to get receiver
+          for (const log of receipt.logs) {
+            // Transfer event signature: Transfer(address,address,uint256)
+            if (log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef') {
+              if (log.topics[2]) {
+                const receiver = '0x' + log.topics[2].slice(26); // Remove padding
+                eoaAddresses.add(receiver.toLowerCase());
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not fetch transaction receipt, using minimal address list');
+      }
+
+      // Ensure we have at least 2 addresses (sender + receiver)
+      // Convert Set to Array to ensure no duplicates
+      const addressListL1 = Array.from(eoaAddresses);
+
+      // Generate L2 key pairs
+      console.log('🔐 Generating L2 key pairs for state channel...');
+      const l2KeyPairs = addressListL1.map((_, idx) => generateL2KeyPair(idx));
+      const publicKeyListL2 = l2KeyPairs.map(kp => kp.publicKey);
+      const senderL2PrvKey = l2KeyPairs[0].privateKey;
+
+      // Build simulation options
+      const simulationOpts = {
+        txNonce: 0n, // L2 state channel uses fresh nonce starting from 0
+        rpcUrl,
+        senderL2PrvKey,
+        blockNumber: tx.blockNumber - 1, // Use block before tx to get proper sender balance
+        contractAddress: tx.to as `0x${string}`, // Contract address (CA)
+        userStorageSlots: [0],
+        addressListL1: addressListL1 as `0x${string}`[],
+        publicKeyListL2,
+        callData: hexToBytes(tx.data as `0x${string}`),
+      };
+
+      console.log('⚙️  Creating synthesizer with L2 state channel...');
+      const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(simulationOpts);
+      const synthesizer = await createSynthesizer(synthesizerOpts);
 
       console.log('🔄 Synthesizing transaction...');
-      const startTime = Date.now();
+      const runTxResult = await synthesizer.synthesizeTX();
 
-      const result = await adapter.parseTransaction({
-        txHash: txHash,
-      });
+      console.log('📝 Generating circuit outputs...');
+      const circuitGenerator = await createCircuitGenerator(synthesizer);
+      circuitGenerator.writeOutputs('examples/outputs');
 
       const endTime = Date.now();
       console.log('✅ Synthesis completed!');
 
       console.log('\n📊 Results:');
       console.log(`- Processing Time: ${endTime - startTime}ms`);
-      console.log(`- Gas Used: ${result.executionResult.executionGasUsed}`);
-      console.log(`- Success: ${!result.executionResult.exceptionError}`);
-      console.log(
-        `- Placements: ${result.evm.synthesizer.state.placements.size}`,
-      );
+      console.log(`- Gas Used: ${runTxResult.totalGasSpent}`);
+      console.log(`- Success: ${!runTxResult.execResult.exceptionError}`);
+      console.log(`- L2 Addresses Mapped: ${addressListL1.length}`);
 
-      if (options.verbose && result.executionResult.exceptionError) {
-        console.log(`- Error: ${result.executionResult.exceptionError.error}`);
+      if (options.verbose) {
+        if (runTxResult.execResult.logs) {
+          console.log(`- Log Entries: ${runTxResult.execResult.logs.length}`);
+        }
+        if (runTxResult.execResult.exceptionError) {
+          console.log(`- Error: ${runTxResult.execResult.exceptionError.error}`);
+        }
       }
+
+      console.log('📁 Outputs written to: examples/outputs/');
     } catch (error) {
-      console.error(
-        '❌ Synthesis error:',
-        error instanceof Error ? error.message : error,
-      );
+      console.error('❌ Synthesis error:', error instanceof Error ? error.message : error);
+      if (options.verbose && error instanceof Error) {
+        console.error(error.stack);
+      }
       console.log('');
       console.log('💡 Troubleshooting:');
       console.log('- Check if the transaction hash is valid (0x...)');
       console.log('- Verify the transaction exists on the network');
       console.log('- Try using --sepolia flag for testnet transactions');
       console.log('- Use --verbose flag for detailed error information');
+      console.log('- Make sure RPC_URL is configured in .env');
       process.exit(1);
     }
   });
@@ -477,9 +529,7 @@ program
   .action(() => {
     console.log('🔧 Tokamak zk-EVM Synthesizer');
     console.log('Version: 0.0.10');
-    console.log(
-      'Description: Interprets Ethereum transactions as combinations of library subcircuits',
-    );
+    console.log('Description: Interprets Ethereum transactions as combinations of library subcircuits');
     console.log('\nSupported operations:');
     console.log('- EVM opcode synthesis');
     console.log('- Circuit placement management');
