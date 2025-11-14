@@ -18,10 +18,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const program = new Command();
 
-program
-  .name('synthesizer')
-  .description('Tokamak ZK-EVM Synthesizer CLI - L2 State Channel')
-  .version('0.0.10');
+program.name('synthesizer').description('Tokamak ZK-EVM Synthesizer CLI - L2 State Channel').version('0.0.10');
 
 program
   .command('run')
@@ -53,21 +50,11 @@ program
       // Import L2 synthesizer modules dynamically
       const { ethers } = await import('ethers');
       const { jubjub } = await import('@noble/curves/misc');
-      const {
-        bytesToBigInt,
-        setLengthLeft,
-        utf8ToBytes,
-        hexToBytes,
-        concatBytes,
-      } = await import('@ethereumjs/util');
+      const { bytesToBigInt, setLengthLeft, utf8ToBytes, hexToBytes, concatBytes } = await import('@ethereumjs/util');
       const { fromEdwardsToAddress } = await import('../TokamakL2JS/index.js');
-      const {
-        createSynthesizerOptsForSimulationFromRPC,
-      } = await import('../interface/rpc/rpc.js');
+      const { createSynthesizerOptsForSimulationFromRPC } = await import('../interface/rpc/rpc.js');
       const { createSynthesizer } = await import('../synthesizer/index.js');
-      const { createCircuitGenerator } = await import(
-        '../circuitGenerator/circuitGenerator.js'
-      );
+      const { createCircuitGenerator } = await import('../circuitGenerator/circuitGenerator.js');
 
       // Helper: Generate deterministic L2 key pairs
       // First key uses randomPrivateKey (sender), rest use keygen
@@ -75,7 +62,7 @@ program
       function generateL2KeyPair(index: number) {
         const seedString = `L2_SEED_${index}`;
         const seed = setLengthLeft(utf8ToBytes(seedString), 32);
-        
+
         if (index === 0) {
           // First key (sender) uses randomPrivateKey like main.ts line 12
           const privateKey = jubjub.utils.randomPrivateKey(seed);
@@ -99,48 +86,44 @@ program
 
       console.log(`✅ Found in block ${tx.blockNumber}`);
 
-      // Extract addresses involved in transaction
-      const addresses = new Set<string>();
-      if (tx.from) addresses.add(tx.from.toLowerCase());
-      if (tx.to) addresses.add(tx.to.toLowerCase());
+      if (!tx.to) {
+        throw new Error('Transaction must have a recipient (contract) address');
+      }
 
-      // Try to get receipt for additional addresses
+      // Extract EOA addresses only (tx.to is CA, not EOA)
+      // addressListL1 should contain at least 2 EOAs: token sender and receiver
+      const eoaAddresses = new Set<string>();
+      if (tx.from) {
+        eoaAddresses.add(tx.from.toLowerCase());
+      }
+
+      // Get receiver address from transaction logs
       try {
         const receipt = await provider.getTransactionReceipt(txHash);
-        if (receipt) {
-          if (receipt.contractAddress) {
-            addresses.add(receipt.contractAddress.toLowerCase());
+        if (receipt && receipt.logs.length > 0) {
+          // For ERC20 transfers, parse Transfer event to get receiver
+          for (const log of receipt.logs) {
+            // Transfer event signature: Transfer(address,address,uint256)
+            if (log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef') {
+              if (log.topics[2]) {
+                const receiver = '0x' + log.topics[2].slice(26); // Remove padding
+                eoaAddresses.add(receiver.toLowerCase());
+              }
+            }
           }
-          receipt.logs.forEach((log) => addresses.add(log.address.toLowerCase()));
         }
       } catch (error) {
-        // Continue without receipt data
+        console.warn('⚠️ Could not fetch transaction receipt, using minimal address list');
       }
 
-      // Ensure minimum 8 addresses
-      const addressListL1 = [...addresses];
-      const commonAddresses = [
-        '0x85cc7da8Ee323325bcD678C7CFc4EB61e76657Fb',
-        '0xd8eE65121e51aa8C75A6Efac74C4Bbd3C439F78f',
-        '0x838F176D94990E06af9B57E470047F9978403195',
-        '0x01E371b2aD92aDf90254df20EB73F68015E9A000',
-        '0xbD224229Bf9465ea4318D45a8ea102627d6c27c7',
-        '0x6FD430995A19a57886d94f8B5AF2349b8F40e887',
-        '0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9',
-        '0x60be9978F805Dd4619F94a449a4a798155a05A56',
-      ];
-
-      for (const addr of commonAddresses) {
-        if (addressListL1.length >= 8) break;
-        if (!addressListL1.includes(addr.toLowerCase())) {
-          addressListL1.push(addr.toLowerCase());
-        }
-      }
+      // Ensure we have at least 2 addresses (sender + receiver)
+      // Convert Set to Array to ensure no duplicates
+      const addressListL1 = Array.from(eoaAddresses);
 
       // Generate L2 key pairs for state channel
       console.log('🔐 Generating L2 key pairs...');
       const l2KeyPairs = addressListL1.map((_, idx) => generateL2KeyPair(idx));
-      const publicKeyListL2 = l2KeyPairs.map((kp) => kp.publicKey);
+      const publicKeyListL2 = l2KeyPairs.map(kp => kp.publicKey);
       const senderL2PrvKey = l2KeyPairs[0].privateKey;
 
       // Build simulation options
@@ -148,18 +131,16 @@ program
         txNonce: 0n, // L2 state channel uses fresh nonce starting from 0
         rpcUrl,
         senderL2PrvKey,
-        blockNumber: tx.blockNumber,
-        contractAddress: (tx.to || tx.from) as `0x${string}`,
+        blockNumber: tx.blockNumber - 1, // Use block before tx to get proper sender balance
+        contractAddress: tx.to as `0x${string}`, // Contract address (CA)
         userStorageSlots: [0],
         addressListL1: addressListL1 as `0x${string}`[],
         publicKeyListL2,
-        callData: hexToBytes(tx.data),
+        callData: hexToBytes(tx.data as `0x${string}`),
       };
 
       console.log('⚙️  Creating synthesizer...');
-      const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(
-        simulationOpts
-      );
+      const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(simulationOpts);
       const synthesizer = await createSynthesizer(synthesizerOpts);
 
       console.log('🔄 Synthesizing transaction...');
@@ -178,14 +159,14 @@ program
       console.log(`   Gas: ${runTxResult.totalGasSpent}`);
       console.log(`   Success: ${!runTxResult.execResult.exceptionError}`);
       console.log(`   L2 Addresses: ${addressListL1.length}`);
-      
+
       if (runTxResult.execResult.logs) {
         console.log(`   Logs: ${runTxResult.execResult.logs.length}`);
       }
-      
+
       console.log('');
       console.log('📁 Outputs: examples/outputs/');
-      
+
       process.exit(0);
     } catch (error) {
       console.error('');
