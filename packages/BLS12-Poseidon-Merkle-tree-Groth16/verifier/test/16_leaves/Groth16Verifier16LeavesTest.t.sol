@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.13;
 
-import "../forge-std/src/Test.sol";
-import "../forge-std/src/console.sol";
-import "../src/Groth16Verifier16Leaves.sol";
+import "../../forge-std/src/Test.sol";
+import "../../forge-std/src/console.sol";
+import "../../src/Groth16Verifier16Leaves.sol";
 
 contract Groth16Verifier16LeavesTest is Test {
     Groth16Verifier16Leaves public verifier;
@@ -14,12 +14,16 @@ contract Groth16Verifier16LeavesTest is Test {
     uint256 constant pA_y_PART1 = 0x00000000000000000000000000000000161d4d31de7b3ddc92d44b9cb30d3004;
     uint256 constant pA_y_PART2 = 0x0f82dbb8c436ece2b99be25b68846bced2909ffcad48bc0ffa854f33efca13ae;
 
+    //x1
     uint256 constant pB_x0_PART1 = 0x0000000000000000000000000000000014612fac3de54874f258b1a82e2855d6;
     uint256 constant pB_x0_PART2 = 0x1bc056aef408467dd31e8aae6e37864bd84ad4b71d0a08107cd4dee4b217ca71;
+    //x0
     uint256 constant pB_x1_PART1 = 0x0000000000000000000000000000000008b21ff4281b079ea2b36bf99999d480;
     uint256 constant pB_x1_PART2 = 0xa72e1ccc1f38130c686899c43d452465a49f9fc6daa41a2a1142e9171ee6a617;
+    //x1
     uint256 constant pB_y0_PART1 = 0x000000000000000000000000000000001880c48857e7e6a2cb43bec3e93f5482;
     uint256 constant pB_y0_PART2 = 0xcd80fae83b5e8d450ef26b919beb326205d91639787485982d1530f0addc37f7;
+    //x0
     uint256 constant pB_y1_PART1 = 0x000000000000000000000000000000001004b79154de3210656b66c0ccb3382f;
     uint256 constant pB_y1_PART2 = 0xebd865141035fcfd8a1088d1b739c56cac9cae783d4dc413bc6666176e48a366;
 
@@ -32,7 +36,7 @@ contract Groth16Verifier16LeavesTest is Test {
         verifier = new Groth16Verifier16Leaves();
     }
 
-    function testValidProof() public {
+    function testValidProof16() public view {
         // Test data from test/proof.json and ../prover/16_leaves/public.json 
         // This proof is generated for BLS12-381 curve with 16-leaf Merkle tree
 
@@ -88,7 +92,7 @@ contract Groth16Verifier16LeavesTest is Test {
         assertTrue(result, "Valid proof should pass verification");
     }
 
-    function testGasConsumption() public {
+    function testGasConsumption16() public view {
         // Test data from test/proof.json and ../prover/16_leaves/public.json 
         // This test measures gas consumption for BLS12-381 Groth16 verification
 
