@@ -17,6 +17,7 @@ import { jubjub } from '@noble/curves/misc';
 import { fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
+import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts  } from '../../src/interface/index.ts'
 import { poseidon_raw } from '../../src/synthesizer/params/index.ts';
 
 const SENDER_L2_SEED = "Jake's L2 wallet";
@@ -77,8 +78,20 @@ const main = async () => {
   const synthesizer = await createSynthesizer(synthesizerOpts);
   const runTxResult = await synthesizer.synthesizeTX();
   const circuitGenerator = await createCircuitGenerator(synthesizer);
-  circuitGenerator.writeOutputs();
-  console.log(runTxResult.execResult.logs);
+  circuitGenerator.writeOutputs('outputs1');
+
+  console.log(`Sender: ${fromEdwardsToAddress(simulationOpts.publicKeyListL2[0])}`)
+  console.log(`Recipent: ${fromEdwardsToAddress(simulationOpts.publicKeyListL2[1])}`)
+  if (runTxResult.execResult.logs) {
+    for (const [index, log] of runTxResult.execResult.logs.entries()) {
+      console.log(`Log index: ${index}`)
+      console.log(`CA: ${bytesToHex(log[0])}`);
+      for (const topic of log[1]) {
+        console.log(`Topic: ${bytesToHex(topic)}`);
+      }
+      console.log(`Data: ${bytesToHex(log[2])}`);
+    }
+  }
 };
 
 void main();

@@ -263,12 +263,13 @@ export class Synthesizer implements SynthesizerInterface
         throw new Error(`Siblings of each level for a Merkle proof should be ${POSEIDON_INPUTS - 1}, but got ${siblingPts.length}.`)
       }
       const childIndex = Number(childIndexPt.value)
+      const childHomeIndex = childIndex % POSEIDON_INPUTS
       const parentIndex = Math.floor( childIndex / POSEIDON_INPUTS)
       
       const childrenPts = [
-        ...siblingPts.slice(0, childIndex),
+        ...siblingPts.slice(0, childHomeIndex),
         childPt,
-        ...siblingPts.slice(childIndex, )
+        ...siblingPts.slice(childHomeIndex, )
       ]
 
       return{
@@ -299,11 +300,11 @@ export class Synthesizer implements SynthesizerInterface
     // Integrity check of initial storage reads
     for (const [key, accessList] of this.state.cachedStorage.entries()) {
       if (accessList.length === 0 || accessList[0]?.access !== 'Read') {
-        break;
+        continue;
       }
       const mtIndex = this.cachedOpts.stateManager.getMTIndex(key)
       if (mtIndex < 0) {
-        break;
+        continue;
       }
       const keyPt = accessList[0].keyPt!
       if (key !== keyPt.value) {
@@ -327,12 +328,12 @@ export class Synthesizer implements SynthesizerInterface
     const finalMTRootPt = this.addReservedVariableToBufferIn('RES_MERKLE_ROOT', await this.cachedOpts.stateManager.getUpdatedMerkleTreeRoot(), true)
     for (const [key, accessList] of this.state.cachedStorage.entries()) {
       if (accessList.length === 0) {
-        break;
+        continue;
       }
 
       const mtIndex = this.cachedOpts.stateManager.getMTIndex(key)
       if (mtIndex < 0) {
-        break;
+        continue;
       }
 
       let lastWriteIndex = -1
@@ -343,7 +344,7 @@ export class Synthesizer implements SynthesizerInterface
         }
       }
       if (lastWriteIndex === -1){
-        break;
+        continue;
       }
 
       const cache = accessList[lastWriteIndex]!

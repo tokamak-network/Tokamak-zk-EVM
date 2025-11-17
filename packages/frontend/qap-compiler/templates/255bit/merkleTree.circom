@@ -23,15 +23,22 @@ template verifyMerkleProofStep() {
 
     _childIndex[1] === 0;
     signal childIndex <== _childIndex[0];
+
+    signal parentIndex <-- childIndex \ 4;
+    signal childHomeIndex <-- childIndex % 4;
+    childIndex === parentIndex * 4 + childHomeIndex;
+    signal check <== LessThan(3)([childHomeIndex, 4]);
+    check === 1;
+
     signal child <== _child[0] + _child[1] * FIELD_SIZE;
     signal sib[3];
     for (var i = 0; i < 3; i++) {
         sib[i] <== _sib[i][0] + _sib[i][1] * FIELD_SIZE;
     }
 
-    // childIndex -> 2bits -> one-hot
+    // childHomeIndex -> 2bits -> one-hot
     component nb = Num2Bits(2);
-    nb.in <== childIndex;
+    nb.in <== childHomeIndex;
 
     // bits
     signal b0, b1;
@@ -39,10 +46,10 @@ template verifyMerkleProofStep() {
     b1 <== nb.out[1];
 
     // one-hot selectors
-    signal e0; // childIndex==0
-    signal e1; // childIndex==1
-    signal e2; // childIndex==2
-    signal e3; // childIndex==3
+    signal e0; // childHomeIndex==0
+    signal e1; // childHomeIndex==1
+    signal e2; // childHomeIndex==2
+    signal e3; // childHomeIndex==3
 
     e0 <== (1 - b0) * (1 - b1);
     e1 <== b0 * (1 - b1);
@@ -83,11 +90,6 @@ template verifyMerkleProofStep() {
     H.in[3] <== c3;
 
     signal parent <== H.out;
-    signal parentIndex <-- childIndex \ 4;
-    signal rem <-- childIndex % 4;
-    childIndex === parentIndex * 4 + rem;
-    signal check <== LessThan(3)([rem, 4]);
-    check === 1;
 
     _parentIndex[1] === 0;
     _parentIndex[0] === parentIndex;
