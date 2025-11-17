@@ -3,7 +3,7 @@ import { DST_NONCE, poseidon_raw } from "../../synthesizer/params/index.ts";
 import { bigIntToBytes, bytesToBigInt, concatBytes, setLengthLeft } from "@ethereumjs/util";
 import { EdwardsPoint } from "@noble/curves/abstract/edwards";
 import { batchBigIntTo32BytesEach } from "../utils/index.ts";
-import { POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts";
+import { POSEIDON_INPUTS } from "../../interface/qapCompiler/importedConstants.ts";
 
 // To replace KECCAK256 with poseidon4. Example: 
 // const common = new Common({ chain: Mainnet, customCrypto: { keccak256: poseidon } })

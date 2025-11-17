@@ -18,6 +18,10 @@ import { fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
 import { poseidon_raw } from '../../src/synthesizer/params/index.ts';
+import {
+  createSynthesizerOptsForSimulationFromRPC,
+  type SynthesizerSimulationOpts,
+} from '../../src/interface/index.ts';
 
 const SENDER_L2_SEED = "Jake's L2 wallet";
 const senderL2PrvKey = jubjub.utils.randomPrivateKey(setLengthLeft(utf8ToBytes(SENDER_L2_SEED), 32));

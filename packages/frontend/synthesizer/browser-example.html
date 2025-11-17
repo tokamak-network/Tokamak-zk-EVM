@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tokamak Synthesizer - Browser Demo</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        max-width: 800px;
+        width: 100%;
+        padding: 40px;
+      }
+
+      h1 {
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 28px;
+      }
+
+      .subtitle {
+        color: #666;
+        margin-bottom: 30px;
+        font-size: 14px;
+      }
+
+      .status {
+        background: #f0f0f0;
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-size: 14px;
+        color: #555;
+      }
+
+      .status.loading {
+        background: #fff3cd;
+        color: #856404;
+      }
+
+      .status.ready {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      .status.error {
+        background: #f8d7da;
+        color: #721c24;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #333;
+        font-size: 14px;
+      }
+
+      input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: 'Courier New', monospace;
+        transition: border-color 0.3s;
+      }
+
+      input:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      button {
+        width: 100%;
+        padding: 14px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+
+      button:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+      }
+
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+
+      .result {
+        margin-top: 30px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+      }
+
+      .result h3 {
+        margin-bottom: 12px;
+        color: #333;
+        font-size: 18px;
+      }
+
+      .result pre {
+        background: #2d2d2d;
+        color: #f8f8f2;
+        padding: 16px;
+        border-radius: 6px;
+        overflow-x: auto;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .logs {
+        margin-top: 20px;
+        padding: 16px;
+        background: #2d2d2d;
+        color: #f8f8f2;
+        border-radius: 8px;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+
+      .log-entry {
+        margin-bottom: 4px;
+      }
+
+      .log-info {
+        color: #61afef;
+      }
+      .log-success {
+        color: #98c379;
+      }
+      .log-error {
+        color: #e06c75;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🚀 Tokamak Synthesizer</h1>
+      <p class="subtitle">Convert Ethereum transactions to ZK circuits in your browser</p>
+
+      <div id="status" class="status loading">Initializing...</div>
+
+      <div class="form-group">
+        <label for="rpc-url">RPC URL</label>
+        <input
+          type="text"
+          id="rpc-url"
+          placeholder="https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY"
+          value="https://eth-mainnet.g.alchemy.com/v2/"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="tx-hash">Transaction Hash</label>
+        <input
+          type="text"
+          id="tx-hash"
+          placeholder="0x1234567890abcdef..."
+          value=""
+        />
+      </div>
+
+      <button id="synthesize-btn" disabled>Synthesize</button>
+
+      <div id="result" class="result" style="display: none">
+        <h3>✅ Result</h3>
+        <pre id="result-json"></pre>
+      </div>
+
+      <div id="logs" class="logs"></div>
+    </div>
+
+    <!-- Load ethers.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
+
+    <!-- Load the browser build -->
+    <script type="module">
+      import { BrowserSynthesizerAdapter } from './dist/browser/synthesizer-browser.es.js';
+
+      const statusEl = document.getElementById('status');
+      const synthesizeBtn = document.getElementById('synthesize-btn');
+      const resultEl = document.getElementById('result');
+      const resultJsonEl = document.getElementById('result-json');
+      const logsEl = document.getElementById('logs');
+      const rpcUrlInput = document.getElementById('rpc-url');
+      const txHashInput = document.getElementById('tx-hash');
+
+      let synthesizer = null;
+
+      // Logger
+      function log(message, type = 'info') {
+        const logEntry = document.createElement('div');
+        logEntry.className = `log-entry log-${type}`;
+        logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        logsEl.appendChild(logEntry);
+        logsEl.scrollTop = logsEl.scrollHeight;
+        console.log(message);
+      }
+
+      // Initialize
+      async function initialize() {
+        try {
+          log('Initializing Synthesizer...', 'info');
+          statusEl.textContent = 'Initializing...';
+          statusEl.className = 'status loading';
+
+          const rpcUrl = rpcUrlInput.value.trim();
+          if (!rpcUrl || !rpcUrl.startsWith('http')) {
+            throw new Error('Invalid RPC URL');
+          }
+
+          synthesizer = new BrowserSynthesizerAdapter({
+            rpcUrl,
+            isMainnet: true,
+          });
+
+          await synthesizer.initialize(); // No-op, but kept for API compatibility
+
+          statusEl.textContent = '✅ Ready to synthesize';
+          statusEl.className = 'status ready';
+          synthesizeBtn.disabled = false;
+          log('Synthesizer ready!', 'success');
+        } catch (error) {
+          statusEl.textContent = `❌ Error: ${error.message}`;
+          statusEl.className = 'status error';
+          log(`Error: ${error.message}`, 'error');
+        }
+      }
+
+      // Synthesize
+      synthesizeBtn.addEventListener('click', async () => {
+        const txHash = txHashInput.value.trim();
+        if (!txHash) {
+          alert('Please enter a transaction hash');
+          return;
+        }
+
+        try {
+          synthesizeBtn.disabled = true;
+          statusEl.textContent = '⏳ Synthesizing...';
+          statusEl.className = 'status loading';
+          resultEl.style.display = 'none';
+
+          log(`Synthesizing transaction: ${txHash}`, 'info');
+
+          const result = await synthesizer.synthesize(txHash);
+
+          statusEl.textContent = '✅ Synthesis complete!';
+          statusEl.className = 'status ready';
+          synthesizeBtn.disabled = false;
+
+          resultJsonEl.textContent = JSON.stringify(result, null, 2);
+          resultEl.style.display = 'block';
+
+          log('Synthesis complete!', 'success');
+        } catch (error) {
+          statusEl.textContent = `❌ Error: ${error.message}`;
+          statusEl.className = 'status error';
+          synthesizeBtn.disabled = false;
+          log(`Error: ${error.message}`, 'error');
+        }
+      });
+
+      // Auto-initialize on load
+      initialize();
+    </script>
+  </body>
+</html>
+

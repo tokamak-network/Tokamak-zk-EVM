@@ -1,167 +1,238 @@
 /**
- * The adapter provides an external interface that returns data structures directly in memory,
- * eliminating the need for file system operations.
- * Now uses RPC state instead of hardcoded token configurations.
+ * Synthesizer Adapter - Browser/Node.js compatible
+ * Generates instance.json from Ethereum transactions using RPC state
+ *
+ * Updated to work with the new Synthesizer architecture:
+ * - Uses createSynthesizerOptsForSimulationFromRPC()
+ * - Uses createSynthesizer() and synthesizer.synthesizeTX()
+ * - Uses createCircuitGenerator() for output generation
  */
-import { Address, hexToBytes } from '@synthesizer-libs/util';
-import { EVM } from '../evm.js';
-import { Finalizer } from '../core/finalizer/index.ts';
-import { Permutation } from '../core/finalizer/permutation.ts';
-import { createEVM } from '../constructors.js';
-import { ExecResult } from '../types.js';
-import { PRV_OUT_PLACEMENT_INDEX } from '../../synthesizer/params/index.ts';
+
+import { ethers } from 'ethers';
+import { jubjub } from '@noble/curves/misc';
+import { bytesToBigInt, setLengthLeft, utf8ToBytes, hexToBytes, concatBytes, addHexPrefix } from '@ethereumjs/util';
+import { createSynthesizerOptsForSimulationFromRPC, type SynthesizerSimulationOpts } from '../rpc/rpc.ts';
+import { createSynthesizer } from '../../synthesizer/index.ts';
+import { createCircuitGenerator } from '../../circuitGenerator/circuitGenerator.ts';
+import type { SynthesizerInterface } from '../../synthesizer/types/index.ts';
+import { fromEdwardsToAddress } from '../../TokamakL2JS/index.ts';
+
+export interface SynthesizerAdapterConfig {
+  rpcUrl: string;
+}
+
+export interface SynthesizerResult {
+  instance: {
+    a_pub: string[];
+  };
+  placementVariables: any[];
+  permutation: {
+    row: number;
+    col: number;
+    X: number;
+    Y: number;
+  }[];
+  metadata: {
+    txHash: string;
+    blockNumber: number;
+    from: string;
+    to: string | null;
+    contractAddress: string;
+    eoaAddresses: string[];
+  };
+}
 
 export class SynthesizerAdapter {
   private rpcUrl: string;
-  private isMainnet: boolean;
+  private provider: ethers.JsonRpcProvider;
 
-  constructor(rpcUrl: string, isMainnet: boolean = true) {
-    this.rpcUrl = rpcUrl;
-    this.isMainnet = isMainnet;
+  constructor(config: SynthesizerAdapterConfig) {
+    this.rpcUrl = config.rpcUrl;
+    this.provider = new ethers.JsonRpcProvider(config.rpcUrl);
   }
 
-  public get placementIndices(): {
-    return: number;
-  } {
-    return {
-      return: PRV_OUT_PLACEMENT_INDEX,
-    };
+  /**
+   * Generate deterministic L2 key pairs for state channel participants
+   * Matches the pattern from L2TONTransfer/main.ts
+   */
+  private generateL2KeyPair(index: number): { privateKey: Uint8Array; publicKey: Uint8Array } {
+    const seedString = `L2_SEED_${index}`;
+    const seed = setLengthLeft(utf8ToBytes(seedString), 32);
+
+    if (index === 0) {
+      // First key (sender) uses randomPrivateKey
+      const privateKey = jubjub.utils.randomPrivateKey(seed);
+      const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(privateKey)).toBytes();
+      return { privateKey, publicKey };
+    } else {
+      // Rest use keygen - note: keygen returns { secretKey, publicKey }
+      const { secretKey, publicKey } = jubjub.keygen(seed);
+      return { privateKey: secretKey, publicKey };
+    }
   }
 
-  private async createFreshEVM(txHash: string): Promise<EVM> {
-    const evm = await createEVM({
-      txHash,
-      rpcUrl: this.rpcUrl,
-      isMainnet: this.isMainnet,
-    });
+  /**
+   * Extract EOA addresses from transaction
+   * Collects sender and receiver addresses from transaction and logs
+   */
+  private async extractEOAAddresses(txHash: string): Promise<string[]> {
+    const tx = await this.provider.getTransaction(txHash);
+    if (!tx) {
+      throw new Error(`Transaction not found: ${txHash}`);
+    }
 
-    // Initialize placements inPts and outPts arrays
-    if (evm.synthesizer) {
-      evm.synthesizer.state.logPt = [];
+    const eoaAddresses = new Set<string>();
 
-      const returnPlacement = evm.synthesizer.state.placements.get(
-        PRV_OUT_PLACEMENT_INDEX,
-      );
-      if (returnPlacement) {
-        returnPlacement.inPts = [];
-        returnPlacement.outPts = [];
-        console.log(
-          'SynthesizerAdapter.parseTransaction: Cleared logPt and outPts arrays',
-        );
+    // Add sender address
+    if (tx.from) {
+      eoaAddresses.add(tx.from.toLowerCase());
+    }
+
+    // Get receiver address from transaction logs
+    try {
+      const receipt = await this.provider.getTransactionReceipt(txHash);
+      if (receipt && receipt.logs.length > 0) {
+        // For ERC20 transfers, parse Transfer event to get receiver
+        for (const log of receipt.logs) {
+          // Transfer event signature: Transfer(address,address,uint256)
+          if (log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef') {
+            if (log.topics[2]) {
+              const receiver = '0x' + log.topics[2].slice(26); // Remove padding
+              eoaAddresses.add(receiver.toLowerCase());
+            }
+          }
+        }
       }
+    } catch (error) {
+      console.warn('[SynthesizerAdapter] Could not fetch transaction receipt, using minimal address list');
     }
 
-    return evm;
+    // Ensure we have at least 2 addresses
+    const addressList = Array.from(eoaAddresses);
+    if (addressList.length < 2) {
+      // Add a dummy address if we don't have enough
+      addressList.push('0x0000000000000000000000000000000000000001');
+    }
+
+    return addressList;
   }
 
   /**
-   * Parses and processes a transaction using RPC state, returning all necessary data structures in memory.
-   * @param {string} params.txHash - The transaction hash to process
-   * @param {string} params.contractAddr - The contract address (for validation)
-   * @param {string} params.calldata - The transaction calldata (for validation)
-   * @param {string} params.sender - The transaction sender address (for validation)
-   * @returns {Promise<{
-   *   evm: EVM,
-   *   executionResult: ExecResult,
-   *   permutation: Permutation,
-   * }>} Returns EVM instance, execution result, and permutation
+   * Synthesize a transaction into circuit instance
+   *
+   * @param txHash - Ethereum transaction hash (with or without 0x prefix)
+   * @param outputPath - Optional path for file outputs (if not provided, returns data in memory)
+   * @returns Instance JSON, placement variables, permutation, and metadata
    */
-  public async parseTransaction({
-    txHash,
-    contractAddr,
-    calldata,
-    sender,
-    outputPath,
-  }: {
-    txHash: string;
-    contractAddr?: string;
-    calldata?: string;
-    sender?: string;
-    outputPath?: string;
-  }): Promise<{
-    evm: EVM;
-    executionResult: ExecResult;
-    permutation: Permutation;
-  }> {
-    // Create EVM with RPC state for the given transaction
-    const evm = await this.createFreshEVM(txHash);
+  async synthesize(txHash: string, outputPath?: string): Promise<SynthesizerResult> {
+    // Normalize tx hash
+    const normalizedHash = txHash.startsWith('0x') ? txHash : `0x${txHash}`;
 
-    // Get transaction details from RPC
-    const { ethers } = await import('ethers');
-    const provider = new ethers.JsonRpcProvider(this.rpcUrl);
-    const tx = await provider.getTransaction(txHash);
+    console.log(`[SynthesizerAdapter] Processing transaction: ${normalizedHash}`);
 
-    if (tx === null || tx.blockNumber === null) {
-      throw new Error('Transaction not found or not yet mined');
+    // Get transaction details
+    const tx = await this.provider.getTransaction(normalizedHash);
+    if (!tx) {
+      throw new Error(`Transaction not found: ${normalizedHash}`);
     }
-    if (tx.to === null) {
-      throw new Error('Transaction to address is null');
+    if (tx.blockNumber === null) {
+      throw new Error('Transaction not yet mined');
     }
-    if (tx.from === null) {
-      throw new Error('Transaction from address is null');
+    if (!tx.to) {
+      throw new Error('Transaction must have a recipient (contract call)');
     }
-    if (tx.data === null) {
-      throw new Error('Transaction data is null');
+    if (!tx.from) {
+      throw new Error('Transaction must have a sender');
     }
 
-    // Validate provided parameters against actual transaction (if provided)
-    if (contractAddr && tx.to.toLowerCase() !== contractAddr.toLowerCase()) {
-      throw new Error(
-        `Contract address mismatch: expected ${contractAddr}, got ${tx.to}`,
-      );
-    }
-    if (calldata && tx.data.toLowerCase() !== calldata.toLowerCase()) {
-      throw new Error(
-        `Calldata mismatch: expected ${calldata}, got ${tx.data}`,
-      );
-    }
-    if (sender && tx.from.toLowerCase() !== sender.toLowerCase()) {
-      throw new Error(
-        `Sender address mismatch: expected ${sender}, got ${tx.from}`,
-      );
-    }
+    console.log(`[SynthesizerAdapter] Block: ${tx.blockNumber}, From: ${tx.from}, To: ${tx.to}`);
 
-    const _contractAddr = new Address(hexToBytes(tx.to));
-    const _sender = new Address(hexToBytes(tx.from));
-    const _calldata = hexToBytes(tx.data);
+    // Extract EOA addresses
+    const eoaAddresses = await this.extractEOAAddresses(normalizedHash);
+    console.log(`[SynthesizerAdapter] Found ${eoaAddresses.length} EOA addresses`);
 
-    // Get the contract code from RPC state
-    const contractCode = await evm.stateManager.getCode(_contractAddr);
+    // Generate L2 key pairs for state channel
+    const l2KeyPairs = eoaAddresses.map((_, idx) => this.generateL2KeyPair(idx));
+    const publicKeyListL2 = l2KeyPairs.map(kp => kp.publicKey);
+    const senderL2PrvKey = l2KeyPairs[0].privateKey;
 
-    const executionResult = await evm.runCode({
-      caller: _sender,
-      to: _contractAddr,
-      code: contractCode,
-      data: _calldata,
-    });
+    // Modify calldata to use L2 address instead of L1 address
+    // The original transaction uses L1 recipient, but we need L2 recipient for state channel
+    const originalData = hexToBytes(addHexPrefix(tx.data));
+    const functionSelector = originalData.slice(0, 4);
+    const amount = originalData.slice(36); // Amount starts at byte 36
+    const l2Address = setLengthLeft(fromEdwardsToAddress(publicKeyListL2[1]).toBytes(), 32);
+    const callDataL2 = concatBytes(functionSelector, l2Address, amount);
 
-    // Use Finalizer class to process placements
-    const finalizer = new Finalizer(
-      executionResult.runState!.synthesizer.state,
-    );
-    const permutation = await finalizer.exec(outputPath, true); // Write to filesystem with custom path
+    console.log('[SynthesizerAdapter] Modified calldata to use L2 recipient address');
 
-    return {
-      evm,
-      executionResult,
-      permutation,
+    // Build simulation options
+    const simulationOpts: SynthesizerSimulationOpts = {
+      txNonce: 0n, // L2 state channel uses fresh nonce starting from 0
+      rpcUrl: this.rpcUrl,
+      senderL2PrvKey,
+      blockNumber: tx.blockNumber - 1, // Use block before tx to get proper sender balance
+      contractAddress: tx.to as `0x${string}`,
+      userStorageSlots: [0], // Track balance storage slot
+      addressListL1: eoaAddresses as `0x${string}`[],
+      publicKeyListL2,
+      callData: callDataL2, // Use modified calldata with L2 address
     };
+
+    console.log('[SynthesizerAdapter] Creating synthesizer...');
+
+    // Create synthesizer using the new architecture
+    const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(simulationOpts);
+    const synthesizer = await createSynthesizer(synthesizerOpts);
+
+    console.log('[SynthesizerAdapter] Executing transaction...');
+
+    // Execute transaction
+    const runTxResult = await synthesizer.synthesizeTX();
+
+    console.log('[SynthesizerAdapter] Generating circuit outputs...');
+
+    // Generate circuit outputs
+    const circuitGenerator = await createCircuitGenerator(synthesizer);
+
+    // Get the data before writing (if we need in-memory access)
+    const placementVariables = circuitGenerator.variableGenerator.placementVariables || [];
+    const a_pub = circuitGenerator.variableGenerator.a_pub || [];
+    const permutation = circuitGenerator.permutationGenerator?.permutation || [];
+
+    // Write outputs to file if path provided
+    if (outputPath) {
+      circuitGenerator.writeOutputs(outputPath);
+      console.log(`[SynthesizerAdapter] Outputs written to: ${outputPath}`);
+    }
+
+    const result: SynthesizerResult = {
+      instance: {
+        a_pub: a_pub as string[],
+      },
+      placementVariables,
+      permutation,
+      metadata: {
+        txHash: normalizedHash,
+        blockNumber: tx.blockNumber,
+        from: tx.from,
+        to: tx.to,
+        contractAddress: tx.to,
+        eoaAddresses,
+      },
+    };
+
+    console.log('[SynthesizerAdapter] ✅ Synthesis complete');
+    console.log(`  - a_pub length: ${a_pub.length}`);
+    console.log(`  - Placements: ${placementVariables.length}`);
+
+    return result;
   }
 
   /**
-   * Alternative method that directly processes a transaction by hash without additional validation
-   * @param {string} txHash - The transaction hash to process
-   * @returns {Promise<{
-   *   evm: EVM,
-   *   executionResult: ExecResult,
-   *   permutation: Permutation,
-   * }>} Returns EVM instance, execution result, and permutation
+   * Alternative method for backward compatibility
    */
-  public async parseTransactionByHash(txHash: string): Promise<{
-    evm: EVM;
-    executionResult: ExecResult;
-    permutation: Permutation;
-  }> {
-    return this.parseTransaction({ txHash });
+  async parseTransactionByHash(txHash: string, outputPath?: string): Promise<SynthesizerResult> {
+    return this.synthesize(txHash, outputPath);
   }
 }

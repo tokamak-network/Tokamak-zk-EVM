@@ -5,7 +5,7 @@ import { jubjub } from "@noble/curves/misc";
 import { IMT, IMTHashFunction, IMTMerkleProof, IMTNode } from "@zk-kit/imt"
 import { poseidon_raw } from "src/synthesizer/params/index.ts";
 import { addHexPrefix, Address, bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, concatBytes, createAccount, createAddressFromString, hexToBytes, setLengthLeft, setLengthRight, toBytes } from "@ethereumjs/util";
-import { MAX_MT_LEAVES, POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts";
+import { MAX_MT_LEAVES, POSEIDON_INPUTS } from "../../interface/qapCompiler/importedConstants.ts";
 import { ethers, solidityPacked } from "ethers";
 import { poseidon } from "../crypto/index.ts";
 import { keccak256 } from "ethereum-cryptography/keccak";

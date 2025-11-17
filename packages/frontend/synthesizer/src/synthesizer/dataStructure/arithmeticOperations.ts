@@ -1,6 +1,6 @@
 import { jubjub } from "@noble/curves/misc"
 import { poseidon4 } from "poseidon-bls12381"
-import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE, POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts"
+import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE, POSEIDON_INPUTS } from "../../interface/qapCompiler/importedConstants.ts"
 import { DEFAULT_SOURCE_BIT_SIZE, poseidon_raw } from "src/synthesizer/params/index.ts"
 
 const convertToSigned = (value: bigint): bigint => {
