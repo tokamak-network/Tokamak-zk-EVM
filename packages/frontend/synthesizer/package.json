@@ -47,8 +47,6 @@
   ],
   "scripts": {
     "build": "../../../config/monorepo-js/cli/ts-build.sh",
-    "build:browser": "vite build --config vite.config.browser.ts",
-    "preview:browser": "vite preview --config vite.config.browser.ts",
     "clean": "../../../config/monorepo-js//cli/clean-package.sh",
     "cli": "tsx src/cli/index.ts",
     "coverage": "DEBUG=ethjs npx vitest run --coverage.enabled --coverage.reporter=lcov",
@@ -71,20 +69,20 @@
     "tsc": "../../../config/monorepo-js//cli/ts-compile.sh"
   },
   "dependencies": {
-    "@ethereumjs/util": "^10.0.0",
-    "@ethereumjs/vm": "^10.0.0",
-    "@ethereumjs/evm": "^10.0.0",
-    "@ethereumjs/common": "^10.0.0",
-    "@ethereumjs/tx": "^10.0.0",
     "@ethereumjs/block": "^10.0.0",
+    "@ethereumjs/common": "^10.0.0",
+    "@ethereumjs/evm": "^10.0.0",
     "@ethereumjs/rlp": "^10.0.0",
     "@ethereumjs/statemanager": "^10.0.0",
-    "@zk-kit/imt": "2.0.0-beta.8",
+    "@ethereumjs/tx": "^10.0.0",
+    "@ethereumjs/util": "^10.0.0",
+    "@ethereumjs/vm": "^10.0.0",
     "@js-sdsl/ordered-map": "^4.4.2",
+    "@noble/curves": "^1.9.6",
     "@tokamak-zk-evm/qap-compiler": "^0.0.2",
     "@types/debug": "^4.1.9",
     "@vitest/coverage-v8": "^2.1.8",
-    "@noble/curves": "^1.9.6",
+    "@zk-kit/imt": "2.0.0-beta.8",
     "app-root-path": "^3.1.0",
     "commander": "^12.0.0",
     "debug": "^4.3.3",
@@ -92,9 +90,9 @@
     "ethereum-cryptography": "^3.0.0",
     "ethers": "^6.14.3",
     "eventemitter3": "^5.0.1",
+    "poseidon-bls12381": "^1.0.2",
     "verkle-cryptography-wasm": "^0.4.8",
-    "vitest": "^2.1.8",
-    "poseidon-bls12381": "^1.0.2"
+    "vitest": "^2.1.8"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
@@ -125,7 +123,6 @@
     "split": "^1.0.1",
     "ts-loader": "^9.5.2",
     "typescript": "^4.7.2",
-    "vite": "^6.0.0",
     "webpack": "^5.101.0",
     "webpack-cli": "^6.0.1"
   },

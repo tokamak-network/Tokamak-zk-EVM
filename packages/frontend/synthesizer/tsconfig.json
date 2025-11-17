@@ -3,7 +3,8 @@
   "compilerOptions": {
     "allowImportingTsExtensions": true,
     "emitDeclarationOnly": true,
-
+    "outDir": "./dist",
+    "declarationDir": "./dist/types",
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node16",
     "allowJs": true,

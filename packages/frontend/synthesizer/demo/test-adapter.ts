@@ -3,12 +3,12 @@
  * Tests the updated adapter with a real Ethereum transaction
  */
 
-import { SynthesizerAdapter } from './src/interface/adapters/synthesizerAdapter.ts';
+import { SynthesizerAdapter } from '@tokamak-zk-evm/synthesizer';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 
-// Load .env file
-config({ path: resolve(process.cwd(), '.env') });
+// Load .env file from project root
+config({ path: resolve(process.cwd(), '../../../../.env') });
 
 async function testAdapter() {
   console.log('🧪 Testing SynthesizerAdapter...\n');
@@ -18,7 +18,7 @@ async function testAdapter() {
 
   if (!rpcUrl) {
     console.error('❌ RPC_URL not found in .env file');
-    console.error('   Please ensure .env file exists with RPC_URL set');
+    console.error('   Please ensure .env file exists in project root with RPC_URL set');
     process.exit(1);
   }
 

@@ -4,36 +4,32 @@ import { resolve } from 'path';
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/browser/index.ts'),
-      name: 'TokamakSynthesizer',
+      entry: resolve(__dirname, 'src/index.ts'),
+      name: 'TokamakSynthesizerBrowser',
       formats: ['es', 'umd'],
       fileName: format => `synthesizer-browser.${format}.js`,
     },
     rollupOptions: {
-      // Externalize dependencies that should be provided by the host
-      external: ['ethers'],
+      external: ['ethers', '@tokamak-zk-evm/synthesizer'],
       output: {
         globals: {
           ethers: 'ethers',
+          '@tokamak-zk-evm/synthesizer': 'TokamakSynthesizer',
         },
       },
     },
-    outDir: 'dist/browser',
+    outDir: 'dist',
     sourcemap: true,
     minify: 'esbuild',
   },
   resolve: {
     alias: {
-      // Path alias for absolute imports
-      'src': resolve(__dirname, './src'),
-      // Browser-compatible polyfills
       'node:url': 'url',
       'node:path': 'path-browserify',
       'node:fs': 'memfs',
     },
   },
   define: {
-    // Define Node.js globals for browser
     'process.env': {},
     global: 'globalThis',
   },
