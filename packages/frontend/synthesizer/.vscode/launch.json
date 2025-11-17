@@ -6,7 +6,7 @@
       "request": "launch",
       "name": "Launch with tsx",
       "runtimeExecutable": "tsx",
-      "program": "${workspaceFolder}/examples/L2TONTransfer/main2.ts",
+      "program": "${workspaceFolder}/examples/L2TONTransfer/main.ts",
       "args": [],
       "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],

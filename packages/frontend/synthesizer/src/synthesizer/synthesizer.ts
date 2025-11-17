@@ -258,23 +258,23 @@ export class Synthesizer implements SynthesizerInterface
   // }
 
   private async _finalizeStorage(): Promise<void> {    
-    const computeParentsNodePts = (childIndexPt: DataPt, childPt: DataPt, siblingPts: DataPt[]): {parentIndexPt: DataPt, parentPt: DataPt} => {
-      if (siblingPts.length !== POSEIDON_INPUTS - 1) {
-        throw new Error(`Siblings of each level for a Merkle proof should be ${POSEIDON_INPUTS - 1}, but got ${siblingPts.length}.`)
+    const computeParentsNodePts = (childIndexPt: DataPt, childPt: DataPt, siblings: bigint[]): {parentIndexPt: DataPt, parentPt: DataPt} => {
+      if (siblings.length !== POSEIDON_INPUTS - 1) {
+        throw new Error(`Siblings of each level for a Merkle proof should be ${POSEIDON_INPUTS - 1}, but got ${siblings.length}.`)
       }
       const childIndex = Number(childIndexPt.value)
       const childHomeIndex = childIndex % POSEIDON_INPUTS
       const parentIndex = Math.floor( childIndex / POSEIDON_INPUTS)
       
-      const childrenPts = [
-        ...siblingPts.slice(0, childHomeIndex),
-        childPt,
-        ...siblingPts.slice(childHomeIndex, )
+      const children = [
+        ...siblings.slice(0, childHomeIndex),
+        childPt.value,
+        ...siblings.slice(childHomeIndex, )
       ]
 
       return{
         parentIndexPt: this.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(parentIndex), true),
-        parentPt: this.placePoseidon(childrenPts),  
+        parentPt: this.addReservedVariableToBufferIn('MERKLE_PROOF', poseidon_raw(children), true),  
       }
     }
 
@@ -284,7 +284,7 @@ export class Synthesizer implements SynthesizerInterface
       for (var level = 0; level < MT_DEPTH; level++) {
         const thisSiblings = siblings[level]
         const siblingPts: DataPt[] = thisSiblings.map(value => this.addReservedVariableToBufferIn('MERKLE_PROOF', value, true))
-        const {parentIndexPt, parentPt} = computeParentsNodePts(childIndexPt, childPt, siblingPts)
+        const {parentIndexPt, parentPt} = computeParentsNodePts(childIndexPt, childPt, thisSiblings)
 
         if (level < MT_DEPTH - 1) {
           this.placeArith('VerifyMerkleProof', [childIndexPt, childPt, ...siblingPts, parentIndexPt, parentPt])
