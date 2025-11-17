@@ -10,7 +10,7 @@ async function generateProof() {
         
         // Step 1: Generate witness
         console.log('📝 Generating witness...');
-        execSync('snarkjs wtns calculate ../../circuits/build/circuit_N2_js/circuit_N2.wasm input.json witness.wtns', {
+        execSync('snarkjs wtns calculate ../../circuits/build/circuit_N4_js/circuit_N4.wasm input.json witness.wtns', {
             stdio: 'inherit',
             cwd: process.cwd()
         });
@@ -59,7 +59,7 @@ async function generateProof() {
 // Check if required files exist before starting
 function checkRequiredFiles() {
     const requiredFiles = [
-        '../../circuits/build/circuit_N2_js/circuit_N2.wasm',
+        '../../circuits/build/circuit_N4_js/circuit_N4.wasm',
         'input.json',
         '../../trusted-setup/16_leaves/circuit_final.zkey'
     ];
