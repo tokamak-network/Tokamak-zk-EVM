@@ -8,7 +8,6 @@ import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable, Synthe
 import { ArithmeticManager, BufferManager, InstructionHandler, MemoryManager, StateManager, SynthesizerOpHandler } from './handlers/index.ts';
 import { ArithmeticOperator, SubcircuitNames, TX_MESSAGE_TO_HASH } from 'src/interface/qapCompiler/configuredTypes.ts';
 import { poseidon } from 'src/TokamakL2JS/index.ts';
-import { poseidon_raw } from './params/index.ts';
 import { MAX_MT_LEAVES, MT_DEPTH, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
 import { DataPtFactory } from './dataStructure/dataPt.ts';
 
@@ -163,209 +162,67 @@ export class Synthesizer implements SynthesizerInterface
     }
   }
 
-  // // Old version: Reconstructing the initial and final Merkle roots, rather than verifying Merkle proofs
-  // private async _finalizeStorage(): Promise<void> {
-  //   const computeParentsNodePts = (childrenPts: DataPt[], nullVal: bigint, level: number): DataPt[] => {
-  //     const numChunks = Math.ceil(childrenPts.length / POSEIDON_INPUTS) * POSEIDON_INPUTS;
-  //     const parentPts: DataPt[] = []
-  //     for (let i = 0; i < numChunks; i += POSEIDON_INPUTS) {
-  //         const chunk = Array.from({ length: POSEIDON_INPUTS }, (_, k) => childrenPts[i + k] ?? this.loadArbitraryStatic(0n, 1));
-  //         // if (chunk.every(pt => pt.value === nullVal)) {
-  //         //   parentPts.push(this.getReservedVariableFromBuffer(`NULL_POSEIDON_LEVEL${level}` as ReservedVariable))
-  //         // } else {
-  //           parentPts.push(this.placeArith('Poseidon', chunk)[0]);
-           
-  //         // }
-  //     }
-  //     return parentPts
-  //   }
-
-  //   const padLeaves = (leavesPts: DataPt[], length: number = MAX_MT_LEAVES): void => {
-  //     if (leavesPts.length > length) {
-  //       throw new Error('Excessive leaves')
-  //     }
-  //     while (leavesPts.length < length) {
-  //       leavesPts.push(this.loadArbitraryStatic(0n, 1))
-  //     }      
-  //   }
-  //   // Fill cached storage and add unused user storage values into the buffer
-  //   for (const key of this.cachedOpts.stateManager.registeredKeys!) {
-  //     const keyBigInt = bytesToBigInt(key)
-  //     const cached = this.state.cachedStorage.get(keyBigInt)!
-  //     if (cached.length === 0) {
-  //     //   const storedValue = bytesToBigInt(await this.cachedOpts.stateManager.getStorage(this.cachedOpts.signedTransaction.to, key))
-  //     //   if (storedValue !== cached[0].valuePt.value) {
-  //     //     throw new Error('Mismatch between state manager and cached storage')
-  //     //   }
-  //     // } else {
-  //       // Make it warm and verified
-  //       await this.loadStorage(keyBigInt, undefined)
-  //     }
-  //   }
-  //   // Preparing initial Merkle tree leaves
-  //   const initialLeavesRaw: {indexPt: DataPt, keyPt: DataPt, valuePt: DataPt}[] = this.cachedOpts.stateManager.registeredKeys!.map(key => {
-  //     const indexPt = this.state.cachedStorage.get(bytesToBigInt(key))![0].indexPt
-  //     const keyPt = this.state.cachedStorage.get(bytesToBigInt(key))![0].keyPt
-  //     const valuePt = this.state.cachedStorage.get(bytesToBigInt(key))![0].valuePt
-  //     if (indexPt === null || keyPt === null) {
-  //       throw new Error('Something wrong in the load/store storage. Need to be debugged.')
-  //     }
-  //     return {indexPt, keyPt, valuePt}
-  //   })
-  //   const initialLeavesPts: DataPt[] = initialLeavesRaw.map(leafRaw => this.placeArith('Poseidon', [leafRaw.indexPt, leafRaw.keyPt, leafRaw.valuePt, this.loadArbitraryStatic(0n, 1)])[0])
-  //   padLeaves(initialLeavesPts)
-  //   let childrenPts: DataPt[]
-  //   let nullVal
-  //   // Constructing initial Merkle root
-  //   childrenPts = initialLeavesPts
-  //   nullVal = 0n
-  //   for (var level = 0; level < MT_DEPTH - 1; level++) {
-  //     childrenPts = computeParentsNodePts(childrenPts, nullVal, level)
-  //     nullVal = poseidon_raw(Array(POSEIDON_INPUTS).fill(nullVal))
-  //   }
-  //   padLeaves(childrenPts, 4)
-  //   this.placeArith('VerifyMerkleProof', [
-  //     ...childrenPts, 
-  //     this.getReservedVariableFromBuffer('INI_MERKLE_ROOT')
-  //   ])
-
-  //   // Preparing last Merkle tree leaves
-  //   const lastLeavesRaw: {indexPt: DataPt, keyPt: DataPt, valuePt: DataPt}[] = this.cachedOpts.stateManager.registeredKeys!.map(key => {
-  //     const indexPt = this.state.cachedStorage.get(bytesToBigInt(key))!.at(-1)!.indexPt
-  //     const keyPt = this.state.cachedStorage.get(bytesToBigInt(key))!.at(-1)!.keyPt
-  //     const valuePt = this.state.cachedStorage.get(bytesToBigInt(key))!.at(-1)!.valuePt
-  //     if (indexPt === null || keyPt === null) {
-  //       throw new Error('Something wrong in the load/store storage. Need to be debugged.')
-  //     }
-  //     return {indexPt, keyPt, valuePt}
-  //   })
-  //   const lastLeavesPts: DataPt[] = lastLeavesRaw.map(leafRaw => this.placeArith('Poseidon', [leafRaw.indexPt, leafRaw.keyPt, leafRaw.valuePt, this.loadArbitraryStatic(0n, 1)])[0])
-  //   padLeaves(lastLeavesPts)
-
-  //   // Constructing last Merkle root
-  //   childrenPts = lastLeavesPts
-  //   nullVal = 0n
-  //   for (var level = 0 ; level < MT_DEPTH; level++) {
-  //     childrenPts = computeParentsNodePts(childrenPts, nullVal, level)
-  //     nullVal = poseidon_raw(Array(POSEIDON_INPUTS).fill(nullVal))
-  //   }
-  //   if (childrenPts.length !== 1) {
-  //     throw new Error('Excessive number of leaves')
-  //   }
-  //   this.addReservedVariableToBufferOut('RES_MERKLE_ROOT', childrenPts[0], true)
-
-  //   this._registerOtherContractStrageWriting()
-  // }
-
   private async _finalizeStorage(): Promise<void> {    
-    const computeParentsNodePts = (childIndexPt: DataPt, childPt: DataPt, siblings: bigint[]): {parentIndexPt: DataPt, parentPt: DataPt} => {
-      if (siblings.length !== POSEIDON_INPUTS - 1) {
-        throw new Error(`Siblings of each level for a Merkle proof should be ${POSEIDON_INPUTS - 1}, but got ${siblings.length}.`)
-      }
-      const childIndex = Number(childIndexPt.value)
-      const childHomeIndex = childIndex % POSEIDON_INPUTS
-      const parentIndex = Math.floor( childIndex / POSEIDON_INPUTS)
-      
-      const children = [
-        ...siblings.slice(0, childHomeIndex),
-        childPt.value,
-        ...siblings.slice(childHomeIndex, )
-      ]
-
-      return{
-        parentIndexPt: this.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(parentIndex), true),
-        parentPt: this.addReservedVariableToBufferIn('MERKLE_PROOF', poseidon_raw(children), true),  
-      }
-    }
-
-    const placeMerkleProofVerification = (indexPt: DataPt, leafPt: DataPt, siblings: bigint[][], rootPt: DataPt): void => {
-      let childPt: DataPt = leafPt
-      let childIndexPt: DataPt = indexPt
-      for (var level = 0; level < MT_DEPTH; level++) {
-        const thisSiblings = siblings[level]
-        const siblingPts: DataPt[] = thisSiblings.map(value => this.addReservedVariableToBufferIn('MERKLE_PROOF', value, true))
-        const {parentIndexPt, parentPt} = computeParentsNodePts(childIndexPt, childPt, thisSiblings)
-
-        if (level < MT_DEPTH - 1) {
-          this.placeArith('VerifyMerkleProof', [childIndexPt, childPt, ...siblingPts, parentIndexPt, parentPt])
-        } else {
-          this.placeArith('VerifyMerkleProof', [childIndexPt, childPt, ...siblingPts, parentIndexPt, rootPt])
-        }
-
-        childPt = parentPt
-        childIndexPt = parentIndexPt
-      }
-    }
-
-    // Integrity check of initial storage reads
-    for (const [key, accessList] of this.state.cachedStorage.entries()) {
-      if (accessList.length === 0 || accessList[0]?.access !== 'Read') {
-        continue;
-      }
-      const mtIndex = this.cachedOpts.stateManager.getMTIndex(key)
-      if (mtIndex < 0) {
-        continue;
-      }
-      const keyPt = accessList[0].keyPt!
-      if (key !== keyPt.value) {
-        throw new Error('Something wrong with cachedStorage. Need to be debugged.')
-      }
-      const merkleProof = this.cachedOpts.stateManager.initialMerkleTree.createProof(mtIndex)
-      const indexPt = this.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(mtIndex), true)
-      const valuePt = accessList[0].valuePt
-
-      const childPt = this.placeArith('Poseidon', [indexPt, keyPt, valuePt, this.loadArbitraryStatic(0n, 1)])[0]
-
-      placeMerkleProofVerification(
-        indexPt,
-        childPt,
-        merkleProof.siblings,
-        this.getReservedVariableFromBuffer('INI_MERKLE_ROOT'),
-      )
-    }
-
-    // Integrity check of final storage writes
-    const finalMTRootPt = this.addReservedVariableToBufferIn('RES_MERKLE_ROOT', await this.cachedOpts.stateManager.getUpdatedMerkleTreeRoot(), true)
-    for (const [key, accessList] of this.state.cachedStorage.entries()) {
-      if (accessList.length === 0) {
-        continue;
-      }
-
-      const mtIndex = this.cachedOpts.stateManager.getMTIndex(key)
-      if (mtIndex < 0) {
-        continue;
-      }
-
-      let lastWriteIndex = -1
-      for (let i = accessList.length - 1; i >= 0; i--) {
-        if (accessList[i].access === 'Write') {
-          lastWriteIndex = i
-          break;
-        }
-      }
-      if (lastWriteIndex === -1){
-        continue;
-      }
-
-      const cache = accessList[lastWriteIndex]!
-      const keyPt = cache.keyPt!
-      if (key !== keyPt.value) {
-        throw new Error('Something wrong with cachedStorage. Need to be debugged.')
-      }
-      const merkleProof = await this.cachedOpts.stateManager.getMerkleProof(mtIndex)
-
-      const indexPt = this.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(mtIndex), true)
-      const valuePt = cache.valuePt
-      const childPt = this.placeArith('Poseidon', [indexPt, keyPt, valuePt, this.loadArbitraryStatic(0n, 1)])[0]
-
-      placeMerkleProofVerification(
-        indexPt,
-        childPt,
-        merkleProof.siblings,
-        finalMTRootPt,
-      )
-    }
+    await this._updateMerkleTree()
     this._registerOtherContractStrageWriting()
+  }
+
+  private async _updateMerkleTree(): Promise<void> {
+    // Make every user storage warm
+    for (const key of this.cachedOpts.stateManager.registeredKeys!) {
+      const keyBigInt = bytesToBigInt(key)
+      const cached = this.state.cachedStorage.get(keyBigInt)
+      if (cached === undefined) {
+        const keyPt = this.addReservedVariableToBufferIn('MERKLE_PROOF', keyBigInt, true)
+        await this._instructionHandlers.loadStorage(keyPt, undefined)
+      }
+    }
+
+    const finalMerkleRootPt = this.addReservedVariableToBufferIn(
+      'RES_MERKLE_ROOT',
+      await this.cachedOpts.stateManager.getUpdatedMerkleTreeRoot(),
+      true,
+    )
+    let _index = -1;
+    for (const [key, cache] of this.state.cachedStorage.entries()) {
+      _index++;
+      const MTIndex = this.cachedOpts.stateManager.getMTIndex(key)
+      if (MTIndex < 0) {
+        continue;
+      }
+      if (cache.accessOrder !== _index) {
+        throw new Error(`Merkle proof verification for the final merkle root should be read in the accessed order.`)
+      }
+      const lastHistory = cache.accessHistory[cache.accessHistory.length - 1]
+      let childPt: DataPt
+      const indexPt = lastHistory.indexPt
+      if (indexPt?.value !== BigInt(MTIndex)) {
+        throw new Error(`The cached storage is about a user's but has no or incorrect DataPt for its Merkle tree index.`)
+      }
+      // if (lastCachedStorage.access === 'Read') {
+      //   if (lastCachedStorage.childPt === null) {
+      //     throw new Error(`The cached storage for 'read' has no childPt, meaning that its integrity has never been verified. Need to be debugged.`)
+      //   }
+      //   childPt = lastCachedStorage.childPt
+      // } else {
+      //   if (lastCachedStorage.keyPt === null) {
+      //     throw new Error(`The cached storage is about a user's but has no DataPt for key.`)
+      //   }
+        childPt = this.placeArith('Poseidon', [
+          lastHistory.keyPt!, 
+          lastHistory.valuePt, 
+          this.loadArbitraryStatic(0n),
+          this.loadArbitraryStatic(0n),
+        ])[0]
+      // }
+      const merkleProof = await this.cachedOpts.stateManager.getMerkleProof(MTIndex)
+      this.placeMerkleProofVerification(
+        indexPt,
+        childPt,
+        merkleProof.siblings,
+        finalMerkleRootPt,
+      )
+    }
   }
 
   private _registerOtherContractStrageWriting(): void {
@@ -373,19 +230,18 @@ export class Synthesizer implements SynthesizerInterface
     for (const [key, cache] of this.state.cachedStorage.entries()) {
       if (this.cachedOpts.stateManager.getMTIndex(key) < 0){
         // Other contract storage access
-        let lastWriteIndex = cache.length - 1
-        while(lastWriteIndex >= 0) {
-          if (cache[lastWriteIndex].access !== 'Write') {
+        let lastHistoryIndex = cache.accessHistory.length - 1
+        while(lastHistoryIndex >= 0) {
+          if (cache.accessHistory[lastHistoryIndex--].access !== 'Write') {
             break
           }
-          lastWriteIndex--
         }
-        if (lastWriteIndex >= 0) {
+        if (lastHistoryIndex >= 0) {
           this.addReservedVariableToBufferOut(
             'OTHER_CONTRACT_STORAGE_OUT',
-            cache[lastWriteIndex].valuePt,
+            cache.accessHistory[lastHistoryIndex].valuePt,
             true,
-            `at MPT key ${bigIntToHex(key)}`,
+            ` at MPT key ${bigIntToHex(key)}`,
           );
         }
       }
@@ -523,6 +379,9 @@ export class Synthesizer implements SynthesizerInterface
   }
   placePoseidon(inPts: DataPt[]): DataPt {
     return this._arithmeticManager.placePoseidon(inPts)
+  }
+  placeMerkleProofVerification(indexPt: DataPt, leafPt: DataPt, siblings: bigint[][], rootPt: DataPt): void {
+    return this._arithmeticManager.placeMerkleProofVerification(indexPt, leafPt, siblings, rootPt)
   }
 
   placeMemoryToStack(dataAliasInfos: DataAliasInfos): DataPt {

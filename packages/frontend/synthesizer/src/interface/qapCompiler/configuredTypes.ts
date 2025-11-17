@@ -1,3 +1,6 @@
+import { poseidon4 } from "poseidon-bls12381"
+
+export const poseidon_raw = poseidon4
 
 export const ARITHMETIC_OPERATOR_LIST = [
   'ADD',

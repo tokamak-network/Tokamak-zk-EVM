@@ -1,7 +1,8 @@
 import { jubjub } from "@noble/curves/misc"
 import { poseidon4 } from "poseidon-bls12381"
+import { poseidon_raw } from "src/interface/qapCompiler/configuredTypes.ts"
 import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE, POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts"
-import { DEFAULT_SOURCE_BIT_SIZE, poseidon_raw } from "src/synthesizer/params/index.ts"
+import { DEFAULT_SOURCE_BIT_SIZE} from "src/synthesizer/params/index.ts"
 
 const convertToSigned = (value: bigint): bigint => {
   const SIGN_BIT = 1n << 255n
@@ -354,7 +355,7 @@ export class ArithmeticOperations {
    */
   static poseidonN(in_vals: bigint[]): bigint {
     if (in_vals.length !== POSEIDON_INPUTS) {
-      throw new Error('poseidon4 expected exactly four input values')
+      throw new Error(`poseidon${POSEIDON_INPUTS} expected exactly ${POSEIDON_INPUTS} values`)
     }
     return poseidon_raw(in_vals)
   }
