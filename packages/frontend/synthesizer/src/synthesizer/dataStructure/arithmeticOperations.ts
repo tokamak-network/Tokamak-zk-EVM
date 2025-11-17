@@ -606,15 +606,17 @@ export class ArithmeticOperations {
    * VerifyMerkleProof
    */
   static verifyMerkleProof(inVals: bigint[]): bigint[] {
-    if (inVals.length !== 3 + POSEIDON_INPUTS) {
-      throw new Error(`VerifyMerkleProof expected exactly ${3 + POSEIDON_INPUTS} input values, but got ${inVals.length} values`)
+    const nSiblings = POSEIDON_INPUTS - 1
+    const nIns = 4 + nSiblings
+    if (inVals.length !== nIns) {
+      throw new Error(`VerifyMerkleProof expected exactly ${nIns} input values, but got ${inVals.length} values`)
     }
     const childIndex = Number(inVals[0])
     const childHomeIndex = childIndex % POSEIDON_INPUTS
     const child = inVals[1]
-    const siblings = inVals.slice(2, 2 + POSEIDON_INPUTS - 1)
-    const parentIndex = Number(inVals[2 + POSEIDON_INPUTS - 1])
-    const parent = inVals[2 + POSEIDON_INPUTS]
+    const siblings = inVals.slice(2, 2 + nSiblings)
+    const parentIndex = Number(inVals[nIns - 2])
+    const parent = inVals[nIns - 1]
 
     const children = [
       ...siblings.slice(0, childHomeIndex),
@@ -626,6 +628,98 @@ export class ArithmeticOperations {
       parent !== poseidon_raw(children) ||
       parentIndex !== Math.floor(childIndex / POSEIDON_INPUTS)
     ) {
+      throw new Error('verifyMerkleProof failed')
+    }
+    return []
+  }
+
+  /**
+   * VerifyMerkleProof2x
+   */
+  static verifyMerkleProof2x(inVals: bigint[]): bigint[] {
+    const nSiblings = POSEIDON_INPUTS - 1
+    const nIns = 4 + 2 * nSiblings
+    if (inVals.length !== nIns) {
+      throw new Error(`VerifyMerkleProof expected exactly ${nIns} input values, but got ${inVals.length} values`)
+    }
+
+    const childIndex = Number(inVals[0])
+    const child = inVals[1]
+    const parentIndex = Number(inVals[nIns - 2])
+    const parent = inVals[nIns - 1]
+
+    const siblings1 = inVals.slice(2, 2 + nSiblings)
+    const siblings2 = inVals.slice(2 + nSiblings, 2 + 2 * nSiblings)
+
+    const childHomeIndex = childIndex % POSEIDON_INPUTS
+    const firstChildren = [
+      ...siblings1.slice(0, childHomeIndex),
+      child,
+      ...siblings1.slice(childHomeIndex),
+    ]
+    const firstParent = poseidon_raw(firstChildren)
+    const firstParentIndex = Math.floor(childIndex / POSEIDON_INPUTS)
+    const firstParentHomeIndex = firstParentIndex % POSEIDON_INPUTS
+
+    const secondChildren = [
+      ...siblings2.slice(0, firstParentHomeIndex),
+      firstParent,
+      ...siblings2.slice(firstParentHomeIndex),
+    ]
+    const secondParentIndex = Math.floor(firstParentIndex / POSEIDON_INPUTS)
+
+    if (parent !== poseidon_raw(secondChildren) || parentIndex !== secondParentIndex) {
+      throw new Error('verifyMerkleProof failed')
+    }
+    return []
+  }
+
+  /**
+   * VerifyMerkleProof3x
+   */
+  static verifyMerkleProof3x(inVals: bigint[]): bigint[] {
+    const nSiblings = POSEIDON_INPUTS - 1
+    const nIns = 4 + 3 * nSiblings
+    if (inVals.length !== nIns) {
+      throw new Error(`VerifyMerkleProof expected exactly ${nIns} input values, but got ${inVals.length} values`)
+    }
+
+    const childIndex = Number(inVals[0])
+    const child = inVals[1]
+    const parentIndex = Number(inVals[nIns - 2])
+    const parent = inVals[nIns - 1]
+
+    const siblings1 = inVals.slice(2, 2 + nSiblings)
+    const siblings2 = inVals.slice(2 + nSiblings, 2 + 2 * nSiblings)
+    const siblings3 = inVals.slice(2 + 2 * nSiblings, 2 + 3 * nSiblings)
+
+    const childHomeIndex = childIndex % POSEIDON_INPUTS
+    const firstChildren = [
+      ...siblings1.slice(0, childHomeIndex),
+      child,
+      ...siblings1.slice(childHomeIndex),
+    ]
+    const firstParent = poseidon_raw(firstChildren)
+    const firstParentIndex = Math.floor(childIndex / POSEIDON_INPUTS)
+    const firstParentHomeIndex = firstParentIndex % POSEIDON_INPUTS
+
+    const secondChildren = [
+      ...siblings2.slice(0, firstParentHomeIndex),
+      firstParent,
+      ...siblings2.slice(firstParentHomeIndex),
+    ]
+    const secondParent = poseidon_raw(secondChildren)
+    const secondParentIndex = Math.floor(firstParentIndex / POSEIDON_INPUTS)
+    const secondParentHomeIndex = secondParentIndex % POSEIDON_INPUTS
+
+    const thirdChildren = [
+      ...siblings3.slice(0, secondParentHomeIndex),
+      secondParent,
+      ...siblings3.slice(secondParentHomeIndex),
+    ]
+    const thirdParentIndex = Math.floor(secondParentIndex / POSEIDON_INPUTS)
+
+    if (parent !== poseidon_raw(thirdChildren) || parentIndex !== thirdParentIndex) {
       throw new Error('verifyMerkleProof failed')
     }
     return []

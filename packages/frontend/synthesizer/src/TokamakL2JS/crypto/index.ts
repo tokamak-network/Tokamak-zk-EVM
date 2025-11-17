@@ -15,9 +15,10 @@ export function poseidon(msg: Uint8Array): Uint8Array {
             throw new Error('Input word was expected to be in the BLS12-381 scalar field, but it is not.');
         }
     }
+    const EMPTY_INPUT = Array<bigint>(POSEIDON_INPUTS).fill(0n)
     // Ensure arity matches the concrete Poseidon4 we call
-    if (POSEIDON_INPUTS !== 4) {
-        throw new Error(`POSEIDON_INPUTS=${POSEIDON_INPUTS} not supported: expected 4 for poseidon4()`);
+    if (POSEIDON_INPUTS !== 2) {
+        throw new Error(`POSEIDON_INPUTS=${POSEIDON_INPUTS} not supported: expected ${POSEIDON_INPUTS} for poseidon${POSEIDON_INPUTS}()`);
     }
 
     // if (msg.byteLength % 32 !== 0) {
@@ -38,7 +39,7 @@ export function poseidon(msg: Uint8Array): Uint8Array {
             const chunk = Array.from({ length: POSEIDON_INPUTS }, (_, k) => arr[i + k] ?? 0n);
             // Every word must be within the field [0, MOD)
             // chunk.map(checkBLS12Modulus)
-            out.push(poseidon_raw(chunk as [bigint, bigint, bigint, bigint]));
+            out.push(poseidon_raw(chunk as bigint[]));
         }
         return out;
     };
@@ -49,7 +50,7 @@ export function poseidon(msg: Uint8Array): Uint8Array {
         acc = foldOnce(words);
         while (acc.length > 1) acc = foldOnce(acc);
     } else {
-        acc = [poseidon_raw([0n, 0n, 0n, 0n])]
+        acc = [poseidon_raw(EMPTY_INPUT)]
     }
 
     // Return big-endian bytes of the field element; caller decides fixed-length padding if needed

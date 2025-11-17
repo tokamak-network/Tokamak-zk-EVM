@@ -1,6 +1,12 @@
-import { poseidon4 } from "poseidon-bls12381"
+import { poseidon2 } from "poseidon-bls12381"
+import { POSEIDON_INPUTS } from "./importedConstants.ts"
 
-export const poseidon_raw = poseidon4
+export const poseidon_raw = (inVals: bigint[]): bigint => {
+  if (inVals.length !== POSEIDON_INPUTS) {
+    throw new Error(`Expected an array with ${POSEIDON_INPUTS} elements, but got ${inVals.length} elements`)
+  }
+  return poseidon2(inVals)
+}
 
 export const ARITHMETIC_OPERATOR_LIST = [
   'ADD',
@@ -37,6 +43,8 @@ export const ARITHMETIC_OPERATOR_LIST = [
   'JubjubExpBatch',
   'EdDsaVerify',
   'VerifyMerkleProof',
+  'VerifyMerkleProof2x',
+  'VerifyMerkleProof3x',
 ] as const
 
 export type ArithmeticOperator = (typeof ARITHMETIC_OPERATOR_LIST)[number]
@@ -84,6 +92,8 @@ export const SUBCIRCUIT_LIST = [
     'JubjubExpBatch',
     'EdDsaVerify',
     'VerifyMerkleProof',
+    'VerifyMerkleProof2x',
+    'VerifyMerkleProof3x',
 ] as const
 
 export type SubcircuitNames = typeof SUBCIRCUIT_LIST[number]
@@ -139,6 +149,8 @@ export const SUBCIRCUIT_ALU_MAPPING: Record<ArithmeticOperator, [SubcircuitNames
   EdDsaVerify: ['EdDsaVerify', undefined],
   JubjubExpBatch: ['JubjubExpBatch', undefined],
   VerifyMerkleProof: ['VerifyMerkleProof', undefined],
+  VerifyMerkleProof2x: ['VerifyMerkleProof2x', undefined],
+  VerifyMerkleProof3x: ['VerifyMerkleProof3x', undefined],
 } as const;
 
 export const TX_MESSAGE_TO_HASH = [

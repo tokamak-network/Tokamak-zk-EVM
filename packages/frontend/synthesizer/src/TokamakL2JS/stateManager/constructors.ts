@@ -1,5 +1,4 @@
 import { TokamakL2StateManagerOpts } from "./types.ts";
-import { poseidon_raw } from "src/synthesizer/params/index.ts";
 import { TokamakL2StateManager } from "./TokamakL2StateManager.ts";
 import { IMTHashFunction, IMTNode } from "@zk-kit/imt";
 import { MAX_MT_LEAVES } from "src/interface/qapCompiler/importedConstants.ts";
