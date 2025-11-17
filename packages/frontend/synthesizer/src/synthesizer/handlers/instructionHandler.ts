@@ -15,7 +15,7 @@ import {
 } from '@ethereumjs/util'
 import { keccak256 } from 'ethereum-cryptography/keccak.js'
 import { ExecResult, InterpreterStep } from '@ethereumjs/evm'
-import { DEFAULT_SOURCE_BIT_SIZE, poseidon_raw } from 'src/synthesizer/params/index.ts';
+import { DEFAULT_SOURCE_BIT_SIZE } from 'src/synthesizer/params/index.ts';
 import { DataPtFactory, MemoryPt } from '../dataStructure/index.ts';
 import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from 'src/interface/qapCompiler/configuredTypes.ts';
 import { poseidon } from 'src/TokamakL2JS/index.ts';
@@ -557,15 +557,16 @@ export class InstructionHandler {
     const cached = this.parent.state.cachedStorage.get(key);
 
     // Warm access: previously cached entries exist
-    if (cached && cached.length > 0) {
-      return DataPtFactory.deepCopy(cached[cached.length - 1]!.valuePt);
+    if (cached !== undefined) {
+      return DataPtFactory.deepCopy(cached.accessHistory[cached.accessHistory.length - 1]!.valuePt);
     }
 
+    // Cold access
     // Determine if this key is one of the registered user slots (Merkle tree indexed)
     const MTIndex = this.cachedOpts.stateManager.getMTIndex(key);
-
+    const accessOrder = this.parent.state.cachedStorage.size
     if (MTIndex >= 0) {
-      // Cold access to user storage
+      // Cold access to user storage, need to verifiy the integrity
       // const keyPt = this.parent.addReservedVariableToBufferIn('IN_MPT_KEY', key, true, `at MT index ${MTIndex}`);
 
       const valueStored = bytesToBigInt(
@@ -580,14 +581,32 @@ export class InstructionHandler {
       }
 
       const resolved = value ?? valueStored;
-      const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', resolved, true, `at MT index ${MTIndex}`);
-
-      const entry: CachedStorageEntry = { keyPt, valuePt, access: 'Read' as const };
-      if (cached) {
-        cached.push(entry);
-      } else {
-        this.parent.state.cachedStorage.set(key, [entry]);
+      const merkleProof = this.cachedOpts.stateManager.initialMerkleTree.createProof(MTIndex)
+      const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(MTIndex), true)
+      const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', resolved, true, ` at MT index: ${MTIndex}`)
+      const childPt = this.parent.placeArith('Poseidon', [
+        keyPt, 
+        valuePt, 
+        this.parent.loadArbitraryStatic(0n),
+        this.parent.loadArbitraryStatic(0n),
+      ])[0]
+      if (merkleProof.leaf !== childPt.value) {
+        throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
       }
+
+      this.parent.placeMerkleProofVerification(
+        indexPt,
+        childPt,
+        merkleProof.siblings,
+        this.parent.getReservedVariableFromBuffer('INI_MERKLE_ROOT'),
+      )
+
+      this.parent.state.cachedStorage.set(key, {accessOrder, accessHistory: [{
+        indexPt, 
+        keyPt, 
+        valuePt, 
+        access: 'Read' as const, 
+      }]});
       return DataPtFactory.deepCopy(valuePt);
     }
 
@@ -601,7 +620,12 @@ export class InstructionHandler {
       true,
       `at MPT key ${bigIntToHex(key)}`,
     );
-    this.parent.state.cachedStorage.set(key, [{ keyPt: null, valuePt, access: 'Read' }]);
+    this.parent.state.cachedStorage.set(key, {accessOrder, accessHistory: [{
+      indexPt: null, 
+      keyPt: null, 
+      valuePt, 
+      access: 'Read' as const,
+    }]});
     return DataPtFactory.deepCopy(valuePt);
   }
 
@@ -611,31 +635,45 @@ export class InstructionHandler {
     const MTIndex = this.cachedOpts.stateManager.getMTIndex(key);
 
     if (MTIndex >= 0) {
+      // Case: User stroage
       // If no cache (or empty), this is a cold write
-      if (!cached || cached.length === 0) {
+      if (cached === undefined) {
          throw new Error('Storage writing at a user slot is expected to be warm access');
+        // User slot must be warm (already loaded via loadStorage)
         // For odd cases, you could warm it first then retry:
         // await this.loadStorage(key, undefined, false);
         // return this.storeStorage(key, symbolDataPt);
       } else {
-        const cachedKeyPt = cached[cached.length - 1].keyPt
+        const accessHistory = cached.accessHistory
+        const cachedKeyPt = accessHistory[accessHistory.length - 1].keyPt
+        const cachedIndexPt = accessHistory[accessHistory.length - 1].indexPt
         if (cachedKeyPt?.value !== keyPt.value) {
-          throw new Error('DataPts for a storage key are inconsistent between the cachedStorage and SSTORE input. Need to be debugged.')
+          throw new Error('DataPts for the storage key are inconsistent between the cachedStorage and SSTORE input. Need to be debugged.')
         }
-        cached.push({ 
+        if (cachedIndexPt?.value !== BigInt(MTIndex)) {
+          throw new Error('DataPts for the Merkle tree index are inconsistent between the cachedStorage and SSTORE input. Need to be debugged.')
+        }
+        accessHistory.push({ 
+          indexPt: cachedIndexPt,
           keyPt, 
           valuePt: symbolDataPt, 
           access: 'Write' as const 
         });
-        // User slot must be warm (already loaded via loadStorage)
       }
     } else {
-      if (!cached || cached.length === 0) {
-         this.parent.state.cachedStorage.set(key, [
-          { keyPt: null, valuePt: symbolDataPt, access: 'Write' as const },
-        ]);
+      // Case: General storage
+      const entry = {
+        indexPt: null,
+        keyPt: null, 
+        valuePt: symbolDataPt, 
+        childPt: null,
+        access: 'Write' as const
+      }
+      if (cached === undefined) {
+        const accessOrder = this.parent.state.cachedStorage.size
+        this.parent.state.cachedStorage.set(key, {accessOrder, accessHistory: [entry]});
       } else {
-        cached.push({ keyPt: null, valuePt: symbolDataPt, access: 'Write' as const })
+        cached.accessHistory.push(entry)
       }
     }
   }

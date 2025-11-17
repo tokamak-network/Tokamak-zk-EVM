@@ -3,13 +3,13 @@ import { TokamakL2StateManagerOpts } from "./types.ts";
 import { StateManagerInterface } from "@ethereumjs/common";
 import { jubjub } from "@noble/curves/misc";
 import { IMT, IMTHashFunction, IMTMerkleProof, IMTNode } from "@zk-kit/imt"
-import { poseidon_raw } from "src/synthesizer/params/index.ts";
 import { addHexPrefix, Address, bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, concatBytes, createAccount, createAddressFromString, hexToBytes, setLengthLeft, setLengthRight, toBytes } from "@ethereumjs/util";
 import { MAX_MT_LEAVES, MT_DEPTH, POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts";
 import { ethers, solidityPacked } from "ethers";
 import { poseidon } from "../crypto/index.ts";
 import { keccak256 } from "ethereum-cryptography/keccak";
 import { RLP } from "@ethereumjs/rlp";
+import { poseidon_raw } from "src/interface/qapCompiler/configuredTypes.ts";
 
 
 export class TokamakL2StateManager extends MerkleStateManager implements StateManagerInterface {
@@ -69,7 +69,7 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
                 leaves[index] = 0n
             } else {
                 const val = await this.getStorage(contractAddress, key)
-                leaves[index] = poseidon_raw([BigInt(index), bytesToBigInt(key), bytesToBigInt(val), 0n])
+                leaves[index] = poseidon_raw([bytesToBigInt(key), bytesToBigInt(val), 0n, 0n])
             }
         }
         return leaves

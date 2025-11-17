@@ -4,10 +4,10 @@ import { DataPt, ISynthesizerProvider } from '../types/index.ts';
 import { poseidon4 } from 'poseidon-bls12381';
 import { DataPtFactory } from '../dataStructure/index.ts';
 import { DEFAULT_SOURCE_BIT_SIZE } from 'src/synthesizer/params/index.ts';
-import { ArithmeticOperator, SUBCIRCUIT_ALU_MAPPING, SubcircuitNames } from 'src/interface/qapCompiler/configuredTypes.ts';
+import { ArithmeticOperator, poseidon_raw, SUBCIRCUIT_ALU_MAPPING, SubcircuitNames } from 'src/interface/qapCompiler/configuredTypes.ts';
 import { jubjub } from '@noble/curves/misc';
 import { ArithmeticOperations } from '../dataStructure/arithmeticOperations.ts';
-import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
+import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE, MT_DEPTH, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
 
 export class ArithmeticManager {
   constructor(
@@ -299,7 +299,46 @@ export class ArithmeticManager {
 
     return DataPtFactory.deepCopy(P)
   }
+
+  public placeMerkleProofVerification (indexPt: DataPt, leafPt: DataPt, siblings: bigint[][], rootPt: DataPt): void {
+    const computeParentsNodePts = (childIndexPt: DataPt, childPt: DataPt, siblings: bigint[]): {parentIndexPt: DataPt, parentPt: DataPt} => {
+      if (siblings.length !== POSEIDON_INPUTS - 1) {
+        throw new Error(`Siblings of each level for a Merkle proof should be ${POSEIDON_INPUTS - 1}, but got ${siblings.length}.`)
+      }
+      const childIndex = Number(childIndexPt.value)
+      const childHomeIndex = childIndex % POSEIDON_INPUTS
+      const parentIndex = Math.floor( childIndex / POSEIDON_INPUTS)
+      
+      const children = [
+        ...siblings.slice(0, childHomeIndex),
+        childPt.value,
+        ...siblings.slice(childHomeIndex, )
+      ]
+
+      return{
+        parentIndexPt: this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(parentIndex), true),
+        parentPt: this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', poseidon_raw(children), true),  
+      }
+    }
+    let childPt: DataPt = leafPt
+    let childIndexPt: DataPt = indexPt
+    for (var level = 0; level < MT_DEPTH; level++) {
+      const thisSiblings = siblings[level]
+      const siblingPts: DataPt[] = thisSiblings.map(value => this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', value, true))
+      const {parentIndexPt, parentPt} = computeParentsNodePts(childIndexPt, childPt, thisSiblings)
+
+      if (level < MT_DEPTH - 1) {
+        this.placeArith('VerifyMerkleProof', [childIndexPt, childPt, ...siblingPts, parentIndexPt, parentPt])
+      } else {
+        this.placeArith('VerifyMerkleProof', [childIndexPt, childPt, ...siblingPts, parentIndexPt, rootPt])
+      }
+
+      childPt = parentPt
+      childIndexPt = parentIndexPt
+    }
+  }
 }
+
 
 /**
  * Executes an arithmetic operation on the given values.
