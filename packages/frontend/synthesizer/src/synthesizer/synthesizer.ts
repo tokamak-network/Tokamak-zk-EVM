@@ -258,22 +258,23 @@ export class Synthesizer implements SynthesizerInterface
   // }
 
   private async _finalizeStorage(): Promise<void> {    
-    const computeParentsNodePts = (childIndexPt: DataPt, childPt: DataPt, siblingPts: DataPt[]): {parentIndexPt: DataPt, parentPt: DataPt} => {
-      if (siblingPts.length !== POSEIDON_INPUTS - 1) {
-        throw new Error(`Siblings of each level for a Merkle proof should be ${POSEIDON_INPUTS - 1}, but got ${siblingPts.length}.`)
+    const computeParentsNodePts = (childIndexPt: DataPt, childPt: DataPt, siblings: bigint[]): {parentIndexPt: DataPt, parentPt: DataPt} => {
+      if (siblings.length !== POSEIDON_INPUTS - 1) {
+        throw new Error(`Siblings of each level for a Merkle proof should be ${POSEIDON_INPUTS - 1}, but got ${siblings.length}.`)
       }
       const childIndex = Number(childIndexPt.value)
+      const childHomeIndex = childIndex % POSEIDON_INPUTS
       const parentIndex = Math.floor( childIndex / POSEIDON_INPUTS)
       
-      const childrenPts = [
-        ...siblingPts.slice(0, childIndex),
-        childPt,
-        ...siblingPts.slice(childIndex, )
+      const children = [
+        ...siblings.slice(0, childHomeIndex),
+        childPt.value,
+        ...siblings.slice(childHomeIndex, )
       ]
 
       return{
         parentIndexPt: this.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(parentIndex), true),
-        parentPt: this.placePoseidon(childrenPts),  
+        parentPt: this.addReservedVariableToBufferIn('MERKLE_PROOF', poseidon_raw(children), true),  
       }
     }
 
@@ -283,7 +284,7 @@ export class Synthesizer implements SynthesizerInterface
       for (var level = 0; level < MT_DEPTH; level++) {
         const thisSiblings = siblings[level]
         const siblingPts: DataPt[] = thisSiblings.map(value => this.addReservedVariableToBufferIn('MERKLE_PROOF', value, true))
-        const {parentIndexPt, parentPt} = computeParentsNodePts(childIndexPt, childPt, siblingPts)
+        const {parentIndexPt, parentPt} = computeParentsNodePts(childIndexPt, childPt, thisSiblings)
 
         if (level < MT_DEPTH - 1) {
           this.placeArith('VerifyMerkleProof', [childIndexPt, childPt, ...siblingPts, parentIndexPt, parentPt])
@@ -299,11 +300,11 @@ export class Synthesizer implements SynthesizerInterface
     // Integrity check of initial storage reads
     for (const [key, accessList] of this.state.cachedStorage.entries()) {
       if (accessList.length === 0 || accessList[0]?.access !== 'Read') {
-        break;
+        continue;
       }
       const mtIndex = this.cachedOpts.stateManager.getMTIndex(key)
       if (mtIndex < 0) {
-        break;
+        continue;
       }
       const keyPt = accessList[0].keyPt!
       if (key !== keyPt.value) {
@@ -327,12 +328,12 @@ export class Synthesizer implements SynthesizerInterface
     const finalMTRootPt = this.addReservedVariableToBufferIn('RES_MERKLE_ROOT', await this.cachedOpts.stateManager.getUpdatedMerkleTreeRoot(), true)
     for (const [key, accessList] of this.state.cachedStorage.entries()) {
       if (accessList.length === 0) {
-        break;
+        continue;
       }
 
       const mtIndex = this.cachedOpts.stateManager.getMTIndex(key)
       if (mtIndex < 0) {
-        break;
+        continue;
       }
 
       let lastWriteIndex = -1
@@ -343,7 +344,7 @@ export class Synthesizer implements SynthesizerInterface
         }
       }
       if (lastWriteIndex === -1){
-        break;
+        continue;
       }
 
       const cache = accessList[lastWriteIndex]!

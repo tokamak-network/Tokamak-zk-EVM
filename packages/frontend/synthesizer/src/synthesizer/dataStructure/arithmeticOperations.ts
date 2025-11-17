@@ -609,15 +609,16 @@ export class ArithmeticOperations {
       throw new Error(`VerifyMerkleProof expected exactly ${3 + POSEIDON_INPUTS} input values, but got ${inVals.length} values`)
     }
     const childIndex = Number(inVals[0])
+    const childHomeIndex = childIndex % POSEIDON_INPUTS
     const child = inVals[1]
     const siblings = inVals.slice(2, 2 + POSEIDON_INPUTS - 1)
     const parentIndex = Number(inVals[2 + POSEIDON_INPUTS - 1])
     const parent = inVals[2 + POSEIDON_INPUTS]
 
     const children = [
-      ...siblings.slice(0, childIndex),
+      ...siblings.slice(0, childHomeIndex),
       child,
-      ...siblings.slice(childIndex, ),
+      ...siblings.slice(childHomeIndex, ),
     ]
 
     if (

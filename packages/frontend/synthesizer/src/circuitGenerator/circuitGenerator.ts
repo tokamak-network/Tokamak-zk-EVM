@@ -55,13 +55,13 @@ export class CircuitGenerator {
     // Resolve file paths (reuse the style from comments above)
     const pvPath = _path === undefined
       ? path.resolve(appRootPath.path, 'outputs/placementVariables.json')
-      : path.resolve(_path!, 'placementVariables.json');
+      : path.resolve(appRootPath.path, _path!, 'placementVariables.json');
     const instPath = _path === undefined
       ? path.resolve(appRootPath.path, 'outputs/instance.json')
-      : path.resolve(_path!, 'instance.json');
+      : path.resolve(appRootPath.path, _path!, 'instance.json');
     const permPath = _path === undefined
       ? path.resolve(appRootPath.path, 'outputs/permutation.json')
-      : path.resolve(_path!, 'permutation.json');
+      : path.resolve(appRootPath.path, _path!, 'permutation.json');
 
     const files = [placementVariablesJson, instanceJson, permutationJson];
     const filePaths = [pvPath, instPath, permPath];

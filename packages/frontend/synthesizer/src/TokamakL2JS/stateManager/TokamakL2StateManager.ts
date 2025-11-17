@@ -5,7 +5,7 @@ import { jubjub } from "@noble/curves/misc";
 import { IMT, IMTHashFunction, IMTMerkleProof, IMTNode } from "@zk-kit/imt"
 import { poseidon_raw } from "src/synthesizer/params/index.ts";
 import { addHexPrefix, Address, bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, concatBytes, createAccount, createAddressFromString, hexToBytes, setLengthLeft, setLengthRight, toBytes } from "@ethereumjs/util";
-import { MAX_MT_LEAVES, POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts";
+import { MAX_MT_LEAVES, MT_DEPTH, POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts";
 import { ethers, solidityPacked } from "ethers";
 import { poseidon } from "../crypto/index.ts";
 import { keccak256 } from "ethereum-cryptography/keccak";
@@ -193,7 +193,7 @@ class TokamakL2MerkleTree extends IMT {
         return this._cachedTokamakL2StateManager
     }
     public static async buildFromTokamakL2StateManager(mpt: TokamakL2StateManager): Promise<TokamakL2MerkleTree> {
-        const treeDepth = Math.ceil(Math.log10(MAX_MT_LEAVES) / Math.log10(POSEIDON_INPUTS))
+        const treeDepth = MT_DEPTH
         const leaves = await mpt.convertLeavesIntoMerkleTreeLeaves()
         const mt = new TokamakL2MerkleTree(poseidon_raw as IMTHashFunction, treeDepth, 0n, POSEIDON_INPUTS, leaves as IMTNode[])
         mt.initCache(mpt)

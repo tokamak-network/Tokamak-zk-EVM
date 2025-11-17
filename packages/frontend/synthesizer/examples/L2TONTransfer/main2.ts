@@ -48,26 +48,26 @@ const simulationOpts: SynthesizerSimulationOpts = {
 
   // Example
   addressListL1: [
-    '0x85cc7da8Ee323325bcD678C7CFc4EB61e76657Fb',
-    '0xd8eE65121e51aa8C75A6Efac74C4Bbd3C439F78f',
     '0x838F176D94990E06af9B57E470047F9978403195',
     '0x01E371b2aD92aDf90254df20EB73F68015E9A000',
+    '0x85cc7da8Ee323325bcD678C7CFc4EB61e76657Fb',
     '0xbD224229Bf9465ea4318D45a8ea102627d6c27c7',
     '0x6FD430995A19a57886d94f8B5AF2349b8F40e887',
     '0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9',
+    '0xd8eE65121e51aa8C75A6Efac74C4Bbd3C439F78f',
     '0x60be9978F805Dd4619F94a449a4a798155a05A56',
   ] as `0x${string}`[],
 
   // Must be paired with the L1 addresses
   // The seed strings must be hidden. This is just an example.
   publicKeyListL2: [
-    senderL2PubKey,
-    TOKEN_RECEPIENT_PUB_KEY,
     jubjub.keygen(setLengthLeft(utf8ToBytes('0x838F176D94990E06af9B57E470047F9978403195'), 32)).publicKey,
     jubjub.keygen(setLengthLeft(utf8ToBytes('0x01E371b2aD92aDf90254df20EB73F68015E9A000'), 32)).publicKey,
+    senderL2PubKey,
     jubjub.keygen(setLengthLeft(utf8ToBytes('0xbD224229Bf9465ea4318D45a8ea102627d6c27c7'), 32)).publicKey,
     jubjub.keygen(setLengthLeft(utf8ToBytes('0x6FD430995A19a57886d94f8B5AF2349b8F40e887'), 32)).publicKey,
     jubjub.keygen(setLengthLeft(utf8ToBytes('0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9'), 32)).publicKey,
+    TOKEN_RECEPIENT_PUB_KEY,
     jubjub.keygen(setLengthLeft(utf8ToBytes('0x60be9978F805Dd4619F94a449a4a798155a05A56'), 32)).publicKey,
   ],
   callData: CALLDATA,
@@ -78,10 +78,10 @@ const main = async () => {
   const synthesizer = await createSynthesizer(synthesizerOpts);
   const runTxResult = await synthesizer.synthesizeTX();
   const circuitGenerator = await createCircuitGenerator(synthesizer);
-  circuitGenerator.writeOutputs('outputs1');
+  circuitGenerator.writeOutputs('outputs2');
 
-  console.log(`Sender: ${fromEdwardsToAddress(simulationOpts.publicKeyListL2[0])}`)
-  console.log(`Recipent: ${fromEdwardsToAddress(simulationOpts.publicKeyListL2[1])}`)
+  console.log(`Token sender address: ${fromEdwardsToAddress(simulationOpts.publicKeyListL2[2])}`)
+  console.log(`Token recipent address: ${fromEdwardsToAddress(simulationOpts.publicKeyListL2[6])}`)
   if (runTxResult.execResult.logs) {
     for (const [index, log] of runTxResult.execResult.logs.entries()) {
       console.log(`Log index: ${index}`)
