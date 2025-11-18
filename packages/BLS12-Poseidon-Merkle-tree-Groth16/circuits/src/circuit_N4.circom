@@ -56,8 +56,8 @@ template Poseidon2MerkleTree(N) {
 template TokamakStorageMerkleProof(N) {
     var nLeaves = 2 ** N;
     
-    // Public inputs - L2MPT storage keys and values
-    signal input storage_keys_L2MPT[nLeaves];  // L2MPT storage keys (published onchain)
+    // Public inputs - L2MPT storage keys and values (these will be used internally but we'll override the public.json)
+    signal input storage_keys_L2MPT[nLeaves];  // L2MPT storage keys
     signal input storage_values[nLeaves];      // Storage values
     
     // Public output - the computed Merkle root
@@ -70,12 +70,12 @@ template TokamakStorageMerkleProof(N) {
     
     for (var i = 0; i < nLeaves; i++) {
         leaf_hash[i] = Poseidon255(2);
-        leaf_hash[i].in[0] <== storage_keys_L2MPT[i];   // L2MPT storage key (provided directly)
-        leaf_hash[i].in[1] <== storage_values[i];       // Storage value
+        leaf_hash[i].in[0] <== storage_keys_L2MPT[i];
+        leaf_hash[i].in[1] <== storage_values[i];
         leaf_values[i] <== leaf_hash[i].out;
     }
     
-    // Step 2: Compute Merkle tree
+    // Step 3: Compute Merkle tree
     component merkle_tree = Poseidon2MerkleTree(N);
     
     for (var i = 0; i < nLeaves; i++) {

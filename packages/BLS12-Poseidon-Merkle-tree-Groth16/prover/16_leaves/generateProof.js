@@ -18,11 +18,41 @@ async function generateProof() {
         
         // Step 2: Generate proof
         console.log('🔐 Generating proof...');
-        execSync('snarkjs groth16 prove ../../trusted-setup/16_leaves/circuit_final.zkey witness.wtns proof.json public.json', {
+        execSync('snarkjs groth16 prove ../../trusted-setup/16_leaves/circuit_final.zkey witness.wtns proof.json public_temp.json', {
             stdio: 'inherit',
             cwd: process.cwd()
         });
         console.log('✅ Proof generated successfully');
+        
+        // Step 3: Create two versions of public signals
+        console.log('📝 Creating public signals...');
+        const input = JSON.parse(fs.readFileSync('input.json', 'utf8'));
+        
+        // Rename temp file to the standard public.json for snarkJS verification
+        fs.renameSync('public_temp.json', 'public.json');
+        
+        // Load the actual circuit public signals and witness
+        const wasm = fs.readFileSync('../../circuits/build/circuit_N4_js/circuit_N4.wasm');
+        const witnessCalculator = require('../../circuits/build/circuit_N4_js/witness_calculator.js');
+        
+        async function createPublicSignalFiles() {
+            const wc = await witnessCalculator(wasm);
+            const witness = await wc.calculateWitness(input, 0);
+            const merkleRoot = witness[witness.length - 1].toString();
+            
+            // Extract the 32 circuit public signals (witness[1] to witness[32])
+            const circuitPublicSignals = [];
+            for (let i = 1; i <= 33; i++) {
+                circuitPublicSignals.push(witness[i].toString());
+            }
+
+            console.log("number of witness elements:{}", witness.length);
+                      
+            // Also create a file with just the 32 circuit signals for snarkJS testing if needed
+            fs.writeFileSync('public.json', JSON.stringify(circuitPublicSignals, null, 2));
+        }
+        
+        await createPublicSignalFiles();
         
         // Step 3: Verify the generated files exist
         const proofPath = './proof.json';

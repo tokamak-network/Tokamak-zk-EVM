@@ -67,6 +67,29 @@ async function testParameterizedCircuit() {
         console.log(`  Witness length: ${witness.length}`);
         console.log(`  Public inputs: ${nLeaves * 2} (${nLeaves} storage keys + ${nLeaves} storage values)`);
         
+        // Show public signals format
+        console.log("\n--- Public Signals Format ---");
+        console.log("Public signals (witness[1] to witness[33]):");
+        for (let i = 1; i <= nLeaves * 2; i++) {
+            const index = i - 1;
+            if (index < nLeaves) {
+                console.log(`  [${i}] storage_keys_L2MPT[${index}]: ${witness[i].toString()}`);
+            } else {
+                const valueIndex = index - nLeaves;
+                console.log(`  [${i}] storage_values[${valueIndex}]: ${witness[i].toString()}`);
+            }
+        }
+        
+        console.log(`\nMerkle root (output): ${witness[witness.length - 1].toString()}`);
+        
+        // Create public signals array
+        const publicSignals = [];
+        for (let i = 1; i <= nLeaves * 2; i++) {
+            publicSignals.push(witness[i].toString());
+        }
+        console.log("\nPublic signals as flat array:");
+        console.log(JSON.stringify(publicSignals, null, 2));
+        
         // Extract the merkle root
         const computedRoot = witness[witness.length - 1].toString();
         console.log("✓ Computed merkle root:", computedRoot);
