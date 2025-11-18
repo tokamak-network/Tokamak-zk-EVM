@@ -16,6 +16,15 @@ icicle-core = { workspace = true }
 icicle-bls12-381 = { workspace = true }
 libs = { workspace = true }
 tiny-keccak = "1.5"
+# Note: Rayon cannot be used with ICICLE types as they don't implement Send/Sync
+
+[dev-dependencies]
+criterion = "0.5"
+rand = { workspace = true }
+
+[[bench]]
+name = "batch_msm_simple"
+harness = false
 
 [features]
 default = []
