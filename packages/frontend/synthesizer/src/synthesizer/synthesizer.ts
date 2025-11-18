@@ -208,12 +208,10 @@ export class Synthesizer implements SynthesizerInterface
       //   if (lastCachedStorage.keyPt === null) {
       //     throw new Error(`The cached storage is about a user's but has no DataPt for key.`)
       //   }
-        childPt = this.placeArith('Poseidon', [
+        childPt = this.placePoseidon([
           lastHistory.keyPt!, 
           lastHistory.valuePt, 
-          this.loadArbitraryStatic(0n),
-          this.loadArbitraryStatic(0n),
-        ])[0]
+        ])
       // }
       const merkleProof = await this.cachedOpts.stateManager.getMerkleProof(MTIndex)
       this.placeMerkleProofVerification(

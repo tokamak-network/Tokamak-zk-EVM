@@ -276,6 +276,12 @@ export class VariableGenerator {
         );
       }
     }
+    if (outPlacements.length > setupParams.s_max) {
+      flags.push(false);
+      console.log(
+        `Error: Synthesizer: Insufficient s_max. Ask the qap-compiler for increasing s_max (required s_max: ${outPlacements.length}).`,
+      );
+    }
     if (flags.includes(false)) {
       throw new Error('Resolve above errors.');
     }

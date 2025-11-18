@@ -449,8 +449,7 @@ export class InstructionHandler {
 
     this.parent.placeArith('EdDsaVerify', [...sG, ...randomizerPt, ...eA])
     
-    const zeroPt: DataPt = this.parent.loadArbitraryStatic(0n)
-    const hashPt: DataPt = this.parent.placeArith('Poseidon', [...publicKeyPt, zeroPt, zeroPt])[0]
+    const hashPt: DataPt = this.parent.placePoseidon(publicKeyPt)
     const addrMaskPt: DataPt = this.parent.getReservedVariableFromBuffer('ADDRESS_MASK')
     this.parent.state.cachedOrigin = this.parent.placeArith('AND', [hashPt, addrMaskPt])[0]
     return DataPtFactory.deepCopy(this.parent.state.cachedOrigin!)
@@ -584,12 +583,10 @@ export class InstructionHandler {
       const merkleProof = this.cachedOpts.stateManager.initialMerkleTree.createProof(MTIndex)
       const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(MTIndex), true)
       const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', resolved, true, ` at MT index: ${MTIndex}`)
-      const childPt = this.parent.placeArith('Poseidon', [
+      const childPt = this.parent.placePoseidon([
         keyPt, 
-        valuePt, 
-        this.parent.loadArbitraryStatic(0n),
-        this.parent.loadArbitraryStatic(0n),
-      ])[0]
+        valuePt,
+      ])
       if (merkleProof.leaf !== childPt.value) {
         throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
       }

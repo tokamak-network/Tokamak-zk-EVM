@@ -1,5 +1,6 @@
 pragma circom 2.1.6;
 include "./poseidon.circom";
+include "../../functions/poseidon.circom";
 include "../../node_modules/circomlib/circuits/comparators.circom";
 include "../../node_modules/circomlib/circuits/bitify.circom";
 
@@ -14,7 +15,166 @@ template verifyParentNode(N) {
     H.out[1] === parent[1];
 }
 
-template verifyMerkleProofStep() {
+template verifyP2MerkleProofStep3x() {
+    // Fixed for 2-ary Merkle tree
+    // inputs
+    signal input _childIndex[2], _child[2], _sib[3][2], _parentIndex[2], _parent[2];
+    var FIELD_SIZE = 1<<128;
+
+    var childIndex;
+    var child;
+    var sib;
+    var children[2];
+    var parent;
+    var childHomeIndex;
+
+    component firstStep = verifyP2MerkleProofStep();
+    firstStep._childIndex <== _childIndex;
+    firstStep._child <== _child;
+    firstStep._sib <== _sib[0];
+
+    childIndex = firstStep._childIndex[0];
+    childHomeIndex = childIndex % 2;
+    child = firstStep._child[0] + firstStep._child[1] * FIELD_SIZE;
+    sib = firstStep._sib[0] + firstStep._sib[1] * FIELD_SIZE;
+    if (childHomeIndex == 0) {
+        children = [child, sib];
+    } else {
+        children = [sib, child];
+    }
+    parent = _Poseidon255_2(children);
+
+    firstStep._parentIndex <-- [
+        childIndex \ 2,
+        0
+    ];
+    firstStep._parent <-- [
+        parent % FIELD_SIZE,
+        parent \ FIELD_SIZE
+    ];
+
+    component secondStep = verifyP2MerkleProofStep();
+    secondStep._childIndex <== firstStep._parentIndex;
+    secondStep._child <== firstStep._parent;
+    secondStep._sib <== _sib[1];
+
+    childIndex = secondStep._childIndex[0];
+    childHomeIndex = childIndex % 2;
+    child = secondStep._child[0] + secondStep._child[1] * FIELD_SIZE;
+    sib = secondStep._sib[0] + secondStep._sib[1] * FIELD_SIZE;
+    if (childHomeIndex == 0) {
+        children = [child, sib];
+    } else {
+        children = [sib, child];
+    }
+    parent = _Poseidon255_2(children);
+
+    secondStep._parentIndex <-- [
+        childIndex \ 2,
+        0
+    ];
+    secondStep._parent <-- [
+        parent % FIELD_SIZE,
+        parent \ FIELD_SIZE
+    ];
+
+    component thirdStep = verifyP2MerkleProofStep();
+    thirdStep._childIndex <== secondStep._parentIndex;
+    thirdStep._child <== secondStep._parent;
+    thirdStep._sib <== _sib[2];
+    thirdStep._parentIndex <== _parentIndex;
+    thirdStep._parent <== _parent;
+}
+
+template verifyP2MerkleProofStep2x() {
+    // Fixed for 2-ary Merkle tree
+    // inputs
+    signal input _childIndex[2], _child[2], _sib[2][2], _parentIndex[2], _parent[2];
+    var FIELD_SIZE = 1<<128;
+
+    component firstStep = verifyP2MerkleProofStep();
+    firstStep._childIndex <== _childIndex;
+    firstStep._child <== _child;
+    firstStep._sib <== _sib[0];
+
+    var childIndex = _childIndex[0];
+    var childHomeIndex = childIndex % 2;
+    var child = _child[0] + _child[1] * FIELD_SIZE;
+    var sib0 = _sib[0][0] + _sib[0][1] * FIELD_SIZE;
+    var children[2];
+    if (childHomeIndex == 0) {
+        children = [child, sib0];
+    } else {
+        children = [sib0, child];
+    }
+    var parent = _Poseidon255_2(children);
+    firstStep._parentIndex <-- [
+        _childIndex[0] \ 2,
+        0
+    ];
+    firstStep._parent <-- [
+        parent % FIELD_SIZE,
+        parent \ FIELD_SIZE
+    ];
+
+    component secondStep = verifyP2MerkleProofStep();
+    secondStep._childIndex <== firstStep._parentIndex;
+    secondStep._child <== firstStep._parent;
+    secondStep._sib <== _sib[1];
+    secondStep._parentIndex <== _parentIndex;
+    secondStep._parent <== _parent;
+}
+
+template verifyP2MerkleProofStep() {
+    // Fixed for 2-ary Merkle tree
+    // inputs
+    signal input _childIndex[2], _child[2], _sib[2], _parentIndex[2], _parent[2];
+
+    var FIELD_SIZE = 1<<128;
+
+    _childIndex[1] === 0;
+    signal childIndex <== _childIndex[0];
+    _parentIndex[1] === 0;
+    signal parentIndex <-- childIndex \ 2;
+    _parentIndex[0] === parentIndex;
+
+    signal childHomeIndex <-- childIndex % 2;
+    childIndex === parentIndex * 2 + childHomeIndex;
+    signal check <== LessThan(2)([childHomeIndex, 2]);
+    check === 1;
+
+    signal child <== _child[0] + _child[1] * FIELD_SIZE;
+    signal sib <== _sib[0] + _sib[1] * FIELD_SIZE;
+
+    // childHomeIndex -> 1bit
+    // one-hot selectors
+    signal e0; // childHomeIndex==0
+    signal e1; // childHomeIndex==1
+
+    e0 <== (1 - childHomeIndex);
+    e1 <== childHomeIndex;
+
+    signal c0; signal c1;
+
+    // c0 <== e0 * child  + e1 * sib
+    // c1 <== e0 * sib + e1 * child
+
+    signal c00 <== e0 * child;
+    c0 <==  c00 + e1 * sib;
+
+    signal c11 <== e0 * sib;
+    c1 <== c11 + e1 * child;
+
+    component H = Poseidon255(2);
+    H.in[0] <== c0;
+    H.in[1] <== c1;
+
+    signal parent <== H.out;
+
+    parent === _parent[0] + _parent[1] * FIELD_SIZE;
+}
+
+template verifyP4MerkleProofStep() {
     // Fixed for 4-ary Merkle tree
     // inputs
     signal input _childIndex[2], _child[2], _sib[3][2], _parentIndex[2], _parent[2];
