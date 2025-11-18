@@ -117,25 +117,38 @@ export class ArithmeticManager {
   }
 
   public placePoseidon(inPts: DataPt[]): DataPt {
-      // Fold in chunks of POSEIDON_INPUTS; zero-pad tail; **strict field check** (no modular reduction)
-      const foldOnce = (arr: DataPt[]): DataPt[] => {
-          const total = Math.ceil(arr.length / POSEIDON_INPUTS) * POSEIDON_INPUTS;
-          const out: DataPt[] = [];
-          for (let i = 0; i < total; i += POSEIDON_INPUTS) {
-              const chunk = Array.from({ length: POSEIDON_INPUTS }, (_, k) => arr[i + k] ?? this.parent.loadArbitraryStatic(0n));
-              // Every word must be within the field [0, MOD)
-              // chunk.map(checkBLS12Modulus)
-              out.push(...this.placeArith('Poseidon', chunk));
-          }
-          return out;
-      };
-  
-      // Repeatedly fold until a single word remains
-      let acc = foldOnce(inPts);
-      while (acc.length > 1) acc = foldOnce(acc);
-  
-      // Return big-endian bytes of the field element; caller decides fixed-length padding if needed
-      return DataPtFactory.deepCopy(acc[0])
+    // Fold in chunks of POSEIDON_INPUTS; zero-pad tail; **strict field check** (no modular reduction)
+    if (inPts.length === 0) {
+      return this.placeArith('Poseidon', Array<DataPt>(3).fill(this.parent.loadArbitraryStatic(0n)))[0]
+    }
+    const fold = (arr: DataPt[]): DataPt[] => {
+      const n1xChunks = Math.ceil(arr.length / POSEIDON_INPUTS);
+      const nPaddedChildren = n1xChunks * POSEIDON_INPUTS;
+
+      const mode2x: boolean = nPaddedChildren % (POSEIDON_INPUTS ** 2) === 0
+
+      let placeFunction = mode2x ?
+        (chunk: DataPt[]): DataPt[] => {return this.placeArith('Poseidon2xCompress', chunk)} :
+        (chunk: DataPt[]): DataPt[] => {return this.placeArith('Poseidon', chunk)}
+
+      const nChildren = mode2x ? (POSEIDON_INPUTS ** 2) : POSEIDON_INPUTS
+      
+      const out: DataPt[] = [];
+      for (let childId = 0; childId < nPaddedChildren; childId += nChildren) {
+          const chunk = Array.from({ length: nChildren }, (_, localChildId) => arr[childId + localChildId] ?? this.parent.loadArbitraryStatic(0n));
+          // Every word must be within the field [0, MOD)
+          // chunk.map(checkBLS12Modulus)
+          out.push(...placeFunction(chunk));
+      }
+      return out;
+    };
+
+    // Repeatedly fold until a single word remains
+    let acc: DataPt[] = fold(inPts)
+    while (acc.length > 1) acc = fold(acc)
+
+    // Return big-endian bytes of the field element; caller decides fixed-length padding if needed
+    return DataPtFactory.deepCopy(acc[0])
   }
 
   // public placeExp(inPts: DataPt[]): DataPt {
@@ -497,6 +510,7 @@ const ARITHMETIC_MAPPING: Record<ArithmeticOperator, (...args: any) => any> = {
   SubExpBatch: ArithmeticOperations.subExpBatch,
   Accumulator: ArithmeticOperations.accumulator,
   Poseidon: ArithmeticOperations.poseidonN,
+  Poseidon2xCompress: ArithmeticOperations.poseidonN2xCompress,
   // PrepareEdDsaScalars: ArithmeticOperations.prepareEdDsaScalars,
   JubjubExpBatch: ArithmeticOperations.jubjubExpBatch,
   EdDsaVerify: ArithmeticOperations.edDsaVerify,

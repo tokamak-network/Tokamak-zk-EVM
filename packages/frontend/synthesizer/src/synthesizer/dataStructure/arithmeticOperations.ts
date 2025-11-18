@@ -360,6 +360,22 @@ export class ArithmeticOperations {
     return poseidon_raw(in_vals)
   }
 
+  /**
+   * PoseidonN2xCompress
+   */
+  static poseidonN2xCompress(in_vals: bigint[]): bigint {
+    if (in_vals.length !== POSEIDON_INPUTS ** 2) {
+      throw new Error(`poseidon${POSEIDON_INPUTS} expected exactly ${POSEIDON_INPUTS} values`)
+    }
+
+    const interim: bigint[] = []
+    for (var k = 0; k < POSEIDON_INPUTS; k++) {
+      const children = in_vals.slice(k * POSEIDON_INPUTS, (k + 1) * POSEIDON_INPUTS)
+      interim.push(poseidon_raw(children))
+    }
+    return poseidon_raw(interim)
+  }
+
   // /**
   //  * PrepareEdDsaScalars
   //  */
