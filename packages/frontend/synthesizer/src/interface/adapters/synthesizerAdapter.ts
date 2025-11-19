@@ -10,15 +10,43 @@
 
 import { ethers } from 'ethers';
 import { jubjub } from '@noble/curves/misc';
-import { bytesToBigInt, setLengthLeft, utf8ToBytes, hexToBytes, concatBytes, addHexPrefix } from '@ethereumjs/util';
+import {
+  bytesToBigInt,
+  setLengthLeft,
+  utf8ToBytes,
+  hexToBytes,
+  concatBytes,
+  addHexPrefix,
+  Address,
+  toBytes,
+  bytesToHex,
+} from '@ethereumjs/util';
 import { createSynthesizerOptsForSimulationFromRPC, type SynthesizerSimulationOpts } from '../rpc/rpc.ts';
-import { createSynthesizer } from '../../synthesizer/index.ts';
+import { createSynthesizer, Synthesizer } from '../../synthesizer/index.ts';
 import { createCircuitGenerator } from '../../circuitGenerator/circuitGenerator.ts';
 import type { SynthesizerInterface } from '../../synthesizer/types/index.ts';
 import { fromEdwardsToAddress } from '../../TokamakL2JS/index.ts';
+import type { StateSnapshot } from '../../TokamakL2JS/stateManager/types.ts';
 
 export interface SynthesizerAdapterConfig {
   rpcUrl: string;
+}
+
+export interface SynthesizeOptions {
+  previousState?: StateSnapshot; // Optional: previous state to restore from
+  outputPath?: string; // Optional: path for file outputs
+}
+
+export interface CalldataSynthesizeOptions {
+  contractAddress: string; // Contract to call
+  publicKeyListL2: Uint8Array[]; // L2 public keys for all participants
+  addressListL1: string[]; // L1 addresses for all participants
+  senderL2PrvKey: Uint8Array; // Sender's L2 private key
+  blockNumber?: number; // Block number for state (default: latest)
+  userStorageSlots?: number[]; // Storage slots to track (default: [0])
+  previousState?: StateSnapshot; // Optional: previous state to restore from
+  outputPath?: string; // Optional: path for file outputs
+  txNonce?: bigint; // Transaction nonce for sender (default: 0n)
 }
 
 export interface SynthesizerResult {
@@ -32,13 +60,15 @@ export interface SynthesizerResult {
     X: number;
     Y: number;
   }[];
+  state: StateSnapshot; // State snapshot after synthesis
   metadata: {
-    txHash: string;
+    txHash?: string; // Optional: only present when synthesized from RPC
     blockNumber: number;
     from: string;
     to: string | null;
     contractAddress: string;
     eoaAddresses: string[];
+    calldata?: string; // Optional: hex string of calldata
   };
 }
 
@@ -121,10 +151,11 @@ export class SynthesizerAdapter {
    * Synthesize a transaction into circuit instance
    *
    * @param txHash - Ethereum transaction hash (with or without 0x prefix)
-   * @param outputPath - Optional path for file outputs (if not provided, returns data in memory)
-   * @returns Instance JSON, placement variables, permutation, and metadata
+   * @param options - Optional synthesis options (previousState, outputPath)
+   * @returns Instance JSON, placement variables, permutation, state, and metadata
    */
-  async synthesize(txHash: string, outputPath?: string): Promise<SynthesizerResult> {
+  async synthesize(txHash: string, options?: SynthesizeOptions): Promise<SynthesizerResult> {
+    const { previousState, outputPath } = options || {};
     // Normalize tx hash
     const normalizedHash = txHash.startsWith('0x') ? txHash : `0x${txHash}`;
 
@@ -183,7 +214,15 @@ export class SynthesizerAdapter {
 
     // Create synthesizer using the new architecture
     const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(simulationOpts);
-    const synthesizer = await createSynthesizer(synthesizerOpts);
+    const synthesizer = (await createSynthesizer(synthesizerOpts)) as Synthesizer;
+
+    // Restore previous state if provided
+    if (previousState) {
+      console.log('[SynthesizerAdapter] Restoring previous state...');
+      const stateManager = synthesizer.getTokamakStateManager();
+      await stateManager.createStateFromSnapshot(previousState);
+      console.log(`[SynthesizerAdapter] ✅ Previous state restored: ${previousState.stateRoot}`);
+    }
 
     console.log('[SynthesizerAdapter] Executing transaction...');
 
@@ -200,6 +239,12 @@ export class SynthesizerAdapter {
     const a_pub = circuitGenerator.variableGenerator.a_pub || [];
     const permutation = circuitGenerator.permutationGenerator?.permutation || [];
 
+    // Export final state
+    console.log('[SynthesizerAdapter] Exporting final state...');
+    const stateManager = synthesizer.getTokamakStateManager();
+    const finalState = await stateManager.exportState();
+    console.log(`[SynthesizerAdapter] ✅ Final state exported: ${finalState.stateRoot}`);
+
     // Write outputs to file if path provided
     if (outputPath) {
       circuitGenerator.writeOutputs(outputPath);
@@ -212,6 +257,7 @@ export class SynthesizerAdapter {
       },
       placementVariables,
       permutation,
+      state: finalState, // Include final state
       metadata: {
         txHash: normalizedHash,
         blockNumber: tx.blockNumber,
@@ -225,6 +271,164 @@ export class SynthesizerAdapter {
     console.log('[SynthesizerAdapter] ✅ Synthesis complete');
     console.log(`  - a_pub length: ${a_pub.length}`);
     console.log(`  - Placements: ${placementVariables.length}`);
+    console.log(`  - State root: ${finalState.stateRoot}`);
+
+    return result;
+  }
+
+  /**
+   * Synthesize from calldata directly (State Channel mode)
+   * Does not require transaction hash or blockchain submission
+   *
+   * @param calldata - Raw calldata bytes or hex string
+   * @param options - Synthesis options including contract address, L2 keys, etc.
+   * @returns Instance JSON, placement variables, permutation, state, and metadata
+   */
+  async synthesizeFromCalldata(
+    calldata: Uint8Array | string,
+    options: CalldataSynthesizeOptions,
+  ): Promise<SynthesizerResult> {
+    const { previousState, outputPath } = options;
+
+    // Normalize calldata to Uint8Array
+    const calldataBytes = typeof calldata === 'string' ? hexToBytes(addHexPrefix(calldata)) : calldata;
+
+    console.log('[SynthesizerAdapter] Processing calldata directly (State Channel mode)');
+    console.log(`  Contract: ${options.contractAddress}`);
+    console.log(`  Participants: ${options.publicKeyListL2.length}`);
+    console.log(`  Calldata: ${addHexPrefix(Buffer.from(calldataBytes).toString('hex'))}`);
+
+    // Get block number (default: latest)
+    const blockNumber = options.blockNumber || (await this.provider.getBlockNumber());
+    console.log(`  Block: ${blockNumber}`);
+
+    // Build simulation options
+    const simulationOpts: SynthesizerSimulationOpts = {
+      txNonce: options.txNonce !== undefined ? options.txNonce : 0n, // Use provided nonce or default to 0n
+      rpcUrl: this.rpcUrl,
+      senderL2PrvKey: options.senderL2PrvKey,
+      blockNumber,
+      contractAddress: options.contractAddress as `0x${string}`,
+      userStorageSlots: options.userStorageSlots || [0],
+      addressListL1: options.addressListL1 as `0x${string}`[],
+      publicKeyListL2: options.publicKeyListL2,
+      callData: calldataBytes,
+    };
+
+    console.log('[SynthesizerAdapter] Creating synthesizer...');
+    const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(simulationOpts);
+
+    // Restore previous state BEFORE creating synthesizer (so INI_MERKLE_ROOT is set correctly)
+    if (previousState) {
+      console.log('[SynthesizerAdapter] Restoring previous state (before synthesizer creation)...');
+      const stateManager = synthesizerOpts.stateManager as any; // TokamakL2StateManager
+      await stateManager.createStateFromSnapshot(previousState);
+      console.log(`[SynthesizerAdapter] ✅ Previous state restored: ${previousState.stateRoot}`);
+      console.log(`[SynthesizerAdapter] ✅ initialMerkleTree.root: 0x${stateManager.initialMerkleTree.root.toString(16)}`);
+    }
+
+    // Now create synthesizer with the correct initialMerkleTree
+    const synthesizer = (await createSynthesizer(synthesizerOpts)) as Synthesizer;
+
+    // Verify restoration if previousState was provided
+    if (previousState) {
+      console.log('[SynthesizerAdapter] Verifying state restoration...');
+      const stateManager = synthesizer.getTokamakStateManager();
+
+      // Debug: Verify storage was restored correctly
+      const contractAddr = new Address(toBytes(addHexPrefix(previousState.contractAddress)));
+      console.log('[Debug] Verifying restored storage:');
+      console.log(`[Debug] Contract: ${previousState.contractAddress}`);
+      console.log(`[Debug] Storage keys registered: ${previousState.registeredKeys.length}`);
+      for (let i = 0; i < Math.min(3, previousState.storageEntries.length); i++) {
+        const entry = previousState.storageEntries[i];
+        if (entry && entry.value !== '0x') {
+          const key = hexToBytes(addHexPrefix(entry.key));
+          const storedValue = await stateManager.getStorage(contractAddr, key);
+          const expectedBigInt = BigInt(entry.value);
+          const actualBigInt = bytesToBigInt(storedValue);
+          const match = expectedBigInt === actualBigInt ? '✅' : '❌';
+          console.log(
+            `  [${i}] ${match} Key: ${entry.key.slice(0, 10)}... Expected: ${expectedBigInt}, Actual: ${actualBigInt}`,
+          );
+        }
+      }
+
+      // Debug: Check if sender's storage key is in registered keys
+      console.log('[Debug] Checking sender storage key:');
+      // Get sender address from private key
+      const senderPubKey = jubjub.Point.BASE.multiply(bytesToBigInt(options.senderL2PrvKey));
+      const senderPubKeyBytes = new Uint8Array(64);
+      senderPubKeyBytes.set(setLengthLeft(toBytes(senderPubKey.toAffine().x), 32), 0);
+      senderPubKeyBytes.set(setLengthLeft(toBytes(senderPubKey.toAffine().y), 32), 32);
+      const senderL2Addr = fromEdwardsToAddress(senderPubKeyBytes);
+      console.log(`  Sender L2: ${addHexPrefix(senderL2Addr.toString())}`);
+      const senderStorageKey = stateManager.getUserStorageKey([senderL2Addr, 0], 'L2');
+      const senderStorageKeyHex = bytesToHex(senderStorageKey);
+      console.log(`  Sender key: ${senderStorageKeyHex.slice(0, 20)}...`);
+      const keyIndex = previousState.registeredKeys.findIndex(
+        k => k.toLowerCase() === senderStorageKeyHex.toLowerCase(),
+      );
+      console.log(`  Key registered: ${keyIndex >= 0 ? `✅ at index ${keyIndex}` : '❌ NOT FOUND'}`);
+      if (keyIndex >= 0) {
+        const senderBalance = await stateManager.getStorage(contractAddr, senderStorageKey);
+        console.log(`  Sender balance: ${bytesToBigInt(senderBalance)}`);
+      }
+
+      // Debug: Check user account nonces
+      console.log('[Debug] User account nonces:');
+      for (let i = 0; i < previousState.userL2Addresses.length; i++) {
+        const addr = new Address(toBytes(addHexPrefix(previousState.userL2Addresses[i])));
+        const account = await stateManager.getAccount(addr);
+        const expectedNonce = previousState.userNonces[i];
+        const actualNonce = account?.nonce || 0n;
+        const match = expectedNonce === actualNonce ? '✅' : '❌';
+        console.log(`  [${i}] ${match} Expected: ${expectedNonce}, Actual: ${actualNonce}`);
+      }
+    }
+
+    console.log('[SynthesizerAdapter] Executing transaction...');
+    const runTxResult = await synthesizer.synthesizeTX();
+
+    console.log('[SynthesizerAdapter] Generating circuit outputs...');
+    const circuitGenerator = await createCircuitGenerator(synthesizer);
+
+    // Get the data before writing (if we need in-memory access)
+    const placementVariables = circuitGenerator.variableGenerator.placementVariables || [];
+    const a_pub = circuitGenerator.variableGenerator.a_pub || [];
+    const permutation = circuitGenerator.permutationGenerator?.permutation || [];
+
+    // Export final state
+    console.log('[SynthesizerAdapter] Exporting final state...');
+    const stateManager = synthesizer.getTokamakStateManager();
+    const finalState = await stateManager.exportState();
+    console.log(`[SynthesizerAdapter] ✅ Final state exported: ${finalState.stateRoot}`);
+
+    // Write outputs if path provided
+    if (outputPath) {
+      circuitGenerator.writeOutputs(outputPath);
+      console.log(`[SynthesizerAdapter] ✅ Outputs written to: ${outputPath}`);
+    }
+
+    const result: SynthesizerResult = {
+      instance: { a_pub: a_pub as string[] },
+      placementVariables,
+      permutation,
+      state: finalState,
+      metadata: {
+        blockNumber,
+        from: addHexPrefix(fromEdwardsToAddress(options.publicKeyListL2[0]).toString()),
+        to: options.contractAddress,
+        contractAddress: options.contractAddress,
+        eoaAddresses: options.addressListL1,
+        calldata: addHexPrefix(Buffer.from(calldataBytes).toString('hex')),
+      },
+    };
+
+    console.log('[SynthesizerAdapter] ✅ Synthesis complete');
+    console.log(`  - a_pub length: ${a_pub.length}`);
+    console.log(`  - Placements: ${placementVariables.length}`);
+    console.log(`  - State root: ${finalState.stateRoot}`);
 
     return result;
   }
@@ -233,6 +437,6 @@ export class SynthesizerAdapter {
    * Alternative method for backward compatibility
    */
   async parseTransactionByHash(txHash: string, outputPath?: string): Promise<SynthesizerResult> {
-    return this.synthesize(txHash, outputPath);
+    return this.synthesize(txHash, { outputPath });
   }
 }
