@@ -95,7 +95,6 @@ fn main() {
     let l = setup_params.l;     // Number of public I/O wires
     let l_user = setup_params.l_user;
     let l_d = setup_params.l_D; // Number of interface wires
-    let m_env = l - l_user;
     // The last wire-related parameter
     let m_i = l_d - l;
     println!("Setup parameters: \n n = {:?}, \n s_max = {:?}, \n l = {:?}, \n m_I = {:?}, \n m_D = {:?}", n, s_max, l, m_i, m_d);
@@ -280,16 +279,14 @@ fn main() {
         let u_encoding = sigma.sigma_1.encode_poly(&mut uXY, &setup_params);
         let v_encoding = sigma.sigma_1.encode_poly(&mut vXY, &setup_params);
         let w_encoding = sigma.sigma_1.encode_poly(&mut wXY, &setup_params);
-        let O_user_inst = sigma.sigma_1.encode_O_user_inst(&placement_variables, &subcircuit_infos, &setup_params);
-        let O_env_inst = sigma.sigma_1.encode_O_env_inst(&placement_variables, &subcircuit_infos, &setup_params);
+        let O_inst = sigma.sigma_1.encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params);
         // TEMP
             // assert_eq!(O_pub.0, G1Affine::zero());
         ////
         let O_mid = sigma.sigma_1.encode_O_mid_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
         let O_prv = sigma.sigma_1.encode_O_prv_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
         let LHS = 
-            O_user_inst * tau.gamma 
-            + O_env_inst * tau.gamma.pow(2)
+            O_inst * tau.gamma 
             + O_mid * tau.eta 
             + O_prv * tau.delta;
         let RHS = 
@@ -326,9 +323,9 @@ fn main() {
         println!("Checked: zk strings");
 
         let lhs1 = vec![a_encoding, b_encoding, u_encoding, v_encoding, w_encoding];
-        let lhs2 = vec![O_env_inst, O_user_inst, O_mid, O_prv];
+        let lhs2 = vec![O_inst, O_mid, O_prv];
         let rhs1 = vec![sigma.H, sigma.sigma_2.alpha4, sigma.sigma_2.alpha, sigma.sigma_2.alpha2, sigma.sigma_2.alpha3];
-        let rhs2 = vec![sigma.sigma_2.gamma2, sigma.sigma_2.gamma, sigma.sigma_2.eta, sigma.sigma_2.delta];
+        let rhs2 = vec![sigma.sigma_2.gamma, sigma.sigma_2.eta, sigma.sigma_2.delta];
         let LHS = pairing(&lhs1, &rhs1);
         let RHS = pairing(&lhs2, &rhs2);
         assert_eq!(LHS, RHS);

@@ -296,8 +296,8 @@ impl Verifier {
             &[self.sigma.H, self.sigma.sigma_2.alpha4,  self.sigma.sigma_2.alpha,   self.sigma.sigma_2.alpha2,  self.sigma.sigma_2.alpha3]
         );
         let right_pair = pairing(
-            &[binding.O_env_inst,               binding.O_user_inst,        binding.O_mid,              binding.O_prv,              AUX_X,                  AUX_Y               ],
-            &[self.sigma.sigma_2.gamma2,    self.sigma.sigma_2.gamma,   self.sigma.sigma_2.eta,     self.sigma.sigma_2.delta,   self.sigma.sigma_2.x,   self.sigma.sigma_2.y]
+            &[binding.O_inst,        binding.O_mid,              binding.O_prv,              AUX_X,                  AUX_Y               ],
+            &[self.sigma.sigma_2.gamma,   self.sigma.sigma_2.eta,     self.sigma.sigma_2.delta,   self.sigma.sigma_2.x,   self.sigma.sigma_2.y]
         );
         left_pair.eq(&right_pair)
     }
@@ -477,8 +477,8 @@ impl Verifier {
             &[self.sigma.H,     self.sigma.sigma_2.alpha4,  self.sigma.sigma_2.alpha,   self.sigma.sigma_2.alpha2,  self.sigma.sigma_2.alpha3]
         );
         let right_pair = pairing(
-            &[binding.O_env_inst,               binding.O_user_inst,            binding.O_mid,              binding.O_prv,              proof4.Pi_B * kappa2    ],
-            &[self.sigma.sigma_2.gamma2,    self.sigma.sigma_2.gamma,       self.sigma.sigma_2.eta,     self.sigma.sigma_2.delta,   self.sigma.sigma_2.x    ]
+            &[binding.O_inst,            binding.O_mid,              binding.O_prv,              proof4.Pi_B * kappa2    ],
+            &[self.sigma.sigma_2.gamma,       self.sigma.sigma_2.eta,     self.sigma.sigma_2.delta,   self.sigma.sigma_2.x    ]
         );
 
         return left_pair.eq(&right_pair)
