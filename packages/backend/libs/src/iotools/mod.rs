@@ -119,14 +119,22 @@ fn byte_slice_to_literal(bytes: &[u8]) -> String {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct PublicWireInfo {
+    pub subcircuitId: usize,
+    pub numPubWires: usize,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct SetupParams {
     pub l: usize,
+    pub l_user_out: usize,
+    pub l_user: usize,
+    pub l_block: usize,
     pub l_D: usize, //m_I = l_D - 1
     pub m_D: usize,
     pub n: usize,
     pub s_D: usize,
     pub s_max: usize,
-    pub num_public_wires: Box<[usize]>,
 }
 
 impl_read_from_json!(SetupParams);
@@ -163,7 +171,10 @@ impl Sigma {
         }
         let file = File::create(&abs_path)?;
         let writer = BufWriter::new(file);
-        let partial_sigma_1: PartialSigma1 = PartialSigma1 { xy_powers: self.sigma_1.xy_powers.clone() };
+        let partial_sigma_1: PartialSigma1 = PartialSigma1 {
+            xy_powers: self.sigma_1.xy_powers.clone(),
+            // gamma2_inv_o_env_inst: self.sigma_1.gamma2_inv_o_env_inst.clone(),
+        };
         let sigma_preprocess: SigmaPreprocess = SigmaPreprocess {
             sigma_1: partial_sigma_1
         };
@@ -213,7 +224,8 @@ impl Sigma1 {
                 xy_powers: {},
                 delta: {},
                 eta: {},
-                gamma_inv_o_inst: {},
+                gamma_inv_o_user_inst: {},
+                gamma2_inv_o_env_inst: {},
                 eta_inv_li_o_inter_alpha4_kj: {},
                 delta_inv_li_o_prv: {},
                 delta_inv_alphak_xh_tx: {},
@@ -223,7 +235,8 @@ impl Sigma1 {
             g1_vec_to_code(&self.xy_powers),
             self.delta.to_rust_code(),
             self.eta.to_rust_code(),
-            g1_vec_to_code(&self.gamma_inv_o_inst),
+            g1_vec_to_code(&self.gamma_inv_o_user_inst),
+            g1_vec_to_code(&self.gamma2_inv_o_env_inst),
             g1_mat_to_code(&self.eta_inv_li_o_inter_alpha4_kj),
             g1_mat_to_code(&self.delta_inv_li_o_prv),
             g1_mat_to_code(&self.delta_inv_alphak_xh_tx),
@@ -296,10 +309,9 @@ pub struct PublicInputBuffer {
 
 #[derive(Debug, Deserialize)]
 pub struct Instance {
-    // pub publicOutputBuffer: PublicOutputBuffer,
-    // pub publicInputBuffer: PublicInputBuffer,
-    pub a_pub: Vec<String>,
-    // pub a_prv: Vec<String>,
+    pub a_pub_user: Box<[String]>,
+    pub a_pub_block: Box<[String]>,
+    pub a_pub_function: Box<[String]>,
 }
 
 impl_read_from_json!(Instance);
@@ -315,7 +327,7 @@ pub struct Permutation {
 impl_read_box_from_json!(Permutation);
 
 impl Permutation {
-    pub fn to_poly(perm_raw: &Box<[Self]>, m_i: usize, s_max: usize) -> (DensePolynomialExt, DensePolynomialExt) {
+    pub fn to_poly(perm_raw: &[Self], m_i: usize, s_max: usize) -> (DensePolynomialExt, DensePolynomialExt) {
         let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
         let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
         let mut s0_evals_vec = vec![ScalarField::zero(); m_i * s_max];
@@ -659,8 +671,8 @@ impl G2serde {
 
 
 pub fn scaled_outer_product_2d(
-    col_vec: &Box<[ScalarField]>, 
-    row_vec: &Box<[ScalarField]>, 
+    col_vec: &[ScalarField], 
+    row_vec: &[ScalarField], 
     g1_gen: &G1Affine, 
     scaler: Option<&ScalarField>, 
     res: &mut Box<[Box<[G1serde]>]>
@@ -710,7 +722,7 @@ pub fn scaled_outer_product_1d(
 }
 
 pub fn from_coef_vec_to_g1serde_vec_msm(
-    coef: &Box<[ScalarField]>,
+    coef: &[ScalarField],
     gen: &G1Affine,
     res: &mut [G1serde],
 ) {
@@ -872,7 +884,7 @@ pub fn gen_g1serde_vec_of_xy_monomials(
 }
 
 
-pub fn from_coef_vec_to_g1serde_mat(coef: &Box<[ScalarField]>, r_size: usize, c_size: usize, gen: &G1Affine, res: &mut Box<[Box<[G1serde]>]>) {
+pub fn from_coef_vec_to_g1serde_mat(coef: &[ScalarField], r_size: usize, c_size: usize, gen: &G1Affine, res: &mut Box<[Box<[G1serde]>]>) {
     if res.len() != r_size || res.len() == 0 {
         panic!("Not enough buffer row length.")
     }

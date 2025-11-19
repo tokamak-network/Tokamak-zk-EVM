@@ -33,7 +33,7 @@ pub enum KeccakVerificationResult {
 
 pub struct Verifier {
     pub sigma: SigmaVerify,
-    pub a_pub: Box<[ScalarField]>,
+    pub a_pub_X: DensePolynomialExt,
     // pub publicInputBuffer: PublicInputBuffer,
     // pub publicOutputBuffer: PublicOutputBuffer,
     pub preprocess: Preprocess,
@@ -54,10 +54,6 @@ impl Verifier {
         let s_max = setup_params.s_max; // The maximum number of placements
         // let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
         // let l_prv = setup_params.l_prv_in + setup_params.l_prv_out;
-        
-        if !(l.is_power_of_two() || l==0) {
-            panic!("l is not a power of two.");
-        }
     
         // if !(l_prv.is_power_of_two()) {
         //     panic!("l_prv is not a power of two.");
@@ -81,10 +77,7 @@ impl Verifier {
         let instance_path = PathBuf::from(paths.synthesizer_path).join("instance.json");
         let instance = Instance::read_from_json(instance_path).unwrap();
         // Parsing the inputs
-        let mut a_pub = vec![ScalarField::zero(); l].into_boxed_slice();
-        for i in 0..l {
-            a_pub[i] = ScalarField::from_hex(&instance.a_pub[i]);
-        }
+        let a_pub_X = instance.gen_a_pub_X(&setup_params);
 
         // Load Sigma (reference string)
         let sigma_path = PathBuf::from(paths.setup_path).join("sigma_verify.json");
@@ -106,7 +99,7 @@ impl Verifier {
 
         return Self {
             sigma, 
-            a_pub, 
+            a_pub_X, 
             // publicInputBuffer: instance.publicInputBuffer, 
             // publicOutputBuffer: instance.publicOutputBuffer, 
             setup_params, 
@@ -234,14 +227,7 @@ impl Verifier {
         let t_mi_eval = chi.pow(m_i) - ScalarField::one();
         let t_smax_eval = zeta.pow(s_max) - ScalarField::one();
 
-        let a_pub_X = DensePolynomialExt::from_rou_evals(
-            HostSlice::from_slice(&self.a_pub),
-            self.setup_params.l,
-            1,
-            None,
-            None
-        );
-        let A_eval = a_pub_X.eval(&chi, &zeta);
+        let A_eval = self.a_pub_X.eval(&chi, &zeta);
         
         let lagrange_K0_eval = {
             let lagrange_K0_XY = {
@@ -310,8 +296,8 @@ impl Verifier {
             &[self.sigma.H, self.sigma.sigma_2.alpha4,  self.sigma.sigma_2.alpha,   self.sigma.sigma_2.alpha2,  self.sigma.sigma_2.alpha3]
         );
         let right_pair = pairing(
-            &[binding.O_inst,            binding.O_mid,          binding.O_prv,              AUX_X,                  AUX_Y               ],
-            &[self.sigma.sigma_2.gamma, self.sigma.sigma_2.eta, self.sigma.sigma_2.delta,   self.sigma.sigma_2.x,   self.sigma.sigma_2.y]
+            &[binding.O_env_inst,               binding.O_user_inst,        binding.O_mid,              binding.O_prv,              AUX_X,                  AUX_Y               ],
+            &[self.sigma.sigma_2.gamma2,    self.sigma.sigma_2.gamma,   self.sigma.sigma_2.eta,     self.sigma.sigma_2.delta,   self.sigma.sigma_2.x,   self.sigma.sigma_2.y]
         );
         left_pair.eq(&right_pair)
     }
@@ -465,14 +451,7 @@ impl Verifier {
         let t_mi_eval = chi.pow(m_i) - ScalarField::one();
         let t_smax_eval = zeta.pow(s_max) - ScalarField::one();
 
-        let a_pub_X = DensePolynomialExt::from_rou_evals(
-            HostSlice::from_slice(&self.a_pub),
-            self.setup_params.l,
-            1,
-            None,
-            None
-        );
-        let A_eval = a_pub_X.eval(&chi, &zeta);
+        let A_eval = self.a_pub_X.eval(&chi, &zeta);
         
         let lagrange_K0_eval = {
             let lagrange_K0_XY = {
@@ -498,8 +477,8 @@ impl Verifier {
             &[self.sigma.H,     self.sigma.sigma_2.alpha4,  self.sigma.sigma_2.alpha,   self.sigma.sigma_2.alpha2,  self.sigma.sigma_2.alpha3]
         );
         let right_pair = pairing(
-            &[binding.O_inst,            binding.O_mid,          binding.O_prv,              proof4.Pi_B * kappa2    ],
-            &[self.sigma.sigma_2.gamma, self.sigma.sigma_2.eta, self.sigma.sigma_2.delta,   self.sigma.sigma_2.x    ]
+            &[binding.O_env_inst,               binding.O_user_inst,            binding.O_mid,              binding.O_prv,              proof4.Pi_B * kappa2    ],
+            &[self.sigma.sigma_2.gamma2,    self.sigma.sigma_2.gamma,       self.sigma.sigma_2.eta,     self.sigma.sigma_2.delta,   self.sigma.sigma_2.x    ]
         );
 
         return left_pair.eq(&right_pair)

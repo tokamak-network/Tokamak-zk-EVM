@@ -20,7 +20,8 @@ use std::time::Instant;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() < 4 || args.len() > 4 {
+    #[cfg(not(feature = "testing-mode"))] 
+    if args.len() < 3 || args.len() > 4 {
         eprintln!(
             "Usage: {} <QAP_PATH> <OUT_PATH> [--fixed-tau]",
             args[0]
@@ -28,11 +29,31 @@ fn main() {
         process::exit(1);
     }
 
+    #[cfg(feature = "testing-mode")]
+    if args.len() < 4 || args.len() > 5 {
+        eprintln!(
+            "Usage: {} <QAP_PATH> <OUT_PATH> [--fixed-tau]",
+            args[0]
+        );
+        process::exit(1);
+    }
+
+    #[cfg(not(feature = "testing-mode"))] 
     let use_fixed_tau = args.len() == 4 && (args[3] == "--fixed-tau");
 
+    #[cfg(feature = "testing-mode")]
+    let use_fixed_tau = args.len() == 5 && (args[4] == "--fixed-tau");
+
+    #[cfg(not(feature = "testing-mode"))] 
     let paths = SetupInputPaths {
         qap_path: &args[1],
         output_path: &args[2],
+    };
+    #[cfg(feature = "testing-mode")]
+    let paths = SetupInputPaths {
+        qap_path: &args[1],
+        output_path: &args[2],
+        synthesizer_path: &args[3],
     };
 
     check_device();
@@ -72,9 +93,9 @@ fn main() {
     let s_max = setup_params.s_max; // The maximum number of placements.
     // Additional wire-related parameters
     let l = setup_params.l;     // Number of public I/O wires
-    // let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
-    // let l_prv = setup_params.l_prv_in + setup_params.l_prv_out;
+    let l_user = setup_params.l_user;
     let l_d = setup_params.l_D; // Number of interface wires
+    let m_env = l - l_user;
     // The last wire-related parameter
     let m_i = l_d - l;
     println!("Setup parameters: \n n = {:?}, \n s_max = {:?}, \n l = {:?}, \n m_I = {:?}, \n m_D = {:?}", n, s_max, l, m_i, m_d);
@@ -123,9 +144,7 @@ fn main() {
     
     // Compute m_evaled_vec: Lagrange polynomial evaluations at τ.x of size l
     let mut m_evaled_vec = vec![ScalarField::zero(); l].into_boxed_slice();
-    if l>0 {
-        gen_evaled_lagrange_bases(&tau.x, l, &mut m_evaled_vec);
-    }
+    gen_evaled_lagrange_bases(&tau.x, l, &mut m_evaled_vec);
 
     // Compute o_evaled_vec: Wire polynomial evaluations
     let mut o_evaled_vec = vec![ScalarField::zero(); m_d].into_boxed_slice();
@@ -246,10 +265,10 @@ fn main() {
         // TEMP
             // public_instance.a_pub = vec![ScalarField::zero().to_string(); setup_params.l];
         ////
-        let mut aX = public_instance.gen_a_pub_X(&setup_params);
+        let mut a_X = public_instance.gen_a_pub_X(&setup_params);
         let mut bXY = gen_bXY(&placement_variables, &subcircuit_infos, &setup_params);
         let (mut uXY, mut vXY, mut wXY) = read_R1CS_gen_uvwXY(&paths.qap_path, &placement_variables, &subcircuit_infos, &setup_params);
-        let a_encoding = sigma.sigma_1.encode_poly(&mut aX, &setup_params);
+        let a_encoding = sigma.sigma_1.encode_poly(&mut a_X, &setup_params);
         // TEMP
             // assert_eq!(a_encoding.0, G1Affine::zero());
         ////
@@ -261,18 +280,20 @@ fn main() {
         let u_encoding = sigma.sigma_1.encode_poly(&mut uXY, &setup_params);
         let v_encoding = sigma.sigma_1.encode_poly(&mut vXY, &setup_params);
         let w_encoding = sigma.sigma_1.encode_poly(&mut wXY, &setup_params);
-        let O_pub = sigma.sigma_1.encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params);
+        let O_user_inst = sigma.sigma_1.encode_O_user_inst(&placement_variables, &subcircuit_infos, &setup_params);
+        let O_env_inst = sigma.sigma_1.encode_O_env_inst(&placement_variables, &subcircuit_infos, &setup_params);
         // TEMP
             // assert_eq!(O_pub.0, G1Affine::zero());
         ////
         let O_mid = sigma.sigma_1.encode_O_mid_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
         let O_prv = sigma.sigma_1.encode_O_prv_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
         let LHS = 
-            O_pub * tau.gamma 
+            O_user_inst * tau.gamma 
+            + O_env_inst * tau.gamma.pow(2)
             + O_mid * tau.eta 
             + O_prv * tau.delta;
         let RHS = 
-            a_encoding 
+            a_encoding
             + u_encoding * tau.alpha
             + v_encoding * tau.alpha.pow(2)
             + w_encoding * tau.alpha.pow(3)
@@ -305,9 +326,9 @@ fn main() {
         println!("Checked: zk strings");
 
         let lhs1 = vec![a_encoding, b_encoding, u_encoding, v_encoding, w_encoding];
-        let lhs2 = vec![O_pub, O_mid, O_prv];
+        let lhs2 = vec![O_env_inst, O_user_inst, O_mid, O_prv];
         let rhs1 = vec![sigma.H, sigma.sigma_2.alpha4, sigma.sigma_2.alpha, sigma.sigma_2.alpha2, sigma.sigma_2.alpha3];
-        let rhs2 = vec![sigma.sigma_2.gamma, sigma.sigma_2.eta, sigma.sigma_2.delta];
+        let rhs2 = vec![sigma.sigma_2.gamma2, sigma.sigma_2.gamma, sigma.sigma_2.eta, sigma.sigma_2.delta];
         let LHS = pairing(&lhs1, &rhs1);
         let RHS = pairing(&lhs2, &rhs2);
         assert_eq!(LHS, RHS);
@@ -404,6 +425,7 @@ fn main() {
         assert_eq!(pairing(&[V_zk], &[sigma.sigma_2.alpha2]), pairing(&[V_zk_rhs], &[sigma.sigma_2.delta]));
         assert_eq!(pairing(&[W_zk1], &[sigma.sigma_2.alpha3]), pairing(&[W_zk_rhs1], &[sigma.sigma_2.delta]));
         assert_eq!(pairing(&[W_zk2], &[sigma.sigma_2.alpha3]), pairing(&[W_zk_rhs2], &[sigma.sigma_2.delta]));  
+        println!("Checked: each proof component");
     }
 
     let start = Instant::now();

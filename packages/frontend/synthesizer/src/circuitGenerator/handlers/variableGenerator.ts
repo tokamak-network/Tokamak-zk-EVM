@@ -1,5 +1,5 @@
 import { addHexPrefix, bigIntToBytes, bigIntToHex, bytesToHex, setLengthLeft } from "@ethereumjs/util";
-import { BUFFER_LIST, SubcircuitInfoByName } from "src/interface/qapCompiler/configuredTypes.ts";
+import { BUFFER_DESCRIPTION, BUFFER_LIST, SubcircuitInfoByName, SubcircuitNames } from "src/interface/qapCompiler/configuredTypes.ts";
 import { DataPtFactory } from "src/synthesizer/dataStructure/dataPt.ts";
 import { SynthesizerInterface } from "src/synthesizer/index.ts";
 import { DataPt } from "src/synthesizer/types/dataStructure.ts";
@@ -8,18 +8,19 @@ import { CircuitGenerator } from "../circuitGenerator.ts";
 import { Synthesizer } from "src/synthesizer/synthesizer.ts";
 import { globalWireList, setupParams, SUBCIRCUIT_BUFFER_MAPPING, subcircuitInfoByName, wasmDir } from "src/interface/qapCompiler/importedConstants.ts";
 import { buffer } from "stream/consumers";
-import { builder } from "../witness_calculator.ts";
+import { builder } from "../utils/witness_calculator.ts";
 import { readFileSync } from "fs";
 import appRootPath from "app-root-path";
 import path from "path";
 import { VARIABLE_DESCRIPTION } from "src/synthesizer/types/buffers.ts";
+import { PublicInstance } from "../types/types.ts";
 
 export class VariableGenerator {
   private parent: CircuitGenerator;
   
   placementsCompatibleWithSubcircuits: Placements | undefined = undefined
   placementVariables: PlacementVariables | undefined = undefined
-  a_pub: `0x${string}`[] | undefined = undefined
+  a_pub: PublicInstance | undefined = undefined
 
   constructor(circuitGenerator: CircuitGenerator) {
     this.parent = circuitGenerator
@@ -108,9 +109,12 @@ export class VariableGenerator {
     return placementVariables
   }
 
-  private _extractPublicInstance(placementVariables: PlacementVariables): `0x${string}`[] {
-      let l = setupParams.l
-      let a_pub: `0x${string}`[] = Array(l).fill('0x00');
+  private _extractPublicInstance(placementVariables: PlacementVariables): PublicInstance {
+      const l = setupParams.l
+      const l_user = setupParams.l_user
+      const l_block = setupParams.l_block
+
+      const a_pub: `0x${string}`[] = Array(l).fill('0x00');
       for (var globalIdx = 0; globalIdx < l; globalIdx++) {
         const [subcircuitId, localVariableIdx] = globalWireList[globalIdx]
         if (subcircuitId !== -1 && localVariableIdx !== -1) {
@@ -122,7 +126,22 @@ export class VariableGenerator {
           a_pub[globalIdx] = addHexPrefix(localVal)
         }
       }
-      return a_pub
+
+      const blockBufferInfo = subcircuitInfoByName.get('bufferBlockIn')!
+      const functionBufferInfo = subcircuitInfoByName.get('bufferEVMIn')!
+
+      const a_pub_user = a_pub.slice(0, l_user)
+      // const pubBlockOffset = blockBufferInfo.flattenMap[blockBufferInfo.inWireIndex]
+      // const numBlockInstance = blockBufferInfo.NInWires
+      const a_pub_block = a_pub.slice(l_user, l_block)
+      // const pubFunctionOffset = functionBufferInfo.flattenMap[functionBufferInfo.inWireIndex]
+      // const numFunctionInstance = functionBufferInfo.NInWires
+      const a_pub_function = a_pub.slice(l_block, )
+      return {
+        a_pub_user,
+        a_pub_block,
+        a_pub_function,
+      }
     }
 
   private _halveWordSizeOfWires(

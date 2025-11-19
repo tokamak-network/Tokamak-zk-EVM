@@ -49,7 +49,7 @@ export class CircuitGenerator {
 
     // Prepare JSON strings
     const placementVariablesJson = JSON.stringify(placementVariables, null, 2);
-    const instanceJson = JSON.stringify({ a_pub }, null, 2);
+    const instanceJson = JSON.stringify( a_pub, null, 2);
     const permutationJson = JSON.stringify(permutation, null, 2);
 
     // Resolve file paths (reuse the style from comments above)

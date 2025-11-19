@@ -198,9 +198,10 @@
                 // N_X (appears as N_χ in comments)
                 &self.proof4.N_X,
                 // O_inst from binding (appears to be O_pub in the test)
-                &self.binding.O_inst,
+                &self.binding.O_user_inst,
+                &self.binding.O_env_inst,
                 // A from binding
-                &self.binding.A
+                &self.binding.A,
             );
             
             // Add evaluations to part2 only (they're scalar fields, not G1 points)
@@ -226,7 +227,7 @@
             let p1 = &self.proof_entries_part1;
             let p2 = &self.proof_entries_part2;
 
-            const G1_CNT: usize = 19;      // The number of G1 points 
+            const G1_CNT: usize = 20;      // The number of G1 points 
             const SCALAR_CNT: usize = 4;   // The number of Scalars
 
             assert_eq!(p1.len(), G1_CNT * 2);
@@ -253,10 +254,11 @@
                 M_X,
                 N_Y,
                 N_X,
-                O_inst,
-                A
+                O_user_inst,
+                O_env_inst,
+                A,
             );
-            let binding = Binding { A, O_inst, O_mid, O_prv};
+            let binding = Binding { A, O_user_inst, O_env_inst, O_mid, O_prv};
             let proof0 = Proof0 { U, V, W, Q_AX, Q_AY, B };
             let proof1 = Proof1 { R };
             let proof2 = Proof2 { Q_CX, Q_CY };
@@ -284,7 +286,8 @@
     #[derive(Debug, Serialize, Deserialize)]
     pub struct Binding {
         pub A: G1serde,
-        pub O_inst: G1serde,
+        pub O_user_inst: G1serde,
+        pub O_env_inst: G1serde,
         pub O_mid: G1serde,
         pub O_prv: G1serde
     }
@@ -382,10 +385,6 @@
             let s_max = setup_params.s_max; // The maximum number of placements
             // let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
             // let l_prv = setup_params.l_prv_in + setup_params.l_prv_out;
-            
-            if !(l.is_power_of_two() || l==0) {
-                panic!("l is not a power of two.");
-            }
         
             // if !(l_prv.is_power_of_two()) {
             //     panic!("l_prv is not a power of two.");
@@ -480,7 +479,7 @@
             println!("🔄 Loading instance took {:?}", time_start.elapsed());
 
             #[cfg(feature = "testing-mode")] {
-                use icicle_core::vec_ops::VecOps;
+                use icicle_core::vec_ops::{VecOps, VecOpsConfig};
                 // Checking Lemma 3
                 let mut bXY_evals = vec![ScalarField::zero(); m_i*s_max];
                 witness.bXY.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut bXY_evals));
@@ -604,8 +603,10 @@
             println!("🔄 Starting binding computation (MSMs)...");
             let binding: Binding = {
                 let A = sigma.sigma_1.encode_poly(&mut instance.a_pub_X, &setup_params);
-                let O_inst = sigma.sigma_1.encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params);
-                sigma.sigma_1.gamma_inv_o_inst = vec![G1serde::zero()].into_boxed_slice();
+                let O_user_inst = sigma.sigma_1.encode_O_user_inst(&placement_variables, &subcircuit_infos, &setup_params);
+                let O_env_inst = sigma.sigma_1.encode_O_env_inst(&placement_variables, &subcircuit_infos, &setup_params);
+                
+                sigma.sigma_1.gamma_inv_o_user_inst = vec![G1serde::zero()].into_boxed_slice();
                 let O_mid_core = sigma.sigma_1.encode_O_mid_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
                 sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj = vec![vec![G1serde::zero()].into_boxed_slice()].into_boxed_slice();
                 let O_mid = 
@@ -640,7 +641,7 @@
                         sigma.sigma_1.delta_inv_alphak_yi_ty[3][0] * mixer.rB_Y[0]
                         + sigma.sigma_1.delta_inv_alphak_yi_ty[3][1] * mixer.rB_Y[1]
                     );
-                Binding {A, O_inst, O_mid, O_prv}
+                Binding {A, O_user_inst, O_env_inst, O_mid, O_prv}
             };
             println!("🔄 Binding computation (MSMs) took {:?}", time_start.elapsed());
 
