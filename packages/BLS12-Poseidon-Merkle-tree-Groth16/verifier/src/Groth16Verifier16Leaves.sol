@@ -63,7 +63,7 @@ contract Groth16Verifier16Leaves {
     uint256 constant IC0x_PART2 = 0x04f35db9df3896733ff80ccf72809469a5774a3a03290bfbbfb6f4cae23c0a4d;
     uint256 constant IC0y_PART1 = 0x0000000000000000000000000000000014e269ad92909ade7e1daac203a68947;
     uint256 constant IC0y_PART2 = 0x2381f860c7dd47516a159f8873ef9500f176b09ee8982fdaacb60e4d034c2396;
-//
+    //
     uint256 constant IC1x_PART1 = 0x0000000000000000000000000000000014313a5c6ce6824bd383b2c11a5d5787;
     uint256 constant IC1x_PART2 = 0xd2909a7e9f487df14afe620e84384dbf4008ad1569182fe0697aff238aa209aa;
     uint256 constant IC1y_PART1 = 0x0000000000000000000000000000000017caa2e3b8680e37c71bf9622ae7f77a;
@@ -249,22 +249,6 @@ contract Groth16Verifier16Leaves {
                 }
             }
 
-            /// @dev Reverts execution with a provided revert reason.
-            /// @param len The byte length of the error message string, which is expected to be no more than 32.
-            /// @param reason The 1-word revert reason string, encoded in ASCII.
-            function revertWithMessage(len, reason) {
-                // "Error(string)" signature: bytes32(bytes4(keccak256("Error(string)")))
-                mstore(0x00, 0x08c379a000000000000000000000000000000000000000000000000000000000)
-                // Data offset
-                mstore(0x04, 0x0000000000000000000000000000000000000000000000000000000000000020)
-                // Length of revert string
-                mstore(0x24, len)
-                // Revert reason
-                mstore(0x44, reason)
-                // Revert
-                revert(0x00, 0x64)
-            }
-
             // G1 function to multiply a G1 value(x,y) to value in an address
             function g1_mulAccC(pR, x0, x1, y0, y1, s) {
                 let success
@@ -396,7 +380,7 @@ contract Groth16Verifier16Leaves {
                     neg_y_low := add(neg_y_low, 1)
                     borrow := 1
                 }
-                default { 
+                default {
                     neg_y_low := sub(Q_MOD_PART2, y_low)
                     borrow := 0
                 }
@@ -449,7 +433,6 @@ contract Groth16Verifier16Leaves {
                 mstore(add(_pPairing, 1056), gammay2_PART2) // y1_PART2
                 mstore(add(_pPairing, 1088), gammay1_PART1) // y0_PART1
                 mstore(add(_pPairing, 1120), gammay1_PART2) // y0_PART2
-                
 
                 // C (48-byte BLS12-381 format) - PAIR 3 G1
                 mstore(add(_pPairing, 1152), calldataload(pC)) // _pC[0][0] (x_PART1)
