@@ -9,34 +9,34 @@ import { Placements, PlacementVariables } from 'src/synthesizer/types/placements
 import { PermutationGenerator } from './handlers/permutationGenerator.ts';
 
 export async function createCircuitGenerator(synthesizer: SynthesizerInterface): Promise<CircuitGenerator> {
-  const circuitGenerator = new CircuitGenerator(synthesizer)
-  await circuitGenerator.variableGenerator.initVariableGenerator()
-  circuitGenerator.circuitPlacements = circuitGenerator.variableGenerator.placementsCompatibleWithSubcircuits
-  circuitGenerator.permutationGenerator = new PermutationGenerator(circuitGenerator)
-  return circuitGenerator
+  const circuitGenerator = new CircuitGenerator(synthesizer);
+  await circuitGenerator.variableGenerator.initVariableGenerator();
+  circuitGenerator.circuitPlacements = circuitGenerator.variableGenerator.placementsCompatibleWithSubcircuits;
+  circuitGenerator.permutationGenerator = new PermutationGenerator(circuitGenerator);
+  return circuitGenerator;
 }
 
 export class CircuitGenerator {
   public pathToWrite?: string;
   // public subcircuitIndicesByName: Map<SubcircuitNames, SubcircuitIndicesByNameEntry> = new Map()
-  public variableGenerator: VariableGenerator
-  public permutationGenerator: PermutationGenerator | undefined = undefined
-  public synthesizer: SynthesizerInterface
-  public EVMPlacements: Placements
-  public circuitPlacements: Placements | undefined = undefined
+  public variableGenerator: VariableGenerator;
+  public permutationGenerator: PermutationGenerator | undefined = undefined;
+  public synthesizer: SynthesizerInterface;
+  public EVMPlacements: Placements;
+  public circuitPlacements: Placements | undefined = undefined;
 
   constructor(synthesizer: SynthesizerInterface) {
-    this.synthesizer = synthesizer
-    this.EVMPlacements = this.synthesizer.placements
-    this.variableGenerator = new VariableGenerator(this)
+    this.synthesizer = synthesizer;
+    this.EVMPlacements = this.synthesizer.placements;
+    this.variableGenerator = new VariableGenerator(this);
   }
 
   /**
-   * Write placementVariables, instance (a_pub), and permutation to JSON files.
+   * Write placementVariables, instance (publicInstance), and permutation to JSON files.
    * If no path is provided, default to examples/outputs under app root.
    */
   public writeOutputs(_path?: string): void {
-    if (!this.variableGenerator.placementVariables || !this.variableGenerator.a_pub) {
+    if (!this.variableGenerator.placementVariables || !this.variableGenerator.publicInstance) {
       throw new Error('VariableGenerator is not initialized. Run initVariableGenerator() first.');
     }
     if (!this.permutationGenerator || !this.permutationGenerator.permutation) {
@@ -44,24 +44,27 @@ export class CircuitGenerator {
     }
 
     const placementVariables = this.variableGenerator.placementVariables;
-    const a_pub = this.variableGenerator.a_pub;
+    const a_pub = this.variableGenerator.publicInstance;
     const permutation = this.permutationGenerator.permutation;
 
     // Prepare JSON strings
     const placementVariablesJson = JSON.stringify(placementVariables, null, 2);
-    const instanceJson = JSON.stringify({ a_pub }, null, 2);
+    const instanceJson = JSON.stringify(a_pub, null, 2);
     const permutationJson = JSON.stringify(permutation, null, 2);
 
     // Resolve file paths (reuse the style from comments above)
-    const pvPath = _path === undefined
-      ? path.resolve(appRootPath.path, 'outputs/placementVariables.json')
-      : path.resolve(appRootPath.path, _path!, 'placementVariables.json');
-    const instPath = _path === undefined
-      ? path.resolve(appRootPath.path, 'outputs/instance.json')
-      : path.resolve(appRootPath.path, _path!, 'instance.json');
-    const permPath = _path === undefined
-      ? path.resolve(appRootPath.path, 'outputs/permutation.json')
-      : path.resolve(appRootPath.path, _path!, 'permutation.json');
+    const pvPath =
+      _path === undefined
+        ? path.resolve(appRootPath.path, 'outputs/placementVariables.json')
+        : path.resolve(appRootPath.path, _path!, 'placementVariables.json');
+    const instPath =
+      _path === undefined
+        ? path.resolve(appRootPath.path, 'outputs/instance.json')
+        : path.resolve(appRootPath.path, _path!, 'instance.json');
+    const permPath =
+      _path === undefined
+        ? path.resolve(appRootPath.path, 'outputs/permutation.json')
+        : path.resolve(appRootPath.path, _path!, 'permutation.json');
 
     const files = [placementVariablesJson, instanceJson, permutationJson];
     const filePaths = [pvPath, instPath, permPath];
@@ -105,7 +108,7 @@ export class CircuitGenerator {
   // const Instance = {
   //         a_pub,
   //       };
-    
+
   //       const placementVariablesJson = `${JSON.stringify(placementVariables, null, 2)}`;
   //       const instanceJson = `${JSON.stringify(Instance, null, 2)}`;
   //       const filePath1 =
