@@ -22,8 +22,20 @@ tiny-keccak = "1.5"
 criterion = "0.5"
 rand = { workspace = true }
 
+[lib]
+name = "prove"
+path = "src/lib.rs"
+
 [[bench]]
 name = "batch_msm_simple"
+harness = false
+
+[[bench]]
+name = "prove0_msm_batch"
+harness = false
+
+[[bench]]
+name = "prove0_msm_async"
 harness = false
 
 [features]
