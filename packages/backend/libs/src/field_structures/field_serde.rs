@@ -1,4 +1,8 @@
 use icicle_bls12_381::curve::ScalarField;
+use icicle_core::traits::FieldImpl;
+use serde::de::{Deserializer, Error, Visitor};
+use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::ops::{Add, Mul, Sub};
 
 #[derive(Clone, Debug, Copy, PartialEq)]
@@ -81,5 +85,41 @@ impl Mul<FieldSerde> for ScalarField {
     }
 }
 
-// TODO: move (de)serialize impl here
+impl Serialize for FieldSerde {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let string = self.0.to_string();
+        serializer.serialize_str(&string)
+    }
+}
+
+impl<'de> Deserialize<'de> for FieldSerde {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct FieldVisitor;
+
+        impl<'de> Visitor<'de> for FieldVisitor {
+            type Value = FieldSerde;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a hex string representing ScalarField")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                let scalar = ScalarField::from_hex(v);
+                Ok(FieldSerde(scalar))
+            }
+        }
+
+        deserializer.deserialize_str(FieldVisitor)
+    }
+}
+
 // TODO: move the tests and add unit tests here.

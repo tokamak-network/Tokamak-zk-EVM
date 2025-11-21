@@ -1,11 +1,10 @@
-use icicle_bls12_381::curve::{ScalarField, G1Affine, G2Affine, BaseField, G2BaseField, G1Projective};
+use icicle_bls12_381::curve::{ScalarField, G1Affine, BaseField, G1Projective};
 use icicle_core::ntt;
 use icicle_core::traits::{Arithmetic, FieldImpl};
 use icicle_core::msm::{self, MSMConfig};
 use icicle_runtime::{self, memory::{HostSlice, DeviceVec}};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
-use crate::field_structures::FieldSerde;
-use crate::group_structures::{G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify};
+use crate::group_structures::{G1serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify};
 use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use crate::polynomial_structures::{from_subcircuit_to_QAP, QAP};
 use crate::utils::{check_gpu};
@@ -111,12 +110,6 @@ fn g1_mat_to_code(vv: &Box<[Box<[G1serde]>]>) -> String {
     format!("Box::new([\n    {}\n])", rows)
 }
 
-fn byte_slice_to_literal(bytes: &[u8]) -> String {
-    bytes.iter()
-        .map(|b| format!("{}", b))
-        .collect::<Vec<_>>()
-        .join(", ")
-}
 
 #[derive(Debug, Deserialize)]
 pub struct PublicWireInfo {
@@ -553,118 +546,6 @@ impl QAP{
     }
 
     
-}
-
-impl Serialize for FieldSerde {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: serde::Serializer {
-        let string = self.0.to_string();
-        serializer.serialize_str(&string)
-    }
-}
-
-impl<'de> Deserialize<'de> for FieldSerde {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where D: Deserializer<'de>
-    {
-        struct FieldVisitor;
-
-        impl<'de> Visitor<'de> for FieldVisitor {
-            type Value = FieldSerde;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a hex string representing ScalarField")
-            }
-
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-            where
-                E: Error,
-            {
-                let scalar = ScalarField::from_hex(v);
-                Ok(FieldSerde(scalar))
-            }
-        }
-
-        deserializer.deserialize_str(FieldVisitor)
-    }
-}
-
-impl Serialize for G1serde {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: serde::Serializer {
-        let mut s = serializer.serialize_struct("G1serde", 2)?;
-        let x_coord = &self.0.x.to_string();
-        let y_coord = &self.0.y.to_string();
-        s.serialize_field("x", x_coord)?;
-        s.serialize_field("y", y_coord)?;
-        s.end()
-    }
-}
-impl<'de> Deserialize<'de> for G1serde {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where D: serde::Deserializer<'de> {
-        #[derive(Deserialize)]
-        struct G1Coords {
-            x: String,
-            y: String,
-        }
-        let G1Coords { x, y } = G1Coords::deserialize(deserializer)?;
-        let x_field = BaseField::from_hex(&x).into();
-        let y_field = BaseField::from_hex(&y).into();
-        let point = G1Affine::from_limbs(x_field, y_field);
-        Ok(G1serde(point))
-    }
-}
-impl G1serde {
-    pub fn to_rust_code(&self) -> String {
-        let x_bytes = self.0.x.to_bytes_le();
-        let y_bytes = self.0.y.to_bytes_le();
-        
-        format!(
-            "G1serde(G1Affine::from_limbs(BaseField::from_bytes_le(&[{}]).into(),BaseField::from_bytes_le(&[{}]).into()))",
-            byte_slice_to_literal(&x_bytes),
-            byte_slice_to_literal(&y_bytes),
-        )
-    }
-}
-
-impl Serialize for G2serde {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: serde::Serializer {
-        let mut s = serializer.serialize_struct("G2", 2)?;
-        let x_coord = &self.0.x.to_string();
-        let y_coord = &self.0.y.to_string();
-        s.serialize_field("x", x_coord)?;
-        s.serialize_field("y", y_coord)?;
-        s.end()
-    }
-}
-impl<'de> Deserialize<'de> for G2serde {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where D: serde::Deserializer<'de> {
-        #[derive(Deserialize)]
-        struct G2Coords {
-            x: String,
-            y: String,
-        }
-        let G2Coords { x, y } = G2Coords::deserialize(deserializer)?;
-        let x_field = G2BaseField::from_hex(&x).into();
-        let y_field = G2BaseField::from_hex(&y).into();
-        let point = G2Affine::from_limbs(x_field, y_field);
-        Ok(G2serde(point))
-    }
-}
-impl G2serde {
-    pub fn to_rust_code(&self) -> String {
-        let x_bytes = self.0.x.to_bytes_le();
-        let y_bytes = self.0.y.to_bytes_le();
-        
-        format!(
-            "G2serde(G2Affine::from_limbs(G2BaseField::from_bytes_le(&[{}]).into(),G2BaseField::from_bytes_le(&[{}]).into()))",
-            byte_slice_to_literal(&x_bytes),
-            byte_slice_to_literal(&y_bytes),
-        )
-    }
 }
 
 

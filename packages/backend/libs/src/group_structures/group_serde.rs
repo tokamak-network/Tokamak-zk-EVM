@@ -2,8 +2,10 @@ use crate::field_structures::FieldSerde;
 use ark_bls12_381::{Bls12_381, G1Affine as ArkG1Affine, G2Affine as ArkG2Affine};
 use ark_ec::pairing::{Pairing, PairingOutput};
 use ark_ff::Field;
-use icicle_bls12_381::curve::{G1Affine, G2Affine, ScalarField};
+use icicle_bls12_381::curve::{BaseField, G1Affine, G2Affine, G2BaseField, ScalarField};
 use icicle_core::traits::FieldImpl;
+use serde::ser::SerializeStruct;
+use serde::{Deserialize, Serialize};
 use std::ops::{Add, Mul, Sub};
 
 #[derive(Clone, Debug, Copy, PartialEq)]
@@ -132,6 +134,93 @@ impl Mul<G2serde> for FieldSerde {
 
     fn mul(self, other: G2serde) -> Self::Output {
         G2serde(G2Affine::from(other.0.to_projective() * self.0))
+    }
+}
+
+impl Serialize for G1serde {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("G1serde", 2)?;
+        let x_coord = &self.0.x.to_string();
+        let y_coord = &self.0.y.to_string();
+        s.serialize_field("x", x_coord)?;
+        s.serialize_field("y", y_coord)?;
+        s.end()
+    }
+}
+impl<'de> Deserialize<'de> for G1serde {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct G1Coords {
+            x: String,
+            y: String,
+        }
+        let G1Coords { x, y } = G1Coords::deserialize(deserializer)?;
+        let x_field = BaseField::from_hex(&x).into();
+        let y_field = BaseField::from_hex(&y).into();
+        let point = G1Affine::from_limbs(x_field, y_field);
+        Ok(G1serde(point))
+    }
+}
+
+impl G1serde {
+    pub fn to_rust_code(&self) -> String {
+        let x_bytes = self.0.x.to_bytes_le();
+        let y_bytes = self.0.y.to_bytes_le();
+
+        format!(
+            "G1serde(G1Affine::from_limbs(BaseField::from_bytes_le(&[{}]).into(),BaseField::from_bytes_le(&[{}]).into()))",
+            &x_bytes.iter().map(|b| format!("{}", b)).collect::<Vec<_>>().join(", "),
+            &y_bytes.iter().map(|b| format!("{}", b)).collect::<Vec<_>>().join(", ")
+        )
+    }
+}
+
+impl Serialize for G2serde {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("G2", 2)?;
+        let x_coord = &self.0.x.to_string();
+        let y_coord = &self.0.y.to_string();
+        s.serialize_field("x", x_coord)?;
+        s.serialize_field("y", y_coord)?;
+        s.end()
+    }
+}
+impl<'de> Deserialize<'de> for G2serde {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct G2Coords {
+            x: String,
+            y: String,
+        }
+        let G2Coords { x, y } = G2Coords::deserialize(deserializer)?;
+        let x_field = G2BaseField::from_hex(&x).into();
+        let y_field = G2BaseField::from_hex(&y).into();
+        let point = G2Affine::from_limbs(x_field, y_field);
+        Ok(G2serde(point))
+    }
+}
+impl G2serde {
+    pub fn to_rust_code(&self) -> String {
+        let x_bytes = self.0.x.to_bytes_le();
+        let y_bytes = self.0.y.to_bytes_le();
+
+        format!(
+            "G2serde(G2Affine::from_limbs(G2BaseField::from_bytes_le(&[{}]).into(),G2BaseField::from_bytes_le(&[{}]).into()))",
+            &x_bytes.iter().map(|b| format!("{}", b)).collect::<Vec<_>>().join(", "),
+            &y_bytes.iter().map(|b| format!("{}", b)).collect::<Vec<_>>().join(", ")
+        )
     }
 }
 
