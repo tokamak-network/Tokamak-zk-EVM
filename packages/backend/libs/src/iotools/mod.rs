@@ -15,13 +15,11 @@ use super::vector_operations::{*};
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, Write};
 use std::path::PathBuf;
-use std::{env, fmt};
+use std::env;
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 use num_bigint::BigUint;
-use serde::{Deserialize, Serialize};
-use serde::ser::{SerializeStruct};
-use serde::de::{Deserializer, Visitor, Error};
+use serde::{Deserialize};
 use serde_json::{to_writer_pretty};
 use hex::decode_to_slice;
 
