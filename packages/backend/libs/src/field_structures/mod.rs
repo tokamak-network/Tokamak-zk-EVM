@@ -26,7 +26,7 @@ pub fn hashing(seed: &Vec<u8>) -> ScalarField {
         )
         .unwrap();
     res_bytes[31] &= 0b0011_1111;
-    return ScalarField::from_bytes_le(&res_bytes);
+    ScalarField::from_bytes_le(&res_bytes)
 }
 
 pub fn from_r1cs_to_evaled_qap_mixture(
@@ -128,7 +128,7 @@ pub fn from_r1cs_to_evaled_qap_mixture(
     let mut evaled_o_vec = vec![ScalarField::zero(); o_len].into_boxed_slice();
     point_add_two_vecs(&third_term_vec, &fourth_term_vec, &mut evaled_o_vec);
 
-    return evaled_o_vec;
+    evaled_o_vec
 }
 
 impl PlacementVariables {
@@ -160,6 +160,6 @@ impl PlacementVariables {
             };
         }
 
-        return placement_variables_dummy;
+        placement_variables_dummy
     }
 }
