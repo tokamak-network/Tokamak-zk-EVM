@@ -22,10 +22,10 @@ impl Sigma {
     pub fn gen(
         params: &SetupParams,
         tau: &Tau,
-        o_vec: &Box<[ScalarField]>,
-        l_vec: &Box<[ScalarField]>,
-        k_vec: &Box<[ScalarField]>,
-        m_vec: &Box<[ScalarField]>,
+        o_vec: &[ScalarField],
+        l_vec: &[ScalarField],
+        k_vec: &[ScalarField],
+        m_vec: &[ScalarField],
         g1_gen: &G1Affine,
         g2_gen: &G2Affine,
     ) -> Self {

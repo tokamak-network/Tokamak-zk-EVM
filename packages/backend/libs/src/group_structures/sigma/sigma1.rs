@@ -67,7 +67,7 @@ pub struct Sigma1 {
     pub y: G1serde,
     pub delta: G1serde,
     pub eta: G1serde,
-    pub gamma_inv_o_inst: Box<[G1serde]>, // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}_{t=0,j=0}^{1,l-1} where t=0 for j∈[0,l_in-1] and t=1 for j∈[l_in,l-1]
+    pub gamma_inv_o_inst: Box<[G1serde]>,
     pub eta_inv_li_o_inter_alpha4_kj: Box<[Box<[G1serde]>]>, // {η^(-1)L_i(y)(o_{j+l}(x) + α^4 K_j(x))}_{i=0,j=0}^{s_max-1,m_I-1}
     pub delta_inv_li_o_prv: Box<[Box<[G1serde]>]>, // {δ^(-1)L_i(y)o_j(x)}_{i=0,j=l+m_I}^{s_max-1,m_I-1}
     pub delta_inv_alphak_xh_tx: Box<[Box<[G1serde]>]>, // {δ^(-1)α^k x^h t_n(x)}_{h=0,k=1}^{2,3}
@@ -79,19 +79,20 @@ impl Sigma1 {
     pub fn gen(
         params: &SetupParams,
         tau: &Tau,
-        o_vec: &Box<[ScalarField]>,
-        l_vec: &Box<[ScalarField]>,
-        k_vec: &Box<[ScalarField]>,
-        m_vec: &Box<[ScalarField]>,
+        o_vec: &[ScalarField],
+        l_vec: &[ScalarField],
+        k_vec: &[ScalarField],
+        m_vec: &[ScalarField],
         g1_gen: &G1Affine,
     ) -> Self {
         let n = params.n;
         let m_d = params.m_D;
         let l = params.l;
+        let l_user = params.l_user;
+        let l_block = params.l_block;
         let s_max = params.s_max;
-        if l % 2 == 1 {
-            panic!("l is an odd number.");
-        }
+        let m_block = params.l_block - l_user;
+        let m_function = l - l_block;
         let m_i = params.l_D - l;
 
         println!("Generating Sigma1 components...");
@@ -127,29 +128,27 @@ impl Sigma1 {
         let mut gamma_inv_o_inst = vec![G1serde::zero(); l].into_boxed_slice();
         {
             // For the order of indices of l_vec, see BUFFER_LIST of tokamak-zk-evm/packages/frontend/synthesizer/src/interface/qapCompiler/configuredTypes.ts
-            let scaler_vec = [
-                vec![l_vec[0]; params.num_public_wires[0]],
-                vec![l_vec[1]; params.num_public_wires[1]],
-                vec![l_vec[2]; params.num_public_wires[2]],
-                vec![l_vec[3]; params.num_public_wires[3]],
-                vec![
-                    ScalarField::one();
-                    l - params.num_public_wires.iter().copied().sum::<usize>()
-                ],
+            let user_vec = [
+                vec![l_vec[0]; params.l_user_out],
+                vec![l_vec[1]; params.l_user - params.l_user_out],
+                vec![l_vec[2]; m_block],
+                vec![l_vec[3]; m_function],
             ]
             .concat()
             .into_boxed_slice();
+
             let mut l_o_inst_vec = vec![ScalarField::zero(); l].into_boxed_slice();
-            point_mul_two_vecs(&scaler_vec, &o_inst_vec, &mut l_o_inst_vec);
-            drop(scaler_vec);
-            // let mut l_o_inst_pub_mj_vec = vec![ScalarField::zero(); l_pub].into_boxed_slice();
-            // point_add_two_vecs(&l_o_inst_vec[0..l_pub], m_vec, &mut l_o_inst_pub_mj_vec);
-            // let l_o_inst_pub_mj_prv_vec = [l_o_inst_pub_mj_vec, l_o_inst_vec[l_pub..l].into()].concat().into_boxed_slice();
+            point_mul_two_vecs(&user_vec, o_inst_vec, &mut l_o_inst_vec);
+            drop(user_vec);
+
             let mut l_o_inst_mj_vec = vec![ScalarField::zero(); l].into_boxed_slice();
             point_add_two_vecs(&l_o_inst_vec, m_vec, &mut l_o_inst_mj_vec);
-            // let l_o_inst_pub_mj_prv_vec = [l_o_inst_pub_mj_vec, l_o_inst_vec[l_pub..l].into()].concat().into_boxed_slice();
+            drop(l_o_inst_vec);
+
             let mut gamma_inv_o_inst_vec = vec![ScalarField::zero(); l].into_boxed_slice();
             scale_vec(tau.gamma.inv(), &l_o_inst_mj_vec, &mut gamma_inv_o_inst_vec);
+            drop(l_o_inst_mj_vec);
+
             from_coef_vec_to_g1serde_vec(&gamma_inv_o_inst_vec, g1_gen, &mut gamma_inv_o_inst);
         }
 
@@ -257,6 +256,68 @@ impl Sigma1 {
         }
     }
 
+    // pub fn encode_O_inst(
+    //     &self,
+    //     placement_variables: &[PlacementVariables],
+    //     subcircuit_infos: &[SubcircuitInfo],
+    //     setup_params: &SetupParams,
+    // ) -> G1serde {
+    //     let mut aligned_rs = vec![G1Affine::zero(); setup_params.l];
+    //     let mut aligned_wtns = vec![ScalarField::zero(); setup_params.l];
+    //     let mut cnt: usize = 0;
+    //     for i in 0..4 {
+    //         let subcircuit_id = placement_variables[i].subcircuitId;
+    //         let variables = &placement_variables[i].variables;
+    //         let subcircuit_info = &subcircuit_infos[subcircuit_id];
+    //         let flatten_map = &subcircuit_info.flattenMap;
+    //         let (start_idx, end_idx_exclusive) = if subcircuit_info.name == "bufferPubOut" {
+    //             // PUBLIC_OUT
+    //             (
+    //                 subcircuit_info.Out_idx[0],
+    //                 subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1],
+    //             )
+    //         } else if subcircuit_info.name == "bufferPubIn" {
+    //             // PUBLIC_IN
+    //             (
+    //                 subcircuit_info.In_idx[0],
+    //                 subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1],
+    //             )
+    //         } else if subcircuit_info.name == "bufferBlockIn" {
+    //             // BLOCK_IN
+    //             (
+    //                 subcircuit_info.In_idx[0],
+    //                 subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1],
+    //             )
+    //         } else if subcircuit_info.name == "bufferEVMIn" {
+    //             // EVM_IN
+    //             (
+    //                 subcircuit_info.In_idx[0],
+    //                 subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1],
+    //             )
+    //         } else {
+    //             panic!("Target placement is not a buffer")
+    //         };
+
+    //         for j in start_idx..end_idx_exclusive {
+    //             aligned_wtns[cnt] = ScalarField::from_hex(&variables[j]);
+    //             let global_idx = flatten_map[j];
+    //             let curve_point = self.gamma_inv_o_inst[global_idx].0;
+    //             aligned_rs[cnt] = curve_point;
+    //             cnt += 1;
+    //         }
+    //     }
+    //     let mut msm_res = vec![G1Projective::zero(); 1];
+    //     msm::msm(
+    //         HostSlice::from_slice(&aligned_wtns),
+    //         HostSlice::from_slice(&aligned_rs),
+    //         &MSMConfig::default(),
+    //         HostSlice::from_mut_slice(&mut msm_res),
+    //     )
+    //     .unwrap();
+
+    //     G1serde(G1Affine::from(msm_res[0]))
+    // }
+
     pub fn encode_O_inst(
         &self,
         placement_variables: &[PlacementVariables],
@@ -283,14 +344,14 @@ impl Sigma1 {
                     subcircuit_info.In_idx[0],
                     subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1],
                 )
-            } else if subcircuit_info.name == "bufferBlockIn" {
-                // BLOCK_IN
+            } else if subcircuit_info.name == "bufferEVMIn" {
+                // EVM_IN
                 (
                     subcircuit_info.In_idx[0],
                     subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1],
                 )
-            } else if subcircuit_info.name == "bufferEVMIn" {
-                // EVM_IN
+            } else if subcircuit_info.name == "bufferBlockIn" {
+                // BLOCK_IN
                 (
                     subcircuit_info.In_idx[0],
                     subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1],
@@ -344,6 +405,7 @@ impl Sigma1 {
             } else {
                 nVar = nVar + subcircuit_info.Out_idx[1] + subcircuit_info.In_idx[1];
             }
+            nVar += 1; // Adding 1 for constant wires
         }
 
         return self._encode_statement(
