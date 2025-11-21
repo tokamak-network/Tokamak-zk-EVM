@@ -1,3 +1,12 @@
+import { poseidon2 } from "poseidon-bls12381"
+import { POSEIDON_INPUTS } from "./importedConstants.ts"
+
+export const poseidon_raw = (inVals: bigint[]): bigint => {
+  if (inVals.length !== POSEIDON_INPUTS) {
+    throw new Error(`Expected an array with ${POSEIDON_INPUTS} elements, but got ${inVals.length} elements`)
+  }
+  return poseidon2(inVals)
+}
 
 export const ARITHMETIC_OPERATOR_LIST = [
   'ADD',
@@ -26,13 +35,17 @@ export const ARITHMETIC_OPERATOR_LIST = [
   'BYTE',
   'SIGNEXTEND',
   'DecToBit',
-  'SubEXP',
+  // 'SubEXP',
+  'SubExpBatch',
   'Accumulator',
   'Poseidon',
-  'PrepareEdDsaScalars',
-  'JubjubExp36',
+  'Poseidon2xCompress',
+  // 'PrepareEdDsaScalars',
+  'JubjubExpBatch',
   'EdDsaVerify',
   'VerifyMerkleProof',
+  'VerifyMerkleProof2x',
+  'VerifyMerkleProof3x',
 ] as const
 
 export type ArithmeticOperator = (typeof ARITHMETIC_OPERATOR_LIST)[number]
@@ -73,12 +86,16 @@ export const SUBCIRCUIT_LIST = [
     'OR',
     'XOR',
     'DecToBit',
+    'SubExpBatch',
     'Accumulator',
     'Poseidon',
-    'PrepareEdDsaScalars',
-    'JubjubExp36',
+    'Poseidon2xCompress',
+    // 'PrepareEdDsaScalars',
+    'JubjubExpBatch',
     'EdDsaVerify',
     'VerifyMerkleProof',
+    'VerifyMerkleProof2x',
+    'VerifyMerkleProof3x',
 ] as const
 
 export type SubcircuitNames = typeof SUBCIRCUIT_LIST[number]
@@ -109,7 +126,8 @@ export const SUBCIRCUIT_ALU_MAPPING: Record<ArithmeticOperator, [SubcircuitNames
   SMOD: ['ALU2', 1n << 7n],
   ADDMOD: ['ALU2', 1n << 8n],
   MULMOD: ['ALU2', 1n << 9n],
-  SubEXP: ['ALU1', 1n << 10n],
+  // SubEXP: ['ALU1', 1n << 10n],
+  SubExpBatch: ['SubExpBatch', undefined],
   SIGNEXTEND: ['ALU5', 1n << 11n],
   LT: ['ALU4', 1n << 16n],
   GT: ['ALU4', 1n << 17n],
@@ -127,12 +145,15 @@ export const SUBCIRCUIT_ALU_MAPPING: Record<ArithmeticOperator, [SubcircuitNames
   SAR: ['ALU3', 1n << 29n],
   DecToBit: ['DecToBit', undefined],
   Accumulator: ['Accumulator', undefined],
-  EXP: ['ALU1', 1n << 10n], // Not directly used
+  EXP: ['ALU1', 1n << 10n], // Not directly used. SubEXP is used instead.
   Poseidon: ['Poseidon', undefined],
-  PrepareEdDsaScalars: ['PrepareEdDsaScalars', undefined],
+  Poseidon2xCompress: ['Poseidon2xCompress', undefined],
+  // PrepareEdDsaScalars: ['PrepareEdDsaScalars', undefined],
   EdDsaVerify: ['EdDsaVerify', undefined],
-  JubjubExp36: ['JubjubExp36', undefined],
+  JubjubExpBatch: ['JubjubExpBatch', undefined],
   VerifyMerkleProof: ['VerifyMerkleProof', undefined],
+  VerifyMerkleProof2x: ['VerifyMerkleProof2x', undefined],
+  VerifyMerkleProof3x: ['VerifyMerkleProof3x', undefined],
 } as const;
 
 export const TX_MESSAGE_TO_HASH = [

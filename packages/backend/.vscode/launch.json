@@ -55,6 +55,7 @@
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
         "--fixed-tau"
       ],
       "cwd": "${workspaceFolder}",

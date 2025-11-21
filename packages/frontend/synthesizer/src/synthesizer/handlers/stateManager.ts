@@ -15,14 +15,13 @@ import {
 import {jubjub} from '@noble/curves/misc';
 import { AddressLike, bigIntToHex, bytesToBigInt, equalsBytes } from '@ethereumjs/util';
 import { MemoryPt, StackPt } from '../dataStructure/index.ts';
-import { DEFAULT_SOURCE_BIT_SIZE, poseidon_raw } from 'src/synthesizer/params/index.ts';
 import { ArithmeticOperator, BUFFER_LIST, SubcircuitInfoByName, SubcircuitNames } from 'src/interface/qapCompiler/configuredTypes.ts';
 import { FIRST_ARITHMETIC_PLACEMENT_INDEX, MT_DEPTH, POSEIDON_INPUTS, subcircuitInfoByName } from 'src/interface/qapCompiler/importedConstants.ts';
 import { TokamakL2StateManager } from 'src/TokamakL2JS/index.ts';
 import { IMT, IMTMerkleProof } from '@zk-kit/imt';
 import { ArithmeticOperations } from '../dataStructure/arithmeticOperations.ts';
 
-type CachedStorageEntry = {
+export type CachedStorageEntry = {
   indexPt: DataPt | null,
   keyPt: DataPt | null,
   valuePt: DataPt,
@@ -42,7 +41,7 @@ export class StateManager {
   public subcircuitInfoByName: SubcircuitInfoByName = new Map()
   public placementIndex: number = FIRST_ARITHMETIC_PLACEMENT_INDEX
 
-  public cachedStorage: Map<bigint, CachedStorageEntry[]> = new Map()
+  public cachedStorage: Map<bigint, {accessOrder: number, accessHistory: CachedStorageEntry[]}> = new Map()
   public cachedEVMIn: Map<bigint, DataPt> = new Map()
   public cachedOrigin: DataPt | undefined = undefined
   public cachedCallers: DataPt[] = []
@@ -52,13 +51,12 @@ export class StateManager {
 
   public callMemoryPtsStack: MemoryPts[] = []
 
+  public transactionHashes: DataPt[] = []
+
   constructor(parent: ISynthesizerProvider) {
     this.parent = parent
     this.cachedOpts = parent.cachedOpts
     this._initializeSubcircuitInfo()
-    for (const key of this.cachedOpts.stateManager.registeredKeys!) {
-      this.cachedStorage.set(bytesToBigInt(key), [])
-    }
   }
 
   public get placements(): Placements {

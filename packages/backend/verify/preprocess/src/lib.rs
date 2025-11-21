@@ -19,20 +19,27 @@ pub struct PreprocessInputPaths<'a> {
 pub struct Preprocess {
     pub s0: G1serde,
     pub s1: G1serde,
+    // pub O_function_inst: G1serde,
+    // pub O_block_inst: G1serde,
     // pub lagrange_KL: G1serde,
 }
 
 impl Preprocess {
-    pub fn gen(sigma: &SigmaPreprocess, permutation_raw: &Box<[Permutation]>, setup_params: &SetupParams) -> Self {
+    pub fn gen(
+        sigma: &SigmaPreprocess, 
+        permutation_raw: &[Permutation],
+        instance: &Instance,
+        setup_params: &SetupParams
+    ) -> Self {
         let m_i = setup_params.l_D - setup_params.l;
         let s_max = setup_params.s_max;
         // Generating permutation polynomials
         println!("Converting the permutation matrices into polynomials s^0 and s^1...");
-        let (mut s0XY, mut s1XY) = Permutation::to_poly(&permutation_raw, m_i, s_max);
+        let (mut s0XY, mut s1XY) = Permutation::to_poly(permutation_raw, m_i, s_max);
         let s0 = sigma.sigma_1.encode_poly(&mut s0XY, &setup_params);
         let s1 = sigma.sigma_1.encode_poly(&mut s1XY, &setup_params);
-        
 
+        
         // let mut lagrange_KL_XY = {
         //     let mut k_evals = vec![ScalarField::zero(); m_i];
         //     k_evals[m_i - 1] = ScalarField::one();
@@ -56,7 +63,12 @@ impl Preprocess {
         // };
         // let lagrange_KL = sigma.sigma_1.encode_poly(&mut lagrange_KL_XY, &setup_params);
         // return Preprocess {s0, s1, lagrange_KL}
-        return Preprocess {s0, s1};
+        return Preprocess {
+            s0, 
+            s1,
+            // O_function_inst,
+            // O_block_inst,
+        };
     }
 
     pub fn convert_format_for_solidity_verifier(&self) -> FormattedPreprocess {
@@ -69,7 +81,9 @@ impl Preprocess {
         // Process
         split_push!(preprocess_entries_part1, preprocess_entries_part2,
             &self.s0,
-            &self.s1
+            &self.s1,
+            // &self.O_function_inst,
+            // &self.O_block_inst,
         );
         return FormattedPreprocess { preprocess_entries_part1, preprocess_entries_part2 };
     }
@@ -96,19 +110,23 @@ impl FormattedPreprocess {
         const SCALAR_CNT: usize = 0;   // The number of Scalars
 
         assert_eq!(p1.len(), G1_CNT * 2);
-        assert_eq!(p2.len(), G1_CNT * 2 + SCALAR_CNT);
+        assert_eq!(p2.len(), G1_CNT * 2);
 
         let mut idx = 0;
 
         // Must follow the same order of inputs as split_push!
         pop_recover!(idx, p1, p2,
             s0,
-            s1
+            s1,
+            // O_function_inst,
+            // O_block_inst,
         );
 
         return Preprocess {
             s0,
             s1,
+            // O_function_inst,
+            // O_block_inst,
         };
     }
 }

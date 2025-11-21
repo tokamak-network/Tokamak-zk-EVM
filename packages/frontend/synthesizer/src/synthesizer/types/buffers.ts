@@ -4,13 +4,15 @@ import { BUFFER_LIST, ReservedBuffer, SubcircuitNames } from 'src/interface/qapC
 
 export type ReservedVariable =
     // PUBLIC_OUT (Dynamic)
-    | 'RES_MERKLE_ROOT'
     | 'TX_BATCH_HASH'
     | 'OTHER_CONTRACT_STORAGE_OUT'
     // PUBLIC_IN (Static + Dynmaic)
     | 'INI_MERKLE_ROOT'
+    | 'RES_MERKLE_ROOT'
     | 'EDDSA_PUBLIC_KEY_X'
     | 'EDDSA_PUBLIC_KEY_Y'
+    | 'CONTRACT_ADDRESS'
+    | 'FUNCTION_SELECTOR'
     | 'OTHER_CONTRACT_STORAGE_IN'
     // BLOCK_IN (Static)
     | 'COINBASE'
@@ -280,8 +282,6 @@ export type ReservedVariable =
     | 'BLOCKHASH_256'
     // PRIVATE_IN (Static + Dynamic)
     | 'TRANSACTION_NONCE'
-    | 'CONTRACT_ADDRESS'
-    | 'FUNCTION_SELECTOR'
     | 'TRANSACTION_INPUT0'
     | 'TRANSACTION_INPUT1'
     | 'TRANSACTION_INPUT2'
@@ -294,20 +294,22 @@ export type ReservedVariable =
     | 'EDDSA_SIGNATURE'
     | 'EDDSA_RANDOMIZER_X'
     | 'EDDSA_RANDOMIZER_Y'
-    | 'IN_MT_INDEX'
-    | 'IN_MPT_KEY'
+    // | 'IN_MT_INDEX'
+    // | 'IN_MPT_KEY'
     | 'IN_VALUE'
     | 'MERKLE_PROOF'
     // EVM_IN (Static + Dynamic)
+    | 'CIRCOM_CONST_ONE'
+    | 'CIRCOM_CONST_ZERO'
     | 'ADDRESS_MASK'
     | 'JUBJUB_BASE_X'
     | 'JUBJUB_BASE_Y'
     | 'JUBJUB_POI_X'
     | 'JUBJUB_POI_Y'
-    | 'NULL_POSEIDON_LEVEL0'
-    | 'NULL_POSEIDON_LEVEL1'
-    | 'NULL_POSEIDON_LEVEL2'
-    | 'NULL_POSEIDON_LEVEL3'
+    // | 'NULL_POSEIDON_LEVEL0'
+    // | 'NULL_POSEIDON_LEVEL1'
+    // | 'NULL_POSEIDON_LEVEL2'
+    // | 'NULL_POSEIDON_LEVEL3'
     
 type BlockhashVars = Extract<ReservedVariable, `BLOCKHASH_${number}`>;
 
@@ -325,14 +327,8 @@ const __BLOCKHASH_DESCRIPTIONS: Record<BlockhashVars, DataPtDescription> = (() =
 })();
 
 export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> = {
-  RES_MERKLE_ROOT: {
-    extDest: `Resulting Merkle tree root hash`,
-    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_OUT'),
-    sourceBitSize: 255,
-    wireIndex: -1,
-  },
   TX_BATCH_HASH: {
-    extDest: `Poseidon of input transaction batch`,
+    extDest: `Poseidon of hashes of [tx_nonce, eddsa_signature, randomizer_x, randomizer_y] of input transaction batch`,
     source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_OUT'),
     sourceBitSize: 255,
     wireIndex: -1,
@@ -361,6 +357,24 @@ export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> =
     source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
     sourceBitSize: 255,
     wireIndex: 2,
+  },
+  CONTRACT_ADDRESS: {
+    extSource: `Contract address to call`,
+    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
+    sourceBitSize: 256,
+    wireIndex: 3,
+  },
+  FUNCTION_SELECTOR: {
+    extSource: `Selector for a function to call`,
+    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
+    sourceBitSize: 256,
+    wireIndex: 4,
+  },
+  RES_MERKLE_ROOT: {
+    extSource: `Resulting Merkle tree root hash`,
+    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
+    sourceBitSize: 255,
+    wireIndex: -1, //Dynamic
   },
   OTHER_CONTRACT_STORAGE_IN: {
     extSource: `Access to general contract's storage data other than users'`,
@@ -420,164 +434,166 @@ export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> =
 
   ...__BLOCKHASH_DESCRIPTIONS,
 
+  CIRCOM_CONST_ONE: {
+    extSource: 'Arbitrary constant',
+    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
+    sourceBitSize: 1,
+    wireIndex: 0,
+  },
+
+  CIRCOM_CONST_ZERO: {
+    extSource: 'Arbitrary constant',
+    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
+    sourceBitSize: 1,
+    wireIndex: 1,
+  },
+
   ADDRESS_MASK: {
     extSource: `Masker for Ethereum address (20 bytes)`,
     source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 160,
-    wireIndex: 0,
+    wireIndex: 2,
   },
   JUBJUB_BASE_X: {
     extSource: `Base point of Jubjub curve (x coordinate)`,
     source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
-    wireIndex: 1,
+    wireIndex: 3,
   },
   JUBJUB_BASE_Y: {
     extSource: `Base point of Jubjub curve (y coordinate)`,
     source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
-    wireIndex: 2,
+    wireIndex: 4,
   },
   JUBJUB_POI_X: {
     extSource: `Point at infinity of Jubjub curve (x coordinate)`,
     source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
-    wireIndex: 3,
+    wireIndex: 5,
   },
   JUBJUB_POI_Y: {
     extSource: `Point at infinity of Jubjub curve (y coordinate)`,
     source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
     sourceBitSize: 255,
-    wireIndex: 4,
-  },
-  NULL_POSEIDON_LEVEL0: {
-    extSource: `Poseidon of zeros`,
-    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-    sourceBitSize: 255,
-    wireIndex: 5,
-  },
-  NULL_POSEIDON_LEVEL1: {
-    extSource: `Poseidon of Poseidons of zeros`,
-    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-    sourceBitSize: 255,
     wireIndex: 6,
   },
-  NULL_POSEIDON_LEVEL2: {
-    extSource: `Poseidon of Poseidons of Poseidons of zeros`,
-    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-    sourceBitSize: 255,
-    wireIndex: 7,
-  },
-  NULL_POSEIDON_LEVEL3: {
-    extSource: `Poseidon of Poseidons of Poseidons of Poseidons of zeros`,
-    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-    sourceBitSize: 255,
-    wireIndex: 8,
-  },
+  // NULL_POSEIDON_LEVEL0: {
+  //   extSource: `Poseidon of zeros`,
+  //   source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
+  //   sourceBitSize: 255,
+  //   wireIndex: 7,
+  // },
+  // NULL_POSEIDON_LEVEL1: {
+  //   extSource: `Poseidon of Poseidons of zeros`,
+  //   source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
+  //   sourceBitSize: 255,
+  //   wireIndex: 8,
+  // },
+  // NULL_POSEIDON_LEVEL2: {
+  //   extSource: `Poseidon of Poseidons of Poseidons of zeros`,
+  //   source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
+  //   sourceBitSize: 255,
+  //   wireIndex: 9,
+  // },
+  // NULL_POSEIDON_LEVEL3: {
+  //   extSource: `Poseidon of Poseidons of Poseidons of Poseidons of zeros`,
+  //   source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
+  //   sourceBitSize: 255,
+  //   wireIndex: 10,
+  // },
 
-  CONTRACT_ADDRESS: {
-    extSource: `Contract address to call`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 160,
-    wireIndex: 0,
-  },
-  FUNCTION_SELECTOR: {
-    extSource: `Selector for a function to call`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: 1,
-  },
   TRANSACTION_NONCE: {
     extSource: `Transaction nonce`,
     source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
-    wireIndex: 2,
+    wireIndex: 0,
   },
   TRANSACTION_INPUT0: {
     extSource: `Zeroth input to the selected function`,
     source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
-    wireIndex: 3,
+    wireIndex: 1,
   },
   TRANSACTION_INPUT1: {
     extSource: `First input to the selected function`,
     source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
-    wireIndex: 4,
+    wireIndex: 2,
   },
   TRANSACTION_INPUT2: {
     extSource: `Second input to the selected function`,
     source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
-    wireIndex: 5,
+    wireIndex: 3,
   },
   TRANSACTION_INPUT3: {
     extSource: `Third input to the selected function`,
     source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
-    wireIndex: 6,
+    wireIndex: 4,
   },
   TRANSACTION_INPUT4: {
     extSource: `Fourth input to the selected function`,
     source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
-    wireIndex: 7,
+    wireIndex: 5,
   },
   TRANSACTION_INPUT5: {
     extSource: `Fifth input to the selected function`,
     source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
-    wireIndex: 8,
+    wireIndex: 6,
   },
   TRANSACTION_INPUT6: {
     extSource: `Sixth input to the selected function`,
     source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
-    wireIndex: 9,
+    wireIndex: 7,
   },
   TRANSACTION_INPUT7: {
     extSource: `Seventh input to the selected function`,
     source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
-    wireIndex: 10,
+    wireIndex: 8,
   },
   TRANSACTION_INPUT8: {
     extSource: `Eighth input to the selected function`,
     source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
-    wireIndex: 11,
+    wireIndex: 9,
   },
   EDDSA_SIGNATURE: {
     extSource: `EdDSA signature of transaction`,
     source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
-    wireIndex: 12,
+    wireIndex: 10,
   },
   EDDSA_RANDOMIZER_X: {
     extSource: `EdDSA randomizer (x coordinate)`,
     source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
-    wireIndex: 13,
+    wireIndex: 11,
   },
   EDDSA_RANDOMIZER_Y: {
     extSource: `EdDSA randomizer (y coordinate)`,
     source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
     sourceBitSize: 255,
-    wireIndex: 14,
+    wireIndex: 12,
   },
 
-  IN_MT_INDEX: {
-    extSource: `Index of the initial Merkle tree of users' storage values`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: -1, //Dynamic
-  },
-  IN_MPT_KEY: {
-    extSource: `Merkle Patricia trie key (Poseidon) of a user's initial storage value`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: -1, //Dynamic
-  },
+  // IN_MT_INDEX: {
+  //   extSource: `Index of the initial Merkle tree of users' storage values`,
+  //   source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
+  //   sourceBitSize: 255,
+  //   wireIndex: -1, //Dynamic
+  // },
+  // IN_MPT_KEY: {
+  //   extSource: `Merkle Patricia trie key (Poseidon) of a user's initial storage value`,
+  //   source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
+  //   sourceBitSize: 255,
+  //   wireIndex: -1, //Dynamic
+  // },
   IN_VALUE: {
     extSource: `A user's inital storage value (restricted to 255-bit word)`,
     source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),

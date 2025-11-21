@@ -200,7 +200,7 @@
                 // O_inst from binding (appears to be O_pub in the test)
                 &self.binding.O_inst,
                 // A from binding
-                &self.binding.A
+                &self.binding.A,
             );
             
             // Add evaluations to part2 only (they're scalar fields, not G1 points)
@@ -254,7 +254,7 @@
                 N_Y,
                 N_X,
                 O_inst,
-                A
+                A,
             );
             let binding = Binding { A, O_inst, O_mid, O_prv};
             let proof0 = Proof0 { U, V, W, Q_AX, Q_AY, B };
@@ -382,10 +382,6 @@
             let s_max = setup_params.s_max; // The maximum number of placements
             // let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
             // let l_prv = setup_params.l_prv_in + setup_params.l_prv_out;
-            
-            if !(l.is_power_of_two() || l==0) {
-                panic!("l is not a power of two.");
-            }
         
             // if !(l_prv.is_power_of_two()) {
             //     panic!("l_prv is not a power of two.");
@@ -480,7 +476,7 @@
             println!("🔄 Loading instance took {:?}", time_start.elapsed());
 
             #[cfg(feature = "testing-mode")] {
-                use icicle_core::vec_ops::VecOps;
+                use icicle_core::vec_ops::{VecOps, VecOpsConfig};
                 // Checking Lemma 3
                 let mut bXY_evals = vec![ScalarField::zero(); m_i*s_max];
                 witness.bXY.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut bXY_evals));
@@ -605,6 +601,7 @@
             let binding: Binding = {
                 let A = sigma.sigma_1.encode_poly(&mut instance.a_pub_X, &setup_params);
                 let O_inst = sigma.sigma_1.encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params);
+                
                 sigma.sigma_1.gamma_inv_o_inst = vec![G1serde::zero()].into_boxed_slice();
                 let O_mid_core = sigma.sigma_1.encode_O_mid_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
                 sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj = vec![vec![G1serde::zero()].into_boxed_slice()].into_boxed_slice();
