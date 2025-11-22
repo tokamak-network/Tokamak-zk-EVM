@@ -3,12 +3,12 @@ pragma solidity ^0.8.13;
 
 import "../../forge-std/src/Test.sol";
 import "../../forge-std/src/console.sol";
-import "../../src/Groth16Verifier128LeavesOptimized.sol";
+import "../../src/Groth16Verifier128Leaves.sol";
 import "../../src/Groth16Verifier128LeavesIC1.sol";
 import "../../src/Groth16Verifier128LeavesIC2.sol";
 
 contract Groth16Verifier128LeavesTest is Test {
-    Groth16Verifier128LeavesOptimized verifier;
+    Groth16Verifier128Leaves verifier;
     Groth16Verifier128LeavesIC1 icContract1;
     Groth16Verifier128LeavesIC2 icContract2;
 
@@ -37,7 +37,7 @@ contract Groth16Verifier128LeavesTest is Test {
         icContract1 = new Groth16Verifier128LeavesIC1();
         icContract2 = new Groth16Verifier128LeavesIC2();
         // Deploy main verifier with IC contract addresses
-        verifier = new Groth16Verifier128LeavesOptimized(address(icContract1), address(icContract2));
+        verifier = new Groth16Verifier128Leaves(address(icContract1), address(icContract2));
     }
 
     function testProof128() public view {

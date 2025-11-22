@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.7.0 <0.9.0;
 
-import "./Groth16Verifier64LeavesIC_Updated.sol";
+import "./Groth16Verifier64LeavesIC.sol";
 
-contract Groth16Verifier64LeavesOptimized {
+contract Groth16Verifier64Leaves {
     // BLS12-381 Scalar field modulus (r)
     uint256 constant R_MOD = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001;
     // BLS12-381 Base field modulus (q) - split into two parts for 48-byte representation
@@ -42,7 +42,7 @@ contract Groth16Verifier64LeavesOptimized {
     uint256 constant deltay2_PART2 = 0x00648758da6d4b264819da6585dc3699d80d19e7f5c905fd5fe9949ee9bbc74c;
 
     // Reference to the IC constants contract
-    Groth16Verifier64LeavesIC_Updated public icContract;
+    Groth16Verifier64LeavesIC public icContract;
 
     // Memory layout for pairing check
     uint16 constant pPairing = 1408;
@@ -50,7 +50,7 @@ contract Groth16Verifier64LeavesOptimized {
     uint16 constant pLastMem = 1664;
 
     constructor(address _icContract) {
-        icContract = Groth16Verifier64LeavesIC_Updated(_icContract);
+        icContract = Groth16Verifier64LeavesIC(_icContract);
     }
 
     function verifyProof(

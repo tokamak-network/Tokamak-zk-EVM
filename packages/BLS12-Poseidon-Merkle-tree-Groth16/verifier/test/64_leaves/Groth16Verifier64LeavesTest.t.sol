@@ -3,12 +3,12 @@ pragma solidity ^0.8.13;
 
 import "../../forge-std/src/Test.sol";
 import "../../forge-std/src/console.sol";
-import "../../src/Groth16Verifier64LeavesOptimized.sol";
-import "../../src/Groth16Verifier64LeavesIC_Updated.sol";
+import "../../src/Groth16Verifier64Leaves.sol";
+import "../../src/Groth16Verifier64LeavesIC.sol";
 
 contract Groth16Verifier64LeavesNewProofTest is Test {
-    Groth16Verifier64LeavesOptimized verifier;
-    Groth16Verifier64LeavesIC_Updated icContract;
+    Groth16Verifier64Leaves verifier;
+    Groth16Verifier64LeavesIC icContract;
 
     // Updated BLS12-381 proof constants from new proof.json - split into PART1/PART2
     uint256 constant pA_x_PART1 = 0x000000000000000000000000000000000c2c7403abb0d7f9774667af73c84cbe;
@@ -36,9 +36,9 @@ contract Groth16Verifier64LeavesNewProofTest is Test {
 
     function setUp() public {
         // Deploy IC constants contract first
-        icContract = new Groth16Verifier64LeavesIC_Updated();
+        icContract = new Groth16Verifier64LeavesIC();
         // Deploy main verifier with IC contract address
-        verifier = new Groth16Verifier64LeavesOptimized(address(icContract));
+        verifier = new Groth16Verifier64Leaves(address(icContract));
     }
 
     function testVerifyProof64() public view {
