@@ -18,7 +18,7 @@ async function generateProof() {
         
         // Step 2: Generate proof
         console.log('🔐 Generating proof...');
-        execSync('snarkjs groth16 prove ../../trusted-setup/16_leaves/circuit_final.zkey witness.wtns proof.json public_temp.json', {
+        execSync('snarkjs groth16 prove ../../trusted-setup/16_leaves_vk/circuit_final.zkey witness.wtns proof.json public_temp.json', {
             stdio: 'inherit',
             cwd: process.cwd()
         });
@@ -91,7 +91,7 @@ function checkRequiredFiles() {
     const requiredFiles = [
         '../../circuits/build/circuit_N4_js/circuit_N4.wasm',
         'input.json',
-        '../../trusted-setup/16_leaves/circuit_final.zkey'
+        '../../trusted-setup/16_leaves_vk/circuit_final.zkey'
     ];
     
     const missingFiles = requiredFiles.filter(file => !fs.existsSync(file));
