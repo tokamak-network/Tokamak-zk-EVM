@@ -16,7 +16,7 @@ import { VARIABLE_DESCRIPTION } from "src/synthesizer/types/buffers.ts";
 
 export class VariableGenerator {
   private parent: CircuitGenerator;
-  
+
   placementsCompatibleWithSubcircuits: Placements | undefined = undefined
   placementVariables: PlacementVariables | undefined = undefined
   a_pub: `0x${string}`[] | undefined = undefined
@@ -27,8 +27,8 @@ export class VariableGenerator {
 
   async initVariableGenerator(): Promise<void> {
     if (
-      this.placementsCompatibleWithSubcircuits !== undefined || 
-      this.a_pub !== undefined || 
+      this.placementsCompatibleWithSubcircuits !== undefined ||
+      this.a_pub !== undefined ||
       this.placementVariables !== undefined
     ) {
       throw new Error('Cannot overwrite existing initialization')
@@ -67,13 +67,13 @@ export class VariableGenerator {
 
         // Preparing inpu values
         const inValues = this._prepareCircuitInstance(placement, 'In')
-        
+
         // Preparing output values
         const outValues = this._prepareCircuitInstance(placement, 'Out')
 
         let variables: string []
         try {
-          variables = await this._generateSubcircuitWitness(  
+          variables = await this._generateSubcircuitWitness(
             placement.subcircuitId!,
             inValues,
           );
@@ -82,7 +82,7 @@ export class VariableGenerator {
           console.log(`Subcircuit name: ${placement.name}`)
           throw new Error(err as string)
         }
-      
+
         for (let i = 1; i <= outValues.length; i++) {
           if (BigInt(variables[i]) !== BigInt(outValues[i - 1])) {
             throw new Error(
@@ -131,7 +131,7 @@ export class VariableGenerator {
     const newDataPts: DataPt[] = []
     const copied = DataPtFactory.deepCopy(origDataPt);
     if (origDataPt.sourceBitSize > 128) {
-      
+
       const lowerVal = copied.value & ((1n << 128n) - 1n)
       const upperVal = copied.value >> 128n
       if ((upperVal * (1n <<128n) + lowerVal) !== copied.value) {
@@ -214,7 +214,7 @@ export class VariableGenerator {
         }
       }
       outWireIndexChangeTracker.set(key, _wireIndexChangeTracker);
-      
+
       placement.outPts = _newOutPts
     }
 
@@ -225,7 +225,7 @@ export class VariableGenerator {
       for (const inPt of placement.inPts) {
         const sourcePlacementId = inPt.source;
         const sourceOutWireOldInd = inPt.wireIndex;
-        if (sourcePlacementId === thisPlacementId) {  
+        if (sourcePlacementId === thisPlacementId) {
           // If the source comes from external
           const splitInPts = this._halveWordSizeOfWires(inPt);
           for (const newInPt of splitInPts) {

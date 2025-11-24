@@ -83,8 +83,8 @@ export class Synthesizer implements SynthesizerInterface {
           // const currentInterpreterStep = {...data}
 
           if (this._prevInterpreterStep !== null) {
-            console.log(`stack: ${this._prevInterpreterStep.stack.map(x => bigIntToHex(x))}`);
-            console.log(`pc: ${this._prevInterpreterStep.pc}, opcode: ${this._prevInterpreterStep.opcode.name}`);
+            // console.log(`stack: ${this._prevInterpreterStep.stack.map(x => bigIntToHex(x))}`);
+            // console.log(`pc: ${this._prevInterpreterStep.pc}, opcode: ${this._prevInterpreterStep.opcode.name}`);
             await this._applySynthesizerHandler(this._prevInterpreterStep, currentInterpreterStep);
           }
         } catch (err) {
@@ -153,8 +153,8 @@ export class Synthesizer implements SynthesizerInterface {
             throw new Error('Data loading failure when finalizing Synthesizer');
           }
           await this._applySynthesizerHandler(this._prevInterpreterStep, currentInterpreterStep);
-          console.log(`stack: ${currentInterpreterStep.stack.map(x => bigIntToHex(x))}`);
-          console.log(`pc: ${currentInterpreterStep.pc}, opcode: ${currentInterpreterStep.opcode.name}`);
+          // console.log(`stack: ${currentInterpreterStep.stack.map(x => bigIntToHex(x))}`);
+          // console.log(`pc: ${currentInterpreterStep.pc}, opcode: ${currentInterpreterStep.opcode.name}`);
           await this._finalizeStorage();
           this._computeTxHash();
         } catch (err) {
