@@ -3,8 +3,8 @@
  * Tests with real Sepolia addresses and balances
  */
 
-import { SynthesizerAdapter } from './src/interface/adapters/synthesizerAdapter.ts';
-import { encodeTransfer, toWei, fromWei } from './src/interface/adapters/calldataHelpers.ts';
+import { SynthesizerAdapter } from '../../src/interface/adapters/synthesizerAdapter.ts';
+import { encodeTransfer, toWei, fromWei } from '../../src/interface/adapters/calldataHelpers.ts';
 import { jubjub } from '@noble/curves/misc';
 import {
   setLengthLeft,
@@ -15,7 +15,7 @@ import {
   bytesToHex,
   addHexPrefix,
 } from '@ethereumjs/util';
-import { fromEdwardsToAddress } from './src/TokamakL2JS/index.ts';
+import { fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import { ethers } from 'ethers';

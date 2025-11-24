@@ -3,7 +3,7 @@
  * Tests continuous proof generation with state tracking
  */
 
-import { SynthesizerAdapter } from './src/interface/adapters/synthesizerAdapter.ts';
+import { SynthesizerAdapter } from '../../src/interface/adapters/synthesizerAdapter.ts';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 
@@ -87,7 +87,9 @@ async function testStateChain() {
     if (result1.state.storageEntries.length === result2.state.storageEntries.length) {
       console.log(`✅ Storage entry count consistent: ${result1.state.storageEntries.length}`);
     } else {
-      console.log(`⚠️  Storage entry count changed: ${result1.state.storageEntries.length} → ${result2.state.storageEntries.length}`);
+      console.log(
+        `⚠️  Storage entry count changed: ${result1.state.storageEntries.length} → ${result2.state.storageEntries.length}`,
+      );
     }
 
     // Check registered keys consistency
@@ -102,7 +104,9 @@ async function testStateChain() {
     // ===== Summary =====
     console.log('\n\n📈 State Chain Summary');
     console.log('━'.repeat(60));
-    console.log(`Proof 1 → Proof 2 State Chain: ${result1.state.stateRoot.slice(0, 20)}... → ${result2.state.stateRoot.slice(0, 20)}...`);
+    console.log(
+      `Proof 1 → Proof 2 State Chain: ${result1.state.stateRoot.slice(0, 20)}... → ${result2.state.stateRoot.slice(0, 20)}...`,
+    );
     console.log(`Total time span: ${result2.state.timestamp - result1.state.timestamp}ms`);
     console.log(`Contract: ${result1.state.contractAddress}`);
     console.log(`Participants: ${result1.state.userL2Addresses.length}`);
@@ -113,7 +117,6 @@ async function testStateChain() {
     console.log('   2. Previous state can be restored for next proof');
     console.log('   3. State root changes reflect transaction effects');
     console.log('   4. Storage entries are persisted across proofs');
-
   } catch (error) {
     console.error('\n❌ Test failed:');
     console.error(error);
@@ -123,4 +126,3 @@ async function testStateChain() {
 
 // Run test
 testStateChain();
-

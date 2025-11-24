@@ -3,7 +3,7 @@
  * Tests A→B transfer followed by B→A transfer using state chaining
  */
 
-import { SynthesizerAdapter } from './src/interface/adapters/synthesizerAdapter.ts';
+import { SynthesizerAdapter } from '../../src/interface/adapters/synthesizerAdapter.ts';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 
@@ -115,7 +115,10 @@ async function testBidirectionalTransfer() {
     console.log('\n📐 Circuit Placement Optimization:');
     console.log(`   Transfer 1: ${proof1.placementVariables.length} placements`);
     console.log(`   Transfer 2: ${proof2.placementVariables.length} placements`);
-    const placementReduction = ((proof1.placementVariables.length - proof2.placementVariables.length) / proof1.placementVariables.length * 100).toFixed(1);
+    const placementReduction = (
+      ((proof1.placementVariables.length - proof2.placementVariables.length) / proof1.placementVariables.length) *
+      100
+    ).toFixed(1);
     if (proof2.placementVariables.length < proof1.placementVariables.length) {
       console.log(`   ✅ ${placementReduction}% reduction (state reuse working!)`);
     } else {
@@ -148,7 +151,9 @@ async function testBidirectionalTransfer() {
         console.log(`   ✅ ${changedCount} storage value(s) changed`);
       }
     } else {
-      console.log(`   ⚠️  Storage entry count changed: ${proof1.state.storageEntries.length} → ${proof2.state.storageEntries.length}`);
+      console.log(
+        `   ⚠️  Storage entry count changed: ${proof1.state.storageEntries.length} → ${proof2.state.storageEntries.length}`,
+      );
     }
 
     // Registered keys
@@ -182,7 +187,9 @@ async function testBidirectionalTransfer() {
     console.log('State Chain Flow:');
     console.log(`  Initial State → Transfer 1 → Transfer 2`);
     console.log(`                      ↓              ↓`);
-    console.log(`                 ${proof1.state.stateRoot.slice(0, 16)}...  ${proof2.state.stateRoot.slice(0, 16)}...`);
+    console.log(
+      `                 ${proof1.state.stateRoot.slice(0, 16)}...  ${proof2.state.stateRoot.slice(0, 16)}...`,
+    );
     console.log('');
     console.log('✅ State Chain Test Complete!');
     console.log('');
@@ -201,7 +208,6 @@ async function testBidirectionalTransfer() {
     console.log('   - Circuit generation ✅');
     console.log('   - State export/import ✅');
     console.log('   - Proof validity ✅');
-
   } catch (error) {
     console.error('\n❌ Test failed:');
     console.error(error);
@@ -211,4 +217,3 @@ async function testBidirectionalTransfer() {
 
 // Run test
 testBidirectionalTransfer();
-

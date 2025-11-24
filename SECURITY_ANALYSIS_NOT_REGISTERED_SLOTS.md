@@ -9,6 +9,7 @@
 ## Executive Summary
 
 The current State Channel implementation has a **critical security vulnerability** regarding NOT REGISTERED storage slots (e.g., Slot 7 = totalSupply). These slots are:
+
 - ✅ Included in PUBLIC_IN (proof input)
 - ❌ NOT included in Merkle tree
 - ❌ NOT included in state root
@@ -38,6 +39,7 @@ if (MTIndex >= 0) {
 ```
 
 **Flow**:
+
 1. Load from L1 StateManager
 2. Add to PUBLIC_IN as `IN_VALUE`
 3. Include in Merkle tree (TokamakL2StateManager.ts:93-106)
@@ -53,14 +55,15 @@ if (value === undefined) {
   throw new Error('Storage value must be presented');
 }
 const valuePt = this.parent.addReservedVariableToBufferIn(
-  'OTHER_CONTRACT_STORAGE_IN',  // Goes into PUBLIC_IN
-  value,  // ⚠️ No verification!
+  'OTHER_CONTRACT_STORAGE_IN', // Goes into PUBLIC_IN
+  value, // ⚠️ No verification!
   true,
   `at MPT key ${bigIntToHex(key)}`,
 );
 ```
 
 **Flow**:
+
 1. Value must be provided by caller
 2. Add to PUBLIC_IN as `OTHER_CONTRACT_STORAGE_IN`
 3. **NOT** included in Merkle tree
@@ -86,6 +89,7 @@ public async convertLeavesIntoMerkleTreeLeaves(): Promise<bigint[]> {
 ```
 
 **State Root Only Includes**:
+
 - ✅ Slot 0 (user balances) - userStorageSlots: [0]
 - ❌ Slot 1 (allowances)
 - ❌ Slot 2 (totalSupply)
@@ -110,6 +114,7 @@ final_result := finalPairing()
 ```
 
 **What L1 Verifier Checks**:
+
 - ✅ zkSNARK proof validity (pairing equation)
 - ✅ Public inputs match (a_pub)
 - ✅ Initial/Final state roots match Merkle tree
@@ -125,7 +130,7 @@ final_result := finalPairing()
 // Malicious participant proposes off-chain TX
 const maliciousProof = await synthesizeFromCalldata(calldata, {
   contractAddress: TON_CONTRACT,
-  userStorageSlots: [0],  // Only Slot 0 registered
+  userStorageSlots: [0], // Only Slot 0 registered
   // ... other params
 });
 
@@ -172,11 +177,13 @@ const maliciousProof = await synthesizeFromCalldata(calldata, {
 ### Design Rationale (Assumed)
 
 1. **Gas Optimization**:
+
    - Only track user balances (Slot 0)
    - Reduce Merkle tree size
    - Lower proof generation cost
 
 2. **State Channel Assumption**:
+
    - Only `transfer()` function used
    - No `transferFrom()` (requires allowances)
    - No `mint()`/`burn()` (requires totalSupply)
@@ -188,11 +195,13 @@ const maliciousProof = await synthesizeFromCalldata(calldata, {
 ### Why This is Dangerous
 
 1. **EVM Execution Can Read Any Slot**:
+
    - Even simple `transfer()` might read totalSupply
    - ERC20 implementations vary
    - Proxies/upgradeable contracts might add logic
 
 2. **No Runtime Verification**:
+
    - Circuit accepts any value for NOT REGISTERED slots
    - L1 verifier cannot cross-check
 
@@ -212,15 +221,17 @@ const maliciousProof = await synthesizeFromCalldata(calldata, {
 const analyzedSlots = await analyzeBytecode(contractAddress);
 
 // Register all slots that might be read
-userStorageSlots: analyzedSlots  // e.g., [0, 1, 2, 7]
+userStorageSlots: analyzedSlots; // e.g., [0, 1, 2, 7]
 ```
 
 **Pros**:
+
 - Complete security
 - All storage changes tracked in state root
 - L1 verifiable
 
 **Cons**:
+
 - Larger Merkle tree
 - Higher proof cost
 - More complex setup
@@ -230,7 +241,7 @@ userStorageSlots: analyzedSlots  // e.g., [0, 1, 2, 7]
 ```typescript
 // Only allow functions that touch known slots
 const ALLOWED_SELECTORS = [
-  '0xa9059cbb',  // transfer(address,uint256) - only reads Slot 0
+  '0xa9059cbb', // transfer(address,uint256) - only reads Slot 0
 ];
 
 // Reject if function reads unexpected slots
@@ -240,10 +251,12 @@ if (sloadKey !== expectedSlot) {
 ```
 
 **Pros**:
+
 - Maintains gas efficiency
 - Prevents unexpected behavior
 
 **Cons**:
+
 - Limited functionality
 - Requires manual auditing
 - Breaks with upgrades
@@ -267,10 +280,12 @@ function challengeOtherStorage(
 ```
 
 **Pros**:
+
 - Maintains efficiency
 - Fraud proofs provide security
 
 **Cons**:
+
 - Complex implementation
 - Requires challenge period
 - Liveness assumptions
@@ -297,10 +312,12 @@ contract StateChannelToken {
 ```
 
 **Pros**:
+
 - Minimal complexity
 - Maximum efficiency
 
 **Cons**:
+
 - Not compatible with existing tokens
 - Limited functionality
 
@@ -311,16 +328,18 @@ contract StateChannelToken {
 ### Immediate (Short-term)
 
 1. **Add Warning Documentation**:
+
    - Document that NOT REGISTERED slots are unverified
    - Warn about security implications
    - Recommend thorough testing
 
 2. **Add Runtime Checks**:
+
    ```typescript
    if (MTIndex < 0 && process.env.NODE_ENV !== 'test') {
      throw new Error(
        `SECURITY: Attempted to read NOT REGISTERED slot ${key}. ` +
-       `This value cannot be verified by L1 and may be tampered with!`
+         `This value cannot be verified by L1 and may be tampered with!`,
      );
    }
    ```
@@ -333,11 +352,13 @@ contract StateChannelToken {
 ### Long-term (Production)
 
 1. **Implement Option 1** (Register All Read Slots):
+
    - Automatic slot detection
    - Full Merkle tree coverage
    - Complete L1 verification
 
 2. **Add Circuit Constraints**:
+
    - Verify OTHER_CONTRACT_STORAGE_IN against L1 state root
    - Require Merkle proofs for ALL storage reads
 
@@ -363,8 +384,8 @@ contract StateChannelToken {
 All storage slots that might be read during EVM execution MUST be registered in `userStorageSlots` to ensure L1 verifiability. Otherwise, malicious participants can provide arbitrary values that will be accepted by the circuit but cannot be verified on-chain.
 
 **Next Steps**:
+
 1. Review this analysis with the team
 2. Decide on mitigation strategy
 3. Implement solution before production deployment
 4. Add comprehensive tests for storage slot handling
-

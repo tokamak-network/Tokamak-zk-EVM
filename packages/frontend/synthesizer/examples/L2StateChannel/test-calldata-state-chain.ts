@@ -3,11 +3,11 @@
  * Tests continuous proof generation without transaction hashes
  */
 
-import { SynthesizerAdapter } from './src/interface/adapters/synthesizerAdapter.ts';
-import { encodeTransfer, toWei } from './src/interface/adapters/calldataHelpers.ts';
+import { SynthesizerAdapter } from '../../src/interface/adapters/synthesizerAdapter.ts';
+import { encodeTransfer, toWei } from '../../src/interface/adapters/calldataHelpers.ts';
 import { jubjub } from '@noble/curves/misc';
 import { setLengthLeft, utf8ToBytes, bytesToBigInt } from '@ethereumjs/util';
-import { fromEdwardsToAddress } from './src/TokamakL2JS/index.ts';
+import { fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 
@@ -168,8 +168,14 @@ async function testCalldataStateChain() {
     console.log(`   Proposal 2: ${proof2.placementVariables.length} placements`);
     console.log(`   Proposal 3: ${proof3.placementVariables.length} placements`);
 
-    const reduction2 = ((proof1.placementVariables.length - proof2.placementVariables.length) / proof1.placementVariables.length * 100).toFixed(1);
-    const reduction3 = ((proof1.placementVariables.length - proof3.placementVariables.length) / proof1.placementVariables.length * 100).toFixed(1);
+    const reduction2 = (
+      ((proof1.placementVariables.length - proof2.placementVariables.length) / proof1.placementVariables.length) *
+      100
+    ).toFixed(1);
+    const reduction3 = (
+      ((proof1.placementVariables.length - proof3.placementVariables.length) / proof1.placementVariables.length) *
+      100
+    ).toFixed(1);
     console.log(`   ✅ Proposal 2: ${reduction2}% reduction (state reuse!)`);
     console.log(`   ✅ Proposal 3: ${reduction3}% reduction (state reuse!)`);
 
@@ -205,7 +211,6 @@ async function testCalldataStateChain() {
     console.log('   4. ✅ State roots changed with each transaction');
     console.log('   5. ✅ Circuit placement optimized through state reuse');
     console.log('   6. ✅ Ready for final on-chain submission (Initial → Final root)');
-
   } catch (error) {
     console.error('\n❌ Test failed:');
     console.error(error);
@@ -215,4 +220,3 @@ async function testCalldataStateChain() {
 
 // Run test
 testCalldataStateChain();
-

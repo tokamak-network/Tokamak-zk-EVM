@@ -2,10 +2,10 @@
  * Simple Single Proof Test - Debugging
  */
 
-import { SynthesizerAdapter } from './src/interface/adapters/synthesizerAdapter.ts';
-import { encodeTransfer, toWei, fromWei } from './src/interface/adapters/calldataHelpers.ts';
+import { SynthesizerAdapter } from '../../src/interface/adapters/synthesizerAdapter.ts';
+import { encodeTransfer, toWei, fromWei } from '../../src/interface/adapters/calldataHelpers.ts';
 import { jubjub } from '@noble/curves/misc';
-import { fromEdwardsToAddress } from './src/TokamakL2JS/index.ts';
+import { fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import { ethers } from 'ethers';

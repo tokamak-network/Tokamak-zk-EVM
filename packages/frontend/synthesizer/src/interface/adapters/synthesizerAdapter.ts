@@ -235,7 +235,11 @@ export class SynthesizerAdapter {
 
     // Get the data before writing (if we need in-memory access)
     const placementVariables = circuitGenerator.variableGenerator.placementVariables || [];
-    const a_pub: PublicInstance = circuitGenerator.variableGenerator.publicInstance || { a_pub_user: [], a_pub_block: [], a_pub_function: [] };
+    const a_pub: PublicInstance = circuitGenerator.variableGenerator.publicInstance || {
+      a_pub_user: [],
+      a_pub_block: [],
+      a_pub_function: [],
+    };
     const permutation = circuitGenerator.permutationGenerator?.permutation || [];
 
     // Export final state
@@ -251,7 +255,7 @@ export class SynthesizerAdapter {
     }
 
     const result: SynthesizerResult = {
-      instance: a_pub,  // PublicInstance type: {a_pub_user, a_pub_block, a_pub_function}
+      instance: a_pub, // PublicInstance type: {a_pub_user, a_pub_block, a_pub_function}
       placementVariables,
       permutation,
       state: finalState, // Include final state
@@ -323,7 +327,9 @@ export class SynthesizerAdapter {
       const stateManager = synthesizerOpts.stateManager as any; // TokamakL2StateManager
       await stateManager.createStateFromSnapshot(previousState);
       console.log(`[SynthesizerAdapter] ✅ Previous state restored: ${previousState.stateRoot}`);
-      console.log(`[SynthesizerAdapter] ✅ initialMerkleTree.root: 0x${stateManager.initialMerkleTree.root.toString(16)}`);
+      console.log(
+        `[SynthesizerAdapter] ✅ initialMerkleTree.root: 0x${stateManager.initialMerkleTree.root.toString(16)}`,
+      );
     }
 
     // Now create synthesizer with the correct initialMerkleTree
@@ -394,7 +400,11 @@ export class SynthesizerAdapter {
 
     // Get the data before writing (if we need in-memory access)
     const placementVariables = circuitGenerator.variableGenerator.placementVariables || [];
-    const a_pub: PublicInstance = circuitGenerator.variableGenerator.publicInstance || { a_pub_user: [], a_pub_block: [], a_pub_function: [] };
+    const a_pub: PublicInstance = circuitGenerator.variableGenerator.publicInstance || {
+      a_pub_user: [],
+      a_pub_block: [],
+      a_pub_function: [],
+    };
     const permutation = circuitGenerator.permutationGenerator?.permutation || [];
 
     // Export final state
@@ -410,7 +420,7 @@ export class SynthesizerAdapter {
     }
 
     const result: SynthesizerResult = {
-      instance: a_pub,  // PublicInstance type: {a_pub_user, a_pub_block, a_pub_function}
+      instance: a_pub, // PublicInstance type: {a_pub_user, a_pub_block, a_pub_function}
       placementVariables,
       permutation,
       state: finalState,

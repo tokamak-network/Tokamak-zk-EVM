@@ -66,6 +66,13 @@
     "test:node": "npx vitest run",
     "test:tokamak": "npx vitest run test/tokamak",
     "test:synthesizer": "npx vitest run test/**",
+    "test:state-chain": "tsx examples/L2StateChannel/test-state-chain.ts",
+    "test:bidirectional": "tsx examples/L2StateChannel/test-bidirectional-transfer.ts",
+    "test:calldata": "tsx examples/L2StateChannel/test-calldata-state-chain.ts",
+    "test:full-flow": "tsx examples/L2StateChannel/test-full-state-channel-flow.ts",
+    "test:sepolia": "tsx examples/L2StateChannel/test-sepolia-state-channel.ts",
+    "test:single": "tsx examples/L2StateChannel/test-single-proof.ts",
+    "test:onchain": "tsx examples/L2StateChannel/onchain-channel-simulation.ts",
     "tsc": "../../../config/monorepo-js//cli/ts-compile.sh"
   },
   "dependencies": {

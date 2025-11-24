@@ -3,24 +3,20 @@
  * Simulates complete flow: Initial State → 3 Proposals → Final Transaction
  */
 
-import { SynthesizerAdapter } from './src/interface/adapters/synthesizerAdapter.ts';
-import { encodeTransfer, toWei, fromWei } from './src/interface/adapters/calldataHelpers.ts';
+import { SynthesizerAdapter } from '../../src/interface/adapters/synthesizerAdapter.ts';
+import { encodeTransfer, toWei, fromWei } from '../../src/interface/adapters/calldataHelpers.ts';
 import { jubjub } from '@noble/curves/misc';
 import { setLengthLeft, utf8ToBytes, bytesToBigInt, hexToBytes, bytesToHex } from '@ethereumjs/util';
-import { fromEdwardsToAddress } from './src/TokamakL2JS/index.ts';
+import { fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import type { StateSnapshot, StorageEntry } from './src/TokamakL2JS/stateManager/types.ts';
+import type { StateSnapshot, StorageEntry } from '../../src/TokamakL2JS/stateManager/types.ts';
 
 // Load .env file
 config({ path: resolve(process.cwd(), '../../../.env') });
 
 // Helper to display storage changes
-function displayStorageChanges(
-  label: string,
-  storageEntries: StorageEntry[],
-  participantNames: string[],
-) {
+function displayStorageChanges(label: string, storageEntries: StorageEntry[], participantNames: string[]) {
   console.log(`\n   ${label} Storage:`);
   storageEntries.forEach(entry => {
     console.log(`     [${entry.index}] ${entry.key.slice(0, 20)}... = ${entry.value}`);
@@ -133,7 +129,11 @@ async function testFullStateChannelFlow() {
     console.log(`   State Root: ${initialState.stateRoot}`);
     console.log(`   Storage Entries: ${initialState.storageEntries.length}`);
     console.log(`   Registered Keys: ${initialState.registeredKeys.length}`);
-    displayStorageChanges('Initial', initialState.storageEntries, participants.map(p => p.name));
+    displayStorageChanges(
+      'Initial',
+      initialState.storageEntries,
+      participants.map(p => p.name),
+    );
 
     // ===== Step 2: Proposal 1 (Alice → Bob, 100 TON) =====
     console.log('\n\n📤 Step 2: Proposal 1 - Alice → Bob (100 TON)');
@@ -152,7 +152,11 @@ async function testFullStateChannelFlow() {
     console.log('✅ Proposal 1 Generated:');
     console.log(`   State Root: ${proposal1.state.stateRoot}`);
     console.log(`   Placements: ${proposal1.placementVariables.length}`);
-    displayStorageChanges('Proposal 1', proposal1.state.storageEntries, participants.map(p => p.name));
+    displayStorageChanges(
+      'Proposal 1',
+      proposal1.state.storageEntries,
+      participants.map(p => p.name),
+    );
 
     compareStates(initialState, proposal1.state, 'Initial', 'Proposal 1');
 
@@ -173,7 +177,11 @@ async function testFullStateChannelFlow() {
     console.log('✅ Proposal 2 Generated:');
     console.log(`   State Root: ${proposal2.state.stateRoot}`);
     console.log(`   Placements: ${proposal2.placementVariables.length}`);
-    displayStorageChanges('Proposal 2', proposal2.state.storageEntries, participants.map(p => p.name));
+    displayStorageChanges(
+      'Proposal 2',
+      proposal2.state.storageEntries,
+      participants.map(p => p.name),
+    );
 
     compareStates(proposal1.state, proposal2.state, 'Proposal 1', 'Proposal 2');
 
@@ -194,7 +202,11 @@ async function testFullStateChannelFlow() {
     console.log('✅ Proposal 3 Generated:');
     console.log(`   State Root: ${proposal3.state.stateRoot}`);
     console.log(`   Placements: ${proposal3.placementVariables.length}`);
-    displayStorageChanges('Proposal 3', proposal3.state.storageEntries, participants.map(p => p.name));
+    displayStorageChanges(
+      'Proposal 3',
+      proposal3.state.storageEntries,
+      participants.map(p => p.name),
+    );
 
     compareStates(proposal2.state, proposal3.state, 'Proposal 2', 'Proposal 3');
 
@@ -211,9 +223,15 @@ async function testFullStateChannelFlow() {
     console.log(`   Off-chain Duration:  ${proposal3.state.timestamp - initialState.timestamp}ms`);
 
     console.log('\n📊 Proof Verification Data:');
-    console.log(`   Proposal 1: ${proposal1.instance.a_pub.length} a_pub values, ${proposal1.placementVariables.length} placements`);
-    console.log(`   Proposal 2: ${proposal2.instance.a_pub.length} a_pub values, ${proposal2.placementVariables.length} placements`);
-    console.log(`   Proposal 3: ${proposal3.instance.a_pub.length} a_pub values, ${proposal3.placementVariables.length} placements`);
+    console.log(
+      `   Proposal 1: ${proposal1.instance.a_pub.length} a_pub values, ${proposal1.placementVariables.length} placements`,
+    );
+    console.log(
+      `   Proposal 2: ${proposal2.instance.a_pub.length} a_pub values, ${proposal2.placementVariables.length} placements`,
+    );
+    console.log(
+      `   Proposal 3: ${proposal3.instance.a_pub.length} a_pub values, ${proposal3.placementVariables.length} placements`,
+    );
 
     // Simulate transaction creation (not actually submitting)
     console.log('\n📤 L1 Transaction (Simulation):');
@@ -249,7 +267,7 @@ async function testFullStateChannelFlow() {
       console.log('   ✅ All state roots are unique (expected!)');
     } else if (uniqueRoots === 1) {
       console.log('   ⚠️  All state roots are identical');
-      console.log('   💡 This means storage didn\'t change (read-only RPC state)');
+      console.log("   💡 This means storage didn't change (read-only RPC state)");
       console.log('   💡 In production, off-chain EVM execution would change storage');
     } else {
       console.log(`   ⚠️  Only ${uniqueRoots} unique roots`);
@@ -301,7 +319,6 @@ async function testFullStateChannelFlow() {
     console.log('   6. L1 contract verifies: verifyProofChain(proofs) && verifySigs(sigs)');
     console.log('   7. L1 state updated: storage[stateRoot] = finalRoot');
     console.log('');
-
   } catch (error) {
     console.error('\n❌ Test failed:');
     console.error(error);
@@ -311,4 +328,3 @@ async function testFullStateChannelFlow() {
 
 // Run test
 testFullStateChannelFlow();
-
