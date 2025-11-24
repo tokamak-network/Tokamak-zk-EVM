@@ -1,13 +1,9 @@
 import { setLengthLeft, utf8ToBytes } from "@ethereumjs/util"
-import { poseidon4 } from "poseidon-bls12381"
-import { BUFFER_PLACEMENT } from "../types/index.ts"
 
 export const BLS12831ARITHMODULUS = 52435875175126190479447740508185965837690552500527637822603658699938581184513n
 export const JUBJUBFIELDMODULUS = BLS12831ARITHMODULUS
 export const JUBJUBARITHMODULUS = 6554484396890773809930967563523245729705921265872317281365359162392183254199n
 export const DEFAULT_SOURCE_BIT_SIZE = 256
-
-export const poseidon_raw = poseidon4
 
 export const DST_NONCE = setLengthLeft(utf8ToBytes("TokamakAuth‑EDDSA‑NONCE‑v1"), 32)
 
