@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 72
+non-linear constraints: 494
+linear constraints: 786
+public inputs: 12
+private inputs: 0
+public outputs: 0
+wires: 1288
+labels: 2267
+[32mWritten successfully:[0m ../subcircuits/library/VerifyMerkleProof2x_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library/VerifyMerkleProof2x_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library/VerifyMerkleProof2x_circuit_js/VerifyMerkleProof2x_circuit.wasm
+[32mEverything went okay[0m
