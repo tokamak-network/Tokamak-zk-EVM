@@ -27,6 +27,7 @@ import { createCircuitGenerator } from '../../circuitGenerator/circuitGenerator.
 import type { SynthesizerInterface } from '../../synthesizer/types/index.ts';
 import { fromEdwardsToAddress } from '../../TokamakL2JS/index.ts';
 import type { StateSnapshot } from '../../TokamakL2JS/stateManager/types.ts';
+import type { PublicInstance } from '../../circuitGenerator/types/types.ts';
 
 export interface SynthesizerAdapterConfig {
   rpcUrl: string;
@@ -50,9 +51,7 @@ export interface CalldataSynthesizeOptions {
 }
 
 export interface SynthesizerResult {
-  instance: {
-    a_pub: string[];
-  };
+  instance: PublicInstance;
   placementVariables: any[];
   permutation: {
     row: number;
@@ -236,7 +235,7 @@ export class SynthesizerAdapter {
 
     // Get the data before writing (if we need in-memory access)
     const placementVariables = circuitGenerator.variableGenerator.placementVariables || [];
-    const a_pub = circuitGenerator.variableGenerator.a_pub || [];
+    const a_pub: PublicInstance = circuitGenerator.variableGenerator.publicInstance || { a_pub_user: [], a_pub_block: [], a_pub_function: [] };
     const permutation = circuitGenerator.permutationGenerator?.permutation || [];
 
     // Export final state
@@ -252,9 +251,7 @@ export class SynthesizerAdapter {
     }
 
     const result: SynthesizerResult = {
-      instance: {
-        a_pub: a_pub as string[],
-      },
+      instance: a_pub,  // PublicInstance type: {a_pub_user, a_pub_block, a_pub_function}
       placementVariables,
       permutation,
       state: finalState, // Include final state
@@ -269,7 +266,9 @@ export class SynthesizerAdapter {
     };
 
     console.log('[SynthesizerAdapter] ✅ Synthesis complete');
-    console.log(`  - a_pub length: ${a_pub.length}`);
+    console.log(`  - a_pub_user length: ${a_pub.a_pub_user.length}`);
+    console.log(`  - a_pub_block length: ${a_pub.a_pub_block.length}`);
+    console.log(`  - a_pub_function length: ${a_pub.a_pub_function.length}`);
     console.log(`  - Placements: ${placementVariables.length}`);
     console.log(`  - State root: ${finalState.stateRoot}`);
 
@@ -395,7 +394,7 @@ export class SynthesizerAdapter {
 
     // Get the data before writing (if we need in-memory access)
     const placementVariables = circuitGenerator.variableGenerator.placementVariables || [];
-    const a_pub = circuitGenerator.variableGenerator.a_pub || [];
+    const a_pub: PublicInstance = circuitGenerator.variableGenerator.publicInstance || { a_pub_user: [], a_pub_block: [], a_pub_function: [] };
     const permutation = circuitGenerator.permutationGenerator?.permutation || [];
 
     // Export final state
@@ -411,7 +410,7 @@ export class SynthesizerAdapter {
     }
 
     const result: SynthesizerResult = {
-      instance: { a_pub: a_pub as string[] },
+      instance: a_pub,  // PublicInstance type: {a_pub_user, a_pub_block, a_pub_function}
       placementVariables,
       permutation,
       state: finalState,
@@ -426,7 +425,9 @@ export class SynthesizerAdapter {
     };
 
     console.log('[SynthesizerAdapter] ✅ Synthesis complete');
-    console.log(`  - a_pub length: ${a_pub.length}`);
+    console.log(`  - a_pub_user length: ${a_pub.a_pub_user.length}`);
+    console.log(`  - a_pub_block length: ${a_pub.a_pub_block.length}`);
+    console.log(`  - a_pub_function length: ${a_pub.a_pub_function.length}`);
     console.log(`  - Placements: ${placementVariables.length}`);
     console.log(`  - State root: ${finalState.stateRoot}`);
 

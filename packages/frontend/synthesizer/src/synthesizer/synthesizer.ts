@@ -445,5 +445,11 @@ export class Synthesizer implements SynthesizerInterface
   //   );
   // }
 
+  /**
+   * Get the TokamakL2StateManager instance
+   */
+  public getTokamakStateManager() {
+    return this.cachedOpts.stateManager;
+  }
   
 }

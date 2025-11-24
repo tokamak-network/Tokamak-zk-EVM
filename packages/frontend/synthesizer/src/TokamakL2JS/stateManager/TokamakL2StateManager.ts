@@ -178,6 +178,59 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         }
         return hash(packed)
     }
+
+    /**
+     * Export current state including state root, merkle leaves, and storage entries
+     */
+    public async exportState(): Promise<{
+        stateRoot: string;
+        merkleLeaves: string[];
+        registeredKeys: string[];
+        storageEntries: Array<{ key: string; value: string }>;
+        contractAddress: string;
+        L2Addresses: string[];
+        storageSlots: string[];
+        timestamp: number;
+        nonces: Record<string, string>;
+    }> {
+        const contractAddress = new Address(toBytes(this.cachedOpts!.contractAddress));
+        const leaves = await this.convertLeavesIntoMerkleTreeLeaves();
+        const merkleRoot = await this.getUpdatedMerkleTreeRoot();
+        
+        // Get registered keys
+        const registeredKeys = this.registeredKeys!.map(k => bytesToHex(k));
+        
+        // Get all storage entries
+        const storageEntries: Array<{ key: string; value: string }> = [];
+        for (const key of this.registeredKeys!) {
+            const value = await this.getStorage(contractAddress, key);
+            storageEntries.push({
+                key: bytesToHex(key),
+                value: bytesToHex(value)
+            });
+        }
+
+        // Get user nonces
+        const nonces: Record<string, string> = {};
+        for (const addr of this.cachedOpts!.userL2Addresses) {
+            const account = await this.getAccount(new Address(toBytes(addr)));
+            if (account) {
+                nonces[addr] = account.nonce.toString();
+            }
+        }
+
+        return {
+            stateRoot: bigIntToHex(merkleRoot),
+            merkleLeaves: leaves.map(l => l.toString()),
+            registeredKeys,
+            storageEntries,
+            contractAddress: this.cachedOpts!.contractAddress,
+            L2Addresses: this.cachedOpts!.userL2Addresses,
+            storageSlots: this.cachedOpts!.userStorageSlots.map(s => s.toString()),
+            timestamp: Date.now(),
+            nonces
+        };
+    }
 }
 
 class TokamakL2MerkleTree extends IMT {

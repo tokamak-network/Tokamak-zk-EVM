@@ -65,7 +65,11 @@ function saveProofOutputs(proofName: string, result: any, outputDir: string): vo
     // Save instance.json
     const instancePath = join(outputDir, 'instance.json');
     writeFileSync(instancePath, JSON.stringify(result.instance, null, 2));
-    console.log(`   ✅ instance.json saved (${result.instance.a_pub.length} public inputs)`);
+    const totalPubInputs =
+      (result.instance.a_pub_user?.length || 0) +
+      (result.instance.a_pub_block?.length || 0) +
+      (result.instance.a_pub_function?.length || 0);
+    console.log(`   ✅ instance.json saved (${totalPubInputs} public inputs)`);
 
     // Save placementVariables.json
     const placementPath = join(outputDir, 'placementVariables.json');
@@ -140,6 +144,62 @@ async function runProver(proofName: string, outputsPath: string): Promise<boolea
     }
   } catch (error: any) {
     console.log(`   ❌ Prover error: ${error.message}`);
+    if (error.stdout) {
+      console.log(`   stdout: ${error.stdout.substring(0, 500)}...`);
+    }
+    if (error.stderr) {
+      console.log(`   stderr: ${error.stderr.substring(0, 500)}...`);
+    }
+    return false;
+  }
+}
+
+// Helper: Run preprocess (only needs to run once)
+async function runPreprocess(outputsPath: string): Promise<boolean> {
+  console.log(`\n⚙️  Running preprocess (one-time setup)...`);
+
+  const qapPath = resolve(process.cwd(), '../qap-compiler/subcircuits/library');
+  const synthesizerPath = resolve(process.cwd(), outputsPath);
+  const setupPath = resolve(process.cwd(), '../../../dist/macOS/resource/setup/output');
+  const preprocessOutPath = resolve(process.cwd(), '../../../dist/macOS/resource/preprocess/output');
+
+  // Check if already preprocessed
+  if (existsSync(`${preprocessOutPath}/preprocess.json`)) {
+    console.log(`   ℹ️  Preprocess files already exist, skipping...`);
+    return true;
+  }
+
+  // Create output directory
+  if (!existsSync(preprocessOutPath)) {
+    mkdirSync(preprocessOutPath, { recursive: true });
+  }
+
+  try {
+    const preprocessPath = resolve(process.cwd(), '../../backend/verify/preprocess');
+    const cmd = `cd ${preprocessPath} && cargo run --release -- "${qapPath}" "${synthesizerPath}" "${setupPath}" "${preprocessOutPath}"`;
+
+    console.log(`   Running: cargo run --release (this may take a while)...`);
+    const startTime = Date.now();
+
+    const output = execSync(cmd, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      timeout: 300000, // 5 minute timeout
+    });
+
+    const duration = Date.now() - startTime;
+
+    // Check if preprocess files were created
+    if (existsSync(`${preprocessOutPath}/preprocess.json`)) {
+      console.log(`   ✅ Preprocess completed successfully in ${(duration / 1000).toFixed(2)}s`);
+      return true;
+    } else {
+      console.log(`   ❌ Preprocess failed - output files not found`);
+      console.log(`   Output: ${output}`);
+      return false;
+    }
+  } catch (error: any) {
+    console.log(`   ❌ Preprocess error: ${error.message}`);
     if (error.stdout) {
       console.log(`   stdout: ${error.stdout.substring(0, 500)}...`);
     }
@@ -366,6 +426,14 @@ async function testSepoliaStateChannel() {
     let proof1Verified = false;
 
     if (setupExists) {
+      // Run preprocess first (only once, before first proof)
+      const preprocessSuccess = await runPreprocess(proof1OutputDir);
+      if (!preprocessSuccess) {
+        console.error(`\n❌ Preprocess failed! Cannot continue.`);
+        process.exit(1);
+      }
+
+      // Now run prove and verify
       proof1Proved = await runProver('Proof #1', proof1OutputDir);
       proof1Verified = proof1Proved ? await runVerifyRust('Proof #1', proof1OutputDir) : false;
 
@@ -373,7 +441,7 @@ async function testSepoliaStateChannel() {
         console.error(`\n❌ Proof #1 failed! Cannot continue.`);
         process.exit(1);
       }
-      console.log(`\n✅ Proof #1 Complete: Proved ✅ | Verified ✅`);
+      console.log(`\n✅ Proof #1 Complete: Preprocessed ✅ | Proved ✅ | Verified ✅`);
     } else {
       console.log(`\n⚠️  Skipping prove/verify: setup files not found`);
       console.log(`   💡 Run './tokamak-cli --install <API_KEY>' to generate setup files`);
@@ -753,13 +821,14 @@ async function testSepoliaStateChannel() {
     console.log('━'.repeat(80));
 
     console.log('\n🔄 Sequential Execution Flow (tokamak-cli style):\n');
-    console.log('   Proof #1: Synthesize → Prove → Verify ✅ Complete');
+    console.log('   Proof #1: Synthesize → Preprocess → Prove → Verify ✅ Complete');
     console.log('             ↓ (await completion)');
     console.log('   Proof #2: Synthesize → Prove → Verify ✅ Complete');
     console.log('             ↓ (await completion)');
     console.log('   Proof #3: Synthesize → Prove → Verify ✅ Complete');
     console.log('             ↓ (await completion)');
     console.log('   Proof #4: Synthesize → Prove → Verify ✅ Complete');
+    console.log('\n   ℹ️  Preprocess runs once before first proof (generates verifier params)');
 
     let allPassed = true;
     console.log('\n\n🔍 Proof Verification Results:\n');
@@ -785,7 +854,8 @@ async function testSepoliaStateChannel() {
 
     if (allPassed) {
       console.log(`\n   🎉 ALL VERIFICATIONS PASSED! (${passedCount}/${totalCount})`);
-      console.log(`   ✅ Each proof was sequentially: Synthesized → Proved → Verified`);
+      console.log(`   ✅ Proof #1: Synthesized → Preprocessed → Proved → Verified`);
+      console.log(`   ✅ Proof #2-4: Synthesized → Proved → Verified`);
       console.log(`   ✅ No parallel execution - guaranteed completion before next step`);
     } else {
       console.log(`\n   ⚠️  Some verifications failed (${passedCount}/${totalCount} passed)`);
