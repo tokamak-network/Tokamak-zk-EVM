@@ -346,35 +346,35 @@ export const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> =
     sourceBitSize: 255,
     wireIndex: 0,
   },
+  RES_MERKLE_ROOT: {
+    extSource: `Resulting Merkle tree root hash`,
+    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
+    sourceBitSize: 255,
+    wireIndex: 1,
+  },
   EDDSA_PUBLIC_KEY_X: {
     extSource: `EdDSA public key of caller (x coordinate)`,
     source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
     sourceBitSize: 255,
-    wireIndex: 1,
+    wireIndex: 2,
   },
   EDDSA_PUBLIC_KEY_Y: {
     extSource: `EdDSA public key of caller (y coordinate)`,
     source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
     sourceBitSize: 255,
-    wireIndex: 2,
+    wireIndex: 3,
   },
   CONTRACT_ADDRESS: {
     extSource: `Contract address to call`,
     source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
     sourceBitSize: 256,
-    wireIndex: 3,
+    wireIndex: 4,
   },
   FUNCTION_SELECTOR: {
     extSource: `Selector for a function to call`,
     source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
     sourceBitSize: 256,
-    wireIndex: 4,
-  },
-  RES_MERKLE_ROOT: {
-    extSource: `Resulting Merkle tree root hash`,
-    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
-    sourceBitSize: 255,
-    wireIndex: -1, //Dynamic
+    wireIndex: 5,
   },
   OTHER_CONTRACT_STORAGE_IN: {
     extSource: `Access to general contract's storage data other than users'`,

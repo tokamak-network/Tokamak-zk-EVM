@@ -181,7 +181,6 @@ export class Synthesizer implements SynthesizerInterface
     const finalMerkleRootPt = this.addReservedVariableToBufferIn(
       'RES_MERKLE_ROOT',
       await this.cachedOpts.stateManager.getUpdatedMerkleTreeRoot(),
-      true,
     )
     let _index = -1;
     for (const [key, cache] of this.state.cachedStorage.entries()) {
