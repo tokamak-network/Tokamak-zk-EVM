@@ -334,8 +334,8 @@ export class ArithmeticOperations {
     }
 
     const exponent = scalarBitsMSB.reduce((acc, b) => (acc << 1n) | b, 0n)
-    const a_next = modPow(a, 1n << BigInt(Nbits), this.N);
-    const c_next = (c * modPow(a, exponent, this.N)) % this.N;
+    const a_next = modPow(a, 1n << BigInt(Nbits), ArithmeticOperations.N);
+    const c_next = (c * modPow(a, exponent, ArithmeticOperations.N)) % ArithmeticOperations.N;
     return [c_next, a_next]
   }
 

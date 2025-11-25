@@ -6,7 +6,7 @@
       "request": "launch",
       "name": "Launch with tsx",
       "runtimeExecutable": "tsx",
-      "program": "${workspaceFolder}/examples/L2TONTransfer/main.ts",
+      "program": "${workspaceFolder}/examples/L2StateChannel/onchain-channel-simulation.ts",
       "args": [],
       "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],
