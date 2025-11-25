@@ -46,7 +46,9 @@ async function testSingleProof() {
   console.log(`   Alice: ${aliceL1} (slot ${aliceStorageSlot})`);
   console.log(`   Bob:   ${bobL1} (slot ${bobStorageSlot})`);
 
-  const sepoliaRPC = process.env.SEPOLIA_RPC_URL || 'https://eth-sepolia.public.blastapi.io';
+  // Use Alchemy API (Blast API is no longer available)
+  const ALCHEMY_KEY = process.env.ALCHEMY_KEY || 'PbqCcGx1oHN7yNaFdUJUYqPEN0QSp23S';
+  const sepoliaRPC = process.env.RPC_URL_SEPOLIA || `https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_KEY}`;
   const provider = new ethers.JsonRpcProvider(sepoliaRPC);
   const blockNumber = await provider.getBlockNumber();
 
