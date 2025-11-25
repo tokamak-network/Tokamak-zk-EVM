@@ -45,11 +45,13 @@ export class CircuitGenerator {
 
     const placementVariables = this.variableGenerator.placementVariables;
     const a_pub = this.variableGenerator.publicInstance;
+    const a_pub_desc = this.variableGenerator.publicInstanceDescription;
     const permutation = this.permutationGenerator.permutation;
 
     // Prepare JSON strings
     const placementVariablesJson = JSON.stringify(placementVariables, null, 2);
     const instanceJson = JSON.stringify(a_pub, null, 2);
+    const instanceDescriptionJson = JSON.stringify(a_pub_desc, null, 2);
     const permutationJson = JSON.stringify(permutation, null, 2);
 
     // Resolve file paths (reuse the style from comments above)
@@ -61,12 +63,16 @@ export class CircuitGenerator {
       _path === undefined
         ? path.resolve(appRootPath.path, 'outputs/instance.json')
         : path.resolve(appRootPath.path, _path!, 'instance.json');
+    const instDescPath =
+    _path === undefined
+      ? path.resolve(appRootPath.path, 'outputs/instance_description.json')
+      : path.resolve(appRootPath.path, _path!, 'instance_description.json');
     const permPath =
       _path === undefined
         ? path.resolve(appRootPath.path, 'outputs/permutation.json')
         : path.resolve(appRootPath.path, _path!, 'permutation.json');
 
-    const files = [placementVariablesJson, instanceJson, permutationJson];
+    const files = [placementVariablesJson, instanceJson, instanceDescriptionJson, permutationJson];
     const filePaths = [pvPath, instPath, permPath];
 
     // Ensure directories exist and write files synchronously (as per existing style)
@@ -82,7 +88,9 @@ export class CircuitGenerator {
       console.log(`Synthesizer: Success in writing '${pvPath}'.`);
       fs.writeFileSync(instPath, files[1], 'utf-8');
       console.log(`Synthesizer: Success in writing '${instPath}'.`);
-      fs.writeFileSync(permPath, files[2], 'utf-8');
+      fs.writeFileSync(instDescPath, files[2], 'utf-8');
+      console.log(`Synthesizer: Success in writing '${instDescPath}'.`);
+      fs.writeFileSync(permPath, files[3], 'utf-8');
       console.log(`Synthesizer: Permutation rule is generated in '${permPath}'.`);
     } catch (error) {
       throw new Error('Synthesizer: Failure in writing outputs.');
