@@ -1,3 +1,4 @@
+import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
 import type { DataPt, DataPtDescription } from './index.ts'
 import { BUFFER_LIST, ReservedBuffer, SubcircuitNames } from 'src/interface/qapCompiler/configuredTypes.ts';
 
@@ -344,6 +345,19 @@ export type ReservedVariable =
   | BlockInVariable
   | EVMInVariable
   | PrivateInVariable
+
+const _VARIABLES: string[] = [
+  ...PUBLIC_OUT_VARIABLES_STATIC,
+  ...PUBLIC_OUT_VARIABLES_DYNAMIC,
+  ...PUBLIC_IN_VARIABLES_STATIC,
+  ...PUBLIC_IN_VARIABLES_DYNAMIC,
+  ...BLOCK_IN_VARIABLES_STATIC,
+  ...BLOCK_IN_VARIABLES_DYNAMIC,
+  ...EVM_IN_VARIABLES_STATIC,
+  ...EVM_IN_VARIABLES_DYNAMIC,
+  ...PRIVATE_IN_VARIABLES_STATIC,
+  ...PRIVATE_IN_VARIABLES_DYNAMIC,
+]
     
 const __buildIncompleteDescription = (
   STATIC_VARIABLES: readonly string[], 
@@ -351,11 +365,14 @@ const __buildIncompleteDescription = (
   bufferName: ReservedBuffer,
 ) => {
   const m: Record<string, DataPtDescription> = {};
-  const FULL_VARIABLES = STATIC_VARIABLES.concat(DYNAMIC_VARIABLES)
+  const FULL_VARIABLES = [
+    ...STATIC_VARIABLES,
+    ...DYNAMIC_VARIABLES,
+  ]
   for (const varName of FULL_VARIABLES) {
     m[varName] = {
       source: BUFFER_LIST.findIndex(name => name === bufferName),
-      sourceBitSize: 0,
+      sourceBitSize: DEFAULT_SOURCE_BIT_SIZE,
       wireIndex: STATIC_VARIABLES.findIndex(staticName => staticName === varName)
     }
   }
@@ -387,7 +404,7 @@ const _PRIVATE_IN_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
   'PRIVATE_IN',
 ) as Record<PrivateInVariable, DataPtDescription>;
 
-const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> = {
+const VARIABLE_DESCRIPTION_INCOMPLETE: Record<ReservedVariable, DataPtDescription> = {
   ..._PUBLIC_OUT_DESCRIPTION_INCOMPLETE,
   ..._PUBLIC_IN_DESCRIPTION_INCOMPLETE,
   ..._BLOCK_IN_DESCRIPTION_INCOMPLETE,
@@ -395,282 +412,93 @@ const VARIABLE_DESCRIPTION: Record<ReservedVariable, DataPtDescription> = {
   ..._PRIVATE_IN_DESCRIPTION_INCOMPLETE,
 }
 
+VARIABLE_DESCRIPTION_INCOMPLETE.OTHER_CONTRACT_STORAGE_OUT.extDest = `Writing general data on contract's storage other than users'`
+
+VARIABLE_DESCRIPTION_INCOMPLETE.INI_MERKLE_ROOT.extSource = `Initial Merkle tree root hash`;
+VARIABLE_DESCRIPTION_INCOMPLETE.INI_MERKLE_ROOT.sourceBitSize = 255;
+
+VARIABLE_DESCRIPTION_INCOMPLETE.RES_MERKLE_ROOT.extSource = `Resulting Merkle tree root hash`;
+VARIABLE_DESCRIPTION_INCOMPLETE.RES_MERKLE_ROOT.sourceBitSize = 255;
+
+VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_SIGNATURE.extSource = `EdDSA signature of transaction`;
+VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_SIGNATURE.sourceBitSize = 255;
+
+VARIABLE_DESCRIPTION_INCOMPLETE.CONTRACT_ADDRESS.extSource = `Contract address to call`;
+VARIABLE_DESCRIPTION_INCOMPLETE.FUNCTION_SELECTOR.extSource = `Selector for a function to call`;
+VARIABLE_DESCRIPTION_INCOMPLETE.OTHER_CONTRACT_STORAGE_IN.extSource = `Access to general contract's storage data other than users'`;
+VARIABLE_DESCRIPTION_INCOMPLETE.COINBASE.extSource = `COINBASE`;
+VARIABLE_DESCRIPTION_INCOMPLETE.TIMESTAMP.extSource = `TIMESTAMP`;
+VARIABLE_DESCRIPTION_INCOMPLETE.NUMBER.extSource = `NUMBER`;
+VARIABLE_DESCRIPTION_INCOMPLETE.PREVRANDAO.extSource = `PREVRANDAO`;
+VARIABLE_DESCRIPTION_INCOMPLETE.GASLIMIT.extSource = `GASLIMIT`;
+VARIABLE_DESCRIPTION_INCOMPLETE.CHAINID.extSource = `CHAINID`;
+VARIABLE_DESCRIPTION_INCOMPLETE.SELFBALANCE.extSource = `SELFBALANCE`;
+VARIABLE_DESCRIPTION_INCOMPLETE.BASEFEE.extSource = `BASEFEE`;
 for (var i = 1; i <= 256; i++) {
-  const varName = `BLOCKHASH_${i}`
+  const varName = `BLOCKHASH_${i}` as ReservedVariable
   if ( BLOCK_IN_VARIABLES_STATIC.findIndex(staticVarName => staticVarName === varName) < 0 ) {
     throw new Error(`${varName} is not a ReservedVariable`)
   }
-  VARIABLE_DESCRIPTION[`BLOCKHASH_${i}` as ReservedVariable].extSource = 
+  VARIABLE_DESCRIPTION_INCOMPLETE[varName].extSource = `Block hash ${i} ${i === 1 ? 'block' : 'blocks'} ago`;
 }
 
-VARIABLE_DESCRIPTION.OTHER_CONTRACT_STORAGE_OUT.extDest = `Writing general data on contract's storage other than users'`
-VARIABLE_DESCRIPTION.OTHER_CONTRACT_STORAGE_OUT.sourceBitSize = 256
+VARIABLE_DESCRIPTION_INCOMPLETE.CIRCOM_CONST_ONE.extSource = 'Arbitrary constant',
+VARIABLE_DESCRIPTION_INCOMPLETE.CIRCOM_CONST_ONE.sourceBitSize = 1;
 
-  INI_MERKLE_ROOT: {
-    extSource: `Initial Merkle tree root hash`,
-    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
-    sourceBitSize: 255,
-    wireIndex: 0,
-  },
-  RES_MERKLE_ROOT: {
-    extSource: `Resulting Merkle tree root hash`,
-    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
-    sourceBitSize: 255,
-    wireIndex: 1,
-  },
-  EDDSA_SIGNATURE: {
-    extSource: `EdDSA signature of transaction`,
-    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
-    sourceBitSize: 255,
-    wireIndex: 2,
-  },
-  CONTRACT_ADDRESS: {
-    extSource: `Contract address to call`,
-    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
-    sourceBitSize: 256,
-    wireIndex: 3,
-  },
-  FUNCTION_SELECTOR: {
-    extSource: `Selector for a function to call`,
-    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
-    sourceBitSize: 256,
-    wireIndex: 4,
-  },
-  OTHER_CONTRACT_STORAGE_IN: {
-    extSource: `Access to general contract's storage data other than users'`,
-    source: BUFFER_LIST.findIndex(name => name === 'PUBLIC_IN'),
-    sourceBitSize: 256,
-    wireIndex: -1, // Dynamic
-  },
+VARIABLE_DESCRIPTION_INCOMPLETE.CIRCOM_CONST_ZERO.extSource = 'Arbitrary constant',
+VARIABLE_DESCRIPTION_INCOMPLETE.CIRCOM_CONST_ZERO.sourceBitSize = 1;
 
-  COINBASE: {
-    extSource: `COINBASE`,
-    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
-    sourceBitSize: 256,
-    wireIndex: 0,
-  },
-  TIMESTAMP: {
-    extSource: `TIMESTAMP`,
-    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
-    sourceBitSize: 256,
-    wireIndex: 1,
-  },
-  NUMBER:  {
-    extSource: `NUMBER`,
-    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
-    sourceBitSize: 256,
-    wireIndex: 2,
-  },
-  PREVRANDAO: {
-    extSource: `PREVRANDAO`,
-    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
-    sourceBitSize: 256,
-    wireIndex: 3,
-  },
-  GASLIMIT: {
-    extSource: `GASLIMIT`,
-    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
-    sourceBitSize: 256,
-    wireIndex: 4,
-  },
-  CHAINID: {
-    extSource: `CHAINID`,
-    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
-    sourceBitSize: 256,
-    wireIndex: 5,
-  },
-  SELFBALANCE: {
-    extSource: `SELFBALANCE`,
-    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
-    sourceBitSize: 256,
-    wireIndex: 6,
-  },
-  BASEFEE: {
-    extSource: `BASEFEE`,
-    source: BUFFER_LIST.findIndex(name => name === 'BLOCK_IN'),
-    sourceBitSize: 256,
-    wireIndex: 7,
-  },
+VARIABLE_DESCRIPTION_INCOMPLETE.ADDRESS_MASK.extSource = `Masker for Ethereum address (20 bytes)`;
+VARIABLE_DESCRIPTION_INCOMPLETE.ADDRESS_MASK.sourceBitSize = 160;
 
-  ..._BLOCKHASH_DESCRIPTIONS,
+VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_BASE_X.extSource = `Base point of Jubjub curve (x coordinate)`;
+VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_BASE_X.sourceBitSize = 255;
 
-  CIRCOM_CONST_ONE: {
-    extSource: 'Arbitrary constant',
-    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-    sourceBitSize: 1,
-    wireIndex: 0,
-  },
+VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_BASE_Y.extSource = `Base point of Jubjub curve (y coordinate)`;
+VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_BASE_Y.sourceBitSize = 255;
 
-  CIRCOM_CONST_ZERO: {
-    extSource: 'Arbitrary constant',
-    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-    sourceBitSize: 1,
-    wireIndex: 1,
-  },
+VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_POI_X.extSource = `Point at infinity of Jubjub curve (x coordinate)`;
+VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_POI_X.sourceBitSize = 255;
 
-  ADDRESS_MASK: {
-    extSource: `Masker for Ethereum address (20 bytes)`,
-    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-    sourceBitSize: 160,
-    wireIndex: 2,
-  },
-  JUBJUB_BASE_X: {
-    extSource: `Base point of Jubjub curve (x coordinate)`,
-    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-    sourceBitSize: 255,
-    wireIndex: 3,
-  },
-  JUBJUB_BASE_Y: {
-    extSource: `Base point of Jubjub curve (y coordinate)`,
-    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-    sourceBitSize: 255,
-    wireIndex: 4,
-  },
-  JUBJUB_POI_X: {
-    extSource: `Point at infinity of Jubjub curve (x coordinate)`,
-    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-    sourceBitSize: 255,
-    wireIndex: 5,
-  },
-  JUBJUB_POI_Y: {
-    extSource: `Point at infinity of Jubjub curve (y coordinate)`,
-    source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-    sourceBitSize: 255,
-    wireIndex: 6,
-  },
-  // NULL_POSEIDON_LEVEL0: {
-  //   extSource: `Poseidon of zeros`,
-  //   source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-  //   sourceBitSize: 255,
-  //   wireIndex: 7,
-  // },
-  // NULL_POSEIDON_LEVEL1: {
-  //   extSource: `Poseidon of Poseidons of zeros`,
-  //   source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-  //   sourceBitSize: 255,
-  //   wireIndex: 8,
-  // },
-  // NULL_POSEIDON_LEVEL2: {
-  //   extSource: `Poseidon of Poseidons of Poseidons of zeros`,
-  //   source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-  //   sourceBitSize: 255,
-  //   wireIndex: 9,
-  // },
-  // NULL_POSEIDON_LEVEL3: {
-  //   extSource: `Poseidon of Poseidons of Poseidons of Poseidons of zeros`,
-  //   source: BUFFER_LIST.findIndex(name => name === 'EVM_IN'),
-  //   sourceBitSize: 255,
-  //   wireIndex: 10,
-  // },
+VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_POI_Y.extSource = `Point at infinity of Jubjub curve (y coordinate)`;
+VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_POI_Y.sourceBitSize = 255;
 
-  TRANSACTION_NONCE: {
-    extSource: `Transaction nonce`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: 0,
-  },
-  EDDSA_PUBLIC_KEY_X: {
-    extSource: `EdDSA public key of caller (x coordinate)`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: 1,
-  },
-  EDDSA_PUBLIC_KEY_Y: {
-    extSource: `EdDSA public key of caller (y coordinate)`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: 2,
-  },
-  TRANSACTION_INPUT0: {
-    extSource: `Zeroth input to the selected function`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: 3,
-  },
-  TRANSACTION_INPUT1: {
-    extSource: `First input to the selected function`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: 4,
-  },
-  TRANSACTION_INPUT2: {
-    extSource: `Second input to the selected function`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: 5,
-  },
-  TRANSACTION_INPUT3: {
-    extSource: `Third input to the selected function`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: 6,
-  },
-  TRANSACTION_INPUT4: {
-    extSource: `Fourth input to the selected function`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: 7,
-  },
-  TRANSACTION_INPUT5: {
-    extSource: `Fifth input to the selected function`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: 8,
-  },
-  TRANSACTION_INPUT6: {
-    extSource: `Sixth input to the selected function`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: 9,
-  },
-  TRANSACTION_INPUT7: {
-    extSource: `Seventh input to the selected function`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: 10,
-  },
-  TRANSACTION_INPUT8: {
-    extSource: `Eighth input to the selected function`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: 11,
-  },
-  EDDSA_RANDOMIZER_X: {
-    extSource: `EdDSA randomizer (x coordinate)`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: 12,
-  },
-  EDDSA_RANDOMIZER_Y: {
-    extSource: `EdDSA randomizer (y coordinate)`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: 13,
-  },
+VARIABLE_DESCRIPTION_INCOMPLETE.TRANSACTION_NONCE.extSource = `Transaction nonce`;
+VARIABLE_DESCRIPTION_INCOMPLETE.TRANSACTION_NONCE.sourceBitSize = 255;
 
-  // IN_MT_INDEX: {
-  //   extSource: `Index of the initial Merkle tree of users' storage values`,
-  //   source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-  //   sourceBitSize: 255,
-  //   wireIndex: -1, //Dynamic
-  // },
-  // IN_MPT_KEY: {
-  //   extSource: `Merkle Patricia trie key (Poseidon) of a user's initial storage value`,
-  //   source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-  //   sourceBitSize: 255,
-  //   wireIndex: -1, //Dynamic
-  // },
-  IN_VALUE: {
-    extSource: `A user's inital storage value (restricted to 255-bit word)`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: -1, //Dynamic
-  },
-  MERKLE_PROOF: {
-    extSource: `Merkle proof component`,
-    source: BUFFER_LIST.findIndex(name => name === 'PRIVATE_IN'),
-    sourceBitSize: 255,
-    wireIndex: -1, //Dynamic
-  },
+VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_X.extSource = `EdDSA public key of caller (x coordinate)`;
+VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_X.sourceBitSize = 255;
 
+VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_Y.extSource = `EdDSA public key of caller (y coordinate)`;
+VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_Y.sourceBitSize = 255;
+for (var i = 0; i < 9; i++) {
+  const varName = `TRANSACTION_INPUT${i}` as ReservedVariable
+  if ( PRIVATE_IN_VARIABLES_STATIC.findIndex(staticVarName => staticVarName === varName) < 0 ) {
+    throw new Error(`${varName} is not a ReservedVariable`)
+  }
+  VARIABLE_DESCRIPTION_INCOMPLETE[varName].extSource = `The ${i}-th input to the selected function`;
+  VARIABLE_DESCRIPTION_INCOMPLETE[varName].sourceBitSize = 255;
 }
+VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_RANDOMIZER_X.extSource = `EdDSA randomizer (x coordinate)`;
+VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_RANDOMIZER_X.sourceBitSize = 255;
+
+VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_RANDOMIZER_Y.extSource = `EdDSA randomizer (y coordinate)`;
+VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_RANDOMIZER_Y.sourceBitSize = 255;
+
+VARIABLE_DESCRIPTION_INCOMPLETE.IN_VALUE.extSource = `A user's inital storage value (restricted to 255-bit word)`;
+VARIABLE_DESCRIPTION_INCOMPLETE.IN_VALUE.sourceBitSize = 255;
+
+VARIABLE_DESCRIPTION_INCOMPLETE.MERKLE_PROOF.extSource = `Merkle proof component`;
+VARIABLE_DESCRIPTION_INCOMPLETE.MERKLE_PROOF.sourceBitSize = 255;
+
+for (const _varName of _VARIABLES) {
+  const varName = _varName as ReservedVariable
+  if (
+    VARIABLE_DESCRIPTION_INCOMPLETE[varName].extDest === undefined && 
+    VARIABLE_DESCRIPTION_INCOMPLETE[varName].extSource === undefined
+  ) {
+    throw new Error(`VARIABLE_DESCRIPTION_INCOMPLETE of ${varName} is incomplete`)
+  }
+}
+
+export const VARIABLE_DESCRIPTION = VARIABLE_DESCRIPTION_INCOMPLETE

@@ -76,18 +76,29 @@ export function getEddsaPublicKey(
 }
 
 export function eddsaSign_unsafe(prvKey: bigint, msg: Uint8Array[], txNonce: Uint8Array): {randomizer: EdwardsPoint, signature: bigint} {
-    const nonceKeyBytes = poseidon(concatBytes(DST_NONCE, setLengthLeft(bigIntToBytes(prvKey), 32), txNonce === undefined ? new Uint8Array([]) : setLengthLeft(txNonce, 32)))
     const pubKey = jubjub.Point.BASE.multiply(prvKey)
-    
-    const r = bytesToBigInt(poseidon(concatBytes(
-        DST_NONCE,
-        nonceKeyBytes,
-        batchBigIntTo32BytesEach(
-            pubKey.toAffine().x, 
-            pubKey.toAffine().y
-        ),
-        ...msg,
-    ))) % jubjub.Point.Fn.ORDER
+
+    let nonce: Uint8Array = txNonce
+    let r: bigint = 0n
+    while (r === 0n) {
+        const nonceKeyBytes = poseidon(concatBytes(
+            DST_NONCE, 
+            setLengthLeft(bigIntToBytes(prvKey), 32), 
+            setLengthLeft(nonce, 32),
+        ))
+
+        r = bytesToBigInt(poseidon(concatBytes(
+            DST_NONCE,
+            nonceKeyBytes,
+            batchBigIntTo32BytesEach(
+                pubKey.toAffine().x, 
+                pubKey.toAffine().y
+            ),
+            ...msg,
+        ))) % jubjub.Point.Fn.ORDER
+
+        nonce = nonceKeyBytes
+    }
 
     const R = jubjub.Point.BASE.multiply(r)
 
