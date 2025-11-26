@@ -186,7 +186,7 @@ export class VariableGenerator {
     const l_block = setupParams.l_block;
 
     const a_pub_desc: string[] = Array(l).fill('');
-    for (var globalIdx = 0; globalIdx < l; globalIdx++) {
+    for (let globalIdx = 0; globalIdx < l; globalIdx++) {
       const [subcircuitId, localVariableIdx] = globalWireList[globalIdx];
       if (subcircuitId !== -1 && localVariableIdx !== -1) {
         const placementIndex = placementVariables.findIndex(entry => entry.subcircuitId === subcircuitId);
