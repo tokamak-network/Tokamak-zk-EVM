@@ -434,7 +434,7 @@ VARIABLE_DESCRIPTION_INCOMPLETE.GASLIMIT.extSource = `GASLIMIT`;
 VARIABLE_DESCRIPTION_INCOMPLETE.CHAINID.extSource = `CHAINID`;
 VARIABLE_DESCRIPTION_INCOMPLETE.SELFBALANCE.extSource = `SELFBALANCE`;
 VARIABLE_DESCRIPTION_INCOMPLETE.BASEFEE.extSource = `BASEFEE`;
-for (var i = 1; i <= 256; i++) {
+for (let i = 1; i <= 256; i++) {
   const varName = `BLOCKHASH_${i}` as ReservedVariable
   if ( BLOCK_IN_VARIABLES_STATIC.findIndex(staticVarName => staticVarName === varName) < 0 ) {
     throw new Error(`${varName} is not a ReservedVariable`)
