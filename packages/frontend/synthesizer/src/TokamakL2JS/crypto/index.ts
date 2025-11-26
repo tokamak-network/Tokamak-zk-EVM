@@ -75,19 +75,20 @@ export function getEddsaPublicKey(
     return pubKeyBytes
 }
 
-export function eddsaSign_unsafe(prvKey: bigint, msg: Uint8Array[], txNonce: Uint8Array): {randomizer: EdwardsPoint, signature: bigint} {
+export function eddsaSign(prvKey: bigint, msg: Uint8Array[], txNonce: Uint8Array): {randomizer: EdwardsPoint, signature: bigint} {
     const pubKey = jubjub.Point.BASE.multiply(prvKey)
 
     let nonce: Uint8Array = txNonce
-    let r: bigint = 0n
-    while (r === 0n) {
+    let s: bigint = 0n
+    let R: EdwardsPoint = jubjub.Point.ZERO
+    while (R.equals(jubjub.Point.ZERO) || s === 0n) {
         const nonceKeyBytes = poseidon(concatBytes(
             DST_NONCE, 
             setLengthLeft(bigIntToBytes(prvKey), 32), 
             setLengthLeft(nonce, 32),
         ))
 
-        r = bytesToBigInt(poseidon(concatBytes(
+        const r = bytesToBigInt(poseidon(concatBytes(
             DST_NONCE,
             nonceKeyBytes,
             batchBigIntTo32BytesEach(
@@ -97,23 +98,25 @@ export function eddsaSign_unsafe(prvKey: bigint, msg: Uint8Array[], txNonce: Uin
             ...msg,
         ))) % jubjub.Point.Fn.ORDER
 
+        R = jubjub.Point.BASE.multiply(r)
+
+        const e = bytesToBigInt(poseidon(concatBytes(
+            batchBigIntTo32BytesEach(
+                R.toAffine().x, 
+                R.toAffine().y, 
+                pubKey.toAffine().x, 
+                pubKey.toAffine().y
+            ),
+            ...msg
+        )))
+        const ep = e % jubjub.Point.Fn.ORDER
+
+        s = (r + ep * prvKey) % jubjub.Point.Fn.ORDER
+
         nonce = nonceKeyBytes
     }
 
-    const R = jubjub.Point.BASE.multiply(r)
-
-    const e = bytesToBigInt(poseidon(concatBytes(
-        batchBigIntTo32BytesEach(
-            R.toAffine().x, 
-            R.toAffine().y, 
-            pubKey.toAffine().x, 
-            pubKey.toAffine().y
-        ),
-        ...msg
-    )))
-    const ep = e % jubjub.Point.Fn.ORDER
-
-    const s = (r + ep * prvKey) % jubjub.Point.Fn.ORDER
+    
     return {
         signature: s,
         randomizer: R,
