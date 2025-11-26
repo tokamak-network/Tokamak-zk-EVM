@@ -73,7 +73,7 @@ export class CircuitGenerator {
         : path.resolve(appRootPath.path, _path!, 'permutation.json');
 
     const files = [placementVariablesJson, instanceJson, instanceDescriptionJson, permutationJson];
-    const filePaths = [pvPath, instPath, permPath];
+    const filePaths = [pvPath, instPath, instDescPath, permPath];
 
     // Ensure directories exist and write files synchronously (as per existing style)
     for (const filePath of filePaths) {
