@@ -471,7 +471,7 @@ VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_X.sourceBitSize = 255;
 
 VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_Y.extSource = `EdDSA public key of caller (y coordinate)`;
 VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_Y.sourceBitSize = 255;
-for (var i = 0; i < 9; i++) {
+for (let i = 0; i < 9; i++) {
   const varName = `TRANSACTION_INPUT${i}` as ReservedVariable
   if ( PRIVATE_IN_VARIABLES_STATIC.findIndex(staticVarName => staticVarName === varName) < 0 ) {
     throw new Error(`${varName} is not a ReservedVariable`)
