@@ -12,7 +12,7 @@ export function createTokamakL2Tx(txData: TokamakL2TxData, opts: TxOptions) {
     }
     // Set the minimum gasLimit to execute VM._runTx
     const tx =  new TokamakL2Tx({...txData, gasLimit: ANY_LARGE_GAS_LIMIT, gasPrice: ANY_LARGE_GAS_PRICE}, opts)
-    tx.initSenderPubKey(toBytes(txData.senderPubKey))
+    tx.initUnsafeSenderPubKey(toBytes(txData.senderPubKey))
     return tx
 }
 
