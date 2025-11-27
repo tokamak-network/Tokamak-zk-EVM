@@ -5,7 +5,6 @@ import {
   MemoryPts,
   PlacementEntry,
   placementsDeepCopy,
-  VARIABLE_DESCRIPTION,
   type DataPt,
   type DataPtDescription,
   type Placements,
