@@ -127,7 +127,7 @@ export class Synthesizer implements SynthesizerInterface
           console.log(`stack: ${currentInterpreterStep.stack.map(x => bigIntToHex(x))}`)
           console.log(`pc: ${currentInterpreterStep.pc}, opcode: ${currentInterpreterStep.opcode.name}`)
           await this._finalizeStorage()
-          this._computeTxHash()
+          // this._computeTxHash()
         } catch (err) {
           console.error('Synthesizer: afterMessage error:', err)
         } finally {
@@ -181,7 +181,6 @@ export class Synthesizer implements SynthesizerInterface
     const finalMerkleRootPt = this.addReservedVariableToBufferIn(
       'RES_MERKLE_ROOT',
       await this.cachedOpts.stateManager.getUpdatedMerkleTreeRoot(),
-      true,
     )
     let _index = -1;
     for (const [key, cache] of this.state.cachedStorage.entries()) {
@@ -246,18 +245,18 @@ export class Synthesizer implements SynthesizerInterface
     }
   }
 
-  private _computeTxHash(): void {
-    const hashPt = this.placePoseidon([
-      this.getReservedVariableFromBuffer('TRANSACTION_NONCE'),
-      this.getReservedVariableFromBuffer('EDDSA_SIGNATURE'),
-      this.getReservedVariableFromBuffer('EDDSA_RANDOMIZER_X'),
-      this.getReservedVariableFromBuffer('EDDSA_RANDOMIZER_Y'),
-    ])
-    this.state.transactionHashes.push(DataPtFactory.deepCopy(hashPt))
+  // private _computeTxHash(): void {
+  //   const hashPt = this.placePoseidon([
+  //     this.getReservedVariableFromBuffer('TRANSACTION_NONCE'),
+  //     this.getReservedVariableFromBuffer('EDDSA_SIGNATURE'),
+  //     this.getReservedVariableFromBuffer('EDDSA_RANDOMIZER_X'),
+  //     this.getReservedVariableFromBuffer('EDDSA_RANDOMIZER_Y'),
+  //   ])
+  //   this.state.transactionHashes.push(DataPtFactory.deepCopy(hashPt))
 
-    // This will be moving to the end of block process
-    this.addReservedVariableToBufferOut('TX_BATCH_HASH', hashPt, true)
-  }
+  //   // This will be moving to the end of block process
+  //   this.addReservedVariableToBufferOut('TX_BATCH_HASH', hashPt, true)
+  // }
 
   public async synthesizeTX(): Promise<RunTxResult> {
     const common = this.cachedOpts.signedTransaction.common

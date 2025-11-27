@@ -138,6 +138,7 @@ export class BufferManager {
 
     // Static public inputs
     this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', BigInt(this.cachedOpts.stateManager.initialMerkleTree.root))
+    this.addReservedVariableToBufferIn('RES_MERKLE_ROOT', BigInt(this.cachedOpts.stateManager.initialMerkleTree.root))
 
     this.addReservedVariableToBufferIn('CIRCOM_CONST_ONE', 1n)
     this.addReservedVariableToBufferIn('CIRCOM_CONST_ZERO', 0n)
