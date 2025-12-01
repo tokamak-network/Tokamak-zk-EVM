@@ -340,9 +340,11 @@ export class SynthesizerAdapter {
     // Restore previous state BEFORE creating synthesizer (so INI_MERKLE_ROOT is set correctly)
     if (previousState) {
       console.log('[SynthesizerAdapter] Restoring previous state (before synthesizer creation)...');
+      // Normalize state snapshot first to handle bytes objects and string bigints
+      const normalizedState = this.normalizeStateSnapshot(previousState);
       const stateManager = synthesizerOpts.stateManager as any; // TokamakL2StateManager
-      await stateManager.createStateFromSnapshot(previousState);
-      console.log(`[SynthesizerAdapter] ✅ Previous state restored: ${previousState.stateRoot}`);
+      await stateManager.createStateFromSnapshot(normalizedState);
+      console.log(`[SynthesizerAdapter] ✅ Previous state restored: ${normalizedState.stateRoot}`);
       console.log(
         `[SynthesizerAdapter] ✅ initialMerkleTree.root: 0x${stateManager.initialMerkleTree.root.toString(16)}`,
       );
@@ -380,8 +382,8 @@ export class SynthesizerAdapter {
       // Get sender address from private key
       const senderPubKey = jubjub.Point.BASE.multiply(bytesToBigInt(options.senderL2PrvKey));
       const senderPubKeyBytes = new Uint8Array(64);
-      senderPubKeyBytes.set(setLengthLeft(toBytes(senderPubKey.toAffine().x), 32), 0);
-      senderPubKeyBytes.set(setLengthLeft(toBytes(senderPubKey.toAffine().y), 32), 32);
+      senderPubKeyBytes.set(setLengthLeft(bigIntToBytes(senderPubKey.toAffine().x), 32), 0);
+      senderPubKeyBytes.set(setLengthLeft(bigIntToBytes(senderPubKey.toAffine().y), 32), 32);
       const senderL2Addr = fromEdwardsToAddress(senderPubKeyBytes);
       console.log(`  Sender L2: ${addHexPrefix(senderL2Addr.toString())}`);
       const senderStorageKey = stateManager.getUserStorageKey([senderL2Addr, 0], 'L2');
@@ -570,7 +572,7 @@ export class SynthesizerAdapter {
       blockNumber,
       userStorageSlots: [0], // ERC20 balance only (slot 0)
       previousState: normalizedPreviousState,
-      txNonce: previousState?.userNonces?.[senderIdx] ?? 0n,
+      txNonce: normalizedPreviousState?.userNonces?.[senderIdx] ?? 0n,
       outputPath,
     });
   }

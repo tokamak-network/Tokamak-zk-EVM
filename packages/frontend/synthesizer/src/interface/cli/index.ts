@@ -9,6 +9,15 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 
+// Static imports for bundling (instead of dynamic imports)
+import { ethers } from 'ethers';
+import { jubjub } from '@noble/curves/misc';
+import { bytesToBigInt, setLengthLeft, utf8ToBytes, hexToBytes, concatBytes } from '@ethereumjs/util';
+import { fromEdwardsToAddress } from '../../TokamakL2JS/index.js';
+import { createSynthesizerOptsForSimulationFromRPC } from '../rpc/rpc.js';
+import { createSynthesizer } from '../../synthesizer/index.js';
+import { createCircuitGenerator } from '../../circuitGenerator/circuitGenerator.js';
+
 // tr to load .env
 const envPath = path.resolve(process.cwd(), '.env');
 if (fs.existsSync(envPath)) {
@@ -385,14 +394,7 @@ program
       console.log(`📋 Transaction: ${txHash}`);
       console.log('');
 
-      // Import L2 synthesizer modules
-      const { ethers } = await import('ethers');
-      const { jubjub } = await import('@noble/curves/misc');
-      const { bytesToBigInt, setLengthLeft, utf8ToBytes, hexToBytes, concatBytes } = await import('@ethereumjs/util');
-      const { fromEdwardsToAddress } = await import('../../TokamakL2JS/index.ts');
-      const { createSynthesizerOptsForSimulationFromRPC } = await import('../rpc/rpc.ts');
-      const { createSynthesizer } = await import('../../synthesizer/index.ts');
-      const { createCircuitGenerator } = await import('../../circuitGenerator/circuitGenerator.ts');
+      // L2 synthesizer modules are now statically imported at the top
 
       // Helper to generate L2 key pairs
       // First key uses randomPrivateKey (sender), rest use keygen

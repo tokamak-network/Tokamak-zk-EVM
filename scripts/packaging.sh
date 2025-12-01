@@ -149,17 +149,17 @@ setup_linux_config() {
     TARGET="dist/linux${UB_MAJOR}"
     BACKEND_PATH="backend-lib/icicle"
     OUT_PACKAGE="tokamak-zk-evm-linux${UB_MAJOR}.tar.gz"
-    
+
     BASE_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0"
     COMMON_TARBALL="icicle_3_8_0-ubuntu${UB_MAJOR}.tar.gz"
     BACKEND_TARBALL="icicle_3_8_0-ubuntu${UB_MAJOR}-cuda122.tar.gz"
     COMMON_URL="${BASE_URL}/${COMMON_TARBALL}"
     BACKEND_URL="${BASE_URL}/${BACKEND_TARBALL}"
-    
+
     SYNTHESIZER_BINARY="synthesizer-linux-x64"
     SYNTHESIZER_BUILD_TARGET="linux"
     SCRIPTS_SOURCE=".run_scripts/linux"
-    
+
     echo "ℹ️ Linux configuration: Ubuntu ${UB_MAJOR}, Target: ${TARGET}"
 }
 
@@ -167,20 +167,20 @@ setup_macos_config() {
     TARGET="dist/macOS"
     BACKEND_PATH="backend-lib/icicle"
     OUT_PACKAGE="tokamak-zk-evm-macOS.zip"
-    
+
     COMMON_TARBALL="icicle_3_8_0-macOS.tar.gz"
     BACKEND_TARBALL="icicle_3_8_0-macOS-Metal.tar.gz"
     COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
     BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$BACKEND_TARBALL"
-    
+
     SYNTHESIZER_BINARY="synthesizer-macos-arm64"
     SYNTHESIZER_BUILD_TARGET="macos"
     SCRIPTS_SOURCE=".run_scripts/macOS"
-    
+
     # macOS-specific signing configuration
     APP_SIGN_ID='3524416ED3903027378EA41BB258070785F977F9'
     NOTARY_PROFILE='tokamak-zk-evm-backend'
-    
+
     echo "ℹ️ macOS configuration: Target: ${TARGET}"
 }
 
@@ -196,9 +196,24 @@ copy_scripts_and_resources() {
     echo "✅ copied to ${TARGET}"
 
     echo "[*] Copying resource..."
+    # Copy library
     mkdir -p "${TARGET}/resource/qap-compiler/library"
     cp -r packages/frontend/qap-compiler/subcircuits/library/* "${TARGET}/resource/qap-compiler/library"
+
+    # Copy scripts directory (contains constants.circom and other scripts)
+    if [ -d "packages/frontend/qap-compiler/scripts" ]; then
+        mkdir -p "${TARGET}/resource/qap-compiler/scripts"
+        cp -r packages/frontend/qap-compiler/scripts/* "${TARGET}/resource/qap-compiler/scripts"
+        echo "✅ copied scripts directory"
+    fi
+
     echo "✅ copied to ${TARGET}/resource"
+
+    # Create symbolic link for binary compatibility (synthesizer expects subcircuits/library)
+    echo "[*] Creating symbolic link for qap-compiler compatibility..."
+    mkdir -p "${TARGET}/resource/qap-compiler/subcircuits"
+    ln -sf ../library "${TARGET}/resource/qap-compiler/subcircuits/library"
+    echo "✅ symbolic link created: subcircuits/library -> library"
 }
 
 build_synthesizer() {
@@ -213,20 +228,20 @@ build_synthesizer() {
         echo "✅ Bun version: $(bun --version)"
         echo "[*] Building Synthesizer..."
         cd packages/frontend/synthesizer
-        
+
         echo "🔍 Installing synthesizer dependencies..."
         bun install
-        
+
         echo "🔍 Creating bin directory..."
         mkdir -p bin
-        
+
         BUN_SCRIPT="./build-binary.sh"
         dos2unix "$BUN_SCRIPT" || true
         chmod +x "$BUN_SCRIPT" 2>/dev/null || true
-        
+
         echo "🔍 Building synthesizer binary for ${PLATFORM}..."
         "$BUN_SCRIPT" "$SYNTHESIZER_BUILD_TARGET"
-        
+
         echo "🔍 Verifying synthesizer binary was created..."
         if [ -f "bin/${SYNTHESIZER_BINARY}" ]; then
             echo "✅ SUCCESS: ${SYNTHESIZER_BINARY} created!"
@@ -237,7 +252,7 @@ build_synthesizer() {
             ls -la bin/ || echo "No bin directory"
             exit 1
         fi
-        
+
         cd "$WORKSPACE_ROOT"
         echo "✅ built synthesizer"
     else
@@ -298,7 +313,7 @@ download_and_extract_icicle() {
 
     echo "[*] Downloading backend package: ${BACKEND_TARBALL}"
     curl -fL --retry 3 -o "$BACKEND_TARBALL" "$BACKEND_URL"
-    
+
     echo "[*] Downloading common runtime package: ${COMMON_TARBALL}"
     curl -fL --retry 3 -o "$COMMON_TARBALL" "$COMMON_URL"
 
@@ -318,7 +333,7 @@ configure_macos_rpath() {
     if [ "$PLATFORM" = "macos" ]; then
         echo "[*] Configuring @rpath of the binaries..."
         RPATH="@executable_path/../${BACKEND_PATH}/lib"
-        
+
         install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/trusted-setup"
         install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/prove"
         install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/preprocess"
@@ -340,13 +355,13 @@ handle_setup() {
         if [ -n "${GITHUB_ACTIONS:-}" ] || [ -n "${CI:-}" ] || [ -n "${CONTINUOUS_INTEGRATION:-}" ]; then
             IS_CI_ENV=true
         fi
-        
+
         if [ "$IS_CI_ENV" = "true" ] && [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
             echo "[*] CI environment detected - Using prebuilt setup files from proof test..."
             mkdir -p "${TARGET}/resource/setup/output"
             cp -r ./prebuilt-setup/* "${TARGET}/resource/setup/output/"
             echo "✅ Prebuilt setup files copied"
-            
+
             # Verify setup files
             if [ -f "${TARGET}/resource/setup/output/combined_sigma.json" ]; then
                 echo "✅ Setup files verified: $(ls -lh ${TARGET}/resource/setup/output/)"
@@ -391,12 +406,12 @@ package_distribution() {
         echo "[*] Packaging..."
         mkdir -p dist
         rm -f "dist/$OUT_PACKAGE"
-        
+
         case "$PLATFORM" in
             macos)
                 ( cd "$TARGET" && ditto -c -k --sequesterRsrc . "../../dist/$OUT_PACKAGE" )
                 echo "✅ Packaged: dist/$OUT_PACKAGE"
-                
+
                 if [[ "$DO_SIGN" == "true" ]]; then
                     echo "[*] Notarizing..."
                     xcrun notarytool submit "dist/$OUT_PACKAGE" --keychain-profile "$NOTARY_PROFILE" --wait
@@ -408,17 +423,17 @@ package_distribution() {
             linux)
                 # Use maximum compression with gzip - output to dist folder
                 tar -C "$TARGET" -c . | gzip -9 > "dist/$OUT_PACKAGE"
-                
+
                 # Show compression stats
                 UNCOMPRESSED_SIZE=$(du -sb "$TARGET" | cut -f1)
                 COMPRESSED_SIZE=$(stat -c%s "dist/$OUT_PACKAGE" 2>/dev/null || stat -f%z "dist/$OUT_PACKAGE")
                 COMPRESSION_RATIO=$(echo "scale=1; $COMPRESSED_SIZE * 100 / $UNCOMPRESSED_SIZE" | bc -l 2>/dev/null || echo "N/A")
-                
+
                 echo "✅ Packaging complete: dist/${OUT_PACKAGE}"
                 echo "📊 Uncompressed: $(numfmt --to=iec $UNCOMPRESSED_SIZE 2>/dev/null || echo "${UNCOMPRESSED_SIZE} bytes")"
                 echo "📊 Compressed: $(numfmt --to=iec $COMPRESSED_SIZE 2>/dev/null || echo "${COMPRESSED_SIZE} bytes")"
                 echo "📊 Compression ratio: ${COMPRESSION_RATIO}%"
-                
+
                 # Check if approaching GitHub limit
                 if [ "$COMPRESSED_SIZE" -gt 1900000000 ]; then
                     echo "⚠️  WARNING: File size approaching GitHub 2GB limit!"
@@ -439,7 +454,7 @@ package_distribution() {
 main() {
     # Setup platform-specific configuration
     setup_platform_config
-    
+
     # Execute build steps
     copy_scripts_and_resources
     build_synthesizer
@@ -450,7 +465,7 @@ main() {
     handle_setup
     sign_macos_binaries
     package_distribution
-    
+
     echo "🎉 Unified packaging completed successfully for ${PLATFORM}!"
 }
 

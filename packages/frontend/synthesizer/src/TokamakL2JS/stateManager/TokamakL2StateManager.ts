@@ -269,11 +269,14 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
       const addr = snapshot.userL2Addresses[i];
       const nonce = snapshot.userNonces[i];
       const address = new Address(toBytes(addr as `0x${string}`));
-      const account = await this.getAccount(address);
-      if (account) {
+      let account = await this.getAccount(address);
+      if (!account) {
+        // Create account if it doesn't exist
+        account = createAccount({ nonce, balance: 0n });
+      } else {
         account.nonce = nonce;
-        await this.putAccount(address, account);
       }
+      await this.putAccount(address, account);
     }
 
     // Rebuild Merkle tree with restored state

@@ -81,9 +81,9 @@ build_for_platform() {
     echo "⚡ Building $display_name binary..."
 
     if [ "$target" = "current" ]; then
-        bun build --compile --external ethers --external @ethereumjs/util --external @noble/curves src/interface/cli/index.ts --outfile ./bin/$output_name
+        bun build --compile src/interface/cli/index.ts --outfile ./bin/$output_name
     else
-        bun build --compile --target=$target --external ethers --external @ethereumjs/util --external @noble/curves src/interface/cli/index.ts --outfile ./bin/$output_name
+        bun build --compile --target=$target src/interface/cli/index.ts --outfile ./bin/$output_name
     fi
 
     if [ -f "bin/$output_name" ]; then

@@ -376,14 +376,14 @@ step_install() {
   # pushd "$BE_ROOT" >/dev/null
   [[ -f "$script" ]] || { err "Packaging script missing: $script"; exit 1; }
   to_unix_exec "$script"
-  
+
   # Detect CI environment and set appropriate options
   # Different behavior based on CI job type:
   # - Proof Generation Test: needs fresh setup generation (--bun only)
   # - Binary Building: uses prebuilt setup (--bun --no-setup)
- 
+
   local packaging_options=()
-  
+
   # Add platform-specific option for unified script
   case "$target" in
     mac)     packaging_options+=("--macos") ;;
@@ -391,10 +391,10 @@ step_install() {
     linux22) packaging_options+=("--linux") ;;
     *)       packaging_options+=("--linux") ;;
   esac
-  
+
   if [ -z "${GITHUB_ACTIONS:-}" ] && [ -z "${CI:-}" ] && [ -z "${CONTINUOUS_INTEGRATION:-}" ]; then
-    # Local environment: use default settings (npm) and skip compression
-    packaging_options+=("--no-compress")
+    # Local environment: use bun for synthesizer binary and skip compression
+    packaging_options+=("--bun" "--no-compress")
     log "Install: Local environment detected - using options: ${packaging_options[*]}"
   else
     # CI environment: use bun for performance, always skip compression
@@ -409,7 +409,7 @@ step_install() {
       log "Install: CI environment, generating fresh setup - using options: ${packaging_options[*]}"
     fi
   fi
-  
+
   bash "$script" "${packaging_options[@]}"
   # popd >/dev/null
 
@@ -443,7 +443,7 @@ step_prove() {
 
   log "Prove: synthesize from tx=$tx_hash"
   pushd "$FE_SYN" >/dev/null
-  
+
   # Check if .env exists and has RPC_URL, otherwise use environment variable
   if [[ -f .env ]]; then
     verbose "Using RPC_URL from synthesizer/.env"
@@ -455,7 +455,7 @@ step_prove() {
     err "RPC_URL not configured. Run --install first or set RPC_URL environment variable"
     exit 1
   fi
-  
+
   popd >/dev/null
 
   sync_synth_outputs_to_dist
@@ -588,7 +588,7 @@ JSON
 
 step_verify() {
   local save_path="${1:-}"
-  [[ -n "$save_path" ]] || { 
+  [[ -n "$save_path" ]] || {
     err "--verify requires <SAVE_PATH>"
     echo "💡 Specify the directory containing your proof files" >&2
     exit 1
@@ -628,7 +628,7 @@ step_verify() {
 
   log "Verify: synthesize from tx=$tx_hash"
   pushd "$FE_SYN" >/dev/null
-  
+
   # Check if .env exists and has RPC_URL, otherwise use environment variable
   if [[ -f .env ]]; then
     verbose "Using RPC_URL from synthesizer/.env"
@@ -640,7 +640,7 @@ step_verify() {
     err "RPC_URL not configured. Run --install first or set RPC_URL environment variable"
     exit 1
   fi
-  
+
   popd >/dev/null
 
   sync_synth_outputs_to_dist
@@ -672,9 +672,9 @@ step_verify() {
 # System health check
 step_doctor() {
   log "Running system health check..."
-  
+
   local all_good=true
-  
+
   # Check basic requirements
   for cmd in node npm circom rustc cmake dos2unix; do
     if command -v "$cmd" >/dev/null 2>&1; then
@@ -699,7 +699,7 @@ step_doctor() {
       all_good=false
     fi
   done
-  
+
   # Check project structure
   if [[ ! -d "$FE_QAP" ]]; then
     err "QAP compiler directory missing: $FE_QAP"
@@ -707,14 +707,14 @@ step_doctor() {
   else
     verbose "QAP compiler directory: exists"
   fi
-  
+
   if [[ ! -d "$FE_SYN" ]]; then
     err "Synthesizer directory missing: $FE_SYN"
     all_good=false
   else
     verbose "Synthesizer directory: exists"
   fi
-  
+
   # Check if installed
   if [[ ! -f "$FE_SYN/.env" ]]; then
     err "Not installed - run --install first"
@@ -723,7 +723,7 @@ step_doctor() {
   else
     verbose "Installation: complete (.env found)"
   fi
-  
+
   # Check disk space (basic)
   local available_gb
   case "$(uname -s)" in
@@ -737,14 +737,14 @@ step_doctor() {
       available_gb=0
       ;;
   esac
-  
+
   if [[ $available_gb -lt 5 ]]; then
     err "Low disk space: ${available_gb}GB available (need 5GB+)"
     all_good=false
   else
     verbose "Disk space: ${available_gb}GB available"
   fi
-  
+
   if [[ "$all_good" == true ]]; then
     ok "System is ready! 🚀"
   else
@@ -759,7 +759,7 @@ print_usage() {
 
 Commands:
   --install <API_KEY|RPC_URL>
-      Install and setup Tokamak ZKP 
+      Install and setup Tokamak ZKP
 
   --prove <TX_HASH> [<SAVE_PATH>]
       Convert an Ethereum transaction into a zero-knowledge proof
@@ -792,17 +792,17 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --install)
-      CMD="install"; ARG1="${2:-}"; 
+      CMD="install"; ARG1="${2:-}";
       [[ -n "$ARG1" ]] || { err "--install requires <API_KEY|RPC_URL>"; echo "💡 Get an API key from https://dashboard.alchemy.com/" >&2; exit 1; }
       break
       ;;
     --prove)
-      CMD="prove"; ARG1="${2:-}"; ARG2="${3:-}"; 
+      CMD="prove"; ARG1="${2:-}"; ARG2="${3:-}";
       [[ -n "$ARG1" ]] || { err "--prove requires <TX_HASH> [<SAVE_PATH>]"; echo "💡 Use a mainnet transaction hash like: 0x123abc..." >&2; exit 1; }
       break
       ;;
     --verify)
-      CMD="verify"; ARG1="${2:-}"; 
+      CMD="verify"; ARG1="${2:-}";
       [[ -n "$ARG1" ]] || { err "--verify requires <SAVE_PATH>"; echo "💡 Specify the directory containing your proof files" >&2; exit 1; }
       break
       ;;
