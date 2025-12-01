@@ -73,6 +73,7 @@
     "test:sepolia": "tsx examples/L2StateChannel/test-sepolia-state-channel.ts",
     "test:single": "tsx examples/L2StateChannel/test-single-proof.ts",
     "test:onchain": "tsx examples/L2StateChannel/onchain-channel-simulation.ts",
+    "test:binary-cli": "tsx examples/L2StateChannel/test-binary-cli.ts",
     "tsc": "../../../config/monorepo-js//cli/ts-compile.sh"
   },
   "dependencies": {

@@ -524,6 +524,99 @@ program
   });
 
 program
+  .command('l2-state-channel')
+  .description('Synthesize L2 State Channel transaction')
+  .requiredOption('--channel-id <id>', 'Channel ID')
+  .requiredOption('--token <address>', 'Token contract address')
+  .requiredOption('--recipient <address>', 'Recipient L1 address')
+  .requiredOption('--amount <amount>', 'Transfer amount (as string)')
+  .requiredOption('--rollup-bridge <address>', 'RollupBridge contract address')
+  .option('--sender-address <address>', 'Sender L1 address (alternative to --sender-index)')
+  .option('--sender-index <index>', 'Sender index in channel participants (alternative to --sender-address)')
+  .requiredOption('--rpc-url <url>', 'RPC URL for blockchain data')
+  .option('--output-dir <dir>', 'Output directory for synthesis files (default: current directory)')
+  .option('--previous-state <file>', 'Path to previous state_snapshot.json file')
+  .action(async options => {
+    try {
+      console.log('🔄 Initializing Synthesizer for L2 State Channel...');
+
+      const adapter = new SynthesizerAdapter({ rpcUrl: options.rpcUrl });
+
+      // Read previous state if provided
+      let previousState: any = undefined;
+      if (options.previousState) {
+        const fs = await import('fs');
+        const previousStateContent = fs.readFileSync(options.previousState, 'utf-8');
+        previousState = JSON.parse(previousStateContent);
+        console.log(`📄 Previous state loaded: ${previousState.stateRoot}`);
+      }
+
+      const outputDir = options.outputDir || process.cwd();
+
+      // Determine sender index from address or index
+      let senderIdx: number;
+      if (options.senderAddress) {
+        // Fetch participants and find index by address
+        const { ethers } = await import('ethers');
+        const ROLLUP_BRIDGE_CORE_ABI = ['function getChannelParticipants(uint256 channelId) view returns (address[])'];
+        const bridgeContract = new ethers.Contract(options.rollupBridge, ROLLUP_BRIDGE_CORE_ABI, adapter['provider']);
+        const participants: string[] = await bridgeContract.getChannelParticipants(parseInt(options.channelId));
+        const foundIndex = participants.findIndex(
+          (p: string) => p.toLowerCase() === options.senderAddress.toLowerCase(),
+        );
+        if (foundIndex === -1) {
+          throw new Error(
+            `Sender address ${options.senderAddress} is not a participant in channel ${options.channelId}`,
+          );
+        }
+        senderIdx = foundIndex;
+        console.log(`👤 Sender Address: ${options.senderAddress} (index: ${senderIdx})`);
+      } else if (options.senderIndex !== undefined) {
+        senderIdx = parseInt(options.senderIndex);
+        console.log(`👤 Sender Index: ${senderIdx}`);
+      } else {
+        throw new Error('Either --sender-address or --sender-index must be provided');
+      }
+
+      console.log(`📋 Channel ID: ${options.channelId}`);
+      console.log(`🪙 Token: ${options.token}`);
+      console.log(`👤 Recipient: ${options.recipient}`);
+      console.log(`💰 Amount: ${options.amount}`);
+      console.log(`📡 RollupBridge: ${options.rollupBridge}`);
+      console.log(`📁 Output Directory: ${outputDir}`);
+      console.log('');
+
+      const result = await adapter.synthesizeL2StateChannel(
+        parseInt(options.channelId),
+        {
+          to: options.recipient,
+          tokenAddress: options.token,
+          amount: options.amount,
+          rollupBridgeAddress: options.rollupBridge,
+          senderIdx,
+        },
+        {
+          previousState,
+          outputPath: outputDir,
+        },
+      );
+
+      console.log('✅ Synthesis completed successfully!');
+      console.log(`   - Placements: ${result.placementVariables.length}`);
+      console.log(`   - State Root: ${result.state.stateRoot}`);
+      console.log(`   - Output Directory: ${outputDir}`);
+
+      process.exit(0);
+    } catch (error: any) {
+      console.error('❌ Synthesis failed:', error.message);
+      if (options.verbose) {
+        console.error(error.stack);
+      }
+      process.exit(1);
+    }
+  });
+
+program
   .command('info')
   .description('Show synthesizer information')
   .action(() => {
@@ -535,6 +628,7 @@ program
     console.log('- Circuit placement management');
     console.log('- Permutation generation');
     console.log('- Zero-knowledge proof preparation');
+    console.log('- L2 State Channel transaction synthesis');
     console.log('\nDefault RPC URLs:');
     console.log(`- Mainnet: ${DEFAULT_RPC_URLS.mainnet}`);
     console.log(`- Sepolia: ${DEFAULT_RPC_URLS.sepolia}`);

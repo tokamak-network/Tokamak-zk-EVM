@@ -10,8 +10,11 @@
 
 import { ethers } from 'ethers';
 import { jubjub } from '@noble/curves/misc';
+import { writeFileSync } from 'fs';
+import { resolve } from 'path';
 import {
   bytesToBigInt,
+  bigIntToBytes,
   setLengthLeft,
   utf8ToBytes,
   hexToBytes,
@@ -20,7 +23,6 @@ import {
   Address,
   toBytes,
   bytesToHex,
-  bigIntToBytes,
 } from '@ethereumjs/util';
 import { createSynthesizerOptsForSimulationFromRPC, type SynthesizerSimulationOpts } from '../rpc/rpc.ts';
 import { createSynthesizer, Synthesizer } from '../../synthesizer/index.ts';
@@ -28,7 +30,7 @@ import { createCircuitGenerator } from '../../circuitGenerator/circuitGenerator.
 import type { SynthesizerInterface } from '../../synthesizer/types/index.ts';
 import { fromEdwardsToAddress } from '../../TokamakL2JS/index.ts';
 import type { StateSnapshot } from '../../TokamakL2JS/stateManager/types.ts';
-import type { PublicInstance, PublicInstanceDescription } from '../../circuitGenerator/types/types.ts';
+import type { PublicInstance } from '../../circuitGenerator/types/types.ts';
 
 export interface SynthesizerAdapterConfig {
   rpcUrl: string;
@@ -53,7 +55,6 @@ export interface CalldataSynthesizeOptions {
 
 export interface SynthesizerResult {
   instance: PublicInstance;
-  instanceDescription?: PublicInstanceDescription; // Optional: description for debugging
   placementVariables: any[];
   permutation: {
     row: number;
@@ -73,47 +74,6 @@ export interface SynthesizerResult {
   };
 }
 
-export interface L2StateChannelSimulationOptions {
-  to: string; // L1 address of the recipient
-  tokenAddress: string; // Token address
-  amount: string | bigint; // Amount to transfer
-  rollupBridgeAddress: string; // Address of the RollupBridgeCore contract
-  senderIdx?: number; // Index of the sender in the participant list (default: 0)
-  senderPrivateKey?: Uint8Array; // Optional: Explicit private key (if not using deterministic generation)
-}
-
-// RollupBridgeCore ABI (minimal subset needed for channel info)
-const ROLLUP_BRIDGE_CORE_ABI = [
-  'function getChannelInfo(uint256 channelId) view returns (address[] allowedTokens, uint8 state, uint256 participantCount, bytes32 initialRoot)',
-  'function getChannelParticipants(uint256 channelId) view returns (address[])',
-  'function getChannelTreeSize(uint256 channelId) view returns (uint256)',
-  'function getChannelPublicKey(uint256 channelId) view returns (uint256 pkx, uint256 pky)',
-  'function getChannelLeader(uint256 channelId) view returns (address)',
-  'function getChannelState(uint256 channelId) view returns (uint8)',
-  'function getParticipantTokenDeposit(uint256 channelId, address participant, address token) view returns (uint256)',
-  'function getParticipantPublicKey(uint256 channelId, address participant) view returns (uint256 pkx, uint256 pky)',
-  'function getL2MptKey(uint256 channelId, address participant, address token) view returns (uint256)',
-];
-
-// ERC20 Token ABI (minimal subset for validation)
-const ERC20_ABI = [
-  'function balanceOf(address account) view returns (uint256)',
-  'function totalSupply() view returns (uint256)',
-];
-
-interface ChannelData {
-  channelId: number;
-  allowedTokens: string[];
-  participants: string[];
-  initialStateRoot: string;
-  treeSize: number;
-  leader: string;
-  state: number;
-  deposits: Map<string, Map<string, bigint>>; // participant -> token -> amount
-  l2MptKeys: Map<string, Map<string, bigint>>; // participant -> token -> key
-  publicKey: { pkx: bigint; pky: bigint };
-}
-
 export class SynthesizerAdapter {
   private rpcUrl: string;
   private provider: ethers.JsonRpcProvider;
@@ -121,100 +81,6 @@ export class SynthesizerAdapter {
   constructor(config: SynthesizerAdapterConfig) {
     this.rpcUrl = config.rpcUrl;
     this.provider = new ethers.JsonRpcProvider(config.rpcUrl);
-  }
-
-  /**
-   * Normalize state snapshot format
-   * Converts userL2Addresses from bytes objects to hex strings,
-   * and converts userStorageSlots/userNonces from strings to bigints
-   * This allows state_snapshot.json files to be used directly without manual conversion
-   */
-  private normalizeStateSnapshot(rawSnapshot: any): StateSnapshot {
-    // Convert userL2Addresses from bytes objects to hex strings
-    const userL2Addresses: string[] = [];
-    if (rawSnapshot.userL2Addresses && Array.isArray(rawSnapshot.userL2Addresses)) {
-      for (const addr of rawSnapshot.userL2Addresses) {
-        if (typeof addr === 'string') {
-          // Already a string
-          userL2Addresses.push(addr);
-        } else if (addr && addr.bytes) {
-          // Convert bytes object to Address, then to hex string
-          // Object.values() doesn't guarantee order, so we need to sort by key
-          // Keys in addr.bytes are strings ("0", "1", "2", ...), so we need to convert them
-          const keys = Object.keys(addr.bytes)
-            .map(k => parseInt(k, 10))
-            .sort((a, b) => a - b);
-
-          // Debug: Log the keys and values
-          console.log(`[normalizeStateSnapshot] Processing address with ${keys.length} keys`);
-          console.log(`[normalizeStateSnapshot] Keys: ${keys.join(', ')}`);
-          console.log(`[normalizeStateSnapshot] addr.bytes keys (original): ${Object.keys(addr.bytes).join(', ')}`);
-
-          // Use String(k) to access the string keys in addr.bytes
-          const bytesArray = keys
-            .map(k => {
-              const keyStr = String(k);
-              const value = addr.bytes[keyStr];
-              if (value === undefined) {
-                console.error(
-                  `[normalizeStateSnapshot] Key "${keyStr}" not found in addr.bytes. Available keys: ${Object.keys(addr.bytes).join(', ')}`,
-                );
-              }
-              return value;
-            })
-            .filter(v => v !== undefined) as number[];
-
-          console.log(
-            `[normalizeStateSnapshot] Bytes array length: ${bytesArray.length}, values: ${bytesArray.join(', ')}`,
-          );
-
-          const bytes = new Uint8Array(bytesArray);
-
-          // Validate that we have exactly 20 bytes (Address length)
-          if (bytes.length !== 20) {
-            console.error(`[normalizeStateSnapshot] Invalid address length: expected 20 bytes, got ${bytes.length}`);
-            console.error(`[normalizeStateSnapshot] Keys: ${keys.join(', ')}`);
-            console.error(`[normalizeStateSnapshot] Bytes array length: ${bytesArray.length}`);
-            console.error(`[normalizeStateSnapshot] Address object:`, JSON.stringify(addr, null, 2));
-            throw new Error(
-              `Invalid address length: expected 20 bytes, got ${bytes.length}. Keys: ${keys.join(', ')}, Bytes: ${bytesArray.join(', ')}`,
-            );
-          }
-
-          // bytes is 20 bytes (Address), convert to hex string
-          try {
-            const address = new Address(bytes);
-            userL2Addresses.push(address.toString());
-          } catch (error: any) {
-            console.error(`[normalizeStateSnapshot] Failed to create Address from bytes:`, error.message);
-            console.error(
-              `[normalizeStateSnapshot] Bytes:`,
-              Array.from(bytes)
-                .map(b => `0x${b.toString(16).padStart(2, '0')}`)
-                .join(' '),
-            );
-            throw new Error(`Failed to create Address: ${error.message}`);
-          }
-        } else {
-          throw new Error(`Invalid userL2Address format: ${JSON.stringify(addr)}`);
-        }
-      }
-    }
-
-    // Convert userStorageSlots from string[] to bigint[]
-    const userStorageSlots = rawSnapshot.userStorageSlots
-      ? rawSnapshot.userStorageSlots.map((s: string | bigint) => BigInt(s))
-      : [];
-
-    // Convert userNonces from string[] to bigint[]
-    const userNonces = rawSnapshot.userNonces ? rawSnapshot.userNonces.map((n: string | bigint) => BigInt(n)) : [];
-
-    return {
-      ...rawSnapshot,
-      userL2Addresses,
-      userStorageSlots,
-      userNonces,
-    } as StateSnapshot;
   }
 
   /**
@@ -355,11 +221,9 @@ export class SynthesizerAdapter {
     // Restore previous state if provided
     if (previousState) {
       console.log('[SynthesizerAdapter] Restoring previous state...');
-      // Normalize the state snapshot to handle bytes objects and string conversions
-      const normalizedState = this.normalizeStateSnapshot(previousState);
       const stateManager = synthesizer.getTokamakStateManager();
-      await stateManager.createStateFromSnapshot(normalizedState);
-      console.log(`[SynthesizerAdapter] ✅ Previous state restored: ${normalizedState.stateRoot}`);
+      await stateManager.createStateFromSnapshot(previousState);
+      console.log(`[SynthesizerAdapter] ✅ Previous state restored: ${previousState.stateRoot}`);
     }
 
     console.log('[SynthesizerAdapter] Executing transaction...');
@@ -379,8 +243,6 @@ export class SynthesizerAdapter {
       a_pub_block: [],
       a_pub_function: [],
     };
-    const a_pub_desc: PublicInstanceDescription | undefined =
-      circuitGenerator.variableGenerator.publicInstanceDescription;
     const permutation = circuitGenerator.permutationGenerator?.permutation || [];
 
     // Export final state
@@ -392,22 +254,24 @@ export class SynthesizerAdapter {
     // Write outputs to file if path provided
     if (outputPath) {
       circuitGenerator.writeOutputs(outputPath);
-
-      // Also write state_snapshot.json (matching onchain-channel-simulation.ts)
-      const { writeFileSync, mkdirSync } = await import('fs');
-      mkdirSync(outputPath, { recursive: true });
-      const statePath = `${outputPath}/state_snapshot.json`;
-      writeFileSync(
-        statePath,
-        JSON.stringify(finalState, (key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
-      );
-
       console.log(`[SynthesizerAdapter] Outputs written to: ${outputPath}`);
+
+      // Also save state_snapshot.json
+      const stateSnapshotPath = resolve(outputPath, 'state_snapshot.json');
+      writeFileSync(
+        stateSnapshotPath,
+        JSON.stringify(
+          finalState,
+          (_key, value) => (typeof value === 'bigint' ? value.toString() : value),
+          2
+        ),
+        'utf-8'
+      );
+      console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${stateSnapshotPath}`);
     }
 
     const result: SynthesizerResult = {
       instance: a_pub, // PublicInstance type: {a_pub_user, a_pub_block, a_pub_function}
-      instanceDescription: a_pub_desc, // PublicInstanceDescription for debugging
       placementVariables,
       permutation,
       state: finalState, // Include final state
@@ -443,10 +307,7 @@ export class SynthesizerAdapter {
     calldata: Uint8Array | string,
     options: CalldataSynthesizeOptions,
   ): Promise<SynthesizerResult> {
-    const { previousState: rawPreviousState, outputPath } = options;
-
-    // Normalize previousState if provided (handles bytes objects and string conversions)
-    const previousState = rawPreviousState ? this.normalizeStateSnapshot(rawPreviousState) : undefined;
+    const { previousState, outputPath } = options;
 
     // Normalize calldata to Uint8Array
     const calldataBytes = typeof calldata === 'string' ? hexToBytes(addHexPrefix(calldata)) : calldata;
@@ -479,11 +340,9 @@ export class SynthesizerAdapter {
     // Restore previous state BEFORE creating synthesizer (so INI_MERKLE_ROOT is set correctly)
     if (previousState) {
       console.log('[SynthesizerAdapter] Restoring previous state (before synthesizer creation)...');
-      // Normalize the state snapshot to handle bytes objects and string conversions
-      const normalizedState = this.normalizeStateSnapshot(previousState);
       const stateManager = synthesizerOpts.stateManager as any; // TokamakL2StateManager
-      await stateManager.createStateFromSnapshot(normalizedState);
-      console.log(`[SynthesizerAdapter] ✅ Previous state restored: ${normalizedState.stateRoot}`);
+      await stateManager.createStateFromSnapshot(previousState);
+      console.log(`[SynthesizerAdapter] ✅ Previous state restored: ${previousState.stateRoot}`);
       console.log(
         `[SynthesizerAdapter] ✅ initialMerkleTree.root: 0x${stateManager.initialMerkleTree.root.toString(16)}`,
       );
@@ -562,8 +421,6 @@ export class SynthesizerAdapter {
       a_pub_block: [],
       a_pub_function: [],
     };
-    const a_pub_desc: PublicInstanceDescription | undefined =
-      circuitGenerator.variableGenerator.publicInstanceDescription;
     const permutation = circuitGenerator.permutationGenerator?.permutation || [];
 
     // Export final state
@@ -575,22 +432,24 @@ export class SynthesizerAdapter {
     // Write outputs if path provided
     if (outputPath) {
       circuitGenerator.writeOutputs(outputPath);
-
-      // Also write state_snapshot.json (matching onchain-channel-simulation.ts)
-      const { writeFileSync, mkdirSync } = await import('fs');
-      mkdirSync(outputPath, { recursive: true });
-      const statePath = `${outputPath}/state_snapshot.json`;
-      writeFileSync(
-        statePath,
-        JSON.stringify(finalState, (key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
-      );
-
       console.log(`[SynthesizerAdapter] ✅ Outputs written to: ${outputPath}`);
+
+      // Also save state_snapshot.json
+      const stateSnapshotPath = resolve(outputPath, 'state_snapshot.json');
+      writeFileSync(
+        stateSnapshotPath,
+        JSON.stringify(
+          finalState,
+          (_key, value) => (typeof value === 'bigint' ? value.toString() : value),
+          2
+        ),
+        'utf-8'
+      );
+      console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${stateSnapshotPath}`);
     }
 
     const result: SynthesizerResult = {
       instance: a_pub, // PublicInstance type: {a_pub_user, a_pub_block, a_pub_function}
-      instanceDescription: a_pub_desc, // PublicInstanceDescription for debugging
       placementVariables,
       permutation,
       state: finalState,
@@ -615,211 +474,165 @@ export class SynthesizerAdapter {
   }
 
   /**
+   * Synthesize L2 State Channel transaction
+   * Fetches channel data from on-chain, generates L2 keys, and synthesizes the transaction
+   *
+   * @param channelId - Channel ID on RollupBridge
+   * @param params - Transaction parameters (to, tokenAddress, amount, rollupBridgeAddress, senderIdx)
+   * @param options - Optional synthesis options (previousState, outputPath)
+   * @returns Instance JSON, placement variables, permutation, state, and metadata
+   */
+  async synthesizeL2StateChannel(
+    channelId: number,
+    params: {
+      to: string; // Recipient L1 address
+      tokenAddress: string; // Token contract address
+      amount: string; // Transfer amount (as string)
+      rollupBridgeAddress: string; // RollupBridge contract address
+      senderIdx: number; // Index of sender in channel participants
+    },
+    options?: SynthesizeOptions,
+  ): Promise<SynthesizerResult> {
+    const { previousState, outputPath } = options || {};
+    const { to, tokenAddress, amount, rollupBridgeAddress, senderIdx } = params;
+
+    console.log(`[SynthesizerAdapter] Processing L2 State Channel transaction`);
+    console.log(`  Channel ID: ${channelId}`);
+    console.log(`  Token: ${tokenAddress}`);
+    console.log(`  Recipient (L1): ${to}`);
+    console.log(`  Amount: ${amount}`);
+    console.log(`  Sender Index: ${senderIdx}`);
+
+    // RollupBridgeCore ABI
+    const ROLLUP_BRIDGE_CORE_ABI = [
+      'function getChannelInfo(uint256 channelId) view returns (address[] allowedTokens, uint8 state, uint256 participantCount, bytes32 initialRoot)',
+      'function getChannelParticipants(uint256 channelId) view returns (address[])',
+      'function getParticipantPublicKey(uint256 channelId, address participant) view returns (uint256 pkx, uint256 pky)',
+      'function getL2MptKey(uint256 channelId, address participant, address token) view returns (uint256)',
+    ];
+
+    // Create bridge contract instance
+    const bridgeContract = new ethers.Contract(rollupBridgeAddress, ROLLUP_BRIDGE_CORE_ABI, this.provider);
+
+    // Fetch channel participants
+    const participants: string[] = await bridgeContract.getChannelParticipants(channelId);
+    if (!participants || participants.length <= senderIdx) {
+      throw new Error(`Invalid sender index ${senderIdx} for channel with ${participants?.length || 0} participants`);
+    }
+
+    // Get recipient index
+    const recipientIdx = participants.findIndex((p: string) => p.toLowerCase() === to.toLowerCase());
+    if (recipientIdx === -1) {
+      throw new Error(`Recipient ${to} is not a participant in channel ${channelId}`);
+    }
+
+    // Generate L2 keys for all participants
+    const participantsWithKeys = participants.map((l1Address, idx) => {
+      // Generate deterministic private key from index
+      const privateKey = setLengthLeft(bigIntToBytes(BigInt(idx + 1) * 123456789n), 32);
+      const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(privateKey)).toBytes();
+      const l2Address = fromEdwardsToAddress(publicKey).toString();
+
+      return {
+        l1Address,
+        l2Address,
+        privateKey,
+        publicKey,
+      };
+    });
+
+    // Get sender's L2 key
+    const sender = participantsWithKeys[senderIdx];
+    const recipient = participantsWithKeys[recipientIdx];
+
+    // Construct ERC20 transfer calldata
+    // transfer(address,uint256) = 0xa9059cbb
+    const calldata =
+      '0xa9059cbb' + // transfer(address,uint256)
+      recipient.l2Address.slice(2).padStart(64, '0') + // recipient (L2 address)
+      BigInt(amount).toString(16).padStart(64, '0'); // amount
+
+    // Get current block number
+    const blockNumber = await this.provider.getBlockNumber();
+
+    // Normalize previous state if provided
+    let normalizedPreviousState = previousState;
+    if (previousState) {
+      normalizedPreviousState = this.normalizeStateSnapshot(previousState);
+    }
+
+    // Use synthesizeFromCalldata with normalized state
+    return this.synthesizeFromCalldata(calldata, {
+      contractAddress: tokenAddress,
+      publicKeyListL2: participantsWithKeys.map(p => p.publicKey),
+      addressListL1: participantsWithKeys.map(p => p.l1Address),
+      senderL2PrvKey: sender.privateKey,
+      blockNumber,
+      userStorageSlots: [0], // ERC20 balance only (slot 0)
+      previousState: normalizedPreviousState,
+      txNonce: previousState?.userNonces?.[senderIdx] ?? 0n,
+      outputPath,
+    });
+  }
+
+  /**
+   * Normalize state snapshot to ensure correct format
+   * Converts userL2Addresses from bytes objects to hex strings
+   * Converts userStorageSlots and userNonces from strings to bigints
+   */
+  private normalizeStateSnapshot(snapshot: StateSnapshot): StateSnapshot {
+    // Normalize userL2Addresses
+    const normalizedUserL2Addresses = snapshot.userL2Addresses.map((addr) => {
+      if (typeof addr === 'string') {
+        return addr;
+      }
+      // Handle bytes object format: { bytes: { "0": number, "1": number, ... } }
+      if (addr && typeof addr === 'object' && 'bytes' in addr) {
+        const bytesObj = (addr as any).bytes;
+        const keys = Object.keys(bytesObj).sort((a, b) => Number(a) - Number(b));
+        const bytesArray = keys.map((k) => bytesObj[String(k)]);
+        if (bytesArray.length !== 20) {
+          throw new Error(`Invalid address length: expected 20 bytes, got ${bytesArray.length}`);
+        }
+        return '0x' + bytesArray.map((b: number) => b.toString(16).padStart(2, '0')).join('');
+      }
+      throw new Error(`Invalid address format: ${JSON.stringify(addr)}`);
+    });
+
+    // Normalize userStorageSlots
+    const normalizedUserStorageSlots = snapshot.userStorageSlots.map((slot) => {
+      if (typeof slot === 'bigint') {
+        return slot;
+      }
+      if (typeof slot === 'string') {
+        return BigInt(slot);
+      }
+      return BigInt(slot);
+    });
+
+    // Normalize userNonces
+    const normalizedUserNonces = snapshot.userNonces.map((nonce) => {
+      if (typeof nonce === 'bigint') {
+        return nonce;
+      }
+      if (typeof nonce === 'string') {
+        return BigInt(nonce);
+      }
+      return BigInt(nonce);
+    });
+
+    return {
+      ...snapshot,
+      userL2Addresses: normalizedUserL2Addresses,
+      userStorageSlots: normalizedUserStorageSlots,
+      userNonces: normalizedUserNonces,
+    };
+  }
+
+  /**
    * Alternative method for backward compatibility
    */
   async parseTransactionByHash(txHash: string, outputPath?: string): Promise<SynthesizerResult> {
     return this.synthesize(txHash, { outputPath });
-  }
-
-  /**
-   * Synthesize an L2 State Channel transaction simulation
-   * Automatically fetches channel parameters and sets up the environment
-   *
-   * @param channelId - The ID of the channel to simulate
-   * @param params - Transaction parameters (recipient, token, amount, etc.)
-   * @param options - Optional synthesis options (previousState, outputPath)
-   */
-  async synthesizeL2StateChannel(
-    channelId: number,
-    params: L2StateChannelSimulationOptions,
-    options?: SynthesizeOptions,
-  ): Promise<SynthesizerResult> {
-    console.log(`[SynthesizerAdapter] Starting L2 State Channel Simulation for Channel ID: ${channelId}`);
-
-    // 1. Fetch Channel Data
-    const bridgeContract = new ethers.Contract(params.rollupBridgeAddress, ROLLUP_BRIDGE_CORE_ABI, this.provider);
-    const channelData = await this.fetchChannelData(bridgeContract, channelId);
-
-    // 2. Identify Sender and Recipient
-    const senderIdx = params.senderIdx || 0;
-    if (senderIdx >= channelData.participants.length) {
-      throw new Error(`Sender index ${senderIdx} out of bounds (participants: ${channelData.participants.length})`);
-    }
-    const senderL1 = channelData.participants[senderIdx];
-
-    // Find recipient index
-    const recipientL1 = params.to.toLowerCase();
-    const recipientIdx = channelData.participants.findIndex(p => p.toLowerCase() === recipientL1);
-    if (recipientIdx === -1) {
-      throw new Error(`Recipient ${params.to} is not a participant in this channel`);
-    }
-
-    console.log(`[SynthesizerAdapter] Sender: ${senderL1} (Index: ${senderIdx})`);
-    console.log(`[SynthesizerAdapter] Recipient: ${recipientL1} (Index: ${recipientIdx})`);
-
-    // 2.5. Validate token address is a valid ERC20 contract (not checking against allowed tokens list)
-    try {
-      const tokenContract = new ethers.Contract(params.tokenAddress, ERC20_ABI, this.provider);
-      // Try to call balanceOf with zero address to verify it's an ERC20 contract
-      await tokenContract.balanceOf('0x0000000000000000000000000000000000000000');
-      console.log(`[SynthesizerAdapter] Token validated: ${params.tokenAddress} is a valid ERC20 contract`);
-    } catch (error: any) {
-      throw new Error(`Token ${params.tokenAddress} is not a valid ERC20 contract: ${error.message}`);
-    }
-
-    // 3. Generate Keys (Deterministic or Explicit)
-    // We need keys for ALL participants to map L1 -> L2 addresses
-
-    // Helper for simulation key generation (matches onchain-channel-simulation.ts)
-    const generateSimulationKey = (index: number) => {
-      const privateKey = setLengthLeft(bigIntToBytes(BigInt(index + 1) * 123456789n), 32);
-      const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(privateKey)).toBytes();
-      return { privateKey, publicKey };
-    };
-
-    // Fetch public keys from contract to ensure we have the correct L2 addresses
-    const publicKeyListL2: Uint8Array[] = [];
-    for (let i = 0; i < channelData.participants.length; i++) {
-      try {
-        const [pkx, pky] = await bridgeContract.getParticipantPublicKey(channelId, channelData.participants[i]);
-        if (pkx === 0n && pky === 0n) {
-          // If not registered on chain, fall back to simulation generation
-          const kp = generateSimulationKey(i);
-          publicKeyListL2.push(kp.publicKey);
-        } else {
-          // Reconstruct public key bytes
-          const pkBytes = new Uint8Array(64);
-          pkBytes.set(setLengthLeft(bigIntToBytes(pkx), 32), 0);
-          pkBytes.set(setLengthLeft(bigIntToBytes(pky), 32), 32);
-          publicKeyListL2.push(pkBytes);
-        }
-      } catch (e) {
-        // Fallback
-        const kp = generateSimulationKey(i);
-        publicKeyListL2.push(kp.publicKey);
-      }
-    }
-
-    // Sender private key
-    let senderL2PrvKey: Uint8Array;
-    if (params.senderPrivateKey) {
-      senderL2PrvKey = params.senderPrivateKey;
-    } else {
-      // If not provided, we must generate it using the simulation strategy
-      senderL2PrvKey = generateSimulationKey(senderIdx).privateKey;
-    }
-
-    // 4. Construct Calldata
-    // transfer(address recipient, uint256 amount)
-    // We need the L2 address of the recipient
-    const recipientPublicKey = publicKeyListL2[recipientIdx];
-    const recipientL2Address = fromEdwardsToAddress(recipientPublicKey);
-
-    // Function selector for transfer: 0xa9059cbb
-    const functionSelector = hexToBytes('0xa9059cbb');
-
-    // Recipient L2 address (padded to 32 bytes)
-    const recipientEncoded = setLengthLeft(recipientL2Address.toBytes(), 32);
-
-    // Amount (padded to 32 bytes)
-    const amountBigInt = BigInt(params.amount);
-    const amountEncoded = setLengthLeft(bigIntToBytes(amountBigInt), 32);
-
-    const calldata = concatBytes(functionSelector, recipientEncoded, amountEncoded);
-
-    // 5. Determine transaction nonce
-    // If previousState is provided, use the sender's nonce from the previous state
-    let txNonce: bigint;
-    if (options?.previousState) {
-      const normalizedState = this.normalizeStateSnapshot(options.previousState);
-      // Find sender's index in userL2Addresses
-      const senderPublicKey = publicKeyListL2[senderIdx];
-      const senderL2Address = fromEdwardsToAddress(senderPublicKey);
-      const senderL2AddressStr = senderL2Address.toString().toLowerCase();
-      const senderStateIdx = normalizedState.userL2Addresses.findIndex(
-        (addr: string) => addr.toLowerCase() === senderL2AddressStr,
-      );
-      if (
-        senderStateIdx >= 0 &&
-        normalizedState.userNonces &&
-        normalizedState.userNonces[senderStateIdx] !== undefined
-      ) {
-        txNonce = BigInt(normalizedState.userNonces[senderStateIdx]);
-        console.log(
-          `[SynthesizerAdapter] Using nonce from previous state: ${txNonce} (sender index: ${senderStateIdx})`,
-        );
-      } else {
-        // Fallback: if sender not found in previous state, use 0
-        txNonce = 0n;
-        console.log(`[SynthesizerAdapter] Sender not found in previous state, using default nonce: 0`);
-      }
-    } else {
-      // No previous state, start with nonce 0
-      txNonce = 0n;
-    }
-
-    // 6. Synthesize
-    return this.synthesizeFromCalldata(bytesToHex(calldata), {
-      contractAddress: params.tokenAddress,
-      publicKeyListL2,
-      addressListL1: channelData.participants,
-      senderL2PrvKey,
-      previousState: options?.previousState,
-      outputPath: options?.outputPath,
-      txNonce,
-    });
-  }
-
-  private async fetchChannelData(bridgeContract: ethers.Contract, channelId: number): Promise<ChannelData> {
-    // 1. Get basic channel info
-    const [allowedTokens, stateRaw, participantCount, initialRoot] = await bridgeContract.getChannelInfo(channelId);
-    const state = Number(stateRaw);
-
-    // 2. Get participants
-    const participants: string[] = await bridgeContract.getChannelParticipants(channelId);
-
-    // 3. Get tree size
-    const treeSize = Number(await bridgeContract.getChannelTreeSize(channelId));
-
-    // 4. Get leader
-    const leader: string = await bridgeContract.getChannelLeader(channelId);
-
-    // 5. Get public key
-    const [pkx, pky] = await bridgeContract.getChannelPublicKey(channelId);
-
-    // 6. Get deposits and L2 MPT keys
-    const deposits = new Map<string, Map<string, bigint>>();
-    const l2MptKeys = new Map<string, Map<string, bigint>>();
-
-    for (const participant of participants) {
-      deposits.set(participant, new Map());
-      l2MptKeys.set(participant, new Map());
-
-      for (const token of allowedTokens) {
-        try {
-          const amount = await bridgeContract.getParticipantTokenDeposit(channelId, participant, token);
-          const l2Key = await bridgeContract.getL2MptKey(channelId, participant, token);
-
-          deposits.get(participant)!.set(token, amount);
-          l2MptKeys.get(participant)!.set(token, l2Key);
-        } catch (error) {
-          deposits.get(participant)!.set(token, 0n);
-          l2MptKeys.get(participant)!.set(token, 0n);
-        }
-      }
-    }
-
-    return {
-      channelId,
-      allowedTokens,
-      participants,
-      initialStateRoot: initialRoot,
-      treeSize,
-      leader,
-      state,
-      deposits,
-      l2MptKeys,
-      publicKey: { pkx, pky },
-    };
   }
 }

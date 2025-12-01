@@ -255,59 +255,28 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
       throw new Error('StateManager not initialized');
     }
 
-    if (!this.cachedOpts.common.customCrypto.keccak256) {
-      throw new Error('Custom crypto keccak256 not set');
-    }
-
     const contractAddress = new Address(toBytes(snapshot.contractAddress as `0x${string}`));
 
-    // Calculate POSEIDON constants (needed for both contract and user accounts)
-    const POSEIDON_RLP = this.cachedOpts.common.customCrypto.keccak256(RLP.encode(new Uint8Array([])));
-    const POSEIDON_NULL = this.cachedOpts.common.customCrypto.keccak256(new Uint8Array(0));
-
-    // 1. Create contract account first (required before putStorage)
-    // Check if account already exists (e.g., from initTokamakExtendsFromRPC)
-    let contractAccount = await this.getAccount(contractAddress);
-    if (!contractAccount) {
-      // Account doesn't exist, create it
-      contractAccount = createAccount({
-        nonce: 0n,
-        balance: 0n,
-        storageRoot: POSEIDON_RLP,
-        codeHash: POSEIDON_NULL,
-      });
-      await this.putAccount(contractAddress, contractAccount);
-    }
-
-    // 2. Restore all storage entries (now that contract account exists)
+    // Restore all storage entries
     for (const entry of snapshot.storageEntries) {
       const key = hexToBytes(entry.key as `0x${string}`);
       const value = hexToBytes(entry.value as `0x${string}`);
       await this.putStorage(contractAddress, key, value);
     }
 
-    // 3. Restore user accounts and nonces (create account if it doesn't exist)
+    // Restore user nonces (parallel to userL2Addresses)
     for (let i = 0; i < snapshot.userL2Addresses.length; i++) {
       const addr = snapshot.userL2Addresses[i];
       const nonce = snapshot.userNonces[i];
       const address = new Address(toBytes(addr as `0x${string}`));
-      let account = await this.getAccount(address);
-      if (!account) {
-        // Create account if it doesn't exist
-        account = createAccount({
-          nonce: nonce,
-          balance: 0n,
-          storageRoot: POSEIDON_RLP,
-          codeHash: POSEIDON_NULL,
-        });
-      } else {
-        // Update nonce if account exists
+      const account = await this.getAccount(address);
+      if (account) {
         account.nonce = nonce;
+        await this.putAccount(address, account);
       }
-      await this.putAccount(address, account);
     }
 
-    // 4. Rebuild Merkle tree with restored state
+    // Rebuild Merkle tree with restored state
     this._initialMerkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this);
   }
 }
