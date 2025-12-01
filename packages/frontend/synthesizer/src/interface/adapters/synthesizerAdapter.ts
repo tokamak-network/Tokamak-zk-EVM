@@ -95,6 +95,12 @@ const ROLLUP_BRIDGE_CORE_ABI = [
   'function getL2MptKey(uint256 channelId, address participant, address token) view returns (uint256)',
 ];
 
+// ERC20 Token ABI (minimal subset for validation)
+const ERC20_ABI = [
+  'function balanceOf(address account) view returns (uint256)',
+  'function totalSupply() view returns (uint256)',
+];
+
 interface ChannelData {
   channelId: number;
   allowedTokens: string[];
@@ -133,11 +139,62 @@ export class SynthesizerAdapter {
           userL2Addresses.push(addr);
         } else if (addr && addr.bytes) {
           // Convert bytes object to Address, then to hex string
-          const bytesArray = Object.values(addr.bytes) as number[];
+          // Object.values() doesn't guarantee order, so we need to sort by key
+          // Keys in addr.bytes are strings ("0", "1", "2", ...), so we need to convert them
+          const keys = Object.keys(addr.bytes)
+            .map(k => parseInt(k, 10))
+            .sort((a, b) => a - b);
+
+          // Debug: Log the keys and values
+          console.log(`[normalizeStateSnapshot] Processing address with ${keys.length} keys`);
+          console.log(`[normalizeStateSnapshot] Keys: ${keys.join(', ')}`);
+          console.log(`[normalizeStateSnapshot] addr.bytes keys (original): ${Object.keys(addr.bytes).join(', ')}`);
+
+          // Use String(k) to access the string keys in addr.bytes
+          const bytesArray = keys
+            .map(k => {
+              const keyStr = String(k);
+              const value = addr.bytes[keyStr];
+              if (value === undefined) {
+                console.error(
+                  `[normalizeStateSnapshot] Key "${keyStr}" not found in addr.bytes. Available keys: ${Object.keys(addr.bytes).join(', ')}`,
+                );
+              }
+              return value;
+            })
+            .filter(v => v !== undefined) as number[];
+
+          console.log(
+            `[normalizeStateSnapshot] Bytes array length: ${bytesArray.length}, values: ${bytesArray.join(', ')}`,
+          );
+
           const bytes = new Uint8Array(bytesArray);
+
+          // Validate that we have exactly 20 bytes (Address length)
+          if (bytes.length !== 20) {
+            console.error(`[normalizeStateSnapshot] Invalid address length: expected 20 bytes, got ${bytes.length}`);
+            console.error(`[normalizeStateSnapshot] Keys: ${keys.join(', ')}`);
+            console.error(`[normalizeStateSnapshot] Bytes array length: ${bytesArray.length}`);
+            console.error(`[normalizeStateSnapshot] Address object:`, JSON.stringify(addr, null, 2));
+            throw new Error(
+              `Invalid address length: expected 20 bytes, got ${bytes.length}. Keys: ${keys.join(', ')}, Bytes: ${bytesArray.join(', ')}`,
+            );
+          }
+
           // bytes is 20 bytes (Address), convert to hex string
-          const address = new Address(bytes);
-          userL2Addresses.push(address.toString());
+          try {
+            const address = new Address(bytes);
+            userL2Addresses.push(address.toString());
+          } catch (error: any) {
+            console.error(`[normalizeStateSnapshot] Failed to create Address from bytes:`, error.message);
+            console.error(
+              `[normalizeStateSnapshot] Bytes:`,
+              Array.from(bytes)
+                .map(b => `0x${b.toString(16).padStart(2, '0')}`)
+                .join(' '),
+            );
+            throw new Error(`Failed to create Address: ${error.message}`);
+          }
         } else {
           throw new Error(`Invalid userL2Address format: ${JSON.stringify(addr)}`);
         }
@@ -422,9 +479,11 @@ export class SynthesizerAdapter {
     // Restore previous state BEFORE creating synthesizer (so INI_MERKLE_ROOT is set correctly)
     if (previousState) {
       console.log('[SynthesizerAdapter] Restoring previous state (before synthesizer creation)...');
+      // Normalize the state snapshot to handle bytes objects and string conversions
+      const normalizedState = this.normalizeStateSnapshot(previousState);
       const stateManager = synthesizerOpts.stateManager as any; // TokamakL2StateManager
-      await stateManager.createStateFromSnapshot(previousState);
-      console.log(`[SynthesizerAdapter] ✅ Previous state restored: ${previousState.stateRoot}`);
+      await stateManager.createStateFromSnapshot(normalizedState);
+      console.log(`[SynthesizerAdapter] ✅ Previous state restored: ${normalizedState.stateRoot}`);
       console.log(
         `[SynthesizerAdapter] ✅ initialMerkleTree.root: 0x${stateManager.initialMerkleTree.root.toString(16)}`,
       );
@@ -598,6 +657,16 @@ export class SynthesizerAdapter {
     console.log(`[SynthesizerAdapter] Sender: ${senderL1} (Index: ${senderIdx})`);
     console.log(`[SynthesizerAdapter] Recipient: ${recipientL1} (Index: ${recipientIdx})`);
 
+    // 2.5. Validate token address is a valid ERC20 contract (not checking against allowed tokens list)
+    try {
+      const tokenContract = new ethers.Contract(params.tokenAddress, ERC20_ABI, this.provider);
+      // Try to call balanceOf with zero address to verify it's an ERC20 contract
+      await tokenContract.balanceOf('0x0000000000000000000000000000000000000000');
+      console.log(`[SynthesizerAdapter] Token validated: ${params.tokenAddress} is a valid ERC20 contract`);
+    } catch (error: any) {
+      throw new Error(`Token ${params.tokenAddress} is not a valid ERC20 contract: ${error.message}`);
+    }
+
     // 3. Generate Keys (Deterministic or Explicit)
     // We need keys for ALL participants to map L1 -> L2 addresses
 
@@ -658,7 +727,38 @@ export class SynthesizerAdapter {
 
     const calldata = concatBytes(functionSelector, recipientEncoded, amountEncoded);
 
-    // 5. Synthesize
+    // 5. Determine transaction nonce
+    // If previousState is provided, use the sender's nonce from the previous state
+    let txNonce: bigint;
+    if (options?.previousState) {
+      const normalizedState = this.normalizeStateSnapshot(options.previousState);
+      // Find sender's index in userL2Addresses
+      const senderPublicKey = publicKeyListL2[senderIdx];
+      const senderL2Address = fromEdwardsToAddress(senderPublicKey);
+      const senderL2AddressStr = senderL2Address.toString().toLowerCase();
+      const senderStateIdx = normalizedState.userL2Addresses.findIndex(
+        (addr: string) => addr.toLowerCase() === senderL2AddressStr,
+      );
+      if (
+        senderStateIdx >= 0 &&
+        normalizedState.userNonces &&
+        normalizedState.userNonces[senderStateIdx] !== undefined
+      ) {
+        txNonce = BigInt(normalizedState.userNonces[senderStateIdx]);
+        console.log(
+          `[SynthesizerAdapter] Using nonce from previous state: ${txNonce} (sender index: ${senderStateIdx})`,
+        );
+      } else {
+        // Fallback: if sender not found in previous state, use 0
+        txNonce = 0n;
+        console.log(`[SynthesizerAdapter] Sender not found in previous state, using default nonce: 0`);
+      }
+    } else {
+      // No previous state, start with nonce 0
+      txNonce = 0n;
+    }
+
+    // 6. Synthesize
     return this.synthesizeFromCalldata(bytesToHex(calldata), {
       contractAddress: params.tokenAddress,
       publicKeyListL2,
@@ -666,7 +766,7 @@ export class SynthesizerAdapter {
       senderL2PrvKey,
       previousState: options?.previousState,
       outputPath: options?.outputPath,
-      txNonce: 0n, // Assuming 0 nonce for simulation start
+      txNonce,
     });
   }
 

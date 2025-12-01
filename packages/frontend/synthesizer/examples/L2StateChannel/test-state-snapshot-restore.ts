@@ -39,8 +39,20 @@ function normalizeStateSnapshot(rawSnapshot: any): any {
         userL2Addresses.push(addr);
       } else if (addr && addr.bytes) {
         // Convert bytes object to Address, then to hex string
-        const bytesArray = Object.values(addr.bytes) as number[];
+        // Object.values() doesn't guarantee order, so we need to sort by key
+        // Keys in addr.bytes are strings ("0", "1", "2", ...), so we need to convert them
+        const keys = Object.keys(addr.bytes)
+          .map(k => parseInt(k, 10))
+          .sort((a, b) => a - b);
+        // Use String(k) to access the string keys in addr.bytes
+        const bytesArray = keys.map(k => addr.bytes[String(k)]) as number[];
         const bytes = new Uint8Array(bytesArray);
+
+        // Validate that we have exactly 20 bytes (Address length)
+        if (bytes.length !== 20) {
+          throw new Error(`Invalid address length: expected 20 bytes, got ${bytes.length}`);
+        }
+
         // bytes is 20 bytes (Address), convert to hex string
         const address = new Address(bytes);
         userL2Addresses.push(address.toString());
@@ -56,9 +68,7 @@ function normalizeStateSnapshot(rawSnapshot: any): any {
     : [];
 
   // Convert userNonces from string[] to bigint[]
-  const userNonces = rawSnapshot.userNonces
-    ? rawSnapshot.userNonces.map((n: string | bigint) => BigInt(n))
-    : [];
+  const userNonces = rawSnapshot.userNonces ? rawSnapshot.userNonces.map((n: string | bigint) => BigInt(n)) : [];
 
   return {
     ...rawSnapshot,
@@ -75,10 +85,7 @@ async function testStateSnapshotRestore() {
 
   try {
     // Step 1: Load existing state_snapshot.json
-    const snapshotPath = resolve(
-      process.cwd(),
-      'test-outputs/onchain-proof-1/state_snapshot.json'
-    );
+    const snapshotPath = resolve(process.cwd(), 'test-outputs/onchain-proof-1/state_snapshot.json');
 
     if (!existsSync(snapshotPath)) {
       throw new Error(`State snapshot not found: ${snapshotPath}`);
@@ -107,14 +114,12 @@ async function testStateSnapshotRestore() {
     const bridge = new Contract(
       ROLLUP_BRIDGE_CORE_ADDRESS,
       ['function getChannelParticipants(uint256 channelId) view returns (address[])'],
-      provider
+      provider,
     );
 
     const participants = await bridge.getChannelParticipants(CHANNEL_ID);
     if (!participants || participants.length < 2) {
-      throw new Error(
-        `Channel ${CHANNEL_ID} does not have enough participants. Found: ${participants?.length || 0}`
-      );
+      throw new Error(`Channel ${CHANNEL_ID} does not have enough participants. Found: ${participants?.length || 0}`);
     }
 
     console.log(`✅ Channel participants: ${participants.length}`);
@@ -149,7 +154,7 @@ async function testStateSnapshotRestore() {
       {
         previousState: normalizedSnapshot,
         outputPath: outputPath,
-      }
+      },
     );
 
     // Step 6: Verify results
@@ -170,12 +175,7 @@ async function testStateSnapshotRestore() {
     }
 
     // Verify output files were created
-    const requiredFiles = [
-      'instance.json',
-      'placementVariables.json',
-      'permutation.json',
-      'state_snapshot.json',
-    ];
+    const requiredFiles = ['instance.json', 'placementVariables.json', 'permutation.json', 'state_snapshot.json'];
 
     console.log('\n📁 Generated Files:');
     for (const file of requiredFiles) {
@@ -201,4 +201,3 @@ async function testStateSnapshotRestore() {
 
 // Run the test
 testStateSnapshotRestore();
-
