@@ -24,6 +24,7 @@ import {
   toBytes,
   bytesToHex,
 } from '@ethereumjs/util';
+import { keccak256 } from 'ethereum-cryptography/keccak.js';
 import { createSynthesizerOptsForSimulationFromRPC, type SynthesizerSimulationOpts } from '../rpc/rpc.ts';
 import { createSynthesizer, Synthesizer } from '../../synthesizer/index.ts';
 import { createCircuitGenerator } from '../../circuitGenerator/circuitGenerator.ts';
@@ -636,5 +637,71 @@ export class SynthesizerAdapter {
    */
   async parseTransactionByHash(txHash: string, outputPath?: string): Promise<SynthesizerResult> {
     return this.synthesize(txHash, { outputPath });
+  }
+
+  /**
+   * Get token balances for all participants from a state snapshot
+   * @param snapshot State snapshot containing storage entries
+   * @param tokenAddresses Array of token contract addresses (L1 addresses)
+   * @param balanceSlot Storage slot for balances mapping (default: 0 for ERC20)
+   * @returns Map of user L2 address -> Map of token address -> balance (bigint)
+   */
+  getTokenBalancesFromSnapshot(
+    snapshot: StateSnapshot,
+    tokenAddresses: string[],
+    balanceSlot: number = 0
+  ): Map<string, Map<string, bigint>> {
+    const balances = new Map<string, Map<string, bigint>>();
+
+    // Normalize snapshot
+    const normalizedSnapshot = this.normalizeStateSnapshot(snapshot);
+
+    // Create a lookup map for storage entries by key
+    const storageMap = new Map<string, string>();
+    for (const entry of normalizedSnapshot.storageEntries) {
+      storageMap.set(entry.key.toLowerCase(), entry.value);
+    }
+
+    // registeredKeys[i] corresponds to userL2Addresses[i]'s balance storage key
+    // This is the most reliable way to map users to their storage keys
+    for (let i = 0; i < normalizedSnapshot.userL2Addresses.length; i++) {
+      const userL2Address = normalizedSnapshot.userL2Addresses[i];
+      const userBalances = new Map<string, bigint>();
+
+      // Get the storage key for this user (from registeredKeys)
+      // registeredKeys[i] is the storage key for userL2Addresses[i]
+      const storageKey = normalizedSnapshot.registeredKeys[i]?.toLowerCase();
+
+      if (!storageKey) {
+        // If no registered key, set all balances to 0
+        for (const tokenAddress of tokenAddresses) {
+          userBalances.set(tokenAddress, 0n);
+        }
+        balances.set(userL2Address, userBalances);
+        continue;
+      }
+
+      // Find the storage value for this key
+      const storageValue = storageMap.get(storageKey);
+
+      // For each token address, use the same storage value
+      // (In L2 state channel, all tokens share the same storage structure)
+      for (const tokenAddress of tokenAddresses) {
+        if (storageValue) {
+          // Convert hex value to bigint
+          // Handle empty value (0x) as 0
+          const valueHex = storageValue === '0x' || storageValue === '' ? '0x0' : storageValue;
+          const balance = bytesToBigInt(hexToBytes(addHexPrefix(valueHex)));
+          userBalances.set(tokenAddress, balance);
+        } else {
+          // Balance not found, default to 0
+          userBalances.set(tokenAddress, 0n);
+        }
+      }
+
+      balances.set(userL2Address, userBalances);
+    }
+
+    return balances;
   }
 }
