@@ -64,6 +64,7 @@ export interface SynthesizerResult {
     Y: number;
   }[];
   state: StateSnapshot; // State snapshot after synthesis
+  initialStateRoot?: string; // Initial state root BEFORE transaction execution (from initTokamakExtendsFromRPC or previousState)
   metadata: {
     txHash?: string; // Optional: only present when synthesized from RPC
     blockNumber: number;
@@ -261,12 +262,8 @@ export class SynthesizerAdapter {
       const stateSnapshotPath = resolve(outputPath, 'state_snapshot.json');
       writeFileSync(
         stateSnapshotPath,
-        JSON.stringify(
-          finalState,
-          (_key, value) => (typeof value === 'bigint' ? value.toString() : value),
-          2
-        ),
-        'utf-8'
+        JSON.stringify(finalState, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
+        'utf-8',
       );
       console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${stateSnapshotPath}`);
     }
@@ -323,6 +320,7 @@ export class SynthesizerAdapter {
     console.log(`  Block: ${blockNumber}`);
 
     // Build simulation options
+    // If previousState is provided, skip RPC initialization to avoid conflicts
     const simulationOpts: SynthesizerSimulationOpts = {
       txNonce: options.txNonce !== undefined ? options.txNonce : 0n, // Use provided nonce or default to 0n
       rpcUrl: this.rpcUrl,
@@ -333,6 +331,7 @@ export class SynthesizerAdapter {
       addressListL1: options.addressListL1 as `0x${string}`[],
       publicKeyListL2: options.publicKeyListL2,
       callData: calldataBytes,
+      skipRPCInit: !!previousState, // Skip RPC init if previousState is provided
     };
 
     console.log('[SynthesizerAdapter] Creating synthesizer...');
@@ -354,61 +353,70 @@ export class SynthesizerAdapter {
     // Now create synthesizer with the correct initialMerkleTree
     const synthesizer = (await createSynthesizer(synthesizerOpts)) as Synthesizer;
 
-    // Verify restoration if previousState was provided
-    if (previousState) {
-      console.log('[SynthesizerAdapter] Verifying state restoration...');
-      const stateManager = synthesizer.getTokamakStateManager();
+    // Get initial state root BEFORE transaction execution
+    // This is the state root from initTokamakExtendsFromRPC or previousState restoration
+    const stateManager = synthesizer.getTokamakStateManager();
+    const initialStateRoot = '0x' + stateManager.initialMerkleTree.root.toString(16).padStart(64, '0').toLowerCase();
 
-      // Debug: Verify storage was restored correctly
+    // Verify restoration if previousState was provided (BEFORE transaction execution)
+    if (previousState) {
+      console.log('[SynthesizerAdapter] Verifying state restoration (before transaction execution)...');
+
+      // Verify initial Merkle tree root matches snapshot
+      const snapshotStateRoot = previousState.stateRoot.toLowerCase();
+      const restoredStateRoot = initialStateRoot.toLowerCase();
+
+      if (snapshotStateRoot !== restoredStateRoot) {
+        throw new Error(`State root mismatch: Snapshot=${snapshotStateRoot}, Restored=${restoredStateRoot}`);
+      }
+      console.log(`[SynthesizerAdapter] ✅ Initial state root matches: ${restoredStateRoot}`);
+
+      // Verify all storage entries match snapshot
       const contractAddr = new Address(toBytes(addHexPrefix(previousState.contractAddress)));
-      console.log('[Debug] Verifying restored storage:');
-      console.log(`[Debug] Contract: ${previousState.contractAddress}`);
-      console.log(`[Debug] Storage keys registered: ${previousState.registeredKeys.length}`);
-      for (let i = 0; i < Math.min(3, previousState.storageEntries.length); i++) {
-        const entry = previousState.storageEntries[i];
-        if (entry && entry.value !== '0x') {
-          const key = hexToBytes(addHexPrefix(entry.key));
-          const storedValue = await stateManager.getStorage(contractAddr, key);
-          const expectedBigInt = BigInt(entry.value);
-          const actualBigInt = bytesToBigInt(storedValue);
-          const match = expectedBigInt === actualBigInt ? '✅' : '❌';
-          console.log(
-            `  [${i}] ${match} Key: ${entry.key.slice(0, 10)}... Expected: ${expectedBigInt}, Actual: ${actualBigInt}`,
+      let allStorageMatch = true;
+      const storageMismatches: string[] = [];
+
+      for (const entry of previousState.storageEntries) {
+        const key = hexToBytes(addHexPrefix(entry.key));
+        const storedValue = await stateManager.getStorage(contractAddr, key);
+        const expectedBigInt = BigInt(entry.value === '0x' || entry.value === '' ? '0x0' : entry.value);
+        const actualBigInt = bytesToBigInt(storedValue);
+
+        if (expectedBigInt !== actualBigInt) {
+          allStorageMatch = false;
+          storageMismatches.push(
+            `  Key: ${entry.key.slice(0, 20)}... Expected: ${expectedBigInt}, Actual: ${actualBigInt}`,
           );
         }
       }
 
-      // Debug: Check if sender's storage key is in registered keys
-      console.log('[Debug] Checking sender storage key:');
-      // Get sender address from private key
-      const senderPubKey = jubjub.Point.BASE.multiply(bytesToBigInt(options.senderL2PrvKey));
-      const senderPubKeyBytes = new Uint8Array(64);
-      senderPubKeyBytes.set(setLengthLeft(bigIntToBytes(senderPubKey.toAffine().x), 32), 0);
-      senderPubKeyBytes.set(setLengthLeft(bigIntToBytes(senderPubKey.toAffine().y), 32), 32);
-      const senderL2Addr = fromEdwardsToAddress(senderPubKeyBytes);
-      console.log(`  Sender L2: ${addHexPrefix(senderL2Addr.toString())}`);
-      const senderStorageKey = stateManager.getUserStorageKey([senderL2Addr, 0], 'L2');
-      const senderStorageKeyHex = bytesToHex(senderStorageKey);
-      console.log(`  Sender key: ${senderStorageKeyHex.slice(0, 20)}...`);
-      const keyIndex = previousState.registeredKeys.findIndex(
-        k => k.toLowerCase() === senderStorageKeyHex.toLowerCase(),
-      );
-      console.log(`  Key registered: ${keyIndex >= 0 ? `✅ at index ${keyIndex}` : '❌ NOT FOUND'}`);
-      if (keyIndex >= 0) {
-        const senderBalance = await stateManager.getStorage(contractAddr, senderStorageKey);
-        console.log(`  Sender balance: ${bytesToBigInt(senderBalance)}`);
+      if (!allStorageMatch) {
+        throw new Error(`Storage mismatches detected:\n${storageMismatches.join('\n')}`);
       }
+      console.log(`[SynthesizerAdapter] ✅ All ${previousState.storageEntries.length} storage entries match snapshot`);
 
-      // Debug: Check user account nonces
-      console.log('[Debug] User account nonces:');
+      // Verify user account nonces
+      let allNoncesMatch = true;
+      const nonceMismatches: string[] = [];
+
       for (let i = 0; i < previousState.userL2Addresses.length; i++) {
         const addr = new Address(toBytes(addHexPrefix(previousState.userL2Addresses[i])));
         const account = await stateManager.getAccount(addr);
-        const expectedNonce = previousState.userNonces[i];
+        const expectedNonce = previousState.userNonces[i] ?? 0n;
         const actualNonce = account?.nonce || 0n;
-        const match = expectedNonce === actualNonce ? '✅' : '❌';
-        console.log(`  [${i}] ${match} Expected: ${expectedNonce}, Actual: ${actualNonce}`);
+
+        if (expectedNonce !== actualNonce) {
+          allNoncesMatch = false;
+          nonceMismatches.push(
+            `  L2 Address ${i}: ${previousState.userL2Addresses[i].slice(0, 10)}... Expected: ${expectedNonce}, Actual: ${actualNonce}`,
+          );
+        }
       }
+
+      if (!allNoncesMatch) {
+        throw new Error(`Nonce mismatches detected:\n${nonceMismatches.join('\n')}`);
+      }
+      console.log(`[SynthesizerAdapter] ✅ All ${previousState.userL2Addresses.length} user nonces match snapshot`);
     }
 
     console.log('[SynthesizerAdapter] Executing transaction...');
@@ -428,7 +436,7 @@ export class SynthesizerAdapter {
 
     // Export final state
     console.log('[SynthesizerAdapter] Exporting final state...');
-    const stateManager = synthesizer.getTokamakStateManager();
+    // stateManager is already declared above (line 358) - reuse it
     const finalState = await stateManager.exportState();
     console.log(`[SynthesizerAdapter] ✅ Final state exported: ${finalState.stateRoot}`);
 
@@ -441,12 +449,8 @@ export class SynthesizerAdapter {
       const stateSnapshotPath = resolve(outputPath, 'state_snapshot.json');
       writeFileSync(
         stateSnapshotPath,
-        JSON.stringify(
-          finalState,
-          (_key, value) => (typeof value === 'bigint' ? value.toString() : value),
-          2
-        ),
-        'utf-8'
+        JSON.stringify(finalState, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
+        'utf-8',
       );
       console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${stateSnapshotPath}`);
     }
@@ -456,6 +460,7 @@ export class SynthesizerAdapter {
       placementVariables,
       permutation,
       state: finalState,
+      initialStateRoot, // Initial state root BEFORE transaction execution
       metadata: {
         blockNumber,
         from: addHexPrefix(fromEdwardsToAddress(options.publicKeyListL2[0]).toString()),
@@ -585,7 +590,7 @@ export class SynthesizerAdapter {
    */
   private normalizeStateSnapshot(snapshot: StateSnapshot): StateSnapshot {
     // Normalize userL2Addresses
-    const normalizedUserL2Addresses = snapshot.userL2Addresses.map((addr) => {
+    const normalizedUserL2Addresses = snapshot.userL2Addresses.map(addr => {
       if (typeof addr === 'string') {
         return addr;
       }
@@ -593,7 +598,7 @@ export class SynthesizerAdapter {
       if (addr && typeof addr === 'object' && 'bytes' in addr) {
         const bytesObj = (addr as any).bytes;
         const keys = Object.keys(bytesObj).sort((a, b) => Number(a) - Number(b));
-        const bytesArray = keys.map((k) => bytesObj[String(k)]);
+        const bytesArray = keys.map(k => bytesObj[String(k)]);
         if (bytesArray.length !== 20) {
           throw new Error(`Invalid address length: expected 20 bytes, got ${bytesArray.length}`);
         }
@@ -603,7 +608,7 @@ export class SynthesizerAdapter {
     });
 
     // Normalize userStorageSlots
-    const normalizedUserStorageSlots = snapshot.userStorageSlots.map((slot) => {
+    const normalizedUserStorageSlots = snapshot.userStorageSlots.map(slot => {
       if (typeof slot === 'bigint') {
         return slot;
       }
@@ -614,7 +619,7 @@ export class SynthesizerAdapter {
     });
 
     // Normalize userNonces
-    const normalizedUserNonces = snapshot.userNonces.map((nonce) => {
+    const normalizedUserNonces = snapshot.userNonces.map(nonce => {
       if (typeof nonce === 'bigint') {
         return nonce;
       }
@@ -649,7 +654,7 @@ export class SynthesizerAdapter {
   getTokenBalancesFromSnapshot(
     snapshot: StateSnapshot,
     tokenAddresses: string[],
-    balanceSlot: number = 0
+    balanceSlot: number = 0,
   ): Map<string, Map<string, bigint>> {
     const balances = new Map<string, Map<string, bigint>>();
 

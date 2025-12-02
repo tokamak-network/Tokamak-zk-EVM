@@ -19,21 +19,13 @@ const __dirname = dirname(__filename);
 // Load .env file
 config({ path: resolve(process.cwd(), '../../../.env') });
 
-const ALCHEMY_KEY = process.env.ALCHEMY_KEY || 'PbqCcGx1oHN7yNaFdUJUYqPEN0QSp23S';
-const SEPOLIA_RPC_URL = `https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_KEY}`;
-
-// Modular Contract addresses - Updated for new architecture
-const ROLLUP_BRIDGE_CORE_ADDRESS = '0x3e47aeefffec5e4bce34426ed6c8914937a65435';
-const ROLLUP_BRIDGE_DEPOSIT_MANAGER_ADDRESS = '0xD5E8B17058809B9491F99D35B67A089A2618f5fB';
-const ROLLUP_BRIDGE_PROOF_MANAGER_ADDRESS = '0xF0396B7547C7447FBb14A127D3751425893322fc';
-const ROLLUP_BRIDGE_WITHDRAW_MANAGER_ADDRESS = '0xAf833c7109DB3BfDAc54a98EA7b123CFDE51d777';
-const ROLLUP_BRIDGE_ADMIN_MANAGER_ADDRESS = '0x1c38A6739bDb55f357fcd1aF258E0359ed77c662';
-
-// Token addresses
-const TON_ADDRESS = '0xa30fe40285B8f5c0457DbC3B7C8A280373c40044'; // TON token address
-const WTON_ADDRESS = '0x79E0d92670106c85E9067b56B8F674340dCa0Bbd';
-
-const CHANNEL_ID = 8;
+import {
+  SEPOLIA_RPC_URL,
+  ROLLUP_BRIDGE_CORE_ADDRESS,
+  CHANNEL_ID_8 as CHANNEL_ID,
+  WTON_ADDRESS,
+  ROLLUP_BRIDGE_CORE_ABI,
+} from './constants.ts';
 const RECIPIENT_ADDRESS = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 const TRANSFER_AMOUNT = '1000000000000000000';
 
@@ -43,10 +35,9 @@ function getStateName(state: number): string {
   return states[state] || `Unknown(${state})`;
 }
 
-// RollupBridgeCore ABI (from documentation)
-const ROLLUP_BRIDGE_CORE_ABI = [
-  'function getChannelInfo(uint256 channelId) view returns (address[] allowedTokens, uint8 state, uint256 participantCount, bytes32 initialRoot)',
-  'function getChannelParticipants(uint256 channelId) view returns (address[])',
+// RollupBridgeCore ABI extended for this test
+const ROLLUP_BRIDGE_CORE_ABI_EXTENDED = [
+  ...ROLLUP_BRIDGE_CORE_ABI,
   'function getChannelAllowedTokens(uint256 channelId) view returns (address[])',
   'function getParticipantTokenDeposit(uint256 channelId, address participant, address token) view returns (uint256)',
   'function getChannelState(uint256 channelId) view returns (uint8)',
@@ -64,7 +55,7 @@ async function testTokenBalances() {
   console.log('🌐 Step 0: Fetching onchain data from RollupBridgeCore...\n');
 
   const provider = new ethers.JsonRpcProvider(SEPOLIA_RPC_URL);
-  const bridgeContract = new ethers.Contract(ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI, provider);
+  const bridgeContract = new ethers.Contract(ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI_EXTENDED, provider);
 
   let onchainData: {
     channelInfo: any;

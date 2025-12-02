@@ -31,20 +31,13 @@ config({ path: envPath });
 // CONFIGURATION
 // ============================================================================
 
-const ALCHEMY_KEY = process.env.ALCHEMY_KEY || 'PbqCcGx1oHN7yNaFdUJUYqPEN0QSp23S';
-const SEPOLIA_RPC_URL = `https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_KEY}`;
-const ROLLUP_BRIDGE_CORE_ADDRESS = '0x780ad1b236390C42479b62F066F5cEeAa4c77ad6';
-const CHANNEL_ID = 8;
-const WTON_ADDRESS = '0x79E0d92670106c85E9067b56B8F674340dCa0Bbd';
-
-// RollupBridgeCore ABI
-const ROLLUP_BRIDGE_CORE_ABI = [
-  'function getChannelInfo(uint256 channelId) view returns (address[] allowedTokens, uint8 state, uint256 participantCount, bytes32 initialRoot)',
-  'function getChannelParticipants(uint256 channelId) view returns (address[])',
-  'function getParticipantPublicKey(uint256 channelId, address participant) view returns (uint256 pkx, uint256 pky)',
-  'function getParticipantTokenDeposit(uint256 channelId, address participant, address token) view returns (uint256)',
-  'function getL2MptKey(uint256 channelId, address participant, address token) view returns (uint256)',
-];
+import {
+  SEPOLIA_RPC_URL,
+  ROLLUP_BRIDGE_CORE_PROXY_ADDRESS as ROLLUP_BRIDGE_CORE_ADDRESS,
+  CHANNEL_ID_8 as CHANNEL_ID,
+  WTON_ADDRESS,
+  ROLLUP_BRIDGE_CORE_ABI,
+} from './constants.ts';
 
 // ============================================================================
 // HELPER FUNCTIONS

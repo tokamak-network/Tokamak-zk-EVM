@@ -13,9 +13,24 @@ import { ethers, parseEther, JsonRpcProvider } from 'ethers';
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { bigIntToBytes, setLengthLeft, bytesToHex, bytesToBigInt } from '@ethereumjs/util';
-import { fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
+import { bigIntToBytes, setLengthLeft, bytesToBigInt } from '@ethereumjs/util';
 import { jubjub } from '@noble/curves/misc';
+import {
+  SEPOLIA_RPC_URL,
+  ROLLUP_BRIDGE_CORE_ADDRESS,
+  ROLLUP_BRIDGE_DEPOSIT_MANAGER_ADDRESS,
+  CHANNEL_ID,
+  TON_ADDRESS,
+  WTON_ADDRESS,
+  TON_ABI,
+  WTON_ABI,
+  DEPOSIT_MANAGER_ABI,
+  ROLLUP_BRIDGE_CORE_ABI,
+  parseRay,
+  formatRay,
+  publicKeyToL2Address,
+  generateL2StorageKey,
+} from './constants.ts';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -29,40 +44,12 @@ config({ path: envPath });
 // CONFIGURATION
 // ============================================================================
 
-// Modular Contract addresses - Updated for new architecture
-const ROLLUP_BRIDGE_CORE_ADDRESS = '0x3e47aeefffec5e4bce34426ed6c8914937a65435';
-const ROLLUP_BRIDGE_DEPOSIT_MANAGER_ADDRESS = '0xD5E8B17058809B9491F99D35B67A089A2618f5fB';
-const ROLLUP_BRIDGE_PROOF_MANAGER_ADDRESS = '0xF0396B7547C7447FBb14A127D3751425893322fc';
-const ROLLUP_BRIDGE_WITHDRAW_MANAGER_ADDRESS = '0xAf833c7109DB3BfDAc54a98EA7b123CFDE51d777';
-const ROLLUP_BRIDGE_ADMIN_MANAGER_ADDRESS = '0x1c38A6739bDb55f357fcd1aF258E0359ed77c662';
-
-// Token addresses
-const TON_ADDRESS = '0xa30fe40285B8f5c0457DbC3B7C8A280373c40044'; // TON token address
-const WTON_ADDRESS = '0x79E0d92670106c85E9067b56B8F674340dCa0Bbd';
-
 // Use Deposit Manager for deposits
 const DEPOSIT_MANAGER_ADDRESS = ROLLUP_BRIDGE_DEPOSIT_MANAGER_ADDRESS;
 
-const SEPOLIA_RPC_URL = 'https://eth-sepolia.g.alchemy.com/v2/PbqCcGx1oHN7yNaFdUJUYqPEN0QSp23S';
-const CHANNEL_ID = 2; // Channel 2
-
-// TON uses wei units (10^18), WTON uses ray units (10^27)
-// When swapping: 1 TON (wei) = 1 WTON (ray), but numerically ray = wei * 10^9
-const parseRay = (amount: string): bigint => {
-  return BigInt(amount) * BigInt(10 ** 27);
-};
-
-const formatRay = (amount: bigint): string => {
-  const divisor = BigInt(10 ** 27);
-  const integer = amount / divisor;
-  const decimal = amount % divisor;
-  const decimalStr = decimal.toString().padStart(27, '0').substring(0, 6); // Show 6 decimal places
-  return `${integer}.${decimalStr}`;
-};
-
 const TON_AMOUNT = parseEther('100'); // 100 TON in wei (for swap input and deposit)
 const WTON_AMOUNT = parseRay('100'); // 100 WTON in ray (for deposit)
-const TON_DEPOSIT_AMOUNT = parseEther('100'); // 100 TON in wei (for deposit)
+const TON_DEPOSIT_AMOUNT = parseEther('100'); // 100 TON in wei (for deposit) - same as TON_AMOUNT
 
 // Read private keys from environment variables
 const PRIVATE_KEYS = [process.env.ALICE_PRIVATE_KEY, process.env.BOB_PRIVATE_KEY, process.env.CHARLIE_PRIVATE_KEY];
@@ -84,58 +71,10 @@ let TON_MPT_KEYS: string[] = [];
 let WTON_MPT_KEYS: string[] = [];
 
 // ============================================================================
-// ABIs
-// ============================================================================
-
-const TON_ABI = [
-  'function approve(address spender, uint256 amount) returns (bool)',
-  'function balanceOf(address account) view returns (uint256)',
-  'function transfer(address to, uint256 amount) returns (bool)',
-];
-
-const WTON_ABI = [
-  'function swapFromTON(uint256 tonAmount) returns (bool)', // NOT payable!
-  'function approve(address spender, uint256 amount) returns (bool)',
-  'function balanceOf(address account) view returns (uint256)',
-];
-
-const DEPOSIT_MANAGER_ABI = [
-  'function depositToken(uint256 channelId, address token, uint256 amount, bytes32 _mptKey) external',
-];
-
-const ROLLUP_BRIDGE_CORE_ABI = [
-  'function getChannelParticipants(uint256 channelId) view returns (address[])',
-  'function getL2MptKey(uint256 channelId, address participant, address token) view returns (uint256)',
-  'function getParticipantTokenDeposit(uint256 channelId, address participant, address token) view returns (uint256)',
-  'function getParticipantPublicKey(uint256 channelId, address participant) view returns (uint256 pkx, uint256 pky)',
-];
-
-// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
-/**
- * Convert L2 public key (pkx, pky) to L2 address
- */
-function publicKeyToL2Address(pkx: bigint, pky: bigint): string {
-  const pkxBytes = setLengthLeft(bigIntToBytes(pkx), 32);
-  const pkyBytes = setLengthLeft(bigIntToBytes(pky), 32);
-  const combined = new Uint8Array(64);
-  combined.set(pkxBytes, 0);
-  combined.set(pkyBytes, 32);
-  const address = fromEdwardsToAddress(combined);
-  return address.toString();
-}
-
-/**
- * Generate L2 storage key (MPT key) from L2 address and slot
- */
-function generateL2StorageKey(l2Address: string, slot: bigint): string {
-  const addressBigInt = BigInt(l2Address);
-  const storageKeyBigInt = addressBigInt ^ slot;
-  const storageKeyBytes = setLengthLeft(bigIntToBytes(storageKeyBigInt), 32);
-  return bytesToHex(storageKeyBytes);
-}
+// Note: publicKeyToL2Address and generateL2StorageKey are now imported from constants.ts
 
 async function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -186,9 +125,11 @@ async function fetchChannelParticipants(provider: JsonRpcProvider): Promise<void
       l2Address = publicKeyToL2Address(pkx, pky);
     }
 
-    // Calculate MPT keys from L2 address (slot 0 for ERC20 balance)
-    const tonMptKeyHex = generateL2StorageKey(l2Address, 0n);
-    const wtonMptKeyHex = generateL2StorageKey(l2Address, 0n);
+    // Calculate MPT keys from L2 address, slot, and token address
+    // Including token address ensures different MPT keys for different tokens
+    // This prevents collisions when the same participant deposits multiple tokens
+    const tonMptKeyHex = generateL2StorageKey(l2Address, 0n, TON_ADDRESS);
+    const wtonMptKeyHex = generateL2StorageKey(l2Address, 0n, WTON_ADDRESS);
     TON_MPT_KEYS.push(tonMptKeyHex);
     WTON_MPT_KEYS.push(wtonMptKeyHex);
 

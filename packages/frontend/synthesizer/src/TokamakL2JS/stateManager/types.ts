@@ -17,6 +17,7 @@ export interface StorageEntry {
   index: number;
   key: string; // Hex string of the L2 storage key
   value: string; // Hex string of the L2 storage value
+  contractAddress?: string; // Optional: Contract address for this storage entry (for multi-token support)
 }
 
 /**

@@ -1,9 +1,9 @@
 /**
  * Create ZIP file from test output directory
- * 
+ *
  * This script creates a ZIP file containing all output files from the test
  * for use in the zkp-channel-verifier app.
- * 
+ *
  * Usage:
  *   npx tsx examples/L2StateChannel/create-zip-from-output.ts [output-dir]
  */

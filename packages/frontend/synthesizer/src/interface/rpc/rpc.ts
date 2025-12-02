@@ -18,6 +18,9 @@ export type SynthesizerSimulationOpts = {
   txNonce: bigint,
   userStorageSlots: number[],
   callData: Uint8Array,
+
+  // Optional: Skip RPC initialization if previousState will be used
+  skipRPCInit?: boolean,
 }
 
 async function getBlockInfoFromRPC(
@@ -27,7 +30,7 @@ async function getBlockInfoFromRPC(
 ): Promise<SynthesizerBlockInfo> {
 	const provider = new ethers.JsonRpcProvider(rpcUrl)
 	const block = await provider.getBlock(blockNumber, false)
-	
+
 	if (block === null) {
 		throw new Error('RPC calls an invalid block')
 	}
@@ -38,7 +41,7 @@ async function getBlockInfoFromRPC(
 	): Promise<string> {
 		const block = await provider.getBlock(blockNumber, false)
 		return block?.hash ?? '0x00'
-	}	
+	}
 
 	const hashes: bigint[] = new Array<bigint>(nHashes)
 	for ( var i = 0; i < nHashes; i++){
@@ -83,7 +86,7 @@ export async function createSynthesizerOptsForSimulationFromRPC(opts: Synthesize
         userL1Addresses: opts.addressListL1,
         userL2Addresses: opts.publicKeyListL2.map(key => fromEdwardsToAddress(key)),
     }
-    const L2StateManager = await createTokamakL2StateManagerFromL1RPC(opts.rpcUrl, stateManagerOpts)
+    const L2StateManager = await createTokamakL2StateManagerFromL1RPC(opts.rpcUrl, stateManagerOpts, opts.skipRPCInit || false)
 
     const transactionData: TokamakL2TxData = {
         nonce: opts.txNonce,
