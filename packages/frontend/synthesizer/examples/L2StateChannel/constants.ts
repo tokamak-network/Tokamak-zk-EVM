@@ -29,6 +29,8 @@ export const ROLLUP_BRIDGE_ADMIN_MANAGER_ADDRESS = '0x1c38A6739bDb55f357fcd1aF25
 
 // Legacy/Proxy addresses (for backward compatibility)
 export const ROLLUP_BRIDGE_CORE_PROXY_ADDRESS = '0x780ad1b236390C42479b62F066F5cEeAa4c77ad6';
+// New modular address (causes "Failed to capture the final state" error - needs investigation)
+export const ROLLUP_BRIDGE_CORE_NEW_ADDRESS = '0x3e47aeefffec5e4bce34426ed6c8914937a65435';
 export const DEPOSIT_MANAGER_PROXY_ADDRESS = '0x2873519dea0C8fE39e12f5E93a94B78d270F0401';
 
 // ============================================================================
@@ -55,6 +57,7 @@ export const CHANNEL_ID_8 = 8; // Channel 8 (legacy, uses WTON)
 export const ROLLUP_BRIDGE_CORE_ABI = [
   'function getChannelInfo(uint256 channelId) view returns (address[] allowedTokens, uint8 state, uint256 participantCount, bytes32 initialRoot)',
   'function getChannelParticipants(uint256 channelId) view returns (address[])',
+  'function getChannelPublicKey(uint256 channelId) view returns (uint256 pkx, uint256 pky)',
   'function getParticipantPublicKey(uint256 channelId, address participant) view returns (uint256 pkx, uint256 pky)',
   'function getParticipantTokenDeposit(uint256 channelId, address participant, address token) view returns (uint256)',
   'function getL2MptKey(uint256 channelId, address participant, address token) view returns (uint256)',
@@ -143,4 +146,29 @@ export function generateL2StorageKey(l2Address: string, slot: bigint, tokenAddre
 
   const storageKeyBytes = setLengthLeft(bigIntToBytes(storageKeyBigInt), 32);
   return bytesToHex(storageKeyBytes);
+}
+
+/**
+ * Reverse engineer L2 address from on-chain MPT key
+ *
+ * Since MPT key = l2Address ^ slot ^ tokenAddress (XOR operation),
+ * we can reverse it: l2Address = mptKey ^ slot ^ tokenAddress
+ *
+ * This is the most reliable way to get the actual L2 address used on-chain,
+ * especially when getParticipantPublicKey is not available.
+ *
+ * @param mptKey - MPT key from on-chain contract (getL2MptKey)
+ * @param slot - Storage slot (typically 0 for ERC20 balance)
+ * @param tokenAddress - Token address used in MPT key generation
+ * @returns L2 address as hex string
+ */
+export function deriveL2AddressFromMptKey(mptKey: string, slot: bigint, tokenAddress: string): string {
+  const mptKeyBigInt = BigInt(mptKey);
+  const tokenBigInt = BigInt(tokenAddress);
+
+  // Reverse the XOR operation: l2Address = mptKey ^ slot ^ tokenAddress
+  const l2AddressBigInt = mptKeyBigInt ^ slot ^ tokenBigInt;
+
+  const l2AddressBytes = setLengthLeft(bigIntToBytes(l2AddressBigInt), 20); // L2 address is 20 bytes
+  return bytesToHex(l2AddressBytes);
 }

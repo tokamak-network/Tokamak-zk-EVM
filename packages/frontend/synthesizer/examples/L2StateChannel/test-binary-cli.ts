@@ -13,11 +13,10 @@
  */
 
 import { spawn } from 'child_process';
-import { existsSync, readFileSync, mkdirSync, writeFileSync, readdirSync, statSync } from 'fs';
+import { existsSync, readFileSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { tmpdir } from 'os';
-import { execSync } from 'child_process';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -168,48 +167,6 @@ function executeBinary(
 }
 
 /**
- * Extract ZIP file and find state_snapshot.json
- */
-function extractZipAndFindStateSnapshot(zipPath: string): string | null {
-  if (!existsSync(zipPath)) {
-    return null;
-  }
-
-  const extractDir = resolve(tmpdir(), `test-extract-${Date.now()}`);
-  mkdirSync(extractDir, { recursive: true });
-
-  console.log(`📦 Extracting ${zipPath}...`);
-  try {
-    execSync(`unzip -q "${zipPath}" -d "${extractDir}"`);
-  } catch (e) {
-    console.warn('⚠️  Failed to extract ZIP');
-    return null;
-  }
-
-  // Search for state_snapshot.json recursively
-  function findFile(dir: string, filename: string): string | null {
-    const entries = readdirSync(dir);
-    for (const entry of entries) {
-      const fullPath = resolve(dir, entry);
-      try {
-        const stats = statSync(fullPath);
-        if (stats.isDirectory() && !entry.startsWith('.') && !entry.startsWith('__MACOSX')) {
-          const found = findFile(fullPath, filename);
-          if (found) return found;
-        } else if (stats.isFile() && entry === filename) {
-          return fullPath;
-        }
-      } catch (e) {
-        // Ignore
-      }
-    }
-    return null;
-  }
-
-  return findFile(extractDir, 'state_snapshot.json');
-}
-
-/**
  * Verify output files exist and are valid
  */
 function verifyOutputFiles(outputDir: string): boolean {
@@ -268,29 +225,7 @@ async function testBinaryCLI() {
 
   console.log(`✅ Found binary: ${binaryPath}\n`);
 
-  // Step 2: Find and extract ZIP file with previous state
-  console.log('🔍 Step 2: Finding onchain-proof-test.zip...');
-  const zipPath = resolve(
-    __dirname,
-    '../../../../tokamak-zkp-channel-apps/packages/zkp-channel-verifier/test/onchain-proof-test.zip',
-  );
-  let previousStatePath: string | null = null;
-
-  if (existsSync(zipPath)) {
-    console.log(`✅ Found ZIP: ${zipPath}`);
-    previousStatePath = extractZipAndFindStateSnapshot(zipPath);
-    if (previousStatePath) {
-      const stateContent = JSON.parse(readFileSync(previousStatePath, 'utf-8'));
-      console.log(`✅ Previous state found: ${stateContent.stateRoot}\n`);
-    } else {
-      console.log('⚠️  state_snapshot.json not found in ZIP, continuing without previous state\n');
-    }
-  } else {
-    console.log(`⚠️  ZIP file not found at ${zipPath}`);
-    console.log('   Continuing without previous state (first transaction)\n');
-  }
-
-  // Step 3: Prepare output directory
+  // Step 2: Prepare output directory
   const outputDir = resolve(process.cwd(), 'test-outputs/binary-cli-test');
   mkdirSync(outputDir, { recursive: true });
   console.log(`📁 Output directory: ${outputDir}\n`);
@@ -298,11 +233,6 @@ async function testBinaryCLI() {
   // Step 3: Test with --sender-address (L1 address)
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║     Test 1: Using --sender-address (L1 Address)           ║');
-  if (previousStatePath) {
-    console.log('║             WITH Previous State                            ║');
-  } else {
-    console.log('║             WITHOUT Previous State                         ║');
-  }
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
   const args1 = [
@@ -324,11 +254,6 @@ async function testBinaryCLI() {
     '--output-dir',
     outputDir,
   ];
-
-  // Add previous state if available
-  if (previousStatePath) {
-    args1.push('--previous-state', previousStatePath);
-  }
 
   const result1 = await executeBinary(binaryPath, args1);
 
@@ -361,21 +286,12 @@ async function testBinaryCLI() {
   }
 
   // Step 6: Test with --sender-index (alternative method)
-  // Use the generated state from Test 1 as previous state for Test 2
   console.log('\n\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║     Test 2: Using --sender-index (Index)                  ║');
-  console.log('║             WITH Previous State from Test 1                ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
   const outputDir2 = resolve(process.cwd(), 'test-outputs/binary-cli-test-2');
   mkdirSync(outputDir2, { recursive: true });
-
-  // Use state_snapshot.json from Test 1 as previous state
-  const test1StatePath = resolve(outputDir, 'state_snapshot.json');
-  if (!existsSync(test1StatePath)) {
-    throw new Error('Test 1 state_snapshot.json not found. Cannot proceed with Test 2.');
-  }
-  console.log(`📄 Using previous state from Test 1: ${test1StatePath}\n`);
 
   const args2 = [
     'l2-state-channel',
@@ -395,8 +311,6 @@ async function testBinaryCLI() {
     SEPOLIA_RPC_URL,
     '--output-dir',
     outputDir2,
-    '--previous-state',
-    test1StatePath,
   ];
 
   const result2 = await executeBinary(binaryPath, args2);

@@ -71,15 +71,11 @@ export class Synthesizer implements SynthesizerInterface {
           // const currentInterpreterStep = {...data}
 
           if (this._prevInterpreterStep !== null) {
-            // Only log on error - removed verbose logging
+            console.log(`stack: ${this._prevInterpreterStep.stack.map(x => bigIntToHex(x))}`);
+            console.log(`pc: ${this._prevInterpreterStep.pc}, opcode: ${this._prevInterpreterStep.opcode.name}`);
             await this._applySynthesizerHandler(this._prevInterpreterStep, currentInterpreterStep);
           }
         } catch (err) {
-          // Log opcode trace only when error occurs
-          if (this._prevInterpreterStep !== null) {
-            console.error(`[Error] pc: ${this._prevInterpreterStep.pc}, opcode: ${this._prevInterpreterStep.opcode.name}`);
-            console.error(`[Error] stack: ${this._prevInterpreterStep.stack.map(x => bigIntToHex(x))}`);
-          }
           console.error('Synthesizer: step error:', err);
         } finally {
           this._prevInterpreterStep = {
@@ -142,15 +138,11 @@ export class Synthesizer implements SynthesizerInterface {
             throw new Error('Data loading failure when finalizing Synthesizer');
           }
           await this._applySynthesizerHandler(this._prevInterpreterStep, currentInterpreterStep);
-          // Only log on error - removed verbose logging
+          console.log(`stack: ${currentInterpreterStep.stack.map(x => bigIntToHex(x))}`);
+          console.log(`pc: ${currentInterpreterStep.pc}, opcode: ${currentInterpreterStep.opcode.name}`);
           await this._finalizeStorage();
           // this._computeTxHash()
         } catch (err) {
-          // Log opcode trace only when error occurs
-          if (this._prevInterpreterStep) {
-            console.error(`[Error] pc: ${this._prevInterpreterStep.pc}, opcode: ${this._prevInterpreterStep.opcode.name}`);
-            console.error(`[Error] stack: ${this._prevInterpreterStep.stack.map(x => bigIntToHex(x))}`);
-          }
           console.error('Synthesizer: afterMessage error:', err);
         } finally {
           // console.log(`code = ${bytesToHex(data.execResult.runState!.code)}`)

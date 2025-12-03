@@ -196,24 +196,9 @@ copy_scripts_and_resources() {
     echo "✅ copied to ${TARGET}"
 
     echo "[*] Copying resource..."
-    # Copy library
     mkdir -p "${TARGET}/resource/qap-compiler/library"
     cp -r packages/frontend/qap-compiler/subcircuits/library/* "${TARGET}/resource/qap-compiler/library"
-
-    # Copy scripts directory (contains constants.circom and other scripts)
-    if [ -d "packages/frontend/qap-compiler/scripts" ]; then
-        mkdir -p "${TARGET}/resource/qap-compiler/scripts"
-        cp -r packages/frontend/qap-compiler/scripts/* "${TARGET}/resource/qap-compiler/scripts"
-        echo "✅ copied scripts directory"
-    fi
-
     echo "✅ copied to ${TARGET}/resource"
-
-    # Create symbolic link for binary compatibility (synthesizer expects subcircuits/library)
-    echo "[*] Creating symbolic link for qap-compiler compatibility..."
-    mkdir -p "${TARGET}/resource/qap-compiler/subcircuits"
-    ln -sf ../library "${TARGET}/resource/qap-compiler/subcircuits/library"
-    echo "✅ symbolic link created: subcircuits/library -> library"
 }
 
 build_synthesizer() {

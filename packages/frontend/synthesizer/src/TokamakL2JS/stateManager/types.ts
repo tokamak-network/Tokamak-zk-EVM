@@ -8,6 +8,9 @@ export type TokamakL2StateManagerOpts = {
   userStorageSlots: number[];
   userL1Addresses: AddressLike[];
   userL2Addresses: AddressLike[];
+  // Optional: For using on-chain MPT keys instead of getUserStorageKey
+  bridgeContractAddress?: AddressLike; // Bridge contract address (e.g., RollupBridgeCore)
+  channelId?: bigint; // Channel ID for fetching MPT keys from bridge contract
 };
 
 /**
