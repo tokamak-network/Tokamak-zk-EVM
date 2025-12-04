@@ -52,6 +52,8 @@ export interface CalldataSynthesizeOptions {
   previousState?: StateSnapshot; // Optional: previous state to restore from
   outputPath?: string; // Optional: path for file outputs
   txNonce?: bigint; // Transaction nonce for sender (default: 0n)
+  userL2Addresses?: string[]; // Optional: L2 addresses (if not provided, derived from publicKeyListL2)
+  tokenAddress?: string; // Optional: token address for MPT key calculation
 }
 
 export interface SynthesizerResult {
@@ -329,6 +331,7 @@ export class SynthesizerAdapter {
       addressListL1: options.addressListL1 as `0x${string}`[],
       publicKeyListL2: options.publicKeyListL2,
       callData: calldataBytes,
+      skipRPCInit: !!previousState, // Skip RPC init if previousState will be used
     };
 
     console.log('[SynthesizerAdapter] Creating synthesizer...');

@@ -100,17 +100,6 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
     //   - For registered keys: leaf = Poseidon2(MPT_key, deposit_amount)
     //   - For empty positions: leaf = Poseidon2(0, 0) (zeroLeaf)
 
-    // Create a map from key (hex string) to storage value for quick lookup
-    const storageValueMap = new Map<string, bigint>();
-    if (this._storageEntries && this._storageEntries.length > 0) {
-      // Map each storage entry's key to its value
-      for (const entry of this._storageEntries) {
-        const keyHex = (entry.key as string).toLowerCase();
-        const valueBigInt = bytesToBigInt(hexToBytes(entry.value as `0x${string}`));
-        storageValueMap.set(keyHex, valueBigInt);
-      }
-    }
-
     const contractAddress = new Address(toBytes(this.cachedOpts!.contractAddress));
 
     // Compute zero leaf: Poseidon2(0, 0) for empty positions
@@ -130,18 +119,12 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
       }
 
       const keyBigInt = bytesToBigInt(key);
-      const keyHex = bytesToHex(key).toLowerCase();
 
-      // Get storage value for this specific key
-      let storageValueBigInt: bigint;
-      if (storageValueMap.has(keyHex)) {
-        // Use value from storageEntries (from snapshot)
-        storageValueBigInt = storageValueMap.get(keyHex)!;
-      } else {
-        // Fallback to getStorage if not in storageEntries (for RPC init)
-        const val = await this.getStorage(contractAddress, key);
-        storageValueBigInt = bytesToBigInt(val);
-      }
+      // IMPORTANT: Always get CURRENT storage value from state manager
+      // This ensures that SSTORE operations are reflected in the Merkle tree
+      // Previously, we used cached values from snapshot which caused the Merkle root to not update
+      const val = await this.getStorage(contractAddress, key);
+      const storageValueBigInt = bytesToBigInt(val);
 
       // Circuit: Poseidon255(2)(storage_key_L2MPT, storage_value)
       // This exactly matches Circuit line 73-74:
@@ -293,9 +276,41 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
       await this.putAccount(contractAddress, contractAccount);
     }
 
+    // Load contract code from snapshot if provided, otherwise fetch from RPC
+    // This is critical - without contract code, transactions will fail with "runState is undefined"
+    if (snapshot.contractCode) {
+      // Use code from snapshot if available
+      await this.putCode(contractAddress, hexToBytes(snapshot.contractCode as `0x${string}`));
+    } else {
+      // Fetch contract code from RPC (required for transaction execution)
+      // Note: This requires rpcUrl to be available in cachedOpts
+      if (!this.cachedOpts.rpcUrl) {
+        console.warn('⚠️  Warning: No RPC URL available to fetch contract code');
+        console.warn('   Contract code must be provided in snapshot or transactions will fail');
+      } else {
+        const provider = new ethers.JsonRpcProvider(this.cachedOpts.rpcUrl);
+        const byteCodeStr = await provider.getCode(contractAddress.toString(), this.cachedOpts.blockNumber);
+        if (byteCodeStr === '0x' || byteCodeStr === '') {
+          console.warn(`⚠️  Warning: Contract ${contractAddress.toString()} has no code at block ${this.cachedOpts.blockNumber}`);
+        } else {
+          await this.putCode(contractAddress, hexToBytes(addHexPrefix(byteCodeStr)));
+          console.log(`✅ Contract code loaded: ${byteCodeStr.length} bytes`);
+        }
+      }
+    }
+
     // Restore registered keys
+    // Allow overwriting if keys are the same (for state restoration scenarios)
     if (this._registeredKeys !== null) {
-      throw new Error('Cannot rewrite registered keys');
+      const existingKeysHex = this._registeredKeys.map(key => bytesToHex(key));
+      const newKeysHex = snapshot.registeredKeys.map(key => (typeof key === 'string' ? key : bytesToHex(key)));
+      const keysMatch =
+        existingKeysHex.length === newKeysHex.length &&
+        existingKeysHex.every((key, idx) => key.toLowerCase() === newKeysHex[idx].toLowerCase());
+      if (!keysMatch) {
+        throw new Error('Cannot rewrite registered keys: keys do not match');
+      }
+      // Keys match, allow overwriting
     }
     this._registeredKeys = snapshot.registeredKeys.map(key => hexToBytes(key as `0x${string}`));
 

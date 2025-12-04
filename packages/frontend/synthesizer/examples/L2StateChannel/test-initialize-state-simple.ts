@@ -1,5 +1,5 @@
 /**
- * Test: Restore Initial State from On-chain Data
+ * Test: Restore Initial State from On-chain Data and Simulate L2 Transfer
  *
  * This script:
  * 1. Fetches the initializeChannelState transaction from on-chain
@@ -7,20 +7,33 @@
  * 3. Fetches on-chain data (MPT keys, deposits) using getL2MptKey()
  * 4. Creates a StateSnapshot and restores it to Synthesizer EVM
  * 5. Verifies that the restored Merkle root matches the on-chain state root
+ * 6. Simulates L2 transfer (Participant 1 → Participant 2, 1 TON) using the restored state
  *
- * This initial Merkle root can be used as the base state for simulating L2 transactions.
+ * This demonstrates the complete flow: state restoration → transaction simulation → state update
  */
 
-import { ethers } from 'ethers';
+import { ethers, parseEther } from 'ethers';
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { SEPOLIA_RPC_URL, ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI, TON_ADDRESS } from './constants.ts';
-import { Address, hexToBytes, addHexPrefix } from '@ethereumjs/util';
+import {
+  Address,
+  hexToBytes,
+  addHexPrefix,
+  bytesToBigInt,
+  bigIntToBytes,
+  setLengthLeft,
+  bytesToHex,
+  utf8ToBytes,
+} from '@ethereumjs/util';
 import { StateSnapshot } from '../../src/TokamakL2JS/stateManager/types.ts';
 import { createTokamakL2StateManagerFromL1RPC } from '../../src/TokamakL2JS/stateManager/constructors.ts';
-import { poseidon, getEddsaPublicKey } from '../../src/TokamakL2JS/index.ts';
+import { poseidon, getEddsaPublicKey, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { Common, Mainnet } from '@ethereumjs/common';
+import { jubjub } from '@noble/curves/misc';
+import { SynthesizerAdapter } from '../../src/interface/adapters/synthesizerAdapter.ts';
+import { generateMptKeyFromWallet } from './mpt-key-utils.ts';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -214,16 +227,7 @@ async function testInitializeState() {
   console.log(`   Restored State Root: ${restoredStateRoot}`);
   console.log('─────────────────────────────────────────────────────────\n');
 
-  if (restoredStateRoot.toLowerCase() === onChainStateRoot.toLowerCase()) {
-    console.log('✅ SUCCESS: State roots match!');
-    console.log('   The restored state matches the on-chain state exactly.\n');
-    console.log('💡 This proves that using on-chain data (MPT keys, deposits)');
-    console.log('   we can accurately restore the Synthesizer EVM state to match on-chain merkle root.\n');
-    console.log('🚀 Next Steps:');
-    console.log('   - Use this initial Merkle root as the base state');
-    console.log('   - Simulate L2 transactions to update the state');
-    console.log('   - Generate new Merkle roots after each transaction\n');
-  } else {
+  if (restoredStateRoot.toLowerCase() !== onChainStateRoot.toLowerCase()) {
     console.log('❌ FAILURE: State roots do not match!');
     console.log('   The restored state does not match the on-chain state.');
     console.log('   This may indicate:');
@@ -231,6 +235,186 @@ async function testInitializeState() {
     console.log('   - Storage entry ordering issue');
     console.log('   - Merkle tree calculation difference\n');
     process.exit(1);
+  }
+
+  console.log('✅ SUCCESS: State roots match!');
+  console.log('   The restored state matches the on-chain state exactly.\n');
+
+  // Step 6: Simulate L2 Transfer (Participant 1 → Participant 2, 1 TON)
+  console.log('🔄 Step 6: Simulating L2 Transfer (Participant 1 → Participant 2, 1 TON)...\n');
+
+  if (participants.length < 2) {
+    console.log('❌ FAILURE: Need at least 2 participants for transfer simulation');
+    process.exit(1);
+  }
+
+  // Read private keys from environment variables (same as deposit-ton.ts)
+  const PRIVATE_KEYS = [process.env.ALICE_PRIVATE_KEY, process.env.BOB_PRIVATE_KEY, process.env.CHARLIE_PRIVATE_KEY];
+  const PARTICIPANT_NAMES = ['Alice', 'Bob', 'Charlie'];
+
+  if (!PRIVATE_KEYS[0] || !PRIVATE_KEYS[1] || !PRIVATE_KEYS[2]) {
+    console.error('❌ Error: Private keys not found in .env file');
+    console.error('Please add the following to your .env file:');
+    console.error('  ALICE_PRIVATE_KEY="..."');
+    console.error('  BOB_PRIVATE_KEY="..."');
+    console.error('  CHARLIE_PRIVATE_KEY="..."');
+    process.exit(1);
+  }
+
+  // Extract participant 1 and 2 information from restored state
+  const participant1MptKeyHex = registeredKeys[0];
+  const participant2MptKeyHex = registeredKeys[1];
+  const participant1L1Address = participants[0];
+  const participant2L1Address = participants[1];
+
+  // Find participant indices by matching L1 addresses
+  const participant1Index = participants.findIndex(addr => addr.toLowerCase() === participant1L1Address.toLowerCase());
+  const participant2Index = participants.findIndex(addr => addr.toLowerCase() === participant2L1Address.toLowerCase());
+
+  if (participant1Index === -1 || participant2Index === -1) {
+    console.error('❌ Error: Could not find participant indices');
+    process.exit(1);
+  }
+
+  // Create wallets from private keys (same as deposit-ton.ts)
+  const participant1Wallet = new ethers.Wallet(PRIVATE_KEYS[participant1Index]!);
+  const participant2Wallet = new ethers.Wallet(PRIVATE_KEYS[participant2Index]!);
+
+  // Verify addresses match
+  if (participant1Wallet.address.toLowerCase() !== participant1L1Address.toLowerCase()) {
+    console.error(
+      `❌ Error: Participant 1 address mismatch: expected ${participant1L1Address}, got ${participant1Wallet.address}`,
+    );
+    process.exit(1);
+  }
+  if (participant2Wallet.address.toLowerCase() !== participant2L1Address.toLowerCase()) {
+    console.error(
+      `❌ Error: Participant 2 address mismatch: expected ${participant2L1Address}, got ${participant2Wallet.address}`,
+    );
+    process.exit(1);
+  }
+
+  // Generate L2 keys using the same process as deposit-ton.ts
+  // This recreates the exact same private/public keys and L2 addresses
+  // Note: We don't need to verify MPT keys - we only need L2 address and private key for transfer
+  const participant1L1PublicKeyHex = participant1Wallet.signingKey.publicKey;
+  const participant2L1PublicKeyHex = participant2Wallet.signingKey.publicKey;
+
+  // Create seed and generate private key (same as generateMptKeyFromWallet)
+  const participant1SeedString = `${participant1L1PublicKeyHex}${CHANNEL_ID}${PARTICIPANT_NAMES[participant1Index]!}`;
+  const participant1SeedBytes = utf8ToBytes(participant1SeedString);
+  const participant1SeedHashBytes = poseidon(participant1SeedBytes);
+  const participant1SeedHashBigInt = bytesToBigInt(participant1SeedHashBytes);
+  const participant1PrivateKeyBigInt = participant1SeedHashBigInt % jubjub.Point.Fn.ORDER;
+  const participant1PrivateKeyValue = participant1PrivateKeyBigInt === 0n ? 1n : participant1PrivateKeyBigInt;
+  const participant1PrivateKey = setLengthLeft(bigIntToBytes(participant1PrivateKeyValue), 32);
+
+  const participant2SeedString = `${participant2L1PublicKeyHex}${CHANNEL_ID}${PARTICIPANT_NAMES[participant2Index]!}`;
+  const participant2SeedBytes = utf8ToBytes(participant2SeedString);
+  const participant2SeedHashBytes = poseidon(participant2SeedBytes);
+  const participant2SeedHashBigInt = bytesToBigInt(participant2SeedHashBytes);
+  const participant2PrivateKeyBigInt = participant2SeedHashBigInt % jubjub.Point.Fn.ORDER;
+  const participant2PrivateKeyValue = participant2PrivateKeyBigInt === 0n ? 1n : participant2PrivateKeyBigInt;
+  const participant2PrivateKey = setLengthLeft(bigIntToBytes(participant2PrivateKeyValue), 32);
+
+  // Generate public keys from private keys
+  const participant1PublicKey = jubjub.Point.BASE.multiply(bytesToBigInt(participant1PrivateKey)).toBytes();
+  const participant2PublicKey = jubjub.Point.BASE.multiply(bytesToBigInt(participant2PrivateKey)).toBytes();
+
+  // Derive L2 addresses from public keys (same as deposit-ton.ts)
+  const participant1L2Address = fromEdwardsToAddress(jubjub.Point.fromBytes(participant1PublicKey)).toString();
+  const participant2L2Address = fromEdwardsToAddress(jubjub.Point.fromBytes(participant2PublicKey)).toString();
+
+  console.log(`   Participant 1 (Sender):`);
+  console.log(`      - L1 Address: ${participant1L1Address}`);
+  console.log(`      - L2 Address: ${participant1L2Address}`);
+  console.log(`      - MPT Key: ${participant1MptKeyHex}\n`);
+
+  console.log(`   Participant 2 (Recipient):`);
+  console.log(`      - L1 Address: ${participant2L1Address}`);
+  console.log(`      - L2 Address: ${participant2L2Address}`);
+  console.log(`      - MPT Key: ${participant2MptKeyHex}\n`);
+
+  // Create transfer calldata: transfer(address,uint256)
+  const transferAmount = parseEther('1'); // 1 TON
+  const calldata =
+    '0xa9059cbb' + // transfer(address,uint256) function selector
+    participant2L2Address.slice(2).padStart(64, '0') + // recipient address (participant 2)
+    transferAmount.toString(16).padStart(64, '0'); // amount (1 TON)
+
+  console.log(`   Transfer Details:`);
+  console.log(`      - From: ${participant1L2Address}`);
+  console.log(`      - To: ${participant2L2Address}`);
+  console.log(`      - Amount: 1 TON (${transferAmount.toString()})\n`);
+
+  // Generate public keys for all participants using the same logic as deposit-ton.ts
+  const allPublicKeys: Uint8Array[] = [];
+  const allL1Addresses: string[] = [];
+  for (let i = 0; i < participants.length; i++) {
+    const l1Address = participants[i];
+    const participantIndex = participants.findIndex(addr => addr.toLowerCase() === l1Address.toLowerCase());
+    if (participantIndex === -1 || !PRIVATE_KEYS[participantIndex]) {
+      throw new Error(`Private key not found for participant ${l1Address}`);
+    }
+    const wallet = new ethers.Wallet(PRIVATE_KEYS[participantIndex]!);
+
+    // Verify address matches
+    if (wallet.address.toLowerCase() !== l1Address.toLowerCase()) {
+      throw new Error(`Address mismatch: expected ${l1Address}, got ${wallet.address}`);
+    }
+
+    // Generate seed and private key (same as deposit-ton.ts)
+    const l1PublicKeyHex = wallet.signingKey.publicKey;
+    const seedString = `${l1PublicKeyHex}${CHANNEL_ID}${PARTICIPANT_NAMES[participantIndex]!}`;
+    const seedBytes = utf8ToBytes(seedString);
+    const seedHashBytes = poseidon(seedBytes);
+    const seedHashBigInt = bytesToBigInt(seedHashBytes);
+    const privateKeyBigInt = seedHashBigInt % jubjub.Point.Fn.ORDER;
+    const privateKeyValue = privateKeyBigInt === 0n ? 1n : privateKeyBigInt;
+    const privateKey = setLengthLeft(bigIntToBytes(privateKeyValue), 32);
+
+    // Generate public key from private key
+    const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(privateKey)).toBytes();
+    allPublicKeys.push(publicKey);
+    allL1Addresses.push(l1Address);
+  }
+
+  // Create SynthesizerAdapter
+  const adapter = new SynthesizerAdapter({ rpcUrl: RPC_URL });
+
+  // Prepare options for synthesizeFromCalldata
+  const synthesizeOptions = {
+    contractAddress: allowedTokens[0],
+    publicKeyListL2: allPublicKeys,
+    addressListL1: allL1Addresses,
+    senderL2PrvKey: participant1PrivateKey,
+    previousState: stateSnapshot, // Use the restored state snapshot
+    blockNumber: tx.blockNumber, // Use the block number from initialize transaction
+    userStorageSlots: [0], // ERC20 balance slot
+    txNonce: 0n, // First transaction
+    tokenAddress: allowedTokens[0], // TON contract address
+  };
+
+  console.log('   🔄 Executing transfer simulation...\n');
+  const result = await adapter.synthesizeFromCalldata(calldata, synthesizeOptions);
+
+  if (result.placementVariables.length === 0) {
+    console.log('❌ FAILURE: Synthesizer failed to generate placements');
+    process.exit(1);
+  }
+
+  console.log(`   ✅ Transfer simulation completed successfully!`);
+  console.log(`      - Placements: ${result.placementVariables.length}`);
+  console.log(`      - Previous State Root: ${stateSnapshot.stateRoot}`);
+  console.log(`      - New State Root:      ${result.state.stateRoot}\n`);
+
+  // Validate that state root changed (transaction was executed)
+  if (result.state.stateRoot !== stateSnapshot.stateRoot) {
+    console.log('   ✅ State root CHANGED! (Transaction executed successfully)');
+    console.log('   ✅ Transfer simulation successful!\n');
+  } else {
+    console.log('   ⚠️  State root UNCHANGED (No state change detected)');
+    console.log('   ⚠️  This may indicate the transaction was not executed properly\n');
   }
 
   console.log('╔══════════════════════════════════════════════════════════════╗');

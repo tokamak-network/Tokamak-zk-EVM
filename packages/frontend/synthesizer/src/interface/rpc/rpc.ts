@@ -85,6 +85,7 @@ export async function createSynthesizerOptsForSimulationFromRPC(opts: Synthesize
         userStorageSlots: opts.userStorageSlots,
         userL1Addresses: opts.addressListL1,
         userL2Addresses: opts.publicKeyListL2.map(key => fromEdwardsToAddress(key)),
+        rpcUrl: opts.rpcUrl, // Pass RPC URL for contract code fetching
     }
     const L2StateManager = await createTokamakL2StateManagerFromL1RPC(opts.rpcUrl, stateManagerOpts, opts.skipRPCInit || false)
 
