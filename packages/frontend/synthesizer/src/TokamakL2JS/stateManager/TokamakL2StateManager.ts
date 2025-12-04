@@ -10,7 +10,7 @@ import { poseidon } from "../crypto/index.ts";
 import { keccak256 } from "ethereum-cryptography/keccak";
 import { RLP } from "@ethereumjs/rlp";
 import { poseidon_raw } from "src/interface/qapCompiler/configuredTypes.ts";
-
+import { getUserStorageKey } from "../utils/index.ts";
 
 export class TokamakL2StateManager extends MerkleStateManager implements StateManagerInterface {
     private _cachedOpts: TokamakL2StateManagerOpts | null = null
@@ -37,11 +37,11 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         const registeredKeys: Uint8Array[] = []
         for (const [idx, L1Addr] of userL1Addresses.entries()) {
             for (const slot of opts.userStorageSlots){
-                const L1key = this.getUserStorageKey([L1Addr, slot], 'L1')
+                const L1key = getUserStorageKey([L1Addr, slot], 'L1')
                 const v   = await provider.getStorage(contractAddress.toString(), bytesToBigInt(L1key), opts.blockNumber)
 
                 const vBytes = hexToBytes(addHexPrefix(v))
-                const L2key = this.getUserStorageKey([userL2Addresses[idx], slot], 'L2')
+                const L2key = getUserStorageKey([userL2Addresses[idx], slot], 'TokamakL2')
                 await this.putStorage(contractAddress, L2key, vBytes)
 
                 registeredKeys.push(L2key)
@@ -148,36 +148,6 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
     //     const keyHex = keccak256(packed);          // 0x-prefixed string
     //     return hexToBytes(addHexPrefix(keyHex));
     // }
-
-    public getUserStorageKey(parts: Array<Address | number | bigint | string>, usage: 'L1' | 'L2'): Uint8Array {
-        const bytesArray: Uint8Array[] = []
-
-        for (const p of parts) {
-            let b: Uint8Array
-
-            if (p instanceof Address) {
-            b = p.toBytes()
-            } else if (typeof p === 'number') {
-            b = bigIntToBytes(BigInt(p))
-            } else if (typeof p === 'bigint') {
-            b = bigIntToBytes(p)
-            } else if (typeof p === 'string') {
-            b = hexToBytes(addHexPrefix(p))
-            } else {
-            throw new Error('getStorageKey accepts only Address | number | bigint | string');
-            }
-
-            bytesArray.push(setLengthLeft(b, 32))
-        }
-        const packed = concatBytes(...bytesArray)
-        let hash
-        if (usage === 'L1') {
-            hash = keccak256
-        } else {
-            hash = this._cachedOpts === null ? poseidon : this._cachedOpts.common.customCrypto.keccak256!
-        }
-        return hash(packed)
-    }
 }
 
 class TokamakL2MerkleTree extends IMT {
