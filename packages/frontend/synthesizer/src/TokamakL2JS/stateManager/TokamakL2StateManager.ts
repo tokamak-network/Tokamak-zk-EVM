@@ -24,6 +24,7 @@ import { poseidon } from '../crypto/index.ts';
 import { keccak256 } from 'ethereum-cryptography/keccak';
 import { RLP } from '@ethereumjs/rlp';
 import { poseidon_raw } from 'src/interface/qapCompiler/configuredTypes.ts';
+import { getUserStorageKey } from '../utils/index.ts';
 
 export class TokamakL2StateManager extends MerkleStateManager implements StateManagerInterface {
   private _cachedOpts: TokamakL2StateManagerOpts | null = null;
@@ -56,11 +57,11 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
     const registeredKeys: Uint8Array[] = [];
     for (const [idx, L1Addr] of userL1Addresses.entries()) {
       for (const slot of opts.userStorageSlots) {
-        const L1key = this.getUserStorageKey([L1Addr, slot], 'L1');
+        const L1key = getUserStorageKey([L1Addr, slot], 'L1');
         const v = await provider.getStorage(contractAddress.toString(), bytesToBigInt(L1key), opts.blockNumber);
 
         const vBytes = hexToBytes(addHexPrefix(v));
-        const L2key = this.getUserStorageKey([userL2Addresses[idx], slot], 'L2');
+        const L2key = getUserStorageKey([userL2Addresses[idx], slot], 'TokamakL2');
         await this.putStorage(contractAddress, L2key, vBytes);
 
         registeredKeys.push(L2key);
@@ -423,6 +424,10 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
       console.log(`✅ Merkle tree root matches snapshot: ${snapshot.stateRoot.toLowerCase()}`);
     }
   }
+  //     const packed = solidityPacked(Array(parts.length).fill('bytes'), bytesArray);
+  //     const keyHex = keccak256(packed);          // 0x-prefixed string
+  //     return hexToBytes(addHexPrefix(keyHex));
+  // }
 }
 
 class TokamakL2MerkleTree extends IMT {
