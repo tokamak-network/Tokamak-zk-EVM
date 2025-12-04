@@ -27,11 +27,8 @@ export const ROLLUP_BRIDGE_PROOF_MANAGER_ADDRESS = '0xF0396B7547C7447FBb14A127D3
 export const ROLLUP_BRIDGE_WITHDRAW_MANAGER_ADDRESS = '0xAf833c7109DB3BfDAc54a98EA7b123CFDE51d777';
 export const ROLLUP_BRIDGE_ADMIN_MANAGER_ADDRESS = '0x1c38A6739bDb55f357fcd1aF258E0359ed77c662';
 
-// Legacy/Proxy addresses (for backward compatibility)
-export const ROLLUP_BRIDGE_CORE_PROXY_ADDRESS = '0x780ad1b236390C42479b62F066F5cEeAa4c77ad6';
 // New modular address (causes "Failed to capture the final state" error - needs investigation)
-export const ROLLUP_BRIDGE_CORE_NEW_ADDRESS = '0x3e47aeefffec5e4bce34426ed6c8914937a65435';
-export const DEPOSIT_MANAGER_PROXY_ADDRESS = '0x2873519dea0C8fE39e12f5E93a94B78d270F0401';
+export const DEPOSIT_MANAGER_PROXY_ADDRESS = '0xd5e8b17058809b9491f99d35b67a089a2618f5fb';
 
 // ============================================================================
 // TOKEN ADDRESSES (Sepolia Testnet)
@@ -43,12 +40,6 @@ export const WTON_ADDRESS = '0x79E0d92670106c85E9067b56B8F674340dCa0Bbd'; // WTO
 // ============================================================================
 // CHANNEL CONFIGURATION
 // ============================================================================
-
-// Active test channel
-export const CHANNEL_ID = 5; // Channel 5 for testing
-
-// Legacy channel (for reference)
-export const CHANNEL_ID_8 = 8; // Channel 8 (legacy, uses WTON)
 
 // ============================================================================
 // CONTRACT ABIs

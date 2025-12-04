@@ -17,6 +17,7 @@ MPT Key = L2 Address ^ Slot ^ Token Address
 ```
 
 Where:
+
 - `L2 Address`: 20-byte address derived from participant's public key
 - `Slot`: Storage slot (typically 0 for ERC20 balance)
 - `Token Address`: Token contract address (e.g., TON, WTON)
@@ -25,13 +26,13 @@ Where:
 
 ```typescript
 // L2 Address
-const l2Address = "0xb1afc197e193f544f6c00a98b4dbb8cb4105871a";
+const l2Address = '0xb1afc197e193f544f6c00a98b4dbb8cb4105871a';
 
 // Slot (ERC20 balance)
 const slot = 0n;
 
 // Token Address (TON)
-const tokenAddress = "0xa30fe40285B8f5c0457DbC3B7C8A280373c40044";
+const tokenAddress = '0xa30fe40285B8f5c0457DbC3B7C8A280373c40044';
 
 // MPT Key = l2Address ^ slot ^ tokenAddress
 const mptKey = l2Address ^ slot ^ tokenAddress;
@@ -55,7 +56,7 @@ This is a **one-way hash function** - you cannot reverse it to get the original 
 
 ```typescript
 // Tokamak L2
-l2Address ^ slot ^ tokenAddress
+l2Address ^ slot ^ tokenAddress;
 ```
 
 This is a **reversible operation** - you can derive the L2 address from the MPT key.
@@ -71,28 +72,30 @@ This is a **reversible operation** - you can derive the L2 address from the MPT 
 #### 2. **Reversibility** 🔄
 
 XOR is **reversible**, which allows:
+
 - Deriving L2 address from on-chain MPT key
 - No need to store L2 addresses separately
 - Can reconstruct state from MPT keys alone
 
 ```typescript
 // Forward: Generate MPT key
-mptKey = l2Address ^ slot ^ tokenAddress
+mptKey = l2Address ^ slot ^ tokenAddress;
 
 // Reverse: Derive L2 address
-l2Address = mptKey ^ slot ^ tokenAddress
+l2Address = mptKey ^ slot ^ tokenAddress;
 ```
 
 #### 3. **Token Isolation** 🪙
 
 Including token address in XOR ensures:
+
 - Same L2 address + different tokens = different MPT keys
 - Prevents storage collisions
 - Each token has its own isolated storage space
 
 ```typescript
 // Same L2 address, different tokens
-const mptKeyTON  = l2Address ^ 0n ^ TON_ADDRESS;
+const mptKeyTON = l2Address ^ 0n ^ TON_ADDRESS;
 const mptKeyWTON = l2Address ^ 0n ^ WTON_ADDRESS;
 // These are different!
 ```
@@ -111,14 +114,14 @@ const mptKeyWTON = l2Address ^ 0n ^ WTON_ADDRESS;
 
 ## Comparison: Standard EVM vs Tokamak L2
 
-| Aspect | Standard EVM | Tokamak L2 |
-|--------|-------------|------------|
-| **Key Generation** | `keccak256(address, slot)` | `address ^ slot ^ tokenAddress` |
-| **Reversibility** | ❌ One-way (cannot reverse) | ✅ Reversible (can derive address) |
-| **Hash Function** | keccak256 | XOR (no hash needed) |
-| **ZK Circuit Cost** | High (keccak256 is expensive) | Low (XOR is cheap) |
-| **Token Support** | Separate mappings per token | Token address in key |
-| **On-Chain Storage** | Store addresses separately | Derive from MPT keys |
+| Aspect               | Standard EVM                  | Tokamak L2                         |
+| -------------------- | ----------------------------- | ---------------------------------- |
+| **Key Generation**   | `keccak256(address, slot)`    | `address ^ slot ^ tokenAddress`    |
+| **Reversibility**    | ❌ One-way (cannot reverse)   | ✅ Reversible (can derive address) |
+| **Hash Function**    | keccak256                     | XOR (no hash needed)               |
+| **ZK Circuit Cost**  | High (keccak256 is expensive) | Low (XOR is cheap)                 |
+| **Token Support**    | Separate mappings per token   | Token address in key               |
+| **On-Chain Storage** | Store addresses separately    | Derive from MPT keys               |
 
 ## How MPT Keys Are Used
 
@@ -132,7 +135,7 @@ const mptKey = await bridgeContract.getL2MptKey(channelId, participant, token);
 registeredKeys.push(mptKey);
 storageEntries.push({
   key: mptKey,
-  value: depositAmount
+  value: depositAmount,
 });
 ```
 
@@ -149,6 +152,7 @@ The Merkle root is computed from all leaves and stored on-chain as the state roo
 ### 3. State Verification
 
 On-chain verifiers can:
+
 1. Receive MPT keys and values
 2. Reconstruct Merkle tree
 3. Verify the computed root matches the on-chain state root
@@ -188,6 +192,7 @@ const recreated = generateL2StorageKey(l2Address, 0n, tokenAddress);
 ## Summary
 
 **MPT Key** in Tokamak zkEVM:
+
 - Is a **storage identifier** for L2 state
 - Uses **XOR operation** instead of keccak256 hash
 - Is **reversible** (can derive L2 address from key)
@@ -196,6 +201,7 @@ const recreated = generateL2StorageKey(l2Address, 0n, tokenAddress);
 - Is stored **on-chain** and used for state verification
 
 This design balances:
+
 - ✅ ZK circuit efficiency
 - ✅ On-chain storage efficiency
 - ✅ State verification capabilities
@@ -204,7 +210,7 @@ This design balances:
 ---
 
 **References:**
+
 - `constants.ts`: `generateL2StorageKey()`, `deriveL2AddressFromMptKey()`
 - `TokamakL2StateManager.ts`: Merkle tree construction
 - `BLS12-Poseidon-Merkle-tree-Groth16/`: ZK circuit implementation
-

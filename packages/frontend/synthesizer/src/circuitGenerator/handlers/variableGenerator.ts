@@ -224,6 +224,8 @@ export class VariableGenerator {
       // Lower bytes
       newDataPts.push({
         ...copied,
+        extDest: copied.extDest === undefined ? undefined : copied.extDest + ` (lower 16 bytes)`,
+        extSource: copied.extSource === undefined ? undefined : copied.extSource + ` (lower 16 bytes)`,
         value: lowerVal,
         valueHex: bigIntToHex(lowerVal),
       });
@@ -231,6 +233,8 @@ export class VariableGenerator {
       // Upper bytes
       newDataPts.push({
         ...copied,
+        extDest: copied.extDest === undefined ? undefined : copied.extDest + ` (upper 16 bytes)`,
+        extSource: copied.extSource === undefined ? undefined : copied.extSource + ` (upper 16 bytes)`,
         value: upperVal,
         valueHex: bigIntToHex(upperVal),
       });

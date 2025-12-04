@@ -82,55 +82,75 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
   public async convertLeavesIntoMerkleTreeLeaves(): Promise<bigint[]> {
     const leaves = new Array<bigint>(MAX_MT_LEAVES);
 
-    // Circuit uses: leaf = Poseidon2(storage_key_L2MPT, storage_value)
-    // This matches the circuit's TokamakStorageMerkleProof implementation
+    // Circuit implementation reference:
     // See: packages/BLS12-Poseidon-Merkle-tree-Groth16/circuits/src/circuit_N4.circom
+    //
+    // Circuit logic (lines 66-76):
+    //   for (var i = 0; i < nLeaves; i++) {
+    //       leaf_hash[i] = Poseidon255(2);
+    //       leaf_hash[i].in[0] <== storage_keys_L2MPT[i];   // L2MPT storage key
+    //       leaf_hash[i].in[1] <== storage_values[i];       // Storage value
+    //       leaf_values[i] <== leaf_hash[i].out;
+    //   }
+    //
+    // Circuit receives ALL nLeaves (16) inputs, where empty positions have:
+    //   storage_keys_L2MPT[i] = 0
+    //   storage_values[i] = 0
+    //   → leaf = Poseidon255(2)(0, 0)
+    //
+    // Our implementation:
+    //   - For registered keys: leaf = Poseidon2(MPT_key, deposit_amount)
+    //   - For empty positions: leaf = Poseidon2(0, 0) (zeroLeaf)
 
-    // Get deposit amount (all accounts have the same deposit amount)
-    let depositAmountBigInt: bigint;
+    // Create a map from key (hex string) to storage value for quick lookup
+    const storageValueMap = new Map<string, bigint>();
     if (this._storageEntries && this._storageEntries.length > 0) {
-      // Use first deposit amount (all accounts have the same amount)
-      depositAmountBigInt = bytesToBigInt(hexToBytes(this._storageEntries[0].value as `0x${string}`));
-    } else {
-      // Fallback to getStorage if storageEntries not available (for RPC init)
-      const contractAddress = new Address(toBytes(this.cachedOpts!.contractAddress));
-      const firstKey = this.registeredKeys![0];
-      if (!firstKey) {
-        throw new Error('No registered keys available');
+      // Map each storage entry's key to its value
+      for (const entry of this._storageEntries) {
+        const keyHex = (entry.key as string).toLowerCase();
+        const valueBigInt = bytesToBigInt(hexToBytes(entry.value as `0x${string}`));
+        storageValueMap.set(keyHex, valueBigInt);
       }
-      const val = await this.getStorage(contractAddress, firstKey);
-      depositAmountBigInt = bytesToBigInt(val);
     }
 
+    const contractAddress = new Address(toBytes(this.cachedOpts!.contractAddress));
+
     // Compute zero leaf: Poseidon2(0, 0) for empty positions
-    // Note: Poseidon2(0, 0) is NOT 0n, it's a specific hash value
+    // This matches Circuit behavior for empty leaf positions
+    // Circuit test code (circuit_test.js:28-29): empty positions use (0, 0)
     const zeroLeaf = poseidon_raw([0n, 0n]);
 
-    // Generate leaves: each leaf uses the same deposit amount but different L2MPT key
+    // Generate all MAX_MT_LEAVES (16) leaves to match Circuit input structure
+    // Circuit expects exactly nLeaves (16) leaf values, one for each position
     for (let index = 0; index < MAX_MT_LEAVES; index++) {
       const key = this.registeredKeys![index];
       if (key === undefined) {
-        // For empty positions, use Poseidon2(0, 0) (not 0n!)
-        // This matches Circuit behavior: Poseidon2(storage_key_L2MPT=0, storage_value=0)
+        // Empty position: use Poseidon2(0, 0) to match Circuit
+        // This corresponds to Circuit input: storage_keys_L2MPT[i] = 0, storage_values[i] = 0
         leaves[index] = zeroLeaf;
         continue;
       }
 
       const keyBigInt = bytesToBigInt(key);
+      const keyHex = bytesToHex(key).toLowerCase();
+
+      // Get storage value for this specific key
+      let storageValueBigInt: bigint;
+      if (storageValueMap.has(keyHex)) {
+        // Use value from storageEntries (from snapshot)
+        storageValueBigInt = storageValueMap.get(keyHex)!;
+      } else {
+        // Fallback to getStorage if not in storageEntries (for RPC init)
+        const val = await this.getStorage(contractAddress, key);
+        storageValueBigInt = bytesToBigInt(val);
+      }
 
       // Circuit: Poseidon255(2)(storage_key_L2MPT, storage_value)
-      // Poseidon2 takes exactly 2 inputs: [storage_key_L2MPT, storage_value]
-      // storage_value is the deposit amount (same for all accounts)
-      const leaf = poseidon_raw([keyBigInt, depositAmountBigInt]);
+      // This exactly matches Circuit line 73-74:
+      //   leaf_hash[i].in[0] <== storage_keys_L2MPT[i];
+      //   leaf_hash[i].in[1] <== storage_values[i];
+      const leaf = poseidon_raw([keyBigInt, storageValueBigInt]);
       leaves[index] = leaf;
-
-      // Debug: Log first few leaves
-      if (index < 3) {
-        const valHex = '0x' + depositAmountBigInt.toString(16).padStart(64, '0');
-        console.log(
-          `   [DEBUG Leaf ${index}] key=${bytesToHex(key)}, deposit_amount=${valHex}, leaf=${leaf.toString(16)}`,
-        );
-      }
     }
 
     return leaves;

@@ -15,7 +15,7 @@ import { ethers } from 'ethers';
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { SEPOLIA_RPC_URL, ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI } from './constants.ts';
+import { SEPOLIA_RPC_URL, ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI, TON_ADDRESS } from './constants.ts';
 import { Address, hexToBytes, addHexPrefix } from '@ethereumjs/util';
 import { StateSnapshot } from '../../src/TokamakL2JS/stateManager/types.ts';
 import { createTokamakL2StateManagerFromL1RPC } from '../../src/TokamakL2JS/stateManager/constructors.ts';
@@ -35,11 +35,11 @@ config({ path: envPath });
 // ============================================================================
 
 const RPC_URL = SEPOLIA_RPC_URL;
-const CHANNEL_ID = 6; // Channel 6 for testing (single token: TON only)
+const CHANNEL_ID = 10; // Channel 10 for testing (single token: TON only)
 
 // Transaction hash for initializeChannelState
 // This should be the transaction that called initializeChannelState for the channel
-const INITIALIZE_TX_HASH = '0x713c57dc67b9d18945b8140c8eee256f21e999387a884fcb3531eaedd45aa859';
+const INITIALIZE_TX_HASH = '0x65a31d098ad36f36069073c539e3861685789788a7f753491ff67afc6357ac4d';
 
 // ============================================================================
 // MAIN TEST FUNCTION
@@ -118,50 +118,44 @@ async function testInitializeState() {
   console.log(`      - Initial Root: ${initialRoot}\n`);
 
   // Fetch all on-chain data
-  console.log(`   Fetching on-chain data for all participants...`);
-  console.log(`   Using getL2MptKey() directly - this key is used as-is for leaf generation\n`);
+  console.log(`   Fetching on-chain data for all participants...\n`);
 
   const storageEntries: Array<{ index: number; key: string; value: string }> = [];
   const registeredKeys: string[] = [];
 
   for (let i = 0; i < participants.length; i++) {
     const l1Address = participants[i];
-    const token = allowedTokens[0]; // Use first token
+    const token = allowedTokens[0]; // Use first token (should be TON)
 
-    // Get MPT key from on-chain - use this key directly for leaf generation
-    const mptKeyBigInt = await bridgeContract.getL2MptKey(CHANNEL_ID, l1Address, token);
-    const mptKeyHex = '0x' + mptKeyBigInt.toString(16).padStart(64, '0');
+    // Get MPT key from on-chain (this is what was actually used during deposit)
+    const onChainMptKeyBigInt = await bridgeContract.getL2MptKey(CHANNEL_ID, l1Address, token);
+    const onChainMptKeyHex = '0x' + onChainMptKeyBigInt.toString(16).padStart(64, '0');
 
-    // Get deposit amount
+    // Get deposit amount from on-chain
     const deposit = await bridgeContract.getParticipantTokenDeposit(CHANNEL_ID, l1Address, token);
 
     console.log(`      ${i + 1}. ${l1Address}`);
-    console.log(`         MPT Key (from getL2MptKey): ${mptKeyHex}`);
+    console.log(`         MPT Key: ${onChainMptKeyHex}`);
     console.log(`         Deposit: ${deposit.toString()}`);
 
-    registeredKeys.push(mptKeyHex);
+    // Use the on-chain MPT key (this is the source of truth)
+    registeredKeys.push(onChainMptKeyHex);
 
     const depositHex = '0x' + deposit.toString(16).padStart(64, '0');
     storageEntries.push({
       index: i,
-      key: mptKeyHex,
+      key: onChainMptKeyHex,
       value: depositHex,
     });
   }
   console.log('');
 
-  // Debug: Log registeredKeys order
-  console.log('🔍 Debug: RegisteredKeys order:');
-  registeredKeys.forEach((key, idx) => {
-    console.log(`   [${idx}] ${key}`);
-  });
-  console.log('');
-
   // Create StateSnapshot from on-chain data
-  // Note: getL2MptKey() returns the key that should be used directly for leaf generation
+  // Note: Using MPT keys from getL2MptKey() directly - these are the keys used during deposit
+  // Use keys in the same order as fetched from on-chain (no sorting)
   const stateSnapshot: StateSnapshot = {
     stateRoot: onChainStateRoot, // Use the state root from StateInitialized event
-    registeredKeys: registeredKeys, // MPT keys from getL2MptKey() - used directly
+    registeredKeys: registeredKeys, // Use MPT keys in original order (as fetched from on-chain)
     storageEntries: storageEntries,
     contractAddress: allowedTokens[0],
     userL2Addresses: [], // Not needed when using MPT keys directly
@@ -173,12 +167,10 @@ async function testInitializeState() {
   console.log(`   ✅ StateSnapshot created:`);
   console.log(`      - State Root: ${stateSnapshot.stateRoot}`);
   console.log(`      - Storage Entries: ${stateSnapshot.storageEntries.length}`);
-  console.log(`      - Registered Keys: ${stateSnapshot.registeredKeys.length}`);
-  console.log(`      - Using MPT keys directly from getL2MptKey()\n`);
+  console.log(`      - Registered Keys: ${stateSnapshot.registeredKeys.length}\n`);
 
   // Step 4: Restore state to Synthesizer's TokamakL2StateManager
-  console.log('🔄 Step 4: Restoring state to Synthesizer EVM...');
-  console.log(`   Using getL2MptKey() keys directly for leaf generation\n`);
+  console.log('🔄 Step 4: Restoring state to Synthesizer EVM...\n');
 
   // Create Common with custom crypto
   const commonOpts = {
