@@ -31,6 +31,10 @@ name = "batch_msm_simple"
 harness = false
 
 [[bench]]
+name = "msm_data_comparison"
+harness = false
+
+[[bench]]
 name = "prove0_msm_batch"
 harness = false
 
