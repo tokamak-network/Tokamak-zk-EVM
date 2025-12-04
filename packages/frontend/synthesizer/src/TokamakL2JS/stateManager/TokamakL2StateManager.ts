@@ -10,7 +10,6 @@ import {
   bigIntToHex,
   bytesToBigInt,
   bytesToHex,
-  concatBytes,
   createAccount,
   createAddressFromString,
   hexToBytes,
@@ -20,8 +19,6 @@ import {
 } from '@ethereumjs/util';
 import { MAX_MT_LEAVES, MT_DEPTH, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
 import { ethers, solidityPacked } from 'ethers';
-import { poseidon } from '../crypto/index.ts';
-import { keccak256 } from 'ethereum-cryptography/keccak';
 import { RLP } from '@ethereumjs/rlp';
 import { poseidon_raw } from 'src/interface/qapCompiler/configuredTypes.ts';
 import { getUserStorageKey } from '../utils/index.ts';
@@ -212,62 +209,6 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
       throw new Error('Cannot rewrite cached opts');
     }
     this._cachedOpts = opts;
-  }
-
-  // public getL1UserStorageKey(parts: Array<Address | number | bigint | string>): Uint8Array {
-  //     const bytesArray: Uint8Array[] = []
-
-  //     for (const p of parts) {
-  //         let b: Uint8Array
-
-  //         if (p instanceof Address) {
-  //         b = p.toBytes()
-  //         } else if (typeof p === 'number') {
-  //         b = bigIntToBytes(BigInt(p))
-  //         } else if (typeof p === 'bigint') {
-  //         b = bigIntToBytes(p)
-  //         } else if (typeof p === 'string') {
-  //         b = hexToBytes(addHexPrefix(p))
-  //         } else {
-  //         throw new Error('getStorageKey accepts only Address | number | bigint | string');
-  //         }
-
-  //         bytesArray.push(setLengthLeft(b, 32))
-  //     }
-
-  //     const packed = solidityPacked(Array(parts.length).fill('bytes'), bytesArray);
-  //     const keyHex = keccak256(packed);          // 0x-prefixed string
-  //     return hexToBytes(addHexPrefix(keyHex));
-  // }
-
-  public getUserStorageKey(parts: Array<Address | number | bigint | string>, usage: 'L1' | 'L2'): Uint8Array {
-    const bytesArray: Uint8Array[] = [];
-
-    for (const p of parts) {
-      let b: Uint8Array;
-
-      if (p instanceof Address) {
-        b = p.toBytes();
-      } else if (typeof p === 'number') {
-        b = bigIntToBytes(BigInt(p));
-      } else if (typeof p === 'bigint') {
-        b = bigIntToBytes(p);
-      } else if (typeof p === 'string') {
-        b = hexToBytes(addHexPrefix(p));
-      } else {
-        throw new Error('getStorageKey accepts only Address | number | bigint | string');
-      }
-
-      bytesArray.push(setLengthLeft(b, 32));
-    }
-    const packed = concatBytes(...bytesArray);
-    let hash;
-    if (usage === 'L1') {
-      hash = keccak256;
-    } else {
-      hash = this._cachedOpts === null ? poseidon : this._cachedOpts.common.customCrypto.keccak256!;
-    }
-    return hash(packed);
   }
 
   /**

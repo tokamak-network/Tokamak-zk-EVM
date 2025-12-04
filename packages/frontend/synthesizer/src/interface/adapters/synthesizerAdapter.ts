@@ -29,6 +29,7 @@ import { createSynthesizer, Synthesizer } from '../../synthesizer/index.ts';
 import { createCircuitGenerator } from '../../circuitGenerator/circuitGenerator.ts';
 import type { SynthesizerInterface } from '../../synthesizer/types/index.ts';
 import { fromEdwardsToAddress } from '../../TokamakL2JS/index.ts';
+import { getUserStorageKey } from '../../TokamakL2JS/utils/index.ts';
 import type { StateSnapshot } from '../../TokamakL2JS/stateManager/types.ts';
 import type { PublicInstance } from '../../circuitGenerator/types/types.ts';
 
@@ -260,12 +261,8 @@ export class SynthesizerAdapter {
       const stateSnapshotPath = resolve(outputPath, 'state_snapshot.json');
       writeFileSync(
         stateSnapshotPath,
-        JSON.stringify(
-          finalState,
-          (_key, value) => (typeof value === 'bigint' ? value.toString() : value),
-          2
-        ),
-        'utf-8'
+        JSON.stringify(finalState, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
+        'utf-8',
       );
       console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${stateSnapshotPath}`);
     }
@@ -384,7 +381,7 @@ export class SynthesizerAdapter {
       senderPubKeyBytes.set(setLengthLeft(toBytes(senderPubKey.toAffine().y), 32), 32);
       const senderL2Addr = fromEdwardsToAddress(senderPubKeyBytes);
       console.log(`  Sender L2: ${addHexPrefix(senderL2Addr.toString())}`);
-      const senderStorageKey = stateManager.getUserStorageKey([senderL2Addr, 0], 'L2');
+      const senderStorageKey = getUserStorageKey([senderL2Addr, 0], 'TokamakL2');
       const senderStorageKeyHex = bytesToHex(senderStorageKey);
       console.log(`  Sender key: ${senderStorageKeyHex.slice(0, 20)}...`);
       const keyIndex = previousState.registeredKeys.findIndex(
@@ -438,12 +435,8 @@ export class SynthesizerAdapter {
       const stateSnapshotPath = resolve(outputPath, 'state_snapshot.json');
       writeFileSync(
         stateSnapshotPath,
-        JSON.stringify(
-          finalState,
-          (_key, value) => (typeof value === 'bigint' ? value.toString() : value),
-          2
-        ),
-        'utf-8'
+        JSON.stringify(finalState, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
+        'utf-8',
       );
       console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${stateSnapshotPath}`);
     }
@@ -582,7 +575,7 @@ export class SynthesizerAdapter {
    */
   private normalizeStateSnapshot(snapshot: StateSnapshot): StateSnapshot {
     // Normalize userL2Addresses
-    const normalizedUserL2Addresses = snapshot.userL2Addresses.map((addr) => {
+    const normalizedUserL2Addresses = snapshot.userL2Addresses.map(addr => {
       if (typeof addr === 'string') {
         return addr;
       }
@@ -590,7 +583,7 @@ export class SynthesizerAdapter {
       if (addr && typeof addr === 'object' && 'bytes' in addr) {
         const bytesObj = (addr as any).bytes;
         const keys = Object.keys(bytesObj).sort((a, b) => Number(a) - Number(b));
-        const bytesArray = keys.map((k) => bytesObj[String(k)]);
+        const bytesArray = keys.map(k => bytesObj[String(k)]);
         if (bytesArray.length !== 20) {
           throw new Error(`Invalid address length: expected 20 bytes, got ${bytesArray.length}`);
         }
@@ -600,7 +593,7 @@ export class SynthesizerAdapter {
     });
 
     // Normalize userStorageSlots
-    const normalizedUserStorageSlots = snapshot.userStorageSlots.map((slot) => {
+    const normalizedUserStorageSlots = snapshot.userStorageSlots.map(slot => {
       if (typeof slot === 'bigint') {
         return slot;
       }
@@ -611,7 +604,7 @@ export class SynthesizerAdapter {
     });
 
     // Normalize userNonces
-    const normalizedUserNonces = snapshot.userNonces.map((nonce) => {
+    const normalizedUserNonces = snapshot.userNonces.map(nonce => {
       if (typeof nonce === 'bigint') {
         return nonce;
       }
