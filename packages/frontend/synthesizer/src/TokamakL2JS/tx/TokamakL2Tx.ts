@@ -144,20 +144,20 @@ export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof
             throw new Error('EDDSA private key must be in JubJub scalar field')
         }
         const msg = this.getMessageToSign()
-        const sig: {randomizer: EdwardsPoint, signature: bigint} = eddsaSign(sk, msg, bigIntToBytes(this.nonce))
+        const sig: {R: EdwardsPoint, S: bigint} = eddsaSign(sk, msg)
 
         const publicKey = jubjub.Point.BASE.multiply(sk)
         if (!publicKey.equals(jubjub.Point.fromBytes(this.senderPubKeyUnsafe))) {
             throw new Error("The public key initialized is not derived from the input private key")
         }
-        if (!eddsaVerify(msg, publicKey, sig.randomizer, sig.signature)) {
+        if (!eddsaVerify(msg, publicKey, sig.R, sig.S)) {
             throw new Error('Tried to sign but verification failure')
         }
 
         return this.addSignature(
             27n,
-            bytesToBigInt(sig.randomizer.toBytes()),
-            sig.signature
+            bytesToBigInt(sig.R.toBytes()),
+            sig.S
         )
     }
 }

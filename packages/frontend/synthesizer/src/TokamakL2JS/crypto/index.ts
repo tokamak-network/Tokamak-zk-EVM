@@ -75,17 +75,12 @@ export function getEddsaPublicKey(
     return pubKeyBytes
 }
 
-export function eddsaSign(prvKey: bigint, msg: Uint8Array[], txNonce: Uint8Array): {randomizer: EdwardsPoint, signature: bigint} {
+export function eddsaSign(prvKey: bigint, msg: Uint8Array[]): {R: EdwardsPoint, S: bigint} {
     const pubKey = jubjub.Point.BASE.multiply(prvKey)
 
-    let nonce: Uint8Array = txNonce
-    let s: bigint = 0n
-    let R: EdwardsPoint = jubjub.Point.ZERO
-    while (R.equals(jubjub.Point.ZERO) || s === 0n) {
-        const nonceKeyBytes = poseidon(concatBytes(
+    const nonceKeyBytes = poseidon(concatBytes(
             DST_NONCE, 
             setLengthLeft(bigIntToBytes(prvKey), 32), 
-            setLengthLeft(nonce, 32),
         ))
 
         const r = bytesToBigInt(poseidon(concatBytes(
@@ -98,7 +93,7 @@ export function eddsaSign(prvKey: bigint, msg: Uint8Array[], txNonce: Uint8Array
             ...msg,
         ))) % jubjub.Point.Fn.ORDER
 
-        R = jubjub.Point.BASE.multiply(r)
+        const R = jubjub.Point.BASE.multiply(r)
 
         const e = bytesToBigInt(poseidon(concatBytes(
             batchBigIntTo32BytesEach(
@@ -111,33 +106,27 @@ export function eddsaSign(prvKey: bigint, msg: Uint8Array[], txNonce: Uint8Array
         )))
         const ep = e % jubjub.Point.Fn.ORDER
 
-        s = (r + ep * prvKey) % jubjub.Point.Fn.ORDER
-
-        nonce = nonceKeyBytes
-    }
+        const S = (r + ep * prvKey) % jubjub.Point.Fn.ORDER
 
     
-    return {
-        signature: s,
-        randomizer: R,
-    }
+    return {R, S}
 }
 
-export function eddsaVerify(msg: Uint8Array[], pubKey: EdwardsPoint, randomizer: EdwardsPoint, signature: bigint): boolean {
-    if (signature >= jubjub.Point.Fn.ORDER || signature < 0n) return false
+export function eddsaVerify(msg: Uint8Array[], pubKey: EdwardsPoint, R: EdwardsPoint, S: bigint): boolean {
+    if (S >= jubjub.Point.Fn.ORDER || S < 0n) return false
     if (pubKey.equals(jubjub.Point.ZERO)) return false
-    if (randomizer.equals(jubjub.Point.ZERO)) return false
+    if (R.equals(jubjub.Point.ZERO)) return false
     if (msg.length === 0) return false
     const e = bytesToBigInt(poseidon(concatBytes(
         batchBigIntTo32BytesEach(
-            randomizer.toAffine().x,
-            randomizer.toAffine().y, 
+            R.toAffine().x,
+            R.toAffine().y, 
             pubKey.toAffine().x, 
             pubKey.toAffine().y
         ),
         ...msg
     ))) % jubjub.Point.Fn.ORDER
-    const LHS = jubjub.Point.BASE.multiply(signature)
-    const RHS = pubKey.multiply(e).add(randomizer)
+    const LHS = jubjub.Point.BASE.multiply(S)
+    const RHS = pubKey.multiply(e).add(R)
     return LHS.equals(RHS)
 }
