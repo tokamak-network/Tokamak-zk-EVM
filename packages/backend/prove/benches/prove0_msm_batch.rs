@@ -3,13 +3,6 @@ use libs::utils::check_device;
 use prove::{ProveInputPaths, Prover};
 use std::time::Duration;
 
-#[cfg(not(target_env = "msvc"))]
-use tikv_jemallocator::Jemalloc;
-
-#[cfg(not(target_env = "msvc"))]
-#[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
-
 mod utils;
 use utils::prove0_batch::{prove0_with_batch_msm, prove0_with_grouped_batch_msm};
 
