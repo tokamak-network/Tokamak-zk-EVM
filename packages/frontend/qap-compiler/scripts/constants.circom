@@ -1,10 +1,13 @@
 pragma circom 2.1.6;
-function nPubIn() {return 10;}
-function nPubOut() {return 5;}
-function nPrvIn() {return 70;}
-function nEVMIn() {return 170;}
-function nPoseidonInputs() {return 4;}
-function nMtDepth() {return 2;}
+function nPubOut() {return 8;}
+function nPubIn() {return 32;}
+function nEVMIn() {return 250;}
+function nPrvIn() {return 450;}
+
+function nPoseidonInputs() {return 2;}
+function nMtDepth() {return 4;}
 function nMtLeaves() {return nPoseidonInputs() ** nMtDepth();}
 function nAccumulation() {return 32;}
-function nPrevBlockHashes() {return 8;}
+function nPrevBlockHashes() {return 4;}
+function nJubjubExpBatch() {return 64;}
+function nSubExpBatch() {return 16;}

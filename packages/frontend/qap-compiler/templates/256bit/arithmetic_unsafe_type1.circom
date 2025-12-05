@@ -136,8 +136,29 @@ template SubExp_unsafe() {
     signal carry <== bool5;
     signal sum <== (1 - bool5) * (inter1[0] + inter2[0]);
     inter3[0] <== sum;
-    inter3[1] <== carry + inter2[1]; // a_next * b + (1 - b)
+    inter3[1] <== carry + inter2[1]; // a_prev * b + (1 - b)
     signal carry2[2];
     (c_next, carry2) <== Mul256_unsafe()(c_prev, inter3);
     // carry2 is thrown away according to the EVM spec.
+}
+
+template subExpBatch(N) {
+    signal input c_prev[2], a_prev[2], b[N];
+    signal output c_next[2], a_next[2];
+
+    signal inter_c[N+1][2];
+    signal inter_a[N+1][2];
+    inter_c[0] <== c_prev;
+    inter_a[0] <== a_prev;
+    component subExp[N];
+    for (var i = 0; i < N; i++) {
+        subExp[i] = SubExp_unsafe();
+        subExp[i].c_prev <== inter_c[i];
+        subExp[i].a_prev <== inter_a[i];
+        subExp[i].b <== b[i];
+        inter_c[i+1] <== subExp[i].c_next;
+        inter_a[i+1] <== subExp[i].a_next;
+    }
+    c_next <== inter_c[N];
+    a_next <== inter_a[N];
 }

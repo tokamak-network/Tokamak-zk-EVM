@@ -8,24 +8,28 @@
  * @property {number} sourceSize - Actual size of the data.
  * @property {bigint} value - Data value.
  */
-export interface DataPtDescription {
+
+export type DataPtDescription = {
   // if data comes from external
   extSource?: string;
   // if data is provided to external
   extDest?: string;
   // external data type
-  type?: string;
-  // key if the external data comes from or goes to a DB
-  key?: string;
+  // type?: string;
+  // // key if the external data comes from or goes to a DB
+  // key?: string;
   // offset if the external data comes from a memory
-  offset?: number;
+  // offset?: number;
   // // used for pairing the Keccak input and output (as input can be longer than 256 bit)
   // pairedInputWireIndices?: number[]
+
   // placement index at which the dataPt comes from
   source: number;
   // wire index at which the dataPt comes from
-  sourceBitSize: number;
   wireIndex: number;
+  
+  sourceBitSize: number;
+  
   // identifier?: string
 }
 export type DataPt = DataPtDescription & { value: bigint, valueHex: string };

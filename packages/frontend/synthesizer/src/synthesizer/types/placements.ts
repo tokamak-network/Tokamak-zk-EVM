@@ -35,6 +35,7 @@ export function placementsDeepCopy(placements: Placements): Placements {
 export type PlacementVariableEntry = {
   subcircuitId: number;
   variables: string[];
+  instanceList: string[];
 };
 
 export type PlacementVariables = PlacementVariableEntry[];

@@ -2,6 +2,7 @@ import { addHexPrefix, Address, bigIntToBytes, bytesToBigInt, bytesToHex, concat
 import { EdwardsPoint } from "@noble/curves/abstract/edwards"
 import { jubjub } from "@noble/curves/misc"
 import { poseidon } from "../crypto/index.ts"
+import { keccak256 } from "ethereum-cryptography/keccak"
 
 
 
@@ -33,6 +34,44 @@ export function fromEdwardsToAddress(point: EdwardsPoint | Uint8Array): Address 
     }
     const addressByte = poseidon(pointBytes).subarray(-20)
     return new Address(addressByte)
+}
+
+export function getUserStorageKey(parts: Array<Address | number | bigint | string>, layer: 'L1' | 'TokamakL2'): Uint8Array {
+    const bytesArray: Uint8Array[] = []
+
+    for (const p of parts) {
+        let b: Uint8Array
+
+        if (p instanceof Address) {
+        b = p.toBytes()
+        } else if (typeof p === 'number') {
+        b = bigIntToBytes(BigInt(p))
+        } else if (typeof p === 'bigint') {
+        b = bigIntToBytes(p)
+        } else if (typeof p === 'string') {
+        b = hexToBytes(addHexPrefix(p))
+        } else {
+        throw new Error('getStorageKey accepts only Address | number | bigint | string');
+        }
+
+        bytesArray.push(setLengthLeft(b, 32))
+    }
+    const packed = concatBytes(...bytesArray)
+    let hash
+    switch (layer) {
+        case 'L1': {
+            hash = keccak256;
+        }
+        break;
+        case 'TokamakL2': {
+            hash = poseidon;
+        }
+        break;
+        default: {
+            throw new Error(`Error while making a user's storage key: Undefined layer "${layer}"`)
+        }
+    }
+    return hash(packed)
 }
 
 // export function compressJubJubPoint(point: EdwardsPoint): bigint {

@@ -3,12 +3,12 @@ import { LegacyTx, TransactionInterface, TransactionType, createLegacyTx } from 
 import { EthereumJSErrorWithoutCode } from "@ethereumjs/rlp"
 import { jubjub } from "@noble/curves/misc"
 import { EdwardsPoint } from "@noble/curves/abstract/edwards"
-import { eddsaSign_unsafe, eddsaVerify, getEddsaPublicKey, poseidon } from "../crypto/index.ts"
+import { eddsaSign, eddsaVerify, getEddsaPublicKey, poseidon } from "../crypto/index.ts"
 import { batchBigIntTo32BytesEach, fromEdwardsToAddress } from "../utils/index.ts"
 import { createTokamakL2Tx } from "./constructors.ts"
 
 // LegacyTx prohibits to add new members for extension. Bypassing this problem by the follow:
-const _senderPubKeyStore = new WeakMap<TokamakL2Tx, Uint8Array>();
+const _unsafeSenderPubKeyStorage = new WeakMap<TokamakL2Tx, Uint8Array>();
 
 export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof TransactionType.Legacy> {
     declare readonly to: Address
@@ -16,15 +16,15 @@ export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof
     // r: randomizer in bytes form
     // s: The EDDSA signature (in JUBJUB scalar field)
     
-    initSenderPubKey(key: Uint8Array): void {
-        if (_senderPubKeyStore.has(this)) {
-        throw new Error('Overwriting the sender public key is not allowed');
+    initUnsafeSenderPubKey(key: Uint8Array): void {
+        if (_unsafeSenderPubKeyStorage.has(this)) {
+        throw new Error('Overwriting the sender public key (unsafe) is not allowed');
         }
-        _senderPubKeyStore.set(this, key);
+        _unsafeSenderPubKeyStorage.set(this, key);
     }
     get senderPubKeyUnsafe(): Uint8Array {
-        const v = _senderPubKeyStore.get(this);
-        if (!v) throw new Error('The sender public key is not initialized');
+        const v = _unsafeSenderPubKeyStorage.get(this);
+        if (!v) throw new Error('The sender public key (unsafe) is not initialized');
         return v;
     }
 
@@ -138,39 +138,26 @@ export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof
         return recovered
     }
 
-    override sign(privateKey: Uint8Array, extraEntropy: Uint8Array | boolean = false): TokamakL2Tx {
+    override sign(privateKey: Uint8Array): TokamakL2Tx {
         const sk = bytesToBigInt(privateKey)
         if (sk < 0n || sk >= jubjub.Point.Fn.ORDER) {
             throw new Error('EDDSA private key must be in JubJub scalar field')
         }
         const msg = this.getMessageToSign()
-        const signOnce = (nonce: bigint = 0n) => eddsaSign_unsafe(sk, msg, bigIntToBytes(nonce))
-
-        let sig: {randomizer: EdwardsPoint, signature: bigint}
-
-        if (extraEntropy === true) {
-            // keep bumping nonce until R ≠ 0
-            let nonce = 0n
-            do { sig = signOnce(nonce++) } while (sig.randomizer.equals(jubjub.Point.ZERO))
-        } else if (extraEntropy === false || extraEntropy === undefined) {
-            sig = signOnce()
-        } else {
-            // extraEntropy is Uint8Array
-            sig = signOnce(bytesToBigInt(extraEntropy))
-        }
+        const sig: {R: EdwardsPoint, S: bigint} = eddsaSign(sk, msg)
 
         const publicKey = jubjub.Point.BASE.multiply(sk)
         if (!publicKey.equals(jubjub.Point.fromBytes(this.senderPubKeyUnsafe))) {
             throw new Error("The public key initialized is not derived from the input private key")
         }
-        if (!eddsaVerify(msg, publicKey, sig.randomizer, sig.signature)) {
+        if (!eddsaVerify(msg, publicKey, sig.R, sig.S)) {
             throw new Error('Tried to sign but verification failure')
         }
 
         return this.addSignature(
             27n,
-            bytesToBigInt(sig.randomizer.toBytes()),
-            sig.signature
+            bytesToBigInt(sig.R.toBytes()),
+            sig.S
         )
     }
 }

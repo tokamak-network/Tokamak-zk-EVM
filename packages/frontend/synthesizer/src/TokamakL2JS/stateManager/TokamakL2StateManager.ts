@@ -3,14 +3,14 @@ import { TokamakL2StateManagerOpts } from "./types.ts";
 import { StateManagerInterface } from "@ethereumjs/common";
 import { jubjub } from "@noble/curves/misc";
 import { IMT, IMTHashFunction, IMTMerkleProof, IMTNode } from "@zk-kit/imt"
-import { poseidon_raw } from "src/synthesizer/params/index.ts";
 import { addHexPrefix, Address, bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, concatBytes, createAccount, createAddressFromString, hexToBytes, setLengthLeft, setLengthRight, toBytes } from "@ethereumjs/util";
-import { MAX_MT_LEAVES, POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts";
+import { MAX_MT_LEAVES, MT_DEPTH, POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts";
 import { ethers, solidityPacked } from "ethers";
 import { poseidon } from "../crypto/index.ts";
 import { keccak256 } from "ethereum-cryptography/keccak";
 import { RLP } from "@ethereumjs/rlp";
-
+import { poseidon_raw } from "src/interface/qapCompiler/configuredTypes.ts";
+import { getUserStorageKey } from "../utils/index.ts";
 
 export class TokamakL2StateManager extends MerkleStateManager implements StateManagerInterface {
     private _cachedOpts: TokamakL2StateManagerOpts | null = null
@@ -37,11 +37,11 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         const registeredKeys: Uint8Array[] = []
         for (const [idx, L1Addr] of userL1Addresses.entries()) {
             for (const slot of opts.userStorageSlots){
-                const L1key = this.getUserStorageKey([L1Addr, slot], 'L1')
+                const L1key = getUserStorageKey([L1Addr, slot], 'L1')
                 const v   = await provider.getStorage(contractAddress.toString(), bytesToBigInt(L1key), opts.blockNumber)
 
                 const vBytes = hexToBytes(addHexPrefix(v))
-                const L2key = this.getUserStorageKey([userL2Addresses[idx], slot], 'L2')
+                const L2key = getUserStorageKey([userL2Addresses[idx], slot], 'TokamakL2')
                 await this.putStorage(contractAddress, L2key, vBytes)
 
                 registeredKeys.push(L2key)
@@ -69,7 +69,7 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
                 leaves[index] = 0n
             } else {
                 const val = await this.getStorage(contractAddress, key)
-                leaves[index] = poseidon_raw([BigInt(index), bytesToBigInt(key), bytesToBigInt(val), 0n])
+                leaves[index] = poseidon_raw([bytesToBigInt(key), bytesToBigInt(val)])
             }
         }
         return leaves
@@ -85,7 +85,6 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
     }
 
     public async getUpdatedMerkleTreeRoot(): Promise<bigint> {
-        // txNonce = -1 indicates initialization
         const merkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this)
         const _root = merkleTree.root
         let root: Uint8Array = new Uint8Array([])
@@ -101,18 +100,11 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         return bytesToBigInt(root)
     }
 
-    // public async getMerkleProof(leafIndex: number): Promise<IMTMerkleProof> {
-    //     const merkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this)
-    //     // pathIndices of this proof generation is incorrect. The indices are based on binary, but we are using 4-ary.
-    //     return merkleTree.createProof(leafIndex)
-    //     // const childIndex = Number(inVals[0])
-    //     // const child = inVals[1]
-    //     // const siblings = [...inVals.slice(2,)]
-    //     // const arrangedChildren = [...siblings.slice(0, childIndex), child, ...siblings.slice(childIndex, )]
-    //     // const parentIndex = BigInt(Math.floor(childIndex / 4))
-    //     // const parentNode = ArithmeticOperations.poseidonN(arrangedChildren)
-    //     // return [parentIndex, parentNode]
-    // }
+    public async getMerkleProof(leafIndex: number): Promise<IMTMerkleProof> {
+        const merkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this)
+        // pathIndices of this proof generation is incorrect. The indices are based on binary, but we are using 4-ary.
+        return merkleTree.createProof(leafIndex)
+    }
 
     // public getInputMerkleTreeRootForTxNonce(txNonce: number) {
     //     const val = this._merkleTreeRoots[txNonce]
@@ -156,36 +148,6 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
     //     const keyHex = keccak256(packed);          // 0x-prefixed string
     //     return hexToBytes(addHexPrefix(keyHex));
     // }
-
-    public getUserStorageKey(parts: Array<Address | number | bigint | string>, usage: 'L1' | 'L2'): Uint8Array {
-        const bytesArray: Uint8Array[] = []
-
-        for (const p of parts) {
-            let b: Uint8Array
-
-            if (p instanceof Address) {
-            b = p.toBytes()
-            } else if (typeof p === 'number') {
-            b = bigIntToBytes(BigInt(p))
-            } else if (typeof p === 'bigint') {
-            b = bigIntToBytes(p)
-            } else if (typeof p === 'string') {
-            b = hexToBytes(addHexPrefix(p))
-            } else {
-            throw new Error('getStorageKey accepts only Address | number | bigint | string');
-            }
-
-            bytesArray.push(setLengthLeft(b, 32))
-        }
-        const packed = concatBytes(...bytesArray)
-        let hash
-        if (usage === 'L1') {
-            hash = keccak256
-        } else {
-            hash = this._cachedOpts === null ? poseidon : this._cachedOpts.common.customCrypto.keccak256!
-        }
-        return hash(packed)
-    }
 }
 
 class TokamakL2MerkleTree extends IMT {
@@ -201,7 +163,7 @@ class TokamakL2MerkleTree extends IMT {
         return this._cachedTokamakL2StateManager
     }
     public static async buildFromTokamakL2StateManager(mpt: TokamakL2StateManager): Promise<TokamakL2MerkleTree> {
-        const treeDepth = Math.ceil(Math.log10(MAX_MT_LEAVES) / Math.log10(POSEIDON_INPUTS))
+        const treeDepth = MT_DEPTH
         const leaves = await mpt.convertLeavesIntoMerkleTreeLeaves()
         const mt = new TokamakL2MerkleTree(poseidon_raw as IMTHashFunction, treeDepth, 0n, POSEIDON_INPUTS, leaves as IMTNode[])
         mt.initCache(mpt)

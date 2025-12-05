@@ -4,7 +4,7 @@ import { jubjub } from '@noble/curves/misc';
 import { DataPt, DataPtDescription, ISynthesizerProvider, PlacementEntry, ReservedVariable, SynthesizerOpts, VARIABLE_DESCRIPTION } from '../types/index.ts';
 import { DataPtFactory } from '../dataStructure/index.ts';
 import { BUFFER_DESCRIPTION, BUFFER_LIST } from 'src/interface/qapCompiler/configuredTypes.ts';
-import { DEFAULT_SOURCE_BIT_SIZE, poseidon_raw } from '../params/index.ts';
+import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
 
 export class BufferManager {
   private parent: ISynthesizerProvider
@@ -138,20 +138,23 @@ export class BufferManager {
 
     // Static public inputs
     this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', BigInt(this.cachedOpts.stateManager.initialMerkleTree.root))
+    this.addReservedVariableToBufferIn('RES_MERKLE_ROOT', BigInt(this.cachedOpts.stateManager.initialMerkleTree.root))
 
+    this.addReservedVariableToBufferIn('CIRCOM_CONST_ONE', 1n)
+    this.addReservedVariableToBufferIn('CIRCOM_CONST_ZERO', 0n)
     this.addReservedVariableToBufferIn('ADDRESS_MASK', (1n << 160n) - 1n)
     this.addReservedVariableToBufferIn('JUBJUB_BASE_X', jubjub.Point.BASE.toAffine().x)
     this.addReservedVariableToBufferIn('JUBJUB_BASE_Y', jubjub.Point.BASE.toAffine().y)
     this.addReservedVariableToBufferIn('JUBJUB_POI_X', jubjub.Point.ZERO.toAffine().x)
     this.addReservedVariableToBufferIn('JUBJUB_POI_Y', jubjub.Point.ZERO.toAffine().y)
-    const nullPoseidonL0 = poseidon_raw(Array(POSEIDON_INPUTS).fill(0n))
-    this.addReservedVariableToBufferIn('NULL_POSEIDON_LEVEL0', nullPoseidonL0)
-    const nullPoseidonL1 = poseidon_raw(Array(POSEIDON_INPUTS).fill(nullPoseidonL0))
-    this.addReservedVariableToBufferIn('NULL_POSEIDON_LEVEL1', nullPoseidonL1)
-    const nullPoseidonL2 = poseidon_raw(Array(POSEIDON_INPUTS).fill(nullPoseidonL1))
-    this.addReservedVariableToBufferIn('NULL_POSEIDON_LEVEL2', nullPoseidonL2)
-    const nullPoseidonL3 = poseidon_raw(Array(POSEIDON_INPUTS).fill(nullPoseidonL2))
-    this.addReservedVariableToBufferIn('NULL_POSEIDON_LEVEL3', nullPoseidonL3)
+    // const nullPoseidonL0 = poseidon_raw(Array(POSEIDON_INPUTS).fill(0n))
+    // this.addReservedVariableToBufferIn('NULL_POSEIDON_LEVEL0', nullPoseidonL0)
+    // const nullPoseidonL1 = poseidon_raw(Array(POSEIDON_INPUTS).fill(nullPoseidonL0))
+    // this.addReservedVariableToBufferIn('NULL_POSEIDON_LEVEL1', nullPoseidonL1)
+    // const nullPoseidonL2 = poseidon_raw(Array(POSEIDON_INPUTS).fill(nullPoseidonL1))
+    // this.addReservedVariableToBufferIn('NULL_POSEIDON_LEVEL2', nullPoseidonL2)
+    // const nullPoseidonL3 = poseidon_raw(Array(POSEIDON_INPUTS).fill(nullPoseidonL2))
+    // this.addReservedVariableToBufferIn('NULL_POSEIDON_LEVEL3', nullPoseidonL3)
 
     this.addReservedVariableToBufferIn('COINBASE', this.cachedOpts.blockInfo.coinBase)
     this.addReservedVariableToBufferIn('TIMESTAMP', this.cachedOpts.blockInfo.timeStamp)

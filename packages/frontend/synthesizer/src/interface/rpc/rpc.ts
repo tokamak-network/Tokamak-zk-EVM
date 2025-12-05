@@ -92,7 +92,7 @@ export async function createSynthesizerOptsForSimulationFromRPC(opts: Synthesize
         senderPubKey: jubjub.Point.BASE.multiply(bytesToBigInt(opts.senderL2PrvKey)).toBytes()
     }
     const unsignedTransaction = createTokamakL2Tx(transactionData, {common})
-    const signedTransaction = unsignedTransaction.sign(opts.senderL2PrvKey, true)
+    const signedTransaction = unsignedTransaction.sign(opts.senderL2PrvKey)
     return {
         signedTransaction,
         blockInfo,

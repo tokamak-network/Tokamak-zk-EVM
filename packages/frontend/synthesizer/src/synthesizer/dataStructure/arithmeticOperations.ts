@@ -1,7 +1,8 @@
 import { jubjub } from "@noble/curves/misc"
 import { poseidon4 } from "poseidon-bls12381"
-import { POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts"
-import { poseidon_raw } from "src/synthesizer/params/index.ts"
+import { poseidon_raw } from "src/interface/qapCompiler/configuredTypes.ts"
+import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE, POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts"
+import { DEFAULT_SOURCE_BIT_SIZE} from "src/synthesizer/params/index.ts"
 
 const convertToSigned = (value: bigint): bigint => {
   const SIGN_BIT = 1n << 255n
@@ -283,28 +284,59 @@ export class ArithmeticOperations {
     if (ins.length !== 1){
       throw new Error('decToBit expected one input')
     }
-    const binaryString = ins[0].toString(2)
-    const paddedBinaryString = binaryString.padStart(256, '0')
-    const bits = Array.from(paddedBinaryString, (bit) => BigInt(bit))
+    const binaryString = ins[0].toString(2) // MSB-left
+    const paddedBinaryString = binaryString.padStart(256, '0') // left-padding
+    const bits = Array.from(paddedBinaryString, (bit) => BigInt(bit)).reverse() //LSB-left
+    if (bits.length > DEFAULT_SOURCE_BIT_SIZE) {
+      throw new Error('Input value exceeds 256-bit word')
+    }
     return bits
   }
 
+  // /**
+  //  * Subroutine for EXP
+  //  */
+  // static subEXP(ins: bigint[]): bigint[] {
+  //   if (ins.length !== 3) {
+  //     throw new Error('subEXP expected three inputs')
+  //   }
+  //   const c = ins[0];
+  //   const a = ins[1];
+  //   const b = ins[2];
+  //   if (!(b === 0n || b === 1n)) {
+  //     throw new Error(`Synthesizer: ArithmeticOperations: subEXP: b is not binary`)
+  //   }
+  //   const aOut = (a * a) % ArithmeticOperations.N
+  //   const cOut = (c * (b * a + (1n - b))) % ArithmeticOperations.N // <=> c * (b ? aOut : 1)
+  //   return [cOut, aOut]
+  // }
+
   /**
-   * Subroutine for EXP
+   * SubExpBatch
    */
-  static subEXP(ins: bigint[]): bigint[] {
-    if (ins.length !== 3) {
-      throw new Error('subEXP expected three inputs')
+  static subExpBatch(in_vals: bigint[]): bigint[] {
+    const modPow = (base: bigint, exp: bigint, M: bigint) => {
+      let res = 1n, b = base % M, e = exp;
+      while (e > 0n) { if (e & 1n) res = (res * b) % M; b = (b * b) % M; e >>= 1n; }
+      return res;
+    };
+
+    const Nbits= ARITH_EXP_BATCH_SIZE
+    if (in_vals.length !== 2 + Nbits) {
+      throw new Error(`subExpBatch expected exactly ${2 + Nbits} input values, but got ${in_vals.length} values`)
     }
-    const c = ins[0];
-    const a = ins[1];
-    const b = ins[2];
-    if (!(b === 0n || b === 1n)) {
-      throw new Error(`Synthesizer: ArithmeticOperations: subEXP: b is not binary`)
+    const c = in_vals[0]
+    const a = in_vals[1]
+    // Input bits should be LSB-first.
+    const scalarBitsMSB = in_vals.slice(2, ).reverse()
+    if (scalarBitsMSB.some(b => b !== 0n && b !== 1n)) {
+      throw new Error('subExpBatch: scalar bits must be 0n or 1n');
     }
-    const aOut = (a * a) % ArithmeticOperations.N
-    const cOut = (c * (b * a + (1n - b))) % ArithmeticOperations.N // <=> c * (b ? aOut : 1)
-    return [cOut, aOut]
+
+    const exponent = scalarBitsMSB.reduce((acc, b) => (acc << 1n) | b, 0n)
+    const a_next = modPow(a, 1n << BigInt(Nbits), this.N);
+    const c_next = (c * modPow(a, exponent, this.N)) % this.N;
+    return [c_next, a_next]
   }
 
   /**
@@ -323,32 +355,48 @@ export class ArithmeticOperations {
    */
   static poseidonN(in_vals: bigint[]): bigint {
     if (in_vals.length !== POSEIDON_INPUTS) {
-      throw new Error('poseidon4 expected exactly four input values')
+      throw new Error(`poseidon${POSEIDON_INPUTS} expected exactly ${POSEIDON_INPUTS} values`)
     }
     return poseidon_raw(in_vals)
   }
 
   /**
-   * PrepareEdDsaScalars
+   * PoseidonN2xCompress
    */
-  static prepareEdDsaScalars(in_vals: bigint[]): bigint[] {
-    if (in_vals.length !== 2) {
-      throw new Error('prepareEdDsaScalars expected exactly two input values')
+  static poseidonN2xCompress(in_vals: bigint[]): bigint {
+    if (in_vals.length !== POSEIDON_INPUTS ** 2) {
+      throw new Error(`poseidon${POSEIDON_INPUTS} expected exactly ${POSEIDON_INPUTS} values`)
     }
-    const sign = in_vals[0]
-    const poseidonOut = in_vals[1]
-    const modded: bigint[] = [sign % jubjub.Point.Fn.ORDER, poseidonOut % jubjub.Point.Fn.ORDER]
-    const bits: bigint[] = []
-    for (const val of modded) {
-      // MSB-left
-      const binaryString = val.toString(2)
-      const paddedBinaryString = binaryString.padStart(252, '0')
-      // LSB-left
-      bits.push(...Array.from(paddedBinaryString, (bit) => BigInt(bit)).reverse())
+
+    const interim: bigint[] = []
+    for (var k = 0; k < POSEIDON_INPUTS; k++) {
+      const children = in_vals.slice(k * POSEIDON_INPUTS, (k + 1) * POSEIDON_INPUTS)
+      interim.push(poseidon_raw(children))
     }
-    
-    return bits
+    return poseidon_raw(interim)
   }
+
+  // /**
+  //  * PrepareEdDsaScalars
+  //  */
+  // static prepareEdDsaScalars(in_vals: bigint[]): bigint[] {
+  //   if (in_vals.length !== 2) {
+  //     throw new Error('prepareEdDsaScalars expected exactly two input values')
+  //   }
+  //   const sign = in_vals[0]
+  //   const poseidonOut = in_vals[1]
+  //   const modded: bigint[] = [sign % jubjub.Point.Fn.ORDER, poseidonOut % jubjub.Point.Fn.ORDER]
+  //   const bits: bigint[] = []
+  //   for (const val of modded) {
+  //     // MSB-left
+  //     const binaryString = val.toString(2)
+  //     const paddedBinaryString = binaryString.padStart(252, '0')
+  //     // LSB-left
+  //     bits.push(...Array.from(paddedBinaryString, (bit) => BigInt(bit)).reverse())
+  //   }
+    
+  //   return bits
+  // }
 
   private static _bls12381Arith(): {mod: Function, add: Function, sub: Function, mul: Function} {
     const mod = (x: bigint) => ((x % ArithmeticOperations.BLS12381MODULUS) + ArithmeticOperations.BLS12381MODULUS) % ArithmeticOperations.BLS12381MODULUS;
@@ -483,12 +531,12 @@ export class ArithmeticOperations {
   // }
 
   /**
-   * JubjubExp36
+   * JubjubExpBatch
    */
-  static jubjubExp36(in_vals: bigint[]): bigint[] {
-    const Nbits= 36
+  static jubjubExpBatch(in_vals: bigint[]): bigint[] {
+    const Nbits= JUBJUB_EXP_BATCH_SIZE
     if (in_vals.length !== 4 + Nbits) {
-      throw new Error(`jubjubExp36 expected exactly 40 input values, but got ${in_vals.length} values`)
+      throw new Error(`jubjubExpBatch expected exactly ${4 + Nbits} input values, but got ${in_vals.length} values`)
     }
     const P_point: bigint[] = in_vals.slice(0, 2)
     const G_point: bigint[] = in_vals.slice(2, 4)
@@ -531,7 +579,7 @@ export class ArithmeticOperations {
     }
     for (var i = 0; i < 6; i++) {
       if (in_vals[i] >= ArithmeticOperations.BLS12381MODULUS) {
-        throw new Error('jubjubExp36 input curve points must be of Jubjub')
+        throw new Error('jubjubExpBatch input curve points must be of Jubjub')
       }
     }
 
@@ -549,21 +597,145 @@ export class ArithmeticOperations {
     return []
   }
 
+  // Old version: Reconstructing the Merkle tree root
+  // /**
+  //  * VerifyMerkleProof
+  //  */
+  // static verifyMerkleProof(inVals: bigint[]): bigint[] {
+
+  //   if (inVals.length !== 1 + POSEIDON_INPUTS) {
+  //     throw new Error(`VerifyMerkleProof expected exactly ${1 + POSEIDON_INPUTS} input values, but got ${inVals.length} values`)
+  //   }
+  //   const children = inVals.slice(0, POSEIDON_INPUTS)
+  //   const parent = inVals[inVals.length - 1]
+  //   // console.log(`children: ${children}`)
+  //   // console.log(`parent: ${parent}`)
+  //   if (
+  //     parent !== poseidon_raw(children)
+  //   ) {
+  //     throw new Error('verifyMerkleProof failed')
+  //   }
+  //   return []
+  // }
+
   /**
    * VerifyMerkleProof
    */
   static verifyMerkleProof(inVals: bigint[]): bigint[] {
-
-    if (inVals.length !== 1 + POSEIDON_INPUTS) {
-      throw new Error(`VerifyMerkleProof expected exactly ${1 + POSEIDON_INPUTS} input values, but got ${inVals.length} values`)
+    const nSiblings = POSEIDON_INPUTS - 1
+    const nIns = 4 + nSiblings
+    if (inVals.length !== nIns) {
+      throw new Error(`VerifyMerkleProof expected exactly ${nIns} input values, but got ${inVals.length} values`)
     }
-    const children = inVals.slice(0, POSEIDON_INPUTS)
-    const parent = inVals[inVals.length - 1]
-    // console.log(`children: ${children}`)
-    // console.log(`parent: ${parent}`)
+    const childIndex = Number(inVals[0])
+    const childHomeIndex = childIndex % POSEIDON_INPUTS
+    const child = inVals[1]
+    const siblings = inVals.slice(2, 2 + nSiblings)
+    const parentIndex = Number(inVals[nIns - 2])
+    const parent = inVals[nIns - 1]
+
+    const children = [
+      ...siblings.slice(0, childHomeIndex),
+      child,
+      ...siblings.slice(childHomeIndex, ),
+    ]
+
     if (
-      parent !== poseidon_raw(children)
+      parent !== poseidon_raw(children) ||
+      parentIndex !== Math.floor(childIndex / POSEIDON_INPUTS)
     ) {
+      throw new Error('verifyMerkleProof failed')
+    }
+    return []
+  }
+
+  /**
+   * VerifyMerkleProof2x
+   */
+  static verifyMerkleProof2x(inVals: bigint[]): bigint[] {
+    const nSiblings = POSEIDON_INPUTS - 1
+    const nIns = 4 + 2 * nSiblings
+    if (inVals.length !== nIns) {
+      throw new Error(`VerifyMerkleProof expected exactly ${nIns} input values, but got ${inVals.length} values`)
+    }
+
+    const childIndex = Number(inVals[0])
+    const child = inVals[1]
+    const parentIndex = Number(inVals[nIns - 2])
+    const parent = inVals[nIns - 1]
+
+    const siblings1 = inVals.slice(2, 2 + nSiblings)
+    const siblings2 = inVals.slice(2 + nSiblings, 2 + 2 * nSiblings)
+
+    const childHomeIndex = childIndex % POSEIDON_INPUTS
+    const firstChildren = [
+      ...siblings1.slice(0, childHomeIndex),
+      child,
+      ...siblings1.slice(childHomeIndex),
+    ]
+    const firstParent = poseidon_raw(firstChildren)
+    const firstParentIndex = Math.floor(childIndex / POSEIDON_INPUTS)
+    const firstParentHomeIndex = firstParentIndex % POSEIDON_INPUTS
+
+    const secondChildren = [
+      ...siblings2.slice(0, firstParentHomeIndex),
+      firstParent,
+      ...siblings2.slice(firstParentHomeIndex),
+    ]
+    const secondParentIndex = Math.floor(firstParentIndex / POSEIDON_INPUTS)
+
+    if (parent !== poseidon_raw(secondChildren) || parentIndex !== secondParentIndex) {
+      throw new Error('verifyMerkleProof failed')
+    }
+    return []
+  }
+
+  /**
+   * VerifyMerkleProof3x
+   */
+  static verifyMerkleProof3x(inVals: bigint[]): bigint[] {
+    const nSiblings = POSEIDON_INPUTS - 1
+    const nIns = 4 + 3 * nSiblings
+    if (inVals.length !== nIns) {
+      throw new Error(`VerifyMerkleProof expected exactly ${nIns} input values, but got ${inVals.length} values`)
+    }
+
+    const childIndex = Number(inVals[0])
+    const child = inVals[1]
+    const parentIndex = Number(inVals[nIns - 2])
+    const parent = inVals[nIns - 1]
+
+    const siblings1 = inVals.slice(2, 2 + nSiblings)
+    const siblings2 = inVals.slice(2 + nSiblings, 2 + 2 * nSiblings)
+    const siblings3 = inVals.slice(2 + 2 * nSiblings, 2 + 3 * nSiblings)
+
+    const childHomeIndex = childIndex % POSEIDON_INPUTS
+    const firstChildren = [
+      ...siblings1.slice(0, childHomeIndex),
+      child,
+      ...siblings1.slice(childHomeIndex),
+    ]
+    const firstParent = poseidon_raw(firstChildren)
+    const firstParentIndex = Math.floor(childIndex / POSEIDON_INPUTS)
+    const firstParentHomeIndex = firstParentIndex % POSEIDON_INPUTS
+
+    const secondChildren = [
+      ...siblings2.slice(0, firstParentHomeIndex),
+      firstParent,
+      ...siblings2.slice(firstParentHomeIndex),
+    ]
+    const secondParent = poseidon_raw(secondChildren)
+    const secondParentIndex = Math.floor(firstParentIndex / POSEIDON_INPUTS)
+    const secondParentHomeIndex = secondParentIndex % POSEIDON_INPUTS
+
+    const thirdChildren = [
+      ...siblings3.slice(0, secondParentHomeIndex),
+      secondParent,
+      ...siblings3.slice(secondParentHomeIndex),
+    ]
+    const thirdParentIndex = Math.floor(secondParentIndex / POSEIDON_INPUTS)
+
+    if (parent !== poseidon_raw(thirdChildren) || parentIndex !== thirdParentIndex) {
       throw new Error('verifyMerkleProof failed')
     }
     return []

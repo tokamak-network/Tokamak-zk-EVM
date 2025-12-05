@@ -7,7 +7,7 @@ import { SUBCIRCUIT_LIST, SubcircuitNames } from "./configuredTypes.ts";
 
 // Single source of truth for SetupParams keys
 export const SETUP_PARAMS_KEYS = [
-  'l',
+  'l', 'l_user', 'l_block',
   'l_D', 'm_D', 'n', 's_D', 's_max',
 ] as const;
 
@@ -51,6 +51,8 @@ export const REQUIRED_CIRCOM_KEYS = [
   'nMtDepth',
   'nAccumulation',
   'nPrevBlockHashes',
+  'nJubjubExpBatch',
+  'nSubExpBatch',
 ] as const;
 export type CircomKey = typeof REQUIRED_CIRCOM_KEYS[number];
 

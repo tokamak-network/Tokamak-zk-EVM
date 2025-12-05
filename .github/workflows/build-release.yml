@@ -2,9 +2,9 @@ name: Test, Build & Release
 
 on:
   push:
-    branches: [main, dev] # Execute when pushing to main or dev branch
+    branches: [main, dev, ale-153] # Execute when pushing to main, dev, or ale-153 branch
   pull_request:
-    branches: [main, dev] # Execute on PR creation and updates to main or dev branch
+    branches: [main, dev, ale-153] # Execute on PR creation and updates to main, dev, or ale-153 branch
   workflow_dispatch: # Manual execution allowed
 
 jobs:
@@ -17,10 +17,10 @@ jobs:
 
     strategy:
       matrix:
-        # Execute TON Transfer test only
+        # Execute TON Transfer test only - using same tx as L2TONTransfer example
         test_case:
           - name: 'ton-transfer'
-            tx_hash: '0x6c7903e420c5efb27639f5186a7474ef2137f12c786a90b4efdcb5d88dfdb002'
+            tx_hash: '0xa0090893a2d5f79b67cebcb65eac3efc92820ec09dc4ad9fe2bc29bbdcad2e41'
             description: 'TON Transfer'
 
       fail-fast: false # Continue other tests even if one fails
@@ -84,7 +84,12 @@ jobs:
           npm install -g tsx
           ./scripts/tokamak-cli-core --install "$ALCHEMY_API_KEY"
 
+          # Export RPC_URL for subsequent steps
+          echo "RPC_URL=https://eth-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY" >> $GITHUB_ENV
+
       - name: Generate proof for ${{ matrix.test_case.name }}
+        env:
+          RPC_URL: ${{ env.RPC_URL }}
         run: |
           echo "🧪 Testing: ${{ matrix.test_case.description }}"
           echo "📋 TX Hash: ${{ matrix.test_case.tx_hash }}"
@@ -130,7 +135,7 @@ jobs:
     runs-on: macos-latest
     needs: proof-generation-test
     timeout-minutes: 60
-    # Execute only for main branch (push/PR), skip dev branch
+    # Execute only for main branch (push/PR), skip dev and ale-153 branches
     if: (github.event_name == 'push' || github.event_name == 'pull_request') && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
 
     steps:
@@ -185,7 +190,7 @@ jobs:
     runs-on: ubuntu-22.04 # Specify Linux 22 version
     needs: proof-generation-test # Execute after proof test passes
     timeout-minutes: 60
-    # Execute only for main branch (push/PR), skip dev branch
+    # Execute only for main branch (push/PR), skip dev and ale-153 branches
     if: (github.event_name == 'push' || github.event_name == 'pull_request') && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
 
     steps:
