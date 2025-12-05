@@ -46,6 +46,10 @@ harness = false
 name = "prove_init_bench"
 harness = false
 
+[[bench]]
+name = "prove4_bench"
+harness = false
+
 [features]
 default = []
 testing-mode = []
