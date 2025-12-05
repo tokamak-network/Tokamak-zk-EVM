@@ -1,4 +1,5 @@
 pub mod prove0_batch;
+pub mod prove_init_batch;
 
 /// Macro for linear combination of polynomials
 #[macro_export]

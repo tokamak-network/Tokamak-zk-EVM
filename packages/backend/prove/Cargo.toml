@@ -42,6 +42,10 @@ harness = false
 name = "prove0_msm_async"
 harness = false
 
+[[bench]]
+name = "prove_init_bench"
+harness = false
+
 [features]
 default = []
 testing-mode = []
