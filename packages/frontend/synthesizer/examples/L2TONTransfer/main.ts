@@ -67,8 +67,8 @@ if (addressListL1.length !== publicKeyListL2.length) {
 }
 
 const initStorageKeys = [{
-  L1: hexToBytes('0x07'),
-  L2: hexToBytes('0x07'),
+  L1: setLengthLeft(hexToBytes('0x07'), 32),
+  L2: setLengthLeft(hexToBytes('0x07'), 32),
 }];
 for (const slot of userStorageSlots) {
   for (let userIdx = 0; userIdx < addressListL1.length; userIdx++) {
