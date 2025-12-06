@@ -18,6 +18,7 @@ import { fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
 import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts  } from '../../src/interface/index.ts'
+import { getUserStorageKey } from '../../src/TokamakL2JS/utils/index.ts';
 
 const SENDER_L2_SEED = "Jake's L2 wallet";
 const senderL2PrvKey = jubjub.utils.randomPrivateKey(setLengthLeft(utf8ToBytes(SENDER_L2_SEED), 32));
@@ -34,41 +35,63 @@ const CALLDATA = concatBytes(
   setLengthLeft(TOKEN_RECEPIENT_ADDRESS.toBytes(), 32),
   setLengthLeft(hexToBytes(AMOUNT), 32),
 );
+const userStorageSlots = [0];
+
+// Channel configuration
+const addressListL1 = [
+  '0x85cc7da8Ee323325bcD678C7CFc4EB61e76657Fb',
+  '0xd8eE65121e51aa8C75A6Efac74C4Bbd3C439F78f',
+  '0x838F176D94990E06af9B57E470047F9978403195',
+  '0x01E371b2aD92aDf90254df20EB73F68015E9A000',
+  '0xbD224229Bf9465ea4318D45a8ea102627d6c27c7',
+  '0x6FD430995A19a57886d94f8B5AF2349b8F40e887',
+  '0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9',
+  '0x60be9978F805Dd4619F94a449a4a798155a05A56',
+] as `0x${string}`[];
+
+// Must be paired with the L1 addresses
+// The seed strings must be hidden. This is just an example.
+const publicKeyListL2 = [
+  senderL2PubKey,
+  TOKEN_RECEPIENT_PUB_KEY,
+  jubjub.keygen(setLengthLeft(utf8ToBytes('0x838F176D94990E06af9B57E470047F9978403195'), 32)).publicKey,
+  jubjub.keygen(setLengthLeft(utf8ToBytes('0x01E371b2aD92aDf90254df20EB73F68015E9A000'), 32)).publicKey,
+  jubjub.keygen(setLengthLeft(utf8ToBytes('0xbD224229Bf9465ea4318D45a8ea102627d6c27c7'), 32)).publicKey,
+  jubjub.keygen(setLengthLeft(utf8ToBytes('0x6FD430995A19a57886d94f8B5AF2349b8F40e887'), 32)).publicKey,
+  jubjub.keygen(setLengthLeft(utf8ToBytes('0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9'), 32)).publicKey,
+  jubjub.keygen(setLengthLeft(utf8ToBytes('0x60be9978F805Dd4619F94a449a4a798155a05A56'), 32)).publicKey,
+];
+
+if (addressListL1.length !== publicKeyListL2.length) {
+  throw new Error(`Mismatch in the numbers of L1 and L2 users`)
+}
+
+const initStorageKeys = [{
+  L1: hexToBytes('0x07'),
+  L2: hexToBytes('0x07'),
+}];
+for (const slot of userStorageSlots) {
+  for (let userIdx = 0; userIdx < addressListL1.length; userIdx++) {
+    const L1key = getUserStorageKey([addressListL1[userIdx], slot], 'L1');
+    const L2key = getUserStorageKey([fromEdwardsToAddress(publicKeyListL2[userIdx]), slot], 'TokamakL2');
+    initStorageKeys.push({
+      L1: L1key,
+      L2: L2key,
+    });
+  }
+}
 
 const simulationOpts: SynthesizerSimulationOpts = {
   txNonce: 0n,
   rpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/e_QJd40sb7aiObJisG_8Q',
   senderL2PrvKey,
+  initStorageKeys,
 
   // Reference: TON transfer transaction: 0xa0090893a2d5f79b67cebcb65eac3efc92820ec09dc4ad9fe2bc29bbdcad2e41s
   blockNumber: 23224548,
   contractAddress: '0x2be5e8c109e2197D077D13A82dAead6a9b3433C5' as `0x${string}`,
-  userStorageSlots: [0],
-
-  // Example
-  addressListL1: [
-    '0x85cc7da8Ee323325bcD678C7CFc4EB61e76657Fb',
-    '0xd8eE65121e51aa8C75A6Efac74C4Bbd3C439F78f',
-    '0x838F176D94990E06af9B57E470047F9978403195',
-    '0x01E371b2aD92aDf90254df20EB73F68015E9A000',
-    '0xbD224229Bf9465ea4318D45a8ea102627d6c27c7',
-    '0x6FD430995A19a57886d94f8B5AF2349b8F40e887',
-    '0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9',
-    '0x60be9978F805Dd4619F94a449a4a798155a05A56',
-  ] as `0x${string}`[],
-
-  // Must be paired with the L1 addresses
-  // The seed strings must be hidden. This is just an example.
-  publicKeyListL2: [
-    senderL2PubKey,
-    TOKEN_RECEPIENT_PUB_KEY,
-    jubjub.keygen(setLengthLeft(utf8ToBytes('0x838F176D94990E06af9B57E470047F9978403195'), 32)).publicKey,
-    jubjub.keygen(setLengthLeft(utf8ToBytes('0x01E371b2aD92aDf90254df20EB73F68015E9A000'), 32)).publicKey,
-    jubjub.keygen(setLengthLeft(utf8ToBytes('0xbD224229Bf9465ea4318D45a8ea102627d6c27c7'), 32)).publicKey,
-    jubjub.keygen(setLengthLeft(utf8ToBytes('0x6FD430995A19a57886d94f8B5AF2349b8F40e887'), 32)).publicKey,
-    jubjub.keygen(setLengthLeft(utf8ToBytes('0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9'), 32)).publicKey,
-    jubjub.keygen(setLengthLeft(utf8ToBytes('0x60be9978F805Dd4619F94a449a4a798155a05A56'), 32)).publicKey,
-  ],
+ 
+  
   callData: CALLDATA,
 };
 
@@ -79,8 +102,8 @@ const main = async () => {
   const circuitGenerator = await createCircuitGenerator(synthesizer);
   circuitGenerator.writeOutputs();
 
-  console.log(`Sender: ${fromEdwardsToAddress(simulationOpts.publicKeyListL2[0])}`)
-  console.log(`Recipent: ${fromEdwardsToAddress(simulationOpts.publicKeyListL2[1])}`)
+  console.log(`Sender: ${fromEdwardsToAddress(publicKeyListL2[0])}`)
+  console.log(`Recipent: ${fromEdwardsToAddress(publicKeyListL2[1])}`)
   if (runTxResult.execResult.logs) {
     for (const [index, log] of runTxResult.execResult.logs.entries()) {
       console.log(`Log index: ${index}`)

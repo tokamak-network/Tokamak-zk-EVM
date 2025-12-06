@@ -32,22 +32,22 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         if (this._registeredKeys !== null) {
             throw new Error('Cannot rewrite registered keys')
         }
-        const userL1Addresses = opts.userL1Addresses.map(addr => new Address(toBytes(addr)))
-        const userL2Addresses = opts.userL2Addresses.map(addr => new Address(toBytes(addr)))
-        const registeredKeys: Uint8Array[] = []
-        for (const [idx, L1Addr] of userL1Addresses.entries()) {
-            for (const slot of opts.userStorageSlots){
-                const L1key = getUserStorageKey([L1Addr, slot], 'L1')
-                const v   = await provider.getStorage(contractAddress.toString(), bytesToBigInt(L1key), opts.blockNumber)
-
-                const vBytes = hexToBytes(addHexPrefix(v))
-                const L2key = getUserStorageKey([userL2Addresses[idx], slot], 'TokamakL2')
-                await this.putStorage(contractAddress, L2key, vBytes)
-
-                registeredKeys.push(L2key)
+        const usedL1Keys: Uint8Array<ArrayBufferLike>[] = []
+        const registeredL2Keys: Uint8Array<ArrayBufferLike>[] = []
+        for (const keys of opts.initStorageKeys) {
+            if (usedL1Keys.findIndex(registered => bytesToBigInt(registered) === bytesToBigInt(keys.L1)) > -1) {
+                throw new Error(`Duplication in L1 MPT keys.`);
             }
+            const v = await provider.getStorage(contractAddress.toString(), bytesToBigInt(keys.L1), opts.blockNumber)
+            const vBytes = hexToBytes(addHexPrefix(v))
+            await this.putStorage(contractAddress, keys.L2, vBytes)
+            if (registeredL2Keys.findIndex(registered => bytesToBigInt(registered) === bytesToBigInt(keys.L2)) > -1) {
+                throw new Error(`Duplication in L2 MPT keys.`);
+            }
+            usedL1Keys.push(keys.L1)
+            registeredL2Keys.push(keys.L2)  
         }
-        this._registeredKeys = registeredKeys
+        this._registeredKeys = registeredL2Keys
 
         if (this._cachedOpts !== null) {
             throw new Error('Cannot rewrite cached opts')
