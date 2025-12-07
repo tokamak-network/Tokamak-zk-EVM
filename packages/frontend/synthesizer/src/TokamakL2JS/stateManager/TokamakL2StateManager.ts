@@ -32,22 +32,26 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         if (this._registeredKeys !== null) {
             throw new Error('Cannot rewrite registered keys')
         }
-        const usedL1Keys: Uint8Array<ArrayBufferLike>[] = []
-        const registeredL2Keys: Uint8Array<ArrayBufferLike>[] = []
+        const usedL1Keys = new Set<bigint>();
+        const registeredL2KeyBigInts = new Set<bigint>();
+        this._registeredKeys = [];
         for (const keys of opts.initStorageKeys) {
-            if (usedL1Keys.findIndex(registered => bytesToBigInt(registered) === bytesToBigInt(keys.L1)) > -1) {
+            const keyL1BigInt = bytesToBigInt(keys.L1); 
+            const keyL2BigInt = bytesToBigInt(keys.L2);
+            if (usedL1Keys.has(keyL1BigInt)) {
                 throw new Error(`Duplication in L1 MPT keys.`);
             }
-            const v = await provider.getStorage(contractAddress.toString(), bytesToBigInt(keys.L1), opts.blockNumber)
-            const vBytes = hexToBytes(addHexPrefix(v))
-            await this.putStorage(contractAddress, keys.L2, vBytes)
-            if (registeredL2Keys.findIndex(registered => bytesToBigInt(registered) === bytesToBigInt(keys.L2)) > -1) {
+            if (registeredL2KeyBigInts.has(keyL2BigInt)) {
                 throw new Error(`Duplication in L2 MPT keys.`);
             }
-            usedL1Keys.push(keys.L1)
-            registeredL2Keys.push(keys.L2)  
+            const v = await provider.getStorage(contractAddress.toString(), bytesToBigInt(keys.L1), opts.blockNumber);
+            const vBytes = hexToBytes(addHexPrefix(v));
+            await this.putStorage(contractAddress, keys.L2, vBytes);
+            
+            usedL1Keys.add(keyL1BigInt);
+            registeredL2KeyBigInts.add(keyL2BigInt);
+            this._registeredKeys.push(keys.L2);
         }
-        this._registeredKeys = registeredL2Keys
 
         if (this._cachedOpts !== null) {
             throw new Error('Cannot rewrite cached opts')
