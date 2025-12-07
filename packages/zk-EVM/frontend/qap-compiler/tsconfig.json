@@ -1,0 +1,20 @@
+{
+  "extends": "../../../../config/monorepo-js/tsconfig.json",
+  "compilerOptions": {
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node16",
+    "target": "es2022",
+    "lib": ["ES2022", "DOM"],
+    "allowJs": true,
+    "declaration": true,
+    "baseUrl": ".",
+    "paths": {
+      "src/*": ["./src/*"]
+    },
+    "composite": true,
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}

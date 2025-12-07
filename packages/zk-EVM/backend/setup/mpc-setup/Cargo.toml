@@ -1,0 +1,49 @@
+[package]
+name = "mpc-setup"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+
+[dependencies]
+serde = { version = "1.0.197", features = ["derive"] }
+
+icicle-core = { workspace = true }
+icicle-bls12-381 = { workspace = true }
+icicle-runtime = { workspace = true }
+
+libs = { workspace = true }
+rayon = { workspace = true }
+ark-bls12-381 = { workspace = true }
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
+rand = "0.8.5"
+blake2 = "0.8.1"
+rand_chacha = "0.3.1"
+bincode = "1.3.3"
+memmap = "0.7.0"
+serde_json = "1.0.140"
+hex = "0.4.3"
+ark-std = "0.5.0"
+ark-serialize = "0.5.0"
+lazy_static = "1.5.0"
+blake3 = "1.8.2"
+clap = { version = "4.4", features = ["derive"] }
+chrono = "0.4"
+drive-v3 = "0.6.1"
+tokio = { version = "1", features = ["full"] }
+google-drive3 = "5.0.0+20220225"
+oauth2 = { version = "5.0.0", features = ["rustls-tls"] }
+
+hyper = { version = "0.14", features = ["full"] }
+hyper-rustls = "0.24"
+thiserror = "2.0.12"
+zip = "4.0.0"
+tempfile = "3.20.0"
+[features]
+default = []
+testing-mode = ["libs/testing-mode"]
+
+

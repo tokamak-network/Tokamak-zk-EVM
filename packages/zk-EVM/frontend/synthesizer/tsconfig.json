@@ -1,0 +1,22 @@
+{
+  "extends": "../../../../config/monorepo-js/tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node16",
+    "allowJs": true,
+    "target": "es2022",
+    "lib": ["ES2022", "DOM"],
+    "baseUrl": ".",
+    "paths": {
+      "src/*": ["./src/*"],
+    },
+    "composite": true,
+    "noEmit": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"],
+  "references": [
+    { "path": "../../../TokamakL2JS" }
+  ]
+}

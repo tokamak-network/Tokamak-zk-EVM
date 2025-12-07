@@ -1,0 +1,20 @@
+{
+  "extends": "../../../../config/monorepo-js/tsconfig.prod.esm.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist/cjs",
+    "baseUrl": ".",
+    "composite": true,
+    "paths": {
+      "src/*": ["./src/*"],
+      "@synthesizer-libs/util": [
+        "./node_modules/@synthesizer-libs/util/src/index.js"
+      ]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.json", "src/**/*.wasm"],
+  "references": [
+    { "path": "../../../TokamakL2JS" },
+    { "path": "../../../utils" }
+  ]
+}

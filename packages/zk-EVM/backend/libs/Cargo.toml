@@ -1,0 +1,37 @@
+[package]
+name = "libs"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+
+[dependencies]
+bincode = { workspace = true }
+icicle-runtime = { workspace = true }
+icicle-core = { workspace = true }
+icicle-bls12-381 = { workspace = true }
+icicle-hash = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+num-bigint = { workspace = true }
+rayon = { workspace = true }
+criterion = "0.3"
+hex = "0.4.3"
+ark-bls12-381 = { workspace = true }
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
+rand = { workspace = true }
+
+[[bench]]
+name = "outer_product_bench"
+harness = false
+
+[[bench]]
+name = "matrix_matrix_mul_bench"
+harness = false
+
+[features]
+default = []
+testing-mode = []

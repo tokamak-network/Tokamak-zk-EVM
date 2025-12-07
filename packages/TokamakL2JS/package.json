@@ -1,0 +1,72 @@
+{
+  "name": "@tokamak-zk-evm/tokamak-l2js",
+  "version": "0.0.1",
+  "description": "Typescript libraries of state managers, transactions, and cryptography primitives for Tokamak L2 channels.",
+  "keywords": [
+    "ethereum",
+    "zk-EVM",
+    "zero-knowledge",
+    "tokamak",
+    "layer2",
+    "tokamak-network"
+  ],
+  "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/TokamakL2JS#readme",
+  "bugs": {
+    "url": "https://github.com/tokamak-network/tokamak-zk-evm/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tokamak-network/tokamak-zk-evm.git"
+  },
+  "license": "MIT OR Apache-2.0",
+  "author": "Tokamak Network",
+  "type": "module",
+  "sideEffects": false,
+  "main": "src/index.ts",
+  "module": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "require": "./src/index.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "crypto",
+    "tx",
+    "stateManager",
+    "utils",
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "build": "../../config/monorepo-js/cli/ts-build.sh --no-test",
+    "clean": "../../config/monorepo-js/cli/clean-package.sh",
+    "lint": "../../config/monorepo-js/cli/lint.sh",
+    "lint:diff": "../../config/monorepo-js/cli/lint-diff.sh",
+    "lint:fix": "../../config/monorepo-js/cli/lint-fix.sh",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"No tests defined for TokamakL2JS\""
+  },
+  "dependencies": {
+    "@tokamak-zk-evm/qap-compiler": "file:../zk-EVM/frontend/qap-compiler",
+    "@ethereumjs/common": "^10.0.0",
+    "@ethereumjs/rlp": "^10.0.0",
+    "@ethereumjs/statemanager": "^10.0.0",
+    "@ethereumjs/tx": "^10.0.0",
+    "@ethereumjs/util": "^10.0.0",
+    "@noble/curves": "^1.9.6",
+    "@zk-kit/imt": "2.0.0-beta.8",
+    "ethereum-cryptography": "^3.0.0",
+    "ethers": "^6.14.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

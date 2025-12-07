@@ -1,0 +1,35 @@
+{
+  "extends": "../../../../config/monorepo-js/tsconfig.prod.esm.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist/esm",
+    "baseUrl": ".",
+    "composite": true,
+    "paths": {
+      "src/*": ["./src/*"],
+      "@synthesizer-libs/util": [
+        "./node_modules/@synthesizer-libs/util/src/index.js"
+      ]
+    }
+    // "paths": {
+    //   "@synthesizer-libs/util/*": ["libs/util/dist/esm/*"],
+    //   "@synthesizer-libs/util": ["libs/util/dist/esm/index"],
+    //   "@synthesizer-libs/statemanager": ["libs/statemanager/dist/esm/index],
+    //   "@synthesizer-libs/statemanager/*": ["libs/statemanager/dist/esm/*"]
+    // }
+  },
+  "include": ["src/**/*.ts", "src/**/*.json", "src/**/*.wasm"]
+  ,
+  "references": [
+    { "path": "../../../TokamakL2JS" },
+    { "path": "../../../utils" }
+  ]
+  // "references": [
+  //   { "path": "../common/tsconfig.prod.esm.json" },
+  //   { "path": "../rlp/tsconfig.prod.esm.json" },
+  //   { "path": "../statemanager/tsconfig.prod.esm.json" },
+  //   { "path": "../mpt/tsconfig.prod.esm.json" },
+  //   { "path": "../tx/tsconfig.prod.esm.json" },
+  //   { "path": "../util/tsconfig.prod.esm.json" }
+  // ]
+}

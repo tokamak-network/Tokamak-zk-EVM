@@ -1,0 +1,51 @@
+{
+  "name": "@tokamak-zk-evm/qap-compiler",
+  "version": "0.0.2",
+  "description": "Library subcircuits for Tokamak zk-EVM",
+  "keywords": [
+    "ethereum",
+    "zk-EVM",
+    "zero-knowledge",
+    "zk-SNARK",
+    "tokamak",
+    "layer2",
+    "tokamak-network"
+  ],
+  "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/frontend/qap-compiler#readme",
+  "bugs": {
+    "url": "https://github.com/tokamak-network/tokamak-zk-evm/issues"
+  },
+  "type": "module",
+  "license": "MIT OR Apache-2.0",
+  "author": "Tokamak Network",
+  "contributors": [
+    "JehyukJang <https://github.com/JehyukJang>",
+    "Sungyun Seo <https://github.com/pleiadex>",
+    "donghyun <https://github.com/jdhyun09>"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
+    "prepare": "npm run build"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@noble/curves": "^1.9.7",
+    "@types/node": "^22.15.14",
+    "chai": "^4.3.6",
+    "circom": "^0.5.46",
+    "circomlib": "^2.0.5",
+    "ffjavascript": "^0.2.55",
+    "mocha": "^11.0.1",
+    "poseidon-bls12381-circom": "^1.0.0",
+    "typescript": "^5.8.3"
+  }
+}

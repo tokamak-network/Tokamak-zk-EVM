@@ -1,7 +1,0 @@
-{
-  "rust-analyzer.cargo.features": [
-    "testing-mode"
-  ],
-  "rust-analyzer.cargo.allFeatures": false,
-  // "rust-analyzer.cargo.noDefaultFeatures": false
-}

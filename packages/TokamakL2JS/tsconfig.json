@@ -1,0 +1,24 @@
+{
+  "extends": "../../config/monorepo-js/tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node16",
+    "target": "es2022",
+    "lib": ["ES2022", "DOM"],
+    "emitDeclarationOnly": true,
+    "baseUrl": ".",
+    "paths": {
+      "src/*": ["./src/*"],
+      "@tokamak-zk-evm/qap-compiler": ["../zk-EVM/frontend/qap-compiler/src/index.ts"],
+      "@tokamak-zk-evm/qap-compiler/*": ["../zk-EVM/frontend/qap-compiler/src/*"]
+    },
+    "composite": true,
+    "declaration": true
+  },
+  "include": ["./**/*.ts"],
+  "exclude": ["dist", "node_modules"],
+  "references": [
+    { "path": "../zk-EVM/frontend/qap-compiler" }
+  ]
+}
