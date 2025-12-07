@@ -164,7 +164,7 @@ export class Synthesizer implements SynthesizerInterface
 
   private async _finalizeStorage(): Promise<void> {    
     await this._updateMerkleTree()
-    this._registerOtherContractStrageWriting()
+    this._unregisteredContractStrageWritings()
   }
 
   private async _updateMerkleTree(): Promise<void> {
@@ -196,7 +196,7 @@ export class Synthesizer implements SynthesizerInterface
       let childPt: DataPt
       const indexPt = lastHistory.indexPt
       if (indexPt?.value !== BigInt(MTIndex)) {
-        throw new Error(`The cached storage is about a user's but has no or incorrect DataPt for its Merkle tree index.`)
+        throw new Error(`The key of a cached storage is registered but has no or incorrect DataPt for its Merkle tree index.`)
       }
       // if (lastCachedStorage.access === 'Read') {
       //   if (lastCachedStorage.childPt === null) {
@@ -222,11 +222,10 @@ export class Synthesizer implements SynthesizerInterface
     }
   }
 
-  private _registerOtherContractStrageWriting(): void {
-    // Register other contract storage writings
+  private _unregisteredContractStrageWritings(): void {
     for (const [key, cache] of this.state.cachedStorage.entries()) {
       if (this.cachedOpts.stateManager.getMTIndex(key) < 0){
-        // Other contract storage access
+        // Filtering the latest unregistered storage writings
         let lastHistoryIndex = cache.accessHistory.length - 1
         while(lastHistoryIndex >= 0) {
           if (cache.accessHistory[lastHistoryIndex--].access !== 'Write') {
@@ -235,7 +234,7 @@ export class Synthesizer implements SynthesizerInterface
         }
         if (lastHistoryIndex >= 0) {
           this.addReservedVariableToBufferOut(
-            'OTHER_CONTRACT_STORAGE_OUT',
+            'UNREGISTERED_CONTRACT_STORAGE_OUT',
             cache.accessHistory[lastHistoryIndex].valuePt,
             true,
             ` at MPT key ${bigIntToHex(key)}`,
