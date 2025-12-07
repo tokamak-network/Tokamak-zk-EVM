@@ -9,7 +9,7 @@ export async function createTokamakL2StateManagerFromL1RPC(
     opts: TokamakL2StateManagerOpts,
 ): Promise<TokamakL2StateManager> {
     if (opts.initStorageKeys.length > MAX_MT_LEAVES) {
-        throw new Error(`Allowed maximum number of storage slots = ${MAX_MT_LEAVES}, but taking ${opts.initStorageKeys}`)
+        throw new Error(`Allowed maximum number of storage slots = ${MAX_MT_LEAVES}, but taking ${opts.initStorageKeys.length}`)
     }
 
     const stateManager = new TokamakL2StateManager(opts)

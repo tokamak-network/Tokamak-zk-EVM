@@ -6,7 +6,7 @@ export type TokamakL2StateManagerOpts = {
     blockNumber: number,
     contractAddress: AddressLike,
     initStorageKeys: {
-        L1: Uint8Array<ArrayBufferLike>,
-        L2: Uint8Array<ArrayBufferLike>,
+        L1: Uint8Array,
+        L2: Uint8Array,
     }[],
 }

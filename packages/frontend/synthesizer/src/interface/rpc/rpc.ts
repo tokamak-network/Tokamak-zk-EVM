@@ -11,8 +11,8 @@ export type SynthesizerSimulationOpts = {
   blockNumber: number,
   contractAddress: `0x${string}`,
   initStorageKeys: {
-    L1: Uint8Array<ArrayBufferLike>,
-    L2: Uint8Array<ArrayBufferLike>,
+    L1: Uint8Array,
+    L2: Uint8Array,
   }[],
 
   // TX Info
