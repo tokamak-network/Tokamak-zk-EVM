@@ -1,16 +1,7 @@
 import { createVM, runTx, RunTxOpts, RunTxResult, VM, VMOpts } from '@ethereumjs/vm';
 
 import { BlockData, BlockOptions, createBlock, HeaderData } from '@ethereumjs/block';
-import {
-  Address,
-  bigIntToHex,
-  bigIntToBytes,
-  bytesToBigInt,
-  bytesToHex,
-  createAddressFromBigInt,
-  setLengthLeft,
-  toBytes,
-} from '@ethereumjs/util';
+import { bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromBigInt } from '@ethereumjs/util';
 
 import { createEVM, EVM, EVMOpts, EVMResult, InterpreterStep, Message } from '@ethereumjs/evm';
 import {
@@ -80,6 +71,8 @@ export class Synthesizer implements SynthesizerInterface {
           // const currentInterpreterStep = {...data}
 
           if (this._prevInterpreterStep !== null) {
+            console.log(`stack: ${this._prevInterpreterStep.stack.map(x => bigIntToHex(x))}`);
+            console.log(`pc: ${this._prevInterpreterStep.pc}, opcode: ${this._prevInterpreterStep.opcode.name}`);
             await this._applySynthesizerHandler(this._prevInterpreterStep, currentInterpreterStep);
           }
         } catch (err) {
@@ -99,11 +92,7 @@ export class Synthesizer implements SynthesizerInterface {
         try {
           const _runState = data.execResult.runState;
           if (_runState === undefined) {
-            // Even if runState is undefined, we should finalize storage to update the Merkle tree
-            // Transaction may have executed successfully but runState was cleared
-            await this._finalizeStorage();
-            resolve?.();
-            return;
+            throw new Error('Failed to capture the final state');
           }
           const _interpreter = _runState.interpreter;
           const opcodeInfo = _interpreter.lookupOpInfo(_runState.opCode).opcodeInfo;
@@ -149,16 +138,12 @@ export class Synthesizer implements SynthesizerInterface {
             throw new Error('Data loading failure when finalizing Synthesizer');
           }
           await this._applySynthesizerHandler(this._prevInterpreterStep, currentInterpreterStep);
+          console.log(`stack: ${currentInterpreterStep.stack.map(x => bigIntToHex(x))}`);
+          console.log(`pc: ${currentInterpreterStep.pc}, opcode: ${currentInterpreterStep.opcode.name}`);
           await this._finalizeStorage();
           // this._computeTxHash()
         } catch (err) {
           console.error('Synthesizer: afterMessage error:', err);
-          // Even if there's an error, try to finalize storage to update the Merkle tree
-          try {
-            await this._finalizeStorage();
-          } catch (finalizeErr) {
-            console.error('Synthesizer: Failed to finalize storage after error:', finalizeErr);
-          }
         } finally {
           // console.log(`code = ${bytesToHex(data.execResult.runState!.code)}`)
           resolve?.();
@@ -229,33 +214,19 @@ export class Synthesizer implements SynthesizerInterface {
           `The cached storage is about a user's but has no or incorrect DataPt for its Merkle tree index.`,
         );
       }
-
-      // Get the CURRENT storage value from state manager (not the cached historical value)
-      // This is critical because SSTORE operations may have changed the value after the last access
-      const contractAddress = new Address(toBytes(this.cachedOpts.stateManager.cachedOpts!.contractAddress));
-      const storageKey = setLengthLeft(bigIntToBytes(key), 32);
-      const currentStorageValue = await this.cachedOpts.stateManager.getStorage(contractAddress, storageKey);
-      const currentValueBigInt = bytesToBigInt(currentStorageValue);
-
-      // Create a DataPt for the current value
-      const currentValuePt = this.loadArbitraryStatic(
-        currentValueBigInt,
-        256,
-        `Current storage value for key ${bigIntToHex(key)}`,
-      );
-
-      // Use current value for Merkle proof verification, not the cached historical value
-      childPt = this.placePoseidon([lastHistory.keyPt!, currentValuePt]);
-
+      // if (lastCachedStorage.access === 'Read') {
+      //   if (lastCachedStorage.childPt === null) {
+      //     throw new Error(`The cached storage for 'read' has no childPt, meaning that its integrity has never been verified. Need to be debugged.`)
+      //   }
+      //   childPt = lastCachedStorage.childPt
+      // } else {
+      //   if (lastCachedStorage.keyPt === null) {
+      //     throw new Error(`The cached storage is about a user's but has no DataPt for key.`)
+      //   }
+      childPt = this.placePoseidon([lastHistory.keyPt!, lastHistory.valuePt]);
+      // }
       const merkleProof = await this.cachedOpts.stateManager.getMerkleProof(MTIndex);
-
-      // Wrap Merkle proof verification in try-catch to handle storage key mismatches
-      // This can happen when ERC20 contracts use keccak256-based storage keys but we're tracking poseidon-based MPT keys
-      try {
-        this.placeMerkleProofVerification(indexPt, childPt, merkleProof.siblings, finalMerkleRootPt);
-      } catch (error) {
-        // Continue execution - the storage values are still correct, just the proof verification failed
-      }
+      this.placeMerkleProofVerification(indexPt, childPt, merkleProof.siblings, finalMerkleRootPt);
     }
   }
 
@@ -334,19 +305,15 @@ export class Synthesizer implements SynthesizerInterface {
       profilerOpts: { reportAfterTx: true },
     };
     const vm = await createVM(vmOpts);
-    const tx = this.cachedOpts.signedTransaction;
-
     const runTxOpts: RunTxOpts = {
       block,
-      tx,
+      tx: this.cachedOpts.signedTransaction,
       skipBalance: true,
       skipBlockGasLimitValidation: true,
       skipHardForkValidation: true,
       reportPreimages: true,
     };
-    const runTxResult = await runTx(vm, runTxOpts);
-
-    return runTxResult;
+    return await runTx(vm, runTxOpts);
   }
 
   private _applySynthesizerHandler = async (
