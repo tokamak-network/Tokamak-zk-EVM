@@ -75,6 +75,12 @@ export interface SynthesizerResult {
     eoaAddresses: string[];
     calldata?: string; // Optional: hex string of calldata
   };
+  executionResult?: {
+    success: boolean; // true if transaction executed successfully (no revert)
+    gasUsed: bigint; // Total gas spent
+    logsCount: number; // Number of logs emitted
+    error?: string; // Error message if transaction reverted
+  };
 }
 
 export class SynthesizerAdapter {
@@ -234,6 +240,29 @@ export class SynthesizerAdapter {
     // Execute transaction
     const runTxResult = await synthesizer.synthesizeTX();
 
+    // Check transaction execution result
+    const executionSuccess = !runTxResult.execResult.exceptionError;
+    const gasUsed = runTxResult.totalGasSpent;
+    const logsCount = runTxResult.execResult.logs?.length || 0;
+    const errorMessage = runTxResult.execResult.exceptionError
+      ? runTxResult.execResult.exceptionError.error
+      : undefined;
+
+    console.log('[SynthesizerAdapter] Transaction execution result:');
+    console.log(`  - Success: ${executionSuccess}`);
+    console.log(`  - Gas Used: ${gasUsed}`);
+    console.log(`  - Logs: ${logsCount}`);
+    if (!executionSuccess && errorMessage) {
+      console.log(`  - Error: ${errorMessage}`);
+    }
+
+    if (!executionSuccess) {
+      console.warn('[SynthesizerAdapter] ⚠️  Transaction REVERTED! This may indicate:');
+      console.warn('  - Insufficient balance for transfer');
+      console.warn('  - Invalid function call');
+      console.warn('  - Contract logic error');
+    }
+
     console.log('[SynthesizerAdapter] Generating circuit outputs...');
 
     // Generate circuit outputs
@@ -281,6 +310,12 @@ export class SynthesizerAdapter {
         to: tx.to,
         contractAddress: tx.to,
         eoaAddresses,
+      },
+      executionResult: {
+        success: executionSuccess,
+        gasUsed,
+        logsCount,
+        error: errorMessage,
       },
     };
 
@@ -411,6 +446,29 @@ export class SynthesizerAdapter {
     console.log('[SynthesizerAdapter] Executing transaction...');
     const runTxResult = await synthesizer.synthesizeTX();
 
+    // Check transaction execution result
+    const executionSuccess = !runTxResult.execResult.exceptionError;
+    const gasUsed = runTxResult.totalGasSpent;
+    const logsCount = runTxResult.execResult.logs?.length || 0;
+    const errorMessage = runTxResult.execResult.exceptionError
+      ? runTxResult.execResult.exceptionError.error
+      : undefined;
+
+    console.log('[SynthesizerAdapter] Transaction execution result:');
+    console.log(`  - Success: ${executionSuccess}`);
+    console.log(`  - Gas Used: ${gasUsed}`);
+    console.log(`  - Logs: ${logsCount}`);
+    if (!executionSuccess && errorMessage) {
+      console.log(`  - Error: ${errorMessage}`);
+    }
+
+    if (!executionSuccess) {
+      console.warn('[SynthesizerAdapter] ⚠️  Transaction REVERTED! This may indicate:');
+      console.warn('  - Insufficient balance for transfer');
+      console.warn('  - Invalid function call');
+      console.warn('  - Contract logic error');
+    }
+
     console.log('[SynthesizerAdapter] Generating circuit outputs...');
     const circuitGenerator = await createCircuitGenerator(synthesizer);
 
@@ -456,6 +514,12 @@ export class SynthesizerAdapter {
         contractAddress: options.contractAddress,
         eoaAddresses: options.addressListL1,
         calldata: addHexPrefix(Buffer.from(calldataBytes).toString('hex')),
+      },
+      executionResult: {
+        success: executionSuccess,
+        gasUsed,
+        logsCount,
+        error: errorMessage,
       },
     };
 

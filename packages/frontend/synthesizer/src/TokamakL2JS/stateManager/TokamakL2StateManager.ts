@@ -291,7 +291,9 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         const provider = new ethers.JsonRpcProvider(this.cachedOpts.rpcUrl);
         const byteCodeStr = await provider.getCode(contractAddress.toString(), this.cachedOpts.blockNumber);
         if (byteCodeStr === '0x' || byteCodeStr === '') {
-          console.warn(`⚠️  Warning: Contract ${contractAddress.toString()} has no code at block ${this.cachedOpts.blockNumber}`);
+          console.warn(
+            `⚠️  Warning: Contract ${contractAddress.toString()} has no code at block ${this.cachedOpts.blockNumber}`,
+          );
         } else {
           await this.putCode(contractAddress, hexToBytes(addHexPrefix(byteCodeStr)));
           console.log(`✅ Contract code loaded: ${byteCodeStr.length} bytes`);
@@ -326,7 +328,6 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
       await this.putStorage(contractAddress, key, value);
     }
 
-    // Restore user nonces (parallel to userL2Addresses)
     // Restore user nonces (parallel to userL2Addresses)
     for (let i = 0; i < snapshot.userL2Addresses.length; i++) {
       const addr = snapshot.userL2Addresses[i];

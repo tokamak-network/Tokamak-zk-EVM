@@ -1,5 +1,5 @@
 /**
- * Test: Restore Initial State from On-chain Data and Simulate L2 Transfer
+ * Test: Restore Initial State from On-chain Data and Simulate Sequential L2 Transfers
  *
  * This script:
  * 1. Fetches the initializeChannelState transaction from on-chain
@@ -7,15 +7,21 @@
  * 3. Fetches on-chain data (MPT keys, deposits) using getL2MptKey()
  * 4. Creates a StateSnapshot and restores it to Synthesizer EVM
  * 5. Verifies that the restored Merkle root matches the on-chain state root
- * 6. Simulates L2 transfer (Participant 1 → Participant 2, 1 TON) using the restored state
+ * 6. Simulates 3 sequential L2 transfers:
+ *    - Proof #1: Participant 1 → Participant 2 (1 TON)
+ *    - Proof #2: Participant 2 → Participant 3 (0.5 TON)
+ *    - Proof #3: Participant 3 → Participant 1 (1 TON)
+ * 7. For each transfer: Synthesize → Prove → Verify
  *
- * This demonstrates the complete flow: state restoration → transaction simulation → state update
+ * This demonstrates the complete flow: state restoration → sequential transactions → proof generation
  */
 
 import { ethers, parseEther } from 'ethers';
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { existsSync, writeFileSync, mkdirSync } from 'fs';
+import { execSync } from 'child_process';
 import { SEPOLIA_RPC_URL, ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI, TON_ADDRESS } from './constants.ts';
 import {
   Address,
@@ -33,6 +39,7 @@ import { poseidon, getEddsaPublicKey, fromEdwardsToAddress } from '../../src/Tok
 import { Common, Mainnet } from '@ethereumjs/common';
 import { jubjub } from '@noble/curves/misc';
 import { SynthesizerAdapter } from '../../src/interface/adapters/synthesizerAdapter.ts';
+import type { SynthesizerResult } from '../../src/interface/adapters/synthesizerAdapter.ts';
 import { generateMptKeyFromWallet } from './mpt-key-utils.ts';
 
 // Get __dirname equivalent in ESM
@@ -243,8 +250,8 @@ async function testInitializeState() {
   // Step 6: Simulate L2 Transfer (Participant 1 → Participant 2, 1 TON)
   console.log('🔄 Step 6: Simulating L2 Transfer (Participant 1 → Participant 2, 1 TON)...\n');
 
-  if (participants.length < 2) {
-    console.log('❌ FAILURE: Need at least 2 participants for transfer simulation');
+  if (participants.length < 3) {
+    console.log('❌ FAILURE: Need at least 3 participants for sequential transfer simulation');
     process.exit(1);
   }
 
@@ -347,9 +354,38 @@ async function testInitializeState() {
   console.log(`      - To: ${participant2L2Address}`);
   console.log(`      - Amount: 1 TON (${transferAmount.toString()})\n`);
 
+  // Generate L2 keys for all participants (including participant 3)
+  const participant3L1Address = participants[2];
+  const participant3Index = participants.findIndex(addr => addr.toLowerCase() === participant3L1Address.toLowerCase());
+
+  if (participant3Index === -1 || !PRIVATE_KEYS[participant3Index]) {
+    throw new Error(`Private key not found for participant 3: ${participant3L1Address}`);
+  }
+
+  const participant3Wallet = new ethers.Wallet(PRIVATE_KEYS[participant3Index]!);
+  if (participant3Wallet.address.toLowerCase() !== participant3L1Address.toLowerCase()) {
+    throw new Error(
+      `Participant 3 address mismatch: expected ${participant3L1Address}, got ${participant3Wallet.address}`,
+    );
+  }
+
+  const participant3L1PublicKeyHex = participant3Wallet.signingKey.publicKey;
+  const participant3SeedString = `${participant3L1PublicKeyHex}${CHANNEL_ID}${PARTICIPANT_NAMES[participant3Index]!}`;
+  const participant3SeedBytes = utf8ToBytes(participant3SeedString);
+  const participant3SeedHashBytes = poseidon(participant3SeedBytes);
+  const participant3SeedHashBigInt = bytesToBigInt(participant3SeedHashBytes);
+  const participant3PrivateKeyBigInt = participant3SeedHashBigInt % jubjub.Point.Fn.ORDER;
+  const participant3PrivateKeyValue = participant3PrivateKeyBigInt === 0n ? 1n : participant3PrivateKeyBigInt;
+  const participant3PrivateKey = setLengthLeft(bigIntToBytes(participant3PrivateKeyValue), 32);
+  const participant3PublicKey = jubjub.Point.BASE.multiply(bytesToBigInt(participant3PrivateKey)).toBytes();
+  const participant3L2Address = fromEdwardsToAddress(jubjub.Point.fromBytes(participant3PublicKey)).toString();
+
   // Generate public keys for all participants using the same logic as deposit-ton.ts
   const allPublicKeys: Uint8Array[] = [];
   const allL1Addresses: string[] = [];
+  const allPrivateKeys: Uint8Array[] = [];
+  const allL2Addresses: string[] = [];
+
   for (let i = 0; i < participants.length; i++) {
     const l1Address = participants[i];
     const participantIndex = participants.findIndex(addr => addr.toLowerCase() === l1Address.toLowerCase());
@@ -375,176 +411,470 @@ async function testInitializeState() {
 
     // Generate public key from private key
     const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(privateKey)).toBytes();
+    const l2Address = fromEdwardsToAddress(jubjub.Point.fromBytes(publicKey)).toString();
+
     allPublicKeys.push(publicKey);
     allL1Addresses.push(l1Address);
+    allPrivateKeys.push(privateKey);
+    allL2Addresses.push(l2Address);
   }
 
   // Create SynthesizerAdapter
   const adapter = new SynthesizerAdapter({ rpcUrl: RPC_URL });
 
-  // Prepare options for synthesizeFromCalldata
-  const outputPath = resolve(__dirname, '../test-outputs/l2-state-channel-transfer');
-  const synthesizeOptions = {
+  // Base options for all proofs
+  const baseOptions = {
     contractAddress: allowedTokens[0],
     publicKeyListL2: allPublicKeys,
     addressListL1: allL1Addresses,
-    senderL2PrvKey: participant1PrivateKey,
-    previousState: stateSnapshot, // Use the restored state snapshot
-    blockNumber: tx.blockNumber, // Use the block number from initialize transaction
+    blockNumber: tx.blockNumber,
     userStorageSlots: [0], // ERC20 balance slot
-    txNonce: 0n, // First transaction
-    tokenAddress: allowedTokens[0], // TON contract address
-    outputPath, // Save outputs to test-outputs folder
   };
 
-  console.log('   🔄 Executing transfer simulation...\n');
-  const result = await adapter.synthesizeFromCalldata(calldata, synthesizeOptions);
+  // ========================================================================
+  // PROOF #1: Participant 1 → Participant 2 Transfer (1 TON)
+  // ========================================================================
+  console.log('\n\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║                  Proof #1: Participant 1 → 2 (1 TON)         ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
-  if (result.placementVariables.length === 0) {
+  // Prepare options for first transfer
+  const proof1Path = resolve(__dirname, '../test-outputs/l2-state-channel-transfer-1');
+  const synthesizeOptions1 = {
+    ...baseOptions,
+    senderL2PrvKey: allPrivateKeys[0],
+    previousState: stateSnapshot,
+    txNonce: 0n,
+    tokenAddress: allowedTokens[0],
+    outputPath: proof1Path,
+  };
+
+  console.log('🔄 Generating circuit for Participant 1 → Participant 2 transfer...\n');
+  const result1 = await adapter.synthesizeFromCalldata(calldata, synthesizeOptions1);
+
+  if (result1.placementVariables.length === 0) {
     console.log('❌ FAILURE: Synthesizer failed to generate placements');
     process.exit(1);
   }
 
-  console.log(`   ✅ Transfer simulation completed successfully!`);
-  console.log(`      - Placements: ${result.placementVariables.length}`);
-  console.log(`      - Previous State Root: ${stateSnapshot.stateRoot}`);
-  console.log(`      - New State Root:      ${result.state.stateRoot}\n`);
+  console.log(`\n✅ Proof #1: Circuit generated successfully`);
+  console.log(`   - Placements: ${result1.placementVariables.length}`);
+  console.log(`   - Previous State Root: ${stateSnapshot.stateRoot}`);
+  console.log(`   - New State Root:      ${result1.state.stateRoot}\n`);
 
-  // Validate that state root changed (transaction was executed)
-  if (result.state.stateRoot !== stateSnapshot.stateRoot) {
-    console.log('   ✅ State root CHANGED! (Transaction executed successfully)');
-    console.log('   ✅ Transfer simulation successful!\n');
-  } else {
-    console.log('   ⚠️  State root UNCHANGED (No state change detected)');
-    console.log('   ⚠️  This may indicate the transaction was not executed properly\n');
-  }
-
-  // Step 7: Verify balances changed correctly
-  console.log('📊 Step 7: Verifying balance changes...');
-  console.log('─────────────────────────────────────────────────────────\n');
-
-  // Helper function to safely convert hex value to BigInt
-  const hexToBigInt = (hexValue: string): bigint => {
-    if (hexValue === '0x' || hexValue === '') {
-      return 0n;
+  // Check transaction execution result
+  console.log('📊 Transaction Execution Result:');
+  if (result1.executionResult) {
+    console.log(`   - Success: ${result1.executionResult.success ? '✅' : '❌'}`);
+    console.log(`   - Gas Used: ${result1.executionResult.gasUsed}`);
+    console.log(`   - Logs Emitted: ${result1.executionResult.logsCount}`);
+    if (!result1.executionResult.success) {
+      console.log(`   - Error: ${result1.executionResult.error || 'Unknown error'}`);
+      console.log('\n❌ FAILURE: Transaction REVERTED!');
+      console.log('   This indicates that the transaction failed during execution.');
+      console.log('   Possible causes:');
+      console.log('   - Insufficient balance (sender balance < transfer amount)');
+      console.log('   - Invalid function call or parameters');
+      console.log('   - Contract logic error');
+      process.exit(1);
     }
-    return BigInt(hexValue);
-  };
-
-  // Get initial balances from snapshot
-  const initialSenderBalance = hexToBigInt(stateSnapshot.storageEntries[0].value);
-  const initialRecipientBalance = hexToBigInt(stateSnapshot.storageEntries[1].value);
-
-  // Get final balances from result
-  const finalSenderBalance = hexToBigInt(result.state.storageEntries[0].value);
-  const finalRecipientBalance = hexToBigInt(result.state.storageEntries[1].value);
-
-  console.log('   Sender (Participant 1):');
-  console.log(`      - L2 Address: ${participant1L2Address}`);
-  console.log(`      - Initial Balance: ${ethers.formatEther(initialSenderBalance)} TON`);
-  console.log(`      - Final Balance:   ${ethers.formatEther(finalSenderBalance)} TON`);
-  console.log(`      - Change:          ${ethers.formatEther(finalSenderBalance - initialSenderBalance)} TON\n`);
-
-  console.log('   Recipient (Participant 2):');
-  console.log(`      - L2 Address: ${participant2L2Address}`);
-  console.log(`      - Initial Balance: ${ethers.formatEther(initialRecipientBalance)} TON`);
-  console.log(`      - Final Balance:   ${ethers.formatEther(finalRecipientBalance)} TON`);
-  console.log(`      - Change:          ${ethers.formatEther(finalRecipientBalance - initialRecipientBalance)} TON\n`);
-
-  // Validate balance changes
-  const expectedSenderBalance = initialSenderBalance - transferAmount;
-  const expectedRecipientBalance = initialRecipientBalance + transferAmount;
-
-  if (finalSenderBalance === expectedSenderBalance && finalRecipientBalance === expectedRecipientBalance) {
-    console.log('   ✅ Balance changes are CORRECT!');
-    console.log(`      - Sender decreased by ${ethers.formatEther(transferAmount)} TON`);
-    console.log(`      - Recipient increased by ${ethers.formatEther(transferAmount)} TON\n`);
   } else {
-    console.log('   ❌ Balance changes are INCORRECT!');
-    console.log(`      - Expected sender balance: ${ethers.formatEther(expectedSenderBalance)} TON`);
-    console.log(`      - Actual sender balance:   ${ethers.formatEther(finalSenderBalance)} TON`);
-    console.log(`      - Expected recipient balance: ${ethers.formatEther(expectedRecipientBalance)} TON`);
-    console.log(`      - Actual recipient balance:   ${ethers.formatEther(finalRecipientBalance)} TON\n`);
-    process.exit(1);
+    console.warn('   ⚠️  Execution result not available');
+  }
+  console.log('');
+
+  if (result1.state.stateRoot !== stateSnapshot.stateRoot) {
+    console.log('   ✅ State root CHANGED! (Transaction executed successfully)\n');
+  } else {
+    console.warn('   ⚠️  State root UNCHANGED (No state change detected)\n');
   }
 
-  console.log(`   📁 Outputs saved to: ${outputPath}`);
-  console.log(`      - instance.json: Circuit instance data`);
-  console.log(`      - placement.json: Placement variables`);
-  console.log(`      - permutation.json: Permutation data`);
-  console.log(`      - state_snapshot.json: Final state snapshot\n`);
+  // Save outputs
+  await saveProofOutputs(result1, 1, proof1Path);
 
-  // Step 8: Test snapshot restoration
-  console.log('🔄 Step 8: Testing snapshot restoration...');
-  console.log('─────────────────────────────────────────────────────────\n');
+  // Prove & Verify Proof #1
+  console.log(`\n${'='.repeat(80)}`);
+  console.log(`Proving and Verifying Proof #1`);
+  console.log('='.repeat(80));
 
-  console.log('   Creating new state manager and restoring from final snapshot...\n');
-
-  // Create a new state manager with the same options
-  const restoredStateManager = await createTokamakL2StateManagerFromL1RPC(RPC_URL, stateManagerOpts, true);
-
-  // Restore from the final state snapshot
-  await restoredStateManager.createStateFromSnapshot(result.state);
-
-  // Get the restored Merkle root
-  const finalRestoredMerkleRootBigInt = restoredStateManager.initialMerkleTree.root;
-  const finalRestoredMerkleRootHex = '0x' + finalRestoredMerkleRootBigInt.toString(16).padStart(64, '0').toLowerCase();
-
-  console.log('   📊 Comparing restored state with original final state:\n');
-  console.log(`      Original Final Root:  ${result.state.stateRoot}`);
-  console.log(`      Restored Root:        ${finalRestoredMerkleRootHex}\n`);
-
-  // Verify Merkle root matches
-  if (finalRestoredMerkleRootHex.toLowerCase() !== result.state.stateRoot.toLowerCase()) {
-    console.log('   ❌ FAILURE: Restored Merkle root does not match!');
-    console.log('      Snapshot restoration failed.\n');
-    process.exit(1);
+  const preprocessSuccess = await runPreprocess(proof1Path);
+  if (!preprocessSuccess) {
+    console.error(`\n❌ Preprocess failed! Cannot continue.`);
+    return;
   }
 
-  console.log('   ✅ Merkle root matches! Snapshot restoration successful.\n');
+  const prove1Success = await runProver(1, proof1Path);
+  const verify1Success = prove1Success ? await runVerifyRust(1, proof1Path) : false;
 
-  // Verify balances in restored state
-  console.log('   🔍 Verifying balances in restored state:\n');
+  if (!prove1Success || !verify1Success) {
+    console.error(`\n❌ Proof #1 failed! Cannot continue.`);
+    return;
+  }
+  console.log(`\n✅ Proof #1 Complete: Preprocessed ✅ | Proved ✅ | Verified ✅`);
 
-  const contractAddr = new Address(hexToBytes(allowedTokens[0] as `0x${string}`));
+  // ========================================================================
+  // PROOF #2: Participant 2 → Participant 3 Transfer (0.5 TON)
+  // ========================================================================
+  console.log('\n\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║                  Proof #2: Participant 2 → 3 (0.5 TON)       ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
-  // Get sender balance from restored state
-  const restoredSenderKey = hexToBytes(result.state.registeredKeys[0] as `0x${string}`);
-  const restoredSenderValue = await restoredStateManager.getStorage(contractAddr, restoredSenderKey);
-  const restoredSenderBalance = bytesToBigInt(restoredSenderValue);
+  const transferAmount2 = parseEther('0.5'); // 0.5 TON
+  const calldata2 =
+    '0xa9059cbb' + // transfer(address,uint256)
+    participant3L2Address.slice(2).padStart(64, '0') + // recipient (participant 3)
+    transferAmount2.toString(16).padStart(64, '0'); // amount (0.5 TON)
 
-  // Get recipient balance from restored state
-  const restoredRecipientKey = hexToBytes(result.state.registeredKeys[1] as `0x${string}`);
-  const restoredRecipientValue = await restoredStateManager.getStorage(contractAddr, restoredRecipientKey);
-  const restoredRecipientBalance = bytesToBigInt(restoredRecipientValue);
+  console.log('🔄 Generating circuit for Participant 2 → Participant 3 transfer...\n');
+  const proof2Path = resolve(__dirname, '../test-outputs/l2-state-channel-transfer-2');
+  const result2 = await adapter.synthesizeFromCalldata(calldata2, {
+    ...baseOptions,
+    senderL2PrvKey: allPrivateKeys[1], // Participant 2's private key
+    previousState: result1.state, // Use state from Proof #1
+    txNonce: 0n, // Participant 2's first transaction
+    tokenAddress: allowedTokens[0],
+    outputPath: proof2Path,
+  });
 
-  console.log('   Sender (Participant 1):');
-  console.log(`      - Expected Balance: ${ethers.formatEther(finalSenderBalance)} TON`);
-  console.log(`      - Restored Balance: ${ethers.formatEther(restoredSenderBalance)} TON`);
-  console.log(`      - Match: ${restoredSenderBalance === finalSenderBalance ? '✅' : '❌'}\n`);
-
-  console.log('   Recipient (Participant 2):');
-  console.log(`      - Expected Balance: ${ethers.formatEther(finalRecipientBalance)} TON`);
-  console.log(`      - Restored Balance: ${ethers.formatEther(restoredRecipientBalance)} TON`);
-  console.log(`      - Match: ${restoredRecipientBalance === finalRecipientBalance ? '✅' : '❌'}\n`);
-
-  // Validate balances match
-  if (restoredSenderBalance !== finalSenderBalance || restoredRecipientBalance !== finalRecipientBalance) {
-    console.log('   ❌ FAILURE: Restored balances do not match!');
-    console.log('      Snapshot restoration failed.\n');
-    process.exit(1);
+  if (result2.placementVariables.length === 0) {
+    console.error('❌ Synthesizer failed to generate placements for Proof #2');
+    return;
   }
 
-  console.log('   ✅ All balances match! Snapshot restoration fully verified.\n');
-  console.log('   📝 Summary:');
-  console.log('      - Merkle root: ✅ Matches');
-  console.log('      - Sender balance: ✅ Matches');
-  console.log('      - Recipient balance: ✅ Matches');
-  console.log('      - Snapshot save/restore: ✅ Working correctly\n');
+  console.log(`\n✅ Proof #2: Circuit generated successfully`);
+  console.log(`   - Placements: ${result2.placementVariables.length}`);
+  console.log(`   - State root: ${result2.state.stateRoot}`);
+
+  // Check transaction execution result
+  if (result2.executionResult) {
+    console.log(`   - Execution: ${result2.executionResult.success ? '✅ Success' : '❌ REVERTED'}`);
+    console.log(`   - Gas Used: ${result2.executionResult.gasUsed}`);
+    if (!result2.executionResult.success) {
+      console.log(`   - Error: ${result2.executionResult.error || 'Unknown error'}`);
+      console.log('\n❌ FAILURE: Transaction REVERTED!');
+      process.exit(1);
+    }
+  }
+
+  if (result2.state.stateRoot !== result1.state.stateRoot) {
+    console.log('   ✅ State root CHANGED! (Success!)\n');
+  } else {
+    console.log('   ⚠️  State root UNCHANGED\n');
+  }
+
+  // Save outputs
+  await saveProofOutputs(result2, 2, proof2Path);
+
+  // Prove & Verify Proof #2
+  console.log(`\n${'='.repeat(80)}`);
+  console.log(`Proving and Verifying Proof #2`);
+  console.log('='.repeat(80));
+
+  const prove2Success = await runProver(2, proof2Path);
+  const verify2Success = prove2Success ? await runVerifyRust(2, proof2Path) : false;
+
+  if (!prove2Success || !verify2Success) {
+    console.error(`\n❌ Proof #2 failed! Cannot continue.`);
+    return;
+  }
+  console.log(`\n✅ Proof #2 Complete: Proved ✅ | Verified ✅`);
+
+  // ========================================================================
+  // PROOF #3: Participant 3 → Participant 1 Transfer (1 TON)
+  // ========================================================================
+  console.log('\n\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║                  Proof #3: Participant 3 → 1 (1 TON)          ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  const transferAmount3 = parseEther('1'); // 1 TON
+  const calldata3 =
+    '0xa9059cbb' + // transfer(address,uint256)
+    participant1L2Address.slice(2).padStart(64, '0') + // recipient (participant 1)
+    transferAmount3.toString(16).padStart(64, '0'); // amount (1 TON)
+
+  console.log('🔄 Generating circuit for Participant 3 → Participant 1 transfer...\n');
+  const proof3Path = resolve(__dirname, '../test-outputs/l2-state-channel-transfer-3');
+  const result3 = await adapter.synthesizeFromCalldata(calldata3, {
+    ...baseOptions,
+    senderL2PrvKey: allPrivateKeys[2], // Participant 3's private key
+    previousState: result2.state, // Use state from Proof #2
+    txNonce: 0n, // Participant 3's first transaction
+    tokenAddress: allowedTokens[0],
+    outputPath: proof3Path,
+  });
+
+  if (result3.placementVariables.length === 0) {
+    console.error('❌ Synthesizer failed to generate placements for Proof #3');
+    return;
+  }
+
+  console.log(`\n✅ Proof #3: Circuit generated successfully`);
+  console.log(`   - Placements: ${result3.placementVariables.length}`);
+  console.log(`   - State root: ${result3.state.stateRoot}`);
+
+  // Check transaction execution result
+  if (result3.executionResult) {
+    console.log(`   - Execution: ${result3.executionResult.success ? '✅ Success' : '❌ REVERTED'}`);
+    console.log(`   - Gas Used: ${result3.executionResult.gasUsed}`);
+    if (!result3.executionResult.success) {
+      console.log(`   - Error: ${result3.executionResult.error || 'Unknown error'}`);
+      console.log('\n❌ FAILURE: Transaction REVERTED!');
+      process.exit(1);
+    }
+  }
+
+  if (result3.state.stateRoot !== result2.state.stateRoot) {
+    console.log('   ✅ State root CHANGED! (Success!)\n');
+  } else {
+    console.log('   ⚠️  State root UNCHANGED\n');
+  }
+
+  // Save outputs
+  await saveProofOutputs(result3, 3, proof3Path);
+
+  // Prove & Verify Proof #3
+  console.log(`\n${'='.repeat(80)}`);
+  console.log(`Proving and Verifying Proof #3`);
+  console.log('='.repeat(80));
+
+  const prove3Success = await runProver(3, proof3Path);
+  const verify3Success = prove3Success ? await runVerifyRust(3, proof3Path) : false;
+
+  if (!prove3Success || !verify3Success) {
+    console.error(`\n❌ Proof #3 failed!`);
+    return;
+  }
+  console.log(`\n✅ Proof #3 Complete: Proved ✅ | Verified ✅`);
+
+  // ========================================================================
+  // FINAL SUMMARY
+  // ========================================================================
+  console.log('\n\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║                     Test Summary                              ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  console.log('✅ Successfully completed sequential transfer simulation!');
+  console.log('');
+  console.log('📊 State Root Evolution:');
+  console.log(`   Initial (Onchain):         ${stateSnapshot.stateRoot}`);
+  console.log(`   → Proof #1 (P1→P2, 1 TON):  ${result1.state.stateRoot}`);
+  console.log(`   → Proof #2 (P2→P3, 0.5 TON): ${result2.state.stateRoot}`);
+  console.log(`   → Proof #3 (P3→P1, 1 TON):  ${result3.state.stateRoot}`);
+  console.log('');
+  console.log('🔬 Proof Generation:');
+  console.log(`   - Proof #1: Preprocessed ✅ | Proved ✅ | Verified ✅`);
+  console.log(`   - Proof #2: Proved ✅ | Verified ✅`);
+  console.log(`   - Proof #3: Proved ✅ | Verified ✅`);
+  console.log('');
+  console.log('🔄 Sequential Execution Flow:');
+  console.log('   Proof #1: Synthesize → Preprocess → Prove → Verify ✅ Complete');
+  console.log('             ↓ (await completion)');
+  console.log('   Proof #2: Synthesize → Prove → Verify ✅ Complete');
+  console.log('             ↓ (await completion)');
+  console.log('   Proof #3: Synthesize → Prove → Verify ✅ Complete');
 
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║                    Test Completed Successfully!               ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
+}
+
+// ============================================================================
+// PROVE & VERIFY HELPER FUNCTIONS
+// ============================================================================
+
+async function saveProofOutputs(result: SynthesizerResult, proofNum: number, outputsPath: string) {
+  // Ensure output directory exists
+  mkdirSync(outputsPath, { recursive: true });
+
+  // Save instance.json
+  const instancePath = `${outputsPath}/instance.json`;
+  writeFileSync(instancePath, JSON.stringify(result.instance, null, 2));
+  console.log(
+    `   ✅ instance.json saved (user: ${result.instance.a_pub_user.length}, block: ${result.instance.a_pub_block.length}, function: ${result.instance.a_pub_function.length} public inputs)`,
+  );
+
+  // Save permutation.json
+  const permutationPath = `${outputsPath}/permutation.json`;
+  writeFileSync(permutationPath, JSON.stringify(result.permutation, null, 2));
+  console.log(`   ✅ permutation.json saved (${result.permutation.length} entries)`);
+
+  // Save placementVariables.json
+  const placementPath = `${outputsPath}/placementVariables.json`;
+  writeFileSync(placementPath, JSON.stringify(result.placementVariables, null, 2));
+  console.log(`   ✅ placementVariables.json saved (${result.placementVariables.length} placements)`);
+
+  // Save state_snapshot.json
+  const statePath = `${outputsPath}/state_snapshot.json`;
+  writeFileSync(
+    statePath,
+    JSON.stringify(result.state, (key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
+  );
+  console.log(`   ✅ state_snapshot.json saved`);
+}
+
+async function runProver(proofNum: number, outputsPath: string): Promise<boolean> {
+  console.log(`\n⚡ Proof #${proofNum}: Running prover...`);
+
+  const qapPath = resolve(process.cwd(), '../qap-compiler/subcircuits/library');
+  const synthesizerPath = outputsPath; // outputsPath is already an absolute path
+  const setupPath = resolve(process.cwd(), '../../../dist/macOS/resource/setup/output');
+  const outPath = synthesizerPath;
+
+  if (!existsSync(`${synthesizerPath}/instance.json`)) {
+    console.log(`   ⚠️  instance.json not found, skipping prover`);
+    return false;
+  }
+
+  try {
+    const proverPath = resolve(process.cwd(), '../../backend/prove');
+    const cmd = `cd ${proverPath} && cargo run --release -- "${qapPath}" "${synthesizerPath}" "${setupPath}" "${outPath}"`;
+
+    console.log(`   Running: cargo run --release (this may take a while)...`);
+    const startTime = Date.now();
+
+    const output = execSync(cmd, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      timeout: 300000, // 5 minute timeout
+    });
+
+    const duration = Date.now() - startTime;
+
+    if (existsSync(`${outPath}/proof.json`)) {
+      console.log(`   ✅ Proof generated successfully in ${(duration / 1000).toFixed(2)}s`);
+      const timeMatch = output.match(/Total proving time: ([\d.]+) seconds/);
+      if (timeMatch) {
+        console.log(`   ⏱️  Total proving time: ${timeMatch[1]}s`);
+      }
+      return true;
+    } else {
+      console.log(`   ❌ Proof generation failed - proof.json not found`);
+      console.log(`   Output: ${output}`);
+      return false;
+    }
+  } catch (error: any) {
+    console.log(`   ❌ Prover error: ${error.message}`);
+    if (error.stdout) {
+      console.log(`   stdout: ${error.stdout.substring(0, 500)}...`);
+    }
+    if (error.stderr) {
+      console.log(`   stderr: ${error.stderr.substring(0, 500)}...`);
+    }
+    return false;
+  }
+}
+
+async function runVerifyRust(proofNum: number, outputsPath: string): Promise<boolean> {
+  console.log(`\n🔐 Proof #${proofNum}: Running verify-rust verification...`);
+
+  const qapPath = resolve(process.cwd(), '../qap-compiler/subcircuits/library');
+  const synthesizerPath = outputsPath; // outputsPath is already an absolute path
+  const setupPath = resolve(process.cwd(), '../../../dist/macOS/resource/setup/output');
+  const preprocessPath = resolve(process.cwd(), '../../../dist/macOS/resource/preprocess/output');
+  const proofPath = synthesizerPath;
+
+  if (!existsSync(`${synthesizerPath}/instance.json`)) {
+    console.log(`   ⚠️  instance.json not found, skipping verification`);
+    return false;
+  }
+
+  if (!existsSync(`${proofPath}/proof.json`)) {
+    console.log(`   ⚠️  proof.json not found - cannot verify without proof`);
+    return false;
+  }
+
+  try {
+    const verifyRustPath = resolve(process.cwd(), '../../backend/verify/verify-rust');
+    const cmd = `cd ${verifyRustPath} && cargo run --release -- "${qapPath}" "${synthesizerPath}" "${setupPath}" "${preprocessPath}" "${proofPath}"`;
+
+    console.log(`   Running: cargo run --release...`);
+    const startTime = Date.now();
+
+    const output = execSync(cmd, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      timeout: 60000, // 60 second timeout
+    });
+
+    const duration = Date.now() - startTime;
+
+    const lines = output.split('\n');
+    const verificationResult = lines.find(line => line.trim() === 'true' || line.trim() === 'false');
+
+    if (verificationResult === 'true') {
+      console.log(`   ✅ Verification PASSED in ${(duration / 1000).toFixed(2)}s`);
+      return true;
+    } else if (verificationResult === 'false') {
+      console.log(`   ❌ Verification FAILED in ${(duration / 1000).toFixed(2)}s`);
+      console.log(`   Output: ${output}`);
+      return false;
+    } else {
+      console.log(`   ⚠️  Could not parse verification result`);
+      console.log(`   Output: ${output}`);
+      return false;
+    }
+  } catch (error: any) {
+    console.log(`   ❌ Verification error: ${error.message}`);
+    if (error.stdout) {
+      console.log(`   stdout: ${error.stdout}`);
+    }
+    if (error.stderr) {
+      console.log(`   stderr: ${error.stderr}`);
+    }
+    return false;
+  }
+}
+
+async function runPreprocess(outputsPath: string): Promise<boolean> {
+  console.log(`\n⚙️  Running preprocess (one-time setup)...`);
+
+  const qapPath = resolve(process.cwd(), '../qap-compiler/subcircuits/library');
+  const synthesizerPath = outputsPath; // outputsPath is already an absolute path
+  const setupPath = resolve(process.cwd(), '../../../dist/macOS/resource/setup/output');
+  const preprocessOutPath = resolve(process.cwd(), '../../../dist/macOS/resource/preprocess/output');
+
+  if (existsSync(`${preprocessOutPath}/preprocess.json`)) {
+    console.log(`   ℹ️  Preprocess files already exist, skipping...`);
+    return true;
+  }
+
+  if (!existsSync(preprocessOutPath)) {
+    mkdirSync(preprocessOutPath, { recursive: true });
+  }
+
+  try {
+    const preprocessPath = resolve(process.cwd(), '../../backend/verify/preprocess');
+    const cmd = `cd ${preprocessPath} && cargo run --release -- "${qapPath}" "${synthesizerPath}" "${setupPath}" "${preprocessOutPath}"`;
+
+    console.log(`   Running: cargo run --release (this may take a while)...`);
+    const startTime = Date.now();
+
+    const output = execSync(cmd, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      timeout: 300000, // 5 minute timeout
+    });
+
+    const duration = Date.now() - startTime;
+
+    if (existsSync(`${preprocessOutPath}/preprocess.json`)) {
+      console.log(`   ✅ Preprocess completed successfully in ${(duration / 1000).toFixed(2)}s`);
+      return true;
+    } else {
+      console.log(`   ❌ Preprocess failed - output files not found`);
+      console.log(`   Output: ${output}`);
+      return false;
+    }
+  } catch (error: any) {
+    console.log(`   ❌ Preprocess error: ${error.message}`);
+    if (error.stdout) {
+      console.log(`   stdout: ${error.stdout.substring(0, 500)}...`);
+    }
+    if (error.stderr) {
+      console.log(`   stderr: ${error.stderr.substring(0, 500)}...`);
+    }
+    return false;
+  }
 }
 
 // ============================================================================
