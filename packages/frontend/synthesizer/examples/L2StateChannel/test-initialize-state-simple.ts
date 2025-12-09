@@ -383,6 +383,7 @@ async function testInitializeState() {
   const adapter = new SynthesizerAdapter({ rpcUrl: RPC_URL });
 
   // Prepare options for synthesizeFromCalldata
+  const outputPath = resolve(__dirname, '../test-outputs/l2-state-channel-transfer');
   const synthesizeOptions = {
     contractAddress: allowedTokens[0],
     publicKeyListL2: allPublicKeys,
@@ -393,6 +394,7 @@ async function testInitializeState() {
     userStorageSlots: [0], // ERC20 balance slot
     txNonce: 0n, // First transaction
     tokenAddress: allowedTokens[0], // TON contract address
+    outputPath, // Save outputs to test-outputs folder
   };
 
   console.log('   🔄 Executing transfer simulation...\n');
@@ -416,6 +418,129 @@ async function testInitializeState() {
     console.log('   ⚠️  State root UNCHANGED (No state change detected)');
     console.log('   ⚠️  This may indicate the transaction was not executed properly\n');
   }
+
+  // Step 7: Verify balances changed correctly
+  console.log('📊 Step 7: Verifying balance changes...');
+  console.log('─────────────────────────────────────────────────────────\n');
+
+  // Helper function to safely convert hex value to BigInt
+  const hexToBigInt = (hexValue: string): bigint => {
+    if (hexValue === '0x' || hexValue === '') {
+      return 0n;
+    }
+    return BigInt(hexValue);
+  };
+
+  // Get initial balances from snapshot
+  const initialSenderBalance = hexToBigInt(stateSnapshot.storageEntries[0].value);
+  const initialRecipientBalance = hexToBigInt(stateSnapshot.storageEntries[1].value);
+
+  // Get final balances from result
+  const finalSenderBalance = hexToBigInt(result.state.storageEntries[0].value);
+  const finalRecipientBalance = hexToBigInt(result.state.storageEntries[1].value);
+
+  console.log('   Sender (Participant 1):');
+  console.log(`      - L2 Address: ${participant1L2Address}`);
+  console.log(`      - Initial Balance: ${ethers.formatEther(initialSenderBalance)} TON`);
+  console.log(`      - Final Balance:   ${ethers.formatEther(finalSenderBalance)} TON`);
+  console.log(`      - Change:          ${ethers.formatEther(finalSenderBalance - initialSenderBalance)} TON\n`);
+
+  console.log('   Recipient (Participant 2):');
+  console.log(`      - L2 Address: ${participant2L2Address}`);
+  console.log(`      - Initial Balance: ${ethers.formatEther(initialRecipientBalance)} TON`);
+  console.log(`      - Final Balance:   ${ethers.formatEther(finalRecipientBalance)} TON`);
+  console.log(`      - Change:          ${ethers.formatEther(finalRecipientBalance - initialRecipientBalance)} TON\n`);
+
+  // Validate balance changes
+  const expectedSenderBalance = initialSenderBalance - transferAmount;
+  const expectedRecipientBalance = initialRecipientBalance + transferAmount;
+
+  if (finalSenderBalance === expectedSenderBalance && finalRecipientBalance === expectedRecipientBalance) {
+    console.log('   ✅ Balance changes are CORRECT!');
+    console.log(`      - Sender decreased by ${ethers.formatEther(transferAmount)} TON`);
+    console.log(`      - Recipient increased by ${ethers.formatEther(transferAmount)} TON\n`);
+  } else {
+    console.log('   ❌ Balance changes are INCORRECT!');
+    console.log(`      - Expected sender balance: ${ethers.formatEther(expectedSenderBalance)} TON`);
+    console.log(`      - Actual sender balance:   ${ethers.formatEther(finalSenderBalance)} TON`);
+    console.log(`      - Expected recipient balance: ${ethers.formatEther(expectedRecipientBalance)} TON`);
+    console.log(`      - Actual recipient balance:   ${ethers.formatEther(finalRecipientBalance)} TON\n`);
+    process.exit(1);
+  }
+
+  console.log(`   📁 Outputs saved to: ${outputPath}`);
+  console.log(`      - instance.json: Circuit instance data`);
+  console.log(`      - placement.json: Placement variables`);
+  console.log(`      - permutation.json: Permutation data`);
+  console.log(`      - state_snapshot.json: Final state snapshot\n`);
+
+  // Step 8: Test snapshot restoration
+  console.log('🔄 Step 8: Testing snapshot restoration...');
+  console.log('─────────────────────────────────────────────────────────\n');
+
+  console.log('   Creating new state manager and restoring from final snapshot...\n');
+
+  // Create a new state manager with the same options
+  const restoredStateManager = await createTokamakL2StateManagerFromL1RPC(RPC_URL, stateManagerOpts, true);
+
+  // Restore from the final state snapshot
+  await restoredStateManager.createStateFromSnapshot(result.state);
+
+  // Get the restored Merkle root
+  const finalRestoredMerkleRootBigInt = restoredStateManager.initialMerkleTree.root;
+  const finalRestoredMerkleRootHex = '0x' + finalRestoredMerkleRootBigInt.toString(16).padStart(64, '0').toLowerCase();
+
+  console.log('   📊 Comparing restored state with original final state:\n');
+  console.log(`      Original Final Root:  ${result.state.stateRoot}`);
+  console.log(`      Restored Root:        ${finalRestoredMerkleRootHex}\n`);
+
+  // Verify Merkle root matches
+  if (finalRestoredMerkleRootHex.toLowerCase() !== result.state.stateRoot.toLowerCase()) {
+    console.log('   ❌ FAILURE: Restored Merkle root does not match!');
+    console.log('      Snapshot restoration failed.\n');
+    process.exit(1);
+  }
+
+  console.log('   ✅ Merkle root matches! Snapshot restoration successful.\n');
+
+  // Verify balances in restored state
+  console.log('   🔍 Verifying balances in restored state:\n');
+
+  const contractAddr = new Address(hexToBytes(allowedTokens[0] as `0x${string}`));
+
+  // Get sender balance from restored state
+  const restoredSenderKey = hexToBytes(result.state.registeredKeys[0] as `0x${string}`);
+  const restoredSenderValue = await restoredStateManager.getStorage(contractAddr, restoredSenderKey);
+  const restoredSenderBalance = bytesToBigInt(restoredSenderValue);
+
+  // Get recipient balance from restored state
+  const restoredRecipientKey = hexToBytes(result.state.registeredKeys[1] as `0x${string}`);
+  const restoredRecipientValue = await restoredStateManager.getStorage(contractAddr, restoredRecipientKey);
+  const restoredRecipientBalance = bytesToBigInt(restoredRecipientValue);
+
+  console.log('   Sender (Participant 1):');
+  console.log(`      - Expected Balance: ${ethers.formatEther(finalSenderBalance)} TON`);
+  console.log(`      - Restored Balance: ${ethers.formatEther(restoredSenderBalance)} TON`);
+  console.log(`      - Match: ${restoredSenderBalance === finalSenderBalance ? '✅' : '❌'}\n`);
+
+  console.log('   Recipient (Participant 2):');
+  console.log(`      - Expected Balance: ${ethers.formatEther(finalRecipientBalance)} TON`);
+  console.log(`      - Restored Balance: ${ethers.formatEther(restoredRecipientBalance)} TON`);
+  console.log(`      - Match: ${restoredRecipientBalance === finalRecipientBalance ? '✅' : '❌'}\n`);
+
+  // Validate balances match
+  if (restoredSenderBalance !== finalSenderBalance || restoredRecipientBalance !== finalRecipientBalance) {
+    console.log('   ❌ FAILURE: Restored balances do not match!');
+    console.log('      Snapshot restoration failed.\n');
+    process.exit(1);
+  }
+
+  console.log('   ✅ All balances match! Snapshot restoration fully verified.\n');
+  console.log('   📝 Summary:');
+  console.log('      - Merkle root: ✅ Matches');
+  console.log('      - Sender balance: ✅ Matches');
+  console.log('      - Recipient balance: ✅ Matches');
+  console.log('      - Snapshot save/restore: ✅ Working correctly\n');
 
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║                    Test Completed Successfully!               ║');

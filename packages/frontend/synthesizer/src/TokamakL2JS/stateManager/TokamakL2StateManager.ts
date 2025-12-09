@@ -327,6 +327,7 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
     }
 
     // Restore user nonces (parallel to userL2Addresses)
+    // Restore user nonces (parallel to userL2Addresses)
     for (let i = 0; i < snapshot.userL2Addresses.length; i++) {
       const addr = snapshot.userL2Addresses[i];
       const nonce = snapshot.userNonces[i];
@@ -335,6 +336,22 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
       if (account) {
         account.nonce = nonce;
         await this.putAccount(address, account);
+      } else {
+        // Create new account if it doesn't exist
+        // This is necessary because empty accounts might not be tracked yet
+        if (!this.cachedOpts?.common.customCrypto.keccak256) {
+          throw new Error('Custom crypto must be set');
+        }
+        const POSEIDON_RLP = this.cachedOpts.common.customCrypto.keccak256(RLP.encode(new Uint8Array([])));
+        const POSEIDON_NULL = this.cachedOpts.common.customCrypto.keccak256(new Uint8Array(0));
+
+        const newAccount = createAccount({
+          nonce: nonce,
+          balance: 0n, // Default empty balance
+          storageRoot: POSEIDON_RLP,
+          codeHash: POSEIDON_NULL,
+        });
+        await this.putAccount(address, newAccount);
       }
     }
 
