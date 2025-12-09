@@ -17,7 +17,7 @@ import { jubjub } from '@noble/curves/misc';
 import { fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
-import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts  } from '../../src/interface/index.ts'
+import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../src/interface/index.ts';
 
 const SENDER_L2_SEED = "Jake's L2 wallet";
 const senderL2PrvKey = jubjub.utils.randomPrivateKey(setLengthLeft(utf8ToBytes(SENDER_L2_SEED), 32));
@@ -79,11 +79,11 @@ const main = async () => {
   const circuitGenerator = await createCircuitGenerator(synthesizer);
   circuitGenerator.writeOutputs();
 
-  console.log(`Sender: ${fromEdwardsToAddress(simulationOpts.publicKeyListL2[0])}`)
-  console.log(`Recipent: ${fromEdwardsToAddress(simulationOpts.publicKeyListL2[1])}`)
+  console.log(`Sender: ${fromEdwardsToAddress(simulationOpts.publicKeyListL2[0])}`);
+  console.log(`Recipent: ${fromEdwardsToAddress(simulationOpts.publicKeyListL2[1])}`);
   if (runTxResult.execResult.logs) {
     for (const [index, log] of runTxResult.execResult.logs.entries()) {
-      console.log(`Log index: ${index}`)
+      console.log(`Log index: ${index}`);
       console.log(`CA: ${bytesToHex(log[0])}`);
       for (const topic of log[1]) {
         console.log(`Topic: ${bytesToHex(topic)}`);

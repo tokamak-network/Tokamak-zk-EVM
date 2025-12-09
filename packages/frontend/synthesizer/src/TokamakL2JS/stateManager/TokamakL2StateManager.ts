@@ -1,5 +1,5 @@
 import { MerkleStateManager } from '@ethereumjs/statemanager';
-import { TokamakL2StateManagerOpts, StateSnapshot, StorageEntry } from './types.ts';
+import { TokamakL2StateManagerOpts } from './types.ts';
 import { StateManagerInterface } from '@ethereumjs/common';
 import { jubjub } from '@noble/curves/misc';
 import { IMT, IMTHashFunction, IMTMerkleProof, IMTNode } from '@zk-kit/imt';
@@ -10,6 +10,7 @@ import {
   bigIntToHex,
   bytesToBigInt,
   bytesToHex,
+  concatBytes,
   createAccount,
   createAddressFromString,
   hexToBytes,
@@ -19,6 +20,8 @@ import {
 } from '@ethereumjs/util';
 import { MAX_MT_LEAVES, MT_DEPTH, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
 import { ethers, solidityPacked } from 'ethers';
+import { poseidon } from '../crypto/index.ts';
+import { keccak256 } from 'ethereum-cryptography/keccak';
 import { RLP } from '@ethereumjs/rlp';
 import { poseidon_raw } from 'src/interface/qapCompiler/configuredTypes.ts';
 import { getUserStorageKey } from '../utils/index.ts';
@@ -27,7 +30,6 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
   private _cachedOpts: TokamakL2StateManagerOpts | null = null;
   private _registeredKeys: Uint8Array[] | null = null;
   private _initialMerkleTree: IMT | null = null;
-  private _storageEntries: Array<{ key: string; value: string }> | null = null; // Store deposit amounts from snapshot
 
   public async initTokamakExtendsFromRPC(rpcUrl: string, opts: TokamakL2StateManagerOpts): Promise<void> {
     if (opts.common.customCrypto.keccak256 === undefined) {
@@ -78,62 +80,17 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
   }
 
   public async convertLeavesIntoMerkleTreeLeaves(): Promise<bigint[]> {
-    const leaves = new Array<bigint>(MAX_MT_LEAVES);
-
-    // Circuit implementation reference:
-    // See: packages/BLS12-Poseidon-Merkle-tree-Groth16/circuits/src/circuit_N4.circom
-    //
-    // Circuit logic (lines 66-76):
-    //   for (var i = 0; i < nLeaves; i++) {
-    //       leaf_hash[i] = Poseidon255(2);
-    //       leaf_hash[i].in[0] <== storage_keys_L2MPT[i];   // L2MPT storage key
-    //       leaf_hash[i].in[1] <== storage_values[i];       // Storage value
-    //       leaf_values[i] <== leaf_hash[i].out;
-    //   }
-    //
-    // Circuit receives ALL nLeaves (16) inputs, where empty positions have:
-    //   storage_keys_L2MPT[i] = 0
-    //   storage_values[i] = 0
-    //   → leaf = Poseidon255(2)(0, 0)
-    //
-    // Our implementation:
-    //   - For registered keys: leaf = Poseidon2(MPT_key, deposit_amount)
-    //   - For empty positions: leaf = Poseidon2(0, 0) (zeroLeaf)
-
     const contractAddress = new Address(toBytes(this.cachedOpts!.contractAddress));
-
-    // Compute zero leaf: Poseidon2(0, 0) for empty positions
-    // This matches Circuit behavior for empty leaf positions
-    // Circuit test code (circuit_test.js:28-29): empty positions use (0, 0)
-    const zeroLeaf = poseidon_raw([0n, 0n]);
-
-    // Generate all MAX_MT_LEAVES (16) leaves to match Circuit input structure
-    // Circuit expects exactly nLeaves (16) leaf values, one for each position
-    for (let index = 0; index < MAX_MT_LEAVES; index++) {
+    const leaves = new Array<bigint>(MAX_MT_LEAVES);
+    for (var index = 0; index < MAX_MT_LEAVES; index++) {
       const key = this.registeredKeys![index];
       if (key === undefined) {
-        // Empty position: use Poseidon2(0, 0) to match Circuit
-        // This corresponds to Circuit input: storage_keys_L2MPT[i] = 0, storage_values[i] = 0
-        leaves[index] = zeroLeaf;
-        continue;
+        leaves[index] = 0n;
+      } else {
+        const val = await this.getStorage(contractAddress, key);
+        leaves[index] = poseidon_raw([bytesToBigInt(key), bytesToBigInt(val)]);
       }
-
-      const keyBigInt = bytesToBigInt(key);
-
-      // IMPORTANT: Always get CURRENT storage value from state manager
-      // This ensures that SSTORE operations are reflected in the Merkle tree
-      // Previously, we used cached values from snapshot which caused the Merkle root to not update
-      const val = await this.getStorage(contractAddress, key);
-      const storageValueBigInt = bytesToBigInt(val);
-
-      // Circuit: Poseidon255(2)(storage_key_L2MPT, storage_value)
-      // This exactly matches Circuit line 73-74:
-      //   leaf_hash[i].in[0] <== storage_keys_L2MPT[i];
-      //   leaf_hash[i].in[1] <== storage_values[i];
-      const leaf = poseidon_raw([keyBigInt, storageValueBigInt]);
-      leaves[index] = leaf;
     }
-
     return leaves;
   }
 
@@ -187,217 +144,27 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
     return this._cachedOpts;
   }
 
-  public setCachedOpts(opts: TokamakL2StateManagerOpts): void {
-    if (this._cachedOpts !== null) {
-      throw new Error('Cannot rewrite cached opts');
-    }
-    this._cachedOpts = opts;
-  }
+  // public getL1UserStorageKey(parts: Array<Address | number | bigint | string>): Uint8Array {
+  //     const bytesArray: Uint8Array[] = []
 
-  /**
-   * Export current state including state root, merkle leaves, and storage entries
-   */
-  public async exportState(): Promise<StateSnapshot> {
-    const contractAddress = new Address(toBytes(this.cachedOpts!.contractAddress));
-    const leaves = await this.convertLeavesIntoMerkleTreeLeaves();
-    const merkleRoot = await this.getUpdatedMerkleTreeRoot();
+  //     for (const p of parts) {
+  //         let b: Uint8Array
 
-    // Get registered keys
-    const registeredKeys = this.registeredKeys!.map(k => bytesToHex(k));
+  //         if (p instanceof Address) {
+  //         b = p.toBytes()
+  //         } else if (typeof p === 'number') {
+  //         b = bigIntToBytes(BigInt(p))
+  //         } else if (typeof p === 'bigint') {
+  //         b = bigIntToBytes(p)
+  //         } else if (typeof p === 'string') {
+  //         b = hexToBytes(addHexPrefix(p))
+  //         } else {
+  //         throw new Error('getStorageKey accepts only Address | number | bigint | string');
+  //         }
 
-    // Get all storage entries
-    const storageEntries: StorageEntry[] = [];
-    for (let i = 0; i < this.registeredKeys!.length; i++) {
-      const key = this.registeredKeys![i];
-      const value = await this.getStorage(contractAddress, key);
-      storageEntries.push({
-        index: i,
-        key: bytesToHex(key),
-        value: bytesToHex(value),
-      });
-    }
+  //         bytesArray.push(setLengthLeft(b, 32))
+  //     }
 
-    // Get user nonces (parallel to userL2Addresses)
-    const userNonces: bigint[] = [];
-    for (const addr of this.cachedOpts!.userL2Addresses) {
-      const account = await this.getAccount(new Address(toBytes(addr)));
-      if (account) {
-        userNonces.push(account.nonce);
-      } else {
-        userNonces.push(0n);
-      }
-    }
-
-    return {
-      stateRoot: bigIntToHex(merkleRoot),
-      merkleLeaves: leaves.map(l => l.toString()),
-      registeredKeys,
-      storageEntries,
-      contractAddress: this.cachedOpts!.contractAddress as string,
-      userL2Addresses: this.cachedOpts!.userL2Addresses as string[],
-      userStorageSlots: this.cachedOpts!.userStorageSlots.map(s => BigInt(s)),
-      timestamp: Date.now(),
-      userNonces,
-    };
-  }
-
-  /**
-   * Restore state from a snapshot
-   * This is the inverse operation of exportState()
-   *
-   * @param snapshot - The state snapshot to restore from
-   * @param options - Optional configuration
-   * @param options.skipRootValidation - If true, only warn on root mismatch instead of throwing error
-   */
-  public async createStateFromSnapshot(
-    snapshot: StateSnapshot,
-    options?: { skipRootValidation?: boolean },
-  ): Promise<void> {
-    if (!this.cachedOpts) {
-      throw new Error('StateManager not initialized');
-    }
-
-    const contractAddress = new Address(toBytes(snapshot.contractAddress as `0x${string}`));
-
-    // Create contract account if it doesn't exist (needed for putStorage)
-    const existingAccount = await this.getAccount(contractAddress);
-    if (!existingAccount) {
-      if (!this.cachedOpts.common.customCrypto.keccak256) {
-        throw new Error('Custom crypto must be set');
-      }
-      const POSEIDON_RLP = this.cachedOpts.common.customCrypto.keccak256(RLP.encode(new Uint8Array([])));
-      const POSEIDON_NULL = this.cachedOpts.common.customCrypto.keccak256(new Uint8Array(0));
-      const contractAccount = createAccount({
-        nonce: 0n,
-        balance: 0n,
-        storageRoot: POSEIDON_RLP,
-        codeHash: POSEIDON_NULL,
-      });
-      await this.putAccount(contractAddress, contractAccount);
-    }
-
-    // Load contract code from snapshot if provided, otherwise fetch from RPC
-    // This is critical - without contract code, transactions will fail with "runState is undefined"
-    if (snapshot.contractCode) {
-      // Use code from snapshot if available
-      await this.putCode(contractAddress, hexToBytes(snapshot.contractCode as `0x${string}`));
-    } else {
-      // Fetch contract code from RPC (required for transaction execution)
-      // Note: This requires rpcUrl to be available in cachedOpts
-      if (!this.cachedOpts.rpcUrl) {
-        console.warn('⚠️  Warning: No RPC URL available to fetch contract code');
-        console.warn('   Contract code must be provided in snapshot or transactions will fail');
-      } else {
-        const provider = new ethers.JsonRpcProvider(this.cachedOpts.rpcUrl);
-        const byteCodeStr = await provider.getCode(contractAddress.toString(), this.cachedOpts.blockNumber);
-        if (byteCodeStr === '0x' || byteCodeStr === '') {
-          console.warn(
-            `⚠️  Warning: Contract ${contractAddress.toString()} has no code at block ${this.cachedOpts.blockNumber}`,
-          );
-        } else {
-          await this.putCode(contractAddress, hexToBytes(addHexPrefix(byteCodeStr)));
-          console.log(`✅ Contract code loaded: ${byteCodeStr.length} bytes`);
-        }
-      }
-    }
-
-    // Restore registered keys
-    // Allow overwriting if keys are the same (for state restoration scenarios)
-    if (this._registeredKeys !== null) {
-      const existingKeysHex = this._registeredKeys.map(key => bytesToHex(key));
-      const newKeysHex = snapshot.registeredKeys.map(key => (typeof key === 'string' ? key : bytesToHex(key)));
-      const keysMatch =
-        existingKeysHex.length === newKeysHex.length &&
-        existingKeysHex.every((key, idx) => key.toLowerCase() === newKeysHex[idx].toLowerCase());
-      if (!keysMatch) {
-        throw new Error('Cannot rewrite registered keys: keys do not match');
-      }
-      // Keys match, allow overwriting
-    }
-    this._registeredKeys = snapshot.registeredKeys.map(key => hexToBytes(key as `0x${string}`));
-
-    // Store storage entries for leaf generation (deposit amounts)
-    // Important: storageEntries must be in the same order as registeredKeys
-    // The index in storageEntries should match the index in registeredKeys
-    this._storageEntries = snapshot.storageEntries;
-
-    // Restore all storage entries to state manager
-    for (const entry of snapshot.storageEntries) {
-      const key = hexToBytes(entry.key as `0x${string}`);
-      const value = hexToBytes(entry.value as `0x${string}`);
-      await this.putStorage(contractAddress, key, value);
-    }
-
-    // Restore user nonces (parallel to userL2Addresses)
-    for (let i = 0; i < snapshot.userL2Addresses.length; i++) {
-      const addr = snapshot.userL2Addresses[i];
-      const nonce = snapshot.userNonces[i];
-      const address = new Address(toBytes(addr as `0x${string}`));
-      const account = await this.getAccount(address);
-      if (account) {
-        account.nonce = nonce;
-        await this.putAccount(address, account);
-      } else {
-        // Create new account if it doesn't exist
-        // This is necessary because empty accounts might not be tracked yet
-        if (!this.cachedOpts?.common.customCrypto.keccak256) {
-          throw new Error('Custom crypto must be set');
-        }
-        const POSEIDON_RLP = this.cachedOpts.common.customCrypto.keccak256(RLP.encode(new Uint8Array([])));
-        const POSEIDON_NULL = this.cachedOpts.common.customCrypto.keccak256(new Uint8Array(0));
-
-        const newAccount = createAccount({
-          nonce: nonce,
-          balance: 0n, // Default empty balance
-          storageRoot: POSEIDON_RLP,
-          codeHash: POSEIDON_NULL,
-        });
-        await this.putAccount(address, newAccount);
-      }
-    }
-
-    // Rebuild Merkle tree with restored state
-    if (this._initialMerkleTree !== null) {
-      throw new Error('Merkle tree is already initialized');
-    }
-    this._initialMerkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this);
-
-    // Validate that the restored Merkle tree root matches the snapshot's state root
-    const restoredRoot = this._initialMerkleTree.root;
-    const snapshotRoot = bytesToBigInt(hexToBytes(addHexPrefix(snapshot.stateRoot as `0x${string}`)));
-
-    if (restoredRoot !== snapshotRoot) {
-      const restoredRootHex = '0x' + restoredRoot.toString(16).padStart(64, '0').toLowerCase();
-      const snapshotRootHex = snapshot.stateRoot.toLowerCase();
-      const errorMessage =
-        `Merkle tree root mismatch: restored=${restoredRootHex}, expected=${snapshotRootHex}. ` +
-        `This indicates that the storage entries or registered keys may not match the on-chain state.`;
-
-      if (options?.skipRootValidation) {
-        console.warn(`⚠️  ${errorMessage}`);
-        console.warn(`   Continuing with restored root: ${restoredRootHex}`);
-      } else {
-        // Log detailed information for debugging
-        console.error(`\n❌ ${errorMessage}`);
-        console.error(`\n📊 Debug Information:`);
-        console.error(`   Restored Root: ${restoredRootHex}`);
-        console.error(`   Expected Root: ${snapshotRootHex}`);
-        console.error(`   Registered Keys Count: ${this._registeredKeys?.length || 0}`);
-        if (this._registeredKeys && this._registeredKeys.length > 0) {
-          console.error(`   First Registered Key: ${bytesToHex(this._registeredKeys[0])}`);
-        }
-        console.error(`   Storage Entries Count: ${snapshot.storageEntries.length}`);
-        if (snapshot.storageEntries.length > 0) {
-          console.error(
-            `   First Storage Entry: key=${snapshot.storageEntries[0].key}, value=${snapshot.storageEntries[0].value}`,
-          );
-        }
-        throw new Error(errorMessage);
-      }
-    } else {
-      console.log(`✅ Merkle tree root matches snapshot: ${snapshot.stateRoot.toLowerCase()}`);
-    }
-  }
   //     const packed = solidityPacked(Array(parts.length).fill('bytes'), bytesArray);
   //     const keyHex = keccak256(packed);          // 0x-prefixed string
   //     return hexToBytes(addHexPrefix(keyHex));
@@ -419,15 +186,11 @@ class TokamakL2MerkleTree extends IMT {
   public static async buildFromTokamakL2StateManager(mpt: TokamakL2StateManager): Promise<TokamakL2MerkleTree> {
     const treeDepth = MT_DEPTH;
     const leaves = await mpt.convertLeavesIntoMerkleTreeLeaves();
-
-    // Circuit uses Poseidon2MerkleTree which is a binary tree (arity=2)
-    // See: packages/BLS12-Poseidon-Merkle-tree-Groth16/circuits/src/circuit_N4.circom
-    // Each node is hashed using Poseidon255(2), so arity must be 2
     const mt = new TokamakL2MerkleTree(
       poseidon_raw as IMTHashFunction,
       treeDepth,
       0n,
-      2, // Binary tree: arity=2 (matches Poseidon2MerkleTree)
+      POSEIDON_INPUTS,
       leaves as IMTNode[],
     );
     mt.initCache(mpt);
