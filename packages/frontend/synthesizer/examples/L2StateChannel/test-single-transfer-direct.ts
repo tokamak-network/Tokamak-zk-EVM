@@ -39,7 +39,10 @@ import { poseidon, getEddsaPublicKey, fromEdwardsToAddress } from '../../src/Tok
 import { Common, Mainnet } from '@ethereumjs/common';
 import { jubjub } from '@noble/curves/misc';
 import { createSynthesizer } from '../../src/synthesizer/constructors.ts';
-import { createSynthesizerOptsForSimulationFromRPC, type SynthesizerSimulationOpts } from '../../src/interface/rpc/rpc.ts';
+import {
+  createSynthesizerOptsForSimulationFromRPC,
+  type SynthesizerSimulationOpts,
+} from '../../src/interface/rpc/rpc.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
 
 // Get __dirname equivalent in ESM
