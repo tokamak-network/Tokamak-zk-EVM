@@ -32,15 +32,18 @@ import {
   setLengthLeft,
   bytesToHex,
   utf8ToBytes,
+  toBytes,
+  createAccount,
 } from '@ethereumjs/util';
 import { StateSnapshot } from '../../src/TokamakL2JS/stateManager/types.ts';
-import { createTokamakL2StateManagerFromL1RPC } from '../../src/TokamakL2JS/stateManager/constructors.ts';
+import { TokamakL2StateManager } from '../../src/TokamakL2JS/stateManager/TokamakL2StateManager.ts';
 import { poseidon, getEddsaPublicKey, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { Common, Mainnet } from '@ethereumjs/common';
 import { jubjub } from '@noble/curves/misc';
 import { SynthesizerAdapter } from '../../src/interface/adapters/synthesizerAdapter.ts';
 import type { SynthesizerResult } from '../../src/interface/adapters/synthesizerAdapter.ts';
 import { generateMptKeyFromWallet } from './mpt-key-utils.ts';
+import { RLP } from '@ethereumjs/rlp';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -49,6 +52,12 @@ const __dirname = dirname(__filename);
 // Load .env file from project root
 const envPath = resolve(__dirname, '../../../../../.env');
 config({ path: envPath });
+
+// Binary paths (use pre-built binaries from dist/macOS/bin)
+const distBinPath = resolve(process.cwd(), '../../../dist/macOS/bin');
+const preprocessBinary = `${distBinPath}/preprocess`;
+const proverBinary = `${distBinPath}/prove`;
+const verifyBinary = `${distBinPath}/verify`;
 
 // ============================================================================
 // CONFIGURATION
@@ -212,19 +221,84 @@ async function testInitializeState() {
     userL2Addresses: participants.map(() => new Address(hexToBytes('0x0000000000000000000000000000000000000000'))), // Dummy addresses, not used
   };
 
-  // Create state manager with skipInit=true, then restore from snapshot
-  const stateManager = await createTokamakL2StateManagerFromL1RPC(RPC_URL, stateManagerOpts, true);
+  // Create state manager without RPC init (we'll restore from snapshot instead)
+  // Note: We need to manually set up contract account and load code
+  const stateManager = new TokamakL2StateManager(stateManagerOpts);
 
-  // Restore state from snapshot
-  await stateManager.createStateFromSnapshot(stateSnapshot);
+  // Set up contract account (required before restoring storage)
+  const contractAddress = new Address(toBytes(stateManagerOpts.contractAddress));
+  const POSEIDON_RLP = stateManagerOpts.common.customCrypto.keccak256!(RLP.encode(new Uint8Array([])));
+  const POSEIDON_NULL = stateManagerOpts.common.customCrypto.keccak256!(new Uint8Array(0));
+  const contractAccount = createAccount({
+    nonce: 0n,
+    balance: 0n,
+    storageRoot: POSEIDON_RLP,
+    codeHash: POSEIDON_NULL,
+  });
+  await stateManager.putAccount(contractAddress, contractAccount);
 
-  // Get merkle root from restored state
+  // Load contract code from RPC (needed for execution)
+  const byteCodeStr = await provider.getCode(contractAddress.toString(), stateManagerOpts.blockNumber);
+  await stateManager.putCode(contractAddress, hexToBytes(addHexPrefix(byteCodeStr)));
+
+  // Restore state from snapshot using new method (restore storage and rebuild merkle tree)
+  console.log('   Restoring state from snapshot...');
+  const snapshotContractAddress = new Address(toBytes(addHexPrefix(stateSnapshot.contractAddress)));
+
+  // 1. Set cached opts (required for merkle tree reconstruction)
+  stateManager.setCachedOpts(stateManagerOpts);
+
+  // 2. Restore contract account and code if needed
+  if (stateSnapshot.contractCode) {
+    await stateManager.putCode(snapshotContractAddress, hexToBytes(addHexPrefix(stateSnapshot.contractCode)));
+  }
+
+  // 3. Set registered keys from snapshot (required for merkle tree reconstruction)
+  console.log(`   Setting ${stateSnapshot.registeredKeys.length} registered keys...`);
+  const registeredKeysBytes = stateSnapshot.registeredKeys.map(key => hexToBytes(addHexPrefix(key)));
+  stateManager.setRegisteredKeys(registeredKeysBytes);
+
+  // 4. Restore storage entries
+  console.log(`   Restoring ${stateSnapshot.storageEntries.length} storage entries...`);
+  for (const entry of stateSnapshot.storageEntries) {
+    const key = hexToBytes(addHexPrefix(entry.key));
+    const value = hexToBytes(addHexPrefix(entry.value));
+    await stateManager.putStorage(snapshotContractAddress, key, value);
+    console.log(`      [${entry.index}] Key: ${entry.key.slice(0, 20)}... Value: ${entry.value}`);
+  }
+
+  // 5. Verify storage was restored correctly
+  console.log('   Verifying restored storage...');
+  for (let i = 0; i < stateSnapshot.registeredKeys.length; i++) {
+    const expectedKey = hexToBytes(addHexPrefix(stateSnapshot.registeredKeys[i]));
+    const expectedEntry = stateSnapshot.storageEntries.find(
+      e => e.key.toLowerCase() === stateSnapshot.registeredKeys[i].toLowerCase(),
+    );
+    const storedValue = await stateManager.getStorage(snapshotContractAddress, expectedKey);
+    const storedValueBigInt = bytesToBigInt(storedValue);
+    const expectedValueBigInt = expectedEntry ? BigInt(expectedEntry.value) : 0n;
+
+    if (storedValueBigInt !== expectedValueBigInt) {
+      console.log(`      ⚠️  [${i}] Key: ${stateSnapshot.registeredKeys[i].slice(0, 20)}...`);
+      console.log(`         Expected: ${expectedValueBigInt.toString()}, Got: ${storedValueBigInt.toString()}`);
+    } else {
+      console.log(
+        `      ✅ [${i}] Key: ${stateSnapshot.registeredKeys[i].slice(0, 20)}... Value: ${storedValueBigInt.toString()}`,
+      );
+    }
+  }
+
+  // 6. Rebuild initial merkle tree from restored storage
+  console.log('   Rebuilding initial merkle tree from restored storage...');
+  await stateManager.rebuildInitialMerkleTree();
   const restoredMerkleRootBigInt = stateManager.initialMerkleTree.root;
   const restoredMerkleRootHex = restoredMerkleRootBigInt.toString(16);
   const restoredStateRoot = '0x' + restoredMerkleRootHex.padStart(64, '0').toLowerCase();
+  const expectedRoot = BigInt(stateSnapshot.stateRoot);
 
   console.log(`   ✅ State restored successfully`);
   console.log(`      - Restored State Root: ${restoredStateRoot}`);
+  console.log(`      - Expected State Root: 0x${expectedRoot.toString(16)}`);
   console.log(`      - On-chain State Root: ${onChainStateRoot}\n`);
 
   // Step 5: Compare state roots
@@ -720,16 +794,21 @@ async function runProver(proofNum: number, outputsPath: string): Promise<boolean
   const setupPath = resolve(process.cwd(), '../../../dist/macOS/resource/setup/output');
   const outPath = synthesizerPath;
 
+  if (!existsSync(proverBinary)) {
+    console.error(`   ❌ Prover binary not found at ${proverBinary}`);
+    console.error(`   Please build the binaries first: cd dist/macOS && ./build.sh`);
+    return false;
+  }
+
   if (!existsSync(`${synthesizerPath}/instance.json`)) {
     console.log(`   ⚠️  instance.json not found, skipping prover`);
     return false;
   }
 
   try {
-    const proverPath = resolve(process.cwd(), '../../backend/prove');
-    const cmd = `cd ${proverPath} && cargo run --release -- "${qapPath}" "${synthesizerPath}" "${setupPath}" "${outPath}"`;
+    const cmd = `"${proverBinary}" "${qapPath}" "${synthesizerPath}" "${setupPath}" "${outPath}"`;
 
-    console.log(`   Running: cargo run --release (this may take a while)...`);
+    console.log(`   Running: ${proverBinary}...`);
     const startTime = Date.now();
 
     const output = execSync(cmd, {
@@ -773,6 +852,12 @@ async function runVerifyRust(proofNum: number, outputsPath: string): Promise<boo
   const preprocessPath = resolve(process.cwd(), '../../../dist/macOS/resource/preprocess/output');
   const proofPath = synthesizerPath;
 
+  if (!existsSync(verifyBinary)) {
+    console.error(`   ❌ Verify binary not found at ${verifyBinary}`);
+    console.error(`   Please build the binaries first: cd dist/macOS && ./build.sh`);
+    return false;
+  }
+
   if (!existsSync(`${synthesizerPath}/instance.json`)) {
     console.log(`   ⚠️  instance.json not found, skipping verification`);
     return false;
@@ -784,10 +869,9 @@ async function runVerifyRust(proofNum: number, outputsPath: string): Promise<boo
   }
 
   try {
-    const verifyRustPath = resolve(process.cwd(), '../../backend/verify/verify-rust');
-    const cmd = `cd ${verifyRustPath} && cargo run --release -- "${qapPath}" "${synthesizerPath}" "${setupPath}" "${preprocessPath}" "${proofPath}"`;
+    const cmd = `"${verifyBinary}" "${qapPath}" "${synthesizerPath}" "${setupPath}" "${preprocessPath}" "${proofPath}"`;
 
-    console.log(`   Running: cargo run --release...`);
+    console.log(`   Running: ${verifyBinary}...`);
     const startTime = Date.now();
 
     const output = execSync(cmd, {
@@ -838,15 +922,20 @@ async function runPreprocess(outputsPath: string): Promise<boolean> {
     return true;
   }
 
+  if (!existsSync(preprocessBinary)) {
+    console.error(`   ❌ Preprocess binary not found at ${preprocessBinary}`);
+    console.error(`   Please build the binaries first: cd dist/macOS && ./build.sh`);
+    return false;
+  }
+
   if (!existsSync(preprocessOutPath)) {
     mkdirSync(preprocessOutPath, { recursive: true });
   }
 
   try {
-    const preprocessPath = resolve(process.cwd(), '../../backend/verify/preprocess');
-    const cmd = `cd ${preprocessPath} && cargo run --release -- "${qapPath}" "${synthesizerPath}" "${setupPath}" "${preprocessOutPath}"`;
+    const cmd = `"${preprocessBinary}" "${qapPath}" "${synthesizerPath}" "${setupPath}" "${preprocessOutPath}"`;
 
-    console.log(`   Running: cargo run --release (this may take a while)...`);
+    console.log(`   Running: ${preprocessBinary}...`);
     const startTime = Date.now();
 
     const output = execSync(cmd, {

@@ -227,12 +227,49 @@ export class SynthesizerAdapter {
     const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(simulationOpts);
     const synthesizer = (await createSynthesizer(synthesizerOpts)) as Synthesizer;
 
-    // Restore previous state if provided
+    // Restore previous state if provided (using cachedOpts.stateManager)
     if (previousState) {
-      console.log('[SynthesizerAdapter] Restoring previous state...');
-      const stateManager = synthesizer.getTokamakStateManager();
-      await stateManager.createStateFromSnapshot(previousState);
-      console.log(`[SynthesizerAdapter] ✅ Previous state restored: ${previousState.stateRoot}`);
+      console.log('[SynthesizerAdapter] Restoring previous state from snapshot...');
+      const stateManager = synthesizer.cachedOpts.stateManager; // TokamakL2StateManager
+      const contractAddress = new Address(toBytes(addHexPrefix(previousState.contractAddress)));
+
+      // 1. Restore contract account and code if needed
+      if (previousState.contractCode) {
+        await stateManager.putCode(contractAddress, hexToBytes(addHexPrefix(previousState.contractCode)));
+      }
+
+      // 2. Set registered keys from snapshot (required for merkle tree reconstruction)
+      if (previousState.registeredKeys && previousState.registeredKeys.length > 0) {
+        console.log(`[SynthesizerAdapter] Setting ${previousState.registeredKeys.length} registered keys...`);
+        const registeredKeysBytes = previousState.registeredKeys.map(key => hexToBytes(addHexPrefix(key)));
+        stateManager.setRegisteredKeys(registeredKeysBytes);
+      }
+
+      // 3. Restore storage entries
+      console.log(`[SynthesizerAdapter] Restoring ${previousState.storageEntries.length} storage entries...`);
+      for (const entry of previousState.storageEntries) {
+        const key = hexToBytes(addHexPrefix(entry.key));
+        const value = hexToBytes(addHexPrefix(entry.value));
+        await stateManager.putStorage(contractAddress, key, value);
+      }
+
+      // 4. Rebuild initial merkle tree from restored storage
+      console.log('[SynthesizerAdapter] Rebuilding initial merkle tree from restored storage...');
+      await stateManager.rebuildInitialMerkleTree();
+      const restoredRoot = stateManager.initialMerkleTree.root;
+      const expectedRoot = BigInt(previousState.stateRoot);
+
+      console.log(`[SynthesizerAdapter] ✅ Storage entries restored`);
+      console.log(`[SynthesizerAdapter] ✅ Restored Merkle Root: 0x${restoredRoot.toString(16)}`);
+      console.log(`[SynthesizerAdapter] ✅ Expected Merkle Root: 0x${expectedRoot.toString(16)}`);
+
+      if (restoredRoot !== expectedRoot) {
+        console.warn(
+          `[SynthesizerAdapter] ⚠️  Merkle root mismatch! Expected ${previousState.stateRoot}, got 0x${restoredRoot.toString(16)}`,
+        );
+      } else {
+        console.log(`[SynthesizerAdapter] ✅ Merkle root matches!`);
+      }
     }
 
     console.log('[SynthesizerAdapter] Executing transaction...');
@@ -372,19 +409,60 @@ export class SynthesizerAdapter {
     console.log('[SynthesizerAdapter] Creating synthesizer...');
     const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(simulationOpts);
 
-    // Restore previous state BEFORE creating synthesizer (so INI_MERKLE_ROOT is set correctly)
-    if (previousState) {
-      console.log('[SynthesizerAdapter] Restoring previous state (before synthesizer creation)...');
-      const stateManager = synthesizerOpts.stateManager as any; // TokamakL2StateManager
-      await stateManager.createStateFromSnapshot(previousState);
-      console.log(`[SynthesizerAdapter] ✅ Previous state restored: ${previousState.stateRoot}`);
-      console.log(
-        `[SynthesizerAdapter] ✅ initialMerkleTree.root: 0x${stateManager.initialMerkleTree.root.toString(16)}`,
-      );
-    }
-
-    // Now create synthesizer with the correct initialMerkleTree
+    // Now create synthesizer first
     const synthesizer = (await createSynthesizer(synthesizerOpts)) as Synthesizer;
+
+    // Restore previous state AFTER creating synthesizer (using cachedOpts.stateManager)
+    if (previousState) {
+      console.log('[SynthesizerAdapter] Restoring previous state from snapshot...');
+      const stateManager = synthesizer.cachedOpts.stateManager; // TokamakL2StateManager
+      const contractAddress = new Address(toBytes(addHexPrefix(previousState.contractAddress)));
+
+      // 1. Restore contract account and code if needed
+      if (previousState.contractCode) {
+        await stateManager.putCode(contractAddress, hexToBytes(addHexPrefix(previousState.contractCode)));
+      }
+
+      // 2. Set registered keys from snapshot (required for merkle tree reconstruction)
+      if (previousState.registeredKeys && previousState.registeredKeys.length > 0) {
+        console.log(`[SynthesizerAdapter] Setting ${previousState.registeredKeys.length} registered keys...`);
+        const registeredKeysBytes = previousState.registeredKeys.map(key => hexToBytes(addHexPrefix(key)));
+        stateManager.setRegisteredKeys(registeredKeysBytes);
+      }
+
+      // 3. Restore storage entries
+      console.log(`[SynthesizerAdapter] Restoring ${previousState.storageEntries.length} storage entries...`);
+      for (const entry of previousState.storageEntries) {
+        const key = hexToBytes(addHexPrefix(entry.key));
+        const value = hexToBytes(addHexPrefix(entry.value));
+        await stateManager.putStorage(contractAddress, key, value);
+      }
+
+      // 4. Rebuild initial merkle tree from restored storage
+      console.log('[SynthesizerAdapter] Rebuilding initial merkle tree from restored storage...');
+      await stateManager.rebuildInitialMerkleTree();
+      const restoredRoot = stateManager.initialMerkleTree.root;
+      const expectedRoot = BigInt(previousState.stateRoot);
+
+      console.log(`[SynthesizerAdapter] ✅ Storage entries restored`);
+      console.log(`[SynthesizerAdapter] ✅ Restored Merkle Root: 0x${restoredRoot.toString(16)}`);
+      console.log(`[SynthesizerAdapter] ✅ Expected Merkle Root: 0x${expectedRoot.toString(16)}`);
+
+      if (restoredRoot !== expectedRoot) {
+        console.warn(
+          `[SynthesizerAdapter] ⚠️  Merkle root mismatch! Expected ${previousState.stateRoot}, got 0x${restoredRoot.toString(16)}`,
+        );
+      } else {
+        console.log(`[SynthesizerAdapter] ✅ Merkle root matches!`);
+      }
+
+      // 5. Update INI_MERKLE_ROOT in Synthesizer to match restored root
+      // This is critical because INI_MERKLE_ROOT is set during Synthesizer initialization,
+      // but state restoration happens after initialization
+      console.log('[SynthesizerAdapter] Updating INI_MERKLE_ROOT in Synthesizer...');
+      synthesizer.updateInitialMerkleRoot(restoredRoot);
+      console.log(`[SynthesizerAdapter] ✅ INI_MERKLE_ROOT updated to 0x${restoredRoot.toString(16)}`);
+    }
 
     // Verify restoration if previousState was provided
     if (previousState) {
