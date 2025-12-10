@@ -31,10 +31,6 @@ name = "batch_msm_simple"
 harness = false
 
 [[bench]]
-name = "msm_data_comparison"
-harness = false
-
-[[bench]]
 name = "prove0_msm_batch"
 harness = false
 
@@ -48,6 +44,26 @@ harness = false
 
 [[bench]]
 name = "prove4_bench"
+harness = false
+
+[[bench]]
+name = "msm_sparse25"
+path = "benches/msm_sparsity/sparse25.rs"
+harness = false
+
+[[bench]]
+name = "msm_sparse50"
+path = "benches/msm_sparsity/sparse50.rs"
+harness = false
+
+[[bench]]
+name = "msm_sparse75"
+path = "benches/msm_sparsity/sparse75.rs"
+harness = false
+
+[[bench]]
+name = "msm_random"
+path = "benches/msm_sparsity/random.rs"
 harness = false
 
 [features]
