@@ -65,11 +65,11 @@ const verifyBinary = `${distBinPath}/verify`;
 // ============================================================================
 
 const RPC_URL = SEPOLIA_RPC_URL;
-const CHANNEL_ID = 10; // Channel 10 for testing (single token: TON only)
+const CHANNEL_ID = 1; // Channel 10 for testing (single token: TON only)
 
 // Transaction hash for initializeChannelState
 // This should be the transaction that called initializeChannelState for the channel
-const INITIALIZE_TX_HASH = '0x65a31d098ad36f36069073c539e3861685789788a7f753491ff67afc6357ac4d';
+const INITIALIZE_TX_HASH = '0xe9fd8fd1c94c476021e2f98332ed2011a487f784ddb25a640567475c976a7714';
 
 // ============================================================================
 // MAIN TEST FUNCTION
@@ -139,11 +139,11 @@ async function testInitializeState() {
 
   // Get channel info
   const bridgeContract = new ethers.Contract(ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI, provider);
-  const [allowedTokens, state, participantCount, initialRoot] = await bridgeContract.getChannelInfo(CHANNEL_ID);
+  const [targetAddress, state, participantCount, initialRoot] = await bridgeContract.getChannelInfo(CHANNEL_ID);
   const participants: string[] = await bridgeContract.getChannelParticipants(CHANNEL_ID);
 
   console.log(`   Channel Info:`);
-  console.log(`      - Allowed Tokens: ${allowedTokens.length}`);
+  console.log(`      - Allowed Tokens: ${targetAddress}`);
   console.log(`      - Participants: ${participantCount.toString()}`);
   console.log(`      - Initial Root: ${initialRoot}\n`);
 
@@ -155,14 +155,13 @@ async function testInitializeState() {
 
   for (let i = 0; i < participants.length; i++) {
     const l1Address = participants[i];
-    const token = allowedTokens[0]; // Use first token (should be TON)
 
     // Get MPT key from on-chain (this is what was actually used during deposit)
-    const onChainMptKeyBigInt = await bridgeContract.getL2MptKey(CHANNEL_ID, l1Address, token);
+    const onChainMptKeyBigInt = await bridgeContract.getL2MptKey(CHANNEL_ID, l1Address);
     const onChainMptKeyHex = '0x' + onChainMptKeyBigInt.toString(16).padStart(64, '0');
 
     // Get deposit amount from on-chain
-    const deposit = await bridgeContract.getParticipantTokenDeposit(CHANNEL_ID, l1Address, token);
+    const deposit = await bridgeContract.getParticipantDeposit(CHANNEL_ID, l1Address);
 
     console.log(`      ${i + 1}. ${l1Address}`);
     console.log(`         MPT Key: ${onChainMptKeyHex}`);
@@ -187,7 +186,7 @@ async function testInitializeState() {
     stateRoot: onChainStateRoot, // Use the state root from StateInitialized event
     registeredKeys: registeredKeys, // Use MPT keys in original order (as fetched from on-chain)
     storageEntries: storageEntries,
-    contractAddress: allowedTokens[0],
+    contractAddress: targetAddress,
     userL2Addresses: [], // Not needed when using MPT keys directly
     userStorageSlots: [0n], // Slot 0 for ERC20 balance
     timestamp: Date.now(),
@@ -273,7 +272,7 @@ async function testInitializeState() {
     rpcUrl: RPC_URL,
     senderL2PrvKey: allPrivateKeys[0], // Use actual deposit private key
     blockNumber: tx.blockNumber,
-    contractAddress: allowedTokens[0] as `0x${string}`,
+    contractAddress: targetAddress as `0x${string}`,
     userStorageSlots: [0],
     addressListL1: allL1Addresses as `0x${string}`[],
     publicKeyListL2: allPublicKeys, // Use actual deposit public keys
@@ -348,7 +347,7 @@ async function testInitializeState() {
 
   // 6. Rebuild initial merkle tree from restored storage
   console.log('   Rebuilding initial merkle tree from restored storage...');
-  
+
   // Debug: Log registeredKeys order before rebuilding
   console.log('   📋 RegisteredKeys order (used for merkle tree):');
   for (let i = 0; i < stateSnapshot.registeredKeys.length; i++) {
@@ -356,9 +355,9 @@ async function testInitializeState() {
     const entry = stateSnapshot.storageEntries.find(e => e.key.toLowerCase() === key.toLowerCase());
     console.log(`      [${i}] ${key.slice(0, 20)}... Value: ${entry?.value || 'N/A'}`);
   }
-  
+
   await stateManager.rebuildInitialMerkleTree();
-  
+
   // Debug: Check leaves calculation
   const leaves = await stateManager.convertLeavesIntoMerkleTreeLeaves();
   console.log('   📋 Merkle tree leaves (first 3 non-zero):');
@@ -369,7 +368,7 @@ async function testInitializeState() {
       console.log(`      [${i}] Key: ${key.slice(0, 20)}... Leaf: 0x${leaves[i].toString(16).slice(0, 20)}...`);
     }
   }
-  
+
   const restoredMerkleRootBigInt = stateManager.initialMerkleTree.root;
   const restoredMerkleRootHex = restoredMerkleRootBigInt.toString(16);
   const restoredStateRoot = '0x' + restoredMerkleRootHex.padStart(64, '0').toLowerCase();
@@ -456,7 +455,7 @@ async function testInitializeState() {
     rpcUrl: RPC_URL,
     senderL2PrvKey: allPrivateKeys[0],
     blockNumber: tx.blockNumber,
-    contractAddress: allowedTokens[0] as `0x${string}`,
+    contractAddress: targetAddress as `0x${string}`,
     userStorageSlots: [0], // ERC20 balance slot
     addressListL1: allL1Addresses as `0x${string}`[],
     publicKeyListL2: allPublicKeys,
@@ -637,7 +636,7 @@ async function testInitializeState() {
     rpcUrl: RPC_URL,
     senderL2PrvKey: allPrivateKeys[1], // Participant 2's private key
     blockNumber: tx.blockNumber,
-    contractAddress: allowedTokens[0] as `0x${string}`,
+    contractAddress: targetAddress as `0x${string}`,
     userStorageSlots: [0],
     addressListL1: allL1Addresses as `0x${string}`[],
     publicKeyListL2: allPublicKeys,
@@ -787,7 +786,7 @@ async function testInitializeState() {
     rpcUrl: RPC_URL,
     senderL2PrvKey: allPrivateKeys[2], // Participant 3's private key
     blockNumber: tx.blockNumber,
-    contractAddress: allowedTokens[0] as `0x${string}`,
+    contractAddress: targetAddress as `0x${string}`,
     userStorageSlots: [0],
     addressListL1: allL1Addresses as `0x${string}`[],
     publicKeyListL2: allPublicKeys,

@@ -1,27 +1,19 @@
 import { MerkleStateManager } from '@ethereumjs/statemanager';
 import { TokamakL2StateManagerOpts } from './types.ts';
 import { StateManagerInterface } from '@ethereumjs/common';
-import { jubjub } from '@noble/curves/misc';
 import { IMT, IMTHashFunction, IMTMerkleProof, IMTNode } from '@zk-kit/imt';
 import {
   addHexPrefix,
   Address,
   bigIntToBytes,
-  bigIntToHex,
   bytesToBigInt,
-  bytesToHex,
-  concatBytes,
   createAccount,
-  createAddressFromString,
   hexToBytes,
-  setLengthLeft,
-  setLengthRight,
   toBytes,
 } from '@ethereumjs/util';
 import { MAX_MT_LEAVES, MT_DEPTH, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
 import { ethers, solidityPacked } from 'ethers';
 import { poseidon } from '../crypto/index.ts';
-import { keccak256 } from 'ethereum-cryptography/keccak';
 import { RLP } from '@ethereumjs/rlp';
 import { poseidon_raw } from 'src/interface/qapCompiler/configuredTypes.ts';
 import { getUserStorageKey } from '../utils/index.ts';
@@ -84,17 +76,21 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
     const leaves = new Array<bigint>(MAX_MT_LEAVES);
     for (var index = 0; index < MAX_MT_LEAVES; index++) {
       const key = this.registeredKeys![index];
-      if (key === undefined) {
-        // Match Groth16 circuit: empty leaves use poseidon2(0, 0), not just 0
-        // The circuit computes poseidon2(storage_key_L2MPT[i], storage_value[i]) for all leaves
-        // Empty leaves have storage_key_L2MPT[i] = 0 and storage_value[i] = 0
-        leaves[index] = poseidon_raw([0n, 0n]);
-      } else {
+
+      // if (key === undefined) {
+      //   leaves[index] = 0n;
+      // } else {
+      //   const val = await this.getStorage(contractAddress, key);
+      //   leaves[index] = poseidon_raw([bytesToBigInt(key), bytesToBigInt(val)]);
+      // }
+
+      if (key !== undefined) {
         const val = await this.getStorage(contractAddress, key);
-        // Match actual Groth16 circuit: poseidon2(storage_key_L2MPT, storage_value)
-        // See packages/BLS12-Poseidon-Merkle-tree-Groth16/circuits/src/circuit_N4.circom
-        // The actual circuit uses Poseidon255(2) with 2 inputs, not 4 inputs
         leaves[index] = poseidon_raw([bytesToBigInt(key), bytesToBigInt(val)]);
+
+        console.log('*******');
+        console.log(`key = ${key}`);
+        console.log(`value = ${val}`);
       }
     }
     return leaves;

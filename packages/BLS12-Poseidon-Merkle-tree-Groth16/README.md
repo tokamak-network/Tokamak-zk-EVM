@@ -11,6 +11,7 @@ The circuit implements a quaternary Merkle tree using Poseidon4 hashing over the
 ### Prerequisites
 
 1. Install snarkjs globally:
+
 ```bash
 npm install -g snarkjs
 ```
@@ -36,17 +37,21 @@ Create an input JSON file with your Merkle tree data:
 ### Generate a Proof
 
 1. **Calculate witness**:
+
 ```bash
 snarkjs wtns calculate circuits/build/merkle_tree_circuit_js/merkle_tree_circuit.wasm input.json witness.wtns
 ```
+
 This generates `witness.wtns` - a binary file containing all the intermediate values (witness) computed by the circuit for your specific input.
 
 2. **Generate the proof**:
+
 ```bash
 snarkjs groth16 prove trusted-setup/merkle_tree_circuit_final.zkey witness.wtns proof.json public.json
 ```
 
 This creates:
+
 - `proof.json`: The zero-knowledge proof
 - `public.json`: Public inputs/outputs
 
@@ -84,7 +89,11 @@ The generated proof follows the Groth16 format for BLS12-381:
 ```json
 {
   "pi_a": ["...", "...", "1"],
-  "pi_b": [["...", "..."], ["...", "..."], ["1", "0"]],
+  "pi_b": [
+    ["...", "..."],
+    ["...", "..."],
+    ["1", "0"]
+  ],
   "pi_c": ["...", "...", "1"],
   "protocol": "groth16",
   "curve": "bls12381"
@@ -94,5 +103,5 @@ The generated proof follows the Groth16 format for BLS12-381:
 ### Integration with Smart Contracts
 
 The verification key and proofs are compatible with Ethereum smart contracts using the generated Solidity verifier:
-- `trusted-setup/merkle_tree_verifier.sol`
 
+- `trusted-setup/merkle_tree_verifier.sol`
