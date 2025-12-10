@@ -85,9 +85,15 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
     for (var index = 0; index < MAX_MT_LEAVES; index++) {
       const key = this.registeredKeys![index];
       if (key === undefined) {
-        leaves[index] = 0n;
+        // Match Groth16 circuit: empty leaves use poseidon2(0, 0), not just 0
+        // The circuit computes poseidon2(storage_key_L2MPT[i], storage_value[i]) for all leaves
+        // Empty leaves have storage_key_L2MPT[i] = 0 and storage_value[i] = 0
+        leaves[index] = poseidon_raw([0n, 0n]);
       } else {
         const val = await this.getStorage(contractAddress, key);
+        // Match actual Groth16 circuit: poseidon2(storage_key_L2MPT, storage_value)
+        // See packages/BLS12-Poseidon-Merkle-tree-Groth16/circuits/src/circuit_N4.circom
+        // The actual circuit uses Poseidon255(2) with 2 inputs, not 4 inputs
         leaves[index] = poseidon_raw([bytesToBigInt(key), bytesToBigInt(val)]);
       }
     }
@@ -142,6 +148,45 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
   }
   public get cachedOpts() {
     return this._cachedOpts;
+  }
+
+  /**
+   * Set cached options (required for state restoration from snapshot)
+   * This allows state restoration to access common.customCrypto.keccak256
+   */
+  public setCachedOpts(opts: TokamakL2StateManagerOpts): void {
+    if (this._cachedOpts !== null) {
+      throw new Error('Cannot rewrite cached opts');
+    }
+    this._cachedOpts = opts;
+  }
+
+  /**
+   * Set registered keys from snapshot (required for merkle tree reconstruction)
+   * This should be called before restoring storage entries
+   */
+  public setRegisteredKeys(keys: Uint8Array[]): void {
+    if (this._registeredKeys !== null) {
+      throw new Error('Cannot rewrite registered keys');
+    }
+    this._registeredKeys = keys;
+  }
+
+  /**
+   * Rebuild initial merkle tree from restored storage
+   * This should be called after restoring all storage entries
+   */
+  public async rebuildInitialMerkleTree(): Promise<void> {
+    if (this._initialMerkleTree !== null) {
+      throw new Error('Merkle tree is already initialized');
+    }
+    if (this._registeredKeys === null) {
+      throw new Error('Registered keys must be set before rebuilding merkle tree');
+    }
+    if (this._cachedOpts === null) {
+      throw new Error('Cached opts must be set before rebuilding merkle tree');
+    }
+    this._initialMerkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this);
   }
 
   // public getL1UserStorageKey(parts: Array<Address | number | bigint | string>): Uint8Array {

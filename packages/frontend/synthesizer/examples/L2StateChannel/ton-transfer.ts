@@ -134,55 +134,7 @@ async function testInitializeState() {
 
   // Step 3: Build StateSnapshot from on-chain data and restore to Synthesizer EVM
   console.log('🔄 Step 3: Building StateSnapshot from on-chain data...');
-  console.log(`   This fetches all on-chain data (MPT keys, deposits, L2 addresses) and creates a StateSnapshot\n`);
-  console.log(`   Then restores it to Synthesizer's EVM to get the exact same merkle root\n`);
 
-  // Get channel info
-  const bridgeContract = new ethers.Contract(ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI, provider);
-  const [allowedTokens, state, participantCount, initialRoot] = await bridgeContract.getChannelInfo(CHANNEL_ID);
-  const participants: string[] = await bridgeContract.getChannelParticipants(CHANNEL_ID);
-
-  console.log(`   Channel Info:`);
-  console.log(`      - Allowed Tokens: ${allowedTokens.length}`);
-  console.log(`      - Participants: ${participantCount.toString()}`);
-  console.log(`      - Initial Root: ${initialRoot}\n`);
-
-  // Fetch all on-chain data
-  console.log(`   Fetching on-chain data for all participants...\n`);
-
-  const storageEntries: Array<{ index: number; key: string; value: string }> = [];
-  const registeredKeys: string[] = [];
-
-  for (let i = 0; i < participants.length; i++) {
-    const l1Address = participants[i];
-    const token = allowedTokens[0]; // Use first token (should be TON)
-
-    // Get MPT key from on-chain (this is what was actually used during deposit)
-    const onChainMptKeyBigInt = await bridgeContract.getL2MptKey(CHANNEL_ID, l1Address, token);
-    const onChainMptKeyHex = '0x' + onChainMptKeyBigInt.toString(16).padStart(64, '0');
-
-    // Get deposit amount from on-chain
-    const deposit = await bridgeContract.getParticipantTokenDeposit(CHANNEL_ID, l1Address, token);
-
-    console.log(`      ${i + 1}. ${l1Address}`);
-    console.log(`         MPT Key: ${onChainMptKeyHex}`);
-    console.log(`         Deposit: ${deposit.toString()}`);
-
-    // Use the on-chain MPT key (this is the source of truth)
-    registeredKeys.push(onChainMptKeyHex);
-
-    const depositHex = '0x' + deposit.toString(16).padStart(64, '0');
-    storageEntries.push({
-      index: i,
-      key: onChainMptKeyHex,
-      value: depositHex,
-    });
-  }
-  console.log('');
-
-  // Create StateSnapshot from on-chain data
-  // Note: Using MPT keys from getL2MptKey() directly - these are the keys used during deposit
-  // Use keys in the same order as fetched from on-chain (no sorting)
   const stateSnapshot: StateSnapshot = {
     stateRoot: onChainStateRoot, // Use the state root from StateInitialized event
     registeredKeys: registeredKeys, // Use MPT keys in original order (as fetched from on-chain)
@@ -199,112 +151,55 @@ async function testInitializeState() {
   console.log(`      - Storage Entries: ${stateSnapshot.storageEntries.length}`);
   console.log(`      - Registered Keys: ${stateSnapshot.registeredKeys.length}\n`);
 
-  // Step 5.5: Generate L2 keys for all participants (using deposit MPT key logic)
-  // This must be done before Step 4 verification to use actual L2 keys
-  // This must be done before Step 4 verification to use actual L2 keys
-  console.log('🔑 Step 5.5: Generating L2 keys from deposit MPT keys...\n');
+  // Step 4: Restore state to Synthesizer's TokamakL2StateManager
+  console.log('🔄 Step 4: Restoring state to Synthesizer EVM...\n');
 
-  // Read private keys from environment variables (same as deposit-ton.ts)
-  const PRIVATE_KEYS = [process.env.ALICE_PRIVATE_KEY, process.env.BOB_PRIVATE_KEY, process.env.CHARLIE_PRIVATE_KEY];
-  const PARTICIPANT_NAMES = ['Alice', 'Bob', 'Charlie'];
+  // Create Common with custom crypto
+  const commonOpts = {
+    chain: {
+      ...Mainnet,
+    },
+    customCrypto: { keccak256: poseidon, ecrecover: getEddsaPublicKey },
+  };
+  const common = new Common(commonOpts);
 
-  if (!PRIVATE_KEYS[0] || !PRIVATE_KEYS[1] || !PRIVATE_KEYS[2]) {
-    console.error('❌ Error: Private keys not found in .env file');
-    console.error('Please add the following to your .env file:');
-    console.error('  ALICE_PRIVATE_KEY="..."');
-    console.error('  BOB_PRIVATE_KEY="..."');
-    console.error('  CHARLIE_PRIVATE_KEY="..."');
-    process.exit(1);
-  }
-
-  // Generate L2 keys for all participants using the same logic as deposit-ton.ts
-  // This recreates the exact same private/public keys that were used during deposit
-  const allPublicKeys: Uint8Array[] = [];
-  const allL1Addresses: string[] = [];
-  const allPrivateKeys: Uint8Array[] = [];
-  const allL2Addresses: string[] = [];
-
-  for (let i = 0; i < participants.length; i++) {
-    const l1Address = participants[i];
-    const participantIndex = participants.findIndex(addr => addr.toLowerCase() === l1Address.toLowerCase());
-    if (participantIndex === -1 || !PRIVATE_KEYS[participantIndex]) {
-      throw new Error(`Private key not found for participant ${l1Address}`);
-    }
-    const wallet = new ethers.Wallet(PRIVATE_KEYS[participantIndex]!);
-
-    // Verify address matches
-    if (wallet.address.toLowerCase() !== l1Address.toLowerCase()) {
-      throw new Error(`Address mismatch: expected ${l1Address}, got ${wallet.address}`);
-    }
-
-    // Generate seed and private key (same as deposit-ton.ts)
-    // This uses the same logic that was used to generate the MPT key during deposit
-    const l1PublicKeyHex = wallet.signingKey.publicKey;
-    const seedString = `${l1PublicKeyHex}${CHANNEL_ID}${PARTICIPANT_NAMES[participantIndex]!}`;
-    const seedBytes = utf8ToBytes(seedString);
-    const seedHashBytes = poseidon(seedBytes);
-    const seedHashBigInt = bytesToBigInt(seedHashBytes);
-    const privateKeyBigInt = seedHashBigInt % jubjub.Point.Fn.ORDER;
-    const privateKeyValue = privateKeyBigInt === 0n ? 1n : privateKeyBigInt;
-    const privateKey = setLengthLeft(bigIntToBytes(privateKeyValue), 32);
-
-    // Generate public key from private key
-    const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(privateKey)).toBytes();
-    const l2Address = fromEdwardsToAddress(jubjub.Point.fromBytes(publicKey)).toString();
-
-    allPublicKeys.push(publicKey);
-    allL1Addresses.push(l1Address);
-    allPrivateKeys.push(privateKey);
-    allL2Addresses.push(l2Address);
-  }
-
-  console.log(`   ✅ Generated L2 keys for ${allPublicKeys.length} participants\n`);
-
-  // Step 4: Restore state to Synthesizer's TokamakL2StateManager (using main.ts pattern)
-  // Now using actual L2 keys from deposit (generated in Step 5.5)
-  console.log('🔄 Step 4: Restoring state to Synthesizer EVM (using deposit L2 keys)...\n');
-
-  // Use main.ts pattern: createSynthesizerOptsForSimulationFromRPC with skipRPCInit
-  // This ensures consistent state manager initialization
-  // Note: TokamakL2Tx requires at least 4 bytes (function selector), so we use a dummy selector
-  const verifyCalldata = hexToBytes(addHexPrefix('0x00000000')); // Dummy function selector for verification only
-  const verifySimulationOpts: SynthesizerSimulationOpts = {
-    txNonce: 0n,
-    rpcUrl: RPC_URL,
-    senderL2PrvKey: allPrivateKeys[0], // Use actual deposit private key
-    blockNumber: tx.blockNumber,
+  // Create state manager options (we'll skip RPC init and use snapshot instead)
+  // userL2Addresses is required but not used when restoring from snapshot
+  const stateManagerOpts = {
+    common,
+    blockNumber: tx.blockNumber, // Use block AFTER transaction
     contractAddress: allowedTokens[0] as `0x${string}`,
     userStorageSlots: [0],
-    addressListL1: allL1Addresses as `0x${string}`[],
-    publicKeyListL2: allPublicKeys, // Use actual deposit public keys
-    callData: verifyCalldata,
-    skipRPCInit: true, // Skip RPC init since we'll restore from snapshot
+    userL1Addresses: participants as `0x${string}`[],
+    userL2Addresses: participants.map(() => new Address(hexToBytes('0x0000000000000000000000000000000000000000'))), // Dummy addresses, not used
   };
 
-  // Create synthesizer options (main.ts pattern)
-  const verifySynthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(verifySimulationOpts);
-
-  // Get state manager from synthesizer options (main.ts pattern)
-  const stateManager = verifySynthesizerOpts.stateManager;
-  const snapshotContractAddress = new Address(toBytes(addHexPrefix(stateSnapshot.contractAddress)));
+  // Create state manager without RPC init (we'll restore from snapshot instead)
+  // Note: We need to manually set up contract account and load code
+  const stateManager = new TokamakL2StateManager(stateManagerOpts);
 
   // Set up contract account (required before restoring storage)
-  const POSEIDON_RLP_VERIFY = stateManager.cachedOpts!.common.customCrypto.keccak256!(RLP.encode(new Uint8Array([])));
-  const POSEIDON_NULL_VERIFY = stateManager.cachedOpts!.common.customCrypto.keccak256!(new Uint8Array(0));
+  const contractAddress = new Address(toBytes(stateManagerOpts.contractAddress));
+  const POSEIDON_RLP = stateManagerOpts.common.customCrypto.keccak256!(RLP.encode(new Uint8Array([])));
+  const POSEIDON_NULL = stateManagerOpts.common.customCrypto.keccak256!(new Uint8Array(0));
   const contractAccount = createAccount({
     nonce: 0n,
     balance: 0n,
-    storageRoot: POSEIDON_RLP_VERIFY,
-    codeHash: POSEIDON_NULL_VERIFY,
+    storageRoot: POSEIDON_RLP,
+    codeHash: POSEIDON_NULL,
   });
-  await stateManager.putAccount(snapshotContractAddress, contractAccount);
+  await stateManager.putAccount(contractAddress, contractAccount);
 
   // Load contract code from RPC (needed for execution)
-  const byteCodeStr = await provider.getCode(snapshotContractAddress.toString(), tx.blockNumber);
-  await stateManager.putCode(snapshotContractAddress, hexToBytes(addHexPrefix(byteCodeStr)));
+  const byteCodeStr = await provider.getCode(contractAddress.toString(), stateManagerOpts.blockNumber);
+  await stateManager.putCode(contractAddress, hexToBytes(addHexPrefix(byteCodeStr)));
 
-  // Restore state from snapshot using main.ts pattern
+  // Restore state from snapshot using new method (restore storage and rebuild merkle tree)
   console.log('   Restoring state from snapshot...');
+  const snapshotContractAddress = new Address(toBytes(addHexPrefix(stateSnapshot.contractAddress)));
+
+  // 1. Set cached opts (required for merkle tree reconstruction)
+  stateManager.setCachedOpts(stateManagerOpts);
 
   // 2. Restore contract account and code if needed
   if (stateSnapshot.contractCode) {
@@ -348,28 +243,7 @@ async function testInitializeState() {
 
   // 6. Rebuild initial merkle tree from restored storage
   console.log('   Rebuilding initial merkle tree from restored storage...');
-  
-  // Debug: Log registeredKeys order before rebuilding
-  console.log('   📋 RegisteredKeys order (used for merkle tree):');
-  for (let i = 0; i < stateSnapshot.registeredKeys.length; i++) {
-    const key = stateSnapshot.registeredKeys[i];
-    const entry = stateSnapshot.storageEntries.find(e => e.key.toLowerCase() === key.toLowerCase());
-    console.log(`      [${i}] ${key.slice(0, 20)}... Value: ${entry?.value || 'N/A'}`);
-  }
-  
   await stateManager.rebuildInitialMerkleTree();
-  
-  // Debug: Check leaves calculation
-  const leaves = await stateManager.convertLeavesIntoMerkleTreeLeaves();
-  console.log('   📋 Merkle tree leaves (first 3 non-zero):');
-  for (let i = 0; i < Math.min(leaves.length, 3); i++) {
-    if (leaves[i] !== 0n) {
-      const key = stateSnapshot.registeredKeys[i];
-      const entry = stateSnapshot.storageEntries.find(e => e.key.toLowerCase() === key.toLowerCase());
-      console.log(`      [${i}] Key: ${key.slice(0, 20)}... Leaf: 0x${leaves[i].toString(16).slice(0, 20)}...`);
-    }
-  }
-  
   const restoredMerkleRootBigInt = stateManager.initialMerkleTree.root;
   const restoredMerkleRootHex = restoredMerkleRootBigInt.toString(16);
   const restoredStateRoot = '0x' + restoredMerkleRootHex.padStart(64, '0').toLowerCase();
@@ -408,13 +282,82 @@ async function testInitializeState() {
     process.exit(1);
   }
 
-  // Use L2 keys generated in Step 5.5 (from deposit MPT keys)
-  const participant1L1Address = allL1Addresses[0];
-  const participant2L1Address = allL1Addresses[1];
-  const participant1L2Address = allL2Addresses[0];
-  const participant2L2Address = allL2Addresses[1];
+  // Read private keys from environment variables (same as deposit-ton.ts)
+  const PRIVATE_KEYS = [process.env.ALICE_PRIVATE_KEY, process.env.BOB_PRIVATE_KEY, process.env.CHARLIE_PRIVATE_KEY];
+  const PARTICIPANT_NAMES = ['Alice', 'Bob', 'Charlie'];
+
+  if (!PRIVATE_KEYS[0] || !PRIVATE_KEYS[1] || !PRIVATE_KEYS[2]) {
+    console.error('❌ Error: Private keys not found in .env file');
+    console.error('Please add the following to your .env file:');
+    console.error('  ALICE_PRIVATE_KEY="..."');
+    console.error('  BOB_PRIVATE_KEY="..."');
+    console.error('  CHARLIE_PRIVATE_KEY="..."');
+    process.exit(1);
+  }
+
+  // Extract participant 1 and 2 information from restored state
   const participant1MptKeyHex = registeredKeys[0];
   const participant2MptKeyHex = registeredKeys[1];
+  const participant1L1Address = participants[0];
+  const participant2L1Address = participants[1];
+
+  // Find participant indices by matching L1 addresses
+  const participant1Index = participants.findIndex(addr => addr.toLowerCase() === participant1L1Address.toLowerCase());
+  const participant2Index = participants.findIndex(addr => addr.toLowerCase() === participant2L1Address.toLowerCase());
+
+  if (participant1Index === -1 || participant2Index === -1) {
+    console.error('❌ Error: Could not find participant indices');
+    process.exit(1);
+  }
+
+  // Create wallets from private keys (same as deposit-ton.ts)
+  const participant1Wallet = new ethers.Wallet(PRIVATE_KEYS[participant1Index]!);
+  const participant2Wallet = new ethers.Wallet(PRIVATE_KEYS[participant2Index]!);
+
+  // Verify addresses match
+  if (participant1Wallet.address.toLowerCase() !== participant1L1Address.toLowerCase()) {
+    console.error(
+      `❌ Error: Participant 1 address mismatch: expected ${participant1L1Address}, got ${participant1Wallet.address}`,
+    );
+    process.exit(1);
+  }
+  if (participant2Wallet.address.toLowerCase() !== participant2L1Address.toLowerCase()) {
+    console.error(
+      `❌ Error: Participant 2 address mismatch: expected ${participant2L1Address}, got ${participant2Wallet.address}`,
+    );
+    process.exit(1);
+  }
+
+  // Generate L2 keys using the same process as deposit-ton.ts
+  // This recreates the exact same private/public keys and L2 addresses
+  // Note: We don't need to verify MPT keys - we only need L2 address and private key for transfer
+  const participant1L1PublicKeyHex = participant1Wallet.signingKey.publicKey;
+  const participant2L1PublicKeyHex = participant2Wallet.signingKey.publicKey;
+
+  // Create seed and generate private key (same as generateMptKeyFromWallet)
+  const participant1SeedString = `${participant1L1PublicKeyHex}${CHANNEL_ID}${PARTICIPANT_NAMES[participant1Index]!}`;
+  const participant1SeedBytes = utf8ToBytes(participant1SeedString);
+  const participant1SeedHashBytes = poseidon(participant1SeedBytes);
+  const participant1SeedHashBigInt = bytesToBigInt(participant1SeedHashBytes);
+  const participant1PrivateKeyBigInt = participant1SeedHashBigInt % jubjub.Point.Fn.ORDER;
+  const participant1PrivateKeyValue = participant1PrivateKeyBigInt === 0n ? 1n : participant1PrivateKeyBigInt;
+  const participant1PrivateKey = setLengthLeft(bigIntToBytes(participant1PrivateKeyValue), 32);
+
+  const participant2SeedString = `${participant2L1PublicKeyHex}${CHANNEL_ID}${PARTICIPANT_NAMES[participant2Index]!}`;
+  const participant2SeedBytes = utf8ToBytes(participant2SeedString);
+  const participant2SeedHashBytes = poseidon(participant2SeedBytes);
+  const participant2SeedHashBigInt = bytesToBigInt(participant2SeedHashBytes);
+  const participant2PrivateKeyBigInt = participant2SeedHashBigInt % jubjub.Point.Fn.ORDER;
+  const participant2PrivateKeyValue = participant2PrivateKeyBigInt === 0n ? 1n : participant2PrivateKeyBigInt;
+  const participant2PrivateKey = setLengthLeft(bigIntToBytes(participant2PrivateKeyValue), 32);
+
+  // Generate public keys from private keys
+  const participant1PublicKey = jubjub.Point.BASE.multiply(bytesToBigInt(participant1PrivateKey)).toBytes();
+  const participant2PublicKey = jubjub.Point.BASE.multiply(bytesToBigInt(participant2PrivateKey)).toBytes();
+
+  // Derive L2 addresses from public keys (same as deposit-ton.ts)
+  const participant1L2Address = fromEdwardsToAddress(jubjub.Point.fromBytes(participant1PublicKey)).toString();
+  const participant2L2Address = fromEdwardsToAddress(jubjub.Point.fromBytes(participant2PublicKey)).toString();
 
   console.log(`   Participant 1 (Sender):`);
   console.log(`      - L1 Address: ${participant1L1Address}`);
@@ -437,6 +380,71 @@ async function testInitializeState() {
   console.log(`      - From: ${participant1L2Address}`);
   console.log(`      - To: ${participant2L2Address}`);
   console.log(`      - Amount: 1 TON (${transferAmount.toString()})\n`);
+
+  // Generate L2 keys for all participants (including participant 3)
+  const participant3L1Address = participants[2];
+  const participant3Index = participants.findIndex(addr => addr.toLowerCase() === participant3L1Address.toLowerCase());
+
+  if (participant3Index === -1 || !PRIVATE_KEYS[participant3Index]) {
+    throw new Error(`Private key not found for participant 3: ${participant3L1Address}`);
+  }
+
+  const participant3Wallet = new ethers.Wallet(PRIVATE_KEYS[participant3Index]!);
+  if (participant3Wallet.address.toLowerCase() !== participant3L1Address.toLowerCase()) {
+    throw new Error(
+      `Participant 3 address mismatch: expected ${participant3L1Address}, got ${participant3Wallet.address}`,
+    );
+  }
+
+  const participant3L1PublicKeyHex = participant3Wallet.signingKey.publicKey;
+  const participant3SeedString = `${participant3L1PublicKeyHex}${CHANNEL_ID}${PARTICIPANT_NAMES[participant3Index]!}`;
+  const participant3SeedBytes = utf8ToBytes(participant3SeedString);
+  const participant3SeedHashBytes = poseidon(participant3SeedBytes);
+  const participant3SeedHashBigInt = bytesToBigInt(participant3SeedHashBytes);
+  const participant3PrivateKeyBigInt = participant3SeedHashBigInt % jubjub.Point.Fn.ORDER;
+  const participant3PrivateKeyValue = participant3PrivateKeyBigInt === 0n ? 1n : participant3PrivateKeyBigInt;
+  const participant3PrivateKey = setLengthLeft(bigIntToBytes(participant3PrivateKeyValue), 32);
+  const participant3PublicKey = jubjub.Point.BASE.multiply(bytesToBigInt(participant3PrivateKey)).toBytes();
+  const participant3L2Address = fromEdwardsToAddress(jubjub.Point.fromBytes(participant3PublicKey)).toString();
+
+  // Generate public keys for all participants using the same logic as deposit-ton.ts
+  const allPublicKeys: Uint8Array[] = [];
+  const allL1Addresses: string[] = [];
+  const allPrivateKeys: Uint8Array[] = [];
+  const allL2Addresses: string[] = [];
+
+  for (let i = 0; i < participants.length; i++) {
+    const l1Address = participants[i];
+    const participantIndex = participants.findIndex(addr => addr.toLowerCase() === l1Address.toLowerCase());
+    if (participantIndex === -1 || !PRIVATE_KEYS[participantIndex]) {
+      throw new Error(`Private key not found for participant ${l1Address}`);
+    }
+    const wallet = new ethers.Wallet(PRIVATE_KEYS[participantIndex]!);
+
+    // Verify address matches
+    if (wallet.address.toLowerCase() !== l1Address.toLowerCase()) {
+      throw new Error(`Address mismatch: expected ${l1Address}, got ${wallet.address}`);
+    }
+
+    // Generate seed and private key (same as deposit-ton.ts)
+    const l1PublicKeyHex = wallet.signingKey.publicKey;
+    const seedString = `${l1PublicKeyHex}${CHANNEL_ID}${PARTICIPANT_NAMES[participantIndex]!}`;
+    const seedBytes = utf8ToBytes(seedString);
+    const seedHashBytes = poseidon(seedBytes);
+    const seedHashBigInt = bytesToBigInt(seedHashBytes);
+    const privateKeyBigInt = seedHashBigInt % jubjub.Point.Fn.ORDER;
+    const privateKeyValue = privateKeyBigInt === 0n ? 1n : privateKeyBigInt;
+    const privateKey = setLengthLeft(bigIntToBytes(privateKeyValue), 32);
+
+    // Generate public key from private key
+    const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(privateKey)).toBytes();
+    const l2Address = fromEdwardsToAddress(jubjub.Point.fromBytes(publicKey)).toString();
+
+    allPublicKeys.push(publicKey);
+    allL1Addresses.push(l1Address);
+    allPrivateKeys.push(privateKey);
+    allL2Addresses.push(l2Address);
+  }
 
   // ========================================================================
   // PROOF #1: Participant 1 → Participant 2 Transfer (1 TON)
@@ -471,24 +479,6 @@ async function testInitializeState() {
   // This ensures INI_MERKLE_ROOT is set correctly during synthesizer initialization
   const stateManager1 = synthesizerOpts1.stateManager;
   const contractAddress1 = new Address(toBytes(addHexPrefix(stateSnapshot.contractAddress)));
-
-  // Set up contract account (required before restoring storage)
-  // Note: skipRPCInit=true means contract account is not set up, so we need to do it manually
-  const POSEIDON_RLP1 = synthesizerOpts1.stateManager.cachedOpts!.common.customCrypto.keccak256!(
-    RLP.encode(new Uint8Array([])),
-  );
-  const POSEIDON_NULL1 = synthesizerOpts1.stateManager.cachedOpts!.common.customCrypto.keccak256!(new Uint8Array(0));
-  const contractAccount1 = createAccount({
-    nonce: 0n,
-    balance: 0n,
-    storageRoot: POSEIDON_RLP1,
-    codeHash: POSEIDON_NULL1,
-  });
-  await stateManager1.putAccount(contractAddress1, contractAccount1);
-
-  // Load contract code from RPC (needed for execution)
-  const byteCodeStr1 = await provider.getCode(contractAddress1.toString(), tx.blockNumber);
-  await stateManager1.putCode(contractAddress1, hexToBytes(addHexPrefix(byteCodeStr1)));
 
   // 1. Set registered keys from snapshot
   console.log(`   Setting ${stateSnapshot.registeredKeys.length} registered keys...`);
@@ -620,10 +610,9 @@ async function testInitializeState() {
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
   const transferAmount2 = parseEther('0.5'); // 0.5 TON
-  const participant3L2Address2 = allL2Addresses[2]; // Use L2 address from Step 5.5
   const calldata2 =
     '0xa9059cbb' + // transfer(address,uint256)
-    participant3L2Address2.slice(2).padStart(64, '0') + // recipient (participant 3)
+    participant3L2Address.slice(2).padStart(64, '0') + // recipient (participant 3)
     transferAmount2.toString(16).padStart(64, '0'); // amount (0.5 TON)
 
   console.log('🔄 Generating circuit for Participant 2 → Participant 3 transfer...\n');
@@ -650,23 +639,6 @@ async function testInitializeState() {
   // Restore state from previous proof (main.ts pattern using cachedOpts)
   const stateManager2 = synthesizerOpts2.stateManager;
   const contractAddress2 = new Address(toBytes(addHexPrefix(stateSnapshot1.contractAddress)));
-
-  // Set up contract account (required before restoring storage)
-  const POSEIDON_RLP2 = synthesizerOpts2.stateManager.cachedOpts!.common.customCrypto.keccak256!(
-    RLP.encode(new Uint8Array([])),
-  );
-  const POSEIDON_NULL2 = synthesizerOpts2.stateManager.cachedOpts!.common.customCrypto.keccak256!(new Uint8Array(0));
-  const contractAccount2 = createAccount({
-    nonce: 0n,
-    balance: 0n,
-    storageRoot: POSEIDON_RLP2,
-    codeHash: POSEIDON_NULL2,
-  });
-  await stateManager2.putAccount(contractAddress2, contractAccount2);
-
-  // Load contract code from RPC
-  const byteCodeStr2 = await provider.getCode(contractAddress2.toString(), tx.blockNumber);
-  await stateManager2.putCode(contractAddress2, hexToBytes(addHexPrefix(byteCodeStr2)));
 
   console.log(`   Setting ${stateSnapshot1.registeredKeys.length} registered keys...`);
   const registeredKeysBytes2 = stateSnapshot1.registeredKeys.map(key => hexToBytes(addHexPrefix(key)));
@@ -800,23 +772,6 @@ async function testInitializeState() {
   // Restore state from previous proof (main.ts pattern using cachedOpts)
   const stateManager3 = synthesizerOpts3.stateManager;
   const contractAddress3 = new Address(toBytes(addHexPrefix(stateSnapshot2.contractAddress)));
-
-  // Set up contract account (required before restoring storage)
-  const POSEIDON_RLP3 = synthesizerOpts3.stateManager.cachedOpts!.common.customCrypto.keccak256!(
-    RLP.encode(new Uint8Array([])),
-  );
-  const POSEIDON_NULL3 = synthesizerOpts3.stateManager.cachedOpts!.common.customCrypto.keccak256!(new Uint8Array(0));
-  const contractAccount3 = createAccount({
-    nonce: 0n,
-    balance: 0n,
-    storageRoot: POSEIDON_RLP3,
-    codeHash: POSEIDON_NULL3,
-  });
-  await stateManager3.putAccount(contractAddress3, contractAccount3);
-
-  // Load contract code from RPC
-  const byteCodeStr3 = await provider.getCode(contractAddress3.toString(), tx.blockNumber);
-  await stateManager3.putCode(contractAddress3, hexToBytes(addHexPrefix(byteCodeStr3)));
 
   console.log(`   Setting ${stateSnapshot2.registeredKeys.length} registered keys...`);
   const registeredKeysBytes3 = stateSnapshot2.registeredKeys.map(key => hexToBytes(addHexPrefix(key)));
@@ -989,6 +944,36 @@ async function extractStateSnapshot(
     timestamp: Date.now(),
     userNonces: registeredKeys.map(() => 0n), // Nonces not tracked in this flow
   };
+}
+
+async function saveProofOutputs(result: SynthesizerResult, proofNum: number, outputsPath: string) {
+  // Ensure output directory exists
+  mkdirSync(outputsPath, { recursive: true });
+
+  // Save instance.json
+  const instancePath = `${outputsPath}/instance.json`;
+  writeFileSync(instancePath, JSON.stringify(result.instance, null, 2));
+  console.log(
+    `   ✅ instance.json saved (user: ${result.instance.a_pub_user.length}, block: ${result.instance.a_pub_block.length}, function: ${result.instance.a_pub_function.length} public inputs)`,
+  );
+
+  // Save permutation.json
+  const permutationPath = `${outputsPath}/permutation.json`;
+  writeFileSync(permutationPath, JSON.stringify(result.permutation, null, 2));
+  console.log(`   ✅ permutation.json saved (${result.permutation.length} entries)`);
+
+  // Save placementVariables.json
+  const placementPath = `${outputsPath}/placementVariables.json`;
+  writeFileSync(placementPath, JSON.stringify(result.placementVariables, null, 2));
+  console.log(`   ✅ placementVariables.json saved (${result.placementVariables.length} placements)`);
+
+  // Save state_snapshot.json
+  const statePath = `${outputsPath}/state_snapshot.json`;
+  writeFileSync(
+    statePath,
+    JSON.stringify(result.state, (key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
+  );
+  console.log(`   ✅ state_snapshot.json saved`);
 }
 
 async function runProver(proofNum: number, outputsPath: string): Promise<boolean> {
