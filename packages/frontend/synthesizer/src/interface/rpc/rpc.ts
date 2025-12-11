@@ -10,13 +10,14 @@ export type SynthesizerSimulationOpts = {
   rpcUrl: string,
   blockNumber: number,
   contractAddress: `0x${string}`,
-  addressListL1: `0x${string}`[],
-  publicKeyListL2: Uint8Array[],
+  initStorageKeys: {
+    L1: Uint8Array,
+    L2: Uint8Array,
+  }[],
 
   // TX Info
   senderL2PrvKey: Uint8Array,
   txNonce: bigint,
-  userStorageSlots: number[],
   callData: Uint8Array,
 }
 
@@ -79,9 +80,7 @@ export async function createSynthesizerOptsForSimulationFromRPC(opts: Synthesize
         common,
         blockNumber: opts.blockNumber,
         contractAddress: opts.contractAddress,
-        userStorageSlots: opts.userStorageSlots,
-        userL1Addresses: opts.addressListL1,
-        userL2Addresses: opts.publicKeyListL2.map(key => fromEdwardsToAddress(key)),
+        initStorageKeys: opts.initStorageKeys,
     }
     const L2StateManager = await createTokamakL2StateManagerFromL1RPC(opts.rpcUrl, stateManagerOpts)
 
