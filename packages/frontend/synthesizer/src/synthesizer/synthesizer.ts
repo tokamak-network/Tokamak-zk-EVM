@@ -39,6 +39,7 @@ export class Synthesizer implements SynthesizerInterface {
   protected _instructionHandlers: InstructionHandler;
   public readonly cachedOpts: SynthesizerOpts;
   protected _prevInterpreterStep: InterpreterStep | null = null;
+  protected _hasLoggedError: boolean = false;
 
   // @deprecated
   constructor(opts: SynthesizerOpts) {
@@ -71,12 +72,15 @@ export class Synthesizer implements SynthesizerInterface {
           // const currentInterpreterStep = {...data}
 
           if (this._prevInterpreterStep !== null) {
-            console.log(`stack: ${this._prevInterpreterStep.stack.map(x => bigIntToHex(x))}`);
-            console.log(`pc: ${this._prevInterpreterStep.pc}, opcode: ${this._prevInterpreterStep.opcode.name}`);
+            // console.log(`stack: ${this._prevInterpreterStep.stack.map(x => bigIntToHex(x))}`);
+            // console.log(`pc: ${this._prevInterpreterStep.pc}, opcode: ${this._prevInterpreterStep.opcode.name}`);
             await this._applySynthesizerHandler(this._prevInterpreterStep, currentInterpreterStep);
           }
         } catch (err) {
-          console.error('Synthesizer: step error:', err);
+          if (!this._hasLoggedError) {
+            console.error('Synthesizer: step error:', err);
+            this._hasLoggedError = true;
+          }
         } finally {
           this._prevInterpreterStep = {
             ...data,

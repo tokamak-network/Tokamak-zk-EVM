@@ -16,6 +16,11 @@
  * This demonstrates the complete flow: state restoration → sequential transactions → proof generation
  */
 
+/**
+ * @todo
+ * 1. targetContractPreAllocatedKeys -> resisteredKey에 입력 -> particpants 통해 key -> resisteredKey에 사용자 key 입력
+ */
+
 import { ethers, parseEther } from 'ethers';
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
@@ -65,11 +70,11 @@ const verifyBinary = `${distBinPath}/verify`;
 // ============================================================================
 
 const RPC_URL = SEPOLIA_RPC_URL;
-const CHANNEL_ID = 1; // Channel 10 for testing (single token: TON only)
+const CHANNEL_ID = 3; // Channel 10 for testing (single token: TON only)
 
 // Transaction hash for initializeChannelState
 // This should be the transaction that called initializeChannelState for the channel
-const INITIALIZE_TX_HASH = '0xe9fd8fd1c94c476021e2f98332ed2011a487f784ddb25a640567475c976a7714';
+const INITIALIZE_TX_HASH = '0xcf31e988b30825eb4e8a5f3ceb0a2b5cd2462dc4881dc6e2f58cfdb184acaeea';
 
 // ============================================================================
 // MAIN TEST FUNCTION
@@ -315,6 +320,42 @@ async function testInitializeState() {
   const registeredKeysBytes = stateSnapshot.registeredKeys.map(key => hexToBytes(addHexPrefix(key)));
   stateManager.setRegisteredKeys(registeredKeysBytes);
 
+  // 3.5. Fetch pre-allocated leaves from initializeChannelState to understand the order
+  console.log('   📋 Fetching pre-allocated leaves from contract to understand Merkle tree order...');
+  const preAllocatedKeysFromContract = await bridgeContract.getPreAllocatedKeys(targetAddress);
+  console.log(`   Found ${preAllocatedKeysFromContract.length} pre-allocated keys from contract`);
+
+  const preAllocatedLeavesFromContract: Array<{ key: string; value: string }> = [];
+  for (const key of preAllocatedKeysFromContract) {
+    let keyHex: string;
+    if (typeof key === 'string') {
+      keyHex = key.startsWith('0x') ? key : '0x' + key;
+      if (keyHex.length < 66) {
+        const hexPart = keyHex.slice(2);
+        keyHex = '0x' + hexPart.padStart(64, '0');
+      }
+    } else {
+      keyHex = '0x' + key.toString(16).padStart(64, '0');
+    }
+
+    const [value, exists] = await bridgeContract.getPreAllocatedLeaf(targetAddress, key);
+    let valueHex: string;
+    if (typeof value === 'string') {
+      valueHex = value.startsWith('0x') ? value : '0x' + value;
+      if (valueHex.length < 66) {
+        const hexPart = valueHex.slice(2);
+        valueHex = '0x' + hexPart.padStart(64, '0');
+      }
+    } else {
+      valueHex = '0x' + value.toString(16).padStart(64, '0');
+    }
+
+    if (exists) {
+      preAllocatedLeavesFromContract.push({ key: keyHex, value: valueHex });
+      console.log(`      [${preAllocatedLeavesFromContract.length - 1}] Key: ${keyHex}, Value: ${valueHex}`);
+    }
+  }
+
   // 4. Restore storage entries
   console.log(`   Restoring ${stateSnapshot.storageEntries.length} storage entries...`);
   for (const entry of stateSnapshot.storageEntries) {
@@ -358,16 +399,54 @@ async function testInitializeState() {
 
   await stateManager.rebuildInitialMerkleTree();
 
-  // Debug: Check leaves calculation
+  // Debug: Check leaves calculation - Show ALL leaves
   const leaves = await stateManager.convertLeavesIntoMerkleTreeLeaves();
-  console.log('   📋 Merkle tree leaves (first 3 non-zero):');
-  for (let i = 0; i < Math.min(leaves.length, 3); i++) {
-    if (leaves[i] !== 0n) {
-      const key = stateSnapshot.registeredKeys[i];
+  console.log('\n   📋 All Merkle tree leaves (16 total):');
+  console.log('   ─────────────────────────────────────────────────────────');
+
+  const contractAddress = new Address(toBytes(addHexPrefix(stateSnapshot.contractAddress)));
+  const { poseidon_raw } = await import('../../src/interface/qapCompiler/configuredTypes.ts');
+
+  for (let i = 0; i < leaves.length; i++) {
+    const leaf = leaves[i];
+    const leafHex = '0x' + leaf.toString(16).padStart(64, '0');
+
+    if (i === 0) {
+      // Slot 0: Special key 7 with value 18 (from getPreAllocatedLeaf())
+      const expectedLeaf = poseidon_raw([7n, 18n]);
+      const matches = leaf === expectedLeaf;
+      const marker = matches ? '✅' : '❌';
+      console.log(`   [${i}] ${marker} Special slot (key=7, value=18):`);
+      console.log(`       Leaf: ${leafHex}`);
+      console.log(`       Expected: 0x${expectedLeaf.toString(16).padStart(64, '0')}`);
+    } else if (i >= 1 && i <= 3 && stateSnapshot.registeredKeys[i - 1]) {
+      // Slots 1, 2, 3: Participants' MPT keys and balances in order (0, 1, 2)
+      const participantIndex = i - 1;
+      const key = stateSnapshot.registeredKeys[participantIndex];
       const entry = stateSnapshot.storageEntries.find(e => e.key.toLowerCase() === key.toLowerCase());
-      console.log(`      [${i}] Key: ${key.slice(0, 20)}... Leaf: 0x${leaves[i].toString(16).slice(0, 20)}...`);
+      const keyHex = key.startsWith('0x') ? key : '0x' + key;
+      const keyBigInt = BigInt(keyHex);
+      const valueHex = entry ? (entry.value.startsWith('0x') ? entry.value : '0x' + entry.value) : '0x0';
+      const valueBigInt = BigInt(valueHex);
+      const expectedLeaf = poseidon_raw([keyBigInt, valueBigInt]);
+      const matches = leaf === expectedLeaf;
+      const marker = matches ? '✅' : '❌';
+      console.log(`   [${i}] ${marker} Participant ${participantIndex}:`);
+      console.log(`       Key: ${key}`);
+      console.log(`       Value: ${valueBigInt.toString()}`);
+      console.log(`       Leaf: ${leafHex}`);
+      console.log(`       Expected: 0x${expectedLeaf.toString(16).padStart(64, '0')}`);
+    } else {
+      // Empty slots (should be poseidon(0, 0))
+      const expectedLeaf = poseidon_raw([0n, 0n]);
+      const matches = leaf === expectedLeaf;
+      const marker = matches ? '✅' : '❌';
+      console.log(`   [${i}] ${marker} Empty slot (should be poseidon(0, 0)):`);
+      console.log(`       Leaf: ${leafHex}`);
+      console.log(`       Expected: 0x${expectedLeaf.toString(16).padStart(64, '0')}`);
     }
   }
+  console.log('   ─────────────────────────────────────────────────────────\n');
 
   const restoredMerkleRootBigInt = stateManager.initialMerkleTree.root;
   const restoredMerkleRootHex = restoredMerkleRootBigInt.toString(16);

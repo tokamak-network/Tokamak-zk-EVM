@@ -43,7 +43,7 @@ config({ path: resolve(process.cwd(), '../../../.env') });
 const ALCHEMY_KEY = 'PbqCcGx1oHN7yNaFdUJUYqPEN0QSp23S';
 const SEPOLIA_RPC_URL = process.env.RPC_URL_SEPOLIA || `https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_KEY}`;
 const ROLLUP_BRIDGE_CORE_ADDRESS = '0x780ad1b236390C42479b62F066F5cEeAa4c77ad6'; // RollupBridge Proxy (Updated 2024-11-24, see DEPLOYED_CONTRACTS.md)
-const CHANNEL_ID = 2; // Channel 2 with WTON deposits
+const CHANNEL_ID = 3; // Channel 2 with WTON deposits
 const SEPOLIA_TON_CONTRACT = '0xa30fe40285b8f5c0457dbc3b7c8a280373c40044';
 
 // RollupBridgeCore ABI (from IRollupBridgeCore interface)

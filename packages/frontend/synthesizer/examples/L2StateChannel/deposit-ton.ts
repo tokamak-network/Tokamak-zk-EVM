@@ -127,17 +127,14 @@ async function main() {
   // Check channel state before processing
   console.log('🔍 Checking channel state...\n');
   try {
-    const [allowedTokens, state, participantCount, initialRoot] = await bridgeContract.getChannelInfo(CHANNEL_ID);
+    const [targetAddress, state, participantCount, initialRoot] = await bridgeContract.getChannelInfo(CHANNEL_ID);
     const stateNum = Number(state);
     const stateName = getStateName(stateNum);
 
     console.log(`   Channel ID: ${CHANNEL_ID}`);
     console.log(`   State: ${stateNum} (${stateName})`);
     console.log(`   Participants: ${participantCount}`);
-    console.log(`   Allowed Tokens: ${allowedTokens.length}`);
-    allowedTokens.forEach((token: string, idx: number) => {
-      console.log(`     ${idx + 1}. ${token}`);
-    });
+    console.log(`   Target Contract: ${targetAddress}`);
     console.log(`   Initial Root: ${initialRoot}\n`);
 
     // Validate channel state (deposit is allowed in states 1, 2, or 3)
@@ -156,11 +153,9 @@ async function main() {
       process.exit(1);
     }
 
-    // Check if TON is in allowed tokens
-    const tonAllowed = allowedTokens.some((token: string) => token.toLowerCase() === TON_ADDRESS.toLowerCase());
-    if (!tonAllowed) {
-      console.error(`❌ Error: TON (${TON_ADDRESS}) is not in allowed tokens for this channel`);
-      console.error('   Allowed tokens:', allowedTokens.join(', '));
+    // Check if TON matches target contract
+    if (targetAddress.toLowerCase() !== TON_ADDRESS.toLowerCase()) {
+      console.error(`❌ Error: TON (${TON_ADDRESS}) does not match target contract (${targetAddress})`);
       process.exit(1);
     }
 
@@ -235,7 +230,47 @@ async function main() {
       console.log(`\n   📝 Step 2: Depositing ${ethers.formatEther(TON_AMOUNT)} TON to Channel ${CHANNEL_ID}...`);
       const depositManagerWithSigner = depositManager.connect(wallet) as ethers.Contract;
 
-      const depositTx = await depositManagerWithSigner.depositToken(CHANNEL_ID, TON_ADDRESS, TON_AMOUNT, mptKey);
+      // Try to simulate the transaction first to get detailed revert reason
+      try {
+        console.log(`   🔍 Simulating deposit transaction...`);
+        await depositManagerWithSigner.depositToken.staticCall(CHANNEL_ID, TON_AMOUNT, mptKey);
+        console.log(`   ✅ Simulation successful, sending transaction...`);
+      } catch (simError: any) {
+        console.error(`\n   ❌ Transaction simulation failed:`);
+        console.error(`   Error: ${simError.message}`);
+        if (simError.reason) {
+          console.error(`   Revert Reason: ${simError.reason}`);
+        }
+        if (simError.data) {
+          console.error(`   Error Data: ${simError.data}`);
+          // Try to decode the revert reason
+          try {
+            const decoded = depositManagerWithSigner.interface.parseError(simError.data);
+            if (decoded) {
+              console.error(`   Decoded Error: ${decoded.name}(${decoded.args.join(', ')})`);
+            }
+          } catch (decodeError) {
+            // If decoding fails, try to get the revert string
+            if (simError.data && simError.data.length > 10) {
+              try {
+                const revertReason = ethers.toUtf8String('0x' + simError.data.slice(138));
+                console.error(`   Revert String: ${revertReason}`);
+              } catch (utf8Error) {
+                // Ignore UTF-8 decode errors
+              }
+            }
+          }
+        }
+        if (simError.transaction) {
+          console.error(`   Transaction:`, simError.transaction);
+        }
+        if (simError.transactionHash) {
+          console.error(`   Transaction Hash: ${simError.transactionHash}`);
+        }
+        throw simError; // Re-throw to be caught by outer catch block
+      }
+
+      const depositTx = await depositManagerWithSigner.depositToken(CHANNEL_ID, TON_AMOUNT, mptKey);
       await waitForTx(depositTx, 'Deposit TON');
 
       console.log(`\n   ✅ ${name} completed successfully!`);
@@ -247,13 +282,52 @@ async function main() {
         await sleep(5000);
       }
     } catch (error: any) {
-      console.error(`\n   ❌ Error processing ${name}:`, error.message);
-      if (error.data) {
-        console.error(`   Error data:`, error.data);
-      }
+      console.error(`\n   ❌ Error processing ${name}:`);
+      console.error(`   Message: ${error.message}`);
+
       if (error.reason) {
-        console.error(`   Reason:`, error.reason);
+        console.error(`   Revert Reason: ${error.reason}`);
       }
+
+      if (error.data) {
+        console.error(`   Error Data: ${error.data}`);
+        // Try to decode the revert reason from error data
+        try {
+          const decoded = depositManager.interface.parseError(error.data);
+          if (decoded) {
+            console.error(`   Decoded Error: ${decoded.name}`);
+            console.error(`   Error Args:`, decoded.args);
+          }
+        } catch (decodeError) {
+          // Try to extract revert string if it's a string revert
+          if (error.data && error.data.length > 10) {
+            try {
+              const revertReason = ethers.toUtf8String('0x' + error.data.slice(138));
+              if (revertReason.trim().length > 0) {
+                console.error(`   Revert String: "${revertReason}"`);
+              }
+            } catch (utf8Error) {
+              // Ignore UTF-8 decode errors
+            }
+          }
+        }
+      }
+
+      if (error.transaction) {
+        console.error(`   Transaction Details:`);
+        console.error(`      From: ${error.transaction.from}`);
+        console.error(`      To: ${error.transaction.to}`);
+        console.error(`      Data: ${error.transaction.data?.substring(0, 100)}...`);
+      }
+
+      if (error.transactionHash) {
+        console.error(`   Transaction Hash: ${error.transactionHash}`);
+        console.error(`   View on Etherscan: https://sepolia.etherscan.io/tx/${error.transactionHash}`);
+      }
+
+      // Log full error object for debugging
+      console.error(`   Full Error Object:`, JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+
       console.log(`   Skipping ${name} and continuing...\n`);
       continue;
     }

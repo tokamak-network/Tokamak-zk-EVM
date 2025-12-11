@@ -354,7 +354,7 @@ export const ROLLUP_BRIDGE_CORE_ABI = [
 ];
 
 export const DEPOSIT_MANAGER_ABI = [
-  'function depositToken(uint256 channelId, address token, uint256 amount, bytes32 _mptKey) external',
+  'function depositToken(uint256 channelId, uint256 amount, bytes32 _mptKey) external',
 ];
 
 export const TON_ABI = [

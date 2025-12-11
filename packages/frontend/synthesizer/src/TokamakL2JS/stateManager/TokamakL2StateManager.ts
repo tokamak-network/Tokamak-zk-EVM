@@ -74,25 +74,40 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
   public async convertLeavesIntoMerkleTreeLeaves(): Promise<bigint[]> {
     const contractAddress = new Address(toBytes(this.cachedOpts!.contractAddress));
     const leaves = new Array<bigint>(MAX_MT_LEAVES);
+
+    // Initialize all slots with poseidon(0, 0)
     for (var index = 0; index < MAX_MT_LEAVES; index++) {
-      const key = this.registeredKeys![index];
+      leaves[index] = poseidon_raw([0n, 0n]);
+    }
 
-      // if (key === undefined) {
-      //   leaves[index] = 0n;
-      // } else {
-      //   const val = await this.getStorage(contractAddress, key);
-      //   leaves[index] = poseidon_raw([bytesToBigInt(key), bytesToBigInt(val)]);
-      // }
+    let leafIndex = 0;
 
-      if (key !== undefined) {
-        const val = await this.getStorage(contractAddress, key);
-        leaves[index] = poseidon_raw([bytesToBigInt(key), bytesToBigInt(val)]);
+    // Slot 0: Special key 7 with value 18 (from getPreAllocatedLeaf())
+    // This is the first pre-allocated leaf from initializeChannelState
+    console.log(`[DEBUG] convertLeavesIntoMerkleTreeLeaves: Slot[${leafIndex}] = poseidon(7, 18)`);
+    leaves[leafIndex] = poseidon_raw([7n, 18n]);
+    leafIndex++;
 
-        console.log('*******');
-        console.log(`key = ${key}`);
-        console.log(`value = ${val}`);
+    // Slots 1, 2, 3: Participants' MPT keys and balances in order (0, 1, 2)
+    if (this.registeredKeys !== null) {
+      for (let i = 0; i < Math.min(this.registeredKeys.length, 3); i++) {
+        const key = this.registeredKeys[i];
+        if (key !== undefined) {
+          const val = await this.getStorage(contractAddress, key);
+          const keyBigInt = bytesToBigInt(key);
+          const valueBigInt = bytesToBigInt(val);
+          const keyHex = '0x' + keyBigInt.toString(16).padStart(64, '0');
+          console.log(
+            `[DEBUG] convertLeavesIntoMerkleTreeLeaves: Slot[${leafIndex}] = poseidon(key=${keyHex}, value=${valueBigInt.toString()})`,
+          );
+          leaves[leafIndex] = poseidon_raw([keyBigInt, valueBigInt]);
+          leafIndex++;
+        }
       }
     }
+
+    // Remaining slots are already filled with poseidon(0, 0)
+
     return leaves;
   }
 
@@ -140,7 +155,12 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
   }
   public getMTIndex(key: bigint): number {
     const MTIndex = this.registeredKeys!.findIndex(register => bytesToBigInt(register) === key);
-    return MTIndex;
+    // Merkle tree has poseidon(7, 18) at slot 0, so participants are at slots 1, 2, 3, ...
+    // Therefore, actual Merkle tree index is MTIndex + 1
+    if (MTIndex >= 0) {
+      return MTIndex + 1;
+    }
+    return MTIndex; // Return -1 if not found
   }
   public get cachedOpts() {
     return this._cachedOpts;
