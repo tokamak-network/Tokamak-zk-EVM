@@ -36,7 +36,7 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         const registeredL2KeyBigInts = new Set<bigint>();
         this._registeredKeys = [];
         for (const keys of opts.initStorageKeys) {
-            const keyL1BigInt = bytesToBigInt(keys.L1); 
+            const keyL1BigInt = bytesToBigInt(keys.L1);
             const keyL2BigInt = bytesToBigInt(keys.L2);
             if (usedL1Keys.has(keyL1BigInt)) {
                 throw new Error(`Duplication in L1 MPT keys.`);
@@ -47,7 +47,6 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
             const v = await provider.getStorage(contractAddress.toString(), bytesToBigInt(keys.L1), opts.blockNumber);
             const vBytes = hexToBytes(addHexPrefix(v));
             await this.putStorage(contractAddress, keys.L2, vBytes);
-            
             usedL1Keys.add(keyL1BigInt);
             registeredL2KeyBigInts.add(keyL2BigInt);
             this._registeredKeys.push(keys.L2);
@@ -70,7 +69,8 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         for (var index = 0; index < MAX_MT_LEAVES; index++) {
             const key = this.registeredKeys![index]
             if (key === undefined ) {
-                leaves[index] = 0n
+
+                leaves[index] = poseidon_raw([0n, 0n])
             } else {
                 const val = await this.getStorage(contractAddress, key)
                 leaves[index] = poseidon_raw([bytesToBigInt(key), bytesToBigInt(val)])

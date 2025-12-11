@@ -40,7 +40,6 @@ import {
   toBytes,
   createAccount,
 } from '@ethereumjs/util';
-import { StateSnapshot } from '../../src/TokamakL2JS/stateManager/types.ts';
 import { TokamakL2StateManager } from '../../src/TokamakL2JS/stateManager/TokamakL2StateManager.ts';
 import { poseidon, getEddsaPublicKey, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { Common, Mainnet } from '@ethereumjs/common';
@@ -49,6 +48,7 @@ import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
 import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../src/interface/index.ts';
 import { generateMptKeyFromWallet } from './mpt-key-utils.ts';
+import { getUserStorageKey } from '../../src/TokamakL2JS/utils/index.ts';
 import { RLP } from '@ethereumjs/rlp';
 
 // Get __dirname equivalent in ESM
@@ -60,7 +60,11 @@ const envPath = resolve(__dirname, '../../../../../.env');
 config({ path: envPath });
 
 // Binary paths (use pre-built binaries from dist/macOS/bin)
-const distBinPath = resolve(process.cwd(), '../../../dist/macOS/bin');
+// Use __dirname to find project root, then resolve to dist/macOS/bin
+// __dirname is: packages/frontend/synthesizer/examples/L2StateChannel
+// Project root is: ../../../../../ (6 levels up)
+const projectRoot = resolve(__dirname, '../../../../../');
+const distBinPath = resolve(projectRoot, 'dist/macOS/bin');
 const preprocessBinary = `${distBinPath}/preprocess`;
 const proverBinary = `${distBinPath}/prove`;
 const verifyBinary = `${distBinPath}/verify`;
@@ -184,24 +188,57 @@ async function testInitializeState() {
   }
   console.log('');
 
-  // Create StateSnapshot from on-chain data
-  // Note: Using MPT keys from getL2MptKey() directly - these are the keys used during deposit
-  // Use keys in the same order as fetched from on-chain (no sorting)
-  const stateSnapshot: StateSnapshot = {
-    stateRoot: onChainStateRoot, // Use the state root from StateInitialized event
-    registeredKeys: registeredKeys, // Use MPT keys in original order (as fetched from on-chain)
+  // Fetch pre-allocated leaves from BridgeCore contract
+  console.log('   📋 Fetching pre-allocated leaves from contract...');
+  const preAllocatedKeysFromContract = await bridgeContract.getPreAllocatedKeys(targetAddress);
+  console.log(`   Found ${preAllocatedKeysFromContract.length} pre-allocated keys from contract`);
+
+  const preAllocatedLeaves: Array<{ key: string; value: string }> = [];
+  for (const key of preAllocatedKeysFromContract) {
+    let keyHex: string;
+    if (typeof key === 'string') {
+      keyHex = key.startsWith('0x') ? key : '0x' + key;
+      if (keyHex.length < 66) {
+        const hexPart = keyHex.slice(2);
+        keyHex = '0x' + hexPart.padStart(64, '0');
+      }
+    } else {
+      keyHex = '0x' + key.toString(16).padStart(64, '0');
+    }
+
+    const [value, exists] = await bridgeContract.getPreAllocatedLeaf(targetAddress, key);
+    let valueHex: string;
+    if (typeof value === 'string') {
+      valueHex = value.startsWith('0x') ? value : '0x' + value;
+      if (valueHex.length < 66) {
+        const hexPart = valueHex.slice(2);
+        valueHex = '0x' + hexPart.padStart(64, '0');
+      }
+    } else {
+      valueHex = '0x' + value.toString(16).padStart(64, '0');
+    }
+
+    if (exists) {
+      preAllocatedLeaves.push({ key: keyHex, value: valueHex });
+      console.log(`      [${preAllocatedLeaves.length - 1}] Key: ${keyHex}, Value: ${valueHex}`);
+    }
+  }
+  console.log('');
+
+  // Store state information for later use
+  const stateInfo = {
+    stateRoot: onChainStateRoot,
+    registeredKeys: registeredKeys,
     storageEntries: storageEntries,
     contractAddress: targetAddress,
-    userL2Addresses: [], // Not needed when using MPT keys directly
-    userStorageSlots: [0n], // Slot 0 for ERC20 balance
-    timestamp: Date.now(),
-    userNonces: participants.map(() => 0n), // All nonces start at 0
+    preAllocatedLeaves: preAllocatedLeaves,
   };
 
-  console.log(`   ✅ StateSnapshot created:`);
-  console.log(`      - State Root: ${stateSnapshot.stateRoot}`);
-  console.log(`      - Storage Entries: ${stateSnapshot.storageEntries.length}`);
-  console.log(`      - Registered Keys: ${stateSnapshot.registeredKeys.length}\n`);
+  console.log(`   ✅ State information collected:`);
+  console.log(`      - State Root: ${stateInfo.stateRoot}`);
+  console.log(`      - Storage Entries: ${stateInfo.storageEntries.length}`);
+  console.log(`      - Registered Keys: ${stateInfo.registeredKeys.length}`);
+  console.log(`      - Pre-allocated Leaves: ${stateInfo.preAllocatedLeaves.length}\n`);
 
   // Step 5.5: Generate L2 keys for all participants (using deposit MPT key logic)
   // This must be done before Step 4 verification to use actual L2 keys
@@ -230,6 +267,7 @@ async function testInitializeState() {
 
   for (let i = 0; i < participants.length; i++) {
     const l1Address = participants[i];
+
     const participantIndex = participants.findIndex(addr => addr.toLowerCase() === l1Address.toLowerCase());
     if (participantIndex === -1 || !PRIVATE_KEYS[participantIndex]) {
       throw new Error(`Private key not found for participant ${l1Address}`);
@@ -264,12 +302,51 @@ async function testInitializeState() {
 
   console.log(`   ✅ Generated L2 keys for ${allPublicKeys.length} participants\n`);
 
-  // Step 4: Restore state to Synthesizer's TokamakL2StateManager (using main.ts pattern)
-  // Now using actual L2 keys from deposit (generated in Step 5.5)
-  console.log('🔄 Step 4: Restoring state to Synthesizer EVM (using deposit L2 keys)...\n');
+  console.log('allPublicKeys: ', allPublicKeys);
+  console.log('allL1Addresses: ', allL1Addresses);
+  console.log('allPrivateKeys: ', allPrivateKeys);
+  console.log('allL2Addresses: ', allL2Addresses);
 
-  // Use main.ts pattern: createSynthesizerOptsForSimulationFromRPC with skipRPCInit
-  // This ensures consistent state manager initialization
+  // Step 4: Build initStorageKeys for state restoration (using main.ts pattern)
+  console.log('🔄 Step 4: Building initStorageKeys for state restoration...\n');
+
+  // Build initStorageKeys: pre-allocated leaves first, then participants
+  const initStorageKeys: Array<{ L1: Uint8Array; L2: Uint8Array }> = [];
+
+  // Add pre-allocated leaves first (in the order returned by getPreAllocatedKeys)
+  for (const leaf of preAllocatedLeaves) {
+    const keyBytes = hexToBytes(addHexPrefix(leaf.key));
+    initStorageKeys.push({
+      L1: keyBytes, // For pre-allocated leaves, L1 and L2 are the same
+      L2: keyBytes,
+    });
+  }
+
+  // Add participants' storage keys
+  // On-chain, deposit values are stored using MPT keys (not L1 storage keys)
+  // So we use MPT key for both L1 and L2 to fetch from on-chain
+  for (let i = 0; i < registeredKeys.length; i++) {
+    const mptKeyHex = registeredKeys[i];
+    const mptKeyBytes = hexToBytes(addHexPrefix(mptKeyHex));
+
+    // Use MPT key for both L1 and L2 since on-chain storage uses MPT key
+    // L1 key: MPT key (used to fetch value from on-chain)
+    // L2 key: MPT key (actual L2 storage key)
+    initStorageKeys.push({
+      L1: mptKeyBytes,
+      L2: mptKeyBytes,
+    });
+  }
+
+  console.log(`   ✅ Built initStorageKeys:`);
+  console.log(`      - Pre-allocated leaves: ${preAllocatedLeaves.length}`);
+  console.log(`      - Participants: ${registeredKeys.length}`);
+  console.log(`      - Total: ${initStorageKeys.length}\n`);
+
+  // Step 5: Verify state restoration using initStorageKeys
+  console.log('🔄 Step 5: Verifying state restoration...\n');
+
+  // Use main.ts pattern: createSynthesizerOptsForSimulationFromRPC
   // Note: TokamakL2Tx requires at least 4 bytes (function selector), so we use a dummy selector
   const verifyCalldata = hexToBytes(addHexPrefix('0x00000000')); // Dummy function selector for verification only
   const verifySimulationOpts: SynthesizerSimulationOpts = {
@@ -278,152 +355,64 @@ async function testInitializeState() {
     senderL2PrvKey: allPrivateKeys[0], // Use actual deposit private key
     blockNumber: tx.blockNumber,
     contractAddress: targetAddress as `0x${string}`,
-    userStorageSlots: [0],
-    addressListL1: allL1Addresses as `0x${string}`[],
-    publicKeyListL2: allPublicKeys, // Use actual deposit public keys
+    initStorageKeys: initStorageKeys,
     callData: verifyCalldata,
-    skipRPCInit: true, // Skip RPC init since we'll restore from snapshot
   };
 
   // Create synthesizer options (main.ts pattern)
+  // This will automatically initialize the state manager with initStorageKeys
   const verifySynthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(verifySimulationOpts);
 
   // Get state manager from synthesizer options (main.ts pattern)
   const stateManager = verifySynthesizerOpts.stateManager;
-  const snapshotContractAddress = new Address(toBytes(addHexPrefix(stateSnapshot.contractAddress)));
+  const contractAddress = new Address(toBytes(addHexPrefix(targetAddress)));
 
-  // Set up contract account (required before restoring storage)
-  const POSEIDON_RLP_VERIFY = stateManager.cachedOpts!.common.customCrypto.keccak256!(RLP.encode(new Uint8Array([])));
-  const POSEIDON_NULL_VERIFY = stateManager.cachedOpts!.common.customCrypto.keccak256!(new Uint8Array(0));
-  const contractAccount = createAccount({
-    nonce: 0n,
-    balance: 0n,
-    storageRoot: POSEIDON_RLP_VERIFY,
-    codeHash: POSEIDON_NULL_VERIFY,
-  });
-  await stateManager.putAccount(snapshotContractAddress, contractAccount);
-
-  // Load contract code from RPC (needed for execution)
-  const byteCodeStr = await provider.getCode(snapshotContractAddress.toString(), tx.blockNumber);
-  await stateManager.putCode(snapshotContractAddress, hexToBytes(addHexPrefix(byteCodeStr)));
-
-  // Restore state from snapshot using main.ts pattern
-  console.log('   Restoring state from snapshot...');
-
-  // 2. Restore contract account and code if needed
-  if (stateSnapshot.contractCode) {
-    await stateManager.putCode(snapshotContractAddress, hexToBytes(addHexPrefix(stateSnapshot.contractCode)));
+  // After initTokamakExtendsFromRPC, we need to manually set the deposit values
+  // because initTokamakExtendsFromRPC tries to fetch from on-chain using L1 key,
+  // but deposit values are stored differently on-chain
+  console.log('   Setting deposit values from on-chain data...');
+  for (let i = 0; i < storageEntries.length; i++) {
+    const entry = storageEntries[i];
+    const mptKeyBytes = hexToBytes(addHexPrefix(entry.key));
+    const valueBytes = hexToBytes(addHexPrefix(entry.value));
+    await stateManager.putStorage(contractAddress, mptKeyBytes, valueBytes);
+    console.log(`      [${i}] Key: ${entry.key.slice(0, 20)}... Value: ${entry.value}`);
   }
 
-  // 3. Set registered keys from snapshot (required for merkle tree reconstruction)
-  console.log(`   Setting ${stateSnapshot.registeredKeys.length} registered keys...`);
-  const registeredKeysBytes = stateSnapshot.registeredKeys.map(key => hexToBytes(addHexPrefix(key)));
-  stateManager.setRegisteredKeys(registeredKeysBytes);
-
-  // 3.5. Fetch pre-allocated leaves from initializeChannelState to understand the order
-  console.log('   📋 Fetching pre-allocated leaves from contract to understand Merkle tree order...');
-  const preAllocatedKeysFromContract = await bridgeContract.getPreAllocatedKeys(targetAddress);
-  console.log(`   Found ${preAllocatedKeysFromContract.length} pre-allocated keys from contract`);
-
-  const preAllocatedLeavesFromContract: Array<{ key: string; value: string }> = [];
-  for (const key of preAllocatedKeysFromContract) {
-    let keyHex: string;
-    if (typeof key === 'string') {
-      keyHex = key.startsWith('0x') ? key : '0x' + key;
-      if (keyHex.length < 66) {
-        const hexPart = keyHex.slice(2);
-        keyHex = '0x' + hexPart.padStart(64, '0');
-      }
-    } else {
-      keyHex = '0x' + key.toString(16).padStart(64, '0');
-    }
-
-    const [value, exists] = await bridgeContract.getPreAllocatedLeaf(targetAddress, key);
-    let valueHex: string;
-    if (typeof value === 'string') {
-      valueHex = value.startsWith('0x') ? value : '0x' + value;
-      if (valueHex.length < 66) {
-        const hexPart = valueHex.slice(2);
-        valueHex = '0x' + hexPart.padStart(64, '0');
-      }
-    } else {
-      valueHex = '0x' + value.toString(16).padStart(64, '0');
-    }
-
-    if (exists) {
-      preAllocatedLeavesFromContract.push({ key: keyHex, value: valueHex });
-      console.log(`      [${preAllocatedLeavesFromContract.length - 1}] Key: ${keyHex}, Value: ${valueHex}`);
-    }
-  }
-
-  // 4. Restore storage entries
-  console.log(`   Restoring ${stateSnapshot.storageEntries.length} storage entries...`);
-  for (const entry of stateSnapshot.storageEntries) {
-    const key = hexToBytes(addHexPrefix(entry.key));
-    const value = hexToBytes(addHexPrefix(entry.value));
-    await stateManager.putStorage(snapshotContractAddress, key, value);
-    console.log(`      [${entry.index}] Key: ${entry.key.slice(0, 20)}... Value: ${entry.value}`);
-  }
-
-  // 5. Verify storage was restored correctly
-  console.log('   Verifying restored storage...');
-  for (let i = 0; i < stateSnapshot.registeredKeys.length; i++) {
-    const expectedKey = hexToBytes(addHexPrefix(stateSnapshot.registeredKeys[i]));
-    const expectedEntry = stateSnapshot.storageEntries.find(
-      e => e.key.toLowerCase() === stateSnapshot.registeredKeys[i].toLowerCase(),
-    );
-    const storedValue = await stateManager.getStorage(snapshotContractAddress, expectedKey);
-    const storedValueBigInt = bytesToBigInt(storedValue);
-    const expectedValueBigInt = expectedEntry ? BigInt(expectedEntry.value) : 0n;
-
-    if (storedValueBigInt !== expectedValueBigInt) {
-      console.log(`      ⚠️  [${i}] Key: ${stateSnapshot.registeredKeys[i].slice(0, 20)}...`);
-      console.log(`         Expected: ${expectedValueBigInt.toString()}, Got: ${storedValueBigInt.toString()}`);
-    } else {
-      console.log(
-        `      ✅ [${i}] Key: ${stateSnapshot.registeredKeys[i].slice(0, 20)}... Value: ${storedValueBigInt.toString()}`,
-      );
-    }
-  }
-
-  // 6. Rebuild initial merkle tree from restored storage
-  console.log('   Rebuilding initial merkle tree from restored storage...');
-
-  // Debug: Log registeredKeys order before rebuilding
-  console.log('   📋 RegisteredKeys order (used for merkle tree):');
-  for (let i = 0; i < stateSnapshot.registeredKeys.length; i++) {
-    const key = stateSnapshot.registeredKeys[i];
-    const entry = stateSnapshot.storageEntries.find(e => e.key.toLowerCase() === key.toLowerCase());
-    console.log(`      [${i}] ${key.slice(0, 20)}... Value: ${entry?.value || 'N/A'}`);
-  }
-
-  await stateManager.rebuildInitialMerkleTree();
+  // Rebuild merkle tree with correct deposit values
+  console.log('   Rebuilding merkle tree with deposit values...');
+  // Note: initialMerkleTree was built before putStorage, so we need to use getUpdatedMerkleTreeRoot
+  // which rebuilds the tree from current storage state
 
   // Debug: Check leaves calculation - Show ALL leaves
   const leaves = await stateManager.convertLeavesIntoMerkleTreeLeaves();
   console.log('\n   📋 All Merkle tree leaves (16 total):');
   console.log('   ─────────────────────────────────────────────────────────');
 
-  const contractAddress = new Address(toBytes(addHexPrefix(stateSnapshot.contractAddress)));
   const { poseidon_raw } = await import('../../src/interface/qapCompiler/configuredTypes.ts');
 
   for (let i = 0; i < leaves.length; i++) {
     const leaf = leaves[i];
     const leafHex = '0x' + leaf.toString(16).padStart(64, '0');
 
-    if (i === 0) {
-      // Slot 0: Special key 7 with value 18 (from getPreAllocatedLeaf())
-      const expectedLeaf = poseidon_raw([7n, 18n]);
+    if (i < preAllocatedLeaves.length) {
+      // Pre-allocated leaves
+      const preAllocatedLeaf = preAllocatedLeaves[i];
+      const keyBigInt = BigInt(preAllocatedLeaf.key);
+      const valueBigInt = BigInt(preAllocatedLeaf.value);
+      const expectedLeaf = poseidon_raw([keyBigInt, valueBigInt]);
       const matches = leaf === expectedLeaf;
       const marker = matches ? '✅' : '❌';
-      console.log(`   [${i}] ${marker} Special slot (key=7, value=18):`);
+      console.log(`   [${i}] ${marker} Pre-allocated leaf:`);
+      console.log(`       Key: ${preAllocatedLeaf.key}`);
+      console.log(`       Value: ${valueBigInt.toString()}`);
       console.log(`       Leaf: ${leafHex}`);
       console.log(`       Expected: 0x${expectedLeaf.toString(16).padStart(64, '0')}`);
-    } else if (i >= 1 && i <= 3 && stateSnapshot.registeredKeys[i - 1]) {
-      // Slots 1, 2, 3: Participants' MPT keys and balances in order (0, 1, 2)
-      const participantIndex = i - 1;
-      const key = stateSnapshot.registeredKeys[participantIndex];
-      const entry = stateSnapshot.storageEntries.find(e => e.key.toLowerCase() === key.toLowerCase());
+    } else if (i < preAllocatedLeaves.length + registeredKeys.length) {
+      // Participants' MPT keys and balances
+      const participantIndex = i - preAllocatedLeaves.length;
+      const key = registeredKeys[participantIndex];
+      const entry = storageEntries.find(e => e.key.toLowerCase() === key.toLowerCase());
       const keyHex = key.startsWith('0x') ? key : '0x' + key;
       const keyBigInt = BigInt(keyHex);
       const valueHex = entry ? (entry.value.startsWith('0x') ? entry.value : '0x' + entry.value) : '0x0';
@@ -437,29 +426,31 @@ async function testInitializeState() {
       console.log(`       Leaf: ${leafHex}`);
       console.log(`       Expected: 0x${expectedLeaf.toString(16).padStart(64, '0')}`);
     } else {
-      // Empty slots (should be poseidon(0, 0))
-      const expectedLeaf = poseidon_raw([0n, 0n]);
+      // Empty slots (should be 0n)
+      const expectedLeaf = 0n;
       const matches = leaf === expectedLeaf;
       const marker = matches ? '✅' : '❌';
-      console.log(`   [${i}] ${marker} Empty slot (should be poseidon(0, 0)):`);
+      console.log(`   [${i}] ${marker} Empty slot (should be 0n):`);
       console.log(`       Leaf: ${leafHex}`);
       console.log(`       Expected: 0x${expectedLeaf.toString(16).padStart(64, '0')}`);
     }
   }
   console.log('   ─────────────────────────────────────────────────────────\n');
 
-  const restoredMerkleRootBigInt = stateManager.initialMerkleTree.root;
+  // Use getUpdatedMerkleTreeRoot() instead of initialMerkleTree.root
+  // because initialMerkleTree was built before putStorage, and we need the updated root
+  const restoredMerkleRootBigInt = await stateManager.getUpdatedMerkleTreeRoot();
   const restoredMerkleRootHex = restoredMerkleRootBigInt.toString(16);
   const restoredStateRoot = '0x' + restoredMerkleRootHex.padStart(64, '0').toLowerCase();
-  const expectedRoot = BigInt(stateSnapshot.stateRoot);
+  const expectedRoot = BigInt(stateInfo.stateRoot);
 
   console.log(`   ✅ State restored successfully`);
   console.log(`      - Restored State Root: ${restoredStateRoot}`);
   console.log(`      - Expected State Root: 0x${expectedRoot.toString(16)}`);
   console.log(`      - On-chain State Root: ${onChainStateRoot}\n`);
 
-  // Step 5: Compare state roots
-  console.log('📊 Step 5: Comparing state roots...');
+  // Step 6: Compare state roots
+  console.log('📊 Step 6: Comparing state roots...');
   console.log('─────────────────────────────────────────────────────────');
   console.log(`   On-chain State Root: ${onChainStateRoot}`);
   console.log(`   Restored State Root: ${restoredStateRoot}`);
@@ -478,8 +469,8 @@ async function testInitializeState() {
   console.log('✅ SUCCESS: State roots match!');
   console.log('   The restored state matches the on-chain state exactly.\n');
 
-  // Step 6: Simulate L2 Transfer (Participant 1 → Participant 2, 1 TON)
-  console.log('🔄 Step 6: Simulating L2 Transfer (Participant 1 → Participant 2, 1 TON)...\n');
+  // Step 7: Simulate L2 Transfer (Participant 1 → Participant 2, 1 TON)
+  console.log('🔄 Step 7: Simulating L2 Transfer (Participant 1 → Participant 2, 1 TON)...\n');
 
   if (participants.length < 3) {
     console.log('❌ FAILURE: Need at least 3 participants for sequential transfer simulation');
@@ -529,71 +520,66 @@ async function testInitializeState() {
   const proof1Path = resolve(__dirname, '../test-outputs/l2-state-channel-transfer-1');
   const calldataBytes = hexToBytes(addHexPrefix(calldata));
 
+  // Build initStorageKeys for Proof #1 (same as verification, but with current state)
+  const initStorageKeys1: Array<{ L1: Uint8Array; L2: Uint8Array }> = [];
+
+  // Add pre-allocated leaves first
+  for (const leaf of preAllocatedLeaves) {
+    const keyBytes = hexToBytes(addHexPrefix(leaf.key));
+    initStorageKeys1.push({
+      L1: keyBytes,
+      L2: keyBytes,
+    });
+  }
+
+  // Add all participants' MPT keys
+  for (const mptKeyHex of registeredKeys) {
+    const mptKeyBytes = hexToBytes(addHexPrefix(mptKeyHex));
+    initStorageKeys1.push({
+      L1: mptKeyBytes,
+      L2: mptKeyBytes,
+    });
+  }
+
   const simulationOpts1: SynthesizerSimulationOpts = {
     txNonce: 0n,
     rpcUrl: RPC_URL,
     senderL2PrvKey: allPrivateKeys[0],
     blockNumber: tx.blockNumber,
     contractAddress: targetAddress as `0x${string}`,
-    userStorageSlots: [0], // ERC20 balance slot
-    addressListL1: allL1Addresses as `0x${string}`[],
-    publicKeyListL2: allPublicKeys,
+    initStorageKeys: initStorageKeys1,
     callData: calldataBytes,
-    skipRPCInit: true, // Skip RPC init since we'll restore from snapshot
   };
 
   // Create synthesizer options (main.ts pattern)
+  // This will automatically initialize the state manager with initStorageKeys
   const synthesizerOpts1 = await createSynthesizerOptsForSimulationFromRPC(simulationOpts1);
 
-  // Restore state from snapshot BEFORE creating synthesizer (using cachedOpts.stateManager)
-  // This ensures INI_MERKLE_ROOT is set correctly during synthesizer initialization
+  // Get state manager from synthesizer options
   const stateManager1 = synthesizerOpts1.stateManager;
-  const contractAddress1 = new Address(toBytes(addHexPrefix(stateSnapshot.contractAddress)));
+  const contractAddress1 = new Address(toBytes(addHexPrefix(targetAddress)));
 
-  // Set up contract account (required before restoring storage)
-  // Note: skipRPCInit=true means contract account is not set up, so we need to do it manually
-  const POSEIDON_RLP1 = synthesizerOpts1.stateManager.cachedOpts!.common.customCrypto.keccak256!(
-    RLP.encode(new Uint8Array([])),
-  );
-  const POSEIDON_NULL1 = synthesizerOpts1.stateManager.cachedOpts!.common.customCrypto.keccak256!(new Uint8Array(0));
-  const contractAccount1 = createAccount({
-    nonce: 0n,
-    balance: 0n,
-    storageRoot: POSEIDON_RLP1,
-    codeHash: POSEIDON_NULL1,
-  });
-  await stateManager1.putAccount(contractAddress1, contractAccount1);
-
-  // Load contract code from RPC (needed for execution)
-  const byteCodeStr1 = await provider.getCode(contractAddress1.toString(), tx.blockNumber);
-  await stateManager1.putCode(contractAddress1, hexToBytes(addHexPrefix(byteCodeStr1)));
-
-  // 1. Set registered keys from snapshot
-  console.log(`   Setting ${stateSnapshot.registeredKeys.length} registered keys...`);
-  const registeredKeysBytes1 = stateSnapshot.registeredKeys.map(key => hexToBytes(addHexPrefix(key)));
-  stateManager1.setRegisteredKeys(registeredKeysBytes1);
-
-  // 2. Restore storage entries
-  console.log(`   Restoring ${stateSnapshot.storageEntries.length} storage entries...`);
-  for (const entry of stateSnapshot.storageEntries) {
-    const key = hexToBytes(addHexPrefix(entry.key));
-    const value = hexToBytes(addHexPrefix(entry.value));
-    await stateManager1.putStorage(contractAddress1, key, value);
+  // After initTokamakExtendsFromRPC, we need to manually set the deposit values
+  // because initTokamakExtendsFromRPC tries to fetch from on-chain using L1 key,
+  // but deposit values are stored differently on-chain
+  for (let i = 0; i < storageEntries.length; i++) {
+    const entry = storageEntries[i];
+    const mptKeyBytes = hexToBytes(addHexPrefix(entry.key));
+    const valueBytes = hexToBytes(addHexPrefix(entry.value));
+    await stateManager1.putStorage(contractAddress1, mptKeyBytes, valueBytes);
   }
 
-  // 3. Rebuild initial merkle tree from restored storage
-  console.log('   Rebuilding initial merkle tree from restored storage...');
+  // Rebuild initialMerkleTree with updated storage values
   await stateManager1.rebuildInitialMerkleTree();
+
   const restoredRoot1 = stateManager1.initialMerkleTree.root;
-  const expectedRoot1 = BigInt(stateSnapshot.stateRoot);
+  const expectedRoot1 = BigInt(stateInfo.stateRoot);
 
   console.log(`   ✅ Restored Merkle Root: 0x${restoredRoot1.toString(16)}`);
   console.log(`   ✅ Expected Merkle Root: 0x${expectedRoot1.toString(16)}\n`);
 
   if (restoredRoot1 !== expectedRoot1) {
-    console.warn(
-      `   ⚠️  Merkle root mismatch! Expected ${stateSnapshot.stateRoot}, got 0x${restoredRoot1.toString(16)}`,
-    );
+    console.warn(`   ⚠️  Merkle root mismatch! Expected ${stateInfo.stateRoot}, got 0x${restoredRoot1.toString(16)}`);
   }
 
   // 4. Create synthesizer (main.ts pattern)
@@ -623,7 +609,7 @@ async function testInitializeState() {
 
   console.log(`\n✅ Proof #1: Circuit generated successfully`);
   console.log(`   - Placements: ${placementVariables1.length}`);
-  console.log(`   - Previous State Root: ${stateSnapshot.stateRoot}`);
+  console.log(`   - Previous State Root: ${stateInfo.stateRoot}`);
   console.log(`   - New State Root:      ${finalStateRoot1Hex}\n`);
 
   // Check transaction execution result
@@ -631,10 +617,12 @@ async function testInitializeState() {
   const executionSuccess1 = !runTxResult1.execResult.exceptionError;
   const gasUsed1 = runTxResult1.totalGasSpent;
   const logsCount1 = runTxResult1.execResult.logs?.length || 0;
+  const hasEVMError = runTxResult1.execResult.exceptionError !== undefined;
 
   console.log(`   - Success: ${executionSuccess1 ? '✅' : '❌'}`);
   console.log(`   - Gas Used: ${gasUsed1}`);
   console.log(`   - Logs Emitted: ${logsCount1}`);
+  console.log(`   - EVM Error: ${hasEVMError ? '❌ Yes' : '✅ No'}`);
   if (!executionSuccess1) {
     const errorMsg = runTxResult1.execResult.exceptionError?.error?.toString() || 'Unknown error';
     console.log(`   - Error: ${errorMsg}`);
@@ -646,29 +634,35 @@ async function testInitializeState() {
     console.log('   - Contract logic error');
     process.exit(1);
   }
+  if (hasEVMError) {
+    const errorMsg = runTxResult1.execResult.exceptionError?.error?.toString() || 'Unknown error';
+    console.log(`   - EVM Error Details: ${errorMsg}`);
+    console.log('\n⚠️  WARNING: EVM error detected even though transaction succeeded');
+  }
   console.log('');
 
-  if (finalStateRoot1Hex.toLowerCase() !== stateSnapshot.stateRoot.toLowerCase()) {
+  if (finalStateRoot1Hex.toLowerCase() !== stateInfo.stateRoot.toLowerCase()) {
     console.log('   ✅ State root CHANGED! (Transaction executed successfully)\n');
   } else {
     console.warn('   ⚠️  State root UNCHANGED (No state change detected)\n');
   }
 
-  // Extract state snapshot for next proof
-  const stateSnapshot1 = await extractStateSnapshot(
+  // Extract state info for next proof
+  const stateInfo1 = await extractStateInfo(
     stateManager1,
-    stateSnapshot.contractAddress,
-    stateSnapshot.registeredKeys,
+    stateInfo.contractAddress,
+    stateInfo.registeredKeys,
+    stateInfo.preAllocatedLeaves,
   );
 
-  // Save state snapshot
-  const stateSnapshotPath1 = resolve(proof1Path, 'state_snapshot.json');
+  // Save state info
+  const stateInfoPath1 = resolve(proof1Path, 'state_info.json');
   writeFileSync(
-    stateSnapshotPath1,
-    JSON.stringify(stateSnapshot1, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
+    stateInfoPath1,
+    JSON.stringify(stateInfo1, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
     'utf-8',
   );
-  console.log(`   ✅ state_snapshot.json saved`);
+  console.log(`   ✅ state_info.json saved`);
 
   // Prove & Verify Proof #1
   console.log(`\n${'='.repeat(80)}`);
@@ -710,65 +704,49 @@ async function testInitializeState() {
   const proof2Path = resolve(__dirname, '../test-outputs/l2-state-channel-transfer-2');
   const calldataBytes2 = hexToBytes(addHexPrefix(calldata2));
 
+  // Build initStorageKeys for Proof #2 (same structure as Proof #1)
+  const initStorageKeys2: Array<{ L1: Uint8Array; L2: Uint8Array }> = [];
+
+  // Add pre-allocated leaves first
+  for (const leaf of stateInfo1.preAllocatedLeaves) {
+    const keyBytes = hexToBytes(addHexPrefix(leaf.key));
+    initStorageKeys2.push({
+      L1: keyBytes,
+      L2: keyBytes,
+    });
+  }
+
+  // Add all participants' MPT keys
+  for (const mptKeyHex of stateInfo1.registeredKeys) {
+    const mptKeyBytes = hexToBytes(addHexPrefix(mptKeyHex));
+    initStorageKeys2.push({
+      L1: mptKeyBytes,
+      L2: mptKeyBytes,
+    });
+  }
+
   const simulationOpts2: SynthesizerSimulationOpts = {
     txNonce: 0n,
     rpcUrl: RPC_URL,
     senderL2PrvKey: allPrivateKeys[1], // Participant 2's private key
     blockNumber: tx.blockNumber,
     contractAddress: targetAddress as `0x${string}`,
-    userStorageSlots: [0],
-    addressListL1: allL1Addresses as `0x${string}`[],
-    publicKeyListL2: allPublicKeys,
+    initStorageKeys: initStorageKeys2,
     callData: calldataBytes2,
-    skipRPCInit: true, // Skip RPC init since we'll restore from snapshot
   };
 
   const synthesizerOpts2 = await createSynthesizerOptsForSimulationFromRPC(simulationOpts2);
 
-  // Restore state from previous proof (main.ts pattern using cachedOpts)
+  // Get state manager from synthesizer options
   const stateManager2 = synthesizerOpts2.stateManager;
-  const contractAddress2 = new Address(toBytes(addHexPrefix(stateSnapshot1.contractAddress)));
-
-  // Set up contract account (required before restoring storage)
-  const POSEIDON_RLP2 = synthesizerOpts2.stateManager.cachedOpts!.common.customCrypto.keccak256!(
-    RLP.encode(new Uint8Array([])),
-  );
-  const POSEIDON_NULL2 = synthesizerOpts2.stateManager.cachedOpts!.common.customCrypto.keccak256!(new Uint8Array(0));
-  const contractAccount2 = createAccount({
-    nonce: 0n,
-    balance: 0n,
-    storageRoot: POSEIDON_RLP2,
-    codeHash: POSEIDON_NULL2,
-  });
-  await stateManager2.putAccount(contractAddress2, contractAccount2);
-
-  // Load contract code from RPC
-  const byteCodeStr2 = await provider.getCode(contractAddress2.toString(), tx.blockNumber);
-  await stateManager2.putCode(contractAddress2, hexToBytes(addHexPrefix(byteCodeStr2)));
-
-  console.log(`   Setting ${stateSnapshot1.registeredKeys.length} registered keys...`);
-  const registeredKeysBytes2 = stateSnapshot1.registeredKeys.map(key => hexToBytes(addHexPrefix(key)));
-  stateManager2.setRegisteredKeys(registeredKeysBytes2);
-
-  console.log(`   Restoring ${stateSnapshot1.storageEntries.length} storage entries...`);
-  for (const entry of stateSnapshot1.storageEntries) {
-    const key = hexToBytes(addHexPrefix(entry.key));
-    const value = hexToBytes(addHexPrefix(entry.value));
-    await stateManager2.putStorage(contractAddress2, key, value);
-  }
-
-  console.log('   Rebuilding initial merkle tree from restored storage...');
-  await stateManager2.rebuildInitialMerkleTree();
   const restoredRoot2 = stateManager2.initialMerkleTree.root;
-  const expectedRoot2 = BigInt(stateSnapshot1.stateRoot);
+  const expectedRoot2 = BigInt(stateInfo1.stateRoot);
 
   console.log(`   ✅ Restored Merkle Root: 0x${restoredRoot2.toString(16)}`);
   console.log(`   ✅ Expected Merkle Root: 0x${expectedRoot2.toString(16)}\n`);
 
   if (restoredRoot2 !== expectedRoot2) {
-    console.warn(
-      `   ⚠️  Merkle root mismatch! Expected ${stateSnapshot1.stateRoot}, got 0x${restoredRoot2.toString(16)}`,
-    );
+    console.warn(`   ⚠️  Merkle root mismatch! Expected ${stateInfo1.stateRoot}, got 0x${restoredRoot2.toString(16)}`);
   }
 
   const synthesizer2 = await createSynthesizer(synthesizerOpts2);
@@ -789,43 +767,51 @@ async function testInitializeState() {
 
   console.log(`\n✅ Proof #2: Circuit generated successfully`);
   console.log(`   - Placements: ${placementVariables2.length}`);
-  console.log(`   - Previous State Root: ${stateSnapshot1.stateRoot}`);
+  console.log(`   - Previous State Root: ${stateInfo1.stateRoot}`);
   console.log(`   - New State Root:      ${finalStateRoot2Hex}\n`);
 
   const executionSuccess2 = !runTxResult2.execResult.exceptionError;
   const gasUsed2 = runTxResult2.totalGasSpent;
   const logsCount2 = runTxResult2.execResult.logs?.length || 0;
+  const hasEVMError2 = runTxResult2.execResult.exceptionError !== undefined;
 
   console.log('📊 Transaction Execution Result:');
   console.log(`   - Success: ${executionSuccess2 ? '✅' : '❌'}`);
   console.log(`   - Gas Used: ${gasUsed2}`);
   console.log(`   - Logs Emitted: ${logsCount2}`);
+  console.log(`   - EVM Error: ${hasEVMError2 ? '❌ Yes' : '✅ No'}`);
   if (!executionSuccess2) {
     const errorMsg = runTxResult2.execResult.exceptionError?.error?.toString() || 'Unknown error';
     console.log(`   - Error: ${errorMsg}`);
     console.log('\n❌ FAILURE: Transaction REVERTED!');
     process.exit(1);
   }
+  if (hasEVMError2) {
+    const errorMsg = runTxResult2.execResult.exceptionError?.error?.toString() || 'Unknown error';
+    console.log(`   - EVM Error Details: ${errorMsg}`);
+    console.log('\n⚠️  WARNING: EVM error detected even though transaction succeeded');
+  }
   console.log('');
 
-  if (finalStateRoot2Hex.toLowerCase() !== stateSnapshot1.stateRoot.toLowerCase()) {
+  if (finalStateRoot2Hex.toLowerCase() !== stateInfo1.stateRoot.toLowerCase()) {
     console.log('   ✅ State root CHANGED! (Success!)\n');
   } else {
     console.log('   ⚠️  State root UNCHANGED\n');
   }
 
-  const stateSnapshot2 = await extractStateSnapshot(
+  const stateInfo2 = await extractStateInfo(
     stateManager2,
-    stateSnapshot1.contractAddress,
-    stateSnapshot1.registeredKeys,
+    stateInfo1.contractAddress,
+    stateInfo1.registeredKeys,
+    stateInfo1.preAllocatedLeaves,
   );
-  const stateSnapshotPath2 = resolve(proof2Path, 'state_snapshot.json');
+  const stateInfoPath2 = resolve(proof2Path, 'state_info.json');
   writeFileSync(
-    stateSnapshotPath2,
-    JSON.stringify(stateSnapshot2, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
+    stateInfoPath2,
+    JSON.stringify(stateInfo2, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
     'utf-8',
   );
-  console.log(`   ✅ state_snapshot.json saved`);
+  console.log(`   ✅ state_info.json saved`);
 
   // Prove & Verify Proof #2
   console.log(`\n${'='.repeat(80)}`);
@@ -860,65 +846,63 @@ async function testInitializeState() {
   const proof3Path = resolve(__dirname, '../test-outputs/l2-state-channel-transfer-3');
   const calldataBytes3 = hexToBytes(addHexPrefix(calldata3));
 
+  // Build initStorageKeys for Proof #3 (same structure as previous proofs)
+  const initStorageKeys3: Array<{ L1: Uint8Array; L2: Uint8Array }> = [];
+
+  // Add pre-allocated leaves first
+  for (const leaf of stateInfo2.preAllocatedLeaves) {
+    const keyBytes = hexToBytes(addHexPrefix(leaf.key));
+    initStorageKeys3.push({
+      L1: keyBytes,
+      L2: keyBytes,
+    });
+  }
+
+  // Add all participants' MPT keys
+  for (const mptKeyHex of stateInfo2.registeredKeys) {
+    const mptKeyBytes = hexToBytes(addHexPrefix(mptKeyHex));
+    initStorageKeys3.push({
+      L1: mptKeyBytes,
+      L2: mptKeyBytes,
+    });
+  }
+
   const simulationOpts3: SynthesizerSimulationOpts = {
     txNonce: 0n,
     rpcUrl: RPC_URL,
     senderL2PrvKey: allPrivateKeys[2], // Participant 3's private key
     blockNumber: tx.blockNumber,
     contractAddress: targetAddress as `0x${string}`,
-    userStorageSlots: [0],
-    addressListL1: allL1Addresses as `0x${string}`[],
-    publicKeyListL2: allPublicKeys,
+    initStorageKeys: initStorageKeys3,
     callData: calldataBytes3,
-    skipRPCInit: true, // Skip RPC init since we'll restore from snapshot
   };
 
   const synthesizerOpts3 = await createSynthesizerOptsForSimulationFromRPC(simulationOpts3);
 
-  // Restore state from previous proof (main.ts pattern using cachedOpts)
+  // Get state manager from synthesizer options
   const stateManager3 = synthesizerOpts3.stateManager;
-  const contractAddress3 = new Address(toBytes(addHexPrefix(stateSnapshot2.contractAddress)));
+  const contractAddress3 = new Address(toBytes(addHexPrefix(targetAddress)));
 
-  // Set up contract account (required before restoring storage)
-  const POSEIDON_RLP3 = synthesizerOpts3.stateManager.cachedOpts!.common.customCrypto.keccak256!(
-    RLP.encode(new Uint8Array([])),
-  );
-  const POSEIDON_NULL3 = synthesizerOpts3.stateManager.cachedOpts!.common.customCrypto.keccak256!(new Uint8Array(0));
-  const contractAccount3 = createAccount({
-    nonce: 0n,
-    balance: 0n,
-    storageRoot: POSEIDON_RLP3,
-    codeHash: POSEIDON_NULL3,
-  });
-  await stateManager3.putAccount(contractAddress3, contractAccount3);
-
-  // Load contract code from RPC
-  const byteCodeStr3 = await provider.getCode(contractAddress3.toString(), tx.blockNumber);
-  await stateManager3.putCode(contractAddress3, hexToBytes(addHexPrefix(byteCodeStr3)));
-
-  console.log(`   Setting ${stateSnapshot2.registeredKeys.length} registered keys...`);
-  const registeredKeysBytes3 = stateSnapshot2.registeredKeys.map(key => hexToBytes(addHexPrefix(key)));
-  stateManager3.setRegisteredKeys(registeredKeysBytes3);
-
-  console.log(`   Restoring ${stateSnapshot2.storageEntries.length} storage entries...`);
-  for (const entry of stateSnapshot2.storageEntries) {
-    const key = hexToBytes(addHexPrefix(entry.key));
-    const value = hexToBytes(addHexPrefix(entry.value));
-    await stateManager3.putStorage(contractAddress3, key, value);
+  // After initTokamakExtendsFromRPC, we need to manually set the deposit values
+  // Use stateInfo2.storageEntries which contains the updated balances after Proof #2
+  for (let i = 0; i < stateInfo2.storageEntries.length; i++) {
+    const entry = stateInfo2.storageEntries[i];
+    const mptKeyBytes = hexToBytes(addHexPrefix(entry.key));
+    const valueBytes = hexToBytes(addHexPrefix(entry.value));
+    await stateManager3.putStorage(contractAddress3, mptKeyBytes, valueBytes);
   }
 
-  console.log('   Rebuilding initial merkle tree from restored storage...');
+  // Rebuild initialMerkleTree with updated storage values
   await stateManager3.rebuildInitialMerkleTree();
+
   const restoredRoot3 = stateManager3.initialMerkleTree.root;
-  const expectedRoot3 = BigInt(stateSnapshot2.stateRoot);
+  const expectedRoot3 = BigInt(stateInfo2.stateRoot);
 
   console.log(`   ✅ Restored Merkle Root: 0x${restoredRoot3.toString(16)}`);
   console.log(`   ✅ Expected Merkle Root: 0x${expectedRoot3.toString(16)}\n`);
 
   if (restoredRoot3 !== expectedRoot3) {
-    console.warn(
-      `   ⚠️  Merkle root mismatch! Expected ${stateSnapshot2.stateRoot}, got 0x${restoredRoot3.toString(16)}`,
-    );
+    console.warn(`   ⚠️  Merkle root mismatch! Expected ${stateInfo2.stateRoot}, got 0x${restoredRoot3.toString(16)}`);
   }
 
   const synthesizer3 = await createSynthesizer(synthesizerOpts3);
@@ -939,43 +923,51 @@ async function testInitializeState() {
 
   console.log(`\n✅ Proof #3: Circuit generated successfully`);
   console.log(`   - Placements: ${placementVariables3.length}`);
-  console.log(`   - Previous State Root: ${stateSnapshot2.stateRoot}`);
+  console.log(`   - Previous State Root: ${stateInfo2.stateRoot}`);
   console.log(`   - New State Root:      ${finalStateRoot3Hex}\n`);
 
   const executionSuccess3 = !runTxResult3.execResult.exceptionError;
   const gasUsed3 = runTxResult3.totalGasSpent;
   const logsCount3 = runTxResult3.execResult.logs?.length || 0;
+  const hasEVMError3 = runTxResult3.execResult.exceptionError !== undefined;
 
   console.log('📊 Transaction Execution Result:');
   console.log(`   - Success: ${executionSuccess3 ? '✅' : '❌'}`);
   console.log(`   - Gas Used: ${gasUsed3}`);
   console.log(`   - Logs Emitted: ${logsCount3}`);
+  console.log(`   - EVM Error: ${hasEVMError3 ? '❌ Yes' : '✅ No'}`);
   if (!executionSuccess3) {
     const errorMsg = runTxResult3.execResult.exceptionError?.error?.toString() || 'Unknown error';
     console.log(`   - Error: ${errorMsg}`);
     console.log('\n❌ FAILURE: Transaction REVERTED!');
     process.exit(1);
   }
+  if (hasEVMError3) {
+    const errorMsg = runTxResult3.execResult.exceptionError?.error?.toString() || 'Unknown error';
+    console.log(`   - EVM Error Details: ${errorMsg}`);
+    console.log('\n⚠️  WARNING: EVM error detected even though transaction succeeded');
+  }
   console.log('');
 
-  if (finalStateRoot3Hex.toLowerCase() !== stateSnapshot2.stateRoot.toLowerCase()) {
+  if (finalStateRoot3Hex.toLowerCase() !== stateInfo2.stateRoot.toLowerCase()) {
     console.log('   ✅ State root CHANGED! (Success!)\n');
   } else {
     console.log('   ⚠️  State root UNCHANGED\n');
   }
 
-  const stateSnapshot3 = await extractStateSnapshot(
+  const stateInfo3 = await extractStateInfo(
     stateManager3,
-    stateSnapshot2.contractAddress,
-    stateSnapshot2.registeredKeys,
+    stateInfo2.contractAddress,
+    stateInfo2.registeredKeys,
+    stateInfo2.preAllocatedLeaves,
   );
-  const stateSnapshotPath3 = resolve(proof3Path, 'state_snapshot.json');
+  const stateInfoPath3 = resolve(proof3Path, 'state_info.json');
   writeFileSync(
-    stateSnapshotPath3,
-    JSON.stringify(stateSnapshot3, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
+    stateInfoPath3,
+    JSON.stringify(stateInfo3, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
     'utf-8',
   );
-  console.log(`   ✅ state_snapshot.json saved`);
+  console.log(`   ✅ state_info.json saved`);
 
   // Prove & Verify Proof #3
   console.log(`\n${'='.repeat(80)}`);
@@ -1001,10 +993,10 @@ async function testInitializeState() {
   console.log('✅ Successfully completed sequential transfer simulation!');
   console.log('');
   console.log('📊 State Root Evolution:');
-  console.log(`   Initial (Onchain):         ${stateSnapshot.stateRoot}`);
-  console.log(`   → Proof #1 (P1→P2, 1 TON):  ${stateSnapshot1.stateRoot}`);
-  console.log(`   → Proof #2 (P2→P3, 0.5 TON): ${stateSnapshot2.stateRoot}`);
-  console.log(`   → Proof #3 (P3→P1, 1 TON):  ${stateSnapshot3.stateRoot}`);
+  console.log(`   Initial (Onchain):         ${stateInfo.stateRoot}`);
+  console.log(`   → Proof #1 (P1→P2, 1 TON):  ${stateInfo1.stateRoot}`);
+  console.log(`   → Proof #2 (P2→P3, 0.5 TON): ${stateInfo2.stateRoot}`);
+  console.log(`   → Proof #3 (P3→P1, 1 TON):  ${stateInfo3.stateRoot}`);
   console.log('');
   console.log('🔬 Proof Generation:');
   console.log(`   - Proof #1: Preprocessed ✅ | Proved ✅ | Verified ✅`);
@@ -1028,14 +1020,20 @@ async function testInitializeState() {
 // ============================================================================
 
 /**
- * Extract StateSnapshot from stateManager after transaction execution
- * (main.ts pattern - using cachedOpts.stateManager)
+ * Extract state info from stateManager after transaction execution
  */
-async function extractStateSnapshot(
+async function extractStateInfo(
   stateManager: TokamakL2StateManager,
   contractAddress: string,
   registeredKeys: string[],
-): Promise<StateSnapshot> {
+  preAllocatedLeaves: Array<{ key: string; value: string }>,
+): Promise<{
+  stateRoot: string;
+  registeredKeys: string[];
+  storageEntries: Array<{ index: number; key: string; value: string }>;
+  contractAddress: string;
+  preAllocatedLeaves: Array<{ key: string; value: string }>;
+}> {
   const contractAddr = new Address(toBytes(addHexPrefix(contractAddress)));
 
   // Get updated merkle tree root
@@ -1062,19 +1060,16 @@ async function extractStateSnapshot(
     registeredKeys,
     storageEntries,
     contractAddress,
-    userL2Addresses: [], // Not needed when using MPT keys directly
-    userStorageSlots: [0n], // Slot 0 for ERC20 balance
-    timestamp: Date.now(),
-    userNonces: registeredKeys.map(() => 0n), // Nonces not tracked in this flow
+    preAllocatedLeaves,
   };
 }
 
 async function runProver(proofNum: number, outputsPath: string): Promise<boolean> {
   console.log(`\n⚡ Proof #${proofNum}: Running prover...`);
 
-  const qapPath = resolve(process.cwd(), '../qap-compiler/subcircuits/library');
+  const qapPath = resolve(projectRoot, 'packages/frontend/qap-compiler/subcircuits/library');
   const synthesizerPath = outputsPath; // outputsPath is already an absolute path
-  const setupPath = resolve(process.cwd(), '../../../dist/macOS/resource/setup/output');
+  const setupPath = resolve(projectRoot, 'dist/macOS/resource/setup/output');
   const outPath = synthesizerPath;
 
   if (!existsSync(proverBinary)) {
@@ -1129,10 +1124,10 @@ async function runProver(proofNum: number, outputsPath: string): Promise<boolean
 async function runVerifyRust(proofNum: number, outputsPath: string): Promise<boolean> {
   console.log(`\n🔐 Proof #${proofNum}: Running verify-rust verification...`);
 
-  const qapPath = resolve(process.cwd(), '../qap-compiler/subcircuits/library');
+  const qapPath = resolve(projectRoot, 'packages/frontend/qap-compiler/subcircuits/library');
   const synthesizerPath = outputsPath; // outputsPath is already an absolute path
-  const setupPath = resolve(process.cwd(), '../../../dist/macOS/resource/setup/output');
-  const preprocessPath = resolve(process.cwd(), '../../../dist/macOS/resource/preprocess/output');
+  const setupPath = resolve(projectRoot, 'dist/macOS/resource/setup/output');
+  const preprocessPath = resolve(projectRoot, 'dist/macOS/resource/preprocess/output');
   const proofPath = synthesizerPath;
 
   if (!existsSync(verifyBinary)) {
@@ -1195,10 +1190,10 @@ async function runVerifyRust(proofNum: number, outputsPath: string): Promise<boo
 async function runPreprocess(outputsPath: string): Promise<boolean> {
   console.log(`\n⚙️  Running preprocess (one-time setup)...`);
 
-  const qapPath = resolve(process.cwd(), '../qap-compiler/subcircuits/library');
+  const qapPath = resolve(projectRoot, 'packages/frontend/qap-compiler/subcircuits/library');
   const synthesizerPath = outputsPath; // outputsPath is already an absolute path
-  const setupPath = resolve(process.cwd(), '../../../dist/macOS/resource/setup/output');
-  const preprocessOutPath = resolve(process.cwd(), '../../../dist/macOS/resource/preprocess/output');
+  const setupPath = resolve(projectRoot, 'dist/macOS/resource/setup/output');
+  const preprocessOutPath = resolve(projectRoot, 'dist/macOS/resource/preprocess/output');
 
   if (existsSync(`${preprocessOutPath}/preprocess.json`)) {
     console.log(`   ℹ️  Preprocess files already exist, skipping...`);
