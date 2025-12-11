@@ -1,6 +1,2 @@
 /target
-**/output
-/icicle
-**/backend-lib
-*.zip
-*.tar.gz
+/external-lib
