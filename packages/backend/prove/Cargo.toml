@@ -21,6 +21,7 @@ tiny-keccak = "1.5"
 [dev-dependencies]
 criterion = "0.5"
 rand = { workspace = true }
+tikv-jemallocator = "0.4"
 
 [lib]
 name = "prove"

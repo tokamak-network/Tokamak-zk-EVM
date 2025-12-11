@@ -7,8 +7,6 @@ use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::group_structures::G1serde;
 use libs::vector_operations::resize;
 use prove::{Proof0, Prover};
-use std::collections::HashMap;
-use std::time::Instant;
 
 /// Implement prove0 with batch MSM operations
 /// This batches all the encode_poly operations (U, V, W, Q_AX, Q_AY, B)
@@ -237,7 +235,8 @@ fn batch_encode_polynomials(
 }
 
 /// Implement prove0 with grouped batch MSM operations
-/// Groups polynomials by dimensions to minimize padding overhead
+/// Batches U, V, Q_AY together (same dimensions: 1025 x 129)
+/// Uses individual encode_poly for W (1027 x 131), Q_AX (1025 x 255), B (2050 x 130)
 pub fn prove0_with_grouped_batch_msm(prover: &mut Prover) -> Proof0 {
     // First compute the quotients for arithmetic constraints (needed for Q_AX, Q_AY)
     let (q0XY, q1XY) = {
@@ -274,57 +273,33 @@ pub fn prove0_with_grouped_batch_msm(prover: &mut Prover) -> Proof0 {
         prover.mixer.rB_Y.len(),
     );
 
-    // Prepare all 6 polynomials with names for tracking
-    let mut named_polynomials = Vec::with_capacity(6);
+    // ========== Build polynomials for batch MSM (U, V, Q_AY - same dimensions: 1025 x 129) ==========
+    let mut batch_polynomials = Vec::with_capacity(3);
 
-    // 1. U polynomial
+    // U polynomial
     let mut UXY = poly_comb!(
         (ScalarField::one(), prover.witness.uXY),
         (prover.mixer.rU_X, prover.instance.t_n),
         (prover.mixer.rU_Y, prover.instance.t_smax)
     );
     UXY.optimize_size();
-    named_polynomials.push(("U", UXY));
+    batch_polynomials.push(UXY);
 
-    // 2. V polynomial
+    // V polynomial
     let mut VXY = poly_comb!(
         (ScalarField::one(), prover.witness.vXY),
         (prover.mixer.rV_X, prover.instance.t_n),
         (prover.mixer.rV_Y, prover.instance.t_smax)
     );
     VXY.optimize_size();
-    named_polynomials.push(("V", VXY));
+    batch_polynomials.push(VXY);
 
-    // 3. W polynomial
-    let mut WXY = poly_comb!(
-        (ScalarField::one(), prover.witness.wXY),
-        (rW_X, prover.instance.t_n),
-        (rW_Y, prover.instance.t_smax)
-    );
-    WXY.optimize_size();
-    named_polynomials.push(("W", WXY));
-
-    // 4. Q_AX polynomial
-    let mut Q_AX_XY = poly_comb!(
-        (ScalarField::one(), prover.quotients.q0XY),
-        (prover.mixer.rU_X, prover.witness.vXY),
-        (prover.mixer.rV_X, prover.witness.uXY),
-        (ScalarField::zero() - ScalarField::one(), rW_X),
-        (prover.mixer.rU_X * prover.mixer.rV_X, prover.instance.t_n),
-        (
-            prover.mixer.rU_Y * prover.mixer.rV_X,
-            prover.instance.t_smax
-        )
-    );
-    Q_AX_XY.optimize_size();
-    named_polynomials.push(("Q_AX", Q_AX_XY));
-
-    // 5. Q_AY polynomial
+    // Q_AY polynomial
     let mut Q_AY_XY = poly_comb!(
         (ScalarField::one(), prover.quotients.q1XY),
         (prover.mixer.rU_Y, prover.witness.vXY),
         (prover.mixer.rV_Y, prover.witness.uXY),
-        (ScalarField::zero() - ScalarField::one(), rW_Y),
+        (ScalarField::zero() - ScalarField::one(), rW_Y.clone()),
         (prover.mixer.rU_X * prover.mixer.rV_Y, prover.instance.t_n),
         (
             prover.mixer.rU_Y * prover.mixer.rV_Y,
@@ -332,135 +307,68 @@ pub fn prove0_with_grouped_batch_msm(prover: &mut Prover) -> Proof0 {
         )
     );
     Q_AY_XY.optimize_size();
-    named_polynomials.push(("Q_AY", Q_AY_XY));
+    batch_polynomials.push(Q_AY_XY);
 
-    // 6. B polynomial
-    let term_B_zk = &(&rB_X * &prover.instance.t_mi) + &(&rB_Y * &prover.instance.t_smax);
-    let mut BXY = &prover.witness.bXY + &term_B_zk;
-    BXY.optimize_size();
-    named_polynomials.push(("B", BXY));
-
-    // Group polynomials by dimensions
-    let mut dimension_groups: HashMap<(usize, usize), Vec<(usize, &str, &DensePolynomialExt)>> =
-        HashMap::new();
-
-    for (idx, (name, poly)) in named_polynomials.iter().enumerate() {
-        let target_x = (poly.x_degree + 1) as usize;
-        let target_y = (poly.y_degree + 1) as usize;
-        dimension_groups
-            .entry((target_x, target_y))
-            .or_default()
-            .push((idx, name, poly));
-    }
-
-    // Process each group separately
-    let mut all_results = vec![G1serde::zero(); 6];
-
-    for ((target_x, target_y), group) in dimension_groups {
-        let group_polynomials: Vec<&DensePolynomialExt> =
-            group.iter().map(|(_, _, p)| *p).collect();
-        let group_indices: Vec<usize> = group.iter().map(|(idx, _, _)| *idx).collect();
-
-        // Encode this group with its exact dimensions (no padding between group members)
-        let group_results = batch_encode_polynomials_exact_size(
-            &group_polynomials,
-            target_x,
-            target_y,
-            &prover.sigma.sigma_1,
-            &prover.setup_params,
-        );
-
-        // Place results in correct positions
-        for (group_pos, original_idx) in group_indices.iter().enumerate() {
-            all_results[*original_idx] = group_results[group_pos];
-        }
-    }
-
-    // Extract results in correct order
-    Proof0 {
-        U: all_results[0],
-        V: all_results[1],
-        W: all_results[2],
-        Q_AX: all_results[3],
-        Q_AY: all_results[4],
-        B: all_results[5],
-    }
-}
-
-/// Batch encode multiple polynomials using a single MSM operation
-/// All polynomials MUST have the exact same dimensions (target_x, target_y)
-fn batch_encode_polynomials_exact_size(
-    polynomials: &[&DensePolynomialExt],
-    target_x: usize,
-    target_y: usize,
-    sigma1: &libs::group_structures::Sigma1,
-    params: &libs::iotools::SetupParams,
-) -> Vec<G1serde> {
-    let batch_size = polynomials.len();
-    if batch_size == 0 {
-        return vec![];
-    }
-
-    let rs_x_size = std::cmp::max(2 * params.n, 2 * (params.l_D - params.l));
-    let rs_y_size = params.s_max * 2;
-
-    if target_x > rs_x_size || target_y > rs_y_size {
-        panic!("Polynomial size exceeds reference string size");
-    }
-
-    if target_x * target_y == 0 {
-        return vec![G1serde::zero(); batch_size];
-    }
-
-    // Resize reference string ONCE to the exact dimensions needed
-    let rs_shared = resize(
-        &sigma1.xy_powers,
-        rs_x_size,
-        rs_y_size,
-        target_x,
-        target_y,
-        G1serde::zero(),
+    // Batch MSM for U, V, Q_AY
+    let batch_results = batch_encode_polynomials(
+        &batch_polynomials,
+        &prover.sigma.sigma_1,
+        &prover.setup_params,
     );
-    let rs_points: Vec<G1Affine> = rs_shared.iter().map(|x| x.0).collect();
+    let U = batch_results[0];
+    let V = batch_results[1];
+    let Q_AY = batch_results[2];
 
-    // Prepare all polynomial coefficients (flattened for batch)
-    let mut flat_scalars = Vec::with_capacity(batch_size * target_x * target_y);
+    // ========== Individual encode_poly for W, Q_AX, B (different dimensions) ==========
 
-    for poly in polynomials {
-        let mut poly_coeffs = vec![ScalarField::zero(); poly.x_size * poly.y_size];
-        poly.copy_coeffs(0, HostSlice::from_mut_slice(&mut poly_coeffs));
-
-        // Resize to exact target dimensions
-        let poly_coeffs_resized = resize(
-            &poly_coeffs,
-            poly.x_size,
-            poly.y_size,
-            target_x,
-            target_y,
-            ScalarField::zero(),
+    // W polynomial (1027 x 131)
+    let W = {
+        let mut WXY = poly_comb!(
+            (ScalarField::one(), prover.witness.wXY),
+            (rW_X.clone(), prover.instance.t_n),
+            (rW_Y, prover.instance.t_smax)
         );
+        prover
+            .sigma
+            .sigma_1
+            .encode_poly(&mut WXY, &prover.setup_params)
+    };
 
-        flat_scalars.extend(poly_coeffs_resized);
+    // Q_AX polynomial (1025 x 255)
+    let Q_AX = {
+        let mut Q_AX_XY = poly_comb!(
+            (ScalarField::one(), prover.quotients.q0XY),
+            (prover.mixer.rU_X, prover.witness.vXY),
+            (prover.mixer.rV_X, prover.witness.uXY),
+            (ScalarField::zero() - ScalarField::one(), rW_X),
+            (prover.mixer.rU_X * prover.mixer.rV_X, prover.instance.t_n),
+            (
+                prover.mixer.rU_Y * prover.mixer.rV_X,
+                prover.instance.t_smax
+            )
+        );
+        prover
+            .sigma
+            .sigma_1
+            .encode_poly(&mut Q_AX_XY, &prover.setup_params)
+    };
+
+    // B polynomial (2050 x 130)
+    let B = {
+        let term_B_zk = &(&rB_X * &prover.instance.t_mi) + &(&rB_Y * &prover.instance.t_smax);
+        let mut BXY = &prover.witness.bXY + &term_B_zk;
+        prover
+            .sigma
+            .sigma_1
+            .encode_poly(&mut BXY, &prover.setup_params)
+    };
+
+    Proof0 {
+        U,
+        V,
+        W,
+        Q_AX,
+        Q_AY,
+        B,
     }
-
-    // Configure batch MSM with SHARED POINTS
-    let mut config = MSMConfig::default();
-    config.batch_size = batch_size as i32;
-    config.are_points_shared_in_batch = true; // Key optimization!
-
-    let mut results = vec![G1Projective::zero(); batch_size];
-
-    msm::msm(
-        HostSlice::from_slice(&flat_scalars),
-        HostSlice::from_slice(&rs_points), // Points passed only once
-        &config,
-        HostSlice::from_mut_slice(&mut results),
-    )
-    .unwrap();
-
-    // Convert to G1serde
-    results
-        .iter()
-        .map(|p| G1serde(G1Affine::from(*p)))
-        .collect()
 }

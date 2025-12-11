@@ -4,9 +4,13 @@ use prove::{ProveInputPaths, Prover};
 use std::time::Duration;
 
 mod utils;
+#[cfg(not(target_env = "msvc"))]
+use tikv_jemallocator::Jemalloc;
 use utils::prove0_batch::{prove0_with_batch_msm, prove0_with_grouped_batch_msm};
 
-// Import the poly_comb macro logic
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
 
 fn bench_prove0_simple(c: &mut Criterion) {
     check_device();
@@ -35,18 +39,6 @@ fn bench_prove0_simple(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(20));
     group.sample_size(10);
 
-    // Benchmark batch MSM version
-    {
-        println!("\nInitializing prover for prove0_batch_msm...");
-        let (mut prover, _binding) = Prover::init(&paths);
-        group.bench_function("prove0_batch_msm", |b| {
-            b.iter(|| prove0_with_batch_msm(&mut prover))
-        });
-    } // prover dropped here to free memory
-
-    println!("Cooling down for 5 seconds...");
-    std::thread::sleep(Duration::from_secs(5));
-
     // Benchmark optimized grouped batch MSM version
     {
         println!("\nInitializing prover for prove0_grouped_batch_msm...");
@@ -56,14 +48,22 @@ fn bench_prove0_simple(c: &mut Criterion) {
         });
     }
 
-    println!("Cooling down for 5 seconds...");
-    std::thread::sleep(Duration::from_secs(5));
-
     // Benchmark original version
     {
-        println!("\nInitializing prover for prove0_msm_original...");
+        println!("\nInitializing prover for prove0_original...");
         let (mut prover, _binding) = Prover::init(&paths);
-        group.bench_function("prove0_msm_original", |b| b.iter(|| prover.prove0()));
+        group.bench_function("prove0_original", |b| {
+            b.iter(|| Prover::prove0(&mut prover))
+        });
+    }
+
+    // Benchmark batch MSM version
+    {
+        println!("\nInitializing prover for prove0_batch_msm...");
+        let (mut prover, _binding) = Prover::init(&paths);
+        group.bench_function("prove0_batch_msm", |b| {
+            b.iter(|| prove0_with_batch_msm(&mut prover))
+        });
     }
     group.finish();
 }
