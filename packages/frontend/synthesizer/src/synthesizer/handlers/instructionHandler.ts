@@ -561,11 +561,11 @@ export class InstructionHandler {
     }
 
     // Cold access
-    // Determine if this key is one of the registered user slots (Merkle tree indexed)
+    // Determine if this key is registered (= Merkle tree indexed)
     const MTIndex = this.cachedOpts.stateManager.getMTIndex(key);
     const accessOrder = this.parent.state.cachedStorage.size
     if (MTIndex >= 0) {
-      // Cold access to user storage, need to verifiy the integrity
+      // Cold access to registered storage key, verifiy the integrity
       // const keyPt = this.parent.addReservedVariableToBufferIn('IN_MPT_KEY', key, true, `at MT index ${MTIndex}`);
 
       const valueStored = bytesToBigInt(
@@ -607,12 +607,12 @@ export class InstructionHandler {
       return DataPtFactory.deepCopy(valuePt);
     }
 
-    // Cold access to general contract storage (non-user slot)
+    // Cold access to unregistered storage key
     if (value === undefined) {
       throw new Error('Storage value must be presented');
     }
     const valuePt = this.parent.addReservedVariableToBufferIn(
-      'OTHER_CONTRACT_STORAGE_IN',
+      'UNREGISTERED_CONTRACT_STORAGE_IN',
       value,
       true,
       `at MPT key ${bigIntToHex(key)}`,
@@ -632,11 +632,11 @@ export class InstructionHandler {
     const MTIndex = this.cachedOpts.stateManager.getMTIndex(key);
 
     if (MTIndex >= 0) {
-      // Case: User stroage
+      // Case: Registered key
       // If no cache (or empty), this is a cold write
       if (cached === undefined) {
-         throw new Error('Storage writing at a user slot is expected to be warm access');
-        // User slot must be warm (already loaded via loadStorage)
+         throw new Error('Storage writing at a registered key is expected to be warm access');
+        // Storage at a registered key must be warm (already loaded via loadStorage)
         // For odd cases, you could warm it first then retry:
         // await this.loadStorage(key, undefined, false);
         // return this.storeStorage(key, symbolDataPt);
@@ -658,7 +658,7 @@ export class InstructionHandler {
         });
       }
     } else {
-      // Case: General storage
+      // Case: Writing at unregistered key
       const entry = {
         indexPt: null,
         keyPt: null, 
