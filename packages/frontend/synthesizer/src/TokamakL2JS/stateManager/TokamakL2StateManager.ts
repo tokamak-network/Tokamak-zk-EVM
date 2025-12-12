@@ -110,6 +110,10 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         return merkleTree.createProof(leafIndex)
     }
 
+    public async rebuildInitialMerkleTree(): Promise<void> {
+        this._initialMerkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this)
+    }
+
     // public getInputMerkleTreeRootForTxNonce(txNonce: number) {
     //     const val = this._merkleTreeRoots[txNonce]
     //     if (val === undefined) {

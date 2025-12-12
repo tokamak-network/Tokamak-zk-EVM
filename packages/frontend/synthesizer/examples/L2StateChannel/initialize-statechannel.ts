@@ -647,6 +647,53 @@ async function testInitializeState() {
     console.warn('   ⚠️  State root UNCHANGED (No state change detected)\n');
   }
 
+  // Show updated Merkle tree leaves after Proof #1
+  console.log('   📋 MT Final Public Signals (After Proof #1):');
+  console.log('   ─────────────────────────────────────────────────────────');
+  const finalLeaves1 = await stateManager1.convertLeavesIntoMerkleTreeLeaves();
+  for (let i = 0; i < finalLeaves1.length; i++) {
+    const leaf = finalLeaves1[i];
+    const leafHex = '0x' + leaf.toString(16).padStart(64, '0');
+
+    if (i < preAllocatedLeaves.length) {
+      // Pre-allocated leaves
+      const preAllocatedLeaf = preAllocatedLeaves[i];
+      const keyBigInt = BigInt(preAllocatedLeaf.key);
+      const valueBigInt = BigInt(preAllocatedLeaf.value);
+      const expectedLeaf = poseidon_raw([keyBigInt, valueBigInt]);
+      const matches = leaf === expectedLeaf;
+      const marker = matches ? '✅' : '❌';
+      console.log(`   [${i}] ${marker} Pre-allocated leaf:`);
+      console.log(`       Key: ${preAllocatedLeaf.key}`);
+      console.log(`       Value: ${valueBigInt.toString()}`);
+      console.log(`       Leaf: ${leafHex}`);
+    } else if (i < preAllocatedLeaves.length + registeredKeys.length) {
+      // Participants' MPT keys and balances (updated after transfer)
+      const participantIndex = i - preAllocatedLeaves.length;
+      const key = registeredKeys[participantIndex];
+      const keyHex = key.startsWith('0x') ? key : '0x' + key;
+      const keyBigInt = BigInt(keyHex);
+      // Get updated value from stateManager
+      const updatedValue = await stateManager1.getStorage(contractAddress1, hexToBytes(addHexPrefix(key)));
+      const valueBigInt = bytesToBigInt(updatedValue);
+      const expectedLeaf = poseidon_raw([keyBigInt, valueBigInt]);
+      const matches = leaf === expectedLeaf;
+      const marker = matches ? '✅' : '❌';
+      console.log(`   [${i}] ${marker} Participant ${participantIndex}:`);
+      console.log(`       Key: ${key}`);
+      console.log(`       Value: ${valueBigInt.toString()}`);
+      console.log(`       Leaf: ${leafHex}`);
+    } else {
+      // Empty slots
+      const expectedLeaf = poseidon_raw([0n, 0n]);
+      const matches = leaf === expectedLeaf;
+      const marker = matches ? '✅' : '❌';
+      console.log(`   [${i}] ${marker} Empty slot:`);
+      console.log(`       Leaf: ${leafHex}`);
+    }
+  }
+  console.log('   ─────────────────────────────────────────────────────────\n');
+
   // Extract state info for next proof
   const stateInfo1 = await extractStateInfo(
     stateManager1,
@@ -798,6 +845,54 @@ async function testInitializeState() {
   } else {
     console.log('   ⚠️  State root UNCHANGED\n');
   }
+
+  // Show updated Merkle tree leaves after Proof #2
+  console.log('   📋 MT Final Public Signals (After Proof #2):');
+  console.log('   ─────────────────────────────────────────────────────────');
+  const finalLeaves2 = await stateManager2.convertLeavesIntoMerkleTreeLeaves();
+  const contractAddress2 = new Address(toBytes(addHexPrefix(targetAddress)));
+  for (let i = 0; i < finalLeaves2.length; i++) {
+    const leaf = finalLeaves2[i];
+    const leafHex = '0x' + leaf.toString(16).padStart(64, '0');
+
+    if (i < stateInfo1.preAllocatedLeaves.length) {
+      // Pre-allocated leaves
+      const preAllocatedLeaf = stateInfo1.preAllocatedLeaves[i];
+      const keyBigInt = BigInt(preAllocatedLeaf.key);
+      const valueBigInt = BigInt(preAllocatedLeaf.value);
+      const expectedLeaf = poseidon_raw([keyBigInt, valueBigInt]);
+      const matches = leaf === expectedLeaf;
+      const marker = matches ? '✅' : '❌';
+      console.log(`   [${i}] ${marker} Pre-allocated leaf:`);
+      console.log(`       Key: ${preAllocatedLeaf.key}`);
+      console.log(`       Value: ${valueBigInt.toString()}`);
+      console.log(`       Leaf: ${leafHex}`);
+    } else if (i < stateInfo1.preAllocatedLeaves.length + stateInfo1.registeredKeys.length) {
+      // Participants' MPT keys and balances (updated after transfer)
+      const participantIndex = i - stateInfo1.preAllocatedLeaves.length;
+      const key = stateInfo1.registeredKeys[participantIndex];
+      const keyHex = key.startsWith('0x') ? key : '0x' + key;
+      const keyBigInt = BigInt(keyHex);
+      // Get updated value from stateManager
+      const updatedValue = await stateManager2.getStorage(contractAddress2, hexToBytes(addHexPrefix(key)));
+      const valueBigInt = bytesToBigInt(updatedValue);
+      const expectedLeaf = poseidon_raw([keyBigInt, valueBigInt]);
+      const matches = leaf === expectedLeaf;
+      const marker = matches ? '✅' : '❌';
+      console.log(`   [${i}] ${marker} Participant ${participantIndex}:`);
+      console.log(`       Key: ${key}`);
+      console.log(`       Value: ${valueBigInt.toString()}`);
+      console.log(`       Leaf: ${leafHex}`);
+    } else {
+      // Empty slots
+      const expectedLeaf = poseidon_raw([0n, 0n]);
+      const matches = leaf === expectedLeaf;
+      const marker = matches ? '✅' : '❌';
+      console.log(`   [${i}] ${marker} Empty slot:`);
+      console.log(`       Leaf: ${leafHex}`);
+    }
+  }
+  console.log('   ─────────────────────────────────────────────────────────\n');
 
   const stateInfo2 = await extractStateInfo(
     stateManager2,
@@ -954,6 +1049,53 @@ async function testInitializeState() {
   } else {
     console.log('   ⚠️  State root UNCHANGED\n');
   }
+
+  // Show updated Merkle tree leaves after Proof #3
+  console.log('   📋 MT Final Public Signals (After Proof #3):');
+  console.log('   ─────────────────────────────────────────────────────────');
+  const finalLeaves3 = await stateManager3.convertLeavesIntoMerkleTreeLeaves();
+  for (let i = 0; i < finalLeaves3.length; i++) {
+    const leaf = finalLeaves3[i];
+    const leafHex = '0x' + leaf.toString(16).padStart(64, '0');
+
+    if (i < stateInfo2.preAllocatedLeaves.length) {
+      // Pre-allocated leaves
+      const preAllocatedLeaf = stateInfo2.preAllocatedLeaves[i];
+      const keyBigInt = BigInt(preAllocatedLeaf.key);
+      const valueBigInt = BigInt(preAllocatedLeaf.value);
+      const expectedLeaf = poseidon_raw([keyBigInt, valueBigInt]);
+      const matches = leaf === expectedLeaf;
+      const marker = matches ? '✅' : '❌';
+      console.log(`   [${i}] ${marker} Pre-allocated leaf:`);
+      console.log(`       Key: ${preAllocatedLeaf.key}`);
+      console.log(`       Value: ${valueBigInt.toString()}`);
+      console.log(`       Leaf: ${leafHex}`);
+    } else if (i < stateInfo2.preAllocatedLeaves.length + stateInfo2.registeredKeys.length) {
+      // Participants' MPT keys and balances (updated after transfer)
+      const participantIndex = i - stateInfo2.preAllocatedLeaves.length;
+      const key = stateInfo2.registeredKeys[participantIndex];
+      const keyHex = key.startsWith('0x') ? key : '0x' + key;
+      const keyBigInt = BigInt(keyHex);
+      // Get updated value from stateManager
+      const updatedValue = await stateManager3.getStorage(contractAddress3, hexToBytes(addHexPrefix(key)));
+      const valueBigInt = bytesToBigInt(updatedValue);
+      const expectedLeaf = poseidon_raw([keyBigInt, valueBigInt]);
+      const matches = leaf === expectedLeaf;
+      const marker = matches ? '✅' : '❌';
+      console.log(`   [${i}] ${marker} Participant ${participantIndex}:`);
+      console.log(`       Key: ${key}`);
+      console.log(`       Value: ${valueBigInt.toString()}`);
+      console.log(`       Leaf: ${leafHex}`);
+    } else {
+      // Empty slots
+      const expectedLeaf = poseidon_raw([0n, 0n]);
+      const matches = leaf === expectedLeaf;
+      const marker = matches ? '✅' : '❌';
+      console.log(`   [${i}] ${marker} Empty slot:`);
+      console.log(`       Leaf: ${leafHex}`);
+    }
+  }
+  console.log('   ─────────────────────────────────────────────────────────\n');
 
   const stateInfo3 = await extractStateInfo(
     stateManager3,
@@ -1188,17 +1330,12 @@ async function runVerifyRust(proofNum: number, outputsPath: string): Promise<boo
 }
 
 async function runPreprocess(outputsPath: string): Promise<boolean> {
-  console.log(`\n⚙️  Running preprocess (one-time setup)...`);
+  console.log(`\n⚙️  Running preprocess (Proof #1 setup)...`);
 
   const qapPath = resolve(projectRoot, 'packages/frontend/qap-compiler/subcircuits/library');
   const synthesizerPath = outputsPath; // outputsPath is already an absolute path
   const setupPath = resolve(projectRoot, 'dist/macOS/resource/setup/output');
   const preprocessOutPath = resolve(projectRoot, 'dist/macOS/resource/preprocess/output');
-
-  if (existsSync(`${preprocessOutPath}/preprocess.json`)) {
-    console.log(`   ℹ️  Preprocess files already exist, skipping...`);
-    return true;
-  }
 
   if (!existsSync(preprocessBinary)) {
     console.error(`   ❌ Preprocess binary not found at ${preprocessBinary}`);
