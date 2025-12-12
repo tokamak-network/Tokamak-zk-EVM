@@ -34,8 +34,8 @@ elif [[ "$OS_NAME" == "Linux" ]]; then
 
   LINUX_MAJOR="${LINUX_VERSION_ID%%.*}"
 
-  if [[ "$LINUX_ID" != "ubuntu" ]]; then
-    echo "Unsupported Linux distribution: ${LINUX_ID:-unknown}. Supported: Ubuntu 20.x or 22.x." >&2
+  if [[ "$LINUX_ID" != "ubuntu" && ! "${ID_LIKE:-}" =~ ubuntu ]]; then
+    echo "Unsupported Linux distribution: ${LINUX_ID:-unknown}. Supported: Ubuntu and its derivatives (20.x or 22.x)." >&2
     exit 1
   fi
 
