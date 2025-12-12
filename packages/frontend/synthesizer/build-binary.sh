@@ -109,8 +109,8 @@ build_for_platform() {
 # Build based on target platform
 case $TARGET_PLATFORM in
     "current")
-        build_for_platform "current" "synthesizer-final" "Current platform"
-        echo "🚀 Run with: ./bin/synthesizer-final info"
+        build_for_platform "current" "synthesizer" "Current platform"
+        echo "🚀 Run with: ./bin/synthesizer info"
         ;;
     "all")
         echo "🌍 Building for all platforms..."

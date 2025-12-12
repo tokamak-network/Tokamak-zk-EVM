@@ -94,7 +94,7 @@ export interface ParticipantBalance {
  * Parameters for getParticipantBalances
  */
 export interface GetParticipantBalancesParams {
-  stateSnapshotPath: string; // Path to state_snapshot.json
+  stateSnapshotPath?: string; // Optional: Path to state_snapshot.json (if omitted, fetches from on-chain)
   channelId: number; // Channel ID to fetch participant addresses
   rollupBridgeAddress?: string; // Optional: RollupBridge contract address
   rpcUrl?: string; // Optional: RPC URL (defaults to adapter's rpcUrl)
@@ -857,13 +857,14 @@ export class SynthesizerAdapter {
   }
 
   /**
-   * Get participant balances from a state snapshot file
+   * Get participant balances from a state snapshot file or on-chain
    *
    * This method:
-   * 1. Loads the state snapshot from file
-   * 2. Fetches participant L1 addresses from on-chain
-   * 3. Maps each L1 address to their L2 MPT key and balance
-   * 4. Returns formatted balance information
+   * 1. If stateSnapshotPath is provided: Loads from file
+   * 2. If stateSnapshotPath is omitted: Fetches initial deposits from on-chain
+   * 3. Fetches participant L1 addresses from on-chain
+   * 4. Maps each L1 address to their L2 MPT key and balance
+   * 5. Returns formatted balance information
    *
    * @param params - Parameters for getting participant balances
    * @returns State root and participant balance information
@@ -872,16 +873,30 @@ export class SynthesizerAdapter {
     const { stateSnapshotPath, channelId, rollupBridgeAddress, rpcUrl } = params;
     const effectiveRpcUrl = rpcUrl || this.rpcUrl;
 
-    // Load state snapshot
-    const fs = await import('fs');
-    const stateSnapshot = JSON.parse(fs.readFileSync(stateSnapshotPath, 'utf-8')) as StateSnapshot;
-
-    // Get participant L1 addresses from on-chain
+    // Setup provider and contract
     const provider = new ethers.JsonRpcProvider(effectiveRpcUrl);
     const bridgeAddress = rollupBridgeAddress || '0x68862886384846d53bbba89aa4f64f4789dda089'; // Default Sepolia address
     const bridgeContract = new ethers.Contract(bridgeAddress, ROLLUP_BRIDGE_CORE_ABI, provider);
 
+    // Get participant L1 addresses from on-chain
     const l1Addresses: string[] = await bridgeContract.getChannelParticipants(channelId);
+
+    let stateRoot: string;
+    let balanceSource: 'snapshot' | 'on-chain';
+
+    // Determine if we're loading from file or on-chain
+    let stateSnapshot: StateSnapshot | undefined;
+    if (stateSnapshotPath) {
+      // Load from file
+      const fs = await import('fs');
+      stateSnapshot = JSON.parse(fs.readFileSync(stateSnapshotPath, 'utf-8')) as StateSnapshot;
+      stateRoot = stateSnapshot.stateRoot;
+      balanceSource = 'snapshot';
+    } else {
+      // Fetch initial state root from on-chain
+      stateRoot = await bridgeContract.getChannelInitialStateRoot(channelId);
+      balanceSource = 'on-chain';
+    }
 
     // Build participant balances array
     const participants: ParticipantBalance[] = [];
@@ -895,18 +910,26 @@ export class SynthesizerAdapter {
       // Convert to 32-byte hex string (0x-prefixed)
       const l2MptKeyHex = '0x' + l2MptKeyBigInt.toString(16).padStart(64, '0');
 
-      // Find balance from storageEntries
-      // registeredKeys[i] should correspond to storageEntries[i]
-      const storageEntry = stateSnapshot.storageEntries.find(entry =>
-        entry.key.toLowerCase() === l2MptKeyHex.toLowerCase()
-      );
+      let balanceWei: string;
 
-      if (!storageEntry) {
-        console.warn(`Warning: No storage entry found for L1 address ${l1Address} with MPT key ${l2MptKeyHex}`);
-        continue;
+      if (stateSnapshot) {
+        // Get balance from snapshot file
+        const storageEntry = stateSnapshot.storageEntries.find(entry =>
+          entry.key.toLowerCase() === l2MptKeyHex.toLowerCase()
+        );
+
+        if (!storageEntry) {
+          console.warn(`Warning: No storage entry found for L1 address ${l1Address} with MPT key ${l2MptKeyHex}`);
+          continue;
+        }
+
+        balanceWei = storageEntry.value;
+      } else {
+        // Get initial deposit from on-chain
+        const depositBigInt = await bridgeContract.getParticipantDeposit(channelId, l1Address);
+        balanceWei = '0x' + depositBigInt.toString(16).padStart(64, '0');
       }
 
-      const balanceWei = storageEntry.value;
       const balanceInEther = ethers.formatEther(balanceWei);
 
       participants.push({
@@ -918,7 +941,7 @@ export class SynthesizerAdapter {
     }
 
     return {
-      stateRoot: stateSnapshot.stateRoot,
+      stateRoot,
       participants,
     };
   }

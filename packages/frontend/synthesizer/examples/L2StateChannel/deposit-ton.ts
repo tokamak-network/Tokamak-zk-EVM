@@ -14,7 +14,7 @@ import { ethers, parseEther, JsonRpcProvider } from 'ethers';
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { generateMptKeyFromWallet } from './mpt-key-utils.ts';
+import { generateMptKeyFromWallet } from './utils/mpt-key-util.ts';
 import {
   SEPOLIA_RPC_URL,
   TON_ADDRESS,
