@@ -193,4 +193,8 @@ const main = async () => {
   }
 };
 
-void main();
+void main().catch(err => {
+  // Prevent errors from being accumulated.
+  console.error(err);
+  process.exit(1);
+});
