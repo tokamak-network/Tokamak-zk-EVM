@@ -22,6 +22,8 @@
   "userStorageSlots": [
     0
   ],
+  "senderIndex": 0,
+  "recipientIndex": 1,
   "initStorageKey": "0x07",
   "txNonce": 0,
   "blockNumber": 23224548,
