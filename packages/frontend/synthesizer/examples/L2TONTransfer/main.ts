@@ -29,6 +29,8 @@ type L2TONTransferConfig = {
   contractAddress: `0x${string}`;
   amount: `0x${string}`;
   transferSelector: `0x${string}`;
+  senderIndex: number;
+  recipientIndex: number;
 };
 
 const __filename = fileURLToPath(import.meta.url);
@@ -52,18 +54,6 @@ const parseBigIntValue = (value: unknown, label: string): bigint => {
 };
 
 const parseNumberValue = (value: unknown, label: string): number => {
-  if (typeof value === 'string') {
-    const parsed = Number(value);
-    if (!Number.isInteger(parsed)) {
-      throw new Error(`${label} must be an integer`);
-    }
-    return parsed;
-  }
-
-  if (typeof value === 'number' && Number.isInteger(value)) {
-    return value;
-  }
-
   const parsed = Number(value);
   if (!Number.isInteger(parsed)) {
     throw new Error(`${label} must be an integer`);
@@ -121,6 +111,8 @@ const loadConfig = async (configPath: string): Promise<L2TONTransferConfig> => {
     contractAddress: parseHexString(configRaw.contractAddress, 'contractAddress'),
     amount: parseHexString(configRaw.amount, 'amount'),
     transferSelector: parseHexString(configRaw.transferSelector, 'transferSelector'),
+    senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
+    recipientIndex: parseNumberValue(configRaw.recipientIndex, 'recipientIndex'),
   };
 };
 
@@ -143,8 +135,8 @@ const main = async () => {
     jubjub.Point.BASE.multiply(bytesToBigInt(prvKey) % jubjub.Point.Fn.ORDER).toBytes()
   );
 
-  const senderL2PrvKey = derivedPrivateKeyListL2[0];
-  const tokenRecipientPubKey = derivedPublicKeyListL2[1];
+  const senderL2PrvKey = derivedPrivateKeyListL2[config.senderIndex];
+  const tokenRecipientPubKey = derivedPublicKeyListL2[config.recipientIndex];
   const tokenRecipientAddress = fromEdwardsToAddress(tokenRecipientPubKey);
 
   const callData = concatBytes(
