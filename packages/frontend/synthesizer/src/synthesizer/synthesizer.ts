@@ -24,6 +24,8 @@ export class Synthesizer implements SynthesizerInterface
   protected _instructionHandlers: InstructionHandler
   public readonly cachedOpts: SynthesizerOpts
   protected _prevInterpreterStep: InterpreterStep | null = null
+  protected _firstOpcodeErrorLogged: boolean = false
+  protected _firstOpcodeError: Error | null = null
 
   // @deprecated
   constructor(opts: SynthesizerOpts) {
@@ -43,6 +45,8 @@ export class Synthesizer implements SynthesizerInterface
         console.error('Synthesizer: beforeMessage error:', err)
       } finally {
         this._prevInterpreterStep = null
+        this._firstOpcodeErrorLogged = false
+        this._firstOpcodeError = null
         resolve?.()
       }
     })
@@ -62,7 +66,16 @@ export class Synthesizer implements SynthesizerInterface
           }
 
         } catch (err) {
-          console.error('Synthesizer: step error:', err)
+          // Log only the first opcode error
+          if (!this._firstOpcodeErrorLogged) {
+            console.error('\n❌ [Synthesizer] First opcode error detected:')
+            console.error(`   PC: ${this._prevInterpreterStep?.pc}`)
+            console.error(`   Opcode: ${this._prevInterpreterStep?.opcode.name} (0x${this._prevInterpreterStep?.opcode.code.toString(16)})`)
+            console.error(`   Error:`, err)
+            this._firstOpcodeErrorLogged = true
+            this._firstOpcodeError = err instanceof Error ? err : new Error(String(err))
+          }
+          // Suppress subsequent opcode errors (don't log them)
         } finally {
           this._prevInterpreterStep = {
             ...data,
@@ -304,7 +317,14 @@ export class Synthesizer implements SynthesizerInterface
       skipHardForkValidation: true,
       reportPreimages: true,
     }
-    return await runTx(vm, runTxOpts)
+    const result = await runTx(vm, runTxOpts)
+
+    // If there was a first opcode error, throw it to stop execution
+    if (this._firstOpcodeError) {
+      throw this._firstOpcodeError
+    }
+
+    return result
   }
 
   private _applySynthesizerHandler = async (prevInterpreterStep: InterpreterStep, currentInterpreterStep: InterpreterStep): Promise<void> => {

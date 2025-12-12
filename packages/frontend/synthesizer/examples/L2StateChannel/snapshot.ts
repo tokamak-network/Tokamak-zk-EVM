@@ -47,9 +47,7 @@ import { jubjub } from '@noble/curves/misc';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
 import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../src/interface/index.ts';
-import { generateMptKeyFromWallet } from './mpt-key-utils.ts';
 import { getUserStorageKey } from '../../src/TokamakL2JS/utils/index.ts';
-import { RLP } from '@ethereumjs/rlp';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -316,17 +314,17 @@ async function testInitializeState() {
   }
 
   // Add participants' storage keys
-  // On-chain, deposit values are stored using MPT keys (not L1 storage keys)
-  // So we use MPT key for both L1 and L2 to fetch from on-chain
-  for (let i = 0; i < registeredKeys.length; i++) {
-    const mptKeyHex = registeredKeys[i];
+  // L1: participant's L1 address as storage key (to fetch from on-chain)
+  // L2: participant's MPT key (actual L2 storage key)
+  for (let i = 0; i < participants.length; i++) {
+    const l1Address = participants[i];
+    // Get MPT key from on-chain using channel ID and L1 address
+    const mptKeyBigInt = await bridgeContract.getL2MptKey(CHANNEL_ID, l1Address);
+    const mptKeyHex = '0x' + mptKeyBigInt.toString(16).padStart(64, '0');
+    const l1StorageKey = getUserStorageKey([l1Address, 0], 'L1'); // L1 storage key from participant address
     const mptKeyBytes = hexToBytes(addHexPrefix(mptKeyHex));
-
-    // Use MPT key for both L1 and L2 since on-chain storage uses MPT key
-    // L1 key: MPT key (used to fetch value from on-chain)
-    // L2 key: MPT key (actual L2 storage key)
     initStorageKeys.push({
-      L1: mptKeyBytes,
+      L1: l1StorageKey,
       L2: mptKeyBytes,
     });
   }
@@ -525,11 +523,18 @@ async function testInitializeState() {
     });
   }
 
-  // Add all participants' MPT keys
-  for (const mptKeyHex of registeredKeys) {
+  // Add all participants' storage keys
+  // L1: participant's L1 address as storage key (to fetch from on-chain)
+  // L2: participant's MPT key (actual L2 storage key)
+  for (let i = 0; i < participants.length; i++) {
+    const l1Address = participants[i];
+    // Get MPT key from on-chain using channel ID and L1 address
+    const mptKeyBigInt = await bridgeContract.getL2MptKey(CHANNEL_ID, l1Address);
+    const mptKeyHex = '0x' + mptKeyBigInt.toString(16).padStart(64, '0');
+    const l1StorageKey = getUserStorageKey([l1Address, 0], 'L1'); // L1 storage key from participant address
     const mptKeyBytes = hexToBytes(addHexPrefix(mptKeyHex));
     initStorageKeys1.push({
-      L1: mptKeyBytes,
+      L1: l1StorageKey,
       L2: mptKeyBytes,
     });
   }
@@ -796,11 +801,20 @@ async function testInitializeState() {
     });
   }
 
-  // Add all participants' MPT keys
-  for (const mptKeyHex of stateInfo1FromFile.registeredKeys) {
+  // Add all participants' storage keys
+  // L1: participant's L1 address as storage key (to fetch from on-chain)
+  // L2: participant's MPT key (actual L2 storage key)
+  // Get participants from on-chain
+  const participants2 = await bridgeContract.getChannelParticipants(CHANNEL_ID);
+  for (let i = 0; i < participants2.length; i++) {
+    const l1Address = participants2[i];
+    // Get MPT key from on-chain using channel ID and L1 address
+    const mptKeyBigInt = await bridgeContract.getL2MptKey(CHANNEL_ID, l1Address);
+    const mptKeyHex = '0x' + mptKeyBigInt.toString(16).padStart(64, '0');
+    const l1StorageKey = getUserStorageKey([l1Address, 0], 'L1'); // L1 storage key from participant address
     const mptKeyBytes = hexToBytes(addHexPrefix(mptKeyHex));
     initStorageKeys2.push({
-      L1: mptKeyBytes,
+      L1: l1StorageKey,
       L2: mptKeyBytes,
     });
   }
@@ -1043,11 +1057,20 @@ async function testInitializeState() {
     });
   }
 
-  // Add all participants' MPT keys
-  for (const mptKeyHex of stateInfo2FromFile.registeredKeys) {
+  // Add all participants' storage keys
+  // L1: participant's L1 address as storage key (to fetch from on-chain)
+  // L2: participant's MPT key (actual L2 storage key)
+  // Get participants from on-chain
+  const participants3 = await bridgeContract.getChannelParticipants(CHANNEL_ID);
+  for (let i = 0; i < participants3.length; i++) {
+    const l1Address = participants3[i];
+    // Get MPT key from on-chain using channel ID and L1 address
+    const mptKeyBigInt = await bridgeContract.getL2MptKey(CHANNEL_ID, l1Address);
+    const mptKeyHex = '0x' + mptKeyBigInt.toString(16).padStart(64, '0');
+    const l1StorageKey = getUserStorageKey([l1Address, 0], 'L1'); // L1 storage key from participant address
     const mptKeyBytes = hexToBytes(addHexPrefix(mptKeyHex));
     initStorageKeys3.push({
-      L1: mptKeyBytes,
+      L1: l1StorageKey,
       L2: mptKeyBytes,
     });
   }
