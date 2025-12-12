@@ -51,6 +51,35 @@ export interface SynthesizerAdapterConfig {
   rpcUrl: string;
 }
 
+/**
+ * High-level parameters for L2 State Channel transfer synthesis
+ * This is the simplified interface for external callers
+ */
+export interface SynthesizeL2TransferParams {
+  channelId: number;
+  initializeTxHash: string;
+  senderL2PrvKey: Uint8Array;
+  recipientL2Address: string; // L2 address of recipient
+  amount: string; // Amount as string (e.g., "1" for 1 TON)
+  previousStatePath?: string; // Optional: path to previous state_snapshot.json
+  outputPath?: string; // Optional: path for outputs
+  rpcUrl?: string; // Optional: RPC URL (defaults to adapter's rpcUrl)
+  rollupBridgeAddress?: string; // Optional: RollupBridge contract address (defaults to ROLLUP_BRIDGE_CORE_ADDRESS)
+}
+
+/**
+ * Result of L2 transfer synthesis
+ */
+export interface SynthesizeL2TransferResult {
+  success: boolean;
+  stateRoot: string;
+  previousStateRoot: string;
+  newStateRoot: string;
+  stateSnapshotPath: string; // Path to state_snapshot.json
+  outputPath?: string;
+  error?: string;
+}
+
 export interface SynthesizeOptions {
   previousState?: StateSnapshot; // Optional: previous state to restore from
   outputPath?: string; // Optional: path for file outputs
@@ -542,6 +571,118 @@ export class SynthesizerAdapter {
     console.log(`  - State root: ${finalState.stateRoot}`);
 
     return result;
+  }
+
+  /**
+   * High-level API: Synthesize L2 State Channel transfer transaction
+   * This method handles all complexity internally:
+   * - Fetches blockNumber from initializeTxHash
+   * - Fetches contractAddress from on-chain channel data
+   * - Loads previousState from file path (if provided)
+   * - Generates calldata automatically
+   *
+   * @param params - High-level transfer parameters
+   * @returns Synthesis result with state information
+   */
+  async synthesizeL2Transfer(params: SynthesizeL2TransferParams): Promise<SynthesizeL2TransferResult> {
+    const {
+      channelId,
+      initializeTxHash,
+      senderL2PrvKey,
+      recipientL2Address,
+      amount,
+      previousStatePath,
+      outputPath,
+      rollupBridgeAddress,
+    } = params;
+
+    const effectiveRpcUrl = params.rpcUrl || this.rpcUrl;
+
+    try {
+      // Load previous state if this is a subsequent transaction
+      let previousState: StateSnapshot | undefined;
+      let previousStateRoot: string;
+
+      if (previousStatePath) {
+        console.log(`[SynthesizerAdapter] Loading previous state from ${previousStatePath}...`);
+        const fs = await import('fs');
+        if (!fs.existsSync(previousStatePath)) {
+          throw new Error(`State snapshot file not found: ${previousStatePath}`);
+        }
+        const stateSnapshot = JSON.parse(fs.readFileSync(previousStatePath, 'utf-8'));
+        previousState = stateSnapshot as StateSnapshot;
+        previousStateRoot = previousState.stateRoot;
+        console.log(`   ✅ Previous state root: ${previousStateRoot}`);
+      } else {
+        console.log('[SynthesizerAdapter] First transaction: fetching state from on-chain...');
+        // Get state root from initialize transaction for verification
+        const receipt = await this.provider.getTransactionReceipt(initializeTxHash);
+        if (!receipt) {
+          throw new Error('Transaction receipt not found');
+        }
+        const stateInitializedTopic = ethers.id('StateInitialized(uint256,bytes32)');
+        const stateInitializedEvent = receipt.logs.find(log => log.topics[0] === stateInitializedTopic);
+        if (!stateInitializedEvent) {
+          throw new Error('StateInitialized event not found in transaction receipt');
+        }
+        const iface = new ethers.Interface(['event StateInitialized(uint256 indexed channelId, bytes32 currentStateRoot)']);
+        const decodedEvent = iface.decodeEventLog('StateInitialized', stateInitializedEvent.data, stateInitializedEvent.topics);
+        previousStateRoot = decodedEvent.currentStateRoot;
+        console.log(`   ✅ Initial state root: ${previousStateRoot}`);
+      }
+
+      // Build transfer calldata using static helper
+      const { parseEther } = await import('ethers');
+      const transferAmount = parseEther(amount);
+      const calldata = SynthesizerAdapter.buildTransferCalldata(recipientL2Address, transferAmount);
+
+      // Get block number from initialize transaction
+      const tx = await this.provider.getTransaction(initializeTxHash);
+      if (tx === null || tx.blockNumber === null) {
+        throw new Error('Initialize transaction not found or not yet mined');
+      }
+
+      // Synthesize using low-level synthesizeFromCalldata
+      // SynthesizerAdapter will automatically:
+      // - Fetch channel data and target contract address from on-chain
+      // - Build initStorageKeys with L1 addresses and MPT keys
+      // - Restore storage values and rebuild merkle tree
+      const result = await this.synthesizeFromCalldata(calldata, {
+        contractAddress: '', // Will be fetched from on-chain channel data or previousState
+        senderL2PrvKey,
+        blockNumber: tx.blockNumber,
+        previousState,
+        outputPath,
+        channelId,
+        rollupBridgeAddress,
+        rpcUrl: effectiveRpcUrl,
+      });
+
+      // Return simplified result
+      const { resolve } = await import('path');
+      const finalStateSnapshotPath = outputPath
+        ? resolve(outputPath, 'state_snapshot.json')
+        : 'state_snapshot.json';
+
+      return {
+        success: result.executionResult?.success ?? false,
+        stateRoot: result.state.stateRoot,
+        previousStateRoot,
+        newStateRoot: result.state.stateRoot,
+        stateSnapshotPath: finalStateSnapshotPath,
+        outputPath,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        stateRoot: '',
+        previousStateRoot: '',
+        newStateRoot: '',
+        stateSnapshotPath: '',
+        outputPath,
+        error: error.message || String(error),
+      };
+    }
   }
 
   /**
