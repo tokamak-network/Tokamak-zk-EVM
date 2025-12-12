@@ -80,6 +80,34 @@ export interface SynthesizeL2TransferResult {
   error?: string;
 }
 
+/**
+ * Participant balance information
+ */
+export interface ParticipantBalance {
+  l1Address: string; // L1 Ethereum address
+  l2MptKey: string; // L2 MPT key (32 bytes hex)
+  balance: string; // Balance in wei
+  balanceInEther: string; // Balance formatted in ether
+}
+
+/**
+ * Parameters for getParticipantBalances
+ */
+export interface GetParticipantBalancesParams {
+  stateSnapshotPath: string; // Path to state_snapshot.json
+  channelId: number; // Channel ID to fetch participant addresses
+  rollupBridgeAddress?: string; // Optional: RollupBridge contract address
+  rpcUrl?: string; // Optional: RPC URL (defaults to adapter's rpcUrl)
+}
+
+/**
+ * Result of getParticipantBalances
+ */
+export interface GetParticipantBalancesResult {
+  stateRoot: string; // Current Merkle root
+  participants: ParticipantBalance[]; // Array of participant balances
+}
+
 export interface SynthesizeOptions {
   previousState?: StateSnapshot; // Optional: previous state to restore from
   outputPath?: string; // Optional: path for file outputs
@@ -825,6 +853,73 @@ export class SynthesizerAdapter {
       userL2Addresses: normalizedUserL2Addresses,
       userStorageSlots: normalizedUserStorageSlots,
       userNonces: normalizedUserNonces,
+    };
+  }
+
+  /**
+   * Get participant balances from a state snapshot file
+   *
+   * This method:
+   * 1. Loads the state snapshot from file
+   * 2. Fetches participant L1 addresses from on-chain
+   * 3. Maps each L1 address to their L2 MPT key and balance
+   * 4. Returns formatted balance information
+   *
+   * @param params - Parameters for getting participant balances
+   * @returns State root and participant balance information
+   */
+  async getParticipantBalances(params: GetParticipantBalancesParams): Promise<GetParticipantBalancesResult> {
+    const { stateSnapshotPath, channelId, rollupBridgeAddress, rpcUrl } = params;
+    const effectiveRpcUrl = rpcUrl || this.rpcUrl;
+
+    // Load state snapshot
+    const fs = await import('fs');
+    const stateSnapshot = JSON.parse(fs.readFileSync(stateSnapshotPath, 'utf-8')) as StateSnapshot;
+
+    // Get participant L1 addresses from on-chain
+    const provider = new ethers.JsonRpcProvider(effectiveRpcUrl);
+    const bridgeAddress = rollupBridgeAddress || '0x68862886384846d53bbba89aa4f64f4789dda089'; // Default Sepolia address
+    const bridgeContract = new ethers.Contract(bridgeAddress, ROLLUP_BRIDGE_CORE_ABI, provider);
+
+    const l1Addresses: string[] = await bridgeContract.getChannelParticipants(channelId);
+
+    // Build participant balances array
+    const participants: ParticipantBalance[] = [];
+
+    for (let i = 0; i < l1Addresses.length; i++) {
+      const l1Address = l1Addresses[i];
+
+      // Get L2 MPT key from on-chain (returns uint256)
+      const l2MptKeyBigInt = await bridgeContract.getL2MptKey(channelId, l1Address);
+
+      // Convert to 32-byte hex string (0x-prefixed)
+      const l2MptKeyHex = '0x' + l2MptKeyBigInt.toString(16).padStart(64, '0');
+
+      // Find balance from storageEntries
+      // registeredKeys[i] should correspond to storageEntries[i]
+      const storageEntry = stateSnapshot.storageEntries.find(entry =>
+        entry.key.toLowerCase() === l2MptKeyHex.toLowerCase()
+      );
+
+      if (!storageEntry) {
+        console.warn(`Warning: No storage entry found for L1 address ${l1Address} with MPT key ${l2MptKeyHex}`);
+        continue;
+      }
+
+      const balanceWei = storageEntry.value;
+      const balanceInEther = ethers.formatEther(balanceWei);
+
+      participants.push({
+        l1Address,
+        l2MptKey: l2MptKeyHex,
+        balance: balanceWei,
+        balanceInEther,
+      });
+    }
+
+    return {
+      stateRoot: stateSnapshot.stateRoot,
+      participants,
     };
   }
 

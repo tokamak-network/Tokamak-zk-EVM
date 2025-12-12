@@ -134,6 +134,22 @@ async function main() {
   console.log(`   New State Root:      ${result1.newStateRoot}`);
   console.log(`   State Snapshot:      ${result1.stateSnapshotPath}\n`);
 
+  // Display participant balances after Proof #1
+  console.log('📊 Participant Balances after Proof #1:');
+  const balances1 = await adapter.getParticipantBalances({
+    stateSnapshotPath: result1.stateSnapshotPath,
+    channelId: CHANNEL_ID,
+    rollupBridgeAddress: ROLLUP_BRIDGE_CORE_ADDRESS,
+  });
+  console.log(`   State Root: ${balances1.stateRoot}`);
+  balances1.participants.forEach((participant, idx) => {
+    console.log(`   Participant ${idx + 1}:`);
+    console.log(`     L1 Address: ${participant.l1Address}`);
+    console.log(`     L2 MPT Key: ${participant.l2MptKey}`);
+    console.log(`     Balance:    ${participant.balanceInEther} TON`);
+  });
+  console.log('');
+
   // ========================================================================
   // PROOF #2: Participant 2 → 3 (0.5 TON)
   // ========================================================================
@@ -161,6 +177,22 @@ async function main() {
   console.log(`   Previous State Root: ${result2.previousStateRoot}`);
   console.log(`   New State Root:      ${result2.newStateRoot}`);
   console.log(`   State Snapshot:      ${result2.stateSnapshotPath}\n`);
+
+  // Display participant balances after Proof #2
+  console.log('📊 Participant Balances after Proof #2:');
+  const balances2 = await adapter.getParticipantBalances({
+    stateSnapshotPath: result2.stateSnapshotPath,
+    channelId: CHANNEL_ID,
+    rollupBridgeAddress: ROLLUP_BRIDGE_CORE_ADDRESS,
+  });
+  console.log(`   State Root: ${balances2.stateRoot}`);
+  balances2.participants.forEach((participant, idx) => {
+    console.log(`   Participant ${idx + 1}:`);
+    console.log(`     L1 Address: ${participant.l1Address}`);
+    console.log(`     L2 MPT Key: ${participant.l2MptKey}`);
+    console.log(`     Balance:    ${participant.balanceInEther} TON`);
+  });
+  console.log('');
 
   // ========================================================================
   // PROOF #3: Participant 3 → 1 (1 TON)
@@ -190,6 +222,22 @@ async function main() {
   console.log(`   New State Root:      ${result3.newStateRoot}`);
   console.log(`   State Snapshot:      ${result3.stateSnapshotPath}\n`);
 
+  // Display participant balances after Proof #3
+  console.log('📊 Participant Balances after Proof #3:');
+  const balances3 = await adapter.getParticipantBalances({
+    stateSnapshotPath: result3.stateSnapshotPath,
+    channelId: CHANNEL_ID,
+    rollupBridgeAddress: ROLLUP_BRIDGE_CORE_ADDRESS,
+  });
+  console.log(`   State Root: ${balances3.stateRoot}`);
+  balances3.participants.forEach((participant, idx) => {
+    console.log(`   Participant ${idx + 1}:`);
+    console.log(`     L1 Address: ${participant.l1Address}`);
+    console.log(`     L2 MPT Key: ${participant.l2MptKey}`);
+    console.log(`     Balance:    ${participant.balanceInEther} TON`);
+  });
+  console.log('');
+
   // ========================================================================
   // SUMMARY
   // ========================================================================
@@ -204,10 +252,11 @@ async function main() {
   console.log(`   → Proof #2 (P2→P3, 0.5 TON): ${result2.newStateRoot}`);
   console.log(`   → Proof #3 (P3→P1, 1 TON):   ${result3.newStateRoot}`);
   console.log('');
-  console.log('🎯 API Simplification:');
+  console.log('🎯 API Features:');
   console.log('   ✅ No manual calldata generation');
   console.log('   ✅ No manual state loading');
   console.log('   ✅ No manual blockNumber fetching');
+  console.log('   ✅ State analysis: getParticipantBalances()');
   console.log('   ✅ Just call adapter.synthesizeL2Transfer() with high-level params');
 }
 
