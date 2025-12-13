@@ -15,7 +15,7 @@ This section describes how to use the **main CLI** named **`tokamak-cli`** for d
 1. Create an Alchemy account and log in to the dashboard (https://dashboard.alchemy.com/).
 2. Create a new app/project for **Ethereum Mainnet**.
 3. Copy the **API Key** (the short token).  
-   You will pass this key to the CLI as `--setup <API_KEY>`.
+   You will pass this key to the CLI as `--install <API_KEY>`.
 > Note: You can paste the full RPC URL obtained from any provider other than Alchemy.
 
 #### For Windows users
@@ -90,23 +90,39 @@ To avoid compatibility/permission issues on the main script itself:
 
 From the repository root:
 
-1) **Build and Setup** (Build source code, compile circuits, write RPC URL using your **Alchemy API key**, run trusted setup, then run OS-specific backend packaging)
+1) **Install** (Install deps, compile circuits, write RPC URL using your **Alchemy API key**, run trusted setup, then run OS-specific backend packaging)
 ```bash
 ./tokamak-cli --install <YOUR_ALCHEMY_API_KEY | FULL_RPC_URL>
 ```
 
-2) **Prove** (generate a proof for a transaction)
+2) **Synthesize** (prepare inputs using a transaction config JSON)
 ```bash
-# Save to a custom directory (recommended)
-./tokamak-cli --prove <TX_HASH> <PATH_TO_SAVE_PROOF?>
+./tokamak-cli --synthesize <PATH_TO_CONFIG_JSON>
 ```
-> Notes
-> - If <PATH_TO_SAVE_PROOF> is omitted, the cli will use the default path: `./.your_proof`
-> - Ensure your transaction hash is on the **Ethereum Mainnet**, matching the Alchemy RPC URL written in `.env`.
+> A template for the config JSON lives in `synthesizer-input-template/`.
 
-3) **Verify** (Verify a proof generated from the Prove command)
+3) **Preprocess** (backend preprocess stage)
 ```bash
-./tokamak-cli --verify <PATH_TO_PROOF>
+./tokamak-cli --preprocess
+```
+
+4) **Prove** (backend prove stage; outputs stay under `dist/<platform>/resource/prove/output`)
+```bash
+./tokamak-cli --prove
+```
+
+5) **Verify** (verify proof artifacts in dist; optional resource overlay path)
+```bash
+# Uses dist/<platform>/resource by default
+./tokamak-cli --verify
+
+# Or provide a directory containing a resource/ folder to overlay into dist before verifying
+./tokamak-cli --verify <PATH_WITH_RESOURCE>
+```
+
+6) **Extract proof bundle** (optional; zip key artifacts)
+```bash
+./tokamak-cli --extract-proof <OUTPUT_DIR>
 ```
 
 ## Disclaimer

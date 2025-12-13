@@ -1,14 +1,13 @@
-// DEBUG=ethjs,evm:*,evm:*:* tsx MCOPY.ts
+// Usage: tsx examples/L2TONTransfer/main.ts <config.json>
 
+import { promises as fs } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 import {
-  addHexPrefix,
-  bigIntToBytes,
   bytesToBigInt,
   bytesToHex,
   concatBytes,
-  createAddressFromString,
-  equalsBytes,
-  hexToBigInt,
   hexToBytes,
   setLengthLeft,
   utf8ToBytes,
@@ -17,96 +16,174 @@ import { jubjub } from '@noble/curves/misc';
 import { fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
-import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts  } from '../../src/interface/index.ts'
+import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../src/interface/index.ts';
 import { getUserStorageKey } from '../../src/TokamakL2JS/utils/index.ts';
 
-const SENDER_L2_SEED = "Jake's L2 wallet";
-const senderL2PrvKey = jubjub.utils.randomPrivateKey(setLengthLeft(utf8ToBytes(SENDER_L2_SEED), 32));
-const senderL2PubKey = jubjub.Point.BASE.multiply(bytesToBigInt(senderL2PrvKey)).toBytes();
-// const {secretKey: senderL2PrvKey, publicKey: senderL2PubKey} = jubjub.keygen(setLengthLeft(utf8ToBytes(SENDER_L2_SEED), 32))
-
-// Reference: TON transfer transaction: 0xa0090893a2d5f79b67cebcb65eac3efc92820ec09dc4ad9fe2bc29bbdcad2e41
-const AMOUNT: `0x${string}` = '0x4563918244f400000';
-// const AMOUNT: `0x${string}` = '0x00'
-const TOKEN_RECEPIENT_PUB_KEY = jubjub.keygen(setLengthLeft(utf8ToBytes('Recepient'), 32)).publicKey;
-const TOKEN_RECEPIENT_ADDRESS = fromEdwardsToAddress(TOKEN_RECEPIENT_PUB_KEY);
-const CALLDATA = concatBytes(
-  setLengthLeft(hexToBytes('0xa9059cbb'), 4),
-  setLengthLeft(TOKEN_RECEPIENT_ADDRESS.toBytes(), 32),
-  setLengthLeft(hexToBytes(AMOUNT), 32),
-);
-const userStorageSlots = [0];
-
-// Channel configuration
-const addressListL1 = [
-  '0x85cc7da8Ee323325bcD678C7CFc4EB61e76657Fb',
-  '0xd8eE65121e51aa8C75A6Efac74C4Bbd3C439F78f',
-  '0x838F176D94990E06af9B57E470047F9978403195',
-  '0x01E371b2aD92aDf90254df20EB73F68015E9A000',
-  '0xbD224229Bf9465ea4318D45a8ea102627d6c27c7',
-  '0x6FD430995A19a57886d94f8B5AF2349b8F40e887',
-  '0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9',
-  '0x60be9978F805Dd4619F94a449a4a798155a05A56',
-] as `0x${string}`[];
-
-// Must be paired with the L1 addresses
-// The seed strings must be hidden. This is just an example.
-const publicKeyListL2 = [
-  senderL2PubKey,
-  TOKEN_RECEPIENT_PUB_KEY,
-  jubjub.keygen(setLengthLeft(utf8ToBytes('0x838F176D94990E06af9B57E470047F9978403195'), 32)).publicKey,
-  jubjub.keygen(setLengthLeft(utf8ToBytes('0x01E371b2aD92aDf90254df20EB73F68015E9A000'), 32)).publicKey,
-  jubjub.keygen(setLengthLeft(utf8ToBytes('0xbD224229Bf9465ea4318D45a8ea102627d6c27c7'), 32)).publicKey,
-  jubjub.keygen(setLengthLeft(utf8ToBytes('0x6FD430995A19a57886d94f8B5AF2349b8F40e887'), 32)).publicKey,
-  jubjub.keygen(setLengthLeft(utf8ToBytes('0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9'), 32)).publicKey,
-  jubjub.keygen(setLengthLeft(utf8ToBytes('0x60be9978F805Dd4619F94a449a4a798155a05A56'), 32)).publicKey,
-];
-
-if (addressListL1.length !== publicKeyListL2.length) {
-  throw new Error(`Mismatch in the numbers of L1 and L2 users`)
-}
-
-const initStorageKeys = [{
-  L1: setLengthLeft(hexToBytes('0x07'), 32),
-  L2: setLengthLeft(hexToBytes('0x07'), 32),
-}];
-for (const slot of userStorageSlots) {
-  for (let userIdx = 0; userIdx < addressListL1.length; userIdx++) {
-    const L1key = getUserStorageKey([addressListL1[userIdx], slot], 'L1');
-    const L2key = getUserStorageKey([fromEdwardsToAddress(publicKeyListL2[userIdx]), slot], 'TokamakL2');
-    initStorageKeys.push({
-      L1: L1key,
-      L2: L2key,
-    });
-  }
-}
-
-const simulationOpts: SynthesizerSimulationOpts = {
-  txNonce: 0n,
-  rpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/e_QJd40sb7aiObJisG_8Q',
-  senderL2PrvKey,
-  initStorageKeys,
-
-  // Reference: TON transfer transaction: 0xa0090893a2d5f79b67cebcb65eac3efc92820ec09dc4ad9fe2bc29bbdcad2e41s
-  blockNumber: 23224548,
-  contractAddress: '0x2be5e8c109e2197D077D13A82dAead6a9b3433C5' as `0x${string}`,
- 
-  
-  callData: CALLDATA,
+type L2TONTransferConfig = {
+  privateKeySeedsL2: string[];
+  addressListL1: `0x${string}`[];
+  userStorageSlots: number[];
+  initStorageKey: `0x${string}`;
+  txNonce: bigint;
+  blockNumber: number;
+  contractAddress: `0x${string}`;
+  amount: `0x${string}`;
+  transferSelector: `0x${string}`;
+  senderIndex: number;
+  recipientIndex: number;
 };
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const packageRoot = path.resolve(__dirname, '..', '..');
+dotenv.config({ path: path.join(packageRoot, '.env') });
+const RPC_URL_ENV_KEY = 'RPC_URL';
+
+const parseHexString = (value: unknown, label: string): `0x${string}` => {
+  if (typeof value !== 'string' || !value.startsWith('0x')) {
+    throw new Error(`${label} must be a hex string with 0x prefix`);
+  }
+  return value as `0x${string}`;
+};
+
+const parseBigIntValue = (value: unknown, label: string): bigint => {
+  if (typeof value === 'string' || typeof value === 'number') {
+    return BigInt(value);
+  }
+  throw new Error(`${label} must be a string or number`);
+};
+
+const parseNumberValue = (value: unknown, label: string): number => {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`${label} must be an integer`);
+  }
+  return parsed;
+};
+
+const assertStringArray = (value: unknown, label: string): string[] => {
+  if (!Array.isArray(value) || !value.every((entry) => typeof entry === 'string')) {
+    throw new Error(`${label} must be an array of strings`);
+  }
+  return value;
+};
+
+const assertNumberArray = (value: unknown, label: string): number[] => {
+  if (!Array.isArray(value) || !value.every((entry) => Number.isInteger(entry))) {
+    throw new Error(`${label} must be an array of integers`);
+  }
+  return value;
+};
+
+const getRpcUrlFromEnv = (): string => {
+  const rpcUrl = process.env[RPC_URL_ENV_KEY];
+  if (typeof rpcUrl !== 'string' || rpcUrl.length === 0) {
+    throw new Error(`Environment variable ${RPC_URL_ENV_KEY} must be set in ${path.join(packageRoot, '.env')}`);
+  }
+  return rpcUrl;
+};
+
+const loadConfig = async (configPath: string): Promise<L2TONTransferConfig> => {
+  const configRaw = JSON.parse(await fs.readFile(configPath, 'utf8'));
+
+  const privateKeySeedsL2 = assertStringArray(configRaw.privateKeySeedsL2, 'privateKeySeedsL2');
+  const addressListL1 = assertStringArray(configRaw.addressListL1, 'addressListL1').map((address) => {
+    if (!address.startsWith('0x')) {
+      throw new Error('addressListL1 entries must be hex strings with 0x prefix');
+    }
+    return address as `0x${string}`;
+  });
+
+  if (privateKeySeedsL2.length !== addressListL1.length) {
+    throw new Error('privateKeySeedsL2 and addressListL1 must have the same length');
+  }
+  if (privateKeySeedsL2.length < 2) {
+    throw new Error('privateKeySeedsL2 must include at least sender and recipient seeds');
+  }
+
+  return {
+    privateKeySeedsL2,
+    addressListL1,
+    userStorageSlots: assertNumberArray(configRaw.userStorageSlots, 'userStorageSlots'),
+    initStorageKey: parseHexString(configRaw.initStorageKey, 'initStorageKey'),
+    txNonce: parseBigIntValue(configRaw.txNonce, 'txNonce'),
+    blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
+    contractAddress: parseHexString(configRaw.contractAddress, 'contractAddress'),
+    amount: parseHexString(configRaw.amount, 'amount'),
+    transferSelector: parseHexString(configRaw.transferSelector, 'transferSelector'),
+    senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
+    recipientIndex: parseNumberValue(configRaw.recipientIndex, 'recipientIndex'),
+  };
+};
+
+const toSeedBytes = (seed: string) => setLengthLeft(utf8ToBytes(seed), 32);
+
 const main = async () => {
+  const configPath = process.argv[2];
+  if (!configPath) {
+    throw new Error('Config file path required. Usage: tsx examples/L2TONTransfer/main.ts <config.json>');
+  }
+
+  const config = await loadConfig(configPath);
+  const rpcUrl = getRpcUrlFromEnv();
+
+  const derivedPrivateKeyListL2 = config.privateKeySeedsL2.map((seed) => 
+    jubjub.utils.randomPrivateKey(toSeedBytes(seed))
+  );
+
+  const derivedPublicKeyListL2 = derivedPrivateKeyListL2.map(prvKey => 
+    jubjub.Point.BASE.multiply(bytesToBigInt(prvKey) % jubjub.Point.Fn.ORDER).toBytes()
+  );
+
+  const senderL2PrvKey = derivedPrivateKeyListL2[config.senderIndex];
+  const tokenRecipientPubKey = derivedPublicKeyListL2[config.recipientIndex];
+  const tokenRecipientAddress = fromEdwardsToAddress(tokenRecipientPubKey);
+
+  const callData = concatBytes(
+    setLengthLeft(hexToBytes(config.transferSelector), 4),
+    setLengthLeft(tokenRecipientAddress.toBytes(), 32),
+    setLengthLeft(hexToBytes(config.amount), 32),
+  );
+
+  const initStorageKeys = [
+    {
+      L1: setLengthLeft(hexToBytes(config.initStorageKey), 32),
+      L2: setLengthLeft(hexToBytes(config.initStorageKey), 32),
+    },
+  ];
+
+  for (const slot of config.userStorageSlots) {
+    for (let userIdx = 0; userIdx < config.addressListL1.length; userIdx++) {
+      const L1key = getUserStorageKey([config.addressListL1[userIdx], slot], 'L1');
+      const L2key = getUserStorageKey([fromEdwardsToAddress(derivedPublicKeyListL2[userIdx]), slot], 'TokamakL2');
+      initStorageKeys.push({
+        L1: L1key,
+        L2: L2key,
+      });
+    }
+  }
+
+  const simulationOpts: SynthesizerSimulationOpts = {
+    txNonce: config.txNonce,
+    rpcUrl,
+    senderL2PrvKey,
+    initStorageKeys,
+    blockNumber: config.blockNumber,
+    contractAddress: config.contractAddress,
+    callData,
+  };
+
   const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(simulationOpts);
   const synthesizer = await createSynthesizer(synthesizerOpts);
   const runTxResult = await synthesizer.synthesizeTX();
   const circuitGenerator = await createCircuitGenerator(synthesizer);
   circuitGenerator.writeOutputs();
 
-  console.log(`Sender: ${fromEdwardsToAddress(publicKeyListL2[0])}`)
-  console.log(`Recipent: ${fromEdwardsToAddress(publicKeyListL2[1])}`)
+  console.log(`Sender: ${fromEdwardsToAddress(derivedPublicKeyListL2[0])}`);
+  console.log(`Recipent: ${fromEdwardsToAddress(derivedPublicKeyListL2[1])}`);
   if (runTxResult.execResult.logs) {
     for (const [index, log] of runTxResult.execResult.logs.entries()) {
-      console.log(`Log index: ${index}`)
+      console.log(`Log index: ${index}`);
       console.log(`CA: ${bytesToHex(log[0])}`);
       for (const topic of log[1]) {
         console.log(`Topic: ${bytesToHex(topic)}`);
@@ -116,4 +193,8 @@ const main = async () => {
   }
 };
 
-void main();
+void main().catch(err => {
+  // Prevent errors from being accumulated.
+  console.error(err);
+  process.exit(1);
+});

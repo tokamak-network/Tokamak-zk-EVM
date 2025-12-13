@@ -61,6 +61,7 @@
     "profiling": "0x ./benchmarks/run.js profiling",
     "synthesize": "tsx src/cli/index.ts synthesize",
     "synthesizer": "tsx src/cli/index.ts run",
+    "ton-transfer-l2": "tsx examples/L2TONTransfer/main.ts",
     "test": "npm run test:node && npm run test:browser",
     "test:browser": "npx vitest run --config=./vitest.config.browser.mts",
     "test:node": "npx vitest run",
