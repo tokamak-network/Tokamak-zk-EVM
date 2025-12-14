@@ -17,8 +17,8 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
-        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },  
       "sourceLanguages": ["rust"]
     },
@@ -38,8 +38,8 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
-        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },  
       "sourceLanguages": ["rust"]
     },
@@ -60,8 +60,8 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
-        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },  
       "sourceLanguages": ["rust"]
     },
@@ -82,8 +82,8 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
-        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
       "sourceLanguages": ["rust"]
     },
@@ -104,8 +104,8 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
-        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
       "sourceLanguages": ["rust"]
     },
@@ -126,8 +126,8 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
-        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
       "sourceLanguages": ["rust"]
     },
@@ -148,8 +148,8 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
-        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
       "sourceLanguages": ["rust"]
     },
@@ -170,8 +170,8 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
-        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
       "sourceLanguages": ["rust"]
     },
@@ -193,8 +193,8 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
-        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
       "sourceLanguages": ["rust"]
     },
@@ -216,8 +216,8 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
-        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
       "sourceLanguages": ["rust"]
     },
@@ -239,8 +239,8 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "DYLD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib",
-        "LD_LIBRARY_PATH": "${workspaceFolder}/dist-mac/backend-lib/icicle/lib:${env:LD_LIBRARY_PATH}"
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },
       "sourceLanguages": ["rust"]
     }
