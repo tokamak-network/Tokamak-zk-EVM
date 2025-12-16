@@ -6,8 +6,9 @@
  * 2. Deposits TON to specified channel
  *
  * Usage:
- *   tsx examples/L2StateChannel/deposit-ton.ts <channelId>
- *   Example: tsx examples/L2StateChannel/deposit-ton.ts 6
+ *   tsx examples/L2StateChannel/deposit-ton.ts <channelId> [participantCount]
+ *   Example: tsx examples/L2StateChannel/deposit-ton.ts 6 2  (deposits for Alice and Bob only)
+ *   Example: tsx examples/L2StateChannel/deposit-ton.ts 6     (deposits for all 3 participants)
  */
 
 import { ethers, parseEther, JsonRpcProvider } from 'ethers';
@@ -43,12 +44,26 @@ const CHANNEL_ID_RAW = process.argv[2] ? parseInt(process.argv[2], 10) : null;
 
 if (!CHANNEL_ID_RAW || isNaN(CHANNEL_ID_RAW)) {
   console.error('❌ Error: Channel ID is required');
-  console.error('Usage: tsx examples/L2StateChannel/deposit-ton.ts <channelId>');
-  console.error('Example: tsx examples/L2StateChannel/deposit-ton.ts 6');
+  console.error('Usage: tsx examples/L2StateChannel/deposit-ton.ts <channelId> [participantCount]');
+  console.error('Example: tsx examples/L2StateChannel/deposit-ton.ts 6 2    (2 participants: Alice, Bob)');
+  console.error('Example: tsx examples/L2StateChannel/deposit-ton.ts 6      (3 participants: Alice, Bob, Charlie)');
   process.exit(1);
 }
 
 const CHANNEL_ID: number = CHANNEL_ID_RAW;
+
+// Parse participant count from command line arguments (optional, defaults to 3)
+const PARTICIPANT_COUNT_RAW = process.argv[3] ? parseInt(process.argv[3], 10) : 3;
+
+if (isNaN(PARTICIPANT_COUNT_RAW) || PARTICIPANT_COUNT_RAW < 1 || PARTICIPANT_COUNT_RAW > 3) {
+  console.error('❌ Error: Participant count must be between 1 and 3');
+  console.error('Usage: tsx examples/L2StateChannel/deposit-ton.ts <channelId> [participantCount]');
+  console.error('Example: tsx examples/L2StateChannel/deposit-ton.ts 6 2    (2 participants: Alice, Bob)');
+  console.error('Example: tsx examples/L2StateChannel/deposit-ton.ts 6      (3 participants: Alice, Bob, Charlie)');
+  process.exit(1);
+}
+
+const PARTICIPANT_COUNT: number = PARTICIPANT_COUNT_RAW;
 
 const TON_AMOUNT = parseEther('1'); // 1 TON in wei
 
@@ -113,6 +128,7 @@ async function main() {
   console.log(`   Channel ID: ${CHANNEL_ID}`);
   console.log(`   Token: TON (${TON_ADDRESS})`);
   console.log(`   Deposit Amount: ${ethers.formatEther(TON_AMOUNT)} TON per account`);
+  console.log(`   Participants: ${PARTICIPANT_COUNT} (${PARTICIPANT_NAMES.slice(0, PARTICIPANT_COUNT).join(', ')})`);
   console.log(`   Deposit Manager: ${DEPOSIT_MANAGER_PROXY_ADDRESS}\n`);
 
   // Initialize provider
@@ -169,11 +185,11 @@ async function main() {
   }
 
   // Process each account
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < PARTICIPANT_COUNT; i++) {
     const name = PARTICIPANT_NAMES[i];
 
     console.log(`\n${'='.repeat(80)}`);
-    console.log(`👤 Processing ${name} (Account ${i + 1}/3)`);
+    console.log(`👤 Processing ${name} (Account ${i + 1}/${PARTICIPANT_COUNT})`);
     console.log('='.repeat(80));
 
     try {
@@ -277,7 +293,7 @@ async function main() {
       console.log(`   📝 Deposit Tx: https://sepolia.etherscan.io/tx/${depositTx.hash}`);
 
       // Wait between accounts to avoid nonce issues
-      if (i < PARTICIPANT_NAMES.length - 1) {
+      if (i < PARTICIPANT_COUNT - 1) {
         console.log(`\n   ⏸️  Waiting 5 seconds before next account...`);
         await sleep(5000);
       }
@@ -340,8 +356,9 @@ async function main() {
   console.log('📊 Summary:');
   console.log(`   Channel ID: ${CHANNEL_ID}`);
   console.log(`   Token: TON (${TON_ADDRESS})`);
+  console.log(`   Participants: ${PARTICIPANT_COUNT} (${PARTICIPANT_NAMES.slice(0, PARTICIPANT_COUNT).join(', ')})`);
   console.log(`   Deposit Amount: ${ethers.formatEther(TON_AMOUNT)} TON per account`);
-  console.log(`   Total Deposited: ${ethers.formatEther(TON_AMOUNT * BigInt(3))} TON (if all succeeded)`);
+  console.log(`   Total Deposited: ${ethers.formatEther(TON_AMOUNT * BigInt(PARTICIPANT_COUNT))} TON (if all succeeded)`);
   console.log('');
   console.log('💡 Important Note:');
   console.log('   - TON uses wei units (10^18)');

@@ -34,6 +34,7 @@ Execute L2 State Channel transfer:
   --amount 1 \
   --output ./outputs/transfer-1 \
   --bridge 0x68862886384846d53bbba89aa4f64f4789dda089 \
+  --rpc-url https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY \
   --sepolia
 ```
 
@@ -60,6 +61,7 @@ Get participant balances from state snapshot:
   --snapshot ./outputs/transfer-1/state_snapshot.json \
   --channel-id 3 \
   --bridge 0x68862886384846d53bbba89aa4f64f4789dda089 \
+  --rpc-url https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY \
   --sepolia
 ```
 
@@ -83,6 +85,7 @@ Get participant balances from state snapshot:
   --recipient $BOB_L2_ADDR \
   --amount 1 \
   --output ./outputs/tx1 \
+  --rpc-url https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY \
   --sepolia
 
 # Second transfer (with previous state)
@@ -94,6 +97,7 @@ Get participant balances from state snapshot:
   --amount 0.5 \
   --previous-state ./outputs/tx1/state_snapshot.json \
   --output ./outputs/tx2 \
+  --rpc-url https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY \
   --sepolia
 
 # Third transfer (with previous state)
@@ -105,12 +109,14 @@ Get participant balances from state snapshot:
   --amount 1 \
   --previous-state ./outputs/tx2/state_snapshot.json \
   --output ./outputs/tx3 \
+  --rpc-url https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY \
   --sepolia
 
 # Check final balances
 ./bin/synthesizer get-balances \
   --snapshot ./outputs/tx3/state_snapshot.json \
   --channel-id 3 \
+  --rpc-url https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY \
   --sepolia
 ```
 

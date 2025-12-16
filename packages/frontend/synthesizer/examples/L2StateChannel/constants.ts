@@ -21,14 +21,12 @@ export const SEPOLIA_RPC_URL = `https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_K
 // ============================================================================
 
 // Modular Contract addresses - Updated for new architecture
-export const ROLLUP_BRIDGE_CORE_ADDRESS = '0x68862886384846d53bbba89aa4f64f4789dda089';
-export const ROLLUP_BRIDGE_DEPOSIT_MANAGER_ADDRESS = '0xD5E8B17058809B9491F99D35B67A089A2618f5fB';
-export const ROLLUP_BRIDGE_PROOF_MANAGER_ADDRESS = '0xF0396B7547C7447FBb14A127D3751425893322fc';
-export const ROLLUP_BRIDGE_WITHDRAW_MANAGER_ADDRESS = '0xAf833c7109DB3BfDAc54a98EA7b123CFDE51d777';
-export const ROLLUP_BRIDGE_ADMIN_MANAGER_ADDRESS = '0x1c38A6739bDb55f357fcd1aF258E0359ed77c662';
-
-// New modular address (causes "Failed to capture the final state" error - needs investigation)
-export const DEPOSIT_MANAGER_PROXY_ADDRESS = '0xe32dab028f5ebd5e82d2f5a7dd5f68dddae6e2a5';
+export const ROLLUP_BRIDGE_CORE_ADDRESS = '0x9439df86d91a7a05d926c15ee8f9790b60410133';
+export const ROLLUP_BRIDGE_DEPOSIT_MANAGER_ADDRESS = '0x24d302f09840275371ff1985d0f23df16c69e90b';
+export const ROLLUP_BRIDGE_PROOF_MANAGER_ADDRESS = '0x84b0676fdc944187214d774681aa135b481d7c12';
+export const ROLLUP_BRIDGE_WITHDRAW_MANAGER_ADDRESS = '0x0048fc775cfd21b24bd53652bd8b3796c5f26a83';
+export const ROLLUP_BRIDGE_ADMIN_MANAGER_ADDRESS = '0x374c2a109c59c60e18af161f263689520ebd6932';
+export const DEPOSIT_MANAGER_PROXY_ADDRESS = '0x24d302f09840275371ff1985d0f23df16c69e90b';
 
 // ============================================================================
 // TOKEN ADDRESSES (Sepolia Testnet)
