@@ -1,12 +1,6 @@
-import { addHexPrefix, bigIntToBytes, bigIntToHex, bytesToHex, setLengthLeft } from '@ethereumjs/util';
-import {
-  BUFFER_DESCRIPTION,
-  BUFFER_LIST,
-  SubcircuitInfoByName,
-  SubcircuitNames,
-} from 'src/interface/qapCompiler/configuredTypes.ts';
+import { addHexPrefix, bigIntToHex } from '@ethereumjs/util';
+import { BUFFER_LIST } from 'src/interface/qapCompiler/configuredTypes.ts';
 import { DataPtFactory } from 'src/synthesizer/dataStructure/dataPt.ts';
-import { SynthesizerInterface } from 'src/synthesizer/index.ts';
 import { DataPt } from 'src/synthesizer/types/dataStructure.ts';
 import {
   PlacementEntry,
@@ -16,7 +10,6 @@ import {
   PlacementVariables,
 } from 'src/synthesizer/types/placements.ts';
 import { CircuitGenerator } from '../circuitGenerator.ts';
-import { Synthesizer } from 'src/synthesizer/synthesizer.ts';
 import {
   globalWireList,
   setupParams,
@@ -24,7 +17,6 @@ import {
   subcircuitInfoByName,
   wasmDir,
 } from 'src/interface/qapCompiler/importedConstants.ts';
-import { buffer } from 'stream/consumers';
 import { builder } from '../utils/witness_calculator.ts';
 import { readFileSync } from 'fs';
 import appRootPath from 'app-root-path';
@@ -381,11 +373,7 @@ export class VariableGenerator {
       const witnessCalculator = await builder(buffer);
       const witness = await witnessCalculator.calculateWitness(ins, 0);
       for (const [index, value] of witness.entries()) {
-        let hex = value.toString(16);
-        if (hex.length % 2 === 1) {
-          hex = '0' + hex;
-        }
-        hex = '0x' + hex;
+        let hex = bigIntToHex(value);
         witnessHex[index] = hex;
       }
     }
