@@ -7,6 +7,7 @@ import { BUFFER_DESCRIPTION, BUFFER_LIST, SubcircuitInfoByName, SubcircuitInfoBy
 import { DataPt } from 'src/synthesizer/types/dataStructure.ts';
 import { CircuitGenerator } from '../circuitGenerator.ts';
 import { VARIABLE_DESCRIPTION } from 'src/synthesizer/types/buffers.ts';
+import { addHexPrefix, hexToBigInt } from '@ethereumjs/util';
 
 
 type PlacementWireIndex = { globalWireId: number; placementId: number };
@@ -318,7 +319,7 @@ export class PermutationGenerator {
         const j2 = this.permutationX[j][i];
         if (i != i2 || j != j2) {
           permutationDetected = true;
-          if (b[i][j] != b[i2][j2]) {
+          if (hexToBigInt(addHexPrefix(b[i][j])) != hexToBigInt(addHexPrefix(b[i2][j2]))) {
             throw new Error(`Permutation: Permutation does not hold.`);
           }
         }

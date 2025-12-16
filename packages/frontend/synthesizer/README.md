@@ -1,6 +1,6 @@
 # Tokamak zk-EVM Synthesizer
 
-Tokamak zk-EVM Synthesizer turns batches of Ethereum-like transactions into circuit-ready artifacts. The core lives in `src/synthesizer` (execution tracing, state management) and `src/circuitGenerator` (witness/public-instance/permutation generation). It interprets each opcode with Tokamak zk-EVM subcircuits and emits the witness/permutation files the zk-SNARK backend needs to produce and verify proofs.
+Tokamak zk-EVM Synthesizer turns a batch of Ethereum-like transactions into a circuit for zero-knowledge proving. The core lives in `src/synthesizer` (execution tracing, state management) and `src/circuitGenerator` (witness/public-instance/permutation generation). It interprets each opcode with Tokamak zk-EVM subcircuits and emits the witness/permutation files the zk-SNARK backend needs to produce and verify proofs.
 
 ## Core problem and approach
 - Problem: generate a circuit trace that mirrors EVM execution (stack/memory/call frames plus validation of storage reads/writes) for a transaction batch so a prover can show correct execution and an L1 contract can verify it without replaying the batch.

@@ -1,4 +1,4 @@
-# Synthesizer Concepts
+# Synthsizer Introduction
 
 Synthesizer is the frontend that turns an Ethereum transaction into a Tokamak zk-SNARK-ready circuit. It traces EVM execution, mirrors each opcode with pre-built subcircuits, and writes the witness and permutation files the backend prover expects.
 
@@ -27,3 +27,6 @@ Synthesizer is the frontend that turns an Ethereum transaction into a Tokamak zk
 - Most Cancun-era opcodes are handled; CREATE/CREATE2/SELFDESTRUCT and blob/TSTORE/TLOAD are not yet synthesized.
 - KECCAK256 is represented via Poseidon hashing for circuit feasibility.
 - Gas accounting is observed from the VM but not enforced in circuit constraints yet.
+
+ 
+Tokamak zk-EVM Synthesizer turns a batch of Ethereum-like transactions into circuit-ready artifacts. The core lives in `src/synthesizer` (execution tracing, state management) and `src/circuitGenerator` (witness/public-instance/permutation generation). It interprets each opcode with Tokamak zk-EVM subcircuits and emits the witness/permutation files the zk-SNARK backend needs to produce and verify proofs.
