@@ -48,7 +48,7 @@ Execute L2 State Channel transfer:
 **Optional Options:**
 - `--previous-state <path>` - Path to previous state_snapshot.json (for chained transfers)
 - `--output <dir>` - Output directory for results (default: current directory)
-- `--bridge <address>` - RollupBridge contract address (default: Sepolia address)
+- `--bridge <address>` - RollupBridge contract address (optional, uses default from constants if omitted)
 - `-r, --rpc-url <url>` - Custom RPC URL
 - `-s, --sepolia` - Use Sepolia testnet (default: mainnet)
 
@@ -70,7 +70,7 @@ Get participant balances from state snapshot:
 - `--channel-id <id>` - Channel ID number
 
 **Optional Options:**
-- `--bridge <address>` - RollupBridge contract address
+- `--bridge <address>` - RollupBridge contract address (optional, uses default from constants if omitted)
 - `-r, --rpc-url <url>` - Custom RPC URL
 - `-s, --sepolia` - Use Sepolia testnet
 

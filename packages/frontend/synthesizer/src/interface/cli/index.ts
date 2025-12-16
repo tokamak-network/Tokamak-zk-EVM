@@ -2,6 +2,7 @@
 
 import { program } from 'commander';
 import { SynthesizerAdapter } from '../adapters/synthesizerAdapter.js';
+import { ROLLUP_BRIDGE_CORE_ADDRESS } from '../adapters/constants/index.js';
 import readline from 'readline';
 
 // load environment variables
@@ -668,7 +669,7 @@ program
         amount: options.amount,
         previousStatePath: options.previousState,
         outputPath: options.output,
-        rollupBridgeAddress: options.bridge,
+        rollupBridgeAddress: options.bridge, // Will use default from constants if undefined
         rpcUrl,
       });
 

@@ -32,7 +32,7 @@ import { fromEdwardsToAddress } from '../../TokamakL2JS/index.ts';
 import { getUserStorageKey } from '../../TokamakL2JS/utils/index.ts';
 import type { PublicInstance } from '../../circuitGenerator/types/types.ts';
 import { TokamakL2StateManager } from '../../TokamakL2JS/stateManager/TokamakL2StateManager.ts';
-import { ROLLUP_BRIDGE_CORE_ABI } from './constants/index.ts';
+import { ROLLUP_BRIDGE_CORE_ABI, ROLLUP_BRIDGE_CORE_ADDRESS } from './constants/index.ts';
 
 // StateSnapshot type definition (matches usage in adapter)
 export interface StateSnapshot {
@@ -76,6 +76,7 @@ export interface SynthesizeL2TransferResult {
   previousStateRoot: string;
   newStateRoot: string;
   stateSnapshotPath: string; // Path to state_snapshot.json
+  instancePath?: string; // Path to instance.json output directory (for prove/verify)
   outputPath?: string;
   error?: string;
 }
@@ -317,6 +318,9 @@ export class SynthesizerAdapter {
     const { previousState, outputPath, channelId, rollupBridgeAddress, rpcUrl } = options;
     const effectiveRpcUrl = rpcUrl || this.rpcUrl;
 
+    // Use default bridge address if not provided
+    const effectiveBridgeAddress = rollupBridgeAddress || ROLLUP_BRIDGE_CORE_ADDRESS;
+
     // Normalize calldata to Uint8Array
     const calldataBytes = typeof calldata === 'string' ? hexToBytes(addHexPrefix(calldata)) : calldata;
 
@@ -334,15 +338,15 @@ export class SynthesizerAdapter {
 
     if (previousState) {
       // Use previousState to build initStorageKeys
-      // For previousState, we need channelId and rollupBridgeAddress to fetch fresh MPT keys
-      if (!channelId || !rollupBridgeAddress) {
-        throw new Error('channelId and rollupBridgeAddress are required even with previousState to fetch current MPT keys');
+      // For previousState, we need channelId to fetch fresh MPT keys
+      if (!channelId) {
+        throw new Error('channelId is required even with previousState to fetch current MPT keys');
       }
-      const channelData = await this.fetchChannelData(channelId, rollupBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
+      const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
       preAllocatedLeaves = previousState.preAllocatedLeaves || [];
       initStorageKeys = await this.buildInitStorageKeys(
         channelId,
-        rollupBridgeAddress,
+        effectiveBridgeAddress,
         preAllocatedLeaves,
       );
       console.log(`[SynthesizerAdapter] Built initStorageKeys from previousState: ${initStorageKeys.length} keys`);
@@ -352,17 +356,17 @@ export class SynthesizerAdapter {
         options.contractAddress = previousState.contractAddress;
         console.log(`[SynthesizerAdapter] Using contractAddress from previousState: ${previousState.contractAddress}`);
       }
-    } else if (channelId && rollupBridgeAddress) {
+    } else if (channelId) {
       // Fetch channel data from on-chain
       console.log(`[SynthesizerAdapter] Fetching channel data from on-chain...`);
       console.log(`  Channel ID: ${channelId}`);
-      console.log(`  Bridge Address: ${rollupBridgeAddress}`);
+      console.log(`  Bridge Address: ${effectiveBridgeAddress}`);
 
-      const channelData = await this.fetchChannelData(channelId, rollupBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
+      const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
       preAllocatedLeaves = channelData.preAllocatedLeaves;
       initStorageKeys = await this.buildInitStorageKeys(
         channelId,
-        rollupBridgeAddress,
+        effectiveBridgeAddress,
         channelData.preAllocatedLeaves,
       );
       console.log(`[SynthesizerAdapter] Built initStorageKeys from on-chain: ${initStorageKeys.length} keys`);
@@ -374,7 +378,7 @@ export class SynthesizerAdapter {
       }
     } else {
       throw new Error(
-        'Either previousState or (channelId and rollupBridgeAddress) must be provided to build initStorageKeys',
+        'Either previousState or channelId must be provided to build initStorageKeys',
       );
     }
 
@@ -421,9 +425,9 @@ export class SynthesizerAdapter {
         console.warn(`   Expected: ${expectedInitialRoot}`);
         console.warn(`   Restored: ${restoredRootHex}`);
       }
-    } else if (channelId && rollupBridgeAddress) {
+    } else if (channelId) {
       // Fetch and restore from on-chain data
-      const channelData = await this.fetchChannelData(channelId, rollupBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
+      const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
       expectedInitialRoot = channelData.initialRoot;
       console.log(`[SynthesizerAdapter] 📋 Initial Root (from on-chain): ${expectedInitialRoot}`);
 
@@ -643,20 +647,54 @@ export class SynthesizerAdapter {
         console.log(`   ✅ Previous state root: ${previousStateRoot}`);
       } else {
         console.log('[SynthesizerAdapter] First transaction: fetching state from on-chain...');
-        // Get state root from initialize transaction for verification
+        // Try to get state root from initialize transaction event first
         const receipt = await this.provider.getTransactionReceipt(initializeTxHash);
         if (!receipt) {
           throw new Error('Transaction receipt not found');
         }
-        const stateInitializedTopic = ethers.id('StateInitialized(uint256,bytes32)');
-        const stateInitializedEvent = receipt.logs.find(log => log.topics[0] === stateInitializedTopic);
+
+        // Try both old and new event signatures for compatibility
+        const stateInitializedTopicOld = ethers.id('StateInitialized(uint256,bytes32)');
+        const stateInitializedTopicNew = ethers.id('StateInitialized(uint256,bytes32,tuple)');
+
+        let stateInitializedEvent = receipt.logs.find(log => log.topics[0] === stateInitializedTopicOld);
         if (!stateInitializedEvent) {
-          throw new Error('StateInitialized event not found in transaction receipt');
+          stateInitializedEvent = receipt.logs.find(log => log.topics[0] === stateInitializedTopicNew);
         }
-        const iface = new ethers.Interface(['event StateInitialized(uint256 indexed channelId, bytes32 currentStateRoot)']);
-        const decodedEvent = iface.decodeEventLog('StateInitialized', stateInitializedEvent.data, stateInitializedEvent.topics);
-        previousStateRoot = decodedEvent.currentStateRoot;
-        console.log(`   ✅ Initial state root: ${previousStateRoot}`);
+
+        if (stateInitializedEvent) {
+          // Successfully found StateInitialized event
+          // Try decoding with new signature first (includes blockInfos tuple), fallback to old signature
+          let decodedEvent: any;
+          try {
+            // New signature with blockInfos tuple
+            const ifaceNew = new ethers.Interface([
+              'event StateInitialized(uint256 indexed channelId, bytes32 currentStateRoot, tuple(uint256 blockNumber, uint256 timestamp, uint256 prevrandao, uint256 gaslimit, uint256 basefee, address coinbase, uint256 chainId, uint256 selfbalance) blockInfos)'
+            ]);
+            decodedEvent = ifaceNew.decodeEventLog('StateInitialized', stateInitializedEvent.data, stateInitializedEvent.topics);
+          } catch {
+            // Fallback to old signature (without blockInfos)
+            const ifaceOld = new ethers.Interface(['event StateInitialized(uint256 indexed channelId, bytes32 currentStateRoot)']);
+            decodedEvent = ifaceOld.decodeEventLog('StateInitialized', stateInitializedEvent.data, stateInitializedEvent.topics);
+          }
+          previousStateRoot = decodedEvent.currentStateRoot;
+          console.log(`   ✅ Initial state root from StateInitialized event: ${previousStateRoot}`);
+        } else {
+          // Fallback: fetch initial state root directly from contract
+          console.log(`   ⚠️  StateInitialized event not found in transaction receipt, fetching from contract...`);
+          const effectiveBridgeAddress = rollupBridgeAddress || ROLLUP_BRIDGE_CORE_ADDRESS;
+          const bridgeContract = new ethers.Contract(effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI, this.provider);
+          try {
+            previousStateRoot = await bridgeContract.getChannelInitialStateRoot(channelId);
+            console.log(`   ✅ Initial state root from contract: ${previousStateRoot}`);
+          } catch (error: any) {
+            throw new Error(
+              `Failed to fetch initial state root from contract: ${error.message}. ` +
+              `Channel ID: ${channelId}, Bridge Address: ${effectiveBridgeAddress}. ` +
+              `Also tried to find StateInitialized event in transaction ${initializeTxHash} but it was not found.`
+            );
+          }
+        }
       }
 
       // Build transfer calldata using static helper
@@ -672,6 +710,7 @@ export class SynthesizerAdapter {
 
       // Synthesize using low-level synthesizeFromCalldata
       // SynthesizerAdapter will automatically:
+      // - Use default bridge address from constants if rollupBridgeAddress is not provided
       // - Fetch channel data and target contract address from on-chain
       // - Build initStorageKeys with L1 addresses and MPT keys
       // - Restore storage values and rebuild merkle tree
@@ -682,7 +721,7 @@ export class SynthesizerAdapter {
         previousState,
         outputPath,
         channelId,
-        rollupBridgeAddress,
+        rollupBridgeAddress, // Will use default from constants if undefined
         rpcUrl: effectiveRpcUrl,
       });
 
@@ -698,6 +737,7 @@ export class SynthesizerAdapter {
         previousStateRoot,
         newStateRoot: result.state.stateRoot,
         stateSnapshotPath: finalStateSnapshotPath,
+        instancePath: outputPath, // Path to directory containing instance.json
         outputPath,
       };
     } catch (error: any) {
@@ -707,6 +747,7 @@ export class SynthesizerAdapter {
         previousStateRoot: '',
         newStateRoot: '',
         stateSnapshotPath: '',
+        instancePath: outputPath,
         outputPath,
         error: error.message || String(error),
       };
@@ -875,11 +916,19 @@ export class SynthesizerAdapter {
 
     // Setup provider and contract
     const provider = new ethers.JsonRpcProvider(effectiveRpcUrl);
-    const bridgeAddress = rollupBridgeAddress || '0x68862886384846d53bbba89aa4f64f4789dda089'; // Default Sepolia address
+    const bridgeAddress = rollupBridgeAddress || ROLLUP_BRIDGE_CORE_ADDRESS; // Use updated address from constants
     const bridgeContract = new ethers.Contract(bridgeAddress, ROLLUP_BRIDGE_CORE_ABI, provider);
 
     // Get participant L1 addresses from on-chain
-    const l1Addresses: string[] = await bridgeContract.getChannelParticipants(channelId);
+    let l1Addresses: string[];
+    try {
+      l1Addresses = await bridgeContract.getChannelParticipants(channelId);
+    } catch (error: any) {
+      throw new Error(
+        `Failed to fetch channel participants: ${error.message}. ` +
+          `Channel ID: ${channelId}, Bridge Address: ${bridgeAddress}`
+      );
+    }
 
     let stateRoot: string;
     let balanceSource: 'snapshot' | 'on-chain';
@@ -894,7 +943,14 @@ export class SynthesizerAdapter {
       balanceSource = 'snapshot';
     } else {
       // Fetch initial state root from on-chain
-      stateRoot = await bridgeContract.getChannelInitialStateRoot(channelId);
+      try {
+        stateRoot = await bridgeContract.getChannelInitialStateRoot(channelId);
+      } catch (error: any) {
+        throw new Error(
+          `Failed to fetch initial state root: ${error.message}. ` +
+            `Channel ID: ${channelId}, Bridge Address: ${bridgeAddress}`
+        );
+      }
       balanceSource = 'on-chain';
     }
 
@@ -905,7 +961,15 @@ export class SynthesizerAdapter {
       const l1Address = l1Addresses[i];
 
       // Get L2 MPT key from on-chain (returns uint256)
-      const l2MptKeyBigInt = await bridgeContract.getL2MptKey(channelId, l1Address);
+      let l2MptKeyBigInt: bigint;
+      try {
+        l2MptKeyBigInt = await bridgeContract.getL2MptKey(channelId, l1Address);
+      } catch (error: any) {
+        throw new Error(
+          `Failed to fetch L2 MPT key for participant ${l1Address}: ${error.message}. ` +
+            `Channel ID: ${channelId}, Bridge Address: ${bridgeAddress}`
+        );
+      }
 
       // Convert to 32-byte hex string (0x-prefixed)
       const l2MptKeyHex = '0x' + l2MptKeyBigInt.toString(16).padStart(64, '0');
@@ -926,8 +990,15 @@ export class SynthesizerAdapter {
         balanceWei = storageEntry.value;
       } else {
         // Get initial deposit from on-chain
-        const depositBigInt = await bridgeContract.getParticipantDeposit(channelId, l1Address);
-        balanceWei = '0x' + depositBigInt.toString(16).padStart(64, '0');
+        try {
+          const depositBigInt = await bridgeContract.getParticipantDeposit(channelId, l1Address);
+          balanceWei = '0x' + depositBigInt.toString(16).padStart(64, '0');
+        } catch (error: any) {
+          throw new Error(
+            `Failed to fetch participant deposit for ${l1Address}: ${error.message}. ` +
+              `Channel ID: ${channelId}, Bridge Address: ${bridgeAddress}`
+          );
+        }
       }
 
       const balanceInEther = ethers.formatEther(balanceWei);

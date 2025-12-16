@@ -1,11 +1,8 @@
 /**
- * L2 State Channel Transaction Test using Simplified SynthesizerAdapter API
+ * L2 State Channel Transaction Test using Synthesizer Binary
  *
- * This demonstrates the simplified high-level interface where:
- * - No manual calldata generation required
- * - No manual state loading required
- * - No manual blockNumber fetching required
- * - Just provide: channelId, senderKey, recipient, amount, and optional previousStatePath
+ * This test uses the built binary (bin/synthesizer) instead of direct SynthesizerAdapter calls.
+ * It demonstrates the same sequential transfer flow but via CLI commands.
  */
 
 import { ethers } from 'ethers';
@@ -18,7 +15,6 @@ import { SEPOLIA_RPC_URL, ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI } f
 import { bytesToBigInt, bigIntToBytes, setLengthLeft, utf8ToBytes } from '@ethereumjs/util';
 import { poseidon, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { jubjub } from '@noble/curves/misc';
-import { SynthesizerAdapter } from '../../src/interface/adapters/synthesizerAdapter.ts';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -28,8 +24,10 @@ const __dirname = dirname(__filename);
 const envPath = resolve(__dirname, '../../../../../.env');
 config({ path: envPath });
 
-// Binary paths (use pre-built binaries from dist/macOS/bin)
+// Binary paths
 const projectRoot = resolve(__dirname, '../../../../../');
+// Synthesizer binary path - fixed to internal binary for testing
+const synthesizerBinary = resolve(__dirname, '../../bin/synthesizer');
 const distBinPath = resolve(projectRoot, 'dist/macOS/bin');
 const preprocessBinary = `${distBinPath}/preprocess`;
 const proverBinary = `${distBinPath}/prove`;
@@ -46,6 +44,175 @@ function deriveL2AddressFromPrivateKey(l2PrivateKey: Uint8Array): string {
   const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(l2PrivateKey)).toBytes();
   const l2Address = fromEdwardsToAddress(jubjub.Point.fromBytes(publicKey)).toString();
   return l2Address;
+}
+
+/**
+ * Convert L2 private key to hex string for CLI
+ */
+function l2PrivateKeyToHex(l2PrivateKey: Uint8Array): string {
+  return '0x' + Buffer.from(l2PrivateKey).toString('hex');
+}
+
+/**
+ * Run synthesizer binary l2-transfer command
+ */
+async function runL2Transfer(params: {
+  channelId: number;
+  initializeTxHash: string;
+  senderL2PrvKey: Uint8Array;
+  recipientL2Address: string;
+  amount: string;
+  previousStatePath?: string;
+  outputPath: string;
+  rpcUrl: string;
+}): Promise<{ success: boolean; instancePath?: string; stateSnapshotPath?: string; error?: string }> {
+  const {
+    channelId,
+    initializeTxHash,
+    senderL2PrvKey,
+    recipientL2Address,
+    amount,
+    previousStatePath,
+    outputPath,
+    rpcUrl,
+  } = params;
+
+  if (!existsSync(synthesizerBinary)) {
+    return {
+      success: false,
+      error: `Synthesizer binary not found at ${synthesizerBinary}. Please build it first: cd packages/frontend/synthesizer && ./build-binary.sh`,
+    };
+  }
+
+  const senderKeyHex = l2PrivateKeyToHex(senderL2PrvKey);
+
+  // Ensure output directory exists
+  if (!existsSync(outputPath)) {
+    mkdirSync(outputPath, { recursive: true });
+  }
+
+  try {
+    const cmd = [
+      `"${synthesizerBinary}"`,
+      'l2-transfer',
+      `--channel-id ${channelId}`,
+      `--init-tx ${initializeTxHash}`,
+      `--sender-key ${senderKeyHex}`,
+      `--recipient ${recipientL2Address}`,
+      `--amount ${amount}`,
+      `--output "${outputPath}"`,
+      `--rpc-url "${rpcUrl}"`,
+      '--sepolia',
+    ];
+
+    if (previousStatePath) {
+      cmd.push(`--previous-state "${previousStatePath}"`);
+    }
+
+    const fullCmd = cmd.join(' ');
+
+    console.log(`   Running: ${synthesizerBinary} l2-transfer...`);
+    console.log(`   Command: ${fullCmd.replace(senderKeyHex, '0x***')}`); // Hide private key in logs
+    const startTime = Date.now();
+
+    // Use synthesizer package root as working directory
+    const cwd = resolve(__dirname, '../../');
+
+    const output = execSync(fullCmd, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      timeout: 300000, // 5 minute timeout
+      cwd,
+    });
+
+    const duration = Date.now() - startTime;
+
+    // Check if output directory was created and contains instance.json
+    const instancePath = outputPath;
+    const stateSnapshotPath = resolve(outputPath, 'state_snapshot.json');
+
+    if (existsSync(`${instancePath}/instance.json`) && existsSync(stateSnapshotPath)) {
+      console.log(`   ✅ Transfer completed successfully in ${(duration / 1000).toFixed(2)}s`);
+      return {
+        success: true,
+        instancePath,
+        stateSnapshotPath,
+      };
+    } else {
+      return {
+        success: false,
+        error: `Output files not found. Output: ${output.substring(0, 500)}`,
+      };
+    }
+  } catch (error: any) {
+    const errorMessage = error.message || String(error);
+    const stdout = error.stdout || '';
+    const stderr = error.stderr || '';
+    return {
+      success: false,
+      error: `${errorMessage}\nstdout: ${stdout.substring(0, 500)}\nstderr: ${stderr.substring(0, 500)}`,
+    };
+  }
+}
+
+/**
+ * Run synthesizer binary get-balances command
+ */
+async function getParticipantBalances(params: {
+  stateSnapshotPath?: string;
+  channelId: number;
+  rpcUrl: string;
+}): Promise<{ success: boolean; balances?: any; error?: string }> {
+  const { stateSnapshotPath, channelId, rpcUrl } = params;
+
+  if (!existsSync(synthesizerBinary)) {
+    return {
+      success: false,
+      error: `Synthesizer binary not found at ${synthesizerBinary}`,
+    };
+  }
+
+  try {
+    const cmd = [
+      `"${synthesizerBinary}"`,
+      'get-balances',
+      `--channel-id ${channelId}`,
+      `--rpc-url "${rpcUrl}"`,
+      '--sepolia',
+    ];
+
+    if (stateSnapshotPath) {
+      cmd.push(`--snapshot "${stateSnapshotPath}"`);
+    }
+
+    const fullCmd = cmd.join(' ');
+
+    // Use synthesizer package root as working directory
+    const cwd = resolve(__dirname, '../../');
+
+    console.log(`   Running: ${synthesizerBinary} get-balances...`);
+    const output = execSync(fullCmd, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      timeout: 60000, // 60 second timeout
+      cwd,
+    });
+
+    // Parse output to extract balance information
+    // The output format should be consistent with CLI output
+    return {
+      success: true,
+      balances: output, // Return raw output for now
+    };
+  } catch (error: any) {
+    const errorMessage = error.message || String(error);
+    const stdout = error.stdout || '';
+    const stderr = error.stderr || '';
+    return {
+      success: false,
+      error: `${errorMessage}\nstdout: ${stdout}\nstderr: ${stderr}`,
+    };
+  }
 }
 
 /**
@@ -240,6 +407,15 @@ async function main() {
   const CHANNEL_ID = parseInt(process.env.CHANNEL_ID || '4');
   const INITIALIZE_TX_HASH =
     process.env.INITIALIZE_TX_HASH || '0xef83ef333908e2cec7bbfe3eb8719d7dc1464ef917637ca98868a195e75564c6';
+  // Always use Sepolia RPC for testing (ignore env var to avoid Mainnet confusion)
+  const RPC_URL = SEPOLIA_RPC_URL;
+
+  console.log(`🌐 Using RPC: ${RPC_URL}`);
+  console.log(`🔗 Channel ID: ${CHANNEL_ID}`);
+  console.log(`📝 Init TX: ${INITIALIZE_TX_HASH}\n`);
+
+  // Output directory - fixed to test-outputs for internal testing
+  const outputBaseDir = resolve(__dirname, '../test-outputs');
 
   // Read L1 private keys from environment (for testing only)
   const PRIVATE_KEYS = [process.env.ALICE_PRIVATE_KEY, process.env.BOB_PRIVATE_KEY, process.env.CHARLIE_PRIVATE_KEY];
@@ -289,11 +465,8 @@ async function main() {
   // Derive L2 addresses from L2 private keys
   const allL2Addresses: string[] = participantL2PrivateKeys.map(deriveL2AddressFromPrivateKey);
 
-  // Create SynthesizerAdapter instance
-  const adapter = new SynthesizerAdapter({ rpcUrl: SEPOLIA_RPC_URL });
-
   console.log('╔══════════════════════════════════════════════════════════════╗');
-  console.log('║  Test: Sequential L2 Transfers (Simplified Interface)       ║');
+  console.log('║  Test: Sequential L2 Transfers (Using Binary)                ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
   // ========================================================================
@@ -303,14 +476,17 @@ async function main() {
   console.log('║                  Proof #1: Participant 1 → 2 (1 TON)         ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
-  const result1 = await adapter.synthesizeL2Transfer({
+  // Output path for Proof #1
+  const outputPath1 = resolve(outputBaseDir, 'binary-test-1');
+
+  const result1 = await runL2Transfer({
     channelId: CHANNEL_ID,
     initializeTxHash: INITIALIZE_TX_HASH,
     senderL2PrvKey: participantL2PrivateKeys[0],
     recipientL2Address: allL2Addresses[1],
     amount: '1',
-    outputPath: resolve(__dirname, '../test-outputs/adapter-test-1'),
-    rollupBridgeAddress: ROLLUP_BRIDGE_CORE_ADDRESS,
+    outputPath: outputPath1,
+    rpcUrl: RPC_URL,
   });
 
   if (!result1.success) {
@@ -319,30 +495,32 @@ async function main() {
   }
 
   console.log(`✅ Proof #1 synthesis completed`);
-  console.log(`   Previous State Root: ${result1.previousStateRoot}`);
-  console.log(`   New State Root:      ${result1.newStateRoot}`);
-  console.log(`   State Snapshot:      ${result1.stateSnapshotPath}\n`);
+  console.log(`   Instance Path:      ${result1.instancePath}`);
+  console.log(`   State Snapshot:    ${result1.stateSnapshotPath}\n`);
 
   // Display participant balances after Proof #1
   console.log('📊 Participant Balances after Proof #1:');
-  const balances1 = await adapter.getParticipantBalances({
+  const balances1 = await getParticipantBalances({
     stateSnapshotPath: result1.stateSnapshotPath,
     channelId: CHANNEL_ID,
-    rollupBridgeAddress: ROLLUP_BRIDGE_CORE_ADDRESS,
+    rpcUrl: RPC_URL,
   });
-  console.log(`   State Root: ${balances1.stateRoot}`);
-  balances1.participants.forEach((participant, idx) => {
-    console.log(`   Participant ${idx + 1}:`);
-    console.log(`     L1 Address: ${participant.l1Address}`);
-    console.log(`     L2 MPT Key: ${participant.l2MptKey}`);
-    console.log(`     Balance:    ${participant.balanceInEther} TON`);
-  });
+  if (balances1.success) {
+    console.log(balances1.balances);
+  } else {
+    console.warn(`   ⚠️  Failed to get balances: ${balances1.error}`);
+  }
   console.log('');
 
   // Prove & Verify Proof #1
   console.log(`\n${'='.repeat(80)}`);
   console.log(`Proving and Verifying Proof #1`);
   console.log('='.repeat(80));
+
+  if (!result1.instancePath) {
+    console.error(`\n❌ Instance path not available! Cannot continue.`);
+    process.exit(1);
+  }
 
   const preprocessSuccess = await runPreprocess(result1.instancePath);
   if (!preprocessSuccess) {
@@ -365,21 +543,29 @@ async function main() {
   console.log(`\n✅ Proof #1 Complete: Preprocessed ✅ | Proved ✅ | Verified ✅`);
 
   // ========================================================================
-  // PROOF #2: Participant 2 → 3 (0.5 TON)
+  // PROOF #2: Participant 2 → 0 (0.5 TON)
   // ========================================================================
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
-  console.log('║                  Proof #2: Participant 2 → 3 (0.5 TON)       ║');
+  console.log('║                  Proof #2: Participant 2 → 0 (0.5 TON)         ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
-  const result2 = await adapter.synthesizeL2Transfer({
+  if (!result1.stateSnapshotPath) {
+    console.error(`\n❌ State snapshot path not available! Cannot continue.`);
+    process.exit(1);
+  }
+
+  // Output path for Proof #2
+  const outputPath2 = resolve(outputBaseDir, 'binary-test-2');
+
+  const result2 = await runL2Transfer({
     channelId: CHANNEL_ID,
     initializeTxHash: INITIALIZE_TX_HASH,
     senderL2PrvKey: participantL2PrivateKeys[1],
     recipientL2Address: allL2Addresses[0],
     amount: '0.5',
     previousStatePath: result1.stateSnapshotPath, // Chain from Proof #1
-    outputPath: resolve(__dirname, '../test-outputs/adapter-test-2'),
-    rollupBridgeAddress: ROLLUP_BRIDGE_CORE_ADDRESS,
+    outputPath: outputPath2,
+    rpcUrl: RPC_URL,
   });
 
   if (!result2.success) {
@@ -388,30 +574,32 @@ async function main() {
   }
 
   console.log(`✅ Proof #2 synthesis completed`);
-  console.log(`   Previous State Root: ${result2.previousStateRoot}`);
-  console.log(`   New State Root:      ${result2.newStateRoot}`);
-  console.log(`   State Snapshot:      ${result2.stateSnapshotPath}\n`);
+  console.log(`   Instance Path:      ${result2.instancePath}`);
+  console.log(`   State Snapshot:    ${result2.stateSnapshotPath}\n`);
 
   // Display participant balances after Proof #2
   console.log('📊 Participant Balances after Proof #2:');
-  const balances2 = await adapter.getParticipantBalances({
+  const balances2 = await getParticipantBalances({
     stateSnapshotPath: result2.stateSnapshotPath,
     channelId: CHANNEL_ID,
-    rollupBridgeAddress: ROLLUP_BRIDGE_CORE_ADDRESS,
+    rpcUrl: RPC_URL,
   });
-  console.log(`   State Root: ${balances2.stateRoot}`);
-  balances2.participants.forEach((participant, idx) => {
-    console.log(`   Participant ${idx + 1}:`);
-    console.log(`     L1 Address: ${participant.l1Address}`);
-    console.log(`     L2 MPT Key: ${participant.l2MptKey}`);
-    console.log(`     Balance:    ${participant.balanceInEther} TON`);
-  });
+  if (balances2.success) {
+    console.log(balances2.balances);
+  } else {
+    console.warn(`   ⚠️  Failed to get balances: ${balances2.error}`);
+  }
   console.log('');
 
   // Prove & Verify Proof #2
   console.log(`\n${'='.repeat(80)}`);
   console.log(`Proving and Verifying Proof #2`);
   console.log('='.repeat(80));
+
+  if (!result2.instancePath) {
+    console.error(`\n❌ Instance path not available! Cannot continue.`);
+    process.exit(1);
+  }
 
   const prove2Success = await runProver(2, result2.instancePath);
   if (!prove2Success) {
@@ -427,106 +615,31 @@ async function main() {
 
   console.log(`\n✅ Proof #2 Complete: Proved ✅ | Verified ✅`);
 
-  // // ========================================================================
-  // // PROOF #3: Participant 3 → 1 (1 TON)
-  // // ========================================================================
-  // console.log('\n╔══════════════════════════════════════════════════════════════╗');
-  // console.log('║                  Proof #3: Participant 3 → 1 (1 TON)          ║');
-  // console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  // ========================================================================
+  // SUMMARY
+  // ========================================================================
+  console.log('\n\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║                     Test Summary                              ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  console.log('✅ Successfully completed sequential transfer simulation using binary!');
+  console.log('');
+  console.log('🔬 Proof Generation & Verification:');
+  console.log(`   - Proof #1: Preprocessed ✅ | Proved ✅ | Verified ✅`);
+  console.log(`   - Proof #2: Proved ✅ | Verified ✅`);
+  console.log('');
+  console.log('🔄 Execution Flow:');
+  console.log('   Proof #1: Binary l2-transfer → Preprocess → Prove → Verify ✅ Complete');
+  console.log('             ↓ (await completion)');
+  console.log('   Proof #2: Binary l2-transfer → Prove → Verify ✅ Complete');
+  console.log('');
+  console.log('🎯 Binary Usage:');
+  console.log('   ✅ Uses bin/synthesizer binary for all synthesis operations');
+  console.log('   ✅ Uses bin/synthesizer get-balances for balance queries');
+  console.log('   ✅ Same prove/verify flow as direct API usage');
 
-  // const result3 = await adapter.synthesizeL2Transfer({
-  //   channelId: CHANNEL_ID,
-  //   initializeTxHash: INITIALIZE_TX_HASH,
-  //   senderL2PrvKey: participantL2PrivateKeys[2],
-  //   recipientL2Address: allL2Addresses[0],
-  //   amount: '1',
-  //   previousStatePath: result2.stateSnapshotPath, // Chain from Proof #2
-  //   outputPath: resolve(__dirname, '../test-outputs/adapter-test-3'),
-  //   rollupBridgeAddress: ROLLUP_BRIDGE_CORE_ADDRESS,
-  // });
-
-  // if (!result3.success) {
-  //   console.error(`❌ Proof #3 failed: ${result3.error}`);
-  //   process.exit(1);
-  // }
-
-  // console.log(`✅ Proof #3 synthesis completed`);
-  // console.log(`   Previous State Root: ${result3.previousStateRoot}`);
-  // console.log(`   New State Root:      ${result3.newStateRoot}`);
-  // console.log(`   State Snapshot:      ${result3.stateSnapshotPath}\n`);
-
-  // // Display participant balances after Proof #3
-  // console.log('📊 Participant Balances after Proof #3:');
-  // const balances3 = await adapter.getParticipantBalances({
-  //   stateSnapshotPath: result3.stateSnapshotPath,
-  //   channelId: CHANNEL_ID,
-  //   rollupBridgeAddress: ROLLUP_BRIDGE_CORE_ADDRESS,
-  // });
-  // console.log(`   State Root: ${balances3.stateRoot}`);
-  // balances3.participants.forEach((participant, idx) => {
-  //   console.log(`   Participant ${idx + 1}:`);
-  //   console.log(`     L1 Address: ${participant.l1Address}`);
-  //   console.log(`     L2 MPT Key: ${participant.l2MptKey}`);
-  //   console.log(`     Balance:    ${participant.balanceInEther} TON`);
-  // });
-  // console.log('');
-
-  // // Prove & Verify Proof #3
-  // console.log(`\n${'='.repeat(80)}`);
-  // console.log(`Proving and Verifying Proof #3`);
-  // console.log('='.repeat(80));
-
-  // const prove3Success = await runProver(3, result3.instancePath);
-  // if (!prove3Success) {
-  //   console.error(`\n❌ Proof #3 generation failed! Cannot continue.`);
-  //   process.exit(1);
-  // }
-
-  // const verify3Success = await runVerifyRust(3, result3.instancePath);
-  // if (!verify3Success) {
-  //   console.error(`\n❌ Proof #3 verification failed! Cannot continue.`);
-  //   process.exit(1);
-  // }
-
-  // console.log(`\n✅ Proof #3 Complete: Proved ✅ | Verified ✅`);
-
-  // // ========================================================================
-  // // SUMMARY
-  // // ========================================================================
-  // console.log('\n\n╔══════════════════════════════════════════════════════════════╗');
-  // console.log('║                     Test Summary                              ║');
-  // console.log('╚══════════════════════════════════════════════════════════════╝\n');
-  // console.log('✅ Successfully completed sequential transfer simulation!');
-  // console.log('');
-  // console.log('📊 State Root Evolution:');
-  // console.log(`   Initial (On-chain):         ${result1.previousStateRoot}`);
-  // console.log(`   → Proof #1 (P1→P2, 1 TON):   ${result1.newStateRoot}`);
-  // console.log(`   → Proof #2 (P2→P3, 0.5 TON): ${result2.newStateRoot}`);
-  // console.log(`   → Proof #3 (P3→P1, 1 TON):   ${result3.newStateRoot}`);
-  // console.log('');
-  // console.log('🔬 Proof Generation & Verification:');
-  // console.log(`   - Proof #1: Preprocessed ✅ | Proved ✅ | Verified ✅`);
-  // console.log(`   - Proof #2: Proved ✅ | Verified ✅`);
-  // console.log(`   - Proof #3: Proved ✅ | Verified ✅`);
-  // console.log('');
-  // console.log('🔄 Sequential Execution Flow:');
-  // console.log('   Proof #1: Synthesize → Preprocess → Prove → Verify ✅ Complete');
-  // console.log('             ↓ (await completion)');
-  // console.log('   Proof #2: Synthesize → Prove → Verify ✅ Complete');
-  // console.log('             ↓ (await completion)');
-  // console.log('   Proof #3: Synthesize → Prove → Verify ✅ Complete');
-  // console.log('');
-  // console.log('🎯 API Features:');
-  // console.log('   ✅ No manual calldata generation');
-  // console.log('   ✅ No manual state loading');
-  // console.log('   ✅ No manual blockNumber fetching');
-  // console.log('   ✅ State analysis: getParticipantBalances()');
-  // console.log('   ✅ Just call adapter.synthesizeL2Transfer() with high-level params');
-  // console.log('   ✅ Full proof generation and verification');
-
-  // console.log('\n╔══════════════════════════════════════════════════════════════╗');
-  // console.log('║                    Test Completed Successfully!               ║');
-  // console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║                    Test Completed Successfully!               ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
 }
 
 // Run test
