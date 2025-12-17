@@ -7,7 +7,6 @@
 
 import { utf8ToBytes, setLengthLeft, bytesToBigInt, bigIntToBytes, bytesToHex } from '@ethereumjs/util';
 import { jubjub } from '@noble/curves/misc';
-import { poseidon } from '../../../src/TokamakL2JS/crypto/index.ts';
 import { fromEdwardsToAddress, getUserStorageKey } from '../../../src/TokamakL2JS/utils/index.ts';
 import { ethers } from 'ethers';
 
@@ -16,7 +15,7 @@ import { ethers } from 'ethers';
  *
  * Steps:
  * 1. Extract public key from L1 wallet (EOA public key)
- * 2. Create seed from L1 public key + channel ID + participant name => poseidon hash
+ * 2. Create seed from L1 public key + channel ID + participant name => keccak256 hash
  * 3. Generate private key from seed using jubjub
  * 4. Generate public key from private key
  * 5. Derive L2 address from public key
@@ -51,10 +50,11 @@ export function generateMptKeyFromWallet(
   console.log(`      - l1PublicKeyHex: ${l1PublicKeyHex}`);
 
   // Step 2: Create seed from L1 public key + channel ID + participant name
-  // Concat as strings and hash with poseidon
+  // Concat as strings and hash with keccak256
   const seedString = `${l1PublicKeyHex}${channelId}${participantName}`;
   const seedBytes = utf8ToBytes(seedString);
-  const seedHashBytes = poseidon(seedBytes);
+  const seedHashHex = ethers.keccak256(seedBytes);
+  const seedHashBytes = ethers.getBytes(seedHashHex);
   console.log(`\n   📝 Step 2: Create seed and hash`);
   console.log(`      - seedString: ${seedString}`);
   console.log(`      - seedBytes length: ${seedBytes.length} bytes`);
