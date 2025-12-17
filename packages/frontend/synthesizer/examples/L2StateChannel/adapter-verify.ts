@@ -277,7 +277,8 @@ async function main() {
     const l1PublicKeyHex = wallet.signingKey.publicKey;
     const seedString = `${l1PublicKeyHex}${CHANNEL_ID}${PARTICIPANT_NAMES[participantIndex]!}`;
     const seedBytes = utf8ToBytes(seedString);
-    const seedHashBytes = poseidon(seedBytes);
+    const seedHashHex = ethers.keccak256(seedBytes);
+    const seedHashBytes = ethers.getBytes(seedHashHex);
     const seedHashBigInt = bytesToBigInt(seedHashBytes);
     const privateKeyBigInt = seedHashBigInt % jubjub.Point.Fn.ORDER;
     const privateKeyValue = privateKeyBigInt === 0n ? 1n : privateKeyBigInt;
