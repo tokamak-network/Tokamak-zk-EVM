@@ -7,7 +7,7 @@
 
 import { utf8ToBytes, setLengthLeft, bytesToBigInt, bigIntToBytes, bytesToHex } from '@ethereumjs/util';
 import { jubjub } from '@noble/curves/misc';
-import { fromEdwardsToAddress, getUserStorageKey } from '../../../src/TokamakL2JS/utils/index.ts';
+import { fromEdwardsToAddress, getUserStorageKey } from '../../../src/TokamakL2JS/utils/index';
 import { ethers } from 'ethers';
 
 /**
