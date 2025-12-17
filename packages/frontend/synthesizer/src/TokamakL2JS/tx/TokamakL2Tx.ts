@@ -1,7 +1,7 @@
 import { Address, bigIntToBytes, bytesToBigInt, setLengthLeft, bigIntToUnpaddedBytes, unpadBytes, concatBytes, equalsBytes, bytesToHex } from "@ethereumjs/util"
 import { LegacyTx, TransactionInterface, TransactionType, createLegacyTx } from '@ethereumjs/tx'
 import { EthereumJSErrorWithoutCode } from "@ethereumjs/rlp"
-import { jubjub } from "@noble/curves/jubjub"
+import { jubjub } from "@noble/curves/misc.js"
 import { EdwardsPoint } from "@noble/curves/abstract/edwards"
 import { eddsaSign, eddsaVerify, getEddsaPublicKey, poseidon } from "../crypto/index.ts"
 import { batchBigIntTo32BytesEach, fromEdwardsToAddress } from "../utils/index.ts"

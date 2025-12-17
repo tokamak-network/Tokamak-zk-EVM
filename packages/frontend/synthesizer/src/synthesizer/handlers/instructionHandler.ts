@@ -19,7 +19,7 @@ import { DEFAULT_SOURCE_BIT_SIZE } from 'src/synthesizer/params/index.ts';
 import { DataPtFactory, MemoryPt } from '../dataStructure/index.ts';
 import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from 'src/interface/qapCompiler/configuredTypes.ts';
 import { poseidon } from 'src/TokamakL2JS/index.ts';
-import { jubjub } from '@noble/curves/jubjub';
+import { jubjub } from '@noble/curves/misc.js';
 import { MT_DEPTH, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
 import { CachedStorageEntry } from './stateManager.ts';
 

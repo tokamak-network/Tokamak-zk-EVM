@@ -1,4 +1,4 @@
-import { jubjub } from "@noble/curves/jubjub"
+import { jubjub } from "@noble/curves/misc.js"
 import { poseidon4 } from "poseidon-bls12381"
 import { poseidon_raw } from "../../interface/qapCompiler/configuredTypes.ts"
 import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE, POSEIDON_INPUTS } from "../../interface/qapCompiler/importedConstants.ts"

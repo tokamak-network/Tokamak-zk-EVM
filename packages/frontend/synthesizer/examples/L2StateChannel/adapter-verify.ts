@@ -17,7 +17,7 @@ import { execSync } from 'child_process';
 import { SEPOLIA_RPC_URL, ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI } from './constants.ts';
 import { bytesToBigInt, bigIntToBytes, setLengthLeft, utf8ToBytes } from '@ethereumjs/util';
 import { poseidon, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
-import { jubjub } from '@noble/curves/jubjub';
+import { jubjub } from '@noble/curves/misc.js';
 import { SynthesizerAdapter } from '../../src/interface/adapters/synthesizerAdapter.ts';
 
 // Get __dirname equivalent in ESM
