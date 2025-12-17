@@ -5,6 +5,7 @@ import { addHexPrefix, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFrom
 import { ethers } from "ethers"
 import { SynthesizerBlockInfo, SynthesizerOpts } from "src/synthesizer/types/index.ts"
 import { jubjub } from "@noble/curves/misc"
+import { NUMBER_OF_PREV_BLOCK_HASHES } from "../qapCompiler/importedConstants.ts"
 
 export type SynthesizerSimulationOpts = {
   rpcUrl: string,
@@ -38,7 +39,13 @@ async function getBlockInfoFromRPC(
 		blockNumber: number,
 	): Promise<string> {
 		const block = await provider.getBlock(blockNumber, false)
-		return block?.hash ?? '0x00'
+        if (block === undefined || block === null) {
+            throw new Error(`Can't retrieve a previous block hash. The block is ${block}.`)
+        }
+        if (block.hash === undefined || block.hash === null ){
+            throw new Error(`Can't retrieve a previous block hash. It's ${block?.hash}.`)
+        }
+		return block.hash
 	}	
 
 	const hashes: bigint[] = new Array<bigint>(nHashes)
@@ -56,9 +63,8 @@ async function getBlockInfoFromRPC(
 		chainId: (await provider.getNetwork()).chainId,
 		selfBalance: 0n,
 		blockHashes: hashes,
-        // baseFee: BigInt(block.baseFeePerGas || '0x0'),
+        baseFee: BigInt(block.baseFeePerGas || '0x0'),
         // To avoid EIP check
-        baseFee: undefined,
 	}
 }
 
@@ -66,7 +72,7 @@ export async function createSynthesizerOptsForSimulationFromRPC(opts: Synthesize
     if (typeof opts.rpcUrl !== 'string' || !opts.rpcUrl.startsWith('http')) {
       throw new Error(`valid RPC provider url required; got ${opts.rpcUrl}`)
     }
-    const blockInfo = await getBlockInfoFromRPC(opts.rpcUrl, opts.blockNumber, 1)
+    const blockInfo = await getBlockInfoFromRPC(opts.rpcUrl, opts.blockNumber, NUMBER_OF_PREV_BLOCK_HASHES)
 
     const commonOpts: CommonOpts = {
         chain: {

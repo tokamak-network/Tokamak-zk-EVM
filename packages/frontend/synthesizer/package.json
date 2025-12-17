@@ -138,9 +138,6 @@
   "engines": {
     "node": ">=18"
   },
-  "resolutions": {
-    "@synthesizer-libs/util": "0.0.3"
-  },
   "pkg": {
     "assets": [
       "node_modules/**/*",
