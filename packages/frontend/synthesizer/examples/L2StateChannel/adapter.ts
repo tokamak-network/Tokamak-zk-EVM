@@ -49,9 +49,9 @@ function deriveL2AddressFromPrivateKey(l2PrivateKey: Uint8Array): string {
 // ============================================================================
 
 async function main() {
-  const CHANNEL_ID = parseInt(process.env.CHANNEL_ID || '1');
+  const CHANNEL_ID = parseInt(process.env.CHANNEL_ID || '7');
   const INITIALIZE_TX_HASH =
-    process.env.INITIALIZE_TX_HASH || '0xc804a68999c6153dbe505ac634ee65f7c588acce07fa8310bf485f27e0f245e1';
+    process.env.INITIALIZE_TX_HASH || '0x77b2f6e232bb5a0fa0b1d9a8dd31839519fe9a7f4aa485ec46c4697b3a6b826b';
 
   // Read L1 private keys from environment (for testing only)
   const PRIVATE_KEYS = [process.env.ALICE_PRIVATE_KEY, process.env.BOB_PRIVATE_KEY, process.env.CHARLIE_PRIVATE_KEY];
