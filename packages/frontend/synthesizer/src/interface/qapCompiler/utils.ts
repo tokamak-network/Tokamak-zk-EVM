@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { CircomConstMap, CircomKey, GlobalWireList, isNumber, isTupleNumber2, REQUIRED_CIRCOM_KEYS, SETUP_PARAMS_KEYS, SetupParams, SUBCIRCUIT_INFO_VALIDATORS, SubcircuitInfo, ValidatorMap } from './types.ts';
 import { SUBCIRCUIT_LIST, SubcircuitInfoByName, SubcircuitInfoByNameEntry, SubcircuitNames } from './configuredTypes.ts';
 
@@ -8,19 +9,34 @@ import { SUBCIRCUIT_LIST, SubcircuitInfoByName, SubcircuitInfoByNameEntry, Subci
 // Base location (ESM-friendly): resolve everything relative to this module
 // When running as a Bun binary, use the executable's directory
 // -----------------------------------------------------------------------------
+// function getBaseURL(): URL {
+//   // Check if running as a Bun compiled binary
+//   if ((process as any).isBun && (process as any).execPath) {
+//     // Running as binary: use executable's parent directory
+//     // e.g., /path/to/dist/macOS/bin/synthesizer -> /path/to/dist/macOS/
+//     const execPath = (process as any).execPath as string;
+//     const execDir = fileURLToPath(new URL('.', `file://${execPath}`));
+//     // Go up one level from bin/ to get to the base directory
+//     return new URL('../resource/qap-compiler/', `file://${execDir}`);
+//   }
+
+//   // Development mode: use import.meta.url
+//   return new URL('../../../../qap-compiler/', import.meta.url);
+// }
+
 function getBaseURL(): URL {
-  // Check if running as a Bun compiled binary
-  if ((process as any).isBun && (process as any).execPath) {
-    // Running as binary: use executable's parent directory
-    // e.g., /path/to/dist/macOS/bin/synthesizer -> /path/to/dist/macOS/
-    const execPath = (process as any).execPath as string;
-    const execDir = fileURLToPath(new URL('.', `file://${execPath}`));
-    // Go up one level from bin/ to get to the base directory
-    return new URL('../resource/qap-compiler/', `file://${execDir}`);
+  if (typeof window !== "undefined") {
+    throw new Error("getBaseURL must run on the server");
   }
 
-  // Development mode: use import.meta.url
-  return new URL('../../../../qap-compiler/', import.meta.url);
+  if ((process as any).isBun && (process as any).execPath) {
+    const execPath = (process as any).execPath as string;
+    const execDir = path.dirname(execPath);
+    return pathToFileURL(path.resolve(execDir, "../resource/qap-compiler") + path.sep);
+  }
+
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  return pathToFileURL(path.resolve(here, "../../../../qap-compiler") + path.sep);
 }
 
 export const BASE_URL = getBaseURL();
