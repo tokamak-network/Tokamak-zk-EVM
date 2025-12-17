@@ -11,15 +11,19 @@ TARGET_PLATFORM=${1:-"current"}
 
 echo "🔨 Building Tokamak Synthesizer Binary..."
 
+# Determine output directory (packages/bin, one level up from synthesizer)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)/bin"
+
 # Remove existing bin directory if it exists
-if [ -d "bin" ]; then
+if [ -d "$BIN_DIR" ]; then
     echo "📁 Removing existing bin directory..."
-    rm -rf bin
+    rm -rf "$BIN_DIR"
 fi
 
 # Create new bin directory
-echo "📁 Creating bin directory..."
-mkdir -p bin
+echo "📁 Creating bin directory at $BIN_DIR..."
+mkdir -p "$BIN_DIR"
 
 # Add Bun to PATH
 export PATH="$HOME/.bun/bin:$PATH"
@@ -81,12 +85,12 @@ build_for_platform() {
     echo "⚡ Building $display_name binary..."
 
     if [ "$target" = "current" ]; then
-        bun build --compile src/interface/cli/index.ts --outfile ./bin/$output_name
+        bun build --compile src/interface/cli/index.ts --outfile "$BIN_DIR/$output_name"
     else
-        bun build --compile --target=$target src/interface/cli/index.ts --outfile ./bin/$output_name
+        bun build --compile --target=$target src/interface/cli/index.ts --outfile "$BIN_DIR/$output_name"
     fi
 
-    if [ -f "bin/$output_name" ]; then
+    if [ -f "$BIN_DIR/$output_name" ]; then
         echo "✅ $display_name binary built successfully!"
         echo "📊 Binary size: $(du -h bin/$output_name | cut -f1)"
 
@@ -95,10 +99,42 @@ build_for_platform() {
 
         # Test binary
         echo "🧪 Testing binary..."
-        if ./bin/$output_name info >/dev/null 2>&1; then
+        if "$BIN_DIR/$output_name" info >/dev/null 2>&1; then
             echo "✅ Binary test successful"
         else
             echo "⚠️  Binary test failed, but binary was created"
+        fi
+
+        # Copy to dist directory for current platform
+        if [ "$target" = "current" ]; then
+            local dist_dir=""
+            case "$(uname -s)" in
+                Darwin)
+                    dist_dir="$(cd "$SCRIPT_DIR/../../.." && pwd)/dist/macOS/bin"
+                    ;;
+                Linux)
+                    if [ -f /etc/os-release ]; then
+                        . /etc/os-release
+                        case "${VERSION_ID:-}" in
+                            20*|20.*) dist_dir="$(cd "$SCRIPT_DIR/../../.." && pwd)/dist/linux20/bin" ;;
+                            22*|22.*) dist_dir="$(cd "$SCRIPT_DIR/../../.." && pwd)/dist/linux22/bin" ;;
+                            *) dist_dir="$(cd "$SCRIPT_DIR/../../.." && pwd)/dist/linux22/bin" ;;
+                        esac
+                    else
+                        dist_dir="$(cd "$SCRIPT_DIR/../../.." && pwd)/dist/linux22/bin"
+                    fi
+                    ;;
+                *)
+                    echo "⚠️  Unknown platform, skipping dist copy"
+                    return 0
+                    ;;
+            esac
+
+            if [ -n "$dist_dir" ]; then
+                mkdir -p "$dist_dir"
+                cp "$BIN_DIR/$output_name" "$dist_dir/synthesizer"
+                echo "✅ Binary copied to $dist_dir/synthesizer"
+            fi
         fi
     else
         echo "❌ Error: $display_name binary was not created"
@@ -110,7 +146,7 @@ build_for_platform() {
 case $TARGET_PLATFORM in
     "current")
         build_for_platform "current" "synthesizer" "Current platform"
-        echo "🚀 Run with: ./bin/synthesizer info"
+        echo "🚀 Run with: $BIN_DIR/synthesizer info"
         ;;
     "all")
         echo "🌍 Building for all platforms..."
@@ -120,10 +156,10 @@ case $TARGET_PLATFORM in
         build_for_platform "bun-windows-x64" "synthesizer-windows-x64.exe" "Windows x64"
         echo ""
         echo "🚀 Usage:"
-        echo "  macOS ARM64: ./bin/synthesizer-macos-arm64 info"
-        echo "  macOS x64:   ./bin/synthesizer-macos-x64 info"
-        echo "  Linux x64:   ./bin/synthesizer-linux-x64 info"
-        echo "  Windows x64: ./bin/synthesizer-windows-x64.exe info"
+        echo "  macOS ARM64: $BIN_DIR/synthesizer-macos-arm64 info"
+        echo "  macOS x64:   $BIN_DIR/synthesizer-macos-x64 info"
+        echo "  Linux x64:   $BIN_DIR/synthesizer-linux-x64 info"
+        echo "  Windows x64: $BIN_DIR/synthesizer-windows-x64.exe info"
         ;;
     "windows")
         build_for_platform "bun-windows-x64" "synthesizer-windows-x64.exe" "Windows x64"
@@ -136,8 +172,8 @@ case $TARGET_PLATFORM in
     "macos")
         build_for_platform "bun-darwin-arm64" "synthesizer-macos-arm64" "macOS ARM64"
         build_for_platform "bun-darwin-x64" "synthesizer-macos-x64" "macOS x64"
-        echo "🚀 Run ARM64: ./bin/synthesizer-macos-arm64 info"
-        echo "🚀 Run x64:   ./bin/synthesizer-macos-x64 info"
+        echo "🚀 Run ARM64: $BIN_DIR/synthesizer-macos-arm64 info"
+        echo "🚀 Run x64:   $BIN_DIR/synthesizer-macos-x64 info"
         ;;
     *)
         echo "❌ Unknown platform: $TARGET_PLATFORM"
@@ -149,5 +185,6 @@ esac
 echo ""
 echo "✨ Build completed!"
 echo ""
-echo "💡 WASM files are copied to bin/wasm/ directory"
-echo "🔧 Copy the entire bin/ directory to other computers"
+echo "📁 Binary location: $BIN_DIR/synthesizer"
+echo "💡 WASM files are in resource/qap-compiler/library/"
+echo "🔧 Binary is also copied to dist/<platform>/bin/ for tokamak-cli usage"

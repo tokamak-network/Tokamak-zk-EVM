@@ -237,9 +237,9 @@ async function runVerifyRust(proofNum: number, outputsPath: string): Promise<boo
 // ============================================================================
 
 async function main() {
-  const CHANNEL_ID = parseInt(process.env.CHANNEL_ID || '4');
+  const CHANNEL_ID = parseInt(process.env.CHANNEL_ID || '5');
   const INITIALIZE_TX_HASH =
-    process.env.INITIALIZE_TX_HASH || '0xef83ef333908e2cec7bbfe3eb8719d7dc1464ef917637ca98868a195e75564c6';
+    process.env.INITIALIZE_TX_HASH || '0x93860eabc5925cf880a660fe1af642336544e41baf0fe462f9519ed21a19855a';
 
   // Read L1 private keys from environment (for testing only)
   const PRIVATE_KEYS = [process.env.ALICE_PRIVATE_KEY, process.env.BOB_PRIVATE_KEY, process.env.CHARLIE_PRIVATE_KEY];
