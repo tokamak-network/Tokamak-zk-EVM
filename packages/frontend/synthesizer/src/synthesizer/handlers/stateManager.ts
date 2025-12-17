@@ -11,7 +11,7 @@ import {
   type ReservedVariable,
   type SynthesizerOpts,
 } from '../types/index.ts';
-import { jubjub } from '@noble/curves/misc';
+import { jubjub } from '@noble/curves/misc.js';
 import { AddressLike, bigIntToHex, bytesToBigInt, equalsBytes } from '@ethereumjs/util';
 import { MemoryPt, StackPt } from '../dataStructure/index.ts';
 import {

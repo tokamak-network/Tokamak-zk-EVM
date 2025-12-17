@@ -1,4 +1,4 @@
-import {jubjub} from '@noble/curves/misc';
+import {jubjub} from '@noble/curves/misc.js';
 import {bls12_381} from '@noble/curves/bls12-381';
 
 const Gx = jubjub.Point.BASE.x;

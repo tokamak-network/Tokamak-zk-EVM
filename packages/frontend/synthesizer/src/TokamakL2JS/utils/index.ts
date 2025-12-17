@@ -1,6 +1,6 @@
 import { addHexPrefix, Address, bigIntToBytes, bytesToBigInt, bytesToHex, concatBytes, hexToBigInt, hexToBytes, setLengthLeft } from "@ethereumjs/util"
 import { EdwardsPoint } from "@noble/curves/abstract/edwards"
-import { jubjub } from "@noble/curves/misc"
+import { jubjub } from "@noble/curves/misc.js"
 import { poseidon } from "../crypto/index.ts"
 import { keccak256 } from "ethereum-cryptography/keccak"
 
