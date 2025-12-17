@@ -43,7 +43,7 @@ import {
 import { TokamakL2StateManager } from '../../src/TokamakL2JS/stateManager/TokamakL2StateManager.ts';
 import { poseidon, getEddsaPublicKey, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { Common, Mainnet } from '@ethereumjs/common';
-import { jubjub } from '@noble/curves/misc.js';
+import { jubjub } from '@noble/curves/jubjub';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
 import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../src/interface/index.ts';

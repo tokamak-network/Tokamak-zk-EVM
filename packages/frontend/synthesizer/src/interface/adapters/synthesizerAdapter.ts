@@ -9,7 +9,7 @@
  */
 
 import { ethers } from 'ethers';
-import { jubjub } from '@noble/curves/misc.js';
+import { jubjub } from '@noble/curves/jubjub';
 import { writeFileSync } from 'fs';
 import { resolve } from 'path';
 import {

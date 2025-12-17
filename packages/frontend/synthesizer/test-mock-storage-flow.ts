@@ -5,7 +5,7 @@
 
 import { SynthesizerAdapter } from './src/interface/adapters/synthesizerAdapter.ts';
 import { encodeTransfer, toWei, fromWei } from './src/interface/adapters/calldataHelpers.ts';
-import { jubjub } from '@noble/curves/misc.js';
+import { jubjub } from '@noble/curves/jubjub';
 import {
   setLengthLeft,
   utf8ToBytes,

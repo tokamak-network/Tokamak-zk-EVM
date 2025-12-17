@@ -20,7 +20,7 @@ import {
   utf8ToBytes,
 } from '@ethereumjs/util';
 import { poseidon, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
-import { jubjub } from '@noble/curves/misc.js';
+import { jubjub } from '@noble/curves/jubjub';
 import { SynthesizerAdapter } from '../../src/interface/adapters/synthesizerAdapter.ts';
 
 // Get __dirname equivalent in ESM

@@ -1,4 +1,4 @@
-import { jubjub } from "@noble/curves/misc.js";
+import { jubjub } from "@noble/curves/jubjub";
 import { DST_NONCE } from "../../synthesizer/params/index.ts";
 import { bigIntToBytes, bytesToBigInt, concatBytes, setLengthLeft } from "@ethereumjs/util";
 import { EdwardsPoint } from "@noble/curves/abstract/edwards";

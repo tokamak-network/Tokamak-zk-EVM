@@ -5,7 +5,7 @@ import { poseidon4 } from 'poseidon-bls12381';
 import { DataPtFactory } from '../dataStructure/index.ts';
 import { DEFAULT_SOURCE_BIT_SIZE } from 'src/synthesizer/params/index.ts';
 import { ArithmeticOperator, poseidon_raw, SUBCIRCUIT_ALU_MAPPING, SubcircuitNames } from 'src/interface/qapCompiler/configuredTypes.ts';
-import { jubjub } from '@noble/curves/misc.js';
+import { jubjub } from '@noble/curves/jubjub';
 import { ArithmeticOperations } from '../dataStructure/arithmeticOperations.ts';
 import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE, MT_DEPTH, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
 

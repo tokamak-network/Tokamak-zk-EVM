@@ -1,7 +1,7 @@
 import { MerkleStateManager } from "@ethereumjs/statemanager";
 import { TokamakL2StateManagerOpts } from "./types.ts";
 import { StateManagerInterface } from "@ethereumjs/common";
-import { jubjub } from "@noble/curves/misc";
+import { jubjub } from "@noble/curves/jubjub";
 import { IMT, IMTHashFunction, IMTMerkleProof, IMTNode } from "@zk-kit/imt"
 import { addHexPrefix, Address, bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, concatBytes, createAccount, createAddressFromString, hexToBytes, setLengthLeft, setLengthRight, toBytes } from "@ethereumjs/util";
 import { MAX_MT_LEAVES, MT_DEPTH, POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts";

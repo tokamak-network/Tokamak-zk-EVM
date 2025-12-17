@@ -4,7 +4,7 @@ import { RPCStateManager } from "@ethereumjs/statemanager"
 import { addHexPrefix, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromString, hexToBigInt, hexToBytes, toBytes } from "@ethereumjs/util"
 import { ethers } from "ethers"
 import { SynthesizerBlockInfo, SynthesizerOpts } from "src/synthesizer/types/index.ts"
-import { jubjub } from "@noble/curves/misc"
+import { jubjub } from "@noble/curves/jubjub"
 import { NUMBER_OF_PREV_BLOCK_HASHES } from "../qapCompiler/importedConstants.ts"
 
 export type SynthesizerSimulationOpts = {
