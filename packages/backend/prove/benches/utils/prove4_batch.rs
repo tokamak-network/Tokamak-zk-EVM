@@ -8,6 +8,7 @@ use icicle_runtime::stream::IcicleStream;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::group_structures::{G1serde, Sigma1};
 use libs::iotools::SetupParams;
+use libs::vector_operations::resize;
 use prove::{Proof3, Proof4, Proof4Test, Prover};
 
 fn prepare_encode_poly(
@@ -16,6 +17,35 @@ fn prepare_encode_poly(
     params: &SetupParams,
 ) -> (Vec<ScalarField>, Vec<G1Affine>) {
     crate::utils::prove_init_batch::prepare_encode_poly(poly, sigma1, params)
+}
+
+/// Prepare polynomial coefficients only (without points) for batched MSM with shared points
+fn prepare_poly_coeffs_for_batch(
+    poly: &mut DensePolynomialExt,
+    max_x_size: usize,
+    max_y_size: usize,
+) -> Vec<ScalarField> {
+    poly.optimize_size();
+    let target_x_size = (poly.x_degree + 1) as usize;
+    let target_y_size = (poly.y_degree + 1) as usize;
+
+    if target_x_size * target_y_size == 0 {
+        return vec![ScalarField::zero(); max_x_size * max_y_size];
+    }
+
+    // Get polynomial coefficients
+    let mut poly_coeffs = vec![ScalarField::zero(); poly.x_size * poly.y_size];
+    poly.copy_coeffs(0, HostSlice::from_mut_slice(&mut poly_coeffs));
+
+    // Resize directly to max dimensions (combines target resize + padding)
+    resize(
+        &poly_coeffs,
+        poly.x_size,
+        poly.y_size,
+        max_x_size,
+        max_y_size,
+        ScalarField::zero(),
+    )
 }
 
 pub fn prove4_sequential(
@@ -538,100 +568,249 @@ pub fn prove4_batched(
         pi_B_XY
     };
 
-    // Prepare data for all MSMs
-    let inputs = vec![
-        &mut Pi_AX_XY,
-        &mut Pi_AY_XY,
-        &mut M_X_XY,
-        &mut M_Y_XY,
-        &mut N_X_XY,
-        &mut N_Y_XY,
-        &mut Pi_CX_XY,
-        &mut Pi_CY_XY,
-        &mut pi_B_XY,
-    ];
+    // ==========================================================================
+    // GROUPED BATCH MSM STRATEGY
+    // Based on actual polynomial dimensions:
+    //   Pi_CX: 4095x511 = 2,092,545 (largest, individual)
+    //   Pi_AX: 2050x511 = 1,047,550 (large, individual)
+    //   M_X, N_X: 2048x256 = 524,288 each (SAME - batch together!)
+    //   Pi_AY, Pi_CY: 1x510 = 510 each (similar - batch together)
+    //   M_Y, N_Y: 1x256 = 256 each (SAME - batch together!)
+    //   pi_B: 511x1 = 511 (tiny, individual)
+    // ==========================================================================
 
-    let mut prep_results: Vec<(Vec<ScalarField>, Vec<G1Affine>)> = Vec::with_capacity(9);
-    let mut total_elements = 0usize;
-    let poly_names = [
-        "Pi_AX_XY", "Pi_AY_XY", "M_X_XY", "M_Y_XY", "N_X_XY", "N_Y_XY", "Pi_CX_XY", "Pi_CY_XY", "pi_B_XY"
-    ];
+    let rs_x_size = std::cmp::max(
+        2 * prover.setup_params.n,
+        2 * (prover.setup_params.l_D - prover.setup_params.l),
+    );
+    let rs_y_size = prover.setup_params.s_max * 2;
 
-    for (i, poly) in inputs.into_iter().enumerate() {
-        let (scalars, points) =
-            prepare_encode_poly(poly, &prover.sigma.sigma_1, &prover.setup_params);
-        println!("  {}: {} elements", poly_names[i], scalars.len());
-        total_elements += scalars.len();
-        prep_results.push((scalars, points));
-    }
-    // Optimized async MSM: Run all MSMs concurrently on a single stream
-    // The GPU scheduler handles parallelism internally, reducing stream overhead
-    // Indices: 0=Pi_AX_XY, 1=Pi_AY_XY, 2=M_X_XY, 3=M_Y_XY, 4=N_X_XY, 5=N_Y_XY, 6=Pi_CX_XY, 7=Pi_CY_XY, 8=pi_B_XY
-
-    let mut results = vec![G1Projective::zero(); 9];
     let mut stream = IcicleStream::create().unwrap();
 
-    // Pre-allocate all device vectors
-    struct MsmData {
-        d_scalars: DeviceVec<ScalarField>,
-        d_points: DeviceVec<G1Affine>,
-        d_result: DeviceVec<G1Projective>,
-    }
+    // Helper to get poly coefficients
+    let get_coeffs = |poly: &DensePolynomialExt, x_dim: usize, y_dim: usize| -> Vec<ScalarField> {
+        let mut coeffs = vec![ScalarField::zero(); poly.x_size * poly.y_size];
+        poly.copy_coeffs(0, HostSlice::from_mut_slice(&mut coeffs));
+        resize(&coeffs, poly.x_size, poly.y_size, x_dim, y_dim, ScalarField::zero())
+    };
 
-    let mut msm_data: Vec<Option<MsmData>> = Vec::with_capacity(9);
+    // Helper to get resized points
+    let get_points = |x_dim: usize, y_dim: usize| -> Vec<G1Affine> {
+        let rs_resized = resize(
+            &prover.sigma.sigma_1.xy_powers,
+            rs_x_size,
+            rs_y_size,
+            x_dim,
+            y_dim,
+            G1serde::zero(),
+        );
+        rs_resized.iter().map(|x| x.0).collect()
+    };
 
-    // Allocate and copy data for all MSMs
-    for (scalars, points) in &prep_results {
-        if scalars.is_empty() {
-            msm_data.push(None);
-            continue;
-        }
-        let len = scalars.len();
-        let d_scalars = DeviceVec::device_malloc_async(len, &stream).unwrap();
-        let d_points = DeviceVec::device_malloc_async(len, &stream).unwrap();
-        let d_result = DeviceVec::device_malloc_async(1, &stream).unwrap();
-        msm_data.push(Some(MsmData { d_scalars, d_points, d_result }));
-    }
+    // ---------- BATCH 1: M_X + N_X (both 2048x256 = 524,288) ----------
+    let (M_X, N_X) = {
+        M_X_XY.optimize_size();
+        N_X_XY.optimize_size();
+        let x_dim = (M_X_XY.x_degree + 1) as usize;
+        let y_dim = (M_X_XY.y_degree + 1) as usize;
+        let msm_size = x_dim * y_dim;
 
-    // Copy data to device (all async on same stream - pipelined)
-    for (i, (scalars, points)) in prep_results.iter().enumerate() {
-        if let Some(ref mut data) = msm_data[i] {
-            data.d_scalars.copy_from_host_async(HostSlice::from_slice(scalars), &stream).unwrap();
-            data.d_points.copy_from_host_async(HostSlice::from_slice(points), &stream).unwrap();
-        }
-    }
+        // Prepare shared points (same for both)
+        let points = get_points(x_dim, y_dim);
 
-    // Launch all MSMs (async on same stream - GPU handles scheduling)
-    let mut config = MSMConfig::default();
-    config.is_async = true;
-    config.stream_handle = *stream;
+        // Prepare scalars for both polynomials
+        let scalars_m = get_coeffs(&M_X_XY, x_dim, y_dim);
+        let scalars_n = get_coeffs(&N_X_XY, x_dim, y_dim);
+        let mut flat_scalars = Vec::with_capacity(2 * msm_size);
+        flat_scalars.extend(scalars_m);
+        flat_scalars.extend(scalars_n);
 
-    for data in &mut msm_data {
-        if let Some(ref mut d) = data {
-            msm::msm(&d.d_scalars, &d.d_points, &config, &mut d.d_result).unwrap();
-        }
-    }
+        // Allocate and copy
+        let mut d_scalars = DeviceVec::device_malloc_async(flat_scalars.len(), &stream).unwrap();
+        let mut d_points = DeviceVec::device_malloc_async(points.len(), &stream).unwrap();
+        let mut d_results = DeviceVec::device_malloc_async(2, &stream).unwrap();
 
-    // Copy results back (async)
-    for (i, data) in msm_data.iter_mut().enumerate() {
-        if let Some(ref mut d) = data {
-            d.d_result.copy_to_host_async(HostSlice::from_mut_slice(&mut results[i..i+1]), &stream).unwrap();
-        }
-    }
+        d_scalars.copy_from_host_async(HostSlice::from_slice(&flat_scalars), &stream).unwrap();
+        d_points.copy_from_host_async(HostSlice::from_slice(&points), &stream).unwrap();
 
-    // Single synchronization point
-    stream.synchronize().unwrap();
+        // Batch MSM with shared points
+        let mut config = MSMConfig::default();
+        config.batch_size = 2;
+        config.are_points_shared_in_batch = true;
+        config.is_async = true;
+        config.stream_handle = *stream;
+
+        msm::msm(&d_scalars[..], &d_points[..], &config, &mut d_results[..]).unwrap();
+
+        let mut results = vec![G1Projective::zero(); 2];
+        d_results.copy_to_host_async(HostSlice::from_mut_slice(&mut results), &stream).unwrap();
+        stream.synchronize().unwrap();
+
+        (G1serde(G1Affine::from(results[0])), G1serde(G1Affine::from(results[1])))
+    };
+
+    // ---------- BATCH 2: M_Y + N_Y (both 1x256 = 256) ----------
+    let (M_Y, N_Y) = {
+        M_Y_XY.optimize_size();
+        N_Y_XY.optimize_size();
+        let x_dim = (M_Y_XY.x_degree + 1) as usize;
+        let y_dim = (M_Y_XY.y_degree + 1) as usize;
+        let msm_size = x_dim * y_dim;
+
+        let points = get_points(x_dim, y_dim);
+        let scalars_m = get_coeffs(&M_Y_XY, x_dim, y_dim);
+        let scalars_n = get_coeffs(&N_Y_XY, x_dim, y_dim);
+        let mut flat_scalars = Vec::with_capacity(2 * msm_size);
+        flat_scalars.extend(scalars_m);
+        flat_scalars.extend(scalars_n);
+
+        let mut d_scalars = DeviceVec::device_malloc_async(flat_scalars.len(), &stream).unwrap();
+        let mut d_points = DeviceVec::device_malloc_async(points.len(), &stream).unwrap();
+        let mut d_results = DeviceVec::device_malloc_async(2, &stream).unwrap();
+
+        d_scalars.copy_from_host_async(HostSlice::from_slice(&flat_scalars), &stream).unwrap();
+        d_points.copy_from_host_async(HostSlice::from_slice(&points), &stream).unwrap();
+
+        let mut config = MSMConfig::default();
+        config.batch_size = 2;
+        config.are_points_shared_in_batch = true;
+        config.is_async = true;
+        config.stream_handle = *stream;
+
+        msm::msm(&d_scalars[..], &d_points[..], &config, &mut d_results[..]).unwrap();
+
+        let mut results = vec![G1Projective::zero(); 2];
+        d_results.copy_to_host_async(HostSlice::from_mut_slice(&mut results), &stream).unwrap();
+        stream.synchronize().unwrap();
+
+        (G1serde(G1Affine::from(results[0])), G1serde(G1Affine::from(results[1])))
+    };
+
+    // ---------- BATCH 3: Pi_AY + Pi_CY (both 1x510 = 510) ----------
+    let (Pi_AY, Pi_CY) = {
+        Pi_AY_XY.optimize_size();
+        Pi_CY_XY.optimize_size();
+        let x_dim = (Pi_AY_XY.x_degree + 1) as usize;
+        let y_dim = (Pi_AY_XY.y_degree + 1) as usize;
+        let msm_size = x_dim * y_dim;
+
+        let points = get_points(x_dim, y_dim);
+        let scalars_a = get_coeffs(&Pi_AY_XY, x_dim, y_dim);
+        let scalars_c = get_coeffs(&Pi_CY_XY, x_dim, y_dim);
+        let mut flat_scalars = Vec::with_capacity(2 * msm_size);
+        flat_scalars.extend(scalars_a);
+        flat_scalars.extend(scalars_c);
+
+        let mut d_scalars = DeviceVec::device_malloc_async(flat_scalars.len(), &stream).unwrap();
+        let mut d_points = DeviceVec::device_malloc_async(points.len(), &stream).unwrap();
+        let mut d_results = DeviceVec::device_malloc_async(2, &stream).unwrap();
+
+        d_scalars.copy_from_host_async(HostSlice::from_slice(&flat_scalars), &stream).unwrap();
+        d_points.copy_from_host_async(HostSlice::from_slice(&points), &stream).unwrap();
+
+        let mut config = MSMConfig::default();
+        config.batch_size = 2;
+        config.are_points_shared_in_batch = true;
+        config.is_async = true;
+        config.stream_handle = *stream;
+
+        msm::msm(&d_scalars[..], &d_points[..], &config, &mut d_results[..]).unwrap();
+
+        let mut results = vec![G1Projective::zero(); 2];
+        d_results.copy_to_host_async(HostSlice::from_mut_slice(&mut results), &stream).unwrap();
+        stream.synchronize().unwrap();
+
+        (G1serde(G1Affine::from(results[0])), G1serde(G1Affine::from(results[1])))
+    };
+
+    // ---------- INDIVIDUAL: Pi_CX (4095x511 = 2,092,545) ----------
+    let Pi_CX = {
+        Pi_CX_XY.optimize_size();
+        let x_dim = (Pi_CX_XY.x_degree + 1) as usize;
+        let y_dim = (Pi_CX_XY.y_degree + 1) as usize;
+
+        let scalars = get_coeffs(&Pi_CX_XY, x_dim, y_dim);
+        let points = get_points(x_dim, y_dim);
+
+        let mut d_scalars = DeviceVec::device_malloc_async(scalars.len(), &stream).unwrap();
+        let mut d_points = DeviceVec::device_malloc_async(points.len(), &stream).unwrap();
+        let mut d_result = DeviceVec::device_malloc_async(1, &stream).unwrap();
+
+        d_scalars.copy_from_host_async(HostSlice::from_slice(&scalars), &stream).unwrap();
+        d_points.copy_from_host_async(HostSlice::from_slice(&points), &stream).unwrap();
+
+        let mut config = MSMConfig::default();
+        config.is_async = true;
+        config.stream_handle = *stream;
+
+        msm::msm(&d_scalars[..], &d_points[..], &config, &mut d_result[..]).unwrap();
+
+        let mut result = vec![G1Projective::zero(); 1];
+        d_result.copy_to_host_async(HostSlice::from_mut_slice(&mut result), &stream).unwrap();
+        stream.synchronize().unwrap();
+
+        G1serde(G1Affine::from(result[0]))
+    };
+
+    // ---------- INDIVIDUAL: Pi_AX (2050x511 = 1,047,550) ----------
+    let Pi_AX = {
+        Pi_AX_XY.optimize_size();
+        let x_dim = (Pi_AX_XY.x_degree + 1) as usize;
+        let y_dim = (Pi_AX_XY.y_degree + 1) as usize;
+
+        let scalars = get_coeffs(&Pi_AX_XY, x_dim, y_dim);
+        let points = get_points(x_dim, y_dim);
+
+        let mut d_scalars = DeviceVec::device_malloc_async(scalars.len(), &stream).unwrap();
+        let mut d_points = DeviceVec::device_malloc_async(points.len(), &stream).unwrap();
+        let mut d_result = DeviceVec::device_malloc_async(1, &stream).unwrap();
+
+        d_scalars.copy_from_host_async(HostSlice::from_slice(&scalars), &stream).unwrap();
+        d_points.copy_from_host_async(HostSlice::from_slice(&points), &stream).unwrap();
+
+        let mut config = MSMConfig::default();
+        config.is_async = true;
+        config.stream_handle = *stream;
+
+        msm::msm(&d_scalars[..], &d_points[..], &config, &mut d_result[..]).unwrap();
+
+        let mut result = vec![G1Projective::zero(); 1];
+        d_result.copy_to_host_async(HostSlice::from_mut_slice(&mut result), &stream).unwrap();
+        stream.synchronize().unwrap();
+
+        G1serde(G1Affine::from(result[0]))
+    };
+
+    // ---------- INDIVIDUAL: pi_B (511x1 = 511) ----------
+    let Pi_B = {
+        pi_B_XY.optimize_size();
+        let x_dim = (pi_B_XY.x_degree + 1) as usize;
+        let y_dim = (pi_B_XY.y_degree + 1) as usize;
+
+        let scalars = get_coeffs(&pi_B_XY, x_dim, y_dim);
+        let points = get_points(x_dim, y_dim);
+
+        let mut d_scalars = DeviceVec::device_malloc_async(scalars.len(), &stream).unwrap();
+        let mut d_points = DeviceVec::device_malloc_async(points.len(), &stream).unwrap();
+        let mut d_result = DeviceVec::device_malloc_async(1, &stream).unwrap();
+
+        d_scalars.copy_from_host_async(HostSlice::from_slice(&scalars), &stream).unwrap();
+        d_points.copy_from_host_async(HostSlice::from_slice(&points), &stream).unwrap();
+
+        let mut config = MSMConfig::default();
+        config.is_async = true;
+        config.stream_handle = *stream;
+
+        msm::msm(&d_scalars[..], &d_points[..], &config, &mut d_result[..]).unwrap();
+
+        let mut result = vec![G1Projective::zero(); 1];
+        d_result.copy_to_host_async(HostSlice::from_mut_slice(&mut result), &stream).unwrap();
+        stream.synchronize().unwrap();
+
+        G1serde(G1Affine::from(result[0])) * kappa1.pow(4)
+    };
+
     stream.destroy().unwrap();
-
-    let Pi_AX = G1serde(G1Affine::from(results[0]));
-    let Pi_AY = G1serde(G1Affine::from(results[1]));
-    let M_X = G1serde(G1Affine::from(results[2]));
-    let M_Y = G1serde(G1Affine::from(results[3]));
-    let N_X = G1serde(G1Affine::from(results[4]));
-    let N_Y = G1serde(G1Affine::from(results[5]));
-    let Pi_CX = G1serde(G1Affine::from(results[6]));
-    let Pi_CY = G1serde(G1Affine::from(results[7]));
-    let Pi_B = G1serde(G1Affine::from(results[8])) * kappa1.pow(4);
 
     let Pi_X = Pi_AX + Pi_CX + Pi_B;
     let Pi_Y = Pi_AY + Pi_CY;
