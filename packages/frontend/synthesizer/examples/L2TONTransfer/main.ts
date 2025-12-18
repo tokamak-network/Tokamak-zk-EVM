@@ -17,7 +17,7 @@ import { fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
 import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../src/interface/index.ts';
-import { getUserStorageKey } from '../../src/TokamakL2JS/utils/index.ts';
+import { getUserStorageKey } from '../../src/TokamakL2JS/index.ts';
 
 type L2TONTransferConfig = {
   privateKeySeedsL2: string[];
