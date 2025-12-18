@@ -1,4 +1,4 @@
-import { SubcircuitNames } from "src/interface/qapCompiler/configuredTypes.ts";
+import { SubcircuitNames } from "../../interface/qapCompiler/configuredTypes.ts";
 import { DataPt } from "./dataStructure.ts";
 
 

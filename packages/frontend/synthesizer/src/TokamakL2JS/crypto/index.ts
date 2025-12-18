@@ -3,9 +3,9 @@ import { DST_NONCE } from "../../synthesizer/params/index.ts";
 import { bigIntToBytes, bytesToBigInt, concatBytes, setLengthLeft } from "@ethereumjs/util";
 import { EdwardsPoint } from "@noble/curves/abstract/edwards";
 import { batchBigIntTo32BytesEach } from "../utils/utils.ts";
-import { POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts";
-import { poseidon_raw } from "src/interface/qapCompiler/configuredTypes.ts";
-import { ArithmeticOperations } from "src/synthesizer/dataStructure/arithmeticOperations.ts";
+import { POSEIDON_INPUTS } from "../../interface/qapCompiler/importedConstants.ts";
+import { poseidon_raw } from "../../interface/qapCompiler/configuredTypes.ts";
+import { ArithmeticOperations } from "../../synthesizer/dataStructure/arithmeticOperations.ts";
 
 // To replace KECCAK256 with poseidon4. Example:
 // const common = new Common({ chain: Mainnet, customCrypto: { keccak256: poseidon } })
