@@ -24,12 +24,12 @@ export const deriveL2KeysFromSignature = (signature: `0x${string}`):  L2KeyPair 
   return {privateKey, publicKey};
 };
 
-export const deriveL2AddressFromKeys = async (keys: L2KeyPair, channelId: `0x${string}`): Promise<`0x${string}`> => {
+export const deriveL2AddressFromKeys = (keys: L2KeyPair): `0x${string}` => {
   const address = fromEdwardsToAddress(keys.publicKey);
   return address.toString()
 };
 
-export const deriveL2MptKeyFromAddress = async (address: `0x${string}`, channelId: `0x${string}`, slotIndex: number): Promise<`0x${string}`> => {
+export const deriveL2MptKeyFromAddress = (address: `0x${string}`, slotIndex: number): `0x${string}` => {
   const mptKey = getUserStorageKey([address, slotIndex], 'TokamakL2');
   return bytesToHex(mptKey)
 };
