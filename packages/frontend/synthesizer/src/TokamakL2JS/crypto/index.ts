@@ -1,7 +1,7 @@
-import { jubjub } from "@noble/curves/misc";
+import { jubjub } from "@noble/curves/misc.js";
 import { DST_NONCE } from "../../synthesizer/params/index.ts";
 import { bigIntToBytes, bytesToBigInt, concatBytes, setLengthLeft } from "@ethereumjs/util";
-import { EdwardsPoint } from "@noble/curves/abstract/edwards";
+import { EdwardsPoint } from "@noble/curves/abstract/edwards.js";
 import { batchBigIntTo32BytesEach } from "../utils/utils.ts";
 import { POSEIDON_INPUTS } from "../../interface/qapCompiler/importedConstants.ts";
 import { poseidon_raw } from "../../interface/qapCompiler/configuredTypes.ts";

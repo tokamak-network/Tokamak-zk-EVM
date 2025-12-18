@@ -12,7 +12,7 @@ import {
   setLengthLeft,
   utf8ToBytes,
 } from '@ethereumjs/util';
-import { jubjub } from '@noble/curves/misc';
+import { jubjub } from "@noble/curves/misc.js";
 import { fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';

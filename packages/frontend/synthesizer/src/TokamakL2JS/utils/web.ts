@@ -1,6 +1,6 @@
 import { utf8ToBytes } from "ethereum-cryptography/utils";
 import { poseidon } from "../crypto/index.ts";
-import { jubjub } from "@noble/curves/misc";
+import { jubjub } from "@noble/curves/misc.js";
 import { bytesToBigInt, bytesToHex } from "@ethereumjs/util";
 import { fromEdwardsToAddress, getUserStorageKey } from "./utils.ts";
 

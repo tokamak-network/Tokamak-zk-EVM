@@ -1,6 +1,6 @@
 import { NUMBER_OF_PREV_BLOCK_HASHES, POSEIDON_INPUTS, SUBCIRCUIT_BUFFER_MAPPING } from '../../interface/qapCompiler/importedConstants.ts';
 import { bytesToBigInt, toBytes } from '@ethereumjs/util';
-import { jubjub } from '@noble/curves/misc';
+import { jubjub } from "@noble/curves/misc.js";
 import { DataPt, DataPtDescription, ISynthesizerProvider, PlacementEntry, ReservedVariable, SynthesizerOpts, VARIABLE_DESCRIPTION } from '../types/index.ts';
 import { DataPtFactory } from '../dataStructure/index.ts';
 import { BUFFER_DESCRIPTION, BUFFER_LIST } from '../../interface/qapCompiler/configuredTypes.ts';
