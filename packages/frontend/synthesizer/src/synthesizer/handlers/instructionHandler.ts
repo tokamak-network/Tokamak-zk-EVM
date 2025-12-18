@@ -1,5 +1,5 @@
 
-import { DataPtDescription, ISynthesizerProvider, MemoryPts, synthesizerOpcodeByName, synthesizerOpcodeList, SynthesizerOpts, SynthesizerSupportedArithOpcodes, SynthesizerSupportedBlkInfOpcodes, SynthesizerSupportedEnvInfOpcodes, SynthesizerSupportedSysFlowOpcodes, VARIABLE_DESCRIPTION, type DataPt, type ReservedVariable, type SynthesizerSupportedOpcodes } from '../types/index.ts';
+import { ISynthesizerProvider, MemoryPts, synthesizerOpcodeByName, SynthesizerOpts, SynthesizerSupportedArithOpcodes, SynthesizerSupportedBlkInfOpcodes, SynthesizerSupportedEnvInfOpcodes, SynthesizerSupportedSysFlowOpcodes, VARIABLE_DESCRIPTION, type DataPt, type ReservedVariable, type SynthesizerSupportedOpcodes } from '../types/index.ts';
 
 import {
   Address,
@@ -8,20 +8,11 @@ import {
   setLengthRight,
   createAddressFromBigInt,
   bigIntToHex,
-  bigIntToBytes,
-  setLengthLeft,
-  concatBytes,
-  hexToBigInt,
 } from '@ethereumjs/util'
-import { keccak256 } from 'ethereum-cryptography/keccak.js'
-import { ExecResult, InterpreterStep } from '@ethereumjs/evm'
-import { DEFAULT_SOURCE_BIT_SIZE } from 'src/synthesizer/params/index.ts';
+import { InterpreterStep } from '@ethereumjs/evm'
+import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
 import { DataPtFactory, MemoryPt } from '../dataStructure/index.ts';
-import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from 'src/interface/qapCompiler/configuredTypes.ts';
-import { poseidon } from 'src/TokamakL2JS/index.ts';
-import { jubjub } from '@noble/curves/misc';
-import { MT_DEPTH, POSEIDON_INPUTS } from 'src/interface/qapCompiler/importedConstants.ts';
-import { CachedStorageEntry } from './stateManager.ts';
+import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from '../../interface/qapCompiler/configuredTypes.ts';
 
 export interface HandlerOpts {
   op: SynthesizerSupportedOpcodes,

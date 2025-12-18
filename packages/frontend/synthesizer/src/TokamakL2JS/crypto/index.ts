@@ -1,13 +1,13 @@
-import { jubjub } from "@noble/curves/misc";
+import { jubjub } from "@noble/curves/misc.js";
 import { DST_NONCE } from "../../synthesizer/params/index.ts";
 import { bigIntToBytes, bytesToBigInt, concatBytes, setLengthLeft } from "@ethereumjs/util";
-import { EdwardsPoint } from "@noble/curves/abstract/edwards";
-import { batchBigIntTo32BytesEach } from "../utils/index.ts";
-import { POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts";
-import { poseidon_raw } from "src/interface/qapCompiler/configuredTypes.ts";
-import { ArithmeticOperations } from "src/synthesizer/dataStructure/arithmeticOperations.ts";
+import { EdwardsPoint } from "@noble/curves/abstract/edwards.js";
+import { batchBigIntTo32BytesEach } from "../utils/utils.ts";
+import { POSEIDON_INPUTS } from "../../interface/qapCompiler/importedConstants.ts";
+import { poseidon_raw } from "../../interface/qapCompiler/configuredTypes.ts";
+import { ArithmeticOperations } from "../../synthesizer/dataStructure/arithmeticOperations.ts";
 
-// To replace KECCAK256 with poseidon4. Example: 
+// To replace KECCAK256 with poseidon4. Example:
 // const common = new Common({ chain: Mainnet, customCrypto: { keccak256: poseidon } })
 // const block = createBlock({}, { common })
 export function poseidon(msg: Uint8Array): Uint8Array {
@@ -29,9 +29,9 @@ export function poseidon(msg: Uint8Array): Uint8Array {
         let placeFunction = mode2x ?
             ArithmeticOperations.poseidonN2xCompress  :
             ArithmeticOperations.poseidonN
-              
+
         const nChildren = mode2x ? (POSEIDON_INPUTS ** 2) : POSEIDON_INPUTS
-        
+
         const out: bigint[] = [];
         for (let childId = 0; childId < nPaddedChildren; childId += nChildren) {
             const chunk = Array.from({ length: nChildren }, (_, localChildId) => arr[childId + localChildId] ?? 0n);
@@ -41,14 +41,14 @@ export function poseidon(msg: Uint8Array): Uint8Array {
         }
         return out;
     };
-    
+
     // Repeatedly fold until a single word remains
     let acc: bigint[] = fold(words)
     while (acc.length > 1) acc = fold(acc)
     return setLengthLeft(bigIntToBytes(acc[0]), 32);
 }
 
-// To replace ecrecover with Eddsa public key recovery. Example: 
+// To replace ecrecover with Eddsa public key recovery. Example:
 // const common = new Common({ chain: Mainnet, customCrypto: { ecrecover: getEddsaPublicKey } })
 // const block = createBlock({}, { common })
 export function getEddsaPublicKey(
@@ -66,7 +66,7 @@ export function getEddsaPublicKey(
     }
     const msg = msgHash.subarray(0, msgHash.byteLength - 32)
     const pubKeyBytes = msgHash.subarray(msgHash.byteLength - 32, )
-    
+
     const pubKey = jubjub.Point.fromBytes(pubKeyBytes)
     const randomizer = jubjub.Point.fromBytes(r)
     if (!eddsaVerify([msg], pubKey, randomizer, bytesToBigInt(s))) {
@@ -79,15 +79,15 @@ export function eddsaSign(prvKey: bigint, msg: Uint8Array[]): {R: EdwardsPoint, 
     const pubKey = jubjub.Point.BASE.multiply(prvKey)
 
     const nonceKeyBytes = poseidon(concatBytes(
-            DST_NONCE, 
-            setLengthLeft(bigIntToBytes(prvKey), 32), 
+            DST_NONCE,
+            setLengthLeft(bigIntToBytes(prvKey), 32),
         ))
 
         const r = bytesToBigInt(poseidon(concatBytes(
             DST_NONCE,
             nonceKeyBytes,
             batchBigIntTo32BytesEach(
-                pubKey.toAffine().x, 
+                pubKey.toAffine().x,
                 pubKey.toAffine().y
             ),
             ...msg,
@@ -97,9 +97,9 @@ export function eddsaSign(prvKey: bigint, msg: Uint8Array[]): {R: EdwardsPoint, 
 
         const e = bytesToBigInt(poseidon(concatBytes(
             batchBigIntTo32BytesEach(
-                R.toAffine().x, 
-                R.toAffine().y, 
-                pubKey.toAffine().x, 
+                R.toAffine().x,
+                R.toAffine().y,
+                pubKey.toAffine().x,
                 pubKey.toAffine().y
             ),
             ...msg
@@ -108,7 +108,7 @@ export function eddsaSign(prvKey: bigint, msg: Uint8Array[]): {R: EdwardsPoint, 
 
         const S = (r + ep * prvKey) % jubjub.Point.Fn.ORDER
 
-    
+
     return {R, S}
 }
 
@@ -120,8 +120,8 @@ export function eddsaVerify(msg: Uint8Array[], pubKey: EdwardsPoint, R: EdwardsP
     const e = bytesToBigInt(poseidon(concatBytes(
         batchBigIntTo32BytesEach(
             R.toAffine().x,
-            R.toAffine().y, 
-            pubKey.toAffine().x, 
+            R.toAffine().y,
+            pubKey.toAffine().x,
             pubKey.toAffine().y
         ),
         ...msg

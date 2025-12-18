@@ -1,7 +1,7 @@
 import { DataAliasInfoEntry, DataAliasInfos, DataPt, DataPtDescription, ISynthesizerProvider, MemoryPtEntry, MemoryPts } from '../types/index.ts';
 import { DataPtFactory, MemoryPt } from '../dataStructure/index.ts';
-import { ACCUMULATOR_INPUT_LIMIT } from 'src/interface/qapCompiler/importedConstants.ts';
-import { ArithmeticOperator } from 'src/interface/qapCompiler/configuredTypes.ts';
+import { ACCUMULATOR_INPUT_LIMIT } from '../../interface/qapCompiler/importedConstants.ts';
+import { ArithmeticOperator } from '../../interface/qapCompiler/configuredTypes.ts';
 import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
 
 export class MemoryManager {

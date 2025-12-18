@@ -1,16 +1,16 @@
 import { MerkleStateManager } from "@ethereumjs/statemanager";
 import { TokamakL2StateManagerOpts } from "./types.ts";
 import { StateManagerInterface } from "@ethereumjs/common";
-import { jubjub } from "@noble/curves/misc";
+import { jubjub } from "@noble/curves/misc.js";
 import { IMT, IMTHashFunction, IMTMerkleProof, IMTNode } from "@zk-kit/imt"
 import { addHexPrefix, Address, bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, concatBytes, createAccount, createAddressFromString, hexToBytes, setLengthLeft, setLengthRight, toBytes } from "@ethereumjs/util";
-import { MAX_MT_LEAVES, MT_DEPTH, POSEIDON_INPUTS } from "src/interface/qapCompiler/importedConstants.ts";
+import { MAX_MT_LEAVES, MT_DEPTH, POSEIDON_INPUTS } from "../../interface/qapCompiler/importedConstants.ts";
 import { ethers, solidityPacked } from "ethers";
 import { poseidon } from "../crypto/index.ts";
 import { keccak256 } from "ethereum-cryptography/keccak";
 import { RLP } from "@ethereumjs/rlp";
-import { poseidon_raw } from "src/interface/qapCompiler/configuredTypes.ts";
-import { getUserStorageKey } from "../utils/index.ts";
+import { poseidon_raw } from "../../interface/qapCompiler/configuredTypes.ts";
+import { getUserStorageKey } from "../utils/utils.ts";
 
 export class TokamakL2StateManager extends MerkleStateManager implements StateManagerInterface {
     private _cachedOpts: TokamakL2StateManagerOpts | null = null
@@ -36,7 +36,7 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         const registeredL2KeyBigInts = new Set<bigint>();
         this._registeredKeys = [];
         for (const keys of opts.initStorageKeys) {
-            const keyL1BigInt = bytesToBigInt(keys.L1); 
+            const keyL1BigInt = bytesToBigInt(keys.L1);
             const keyL2BigInt = bytesToBigInt(keys.L2);
             if (usedL1Keys.has(keyL1BigInt)) {
                 throw new Error(`Duplication in L1 MPT keys.`);
@@ -47,7 +47,7 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
             const v = await provider.getStorage(contractAddress.toString(), bytesToBigInt(keys.L1), opts.blockNumber);
             const vBytes = hexToBytes(addHexPrefix(v));
             await this.putStorage(contractAddress, keys.L2, vBytes);
-            
+
             usedL1Keys.add(keyL1BigInt);
             registeredL2KeyBigInts.add(keyL2BigInt);
             this._registeredKeys.push(keys.L2);
