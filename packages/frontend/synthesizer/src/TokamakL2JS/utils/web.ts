@@ -13,26 +13,25 @@ type L2KeyPair = {
 // import { useSignMessage } from 'wagmi';
 // const { signMessageAsync } = useSignMessage();
 
-export const deriveL2KeysFromMetaMask = async (signMessageAsync: (args: { message: string }) => Promise<`0x${string}`>, channelId: `0x${string}`): Promise<L2KeyPair> => {
+export const deriveSignatureFromMetaMask = async (signMessageAsync: (args: { message: string }) => Promise<`0x${string}`>, channelId: `0x${string}`): Promise<`0x${string}`> => {
   const messageToSign = `Tokamak-Private-App-Channel-${channelId}`;
-  const signature = await signMessageAsync({ message: messageToSign });
-  return derive_keys_from_signature(signature)
+  return await signMessageAsync({ message: messageToSign })
 };
 
-export const deriveL2AddressFromMetaMask = async (signMessageAsync: (args: { message: string }) => Promise<`0x${string}`>, channelId: `0x${string}`): Promise<`0x${string}`> => {
-  const keys = await deriveL2KeysFromMetaMask(signMessageAsync, channelId);
-  const address = fromEdwardsToAddress(keys.publicKey);
-  return address.toString()
-};
-
-export const deriveL2MptKeyFromMetaMask = async (signMessageAsync: (args: { message: string }) => Promise<`0x${string}`>, channelId: `0x${string}`, slotIndex: number): Promise<`0x${string}`> => {
-  const address = await deriveL2AddressFromMetaMask(signMessageAsync, channelId);
-  const mptKey = getUserStorageKey([address, slotIndex], 'TokamakL2');
-  return bytesToHex(mptKey)
-};
-
-const derive_keys_from_signature = (signature: `0x${string}`):  L2KeyPair => {
+export const deriveL2KeysFromSignature = (signature: `0x${string}`):  L2KeyPair => {
   const privateKey = jubjub.utils.randomPrivateKey(poseidon(utf8ToBytes(signature)));
   const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(privateKey) % jubjub.Point.Fn.ORDER).toBytes();
   return {privateKey, publicKey};
 };
+
+export const deriveL2AddressFromKeys = async (keys: L2KeyPair, channelId: `0x${string}`): Promise<`0x${string}`> => {
+  const address = fromEdwardsToAddress(keys.publicKey);
+  return address.toString()
+};
+
+export const deriveL2MptKeyFromAddress = async (address: `0x${string}`, channelId: `0x${string}`, slotIndex: number): Promise<`0x${string}`> => {
+  const mptKey = getUserStorageKey([address, slotIndex], 'TokamakL2');
+  return bytesToHex(mptKey)
+};
+
+
