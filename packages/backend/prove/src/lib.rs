@@ -281,7 +281,7 @@
             
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
     pub struct Binding {
         pub A: G1serde,
         pub O_inst: G1serde,

@@ -170,6 +170,7 @@ pub fn prepare_encode_O_mid_no_zk(
         } else {
             nVar = nVar + subcircuit_info.Out_idx[1] + subcircuit_info.In_idx[1];
         }
+        nVar += 1; // Adding 1 for constant wires
     }
 
     _prepare_encode_statement(
@@ -212,6 +213,15 @@ pub fn prove_init_msm_batched(
     placement_variables: &[PlacementVariables],
     subcircuit_infos: &[SubcircuitInfo],
 ) -> Binding {
+    // ==========================================================================
+    // GROUPED BATCH MSM STRATEGY for prove_init
+    // Based on actual MSM sizes:
+    //   A: 512 elements
+    //   O_inst: 512 elements  (SAME as A - batch together!)
+    //   O_mid: 3,671 elements (different - individual)
+    //   O_prv: 118,879 elements (largest - individual)
+    // ==========================================================================
+
     // 1. Prepare data for all MSMs
     let (scalars_A, points_A) = prepare_encode_poly(
         &mut prover.instance.a_pub_X,
@@ -240,70 +250,112 @@ pub fn prove_init_msm_batched(
         &prover.setup_params,
     );
 
-    // 2. Batch MSM
-    let sizes = [
-        scalars_A.len(),
-        scalars_O_inst.len(),
-        scalars_O_mid.len(),
-        scalars_O_prv.len(),
-    ];
-    let max_size = *sizes.iter().max().unwrap();
-
-    // Pad scalars and points
-    let mut flat_scalars = Vec::with_capacity(4 * max_size);
-    let mut flat_points = Vec::with_capacity(4 * max_size);
-
-    let inputs = [
-        (&scalars_A, &points_A),
-        (&scalars_O_inst, &points_O_inst),
-        (&scalars_O_mid, &points_O_mid),
-        (&scalars_O_prv, &points_O_prv),
-    ];
-
-    for (scalars, points) in inputs.iter() {
-        // Pad scalars with zero
-        let mut padded_scalars = scalars.to_vec();
-        padded_scalars.resize(max_size, ScalarField::zero());
-        flat_scalars.extend(padded_scalars);
-
-        // Pad points with zero (infinity)
-        let mut padded_points = points.to_vec();
-        padded_points.resize(max_size, G1Affine::zero());
-        flat_points.extend(padded_points);
-    }
-
-    // Run batch MSM
     let mut stream = IcicleStream::create().unwrap();
-    let mut d_scalars = DeviceVec::device_malloc_async(flat_scalars.len(), &stream).unwrap();
-    let mut d_points = DeviceVec::device_malloc_async(flat_points.len(), &stream).unwrap();
-    let mut d_results = DeviceVec::device_malloc_async(4, &stream).unwrap();
 
-    d_scalars
-        .copy_from_host_async(HostSlice::from_slice(&flat_scalars), &stream)
-        .unwrap();
-    d_points
-        .copy_from_host_async(HostSlice::from_slice(&flat_points), &stream)
-        .unwrap();
+    // ---------- BATCH 1: A + O_inst (both 512 elements) ----------
+    let (A, O_inst_core) = {
+        let batch_size = scalars_A.len(); // Both are same size
 
-    let mut config = MSMConfig::default();
-    config.batch_size = 4;
-    config.are_points_shared_in_batch = false;
-    config.is_async = true;
-    config.stream_handle = *stream;
+        // Flatten scalars
+        let mut flat_scalars = Vec::with_capacity(2 * batch_size);
+        flat_scalars.extend(&scalars_A);
+        flat_scalars.extend(&scalars_O_inst);
 
-    msm::msm(&d_scalars[..], &d_points[..], &config, &mut d_results[..]).unwrap();
+        // Flatten points
+        let mut flat_points = Vec::with_capacity(2 * batch_size);
+        flat_points.extend(&points_A);
+        flat_points.extend(&points_O_inst);
 
-    stream.synchronize().unwrap();
-    let mut results = vec![G1Projective::zero(); 4];
-    d_results
-        .copy_to_host(HostSlice::from_mut_slice(&mut results))
-        .unwrap();
+        let mut d_scalars = DeviceVec::device_malloc_async(flat_scalars.len(), &stream).unwrap();
+        let mut d_points = DeviceVec::device_malloc_async(flat_points.len(), &stream).unwrap();
+        let mut d_results = DeviceVec::device_malloc_async(2, &stream).unwrap();
+
+        d_scalars
+            .copy_from_host_async(HostSlice::from_slice(&flat_scalars), &stream)
+            .unwrap();
+        d_points
+            .copy_from_host_async(HostSlice::from_slice(&flat_points), &stream)
+            .unwrap();
+
+        let mut config = MSMConfig::default();
+        config.batch_size = 2;
+        config.are_points_shared_in_batch = false; // Points are different for A and O_inst
+        config.is_async = true;
+        config.stream_handle = *stream;
+
+        msm::msm(&d_scalars[..], &d_points[..], &config, &mut d_results[..]).unwrap();
+
+        stream.synchronize().unwrap();
+        let mut results = vec![G1Projective::zero(); 2];
+        d_results
+            .copy_to_host(HostSlice::from_mut_slice(&mut results))
+            .unwrap();
+
+        (
+            G1serde(G1Affine::from(results[0])),
+            G1serde(G1Affine::from(results[1])),
+        )
+    };
+
+    // ---------- INDIVIDUAL: O_mid (3,671 elements) ----------
+    let O_mid_core = {
+        let mut d_scalars =
+            DeviceVec::device_malloc_async(scalars_O_mid.len(), &stream).unwrap();
+        let mut d_points = DeviceVec::device_malloc_async(points_O_mid.len(), &stream).unwrap();
+        let mut d_result = DeviceVec::device_malloc_async(1, &stream).unwrap();
+
+        d_scalars
+            .copy_from_host_async(HostSlice::from_slice(&scalars_O_mid), &stream)
+            .unwrap();
+        d_points
+            .copy_from_host_async(HostSlice::from_slice(&points_O_mid), &stream)
+            .unwrap();
+
+        let mut config = MSMConfig::default();
+        config.is_async = true;
+        config.stream_handle = *stream;
+
+        msm::msm(&d_scalars[..], &d_points[..], &config, &mut d_result[..]).unwrap();
+
+        stream.synchronize().unwrap();
+        let mut result = vec![G1Projective::zero(); 1];
+        d_result
+            .copy_to_host(HostSlice::from_mut_slice(&mut result))
+            .unwrap();
+
+        G1serde(G1Affine::from(result[0]))
+    };
+
+    // ---------- INDIVIDUAL: O_prv (118,879 elements) ----------
+    let O_prv_core = {
+        let mut d_scalars =
+            DeviceVec::device_malloc_async(scalars_O_prv.len(), &stream).unwrap();
+        let mut d_points = DeviceVec::device_malloc_async(points_O_prv.len(), &stream).unwrap();
+        let mut d_result = DeviceVec::device_malloc_async(1, &stream).unwrap();
+
+        d_scalars
+            .copy_from_host_async(HostSlice::from_slice(&scalars_O_prv), &stream)
+            .unwrap();
+        d_points
+            .copy_from_host_async(HostSlice::from_slice(&points_O_prv), &stream)
+            .unwrap();
+
+        let mut config = MSMConfig::default();
+        config.is_async = true;
+        config.stream_handle = *stream;
+
+        msm::msm(&d_scalars[..], &d_points[..], &config, &mut d_result[..]).unwrap();
+
+        stream.synchronize().unwrap();
+        let mut result = vec![G1Projective::zero(); 1];
+        d_result
+            .copy_to_host(HostSlice::from_mut_slice(&mut result))
+            .unwrap();
+
+        G1serde(G1Affine::from(result[0]))
+    };
+
     stream.destroy().unwrap();
-
-    let A = G1serde(G1Affine::from(results[0]));
-    let O_inst_core = G1serde(G1Affine::from(results[1]));
-    let O_mid_core = G1serde(G1Affine::from(results[2]));
-    let O_prv_core = G1serde(G1Affine::from(results[3]));
 
     // 3. Post-processing
     let O_inst = O_inst_core;
