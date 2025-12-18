@@ -4,6 +4,8 @@ import { jubjub } from "@noble/curves/misc";
 import { bytesToBigInt, bytesToHex } from "@ethereumjs/util";
 import { fromEdwardsToAddress, getUserStorageKey } from "./utils.ts";
 
+export const L2_PRV_KEY_MESSAGE='Tokamak-Private-App-Channel-'
+
 type L2KeyPair = {
   privateKey: Uint8Array
   publicKey: Uint8Array
