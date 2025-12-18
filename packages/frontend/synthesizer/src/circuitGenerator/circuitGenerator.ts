@@ -1,11 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import appRootPath from 'app-root-path';
-import { SynthesizerInterface } from 'src/synthesizer/index.ts';
+import { SynthesizerInterface } from '../synthesizer/index.ts';
 import { VariableGenerator } from './handlers/variableGenerator.ts';
-import { SubcircuitInfoByNameEntry, SubcircuitNames } from 'src/interface/qapCompiler/configuredTypes.ts';
-import { subcircuitInfoByName } from 'src/interface/qapCompiler/importedConstants.ts';
-import { Placements, PlacementVariables } from 'src/synthesizer/types/placements.ts';
+import { Placements } from '../synthesizer/types/placements.ts';
 import { PermutationGenerator } from './handlers/permutationGenerator.ts';
 
 export async function createCircuitGenerator(synthesizer: SynthesizerInterface): Promise<CircuitGenerator> {

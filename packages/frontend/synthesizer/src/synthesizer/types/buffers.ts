@@ -1,6 +1,6 @@
 import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
 import type { DataPt, DataPtDescription } from './index.ts'
-import { BUFFER_LIST, ReservedBuffer, SubcircuitNames } from 'src/interface/qapCompiler/configuredTypes.ts';
+import { BUFFER_LIST, ReservedBuffer, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
 
 const PUBLIC_OUT_VARIABLES_STATIC = [
   // Nothing

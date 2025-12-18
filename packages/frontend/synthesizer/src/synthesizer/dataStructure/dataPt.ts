@@ -1,6 +1,6 @@
 import { bigIntToHex } from '@ethereumjs/util'
 import { DataPt, DataPtDescription } from '../types/index.ts'
-import { BLS12831ARITHMODULUS, JUBJUBARITHMODULUS } from 'src/synthesizer/params/index.ts'
+import { BLS12831ARITHMODULUS, JUBJUBARITHMODULUS } from '../../synthesizer/params/index.ts'
 
 /**
  * Validates if the value is within Ethereum word size limits

@@ -1,14 +1,14 @@
 import { addHexPrefix, bigIntToHex } from '@ethereumjs/util';
-import { BUFFER_LIST } from 'src/interface/qapCompiler/configuredTypes.ts';
-import { DataPtFactory } from 'src/synthesizer/dataStructure/dataPt.ts';
-import { DataPt } from 'src/synthesizer/types/dataStructure.ts';
+import { BUFFER_LIST } from '../../interface/qapCompiler/configuredTypes.ts';
+import { DataPtFactory } from '../../synthesizer/dataStructure/dataPt.ts';
+import { DataPt } from '../../synthesizer/types/dataStructure.ts';
 import {
   PlacementEntry,
   placementEntryDeepCopy,
   Placements,
   placementsDeepCopy,
   PlacementVariables,
-} from 'src/synthesizer/types/placements.ts';
+} from '../../synthesizer/types/placements.ts';
 import { CircuitGenerator } from '../circuitGenerator.ts';
 import {
   globalWireList,
@@ -16,12 +16,12 @@ import {
   SUBCIRCUIT_BUFFER_MAPPING,
   subcircuitInfoByName,
   wasmDir,
-} from 'src/interface/qapCompiler/importedConstants.ts';
+} from '../../interface/qapCompiler/importedConstants.ts';
 import { builder } from '../utils/witness_calculator.ts';
 import { readFileSync } from 'fs';
 import appRootPath from 'app-root-path';
 import path from 'path';
-import { VARIABLE_DESCRIPTION } from 'src/synthesizer/types/buffers.ts';
+import { VARIABLE_DESCRIPTION } from '../../synthesizer/types/buffers.ts';
 import { PublicInstance, PublicInstanceDescription } from '../types/types.ts';
 
 export class VariableGenerator {

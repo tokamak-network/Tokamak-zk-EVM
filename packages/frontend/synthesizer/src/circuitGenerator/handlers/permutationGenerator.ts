@@ -1,12 +1,12 @@
 import { globalWireList, setupParams, subcircuitInfoByName, wasmDir } from '../../interface/qapCompiler/importedConstants.ts';
 
 import { builder } from '../utils/witness_calculator.ts';
-import { GlobalWireList } from 'src/interface/qapCompiler/types.ts';
-import { Placements, PlacementVariables } from 'src/synthesizer/types/placements.ts';
-import { BUFFER_DESCRIPTION, BUFFER_LIST, SubcircuitInfoByName, SubcircuitInfoByNameEntry } from 'src/interface/qapCompiler/configuredTypes.ts';
-import { DataPt } from 'src/synthesizer/types/dataStructure.ts';
+import { GlobalWireList } from '../../interface/qapCompiler/types.ts';
+import { Placements, PlacementVariables } from '../../synthesizer/types/placements.ts';
+import { BUFFER_DESCRIPTION, BUFFER_LIST, SubcircuitInfoByName, SubcircuitInfoByNameEntry } from '../../interface/qapCompiler/configuredTypes.ts';
+import { DataPt } from '../../synthesizer/types/dataStructure.ts';
 import { CircuitGenerator } from '../circuitGenerator.ts';
-import { VARIABLE_DESCRIPTION } from 'src/synthesizer/types/buffers.ts';
+import { VARIABLE_DESCRIPTION } from '../../synthesizer/types/buffers.ts';
 import { addHexPrefix, hexToBigInt } from '@ethereumjs/util';
 
 

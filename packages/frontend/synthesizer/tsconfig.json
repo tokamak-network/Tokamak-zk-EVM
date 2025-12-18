@@ -9,15 +9,7 @@
     "allowJs": true,
     "declaration": true,
     "baseUrl": ".",
-    "paths": {
-      "@synthesizer-libs/util": [
-        "./node_modules/@synthesizer-libs/util/src/index.js"
-      ],
-      "@tokamak/utils": ["./src/tokamak/utils/index.js"],
-      "@qap-compiler/*": ["../qap-compiler/subcircuits/*"]
-    },
     "composite": true
   },
-  "include": ["src"],
   "exclude": ["node_modules", "dist"]
 }
