@@ -1,4 +1,4 @@
-import { DataPtFactory } from 'src/synthesizer/dataStructure/dataPt.ts';
+import { DataPtFactory } from '../../synthesizer/dataStructure/dataPt.ts';
 import {
   // BUFFER_PLACEMENT,
   ISynthesizerProvider,
@@ -11,21 +11,12 @@ import {
   type ReservedVariable,
   type SynthesizerOpts,
 } from '../types/index.ts';
-import { jubjub } from '@noble/curves/misc';
-import { AddressLike, bigIntToHex, bytesToBigInt, equalsBytes } from '@ethereumjs/util';
 import { MemoryPt, StackPt } from '../dataStructure/index.ts';
-import {
-  ArithmeticOperator,
-  BUFFER_LIST,
-  SubcircuitInfoByName,
-  SubcircuitNames,
-} from 'src/interface/qapCompiler/configuredTypes.ts';
+import { SubcircuitInfoByName, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
 import {
   FIRST_ARITHMETIC_PLACEMENT_INDEX,
-  MT_DEPTH,
-  POSEIDON_INPUTS,
   subcircuitInfoByName,
-} from 'src/interface/qapCompiler/importedConstants.ts';
+} from '../../interface/qapCompiler/importedConstants.ts';
 
 export type CachedStorageEntry = {
   indexPt: DataPt | null;

@@ -388,7 +388,7 @@ program
 
       // Import L2 synthesizer modules
       const { ethers } = await import('ethers');
-      const { jubjub } = await import('@noble/curves/misc');
+      const { jubjub } = await import("@noble/curves/misc.js");
       const { bytesToBigInt, setLengthLeft, utf8ToBytes, hexToBytes, concatBytes } = await import('@ethereumjs/util');
       const { fromEdwardsToAddress } = await import('../../TokamakL2JS/index.ts');
       const { createSynthesizerOptsForSimulationFromRPC } = await import('../rpc/rpc.ts');

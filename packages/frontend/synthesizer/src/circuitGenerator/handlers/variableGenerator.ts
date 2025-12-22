@@ -18,7 +18,7 @@ import {
   Placements,
   placementsDeepCopy,
   PlacementVariables,
-} from 'src/synthesizer/types/placements.ts';
+} from '../../synthesizer/types/placements.ts';
 import { CircuitGenerator } from '../circuitGenerator.ts';
 import {
   globalWireList,
@@ -26,12 +26,12 @@ import {
   SUBCIRCUIT_BUFFER_MAPPING,
   subcircuitInfoByName,
   wasmDir,
-} from 'src/interface/qapCompiler/importedConstants.ts';
+} from '../../interface/qapCompiler/importedConstants.ts';
 import { builder } from '../utils/witness_calculator.ts';
 import { readFileSync } from 'fs';
 import appRootPath from 'app-root-path';
 import path from 'path';
-import { VARIABLE_DESCRIPTION } from 'src/synthesizer/types/buffers.ts';
+import { VARIABLE_DESCRIPTION } from '../../synthesizer/types/buffers.ts';
 import { PublicInstance, PublicInstanceDescription } from '../types/types.ts';
 
 export class VariableGenerator {
@@ -70,15 +70,15 @@ export class VariableGenerator {
     placement: PlacementEntry,
     target: 'In' | 'Out',
   ): {
-    values: `0x${string}`[],
-    descriptions: string[],
-   } {
+    values: `0x${string}`[];
+    descriptions: string[];
+  } {
     const origPts = target === 'In' ? placement.inPts : placement.outPts;
     const origValues = origPts.map(pt => ensureEvenLengthHex(pt.valueHex));
     const origDescs = origPts.map(pt => {
-      const desc = target === 'In' ? pt.extSource : pt.extDest
-      return desc ?? ''
-    })
+      const desc = target === 'In' ? pt.extSource : pt.extDest;
+      return desc ?? '';
+    });
     // Preparing input values
     const expectedLen =
       target === 'In'
@@ -91,13 +91,12 @@ export class VariableGenerator {
       return {
         values: origValues.concat(Array(expectedLen - origValues.length).fill('0x00')),
         descriptions: origDescs.concat(Array(expectedLen - origValues.length).fill('')),
-      }
+      };
     } else {
       return {
         values: origValues,
         descriptions: origDescs,
-      }
-
+      };
     }
   }
 
@@ -135,11 +134,7 @@ export class VariableGenerator {
         return {
           subcircuitId: placement.subcircuitId,
           variables,
-          instanceList: [
-            '',
-            ...outs.descriptions,
-            ...ins.descriptions,
-          ]
+          instanceList: ['', ...outs.descriptions, ...ins.descriptions],
         };
       }),
     );

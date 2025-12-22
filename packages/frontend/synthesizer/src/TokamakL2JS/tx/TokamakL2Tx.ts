@@ -1,10 +1,10 @@
 import { Address, bigIntToBytes, bytesToBigInt, setLengthLeft, bigIntToUnpaddedBytes, unpadBytes, concatBytes, equalsBytes, bytesToHex } from "@ethereumjs/util"
 import { LegacyTx, TransactionInterface, TransactionType, createLegacyTx } from '@ethereumjs/tx'
 import { EthereumJSErrorWithoutCode } from "@ethereumjs/rlp"
-import { jubjub } from "@noble/curves/misc"
-import { EdwardsPoint } from "@noble/curves/abstract/edwards"
+import { jubjub } from "@noble/curves/misc.js"
+import { EdwardsPoint } from "@noble/curves/abstract/edwards.js"
 import { eddsaSign, eddsaVerify, getEddsaPublicKey, poseidon } from "../crypto/index.ts"
-import { batchBigIntTo32BytesEach, fromEdwardsToAddress } from "../utils/index.ts"
+import { batchBigIntTo32BytesEach, fromEdwardsToAddress } from "../utils/utils.ts"
 import { createTokamakL2Tx } from "./constructors.ts"
 
 // LegacyTx prohibits to add new members for extension. Bypassing this problem by the follow:
@@ -15,7 +15,7 @@ export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof
     // v: public key in bytes form
     // r: randomizer in bytes form
     // s: The EDDSA signature (in JUBJUB scalar field)
-    
+
     initUnsafeSenderPubKey(key: Uint8Array): void {
         if (_unsafeSenderPubKeyStorage.has(this)) {
         throw new Error('Overwriting the sender public key (unsafe) is not allowed');
@@ -34,7 +34,7 @@ export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof
         }
         return this.data.slice(0, 4)
     }
-    
+
     getFunctionInput(index: number): Uint8Array {
         const offset = 4 + 32 * index
         const endExclusiveIndex = offset + 32
@@ -60,7 +60,7 @@ export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof
         }
         return true
     }
-    
+
     override getMessageToSign(): Uint8Array[] {
         const messageRaw: Uint8Array[] = [
             bigIntToUnpaddedBytes(this.nonce),
@@ -79,8 +79,8 @@ export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof
         }
         const recovered = getEddsaPublicKey(
             concatBytes(...this.getMessageToSign(), setLengthLeft(this.senderPubKeyUnsafe, 32)),
-            this.v!, 
-            bigIntToBytes(this.r!), 
+            this.v!,
+            bigIntToBytes(this.r!),
             bigIntToBytes(this.s!)
         )
         if (!equalsBytes(this.senderPubKeyUnsafe, recovered)) {

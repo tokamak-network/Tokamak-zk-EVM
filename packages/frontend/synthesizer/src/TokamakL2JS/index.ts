@@ -1,4 +1,5 @@
 export { poseidon, getEddsaPublicKey } from './crypto/index.ts'
 export * from './tx/index.ts'
 export * from './stateManager/index.ts'
-export { fromEdwardsToAddress } from './utils/index.ts'
+export { getUserStorageKey, fromEdwardsToAddress } from './utils/utils.ts'
+export { L2_PRV_KEY_MESSAGE, deriveL2AddressFromKeys, deriveL2KeysFromSignature, deriveL2MptKeyFromAddress, deriveSignatureFromMetaMask } from './utils/web.ts'
