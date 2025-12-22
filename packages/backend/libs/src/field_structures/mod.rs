@@ -1,6 +1,6 @@
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
-use crate::iotools::{PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
+use crate::iotools::{HexString, PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use super::vector_operations::{*};
 use rand::Rng;
 use std::ops::{Add, Mul, Sub};
@@ -135,7 +135,7 @@ pub fn from_r1cs_to_evaled_qap_mixture(
 
 impl PlacementVariables {
     pub fn gen_dummy(setup_params: &SetupParams, subcircuit_infos: &[SubcircuitInfo]) -> Box<[Self]> {
-        let dummy = Self { subcircuitId: 0, variables: vec!['0'.to_string()].into_boxed_slice() };
+        let dummy = Self { subcircuitId: 0, variables: vec![HexString('0'.to_string())].into_boxed_slice() };
         let mut placement_variables_dummy: Box<[Self]> = vec![ dummy; setup_params.s_max].into_boxed_slice();
         for i in 0..setup_params.s_max {
             let mut rng = rand::thread_rng();
@@ -148,7 +148,7 @@ impl PlacementVariables {
             };
 
             let variables_val = ScalarCfg::generate_random(subcircuit_infos[subcircuit_id].Nwires);
-            let variables_hex: Vec<String> = variables_val.iter().map(|x| x.to_string()).collect();
+            let variables_hex: Vec<HexString> = variables_val.iter().map(|x| HexString(x.to_string())).collect();
             placement_variables_dummy[i] = Self {
                 subcircuitId: subcircuit_id,
                 variables: variables_hex.into_boxed_slice()
