@@ -94,7 +94,7 @@ export async function createSynthesizerOptsForSimulationFromRPC(opts: Synthesize
         nonce: opts.txNonce,
         to: createAddressFromString(opts.contractAddress),
         data: opts.callData,
-        senderPubKey: jubjub.Point.BASE.multiply(bytesToBigInt(opts.senderL2PrvKey)).toBytes()
+        senderPubKey: jubjub.Point.BASE.multiply(bytesToBigInt(opts.senderL2PrvKey) % jubjub.Point.Fn.ORDER).toBytes()
     }
     const unsignedTransaction = createTokamakL2Tx(transactionData, {common})
     const signedTransaction = unsignedTransaction.sign(opts.senderL2PrvKey)
