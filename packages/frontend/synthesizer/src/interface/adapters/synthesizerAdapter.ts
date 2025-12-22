@@ -568,7 +568,11 @@ export class SynthesizerAdapter {
     }
 
     // Derive sender L2 address from private key for metadata
-    const senderPubKey = jubjub.Point.BASE.multiply(bytesToBigInt(options.senderL2PrvKey));
+    // Normalize private key to ensure it's within JubJub scalar field range (1 <= sc < curve.n)
+    const senderKeyBigInt = bytesToBigInt(options.senderL2PrvKey);
+    const normalizedKeyBigInt = senderKeyBigInt % jubjub.Point.Fn.ORDER;
+    const normalizedKeyValue = normalizedKeyBigInt === 0n ? 1n : normalizedKeyBigInt;
+    const senderPubKey = jubjub.Point.BASE.multiply(normalizedKeyValue);
     const senderPubKeyBytes = new Uint8Array(64);
     senderPubKeyBytes.set(setLengthLeft(toBytes(senderPubKey.toAffine().x), 32), 0);
     senderPubKeyBytes.set(setLengthLeft(toBytes(senderPubKey.toAffine().y), 32), 32);

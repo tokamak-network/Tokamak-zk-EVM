@@ -15,7 +15,7 @@ import { fileURLToPath } from 'url';
 import { existsSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
 import { SEPOLIA_RPC_URL, ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI } from './constants.ts';
-import { bytesToBigInt, bigIntToBytes, setLengthLeft, utf8ToBytes } from '@ethereumjs/util';
+import { bytesToBigInt, bigIntToBytes, setLengthLeft, utf8ToBytes, hexToBytes, addHexPrefix, bytesToHex } from '@ethereumjs/util';
 import { poseidon, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { jubjub } from '@noble/curves/misc';
 import { SynthesizerAdapter } from '../../src/interface/adapters/synthesizerAdapter.ts';
@@ -233,6 +233,54 @@ async function runVerifyRust(proofNum: number, outputsPath: string): Promise<boo
 }
 
 // ============================================================================
+// COMMAND LINE ARGUMENT PARSING
+// ============================================================================
+
+function parseCommandLineArgs() {
+  const args = process.argv.slice(2);
+  const parsed: {
+    senderL2Key?: string;
+    recipientL2Address?: string;
+    amount?: string;
+    previousStatePath?: string;
+  } = {};
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--sender-key' || arg === '--sender-l2-key') {
+      parsed.senderL2Key = args[++i];
+    } else if (arg === '--recipient' || arg === '--recipient-l2-address') {
+      parsed.recipientL2Address = args[++i];
+    } else if (arg === '--amount') {
+      parsed.amount = args[++i];
+    } else if (arg === '--previous-state' || arg === '--previous-state-path') {
+      parsed.previousStatePath = args[++i];
+    } else if (arg === '--help' || arg === '-h') {
+      console.log(`
+Usage: tsx adapter-verify-manual.ts [options]
+
+Options:
+  --sender-key, --sender-l2-key <hex>    Sender's L2 private key (32 bytes hex, 0x prefix)
+  --recipient, --recipient-l2-address <address>  Recipient's L2 address (20 bytes hex, 0x prefix)
+  --amount <amount>                      Transfer amount in TON (default: 1)
+  --previous-state, --previous-state-path <path> Path to previous state snapshot (for Proof #2+)
+  --help, -h                             Show this help message
+
+Examples:
+  # Proof #1: Use custom sender key and recipient address
+  tsx adapter-verify-manual.ts --sender-key 0x... --recipient 0x... --amount 1
+
+  # Proof #2: Use previous state
+  tsx adapter-verify-manual.ts --sender-key 0x... --recipient 0x... --amount 0.5 --previous-state ./test-outputs/adapter-test-1/state_snapshot.json
+`);
+      process.exit(0);
+    }
+  }
+
+  return parsed;
+}
+
+// ============================================================================
 // MAIN TEST FUNCTION
 // ============================================================================
 
@@ -241,54 +289,38 @@ async function main() {
   const INITIALIZE_TX_HASH =
     process.env.INITIALIZE_TX_HASH || '0x07461b300155a6b9e6a7a5006e6b6bfbc0483c2256428646727e1c6fecf4b3d1';
 
-  // Read L1 private keys from environment (for testing only)
-  const PRIVATE_KEYS = [process.env.ALICE_PRIVATE_KEY, process.env.BOB_PRIVATE_KEY, process.env.CHARLIE_PRIVATE_KEY];
-  if (!PRIVATE_KEYS[0] || !PRIVATE_KEYS[1] || !PRIVATE_KEYS[2]) {
-    console.error('❌ Error: Private keys not found in .env file');
+  // Parse command line arguments
+  const cliArgs = parseCommandLineArgs();
+
+  // Require sender key and recipient address as arguments
+  if (!cliArgs.senderL2Key || !cliArgs.recipientL2Address) {
+    console.error('❌ Error: --sender-key and --recipient are required');
+    console.error('   Usage: tsx adapter-verify-manual.ts --sender-key <hex> --recipient <address> [--amount <amount>] [--previous-state <path>]');
     process.exit(1);
   }
 
-  // Get participants from on-chain
-  const provider = new ethers.JsonRpcProvider(SEPOLIA_RPC_URL);
-  const bridgeContract = new ethers.Contract(ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI, provider);
-  const participants: string[] = await bridgeContract.getChannelParticipants(CHANNEL_ID);
+  // Parse sender L2 private key (use as-is, no normalization)
+  const senderKeyHex = cliArgs.senderL2Key.startsWith('0x') ? cliArgs.senderL2Key : `0x${cliArgs.senderL2Key}`;
+  if (senderKeyHex.length !== 66) {
+    throw new Error(`Invalid sender L2 private key length: expected 64 hex chars (32 bytes), got ${senderKeyHex.length - 2}`);
+  }
+  const senderL2PrivateKey = hexToBytes(addHexPrefix(senderKeyHex));
 
-  console.warn('⚠️  WARNING: Generating L2 keys from L1 keys for testing purposes.');
-  console.warn('   In production, L2 private keys should be provided directly.\n');
-
-  // Generate L2 private keys (for testing)
-  const PARTICIPANT_NAMES = ['Alice', 'Bob', 'Charlie'];
-  const participantL2PrivateKeys: Uint8Array[] = [];
-
-  for (let i = 0; i < participants.length; i++) {
-    const l1Address = participants[i];
-    const participantIndex = participants.findIndex(addr => addr.toLowerCase() === l1Address.toLowerCase());
-
-    if (participantIndex === -1 || !PRIVATE_KEYS[participantIndex]) {
-      throw new Error(`Private key not found for participant ${l1Address}`);
-    }
-
-    const wallet = new ethers.Wallet(PRIVATE_KEYS[participantIndex]!);
-    if (wallet.address.toLowerCase() !== l1Address.toLowerCase()) {
-      throw new Error(`Address mismatch: expected ${l1Address}, got ${wallet.address}`);
-    }
-
-    // Generate L2 private key
-    const l1PublicKeyHex = wallet.signingKey.publicKey;
-    const seedString = `${l1PublicKeyHex}${CHANNEL_ID}${PARTICIPANT_NAMES[participantIndex]!}`;
-    const seedBytes = utf8ToBytes(seedString);
-    const seedHashHex = ethers.keccak256(seedBytes);
-    const seedHashBytes = ethers.getBytes(seedHashHex);
-    const seedHashBigInt = bytesToBigInt(seedHashBytes);
-    const privateKeyBigInt = seedHashBigInt % jubjub.Point.Fn.ORDER;
-    const privateKeyValue = privateKeyBigInt === 0n ? 1n : privateKeyBigInt;
-    const l2PrivateKey = setLengthLeft(bigIntToBytes(privateKeyValue), 32);
-
-    participantL2PrivateKeys.push(l2PrivateKey);
+  // Parse recipient L2 address
+  const recipientL2Address = cliArgs.recipientL2Address.startsWith('0x')
+    ? cliArgs.recipientL2Address
+    : `0x${cliArgs.recipientL2Address}`;
+  if (recipientL2Address.length !== 42) {
+    throw new Error(`Invalid recipient L2 address length: expected 40 hex chars (20 bytes), got ${recipientL2Address.length - 2}`);
   }
 
-  // Derive L2 addresses from L2 private keys
-  const allL2Addresses: string[] = participantL2PrivateKeys.map(deriveL2AddressFromPrivateKey);
+  // Use provided amount or default
+  const transferAmount = cliArgs.amount || '1';
+
+  console.log('📝 Using provided sender L2 key and recipient L2 address\n');
+  console.log(`   Sender L2 Key: ${senderKeyHex}`);
+  console.log(`   Recipient L2 Address: ${recipientL2Address}`);
+  console.log(`   Amount: ${transferAmount} TON\n`);
 
   // Create SynthesizerAdapter instance
   const adapter = new SynthesizerAdapter({ rpcUrl: SEPOLIA_RPC_URL });
@@ -298,19 +330,26 @@ async function main() {
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
   // ========================================================================
-  // PROOF #1: Participant 1 → 2 (1 TON)
+  // PROOF: Transfer with provided or auto-generated keys
   // ========================================================================
-  console.log('\n╔══════════════════════════════════════════════════════════════╗');
-  console.log('║                  Proof #1: Participant 1 → 2 (1 TON)         ║');
+  const proofLabel = cliArgs.previousStatePath ? 'Proof #2' : 'Proof #1';
+  console.log(`\n╔══════════════════════════════════════════════════════════════╗`);
+  console.log(`║                  ${proofLabel}: Transfer (${transferAmount} TON)         ║`);
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  // Determine output path based on whether previous state is provided
+  const outputPath = cliArgs.previousStatePath
+    ? resolve(__dirname, '../test-outputs/adapter-test-2')
+    : resolve(__dirname, '../test-outputs/adapter-test-1');
 
   const result1 = await adapter.synthesizeL2Transfer({
     channelId: CHANNEL_ID,
     initializeTxHash: INITIALIZE_TX_HASH,
-    senderL2PrvKey: participantL2PrivateKeys[0],
-    recipientL2Address: allL2Addresses[1],
-    amount: '1',
-    outputPath: resolve(__dirname, '../test-outputs/adapter-test-1'),
+    senderL2PrvKey: senderL2PrivateKey,
+    recipientL2Address: recipientL2Address,
+    amount: transferAmount,
+    previousStatePath: cliArgs.previousStatePath,
+    outputPath: outputPath,
     rollupBridgeAddress: ROLLUP_BRIDGE_CORE_ADDRESS,
   });
 
@@ -319,13 +358,13 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`✅ Proof #1 synthesis completed`);
+  console.log(`✅ ${proofLabel} synthesis completed`);
   console.log(`   Previous State Root: ${result1.previousStateRoot}`);
   console.log(`   New State Root:      ${result1.newStateRoot}`);
   console.log(`   State Snapshot:      ${result1.stateSnapshotPath}\n`);
 
-  // Display participant balances after Proof #1
-  console.log('📊 Participant Balances after Proof #1:');
+  // Display participant balances
+  console.log(`📊 Participant Balances after ${proofLabel}:`);
   const balances1 = await adapter.getParticipantBalances({
     stateSnapshotPath: result1.stateSnapshotPath,
     channelId: CHANNEL_ID,
@@ -340,93 +379,40 @@ async function main() {
   });
   console.log('');
 
-  // Prove & Verify Proof #1
+  // Prove & Verify
+  if (!result1.instancePath) {
+    console.error(`\n❌ Instance path not found. Cannot run prove/verify.`);
+    process.exit(1);
+  }
+
+  const proofNum = cliArgs.previousStatePath ? 2 : 1;
   console.log(`\n${'='.repeat(80)}`);
-  console.log(`Proving and Verifying Proof #1`);
+  console.log(`Proving and Verifying ${proofLabel}`);
   console.log('='.repeat(80));
 
-  const preprocessSuccess = await runPreprocess(result1.instancePath);
-  if (!preprocessSuccess) {
-    console.error(`\n❌ Preprocess failed! Cannot continue.`);
+  if (!cliArgs.previousStatePath) {
+    // Only run preprocess for first proof
+    const preprocessSuccess = await runPreprocess(result1.instancePath);
+    if (!preprocessSuccess) {
+      console.error(`\n❌ Preprocess failed! Cannot continue.`);
+      process.exit(1);
+    }
+  }
+
+  const proveSuccess = await runProver(proofNum, result1.instancePath);
+  if (!proveSuccess) {
+    console.error(`\n❌ ${proofLabel} generation failed! Cannot continue.`);
     process.exit(1);
   }
 
-  const prove1Success = await runProver(1, result1.instancePath);
-  if (!prove1Success) {
-    console.error(`\n❌ Proof #1 generation failed! Cannot continue.`);
+  const verifySuccess = await runVerifyRust(proofNum, result1.instancePath);
+  if (!verifySuccess) {
+    console.error(`\n❌ ${proofLabel} verification failed! Cannot continue.`);
     process.exit(1);
   }
 
-  const verify1Success = await runVerifyRust(1, result1.instancePath);
-  if (!verify1Success) {
-    console.error(`\n❌ Proof #1 verification failed! Cannot continue.`);
-    process.exit(1);
-  }
-
-  console.log(`\n✅ Proof #1 Complete: Preprocessed ✅ | Proved ✅ | Verified ✅`);
-
-  // ========================================================================
-  // PROOF #2: Participant 2 → 3 (0.5 TON)
-  // ========================================================================
-  console.log('\n╔══════════════════════════════════════════════════════════════╗');
-  console.log('║                  Proof #2: Participant 2 → 3 (0.5 TON)       ║');
-  console.log('╚══════════════════════════════════════════════════════════════╝\n');
-
-  const result2 = await adapter.synthesizeL2Transfer({
-    channelId: CHANNEL_ID,
-    initializeTxHash: INITIALIZE_TX_HASH,
-    senderL2PrvKey: participantL2PrivateKeys[1],
-    recipientL2Address: allL2Addresses[0],
-    amount: '0.5',
-    previousStatePath: result1.stateSnapshotPath, // Chain from Proof #1
-    outputPath: resolve(__dirname, '../test-outputs/adapter-test-2'),
-    rollupBridgeAddress: ROLLUP_BRIDGE_CORE_ADDRESS,
-  });
-
-  if (!result2.success) {
-    console.error(`❌ Proof #2 failed: ${result2.error}`);
-    process.exit(1);
-  }
-
-  console.log(`✅ Proof #2 synthesis completed`);
-  console.log(`   Previous State Root: ${result2.previousStateRoot}`);
-  console.log(`   New State Root:      ${result2.newStateRoot}`);
-  console.log(`   State Snapshot:      ${result2.stateSnapshotPath}\n`);
-
-  // Display participant balances after Proof #2
-  console.log('📊 Participant Balances after Proof #2:');
-  const balances2 = await adapter.getParticipantBalances({
-    stateSnapshotPath: result2.stateSnapshotPath,
-    channelId: CHANNEL_ID,
-    rollupBridgeAddress: ROLLUP_BRIDGE_CORE_ADDRESS,
-  });
-  console.log(`   State Root: ${balances2.stateRoot}`);
-  balances2.participants.forEach((participant, idx) => {
-    console.log(`   Participant ${idx + 1}:`);
-    console.log(`     L1 Address: ${participant.l1Address}`);
-    console.log(`     L2 MPT Key: ${participant.l2MptKey}`);
-    console.log(`     Balance:    ${participant.balanceInEther} TON`);
-  });
-  console.log('');
-
-  // Prove & Verify Proof #2
-  console.log(`\n${'='.repeat(80)}`);
-  console.log(`Proving and Verifying Proof #2`);
-  console.log('='.repeat(80));
-
-  const prove2Success = await runProver(2, result2.instancePath);
-  if (!prove2Success) {
-    console.error(`\n❌ Proof #2 generation failed! Cannot continue.`);
-    process.exit(1);
-  }
-
-  const verify2Success = await runVerifyRust(2, result2.instancePath);
-  if (!verify2Success) {
-    console.error(`\n❌ Proof #2 verification failed! Cannot continue.`);
-    process.exit(1);
-  }
-
-  console.log(`\n✅ Proof #2 Complete: Proved ✅ | Verified ✅`);
+  const preprocessStatus = cliArgs.previousStatePath ? '' : 'Preprocessed ✅ | ';
+  console.log(`\n✅ ${proofLabel} Complete: ${preprocessStatus}Proved ✅ | Verified ✅`);
 
   // // ========================================================================
   // // PROOF #3: Participant 3 → 1 (1 TON)
