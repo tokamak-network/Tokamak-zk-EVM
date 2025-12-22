@@ -1,7 +1,7 @@
 import { utf8ToBytes } from "ethereum-cryptography/utils";
 import { poseidon } from "../crypto/index.ts";
 import { jubjub } from "@noble/curves/misc.js";
-import { bytesToBigInt, bytesToHex } from "@ethereumjs/util";
+import { bigIntToBytes, bytesToBigInt, bytesToHex, setLengthLeft } from "@ethereumjs/util";
 import { fromEdwardsToAddress, getUserStorageKey } from "./utils.ts";
 
 export const L2_PRV_KEY_MESSAGE='Tokamak-Private-App-Channel-'
@@ -21,8 +21,9 @@ export const deriveSignatureFromMetaMask = async (signMessageAsync: (args: { mes
 };
 
 export const deriveL2KeysFromSignature = (signature: `0x${string}`):  L2KeyPair => {
-  const privateKey = jubjub.utils.randomPrivateKey(poseidon(utf8ToBytes(signature)));
-  const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(privateKey) % jubjub.Point.Fn.ORDER).toBytes();
+  const rngStringRaw = jubjub.utils.randomPrivateKey(poseidon(utf8ToBytes(signature)));
+  const privateKey = setLengthLeft(bigIntToBytes(bytesToBigInt(rngStringRaw) % jubjub.Point.Fn.ORDER), 32);
+  const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(privateKey)).toBytes();
   return {privateKey, publicKey};
 };
 
