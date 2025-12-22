@@ -29,7 +29,8 @@ import { createSynthesizer, Synthesizer } from '../../synthesizer/index.ts';
 import { createCircuitGenerator } from '../../circuitGenerator/circuitGenerator.ts';
 import type { SynthesizerInterface } from '../../synthesizer/types/index.ts';
 import { fromEdwardsToAddress } from '../../TokamakL2JS/index.ts';
-import { getUserStorageKey } from '../../TokamakL2JS/utils/index.ts';
+import { getUserStorageKey } from '../../TokamakL2JS/utils/utils.ts';
+import { deriveL2KeysFromSignature } from '../../TokamakL2JS/utils/web.ts';
 import type { PublicInstance } from '../../circuitGenerator/types/types.ts';
 import { TokamakL2StateManager } from '../../TokamakL2JS/stateManager/TokamakL2StateManager.ts';
 import { ROLLUP_BRIDGE_CORE_ABI, ROLLUP_BRIDGE_CORE_ADDRESS } from './constants/index.ts';
@@ -54,11 +55,18 @@ export interface SynthesizerAdapterConfig {
 /**
  * High-level parameters for L2 State Channel transfer synthesis
  * This is the simplified interface for external callers
+ *
+ * For sender authentication, provide EITHER:
+ * - senderL2PrvKey: Direct L2 private key (32 bytes)
+ * - senderSignature: MetaMask signature (from signing "Tokamak-Private-App-Channel-{channelId}")
+ *
+ * If senderSignature is provided, the L2 private key will be derived using deriveL2KeysFromSignature()
  */
 export interface SynthesizeL2TransferParams {
   channelId: number;
   initializeTxHash: string;
-  senderL2PrvKey: Uint8Array;
+  senderL2PrvKey?: Uint8Array; // Sender's L2 private key (optional if senderSignature is provided)
+  senderSignature?: `0x${string}`; // MetaMask signature to derive L2 private key (optional if senderL2PrvKey is provided)
   recipientL2Address: string; // L2 address of recipient
   amount: string; // Amount as string (e.g., "1" for 1 TON)
   previousStatePath?: string; // Optional: path to previous state_snapshot.json
@@ -344,11 +352,7 @@ export class SynthesizerAdapter {
       }
       const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
       preAllocatedLeaves = previousState.preAllocatedLeaves || [];
-      initStorageKeys = await this.buildInitStorageKeys(
-        channelId,
-        effectiveBridgeAddress,
-        preAllocatedLeaves,
-      );
+      initStorageKeys = await this.buildInitStorageKeys(channelId, effectiveBridgeAddress, preAllocatedLeaves);
       console.log(`[SynthesizerAdapter] Built initStorageKeys from previousState: ${initStorageKeys.length} keys`);
 
       // Use contractAddress from previousState
@@ -377,9 +381,7 @@ export class SynthesizerAdapter {
         console.log(`[SynthesizerAdapter] Using targetAddress from on-chain data: ${channelData.contractAddress}`);
       }
     } else {
-      throw new Error(
-        'Either previousState or channelId must be provided to build initStorageKeys',
-      );
+      throw new Error('Either previousState or channelId must be provided to build initStorageKeys');
     }
 
     // Build simulation options using current SynthesizerSimulationOpts type
@@ -406,7 +408,9 @@ export class SynthesizerAdapter {
       // Restore from previousState (snapshot from previous transaction)
       expectedInitialRoot = previousState.stateRoot;
       console.log(`[SynthesizerAdapter] 📋 Initial Root (from previous state): ${expectedInitialRoot}`);
-      console.log(`[SynthesizerAdapter] Restoring ${previousState.storageEntries.length} storage entries from previousState...`);
+      console.log(
+        `[SynthesizerAdapter] Restoring ${previousState.storageEntries.length} storage entries from previousState...`,
+      );
       for (const entry of previousState.storageEntries) {
         const key = hexToBytes(addHexPrefix(entry.key));
         const value = hexToBytes(addHexPrefix(entry.value));
@@ -432,7 +436,9 @@ export class SynthesizerAdapter {
       console.log(`[SynthesizerAdapter] 📋 Initial Root (from on-chain): ${expectedInitialRoot}`);
 
       // Restore storage entries from on-chain data
-      console.log(`[SynthesizerAdapter] Restoring ${channelData.storageEntries.length} storage entries from on-chain...`);
+      console.log(
+        `[SynthesizerAdapter] Restoring ${channelData.storageEntries.length} storage entries from on-chain...`,
+      );
       for (const entry of channelData.storageEntries) {
         const key = hexToBytes(addHexPrefix(entry.key));
         const value = hexToBytes(addHexPrefix(entry.value));
@@ -521,11 +527,11 @@ export class SynthesizerAdapter {
     // Build state snapshot (matching snapshot.ts logic)
     // registeredKeys and storageEntries should NOT include preAllocatedLeaves
     // preAllocatedLeaves are stored separately
-    const allRegisteredKeys = (stateManager.registeredKeys || []).map(key => bytesToHex(key));
+    const allRegisteredKeys = (stateManager.registeredKeys || []).map((key: Uint8Array) => bytesToHex(key));
 
     // Filter out preAllocatedLeaves keys from registeredKeys
     const preAllocatedLeafKeys = new Set(preAllocatedLeaves.map(leaf => leaf.key.toLowerCase()));
-    const registeredKeys = allRegisteredKeys.filter(key => !preAllocatedLeafKeys.has(key.toLowerCase()));
+    const registeredKeys = allRegisteredKeys.filter((key: string) => !preAllocatedLeafKeys.has(key.toLowerCase()));
 
     const storageEntries: Array<{ index?: number; key: string; value: string }> = [];
 
@@ -567,16 +573,22 @@ export class SynthesizerAdapter {
       console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${stateSnapshotPath}`);
     }
 
+    console.log("*****moulder debug******")
+    console.log(bytesToHex(options.senderL2PrvKey));
+    console.log(options.senderL2PrvKey);
+    console.log(jubjub.Point.Fn.ORDER);
+    console.log(bytesToBigInt(options.senderL2PrvKey) % jubjub.Point.Fn.ORDER);
+
     // Derive sender L2 address from private key for metadata
-    // Normalize private key to ensure it's within JubJub scalar field range (1 <= sc < curve.n)
-    const senderKeyBigInt = bytesToBigInt(options.senderL2PrvKey);
-    const normalizedKeyBigInt = senderKeyBigInt % jubjub.Point.Fn.ORDER;
-    const normalizedKeyValue = normalizedKeyBigInt === 0n ? 1n : normalizedKeyBigInt;
-    const senderPubKey = jubjub.Point.BASE.multiply(normalizedKeyValue);
-    const senderPubKeyBytes = new Uint8Array(64);
-    senderPubKeyBytes.set(setLengthLeft(toBytes(senderPubKey.toAffine().x), 32), 0);
-    senderPubKeyBytes.set(setLengthLeft(toBytes(senderPubKey.toAffine().y), 32), 32);
+    // Use the same calculation as web.ts: jubjub.Point.BASE.multiply(bytesToBigInt(privateKey) % jubjub.Point.Fn.ORDER)
+    const senderPubKey = jubjub.Point.BASE.multiply(bytesToBigInt(options.senderL2PrvKey) % jubjub.Point.Fn.ORDER);
+    // Use compressed 32-byte format (same as web.ts: toBytes())
+    const senderPubKeyBytes = senderPubKey.toBytes();
     const senderL2Addr = fromEdwardsToAddress(senderPubKeyBytes);
+
+    console.log(senderPubKey);
+    console.log(senderPubKeyBytes);
+    console.log(senderL2Addr);
 
     const result: SynthesizerResult = {
       instance: a_pub, // PublicInstance type: {a_pub_user, a_pub_block, a_pub_function}
@@ -624,13 +636,37 @@ export class SynthesizerAdapter {
     const {
       channelId,
       initializeTxHash,
-      senderL2PrvKey,
+      senderL2PrvKey: providedSenderL2PrvKey,
+      senderSignature,
       recipientL2Address,
       amount,
       previousStatePath,
       outputPath,
       rollupBridgeAddress,
     } = params;
+
+    // Validate: either senderL2PrvKey or senderSignature must be provided
+    if (!providedSenderL2PrvKey && !senderSignature) {
+      return {
+        success: false,
+        stateRoot: '',
+        previousStateRoot: '',
+        newStateRoot: '',
+        stateSnapshotPath: '',
+        error: 'Either senderL2PrvKey or senderSignature must be provided',
+      };
+    }
+
+    // Derive L2 private key from signature if senderSignature is provided
+    let senderL2PrvKey: Uint8Array;
+    if (senderSignature) {
+      console.log('[SynthesizerAdapter] Deriving L2 private key from signature...');
+      const l2Keys = deriveL2KeysFromSignature(senderSignature);
+      senderL2PrvKey = l2Keys.privateKey;
+      console.log(`   ✅ L2 private key derived from signature`);
+    } else {
+      senderL2PrvKey = providedSenderL2PrvKey!;
+    }
 
     const effectiveRpcUrl = params.rpcUrl || this.rpcUrl;
 
@@ -745,6 +781,8 @@ export class SynthesizerAdapter {
         outputPath,
       };
     } catch (error: any) {
+      console.log("*****moulder debug******")
+      console.log(error);
       return {
         success: false,
         stateRoot: '',

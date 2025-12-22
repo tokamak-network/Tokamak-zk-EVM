@@ -622,7 +622,8 @@ program
   .description('Execute L2 State Channel transfer')
   .requiredOption('--channel-id <id>', 'Channel ID', parseInt)
   .requiredOption('--init-tx <hash>', 'Initialize transaction hash')
-  .requiredOption('--sender-key <key>', 'Sender L2 private key (hex)')
+  .option('--sender-key <key>', 'Sender L2 private key (hex) - OR use --signature')
+  .option('--signature <sig>', 'MetaMask signature to derive L2 private key - OR use --sender-key')
   .requiredOption('--recipient <address>', 'Recipient L2 address')
   .requiredOption('--amount <amount>', 'Transfer amount in ether (e.g., "1" for 1 TON)')
   .option('--previous-state <path>', 'Path to previous state_snapshot.json')
@@ -632,6 +633,14 @@ program
   .option('-s, --sepolia', 'Use sepolia testnet (default: mainnet)')
   .action(async options => {
     try {
+      // Validate: either --sender-key or --signature must be provided
+      if (!options.senderKey && !options.signature) {
+        console.error('❌ Error: Either --sender-key or --signature must be provided');
+        console.error('   Use --sender-key <hex> for direct L2 private key');
+        console.error('   Use --signature <hex> for MetaMask signature (L2 key will be derived)');
+        process.exit(1);
+      }
+
       const network = options.sepolia ? 'sepolia' : 'mainnet';
       let rpcUrl = options.rpcUrl;
 
@@ -651,20 +660,38 @@ program
       console.log(`   Channel ID: ${options.channelId}`);
       console.log(`   Init TX: ${options.initTx}`);
       console.log(`   Recipient: ${options.recipient}`);
-      console.log(`   Amount: ${options.amount} TON\n`);
+      console.log(`   Amount: ${options.amount} TON`);
+      if (options.signature) {
+        console.log(`   Auth Method: Signature-based (L2 key will be derived)`);
+      } else {
+        console.log(`   Auth Method: Direct L2 private key`);
+      }
+      console.log('');
 
       const adapter = new SynthesizerAdapter({ rpcUrl });
 
-      // Convert sender key from hex string to Uint8Array
-      const senderKeyHex = options.senderKey.startsWith('0x')
-        ? options.senderKey.slice(2)
-        : options.senderKey;
-      const senderKey = new Uint8Array(Buffer.from(senderKeyHex, 'hex'));
+      // Prepare sender authentication params
+      let senderL2PrvKey: Uint8Array | undefined;
+      let senderSignature: `0x${string}` | undefined;
+
+      if (options.senderKey) {
+        // Convert sender key from hex string to Uint8Array
+        const senderKeyHex = options.senderKey.startsWith('0x')
+          ? options.senderKey.slice(2)
+          : options.senderKey;
+        senderL2PrvKey = new Uint8Array(Buffer.from(senderKeyHex, 'hex'));
+      } else if (options.signature) {
+        // Use signature directly (adapter will derive L2 private key)
+        senderSignature = options.signature.startsWith('0x')
+          ? options.signature as `0x${string}`
+          : `0x${options.signature}` as `0x${string}`;
+      }
 
       const result = await adapter.synthesizeL2Transfer({
         channelId: options.channelId,
         initializeTxHash: options.initTx,
-        senderL2PrvKey: senderKey,
+        senderL2PrvKey,
+        senderSignature,
         recipientL2Address: options.recipient,
         amount: options.amount,
         previousStatePath: options.previousState,

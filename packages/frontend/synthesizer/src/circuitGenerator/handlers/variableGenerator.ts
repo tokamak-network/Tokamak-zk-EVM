@@ -1,17 +1,7 @@
 import { addHexPrefix, bigIntToHex } from '@ethereumjs/util';
-import { BUFFER_LIST } from 'src/interface/qapCompiler/configuredTypes.ts';
-
-/**
- * Ensure hex string has even length (pad with leading zero if odd)
- * This is required for Rust prover which expects even-length hex strings
- */
-function ensureEvenLengthHex(hex: string): `0x${string}` {
-  const withoutPrefix = hex.startsWith('0x') ? hex.slice(2) : hex;
-  const padded = withoutPrefix.length % 2 === 0 ? withoutPrefix : `0${withoutPrefix}`;
-  return addHexPrefix(padded) as `0x${string}`;
-}
-import { DataPtFactory } from 'src/synthesizer/dataStructure/dataPt.ts';
-import { DataPt } from 'src/synthesizer/types/dataStructure.ts';
+import { BUFFER_LIST } from '../../interface/qapCompiler/configuredTypes.ts';
+import { DataPtFactory } from '../../synthesizer/dataStructure/dataPt.ts';
+import { DataPt } from '../../synthesizer/types/dataStructure.ts';
 import {
   PlacementEntry,
   placementEntryDeepCopy,
@@ -74,7 +64,7 @@ export class VariableGenerator {
     descriptions: string[];
   } {
     const origPts = target === 'In' ? placement.inPts : placement.outPts;
-    const origValues = origPts.map(pt => ensureEvenLengthHex(pt.valueHex));
+    const origValues = origPts.map(pt => addHexPrefix(pt.valueHex));
     const origDescs = origPts.map(pt => {
       const desc = target === 'In' ? pt.extSource : pt.extDest;
       return desc ?? '';
@@ -159,7 +149,7 @@ export class VariableGenerator {
         if (localVal === undefined) {
           throw new Error('Something wrong in the Global Wire List or local placement variables. Need to be debugged.');
         }
-        a_pub[globalIdx] = ensureEvenLengthHex(localVal);
+        a_pub[globalIdx] = addHexPrefix(localVal);
       }
     }
 
@@ -224,7 +214,7 @@ export class VariableGenerator {
         extDest: copied.extDest === undefined ? undefined : copied.extDest + ` (lower 16 bytes)`,
         extSource: copied.extSource === undefined ? undefined : copied.extSource + ` (lower 16 bytes)`,
         value: lowerVal,
-        valueHex: ensureEvenLengthHex(bigIntToHex(lowerVal)),
+        valueHex: bigIntToHex(lowerVal),
       });
 
       // Upper bytes
@@ -233,7 +223,7 @@ export class VariableGenerator {
         extDest: copied.extDest === undefined ? undefined : copied.extDest + ` (upper 16 bytes)`,
         extSource: copied.extSource === undefined ? undefined : copied.extSource + ` (upper 16 bytes)`,
         value: upperVal,
-        valueHex: ensureEvenLengthHex(bigIntToHex(upperVal)),
+        valueHex: bigIntToHex(upperVal),
       });
       return newDataPts;
     } else {
@@ -379,7 +369,7 @@ export class VariableGenerator {
       const witness = await witnessCalculator.calculateWitness(ins, 0);
       for (const [index, value] of witness.entries()) {
         let hex = bigIntToHex(value);
-        witnessHex[index] = ensureEvenLengthHex(hex);
+        witnessHex[index] = hex;
       }
     }
     return witnessHex;
