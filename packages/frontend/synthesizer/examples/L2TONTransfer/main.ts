@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import {
+  addHexPrefix,
   bytesToBigInt,
   bytesToHex,
   concatBytes,
@@ -13,11 +14,12 @@ import {
   utf8ToBytes,
 } from '@ethereumjs/util';
 import { jubjub } from "@noble/curves/misc.js";
-import { fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
+import { deriveL2KeysFromSignature, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
 import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../src/interface/index.ts';
 import { getUserStorageKey } from '../../src/TokamakL2JS/index.ts';
+import { EdwardsPoint } from '@noble/curves/abstract/edwards';
 
 type L2TONTransferConfig = {
   privateKeySeedsL2: string[];
@@ -127,13 +129,17 @@ const main = async () => {
   const config = await loadConfig(configPath);
   const rpcUrl = getRpcUrlFromEnv();
 
-  const derivedPrivateKeyListL2 = config.privateKeySeedsL2.map((seed) => 
-    jubjub.utils.randomPrivateKey(toSeedBytes(seed))
+  const privateSignatures = config.privateKeySeedsL2.map((seed) => 
+    bytesToHex(jubjub.utils.randomPrivateKey(toSeedBytes(seed)))
   );
 
-  const derivedPublicKeyListL2 = derivedPrivateKeyListL2.map(prvKey => 
-    jubjub.Point.BASE.multiply(bytesToBigInt(prvKey) % jubjub.Point.Fn.ORDER).toBytes()
-  );
+  const derivedPrivateKeyListL2: Uint8Array[] = [];
+  const derivedPublicKeyListL2: EdwardsPoint[] = [];
+  privateSignatures.map( sig => {
+    const keySet = deriveL2KeysFromSignature(sig);
+    derivedPrivateKeyListL2.push(keySet.privateKey);
+    derivedPublicKeyListL2.push(jubjub.Point.fromBytes(keySet.publicKey));
+  })
 
   const senderL2PrvKey = derivedPrivateKeyListL2[config.senderIndex];
   const tokenRecipientPubKey = derivedPublicKeyListL2[config.recipientIndex];
