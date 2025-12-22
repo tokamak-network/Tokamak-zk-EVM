@@ -1,7 +1,7 @@
 import { Common, CommonOpts, Mainnet, Sepolia } from "@ethereumjs/common"
 import { createTokamakL2StateManagerFromL1RPC, createTokamakL2Tx, fromEdwardsToAddress, getEddsaPublicKey, poseidon, TokamakL2StateManagerOpts, TokamakL2TxData } from "../../TokamakL2JS/index.ts"
 import { RPCStateManager } from "@ethereumjs/statemanager"
-import { addHexPrefix, bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromString, hexToBigInt, hexToBytes, setLengthLeft, toBytes } from "@ethereumjs/util"
+import { addHexPrefix, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromString, hexToBigInt, hexToBytes, toBytes } from "@ethereumjs/util"
 import { ethers } from "ethers"
 import { SynthesizerBlockInfo, SynthesizerOpts } from "../../synthesizer/types/index.ts"
 import { jubjub } from "@noble/curves/misc.js"
@@ -29,7 +29,7 @@ async function getBlockInfoFromRPC(
 ): Promise<SynthesizerBlockInfo> {
 	const provider = new ethers.JsonRpcProvider(rpcUrl)
 	const block = await provider.getBlock(blockNumber, false)
-
+	
 	if (block === null) {
 		throw new Error('RPC calls an invalid block')
 	}
@@ -46,7 +46,7 @@ async function getBlockInfoFromRPC(
             throw new Error(`Can't retrieve a previous block hash. It's ${block?.hash}.`)
         }
 		return block.hash
-	}
+	}	
 
 	const hashes: bigint[] = new Array<bigint>(nHashes)
 	for ( var i = 0; i < nHashes; i++){
@@ -90,21 +90,14 @@ export async function createSynthesizerOptsForSimulationFromRPC(opts: Synthesize
     }
     const L2StateManager = await createTokamakL2StateManagerFromL1RPC(opts.rpcUrl, stateManagerOpts)
 
-    // Normalize private key to ensure it's within JubJub scalar field range (1 <= sc < curve.n)
-    const senderKeyBigInt = bytesToBigInt(opts.senderL2PrvKey);
-    const normalizedKeyBigInt = senderKeyBigInt % jubjub.Point.Fn.ORDER;
-    const normalizedKeyValue = normalizedKeyBigInt === 0n ? 1n : normalizedKeyBigInt;
-    const normalizedKeyBytes = bigIntToBytes(normalizedKeyValue);
-    const normalizedKey = setLengthLeft(normalizedKeyBytes, 32);
-
     const transactionData: TokamakL2TxData = {
         nonce: opts.txNonce,
         to: createAddressFromString(opts.contractAddress),
         data: opts.callData,
-        senderPubKey: jubjub.Point.BASE.multiply(normalizedKeyValue).toBytes()
+        senderPubKey: jubjub.Point.BASE.multiply(bytesToBigInt(opts.senderL2PrvKey) % jubjub.Point.Fn.ORDER).toBytes()
     }
     const unsignedTransaction = createTokamakL2Tx(transactionData, {common})
-    const signedTransaction = unsignedTransaction.sign(normalizedKey)
+    const signedTransaction = unsignedTransaction.sign(opts.senderL2PrvKey)
     return {
         signedTransaction,
         blockInfo,
