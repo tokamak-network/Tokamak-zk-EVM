@@ -4,22 +4,24 @@
 #   - Before executing any internal shell script, this CLI normalizes line endings via dos2unix
 #     and ensures the script is executable, to avoid Windows CRLF issues.
 # Commands:
-#   --install <API_KEY|RPC_URL>  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
+#   --install <API_KEY|RPC_URL> [--bun]  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
 #   --synthesize <TX_CONFIG_JSON>  Run frontend synthesizer with config JSON and sync outputs into dist
 #   --preprocess                 Run backend preprocess step (dist only)
-#   --prove                      Run backend prove step and collect artifacts in dist
-#   --verify [<DIST_PATH>]       Verify a proof from dist outputs (default: detected dist for current platform)
+#   --prove [<SYNTH_OUTPUT_ZIP|DIR>] Run backend prove step and collect artifacts in dist
+#   --verify [<PROOF_ZIP|DIR>]   Verify a proof from dist outputs (default: detected dist for current platform)
 #   --extract-proof <OUTPUT_DIR> Gather proof artifacts from dist and zip them to OUTPUT_DIR/transaction_zkp.zip
 #   --doctor                     Check system requirements and health
 #   --help                       Show usage
 # Options:
 #   --verbose                    Show detailed output
+#   --bun                        Use Bun for packaging during --install
 
 set -Eeuo pipefail
 IFS=$'\n\t'
 
 # Global config
 VERBOSE=false
+INSTALL_USE_BUN=false
 
 # ---------- Pretty print ----------
 log() { echo -e "\033[1;34m[tokamak-cli]\033[0m $*"; }
@@ -336,6 +338,146 @@ sync_synth_outputs_to_dist() {
   echo "$dest"
 }
 
+find_first_match_or_exit() {
+  local src_dir="$1"
+  local filename="$2"
+  local label="${3:-$filename}"
+  local matches first match_count
+  matches="$(find "$src_dir" -type f -name "$filename" 2>/dev/null)"
+  if [[ -z "$matches" ]]; then
+    err "Missing $label under: $src_dir"
+    exit 1
+  fi
+  first="$(printf '%s\n' "$matches" | head -n1)"
+  match_count="$(printf '%s\n' "$matches" | wc -l | tr -d ' ')"
+  if [[ "$match_count" -gt 1 ]]; then
+    verbose "Multiple $label found; using: $first"
+  fi
+  printf '%s\n' "$first"
+}
+
+extract_zip_to_tmp_or_exit() {
+  local zip_path_raw="$1"
+  local tmp_prefix="$2"
+  local zip_path
+  zip_path="$(abs_path_from_root "$zip_path_raw")"
+  [[ -f "$zip_path" ]] || { err "Zip file not found: $zip_path_raw"; exit 1; }
+  if ! command -v unzip >/dev/null 2>&1; then
+    err "unzip not found (required to extract: $zip_path_raw)"
+    exit 1
+  fi
+  if ! unzip -t "$zip_path" >/dev/null 2>&1; then
+    err "Invalid zip archive: $zip_path_raw"
+    exit 1
+  fi
+
+  local tmp_dir
+  tmp_dir="$(mktemp -d -t "${tmp_prefix}.XXXXXX")"
+
+  if ! unzip -q "$zip_path" -d "$tmp_dir"; then
+    rm -rf "$tmp_dir"
+    err "Failed to extract zip: $zip_path_raw"
+    exit 1
+  fi
+
+  printf '%s\n' "$tmp_dir"
+}
+
+sync_from_path() {
+  local path_raw="${1:-}"
+  local dir_handler="${2:-}"
+  local zip_handler="${3:-}"
+  [[ -n "$path_raw" ]] || { err "Path is required"; exit 1; }
+  local path
+  path="$(abs_path_from_root "$path_raw")"
+  if [[ -d "$path" ]]; then
+    "$dir_handler" "$path"
+    return
+  fi
+  if [[ -f "$path" ]]; then
+    "$zip_handler" "$path_raw"
+    return
+  fi
+  err "Path not found: $path_raw"
+  exit 1
+}
+
+sync_synth_outputs_from_dir() {
+  local src_dir="${1:-}"
+  [[ -n "$src_dir" ]] || { err "Source directory is required"; exit 1; }
+
+  local required_files=(
+    "instance_description.json"
+    "instance.json"
+    "permutation.json"
+    "placementVariables.json"
+  )
+
+  local found_files=()
+  local name
+  for name in "${required_files[@]}"; do
+    found_files+=("$(find_first_match_or_exit "$src_dir" "$name")")
+  done
+
+  local target dist_dir dest
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+  dest="$dist_dir/resource/synthesizer/output"
+
+  log "Prove: syncing synthesizer outputs → $dest"
+  mkdir -p "$dest"
+  local i
+  for i in "${!required_files[@]}"; do
+    cp -f "${found_files[$i]}" "$dest/${required_files[$i]}"
+  done
+
+  ok "Synth outputs copied → $dest"
+}
+
+sync_synth_outputs_from_zip() {
+  local zip_path_raw="${1:-}"
+  [[ -n "$zip_path_raw" ]] || { err "Zip path is required"; exit 1; }
+  local tmp_dir
+  tmp_dir="$(extract_zip_to_tmp_or_exit "$zip_path_raw" "tokamak_prove_zip")"
+  sync_synth_outputs_from_dir "$tmp_dir"
+  rm -rf "$tmp_dir"
+}
+
+sync_synth_outputs_from_path() {
+  sync_from_path "$1" sync_synth_outputs_from_dir sync_synth_outputs_from_zip
+}
+
+sync_proof_from_dir() {
+  local src_dir="${1:-}"
+  [[ -n "$src_dir" ]] || { err "Source directory is required"; exit 1; }
+
+  local first
+  first="$(find_first_match_or_exit "$src_dir" "proof.json")"
+
+  local target dist_dir dest
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+  dest="$dist_dir/resource/prove/output"
+
+  log "Verify: syncing proof.json → $dest"
+  mkdir -p "$dest"
+  cp -f "$first" "$dest/proof.json"
+  ok "Proof synced → $dest/proof.json"
+}
+
+sync_proof_from_zip() {
+  local zip_path_raw="${1:-}"
+  [[ -n "$zip_path_raw" ]] || { err "Zip path is required"; exit 1; }
+  local tmp_dir
+  tmp_dir="$(extract_zip_to_tmp_or_exit "$zip_path_raw" "tokamak_verify_zip")"
+  sync_proof_from_dir "$tmp_dir"
+  rm -rf "$tmp_dir"
+}
+
+sync_proof_from_path() {
+  sync_from_path "$1" sync_proof_from_dir sync_proof_from_zip
+}
+
 run_synthesizer() {
   local config_path_raw="$1"
   [[ -n "$config_path_raw" ]] || { err "Synthesizer config path is required"; exit 1; }
@@ -401,6 +543,10 @@ step_install() {
     linux22) packaging_options+=("--linux") ;;
     *)       packaging_options+=("--linux") ;;
   esac
+
+  if [[ "$INSTALL_USE_BUN" == true ]]; then
+    packaging_options+=("--bun")
+  fi
 
   if [ -z "${GITHUB_ACTIONS:-}" ] && [ -z "${CI:-}" ] && [ -z "${CONTINUOUS_INTEGRATION:-}" ]; then
     # Local environment: use default settings (npm) and skip compression
@@ -472,8 +618,10 @@ step_preprocess() {
 }
 
 step_prove() {
-  local arg="${1:-}"
-  [[ -z "$arg" ]] || { err "--prove takes no arguments. Run --synthesize and --preprocess first."; exit 1; }
+  local input_arg="${1:-}"
+  if [[ -n "$input_arg" ]]; then
+    sync_synth_outputs_from_path "$input_arg"
+  fi
 
   local target dist_dir run4 proof_output
   target="$(detect_target)"
@@ -559,7 +707,6 @@ step_extract_proof() {
   zip_name="transaction_zkp.zip"
 
   local artifacts=(
-    "resource/synthesizer/input/config.json"
     "resource/synthesizer/output/instance.json"
     "resource/synthesizer/output/instance_description.json"
     "resource/preprocess/output/preprocess.json"
@@ -610,13 +757,7 @@ step_verify() {
   run5="$dist_dir/5_run-verify.sh"
 
   if [[ -n "$base_arg" ]]; then
-    local base_dir resource_src
-    base_dir="$(abs_path_from_root "$base_arg")"
-    resource_src="$base_dir/resource"
-    [[ -d "$resource_src" ]] || { err "resource directory not found in: $base_dir"; exit 1; }
-    log "Verify: syncing resource from $resource_src → $resource_dir"
-    mkdir -p "$resource_dir"
-    cp -a "$resource_src/." "$resource_dir/"
+    sync_proof_from_path "$base_arg"
   else
     [[ -d "$resource_dir" ]] || { err "resource directory not found: $resource_dir"; exit 1; }
   fi
@@ -650,7 +791,6 @@ step_verify() {
   verify_out="$(bash "$run5" "$proof_dir" | tail -n1)"
   if [[ "$verify_out" == "true" || "$verify_out" == "true"$'\r' ]]; then
     ok "Verify: verify output => $verify_out"
-    ok "Verified proof location → $proof_dir"
   else
     err "Verify: verify output => $verify_out"
     exit 1
@@ -747,7 +887,7 @@ print_usage() {
   cat <<'USAGE'
 
 Commands:
-  --install <API_KEY|RPC_URL>
+  --install <API_KEY|RPC_URL> [--bun]
       Install and setup Tokamak ZKP
 
   --synthesize <TX_CONFIG_JSON>
@@ -756,11 +896,13 @@ Commands:
   --preprocess
       Run backend preprocess stage (after --synthesize)
 
-  --prove
+  --prove [<SYNTH_OUTPUT_ZIP|DIR>]
       Run backend prove stage and collect artifacts (after --synthesize)
+      If zip or directory is provided, sync synth outputs into dist before proving
 
-  --verify [<DIST_PATH>]
+  --verify [<PROOF_ZIP|DIR>]
       Verify a proof saved under dist (default: detected dist for current platform)
+      If zip or directory is provided, sync proof.json into dist before verifying
       Tokamak ZKP must be installed via "--install"
 
   --extract-proof <OUTPUT_DIR>
@@ -774,6 +916,7 @@ Commands:
 
 Options:
   --verbose       Show detailed output
+  --bun           Use Bun for packaging during --install
 USAGE
 }
 
@@ -790,7 +933,23 @@ while [[ $# -gt 0 ]]; do
     --install)
       CMD="install"; ARG1="${2:-}";
       [[ -n "$ARG1" ]] || { err "--install requires <API_KEY|RPC_URL>"; echo "💡 Get an API key from https://dashboard.alchemy.com/" >&2; exit 1; }
-      [[ -z "${3:-}" ]] || { err "Too many arguments for --install"; exit 1; }
+      shift 2
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --bun)
+            INSTALL_USE_BUN=true
+            shift
+            ;;
+          --verbose)
+            VERBOSE=true
+            shift
+            ;;
+          *)
+            err "Unknown option for --install: $1"
+            exit 1
+            ;;
+        esac
+      done
       break
       ;;
     --synthesize)
@@ -806,7 +965,8 @@ while [[ $# -gt 0 ]]; do
       ;;
     --prove)
       CMD="prove";
-      [[ -z "${2:-}" ]] || { err "--prove takes no arguments"; exit 1; }
+      ARG1="${2:-}";
+      [[ -z "${3:-}" ]] || { err "Too many arguments for --prove"; exit 1; }
       break
       ;;
     --verify)
@@ -841,7 +1001,7 @@ case "$CMD" in
   install) step_install "$ARG1" ;;
   synthesize) step_synthesize "$ARG1" ;;
   preprocess) step_preprocess ;;
-  prove) step_prove ;;
+  prove) step_prove "${ARG1:-}" ;;
   verify) step_verify "${ARG1:-}" ;;
   extract_proof) step_extract_proof "$ARG1" ;;
   doctor) step_doctor ;;
