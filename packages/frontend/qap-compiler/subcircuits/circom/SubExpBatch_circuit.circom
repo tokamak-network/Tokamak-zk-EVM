@@ -1,6 +1,6 @@
 pragma circom 2.1.6;
 include "../../templates/256bit/arithmetic_unsafe_type1.circom";
-include "../../scripts/constants.circom";
+include "./constants.circom";
 
 template SubExpBatch(N) {
     signal input in[4 + N];

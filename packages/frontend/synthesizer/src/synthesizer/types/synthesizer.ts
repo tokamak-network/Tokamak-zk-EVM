@@ -1,11 +1,11 @@
 import { LegacyTx } from '@ethereumjs/tx';
 import { InterpreterStep } from '@ethereumjs/evm';
 import { RunTxResult } from '@ethereumjs/vm';
-import { TokamakL2StateManager, TokamakL2Tx } from '../TokamakL2JS/index.ts';
+import { TokamakL2StateManager, TokamakL2Tx } from '../../TokamakL2JS/index.ts';
 import { StateManager } from '../handlers/index.ts';
 import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable } from './index.ts';
 import { SynthesizerOpHandler } from '../handlers/instructionHandler.ts';
-import { ArithmeticOperator, SubcircuitNames } from '../interface/qapCompiler/configuredTypes.ts';
+import { ArithmeticOperator, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
 
 export type SynthesizerBlockInfo = {
   coinBase: bigint,

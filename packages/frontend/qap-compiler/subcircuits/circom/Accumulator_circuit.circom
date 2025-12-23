@@ -1,7 +1,7 @@
 pragma circom 2.1.6;
 include "../../templates/256bit/arithmetic_unsafe_type1.circom";
 include "../../templates/256bit/compare_safe.circom";
-include "../../scripts/constants.circom";
+include "./constants.circom";
 
 template Accumulator() {
     var N = nAccumulation();

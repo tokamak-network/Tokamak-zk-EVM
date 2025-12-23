@@ -56,4 +56,4 @@ export const REQUIRED_CIRCOM_KEYS = [
 ] as const;
 export type CircomKey = typeof REQUIRED_CIRCOM_KEYS[number];
 
-export type CircomConstMap = Record<CircomKey, number>;
+export type FrontendConfig = Record<CircomKey, number>;

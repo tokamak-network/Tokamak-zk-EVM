@@ -1,53 +1,14 @@
-import { readFile } from 'node:fs/promises';
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { CircomConstMap, CircomKey, GlobalWireList, isNumber, isTupleNumber2, REQUIRED_CIRCOM_KEYS, SETUP_PARAMS_KEYS, SetupParams, SUBCIRCUIT_INFO_VALIDATORS, SubcircuitInfo, ValidatorMap } from './types.ts';
+import { FrontendConfig, CircomKey, GlobalWireList, isNumber, isTupleNumber2, REQUIRED_CIRCOM_KEYS, SETUP_PARAMS_KEYS, SetupParams, SUBCIRCUIT_INFO_VALIDATORS, SubcircuitInfo, ValidatorMap } from './types.ts';
 import { SUBCIRCUIT_LIST, SubcircuitInfoByName, SubcircuitInfoByNameEntry, SubcircuitNames } from './configuredTypes.ts';
 
 
 // -----------------------------------------------------------------------------
-// Base location (ESM-friendly): resolve everything relative to this module
-// When running as a Bun binary, use the executable's directory
-// -----------------------------------------------------------------------------
-// function getBaseURL(): URL {
-//   // Check if running as a Bun compiled binary
-//   if ((process as any).isBun && (process as any).execPath) {
-//     // Running as binary: use executable's parent directory
-//     // e.g., /path/to/dist/macOS/bin/synthesizer -> /path/to/dist/macOS/
-//     const execPath = (process as any).execPath as string;
-//     const execDir = fileURLToPath(new URL('.', `file://${execPath}`));
-//     // Go up one level from bin/ to get to the base directory
-//     return new URL('../resource/qap-compiler/', `file://${execDir}`);
-//   }
-
-//   // Development mode: use import.meta.url
-//   return new URL('../../../../qap-compiler/', import.meta.url);
-// }
-
-function getBaseURL(): URL {
-  if (typeof window !== "undefined") {
-    throw new Error("getBaseURL must run on the server");
-  }
-
-  if ((process as any).isBun && (process as any).execPath) {
-    const execPath = (process as any).execPath as string;
-    const execDir = path.dirname(execPath);
-    return pathToFileURL(path.resolve(execDir, "../resource/qap-compiler") + path.sep);
-  }
-
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  return pathToFileURL(path.resolve(here, "../../../../qap-compiler") + path.sep);
-}
-
-export const BASE_URL = getBaseURL();
-
-// -----------------------------------------------------------------------------
 // Helpers: URL-based JSON loader + tiny runtime validators
 // -----------------------------------------------------------------------------
-export async function readJson(u: URL): Promise<unknown> {
-  // Convert URL → filesystem path and parse JSON
-  return JSON.parse(await readFile(fileURLToPath(u), 'utf8')) as unknown;
-}
+// export async function readJson(u: URL): Promise<unknown> {
+//   // Convert URL → filesystem path and parse JSON
+//   return JSON.parse(await readFile(fileURLToPath(u), 'utf8')) as unknown;
+// }
 
 // -----------------------------------------------------------------------------
 // Runtime shape assertions (fail fast with readable messages)
@@ -70,6 +31,19 @@ export function structCheckForSetupParams(x: unknown): asserts x is SetupParams 
   //     throw new Error(`Unexpected key in setupParams.json: ${k}`);
   //   }
   // }
+}
+
+export function structCheckForFrontendConfig(x: unknown): asserts x is FrontendConfig {
+  if (typeof x !== 'object' || x === null) throw new Error('Invalid shape for frontendCfg.json: expected object');
+  const o = x as Record<string, unknown>;
+  if (!REQUIRED_CIRCOM_KEYS.every((k) => isNumber(o[k]))) {
+    throw new Error('Invalid values in frontendCfg.json: all keys must be finite numbers');
+  }
+  for (const key of Object.keys(o)) {
+    if (!REQUIRED_CIRCOM_KEYS.includes(key as CircomKey)) {
+      throw new Error(`Unexpected key in frontendCfg.json: ${key}`);
+    }
+  }
 }
 
 export function structCheckForSubcircuitInfo(x: unknown): asserts x is SubcircuitInfo {
@@ -112,51 +86,4 @@ export function createInfoByName(subcircuitInfo: SubcircuitInfo): SubcircuitInfo
   }
 
   return subcircuitInfoByName;
-}
-
-// -----------------------------------------------------------------------------
-// Circom constants: extract simple `function NAME(){ return <int>; }` pairs
-// -----------------------------------------------------------------------------
-const CIRCOM_URL = new URL('scripts/constants.circom', BASE_URL);
-const CIRCOM_PATH = fileURLToPath(CIRCOM_URL);
-
-// Remove line and block comments (coarse but adequate for constants file)
-const stripComments = (s: string) =>
-  s.replace(/\/\*[\s\S]*?\*\//g, '')  // block comments
-   .replace(/\/\/[^\n\r]*/g, '');   // line comments
-
-
-// Match: function <name>() { return <digits>; }
-const RE_FUNCTION_RETURN_INT = /function\s+([A-Za-z_]\w*)\s*\(\)\s*{\s*return\s+(\d+)\s*;\s*}/g;
-
-export async function loadCircomConstants(): Promise<CircomConstMap> {
-  const src = await readFile(CIRCOM_PATH, 'utf8');
-  const text = stripComments(src);
-
-  // Collect only the required keys; ignore other functions
-  const found: Partial<Record<CircomKey, number>> = {};
-  let m: RegExpExecArray | null;
-  while ((m = RE_FUNCTION_RETURN_INT.exec(text)) !== null) {
-    const [, name, valueStr] = m;
-    if ((REQUIRED_CIRCOM_KEYS as readonly string[]).includes(name)) {
-      const k = name as CircomKey;
-      if (found[k] !== undefined) {
-        throw new Error(`Duplicate circom constant: ${k}`);
-      }
-      const v = Number(valueStr);
-      if (!Number.isFinite(v)) {
-        throw new Error(`Non-finite value for circom constant ${k}: ${valueStr}`);
-      }
-      found[k] = v;
-    }
-  }
-
-  // Ensure all required constants are present
-  for (const k of REQUIRED_CIRCOM_KEYS) {
-    if (found[k] === undefined) {
-      throw new Error(`Missing circom constant: ${k}`);
-    }
-  }
-
-  return found as CircomConstMap;
 }
