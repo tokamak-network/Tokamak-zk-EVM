@@ -1,0 +1,12 @@
+{
+  "nPubOut": 8,
+  "nPubIn": 32,
+  "nEVMIn": 250,
+  "nPrvIn": 450,
+  "nPoseidonInputs": 2,
+  "nMtDepth": 4,
+  "nAccumulation": 32,
+  "nPrevBlockHashes": 4,
+  "nJubjubExpBatch": 64,
+  "nSubExpBatch": 16
+}

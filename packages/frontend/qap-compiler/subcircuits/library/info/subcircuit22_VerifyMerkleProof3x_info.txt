@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 72
+non-linear constraints: 741
+linear constraints: 1178
+public inputs: 14
+private inputs: 0
+public outputs: 0
+wires: 1929
+labels: 3392
+[32mWritten successfully:[0m ../subcircuits/library/VerifyMerkleProof3x_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library/VerifyMerkleProof3x_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library/VerifyMerkleProof3x_circuit_js/VerifyMerkleProof3x_circuit.wasm
+[32mEverything went okay[0m
