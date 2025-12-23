@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 69
+non-linear constraints: 720
+linear constraints: 1161
+public inputs: 0
+private inputs: 8
+public outputs: 2
+wires: 1893
+labels: 3302
+[32mWritten successfully:[0m ../subcircuits/library/Poseidon2xCompress_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library/Poseidon2xCompress_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library/Poseidon2xCompress_circuit_js/Poseidon2xCompress_circuit.wasm
+[32mEverything went okay[0m

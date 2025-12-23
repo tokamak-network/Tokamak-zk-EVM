@@ -1,6 +1,5 @@
-import { globalWireList, setupParams, subcircuitInfoByName, wasmDir } from '../../interface/qapCompiler/importedConstants.ts';
+import { globalWireList, setupParams, subcircuitInfoByName } from '../../interface/qapCompiler/importedConstants.ts';
 
-import { builder } from '../utils/witness_calculator.ts';
 import { GlobalWireList } from '../../interface/qapCompiler/types.ts';
 import { Placements, PlacementVariables } from '../../synthesizer/types/placements.ts';
 import { BUFFER_DESCRIPTION, BUFFER_LIST, SubcircuitInfoByName, SubcircuitInfoByNameEntry } from '../../interface/qapCompiler/configuredTypes.ts';

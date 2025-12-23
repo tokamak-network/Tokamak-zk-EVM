@@ -15,12 +15,8 @@ import {
   setupParams,
   SUBCIRCUIT_BUFFER_MAPPING,
   subcircuitInfoByName,
-  wasmDir,
 } from '../../interface/qapCompiler/importedConstants.ts';
 import { builder } from '../utils/witness_calculator.ts';
-import { readFileSync } from 'fs';
-import appRootPath from 'app-root-path';
-import path from 'path';
 import { VARIABLE_DESCRIPTION } from '../../synthesizer/types/buffers.ts';
 import { PublicInstance, PublicInstanceDescription } from '../types/types.ts';
 
@@ -361,14 +357,7 @@ export class VariableGenerator {
     let witnessHex: string[] = [];
     if (inValues.length > 0) {
       const id = subcircuitId;
-
-      let buffer;
-      const targetWasmPath = path.resolve(appRootPath.path, wasmDir, `subcircuit${id}.wasm`);
-      try {
-        buffer = readFileSync(targetWasmPath);
-      } catch (err) {
-        throw new Error(`Error while reading subcircuit${id}.wasm`);
-      }
+      const buffer = this.parent.subcircuitWasmBuffers[id];
       const ins = { in: inValues };
       const witnessCalculator = await builder(buffer);
       const witness = await witnessCalculator.calculateWitness(ins, 0);

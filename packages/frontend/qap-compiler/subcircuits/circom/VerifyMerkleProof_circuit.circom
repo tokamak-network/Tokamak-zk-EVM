@@ -1,6 +1,6 @@
 pragma circom 2.1.6;
 include "../../templates/255bit/merkleTree.circom";
-include "../../scripts/constants.circom";
+include "./constants.circom";
 
 
 // template VerifyMerkleProof() {

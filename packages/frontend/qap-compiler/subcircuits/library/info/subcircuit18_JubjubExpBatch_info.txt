@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 6
+non-linear constraints: 1600
+linear constraints: 136
+public inputs: 0
+private inputs: 72
+public outputs: 8
+wires: 1749
+labels: 3205
+[32mWritten successfully:[0m ../subcircuits/library/JubjubExpBatch_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library/JubjubExpBatch_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library/JubjubExpBatch_circuit_js/JubjubExpBatch_circuit.wasm
+[32mEverything went okay[0m
