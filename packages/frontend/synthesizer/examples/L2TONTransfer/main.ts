@@ -20,8 +20,8 @@ import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenera
 import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../src/interface/index.ts';
 import { getUserStorageKey } from '../../src/TokamakL2JS/index.ts';
 import { EdwardsPoint } from '@noble/curves/abstract/edwards';
-import { writeCircuitJson } from 'src/interface/node/jsonWriter.ts';
-import { loadSubcircuitWasm } from 'src/interface/node/wasmLoader.ts';
+import { writeCircuitJson } from '../../src/interface/node/jsonWriter.ts';
+import { loadSubcircuitWasm } from '../../src/interface/node/wasmLoader.ts';
 
 type L2TONTransferConfig = {
   privateKeySeedsL2: string[];

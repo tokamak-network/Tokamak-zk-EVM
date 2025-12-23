@@ -48,7 +48,7 @@ export function loadSubcircuitWasm(): any[] {
   for (const subcircuit of subcircuitInfo) {
     const id = subcircuit.id;
     let buffer;
-    const targetWasmPath = path.resolve(appRootPath.path, wasmDir, `subcircuit${id}.wasm`);
+    const targetWasmPath = path.resolve(wasmDir, `subcircuit${id}.wasm`);
     try {
         buffer = readFileSync(targetWasmPath);
     } catch (err) {
