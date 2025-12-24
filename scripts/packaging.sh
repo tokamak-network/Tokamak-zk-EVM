@@ -155,6 +155,7 @@ setup_linux_config() {
     BACKEND_TARBALL="icicle_3_8_0-ubuntu${UB_MAJOR}-cuda122.tar.gz"
     COMMON_URL="${BASE_URL}/${COMMON_TARBALL}"
     BACKEND_URL="${BASE_URL}/${BACKEND_TARBALL}"
+    SYNTHESIZER_BUILD_TARGET="linux"
     SCRIPTS_SOURCE=".run_scripts/linux"
 
     echo "ℹ️ Linux configuration: Ubuntu ${UB_MAJOR}, Target: ${TARGET}"
@@ -169,6 +170,7 @@ setup_macos_config() {
     BACKEND_TARBALL="icicle_3_8_0-macOS-Metal.tar.gz"
     COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
     BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$BACKEND_TARBALL"
+    SYNTHESIZER_BUILD_TARGET="macos"
     SCRIPTS_SOURCE=".run_scripts/macOS"
 
     # macOS-specific signing configuration
@@ -199,10 +201,13 @@ build_synthesizer() {
     if [[ "$DO_BUN" == "true" ]]; then
 
         cd packages/frontend/synthesizer
+        echo "🔍 Installing synthesizer dependencies..."
+        bun install
         BUN_SCRIPT="./build-binary.sh"
         dos2unix "$BUN_SCRIPT" || true
         chmod +x "$BUN_SCRIPT" 2>/dev/null || true
-        "$BUN_SCRIPT"
+        echo "🔍 Building synthesizer binary for ${PLATFORM}..."
+        "$BUN_SCRIPT" "$SYNTHESIZER_BUILD_TARGET"
         cd "$WORKSPACE_ROOT"
         echo "✅ built synthesizer"
     else

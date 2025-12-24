@@ -430,6 +430,16 @@ sync_synth_outputs_from_dir() {
   for i in "${!required_files[@]}"; do
     cp -f "${found_files[$i]}" "$dest/${required_files[$i]}"
   done
+  local state_matches state_first state_count
+  state_matches="$(find "$src_dir" -type f -name "state_snapshot.json" 2>/dev/null)"
+  if [[ -n "$state_matches" ]]; then
+    state_first="$(printf '%s\n' "$state_matches" | head -n1)"
+    state_count="$(printf '%s\n' "$state_matches" | wc -l | tr -d ' ')"
+    if [[ "$state_count" -gt 1 ]]; then
+      verbose "Multiple state_snapshot.json found; using: $state_first"
+    fi
+    cp -f "$state_first" "$dest/state_snapshot.json"
+  fi
 
   ok "Synth outputs copied → $dest"
 }
@@ -451,18 +461,30 @@ sync_proof_from_dir() {
   local src_dir="${1:-}"
   [[ -n "$src_dir" ]] || { err "Source directory is required"; exit 1; }
 
-  local first
-  first="$(find_first_match_or_exit "$src_dir" "proof.json")"
-
-  local target dist_dir dest
+  local target dist_dir
   target="$(detect_target)"
   dist_dir="$(dist_dir_for_target "$target")"
-  dest="$dist_dir/resource/prove/output"
 
-  log "Verify: syncing proof.json → $dest"
-  mkdir -p "$dest"
-  cp -f "$first" "$dest/proof.json"
-  ok "Proof synced → $dest/proof.json"
+  log "Verify: syncing artifacts from $src_dir"
+
+  # Sync required files
+  local files_to_sync=(
+    "resource/prove/output/proof.json"
+    "resource/synthesizer/output/instance.json"
+    "resource/preprocess/output/preprocess.json"
+  )
+
+  for rel_path in "${files_to_sync[@]}"; do
+    local filename dest_path src_file
+    filename="$(basename "$rel_path")"
+    dest_path="$dist_dir/$rel_path"
+
+    src_file="$(find_first_match_or_exit "$src_dir" "$filename")"
+
+    mkdir -p "$(dirname "$dest_path")"
+    cp -f "$src_file" "$dest_path"
+    ok "Synced $filename → $dest_path"
+  done
 }
 
 sync_proof_from_zip() {
@@ -713,6 +735,9 @@ step_extract_proof() {
     "resource/prove/output/benchmark.json"
     "resource/prove/output/proof.json"
   )
+  local optional_artifacts=(
+    "resource/synthesizer/output/state_snapshot.json"
+  )
 
   local missing=0
   for rel in "${artifacts[@]}"; do
@@ -732,6 +757,14 @@ step_extract_proof() {
     local dest="$tmp_dir/$rel"
     mkdir -p "$(dirname "$dest")"
     cp "$src" "$dest"
+  done
+  for rel in "${optional_artifacts[@]}"; do
+    local src="$dist_dir/$rel"
+    if [[ -f "$src" ]]; then
+      local dest="$tmp_dir/$rel"
+      mkdir -p "$(dirname "$dest")"
+      cp "$src" "$dest"
+    fi
   done
 
   if make_zip "$tmp_dir" "$zip_name"; then
