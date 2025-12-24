@@ -372,19 +372,19 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
   }
   const globalWireList = globalWireInfo.wireList
 
-  const tsSubcircuitInfo = `// Out_idx[0] denotes the index of the first output wire.
-  // Out_idx[1] denotes the number of output wires.
-  // In_idx[0] denotes the index of the first input wire.
-  // In_idx[1] denotes the number of input wires.
-  // flattenMap[localWireIndex] is a map that describes how each subcitcuit wire (local wire) is related to the library wires (global wires), i.e., 'flattenMap' is the inverse of 'globalWireList'.
-  export const subcircuits =\n ${JSON.stringify(subcircuits, null)}`
-  fs.writeFile('../subcircuits/library/subcircuitInfo.ts', tsSubcircuitInfo, (err) => {
-    if (err) {
-      console.log('Error writing the TypeScript file', err);
-    } else {
-      console.log('Successfully wrote the TypeScript file');
-    }
-  })
+  // const tsSubcircuitInfo = `// Out_idx[0] denotes the index of the first output wire.
+  // // Out_idx[1] denotes the number of output wires.
+  // // In_idx[0] denotes the index of the first input wire.
+  // // In_idx[1] denotes the number of input wires.
+  // // flattenMap[localWireIndex] is a map that describes how each subcitcuit wire (local wire) is related to the library wires (global wires), i.e., 'flattenMap' is the inverse of 'globalWireList'.
+  // export const subcircuits =\n ${JSON.stringify(subcircuits, null)}`
+  // fs.writeFile('../subcircuits/library/subcircuitInfo.ts', tsSubcircuitInfo, (err) => {
+  //   if (err) {
+  //     console.log('Error writing the TypeScript file', err);
+  //   } else {
+  //     console.log('Successfully wrote the TypeScript file');
+  //   }
+  // })
   fs.writeFile('../subcircuits/library/subcircuitInfo.json', JSON.stringify(subcircuits, null), (err) => {
     if (err) {
       console.log('Error writing the JSON file', err);
@@ -393,17 +393,17 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
     }
   })
 
-  const tsGlobalWireList = `// This is a map that describes how each library wire (global wire) is related to the subcircuit wires (local wires), i.e., 'globalWireList' is the inverse of 'flattenMap' in the subcircuitInfo file.
-  // globalWireList[index][0] indicates subcircuitId to which this wire belongs.
-  // globalWireList[index][1] indicates the corresponding localWireIndex in the subcircuitId.
-  export const globalWireList =\n ${JSON.stringify(globalWireList, null)}`
-  fs.writeFile('../subcircuits/library/globalWireList.ts', tsGlobalWireList, (err) => {
-    if (err) {
-      console.log('Error writing the TypeScript file', err);
-    } else {
-      console.log('Successfully wrote the TypeScript file');
-    }
-  })
+  // const tsGlobalWireList = `// This is a map that describes how each library wire (global wire) is related to the subcircuit wires (local wires), i.e., 'globalWireList' is the inverse of 'flattenMap' in the subcircuitInfo file.
+  // // globalWireList[index][0] indicates subcircuitId to which this wire belongs.
+  // // globalWireList[index][1] indicates the corresponding localWireIndex in the subcircuitId.
+  // export const globalWireList =\n ${JSON.stringify(globalWireList, null)}`
+  // fs.writeFile('../subcircuits/library/globalWireList.ts', tsGlobalWireList, (err) => {
+  //   if (err) {
+  //     console.log('Error writing the TypeScript file', err);
+  //   } else {
+  //     console.log('Successfully wrote the TypeScript file');
+  //   }
+  // })
   fs.writeFile('../subcircuits/library/globalWireList.json', JSON.stringify(globalWireList, null), (err) => {
     if (err) {
       console.log('Error writing the JSON file', err);
@@ -412,20 +412,20 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
     }
   })
 
-  const tsSetupParams = `// Parameters for the subcircuit library
-  // l: The number of public wires
-  // l_D: The number of interface wires (private)
-  // m: The total number of wires
-  // n: The maximum number of constraints
-  // s_D: The number of subcircuits in the library
-  export const setupParams = \n ${JSON.stringify(setupParams, null, 2)}`
-  fs.writeFile('../subcircuits/library/setupParams.ts', tsSetupParams, (err) => {
-    if (err) {
-      console.log('Error writing the TypeScript file', err);
-    } else {
-      console.log('Successfully wrote the TypeScript file');
-    }
-  })
+  // const tsSetupParams = `// Parameters for the subcircuit library
+  // // l: The number of public wires
+  // // l_D: The number of interface wires (private)
+  // // m: The total number of wires
+  // // n: The maximum number of constraints
+  // // s_D: The number of subcircuits in the library
+  // export const setupParams = \n ${JSON.stringify(setupParams, null, 2)}`
+  // fs.writeFile('../subcircuits/library/setupParams.ts', tsSetupParams, (err) => {
+  //   if (err) {
+  //     console.log('Error writing the TypeScript file', err);
+  //   } else {
+  //     console.log('Successfully wrote the TypeScript file');
+  //   }
+  // })
   fs.writeFile('../subcircuits/library/setupParams.json', JSON.stringify(setupParams, null, 2), (err) => {
     if (err) {
       console.log('Error writing the JSON file', err);

@@ -36,4 +36,4 @@ for (( i = 0 ; i < ${#names[@]} ; i++ )) ; do
   
 done
 
-node parse.js && rm temp.txt
+node parse.js && tsx ./exporter/exporter.ts && rm temp.txt

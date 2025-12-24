@@ -1,6 +1,6 @@
 pragma circom 2.1.6;
 include "../../templates/255bit/poseidon.circom";
-include "../../scripts/constants.circom";
+include "./constants.circom";
 
 template PoseidonTokamak2XCompress(NInputs) {
     var NParents = NInputs; // This should not be changed.
