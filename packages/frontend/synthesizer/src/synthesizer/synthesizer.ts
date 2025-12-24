@@ -37,7 +37,7 @@ export class Synthesizer implements SynthesizerInterface
 
   private _attachSynthesizerToEVM(evm: EVM): void {
     evm.events.on('beforeMessage', (data: Message, resolve?: (result?: any) => void) => {
-      try {
+      try { 
         this._prepareSynthesizeTransaction()
       } catch (err) {
         console.error('Synthesizer: beforeMessage error:', err)
@@ -54,7 +54,7 @@ export class Synthesizer implements SynthesizerInterface
             stack: data.stack.slice().reverse(),
           }
           // const currentInterpreterStep = {...data}
-
+          
           if (this._prevInterpreterStep !== null) {
             console.log(`stack: ${this._prevInterpreterStep.stack.map(x => bigIntToHex(x))}`)
             console.log(`pc: ${this._prevInterpreterStep.pc}, opcode: ${this._prevInterpreterStep.opcode.name}`)
@@ -71,7 +71,7 @@ export class Synthesizer implements SynthesizerInterface
           // this._prevInterpreterStep = {...data}
           resolve?.()
         }
-      }) ()
+      }) () 
     })
     evm.events.on('afterMessage', (data: EVMResult, resolve?: (result?: any) => void) => {
       ; (async () => {
@@ -162,7 +162,7 @@ export class Synthesizer implements SynthesizerInterface
     }
   }
 
-  private async _finalizeStorage(): Promise<void> {
+  private async _finalizeStorage(): Promise<void> {    
     await this._updateMerkleTree()
     this._unregisteredContractStrageWritings()
   }
@@ -208,8 +208,8 @@ export class Synthesizer implements SynthesizerInterface
       //     throw new Error(`The cached storage is about a user's but has no DataPt for key.`)
       //   }
         childPt = this.placePoseidon([
-          lastHistory.keyPt!,
-          lastHistory.valuePt,
+          lastHistory.keyPt!, 
+          lastHistory.valuePt, 
         ])
       // }
       const merkleProof = await this.cachedOpts.stateManager.getMerkleProof(MTIndex)
@@ -288,7 +288,7 @@ export class Synthesizer implements SynthesizerInterface
 
     const evm = await createEVM(evmOpts)
     this._attachSynthesizerToEVM(evm)
-
+    
     const vmOpts: VMOpts = {
       common,
       stateManager: this.cachedOpts.stateManager,
@@ -443,5 +443,5 @@ export class Synthesizer implements SynthesizerInterface
   //   );
   // }
 
-
+  
 }

@@ -43,10 +43,10 @@
     { "mode": "auto" }
   ],
 
-  // Files settings
-  "files.eol": "\n",
-  "files.insertFinalNewline": true,
-  "files.trimTrailingWhitespace": true,
+  // Files settings - NO AUTO MODIFICATIONS
+  "files.eol": "auto",
+  "files.insertFinalNewline": false,
+  "files.trimTrailingWhitespace": false,
 
   // Disable all built-in formatters
   "typescript.format.enable": false,
