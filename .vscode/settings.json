@@ -1,41 +1,40 @@
 {
-  // Editor formatting settings
+  // Editor formatting settings - ALL FORMATTING DISABLED
   "editor.formatOnSave": false,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit"
-  },
+  "editor.formatOnPaste": false,
+  "editor.formatOnType": false,
+  "editor.defaultFormatter": null,
+  "editor.codeActionsOnSave": {},
   "editor.tabSize": 2,
   "editor.insertSpaces": true,
   "editor.rulers": [120],
 
-  // Language-specific settings
+  // Language-specific settings - NO FORMATTERS
   "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.defaultFormatter": null,
     "editor.formatOnSave": false
   },
   "[javascript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.defaultFormatter": null,
     "editor.formatOnSave": false
   },
   "[json]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.defaultFormatter": null,
     "editor.formatOnSave": false
   },
   "[jsonc]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.defaultFormatter": null,
     "editor.formatOnSave": false
   },
   "[markdown]": {
     "editor.formatOnSave": false,
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": null
   },
 
-  // Prettier settings
-  "prettier.requireConfig": true,
-  "prettier.useEditorConfig": true,
+  // Prettier DISABLED
+  "prettier.enable": false,
 
-  // ESLint settings
+  // ESLint settings - auto-fix disabled
   "eslint.validate": [
     "javascript",
     "typescript"
@@ -49,8 +48,10 @@
   "files.insertFinalNewline": true,
   "files.trimTrailingWhitespace": true,
 
-  // Disable conflicting formatters
+  // Disable all built-in formatters
   "typescript.format.enable": false,
-  "javascript.format.enable": false
+  "javascript.format.enable": false,
+  "json.format.enable": false,
+  "html.format.enable": false
 }
 

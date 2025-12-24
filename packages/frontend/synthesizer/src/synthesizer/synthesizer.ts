@@ -24,8 +24,6 @@ export class Synthesizer implements SynthesizerInterface
   protected _instructionHandlers: InstructionHandler
   public readonly cachedOpts: SynthesizerOpts
   protected _prevInterpreterStep: InterpreterStep | null = null
-  protected _firstOpcodeErrorLogged: boolean = false
-  protected _firstOpcodeError: Error | null = null
 
   // @deprecated
   constructor(opts: SynthesizerOpts) {
@@ -45,8 +43,6 @@ export class Synthesizer implements SynthesizerInterface
         console.error('Synthesizer: beforeMessage error:', err)
       } finally {
         this._prevInterpreterStep = null
-        this._firstOpcodeErrorLogged = false
-        this._firstOpcodeError = null
         resolve?.()
       }
     })
@@ -60,22 +56,13 @@ export class Synthesizer implements SynthesizerInterface
           // const currentInterpreterStep = {...data}
 
           if (this._prevInterpreterStep !== null) {
-            // console.log(`stack: ${this._prevInterpreterStep.stack.map(x => bigIntToHex(x))}`)
-            // console.log(`pc: ${this._prevInterpreterStep.pc}, opcode: ${this._prevInterpreterStep.opcode.name}`)
+            console.log(`stack: ${this._prevInterpreterStep.stack.map(x => bigIntToHex(x))}`)
+            console.log(`pc: ${this._prevInterpreterStep.pc}, opcode: ${this._prevInterpreterStep.opcode.name}`)
             await this._applySynthesizerHandler(this._prevInterpreterStep, currentInterpreterStep)
           }
 
         } catch (err) {
-          // Log only the first opcode error
-          if (!this._firstOpcodeErrorLogged) {
-            console.error('\n❌ [Synthesizer] First opcode error detected:')
-            console.error(`   PC: ${this._prevInterpreterStep?.pc}`)
-            console.error(`   Opcode: ${this._prevInterpreterStep?.opcode.name} (0x${this._prevInterpreterStep?.opcode.code.toString(16)})`)
-            console.error(`   Error:`, err)
-            this._firstOpcodeErrorLogged = true
-            this._firstOpcodeError = err instanceof Error ? err : new Error(String(err))
-          }
-          // Suppress subsequent opcode errors (don't log them)
+          console.error('Synthesizer: step error:', err)
         } finally {
           this._prevInterpreterStep = {
             ...data,
@@ -137,8 +124,8 @@ export class Synthesizer implements SynthesizerInterface
             throw new Error('Data loading failure when finalizing Synthesizer')
           }
           await this._applySynthesizerHandler(this._prevInterpreterStep, currentInterpreterStep)
-          // console.log(`stack: ${currentInterpreterStep.stack.map(x => bigIntToHex(x))}`)
-          // console.log(`pc: ${currentInterpreterStep.pc}, opcode: ${currentInterpreterStep.opcode.name}`)
+          console.log(`stack: ${currentInterpreterStep.stack.map(x => bigIntToHex(x))}`)
+          console.log(`pc: ${currentInterpreterStep.pc}, opcode: ${currentInterpreterStep.opcode.name}`)
           await this._finalizeStorage()
           // this._computeTxHash()
         } catch (err) {
@@ -317,14 +304,7 @@ export class Synthesizer implements SynthesizerInterface
       skipHardForkValidation: true,
       reportPreimages: true,
     }
-    const result = await runTx(vm, runTxOpts)
-
-    // If there was a first opcode error, throw it to stop execution
-    if (this._firstOpcodeError) {
-      throw this._firstOpcodeError
-    }
-
-    return result
+    return await runTx(vm, runTxOpts)
   }
 
   private _applySynthesizerHandler = async (prevInterpreterStep: InterpreterStep, currentInterpreterStep: InterpreterStep): Promise<void> => {
