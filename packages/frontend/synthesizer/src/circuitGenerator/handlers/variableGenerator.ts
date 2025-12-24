@@ -53,18 +53,18 @@ export class VariableGenerator {
   }
 
   private _prepareCircuitInstance(
-    placement: PlacementEntry,
+    placement: PlacementEntry, 
     target: 'In' | 'Out',
   ): {
-    values: `0x${string}`[];
-    descriptions: string[];
-  } {
+    values: `0x${string}`[],
+    descriptions: string[],
+   } {
     const origPts = target === 'In' ? placement.inPts : placement.outPts;
     const origValues = origPts.map(pt => addHexPrefix(pt.valueHex));
     const origDescs = origPts.map(pt => {
-      const desc = target === 'In' ? pt.extSource : pt.extDest;
-      return desc ?? '';
-    });
+      const desc = target === 'In' ? pt.extSource : pt.extDest
+      return desc ?? ''
+    })
     // Preparing input values
     const expectedLen =
       target === 'In'
@@ -77,12 +77,13 @@ export class VariableGenerator {
       return {
         values: origValues.concat(Array(expectedLen - origValues.length).fill('0x00')),
         descriptions: origDescs.concat(Array(expectedLen - origValues.length).fill('')),
-      };
+      }
     } else {
       return {
         values: origValues,
         descriptions: origDescs,
-      };
+      }
+      
     }
   }
 
@@ -118,9 +119,13 @@ export class VariableGenerator {
         // process.stdout.write(`Synthesizer: Instances of the ${placementId}-th placement passed the ${placement.subcircuitId}-th subcircuit.`)
 
         return {
-          subcircuitId: placement.subcircuitId,
+          subcircuitId: placement.subcircuitId, 
           variables,
-          instanceList: ['', ...outs.descriptions, ...ins.descriptions],
+          instanceList: [
+            '', 
+            ...outs.descriptions, 
+            ...ins.descriptions,
+          ]
         };
       }),
     );
