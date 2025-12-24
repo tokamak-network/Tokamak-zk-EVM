@@ -100,7 +100,7 @@ export class StateManager {
       this._placements[thisPlacementId]!.inPts[inPt.wireIndex] = inPt
       this._placements[thisPlacementId]!.outPts[outPt.wireIndex] = outPt
     }
-
+    
     return DataPtFactory.deepCopy(outPt)
   }
 
