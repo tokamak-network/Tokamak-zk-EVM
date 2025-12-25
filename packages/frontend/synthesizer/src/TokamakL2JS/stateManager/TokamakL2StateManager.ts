@@ -123,6 +123,10 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
     }
     public get cachedOpts() {return this._cachedOpts}
 
+    public async rebuildInitialMerkleTree(): Promise<void> {
+      this._initialMerkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this);
+    }
+
     // public getL1UserStorageKey(parts: Array<Address | number | bigint | string>): Uint8Array {
     //     const bytesArray: Uint8Array[] = []
 
@@ -169,5 +173,6 @@ class TokamakL2MerkleTree extends IMT {
         mt.initCache(mpt)
         return mt
     }
-}
 
+    
+}

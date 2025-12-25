@@ -2,6 +2,7 @@
 
 import { program } from 'commander';
 import { SynthesizerAdapter } from '../adapters/synthesizerAdapter.js';
+import { ROLLUP_BRIDGE_CORE_ADDRESS } from '../adapters/constants/index.js';
 import readline from 'readline';
 
 // load environment variables
@@ -524,6 +525,252 @@ program
   });
 
 program
+  .command('l2-state-channel')
+  .description('Synthesize L2 State Channel transaction')
+  .requiredOption('--channel-id <id>', 'Channel ID')
+  .requiredOption('--token <address>', 'Token contract address')
+  .requiredOption('--recipient <address>', 'Recipient L1 address')
+  .requiredOption('--amount <amount>', 'Transfer amount (as string)')
+  .requiredOption('--rollup-bridge <address>', 'RollupBridge contract address')
+  .option('--sender-address <address>', 'Sender L1 address (alternative to --sender-index)')
+  .option('--sender-index <index>', 'Sender index in channel participants (alternative to --sender-address)')
+  .requiredOption('--rpc-url <url>', 'RPC URL for blockchain data')
+  .option('--output-dir <dir>', 'Output directory for synthesis files (default: current directory)')
+  .option('--previous-state <file>', 'Path to previous state_snapshot.json file')
+  .action(async options => {
+    try {
+      console.log('🔄 Initializing Synthesizer for L2 State Channel...');
+
+      const adapter = new SynthesizerAdapter({ rpcUrl: options.rpcUrl });
+
+      // Read previous state if provided
+      let previousState: any = undefined;
+      if (options.previousState) {
+        const fs = await import('fs');
+        const previousStateContent = fs.readFileSync(options.previousState, 'utf-8');
+        previousState = JSON.parse(previousStateContent);
+        console.log(`📄 Previous state loaded: ${previousState.stateRoot}`);
+      }
+
+      const outputDir = options.outputDir || process.cwd();
+
+      // Determine sender index from address or index
+      let senderIdx: number;
+      if (options.senderAddress) {
+        // Fetch participants and find index by address
+        const { ethers } = await import('ethers');
+        const ROLLUP_BRIDGE_CORE_ABI = ['function getChannelParticipants(uint256 channelId) view returns (address[])'];
+        const bridgeContract = new ethers.Contract(options.rollupBridge, ROLLUP_BRIDGE_CORE_ABI, adapter['provider']);
+        const participants: string[] = await bridgeContract.getChannelParticipants(parseInt(options.channelId));
+        const foundIndex = participants.findIndex(
+          (p: string) => p.toLowerCase() === options.senderAddress.toLowerCase(),
+        );
+        if (foundIndex === -1) {
+          throw new Error(
+            `Sender address ${options.senderAddress} is not a participant in channel ${options.channelId}`,
+          );
+        }
+        senderIdx = foundIndex;
+        console.log(`👤 Sender Address: ${options.senderAddress} (index: ${senderIdx})`);
+      } else if (options.senderIndex !== undefined) {
+        senderIdx = parseInt(options.senderIndex);
+        console.log(`👤 Sender Index: ${senderIdx}`);
+      } else {
+        throw new Error('Either --sender-address or --sender-index must be provided');
+      }
+
+      console.log(`📋 Channel ID: ${options.channelId}`);
+      console.log(`🪙 Token: ${options.token}`);
+      console.log(`👤 Recipient: ${options.recipient}`);
+      console.log(`💰 Amount: ${options.amount}`);
+      console.log(`📡 RollupBridge: ${options.rollupBridge}`);
+      console.log(`📁 Output Directory: ${outputDir}`);
+      console.log('');
+
+      const result = await adapter.synthesizeL2StateChannel(
+        parseInt(options.channelId),
+        {
+          to: options.recipient,
+          tokenAddress: options.token,
+          amount: options.amount,
+          rollupBridgeAddress: options.rollupBridge,
+          senderIdx,
+        },
+        {
+          previousState,
+          outputPath: outputDir,
+        },
+      );
+
+      console.log('✅ Synthesis completed successfully!');
+      console.log(`   - Placements: ${result.placementVariables.length}`);
+      console.log(`   - State Root: ${result.state.stateRoot}`);
+      console.log(`   - Output Directory: ${outputDir}`);
+
+      process.exit(0);
+    } catch (error: any) {
+      console.error('❌ Synthesis failed:', error.message);
+      if (options.verbose) {
+        console.error(error.stack);
+      }
+      process.exit(1);
+    }
+  });
+
+program
+  .command('l2-transfer')
+  .description('Execute L2 State Channel transfer')
+  .requiredOption('--channel-id <id>', 'Channel ID', parseInt)
+  .requiredOption('--init-tx <hash>', 'Initialize transaction hash')
+  .option('--sender-key <key>', 'Sender L2 private key (hex) - OR use --signature')
+  .option('--signature <sig>', 'MetaMask signature to derive L2 private key - OR use --sender-key')
+  .requiredOption('--recipient <address>', 'Recipient L2 address')
+  .requiredOption('--amount <amount>', 'Transfer amount in ether (e.g., "1" for 1 TON)')
+  .option('--previous-state <path>', 'Path to previous state_snapshot.json')
+  .option('--output <dir>', 'Output directory for results')
+  .option('--bridge <address>', 'RollupBridge contract address')
+  .option('-r, --rpc-url <url>', 'RPC URL for blockchain data')
+  .option('-s, --sepolia', 'Use sepolia testnet (default: mainnet)')
+  .action(async options => {
+    try {
+      // Validate: either --sender-key or --signature must be provided
+      if (!options.senderKey && !options.signature) {
+        console.error('❌ Error: Either --sender-key or --signature must be provided');
+        console.error('   Use --sender-key <hex> for direct L2 private key');
+        console.error('   Use --signature <hex> for MetaMask signature (L2 key will be derived)');
+        process.exit(1);
+      }
+
+      const network = options.sepolia ? 'sepolia' : 'mainnet';
+      let rpcUrl = options.rpcUrl;
+
+      if (!rpcUrl) {
+        if (network === 'mainnet') {
+          rpcUrl = process.env.RPC_URL;
+          if (!rpcUrl) {
+            console.error('Error: No RPC URL configured for mainnet');
+            process.exit(1);
+          }
+        } else {
+          rpcUrl = DEFAULT_RPC_URLS[network];
+        }
+      }
+
+      console.log('🔄 Executing L2 State Channel Transfer...');
+      console.log(`   Channel ID: ${options.channelId}`);
+      console.log(`   Init TX: ${options.initTx}`);
+      console.log(`   Recipient: ${options.recipient}`);
+      console.log(`   Amount: ${options.amount} TON`);
+      if (options.signature) {
+        console.log(`   Auth Method: Signature-based (L2 key will be derived)`);
+      } else {
+        console.log(`   Auth Method: Direct L2 private key`);
+      }
+      console.log('');
+
+      const adapter = new SynthesizerAdapter({ rpcUrl });
+
+      // Prepare sender authentication params
+      let senderL2PrvKey: Uint8Array | undefined;
+      let senderSignature: `0x${string}` | undefined;
+
+      if (options.senderKey) {
+        // Convert sender key from hex string to Uint8Array
+        const senderKeyHex = options.senderKey.startsWith('0x')
+          ? options.senderKey.slice(2)
+          : options.senderKey;
+        senderL2PrvKey = new Uint8Array(Buffer.from(senderKeyHex, 'hex'));
+      } else if (options.signature) {
+        // Use signature directly (adapter will derive L2 private key)
+        senderSignature = options.signature.startsWith('0x')
+          ? options.signature as `0x${string}`
+          : `0x${options.signature}` as `0x${string}`;
+      }
+
+      const result = await adapter.synthesizeL2Transfer({
+        channelId: options.channelId,
+        initializeTxHash: options.initTx,
+        senderL2PrvKey,
+        senderSignature,
+        recipientL2Address: options.recipient,
+        amount: options.amount,
+        previousStatePath: options.previousState,
+        outputPath: options.output,
+        rollupBridgeAddress: options.bridge, // Will use default from constants if undefined
+        rpcUrl,
+      });
+
+      if (result.success) {
+        console.log('✅ Transfer completed successfully!');
+        console.log(`   Previous State Root: ${result.previousStateRoot}`);
+        console.log(`   New State Root:      ${result.newStateRoot}`);
+        console.log(`   State Snapshot:      ${result.stateSnapshotPath}`);
+        process.exit(0);
+      } else {
+        console.error('❌ Transfer failed:', result.error);
+        process.exit(1);
+      }
+    } catch (error: any) {
+      console.error('❌ Transfer failed:', error.message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('get-balances')
+  .description('Get participant balances from state snapshot or on-chain deposits')
+  .option('--snapshot <path>', 'Path to state_snapshot.json (if omitted, fetches initial deposits from on-chain)')
+  .requiredOption('--channel-id <id>', 'Channel ID', parseInt)
+  .option('--bridge <address>', 'RollupBridge contract address')
+  .option('-r, --rpc-url <url>', 'RPC URL for blockchain data')
+  .option('-s, --sepolia', 'Use sepolia testnet (default: mainnet)')
+  .action(async options => {
+    try {
+      const network = options.sepolia ? 'sepolia' : 'mainnet';
+      let rpcUrl = options.rpcUrl;
+
+      if (!rpcUrl) {
+        if (network === 'mainnet') {
+          rpcUrl = process.env.RPC_URL;
+          if (!rpcUrl) {
+            console.error('Error: No RPC URL configured for mainnet');
+            process.exit(1);
+          }
+        } else {
+          rpcUrl = DEFAULT_RPC_URLS[network];
+        }
+      }
+
+      const source = options.snapshot ? 'state snapshot' : 'on-chain deposits';
+      console.log(`📊 Fetching participant balances from ${source}...\n`);
+
+      const adapter = new SynthesizerAdapter({ rpcUrl });
+
+      const result = await adapter.getParticipantBalances({
+        stateSnapshotPath: options.snapshot,
+        channelId: options.channelId,
+        rollupBridgeAddress: options.bridge,
+        rpcUrl,
+      });
+
+      console.log(`State Root: ${result.stateRoot}`);
+      console.log(`Source: ${source}\n`);
+      console.log('Participants:');
+      result.participants.forEach((participant, idx) => {
+        console.log(`  ${idx + 1}. ${participant.l1Address}`);
+        console.log(`     L2 MPT Key: ${participant.l2MptKey}`);
+        console.log(`     Balance:    ${participant.balanceInEther} TON`);
+        console.log('');
+      });
+
+      process.exit(0);
+    } catch (error: any) {
+      console.error('❌ Failed to get balances:', error.message);
+      process.exit(1);
+    }
+  });
+
+program
   .command('info')
   .description('Show synthesizer information')
   .action(() => {
@@ -535,6 +782,7 @@ program
     console.log('- Circuit placement management');
     console.log('- Permutation generation');
     console.log('- Zero-knowledge proof preparation');
+    console.log('- L2 State Channel transaction synthesis');
     console.log('\nDefault RPC URLs:');
     console.log(`- Mainnet: ${DEFAULT_RPC_URLS.mainnet}`);
     console.log(`- Sepolia: ${DEFAULT_RPC_URLS.sepolia}`);
