@@ -155,7 +155,6 @@ setup_linux_config() {
     BACKEND_TARBALL="icicle_3_8_0-ubuntu${UB_MAJOR}-cuda122.tar.gz"
     COMMON_URL="${BASE_URL}/${COMMON_TARBALL}"
     BACKEND_URL="${BASE_URL}/${BACKEND_TARBALL}"
-    SYNTHESIZER_BUILD_TARGET="linux"
     SCRIPTS_SOURCE=".run_scripts/linux"
 
     echo "ℹ️ Linux configuration: Ubuntu ${UB_MAJOR}, Target: ${TARGET}"
@@ -170,7 +169,6 @@ setup_macos_config() {
     BACKEND_TARBALL="icicle_3_8_0-macOS-Metal.tar.gz"
     COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
     BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$BACKEND_TARBALL"
-    SYNTHESIZER_BUILD_TARGET="macos"
     SCRIPTS_SOURCE=".run_scripts/macOS"
 
     # macOS-specific signing configuration
@@ -207,7 +205,7 @@ build_synthesizer() {
         dos2unix "$BUN_SCRIPT" || true
         chmod +x "$BUN_SCRIPT" 2>/dev/null || true
         echo "🔍 Building synthesizer binary for ${PLATFORM}..."
-        "$BUN_SCRIPT" "$SYNTHESIZER_BUILD_TARGET"
+        "$BUN_SCRIPT"
         cd "$WORKSPACE_ROOT"
         echo "✅ built synthesizer"
     else
@@ -232,11 +230,11 @@ copy_binaries() {
 
     # Check if synthesizer binary exists and copy it
     if [[ "$DO_BUN" == "true" ]]; then
-        SYNTHESIZER_PATH="packages/frontend/synthesizer/bin/${SYNTHESIZER_BINARY}"
+        SYNTHESIZER_PATH="packages/frontend/synthesizer/bin/synthesizer"
         if [ -f "$SYNTHESIZER_PATH" ]; then
             echo "✅ Found synthesizer binary at $SYNTHESIZER_PATH"
             cp -vf "$SYNTHESIZER_PATH" "${TARGET}/bin"
-            mv "${TARGET}/bin/${SYNTHESIZER_BINARY}" "${TARGET}/bin/synthesizer"
+            # mv "${TARGET}/bin/${SYNTHESIZER_BINARY}" "${TARGET}/bin/synthesizer"
         else
             echo "❌ Error: synthesizer binary not found at $SYNTHESIZER_PATH"
             echo "🔍 Checking if binary exists in other locations..."
