@@ -5,6 +5,7 @@ IFS=$'\n\t'
 
 # Global config
 VERBOSE=false
+INSTALL_USE_BUN=false
 
 # ---------- Importing functions ----------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -326,6 +327,168 @@ sync_synth_outputs_to_dist() {
   echo "$dest"
 }
 
+find_first_match_or_exit() {
+  local src_dir="$1"
+  local filename="$2"
+  local label="${3:-$filename}"
+  local matches first match_count
+  matches="$(find "$src_dir" -type f -name "$filename" 2>/dev/null)"
+  if [[ -z "$matches" ]]; then
+    err "Missing $label under: $src_dir"
+    exit 1
+  fi
+  first="$(printf '%s\n' "$matches" | head -n1)"
+  match_count="$(printf '%s\n' "$matches" | wc -l | tr -d ' ')"
+  if [[ "$match_count" -gt 1 ]]; then
+    verbose "Multiple $label found; using: $first"
+  fi
+  printf '%s\n' "$first"
+}
+
+extract_zip_to_tmp_or_exit() {
+  local zip_path_raw="$1"
+  local tmp_prefix="$2"
+  local zip_path
+  zip_path="$(abs_path_from_root "$zip_path_raw")"
+  [[ -f "$zip_path" ]] || { err "Zip file not found: $zip_path_raw"; exit 1; }
+  if ! command -v unzip >/dev/null 2>&1; then
+    err "unzip not found (required to extract: $zip_path_raw)"
+    exit 1
+  fi
+  if ! unzip -t "$zip_path" >/dev/null 2>&1; then
+    err "Invalid zip archive: $zip_path_raw"
+    exit 1
+  fi
+
+  local tmp_dir
+  tmp_dir="$(mktemp -d -t "${tmp_prefix}.XXXXXX")"
+
+  if ! unzip -q "$zip_path" -d "$tmp_dir"; then
+    rm -rf "$tmp_dir"
+    err "Failed to extract zip: $zip_path_raw"
+    exit 1
+  fi
+
+  printf '%s\n' "$tmp_dir"
+}
+
+sync_from_path() {
+  local path_raw="${1:-}"
+  local dir_handler="${2:-}"
+  local zip_handler="${3:-}"
+  [[ -n "$path_raw" ]] || { err "Path is required"; exit 1; }
+  local path
+  path="$(abs_path_from_root "$path_raw")"
+  if [[ -d "$path" ]]; then
+    "$dir_handler" "$path"
+    return
+  fi
+  if [[ -f "$path" ]]; then
+    "$zip_handler" "$path_raw"
+    return
+  fi
+  err "Path not found: $path_raw"
+  exit 1
+}
+
+sync_synth_outputs_from_dir() {
+  local src_dir="${1:-}"
+  [[ -n "$src_dir" ]] || { err "Source directory is required"; exit 1; }
+
+  local required_files=(
+    "instance_description.json"
+    "instance.json"
+    "permutation.json"
+    "placementVariables.json"
+  )
+
+  local found_files=()
+  local name
+  for name in "${required_files[@]}"; do
+    found_files+=("$(find_first_match_or_exit "$src_dir" "$name")")
+  done
+
+  local target dist_dir dest
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+  dest="$dist_dir/resource/synthesizer/output"
+
+  log "Prove: syncing synthesizer outputs → $dest"
+  mkdir -p "$dest"
+  local i
+  for i in "${!required_files[@]}"; do
+    cp -f "${found_files[$i]}" "$dest/${required_files[$i]}"
+  done
+  local state_matches state_first state_count
+  state_matches="$(find "$src_dir" -type f -name "state_snapshot.json" 2>/dev/null)"
+  if [[ -n "$state_matches" ]]; then
+    state_first="$(printf '%s\n' "$state_matches" | head -n1)"
+    state_count="$(printf '%s\n' "$state_matches" | wc -l | tr -d ' ')"
+    if [[ "$state_count" -gt 1 ]]; then
+      verbose "Multiple state_snapshot.json found; using: $state_first"
+    fi
+    cp -f "$state_first" "$dest/state_snapshot.json"
+  fi
+
+  ok "Synth outputs copied → $dest"
+}
+
+sync_synth_outputs_from_zip() {
+  local zip_path_raw="${1:-}"
+  [[ -n "$zip_path_raw" ]] || { err "Zip path is required"; exit 1; }
+  local tmp_dir
+  tmp_dir="$(extract_zip_to_tmp_or_exit "$zip_path_raw" "tokamak_prove_zip")"
+  sync_synth_outputs_from_dir "$tmp_dir"
+  rm -rf "$tmp_dir"
+}
+
+sync_synth_outputs_from_path() {
+  sync_from_path "$1" sync_synth_outputs_from_dir sync_synth_outputs_from_zip
+}
+
+sync_proof_from_dir() {
+  local src_dir="${1:-}"
+  [[ -n "$src_dir" ]] || { err "Source directory is required"; exit 1; }
+
+  local target dist_dir
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+
+  log "Verify: syncing artifacts from $src_dir"
+
+  # Sync required files
+  local files_to_sync=(
+    "resource/prove/output/proof.json"
+    "resource/synthesizer/output/instance.json"
+    "resource/preprocess/output/preprocess.json"
+  )
+
+  for rel_path in "${files_to_sync[@]}"; do
+    local filename dest_path src_file
+    filename="$(basename "$rel_path")"
+    dest_path="$dist_dir/$rel_path"
+
+    src_file="$(find_first_match_or_exit "$src_dir" "$filename")"
+
+    mkdir -p "$(dirname "$dest_path")"
+    cp -f "$src_file" "$dest_path"
+    ok "Synced $filename → $dest_path"
+  done
+}
+
+sync_proof_from_zip() {
+  local zip_path_raw="${1:-}"
+  [[ -n "$zip_path_raw" ]] || { err "Zip path is required"; exit 1; }
+  local tmp_dir
+  tmp_dir="$(extract_zip_to_tmp_or_exit "$zip_path_raw" "tokamak_verify_zip")"
+  sync_proof_from_dir "$tmp_dir"
+  rm -rf "$tmp_dir"
+}
+
+sync_proof_from_path() {
+  sync_from_path "$1" sync_proof_from_dir sync_proof_from_zip
+}
+
 run_synthesizer() {
   local config_path_raw="$1"
   [[ -n "$config_path_raw" ]] || { err "Synthesizer config path is required"; exit 1; }
@@ -391,6 +554,10 @@ step_install() {
     linux22) packaging_options+=("--linux") ;;
     *)       packaging_options+=("--linux") ;;
   esac
+
+  if [[ "$INSTALL_USE_BUN" == true ]]; then
+    packaging_options+=("--bun")
+  fi
 
   if [ -z "${GITHUB_ACTIONS:-}" ] && [ -z "${CI:-}" ] && [ -z "${CONTINUOUS_INTEGRATION:-}" ]; then
     # Local environment: use default settings (npm) and skip compression
@@ -462,8 +629,10 @@ step_preprocess() {
 }
 
 step_prove() {
-  local arg="${1:-}"
-  [[ -z "$arg" ]] || { err "--prove takes no arguments. Run --synthesize and --preprocess first."; exit 1; }
+  local input_arg="${1:-}"
+  if [[ -n "$input_arg" ]]; then
+    sync_synth_outputs_from_path "$input_arg"
+  fi
 
   local target dist_dir run4 proof_output
   target="$(detect_target)"
@@ -549,12 +718,14 @@ step_extract_proof() {
   zip_name="transaction_zkp.zip"
 
   local artifacts=(
-    "resource/synthesizer/input/config.json"
     "resource/synthesizer/output/instance.json"
     "resource/synthesizer/output/instance_description.json"
     "resource/preprocess/output/preprocess.json"
     "resource/prove/output/benchmark.json"
     "resource/prove/output/proof.json"
+  )
+  local optional_artifacts=(
+    "resource/synthesizer/output/state_snapshot.json"
   )
 
   local missing=0
@@ -575,6 +746,14 @@ step_extract_proof() {
     local dest="$tmp_dir/$rel"
     mkdir -p "$(dirname "$dest")"
     cp "$src" "$dest"
+  done
+  for rel in "${optional_artifacts[@]}"; do
+    local src="$dist_dir/$rel"
+    if [[ -f "$src" ]]; then
+      local dest="$tmp_dir/$rel"
+      mkdir -p "$(dirname "$dest")"
+      cp "$src" "$dest"
+    fi
   done
 
   if make_zip "$tmp_dir" "$zip_name"; then
@@ -600,13 +779,7 @@ step_verify() {
   run5="$dist_dir/5_run-verify.sh"
 
   if [[ -n "$base_arg" ]]; then
-    local base_dir resource_src
-    base_dir="$(abs_path_from_root "$base_arg")"
-    resource_src="$base_dir/resource"
-    [[ -d "$resource_src" ]] || { err "resource directory not found in: $base_dir"; exit 1; }
-    log "Verify: syncing resource from $resource_src → $resource_dir"
-    mkdir -p "$resource_dir"
-    cp -a "$resource_src/." "$resource_dir/"
+    sync_proof_from_path "$base_arg"
   else
     [[ -d "$resource_dir" ]] || { err "resource directory not found: $resource_dir"; exit 1; }
   fi
@@ -640,7 +813,6 @@ step_verify() {
   verify_out="$(bash "$run5" "$proof_dir" | tail -n1)"
   if [[ "$verify_out" == "true" || "$verify_out" == "true"$'\r' ]]; then
     ok "Verify: verify output => $verify_out"
-    ok "Verified proof location → $proof_dir"
   else
     err "Verify: verify output => $verify_out"
     exit 1

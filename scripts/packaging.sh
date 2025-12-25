@@ -155,8 +155,6 @@ setup_linux_config() {
     BACKEND_TARBALL="icicle_3_8_0-ubuntu${UB_MAJOR}-cuda122.tar.gz"
     COMMON_URL="${BASE_URL}/${COMMON_TARBALL}"
     BACKEND_URL="${BASE_URL}/${BACKEND_TARBALL}"
-
-    SYNTHESIZER_BINARY="synthesizer-linux-x64"
     SYNTHESIZER_BUILD_TARGET="linux"
     SCRIPTS_SOURCE=".run_scripts/linux"
 
@@ -172,8 +170,6 @@ setup_macos_config() {
     BACKEND_TARBALL="icicle_3_8_0-macOS-Metal.tar.gz"
     COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
     BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$BACKEND_TARBALL"
-
-    SYNTHESIZER_BINARY="synthesizer-macos-arm64"
     SYNTHESIZER_BUILD_TARGET="macos"
     SCRIPTS_SOURCE=".run_scripts/macOS"
 
@@ -203,41 +199,15 @@ copy_scripts_and_resources() {
 
 build_synthesizer() {
     if [[ "$DO_BUN" == "true" ]]; then
-        echo "[*] Checking Bun installation..."
-        if ! command -v bun >/dev/null 2>&1; then
-            echo "❌ Error: Bun is not installed or not in PATH"
-            echo "Please install Bun from https://bun.sh"
-            exit 1
-        fi
-        echo "✅ Bun found: $(which bun)"
-        echo "✅ Bun version: $(bun --version)"
-        echo "[*] Building Synthesizer..."
-        cd packages/frontend/synthesizer
 
+        cd packages/frontend/synthesizer
         echo "🔍 Installing synthesizer dependencies..."
         bun install
-
-        echo "🔍 Creating bin directory..."
-        mkdir -p bin
-
         BUN_SCRIPT="./build-binary.sh"
         dos2unix "$BUN_SCRIPT" || true
         chmod +x "$BUN_SCRIPT" 2>/dev/null || true
-
         echo "🔍 Building synthesizer binary for ${PLATFORM}..."
         "$BUN_SCRIPT" "$SYNTHESIZER_BUILD_TARGET"
-
-        echo "🔍 Verifying synthesizer binary was created..."
-        if [ -f "bin/${SYNTHESIZER_BINARY}" ]; then
-            echo "✅ SUCCESS: ${SYNTHESIZER_BINARY} created!"
-            ls -la "bin/${SYNTHESIZER_BINARY}"
-        else
-            echo "❌ FAILED: ${SYNTHESIZER_BINARY} not found"
-            echo "🔍 Contents of bin directory:"
-            ls -la bin/ || echo "No bin directory"
-            exit 1
-        fi
-
         cd "$WORKSPACE_ROOT"
         echo "✅ built synthesizer"
     else
