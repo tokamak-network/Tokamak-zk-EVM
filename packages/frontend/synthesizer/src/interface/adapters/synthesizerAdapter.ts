@@ -563,7 +563,7 @@ export class SynthesizerAdapter {
 
     // Write outputs if path provided
     if (outputPath) {
-      writeCircuitJson(circuitGenerator);
+      writeCircuitJson(circuitGenerator, outputPath);
       console.log(`[SynthesizerAdapter] ✅ Outputs written to: ${outputPath}`);
 
       // Also save state_snapshot.json
