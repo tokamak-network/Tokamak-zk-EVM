@@ -25,7 +25,7 @@ import {
   bytesToHex,
 } from '@ethereumjs/util';
 import { createSynthesizerOptsForSimulationFromRPC, type SynthesizerSimulationOpts } from '../rpc/rpc.ts';
-import { createSynthesizer, Synthesizer } from '../../synthesizer/index.ts';
+import { createSynthesizer } from '../../synthesizer/index.ts';
 import { createCircuitGenerator } from '../../circuitGenerator/circuitGenerator.ts';
 import type { SynthesizerInterface } from '../../synthesizer/types/index.ts';
 import { fromEdwardsToAddress } from '../../TokamakL2JS/index.ts';
@@ -34,6 +34,8 @@ import { deriveL2KeysFromSignature } from '../../TokamakL2JS/utils/web.ts';
 import type { PublicInstance } from '../../circuitGenerator/types/types.ts';
 import { TokamakL2StateManager } from '../../TokamakL2JS/stateManager/TokamakL2StateManager.ts';
 import { ROLLUP_BRIDGE_CORE_ABI, ROLLUP_BRIDGE_CORE_ADDRESS } from './constants/index.ts';
+import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
+import { writeCircuitJson } from '../node/jsonWriter.ts';
 
 // StateSnapshot type definition (matches usage in adapter)
 export interface StateSnapshot {
@@ -461,7 +463,7 @@ export class SynthesizerAdapter {
 
     // NOW create synthesizer (AFTER merkle tree is properly restored)
     console.log('[SynthesizerAdapter] Creating synthesizer with restored state...');
-    const synthesizer = (await createSynthesizer(synthesizerOpts)) as Synthesizer;
+    const synthesizer = (await createSynthesizer(synthesizerOpts)) as SynthesizerInterface;
 
     console.log('[SynthesizerAdapter] Executing transaction...');
     let runTxResult;
@@ -506,7 +508,8 @@ export class SynthesizerAdapter {
     }
 
     console.log('[SynthesizerAdapter] Generating circuit outputs...');
-    const circuitGenerator = await createCircuitGenerator(synthesizer);
+    const wasmBuffers = loadSubcircuitWasm();
+    const circuitGenerator = await createCircuitGenerator(synthesizer, wasmBuffers);
 
     // Get the data before writing (if we need in-memory access)
     const placementVariables = circuitGenerator.variableGenerator.placementVariables || [];
@@ -558,20 +561,20 @@ export class SynthesizerAdapter {
     };
     console.log(`[SynthesizerAdapter] ✅ Final state exported: ${finalState.stateRoot}`);
 
-    // Write outputs if path provided
-    if (outputPath) {
-      circuitGenerator.writeOutputs(outputPath);
-      console.log(`[SynthesizerAdapter] ✅ Outputs written to: ${outputPath}`);
+    // // Write outputs if path provided
+    // if (outputPath) {
+    //   writeCircuitJson(circuitGenerator);
+    //   console.log(`[SynthesizerAdapter] ✅ Outputs written to: ${outputPath}`);
 
-      // Also save state_snapshot.json
-      const stateSnapshotPath = resolve(outputPath, 'state_snapshot.json');
-      writeFileSync(
-        stateSnapshotPath,
-        JSON.stringify(finalState, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
-        'utf-8',
-      );
-      console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${stateSnapshotPath}`);
-    }
+    //   // Also save state_snapshot.json
+    //   const stateSnapshotPath = resolve(outputPath, 'state_snapshot.json');
+    //   writeFileSync(
+    //     stateSnapshotPath,
+    //     JSON.stringify(finalState, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
+    //     'utf-8',
+    //   );
+    //   console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${stateSnapshotPath}`);
+    // }
 
     console.log("*****moulder debug******")
     console.log(bytesToHex(options.senderL2PrvKey));

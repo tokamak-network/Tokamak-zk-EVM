@@ -35,13 +35,13 @@ function getBaseURL(): URL {
   }
 
   const here = path.dirname(fileURLToPath(import.meta.url));
-  return pathToFileURL(path.resolve(here, "../../../../qap-compiler") + path.sep);
+  return pathToFileURL(path.resolve(here, "../../../../qap-compiler/subcircuits") + path.sep);
 }
 
 const BASE_URL = getBaseURL();
 
 // Derived path for WASM artifacts (filesystem path)
-export const wasmDir = fileURLToPath(new URL('subcircuits/library/wasm', BASE_URL));
+export const wasmDir = fileURLToPath(new URL('library/wasm', BASE_URL));
 
 export function loadSubcircuitWasm(): any[] {
   const witnessCalculatorbuffers: any[] = [];
