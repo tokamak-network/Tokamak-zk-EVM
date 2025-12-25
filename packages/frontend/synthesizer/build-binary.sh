@@ -13,7 +13,7 @@ echo "🔨 Building Tokamak Synthesizer Binary..."
 
 # Determine output directory (packages/bin, one level up from synthesizer)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)/bin"
+BIN_DIR="$(cd "$SCRIPT_DIR" && pwd)/bin"
 
 # Remove existing bin directory if it exists
 if [ -d "$BIN_DIR" ]; then
