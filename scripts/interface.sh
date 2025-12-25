@@ -1,25 +1,24 @@
-# tokamak-zk-evm — helper CLI for Tokamak-zk-EVM
-# Notes:
 #   - Before executing any internal shell script, this CLI normalizes line endings via dos2unix
 #     and ensures the script is executable, to avoid Windows CRLF issues.
 # Commands:
-#   --install <API_KEY|RPC_URL>  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
+#   --install <API_KEY|RPC_URL> [--bun]  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
 #   --synthesize <TX_CONFIG_JSON>  Run frontend synthesizer with config JSON and sync outputs into dist
 #   --preprocess                 Run backend preprocess step (dist only)
-#   --prove                      Run backend prove step and collect artifacts in dist
-#   --verify [<DIST_PATH>]       Verify a proof from dist outputs (default: detected dist for current platform)
+#   --prove [<SYNTH_OUTPUT_ZIP|DIR>] Run backend prove step and collect artifacts in dist
+#   --verify [<PROOF_ZIP|DIR>]   Verify a proof from dist outputs (default: detected dist for current platform)
 #   --extract-proof <OUTPUT_DIR> Gather proof artifacts from dist and zip them to OUTPUT_DIR/transaction_zkp.zip
 #   --doctor                     Check system requirements and health
 #   --help                       Show usage
 # Options:
 #   --verbose                    Show detailed output
+#   --bun                        Use Bun for packaging during --install
 
 # ---------- CLI ----------
 print_usage() {
   cat <<'USAGE'
 
 Commands:
-  --install <API_KEY|RPC_URL>
+  --install <API_KEY|RPC_URL> [--bun]
       Install and setup Tokamak ZKP
 
   --synthesize <TX_CONFIG_JSON>
@@ -28,11 +27,13 @@ Commands:
   --preprocess
       Run backend preprocess stage (after --synthesize)
 
-  --prove
+  --prove [<SYNTH_OUTPUT_ZIP|DIR>]
       Run backend prove stage and collect artifacts (after --synthesize)
+      If zip or directory is provided, sync synth outputs into dist before proving
 
-  --verify [<DIST_PATH>]
+  --verify [<PROOF_ZIP|DIR>]
       Verify a proof saved under dist (default: detected dist for current platform)
+      If zip or directory is provided, sync proof.json into dist before verifying
       Tokamak ZKP must be installed via "--install"
 
   --extract-proof <OUTPUT_DIR>
@@ -54,6 +55,7 @@ Commands:
 
 Options:
   --verbose       Show detailed output
+  --bun           Use Bun for packaging during --install
 USAGE
 }
 
@@ -70,7 +72,23 @@ while [[ $# -gt 0 ]]; do
     --install)
       CMD="install"; ARG1="${2:-}";
       [[ -n "$ARG1" ]] || { err "--install requires <API_KEY|RPC_URL>"; echo "💡 Get an API key from https://dashboard.alchemy.com/" >&2; exit 1; }
-      [[ -z "${3:-}" ]] || { err "Too many arguments for --install"; exit 1; }
+      shift 2
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --bun)
+            INSTALL_USE_BUN=true
+            shift
+            ;;
+          --verbose)
+            VERBOSE=true
+            shift
+            ;;
+          *)
+            err "Unknown option for --install: $1"
+            exit 1
+            ;;
+        esac
+      done
       break
       ;;
     --synthesize)
@@ -86,7 +104,8 @@ while [[ $# -gt 0 ]]; do
       ;;
     --prove)
       CMD="prove";
-      [[ -z "${2:-}" ]] || { err "--prove takes no arguments"; exit 1; }
+      ARG1="${2:-}";
+      [[ -z "${3:-}" ]] || { err "Too many arguments for --prove"; exit 1; }
       break
       ;;
     --verify)
@@ -143,7 +162,7 @@ case "$CMD" in
   install) step_install "$ARG1" ;;
   synthesize) step_synthesize "$ARG1" ;;
   preprocess) step_preprocess ;;
-  prove) step_prove ;;
+  prove) step_prove "${ARG1:-}" ;;
   verify) step_verify "${ARG1:-}" ;;
   extract_proof) step_extract_proof "$ARG1" ;;
   doctor) step_doctor ;;
