@@ -561,20 +561,20 @@ export class SynthesizerAdapter {
     };
     console.log(`[SynthesizerAdapter] ✅ Final state exported: ${finalState.stateRoot}`);
 
-    // // Write outputs if path provided
-    // if (outputPath) {
-    //   writeCircuitJson(circuitGenerator);
-    //   console.log(`[SynthesizerAdapter] ✅ Outputs written to: ${outputPath}`);
+    // Write outputs if path provided
+    if (outputPath) {
+      writeCircuitJson(circuitGenerator);
+      console.log(`[SynthesizerAdapter] ✅ Outputs written to: ${outputPath}`);
 
-    //   // Also save state_snapshot.json
-    //   const stateSnapshotPath = resolve(outputPath, 'state_snapshot.json');
-    //   writeFileSync(
-    //     stateSnapshotPath,
-    //     JSON.stringify(finalState, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
-    //     'utf-8',
-    //   );
-    //   console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${stateSnapshotPath}`);
-    // }
+      // Also save state_snapshot.json
+      const stateSnapshotPath = resolve(outputPath, 'state_snapshot.json');
+      writeFileSync(
+        stateSnapshotPath,
+        JSON.stringify(finalState, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
+        'utf-8',
+      );
+      console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${stateSnapshotPath}`);
+    }
 
     console.log("*****moulder debug******")
     console.log(bytesToHex(options.senderL2PrvKey));
