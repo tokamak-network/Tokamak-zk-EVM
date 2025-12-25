@@ -3,18 +3,25 @@
  *
  * This test uses the built binary (bin/synthesizer) instead of direct SynthesizerAdapter calls.
  * It demonstrates the same sequential transfer flow but via CLI commands.
+ * 
+ * Matches the logic of adapter-verify.ts but uses binary execution.
  */
 
 import { ethers } from 'ethers';
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync } from 'fs';
 import { execSync } from 'child_process';
 import { SEPOLIA_RPC_URL, ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI } from './constants.ts';
-import { bytesToBigInt, bigIntToBytes, setLengthLeft, utf8ToBytes } from '@ethereumjs/util';
-import { poseidon, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
+import { fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { jubjub } from '@noble/curves/misc';
+import { bytesToBigInt } from '@ethereumjs/util';
+import {
+  L2_PRV_KEY_MESSAGE,
+  deriveL2KeysFromSignature,
+  deriveL2AddressFromKeys,
+} from '../../src/TokamakL2JS/utils/web.ts';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -54,6 +61,45 @@ function l2PrivateKeyToHex(l2PrivateKey: Uint8Array): string {
 }
 
 /**
+ * Read state root from state_snapshot.json
+ */
+function readStateRootFromSnapshot(snapshotPath: string): string | null {
+  try {
+    if (!existsSync(snapshotPath)) {
+      return null;
+    }
+    const content = readFileSync(snapshotPath, 'utf-8');
+    const snapshot = JSON.parse(content);
+    return snapshot.stateRoot || null;
+  } catch (error) {
+    console.error(`   ⚠️  Failed to read state root from snapshot: ${error}`);
+    return null;
+  }
+}
+
+/**
+ * Read previous state root from instance.json (a_pub_in contains the previous state root)
+ */
+function readPreviousStateRootFromInstance(instancePath: string): string | null {
+  try {
+    const instanceFilePath = resolve(instancePath, 'instance.json');
+    if (!existsSync(instanceFilePath)) {
+      return null;
+    }
+    const content = readFileSync(instanceFilePath, 'utf-8');
+    const instance = JSON.parse(content);
+    // a_pub_in[0] contains the previous state root
+    if (instance.a_pub_in && instance.a_pub_in.length > 0) {
+      return instance.a_pub_in[0];
+    }
+    return null;
+  } catch (error) {
+    console.error(`   ⚠️  Failed to read previous state root from instance: ${error}`);
+    return null;
+  }
+}
+
+/**
  * Run synthesizer binary l2-transfer command
  */
 async function runL2Transfer(params: {
@@ -65,7 +111,14 @@ async function runL2Transfer(params: {
   previousStatePath?: string;
   outputPath: string;
   rpcUrl: string;
-}): Promise<{ success: boolean; instancePath?: string; stateSnapshotPath?: string; error?: string }> {
+}): Promise<{
+  success: boolean;
+  instancePath?: string;
+  stateSnapshotPath?: string;
+  previousStateRoot?: string;
+  newStateRoot?: string;
+  error?: string;
+}> {
   const {
     channelId,
     initializeTxHash,
@@ -133,10 +186,17 @@ async function runL2Transfer(params: {
 
     if (existsSync(`${instancePath}/instance.json`) && existsSync(stateSnapshotPath)) {
       console.log(`   ✅ Transfer completed successfully in ${(duration / 1000).toFixed(2)}s`);
+
+      // Read state roots from output files
+      const previousStateRoot = readPreviousStateRootFromInstance(instancePath);
+      const newStateRoot = readStateRootFromSnapshot(stateSnapshotPath);
+
       return {
         success: true,
         instancePath,
         stateSnapshotPath,
+        previousStateRoot: previousStateRoot || undefined,
+        newStateRoot: newStateRoot || undefined,
       };
     } else {
       return {
@@ -404,77 +464,109 @@ async function runVerifyRust(proofNum: number, outputsPath: string): Promise<boo
 // ============================================================================
 
 async function main() {
-  const CHANNEL_ID = parseInt(process.env.CHANNEL_ID || '4');
+  const CHANNEL_ID = parseInt(process.env.CHANNEL_ID || '32');
   const INITIALIZE_TX_HASH =
-    process.env.INITIALIZE_TX_HASH || '0xef83ef333908e2cec7bbfe3eb8719d7dc1464ef917637ca98868a195e75564c6';
+    process.env.INITIALIZE_TX_HASH || '0x56a115adb6be12363a71470bc07aba740b64956bf5acdb5dab4052d0bda9dfad';
   // Always use Sepolia RPC for testing (ignore env var to avoid Mainnet confusion)
   const RPC_URL = SEPOLIA_RPC_URL;
 
-  console.log(`🌐 Using RPC: ${RPC_URL}`);
-  console.log(`🔗 Channel ID: ${CHANNEL_ID}`);
-  console.log(`📝 Init TX: ${INITIALIZE_TX_HASH}\n`);
-
-  // Output directory - fixed to test-outputs for internal testing
-  const outputBaseDir = resolve(__dirname, '../test-outputs');
-
-  // Read L1 private keys from environment (for testing only)
-  const PRIVATE_KEYS = [process.env.ALICE_PRIVATE_KEY, process.env.BOB_PRIVATE_KEY, process.env.CHARLIE_PRIVATE_KEY];
-  if (!PRIVATE_KEYS[0] || !PRIVATE_KEYS[1] || !PRIVATE_KEYS[2]) {
-    console.error('❌ Error: Private keys not found in .env file');
+  // Read Alice's L1 private key from environment (for testing only)
+  const ALICE_PRIVATE_KEY = process.env.ALICE_PRIVATE_KEY;
+  if (!ALICE_PRIVATE_KEY) {
+    console.error('❌ Error: ALICE_PRIVATE_KEY not found in .env file');
     process.exit(1);
   }
+
+  // Recipient's L2 address (can be set in .env file as RECIPIENT_L2_ADDRESS)
+  const RECIPIENT_L2_ADDRESS = process.env.RECIPIENT_L2_ADDRESS || '0xdb9e654c355299142b8145ee72778510d895398c';
 
   // Get participants from on-chain
   const provider = new ethers.JsonRpcProvider(SEPOLIA_RPC_URL);
   const bridgeContract = new ethers.Contract(ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI, provider);
   const participants: string[] = await bridgeContract.getChannelParticipants(CHANNEL_ID);
 
+  console.log(`🌐 Using RPC: ${RPC_URL}`);
+  console.log(`🔗 Channel ID: ${CHANNEL_ID}`);
+  console.log(`📝 Init TX: ${INITIALIZE_TX_HASH}\n`);
+
   console.warn('⚠️  WARNING: Generating L2 keys from L1 keys for testing purposes.');
   console.warn('   In production, L2 private keys should be provided directly.\n');
 
-  // Generate L2 private keys (for testing)
-  const PARTICIPANT_NAMES = ['Alice', 'Bob', 'Charlie'];
-  const participantL2PrivateKeys: Uint8Array[] = [];
+  // Create wallet from Alice's private key
+  const aliceWallet = new ethers.Wallet(ALICE_PRIVATE_KEY);
+  const aliceL1Address = aliceWallet.address;
 
-  for (let i = 0; i < participants.length; i++) {
-    const l1Address = participants[i];
-    const participantIndex = participants.findIndex(addr => addr.toLowerCase() === l1Address.toLowerCase());
+  // Check if Alice's L1 address is in the participant list
+  const aliceParticipantIndex = participants.findIndex(
+    addr => addr.toLowerCase() === aliceL1Address.toLowerCase()
+  );
 
-    if (participantIndex === -1 || !PRIVATE_KEYS[participantIndex]) {
-      throw new Error(`Private key not found for participant ${l1Address}`);
-    }
-
-    const wallet = new ethers.Wallet(PRIVATE_KEYS[participantIndex]!);
-    if (wallet.address.toLowerCase() !== l1Address.toLowerCase()) {
-      throw new Error(`Address mismatch: expected ${l1Address}, got ${wallet.address}`);
-    }
-
-    // Generate L2 private key
-    const l1PublicKeyHex = wallet.signingKey.publicKey;
-    const seedString = `${l1PublicKeyHex}${CHANNEL_ID}${PARTICIPANT_NAMES[participantIndex]!}`;
-    const seedBytes = utf8ToBytes(seedString);
-    const seedHashBytes = poseidon(seedBytes);
-    const seedHashBigInt = bytesToBigInt(seedHashBytes);
-    const privateKeyBigInt = seedHashBigInt % jubjub.Point.Fn.ORDER;
-    const privateKeyValue = privateKeyBigInt === 0n ? 1n : privateKeyBigInt;
-    const l2PrivateKey = setLengthLeft(bigIntToBytes(privateKeyValue), 32);
-
-    participantL2PrivateKeys.push(l2PrivateKey);
+  if (aliceParticipantIndex === -1) {
+    throw new Error(
+      `Alice's L1 address ${aliceL1Address} is not in the participant list. ` +
+      `Participants: ${participants.join(', ')}`
+    );
   }
 
-  // Derive L2 addresses from L2 private keys
-  const allL2Addresses: string[] = participantL2PrivateKeys.map(deriveL2AddressFromPrivateKey);
+  console.log(`✅ Alice's L1 address found in participant list at index ${aliceParticipantIndex}`);
+  console.log(`   L1 Address: ${aliceL1Address}\n`);
+
+  // Fetch on-chain initial state root for verification
+  const onchainInitialStateRoot: string = await bridgeContract.getChannelInitialStateRoot(CHANNEL_ID);
+  console.log(`📋 On-chain Initial State Root: ${onchainInitialStateRoot}`);
+
+  // Generate Alice's L2 private key from L1 private key using signature method
+  const messageToSign = `${L2_PRV_KEY_MESSAGE}${CHANNEL_ID}`;
+  const signature = await aliceWallet.signMessage(messageToSign) as `0x${string}`;
+
+  console.log(`   Alice:`);
+  console.log(`     L1 Address (on-chain): ${participants[aliceParticipantIndex]}`);
+  console.log(`     L1 Address (wallet):   ${aliceL1Address}`);
+  console.log(`     Message: ${messageToSign}`);
+  console.log(`     Signature: ${signature.substring(0, 20)}...${signature.substring(signature.length - 10)}`);
+
+  // Derive L2 keys from signature using web.ts functions
+  const aliceL2Keys = deriveL2KeysFromSignature(signature);
+  const aliceL2PrivateKey = aliceL2Keys.privateKey;
+
+  // Derive L2 address from L2 keys
+  const aliceL2Address = deriveL2AddressFromKeys(aliceL2Keys);
+
+  console.log(`     L2 Address: ${aliceL2Address}\n`);
+
+  // Output directory - fixed to test-outputs for internal testing
+  const outputBaseDir = resolve(__dirname, '../test-outputs');
 
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║  Test: Sequential L2 Transfers (Using Binary)                ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
   // ========================================================================
-  // PROOF #1: Participant 1 → 2 (1 TON)
+  // PROOF #1: Alice → Recipient (1 TON)
   // ========================================================================
+  // Find a recipient (different from Alice)
+  const recipientParticipantIndex = participants.findIndex(
+    (_, idx) => idx !== aliceParticipantIndex
+  );
+  if (recipientParticipantIndex === -1) {
+    throw new Error('No recipient found (need at least 2 participants)');
+  }
+  const recipientL1Address = participants[recipientParticipantIndex];
+
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
-  console.log('║                  Proof #1: Participant 1 → 2 (1 TON)         ║');
+  console.log(`║        Proof #1: Alice (${aliceParticipantIndex}) → Participant ${recipientParticipantIndex + 1} (1 TON)         ║`);
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  console.log(`   Sender (Alice): ${aliceL1Address}`);
+  console.log(`   Recipient L1:  ${recipientL1Address}`);
+  if (RECIPIENT_L2_ADDRESS) {
+    console.log(`   Recipient L2:  ${RECIPIENT_L2_ADDRESS}\n`);
+  } else {
+    console.log(`   Recipient L2:  (not provided, will be derived)\n`);
+  }
+
+  if (!RECIPIENT_L2_ADDRESS) {
+    throw new Error('RECIPIENT_L2_ADDRESS is required. Please set it in .env file or provide it directly.');
+  }
 
   // Output path for Proof #1
   const outputPath1 = resolve(outputBaseDir, 'binary-test-1');
@@ -482,8 +574,8 @@ async function main() {
   const result1 = await runL2Transfer({
     channelId: CHANNEL_ID,
     initializeTxHash: INITIALIZE_TX_HASH,
-    senderL2PrvKey: participantL2PrivateKeys[0],
-    recipientL2Address: allL2Addresses[1],
+    senderL2PrvKey: aliceL2PrivateKey,
+    recipientL2Address: RECIPIENT_L2_ADDRESS,
     amount: '1',
     outputPath: outputPath1,
     rpcUrl: RPC_URL,
@@ -495,8 +587,39 @@ async function main() {
   }
 
   console.log(`✅ Proof #1 synthesis completed`);
-  console.log(`   Instance Path:      ${result1.instancePath}`);
-  console.log(`   State Snapshot:    ${result1.stateSnapshotPath}\n`);
+  console.log(`   Previous State Root: ${result1.previousStateRoot}`);
+  console.log(`   New State Root:      ${result1.newStateRoot}`);
+  console.log(`   State Snapshot:      ${result1.stateSnapshotPath}\n`);
+
+  // ========================================================================
+  // VERIFICATION: Compare restored Merkle root with on-chain initial state root
+  // ========================================================================
+  console.log('🔍 Verifying restored Merkle root against on-chain initial state root...');
+  console.log(`   On-chain Initial State Root: ${onchainInitialStateRoot}`);
+  console.log(`   Restored Previous State Root: ${result1.previousStateRoot}`);
+
+  if (!result1.previousStateRoot) {
+    console.error('\n❌ VERIFICATION FAILED: Could not read previous state root from binary output!');
+    process.exit(1);
+  }
+
+  // Normalize both roots to lowercase for comparison
+  const normalizedOnchainRoot = onchainInitialStateRoot.toLowerCase();
+  const normalizedRestoredRoot = result1.previousStateRoot.toLowerCase();
+
+  if (normalizedOnchainRoot !== normalizedRestoredRoot) {
+    console.error('\n❌ VERIFICATION FAILED: Merkle root mismatch!');
+    console.error(`   On-chain:  ${onchainInitialStateRoot}`);
+    console.error(`   Restored:  ${result1.previousStateRoot}`);
+    console.error('\n   The synthesizer restored a different state root than what was initialized on-chain.');
+    console.error('   This could indicate:');
+    console.error('   - Incorrect channel ID or initialize transaction hash');
+    console.error('   - State reconstruction error in the synthesizer');
+    console.error('   - Mismatched L2 address or MPT key mappings');
+    process.exit(1);
+  }
+
+  console.log('   ✅ Merkle root verification PASSED! On-chain and restored roots match.\n');
 
   // Display participant balances after Proof #1
   console.log('📊 Participant Balances after Proof #1:');
@@ -513,14 +636,14 @@ async function main() {
   console.log('');
 
   // Prove & Verify Proof #1
+  if (!result1.instancePath) {
+    console.error(`\n❌ Instance path not found. Cannot run prove/verify.`);
+    process.exit(1);
+  }
+
   console.log(`\n${'='.repeat(80)}`);
   console.log(`Proving and Verifying Proof #1`);
   console.log('='.repeat(80));
-
-  if (!result1.instancePath) {
-    console.error(`\n❌ Instance path not available! Cannot continue.`);
-    process.exit(1);
-  }
 
   const preprocessSuccess = await runPreprocess(result1.instancePath);
   if (!preprocessSuccess) {
@@ -543,10 +666,10 @@ async function main() {
   console.log(`\n✅ Proof #1 Complete: Preprocessed ✅ | Proved ✅ | Verified ✅`);
 
   // ========================================================================
-  // PROOF #2: Participant 2 → 0 (0.5 TON)
+  // PROOF #2: Participant 2 → Alice (0.5 TON)
   // ========================================================================
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
-  console.log('║                  Proof #2: Participant 2 → 0 (0.5 TON)         ║');
+  console.log('║                  Proof #2: Participant 2 → Alice (0.5 TON)   ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
   if (!result1.stateSnapshotPath) {
@@ -554,14 +677,49 @@ async function main() {
     process.exit(1);
   }
 
+  // For Proof #2, we need the second participant's L2 private key
+  // Since we only have Alice's key in this test, we'll use a placeholder approach
+  // In a real scenario, each participant would sign their own message
+  
+  // Read Bob's private key from environment (for testing only)
+  const BOB_PRIVATE_KEY = process.env.BOB_PRIVATE_KEY;
+  if (!BOB_PRIVATE_KEY) {
+    console.warn('⚠️  BOB_PRIVATE_KEY not found in .env file. Skipping Proof #2.');
+    console.log('\n╔══════════════════════════════════════════════════════════════╗');
+    console.log('║                    Test Completed (Partial)                  ║');
+    console.log('╚══════════════════════════════════════════════════════════════╝\n');
+    console.log('✅ Successfully completed Proof #1 with binary!');
+    console.log('⚠️  Proof #2 skipped due to missing BOB_PRIVATE_KEY');
+    return;
+  }
+
+  // Create wallet from Bob's private key
+  const bobWallet = new ethers.Wallet(BOB_PRIVATE_KEY);
+  const bobL1Address = bobWallet.address;
+
+  // Check if Bob's L1 address is in the participant list
+  const bobParticipantIndex = participants.findIndex(
+    addr => addr.toLowerCase() === bobL1Address.toLowerCase()
+  );
+
+  if (bobParticipantIndex === -1) {
+    console.warn(`⚠️  Bob's L1 address ${bobL1Address} is not in the participant list. Skipping Proof #2.`);
+    return;
+  }
+
+  // Generate Bob's L2 private key using signature method
+  const bobSignature = await bobWallet.signMessage(messageToSign) as `0x${string}`;
+  const bobL2Keys = deriveL2KeysFromSignature(bobSignature);
+  const bobL2PrivateKey = bobL2Keys.privateKey;
+
   // Output path for Proof #2
   const outputPath2 = resolve(outputBaseDir, 'binary-test-2');
 
   const result2 = await runL2Transfer({
     channelId: CHANNEL_ID,
     initializeTxHash: INITIALIZE_TX_HASH,
-    senderL2PrvKey: participantL2PrivateKeys[1],
-    recipientL2Address: allL2Addresses[0],
+    senderL2PrvKey: bobL2PrivateKey,
+    recipientL2Address: aliceL2Address,
     amount: '0.5',
     previousStatePath: result1.stateSnapshotPath, // Chain from Proof #1
     outputPath: outputPath2,
@@ -574,8 +732,9 @@ async function main() {
   }
 
   console.log(`✅ Proof #2 synthesis completed`);
-  console.log(`   Instance Path:      ${result2.instancePath}`);
-  console.log(`   State Snapshot:    ${result2.stateSnapshotPath}\n`);
+  console.log(`   Previous State Root: ${result2.previousStateRoot}`);
+  console.log(`   New State Root:      ${result2.newStateRoot}`);
+  console.log(`   State Snapshot:      ${result2.stateSnapshotPath}\n`);
 
   // Display participant balances after Proof #2
   console.log('📊 Participant Balances after Proof #2:');
@@ -592,14 +751,14 @@ async function main() {
   console.log('');
 
   // Prove & Verify Proof #2
-  console.log(`\n${'='.repeat(80)}`);
-  console.log(`Proving and Verifying Proof #2`);
-  console.log('='.repeat(80));
-
   if (!result2.instancePath) {
     console.error(`\n❌ Instance path not available! Cannot continue.`);
     process.exit(1);
   }
+
+  console.log(`\n${'='.repeat(80)}`);
+  console.log(`Proving and Verifying Proof #2`);
+  console.log('='.repeat(80));
 
   const prove2Success = await runProver(2, result2.instancePath);
   if (!prove2Success) {
@@ -623,12 +782,17 @@ async function main() {
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
   console.log('✅ Successfully completed sequential transfer simulation using binary!');
   console.log('');
+  console.log('📊 State Root Evolution:');
+  console.log(`   Initial (On-chain):         ${onchainInitialStateRoot}`);
+  console.log(`   → Proof #1 (Alice→P2, 1 TON):  ${result1.newStateRoot}`);
+  console.log(`   → Proof #2 (P2→Alice, 0.5 TON): ${result2.newStateRoot}`);
+  console.log('');
   console.log('🔬 Proof Generation & Verification:');
   console.log(`   - Proof #1: Preprocessed ✅ | Proved ✅ | Verified ✅`);
   console.log(`   - Proof #2: Proved ✅ | Verified ✅`);
   console.log('');
   console.log('🔄 Execution Flow:');
-  console.log('   Proof #1: Binary l2-transfer → Preprocess → Prove → Verify ✅ Complete');
+  console.log('   Proof #1: Binary l2-transfer → Merkle Root Verify → Preprocess → Prove → Verify ✅ Complete');
   console.log('             ↓ (await completion)');
   console.log('   Proof #2: Binary l2-transfer → Prove → Verify ✅ Complete');
   console.log('');
@@ -636,6 +800,7 @@ async function main() {
   console.log('   ✅ Uses bin/synthesizer binary for all synthesis operations');
   console.log('   ✅ Uses bin/synthesizer get-balances for balance queries');
   console.log('   ✅ Same prove/verify flow as direct API usage');
+  console.log('   ✅ On-chain Merkle root verification integrated');
 
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║                    Test Completed Successfully!               ║');

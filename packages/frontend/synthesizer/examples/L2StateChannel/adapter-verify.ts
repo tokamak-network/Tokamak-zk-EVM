@@ -235,9 +235,9 @@ async function runVerifyRust(proofNum: number, outputsPath: string): Promise<boo
 // ============================================================================
 
 async function main() {
-  const CHANNEL_ID = parseInt(process.env.CHANNEL_ID || '27');
+  const CHANNEL_ID = parseInt(process.env.CHANNEL_ID || '32');
   const INITIALIZE_TX_HASH =
-    process.env.INITIALIZE_TX_HASH || '0xfc0baf2bde4e5d5dff6d782b1be153b5952ca272f080350f37e4bf2d090df4bd';
+    process.env.INITIALIZE_TX_HASH || '0x56a115adb6be12363a71470bc07aba740b64956bf5acdb5dab4052d0bda9dfad';
 
   // Read Alice's L1 private key from environment (for testing only)
   const ALICE_PRIVATE_KEY = process.env.ALICE_PRIVATE_KEY;
@@ -247,7 +247,7 @@ async function main() {
   }
 
   // Recipient's L2 address (can be set in .env file as RECIPIENT_L2_ADDRESS)
-  const RECIPIENT_L2_ADDRESS = process.env.RECIPIENT_L2_ADDRESS || '0x7254f0bc55d904f9ea0ab14a7f4a834812ea45cc';
+  const RECIPIENT_L2_ADDRESS = process.env.RECIPIENT_L2_ADDRESS || '0xdb9e654c355299142b8145ee72778510d895398c';
 
   // Get participants from on-chain
   const provider = new ethers.JsonRpcProvider(SEPOLIA_RPC_URL);
@@ -275,6 +275,10 @@ async function main() {
 
   console.log(`✅ Alice's L1 address found in participant list at index ${aliceParticipantIndex}`);
   console.log(`   L1 Address: ${aliceL1Address}\n`);
+
+  // Fetch on-chain initial state root for verification
+  const onchainInitialStateRoot: string = await bridgeContract.getChannelInitialStateRoot(CHANNEL_ID);
+  console.log(`📋 On-chain Initial State Root: ${onchainInitialStateRoot}`);
 
   // Generate Alice's L2 private key from L1 private key using signature method
   const messageToSign = `${L2_PRV_KEY_MESSAGE}${CHANNEL_ID}`;
@@ -367,6 +371,31 @@ async function main() {
   console.log(`   Previous State Root: ${result1.previousStateRoot}`);
   console.log(`   New State Root:      ${result1.newStateRoot}`);
   console.log(`   State Snapshot:      ${result1.stateSnapshotPath}\n`);
+
+  // ========================================================================
+  // VERIFICATION: Compare restored Merkle root with on-chain initial state root
+  // ========================================================================
+  console.log('🔍 Verifying restored Merkle root against on-chain initial state root...');
+  console.log(`   On-chain Initial State Root: ${onchainInitialStateRoot}`);
+  console.log(`   Restored Previous State Root: ${result1.previousStateRoot}`);
+
+  // Normalize both roots to lowercase for comparison
+  const normalizedOnchainRoot = onchainInitialStateRoot.toLowerCase();
+  const normalizedRestoredRoot = result1.previousStateRoot.toLowerCase();
+
+  if (normalizedOnchainRoot !== normalizedRestoredRoot) {
+    console.error('\n❌ VERIFICATION FAILED: Merkle root mismatch!');
+    console.error(`   On-chain:  ${onchainInitialStateRoot}`);
+    console.error(`   Restored:  ${result1.previousStateRoot}`);
+    console.error('\n   The synthesizer restored a different state root than what was initialized on-chain.');
+    console.error('   This could indicate:');
+    console.error('   - Incorrect channel ID or initialize transaction hash');
+    console.error('   - State reconstruction error in the synthesizer');
+    console.error('   - Mismatched L2 address or MPT key mappings');
+    process.exit(1);
+  }
+
+  console.log('   ✅ Merkle root verification PASSED! On-chain and restored roots match.\n');
 
   // Display participant balances after Proof #1
   console.log('📊 Participant Balances after Proof #1:');

@@ -65,8 +65,8 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         const leaves = new Array<bigint>(MAX_MT_LEAVES)
         for (var index = 0; index < MAX_MT_LEAVES; index++) {
             const key = this.registeredKeys![index]
-            if (key === undefined ) {
-                leaves[index] = 0n
+            if (key === undefined) {
+                leaves[index] = poseidon_raw([0n, 0n])
             } else {
                 const val = await this.getStorage(contractAddress, key)
                 leaves[index] = poseidon_raw([bytesToBigInt(key), bytesToBigInt(val)])
