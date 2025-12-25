@@ -1,3 +1,5 @@
+
+
 /**
  * L2 State Channel Transaction Test using Simplified SynthesizerAdapter API
  *
@@ -19,6 +21,11 @@ import { bytesToBigInt, bigIntToBytes, setLengthLeft, utf8ToBytes } from '@ether
 import { poseidon, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
 import { jubjub } from '@noble/curves/misc';
 import { SynthesizerAdapter } from '../../src/interface/adapters/synthesizerAdapter.ts';
+import {
+  L2_PRV_KEY_MESSAGE,
+  deriveL2KeysFromSignature,
+  deriveL2AddressFromKeys,
+} from '../../src/TokamakL2JS/utils/web.ts';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -38,15 +45,6 @@ const verifyBinary = `${distBinPath}/verify`;
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-/**
- * Derive L2 address from L2 private key
- */
-function deriveL2AddressFromPrivateKey(l2PrivateKey: Uint8Array): string {
-  const publicKey = jubjub.Point.BASE.multiply(bytesToBigInt(l2PrivateKey)).toBytes();
-  const l2Address = fromEdwardsToAddress(jubjub.Point.fromBytes(publicKey)).toString();
-  return l2Address;
-}
 
 /**
  * Run preprocess binary (only needed for Proof #1)
@@ -237,16 +235,19 @@ async function runVerifyRust(proofNum: number, outputsPath: string): Promise<boo
 // ============================================================================
 
 async function main() {
-  const CHANNEL_ID = parseInt(process.env.CHANNEL_ID || '11');
+  const CHANNEL_ID = parseInt(process.env.CHANNEL_ID || '27');
   const INITIALIZE_TX_HASH =
-    process.env.INITIALIZE_TX_HASH || '0x07461b300155a6b9e6a7a5006e6b6bfbc0483c2256428646727e1c6fecf4b3d1';
+    process.env.INITIALIZE_TX_HASH || '0xfc0baf2bde4e5d5dff6d782b1be153b5952ca272f080350f37e4bf2d090df4bd';
 
-  // Read L1 private keys from environment (for testing only)
-  const PRIVATE_KEYS = [process.env.ALICE_PRIVATE_KEY, process.env.BOB_PRIVATE_KEY, process.env.CHARLIE_PRIVATE_KEY];
-  if (!PRIVATE_KEYS[0] || !PRIVATE_KEYS[1] || !PRIVATE_KEYS[2]) {
-    console.error('❌ Error: Private keys not found in .env file');
+  // Read Alice's L1 private key from environment (for testing only)
+  const ALICE_PRIVATE_KEY = process.env.ALICE_PRIVATE_KEY;
+  if (!ALICE_PRIVATE_KEY) {
+    console.error('❌ Error: ALICE_PRIVATE_KEY not found in .env file');
     process.exit(1);
   }
+
+  // Recipient's L2 address (can be set in .env file as RECIPIENT_L2_ADDRESS)
+  const RECIPIENT_L2_ADDRESS = process.env.RECIPIENT_L2_ADDRESS || '0x7254f0bc55d904f9ea0ab14a7f4a834812ea45cc';
 
   // Get participants from on-chain
   const provider = new ethers.JsonRpcProvider(SEPOLIA_RPC_URL);
@@ -256,39 +257,62 @@ async function main() {
   console.warn('⚠️  WARNING: Generating L2 keys from L1 keys for testing purposes.');
   console.warn('   In production, L2 private keys should be provided directly.\n');
 
-  // Generate L2 private keys (for testing)
-  const PARTICIPANT_NAMES = ['Alice', 'Bob', 'Charlie'];
-  const participantL2PrivateKeys: Uint8Array[] = [];
+  // Create wallet from Alice's private key
+  const aliceWallet = new ethers.Wallet(ALICE_PRIVATE_KEY);
+  const aliceL1Address = aliceWallet.address;
 
-  for (let i = 0; i < participants.length; i++) {
-    const l1Address = participants[i];
-    const participantIndex = participants.findIndex(addr => addr.toLowerCase() === l1Address.toLowerCase());
+  // Check if Alice's L1 address is in the participant list
+  const aliceParticipantIndex = participants.findIndex(
+    addr => addr.toLowerCase() === aliceL1Address.toLowerCase()
+  );
 
-    if (participantIndex === -1 || !PRIVATE_KEYS[participantIndex]) {
-      throw new Error(`Private key not found for participant ${l1Address}`);
-    }
-
-    const wallet = new ethers.Wallet(PRIVATE_KEYS[participantIndex]!);
-    if (wallet.address.toLowerCase() !== l1Address.toLowerCase()) {
-      throw new Error(`Address mismatch: expected ${l1Address}, got ${wallet.address}`);
-    }
-
-    // Generate L2 private key
-    const l1PublicKeyHex = wallet.signingKey.publicKey;
-    const seedString = `${l1PublicKeyHex}${CHANNEL_ID}${PARTICIPANT_NAMES[participantIndex]!}`;
-    const seedBytes = utf8ToBytes(seedString);
-    const seedHashHex = ethers.keccak256(seedBytes);
-    const seedHashBytes = ethers.getBytes(seedHashHex);
-    const seedHashBigInt = bytesToBigInt(seedHashBytes);
-    const privateKeyBigInt = seedHashBigInt % jubjub.Point.Fn.ORDER;
-    const privateKeyValue = privateKeyBigInt === 0n ? 1n : privateKeyBigInt;
-    const l2PrivateKey = setLengthLeft(bigIntToBytes(privateKeyValue), 32);
-
-    participantL2PrivateKeys.push(l2PrivateKey);
+  if (aliceParticipantIndex === -1) {
+    throw new Error(
+      `Alice's L1 address ${aliceL1Address} is not in the participant list. ` +
+      `Participants: ${participants.join(', ')}`
+    );
   }
 
-  // Derive L2 addresses from L2 private keys
-  const allL2Addresses: string[] = participantL2PrivateKeys.map(deriveL2AddressFromPrivateKey);
+  console.log(`✅ Alice's L1 address found in participant list at index ${aliceParticipantIndex}`);
+  console.log(`   L1 Address: ${aliceL1Address}\n`);
+
+  // Generate Alice's L2 private key from L1 private key using signature method
+  const messageToSign = `${L2_PRV_KEY_MESSAGE}${CHANNEL_ID}`;
+  const signature = await aliceWallet.signMessage(messageToSign) as `0x${string}`;
+
+  console.log(`   Alice:`);
+  console.log(`     L1 Address (on-chain): ${participants[aliceParticipantIndex]}`);
+  console.log(`     L1 Address (wallet):   ${aliceL1Address}`);
+  console.log(`     Message: ${messageToSign}`);
+  console.log(`     Signature: ${signature.substring(0, 20)}...${signature.substring(signature.length - 10)}`);
+
+  // Derive L2 keys from signature using web.ts functions
+  const aliceL2Keys = deriveL2KeysFromSignature(signature);
+  const aliceL2PrivateKey = aliceL2Keys.privateKey;
+
+  // Derive L2 address from L2 keys
+  const aliceL2Address = deriveL2AddressFromKeys(aliceL2Keys);
+
+  console.log(`     L2 Address: ${aliceL2Address}\n`);
+
+  // For other participants, we'll use their on-chain addresses
+  // Their L2 addresses will be derived by the adapter if needed
+  const participantL2PrivateKeys: Uint8Array[] = [];
+  const allL2Addresses: string[] = [];
+
+  // Initialize arrays with null/empty values for all participants
+  for (let i = 0; i < participants.length; i++) {
+    if (i === aliceParticipantIndex) {
+      // Alice's L2 private key and address
+      participantL2PrivateKeys.push(aliceL2PrivateKey);
+      allL2Addresses.push(aliceL2Address);
+    } else {
+      // Other participants: we don't have their private keys
+      // The adapter will handle their L2 addresses internally
+      participantL2PrivateKeys.push(new Uint8Array(0)); // Placeholder
+      allL2Addresses.push(''); // Placeholder, will be filled by adapter if needed
+    }
+  }
 
   // Create SynthesizerAdapter instance
   const adapter = new SynthesizerAdapter({ rpcUrl: SEPOLIA_RPC_URL });
@@ -298,17 +322,37 @@ async function main() {
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
   // ========================================================================
-  // PROOF #1: Participant 1 → 2 (1 TON)
+  // PROOF #1: Alice → Another Participant (1 TON)
   // ========================================================================
+  // Find a recipient (different from Alice)
+  const recipientParticipantIndex = participants.findIndex(
+    (_, idx) => idx !== aliceParticipantIndex
+  );
+  if (recipientParticipantIndex === -1) {
+    throw new Error('No recipient found (need at least 2 participants)');
+  }
+  const recipientL1Address = participants[recipientParticipantIndex];
+
   console.log('\n╔══════════════════════════════════════════════════════════════╗');
-  console.log('║                  Proof #1: Participant 1 → 2 (1 TON)         ║');
+  console.log(`║        Proof #1: Alice (${aliceParticipantIndex}) → Participant ${recipientParticipantIndex + 1} (1 TON)         ║`);
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  console.log(`   Sender (Alice): ${aliceL1Address}`);
+  console.log(`   Recipient L1:  ${recipientL1Address}`);
+  if (RECIPIENT_L2_ADDRESS) {
+    console.log(`   Recipient L2:  ${RECIPIENT_L2_ADDRESS}\n`);
+  } else {
+    console.log(`   Recipient L2:  (not provided, will be derived)\n`);
+  }
+
+  if (!RECIPIENT_L2_ADDRESS) {
+    throw new Error('RECIPIENT_L2_ADDRESS is required. Please set it in .env file or provide it directly.');
+  }
 
   const result1 = await adapter.synthesizeL2Transfer({
     channelId: CHANNEL_ID,
     initializeTxHash: INITIALIZE_TX_HASH,
-    senderL2PrvKey: participantL2PrivateKeys[0],
-    recipientL2Address: allL2Addresses[1],
+    senderL2PrvKey: aliceL2PrivateKey,
+    recipientL2Address: RECIPIENT_L2_ADDRESS,
     amount: '1',
     outputPath: resolve(__dirname, '../test-outputs/adapter-test-1'),
     rollupBridgeAddress: ROLLUP_BRIDGE_CORE_ADDRESS,
@@ -341,6 +385,11 @@ async function main() {
   console.log('');
 
   // Prove & Verify Proof #1
+  if (!result1.instancePath) {
+    console.error(`\n❌ Instance path not found. Cannot run prove/verify.`);
+    process.exit(1);
+  }
+
   console.log(`\n${'='.repeat(80)}`);
   console.log(`Proving and Verifying Proof #1`);
   console.log('='.repeat(80));
@@ -410,6 +459,11 @@ async function main() {
   console.log('');
 
   // Prove & Verify Proof #2
+  if (!result2.instancePath) {
+    console.error(`\n❌ Instance path not found. Cannot run prove/verify.`);
+    process.exit(1);
+  }
+
   console.log(`\n${'='.repeat(80)}`);
   console.log(`Proving and Verifying Proof #2`);
   console.log('='.repeat(80));
@@ -541,3 +595,4 @@ main()
     console.error('Stack:', error.stack);
     process.exit(1);
   });
+
