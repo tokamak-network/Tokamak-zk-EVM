@@ -194,7 +194,7 @@ export class Synthesizer implements SynthesizerInterface
     }
     // Make every padded keys warm
     const numActualKeys = this.cachedOpts.stateManager.registeredKeys!.length;
-    for ( var MTIndex = numActualKeys; MTIndex < MAX_MT_LEAVES; MTIndex++ ) {
+    for ( let MTIndex = numActualKeys; MTIndex < MAX_MT_LEAVES; MTIndex++ ) {
       const keyPt = this.addReservedVariableToBufferIn('MERKLE_PROOF', 0n, true);
       const {indexPt:_, valuePt} = await this._instructionHandlers.verifyStorage(keyPt, MTIndex, 0n);
       treeEntriesPt.push(
