@@ -164,52 +164,58 @@ export class Synthesizer implements SynthesizerInterface
 
   private async _finalizeStorage(): Promise<void> {    
     await this._updateMerkleTree()
-    this._unregisteredContractStrageWritings()
+    this._unregisteredContractStorageWritings()
   }
 
   private async _updateMerkleTree(): Promise<void> {    
-    
-    const treeEntriesPt: DataPt[] = [];
-    // Make every user storage warm
-    for (const [MTIndex, key] of this.cachedOpts.stateManager.registeredKeys!.entries()) {
+    const treeEntriesPt: DataPt[][] = [];
+
+    for (const key of this.cachedOpts.stateManager.registeredKeys!) {
       const keyBigInt = bytesToBigInt(key)
-      const cached = this.state.cachedStorage.get(keyBigInt)
-      if (cached === undefined) {
-        const keyPt = this.addReservedVariableToBufferIn('MERKLE_PROOF', keyBigInt, true);
-        const {indexPt:_ , valuePt} = await this._instructionHandlers.verifyStorage(keyPt, MTIndex);
-        treeEntriesPt.push(
-          keyPt, 
-          valuePt,
-        )
-      } else {
-        const lastHistory = cached.accessHistory[cached.accessHistory.length - 1];
-        if (lastHistory.indexPt?.value !== BigInt(MTIndex)){
-          throw new Error(`Synthesizer: Incorrect cachedStorage. Need debugging`)
-        }
-        treeEntriesPt.push(
-          lastHistory.keyPt!, 
-          lastHistory.valuePt,
-        )
+      const cached = this._state.cachedStorage.get(keyBigInt);
+      if (cached !== undefined && cached.length === 0 ) {
+        throw new Error(`A storage was cached without no history`)
       }
+      const keyPt = cached === undefined ?
+        this.addReservedVariableToBufferIn('MERKLE_PROOF', keyBigInt, true) :
+        cached[cached.length-1].keyPt;
+      // Make sure every registered storage verified
+      const valuePt = await this._instructionHandlers.loadStorage(keyPt);
+      treeEntriesPt.push([
+        keyPt, 
+        valuePt,
+      ]);
     }
-    // Make every padded keys warm
     const numActualKeys = this.cachedOpts.stateManager.registeredKeys!.length;
+    if (this._state.verifiedStorageMTIndices.length !== numActualKeys) {
+      throw new Error(`Mismatch between verified keys and registered keys`)
+    }
+
+    const permutation = [...this._state.verifiedStorageMTIndices];
+    // permutation[newIdx] = oldIdx
+
+    // Make every padded keys warm
     for ( var MTIndex = numActualKeys; MTIndex < MAX_MT_LEAVES; MTIndex++ ) {
       const keyPt = this.addReservedVariableToBufferIn('MERKLE_PROOF', 0n, true);
-      const {indexPt:_, valuePt} = await this._instructionHandlers.verifyStorage(keyPt, MTIndex, 0n);
-      treeEntriesPt.push(
+      const indexPt = this.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(MTIndex), true);
+      const valuePt = await this._instructionHandlers.verifyStorage(keyPt, indexPt, 0n);
+      treeEntriesPt.push([
         keyPt,
         valuePt,
-      )
+      ])
     }
 
-    if (treeEntriesPt.length !== MAX_MT_LEAVES * 2) {
+    const finalMerkleRootRef = await this.cachedOpts.stateManager.getUpdatedMerkleTreeRoot(permutation);
+    
+    if (treeEntriesPt.length !== MAX_MT_LEAVES ) {
       throw new Error(`Expected ${MAX_MT_LEAVES} leaves for updated tree root computation, but got ${treeEntriesPt.length} leaves.`)
     }
-
-    const finalMerkleRootRef = await this.cachedOpts.stateManager.getUpdatedMerkleTreeRoot();
-    
-    const finalMerkleRootPt = this.placePoseidon(treeEntriesPt);
+    // Permute MT leaves
+    const permutedTreeEntriesPt: DataPt[][] = [...treeEntriesPt];
+    for (const [newIdx, oldIdx] of permutation.entries()) {
+      permutedTreeEntriesPt[newIdx] = DataPtFactory.deepCopy(treeEntriesPt[oldIdx]);
+    }
+    const finalMerkleRootPt = this.placePoseidon(permutedTreeEntriesPt.flat());
     if (finalMerkleRootRef !== finalMerkleRootPt.value) {
       throw new Error(`Updated Merkle tree root is different from the reference.`);
     }
@@ -220,20 +226,15 @@ export class Synthesizer implements SynthesizerInterface
     );
   }
 
-  private _unregisteredContractStrageWritings(): void {
+  private _unregisteredContractStorageWritings(): void {
     for (const [key, cache] of this.state.cachedStorage.entries()) {
       if (this.cachedOpts.stateManager.getMTIndex(key) < 0){
         // Filtering the latest unregistered storage writings
-        let lastHistoryIndex = cache.accessHistory.length - 1
-        while(lastHistoryIndex >= 0) {
-          if (cache.accessHistory[lastHistoryIndex--].access !== 'Write') {
-            break
-          }
-        }
-        if (lastHistoryIndex >= 0) {
+        const lastWritingIndex = cache.findIndex(entry => entry.access === "Write")
+        if (lastWritingIndex >= 0) {
           this.addReservedVariableToBufferOut(
             'UNREGISTERED_CONTRACT_STORAGE_OUT',
-            cache.accessHistory[lastHistoryIndex].valuePt,
+            cache[lastWritingIndex].valuePt,
             true,
             ` at MPT key ${bigIntToHex(key)}`,
           );

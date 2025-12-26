@@ -17,7 +17,7 @@ import { FIRST_ARITHMETIC_PLACEMENT_INDEX, subcircuitInfoByName } from '../../in
 
 export type CachedStorageEntry = {
   indexPt: DataPt | null,
-  keyPt: DataPt | null,
+  keyPt: DataPt,
   valuePt: DataPt,
   access: 'Read' | 'Write'
 }
@@ -30,12 +30,13 @@ export class StateManager {
   private cachedOpts: SynthesizerOpts
   private _placements: Placements = []
 
+  public verifiedStorageMTIndices: number[] = [] 
+  public cachedStorage: Map<bigint, CachedStorageEntry[]> = new Map()
   public stackPt: StackPt = new StackPt()
   public memoryPt: MemoryPt = new MemoryPt()
   public subcircuitInfoByName: SubcircuitInfoByName = new Map()
   public placementIndex: number = FIRST_ARITHMETIC_PLACEMENT_INDEX
 
-  public cachedStorage: Map<bigint, {accessOrder: number, accessHistory: CachedStorageEntry[]}> = new Map()
   public cachedEVMIn: Map<bigint, DataPt> = new Map()
   public cachedOrigin: DataPt | undefined = undefined
   public cachedCallers: DataPt[] = []
@@ -57,6 +58,53 @@ export class StateManager {
     // placements are protected and can be manipulated only by this.place and this.addWirePairToBufferIn
     return placementsDeepCopy(this._placements)
   }
+
+  // public getCachedStorage(key: bigint): CachedStorageEntry | undefined {
+  //   return this._cachedStorage.get(key)
+  // }
+
+  // public setCachedStorage(key: bigint, entry: AccessHistoryEntry, isVerified: boolean) {
+  //   const MTIndex = this.cachedOpts.stateManager.getMTIndex(key);
+  //   const isRegistered = MTIndex >= 0 ? true : false;
+  //   const cached = this._cachedStorage.get(key);
+  //   const isColdAccess = cached === undefined ? true : false;
+  //   const isReadAccess = entry.access === "Read" ? true : false;
+  //   const history: AccessHistoryEntry[] = [];
+  //   if ( !isColdAccess ) {
+  //     history.push(...cached!.accessHistory, entry);
+  //   } else {
+  //     history.push(entry);
+  //   }
+  //   let verifiedOrder: number | null = null;
+  //   if (isReadAccess) {
+  //     if (isWarmAccess)
+  //   } else {
+  //     verifiedOrder = null;
+  //   }
+  //   if (isVerified) {
+  //     verifiedOrder = this._nextStorageVerifiedOrder++;
+  //   } else {
+  //     if (!isRegistered) {
+  //       verifiedOrder = null;
+  //     } else {
+  //       if (isColdAccess) {
+  //         if (isReadAccess) {
+  //           throw new Error('Every cold read access to storage must be verified.')
+  //         } else {
+  //           verifiedOrder = null;
+  //         }
+  //       } else {
+
+  //       }
+  //     }
+  //   }
+
+  //   verifiedOrder = isVerified ? this._nextStorageVerifiedOrder++ : null;
+  //   this._cachedStorage.set(key, {
+  //     verifiedOrder,
+  //     accessHistory: history,
+  //   })
+  // }
 
   public place(
     name: SubcircuitNames,
