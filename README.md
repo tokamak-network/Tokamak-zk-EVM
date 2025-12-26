@@ -41,10 +41,21 @@ This section describes how to use the **main CLI** named **`tokamak-cli`** for d
         ```
 
 #### For MacOS users
+
+**Option 1: Automatic Setup (Recommended)**
+
+Run the setup script to automatically check and install all prerequisites:
+```bash
+./setup-macos.sh
+```
+This script will detect missing dependencies and install them automatically with a colorful interactive UI.
+
+**Option 2: Manual Installation**
 - Install Node.js – https://nodejs.org/
 - Install Circom – https://docs.circom.io/getting-started/installation/
 - Install Rust – https://www.rust-lang.org/tools/install
 - Install CMake – https://cmake.org/download/
+- Install Bun – https://bun.sh/ (required for Synthesizer binary build)
 - Install dos2unix
     ```zsh 
     brew install dos2unix

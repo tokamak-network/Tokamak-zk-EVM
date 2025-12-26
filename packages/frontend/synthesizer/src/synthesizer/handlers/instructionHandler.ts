@@ -15,6 +15,7 @@ import { InterpreterStep } from '@ethereumjs/evm'
 import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
 import { DataPtFactory, MemoryPt } from '../dataStructure/index.ts';
 import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from '../../interface/qapCompiler/configuredTypes.ts';
+import { CachedStorageEntry } from './stateManager.ts';
 
 export interface HandlerOpts {
   op: SynthesizerSupportedOpcodes,
@@ -544,25 +545,10 @@ export class InstructionHandler {
     
   // }
 
-  public async verifyStorage(keyPt: DataPt, MTIndex: number, value?: bigint): Promise<{indexPt: DataPt, valuePt: DataPt}> {
-    const valueStored = bytesToBigInt(
-      await this.cachedOpts.stateManager.getStorage(
-        this.cachedOpts.signedTransaction.to,
-        setLengthLeft(bigIntToBytes(keyPt.value), 32),
-      ),
-    );
-
-    let resolved: bigint = valueStored
-
-    if ( value !== undefined ) {
-      if ( value !== valueStored ) {
-        throw new Error('Mismatch in storage values');
-      }
-    }
-
+  public async verifyStorage(keyPt: DataPt, indexPt: DataPt, value: bigint): Promise<DataPt> {
+    const MTIndex = Number(indexPt.value);
     const merkleProof = this.cachedOpts.stateManager.initialMerkleTree.createProof(MTIndex)
-    const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(MTIndex), true)
-    const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', resolved, true, ` at MT index: ${MTIndex}`)
+    const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', value, true, ` at MT index: ${MTIndex}`)
     const childPt = this.parent.placePoseidon([
       keyPt, 
       valuePt,
@@ -577,55 +563,86 @@ export class InstructionHandler {
       merkleProof.siblings,
       this.parent.getReservedVariableFromBuffer('INI_MERKLE_ROOT'),
     )
-    return {
-      indexPt,
-      valuePt,
+
+    if (this.parent.state.verifiedStorageMTIndices.findIndex(val => val === MTIndex) >= 0) {
+      throw new Error(`A storage entry is verified twice.`)
     }
+    this.parent.state.verifiedStorageMTIndices.push(MTIndex);
+    return valuePt
   }
 
-  public async loadStorage(keyPt: DataPt, value?: bigint): Promise<DataPt> {
+  public async loadStorage(keyPt: DataPt, valueGiven?: bigint): Promise<DataPt> {
     const key = keyPt.value
-    const cached = this.parent.state.cachedStorage.get(key);
 
-    // Warm access: previously cached entries exist
-    if (cached !== undefined) {
-      return DataPtFactory.deepCopy(cached.accessHistory[cached.accessHistory.length - 1]!.valuePt);
-    }
-
-    // Cold access
-    // Determine if this key is registered (= Merkle tree indexed)
-    const MTIndex = this.cachedOpts.stateManager.getMTIndex(key);
-    const accessOrder = this.parent.state.cachedStorage.size
-    if (MTIndex >= 0) {
-      // Cold access to registered storage key, verifiy the integrity
-      // const keyPt = this.parent.addReservedVariableToBufferIn('IN_MPT_KEY', key, true, `at MT index ${MTIndex}`);
-      const {indexPt, valuePt} = await this.verifyStorage(keyPt, MTIndex, value);
-
-      this.parent.state.cachedStorage.set(key, {accessOrder, accessHistory: [{
-        indexPt, 
-        keyPt, 
-        valuePt, 
-        access: 'Read' as const, 
-      }]});
-      return DataPtFactory.deepCopy(valuePt);
-    }
-
-    // Cold access to unregistered storage key
-    if (value === undefined) {
-      throw new Error('Storage value must be presented');
-    }
-    const valuePt = this.parent.addReservedVariableToBufferIn(
-      'UNREGISTERED_CONTRACT_STORAGE_IN',
-      value,
-      true,
-      `at MPT key ${bigIntToHex(key)}`,
+    const valueStored = bytesToBigInt(
+      await this.cachedOpts.stateManager.getStorage(
+        this.cachedOpts.signedTransaction.to,
+        setLengthLeft(bigIntToBytes(keyPt.value), 32),
+      ),
     );
-    this.parent.state.cachedStorage.set(key, {accessOrder, accessHistory: [{
-      indexPt: null, 
-      keyPt: null, 
-      valuePt, 
-      access: 'Read' as const,
-    }]});
+
+    if (valueGiven !== undefined) {
+      if (valueGiven !== valueStored ) {
+        throw new Error('Mismatch in storage values');
+      }
+    }
+    const value = valueStored;
+
+    const MTIndex = this.cachedOpts.stateManager.getMTIndex(key);
+    const isRegisteredKey = MTIndex >= 0 ? true : false;
+    const cached = this.parent.state.cachedStorage.get(key);
+    const isColdAccess = cached === undefined ? true : false;
+
+    let accessHistory: CachedStorageEntry;
+    let valuePt: DataPt;
+    if (isColdAccess) {
+      if (isRegisteredKey ) {
+        const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(MTIndex), true);
+        valuePt = await this.verifyStorage(keyPt, indexPt, value);
+        accessHistory = {
+          indexPt,
+          keyPt,
+          valuePt,
+          access: "Read",
+        };
+      } else {
+        valuePt = this.parent.addReservedVariableToBufferIn(
+          'UNREGISTERED_CONTRACT_STORAGE_IN',
+          value,
+          true,
+          `at MPT key ${bigIntToHex(key)}`,
+        );
+        accessHistory = {
+          indexPt: null,
+          keyPt,
+          valuePt,
+          access: "Read",
+        };
+      }
+      this.parent.state.cachedStorage.set(key, [accessHistory]);
+    } else {
+      if ( cached === undefined || cached!.length === 0 ) {
+        throw new Error('A cached storage is present, but no history.')
+      }
+      valuePt = cached[cached.length - 1].valuePt;
+      if (valuePt.value !== value) {
+        throw new Error('Discrepancy between cached and actual storage values')
+      }
+      if (cached[cached.length - 1].keyPt.value !== key) {
+        throw new Error('Discrepancy between cached and actual key values')
+      }
+      const indexPt = isRegisteredKey ? cached[cached.length - 1].indexPt : null;
+      if (indexPt !== null && Number(indexPt.value) !== MTIndex) {
+        throw new Error('Discrepancy between cached and actual MT indices')
+      }
+      accessHistory = {
+        indexPt,
+        keyPt,
+        valuePt,
+        access: "Read",
+      };
+      cached.push(accessHistory);
+    }
     return DataPtFactory.deepCopy(valuePt);
   }
 
@@ -633,48 +650,45 @@ export class InstructionHandler {
     const key = keyPt.value
     const cached = this.parent.state.cachedStorage.get(key);
     const MTIndex = this.cachedOpts.stateManager.getMTIndex(key);
+    const isRegisteredKey = MTIndex >= 0 ? true : false;
+    const isColdAccess = cached === undefined ? true : false;
 
-    if (MTIndex >= 0) {
-      // Case: Registered key
-      // If no cache (or empty), this is a cold write
-      if (cached === undefined) {
+    let accessHistory: CachedStorageEntry;
+    if (isColdAccess) {
+      if (isRegisteredKey) {
          throw new Error('Storage writing at a registered key is expected to be warm access');
         // Storage at a registered key must be warm (already loaded via loadStorage)
         // For odd cases, you could warm it first then retry:
         // await this.loadStorage(key, undefined, false);
         // return this.storeStorage(key, symbolDataPt);
       } else {
-        const accessHistory = cached.accessHistory
-        const cachedKeyPt = accessHistory[accessHistory.length - 1].keyPt
-        const cachedIndexPt = accessHistory[accessHistory.length - 1].indexPt
-        if (cachedKeyPt?.value !== keyPt.value) {
-          throw new Error('DataPts for the storage key are inconsistent between the cachedStorage and SSTORE input. Need to be debugged.')
-        }
-        if (cachedIndexPt?.value !== BigInt(MTIndex)) {
-          throw new Error('DataPts for the Merkle tree index are inconsistent between the cachedStorage and SSTORE input. Need to be debugged.')
-        }
-        accessHistory.push({ 
-          indexPt: cachedIndexPt,
-          keyPt, 
+        accessHistory = {
+          indexPt: null,
+          keyPt: keyPt, 
           valuePt: symbolDataPt, 
-          access: 'Write' as const 
-        });
+          access: 'Write'
+        };
+        
       }
+      this.parent.state.cachedStorage.set(key, [accessHistory]);
     } else {
-      // Case: Writing at unregistered key
-      const entry = {
-        indexPt: null,
-        keyPt: null, 
+      if ( cached === undefined || cached!.length === 0 ) {
+        throw new Error('A cached storage is present, but no history.')
+      }
+      if (cached[cached.length - 1].keyPt.value !== key) {
+        throw new Error('Discrepancy between cached and actual key values')
+      }
+      const indexPt = isRegisteredKey ? cached[cached.length - 1].indexPt : null;
+      if (indexPt !== null && Number(indexPt.value) !== MTIndex) {
+        throw new Error('Discrepancy between cached and actual MT indices')
+      }
+      accessHistory = { 
+        indexPt,
+        keyPt, 
         valuePt: symbolDataPt, 
-        childPt: null,
-        access: 'Write' as const
-      }
-      if (cached === undefined) {
-        const accessOrder = this.parent.state.cachedStorage.size
-        this.parent.state.cachedStorage.set(key, {accessOrder, accessHistory: [entry]});
-      } else {
-        cached.accessHistory.push(entry)
-      }
+        access: 'Write' 
+      };
+      cached.push(accessHistory);      
     }
   }
 

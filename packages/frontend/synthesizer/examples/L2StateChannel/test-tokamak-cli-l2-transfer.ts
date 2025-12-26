@@ -215,7 +215,7 @@ async function main() {
   }
 
   console.log(`\n✅ L2 Transfer test completed successfully!`);
-  console.log(`   Outputs should be in: dist/macOS/resource/synthesizer/output/`);
+  console.log(`   Outputs should be in: dist/resource/synthesizer/output/`);
 
   // ========================================================================
   // SUMMARY
@@ -226,7 +226,7 @@ async function main() {
   console.log('✅ Successfully executed L2 transfer using tokamak-cli!');
   console.log('');
   console.log('📁 Output Location:');
-  console.log('   dist/macOS/resource/synthesizer/output/');
+  console.log('   dist/resource/synthesizer/output/');
   console.log('   - instance.json');
   console.log('   - instance_description.json');
   console.log('   - state_snapshot.json');

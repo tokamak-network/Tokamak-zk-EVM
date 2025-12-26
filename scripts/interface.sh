@@ -5,7 +5,7 @@
 #   --synthesize <TX_CONFIG_JSON>  Run frontend synthesizer with config JSON and sync outputs into dist
 #   --preprocess                 Run backend preprocess step (dist only)
 #   --prove [<SYNTH_OUTPUT_ZIP|DIR>] Run backend prove step and collect artifacts in dist
-#   --verify [<PROOF_ZIP|DIR>]   Verify a proof from dist outputs (default: detected dist for current platform)
+#   --verify [<PROOF_ZIP|DIR>]   Verify a proof from dist outputs (default: dist)
 #   --extract-proof <OUTPUT_DIR> Gather proof artifacts from dist and zip them to OUTPUT_DIR/transaction_zkp.zip
 #   --doctor                     Check system requirements and health
 #   --help                       Show usage
@@ -32,7 +32,7 @@ Commands:
       If zip or directory is provided, sync synth outputs into dist before proving
 
   --verify [<PROOF_ZIP|DIR>]
-      Verify a proof saved under dist (default: detected dist for current platform)
+      Verify a proof saved under dist (default: dist)
       If zip or directory is provided, sync proof.json into dist before verifying
       Tokamak ZKP must be installed via "--install"
 

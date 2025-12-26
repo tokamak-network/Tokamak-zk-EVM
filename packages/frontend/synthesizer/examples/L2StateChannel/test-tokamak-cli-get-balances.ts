@@ -104,7 +104,7 @@ async function main() {
   const projectRoot = resolve(__dirname, '../../../../../');
   const defaultSnapshotPath = resolve(
     projectRoot,
-    'dist/macOS/resource/synthesizer/output/state_snapshot.json',
+    'dist/resource/synthesizer/output/state_snapshot.json',
   );
 
   // ========================================================================
