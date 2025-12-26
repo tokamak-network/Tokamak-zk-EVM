@@ -23,6 +23,9 @@ import {
   Address,
   toBytes,
   bytesToHex,
+  hexToBigInt,
+  bigIntToHex,
+  createAddressFromString,
 } from '@ethereumjs/util';
 import { createSynthesizerOptsForSimulationFromRPC, type SynthesizerSimulationOpts } from '../rpc/rpc.ts';
 import { createSynthesizer } from '../../synthesizer/index.ts';
@@ -41,13 +44,10 @@ import { writeCircuitJson } from '../node/jsonWriter.ts';
 export interface StateSnapshot {
   stateRoot: string;
   registeredKeys: string[];
-  storageEntries: Array<{ index?: number; key: string; value: string }>;
+  storageEntries: Array<{ key: string; value: string }>;
   contractAddress: string;
-  preAllocatedLeaves?: Array<{ key: string; value: string }>;
-  contractCode?: string;
-  userL2Addresses?: string[];
-  userStorageSlots?: bigint[];
-  userNonces?: bigint[];
+  preAllocatedLeaves: Array<{ key: string; value: string }>;
+  channelId: number;
 }
 
 export interface SynthesizerAdapterConfig {
@@ -127,12 +127,12 @@ export interface SynthesizeOptions {
 export interface CalldataSynthesizeOptions {
   contractAddress: string; // Contract to call
   senderL2PrvKey: Uint8Array; // Sender's L2 private key
+  channelId: number; // Channel ID for fetching on-chain data
   blockNumber?: number; // Block number for state (default: latest)
   previousState?: StateSnapshot; // Optional: previous state to restore from
   outputPath?: string; // Optional: path for file outputs
   txNonce?: bigint; // Transaction nonce for sender (default: 0n)
   // Channel-specific options (for on-chain state restoration)
-  channelId?: number; // Channel ID for fetching on-chain data
   rollupBridgeAddress?: string; // RollupBridge contract address
   rpcUrl?: string; // RPC URL (if different from adapter's rpcUrl)
 }
@@ -195,24 +195,7 @@ export class SynthesizerAdapter {
     const [targetAddress, state, participantCount, initialRoot] = await bridgeContract.getChannelInfo(channelId);
     const participants: string[] = await bridgeContract.getChannelParticipants(channelId);
 
-    // Fetch participants' MPT keys and deposits
     const registeredKeys: string[] = [];
-    const storageEntries: Array<{ key: string; value: string }> = [];
-
-    for (let i = 0; i < participants.length; i++) {
-      const l1Address = participants[i];
-      const onChainMptKeyBigInt = await bridgeContract.getL2MptKey(channelId, l1Address);
-      const onChainMptKeyHex = '0x' + onChainMptKeyBigInt.toString(16).padStart(64, '0');
-      const deposit = await bridgeContract.getParticipantDeposit(channelId, l1Address);
-
-      registeredKeys.push(onChainMptKeyHex);
-      const depositHex = '0x' + deposit.toString(16).padStart(64, '0');
-      storageEntries.push({
-        key: onChainMptKeyHex,
-        value: depositHex,
-      });
-    }
-
     // Fetch pre-allocated leaves
     const preAllocatedKeysFromContract = await bridgeContract.getPreAllocatedKeys(targetAddress);
     const preAllocatedLeaves: Array<{ key: string; value: string }> = [];
@@ -241,11 +224,31 @@ export class SynthesizerAdapter {
         valueHex = '0x' + value.toString(16).padStart(64, '0');
       }
 
+      registeredKeys.push(keyHex);
+
       if (exists) {
         preAllocatedLeaves.push({ key: keyHex, value: valueHex });
       }
     }
 
+    // Fetch participants' MPT keys and deposits
+    const storageEntries: Array<{ key: string; value: string }> = [];
+
+    for (let i = 0; i < participants.length; i++) {
+      const l1Address = participants[i];
+      const onChainMptKeyBigInt = await bridgeContract.getL2MptKey(channelId, l1Address);
+      const onChainMptKeyHex = '0x' + onChainMptKeyBigInt.toString(16).padStart(64, '0');
+      const deposit = await bridgeContract.getParticipantDeposit(channelId, l1Address);
+
+      registeredKeys.push(onChainMptKeyHex);
+
+      const depositHex = '0x' + deposit.toString(16).padStart(64, '0');
+      storageEntries.push({
+        key: onChainMptKeyHex,
+        value: depositHex,
+      });
+    }
+    
     return {
       participants,
       registeredKeys,
@@ -265,18 +268,25 @@ export class SynthesizerAdapter {
   async buildInitStorageKeys(
     channelId: number,
     rollupBridgeAddress: string,
+    registeredKeys: Array<string>,
     preAllocatedLeaves: Array<{ key: string; value: string }>,
   ): Promise<Array<{ L1: Uint8Array; L2: Uint8Array }>> {
     const initStorageKeys: Array<{ L1: Uint8Array; L2: Uint8Array }> = [];
 
-    // Add pre-allocated leaves first
-    for (const leaf of preAllocatedLeaves) {
-      const keyBytes = hexToBytes(addHexPrefix(leaf.key));
-      initStorageKeys.push({
-        L1: keyBytes,
-        L2: keyBytes,
-      });
+    // Add pre-allocated keys first
+    const preAllocatedKeys = preAllocatedLeaves.map( entry => entry.key );
+    for (const key of preAllocatedKeys) {
+      const hexKey = addHexPrefix(key);
+      const preAllocIdx = registeredKeys.findIndex( regKey => hexToBigInt(addHexPrefix(regKey)) === hexToBigInt(hexKey) );
+      if (preAllocIdx < 0 ) {
+        throw new Error(`Mismatch between registered keys and preallocated keys.`)
       }
+      const bytesKey = hexToBytes(hexKey);
+      initStorageKeys[preAllocIdx] = {
+        L1: bytesKey,
+        L2: bytesKey,
+      };
+    }
 
     // Get participants from on-chain
     const bridgeContract = new ethers.Contract(rollupBridgeAddress, ROLLUP_BRIDGE_CORE_ABI, this.provider);
@@ -292,10 +302,18 @@ export class SynthesizerAdapter {
       const mptKeyHex = '0x' + mptKeyBigInt.toString(16).padStart(64, '0');
       const l1StorageKey = getUserStorageKey([l1Address, 0], 'L1'); // L1 storage key from participant address
       const mptKeyBytes = hexToBytes(addHexPrefix(mptKeyHex));
-      initStorageKeys.push({
+      const userIdx = registeredKeys.findIndex( key => hexToBigInt(addHexPrefix(key)) === mptKeyBigInt );
+      if (userIdx < 0 ) {
+        throw new Error(`Mismatch between registered keys and actual participants.`)
+      }
+      initStorageKeys[userIdx] = {
         L1: l1StorageKey,
         L2: mptKeyBytes,
-      });
+      };
+    }
+
+    if (registeredKeys.length !== initStorageKeys.filter(v => v !== undefined).length) {
+      throw new Error(`Mismatch between registered keys and reconstructed initStorageKeys.`)
     }
 
     return initStorageKeys;
@@ -345,34 +363,60 @@ export class SynthesizerAdapter {
     // Build initStorageKeys and store preAllocatedLeaves for final state
     let initStorageKeys: Array<{ L1: Uint8Array; L2: Uint8Array }> = [];
     let preAllocatedLeaves: Array<{ key: string; value: string }> = [];
+    let storageEntries: Array<{ key: string; value: string }> = [];
 
-    if (previousState) {
-      // Use previousState to build initStorageKeys
-      // For previousState, we need channelId to fetch fresh MPT keys
-      if (!channelId) {
-        throw new Error('channelId is required even with previousState to fetch current MPT keys');
-      }
-      const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
-      preAllocatedLeaves = previousState.preAllocatedLeaves || [];
-      initStorageKeys = await this.buildInitStorageKeys(channelId, effectiveBridgeAddress, preAllocatedLeaves);
-      console.log(`[SynthesizerAdapter] Built initStorageKeys from previousState: ${initStorageKeys.length} keys`);
+    // if (previousState) {
+    //   // Use previousState to build initStorageKeys
+    //   // For previousState, we need channelId to fetch fresh MPT keys
+    //   if (!channelId) {
+    //     throw new Error('channelId is required even with previousState to fetch current MPT keys');
+    //   }
+    //   const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
+    //   preAllocatedLeaves = previousState.preAllocatedLeaves || [];
+    //   initStorageKeys = await this.buildInitStorageKeys(channelId, effectiveBridgeAddress, preAllocatedLeaves);
+    //   console.log(`[SynthesizerAdapter] Built initStorageKeys from previousState: ${initStorageKeys.length} keys`);
 
-      // Use contractAddress from previousState
-      if (previousState.contractAddress) {
-        options.contractAddress = previousState.contractAddress;
-        console.log(`[SynthesizerAdapter] Using contractAddress from previousState: ${previousState.contractAddress}`);
-      }
-    } else if (channelId) {
-      // Fetch channel data from on-chain
+    //   // Use contractAddress from previousState
+    //   if (previousState.contractAddress) {
+    //     options.contractAddress = previousState.contractAddress;
+    //     console.log(`[SynthesizerAdapter] Using contractAddress from previousState: ${previousState.contractAddress}`);
+    //   }
+    // } else if (channelId) {
+    //   // Fetch channel data from on-chain
+    //   console.log(`[SynthesizerAdapter] Fetching channel data from on-chain...`);
+    //   console.log(`  Channel ID: ${channelId}`);
+    //   console.log(`  Bridge Address: ${effectiveBridgeAddress}`);
+
+    //   const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
+    //   preAllocatedLeaves = channelData.preAllocatedLeaves;
+    //   initStorageKeys = await this.buildInitStorageKeys(
+    //     channelId,
+    //     effectiveBridgeAddress,
+    //     channelData.preAllocatedLeaves,
+    //   );
+    //   console.log(`[SynthesizerAdapter] Built initStorageKeys from on-chain: ${initStorageKeys.length} keys`);
+
+    //   // Use targetAddress from on-chain data as contractAddress
+    //   if (channelData.contractAddress) {
+    //     options.contractAddress = channelData.contractAddress;
+    //     console.log(`[SynthesizerAdapter] Using targetAddress from on-chain data: ${channelData.contractAddress}`);
+    //   }
+    // } else {
+    //   throw new Error('Either previousState or channelId must be provided to build initStorageKeys');
+    // }
+    if (previousState === undefined) {
+      //Fetch channel data from on-chain
       console.log(`[SynthesizerAdapter] Fetching channel data from on-chain...`);
       console.log(`  Channel ID: ${channelId}`);
       console.log(`  Bridge Address: ${effectiveBridgeAddress}`);
 
       const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
       preAllocatedLeaves = channelData.preAllocatedLeaves;
+      storageEntries = channelData.storageEntries;
       initStorageKeys = await this.buildInitStorageKeys(
         channelId,
         effectiveBridgeAddress,
+        channelData.registeredKeys,
         channelData.preAllocatedLeaves,
       );
       console.log(`[SynthesizerAdapter] Built initStorageKeys from on-chain: ${initStorageKeys.length} keys`);
@@ -383,7 +427,23 @@ export class SynthesizerAdapter {
         console.log(`[SynthesizerAdapter] Using targetAddress from on-chain data: ${channelData.contractAddress}`);
       }
     } else {
-      throw new Error('Either previousState or channelId must be provided to build initStorageKeys');
+      // Use previousState to build initStorageKeys
+      // For previousState, we need channelId to fetch fresh MPT keys
+      preAllocatedLeaves = previousState.preAllocatedLeaves;
+      storageEntries = previousState.storageEntries;
+      initStorageKeys = await this.buildInitStorageKeys(
+        channelId, 
+        effectiveBridgeAddress, 
+        previousState.registeredKeys,
+        previousState.preAllocatedLeaves,
+      );
+      console.log(`[SynthesizerAdapter] Built initStorageKeys from previousState: ${initStorageKeys.length} keys`);
+
+      // Use contractAddress from previousState
+      if (previousState.contractAddress) {
+        options.contractAddress = previousState.contractAddress;
+        console.log(`[SynthesizerAdapter] Using contractAddress from previousState: ${previousState.contractAddress}`);
+      }
     }
 
     // Build simulation options using current SynthesizerSimulationOpts type
@@ -400,66 +460,67 @@ export class SynthesizerAdapter {
     console.log('[SynthesizerAdapter] Creating synthesizer options...');
     const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(simulationOpts);
 
-    // Get state manager from synthesizer options (BEFORE creating synthesizer)
-    const stateManager = synthesizerOpts.stateManager;
-    const contractAddress = new Address(toBytes(addHexPrefix(options.contractAddress)));
+    // // Get state manager from synthesizer options (BEFORE creating synthesizer)
+    // const stateManager = synthesizerOpts.stateManager;
+    // const contractAddress = new Address(toBytes(addHexPrefix(options.contractAddress)));
 
-    // Restore storage values based on source (BEFORE creating synthesizer)
-    let expectedInitialRoot: string;
-    if (previousState) {
-      // Restore from previousState (snapshot from previous transaction)
-      expectedInitialRoot = previousState.stateRoot;
-      console.log(`[SynthesizerAdapter] 📋 Initial Root (from previous state): ${expectedInitialRoot}`);
-      console.log(
-        `[SynthesizerAdapter] Restoring ${previousState.storageEntries.length} storage entries from previousState...`,
-      );
-      for (const entry of previousState.storageEntries) {
-        const key = hexToBytes(addHexPrefix(entry.key));
-        const value = hexToBytes(addHexPrefix(entry.value));
-        await stateManager.putStorage(contractAddress, key, value);
-      }
+    // // Restore storage values based on source (BEFORE creating synthesizer)
+    // let expectedInitialRoot: string;
+    // if (previousState) {
+    //   // Restore from previousState (snapshot from previous transaction)
+    //   expectedInitialRoot = previousState.stateRoot;
+    //   console.log(`[SynthesizerAdapter] 📋 Initial Root (from previous state): ${expectedInitialRoot}`);
+    //   console.log(
+    //     `[SynthesizerAdapter] Restoring ${previousState.storageEntries.length} storage entries from previousState...`,
+    //   );
+    //   for (const entry of previousState.storageEntries) {
+    //     const key = hexToBytes(addHexPrefix(entry.key));
+    //     const value = hexToBytes(addHexPrefix(entry.value));
+    //     await stateManager.putStorage(contractAddress, key, value);
+    //   }
 
-      // Rebuild initial merkle tree
-      console.log('[SynthesizerAdapter] Rebuilding initial merkle tree from previousState...');
-      await stateManager.rebuildInitialMerkleTree();
-      const restoredRoot = stateManager.initialMerkleTree.root;
-      const restoredRootHex = '0x' + restoredRoot.toString(16).padStart(64, '0');
-      console.log(`[SynthesizerAdapter] ✅ Restored Merkle Root: ${restoredRootHex}`);
+    //   // Rebuild initial merkle tree
+    //   console.log('[SynthesizerAdapter] Rebuilding initial merkle tree from previousState...');
+    //   // await stateManager.rebuildInitialMerkleTree();
+    //   // const restoredRoot = stateManager.initialMerkleTree.root;
+    //   const restoredRoot = await stateManager.getUpdatedMerkleTreeRoot();
+    //   const restoredRootHex = bigIntToHex(restoredRoot);
+    //   console.log(`[SynthesizerAdapter] ✅ Restored Merkle Root: ${restoredRootHex}`);
 
-      if (expectedInitialRoot && restoredRootHex.toLowerCase() !== expectedInitialRoot.toLowerCase()) {
-        console.warn(`[SynthesizerAdapter] ⚠️  Merkle root mismatch!`);
-        console.warn(`   Expected: ${expectedInitialRoot}`);
-        console.warn(`   Restored: ${restoredRootHex}`);
-      }
-    } else if (channelId) {
-      // Fetch and restore from on-chain data
-      const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
-      expectedInitialRoot = channelData.initialRoot;
-      console.log(`[SynthesizerAdapter] 📋 Initial Root (from on-chain): ${expectedInitialRoot}`);
+    //   if (hexToBigInt(addHexPrefix(expectedInitialRoot)) !== restoredRoot) {
+    //     console.warn(`[SynthesizerAdapter] ⚠️  Merkle root mismatch!`);
+    //     console.warn(`   Expected: ${expectedInitialRoot}`);
+    //     console.warn(`   Restored: ${restoredRootHex}`);
+    //   }
+    // } else if (channelId) {
+    //   // Fetch and restore from on-chain data
+    //   const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
+    //   expectedInitialRoot = channelData.initialRoot;
+    //   console.log(`[SynthesizerAdapter] 📋 Initial Root (from on-chain): ${expectedInitialRoot}`);
 
-      // Restore storage entries from on-chain data
-      console.log(
-        `[SynthesizerAdapter] Restoring ${channelData.storageEntries.length} storage entries from on-chain...`,
-      );
-      for (const entry of channelData.storageEntries) {
-        const key = hexToBytes(addHexPrefix(entry.key));
-        const value = hexToBytes(addHexPrefix(entry.value));
-        await stateManager.putStorage(contractAddress, key, value);
-      }
+    //   // Restore storage entries from on-chain data
+    //   console.log(
+    //     `[SynthesizerAdapter] Restoring ${channelData.storageEntries.length} storage entries from on-chain...`,
+    //   );
+    //   for (const entry of channelData.storageEntries) {
+    //     const key = hexToBytes(addHexPrefix(entry.key));
+    //     const value = hexToBytes(addHexPrefix(entry.value));
+    //     await stateManager.putStorage(contractAddress, key, value);
+    //   }
 
-      // Rebuild initial merkle tree
-      console.log('[SynthesizerAdapter] Rebuilding initial merkle tree from on-chain data...');
-      await stateManager.rebuildInitialMerkleTree();
-      const restoredRoot = stateManager.initialMerkleTree.root;
-      const restoredRootHex = '0x' + restoredRoot.toString(16).padStart(64, '0');
-      console.log(`[SynthesizerAdapter] ✅ Restored Merkle Root: ${restoredRootHex}`);
+    //   // Rebuild initial merkle tree
+    //   console.log('[SynthesizerAdapter] Rebuilding initial merkle tree from on-chain data...');
+    //   await stateManager.rebuildInitialMerkleTree();
+    //   const restoredRoot = stateManager.initialMerkleTree.root;
+    //   const restoredRootHex = '0x' + restoredRoot.toString(16).padStart(64, '0');
+    //   console.log(`[SynthesizerAdapter] ✅ Restored Merkle Root: ${restoredRootHex}`);
 
-      if (expectedInitialRoot && restoredRootHex.toLowerCase() !== expectedInitialRoot.toLowerCase()) {
-        console.warn(`[SynthesizerAdapter] ⚠️  Merkle root mismatch!`);
-        console.warn(`   Expected: ${expectedInitialRoot}`);
-        console.warn(`   Restored: ${restoredRootHex}`);
-      }
-    }
+    //   if (expectedInitialRoot && restoredRootHex.toLowerCase() !== expectedInitialRoot.toLowerCase()) {
+    //     console.warn(`[SynthesizerAdapter] ⚠️  Merkle root mismatch!`);
+    //     console.warn(`   Expected: ${expectedInitialRoot}`);
+    //     console.warn(`   Restored: ${restoredRootHex}`);
+    //   }
+    // }
 
     // NOW create synthesizer (AFTER merkle tree is properly restored)
     console.log('[SynthesizerAdapter] Creating synthesizer with restored state...');
@@ -522,39 +583,47 @@ export class SynthesizerAdapter {
 
     // Export final state
     console.log('[SynthesizerAdapter] Exporting final state...');
-
+    const stateManager = synthesizer.cachedOpts.stateManager;
     const finalStateRoot = await stateManager.getUpdatedMerkleTreeRoot();
-    const finalStateRootHex = '0x' + finalStateRoot.toString(16).padStart(64, '0');
+    const finalStateRootHex = bigIntToHex(finalStateRoot);
     console.log(`[SynthesizerAdapter] 🆕 New Merkle Root (after transaction): ${finalStateRootHex}`);
 
     // Build state snapshot (matching snapshot.ts logic)
-    // registeredKeys and storageEntries should NOT include preAllocatedLeaves
-    // preAllocatedLeaves are stored separately
-    const allRegisteredKeys = (stateManager.registeredKeys || []).map((key: Uint8Array) => bytesToHex(key));
+    const permutedRegisteredKeys = stateManager.registeredKeys!.map((key: Uint8Array) => bytesToHex(key));
+    
+    const afterStorageEntries: {
+      key: string;
+      value: string;
+    }[] = [];
+    const afterPreAllocatedLeaves: {
+      key: string;
+      value: string;
+    }[] = [];
 
-    // Filter out preAllocatedLeaves keys from registeredKeys
-    const preAllocatedLeafKeys = new Set(preAllocatedLeaves.map(leaf => leaf.key.toLowerCase()));
-    const registeredKeys = allRegisteredKeys.filter((key: string) => !preAllocatedLeafKeys.has(key.toLowerCase()));
-
-    const storageEntries: Array<{ index?: number; key: string; value: string }> = [];
-
-    for (let i = 0; i < registeredKeys.length; i++) {
-      const key = registeredKeys[i];
+    for (const entry of preAllocatedLeaves) {
+      const key = entry.key;
       const keyBytes = hexToBytes(addHexPrefix(key));
-      const value = await stateManager.getStorage(contractAddress, keyBytes);
-      const valueBigInt = bytesToBigInt(value);
-      const valueHex = '0x' + valueBigInt.toString(16).padStart(64, '0');
-
-      storageEntries.push({
-        index: i,
+      const value = await stateManager.getStorage(createAddressFromString(options.contractAddress), keyBytes);
+      afterPreAllocatedLeaves.push({
         key,
-        value: valueHex,
-      });
+        value: bytesToHex(value),
+      })
+    }
+
+    for (const entry of storageEntries) {
+      const key = entry.key;
+      const keyBytes = hexToBytes(addHexPrefix(key));
+      const value = await stateManager.getStorage(createAddressFromString(options.contractAddress), keyBytes);
+      afterStorageEntries.push({
+        key,
+        value: bytesToHex(value),
+      })
     }
 
     const finalState: StateSnapshot = {
+      channelId,
       stateRoot: '0x' + finalStateRoot.toString(16).padStart(64, '0').toLowerCase(),
-      registeredKeys,
+      registeredKeys: permutedRegisteredKeys,
       storageEntries,
       contractAddress: options.contractAddress,
       preAllocatedLeaves: preAllocatedLeaves,
