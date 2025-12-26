@@ -80,21 +80,29 @@ print_status() {
     local message=$2
     local details=$3
     
-    if [ "$stat_type" = "installed" ]; then
-        echo -e "  ${BRIGHT_GREEN}${ICON_CHECK}${RESET} ${WHITE}${message}${RESET} ${DIM}${details}${RESET}"
-    elif [ "$stat_type" = "missing" ]; then
-        echo -e "  ${BRIGHT_RED}${ICON_CROSS}${RESET} ${WHITE}${message}${RESET} ${DIM}(not installed)${RESET}"
-    elif [ "$stat_type" = "installing" ]; then
-        echo -e "  ${BRIGHT_YELLOW}${ICON_GEAR}${RESET} ${WHITE}${message}${RESET} ${DIM}${details}${RESET}"
-    elif [ "$stat_type" = "info" ]; then
-        echo -e "  ${BRIGHT_CYAN}${ICON_INFO}${RESET} ${WHITE}${message}${RESET} ${DIM}${details}${RESET}"
-    elif [ "$stat_type" = "warning" ]; then
-        echo -e "  ${BRIGHT_YELLOW}${ICON_WARNING}${RESET} ${YELLOW}${message}${RESET} ${DIM}${details}${RESET}"
-    elif [ "$stat_type" = "error" ]; then
-        echo -e "  ${BRIGHT_RED}${ICON_CROSS}${RESET} ${RED}${message}${RESET} ${DIM}${details}${RESET}"
-    elif [ "$stat_type" = "success" ]; then
-        echo -e "  ${BRIGHT_GREEN}${ICON_SPARKLE}${RESET} ${GREEN}${message}${RESET} ${DIM}${details}${RESET}"
-    fi
+    case "$stat_type" in
+        "installed")
+            echo -e "  ${BRIGHT_GREEN}${ICON_CHECK}${RESET} ${WHITE}${message}${RESET} ${DIM}${details}${RESET}"
+            ;;
+        "missing")
+            echo -e "  ${BRIGHT_RED}${ICON_CROSS}${RESET} ${WHITE}${message}${RESET} ${DIM}(not installed)${RESET}"
+            ;;
+        "installing")
+            echo -e "  ${BRIGHT_YELLOW}${ICON_GEAR}${RESET} ${WHITE}${message}${RESET} ${DIM}${details}${RESET}"
+            ;;
+        "info")
+            echo -e "  ${BRIGHT_CYAN}${ICON_INFO}${RESET} ${WHITE}${message}${RESET} ${DIM}${details}${RESET}"
+            ;;
+        "warning")
+            echo -e "  ${BRIGHT_YELLOW}${ICON_WARNING}${RESET} ${YELLOW}${message}${RESET} ${DIM}${details}${RESET}"
+            ;;
+        "error")
+            echo -e "  ${BRIGHT_RED}${ICON_CROSS}${RESET} ${RED}${message}${RESET} ${DIM}${details}${RESET}"
+            ;;
+        "success")
+            echo -e "  ${BRIGHT_GREEN}${ICON_SPARKLE}${RESET} ${GREEN}${message}${RESET} ${DIM}${details}${RESET}"
+            ;;
+    esac
 }
 
 print_installing() {
@@ -227,24 +235,23 @@ install_rust() {
 install_circom() {
     print_installing "Circom (from source)"
     
-    # Run in a subshell to avoid changing the current directory
-    (
-        local tmp_dir=$(mktemp -d)
-        cd "$tmp_dir"
-        
-        echo -e "  ${DIM}Cloning circom repository...${RESET}"
-        git clone https://github.com/iden3/circom.git
-        cd circom
-        
-        echo -e "  ${DIM}Building circom (this may take a few minutes)...${RESET}"
-        cargo build --release
-        
-        echo -e "  ${DIM}Installing circom binary...${RESET}"
-        cargo install --path circom
-        
-        cd /
-        rm -rf "$tmp_dir"
-    )
+    local tmp_dir original_dir
+    tmp_dir=$(mktemp -d)
+    original_dir=$(pwd)
+    # Ensure cleanup and return to original directory when the function returns, even on error.
+    trap 'cd "$original_dir"; rm -rf -- "$tmp_dir"' RETURN
+    
+    cd "$tmp_dir"
+    
+    echo -e "  ${DIM}Cloning circom repository...${RESET}"
+    git clone https://github.com/iden3/circom.git
+    cd circom
+    
+    echo -e "  ${DIM}Building circom (this may take a few minutes)...${RESET}"
+    cargo build --release
+    
+    echo -e "  ${DIM}Installing circom binary...${RESET}"
+    cargo install --path circom
     
     print_status "success" "Circom installed successfully!"
 }
