@@ -303,12 +303,7 @@ packaging_script_for_target() {
 }
 
 dist_dir_for_target() {
-  case "$1" in
-    mac)     echo "$ROOT/dist/macOS" ;;
-    linux20) echo "$ROOT/dist/linux20" ;;
-    linux22) echo "$ROOT/dist/linux22" ;;
-    *)       echo "$ROOT/dist/linux22" ;;
-  esac
+  echo "$ROOT/dist"
 }
 
 # Copy synthesizer outputs (after demo run) into backend dist resource
@@ -554,6 +549,7 @@ step_install() {
     linux22) packaging_options+=("--linux") ;;
     *)       packaging_options+=("--linux") ;;
   esac
+  packaging_options+=("--target-dir" "$ROOT/dist")
 
   if [[ "$INSTALL_USE_BUN" == true ]]; then
     packaging_options+=("--bun")

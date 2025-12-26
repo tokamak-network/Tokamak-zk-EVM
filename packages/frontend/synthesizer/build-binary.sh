@@ -109,20 +109,8 @@ build_for_platform() {
         if [ "$target" = "current" ]; then
             local dist_dir=""
             case "$(uname -s)" in
-                Darwin)
-                    dist_dir="$(cd "$SCRIPT_DIR/../../.." && pwd)/dist/macOS/bin"
-                    ;;
-                Linux)
-                    if [ -f /etc/os-release ]; then
-                        . /etc/os-release
-                        case "${VERSION_ID:-}" in
-                            20*|20.*) dist_dir="$(cd "$SCRIPT_DIR/../../.." && pwd)/dist/linux20/bin" ;;
-                            22*|22.*) dist_dir="$(cd "$SCRIPT_DIR/../../.." && pwd)/dist/linux22/bin" ;;
-                            *) dist_dir="$(cd "$SCRIPT_DIR/../../.." && pwd)/dist/linux22/bin" ;;
-                        esac
-                    else
-                        dist_dir="$(cd "$SCRIPT_DIR/../../.." && pwd)/dist/linux22/bin"
-                    fi
+                Darwin|Linux)
+                    dist_dir="$(cd "$SCRIPT_DIR/../../.." && pwd)/dist/bin"
                     ;;
                 *)
                     echo "⚠️  Unknown platform, skipping dist copy"

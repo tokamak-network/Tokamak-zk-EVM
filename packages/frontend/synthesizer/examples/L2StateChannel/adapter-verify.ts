@@ -35,9 +35,9 @@ const __dirname = dirname(__filename);
 const envPath = resolve(__dirname, '../../../../../.env');
 config({ path: envPath });
 
-// Binary paths (use pre-built binaries from dist/macOS/bin)
+// Binary paths (use pre-built binaries from dist/bin)
 const projectRoot = resolve(__dirname, '../../../../../');
-const distBinPath = resolve(projectRoot, 'dist/macOS/bin');
+const distBinPath = resolve(projectRoot, 'dist/bin');
 const preprocessBinary = `${distBinPath}/preprocess`;
 const proverBinary = `${distBinPath}/prove`;
 const verifyBinary = `${distBinPath}/verify`;
@@ -54,12 +54,12 @@ async function runPreprocess(outputsPath: string): Promise<boolean> {
 
   const qapPath = resolve(projectRoot, 'packages/frontend/qap-compiler/subcircuits/library');
   const synthesizerPath = outputsPath;
-  const setupPath = resolve(projectRoot, 'dist/macOS/resource/setup/output');
-  const preprocessOutPath = resolve(projectRoot, 'dist/macOS/resource/preprocess/output');
+  const setupPath = resolve(projectRoot, 'dist/resource/setup/output');
+  const preprocessOutPath = resolve(projectRoot, 'dist/resource/preprocess/output');
 
   if (!existsSync(preprocessBinary)) {
     console.error(`   ❌ Preprocess binary not found at ${preprocessBinary}`);
-    console.error(`   Please build the binaries first: cd dist/macOS && ./build.sh`);
+    console.error(`   Please build the binaries first: cd dist && ./build.sh`);
     return false;
   }
 
@@ -109,12 +109,12 @@ async function runProver(proofNum: number, outputsPath: string): Promise<boolean
 
   const qapPath = resolve(projectRoot, 'packages/frontend/qap-compiler/subcircuits/library');
   const synthesizerPath = outputsPath;
-  const setupPath = resolve(projectRoot, 'dist/macOS/resource/setup/output');
+  const setupPath = resolve(projectRoot, 'dist/resource/setup/output');
   const outPath = synthesizerPath;
 
   if (!existsSync(proverBinary)) {
     console.error(`   ❌ Prover binary not found at ${proverBinary}`);
-    console.error(`   Please build the binaries first: cd dist/macOS && ./build.sh`);
+    console.error(`   Please build the binaries first: cd dist && ./build.sh`);
     return false;
   }
 
@@ -169,13 +169,13 @@ async function runVerifyRust(proofNum: number, outputsPath: string): Promise<boo
 
   const qapPath = resolve(projectRoot, 'packages/frontend/qap-compiler/subcircuits/library');
   const synthesizerPath = outputsPath;
-  const setupPath = resolve(projectRoot, 'dist/macOS/resource/setup/output');
-  const preprocessPath = resolve(projectRoot, 'dist/macOS/resource/preprocess/output');
+  const setupPath = resolve(projectRoot, 'dist/resource/setup/output');
+  const preprocessPath = resolve(projectRoot, 'dist/resource/preprocess/output');
   const proofPath = synthesizerPath;
 
   if (!existsSync(verifyBinary)) {
     console.error(`   ❌ Verify binary not found at ${verifyBinary}`);
-    console.error(`   Please build the binaries first: cd dist/macOS && ./build.sh`);
+    console.error(`   Please build the binaries first: cd dist && ./build.sh`);
     return false;
   }
 
