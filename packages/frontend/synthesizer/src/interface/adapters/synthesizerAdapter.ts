@@ -624,9 +624,9 @@ export class SynthesizerAdapter {
       channelId,
       stateRoot: '0x' + finalStateRoot.toString(16).padStart(64, '0').toLowerCase(),
       registeredKeys: permutedRegisteredKeys,
-      storageEntries,
+      storageEntries: afterStorageEntries,
       contractAddress: options.contractAddress,
-      preAllocatedLeaves: preAllocatedLeaves,
+      preAllocatedLeaves: afterPreAllocatedLeaves,
     };
     console.log(`[SynthesizerAdapter] ✅ Final state exported: ${finalState.stateRoot}`);
 
