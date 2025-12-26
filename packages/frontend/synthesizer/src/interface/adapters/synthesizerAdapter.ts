@@ -472,6 +472,7 @@ export class SynthesizerAdapter {
       const valueBytes = hexToBytes(addHexPrefix(entry.value));
       await stateManager.putStorage(contractAddress, keyBytes, valueBytes);
     }
+    await stateManager.rebuildInitialMerkleTree()
     const restoredRoot = await stateManager.getUpdatedMerkleTreeRoot();
     if (prevMTRoot !== restoredRoot) {
         console.warn(`[SynthesizerAdapter] ⚠️  Merkle root mismatch!`);
