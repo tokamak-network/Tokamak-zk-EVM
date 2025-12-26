@@ -552,11 +552,14 @@ export class InstructionHandler {
       ),
     );
 
-    const resolved = value ?? valueStored;
+    let resolved: bigint = valueStored
 
-    if (value !== undefined && value !== valueStored) {
-      throw new Error('Mismatch in storage values');
+    if ( value !== undefined ) {
+      if ( value !== valueStored ) {
+        throw new Error('Mismatch in storage values');
+      }
     }
+
     const merkleProof = this.cachedOpts.stateManager.initialMerkleTree.createProof(MTIndex)
     const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(MTIndex), true)
     const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', resolved, true, ` at MT index: ${MTIndex}`)
