@@ -364,6 +364,7 @@ export class SynthesizerAdapter {
     let initStorageKeys: Array<{ L1: Uint8Array; L2: Uint8Array }> = [];
     let preAllocatedLeaves: Array<{ key: string; value: string }> = [];
     let storageEntries: Array<{ key: string; value: string }> = [];
+    let prevMTRoot: bigint;
 
     // if (previousState) {
     //   // Use previousState to build initStorageKeys
@@ -413,6 +414,7 @@ export class SynthesizerAdapter {
       const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
       preAllocatedLeaves = channelData.preAllocatedLeaves;
       storageEntries = channelData.storageEntries;
+      prevMTRoot = hexToBigInt(addHexPrefix(channelData.initialRoot));
       initStorageKeys = await this.buildInitStorageKeys(
         channelId,
         effectiveBridgeAddress,
@@ -431,6 +433,7 @@ export class SynthesizerAdapter {
       // For previousState, we need channelId to fetch fresh MPT keys
       preAllocatedLeaves = previousState.preAllocatedLeaves;
       storageEntries = previousState.storageEntries;
+      prevMTRoot = hexToBigInt(addHexPrefix(previousState.stateRoot));
       initStorageKeys = await this.buildInitStorageKeys(
         channelId, 
         effectiveBridgeAddress, 
@@ -460,9 +463,21 @@ export class SynthesizerAdapter {
     console.log('[SynthesizerAdapter] Creating synthesizer options...');
     const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(simulationOpts);
 
-    // // Get state manager from synthesizer options (BEFORE creating synthesizer)
-    // const stateManager = synthesizerOpts.stateManager;
-    // const contractAddress = new Address(toBytes(addHexPrefix(options.contractAddress)));
+    // Get state manager from synthesizer options (BEFORE creating synthesizer)
+    const stateManager = synthesizerOpts.stateManager;
+    const contractAddress = createAddressFromString(options.contractAddress);
+    for (const entry of [...preAllocatedLeaves, ...storageEntries]) {
+      const key = entry.key;
+      const keyBytes = hexToBytes(addHexPrefix(key));
+      const valueBytes = hexToBytes(addHexPrefix(entry.value));
+      await stateManager.putStorage(contractAddress, keyBytes, valueBytes);
+    }
+    const restoredRoot = await stateManager.getUpdatedMerkleTreeRoot();
+    if (prevMTRoot !== restoredRoot) {
+        console.warn(`[SynthesizerAdapter] ⚠️  Merkle root mismatch!`);
+        console.warn(`   Expected: ${bigIntToHex(prevMTRoot)}`);
+        console.warn(`   Restored: ${bigIntToHex(restoredRoot)}`);
+      }
 
     // // Restore storage values based on source (BEFORE creating synthesizer)
     // let expectedInitialRoot: string;
@@ -583,7 +598,6 @@ export class SynthesizerAdapter {
 
     // Export final state
     console.log('[SynthesizerAdapter] Exporting final state...');
-    const stateManager = synthesizer.cachedOpts.stateManager;
     const finalStateRoot = await stateManager.getUpdatedMerkleTreeRoot();
     const finalStateRootHex = bigIntToHex(finalStateRoot);
     console.log(`[SynthesizerAdapter] 🆕 New Merkle Root (after transaction): ${finalStateRootHex}`);
@@ -603,7 +617,7 @@ export class SynthesizerAdapter {
     for (const entry of preAllocatedLeaves) {
       const key = entry.key;
       const keyBytes = hexToBytes(addHexPrefix(key));
-      const value = await stateManager.getStorage(createAddressFromString(options.contractAddress), keyBytes);
+      const value = await stateManager.getStorage(contractAddress, keyBytes);
       afterPreAllocatedLeaves.push({
         key,
         value: bytesToHex(value),
@@ -613,7 +627,7 @@ export class SynthesizerAdapter {
     for (const entry of storageEntries) {
       const key = entry.key;
       const keyBytes = hexToBytes(addHexPrefix(key));
-      const value = await stateManager.getStorage(createAddressFromString(options.contractAddress), keyBytes);
+      const value = await stateManager.getStorage(contractAddress, keyBytes);
       afterStorageEntries.push({
         key,
         value: bytesToHex(value),
