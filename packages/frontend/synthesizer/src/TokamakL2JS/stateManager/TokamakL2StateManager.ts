@@ -75,6 +75,17 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         return leaves
     }
 
+    private _permuteRegisteredKeys(permutation: number[]) {
+        if (this._registeredKeys === null) {
+            throw new Error('Registered storage keys must be permuted after init.')
+        }
+        const permutedKeys: Uint8Array[] = [...this._registeredKeys];
+        for (const [newIdx, oldIdx] of permutation.entries()) {
+            permutedKeys[newIdx] = this._registeredKeys[oldIdx].slice();
+        }
+        this._registeredKeys = permutedKeys;
+    }
+
     // getters
     public get initialMerkleTree(): IMT {
         if (this._initialMerkleTree === null) {
@@ -84,7 +95,10 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         return new IMT(poseidon_raw as IMTHashFunction, imt.depth, 0n, imt.arity, imt.leaves)
     }
 
-    public async getUpdatedMerkleTreeRoot(): Promise<bigint> {
+    public async getUpdatedMerkleTreeRoot(permutation?: number[]): Promise<bigint> {
+        if (permutation !== undefined) {
+            this._permuteRegisteredKeys(permutation);
+        }
         const merkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this)
         const _root = merkleTree.root
         let root: Uint8Array = new Uint8Array([])
