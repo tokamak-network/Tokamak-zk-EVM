@@ -155,10 +155,10 @@ Test outputs are saved in: `./test-outputs/binary-test/`
 
 ## 📦 Deploy Binary
 
-Copy binary to dist/macOS/bin:
+Copy binary to dist/bin:
 
 ```bash
-cp bin/synthesizer ../../../dist/macOS/bin/
+cp bin/synthesizer ../../../dist/bin/
 ```
 
 Or use from any location:

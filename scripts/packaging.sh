@@ -30,6 +30,7 @@ DO_SIGN=false
 DO_BUN=false  # Default to no bun for local development
 DO_COMPRESS=true
 DO_SETUP=true  # Default to full build with setup
+TARGET_DIR_OVERRIDE=""
 
 # Parse arguments
 show_help() {
@@ -45,6 +46,7 @@ Build Options:
   --bun                   Use Bun to build synthesizer (default: false)
   --no-compress          Skip compression of final package
   --no-setup             Skip setup generation (build-only mode)
+  --target-dir <path>    Override install target directory (default: dist/<platform>)
 
 macOS-specific Options:
   --sign                  Sign and notarize macOS binaries (macOS only)
@@ -61,41 +63,51 @@ EOF
 }
 
 # Parse command line arguments
-for arg in "$@"; do
-    case "$arg" in
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         --platform)
-            shift
-            PLATFORM="$1"
-            shift
+            PLATFORM="${2:-}"
+            shift 2
             ;;
         --linux)
             PLATFORM="linux"
+            shift
             ;;
         --macos)
             PLATFORM="macos"
+            shift
             ;;
         --sign)
             DO_SIGN=true
+            shift
             ;;
         --bun)
             DO_BUN=true
+            shift
             ;;
         --no-compress)
             DO_COMPRESS=false
+            shift
             ;;
         --no-setup)
             DO_SETUP=false
+            shift
+            ;;
+        --target-dir)
+            TARGET_DIR_OVERRIDE="${2:-}"
+            shift 2
             ;;
         --help)
             show_help
             exit 0
             ;;
         *)
-            if [[ "$arg" =~ ^-- ]]; then
-                echo "❌ Unknown option: $arg"
+            if [[ "$1" =~ ^-- ]]; then
+                echo "❌ Unknown option: $1"
                 echo "Use --help for usage information"
                 exit 1
             fi
+            shift
             ;;
     esac
 done
@@ -146,7 +158,12 @@ setup_linux_config() {
         UB_MAJOR="22"
     fi
 
-    TARGET="dist/linux${UB_MAJOR}"
+    local default_target="dist/linux${UB_MAJOR}"
+    if [[ -n "$TARGET_DIR_OVERRIDE" ]]; then
+        TARGET="$TARGET_DIR_OVERRIDE"
+    else
+        TARGET="$default_target"
+    fi
     BACKEND_PATH="backend-lib/icicle"
     OUT_PACKAGE="tokamak-zk-evm-linux${UB_MAJOR}.tar.gz"
 
@@ -161,7 +178,12 @@ setup_linux_config() {
 }
 
 setup_macos_config() {
-    TARGET="dist/macOS"
+    local default_target="dist/macOS"
+    if [[ -n "$TARGET_DIR_OVERRIDE" ]]; then
+        TARGET="$TARGET_DIR_OVERRIDE"
+    else
+        TARGET="$default_target"
+    fi
     BACKEND_PATH="backend-lib/icicle"
     OUT_PACKAGE="tokamak-zk-evm-macOS.zip"
 
@@ -335,7 +357,7 @@ handle_setup() {
 
 run_trusted_setup() {
     echo "[*] Running trusted-setup..."
-    SETUP_SCRIPT="./${TARGET}/1_run-trusted-setup.sh"
+    SETUP_SCRIPT="${TARGET}/1_run-trusted-setup.sh"
     dos2unix "$SETUP_SCRIPT"
     chmod +x "$SETUP_SCRIPT"
     "$SETUP_SCRIPT"

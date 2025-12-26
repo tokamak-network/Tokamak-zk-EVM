@@ -167,59 +167,57 @@ export class Synthesizer implements SynthesizerInterface
     this._unregisteredContractStrageWritings()
   }
 
-  private async _updateMerkleTree(): Promise<void> {
+  private async _updateMerkleTree(): Promise<void> {    
+    
+    const treeEntriesPt: DataPt[] = [];
     // Make every user storage warm
-    for (const key of this.cachedOpts.stateManager.registeredKeys!) {
+    for (const [MTIndex, key] of this.cachedOpts.stateManager.registeredKeys!.entries()) {
       const keyBigInt = bytesToBigInt(key)
       const cached = this.state.cachedStorage.get(keyBigInt)
       if (cached === undefined) {
-        const keyPt = this.addReservedVariableToBufferIn('MERKLE_PROOF', keyBigInt, true)
-        await this._instructionHandlers.loadStorage(keyPt, undefined)
+        const keyPt = this.addReservedVariableToBufferIn('MERKLE_PROOF', keyBigInt, true);
+        const {indexPt:_ , valuePt} = await this._instructionHandlers.verifyStorage(keyPt, MTIndex);
+        treeEntriesPt.push(
+          keyPt, 
+          valuePt,
+        )
+      } else {
+        const lastHistory = cached.accessHistory[cached.accessHistory.length - 1];
+        if (lastHistory.indexPt?.value !== BigInt(MTIndex)){
+          throw new Error(`Synthesizer: Incorrect cachedStorage. Need debugging`)
+        }
+        treeEntriesPt.push(
+          lastHistory.keyPt!, 
+          lastHistory.valuePt,
+        )
       }
     }
-
-    const finalMerkleRootPt = this.addReservedVariableToBufferIn(
-      'RES_MERKLE_ROOT',
-      await this.cachedOpts.stateManager.getUpdatedMerkleTreeRoot(),
-    )
-    let _index = -1;
-    for (const [key, cache] of this.state.cachedStorage.entries()) {
-      _index++;
-      const MTIndex = this.cachedOpts.stateManager.getMTIndex(key)
-      if (MTIndex < 0) {
-        continue;
-      }
-      if (cache.accessOrder !== _index) {
-        throw new Error(`Merkle proof verification for the final merkle root should be read in the accessed order.`)
-      }
-      const lastHistory = cache.accessHistory[cache.accessHistory.length - 1]
-      let childPt: DataPt
-      const indexPt = lastHistory.indexPt
-      if (indexPt?.value !== BigInt(MTIndex)) {
-        throw new Error(`The key of a cached storage is registered but has no or incorrect DataPt for its Merkle tree index.`)
-      }
-      // if (lastCachedStorage.access === 'Read') {
-      //   if (lastCachedStorage.childPt === null) {
-      //     throw new Error(`The cached storage for 'read' has no childPt, meaning that its integrity has never been verified. Need to be debugged.`)
-      //   }
-      //   childPt = lastCachedStorage.childPt
-      // } else {
-      //   if (lastCachedStorage.keyPt === null) {
-      //     throw new Error(`The cached storage is about a user's but has no DataPt for key.`)
-      //   }
-        childPt = this.placePoseidon([
-          lastHistory.keyPt!, 
-          lastHistory.valuePt, 
-        ])
-      // }
-      const merkleProof = await this.cachedOpts.stateManager.getMerkleProof(MTIndex)
-      this.placeMerkleProofVerification(
-        indexPt,
-        childPt,
-        merkleProof.siblings,
-        finalMerkleRootPt,
+    // Make every padded keys warm
+    const numActualKeys = this.cachedOpts.stateManager.registeredKeys!.length;
+    for ( var MTIndex = numActualKeys; MTIndex < MAX_MT_LEAVES; MTIndex++ ) {
+      const keyPt = this.addReservedVariableToBufferIn('MERKLE_PROOF', 0n, true);
+      const {indexPt:_, valuePt} = await this._instructionHandlers.verifyStorage(keyPt, MTIndex, 0n);
+      treeEntriesPt.push(
+        keyPt,
+        valuePt,
       )
     }
+
+    if (treeEntriesPt.length !== MAX_MT_LEAVES * 2) {
+      throw new Error(`Expected ${MAX_MT_LEAVES} leaves for updated tree root computation, but got ${treeEntriesPt.length} leaves.`)
+    }
+
+    const finalMerkleRootRef = await this.cachedOpts.stateManager.getUpdatedMerkleTreeRoot();
+    
+    const finalMerkleRootPt = this.placePoseidon(treeEntriesPt);
+    if (finalMerkleRootRef !== finalMerkleRootPt.value) {
+      throw new Error(`Updated Merkle tree root is different from the reference.`);
+    }
+    this.addReservedVariableToBufferOut(
+      'RES_MERKLE_ROOT',
+      finalMerkleRootPt,
+      true,
+    );
   }
 
   private _unregisteredContractStrageWritings(): void {

@@ -116,7 +116,7 @@ export class ArithmeticManager {
   public placePoseidon(inPts: DataPt[]): DataPt {
     // Fold in chunks of POSEIDON_INPUTS; zero-pad tail; **strict field check** (no modular reduction)
     if (inPts.length === 0) {
-      return this.placeArith('Poseidon', Array<DataPt>(3).fill(this.parent.loadArbitraryStatic(0n)))[0]
+      return this.placeArith('Poseidon', Array<DataPt>(POSEIDON_INPUTS).fill(this.parent.loadArbitraryStatic(0n)))[0]
     }
     const fold = (arr: DataPt[]): DataPt[] => {
       const n1xChunks = Math.ceil(arr.length / POSEIDON_INPUTS);

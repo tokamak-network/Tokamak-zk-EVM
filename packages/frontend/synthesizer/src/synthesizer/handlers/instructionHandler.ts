@@ -8,6 +8,8 @@ import {
   setLengthRight,
   createAddressFromBigInt,
   bigIntToHex,
+  setLengthLeft,
+  bigIntToBytes,
 } from '@ethereumjs/util'
 import { InterpreterStep } from '@ethereumjs/evm'
 import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
@@ -542,6 +544,42 @@ export class InstructionHandler {
     
   // }
 
+  public async verifyStorage(keyPt: DataPt, MTIndex: number, value?: bigint): Promise<{indexPt: DataPt, valuePt: DataPt}> {
+    const valueStored = bytesToBigInt(
+      await this.cachedOpts.stateManager.getStorage(
+        this.cachedOpts.signedTransaction.to,
+        setLengthLeft(bigIntToBytes(keyPt.value), 32),
+      ),
+    );
+
+    const resolved = value ?? valueStored;
+
+    if (value !== undefined && value !== valueStored) {
+      throw new Error('Mismatch in storage values');
+    }
+    const merkleProof = this.cachedOpts.stateManager.initialMerkleTree.createProof(MTIndex)
+    const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(MTIndex), true)
+    const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', resolved, true, ` at MT index: ${MTIndex}`)
+    const childPt = this.parent.placePoseidon([
+      keyPt, 
+      valuePt,
+    ])
+    if (merkleProof.leaf !== childPt.value) {
+      throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
+    }
+
+    this.parent.placeMerkleProofVerification(
+      indexPt,
+      childPt,
+      merkleProof.siblings,
+      this.parent.getReservedVariableFromBuffer('INI_MERKLE_ROOT'),
+    )
+    return {
+      indexPt,
+      valuePt,
+    }
+  }
+
   public async loadStorage(keyPt: DataPt, value?: bigint): Promise<DataPt> {
     const key = keyPt.value
     const cached = this.parent.state.cachedStorage.get(key);
@@ -558,36 +596,7 @@ export class InstructionHandler {
     if (MTIndex >= 0) {
       // Cold access to registered storage key, verifiy the integrity
       // const keyPt = this.parent.addReservedVariableToBufferIn('IN_MPT_KEY', key, true, `at MT index ${MTIndex}`);
-
-      const valueStored = bytesToBigInt(
-        await this.cachedOpts.stateManager.getStorage(
-          this.cachedOpts.signedTransaction.to,
-          this.cachedOpts.stateManager.registeredKeys![MTIndex],
-        ),
-      );
-
-      if (value !== undefined && value !== valueStored) {
-        throw new Error('Mismatch in storage values');
-      }
-
-      const resolved = value ?? valueStored;
-      const merkleProof = this.cachedOpts.stateManager.initialMerkleTree.createProof(MTIndex)
-      const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(MTIndex), true)
-      const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', resolved, true, ` at MT index: ${MTIndex}`)
-      const childPt = this.parent.placePoseidon([
-        keyPt, 
-        valuePt,
-      ])
-      if (merkleProof.leaf !== childPt.value) {
-        throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
-      }
-
-      this.parent.placeMerkleProofVerification(
-        indexPt,
-        childPt,
-        merkleProof.siblings,
-        this.parent.getReservedVariableFromBuffer('INI_MERKLE_ROOT'),
-      )
+      const {indexPt, valuePt} = await this.verifyStorage(keyPt, MTIndex, value);
 
       this.parent.state.cachedStorage.set(key, {accessOrder, accessHistory: [{
         indexPt, 

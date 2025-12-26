@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 //   // Check if running as a Bun compiled binary
 //   if ((process as any).isBun && (process as any).execPath) {
 //     // Running as binary: use executable's parent directory
-//     // e.g., /path/to/dist/macOS/bin/synthesizer -> /path/to/dist/macOS/
+//     // e.g., /path/to/dist/bin/synthesizer -> /path/to/dist/
 //     const execPath = (process as any).execPath as string;
 //     const execDir = fileURLToPath(new URL('.', `file://${execPath}`));
 //     // Go up one level from bin/ to get to the base directory
