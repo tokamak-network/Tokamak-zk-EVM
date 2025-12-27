@@ -455,7 +455,7 @@ sync_proof_from_dir() {
   local files_to_sync=(
     "resource/prove/output/proof.json"
     "resource/synthesizer/output/instance.json"
-    "resource/preprocess/output/preprocess.json"
+    "resource/preprocess/output/permutation.json"
   )
 
   for rel_path in "${files_to_sync[@]}"; do
