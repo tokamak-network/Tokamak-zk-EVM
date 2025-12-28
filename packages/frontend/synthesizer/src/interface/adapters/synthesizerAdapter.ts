@@ -266,18 +266,16 @@ export class SynthesizerAdapter {
    * L2: participant's MPT key (actual L2 storage key)
    */
   async buildInitStorageKeys(
-    channelId: number,
+    stateSnapshot: StateSnapshot,
     rollupBridgeAddress: string,
-    registeredKeys: Array<string>,
-    preAllocatedLeaves: Array<{ key: string; value: string }>,
   ): Promise<Array<{ L1: Uint8Array; L2: Uint8Array }>> {
     const initStorageKeys: Array<{ L1: Uint8Array; L2: Uint8Array }> = [];
 
     // Add pre-allocated keys first
-    const preAllocatedKeys = preAllocatedLeaves.map( entry => entry.key );
+    const preAllocatedKeys = stateSnapshot.preAllocatedLeaves.map( entry => entry.key );
     for (const key of preAllocatedKeys) {
       const hexKey = addHexPrefix(key);
-      const preAllocIdx = registeredKeys.findIndex( regKey => hexToBigInt(addHexPrefix(regKey)) === hexToBigInt(hexKey) );
+      const preAllocIdx = stateSnapshot.registeredKeys.findIndex( regKey => hexToBigInt(addHexPrefix(regKey)) === hexToBigInt(hexKey) );
       if (preAllocIdx < 0 ) {
         throw new Error(`Mismatch between registered keys and preallocated keys.`)
       }
@@ -290,7 +288,7 @@ export class SynthesizerAdapter {
 
     // Get participants from on-chain
     const bridgeContract = new ethers.Contract(rollupBridgeAddress, ROLLUP_BRIDGE_CORE_ABI, this.provider);
-    const participants: string[] = await bridgeContract.getChannelParticipants(channelId);
+    const participants: string[] = await bridgeContract.getChannelParticipants(stateSnapshot.channelId);
 
     // Add all participants' storage keys
     // L1: participant's L1 address as storage key (to fetch from on-chain)
@@ -298,11 +296,11 @@ export class SynthesizerAdapter {
     for (let i = 0; i < participants.length; i++) {
       const l1Address = participants[i];
       // Get MPT key from on-chain using channel ID and L1 address
-      const mptKeyBigInt = await bridgeContract.getL2MptKey(channelId, l1Address);
+      const mptKeyBigInt = await bridgeContract.getL2MptKey(stateSnapshot.channelId, l1Address);
       const mptKeyHex = '0x' + mptKeyBigInt.toString(16).padStart(64, '0');
       const l1StorageKey = getUserStorageKey([l1Address, 0], 'L1'); // L1 storage key from participant address
       const mptKeyBytes = hexToBytes(addHexPrefix(mptKeyHex));
-      const userIdx = registeredKeys.findIndex( key => hexToBigInt(addHexPrefix(key)) === mptKeyBigInt );
+      const userIdx = stateSnapshot.registeredKeys.findIndex( key => hexToBigInt(addHexPrefix(key)) === mptKeyBigInt );
       if (userIdx < 0 ) {
         throw new Error(`Mismatch between registered keys and actual participants.`)
       }
@@ -312,7 +310,7 @@ export class SynthesizerAdapter {
       };
     }
 
-    if (registeredKeys.length !== initStorageKeys.filter(v => v !== undefined).length) {
+    if (stateSnapshot.registeredKeys.length !== initStorageKeys.filter(v => v !== undefined).length) {
       throw new Error(`Mismatch between registered keys and reconstructed initStorageKeys.`)
     }
 
@@ -362,7 +360,6 @@ export class SynthesizerAdapter {
 
     // Build initStorageKeys and store preAllocatedLeaves for final state
     let previousState: StateSnapshot;
-    let initStorageKeys: Array<{ L1: Uint8Array; L2: Uint8Array }> = [];
 
     // if (previousState) {
     //   // Use previousState to build initStorageKeys
@@ -410,7 +407,6 @@ export class SynthesizerAdapter {
       console.log(`  Bridge Address: ${effectiveBridgeAddress}`);
 
       const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
-      console.log(`[SynthesizerAdapter] Previous state is not present, so built initStorageKeys from on-chain: ${initStorageKeys.length} keys`);
       previousState = {
         channelId: channelId,
         stateRoot: channelData.initialRoot,
@@ -419,7 +415,9 @@ export class SynthesizerAdapter {
         contractAddress: channelData.contractAddress,
         preAllocatedLeaves: channelData.preAllocatedLeaves,
       };
+      console.log(`[SynthesizerAdapter] Previous state is not present, so fetched initial state from contract: ${JSON.stringify(previousState, undefined, 2)}`);
     } else {
+      console.log(`[SynthesizerAdapter] Previous state is present.`);
       previousState = _previousState;
     }
 
@@ -432,7 +430,7 @@ export class SynthesizerAdapter {
       senderL2PrvKey: options.senderL2PrvKey,
       blockNumber,
       contractAddress: options.contractAddress as `0x${string}`,
-      initStorageKeys,
+      initStorageKeys: await this.buildInitStorageKeys(previousState, effectiveBridgeAddress),
       callData: calldataBytes,
     };
 
@@ -442,19 +440,31 @@ export class SynthesizerAdapter {
     // Get state manager from synthesizer options (BEFORE creating synthesizer)
     const stateManager = synthesizerOpts.stateManager;
     const contractAddress = createAddressFromString(options.contractAddress);
-    for (const entry of [...previousState.preAllocatedLeaves, ...previousState.storageEntries]) {
-      const key = entry.key;
+    for (const key of previousState.registeredKeys) {
+      const preAllocIdx = previousState.preAllocatedLeaves.findIndex( entry => hexToBigInt(addHexPrefix(entry.key)) === hexToBigInt(addHexPrefix(key)) );
+      const storageIdx = previousState.storageEntries.findIndex( entry => hexToBigInt(addHexPrefix(entry.key)) === hexToBigInt(addHexPrefix(key)) );
+      if (preAllocIdx >= 0 && storageIdx >= 0) {
+        throw new Error('Pre-allocated keys and storage keys must be separated.')
+      }
+      if (preAllocIdx == -1 && storageIdx == -1) {
+        throw new Error('A registered key must be either a pre-allocated key or a storage key.')
+      }
+      let valueBytes: Uint8Array;
+      if (preAllocIdx >= 0) {
+        valueBytes = hexToBytes(addHexPrefix(previousState.preAllocatedLeaves[preAllocIdx].value));
+      } else {
+        valueBytes = hexToBytes(addHexPrefix(previousState.storageEntries[storageIdx].value));
+      }
       const keyBytes = hexToBytes(addHexPrefix(key));
-      const valueBytes = hexToBytes(addHexPrefix(entry.value));
       await stateManager.putStorage(contractAddress, keyBytes, valueBytes);
     }
     await stateManager.rebuildInitialMerkleTree()
-    const restoredRoot = stateManager.initialMerkleTree.root;
+    const restoredRoot = await stateManager.getUpdatedMerkleTreeRoot();
     const prevMTRoot = hexToBigInt(addHexPrefix(previousState.stateRoot));
     if ( prevMTRoot !== restoredRoot) {
-        console.warn(`[SynthesizerAdapter] ⚠️  Merkle root mismatch!`);
-        console.warn(`   Expected: ${bigIntToHex(prevMTRoot)}`);
-        console.warn(`   Restored: ${bigIntToHex(BigInt(restoredRoot))}`);
+      console.warn(`[SynthesizerAdapter] ⚠️  Merkle root mismatch!`);
+      console.warn(`   Expected: ${bigIntToHex(prevMTRoot)}`);
+      console.warn(`   Restored: ${bigIntToHex(BigInt(restoredRoot))}`);
       }
 
     // // Restore storage values based on source (BEFORE creating synthesizer)
