@@ -449,12 +449,12 @@ export class SynthesizerAdapter {
       await stateManager.putStorage(contractAddress, keyBytes, valueBytes);
     }
     await stateManager.rebuildInitialMerkleTree()
-    const restoredRoot = await stateManager.getUpdatedMerkleTreeRoot();
+    const restoredRoot = stateManager.initialMerkleTree.root;
     const prevMTRoot = hexToBigInt(addHexPrefix(previousState.stateRoot));
     if ( prevMTRoot !== restoredRoot) {
         console.warn(`[SynthesizerAdapter] ⚠️  Merkle root mismatch!`);
         console.warn(`   Expected: ${bigIntToHex(prevMTRoot)}`);
-        console.warn(`   Restored: ${bigIntToHex(restoredRoot)}`);
+        console.warn(`   Restored: ${bigIntToHex(BigInt(restoredRoot))}`);
       }
 
     // // Restore storage values based on source (BEFORE creating synthesizer)
@@ -627,14 +627,14 @@ export class SynthesizerAdapter {
       writeCircuitJson(circuitGenerator, outputPath);
       console.log(`[SynthesizerAdapter] ✅ Outputs written to: ${outputPath}`);
 
-      // Also save previous_state_snapshot.json
-      const previousStateSnapshotPath = resolve(outputPath, 'previous_state_snapshot.json');
-      writeFileSync(
-        previousStateSnapshotPath,
-        JSON.stringify(previousState, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
-        'utf-8',
-      );
-      console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${previousStateSnapshotPath}`);
+      // // Also save previous_state_snapshot.json
+      // const previousStateSnapshotPath = resolve(outputPath, 'previous_state_snapshot.json');
+      // writeFileSync(
+      //   previousStateSnapshotPath,
+      //   JSON.stringify(previousState, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
+      //   'utf-8',
+      // );
+      // console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${previousStateSnapshotPath}`);
 
       // Also save state_snapshot.json
       const stateSnapshotPath = resolve(outputPath, 'state_snapshot.json');
