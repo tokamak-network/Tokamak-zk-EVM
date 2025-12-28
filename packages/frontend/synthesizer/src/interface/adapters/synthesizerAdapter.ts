@@ -343,7 +343,7 @@ export class SynthesizerAdapter {
     calldata: Uint8Array | string,
     options: CalldataSynthesizeOptions,
   ): Promise<SynthesizerResult> {
-    const { previousState, outputPath, channelId, rollupBridgeAddress, rpcUrl } = options;
+    const { previousState: _previousState, outputPath, channelId, rollupBridgeAddress, rpcUrl } = options;
     const effectiveRpcUrl = rpcUrl || this.rpcUrl;
 
     // Use default bridge address if not provided
@@ -361,10 +361,8 @@ export class SynthesizerAdapter {
     console.log(`  Block: ${blockNumber}`);
 
     // Build initStorageKeys and store preAllocatedLeaves for final state
+    let previousState: StateSnapshot;
     let initStorageKeys: Array<{ L1: Uint8Array; L2: Uint8Array }> = [];
-    let preAllocatedLeaves: Array<{ key: string; value: string }> = [];
-    let storageEntries: Array<{ key: string; value: string }> = [];
-    let prevMTRoot: bigint;
 
     // if (previousState) {
     //   // Use previousState to build initStorageKeys
@@ -405,49 +403,27 @@ export class SynthesizerAdapter {
     // } else {
     //   throw new Error('Either previousState or channelId must be provided to build initStorageKeys');
     // }
-    if (previousState === undefined) {
+    if (_previousState === undefined) {
       //Fetch channel data from on-chain
       console.log(`[SynthesizerAdapter] Fetching channel data from on-chain...`);
       console.log(`  Channel ID: ${channelId}`);
       console.log(`  Bridge Address: ${effectiveBridgeAddress}`);
 
       const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
-      preAllocatedLeaves = channelData.preAllocatedLeaves;
-      storageEntries = channelData.storageEntries;
-      prevMTRoot = hexToBigInt(addHexPrefix(channelData.initialRoot));
-      initStorageKeys = await this.buildInitStorageKeys(
-        channelId,
-        effectiveBridgeAddress,
-        channelData.registeredKeys,
-        channelData.preAllocatedLeaves,
-      );
-      console.log(`[SynthesizerAdapter] Built initStorageKeys from on-chain: ${initStorageKeys.length} keys`);
-
-      // Use targetAddress from on-chain data as contractAddress
-      if (channelData.contractAddress) {
-        options.contractAddress = channelData.contractAddress;
-        console.log(`[SynthesizerAdapter] Using targetAddress from on-chain data: ${channelData.contractAddress}`);
-      }
+      console.log(`[SynthesizerAdapter] Previous state is not present, so built initStorageKeys from on-chain: ${initStorageKeys.length} keys`);
+      previousState = {
+        channelId: channelId,
+        stateRoot: channelData.initialRoot,
+        registeredKeys: channelData.registeredKeys,
+        storageEntries: channelData.storageEntries,
+        contractAddress: channelData.contractAddress,
+        preAllocatedLeaves: channelData.preAllocatedLeaves,
+      };
     } else {
-      // Use previousState to build initStorageKeys
-      // For previousState, we need channelId to fetch fresh MPT keys
-      preAllocatedLeaves = previousState.preAllocatedLeaves;
-      storageEntries = previousState.storageEntries;
-      prevMTRoot = hexToBigInt(addHexPrefix(previousState.stateRoot));
-      initStorageKeys = await this.buildInitStorageKeys(
-        channelId, 
-        effectiveBridgeAddress, 
-        previousState.registeredKeys,
-        previousState.preAllocatedLeaves,
-      );
-      console.log(`[SynthesizerAdapter] Built initStorageKeys from previousState: ${initStorageKeys.length} keys`);
-
-      // Use contractAddress from previousState
-      if (previousState.contractAddress) {
-        options.contractAddress = previousState.contractAddress;
-        console.log(`[SynthesizerAdapter] Using contractAddress from previousState: ${previousState.contractAddress}`);
-      }
+      previousState = _previousState;
     }
+
+    options.contractAddress = previousState.contractAddress;
 
     // Build simulation options using current SynthesizerSimulationOpts type
     const simulationOpts: SynthesizerSimulationOpts = {
@@ -466,7 +442,7 @@ export class SynthesizerAdapter {
     // Get state manager from synthesizer options (BEFORE creating synthesizer)
     const stateManager = synthesizerOpts.stateManager;
     const contractAddress = createAddressFromString(options.contractAddress);
-    for (const entry of [...preAllocatedLeaves, ...storageEntries]) {
+    for (const entry of [...previousState.preAllocatedLeaves, ...previousState.storageEntries]) {
       const key = entry.key;
       const keyBytes = hexToBytes(addHexPrefix(key));
       const valueBytes = hexToBytes(addHexPrefix(entry.value));
@@ -474,7 +450,8 @@ export class SynthesizerAdapter {
     }
     await stateManager.rebuildInitialMerkleTree()
     const restoredRoot = await stateManager.getUpdatedMerkleTreeRoot();
-    if (prevMTRoot !== restoredRoot) {
+    const prevMTRoot = hexToBigInt(addHexPrefix(previousState.stateRoot));
+    if ( prevMTRoot !== restoredRoot) {
         console.warn(`[SynthesizerAdapter] ⚠️  Merkle root mismatch!`);
         console.warn(`   Expected: ${bigIntToHex(prevMTRoot)}`);
         console.warn(`   Restored: ${bigIntToHex(restoredRoot)}`);
@@ -615,7 +592,7 @@ export class SynthesizerAdapter {
       value: string;
     }[] = [];
 
-    for (const entry of preAllocatedLeaves) {
+    for (const entry of previousState.preAllocatedLeaves) {
       const key = entry.key;
       const keyBytes = hexToBytes(addHexPrefix(key));
       const value = await stateManager.getStorage(contractAddress, keyBytes);
@@ -625,7 +602,7 @@ export class SynthesizerAdapter {
       })
     }
 
-    for (const entry of storageEntries) {
+    for (const entry of previousState.storageEntries) {
       const key = entry.key;
       const keyBytes = hexToBytes(addHexPrefix(key));
       const value = await stateManager.getStorage(contractAddress, keyBytes);
@@ -649,6 +626,15 @@ export class SynthesizerAdapter {
     if (outputPath) {
       writeCircuitJson(circuitGenerator, outputPath);
       console.log(`[SynthesizerAdapter] ✅ Outputs written to: ${outputPath}`);
+
+      // Also save previous_state_snapshot.json
+      const previousStateSnapshotPath = resolve(outputPath, 'previous_state_snapshot.json');
+      writeFileSync(
+        previousStateSnapshotPath,
+        JSON.stringify(previousState, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
+        'utf-8',
+      );
+      console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${previousStateSnapshotPath}`);
 
       // Also save state_snapshot.json
       const stateSnapshotPath = resolve(outputPath, 'state_snapshot.json');
