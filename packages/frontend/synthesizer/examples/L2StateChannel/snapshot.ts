@@ -27,7 +27,11 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { execSync } from 'child_process';
-import { SEPOLIA_RPC_URL, ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI, TON_ADDRESS } from './constants.ts';
+import {
+  ROLLUP_BRIDGE_CORE_ADDRESS,
+  ROLLUP_BRIDGE_CORE_ABI,
+} from '../../src/interface/adapters/constants/index.ts';
+import { SEPOLIA_RPC_URL, TON_ADDRESS } from './constants/index.ts';
 import {
   Address,
   hexToBytes,
@@ -47,7 +51,7 @@ import { jubjub } from '@noble/curves/misc';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
 import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../src/interface/index.ts';
-import { getUserStorageKey } from '../../src/TokamakL2JS/utils/index.ts';
+import { getUserStorageKey } from '../../src/TokamakL2JS/utils/utils.ts';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);

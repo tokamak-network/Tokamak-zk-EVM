@@ -23,8 +23,8 @@ import { writeFileSync, mkdirSync } from 'fs';
 import {
   ROLLUP_BRIDGE_CORE_ADDRESS,
   ROLLUP_BRIDGE_CORE_ABI,
-} from '../../src/interface/adapters/constants/index.ts';
-import { SEPOLIA_RPC_URL } from './constants/index.ts';
+} from '../../../src/interface/adapters/constants/index.ts';
+import { SEPOLIA_RPC_URL } from '../constants/index.ts';
 import {
   Address,
   hexToBytes,
@@ -35,16 +35,16 @@ import {
   utf8ToBytes,
   toBytes,
 } from '@ethereumjs/util';
-import { poseidon, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
+import { poseidon, fromEdwardsToAddress } from '../../../src/TokamakL2JS/index.ts';
 import { jubjub } from '@noble/curves/misc';
-import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../src/interface/index.ts';
+import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../../src/interface/index.ts';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Load .env file from project root
-const envPath = resolve(__dirname, '../../../../../.env');
+const envPath = resolve(__dirname, '../../../../../../.env');
 config({ path: envPath });
 
 // ============================================================================
@@ -59,7 +59,7 @@ const CHANNEL_ID = 3; // Channel ID for testing
 const INITIALIZE_TX_HASH = '0xcf31e988b30825eb4e8a5f3ceb0a2b5cd2462dc4881dc6e2f58cfdb184acaeea';
 
 // Output directory for state info
-const OUTPUT_DIR = resolve(__dirname, '../test-outputs/channel-state');
+const OUTPUT_DIR = resolve(__dirname, '../../test-outputs/channel-state');
 
 // ============================================================================
 // MAIN FUNCTION
@@ -361,7 +361,7 @@ async function initializeAndVerifyChannel() {
   console.log('\n   📋 All Merkle tree leaves (16 total):');
   console.log('   ─────────────────────────────────────────────────────────');
 
-  const { poseidon_raw } = await import('../../src/interface/qapCompiler/configuredTypes.ts');
+  const { poseidon_raw } = await import('../../../src/interface/qapCompiler/configuredTypes.ts');
 
   for (let i = 0; i < leaves.length; i++) {
     const leaf = leaves[i];
