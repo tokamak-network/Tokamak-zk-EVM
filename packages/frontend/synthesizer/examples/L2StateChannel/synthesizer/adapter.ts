@@ -16,27 +16,27 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
-import { ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI } from '../../src/interface/adapters/constants/index.ts';
+import { ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI } from '../../../src/interface/adapters/constants/index.ts';
 import { bytesToBigInt, bigIntToBytes, setLengthLeft, utf8ToBytes } from '@ethereumjs/util';
-import { poseidon, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
+import { poseidon, fromEdwardsToAddress } from '../../../src/TokamakL2JS/index.ts';
 import { jubjub } from '@noble/curves/misc';
-import { SynthesizerAdapter } from '../../src/interface/adapters/synthesizerAdapter.ts';
+import { SynthesizerAdapter } from '../../../src/interface/adapters/synthesizerAdapter.ts';
 import {
   L2_PRV_KEY_MESSAGE,
   deriveL2KeysFromSignature,
   deriveL2AddressFromKeys,
-} from '../../src/TokamakL2JS/utils/web.ts';
+} from '../../../src/TokamakL2JS/utils/web.ts';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Load .env file from project root
-const envPath = resolve(__dirname, '../../../../../.env');
+const envPath = resolve(__dirname, '../../../../../../.env');
 config({ path: envPath });
 
 // Binary paths (use pre-built binaries from dist/bin)
-const projectRoot = resolve(__dirname, '../../../../../');
+const projectRoot = resolve(__dirname, '../../../../../../');
 const distBinPath = resolve(projectRoot, 'dist/bin');
 const preprocessBinary = `${distBinPath}/preprocess`;
 const proverBinary = `${distBinPath}/prove`;
@@ -361,7 +361,7 @@ async function main() {
     senderL2PrvKey: aliceL2PrivateKey,
     recipientL2Address: RECIPIENT_L2_ADDRESS,
     amount: '1',
-    outputPath: resolve(__dirname, '../test-outputs/adapter-test-1'),
+    outputPath: resolve(__dirname, '../../test-outputs/adapter-test-1'),
     rollupBridgeAddress: ROLLUP_BRIDGE_CORE_ADDRESS,
   });
 
@@ -460,7 +460,7 @@ async function main() {
     recipientL2Address: allL2Addresses[0],
     amount: '0.5',
     previousStatePath: result1.stateSnapshotPath, // Chain from Proof #1
-    outputPath: resolve(__dirname, '../test-outputs/adapter-test-2'),
+    outputPath: resolve(__dirname, '../../test-outputs/adapter-test-2'),
     rollupBridgeAddress: ROLLUP_BRIDGE_CORE_ADDRESS,
   });
 

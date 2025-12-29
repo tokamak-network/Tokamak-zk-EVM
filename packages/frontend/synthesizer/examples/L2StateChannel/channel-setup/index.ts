@@ -21,7 +21,6 @@ import { ethers, parseEther } from 'ethers';
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { writeFileSync, mkdirSync } from 'fs';
 import {
   DEPOSIT_MANAGER_PROXY_ADDRESS,
   ROLLUP_BRIDGE_CORE_ADDRESS,
@@ -43,8 +42,6 @@ const __dirname = dirname(__filename);
 const envPath = resolve(__dirname, '../../../.env');
 config({ path: envPath });
 
-// Output directory for state info
-const OUTPUT_DIR = resolve(__dirname, '../../test-outputs/channel-state');
 
 // ERC20 ABI for token symbol query
 const ERC20_SYMBOL_ABI = [
@@ -542,12 +539,8 @@ async function setupStateChannel() {
     createdAt: new Date().toISOString(),
   };
 
-  // Save to file
-  mkdirSync(OUTPUT_DIR, { recursive: true });
-  const outputPath = resolve(OUTPUT_DIR, `channel_${channelId}_info.json`);
-  writeFileSync(outputPath, JSON.stringify(channelInfo, null, 2), 'utf-8');
-
-  console.log(`   ✅ Channel info saved to: ${outputPath}\n`);
+  // Log channel info (saving is handled by e2e test)
+  console.log(`   📋 Channel info prepared (will be saved by e2e test)\n`);
 
   // ========================================================================
   // Final Summary

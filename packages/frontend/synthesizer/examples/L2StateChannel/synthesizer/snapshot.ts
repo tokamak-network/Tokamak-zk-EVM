@@ -30,8 +30,8 @@ import { execSync } from 'child_process';
 import {
   ROLLUP_BRIDGE_CORE_ADDRESS,
   ROLLUP_BRIDGE_CORE_ABI,
-} from '../../src/interface/adapters/constants/index.ts';
-import { SEPOLIA_RPC_URL, TON_ADDRESS } from './constants/index.ts';
+} from '../../../src/interface/adapters/constants/index.ts';
+import { SEPOLIA_RPC_URL, TON_ADDRESS } from '../constants/index.ts';
 import {
   Address,
   hexToBytes,
@@ -44,28 +44,28 @@ import {
   toBytes,
   createAccount,
 } from '@ethereumjs/util';
-import { TokamakL2StateManager } from '../../src/TokamakL2JS/stateManager/TokamakL2StateManager.ts';
-import { poseidon, getEddsaPublicKey, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
+import { TokamakL2StateManager } from '../../../src/TokamakL2JS/stateManager/TokamakL2StateManager.ts';
+import { poseidon, getEddsaPublicKey, fromEdwardsToAddress } from '../../../src/TokamakL2JS/index.ts';
 import { Common, Mainnet } from '@ethereumjs/common';
 import { jubjub } from '@noble/curves/misc';
-import { createSynthesizer } from '../../src/synthesizer/index.ts';
-import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
-import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../src/interface/index.ts';
-import { getUserStorageKey } from '../../src/TokamakL2JS/utils/utils.ts';
+import { createSynthesizer } from '../../../src/synthesizer/index.ts';
+import { createCircuitGenerator } from '../../../src/circuitGenerator/circuitGenerator.ts';
+import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../../src/interface/index.ts';
+import { getUserStorageKey } from '../../../src/TokamakL2JS/utils/utils.ts';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Load .env file from project root
-const envPath = resolve(__dirname, '../../../../../.env');
+const envPath = resolve(__dirname, '../../../../../../.env');
 config({ path: envPath });
 
 // Binary paths (use pre-built binaries from dist/bin)
 // Use __dirname to find project root, then resolve to dist/bin
-// __dirname is: packages/frontend/synthesizer/examples/L2StateChannel
-// Project root is: ../../../../../ (6 levels up)
-const projectRoot = resolve(__dirname, '../../../../../');
+// __dirname is: packages/frontend/synthesizer/examples/L2StateChannel/synthesizer
+// Project root is: ../../../../../../ (7 levels up)
+const projectRoot = resolve(__dirname, '../../../../../../');
 const distBinPath = resolve(projectRoot, 'dist/bin');
 const preprocessBinary = `${distBinPath}/preprocess`;
 const proverBinary = `${distBinPath}/prove`;
@@ -384,7 +384,7 @@ async function testInitializeState() {
   console.log('\n   📋 All Merkle tree leaves (16 total):');
   console.log('   ─────────────────────────────────────────────────────────');
 
-  const { poseidon_raw } = await import('../../src/interface/qapCompiler/configuredTypes.ts');
+  const { poseidon_raw } = await import('../../../src/interface/qapCompiler/configuredTypes.ts');
 
   for (let i = 0; i < leaves.length; i++) {
     const leaf = leaves[i];
@@ -512,7 +512,7 @@ async function testInitializeState() {
   console.log('🔄 Generating circuit for Participant 1 → Participant 2 transfer...\n');
 
   // Use main.ts pattern: createSynthesizerOptsForSimulationFromRPC + createSynthesizer
-  const proof1Path = resolve(__dirname, '../test-outputs/l2-state-channel-transfer-1');
+  const proof1Path = resolve(__dirname, '../../test-outputs/l2-state-channel-transfer-1');
   const calldataBytes = hexToBytes(addHexPrefix(calldata));
 
   // Build initStorageKeys for Proof #1 (same as verification, but with current state)
@@ -781,7 +781,7 @@ async function testInitializeState() {
   console.log('🔄 Generating circuit for Participant 2 → Participant 3 transfer...\n');
 
   // Use main.ts pattern: createSynthesizerOptsForSimulationFromRPC + createSynthesizer
-  const proof2Path = resolve(__dirname, '../test-outputs/l2-state-channel-transfer-2');
+  const proof2Path = resolve(__dirname, '../../test-outputs/l2-state-channel-transfer-2');
   const calldataBytes2 = hexToBytes(addHexPrefix(calldata2));
 
   // Load state from state_info.json (Proof #1 output)
@@ -1037,7 +1037,7 @@ async function testInitializeState() {
   console.log('🔄 Generating circuit for Participant 3 → Participant 1 transfer...\n');
 
   // Use main.ts pattern: createSynthesizerOptsForSimulationFromRPC + createSynthesizer
-  const proof3Path = resolve(__dirname, '../test-outputs/l2-state-channel-transfer-3');
+  const proof3Path = resolve(__dirname, '../../test-outputs/l2-state-channel-transfer-3');
   const calldataBytes3 = hexToBytes(addHexPrefix(calldata3));
 
   // Load state from state_info.json (Proof #2 output)
