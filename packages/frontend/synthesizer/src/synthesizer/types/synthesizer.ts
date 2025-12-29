@@ -29,10 +29,10 @@ export interface SynthesizerInterface {
   get state(): StateManager
   get placements(): Placements
   synthesizeTX(): Promise<RunTxResult>
+  cachedOpts: SynthesizerOpts
 }
 
 export interface ISynthesizerProvider extends SynthesizerInterface {
-  cachedOpts: SynthesizerOpts,
   // from StateManager
   place(
     name: SubcircuitNames,
