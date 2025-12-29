@@ -360,46 +360,6 @@ export class SynthesizerAdapter {
 
     // Build initStorageKeys and store preAllocatedLeaves for final state
     let previousState: StateSnapshot;
-
-    // if (previousState) {
-    //   // Use previousState to build initStorageKeys
-    //   // For previousState, we need channelId to fetch fresh MPT keys
-    //   if (!channelId) {
-    //     throw new Error('channelId is required even with previousState to fetch current MPT keys');
-    //   }
-    //   const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
-    //   preAllocatedLeaves = previousState.preAllocatedLeaves || [];
-    //   initStorageKeys = await this.buildInitStorageKeys(channelId, effectiveBridgeAddress, preAllocatedLeaves);
-    //   console.log(`[SynthesizerAdapter] Built initStorageKeys from previousState: ${initStorageKeys.length} keys`);
-
-    //   // Use contractAddress from previousState
-    //   if (previousState.contractAddress) {
-    //     options.contractAddress = previousState.contractAddress;
-    //     console.log(`[SynthesizerAdapter] Using contractAddress from previousState: ${previousState.contractAddress}`);
-    //   }
-    // } else if (channelId) {
-    //   // Fetch channel data from on-chain
-    //   console.log(`[SynthesizerAdapter] Fetching channel data from on-chain...`);
-    //   console.log(`  Channel ID: ${channelId}`);
-    //   console.log(`  Bridge Address: ${effectiveBridgeAddress}`);
-
-    //   const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
-    //   preAllocatedLeaves = channelData.preAllocatedLeaves;
-    //   initStorageKeys = await this.buildInitStorageKeys(
-    //     channelId,
-    //     effectiveBridgeAddress,
-    //     channelData.preAllocatedLeaves,
-    //   );
-    //   console.log(`[SynthesizerAdapter] Built initStorageKeys from on-chain: ${initStorageKeys.length} keys`);
-
-    //   // Use targetAddress from on-chain data as contractAddress
-    //   if (channelData.contractAddress) {
-    //     options.contractAddress = channelData.contractAddress;
-    //     console.log(`[SynthesizerAdapter] Using targetAddress from on-chain data: ${channelData.contractAddress}`);
-    //   }
-    // } else {
-    //   throw new Error('Either previousState or channelId must be provided to build initStorageKeys');
-    // }
     if (_previousState === undefined) {
       //Fetch channel data from on-chain
       console.log(`[SynthesizerAdapter] Fetching channel data from on-chain...`);
@@ -466,64 +426,6 @@ export class SynthesizerAdapter {
       console.warn(`   Expected: ${bigIntToHex(prevMTRoot)}`);
       console.warn(`   Restored: ${bigIntToHex(BigInt(restoredRoot))}`);
       }
-
-    // // Restore storage values based on source (BEFORE creating synthesizer)
-    // let expectedInitialRoot: string;
-    // if (previousState) {
-    //   // Restore from previousState (snapshot from previous transaction)
-    //   expectedInitialRoot = previousState.stateRoot;
-    //   console.log(`[SynthesizerAdapter] 📋 Initial Root (from previous state): ${expectedInitialRoot}`);
-    //   console.log(
-    //     `[SynthesizerAdapter] Restoring ${previousState.storageEntries.length} storage entries from previousState...`,
-    //   );
-    //   for (const entry of previousState.storageEntries) {
-    //     const key = hexToBytes(addHexPrefix(entry.key));
-    //     const value = hexToBytes(addHexPrefix(entry.value));
-    //     await stateManager.putStorage(contractAddress, key, value);
-    //   }
-
-    //   // Rebuild initial merkle tree
-    //   console.log('[SynthesizerAdapter] Rebuilding initial merkle tree from previousState...');
-    //   // await stateManager.rebuildInitialMerkleTree();
-    //   // const restoredRoot = stateManager.initialMerkleTree.root;
-    //   const restoredRoot = await stateManager.getUpdatedMerkleTreeRoot();
-    //   const restoredRootHex = bigIntToHex(restoredRoot);
-    //   console.log(`[SynthesizerAdapter] ✅ Restored Merkle Root: ${restoredRootHex}`);
-
-    //   if (hexToBigInt(addHexPrefix(expectedInitialRoot)) !== restoredRoot) {
-    //     console.warn(`[SynthesizerAdapter] ⚠️  Merkle root mismatch!`);
-    //     console.warn(`   Expected: ${expectedInitialRoot}`);
-    //     console.warn(`   Restored: ${restoredRootHex}`);
-    //   }
-    // } else if (channelId) {
-    //   // Fetch and restore from on-chain data
-    //   const channelData = await this.fetchChannelData(channelId, effectiveBridgeAddress, ROLLUP_BRIDGE_CORE_ABI);
-    //   expectedInitialRoot = channelData.initialRoot;
-    //   console.log(`[SynthesizerAdapter] 📋 Initial Root (from on-chain): ${expectedInitialRoot}`);
-
-    //   // Restore storage entries from on-chain data
-    //   console.log(
-    //     `[SynthesizerAdapter] Restoring ${channelData.storageEntries.length} storage entries from on-chain...`,
-    //   );
-    //   for (const entry of channelData.storageEntries) {
-    //     const key = hexToBytes(addHexPrefix(entry.key));
-    //     const value = hexToBytes(addHexPrefix(entry.value));
-    //     await stateManager.putStorage(contractAddress, key, value);
-    //   }
-
-    //   // Rebuild initial merkle tree
-    //   console.log('[SynthesizerAdapter] Rebuilding initial merkle tree from on-chain data...');
-    //   await stateManager.rebuildInitialMerkleTree();
-    //   const restoredRoot = stateManager.initialMerkleTree.root;
-    //   const restoredRootHex = '0x' + restoredRoot.toString(16).padStart(64, '0');
-    //   console.log(`[SynthesizerAdapter] ✅ Restored Merkle Root: ${restoredRootHex}`);
-
-    //   if (expectedInitialRoot && restoredRootHex.toLowerCase() !== expectedInitialRoot.toLowerCase()) {
-    //     console.warn(`[SynthesizerAdapter] ⚠️  Merkle root mismatch!`);
-    //     console.warn(`   Expected: ${expectedInitialRoot}`);
-    //     console.warn(`   Restored: ${restoredRootHex}`);
-    //   }
-    // }
 
     // NOW create synthesizer (AFTER merkle tree is properly restored)
     console.log('[SynthesizerAdapter] Creating synthesizer with restored state...');
@@ -636,15 +538,6 @@ export class SynthesizerAdapter {
     if (outputPath) {
       writeCircuitJson(circuitGenerator, outputPath);
       console.log(`[SynthesizerAdapter] ✅ Outputs written to: ${outputPath}`);
-
-      // // Also save previous_state_snapshot.json
-      // const previousStateSnapshotPath = resolve(outputPath, 'previous_state_snapshot.json');
-      // writeFileSync(
-      //   previousStateSnapshotPath,
-      //   JSON.stringify(previousState, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
-      //   'utf-8',
-      // );
-      // console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${previousStateSnapshotPath}`);
 
       // Also save state_snapshot.json
       const stateSnapshotPath = resolve(outputPath, 'state_snapshot.json');
