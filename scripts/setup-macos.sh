@@ -403,7 +403,7 @@ main() {
         echo -e "  ${BRIGHT_GREEN}${BOLD}${ICON_DONE} All dependencies are installed!${RESET}"
         echo ""
         echo -e "  ${BRIGHT_CYAN}You're ready to use Tokamak zk-EVM.${RESET}"
-        echo -e "  ${DIM}Run ${RESET}${BOLD}./tokamak-cli --install <API_KEY>${RESET}${DIM} to get started.${RESET}"
+        echo -e "  ${DIM}From the repo root, run:${RESET} ${BOLD}./tokamak-cli --install <API_KEY>${RESET}"
         echo ""
         exit 0
     fi
@@ -571,7 +571,7 @@ main() {
         echo ""
         echo -e "  ${BRIGHT_CYAN}Next steps:${RESET}"
         echo -e "  ${DIM}1.${RESET} ${WHITE}Restart your terminal${RESET} ${DIM}(to refresh PATH)${RESET}"
-        echo -e "  ${DIM}2.${RESET} ${WHITE}Run:${RESET} ${BOLD}./tokamak-cli --install <YOUR_ALCHEMY_API_KEY>${RESET}"
+        echo -e "  ${DIM}2.${RESET} ${WHITE}From the repo root, run:${RESET} ${BOLD}./tokamak-cli --install <YOUR_ALCHEMY_API_KEY>${RESET}"
         echo ""
         echo -e "  ${DIM}For more information, see README.md${RESET}"
     else
