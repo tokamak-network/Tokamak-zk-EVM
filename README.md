@@ -148,8 +148,8 @@ From the repository root:
 
 | Package                                            | Description                                                                        | Language   | Status   |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------- | -------- |
-| [`qap-compiler`](./packages/frontend/qap-compiler) | Library of subcircuits for basic EVM operations                                    | circom     | 🔥 Alpha |
-| [`synthesizer`](./packages/frontend/synthesizer)   | Compiler that converts an Ethereum transaction into a circuit for Tokamak zk-SNARK | javascript | 🔥 Alpha |
+| [`qap-compiler`](./packages/frontend/qap-compiler) | Library of subcircuits for basic EVM operations                                    | circom     | 🧪 Beta |
+| [`synthesizer`](./packages/frontend/synthesizer)   | Compiler that converts an Ethereum transaction into a circuit for Tokamak zk-SNARK | javascript | 🧪 Beta |
 
 ### Backend Packages
 
