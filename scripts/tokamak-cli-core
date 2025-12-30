@@ -1,29 +1,33 @@
 #!/usr/bin/env bash
-# tokamak-zk-evm — helper CLI for Tokamak-zk-EVM
-# Notes:
-#   - Before executing any internal shell script, this CLI normalizes line endings via dos2unix
-#     and ensures the script is executable, to avoid Windows CRLF issues.
-# Commands:
-#   --install <API_KEY|RPC_URL>  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
-#   --prove <TX_HASH> [<DIR>]    Generate and verify a proof; copy the proof to <DIR> (default: ./.your_proof)
-#   --verify <SAVE_PATH>        Verify a proof at <SAVE_PATH>
-#   --help                       Show usage
-#
-# This script intentionally supports ONLY the three commands above.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
+
+# Global config
+VERBOSE=false
+INSTALL_USE_BUN=false
+
+# ---------- Importing functions ----------
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=channel-functions.sh
+source "$SCRIPT_DIR/channel-functions.sh"
 
 # ---------- Pretty print ----------
 log() { echo -e "\033[1;34m[tokamak-cli]\033[0m $*"; }
 ok()  { echo -e "\033[1;32m[ ok ]\033[0m $*"; }
 err() { echo -e "\033[1;31m[error]\033[0m $*" >&2; }
+verbose() { if [[ "$VERBOSE" == true ]]; then echo -e "\033[1;36m[info]\033[0m $*" >&2; fi; }
 
 # ---------- Helpers ----------
 npm_install_safe() {
   local dir="$1"
+  verbose "Installing npm dependencies in: $dir"
   pushd "$dir" >/dev/null
-  npm install
+  if [[ "$VERBOSE" == true ]]; then
+    npm install
+  else
+    npm install --silent
+  fi
   popd >/dev/null
 }
 
@@ -40,6 +44,16 @@ to_unix_exec() {
 
 # ---------- Minimal helpers for DRY ----------
 ensure_file() { local f="$1"; [[ -f "$f" ]] || { err "Missing: $f"; return 1; }; }
+
+abs_path_from_root() {
+  local path="$1"
+  [[ -n "$path" ]] || { echo ""; return 1; }
+  if [[ "$path" != /* ]]; then
+    echo "$ROOT/$path"
+  else
+    echo "$path"
+  fi
+}
 
 # Run a script with timing; if second arg is 1, capture stdout to a temp log.
 # Sets globals: RUN_START_MS, RUN_END_MS, RUN_OK(true/false), RUN_LOG(path or empty)
@@ -289,54 +303,217 @@ packaging_script_for_target() {
 }
 
 dist_dir_for_target() {
-  case "$1" in
-    mac)     echo "$ROOT/dist/macOS" ;;
-    linux20) echo "$ROOT/dist/linux20" ;;
-    linux22) echo "$ROOT/dist/linux22" ;;
-    *)       echo "$ROOT/dist/linux22" ;;
-  esac
+  echo "$ROOT/dist"
 }
 
 # Copy synthesizer outputs (after demo run) into backend dist resource
 sync_synth_outputs_to_dist() {
-  local src="$FE_SYN/examples/outputs"
+  local src="$FE_SYN/outputs"
   local target dist_dir dest
   target="$(detect_target)"
   dist_dir="$(dist_dir_for_target "$target")"
-  dest="$dist_dir/resource/synthesizer/outputs"
+  dest="$dist_dir/resource/synthesizer/output"
 
   log "Sync Synth outputs → $dest (target=$target)"
   [[ -d "$src" ]] || { err "Synth outputs not found: $src"; exit 1; }
   mkdir -p "$dest"
   cp -af "$src/." "$dest/"
-  ok "Synth outputs copied"
+  ok "Synth outputs copied → $dest"
+  echo "$dest"
 }
 
-read_tx_hash() {
-  local f="$1"
-  [[ -f "$f" ]] || { err "transaction_hash.txt not found: $f"; exit 1; }
-  # Read and normalize: strip whitespace/CR, lowercase, drop optional 0x, validate 32-byte hex
-  local raw cleaned cleaned_lower no0x hex
-  raw="$(cat "$f")"
-  cleaned="$(printf '%s' "$raw" | tr -d '\r\n\t ' )"
-  cleaned_lower="$(printf '%s' "$cleaned" | tr '[:upper:]' '[:lower:]')"
-  if [[ "$cleaned_lower" == 0x* ]]; then
-    no0x="${cleaned_lower:2}"
-  else
-    no0x="$cleaned_lower"
-  fi
-  if [[ "$no0x" =~ ^[0-9a-f]{64}$ ]]; then
-    hex="$no0x"
-  else
-    err "Invalid transaction hash in $f (expect 32-byte hex; got ${#no0x} chars)."
+find_first_match_or_exit() {
+  local src_dir="$1"
+  local filename="$2"
+  local label="${3:-$filename}"
+  local matches first match_count
+  matches="$(find "$src_dir" -type f -name "$filename" 2>/dev/null)"
+  if [[ -z "$matches" ]]; then
+    err "Missing $label under: $src_dir"
     exit 1
   fi
-  echo "0x$hex"
+  first="$(printf '%s\n' "$matches" | head -n1)"
+  match_count="$(printf '%s\n' "$matches" | wc -l | tr -d ' ')"
+  if [[ "$match_count" -gt 1 ]]; then
+    verbose "Multiple $label found; using: $first"
+  fi
+  printf '%s\n' "$first"
+}
+
+extract_zip_to_tmp_or_exit() {
+  local zip_path_raw="$1"
+  local tmp_prefix="$2"
+  local zip_path
+  zip_path="$(abs_path_from_root "$zip_path_raw")"
+  [[ -f "$zip_path" ]] || { err "Zip file not found: $zip_path_raw"; exit 1; }
+  if ! command -v unzip >/dev/null 2>&1; then
+    err "unzip not found (required to extract: $zip_path_raw)"
+    exit 1
+  fi
+  if ! unzip -t "$zip_path" >/dev/null 2>&1; then
+    err "Invalid zip archive: $zip_path_raw"
+    exit 1
+  fi
+
+  local tmp_dir
+  tmp_dir="$(mktemp -d -t "${tmp_prefix}.XXXXXX")"
+
+  if ! unzip -q "$zip_path" -d "$tmp_dir"; then
+    rm -rf "$tmp_dir"
+    err "Failed to extract zip: $zip_path_raw"
+    exit 1
+  fi
+
+  printf '%s\n' "$tmp_dir"
+}
+
+sync_from_path() {
+  local path_raw="${1:-}"
+  local dir_handler="${2:-}"
+  local zip_handler="${3:-}"
+  [[ -n "$path_raw" ]] || { err "Path is required"; exit 1; }
+  local path
+  path="$(abs_path_from_root "$path_raw")"
+  if [[ -d "$path" ]]; then
+    "$dir_handler" "$path"
+    return
+  fi
+  if [[ -f "$path" ]]; then
+    "$zip_handler" "$path_raw"
+    return
+  fi
+  err "Path not found: $path_raw"
+  exit 1
+}
+
+sync_synth_outputs_from_dir() {
+  local src_dir="${1:-}"
+  [[ -n "$src_dir" ]] || { err "Source directory is required"; exit 1; }
+
+  local required_files=(
+    "instance_description.json"
+    "instance.json"
+    "permutation.json"
+    "placementVariables.json"
+  )
+
+  local found_files=()
+  local name
+  for name in "${required_files[@]}"; do
+    found_files+=("$(find_first_match_or_exit "$src_dir" "$name")")
+  done
+
+  local target dist_dir dest
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+  dest="$dist_dir/resource/synthesizer/output"
+
+  log "Prove: syncing synthesizer outputs → $dest"
+  mkdir -p "$dest"
+  local i
+  for i in "${!required_files[@]}"; do
+    cp -f "${found_files[$i]}" "$dest/${required_files[$i]}"
+  done
+  local state_matches state_first state_count
+  state_matches="$(find "$src_dir" -type f -name "state_snapshot.json" 2>/dev/null)"
+  if [[ -n "$state_matches" ]]; then
+    state_first="$(printf '%s\n' "$state_matches" | head -n1)"
+    state_count="$(printf '%s\n' "$state_matches" | wc -l | tr -d ' ')"
+    if [[ "$state_count" -gt 1 ]]; then
+      verbose "Multiple state_snapshot.json found; using: $state_first"
+    fi
+    cp -f "$state_first" "$dest/state_snapshot.json"
+  fi
+
+  ok "Synth outputs copied → $dest"
+}
+
+sync_synth_outputs_from_zip() {
+  local zip_path_raw="${1:-}"
+  [[ -n "$zip_path_raw" ]] || { err "Zip path is required"; exit 1; }
+  local tmp_dir
+  tmp_dir="$(extract_zip_to_tmp_or_exit "$zip_path_raw" "tokamak_prove_zip")"
+  sync_synth_outputs_from_dir "$tmp_dir"
+  rm -rf "$tmp_dir"
+}
+
+sync_synth_outputs_from_path() {
+  sync_from_path "$1" sync_synth_outputs_from_dir sync_synth_outputs_from_zip
+}
+
+sync_proof_from_dir() {
+  local src_dir="${1:-}"
+  [[ -n "$src_dir" ]] || { err "Source directory is required"; exit 1; }
+
+  local target dist_dir
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+
+  log "Verify: syncing artifacts from $src_dir"
+
+  # Sync required files
+  local files_to_sync=(
+    "resource/prove/output/proof.json"
+    "resource/synthesizer/output/instance.json"
+    "resource/preprocess/output/permutation.json"
+  )
+
+  for rel_path in "${files_to_sync[@]}"; do
+    local filename dest_path src_file
+    filename="$(basename "$rel_path")"
+    dest_path="$dist_dir/$rel_path"
+
+    src_file="$(find_first_match_or_exit "$src_dir" "$filename")"
+
+    mkdir -p "$(dirname "$dest_path")"
+    cp -f "$src_file" "$dest_path"
+    ok "Synced $filename → $dest_path"
+  done
+}
+
+sync_proof_from_zip() {
+  local zip_path_raw="${1:-}"
+  [[ -n "$zip_path_raw" ]] || { err "Zip path is required"; exit 1; }
+  local tmp_dir
+  tmp_dir="$(extract_zip_to_tmp_or_exit "$zip_path_raw" "tokamak_verify_zip")"
+  sync_proof_from_dir "$tmp_dir"
+  rm -rf "$tmp_dir"
+}
+
+sync_proof_from_path() {
+  sync_from_path "$1" sync_proof_from_dir sync_proof_from_zip
+}
+
+run_synthesizer() {
+  local config_path_raw="$1"
+  [[ -n "$config_path_raw" ]] || { err "Synthesizer config path is required"; exit 1; }
+  local config_path
+  config_path="$(abs_path_from_root "$config_path_raw")"
+  [[ -f "$config_path" ]] || { err "Synthesizer config not found: $config_path"; exit 1; }
+
+  pushd "$FE_SYN" >/dev/null
+  if [[ -f .env ]]; then
+    verbose "Using RPC_URL from synthesizer/.env"
+    npm run ton-transfer-l2 "$config_path"
+  else
+    err "RPC_URL not configured. Run --install first or set RPC_URL environment variable"
+    exit 1
+  fi
+  popd >/dev/null
 }
 
 step_install() {
   local install_arg="${1:-}"
   [[ -n "$install_arg" ]] || { err "--install requires <API_KEY|RPC_URL>"; exit 1; }
+
+  log "Install: writing synthesizer .env"
+  local rpc_url
+  if [[ "$install_arg" == https://* ]]; then
+    rpc_url="$install_arg"
+  else
+    rpc_url="https://eth-mainnet.g.alchemy.com/v2/${install_arg}"
+  fi
+  printf "RPC_URL='%s'\n" "$rpc_url" > "$FE_SYN/.env"
 
   log "Install: installing frontend dependencies"
   npm_install_safe "$FE_QAP"
@@ -357,14 +534,14 @@ step_install() {
   # pushd "$BE_ROOT" >/dev/null
   [[ -f "$script" ]] || { err "Packaging script missing: $script"; exit 1; }
   to_unix_exec "$script"
-  
+
   # Detect CI environment and set appropriate options
   # Different behavior based on CI job type:
   # - Proof Generation Test: needs fresh setup generation (--bun only)
   # - Binary Building: uses prebuilt setup (--bun --no-setup)
- 
+
   local packaging_options=()
-  
+
   # Add platform-specific option for unified script
   case "$target" in
     mac)     packaging_options+=("--macos") ;;
@@ -372,7 +549,12 @@ step_install() {
     linux22) packaging_options+=("--linux") ;;
     *)       packaging_options+=("--linux") ;;
   esac
-  
+  packaging_options+=("--target-dir" "$ROOT/dist")
+
+  if [[ "$INSTALL_USE_BUN" == true ]]; then
+    packaging_options+=("--bun")
+  fi
+
   if [ -z "${GITHUB_ACTIONS:-}" ] && [ -z "${CI:-}" ] && [ -z "${CONTINUOUS_INTEGRATION:-}" ]; then
     # Local environment: use default settings (npm) and skip compression
     packaging_options+=("--no-compress")
@@ -390,66 +572,74 @@ step_install() {
       log "Install: CI environment, generating fresh setup - using options: ${packaging_options[*]}"
     fi
   fi
-  
+
   bash "$script" "${packaging_options[@]}"
   # popd >/dev/null
-
-  log "Install: writing synthesizer .env"
-  local rpc_url
-  if [[ "$install_arg" == https://* ]]; then
-    rpc_url="$install_arg"
-  else
-    rpc_url="https://eth-mainnet.g.alchemy.com/v2/${install_arg}"
-  fi
-  printf "RPC_URL='%s'\n" "$rpc_url" > "$FE_SYN/.env"
 
   ok "Install complete"
 }
 
-step_prove() {
-  local tx_hash="${1:-}"
-  local save_path="${2:-}"
-  [[ -n "$tx_hash" ]] || { err "--prove requires <TX_HASH> [<SAVE_PATH>]"; exit 1; }
-  [[ -n "$save_path" ]] || save_path=".your_proof"
+step_synthesize() {
+  local config_path_raw="${1:-}"
+  [[ -n "$config_path_raw" ]] || { err "--synthesize requires <TX_CONFIG_JSON_PATH>"; exit 1; }
 
-  # Convert to absolute path based on ROOT
-  local abs_save_path="$ROOT/$save_path"
-  # Prepare session metadata
-  local session_start_ms session_end_ms session_id ts_iso
-  session_start_ms="$(now_ms)"
-  ts_iso="$(iso_now)"
-  session_id="benchmark_${session_start_ms}_$(rand_suffix)"
+  local config_path
+  config_path="$(abs_path_from_root "$config_path_raw")"
+  [[ -f "$config_path" ]] || { err "Config JSON not found: $config_path_raw"; exit 1; }
 
-  # Ensure save directory exists and persist the provided transaction hash
-  mkdir -p "$abs_save_path"
-  printf '%s\n' "$tx_hash" > "$abs_save_path/transaction_hash.txt"
+  local target dist_dir proof_output synth_config_dest
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+  proof_output="$dist_dir/resource/prove/output"
+  synth_config_dest="$dist_dir/resource/synthesizer/input/config.json"
+  mkdir -p "$proof_output" "$(dirname "$synth_config_dest")"
+  cp "$config_path" "$synth_config_dest"
 
-  log "Prove: synthesize from tx=$tx_hash"
-  pushd "$FE_SYN" >/dev/null
-  npm run synthesizer "$tx_hash"
-  popd >/dev/null
+  log "Synthesize: running frontend synthesizer with config=$config_path"
+  run_synthesizer "$config_path"
 
   sync_synth_outputs_to_dist
+  ok "Synthesize complete. Synth outputs in $dist_dir/resource/synthesizer/output"
+  ok "Saved synth config → $synth_config_dest"
+}
 
-  local target dist_dir run3 run4 run5
+step_preprocess() {
+  local target dist_dir run3 backend_resource
   target="$(detect_target)"
   dist_dir="$(dist_dir_for_target "$target")"
   run3="$dist_dir/3_run-preprocess.sh"
-  run4="$dist_dir/4_run-prove.sh"
-  run5="$dist_dir/5_run-verify.sh"
+  backend_resource="$dist_dir/resource/prove"
 
-  log "Prove: running backend scripts 3→5 (target=$target)"
-  local missing=0
-  for s in "$run3" "$run4" "$run5"; do
-    ensure_file "$s" || missing=1
-  done
-  [[ $missing -eq 0 ]] || exit 1
+  log "Preprocess: running backend preprocess (target=$target)"
+  ensure_file "$run3" || exit 1
 
-  # ---- preprocess ----
   run_timed "$run3" 0
   local pre_s="$RUN_START_MS" pre_e="$RUN_END_MS" pre_ok=$RUN_OK
+  if [[ "$pre_ok" != true ]]; then
+    err "Preprocess failed"
+    exit 1
+  fi
 
-  # ---- prove (capture log) ----
+  local pre_dur=$(( pre_e - pre_s ))
+  ok "Preprocess complete (${pre_dur} ms) → $backend_resource"
+}
+
+step_prove() {
+  local input_arg="${1:-}"
+  if [[ -n "$input_arg" ]]; then
+    sync_synth_outputs_from_path "$input_arg"
+  fi
+
+  local target dist_dir run4 proof_output
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+  run4="$dist_dir/4_run-prove.sh"
+  proof_output="$dist_dir/resource/prove/output"
+
+  log "Prove: running backend prove (target=$target)"
+  ensure_file "$run4" || exit 1
+  mkdir -p "$proof_output"
+
   run_timed "$run4" 1
   local prove_s="$RUN_START_MS" prove_e="$RUN_END_MS" prove_ok=$RUN_OK
   local checkpoints_json="[]" pinit p0 p1 p2 p3 p4 ptotal
@@ -464,41 +654,18 @@ step_prove() {
     ptotal=$(sed -n 's/.*Total proving time: *\([0-9][0-9.]*\).*/\1/p' "$RUN_LOG" | tail -n1)
   fi
 
-  # ---- verify (capture last line) ----
-  run_timed "$run5" 1
-  local ver_s="$RUN_START_MS" ver_e="$RUN_END_MS" verify_out=""
-  if [[ -n "$RUN_LOG" && -s "$RUN_LOG" ]]; then
-    verify_out="$(tail -n1 "$RUN_LOG")"
-  fi
-  local ver_ok=true
-  if [[ "$verify_out" == "true" || "$verify_out" == "true"$'\r' ]]; then ver_ok=true; else ver_ok=false; fi
-  log "Prove: verify output => $verify_out"
-
-  if [[ "$ver_ok" == true ]]; then
-    log "Prove: verification ok; copying proof"
-    mkdir -p "$abs_save_path"
-    if [[ -d "$dist_dir/resource/prove/output" ]]; then
-      cp -a "$dist_dir/resource/prove/output/." "$abs_save_path/"
-      ok "Artifacts copied → $abs_save_path"
-    else
-      err "Output directory not found: $dist_dir/resource/prove/output"
-    fi
-  else
-    err "Verification failed (expected 'true')."
+  if [[ "$prove_ok" != true ]]; then
+    err "Prove failed"
+    exit 1
   fi
 
-  session_end_ms="$(now_ms)"
-
-  # ---- hardware info JSON ----
-  local hw_json
+  local hw_json session_id ts_iso bench_json prove_dur total_dur
+  session_id="benchmark_${prove_s}_$(rand_suffix)"
+  ts_iso="$(iso_now)"
   hw_json="$(gather_hardware_json)"
-
-  # ---- build benchmark.json ----
-  local bench_json="$abs_save_path/benchmark.json"
-  local pre_dur=$(( pre_e - pre_s ))
-  local prove_dur=$(( prove_e - prove_s ))
-  local ver_dur=$(( ver_e - ver_s ))
-  local total_dur=$(( session_end_ms - session_start_ms ))
+  prove_dur=$(( prove_e - prove_s ))
+  total_dur=$prove_dur
+  bench_json="$proof_output/benchmark.json"
 
   cat > "$bench_json" <<JSON
 {
@@ -506,17 +673,11 @@ step_prove() {
   "timestamp": "${ts_iso}",
   "hardwareInfo": ${hw_json},
   "processes": {
-    "preprocess": {
-      "startTime": ${pre_s},
-      "endTime": ${pre_e},
-      "duration": ${pre_dur},
-      "success": $( [[ "$pre_ok" == true ]] && echo true || echo false )
-    },
     "prove": {
       "startTime": ${prove_s},
       "endTime": ${prove_e},
       "duration": ${prove_dur},
-      "success": $( [[ "$prove_ok" == true ]] && echo true || echo false ),
+      "success": true,
       "details": {
         "checkPoints": ${checkpoints_json},
         "proverInitTime": ${pinit:-null},
@@ -527,12 +688,6 @@ step_prove() {
         "prove4Time": ${p4:-null},
         "totalProvingTime": ${ptotal:-null}
       }
-    },
-    "verify": {
-      "startTime": ${ver_s},
-      "endTime": ${ver_e},
-      "duration": ${ver_dur},
-      "success": $( [[ "$ver_ok" == true ]] && echo true || echo false )
     }
   },
   "metadata": {
@@ -544,49 +699,114 @@ JSON
 
   ok "Benchmark written → $bench_json"
 
-  # ---- zip artifacts ----
-  local zip_name="tokamak-zk-evm-proof.zip"
-  if make_zip "$abs_save_path" "$zip_name"; then
-    ok "Zipped proof → $abs_save_path/$zip_name"
-  else
-    err "Failed to create zip archive"
+  ok "Proof artifacts available in $proof_output"
+}
+
+step_extract_proof() {
+  local out_dir="${1:-}"
+  [[ -n "$out_dir" ]] || { err "--extract-proof requires <OUTPUT_DIR>"; exit 1; }
+  out_dir="$(abs_path_from_root "$out_dir")"
+  mkdir -p "$out_dir"
+
+  local dist_dir tmp_dir zip_name
+  dist_dir="$(dist_dir_for_target "$(detect_target)")"
+  tmp_dir="$(mktemp -d -t tokamak_extract.XXXXXX)"
+  zip_name="transaction_zkp.zip"
+
+  local artifacts=(
+    "resource/synthesizer/output/instance.json"
+    "resource/synthesizer/output/instance_description.json"
+    "resource/preprocess/output/preprocess.json"
+    "resource/prove/output/benchmark.json"
+    "resource/prove/output/proof.json"
+  )
+  local optional_artifacts=(
+    "resource/synthesizer/output/state_snapshot.json"
+  )
+
+  local missing=0
+  for rel in "${artifacts[@]}"; do
+    local src="$dist_dir/$rel"
+    if [[ ! -f "$src" ]]; then
+      err "Missing artifact: $src"
+      missing=1
+    fi
+  done
+  if [[ $missing -ne 0 ]]; then
+    rm -rf "$tmp_dir"
     exit 1
   fi
 
-  # Final exit based on verify result (JSON/ZIP already written for diagnostics)
-  [[ "$ver_ok" == true ]] || exit 1
+  for rel in "${artifacts[@]}"; do
+    local src="$dist_dir/$rel"
+    local dest="$tmp_dir/$rel"
+    mkdir -p "$(dirname "$dest")"
+    cp "$src" "$dest"
+  done
+  for rel in "${optional_artifacts[@]}"; do
+    local src="$dist_dir/$rel"
+    if [[ -f "$src" ]]; then
+      local dest="$tmp_dir/$rel"
+      mkdir -p "$(dirname "$dest")"
+      cp "$src" "$dest"
+    fi
+  done
+
+  if make_zip "$tmp_dir" "$zip_name"; then
+    mv -f "$tmp_dir/$zip_name" "$out_dir/$zip_name"
+    ok "transaction_zkp.zip written → $out_dir/$zip_name"
+  else
+    err "Failed to create proof archive"
+    rm -rf "$tmp_dir"
+    exit 1
+  fi
+
+  rm -rf "$tmp_dir"
 }
 
 step_verify() {
-  local save_path="${1:-}"
-  [[ -n "$save_path" ]] || { err "--verify requires <SAVE_PATH>"; exit 1; }
-  local proof_path="$ROOT/$save_path"
-  local tx_hash="$(read_tx_hash "$proof_path/transaction_hash.txt")"
+  local base_arg="${1:-}"
 
-  [[ -f "$proof_path/proof.json" ]] || { err "proof.json not found in: $save_path"; exit 1; }
-
-  log "Verify: synthesize from tx=$tx_hash"
-  pushd "$FE_SYN" >/dev/null
-  npm run synthesizer "$tx_hash"
-  popd >/dev/null
-
-  sync_synth_outputs_to_dist
-
-  local target dist_dir run3 run5
+  local target dist_dir resource_dir proof_dir run5
   target="$(detect_target)"
   dist_dir="$(dist_dir_for_target "$target")"
-  run3="$dist_dir/3_run-preprocess.sh"
+  resource_dir="$dist_dir/resource"
+  proof_dir="$resource_dir/prove/output"
   run5="$dist_dir/5_run-verify.sh"
 
-  log "Verify: running verifier preprocess and verify (target=$target)"
-  [[ -f "$run3" ]] || { err "Missing: $run3"; exit 1; }
-  [[ -f "$run5" ]] || { err "Missing: $run5"; exit 1; }
+  if [[ -n "$base_arg" ]]; then
+    sync_proof_from_path "$base_arg"
+  else
+    [[ -d "$resource_dir" ]] || { err "resource directory not found: $resource_dir"; exit 1; }
+  fi
 
-  to_unix_exec "$run3"
-  bash "$run3"
+  local preprocess_file="$resource_dir/preprocess/output/preprocess.json"
+  local proof_file="$proof_dir/proof.json"
+  local instance_file="$resource_dir/synthesizer/output/instance.json"
+  local sigma_verify="$resource_dir/setup/output/sigma_verify.json"
+
+  local missing=()
+  [[ -f "$preprocess_file" ]] || missing+=("$preprocess_file (run --preprocess)")
+  [[ -f "$proof_file" ]] || missing+=("$proof_file (run --prove)")
+  [[ -f "$instance_file" ]] || missing+=("$instance_file (run --synthesize)")
+  [[ -f "$sigma_verify" ]] || missing+=("$sigma_verify (run --preprocess to regenerate setup outputs)")
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    err "Missing required artifacts for verification:"
+    for m in "${missing[@]}"; do
+      echo "  - $m" >&2
+    done
+    echo "💡 Run the indicated steps to generate the missing files, then re-run --verify." >&2
+    exit 1
+  fi
+
+  [[ -f "$run5" ]] || { err "Missing verifier script: $run5"; exit 1; }
+
+  log "Verify: using artifacts in $resource_dir"
   to_unix_exec "$run5"
   export ICICLE_BACKEND_INSTALL_DIR="${dist_dir}/backend-lib/icicle/lib/backend"
-  verify_out="$(bash "$run5" "$proof_path" | tail -n1)"
+  local verify_out
+  verify_out="$(bash "$run5" "$proof_dir" | tail -n1)"
   if [[ "$verify_out" == "true" || "$verify_out" == "true"$'\r' ]]; then
     ok "Verify: verify output => $verify_out"
   else
@@ -596,43 +816,90 @@ step_verify() {
 
 }
 
-# ---------- CLI ----------
-print_usage() {
-  cat <<'USAGE'
+# System health check
+step_doctor() {
+  log "Running system health check..."
 
-Commands:
-  --install <API_KEY|RPC_URL>
-      Install and setup Tokamak ZKP 
+  local all_good=true
 
-  --prove <TX_HASH> [<SAVE_PATH>]
-      Convert an Ethereum transaction into a zero-knowledge proof
+  # Check basic requirements
+  for cmd in node npm circom rustc cmake dos2unix; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+      if [[ "$VERBOSE" == true ]]; then
+        case "$cmd" in
+          node) verbose "node: $(node --version)" ;;
+          npm) verbose "npm: $(npm --version)" ;;
+          circom) verbose "circom: $(circom --version | head -1)" ;;
+          rustc) verbose "rustc: $(rustc --version)" ;;
+          *) verbose "$cmd: found" ;;
+        esac
+      fi
+    else
+      err "$cmd: not found"
+      case "$cmd" in
+        node) echo "💡 Install from https://nodejs.org/" >&2 ;;
+        circom) echo "💡 Install from https://docs.circom.io/getting-started/installation/" >&2 ;;
+        rustc) echo "💡 Install from https://www.rust-lang.org/tools/install" >&2 ;;
+        cmake) echo "💡 Install from https://cmake.org/download/" >&2 ;;
+        dos2unix) echo "💡 Install with: brew install dos2unix (macOS) or apt-get install dos2unix (Ubuntu)" >&2 ;;
+      esac
+      all_good=false
+    fi
+  done
 
-  --verify <PROOF_PATH>
-      Verify a proof saved at <PROOF_PATH>.
-      Requirements in <PROOF_PATH>:
-        - transaction_hash.txt  (tx hash; with or without 0x)
-        - proof.json
+  # Check project structure
+  if [[ ! -d "$FE_QAP" ]]; then
+    err "QAP compiler directory missing: $FE_QAP"
+    all_good=false
+  else
+    verbose "QAP compiler directory: exists"
+  fi
 
-  --help
-      Show this help
-USAGE
+  if [[ ! -d "$FE_SYN" ]]; then
+    err "Synthesizer directory missing: $FE_SYN"
+    all_good=false
+  else
+    verbose "Synthesizer directory: exists"
+  fi
+
+  # Check if installed
+  if [[ ! -f "$FE_SYN/.env" ]]; then
+    err "Not installed - run --install first"
+    echo "💡 Run: ./tokamak-cli --install <YOUR_API_KEY>" >&2
+    all_good=false
+  else
+    verbose "Installation: complete (.env found)"
+  fi
+
+  # Check disk space (basic)
+  local available_gb
+  case "$(uname -s)" in
+    Darwin)
+      available_gb=$(df -g . | awk 'NR==2 {print $4}')
+      ;;
+    Linux)
+      available_gb=$(df -BG . | awk 'NR==2 {print $4}' | tr -d 'G')
+      ;;
+    *)
+      available_gb=0
+      ;;
+  esac
+
+  if [[ $available_gb -lt 5 ]]; then
+    err "Low disk space: ${available_gb}GB available (need 5GB+)"
+    all_good=false
+  else
+    verbose "Disk space: ${available_gb}GB available"
+  fi
+
+  if [[ "$all_good" == true ]]; then
+    ok "System is ready! 🚀"
+  else
+    err "Found issues that need attention"
+    exit 1
+  fi
 }
 
-# Parse args (only the three supported commands)
-[[ $# -gt 0 ]] || { print_usage; exit 1; }
-
-CMD=""; ARG1=""; ARG2=""
-case "$1" in
-  --install) CMD="install"; ARG1="${2:-}"; [[ -n "$ARG1" ]] || { err "--install requires <API_KEY|RPC_URL>"; exit 1; } ;;
-  --prove) CMD="prove"; ARG1="${2:-}"; ARG2="${3:-}"; [[ -n "$ARG1" ]] || { err "--prove requires <TX_HASH> [<SAVE_PATH>]"; exit 1; } ;;
-  --verify) CMD="verify"; ARG1="${2:-}"; [[ -n "$ARG1" ]] || { err "--verify requires <SAVE_PATH>"; exit 1; } ;;
-  --help|-h) print_usage; exit 0 ;;
-  *) err "Unknown option: $1"; print_usage; exit 1 ;;
-esac
-
-# Dispatch
-case "$CMD" in
-  install) step_install "$ARG1" ;;
-  prove) step_prove "$ARG1" "${ARG2:-}" ;;
-  verify) step_verify "$ARG1" ;;
-esac
+# ---------- CLI entrypoint ----------
+# shellcheck source=interface.sh
+source "$SCRIPT_DIR/interface.sh"

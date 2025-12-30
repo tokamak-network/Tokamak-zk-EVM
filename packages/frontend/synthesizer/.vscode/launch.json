@@ -6,9 +6,9 @@
       "request": "launch",
       "name": "Launch with tsx",
       "runtimeExecutable": "tsx",
-      "program": "${workspaceFolder}/examples/demo/index.ts",
-      "args": [],
-      "cwd": "${workspaceFolder}/examples/demo",
+      "program": "${workspaceFolder}/examples/L2TONTransfer/main.ts",
+      "args": ["${workspaceFolder}/examples/L2TONTransfer/input.json"],
+      "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],
       "console": "integratedTerminal", 
     }

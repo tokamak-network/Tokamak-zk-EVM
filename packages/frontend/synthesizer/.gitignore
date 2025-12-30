@@ -14,3 +14,6 @@ dist/
 # binary
 bin/
 resource/
+
+# test outputs
+test-outputs/

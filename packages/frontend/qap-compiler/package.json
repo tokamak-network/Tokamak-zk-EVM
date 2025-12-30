@@ -18,9 +18,10 @@
   "files": [
     "dist/**/*",
     "README.md",
-    "LICENSE"
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
   ],
-  "license": "MPL-2.0",
+  "license": "MIT OR Apache-2.0",
   "author": "Tokamak Network",
   "contributors": [
     "JehyukJang <https://github.com/JehyukJang>",
@@ -39,7 +40,9 @@
     "circom_tester": "^0.0.20",
     "circomlib": "^2.0.5",
     "ffjavascript": "^0.2.55",
-    "mocha": "^11.0.1"
+    "mocha": "^11.0.1",
+    "poseidon-bls12381-circom": "^1.0.0",
+    "@noble/curves": "^1.9.7"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

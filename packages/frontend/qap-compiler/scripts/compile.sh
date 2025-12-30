@@ -1,10 +1,10 @@
 # The buffers must be placed in the following order: "bufferPubOut" "bufferPubIn" "bufferPrvOut" "bufferPrvIn"
 
 # Library configuration for n=1024
-names=("bufferPubOut" "bufferPubIn" "bufferPrvOut" "bufferPrvIn" "ALU1" "ALU2" "ALU3" "ALU4" "ALU5" "OR" "XOR" "AND" "DecToBit" "Accumulator")
-
+# names=("bufferPubOut" "bufferPubIn" "bufferBlockIn" "bufferEVMIn" "bufferPrvIn" "ALU1" "ALU2" "ALU3" "ALU4" "ALU5" "OR" "XOR" "AND" "DecToBit" "Accumulator" "Poseidon" "PrepareEdDsaScalars" "JubjubExp36" "EdDsaVerify" "VerifyMerkleProof")
+names=("bufferPubOut" "bufferPubIn" "bufferBlockIn" "bufferEVMIn" "bufferPrvIn" "ALU1" "ALU2" "ALU3" "ALU4" "ALU5" "OR" "XOR" "AND" "DecToBit" "SubExpBatch" "Accumulator" "Poseidon" "Poseidon2xCompress" "JubjubExpBatch" "EdDsaVerify" "VerifyMerkleProof" "VerifyMerkleProof2x" "VerifyMerkleProof3x")
 # Library configuration for n=2048
-# names=("bufferPubOut" "bufferPubIn" "bufferPrvOut" "bufferPrvIn" "ALU_basic" "ALU_based_on_div" "ALU_bitwise" "DecToBit" "Accumulator")
+# names=("bufferPubOut" "bufferPubIn" "bufferBlockIn" "bufferEVMIn" "bufferPrvIn" "ALU_basic" "ALU_based_on_div" "ALU_bitwise" "DecToBit" "Accumulator")
 CURVE_NAME="bls12381"
 
 # get the directory of the script
@@ -36,4 +36,4 @@ for (( i = 0 ; i < ${#names[@]} ; i++ )) ; do
   
 done
 
-node parse.js && rm temp.txt
+node parse.js && tsx ./exporter/exporter.ts && rm temp.txt

@@ -1,11 +1,9 @@
-module.exports.S_MAX = 512
+module.exports.S_MAX = 256
 
-const listIn = new Map()
-listIn.set('bufferPubIn', 'public')
-listIn.set('bufferPrvIn', 'private')
-const listOut = new Map()
-listOut.set('bufferPubOut', 'public')
-listOut.set('bufferPrvOut', 'private')
+const listPublic = new Map()
+listPublic.set('bufferPubOut', 'outUser')
+listPublic.set('bufferPubIn', 'inUser')
+listPublic.set('bufferBlockIn', 'inBlock')
+listPublic.set('bufferEVMIn', 'inFunction')
 
-module.exports.LISTIN = listIn
-module.exports.LISTOUT = listOut
+module.exports.LIST_PUBLIC = listPublic

@@ -1,5 +1,6 @@
 pragma circom 2.1.6;
 include "../../templates/buffer.circom";
+include "./constants.circom";
 
-// Input and output wires are private.
-component main{public [in]} = Buffer2(512);
+// Input wires are public, and output wires are private.
+component main{public [in]} = Buffer2(nPrvIn());

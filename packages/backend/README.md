@@ -1,7 +1,6 @@
 # Tokamak-zk-EVM/backend
 
 ## What are the backend algorithms
-You can convert your Ethereum transactions into zero-knowledge proofs (zkp) even if you don't know zkp.
 
 The three algorithms, "setup", "prove", and "verify", are rust implementation of the backend algorithms defined in [the Tokamak zk-SNARK manuscript](https://eprint.iacr.org/2024/507).
 They take a zkp circuit specialized for a transaction as their input. The circuit should be pre-processed by [the frontend compilers](../frontend/).

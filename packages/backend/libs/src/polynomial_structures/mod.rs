@@ -125,20 +125,100 @@ macro_rules! define_gen_qapXY {
 }
 
 impl Instance {
+    // pub fn gen_a_pub_user_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
+    //     let l_user = setup_params.l_user;
+    //     let mut public_instance = vec![ScalarField::zero(); l_user];
+    //     for i in 0..l_user {
+    //         public_instance[i] = ScalarField::from_hex(&self.a_pub_user[i]);
+    //     }
+    //     return DensePolynomialExt::from_rou_evals(
+    //         HostSlice::from_slice(&public_instance),
+    //         l_user,
+    //         1,
+    //         None,
+    //         None
+    //     )
+    // }
+
     pub fn gen_a_pub_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
-        let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
-        let mut public_instance = vec![ScalarField::zero(); l_pub];
-        for i in 0..l_pub {
-            public_instance[i] = ScalarField::from_hex(&self.a_pub[i]);
+        let l = setup_params.l;
+        let l_user = setup_params.l_user;
+        let m_block = setup_params.l_block - l_user;
+        let m_function = setup_params.l - setup_params.l_block;
+
+        let mut user_instance = vec![ScalarField::zero(); l_user];
+        for i in 0..l_user {
+            user_instance[i] = ScalarField::from_hex(&self.a_pub_user[i]);
         }
+
+        let mut block_instance = vec![ScalarField::zero(); m_block];
+        for i in 0..m_block {
+            block_instance[i] = ScalarField::from_hex(&self.a_pub_block[i]);
+        }
+
+        let mut function_instance = vec![ScalarField::zero(); m_function];
+        for i in 0..m_function {
+            function_instance[i] = ScalarField::from_hex(&self.a_pub_function[i]);
+        }
+
+        let public_instance = [
+            user_instance,
+            block_instance,
+            function_instance,
+        ].concat().into_boxed_slice();
+
         return DensePolynomialExt::from_rou_evals(
             HostSlice::from_slice(&public_instance),
-            l_pub,
+            l,
             1,
             None,
             None
         )
     }
+
+    // pub fn gen_a_pub_env_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
+    //     let m_block = setup_params.l_block - setup_params.l_user;
+    //     let m_function = setup_params.l - setup_params.l_block;
+    //     let m_env = m_block + m_function;
+
+    //     let mut block_instance = vec![ScalarField::zero(); m_block];
+    //     for i in 0..m_block {
+    //         block_instance[i] = ScalarField::from_hex(&self.a_pub_block[i]);
+    //     }
+
+    //     let mut function_instance = vec![ScalarField::zero(); m_function];
+    //     for i in 0..m_function {
+    //         function_instance[i] = ScalarField::from_hex(&self.a_pub_function[i]);
+    //     }
+
+    //     let public_instance = [
+    //         block_instance,
+    //         function_instance,
+    //     ].concat().into_boxed_slice();
+
+    //     return DensePolynomialExt::from_rou_evals(
+    //         HostSlice::from_slice(&public_instance),
+    //         m_env,
+    //         1,
+    //         None,
+    //         None
+    //     )
+    // }
+
+    // pub fn gen_a_pub_function_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
+    //     let m_function = setup_params.l - setup_params.l_block;
+    //     let mut public_instance = vec![ScalarField::zero(); m_function];
+    //     for i in 0..m_function {
+    //         public_instance[i] = ScalarField::from_hex(&self.a_pub_function[i]);
+    //     }
+    //     return DensePolynomialExt::from_rou_evals(
+    //         HostSlice::from_slice(&public_instance),
+    //         m_function,
+    //         1,
+    //         None,
+    //         None
+    //     )
+    // }
 }
 
 pub fn gen_bXY(placement_variables: &Box<[PlacementVariables]>, subcircuit_infos: &Box<[SubcircuitInfo]>, setup_params: &SetupParams) -> DensePolynomialExt {

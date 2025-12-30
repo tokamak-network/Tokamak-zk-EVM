@@ -1,6 +1,9 @@
 {
   "extends": "../../../config/monorepo-js/tsconfig.prod.esm.json",
   "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "allowJs": true,
     "rootDir": "src",
     "outDir": "dist/cjs",
     "baseUrl": ".",

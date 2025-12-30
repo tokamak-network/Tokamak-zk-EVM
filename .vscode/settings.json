@@ -1,0 +1,57 @@
+{
+  // Editor formatting settings - ALL FORMATTING DISABLED
+  "editor.formatOnSave": false,
+  "editor.formatOnPaste": false,
+  "editor.formatOnType": false,
+  "editor.defaultFormatter": null,
+  "editor.codeActionsOnSave": {},
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.rulers": [120],
+
+  // Language-specific settings - NO FORMATTERS
+  "[typescript]": {
+    "editor.defaultFormatter": null,
+    "editor.formatOnSave": false
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": null,
+    "editor.formatOnSave": false
+  },
+  "[json]": {
+    "editor.defaultFormatter": null,
+    "editor.formatOnSave": false
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": null,
+    "editor.formatOnSave": false
+  },
+  "[markdown]": {
+    "editor.formatOnSave": false,
+    "editor.defaultFormatter": null
+  },
+
+  // Prettier DISABLED
+  "prettier.enable": false,
+
+  // ESLint settings - auto-fix disabled
+  "eslint.validate": [
+    "javascript",
+    "typescript"
+  ],
+  "eslint.workingDirectories": [
+    { "mode": "auto" }
+  ],
+
+  // Files settings - NO AUTO MODIFICATIONS
+  "files.eol": "auto",
+  "files.insertFinalNewline": false,
+  "files.trimTrailingWhitespace": false,
+
+  // Disable all built-in formatters
+  "typescript.format.enable": false,
+  "javascript.format.enable": false,
+  "json.format.enable": false,
+  "html.format.enable": false
+}
+

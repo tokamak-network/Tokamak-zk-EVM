@@ -19,6 +19,7 @@ use std::path::PathBuf;
 use std::{env, fmt};
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
+use std::ops::Deref;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use serde::ser::{SerializeStruct};
@@ -118,18 +119,55 @@ fn byte_slice_to_literal(bytes: &[u8]) -> String {
         .join(", ")
 }
 
+// A wrapping structure to make sure hex strings read from JSON to be even-length. For compatibility with ICICLE Core.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct HexString(pub String);
+impl<'de> Deserialize<'de> for HexString {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let mut s = String::deserialize(deserializer)?;
+
+        if let Some(hex) = s.strip_prefix("0x") {
+            if hex.len() % 2 == 1 {
+                s = format!("0x0{}", hex);
+            }
+        } else if s.len() % 2 == 1 {
+            s = format!("0{}", s);
+        }
+
+        Ok(HexString(s))
+    }
+}
+impl Deref for HexString {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<str> for HexString {
+    fn as_ref(&self) -> &str { &self.0 }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PublicWireInfo {
+    pub subcircuitId: usize,
+    pub numPubWires: usize,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct SetupParams {
     pub l: usize,
-    pub l_pub_in: usize,
-    pub l_pub_out: usize,
-    pub l_prv_in: usize,
-    pub l_prv_out: usize,
+    pub l_user_out: usize,
+    pub l_user: usize,
+    pub l_block: usize,
     pub l_D: usize, //m_I = l_D - 1
     pub m_D: usize,
     pub n: usize,
     pub s_D: usize,
-    pub s_max: usize
+    pub s_max: usize,
 }
 
 impl_read_from_json!(SetupParams);
@@ -166,7 +204,10 @@ impl Sigma {
         }
         let file = File::create(&abs_path)?;
         let writer = BufWriter::new(file);
-        let partial_sigma_1: PartialSigma1 = PartialSigma1 { xy_powers: self.sigma_1.xy_powers.clone() };
+        let partial_sigma_1: PartialSigma1 = PartialSigma1 {
+            xy_powers: self.sigma_1.xy_powers.clone(),
+            // gamma2_inv_o_env_inst: self.sigma_1.gamma2_inv_o_env_inst.clone(),
+        };
         let sigma_preprocess: SigmaPreprocess = SigmaPreprocess {
             sigma_1: partial_sigma_1
         };
@@ -267,7 +308,7 @@ impl Sigma2 {
 #[derive(Debug, Deserialize, Clone)]
 pub struct PlacementVariables {
     pub subcircuitId: usize,
-    pub variables: Box<[String]>,
+    pub variables: Box<[HexString]>,
 }
 
 impl_read_box_from_json!(PlacementVariables);
@@ -299,10 +340,9 @@ pub struct PublicInputBuffer {
 
 #[derive(Debug, Deserialize)]
 pub struct Instance {
-    pub publicOutputBuffer: PublicOutputBuffer,
-    pub publicInputBuffer: PublicInputBuffer,
-    pub a_pub: Vec<String>,
-    pub a_prv: Vec<String>,
+    pub a_pub_user: Box<[HexString]>,
+    pub a_pub_block: Box<[HexString]>,
+    pub a_pub_function: Box<[HexString]>,
 }
 
 impl_read_from_json!(Instance);
@@ -318,7 +358,7 @@ pub struct Permutation {
 impl_read_box_from_json!(Permutation);
 
 impl Permutation {
-    pub fn to_poly(perm_raw: &Box<[Self]>, m_i: usize, s_max: usize) -> (DensePolynomialExt, DensePolynomialExt) {
+    pub fn to_poly(perm_raw: &[Self], m_i: usize, s_max: usize) -> (DensePolynomialExt, DensePolynomialExt) {
         let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
         let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
         let mut s0_evals_vec = vec![ScalarField::zero(); m_i * s_max];
@@ -499,14 +539,14 @@ impl SubcircuitR1CS{
 
 impl QAP{
     pub fn gen_from_R1CS(
-        qap_path: &str,
+        qap_path: &PathBuf,
         subcircuit_infos: &Box<[SubcircuitInfo]>,
         setup_params: &SetupParams,
     ) -> Self {
         let m_d = setup_params.m_D;
         let s_d = setup_params.s_D;
 
-        let global_wire_list_path = PathBuf::from(qap_path).join("globalWireList.json");
+        let global_wire_list_path = qap_path.join("globalWireList.json");
         let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_list_path).unwrap();
 
         let zero_poly = DensePolynomialExt::zero();
@@ -516,8 +556,8 @@ impl QAP{
 
         for i in 0..s_d {
             println!("Processing subcircuit id {}", i);
-
-            let r1cs_path = PathBuf::from(qap_path).join(format!("json/subcircuit{i}.json"));
+            
+            let r1cs_path = qap_path.join(format!("json/subcircuit{i}.json"));
             let compact_r1cs = SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
             let (u_j_X_local, v_j_X_local, w_j_X_local) = from_subcircuit_to_QAP(
                 &compact_r1cs,
@@ -662,8 +702,8 @@ impl G2serde {
 
 
 pub fn scaled_outer_product_2d(
-    col_vec: &Box<[ScalarField]>, 
-    row_vec: &Box<[ScalarField]>, 
+    col_vec: &[ScalarField], 
+    row_vec: &[ScalarField], 
     g1_gen: &G1Affine, 
     scaler: Option<&ScalarField>, 
     res: &mut Box<[Box<[G1serde]>]>
@@ -713,7 +753,7 @@ pub fn scaled_outer_product_1d(
 }
 
 pub fn from_coef_vec_to_g1serde_vec_msm(
-    coef: &Box<[ScalarField]>,
+    coef: &[ScalarField],
     gen: &G1Affine,
     res: &mut [G1serde],
 ) {
@@ -875,7 +915,7 @@ pub fn gen_g1serde_vec_of_xy_monomials(
 }
 
 
-pub fn from_coef_vec_to_g1serde_mat(coef: &Box<[ScalarField]>, r_size: usize, c_size: usize, gen: &G1Affine, res: &mut Box<[Box<[G1serde]>]>) {
+pub fn from_coef_vec_to_g1serde_mat(coef: &[ScalarField], r_size: usize, c_size: usize, gen: &G1Affine, res: &mut Box<[Box<[G1serde]>]>) {
     if res.len() != r_size || res.len() == 0 {
         panic!("Not enough buffer row length.")
     }
@@ -907,7 +947,7 @@ pub fn read_R1CS_gen_uvwXY(
     let mut cache_stats: HashMap<usize, usize> = HashMap::new(); // Track cache hits
     
     // Cache for hex string -> ScalarField conversions (massive speedup for repeated variables)
-    let mut hex_cache: HashMap<String, ScalarField> = HashMap::new();
+    let mut hex_cache: HashMap<HexString, ScalarField> = HashMap::new();
     let mut hex_cache_hits = 0usize;
     let mut hex_cache_misses = 0usize;
         
@@ -1038,13 +1078,13 @@ fn _from_r1cs_to_eval(variables: &Box<[String]>, compact_mat: &Vec<ScalarField>,
 
 // with hex caching
 fn _from_r1cs_to_eval_cached(
-    variables: &Box<[String]>, 
+    variables: &Box<[HexString]>, 
     compact_mat: &Vec<ScalarField>, 
     active_wires: &Vec<usize>, 
     i: usize, 
     n: usize, 
     eval: &mut Vec<ScalarField>,
-    hex_cache: &mut HashMap<String, ScalarField>,
+    hex_cache: &mut HashMap<HexString, ScalarField>,
     hex_cache_hits: &mut usize,
     hex_cache_misses: &mut usize
 ) {
@@ -1060,7 +1100,7 @@ fn _from_r1cs_to_eval_cached(
                 cached_value
             } else {
                 // Cache miss - parse and cache
-                let parsed_value = ScalarField::from_hex(hex_str);
+                let parsed_value = ScalarField::from_hex(&hex_str.0);
                 hex_cache.insert(hex_str.clone(), parsed_value);
                 *hex_cache_misses += 1;
                 parsed_value

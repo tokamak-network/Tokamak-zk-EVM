@@ -11,6 +11,10 @@ members = [
 [workspace.package]
 edition = "2021"
 version = "0.1.0"
+license = "MIT OR Apache-2.0"
+authors = ["Tokamak Network"]
+repository = "https://github.com/tokamak-network/tokamak-zk-evm"
+homepage = "https://github.com/tokamak-network/tokamak-zk-evm"
 
 [workspace.dependencies]
 icicle-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v3.8.0", package = "icicle-runtime" }

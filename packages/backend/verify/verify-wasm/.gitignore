@@ -1,0 +1,27 @@
+# WASM build outputs
+/pkg/
+/pkg-web/
+/pkg-node/
+/target/
+
+# Cargo lock (for libraries)
+Cargo.lock
+
+# Node modules (if using npm for testing)
+node_modules/
+
+# Test outputs
+*.wasm.map
+*.js.map
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
