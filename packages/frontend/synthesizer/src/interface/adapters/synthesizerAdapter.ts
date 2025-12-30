@@ -549,12 +549,6 @@ export class SynthesizerAdapter {
       console.log(`[SynthesizerAdapter] ✅ State snapshot saved to: ${stateSnapshotPath}`);
     }
 
-    console.log("*****moulder debug******")
-    console.log(bytesToHex(options.senderL2PrvKey));
-    console.log(options.senderL2PrvKey);
-    console.log(jubjub.Point.Fn.ORDER);
-    console.log(bytesToBigInt(options.senderL2PrvKey) % jubjub.Point.Fn.ORDER);
-
     // Derive sender L2 address from private key for metadata
     // Use the same calculation as web.ts: jubjub.Point.BASE.multiply(bytesToBigInt(privateKey) % jubjub.Point.Fn.ORDER)
     const senderPubKey = jubjub.Point.BASE.multiply(bytesToBigInt(options.senderL2PrvKey) % jubjub.Point.Fn.ORDER);
@@ -757,7 +751,6 @@ export class SynthesizerAdapter {
         outputPath,
       };
     } catch (error: any) {
-      console.log("*****moulder debug******")
       console.log(error);
       return {
         success: false,

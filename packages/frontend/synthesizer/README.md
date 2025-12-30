@@ -57,6 +57,15 @@ tsx examples/L2TONTransfer/main.ts examples/L2TONTransfer/input.json
 - `instance_description.json`
 - `permutation.json`
 
+## Run example (L2 State Channel)
+
+Interactive L2 transfer simulation using Channel 55. Requires `.env` in `examples/L2StateChannel/` (see `env.sample`).
+
+```bash
+npx tsx examples/L2StateChannel/index.ts
+```
+
+See [examples/L2StateChannel/README.md](./examples/L2StateChannel/README.md) for details.
 
 ## Supported EVM instructions / functions
 - Arithmetic/bitwise: ADD…SAR, EXP, SIGNEXTEND

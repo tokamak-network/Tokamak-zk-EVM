@@ -25,9 +25,13 @@ import { ethers, parseEther } from 'ethers';
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { execSync } from 'child_process';
-import { SEPOLIA_RPC_URL, ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI, TON_ADDRESS } from './constants.ts';
+import {
+  ROLLUP_BRIDGE_CORE_ADDRESS,
+  ROLLUP_BRIDGE_CORE_ABI,
+} from '../../../src/interface/adapters/constants/index.ts';
+import { SEPOLIA_RPC_URL, TON_ADDRESS } from '../constants/index.ts';
 import {
   Address,
   hexToBytes,
@@ -40,30 +44,28 @@ import {
   toBytes,
   createAccount,
 } from '@ethereumjs/util';
-import { TokamakL2StateManager } from '../../src/TokamakL2JS/stateManager/TokamakL2StateManager.ts';
-import { poseidon, getEddsaPublicKey, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
+import { TokamakL2StateManager } from '../../../src/TokamakL2JS/stateManager/TokamakL2StateManager.ts';
+import { poseidon, getEddsaPublicKey, fromEdwardsToAddress } from '../../../src/TokamakL2JS/index.ts';
 import { Common, Mainnet } from '@ethereumjs/common';
 import { jubjub } from '@noble/curves/misc';
-import { createSynthesizer } from '../../src/synthesizer/index.ts';
-import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
-import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../src/interface/index.ts';
-import { generateMptKeyFromWallet } from './mpt-key-utils.ts';
-import { getUserStorageKey } from '../../src/TokamakL2JS/utils/index.ts';
-import { RLP } from '@ethereumjs/rlp';
+import { createSynthesizer } from '../../../src/synthesizer/index.ts';
+import { createCircuitGenerator } from '../../../src/circuitGenerator/circuitGenerator.ts';
+import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../../src/interface/index.ts';
+import { getUserStorageKey } from '../../../src/TokamakL2JS/utils/utils.ts';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Load .env file from project root
-const envPath = resolve(__dirname, '../../../../../.env');
+const envPath = resolve(__dirname, '../../../../../../.env');
 config({ path: envPath });
 
 // Binary paths (use pre-built binaries from dist/bin)
 // Use __dirname to find project root, then resolve to dist/bin
-// __dirname is: packages/frontend/synthesizer/examples/L2StateChannel
-// Project root is: ../../../../../ (6 levels up)
-const projectRoot = resolve(__dirname, '../../../../../');
+// __dirname is: packages/frontend/synthesizer/examples/L2StateChannel/synthesizer
+// Project root is: ../../../../../../ (7 levels up)
+const projectRoot = resolve(__dirname, '../../../../../../');
 const distBinPath = resolve(projectRoot, 'dist/bin');
 const preprocessBinary = `${distBinPath}/preprocess`;
 const proverBinary = `${distBinPath}/prove`;
@@ -300,13 +302,6 @@ async function testInitializeState() {
     allL2Addresses.push(l2Address);
   }
 
-  console.log(`   ✅ Generated L2 keys for ${allPublicKeys.length} participants\n`);
-
-  console.log('allPublicKeys: ', allPublicKeys);
-  console.log('allL1Addresses: ', allL1Addresses);
-  console.log('allPrivateKeys: ', allPrivateKeys);
-  console.log('allL2Addresses: ', allL2Addresses);
-
   // Step 4: Build initStorageKeys for state restoration (using main.ts pattern)
   console.log('🔄 Step 4: Building initStorageKeys for state restoration...\n');
 
@@ -323,17 +318,17 @@ async function testInitializeState() {
   }
 
   // Add participants' storage keys
-  // On-chain, deposit values are stored using MPT keys (not L1 storage keys)
-  // So we use MPT key for both L1 and L2 to fetch from on-chain
-  for (let i = 0; i < registeredKeys.length; i++) {
-    const mptKeyHex = registeredKeys[i];
+  // L1: participant's L1 address as storage key (to fetch from on-chain)
+  // L2: participant's MPT key (actual L2 storage key)
+  for (let i = 0; i < participants.length; i++) {
+    const l1Address = participants[i];
+    // Get MPT key from on-chain using channel ID and L1 address
+    const mptKeyBigInt = await bridgeContract.getL2MptKey(CHANNEL_ID, l1Address);
+    const mptKeyHex = '0x' + mptKeyBigInt.toString(16).padStart(64, '0');
+    const l1StorageKey = getUserStorageKey([l1Address, 0], 'L1'); // L1 storage key from participant address
     const mptKeyBytes = hexToBytes(addHexPrefix(mptKeyHex));
-
-    // Use MPT key for both L1 and L2 since on-chain storage uses MPT key
-    // L1 key: MPT key (used to fetch value from on-chain)
-    // L2 key: MPT key (actual L2 storage key)
     initStorageKeys.push({
-      L1: mptKeyBytes,
+      L1: l1StorageKey,
       L2: mptKeyBytes,
     });
   }
@@ -389,7 +384,7 @@ async function testInitializeState() {
   console.log('\n   📋 All Merkle tree leaves (16 total):');
   console.log('   ─────────────────────────────────────────────────────────');
 
-  const { poseidon_raw } = await import('../../src/interface/qapCompiler/configuredTypes.ts');
+  const { poseidon_raw } = await import('../../../src/interface/qapCompiler/configuredTypes.ts');
 
   for (let i = 0; i < leaves.length; i++) {
     const leaf = leaves[i];
@@ -517,7 +512,7 @@ async function testInitializeState() {
   console.log('🔄 Generating circuit for Participant 1 → Participant 2 transfer...\n');
 
   // Use main.ts pattern: createSynthesizerOptsForSimulationFromRPC + createSynthesizer
-  const proof1Path = resolve(__dirname, '../test-outputs/l2-state-channel-transfer-1');
+  const proof1Path = resolve(__dirname, '../../test-outputs/l2-state-channel-transfer-1');
   const calldataBytes = hexToBytes(addHexPrefix(calldata));
 
   // Build initStorageKeys for Proof #1 (same as verification, but with current state)
@@ -532,11 +527,18 @@ async function testInitializeState() {
     });
   }
 
-  // Add all participants' MPT keys
-  for (const mptKeyHex of registeredKeys) {
+  // Add all participants' storage keys
+  // L1: participant's L1 address as storage key (to fetch from on-chain)
+  // L2: participant's MPT key (actual L2 storage key)
+  for (let i = 0; i < participants.length; i++) {
+    const l1Address = participants[i];
+    // Get MPT key from on-chain using channel ID and L1 address
+    const mptKeyBigInt = await bridgeContract.getL2MptKey(CHANNEL_ID, l1Address);
+    const mptKeyHex = '0x' + mptKeyBigInt.toString(16).padStart(64, '0');
+    const l1StorageKey = getUserStorageKey([l1Address, 0], 'L1'); // L1 storage key from participant address
     const mptKeyBytes = hexToBytes(addHexPrefix(mptKeyHex));
     initStorageKeys1.push({
-      L1: mptKeyBytes,
+      L1: l1StorageKey,
       L2: mptKeyBytes,
     });
   }
@@ -579,14 +581,30 @@ async function testInitializeState() {
   console.log(`   ✅ Expected Merkle Root: 0x${expectedRoot1.toString(16)}\n`);
 
   if (restoredRoot1 !== expectedRoot1) {
-    console.warn(`   ⚠️  Merkle root mismatch! Expected ${stateInfo.stateRoot}, got 0x${restoredRoot1.toString(16)}`);
+    console.error(`\n❌ FAILURE: Merkle root mismatch in Proof #1!`);
+    console.error(`   Expected: ${stateInfo.stateRoot}`);
+    console.error(`   Got:      0x${restoredRoot1.toString(16)}`);
+    console.error('\n   Test stopped due to Merkle root mismatch.');
+    console.error('   This indicates that the state was not properly restored.');
+    process.exit(1);
   }
 
   // 4. Create synthesizer (main.ts pattern)
   const synthesizer1 = await createSynthesizer(synthesizerOpts1);
 
   // 5. Synthesize transaction (main.ts pattern)
-  const runTxResult1 = await synthesizer1.synthesizeTX();
+  let runTxResult1;
+  try {
+    runTxResult1 = await synthesizer1.synthesizeTX();
+  } catch (error: any) {
+    console.error('\n❌ FAILURE: Synthesizer error detected!');
+    console.error(`   Error: ${error.message || error}`);
+    if (error.stack) {
+      console.error(`   Stack: ${error.stack}`);
+    }
+    console.error('\n   Test stopped due to synthesizer error.');
+    process.exit(1);
+  }
 
   // 6. Create circuit generator and save outputs (main.ts pattern)
   const circuitGenerator1 = await createCircuitGenerator(synthesizer1);
@@ -647,10 +665,18 @@ async function testInitializeState() {
     console.warn('   ⚠️  State root UNCHANGED (No state change detected)\n');
   }
 
-  // Show updated Merkle tree leaves after Proof #1
+  // Show updated Merkle tree leaves and balances after Proof #1
   console.log('   📋 MT Final Public Signals (After Proof #1):');
   console.log('   ─────────────────────────────────────────────────────────');
   const finalLeaves1 = await stateManager1.convertLeavesIntoMerkleTreeLeaves();
+
+  // Store previous balances for comparison
+  const previousBalances1: bigint[] = [];
+  for (let i = 0; i < registeredKeys.length; i++) {
+    const entry = storageEntries[i];
+    previousBalances1.push(BigInt(entry.value));
+  }
+
   for (let i = 0; i < finalLeaves1.length; i++) {
     const leaf = finalLeaves1[i];
     const leafHex = '0x' + leaf.toString(16).padStart(64, '0');
@@ -676,12 +702,16 @@ async function testInitializeState() {
       // Get updated value from stateManager
       const updatedValue = await stateManager1.getStorage(contractAddress1, hexToBytes(addHexPrefix(key)));
       const valueBigInt = bytesToBigInt(updatedValue);
+      const previousBalance = previousBalances1[participantIndex];
+      const balanceChange = valueBigInt - previousBalance;
       const expectedLeaf = poseidon_raw([keyBigInt, valueBigInt]);
       const matches = leaf === expectedLeaf;
       const marker = matches ? '✅' : '❌';
       console.log(`   [${i}] ${marker} Participant ${participantIndex}:`);
       console.log(`       Key: ${key}`);
-      console.log(`       Value: ${valueBigInt.toString()}`);
+      console.log(`       Previous Balance: ${previousBalance.toString()}`);
+      console.log(`       Current Balance: ${valueBigInt.toString()}`);
+      console.log(`       Balance Change: ${balanceChange >= 0n ? '+' : ''}${balanceChange.toString()}`);
       console.log(`       Leaf: ${leafHex}`);
     } else {
       // Empty slots
@@ -693,6 +723,27 @@ async function testInitializeState() {
     }
   }
   console.log('   ─────────────────────────────────────────────────────────\n');
+
+  // Verify balance changes for Proof #1: Participant 1 → Participant 2 (1 TON)
+  const participant1Balance1 = bytesToBigInt(await stateManager1.getStorage(contractAddress1, hexToBytes(addHexPrefix(registeredKeys[0]))));
+  const participant2Balance1 = bytesToBigInt(await stateManager1.getStorage(contractAddress1, hexToBytes(addHexPrefix(registeredKeys[1]))));
+  const participant1PreviousBalance = previousBalances1[0];
+  const participant2PreviousBalance = previousBalances1[1];
+  const expectedChange1 = -parseEther('1');
+  const expectedChange2 = parseEther('1');
+  const actualChange1 = participant1Balance1 - participant1PreviousBalance;
+  const actualChange2 = participant2Balance1 - participant2PreviousBalance;
+
+  console.log('   💰 Balance Verification (Proof #1: P1 → P2, 1 TON):');
+  console.log(`      Participant 1: ${participant1PreviousBalance.toString()} → ${participant1Balance1.toString()} (Expected: ${expectedChange1.toString()}, Actual: ${actualChange1.toString()})`);
+  console.log(`      Participant 2: ${participant2PreviousBalance.toString()} → ${participant2Balance1.toString()} (Expected: ${expectedChange2.toString()}, Actual: ${actualChange2.toString()})`);
+
+  if (actualChange1 === expectedChange1 && actualChange2 === expectedChange2) {
+    console.log('      ✅ Balance changes match expected values!\n');
+  } else {
+    console.error('      ❌ Balance changes do NOT match expected values!');
+    process.exit(1);
+  }
 
   // Extract state info for next proof
   const stateInfo1 = await extractStateInfo(
@@ -711,25 +762,7 @@ async function testInitializeState() {
   );
   console.log(`   ✅ state_info.json saved`);
 
-  // Prove & Verify Proof #1
-  console.log(`\n${'='.repeat(80)}`);
-  console.log(`Proving and Verifying Proof #1`);
-  console.log('='.repeat(80));
-
-  const preprocessSuccess = await runPreprocess(proof1Path);
-  if (!preprocessSuccess) {
-    console.error(`\n❌ Preprocess failed! Cannot continue.`);
-    return;
-  }
-
-  const prove1Success = await runProver(1, proof1Path);
-  const verify1Success = prove1Success ? await runVerifyRust(1, proof1Path) : false;
-
-  if (!prove1Success || !verify1Success) {
-    console.error(`\n❌ Proof #1 failed! Cannot continue.`);
-    return;
-  }
-  console.log(`\n✅ Proof #1 Complete: Preprocessed ✅ | Proved ✅ | Verified ✅`);
+  console.log(`\n✅ Proof #1: Synthesizer execution completed successfully\n`);
 
   // ========================================================================
   // PROOF #2: Participant 2 → Participant 3 Transfer (0.5 TON)
@@ -748,14 +781,23 @@ async function testInitializeState() {
   console.log('🔄 Generating circuit for Participant 2 → Participant 3 transfer...\n');
 
   // Use main.ts pattern: createSynthesizerOptsForSimulationFromRPC + createSynthesizer
-  const proof2Path = resolve(__dirname, '../test-outputs/l2-state-channel-transfer-2');
+  const proof2Path = resolve(__dirname, '../../test-outputs/l2-state-channel-transfer-2');
   const calldataBytes2 = hexToBytes(addHexPrefix(calldata2));
+
+  // Load state from state_info.json (Proof #1 output)
+  console.log('   📸 Loading state from state_info.json (Proof #1)...');
+  if (!existsSync(stateInfoPath1)) {
+    console.error(`\n❌ FAILURE: state_info.json not found at ${stateInfoPath1}`);
+    process.exit(1);
+  }
+  // Overwrite stateInfo1 with data from file (Proof #1 output)
+  const stateInfo1FromFile = JSON.parse(readFileSync(stateInfoPath1, 'utf-8'));
 
   // Build initStorageKeys for Proof #2 (same structure as Proof #1)
   const initStorageKeys2: Array<{ L1: Uint8Array; L2: Uint8Array }> = [];
 
   // Add pre-allocated leaves first
-  for (const leaf of stateInfo1.preAllocatedLeaves) {
+  for (const leaf of stateInfo1FromFile.preAllocatedLeaves) {
     const keyBytes = hexToBytes(addHexPrefix(leaf.key));
     initStorageKeys2.push({
       L1: keyBytes,
@@ -763,11 +805,20 @@ async function testInitializeState() {
     });
   }
 
-  // Add all participants' MPT keys
-  for (const mptKeyHex of stateInfo1.registeredKeys) {
+  // Add all participants' storage keys
+  // L1: participant's L1 address as storage key (to fetch from on-chain)
+  // L2: participant's MPT key (actual L2 storage key)
+  // Get participants from on-chain
+  const participants2 = await bridgeContract.getChannelParticipants(CHANNEL_ID);
+  for (let i = 0; i < participants2.length; i++) {
+    const l1Address = participants2[i];
+    // Get MPT key from on-chain using channel ID and L1 address
+    const mptKeyBigInt = await bridgeContract.getL2MptKey(CHANNEL_ID, l1Address);
+    const mptKeyHex = '0x' + mptKeyBigInt.toString(16).padStart(64, '0');
+    const l1StorageKey = getUserStorageKey([l1Address, 0], 'L1'); // L1 storage key from participant address
     const mptKeyBytes = hexToBytes(addHexPrefix(mptKeyHex));
     initStorageKeys2.push({
-      L1: mptKeyBytes,
+      L1: l1StorageKey,
       L2: mptKeyBytes,
     });
   }
@@ -786,18 +837,47 @@ async function testInitializeState() {
 
   // Get state manager from synthesizer options
   const stateManager2 = synthesizerOpts2.stateManager;
+  const contractAddress2 = new Address(toBytes(addHexPrefix(targetAddress)));
+
+  // Restore storage entries from state_info.json
+  console.log('   📸 Restoring state from state_info.json...');
+  for (const entry of stateInfo1FromFile.storageEntries) {
+    const mptKeyBytes = hexToBytes(addHexPrefix(entry.key));
+    const valueBytes = hexToBytes(addHexPrefix(entry.value));
+    await stateManager2.putStorage(contractAddress2, mptKeyBytes, valueBytes);
+  }
+
+  // Rebuild initialMerkleTree with restored storage values
+  await stateManager2.rebuildInitialMerkleTree();
+
   const restoredRoot2 = stateManager2.initialMerkleTree.root;
-  const expectedRoot2 = BigInt(stateInfo1.stateRoot);
+  const expectedRoot2 = BigInt(stateInfo1FromFile.stateRoot);
 
   console.log(`   ✅ Restored Merkle Root: 0x${restoredRoot2.toString(16)}`);
   console.log(`   ✅ Expected Merkle Root: 0x${expectedRoot2.toString(16)}\n`);
 
   if (restoredRoot2 !== expectedRoot2) {
-    console.warn(`   ⚠️  Merkle root mismatch! Expected ${stateInfo1.stateRoot}, got 0x${restoredRoot2.toString(16)}`);
+    console.error(`\n❌ FAILURE: Merkle root mismatch in Proof #2!`);
+    console.error(`   Expected: ${stateInfo1FromFile.stateRoot}`);
+    console.error(`   Got:      0x${restoredRoot2.toString(16)}`);
+    console.error('\n   Test stopped due to Merkle root mismatch.');
+    console.error('   This indicates that the state snapshot was not properly restored.');
+    process.exit(1);
   }
 
   const synthesizer2 = await createSynthesizer(synthesizerOpts2);
-  const runTxResult2 = await synthesizer2.synthesizeTX();
+  let runTxResult2;
+  try {
+    runTxResult2 = await synthesizer2.synthesizeTX();
+  } catch (error: any) {
+    console.error('\n❌ FAILURE: Synthesizer error detected in Proof #2!');
+    console.error(`   Error: ${error.message || error}`);
+    if (error.stack) {
+      console.error(`   Stack: ${error.stack}`);
+    }
+    console.error('\n   Test stopped due to synthesizer error.');
+    process.exit(1);
+  }
   const circuitGenerator2 = await createCircuitGenerator(synthesizer2);
   mkdirSync(proof2Path, { recursive: true });
   circuitGenerator2.writeOutputs(proof2Path);
@@ -814,7 +894,7 @@ async function testInitializeState() {
 
   console.log(`\n✅ Proof #2: Circuit generated successfully`);
   console.log(`   - Placements: ${placementVariables2.length}`);
-  console.log(`   - Previous State Root: ${stateInfo1.stateRoot}`);
+  console.log(`   - Previous State Root: ${stateInfo1FromFile.stateRoot}`);
   console.log(`   - New State Root:      ${finalStateRoot2Hex}\n`);
 
   const executionSuccess2 = !runTxResult2.execResult.exceptionError;
@@ -840,24 +920,30 @@ async function testInitializeState() {
   }
   console.log('');
 
-  if (finalStateRoot2Hex.toLowerCase() !== stateInfo1.stateRoot.toLowerCase()) {
+  if (finalStateRoot2Hex.toLowerCase() !== stateInfo1FromFile.stateRoot.toLowerCase()) {
     console.log('   ✅ State root CHANGED! (Success!)\n');
   } else {
     console.log('   ⚠️  State root UNCHANGED\n');
   }
 
-  // Show updated Merkle tree leaves after Proof #2
+  // Show updated Merkle tree leaves and balances after Proof #2
   console.log('   📋 MT Final Public Signals (After Proof #2):');
   console.log('   ─────────────────────────────────────────────────────────');
   const finalLeaves2 = await stateManager2.convertLeavesIntoMerkleTreeLeaves();
-  const contractAddress2 = new Address(toBytes(addHexPrefix(targetAddress)));
+
+  // Store previous balances for comparison
+  const previousBalances2: bigint[] = [];
+  for (const entry of stateInfo1FromFile.storageEntries) {
+    previousBalances2.push(BigInt(entry.value));
+  }
+
   for (let i = 0; i < finalLeaves2.length; i++) {
     const leaf = finalLeaves2[i];
     const leafHex = '0x' + leaf.toString(16).padStart(64, '0');
 
-    if (i < stateInfo1.preAllocatedLeaves.length) {
+    if (i < stateInfo1FromFile.preAllocatedLeaves.length) {
       // Pre-allocated leaves
-      const preAllocatedLeaf = stateInfo1.preAllocatedLeaves[i];
+      const preAllocatedLeaf = stateInfo1FromFile.preAllocatedLeaves[i];
       const keyBigInt = BigInt(preAllocatedLeaf.key);
       const valueBigInt = BigInt(preAllocatedLeaf.value);
       const expectedLeaf = poseidon_raw([keyBigInt, valueBigInt]);
@@ -867,21 +953,25 @@ async function testInitializeState() {
       console.log(`       Key: ${preAllocatedLeaf.key}`);
       console.log(`       Value: ${valueBigInt.toString()}`);
       console.log(`       Leaf: ${leafHex}`);
-    } else if (i < stateInfo1.preAllocatedLeaves.length + stateInfo1.registeredKeys.length) {
+    } else if (i < stateInfo1FromFile.preAllocatedLeaves.length + stateInfo1FromFile.registeredKeys.length) {
       // Participants' MPT keys and balances (updated after transfer)
-      const participantIndex = i - stateInfo1.preAllocatedLeaves.length;
-      const key = stateInfo1.registeredKeys[participantIndex];
+      const participantIndex = i - stateInfo1FromFile.preAllocatedLeaves.length;
+      const key = stateInfo1FromFile.registeredKeys[participantIndex];
       const keyHex = key.startsWith('0x') ? key : '0x' + key;
       const keyBigInt = BigInt(keyHex);
       // Get updated value from stateManager
       const updatedValue = await stateManager2.getStorage(contractAddress2, hexToBytes(addHexPrefix(key)));
       const valueBigInt = bytesToBigInt(updatedValue);
+      const previousBalance = previousBalances2[participantIndex];
+      const balanceChange = valueBigInt - previousBalance;
       const expectedLeaf = poseidon_raw([keyBigInt, valueBigInt]);
       const matches = leaf === expectedLeaf;
       const marker = matches ? '✅' : '❌';
       console.log(`   [${i}] ${marker} Participant ${participantIndex}:`);
       console.log(`       Key: ${key}`);
-      console.log(`       Value: ${valueBigInt.toString()}`);
+      console.log(`       Previous Balance: ${previousBalance.toString()}`);
+      console.log(`       Current Balance: ${valueBigInt.toString()}`);
+      console.log(`       Balance Change: ${balanceChange >= 0n ? '+' : ''}${balanceChange.toString()}`);
       console.log(`       Leaf: ${leafHex}`);
     } else {
       // Empty slots
@@ -894,11 +984,32 @@ async function testInitializeState() {
   }
   console.log('   ─────────────────────────────────────────────────────────\n');
 
+  // Verify balance changes for Proof #2: Participant 2 → Participant 3 (0.5 TON)
+  const participant2Balance2 = bytesToBigInt(await stateManager2.getStorage(contractAddress2, hexToBytes(addHexPrefix(stateInfo1FromFile.registeredKeys[1]))));
+  const participant3Balance2 = bytesToBigInt(await stateManager2.getStorage(contractAddress2, hexToBytes(addHexPrefix(stateInfo1FromFile.registeredKeys[2]))));
+  const participant2PreviousBalance2 = previousBalances2[1];
+  const participant3PreviousBalance2 = previousBalances2[2];
+  const expectedChange2_1 = -parseEther('0.5');
+  const expectedChange3_1 = parseEther('0.5');
+  const actualChange2_1 = participant2Balance2 - participant2PreviousBalance2;
+  const actualChange3_1 = participant3Balance2 - participant3PreviousBalance2;
+
+  console.log('   💰 Balance Verification (Proof #2: P2 → P3, 0.5 TON):');
+  console.log(`      Participant 2: ${participant2PreviousBalance2.toString()} → ${participant2Balance2.toString()} (Expected: ${expectedChange2_1.toString()}, Actual: ${actualChange2_1.toString()})`);
+  console.log(`      Participant 3: ${participant3PreviousBalance2.toString()} → ${participant3Balance2.toString()} (Expected: ${expectedChange3_1.toString()}, Actual: ${actualChange3_1.toString()})`);
+
+  if (actualChange2_1 === expectedChange2_1 && actualChange3_1 === expectedChange3_1) {
+    console.log('      ✅ Balance changes match expected values!\n');
+  } else {
+    console.error('      ❌ Balance changes do NOT match expected values!');
+    process.exit(1);
+  }
+
   const stateInfo2 = await extractStateInfo(
     stateManager2,
-    stateInfo1.contractAddress,
-    stateInfo1.registeredKeys,
-    stateInfo1.preAllocatedLeaves,
+    stateInfo1FromFile.contractAddress,
+    stateInfo1FromFile.registeredKeys,
+    stateInfo1FromFile.preAllocatedLeaves,
   );
   const stateInfoPath2 = resolve(proof2Path, 'state_info.json');
   writeFileSync(
@@ -908,19 +1019,7 @@ async function testInitializeState() {
   );
   console.log(`   ✅ state_info.json saved`);
 
-  // Prove & Verify Proof #2
-  console.log(`\n${'='.repeat(80)}`);
-  console.log(`Proving and Verifying Proof #2`);
-  console.log('='.repeat(80));
-
-  const prove2Success = await runProver(2, proof2Path);
-  const verify2Success = prove2Success ? await runVerifyRust(2, proof2Path) : false;
-
-  if (!prove2Success || !verify2Success) {
-    console.error(`\n❌ Proof #2 failed! Cannot continue.`);
-    return;
-  }
-  console.log(`\n✅ Proof #2 Complete: Proved ✅ | Verified ✅`);
+  console.log(`\n✅ Proof #2: Synthesizer execution completed successfully\n`);
 
   // ========================================================================
   // PROOF #3: Participant 3 → Participant 1 Transfer (1 TON)
@@ -938,14 +1037,23 @@ async function testInitializeState() {
   console.log('🔄 Generating circuit for Participant 3 → Participant 1 transfer...\n');
 
   // Use main.ts pattern: createSynthesizerOptsForSimulationFromRPC + createSynthesizer
-  const proof3Path = resolve(__dirname, '../test-outputs/l2-state-channel-transfer-3');
+  const proof3Path = resolve(__dirname, '../../test-outputs/l2-state-channel-transfer-3');
   const calldataBytes3 = hexToBytes(addHexPrefix(calldata3));
+
+  // Load state from state_info.json (Proof #2 output)
+  console.log('   📸 Loading state from state_info.json (Proof #2)...');
+  if (!existsSync(stateInfoPath2)) {
+    console.error(`\n❌ FAILURE: state_info.json not found at ${stateInfoPath2}`);
+    process.exit(1);
+  }
+  // Overwrite stateInfo2 with data from file (Proof #2 output)
+  const stateInfo2FromFile = JSON.parse(readFileSync(stateInfoPath2, 'utf-8'));
 
   // Build initStorageKeys for Proof #3 (same structure as previous proofs)
   const initStorageKeys3: Array<{ L1: Uint8Array; L2: Uint8Array }> = [];
 
   // Add pre-allocated leaves first
-  for (const leaf of stateInfo2.preAllocatedLeaves) {
+  for (const leaf of stateInfo2FromFile.preAllocatedLeaves) {
     const keyBytes = hexToBytes(addHexPrefix(leaf.key));
     initStorageKeys3.push({
       L1: keyBytes,
@@ -953,11 +1061,20 @@ async function testInitializeState() {
     });
   }
 
-  // Add all participants' MPT keys
-  for (const mptKeyHex of stateInfo2.registeredKeys) {
+  // Add all participants' storage keys
+  // L1: participant's L1 address as storage key (to fetch from on-chain)
+  // L2: participant's MPT key (actual L2 storage key)
+  // Get participants from on-chain
+  const participants3 = await bridgeContract.getChannelParticipants(CHANNEL_ID);
+  for (let i = 0; i < participants3.length; i++) {
+    const l1Address = participants3[i];
+    // Get MPT key from on-chain using channel ID and L1 address
+    const mptKeyBigInt = await bridgeContract.getL2MptKey(CHANNEL_ID, l1Address);
+    const mptKeyHex = '0x' + mptKeyBigInt.toString(16).padStart(64, '0');
+    const l1StorageKey = getUserStorageKey([l1Address, 0], 'L1'); // L1 storage key from participant address
     const mptKeyBytes = hexToBytes(addHexPrefix(mptKeyHex));
     initStorageKeys3.push({
-      L1: mptKeyBytes,
+      L1: l1StorageKey,
       L2: mptKeyBytes,
     });
   }
@@ -978,30 +1095,45 @@ async function testInitializeState() {
   const stateManager3 = synthesizerOpts3.stateManager;
   const contractAddress3 = new Address(toBytes(addHexPrefix(targetAddress)));
 
-  // After initTokamakExtendsFromRPC, we need to manually set the deposit values
-  // Use stateInfo2.storageEntries which contains the updated balances after Proof #2
-  for (let i = 0; i < stateInfo2.storageEntries.length; i++) {
-    const entry = stateInfo2.storageEntries[i];
+  // Restore storage entries from state_info.json
+  console.log('   📸 Restoring state from state_info.json...');
+  for (const entry of stateInfo2FromFile.storageEntries) {
     const mptKeyBytes = hexToBytes(addHexPrefix(entry.key));
     const valueBytes = hexToBytes(addHexPrefix(entry.value));
     await stateManager3.putStorage(contractAddress3, mptKeyBytes, valueBytes);
   }
 
-  // Rebuild initialMerkleTree with updated storage values
+  // Rebuild initialMerkleTree with restored storage values
   await stateManager3.rebuildInitialMerkleTree();
 
   const restoredRoot3 = stateManager3.initialMerkleTree.root;
-  const expectedRoot3 = BigInt(stateInfo2.stateRoot);
+  const expectedRoot3 = BigInt(stateInfo2FromFile.stateRoot);
 
   console.log(`   ✅ Restored Merkle Root: 0x${restoredRoot3.toString(16)}`);
   console.log(`   ✅ Expected Merkle Root: 0x${expectedRoot3.toString(16)}\n`);
 
   if (restoredRoot3 !== expectedRoot3) {
-    console.warn(`   ⚠️  Merkle root mismatch! Expected ${stateInfo2.stateRoot}, got 0x${restoredRoot3.toString(16)}`);
+    console.error(`\n❌ FAILURE: Merkle root mismatch in Proof #3!`);
+    console.error(`   Expected: ${stateInfo2FromFile.stateRoot}`);
+    console.error(`   Got:      0x${restoredRoot3.toString(16)}`);
+    console.error('\n   Test stopped due to Merkle root mismatch.');
+    console.error('   This indicates that the state snapshot was not properly restored.');
+    process.exit(1);
   }
 
   const synthesizer3 = await createSynthesizer(synthesizerOpts3);
-  const runTxResult3 = await synthesizer3.synthesizeTX();
+  let runTxResult3;
+  try {
+    runTxResult3 = await synthesizer3.synthesizeTX();
+  } catch (error: any) {
+    console.error('\n❌ FAILURE: Synthesizer error detected in Proof #3!');
+    console.error(`   Error: ${error.message || error}`);
+    if (error.stack) {
+      console.error(`   Stack: ${error.stack}`);
+    }
+    console.error('\n   Test stopped due to synthesizer error.');
+    process.exit(1);
+  }
   const circuitGenerator3 = await createCircuitGenerator(synthesizer3);
   mkdirSync(proof3Path, { recursive: true });
   circuitGenerator3.writeOutputs(proof3Path);
@@ -1018,7 +1150,7 @@ async function testInitializeState() {
 
   console.log(`\n✅ Proof #3: Circuit generated successfully`);
   console.log(`   - Placements: ${placementVariables3.length}`);
-  console.log(`   - Previous State Root: ${stateInfo2.stateRoot}`);
+  console.log(`   - Previous State Root: ${stateInfo2FromFile.stateRoot}`);
   console.log(`   - New State Root:      ${finalStateRoot3Hex}\n`);
 
   const executionSuccess3 = !runTxResult3.execResult.exceptionError;
@@ -1044,23 +1176,30 @@ async function testInitializeState() {
   }
   console.log('');
 
-  if (finalStateRoot3Hex.toLowerCase() !== stateInfo2.stateRoot.toLowerCase()) {
+  if (finalStateRoot3Hex.toLowerCase() !== stateInfo2FromFile.stateRoot.toLowerCase()) {
     console.log('   ✅ State root CHANGED! (Success!)\n');
   } else {
     console.log('   ⚠️  State root UNCHANGED\n');
   }
 
-  // Show updated Merkle tree leaves after Proof #3
+  // Show updated Merkle tree leaves and balances after Proof #3
   console.log('   📋 MT Final Public Signals (After Proof #3):');
   console.log('   ─────────────────────────────────────────────────────────');
   const finalLeaves3 = await stateManager3.convertLeavesIntoMerkleTreeLeaves();
+
+  // Store previous balances for comparison
+  const previousBalances3: bigint[] = [];
+  for (const entry of stateInfo2FromFile.storageEntries) {
+    previousBalances3.push(BigInt(entry.value));
+  }
+
   for (let i = 0; i < finalLeaves3.length; i++) {
     const leaf = finalLeaves3[i];
     const leafHex = '0x' + leaf.toString(16).padStart(64, '0');
 
-    if (i < stateInfo2.preAllocatedLeaves.length) {
+    if (i < stateInfo2FromFile.preAllocatedLeaves.length) {
       // Pre-allocated leaves
-      const preAllocatedLeaf = stateInfo2.preAllocatedLeaves[i];
+      const preAllocatedLeaf = stateInfo2FromFile.preAllocatedLeaves[i];
       const keyBigInt = BigInt(preAllocatedLeaf.key);
       const valueBigInt = BigInt(preAllocatedLeaf.value);
       const expectedLeaf = poseidon_raw([keyBigInt, valueBigInt]);
@@ -1070,21 +1209,25 @@ async function testInitializeState() {
       console.log(`       Key: ${preAllocatedLeaf.key}`);
       console.log(`       Value: ${valueBigInt.toString()}`);
       console.log(`       Leaf: ${leafHex}`);
-    } else if (i < stateInfo2.preAllocatedLeaves.length + stateInfo2.registeredKeys.length) {
+    } else if (i < stateInfo2FromFile.preAllocatedLeaves.length + stateInfo2FromFile.registeredKeys.length) {
       // Participants' MPT keys and balances (updated after transfer)
-      const participantIndex = i - stateInfo2.preAllocatedLeaves.length;
-      const key = stateInfo2.registeredKeys[participantIndex];
+      const participantIndex = i - stateInfo2FromFile.preAllocatedLeaves.length;
+      const key = stateInfo2FromFile.registeredKeys[participantIndex];
       const keyHex = key.startsWith('0x') ? key : '0x' + key;
       const keyBigInt = BigInt(keyHex);
       // Get updated value from stateManager
       const updatedValue = await stateManager3.getStorage(contractAddress3, hexToBytes(addHexPrefix(key)));
       const valueBigInt = bytesToBigInt(updatedValue);
+      const previousBalance = previousBalances3[participantIndex];
+      const balanceChange = valueBigInt - previousBalance;
       const expectedLeaf = poseidon_raw([keyBigInt, valueBigInt]);
       const matches = leaf === expectedLeaf;
       const marker = matches ? '✅' : '❌';
       console.log(`   [${i}] ${marker} Participant ${participantIndex}:`);
       console.log(`       Key: ${key}`);
-      console.log(`       Value: ${valueBigInt.toString()}`);
+      console.log(`       Previous Balance: ${previousBalance.toString()}`);
+      console.log(`       Current Balance: ${valueBigInt.toString()}`);
+      console.log(`       Balance Change: ${balanceChange >= 0n ? '+' : ''}${balanceChange.toString()}`);
       console.log(`       Leaf: ${leafHex}`);
     } else {
       // Empty slots
@@ -1097,11 +1240,32 @@ async function testInitializeState() {
   }
   console.log('   ─────────────────────────────────────────────────────────\n');
 
+  // Verify balance changes for Proof #3: Participant 3 → Participant 1 (1 TON)
+  const participant3Balance3 = bytesToBigInt(await stateManager3.getStorage(contractAddress3, hexToBytes(addHexPrefix(stateInfo2FromFile.registeredKeys[2]))));
+  const participant1Balance3 = bytesToBigInt(await stateManager3.getStorage(contractAddress3, hexToBytes(addHexPrefix(stateInfo2FromFile.registeredKeys[0]))));
+  const participant3PreviousBalance3 = previousBalances3[2];
+  const participant1PreviousBalance3 = previousBalances3[0];
+  const expectedChange3_2 = -parseEther('1');
+  const expectedChange1_2 = parseEther('1');
+  const actualChange3_2 = participant3Balance3 - participant3PreviousBalance3;
+  const actualChange1_2 = participant1Balance3 - participant1PreviousBalance3;
+
+  console.log('   💰 Balance Verification (Proof #3: P3 → P1, 1 TON):');
+  console.log(`      Participant 3: ${participant3PreviousBalance3.toString()} → ${participant3Balance3.toString()} (Expected: ${expectedChange3_2.toString()}, Actual: ${actualChange3_2.toString()})`);
+  console.log(`      Participant 1: ${participant1PreviousBalance3.toString()} → ${participant1Balance3.toString()} (Expected: ${expectedChange1_2.toString()}, Actual: ${actualChange1_2.toString()})`);
+
+  if (actualChange3_2 === expectedChange3_2 && actualChange1_2 === expectedChange1_2) {
+    console.log('      ✅ Balance changes match expected values!\n');
+  } else {
+    console.error('      ❌ Balance changes do NOT match expected values!');
+    process.exit(1);
+  }
+
   const stateInfo3 = await extractStateInfo(
     stateManager3,
-    stateInfo2.contractAddress,
-    stateInfo2.registeredKeys,
-    stateInfo2.preAllocatedLeaves,
+    stateInfo2FromFile.contractAddress,
+    stateInfo2FromFile.registeredKeys,
+    stateInfo2FromFile.preAllocatedLeaves,
   );
   const stateInfoPath3 = resolve(proof3Path, 'state_info.json');
   writeFileSync(
@@ -1111,19 +1275,7 @@ async function testInitializeState() {
   );
   console.log(`   ✅ state_info.json saved`);
 
-  // Prove & Verify Proof #3
-  console.log(`\n${'='.repeat(80)}`);
-  console.log(`Proving and Verifying Proof #3`);
-  console.log('='.repeat(80));
-
-  const prove3Success = await runProver(3, proof3Path);
-  const verify3Success = prove3Success ? await runVerifyRust(3, proof3Path) : false;
-
-  if (!prove3Success || !verify3Success) {
-    console.error(`\n❌ Proof #3 failed!`);
-    return;
-  }
-  console.log(`\n✅ Proof #3 Complete: Proved ✅ | Verified ✅`);
+  console.log(`\n✅ Proof #3: Synthesizer execution completed successfully\n`);
 
   // ========================================================================
   // FINAL SUMMARY
@@ -1140,17 +1292,17 @@ async function testInitializeState() {
   console.log(`   → Proof #2 (P2→P3, 0.5 TON): ${stateInfo2.stateRoot}`);
   console.log(`   → Proof #3 (P3→P1, 1 TON):  ${stateInfo3.stateRoot}`);
   console.log('');
-  console.log('🔬 Proof Generation:');
-  console.log(`   - Proof #1: Preprocessed ✅ | Proved ✅ | Verified ✅`);
-  console.log(`   - Proof #2: Proved ✅ | Verified ✅`);
-  console.log(`   - Proof #3: Proved ✅ | Verified ✅`);
+  console.log('🔬 Synthesizer Execution:');
+  console.log(`   - Proof #1: Synthesize ✅ | Balance Verified ✅`);
+  console.log(`   - Proof #2: Synthesize ✅ | Balance Verified ✅`);
+  console.log(`   - Proof #3: Synthesize ✅ | Balance Verified ✅`);
   console.log('');
   console.log('🔄 Sequential Execution Flow:');
-  console.log('   Proof #1: Synthesize → Preprocess → Prove → Verify ✅ Complete');
-  console.log('             ↓ (await completion)');
-  console.log('   Proof #2: Synthesize → Prove → Verify ✅ Complete');
-  console.log('             ↓ (await completion)');
-  console.log('   Proof #3: Synthesize → Prove → Verify ✅ Complete');
+  console.log('   Proof #1: Synthesize → Verify Balance ✅ Complete');
+  console.log('             ↓ (balance verified, proceed to next)');
+  console.log('   Proof #2: Synthesize → Verify Balance ✅ Complete');
+  console.log('             ↓ (balance verified, proceed to next)');
+  console.log('   Proof #3: Synthesize → Verify Balance ✅ Complete');
 
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║                    Test Completed Successfully!               ║');

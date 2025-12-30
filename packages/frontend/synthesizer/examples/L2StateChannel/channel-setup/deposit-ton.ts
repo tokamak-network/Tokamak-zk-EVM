@@ -15,24 +15,25 @@ import { ethers, parseEther, JsonRpcProvider } from 'ethers';
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { generateMptKeyFromWallet } from './utils/mpt-key-util.ts';
 import {
-  SEPOLIA_RPC_URL,
-  TON_ADDRESS,
   DEPOSIT_MANAGER_PROXY_ADDRESS,
   ROLLUP_BRIDGE_CORE_ADDRESS,
-  TON_ABI,
-  DEPOSIT_MANAGER_ABI,
   ROLLUP_BRIDGE_CORE_ABI,
-  TON_DEPOSIT_AMOUNT,
-} from './constants.ts';
+} from '../../../src/interface/adapters/constants/index.ts';
+import { SEPOLIA_RPC_URL, TON_ADDRESS, TON_ABI, DEPOSIT_MANAGER_ABI, TON_SLOT } from '../constants/index.ts';
+import {
+  L2_PRV_KEY_MESSAGE,
+  deriveL2KeysFromSignature,
+  deriveL2AddressFromKeys,
+  deriveL2MptKeyFromAddress,
+} from '../../../src/TokamakL2JS/utils/web.ts';
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Load .env file from project root
-const envPath = resolve(__dirname, '../../../../../.env');
+const envPath = resolve(__dirname, '../../../../../../.env');
 config({ path: envPath });
 
 // ============================================================================
@@ -97,8 +98,20 @@ function getStateName(state: number): string {
 // ============================================================================
 // MPT KEY GENERATION
 // ============================================================================
-// MPT key generation is now handled by mpt-key-utils.ts
-// Use generateMptKeyFromWallet() from the utils module
+// MPT key generation using web.ts utility functions:
+// 1. Sign message "Tokamak-Private-App-Channel-{channelId}" with wallet
+// 2. Derive L2 keys from signature
+// 3. Derive L2 address from keys
+// 4. Derive MPT key from L2 address
+
+async function generateMptKey(wallet: ethers.Wallet, channelId: number, slot: number = 0): Promise<string> {
+  const message = `${L2_PRV_KEY_MESSAGE}${channelId}`;
+  const signature = (await wallet.signMessage(message)) as `0x${string}`;
+  const l2Keys = deriveL2KeysFromSignature(signature);
+  const l2Address = deriveL2AddressFromKeys(l2Keys);
+  const mptKey = deriveL2MptKeyFromAddress(l2Address, slot);
+  return mptKey;
+}
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -222,9 +235,9 @@ async function main() {
 
       // Generate MPT key for this participant
       // Pass wallet to extract L1 public key
-      // Note: MPT key is deterministic - same inputs (L1 public key, channel ID, participant name, token, slot)
+      // Note: MPT key is deterministic - same inputs (L1 publi c key, channel ID, participant name, token, slot)
       // will always produce the same MPT key
-      const mptKey = generateMptKeyFromWallet(wallet, name, CHANNEL_ID, TON_ADDRESS, 0);
+      const mptKey = await generateMptKey(wallet, CHANNEL_ID, TON_SLOT);
       console.log(`   🔑 L1 Public Key: ${wallet.signingKey.publicKey}`);
       console.log(`   🔑 MPT Key: ${mptKey}`);
       console.log(`   📝 Note: MPT key is deterministic based on:`);
