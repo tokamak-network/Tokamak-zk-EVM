@@ -59,7 +59,7 @@ tsx examples/L2TONTransfer/main.ts examples/L2TONTransfer/input.json
 
 ## Run example (L2 State Channel)
 
-Interactive L2 transfer simulation using Channel 55 on Sepolia testnet. Requires `SEPOLIA_RPC_URL` in `.env`.
+Interactive L2 transfer simulation using Channel 55. Requires `.env` in `examples/L2StateChannel/` (see `env.sample`).
 
 ```bash
 npx tsx examples/L2StateChannel/index.ts

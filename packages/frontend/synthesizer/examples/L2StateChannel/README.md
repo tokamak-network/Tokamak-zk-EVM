@@ -21,18 +21,21 @@ This example demonstrates L2 transfers on a pre-existing state channel (Channel 
 ## Prerequisites
 
 1. **Node.js** >= 18
-2. **Environment Variables**: Add to `packages/frontend/synthesizer/.env`:
+2. **Environment Variables**: Create `.env` in this folder (`examples/L2StateChannel/`):
 
 ```bash
+# RPC URLs
+ETHEREUM_RPC_URL="https://eth-mainnet.g.alchemy.com/v3/YOUR_API_KEY"
 SEPOLIA_RPC_URL="https://eth-sepolia.g.alchemy.com/v3/YOUR_API_KEY"
 
-# At least one participant's private key (to use as sender)
-ALICE_PRIVATE_KEY="0x..."       # or CHANNEL_LEADER_PRIVATE_KEY
-BOB_PRIVATE_KEY="0x..."
-CHARLIE_PRIVATE_KEY="0x..."
+# Dev mode: true = Sepolia, false/undefined = Mainnet
+DEV_MODE=true
+```
 
-# Or use JSON array format:
-# CHANNEL_PARTICIPANT_PRIVATE_KEYS='["0x...", "0x..."]'
+Or copy from sample:
+```bash
+cp env.sample .env
+# Then edit .env with your API keys
 ```
 
 ## Usage

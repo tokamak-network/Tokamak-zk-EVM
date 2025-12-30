@@ -38,8 +38,8 @@ import { bytesToHex } from '@ethereumjs/util';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Load .env file from synthesizer root
-const envPath = resolve(__dirname, '../../.env');
+// Load .env file from L2StateChannel example folder
+const envPath = resolve(__dirname, '.env');
 config({ path: envPath });
 
 // ============================================================================
@@ -82,11 +82,13 @@ const CHANNEL_55 = {
 // Output directory
 const OUTPUT_BASE = resolve(__dirname, 'output');
 
-// RPC URL
-const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL;
-if (!SEPOLIA_RPC_URL) {
-  console.error('❌ SEPOLIA_RPC_URL not found in .env');
-  console.error('   Please add SEPOLIA_RPC_URL to packages/frontend/synthesizer/.env');
+// RPC URL based on DEV_MODE
+const DEV_MODE = process.env.DEV_MODE === 'true';
+const RPC_URL = DEV_MODE ? process.env.SEPOLIA_RPC_URL : process.env.ETHEREUM_RPC_URL;
+if (!RPC_URL) {
+  const envVar = DEV_MODE ? 'SEPOLIA_RPC_URL' : 'ETHEREUM_RPC_URL';
+  console.error(`❌ ${envVar} not found in .env`);
+  console.error(`   Please add ${envVar} to examples/L2StateChannel/.env`);
   process.exit(1);
 }
 
@@ -318,13 +320,14 @@ async function main() {
   const outputPath = resolve(OUTPUT_BASE, `transfer-${nextTransferNum}`);
   mkdirSync(outputPath, { recursive: true });
 
-  if (!SEPOLIA_RPC_URL) {
-    console.error('❌ SEPOLIA_RPC_URL not found in .env');
-    console.error('   Please add SEPOLIA_RPC_URL to packages/frontend/synthesizer/.env');
+  if (!RPC_URL) {
+    const envVar = DEV_MODE ? 'SEPOLIA_RPC_URL' : 'ETHEREUM_RPC_URL';
+    console.error(`❌ ${envVar} not found in .env`);
+    console.error(`   Please add ${envVar} to examples/L2StateChannel/.env`);
     process.exit(1);
   }
 
-  const adapter = new SynthesizerAdapter({ rpcUrl: SEPOLIA_RPC_URL });
+  const adapter = new SynthesizerAdapter({ rpcUrl: RPC_URL });
 
   console.log('⏳ Synthesizing L2 transfer...\n');
 

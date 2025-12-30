@@ -31,8 +31,8 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Load .env file from project root
-const envPath = resolve(__dirname, '../../../../../../.env');
+// Load .env file from L2StateChannel example folder
+const envPath = resolve(__dirname, '../.env');
 config({ path: envPath });
 
 // Binary paths (use pre-built binaries from dist/bin)
@@ -42,7 +42,9 @@ const preprocessBinary = `${distBinPath}/preprocess`;
 const proverBinary = `${distBinPath}/prove`;
 const verifyBinary = `${distBinPath}/verify`;
 
-const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL 
+// Select RPC URL based on DEV_MODE
+const DEV_MODE = process.env.DEV_MODE === 'true';
+const RPC_URL = DEV_MODE ? process.env.RPC_URL : process.env.ETHEREUM_RPC_URL; 
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -252,7 +254,7 @@ async function main() {
   const RECIPIENT_L2_ADDRESS = process.env.RECIPIENT_L2_ADDRESS || '0xdb9e654c355299142b8145ee72778510d895398c';
 
   // Get participants from on-chain
-  const provider = new ethers.JsonRpcProvider(SEPOLIA_RPC_URL);
+  const provider = new ethers.JsonRpcProvider(RPC_URL);
   const bridgeContract = new ethers.Contract(ROLLUP_BRIDGE_CORE_ADDRESS, ROLLUP_BRIDGE_CORE_ABI, provider);
   const participants: string[] = await bridgeContract.getChannelParticipants(CHANNEL_ID);
 
@@ -322,7 +324,7 @@ async function main() {
   }
 
   // Create SynthesizerAdapter instance
-  const adapter = new SynthesizerAdapter({ rpcUrl: SEPOLIA_RPC_URL });
+  const adapter = new SynthesizerAdapter({ rpcUrl: RPC_URL });
 
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║  Test: Sequential L2 Transfers (Simplified Interface)       ║');
