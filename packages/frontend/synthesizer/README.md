@@ -59,18 +59,13 @@ tsx examples/L2TONTransfer/main.ts examples/L2TONTransfer/input.json
 
 ## Run example (L2 State Channel)
 
-The L2 State Channel example demonstrates the complete flow of state channel operations on Sepolia testnet:
-1. Channel setup (open channel, deposit tokens)
-2. Channel initialization via frontend
-3. L2 transfer simulation
-4. Proof generation and verification
-
-See [examples/L2StateChannel/README.md](./examples/L2StateChannel/README.md) for detailed instructions.
+Interactive L2 transfer simulation using Channel 55 on Sepolia testnet. Requires `SEPOLIA_RPC_URL` in `.env`.
 
 ```bash
-# Run the end-to-end test
 npx tsx examples/L2StateChannel/index.ts
 ```
+
+See [examples/L2StateChannel/README.md](./examples/L2StateChannel/README.md) for details.
 
 ## Supported opcodes (high level)
 - Arithmetic/bitwise: ADD…SAR, EXP, SIGNEXTEND, KECCAK256 (⚠️ Poseidon stand-in)

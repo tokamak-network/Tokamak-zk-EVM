@@ -1,204 +1,174 @@
-# L2 State Channel Example
+# L2 State Channel Transfer Example
 
-This example demonstrates the complete flow of L2 State Channel operations:
-1. **Channel Setup** - Open channel and deposit tokens
-2. **Channel Initialization** - Initialize channel state via frontend
-3. **L2 Transfer Simulation** - Simulate L2 token transfers
-4. **Proof Generation & Verification** - Generate and verify zk proofs
+This example demonstrates L2 transfers on a pre-existing state channel (Channel 55) on Sepolia testnet.
+
+## Channel 55 Configuration
+
+| Property | Value |
+|----------|-------|
+| Channel ID | 55 |
+| Token | TON |
+| Init TX | `0x48ba10b55d6798a75ab904bb3317b546411a0e38f4ad6290573558648889136c` |
+
+### Participants
+
+| Name | L1 Address | Deposit | MPT Key |
+|------|------------|---------|---------|
+| Alice (Leader) | `0xF9Fa94D45C49e879E46Ea783fc133F41709f3bc7` | 1 TON | `0x025970d0...` |
+| Bob | `0x322acfaA747F3CE5b5899611034FB4433f0Edf34` | 1 TON | `0x2f79d38b...` |
+| Charlie | `0x31Fbd690BF62cd8C60A93F3aD8E96A6085Dc5647` | 1 TON | `0x4edcb654...` |
 
 ## Prerequisites
 
-- Node.js 18+
-- Sepolia testnet tokens (ETH for gas, TON for deposits)
-- Access to [Tokamak-zkp-channel-manager](https://github.com/tokamak-network/Tokamak-zkp-channel-manager) frontend
-
-## Setup
-
-### 1. Environment Variables
-
-Create a `.env` file in the synthesizer root (`packages/frontend/synthesizer/.env`):
-
-```env
-# Required
-SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY
-
-# Leader private key (channel creator)
-CHANNEL_LEADER_PRIVATE_KEY=0x...
-
-# Participant private keys as JSON array
-CHANNEL_PARTICIPANT_PRIVATE_KEYS=["0x...", "0x..."]
-
-# Optional: Use existing channel
-CHANNEL_ID=55
-INITIALIZE_TX_HASH=0x...
-```
-
-### 2. Install Dependencies
+1. **Node.js** >= 18
+2. **Environment Variables**: Add to `packages/frontend/synthesizer/.env`:
 
 ```bash
-cd packages/frontend/synthesizer
-npm install
+SEPOLIA_RPC_URL="https://eth-sepolia.g.alchemy.com/v3/YOUR_API_KEY"
+
+# At least one participant's private key (to use as sender)
+ALICE_PRIVATE_KEY="0x..."       # or CHANNEL_LEADER_PRIVATE_KEY
+BOB_PRIVATE_KEY="0x..."
+CHARLIE_PRIVATE_KEY="0x..."
+
+# Or use JSON array format:
+# CHANNEL_PARTICIPANT_PRIVATE_KEYS='["0x...", "0x..."]'
 ```
 
 ## Usage
 
-### End-to-End Test (Recommended)
-
-Run the complete flow:
-
 ```bash
+cd packages/frontend/synthesizer
 npx tsx examples/L2StateChannel/index.ts
 ```
 
-This script will:
-1. **Phase 1**: Create channel and deposit tokens (interactive)
-2. **Phase 2**: Wait for you to initialize via frontend
-3. **Phase 3**: Simulate L2 transfer (select sender, recipient, amount)
-4. **Phase 4**: Generate and verify proof
+### Interactive Prompts
 
-### Channel Setup Only
+1. **Select Sender**: Choose from accounts with available private keys
+2. **Select Recipient**: Choose any participant (will prompt for key if needed)
+3. **Enter Amount**: Transfer amount in TON
 
-If you only want to set up a channel:
+### Chained Transfers
 
-```bash
-npx tsx examples/L2StateChannel/channel-setup/index.ts
-```
-
-## Interactive Prompts
-
-### Configuration
+The script automatically detects previous transfers and chains from them:
 
 ```
-📋 Step 1: Leader Configuration
-? Use leader from .env? 0x1234...abcd (0xF9Fa94D45...) (Y/n)
-
-📋 Step 2: Participant Configuration
-? Use participants from .env? (Y/n)
-
-📋 Step 3: Channel Settings
-? Target contract address: (0xa30fe40285B8f5c0457DbC3B7C8A280373c40044)
-
-📋 Step 4: Deposit Amounts
-? Use the same deposit amount for all participants? (Y/n)
-? Deposit amount (in TON): (10)
+transfer-1/  →  transfer-2/  →  transfer-3/  → ...
+   ↓               ↓               ↓
+state_snapshot  state_snapshot  state_snapshot
 ```
 
-### Channel Initialization
-
-After Phase 1, you'll see instructions to initialize via frontend:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    MANUAL STEP REQUIRED                     │
-├─────────────────────────────────────────────────────────────┤
-│  1. Clone: git clone https://github.com/tokamak-network/    │
-│            Tokamak-zkp-channel-manager                      │
-│  2. Run: npm install && npm run dev                         │
-│  3. Open: http://localhost:3000                             │
-│  4. Connect Leader wallet                                   │
-│  5. Navigate to "Initialize State"                          │
-│  6. Select Channel and click "Initialize"                   │
-│  7. Copy the TX Hash                                        │
-└─────────────────────────────────────────────────────────────┘
-
-? Channel initialization status:
-❯ ✅ Initialization complete - Enter TX Hash
-  ⏳ Still working on it - Wait
-  ❌ Cancel and exit
-```
-
-### L2 Transfer
-
-```
-📋 Available Accounts:
-
-   [0] Leader
-       L1: 0xF9Fa94D45C49e879E46Ea783fc133F41709f3bc7
-       L2: 0x023e0294ece0a62b866e631c38b8fde21adc964c
-
-   [1] Participant 2
-       L1: 0x322acfaA747F3CE5b5899611034FB4433f0Edf34
-       L2: 0x09a5f429db26d80c0167b2e91a8338dfef029906
-
-? Select SENDER account: Leader (0xF9Fa94D4...)
-? Select RECIPIENT account: Participant 2 (L2: 0x09a5f429db...)
-? Transfer amount (in TON): 1
-```
+Each new transfer uses the previous transfer's `state_snapshot.json` as its base state.
 
 ## Output Structure
 
 ```
-L2StateChannel/
-└── output/
-    └── {channelId}/
-        ├── channel_info.json      # Channel details & participants
-        └── proof-1/
-            ├── instance.json      # Circuit instance
-            ├── proof.json         # Generated proof
-            ├── state_snapshot.json
-            └── ...
+examples/L2StateChannel/output/
+├── 55/
+│   └── channel_info.json       # Channel metadata
+├── transfer-1/
+│   ├── instance.json           # Circuit instance
+│   ├── instance_description.json
+│   ├── permutation.json
+│   ├── placementVariables.json
+│   ├── state_snapshot.json     # State after this transfer
+│   └── transfer_info.json      # Transfer metadata
+├── transfer-2/
+│   └── ...
+└── transfer-N/
+    └── ...
 ```
 
-### channel_info.json
+### transfer_info.json
 
 ```json
 {
+  "transferNumber": 1,
   "channelId": 55,
-  "targetContract": "0xa30fe40285B8f5c0457DbC3B7C8A280373c40044",
-  "targetTokenSymbol": "TON",
-  "initTxHash": "0x...",
-  "status": "initialized",
-  "participants": [
-    {
-      "address": "0xF9Fa94D45C49e879E46Ea783fc133F41709f3bc7",
-      "name": "Leader",
-      "deposit": "1000000000000000000",
-      "mptKey": "0x60d4f30b8f452d2f5726bb14c3226f5d64a32eba..."
-    },
-    ...
-  ],
-  "createdAt": "2025-12-29T..."
+  "sender": {
+    "name": "Alice (Leader)",
+    "l1Address": "0xF9Fa94D45C49e879E46Ea783fc133F41709f3bc7",
+    "l2Address": "0x..."
+  },
+  "recipient": {
+    "name": "Bob",
+    "l1Address": "0x322acfaA747F3CE5b5899611034FB4433f0Edf34",
+    "l2Address": "0x..."
+  },
+  "amount": "0.1",
+  "tokenSymbol": "TON",
+  "previousStateRoot": "0x...",
+  "newStateRoot": "0x...",
+  "basedOnTransfer": null,
+  "createdAt": "2024-12-30T..."
 }
 ```
 
-## Using Existing Channel
+## Proof Generation
 
-To skip channel setup and use an existing initialized channel:
+After running the synthesizer, you can generate and verify proofs:
 
-1. Set environment variables:
-```env
-CHANNEL_ID=55
-INITIALIZE_TX_HASH=0xcae04be327f6213a351e58525b20e72d405ee25da3c2fc2072e50df51c0a03a3
-```
-
-2. Run the script - it will detect and use the existing channel
-
-## Troubleshooting
-
-### Binary Not Found
-
-Make sure the binaries are built:
 ```bash
-# From project root
-cd dist/bin
-ls  # Should show: preprocess, prove, verify
+# Generate proof
+./tokamak-cli --prove examples/L2StateChannel/output/transfer-1
+
+# Verify proof
+./tokamak-cli --verify examples/L2StateChannel/output/transfer-1
 ```
 
-### RPC Connection Failed
+Or manually:
 
-- Check your `SEPOLIA_RPC_URL` is correct
-- Ensure you have a valid Alchemy/Infura API key
-- Try a public RPC: `https://rpc.sepolia.org`
+```bash
+# Preprocess (first proof only)
+./dist/bin/preprocess \
+  packages/frontend/qap-compiler/subcircuits/library \
+  examples/L2StateChannel/output/transfer-1 \
+  dist/resource/setup/output \
+  dist/resource/preprocess/output
 
-### Insufficient Funds
+# Prove
+./dist/bin/prove \
+  packages/frontend/qap-compiler/subcircuits/library \
+  examples/L2StateChannel/output/transfer-1 \
+  dist/resource/setup/output \
+  examples/L2StateChannel/output/transfer-1
 
-- Get Sepolia ETH from faucets
-- Get test TON tokens from Tokamak faucet
+# Verify
+./dist/bin/verify \
+  packages/frontend/qap-compiler/subcircuits/library \
+  examples/L2StateChannel/output/transfer-1 \
+  dist/resource/setup/output \
+  dist/resource/preprocess/output \
+  examples/L2StateChannel/output/transfer-1
+```
+
+## How It Works
+
+1. **L2 Key Derivation**: L2 private keys are derived from L1 private keys by signing a message:
+   ```
+   Message: "Tokamak-Private-App-Channel-{channelId}"
+   L2 Keys = deriveL2KeysFromSignature(sign(message))
+   ```
+
+2. **State Restoration**: The SynthesizerAdapter fetches on-chain data from the initialize transaction and reconstructs the channel state.
+
+3. **Transfer Simulation**: The transfer is executed in the synthesizer's EVM, generating circuit outputs.
+
+4. **State Snapshot**: The resulting state is saved for chaining subsequent transfers.
 
 ## Related Files
 
-- `index.ts` - Main end-to-end test script
-- `channel-setup/index.ts` - Channel setup only
-- `synthesizer/adapter.ts` - SynthesizerAdapter for L2 transfer simulation
-- `constants/index.ts` - Contract addresses and ABIs
+- `index.ts` - Main example script
+- `output/55/channel_info.json` - Channel metadata
+- `../../src/interface/adapters/synthesizerAdapter.ts` - SynthesizerAdapter implementation
+- `../../src/TokamakL2JS/utils/web.ts` - L2 key derivation utilities
 
+## Full E2E Testing
+
+For complete end-to-end testing including channel creation, use the CLI:
+
+```bash
+./tokamak-cli --channel-e2e
+```
+
+See `scripts/channel/README.md` for more details.
