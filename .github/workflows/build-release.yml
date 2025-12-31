@@ -2,28 +2,20 @@ name: Test, Build & Release
 
 on:
   push:
-    branches: [main, dev, ale-153] # Execute when pushing to main, dev, or ale-153 branch
+    branches: [main, dev, ale-ci] # Execute when pushing to main, dev, or ale-ci branch
   pull_request:
-    branches: [main, dev, ale-153] # Execute on PR creation and updates to main, dev, or ale-153 branch
+    branches: [main, dev, ale-ci] # Execute on PR creation and updates
   workflow_dispatch: # Manual execution allowed
 
 jobs:
-  proof-generation-test:
-    name: Proof Generation Test
+  # ============================================================================
+  # L2TONTransfer Test - Traditional workflow using input.json
+  # ============================================================================
+  l2-ton-transfer-test:
+    name: L2 TON Transfer Test
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
-    # Execute on push to main or on any PR to main (for validation)
+    timeout-minutes: 60
     if: github.event_name == 'push' || github.event_name == 'pull_request'
-
-    strategy:
-      matrix:
-        # Execute TON Transfer test only - using same tx as L2TONTransfer example
-        test_case:
-          - name: 'ton-transfer'
-            tx_hash: '0xa0090893a2d5f79b67cebcb65eac3efc92820ec09dc4ad9fe2bc29bbdcad2e41'
-            description: 'TON Transfer'
-
-      fail-fast: false # Continue other tests even if one fails
 
     steps:
       - name: Checkout code
@@ -37,7 +29,6 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          # Ubuntu에서는 apt 사용
           sudo apt-get update
           sudo apt-get install -y dos2unix cmake build-essential
 
@@ -46,7 +37,6 @@ jobs:
 
       - name: Install circom
         run: |
-          # Install circom 2.2.2 for Linux
           wget https://github.com/iden3/circom/releases/download/v2.2.2/circom-linux-amd64
           chmod +x circom-linux-amd64
           sudo mv circom-linux-amd64 /usr/local/bin/circom
@@ -62,10 +52,12 @@ jobs:
           bun --version
           echo "✅ Bun is ready"
 
-      - name: Make tokamak-cli executable
-        run: chmod +x ./scripts/tokamak-cli-core
+      - name: Make scripts executable
+        run: |
+          chmod +x ./tokamak-cli
+          chmod +x ./scripts/tokamak-cli-core
 
-      - name: Setup environment
+      - name: Setup environment with install
         env:
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
         run: |
@@ -74,68 +66,228 @@ jobs:
           find . -name "*.sh" -exec chmod +x {} \;
           find . -name "*.sh" -exec dos2unix {} \; 2>/dev/null || true
 
-          # Use npm install to resolve dependency issues
-          echo "🔧 Installing dependencies with npm install instead of npm ci..."
+          # Install dependencies
+          echo "🔧 Installing frontend dependencies..."
           cd packages/frontend/qap-compiler && npm install --legacy-peer-deps
           cd ../synthesizer && npm install --legacy-peer-deps
           cd ../../..
 
-          # Install tsx globally (required for synthesizer)
+          # Install tsx globally
           npm install -g tsx
-          ./scripts/tokamak-cli-core --install "$ALCHEMY_API_KEY"
 
-          # Export RPC_URL for subsequent steps
-          echo "RPC_URL=https://eth-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY" >> $GITHUB_ENV
+          # Run install step
+          ./tokamak-cli --install "$ALCHEMY_API_KEY"
 
-      - name: Generate proof for ${{ matrix.test_case.name }}
-        env:
-          RPC_URL: ${{ env.RPC_URL }}
+      - name: Run L2TONTransfer synthesizer
         run: |
-          echo "🧪 Testing: ${{ matrix.test_case.description }}"
-          echo "📋 TX Hash: ${{ matrix.test_case.tx_hash }}"
+          echo "🧪 Running L2TONTransfer synthesizer..."
+          echo "📋 Config: packages/frontend/synthesizer/examples/L2TONTransfer/input.json"
 
-          # Attempt proof generation
-          ./scripts/tokamak-cli-core --prove "${{ matrix.test_case.tx_hash }}" "./proof_${{ matrix.test_case.name }}"
+          # Run synthesize step with input.json
+          ./tokamak-cli --synthesize packages/frontend/synthesizer/examples/L2TONTransfer/input.json
+
+      - name: Run preprocess
+        run: |
+          echo "⚙️ Running preprocess..."
+          ./tokamak-cli --preprocess
+
+      - name: Run prove
+        run: |
+          echo "🔐 Running prove..."
+          ./tokamak-cli --prove
+
+      - name: Run verify
+        run: |
+          echo "✅ Running verify..."
+          ./tokamak-cli --verify
 
       - name: Validate proof artifacts
         run: |
-          # Verify that required files were generated
-          test -f "./proof_${{ matrix.test_case.name }}/transaction_hash.txt"
-          test -f "./proof_${{ matrix.test_case.name }}/proof.json"
-
-          # Verify that transaction hash was stored correctly
-          stored_hash=$(cat "./proof_${{ matrix.test_case.name }}/transaction_hash.txt")
-          if [[ "$stored_hash" != "${{ matrix.test_case.tx_hash }}" ]]; then
-            echo "❌ Transaction hash mismatch!"
-            echo "Expected: ${{ matrix.test_case.tx_hash }}"
-            echo "Got: $stored_hash"
+          echo "🔍 Validating proof artifacts..."
+          
+          # Check that proof.json exists
+          if [ -f "dist/resource/prove/output/proof.json" ]; then
+            echo "✅ proof.json exists"
+          else
+            echo "❌ proof.json not found"
             exit 1
           fi
+          
+          # Check that preprocess.json exists
+          if [ -f "dist/resource/preprocess/output/preprocess.json" ]; then
+            echo "✅ preprocess.json exists"
+          else
+            echo "❌ preprocess.json not found"
+            exit 1
+          fi
+          
+          echo "✅ L2TONTransfer test passed!"
 
-          echo "✅ Proof validation passed for ${{ matrix.test_case.name }}"
-
-      - name: Upload proof artifacts
-        if: always() # Upload artifacts even on failure
+      - name: Upload L2TONTransfer artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: proof-artifacts-${{ matrix.test_case.name }}-${{ github.run_number }}
-          path: ./proof_${{ matrix.test_case.name }}/
+          name: l2-ton-transfer-artifacts-${{ github.run_number }}
+          path: |
+            dist/resource/prove/output/
+            dist/resource/preprocess/output/
+            dist/resource/synthesizer/output/
           retention-days: 7
 
       - name: Upload setup files for reuse
-        if: success() # Upload only on success
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: setup-files
-          path: dist/linux22/resource/setup/output/
+          path: dist/resource/setup/output/
           retention-days: 7
 
+  # ============================================================================
+  # L2StateChannel Test - State channel based transfer
+  # ============================================================================
+  l2-state-channel-test:
+    name: L2 State Channel Test
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dos2unix cmake build-essential
+
+      - name: Install Rust and Cargo
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install circom
+        run: |
+          wget https://github.com/iden3/circom/releases/download/v2.2.2/circom-linux-amd64
+          chmod +x circom-linux-amd64
+          sudo mv circom-linux-amd64 /usr/local/bin/circom
+          circom --version
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Verify Bun installation
+        run: |
+          bun --version
+          echo "✅ Bun is ready"
+
+      - name: Make scripts executable
+        run: |
+          chmod +x ./tokamak-cli
+          chmod +x ./scripts/tokamak-cli-core
+
+      - name: Setup environment with install
+        env:
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL || '' }}
+        run: |
+          # Fix file permissions and line endings
+          echo "🔧 Fixing file permissions and line endings..."
+          find . -name "*.sh" -exec chmod +x {} \;
+          find . -name "*.sh" -exec dos2unix {} \; 2>/dev/null || true
+
+          # Install dependencies
+          echo "🔧 Installing frontend dependencies..."
+          cd packages/frontend/qap-compiler && npm install --legacy-peer-deps
+          cd ../synthesizer && npm install --legacy-peer-deps
+          cd ../../..
+
+          # Install tsx globally
+          npm install -g tsx
+
+          # Run install step
+          ./tokamak-cli --install "$ALCHEMY_API_KEY"
+
+          # Setup L2StateChannel .env for Sepolia
+          if [ -n "$SEPOLIA_RPC_URL" ]; then
+            echo "SEPOLIA_RPC_URL='$SEPOLIA_RPC_URL'" > packages/frontend/synthesizer/examples/L2StateChannel/.env
+            echo "DEV_MODE=true" >> packages/frontend/synthesizer/examples/L2StateChannel/.env
+            echo "✅ L2StateChannel .env configured with Sepolia RPC"
+          else
+            # Use Alchemy Sepolia URL
+            echo "RPC_URL='https://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KEY'" > packages/frontend/synthesizer/examples/L2StateChannel/.env
+            echo "SEPOLIA_RPC_URL='https://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KEY'" >> packages/frontend/synthesizer/examples/L2StateChannel/.env
+            echo "DEV_MODE=true" >> packages/frontend/synthesizer/examples/L2StateChannel/.env
+            echo "✅ L2StateChannel .env configured with Alchemy Sepolia"
+          fi
+
+      - name: Run L2StateChannel CI test (synthesize)
+        working-directory: packages/frontend/synthesizer
+        run: |
+          echo "🧪 Running L2StateChannel CI test..."
+          npx tsx examples/L2StateChannel/index.ts --ci
+
+      - name: Copy synthesizer outputs to dist
+        run: |
+          echo "📁 Copying synthesizer outputs to dist..."
+          mkdir -p dist/resource/synthesizer/output
+          cp -r packages/frontend/synthesizer/examples/L2StateChannel/output/ci-test/* dist/resource/synthesizer/output/
+          ls -la dist/resource/synthesizer/output/
+
+      - name: Run preprocess
+        run: |
+          echo "⚙️ Running preprocess..."
+          ./tokamak-cli --preprocess
+
+      - name: Run prove
+        run: |
+          echo "🔐 Running prove..."
+          ./tokamak-cli --prove
+
+      - name: Run verify
+        run: |
+          echo "✅ Running verify..."
+          ./tokamak-cli --verify
+
+      - name: Validate proof artifacts
+        run: |
+          echo "🔍 Validating proof artifacts..."
+          
+          # Check that proof.json exists
+          if [ -f "dist/resource/prove/output/proof.json" ]; then
+            echo "✅ proof.json exists"
+          else
+            echo "❌ proof.json not found"
+            exit 1
+          fi
+          
+          echo "✅ L2StateChannel test passed!"
+
+      - name: Upload L2StateChannel artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l2-state-channel-artifacts-${{ github.run_number }}
+          path: |
+            packages/frontend/synthesizer/examples/L2StateChannel/output/ci-test/
+            dist/resource/prove/output/
+            dist/resource/preprocess/output/
+          retention-days: 7
+
+  # ============================================================================
+  # Build macOS Binary
+  # ============================================================================
   build-macos:
     name: Build macOS Binary
     runs-on: macos-latest
-    needs: proof-generation-test
+    needs: [l2-ton-transfer-test, l2-state-channel-test]
     timeout-minutes: 60
-    # Execute only for main branch (push/PR), skip dev and ale-153 branches
+    # Execute only for main branch (push/PR)
     if: (github.event_name == 'push' || github.event_name == 'pull_request') && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
 
     steps:
@@ -147,7 +299,6 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          # Install macOS dependencies
           brew install dos2unix
 
       - name: Cache Rust dependencies
@@ -166,7 +317,7 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Download setup files from proof test
+      - name: Download setup files from test
         uses: actions/download-artifact@v4
         with:
           name: setup-files
@@ -185,12 +336,15 @@ jobs:
           path: tokamak-zk-evm-macOS.zip
           retention-days: 30
 
+  # ============================================================================
+  # Build Linux Binary
+  # ============================================================================
   build-linux:
     name: Build Linux Binary
-    runs-on: ubuntu-22.04 # Specify Linux 22 version
-    needs: proof-generation-test # Execute after proof test passes
+    runs-on: ubuntu-22.04
+    needs: [l2-ton-transfer-test, l2-state-channel-test]
     timeout-minutes: 60
-    # Execute only for main branch (push/PR), skip dev and ale-153 branches
+    # Execute only for main branch (push/PR)
     if: (github.event_name == 'push' || github.event_name == 'pull_request') && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
 
     steps:
@@ -202,7 +356,6 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          # Install Ubuntu dependencies
           sudo apt-get update
           sudo apt-get install -y dos2unix build-essential curl cmake
 
@@ -233,7 +386,7 @@ jobs:
           bun --version
           echo "✅ Bun is ready"
 
-      - name: Download setup files from proof test
+      - name: Download setup files from test
         uses: actions/download-artifact@v4
         with:
           name: setup-files
@@ -245,7 +398,7 @@ jobs:
           chmod +x scripts/packaging.sh
           ./scripts/packaging.sh --linux --bun --no-setup
 
-      - name: Download setup files from proof test
+      - name: Download setup files from test
         uses: actions/download-artifact@v4
         with:
           name: setup-files
@@ -253,20 +406,18 @@ jobs:
 
       - name: Create setup files archive
         run: |
-          echo "📦 Creating setup files archive from proof test results..."
+          echo "📦 Creating setup files archive from test results..."
 
-          # Check if setup files exist
           if [ -d "./setup-for-archive" ] && [ "$(ls -A ./setup-for-archive 2>/dev/null)" ]; then
-            echo "✅ Found setup files from proof test"
+            echo "✅ Found setup files from test"
             ls -la ./setup-for-archive/
             
-            # Create archive from actual setup files
             tar -C ./setup-for-archive -c . | gzip -9 > tokamak-zk-evm-setup-files.tar.gz
             
             echo "📊 Setup files archive created:"
             ls -lh tokamak-zk-evm-setup-files.tar.gz
           else
-            echo "❌ No setup files found from proof test"
+            echo "❌ No setup files found from test"
             echo "Creating empty archive as fallback..."
             mkdir -p empty-setup
             echo "No setup files available" > empty-setup/README.txt
@@ -288,10 +439,13 @@ jobs:
           path: tokamak-zk-evm-setup-files.tar.gz
           retention-days: 30
 
+  # ============================================================================
+  # Create GitHub Release
+  # ============================================================================
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-22.04
-    needs: [proof-generation-test, build-macos, build-linux]
+    needs: [l2-ton-transfer-test, l2-state-channel-test, build-macos, build-linux]
     # Execute only when all tests and builds succeed, and only on push to main branch
     if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
 
@@ -299,23 +453,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetch full history (needed for tag information)
+          fetch-depth: 0
 
       - name: Generate version tag
         id: version
         run: |
-          # Generate different version tags based on branch
           DATE=$(date +%Y.%m.%d)
           SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
           BRANCH_NAME="${{ github.ref_name }}"
 
           if [[ "$BRANCH_NAME" == "main" ]]; then
-            # Main branch: Official release (v2024.01.15)
             VERSION="v${DATE}"
             IS_PRERELEASE="false"
             RELEASE_TYPE="Release"
           else
-            # Test branch: Test release (test-ale-150-v2024.01.15-abc1234)
             VERSION="test-${BRANCH_NAME}-v${DATE}-${SHORT_SHA}"
             IS_PRERELEASE="true"
             RELEASE_TYPE="Test Release"
@@ -354,7 +505,6 @@ jobs:
         run: |
           mkdir -p ./release-assets
 
-          # Track failed artifacts
           MISSING_ASSETS=()
 
           # Copy macOS binary
@@ -387,14 +537,12 @@ jobs:
             MISSING_ASSETS+=("Setup files")
           fi
 
-          # Fail if there are missing artifacts
           if [ ${#MISSING_ASSETS[@]} -gt 0 ]; then
             echo ""
             echo "💥 Missing required assets:"
             printf '%s\n' "${MISSING_ASSETS[@]}"
             echo ""
             echo "🔍 This usually means one of the build jobs failed."
-            echo "   Check the build job logs above for errors."
             exit 1
           fi
 
@@ -404,7 +552,6 @@ jobs:
       - name: Generate release notes
         id: release_notes
         run: |
-          # Generate release notes from recent commits
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
           if [ -n "$LAST_TAG" ]; then
@@ -413,7 +560,6 @@ jobs:
             COMMITS=$(git log --oneline --no-merges | head -20)
           fi
 
-          # Write release notes
           cat > release_notes.md << EOF
           ## 🚀 Tokamak-zk-EVM ${{ steps.version.outputs.release_type }} ${{ steps.version.outputs.version }}
 
@@ -429,7 +575,6 @@ jobs:
 
           EOF
 
-          # Additional notice for test branches
           if [[ "${{ steps.version.outputs.branch }}" != "main" ]]; then
             cat >> release_notes.md << EOF
 
@@ -443,8 +588,8 @@ jobs:
 
           ### ✅ Quality Assurance
 
-          - **Proof Generation Test**: Passed ✅
-          - **Transaction**: TON Transfer (0x6c7903e420c5efb27639f5186a7474ef2137f12c786a90b4efdcb5d88dfdb002)
+          - **L2 TON Transfer Test**: Passed ✅
+          - **L2 State Channel Test**: Passed ✅
           - **Validation**: All proof artifacts verified
 
           ### 🔧 What's Included
@@ -523,5 +668,9 @@ jobs:
           echo "- ✅ **macOS Binary**: tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ **Linux Binary**: tokamak-zk-evm-${{ steps.version.outputs.version }}-linux22.tar.gz" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ **Setup Files**: tokamak-zk-evm-${{ steps.version.outputs.version }}-setup-files.tar.gz" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Tests Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- L2 TON Transfer Test" >> $GITHUB_STEP_SUMMARY
+          echo "- L2 State Channel Test" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🔗 **[View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }})**" >> $GITHUB_STEP_SUMMARY
