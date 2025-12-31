@@ -160,6 +160,14 @@ jobs:
           chmod +x dist/bin/* 2>/dev/null || true
           chmod +x dist/*.sh 2>/dev/null || true
 
+      - name: Setup synthesizer environment
+        env:
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
+        run: |
+          # Create .env file for synthesizer (not included in artifact due to .gitignore)
+          echo "RPC_URL='https://eth-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY'" > packages/frontend/synthesizer/.env
+          echo "✅ Synthesizer .env configured"
+
       - name: Run L2TONTransfer synthesizer
         run: |
           echo "🧪 Running L2TONTransfer synthesizer..."
