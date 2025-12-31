@@ -11,10 +11,16 @@
  *
  * Usage:
  *   cd packages/frontend/synthesizer
+ *
+ *   # Interactive mode (default)
  *   npx tsx examples/L2StateChannel/index.ts
  *
+ *   # CI mode (non-interactive, uses default values)
+ *   npx tsx examples/L2StateChannel/index.ts --ci
+ *
  * Output:
- *   examples/L2StateChannel/output/transfer-{N}/
+ *   examples/L2StateChannel/output/transfer-{N}/  (interactive mode)
+ *   examples/L2StateChannel/output/ci-test/       (CI mode)
  */
 
 import { select, input, confirm } from '@inquirer/prompts';
@@ -41,6 +47,28 @@ const __dirname = dirname(__filename);
 // Load .env file from L2StateChannel example folder
 const envPath = resolve(__dirname, '.env');
 config({ path: envPath });
+
+// Also load from synthesizer root .env if L2StateChannel .env doesn't exist
+if (!existsSync(envPath)) {
+  const synthesizerEnvPath = resolve(__dirname, '../../.env');
+  config({ path: synthesizerEnvPath });
+}
+
+// ============================================================================
+// CI MODE DETECTION
+// ============================================================================
+
+const CI_MODE = process.env.CI === 'true' || process.argv.includes('--ci');
+
+// CI mode default configuration
+// Note: recipientIndex is 0 because after filtering out sender (Alice),
+// the remaining array is [Bob, Charlie], so Bob is at index 0
+const CI_CONFIG = {
+  senderIndex: 0,      // Alice
+  recipientIndex: 0,   // Bob (index 0 in filtered array after removing sender)
+  amount: '0.1',       // 0.1 TON
+  outputDir: 'ci-test', // Fixed output directory for CI
+};
 
 // ============================================================================
 // CHANNEL 55 CONFIGURATION (Pre-existing on Sepolia)
@@ -83,14 +111,10 @@ const CHANNEL_55 = {
 const OUTPUT_BASE = resolve(__dirname, 'output');
 
 // RPC URL based on DEV_MODE
-const DEV_MODE = process.env.DEV_MODE === 'true';
-const RPC_URL = DEV_MODE ? process.env.SEPOLIA_RPC_URL : process.env.ETHEREUM_RPC_URL;
-if (!RPC_URL) {
-  const envVar = DEV_MODE ? 'SEPOLIA_RPC_URL' : 'ETHEREUM_RPC_URL';
-  console.error(`❌ ${envVar} not found in .env`);
-  console.error(`   Please add ${envVar} to examples/L2StateChannel/.env`);
-  process.exit(1);
-}
+const DEV_MODE = process.env.DEV_MODE !== 'false'; // Default to true for CI
+const RPC_URL = DEV_MODE 
+  ? (process.env.SEPOLIA_RPC_URL || process.env.RPC_URL)
+  : process.env.ETHEREUM_RPC_URL;
 
 // ============================================================================
 // TYPES
@@ -160,10 +184,28 @@ async function getL2KeysForParticipant(participantIndex: number): Promise<{ l2Ad
 // ============================================================================
 
 async function main() {
+  const modeLabel = CI_MODE ? 'CI Mode (Non-interactive)' : 'Interactive Mode';
+  
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║         L2 State Channel Transfer Example                     ║');
-  console.log('║                   Channel 55 (Sepolia)                        ║');
+  console.log(`║                   Channel 55 (Sepolia)                        ║`);
+  console.log(`║                   ${modeLabel.padEnd(37)}║`);
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  // Check RPC URL
+  if (!RPC_URL) {
+    const envVar = DEV_MODE ? 'SEPOLIA_RPC_URL' : 'ETHEREUM_RPC_URL';
+    console.error(`❌ ${envVar} not found in .env`);
+    console.error(`   Please add ${envVar} to examples/L2StateChannel/.env`);
+    console.error(`   Or set RPC_URL environment variable`);
+    process.exit(1);
+  }
+
+  if (CI_MODE) {
+    console.log(`📡 Using RPC: ${RPC_URL.substring(0, 50)}...`);
+    console.log(`🔧 DEV_MODE: ${DEV_MODE}`);
+    console.log('');
+  }
 
   // Display channel info
   console.log('📋 Channel Configuration:\n');
@@ -172,31 +214,46 @@ async function main() {
   console.log(`   Init TX: ${CHANNEL_55.initTxHash}`);
   console.log('');
 
-  console.log('👥 Participants:\n');
-  CHANNEL_55.participants.forEach((p, i) => {
-    console.log(`   [${i}] ${p.name}`);
-    console.log(`       L1 Address: ${p.l1Address}`);
-    console.log(`       L2 Address: ${p.l2Address}`);
-    console.log(`       Deposit: ${p.deposit}`);
-    console.log('');
-  });
-
-  // Check for existing transfers
-  const nextTransferNum = getNextTransferNumber();
-  const previousStatePath = getPreviousStateSnapshotPath(nextTransferNum);
-
-  if (previousStatePath) {
-    console.log(`📂 Found previous transfer: transfer-${nextTransferNum - 1}`);
-    console.log(`   State snapshot will be used as base for this transfer\n`);
-  } else if (nextTransferNum > 1) {
-    console.log(`⚠️  No state snapshot found from previous transfers`);
-    console.log(`   Will start from initial channel state\n`);
+  if (!CI_MODE) {
+    console.log('👥 Participants:\n');
+    CHANNEL_55.participants.forEach((p, i) => {
+      console.log(`   [${i}] ${p.name}`);
+      console.log(`       L1 Address: ${p.l1Address}`);
+      console.log(`       L2 Address: ${p.l2Address}`);
+      console.log(`       Deposit: ${p.deposit}`);
+      console.log('');
+    });
   }
 
-  console.log(`📝 This will be: transfer-${nextTransferNum}\n`);
+  // Determine output path and previous state
+  let outputPath: string;
+  let previousStatePath: string | undefined;
+  let nextTransferNum: number;
+
+  if (CI_MODE) {
+    // CI mode: use fixed output directory, always start fresh
+    outputPath = resolve(OUTPUT_BASE, CI_CONFIG.outputDir);
+    previousStatePath = undefined;
+    nextTransferNum = 0; // Not used in CI mode
+    console.log(`📁 CI Output: ${outputPath}\n`);
+  } else {
+    // Interactive mode: use incremental transfer numbers
+    nextTransferNum = getNextTransferNumber();
+    previousStatePath = getPreviousStateSnapshotPath(nextTransferNum);
+    outputPath = resolve(OUTPUT_BASE, `transfer-${nextTransferNum}`);
+
+    if (previousStatePath) {
+      console.log(`📂 Found previous transfer: transfer-${nextTransferNum - 1}`);
+      console.log(`   State snapshot will be used as base for this transfer\n`);
+    } else if (nextTransferNum > 1) {
+      console.log(`⚠️  No state snapshot found from previous transfers`);
+      console.log(`   Will start from initial channel state\n`);
+    }
+
+    console.log(`📝 This will be: transfer-${nextTransferNum}\n`);
+  }
 
   // Derive L2 keys for all participants using stored signatures
-  // No .env required - everything is hardcoded for easy testing
   const l2Accounts: L2Account[] = [];
 
   console.log('🔑 Loading L2 Keys from stored signatures...\n');
@@ -236,56 +293,73 @@ async function main() {
     process.exit(1);
   }
 
-  // Select sender
-  console.log('═══════════════════════════════════════════════════════════════');
-  console.log('Transfer Configuration');
-  console.log('═══════════════════════════════════════════════════════════════\n');
+  // Select sender and recipient
+  let senderIndex: number;
+  let recipientIndex: number;
+  let amount: string;
 
-  const senderChoices = l2Accounts.map((acc, i) => ({
-    name: `${acc.name} (L2: ${acc.l2Address.slice(0, 14)}...)`,
-    value: i,
-  }));
+  if (CI_MODE) {
+    // CI mode: use hardcoded values
+    senderIndex = CI_CONFIG.senderIndex;
+    recipientIndex = CI_CONFIG.recipientIndex;
+    amount = CI_CONFIG.amount;
+    
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('CI Mode - Using Default Configuration');
+    console.log('═══════════════════════════════════════════════════════════════\n');
+  } else {
+    // Interactive mode: prompt user
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('Transfer Configuration');
+    console.log('═══════════════════════════════════════════════════════════════\n');
 
-  const senderIndex = await select({
-    message: 'Select SENDER:',
-    choices: senderChoices,
-    loop: false,
-  });
-
-  const sender = l2Accounts[senderIndex];
-
-  // Select recipient (can be any participant, including those without private keys)
-  // All participants have L2 addresses stored - show them directly
-  const recipientChoices = CHANNEL_55.participants
-    .filter(p => p.l1Address !== sender.l1Address)
-    .map((p, i) => ({
-      name: `${p.name} (L2: ${p.l2Address.slice(0, 14)}...)`,
+    const senderChoices = l2Accounts.map((acc, i) => ({
+      name: `${acc.name} (L2: ${acc.l2Address.slice(0, 14)}...)`,
       value: i,
     }));
 
-  const recipientIndex = await select({
-    message: 'Select RECIPIENT:',
-    choices: recipientChoices,
-    loop: false,
-  });
+    senderIndex = await select({
+      message: 'Select SENDER:',
+      choices: senderChoices,
+      loop: false,
+    });
 
-  // Get recipient L2 address - now directly from stored config
+    const sender = l2Accounts[senderIndex];
+
+    // Interactive mode: select recipient
+    const recipientChoices = CHANNEL_55.participants
+      .filter(p => p.l1Address !== sender.l1Address)
+      .map((p, i) => ({
+        name: `${p.name} (L2: ${p.l2Address.slice(0, 14)}...)`,
+        value: i,
+      }));
+
+    recipientIndex = await select({
+      message: 'Select RECIPIENT:',
+      choices: recipientChoices,
+      loop: false,
+    });
+
+    // Interactive mode: input amount
+    amount = await input({
+      message: `Transfer amount (in ${CHANNEL_55.targetTokenSymbol}):`,
+      default: '0.1',
+      validate: (val) => {
+        const num = parseFloat(val);
+        if (isNaN(num) || num <= 0) return 'Please enter a positive number';
+        return true;
+      },
+    });
+  }
+
+  const sender = l2Accounts[senderIndex];
+
+  // Get recipient L2 address
   const recipientParticipant = CHANNEL_55.participants.filter(p => p.l1Address !== sender.l1Address)[recipientIndex];
   const recipientL2Address = recipientParticipant.l2Address;
   console.log(`   ✅ Recipient L2 Address: ${recipientL2Address}\n`);
 
-  // Input amount
-  const amount = await input({
-    message: `Transfer amount (in ${CHANNEL_55.targetTokenSymbol}):`,
-    default: '0.1',
-    validate: (val) => {
-      const num = parseFloat(val);
-      if (isNaN(num) || num <= 0) return 'Please enter a positive number';
-      return true;
-    },
-  });
-
-  // Confirm
+  // Show transfer summary
   console.log('\n═══════════════════════════════════════════════════════════════');
   console.log('Transfer Summary');
   console.log('═══════════════════════════════════════════════════════════════\n');
@@ -294,7 +368,7 @@ async function main() {
   console.log(`   To:   ${recipientParticipant.name}`);
   console.log(`         L2: ${recipientL2Address}`);
   console.log(`   Amount: ${amount} ${CHANNEL_55.targetTokenSymbol}`);
-  console.log(`   Output: transfer-${nextTransferNum}/`);
+  console.log(`   Output: ${CI_MODE ? CI_CONFIG.outputDir : `transfer-${nextTransferNum}`}/`);
   if (previousStatePath) {
     console.log(`   Base State: transfer-${nextTransferNum - 1}/state_snapshot.json`);
   } else {
@@ -302,14 +376,17 @@ async function main() {
   }
   console.log('');
 
-  const confirmed = await confirm({
-    message: 'Proceed with this transfer?',
-    default: true,
-  });
+  // Confirmation (skip in CI mode)
+  if (!CI_MODE) {
+    const confirmed = await confirm({
+      message: 'Proceed with this transfer?',
+      default: true,
+    });
 
-  if (!confirmed) {
-    console.log('\n❌ Transfer cancelled');
-    process.exit(0);
+    if (!confirmed) {
+      console.log('\n❌ Transfer cancelled');
+      process.exit(0);
+    }
   }
 
   // Run synthesizer
@@ -317,15 +394,7 @@ async function main() {
   console.log('Running Synthesizer');
   console.log('═══════════════════════════════════════════════════════════════\n');
 
-  const outputPath = resolve(OUTPUT_BASE, `transfer-${nextTransferNum}`);
   mkdirSync(outputPath, { recursive: true });
-
-  if (!RPC_URL) {
-    const envVar = DEV_MODE ? 'SEPOLIA_RPC_URL' : 'ETHEREUM_RPC_URL';
-    console.error(`❌ ${envVar} not found in .env`);
-    console.error(`   Please add ${envVar} to examples/L2StateChannel/.env`);
-    process.exit(1);
-  }
 
   const adapter = new SynthesizerAdapter({ rpcUrl: RPC_URL });
 
@@ -349,7 +418,7 @@ async function main() {
 
   // Save transfer info
   const transferInfo = {
-    transferNumber: nextTransferNum,
+    transferNumber: CI_MODE ? 'ci-test' : nextTransferNum,
     channelId: CHANNEL_55.channelId,
     sender: {
       name: sender.name,
@@ -366,6 +435,7 @@ async function main() {
     previousStateRoot: result.previousStateRoot,
     newStateRoot: result.newStateRoot,
     basedOnTransfer: previousStatePath ? nextTransferNum - 1 : null,
+    ciMode: CI_MODE,
     createdAt: new Date().toISOString(),
   };
 
@@ -395,11 +465,40 @@ async function main() {
   console.log(`   └── transfer_info.json`);
   console.log('');
 
+  // Verify output files exist (important for CI)
+  if (CI_MODE) {
+    const requiredFiles = [
+      'instance.json',
+      'instance_description.json',
+      'permutation.json',
+      'placementVariables.json',
+    ];
+
+    let allFilesExist = true;
+    for (const file of requiredFiles) {
+      const filePath = resolve(outputPath, file);
+      if (!existsSync(filePath)) {
+        console.error(`❌ Missing required file: ${file}`);
+        allFilesExist = false;
+      }
+    }
+
+    if (!allFilesExist) {
+      console.error('\n❌ CI test failed: Missing required output files');
+      process.exit(1);
+    }
+
+    console.log('✅ All required output files generated successfully');
+    console.log('');
+  }
+
   console.log('📝 Next Steps:');
   console.log(`   1. To generate proof: ./tokamak-cli --prove ${outputPath}`);
   console.log(`   2. To verify proof:   ./tokamak-cli --verify ${outputPath}`);
-  console.log(`   3. To chain another transfer: Run this script again`);
-  console.log(`      (It will automatically use transfer-${nextTransferNum}'s state as base)`);
+  if (!CI_MODE) {
+    console.log(`   3. To chain another transfer: Run this script again`);
+    console.log(`      (It will automatically use transfer-${nextTransferNum}'s state as base)`);
+  }
   console.log('');
 }
 
