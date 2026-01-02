@@ -4,13 +4,41 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Launch with tsx",
+      "name": "L2 transfer on mainnet",
       "runtimeExecutable": "tsx",
       "program": "${workspaceFolder}/examples/L2TONTransfer/main.ts",
       "args": ["${workspaceFolder}/examples/L2TONTransfer/input.json"],
       "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],
-      "console": "integratedTerminal", 
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "L2 transfer on channel",
+      "runtimeExecutable": "tsx",
+      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "args": [
+        "l2-transfer",
+        "--channel-id",
+        "4",
+        "--init-tx",
+        "0xae305543eca79e8ca6626f2db8d17c8b093d70a9587ada067c327914f340b721",
+        "--sender-key",
+        "0x05959da730bc9b5fe4291dd58651a1151f17de5506a22f5d7afec65d5dd4799f",
+        "--recipient",
+        "0x26f67df81c33223350a7ddca1473a9100b519fe7",
+        "--amount",
+        "3",
+        "--output",
+        "/Users/jehyuk/Documents/repo/Tokamak-zkp-channel-manager/Tokamak-Zk-EVM/dist/outputs/transfer-1767379638891",
+        "--rpc-url",
+        "https://eth-sepolia.g.alchemy.com/v2/e_QJd40sb7aiObJisG_8Q",
+        "--sepolia"
+      ],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal"
     }
   ]
 }
