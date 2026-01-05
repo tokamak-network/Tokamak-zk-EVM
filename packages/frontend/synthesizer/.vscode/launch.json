@@ -7,7 +7,7 @@
       "name": "L2 transfer on mainnet",
       "runtimeExecutable": "tsx",
       "program": "${workspaceFolder}/examples/L2TONTransfer/main.ts",
-      "args": ["${workspaceFolder}/examples/L2TONTransfer/input.json"],
+      "args": ["${workspaceFolder}/examples/L2TONTransfer/input4.json"],
       "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],
       "console": "integratedTerminal"
