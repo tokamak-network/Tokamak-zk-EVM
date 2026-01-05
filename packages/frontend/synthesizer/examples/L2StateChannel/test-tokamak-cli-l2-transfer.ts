@@ -1,7 +1,7 @@
 /**
  * Test L2 Transfer using tokamak-cli
  *
- * This test uses the tokamak-cli wrapper to execute l2-transfer command.
+ * This test uses the tokamak-cli wrapper to execute synthesize l2-transfer command.
  * It demonstrates the integration with the main CLI tool.
  */
 
@@ -50,7 +50,7 @@ function l2PrivateKeyToHex(l2PrivateKey: Uint8Array): string {
 }
 
 /**
- * Run tokamak-cli l2-transfer command
+ * Run tokamak-cli synthesize l2-transfer command
  */
 async function runTokamakCliL2Transfer(params: {
   channelId: number;
@@ -87,6 +87,7 @@ async function runTokamakCliL2Transfer(params: {
   try {
     const cmd = [
       `"${tokamakCli}"`,
+      '--synthesize',
       '--l2-transfer',
       `--channel-id ${channelId}`,
       `--init-tx ${initializeTxHash}`,
@@ -103,7 +104,7 @@ async function runTokamakCliL2Transfer(params: {
 
     const fullCmd = cmd.join(' ');
 
-    console.log(`   Running: tokamak-cli --l2-transfer...`);
+    console.log(`   Running: tokamak-cli --synthesize --l2-transfer...`);
     console.log(`   Command: ${fullCmd.replace(senderKeyHex, '0x***')}`); // Hide private key in logs
 
     const output = execSync(fullCmd, {

@@ -3,6 +3,7 @@
 # Commands:
 #   --install <API_KEY|RPC_URL> [--bun]  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
 #   --synthesize <TX_CONFIG_JSON>  Run frontend synthesizer with config JSON and sync outputs into dist
+#   --synthesize --l2-transfer [OPTIONS...]  Execute L2 State Channel transfer using synthesizer binary
 #   --preprocess                 Run backend preprocess step (dist only)
 #   --prove [<SYNTH_OUTPUT_ZIP|DIR>] Run backend prove step and collect artifacts in dist
 #   --verify [<PROOF_ZIP|DIR>]   Verify a proof from dist outputs (default: dist)
@@ -24,6 +25,10 @@ Commands:
   --synthesize <TX_CONFIG_JSON>
       Run frontend synthesizer with an input transaction config JSON
 
+  --synthesize --l2-transfer [OPTIONS...]
+      Execute L2 State Channel transfer using synthesizer binary
+      For options, see: bin/synthesizer l2-transfer --help
+
   --preprocess
       Run backend preprocess stage (after --synthesize)
 
@@ -41,10 +46,6 @@ Commands:
 
   --doctor
       Check system requirements and health
-
-  --l2-transfer [OPTIONS...]
-      Execute L2 State Channel transfer using synthesizer binary
-      For options, see: bin/synthesizer l2-transfer --help
 
   --get-balances [OPTIONS...]
       Get participant balances from state snapshot or on-chain deposits
@@ -92,6 +93,16 @@ while [[ $# -gt 0 ]]; do
       break
       ;;
     --synthesize)
+      if [[ "${2:-}" == "--l2-transfer" ]]; then
+        CMD="l2_transfer"
+        shift 2 # Remove --synthesize --l2-transfer
+        L2_TRANSFER_ARGS=()
+        while [[ $# -gt 0 ]]; do
+          L2_TRANSFER_ARGS+=("$1")
+          shift
+        done
+        break
+      fi
       CMD="synthesize"; ARG1="${2:-}";
       [[ -n "$ARG1" ]] || { err "--synthesize requires <TX_CONFIG_JSON>"; echo "💡 Provide the path to your transaction config JSON" >&2; exit 1; }
       [[ -z "${3:-}" ]] || { err "Too many arguments for --synthesize"; exit 1; }
@@ -125,15 +136,8 @@ while [[ $# -gt 0 ]]; do
       break
       ;;
     --l2-transfer)
-      CMD="l2_transfer"
-      shift # Remove --l2-transfer
-      # Collect all remaining arguments
-      L2_TRANSFER_ARGS=()
-      while [[ $# -gt 0 ]]; do
-        L2_TRANSFER_ARGS+=("$1")
-        shift
-      done
-      break
+      err "--l2-transfer has moved; use --synthesize --l2-transfer"
+      exit 1
       ;;
     --get-balances)
       CMD="get_balances"
