@@ -730,6 +730,7 @@ step_extract_proof() {
   )
   local optional_artifacts=(
     "resource/synthesizer/output/state_snapshot.json"
+    "resource/synthesizer/output/previous_state_snapshot.json"
   )
 
   local missing=0
