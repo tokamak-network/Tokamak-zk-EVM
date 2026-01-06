@@ -39,6 +39,27 @@
       "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],
       "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "tokamak-ch-tx (debug, file inputs)",
+      "runtimeExecutable": "tsx",
+      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "/Users/jehyuk/Documents/repo/Tokamak-zkp-channel-manager/Tokamak-Zk-EVM/dist/resource/synthesizer/output/previous_state_snapshot.json",
+        "--transaction",
+        "0xf8c08094a30fe40285b8f5c0457dbc3b7c8a280373c40044b844a9059cbb00000000000000000000000040d984f89a59fc76b8a53b866a8f678c0ac98ffc0000000000000000000000000000000000000000000000000000000000000003a07f864eb16d800e95b43931844070e72e3c837781b62636c943eb5a35a3c771071ba0511d01170f5dc2451c3e5f75999c1883bef70fa0a90029d5e125c9d827acca84a008de5e505d53f3e2d0b48067bbee3ced220862f7702ad37ad594ba35469bc9d6",
+        "--block-info",
+        "/Users/jehyuk/Documents/repo/Tokamak-zkp-channel-manager/Tokamak-Zk-EVM/dist/resource/synthesizer/output/block_info.json",
+        "--contract-code",
+        "/Users/jehyuk/Documents/repo/Tokamak-zkp-channel-manager/Tokamak-Zk-EVM/dist/resource/synthesizer/output/contract_code.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal"
     }
   ]
 }

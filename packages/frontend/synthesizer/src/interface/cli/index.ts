@@ -30,10 +30,10 @@ program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthes
 program
   .command('tokamak-ch-tx')
   .description('Execute TokamakL2JS Channel transaction')
-  .requiredOption('--previous-state', 'Path to previous state snapshot')
-  .requiredOption('--transaction', 'RLP string of transaction')
-  .requiredOption('--block-info', 'Path to block information')
-  .requiredOption('--contract-code', 'Path to contract code')
+  .requiredOption('--previous-state <path>', 'Path to previous state snapshot')
+  .requiredOption('--transaction <rlp>', 'RLP string of transaction')
+  .requiredOption('--block-info <path>', 'Path to block information')
+  .requiredOption('--contract-code <path>', 'Path to contract code')
   .action(async options => {
     try {
       console.log('🔄 Executing L2 State Channel Transfer...');
