@@ -133,7 +133,7 @@ From the repository root:
 
 6) **Extract proof bundle** (optional; zip key artifacts)
 ```bash
-./tokamak-cli --extract-proof <OUTPUT_DIR>
+./tokamak-cli --extract-proof <OUTPUT_ZIP_PATH>
 ```
 
 ## Disclaimer

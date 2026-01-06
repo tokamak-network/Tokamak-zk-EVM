@@ -7,7 +7,7 @@
 #   --preprocess                 Run backend preprocess step (dist only)
 #   --prove [<SYNTH_OUTPUT_ZIP|DIR>] Run backend prove step and collect artifacts in dist
 #   --verify [<PROOF_ZIP|DIR>]   Verify a proof from dist outputs (default: dist)
-#   --extract-proof <OUTPUT_DIR> Gather proof artifacts from dist and zip them to OUTPUT_DIR/transaction_zkp.zip
+#   --extract-proof <OUTPUT_ZIP_PATH> Gather proof artifacts from dist and zip them to the given path
 #   --doctor                     Check system requirements and health
 #   --help                       Show usage
 # Options:
@@ -46,8 +46,8 @@ Commands:
       If zip or directory is provided, sync proof.json into dist before verifying
       Tokamak ZKP must be installed via "--install"
 
-  --extract-proof <OUTPUT_DIR>
-      Collect minimal proof artifacts required for verification and zip to <OUTPUT_DIR>/transaction_zkp.zip
+  --extract-proof <OUTPUT_ZIP_PATH>
+      Collect minimal proof artifacts required for verification and zip to the given path
 
   --doctor
       Check system requirements and health
@@ -128,7 +128,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --extract-proof)
       CMD="extract_proof"; ARG1="${2:-}";
-      [[ -n "$ARG1" ]] || { err "--extract-proof requires <OUTPUT_DIR>"; exit 1; }
+      [[ -n "$ARG1" ]] || { err "--extract-proof requires <OUTPUT_ZIP_PATH>"; exit 1; }
       [[ -z "${3:-}" ]] || { err "Too many arguments for --extract-proof"; exit 1; }
       break
       ;;
