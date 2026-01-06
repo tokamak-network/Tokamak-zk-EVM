@@ -9,3 +9,5 @@ export type PublicInstanceDescription = {
     a_pub_block_description: string[]
     a_pub_function_description: string[]
 }
+
+export type Permutation = { row: number; col: number; X: number; Y: number }[];

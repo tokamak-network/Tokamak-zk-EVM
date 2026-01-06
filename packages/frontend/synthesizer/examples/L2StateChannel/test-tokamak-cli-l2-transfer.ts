@@ -1,7 +1,7 @@
 /**
- * Test L2 Transfer using tokamak-cli
+ * Test TokamakL2JS transaction using tokamak-cli
  *
- * This test uses the tokamak-cli wrapper to execute synthesize l2-transfer command.
+ * This test uses the tokamak-cli wrapper to execute the TokamakL2JS transaction command.
  * It demonstrates the integration with the main CLI tool.
  */
 
@@ -50,9 +50,9 @@ function l2PrivateKeyToHex(l2PrivateKey: Uint8Array): string {
 }
 
 /**
- * Run tokamak-cli synthesize l2-transfer command
+ * Run tokamak-cli synthesize tokamak-ch-tx command
  */
-async function runTokamakCliL2Transfer(params: {
+async function runTokamakCliTokamakChTx(params: {
   channelId: number;
   initializeTxHash: string;
   senderL2PrvKey: Uint8Array;
@@ -88,7 +88,7 @@ async function runTokamakCliL2Transfer(params: {
     const cmd = [
       `"${tokamakCli}"`,
       '--synthesize',
-      '--l2-transfer',
+      '--tokamak-ch-tx',
       `--channel-id ${channelId}`,
       `--init-tx ${initializeTxHash}`,
       `--sender-key ${senderKeyHex}`,
@@ -104,7 +104,7 @@ async function runTokamakCliL2Transfer(params: {
 
     const fullCmd = cmd.join(' ');
 
-    console.log(`   Running: tokamak-cli --synthesize --l2-transfer...`);
+    console.log(`   Running: tokamak-cli --synthesize --tokamak-ch-tx...`);
     console.log(`   Command: ${fullCmd.replace(senderKeyHex, '0x***')}`); // Hide private key in logs
 
     const output = execSync(fullCmd, {
@@ -140,7 +140,7 @@ async function main() {
   const RPC_URL = SEPOLIA_RPC_URL;
 
   console.log('╔══════════════════════════════════════════════════════════════╗');
-  console.log('║  Test: L2 Transfer using tokamak-cli                         ║');
+  console.log('║  Test: TokamakL2JS transaction using tokamak-cli             ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
   console.log(`🌐 Using RPC: ${RPC_URL}`);
   console.log(`🔗 Channel ID: ${CHANNEL_ID}`);
@@ -201,7 +201,7 @@ async function main() {
   console.log('║                  Test: Participant 1 → 2 (1 TON)              ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
-  const result1 = await runTokamakCliL2Transfer({
+  const result1 = await runTokamakCliTokamakChTx({
     channelId: CHANNEL_ID,
     initializeTxHash: INITIALIZE_TX_HASH,
     senderL2PrvKey: participantL2PrivateKeys[0],
@@ -215,7 +215,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`\n✅ L2 Transfer test completed successfully!`);
+  console.log(`\n✅ TokamakL2JS transaction test completed successfully!`);
   console.log(`   Outputs should be in: dist/resource/synthesizer/output/`);
 
   // ========================================================================
@@ -224,7 +224,7 @@ async function main() {
   console.log('\n\n╔══════════════════════════════════════════════════════════════╗');
   console.log('║                     Test Summary                              ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
-  console.log('✅ Successfully executed L2 transfer using tokamak-cli!');
+  console.log('✅ Successfully executed TokamakL2JS transaction using tokamak-cli!');
   console.log('');
   console.log('📁 Output Location:');
   console.log('   dist/resource/synthesizer/output/');

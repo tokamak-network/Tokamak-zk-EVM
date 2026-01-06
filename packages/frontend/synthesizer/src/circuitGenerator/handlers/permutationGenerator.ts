@@ -7,6 +7,7 @@ import { DataPt } from '../../synthesizer/types/dataStructure.ts';
 import { CircuitGenerator } from '../circuitGenerator.ts';
 import { VARIABLE_DESCRIPTION } from '../../synthesizer/types/buffers.ts';
 import { addHexPrefix, hexToBigInt } from '@ethereumjs/util';
+import { Permutation } from '../types/types.ts';
 
 
 type PlacementWireIndex = { globalWireId: number; placementId: number };
@@ -27,7 +28,7 @@ export class PermutationGenerator {
   private permutationY: number[][];
   // permutationZ: {0, 1, ..., s_{max}-1} \times {0, 1, ..., l_D-l-1} -> {0, 1, ..., l_D-l-1}
   private permutationX: number[][];
-  public permutation: { row: number; col: number; X: number; Y: number }[];
+  public permutation: Permutation;
 
   constructor(parent: CircuitGenerator) {
     this.parent = parent

@@ -40,16 +40,6 @@ import { ROLLUP_BRIDGE_CORE_ABI, ROLLUP_BRIDGE_CORE_ADDRESS } from './constants/
 import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
 import { writeCircuitJson } from '../node/jsonWriter.ts';
 
-// StateSnapshot type definition (matches usage in adapter)
-export interface StateSnapshot {
-  stateRoot: string;
-  registeredKeys: string[];
-  storageEntries: Array<{ key: string; value: string }>;
-  contractAddress: string;
-  preAllocatedLeaves: Array<{ key: string; value: string }>;
-  channelId: number;
-}
-
 export interface SynthesizerAdapterConfig {
   rpcUrl: string;
 }

@@ -22,7 +22,7 @@ export type SynthesizerSimulationOpts = {
   callData: Uint8Array,
 }
 
-async function getBlockInfoFromRPC(
+export async function getBlockInfoFromRPC(
 	rpcUrl: string,
 	blockNumber: number,
 	nHashes: number,
@@ -85,7 +85,7 @@ export async function createSynthesizerOptsForSimulationFromRPC(opts: Synthesize
     const stateManagerOpts: TokamakL2StateManagerOpts = {
         common,
         blockNumber: opts.blockNumber,
-        contractAddress: opts.contractAddress,
+        contractAddress: createAddressFromString(opts.contractAddress),
         initStorageKeys: opts.initStorageKeys,
     }
     const L2StateManager = await createTokamakL2StateManagerFromL1RPC(opts.rpcUrl, stateManagerOpts)
