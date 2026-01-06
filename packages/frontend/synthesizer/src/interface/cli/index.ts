@@ -16,7 +16,7 @@ import { createCircuitGenerator } from 'src/circuitGenerator/circuitGenerator.ts
 import { Permutation, PublicInstance } from 'src/circuitGenerator/types/types.ts';
 import { PlacementVariables } from 'src/synthesizer/types/placements.ts';
 import { addHexPrefix, bigIntToHex, bytesToHex, createAddressFromString, hexToBytes } from '@ethereumjs/util';
-import { readJson, writeSnapshotJson } from './utils/node.ts';
+import { writeSnapshotJson } from './utils/node.ts';
 import { writeCircuitJson } from '../node/jsonWriter.ts';
 
 // tr to load .env
@@ -48,7 +48,7 @@ program
       }
       const common = new Common(commonOpts);
 
-      const previousState = readJson<StateSnapshot>(options.previousState);
+      const previousState = JSON.parse(options.previousState) as StateSnapshot;
       const previousStateRoot = previousState.stateRoot;
       console.log(`   ✅ Previous state root: ${previousStateRoot}`);
 
@@ -63,7 +63,7 @@ program
       }
       const stateManager = await createTokamakL2StateManagerFromStateSnapshot(previousState, stateManagerOpts);
 
-      const blockInfo = readJson<SynthesizerBlockInfo>(options.blockInfo);
+      const blockInfo = JSON.parse(options.blockInfo) as SynthesizerBlockInfo;
 
       const synthesizerOpts: SynthesizerOpts = {
         stateManager,
