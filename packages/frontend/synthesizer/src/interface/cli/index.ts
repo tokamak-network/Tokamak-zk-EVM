@@ -15,7 +15,7 @@ import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
 import { createCircuitGenerator } from 'src/circuitGenerator/circuitGenerator.ts';
 import { Permutation, PublicInstance } from 'src/circuitGenerator/types/types.ts';
 import { PlacementVariables } from 'src/synthesizer/types/placements.ts';
-import { addHexPrefix, bigIntToHex, bytesToHex, hexToBytes } from '@ethereumjs/util';
+import { addHexPrefix, bigIntToHex, bytesToHex, createAddressFromString, hexToBytes } from '@ethereumjs/util';
 import { readJson, writeSnapshotJson } from './utils/node.ts';
 import { writeCircuitJson } from '../node/jsonWriter.ts';
 
@@ -30,11 +30,10 @@ program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthes
 program
   .command('tokamak-ch-tx')
   .description('Execute TokamakL2JS Channel transaction')
-  .requiredOption('--previous-state <path>', 'Path to previous state snapshot')
-  .requiredOption('--transaction <path>', 'Path to transaction')
-  .requiredOption('--block-info <path>', 'Path to block information')
-  .requiredOption('--contract-code <path>', 'Path to contract code')
-  .requiredOption('--output <dir>', 'Output directory for results')
+  .requiredOption('--previous-state', 'JSON string of previous state snapshot')
+  .requiredOption('--transaction', 'RLP string of transaction')
+  .requiredOption('--block-info', 'JSON string of block information')
+  .requiredOption('--contract-code', 'Hexadecimal string of contract code')
   .action(async options => {
     try {
       console.log('🔄 Executing L2 State Channel Transfer...');
@@ -47,22 +46,20 @@ program
           },
           customCrypto: { keccak256: poseidon, ecrecover: getEddsaPublicKey }
       }
-      const common = new Common(commonOpts)
-
-      
+      const common = new Common(commonOpts);
 
       const previousState = readJson<StateSnapshot>(options.previousState);
       const previousStateRoot = previousState.stateRoot;
       console.log(`   ✅ Previous state root: ${previousStateRoot}`);
 
-      const {transactionRLP: transactionRLPstr} = readJson<{transactionRLP: string}>(options.transaction);
-      const transaction = createTokamakL2TxFromRLP(hexToBytes(addHexPrefix(transactionRLPstr)), { common });
+      const transactionRlpStr = options.transaction;
+      const transaction = createTokamakL2TxFromRLP(hexToBytes(addHexPrefix(transactionRlpStr)), { common });
 
-      const { contractCode } = readJson<{ contractCode: string }>(options.contractCode);
+      const contractCodeStr =  options.contractCode;
       const stateManagerOpts: TokamakL2StateManagerOpts = {
         common,
         contractAddress: transaction.to,
-        contractCode,
+        contractCode: contractCodeStr,
       }
       const stateManager = await createTokamakL2StateManagerFromStateSnapshot(previousState, stateManagerOpts);
 
@@ -108,14 +105,11 @@ program
       const finalState = await stateManager.captureStateSnapshot(previousState);
       console.log(`[SynthesizerAdapter] ✅ Final state exported with root: ${finalState.stateRoot}`);
       
-      const outputPath = options.output;
-      // Write outputs if path provided
-      if (outputPath) {
-        writeCircuitJson(circuitGenerator, outputPath);
-        // Also save state_snapshot.json
-        writeSnapshotJson(finalState, outputPath);
-        console.log(`[SynthesizerAdapter] ✅ Outputs written to: ${outputPath}`);
-      }
+      writeCircuitJson(circuitGenerator);
+      // Also save state_snapshot.json
+      writeSnapshotJson(previousState);
+      writeSnapshotJson(finalState);
+      console.log(`[SynthesizerAdapter] ✅ Outputs written`);
 
     } catch (error: any) {
       console.error('❌ Transfer failed:', error.message);
