@@ -1,5 +1,5 @@
 import { NUMBER_OF_PREV_BLOCK_HASHES, POSEIDON_INPUTS, SUBCIRCUIT_BUFFER_MAPPING } from '../../interface/qapCompiler/importedConstants.ts';
-import { bytesToBigInt, toBytes } from '@ethereumjs/util';
+import { bytesToBigInt, hexToBigInt, toBytes } from '@ethereumjs/util';
 import { jubjub } from "@noble/curves/misc.js";
 import { DataPt, DataPtDescription, ISynthesizerProvider, PlacementEntry, ReservedVariable, SynthesizerOpts, VARIABLE_DESCRIPTION } from '../types/index.ts';
 import { DataPtFactory } from '../dataStructure/index.ts';
@@ -156,16 +156,16 @@ export class BufferManager {
     // const nullPoseidonL3 = poseidon_raw(Array(POSEIDON_INPUTS).fill(nullPoseidonL2))
     // this.addReservedVariableToBufferIn('NULL_POSEIDON_LEVEL3', nullPoseidonL3)
 
-    this.addReservedVariableToBufferIn('COINBASE', this.cachedOpts.blockInfo.coinBase)
-    this.addReservedVariableToBufferIn('TIMESTAMP', this.cachedOpts.blockInfo.timeStamp)
-    this.addReservedVariableToBufferIn('NUMBER', this.cachedOpts.blockInfo.blockNumber)
-    this.addReservedVariableToBufferIn('PREVRANDAO', this.cachedOpts.blockInfo.prevRanDao)
-    this.addReservedVariableToBufferIn('GASLIMIT', this.cachedOpts.blockInfo.gasLimit)
-    this.addReservedVariableToBufferIn('CHAINID', this.cachedOpts.blockInfo.chainId)
-    this.addReservedVariableToBufferIn('SELFBALANCE', this.cachedOpts.blockInfo.selfBalance)
-    this.addReservedVariableToBufferIn('BASEFEE', this.cachedOpts.blockInfo.baseFee)
+    this.addReservedVariableToBufferIn('COINBASE', hexToBigInt(this.cachedOpts.blockInfo.coinBase))
+    this.addReservedVariableToBufferIn('TIMESTAMP', hexToBigInt(this.cachedOpts.blockInfo.timeStamp))
+    this.addReservedVariableToBufferIn('NUMBER', hexToBigInt(this.cachedOpts.blockInfo.blockNumber))
+    this.addReservedVariableToBufferIn('PREVRANDAO', hexToBigInt(this.cachedOpts.blockInfo.prevRanDao))
+    this.addReservedVariableToBufferIn('GASLIMIT', hexToBigInt(this.cachedOpts.blockInfo.gasLimit))
+    this.addReservedVariableToBufferIn('CHAINID', hexToBigInt(this.cachedOpts.blockInfo.chainId))
+    this.addReservedVariableToBufferIn('SELFBALANCE', hexToBigInt(this.cachedOpts.blockInfo.selfBalance))
+    this.addReservedVariableToBufferIn('BASEFEE', hexToBigInt(this.cachedOpts.blockInfo.baseFee))
     for (var i = 1; i <= NUMBER_OF_PREV_BLOCK_HASHES; i++) {
-      this.addReservedVariableToBufferIn(`BLOCKHASH_${i}` as ReservedVariable, this.cachedOpts.blockInfo.blockHashes[i-1])
+      this.addReservedVariableToBufferIn(`BLOCKHASH_${i}` as ReservedVariable, hexToBigInt(this.cachedOpts.blockInfo.blockHashes[i-1]))
     }
 
     // Transaction inputs

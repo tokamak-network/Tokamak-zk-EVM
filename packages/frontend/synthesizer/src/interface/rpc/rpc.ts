@@ -48,22 +48,22 @@ export async function getBlockInfoFromRPC(
 		return block.hash
 	}	
 
-	const hashes: bigint[] = new Array<bigint>(nHashes)
+	const hashes: `0x${string}`[] = new Array<`0x${string}`>(nHashes)
 	for ( var i = 0; i < nHashes; i++){
 		const prevBlockNumber = blockNumber - i
-		hashes[i] = hexToBigInt(addHexPrefix(await _getBlockHashFromProvider(provider, prevBlockNumber)))
+		hashes[i] = addHexPrefix(await _getBlockHashFromProvider(provider, prevBlockNumber))
 	}
 
 	return {
-		coinBase: BigInt(addHexPrefix(block.miner!)),
-		timeStamp: BigInt(block.timestamp),
-		blockNumber: BigInt(block.number),
-		prevRanDao: block.prevRandao == null ? BigInt(block.difficulty) : BigInt(block.prevRandao),
-		gasLimit: BigInt(block.gasLimit),
-		chainId: (await provider.getNetwork()).chainId,
-		selfBalance: 0n,
+		coinBase: addHexPrefix(block.miner!),
+		timeStamp: addHexPrefix(block.timestamp.toString(16)),
+		blockNumber: addHexPrefix(block.number.toString(16)),
+		prevRanDao: block.prevRandao == null ? bigIntToHex(block.difficulty) : addHexPrefix(block.prevRandao),
+		gasLimit: bigIntToHex(block.gasLimit),
+		chainId: bigIntToHex((await provider.getNetwork()).chainId),
+		selfBalance: '0x0',
 		blockHashes: hashes,
-        baseFee: BigInt(block.baseFeePerGas || '0x0'),
+        baseFee: bigIntToHex(block.baseFeePerGas || 0n),
         // To avoid EIP check
 	}
 }
