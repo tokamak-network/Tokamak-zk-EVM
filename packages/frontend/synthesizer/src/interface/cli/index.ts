@@ -16,7 +16,7 @@ import { createCircuitGenerator } from 'src/circuitGenerator/circuitGenerator.ts
 import { Permutation, PublicInstance } from 'src/circuitGenerator/types/types.ts';
 import { PlacementVariables } from 'src/synthesizer/types/placements.ts';
 import { addHexPrefix, bigIntToHex, bytesToHex, createAddressFromString, hexToBytes } from '@ethereumjs/util';
-import { writeSnapshotJson } from './utils/node.ts';
+import { readJson, writeSnapshotJson } from './utils/node.ts';
 import { writeCircuitJson } from '../node/jsonWriter.ts';
 
 // tr to load .env
@@ -30,10 +30,10 @@ program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthes
 program
   .command('tokamak-ch-tx')
   .description('Execute TokamakL2JS Channel transaction')
-  .requiredOption('--previous-state', 'JSON string of previous state snapshot')
+  .requiredOption('--previous-state', 'Path to previous state snapshot')
   .requiredOption('--transaction', 'RLP string of transaction')
-  .requiredOption('--block-info', 'JSON string of block information')
-  .requiredOption('--contract-code', 'Hexadecimal string of contract code')
+  .requiredOption('--block-info', 'Path to block information')
+  .requiredOption('--contract-code', 'Path to contract code')
   .action(async options => {
     try {
       console.log('🔄 Executing L2 State Channel Transfer...');
@@ -48,14 +48,14 @@ program
       }
       const common = new Common(commonOpts);
 
-      const previousState = JSON.parse(options.previousState) as StateSnapshot;
+      const previousState = readJson<StateSnapshot>(options.previousState);
       const previousStateRoot = previousState.stateRoot;
       console.log(`   ✅ Previous state root: ${previousStateRoot}`);
 
       const transactionRlpStr = options.transaction;
       const transaction = createTokamakL2TxFromRLP(hexToBytes(addHexPrefix(transactionRlpStr)), { common });
 
-      const contractCodeStr =  options.contractCode;
+      const contractCodeStr =  readJson<string>(options.contractCode);
       const stateManagerOpts: TokamakL2StateManagerOpts = {
         common,
         contractAddress: transaction.to,
@@ -63,7 +63,7 @@ program
       }
       const stateManager = await createTokamakL2StateManagerFromStateSnapshot(previousState, stateManagerOpts);
 
-      const blockInfo = JSON.parse(options.blockInfo) as SynthesizerBlockInfo;
+      const blockInfo = readJson<SynthesizerBlockInfo>(options.blockInfo);
 
       const synthesizerOpts: SynthesizerOpts = {
         stateManager,
@@ -107,7 +107,6 @@ program
       
       writeCircuitJson(circuitGenerator);
       // Also save state_snapshot.json
-      writeSnapshotJson(previousState);
       writeSnapshotJson(finalState);
       console.log(`[SynthesizerAdapter] ✅ Outputs written`);
 
