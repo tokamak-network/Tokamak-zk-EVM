@@ -42,7 +42,7 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         }
         this._initialMerkleTree = await TokamakL2MerkleTree.buildFromTokamakL2StateManager(this);
         if (BigInt(this._initialMerkleTree.root) !== hexToBigInt(addHexPrefix(snapshot.stateRoot))) {
-            throw new Error(`Creating TokamakL2StateManager using StateSnapshot fails: (provided root: ${snapshot.stateRoot}, reconstructed root: ${this._initialMerkleTree.toString()}`)
+            throw new Error(`Creating TokamakL2StateManager using StateSnapshot fails: (provided root: ${snapshot.stateRoot}, reconstructed root: ${this._initialMerkleTree.toString()})`)
         }
     }
 
@@ -65,13 +65,13 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
             throw new Error('TokamakL2StateManager is not initialized.')
         }
         if (opts.blockNumber === undefined ) {
-            throw new Error('Creating TokamakL2StateManager using StateSnapshot requires a block number.')
+            throw new Error('Creating TokamakL2StateManager from RPC requires a block number.')
         }
         const byteCodeStr = await provider.getCode(contractAddress.toString(), opts.blockNumber)
         await this.putCode(contractAddress, hexToBytes(addHexPrefix(byteCodeStr)))
         
         if (opts.initStorageKeys === undefined) {
-            throw new Error('Creating TokamakL2StateManager using StateSnapshot requires L1 and L2 key pairs.')
+            throw new Error('Creating TokamakL2StateManager from RPC requires L1 and L2 key pairs.')
         }
         if (this._registeredKeys !== null) {
             throw new Error('Cannot rewrite registered keys')
@@ -202,45 +202,38 @@ export class TokamakL2StateManager extends MerkleStateManager implements StateMa
         }
         const contractAddress = this.cachedOpts!.contractAddress;
 
+        const getUpdatedEntry = async (entry:  {key: string; value: string;}): Promise<{key: string; value: string;}> => {
+            const keyBytes = hexToBytes(addHexPrefix(entry.key));
+            const value = await this.getStorage(contractAddress, keyBytes);
+            return {
+                key: entry.key,
+                value: bytesToHex(value),
+            }
+        }
+
         // Build state snapshot (matching snapshot.ts logic)
         const permutedRegisteredKeys = this.registeredKeys!.map((key: Uint8Array) => bytesToHex(key));
         
         const afterStorageEntries: {
             key: string;
             value: string;
-        }[] = [];
+        }[] = await Promise.all(
+            prevSnapshot.storageEntries.map(entry => getUpdatedEntry(entry))
+        );
         const afterPreAllocatedLeaves: {
             key: string;
             value: string;
-        }[] = [];
-    
-        for (const entry of prevSnapshot.preAllocatedLeaves) {
-        const key = entry.key;
-        const keyBytes = hexToBytes(addHexPrefix(key));
-        const value = await this.getStorage(contractAddress, keyBytes);
-        afterPreAllocatedLeaves.push({
-            key,
-            value: bytesToHex(value),
-        })
-        }
-    
-        for (const entry of prevSnapshot.storageEntries) {
-        const key = entry.key;
-        const keyBytes = hexToBytes(addHexPrefix(key));
-        const value = await this.getStorage(contractAddress, keyBytes);
-        afterStorageEntries.push({
-            key,
-            value: bytesToHex(value),
-        })
-        }
+        }[] = await Promise.all(
+            prevSnapshot.preAllocatedLeaves.map(entry => getUpdatedEntry(entry))
+        );
     
         return {
-        channelId: prevSnapshot.channelId,
-        stateRoot: (await this.getUpdatedMerkleTreeRoot()).toString(16),
-        registeredKeys: permutedRegisteredKeys,
-        storageEntries: afterStorageEntries,
-        contractAddress: prevSnapshot.contractAddress,
-        preAllocatedLeaves: afterPreAllocatedLeaves,
+            channelId: prevSnapshot.channelId,
+            stateRoot: (await this.getUpdatedMerkleTreeRoot()).toString(16),
+            registeredKeys: permutedRegisteredKeys,
+            storageEntries: afterStorageEntries,
+            contractAddress: prevSnapshot.contractAddress,
+            preAllocatedLeaves: afterPreAllocatedLeaves,
         };
     }
 }
