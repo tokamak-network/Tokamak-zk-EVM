@@ -455,7 +455,7 @@ sync_proof_from_dir() {
   local files_to_sync=(
     "resource/prove/output/proof.json"
     "resource/synthesizer/output/instance.json"
-    "resource/preprocess/output/permutation.json"
+    "resource/preprocess/output/preprocess.json"
   )
 
   for rel_path in "${files_to_sync[@]}"; do
@@ -703,25 +703,45 @@ JSON
 }
 
 step_extract_proof() {
-  local out_dir="${1:-}"
-  [[ -n "$out_dir" ]] || { err "--extract-proof requires <OUTPUT_DIR>"; exit 1; }
-  out_dir="$(abs_path_from_root "$out_dir")"
+  local out_path_raw="${1:-}"
+  [[ -n "$out_path_raw" ]] || { err "--extract-proof requires <OUTPUT_ZIP_PATH>"; exit 1; }
+  if [[ "$out_path_raw" == */ ]]; then
+    err "--extract-proof requires a file path (not a directory): $out_path_raw"
+    exit 1
+  fi
+  local out_path
+  out_path="$(abs_path_from_root "$out_path_raw")"
+  if [[ -d "$out_path" ]]; then
+    err "--extract-proof requires a file path (not a directory): $out_path_raw"
+    exit 1
+  fi
+  local out_dir
+  out_dir="$(dirname "$out_path")"
   mkdir -p "$out_dir"
 
   local dist_dir tmp_dir zip_name
   dist_dir="$(dist_dir_for_target "$(detect_target)")"
+  zip_name="$(basename "$out_path")"
+
+  local preprocess_rel="resource/preprocess/output/preprocess.json"
+  local preprocess_path="$dist_dir/$preprocess_rel"
+  if [[ ! -f "$preprocess_path" ]]; then
+    log "Extract proof: preprocess.json missing; running --preprocess first"
+    step_preprocess
+  fi
+
   tmp_dir="$(mktemp -d -t tokamak_extract.XXXXXX)"
-  zip_name="transaction_zkp.zip"
 
   local artifacts=(
     "resource/synthesizer/output/instance.json"
     "resource/synthesizer/output/instance_description.json"
-    "resource/preprocess/output/preprocess.json"
+    "$preprocess_rel"
     "resource/prove/output/benchmark.json"
     "resource/prove/output/proof.json"
   )
   local optional_artifacts=(
     "resource/synthesizer/output/state_snapshot.json"
+    "resource/synthesizer/output/previous_state_snapshot.json"
   )
 
   local missing=0
@@ -753,8 +773,8 @@ step_extract_proof() {
   done
 
   if make_zip "$tmp_dir" "$zip_name"; then
-    mv -f "$tmp_dir/$zip_name" "$out_dir/$zip_name"
-    ok "transaction_zkp.zip written → $out_dir/$zip_name"
+    mv -f "$tmp_dir/$zip_name" "$out_path"
+    ok "Proof bundle written → $out_path"
   else
     err "Failed to create proof archive"
     rm -rf "$tmp_dir"

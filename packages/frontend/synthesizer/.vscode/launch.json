@@ -4,13 +4,34 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Launch with tsx",
+      "name": "L2 transfer on mainnet",
       "runtimeExecutable": "tsx",
       "program": "${workspaceFolder}/examples/L2TONTransfer/main.ts",
-      "args": ["${workspaceFolder}/examples/L2TONTransfer/input.json"],
+      "args": ["${workspaceFolder}/examples/L2TONTransfer/input4.json"],
       "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],
-      "console": "integratedTerminal", 
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "tokamak-ch-tx (debug, file inputs)",
+      "runtimeExecutable": "tsx",
+      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/examples/L2StateChannel/previous_state_snapshot.json",
+        "--transaction",
+        "0xf8c08094a30fe40285b8f5c0457dbc3b7c8a280373c40044b844a9059cbb00000000000000000000000026f67df81c33223350a7ddca1473a9100b519fe70000000000000000000000000000000000000000000000000000000000000004a090c69902b2e0d20638ac1bddf8a2c433529b84a31a73a6423ab39cc6f67c2e131ba0eba85914616b3df71d75f376c9db9706f0c1f306059faa07aa3c754319d16f57a006ada885d83173d5cc1759f894c857cbf492d1305d26607ecfc37db6455f13fb",
+        "--block-info",
+        "${workspaceFolder}/examples/L2StateChannel/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/examples/L2StateChannel/contract_code.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal"
     }
   ]
 }

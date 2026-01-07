@@ -2,11 +2,11 @@ import { TxOptions, TxValuesArray } from "@ethereumjs/tx"
 import { TokamakL2Tx } from "./TokamakL2Tx.ts"
 import { TokamakL2TxData } from "./types.ts"
 import { EthereumJSErrorWithoutCode, RLP } from "@ethereumjs/rlp"
-import { bytesToHex, toBytes, validateNoLeadingZeroes } from "@ethereumjs/util"
+import { Address, bytesToBigInt, bytesToHex, toBytes, validateNoLeadingZeroes } from "@ethereumjs/util"
 import { ANY_LARGE_GAS_LIMIT, ANY_LARGE_GAS_PRICE } from "../../synthesizer/params/index.ts"
 
 
-export function createTokamakL2Tx(txData: TokamakL2TxData, opts: TxOptions) {
+export function createTokamakL2Tx(txData: TokamakL2TxData, opts: TxOptions): TokamakL2Tx {
     if (opts.common?.customCrypto === undefined) {
         throw new Error("Required 'common.customCrypto'")
     }
@@ -21,21 +21,29 @@ export function createTokamakL2Tx(txData: TokamakL2TxData, opts: TxOptions) {
  *
  * Format: `[nonce, gasPrice, gasLimit, to, value, data, v, r, s]`
  */
-export function createTokamakL2TxFromBytesArray(values: Uint8Array[], opts: TxOptions) {
-  // If length is not 3, it has length 6. If v/r/s are empty Uint8Arrays, it is still an unsigned transaction
-  // This happens if you get the RLP data from `raw()`
-  if (values.length !== 3 && values.length !== 6) {
+export function createTokamakL2TxFromBytesArray(values: Uint8Array[], opts: TxOptions): TokamakL2Tx {
+  if ( values.length !== 7 ) {
     throw EthereumJSErrorWithoutCode(
-      'Invalid transaction. Only expecting 3 values (for unsigned tx) or 6 values (for signed tx).',
+      'Invalid transaction. Only expecting 7 values for signed tx.',
     )
   }
 
-  const [nonce, to, data, v, r, s] = values
+  const [nonce, to, data, senderPubKey, v, r, s] = values
 
-  const txData = {nonce, to, data, v, r, s}
-  validateNoLeadingZeroes(txData)
+  const txDataRaw = {nonce, to, data, senderPubKey, v, r, s}
+  validateNoLeadingZeroes(txDataRaw)
 
-  createTokamakL2Tx(txData as TokamakL2TxData, opts)
+  const txDataFormat: TokamakL2TxData = {
+    nonce: bytesToBigInt(nonce),
+    to: new Address(to),
+    data,
+    senderPubKey,
+    v: bytesToBigInt(v),
+    r: bytesToBigInt(r),
+    s: bytesToBigInt(s),
+  }
+
+  return createTokamakL2Tx(txDataFormat, opts)
 }
 
 /**
@@ -44,7 +52,7 @@ export function createTokamakL2TxFromBytesArray(values: Uint8Array[], opts: TxOp
  * Format: `rlp([nonce, gasPrice, gasLimit, to, value, data,
  * signatureV, signatureR, signatureS])`
  */
-export function createTokamakL2TxFromRLP(serialized: Uint8Array, opts: TxOptions) {
+export function createTokamakL2TxFromRLP(serialized: Uint8Array, opts: TxOptions): TokamakL2Tx {
   const values = RLP.decode(serialized)
 
   if (!Array.isArray(values)) {

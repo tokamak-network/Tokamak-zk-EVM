@@ -1,6 +1,4 @@
-import { AddressLike, BigIntLike, BytesLike } from "@ethereumjs/util"
-
-
+import { Address } from "@ethereumjs/util"
 
 /**
  * Legacy {@link Transaction} Data
@@ -9,32 +7,32 @@ export type TokamakL2TxData = {
   /**
    * The transaction's nonce.
    */
-  nonce: BigIntLike
+  nonce: bigint
 
   /**
    * The transaction's the address is sent to.
    */
-  to: AddressLike
+  to: Address
 
   /**
    * This will contain the data of the message or the init of a contract.
    */
-  data: BytesLike
+  data: Uint8Array
 
-  senderPubKey: BytesLike
+  senderPubKey: Uint8Array
 
   /**
-   * EDDSA public key.
+   * Fixed for TokamakL2JS
    */
-  v?: BigIntLike
+  v?: bigint
 
   /**
    * EDDSA randomizer.
    */
-  r?: BigIntLike
+  r?: bigint
 
   /**
    * EDDSA signature.
    */
-  s?: BigIntLike
+  s?: bigint
 }

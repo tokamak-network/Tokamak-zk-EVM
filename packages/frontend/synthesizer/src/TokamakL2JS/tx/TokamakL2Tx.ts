@@ -1,6 +1,6 @@
 import { Address, bigIntToBytes, bytesToBigInt, setLengthLeft, bigIntToUnpaddedBytes, unpadBytes, concatBytes, equalsBytes, bytesToHex } from "@ethereumjs/util"
-import { LegacyTx, TransactionInterface, TransactionType, createLegacyTx } from '@ethereumjs/tx'
-import { EthereumJSErrorWithoutCode } from "@ethereumjs/rlp"
+import { LegacyTx, TransactionInterface, TransactionType, TxValuesArray as AllTypesTxValuesArray, createLegacyTx } from '@ethereumjs/tx'
+import { EthereumJSErrorWithoutCode, RLP } from "@ethereumjs/rlp"
 import { jubjub } from "@noble/curves/misc.js"
 import { EdwardsPoint } from "@noble/curves/abstract/edwards.js"
 import { eddsaSign, eddsaVerify, getEddsaPublicKey, poseidon } from "../crypto/index.ts"
@@ -9,6 +9,7 @@ import { createTokamakL2Tx } from "./constructors.ts"
 
 // LegacyTx prohibits to add new members for extension. Bypassing this problem by the follow:
 const _unsafeSenderPubKeyStorage = new WeakMap<TokamakL2Tx, Uint8Array>();
+export type TxValuesArray = AllTypesTxValuesArray[typeof TransactionType.Legacy]
 
 export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof TransactionType.Legacy> {
     declare readonly to: Address
@@ -120,6 +121,22 @@ export class TokamakL2Tx extends LegacyTx implements TransactionInterface<typeof
             },
             opts,
         )
+    }
+
+    override raw(): TxValuesArray {
+        return [
+            bigIntToUnpaddedBytes(this.nonce),
+            this.to.bytes,
+            this.data,
+            this.getSenderPublicKey(),
+            this.v !== undefined ? bigIntToUnpaddedBytes(this.v) : new Uint8Array(0),
+            this.r !== undefined ? bigIntToUnpaddedBytes(this.r) : new Uint8Array(0),
+            this.s !== undefined ? bigIntToUnpaddedBytes(this.s) : new Uint8Array(0),
+        ]
+    }
+
+    override serialize(): Uint8Array {
+        return RLP.encode(this.raw())
     }
 
     override verifySignature(): boolean {
