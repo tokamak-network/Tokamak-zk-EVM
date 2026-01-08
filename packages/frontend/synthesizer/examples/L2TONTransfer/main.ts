@@ -14,11 +14,11 @@ import {
   utf8ToBytes,
 } from '@ethereumjs/util';
 import { jubjub } from "@noble/curves/misc.js";
-import { deriveL2KeysFromSignature, fromEdwardsToAddress } from '../../src/TokamakL2JS/index.ts';
+import { deriveL2KeysFromSignature, fromEdwardsToAddress } from 'tokamak-l2js';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
 import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../src/interface/index.ts';
-import { getUserStorageKey } from '../../src/TokamakL2JS/index.ts';
+import { getUserStorageKey } from 'tokamak-l2js';
 import { EdwardsPoint } from '@noble/curves/abstract/edwards';
 import { writeCircuitJson } from '../../src/interface/node/jsonWriter.ts';
 import { loadSubcircuitWasm } from '../../src/interface/node/wasmLoader.ts';

@@ -11,6 +11,41 @@ CURVE_NAME="bls12381"
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )" && \
 cd "$script_dir"
 
+# pull constants from tokamak-l2js and update circom constants
+constants_path="${script_dir}/../subcircuits/circom/constants.circom"
+CONSTANTS_PATH="$constants_path" node <<'NODE'
+const fs = require('fs');
+
+(async () => {
+  const { POSEIDON_INPUTS, MT_DEPTH } = await import('tokamak-l2js');
+  if (!Number.isInteger(POSEIDON_INPUTS) || !Number.isInteger(MT_DEPTH)) {
+    throw new Error(`Invalid tokamak-l2js constants: POSEIDON_INPUTS=${POSEIDON_INPUTS}, MT_DEPTH=${MT_DEPTH}`);
+  }
+
+  const constantsPath = process.env.CONSTANTS_PATH;
+  const src = fs.readFileSync(constantsPath, 'utf8');
+
+  let next = src;
+  next = next.replace(
+    /function nPoseidonInputs\(\)\s*{return\s+\d+;\s*}/,
+    `function nPoseidonInputs() {return ${POSEIDON_INPUTS};}`
+  );
+  next = next.replace(
+    /function nMtDepth\(\)\s*{return\s+\d+;\s*}/,
+    `function nMtDepth() {return ${MT_DEPTH};}`
+  );
+
+  if (next === src) {
+    throw new Error('Failed to update constants.circom (pattern not found).');
+  }
+
+  fs.writeFileSync(constantsPath, next);
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+NODE
+
 circom_dir_path="../subcircuits/circom"
 output_dir_path="../subcircuits/library"
 
