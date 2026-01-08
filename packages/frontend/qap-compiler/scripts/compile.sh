@@ -27,12 +27,12 @@ const fs = require('fs');
 
   let next = src;
   next = next.replace(
-    /function nPoseidonInputs\(\)\s*{return\s+\d+;\s*}/,
-    `function nPoseidonInputs() {return ${POSEIDON_INPUTS};}`
+    /(function\s+nPoseidonInputs\s*\(\s*\)\s*\{\s*return\s+)\d+(\s*;\s*\})/, 
+    `$1${POSEIDON_INPUTS}$2`
   );
   next = next.replace(
-    /function nMtDepth\(\)\s*{return\s+\d+;\s*}/,
-    `function nMtDepth() {return ${MT_DEPTH};}`
+    /(function\s+nMtDepth\s*\(\s*\)\s*\{\s*return\s+)\d+(\s*;\s*\})/, 
+    `$1${MT_DEPTH}$2`
   );
 
   if (next === src) {
