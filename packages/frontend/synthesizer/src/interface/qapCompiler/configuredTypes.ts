@@ -1,13 +1,3 @@
-import { poseidon2 } from "poseidon-bls12381"
-import { POSEIDON_INPUTS } from "./importedConstants.ts"
-
-export const poseidon_raw = (inVals: bigint[]): bigint => {
-  if (inVals.length !== POSEIDON_INPUTS) {
-    throw new Error(`Expected an array with ${POSEIDON_INPUTS} elements, but got ${inVals.length} elements`)
-  }
-  return poseidon2(inVals)
-}
-
 export const ARITHMETIC_OPERATOR_LIST = [
   'ADD',
   'MUL',
