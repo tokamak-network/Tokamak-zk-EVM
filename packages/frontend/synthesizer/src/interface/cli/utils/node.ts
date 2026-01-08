@@ -1,7 +1,7 @@
 import appRootPath from "app-root-path";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { StateSnapshot } from "src/TokamakL2JS/index.ts";
+import { StateSnapshot } from "tokamak-l2js";
 
 export function writeSnapshotJson(snapshot: StateSnapshot, _path?: string) {
     const stateSnapshotPath =

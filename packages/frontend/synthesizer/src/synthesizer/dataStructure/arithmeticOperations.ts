@@ -1,5 +1,5 @@
 import { jubjub } from "@noble/curves/misc.js"
-import { poseidon_raw } from "../../interface/qapCompiler/configuredTypes.ts"
+import { poseidon_raw, poseidonN2xCompress } from "tokamak-l2js"
 import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE, POSEIDON_INPUTS } from "../../interface/qapCompiler/importedConstants.ts"
 import { DEFAULT_SOURCE_BIT_SIZE} from "../../synthesizer/params/index.ts"
 
@@ -353,9 +353,6 @@ export class ArithmeticOperations {
    * PoseidonN
    */
   static poseidonN(in_vals: bigint[]): bigint {
-    if (in_vals.length !== POSEIDON_INPUTS) {
-      throw new Error(`poseidon${POSEIDON_INPUTS} expected exactly ${POSEIDON_INPUTS} values`)
-    }
     return poseidon_raw(in_vals)
   }
 
@@ -363,16 +360,7 @@ export class ArithmeticOperations {
    * PoseidonN2xCompress
    */
   static poseidonN2xCompress(in_vals: bigint[]): bigint {
-    if (in_vals.length !== POSEIDON_INPUTS ** 2) {
-      throw new Error(`poseidon${POSEIDON_INPUTS} expected exactly ${POSEIDON_INPUTS} values`)
-    }
-
-    const interim: bigint[] = []
-    for (var k = 0; k < POSEIDON_INPUTS; k++) {
-      const children = in_vals.slice(k * POSEIDON_INPUTS, (k + 1) * POSEIDON_INPUTS)
-      interim.push(poseidon_raw(children))
-    }
-    return poseidon_raw(interim)
+    return poseidonN2xCompress(in_vals)
   }
 
   // /**

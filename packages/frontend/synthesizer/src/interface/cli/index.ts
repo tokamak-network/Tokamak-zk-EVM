@@ -6,7 +6,7 @@ import { program } from 'commander';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
-import { createTokamakL2StateManagerFromStateSnapshot, createTokamakL2TxFromRLP, getEddsaPublicKey, poseidon, StateSnapshot, TokamakL2StateManagerOpts, TokamakL2Tx } from 'src/TokamakL2JS/index.ts';
+import { createTokamakL2StateManagerFromStateSnapshot, createTokamakL2TxFromRLP, getEddsaPublicKey, poseidon, StateSnapshot, TokamakL2StateManagerOpts, TokamakL2Tx } from 'tokamak-l2js';
 import { Common, CommonOpts, Mainnet } from '@ethereumjs/common';
 import { SynthesizerBlockInfo, SynthesizerOpts } from 'src/synthesizer/types/synthesizer.ts';
 import { createSynthesizer } from 'src/synthesizer/constructors.ts';
