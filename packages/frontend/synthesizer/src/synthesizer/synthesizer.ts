@@ -6,9 +6,8 @@ import { bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromBigInt } from 
 import { createEVM, EVM, EVMOpts, EVMResult, InterpreterStep, Message } from '@ethereumjs/evm';
 import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable, SynthesizerInterface, SynthesizerOpts, SynthesizerSupportedOpcodes } from './types/index.ts';
 import { ArithmeticManager, BufferManager, InstructionHandler, MemoryManager, StateManager, SynthesizerOpHandler } from './handlers/index.ts';
-import { ArithmeticOperator, SubcircuitNames, TX_MESSAGE_TO_HASH } from '../interface/qapCompiler/configuredTypes.ts';
-import { poseidon } from '../TokamakL2JS/index.ts';
-import { MAX_MT_LEAVES, MT_DEPTH, POSEIDON_INPUTS } from '../interface/qapCompiler/importedConstants.ts';
+import { ArithmeticOperator, SubcircuitNames } from '../interface/qapCompiler/configuredTypes.ts';
+import { MAX_MT_LEAVES } from '../interface/qapCompiler/importedConstants.ts';
 import { DataPtFactory } from './dataStructure/dataPt.ts';
 
 /**
