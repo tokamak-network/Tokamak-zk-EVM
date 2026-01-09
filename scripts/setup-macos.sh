@@ -238,20 +238,44 @@ install_circom() {
     local tmp_dir original_dir
     tmp_dir=$(mktemp -d)
     original_dir=$(pwd)
-    # Ensure cleanup and return to original directory when the function returns, even on error.
-    trap 'cd "$original_dir"; rm -rf -- "$tmp_dir"' RETURN
     
-    cd "$tmp_dir"
+    # zsh-compatible cleanup: use EXIT instead of RETURN
+    # EXIT works in both bash and zsh, and triggers when function exits
+    setopt LOCAL_OPTIONS 2>/dev/null || true  # Enable local options for zsh
+    trap 'cd "$original_dir" 2>/dev/null; rm -rf -- "$tmp_dir" 2>/dev/null' EXIT
+    
+    cd "$tmp_dir" || {
+        print_status "error" "Failed to change to temporary directory"
+        return 1
+    }
     
     echo -e "  ${DIM}Cloning circom repository...${RESET}"
-    git clone https://github.com/iden3/circom.git
-    cd circom
+    if ! git clone https://github.com/iden3/circom.git; then
+        print_status "error" "Failed to clone circom repository"
+        return 1
+    fi
+    
+    cd circom || {
+        print_status "error" "Failed to enter circom directory"
+        return 1
+    }
     
     echo -e "  ${DIM}Building circom (this may take a few minutes)...${RESET}"
-    cargo build --release
+    if ! cargo build --release; then
+        print_status "error" "Failed to build circom"
+        return 1
+    fi
     
     echo -e "  ${DIM}Installing circom binary...${RESET}"
-    cargo install --path circom
+    if ! cargo install --path circom; then
+        print_status "error" "Failed to install circom"
+        return 1
+    fi
+    
+    # Clear trap before successful return
+    trap - EXIT
+    cd "$original_dir"
+    rm -rf -- "$tmp_dir"
     
     print_status "success" "Circom installed successfully!"
 }
