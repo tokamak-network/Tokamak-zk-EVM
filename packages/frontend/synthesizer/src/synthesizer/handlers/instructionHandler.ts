@@ -456,18 +456,8 @@ export class InstructionHandler {
 
   public async verifyStorage(keyPt: DataPt, indexPt: DataPt, value: bigint): Promise<DataPt> {
     const MTIndex = Number(indexPt.value);
-    const transitionIdx = this.cachedOpts.stateManager.lastMerkleTreeIndex;
-    const merkleTree = this.cachedOpts.stateManager.getMerkleTree(transitionIdx);
-    const merkleProof = merkleTree.createProof(MTIndex);
-    
-    let rootPt: DataPt;
-    if (transitionIdx !== 0) {
-      const merkleRoot = merkleTree.root;
-      rootPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(merkleRoot), true);
-    } else {
-      rootPt = this.parent.getReservedVariableFromBuffer('INI_MERKLE_ROOT');
-    }
-    const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', value, true, ` at key: ${keyPt.value}`)
+    const merkleProof = this.cachedOpts.stateManager.initialMerkleTree.createProof(MTIndex)
+    const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', value, true, ` at MT index: ${MTIndex}`)
     const childPt = this.parent.placePoseidon([
       keyPt, 
       valuePt,
@@ -480,17 +470,17 @@ export class InstructionHandler {
       indexPt,
       childPt,
       merkleProof.siblings,
-      rootPt,
+      this.parent.getReservedVariableFromBuffer('INI_MERKLE_ROOT'),
     )
 
-    if (this.parent.state.verifiedStorageMTIndices.findIndex(val => val === MTIndex) < 0) {
-      this.parent.state.verifiedStorageMTIndices.push(MTIndex);
+    if (this.parent.state.verifiedStorageMTIndices.findIndex(val => val === MTIndex) >= 0) {
+      throw new Error(`A storage entry is verified twice.`)
     }
-    
+    this.parent.state.verifiedStorageMTIndices.push(MTIndex);
     return valuePt
   }
 
-  public async loadStorage(keyPt: DataPt, valueGiven?: bigint, useCache: boolean = false): Promise<DataPt> {
+  public async loadStorage(keyPt: DataPt, valueGiven?: bigint): Promise<DataPt> {
     const key = keyPt.value
     const currentTxIdx = this.parent.state.transactionIndex;
     if (currentTxIdx === null) {
@@ -547,24 +537,17 @@ export class InstructionHandler {
       if ( cached === undefined || cached!.length === 0 ) {
         throw new Error('A cached storage is present, but no history.')
       }
-      let indexPt: DataPt | null;
-      if (useCache) {
-        valuePt = cached[cached.length - 1].valuePt;
-        if (valuePt.value !== value) {
-          throw new Error('Discrepancy between cached and actual storage values')
-        }
-        if (cached[cached.length - 1].keyPt.value !== key) {
-          throw new Error('Discrepancy between cached and actual key values')
-        }
-        indexPt = isRegisteredKey ? cached[cached.length - 1].indexPt : null;
-        if (indexPt !== null && Number(indexPt.value) !== MTIndex) {
-          throw new Error('Discrepancy between cached and actual MT indices')
-        }
-      } else {
-        indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(MTIndex), true);
-        valuePt = await this.verifyStorage(keyPt, indexPt, value);
+      valuePt = cached[cached.length - 1].valuePt;
+      if (valuePt.value !== value) {
+        throw new Error('Discrepancy between cached and actual storage values')
       }
-      
+      if (cached[cached.length - 1].keyPt.value !== key) {
+        throw new Error('Discrepancy between cached and actual key values')
+      }
+      const indexPt = isRegisteredKey ? cached[cached.length - 1].indexPt : null;
+      if (indexPt !== null && Number(indexPt.value) !== MTIndex) {
+        throw new Error('Discrepancy between cached and actual MT indices')
+      }
       accessHistory = {
         indexPt,
         keyPt,

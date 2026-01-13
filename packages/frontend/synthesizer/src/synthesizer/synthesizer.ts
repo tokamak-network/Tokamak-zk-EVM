@@ -131,10 +131,8 @@ export class Synthesizer implements SynthesizerInterface
             throw new Error('Data loading failure when finalizing Synthesizer')
           }
           await this._applySynthesizerHandler(this._prevInterpreterStep, currentInterpreterStep)
-          // console.log(`stack: ${currentInterpreterStep.stack.map(x => bigIntToHex(x))}`)
-          // console.log(`pc: ${currentInterpreterStep.pc}, opcode: ${currentInterpreterStep.opcode.name}`)
-
-          await this.cachedOpts.stateManager.updateMerkleTree();
+          console.log(`stack: ${currentInterpreterStep.stack.map(x => bigIntToHex(x))}`)
+          console.log(`pc: ${currentInterpreterStep.pc}, opcode: ${currentInterpreterStep.opcode.name}`)
         } catch (err) {
           console.error('Synthesizer: afterTx error:', err)
         } finally {
@@ -183,11 +181,11 @@ export class Synthesizer implements SynthesizerInterface
   }
 
   private async _finalizeStorage(): Promise<void> {    
-    await this._finalizeMerkleTree()
+    await this._updateMerkleTree()
     this._unregisteredContractStorageWritings()
   }
 
-  private async _finalizeMerkleTree(): Promise<void> {    
+  private async _updateMerkleTree(): Promise<void> {    
     const treeEntriesPt: DataPt[][] = [];
 
     for (const key of this.cachedOpts.stateManager.registeredKeys!) {
@@ -200,7 +198,7 @@ export class Synthesizer implements SynthesizerInterface
         this.addReservedVariableToBufferIn('MERKLE_PROOF', keyBigInt, true) :
         cached[cached.length-1].keyPt;
       // Make sure every registered storage verified
-      const valuePt = await this._instructionHandlers.loadStorage(keyPt, undefined, true);
+      const valuePt = await this._instructionHandlers.loadStorage(keyPt);
       treeEntriesPt.push([
         keyPt, 
         valuePt,
@@ -225,8 +223,7 @@ export class Synthesizer implements SynthesizerInterface
       ])
     }
 
-    const lastMtIdx = await this.cachedOpts.stateManager.updateMerkleTree(permutation);
-    const finalMerkleRootRef = BigInt(this.cachedOpts.stateManager.getMerkleTree(lastMtIdx).root);
+    const finalMerkleRootRef = await this.cachedOpts.stateManager.getUpdatedMerkleTreeRoot(permutation);
     
     if (treeEntriesPt.length !== MAX_MT_LEAVES ) {
       throw new Error(`Expected ${MAX_MT_LEAVES} leaves for updated tree root computation, but got ${treeEntriesPt.length} leaves.`)
