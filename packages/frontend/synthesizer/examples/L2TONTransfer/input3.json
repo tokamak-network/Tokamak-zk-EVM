@@ -1,25 +1,49 @@
 {
+  "blockNumber": 24223302,
   "privateKeySeedsL2": [
     "Sender's L2 wallet",
-    "Recipient's L2 wallet",
+    "Recepient's L2 wallet",
     "Any",
-    "Arbitrary"
+    "Arbitrary",
+    "Strings",
+    "Can be",
+    "Used",
+    "For simulation"
   ],
   "addressListL1": [
     "0x85cc7da8Ee323325bcD678C7CFc4EB61e76657Fb",
     "0xd8eE65121e51aa8C75A6Efac74C4Bbd3C439F78f",
     "0x838F176D94990E06af9B57E470047F9978403195",
-    "0x01E371b2aD92aDf90254df20EB73F68015E9A000"
+    "0x01E371b2aD92aDf90254df20EB73F68015E9A000",
+    "0xbD224229Bf9465ea4318D45a8ea102627d6c27c7",
+    "0x6FD430995A19a57886d94f8B5AF2349b8F40e887",
+    "0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9",
+    "0xA4Cb7fb1aBb9D6F7750BddeaD7B11F7a3eC4eD10"
   ],
+  "contractAddress": "0x2be5e8c109e2197D077D13A82dAead6a9b3433C5",
+  "transferSelector": "0xa9059cbb",
   "userStorageSlots": [
     0
   ],
-  "senderIndex": 0,
-  "recipientIndex": 2,
   "initStorageKey": "0x07",
-  "txNonce": 0,
-  "blockNumber": 23224548,
-  "contractAddress": "0x2be5e8c109e2197D077D13A82dAead6a9b3433C5",
-  "amount": "0x4563918244f400000",
-  "transferSelector": "0xa9059cbb"
+  "txsData": [
+    {
+      "nonce": 0,
+      "senderIndex": 0,
+      "recipientIndex": 1,
+      "amount": "0x4563918244f400000"
+    },
+    {
+      "nonce": 1,
+      "senderIndex": 1,
+      "recipientIndex": 2,
+      "amount": "0x4563918244f400000"
+    },
+    {
+      "nonce": 2,
+      "senderIndex": 2,
+      "recipientIndex": 3,
+      "amount": "0x4563918244f400000"
+    }
+  ]
 }

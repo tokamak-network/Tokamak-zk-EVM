@@ -34,13 +34,13 @@
       "amount": "0x4563918244f400000"
     },
     {
-      "nonce": 0,
+      "nonce": 1,
       "senderIndex": 7,
       "recipientIndex": 3,
       "amount": "0x4563918244f400000"
     },
     {
-      "nonce": 0,
+      "nonce": 2,
       "senderIndex": 1,
       "recipientIndex": 2,
       "amount": "0x4563918244f400000"
