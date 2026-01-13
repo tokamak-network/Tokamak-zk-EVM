@@ -5,15 +5,21 @@ import { BUFFER_LIST, ReservedBuffer, SubcircuitNames } from '../../interface/qa
 const PUBLIC_OUT_VARIABLES_STATIC = [
   // Nothing
 ] as const
+const PUBLIC_OUT_VARIABLES_ITERABLE = [
+  // Nothing
+] as const
 const PUBLIC_OUT_VARIABLES_DYNAMIC = [
   'UNREGISTERED_CONTRACT_STORAGE_OUT',
   'RES_MERKLE_ROOT',
 ] as const
 const PUBLIC_IN_VARIABLES_STATIC = [
   'INI_MERKLE_ROOT',
-  'EDDSA_SIGNATURE',
   'CONTRACT_ADDRESS',    // For debugging. Can be moved to PRIVATE_IN buffer
   'FUNCTION_SELECTOR',   // For debugging. Can be moved to PRIVATE_IN buffer
+  'EDDSA_SIGNATURE',
+] as const
+const PUBLIC_IN_VARIABLES_ITERABLE = [
+  'EDDSA_SIGNATURE',
 ] as const
 const PUBLIC_IN_VARIABLES_DYNAMIC = [
   'UNREGISTERED_CONTRACT_STORAGE_IN',
@@ -285,6 +291,9 @@ const BLOCK_IN_VARIABLES_STATIC = [
   'BLOCKHASH_255',
   'BLOCKHASH_256',
 ] as const
+const BLOCK_IN_VARIABLES_ITERABLE = [
+  // Nothing
+] as const
 const BLOCK_IN_VARIABLES_DYNAMIC = [
   // Nothing
 ] as const
@@ -297,11 +306,17 @@ const EVM_IN_VARIABLES_STATIC = [
   'JUBJUB_POI_X',
   'JUBJUB_POI_Y',
 ] as const
+const EVM_IN_VARIABLES_ITERABLE = [
+  // Nothing
+] as const
 const EVM_IN_VARIABLES_DYNAMIC = [
   // Nothing
 ] as const
 
 const PRIVATE_IN_VARIABLES_STATIC = [
+  // Nothing
+] as const
+const PRIVATE_IN_VARIABLES_ITERABLE = [
   'TRANSACTION_NONCE',
   'EDDSA_PUBLIC_KEY_X',
   'EDDSA_PUBLIC_KEY_Y',
@@ -326,18 +341,23 @@ const PRIVATE_IN_VARIABLES_DYNAMIC = [
 
 type PublicOutVariable = 
   | (typeof PUBLIC_OUT_VARIABLES_STATIC)[number]
+  | (typeof PUBLIC_OUT_VARIABLES_ITERABLE)[number]
   | (typeof PUBLIC_OUT_VARIABLES_DYNAMIC)[number]
 type PublicInVariable =
   | (typeof PUBLIC_IN_VARIABLES_STATIC)[number]
+  | (typeof PUBLIC_IN_VARIABLES_ITERABLE)[number]
   | (typeof PUBLIC_IN_VARIABLES_DYNAMIC)[number]
 type BlockInVariable =
   | (typeof BLOCK_IN_VARIABLES_STATIC)[number]
+  | (typeof BLOCK_IN_VARIABLES_ITERABLE)[number]
   | (typeof BLOCK_IN_VARIABLES_DYNAMIC)[number]
 type EVMInVariable =
   | (typeof EVM_IN_VARIABLES_STATIC)[number]
+  | (typeof EVM_IN_VARIABLES_ITERABLE)[number]
   | (typeof EVM_IN_VARIABLES_DYNAMIC)[number]
 type PrivateInVariable =
   | (typeof PRIVATE_IN_VARIABLES_STATIC)[number]
+  | (typeof PRIVATE_IN_VARIABLES_ITERABLE)[number]
   | (typeof PRIVATE_IN_VARIABLES_DYNAMIC)[number]
 export type ReservedVariable =
   | PublicOutVariable
@@ -348,58 +368,77 @@ export type ReservedVariable =
 
 const _VARIABLES: string[] = [
   ...PUBLIC_OUT_VARIABLES_STATIC,
+  ...PUBLIC_OUT_VARIABLES_ITERABLE,
   ...PUBLIC_OUT_VARIABLES_DYNAMIC,
+
   ...PUBLIC_IN_VARIABLES_STATIC,
+  ...PUBLIC_IN_VARIABLES_ITERABLE,
   ...PUBLIC_IN_VARIABLES_DYNAMIC,
+
   ...BLOCK_IN_VARIABLES_STATIC,
+  ...BLOCK_IN_VARIABLES_ITERABLE,
   ...BLOCK_IN_VARIABLES_DYNAMIC,
+
   ...EVM_IN_VARIABLES_STATIC,
+  ...EVM_IN_VARIABLES_ITERABLE,
   ...EVM_IN_VARIABLES_DYNAMIC,
+
   ...PRIVATE_IN_VARIABLES_STATIC,
+  ...PRIVATE_IN_VARIABLES_ITERABLE,
   ...PRIVATE_IN_VARIABLES_DYNAMIC,
 ]
     
 const __buildIncompleteDescription = (
   STATIC_VARIABLES: readonly string[], 
+  ITERABLE_VARIABLES: readonly string[],
   DYNAMIC_VARIABLES: readonly string[],
   bufferName: ReservedBuffer,
 ) => {
   const m: Record<string, DataPtDescription> = {};
   const FULL_VARIABLES = [
     ...STATIC_VARIABLES,
+    ...ITERABLE_VARIABLES,
     ...DYNAMIC_VARIABLES,
   ]
   for (const varName of FULL_VARIABLES) {
+    const indexableVariables = [...STATIC_VARIABLES, ...ITERABLE_VARIABLES];
+    const iterationIndex = ITERABLE_VARIABLES.findIndex(iterableName => iterableName === varName);
     m[varName] = {
       source: BUFFER_LIST.findIndex(name => name === bufferName),
       sourceBitSize: DEFAULT_SOURCE_BIT_SIZE,
-      wireIndex: STATIC_VARIABLES.findIndex(staticName => staticName === varName)
+      wireIndex: indexableVariables.findIndex(indexableName => indexableName === varName),
+      iterable: iterationIndex > -1 ? true : false,
     }
   }
   return m as unknown
 }
 const _PUBLIC_OUT_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
   PUBLIC_OUT_VARIABLES_STATIC,
+  PUBLIC_OUT_VARIABLES_ITERABLE,
   PUBLIC_OUT_VARIABLES_DYNAMIC,
   'PUBLIC_OUT',
 ) as Record<PublicOutVariable, DataPtDescription>;
 const _PUBLIC_IN_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
   PUBLIC_IN_VARIABLES_STATIC,
+  PUBLIC_IN_VARIABLES_ITERABLE,
   PUBLIC_IN_VARIABLES_DYNAMIC,
   'PUBLIC_IN',
 ) as Record<PublicInVariable, DataPtDescription>;
 const _BLOCK_IN_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
   BLOCK_IN_VARIABLES_STATIC,
+  BLOCK_IN_VARIABLES_ITERABLE,
   BLOCK_IN_VARIABLES_DYNAMIC,
   'BLOCK_IN',
 ) as Record<BlockInVariable, DataPtDescription>;
 const _EVM_IN_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
   EVM_IN_VARIABLES_STATIC,
+  EVM_IN_VARIABLES_ITERABLE,
   EVM_IN_VARIABLES_DYNAMIC,
   'EVM_IN',
 ) as Record<EVMInVariable, DataPtDescription>;
 const _PRIVATE_IN_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
   PRIVATE_IN_VARIABLES_STATIC,
+  PRIVATE_IN_VARIABLES_ITERABLE,
   PRIVATE_IN_VARIABLES_DYNAMIC,
   'PRIVATE_IN',
 ) as Record<PrivateInVariable, DataPtDescription>;
@@ -473,7 +512,7 @@ VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_Y.extSource = `EdDSA public key
 VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_Y.sourceBitSize = 255;
 for (let i = 0; i < 9; i++) {
   const varName = `TRANSACTION_INPUT${i}` as ReservedVariable
-  if ( PRIVATE_IN_VARIABLES_STATIC.findIndex(staticVarName => staticVarName === varName) < 0 ) {
+  if ( PRIVATE_IN_VARIABLES_ITERABLE.findIndex(iterableVarName => iterableVarName === varName) < 0 ) {
     throw new Error(`${varName} is not a ReservedVariable`)
   }
   VARIABLE_DESCRIPTION_INCOMPLETE[varName].extSource = `The ${i}-th input to the selected function`;

@@ -3,8 +3,9 @@ import { bytesToBigInt, hexToBigInt, toBytes } from '@ethereumjs/util';
 import { jubjub } from "@noble/curves/misc.js";
 import { DataPt, DataPtDescription, ISynthesizerProvider, PlacementEntry, ReservedVariable, SynthesizerOpts, VARIABLE_DESCRIPTION } from '../types/index.ts';
 import { DataPtFactory } from '../dataStructure/index.ts';
-import { BUFFER_DESCRIPTION, BUFFER_LIST } from '../../interface/qapCompiler/configuredTypes.ts';
+import { BUFFER_DESCRIPTION, BUFFER_LIST, TX_PRV_DATA_LENGTH } from '../../interface/qapCompiler/configuredTypes.ts';
 import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
+import { createTokamakL2Tx } from 'tokamak-l2js';
 
 export class BufferManager {
   private parent: ISynthesizerProvider
@@ -47,6 +48,20 @@ export class BufferManager {
   //   this.parent.placements.get(placementId)!.inPts.push(inPt);
   //   this.parent.placements.get(placementId)!.outPts.push(outPt);
   // }
+
+  public addIterableVariableToBufferIn(varName: ReservedVariable, value: bigint = 0n, iterIdx: number, iterSize: number): DataPt {
+    const wireDesc: DataPtDescription = {...VARIABLE_DESCRIPTION[varName]};
+    if (wireDesc.wireIndex === -1) {
+      throw new Error('Dynamic variables cannot be assigned by this function')
+    }
+    if (wireDesc.iterable === false) {
+      throw new Error('Static variabels cannot be assigned by this function')
+    }
+    const externalDataPt = DataPtFactory.create(wireDesc, value)
+    externalDataPt.wireIndex = externalDataPt.wireIndex + iterIdx * iterSize;
+    const symbolDataPt = DataPtFactory.createBufferTwin(externalDataPt)
+    return DataPtFactory.deepCopy(this.parent.addWirePairToBufferIn(externalDataPt, symbolDataPt))
+  }
 
   public addReservedVariableToBufferIn(varName: ReservedVariable, value: bigint = 0n, dynamic: boolean = false, message?: string): DataPt {
     const placementIndex = VARIABLE_DESCRIPTION[varName].source
@@ -92,6 +107,7 @@ export class BufferManager {
       sourceBitSize: bitSize ?? DEFAULT_SOURCE_BIT_SIZE,
       source: placementIndex,
       wireIndex: this.parent.placements[placementIndex]!.inPts.length,
+      iterable: false,
     };
     const inPt = DataPtFactory.create(inPtRaw, value)
     const outPt = DataPtFactory.createBufferTwin(inPt)
@@ -188,23 +204,50 @@ export class BufferManager {
   }
 
   private _initTransactionBuffer(): void {
-    const l2Tx = this.cachedOpts.signedTransaction
-    const senderPublicKey = l2Tx.getUnsafeEddsaPubKey()
-    const randomizer = l2Tx.r === undefined ? undefined : l2Tx.getUnsafeEddsaRandomizer()
-    this.addReservedVariableToBufferIn('EDDSA_PUBLIC_KEY_X', senderPublicKey.toAffine().x)
-    this.addReservedVariableToBufferIn('EDDSA_PUBLIC_KEY_Y', senderPublicKey.toAffine().y)
-    this.addReservedVariableToBufferIn('EDDSA_RANDOMIZER_X', randomizer?.toAffine().x)
-    this.addReservedVariableToBufferIn('EDDSA_RANDOMIZER_Y', randomizer?.toAffine().y)
-    this.addReservedVariableToBufferIn('EDDSA_SIGNATURE', l2Tx.s)
-    this.addReservedVariableToBufferIn('CONTRACT_ADDRESS', bytesToBigInt(toBytes(l2Tx.to)))
-    this.addReservedVariableToBufferIn('FUNCTION_SELECTOR', bytesToBigInt(l2Tx.getFunctionSelector()))
-    this.addReservedVariableToBufferIn('TRANSACTION_NONCE', l2Tx.nonce)
-    for (var inputIndex = 0; inputIndex < 9; inputIndex ++) {
-      this.addReservedVariableToBufferIn(
-        `TRANSACTION_INPUT${inputIndex}` as ReservedVariable, 
-        bytesToBigInt(l2Tx.getFunctionInput(inputIndex)),
-      )
+    const l2TxsData = this.cachedOpts.signedTransactions;
+    let prevToAddr: bigint | undefined = undefined;
+    let prevSelector: bigint |undefined = undefined;
+    for (const [idx, txData] of l2TxsData.entries()) {
+      const _addMessageWire = (varName: ReservedVariable, value: bigint = 0n) => {
+        this.addIterableVariableToBufferIn(varName, value, idx, TX_PRV_DATA_LENGTH);
+      }
+
+      const l2Tx = createTokamakL2Tx(txData, {common: this.cachedOpts.stateManager.common});
+      const thisToAddr = bytesToBigInt(l2Tx.to.bytes);
+      const thisSelector = bytesToBigInt(l2Tx.getFunctionSelector());
+      if (prevToAddr !== undefined) {
+        if (thisToAddr !== prevToAddr) {
+          throw new Error('To address discrepancy among transactions.')
+        }
+      }
+      prevToAddr = thisToAddr;
+      if (prevSelector !== undefined) {
+        if (thisSelector !== prevSelector) {
+          console.warn('Function selector discrepancy among transactions.')
+        }
+      }
+      prevSelector = thisSelector;
+      const senderPublicKey = l2Tx.getUnsafeEddsaPubKey();
+      const randomizer = l2Tx.r === undefined ? undefined : l2Tx.getUnsafeEddsaRandomizer();
+      if (l2Tx.s === undefined || randomizer === undefined) {
+        console.warn(`Transaction at index ${idx} is not signed.`)
+      }
+      
+      this.addIterableVariableToBufferIn('EDDSA_SIGNATURE', l2Tx.s, idx, 1);
+      _addMessageWire('TRANSACTION_NONCE', l2Tx.nonce)
+      _addMessageWire('EDDSA_PUBLIC_KEY_X', senderPublicKey.toAffine().x)
+      _addMessageWire('EDDSA_PUBLIC_KEY_Y', senderPublicKey.toAffine().y)
+      for (var inputIndex = 0; inputIndex < 9; inputIndex ++) {
+        _addMessageWire(
+          `TRANSACTION_INPUT${inputIndex}` as ReservedVariable, 
+          bytesToBigInt(l2Tx.getFunctionInput(inputIndex)),
+        )
+      }
+      _addMessageWire('EDDSA_RANDOMIZER_X', randomizer?.toAffine().x)
+      _addMessageWire('EDDSA_RANDOMIZER_Y', randomizer?.toAffine().y)
     }
+    this.addReservedVariableToBufferIn('CONTRACT_ADDRESS', prevToAddr);
+    this.addReservedVariableToBufferIn('FUNCTION_SELECTOR', prevSelector);
   }
 
   // private async _initStorageInputBuffer(): Promise<void> {
@@ -221,41 +264,22 @@ export class BufferManager {
   //   }
   // }
   
-  public getReservedVariableFromBuffer(varName: ReservedVariable): DataPt {
+  public getReservedVariableFromBuffer(varName: ReservedVariable, iterIdx?: number, iterSize?: number): DataPt {
     if (VARIABLE_DESCRIPTION[varName].extSource === undefined) {
       throw new Error('Usable only for reserved variables of input buffers')
     }
+
+    if (VARIABLE_DESCRIPTION[varName].wireIndex === -1) {
+      throw new Error('Usable only for static or iterable variables')
+    }
+
+    if (VARIABLE_DESCRIPTION[varName].iterable === true && (iterIdx === undefined || iterSize === undefined)) {
+      throw new Error('Getting an iterable variable requires iteration index and size')
+    }
+
     const placementIndex = VARIABLE_DESCRIPTION[varName].source
-    const wireIndex: number = VARIABLE_DESCRIPTION[varName].wireIndex
-    // switch (varName) {
-    //   case 'EDDSA_SIGNATURE':
-    //   case 'EDDSA_RANDOMIZER_X':
-    //   case 'EDDSA_RANDOMIZER_Y':
-    //     if (txNonce === undefined) {
-    //       throw new Error('Reading transaction related variables requires transaction nonce')
-    //     }
-    //     wireIndex += txNonce * 3
-    //     break
-    //   case 'TRANSACTION_NONCE':
-    //   case 'CONTRACT_ADDRESS':
-    //   case 'FUNCTION_SELECTOR':
-    //   case 'TRANSACTION_INPUT0':
-    //   case 'TRANSACTION_INPUT1':
-    //   case 'TRANSACTION_INPUT2':
-    //   case 'TRANSACTION_INPUT3':
-    //   case 'TRANSACTION_INPUT4':
-    //   case 'TRANSACTION_INPUT5':
-    //   case 'TRANSACTION_INPUT6':
-    //   case 'TRANSACTION_INPUT7':
-    //   case 'TRANSACTION_INPUT8':
-    //     if (txNonce === undefined) {
-    //       throw new Error('Reading transaction related variables requires transaction nonce')
-    //     }
-    //     wireIndex += txNonce * 12
-    //     break
-    //   default:
-    //     break
-    // }
+    const iterAdjust = VARIABLE_DESCRIPTION[varName].iterable ? iterIdx! * iterSize! : 0;
+    const wireIndex: number = VARIABLE_DESCRIPTION[varName].wireIndex + iterAdjust;
 
     const outPt = this.parent.placements[placementIndex]!.outPts[wireIndex]
     if (outPt.wireIndex !== wireIndex || outPt.source !== placementIndex) {

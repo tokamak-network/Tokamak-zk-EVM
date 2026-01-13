@@ -1,7 +1,7 @@
 import { LegacyTx } from '@ethereumjs/tx';
 import { InterpreterStep } from '@ethereumjs/evm';
-import { RunTxResult } from '@ethereumjs/vm';
-import { TokamakL2StateManager, TokamakL2Tx } from 'tokamak-l2js';
+import { RunBlockResult, RunTxResult } from '@ethereumjs/vm';
+import { TokamakL2StateManager, TokamakL2TxData } from 'tokamak-l2js';
 import { StateManager } from '../handlers/index.ts';
 import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable } from './index.ts';
 import { SynthesizerOpHandler } from '../handlers/instructionHandler.ts';
@@ -20,7 +20,7 @@ export type SynthesizerBlockInfo = {
 }
 
 export interface SynthesizerOpts {
-  signedTransaction: TokamakL2Tx
+  signedTransactions: Array<TokamakL2TxData>
   blockInfo: SynthesizerBlockInfo
   stateManager: TokamakL2StateManager
 }
@@ -28,7 +28,7 @@ export interface SynthesizerOpts {
 export interface SynthesizerInterface {
   get state(): StateManager
   get placements(): Placements
-  synthesizeTX(): Promise<RunTxResult>
+  synthesizeBlock(): Promise<RunBlockResult>
   cachedOpts: SynthesizerOpts
 }
 
@@ -43,7 +43,7 @@ export interface ISynthesizerProvider extends SynthesizerInterface {
   // storeStorage(key: bigint, inPt: DataPt): void
   //from BufferManager
   loadArbitraryStatic(value: bigint, bitSize?: number, desc?: string): DataPt
-  getReservedVariableFromBuffer(varName: ReservedVariable): DataPt
+  getReservedVariableFromBuffer(varName: ReservedVariable, iterIdx?: number, iterSize?: number): DataPt
   addWirePairToBufferIn(inPt: DataPt, outPt: DataPt, dynamic?: boolean): DataPt
   addReservedVariableToBufferIn(varName: ReservedVariable, value?: bigint, dynamic?: boolean, message?: string): DataPt
   addReservedVariableToBufferOut(varName: ReservedVariable, symbolDataPt: DataPt, dynamic?: boolean, message?: string): DataPt

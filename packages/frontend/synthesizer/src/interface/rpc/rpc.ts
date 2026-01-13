@@ -16,10 +16,11 @@ export type SynthesizerSimulationOpts = {
     L2: Uint8Array,
   }[],
 
-  // TX Info
-  senderL2PrvKey: Uint8Array,
-  txNonce: bigint,
-  callData: Uint8Array,
+  erc20TxsData: {
+    senderL2PrvKey: Uint8Array,
+    nonce: bigint,
+    data: Uint8Array,
+  }[],
 }
 
 export async function getBlockInfoFromRPC(
@@ -90,16 +91,29 @@ export async function createSynthesizerOptsForSimulationFromRPC(opts: Synthesize
     }
     const L2StateManager = await createTokamakL2StateManagerFromL1RPC(opts.rpcUrl, stateManagerOpts)
 
-    const transactionData: TokamakL2TxData = {
-        nonce: opts.txNonce,
-        to: createAddressFromString(opts.contractAddress),
-        data: opts.callData,
-        senderPubKey: jubjub.Point.BASE.multiply(bytesToBigInt(opts.senderL2PrvKey)).toBytes()
+    const signedTxsData: TokamakL2TxData[] = [];
+    for (const txData of opts.erc20TxsData) {
+        const transactionData: TokamakL2TxData = {
+            nonce: txData.nonce,
+            to: createAddressFromString(opts.contractAddress),
+            data: txData.data,
+            senderPubKey: jubjub.Point.BASE.multiply(bytesToBigInt(txData.senderL2PrvKey)).toBytes()
+        };
+        const unsignedTransaction = createTokamakL2Tx(transactionData, {common});
+        const signedTransaction = unsignedTransaction.sign(txData.senderL2PrvKey);
+        signedTxsData.push({
+            nonce: txData.nonce,
+            to: transactionData.to,
+            data: txData.data,
+            senderPubKey: transactionData.senderPubKey,
+            v: signedTransaction.v,
+            r: signedTransaction.r,
+            s: signedTransaction.s,
+        });
     }
-    const unsignedTransaction = createTokamakL2Tx(transactionData, {common})
-    const signedTransaction = unsignedTransaction.sign(opts.senderL2PrvKey)
+    
     return {
-        signedTransaction,
+        signedTransactions: signedTxsData,
         blockInfo,
         stateManager: L2StateManager,
     }

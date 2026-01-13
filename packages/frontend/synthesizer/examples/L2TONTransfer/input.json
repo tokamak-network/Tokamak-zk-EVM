@@ -1,4 +1,5 @@
 {
+  "blockNumber": 24223302,
   "privateKeySeedsL2": [
     "Sender's L2 wallet",
     "Recepient's L2 wallet",
@@ -17,17 +18,32 @@
     "0xbD224229Bf9465ea4318D45a8ea102627d6c27c7",
     "0x6FD430995A19a57886d94f8B5AF2349b8F40e887",
     "0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9",
-    "0x60be9978F805Dd4619F94a449a4a798155a05A56"
+    "0xA4Cb7fb1aBb9D6F7750BddeaD7B11F7a3eC4eD10"
   ],
+  "contractAddress": "0x2be5e8c109e2197D077D13A82dAead6a9b3433C5",
+  "transferSelector": "0xa9059cbb",
   "userStorageSlots": [
     0
   ],
-  "senderIndex": 0,
-  "recipientIndex": 1,
   "initStorageKey": "0x07",
-  "txNonce": 0,
-  "blockNumber": 23224548,
-  "contractAddress": "0x2be5e8c109e2197D077D13A82dAead6a9b3433C5",
-  "amount": "0x4563918244f400000",
-  "transferSelector": "0xa9059cbb"
+  "txsData": [
+    {
+      "nonce": 0,
+      "senderIndex": 0,
+      "recipientIndex": 1,
+      "amount": "0x4563918244f400000"
+    },
+    {
+      "nonce": 0,
+      "senderIndex": 7,
+      "recipientIndex": 3,
+      "amount": "0x4563918244f400000"
+    },
+    {
+      "nonce": 0,
+      "senderIndex": 1,
+      "recipientIndex": 2,
+      "amount": "0x4563918244f400000"
+    }
+  ]
 }

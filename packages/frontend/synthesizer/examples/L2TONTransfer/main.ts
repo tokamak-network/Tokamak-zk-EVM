@@ -1,12 +1,9 @@
 // Usage: tsx examples/L2TONTransfer/main.ts <config.json>
 
-import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import {
-  addHexPrefix,
-  bytesToBigInt,
   bytesToHex,
   concatBytes,
   hexToBytes,
@@ -22,20 +19,7 @@ import { getUserStorageKey } from 'tokamak-l2js';
 import { EdwardsPoint } from '@noble/curves/abstract/edwards';
 import { writeCircuitJson } from '../../src/interface/node/jsonWriter.ts';
 import { loadSubcircuitWasm } from '../../src/interface/node/wasmLoader.ts';
-
-type L2TONTransferConfig = {
-  privateKeySeedsL2: string[];
-  addressListL1: `0x${string}`[];
-  userStorageSlots: number[];
-  initStorageKey: `0x${string}`;
-  txNonce: bigint;
-  blockNumber: number;
-  contractAddress: `0x${string}`;
-  amount: `0x${string}`;
-  transferSelector: `0x${string}`;
-  senderIndex: number;
-  recipientIndex: number;
-};
+import { loadConfig } from './config.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,81 +27,12 @@ const packageRoot = path.resolve(__dirname, '..', '..');
 dotenv.config({ path: path.join(packageRoot, '.env') });
 const RPC_URL_ENV_KEY = 'RPC_URL';
 
-const parseHexString = (value: unknown, label: string): `0x${string}` => {
-  if (typeof value !== 'string' || !value.startsWith('0x')) {
-    throw new Error(`${label} must be a hex string with 0x prefix`);
-  }
-  return value as `0x${string}`;
-};
-
-const parseBigIntValue = (value: unknown, label: string): bigint => {
-  if (typeof value === 'string' || typeof value === 'number') {
-    return BigInt(value);
-  }
-  throw new Error(`${label} must be a string or number`);
-};
-
-const parseNumberValue = (value: unknown, label: string): number => {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed)) {
-    throw new Error(`${label} must be an integer`);
-  }
-  return parsed;
-};
-
-const assertStringArray = (value: unknown, label: string): string[] => {
-  if (!Array.isArray(value) || !value.every((entry) => typeof entry === 'string')) {
-    throw new Error(`${label} must be an array of strings`);
-  }
-  return value;
-};
-
-const assertNumberArray = (value: unknown, label: string): number[] => {
-  if (!Array.isArray(value) || !value.every((entry) => Number.isInteger(entry))) {
-    throw new Error(`${label} must be an array of integers`);
-  }
-  return value;
-};
-
 const getRpcUrlFromEnv = (): string => {
   const rpcUrl = process.env[RPC_URL_ENV_KEY];
   if (typeof rpcUrl !== 'string' || rpcUrl.length === 0) {
     throw new Error(`Environment variable ${RPC_URL_ENV_KEY} must be set in ${path.join(packageRoot, '.env')}`);
   }
   return rpcUrl;
-};
-
-const loadConfig = async (configPath: string): Promise<L2TONTransferConfig> => {
-  const configRaw = JSON.parse(await fs.readFile(configPath, 'utf8'));
-
-  const privateKeySeedsL2 = assertStringArray(configRaw.privateKeySeedsL2, 'privateKeySeedsL2');
-  const addressListL1 = assertStringArray(configRaw.addressListL1, 'addressListL1').map((address) => {
-    if (!address.startsWith('0x')) {
-      throw new Error('addressListL1 entries must be hex strings with 0x prefix');
-    }
-    return address as `0x${string}`;
-  });
-
-  if (privateKeySeedsL2.length !== addressListL1.length) {
-    throw new Error('privateKeySeedsL2 and addressListL1 must have the same length');
-  }
-  if (privateKeySeedsL2.length < 2) {
-    throw new Error('privateKeySeedsL2 must include at least sender and recipient seeds');
-  }
-
-  return {
-    privateKeySeedsL2,
-    addressListL1,
-    userStorageSlots: assertNumberArray(configRaw.userStorageSlots, 'userStorageSlots'),
-    initStorageKey: parseHexString(configRaw.initStorageKey, 'initStorageKey'),
-    txNonce: parseBigIntValue(configRaw.txNonce, 'txNonce'),
-    blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
-    contractAddress: parseHexString(configRaw.contractAddress, 'contractAddress'),
-    amount: parseHexString(configRaw.amount, 'amount'),
-    transferSelector: parseHexString(configRaw.transferSelector, 'transferSelector'),
-    senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
-    recipientIndex: parseNumberValue(configRaw.recipientIndex, 'recipientIndex'),
-  };
 };
 
 const toSeedBytes = (seed: string) => setLengthLeft(utf8ToBytes(seed), 32);
@@ -143,15 +58,21 @@ const main = async () => {
     derivedPublicKeyListL2.push(jubjub.Point.fromBytes(keySet.publicKey));
   })
 
-  const senderL2PrvKey = derivedPrivateKeyListL2[config.senderIndex];
-  const tokenRecipientPubKey = derivedPublicKeyListL2[config.recipientIndex];
-  const tokenRecipientAddress = fromEdwardsToAddress(tokenRecipientPubKey);
-
-  const callData = concatBytes(
-    setLengthLeft(hexToBytes(config.transferSelector), 4),
-    setLengthLeft(tokenRecipientAddress.toBytes(), 32),
-    setLengthLeft(hexToBytes(config.amount), 32),
-  );
+  const erc20TxsData = config.txsData.map((txData) => {
+    const senderL2PrvKey = derivedPrivateKeyListL2[txData.senderIndex];
+    const tokenRecipientPubKey = derivedPublicKeyListL2[txData.recipientIndex];
+    const tokenRecipientAddress = fromEdwardsToAddress(tokenRecipientPubKey);
+    const data = concatBytes(
+      setLengthLeft(hexToBytes(config.transferSelector), 4),
+      setLengthLeft(tokenRecipientAddress.toBytes(), 32),
+      setLengthLeft(hexToBytes(txData.amount), 32),
+    );
+    return {
+      senderL2PrvKey,
+      nonce: txData.nonce,
+      data,
+    };
+  });
 
   const initStorageKeys = [
     {
@@ -172,32 +93,34 @@ const main = async () => {
   }
 
   const simulationOpts: SynthesizerSimulationOpts = {
-    txNonce: config.txNonce,
     rpcUrl,
-    senderL2PrvKey,
     initStorageKeys,
     blockNumber: config.blockNumber,
     contractAddress: config.contractAddress,
-    callData,
+    erc20TxsData,
   };
 
   const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(simulationOpts);
   const synthesizer = await createSynthesizer(synthesizerOpts);
-  const runTxResult = await synthesizer.synthesizeTX();
+  const runBlockResult = await synthesizer.synthesizeBlock();
   const subcircuitBuffers = loadSubcircuitWasm();
   const circuitGenerator = await createCircuitGenerator(synthesizer, subcircuitBuffers);
   writeCircuitJson(circuitGenerator);
 
-  console.log(`Sender: ${fromEdwardsToAddress(derivedPublicKeyListL2[0])}`);
-  console.log(`Recipent: ${fromEdwardsToAddress(derivedPublicKeyListL2[1])}`);
-  if (runTxResult.execResult.logs) {
-    for (const [index, log] of runTxResult.execResult.logs.entries()) {
-      console.log(`Log index: ${index}`);
-      console.log(`CA: ${bytesToHex(log[0])}`);
-      for (const topic of log[1]) {
-        console.log(`Topic: ${bytesToHex(topic)}`);
+  if (runBlockResult.logsBloom.length > 0) {
+    for (const [txIndex, txResult] of runBlockResult.results.entries()) {
+      console.log(`Tx index: ${txIndex}`);
+      console.log(`Tx execution error: ${txResult.execResult.exceptionError}`)
+      if (txResult.execResult.logs !== undefined) {
+        for (const [logIndex, log] of txResult.execResult.logs.entries()) {
+          console.log(`Log index: ${logIndex}`);
+          console.log(`CA: ${bytesToHex(log[0])}`);
+          for (const topic of log[1]) {
+            console.log(`Topic: ${bytesToHex(topic)}`);
+          }
+          console.log(`Data: ${bytesToHex(log[2])}`);
+        }
       }
-      console.log(`Data: ${bytesToHex(log[2])}`);
     }
   }
 };

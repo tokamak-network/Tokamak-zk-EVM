@@ -26,32 +26,36 @@ export type CachedStorageEntry = {
  * Manages the state of the synthesizer, including placements, auxin, and subcircuit information.
  */
 export class StateManager {
+  // Synthesizer cache
   private parent: ISynthesizerProvider
   private cachedOpts: SynthesizerOpts
   private _placements: Placements = []
-
-  public verifiedStorageMTIndices: number[] = [] 
-  public cachedStorage: Map<bigint, CachedStorageEntry[]> = new Map()
-  public stackPt: StackPt = new StackPt()
-  public memoryPt: MemoryPt = new MemoryPt()
+  public transactionHashes: DataPt[] = []
   public subcircuitInfoByName: SubcircuitInfoByName = new Map()
   public placementIndex: number = FIRST_ARITHMETIC_PLACEMENT_INDEX
-
+  public transactionIndex: number | null = null;
   public cachedEVMIn: Map<bigint, DataPt> = new Map()
+
+  // VM cache
+  public verifiedStorageMTIndices: number[] = [] 
+  public cachedStorage: Map<bigint, CachedStorageEntry[]> = new Map()
+
+  // Interpreter cache
+  public stackPt: StackPt = new StackPt()
+  public memoryPt: MemoryPt = new MemoryPt()
   public cachedOrigin: DataPt | undefined = undefined
   public cachedCallers: DataPt[] = []
   public cachedToAddress: DataPt | undefined = undefined
   public cachedReturnMemoryPts: MemoryPts = []
-  public cachedMerkleTreeRoot: bigint | undefined = undefined
-
   public callMemoryPtsStack: MemoryPts[] = []
 
-  public transactionHashes: DataPt[] = []
+  
 
   constructor(parent: ISynthesizerProvider) {
     this.parent = parent
     this.cachedOpts = parent.cachedOpts
-    this._initializeSubcircuitInfo()
+    this._initializeSubcircuitInfo();
+    this.clearInterpreterCache();
   }
 
   public get placements(): Placements {
@@ -129,7 +133,7 @@ export class StateManager {
     this._placements.push(placement);
   }
 
-  public addWirePairToBufferIn(inPt: DataPt, outPt: DataPt, dynamic: boolean): DataPt {
+  public addWirePairToBufferIn(inPt: DataPt, outPt: DataPt, dynamic: boolean = false): DataPt {
     const thisPlacementId = outPt.source
     if (dynamic) {
       if (
@@ -150,6 +154,16 @@ export class StateManager {
     }
     
     return DataPtFactory.deepCopy(outPt)
+  }
+
+  public clearInterpreterCache(): void {
+    this.stackPt = new StackPt();
+    this.memoryPt = new MemoryPt();
+    this.cachedOrigin = undefined;
+    this.cachedCallers = [];
+    this.cachedToAddress = undefined;
+    this.cachedReturnMemoryPts = [];
+    this.callMemoryPtsStack = [];
   }
 
   /**

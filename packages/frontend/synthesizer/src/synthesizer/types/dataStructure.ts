@@ -27,6 +27,7 @@ export type DataPtDescription = {
   source: number;
   // wire index at which the dataPt comes from
   wireIndex: number;
+  iterable: boolean;
   
   sourceBitSize: number;
   

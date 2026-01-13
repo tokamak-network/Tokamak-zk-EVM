@@ -14,7 +14,7 @@ import {
 import { InterpreterStep } from '@ethereumjs/evm'
 import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
 import { DataPtFactory, MemoryPt } from '../dataStructure/index.ts';
-import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from '../../interface/qapCompiler/configuredTypes.ts';
+import { ArithmeticOperator, TX_PRV_DATA_LENGTH, TX_SIGN_MESSAGE } from '../../interface/qapCompiler/configuredTypes.ts';
 import { CachedStorageEntry } from './stateManager.ts';
 
 export interface HandlerOpts {
@@ -396,19 +396,24 @@ export class InstructionHandler {
   }
 
   getOriginAddressPt(): DataPt {
-    const messagePts: DataPt[] = TX_MESSAGE_TO_HASH.map(msg => this.parent.getReservedVariableFromBuffer(msg))
+    // Verifies a transaction signature and recover signer's public key and address.
+    const currentTxIdx = this.parent.state.transactionIndex;
+    if (currentTxIdx === null) {
+      throw new Error('Transaction index is not initialized.')
+    }
+    const messagePts: DataPt[] = TX_SIGN_MESSAGE.map(msg => this.parent.getReservedVariableFromBuffer(msg, currentTxIdx, TX_PRV_DATA_LENGTH));
 
     if ( messagePts.length !== 12) throw new Error('Invalid data pointer to the transaction message to be signed')
     
     const publicKeyPt: [DataPt, DataPt] = [
-      this.parent.getReservedVariableFromBuffer('EDDSA_PUBLIC_KEY_X'),
-      this.parent.getReservedVariableFromBuffer('EDDSA_PUBLIC_KEY_Y')
+      this.parent.getReservedVariableFromBuffer('EDDSA_PUBLIC_KEY_X', currentTxIdx, TX_PRV_DATA_LENGTH),
+      this.parent.getReservedVariableFromBuffer('EDDSA_PUBLIC_KEY_Y', currentTxIdx, TX_PRV_DATA_LENGTH),
     ]
     const randomizerPt: DataPt[] = [
-      this.parent.getReservedVariableFromBuffer('EDDSA_RANDOMIZER_X'),
-      this.parent.getReservedVariableFromBuffer('EDDSA_RANDOMIZER_Y')
+      this.parent.getReservedVariableFromBuffer('EDDSA_RANDOMIZER_X', currentTxIdx, TX_PRV_DATA_LENGTH),
+      this.parent.getReservedVariableFromBuffer('EDDSA_RANDOMIZER_Y', currentTxIdx, TX_PRV_DATA_LENGTH),
     ]
-    const signaturePt: DataPt = this.parent.getReservedVariableFromBuffer('EDDSA_SIGNATURE')
+    const signaturePt: DataPt = this.parent.getReservedVariableFromBuffer('EDDSA_SIGNATURE', currentTxIdx, 1)
     const poseidonIn: DataPt[] = [...randomizerPt, ...publicKeyPt, ...messagePts]
     const poseidonOut: DataPt = this.parent.placePoseidon(poseidonIn)
     // const bitsOut: DataPt[] = this.parent.placeArith('PrepareEdDsaScalars', [signaturePt, poseidonOut])
@@ -573,10 +578,14 @@ export class InstructionHandler {
 
   public async loadStorage(keyPt: DataPt, valueGiven?: bigint): Promise<DataPt> {
     const key = keyPt.value
+    const currentTxIdx = this.parent.state.transactionIndex;
+    if (currentTxIdx === null) {
+      throw new Error('Transaction index is not initialized.')
+    }
 
     const valueStored = bytesToBigInt(
       await this.cachedOpts.stateManager.getStorage(
-        this.cachedOpts.signedTransaction.to,
+        this.cachedOpts.signedTransactions[currentTxIdx].to,
         setLengthLeft(bigIntToBytes(keyPt.value), 32),
       ),
     );
@@ -913,7 +922,11 @@ export class InstructionHandler {
           const codeOffset = ins[1]
           const dataLength = ins[2]
           checkRequiredInput(opts.memOut)
-          const thisAddress = opts.thisAddress ?? this.cachedOpts.signedTransaction.to
+          const currentTxIdx = this.parent.state.transactionIndex;
+          if (currentTxIdx === null) {
+            throw new Error('Transaction index is not initialized.')
+          }
+          const thisAddress = opts.thisAddress ?? this.cachedOpts.signedTransactions[currentTxIdx].to
           if (dataLength !== BIGINT_0) {
             const memPts: MemoryPts = this._prepareCodeMemoryPts(
               opts.memOut!,

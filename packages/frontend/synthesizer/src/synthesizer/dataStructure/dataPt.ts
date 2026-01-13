@@ -57,13 +57,12 @@ export class DataPtFactory {
   }
 
   public static createBufferTwin(dataPt: DataPt): DataPt {
-    const placementId = dataPt.source
-    const thisWireIndex = dataPt.wireIndex
     // Create output data point
     const outPtRaw: DataPtDescription = {
-      source: placementId,
-      wireIndex: thisWireIndex,
+      source: dataPt.source,
+      wireIndex: dataPt.wireIndex,
       sourceBitSize: dataPt.sourceBitSize,
+      iterable: dataPt.iterable,
     };
     return DataPtFactory.create(outPtRaw, dataPt.value);
   }
