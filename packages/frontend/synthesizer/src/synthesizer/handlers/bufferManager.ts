@@ -165,7 +165,7 @@ export class BufferManager {
     this.addReservedVariableToBufferIn('SELFBALANCE', hexToBigInt(this.cachedOpts.blockInfo.selfBalance))
     this.addReservedVariableToBufferIn('BASEFEE', hexToBigInt(this.cachedOpts.blockInfo.baseFee))
     for (var i = 1; i <= NUMBER_OF_PREV_BLOCK_HASHES; i++) {
-      this.addReservedVariableToBufferIn(`BLOCKHASH_${i}` as ReservedVariable, hexToBigInt(this.cachedOpts.blockInfo.blockHashes[i-1]))
+      this.addReservedVariableToBufferIn(`BLOCKHASH_${i}` as ReservedVariable, hexToBigInt(this.cachedOpts.blockInfo.blockHashes[i]))
     }
 
     // Transaction inputs
