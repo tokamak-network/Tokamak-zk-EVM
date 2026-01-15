@@ -262,17 +262,10 @@ export class Synthesizer implements SynthesizerInterface
       // baseFeePerGas: this.getReservedVariableFromBuffer('BASEFEE').value,
       baseFeePerGas: undefined,
     };
-    const evmOpts: EVMOpts= {
-      common,
-      stateManager: this.cachedOpts.stateManager,
-      profiler: {enabled: true},
-    };
-    const evm = await createEVM(evmOpts);
     
     const vmOpts: VMOpts = {
       common,
       stateManager: this.cachedOpts.stateManager,
-      evm,
       profilerOpts: {reportAfterTx: true},
     };
     const vm = await createVM(vmOpts);
