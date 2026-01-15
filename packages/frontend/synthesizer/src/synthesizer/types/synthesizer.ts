@@ -6,18 +6,7 @@ import { StateManager } from '../handlers/index.ts';
 import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable } from './index.ts';
 import { SynthesizerOpHandler } from '../handlers/instructionHandler.ts';
 import { ArithmeticOperator, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
-
-export type SynthesizerBlockInfo = {
-  coinBase: `0x${string}`,
-  timeStamp: `0x${string}`,
-  blockNumber: `0x${string}`,
-  prevRanDao: `0x${string}`,
-  gasLimit: `0x${string}`,
-  chainId: `0x${string}`,
-  selfBalance: `0x${string}`,
-  baseFee: `0x${string}`,
-  blockHashes: `0x${string}`[],
-}
+import { SynthesizerBlockInfo } from 'src/interface/index.ts';
 
 export interface SynthesizerOpts {
   signedTransaction: TokamakL2Tx

@@ -3,9 +3,10 @@ import { createTokamakL2StateManagerFromL1RPC, createTokamakL2Tx, fromEdwardsToA
 import { RPCStateManager } from "@ethereumjs/statemanager"
 import { addHexPrefix, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromString, hexToBigInt, hexToBytes, toBytes } from "@ethereumjs/util"
 import { ethers } from "ethers"
-import { SynthesizerBlockInfo, SynthesizerOpts } from "../../synthesizer/types/index.ts"
+import { SynthesizerOpts } from "../../synthesizer/types/index.ts"
 import { jubjub } from "@noble/curves/misc.js"
 import { NUMBER_OF_PREV_BLOCK_HASHES } from "../qapCompiler/importedConstants.ts"
+import { SynthesizerBlockInfo } from "./types.ts"
 
 export type SynthesizerSimulationOpts = {
   rpcUrl: string,
@@ -49,9 +50,9 @@ export async function getBlockInfoFromRPC(
 	}	
 
 	const hashes: `0x${string}`[] = new Array<`0x${string}`>(nHashes)
-	for ( var i = 0; i < nHashes; i++){
-		const prevBlockNumber = blockNumber - i
-		hashes[i] = addHexPrefix(await _getBlockHashFromProvider(provider, prevBlockNumber))
+	for ( let i = 0; i < nHashes; i++){
+		const prevBlockNumber = blockNumber - i - 1;
+		hashes[i] = addHexPrefix(await _getBlockHashFromProvider(provider, prevBlockNumber));
 	}
 
 	return {
@@ -62,7 +63,7 @@ export async function getBlockInfoFromRPC(
 		gasLimit: bigIntToHex(block.gasLimit),
 		chainId: bigIntToHex((await provider.getNetwork()).chainId),
 		selfBalance: '0x0',
-		blockHashes: hashes,
+		prevBlockHashes: hashes,
         baseFee: bigIntToHex(block.baseFeePerGas || 0n),
         // To avoid EIP check
 	}
