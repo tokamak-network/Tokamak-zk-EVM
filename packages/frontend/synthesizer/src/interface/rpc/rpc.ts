@@ -3,9 +3,10 @@ import { createTokamakL2StateManagerFromL1RPC, createTokamakL2Tx, fromEdwardsToA
 import { RPCStateManager } from "@ethereumjs/statemanager"
 import { addHexPrefix, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromString, hexToBigInt, hexToBytes, toBytes } from "@ethereumjs/util"
 import { ethers } from "ethers"
-import { SynthesizerBlockInfo, SynthesizerOpts } from "../../synthesizer/types/index.ts"
+import { SynthesizerOpts } from "../../synthesizer/types/index.ts"
 import { jubjub } from "@noble/curves/misc.js"
 import { NUMBER_OF_PREV_BLOCK_HASHES } from "../qapCompiler/importedConstants.ts"
+import { SynthesizerBlockInfo } from "./types.ts"
 
 export type SynthesizerSimulationOpts = {
   rpcUrl: string,

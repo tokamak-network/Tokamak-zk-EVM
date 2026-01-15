@@ -8,7 +8,7 @@ import path from 'path';
 import fs from 'fs';
 import { createTokamakL2StateManagerFromStateSnapshot, createTokamakL2TxFromRLP, getEddsaPublicKey, poseidon, StateSnapshot, TokamakL2StateManagerOpts, TokamakL2Tx } from 'tokamak-l2js';
 import { Common, CommonOpts, Mainnet } from '@ethereumjs/common';
-import { SynthesizerBlockInfo, SynthesizerOpts } from 'src/synthesizer/types/synthesizer.ts';
+import { SynthesizerOpts } from 'src/synthesizer/types/synthesizer.ts';
 import { createSynthesizer } from 'src/synthesizer/constructors.ts';
 import { RunTxResult } from '@ethereumjs/vm';
 import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
@@ -18,6 +18,7 @@ import { PlacementVariables } from 'src/synthesizer/types/placements.ts';
 import { addHexPrefix, bigIntToHex, bytesToHex, createAddressFromString, hexToBytes } from '@ethereumjs/util';
 import { readJson, writeSnapshotJson } from './utils/node.ts';
 import { writeCircuitJson } from '../node/jsonWriter.ts';
+import { SynthesizerBlockInfo } from '../rpc/index.ts';
 
 // tr to load .env
 const envPath = path.resolve(process.cwd(), '.env');
