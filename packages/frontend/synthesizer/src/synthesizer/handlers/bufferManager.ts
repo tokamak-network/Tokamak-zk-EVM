@@ -138,7 +138,6 @@ export class BufferManager {
 
     // Static public inputs
     this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', BigInt(this.cachedOpts.stateManager.initialMerkleTree.root))
-    this.addReservedVariableToBufferIn('RES_MERKLE_ROOT', BigInt(this.cachedOpts.stateManager.initialMerkleTree.root))
 
     this.addReservedVariableToBufferIn('CIRCOM_CONST_ONE', 1n)
     this.addReservedVariableToBufferIn('CIRCOM_CONST_ZERO', 0n)
@@ -164,8 +163,8 @@ export class BufferManager {
     this.addReservedVariableToBufferIn('CHAINID', hexToBigInt(this.cachedOpts.blockInfo.chainId))
     this.addReservedVariableToBufferIn('SELFBALANCE', hexToBigInt(this.cachedOpts.blockInfo.selfBalance))
     this.addReservedVariableToBufferIn('BASEFEE', hexToBigInt(this.cachedOpts.blockInfo.baseFee))
-    for (var i = 1; i <= NUMBER_OF_PREV_BLOCK_HASHES; i++) {
-      this.addReservedVariableToBufferIn(`BLOCKHASH_${i}` as ReservedVariable, hexToBigInt(this.cachedOpts.blockInfo.blockHashes[i-1]))
+    for (let i = 1; i <=NUMBER_OF_PREV_BLOCK_HASHES; i++) {
+      this.addReservedVariableToBufferIn(`BLOCKHASH_${i}` as ReservedVariable, hexToBigInt(this.cachedOpts.blockInfo.prevBlockHashes[i-1]));
     }
 
     // Transaction inputs

@@ -16,7 +16,7 @@ export type SynthesizerBlockInfo = {
   chainId: `0x${string}`,
   selfBalance: `0x${string}`,
   baseFee: `0x${string}`,
-  blockHashes: `0x${string}`[],
+  prevBlockHashes: `0x${string}`[],
 }
 
 export interface SynthesizerOpts {

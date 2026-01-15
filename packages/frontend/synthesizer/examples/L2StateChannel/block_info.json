@@ -6,7 +6,7 @@
   "gasLimit": "0x3938700",
   "chainId": "0xaa36a7",
   "selfBalance": "0x0",
-  "blockHashes": [
+  "prevBlockHashes": [
     "0x8988fb1b5f61c60272ae96ced49d11010b8512b9c21ffec5c522721fd70e9350",
     "0xaca10b65d93fc2cda36ebe53804e0935806c07ac5dd02c7d1d7100cb3c8a1f06",
     "0x46dcd2fb0a8dcbdfdb345d50ff42a6d48d8649b52ea41fe641d588a81982dd3c",

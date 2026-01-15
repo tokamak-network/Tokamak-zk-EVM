@@ -1,4 +1,4 @@
-import { createVM, runTx, RunTxOpts, RunTxResult, VM, VMOpts } from '@ethereumjs/vm';
+import { AfterTxEvent, createVM, runTx, RunTxOpts, RunTxResult, VM, VMOpts } from '@ethereumjs/vm';
 
 import { BlockData, BlockOptions, createBlock, HeaderData } from '@ethereumjs/block';
 import { bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromBigInt } from '@ethereumjs/util';
@@ -9,6 +9,7 @@ import { ArithmeticManager, BufferManager, InstructionHandler, MemoryManager, St
 import { ArithmeticOperator, SubcircuitNames } from '../interface/qapCompiler/configuredTypes.ts';
 import { MAX_MT_LEAVES } from '../interface/qapCompiler/importedConstants.ts';
 import { DataPtFactory } from './dataStructure/dataPt.ts';
+import { TypedTransaction } from '@ethereumjs/tx';
 
 /**
  * The Synthesizer class manages data related to subcircuits.
@@ -34,18 +35,22 @@ export class Synthesizer implements SynthesizerInterface
     this._instructionHandlers =  new InstructionHandler(this)
   }
 
-  private _attachSynthesizerToEVM(evm: EVM): void {
-    evm.events.on('beforeMessage', (data: Message, resolve?: (result?: any) => void) => {
+  private _attachSynthesizerToVM(vm: VM): void {
+    if (vm.evm.events === undefined ) {
+      throw new Error("EVM event emitter is turned off.")
+    }
+    vm.events.on('beforeTx', (data: TypedTransaction, resolve?: (result?: any) => void) => {
       try { 
         this._prepareSynthesizeTransaction()
+        // TODO: BLOCKHASH preparation in state manager for EIP-7709
       } catch (err) {
-        console.error('Synthesizer: beforeMessage error:', err)
+        console.error('Synthesizer: beforeTx error:', err)
       } finally {
-        this._prevInterpreterStep = null
+        this._prevInterpreterStep = null;
         resolve?.()
       }
-    })
-    evm.events.on('step', (data: InterpreterStep, resolve?: (result?: any) => void) => {
+    });
+    vm.evm.events!.on('step', (data: InterpreterStep, resolve?: (result?: any) => void) => {
       ; (async () => {
         try {
           const currentInterpreterStep: InterpreterStep = {
@@ -72,7 +77,7 @@ export class Synthesizer implements SynthesizerInterface
         }
       }) () 
     })
-    evm.events.on('afterMessage', (data: EVMResult, resolve?: (result?: any) => void) => {
+    vm.events.on('afterTx', (data: AfterTxEvent, resolve?: (result?: any) => void) => {
       ; (async () => {
         try {
           const _runState = data.execResult.runState
@@ -126,9 +131,8 @@ export class Synthesizer implements SynthesizerInterface
           console.log(`stack: ${currentInterpreterStep.stack.map(x => bigIntToHex(x))}`)
           console.log(`pc: ${currentInterpreterStep.pc}, opcode: ${currentInterpreterStep.opcode.name}`)
           await this._finalizeStorage()
-          // this._computeTxHash()
         } catch (err) {
-          console.error('Synthesizer: afterMessage error:', err)
+          console.error('Synthesizer: afterTx error:', err)
         } finally {
           // console.log(`code = ${bytesToHex(data.execResult.runState!.code)}`)
           resolve?.()
@@ -242,58 +246,46 @@ export class Synthesizer implements SynthesizerInterface
     }
   }
 
-  // private _computeTxHash(): void {
-  //   const hashPt = this.placePoseidon([
-  //     this.getReservedVariableFromBuffer('TRANSACTION_NONCE'),
-  //     this.getReservedVariableFromBuffer('EDDSA_SIGNATURE'),
-  //     this.getReservedVariableFromBuffer('EDDSA_RANDOMIZER_X'),
-  //     this.getReservedVariableFromBuffer('EDDSA_RANDOMIZER_Y'),
-  //   ])
-  //   this.state.transactionHashes.push(DataPtFactory.deepCopy(hashPt))
-
-  //   // This will be moving to the end of block process
-  //   this.addReservedVariableToBufferOut('TX_BATCH_HASH', hashPt, true)
-  // }
-
   public async synthesizeTX(): Promise<RunTxResult> {
-    const common = this.cachedOpts.signedTransaction.common
+    const common = this.cachedOpts.stateManager.common;
 
     const headerData: HeaderData = {
       parentHash: this.getReservedVariableFromBuffer('BLOCKHASH_1').value,
       coinbase: createAddressFromBigInt(this.getReservedVariableFromBuffer('COINBASE').value),
-      difficulty: this.getReservedVariableFromBuffer('PREVRANDAO').value,
+      // difficulty = 0 for PoS blocks
+      difficulty: 0n,
       number: this.getReservedVariableFromBuffer('NUMBER').value,
       gasLimit: this.getReservedVariableFromBuffer('GASLIMIT').value,
       timestamp: this.getReservedVariableFromBuffer('TIMESTAMP').value,
 
-      // To avoid checking EIPs
+      // To bypass checking EIPs
       // baseFeePerGas: this.getReservedVariableFromBuffer('BASEFEE').value,
       baseFeePerGas: undefined,
-    }
-    const blockData: BlockData = {
-      header: headerData,
-    }
-    const blockOpts: BlockOptions = {
-      common,
-      skipConsensusFormatValidation: true,
-    }
+    };
     const evmOpts: EVMOpts= {
-      common: blockOpts.common,
+      common,
       stateManager: this.cachedOpts.stateManager,
       profiler: {enabled: true},
-    }
-    const block = createBlock(blockData, blockOpts)
-
-    const evm = await createEVM(evmOpts)
-    this._attachSynthesizerToEVM(evm)
+    };
+    const evm = await createEVM(evmOpts);
     
     const vmOpts: VMOpts = {
       common,
       stateManager: this.cachedOpts.stateManager,
       evm,
       profilerOpts: {reportAfterTx: true},
-    }
-    const vm = await createVM(vmOpts)
+    };
+    const vm = await createVM(vmOpts);
+    this._attachSynthesizerToVM(vm);
+
+    const blockData: BlockData = {
+      header: headerData,
+    };
+    const blockOpts: BlockOptions = {
+      common,
+      skipConsensusFormatValidation: true,
+    };
+    const block = createBlock(blockData, blockOpts);
     const runTxOpts: RunTxOpts = {
       block,
       tx: this.cachedOpts.signedTransaction,
@@ -301,7 +293,7 @@ export class Synthesizer implements SynthesizerInterface
       skipBlockGasLimitValidation: true,
       skipHardForkValidation: true,
       reportPreimages: true,
-    }
+    };
     return await runTx(vm, runTxOpts)
   }
 
