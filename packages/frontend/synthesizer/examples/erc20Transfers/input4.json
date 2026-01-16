@@ -1,22 +1,22 @@
 {
   "privateKeySeedsL2": [
-    "Sender's L2 wallet",
     "Recipient's L2 wallet",
     "Any",
+    "Sender's L2 wallet",
     "Arbitrary"
   ],
   "addressListL1": [
-    "0x85cc7da8Ee323325bcD678C7CFc4EB61e76657Fb",
     "0xd8eE65121e51aa8C75A6Efac74C4Bbd3C439F78f",
     "0x838F176D94990E06af9B57E470047F9978403195",
+    "0x85cc7da8Ee323325bcD678C7CFc4EB61e76657Fb",
     "0x01E371b2aD92aDf90254df20EB73F68015E9A000"
   ],
   "userStorageSlots": [
     0
   ],
-  "senderIndex": 0,
+  "senderIndex": 2,
   "recipientIndex": 1,
-  "initStorageKey": "0x07",
+  "preAllocatedKeys": ["0x07"],
   "txNonce": 0,
   "blockNumber": 23224548,
   "contractAddress": "0x2be5e8c109e2197D077D13A82dAead6a9b3433C5",

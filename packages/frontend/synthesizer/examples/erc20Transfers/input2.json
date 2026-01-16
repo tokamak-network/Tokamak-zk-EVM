@@ -15,8 +15,8 @@
     0
   ],
   "senderIndex": 0,
-  "recipientIndex": 2,
-  "initStorageKey": "0x07",
+  "recipientIndex": 1,
+  "preAllocatedKeys": ["0x07"],
   "txNonce": 0,
   "blockNumber": 23224548,
   "contractAddress": "0x2be5e8c109e2197D077D13A82dAead6a9b3433C5",

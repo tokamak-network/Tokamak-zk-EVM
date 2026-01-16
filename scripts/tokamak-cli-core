@@ -494,7 +494,7 @@ run_synthesizer() {
   pushd "$FE_SYN" >/dev/null
   if [[ -f .env ]]; then
     verbose "Using RPC_URL from synthesizer/.env"
-    npm run ton-transfer-l2 "$config_path"
+    npm run erc20-transfer-l2 "$config_path"
   else
     err "RPC_URL not configured. Run --install first or set RPC_URL environment variable"
     exit 1

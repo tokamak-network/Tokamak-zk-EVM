@@ -13,13 +13,43 @@ import {
 } from '../types/index.ts';
 import { MemoryPt, StackPt } from '../dataStructure/index.ts';
 import { SubcircuitInfoByName, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
-import { FIRST_ARITHMETIC_PLACEMENT_INDEX, subcircuitInfoByName } from '../../interface/qapCompiler/importedConstants.ts';
+import { subcircuitInfoByName } from '../../interface/qapCompiler/importedConstants.ts';
+import { InterpreterStep, Message } from '@ethereumjs/evm';
+import { bytesToBigInt } from '@ethereumjs/util';
 
 export type CachedStorageEntry = {
   indexPt: DataPt | null,
   keyPt: DataPt,
   valuePt: DataPt,
   access: 'Read' | 'Write'
+}
+
+export type ContextConstructionData = {
+  callerPt: DataPt;
+  toAddressPt: DataPt;
+  callDataMemoryPts: MemoryPts;
+}
+
+export class ContextManager {
+  public stackPt: StackPt;
+  public memoryPt: MemoryPt;
+  public callerPt: DataPt;
+  public toAddressPt: DataPt;
+  public returnDataMemoryPts: MemoryPts;
+  public callDataMemoryPts: MemoryPts;
+  public prevInterpreterStep: InterpreterStep | null;
+  public resultMemoryPts: MemoryPts;
+
+  constructor(data: ContextConstructionData) {
+    this.stackPt = new StackPt();
+    this.memoryPt = new MemoryPt();
+    this.callerPt = data.callerPt;
+    this.toAddressPt = data.toAddressPt;
+    this.callDataMemoryPts = data.callDataMemoryPts;
+    this.returnDataMemoryPts = [];
+    this.prevInterpreterStep = null;
+    this.resultMemoryPts = [];
+  }
 }
 
 /**
@@ -32,79 +62,22 @@ export class StateManager {
 
   public verifiedStorageMTIndices: number[] = [] 
   public cachedStorage: Map<bigint, CachedStorageEntry[]> = new Map()
-  public stackPt: StackPt = new StackPt()
-  public memoryPt: MemoryPt = new MemoryPt()
-  public subcircuitInfoByName: SubcircuitInfoByName = new Map()
-  public placementIndex: number = FIRST_ARITHMETIC_PLACEMENT_INDEX
+  public subcircuitInfoByName: SubcircuitInfoByName = subcircuitInfoByName;
 
   public cachedEVMIn: Map<bigint, DataPt> = new Map()
   public cachedOrigin: DataPt | undefined = undefined
-  public cachedCallers: DataPt[] = []
-  public cachedToAddress: DataPt | undefined = undefined
-  public cachedReturnMemoryPts: MemoryPts = []
-  public cachedMerkleTreeRoot: bigint | undefined = undefined
 
-  public callMemoryPtsStack: MemoryPts[] = []
-
-  public transactionHashes: DataPt[] = []
+  public contextByDepth: ContextManager[] = [];
 
   constructor(parent: ISynthesizerProvider) {
     this.parent = parent
     this.cachedOpts = parent.cachedOpts
-    this._initializeSubcircuitInfo()
   }
 
   public get placements(): Placements {
     // placements are protected and can be manipulated only by this.place and this.addWirePairToBufferIn
     return placementsDeepCopy(this._placements)
   }
-
-  // public getCachedStorage(key: bigint): CachedStorageEntry | undefined {
-  //   return this._cachedStorage.get(key)
-  // }
-
-  // public setCachedStorage(key: bigint, entry: AccessHistoryEntry, isVerified: boolean) {
-  //   const MTIndex = this.cachedOpts.stateManager.getMTIndex(key);
-  //   const isRegistered = MTIndex >= 0 ? true : false;
-  //   const cached = this._cachedStorage.get(key);
-  //   const isColdAccess = cached === undefined ? true : false;
-  //   const isReadAccess = entry.access === "Read" ? true : false;
-  //   const history: AccessHistoryEntry[] = [];
-  //   if ( !isColdAccess ) {
-  //     history.push(...cached!.accessHistory, entry);
-  //   } else {
-  //     history.push(entry);
-  //   }
-  //   let verifiedOrder: number | null = null;
-  //   if (isReadAccess) {
-  //     if (isWarmAccess)
-  //   } else {
-  //     verifiedOrder = null;
-  //   }
-  //   if (isVerified) {
-  //     verifiedOrder = this._nextStorageVerifiedOrder++;
-  //   } else {
-  //     if (!isRegistered) {
-  //       verifiedOrder = null;
-  //     } else {
-  //       if (isColdAccess) {
-  //         if (isReadAccess) {
-  //           throw new Error('Every cold read access to storage must be verified.')
-  //         } else {
-  //           verifiedOrder = null;
-  //         }
-  //       } else {
-
-  //       }
-  //     }
-  //   }
-
-  //   verifiedOrder = isVerified ? this._nextStorageVerifiedOrder++ : null;
-  //   this._cachedStorage.set(key, {
-  //     verifiedOrder,
-  //     accessHistory: history,
-  //   })
-  // }
 
   public place(
     name: SubcircuitNames,
@@ -150,12 +123,5 @@ export class StateManager {
     }
     
     return DataPtFactory.deepCopy(outPt)
-  }
-
-  /**
-   * Processes the raw subcircuit data to initialize `subcircuitInfoByName` and `subcircuitNames`.
-   */
-  private _initializeSubcircuitInfo(): void {
-    this.subcircuitInfoByName = subcircuitInfoByName;
   }
 }

@@ -7,15 +7,15 @@ import { BUFFER_DESCRIPTION, BUFFER_LIST } from '../../interface/qapCompiler/con
 import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
 
 export class BufferManager {
-  private parent: ISynthesizerProvider
-  private cachedOpts: SynthesizerOpts
+  private parent: ISynthesizerProvider;
+  private cachedOpts: SynthesizerOpts;
 
   constructor(
     parent: ISynthesizerProvider,
   ) {
-    this.parent = parent
-    this.cachedOpts = parent.cachedOpts
-    this._initBuffers()
+    this.parent = parent;
+    this.cachedOpts = parent.cachedOpts;
+    this._initBuffers();
   }
 
   // public addWireToOutBuffer(

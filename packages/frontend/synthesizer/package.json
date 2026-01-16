@@ -61,7 +61,7 @@
     "profiling": "0x ./benchmarks/run.js profiling",
     "synthesize": "tsx src/cli/index.ts synthesize",
     "synthesizer": "tsx src/cli/index.ts run",
-    "ton-transfer-l2": "tsx examples/L2TONTransfer/main.ts",
+    "erc20-transfer-l2": "tsx examples/erc20Transfers/main.ts",
     "test": "npm run test:node && npm run test:browser",
     "test:browser": "npx vitest run --config=./vitest.config.browser.mts",
     "test:node": "npx vitest run",
@@ -102,7 +102,7 @@
     "poseidon-bls12381": "^1.0.2",
     "verkle-cryptography-wasm": "^0.4.8",
     "vitest": "^2.1.8",
-    "tokamak-l2js": "^0.0.8"
+    "tokamak-l2js": "^0.0.10"
   },
   "peerDependencies": {
     "ethers": "^6.14.3"
