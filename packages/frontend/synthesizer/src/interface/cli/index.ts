@@ -56,11 +56,16 @@ program
       const transactionRlpStr = options.transaction;
       const transaction = createTokamakL2TxFromRLP(hexToBytes(addHexPrefix(transactionRlpStr)), { common });
 
-      const contractCodeStr =  readJson<string>(options.contractCode);
+      const contractCodesStr =  readJson<{address: string, code: string}[]>(options.contractCode);
       const stateManagerOpts: TokamakL2StateManagerOpts = {
         common,
         contractAddress: transaction.to,
-        contractCode: contractCodeStr,
+        contractCodes: contractCodesStr.map(entry => {
+          return {
+            address: createAddressFromString(entry.address),
+            code: addHexPrefix(entry.code),
+          }
+        }),
       }
       const stateManager = await createTokamakL2StateManagerFromStateSnapshot(previousState, stateManagerOpts);
 
