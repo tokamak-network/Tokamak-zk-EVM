@@ -5,40 +5,40 @@
       "prvSeedL2": "Sender's L2 wallet"
     },
     {
-      "addressL1": "0x85cc7da8Ee323325bcD678C7CFc4EB61e76657Fb",
+      "addressL1": "0xd8eE65121e51aa8C75A6Efac74C4Bbd3C439F78f",
       "prvSeedL2": "Recepient's L2 wallet"
     },
     {
-      "addressL1": "0xd8eE65121e51aa8C75A6Efac74C4Bbd3C439F78f",
+      "addressL1": "0x838F176D94990E06af9B57E470047F9978403195",
       "prvSeedL2": "Any"
     },
     {
-      "addressL1": "0x838F176D94990E06af9B57E470047F9978403195",
+      "addressL1": "0x01E371b2aD92aDf90254df20EB73F68015E9A000",
       "prvSeedL2": "Arbitrary"
     },
     {
-      "addressL1": "0x01E371b2aD92aDf90254df20EB73F68015E9A000",
+      "addressL1": "0xbD224229Bf9465ea4318D45a8ea102627d6c27c7",
       "prvSeedL2": "Strings"
     },
     {
-      "addressL1": "0xbD224229Bf9465ea4318D45a8ea102627d6c27c7",
+      "addressL1": "0x6FD430995A19a57886d94f8B5AF2349b8F40e887",
       "prvSeedL2": "Can be"
     },
     {
-      "addressL1": "0x6FD430995A19a57886d94f8B5AF2349b8F40e887",
+      "addressL1": "0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9",
       "prvSeedL2": "Used"
     },
     {
-      "addressL1": "0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9",
+      "addressL1": "0x60be9978F805Dd4619F94a449a4a798155a05A56",
       "prvSeedL2": "For simulation"
     }
   ],
+  "senderIndex": 0,
+  "recipientIndex": 1,
   "userStorageSlots": [
     2
   ],
-  "senderIndex": 0,
-  "recipientIndex": 1,
-  "preAllocatedKeys": ["0x07"],
+  "preAllocatedKeys": ["0x00", "0x1ceffcac87d6f70784e2d57742035200676ae2f7801965df9cccf4d6d041719c", "0x0a", "0x03", "0x04"],
   "txNonce": 0,
   "blockNumber": 23609110,
   "contractAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",

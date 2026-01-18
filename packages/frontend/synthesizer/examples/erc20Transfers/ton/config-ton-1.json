@@ -33,11 +33,11 @@
       "prvSeedL2": "For simulation"
     }
   ],
+  "senderIndex": 0,
+  "recipientIndex": 1,
   "userStorageSlots": [
     0
   ],
-  "senderIndex": 0,
-  "recipientIndex": 1,
   "preAllocatedKeys": ["0x07"],
   "txNonce": 0,
   "blockNumber": 23224548,

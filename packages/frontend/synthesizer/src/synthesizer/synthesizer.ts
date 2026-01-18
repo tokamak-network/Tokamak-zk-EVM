@@ -84,12 +84,7 @@ export class Synthesizer implements SynthesizerInterface
           const memorySize = 8192n
           let error = undefined
           if (opcodeInfo.code === 0xfd) {
-            // If opcode is REVERT, read error data and return in trace
-            const [offset, length] = _runState.stack.peek(2);
-            error = new Uint8Array(0)
-            if (length !== 0n) {
-              error = _runState.memory.read(Number(offset), Number(length))
-            }
+            error = data.execResult.returnValue
           }
           const stepData: InterpreterStep = {
             pc: _runState.programCounter,

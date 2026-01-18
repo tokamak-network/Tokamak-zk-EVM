@@ -1,0 +1,48 @@
+{
+  "participants": [
+    {
+      "addressL1": "0xA4Cb7fb1aBb9D6F7750BddeaD7B11F7a3eC4eD10",
+      "prvSeedL2": "Sender's L2 wallet"
+    },
+    {
+      "addressL1": "0xd8eE65121e51aa8C75A6Efac74C4Bbd3C439F78f",
+      "prvSeedL2": "Recepient's L2 wallet"
+    },
+    {
+      "addressL1": "0x838F176D94990E06af9B57E470047F9978403195",
+      "prvSeedL2": "Any"
+    },
+    {
+      "addressL1": "0x01E371b2aD92aDf90254df20EB73F68015E9A000",
+      "prvSeedL2": "Arbitrary"
+    },
+    {
+      "addressL1": "0xbD224229Bf9465ea4318D45a8ea102627d6c27c7",
+      "prvSeedL2": "Strings"
+    },
+    {
+      "addressL1": "0x6FD430995A19a57886d94f8B5AF2349b8F40e887",
+      "prvSeedL2": "Can be"
+    },
+    {
+      "addressL1": "0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9",
+      "prvSeedL2": "Used"
+    },
+    {
+      "addressL1": "0x60be9978F805Dd4619F94a449a4a798155a05A56",
+      "prvSeedL2": "For simulation"
+    }
+  ],
+  "senderIndex": 0,
+  "recipientIndex": 1,
+  "userStorageSlots": [
+    9
+  ],
+  "preAllocatedKeys": ["0x10d6a54a4754c8869d6886b5f5d7fbfa5b4522237ea5c60d11bc4e7a1ff9390b", "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3"],
+  "txNonce": 0,
+  "blockNumber": 23093249,
+  "contractAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+  "amount": "0x1908b100",
+  "transferSelector": "0xa9059cbb",
+  "callCodeAddresses": ["0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "0x43506849d7c04f9138d1a2050bbf3a0c054402dd"]
+}
