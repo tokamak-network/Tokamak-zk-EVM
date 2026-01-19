@@ -396,9 +396,6 @@ export class Synthesizer implements SynthesizerInterface
       if (this._stepLogger) {
         console.log(`stack: ${prevStepResult.stack.map(x => bigIntToHex(x))}`)
         console.log(`pc: ${prevStepResult.pc}, opcode: ${opcode.name}`)
-        if (prevStepResult.opcode.name === 'DELEGATECALL') {
-          console.log('HERE')
-        }
       }
     }
     thisContext.prevInterpreterStep = {
