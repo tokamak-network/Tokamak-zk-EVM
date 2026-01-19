@@ -77,18 +77,6 @@ export class MemoryManager {
     return { adjustedOffset, actualContainerSize, endingGap };
   }
 
-  private truncateDataPt(dataPt: DataPt, endingGap: number): DataPt {
-    if (endingGap <= 0) {
-      return dataPt;
-    }
-    // SHR data to truncate the ending part
-    const [truncatedPt] = this.parent.placeArith('SHR', [
-      this.parent.loadArbitraryStatic(BigInt(endingGap * 8), DEFAULT_SOURCE_BIT_SIZE, 'Shifter for memory manipulation'),
-      dataPt,
-    ]);
-    return truncatedPt;
-  }
-
   public adjustMemoryPts(
     dataPts: DataPt[],
     memoryPts: MemoryPts,
@@ -147,6 +135,18 @@ export class MemoryManager {
     }
   
     return toMemoryPts
+  }
+
+  private truncateDataPt(dataPt: DataPt, endingGap: number): DataPt {
+    if (endingGap <= 0) {
+      return dataPt;
+    }
+    // SHR data to truncate the ending part
+    const [truncatedPt] = this.parent.placeArith('SHR', [
+      this.parent.loadArbitraryStatic(BigInt(endingGap * 8), DEFAULT_SOURCE_BIT_SIZE, 'Shifter for memory manipulation'),
+      dataPt,
+    ]);
+    return truncatedPt;
   }
 
   private combineMemorySlices(dataAliasInfos: DataAliasInfos): DataPt {

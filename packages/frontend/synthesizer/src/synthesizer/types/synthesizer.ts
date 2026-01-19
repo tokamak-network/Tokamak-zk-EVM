@@ -12,6 +12,7 @@ export interface SynthesizerOpts {
   signedTransaction: TokamakL2Tx
   blockInfo: SynthesizerBlockInfo
   stateManager: TokamakL2StateManager
+  stepLogger?: boolean
 }
 
 export interface SynthesizerInterface {
