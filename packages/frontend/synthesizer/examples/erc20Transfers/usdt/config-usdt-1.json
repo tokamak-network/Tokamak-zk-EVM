@@ -23,22 +23,14 @@
     {
       "addressL1": "0x6FD430995A19a57886d94f8B5AF2349b8F40e887",
       "prvSeedL2": "Can be"
-    },
-    {
-      "addressL1": "0x0CE8f6C9D4aD12e56E54018313761487d2D1fee9",
-      "prvSeedL2": "Used"
-    },
-    {
-      "addressL1": "0x60be9978F805Dd4619F94a449a4a798155a05A56",
-      "prvSeedL2": "For simulation"
     }
   ],
   "senderIndex": 0,
   "recipientIndex": 1,
   "userStorageSlots": [
-    2
+    2, 6
   ],
-  "preAllocatedKeys": ["0x00", "0x1ceffcac87d6f70784e2d57742035200676ae2f7801965df9cccf4d6d041719c", "0x0a", "0x03", "0x04"],
+  "preAllocatedKeys": ["0x00", "0x0a", "0x03", "0x04"],
   "txNonce": 0,
   "blockNumber": 23609110,
   "contractAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",

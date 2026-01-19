@@ -115,10 +115,6 @@ export class Synthesizer implements SynthesizerInterface
           }
           await this._applySynthesizerHandler(stepData);
           this._returnMessageCall(stepData.depth);
-          if (this._stepLogger) {
-            console.log(`stack: ${stepData.stack.slice().reverse().map(x => bigIntToHex(x))}`)
-            console.log(`pc: ${stepData.pc}, opcode: ${stepData.opcode.name}`)
-          }
         } catch (err) {
           console.error('Synthesizer: afterMessage error:', err)
         } finally {
@@ -391,12 +387,12 @@ export class Synthesizer implements SynthesizerInterface
         throw new Error(`Undefined synthesizer handler for opcode ${opcode.name}`)
       }
 
-      await opHandler.apply(null, [thisContext, stepResult])
-
       if (this._stepLogger) {
         console.log(`stack: ${prevStepResult.stack.map(x => bigIntToHex(x))}`)
         console.log(`pc: ${prevStepResult.pc}, opcode: ${opcode.name}`)
       }
+
+      await opHandler.apply(null, [thisContext, stepResult])
     }
     thisContext.prevInterpreterStep = {
       ...stepResult,
