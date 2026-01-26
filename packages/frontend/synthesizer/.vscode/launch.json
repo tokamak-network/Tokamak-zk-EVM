@@ -7,7 +7,7 @@
       "name": "L2 transfer on mainnet",
       "runtimeExecutable": "tsx",
       "program": "${workspaceFolder}/examples/erc20Transfers/main.ts",
-      "args": ["${workspaceFolder}/examples/erc20Transfers/usdc/config-usdc-1.json"],
+      "args": ["${workspaceFolder}/examples/erc20Transfers/ton/config-ton-1.json"],
       "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],
       "console": "integratedTerminal"
