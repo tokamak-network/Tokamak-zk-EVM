@@ -649,7 +649,6 @@
                 Mixer {rB_X, rB_Y, rR_X, rR_Y, rU_X, rU_Y, rV_X, rV_Y, rW_X, rW_Y, rO_mid}
             };
 
-            println!("Check point: Fetched input data from the frontend compilers");
 
             let time_start = Instant::now();
             println!("🔄 Starting binding computation (MSMs)...");
@@ -696,7 +695,6 @@
             };
             println!("🔄 Binding computation (MSMs) took {:?}", time_start.elapsed());
 
-            println!("Check point: Encoded binding polynomials");
 
             return (
                 Self {sigma, setup_params, instance, witness, mixer, quotients},
@@ -793,7 +791,6 @@
                 self.mixer.rW_Y.len()
             );
 
-            println!("Check point: Computed quotient polynomials for Arithmetic constraint argument");
 
             let U = {
                 let mut UXY = poly_comb!(
@@ -846,7 +843,6 @@
                 })
             };
 
-            println!("Check point: Encoded witness polynomials for Arithmetic constraint argument");
             
             let Q_AX = {
                 let mut Q_AX_XY = poly_comb!(
@@ -890,7 +886,6 @@
             drop(rW_X);
             drop(rW_Y);
 
-            println!("Check point: Encoded the quotient polynomials for Arithmetic constraint argument");
 
             let B = {
                 let rB_X = DensePolynomialExt::from_coeffs(
@@ -916,7 +911,6 @@
                 })
             };
 
-            println!("Check point: Encoded the witness polynomial for Copy constraint argument");
             return Proof0 {U, V, W, Q_AX, Q_AY, B}
         }
 
@@ -1033,7 +1027,6 @@
             // Adding zero-knowledge to the copy constraint argument
             let mut RXY = &self.witness.rXY + &(&(&self.mixer.rR_X * &self.instance.t_mi) + &(&self.mixer.rR_Y * &self.instance.t_smax));
 
-            println!("Check point: Computed a recursion polynomial for Copy constraint argument");
 
 
             let R = crate::time_block!(
@@ -1046,7 +1039,6 @@
                 self.sigma.sigma_1.encode_poly(&mut RXY, &self.setup_params)
             });
 
-            println!("Check point: Encoded the recursion polynomial for Copy constraint argument");
 
             return Proof1 {R}
         }
@@ -1210,7 +1202,6 @@
                 (q2XY, q3XY, q4XY, q5XY, q6XY, q7XY)
             });
 
-            println!("Check point: Computed quotient polynomials for Copy constraint argument");
             
             
             // Adding zero-knowledge to the copy constraint argument
@@ -1288,7 +1279,6 @@
                 })
             };
 
-            println!("Check point: Encoded quotient polynomials for Copy constraint argument");
             return Proof2 {Q_CX, Q_CY}
         }
 
@@ -1365,7 +1355,6 @@
                 R_omegaX_omegaY_XY.eval(&chi, &zeta)
             });
 
-            println!("Check point: Computed KZG openings");
 
             return Proof3 {
                 V_eval: FieldSerde(V_eval), 
@@ -1431,7 +1420,6 @@
                     pA_XY.div_by_ruffini(&chi, &zeta)
                 };
 
-                println!("Check point: Computed KZG proofs for Arithmetic constraint argument");
 
                 (
                     crate::time_block!(
@@ -1455,7 +1443,6 @@
                 )
             };
 
-            println!("Check point: Encoded the KZG proofs for Arithmetic constraint argument");
 
             let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
             let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
@@ -1482,7 +1469,6 @@
                     assert_eq!(lhs, rhs);
                 }
 
-                println!("Check point: Computed KZG proofs for the recursion polynomials (1/2)");
 
                 (
                     crate::time_block!(
@@ -1506,7 +1492,6 @@
                 )
             };
 
-            println!("Check point: Encoded the KZG proofs for the recursion polynomials (1/2)");
 
             let (N_X, N_Y) = {
                 let (mut N_X_XY, mut N_Y_XY, rem3) = crate::time_block!(
@@ -1530,7 +1515,6 @@
                     assert_eq!(lhs, rhs);
                 }
 
-                println!("Check point: Computed KZG proofs for the recursion polynomials (2/2)");
 
                 (
                     crate::time_block!(
@@ -1554,7 +1538,6 @@
                 )
             };
 
-            println!("Check point: Encoded the KZG proofs for the recursion polynomials (2/2)");
             
             let (Pi_CX, Pi_CY) = {
                 let LHS_for_copy = {
@@ -1699,7 +1682,6 @@
                     assert_eq!(lhs, rhs);
                 }
 
-                println!("Check point: Computed KZG proofs for Copy constraint argument");
 
                 (
                     crate::time_block!(
@@ -1726,14 +1708,12 @@
                 println!("Checked: B(X,Y) and R(X,Y) with zero-knowledge satisfy the copy constraints.")
             }
 
-            println!("Check point: Encoded the KZG proofs for Copy constraint argument");
 
             drop(RXY);
             let Pi_B = {
                 let A_eval = self.instance.a_pub_X.eval(&chi, &zeta);
                 let (mut pi_B_XY, _, _) = (&self.instance.a_pub_X - &A_eval).div_by_ruffini(&chi, &zeta);
 
-                println!("Check point: Computed a KZG proof for public instance");
 
                 crate::time_block!(
                     "prove4.encode.Pi_B",
@@ -1746,7 +1726,6 @@
                 }) * kappa1.pow(4)
             };
 
-            println!("Check point: Encoded the KZG proof for public instance");
 
             let Pi_X = Pi_AX + Pi_CX + Pi_B;
             let Pi_Y = Pi_AY + Pi_CY;

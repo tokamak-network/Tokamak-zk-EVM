@@ -1006,9 +1006,9 @@ pub fn read_R1CS_gen_uvwXY(
             &mut hex_cache_hits,
             &mut hex_cache_misses
         );
-        println!("    ⚡ Processing r1cs A,B,C {} took {:?}", subcircuit_id, t.elapsed());
+        // println!("    ⚡ Processing r1cs A,B,C {} took {:?}", subcircuit_id, t.elapsed());
     }
-    println!("🔄 Loading r1cs took {:?}", time_start.elapsed());
+    // println!("🔄 Loading r1cs took {:?}", time_start.elapsed());
     
     // Report cache statistics
     let total_cache_hits: usize = cache_stats.values().sum();
