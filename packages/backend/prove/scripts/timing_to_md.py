@@ -97,6 +97,27 @@ def build_report(data: dict) -> str:
     lines.append(f"| total_wall | {format_seconds(total_wall_ms)} |")
     lines.append("")
 
+    setup_params = data.get("setup_params")
+    if isinstance(setup_params, dict):
+        lines.append("## Setup Parameters")
+        lines.append("")
+        lines.append("| param | value |")
+        lines.append("| --- | --- |")
+        for key in [
+            "l",
+            "l_user_out",
+            "l_user",
+            "l_block",
+            "l_D",
+            "m_D",
+            "n",
+            "s_D",
+            "s_max",
+        ]:
+            if key in setup_params:
+                lines.append(f"| {key} | {setup_params[key]} |")
+        lines.append("")
+
     lines.append("## Module Times (prove0~prove4)")
     lines.append("")
     lines.append("| module | total | poly | encode |")

@@ -19,9 +19,24 @@ struct StageSummary {
 
 #[cfg(feature = "timing")]
 #[derive(serde::Serialize)]
+struct SetupParamsSummary {
+    l: usize,
+    l_user_out: usize,
+    l_user: usize,
+    l_block: usize,
+    l_D: usize,
+    m_D: usize,
+    n: usize,
+    s_D: usize,
+    s_max: usize,
+}
+
+#[cfg(feature = "timing")]
+#[derive(serde::Serialize)]
 struct TimingReport {
     generated_at_unix_ms: u128,
     total_wall_ms: f64,
+    setup_params: SetupParamsSummary,
     summary: BTreeMap<String, StageSummary>,
     events: Vec<timing::TimingEvent>,
 }
@@ -78,6 +93,17 @@ fn timing_prove_stages() {
     let wall_start = Instant::now();
 
     let (mut prover, _binding) = Prover::init(&paths);
+    let setup_params = SetupParamsSummary {
+        l: prover.setup_params.l,
+        l_user_out: prover.setup_params.l_user_out,
+        l_user: prover.setup_params.l_user,
+        l_block: prover.setup_params.l_block,
+        l_D: prover.setup_params.l_D,
+        m_D: prover.setup_params.m_D,
+        n: prover.setup_params.n,
+        s_D: prover.setup_params.s_D,
+        s_max: prover.setup_params.s_max,
+    };
     let mut manager = TranscriptManager::new();
 
     let proof0 = prover.prove0();
@@ -144,6 +170,7 @@ fn timing_prove_stages() {
     let report = TimingReport {
         generated_at_unix_ms,
         total_wall_ms,
+        setup_params,
         summary,
         events,
     };
