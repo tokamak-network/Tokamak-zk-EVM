@@ -176,6 +176,29 @@
       "sourceLanguages": ["rust"]
     },
     {
+      "name": "Test prove timing (timing feature)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["test", "--release", "-p", "prove", "--features", "timing", "--test", "timing", "--", "--nocapture"],
+        "filter": { "name": "timing", "kind": "test" }
+      },
+      "program": "${cargo:program}",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PROVE_QAP_PATH": "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "PROVE_SYNTHESIZER_PATH": "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "PROVE_SETUP_PATH": "${workspaceFolder}/setup/trusted-setup/output",
+        "PROVE_OUT_PATH": "${workspaceFolder}/prove/output",
+        "TIMING_OUT": "${workspaceFolder}/prove/output/timing.release.json",
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
+      },
+      "postDebugTask": "timing:json-to-md",
+      "sourceLanguages": ["rust"]
+    },
+    {
       "name": "Debug verify (release)",
       "type": "lldb",
       "request": "launch",
