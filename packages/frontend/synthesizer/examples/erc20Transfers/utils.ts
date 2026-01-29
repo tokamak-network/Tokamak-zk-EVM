@@ -15,6 +15,8 @@ export type Erc20TransferConfig = {
   preAllocatedKeys: `0x${string}`[];
   txNonce: bigint;
   blockNumber: number;
+  network: string;
+  txHash: string;
   contractAddress: `0x${string}`;
   amount: `0x${string}`;
   transferSelector: `0x${string}`;
@@ -59,7 +61,7 @@ const assertStringArray = (value: unknown, label: string): string[] => {
   return value;
 };
 
-const assertNumberArray = (value: unknown, label: string): number[] => {
+const assertUserStorageSlots = (value: unknown, label: string): number[] => {
   if (!Array.isArray(value) || !value.every((entry) => Number.isInteger(entry))) {
     throw new Error(`${label} must be an array of integers`);
   }
@@ -112,10 +114,12 @@ export const loadConfig = async (configPath: string): Promise<Erc20TransferConfi
 
   return {
     participants,
-    userStorageSlots: assertNumberArray(configRaw.userStorageSlots, 'userStorageSlots'),
+    userStorageSlots: assertUserStorageSlots(configRaw.userStorageSlots, 'userStorageSlots'),
     preAllocatedKeys,
     txNonce: parseBigIntValue(configRaw.txNonce, 'txNonce'),
     blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
+    network: typeof configRaw.network === 'string' ? configRaw.network : '',
+    txHash: typeof configRaw.txHash === 'string' ? configRaw.txHash : '',
     contractAddress: parseHexString(configRaw.contractAddress, 'contractAddress'),
     amount: parseHexString(configRaw.amount, 'amount'),
     transferSelector: parseHexString(configRaw.transferSelector, 'transferSelector'),
