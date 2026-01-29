@@ -2,9 +2,9 @@ name: Test, Build & Release
 
 on:
   push:
-    branches: [main, dev, ale-ci] # Execute when pushing to main, dev, or ale-ci branch
+    branches: [main, dev, ale-ci, ale-ci-2] # Execute when pushing to main, dev, ale-ci, or ale-ci-2 branch
   pull_request:
-    branches: [main, dev, ale-ci] # Execute on PR creation and updates
+    branches: [main, dev, ale-ci, ale-ci-2] # Execute on PR creation and updates
   workflow_dispatch: # Manual execution allowed
 
 jobs:
@@ -114,10 +114,10 @@ jobs:
           retention-days: 1
 
   # ============================================================================
-  # L2TONTransfer Test - Uses pre-built binaries
+  # TON Transfer Test - Uses pre-built binaries
   # ============================================================================
-  l2-ton-transfer-test:
-    name: L2 TON Transfer Test
+  ton-transfer-test:
+    name: TON Transfer Test
     runs-on: ubuntu-22.04
     needs: build-and-setup
     timeout-minutes: 30
@@ -168,11 +168,11 @@ jobs:
           echo "RPC_URL='https://eth-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY'" > packages/frontend/synthesizer/.env
           echo "✅ Synthesizer .env configured"
 
-      - name: Run L2TONTransfer synthesizer
+      - name: Run TON Transfer synthesizer
         run: |
-          echo "🧪 Running L2TONTransfer synthesizer..."
-          echo "📋 Config: packages/frontend/synthesizer/examples/L2TONTransfer/input.json"
-          ./tokamak-cli --synthesize packages/frontend/synthesizer/examples/L2TONTransfer/input.json
+          echo "🧪 Running TON Transfer synthesizer..."
+          echo "📋 Config: packages/frontend/synthesizer/examples/erc20Transfers/ton/config-ton-1.json"
+          ./tokamak-cli --synthesize packages/frontend/synthesizer/examples/erc20Transfers/ton/config-ton-1.json
 
       - name: Run preprocess
         run: |
@@ -207,13 +207,13 @@ jobs:
             exit 1
           fi
           
-          echo "✅ L2TONTransfer test passed!"
+          echo "✅ TON Transfer test passed!"
 
-      - name: Upload L2TONTransfer artifacts
+      - name: Upload TON Transfer artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: l2-ton-transfer-artifacts-${{ github.run_number }}
+          name: ton-transfer-artifacts-${{ github.run_number }}
           path: |
             dist/resource/prove/output/
             dist/resource/preprocess/output/
@@ -221,10 +221,10 @@ jobs:
           retention-days: 7
 
   # ============================================================================
-  # L2StateChannel Test - Uses pre-built binaries
+  # USDC Transfer Test - Uses pre-built binaries
   # ============================================================================
-  l2-state-channel-test:
-    name: L2 State Channel Test
+  usdc-transfer-test:
+    name: USDC Transfer Test
     runs-on: ubuntu-22.04
     needs: build-and-setup
     timeout-minutes: 30
@@ -267,35 +267,19 @@ jobs:
           chmod +x dist/bin/* 2>/dev/null || true
           chmod +x dist/*.sh 2>/dev/null || true
 
-      - name: Setup L2StateChannel environment
+      - name: Setup synthesizer environment
         env:
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
-          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL || '' }}
         run: |
-          # Setup L2StateChannel .env for Sepolia
-          if [ -n "$SEPOLIA_RPC_URL" ]; then
-            echo "SEPOLIA_RPC_URL='$SEPOLIA_RPC_URL'" > packages/frontend/synthesizer/examples/L2StateChannel/.env
-            echo "DEV_MODE=true" >> packages/frontend/synthesizer/examples/L2StateChannel/.env
-            echo "✅ L2StateChannel .env configured with Sepolia RPC"
-          else
-            echo "RPC_URL='https://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KEY'" > packages/frontend/synthesizer/examples/L2StateChannel/.env
-            echo "SEPOLIA_RPC_URL='https://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KEY'" >> packages/frontend/synthesizer/examples/L2StateChannel/.env
-            echo "DEV_MODE=true" >> packages/frontend/synthesizer/examples/L2StateChannel/.env
-            echo "✅ L2StateChannel .env configured with Alchemy Sepolia"
-          fi
+          # Create .env file for synthesizer (not included in artifact due to .gitignore)
+          echo "RPC_URL='https://eth-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY'" > packages/frontend/synthesizer/.env
+          echo "✅ Synthesizer .env configured"
 
-      - name: Run L2StateChannel CI test (synthesize)
-        working-directory: packages/frontend/synthesizer
+      - name: Run USDC Transfer synthesizer
         run: |
-          echo "🧪 Running L2StateChannel CI test..."
-          npx tsx examples/L2StateChannel/index.ts --ci
-
-      - name: Copy synthesizer outputs to dist
-        run: |
-          echo "📁 Copying synthesizer outputs to dist..."
-          mkdir -p dist/resource/synthesizer/output
-          cp -r packages/frontend/synthesizer/examples/L2StateChannel/output/ci-test/* dist/resource/synthesizer/output/
-          ls -la dist/resource/synthesizer/output/
+          echo "🧪 Running USDC Transfer synthesizer..."
+          echo "📋 Config: packages/frontend/synthesizer/examples/erc20Transfers/usdc/config-usdc-1.json"
+          ./tokamak-cli --synthesize packages/frontend/synthesizer/examples/erc20Transfers/usdc/config-usdc-1.json
 
       - name: Run preprocess
         run: |
@@ -323,17 +307,131 @@ jobs:
             exit 1
           fi
           
-          echo "✅ L2StateChannel test passed!"
+          if [ -f "dist/resource/preprocess/output/preprocess.json" ]; then
+            echo "✅ preprocess.json exists"
+          else
+            echo "❌ preprocess.json not found"
+            exit 1
+          fi
+          
+          echo "✅ USDC Transfer test passed!"
 
-      - name: Upload L2StateChannel artifacts
+      - name: Upload USDC Transfer artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: l2-state-channel-artifacts-${{ github.run_number }}
+          name: usdc-transfer-artifacts-${{ github.run_number }}
           path: |
-            packages/frontend/synthesizer/examples/L2StateChannel/output/ci-test/
             dist/resource/prove/output/
             dist/resource/preprocess/output/
+            dist/resource/synthesizer/output/
+          retention-days: 7
+
+  # ============================================================================
+  # USDT Transfer Test - Uses pre-built binaries
+  # ============================================================================
+  usdt-transfer-test:
+    name: USDT Transfer Test
+    runs-on: ubuntu-22.04
+    needs: build-and-setup
+    timeout-minutes: 30
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install tsx globally
+        run: npm install -g tsx
+
+      - name: Download built dist
+        uses: actions/download-artifact@v4
+        with:
+          name: built-dist
+          path: dist/
+
+      - name: Download qap-compiler
+        uses: actions/download-artifact@v4
+        with:
+          name: qap-compiler
+          path: packages/frontend/qap-compiler/
+
+      - name: Download synthesizer
+        uses: actions/download-artifact@v4
+        with:
+          name: synthesizer
+          path: packages/frontend/synthesizer/
+
+      - name: Make binaries executable
+        run: |
+          chmod +x ./tokamak-cli
+          chmod +x ./scripts/tokamak-cli-core
+          chmod +x dist/bin/* 2>/dev/null || true
+          chmod +x dist/*.sh 2>/dev/null || true
+
+      - name: Setup synthesizer environment
+        env:
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
+        run: |
+          # Create .env file for synthesizer (not included in artifact due to .gitignore)
+          echo "RPC_URL='https://eth-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY'" > packages/frontend/synthesizer/.env
+          echo "✅ Synthesizer .env configured"
+
+      - name: Run USDT Transfer synthesizer
+        run: |
+          echo "🧪 Running USDT Transfer synthesizer..."
+          echo "📋 Config: packages/frontend/synthesizer/examples/erc20Transfers/usdt/config-usdt-1.json"
+          ./tokamak-cli --synthesize packages/frontend/synthesizer/examples/erc20Transfers/usdt/config-usdt-1.json
+
+      - name: Run preprocess
+        run: |
+          echo "⚙️ Running preprocess..."
+          ./tokamak-cli --preprocess
+
+      - name: Run prove
+        run: |
+          echo "🔐 Running prove..."
+          ./tokamak-cli --prove
+
+      - name: Run verify
+        run: |
+          echo "✅ Running verify..."
+          ./tokamak-cli --verify
+
+      - name: Validate proof artifacts
+        run: |
+          echo "🔍 Validating proof artifacts..."
+          
+          if [ -f "dist/resource/prove/output/proof.json" ]; then
+            echo "✅ proof.json exists"
+          else
+            echo "❌ proof.json not found"
+            exit 1
+          fi
+          
+          if [ -f "dist/resource/preprocess/output/preprocess.json" ]; then
+            echo "✅ preprocess.json exists"
+          else
+            echo "❌ preprocess.json not found"
+            exit 1
+          fi
+          
+          echo "✅ USDT Transfer test passed!"
+
+      - name: Upload USDT Transfer artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: usdt-transfer-artifacts-${{ github.run_number }}
+          path: |
+            dist/resource/prove/output/
+            dist/resource/preprocess/output/
+            dist/resource/synthesizer/output/
           retention-days: 7
 
   # ============================================================================
@@ -342,7 +440,7 @@ jobs:
   build-macos:
     name: Build macOS Binary
     runs-on: macos-latest
-    needs: [l2-ton-transfer-test, l2-state-channel-test]
+    needs: [ton-transfer-test, usdc-transfer-test, usdt-transfer-test]
     timeout-minutes: 60
     # Execute only for main branch (push/PR)
     if: (github.event_name == 'push' || github.event_name == 'pull_request') && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
@@ -399,7 +497,7 @@ jobs:
   build-linux:
     name: Build Linux Binary
     runs-on: ubuntu-22.04
-    needs: [l2-ton-transfer-test, l2-state-channel-test]
+    needs: [ton-transfer-test, usdc-transfer-test, usdt-transfer-test]
     timeout-minutes: 60
     # Execute only for main branch (push/PR)
     if: (github.event_name == 'push' || github.event_name == 'pull_request') && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
@@ -477,7 +575,7 @@ jobs:
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-22.04
-    needs: [l2-ton-transfer-test, l2-state-channel-test, build-macos, build-linux]
+    needs: [ton-transfer-test, usdc-transfer-test, usdt-transfer-test, build-macos, build-linux]
     if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
@@ -576,8 +674,9 @@ jobs:
 
           ### ✅ Quality Assurance
 
-          - **L2 TON Transfer Test**: Passed ✅
-          - **L2 State Channel Test**: Passed ✅
+          - **TON Transfer Test**: Passed ✅
+          - **USDC Transfer Test**: Passed ✅
+          - **USDT Transfer Test**: Passed ✅
 
           ### 📋 Recent Changes
 
