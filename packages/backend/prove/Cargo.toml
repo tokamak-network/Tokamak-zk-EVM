@@ -20,3 +20,4 @@ tiny-keccak = "1.5"
 [features]
 default = []
 testing-mode = []
+timing = []
