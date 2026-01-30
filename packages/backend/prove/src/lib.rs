@@ -425,9 +425,23 @@
 
     impl Prover{
         pub fn init(paths: &ProveInputPaths) -> (Self, Binding) {
+            #[cfg(feature = "timing")]
+            let init_start = Instant::now();
             // Load setup parameters from JSON file
             let setup_params_path = PathBuf::from(paths.qap_path).join("setupParams.json");
-            let setup_params = SetupParams::read_from_json(setup_params_path).unwrap();
+            let setup_params_file_bytes = std::fs::metadata(&setup_params_path)
+                .map(|m| m.len() as usize)
+                .unwrap_or(0);
+            let setup_params = crate::time_block!(
+                "init.load.setup_params",
+                "load",
+                vec![
+                    crate::timing::SizeInfo { label: "file_bytes", dims: vec![setup_params_file_bytes] },
+                ],
+                {
+                    SetupParams::read_from_json(setup_params_path).unwrap()
+                }
+            );
 
             // Extract key parameters from setup_params
             let l = setup_params.l;     // Number of public I/O wires
@@ -458,11 +472,35 @@
 
             // Load subcircuit information
             let subcircuit_infos_path = PathBuf::from(paths.qap_path).join("subcircuitInfo.json");
-            let subcircuit_infos = SubcircuitInfo::read_box_from_json(subcircuit_infos_path).unwrap();
+            let subcircuit_infos_file_bytes = std::fs::metadata(&subcircuit_infos_path)
+                .map(|m| m.len() as usize)
+                .unwrap_or(0);
+            let subcircuit_infos = crate::time_block!(
+                "init.load.subcircuit_infos",
+                "load",
+                vec![
+                    crate::timing::SizeInfo { label: "file_bytes", dims: vec![subcircuit_infos_file_bytes] },
+                ],
+                {
+                    SubcircuitInfo::read_box_from_json(subcircuit_infos_path).unwrap()
+                }
+            );
 
             // Load local variables of placements (public instance + interface witness + internal witness)
             let placement_variables_path = PathBuf::from(paths.synthesizer_path).join("placementVariables.json");
-            let placement_variables = PlacementVariables::read_box_from_json(placement_variables_path).unwrap();
+            let placement_variables_file_bytes = std::fs::metadata(&placement_variables_path)
+                .map(|m| m.len() as usize)
+                .unwrap_or(0);
+            let placement_variables = crate::time_block!(
+                "init.load.placement_variables",
+                "load",
+                vec![
+                    crate::timing::SizeInfo { label: "file_bytes", dims: vec![placement_variables_file_bytes] },
+                ],
+                {
+                    PlacementVariables::read_box_from_json(placement_variables_path).unwrap()
+                }
+            );
 
             let time_start = Instant::now();
             let witness: Witness = {
@@ -477,8 +515,26 @@
                 // }
 
                 // Parsing the variables
-                let bXY = gen_bXY(&placement_variables, &subcircuit_infos, &setup_params);
-                let (uXY, vXY, wXY) = read_R1CS_gen_uvwXY(&paths.qap_path, &placement_variables, &subcircuit_infos, &setup_params);
+                let bXY = crate::time_block!(
+                    "init.build.witness.bXY",
+                    "build",
+                    vec![
+                        crate::timing::SizeInfo { label: "bXY", dims: vec![m_i, s_max] },
+                    ],
+                    {
+                        gen_bXY(&placement_variables, &subcircuit_infos, &setup_params)
+                    }
+                );
+                let (uXY, vXY, wXY) = crate::time_block!(
+                    "init.build.witness.uvwXY",
+                    "build",
+                    vec![
+                        crate::timing::SizeInfo { label: "uXY/vXY/wXY", dims: vec![n, s_max] },
+                    ],
+                    {
+                        read_R1CS_gen_uvwXY(&paths.qap_path, &placement_variables, &subcircuit_infos, &setup_params)
+                    }
+                );
                 let rXY = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&vec![ScalarField::zero()]), 1, 1);
                 Witness {bXY, uXY, vXY, wXY, rXY}
             };
@@ -500,31 +556,100 @@
 
             // Load permutation (copy constraints of the variables)
             let permutation_path = PathBuf::from(paths.synthesizer_path).join("permutation.json");
-            let permutation_raw = Permutation::read_box_from_json(permutation_path).unwrap();
+            let permutation_file_bytes = std::fs::metadata(&permutation_path)
+                .map(|m| m.len() as usize)
+                .unwrap_or(0);
+            let permutation_raw = crate::time_block!(
+                "init.load.permutation",
+                "load",
+                vec![
+                    crate::timing::SizeInfo { label: "file_bytes", dims: vec![permutation_file_bytes] },
+                ],
+                {
+                    Permutation::read_box_from_json(permutation_path).unwrap()
+                }
+            );
 
             let time_start = Instant::now();
             let mut instance: InstancePolynomials = {
                 // Load instance
                 let instance_path = PathBuf::from(paths.synthesizer_path).join("instance.json");
-                let _instance = Instance::read_from_json(instance_path).unwrap();
+                let instance_file_bytes = std::fs::metadata(&instance_path)
+                    .map(|m| m.len() as usize)
+                    .unwrap_or(0);
+                let _instance = crate::time_block!(
+                    "init.load.instance",
+                    "load",
+                    vec![
+                        crate::timing::SizeInfo { label: "file_bytes", dims: vec![instance_file_bytes] },
+                    ],
+                    {
+                        Instance::read_from_json(instance_path).unwrap()
+                    }
+                );
 
                 // Parsing the inputs
-                let a_pub_X = _instance.gen_a_pub_X(&setup_params);
+                let a_pub_X = crate::time_block!(
+                    "init.build.instance.a_pub_X",
+                    "build",
+                    vec![
+                        crate::timing::SizeInfo { label: "a_pub_X", dims: vec![l, 1] },
+                    ],
+                    {
+                        _instance.gen_a_pub_X(&setup_params)
+                    }
+                );
                 // Fixed polynomials
-                let mut t_n_coeffs = vec![ScalarField::zero(); 2*n];
-                t_n_coeffs[0] = ScalarField::zero() - ScalarField::one();
-                t_n_coeffs[n] = ScalarField::one();
-                let t_n = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_n_coeffs), 2*n, 1);
-                let mut t_mi_coeffs = vec![ScalarField::zero(); 2*m_i];
-                t_mi_coeffs[0] = ScalarField::zero() - ScalarField::one();
-                t_mi_coeffs[m_i] = ScalarField::one();
-                let t_mi = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_mi_coeffs), 2*m_i, 1);
-                let mut t_smax_coeffs = vec![ScalarField::zero(); 2*s_max];
-                t_smax_coeffs[0] = ScalarField::zero() - ScalarField::one();
-                t_smax_coeffs[s_max] = ScalarField::one();
-                let t_smax = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_smax_coeffs), 1, 2*s_max);
+                let t_n = crate::time_block!(
+                    "init.build.instance.t_n",
+                    "build",
+                    vec![
+                        crate::timing::SizeInfo { label: "t_n", dims: vec![2 * n, 1] },
+                    ],
+                    {
+                        let mut t_n_coeffs = vec![ScalarField::zero(); 2*n];
+                        t_n_coeffs[0] = ScalarField::zero() - ScalarField::one();
+                        t_n_coeffs[n] = ScalarField::one();
+                        DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_n_coeffs), 2*n, 1)
+                    }
+                );
+                let t_mi = crate::time_block!(
+                    "init.build.instance.t_mi",
+                    "build",
+                    vec![
+                        crate::timing::SizeInfo { label: "t_mi", dims: vec![2 * m_i, 1] },
+                    ],
+                    {
+                        let mut t_mi_coeffs = vec![ScalarField::zero(); 2*m_i];
+                        t_mi_coeffs[0] = ScalarField::zero() - ScalarField::one();
+                        t_mi_coeffs[m_i] = ScalarField::one();
+                        DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_mi_coeffs), 2*m_i, 1)
+                    }
+                );
+                let t_smax = crate::time_block!(
+                    "init.build.instance.t_smax",
+                    "build",
+                    vec![
+                        crate::timing::SizeInfo { label: "t_smax", dims: vec![1, 2 * s_max] },
+                    ],
+                    {
+                        let mut t_smax_coeffs = vec![ScalarField::zero(); 2*s_max];
+                        t_smax_coeffs[0] = ScalarField::zero() - ScalarField::one();
+                        t_smax_coeffs[s_max] = ScalarField::one();
+                        DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_smax_coeffs), 1, 2*s_max)
+                    }
+                );
                 // Generating permutation polynomials
-                let (s0XY, s1XY) = Permutation::to_poly(&permutation_raw, m_i, s_max);
+                let (s0XY, s1XY) = crate::time_block!(
+                    "init.build.instance.s0_s1",
+                    "build",
+                    vec![
+                        crate::timing::SizeInfo { label: "s0/s1", dims: vec![m_i, s_max] },
+                    ],
+                    {
+                        Permutation::to_poly(&permutation_raw, m_i, s_max)
+                    }
+                );
 
                 InstancePolynomials {a_pub_X, t_n, t_mi, t_smax, s0XY, s1XY}
             };
@@ -616,7 +741,19 @@
             // Load Sigma (reference string)
             let time_start = Instant::now();
             let sigma_bincode_path = PathBuf::from(paths.setup_path).join("combined_sigma.bin");
-            let mut sigma = Sigma::read_from_bincode(sigma_bincode_path).expect("No reference string is found. Run the Setup first.");
+            let sigma_file_bytes = std::fs::metadata(&sigma_bincode_path)
+                .map(|m| m.len() as usize)
+                .unwrap_or(0);
+            let mut sigma = crate::time_block!(
+                "init.load.sigma",
+                "load",
+                vec![
+                    crate::timing::SizeInfo { label: "file_bytes", dims: vec![sigma_file_bytes] },
+                ],
+                {
+                    Sigma::read_from_bincode(sigma_bincode_path).expect("No reference string is found. Run the Setup first.")
+                }
+            );
             println!("🔄 Loading Sigma took {:?}", time_start.elapsed());
 
             let mixer: Mixer = {
@@ -653,16 +790,52 @@
             let time_start = Instant::now();
             println!("🔄 Starting binding computation (MSMs)...");
             let binding: Binding = {
-                let A = sigma.sigma_1.encode_poly(&mut instance.a_pub_X, &setup_params);
-                let O_inst = sigma.sigma_1.encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params);
+                let A = crate::time_block!(
+                    "init.build.binding.A",
+                    "build",
+                    vec![
+                        crate::timing::SizeInfo { label: "A", dims: vec![l, 1] },
+                    ],
+                    {
+                        sigma.sigma_1.encode_poly(&mut instance.a_pub_X, &setup_params)
+                    }
+                );
+                let O_inst = crate::time_block!(
+                    "init.build.binding.O_inst",
+                    "build",
+                    vec![
+                        crate::timing::SizeInfo { label: "O_inst", dims: vec![l, 1] },
+                    ],
+                    {
+                        sigma.sigma_1.encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params)
+                    }
+                );
                 
                 sigma.sigma_1.gamma_inv_o_inst = vec![G1serde::zero()].into_boxed_slice();
-                let O_mid_core = sigma.sigma_1.encode_O_mid_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
+                let O_mid_core = crate::time_block!(
+                    "init.build.binding.O_mid_core",
+                    "build",
+                    vec![
+                        crate::timing::SizeInfo { label: "O_mid_core", dims: vec![l_d, 1] },
+                    ],
+                    {
+                        sigma.sigma_1.encode_O_mid_no_zk(&placement_variables, &subcircuit_infos, &setup_params)
+                    }
+                );
                 sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj = vec![vec![G1serde::zero()].into_boxed_slice()].into_boxed_slice();
                 let O_mid = 
                     O_mid_core
                     + sigma.sigma_1.delta * mixer.rO_mid;
-                let O_prv_core = sigma.sigma_1.encode_O_prv_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
+                let O_prv_core = crate::time_block!(
+                    "init.build.binding.O_prv_core",
+                    "build",
+                    vec![
+                        crate::timing::SizeInfo { label: "O_prv_core", dims: vec![l_d, 1] },
+                    ],
+                    {
+                        sigma.sigma_1.encode_O_prv_no_zk(&placement_variables, &subcircuit_infos, &setup_params)
+                    }
+                );
                 sigma.sigma_1.delta_inv_li_o_prv = vec![vec![G1serde::zero()].into_boxed_slice()].into_boxed_slice();
                 let O_prv =
                     O_prv_core
@@ -695,6 +868,18 @@
             };
             println!("🔄 Binding computation (MSMs) took {:?}", time_start.elapsed());
 
+            #[cfg(feature = "timing")]
+            crate::timing::record(
+                "init.total",
+                "init",
+                init_start.elapsed(),
+                vec![
+                    crate::timing::SizeInfo { label: "n_s_max", dims: vec![n, s_max] },
+                    crate::timing::SizeInfo { label: "m_i_s_max", dims: vec![m_i, s_max] },
+                    crate::timing::SizeInfo { label: "l", dims: vec![l] },
+                    crate::timing::SizeInfo { label: "s_D", dims: vec![s_d] },
+                ],
+            );
 
             return (
                 Self {sigma, setup_params, instance, witness, mixer, quotients},

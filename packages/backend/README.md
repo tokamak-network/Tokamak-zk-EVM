@@ -47,6 +47,22 @@ The verify takes its input from the following three paths:
 ### Output
 - It will display a message "true", if the zk proof is verified.
 
+## Timing report (prove)
+We provide a human-readable timing report generated from raw timing data:
+- Report: [prove/output/timing.release.md](prove/output/timing.release.md)
+- Raw data: [prove/output/timing.release.json](prove/output/timing.release.json)
+
+The report is **auto-generated** from the JSON using:
+```
+python3 prove/scripts/timing_to_md.py --input prove/output/timing.release.json --output prove/output/timing.release.md
+```
+If you re-run the timing test, regenerate the report with the command above to keep them in sync.
+
+To run the timing test from VS Code and view output in the Debug Console:
+1. Open **Run and Debug**.
+2. Select **Test prove timing (timing feature)**.
+3. Start debugging (F5).
+
 ## Contributing
 We welcome contributions! Please see our [Contributing Guidelines](../../CONTRIBUTING.md) for details.
 
