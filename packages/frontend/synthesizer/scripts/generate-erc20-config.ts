@@ -217,6 +217,18 @@ const stacksEqual = (a: string[], b: string[]) => {
   return true;
 };
 
+const stackTailEqual = (a: string[], b: string[], startIndex: number) => {
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let i = startIndex; i < a.length; i += 1) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
+};
+
 const parseOpcodeIndex = (opcode: string, prefix: string) => {
   if (!opcode.startsWith(prefix)) {
     return null;
@@ -228,6 +240,30 @@ const parseOpcodeIndex = (opcode: string, prefix: string) => {
   }
   return parsed;
 };
+
+const BINARY_OPCODES = new Set<string>([
+  'ADD',
+  'MUL',
+  'SUB',
+  'DIV',
+  'SDIV',
+  'MOD',
+  'SMOD',
+  'EXP',
+  'SIGNEXTEND',
+  'LT',
+  'GT',
+  'SLT',
+  'SGT',
+  'EQ',
+  'AND',
+  'OR',
+  'XOR',
+  'BYTE',
+  'SHL',
+  'SHR',
+  'SAR',
+]);
 
 type KeyOrigin =
   | { type: 'push32' }
@@ -281,6 +317,36 @@ const traceKeyOrigin = (entries: StepLogEntry[], sloadIndex: number): KeyOrigin 
 
     if (op === 'POP') {
       position += 1;
+      continue;
+    }
+
+    if (BINARY_OPCODES.has(op)) {
+      if (pre.length !== post.length + 1) {
+        return { type: 'unknown' };
+      }
+      if (position === 0) {
+        const postTop = post[0];
+        if (postTop && postTop === pre[0]) {
+          position = 0;
+          continue;
+        }
+        if (postTop && postTop === pre[1]) {
+          position = 1;
+          continue;
+        }
+        return { type: 'unknown' };
+      }
+      position += 1;
+      continue;
+    }
+
+    if (pre.length > 0 && stackTailEqual(pre, post, 1)) {
+      if (position === 0) {
+        if (pre[0] === post[0]) {
+          continue;
+        }
+        return { type: 'unknown' };
+      }
       continue;
     }
 
