@@ -1,10 +1,12 @@
 import path from "node:path";
+import fsPromises from "node:fs/promises";
 import { CircuitGenerator } from "../../circuitGenerator/circuitGenerator.ts";
 import appRootPath from "app-root-path";
 import fs from 'fs';
 import { subcircuitInfo } from "../qapCompiler/importedConstants.ts";
 import { wasmDir } from "./wasmLoader.ts";
 import { readFileSync } from "node:fs";
+import { SynthesizerInterface } from "src/synthesizer/index.ts";
 
 /**
    * Write placementVariables, instance (publicInstance), and permutation to JSON files.
@@ -70,4 +72,21 @@ export function writeCircuitJson(circuitGenerator: CircuitGenerator, _path?: str
     } catch (error) {
         throw new Error('Synthesizer: Failure in writing outputs.');
     }
+}
+
+export async function writeEvmAnalysisJson(synthesizer: SynthesizerInterface, outputPath?: string): Promise<void> {
+    const stepLogs = synthesizer.stepLogs
+    const messageCodeAddresses = Array.from(synthesizer.messageCodeAddresses)
+    if (stepLogs.length === 0 && messageCodeAddresses.length === 0) {
+        return
+    }
+    const outputDir = path.resolve(appRootPath.path, 'outputs', 'analysis')
+    const stepLogFilename = outputPath === undefined ? 'step_log.json' : path.basename(outputPath)
+    const resolvedStepLogPath = path.join(outputDir, stepLogFilename)
+    await fsPromises.mkdir(outputDir, { recursive: true })
+    await fsPromises.writeFile(resolvedStepLogPath, JSON.stringify(stepLogs, null, 2), 'utf-8')
+    console.log(`Success in writing '${resolvedStepLogPath}'.`)
+    const messageCodeAddressesPath = path.join(outputDir, 'message_code_addresses.json')
+    await fsPromises.writeFile(messageCodeAddressesPath, JSON.stringify(messageCodeAddresses, null, 2), 'utf-8')
+    console.log(`Success in writing '${messageCodeAddressesPath}'.`)
 }

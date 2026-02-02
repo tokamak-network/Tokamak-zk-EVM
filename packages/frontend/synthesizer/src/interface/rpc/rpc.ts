@@ -22,7 +22,6 @@ export type SynthesizerSimulationOpts = {
   txNonce: bigint,
   callData: Uint8Array,
   callCodeAddresses: `0x${string}`[],
-  stepLogger?: boolean,
 }
 
 export async function getBlockInfoFromRPC(
@@ -106,8 +105,5 @@ export async function createSynthesizerOptsForSimulationFromRPC(opts: Synthesize
         signedTransaction,
         blockInfo,
         stateManager: L2StateManager,
-        stepLogger: opts.stepLogger,
     }
 }
-
-

@@ -13,7 +13,7 @@ import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenera
 import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../src/interface/index.ts';
 import { getUserStorageKey } from 'tokamak-l2js';
 import { EdwardsPoint } from '@noble/curves/abstract/edwards';
-import { writeCircuitJson } from '../../src/interface/node/jsonWriter.ts';
+import { writeCircuitJson, writeEvmAnalysisJson } from '../../src/interface/node/jsonWriter.ts';
 import { loadSubcircuitWasm } from '../../src/interface/node/wasmLoader.ts';
 import { getRpcUrlFromEnv, loadConfig, toSeedBytes } from './utils.ts';
 
@@ -74,12 +74,12 @@ const main = async () => {
     contractAddress: config.contractAddress,
     callData,
     callCodeAddresses: config.callCodeAddresses,
-    stepLogger: true,
   };
 
   const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(simulationOpts);
   const synthesizer = await createSynthesizer(synthesizerOpts);
   const runTxResult = await synthesizer.synthesizeTX();
+  await writeEvmAnalysisJson(synthesizer);
   const subcircuitBuffers = loadSubcircuitWasm();
   const circuitGenerator = await createCircuitGenerator(synthesizer, subcircuitBuffers);
   writeCircuitJson(circuitGenerator);
