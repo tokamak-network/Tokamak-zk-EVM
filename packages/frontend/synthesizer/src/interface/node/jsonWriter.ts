@@ -1,4 +1,5 @@
 import path from "node:path";
+import fsPromises from "node:fs/promises";
 import { CircuitGenerator } from "../../circuitGenerator/circuitGenerator.ts";
 import appRootPath from "app-root-path";
 import fs from 'fs';
@@ -79,16 +80,13 @@ export async function writeEvmAnalysisJson(synthesizer: SynthesizerInterface, ou
     if (stepLogs.length === 0 && messageCodeAddresses.length === 0) {
         return
     }
-    const resolvedStepLogPath = outputPath === undefined
-        ? path.resolve(appRootPath.path, 'outputs/analysis/step_log.json')
-        : (path.isAbsolute(outputPath) ? outputPath : path.resolve(appRootPath.path, outputPath))
-    const outputDir = path.dirname(resolvedStepLogPath)
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true })
-    }
-    fs.writeFileSync(resolvedStepLogPath, JSON.stringify(stepLogs, null, 2), 'utf-8')
+    const outputDir = path.resolve(appRootPath.path, 'outputs', 'analysis')
+    const stepLogFilename = outputPath === undefined ? 'step_log.json' : path.basename(outputPath)
+    const resolvedStepLogPath = path.join(outputDir, stepLogFilename)
+    await fsPromises.mkdir(outputDir, { recursive: true })
+    await fsPromises.writeFile(resolvedStepLogPath, JSON.stringify(stepLogs, null, 2), 'utf-8')
     console.log(`Success in writing '${resolvedStepLogPath}'.`)
     const messageCodeAddressesPath = path.join(outputDir, 'message_code_addresses.json')
-    fs.writeFileSync(messageCodeAddressesPath, JSON.stringify(messageCodeAddresses, null, 2), 'utf-8')
+    await fsPromises.writeFile(messageCodeAddressesPath, JSON.stringify(messageCodeAddresses, null, 2), 'utf-8')
     console.log(`Success in writing '${messageCodeAddressesPath}'.`)
 }

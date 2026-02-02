@@ -16,7 +16,7 @@ export type Erc20TransferConfig = {
   txNonce: bigint;
   blockNumber: number;
   network: string;
-  txHash: string;
+  txHash: `0x${string}`;
   contractAddress: `0x${string}`;
   amount: `0x${string}`;
   transferSelector: `0x${string}`;
@@ -44,6 +44,13 @@ const parseBigIntValue = (value: unknown, label: string): bigint => {
     return BigInt(value);
   }
   throw new Error(`${label} must be a string or number`);
+};
+
+const parseNonEmptyString = (value: unknown, label: string): string => {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`${label} must be a non-empty string`);
+  }
+  return value;
 };
 
 const parseNumberValue = (value: unknown, label: string): number => {
@@ -118,8 +125,8 @@ export const loadConfig = async (configPath: string): Promise<Erc20TransferConfi
     preAllocatedKeys,
     txNonce: parseBigIntValue(configRaw.txNonce, 'txNonce'),
     blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
-    network: typeof configRaw.network === 'string' ? configRaw.network : '',
-    txHash: typeof configRaw.txHash === 'string' ? configRaw.txHash : '',
+    network: parseNonEmptyString(configRaw.network, 'network'),
+    txHash: parseHexString(configRaw.txHash, 'txHash'),
     contractAddress: parseHexString(configRaw.contractAddress, 'contractAddress'),
     amount: parseHexString(configRaw.amount, 'amount'),
     transferSelector: parseHexString(configRaw.transferSelector, 'transferSelector'),

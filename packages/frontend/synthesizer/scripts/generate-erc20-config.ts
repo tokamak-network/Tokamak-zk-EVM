@@ -785,10 +785,15 @@ const runPipeline = async (outputPath: string) => {
     workingConfig = await updateUserStorageSlots(workingConfig, outputPath, keccakSlots);
     try {
       const raw = await fs.readFile(MESSAGE_CODE_ADDRESSES_PATH, 'utf8');
-        const normalized = filterNonZeroAddresses(filterHexStrings(JSON.parse(raw)));
-        workingConfig = await updateCallCodeAddresses(workingConfig, outputPath, normalized);
+      const normalized = filterNonZeroAddresses(filterHexStrings(JSON.parse(raw)));
+      workingConfig = await updateCallCodeAddresses(workingConfig, outputPath, normalized);
     } catch (error) {
-      console.log(`Failed to read message_code_addresses.json: ${(error as Error).message}`);
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === 'ENOENT') {
+        console.log(`File not found, skipping update of callCodeAddresses: ${MESSAGE_CODE_ADDRESSES_PATH}`);
+      } else {
+        throw new Error(`Failed to process ${MESSAGE_CODE_ADDRESSES_PATH}: ${err.message}`);
+      }
     }
 
     const changed =
