@@ -51,6 +51,21 @@ const runCommand = (command: string, args: string[]) =>
     });
   });
 
+const runCommandIgnoringFailure = async (
+  command: string,
+  args: string[],
+  context: string,
+) => {
+  try {
+    await runCommand(command, args);
+    return true;
+  } catch (error) {
+    console.error(`[erc20-config] Failed (ignored): ${context}`);
+    console.error(error);
+    return false;
+  }
+};
+
 const buildOutputPath = (
   network: NetworkName,
   contractAddress: string,
@@ -76,34 +91,26 @@ const runMatrix = async () => {
     for (const contractAddress of contracts) {
       for (const [senderIndex, recipientIndex] of INDEX_PAIRS) {
         const outputPath = buildOutputPath(network, contractAddress, senderIndex, recipientIndex);
-        console.log(
-          `[erc20-config] network=${network} contract=${contractAddress} sender=${senderIndex} recipient=${recipientIndex}`,
-        );
-        try {
-          await runCommand('tsx', [
-            resolveFromRoot('scripts', 'generate-erc20-config.ts'),
-            '--network',
-            network,
-            '--contract',
-            contractAddress,
-            '--participants',
-            String(PARTICIPANT_COUNT),
-            '--max-iterations',
-            String(MAX_ITERATIONS),
-            '--sender',
-            String(senderIndex),
-            '--recipient',
-            String(recipientIndex),
-            '--output',
-            outputPath,
-            '--non-interactive',
-          ]);
-        } catch (error) {
-          console.error(
-            `[erc20-config] Failed (ignored): network=${network} contract=${contractAddress} sender=${senderIndex} recipient=${recipientIndex}`,
-          );
-          console.error(error);
-        }
+        const context = `network=${network} contract=${contractAddress} sender=${senderIndex} recipient=${recipientIndex}`;
+        console.log(`[erc20-config] ${context}`);
+        await runCommandIgnoringFailure('tsx', [
+          resolveFromRoot('scripts', 'generate-erc20-config.ts'),
+          '--network',
+          network,
+          '--contract',
+          contractAddress,
+          '--participants',
+          String(PARTICIPANT_COUNT),
+          '--max-iterations',
+          String(MAX_ITERATIONS),
+          '--sender',
+          String(senderIndex),
+          '--recipient',
+          String(recipientIndex),
+          '--output',
+          outputPath,
+          '--non-interactive',
+        ], context);
       }
     }
   }

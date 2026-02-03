@@ -61,7 +61,9 @@
     "synthesize": "tsx src/cli/index.ts synthesize",
     "synthesizer": "tsx src/cli/index.ts run",
     "erc20-transfer-l2": "tsx examples/erc20Transfers/main.ts",
-    "test": "tsx tests/scripts/run-erc20-config-matrix.ts && tsx tests/scripts/run-erc20-main-from-configs.ts",
+    "test": "tsx tests/scripts/run-erc20-main-from-configs.ts",
+    "test:prep": "tsx tests/scripts/run-erc20-config-matrix.ts",
+    "test:node": "npm run -s test",
     "tsc": "../../../config/monorepo-js//cli/ts-compile.sh"
   },
   "dependencies": {

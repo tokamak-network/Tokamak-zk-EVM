@@ -139,7 +139,12 @@ const main = async () => {
 
     console.log(`[erc20-main] Running ${configFile}`);
     await clearOutputsDir();
-    await runCommand('tsx', [EXAMPLE_ENTRY, configPath]);
+    try {
+      await runCommand('tsx', [EXAMPLE_ENTRY, configPath]);
+    } catch (error) {
+      console.error(`[erc20-main] Failed for config: ${configPath}`);
+      throw error;
+    }
     await moveOutputs(destination);
   }
 

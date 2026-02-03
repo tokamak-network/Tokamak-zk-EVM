@@ -176,8 +176,19 @@ const parseInteger = (value: unknown, label: string): number => {
   return parsed;
 };
 
-const parseCliInputs = (): CliConfig => {
-  const args = minimist(process.argv.slice(2), {
+type ParsedArgs = minimist.ParsedArgs;
+
+type BaseArgs = {
+  networkRaw?: unknown;
+  contractRaw?: unknown;
+  participantRaw?: unknown;
+  maxRaw?: unknown;
+  senderRaw?: unknown;
+  recipientRaw?: unknown;
+};
+
+const parseArgs = (): ParsedArgs =>
+  minimist(process.argv.slice(2), {
     string: [
       'output',
       'network',
@@ -200,84 +211,80 @@ const parseCliInputs = (): CliConfig => {
     },
   });
 
+const resolveOutputPaths = (args: ParsedArgs) => {
   const outputArg = args.output ?? args._[0];
   const outputPath = outputArg
     ? path.resolve(process.cwd(), String(outputArg))
     : resolveFromRoot('scripts', 'temp.json');
   const finalPath = outputArg ? outputPath : FINAL_CONFIG_PATH;
+  return { outputPath, finalPath };
+};
 
-  if (args.interactive) {
-    return { outputPath, finalPath };
-  }
+const collectBaseArgs = (args: ParsedArgs): BaseArgs => ({
+  networkRaw: args.network,
+  contractRaw: args.contract,
+  participantRaw: args.participants,
+  maxRaw: args['max-iterations'] ?? args.maxIterations,
+  senderRaw: args.sender,
+  recipientRaw: args.recipient,
+});
 
-  const networkRaw = args.network;
-  const contractRaw = args.contract;
-  const participantRaw = args.participants;
-  const maxRaw = args['max-iterations'] ?? args.maxIterations;
-  const senderRaw = args.sender;
-  const recipientRaw = args.recipient;
-  const hasAnyBaseArg = [
-    networkRaw,
-    contractRaw,
-    participantRaw,
-    maxRaw,
-    senderRaw,
-    recipientRaw,
+const hasAnyBaseArg = (baseArgs: BaseArgs) =>
+  [
+    baseArgs.networkRaw,
+    baseArgs.contractRaw,
+    baseArgs.participantRaw,
+    baseArgs.maxRaw,
+    baseArgs.senderRaw,
+    baseArgs.recipientRaw,
   ].some((value) => value !== undefined);
 
-  if (!hasAnyBaseArg) {
-    return { outputPath, finalPath };
-  }
-
+const collectMissingBaseArgs = (baseArgs: BaseArgs) => {
   const missing: string[] = [];
-  if (!networkRaw) {
+  if (!baseArgs.networkRaw) {
     missing.push('network');
   }
-  if (!contractRaw) {
+  if (!baseArgs.contractRaw) {
     missing.push('contract');
   }
-  if (participantRaw === undefined) {
+  if (baseArgs.participantRaw === undefined) {
     missing.push('participants');
   }
-  if (maxRaw === undefined) {
+  if (baseArgs.maxRaw === undefined) {
     missing.push('max-iterations');
   }
-  if (senderRaw === undefined) {
+  if (baseArgs.senderRaw === undefined) {
     missing.push('sender');
   }
-  if (recipientRaw === undefined) {
+  if (baseArgs.recipientRaw === undefined) {
     missing.push('recipient');
   }
+  return missing;
+};
 
-  if (missing.length > 0) {
-    if (args['non-interactive'] || args.ci) {
-      throw new Error(`Missing required CLI options: ${missing.join(', ')}`);
-    }
-    return { outputPath, finalPath };
-  }
-
-  const network = normalizeNetwork(String(networkRaw));
+const buildBaseInputs = (baseArgs: BaseArgs): BaseInputs => {
+  const network = normalizeNetwork(String(baseArgs.networkRaw));
   if (!network) {
     throw new Error('Network must be "mainnet" or "sepolia"');
   }
 
-  const contractAddress = toHexString(String(contractRaw));
+  const contractAddress = toHexString(String(baseArgs.contractRaw));
   if (contractAddress.length !== 42) {
     throw new Error('Contract address must be a 42-char hex string (0x...)');
   }
 
-  const participantCount = parseInteger(participantRaw, 'participantCount');
+  const participantCount = parseInteger(baseArgs.participantRaw, 'participantCount');
   if (participantCount < 2) {
     throw new Error('participantCount must be >= 2');
   }
 
-  const maxIterations = parseInteger(maxRaw, 'maxIterations');
+  const maxIterations = parseInteger(baseArgs.maxRaw, 'maxIterations');
   if (maxIterations < 1) {
     throw new Error('maxIterations must be >= 1');
   }
 
-  const senderIndex = parseInteger(senderRaw, 'senderIndex');
-  const recipientIndex = parseInteger(recipientRaw, 'recipientIndex');
+  const senderIndex = parseInteger(baseArgs.senderRaw, 'senderIndex');
+  const recipientIndex = parseInteger(baseArgs.recipientRaw, 'recipientIndex');
   if (senderIndex < 0 || recipientIndex < 0) {
     throw new Error('sender/recipient index must be non-negative');
   }
@@ -292,16 +299,42 @@ const parseCliInputs = (): CliConfig => {
   }
 
   return {
+    network,
+    contractAddress,
+    participantCount,
+    maxIterations,
+    senderIndex,
+    recipientIndex,
+  };
+};
+
+const parseCliInputs = (): CliConfig => {
+  const args = parseArgs();
+  const { outputPath, finalPath } = resolveOutputPaths(args);
+
+  if (args.interactive) {
+    return { outputPath, finalPath };
+  }
+
+  const baseArgs = collectBaseArgs(args);
+
+  if (!hasAnyBaseArg(baseArgs)) {
+    return { outputPath, finalPath };
+  }
+
+  const missing = collectMissingBaseArgs(baseArgs);
+
+  if (missing.length > 0) {
+    if (args['non-interactive'] || args.ci) {
+      throw new Error(`Missing required CLI options: ${missing.join(', ')}`);
+    }
+    return { outputPath, finalPath };
+  }
+
+  return {
     outputPath,
     finalPath,
-    baseInputs: {
-      network,
-      contractAddress,
-      participantCount,
-      maxIterations,
-      senderIndex,
-      recipientIndex,
-    },
+    baseInputs: buildBaseInputs(baseArgs),
   };
 };
 

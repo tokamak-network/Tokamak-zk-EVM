@@ -117,10 +117,10 @@
 - [ ] `npm run tsc` failed: `sh: ../../../config/monorepo-js//cli/ts-compile.sh: Permission denied`
 
 # Todo
-- [ ] Confirm scope of commit (all current changes) and choose commit message
-- [ ] Commit changes on current branch
-- [ ] Push branch to origin
-- [ ] Open PR targeting `dev`
+- [x] Confirm scope of commit (all current changes) and choose commit message
+- [x] Commit changes on current branch
+- [x] Push branch to origin
+- [x] Open PR targeting `dev`
 
 # Review
-- [ ] PR created and link recorded
+- [x] PR created: https://github.com/tokamak-network/Tokamak-zk-EVM/pull/177

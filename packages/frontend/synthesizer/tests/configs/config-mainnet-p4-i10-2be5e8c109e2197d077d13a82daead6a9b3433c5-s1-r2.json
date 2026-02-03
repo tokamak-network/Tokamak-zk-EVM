@@ -1,7 +1,7 @@
 {
   "participants": [
     {
-      "addressL1": "0x202cb970c3c43b73f959664764ff5e8ae5839284",
+      "addressL1": "0xc6d5afc5a1da4dcb1f2541d257c04b8615fffd48",
       "prvSeedL2": "Participant 1"
     },
     {
@@ -13,7 +13,7 @@
       "prvSeedL2": "Recipient's L2 wallet"
     },
     {
-      "addressL1": "0x63cf0e1115e87ca04fc221b0b21c9f408c930aed",
+      "addressL1": "0x8ff00fa84b6cdd9399990eeeebedd740c2135590",
       "prvSeedL2": "Participant 4"
     }
   ],
