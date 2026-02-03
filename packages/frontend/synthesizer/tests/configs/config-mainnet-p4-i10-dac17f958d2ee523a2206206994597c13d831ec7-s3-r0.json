@@ -1,0 +1,42 @@
+{
+  "participants": [
+    {
+      "addressL1": "0xa580090d3427aaad430af1fe65894feafd3ce394",
+      "prvSeedL2": "Recipient's L2 wallet"
+    },
+    {
+      "addressL1": "0x7f0069c58e56eca064fcfde5397a1db013d79cad",
+      "prvSeedL2": "Participant 2"
+    },
+    {
+      "addressL1": "0x5737ef23c1c92ffe3513e977c93da4dc06528793",
+      "prvSeedL2": "Participant 3"
+    },
+    {
+      "addressL1": "0xc251802e45da5e5d3a65cc86f4998990bc40d075",
+      "prvSeedL2": "Sender's L2 wallet"
+    }
+  ],
+  "senderIndex": 3,
+  "recipientIndex": 0,
+  "userStorageSlots": [
+    6,
+    2
+  ],
+  "preAllocatedKeys": [
+    "0x00",
+    "0x0a",
+    "0x03",
+    "0x04"
+  ],
+  "txNonce": 0,
+  "blockNumber": 24375937,
+  "network": "mainnet",
+  "txHash": "0x9d28d9da8e49ca389e1205c35e0f03904a04b92b3c34d17b40d11c61bc06409e",
+  "contractAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "amount": "0x00000000000000000000000000000000000000000000000000000000c4b20100",
+  "transferSelector": "0xa9059cbb",
+  "callCodeAddresses": [
+    "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+  ]
+}
