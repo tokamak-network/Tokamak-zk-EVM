@@ -183,7 +183,7 @@ From the repository root:
   - Verification of input state,
   - Execution of transaction opcodes,
   - Reconstruction of output state.
-- Compatible with [Tokamak Private App Channels](https://github.com/tokamak-network/Tokamak-zkp-channel-manager).
+- Compatible with [Tokamak Private App Channels](https://github.com/tokamak-network/private-app-channel-manager).
 
 
 ## Documentation
