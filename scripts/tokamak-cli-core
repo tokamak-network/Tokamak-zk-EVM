@@ -612,7 +612,7 @@ step_preprocess() {
   backend_resource="$dist_dir/resource/prove"
 
   if [[ -n "$input_arg" ]]; then
-    local input_path synth_output_dir
+    local input_path synth_output_dir input_base dest_path
     input_path="$(abs_path_from_root "$input_arg")"
     if [[ ! -e "$input_path" ]]; then
       err "Preprocess input file not found: $input_arg"
@@ -622,10 +622,16 @@ step_preprocess() {
       err "Preprocess input must be a file (not a directory): $input_arg"
       exit 1
     fi
+    input_base="$(basename "$input_path")"
+    if [[ "$input_base" != "permutation.json" ]]; then
+      err "Preprocess input must be permutation.json: $input_arg"
+      exit 1
+    fi
     synth_output_dir="$dist_dir/resource/synthesizer/output"
     mkdir -p "$synth_output_dir"
-    cp "$input_path" "$synth_output_dir/"
-    ok "Copied preprocess input → $synth_output_dir/$(basename "$input_path")"
+    dest_path="$synth_output_dir/permutation.json"
+    cp "$input_path" "$dest_path"
+    ok "Copied permutation.json → $dest_path"
   fi
 
   log "Preprocess: running backend preprocess (target=$target)"

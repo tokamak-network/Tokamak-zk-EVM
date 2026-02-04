@@ -146,8 +146,9 @@
 - [x] Verify changes by inspection (and run a targeted command if appropriate), then record results here.
 
 ## Review
-- Staged all changes and committed as `ci: integrate synthesizer tests and add preprocess input support`.
-- Pushed branch `jake-ci-update` to `origin` and set upstream tracking (`origin/jake-ci-update`).
+- Clarified `--preprocess` optional input as `permutation.json` and enforce the filename before copying into `dist/resource/synthesizer/output`.
+- Updated CLI usage text to reference `permutation.json`.
+- Ran `./tokamak-cli --preprocess .../permutation.json`; copy succeeded, but preprocess failed with `verify/preprocess/src/main.rs:40:60` missing file (`Os { code: 2, kind: NotFound }`).
 
 # Commit and push all changes (2026-02-04)
 
@@ -178,6 +179,17 @@
 - [ ] Fetch gemini-bot comments from PR 178 and summarize requested changes.
 - [ ] Analyze each comment and propose fixes; confirm scope if needed.
 - [ ] Implement approved fixes with minimal diffs.
+
+# Commit and push excluding backend (2026-02-04)
+
+## Plan
+- [ ] Confirm current staged/unstaged changes and branch/remote.
+- [ ] Adjust staging to exclude `packages/backend/**` except `packages/backend/verify/preprocess/**`.
+- [ ] Commit allowed changes with a user-approved message.
+- [ ] Push to the current branch's upstream.
+
+## Review
+- Pending.
 - [ ] Verify and record results in this file.
 - [ ] Update PR with new commits.
 
@@ -214,6 +226,21 @@
 - Removed the `tests/div_by_vanishing` shell script and directory after moving the test into Rust.
 - Verification by inspection only; no runtime executed.
 
+# div_by_vanishing denom cache in Prover (2026-02-04)
+
+## Plan
+- [ ] Inspect `Prover` usage of `div_by_vanishing` and decide cache key shape (sizes + coset) and ownership (DeviceVec).
+- [ ] Add cache fields to `Prover` and a helper to fetch/build denom evals with consistent coset values.
+- [ ] Add a `div_by_vanishing` variant that accepts cached denom evals and coset, then wire Prover call sites to it.
+- [ ] Update tests or defaults to keep existing behavior for non-Prover callers.
+- [ ] Verify by inspection (no runtime) and record results here.
+
+## Review
+- Applied size-based cache lookup for denom eval inverses in `div_by_vanishing` (Q_Y/Q_X) and reused cached coset values.
+- Added a shared helper to build denom inverse evals to reduce duplication.
+- Updated Q_X to use mul with inverse evals for consistency.
+- Verification by inspection only; no runtime executed.
+
 # Add missing dependencies in build-release test jobs (2026-02-04)
 
 ## Plan
@@ -243,6 +270,17 @@
 - [ ] Compare workflow artifact upload/download paths and adjust to the actual outputs location.
 - [ ] Add any missing directory creation or validation to avoid empty artifact uploads.
 - [ ] Update workflow and record verification notes here.
+
+## Review
+- Pending.
+
+# Fix preprocess optional input to use permutation.json (2026-02-04)
+
+## Plan
+- [ ] Audit `tokamak-cli` preprocess option handling and any workflow steps that pass preprocess input paths.
+- [ ] Update help text and copy logic to use `permutation.json` instead of `preprocess.json`.
+- [ ] Fix workflow references (e.g., proof-generation-test) to pass the correct permutation path.
+- [ ] Record changes and verification notes here.
 
 ## Review
 - Pending.
