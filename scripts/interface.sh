@@ -4,7 +4,7 @@
 #   --install <API_KEY|RPC_URL> [--bun]  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
 #   --synthesize <TX_CONFIG_JSON>  Run frontend synthesizer with config JSON and sync outputs into dist
 #   --synthesize --tokamak-ch-tx [OPTIONS...]  Execute TokamakL2JS Channel transaction using synthesizer binary
-#   --preprocess [PREPROCESS_JSON]  Run backend preprocess step (dist only); optionally copy a preprocss file from synth output into dist before running
+#   --preprocess [PREPROCESS_JSON]  Run backend preprocess step (dist only); optionally copy a preprocess file from synth output into dist before running
 #   --prove [<SYNTH_OUTPUT_ZIP|DIR>] Run backend prove step and collect artifacts in dist
 #   --verify [<PROOF_ZIP|DIR>]   Verify a proof from dist outputs (default: dist)
 #   --extract-proof <OUTPUT_ZIP> Gather proof artifacts from dist and zip them to the given path

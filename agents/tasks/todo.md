@@ -149,4 +149,28 @@
 - [ ] Push the current branch to the default remote.
 
 ## Review
+- Created PR from `jake-ci-update` to `dev`: https://github.com/tokamak-network/Tokamak-zk-EVM/pull/178
+
+# Create PR to dev (2026-02-04)
+
+## Plan
+- [ ] Gather PR details (base branch `dev`, compare `jake-ci-update`) and draft PR body using `.github/PULL_REQUEST_TEMPLATE.md`.
+- [ ] Confirm draft PR body with the user.
+- [ ] Create the PR (likely via `gh pr create`) and record the result here.
+
+## Review
+- Fixed typo in `scripts/interface.sh` (`preprocss` → `preprocess`).
+- Corrected preprocess input validation in `scripts/tokamak-cli-core` to distinguish missing paths vs. directories.
+- Removed accidental `packages/frontend/qap-compiler/scripts/temp.txt` from the repo.
+
+# PR 178 gemini-bot review (2026-02-04)
+
+## Plan
+- [ ] Fetch gemini-bot comments from PR 178 and summarize requested changes.
+- [ ] Analyze each comment and propose fixes; confirm scope if needed.
+- [ ] Implement approved fixes with minimal diffs.
+- [ ] Verify and record results in this file.
+- [ ] Update PR with new commits.
+
+## Review
 - Pending.

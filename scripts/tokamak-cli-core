@@ -614,11 +614,11 @@ step_preprocess() {
   if [[ -n "$input_arg" ]]; then
     local input_path synth_output_dir
     input_path="$(abs_path_from_root "$input_arg")"
-    if [[ ! -f "$input_path" ]]; then
+    if [[ ! -e "$input_path" ]]; then
       err "Preprocess input file not found: $input_arg"
       exit 1
     fi
-    if [[ -d "$input_path" ]]; then
+    if [[ ! -f "$input_path" ]]; then
       err "Preprocess input must be a file (not a directory): $input_arg"
       exit 1
     fi
