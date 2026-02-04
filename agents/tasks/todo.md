@@ -137,7 +137,8 @@
 - [x] Verify changes by inspection (and run a targeted command if appropriate), then record results here.
 
 ## Review
-- Pending.
+- Staged all changes and committed as `ci: integrate synthesizer tests and add preprocess input support`.
+- Pushed branch `jake-ci-update` to `origin` and set upstream tracking (`origin/jake-ci-update`).
 
 # Commit and push all changes (2026-02-04)
 
