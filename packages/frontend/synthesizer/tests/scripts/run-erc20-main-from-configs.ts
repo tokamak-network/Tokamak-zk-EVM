@@ -43,15 +43,7 @@ const fileExists = async (target: string) => {
   }
 };
 
-const clearOutputsDir = async () => {
-  if (!(await fileExists(OUTPUTS_DIR))) {
-    return;
-  }
-  const entries = await fs.readdir(OUTPUTS_DIR);
-  await Promise.all(entries.map((entry) => fs.rm(path.join(OUTPUTS_DIR, entry), { recursive: true, force: true })));
-};
-
-const moveOutputs = async (destination: string) => {
+const copyOutputs = async (destination: string) => {
   await fs.mkdir(destination, { recursive: true });
   if (!(await fileExists(OUTPUTS_DIR))) {
     return;
@@ -62,7 +54,7 @@ const moveOutputs = async (destination: string) => {
       const sourcePath = path.join(OUTPUTS_DIR, entry);
       const targetPath = path.join(destination, entry);
       await fs.rm(targetPath, { recursive: true, force: true });
-      await fs.rename(sourcePath, targetPath);
+      await fs.cp(sourcePath, targetPath, { recursive: true });
     }),
   );
 };
@@ -138,14 +130,13 @@ const main = async () => {
     const destination = path.join(ARCHIVE_ROOT, baseName);
 
     console.log(`[erc20-main] Running ${configFile}`);
-    await clearOutputsDir();
     try {
       await runCommand('tsx', [EXAMPLE_ENTRY, configPath]);
     } catch (error) {
       console.error(`[erc20-main] Failed for config: ${configPath}`);
       throw error;
     }
-    await moveOutputs(destination);
+    await copyOutputs(destination);
   }
 
   console.log('[erc20-main] Validating permutation.json consistency');

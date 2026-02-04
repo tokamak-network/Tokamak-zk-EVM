@@ -28,6 +28,15 @@
 ## Review
 - `npm run -s test:prep` completed successfully (exit code 0).
 - `npm run -s test` completed successfully (exit code 0) and finished permutation/instance_description validations.
+
+# Preserve outputs when archiving
+
+## Plan
+- [x] Update `packages/frontend/synthesizer/tests/scripts/run-erc20-main-from-configs.ts` to copy outputs into `tests/outputs` without deleting originals.
+- [x] Verify behavior (or record why it couldn’t be run).
+
+## Review
+- `npm run -s test` completed successfully (exit code 0) after the change.
 - [x] Restore `test:node` in `packages/frontend/synthesizer/package.json` to align the pre-commit hook.
 - [x] Update `tests/scripts/run-erc20-config-matrix.ts` to ignore `runCommand` errors but fail fast for internal script errors.
 - [x] Refactor `parseCliInputs` into smaller helpers without changing behavior.
@@ -223,6 +232,17 @@
 - [ ] Decide minimal fix (e.g., use absolute paths in workflow or adjust script to resolve paths from repo root).
 - [ ] Update `.github/workflows/build-release.yml` accordingly.
 - [ ] Record the fix in this file and note verification status.
+
+## Review
+- Pending.
+
+# Fix missing EVM compat artifact (2026-02-04)
+
+## Plan
+- [ ] Inspect synthesizer test scripts to confirm where outputs are written (e.g., `tests/outputs` vs `outputs`).
+- [ ] Compare workflow artifact upload/download paths and adjust to the actual outputs location.
+- [ ] Add any missing directory creation or validation to avoid empty artifact uploads.
+- [ ] Update workflow and record verification notes here.
 
 ## Review
 - Pending.
