@@ -1,0 +1,37 @@
+name: Synthesizer Tests
+
+on:
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  synthesizer-tests:
+    name: Synthesizer Package Tests
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: packages/frontend/synthesizer
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: packages/frontend/synthesizer/package-lock.json
+
+      - name: Install tsx
+        run: npm install -g tsx
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Run synthesizer tests
+        env:
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+          ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+        run: npm test

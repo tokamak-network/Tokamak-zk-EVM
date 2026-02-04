@@ -1,9 +1,6 @@
 #!/usr/bin/env node
 
 import { program } from 'commander';
-
-// load environment variables
-import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { createTokamakL2StateManagerFromStateSnapshot, createTokamakL2TxFromRLP, getEddsaPublicKey, poseidon, StateSnapshot, TokamakL2StateManagerOpts, TokamakL2Tx } from 'tokamak-l2js';
@@ -19,12 +16,6 @@ import { addHexPrefix, bigIntToHex, bytesToHex, createAddressFromString, hexToBy
 import { readJson, writeSnapshotJson } from './utils/node.ts';
 import { writeCircuitJson } from '../node/jsonWriter.ts';
 import { SynthesizerBlockInfo } from '../rpc/index.ts';
-
-// tr to load .env
-const envPath = path.resolve(process.cwd(), '.env');
-if (fs.existsSync(envPath)) {
-  dotenv.config({ path: envPath });
-}
 
 program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthesizer').version('0.9.0');
 

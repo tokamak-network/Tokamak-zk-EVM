@@ -28,9 +28,11 @@ export type Erc20TransferConfig = {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, '..', '..');
-const RPC_URL_ENV_KEY = 'RPC_URL';
+const envPath = path.join(packageRoot, '.env');
 
-dotenv.config({ path: path.join(packageRoot, '.env') });
+dotenv.config({ path: envPath });
+
+export const EXAMPLES_ENV_PATH = envPath;
 
 const parseHexString = (value: unknown, label: string): `0x${string}` => {
   if (typeof value !== 'string' || !value.startsWith('0x')) {
@@ -75,13 +77,6 @@ const assertUserStorageSlots = (value: unknown, label: string): number[] => {
   return value;
 };
 
-export const getRpcUrlFromEnv = (): string => {
-  const rpcUrl = process.env[RPC_URL_ENV_KEY];
-  if (typeof rpcUrl !== 'string' || rpcUrl.length === 0) {
-    throw new Error(`Environment variable ${RPC_URL_ENV_KEY} must be set in ${path.join(packageRoot, '.env')}`);
-  }
-  return rpcUrl;
-};
 
 const assertParticipantArray = (value: unknown, label: string): ParticipantEntry[] => {
   if (!Array.isArray(value)) {

@@ -6,6 +6,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
 import inquirer from 'inquirer';
+import minimist from 'minimist';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { BufferErrorMessage } from '../src/synthesizer/types/buffers.ts';
@@ -32,6 +33,21 @@ type Erc20TransferConfig = {
 };
 
 type NetworkName = 'mainnet' | 'sepolia';
+
+type BaseInputs = {
+  network: NetworkName;
+  contractAddress: `0x${string}`;
+  participantCount: number;
+  maxIterations: number;
+  senderIndex: number;
+  recipientIndex: number;
+};
+
+type CliConfig = {
+  outputPath: string;
+  finalPath: string;
+  baseInputs?: BaseInputs;
+};
 
 type EtherscanTx = {
   blockNumber: string;
@@ -103,12 +119,20 @@ const writeConfig = async (targetPath: string, config: Erc20TransferConfig) => {
   await fs.writeFile(targetPath, `${json}\n`, 'utf8');
 };
 
-const finalizeConfig = async (config: Erc20TransferConfig, tempPath: string) => {
-  await writeConfig(FINAL_CONFIG_PATH, config);
-  if (tempPath !== FINAL_CONFIG_PATH) {
-    await fs.rm(tempPath, { force: true });
+const finalizeConfig = async (
+  config: Erc20TransferConfig,
+  workingPath: string,
+  finalPath: string,
+) => {
+  await writeConfig(finalPath, config);
+  if (finalPath !== FINAL_CONFIG_PATH) {
+    await writeConfig(FINAL_CONFIG_PATH, config);
+    console.log(`Updated canonical config at ${FINAL_CONFIG_PATH}`);
   }
-  console.log(`Saved final config to ${FINAL_CONFIG_PATH}`);
+  if (workingPath !== finalPath) {
+    await fs.rm(workingPath, { force: true });
+  }
+  console.log(`Saved final config to ${finalPath}`);
 };
 
 const runExample = async (configPath: string) => {
@@ -134,6 +158,184 @@ const toHexString = (value: string): `0x${string}` => {
     return trimmed as `0x${string}`;
   }
   return `0x${trimmed}` as `0x${string}`;
+};
+
+const normalizeNetwork = (value: string): NetworkName | null => {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'mainnet' || normalized === 'sepolia') {
+    return normalized;
+  }
+  return null;
+};
+
+const parseInteger = (value: unknown, label: string): number => {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`${label} must be an integer`);
+  }
+  return parsed;
+};
+
+type ParsedArgs = minimist.ParsedArgs;
+
+type BaseArgs = {
+  networkRaw?: unknown;
+  contractRaw?: unknown;
+  participantRaw?: unknown;
+  maxRaw?: unknown;
+  senderRaw?: unknown;
+  recipientRaw?: unknown;
+};
+
+const parseArgs = (): ParsedArgs =>
+  minimist(process.argv.slice(2), {
+    string: [
+      'output',
+      'network',
+      'contract',
+      'participants',
+      'max-iterations',
+      'maxIterations',
+      'sender',
+      'recipient',
+    ],
+    boolean: ['non-interactive', 'interactive', 'ci'],
+    alias: {
+      o: 'output',
+      n: 'network',
+      c: 'contract',
+      p: 'participants',
+      m: 'max-iterations',
+      s: 'sender',
+      r: 'recipient',
+    },
+  });
+
+const resolveOutputPaths = (args: ParsedArgs) => {
+  const outputArg = args.output ?? args._[0];
+  const outputPath = outputArg
+    ? path.resolve(process.cwd(), String(outputArg))
+    : resolveFromRoot('scripts', 'temp.json');
+  const finalPath = outputArg ? outputPath : FINAL_CONFIG_PATH;
+  return { outputPath, finalPath };
+};
+
+const collectBaseArgs = (args: ParsedArgs): BaseArgs => ({
+  networkRaw: args.network,
+  contractRaw: args.contract,
+  participantRaw: args.participants,
+  maxRaw: args['max-iterations'] ?? args.maxIterations,
+  senderRaw: args.sender,
+  recipientRaw: args.recipient,
+});
+
+const hasAnyBaseArg = (baseArgs: BaseArgs) =>
+  [
+    baseArgs.networkRaw,
+    baseArgs.contractRaw,
+    baseArgs.participantRaw,
+    baseArgs.maxRaw,
+    baseArgs.senderRaw,
+    baseArgs.recipientRaw,
+  ].some((value) => value !== undefined);
+
+const collectMissingBaseArgs = (baseArgs: BaseArgs) => {
+  const missing: string[] = [];
+  if (!baseArgs.networkRaw) {
+    missing.push('network');
+  }
+  if (!baseArgs.contractRaw) {
+    missing.push('contract');
+  }
+  if (baseArgs.participantRaw === undefined) {
+    missing.push('participants');
+  }
+  if (baseArgs.maxRaw === undefined) {
+    missing.push('max-iterations');
+  }
+  if (baseArgs.senderRaw === undefined) {
+    missing.push('sender');
+  }
+  if (baseArgs.recipientRaw === undefined) {
+    missing.push('recipient');
+  }
+  return missing;
+};
+
+const buildBaseInputs = (baseArgs: BaseArgs): BaseInputs => {
+  const network = normalizeNetwork(String(baseArgs.networkRaw));
+  if (!network) {
+    throw new Error('Network must be "mainnet" or "sepolia"');
+  }
+
+  const contractAddress = toHexString(String(baseArgs.contractRaw));
+  if (contractAddress.length !== 42) {
+    throw new Error('Contract address must be a 42-char hex string (0x...)');
+  }
+
+  const participantCount = parseInteger(baseArgs.participantRaw, 'participantCount');
+  if (participantCount < 2) {
+    throw new Error('participantCount must be >= 2');
+  }
+
+  const maxIterations = parseInteger(baseArgs.maxRaw, 'maxIterations');
+  if (maxIterations < 1) {
+    throw new Error('maxIterations must be >= 1');
+  }
+
+  const senderIndex = parseInteger(baseArgs.senderRaw, 'senderIndex');
+  const recipientIndex = parseInteger(baseArgs.recipientRaw, 'recipientIndex');
+  if (senderIndex < 0 || recipientIndex < 0) {
+    throw new Error('sender/recipient index must be non-negative');
+  }
+  if (senderIndex >= participantCount) {
+    throw new Error(`senderIndex must be < participant count (${participantCount})`);
+  }
+  if (recipientIndex >= participantCount) {
+    throw new Error(`recipientIndex must be < participant count (${participantCount})`);
+  }
+  if (senderIndex === recipientIndex) {
+    throw new Error('recipientIndex must be different from senderIndex');
+  }
+
+  return {
+    network,
+    contractAddress,
+    participantCount,
+    maxIterations,
+    senderIndex,
+    recipientIndex,
+  };
+};
+
+const parseCliInputs = (): CliConfig => {
+  const args = parseArgs();
+  const { outputPath, finalPath } = resolveOutputPaths(args);
+
+  if (args.interactive) {
+    return { outputPath, finalPath };
+  }
+
+  const baseArgs = collectBaseArgs(args);
+
+  if (!hasAnyBaseArg(baseArgs)) {
+    return { outputPath, finalPath };
+  }
+
+  const missing = collectMissingBaseArgs(baseArgs);
+
+  if (missing.length > 0) {
+    if (args['non-interactive'] || args.ci) {
+      throw new Error(`Missing required CLI options: ${missing.join(', ')}`);
+    }
+    return { outputPath, finalPath };
+  }
+
+  return {
+    outputPath,
+    finalPath,
+    baseInputs: buildBaseInputs(baseArgs),
+  };
 };
 
 const fetchFromEtherscan = async (
@@ -598,7 +800,7 @@ const fetchLatestSuccessfulTransferTx = async (
   throw new Error('No successful transfer transactions found for this contract.');
 };
 
-const promptForBaseInputs = async () => {
+const promptForBaseInputs = async (): Promise<BaseInputs> => {
   const baseAnswers = await inquirer.prompt([
     {
       name: 'network',
@@ -690,12 +892,12 @@ const promptForBaseInputs = async () => {
   };
 };
 
-const buildConfig = async (): Promise<{
+const buildConfig = async (baseOverride?: BaseInputs): Promise<{
   network: NetworkName;
   config: Erc20TransferConfig;
   maxIterations: number;
 }> => {
-  const base = await promptForBaseInputs();
+  const base = baseOverride ?? await promptForBaseInputs();
   const participantCount = Math.max(2, Math.floor(base.participantCount));
 
   const participants = buildParticipants(
@@ -719,8 +921,8 @@ const buildConfig = async (): Promise<{
   };
 };
 
-const runPipeline = async (outputPath: string) => {
-  const { network, config, maxIterations } = await buildConfig();
+const runPipeline = async (outputPath: string, finalPath: string, baseOverride?: BaseInputs) => {
+  const { network, config, maxIterations } = await buildConfig(baseOverride);
   let workingConfig = { ...config };
   const workingNetwork = network;
 
@@ -818,16 +1020,12 @@ const runPipeline = async (outputPath: string) => {
     }
   }
 
-  await finalizeConfig(workingConfig, outputPath);
+  await finalizeConfig(workingConfig, outputPath, finalPath);
 };
 
 const main = async () => {
-  const outputArg = process.argv[2];
-  const outputPath = outputArg
-    ? path.resolve(process.cwd(), outputArg)
-    : resolveFromRoot('scripts', 'temp.json');
-
-  await runPipeline(outputPath);
+  const { outputPath, finalPath, baseInputs } = parseCliInputs();
+  await runPipeline(outputPath, finalPath, baseInputs);
 };
 
 void main().catch((err) => {

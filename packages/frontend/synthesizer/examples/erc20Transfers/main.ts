@@ -15,7 +15,8 @@ import { getUserStorageKey } from 'tokamak-l2js';
 import { EdwardsPoint } from '@noble/curves/abstract/edwards';
 import { writeCircuitJson, writeEvmAnalysisJson } from '../../src/interface/node/jsonWriter.ts';
 import { loadSubcircuitWasm } from '../../src/interface/node/wasmLoader.ts';
-import { getRpcUrlFromEnv, loadConfig, toSeedBytes } from './utils.ts';
+import { getRpcUrlFromEnv } from '../../src/interface/node/env.ts';
+import { EXAMPLES_ENV_PATH, loadConfig, toSeedBytes } from './utils.ts';
 
 const main = async () => {
   const configPath = process.argv[2];
@@ -24,7 +25,7 @@ const main = async () => {
   }
 
   const config = await loadConfig(configPath);
-  const rpcUrl = getRpcUrlFromEnv();
+  const rpcUrl = getRpcUrlFromEnv(config.network, process.env, { envPath: EXAMPLES_ENV_PATH });
 
   const privateSignatures = config.participants.map((participant) => 
     bytesToHex(jubjub.utils.randomPrivateKey(toSeedBytes(participant.prvSeedL2)))
