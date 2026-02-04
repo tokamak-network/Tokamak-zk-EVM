@@ -195,13 +195,14 @@
 
 ## Plan
 - [x] Add timing logs inside `div_by_vanishing` for `to_rou_evals`, `div`, `accumulate`, `from_coeffs`.
-- [ ] Add a dedicated `div_by_vanishing` test in `libs/src/tests.rs` that asserts correctness and prints timing logs.
-- [ ] Remove or deprecate the shell test script if it’s no longer needed.
-- [ ] Verify by inspection (no runtime) and record results here.
+- [x] Add a dedicated `div_by_vanishing` test in `libs/src/tests.rs` that asserts correctness and prints timing logs.
+- [x] Remove or deprecate the shell test script if it’s no longer needed.
+- [x] Verify by inspection (no runtime) and record results here.
 
 ## Review
 - Added env-gated timing logs in `div_by_vanishing` around `accumulate`, `from_coeffs`, `to_rou_evals`, and `div`.
-- Created `tests/div_by_vanishing/run.sh` to run the existing correctness test with timing enabled.
+- Added `test_div_by_vanishing_basic_with_timing` in `libs/src/tests.rs` and refactored the shared logic into a helper.
+- Removed the `tests/div_by_vanishing` shell script and directory after moving the test into Rust.
 - Verification by inspection only; no runtime executed.
 
 # Add missing dependencies in build-release test jobs (2026-02-04)
@@ -211,6 +212,17 @@
 - [ ] Identify missing dependencies (e.g., `tsx`, `node_modules`, CLI tools) per job and decide the minimal installation steps.
 - [ ] Update the workflow to install required dependencies in the affected jobs with minimal changes.
 - [ ] Review YAML for correctness and record results here.
+
+## Review
+- Updated `tokamak-ch-compat-test` to pass absolute `${{ github.workspace }}` paths for L2StateChannel input JSON files, avoiding path resolution issues when the synthesizer binary runs from its own directory.
+
+# Fix tokamak-ch-compat-test missing L2StateChannel inputs (2026-02-04)
+
+## Plan
+- [ ] Inspect `tokamak-ch-compat-test` command and `scripts/channel-functions.sh` to confirm path resolution for `--previous-state`, `--block-info`, and `--contract-code`.
+- [ ] Decide minimal fix (e.g., use absolute paths in workflow or adjust script to resolve paths from repo root).
+- [ ] Update `.github/workflows/build-release.yml` accordingly.
+- [ ] Record the fix in this file and note verification status.
 
 ## Review
 - Pending.
