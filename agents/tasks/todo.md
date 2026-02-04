@@ -173,4 +173,44 @@
 - [ ] Update PR with new commits.
 
 ## Review
+- Added `npm install -g tsx` in `evm-compat-test` to satisfy synthesizer test runner dependency.
+- Added a guarded `zip`/`unzip` install in `proof-generation-test` to support `--extract-proof` and ZIP-based `--verify`.
+- No extra dependency installs needed for `tokamak-ch-compat-test` beyond existing steps.
+
+# div_by_vanishing performance review (2026-02-04)
+
+## Plan
+- [x] Inspect `div_by_vanishing` implementation and helper calls for hot spots (allocation, FFT/eval, resizing).
+- [x] Map dataflow and identify redundant transforms, copies, and device/host transfers.
+- [x] Propose concrete optimization opportunities (algorithmic + micro-optimizations) with risk/complexity notes.
+- [x] Record findings in this file.
+
+## Review
+- Key hot spots: `_slice_coeffs_into_blocks` host copy + block materialization, repeated `device_malloc`/host-device copies, and multiple full 2D NTTs for denom polynomials and quotients.
+- Algorithmic wins: use 1D NTT per row/column (denom depends on single variable), broadcast denom evals instead of building full matrices, and compute `b_tilde` directly in eval space to avoid `mul_monomial` + `self - r` clones.
+- Structural wins: avoid building `t_c`/`t_d` polynomials + `resize`; compute vanishing evals directly (or cache) and reuse scratch buffers.
+- Noted risk: correctness must be rechecked if replacing 2D NTTs or changing evaluation domains; no code changes made.
+
+# div_by_vanishing test script + timing logs (2026-02-04)
+
+## Plan
+- [x] Add timing logs inside `div_by_vanishing` for `to_rou_evals`, `div`, `accumulate`, `from_coeffs`.
+- [ ] Add a dedicated `div_by_vanishing` test in `libs/src/tests.rs` that asserts correctness and prints timing logs.
+- [ ] Remove or deprecate the shell test script if it’s no longer needed.
+- [ ] Verify by inspection (no runtime) and record results here.
+
+## Review
+- Added env-gated timing logs in `div_by_vanishing` around `accumulate`, `from_coeffs`, `to_rou_evals`, and `div`.
+- Created `tests/div_by_vanishing/run.sh` to run the existing correctness test with timing enabled.
+- Verification by inspection only; no runtime executed.
+
+# Add missing dependencies in build-release test jobs (2026-02-04)
+
+## Plan
+- [ ] Inspect `.github/workflows/build-release.yml` test jobs (`evm-compat-test`, `proof-generation-test`, `tokamak-ch-compat-test`) and enumerate commands and required tools/binaries.
+- [ ] Identify missing dependencies (e.g., `tsx`, `node_modules`, CLI tools) per job and decide the minimal installation steps.
+- [ ] Update the workflow to install required dependencies in the affected jobs with minimal changes.
+- [ ] Review YAML for correctness and record results here.
+
+## Review
 - Pending.

@@ -150,6 +150,12 @@ jobs:
           name: synthesizer
           path: packages/frontend/synthesizer/
 
+      - name: Install tsx
+        run: |
+          if ! command -v tsx >/dev/null 2>&1; then
+            npm install -g tsx
+          fi
+
       - name: Run synthesizer tests
         env:
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
@@ -179,6 +185,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Ensure zip/unzip
+        run: |
+          if ! command -v zip >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y zip unzip
+          fi
 
       - name: Download built dist
         uses: actions/download-artifact@v4
