@@ -4,10 +4,10 @@
 #   --install <API_KEY|RPC_URL> [--bun]  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
 #   --synthesize <TX_CONFIG_JSON>  Run frontend synthesizer with config JSON and sync outputs into dist
 #   --synthesize --tokamak-ch-tx [OPTIONS...]  Execute TokamakL2JS Channel transaction using synthesizer binary
-#   --preprocess                 Run backend preprocess step (dist only)
+#   --preprocess [PREPROCESS_JSON]  Run backend preprocess step (dist only); optionally copy a preprocss file from synth output into dist before running
 #   --prove [<SYNTH_OUTPUT_ZIP|DIR>] Run backend prove step and collect artifacts in dist
 #   --verify [<PROOF_ZIP|DIR>]   Verify a proof from dist outputs (default: dist)
-#   --extract-proof <OUTPUT_ZIP_PATH> Gather proof artifacts from dist and zip them to the given path
+#   --extract-proof <OUTPUT_ZIP> Gather proof artifacts from dist and zip them to the given path
 #   --doctor                     Check system requirements and health
 #   --help                       Show usage
 # Options:
@@ -34,8 +34,9 @@ Commands:
         --contract-code   Hexadecimal string of contract code
       For options, see: bin/synthesizer tokamak-ch-tx --help
 
-  --preprocess
+  --preprocess [PREPROCESS_JSON]
       Run backend preprocess stage (after --synthesize)
+      If a preprocess file is provided (obtainable from --synthesize), it will be copied into dist/resource/synthesizer/output before running preprocess
 
   --prove [<SYNTH_OUTPUT_ZIP|DIR>]
       Run backend prove stage and collect artifacts (after --synthesize)
@@ -110,8 +111,8 @@ while [[ $# -gt 0 ]]; do
       break
       ;;
     --preprocess)
-      CMD="preprocess"
-      [[ -z "${2:-}" ]] || { err "Too many arguments for --preprocess"; exit 1; }
+      CMD="preprocess"; ARG1="${2:-}";
+      [[ -z "${3:-}" ]] || { err "Too many arguments for --preprocess"; exit 1; }
       break
       ;;
     --prove)
@@ -155,7 +156,7 @@ done
 case "$CMD" in
   install) step_install "$ARG1" ;;
   synthesize) step_synthesize "$ARG1" ;;
-  preprocess) step_preprocess ;;
+  preprocess) step_preprocess "${ARG1:-}" ;;
   prove) step_prove "${ARG1:-}" ;;
   verify) step_verify "${ARG1:-}" ;;
   extract_proof) step_extract_proof "$ARG1" ;;
