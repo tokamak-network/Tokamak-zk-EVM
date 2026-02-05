@@ -28,7 +28,6 @@ impl Preprocess {
     pub fn gen(
         sigma: &SigmaPreprocess, 
         permutation_raw: &[Permutation],
-        instance: &Instance,
         setup_params: &SetupParams
     ) -> Self {
         let m_i = setup_params.l_D - setup_params.l;
