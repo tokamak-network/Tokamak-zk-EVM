@@ -46,18 +46,6 @@ macro_rules! impl_read_from_json {
 }
 
 #[macro_export]
-macro_rules! impl_read_from_bincode {
-    ($t:ty) => {
-        impl $t {
-            pub fn read_from_bincode(path: PathBuf) -> std::io::Result<Self> {
-                let data = std::fs::read(path)?;
-                bincode::deserialize(&data).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
-            }
-        }
-    }
-}
-
-#[macro_export]
 macro_rules! impl_read_box_from_json {
     ($t:ty) => {
         impl $t {
@@ -175,7 +163,6 @@ impl_read_from_json!(Sigma);
 impl_read_from_json!(SigmaPreprocess);
 impl_read_from_json!(SigmaVerify);
 impl_write_into_json!(Sigma);
-impl_read_from_bincode!(Sigma);
 
 impl Sigma {
     /// Write verifier CRS into JSON
@@ -1213,4 +1200,507 @@ macro_rules! pop_recover {
             $idx += 2;
         )+
     };
+}
+
+#[derive(Debug, Clone, Copy, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct G1SerdeRkyv {
+    pub x: [u8; 48],
+    pub y: [u8; 48],
+}
+
+#[derive(Debug, Clone, Copy, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct G2SerdeRkyv {
+    pub x: [u8; 96],
+    pub y: [u8; 96],
+}
+
+#[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct SigmaRkyv {
+    pub G: G1SerdeRkyv,
+    pub H: G2SerdeRkyv,
+    pub sigma_1: Sigma1Rkyv,
+    pub sigma_2: Sigma2Rkyv,
+    pub lagrange_KL: G1SerdeRkyv,
+}
+
+#[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct Sigma1Rkyv {
+    pub xy_powers: Vec<G1SerdeRkyv>,
+    pub x: G1SerdeRkyv,
+    pub y: G1SerdeRkyv,
+    pub delta: G1SerdeRkyv,
+    pub eta: G1SerdeRkyv,
+    pub gamma_inv_o_inst: Vec<G1SerdeRkyv>,
+    pub eta_inv_li_o_inter_alpha4_kj: Vec<Vec<G1SerdeRkyv>>,
+    pub delta_inv_li_o_prv: Vec<Vec<G1SerdeRkyv>>,
+    pub delta_inv_alphak_xh_tx: Vec<Vec<G1SerdeRkyv>>,
+    pub delta_inv_alpha4_xj_tx: Vec<G1SerdeRkyv>,
+    pub delta_inv_alphak_yi_ty: Vec<Vec<G1SerdeRkyv>>,
+}
+
+#[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct PartialSigma1Rkyv {
+    pub xy_powers: Vec<G1SerdeRkyv>,
+}
+
+#[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct SigmaPreprocessRkyv {
+    pub sigma_1: PartialSigma1Rkyv,
+}
+
+#[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct PartialSigma1VerifyRkyv {
+    pub x: G1SerdeRkyv,
+    pub y: G1SerdeRkyv,
+}
+
+#[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct SigmaVerifyRkyv {
+    pub G: G1SerdeRkyv,
+    pub H: G2SerdeRkyv,
+    pub sigma_1: PartialSigma1VerifyRkyv,
+    pub sigma_2: Sigma2Rkyv,
+    pub lagrange_KL: G1SerdeRkyv,
+}
+
+#[derive(Debug, Clone, Copy, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct Sigma2Rkyv {
+    pub alpha: G2SerdeRkyv,
+    pub alpha2: G2SerdeRkyv,
+    pub alpha3: G2SerdeRkyv,
+    pub alpha4: G2SerdeRkyv,
+    pub gamma: G2SerdeRkyv,
+    pub delta: G2SerdeRkyv,
+    pub eta: G2SerdeRkyv,
+    pub x: G2SerdeRkyv,
+    pub y: G2SerdeRkyv,
+}
+
+impl G1SerdeRkyv {
+    pub fn from_g1serde(value: &G1serde) -> Self {
+        let x_bytes: [u8; 48] = value.0.x.to_bytes_le().try_into().expect("G1 x bytes length");
+        let y_bytes: [u8; 48] = value.0.y.to_bytes_le().try_into().expect("G1 y bytes length");
+        Self { x: x_bytes, y: y_bytes }
+    }
+
+    pub fn to_g1serde(&self) -> G1serde {
+        let x_field = BaseField::from_bytes_le(&self.x).into();
+        let y_field = BaseField::from_bytes_le(&self.y).into();
+        G1serde(G1Affine::from_limbs(x_field, y_field))
+    }
+
+    pub fn to_g1_affine(&self) -> G1Affine {
+        let x_field = BaseField::from_bytes_le(&self.x).into();
+        let y_field = BaseField::from_bytes_le(&self.y).into();
+        G1Affine::from_limbs(x_field, y_field)
+    }
+}
+
+impl G2SerdeRkyv {
+    pub fn from_g2serde(value: &G2serde) -> Self {
+        let x_bytes: [u8; 96] = value.0.x.to_bytes_le().try_into().expect("G2 x bytes length");
+        let y_bytes: [u8; 96] = value.0.y.to_bytes_le().try_into().expect("G2 y bytes length");
+        Self { x: x_bytes, y: y_bytes }
+    }
+
+    pub fn to_g2serde(&self) -> G2serde {
+        let x_field = G2BaseField::from_bytes_le(&self.x).into();
+        let y_field = G2BaseField::from_bytes_le(&self.y).into();
+        G2serde(G2Affine::from_limbs(x_field, y_field))
+    }
+}
+
+impl SigmaRkyv {
+    pub fn from_sigma(sigma: &Sigma) -> Self {
+        Self {
+            G: G1SerdeRkyv::from_g1serde(&sigma.G),
+            H: G2SerdeRkyv::from_g2serde(&sigma.H),
+            sigma_1: Sigma1Rkyv::from_sigma(&sigma.sigma_1),
+            sigma_2: Sigma2Rkyv::from_sigma(&sigma.sigma_2),
+            lagrange_KL: G1SerdeRkyv::from_g1serde(&sigma.lagrange_KL),
+        }
+    }
+}
+
+impl SigmaVerifyRkyv {
+    pub fn from_sigma(sigma: &Sigma) -> Self {
+        Self {
+            G: G1SerdeRkyv::from_g1serde(&sigma.G),
+            H: G2SerdeRkyv::from_g2serde(&sigma.H),
+            sigma_1: PartialSigma1VerifyRkyv {
+                x: G1SerdeRkyv::from_g1serde(&sigma.sigma_1.x),
+                y: G1SerdeRkyv::from_g1serde(&sigma.sigma_1.y),
+            },
+            sigma_2: Sigma2Rkyv::from_sigma(&sigma.sigma_2),
+            lagrange_KL: G1SerdeRkyv::from_g1serde(&sigma.lagrange_KL),
+        }
+    }
+}
+
+impl SigmaPreprocessRkyv {
+    pub fn from_sigma(sigma: &Sigma) -> Self {
+        Self {
+            sigma_1: PartialSigma1Rkyv::from_sigma(&sigma.sigma_1),
+        }
+    }
+}
+
+impl Sigma1Rkyv {
+    fn from_sigma(sigma: &crate::group_structures::Sigma1) -> Self {
+        let xy_powers = sigma.xy_powers.iter().map(G1SerdeRkyv::from_g1serde).collect();
+        let gamma_inv_o_inst = sigma.gamma_inv_o_inst.iter().map(G1SerdeRkyv::from_g1serde).collect();
+        let eta_inv_li_o_inter_alpha4_kj = sigma.eta_inv_li_o_inter_alpha4_kj
+            .iter()
+            .map(|row| row.iter().map(G1SerdeRkyv::from_g1serde).collect())
+            .collect();
+        let delta_inv_li_o_prv = sigma.delta_inv_li_o_prv
+            .iter()
+            .map(|row| row.iter().map(G1SerdeRkyv::from_g1serde).collect())
+            .collect();
+        let delta_inv_alphak_xh_tx = sigma.delta_inv_alphak_xh_tx
+            .iter()
+            .map(|row| row.iter().map(G1SerdeRkyv::from_g1serde).collect())
+            .collect();
+        let delta_inv_alpha4_xj_tx = sigma.delta_inv_alpha4_xj_tx
+            .iter()
+            .map(G1SerdeRkyv::from_g1serde)
+            .collect();
+        let delta_inv_alphak_yi_ty = sigma.delta_inv_alphak_yi_ty
+            .iter()
+            .map(|row| row.iter().map(G1SerdeRkyv::from_g1serde).collect())
+            .collect();
+
+        Self {
+            xy_powers,
+            x: G1SerdeRkyv::from_g1serde(&sigma.x),
+            y: G1SerdeRkyv::from_g1serde(&sigma.y),
+            delta: G1SerdeRkyv::from_g1serde(&sigma.delta),
+            eta: G1SerdeRkyv::from_g1serde(&sigma.eta),
+            gamma_inv_o_inst,
+            eta_inv_li_o_inter_alpha4_kj,
+            delta_inv_li_o_prv,
+            delta_inv_alphak_xh_tx,
+            delta_inv_alpha4_xj_tx,
+            delta_inv_alphak_yi_ty,
+        }
+    }
+}
+
+impl PartialSigma1Rkyv {
+    fn from_sigma(sigma: &crate::group_structures::Sigma1) -> Self {
+        let xy_powers = sigma.xy_powers.iter().map(G1SerdeRkyv::from_g1serde).collect();
+        Self { xy_powers }
+    }
+}
+
+impl Sigma2Rkyv {
+    fn from_sigma(sigma: &crate::group_structures::Sigma2) -> Self {
+        Self {
+            alpha: G2SerdeRkyv::from_g2serde(&sigma.alpha),
+            alpha2: G2SerdeRkyv::from_g2serde(&sigma.alpha2),
+            alpha3: G2SerdeRkyv::from_g2serde(&sigma.alpha3),
+            alpha4: G2SerdeRkyv::from_g2serde(&sigma.alpha4),
+            gamma: G2SerdeRkyv::from_g2serde(&sigma.gamma),
+            delta: G2SerdeRkyv::from_g2serde(&sigma.delta),
+            eta: G2SerdeRkyv::from_g2serde(&sigma.eta),
+            x: G2SerdeRkyv::from_g2serde(&sigma.x),
+            y: G2SerdeRkyv::from_g2serde(&sigma.y),
+        }
+    }
+}
+
+impl ArchivedG1SerdeRkyv {
+    pub fn to_g1serde(&self) -> G1serde {
+        let x_field = BaseField::from_bytes_le(&self.x).into();
+        let y_field = BaseField::from_bytes_le(&self.y).into();
+        G1serde(G1Affine::from_limbs(x_field, y_field))
+    }
+
+    pub fn to_g1_affine(&self) -> G1Affine {
+        let x_field = BaseField::from_bytes_le(&self.x).into();
+        let y_field = BaseField::from_bytes_le(&self.y).into();
+        G1Affine::from_limbs(x_field, y_field)
+    }
+}
+
+impl ArchivedG2SerdeRkyv {
+    pub fn to_g2serde(&self) -> G2serde {
+        let x_field = G2BaseField::from_bytes_le(&self.x).into();
+        let y_field = G2BaseField::from_bytes_le(&self.y).into();
+        G2serde(G2Affine::from_limbs(x_field, y_field))
+    }
+}
+
+impl ArchivedSigma2Rkyv {
+    pub fn to_sigma2(&self) -> Sigma2 {
+        Sigma2 {
+            alpha: self.alpha.to_g2serde(),
+            alpha2: self.alpha2.to_g2serde(),
+            alpha3: self.alpha3.to_g2serde(),
+            alpha4: self.alpha4.to_g2serde(),
+            gamma: self.gamma.to_g2serde(),
+            delta: self.delta.to_g2serde(),
+            eta: self.eta.to_g2serde(),
+            x: self.x.to_g2serde(),
+            y: self.y.to_g2serde(),
+        }
+    }
+}
+
+impl ArchivedSigmaVerifyRkyv {
+    pub fn g(&self) -> G1serde {
+        self.G.to_g1serde()
+    }
+
+    pub fn h(&self) -> G2serde {
+        self.H.to_g2serde()
+    }
+
+    pub fn sigma1_x(&self) -> G1serde {
+        self.sigma_1.x.to_g1serde()
+    }
+
+    pub fn sigma1_y(&self) -> G1serde {
+        self.sigma_1.y.to_g1serde()
+    }
+
+    pub fn sigma2(&self) -> Sigma2 {
+        self.sigma_2.to_sigma2()
+    }
+
+    pub fn lagrange_kl(&self) -> G1serde {
+        self.lagrange_KL.to_g1serde()
+    }
+}
+
+fn encode_poly_from_xy_powers(
+    poly: &mut DensePolynomialExt,
+    params: &SetupParams,
+    xy_powers: &[ArchivedG1SerdeRkyv],
+) -> G1serde {
+    poly.optimize_size();
+    let x_size = poly.x_size;
+    let y_size = poly.y_size;
+    let rs_x_size = std::cmp::max(2 * params.n, 2 * (params.l_D - params.l));
+    let rs_y_size = params.s_max * 2;
+    let target_x_size = (poly.x_degree + 1) as usize;
+    let target_y_size = (poly.y_degree + 1) as usize;
+    if target_x_size > rs_x_size || target_y_size > rs_y_size {
+        panic!("Insufficient length of sigma.sigma_1.xy_powers");
+    }
+    if target_x_size * target_y_size == 0 {
+        return G1serde::zero();
+    }
+
+    let poly_coeffs_vec_compact = {
+        let mut poly_coeffs_vec = vec![ScalarField::zero(); x_size * y_size];
+        let poly_coeffs = HostSlice::from_mut_slice(&mut poly_coeffs_vec);
+        poly.copy_coeffs(0, poly_coeffs);
+        resize(
+            &poly_coeffs_vec,
+            x_size,
+            y_size,
+            target_x_size,
+            target_y_size,
+            ScalarField::zero(),
+        )
+    };
+
+    let rs_unpacked: Vec<G1Affine> = {
+        let mut res = Vec::with_capacity(target_x_size * target_y_size);
+        for i in 0..target_x_size {
+            for j in 0..target_y_size {
+                if i < rs_x_size && j < rs_y_size {
+                    let idx = rs_y_size * i + j;
+                    res.push(xy_powers[idx].to_g1_affine());
+                } else {
+                    res.push(G1Affine::zero());
+                }
+            }
+        }
+        res
+    };
+
+    let mut msm_res = vec![G1Projective::zero(); 1];
+    msm::msm(
+        HostSlice::from_slice(&poly_coeffs_vec_compact),
+        HostSlice::from_slice(&rs_unpacked),
+        &MSMConfig::default(),
+        HostSlice::from_mut_slice(&mut msm_res),
+    )
+    .unwrap();
+    G1serde(G1Affine::from(msm_res[0]))
+}
+
+impl ArchivedSigma1Rkyv {
+    pub fn encode_poly(&self, poly: &mut DensePolynomialExt, params: &SetupParams) -> G1serde {
+        encode_poly_from_xy_powers(poly, params, self.xy_powers.as_slice())
+    }
+
+    pub fn encode_O_inst(
+        &self,
+        placement_variables: &[PlacementVariables],
+        subcircuit_infos: &[SubcircuitInfo],
+        setup_params: &SetupParams,
+    ) -> G1serde {
+        let mut aligned_rs = vec![G1Affine::zero(); setup_params.l];
+        let mut aligned_wtns = vec![ScalarField::zero(); setup_params.l];
+        let mut cnt: usize = 0;
+        for i in 0..4 {
+            let subcircuit_id = placement_variables[i].subcircuitId;
+            let variables = &placement_variables[i].variables;
+            let subcircuit_info = &subcircuit_infos[subcircuit_id];
+            let flatten_map = &subcircuit_info.flattenMap;
+            let (start_idx, end_idx_exclusive) = if subcircuit_info.name == "bufferPubOut" {
+                (subcircuit_info.Out_idx[0], subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1])
+            } else if subcircuit_info.name == "bufferPubIn" {
+                (subcircuit_info.In_idx[0], subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
+            } else if subcircuit_info.name == "bufferEVMIn" {
+                (subcircuit_info.In_idx[0], subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
+            } else if subcircuit_info.name == "bufferBlockIn" {
+                (subcircuit_info.In_idx[0], subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
+            } else {
+                panic!("Target placement is not a buffer")
+            };
+
+            for j in start_idx..end_idx_exclusive {
+                aligned_wtns[cnt] = ScalarField::from_hex(&variables[j]);
+                let global_idx = flatten_map[j];
+                let curve_point = self.gamma_inv_o_inst[global_idx].to_g1_affine();
+                aligned_rs[cnt] = curve_point;
+                cnt += 1;
+            }
+        }
+        let mut msm_res = vec![G1Projective::zero(); 1];
+        msm::msm(
+            HostSlice::from_slice(&aligned_wtns),
+            HostSlice::from_slice(&aligned_rs),
+            &MSMConfig::default(),
+            HostSlice::from_mut_slice(&mut msm_res),
+        )
+        .unwrap();
+
+        G1serde(G1Affine::from(msm_res[0]))
+    }
+
+    pub fn encode_O_mid_no_zk(
+        &self,
+        placement_variables: &[PlacementVariables],
+        subcircuit_infos: &[SubcircuitInfo],
+        setup_params: &SetupParams,
+    ) -> G1serde {
+        let mut nVar: usize = 0;
+        for i in 0..placement_variables.len() {
+            let subcircuit_id = placement_variables[i].subcircuitId;
+            let subcircuit_info = &subcircuit_infos[subcircuit_id];
+            if subcircuit_info.name == "bufferPubOut" {
+                nVar = nVar + subcircuit_info.In_idx[1];
+            } else if subcircuit_info.name == "bufferPubIn" {
+                nVar = nVar + subcircuit_info.Out_idx[1];
+            } else if subcircuit_info.name == "bufferBlockIn" {
+                nVar = nVar + subcircuit_info.Out_idx[1];
+            } else if subcircuit_info.name == "bufferEVMIn" {
+                nVar = nVar + subcircuit_info.Out_idx[1];
+            } else {
+                nVar = nVar + subcircuit_info.Out_idx[1] + subcircuit_info.In_idx[1];
+            }
+            nVar += 1;
+        }
+
+        self.encode_statement(
+            setup_params.l,
+            setup_params.l_D,
+            nVar,
+            &self.eta_inv_li_o_inter_alpha4_kj,
+            placement_variables,
+            subcircuit_infos,
+        )
+    }
+
+    pub fn encode_O_prv_no_zk(
+        &self,
+        placement_variables: &[PlacementVariables],
+        subcircuit_infos: &[SubcircuitInfo],
+        setup_params: &SetupParams,
+    ) -> G1serde {
+        let mut nVar: usize = 0;
+        for i in 0..placement_variables.len() {
+            let subcircuit_id = placement_variables[i].subcircuitId;
+            let subcircuit_info = &subcircuit_infos[subcircuit_id];
+            nVar = nVar + (subcircuit_info.Nwires - subcircuit_info.In_idx[1] - subcircuit_info.Out_idx[1]);
+        }
+
+        self.encode_statement(
+            setup_params.l_D,
+            setup_params.m_D,
+            nVar,
+            &self.delta_inv_li_o_prv,
+            placement_variables,
+            subcircuit_infos,
+        )
+    }
+
+    pub fn delta(&self) -> G1serde {
+        self.delta.to_g1serde()
+    }
+
+    pub fn eta(&self) -> G1serde {
+        self.eta.to_g1serde()
+    }
+
+    pub fn delta_inv_alphak_xh_tx(&self, k: usize, h: usize) -> G1serde {
+        self.delta_inv_alphak_xh_tx[k][h].to_g1serde()
+    }
+
+    pub fn delta_inv_alpha4_xj_tx(&self, j: usize) -> G1serde {
+        self.delta_inv_alpha4_xj_tx[j].to_g1serde()
+    }
+
+    pub fn delta_inv_alphak_yi_ty(&self, k: usize, i: usize) -> G1serde {
+        self.delta_inv_alphak_yi_ty[k][i].to_g1serde()
+    }
+
+    fn encode_statement(
+        &self,
+        global_wire_index_offset: usize,
+        global_wire_index_end: usize,
+        nVar: usize,
+        bases: &rkyv::vec::ArchivedVec<rkyv::vec::ArchivedVec<ArchivedG1SerdeRkyv>>,
+        placement_variables: &[PlacementVariables],
+        subcircuit_infos: &[SubcircuitInfo],
+    ) -> G1serde {
+        let mut aligned_rs = vec![G1Affine::zero(); nVar];
+        let mut aligned_variable = vec![ScalarField::zero(); nVar];
+        let mut cnt: usize = 0;
+        for i in 0..placement_variables.len() {
+            let subcircuit_id = placement_variables[i].subcircuitId;
+            let variables = &placement_variables[i].variables;
+            let subcircuit_info = &subcircuit_infos[subcircuit_id];
+            let flatten_map = &subcircuit_info.flattenMap;
+            for j in 0..subcircuit_info.Nwires {
+                if flatten_map[j] >= global_wire_index_offset && flatten_map[j] < global_wire_index_end {
+                    let global_idx = flatten_map[j] - global_wire_index_offset;
+                    aligned_variable[cnt] = ScalarField::from_hex(&variables[j]);
+                    let curve_point = bases[global_idx][i].to_g1_affine();
+                    aligned_rs[cnt] = curve_point;
+                    cnt += 1;
+                }
+            }
+        }
+        let mut msm_res = vec![G1Projective::zero(); 1];
+        msm::msm(
+            HostSlice::from_slice(&aligned_variable),
+            HostSlice::from_slice(&aligned_rs),
+            &MSMConfig::default(),
+            HostSlice::from_mut_slice(&mut msm_res),
+        )
+        .unwrap();
+        G1serde(G1Affine::from(msm_res[0]))
+    }
+}
+
+impl ArchivedPartialSigma1Rkyv {
+    pub fn encode_poly(&self, poly: &mut DensePolynomialExt, params: &SetupParams) -> G1serde {
+        encode_poly_from_xy_powers(poly, params, self.xy_powers.as_slice())
+    }
 }

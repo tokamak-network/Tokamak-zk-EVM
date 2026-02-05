@@ -5,7 +5,10 @@ use icicle_hash::keccak::Keccak256;
 use icicle_runtime::memory::HostSlice;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::iotools::{Instance, PublicInputBuffer, PublicOutputBuffer, SetupParams};
-use libs::group_structures::{SigmaVerify};
+use libs::group_structures::{G1serde, G2serde, Sigma2};
+use libs::iotools::{ArchivedSigmaVerifyRkyv, SigmaVerifyRkyv};
+use memmap2::Mmap;
+use std::fs::File;
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_core::ntt;
@@ -24,6 +27,47 @@ pub struct VerifyInputPaths<'a> {
     pub proof_path: &'a str,
 }   
 
+pub struct SigmaVerifyZeroCopy {
+    mmap: Mmap,
+}
+
+impl SigmaVerifyZeroCopy {
+    pub fn load(path: &PathBuf) -> std::io::Result<Self> {
+        let file = File::open(path)?;
+        let mmap = unsafe { Mmap::map(&file)? };
+        let _ = unsafe { rkyv::archived_root::<SigmaVerifyRkyv>(&mmap) };
+        Ok(Self { mmap })
+    }
+
+    fn sigma(&self) -> &ArchivedSigmaVerifyRkyv {
+        unsafe { rkyv::archived_root::<SigmaVerifyRkyv>(&self.mmap) }
+    }
+
+    pub fn g(&self) -> G1serde {
+        self.sigma().g()
+    }
+
+    pub fn h(&self) -> G2serde {
+        self.sigma().h()
+    }
+
+    pub fn sigma1_x(&self) -> G1serde {
+        self.sigma().sigma1_x()
+    }
+
+    pub fn sigma1_y(&self) -> G1serde {
+        self.sigma().sigma1_y()
+    }
+
+    pub fn sigma2(&self) -> Sigma2 {
+        self.sigma().sigma2()
+    }
+
+    pub fn lagrange_kl(&self) -> G1serde {
+        self.sigma().lagrange_kl()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeccakVerificationResult {
     True,
@@ -32,7 +76,7 @@ pub enum KeccakVerificationResult {
 }
 
 pub struct Verifier {
-    pub sigma: SigmaVerify,
+    pub sigma: SigmaVerifyZeroCopy,
     pub a_pub_X: DensePolynomialExt,
     // pub publicInputBuffer: PublicInputBuffer,
     // pub publicOutputBuffer: PublicOutputBuffer,
@@ -80,9 +124,9 @@ impl Verifier {
         let a_pub_X = instance.gen_a_pub_X(&setup_params);
 
         // Load Sigma (reference string)
-        let sigma_path = PathBuf::from(paths.setup_path).join("sigma_verify.json");
-        let sigma = SigmaVerify::read_from_json(sigma_path)
-        .expect("No reference string is found. Run the Setup first.");
+        let sigma_path = PathBuf::from(paths.setup_path).join("sigma_verify.rkyv");
+        let sigma = SigmaVerifyZeroCopy::load(&sigma_path)
+            .expect("No reference string is found. Run the Setup first (expected sigma_verify.rkyv).");
 
         // Load Verifier preprocess
         let preprocess_path = PathBuf::from(paths.preprocess_path).join("preprocess.json");
@@ -247,33 +291,33 @@ impl Verifier {
         let LHS_A = 
             (proof0.U * proof3.V_eval)
             - proof0.W
-            +(proof0.V - self.sigma.G * proof3.V_eval) * kappa1
+            +(proof0.V - self.sigma.g() * proof3.V_eval) * kappa1
             - proof0.Q_AX * t_n_eval
             - proof0.Q_AY * t_smax_eval;
         let F = 
             proof0.B
             + self.preprocess.s0 * thetas[0]
             + self.preprocess.s1 * thetas[1]
-            + self.sigma.G * thetas[2];
+            + self.sigma.g() * thetas[2];
         let G = 
             proof0.B
-            + self.sigma.sigma_1.x * thetas[0]
-            + self.sigma.sigma_1.y * thetas[1]
-            + self.sigma.G * thetas[2];
+            + self.sigma.sigma1_x() * thetas[0]
+            + self.sigma.sigma1_y() * thetas[1]
+            + self.sigma.g() * thetas[2];
         let LHS_C_term1 = 
-            self.sigma.lagrange_KL * (proof3.R_eval - ScalarField::one())
+            self.sigma.lagrange_kl() * (proof3.R_eval - ScalarField::one())
             + (G * proof3.R_eval - F * proof3.R_omegaX_eval) * (kappa0 * (chi - ScalarField::one()))
             + (G * proof3.R_eval - F * proof3.R_omegaX_omegaY_eval) * (kappa0.pow(2) * lagrange_K0_eval)
             - proof2.Q_CX * t_mi_eval
             - proof2.Q_CY * t_smax_eval;
         let LHS_C = 
             LHS_C_term1 * kappa1.pow(2)
-            + (proof1.R - self.sigma.G * proof3.R_eval) * kappa1.pow(3)
-            + (proof1.R - self.sigma.G * proof3.R_omegaX_eval) * kappa2
-            + (proof1.R - self.sigma.G * proof3.R_omegaX_omegaY_eval) * kappa2.pow(2);
+            + (proof1.R - self.sigma.g() * proof3.R_eval) * kappa1.pow(3)
+            + (proof1.R - self.sigma.g() * proof3.R_omegaX_eval) * kappa2
+            + (proof1.R - self.sigma.g() * proof3.R_omegaX_omegaY_eval) * kappa2.pow(2);
         let LHS_B =
             binding.A * ( ScalarField::one() + (kappa2 * kappa1.pow(4)) )
-            - self.sigma.G * (kappa2 * kappa1.pow(4) * A_eval);
+            - self.sigma.g() * (kappa2 * kappa1.pow(4) * A_eval);
         let LHS = LHS_B + ( (LHS_A + LHS_C) * kappa2 );
         let AUX = 
             proof4.Pi_X * (kappa2 * chi)
@@ -293,11 +337,11 @@ impl Verifier {
 
         let left_pair = pairing(
             &[LHS + AUX,    proof0.B,                   proof0.U,                   proof0.V,                   proof0.W                 ],
-            &[self.sigma.H, self.sigma.sigma_2.alpha4,  self.sigma.sigma_2.alpha,   self.sigma.sigma_2.alpha2,  self.sigma.sigma_2.alpha3]
+            &[self.sigma.h(), self.sigma.sigma2().alpha4,  self.sigma.sigma2().alpha,   self.sigma.sigma2().alpha2,  self.sigma.sigma2().alpha3]
         );
         let right_pair = pairing(
             &[binding.O_inst,        binding.O_mid,              binding.O_prv,              AUX_X,                  AUX_Y               ],
-            &[self.sigma.sigma_2.gamma,   self.sigma.sigma_2.eta,     self.sigma.sigma_2.delta,   self.sigma.sigma_2.x,   self.sigma.sigma_2.y]
+            &[self.sigma.sigma2().gamma,   self.sigma.sigma2().eta,     self.sigma.sigma2().delta,   self.sigma.sigma2().x,   self.sigma.sigma2().y]
         );
         left_pair.eq(&right_pair)
     }
@@ -324,7 +368,7 @@ impl Verifier {
         let LHS_A = 
             (proof0.U * proof3.V_eval)
             - proof0.W
-            +(proof0.V - self.sigma.G * proof3.V_eval) * kappa1
+            +(proof0.V - self.sigma.g() * proof3.V_eval) * kappa1
             - proof0.Q_AX * t_n_eval
             - proof0.Q_AY * t_smax_eval;
 
@@ -334,11 +378,11 @@ impl Verifier {
 
         let left_pair = pairing(
             &[LHS_A + AUX_A],
-            &[self.sigma.H]
+            &[self.sigma.h()]
         );
         let right_pair = pairing(
             &[proof4.Pi_AX,             proof4.Pi_AY],
-            &[self.sigma.sigma_2.x,     self.sigma.sigma_2.y]
+            &[self.sigma.sigma2().x,     self.sigma.sigma2().y]
         );
         return left_pair.eq(&right_pair)
     }
@@ -384,23 +428,23 @@ impl Verifier {
             proof0.B
             + self.preprocess.s0 * thetas[0]
             + self.preprocess.s1 * thetas[1]
-            + self.sigma.G * thetas[2];
+            + self.sigma.g() * thetas[2];
         let G = 
             proof0.B
-            + self.sigma.sigma_1.x * thetas[0]
-            + self.sigma.sigma_1.y * thetas[1]
-            + self.sigma.G * thetas[2];
+            + self.sigma.sigma1_x() * thetas[0]
+            + self.sigma.sigma1_y() * thetas[1]
+            + self.sigma.g() * thetas[2];
         let LHS_C_term1 = 
-            self.sigma.lagrange_KL * (proof3.R_eval - ScalarField::one())
+            self.sigma.lagrange_kl() * (proof3.R_eval - ScalarField::one())
             + (G * proof3.R_eval - F * proof3.R_omegaX_eval) * (kappa0 * (chi - ScalarField::one()))
             + (G * proof3.R_eval - F * proof3.R_omegaX_omegaY_eval) * (kappa0.pow(2) * lagrange_K0_eval)
             - proof2.Q_CX * t_mi_eval
             - proof2.Q_CY * t_smax_eval;
         let LHS_C = 
             LHS_C_term1 * kappa1.pow(2)
-            + (proof1.R - self.sigma.G * proof3.R_eval) * kappa1.pow(3)
-            + (proof1.R - self.sigma.G * proof3.R_omegaX_eval) * kappa2
-            + (proof1.R - self.sigma.G * proof3.R_omegaX_omegaY_eval) * kappa2.pow(2);
+            + (proof1.R - self.sigma.g() * proof3.R_eval) * kappa1.pow(3)
+            + (proof1.R - self.sigma.g() * proof3.R_omegaX_eval) * kappa2
+            + (proof1.R - self.sigma.g() * proof3.R_omegaX_omegaY_eval) * kappa2.pow(2);
         let AUX_C = 
             proof4.Pi_CX * chi
             + proof4.Pi_CY * zeta
@@ -418,11 +462,11 @@ impl Verifier {
             + proof4.N_Y * kappa2.pow(2);
         let left_pair = pairing(
             &[LHS_C + AUX_C],
-            &[self.sigma.H]
+            &[self.sigma.h()]
         );
         let right_pair = pairing(
             &[AUX_X,                  AUX_Y               ],
-            &[self.sigma.sigma_2.x,   self.sigma.sigma_2.y]
+            &[self.sigma.sigma2().x,   self.sigma.sigma2().y]
         );
         return left_pair.eq(&right_pair)
     }
@@ -469,16 +513,16 @@ impl Verifier {
         };
         let LHS_B =
             binding.A * ( ScalarField::one() + (kappa2 * kappa1.pow(4)) )
-            - self.sigma.G * (kappa2 * kappa1.pow(4) * A_eval);
+            - self.sigma.g() * (kappa2 * kappa1.pow(4) * A_eval);
         let AUX_B = 
             proof4.Pi_B * (kappa2 * chi);
         let left_pair = pairing(
             &[LHS_B + AUX_B,    proof0.B,                   proof0.U,                   proof0.V,                   proof0.W                 ],
-            &[self.sigma.H,     self.sigma.sigma_2.alpha4,  self.sigma.sigma_2.alpha,   self.sigma.sigma_2.alpha2,  self.sigma.sigma_2.alpha3]
+            &[self.sigma.h(),     self.sigma.sigma2().alpha4,  self.sigma.sigma2().alpha,   self.sigma.sigma2().alpha2,  self.sigma.sigma2().alpha3]
         );
         let right_pair = pairing(
             &[binding.O_inst,            binding.O_mid,              binding.O_prv,              proof4.Pi_B * kappa2    ],
-            &[self.sigma.sigma_2.gamma,       self.sigma.sigma_2.eta,     self.sigma.sigma_2.delta,   self.sigma.sigma_2.x    ]
+            &[self.sigma.sigma2().gamma,       self.sigma.sigma2().eta,     self.sigma.sigma2().delta,   self.sigma.sigma2().x    ]
         );
 
         return left_pair.eq(&right_pair)

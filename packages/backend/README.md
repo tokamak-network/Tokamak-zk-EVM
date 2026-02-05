@@ -27,7 +27,12 @@ More specifically,
 ### Input
 The setup (both trusted- and MPC-setups) requires the only input from the QAP-compiler, which is [a library of subcircuits](../frontend/qap-compiler/subcircuits/library). This input would be more likely fixed. It will be changed whenever there is a change in the EVM's spec.
 ### Output
-You can find the only setup output from [the "output" folder](./setup/trusted-setup/output), named "combined_sigma.json", which is denoted and defined as $\mathbb{\sigma}$ in the manuscript. The output would rarely change, as it depends on the EVM sepc.
+You can find the setup outputs in [the "output" folder](./setup/trusted-setup/output):
+- `combined_sigma.rkyv` (for prove)
+- `sigma_verify.rkyv` (for verify)
+- `sigma_preprocess.rkyv` (for preprocess)
+These outputs rarely change, as they depend on the EVM spec.
+
 
 ## Description for the Prove input and output
 ### Input

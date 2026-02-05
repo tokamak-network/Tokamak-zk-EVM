@@ -5,7 +5,7 @@
     use libs::iotools::{*};
     use libs::field_structures::{FieldSerde, hashing};
     use libs::vector_operations::{point_add_two_vecs, point_div_two_vecs, point_mul_two_vecs, resize, transpose_inplace};
-    use libs::group_structures::{Sigma, G1serde};
+    use libs::group_structures::G1serde;
     use libs::polynomial_structures::gen_bXY;
     use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
     use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
@@ -16,6 +16,9 @@
     use std::path::{PathBuf};
     use std::{vec};
     use tiny_keccak::Keccak;
+
+    mod sigma_source;
+    use sigma_source::SigmaHolder;
 
 
     macro_rules! poly_comb {
@@ -193,7 +196,7 @@
 
     pub struct Prover{
         pub setup_params: SetupParams,
-        pub sigma: Sigma,
+        pub sigma: SigmaHolder,
         pub instance: InstancePolynomials,
         pub witness: Witness,
         pub mixer: Mixer,
@@ -751,8 +754,8 @@
 
             // Load Sigma (reference string)
             let time_start = Instant::now();
-            let sigma_bincode_path = PathBuf::from(paths.setup_path).join("combined_sigma.bin");
-            let sigma_file_bytes = std::fs::metadata(&sigma_bincode_path)
+            let sigma_path = PathBuf::from(paths.setup_path).join("combined_sigma.rkyv");
+            let sigma_file_bytes = std::fs::metadata(&sigma_path)
                 .map(|m| m.len() as usize)
                 .unwrap_or(0);
             let mut sigma = crate::time_block!(
@@ -762,8 +765,9 @@
                     crate::timing::SizeInfo { label: "file_bytes", dims: vec![sigma_file_bytes] },
                 ],
                 {
-                    Sigma::read_from_bincode(sigma_bincode_path)
-                        .expect("No reference string is found. Run the Setup first.")
+                    let sigma = SigmaHolder::load(&sigma_path)
+                        .expect("No reference string is found. Run the Setup first (expected combined_sigma.rkyv).");
+                    sigma
                 }
             );
             println!("🔄 Loading Sigma took {:?}", time_start.elapsed());
@@ -809,7 +813,7 @@
                         crate::timing::SizeInfo { label: "A", dims: vec![l, 1] },
                     ],
                     {
-                        sigma.sigma_1.encode_poly(&mut instance.a_pub_X, &setup_params)
+                        sigma.sigma1().encode_poly(&mut instance.a_pub_X, &setup_params)
                     }
                 );
                 let O_inst = crate::time_block!(
@@ -819,11 +823,11 @@
                         crate::timing::SizeInfo { label: "O_inst", dims: vec![l, 1] },
                     ],
                     {
-                        sigma.sigma_1.encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params)
+                        sigma.sigma1().encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params)
                     }
                 );
                 
-                sigma.sigma_1.gamma_inv_o_inst = vec![G1serde::zero()].into_boxed_slice();
+                sigma.clear_gamma_inv_o_inst();
                 let O_mid_core = crate::time_block!(
                     "init.build.binding.O_mid_core",
                     "build",
@@ -831,13 +835,13 @@
                         crate::timing::SizeInfo { label: "O_mid_core", dims: vec![l_d, 1] },
                     ],
                     {
-                        sigma.sigma_1.encode_O_mid_no_zk(&placement_variables, &subcircuit_infos, &setup_params)
+                        sigma.sigma1().encode_O_mid_no_zk(&placement_variables, &subcircuit_infos, &setup_params)
                     }
                 );
-                sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj = vec![vec![G1serde::zero()].into_boxed_slice()].into_boxed_slice();
+                sigma.clear_eta_inv_li_o_inter_alpha4_kj();
                 let O_mid = 
                     O_mid_core
-                    + sigma.sigma_1.delta * mixer.rO_mid;
+                    + sigma.sigma1().delta() * mixer.rO_mid;
                 let O_prv_core = crate::time_block!(
                     "init.build.binding.O_prv_core",
                     "build",
@@ -845,36 +849,36 @@
                         crate::timing::SizeInfo { label: "O_prv_core", dims: vec![l_d, 1] },
                     ],
                     {
-                        sigma.sigma_1.encode_O_prv_no_zk(&placement_variables, &subcircuit_infos, &setup_params)
+                        sigma.sigma1().encode_O_prv_no_zk(&placement_variables, &subcircuit_infos, &setup_params)
                     }
                 );
-                sigma.sigma_1.delta_inv_li_o_prv = vec![vec![G1serde::zero()].into_boxed_slice()].into_boxed_slice();
+                sigma.clear_delta_inv_li_o_prv();
                 let O_prv =
                     O_prv_core
-                    - sigma.sigma_1.eta * mixer.rO_mid
+                    - sigma.sigma1().eta() * mixer.rO_mid
 
-                    + sigma.sigma_1.delta_inv_alphak_xh_tx[0][0] * mixer.rU_X
-                    + sigma.sigma_1.delta_inv_alphak_xh_tx[1][0] * mixer.rV_X
+                    + sigma.sigma1().delta_inv_alphak_xh_tx(0, 0) * mixer.rU_X
+                    + sigma.sigma1().delta_inv_alphak_xh_tx(1, 0) * mixer.rV_X
                     + (
-                        sigma.sigma_1.delta_inv_alphak_xh_tx[2][0] * mixer.rW_X[0]
-                        + sigma.sigma_1.delta_inv_alphak_xh_tx[2][1] * mixer.rW_X[1]
-                        + sigma.sigma_1.delta_inv_alphak_xh_tx[2][2] * mixer.rW_X[2]
+                        sigma.sigma1().delta_inv_alphak_xh_tx(2, 0) * mixer.rW_X[0]
+                        + sigma.sigma1().delta_inv_alphak_xh_tx(2, 1) * mixer.rW_X[1]
+                        + sigma.sigma1().delta_inv_alphak_xh_tx(2, 2) * mixer.rW_X[2]
                     )
                     + (
-                        sigma.sigma_1.delta_inv_alpha4_xj_tx[0] * mixer.rB_X[0]
-                        + sigma.sigma_1.delta_inv_alpha4_xj_tx[1] * mixer.rB_X[1]
+                        sigma.sigma1().delta_inv_alpha4_xj_tx(0) * mixer.rB_X[0]
+                        + sigma.sigma1().delta_inv_alpha4_xj_tx(1) * mixer.rB_X[1]
                     )
 
-                    + sigma.sigma_1.delta_inv_alphak_yi_ty[0][0] * mixer.rU_Y
-                    + sigma.sigma_1.delta_inv_alphak_yi_ty[1][0] * mixer.rV_Y
+                    + sigma.sigma1().delta_inv_alphak_yi_ty(0, 0) * mixer.rU_Y
+                    + sigma.sigma1().delta_inv_alphak_yi_ty(1, 0) * mixer.rV_Y
                     + (
-                        sigma.sigma_1.delta_inv_alphak_yi_ty[2][0] * mixer.rW_Y[0]
-                        + sigma.sigma_1.delta_inv_alphak_yi_ty[2][1] * mixer.rW_Y[1]
-                        + sigma.sigma_1.delta_inv_alphak_yi_ty[2][2] * mixer.rW_Y[2]
+                        sigma.sigma1().delta_inv_alphak_yi_ty(2, 0) * mixer.rW_Y[0]
+                        + sigma.sigma1().delta_inv_alphak_yi_ty(2, 1) * mixer.rW_Y[1]
+                        + sigma.sigma1().delta_inv_alphak_yi_ty(2, 2) * mixer.rW_Y[2]
                     )
                     + (
-                        sigma.sigma_1.delta_inv_alphak_yi_ty[3][0] * mixer.rB_Y[0]
-                        + sigma.sigma_1.delta_inv_alphak_yi_ty[3][1] * mixer.rB_Y[1]
+                        sigma.sigma1().delta_inv_alphak_yi_ty(3, 0) * mixer.rB_Y[0]
+                        + sigma.sigma1().delta_inv_alphak_yi_ty(3, 1) * mixer.rB_Y[1]
                     );
                 Binding {A, O_inst, O_mid, O_prv}
             };
@@ -1003,7 +1007,7 @@
                         crate::timing::SizeInfo { label: "U", dims: vec![self.witness.uXY.x_size, self.witness.uXY.y_size] },
                     ],
                     {
-                    self.sigma.sigma_1.encode_poly(&mut UXY, &self.setup_params)
+                    self.sigma.sigma1().encode_poly(&mut UXY, &self.setup_params)
                 })
             };
 
@@ -1020,7 +1024,7 @@
                         crate::timing::SizeInfo { label: "V", dims: vec![self.witness.vXY.x_size, self.witness.vXY.y_size] },
                     ],
                     {
-                    self.sigma.sigma_1.encode_poly(&mut VXY, &self.setup_params)
+                    self.sigma.sigma1().encode_poly(&mut VXY, &self.setup_params)
                 })
             };
             
@@ -1037,7 +1041,7 @@
                         crate::timing::SizeInfo { label: "W", dims: vec![self.witness.wXY.x_size, self.witness.wXY.y_size] },
                     ],
                     {
-                    self.sigma.sigma_1.encode_poly(&mut WXY, &self.setup_params)
+                    self.sigma.sigma1().encode_poly(&mut WXY, &self.setup_params)
                 })
             };
 
@@ -1058,7 +1062,7 @@
                         crate::timing::SizeInfo { label: "Q_AX", dims: vec![self.quotients.q0XY.x_size, self.quotients.q0XY.y_size] },
                     ],
                     {
-                    self.sigma.sigma_1.encode_poly(&mut Q_AX_XY, &self.setup_params)
+                    self.sigma.sigma1().encode_poly(&mut Q_AX_XY, &self.setup_params)
                 })
             };
 
@@ -1078,7 +1082,7 @@
                         crate::timing::SizeInfo { label: "Q_AY", dims: vec![self.quotients.q1XY.x_size, self.quotients.q1XY.y_size] },
                     ],
                     {
-                    self.sigma.sigma_1.encode_poly(&mut Q_AY_XY, &self.setup_params)
+                    self.sigma.sigma1().encode_poly(&mut Q_AY_XY, &self.setup_params)
                 })
             };
             drop(rW_X);
@@ -1105,7 +1109,7 @@
                         crate::timing::SizeInfo { label: "B", dims: vec![self.witness.bXY.x_size, self.witness.bXY.y_size] },
                     ],
                     {
-                    self.sigma.sigma_1.encode_poly(&mut BXY, &self.setup_params)
+                    self.sigma.sigma1().encode_poly(&mut BXY, &self.setup_params)
                 })
             };
 
@@ -1234,7 +1238,7 @@
                     crate::timing::SizeInfo { label: "R", dims: vec![self.witness.rXY.x_size, self.witness.rXY.y_size] },
                 ],
                 {
-                self.sigma.sigma_1.encode_poly(&mut RXY, &self.setup_params)
+                self.sigma.sigma1().encode_poly(&mut RXY, &self.setup_params)
             });
 
 
@@ -1440,7 +1444,7 @@
                         crate::timing::SizeInfo { label: "Q_CX", dims: vec![self.quotients.q2XY.x_size, self.quotients.q2XY.y_size] },
                     ],
                     {
-                    self.sigma.sigma_1.encode_poly(&mut Q_CX_XY, &self.setup_params)
+                    self.sigma.sigma1().encode_poly(&mut Q_CX_XY, &self.setup_params)
                 })
             };
 
@@ -1473,7 +1477,7 @@
                         crate::timing::SizeInfo { label: "Q_CY", dims: vec![self.quotients.q3XY.x_size, self.quotients.q3XY.y_size] },
                     ],
                     {
-                    self.sigma.sigma_1.encode_poly(&mut Q_CY_XY, &self.setup_params)
+                    self.sigma.sigma1().encode_poly(&mut Q_CY_XY, &self.setup_params)
                 })
             };
 
@@ -1627,7 +1631,7 @@
                             crate::timing::SizeInfo { label: "Pi_AX", dims: vec![self.witness.uXY.x_size, self.witness.uXY.y_size] },
                         ],
                         {
-                        self.sigma.sigma_1.encode_poly(&mut Pi_AX_XY, &self.setup_params)
+                        self.sigma.sigma1().encode_poly(&mut Pi_AX_XY, &self.setup_params)
                     }),
                     crate::time_block!(
                         "prove4.encode.Pi_AY",
@@ -1636,7 +1640,7 @@
                             crate::timing::SizeInfo { label: "Pi_AY", dims: vec![self.witness.uXY.x_size, self.witness.uXY.y_size] },
                         ],
                         {
-                        self.sigma.sigma_1.encode_poly(&mut Pi_AY_XY, &self.setup_params)
+                        self.sigma.sigma1().encode_poly(&mut Pi_AY_XY, &self.setup_params)
                     })
                 )
             };
@@ -1676,7 +1680,7 @@
                             crate::timing::SizeInfo { label: "M_X", dims: vec![self.witness.rXY.x_size, self.witness.rXY.y_size] },
                         ],
                         {
-                        self.sigma.sigma_1.encode_poly(&mut M_X_XY, &self.setup_params)
+                        self.sigma.sigma1().encode_poly(&mut M_X_XY, &self.setup_params)
                     }),
                     crate::time_block!(
                         "prove4.encode.M_Y",
@@ -1685,7 +1689,7 @@
                             crate::timing::SizeInfo { label: "M_Y", dims: vec![self.witness.rXY.x_size, self.witness.rXY.y_size] },
                         ],
                         {
-                        self.sigma.sigma_1.encode_poly(&mut M_Y_XY, &self.setup_params)
+                        self.sigma.sigma1().encode_poly(&mut M_Y_XY, &self.setup_params)
                     })
                 )
             };
@@ -1722,7 +1726,7 @@
                             crate::timing::SizeInfo { label: "N_X", dims: vec![self.witness.rXY.x_size, self.witness.rXY.y_size] },
                         ],
                         {
-                        self.sigma.sigma_1.encode_poly(&mut N_X_XY, &self.setup_params)
+                        self.sigma.sigma1().encode_poly(&mut N_X_XY, &self.setup_params)
                     }),
                     crate::time_block!(
                         "prove4.encode.N_Y",
@@ -1731,7 +1735,7 @@
                             crate::timing::SizeInfo { label: "N_Y", dims: vec![self.witness.rXY.x_size, self.witness.rXY.y_size] },
                         ],
                         {
-                        self.sigma.sigma_1.encode_poly(&mut N_Y_XY, &self.setup_params)
+                        self.sigma.sigma1().encode_poly(&mut N_Y_XY, &self.setup_params)
                     })
                 )
             };
@@ -1889,7 +1893,7 @@
                             crate::timing::SizeInfo { label: "Pi_CX", dims: vec![m_i, s_max] },
                         ],
                         {
-                        self.sigma.sigma_1.encode_poly(&mut Pi_CX_XY, &self.setup_params)
+                        self.sigma.sigma1().encode_poly(&mut Pi_CX_XY, &self.setup_params)
                     }),
                     crate::time_block!(
                         "prove4.encode.Pi_CY",
@@ -1898,7 +1902,7 @@
                             crate::timing::SizeInfo { label: "Pi_CY", dims: vec![m_i, s_max] },
                         ],
                         {
-                        self.sigma.sigma_1.encode_poly(&mut Pi_CY_XY, &self.setup_params)
+                        self.sigma.sigma1().encode_poly(&mut Pi_CY_XY, &self.setup_params)
                     })
                 )
             };
@@ -1920,7 +1924,7 @@
                         crate::timing::SizeInfo { label: "a_pub_X", dims: vec![self.instance.a_pub_X.x_size, self.instance.a_pub_X.y_size] },
                     ],
                     {
-                    self.sigma.sigma_1.encode_poly(&mut pi_B_XY, &self.setup_params)
+                    self.sigma.sigma1().encode_poly(&mut pi_B_XY, &self.setup_params)
                 }) * kappa1.pow(4)
             };
 

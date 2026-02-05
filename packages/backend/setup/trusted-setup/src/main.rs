@@ -427,20 +427,25 @@ fn main() {
 
     let start = Instant::now();
     
-    // Write bincode version for faster loading
     let output_dir_path = PathBuf::from(paths.output_path);
     std::fs::create_dir_all(&output_dir_path).expect("Failed to create output directory");
-    println!("Writing the sigma into bincode...");
-    let bincode_data = bincode::serialize(&sigma).expect("Failed to serialize sigma to bincode");
-    std::fs::write(output_dir_path.join("combined_sigma.bin"), bincode_data).expect("Failed to write bincode file");
-    
-    // // Writing the sigma into rust code
-    // println!("Writing the sigma into a rust code...");
-    // let output_path = "setup/trusted-setup/output/combined_sigma.rs";
-    // sigma.write_into_rust_code(output_path).unwrap();
+    {
+        use libs::iotools::{SigmaPreprocessRkyv, SigmaRkyv, SigmaVerifyRkyv};
+        println!("Writing the sigma into rkyv (zero-copy)...");
+        let sigma_rkyv = SigmaRkyv::from_sigma(&sigma);
+        let bytes = rkyv::to_bytes::<_, 256>(&sigma_rkyv).expect("Failed to serialize sigma to rkyv");
+        std::fs::write(output_dir_path.join("combined_sigma.rkyv"), bytes).expect("Failed to write rkyv file");
 
-    sigma.write_into_json_for_verify(output_dir_path.join("sigma_verify.json")).unwrap();
-    sigma.write_into_json_for_preprocess(output_dir_path.join("sigma_preprocess.json")).unwrap();
+        println!("Writing sigma_verify into rkyv...");
+        let sigma_verify_rkyv = SigmaVerifyRkyv::from_sigma(&sigma);
+        let bytes = rkyv::to_bytes::<_, 256>(&sigma_verify_rkyv).expect("Failed to serialize sigma_verify to rkyv");
+        std::fs::write(output_dir_path.join("sigma_verify.rkyv"), bytes).expect("Failed to write sigma_verify.rkyv");
+
+        println!("Writing sigma_preprocess into rkyv...");
+        let sigma_preprocess_rkyv = SigmaPreprocessRkyv::from_sigma(&sigma);
+        let bytes = rkyv::to_bytes::<_, 256>(&sigma_preprocess_rkyv).expect("Failed to serialize sigma_preprocess to rkyv");
+        std::fs::write(output_dir_path.join("sigma_preprocess.rkyv"), bytes).expect("Failed to write sigma_preprocess.rkyv");
+    }
     let lap = start.elapsed();
     println!("The sigma writing time: {:.6} seconds", lap.as_secs_f64());
 

@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
-use libs::group_structures::{G1serde, SigmaPreprocess};
+use libs::group_structures::G1serde;
+use libs::iotools::ArchivedSigmaPreprocessRkyv;
 use libs::iotools::{*};
 use libs::{impl_read_from_json, impl_write_into_json, split_push, pop_recover};
 
@@ -26,7 +27,7 @@ pub struct Preprocess {
 
 impl Preprocess {
     pub fn gen(
-        sigma: &SigmaPreprocess, 
+        sigma: &ArchivedSigmaPreprocessRkyv, 
         permutation_raw: &[Permutation],
         setup_params: &SetupParams
     ) -> Self {
