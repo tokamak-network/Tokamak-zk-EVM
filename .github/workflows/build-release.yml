@@ -214,15 +214,15 @@ jobs:
 
       - name: Validate preprocess input
         run: |
-          if [ ! -f "packages/frontend/synthesizer/outputs/preprocess.json" ]; then
-            echo "❌ Missing preprocess input: packages/frontend/synthesizer/outputs/preprocess.json (expected from evm-compat-test)"
+          if [ ! -f "packages/frontend/synthesizer/outputs/permutation.json" ]; then
+            echo "❌ Missing preprocess input: packages/frontend/synthesizer/outputs/permutation.json (expected from evm-compat-test)"
             exit 1
           fi
 
       - name: Run preprocess
         run: |
           echo "⚙️ Running preprocess..."
-          ./tokamak-cli --preprocess packages/frontend/synthesizer/outputs/preprocess.json
+          ./tokamak-cli --preprocess packages/frontend/synthesizer/outputs/permutation.json
 
       - name: Validate prove inputs
         run: |
