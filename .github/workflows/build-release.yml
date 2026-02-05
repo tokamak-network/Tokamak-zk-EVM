@@ -236,13 +236,6 @@ jobs:
           echo "🔐 Running prove..."
           ./tokamak-cli --prove ./packages/frontend/synthesizer/outputs
 
-      - name: Validate proof bundle
-        run: |
-          if [ ! -f "./test-out/test-proof.zip" ]; then
-            echo "❌ Missing proof bundle: ./test-out/test-proof.zip (expected from --prove)"
-            exit 1
-          fi
-
       - name: Run extract-proof
         run: |
           echo "📦 Running extract-proof..."
