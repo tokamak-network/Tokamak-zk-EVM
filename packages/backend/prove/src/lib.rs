@@ -1,7 +1,7 @@
     #![allow(non_snake_case)]
-    use icicle_runtime::memory::HostSlice;
+    use icicle_runtime::memory::{DeviceVec, HostSlice};
     use libs::{impl_read_from_json, impl_write_into_json, split_push, pop_recover};
-    use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
+    use libs::bivariate_polynomial::{BivariatePolynomial, DenomCache, DensePolynomialExt, DivByVanishingCache};
     use libs::iotools::{*};
     use libs::field_structures::{FieldSerde, hashing};
     use libs::vector_operations::{point_add_two_vecs, point_div_two_vecs, point_mul_two_vecs, resize, transpose_inplace};
@@ -187,13 +187,18 @@
         pub q7XY: DensePolynomialExt,
     }
 
+    pub struct ProverCache {
+        div_by_vanishing: DivByVanishingCache,
+    }
+
     pub struct Prover{
         pub setup_params: SetupParams,
         pub sigma: Sigma,
         pub instance: InstancePolynomials,
         pub witness: Witness,
         pub mixer: Mixer,
-        pub quotients: Quotients
+        pub quotients: Quotients,
+        pub cache: ProverCache,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -553,6 +558,12 @@
                 Quotients {q0XY, q1XY, q2XY, q3XY, q4XY, q5XY, q6XY, q7XY}
             };
             println!("🔄 Loading quotients took {:?}", time_start.elapsed());
+            let cache = ProverCache {
+                div_by_vanishing: DivByVanishingCache {
+                    denom_x_eval_inv: Box::<[DenomCache]>::default(),
+                    denom_y_eval_inv: Box::<[DenomCache]>::default(),
+                },
+            };
 
             // Load permutation (copy constraints of the variables)
             let permutation_path = PathBuf::from(paths.synthesizer_path).join("permutation.json");
@@ -882,7 +893,7 @@
             );
 
             return (
-                Self {sigma, setup_params, instance, witness, mixer, quotients},
+                Self {sigma, setup_params, instance, witness, mixer, quotients, cache},
                 binding
             )
         }
@@ -946,7 +957,8 @@
                 }
                 let (q0XY, q1XY) = p0XY.div_by_vanishing(
                     self.setup_params.n as i64, 
-                    self.setup_params.s_max as i64
+                    self.setup_params.s_max as i64,
+                    &mut self.cache.div_by_vanishing,
                 );
                 #[cfg(feature = "testing-mode")] {
                     let x_e = ScalarCfg::generate_random(1)[0];
@@ -1360,9 +1372,9 @@
                     &(&self.witness.rXY * &gXY) - &(&r_omegaX_omegaY * &fXY)
                 );
                 
-                let (q2XY, q3XY) = p1XY.div_by_vanishing(m_i as i64, s_max as i64);
-                let (q4XY, q5XY) = p2XY.div_by_vanishing(m_i as i64, s_max as i64);
-                let (q6XY, q7XY) = p3XY.div_by_vanishing(m_i as i64, s_max as i64);
+                let (q2XY, q3XY) = p1XY.div_by_vanishing(m_i as i64, s_max as i64, &mut self.cache.div_by_vanishing);
+                let (q4XY, q5XY) = p2XY.div_by_vanishing(m_i as i64, s_max as i64, &mut self.cache.div_by_vanishing);
+                let (q6XY, q7XY) = p3XY.div_by_vanishing(m_i as i64, s_max as i64, &mut self.cache.div_by_vanishing);
                 #[cfg(feature = "testing-mode")] {
                     let x_e = ScalarCfg::generate_random(1)[0];
                     let y_e = ScalarCfg::generate_random(1)[0];

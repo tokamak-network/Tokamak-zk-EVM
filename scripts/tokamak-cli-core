@@ -604,11 +604,35 @@ step_synthesize() {
 }
 
 step_preprocess() {
+  local input_arg="${1:-}"
   local target dist_dir run3 backend_resource
   target="$(detect_target)"
   dist_dir="$(dist_dir_for_target "$target")"
   run3="$dist_dir/3_run-preprocess.sh"
   backend_resource="$dist_dir/resource/prove"
+
+  if [[ -n "$input_arg" ]]; then
+    local input_path synth_output_dir input_base dest_path
+    input_path="$(abs_path_from_root "$input_arg")"
+    if [[ ! -e "$input_path" ]]; then
+      err "Preprocess input file not found: $input_arg"
+      exit 1
+    fi
+    if [[ ! -f "$input_path" ]]; then
+      err "Preprocess input must be a file (not a directory): $input_arg"
+      exit 1
+    fi
+    input_base="$(basename "$input_path")"
+    if [[ "$input_base" != "permutation.json" ]]; then
+      err "Preprocess input must be permutation.json: $input_arg"
+      exit 1
+    fi
+    synth_output_dir="$dist_dir/resource/synthesizer/output"
+    mkdir -p "$synth_output_dir"
+    dest_path="$synth_output_dir/permutation.json"
+    cp "$input_path" "$dest_path"
+    ok "Copied permutation.json → $dest_path"
+  fi
 
   log "Preprocess: running backend preprocess (target=$target)"
   ensure_file "$run3" || exit 1

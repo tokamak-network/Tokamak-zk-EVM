@@ -2,6 +2,11 @@ import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
 import type { DataPt, DataPtDescription } from './index.ts'
 import { BUFFER_LIST, ReservedBuffer, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
 
+export enum BufferErrorMessage {
+  UnregisteredContractStorageWrite = 'Error: Writing at a storage key not registered ',
+  UnregisteredContractStorageRead = 'Error: Access to a storage key not registered ',
+}
+
 const PUBLIC_OUT_VARIABLES_STATIC = [
   // Nothing
 ] as const
@@ -412,7 +417,8 @@ const VARIABLE_DESCRIPTION_INCOMPLETE: Record<ReservedVariable, DataPtDescriptio
   ..._PRIVATE_IN_DESCRIPTION_INCOMPLETE,
 }
 
-VARIABLE_DESCRIPTION_INCOMPLETE.UNREGISTERED_CONTRACT_STORAGE_OUT.extDest = `Error: Writing at a storage key not registered `
+VARIABLE_DESCRIPTION_INCOMPLETE.UNREGISTERED_CONTRACT_STORAGE_OUT.extDest =
+  BufferErrorMessage.UnregisteredContractStorageWrite;
 
 VARIABLE_DESCRIPTION_INCOMPLETE.RES_MERKLE_ROOT.extDest = `Resulting Merkle tree root hash`;
 VARIABLE_DESCRIPTION_INCOMPLETE.RES_MERKLE_ROOT.sourceBitSize = 255;
@@ -425,7 +431,8 @@ VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_SIGNATURE.sourceBitSize = 255;
 
 VARIABLE_DESCRIPTION_INCOMPLETE.CONTRACT_ADDRESS.extSource = `Contract address to call`;
 VARIABLE_DESCRIPTION_INCOMPLETE.FUNCTION_SELECTOR.extSource = `Selector for a function to call`;
-VARIABLE_DESCRIPTION_INCOMPLETE.UNREGISTERED_CONTRACT_STORAGE_IN.extSource = `Error: Access to a storage key not registered `;
+VARIABLE_DESCRIPTION_INCOMPLETE.UNREGISTERED_CONTRACT_STORAGE_IN.extSource =
+  BufferErrorMessage.UnregisteredContractStorageRead;
 VARIABLE_DESCRIPTION_INCOMPLETE.COINBASE.extSource = `COINBASE`;
 VARIABLE_DESCRIPTION_INCOMPLETE.TIMESTAMP.extSource = `TIMESTAMP`;
 VARIABLE_DESCRIPTION_INCOMPLETE.NUMBER.extSource = `NUMBER`;
