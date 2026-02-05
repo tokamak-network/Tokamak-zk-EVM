@@ -1,8 +1,8 @@
 # Plan
-- [ ] Confirm scope of commit (all current changes, including `prove/output/timing.release.md`).
-- [ ] Stage all changes.
-- [ ] Commit and push on `jake-backend-zerocopy`.
-- [ ] Merge `jake-backend-zerocopy` into `jake-backend-optimization` and push.
+- [x] Confirm scope of commit (all current changes, including `prove/output/timing.release.md`).
+- [x] Stage all changes.
+- [x] Commit and push on `jake-backend-zerocopy`.
+- [x] Merge `jake-backend-zerocopy` into `jake-backend-optimization` and push.
 
 # Review
-- [ ] Report commit hash and merge result.
+- [x] Report commit hash and merge result.
