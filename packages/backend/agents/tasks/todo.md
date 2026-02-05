@@ -1,7 +1,7 @@
 # Plan
-- [ ] Confirm commit message and scope (all current changes).
-- [ ] Stage all changes.
-- [ ] Commit and push to current branch.
+- [x] Confirm commit message and scope (all current changes).
+- [x] Stage all changes.
+- [x] Commit and push to current branch.
 
 # Review
-- [ ] Report commit hash and pushed branch.
+- [x] Report commit hash and pushed branch.
