@@ -762,7 +762,8 @@
                     crate::timing::SizeInfo { label: "file_bytes", dims: vec![sigma_file_bytes] },
                 ],
                 {
-                    Sigma::read_from_bincode(sigma_bincode_path).expect("No reference string is found. Run the Setup first.")
+                    Sigma::read_from_bincode(sigma_bincode_path)
+                        .expect("No reference string is found. Run the Setup first.")
                 }
             );
             println!("🔄 Loading Sigma took {:?}", time_start.elapsed());

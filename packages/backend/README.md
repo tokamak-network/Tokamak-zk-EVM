@@ -38,6 +38,7 @@ The prove takes its input from the following three paths:
 ### Output
 - Zk proof of correct execution of a transaction
 
+
 ## Description for the Verify input and output
 ### Input
 The verify takes its input from the following three paths:
