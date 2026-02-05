@@ -502,6 +502,12 @@
                 Quotients {q0XY, q1XY, q2XY, q3XY, q4XY, q5XY, q6XY, q7XY}
             };
             println!("🔄 Loading quotients took {:?}", time_start.elapsed());
+            let cache = ProverCache {
+                div_by_vanishing: DivByVanishingCache {
+                    denom_x_eval_inv: Box::<[DenomCache]>::default(),
+                    denom_y_eval_inv: Box::<[DenomCache]>::default(),
+                },
+            };
 
             // Load permutation (copy constraints of the variables)
             let permutation_path = PathBuf::from(paths.synthesizer_path).join("permutation.json");
@@ -699,12 +705,19 @@
                 Binding {A, O_inst, O_mid, O_prv}
             };
             println!("🔄 Binding computation (MSMs) took {:?}", time_start.elapsed());
-            let cache = ProverCache {
-                div_by_vanishing: DivByVanishingCache {
-                    denom_x_eval_inv: Box::<[DenomCache]>::default(),
-                    denom_y_eval_inv: Box::<[DenomCache]>::default(),
-                },
-            };
+
+            #[cfg(feature = "timing")]
+            crate::timing::record(
+                "init.total",
+                "init",
+                init_start.elapsed(),
+                vec![
+                    crate::timing::SizeInfo { label: "n_s_max", dims: vec![n, s_max] },
+                    crate::timing::SizeInfo { label: "m_i_s_max", dims: vec![m_i, s_max] },
+                    crate::timing::SizeInfo { label: "l", dims: vec![l] },
+                    crate::timing::SizeInfo { label: "s_D", dims: vec![s_d] },
+                ],
+            );
 
             return (
                 Self {sigma, setup_params, instance, witness, mixer, quotients, cache},
