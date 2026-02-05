@@ -4,6 +4,17 @@ use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice};
 use std::cmp;
 use std::time::Instant;
 
+use icicle_core::polynomials::UnivariatePolynomial;
+use icicle_core::ntt::{self, NTTDir};
+use icicle_core::vec_ops::{VecOps, VecOpsConfig};
+use icicle_bls12_381::polynomials::DensePolynomial;
+use icicle_runtime::memory::{DeviceSlice, DeviceVec};
+use std::{
+    ops::{Add, AddAssign, Mul, Sub, Neg},
+};
+use super::vector_operations::{*};
+use rayon::prelude::*;
+
 // Assuming the implementation of DensePolynomialExt and BivariatePolynomial is already available
 // This mod tests can be placed in a separate file
 
@@ -46,10 +57,12 @@ mod msm_vs_rayon_tests {
 #[cfg(test)]
 mod tests {
     use icicle_core::ntt;
+    use icicle_core::vec_ops::VecOpsConfig;
+    use icicle_runtime::memory::DeviceVec;
 
     use super::*;
     use crate::vector_operations::{*};
-    use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
+    use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt, DivByVanishingCache};
 
     // Helper function: Create a simple 2D polynomial
     fn create_simple_polynomial() -> DensePolynomialExt {
@@ -512,15 +525,12 @@ mod tests {
     }
 
 
-    // Test for div_by_vanishing - requires specific conditions
-    #[test]
-    fn test_div_by_vanishing_basic() {
-        // Case m=2 and n=2:
-
-        let c = 2usize.pow(4);
-        let d = 2usize.pow(3);
-        let m = 2;
-        let n = 2;
+    fn run_div_by_vanishing_basic(p_x_size: usize, p_y_size: usize, c: usize, d: usize) {
+        if p_x_size % c != 0 || p_y_size % d != 0 {
+            panic!("p_x_size and p_y_size must be divisible by c and d.");
+        }
+        let m = p_x_size / c;
+        let n = p_y_size / d;
         let mut t_x_coeffs = vec![ScalarField::zero(); 2*c];
         let mut t_y_coeffs = vec![ScalarField::zero(); 2*d];
         t_x_coeffs[c] = ScalarField::one();
@@ -561,7 +571,11 @@ mod tests {
         println!("p_xsize: {:?}", p.x_size);
         println!("p_ysize: {:?}", p.y_size);
         
-        let (mut q_x_found, mut q_y_found) = p.div_by_vanishing(c as i64, d as i64);
+        let mut cache = DivByVanishingCache {
+            denom_x_eval_inv: Box::new([]),
+            denom_y_eval_inv: Box::new([]),
+        };
+        let (mut q_x_found, mut q_y_found) = p.div_by_vanishing(c as i64, d as i64, &mut cache);
         q_x_found.optimize_size();
         q_y_found.optimize_size();
         let p_reconstruct = &(&q_x_found * &t_x) + &(&q_y_found * &t_y);
@@ -576,71 +590,17 @@ mod tests {
         assert_eq!(q_x.y_degree, q_x_found.y_degree);
         assert_eq!(q_y.x_degree, q_y_found.x_degree);
         assert_eq!(q_y.y_degree, q_y_found.y_degree);
-        println!("Case m=2 and n=2 passed");
+        println!("Case m={} and n={} passed", m, n);
 
-        // Case m=4 and n=2:
+    }
 
-        let m = 3;
-        let n = 2;
-        let c = 2usize.pow(4);
-        let d = 2usize.pow(3);
-        let mut t_x_coeffs = vec![ScalarField::zero(); 2*c];
-        let mut t_y_coeffs = vec![ScalarField::zero(); 2*d];
-        t_x_coeffs[c] = ScalarField::one();
-        t_x_coeffs[0] = ScalarField::zero() - ScalarField::one();
-        t_y_coeffs[d] = ScalarField::one();
-        t_y_coeffs[0] = ScalarField::zero() - ScalarField::one();
-        let mut t_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_x_coeffs), 2*c, 1);
-        let mut t_y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_y_coeffs), 1, 2*d);
-        t_x.optimize_size();
-        t_y.optimize_size();
-        println!("t_x_xdeg: {:?}", t_x.x_degree);
-        println!("t_y_ydeg: {:?}", t_y.y_degree);
-
-        let q_x_coeffs_opt = ScalarCfg::generate_random(((m-1)*c-3) * (n*d -2) );
-        let q_y_coeffs_opt = ScalarCfg::generate_random((c-1) * ((n-1)*d-2));
-        let q_x_coeffs = resize(
-            &q_x_coeffs_opt.into_boxed_slice(), 
-            (m-1)*c-3, 
-            n*d -2,
-            (m-1)*c, 
-            n*d,
-            ScalarField::zero()
-        );
-        let q_y_coeffs = resize(
-            &q_y_coeffs_opt.into_boxed_slice(), 
-            c-1, 
-            (n-1)*d-2, 
-            c, 
-            (n-1)*d,
-            ScalarField::zero()
-        );
-        let mut q_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_x_coeffs), (m-1)*c, n*d);
-        let mut q_y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_y_coeffs), c, (n-1)*d);
-        q_x.optimize_size();
-        q_y.optimize_size();
-        let mut p = &(&q_x * &t_x) + &(&q_y * &t_y);
-        p.optimize_size();
-        println!("p_xsize: {:?}", p.x_size);
-        println!("p_ysize: {:?}", p.y_size);
-        
-        let (mut q_x_found, mut q_y_found) = p.div_by_vanishing(c as i64, d as i64);
-        q_x_found.optimize_size();
-        q_y_found.optimize_size();
-        let p_reconstruct = &(&q_x_found * &t_x) + &(&q_y_found * &t_y);
-
-        let a = ScalarCfg::generate_random(1)[0];
-        let b = ScalarCfg::generate_random(1)[0];
-        
-        let p_evaled = p.eval(&a, &b);
-        let p_reconstruct_evaled = p_reconstruct.eval(&a, &b);
-        assert!(p_evaled.eq(&p_reconstruct_evaled));
-        assert_eq!(q_x.x_degree, q_x_found.x_degree);
-        assert_eq!(q_x.y_degree, q_x_found.y_degree);
-        assert_eq!(q_y.x_degree, q_y_found.x_degree);
-        assert_eq!(q_y.y_degree, q_y_found.y_degree);
-        println!("Case m=4 and n=2 passed");
-
+    // Test for div_by_vanishing - requires specific conditions
+    #[test]
+    fn test_div_by_vanishing_basic() {
+        let c = 1024;
+        let d = 256;
+        run_div_by_vanishing_basic(2 * c, 2 * d, c, d);
+        run_div_by_vanishing_basic(3 * c, 2 * d, c, d);
     }
 
     #[test]
@@ -690,6 +650,119 @@ mod tests {
 
     }
     // More tests can be added as needed
+
+    fn denom_inv_ntt(
+        target_x: usize,
+        target_y: usize,
+        base: usize,
+        coset_x: Option<&ScalarField>,
+        coset_y: Option<&ScalarField>,
+    ) -> Vec<ScalarField> {
+        let mut coeffs = vec![ScalarField::zero(); 2 * base];
+        coeffs[0] = ScalarField::zero() - ScalarField::one();
+        coeffs[base] = ScalarField::one();
+        let (poly_x, poly_y) = match (coset_x, coset_y) {
+            (Some(_), None) => (2 * base, 1),
+            (None, Some(_)) => (1, 2 * base),
+            _ => panic!("Exactly one of coset_x or coset_y must be provided."),
+        };
+        let mut t = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), poly_x, poly_y);
+        t.resize(target_x, target_y);
+        let mut denom = DeviceVec::<ScalarField>::device_malloc(target_x * target_y).unwrap();
+        t.to_rou_evals(coset_x, coset_y, &mut denom);
+        let mut denom_inv_vec = vec![ScalarField::zero(); target_x * target_y];
+        let denom_inv = HostSlice::from_mut_slice(&mut denom_inv_vec);
+        let vec_ops_cfg = VecOpsConfig::default();
+        ScalarCfg::inv(&denom, denom_inv, &vec_ops_cfg).unwrap();
+        denom_inv_vec
+    }
+
+    fn denom_inv_closed_form(
+        target_x: usize,
+        target_y: usize,
+        base: usize,
+        coset_x: Option<&ScalarField>,
+        coset_y: Option<&ScalarField>,
+    ) -> Vec<ScalarField> {
+        let (axis_size, coset, is_y_dir) = match (coset_x, coset_y) {
+            (Some(cx), None) => (target_x, cx, false),
+            (None, Some(cy)) => (target_y, cy, true),
+            _ => panic!("Exactly one of coset_x or coset_y must be provided."),
+        };
+        let repeat = axis_size / base;
+        let root = ntt::get_root_of_unity::<ScalarField>(repeat as u64);
+        let coset_pow = coset.pow(base);
+        let mut omega_pows = vec![ScalarField::one(); axis_size];
+        for i in 1..axis_size {
+            omega_pows[i] = omega_pows[i - 1] * root;
+        }
+        let mut scaled = vec![ScalarField::zero(); axis_size];
+        scale_vec(coset_pow, &omega_pows, &mut scaled);
+        let mut axis_vals = vec![ScalarField::zero(); axis_size];
+        let minus_one = ScalarField::zero() - ScalarField::one();
+        scalar_vec_add(minus_one, &scaled, &mut axis_vals);
+
+        let mut denom_evals = vec![ScalarField::zero(); target_x * target_y];
+        if is_y_dir {
+            for x in 0..target_x {
+                let row = &mut denom_evals[x * target_y .. (x + 1) * target_y];
+                row.copy_from_slice(&axis_vals);
+            }
+        } else {
+            for x in 0..target_x {
+                let val = axis_vals[x];
+                let row_start = x * target_y;
+                for y in 0..target_y {
+                    denom_evals[row_start + y] = val;
+                }
+            }
+        }
+
+        let mut denom = DeviceVec::<ScalarField>::device_malloc(target_x * target_y).unwrap();
+        denom.copy_from_host(HostSlice::from_slice(&denom_evals)).unwrap();
+        let mut denom_inv_vec = vec![ScalarField::zero(); target_x * target_y];
+        let denom_inv = HostSlice::from_mut_slice(&mut denom_inv_vec);
+        let vec_ops_cfg = VecOpsConfig::default();
+        ScalarCfg::inv(&denom, denom_inv, &vec_ops_cfg).unwrap();
+        denom_inv_vec
+    }
+
+    #[test]
+    fn bench_denom_inv_ntt_vs_closed_form() {
+        let c = 2048;
+        let d = 256;
+        let m = 4;
+        let n = 2;
+        let target_x = m * c;
+        let target_y = n * d;
+        let zeta = ScalarCfg::generate_random(1)[0];
+
+        let start = Instant::now();
+        let ntt_inv = denom_inv_ntt(target_x, target_y, c, Some(&zeta), None);
+        println!("denom_inv_ntt x: {:.6}s", start.elapsed().as_secs_f64());
+
+        let start = Instant::now();
+        let closed_inv = denom_inv_closed_form(target_x, target_y, c, Some(&zeta), None);
+        println!("denom_inv_closed_form x: {:.6}s", start.elapsed().as_secs_f64());
+
+        assert_eq!(ntt_inv.len(), closed_inv.len());
+        for (a, b) in ntt_inv.iter().zip(closed_inv.iter()) {
+            assert!(a.eq(b));
+        }
+
+        let start = Instant::now();
+        let ntt_inv_y = denom_inv_ntt(c, target_y, d, None, Some(&zeta));
+        println!("denom_inv_ntt y: {:.6}s", start.elapsed().as_secs_f64());
+
+        let start = Instant::now();
+        let closed_inv_y = denom_inv_closed_form(c, target_y, d, None, Some(&zeta));
+        println!("denom_inv_closed_form y: {:.6}s", start.elapsed().as_secs_f64());
+
+        assert_eq!(ntt_inv_y.len(), closed_inv_y.len());
+        for (a, b) in ntt_inv_y.iter().zip(closed_inv_y.iter()) {
+            assert!(a.eq(b));
+        }
+    }
 }
 
 #[cfg(test)]
