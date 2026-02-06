@@ -8,7 +8,7 @@ use crate::field_structures::FieldSerde;
 use crate::group_structures::{G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify};
 use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use crate::polynomial_structures::{from_subcircuit_to_QAP, QAP};
-use crate::utils::{check_gpu};
+use crate::utils::{check_device, check_gpu};
 use crate::vector_operations::transpose_inplace;
 
 use super::vector_operations::{*};
@@ -929,93 +929,197 @@ pub fn read_R1CS_gen_uvwXY(
     let mut v_eval = vec![ScalarField::zero(); s_max * n];
     let mut w_eval = vec![ScalarField::zero(); s_max * n];
     
-    // Avoiding loading the same subcircuit multiple times
-    let mut r1cs_cache: HashMap<usize, SubcircuitR1CS> = HashMap::new();
-    let mut cache_stats: HashMap<usize, usize> = HashMap::new(); // Track cache hits
-    
-    // Cache for hex string -> ScalarField conversions (massive speedup for repeated variables)
-    let mut hex_cache: HashMap<HexString, ScalarField> = HashMap::new();
-    let mut hex_cache_hits = 0usize;
-    let mut hex_cache_misses = 0usize;
-        
-    let time_start = Instant::now();
-    for i in 0..placement_variables.len() {
-        let subcircuit_id = placement_variables[i].subcircuitId;
-        
-        // Check cache first
-        let compact_r1cs = if let Some(cached) = r1cs_cache.get(&subcircuit_id) {
-            // Cache hit == no file I/O needed!
-            *cache_stats.entry(subcircuit_id).or_insert(0) += 1;
-            cached
-        } else {
-            // Cache miss - load and cache the subcircuit
-            let r1cs_path = PathBuf::from(qap_path).join(format!("json/subcircuit{subcircuit_id}.json")); // TODO: use bincode instead.
-            let t = Instant::now();
-            let loaded_r1cs = SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[subcircuit_id]).unwrap();
-            println!("    🔄 Loading r1cs {} took {:?} (first time)", subcircuit_id, t.elapsed());
-            r1cs_cache.insert(subcircuit_id, loaded_r1cs);
-            cache_stats.insert(subcircuit_id, 0);
-            r1cs_cache.get(&subcircuit_id).unwrap()
-        };
-        let variables = &placement_variables[i].variables;
-        
-        let t = Instant::now();
-        _from_r1cs_to_eval_cached(
-            &variables, 
-            &compact_r1cs.A_compact_col_mat, 
-            &compact_r1cs.A_active_wires, 
-            i, 
-            n, 
-            &mut u_eval,
-            &mut hex_cache,
-            &mut hex_cache_hits,
-            &mut hex_cache_misses
-        );
-        _from_r1cs_to_eval_cached(
-            &variables, 
-            &compact_r1cs.B_compact_col_mat, 
-            &compact_r1cs.B_active_wires, 
-            i, 
-            n, 
-            &mut v_eval,
-            &mut hex_cache,
-            &mut hex_cache_hits,
-            &mut hex_cache_misses
-        );
-        _from_r1cs_to_eval_cached(
-            &variables, 
-            &compact_r1cs.C_compact_col_mat, 
-            &compact_r1cs.C_active_wires, 
-            i, 
-            n, 
-            &mut w_eval,
-            &mut hex_cache,
-            &mut hex_cache_hits,
-            &mut hex_cache_misses
-        );
-        // println!("    ⚡ Processing r1cs A,B,C {} took {:?}", subcircuit_id, t.elapsed());
+    if placement_variables.len() > s_max {
+        panic!("placement_variables length exceeds s_max.");
     }
-    // println!("🔄 Loading r1cs took {:?}", time_start.elapsed());
-    
-    // Report cache statistics
-    let total_cache_hits: usize = cache_stats.values().sum();
-    let unique_subcircuits = r1cs_cache.len();
-    let total_subcircuit_uses = placement_variables.len();
-    println!("📊 Cache stats: {} unique subcircuits, {} total uses, {} cache hits ({:.1}% hit rate)", 
-        unique_subcircuits, total_subcircuit_uses, total_cache_hits, 
-        (total_cache_hits as f64 / total_subcircuit_uses.max(1) as f64) * 100.0);
-    for (&subcircuit_id, &hits) in cache_stats.iter() {
-        if hits > 0 {
-            println!("  📋 Subcircuit {} used {} times (cached)", subcircuit_id, hits + 1);
+
+    // Collect usage stats and placement indices per subcircuit
+    let mut usage_counts = vec![0usize; subcircuit_infos.len()];
+    let mut unique_ids = HashSet::<usize>::new();
+    let mut indices_by_subcircuit: Vec<Vec<usize>> = vec![Vec::new(); subcircuit_infos.len()];
+    for (i, placement) in placement_variables.iter().enumerate() {
+        let subcircuit_id = placement.subcircuitId;
+        if subcircuit_id >= subcircuit_infos.len() {
+            panic!("Invalid subcircuit id in placement_variables.");
         }
+        usage_counts[subcircuit_id] += 1;
+        unique_ids.insert(subcircuit_id);
+        indices_by_subcircuit[subcircuit_id].push(i);
     }
-    
-    // Report hex parsing cache statistics
-    let total_hex_ops = hex_cache_hits + hex_cache_misses;
-    if total_hex_ops > 0 {
-        println!("🔢 Hex cache stats: {} unique values, {} total conversions, {} hits ({:.1}% hit rate)",
-            hex_cache.len(), total_hex_ops, hex_cache_hits,
-            (hex_cache_hits as f64 / total_hex_ops as f64) * 100.0);
+
+    // Preload all unique subcircuit R1CS (no incremental cache)
+    let mut r1cs_by_id: Vec<Option<SubcircuitR1CS>> = (0..subcircuit_infos.len()).map(|_| None).collect();
+    let time_start = Instant::now();
+    for &subcircuit_id in unique_ids.iter() {
+        let r1cs_path = PathBuf::from(qap_path).join(format!("json/subcircuit{subcircuit_id}.json")); // TODO: use bincode instead.
+        let t = Instant::now();
+        let loaded_r1cs = SubcircuitR1CS::from_path(
+            r1cs_path,
+            &setup_params,
+            &subcircuit_infos[subcircuit_id],
+        ).unwrap();
+        println!("    🔄 Loading r1cs {} took {:?} (first time)", subcircuit_id, t.elapsed());
+        r1cs_by_id[subcircuit_id] = Some(loaded_r1cs);
+    }
+    println!("🔄 Loading r1cs took {:?}", time_start.elapsed());
+
+    let use_gpu = check_gpu();
+    use rayon::prelude::*;
+    let eval_start = Instant::now();
+
+    if use_gpu {
+        // GPU path: batch matmul per subcircuit, parallelize only LHS prep
+        check_device();
+        let mut prep_elapsed = std::time::Duration::ZERO;
+        let mut matmul_elapsed = std::time::Duration::ZERO;
+
+        for (subcircuit_id, indices) in indices_by_subcircuit.iter().enumerate() {
+            if indices.is_empty() {
+                continue;
+            }
+            let compact_r1cs = r1cs_by_id[subcircuit_id].as_ref()
+                .expect("R1CS for subcircuit id must be preloaded.");
+            let m = indices.len();
+
+            let d_a = compact_r1cs.A_active_wires.len();
+            if d_a > 0 {
+                let t0 = Instant::now();
+                let mut lhs_a = vec![ScalarField::zero(); m * d_a];
+                lhs_a.par_chunks_mut(d_a)
+                    .zip(indices.par_iter())
+                    .for_each(|(row, &placement_idx)| {
+                        let variables = &placement_variables[placement_idx].variables;
+                        fill_row_from_active_wires(variables, &compact_r1cs.A_active_wires, row);
+                    });
+                prep_elapsed += t0.elapsed();
+
+                let mut res_a = vec![ScalarField::zero(); m * n];
+                let t1 = Instant::now();
+                matrix_matrix_mul(&lhs_a, &compact_r1cs.A_compact_col_mat, m, d_a, n, &mut res_a);
+                matmul_elapsed += t1.elapsed();
+                for (row_idx, &placement_idx) in indices.iter().enumerate() {
+                    let src = &res_a[row_idx * n .. (row_idx + 1) * n];
+                    u_eval[placement_idx * n .. (placement_idx + 1) * n].copy_from_slice(src);
+                }
+            }
+
+            let d_b = compact_r1cs.B_active_wires.len();
+            if d_b > 0 {
+                let t0 = Instant::now();
+                let mut lhs_b = vec![ScalarField::zero(); m * d_b];
+                lhs_b.par_chunks_mut(d_b)
+                    .zip(indices.par_iter())
+                    .for_each(|(row, &placement_idx)| {
+                        let variables = &placement_variables[placement_idx].variables;
+                        fill_row_from_active_wires(variables, &compact_r1cs.B_active_wires, row);
+                    });
+                prep_elapsed += t0.elapsed();
+
+                let mut res_b = vec![ScalarField::zero(); m * n];
+                let t1 = Instant::now();
+                matrix_matrix_mul(&lhs_b, &compact_r1cs.B_compact_col_mat, m, d_b, n, &mut res_b);
+                matmul_elapsed += t1.elapsed();
+                for (row_idx, &placement_idx) in indices.iter().enumerate() {
+                    let src = &res_b[row_idx * n .. (row_idx + 1) * n];
+                    v_eval[placement_idx * n .. (placement_idx + 1) * n].copy_from_slice(src);
+                }
+            }
+
+            let d_c = compact_r1cs.C_active_wires.len();
+            if d_c > 0 {
+                let t0 = Instant::now();
+                let mut lhs_c = vec![ScalarField::zero(); m * d_c];
+                lhs_c.par_chunks_mut(d_c)
+                    .zip(indices.par_iter())
+                    .for_each(|(row, &placement_idx)| {
+                        let variables = &placement_variables[placement_idx].variables;
+                        fill_row_from_active_wires(variables, &compact_r1cs.C_active_wires, row);
+                    });
+                prep_elapsed += t0.elapsed();
+
+                let mut res_c = vec![ScalarField::zero(); m * n];
+                let t1 = Instant::now();
+                matrix_matrix_mul(&lhs_c, &compact_r1cs.C_compact_col_mat, m, d_c, n, &mut res_c);
+                matmul_elapsed += t1.elapsed();
+                for (row_idx, &placement_idx) in indices.iter().enumerate() {
+                    let src = &res_c[row_idx * n .. (row_idx + 1) * n];
+                    w_eval[placement_idx * n .. (placement_idx + 1) * n].copy_from_slice(src);
+                }
+            }
+        }
+
+        let eval_elapsed = eval_start.elapsed();
+        println!("⏱️  Eval total: {:.3} ms", eval_elapsed.as_secs_f64() * 1000.0);
+        println!("⏱️  Eval prep(d_vec+hex): {:.3} ms", prep_elapsed.as_secs_f64() * 1000.0);
+        println!("⏱️  Eval matmul: {:.3} ms", matmul_elapsed.as_secs_f64() * 1000.0);
+    } else {
+        // CPU path: placement-parallel matmul to avoid large batched CPU kernels
+        let device_name = check_device();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .start_handler(move |_| {
+                let device = icicle_runtime::Device::new(device_name, 0);
+                let _ = icicle_runtime::set_device(&device);
+            })
+            .build()
+            .expect("Failed to build rayon thread pool with device init");
+
+        use std::sync::atomic::{AtomicU64, Ordering};
+        let prep_nanos = AtomicU64::new(0);
+        let matmul_nanos = AtomicU64::new(0);
+        pool.install(|| {
+            u_eval.par_chunks_mut(n)
+                .zip(v_eval.par_chunks_mut(n))
+                .zip(w_eval.par_chunks_mut(n))
+                .zip(placement_variables.par_iter())
+                .for_each(|(((u_chunk, v_chunk), w_chunk), placement)| {
+                    let subcircuit_id = placement.subcircuitId;
+                    let compact_r1cs = r1cs_by_id[subcircuit_id].as_ref()
+                        .expect("R1CS for subcircuit id must be preloaded.");
+                    let variables = &placement.variables;
+
+                    _from_r1cs_to_eval_slice_timed(
+                        variables,
+                        &compact_r1cs.A_compact_col_mat,
+                        &compact_r1cs.A_active_wires,
+                        u_chunk,
+                        &prep_nanos,
+                        &matmul_nanos,
+                    );
+                    _from_r1cs_to_eval_slice_timed(
+                        variables,
+                        &compact_r1cs.B_compact_col_mat,
+                        &compact_r1cs.B_active_wires,
+                        v_chunk,
+                        &prep_nanos,
+                        &matmul_nanos,
+                    );
+                    _from_r1cs_to_eval_slice_timed(
+                        variables,
+                        &compact_r1cs.C_compact_col_mat,
+                        &compact_r1cs.C_active_wires,
+                        w_chunk,
+                        &prep_nanos,
+                        &matmul_nanos,
+                    );
+                });
+        });
+
+        let eval_elapsed = eval_start.elapsed();
+        let prep_ms = prep_nanos.load(Ordering::Relaxed) as f64 / 1_000_000.0;
+        let matmul_ms = matmul_nanos.load(Ordering::Relaxed) as f64 / 1_000_000.0;
+        println!("⏱️  Eval total: {:.3} ms", eval_elapsed.as_secs_f64() * 1000.0);
+        println!("⏱️  Eval prep(d_vec+hex): {:.3} ms", prep_ms);
+        println!("⏱️  Eval matmul: {:.3} ms", matmul_ms);
+    }
+
+    // Report usage statistics
+    let unique_subcircuits = unique_ids.len();
+    let total_subcircuit_uses = placement_variables.len();
+    println!("📊 Subcircuit uses: {} unique, {} total", unique_subcircuits, total_subcircuit_uses);
+    for (subcircuit_id, &count) in usage_counts.iter().enumerate() {
+        if count > 0 {
+            println!("  📋 Subcircuit {} used {} times", subcircuit_id, count);
+        }
     }
 
     let time_start = Instant::now();
@@ -1063,17 +1167,12 @@ fn _from_r1cs_to_eval(variables: &Box<[String]>, compact_mat: &Vec<ScalarField>,
     }
 }
 
-// with hex caching
-fn _from_r1cs_to_eval_cached(
+// without hex caching (direct parse)
+fn _from_r1cs_to_eval_slice(
     variables: &Box<[HexString]>, 
     compact_mat: &Vec<ScalarField>, 
     active_wires: &Vec<usize>, 
-    i: usize, 
-    n: usize, 
-    eval: &mut Vec<ScalarField>,
-    hex_cache: &mut HashMap<HexString, ScalarField>,
-    hex_cache_hits: &mut usize,
-    hex_cache_misses: &mut usize
+    eval_slice: &mut [ScalarField],
 ) {
     let d_len_A = active_wires.len();
     if d_len_A > 0 {
@@ -1081,23 +1180,50 @@ fn _from_r1cs_to_eval_cached(
 
         for &local_idx in active_wires.iter() {
             let hex_str = &variables[local_idx];
-            let scalar_field = if let Some(&cached_value) = hex_cache.get(hex_str) {
-                // Cache hit
-                *hex_cache_hits += 1;
-                cached_value
-            } else {
-                // Cache miss - parse and cache
-                let parsed_value = ScalarField::from_hex(&hex_str.0);
-                hex_cache.insert(hex_str.clone(), parsed_value);
-                *hex_cache_misses += 1;
-                parsed_value
-            };
-            d_vec.push(scalar_field);
+            d_vec.push(ScalarField::from_hex(&hex_str.0));
         }
         
-        // Direct write to the output slice - avoid temporary allocation
-        let eval_slice = &mut eval[i*n .. (i+1)*n];
+        let n = eval_slice.len();
         matrix_matrix_mul(&d_vec, compact_mat, 1, d_len_A, n, eval_slice);
+    }
+}
+
+fn fill_row_from_active_wires(
+    variables: &Box<[HexString]>,
+    active_wires: &Vec<usize>,
+    row: &mut [ScalarField],
+) {
+    if row.len() != active_wires.len() {
+        panic!("Incorrect row length for active wires.");
+    }
+    for (i, &local_idx) in active_wires.iter().enumerate() {
+        let hex_str = &variables[local_idx];
+        row[i] = ScalarField::from_hex(&hex_str.0);
+    }
+}
+
+fn _from_r1cs_to_eval_slice_timed(
+    variables: &Box<[HexString]>,
+    compact_mat: &Vec<ScalarField>,
+    active_wires: &Vec<usize>,
+    eval_slice: &mut [ScalarField],
+    prep_nanos: &std::sync::atomic::AtomicU64,
+    matmul_nanos: &std::sync::atomic::AtomicU64,
+) {
+    let d_len = active_wires.len();
+    if d_len > 0 {
+        let t0 = Instant::now();
+        let mut d_vec = Vec::with_capacity(d_len);
+        for &local_idx in active_wires.iter() {
+            let hex_str = &variables[local_idx];
+            d_vec.push(ScalarField::from_hex(&hex_str.0));
+        }
+        prep_nanos.fetch_add(t0.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+
+        let t1 = Instant::now();
+        let n = eval_slice.len();
+        matrix_matrix_mul(&d_vec, compact_mat, 1, d_len, n, eval_slice);
+        matmul_nanos.fetch_add(t1.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
     }
 }
 
