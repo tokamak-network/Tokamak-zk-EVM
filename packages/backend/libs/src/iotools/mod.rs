@@ -436,6 +436,10 @@ pub struct SubcircuitR1CS{
     pub A_active_wires: Vec<usize>,
     pub B_active_wires: Vec<usize>,
     pub C_active_wires: Vec<usize>,
+    // Sparse rows for CPU evaluation: row -> list of (compact_idx, coeff)
+    pub A_sparse_rows: Vec<Vec<(usize, ScalarField)>>,
+    pub B_sparse_rows: Vec<Vec<(usize, ScalarField)>>,
+    pub C_sparse_rows: Vec<Vec<(usize, ScalarField)>>,
 }
 
 impl SubcircuitR1CS{
@@ -474,10 +478,29 @@ impl SubcircuitR1CS{
             panic!("Incorrectly counted number of wires.");
         }
         
+        // Build compact index maps for sparse rows (local wire idx -> compact idx)
+        let mut a_index_map = vec![usize::MAX; subcircuit_info.Nwires];
+        for (i, &wire_idx) in A_active_wire_indices.iter().enumerate() {
+            a_index_map[wire_idx] = i;
+        }
+        let mut b_index_map = vec![usize::MAX; subcircuit_info.Nwires];
+        for (i, &wire_idx) in B_active_wire_indices.iter().enumerate() {
+            b_index_map[wire_idx] = i;
+        }
+        let mut c_index_map = vec![usize::MAX; subcircuit_info.Nwires];
+        for (i, &wire_idx) in C_active_wire_indices.iter().enumerate() {
+            c_index_map[wire_idx] = i;
+        }
+
         // Each of a_mat_vec, b_mat_vec, and c_mat_vec is, respectively, not a matrix but just a vector of vectors (of irregular lengths).
         let mut A_compact_col_mat = vec![ScalarField::zero(); n * A_len];
         let mut B_compact_col_mat = vec![ScalarField::zero(); n * B_len];
         let mut C_compact_col_mat = vec![ScalarField::zero(); n * C_len];
+
+        // Sparse rows (CPU path)
+        let mut A_sparse_rows: Vec<Vec<(usize, ScalarField)>> = vec![Vec::new(); n];
+        let mut B_sparse_rows: Vec<Vec<(usize, ScalarField)>> = vec![Vec::new(); n];
+        let mut C_sparse_rows: Vec<Vec<(usize, ScalarField)>> = vec![Vec::new(); n];
         
         for row_idx in 0..subcircuit_info.Nconsts {
             let constraint = &constraints.constraints[row_idx];
@@ -505,6 +528,26 @@ impl SubcircuitR1CS{
                     C_compact_col_mat[idx] = ScalarField::from_hex(hex_val);
                 }
             }
+
+            // Build sparse rows from original constraints (compact index)
+            for (local_idx, hex_val) in a_constraint.iter() {
+                let compact_idx = a_index_map[*local_idx];
+                if compact_idx != usize::MAX {
+                    A_sparse_rows[row_idx].push((compact_idx, ScalarField::from_hex(hex_val)));
+                }
+            }
+            for (local_idx, hex_val) in b_constraint.iter() {
+                let compact_idx = b_index_map[*local_idx];
+                if compact_idx != usize::MAX {
+                    B_sparse_rows[row_idx].push((compact_idx, ScalarField::from_hex(hex_val)));
+                }
+            }
+            for (local_idx, hex_val) in c_constraint.iter() {
+                let compact_idx = c_index_map[*local_idx];
+                if compact_idx != usize::MAX {
+                    C_sparse_rows[row_idx].push((compact_idx, ScalarField::from_hex(hex_val)));
+                }
+            }
         }
         // IMPORTANT: A, B, C matrices are of size A_len-by-n, B_len-by-n, and C_len-by-n, respectively.
         // They must be transposed before being converted into bivariate polynomials.
@@ -519,6 +562,9 @@ impl SubcircuitR1CS{
             A_active_wires: A_active_wire_indices,
             B_active_wires: B_active_wire_indices,
             C_active_wires: C_active_wire_indices,
+            A_sparse_rows,
+            B_sparse_rows,
+            C_sparse_rows,
         })
     }
     
@@ -1053,63 +1099,40 @@ pub fn read_R1CS_gen_uvwXY(
         println!("⏱️  Eval prep(d_vec+hex): {:.3} ms", prep_elapsed.as_secs_f64() * 1000.0);
         println!("⏱️  Eval matmul: {:.3} ms", matmul_elapsed.as_secs_f64() * 1000.0);
     } else {
-        // CPU path: placement-parallel matmul to avoid large batched CPU kernels
-        let device_name = check_device();
-        let pool = rayon::ThreadPoolBuilder::new()
-            .start_handler(move |_| {
-                let device = icicle_runtime::Device::new(device_name, 0);
-                let _ = icicle_runtime::set_device(&device);
-            })
-            .build()
-            .expect("Failed to build rayon thread pool with device init");
-
+        // CPU path: sparse rows evaluation (no dense matmul)
         use std::sync::atomic::{AtomicU64, Ordering};
         let prep_nanos = AtomicU64::new(0);
-        let matmul_nanos = AtomicU64::new(0);
-        pool.install(|| {
-            u_eval.par_chunks_mut(n)
-                .zip(v_eval.par_chunks_mut(n))
-                .zip(w_eval.par_chunks_mut(n))
-                .zip(placement_variables.par_iter())
-                .for_each(|(((u_chunk, v_chunk), w_chunk), placement)| {
-                    let subcircuit_id = placement.subcircuitId;
-                    let compact_r1cs = r1cs_by_id[subcircuit_id].as_ref()
-                        .expect("R1CS for subcircuit id must be preloaded.");
-                    let variables = &placement.variables;
+        let eval_nanos = AtomicU64::new(0);
 
-                    _from_r1cs_to_eval_slice_timed(
-                        variables,
-                        &compact_r1cs.A_compact_col_mat,
-                        &compact_r1cs.A_active_wires,
-                        u_chunk,
-                        &prep_nanos,
-                        &matmul_nanos,
-                    );
-                    _from_r1cs_to_eval_slice_timed(
-                        variables,
-                        &compact_r1cs.B_compact_col_mat,
-                        &compact_r1cs.B_active_wires,
-                        v_chunk,
-                        &prep_nanos,
-                        &matmul_nanos,
-                    );
-                    _from_r1cs_to_eval_slice_timed(
-                        variables,
-                        &compact_r1cs.C_compact_col_mat,
-                        &compact_r1cs.C_active_wires,
-                        w_chunk,
-                        &prep_nanos,
-                        &matmul_nanos,
-                    );
-                });
-        });
+        u_eval.par_chunks_mut(n)
+            .zip(v_eval.par_chunks_mut(n))
+            .zip(w_eval.par_chunks_mut(n))
+            .zip(placement_variables.par_iter())
+            .for_each(|(((u_chunk, v_chunk), w_chunk), placement)| {
+                let subcircuit_id = placement.subcircuitId;
+                let compact_r1cs = r1cs_by_id[subcircuit_id].as_ref()
+                    .expect("R1CS for subcircuit id must be preloaded.");
+                let variables = &placement.variables;
+
+                let t0 = Instant::now();
+                let d_vec_a = build_d_vec(variables, &compact_r1cs.A_active_wires);
+                let d_vec_b = build_d_vec(variables, &compact_r1cs.B_active_wires);
+                let d_vec_c = build_d_vec(variables, &compact_r1cs.C_active_wires);
+                prep_nanos.fetch_add(t0.elapsed().as_nanos() as u64, Ordering::Relaxed);
+
+                let t1 = Instant::now();
+                eval_sparse_rows(&d_vec_a, &compact_r1cs.A_sparse_rows, u_chunk);
+                eval_sparse_rows(&d_vec_b, &compact_r1cs.B_sparse_rows, v_chunk);
+                eval_sparse_rows(&d_vec_c, &compact_r1cs.C_sparse_rows, w_chunk);
+                eval_nanos.fetch_add(t1.elapsed().as_nanos() as u64, Ordering::Relaxed);
+            });
 
         let eval_elapsed = eval_start.elapsed();
         let prep_ms = prep_nanos.load(Ordering::Relaxed) as f64 / 1_000_000.0;
-        let matmul_ms = matmul_nanos.load(Ordering::Relaxed) as f64 / 1_000_000.0;
+        let eval_ms = eval_nanos.load(Ordering::Relaxed) as f64 / 1_000_000.0;
         println!("⏱️  Eval total: {:.3} ms", eval_elapsed.as_secs_f64() * 1000.0);
         println!("⏱️  Eval prep(d_vec+hex): {:.3} ms", prep_ms);
-        println!("⏱️  Eval matmul: {:.3} ms", matmul_ms);
+        println!("⏱️  Eval sparse-eval: {:.3} ms", eval_ms);
     }
 
     // Report usage statistics
@@ -1202,28 +1225,32 @@ fn fill_row_from_active_wires(
     }
 }
 
-fn _from_r1cs_to_eval_slice_timed(
-    variables: &Box<[HexString]>,
-    compact_mat: &Vec<ScalarField>,
-    active_wires: &Vec<usize>,
-    eval_slice: &mut [ScalarField],
-    prep_nanos: &std::sync::atomic::AtomicU64,
-    matmul_nanos: &std::sync::atomic::AtomicU64,
-) {
-    let d_len = active_wires.len();
-    if d_len > 0 {
-        let t0 = Instant::now();
-        let mut d_vec = Vec::with_capacity(d_len);
-        for &local_idx in active_wires.iter() {
-            let hex_str = &variables[local_idx];
-            d_vec.push(ScalarField::from_hex(&hex_str.0));
-        }
-        prep_nanos.fetch_add(t0.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+fn build_d_vec(variables: &Box<[HexString]>, active_wires: &Vec<usize>) -> Vec<ScalarField> {
+    let mut d_vec = Vec::with_capacity(active_wires.len());
+    for &local_idx in active_wires.iter() {
+        let hex_str = &variables[local_idx];
+        d_vec.push(ScalarField::from_hex(&hex_str.0));
+    }
+    d_vec
+}
 
-        let t1 = Instant::now();
-        let n = eval_slice.len();
-        matrix_matrix_mul(&d_vec, compact_mat, 1, d_len, n, eval_slice);
-        matmul_nanos.fetch_add(t1.elapsed().as_nanos() as u64, std::sync::atomic::Ordering::Relaxed);
+fn eval_sparse_rows(
+    d_vec: &Vec<ScalarField>,
+    rows: &Vec<Vec<(usize, ScalarField)>>,
+    eval_slice: &mut [ScalarField],
+) {
+    eval_slice.fill(ScalarField::zero());
+    for (row_idx, entries) in rows.iter().enumerate() {
+        if entries.is_empty() {
+            continue;
+        }
+        let mut acc = ScalarField::zero();
+        for (col_idx, coeff) in entries.iter() {
+            acc = acc + (*coeff * d_vec[*col_idx]);
+        }
+        if row_idx < eval_slice.len() {
+            eval_slice[row_idx] = acc;
+        }
     }
 }
 
