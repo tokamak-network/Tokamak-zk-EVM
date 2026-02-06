@@ -60,7 +60,7 @@ We provide a human-readable timing report generated from raw timing data:
 
 The report is **auto-generated** from the JSON using:
 ```
-python3 prove/scripts/timing_to_md.py --input prove/output/timing.release.json --output prove/output/timing.release.md
+python3 prove/optimization/scripts/timing_to_md.py --input prove/optimization/timing.release.json --output prove/optimization/timing.release.md
 ```
 If you re-run the timing test, regenerate the report with the command above to keep them in sync.
 

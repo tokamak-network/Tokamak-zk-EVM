@@ -176,12 +176,17 @@ fn timing_prove_stages() {
     };
 
     let report_json = serde_json::to_string_pretty(&report).expect("failed to serialize timing report");
-    if let Some(out_path) = read_env("TIMING_OUT") {
-        if let Err(err) = fs::write(&out_path, report_json.as_bytes()) {
-            eprintln!("Failed to write timing report to {out_path}: {err}");
+    let default_out = PathBuf::from("prove/optimization/timing.release.json");
+    let out_path = read_env("TIMING_OUT")
+        .map(PathBuf::from)
+        .unwrap_or(default_out);
+    if let Some(parent) = out_path.parent() {
+        if let Err(err) = fs::create_dir_all(parent) {
+            eprintln!("Failed to create timing report directory {parent:?}: {err}");
         }
-    } else {
-        println!("{report_json}");
+    }
+    if let Err(err) = fs::write(&out_path, report_json.as_bytes()) {
+        eprintln!("Failed to write timing report to {:?}: {err}", out_path);
     }
 }
 

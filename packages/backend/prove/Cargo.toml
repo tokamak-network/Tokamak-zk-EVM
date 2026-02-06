@@ -22,3 +22,7 @@ rkyv = { workspace = true }
 default = []
 testing-mode = []
 timing = []
+
+[[test]]
+name = "timing"
+path = "optimization/tests/timing.rs"

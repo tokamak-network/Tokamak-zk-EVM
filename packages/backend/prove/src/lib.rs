@@ -1248,6 +1248,7 @@
         pub fn prove2(&mut self, thetas: &Vec<ScalarField>, kappa0: ScalarField) -> Proof2 {
             let m_i = self.setup_params.l_D - self.setup_params.l;
             let s_max = self.setup_params.s_max;
+            let kappa0_sq = kappa0.pow(2);
             #[cfg(feature = "timing")]
             let _total = crate::timing::SpanGuard::new(
                 "prove2.total",
@@ -1361,11 +1362,11 @@
                 lagrange_K0_XY
             });
 
-            (self.quotients.q2XY, self.quotients.q3XY, self.quotients.q4XY, self.quotients.q5XY, self.quotients.q6XY, self.quotients.q7XY) = crate::time_block!(
-                "poly.div_by_vanishing.prove2.q2q7",
+            (self.quotients.q2XY, self.quotients.q3XY) = crate::time_block!(
+                "poly.div_by_vanishing.prove2.qCXqCY",
                 "poly",
                 vec![
-                    crate::timing::SizeInfo { label: "p1/p2/p3", dims: vec![m_i, s_max] },
+                    crate::timing::SizeInfo { label: "p_comb", dims: vec![m_i, s_max] },
                     crate::timing::SizeInfo { label: "vanishing", dims: vec![m_i, s_max] },
                 ],
                 {
@@ -1376,32 +1377,27 @@
                 let mut p3XY = &lagrange_K0_XY * &(
                     &(&self.witness.rXY * &gXY) - &(&r_omegaX_omegaY * &fXY)
                 );
-                
-                let (q2XY, q3XY) = p1XY.div_by_vanishing(m_i as i64, s_max as i64, &mut self.cache.div_by_vanishing);
-                let (q4XY, q5XY) = p2XY.div_by_vanishing(m_i as i64, s_max as i64, &mut self.cache.div_by_vanishing);
-                let (q6XY, q7XY) = p3XY.div_by_vanishing(m_i as i64, s_max as i64, &mut self.cache.div_by_vanishing);
+
+                let mut p_comb = poly_comb!(
+                    (ScalarField::one(), p1XY),
+                    (kappa0, p2XY),
+                    (kappa0_sq, p3XY)
+                );
+                let (qCX, qCY) = p_comb.div_by_vanishing(m_i as i64, s_max as i64, &mut self.cache.div_by_vanishing);
                 #[cfg(feature = "testing-mode")] {
                     let x_e = ScalarCfg::generate_random(1)[0];
                     let y_e = ScalarCfg::generate_random(1)[0];
-                    let p_1_eval = p1XY.eval(&x_e, &y_e);
-                    let p_2_eval = p2XY.eval(&x_e, &y_e);
-                    let p_3_eval = p3XY.eval(&x_e, &y_e);
-                    let q_2_eval = q2XY.eval(&x_e, &y_e);
-                    let q_3_eval = q3XY.eval(&x_e, &y_e);
-                    let q_4_eval = q4XY.eval(&x_e, &y_e);
-                    let q_5_eval = q5XY.eval(&x_e, &y_e);
-                    let q_6_eval = q6XY.eval(&x_e, &y_e);
-                    let q_7_eval = q7XY.eval(&x_e, &y_e);
+                    let p_comb_eval = p_comb.eval(&x_e, &y_e);
+                    let q_CX_eval = qCX.eval(&x_e, &y_e);
+                    let q_CY_eval = qCY.eval(&x_e, &y_e);
             
                     let t_mi_eval = x_e.pow(m_i) - ScalarField::one();
                     let t_smax_eval = y_e.pow(s_max) - ScalarField::one();
-                    assert!( p_1_eval.eq( &(q_2_eval * t_mi_eval + q_3_eval * t_smax_eval) ) );
-                    assert!( p_2_eval.eq( &(q_4_eval * t_mi_eval + q_5_eval * t_smax_eval) ) );    
-                    assert!( p_3_eval.eq( &(q_6_eval * t_mi_eval + q_7_eval * t_smax_eval) ) );
-                    println!("Checked: r(X,Y) satisfy the recursion for the copy constraints.")
+                    assert!( p_comb_eval.eq( &(q_CX_eval * t_mi_eval + q_CY_eval * t_smax_eval) ) );
+                    println!("Checked: combined copy-constraint quotient relation holds.")
                 }
                 
-                (q2XY, q3XY, q4XY, q5XY, q6XY, q7XY)
+                (qCX, qCY)
             });
 
             
@@ -1423,15 +1419,13 @@
                 );
                 let mut Q_CX_XY = poly_comb!(
                     (ScalarField::one(), self.quotients.q2XY),
-                    (kappa0, self.quotients.q4XY),
-                    (kappa0.pow(2), self.quotients.q6XY),
                     (self.mixer.rR_X, lagrange_KL_XY),
                     (kappa0, (
                             &(&(&rB_X * &(&X_mono - &ScalarField::one())) * &r_D1)
                             + &(&(&self.mixer.rR_X * &(&X_mono - &ScalarField::one())) * &g_D)
                         )
                     ),
-                    (kappa0.pow(2), (
+                    (kappa0_sq, (
                         &(&(&rB_X * &lagrange_K0_XY) * &r_D2)
                         + &(&(&self.mixer.rR_X * &lagrange_K0_XY) * &g_D)
                         )
@@ -1456,15 +1450,13 @@
                 );
                 let mut Q_CY_XY = poly_comb!(
                     (ScalarField::one(), self.quotients.q3XY),
-                    (kappa0, self.quotients.q5XY),
-                    (kappa0.pow(2), self.quotients.q7XY),
                     (self.mixer.rR_Y, lagrange_KL_XY),
                     (kappa0, (
                             &(&(&rB_Y * &(&X_mono - &ScalarField::one())) * &r_D1)
                             + &(&(&self.mixer.rR_Y * &(&X_mono - &ScalarField::one())) * &g_D)
                         )
                     ),
-                    (kappa0.pow(2), (
+                    (kappa0_sq, (
                             &(&(&rB_Y * &lagrange_K0_XY) * &r_D2)
                             + &(&(&self.mixer.rR_Y * &lagrange_K0_XY) * &g_D)
                         )
@@ -1581,9 +1573,33 @@
             );
             let (Pi_AX, Pi_AY) = {
                 let (mut Pi_AX_XY, mut Pi_AY_XY, rem) = {
-                    let t_n_eval = self.instance.t_n.eval(&chi, &ScalarField::one());
-                    let t_smax_eval = self.instance.t_smax.eval(&ScalarField::one(), &zeta);
-                    let small_v_eval = self.witness.vXY.eval(&chi, &zeta);
+                    let t_n_eval = crate::time_block!(
+                        "poly.eval.prove4.t_n",
+                        "poly",
+                        vec![
+                            crate::timing::SizeInfo { label: "t_n", dims: vec![self.instance.t_n.x_size, self.instance.t_n.y_size] },
+                        ],
+                        {
+                        self.instance.t_n.eval(&chi, &ScalarField::one())
+                    });
+                    let t_smax_eval = crate::time_block!(
+                        "poly.eval.prove4.t_smax",
+                        "poly",
+                        vec![
+                            crate::timing::SizeInfo { label: "t_smax", dims: vec![self.instance.t_smax.x_size, self.instance.t_smax.y_size] },
+                        ],
+                        {
+                        self.instance.t_smax.eval(&ScalarField::one(), &zeta)
+                    });
+                    let small_v_eval = crate::time_block!(
+                        "poly.eval.prove4.vXY",
+                        "poly",
+                        vec![
+                            crate::timing::SizeInfo { label: "vXY", dims: vec![self.witness.vXY.x_size, self.witness.vXY.y_size] },
+                        ],
+                        {
+                        self.witness.vXY.eval(&chi, &zeta)
+                    });
 
                     let rW_X = DensePolynomialExt::from_coeffs(
                         HostSlice::from_slice(&self.mixer.rW_X), 
@@ -1596,30 +1612,54 @@
                         self.mixer.rW_Y.len()
                     );
 
-                    let VXY = poly_comb!(
-                        (ScalarField::one(), self.witness.vXY),
-                        (self.mixer.rV_X, self.instance.t_n),
-                        (self.mixer.rV_Y, self.instance.t_smax)
-                    );
+                    let VXY = crate::time_block!(
+                        "poly.combine.prove4.V",
+                        "poly",
+                        vec![
+                            crate::timing::SizeInfo { label: "vXY", dims: vec![self.witness.vXY.x_size, self.witness.vXY.y_size] },
+                        ],
+                        {
+                        poly_comb!(
+                            (ScalarField::one(), self.witness.vXY),
+                            (self.mixer.rV_X, self.instance.t_n),
+                            (self.mixer.rV_Y, self.instance.t_smax)
+                        )
+                    });
 
-                    let pA_XY = poly_comb!(
-                        // for KZG of V
-                        (kappa1, &VXY - &proof3.V_eval.0),
+                    let pA_XY = crate::time_block!(
+                        "poly.combine.prove4.Pi_A",
+                        "poly",
+                        vec![
+                            crate::timing::SizeInfo { label: "uXY", dims: vec![self.witness.uXY.x_size, self.witness.uXY.y_size] },
+                        ],
+                        {
+                        poly_comb!(
+                            // for KZG of V
+                            (kappa1, &VXY - &proof3.V_eval.0),
 
-                        // for Arithmetic constraints
-                        (small_v_eval, self.witness.uXY),
-                        (ScalarField::zero() - ScalarField::one(), self.witness.wXY),
-                        ((ScalarField::zero() - ScalarField::one()) * t_n_eval, self.quotients.q0XY),
-                        ((ScalarField::zero() - ScalarField::one()) * t_smax_eval, self.quotients.q1XY),
+                            // for Arithmetic constraints
+                            (small_v_eval, self.witness.uXY),
+                            (ScalarField::zero() - ScalarField::one(), self.witness.wXY),
+                            ((ScalarField::zero() - ScalarField::one()) * t_n_eval, self.quotients.q0XY),
+                            ((ScalarField::zero() - ScalarField::one()) * t_smax_eval, self.quotients.q1XY),
 
-                        // for zero-knowledge
-                        (small_v_eval * self.mixer.rU_X, self.instance.t_n),
-                        (small_v_eval * self.mixer.rU_Y, self.instance.t_smax),
-                        (ScalarField::zero() - ((self.mixer.rU_X * t_n_eval) + (self.mixer.rU_Y * t_smax_eval)), self.witness.vXY),
-                        (rW_X, &t_n_eval - &self.instance.t_n),
-                        (rW_Y, &t_smax_eval - &self.instance.t_smax)
-                    );
-                    pA_XY.div_by_ruffini(&chi, &zeta)
+                            // for zero-knowledge
+                            (small_v_eval * self.mixer.rU_X, self.instance.t_n),
+                            (small_v_eval * self.mixer.rU_Y, self.instance.t_smax),
+                            (ScalarField::zero() - ((self.mixer.rU_X * t_n_eval) + (self.mixer.rU_Y * t_smax_eval)), self.witness.vXY),
+                            (rW_X, &t_n_eval - &self.instance.t_n),
+                            (rW_Y, &t_smax_eval - &self.instance.t_smax)
+                        )
+                    });
+                    crate::time_block!(
+                        "poly.div_by_ruffini.prove4.Pi_A",
+                        "poly",
+                        vec![
+                            crate::timing::SizeInfo { label: "pA_XY", dims: vec![self.witness.uXY.x_size, self.witness.uXY.y_size] },
+                        ],
+                        {
+                        pA_XY.div_by_ruffini(&chi, &zeta)
+                    })
                 };
 
 
@@ -1648,7 +1688,42 @@
 
             let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
             let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
-            let RXY = &self.witness.rXY + &(&(&self.mixer.rR_X * &self.instance.t_mi) + &(&self.mixer.rR_Y * &self.instance.t_smax));
+            let RXY_t_mi = crate::time_block!(
+                "poly.mul.prove4.RXY_t_mi",
+                "poly",
+                vec![
+                    crate::timing::SizeInfo { label: "t_mi", dims: vec![self.instance.t_mi.x_size, self.instance.t_mi.y_size] },
+                ],
+                {
+                &self.mixer.rR_X * &self.instance.t_mi
+            });
+            let RXY_t_smax = crate::time_block!(
+                "poly.mul.prove4.RXY_t_smax",
+                "poly",
+                vec![
+                    crate::timing::SizeInfo { label: "t_smax", dims: vec![self.instance.t_smax.x_size, self.instance.t_smax.y_size] },
+                ],
+                {
+                &self.mixer.rR_Y * &self.instance.t_smax
+            });
+            let RXY_terms = crate::time_block!(
+                "poly.add.prove4.RXY_terms",
+                "poly",
+                vec![
+                    crate::timing::SizeInfo { label: "m_i_s_max", dims: vec![m_i, s_max] },
+                ],
+                {
+                &RXY_t_mi + &RXY_t_smax
+            });
+            let RXY = crate::time_block!(
+                "poly.add.prove4.RXY",
+                "poly",
+                vec![
+                    crate::timing::SizeInfo { label: "R", dims: vec![self.witness.rXY.x_size, self.witness.rXY.y_size] },
+                ],
+                {
+                &self.witness.rXY + &RXY_terms
+            });
             let (M_X, M_Y) = {
                 let (mut M_X_XY, mut M_Y_XY, rem2) = crate::time_block!(
                     "poly.div_by_ruffini.prove4.M",
@@ -1742,129 +1817,319 @@
 
             
             let (Pi_CX, Pi_CY) = {
-                let LHS_for_copy = {
-                    let r_omegaX = self.witness.rXY.scale_coeffs_x(&omega_m_i.inv());
-                    let r_omegaX_omegaY = r_omegaX.scale_coeffs_y(&omega_s_max.inv());
-                    let mut X_mono_coef = vec![ScalarField::zero(); 2];
-                    X_mono_coef[1] = ScalarField::one();
-                    let X_mono = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&X_mono_coef), 2, 1);
-                    drop(X_mono_coef);
-                    let (fXY, gXY) = {
-                        let mut Y_mono_coef = vec![ScalarField::zero(); 2];
-                        Y_mono_coef[1] = ScalarField::one();
-                        let Y_mono = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&Y_mono_coef), 1, 2);
-                        (
-                            &( &(&self.witness.bXY + &(&thetas[0] * &self.instance.s0XY)) + &(&thetas[1] * &self.instance.s1XY)) + &thetas[2],
-                            &( &(&self.witness.bXY + &(&thetas[0] * &X_mono)) + &(&thetas[1] * &Y_mono)) + &thetas[2]
-                        )
-                    };
-                    let t_mi_eval = chi.pow(m_i) - ScalarField::one();
-                    let t_s_max_eval = zeta.pow(s_max) - ScalarField::one();
-                    let lagrange_K0_XY = {
-                        let mut k0_evals = vec![ScalarField::zero(); m_i];
-                        k0_evals[0] = ScalarField::one();
+                let r_omegaX = crate::time_block!(
+                    "poly.scale_coeffs.prove4.r_omegaX",
+                    "poly",
+                    vec![
+                        crate::timing::SizeInfo { label: "R", dims: vec![self.witness.rXY.x_size, self.witness.rXY.y_size] },
+                    ],
+                    {
+                    self.witness.rXY.scale_coeffs_x(&omega_m_i.inv())
+                });
+                let r_omegaX_omegaY = crate::time_block!(
+                    "poly.scale_coeffs.prove4.r_omegaX_omegaY",
+                    "poly",
+                    vec![
+                        crate::timing::SizeInfo { label: "R_omegaX", dims: vec![self.witness.rXY.x_size, self.witness.rXY.y_size] },
+                    ],
+                    {
+                    r_omegaX.scale_coeffs_y(&omega_s_max.inv())
+                });
+                let mut X_mono_coef = vec![ScalarField::zero(); 2];
+                X_mono_coef[1] = ScalarField::one();
+                let X_mono = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&X_mono_coef), 2, 1);
+                drop(X_mono_coef);
+                let (fXY, gXY) = {
+                    let mut Y_mono_coef = vec![ScalarField::zero(); 2];
+                    Y_mono_coef[1] = ScalarField::one();
+                    let Y_mono = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&Y_mono_coef), 1, 2);
+                    let fXY = crate::time_block!(
+                        "poly.combine.prove4.fXY",
+                        "poly",
+                        vec![
+                            crate::timing::SizeInfo { label: "bXY", dims: vec![self.witness.bXY.x_size, self.witness.bXY.y_size] },
+                        ],
+                        {
+                        &( &(&self.witness.bXY + &(&thetas[0] * &self.instance.s0XY)) + &(&thetas[1] * &self.instance.s1XY)) + &thetas[2]
+                    });
+                    let gXY = crate::time_block!(
+                        "poly.combine.prove4.gXY",
+                        "poly",
+                        vec![
+                            crate::timing::SizeInfo { label: "bXY", dims: vec![self.witness.bXY.x_size, self.witness.bXY.y_size] },
+                        ],
+                        {
+                        &( &(&self.witness.bXY + &(&thetas[0] * &X_mono)) + &(&thetas[1] * &Y_mono)) + &thetas[2]
+                    });
+                    (fXY, gXY)
+                };
+                let t_mi_eval = chi.pow(m_i) - ScalarField::one();
+                let t_s_max_eval = zeta.pow(s_max) - ScalarField::one();
+                let lagrange_K0_XY = crate::time_block!(
+                    "poly.from_rou_evals.prove4.K0",
+                    "poly",
+                    vec![
+                        crate::timing::SizeInfo { label: "k0_evals", dims: vec![m_i] },
+                        crate::timing::SizeInfo { label: "grid", dims: vec![m_i, 1] },
+                    ],
+                    {
+                    let mut k0_evals = vec![ScalarField::zero(); m_i];
+                    k0_evals[0] = ScalarField::one();
+                    DensePolynomialExt::from_rou_evals(
+                        HostSlice::from_slice(&k0_evals),
+                        m_i,
+                        1,
+                        None,
+                        None
+                    )
+                });
+                let lagrange_K0_eval = crate::time_block!(
+                    "poly.eval.prove4.K0",
+                    "poly",
+                    vec![
+                        crate::timing::SizeInfo { label: "K0", dims: vec![m_i, 1] },
+                    ],
+                    {
+                    lagrange_K0_XY.eval(&chi, &zeta)
+                });
+
+                let small_r_eval = crate::time_block!(
+                    "poly.eval.prove4.R",
+                    "poly",
+                    vec![
+                        crate::timing::SizeInfo { label: "R", dims: vec![self.witness.rXY.x_size, self.witness.rXY.y_size] },
+                    ],
+                    {
+                    self.witness.rXY.eval(&chi, &zeta)
+                });
+                let small_r_omegaX_eval = crate::time_block!(
+                    "poly.eval.prove4.R_omegaX",
+                    "poly",
+                    vec![
+                        crate::timing::SizeInfo { label: "R_omegaX", dims: vec![self.witness.rXY.x_size, self.witness.rXY.y_size] },
+                    ],
+                    {
+                    r_omegaX.eval(&chi, &zeta)
+                });
+                let small_r_omegaX_omegaY_eval = crate::time_block!(
+                    "poly.eval.prove4.R_omegaX_omegaY",
+                    "poly",
+                    vec![
+                        crate::timing::SizeInfo { label: "R_omegaX_omegaY", dims: vec![self.witness.rXY.x_size, self.witness.rXY.y_size] },
+                    ],
+                    {
+                    r_omegaX_omegaY.eval(&chi, &zeta)
+                });
+                let lagrange_KL_XY = {
+                    let lagrange_K_XY = crate::time_block!(
+                        "poly.from_rou_evals.prove4.K",
+                        "poly",
+                        vec![
+                            crate::timing::SizeInfo { label: "k_evals", dims: vec![m_i] },
+                            crate::timing::SizeInfo { label: "grid", dims: vec![m_i, 1] },
+                        ],
+                        {
+                        let mut k_evals = vec![ScalarField::zero(); m_i];
+                        k_evals[m_i - 1] = ScalarField::one();
                         DensePolynomialExt::from_rou_evals(
-                            HostSlice::from_slice(&k0_evals),
+                            HostSlice::from_slice(&k_evals),
                             m_i,
                             1,
                             None,
                             None
                         )
-                    };
-                    let lagrange_K0_eval = lagrange_K0_XY.eval(&chi, &zeta);
-
-                    let pC_XY = {
-                        let small_r_eval = self.witness.rXY.eval(&chi, &zeta);
-                        let small_r_omegaX_eval = r_omegaX.eval(&chi, &zeta);
-                        let small_r_omegaX_omegaY_eval = r_omegaX_omegaY.eval(&chi, &zeta);
-                        let lagrange_KL_XY = {
-                            let mut k_evals = vec![ScalarField::zero(); m_i];
-                            k_evals[m_i - 1] = ScalarField::one();
-                            let lagrange_K_XY = DensePolynomialExt::from_rou_evals(
-                                HostSlice::from_slice(&k_evals),
-                                m_i,
-                                1,
-                                None,
-                                None
-                            );
-                            let mut l_evals = vec![ScalarField::zero(); s_max];
-                            l_evals[s_max - 1] = ScalarField::one();
-                            let lagrange_L_XY = DensePolynomialExt::from_rou_evals(
-                                HostSlice::from_slice(&l_evals),
-                                1,
-                                s_max,
-                                None,
-                                None
-                            );
-                            &lagrange_K_XY * &lagrange_L_XY
-                        };
-                        let term5 = poly_comb!(
-                            (small_r_eval, gXY),
-                            (ScalarField::zero() - small_r_omegaX_eval, fXY)
-                        );
-                        let term6 = poly_comb!(
-                            (small_r_eval, gXY),
-                            (ScalarField::zero() - small_r_omegaX_omegaY_eval, fXY)
-                        );
-                        let term7 = poly_comb!(
-                            (ScalarField::one(), self.quotients.q2XY),
-                            (kappa0, self.quotients.q4XY),
-                            (kappa0.pow(2), self.quotients.q6XY)
-                        );
-                        let term8 = poly_comb!(
-                            (ScalarField::one(), self.quotients.q3XY),
-                            (kappa0, self.quotients.q5XY),
-                            (kappa0.pow(2), self.quotients.q7XY)
-                        );
-                        poly_comb!(
-                            (small_r_eval - ScalarField::one(), lagrange_KL_XY),
-                            (kappa0 * (chi - ScalarField::one()), term5),
-                            (kappa0.pow(2) * lagrange_K0_eval, term6),
-                            (ScalarField::zero() - t_mi_eval, term7),
-                            (ScalarField::zero() - t_s_max_eval, term8)
+                    });
+                    let lagrange_L_XY = crate::time_block!(
+                        "poly.from_rou_evals.prove4.L",
+                        "poly",
+                        vec![
+                            crate::timing::SizeInfo { label: "l_evals", dims: vec![s_max] },
+                            crate::timing::SizeInfo { label: "grid", dims: vec![1, s_max] },
+                        ],
+                        {
+                        let mut l_evals = vec![ScalarField::zero(); s_max];
+                        l_evals[s_max - 1] = ScalarField::one();
+                        DensePolynomialExt::from_rou_evals(
+                            HostSlice::from_slice(&l_evals),
+                            1,
+                            s_max,
+                            None,
+                            None
                         )
+                    });
+                    crate::time_block!(
+                        "poly.mul.prove4.KL",
+                        "poly",
+                        vec![
+                            crate::timing::SizeInfo { label: "K", dims: vec![m_i, 1] },
+                            crate::timing::SizeInfo { label: "L", dims: vec![1, s_max] },
+                        ],
+                        {
+                        &lagrange_K_XY * &lagrange_L_XY
+                    })
+                };
+                let term5 = crate::time_block!(
+                    "poly.combine.prove4.term5",
+                    "poly",
+                    vec![
+                        crate::timing::SizeInfo { label: "gXY", dims: vec![self.witness.bXY.x_size, self.witness.bXY.y_size] },
+                    ],
+                    {
+                    poly_comb!(
+                        (small_r_eval, gXY),
+                        (ScalarField::zero() - small_r_omegaX_eval, fXY)
+                    )
+                });
+                let term6 = crate::time_block!(
+                    "poly.combine.prove4.term6",
+                    "poly",
+                    vec![
+                        crate::timing::SizeInfo { label: "gXY", dims: vec![self.witness.bXY.x_size, self.witness.bXY.y_size] },
+                    ],
+                    {
+                    poly_comb!(
+                        (small_r_eval, gXY),
+                        (ScalarField::zero() - small_r_omegaX_omegaY_eval, fXY)
+                    )
+                });
+                let pC_XY = crate::time_block!(
+                    "poly.combine.prove4.pC",
+                    "poly",
+                    vec![
+                        crate::timing::SizeInfo { label: "m_i_s_max", dims: vec![m_i, s_max] },
+                    ],
+                    {
+                    poly_comb!(
+                        (small_r_eval - ScalarField::one(), lagrange_KL_XY),
+                        (kappa0 * (chi - ScalarField::one()), term5),
+                        (kappa0.pow(2) * lagrange_K0_eval, term6),
+                        (ScalarField::zero() - t_mi_eval, self.quotients.q2XY),
+                        (ScalarField::zero() - t_s_max_eval, self.quotients.q3XY)
+                    )
+                });
+                let (LHS_zk1, LHS_zk2) = {
+                    let r_D1 = &self.witness.rXY - &r_omegaX; 
+                    let r_D2 = &self.witness.rXY - &r_omegaX_omegaY;
+                    let r_D1_eval = crate::time_block!(
+                        "poly.eval.prove4.r_D1",
+                        "poly",
+                        vec![
+                            crate::timing::SizeInfo { label: "R", dims: vec![self.witness.rXY.x_size, self.witness.rXY.y_size] },
+                        ],
+                        {
+                        r_D1.eval(&chi, &zeta)
+                    });
+                    let r_D2_eval = crate::time_block!(
+                        "poly.eval.prove4.r_D2",
+                        "poly",
+                        vec![
+                            crate::timing::SizeInfo { label: "R", dims: vec![self.witness.rXY.x_size, self.witness.rXY.y_size] },
+                        ],
+                        {
+                        r_D2.eval(&chi, &zeta)
+                    });
+                    let (term9, term_B_zk) = {
+                        let rB_X = DensePolynomialExt::from_coeffs(
+                            HostSlice::from_slice(&self.mixer.rB_X), 
+                            self.mixer.rB_X.len(), 
+                            1
+                        );
+                        let rB_Y = DensePolynomialExt::from_coeffs(
+                            HostSlice::from_slice(&self.mixer.rB_Y), 
+                            1, 
+                            self.mixer.rB_Y.len()
+                        );
+                        let term9 = crate::time_block!(
+                            "poly.combine.prove4.term9",
+                            "poly",
+                            vec![
+                                crate::timing::SizeInfo { label: "rB", dims: vec![m_i, s_max] },
+                            ],
+                            {
+                            &(&t_mi_eval * &rB_X) + &(&t_s_max_eval * &rB_Y)
+                        });
+                        let term_B_zk = crate::time_block!(
+                            "poly.combine.prove4.term_B_zk",
+                            "poly",
+                            vec![
+                                crate::timing::SizeInfo { label: "rB", dims: vec![m_i, s_max] },
+                            ],
+                            {
+                            &(&rB_X * &self.instance.t_mi) + &(&rB_Y * &self.instance.t_smax)
+                        });
+                        (term9, term_B_zk)
                     };
-                    let (LHS_zk1, LHS_zk2) = {
-                        let r_D1 = &self.witness.rXY - &r_omegaX; 
-                        let r_D2 = &self.witness.rXY - &r_omegaX_omegaY;
-                        let (term9, term_B_zk) = {
-                            let rB_X = DensePolynomialExt::from_coeffs(
-                                HostSlice::from_slice(&self.mixer.rB_X), 
-                                self.mixer.rB_X.len(), 
-                                1
-                            );
-                            let rB_Y = DensePolynomialExt::from_coeffs(
-                                HostSlice::from_slice(&self.mixer.rB_Y), 
-                                1, 
-                                self.mixer.rB_Y.len()
-                            );
-                            (
-                                &(&t_mi_eval * &rB_X) + &(&t_s_max_eval * &rB_Y),
-                                &(&rB_X * &self.instance.t_mi) + &(&rB_Y * &self.instance.t_smax)
-                            )
-                        };
-                        let term10 = &(self.mixer.rR_X * t_mi_eval + self.mixer.rR_Y * t_s_max_eval) * &(&gXY - &fXY);
-                        (
+                    let g_minus_f = crate::time_block!(
+                        "poly.add.prove4.g_minus_f",
+                        "poly",
+                        vec![
+                            crate::timing::SizeInfo { label: "gXY", dims: vec![self.witness.bXY.x_size, self.witness.bXY.y_size] },
+                        ],
+                        {
+                        &gXY - &fXY
+                    });
+                    let term10_scale = self.mixer.rR_X * t_mi_eval + self.mixer.rR_Y * t_s_max_eval;
+                    let term10 = crate::time_block!(
+                        "poly.mul.prove4.term10",
+                        "poly",
+                        vec![
+                            crate::timing::SizeInfo { label: "gXY", dims: vec![self.witness.bXY.x_size, self.witness.bXY.y_size] },
+                        ],
+                        {
+                        &term10_scale * &g_minus_f
+                    });
+                    (
+                        crate::time_block!(
+                            "poly.combine.prove4.LHS_zk1",
+                            "poly",
+                            vec![
+                                crate::timing::SizeInfo { label: "m_i_s_max", dims: vec![m_i, s_max] },
+                            ],
+                            {
                             poly_comb!(
-                                ( (chi - ScalarField::one()) * r_D1.eval(&chi, &zeta), term_B_zk),
-                                (&ScalarField::one()- &X_mono, &r_D1 * &term9),
+                                ((chi - ScalarField::one()) * r_D1_eval, term_B_zk),
+                                (&ScalarField::one() - &X_mono, &r_D1 * &term9),
                                 (term10, (&chi - &X_mono))
-                            ),
+                            )
+                        }),
+                        crate::time_block!(
+                            "poly.combine.prove4.LHS_zk2",
+                            "poly",
+                            vec![
+                                crate::timing::SizeInfo { label: "m_i_s_max", dims: vec![m_i, s_max] },
+                            ],
+                            {
                             poly_comb!(
-                                (lagrange_K0_eval * r_D2.eval(&chi, &zeta), term_B_zk),
+                                (lagrange_K0_eval * r_D2_eval, term_B_zk),
                                 (&lagrange_K0_XY * &r_D2, -&term9),
                                 (term10, &lagrange_K0_eval - &lagrange_K0_XY)
                             )
-                        )
-                    };
-
+                        })
+                    )
+                };
+                let R_minus_eval = crate::time_block!(
+                    "poly.add.prove4.R_minus_eval",
+                    "poly",
+                    vec![
+                        crate::timing::SizeInfo { label: "R", dims: vec![self.witness.rXY.x_size, self.witness.rXY.y_size] },
+                    ],
+                    {
+                    &RXY - &proof3.R_eval.0
+                });
+                let LHS_for_copy = crate::time_block!(
+                    "poly.combine.prove4.LHS_for_copy",
+                    "poly",
+                    vec![
+                        crate::timing::SizeInfo { label: "m_i_s_max", dims: vec![m_i, s_max] },
+                    ],
+                    {
                     poly_comb!(
                         (kappa1.pow(2), pC_XY),
                         (kappa1.pow(2) * kappa0, LHS_zk1),
                         (kappa1.pow(2) * kappa0.pow(2), LHS_zk2),
-                        (kappa1.pow(3), &RXY - &proof3.R_eval.0)
+                        (kappa1.pow(3), R_minus_eval)
                     )
-                };
+                });
 
                 let (mut Pi_CX_XY, mut Pi_CY_XY, rem1) = crate::time_block!(
                     "poly.div_by_ruffini.prove4.Pi_C",
@@ -1913,8 +2178,16 @@
 
             drop(RXY);
             let Pi_B = {
-                let A_eval = self.instance.a_pub_X.eval(&chi, &zeta);
-                let (mut pi_B_XY, _, _) = (&self.instance.a_pub_X - &A_eval).div_by_ruffini(&chi, &zeta);
+                let (mut pi_B_XY, _, _) = crate::time_block!(
+                    "poly.div_by_ruffini.prove4.Pi_B",
+                    "poly",
+                    vec![
+                        crate::timing::SizeInfo { label: "a_pub_X", dims: vec![self.instance.a_pub_X.x_size, self.instance.a_pub_X.y_size] },
+                    ],
+                    {
+                    let A_eval = self.instance.a_pub_X.eval(&chi, &zeta);
+                    (&self.instance.a_pub_X - &A_eval).div_by_ruffini(&chi, &zeta)
+                });
 
 
                 crate::time_block!(

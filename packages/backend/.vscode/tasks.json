@@ -6,7 +6,7 @@
       "type": "shell",
       "command": "python3",
       "args": [
-        "${workspaceFolder}/prove/scripts/timing_to_md.py",
+        "${workspaceFolder}/prove/optimization/scripts/timing_to_md.py",
         "--input",
         "${workspaceFolder}/prove/output/timing.release.json",
         "--output",
