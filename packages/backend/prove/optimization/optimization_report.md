@@ -12,8 +12,9 @@ This report is reconstructed around **total_wall reductions** recorded in `prove
 | 2026-02-06 | a237c3cd, 2675f6f2, 127aa57b | Task checklist update; optimize read_R1CS_gen_uvwXY paths (CPU/GPU branching); add CPU sparse eval for R1CS. | 52.947312 | [mini-report](mini-reports/2026-02-06_127aa57b.md) |
 | 2026-02-06 | ccc3d2d8 | Refine prove4 timing instrumentation and tooling. | 49.781555 | [mini-report](mini-reports/2026-02-06_ccc3d2d8.md) |
 | 2026-02-07 | 6dcce13a, bcc9eb25, 8839dbc5 | div_by_vanishing_opt improvements (docs + caching) and task log update. | 46.743467 | [mini-report](mini-reports/2026-02-07_8839dbc5.md) |
+| 2026-02-08 | 3d6ce1a6, 7964656a | Optimization reporting prompt update; NTT domain init + _biNTT domain checks/coset config; div_by_vanishing_opt axis-inverse caching; timing snapshot refresh. | 27.908515 | [mini-report](mini-reports/2026-02-08_7964656a.md) |
 
 ## Notes
 
 - Rows are included **only when total_wall drops by ≥ 3 seconds** vs the immediately previous snapshot.
-- Current best observed total_wall in this series: **46.743467 s** at `8839dbc5` (2026-02-07).
+- Current best observed total_wall in this series: **27.908515 s** at `7964656a` (2026-02-08).

@@ -198,7 +198,17 @@ Verification: `cargo test -p libs test_coset_ntt_matches_manual_scaling -- --noc
 # Review (2026-02-07)
 - [x] Summarize changes and verification results.
 Expanded NTT domain size init in `Prover::init` to `2*max(m_i,n)` by `2*s_max` to cover zero-knowledge padding, preventing domain-too-small errors.  
-Verification: `cargo test -p prove --lib` (0 tests). Warnings in `libs`/`prove` are pre-existing.
+
+# Plan (2026-02-07)
+- [x] Inspect `prove/output/timing.release.md` and commit history to identify any new snapshot rows where `total_wall` drops by >= 3.0s vs prior snapshot.
+- [x] Update `prove/optimization/optimization_report.md` Source Series table and Notes to reflect any new qualifying rows and commit summaries.
+- [x] Create/refresh the corresponding mini-report(s) under `prove/optimization/mini-reports/` with proposition+proof excerpts.
+- [x] Verify consistency: totals, commit lists, links, and mini-report values match the Source Series rows.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Added a new Source Series row for 2026-02-08 with total_wall 27.908515, updated Notes, and created the mini-report `2026-02-08_7964656a.md` with proposition+proof excerpts.  
+Verification: totals, commit list, and mini-report link/value match `prove/output/timing.release.md` and `git log` (no tests run).
 - [x] Save prompt to `prove/optimization/prompts/REPORTING.md` and verify content.
 
 # Review (2026-02-07)
