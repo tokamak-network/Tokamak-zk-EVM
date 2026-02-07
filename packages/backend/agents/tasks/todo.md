@@ -101,3 +101,65 @@ Documented baseline vs optimized math, and added a differences summary with comp
 - [x] Summarize changes and verification results.
 Added axis-inverse caching for `div_by_vanishing_opt`, extended cache keys with `base`, and updated cache initializations.  
 Verification: `cargo test -p libs test_div_by_vanishing_opt_basic -- --nocapture` (pass). Warnings in `libs` (pre-existing).
+
+# Plan (2026-02-07)
+- [x] Restructure `prove/optimization/optimization_report.md` around total_wall reduction events from `timing.release.md`.
+- [x] Group commits by reduction event and summarize combined changes when multiple commits contribute.
+- [x] Verify the report for consistency (no tests needed).
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Rebuilt the optimization report around total_wall reduction events and grouped commits by reduction streaks. No tests run.
+
+# Plan (2026-02-07)
+- [x] Reshape Source Series table to list commit ranges since prior row and replace message with change summary.
+- [x] Expand Reduction Events with row-level detailed change notes.
+- [x] Verify consistency of totals and deltas.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Updated Source Series with commit ranges and change summaries; expanded Reduction Events with row-level detail and deltas. No tests run.
+
+# Plan (2026-02-07)
+- [x] Update Source Series row inclusion to only reductions ≥3s vs prior snapshot.
+- [x] Refresh Reduction Events to match new row criteria and deltas.
+- [x] Verify consistency of totals and thresholds.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Adjusted Source Series to include only ≥3s reductions and aligned Reduction Events accordingly. No tests run.
+
+# Plan (2026-02-07)
+- [x] Remove Reduction Events section from optimization_report and add mini-report links per Source Series row.
+- [x] Create mini-report files under prove/optimization/mini-reports for each Source Series row.
+- [x] Verify links and summaries for consistency.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Removed Reduction Events, added mini-report links, and generated per-row mini-report files. No tests run.
+
+# Plan (2026-02-07)
+- [x] Expand Change Analysis in each mini-report with specific what/how changes.
+- [x] Verify mini-report accuracy and consistency.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Expanded Change Analysis in all mini-reports with concrete change details. No tests run.
+
+# Plan (2026-02-07)
+- [x] Reformat mini-report Change Analysis as proposition lists with proof excerpts or formulas.
+- [x] Add minimal code/pseudocode excerpts per proposition to support claims.
+- [x] Verify all mini-reports align with current code and keep excerpts short.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Rewrote mini-reports with proposition lists and short proof excerpts per claim. No tests run.
+
+# Plan (2026-02-07)
+- [x] Draft a single prompt defining rules for optimization_report and mini-reports.
+- [x] Include output paths, row inclusion threshold, column rules, and mini-report evidence format.
+- [x] Save prompt to `prove/optimization/prompts/REPORTING.md` and verify content.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Added `prove/optimization/prompts/REPORTING.md` with rules for optimization_report and mini-report generation. No tests run.

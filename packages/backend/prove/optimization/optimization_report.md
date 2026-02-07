@@ -1,61 +1,19 @@
-# Prove Optimization Report
+# Prove Optimization Report (Total-Wall Reduction Based)
 
-Generated from commit history on branch `jake-backend-optimization` and `prove/output/timing.release.md` snapshots.
+This report is reconstructed around **total_wall reductions** recorded in `prove/output/timing.release.md` snapshots. A new Source Series row is created only when **total_wall decreases by ≥ 3 seconds** relative to the immediately previous snapshot.
 
-## Summary Timeline (by commit date)
+## Source Series (total_wall by snapshot commit)
 
-| date | commit | change | total_wall (s) | init (s) | prove0 (s) | prove2 (s) |
-| --- | --- | --- | --- | --- | --- | --- |
-| 2026-01-29 | d8c1c2b4 | Include timing report md and setup params | 71.049089 | ? | 8.995563 | 33.943829 |
-| 2026-01-30 | d1e06002 | docs: update timing report guidance | 78.461586 | ? | 9.514175 | 35.794646 |
-| 2026-02-05 | d583440c | feat: cache denom inverses and benchmark div_by_vanishing | 65.550416 | ? | 8.210208 | 27.574265 |
-| 2026-02-05 | bf2b6481 | Resolve PR 179 merge conflicts | 78.461586 | ? | 9.514175 | 35.794646 |
-| 2026-02-05 | c1487461 | Refresh timing report and task docs | 66.383591 | 14.298070 | 8.541777 | 28.289676 |
-| 2026-02-05 | 85d9149c | Make zero-copy the only sigma path | 59.835278 | 7.254481 | 8.587046 | 28.300791 |
-| 2026-02-06 | 2675f6f2 | Optimize read_R1CS_gen_uvwXY paths | 59.274345 | 5.497034 | 9.124470 | 29.156904 |
-| 2026-02-06 | 127aa57b | Add CPU sparse eval for R1CS | 52.947312 | 1.449287 | 8.502204 | 27.788595 |
+| date | commits | change summary | total_wall (s) | mini-report |
+| --- | --- | --- | --- | --- |
+| 2026-01-29 | d8c1c2b4 | Added timing report markdown and setup parameter reporting (baseline snapshot). | 71.049089 | [mini-report](mini-reports/2026-01-29_d8c1c2b4.md) |
+| 2026-02-05 | 032ef14d, e2785b42, d1e06002, 8e415a71, b24dbeba, cf0e3b89, b5845973, ce2977b0, 339f933f, 2df3bf86, 6c7e50d3, 5436eade, 865f9f9a, f3bcceec, 91ea81b1, 1dc830c4, ca5bd45d, 5c0375b5, 13e41425, eb31bffd, 2ff73e19, 23959fe7, d583440c, 561c4e4f, bf2b6481, be76316d, c1487461 | Checkpoint log removal + PR #175 merge + timing doc update; large batch of synthesizer config pipeline/docs/CI changes, preprocess input handling, SLOAD origin tracing fix, test automation, div_by_vanishing inverse caching+benchmarks, conflict resolution, and timing/task doc refresh. | 66.383591 | [mini-report](mini-reports/2026-02-05_c1487461.md) |
+| 2026-02-05 | 7bc32e82, 85d9149c | Task checklist update; enforce zero-copy sigma path only. | 59.835278 | [mini-report](mini-reports/2026-02-05_85d9149c.md) |
+| 2026-02-06 | a237c3cd, 2675f6f2, 127aa57b | Task checklist update; optimize read_R1CS_gen_uvwXY paths (CPU/GPU branching); add CPU sparse eval for R1CS. | 52.947312 | [mini-report](mini-reports/2026-02-06_127aa57b.md) |
+| 2026-02-06 | ccc3d2d8 | Refine prove4 timing instrumentation and tooling. | 49.781555 | [mini-report](mini-reports/2026-02-06_ccc3d2d8.md) |
+| 2026-02-07 | 6dcce13a, bcc9eb25, 8839dbc5 | div_by_vanishing_opt improvements (docs + caching) and task log update. | 46.743467 | [mini-report](mini-reports/2026-02-07_8839dbc5.md) |
 
-## Notes and Interpretation
+## Notes
 
-- Values are taken from `prove/output/timing.release.md` at each commit.
-- `total_wall` is the top-level elapsed time reported in the timing report.
-- For early commits, module-level `init` time is not available in the report (marked `?`).
-
-## Optimization Attempts (chronological)
-
-### 2026-01-29 — d8c1c2b4
-- Change: Included timing report markdown and setup params in the report.
-- Result: Baseline `total_wall` 71.049 s.
-
-### 2026-01-30 — d1e06002
-- Change: Documentation update for timing guidance.
-- Result: `total_wall` 78.462 s (timing report updated but no direct optimization).
-
-### 2026-02-05 — d583440c
-- Change: Cached denominator inverses; benchmarked `div_by_vanishing`.
-- Result: `total_wall` 65.550 s; `prove2` 27.574 s (improvement vs prior report snapshots).
-
-### 2026-02-05 — bf2b6481
-- Change: Resolve PR 179 conflicts.
-- Result: `total_wall` 78.462 s (report content regressed to a higher baseline).
-
-### 2026-02-05 — c1487461
-- Change: Refreshed timing report and task docs.
-- Result: `total_wall` 66.384 s; `init` 14.298 s is recorded in report.
-
-### 2026-02-05 — 85d9149c
-- Change: Zero-copy sigma path only.
-- Result: `total_wall` 59.835 s; `init` 7.254 s (notable init reduction).
-
-### 2026-02-06 — 2675f6f2
-- Change: Optimize `read_R1CS_gen_uvwXY` paths (GPU/CPU branching and timing instrumentation).
-- Result: `total_wall` 59.274 s; `init` 5.497 s; `prove2` 29.157 s.
-
-### 2026-02-06 — 127aa57b
-- Change: Add CPU sparse evaluation for R1CS.
-- Result: `total_wall` 52.947 s; `init` 1.449 s; `prove2` 27.789 s (best observed).
-
-## Current Status
-
-- Best observed total wall time in history: **52.947 s** at commit `127aa57b`.
-- Improvements appear correlated with `init` reduction and `prove2` time reduction.
+- Rows are included **only when total_wall drops by ≥ 3 seconds** vs the immediately previous snapshot.
+- Current best observed total_wall in this series: **46.743467 s** at `8839dbc5` (2026-02-07).
