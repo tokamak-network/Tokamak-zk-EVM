@@ -2,7 +2,6 @@ use icicle_bls12_381::curve::{ScalarField, ScalarCfg};
 use icicle_core::traits::{Arithmetic, FieldConfig, FieldImpl, GenerateRandom};
 use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice};
 use std::cmp;
-use std::time::Instant;
 
 use icicle_core::polynomials::UnivariatePolynomial;
 use icicle_core::ntt::{self, NTTDir};
@@ -57,12 +56,15 @@ mod msm_vs_rayon_tests {
 #[cfg(test)]
 mod tests {
     use icicle_core::ntt;
+    use icicle_core::traits::Arithmetic;
     use icicle_core::vec_ops::VecOpsConfig;
     use icicle_runtime::memory::DeviceVec;
 
     use super::*;
     use crate::vector_operations::{*};
-    use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt, DivByVanishingCache};
+    use crate::bivariate_polynomial::{
+        init_ntt_domain_for_size, BivariatePolynomial, DensePolynomialExt, DivByVanishingCache,
+    };
 
     // Helper function: Create a simple 2D polynomial
     fn create_simple_polynomial() -> DensePolynomialExt {
@@ -106,6 +108,21 @@ mod tests {
         DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), 4, 4)
     }
 
+    fn init_bi_ntt_domain(x_size: usize, y_size: usize) {
+        let size = x_size
+            .checked_mul(y_size)
+            .expect("x_size * y_size overflow in init_bi_ntt_domain");
+        init_ntt_domain_for_size(size).unwrap();
+    }
+
+    fn random_nonzero_scalar() -> ScalarField {
+        let mut val = ScalarCfg::generate_random(1)[0];
+        if val == ScalarField::zero() {
+            val = ScalarField::one();
+        }
+        val
+    }
+
     #[test]
     fn test_from_coeffs() { // pass
         let poly = create_simple_polynomial();
@@ -124,6 +141,7 @@ mod tests {
     fn test_from_evals() {
         let x_size = 2048;
         let y_size = 1;
+        init_bi_ntt_domain(x_size, y_size);
         let evals = ScalarCfg::generate_random(x_size * y_size);
         
         let poly = DensePolynomialExt::from_rou_evals(
@@ -144,6 +162,55 @@ mod tests {
             }
         }
         assert!(flag);
+    }
+
+    #[test]
+    fn test_coset_ntt_matches_manual_scaling() {
+        let x_size = 1 << 4;
+        let y_size = 1 << 3;
+        init_bi_ntt_domain(x_size, y_size);
+        let coeffs = ScalarCfg::generate_random(x_size * y_size);
+        let poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&coeffs), x_size, y_size);
+        let coset_x = random_nonzero_scalar();
+        let coset_y = random_nonzero_scalar();
+
+        let mut evals_coset = vec![ScalarField::zero(); x_size * y_size];
+        poly.to_rou_evals(
+            Some(&coset_x),
+            Some(&coset_y),
+            HostSlice::from_mut_slice(&mut evals_coset),
+        );
+
+        let mut evals_legacy = vec![ScalarField::zero(); x_size * y_size];
+        let mut scaled_poly = poly.clone();
+        scaled_poly = scaled_poly.scale_coeffs_x(&coset_x);
+        scaled_poly = scaled_poly.scale_coeffs_y(&coset_y);
+        scaled_poly.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut evals_legacy));
+
+        assert_eq!(evals_coset, evals_legacy);
+
+        let poly_coset = DensePolynomialExt::from_rou_evals(
+            HostSlice::from_slice(&evals_coset),
+            x_size,
+            y_size,
+            Some(&coset_x),
+            Some(&coset_y),
+        );
+        let mut poly_legacy = DensePolynomialExt::from_rou_evals(
+            HostSlice::from_slice(&evals_coset),
+            x_size,
+            y_size,
+            None,
+            None,
+        );
+        poly_legacy = poly_legacy.scale_coeffs_x(&coset_x.inv());
+        poly_legacy = poly_legacy.scale_coeffs_y(&coset_y.inv());
+
+        let mut coeffs_coset = vec![ScalarField::zero(); x_size * y_size];
+        let mut coeffs_legacy = vec![ScalarField::zero(); x_size * y_size];
+        poly_coset.copy_coeffs(0, HostSlice::from_mut_slice(&mut coeffs_coset));
+        poly_legacy.copy_coeffs(0, HostSlice::from_mut_slice(&mut coeffs_legacy));
+        assert_eq!(coeffs_coset, coeffs_legacy);
     }
 
     #[test]
@@ -477,10 +544,10 @@ mod tests {
 
     #[test]
     fn test_mul_polynomial() {
-        let m = 5;
-        let n = 3;
+        let m = 11;
+        let n = 8; 
         let p1_x_size = 2usize.pow(m);
-        let p1_y_size = 2usize.pow(0);
+        let p1_y_size = 2usize.pow(n);
         let p2_x_size = 2usize.pow(m);
         let p2_y_size = 2usize.pow(n);
 
@@ -684,9 +751,7 @@ mod tests {
             denom_x_axis_inv: Box::new([]),
             denom_y_axis_inv: Box::new([]),
         };
-        let start = Instant::now();
         let (mut q_x_base, mut q_y_base) = p_base.div_by_vanishing(c as i64, d as i64, &mut cache_base);
-        let base_time = start.elapsed().as_secs_f64();
         q_x_base.optimize_size();
         q_y_base.optimize_size();
 
@@ -697,9 +762,7 @@ mod tests {
             denom_x_axis_inv: Box::new([]),
             denom_y_axis_inv: Box::new([]),
         };
-        let start = Instant::now();
         let (mut q_x_opt, mut q_y_opt) = p_opt.div_by_vanishing_opt(c as i64, d as i64, &mut cache_opt);
-        let opt_time = start.elapsed().as_secs_f64();
         q_x_opt.optimize_size();
         q_y_opt.optimize_size();
 
@@ -711,12 +774,6 @@ mod tests {
         assert!(p_evaled.eq(&p_reconstruct_base.eval(&a, &b)));
         assert!(p_evaled.eq(&p_reconstruct_opt.eval(&a, &b)));
 
-        println!(
-            "div_by_vanishing benchmark: base={:.6}s opt={:.6}s speedup={:.2}x",
-            base_time,
-            opt_time,
-            base_time / opt_time
-        );
     }
 
     #[test]
@@ -738,11 +795,9 @@ mod tests {
         );
         let mut _dense_p = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&dense_coeffs_resized), x_size, y_size);
 
-        let time_parallel = Instant::now();
         let (x_deg, y_deg) = _dense_p.find_degree();
         assert_eq!(x_deg, x_degree);
         assert_eq!(y_deg, y_degree);
-        println!("find_degree time: {:.6} seconds", time_parallel.elapsed().as_secs_f64());
 
         let x_degree= 0;
         let y_degree = 0;
@@ -757,11 +812,9 @@ mod tests {
         );
         let mut _sparse_p = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&sparse_coeffs_resized), x_size, y_size);
 
-        let time_parallel = Instant::now();
         let (x_deg, y_deg) = _sparse_p.find_degree();
         assert_eq!(x_deg, x_degree);
         assert_eq!(y_deg, y_degree);
-        println!("find_degree time: {:.6} seconds", time_parallel.elapsed().as_secs_f64());
 
 
     }
@@ -774,6 +827,7 @@ mod tests {
         coset_x: Option<&ScalarField>,
         coset_y: Option<&ScalarField>,
     ) -> Vec<ScalarField> {
+        init_bi_ntt_domain(target_x, target_y);
         let mut coeffs = vec![ScalarField::zero(); 2 * base];
         coeffs[0] = ScalarField::zero() - ScalarField::one();
         coeffs[base] = ScalarField::one();
@@ -853,26 +907,18 @@ mod tests {
         let target_y = n * d;
         let zeta = ScalarCfg::generate_random(1)[0];
 
-        let start = Instant::now();
         let ntt_inv = denom_inv_ntt(target_x, target_y, c, Some(&zeta), None);
-        println!("denom_inv_ntt x: {:.6}s", start.elapsed().as_secs_f64());
 
-        let start = Instant::now();
         let closed_inv = denom_inv_closed_form(target_x, target_y, c, Some(&zeta), None);
-        println!("denom_inv_closed_form x: {:.6}s", start.elapsed().as_secs_f64());
 
         assert_eq!(ntt_inv.len(), closed_inv.len());
         for (a, b) in ntt_inv.iter().zip(closed_inv.iter()) {
             assert!(a.eq(b));
         }
 
-        let start = Instant::now();
         let ntt_inv_y = denom_inv_ntt(c, target_y, d, None, Some(&zeta));
-        println!("denom_inv_ntt y: {:.6}s", start.elapsed().as_secs_f64());
 
-        let start = Instant::now();
         let closed_inv_y = denom_inv_closed_form(c, target_y, d, None, Some(&zeta));
-        println!("denom_inv_closed_form y: {:.6}s", start.elapsed().as_secs_f64());
 
         assert_eq!(ntt_inv_y.len(), closed_inv_y.len());
         for (a, b) in ntt_inv_y.iter().zip(closed_inv_y.iter()) {
@@ -1020,7 +1066,6 @@ mod tests_iotools {
     use crate::group_structures::{G1serde};
     use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
     use icicle_core::curve::Curve;
-    use std::time::Instant;
 
     #[test]
     fn test_scalar_to_G1_conversion() {
@@ -1031,20 +1076,14 @@ mod tests_iotools {
         let gen = CurveCfg::generate_random_affine_points(1)[0];
         let mut res = vec![G1serde::zero(); x_size * y_size];
         
-        let time_rayon = Instant::now();
         let mut x_powers_vec = vec![ScalarField::zero(); x_size];
         let mut y_powers_vec = vec![ScalarField::zero(); y_size];
         extend_monomial_vec(&vec![ScalarField::one(), x], &mut x_powers_vec);
         extend_monomial_vec(&vec![ScalarField::one(), y], &mut y_powers_vec);
         scaled_outer_product_1d(&x_powers_vec, &y_powers_vec, &gen, None, &mut res);
-        let duration_rayon = time_rayon.elapsed();
-        println!("Scalar_to_G1 time with rayon: {:.6} seconds", duration_rayon.as_secs_f64());
         drop(res);
 
         let mut res = vec![G1serde::zero(); x_size * y_size];
-        let time_msm = Instant::now();
         gen_g1serde_vec_of_xy_monomials(x, y, &gen, x_size, y_size, &mut res);
-        let duration_msm = time_msm.elapsed();
-        println!("Scalar_to_G1 time with hybrid of rayon and msm: {:.6} seconds", duration_msm.as_secs_f64());
     }
 }

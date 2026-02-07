@@ -2,6 +2,8 @@
 use libs::group_structures::G1serde;
 use libs::iotools::ArchivedSigmaPreprocessRkyv;
 use libs::iotools::{*};
+use libs::bivariate_polynomial::init_ntt_domain_for_size;
+use libs::utils::check_device;
 use libs::{impl_read_from_json, impl_write_into_json, split_push, pop_recover};
 
 use serde::{Deserialize, Serialize};
@@ -32,7 +34,13 @@ impl Preprocess {
         setup_params: &SetupParams
     ) -> Self {
         let m_i = setup_params.l_D - setup_params.l;
+        let n = setup_params.n;
         let s_max = setup_params.s_max;
+        let ntt_domain_size = std::cmp::max(m_i, n)
+            .checked_mul(s_max)
+            .expect("max(m_i, n) * s_max overflow");
+        check_device();
+        init_ntt_domain_for_size(ntt_domain_size).expect("Failed to initialize NTT domain");
         // Generating permutation polynomials
         println!("Converting the permutation matrices into polynomials s^0 and s^1...");
         let (mut s0XY, mut s1XY) = Permutation::to_poly(permutation_raw, m_i, s_max);

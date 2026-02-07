@@ -1,12 +1,15 @@
     #![allow(non_snake_case)]
     use icicle_runtime::memory::{DeviceVec, HostSlice};
     use libs::{impl_read_from_json, impl_write_into_json, split_push, pop_recover};
-    use libs::bivariate_polynomial::{AxisCache, BivariatePolynomial, DenomCache, DensePolynomialExt, DivByVanishingCache};
+    use libs::bivariate_polynomial::{
+        init_ntt_domain_for_size, AxisCache, BivariatePolynomial, DenomCache, DensePolynomialExt, DivByVanishingCache,
+    };
     use libs::iotools::{*};
     use libs::field_structures::{FieldSerde, hashing};
     use libs::vector_operations::{point_add_two_vecs, point_div_two_vecs, point_mul_two_vecs, resize, transpose_inplace};
     use libs::group_structures::G1serde;
     use libs::polynomial_structures::gen_bXY;
+    use libs::utils::check_device;
     use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
     use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
     use icicle_core::ntt;
@@ -478,6 +481,15 @@
                 panic!("m_I is not a power of two.");
             }
 
+            let max_mn = std::cmp::max(m_i, n);
+            let ntt_domain_x = max_mn.checked_mul(4).expect("4 * max(m_i, n) overflow");
+            let ntt_domain_y = s_max.checked_mul(2).expect("2 * s_max overflow");
+            let ntt_domain_size = ntt_domain_x
+                .checked_mul(ntt_domain_y)
+                .expect("2 * max(m_i, n) * 2 * s_max overflow");
+            check_device();
+            init_ntt_domain_for_size(ntt_domain_size).expect("Failed to initialize NTT domain");
+
             // Load subcircuit information
             let subcircuit_infos_path = PathBuf::from(paths.qap_path).join("subcircuitInfo.json");
             let subcircuit_infos_file_bytes = std::fs::metadata(&subcircuit_infos_path)
@@ -510,7 +522,6 @@
                 }
             );
 
-            let time_start = Instant::now();
             let witness: Witness = {
                 // // Load subcircuit library R1CS
                 // println!("Loading subcircuits...");
@@ -546,9 +557,7 @@
                 let rXY = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&vec![ScalarField::zero()]), 1, 1);
                 Witness {bXY, uXY, vXY, wXY, rXY}
             };
-            println!("🔄 Loading witness took {:?}", time_start.elapsed());
 
-            let time_start = Instant::now();
             let quotients: Quotients = {
                 let q0XY = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&vec![ScalarField::zero()]), 1, 1);
                 let q1XY = q0XY.clone();
@@ -560,7 +569,6 @@
                 let q7XY = q0XY.clone();
                 Quotients {q0XY, q1XY, q2XY, q3XY, q4XY, q5XY, q6XY, q7XY}
             };
-            println!("🔄 Loading quotients took {:?}", time_start.elapsed());
             let cache = ProverCache {
                 div_by_vanishing: DivByVanishingCache {
                     denom_x_eval_inv: Box::<[DenomCache]>::default(),
@@ -586,7 +594,6 @@
                 }
             );
 
-            let time_start = Instant::now();
             let mut instance: InstancePolynomials = {
                 // Load instance
                 let instance_path = PathBuf::from(paths.synthesizer_path).join("instance.json");
@@ -669,7 +676,6 @@
 
                 InstancePolynomials {a_pub_X, t_n, t_mi, t_smax, s0XY, s1XY}
             };
-            println!("🔄 Loading instance took {:?}", time_start.elapsed());
 
             #[cfg(feature = "testing-mode")] {
                 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
@@ -755,7 +761,6 @@
             }
 
             // Load Sigma (reference string)
-            let time_start = Instant::now();
             let sigma_path = PathBuf::from(paths.setup_path).join("combined_sigma.rkyv");
             let sigma_file_bytes = std::fs::metadata(&sigma_path)
                 .map(|m| m.len() as usize)
@@ -772,7 +777,6 @@
                     sigma
                 }
             );
-            println!("🔄 Loading Sigma took {:?}", time_start.elapsed());
 
             let mixer: Mixer = {
                 let rU_X = ScalarCfg::generate_random(1)[0];
@@ -805,7 +809,6 @@
             };
 
 
-            let time_start = Instant::now();
             println!("🔄 Starting binding computation (MSMs)...");
             let binding: Binding = {
                 let A = crate::time_block!(
@@ -884,7 +887,6 @@
                     );
                 Binding {A, O_inst, O_mid, O_prv}
             };
-            println!("🔄 Binding computation (MSMs) took {:?}", time_start.elapsed());
 
             #[cfg(feature = "timing")]
             crate::timing::record(

@@ -8,10 +8,43 @@ use icicle_runtime::memory::{HostOrDeviceSlice, HostSlice, DeviceSlice, DeviceVe
 use std::{
     cmp,
     ops::{Add, AddAssign, Mul, Sub, Neg},
-    time::Instant,
+    sync::{Mutex, OnceLock},
 };
 use super::vector_operations::{*};
 use rayon::prelude::*;
+
+static NTT_DOMAIN_SIZE: OnceLock<Mutex<Option<usize>>> = OnceLock::new();
+
+fn ntt_domain_size_cell() -> &'static Mutex<Option<usize>> {
+    NTT_DOMAIN_SIZE.get_or_init(|| Mutex::new(None))
+}
+
+pub fn init_ntt_domain_for_size(size: usize) -> Result<(), icicle_runtime::errors::eIcicleError> {
+    if size == 0 {
+        panic!("NTT domain size must be non-zero.");
+    }
+    if !size.is_power_of_two() {
+        panic!("NTT domain size must be a power of two.");
+    }
+
+    let mut guard = ntt_domain_size_cell().lock().unwrap();
+    if let Some(current) = *guard {
+        if current == size {
+            return Ok(());
+        }
+        ntt::release_domain::<ScalarField>().unwrap();
+    }
+    ntt::initialize_domain::<ScalarField>(
+        ntt::get_root_of_unity::<ScalarField>(size as u64),
+        &ntt::NTTInitDomainConfig::default(),
+    )?;
+    *guard = Some(size);
+    Ok(())
+}
+
+fn get_ntt_domain_size() -> Option<usize> {
+    *ntt_domain_size_cell().lock().unwrap()
+}
 
 fn _find_size_as_twopower(target_x_size: usize, target_y_size: usize) -> (usize, usize) {
     // Problem: find min{m: x_size*2^m >= target_x_size} and min{n: y_size*2^n >= target_y_size}
@@ -301,7 +334,15 @@ where
     type Field: FieldImpl;
     type FieldConfig: FieldConfig;
 
-    fn _biNTT<In: HostOrDeviceSlice<Self::Field> + ?Sized, Out: HostOrDeviceSlice<Self::Field> + ?Sized>( in_mat: &In, x_size: usize, y_size: usize, dir: NTTDir, out_mat: &mut Out);
+    fn _biNTT<In: HostOrDeviceSlice<Self::Field> + ?Sized, Out: HostOrDeviceSlice<Self::Field> + ?Sized>(
+        in_mat: &In,
+        x_size: usize,
+        y_size: usize,
+        dir: NTTDir,
+        coset_gen_x: Option<&Self::Field>,
+        coset_gen_y: Option<&Self::Field>,
+        out_mat: &mut Out,
+    );
 
     // Methods to create polynomials from coefficients or roots-of-unity evaluations.
     fn zero() -> Self;
@@ -417,20 +458,29 @@ impl BivariatePolynomial for DensePolynomialExt {
     // }
 
     fn _biNTT<In, Out>(
-        in_mat: &In, 
-        x_size: usize, 
-        y_size: usize, 
-        dir: NTTDir, 
-        out_mat: &mut Out
-    ) where 
+        in_mat: &In,
+        x_size: usize,
+        y_size: usize,
+        dir: NTTDir,
+        coset_gen_x: Option<&Self::Field>,
+        coset_gen_y: Option<&Self::Field>,
+        out_mat: &mut Out,
+    ) where
         In: HostOrDeviceSlice<Self::Field> + ?Sized,
-        Out: HostOrDeviceSlice<Self::Field> + ?Sized 
+        Out: HostOrDeviceSlice<Self::Field> + ?Sized,
     {
-        let size = x_size * y_size;
-        ntt::initialize_domain::<Self::Field>(
-            ntt::get_root_of_unity::<Self::Field>(size.try_into().unwrap()),
-            &ntt::NTTInitDomainConfig::default(),
-        ).unwrap();
+        let size = x_size
+            .checked_mul(y_size)
+            .expect("x_size * y_size overflow in _biNTT");
+        let expected_size = get_ntt_domain_size().expect(
+            "NTT domain is not initialized. Call init_ntt_domain_for_size before using _biNTT.",
+        );
+        if size > expected_size {
+            panic!(
+                "NTT domain size too small: initialized size {} but input size {}.",
+                expected_size, size
+            );
+        }
 
         let mut cfg = ntt::NTTConfig::<Self::Field>::default();
         let vec_ops_cfg = VecOpsConfig::default();
@@ -440,6 +490,7 @@ impl BivariatePolynomial for DensePolynomialExt {
             let mut out_y = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
             cfg.batch_size = x_size as i32;
             cfg.columns_batch = false;
+            cfg.coset_gen = coset_gen_y.copied().unwrap_or(Self::Field::one());
             ntt::ntt(in_mat, dir, &cfg, &mut out_y).unwrap();
 
             // IFFT along X coeffs (GPU does not work with columns_batch == true, so we manually transpose the matrix)
@@ -455,6 +506,7 @@ impl BivariatePolynomial for DensePolynomialExt {
 
             cfg.batch_size = y_size as i32;
             cfg.columns_batch = false;
+            cfg.coset_gen = coset_gen_x.copied().unwrap_or(Self::Field::one());
             let mut out_x_tr = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
             ntt::ntt(&out_y_tr, dir, &cfg, &mut out_x_tr).unwrap();
             drop(out_y_tr);
@@ -467,7 +519,6 @@ impl BivariatePolynomial for DensePolynomialExt {
                 &vec_ops_cfg,
             ).unwrap();
         }
-        ntt::release_domain::<Self::Field>().unwrap();
     }
 
     fn find_degree(&self) -> (i64, i64) {
@@ -612,23 +663,9 @@ impl BivariatePolynomial for DensePolynomialExt {
         let mut coeffs = DeviceVec::<Self::Field>::device_malloc(size).unwrap();
 
         let ntt_dir = ntt::NTTDir::kInverse;
-        Self::_biNTT(evals, x_size, y_size, ntt_dir, &mut coeffs);
+        Self::_biNTT(evals, x_size, y_size, ntt_dir, coset_x, coset_y, &mut coeffs);
     
-        let mut poly = DensePolynomialExt::from_coeffs(
-            &coeffs,
-            x_size,
-            y_size,
-        );
-    
-        if let Some(_factor) = coset_x {
-            let factor = _factor.inv();
-            poly = poly.scale_coeffs_x(&factor);
-        }
-        if let Some(_factor) = coset_y {
-            let factor = _factor.inv();
-            poly = poly.scale_coeffs_y(&factor);
-        }
-        poly
+        DensePolynomialExt::from_coeffs(&coeffs, x_size, y_size)
     }
     
     fn to_rou_evals<S: HostOrDeviceSlice<Self::Field> + ?Sized>(
@@ -642,28 +679,15 @@ impl BivariatePolynomial for DensePolynomialExt {
         if evals.len() < size {
             panic!("Insufficient buffer length for to_rou_evals")
         }
-        let mut scaled_coeffs_vec = vec![Self::Field::zero(); self.x_size * self.y_size];
-        let scaled_coeffs = HostSlice::from_mut_slice(&mut scaled_coeffs_vec);
-        {
-            let mut scaled_poly = self.clone();
-
-            if let Some(factor) = coset_x {
-                scaled_poly = scaled_poly.scale_coeffs_x(factor);
-            }
-
-            if let Some(factor) = coset_y {
-                scaled_poly = scaled_poly.scale_coeffs_y(factor);
-            }
-
-            
-            scaled_poly.copy_coeffs(0, scaled_coeffs);
-        }
+        let mut coeffs_vec = vec![Self::Field::zero(); self.x_size * self.y_size];
+        let coeffs = HostSlice::from_mut_slice(&mut coeffs_vec);
+        self.copy_coeffs(0, coeffs);
         
         let mut in_mat = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
-        in_mat.copy_from_host(&scaled_coeffs).unwrap();
+        in_mat.copy_from_host(coeffs).unwrap();
 
         let ntt_dir = ntt::NTTDir::kForward;
-        Self::_biNTT(&in_mat, self.x_size, self.y_size, ntt_dir, evals);
+        Self::_biNTT(&in_mat, self.x_size, self.y_size, ntt_dir, coset_x, coset_y, evals);
     }
 
     fn copy_coeffs<S: HostOrDeviceSlice<Self::Field> + ?Sized>(&self, start_idx: u64, coeffs: &mut S) {
@@ -993,23 +1017,6 @@ impl BivariatePolynomial for DensePolynomialExt {
             .map(|idx| cache.denom_y_eval_inv[idx].coset)
             .unwrap_or(zeta);
         let vec_ops_cfg = VecOpsConfig::default();
-        let timing_enabled = cfg!(test);
-        macro_rules! timed {
-            ($label:expr, $body:block) => {{
-                if timing_enabled {
-                    let start = Instant::now();
-                    let out = { $body };
-                    println!(
-                        "div_by_vanishing.timing {}: {:.6}s",
-                        $label,
-                        start.elapsed().as_secs_f64()
-                    );
-                    out
-                } else {
-                    $body
-                }
-            }};
-        }
         match cached_denom_x_index {
             Some(_) => println!("div_by_vanishing.cache_hit denom_x"),
             None => println!("div_by_vanishing.cache_miss denom_x"),
@@ -1022,8 +1029,7 @@ impl BivariatePolynomial for DensePolynomialExt {
                                    target_y: usize,
                                    base: usize,
                                    coset_x: Option<&ScalarField>,
-                                   coset_y: Option<&ScalarField>,
-                                   eval_label: &str| -> Box<[ScalarField]> {
+                                   coset_y: Option<&ScalarField>| -> Box<[ScalarField]> {
             let mut denom_inv_vec = vec![ScalarField::zero(); target_x * target_y];
             let denom_inv = HostSlice::from_mut_slice(&mut denom_inv_vec);
             let (axis_size, coset, is_y_dir) = match (coset_x, coset_y) {
@@ -1045,27 +1051,23 @@ impl BivariatePolynomial for DensePolynomialExt {
             scalar_vec_add(minus_one, &scaled, &mut axis_vals);
 
             let mut denom_evals = vec![ScalarField::zero(); target_x * target_y];
-            timed!(eval_label, {
-                if is_y_dir {
-                    for x in 0..target_x {
-                        let row = &mut denom_evals[x * target_y .. (x + 1) * target_y];
-                        row.copy_from_slice(&axis_vals);
-                    }
-                } else {
-                    for x in 0..target_x {
-                        let val = axis_vals[x];
-                        let row_start = x * target_y;
-                        for y in 0..target_y {
-                            denom_evals[row_start + y] = val;
-                        }
+            if is_y_dir {
+                for x in 0..target_x {
+                    let row = &mut denom_evals[x * target_y .. (x + 1) * target_y];
+                    row.copy_from_slice(&axis_vals);
+                }
+            } else {
+                for x in 0..target_x {
+                    let val = axis_vals[x];
+                    let row_start = x * target_y;
+                    for y in 0..target_y {
+                        denom_evals[row_start + y] = val;
                     }
                 }
-            });
+            }
             let mut denom = DeviceVec::<Self::Field>::device_malloc(target_x * target_y).unwrap();
             denom.copy_from_host(HostSlice::from_slice(&denom_evals)).unwrap();
-            timed!("inv denom", {
-                Self::FieldConfig::inv(&denom, denom_inv, &vec_ops_cfg).unwrap();
-            });
+            Self::FieldConfig::inv(&denom, denom_inv, &vec_ops_cfg).unwrap();
             denom_inv_vec.into_boxed_slice()
         };
 
@@ -1079,25 +1081,18 @@ impl BivariatePolynomial for DensePolynomialExt {
                 self._slice_coeffs_into_blocks(m,1, &mut blocks);
                 // Computing A' (accumulation of blocks of the numerator)
 
-                timed!("accumulate acc_block", {
-                    for i in 0..m {
-                        Self::FieldConfig::accumulate(
-                            acc_block,
-                            HostSlice::from_slice(&blocks[i]),
-                            &vec_ops_cfg
-                        ).unwrap();
-                    }
-                });
+                for i in 0..m {
+                    Self::FieldConfig::accumulate(
+                        acc_block,
+                        HostSlice::from_slice(&blocks[i]),
+                        &vec_ops_cfg
+                    ).unwrap();
+                }
             }
-            let acc_block_poly = timed!(
-                "from_coeffs acc_block_poly",
-                { DensePolynomialExt::from_coeffs(acc_block, c, n*d) }
-            );
+            let acc_block_poly = DensePolynomialExt::from_coeffs(acc_block, c, n*d);
             // Computing R_tilde (eval of A' on rou-X and coset-Y)
 
-            timed!("to_rou_evals acc_block_eval", {
-                acc_block_poly.to_rou_evals(None, Some(&xi), &mut acc_block_eval);
-            });
+            acc_block_poly.to_rou_evals(None, Some(&xi), &mut acc_block_eval);
         }
 
         // Computing Q_Y_tilde (eval of quo_y on rou-X and coset-Y)
@@ -1113,7 +1108,6 @@ impl BivariatePolynomial for DensePolynomialExt {
                         d,
                         None,
                         Some(&xi),
-                        "denom_eval_closed_form_y",
                     );
                     let mut new_cache = cache.denom_y_eval_inv.to_vec();
                     new_cache.push(DenomCache {
@@ -1128,16 +1122,11 @@ impl BivariatePolynomial for DensePolynomialExt {
                 };
 
                 let denom_y_eval_inv = HostSlice::from_slice(denom_y_eval_inv_slice);
-                timed!("div quo_y_tilde", {
-                    Self::FieldConfig::mul(&acc_block_eval, denom_y_eval_inv, &mut quo_y_tilde, &vec_ops_cfg).unwrap();
-                });
+                Self::FieldConfig::mul(&acc_block_eval, denom_y_eval_inv, &mut quo_y_tilde, &vec_ops_cfg).unwrap();
                 
             }
             // Computing Q_Y
-            timed!(
-                "from_rou_evals quo_y",
-                { DensePolynomialExt::from_rou_evals(&quo_y_tilde, c, n*d, None, Some(&xi)) }
-            )
+            DensePolynomialExt::from_rou_evals(&quo_y_tilde, c, n*d, None, Some(&xi))
         };
 
         // Computing Q_X
@@ -1155,9 +1144,7 @@ impl BivariatePolynomial for DensePolynomialExt {
                     b.resize(m*c, n*d);
                     // Computinb B_tilde (eval of B on coset-X and extended-rou-Y)
 
-                    timed!("to_rou_evals b_tilde", {
-                        b.to_rou_evals(Some(&zeta), None, &mut b_tilde);
-                    });
+                    b.to_rou_evals(Some(&zeta), None, &mut b_tilde);
                 }
                 let denom_x_eval_inv_slice = if let Some(idx) = cached_denom_x_index {
                     cache.denom_x_eval_inv[idx].evals.as_ref()
@@ -1168,7 +1155,6 @@ impl BivariatePolynomial for DensePolynomialExt {
                         c,
                         Some(&zeta),
                         None,
-                        "denom_eval_closed_form_x",
                     );
                     let mut new_cache = cache.denom_x_eval_inv.to_vec();
                     new_cache.push(DenomCache {
@@ -1183,14 +1169,9 @@ impl BivariatePolynomial for DensePolynomialExt {
                 };
 
                 let denom_x_eval_inv = HostSlice::from_slice(denom_x_eval_inv_slice);
-                timed!("div quo_x_tilde", {
-                    Self::FieldConfig::mul(&b_tilde, denom_x_eval_inv, &mut quo_x_tilde, &vec_ops_cfg).unwrap();
-                });
+                Self::FieldConfig::mul(&b_tilde, denom_x_eval_inv, &mut quo_x_tilde, &vec_ops_cfg).unwrap();
             }
-            timed!(
-                "from_rou_evals quo_x",
-                { DensePolynomialExt::from_rou_evals(&quo_x_tilde, m*c, n*d, Some(&zeta), None) }
-            )
+            DensePolynomialExt::from_rou_evals(&quo_x_tilde, m*c, n*d, Some(&zeta), None)
         };
         return (quo_x, quo_y)
 
@@ -1238,23 +1219,6 @@ impl BivariatePolynomial for DensePolynomialExt {
             .or_else(|| cached_denom_y_index.map(|idx| cache.denom_y_eval_inv[idx].coset))
             .unwrap_or(zeta);
         let vec_ops_cfg = VecOpsConfig::default();
-        let timing_enabled = cfg!(test);
-        macro_rules! timed {
-            ($label:expr, $body:block) => {{
-                if timing_enabled {
-                    let start = Instant::now();
-                    let out = { $body };
-                    println!(
-                        "div_by_vanishing_opt.timing {}: {:.6}s",
-                        $label,
-                        start.elapsed().as_secs_f64()
-                    );
-                    out
-                } else {
-                    $body
-                }
-            }};
-        }
         match cached_x_axis_any {
             Some(_) => println!("div_by_vanishing_opt.cache_hit denom_x_axis"),
             None => println!("div_by_vanishing_opt.cache_miss denom_x_axis"),
@@ -1264,7 +1228,7 @@ impl BivariatePolynomial for DensePolynomialExt {
             None => println!("div_by_vanishing_opt.cache_miss denom_y_axis"),
         }
 
-        let mut build_axis_inv = |axis_size: usize, base: usize, coset: &ScalarField, label: &str| -> Box<[ScalarField]> {
+        let mut build_axis_inv = |axis_size: usize, base: usize, coset: &ScalarField| -> Box<[ScalarField]> {
             let repeat = axis_size / base;
             let root = ntt::get_root_of_unity::<ScalarField>(repeat as u64);
             let coset_pow = coset.pow(base);
@@ -1274,40 +1238,35 @@ impl BivariatePolynomial for DensePolynomialExt {
             }
             let minus_one = ScalarField::zero() - ScalarField::one();
             let mut inv_base = vec![ScalarField::zero(); repeat];
-            timed!(label, {
-                for i in 0..repeat {
-                    let val = coset_pow * omega_pows[i] + minus_one;
-                    inv_base[i] = val.inv();
-                }
-            });
+            for i in 0..repeat {
+                let val = coset_pow * omega_pows[i] + minus_one;
+                inv_base[i] = val.inv();
+            }
             inv_base.into_boxed_slice()
         };
 
         let mut tile_axis_inv = |target_x: usize,
                                  target_y: usize,
                                  axis_inv: &[ScalarField],
-                                 is_y_dir: bool,
-                                 label: &str| -> Box<[ScalarField]> {
+                                 is_y_dir: bool| -> Box<[ScalarField]> {
             let mut denom_inv_vec = vec![ScalarField::zero(); target_x * target_y];
             let repeat = axis_inv.len();
-            timed!(label, {
-                if is_y_dir {
-                    for x in 0..target_x {
-                        let row_start = x * target_y;
-                        for y in 0..target_y {
-                            denom_inv_vec[row_start + y] = axis_inv[y % repeat];
-                        }
-                    }
-                } else {
-                    for x in 0..target_x {
-                        let inv = axis_inv[x % repeat];
-                        let row_start = x * target_y;
-                        for y in 0..target_y {
-                            denom_inv_vec[row_start + y] = inv;
-                        }
+            if is_y_dir {
+                for x in 0..target_x {
+                    let row_start = x * target_y;
+                    for y in 0..target_y {
+                        denom_inv_vec[row_start + y] = axis_inv[y % repeat];
                     }
                 }
-            });
+            } else {
+                for x in 0..target_x {
+                    let inv = axis_inv[x % repeat];
+                    let row_start = x * target_y;
+                    for y in 0..target_y {
+                        denom_inv_vec[row_start + y] = inv;
+                    }
+                }
+            }
             denom_inv_vec.into_boxed_slice()
         };
 
@@ -1321,25 +1280,18 @@ impl BivariatePolynomial for DensePolynomialExt {
                 self._slice_coeffs_into_blocks(m,1, &mut blocks);
                 // Computing A' (accumulation of blocks of the numerator)
 
-                timed!("accumulate acc_block", {
-                    for i in 0..m {
-                        Self::FieldConfig::accumulate(
-                            acc_block,
-                            HostSlice::from_slice(&blocks[i]),
-                            &vec_ops_cfg
-                        ).unwrap();
-                    }
-                });
+                for i in 0..m {
+                    Self::FieldConfig::accumulate(
+                        acc_block,
+                        HostSlice::from_slice(&blocks[i]),
+                        &vec_ops_cfg
+                    ).unwrap();
+                }
             }
-            let acc_block_poly = timed!(
-                "from_coeffs acc_block_poly",
-                { DensePolynomialExt::from_coeffs(acc_block, c, n*d) }
-            );
+            let acc_block_poly = DensePolynomialExt::from_coeffs(acc_block, c, n*d);
             // Computing R_tilde (eval of A' on rou-X and coset-Y)
 
-            timed!("to_rou_evals acc_block_eval", {
-                acc_block_poly.to_rou_evals(None, Some(&xi), &mut acc_block_eval);
-            });
+            acc_block_poly.to_rou_evals(None, Some(&xi), &mut acc_block_eval);
         }
 
         // Computing Q_Y_tilde (eval of quo_y on rou-X and coset-Y)
@@ -1349,7 +1301,7 @@ impl BivariatePolynomial for DensePolynomialExt {
                 let axis_inv_slice = if let Some(idx) = find_axis_cache_index(&cache.denom_y_axis_inv, n * d, d, &xi) {
                     cache.denom_y_axis_inv[idx].invs.as_ref()
                 } else {
-                    let invs = build_axis_inv(n * d, d, &xi, "denom_axis_inv_y");
+                    let invs = build_axis_inv(n * d, d, &xi);
                     let mut new_cache = cache.denom_y_axis_inv.to_vec();
                     new_cache.push(AxisCache {
                         coset: xi,
@@ -1365,19 +1317,13 @@ impl BivariatePolynomial for DensePolynomialExt {
                     n * d,
                     axis_inv_slice,
                     true,
-                    "denom_tile_y",
                 );
                 let denom_y_eval_inv = HostSlice::from_slice(&denom_y_eval_inv_vec);
-                timed!("div quo_y_tilde", {
-                    Self::FieldConfig::mul(&acc_block_eval, denom_y_eval_inv, &mut quo_y_tilde, &vec_ops_cfg).unwrap();
-                });
+                Self::FieldConfig::mul(&acc_block_eval, denom_y_eval_inv, &mut quo_y_tilde, &vec_ops_cfg).unwrap();
                 
             }
             // Computing Q_Y
-            timed!(
-                "from_rou_evals quo_y",
-                { DensePolynomialExt::from_rou_evals(&quo_y_tilde, c, n*d, None, Some(&xi)) }
-            )
+            DensePolynomialExt::from_rou_evals(&quo_y_tilde, c, n*d, None, Some(&xi))
         };
 
         // Computing Q_X
@@ -1395,14 +1341,12 @@ impl BivariatePolynomial for DensePolynomialExt {
                     b.resize(m*c, n*d);
                     // Computinb B_tilde (eval of B on coset-X and extended-rou-Y)
 
-                    timed!("to_rou_evals b_tilde", {
-                        b.to_rou_evals(Some(&zeta), None, &mut b_tilde);
-                    });
+                    b.to_rou_evals(Some(&zeta), None, &mut b_tilde);
                 }
                 let axis_inv_slice = if let Some(idx) = find_axis_cache_index(&cache.denom_x_axis_inv, m * c, c, &zeta) {
                     cache.denom_x_axis_inv[idx].invs.as_ref()
                 } else {
-                    let invs = build_axis_inv(m * c, c, &zeta, "denom_axis_inv_x");
+                    let invs = build_axis_inv(m * c, c, &zeta);
                     let mut new_cache = cache.denom_x_axis_inv.to_vec();
                     new_cache.push(AxisCache {
                         coset: zeta,
@@ -1418,17 +1362,11 @@ impl BivariatePolynomial for DensePolynomialExt {
                     n * d,
                     axis_inv_slice,
                     false,
-                    "denom_tile_x",
                 );
                 let denom_x_eval_inv = HostSlice::from_slice(&denom_x_eval_inv_vec);
-                timed!("div quo_x_tilde", {
-                    Self::FieldConfig::mul(&b_tilde, denom_x_eval_inv, &mut quo_x_tilde, &vec_ops_cfg).unwrap();
-                });
+                Self::FieldConfig::mul(&b_tilde, denom_x_eval_inv, &mut quo_x_tilde, &vec_ops_cfg).unwrap();
             }
-            timed!(
-                "from_rou_evals quo_x",
-                { DensePolynomialExt::from_rou_evals(&quo_x_tilde, m*c, n*d, Some(&zeta), None) }
-            )
+            DensePolynomialExt::from_rou_evals(&quo_x_tilde, m*c, n*d, Some(&zeta), None)
         };
         return (quo_x, quo_y)
     }

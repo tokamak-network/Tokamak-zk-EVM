@@ -1,4 +1,4 @@
-use std::{env, process, time::Instant};
+use std::{env, process};
 
 use libs::utils::check_device;
 use prove::Proof4Test;
@@ -26,17 +26,11 @@ fn main() {
     check_device();
     
     println!("Verifier initialization...");
-    let mut timer = Instant::now();
     let verifier = Verifier::init(&paths);
-    let mut lap = timer.elapsed();
-    println!("Verifier init time: {:.6} seconds", lap.as_secs_f64());
 
     println!("Verifying the proof...");
-    timer = Instant::now();
     // let res_keccak = verifier.verify_keccak256();
     let res_snark = verifier.verify_snark();
-    lap = timer.elapsed();
-    println!("Verification time: {:.6} seconds", lap.as_secs_f64());
     // println!("{}", res_snark && res_keccak == KeccakVerificationResult::True );
     println!("{}", res_snark );
 

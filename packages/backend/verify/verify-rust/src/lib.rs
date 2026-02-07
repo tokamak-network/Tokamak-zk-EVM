@@ -3,10 +3,11 @@ use hex::FromHex;
 use icicle_core::hash::HashConfig;
 use icicle_hash::keccak::Keccak256;
 use icicle_runtime::memory::HostSlice;
-use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
+use libs::bivariate_polynomial::{init_ntt_domain_for_size, BivariatePolynomial, DensePolynomialExt};
 use libs::iotools::{Instance, PublicInputBuffer, PublicOutputBuffer, SetupParams};
 use libs::group_structures::{G1serde, G2serde, Sigma2};
 use libs::iotools::{ArchivedSigmaVerifyRkyv, SigmaVerifyRkyv};
+use libs::utils::check_device;
 use memmap2::Mmap;
 use std::fs::File;
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
@@ -116,6 +117,10 @@ impl Verifier {
         if !m_i.is_power_of_two() {
             panic!("m_I is not a power of two.");
         }
+
+        let ntt_domain_size = m_i;
+        check_device();
+        init_ntt_domain_for_size(ntt_domain_size).expect("Failed to initialize NTT domain");
 
         // Load instance
         let instance_path = PathBuf::from(paths.synthesizer_path).join("instance.json");

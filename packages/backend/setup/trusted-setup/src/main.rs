@@ -5,6 +5,7 @@ use libs::iotools::{read_global_wire_list_as_boxed_boxed_numbers};
 // use libs::polynomial_structures::{gen_bXY, gen_uXY, gen_vXY, gen_wXY, QAP};
 use libs::utils::check_device;
 use libs::vector_operations::{gen_evaled_lagrange_bases};
+use libs::bivariate_polynomial::init_ntt_domain_for_size;
 use libs::group_structures::{Sigma};
 use icicle_bls12_381::curve::{BaseField, CurveCfg, G1Affine, G2Affine, G2BaseField, G2CurveCfg, ScalarField};
 use icicle_core::traits::{FieldImpl};
@@ -122,6 +123,17 @@ fn main() {
         panic!("m_I is not a power of two.");
     }
     
+    #[cfg(feature = "testing-mode")]
+    let ntt_domain_size = std::cmp::max(n, m_i)
+        .checked_mul(s_max)
+        .expect("max(n, m_i) * s_max overflow");
+    #[cfg(not(feature = "testing-mode"))]
+    let ntt_domain_size = *[n, l, m_i, s_max]
+        .iter()
+        .max()
+        .expect("max(n, l, m_i, s_max) requires non-empty inputs");
+    init_ntt_domain_for_size(ntt_domain_size).expect("Failed to initialize NTT domain");
+
     // Load subcircuit information
     let subcircuit_infos_path = PathBuf::from(paths.qap_path).join("subcircuitInfo.json");
     let subcircuit_infos = SubcircuitInfo::read_box_from_json(subcircuit_infos_path).unwrap();

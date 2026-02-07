@@ -158,8 +158,116 @@ Rewrote mini-reports with proposition lists and short proof excerpts per claim. 
 # Plan (2026-02-07)
 - [x] Draft a single prompt defining rules for optimization_report and mini-reports.
 - [x] Include output paths, row inclusion threshold, column rules, and mini-report evidence format.
+
+# Plan (2026-02-07)
+- [x] Inspect ICICLE Rust NTT API for init-domain and coset configuration. (User found answer)
+- [x] Inspect C++/backend NTT domain initialization and coset handling. (User found answer)
+- [x] Summarize whether coset-based domain can be set during init and how coset NTTs are configured. (User found answer)
+
+# Review (2026-02-07)
+- [x] Summarize findings and evidence.
+User confirmed coset NTTs are configured via `NTTConfig.coset_gen`, not during `initialize_domain`.
+
+# Plan (2026-02-07)
+- [x] Confirm desired semantics: replace manual coset scaling in `from_rou_evals`/`to_rou_evals` with `NTTConfig.coset_gen` per-axis (since `initialize_domain` has no coset config).
+- [x] Update `_biNTT` to accept optional `coset_x/coset_y` and apply them on the respective axis NTT calls; remove manual scaling in `from_rou_evals`/`to_rou_evals`.
+- [x] Add a targeted test that compares new coset NTT results against the previous manual-scaling behavior.
+- [x] Verify with a focused test run and record results.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Switched 2D NTT coset handling to `NTTConfig.coset_gen` per axis and removed manual coefficient scaling in `from_rou_evals`/`to_rou_evals`. Added a regression test that compares coset-gen results against legacy manual scaling for both forward and inverse paths.  
+Verification: `cargo test -p libs test_coset_ntt_matches_manual_scaling -- --nocapture` (pass). Warnings in `libs` are pre-existing.
+
+# Plan (2026-02-07)
+- [x] Add a global NTT domain size tracker and initialize it in `Prover::init` using `max(m_i, n) * s_max`, with device selection.
+- [x] Remove `_biNTT` domain init/release; add strict size validation against the initialized size.
+- [x] Update tests or callers that rely on `_biNTT` to set the domain size before use.
+- [x] Verify with a focused test run and record results.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Initialized NTT domain once in `Prover::init` (after device selection) using `max(m_i, n) * s_max`, removed per-call init/release in `_biNTT`, and added strict domain-size validation. Added a helper to initialize the NTT domain in tests before using 2D NTT.  
+Verification: `cargo test -p libs test_coset_ntt_matches_manual_scaling -- --nocapture` (pass). Warnings in `libs` are pre-existing.
+
+# Plan (2026-02-07)
+- [x] Update Prover NTT domain size to cover 2x expansions (2*max(n,m_i) by 2*s_max).
+- [x] Run a minimal build/test to ensure compile.
+- [x] Record results.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Expanded NTT domain size init in `Prover::init` to `2*max(m_i,n)` by `2*s_max` to cover zero-knowledge padding, preventing domain-too-small errors.  
+Verification: `cargo test -p prove --lib` (0 tests). Warnings in `libs`/`prove` are pre-existing.
 - [x] Save prompt to `prove/optimization/prompts/REPORTING.md` and verify content.
 
 # Review (2026-02-07)
 - [x] Summarize changes and verification results.
 Added `prove/optimization/prompts/REPORTING.md` with rules for optimization_report and mini-report generation. No tests run.
+
+# Plan (2026-02-07)
+- [x] Inspect `BivariatePolynomial::_mul` and decide precise log points for from_coeffs, resize, to_rou_evals, ScalarCfg::mul, from_rou_evals.
+- [x] Add per-step timing logs in `libs/src/bivariate_polynomial/mod.rs` aligned with existing logging style.
+- [x] Locate the `_mul` test script in `libs/src/tests.rs` and document the command to run it.
+- [x] Verify by running the narrowest applicable test for `_mul` (or document if none found).
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Added per-step timing logs in `BivariatePolynomial::_mul` for from_coeffs, resize, to_rou_evals, ScalarCfg::mul, and from_rou_evals. Located `_mul` coverage in `tests::tests::test_mul_polynomial`.  
+Verification: `cargo test -p libs test_mul_polynomial -- --nocapture` (pass). Warnings in `libs` (pre-existing).
+
+# Plan (2026-02-07)
+- [x] Identify _biNTT call sites in verify and preprocess.
+- [x] Initialize NTT domain in verify init and preprocess gen using the same (4,2) domain sizing as Prover.
+- [x] Verify with a minimal build/test if needed.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Initialized NTT domain in `Verifier::init` and `Preprocess::gen` using the same (4,2) sizing and added device selection.  
+Verification: `cargo test -p verify --lib` (0 tests). Warnings in `libs`/`prove`/`verify`/`preprocess` are pre-existing.
+
+# Plan (2026-02-07)
+- [x] Initialize NTT domain in trusted-setup using max(n,l,m_i,s_max) or max(n,m_i)*s_max in testing-mode.
+- [x] Verify with a minimal build/test if needed.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Initialized NTT domain in trusted-setup to `max(n,l,m_i,s_max)` (default) and `max(n,m_i)*s_max` in testing-mode.  
+Verification: `cargo test -p trusted-setup --lib` (0 tests). Warnings in `libs` are pre-existing.
+
+# Plan (2026-02-07)
+- [x] Inspect `_biNTT` implementation and call sites for layout/memory costs.
+- [x] Identify optimization opportunities and constraints (transpose, domain init, allocations).
+- [x] Summarize recommendations and tradeoffs for runtime reduction.
+
+# Review (2026-02-07)
+- [x] Summarize findings and note any verification limits.
+Identified likely hotspots (domain init/release, repeated device allocations, transpose overhead) and suggested reuse/caching and column-batch/2D NTT alternatives. No code changes or tests run.
+
+# Plan (2026-02-07)
+- [x] Add timing instrumentation in `_biNTT` for `initialize_domain`, both `ntt` calls, both `transpose` calls, and `release_domain`.
+- [x] Add a focused test in `libs/src/tests.rs` that triggers `_biNTT` and prints timing logs.
+- [x] Verify by running the new test and record results.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Added `_biNTT` timing logs for domain init/release, each NTT, and both transposes. Added `test_biNTT_timing` to exercise forward/inverse and print timings.  
+Verification: `cargo test -p libs test_biNTT_timing -- --nocapture` (pass). Warnings in `libs` (pre-existing).
+
+# Plan (2026-02-07)
+- [x] Inventory console timing logs (println/eprintln with elapsed) across libs/prove/verify and identify which are safe to remove without affecting timing data collection.
+- [x] Remove console timing logs and any timing-only `Instant` measurements while keeping timing event collection used by `launch.json` prove timing tests.
+- [x] Verify with a minimal build/test (or document why not run).
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Removed console timing prints and their supporting `Instant` measurements from libs/prove/verify (including tests and bivariate polynomial timing macros), while keeping timing event collection for `prove/optimization/tests/timing.rs`.  
+Verification: `cargo check -p libs -p prove -p verify` (warnings only, pre-existing).
+
+# Plan (2026-02-07)
+- [x] Update lessons for the correction about including all modified files when requested.
+- [ ] Stage all changes, commit with a summary message, and push.
+- [ ] Verify git status is clean after push.
+
+# Review (2026-02-07)
+- [ ] Summarize changes and verification results.
