@@ -594,6 +594,50 @@ mod tests {
 
     }
 
+    fn make_vanishing_instance(p_x_size: usize, p_y_size: usize, c: usize, d: usize) -> (DensePolynomialExt, DensePolynomialExt, DensePolynomialExt) {
+        if p_x_size % c != 0 || p_y_size % d != 0 {
+            panic!("p_x_size and p_y_size must be divisible by c and d.");
+        }
+        let m = p_x_size / c;
+        let n = p_y_size / d;
+        let mut t_x_coeffs = vec![ScalarField::zero(); 2*c];
+        let mut t_y_coeffs = vec![ScalarField::zero(); 2*d];
+        t_x_coeffs[c] = ScalarField::one();
+        t_x_coeffs[0] = ScalarField::zero() - ScalarField::one();
+        t_y_coeffs[d] = ScalarField::one();
+        t_y_coeffs[0] = ScalarField::zero() - ScalarField::one();
+        let mut t_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_x_coeffs), 2*c, 1);
+        let mut t_y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_y_coeffs), 1, 2*d);
+        t_x.optimize_size();
+        t_y.optimize_size();
+
+        let q_x_coeffs_opt = ScalarCfg::generate_random(((m-1)*c-2) * (n*d -2) );
+        let q_y_coeffs_opt = ScalarCfg::generate_random((c-1) * ((n-1)*d-2));
+        let q_x_coeffs = resize(
+            &q_x_coeffs_opt.into_boxed_slice(), 
+            (m-1)*c-2, 
+            n*d -2,
+            (m-1)*c, 
+            n*d,
+            ScalarField::zero()
+        );
+        let q_y_coeffs = resize(
+            &q_y_coeffs_opt.into_boxed_slice(), 
+            c-1, 
+            (n-1)*d-2, 
+            c, 
+            (n-1)*d,
+            ScalarField::zero()
+        );
+        let mut q_x = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_x_coeffs), (m-1)*c, n*d);
+        let mut q_y = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&q_y_coeffs), c, (n-1)*d);
+        q_x.optimize_size();
+        q_y.optimize_size();
+        let mut p = &(&q_x * &t_x) + &(&q_y * &t_y);
+        p.optimize_size();
+        (p, t_x, t_y)
+    }
+
     // Test for div_by_vanishing - requires specific conditions
     #[test]
     fn test_div_by_vanishing_basic() {
@@ -601,6 +645,70 @@ mod tests {
         let d = 256;
         run_div_by_vanishing_basic(2 * c, 2 * d, c, d);
         run_div_by_vanishing_basic(3 * c, 2 * d, c, d);
+    }
+
+    #[test]
+    fn test_div_by_vanishing_opt_basic() {
+        let c = 32;
+        let d = 16;
+        let (mut p, t_x, t_y) = make_vanishing_instance(2 * c, 2 * d, c, d);
+        let mut cache = DivByVanishingCache {
+            denom_x_eval_inv: Box::new([]),
+            denom_y_eval_inv: Box::new([]),
+        };
+        let (mut q_x_found, mut q_y_found) = p.div_by_vanishing_opt(c as i64, d as i64, &mut cache);
+        q_x_found.optimize_size();
+        q_y_found.optimize_size();
+        let p_reconstruct = &(&q_x_found * &t_x) + &(&q_y_found * &t_y);
+
+        let a = ScalarCfg::generate_random(1)[0];
+        let b = ScalarCfg::generate_random(1)[0];
+        assert!(p.eval(&a, &b).eq(&p_reconstruct.eval(&a, &b)));
+    }
+
+    #[test]
+    #[ignore]
+    fn bench_div_by_vanishing_opt() {
+        let c = 1024;
+        let d = 256;
+        let (p, t_x, t_y) = make_vanishing_instance(2 * c, 2 * d, c, d);
+
+        let mut p_base = p.clone();
+        let mut cache_base = DivByVanishingCache {
+            denom_x_eval_inv: Box::new([]),
+            denom_y_eval_inv: Box::new([]),
+        };
+        let start = Instant::now();
+        let (mut q_x_base, mut q_y_base) = p_base.div_by_vanishing(c as i64, d as i64, &mut cache_base);
+        let base_time = start.elapsed().as_secs_f64();
+        q_x_base.optimize_size();
+        q_y_base.optimize_size();
+
+        let mut p_opt = p.clone();
+        let mut cache_opt = DivByVanishingCache {
+            denom_x_eval_inv: Box::new([]),
+            denom_y_eval_inv: Box::new([]),
+        };
+        let start = Instant::now();
+        let (mut q_x_opt, mut q_y_opt) = p_opt.div_by_vanishing_opt(c as i64, d as i64, &mut cache_opt);
+        let opt_time = start.elapsed().as_secs_f64();
+        q_x_opt.optimize_size();
+        q_y_opt.optimize_size();
+
+        let p_reconstruct_base = &(&q_x_base * &t_x) + &(&q_y_base * &t_y);
+        let p_reconstruct_opt = &(&q_x_opt * &t_x) + &(&q_y_opt * &t_y);
+        let a = ScalarCfg::generate_random(1)[0];
+        let b = ScalarCfg::generate_random(1)[0];
+        let p_evaled = p.eval(&a, &b);
+        assert!(p_evaled.eq(&p_reconstruct_base.eval(&a, &b)));
+        assert!(p_evaled.eq(&p_reconstruct_opt.eval(&a, &b)));
+
+        println!(
+            "div_by_vanishing benchmark: base={:.6}s opt={:.6}s speedup={:.2}x",
+            base_time,
+            opt_time,
+            base_time / opt_time
+        );
     }
 
     #[test]

@@ -36,3 +36,40 @@ Prove4 total is recorded by `prove4.total`, while poly/encode only include speci
 - [x] Summarize changes and verification results.
 Replaced coarse prove4 build timing with per-operation spans: evals, scale_coeffs, from_rou_evals, mul/add/combine steps, and div_by_ruffini blocks inside LHS_for_copy and Pi_A paths. This aligns with existing op-style timing while surfacing heavy sub-ops.  
 Verification: `cargo test -p prove --lib --features timing` (0 tests). Warnings in `libs` and `prove` (pre-existing).
+
+# Plan (2026-02-07)
+- [x] Inspect `div_by_vanishing` implementation and supporting utilities to extract exact math definitions and assumptions.
+- [x] Draft math spec (inputs, intermediate computations, outputs) in `prove/optimization/div_by_vanishing.md`.
+- [x] Verify the doc matches code behavior and record any assumptions/constraints.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Added a math/spec write-up for `div_by_vanishing` with inputs, intermediate steps, outputs, cache behavior, and constraints. No code execution or tests were run.
+
+# Plan (2026-02-07)
+- [x] Rework `div_by_vanishing.md` to include explicit variable dimensions and rigorous TeX formulas.
+- [x] Align the document with code-level behaviors (NTT domains, coset scaling, resize semantics).
+- [x] Verify the final doc for consistency and note any required assumptions.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Upgraded the document with explicit dimensions, formal 2D NTT/coset evaluation definitions, and TeX-based equations for each step. Added accuracy assumptions for degree bounds and resize truncation behavior. No code execution or tests were run.
+
+# Plan (2026-02-07)
+- [x] Design `div_by_vanishing_opt` (axis-only denom inverse + tiling) and decide cache reuse.
+- [x] Implement `div_by_vanishing_opt` in `libs/src/bivariate_polynomial/mod.rs` and extend trait signature.
+- [x] Add benchmark-style test in `libs/src/tests.rs` to compare timings and correctness vs baseline.
+- [x] Verify by running the new test (or document why it couldn't be run).
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Added `div_by_vanishing_opt` with axis-only denom inverse tiling and tests including a basic correctness check and an ignored benchmark.  
+Verification: `cargo test -p libs test_div_by_vanishing_opt_basic -- --nocapture` (pass). Warnings in `libs` (pre-existing).
+
+# Plan (2026-02-07)
+- [ ] Translate `prove/optimization/div_by_vanishing.md` to English.
+- [ ] Commit all current changes with a clear message.
+- [ ] Push the commit.
+
+# Review (2026-02-07)
+- [ ] Summarize changes and verification results.

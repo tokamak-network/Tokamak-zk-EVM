@@ -304,6 +304,8 @@ where
 
     // Method to divide this polynomial by vanishing polynomials 'X^{x_degree}-1' and 'Y^{y_degree}-1'.
     fn div_by_vanishing(&mut self, x_degree: i64, y_degree: i64, cache: &mut DivByVanishingCache) -> (Self, Self) where Self: Sized;
+    // Optimized variant: build denom inverses from axis-only values (tiled) instead of full evals.
+    fn div_by_vanishing_opt(&mut self, x_degree: i64, y_degree: i64, cache: &mut DivByVanishingCache) -> (Self, Self) where Self: Sized;
 
     // Method to divide this polynomial by (X-x) and (Y-y)
     fn div_by_ruffini(&self, x: &Self::Field, y: &Self::Field) -> (Self, Self, Self::Field) where Self: Sized;
@@ -1179,6 +1181,230 @@ impl BivariatePolynomial for DensePolynomialExt {
         };
         return (quo_x, quo_y)
 
+    }
+
+    fn div_by_vanishing_opt(&mut self, denom_x_degree: i64, denom_y_degree: i64, cache: &mut DivByVanishingCache) -> (Self, Self) {
+        if !( (denom_x_degree as usize).is_power_of_two() && (denom_y_degree as usize).is_power_of_two() ) {
+            panic!("The denominators must have degress as powers of two.")
+        }
+        self.optimize_size();
+        let numer_x_size = self.x_size;
+        let numer_y_size = self.y_size;
+        let numer_x_degree = self.x_degree;
+        let numer_y_degree = self.y_degree;
+        if numer_x_degree < denom_x_degree || numer_y_degree < denom_y_degree {
+            panic!("The numerator must have grater degrees than denominators.")
+        }
+        let m = numer_x_size / denom_x_degree as usize;
+        let n = numer_y_size / denom_y_degree as usize;
+        let c = denom_x_degree as usize;
+        let d = denom_y_degree as usize;
+        
+        let find_cache_index = |cache: &Box<[DenomCache]>, x_size: usize, y_size: usize| {
+            cache.iter().position(|entry| entry.x_size == x_size && entry.y_size == y_size)
+        };
+        let cached_denom_x_index = find_cache_index(&cache.denom_x_eval_inv, m * c, n * d);
+        let zeta = cached_denom_x_index
+            .map(|idx| cache.denom_x_eval_inv[idx].coset)
+            .unwrap_or_else(|| Self::FieldConfig::generate_random(1)[0]);
+        let cached_denom_y_index = find_cache_index(&cache.denom_y_eval_inv, c, n * d);
+        let xi = cached_denom_y_index
+            .map(|idx| cache.denom_y_eval_inv[idx].coset)
+            .unwrap_or(zeta);
+        let vec_ops_cfg = VecOpsConfig::default();
+        let timing_enabled = cfg!(test);
+        macro_rules! timed {
+            ($label:expr, $body:block) => {{
+                if timing_enabled {
+                    let start = Instant::now();
+                    let out = { $body };
+                    println!(
+                        "div_by_vanishing_opt.timing {}: {:.6}s",
+                        $label,
+                        start.elapsed().as_secs_f64()
+                    );
+                    out
+                } else {
+                    $body
+                }
+            }};
+        }
+        match cached_denom_x_index {
+            Some(_) => println!("div_by_vanishing_opt.cache_hit denom_x"),
+            None => println!("div_by_vanishing_opt.cache_miss denom_x"),
+        }
+        match cached_denom_y_index {
+            Some(_) => println!("div_by_vanishing_opt.cache_hit denom_y"),
+            None => println!("div_by_vanishing_opt.cache_miss denom_y"),
+        }
+        let mut build_denom_inv_tiled = |target_x: usize,
+                                         target_y: usize,
+                                         base: usize,
+                                         coset_x: Option<&ScalarField>,
+                                         coset_y: Option<&ScalarField>,
+                                         eval_label: &str| -> Box<[ScalarField]> {
+            let mut denom_inv_vec = vec![ScalarField::zero(); target_x * target_y];
+            let (axis_size, coset, is_y_dir) = match (coset_x, coset_y) {
+                (Some(cx), None) => (target_x, cx, false),
+                (None, Some(cy)) => (target_y, cy, true),
+                _ => panic!("Exactly one of coset_x or coset_y must be provided."),
+            };
+            let repeat = axis_size / base;
+            let root = ntt::get_root_of_unity::<ScalarField>(repeat as u64);
+            let coset_pow = coset.pow(base);
+            let mut omega_pows = vec![ScalarField::one(); repeat];
+            for i in 1..repeat {
+                omega_pows[i] = omega_pows[i - 1] * root;
+            }
+            let minus_one = ScalarField::zero() - ScalarField::one();
+            let mut inv_base = vec![ScalarField::zero(); repeat];
+            for i in 0..repeat {
+                let val = coset_pow * omega_pows[i] + minus_one;
+                inv_base[i] = val.inv();
+            }
+            timed!(eval_label, {
+                if is_y_dir {
+                    for x in 0..target_x {
+                        let row_start = x * target_y;
+                        for y in 0..target_y {
+                            denom_inv_vec[row_start + y] = inv_base[y % repeat];
+                        }
+                    }
+                } else {
+                    for x in 0..target_x {
+                        let inv = inv_base[x % repeat];
+                        let row_start = x * target_y;
+                        for y in 0..target_y {
+                            denom_inv_vec[row_start + y] = inv;
+                        }
+                    }
+                }
+            });
+            denom_inv_vec.into_boxed_slice()
+        };
+
+        let mut acc_block_eval = DeviceVec::<Self::Field>::device_malloc(c * n*d).unwrap();
+        {
+            let mut acc_block_vec = vec![Self::Field::zero(); c * n*d];
+            let acc_block = HostSlice::from_mut_slice(&mut acc_block_vec);
+            {
+                let block = vec![Self::Field::zero(); c * n*d];
+                let mut blocks = vec![block; m];
+                self._slice_coeffs_into_blocks(m,1, &mut blocks);
+                // Computing A' (accumulation of blocks of the numerator)
+
+                timed!("accumulate acc_block", {
+                    for i in 0..m {
+                        Self::FieldConfig::accumulate(
+                            acc_block,
+                            HostSlice::from_slice(&blocks[i]),
+                            &vec_ops_cfg
+                        ).unwrap();
+                    }
+                });
+            }
+            let acc_block_poly = timed!(
+                "from_coeffs acc_block_poly",
+                { DensePolynomialExt::from_coeffs(acc_block, c, n*d) }
+            );
+            // Computing R_tilde (eval of A' on rou-X and coset-Y)
+
+            timed!("to_rou_evals acc_block_eval", {
+                acc_block_poly.to_rou_evals(None, Some(&xi), &mut acc_block_eval);
+            });
+        }
+
+        // Computing Q_Y_tilde (eval of quo_y on rou-X and coset-Y)
+        let quo_y = {
+            let mut quo_y_tilde = DeviceVec::<Self::Field>::device_malloc(c * n*d).unwrap();
+            {
+                let denom_y_eval_inv_slice = if let Some(idx) = cached_denom_y_index {
+                    cache.denom_y_eval_inv[idx].evals.as_ref()
+                } else {
+                    let evals = build_denom_inv_tiled(
+                        c,
+                        n * d,
+                        d,
+                        None,
+                        Some(&xi),
+                        "denom_eval_tiled_y",
+                    );
+                    let mut new_cache = cache.denom_y_eval_inv.to_vec();
+                    new_cache.push(DenomCache {
+                        coset: xi,
+                        x_size: c,
+                        y_size: n * d,
+                        evals,
+                    });
+                    cache.denom_y_eval_inv = new_cache.into_boxed_slice();
+                    cache.denom_y_eval_inv.last().unwrap().evals.as_ref()
+                };
+
+                let denom_y_eval_inv = HostSlice::from_slice(denom_y_eval_inv_slice);
+                timed!("div quo_y_tilde", {
+                    Self::FieldConfig::mul(&acc_block_eval, denom_y_eval_inv, &mut quo_y_tilde, &vec_ops_cfg).unwrap();
+                });
+                
+            }
+            // Computing Q_Y
+            timed!(
+                "from_rou_evals quo_y",
+                { DensePolynomialExt::from_rou_evals(&quo_y_tilde, c, n*d, None, Some(&xi)) }
+            )
+        };
+
+        // Computing Q_X
+        let quo_x = {
+            // Computing Q_X_tilde (eval of quo_x on coset-X and extended-rou-Y)
+            let mut quo_x_tilde = DeviceVec::<Self::Field>::device_malloc(m*c * n*d).unwrap();
+            {
+                let mut b_tilde = DeviceVec::<Self::Field>::device_malloc(m*c * n*d).unwrap();
+                {
+                    // Computing R = quo_y * t_d
+                    let r = &quo_y.mul_monomial(0, d) - &quo_y;
+                    // Computing B
+                    let mut b = &*self - &r;
+                    drop(r);
+                    b.resize(m*c, n*d);
+                    // Computinb B_tilde (eval of B on coset-X and extended-rou-Y)
+
+                    timed!("to_rou_evals b_tilde", {
+                        b.to_rou_evals(Some(&zeta), None, &mut b_tilde);
+                    });
+                }
+                let denom_x_eval_inv_slice = if let Some(idx) = cached_denom_x_index {
+                    cache.denom_x_eval_inv[idx].evals.as_ref()
+                } else {
+                    let evals = build_denom_inv_tiled(
+                        m * c,
+                        n * d,
+                        c,
+                        Some(&zeta),
+                        None,
+                        "denom_eval_tiled_x",
+                    );
+                    let mut new_cache = cache.denom_x_eval_inv.to_vec();
+                    new_cache.push(DenomCache {
+                        coset: zeta,
+                        x_size: m * c,
+                        y_size: n * d,
+                        evals,
+                    });
+                    cache.denom_x_eval_inv = new_cache.into_boxed_slice();
+                    cache.denom_x_eval_inv.last().unwrap().evals.as_ref()
+                };
+
+                let denom_x_eval_inv = HostSlice::from_slice(denom_x_eval_inv_slice);
+                timed!("div quo_x_tilde", {
+                    Self::FieldConfig::mul(&b_tilde, denom_x_eval_inv, &mut quo_x_tilde, &vec_ops_cfg).unwrap();
+                });
+            }
+            timed!(
+                "from_rou_evals quo_x",
+                { DensePolynomialExt::from_rou_evals(&quo_x_tilde, m*c, n*d, Some(&zeta), None) }
+            )
+        };
+        return (quo_x, quo_y)
     }
 
     fn div_by_ruffini(&self, x: &Self::Field, y: &Self:: Field) -> (Self, Self, Self::Field) where Self: Sized {
