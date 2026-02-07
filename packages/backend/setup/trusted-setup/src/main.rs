@@ -5,6 +5,7 @@ use libs::iotools::{read_global_wire_list_as_boxed_boxed_numbers};
 // use libs::polynomial_structures::{gen_bXY, gen_uXY, gen_vXY, gen_wXY, QAP};
 use libs::utils::check_device;
 use libs::vector_operations::{gen_evaled_lagrange_bases};
+use libs::bivariate_polynomial::init_ntt_domain_for_size;
 use libs::group_structures::{Sigma};
 use icicle_bls12_381::curve::{BaseField, CurveCfg, G1Affine, G2Affine, G2BaseField, G2CurveCfg, ScalarField};
 use icicle_core::traits::{FieldImpl};
@@ -122,6 +123,17 @@ fn main() {
         panic!("m_I is not a power of two.");
     }
     
+    #[cfg(feature = "testing-mode")]
+    let ntt_domain_size = std::cmp::max(n, m_i)
+        .checked_mul(s_max)
+        .expect("max(n, m_i) * s_max overflow");
+    #[cfg(not(feature = "testing-mode"))]
+    let ntt_domain_size = *[n, l, m_i, s_max]
+        .iter()
+        .max()
+        .expect("max(n, l, m_i, s_max) requires non-empty inputs");
+    init_ntt_domain_for_size(ntt_domain_size).expect("Failed to initialize NTT domain");
+
     // Load subcircuit information
     let subcircuit_infos_path = PathBuf::from(paths.qap_path).join("subcircuitInfo.json");
     let subcircuit_infos = SubcircuitInfo::read_box_from_json(subcircuit_infos_path).unwrap();
@@ -427,20 +439,25 @@ fn main() {
 
     let start = Instant::now();
     
-    // Write bincode version for faster loading
     let output_dir_path = PathBuf::from(paths.output_path);
     std::fs::create_dir_all(&output_dir_path).expect("Failed to create output directory");
-    println!("Writing the sigma into bincode...");
-    let bincode_data = bincode::serialize(&sigma).expect("Failed to serialize sigma to bincode");
-    std::fs::write(output_dir_path.join("combined_sigma.bin"), bincode_data).expect("Failed to write bincode file");
-    
-    // // Writing the sigma into rust code
-    // println!("Writing the sigma into a rust code...");
-    // let output_path = "setup/trusted-setup/output/combined_sigma.rs";
-    // sigma.write_into_rust_code(output_path).unwrap();
+    {
+        use libs::iotools::{SigmaPreprocessRkyv, SigmaRkyv, SigmaVerifyRkyv};
+        println!("Writing the sigma into rkyv (zero-copy)...");
+        let sigma_rkyv = SigmaRkyv::from_sigma(&sigma);
+        let bytes = rkyv::to_bytes::<_, 256>(&sigma_rkyv).expect("Failed to serialize sigma to rkyv");
+        std::fs::write(output_dir_path.join("combined_sigma.rkyv"), bytes).expect("Failed to write rkyv file");
 
-    sigma.write_into_json_for_verify(output_dir_path.join("sigma_verify.json")).unwrap();
-    sigma.write_into_json_for_preprocess(output_dir_path.join("sigma_preprocess.json")).unwrap();
+        println!("Writing sigma_verify into rkyv...");
+        let sigma_verify_rkyv = SigmaVerifyRkyv::from_sigma(&sigma);
+        let bytes = rkyv::to_bytes::<_, 256>(&sigma_verify_rkyv).expect("Failed to serialize sigma_verify to rkyv");
+        std::fs::write(output_dir_path.join("sigma_verify.rkyv"), bytes).expect("Failed to write sigma_verify.rkyv");
+
+        println!("Writing sigma_preprocess into rkyv...");
+        let sigma_preprocess_rkyv = SigmaPreprocessRkyv::from_sigma(&sigma);
+        let bytes = rkyv::to_bytes::<_, 256>(&sigma_preprocess_rkyv).expect("Failed to serialize sigma_preprocess to rkyv");
+        std::fs::write(output_dir_path.join("sigma_preprocess.rkyv"), bytes).expect("Failed to write sigma_preprocess.rkyv");
+    }
     let lap = start.elapsed();
     println!("The sigma writing time: {:.6} seconds", lap.as_secs_f64());
 

@@ -1,7 +1,9 @@
 use std::{env, process};
 use std::path::PathBuf;
 
-use libs::group_structures::{SigmaPreprocess};
+use libs::iotools::SigmaPreprocessRkyv;
+use memmap2::Mmap;
+use std::fs::File;
 use libs::iotools::{Instance, Permutation, SetupParams};
 use libs::utils::check_device;
 use preprocess::{Preprocess, PreprocessInputPaths};
@@ -28,9 +30,11 @@ fn main() {
 
     let setup_path = PathBuf::from(paths.qap_path).join("setupParams.json");
     let setup_params = SetupParams::read_from_json(setup_path).unwrap();
-    let sigma_path = PathBuf::from(paths.setup_path).join("sigma_preprocess.json");
-    let sigma = SigmaPreprocess::read_from_json(sigma_path)
-    .expect("No reference string is found. Run the Setup first.");
+    let sigma_path = PathBuf::from(paths.setup_path).join("sigma_preprocess.rkyv");
+    let file = File::open(&sigma_path)
+        .expect("No reference string is found. Run the Setup first (expected sigma_preprocess.rkyv).");
+    let mmap = unsafe { Mmap::map(&file).expect("Failed to map sigma_preprocess.rkyv") };
+    let sigma = unsafe { rkyv::archived_root::<SigmaPreprocessRkyv>(&mmap) };
 
     // Load permutation (copy constraints of the variables)
     let permutation_path = PathBuf::from(paths.synthesizer_path).join("permutation.json");

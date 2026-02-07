@@ -51,6 +51,36 @@ def parse_poly_event(name: str):
     return op, module, var
 
 
+def parse_encode_event(name: str):
+    # Expected: proveX.encode.<var>
+    parts = name.split(".")
+    if len(parts) < 3:
+        return None
+    module = None
+    var = parts[-1]
+    for part in parts:
+        if part.startswith("prove"):
+            module = part
+            break
+    if module is None or "encode" not in parts:
+        return None
+    return module, var
+
+
+def parse_init_event(name: str):
+    # Expected: init.<phase>.<var> or init.total
+    parts = name.split(".")
+    if not parts or parts[0] != "init":
+        return None
+    if name == "init.total":
+        return ("total", "init")
+    if len(parts) < 3:
+        return None
+    phase = parts[1]
+    var = parts[-1]
+    return phase, var
+
+
 def build_report(data: dict) -> str:
     total_wall_ms = data.get("total_wall_ms", 0.0)
     summary = data.get("summary", {})
@@ -67,8 +97,40 @@ def build_report(data: dict) -> str:
 
     poly_op_totals = defaultdict(float)
     poly_event_rows = []
+    encode_event_rows = []
+    init_event_rows = []
+    init_total_ms = None
     for e in events:
+        if e.get("name") == "init.total":
+            init_total_ms = e.get("nanos", 0) / 1_000_000.0
+        if e.get("category") in ("load", "build", "init") and e.get("name", "").startswith("init."):
+            parsed = parse_init_event(e.get("name", ""))
+            if parsed is not None and e.get("name") != "init.total":
+                phase, var = parsed
+                ms = e.get("nanos", 0) / 1_000_000.0
+                init_event_rows.append(
+                    {
+                        "phase": phase,
+                        "var": var,
+                        "ms": ms,
+                        "sizes": sizes_to_string(e.get("sizes", [])),
+                    }
+                )
         if e.get("category") != "poly":
+            if e.get("category") == "encode":
+                parsed = parse_encode_event(e.get("name", ""))
+                if parsed is None:
+                    continue
+                module, var = parsed
+                ms = e.get("nanos", 0) / 1_000_000.0
+                encode_event_rows.append(
+                    {
+                        "module": module,
+                        "var": var,
+                        "ms": ms,
+                        "sizes": sizes_to_string(e.get("sizes", [])),
+                    }
+                )
             continue
         parsed = parse_poly_event(e.get("name", ""))
         if parsed is None:
@@ -118,10 +180,12 @@ def build_report(data: dict) -> str:
                 lines.append(f"| {key} | {setup_params[key]} |")
         lines.append("")
 
-    lines.append("## Module Times (prove0~prove4)")
+    lines.append("## Module Times (init + prove0~prove4)")
     lines.append("")
     lines.append("| module | total | poly | encode |")
     lines.append("| --- | --- | --- | --- |")
+    if init_total_ms is not None:
+        lines.append(f"| init | {format_seconds(init_total_ms)} | - | - |")
     for module in ["prove0", "prove1", "prove2", "prove3", "prove4"]:
         item = summary.get(module, {})
         lines.append(
@@ -129,6 +193,17 @@ def build_report(data: dict) -> str:
             f"{format_seconds(item.get('poly_ms', 0.0))} | {format_seconds(item.get('encode_ms', 0.0))} |"
         )
     lines.append("")
+
+    if init_event_rows:
+        lines.append("## Init Details (load/build)")
+        lines.append("")
+        lines.append("| phase | variable | time | dims |")
+        lines.append("| --- | --- | --- | --- |")
+        for row in sorted(init_event_rows, key=lambda r: (r["phase"], r["var"])):
+            lines.append(
+                f"| {row['phase']} | {row['var']} | {format_seconds(row['ms'])} | {row['sizes']} |"
+            )
+        lines.append("")
 
     lines.append("## Category Totals")
     lines.append("")
@@ -153,6 +228,16 @@ def build_report(data: dict) -> str:
     for row in sorted(poly_event_rows, key=lambda r: (r["op"], r["module"], r["var"])):
         lines.append(
             f"| {row['op']} | {row['module']} | {row['var']} | {format_seconds(row['ms'])} | {row['sizes']} |"
+        )
+    lines.append("")
+
+    lines.append("## Encode Details (by variable)")
+    lines.append("")
+    lines.append("| module | variable | time | dims |")
+    lines.append("| --- | --- | --- | --- |")
+    for row in sorted(encode_event_rows, key=lambda r: (r["module"], r["var"])):
+        lines.append(
+            f"| {row['module']} | {row['var']} | {format_seconds(row['ms'])} | {row['sizes']} |"
         )
     lines.append("")
 
