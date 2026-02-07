@@ -67,9 +67,10 @@ Added `div_by_vanishing_opt` with axis-only denom inverse tiling and tests inclu
 Verification: `cargo test -p libs test_div_by_vanishing_opt_basic -- --nocapture` (pass). Warnings in `libs` (pre-existing).
 
 # Plan (2026-02-07)
-- [ ] Translate `prove/optimization/div_by_vanishing.md` to English.
-- [ ] Commit all current changes with a clear message.
-- [ ] Push the commit.
+- [x] Translate `prove/optimization/div_by_vanishing.md` to English.
+- [x] Commit all current changes with a clear message.
+- [x] Push the commit.
 
 # Review (2026-02-07)
-- [ ] Summarize changes and verification results.
+- [x] Summarize changes and verification results.
+Translated the div_by_vanishing spec to English and committed/pushed all changes. No new tests run for this step.
