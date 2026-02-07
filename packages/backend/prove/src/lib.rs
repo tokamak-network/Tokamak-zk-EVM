@@ -1,7 +1,7 @@
     #![allow(non_snake_case)]
     use icicle_runtime::memory::{DeviceVec, HostSlice};
     use libs::{impl_read_from_json, impl_write_into_json, split_push, pop_recover};
-    use libs::bivariate_polynomial::{BivariatePolynomial, DenomCache, DensePolynomialExt, DivByVanishingCache};
+    use libs::bivariate_polynomial::{AxisCache, BivariatePolynomial, DenomCache, DensePolynomialExt, DivByVanishingCache};
     use libs::iotools::{*};
     use libs::field_structures::{FieldSerde, hashing};
     use libs::vector_operations::{point_add_two_vecs, point_div_two_vecs, point_mul_two_vecs, resize, transpose_inplace};
@@ -565,6 +565,8 @@
                 div_by_vanishing: DivByVanishingCache {
                     denom_x_eval_inv: Box::<[DenomCache]>::default(),
                     denom_y_eval_inv: Box::<[DenomCache]>::default(),
+                    denom_x_axis_inv: Box::<[AxisCache]>::default(),
+                    denom_y_axis_inv: Box::<[AxisCache]>::default(),
                 },
             };
 
@@ -915,7 +917,7 @@
             );
             // Arithmetic constraints argument polynomials
             (self.quotients.q0XY, self.quotients.q1XY) = crate::time_block!(
-                "poly.div_by_vanishing.prove0.q0q1",
+                "poly.div_by_vanishing_opt.prove0.q0q1",
                 "poly",
                 vec![
                     crate::timing::SizeInfo { label: "p0XY", dims: vec![self.witness.uXY.x_size, self.witness.uXY.y_size] },
@@ -960,7 +962,7 @@
                         panic!("Evaluations of u(X,Y), v(X,Y), and w(X,Y) do not satisfy R1CS.")
                     }
                 }
-                let (q0XY, q1XY) = p0XY.div_by_vanishing(
+                let (q0XY, q1XY) = p0XY.div_by_vanishing_opt(
                     self.setup_params.n as i64, 
                     self.setup_params.s_max as i64,
                     &mut self.cache.div_by_vanishing,
@@ -1363,7 +1365,7 @@
             });
 
             (self.quotients.q2XY, self.quotients.q3XY) = crate::time_block!(
-                "poly.div_by_vanishing.prove2.qCXqCY",
+                "poly.div_by_vanishing_opt.prove2.qCXqCY",
                 "poly",
                 vec![
                     crate::timing::SizeInfo { label: "p_comb", dims: vec![m_i, s_max] },
@@ -1383,7 +1385,7 @@
                     (kappa0, p2XY),
                     (kappa0_sq, p3XY)
                 );
-                let (qCX, qCY) = p_comb.div_by_vanishing(m_i as i64, s_max as i64, &mut self.cache.div_by_vanishing);
+                let (qCX, qCY) = p_comb.div_by_vanishing_opt(m_i as i64, s_max as i64, &mut self.cache.div_by_vanishing);
                 #[cfg(feature = "testing-mode")] {
                     let x_e = ScalarCfg::generate_random(1)[0];
                     let y_e = ScalarCfg::generate_random(1)[0];

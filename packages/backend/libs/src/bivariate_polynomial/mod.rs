@@ -34,12 +34,23 @@ pub struct DenomCache {
     pub coset: ScalarField,
     pub x_size: usize,
     pub y_size: usize,
+    pub base: usize,
     pub evals: Box<[ScalarField]>,
+}
+
+#[derive(Clone)]
+pub struct AxisCache {
+    pub coset: ScalarField,
+    pub axis_size: usize,
+    pub base: usize,
+    pub invs: Box<[ScalarField]>,
 }
 
 pub struct DivByVanishingCache {
     pub denom_x_eval_inv: Box<[DenomCache]>,
     pub denom_y_eval_inv: Box<[DenomCache]>,
+    pub denom_x_axis_inv: Box<[AxisCache]>,
+    pub denom_y_axis_inv: Box<[AxisCache]>,
 }
 
 pub struct DensePolynomialExt {
@@ -970,14 +981,14 @@ impl BivariatePolynomial for DensePolynomialExt {
         let c = denom_x_degree as usize;
         let d = denom_y_degree as usize;
         
-        let find_cache_index = |cache: &Box<[DenomCache]>, x_size: usize, y_size: usize| {
-            cache.iter().position(|entry| entry.x_size == x_size && entry.y_size == y_size)
+        let find_cache_index = |cache: &Box<[DenomCache]>, x_size: usize, y_size: usize, base: usize| {
+            cache.iter().position(|entry| entry.x_size == x_size && entry.y_size == y_size && entry.base == base)
         };
-        let cached_denom_x_index = find_cache_index(&cache.denom_x_eval_inv, m * c, n * d);
+        let cached_denom_x_index = find_cache_index(&cache.denom_x_eval_inv, m * c, n * d, c);
         let zeta = cached_denom_x_index
             .map(|idx| cache.denom_x_eval_inv[idx].coset)
             .unwrap_or_else(|| Self::FieldConfig::generate_random(1)[0]);
-        let cached_denom_y_index = find_cache_index(&cache.denom_y_eval_inv, c, n * d);
+        let cached_denom_y_index = find_cache_index(&cache.denom_y_eval_inv, c, n * d, d);
         let xi = cached_denom_y_index
             .map(|idx| cache.denom_y_eval_inv[idx].coset)
             .unwrap_or(zeta);
@@ -1109,6 +1120,7 @@ impl BivariatePolynomial for DensePolynomialExt {
                         coset: xi,
                         x_size: c,
                         y_size: n * d,
+                        base: d,
                         evals,
                     });
                     cache.denom_y_eval_inv = new_cache.into_boxed_slice();
@@ -1163,6 +1175,7 @@ impl BivariatePolynomial for DensePolynomialExt {
                         coset: zeta,
                         x_size: m * c,
                         y_size: n * d,
+                        base: c,
                         evals,
                     });
                     cache.denom_x_eval_inv = new_cache.into_boxed_slice();
@@ -1200,16 +1213,29 @@ impl BivariatePolynomial for DensePolynomialExt {
         let c = denom_x_degree as usize;
         let d = denom_y_degree as usize;
         
-        let find_cache_index = |cache: &Box<[DenomCache]>, x_size: usize, y_size: usize| {
-            cache.iter().position(|entry| entry.x_size == x_size && entry.y_size == y_size)
+        let find_cache_index = |cache: &Box<[DenomCache]>, x_size: usize, y_size: usize, base: usize| {
+            cache.iter().position(|entry| entry.x_size == x_size && entry.y_size == y_size && entry.base == base)
         };
-        let cached_denom_x_index = find_cache_index(&cache.denom_x_eval_inv, m * c, n * d);
-        let zeta = cached_denom_x_index
-            .map(|idx| cache.denom_x_eval_inv[idx].coset)
+        let find_axis_cache_index = |cache: &Box<[AxisCache]>, axis_size: usize, base: usize, coset: &ScalarField| {
+            cache.iter().position(|entry| entry.axis_size == axis_size && entry.base == base && entry.coset.eq(coset))
+        };
+        let find_axis_cache_any = |cache: &Box<[AxisCache]>, axis_size: usize, base: usize| {
+            cache.iter().position(|entry| entry.axis_size == axis_size && entry.base == base)
+        };
+
+        let cached_denom_x_index = find_cache_index(&cache.denom_x_eval_inv, m * c, n * d, c);
+        let cached_denom_y_index = find_cache_index(&cache.denom_y_eval_inv, c, n * d, d);
+
+        let cached_x_axis_any = find_axis_cache_any(&cache.denom_x_axis_inv, m * c, c);
+        let cached_y_axis_any = find_axis_cache_any(&cache.denom_y_axis_inv, n * d, d);
+
+        let zeta = cached_x_axis_any
+            .map(|idx| cache.denom_x_axis_inv[idx].coset)
+            .or_else(|| cached_denom_x_index.map(|idx| cache.denom_x_eval_inv[idx].coset))
             .unwrap_or_else(|| Self::FieldConfig::generate_random(1)[0]);
-        let cached_denom_y_index = find_cache_index(&cache.denom_y_eval_inv, c, n * d);
-        let xi = cached_denom_y_index
-            .map(|idx| cache.denom_y_eval_inv[idx].coset)
+        let xi = cached_y_axis_any
+            .map(|idx| cache.denom_y_axis_inv[idx].coset)
+            .or_else(|| cached_denom_y_index.map(|idx| cache.denom_y_eval_inv[idx].coset))
             .unwrap_or(zeta);
         let vec_ops_cfg = VecOpsConfig::default();
         let timing_enabled = cfg!(test);
@@ -1229,26 +1255,16 @@ impl BivariatePolynomial for DensePolynomialExt {
                 }
             }};
         }
-        match cached_denom_x_index {
-            Some(_) => println!("div_by_vanishing_opt.cache_hit denom_x"),
-            None => println!("div_by_vanishing_opt.cache_miss denom_x"),
+        match cached_x_axis_any {
+            Some(_) => println!("div_by_vanishing_opt.cache_hit denom_x_axis"),
+            None => println!("div_by_vanishing_opt.cache_miss denom_x_axis"),
         }
-        match cached_denom_y_index {
-            Some(_) => println!("div_by_vanishing_opt.cache_hit denom_y"),
-            None => println!("div_by_vanishing_opt.cache_miss denom_y"),
+        match cached_y_axis_any {
+            Some(_) => println!("div_by_vanishing_opt.cache_hit denom_y_axis"),
+            None => println!("div_by_vanishing_opt.cache_miss denom_y_axis"),
         }
-        let mut build_denom_inv_tiled = |target_x: usize,
-                                         target_y: usize,
-                                         base: usize,
-                                         coset_x: Option<&ScalarField>,
-                                         coset_y: Option<&ScalarField>,
-                                         eval_label: &str| -> Box<[ScalarField]> {
-            let mut denom_inv_vec = vec![ScalarField::zero(); target_x * target_y];
-            let (axis_size, coset, is_y_dir) = match (coset_x, coset_y) {
-                (Some(cx), None) => (target_x, cx, false),
-                (None, Some(cy)) => (target_y, cy, true),
-                _ => panic!("Exactly one of coset_x or coset_y must be provided."),
-            };
+
+        let mut build_axis_inv = |axis_size: usize, base: usize, coset: &ScalarField, label: &str| -> Box<[ScalarField]> {
             let repeat = axis_size / base;
             let root = ntt::get_root_of_unity::<ScalarField>(repeat as u64);
             let coset_pow = coset.pow(base);
@@ -1258,21 +1274,33 @@ impl BivariatePolynomial for DensePolynomialExt {
             }
             let minus_one = ScalarField::zero() - ScalarField::one();
             let mut inv_base = vec![ScalarField::zero(); repeat];
-            for i in 0..repeat {
-                let val = coset_pow * omega_pows[i] + minus_one;
-                inv_base[i] = val.inv();
-            }
-            timed!(eval_label, {
+            timed!(label, {
+                for i in 0..repeat {
+                    let val = coset_pow * omega_pows[i] + minus_one;
+                    inv_base[i] = val.inv();
+                }
+            });
+            inv_base.into_boxed_slice()
+        };
+
+        let mut tile_axis_inv = |target_x: usize,
+                                 target_y: usize,
+                                 axis_inv: &[ScalarField],
+                                 is_y_dir: bool,
+                                 label: &str| -> Box<[ScalarField]> {
+            let mut denom_inv_vec = vec![ScalarField::zero(); target_x * target_y];
+            let repeat = axis_inv.len();
+            timed!(label, {
                 if is_y_dir {
                     for x in 0..target_x {
                         let row_start = x * target_y;
                         for y in 0..target_y {
-                            denom_inv_vec[row_start + y] = inv_base[y % repeat];
+                            denom_inv_vec[row_start + y] = axis_inv[y % repeat];
                         }
                     }
                 } else {
                     for x in 0..target_x {
-                        let inv = inv_base[x % repeat];
+                        let inv = axis_inv[x % repeat];
                         let row_start = x * target_y;
                         for y in 0..target_y {
                             denom_inv_vec[row_start + y] = inv;
@@ -1318,29 +1346,28 @@ impl BivariatePolynomial for DensePolynomialExt {
         let quo_y = {
             let mut quo_y_tilde = DeviceVec::<Self::Field>::device_malloc(c * n*d).unwrap();
             {
-                let denom_y_eval_inv_slice = if let Some(idx) = cached_denom_y_index {
-                    cache.denom_y_eval_inv[idx].evals.as_ref()
+                let axis_inv_slice = if let Some(idx) = find_axis_cache_index(&cache.denom_y_axis_inv, n * d, d, &xi) {
+                    cache.denom_y_axis_inv[idx].invs.as_ref()
                 } else {
-                    let evals = build_denom_inv_tiled(
-                        c,
-                        n * d,
-                        d,
-                        None,
-                        Some(&xi),
-                        "denom_eval_tiled_y",
-                    );
-                    let mut new_cache = cache.denom_y_eval_inv.to_vec();
-                    new_cache.push(DenomCache {
+                    let invs = build_axis_inv(n * d, d, &xi, "denom_axis_inv_y");
+                    let mut new_cache = cache.denom_y_axis_inv.to_vec();
+                    new_cache.push(AxisCache {
                         coset: xi,
-                        x_size: c,
-                        y_size: n * d,
-                        evals,
+                        axis_size: n * d,
+                        base: d,
+                        invs,
                     });
-                    cache.denom_y_eval_inv = new_cache.into_boxed_slice();
-                    cache.denom_y_eval_inv.last().unwrap().evals.as_ref()
+                    cache.denom_y_axis_inv = new_cache.into_boxed_slice();
+                    cache.denom_y_axis_inv.last().unwrap().invs.as_ref()
                 };
-
-                let denom_y_eval_inv = HostSlice::from_slice(denom_y_eval_inv_slice);
+                let denom_y_eval_inv_vec = tile_axis_inv(
+                    c,
+                    n * d,
+                    axis_inv_slice,
+                    true,
+                    "denom_tile_y",
+                );
+                let denom_y_eval_inv = HostSlice::from_slice(&denom_y_eval_inv_vec);
                 timed!("div quo_y_tilde", {
                     Self::FieldConfig::mul(&acc_block_eval, denom_y_eval_inv, &mut quo_y_tilde, &vec_ops_cfg).unwrap();
                 });
@@ -1372,29 +1399,28 @@ impl BivariatePolynomial for DensePolynomialExt {
                         b.to_rou_evals(Some(&zeta), None, &mut b_tilde);
                     });
                 }
-                let denom_x_eval_inv_slice = if let Some(idx) = cached_denom_x_index {
-                    cache.denom_x_eval_inv[idx].evals.as_ref()
+                let axis_inv_slice = if let Some(idx) = find_axis_cache_index(&cache.denom_x_axis_inv, m * c, c, &zeta) {
+                    cache.denom_x_axis_inv[idx].invs.as_ref()
                 } else {
-                    let evals = build_denom_inv_tiled(
-                        m * c,
-                        n * d,
-                        c,
-                        Some(&zeta),
-                        None,
-                        "denom_eval_tiled_x",
-                    );
-                    let mut new_cache = cache.denom_x_eval_inv.to_vec();
-                    new_cache.push(DenomCache {
+                    let invs = build_axis_inv(m * c, c, &zeta, "denom_axis_inv_x");
+                    let mut new_cache = cache.denom_x_axis_inv.to_vec();
+                    new_cache.push(AxisCache {
                         coset: zeta,
-                        x_size: m * c,
-                        y_size: n * d,
-                        evals,
+                        axis_size: m * c,
+                        base: c,
+                        invs,
                     });
-                    cache.denom_x_eval_inv = new_cache.into_boxed_slice();
-                    cache.denom_x_eval_inv.last().unwrap().evals.as_ref()
+                    cache.denom_x_axis_inv = new_cache.into_boxed_slice();
+                    cache.denom_x_axis_inv.last().unwrap().invs.as_ref()
                 };
-
-                let denom_x_eval_inv = HostSlice::from_slice(denom_x_eval_inv_slice);
+                let denom_x_eval_inv_vec = tile_axis_inv(
+                    m * c,
+                    n * d,
+                    axis_inv_slice,
+                    false,
+                    "denom_tile_x",
+                );
+                let denom_x_eval_inv = HostSlice::from_slice(&denom_x_eval_inv_vec);
                 timed!("div quo_x_tilde", {
                     Self::FieldConfig::mul(&b_tilde, denom_x_eval_inv, &mut quo_x_tilde, &vec_ops_cfg).unwrap();
                 });

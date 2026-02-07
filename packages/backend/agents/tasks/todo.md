@@ -74,3 +74,30 @@ Verification: `cargo test -p libs test_div_by_vanishing_opt_basic -- --nocapture
 # Review (2026-02-07)
 - [x] Summarize changes and verification results.
 Translated the div_by_vanishing spec to English and committed/pushed all changes. No new tests run for this step.
+
+# Plan (2026-02-07)
+- [x] Extend `prove/optimization/div_by_vanishing.md` with separate math specs for `div_by_vanishing` and `div_by_vanishing_opt`.
+- [x] Add a concise differences summary (math + computational implications).
+- [x] Verify document consistency and note any assumptions.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Documented baseline vs optimized math, and added a differences summary with computational implications. No tests run.
+
+# Plan (2026-02-07)
+- [ ] Locate all div_by_vanishing call sites under prove/ and identify any timing labels or dependent assumptions.
+- [ ] Update Prove call sites to div_by_vanishing_opt and adjust any related labels/messages.
+- [ ] Review for consistency and report; run targeted tests if feasible.
+
+# Review (2026-02-07)
+- [ ] Summarize changes and verification results.
+
+# Plan (2026-02-07)
+- [x] Extend div_by_vanishing_opt cache to store axis inverses and include base in cache keys.
+- [x] Update cache initialization sites and ensure baseline cache lookup matches new keys.
+- [x] Run a targeted div_by_vanishing_opt test to verify behavior.
+
+# Review (2026-02-07)
+- [x] Summarize changes and verification results.
+Added axis-inverse caching for `div_by_vanishing_opt`, extended cache keys with `base`, and updated cache initializations.  
+Verification: `cargo test -p libs test_div_by_vanishing_opt_basic -- --nocapture` (pass). Warnings in `libs` (pre-existing).

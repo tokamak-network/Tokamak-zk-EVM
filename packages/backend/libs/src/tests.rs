@@ -574,6 +574,8 @@ mod tests {
         let mut cache = DivByVanishingCache {
             denom_x_eval_inv: Box::new([]),
             denom_y_eval_inv: Box::new([]),
+            denom_x_axis_inv: Box::new([]),
+            denom_y_axis_inv: Box::new([]),
         };
         let (mut q_x_found, mut q_y_found) = p.div_by_vanishing(c as i64, d as i64, &mut cache);
         q_x_found.optimize_size();
@@ -655,6 +657,8 @@ mod tests {
         let mut cache = DivByVanishingCache {
             denom_x_eval_inv: Box::new([]),
             denom_y_eval_inv: Box::new([]),
+            denom_x_axis_inv: Box::new([]),
+            denom_y_axis_inv: Box::new([]),
         };
         let (mut q_x_found, mut q_y_found) = p.div_by_vanishing_opt(c as i64, d as i64, &mut cache);
         q_x_found.optimize_size();
@@ -677,6 +681,8 @@ mod tests {
         let mut cache_base = DivByVanishingCache {
             denom_x_eval_inv: Box::new([]),
             denom_y_eval_inv: Box::new([]),
+            denom_x_axis_inv: Box::new([]),
+            denom_y_axis_inv: Box::new([]),
         };
         let start = Instant::now();
         let (mut q_x_base, mut q_y_base) = p_base.div_by_vanishing(c as i64, d as i64, &mut cache_base);
@@ -688,6 +694,8 @@ mod tests {
         let mut cache_opt = DivByVanishingCache {
             denom_x_eval_inv: Box::new([]),
             denom_y_eval_inv: Box::new([]),
+            denom_x_axis_inv: Box::new([]),
+            denom_y_axis_inv: Box::new([]),
         };
         let start = Instant::now();
         let (mut q_x_opt, mut q_y_opt) = p_opt.div_by_vanishing_opt(c as i64, d as i64, &mut cache_opt);
