@@ -199,6 +199,55 @@ Verification: `cargo test -p libs test_coset_ntt_matches_manual_scaling -- --noc
 - [x] Summarize changes and verification results.
 Expanded NTT domain size init in `Prover::init` to `2*max(m_i,n)` by `2*s_max` to cover zero-knowledge padding, preventing domain-too-small errors.  
 
+# Plan (2026-02-08)
+- [x] Locate PR 181 on GitHub and confirm its exact URL/branch.
+- [x] Collect all PR 181 comments (issue conversation + review summary + inline comments) with authors and timestamps.
+- [x] Report the comments in a structured list and note if any sections are empty.
+
+# Review (2026-02-08)
+- [x] Summarize findings and sources used.
+Collected PR 181 issue comment, review summary, and inline review comments via GitHub API with author/time metadata; all comments were from gemini-code-assist[bot]. No empty sections.
+
+# Plan (2026-02-08)
+- [x] Attempt to access PR 181 page via `web.run` and record status/limitations.
+- [x] Attempt GitHub API endpoints for PR comments/reviews via `web.run` and compare access behavior.
+- [x] Identify root cause (auth, rate limit, robots, tooling limits) and apply the simplest viable fix.
+- [x] Verify access by fetching comments and summarizing what changed.
+
+# Review (2026-02-08)
+- [x] Summarize root cause, fix, and verification evidence.
+Root cause was sandbox network isolation; fixed by running `gh api` outside the sandbox after user login. Verified by fetching PR 181 issue comments, review comments, and review summary successfully.
+
+# Plan (2026-02-08)
+- [x] Fetch PR 181 issue comments via GitHub API (auth required).
+- [x] Fetch PR 181 review comments and review summary via GitHub API.
+- [x] Aggregate comments chronologically with author/timestamp/source and report.
+
+# Review (2026-02-08)
+- [x] Summarize results and verification evidence.
+Aggregated 1 issue comment, 1 review summary, and 5 inline review comments (all from gemini-code-assist[bot]) with timestamps and links; delivered structured report.
+
+# Plan (2026-02-08)
+- [x] Validate rkyv archives on load (prove/verify/preprocess) using `check_archived_root`.
+- [x] Remove cache debug `println!` statements in `div_by_vanishing` paths.
+- [x] Fix timing report paths in README to match actual output locations.
+- [x] Run targeted cargo tests/builds for touched crates.
+
+# Review (2026-02-08)
+- [x] Summarize changes and verification results.
+Validated rkyv archives on load in prove/verify/preprocess, removed cache debug prints, and aligned timing report paths in README.  
+Verification: `cargo test -p libs --lib` failed with SIGSEGV after device registration; warnings pre-existed. No further tests run.
+
+# Plan (2026-02-08)
+- [x] Add rkyv validation support by deriving `CheckBytes` for archived sigma structs.
+- [x] Ensure rkyv validation feature is enabled for workspace dependency.
+- [x] Verify preprocess compiles with `check_archived_root`.
+
+# Review (2026-02-08)
+- [x] Summarize changes and verification results.
+Derived `#[archive(check_bytes)]` for sigma-related rkyv structs to satisfy `check_archived_root` bounds and kept workspace `rkyv` validation enabled.  
+Verification: `cargo check -p preprocess` succeeded (warnings pre-existing).
+
 # Plan (2026-02-07)
 - [x] Inspect `prove/output/timing.release.md` and commit history to identify any new snapshot rows where `total_wall` drops by >= 3.0s vs prior snapshot.
 - [x] Update `prove/optimization/optimization_report.md` Source Series table and Notes to reflect any new qualifying rows and commit summaries.

@@ -1017,14 +1017,6 @@ impl BivariatePolynomial for DensePolynomialExt {
             .map(|idx| cache.denom_y_eval_inv[idx].coset)
             .unwrap_or(zeta);
         let vec_ops_cfg = VecOpsConfig::default();
-        match cached_denom_x_index {
-            Some(_) => println!("div_by_vanishing.cache_hit denom_x"),
-            None => println!("div_by_vanishing.cache_miss denom_x"),
-        }
-        match cached_denom_y_index {
-            Some(_) => println!("div_by_vanishing.cache_hit denom_y"),
-            None => println!("div_by_vanishing.cache_miss denom_y"),
-        }
         let mut build_denom_inv = |target_x: usize,
                                    target_y: usize,
                                    base: usize,
@@ -1219,14 +1211,6 @@ impl BivariatePolynomial for DensePolynomialExt {
             .or_else(|| cached_denom_y_index.map(|idx| cache.denom_y_eval_inv[idx].coset))
             .unwrap_or(zeta);
         let vec_ops_cfg = VecOpsConfig::default();
-        match cached_x_axis_any {
-            Some(_) => println!("div_by_vanishing_opt.cache_hit denom_x_axis"),
-            None => println!("div_by_vanishing_opt.cache_miss denom_x_axis"),
-        }
-        match cached_y_axis_any {
-            Some(_) => println!("div_by_vanishing_opt.cache_hit denom_y_axis"),
-            None => println!("div_by_vanishing_opt.cache_miss denom_y_axis"),
-        }
 
         let mut build_axis_inv = |axis_size: usize, base: usize, coset: &ScalarField| -> Box<[ScalarField]> {
             let repeat = axis_size / base;

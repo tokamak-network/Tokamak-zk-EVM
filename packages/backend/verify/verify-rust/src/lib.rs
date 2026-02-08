@@ -9,6 +9,7 @@ use libs::group_structures::{G1serde, G2serde, Sigma2};
 use libs::iotools::{ArchivedSigmaVerifyRkyv, SigmaVerifyRkyv};
 use libs::utils::check_device;
 use memmap2::Mmap;
+use std::io;
 use std::fs::File;
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
@@ -36,11 +37,17 @@ impl SigmaVerifyZeroCopy {
     pub fn load(path: &PathBuf) -> std::io::Result<Self> {
         let file = File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
-        let _ = unsafe { rkyv::archived_root::<SigmaVerifyRkyv>(&mmap) };
+        rkyv::check_archived_root::<SigmaVerifyRkyv>(&mmap).map_err(|err| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Invalid sigma_verify archive: {err:?}"),
+            )
+        })?;
         Ok(Self { mmap })
     }
 
     fn sigma(&self) -> &ArchivedSigmaVerifyRkyv {
+        // Safe because we validated the archive on load and the mmap lives with self.
         unsafe { rkyv::archived_root::<SigmaVerifyRkyv>(&self.mmap) }
     }
 

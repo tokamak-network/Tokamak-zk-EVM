@@ -1,3 +1,4 @@
+use std::io;
 use std::path::Path;
 
 use libs::bivariate_polynomial::DensePolynomialExt;
@@ -18,12 +19,17 @@ impl SigmaZeroCopy {
     pub fn load(path: &Path) -> std::io::Result<Self> {
         let file = File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
-        // Note: validation is skipped; assumes trusted-setup generated a matching archive.
-        let _ = unsafe { rkyv::archived_root::<SigmaRkyv>(&mmap) };
+        rkyv::check_archived_root::<SigmaRkyv>(&mmap).map_err(|err| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Invalid sigma archive: {err:?}"),
+            )
+        })?;
         Ok(Self { mmap })
     }
 
     pub fn sigma(&self) -> &ArchivedSigmaRkyv {
+        // Safe because we validated the archive on load and the mmap lives with self.
         unsafe { rkyv::archived_root::<SigmaRkyv>(&self.mmap) }
     }
 }

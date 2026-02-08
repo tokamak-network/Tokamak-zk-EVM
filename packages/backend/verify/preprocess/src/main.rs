@@ -34,7 +34,8 @@ fn main() {
     let file = File::open(&sigma_path)
         .expect("No reference string is found. Run the Setup first (expected sigma_preprocess.rkyv).");
     let mmap = unsafe { Mmap::map(&file).expect("Failed to map sigma_preprocess.rkyv") };
-    let sigma = unsafe { rkyv::archived_root::<SigmaPreprocessRkyv>(&mmap) };
+    let sigma = rkyv::check_archived_root::<SigmaPreprocessRkyv>(&mmap)
+        .expect("Invalid sigma_preprocess.rkyv archive");
 
     // Load permutation (copy constraints of the variables)
     let permutation_path = PathBuf::from(paths.synthesizer_path).join("permutation.json");

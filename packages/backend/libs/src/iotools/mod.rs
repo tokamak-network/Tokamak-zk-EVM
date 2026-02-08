@@ -1306,18 +1306,21 @@ macro_rules! pop_recover {
 }
 
 #[derive(Debug, Clone, Copy, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[archive(check_bytes)]
 pub struct G1SerdeRkyv {
     pub x: [u8; 48],
     pub y: [u8; 48],
 }
 
 #[derive(Debug, Clone, Copy, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[archive(check_bytes)]
 pub struct G2SerdeRkyv {
     pub x: [u8; 96],
     pub y: [u8; 96],
 }
 
 #[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[archive(check_bytes)]
 pub struct SigmaRkyv {
     pub G: G1SerdeRkyv,
     pub H: G2SerdeRkyv,
@@ -1327,6 +1330,7 @@ pub struct SigmaRkyv {
 }
 
 #[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[archive(check_bytes)]
 pub struct Sigma1Rkyv {
     pub xy_powers: Vec<G1SerdeRkyv>,
     pub x: G1SerdeRkyv,
@@ -1342,22 +1346,26 @@ pub struct Sigma1Rkyv {
 }
 
 #[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[archive(check_bytes)]
 pub struct PartialSigma1Rkyv {
     pub xy_powers: Vec<G1SerdeRkyv>,
 }
 
 #[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[archive(check_bytes)]
 pub struct SigmaPreprocessRkyv {
     pub sigma_1: PartialSigma1Rkyv,
 }
 
 #[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[archive(check_bytes)]
 pub struct PartialSigma1VerifyRkyv {
     pub x: G1SerdeRkyv,
     pub y: G1SerdeRkyv,
 }
 
 #[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[archive(check_bytes)]
 pub struct SigmaVerifyRkyv {
     pub G: G1SerdeRkyv,
     pub H: G2SerdeRkyv,
@@ -1367,6 +1375,7 @@ pub struct SigmaVerifyRkyv {
 }
 
 #[derive(Debug, Clone, Copy, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[archive(check_bytes)]
 pub struct Sigma2Rkyv {
     pub alpha: G2SerdeRkyv,
     pub alpha2: G2SerdeRkyv,
