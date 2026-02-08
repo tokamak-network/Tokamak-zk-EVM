@@ -10,6 +10,7 @@ You are updating optimization reports for this repo. Follow these rules exactly.
 ## Inputs You Must Use
 - Timing snapshots: `prove/output/timing.release.md`
 - Commit history affecting the timing snapshot file.
+- Only include changes within `packages/backend/`. Ignore commits or files outside `packages/backend/`.
 
 ## Source Series Table Rules
 - The table must be titled **“Source Series (total_wall by snapshot commit)”**.

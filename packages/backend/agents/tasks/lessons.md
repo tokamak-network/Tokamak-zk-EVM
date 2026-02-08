@@ -3,3 +3,4 @@
 - If performance regresses, stop and pivot: gather timing data, identify bottlenecks, and avoid adding memory-heavy fusion without measurement.
 - When the user corrects a conclusion, update task notes promptly and incorporate the corrected technical detail (e.g., NTT coset handled via `NTTConfig.coset_gen` rather than domain init).
 - When the user explicitly asks to include all changes in a commit, do not pause to filter unexpected files; proceed to stage everything unless they revoke.
+- When updating optimization reports with scope constraints (e.g., `packages/backend/` only), filter commit lists and change summaries to that scope and avoid referencing other packages.

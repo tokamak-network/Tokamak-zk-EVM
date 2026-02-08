@@ -215,6 +215,17 @@ Verification: totals, commit list, and mini-report link/value match `prove/outpu
 - [x] Summarize changes and verification results.
 Added `prove/optimization/prompts/REPORTING.md` with rules for optimization_report and mini-report generation. No tests run.
 
+# Plan (2026-02-08)
+- [x] Re-scan `prove/output/timing.release.md` snapshot commits and total_wall values to confirm which rows qualify (>= 3.0s drop).
+- [x] Rebuild Source Series commit lists to include only commits touching `packages/backend/`, and update change summaries accordingly.
+- [x] Update all mini-reports to match the new commit lists and ensure change analysis only references backend files with proof excerpts.
+- [x] Verify consistency: totals, commit lists, and mini-report links/values match Source Series rows.
+
+# Review (2026-02-08)
+- [x] Summarize changes and verification results.
+Restricted Source Series commit lists and summaries to backend-only commits for each qualifying snapshot, and updated all mini-reports to match the new lists with backend-only proof excerpts and normalized total_wall values.  
+Verification: totals, commit lists, and mini-report links/values checked for consistency (no tests run).
+
 # Plan (2026-02-07)
 - [x] Inspect `BivariatePolynomial::_mul` and decide precise log points for from_coeffs, resize, to_rou_evals, ScalarCfg::mul, from_rou_evals.
 - [x] Add per-step timing logs in `libs/src/bivariate_polynomial/mod.rs` aligned with existing logging style.
@@ -283,3 +294,12 @@ Verification: `cargo check -p libs -p prove -p verify` (warnings only, pre-exist
 - [x] Summarize changes and verification results.
 Committed and pushed all modified files in `packages/backend` as requested.  
 Verification: `git status -sb` (clean).
+
+# Plan (2026-02-07)
+- [x] Fetch PR 181 metadata (title/body) and commit list from GitHub; if unavailable, locate equivalent commits in local git history.
+- [x] Analyze commit diffs to extract purpose, concrete changes, and results; group into a coherent PR narrative.
+- [x] Draft an updated PR title and body reflecting those findings and cross-check against commit list for coverage.
+
+# Review (2026-02-07)
+- [x] Summarize findings and verification results.
+Could not fetch PR 181 page via web tool (cache miss). Used `origin/dev..HEAD` commit list and local diffs to derive purpose/changes/results and draft updated PR title/body. No tests run for this step.
