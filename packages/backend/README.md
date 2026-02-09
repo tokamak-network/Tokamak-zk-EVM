@@ -27,7 +27,12 @@ More specifically,
 ### Input
 The setup (both trusted- and MPC-setups) requires the only input from the QAP-compiler, which is [a library of subcircuits](../frontend/qap-compiler/subcircuits/library). This input would be more likely fixed. It will be changed whenever there is a change in the EVM's spec.
 ### Output
-You can find the only setup output from [the "output" folder](./setup/trusted-setup/output), named "combined_sigma.json", which is denoted and defined as $\mathbb{\sigma}$ in the manuscript. The output would rarely change, as it depends on the EVM sepc.
+You can find the setup outputs in [the "output" folder](./setup/trusted-setup/output):
+- `combined_sigma.rkyv` (for prove)
+- `sigma_verify.rkyv` (for verify)
+- `sigma_preprocess.rkyv` (for preprocess)
+These outputs rarely change, as they depend on the EVM spec.
+
 
 ## Description for the Prove input and output
 ### Input
@@ -38,6 +43,7 @@ The prove takes its input from the following three paths:
 ### Output
 - Zk proof of correct execution of a transaction
 
+
 ## Description for the Verify input and output
 ### Input
 The verify takes its input from the following three paths:
@@ -46,6 +52,22 @@ The verify takes its input from the following three paths:
 - [Public inputs](../frontend/synthesizer/examples/outputs/publicInstance.json) provided by the Synthesizer.
 ### Output
 - It will display a message "true", if the zk proof is verified.
+
+## Timing report (prove)
+We provide a human-readable timing report generated from raw timing data:
+- Report: [timing.release.md](prove/optimization/timing.release.md)
+- Raw data: [timing.release.json](prove/optimization/timing.release.json)
+
+The report is **auto-generated** from the JSON using:
+```
+python3 prove/optimization/scripts/timing_to_md.py --input prove/optimization/timing.release.json --output prove/optimization/timing.release.md
+```
+If you re-run the timing test, regenerate the report with the command above to keep them in sync.
+
+To run the timing test from VS Code and view output in the Debug Console:
+1. Open **Run and Debug**.
+2. Select **Test prove timing (timing feature)**.
+3. Start debugging (F5).
 
 ## Contributing
 We welcome contributions! Please see our [Contributing Guidelines](../../CONTRIBUTING.md) for details.

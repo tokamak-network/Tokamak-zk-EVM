@@ -338,7 +338,20 @@ handle_setup() {
             echo "✅ Prebuilt setup files copied"
 
             # Verify setup files
-            if [ -f "${TARGET}/resource/setup/output/combined_sigma.json" ]; then
+            local required_setup_files=(
+                "${TARGET}/resource/setup/output/combined_sigma.rkyv"
+                "${TARGET}/resource/setup/output/sigma_preprocess.rkyv"
+                "${TARGET}/resource/setup/output/sigma_verify.rkyv"
+            )
+            local missing_setup_file=false
+            local setup_file
+            for setup_file in "${required_setup_files[@]}"; do
+                if [ ! -f "$setup_file" ]; then
+                    echo "❌ Missing setup artifact: $setup_file"
+                    missing_setup_file=true
+                fi
+            done
+            if [ "$missing_setup_file" = "false" ]; then
                 echo "✅ Setup files verified: $(ls -lh ${TARGET}/resource/setup/output/)"
             else
                 echo "❌ Setup files verification failed, falling back to trusted-setup"

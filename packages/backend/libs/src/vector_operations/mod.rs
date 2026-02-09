@@ -3,7 +3,6 @@ use icicle_core::vec_ops::{VecOps, VecOpsConfig};
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::FieldImpl;
 use icicle_runtime::memory::{HostSlice, DeviceVec, DeviceSlice, HostOrDeviceSlice};
-use std::cell::RefCell;
 
 pub fn gen_evaled_lagrange_bases(val: &ScalarField, size: usize, res: &mut [ScalarField]) {
     let mut val_pows = vec![ScalarField::one(); size];

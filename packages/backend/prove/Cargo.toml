@@ -8,7 +8,6 @@ repository = { workspace = true }
 homepage = { workspace = true }
 
 [dependencies]
-bincode = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 icicle-runtime = { workspace = true }
@@ -16,8 +15,14 @@ icicle-core = { workspace = true }
 icicle-bls12-381 = { workspace = true }
 libs = { workspace = true }
 tiny-keccak = "1.5"
+memmap2 = { workspace = true }
+rkyv = { workspace = true, features = ["alloc", "bytecheck", "validation"] }
 
 [features]
 default = []
 testing-mode = []
 timing = []
+
+[[test]]
+name = "timing"
+path = "optimization/tests/timing.rs"
