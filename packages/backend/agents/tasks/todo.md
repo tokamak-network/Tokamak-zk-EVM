@@ -381,3 +381,13 @@ Verification: `cargo check -p libs -p prove -p preprocess -p verify` (warnings o
 - [x] Summarize changes and verification results.
 Moved duplicated setup/NTT validation and sizing logic into `libs::utils` and migrated `trusted-setup`, `prove`, `preprocess`, and `verify` to the shared helpers. Removed unused code in scope: dead imports/variables, dead constant, no-op methods in `prove::sigma_source`, commented-out keccak verification block, and unnecessary `unsafe`/`mut` spots in `libs`.  
 Verification: `cargo check -p libs -p trusted-setup -p prove -p preprocess -p verify` passed. Only existing workspace-level warnings (resolver and `mpc-setup` semver metadata) remained.
+
+# Plan (2026-02-09)
+- [x] Add total prove runtime measurement at the CLI entrypoint (`prove/src/main.rs`) using wall-clock timing.
+- [x] Print a clear completion log with elapsed time after proof artifacts are written.
+- [x] Verify with a targeted compile check for `prove`.
+
+# Review (2026-02-09)
+- [x] Summarize changes and verification results.
+Added a wall-clock timer in `prove/src/main.rs` that starts at process entry and prints total elapsed seconds/ms after proof JSON outputs are written.  
+Verification: `cargo check -p prove` passed (only pre-existing workspace warnings).

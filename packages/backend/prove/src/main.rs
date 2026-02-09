@@ -1,9 +1,11 @@
 use std::path::PathBuf;
 use std::{env, process};
+use std::time::Instant;
 use prove::{Proof, ProveInputPaths, Prover, TranscriptManager};
 use libs::utils::check_device;
 
 fn main() {
+    let total_start = Instant::now();
     let args: Vec<String> = env::args().collect();
 
     if args.len() != 5 {
@@ -95,4 +97,11 @@ fn main() {
         println!("kappa1: {}", kappa1.to_string());
         println!("chi: {}", chi.to_string());
     }
+
+    let total_elapsed_secs = total_start.elapsed().as_secs_f64();
+    println!(
+        "Prove completed. Total elapsed time: {:.3}s ({:.0} ms)",
+        total_elapsed_secs,
+        total_elapsed_secs * 1000.0
+    );
 }
