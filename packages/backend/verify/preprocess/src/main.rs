@@ -2,10 +2,10 @@ use std::{env, process};
 use std::path::PathBuf;
 
 use libs::iotools::SigmaPreprocessRkyv;
+use libs::utils::{check_device, load_setup_params_from_qap_path};
 use memmap2::Mmap;
 use std::fs::File;
-use libs::iotools::{Instance, Permutation, SetupParams};
-use libs::utils::check_device;
+use libs::iotools::Permutation;
 use preprocess::{Preprocess, PreprocessInputPaths};
 
 fn main() {
@@ -28,8 +28,7 @@ fn main() {
 
     check_device();
 
-    let setup_path = PathBuf::from(paths.qap_path).join("setupParams.json");
-    let setup_params = SetupParams::read_from_json(setup_path).unwrap();
+    let setup_params = load_setup_params_from_qap_path(paths.qap_path);
     let sigma_path = PathBuf::from(paths.setup_path).join("sigma_preprocess.rkyv");
     let file = File::open(&sigma_path)
         .expect("No reference string is found. Run the Setup first (expected sigma_preprocess.rkyv).");

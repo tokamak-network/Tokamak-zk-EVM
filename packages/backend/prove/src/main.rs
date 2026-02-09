@@ -1,6 +1,4 @@
 use std::path::PathBuf;
-use std::fs::File;
-use std::io::Write;
 use std::{env, process};
 use prove::{Proof, ProveInputPaths, Prover, TranscriptManager};
 use libs::utils::check_device;
@@ -56,6 +54,8 @@ fn main() {
     
     println!("Running prove4...");
     let (proof4, proof4_test) = prover.prove4(&proof3, &thetas, kappa0, chi, zeta, kappa1);
+    #[cfg(not(feature = "testing-mode"))]
+    let _ = &proof4_test;
 
     // // Create the challenge struct
     // let challenge = Challenge {

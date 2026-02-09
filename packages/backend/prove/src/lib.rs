@@ -1,19 +1,23 @@
     #![allow(non_snake_case)]
-    use icicle_runtime::memory::{DeviceVec, HostSlice};
+    use icicle_runtime::memory::HostSlice;
     use libs::{impl_read_from_json, impl_write_into_json, split_push, pop_recover};
-    use libs::bivariate_polynomial::{
-        init_ntt_domain_for_size, AxisCache, BivariatePolynomial, DenomCache, DensePolynomialExt, DivByVanishingCache,
-    };
+    use libs::bivariate_polynomial::{AxisCache, BivariatePolynomial, DenomCache, DensePolynomialExt, DivByVanishingCache};
     use libs::iotools::{*};
-    use libs::field_structures::{FieldSerde, hashing};
-    use libs::vector_operations::{point_add_two_vecs, point_div_two_vecs, point_mul_two_vecs, resize, transpose_inplace};
+    use libs::field_structures::FieldSerde;
+    use libs::vector_operations::{point_div_two_vecs, resize, transpose_inplace};
+    #[cfg(feature = "testing-mode")]
+    use libs::vector_operations::point_mul_two_vecs;
     use libs::group_structures::G1serde;
     use libs::polynomial_structures::gen_bXY;
-    use libs::utils::check_device;
+    use libs::utils::{
+        check_device, init_ntt_domain, load_setup_params_from_qap_path, prover_verifier_ntt_domain_size,
+        setup_shape, validate_setup_shape,
+    };
     use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
     use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
     use icicle_core::ntt;
     use serde::{Deserialize, Serialize};
+    #[cfg(feature = "timing")]
     use std::time::Instant;
 
     use std::path::{PathBuf};
@@ -440,66 +444,43 @@
             let init_start = Instant::now();
             // Load setup parameters from JSON file
             let setup_params_path = PathBuf::from(paths.qap_path).join("setupParams.json");
-            let setup_params_file_bytes = std::fs::metadata(&setup_params_path)
+            let _setup_params_file_bytes = std::fs::metadata(&setup_params_path)
                 .map(|m| m.len() as usize)
                 .unwrap_or(0);
             let setup_params = crate::time_block!(
                 "init.load.setup_params",
                 "load",
                 vec![
-                    crate::timing::SizeInfo { label: "file_bytes", dims: vec![setup_params_file_bytes] },
+                    crate::timing::SizeInfo { label: "file_bytes", dims: vec![_setup_params_file_bytes] },
                 ],
                 {
-                    SetupParams::read_from_json(setup_params_path).unwrap()
+                    load_setup_params_from_qap_path(paths.qap_path)
                 }
             );
 
-            // Extract key parameters from setup_params
-            let l = setup_params.l;     // Number of public I/O wires
-            let l_d = setup_params.l_D; // Number of interface wires
-            let s_d = setup_params.s_D; // Number of subcircuits
-            let n = setup_params.n;     // Number of constraints per subcircuit
-            let s_max = setup_params.s_max; // The maximum number of placements
-            // let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
-            // let l_prv = setup_params.l_prv_in + setup_params.l_prv_out;
-        
-            // if !(l_prv.is_power_of_two()) {
-            //     panic!("l_prv is not a power of two.");
-            // }
-            // Assert n is a power of two
-            if !n.is_power_of_two() {
-                panic!("n is not a power of two.");
-            }
-            // Assert s_max is a power of two
-            if !s_max.is_power_of_two() {
-                panic!("s_max is not a power of two.");
-            }
-            // The last wire-related parameter
-            let m_i = l_d - l;
-            // Assert m_I is a power of two
-            if !m_i.is_power_of_two() {
-                panic!("m_I is not a power of two.");
-            }
+            let shape = setup_shape(&setup_params);
+            validate_setup_shape(&shape);
+            let _l = shape.l;
+            let m_i = shape.m_i;
+            let n = shape.n;
+            let s_max = shape.s_max;
+            #[cfg(feature = "timing")]
+            let s_d = setup_params.s_D;
 
-            let max_mn = std::cmp::max(m_i, n);
-            let ntt_domain_x = max_mn.checked_mul(4).expect("4 * max(m_i, n) overflow");
-            let ntt_domain_y = s_max.checked_mul(2).expect("2 * s_max overflow");
-            let ntt_domain_size = ntt_domain_x
-                .checked_mul(ntt_domain_y)
-                .expect("2 * max(m_i, n) * 2 * s_max overflow");
+            let ntt_domain_size = prover_verifier_ntt_domain_size(&shape);
             check_device();
-            init_ntt_domain_for_size(ntt_domain_size).expect("Failed to initialize NTT domain");
+            init_ntt_domain(ntt_domain_size);
 
             // Load subcircuit information
             let subcircuit_infos_path = PathBuf::from(paths.qap_path).join("subcircuitInfo.json");
-            let subcircuit_infos_file_bytes = std::fs::metadata(&subcircuit_infos_path)
+            let _subcircuit_infos_file_bytes = std::fs::metadata(&subcircuit_infos_path)
                 .map(|m| m.len() as usize)
                 .unwrap_or(0);
             let subcircuit_infos = crate::time_block!(
                 "init.load.subcircuit_infos",
                 "load",
                 vec![
-                    crate::timing::SizeInfo { label: "file_bytes", dims: vec![subcircuit_infos_file_bytes] },
+                    crate::timing::SizeInfo { label: "file_bytes", dims: vec![_subcircuit_infos_file_bytes] },
                 ],
                 {
                     SubcircuitInfo::read_box_from_json(subcircuit_infos_path).unwrap()
@@ -508,14 +489,14 @@
 
             // Load local variables of placements (public instance + interface witness + internal witness)
             let placement_variables_path = PathBuf::from(paths.synthesizer_path).join("placementVariables.json");
-            let placement_variables_file_bytes = std::fs::metadata(&placement_variables_path)
+            let _placement_variables_file_bytes = std::fs::metadata(&placement_variables_path)
                 .map(|m| m.len() as usize)
                 .unwrap_or(0);
             let placement_variables = crate::time_block!(
                 "init.load.placement_variables",
                 "load",
                 vec![
-                    crate::timing::SizeInfo { label: "file_bytes", dims: vec![placement_variables_file_bytes] },
+                    crate::timing::SizeInfo { label: "file_bytes", dims: vec![_placement_variables_file_bytes] },
                 ],
                 {
                     PlacementVariables::read_box_from_json(placement_variables_path).unwrap()
@@ -580,14 +561,14 @@
 
             // Load permutation (copy constraints of the variables)
             let permutation_path = PathBuf::from(paths.synthesizer_path).join("permutation.json");
-            let permutation_file_bytes = std::fs::metadata(&permutation_path)
+            let _permutation_file_bytes = std::fs::metadata(&permutation_path)
                 .map(|m| m.len() as usize)
                 .unwrap_or(0);
             let permutation_raw = crate::time_block!(
                 "init.load.permutation",
                 "load",
                 vec![
-                    crate::timing::SizeInfo { label: "file_bytes", dims: vec![permutation_file_bytes] },
+                    crate::timing::SizeInfo { label: "file_bytes", dims: vec![_permutation_file_bytes] },
                 ],
                 {
                     Permutation::read_box_from_json(permutation_path).unwrap()
@@ -597,14 +578,14 @@
             let mut instance: InstancePolynomials = {
                 // Load instance
                 let instance_path = PathBuf::from(paths.synthesizer_path).join("instance.json");
-                let instance_file_bytes = std::fs::metadata(&instance_path)
+                let _instance_file_bytes = std::fs::metadata(&instance_path)
                     .map(|m| m.len() as usize)
                     .unwrap_or(0);
                 let _instance = crate::time_block!(
                     "init.load.instance",
                     "load",
                     vec![
-                        crate::timing::SizeInfo { label: "file_bytes", dims: vec![instance_file_bytes] },
+                        crate::timing::SizeInfo { label: "file_bytes", dims: vec![_instance_file_bytes] },
                     ],
                     {
                         Instance::read_from_json(instance_path).unwrap()
@@ -616,7 +597,7 @@
                     "init.build.instance.a_pub_X",
                     "build",
                     vec![
-                        crate::timing::SizeInfo { label: "a_pub_X", dims: vec![l, 1] },
+                        crate::timing::SizeInfo { label: "a_pub_X", dims: vec![_l, 1] },
                     ],
                     {
                         _instance.gen_a_pub_X(&setup_params)
@@ -762,14 +743,14 @@
 
             // Load Sigma (reference string)
             let sigma_path = PathBuf::from(paths.setup_path).join("combined_sigma.rkyv");
-            let sigma_file_bytes = std::fs::metadata(&sigma_path)
+            let _sigma_file_bytes = std::fs::metadata(&sigma_path)
                 .map(|m| m.len() as usize)
                 .unwrap_or(0);
-            let mut sigma = crate::time_block!(
+            let sigma = crate::time_block!(
                 "init.load.sigma",
                 "load",
                 vec![
-                    crate::timing::SizeInfo { label: "file_bytes", dims: vec![sigma_file_bytes] },
+                    crate::timing::SizeInfo { label: "file_bytes", dims: vec![_sigma_file_bytes] },
                 ],
                 {
                     let sigma = SigmaHolder::load(&sigma_path)
@@ -815,7 +796,7 @@
                     "init.build.binding.A",
                     "build",
                     vec![
-                        crate::timing::SizeInfo { label: "A", dims: vec![l, 1] },
+                        crate::timing::SizeInfo { label: "A", dims: vec![_l, 1] },
                     ],
                     {
                         sigma.sigma1().encode_poly(&mut instance.a_pub_X, &setup_params)
@@ -825,14 +806,13 @@
                     "init.build.binding.O_inst",
                     "build",
                     vec![
-                        crate::timing::SizeInfo { label: "O_inst", dims: vec![l, 1] },
+                        crate::timing::SizeInfo { label: "O_inst", dims: vec![_l, 1] },
                     ],
                     {
                         sigma.sigma1().encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params)
                     }
                 );
                 
-                sigma.clear_gamma_inv_o_inst();
                 let O_mid_core = crate::time_block!(
                     "init.build.binding.O_mid_core",
                     "build",
@@ -843,7 +823,6 @@
                         sigma.sigma1().encode_O_mid_no_zk(&placement_variables, &subcircuit_infos, &setup_params)
                     }
                 );
-                sigma.clear_eta_inv_li_o_inter_alpha4_kj();
                 let O_mid = 
                     O_mid_core
                     + sigma.sigma1().delta() * mixer.rO_mid;
@@ -857,7 +836,6 @@
                         sigma.sigma1().encode_O_prv_no_zk(&placement_variables, &subcircuit_infos, &setup_params)
                     }
                 );
-                sigma.clear_delta_inv_li_o_prv();
                 let O_prv =
                     O_prv_core
                     - sigma.sigma1().eta() * mixer.rO_mid
@@ -896,7 +874,7 @@
                 vec![
                     crate::timing::SizeInfo { label: "n_s_max", dims: vec![n, s_max] },
                     crate::timing::SizeInfo { label: "m_i_s_max", dims: vec![m_i, s_max] },
-                    crate::timing::SizeInfo { label: "l", dims: vec![l] },
+                    crate::timing::SizeInfo { label: "l", dims: vec![_l] },
                     crate::timing::SizeInfo { label: "s_D", dims: vec![s_d] },
                 ],
             );
@@ -1145,7 +1123,7 @@
             let fXY = &( &(&self.witness.bXY + &(&thetas[0] * &self.instance.s0XY)) + &(&thetas[1] * &self.instance.s1XY)) + &thetas[2];
             let gXY = &( &(&self.witness.bXY + &(&thetas[0] * &X_mono)) + &(&thetas[1] * &Y_mono)) + &thetas[2];
 
-            let mut fXY_evals = crate::time_block!(
+            let fXY_evals = crate::time_block!(
                 "poly.to_rou_evals.prove1.fXY",
                 "poly",
                 vec![
@@ -1156,7 +1134,7 @@
                 fXY.to_rou_evals(None, None, HostSlice::from_mut_slice(&mut fXY_evals));
                 fXY_evals
             });
-            let mut gXY_evals = crate::time_block!(
+            let gXY_evals = crate::time_block!(
                 "poly.to_rou_evals.prove1.gXY",
                 "poly",
                 vec![
@@ -1374,11 +1352,11 @@
                     crate::timing::SizeInfo { label: "vanishing", dims: vec![m_i, s_max] },
                 ],
                 {
-                let mut p1XY = &(&self.witness.rXY - &ScalarField::one()) * &(lagrange_KL_XY);
-                let mut p2XY = &(&X_mono - &ScalarField::one()) * &(
+                let p1XY = &(&self.witness.rXY - &ScalarField::one()) * &(lagrange_KL_XY);
+                let p2XY = &(&X_mono - &ScalarField::one()) * &(
                     &(&self.witness.rXY * &gXY) - &(&r_omegaX * &fXY)
                 );
-                let mut p3XY = &lagrange_K0_XY * &(
+                let p3XY = &lagrange_K0_XY * &(
                     &(&self.witness.rXY * &gXY) - &(&r_omegaX_omegaY * &fXY)
                 );
 
@@ -1565,18 +1543,18 @@
         pub fn prove4(&self, proof3: &Proof3, thetas: &Vec<ScalarField>, kappa0: ScalarField, chi: ScalarField, zeta: ScalarField, kappa1: ScalarField) -> (Proof4, Proof4Test) {
             let m_i = self.setup_params.l_D - self.setup_params.l;
             let s_max = self.setup_params.s_max;
-            let n = self.setup_params.n;
+            let _n = self.setup_params.n;
             #[cfg(feature = "timing")]
             let _total = crate::timing::SpanGuard::new(
                 "prove4.total",
                 "prove",
                 vec![
-                    crate::timing::SizeInfo { label: "n_s_max", dims: vec![n, s_max] },
+                    crate::timing::SizeInfo { label: "n_s_max", dims: vec![_n, s_max] },
                     crate::timing::SizeInfo { label: "m_i_s_max", dims: vec![m_i, s_max] },
                 ],
             );
             let (Pi_AX, Pi_AY) = {
-                let (mut Pi_AX_XY, mut Pi_AY_XY, rem) = {
+                let (mut Pi_AX_XY, mut Pi_AY_XY, _rem) = {
                     let t_n_eval = crate::time_block!(
                         "poly.eval.prove4.t_n",
                         "poly",
@@ -1729,7 +1707,7 @@
                 &self.witness.rXY + &RXY_terms
             });
             let (M_X, M_Y) = {
-                let (mut M_X_XY, mut M_Y_XY, rem2) = crate::time_block!(
+                let (mut M_X_XY, mut M_Y_XY, _rem2) = crate::time_block!(
                     "poly.div_by_ruffini.prove4.M",
                     "poly",
                     vec![
@@ -1742,7 +1720,7 @@
                     )
                 });
                 #[cfg(feature = "testing-mode")] {
-                    assert_eq!(rem2, ScalarField::zero());
+                    assert_eq!(_rem2, ScalarField::zero());
                     let x_e = ScalarCfg::generate_random(1)[0];
                     let y_e = ScalarCfg::generate_random(1)[0];
                     let lhs = (&RXY - &proof3.R_omegaX_eval.0).eval(&x_e, &y_e);
@@ -1775,7 +1753,7 @@
 
 
             let (N_X, N_Y) = {
-                let (mut N_X_XY, mut N_Y_XY, rem3) = crate::time_block!(
+                let (mut N_X_XY, mut N_Y_XY, _rem3) = crate::time_block!(
                     "poly.div_by_ruffini.prove4.N",
                     "poly",
                     vec![
@@ -1788,7 +1766,7 @@
                     )
                 });
                 #[cfg(feature = "testing-mode")] {
-                    assert_eq!(rem3, ScalarField::zero());
+                    assert_eq!(_rem3, ScalarField::zero());
                     let x_e = ScalarCfg::generate_random(1)[0];
                     let y_e = ScalarCfg::generate_random(1)[0];
                     let lhs = (&RXY - &proof3.R_omegaX_omegaY_eval.0).eval(&x_e, &y_e);
@@ -2135,7 +2113,7 @@
                     )
                 });
 
-                let (mut Pi_CX_XY, mut Pi_CY_XY, rem1) = crate::time_block!(
+                let (mut Pi_CX_XY, mut Pi_CY_XY, _rem1) = crate::time_block!(
                     "poly.div_by_ruffini.prove4.Pi_C",
                     "poly",
                     vec![
@@ -2145,7 +2123,7 @@
                     LHS_for_copy.div_by_ruffini(&chi, &zeta)
                 });
                 #[cfg(feature = "testing-mode")] {
-                    assert_eq!(rem1, ScalarField::zero());
+                    assert_eq!(_rem1, ScalarField::zero());
                     let x_e = ScalarCfg::generate_random(1)[0];
                     let y_e = ScalarCfg::generate_random(1)[0];
                     let lhs = LHS_for_copy.eval(&x_e, &y_e);

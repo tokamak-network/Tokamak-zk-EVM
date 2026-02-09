@@ -1,13 +1,13 @@
 #![allow(non_snake_case)]
-use hex::FromHex;
-use icicle_core::hash::HashConfig;
-use icicle_hash::keccak::Keccak256;
 use icicle_runtime::memory::HostSlice;
-use libs::bivariate_polynomial::{init_ntt_domain_for_size, BivariatePolynomial, DensePolynomialExt};
-use libs::iotools::{Instance, PublicInputBuffer, PublicOutputBuffer, SetupParams};
+use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
+use libs::iotools::{Instance, SetupParams};
 use libs::group_structures::{G1serde, G2serde, Sigma2};
 use libs::iotools::{ArchivedSigmaVerifyRkyv, SigmaVerifyRkyv};
-use libs::utils::check_device;
+use libs::utils::{
+    check_device, init_ntt_domain, load_setup_params_from_qap_path, prover_verifier_ntt_domain_size, setup_shape,
+    validate_setup_shape,
+};
 use memmap2::Mmap;
 use std::io;
 use std::fs::File;
@@ -76,13 +76,6 @@ impl SigmaVerifyZeroCopy {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum KeccakVerificationResult {
-    True,
-    False,
-    NoKeccakData,
-}
-
 pub struct Verifier {
     pub sigma: SigmaVerifyZeroCopy,
     pub a_pub_X: DensePolynomialExt,
@@ -94,40 +87,12 @@ pub struct Verifier {
 }
 impl Verifier {
     pub fn init(paths: &VerifyInputPaths) -> Self {
-        // Load setup parameters from JSON file
-        let setup_path = PathBuf::from(paths.qap_path).join("setupParams.json");
-        let setup_params = SetupParams::read_from_json(setup_path).unwrap();
-
-        // Extract key parameters from setup_params
-        let l = setup_params.l;     // Number of public I/O wires
-        let l_d = setup_params.l_D; // Number of interface wires
-        let s_d = setup_params.s_D; // Number of subcircuits
-        let n = setup_params.n;     // Number of constraints per subcircuit
-        let s_max = setup_params.s_max; // The maximum number of placements
-        // let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
-        // let l_prv = setup_params.l_prv_in + setup_params.l_prv_out;
-    
-        // if !(l_prv.is_power_of_two()) {
-        //     panic!("l_prv is not a power of two.");
-        // }
-        // Assert n is a power of two
-        if !n.is_power_of_two() {
-            panic!("n is not a power of two.");
-        }
-        // Assert s_max is a power of two
-        if !s_max.is_power_of_two() {
-            panic!("s_max is not a power of two.");
-        }
-        // The last wire-related parameter
-        let m_i = l_d - l;
-        // Assert m_I is a power of two
-        if !m_i.is_power_of_two() {
-            panic!("m_I is not a power of two.");
-        }
-
-        let ntt_domain_size = m_i;
+        let setup_params = load_setup_params_from_qap_path(paths.qap_path);
+        let shape = setup_shape(&setup_params);
+        validate_setup_shape(&shape);
+        let ntt_domain_size = prover_verifier_ntt_domain_size(&shape);
         check_device();
-        init_ntt_domain_for_size(ntt_domain_size).expect("Failed to initialize NTT domain");
+        init_ntt_domain(ntt_domain_size);
 
         // Load instance
         let instance_path = PathBuf::from(paths.synthesizer_path).join("instance.json");
@@ -164,100 +129,6 @@ impl Verifier {
         }
     }
 
-    // pub fn verify_keccak256(&self) -> KeccakVerificationResult {
-    //     let l_out = self.setup_params.l_out;
-    //     let keccak_in_pts = &self.publicOutputBuffer.outPts;
-    //     let keccak_out_pts = &self.publicInputBuffer.inPts;
-    //     if keccak_out_pts.len() == 0 {
-    //         return KeccakVerificationResult::NoKeccakData
-    //     }
-        
-    //     let mut keccak_inputs_be_bytes= Vec::new();
-    //     let mut prev_key: usize = 0;
-    //     let mut data_restored: Vec<u8> = Vec::new();
-    //     for i in 0..keccak_in_pts.len()/2 {
-    //         let keccak_in_lsb = &keccak_in_pts[2 * i];
-    //         let keccak_in_msb = &keccak_in_pts[2 * i + 1];
-    //         if keccak_in_lsb.extDest != "KeccakIn" || keccak_in_msb.extDest != "KeccakIn" {
-    //             panic!("The pointed data is not a Keccak input.")
-    //         }
-    //         if !ScalarField::from_hex(&keccak_in_lsb.valueHex).eq(&self.a_pub[2 * i]) || !ScalarField::from_hex(&keccak_in_msb.valueHex).eq(&self.a_pub[2 * i + 1]) {
-    //             panic!("a_pub does not match with the publicOutputBuffer items.")
-    //         }
-    //         let this_key = usize::from_str_radix(&keccak_in_lsb.key.trim_start_matches("0x"), 16).unwrap();
-    //         let _this_key = usize::from_str_radix(&keccak_in_msb.key.trim_start_matches("0x"), 16).unwrap();
-    //         if this_key != _this_key {
-    //             panic!("Pointed two keccak inputs have different key values")
-    //         }
-    //         let msb_string = keccak_in_msb.valueHex.trim_start_matches("0x");
-    //         let lsb_string = keccak_in_lsb.valueHex.trim_start_matches("0x");
-    //         let input_string = [msb_string.to_string(), lsb_string.to_string()].concat();
-    //         let mut input_be_bytes = Vec::from_hex(&input_string).expect("Invalid hex");
-
-    //         if this_key != prev_key {
-    //             keccak_inputs_be_bytes.push(data_restored);
-    //             data_restored = input_be_bytes.clone();
-    //         } else {
-    //             data_restored.append(&mut input_be_bytes);
-    //         }
-    //         prev_key = this_key;
-    //     }
-    //     keccak_inputs_be_bytes.push(data_restored);
-
-    //     let mut keccak_outputs_be_bytes= Vec::new();
-    //     let mut prev_key: usize = 0;
-    //     let mut data_restored: Vec<u8> = Vec::new();
-    //     for i in 0..keccak_out_pts.len()/2 {
-    //         let keccak_out_lsb = &keccak_out_pts[2 * i];
-    //         let keccak_out_msb = &keccak_out_pts[2 * i + 1];
-    //         if keccak_out_lsb.extSource != "KeccakOut" || keccak_out_msb.extSource != "KeccakOut" {
-    //             panic!("The pointed data is not a Keccak output.")
-    //         }
-    //         if !ScalarField::from_hex(&keccak_out_lsb.valueHex).eq(&self.a_pub[l_pub_out + 2 * i]) || !ScalarField::from_hex(&keccak_out_msb.valueHex).eq(&self.a_pub[l_pub_out + 2 * i + 1]) {
-    //             panic!("a_pub does not match with the publicInputBuffer items.")
-    //         }
-    //         let this_key = usize::from_str_radix(&keccak_out_lsb.key.trim_start_matches("0x"), 16).unwrap();
-    //         let _this_key = usize::from_str_radix(&keccak_out_msb.key.trim_start_matches("0x"), 16).unwrap();
-    //         if this_key != _this_key {
-    //             panic!("Pointed two keccak outputs have different key values")
-    //         }
-    //         let msb_string = keccak_out_msb.valueHex.trim_start_matches("0x");
-    //         let lsb_string = keccak_out_lsb.valueHex.trim_start_matches("0x");
-    //         let output_string = [msb_string.to_string(), lsb_string.to_string()].concat();
-    //         let mut output_be_bytes = Vec::from_hex(&output_string).expect("Invalid hex");
-
-    //         if this_key != prev_key {
-    //             keccak_outputs_be_bytes.push(data_restored);
-    //             data_restored = output_be_bytes.clone();
-    //         } else {
-    //             data_restored.append(&mut output_be_bytes);
-    //         }
-    //         prev_key = this_key;
-    //     }
-    //     keccak_outputs_be_bytes.push(data_restored);
-
-    //     let keccak_hasher = Keccak256::new(0 /* default input size */).unwrap();
-    //     let mut flag = KeccakVerificationResult::True;
-    //     if keccak_inputs_be_bytes.len() != keccak_outputs_be_bytes.len() {
-    //         panic!("Length mismatch between Keccak inputs and outputs.")
-    //     }
-    //     for i in 0..keccak_inputs_be_bytes.len() {
-    //         let data_in = &keccak_inputs_be_bytes[i];
-    //         let mut res_bytes = vec![0u8; 32]; // 32-byte output buffer
-    //         keccak_hasher
-    //         .hash(
-    //             HostSlice::from_slice(&data_in),  // Input data
-    //             &HashConfig::default(),                       // Default configuration
-    //             HostSlice::from_mut_slice(&mut res_bytes),       // Output buffer
-    //         )
-    //         .unwrap();
-    //         if res_bytes != keccak_outputs_be_bytes[i] {
-    //             flag = KeccakVerificationResult::False;
-    //         }
-    //     }
-    //     return flag
-    // }
-    
     pub fn verify_snark(&self) -> bool {
         let binding = &self.proof.binding;
         let proof0 = &self.proof.proof0;
@@ -367,11 +238,10 @@ impl Verifier {
         let mut transcript_manager = TranscriptManager::new();
 
         // Compute challenges using the transcript manager
-        let thetas = proof0.verify0_with_manager(&mut transcript_manager);
-        let kappa0 = proof1.verify1_with_manager(&mut transcript_manager);
+        let _thetas = proof0.verify0_with_manager(&mut transcript_manager);
+        let _kappa0 = proof1.verify1_with_manager(&mut transcript_manager);
         let (chi, zeta) = proof2.verify2_with_manager(&mut transcript_manager);
         let kappa1 = proof3.verify3_with_manager(&mut transcript_manager);
-        let kappa2 = ScalarCfg::generate_random(1)[0];
 
         let s_max = self.setup_params.s_max;
         let t_n_eval = chi.pow(self.setup_params.n) - ScalarField::one();
@@ -493,36 +363,13 @@ impl Verifier {
         let mut transcript_manager = TranscriptManager::new();
 
         // Compute challenges using the transcript manager
-        let thetas = proof0.verify0_with_manager(&mut transcript_manager);
-        let kappa0 = proof1.verify1_with_manager(&mut transcript_manager);
+        let _thetas = proof0.verify0_with_manager(&mut transcript_manager);
+        let _kappa0 = proof1.verify1_with_manager(&mut transcript_manager);
         let (chi, zeta) = proof2.verify2_with_manager(&mut transcript_manager);
         let kappa1 = proof3.verify3_with_manager(&mut transcript_manager);
         let kappa2 = ScalarCfg::generate_random(1)[0];
 
-        let m_i = self.setup_params.l_D - self.setup_params.l;
-        let s_max = self.setup_params.s_max;
-        let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
-        let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
-        let t_n_eval = chi.pow(self.setup_params.n) - ScalarField::one();
-        let t_mi_eval = chi.pow(m_i) - ScalarField::one();
-        let t_smax_eval = zeta.pow(s_max) - ScalarField::one();
-
         let A_eval = self.a_pub_X.eval(&chi, &zeta);
-        
-        let lagrange_K0_eval = {
-            let lagrange_K0_XY = {
-                let mut k0_evals = vec![ScalarField::zero(); m_i];
-                k0_evals[0] = ScalarField::one();
-                DensePolynomialExt::from_rou_evals(
-                    HostSlice::from_slice(&k0_evals),
-                    m_i,
-                    1,
-                    None,
-                    None
-                )
-            };
-            lagrange_K0_XY.eval(&chi, &zeta)
-        };
         let LHS_B =
             binding.A * ( ScalarField::one() + (kappa2 * kappa1.pow(4)) )
             - self.sigma.g() * (kappa2 * kappa1.pow(4) * A_eval);

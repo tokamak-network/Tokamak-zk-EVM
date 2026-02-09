@@ -17,7 +17,7 @@ preprocess = { workspace = true }
 prove = { workspace = true }
 hex = { workspace = true }
 memmap2 = { workspace = true }
-rkyv = { workspace = true }
+rkyv = { workspace = true, features = ["alloc", "bytecheck", "validation"] }
 
 [features]
 default = []

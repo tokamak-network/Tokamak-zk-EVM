@@ -352,3 +352,32 @@ Verification: `git status -sb` (clean).
 # Review (2026-02-07)
 - [x] Summarize findings and verification results.
 Could not fetch PR 181 page via web tool (cache miss). Used `origin/dev..HEAD` commit list and local diffs to derive purpose/changes/results and draft updated PR title/body. No tests run for this step.
+
+# Plan (2026-02-09)
+- [x] Locate all references to `prove/src/sigma_source.rs` across the repo (prove/verify/preprocess/trusted-setup).
+- [x] Trace each call path to identify when/where the module is used in trusted-setup, prove, verify/preprocess, and verify-rust.
+- [x] Summarize usage with file references and phases; verify findings match code.
+
+# Review (2026-02-09)
+- [x] Summarize findings and verification results.
+Traced `sigma_source.rs` usage to `prove::Prover::init` where `combined_sigma.rkyv` is mmap-loaded and used for Sigma1 encodings; verified trusted-setup writes the rkyv outputs and verify/preprocess + verify-rust use separate zero-copy loaders. No tests run (code inspection only).
+
+# Plan (2026-02-09)
+- [x] Make `rkyv` validation/bytecheck features explicit in `libs/Cargo.toml` to stabilize editor trait bounds.
+- [x] Mirror explicit `rkyv` features in `prove`, `verify/preprocess`, and `verify-rust` to avoid per-crate feature ambiguity.
+- [ ] Verify with `cargo check -p libs` (and `-p prove` if changed).
+
+# Review (2026-02-09)
+- [x] Summarize changes and verification results.
+Made `rkyv` validation/bytecheck/alloc features explicit in `libs`, `prove`, `verify/preprocess`, and `verify-rust` Cargo manifests to stabilize editor trait bounds.  
+Verification: `cargo check -p libs -p prove -p preprocess -p verify` (warnings only, pre-existing).
+
+# Plan (2026-02-09)
+- [x] Add shared setup/NTT initialization helpers in `libs` and migrate `trusted-setup`, `prove`, `verify/preprocess`, and `verify-rust` to use them.
+- [x] Remove unused code in the requested packages (unused imports/vars/dead constants/dead helper methods) while preserving behavior.
+- [x] Verify with targeted checks for requested crates: `cargo check -p libs -p trusted-setup -p prove -p preprocess -p verify`.
+
+# Review (2026-02-09)
+- [x] Summarize changes and verification results.
+Moved duplicated setup/NTT validation and sizing logic into `libs::utils` and migrated `trusted-setup`, `prove`, `preprocess`, and `verify` to the shared helpers. Removed unused code in scope: dead imports/variables, dead constant, no-op methods in `prove::sigma_source`, commented-out keccak verification block, and unnecessary `unsafe`/`mut` spots in `libs`.  
+Verification: `cargo check -p libs -p trusted-setup -p prove -p preprocess -p verify` passed. Only existing workspace-level warnings (resolver and `mpc-setup` semver metadata) remained.

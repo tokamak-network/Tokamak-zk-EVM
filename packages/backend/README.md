@@ -55,12 +55,12 @@ The verify takes its input from the following three paths:
 
 ## Timing report (prove)
 We provide a human-readable timing report generated from raw timing data:
-- Report: [prove/output/timing.release.md](prove/output/timing.release.md)
-- Raw data: [prove/optimization/timing.release.json](prove/optimization/timing.release.json)
+- Report: [timing.release.md](prove/optimization/timing.release.md)
+- Raw data: [timing.release.json](prove/optimization/timing.release.json)
 
 The report is **auto-generated** from the JSON using:
 ```
-python3 prove/optimization/scripts/timing_to_md.py --input prove/optimization/timing.release.json --output prove/output/timing.release.md
+python3 prove/optimization/scripts/timing_to_md.py --input prove/optimization/timing.release.json --output prove/optimization/timing.release.md
 ```
 If you re-run the timing test, regenerate the report with the command above to keep them in sync.
 

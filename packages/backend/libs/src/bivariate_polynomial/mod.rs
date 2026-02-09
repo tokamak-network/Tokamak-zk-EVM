@@ -98,15 +98,11 @@ pub struct DensePolynomialExt {
 impl DensePolynomialExt {
     // Inherit DensePolynomial
     pub fn print(&self) {
-        unsafe {
-            self.poly.print()
-        }
+        self.poly.print()
     }
     // Inherit DensePolynomial
     pub fn coeffs_mut_slice(&mut self) -> &mut DeviceSlice<ScalarField> {
-        unsafe {
-            self.poly.coeffs_mut_slice()
-        }
+        self.poly.coeffs_mut_slice()
     }
 
     // Method to get the degree of the polynomial.
@@ -894,7 +890,7 @@ impl BivariatePolynomial for DensePolynomialExt {
     }
 
     fn divide_x(&self, denominator: &Self) -> (Self, Self) where Self: Sized {
-        let (numer_x_degree, numer_y_degree) = self.degree();
+        let (numer_x_degree, _numer_y_degree) = self.degree();
         let (denom_x_degree, denom_y_degree) = denominator.degree();
         if denom_y_degree != 0 {
             panic!("Denominator for divide_x must be X-univariate");
@@ -918,7 +914,7 @@ impl BivariatePolynomial for DensePolynomialExt {
     }
 
     fn divide_y(&self, denominator: &Self) -> (Self, Self) where Self: Sized {
-        let (numer_x_degree, numer_y_degree) = self.degree();
+        let (_numer_x_degree, numer_y_degree) = self.degree();
         let (denom_x_degree, denom_y_degree) = denominator.degree();
         if denom_x_degree != 0 {
             panic!("Denominator for divide_y must be Y-univariate");
@@ -1017,11 +1013,11 @@ impl BivariatePolynomial for DensePolynomialExt {
             .map(|idx| cache.denom_y_eval_inv[idx].coset)
             .unwrap_or(zeta);
         let vec_ops_cfg = VecOpsConfig::default();
-        let mut build_denom_inv = |target_x: usize,
-                                   target_y: usize,
-                                   base: usize,
-                                   coset_x: Option<&ScalarField>,
-                                   coset_y: Option<&ScalarField>| -> Box<[ScalarField]> {
+        let build_denom_inv = |target_x: usize,
+                              target_y: usize,
+                              base: usize,
+                              coset_x: Option<&ScalarField>,
+                              coset_y: Option<&ScalarField>| -> Box<[ScalarField]> {
             let mut denom_inv_vec = vec![ScalarField::zero(); target_x * target_y];
             let denom_inv = HostSlice::from_mut_slice(&mut denom_inv_vec);
             let (axis_size, coset, is_y_dir) = match (coset_x, coset_y) {
@@ -1212,7 +1208,7 @@ impl BivariatePolynomial for DensePolynomialExt {
             .unwrap_or(zeta);
         let vec_ops_cfg = VecOpsConfig::default();
 
-        let mut build_axis_inv = |axis_size: usize, base: usize, coset: &ScalarField| -> Box<[ScalarField]> {
+        let build_axis_inv = |axis_size: usize, base: usize, coset: &ScalarField| -> Box<[ScalarField]> {
             let repeat = axis_size / base;
             let root = ntt::get_root_of_unity::<ScalarField>(repeat as u64);
             let coset_pow = coset.pow(base);
@@ -1229,10 +1225,10 @@ impl BivariatePolynomial for DensePolynomialExt {
             inv_base.into_boxed_slice()
         };
 
-        let mut tile_axis_inv = |target_x: usize,
-                                 target_y: usize,
-                                 axis_inv: &[ScalarField],
-                                 is_y_dir: bool| -> Box<[ScalarField]> {
+        let tile_axis_inv = |target_x: usize,
+                            target_y: usize,
+                            axis_inv: &[ScalarField],
+                            is_y_dir: bool| -> Box<[ScalarField]> {
             let mut denom_inv_vec = vec![ScalarField::zero(); target_x * target_y];
             let repeat = axis_inv.len();
             if is_y_dir {

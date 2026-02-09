@@ -1,8 +1,9 @@
 use std::{env, process};
 
 use libs::utils::check_device;
+#[cfg(feature = "testing-mode")]
 use prove::Proof4Test;
-use verify::{KeccakVerificationResult, Verifier, VerifyInputPaths};
+use verify::{Verifier, VerifyInputPaths};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -29,9 +30,7 @@ fn main() {
     let verifier = Verifier::init(&paths);
 
     println!("Verifying the proof...");
-    // let res_keccak = verifier.verify_keccak256();
     let res_snark = verifier.verify_snark();
-    // println!("{}", res_snark && res_keccak == KeccakVerificationResult::True );
     println!("{}", res_snark );
 
     #[cfg(feature = "testing-mode")] {

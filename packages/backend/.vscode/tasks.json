@@ -8,9 +8,9 @@
       "args": [
         "${workspaceFolder}/prove/optimization/scripts/timing_to_md.py",
         "--input",
-        "${workspaceFolder}/prove/output/timing.release.json",
+        "${workspaceFolder}/prove/optimization/timing.release.json",
         "--output",
-        "${workspaceFolder}/prove/output/timing.release.md"
+        "${workspaceFolder}/prove/optimization/timing.release.md"
       ],
       "problemMatcher": [],
       "detail": "Convert timing JSON to Markdown report"

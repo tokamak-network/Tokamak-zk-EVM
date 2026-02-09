@@ -2,14 +2,13 @@
 use libs::group_structures::G1serde;
 use libs::iotools::ArchivedSigmaPreprocessRkyv;
 use libs::iotools::{*};
-use libs::bivariate_polynomial::init_ntt_domain_for_size;
-use libs::utils::check_device;
+use libs::utils::{
+    check_device, init_ntt_domain, prover_verifier_ntt_domain_size, setup_shape, validate_setup_shape,
+};
 use libs::{impl_read_from_json, impl_write_into_json, split_push, pop_recover};
 
 use serde::{Deserialize, Serialize};
-use std::{
-    path::PathBuf
-};
+use std::path::PathBuf;
 
 pub struct PreprocessInputPaths<'a> {
     pub qap_path: &'a str,
@@ -33,14 +32,13 @@ impl Preprocess {
         permutation_raw: &[Permutation],
         setup_params: &SetupParams
     ) -> Self {
-        let m_i = setup_params.l_D - setup_params.l;
-        let n = setup_params.n;
-        let s_max = setup_params.s_max;
-        let ntt_domain_size = std::cmp::max(m_i, n)
-            .checked_mul(s_max)
-            .expect("max(m_i, n) * s_max overflow");
+        let shape = setup_shape(setup_params);
+        validate_setup_shape(&shape);
+        let m_i = shape.m_i;
+        let s_max = shape.s_max;
+        let ntt_domain_size = prover_verifier_ntt_domain_size(&shape);
         check_device();
-        init_ntt_domain_for_size(ntt_domain_size).expect("Failed to initialize NTT domain");
+        init_ntt_domain(ntt_domain_size);
         // Generating permutation polynomials
         println!("Converting the permutation matrices into polynomials s^0 and s^1...");
         let (mut s0XY, mut s1XY) = Permutation::to_poly(permutation_raw, m_i, s_max);
@@ -115,8 +113,6 @@ impl FormattedPreprocess {
         let p2 = &self.preprocess_entries_part2;
 
         const G1_CNT: usize = 2;      // The number of G1 points 
-        const SCALAR_CNT: usize = 0;   // The number of Scalars
-
         assert_eq!(p1.len(), G1_CNT * 2);
         assert_eq!(p2.len(), G1_CNT * 2);
 

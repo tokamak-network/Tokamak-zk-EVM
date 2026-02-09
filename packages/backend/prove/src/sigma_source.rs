@@ -43,11 +43,6 @@ impl SigmaHolder {
         Sigma1Handle(&self.inner.sigma().sigma_1)
     }
 
-    pub fn clear_gamma_inv_o_inst(&mut self) {}
-
-    pub fn clear_eta_inv_li_o_inter_alpha4_kj(&mut self) {}
-
-    pub fn clear_delta_inv_li_o_prv(&mut self) {}
 }
 
 pub struct Sigma1Handle<'a>(&'a ArchivedSigma1Rkyv);

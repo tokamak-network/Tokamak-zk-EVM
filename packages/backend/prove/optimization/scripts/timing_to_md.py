@@ -248,8 +248,8 @@ def main():
     parser = argparse.ArgumentParser(description="Convert timing JSON to Markdown report.")
     parser.add_argument(
         "--input",
-        default=os.getenv("TIMING_OUT", ""),
-        help="Path to timing JSON (default: TIMING_OUT env).",
+        required=True,
+        help="Path to timing JSON.",
     )
     parser.add_argument(
         "--output",
@@ -259,7 +259,7 @@ def main():
     args = parser.parse_args()
 
     if not args.input:
-        raise SystemExit("Missing --input and TIMING_OUT is not set.")
+        raise SystemExit("Missing --input.")
 
     input_path = args.input
     output_path = args.output

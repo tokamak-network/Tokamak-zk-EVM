@@ -22,7 +22,7 @@ ark-bls12-381 = { workspace = true }
 ark-ec = { workspace = true }
 ark-ff = { workspace = true }
 rand = { workspace = true }
-rkyv = { workspace = true }
+rkyv = { workspace = true, features = ["alloc", "bytecheck", "validation"] }
 
 [[bench]]
 name = "outer_product_bench"

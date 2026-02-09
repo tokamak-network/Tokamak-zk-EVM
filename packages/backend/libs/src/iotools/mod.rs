@@ -68,7 +68,6 @@ macro_rules! impl_write_into_json {
         impl $t {
             pub fn write_into_json(&self, path: PathBuf) -> std::io::Result<()> {
                 use std::io::BufWriter;
-                use std::env;
                 use std::fs::{self, File};
                 use serde_json::to_writer_pretty;
                 if let Some(parent) = path.parent() {

@@ -16,7 +16,7 @@ icicle-bls12-381 = { workspace = true }
 libs = { workspace = true }
 tiny-keccak = "1.5"
 memmap2 = { workspace = true }
-rkyv = { workspace = true }
+rkyv = { workspace = true, features = ["alloc", "bytecheck", "validation"] }
 
 [features]
 default = []
