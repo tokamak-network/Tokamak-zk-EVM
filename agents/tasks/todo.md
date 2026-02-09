@@ -284,3 +284,68 @@
 
 ## Review
 - Pending.
+
+# Sync tokamak-cli/CI with backend rkyv outputs (2026-02-09)
+
+## Plan
+- [x] Inspect backend output format changes and identify impacted CLI/CI checks.
+- [x] Update `scripts/tokamak-cli-core` to validate setup artifacts with current backend output names.
+- [x] Update CI workflow checks to assert required setup artifacts for proof/verify path.
+- [x] Run targeted validation commands and record outcomes.
+
+## Review
+- Updated `scripts/tokamak-cli-core` to align setup artifact checks with backend `*.rkyv` outputs:
+  - `--preprocess` now checks `sigma_preprocess.rkyv` before execution.
+  - `--prove` now checks `combined_sigma.rkyv` before execution.
+  - `--verify` now checks `sigma_verify.rkyv` (replacing legacy `.json`).
+- Updated `scripts/packaging.sh` prebuilt-setup validation to require `combined_sigma.rkyv`, `sigma_preprocess.rkyv`, and `sigma_verify.rkyv`.
+- Updated `.github/workflows/build-release.yml` to validate the same setup artifacts in:
+  - `build-and-setup` after install,
+  - `proof-generation-test` before preprocess/prove/verify,
+  - `tokamak-ch-compat-test` before preprocess/prove/verify.
+- Verification:
+  - `bash -n scripts/tokamak-cli-core scripts/packaging.sh tokamak-cli` passed.
+  - `./tokamak-cli --help` executed successfully.
+  - `rg -n "sigma_verify\\.json|sigma_preprocess\\.json|combined_sigma\\.json" scripts .github/workflows .run_scripts tokamak-cli` returned no matches.
+
+# CI test simulation (2026-02-09)
+
+## Plan
+- [x] Reconstruct local equivalents of `build-release.yml` test flow (`build-and-setup`, `evm-compat-test`, `proof-generation-test`, `tokamak-ch-compat-test`).
+- [x] Execute each flow step-by-step in current macOS sandbox and capture concrete pass/fail evidence.
+- [x] Classify failures by root cause (environment mismatch, sandbox restriction, missing secret/artifact, real regression).
+- [x] Record verification summary and actionable follow-ups.
+
+## Review
+- Environment:
+  - macOS arm64 (`Darwin 25.2.0`), Node `v25.6.0`, npm `11.8.0`, Bun `1.3.5`, Rust `1.88.0`, circom `2.2.2`, dos2unix available.
+- build-and-setup simulation:
+  - In sandbox, `./tokamak-cli --install TEST_ALCHEMY_KEY --bun` failed due `tsx` IPC permission error (`listen EPERM .../tsx-...pipe`).
+  - Re-run with escalated permissions succeeded end-to-end (packaging + trusted-setup), and generated:
+    - `dist/resource/setup/output/combined_sigma.rkyv`
+    - `dist/resource/setup/output/sigma_preprocess.rkyv`
+    - `dist/resource/setup/output/sigma_verify.rkyv`
+- evm-compat-test simulation (`cd packages/frontend/synthesizer && npm run test`):
+  - Requires escalated permissions (sandbox EPERM on `tsx` IPC).
+  - Without env var: fails with `Environment variable ALCHEMY_API_KEY must be set`.
+  - With dummy key (`ALCHEMY_API_KEY=TEST`): fails with RPC `401 Unauthorized` from Alchemy.
+  - Conclusion: this job is blocked locally without a valid `ALCHEMY_API_KEY` secret and external RPC access.
+- Re-run with user-provided keys from `packages/frontend/synthesizer/.env` and `packages/frontend/synthesizer/scripts/.env`:
+  - Loaded keys only in-process via `source ...` for that shell invocation.
+  - `cd packages/frontend/synthesizer && npm run test` completed successfully (`__EXIT_CODE__=0`).
+  - Final log reached consistency checks for `permutation.json` and `instance_description.json`.
+- proof-generation-test simulation (core CLI path):
+  - After setup artifacts were generated and synth outputs were prepared, the following succeeded:
+    - `./tokamak-cli --preprocess .../permutation.json`
+    - `./tokamak-cli --prove ./packages/frontend/synthesizer/outputs`
+    - `./tokamak-cli --extract-proof ./test-out/test-proof.zip`
+    - `./tokamak-cli --verify ./test-out/test-proof.zip` (output `true`)
+- proof-generation path re-validated after the key-based evm run:
+  - `./tokamak-cli --preprocess ... && ./tokamak-cli --prove ... && ./tokamak-cli --extract-proof ... && ./tokamak-cli --verify ...` succeeded end-to-end (`verify output => true`).
+- tokamak-ch-compat-test simulation:
+  - `./tokamak-cli --synthesize --tokamak-ch-tx ...` succeeded.
+  - Sequential `./tokamak-cli --preprocess && ./tokamak-cli --prove && ./tokamak-cli --verify` succeeded (verify output `true`).
+- Root-cause classification:
+  - Sandbox restriction: `tsx` IPC (`listen EPERM`) in non-escalated runs.
+  - Secret/external dependency: `evm-compat-test` requires valid `ALCHEMY_API_KEY` and reachable Alchemy endpoint.
+  - No blocking regression observed in backend CLI preprocess/prove/verify path after setup artifacts exist.

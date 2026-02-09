@@ -90,6 +90,21 @@ jobs:
           echo "🔧 Running tokamak-cli --install (building binaries)..."
           ./tokamak-cli --install "$ALCHEMY_API_KEY" --bun
 
+      - name: Validate backend setup outputs
+        run: |
+          required=(
+            "dist/resource/setup/output/combined_sigma.rkyv"
+            "dist/resource/setup/output/sigma_preprocess.rkyv"
+            "dist/resource/setup/output/sigma_verify.rkyv"
+          )
+          for file in "${required[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing backend setup output: $file"
+              exit 1
+            fi
+          done
+          echo "✅ Backend setup outputs are ready"
+
       - name: Upload built dist folder
         uses: actions/upload-artifact@v4
         with:
@@ -212,6 +227,21 @@ jobs:
           chmod +x dist/bin/* 2>/dev/null || true
           chmod +x dist/*.sh 2>/dev/null || true
 
+      - name: Validate setup artifacts in dist
+        run: |
+          required=(
+            "dist/resource/setup/output/combined_sigma.rkyv"
+            "dist/resource/setup/output/sigma_preprocess.rkyv"
+            "dist/resource/setup/output/sigma_verify.rkyv"
+          )
+          for file in "${required[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing setup artifact in dist: $file"
+              exit 1
+            fi
+          done
+          echo "✅ Setup artifacts present in dist"
+
       - name: Validate preprocess input
         run: |
           if [ ! -f "packages/frontend/synthesizer/outputs/permutation.json" ]; then
@@ -284,6 +314,21 @@ jobs:
           chmod +x ./scripts/tokamak-cli-core
           chmod +x dist/bin/* 2>/dev/null || true
           chmod +x dist/*.sh 2>/dev/null || true
+
+      - name: Validate setup artifacts in dist
+        run: |
+          required=(
+            "dist/resource/setup/output/combined_sigma.rkyv"
+            "dist/resource/setup/output/sigma_preprocess.rkyv"
+            "dist/resource/setup/output/sigma_verify.rkyv"
+          )
+          for file in "${required[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing setup artifact in dist: $file"
+              exit 1
+            fi
+          done
+          echo "✅ Setup artifacts present in dist"
 
       - name: Run L2StateChannel CI test (synthesize)
         run: |

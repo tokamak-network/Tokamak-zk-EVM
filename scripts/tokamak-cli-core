@@ -605,11 +605,12 @@ step_synthesize() {
 
 step_preprocess() {
   local input_arg="${1:-}"
-  local target dist_dir run3 backend_resource
+  local target dist_dir run3 backend_resource sigma_preprocess
   target="$(detect_target)"
   dist_dir="$(dist_dir_for_target "$target")"
   run3="$dist_dir/3_run-preprocess.sh"
   backend_resource="$dist_dir/resource/prove"
+  sigma_preprocess="$dist_dir/resource/setup/output/sigma_preprocess.rkyv"
 
   if [[ -n "$input_arg" ]]; then
     local input_path synth_output_dir input_base dest_path
@@ -635,6 +636,7 @@ step_preprocess() {
   fi
 
   log "Preprocess: running backend preprocess (target=$target)"
+  [[ -f "$sigma_preprocess" ]] || { err "Missing setup artifact: $sigma_preprocess (run --install)"; exit 1; }
   ensure_file "$run3" || exit 1
 
   run_timed "$run3" 0
@@ -654,13 +656,15 @@ step_prove() {
     sync_synth_outputs_from_path "$input_arg"
   fi
 
-  local target dist_dir run4 proof_output
+  local target dist_dir run4 proof_output combined_sigma
   target="$(detect_target)"
   dist_dir="$(dist_dir_for_target "$target")"
   run4="$dist_dir/4_run-prove.sh"
   proof_output="$dist_dir/resource/prove/output"
+  combined_sigma="$dist_dir/resource/setup/output/combined_sigma.rkyv"
 
   log "Prove: running backend prove (target=$target)"
+  [[ -f "$combined_sigma" ]] || { err "Missing setup artifact: $combined_sigma (run --install)"; exit 1; }
   ensure_file "$run4" || exit 1
   mkdir -p "$proof_output"
 
@@ -827,13 +831,13 @@ step_verify() {
   local preprocess_file="$resource_dir/preprocess/output/preprocess.json"
   local proof_file="$proof_dir/proof.json"
   local instance_file="$resource_dir/synthesizer/output/instance.json"
-  local sigma_verify="$resource_dir/setup/output/sigma_verify.json"
+  local sigma_verify="$resource_dir/setup/output/sigma_verify.rkyv"
 
   local missing=()
   [[ -f "$preprocess_file" ]] || missing+=("$preprocess_file (run --preprocess)")
   [[ -f "$proof_file" ]] || missing+=("$proof_file (run --prove)")
   [[ -f "$instance_file" ]] || missing+=("$instance_file (run --synthesize)")
-  [[ -f "$sigma_verify" ]] || missing+=("$sigma_verify (run --preprocess to regenerate setup outputs)")
+  [[ -f "$sigma_verify" ]] || missing+=("$sigma_verify (run --install)")
 
   if [[ ${#missing[@]} -gt 0 ]]; then
     err "Missing required artifacts for verification:"
