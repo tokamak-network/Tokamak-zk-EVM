@@ -124,3 +124,73 @@
 
 # Review
 - [x] PR created: https://github.com/tokamak-network/Tokamak-zk-EVM/pull/177
+
+# Todo
+- [x] Inspect `writeEvmAnalysisJson` usage in `examples/erc20Transfers/main.ts`
+- [x] Add `circuitGenerator.circuitPlacements` output to analysis JSON payload
+- [ ] Verify JSON output path/content and record results
+
+# Review
+- [ ] `npm run test:node` failed with tsx IPC `EPERM` on `/var/folders/.../tsx-501/*.pipe`, so output verification could not complete in sandbox.
+
+# Todo
+- [x] Address BigInt serialization error in `writeEvmAnalysisJson`
+- [x] Verify analysis JSON output after fix
+
+# Review
+- [x] `npm run test:node` ran successfully and produced `outputs/analysis/circuit_placements.json` without BigInt serialization errors.
+
+# Todo
+- [ ] Inspect `outputs/analysis/circuit_placements.json` and `outputs/permutation.json` to extract schema/fields
+- [ ] Cross-check related generator code/docs to infer how placements + permutations define circuits
+- [ ] Summarize inferred circuit definition with assumptions and open questions
+
+# Review
+- [x] Updated visualizer to use Mermaid when available with fallback PNG renderer and verified output; `mmdc` missing so builtin renderer wrote `outputs/analysis/circuit_diagram.png`.
+
+# Todo
+- [x] Read `src/circuitGenerator/circuitGenerator.ts` to trace how circuit placements flow into placement variables
+- [x] Inspect `VariableGenerator` (and any direct callers) to map the extraction from placements to placement variables
+- [x] Summarize the extraction path from `outputs/circuit_placements.json` to `outputs/placementVariables.json` with explicit assumptions
+
+# Review
+- [x] Documented how `placementsCompatibleWithSubcircuits` (written as `outputs/analysis/circuit_placements.json`) feeds `_generatePlacementVariables` and produces `outputs/placementVariables.json`, including padding, witness generation, and output checks.
+
+# Todo
+- [x] Inspect `outputs/analysis/circuit_placements.json` and `outputs/permutation.json` to capture schema and linking identifiers
+- [x] Trace generation code (permutation generator) to map how placements feed permutation
+- [x] Summarize the relationship with examples, assumptions, and open questions
+
+# Review
+- [x] Documented how permutation rows/cols map to placement indices and global wire IDs derived from circuit placements and subcircuit flatten maps.
+
+# Todo
+- [x] Inspect `outputs/analysis/circuit_placements.json` to determine the fields needed for diagram nodes/edges
+- [x] Implement `scripts/circuit_visualizer.ts` to parse placements and emit ASCII/mermaid diagram
+- [x] Add a simple usage note (arg parsing) and run a quick sanity check (node/tsx) if possible
+
+# Review
+- [x] Added `scripts/circuit_visualizer.ts` and verified with tsx; wrote `/tmp/circuit_diagram.mmd`.
+
+# Todo
+- [x] Update `scripts/circuit_visualizer.ts` to render a PNG diagram instead of markdown output
+- [x] Verify PNG output is written under `outputs/analysis`
+
+# Review
+- [x] `tsx scripts/circuit_visualizer.ts --format diagram` wrote `outputs/analysis/circuit_diagram.png`.
+
+# Todo
+- [x] Check for Mermaid CLI availability (e.g., mmdc) or viable PNG renderer in repo
+- [x] Update `scripts/circuit_visualizer.ts` to add ELK layout and render PNG via resvg with fallbacks
+- [ ] Verify PNG output under `outputs/analysis` with ELK + resvg
+
+# Review
+- [ ] `mmdc` was not found in node_modules/bin before adding dependencies; ELK/resvg output not yet verified (needs install).
+
+# Todo
+- [x] Define wire-level diagram layout (top inputs, bottom outputs) and mapping from placements/inPts/outPts
+- [x] Update `scripts/circuit_visualizer.ts` to render per-wire arrows and connect matching wires across placements
+- [ ] Verify PNG/3D outputs and note any layout limits
+
+# Review
+- [ ] ELK port-based renderer added; PNG/3D verification pending install of new deps (`elkjs`, `@resvg/resvg-js`).

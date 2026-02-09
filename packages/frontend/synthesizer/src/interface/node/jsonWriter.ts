@@ -74,19 +74,41 @@ export function writeCircuitJson(circuitGenerator: CircuitGenerator, _path?: str
     }
 }
 
-export async function writeEvmAnalysisJson(synthesizer: SynthesizerInterface, outputPath?: string): Promise<void> {
+export async function writeEvmAnalysisJson(
+    synthesizer: SynthesizerInterface,
+    outputPath?: string,
+    circuitGenerator?: CircuitGenerator,
+): Promise<void> {
     const stepLogs = synthesizer.stepLogs
     const messageCodeAddresses = Array.from(synthesizer.messageCodeAddresses)
-    if (stepLogs.length === 0 && messageCodeAddresses.length === 0) {
+    const circuitPlacements = circuitGenerator?.circuitPlacements
+    const shouldWriteCircuitPlacements = circuitPlacements !== undefined
+    if (stepLogs.length === 0 && messageCodeAddresses.length === 0 && !shouldWriteCircuitPlacements) {
         return
     }
     const outputDir = path.resolve(appRootPath.path, 'outputs', 'analysis')
     const stepLogFilename = outputPath === undefined ? 'step_log.json' : path.basename(outputPath)
     const resolvedStepLogPath = path.join(outputDir, stepLogFilename)
+    const bigintReplacer = (_key: string, value: unknown) => (
+        typeof value === 'bigint' ? value.toString() : value
+    )
     await fsPromises.mkdir(outputDir, { recursive: true })
-    await fsPromises.writeFile(resolvedStepLogPath, JSON.stringify(stepLogs, null, 2), 'utf-8')
+    await fsPromises.writeFile(resolvedStepLogPath, JSON.stringify(stepLogs, bigintReplacer, 2), 'utf-8')
     console.log(`Success in writing '${resolvedStepLogPath}'.`)
     const messageCodeAddressesPath = path.join(outputDir, 'message_code_addresses.json')
-    await fsPromises.writeFile(messageCodeAddressesPath, JSON.stringify(messageCodeAddresses, null, 2), 'utf-8')
+    await fsPromises.writeFile(
+        messageCodeAddressesPath,
+        JSON.stringify(messageCodeAddresses, bigintReplacer, 2),
+        'utf-8',
+    )
     console.log(`Success in writing '${messageCodeAddressesPath}'.`)
+    if (shouldWriteCircuitPlacements) {
+        const circuitPlacementsPath = path.join(outputDir, 'circuit_placements.json')
+        await fsPromises.writeFile(
+            circuitPlacementsPath,
+            JSON.stringify(circuitPlacements, bigintReplacer, 2),
+            'utf-8',
+        )
+        console.log(`Success in writing '${circuitPlacementsPath}'.`)
+    }
 }

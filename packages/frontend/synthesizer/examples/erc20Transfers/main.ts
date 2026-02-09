@@ -80,9 +80,9 @@ const main = async () => {
   const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(simulationOpts);
   const synthesizer = await createSynthesizer(synthesizerOpts);
   const runTxResult = await synthesizer.synthesizeTX();
-  await writeEvmAnalysisJson(synthesizer);
   const subcircuitBuffers = loadSubcircuitWasm();
   const circuitGenerator = await createCircuitGenerator(synthesizer, subcircuitBuffers);
+  await writeEvmAnalysisJson(synthesizer, undefined, circuitGenerator);
   writeCircuitJson(circuitGenerator);
 
   console.log(`Exception Error: ${runTxResult.execResult.exceptionError}`);
