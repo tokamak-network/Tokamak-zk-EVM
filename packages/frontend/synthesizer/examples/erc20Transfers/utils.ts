@@ -3,27 +3,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { setLengthLeft, utf8ToBytes } from '@ethereumjs/util';
-
-export type ParticipantEntry = {
-  addressL1: `0x${string}`;
-  prvSeedL2: string;
-};
-
-export type Erc20TransferConfig = {
-  participants: ParticipantEntry[];
-  userStorageSlots: number[];
-  preAllocatedKeys: `0x${string}`[];
-  txNonce: bigint;
-  blockNumber: number;
-  network: string;
-  txHash: `0x${string}`;
-  contractAddress: `0x${string}`;
-  amount: `0x${string}`;
-  transferSelector: `0x${string}`;
-  senderIndex: number;
-  recipientIndex: number;
-  callCodeAddresses: `0x${string}`[];
-};
+import type {
+  ChannelErc20TransferTxSimulationConfig,
+  ChannelParticipantConfig,
+  ChannelStorageConfig,
+} from 'tokamak-l2js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,16 +25,9 @@ const parseHexString = (value: unknown, label: string): `0x${string}` => {
   return value as `0x${string}`;
 };
 
-const parseBigIntValue = (value: unknown, label: string): bigint => {
-  if (typeof value === 'string' || typeof value === 'number') {
-    return BigInt(value);
-  }
-  throw new Error(`${label} must be a string or number`);
-};
-
-const parseNonEmptyString = (value: unknown, label: string): string => {
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    throw new Error(`${label} must be a non-empty string`);
+const parseNetwork = (value: unknown, label: string): 'mainnet' | 'sepolia' => {
+  if (value !== 'mainnet' && value !== 'sepolia') {
+    throw new Error(`${label} must be either "mainnet" or "sepolia"`);
   }
   return value;
 };
@@ -77,8 +54,7 @@ const assertUserStorageSlots = (value: unknown, label: string): number[] => {
   return value;
 };
 
-
-const assertParticipantArray = (value: unknown, label: string): ParticipantEntry[] => {
+const assertParticipantArray = (value: unknown, label: string): ChannelParticipantConfig[] => {
   if (!Array.isArray(value)) {
     throw new Error(`${label} must be an array`);
   }
@@ -99,35 +75,50 @@ const assertParticipantArray = (value: unknown, label: string): ParticipantEntry
   });
 };
 
-export const loadConfig = async (configPath: string): Promise<Erc20TransferConfig> => {
+const assertStorageConfigs = (value: unknown, label: string): ChannelStorageConfig[] => {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+  return value.map((entry, index) => {
+    if (typeof entry !== 'object' || entry === null) {
+      throw new Error(`${label}[${index}] must be an object`);
+    }
+    const record = entry as Record<string, unknown>;
+    return {
+      address: parseHexString(record.address, `${label}[${index}].address`),
+      userStorageSlots: assertUserStorageSlots(record.userStorageSlots, `${label}[${index}].userStorageSlots`),
+      preAllocatedKeys: assertStringArray(record.preAllocatedKeys, `${label}[${index}].preAllocatedKeys`).map(
+        (entry) => parseHexString(entry, `${label}[${index}].preAllocatedKeys`),
+      ),
+    };
+  });
+};
+
+export const loadConfig = async (configPath: string): Promise<ChannelErc20TransferTxSimulationConfig> => {
   const configRaw = JSON.parse(await fs.readFile(configPath, 'utf8'));
 
   const participants = assertParticipantArray(configRaw.participants, 'participants');
   if (participants.length < 2) {
     throw new Error('participants must include at least sender and recipient entries');
   }
-
-  const preAllocatedKeys = assertStringArray(configRaw.preAllocatedKeys, 'preAllocatedKeys').map(
-    (entry) => parseHexString(entry, 'preAllocatedKeys'),
-  );
+  const storageConfigs = assertStorageConfigs(configRaw.storageConfigs, 'storageConfigs');
+  const entryContractAddress = parseHexString(configRaw.entryContractAddress, 'entryContractAddress');
   const callCodeAddresses = assertStringArray(configRaw.callCodeAddresses, 'callCodeAddresses').map(
     (entry) => parseHexString(entry, 'callCodeAddresses'),
   );
 
   return {
+    network: parseNetwork(configRaw.network, 'network'),
     participants,
-    userStorageSlots: assertUserStorageSlots(configRaw.userStorageSlots, 'userStorageSlots'),
-    preAllocatedKeys,
-    txNonce: parseBigIntValue(configRaw.txNonce, 'txNonce'),
+    storageConfigs,
+    entryContractAddress,
+    callCodeAddresses,
     blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
-    network: parseNonEmptyString(configRaw.network, 'network'),
-    txHash: parseHexString(configRaw.txHash, 'txHash'),
-    contractAddress: parseHexString(configRaw.contractAddress, 'contractAddress'),
+    txNonce: parseNumberValue(configRaw.txNonce, 'txNonce'),
     amount: parseHexString(configRaw.amount, 'amount'),
     transferSelector: parseHexString(configRaw.transferSelector, 'transferSelector'),
     senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
     recipientIndex: parseNumberValue(configRaw.recipientIndex, 'recipientIndex'),
-    callCodeAddresses,
   };
 };
 

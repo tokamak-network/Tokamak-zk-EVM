@@ -157,3 +157,12 @@
 
 # Review
 - [ ] Pending
+
+# Todo
+- [x] Inspect current ERC20 transfer config JSON schema in `examples/erc20Transfers`
+- [x] Map fields into `ChannelErc20TransferTxSimulationConfig` and define defaults for missing `network`
+- [x] Rewrite all config JSON files to the new schema
+- [x] Spot-check a few updated files for correctness
+
+# Review
+- [x] Updated all 15 config JSON files to the new schema and spot-checked ton mainnet/sepolia examples.

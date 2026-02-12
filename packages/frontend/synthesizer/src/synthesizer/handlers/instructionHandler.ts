@@ -10,7 +10,6 @@ import {
   bigIntToHex,
   setLengthLeft,
   bigIntToBytes,
-  createAddressFromString,
 } from '@ethereumjs/util'
 import { InterpreterStep } from '@ethereumjs/evm'
 import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
