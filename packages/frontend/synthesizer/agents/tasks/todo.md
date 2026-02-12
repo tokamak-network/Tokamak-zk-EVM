@@ -149,3 +149,11 @@
 
 # Review
 - [ ] Pending
+
+# Todo
+- [ ] Switch `cachedStorage` map keys from `Address` to `string` (address.toString)
+- [ ] Update all cachedStorage call sites to use string keys and convert back via `createAddressFromHex`
+- [ ] Sanity-check usages in `_updateMerkleTree` and `_unregisteredContractStorageWritings`
+
+# Review
+- [ ] Pending

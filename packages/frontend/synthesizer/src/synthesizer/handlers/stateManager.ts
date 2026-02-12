@@ -15,10 +15,10 @@ import { MemoryPt, StackPt } from '../dataStructure/index.ts';
 import { SubcircuitInfoByName, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
 import { subcircuitInfoByName } from '../../interface/qapCompiler/importedConstants.ts';
 import { InterpreterStep, Message } from '@ethereumjs/evm';
-import { Address, bytesToBigInt } from '@ethereumjs/util';
+import { bytesToBigInt } from '@ethereumjs/util';
 
 export type CachedStorageEntry = {
-  addressIndex: number | null,
+  addressIndex: number,
   indexPt: DataPt | null,
   keyPt: DataPt,
   valuePt: DataPt,
@@ -62,7 +62,7 @@ export class StateManager {
   private _placements: Placements = []
 
   public verifiedStorageMTIndices: [number, number][] = [] // [ADDRESS_INDEX, LEAF_INDEX]
-  public cachedStorage: Map<Address, Map<bigint, CachedStorageEntry[]>> = new Map() // Map<ADDRESS, Map<KEY, ENTRY>>
+  public cachedStorage: Map<string, Map<bigint, CachedStorageEntry[]>> = new Map() // Map<ADDRESS_STRING, Map<KEY, ENTRY>>
   public subcircuitInfoByName: SubcircuitInfoByName = subcircuitInfoByName;
 
   public cachedEVMIn: Map<bigint, DataPt> = new Map()
