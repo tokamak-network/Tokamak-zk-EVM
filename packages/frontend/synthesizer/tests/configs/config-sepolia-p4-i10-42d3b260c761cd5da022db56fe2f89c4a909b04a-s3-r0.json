@@ -1,42 +1,47 @@
 {
+  "network": "sepolia",
   "participants": [
     {
-      "addressL1": "0x3ec2c9fb15c222aa273f3f2f20a740fa86b4f618",
+      "addressL1": "0x6233a7c52652282b8b0b85c817537f072228587f",
       "prvSeedL2": "Recipient's L2 wallet"
     },
     {
-      "addressL1": "0x48d095fedc7596633443b17c9c1b48f970d70af0",
+      "addressL1": "0x4fd147326d141b4647de4b54511b47fc3ae33d54",
       "prvSeedL2": "Participant 2"
     },
     {
-      "addressL1": "0x1db7d6885ec51577875e254b6f081ea13d0f6381",
+      "addressL1": "0x02b09dd1f7b88abc152b648f9c4c883fe512ebc7",
       "prvSeedL2": "Participant 3"
     },
     {
-      "addressL1": "0x15759359e60a3b9e59ea7a96d10fa48829f83beb",
+      "addressL1": "0xf9fa94d45c49e879e46ea783fc133f41709f3bc7",
       "prvSeedL2": "Sender's L2 wallet"
     }
   ],
-  "senderIndex": 3,
-  "recipientIndex": 0,
-  "userStorageSlots": [
-    6,
-    2
+  "storageConfigs": [
+    {
+      "address": "0x42d3b260c761cD5da022dB56Fe2F89c4A909b04A",
+      "userStorageSlots": [
+        6,
+        2
+      ],
+      "preAllocatedKeys": [
+        "0x00",
+        "0x0a",
+        "0x03",
+        "0x04"
+      ]
+    }
   ],
-  "preAllocatedKeys": [
-    "0x00",
-    "0x0a",
-    "0x03",
-    "0x04"
-  ],
-  "txNonce": 0,
-  "blockNumber": 10051486,
-  "network": "sepolia",
-  "txHash": "0xce0d4ed755d9cc112c63abbfa64b19733840d7e25adaf408835d35a7070fe354",
-  "contractAddress": "0x42d3b260c761cD5da022dB56Fe2F89c4A909b04A",
-  "amount": "0x00000000000000000000000000000000000000000000000000000000aff3f200",
-  "transferSelector": "0xa9059cbb",
+  "entryContractAddress": "0x42d3b260c761cD5da022dB56Fe2F89c4A909b04A",
   "callCodeAddresses": [
     "0x42d3b260c761cD5da022dB56Fe2F89c4A909b04A"
-  ]
+  ],
+  "blockNumber": 10201362,
+  "txNonce": 0,
+  "senderIndex": 3,
+  "recipientIndex": 0,
+  "amount": "0x0000000000000000000000000000000000000000000000000000000000989680",
+  "transferSelector": "0xa9059cbb",
+  "referenceTxHash": "0xadb223ee9203802c918d47e63ef507e0b607d55020e9e332e115a31619067478"
 }

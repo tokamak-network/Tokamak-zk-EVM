@@ -1,42 +1,47 @@
 {
+  "network": "mainnet",
   "participants": [
     {
-      "addressL1": "0xea6de7f8d4f6f4eaa9dd79cdb02338801826fff3",
+      "addressL1": "0xfc1d77ec6f6d30ea230ad2ca5effdbc7b78da206",
       "prvSeedL2": "Recipient's L2 wallet"
     },
     {
-      "addressL1": "0xdce57b07896627e534120bc9ba037ad63e57fdfd",
+      "addressL1": "0x1022a6206fe5c57ddb146869f9e2e7708d4de69d",
       "prvSeedL2": "Participant 2"
     },
     {
-      "addressL1": "0x44b838a07a93e027c52321a2e4efee5bc4cec91b",
+      "addressL1": "0xee9d0b878e9f459d92bcc5e2a7cfb2e348f01a86",
       "prvSeedL2": "Participant 3"
     },
     {
-      "addressL1": "0xcbf0a5019610257971cc424c2c8792e1e12eb349",
+      "addressL1": "0x4c84369a30c058e4c209983cff368dd63c25e029",
       "prvSeedL2": "Sender's L2 wallet"
     }
   ],
-  "senderIndex": 3,
-  "recipientIndex": 0,
-  "userStorageSlots": [
-    6,
-    2
+  "storageConfigs": [
+    {
+      "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "userStorageSlots": [
+        6,
+        2
+      ],
+      "preAllocatedKeys": [
+        "0x00",
+        "0x0a",
+        "0x03",
+        "0x04"
+      ]
+    }
   ],
-  "preAllocatedKeys": [
-    "0x00",
-    "0x0a",
-    "0x03",
-    "0x04"
-  ],
-  "txNonce": 0,
-  "blockNumber": 24377038,
-  "network": "mainnet",
-  "txHash": "0x35c0b9b85254097c644fd2caa1585273762b150e18f1c0792e7679d42b9147b2",
-  "contractAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-  "amount": "0x0000000000000000000000000000000000000000000000000000000057412c5c",
-  "transferSelector": "0xa9059cbb",
+  "entryContractAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
   "callCodeAddresses": [
     "0xdAC17F958D2ee523a2206206994597C13D831ec7"
-  ]
+  ],
+  "blockNumber": 24442935,
+  "txNonce": 0,
+  "senderIndex": 3,
+  "recipientIndex": 0,
+  "amount": "0x00000000000000000000000000000000000000000000000000000000000000c8",
+  "transferSelector": "0xa9059cbb",
+  "referenceTxHash": "0xff715bb357d17688a163fdb6a1164fae6fec1f33655317098b70840ff3bbcbba"
 }
