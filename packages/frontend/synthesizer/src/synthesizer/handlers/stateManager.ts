@@ -69,7 +69,6 @@ export class StateManager {
   public cachedOrigin: DataPt | undefined = undefined
   public cachedInitRoots: DataPt[] | undefined = undefined
 
-  public currentDepth: number = 0;
   public contextByDepth: ContextManager[] = [];
 
   constructor(parent: ISynthesizerProvider) {

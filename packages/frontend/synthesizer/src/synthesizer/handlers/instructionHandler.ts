@@ -467,11 +467,11 @@ export class InstructionHandler {
     return DataPtFactory.deepCopy(this.parent.state.cachedOrigin!)
   }
 
-  public async verifyStorage(keyPt: DataPt, value: bigint, treeIndex: [number, number], address: Address): Promise<{indexPt: DataPt, valuePt: DataPt}> {
+  public verifyStorage(keyPt: DataPt, value: bigint, treeIndex: [number, number], address: Address): {indexPt: DataPt, valuePt: DataPt} {
     if (!this.parent.cachedOpts.stateManager.initialMerkleTrees.addresses[treeIndex[0]].equals(address)) {
       throw new Error(`Need to debug: Merkle tree index mismatches with given address`)
     }
-    const merkleProof = await this.cachedOpts.stateManager.getMerkleProof(treeIndex);
+    const merkleProof = this.cachedOpts.stateManager.getMerkleProof(treeIndex);
     const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(treeIndex[1]), true);
     const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', value, true, ` at MT index: ${treeIndex[1]} of address: ${address}`);
     const childPt = this.parent.placePoseidon([
@@ -501,8 +501,7 @@ export class InstructionHandler {
     return {indexPt, valuePt}
   }
 
-  public async loadStorage(keyPt: DataPt, valueGiven?: bigint, _address?: Address): Promise<DataPt> {
-    const address = _address ?? createAddressFromBigInt(this.parent.state.contextByDepth[this.parent.state.currentDepth].toAddressPt.value);
+  public async loadStorage(address: Address, keyPt: DataPt, valueGiven?: bigint): Promise<DataPt> {
     const addressKey = address.toString();
     const key = keyPt.value;
     const valueStored = bytesToBigInt(
@@ -528,7 +527,7 @@ export class InstructionHandler {
     let indexPt, valuePt: DataPt;
     if (isColdAccess) {
       if (isRegisteredKey ) {
-        ({ indexPt, valuePt } = await this.verifyStorage(keyPt, value, MTIndex, address));
+        ({ indexPt, valuePt } = this.verifyStorage(keyPt, value, MTIndex, address));
         accessHistory = {
           addressIndex: MTIndex[0],
           indexPt,
@@ -583,8 +582,7 @@ export class InstructionHandler {
     return DataPtFactory.deepCopy(valuePt);
   }
 
-  public async storeStorage(keyPt: DataPt, symbolDataPt: DataPt): Promise<void> {
-    const address = createAddressFromBigInt(this.parent.state.contextByDepth[this.parent.state.currentDepth].toAddressPt.value);
+  public async storeStorage(address: Address, keyPt: DataPt, symbolDataPt: DataPt): Promise<void> {
     const addressKey = address.toString();
     const key = keyPt.value
     const cached = this.parent.state.cachedStorage.get(addressKey)?.get(key);
@@ -1007,14 +1005,14 @@ export class InstructionHandler {
       case 'SLOAD': 
         {
           const keyPt = inPts[0]
-          opts.stackPt.push(await this.loadStorage(keyPt, out!))
+          opts.stackPt.push(await this.loadStorage(opts.thisAddress, keyPt, out!))
         }
         break
       case 'SSTORE': 
         {
           const keyPt = inPts[0]
           const dataPt = inPts[1]
-          this.storeStorage(keyPt, dataPt)
+          this.storeStorage(opts.thisAddress, keyPt, dataPt)
           if ( dataPt.value !== ins[1] ) {
             throw new Error(`Synthesizer: ${op}: Output storage data mismatch`)
           } 

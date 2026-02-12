@@ -151,7 +151,6 @@ export class Synthesizer implements SynthesizerInterface
 
   private _returnMessageCall(depth: number):void {
     if (depth > 0){
-      this.state.currentDepth = depth - 1;
       this.state.contextByDepth[depth - 1].returnDataMemoryPts = this.state.contextByDepth[depth].resultMemoryPts.map(entry => {
         return {
           ...entry,
@@ -251,7 +250,6 @@ export class Synthesizer implements SynthesizerInterface
       callerPt,
       toAddressPt,
     };
-    this.state.currentDepth = depth;
     this.state.contextByDepth[depth] = new ContextManager(contextData);
   }
 
@@ -279,7 +277,7 @@ export class Synthesizer implements SynthesizerInterface
           this.addReservedVariableToBufferIn('MERKLE_PROOF', keyBigInt, true) :
           cached[cached.length-1].keyPt;
         // Make sure every registered storage verified
-        const valuePt = await this._instructionHandlers.loadStorage(keyPt, undefined, address);
+        const valuePt = await this._instructionHandlers.loadStorage(address, keyPt);
         treeEntriesPt.push([
           keyPt, 
           valuePt,
@@ -298,7 +296,7 @@ export class Synthesizer implements SynthesizerInterface
       // Make every padded keys warm
       for ( var MTIndex = numActualKeys; MTIndex < MAX_MT_LEAVES; MTIndex++ ) {
         const keyPt = this.addReservedVariableToBufferIn('MERKLE_PROOF', 0n, true);
-        const {indexPt, valuePt} = await this._instructionHandlers.verifyStorage(keyPt, 0n, [addressIdx, MTIndex], address);
+        const {indexPt, valuePt} = this._instructionHandlers.verifyStorage(keyPt, 0n, [addressIdx, MTIndex], address);
         treeEntriesPt.push([
           keyPt,
           valuePt,
