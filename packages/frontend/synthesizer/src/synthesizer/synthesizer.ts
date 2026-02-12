@@ -309,7 +309,7 @@ export class Synthesizer implements SynthesizerInterface
     for (const [addressIdx, address] of this.cachedOpts.stateManager.initialMerkleTrees.addresses.entries()) {
       const treeEntriesPt = treeEntriesPtByAddress.find(entry => entry.address.equals(address))?.treeEntriesPt;
       if (treeEntriesPt === undefined) {
-        throw new Error(`Need debug: DataPts for the tree leaves for a specific address are not defined`)
+        throw new Error(`DataPts for the tree leaves for a specific address are not defined`)
       }
       if (treeEntriesPt.length !== MAX_MT_LEAVES ) {
         throw new Error(`Expected ${MAX_MT_LEAVES} leaves for updated tree root computation, but got ${treeEntriesPt.length} leaves.`)
@@ -317,7 +317,7 @@ export class Synthesizer implements SynthesizerInterface
       // Permute MT leaves
       const permutation = permutations.find(entry => entry.address.equals(address))?.permutation;
       if (permutation === undefined) {
-        throw new Error(`Need debug: Permutation for a specific address is not defined`)
+        throw new Error(`Permutation for a specific address is not defined`)
       }
       const permutedTreeEntriesPt: DataPt[][] = treeEntriesPt.map(entry1 => entry1.map(entry2 => DataPtFactory.deepCopy(entry2)));
       for (const [newIdx, oldIdx] of permutation.entries()) {
