@@ -17,7 +17,7 @@ const EXAMPLE_ENTRY = path.resolve(packageRoot, 'examples', 'erc20Transfers', 'm
 
 type Erc20Config = {
   network?: string;
-  contractAddress?: string;
+  entryContractAddress?: string;
   transferSelector?: string;
 };
 
@@ -64,9 +64,9 @@ const normalizeGroupValue = (value: string | undefined) =>
 
 const buildGroupKey = (config: Erc20Config) => {
   const network = normalizeGroupValue(config.network);
-  const contractAddress = normalizeGroupValue(config.contractAddress);
+  const entryContractAddress = normalizeGroupValue(config.entryContractAddress);
   const transferSelector = normalizeGroupValue(config.transferSelector);
-  return `${network}|${contractAddress}|${transferSelector}`;
+  return `${network}|${entryContractAddress}|${transferSelector}`;
 };
 
 const validateInstanceDescriptions = async (configs: string[]) => {
