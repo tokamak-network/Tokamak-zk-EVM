@@ -265,13 +265,13 @@ export class Synthesizer implements SynthesizerInterface
       const address = registeredKeysForAddress.address;
       const treeEntriesPt: DataPt[][] = [];
       if (!this.cachedOpts.stateManager.initialMerkleTrees.addresses[addressIdx].equals(address)) {
-        throw new Error('The order of adresses in registeredKeys is inconsistent with that in Merle trees')
+        throw new Error('The order of addresses in registeredKeys is inconsistent with that in Merkle trees')
       } 
       for (const key of registeredKeysForAddress.keys){
         const keyBigInt = bytesToBigInt(key);
         const cached = this._state.cachedStorage.get(address.toString())?.get(keyBigInt);
         if (cached !== undefined && cached.length === 0 ) {
-          throw new Error(`A storage was cached without no history`)
+          throw new Error(`A storage was cached with no history`)
         }
         const keyPt = cached === undefined ?
           this.addReservedVariableToBufferIn('MERKLE_PROOF', keyBigInt, true) :
@@ -317,7 +317,7 @@ export class Synthesizer implements SynthesizerInterface
       // Permute MT leaves
       const permutation = permutations.find(entry => entry.address.equals(address))?.permutation;
       if (permutation === undefined) {
-        throw new Error(`Need debug: Permultation for a specific address is not defined`)
+        throw new Error(`Need debug: Permutation for a specific address is not defined`)
       }
       const permutedTreeEntriesPt: DataPt[][] = treeEntriesPt.map(entry1 => entry1.map(entry2 => DataPtFactory.deepCopy(entry2)));
       for (const [newIdx, oldIdx] of permutation.entries()) {

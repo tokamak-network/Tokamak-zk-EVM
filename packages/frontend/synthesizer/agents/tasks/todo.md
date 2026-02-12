@@ -176,6 +176,14 @@
 - [x] PR created: https://github.com/tokamak-network/Tokamak-zk-EVM/pull/182
 
 # Todo
+- [x] Fetch PR #182 Gemini bot review threads and list requested changes.
+- [x] Apply code fixes for each comment with minimal scope.
+- [x] Run the most relevant verification and record results.
+
+# Review
+- [x] `./node_modules/.bin/tsc -p tsconfig.json --noEmit --pretty false` failed with TypeScript parse errors in `node_modules/inquirer/dist/index.d.ts` and `src/interface/qapCompiler/importedConstants.ts`, plus `allowImportingTsExtensions` unsupported by this compiler.
+
+# Todo
 - [x] Update `scripts/generate-erc20-config.ts` to emit `ChannelErc20TransferTxSimulationConfig` (entryContractAddress + storageConfigs).
 - [x] Refactor pipeline updates (preAllocated keys, userStorageSlots, callCodeAddresses) to use storageConfigs for the entry contract and keep `referenceTxHash`.
 - [x] Run a minimal verification step for the script (or record why it could not be run).
