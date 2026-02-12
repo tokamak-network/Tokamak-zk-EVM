@@ -166,3 +166,11 @@
 
 # Review
 - [x] Updated all 15 config JSON files to the new schema and spot-checked ton mainnet/sepolia examples.
+
+# Todo
+- [x] Update `scripts/generate-erc20-config.ts` to emit `ChannelErc20TransferTxSimulationConfig` (entryContractAddress + storageConfigs).
+- [x] Refactor pipeline updates (preAllocated keys, userStorageSlots, callCodeAddresses) to use storageConfigs for the entry contract and keep `referenceTxHash`.
+- [x] Run a minimal verification step for the script (or record why it could not be run).
+
+# Review
+- [x] `./node_modules/.bin/tsc -p tsconfig.json --noEmit --pretty false` failed with TypeScript parse errors in `node_modules/inquirer/dist/index.d.ts` and `src/interface/qapCompiler/importedConstants.ts`, plus `allowImportingTsExtensions` unsupported by this compiler.
