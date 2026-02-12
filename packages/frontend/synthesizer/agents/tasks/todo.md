@@ -124,3 +124,28 @@
 
 # Review
 - [x] PR created: https://github.com/tokamak-network/Tokamak-zk-EVM/pull/177
+
+# Todo
+- [x] Inventory `src/synthesizer` modules and identify entrypoints/core classes
+- [x] Trace synthesizer data flow and document responsibilities of major components
+- [x] Review `examples/erc20Transfers/main.ts` to map example usage to synthesizer internals
+- [x] Summarize synthesizer purpose and operation (with file references)
+
+# Review
+- [x] Completed code reading of synthesizer core, handlers, data structures, and ERC20 example; delivered analysis summary.
+
+# Todo
+- [ ] Inspect tokamak-l2js multi-tree APIs and map to existing Synthesizer usage
+- [ ] Identify Synthesizer assumptions about single Merkle tree (buffers, storage cache, update/finalize flow)
+- [ ] Draft multi-tree data model changes (per-address caches, root in/out buffers)
+- [ ] Outline code changes + verification plan, then confirm with user before implementation
+
+# Review
+- [ ] Pending
+
+# Todo
+- [ ] Confirm remaining multi-tree semantics (proof ordering, trees touched vs all roots, unknown address handling)
+- [ ] Finalize multi-tree refactor plan and share with user for approval
+
+# Review
+- [ ] Pending

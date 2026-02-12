@@ -15,13 +15,13 @@ const PUBLIC_OUT_VARIABLES_DYNAMIC = [
   'RES_MERKLE_ROOT',
 ] as const
 const PUBLIC_IN_VARIABLES_STATIC = [
-  'INI_MERKLE_ROOT',
   'EDDSA_SIGNATURE',
   'CONTRACT_ADDRESS',    // For debugging. Can be moved to PRIVATE_IN buffer
   'FUNCTION_SELECTOR',   // For debugging. Can be moved to PRIVATE_IN buffer
 ] as const
 const PUBLIC_IN_VARIABLES_DYNAMIC = [
   'UNREGISTERED_CONTRACT_STORAGE_IN',
+  'INI_MERKLE_ROOT',
 ] as const
 const BLOCK_IN_VARIABLES_STATIC = [
   'COINBASE',

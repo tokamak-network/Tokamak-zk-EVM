@@ -141,11 +141,16 @@ export class Synthesizer implements SynthesizerInterface
   }
 
   private _prepareSynthesizeTransaction(): void {
+    this.state.cachedInitRoots = [];
+    for (const tree of this.cachedOpts.stateManager.initialMerkleTrees.merkleTrees) {
+      this.state.cachedInitRoots.push(this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', BigInt(tree.root), true));
+    }
     this.state.cachedOrigin = this._instructionHandlers.getOriginAddressPt();
   }
 
   private _returnMessageCall(depth: number):void {
     if (depth > 0){
+      this.state.currentDepth = depth - 1;
       this.state.contextByDepth[depth - 1].returnDataMemoryPts = this.state.contextByDepth[depth].resultMemoryPts.map(entry => {
         return {
           ...entry,
@@ -245,6 +250,7 @@ export class Synthesizer implements SynthesizerInterface
       callerPt,
       toAddressPt,
     };
+    this.state.currentDepth = depth;
     this.state.contextByDepth[depth] = new ContextManager(contextData);
   }
 

@@ -590,11 +590,12 @@ export class InstructionHandler {
   }
 
   public async loadStorage(keyPt: DataPt, valueGiven?: bigint): Promise<DataPt> {
+    const address = createAddressFromBigInt(this.parent.state.contextByDepth[this.parent.state.currentDepth].toAddressPt.value);
     const key = keyPt.value
 
     const valueStored = bytesToBigInt(
       await this.cachedOpts.stateManager.getStorage(
-        this.cachedOpts.signedTransaction.to,
+        address,
         setLengthLeft(bigIntToBytes(keyPt.value), 32),
       ),
     );
@@ -606,18 +607,19 @@ export class InstructionHandler {
     }
     const value = valueStored;
 
-    const MTIndex = this.cachedOpts.stateManager.getMTIndex(key);
-    const isRegisteredKey = MTIndex >= 0 ? true : false;
-    const cached = this.parent.state.cachedStorage.get(key);
+    const MTIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, key);
+    const isRegisteredKey = MTIndex[0] >= 0 && MTIndex[1] >= 0 ? true : false;
+    const cached = this.parent.state.cachedStorage.get(address)?.get(key);
     const isColdAccess = cached === undefined ? true : false;
 
     let accessHistory: CachedStorageEntry;
     let valuePt: DataPt;
     if (isColdAccess) {
       if (isRegisteredKey ) {
-        const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(MTIndex), true);
+        const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(MTIndex[1]), true);
         valuePt = await this.verifyStorage(keyPt, indexPt, value);
         accessHistory = {
+          addressIndex: MTIndex[0],
           indexPt,
           keyPt,
           valuePt,
@@ -631,13 +633,14 @@ export class InstructionHandler {
           `at MPT key ${bigIntToHex(key)}`,
         );
         accessHistory = {
+          addressIndex: null,
           indexPt: null,
           keyPt,
           valuePt,
           access: "Read",
         };
       }
-      this.parent.state.cachedStorage.set(key, [accessHistory]);
+      this.parent.state.cachedStorage.get(address)?.set(key, [accessHistory]) ?? this.parent.state.cachedStorage.set(address, new Map([[key, [accessHistory]]]));
     } else {
       if ( cached === undefined || cached!.length === 0 ) {
         throw new Error('A cached storage is present, but no history.')
