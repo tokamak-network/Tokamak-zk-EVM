@@ -68,11 +68,11 @@ const runCommandIgnoringFailure = async (
 
 const buildOutputPath = (
   network: NetworkName,
-  contractAddress: string,
+  entryContractAddress: string,
   senderIndex: number,
   recipientIndex: number,
 ) => {
-  const normalized = contractAddress.toLowerCase().replace(/^0x/, '');
+  const normalized = entryContractAddress.toLowerCase().replace(/^0x/, '');
   const filename = [
     `config-${network}`,
     `p${PARTICIPANT_COUNT}`,
@@ -88,17 +88,17 @@ const runMatrix = async () => {
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
 
   for (const [network, contracts] of Object.entries(CONTRACTS_BY_NETWORK) as [NetworkName, string[]][]) {
-    for (const contractAddress of contracts) {
+    for (const entryContractAddress of contracts) {
       for (const [senderIndex, recipientIndex] of INDEX_PAIRS) {
-        const outputPath = buildOutputPath(network, contractAddress, senderIndex, recipientIndex);
-        const context = `network=${network} contract=${contractAddress} sender=${senderIndex} recipient=${recipientIndex}`;
+        const outputPath = buildOutputPath(network, entryContractAddress, senderIndex, recipientIndex);
+        const context = `network=${network} entryContract=${entryContractAddress} sender=${senderIndex} recipient=${recipientIndex}`;
         console.log(`[erc20-config] ${context}`);
         await runCommandIgnoringFailure('tsx', [
           resolveFromRoot('scripts', 'generate-erc20-config.ts'),
           '--network',
           network,
           '--contract',
-          contractAddress,
+          entryContractAddress,
           '--participants',
           String(PARTICIPANT_COUNT),
           '--max-iterations',

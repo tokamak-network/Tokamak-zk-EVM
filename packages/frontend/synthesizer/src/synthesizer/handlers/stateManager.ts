@@ -18,6 +18,7 @@ import { InterpreterStep, Message } from '@ethereumjs/evm';
 import { bytesToBigInt } from '@ethereumjs/util';
 
 export type CachedStorageEntry = {
+  addressIndex: number,
   indexPt: DataPt | null,
   keyPt: DataPt,
   valuePt: DataPt,
@@ -60,12 +61,13 @@ export class StateManager {
   private cachedOpts: SynthesizerOpts
   private _placements: Placements = []
 
-  public verifiedStorageMTIndices: number[] = [] 
-  public cachedStorage: Map<bigint, CachedStorageEntry[]> = new Map()
+  public verifiedStorageMTIndices: [number, number][] = [] // [ADDRESS_INDEX, LEAF_INDEX]
+  public cachedStorage: Map<string, Map<bigint, CachedStorageEntry[]>> = new Map() // Map<ADDRESS_STRING, Map<KEY, ENTRY>>
   public subcircuitInfoByName: SubcircuitInfoByName = subcircuitInfoByName;
 
   public cachedEVMIn: Map<bigint, DataPt> = new Map()
   public cachedOrigin: DataPt | undefined = undefined
+  public cachedInitRoots: DataPt[] | undefined = undefined
 
   public contextByDepth: ContextManager[] = [];
 

@@ -2,20 +2,22 @@
 
 import {
   bytesToHex,
+  bytesToBigInt,
   concatBytes,
+  createAddressFromString,
   hexToBytes,
   setLengthLeft,
 } from '@ethereumjs/util';
 import { jubjub } from "@noble/curves/misc.js";
-import { deriveL2KeysFromSignature, fromEdwardsToAddress } from 'tokamak-l2js';
+import { createStateManagerOptsFromChannelConfig, createTokamakL2StateManagerFromL1RPC, createTokamakL2Tx, deriveL2KeysFromSignature, fromEdwardsToAddress, TokamakL2TxData } from 'tokamak-l2js';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
-import { createSynthesizerOptsForSimulationFromRPC, SynthesizerSimulationOpts } from '../../src/interface/index.ts';
-import { getUserStorageKey } from 'tokamak-l2js';
 import { EdwardsPoint } from '@noble/curves/abstract/edwards';
 import { writeCircuitJson, writeEvmAnalysisJson } from '../../src/interface/node/jsonWriter.ts';
 import { loadSubcircuitWasm } from '../../src/interface/node/wasmLoader.ts';
 import { getRpcUrlFromEnv } from '../../src/interface/node/env.ts';
+import { getBlockInfoFromRPC } from '../../src/interface/rpc/rpc.ts';
+import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../src/interface/qapCompiler/importedConstants.ts';
 import { EXAMPLES_ENV_PATH, loadConfig, toSeedBytes } from './utils.ts';
 
 const main = async () => {
@@ -49,36 +51,24 @@ const main = async () => {
     setLengthLeft(hexToBytes(config.amount), 32),
   );
 
-  const initStorageKeys = config.preAllocatedKeys.map((storageKey) => ({
-    L1: setLengthLeft(hexToBytes(storageKey), 32),
-    L2: setLengthLeft(hexToBytes(storageKey), 32),
-  }));
+  const stateManagerOpts = createStateManagerOptsFromChannelConfig(config);
+  const stateManager = await createTokamakL2StateManagerFromL1RPC(rpcUrl, stateManagerOpts);
+  const blockInfo = await getBlockInfoFromRPC(rpcUrl, config.blockNumber, NUMBER_OF_PREV_BLOCK_HASHES);
 
-  for (const slot of config.userStorageSlots) {
-    for (let userIdx = 0; userIdx < config.participants.length; userIdx++) {
-      const participant = config.participants[userIdx];
-      const L1key = getUserStorageKey([participant.addressL1, slot], 'L1');
-      const L2key = getUserStorageKey([fromEdwardsToAddress(derivedPublicKeyListL2[userIdx]), slot], 'TokamakL2');
-      initStorageKeys.push({
-        L1: L1key,
-        L2: L2key,
-      });
-    }
-  }
-
-  const simulationOpts: SynthesizerSimulationOpts = {
-    txNonce: config.txNonce,
-    rpcUrl,
-    senderL2PrvKey,
-    initStorageKeys,
-    blockNumber: config.blockNumber,
-    contractAddress: config.contractAddress,
-    callData,
-    callCodeAddresses: config.callCodeAddresses,
+  const txData: TokamakL2TxData = {
+    nonce: BigInt(config.txNonce),
+    to: createAddressFromString(config.entryContractAddress),
+    data: callData,
+    senderPubKey: jubjub.Point.BASE.multiply(bytesToBigInt(senderL2PrvKey)).toBytes(),
   };
+  const unsignedTransaction = createTokamakL2Tx(txData, { common: stateManagerOpts.common });
+  const signedTransaction = unsignedTransaction.sign(senderL2PrvKey);
 
-  const synthesizerOpts = await createSynthesizerOptsForSimulationFromRPC(simulationOpts);
-  const synthesizer = await createSynthesizer(synthesizerOpts);
+  const synthesizer = await createSynthesizer({
+    signedTransaction,
+    blockInfo,
+    stateManager,
+  });
   const runTxResult = await synthesizer.synthesizeTX();
   await writeEvmAnalysisJson(synthesizer);
   const subcircuitBuffers = loadSubcircuitWasm();

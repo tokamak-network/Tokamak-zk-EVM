@@ -1,4 +1,5 @@
 {
+  "network": "sepolia",
   "participants": [
     {
       "addressL1": "0xa080389ab1dfee204503dbdf0a0687678a6e60b7",
@@ -25,26 +26,29 @@
       "prvSeedL2": "Participant 6"
     }
   ],
-  "senderIndex": 0,
-  "recipientIndex": 1,
-  "userStorageSlots": [
-    6,
-    2
+  "storageConfigs": [
+    {
+      "address": "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06",
+      "userStorageSlots": [
+        6,
+        2
+      ],
+      "preAllocatedKeys": [
+        "0x00",
+        "0x0a",
+        "0x03",
+        "0x04"
+      ]
+    }
   ],
-  "preAllocatedKeys": [
-    "0x00",
-    "0x0a",
-    "0x03",
-    "0x04"
-  ],
-  "txNonce": 0,
-  "blockNumber": 10149362,
-  "network": "sepolia",
-  "txHash": "0x58e3c0d8305746e0932d67f8be123ef9076da6dc551cb5bdcc8ac39bcd8eb4fa",
-  "contractAddress": "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06",
-  "amount": "0x00000000000000000000000000000000000000000000000000000000000186a0",
-  "transferSelector": "0xa9059cbb",
+  "entryContractAddress": "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06",
   "callCodeAddresses": [
     "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06"
-  ]
+  ],
+  "blockNumber": 10149362,
+  "txNonce": 0,
+  "senderIndex": 0,
+  "recipientIndex": 1,
+  "amount": "0x00000000000000000000000000000000000000000000000000000000000186a0",
+  "transferSelector": "0xa9059cbb"
 }

@@ -1,4 +1,5 @@
 {
+  "network": "mainnet",
   "participants": [
     {
       "addressL1": "0xd8eE65121e51aa8C75A6Efac74C4Bbd3C439F78f",
@@ -33,16 +34,27 @@
       "prvSeedL2": "For simulation"
     }
   ],
+  "storageConfigs": [
+    {
+      "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "userStorageSlots": [
+        9
+      ],
+      "preAllocatedKeys": [
+        "0x10d6a54a4754c8869d6886b5f5d7fbfa5b4522237ea5c60d11bc4e7a1ff9390b",
+        "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3"
+      ]
+    }
+  ],
+  "entryContractAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+  "callCodeAddresses": [
+    "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    "0x43506849d7c04f9138d1a2050bbf3a0c054402dd"
+  ],
+  "blockNumber": 23093249,
+  "txNonce": 0,
   "senderIndex": 4,
   "recipientIndex": 0,
-  "userStorageSlots": [
-    9
-  ],
-  "preAllocatedKeys": ["0x10d6a54a4754c8869d6886b5f5d7fbfa5b4522237ea5c60d11bc4e7a1ff9390b", "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3"],
-  "txNonce": 0,
-  "blockNumber": 23093249,
-  "contractAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
   "amount": "0x1908b100",
-  "transferSelector": "0xa9059cbb",
-  "callCodeAddresses": ["0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "0x43506849d7c04f9138d1a2050bbf3a0c054402dd"]
+  "transferSelector": "0xa9059cbb"
 }

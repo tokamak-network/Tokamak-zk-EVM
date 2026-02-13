@@ -1,41 +1,46 @@
 {
+  "network": "sepolia",
   "participants": [
     {
-      "addressL1": "0x8b26a7ba11c8eb56a86c6b5249ed631ac799f926",
+      "addressL1": "0xd844ba11f64d23a7481e24474d2f184e350b9b3d",
       "prvSeedL2": "Sender's L2 wallet"
     },
     {
-      "addressL1": "0xab90463253bd5438224f9d04356b2e975ace05f5",
+      "addressL1": "0xf1def58189e1596c769aeaf2441db27cb7906b65",
       "prvSeedL2": "Participant 2"
     },
     {
-      "addressL1": "0xa3b193c653b62d93c1126f16919d3b0295868ed3",
+      "addressL1": "0xde7392ee10e6554d6faefa6c25eb4ceed76358f5",
       "prvSeedL2": "Participant 3"
     },
     {
-      "addressL1": "0x50cafc856784c41bcb2b2c4f82b1ec9aadd31060",
+      "addressL1": "0x095a61e2b545a5d6cf23a587ebacf10cfc95e8db",
       "prvSeedL2": "Recipient's L2 wallet"
     }
   ],
-  "senderIndex": 0,
-  "recipientIndex": 3,
-  "userStorageSlots": [
-    9
+  "storageConfigs": [
+    {
+      "address": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+      "userStorageSlots": [
+        9
+      ],
+      "preAllocatedKeys": [
+        "0x10d6a54a4754c8869d6886b5f5d7fbfa5b4522237ea5c60d11bc4e7a1ff9390b",
+        "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3",
+        "0x01"
+      ]
+    }
   ],
-  "preAllocatedKeys": [
-    "0x10d6a54a4754c8869d6886b5f5d7fbfa5b4522237ea5c60d11bc4e7a1ff9390b",
-    "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3",
-    "0x01"
-  ],
-  "txNonce": 0,
-  "blockNumber": 10183320,
-  "network": "sepolia",
-  "txHash": "0xdc060166ebf15ce8453c1ba2f10a0108dfd0bb93983c2b87a747607cde174b96",
-  "contractAddress": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
-  "amount": "0x0000000000000000000000000000000000000000000000000000000002faf080",
-  "transferSelector": "0xa9059cbb",
+  "entryContractAddress": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
   "callCodeAddresses": [
     "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
     "0xda317c1d3e835dd5f1be459006471acaa1289068"
-  ]
+  ],
+  "blockNumber": 10247348,
+  "txNonce": 0,
+  "senderIndex": 0,
+  "recipientIndex": 3,
+  "amount": "0x0000000000000000000000000000000000000000000000000000000001312d00",
+  "transferSelector": "0xa9059cbb",
+  "referenceTxHash": "0xe0b4f2aaad7e116e196358863b66cc5ea7b21aef13a55135610719c989b690d7"
 }

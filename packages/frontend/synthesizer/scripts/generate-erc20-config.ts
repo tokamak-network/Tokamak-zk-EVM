@@ -16,27 +16,32 @@ type ParticipantEntry = {
   prvSeedL2: string;
 };
 
-type Erc20TransferConfig = {
-  participants: ParticipantEntry[];
-  senderIndex: number;
-  recipientIndex: number;
+type StorageConfigEntry = {
+  address: `0x${string}`;
   userStorageSlots: number[];
   preAllocatedKeys: `0x${string}`[];
-  txNonce: number;
-  blockNumber: number;
+};
+
+type Erc20TransferConfig = {
   network: NetworkName | '';
-  txHash: `0x${string}` | '';
-  contractAddress: `0x${string}` | '';
+  participants: ParticipantEntry[];
+  storageConfigs: StorageConfigEntry[];
+  entryContractAddress: `0x${string}` | '';
+  callCodeAddresses: `0x${string}`[];
+  blockNumber: number;
+  txNonce: number;
+  senderIndex: number;
+  recipientIndex: number;
   amount: `0x${string}` | '';
   transferSelector: `0x${string}` | '';
-  callCodeAddresses: `0x${string}`[];
+  referenceTxHash: `0x${string}` | '';
 };
 
 type NetworkName = 'mainnet' | 'sepolia';
 
 type BaseInputs = {
   network: NetworkName;
-  contractAddress: `0x${string}`;
+  entryContractAddress: `0x${string}`;
   participantCount: number;
   maxIterations: number;
   senderIndex: number;
@@ -75,22 +80,21 @@ const CHAIN_ID_BY_NETWORK: Record<NetworkName, string> = {
 };
 
 const DEFAULT_CONFIG: Erc20TransferConfig = {
+  network: '',
   participants: [
     { addressL1: '0x0000000000000000000000000000000000000000', prvSeedL2: "Sender's L2 wallet" },
     { addressL1: '0x0000000000000000000000000000000000000000', prvSeedL2: "Recipient's L2 wallet" },
   ],
+  storageConfigs: [],
+  entryContractAddress: '',
+  callCodeAddresses: [],
+  blockNumber: 0,
+  txNonce: 0,
   senderIndex: 0,
   recipientIndex: 1,
-  userStorageSlots: [],
-  preAllocatedKeys: [],
-  txNonce: 0,
-  blockNumber: 0,
-  network: '',
-  txHash: '',
-  contractAddress: '',
   amount: '',
   transferSelector: '0xa9059cbb',
-  callCodeAddresses: [],
+  referenceTxHash: '',
 };
 
 const __filename = fileURLToPath(import.meta.url);
@@ -268,8 +272,8 @@ const buildBaseInputs = (baseArgs: BaseArgs): BaseInputs => {
     throw new Error('Network must be "mainnet" or "sepolia"');
   }
 
-  const contractAddress = toHexString(String(baseArgs.contractRaw));
-  if (contractAddress.length !== 42) {
+  const entryContractAddress = toHexString(String(baseArgs.contractRaw));
+  if (entryContractAddress.length !== 42) {
     throw new Error('Contract address must be a 42-char hex string (0x...)');
   }
 
@@ -300,7 +304,7 @@ const buildBaseInputs = (baseArgs: BaseArgs): BaseInputs => {
 
   return {
     network,
-    contractAddress,
+    entryContractAddress,
     participantCount,
     maxIterations,
     senderIndex,
@@ -642,21 +646,61 @@ const filterHexStrings = (value: unknown): `0x${string}`[] => {
 const filterNonZeroAddresses = (addresses: `0x${string}`[]) =>
   addresses.filter((entry) => entry.toLowerCase() !== ZERO_ADDRESS);
 
+const findStorageConfigIndex = (storageConfigs: StorageConfigEntry[], address: `0x${string}`) =>
+  storageConfigs.findIndex((entry) => entry.address.toLowerCase() === address.toLowerCase());
+
+const ensureEntryStorageConfig = (
+  config: Erc20TransferConfig,
+): { config: Erc20TransferConfig; storageIndex: number } => {
+  if (!config.entryContractAddress) {
+    throw new Error('entryContractAddress is required before updating storageConfigs.');
+  }
+  const storageIndex = findStorageConfigIndex(config.storageConfigs, config.entryContractAddress);
+  if (storageIndex >= 0) {
+    return { config, storageIndex };
+  }
+  const nextEntry: StorageConfigEntry = {
+    address: config.entryContractAddress,
+    userStorageSlots: [],
+    preAllocatedKeys: [],
+  };
+  const storageConfigs = [...config.storageConfigs, nextEntry];
+  return {
+    config: { ...config, storageConfigs },
+    storageIndex: storageConfigs.length - 1,
+  };
+};
+
+const getEntryStorageConfig = (config: Erc20TransferConfig): StorageConfigEntry => {
+  if (!config.entryContractAddress) {
+    throw new Error('entryContractAddress is required before reading storageConfigs.');
+  }
+  const storageIndex = findStorageConfigIndex(config.storageConfigs, config.entryContractAddress);
+  if (storageIndex < 0) {
+    throw new Error('storageConfigs must include entryContractAddress before running analysis.');
+  }
+  return config.storageConfigs[storageIndex];
+};
+
 const updatePreAllocatedKeys = async (
   config: Erc20TransferConfig,
   outputPath: string,
   incoming: `0x${string}`[],
 ) => {
-  const merged = mergeUniqueHexValues(config.preAllocatedKeys, incoming);
-  const added = merged.length - config.preAllocatedKeys.length;
+  const { config: ensuredConfig, storageIndex } = ensureEntryStorageConfig(config);
+  const entryConfig = ensuredConfig.storageConfigs[storageIndex];
+  const merged = mergeUniqueHexValues(entryConfig.preAllocatedKeys, incoming);
+  const added = merged.length - entryConfig.preAllocatedKeys.length;
   if (added > 0) {
-    const next = { ...config, preAllocatedKeys: merged };
+    const storageConfigs = [...ensuredConfig.storageConfigs];
+    storageConfigs[storageIndex] = { ...entryConfig, preAllocatedKeys: merged };
+    const next = { ...ensuredConfig, storageConfigs };
     await writeConfig(outputPath, next);
     console.log(`Added preAllocatedKeys: ${added}`);
     return next;
   }
   console.log('No preAllocatedKeys collected from SLOAD logs.');
-  return config;
+  return ensuredConfig;
 };
 
 const updateUserStorageSlots = async (
@@ -667,16 +711,20 @@ const updateUserStorageSlots = async (
   if (incoming.length === 0) {
     return config;
   }
-  const merged = mergeUniqueSlots(config.userStorageSlots, incoming);
-  const added = merged.length - config.userStorageSlots.length;
+  const { config: ensuredConfig, storageIndex } = ensureEntryStorageConfig(config);
+  const entryConfig = ensuredConfig.storageConfigs[storageIndex];
+  const merged = mergeUniqueSlots(entryConfig.userStorageSlots, incoming);
+  const added = merged.length - entryConfig.userStorageSlots.length;
   if (added > 0) {
-    const next = { ...config, userStorageSlots: merged };
+    const storageConfigs = [...ensuredConfig.storageConfigs];
+    storageConfigs[storageIndex] = { ...entryConfig, userStorageSlots: merged };
+    const next = { ...ensuredConfig, storageConfigs };
     await writeConfig(outputPath, next);
     console.log(`Added userStorageSlots from KECCAK256: ${added}`);
     return next;
   }
   console.log('No new userStorageSlots collected from KECCAK256.');
-  return config;
+  return ensuredConfig;
 };
 
 const updateCallCodeAddresses = async (
@@ -689,7 +737,7 @@ const updateCallCodeAddresses = async (
     return config;
   }
   const merged = mergeUniqueHexValues(config.callCodeAddresses, filteredIncoming);
-  const normalizedCallCodes = normalizeCallCodeAddresses(config.contractAddress, merged);
+  const normalizedCallCodes = normalizeCallCodeAddresses(config.entryContractAddress, merged);
   const added = normalizedCallCodes.length - config.callCodeAddresses.length;
   const next = { ...config, callCodeAddresses: normalizedCallCodes };
   if (added > 0) {
@@ -745,17 +793,17 @@ const buildParticipants = (
 };
 
 const normalizeCallCodeAddresses = (
-  contractAddress: `0x${string}` | '',
+  entryContractAddress: `0x${string}` | '',
   existing: (`0x${string}`)[] = [],
 ): `0x${string}`[] => {
-  if (!contractAddress) {
+  if (!entryContractAddress) {
     return filterNonZeroAddresses(existing);
   }
-  const normalized = contractAddress.toLowerCase();
+  const normalized = entryContractAddress.toLowerCase();
   const rest = filterNonZeroAddresses(
     existing.slice(1).filter((entry) => entry.toLowerCase() !== normalized),
   );
-  return [contractAddress, ...rest];
+  return [entryContractAddress, ...rest];
 };
 
 const fetchLatestSuccessfulTransferTx = async (
@@ -813,7 +861,7 @@ const promptForBaseInputs = async (): Promise<BaseInputs> => {
       name: 'contractAddress',
       type: 'input',
       message: 'Token contract address (L1)',
-      default: DEFAULT_CONFIG.contractAddress,
+      default: DEFAULT_CONFIG.entryContractAddress,
       validate: (value: string) => {
         const trimmed = value.trim();
         if (trimmed.length === 0) {
@@ -884,7 +932,7 @@ const promptForBaseInputs = async (): Promise<BaseInputs> => {
 
   return {
     network: baseAnswers.network as NetworkName,
-    contractAddress: toHexString(String(baseAnswers.contractAddress)),
+    entryContractAddress: toHexString(String(baseAnswers.contractAddress)),
     participantCount,
     maxIterations: Number(baseAnswers.maxIterations),
     senderIndex: Number(senderAnswer.senderIndex),
@@ -905,17 +953,25 @@ const buildConfig = async (baseOverride?: BaseInputs): Promise<{
     base.senderIndex,
     base.recipientIndex,
   );
+  const storageConfigs: StorageConfigEntry[] = [
+    {
+      address: base.entryContractAddress,
+      userStorageSlots: [],
+      preAllocatedKeys: [],
+    },
+  ];
 
   return {
     network: base.network,
     config: {
       ...DEFAULT_CONFIG,
       participants,
-      contractAddress: base.contractAddress,
+      storageConfigs,
+      entryContractAddress: base.entryContractAddress,
       network: base.network,
       senderIndex: base.senderIndex,
       recipientIndex: base.recipientIndex,
-      callCodeAddresses: normalizeCallCodeAddresses(base.contractAddress, DEFAULT_CONFIG.callCodeAddresses),
+      callCodeAddresses: normalizeCallCodeAddresses(base.entryContractAddress, DEFAULT_CONFIG.callCodeAddresses),
     },
     maxIterations: Math.max(1, Math.floor(base.maxIterations)),
   };
@@ -926,14 +982,15 @@ const runPipeline = async (outputPath: string, finalPath: string, baseOverride?:
   let workingConfig = { ...config };
   const workingNetwork = network;
 
+  workingConfig = ensureEntryStorageConfig(workingConfig).config;
   await writeConfig(outputPath, workingConfig);
 
-  if (!workingConfig.contractAddress) {
-    throw new Error('Contract address is required before fetching from Etherscan.');
+  if (!workingConfig.entryContractAddress) {
+    throw new Error('Entry contract address is required before fetching from Etherscan.');
   }
   const latestTx = await fetchLatestSuccessfulTransferTx(
     workingNetwork,
-    workingConfig.contractAddress,
+    workingConfig.entryContractAddress,
   );
   const { recipient, amount } = parseTransferInput(latestTx.input);
   const blockNumber = Math.max(0, Number(latestTx.blockNumber) - 1);
@@ -962,7 +1019,7 @@ const runPipeline = async (outputPath: string, finalPath: string, baseOverride?:
     participants,
     blockNumber,
     amount,
-    txHash: toHexString(latestTx.hash),
+    referenceTxHash: toHexString(latestTx.hash),
   };
 
   console.log(`Latest transfer tx: ${latestTx.hash}`);
@@ -979,8 +1036,9 @@ const runPipeline = async (outputPath: string, finalPath: string, baseOverride?:
       );
     }
 
-    const beforePreAllocated = workingConfig.preAllocatedKeys.length;
-    const beforeSlots = workingConfig.userStorageSlots.length;
+    const entryStorageBefore = getEntryStorageConfig(workingConfig);
+    const beforePreAllocated = entryStorageBefore.preAllocatedKeys.length;
+    const beforeSlots = entryStorageBefore.userStorageSlots.length;
     const beforeCallCodes = workingConfig.callCodeAddresses.length;
 
     workingConfig = await updatePreAllocatedKeys(workingConfig, outputPath, [...smallKeys, ...push32Keys]);
@@ -998,9 +1056,10 @@ const runPipeline = async (outputPath: string, finalPath: string, baseOverride?:
       }
     }
 
+    const entryStorageAfter = getEntryStorageConfig(workingConfig);
     const changed =
-      workingConfig.preAllocatedKeys.length !== beforePreAllocated
-      || workingConfig.userStorageSlots.length !== beforeSlots
+      entryStorageAfter.preAllocatedKeys.length !== beforePreAllocated
+      || entryStorageAfter.userStorageSlots.length !== beforeSlots
       || workingConfig.callCodeAddresses.length !== beforeCallCodes;
 
     const storageKeyErrors = await hasStorageKeyErrors();

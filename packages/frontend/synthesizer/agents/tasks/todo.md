@@ -124,3 +124,69 @@
 
 # Review
 - [x] PR created: https://github.com/tokamak-network/Tokamak-zk-EVM/pull/177
+
+# Todo
+- [x] Inventory `src/synthesizer` modules and identify entrypoints/core classes
+- [x] Trace synthesizer data flow and document responsibilities of major components
+- [x] Review `examples/erc20Transfers/main.ts` to map example usage to synthesizer internals
+- [x] Summarize synthesizer purpose and operation (with file references)
+
+# Review
+- [x] Completed code reading of synthesizer core, handlers, data structures, and ERC20 example; delivered analysis summary.
+
+# Todo
+- [ ] Inspect tokamak-l2js multi-tree APIs and map to existing Synthesizer usage
+- [ ] Identify Synthesizer assumptions about single Merkle tree (buffers, storage cache, update/finalize flow)
+- [ ] Draft multi-tree data model changes (per-address caches, root in/out buffers)
+- [ ] Outline code changes + verification plan, then confirm with user before implementation
+
+# Review
+- [ ] Pending
+
+# Todo
+- [ ] Confirm remaining multi-tree semantics (proof ordering, trees touched vs all roots, unknown address handling)
+- [ ] Finalize multi-tree refactor plan and share with user for approval
+
+# Review
+- [ ] Pending
+
+# Todo
+- [ ] Switch `cachedStorage` map keys from `Address` to `string` (address.toString)
+- [ ] Update all cachedStorage call sites to use string keys and convert back via `createAddressFromHex`
+- [ ] Sanity-check usages in `_updateMerkleTree` and `_unregisteredContractStorageWritings`
+
+# Review
+- [ ] Pending
+
+# Todo
+- [x] Inspect current ERC20 transfer config JSON schema in `examples/erc20Transfers`
+- [x] Map fields into `ChannelErc20TransferTxSimulationConfig` and define defaults for missing `network`
+- [x] Rewrite all config JSON files to the new schema
+- [x] Spot-check a few updated files for correctness
+
+# Review
+- [x] Updated all 15 config JSON files to the new schema and spot-checked ton mainnet/sepolia examples.
+
+# Todo
+- [x] Summarize branch changes since `dev` for PR description.
+- [x] Push current branch to origin.
+- [x] Create PR targeting `dev` using `.github/PULL_REQUEST_TEMPLATE.md` without breaking formatting.
+
+# Review
+- [x] PR created: https://github.com/tokamak-network/Tokamak-zk-EVM/pull/182
+
+# Todo
+- [x] Fetch PR #182 Gemini bot review threads and list requested changes.
+- [x] Apply code fixes for each comment with minimal scope.
+- [x] Run the most relevant verification and record results.
+
+# Review
+- [x] `./node_modules/.bin/tsc -p tsconfig.json --noEmit --pretty false` failed with TypeScript parse errors in `node_modules/inquirer/dist/index.d.ts` and `src/interface/qapCompiler/importedConstants.ts`, plus `allowImportingTsExtensions` unsupported by this compiler.
+
+# Todo
+- [x] Update `scripts/generate-erc20-config.ts` to emit `ChannelErc20TransferTxSimulationConfig` (entryContractAddress + storageConfigs).
+- [x] Refactor pipeline updates (preAllocated keys, userStorageSlots, callCodeAddresses) to use storageConfigs for the entry contract and keep `referenceTxHash`.
+- [x] Run a minimal verification step for the script (or record why it could not be run).
+
+# Review
+- [x] `./node_modules/.bin/tsc -p tsconfig.json --noEmit --pretty false` failed with TypeScript parse errors in `node_modules/inquirer/dist/index.d.ts` and `src/interface/qapCompiler/importedConstants.ts`, plus `allowImportingTsExtensions` unsupported by this compiler.

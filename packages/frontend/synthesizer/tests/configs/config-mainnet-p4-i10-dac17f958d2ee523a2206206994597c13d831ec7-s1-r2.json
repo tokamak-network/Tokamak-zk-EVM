@@ -1,42 +1,47 @@
 {
+  "network": "mainnet",
   "participants": [
     {
-      "addressL1": "0x11569872763032824eddc23d0327c9d3833d10bd",
+      "addressL1": "0x083ad8b48d10ea3ab777aa23b41864be60ccb1ba",
       "prvSeedL2": "Participant 1"
     },
     {
-      "addressL1": "0x559432e18b281731c054cd703d4b49872be4ed53",
+      "addressL1": "0x8f0d024e780b7e2fd633a4d6d43631a96e8cb059",
       "prvSeedL2": "Sender's L2 wallet"
     },
     {
-      "addressL1": "0xaf6d87d498a51050d9546c450c5530c0d502d362",
+      "addressL1": "0xb9316bccc3ce126b0686470250e2d8c0bae775b9",
       "prvSeedL2": "Recipient's L2 wallet"
     },
     {
-      "addressL1": "0xde28ed6f209c3a866d756ba963fe1c4e207a9f3b",
+      "addressL1": "0x987e2f7d73942b4ce5b6712fb42ea29b28b4ab29",
       "prvSeedL2": "Participant 4"
     }
   ],
-  "senderIndex": 1,
-  "recipientIndex": 2,
-  "userStorageSlots": [
-    6,
-    2
+  "storageConfigs": [
+    {
+      "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "userStorageSlots": [
+        6,
+        2
+      ],
+      "preAllocatedKeys": [
+        "0x00",
+        "0x0a",
+        "0x03",
+        "0x04"
+      ]
+    }
   ],
-  "preAllocatedKeys": [
-    "0x00",
-    "0x0a",
-    "0x03",
-    "0x04"
-  ],
-  "txNonce": 0,
-  "blockNumber": 24377037,
-  "network": "mainnet",
-  "txHash": "0x9eacd0f0138c230981ad92998194f529f38c02dcfafd8f17d534858e74f6bf54",
-  "contractAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-  "amount": "0x000000000000000000000000000000000000000000000000000000002b1115e0",
-  "transferSelector": "0xa9059cbb",
+  "entryContractAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
   "callCodeAddresses": [
     "0xdAC17F958D2ee523a2206206994597C13D831ec7"
-  ]
+  ],
+  "blockNumber": 24442932,
+  "txNonce": 0,
+  "senderIndex": 1,
+  "recipientIndex": 2,
+  "amount": "0x000000000000000000000000000000000000000000000000000000000501bd00",
+  "transferSelector": "0xa9059cbb",
+  "referenceTxHash": "0x28f6d0ae284e65e248f0bad36802fd3546c593da792118b88f714869ae493834"
 }

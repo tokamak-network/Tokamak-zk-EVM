@@ -12,7 +12,7 @@ import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
 import { createCircuitGenerator } from 'src/circuitGenerator/circuitGenerator.ts';
 import { Permutation, PublicInstance } from 'src/circuitGenerator/types/types.ts';
 import { PlacementVariables } from 'src/synthesizer/types/placements.ts';
-import { addHexPrefix, bigIntToHex, bytesToHex, createAddressFromString, hexToBytes } from '@ethereumjs/util';
+import { addHexPrefix, createAddressFromString, hexToBytes } from '@ethereumjs/util';
 import { readJson, writeSnapshotJson } from './utils/node.ts';
 import { writeCircuitJson } from '../node/jsonWriter.ts';
 import { SynthesizerBlockInfo } from '../rpc/index.ts';
@@ -41,22 +41,25 @@ program
       const common = new Common(commonOpts);
 
       const previousState = readJson<StateSnapshot>(options.previousState);
-      const previousStateRoot = previousState.stateRoot;
-      console.log(`   ✅ Previous state root: ${previousStateRoot}`);
+      const previousStateRoots = previousState.stateRoots;
+      console.log(`   ✅ Previous state roots: ${previousStateRoots.join(', ')}`);
 
       const transactionRlpStr = options.transaction;
       const transaction = createTokamakL2TxFromRLP(hexToBytes(addHexPrefix(transactionRlpStr)), { common });
 
       const contractCodesStr =  readJson<{address: string, code: string}[]>(options.contractCode);
+      const entryContractAddress = createAddressFromString(previousState.entryContractAddress);
+      if (!entryContractAddress.equals(transaction.to)) {
+        throw new Error(`Transaction target (${transaction.to.toString()}) does not match snapshot entryContractAddress (${entryContractAddress.toString()}).`);
+      }
       const stateManagerOpts: TokamakL2StateManagerOpts = {
         common,
-        contractAddress: transaction.to,
-        contractCodes: contractCodesStr.map(entry => {
-          return {
-            address: createAddressFromString(entry.address),
-            code: addHexPrefix(entry.code),
-          }
-        }),
+        entryContractAddress,
+        contractCodes: contractCodesStr.map(entry => ({
+          address: createAddressFromString(entry.address),
+          code: addHexPrefix(entry.code),
+        })),
+        storageAddresses: previousState.storageAddresses.map(addrStr => createAddressFromString(addrStr)),
       }
       const stateManager = await createTokamakL2StateManagerFromStateSnapshot(previousState, stateManagerOpts);
 
@@ -100,7 +103,7 @@ program
       
       // Export final state
       const finalState = await stateManager.captureStateSnapshot(previousState);
-      console.log(`[SynthesizerAdapter] ✅ Final state exported with root: ${finalState.stateRoot}`);
+      console.log(`[SynthesizerAdapter] ✅ Final state exported with roots: ${finalState.stateRoots.join(', ')}`);
       
       writeCircuitJson(circuitGenerator);
       // Also save state_snapshot.json
