@@ -8,7 +8,6 @@ repository = { workspace = true }
 homepage = { workspace = true }
 
 [dependencies]
-bincode = { workspace = true }
 icicle-runtime = { workspace = true }
 icicle-core = { workspace = true }
 icicle-bls12-381 = { workspace = true }
@@ -23,6 +22,7 @@ ark-bls12-381 = { workspace = true }
 ark-ec = { workspace = true }
 ark-ff = { workspace = true }
 rand = { workspace = true }
+rkyv = { workspace = true, features = ["alloc", "bytecheck", "validation"] }
 
 [[bench]]
 name = "outer_product_bench"

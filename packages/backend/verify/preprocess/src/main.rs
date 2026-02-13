@@ -1,9 +1,11 @@
 use std::{env, process};
 use std::path::PathBuf;
 
-use libs::group_structures::{SigmaPreprocess};
-use libs::iotools::{Instance, Permutation, SetupParams};
-use libs::utils::check_device;
+use libs::iotools::SigmaPreprocessRkyv;
+use libs::utils::{check_device, load_setup_params_from_qap_path};
+use memmap2::Mmap;
+use std::fs::File;
+use libs::iotools::Permutation;
 use preprocess::{Preprocess, PreprocessInputPaths};
 
 fn main() {
@@ -26,20 +28,19 @@ fn main() {
 
     check_device();
 
-    let setup_path = PathBuf::from(paths.qap_path).join("setupParams.json");
-    let setup_params = SetupParams::read_from_json(setup_path).unwrap();
-    let sigma_path = PathBuf::from(paths.setup_path).join("sigma_preprocess.json");
-    let sigma = SigmaPreprocess::read_from_json(sigma_path)
-    .expect("No reference string is found. Run the Setup first.");
+    let setup_params = load_setup_params_from_qap_path(paths.qap_path);
+    let sigma_path = PathBuf::from(paths.setup_path).join("sigma_preprocess.rkyv");
+    let file = File::open(&sigma_path)
+        .expect("No reference string is found. Run the Setup first (expected sigma_preprocess.rkyv).");
+    let mmap = unsafe { Mmap::map(&file).expect("Failed to map sigma_preprocess.rkyv") };
+    let sigma = rkyv::check_archived_root::<SigmaPreprocessRkyv>(&mmap)
+        .expect("Invalid sigma_preprocess.rkyv archive");
 
     // Load permutation (copy constraints of the variables)
     let permutation_path = PathBuf::from(paths.synthesizer_path).join("permutation.json");
     let permutation_raw = Permutation::read_box_from_json(permutation_path).unwrap();
-    // Load instance
-    let instance_path = PathBuf::from(paths.synthesizer_path).join("instance.json");
-    let instance = Instance::read_from_json(instance_path).unwrap();
     // Generate preprocess
-    let preprocess = Preprocess::gen(&sigma, &permutation_raw, &instance, &setup_params);
+    let preprocess = Preprocess::gen(&sigma, &permutation_raw, &setup_params);
     // let output_path = "verify/preprocess/output/preprocess.json";
     // preprocess.write_into_json(&output_path).unwrap();
     let formatted_preprocess = preprocess.convert_format_for_solidity_verifier();

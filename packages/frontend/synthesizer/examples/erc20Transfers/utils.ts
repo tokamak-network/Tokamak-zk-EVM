@@ -15,6 +15,8 @@ export type Erc20TransferConfig = {
   preAllocatedKeys: `0x${string}`[];
   txNonce: bigint;
   blockNumber: number;
+  network: string;
+  txHash: `0x${string}`;
   contractAddress: `0x${string}`;
   amount: `0x${string}`;
   transferSelector: `0x${string}`;
@@ -26,9 +28,11 @@ export type Erc20TransferConfig = {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, '..', '..');
-const RPC_URL_ENV_KEY = 'RPC_URL';
+const envPath = path.join(packageRoot, '.env');
 
-dotenv.config({ path: path.join(packageRoot, '.env') });
+dotenv.config({ path: envPath });
+
+export const EXAMPLES_ENV_PATH = envPath;
 
 const parseHexString = (value: unknown, label: string): `0x${string}` => {
   if (typeof value !== 'string' || !value.startsWith('0x')) {
@@ -42,6 +46,13 @@ const parseBigIntValue = (value: unknown, label: string): bigint => {
     return BigInt(value);
   }
   throw new Error(`${label} must be a string or number`);
+};
+
+const parseNonEmptyString = (value: unknown, label: string): string => {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`${label} must be a non-empty string`);
+  }
+  return value;
 };
 
 const parseNumberValue = (value: unknown, label: string): number => {
@@ -59,20 +70,13 @@ const assertStringArray = (value: unknown, label: string): string[] => {
   return value;
 };
 
-const assertNumberArray = (value: unknown, label: string): number[] => {
+const assertUserStorageSlots = (value: unknown, label: string): number[] => {
   if (!Array.isArray(value) || !value.every((entry) => Number.isInteger(entry))) {
     throw new Error(`${label} must be an array of integers`);
   }
   return value;
 };
 
-export const getRpcUrlFromEnv = (): string => {
-  const rpcUrl = process.env[RPC_URL_ENV_KEY];
-  if (typeof rpcUrl !== 'string' || rpcUrl.length === 0) {
-    throw new Error(`Environment variable ${RPC_URL_ENV_KEY} must be set in ${path.join(packageRoot, '.env')}`);
-  }
-  return rpcUrl;
-};
 
 const assertParticipantArray = (value: unknown, label: string): ParticipantEntry[] => {
   if (!Array.isArray(value)) {
@@ -112,10 +116,12 @@ export const loadConfig = async (configPath: string): Promise<Erc20TransferConfi
 
   return {
     participants,
-    userStorageSlots: assertNumberArray(configRaw.userStorageSlots, 'userStorageSlots'),
+    userStorageSlots: assertUserStorageSlots(configRaw.userStorageSlots, 'userStorageSlots'),
     preAllocatedKeys,
     txNonce: parseBigIntValue(configRaw.txNonce, 'txNonce'),
     blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
+    network: parseNonEmptyString(configRaw.network, 'network'),
+    txHash: parseHexString(configRaw.txHash, 'txHash'),
     contractAddress: parseHexString(configRaw.contractAddress, 'contractAddress'),
     amount: parseHexString(configRaw.amount, 'amount'),
     transferSelector: parseHexString(configRaw.transferSelector, 'transferSelector'),

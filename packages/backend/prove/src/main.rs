@@ -1,12 +1,11 @@
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
-use std::fs::File;
-use std::io::Write;
 use std::{env, process};
+use std::time::Instant;
 use prove::{Proof, ProveInputPaths, Prover, TranscriptManager};
 use libs::utils::check_device;
 
 fn main() {
+    let total_start = Instant::now();
     let args: Vec<String> = env::args().collect();
 
     if args.len() != 5 {
@@ -24,62 +23,41 @@ fn main() {
         output_path: &args[4],
     };
     
-    let prove_start = Instant::now();
-
     check_device();
-
-    let mut timer: Instant;
-    let mut lap: Duration;
     
     println!("Prover initialization...");
-    timer = Instant::now();
     let (mut prover, binding) = Prover::init(&paths);
-    lap = timer.elapsed();
-    println!("Prover init time: {:.6} seconds", lap.as_secs_f64());
 
     // Initialize the transcript manager
     let mut manager = TranscriptManager::new();
 
     println!("Running prove0...");
-    timer = Instant::now();
     let proof0 = prover.prove0();
-    lap = timer.elapsed();
-    println!("prove0 running time: {:.6} seconds", lap.as_secs_f64());
 
     // Use the manager to get thetas
     let thetas = proof0.verify0_with_manager(&mut manager);
         
     println!("Running prove1...");
-    timer = Instant::now();
     let proof1 = prover.prove1(&thetas);
-    lap = timer.elapsed();
-    println!("prove1 running time: {:.6} seconds", lap.as_secs_f64());
     
     // Use the manager to get kappa0
     let kappa0 = proof1.verify1_with_manager(&mut manager);
     
     println!("Running prove2...");
-    timer = Instant::now();
     let proof2 = prover.prove2(&thetas, kappa0);
-    lap = timer.elapsed();
-    println!("prove2 running time: {:.6} seconds", lap.as_secs_f64());
 
     // Use the manager to get chi and zeta
     let (chi, zeta) = proof2.verify2_with_manager(&mut manager);
     
     println!("Running prove3...");
-    timer = Instant::now();
     let proof3 = prover.prove3(chi, zeta);
-    lap = timer.elapsed();
-    println!("prove3 running time: {:.6} seconds", lap.as_secs_f64());
 
     let kappa1 = proof3.verify3_with_manager(&mut manager);
     
     println!("Running prove4...");
-    timer = Instant::now();
     let (proof4, proof4_test) = prover.prove4(&proof3, &thetas, kappa0, chi, zeta, kappa1);
-    lap = timer.elapsed();
-    println!("prove4 running time: {:.6} seconds", lap.as_secs_f64());
+    #[cfg(not(feature = "testing-mode"))]
+    let _ = &proof4_test;
 
     // // Create the challenge struct
     // let challenge = Challenge {
@@ -112,8 +90,6 @@ fn main() {
     let output_path = PathBuf::from(paths.output_path).join("proof.json");
     formatted_proof.write_into_json(output_path).unwrap();
 
-    println!("Total proving time: {:.6} seconds", prove_start.elapsed().as_secs_f64());
-
     #[cfg(feature = "testing-mode")] {
         let test_output_path = PathBuf::from(paths.output_path).join("proof4_test.json");
         proof4_test.write_into_json(test_output_path).unwrap();
@@ -121,4 +97,11 @@ fn main() {
         println!("kappa1: {}", kappa1.to_string());
         println!("chi: {}", chi.to_string());
     }
+
+    let total_elapsed_secs = total_start.elapsed().as_secs_f64();
+    println!(
+        "Prove completed. Total elapsed time: {:.3}s ({:.0} ms)",
+        total_elapsed_secs,
+        total_elapsed_secs * 1000.0
+    );
 }

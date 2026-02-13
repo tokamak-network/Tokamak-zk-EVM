@@ -4,7 +4,7 @@ import { BlockData, BlockOptions, createBlock, HeaderData } from '@ethereumjs/bl
 import { bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromBigInt } from '@ethereumjs/util';
 
 import { createEVM, EVM, EVMOpts, EVMResult, InterpreterStep, Message } from '@ethereumjs/evm';
-import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable, SynthesizerInterface, SynthesizerOpts, SynthesizerSupportedOpcodes } from './types/index.ts';
+import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable, SynthesizerInterface, SynthesizerOpts, SynthesizerStepLogEntry, SynthesizerSupportedOpcodes } from './types/index.ts';
 import { ArithmeticManager, BufferManager, ContextConstructionData, ContextManager, InstructionHandler, MemoryManager, StateManager, SynthesizerOpHandler } from './handlers/index.ts';
 import { ArithmeticOperator, SubcircuitNames } from '../interface/qapCompiler/configuredTypes.ts';
 import { MAX_MT_LEAVES } from '../interface/qapCompiler/importedConstants.ts';
@@ -25,7 +25,8 @@ export class Synthesizer implements SynthesizerInterface
   protected _bufferManager: BufferManager
   protected _instructionHandlers: InstructionHandler
   public readonly cachedOpts: SynthesizerOpts
-  private readonly _stepLogger: boolean
+  private _stepLogs: SynthesizerStepLogEntry[]
+  private _messageCodeAddresses: Set<`0x${string}`>
 
   // @deprecated
   constructor(opts: SynthesizerOpts) {
@@ -35,7 +36,8 @@ export class Synthesizer implements SynthesizerInterface
     this._arithmeticManager = new ArithmeticManager(this)
     this._memoryManager = new MemoryManager(this)
     this._instructionHandlers =  new InstructionHandler(this)
-    this._stepLogger = opts.stepLogger ?? false
+    this._stepLogs = []
+    this._messageCodeAddresses = new Set()
   }
 
   private _attachSynthesizerToVM(vm: VM): void {
@@ -155,6 +157,7 @@ export class Synthesizer implements SynthesizerInterface
 
   // Must run this function before everytime EVM executes CALLs.
   private _prepareMessageCall(message: Message): void {
+    this._messageCodeAddresses.add(message.codeAddress.toString())
     if (message.isCreate) {
       throw new Error ("CREATE is not supported.")
     }
@@ -328,6 +331,7 @@ export class Synthesizer implements SynthesizerInterface
 
   public async synthesizeTX(): Promise<RunTxResult> {
     const common = this.cachedOpts.stateManager.common;
+    this._stepLogs = []
 
     const headerData: HeaderData = {
       parentHash: this.getReservedVariableFromBuffer('BLOCKHASH_1').value,
@@ -387,10 +391,26 @@ export class Synthesizer implements SynthesizerInterface
         throw new Error(`Undefined synthesizer handler for opcode ${opcode.name}`)
       }
 
-      if (this._stepLogger) {
-        console.log(`stack: ${prevStepResult.stack.map(x => bigIntToHex(x))}`)
-        console.log(`pc: ${prevStepResult.pc}, opcode: ${opcode.name}`)
+      const stepLog: SynthesizerStepLogEntry = {
+        stack: prevStepResult.stack.map(x => bigIntToHex(x)),
+        pc: prevStepResult.pc,
+        opcode: opcode.name,
       }
+      if (opcode.name === 'KECCAK256') {
+        const offset = prevStepResult.stack[0]
+        const size = prevStepResult.stack[1]
+        if (offset !== undefined && size !== undefined) {
+          const start = Number(offset)
+          const end = start + Number(size)
+          const inputBytes = prevStepResult.memory.subarray(start, end)
+          const chunks: string[] = []
+          for (let i = 0; i < inputBytes.length; i += 32) {
+            chunks.push(bytesToHex(inputBytes.subarray(i, i + 32)))
+          }
+          stepLog.keccak256Input = chunks
+        }
+      }
+      this._stepLogs.push(stepLog)
 
       await opHandler.apply(null, [thisContext, stepResult])
     }
@@ -402,6 +422,14 @@ export class Synthesizer implements SynthesizerInterface
 
   public get state(): StateManager {
     return this._state;
+  }
+
+  public get stepLogs(): SynthesizerStepLogEntry[] {
+    return this._stepLogs
+  }
+
+  public get messageCodeAddresses(): Set<`0x${string}`> {
+    return this._messageCodeAddresses
   }
 
   public get placements(): Placements {

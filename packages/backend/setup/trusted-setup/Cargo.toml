@@ -8,11 +8,11 @@ repository = { workspace = true }
 homepage = { workspace = true }
 
 [dependencies]
-bincode = { workspace = true }
 icicle-core = { workspace = true }
 icicle-bls12-381 = { workspace = true }
 libs = { workspace = true }
 icicle-runtime = { workspace = true }
+rkyv = { workspace = true }
 
 [features]
 default = []

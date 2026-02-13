@@ -12,12 +12,20 @@ export interface SynthesizerOpts {
   signedTransaction: TokamakL2Tx
   blockInfo: SynthesizerBlockInfo
   stateManager: TokamakL2StateManager
-  stepLogger?: boolean
+}
+
+export interface SynthesizerStepLogEntry {
+  stack: string[]
+  pc: number
+  opcode: string
+  keccak256Input?: string[]
 }
 
 export interface SynthesizerInterface {
   get state(): StateManager
   get placements(): Placements
+  get stepLogs(): SynthesizerStepLogEntry[]
+  get messageCodeAddresses(): Set<`0x${string}`>
   synthesizeTX(): Promise<RunTxResult>
   cachedOpts: SynthesizerOpts
 }

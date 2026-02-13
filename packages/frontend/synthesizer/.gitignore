@@ -1,5 +1,8 @@
 .cachedb
 .env
+scripts/.env
+scripts/config.json
+scripts/temp.json
 benchmarks/*.js
 # Bundle stats generated with npm visualize:bundle
 stats.html

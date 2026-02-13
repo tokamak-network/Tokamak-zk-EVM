@@ -3,7 +3,13 @@ use libs::iotools::{SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use libs::field_structures::{Tau, from_r1cs_to_evaled_qap_mixture};
 use libs::iotools::{read_global_wire_list_as_boxed_boxed_numbers};
 // use libs::polynomial_structures::{gen_bXY, gen_uXY, gen_vXY, gen_wXY, QAP};
-use libs::utils::check_device;
+use libs::utils::{
+    check_device, init_ntt_domain, load_setup_params_from_qap_path, setup_shape,
+    trusted_setup_ntt_domain_size,
+    validate_public_wire_size, validate_setup_shape,
+};
+#[cfg(feature = "testing-mode")]
+use libs::utils::trusted_setup_testing_ntt_domain_size;
 use libs::vector_operations::{gen_evaled_lagrange_bases};
 use libs::group_structures::{Sigma};
 use icicle_bls12_381::curve::{BaseField, CurveCfg, G1Affine, G2Affine, G2BaseField, G2CurveCfg, ScalarField};
@@ -83,8 +89,10 @@ fn main() {
     };
     
     // Load setup parameters from JSON file
-    let setup_params_path = PathBuf::from(paths.qap_path).join("setupParams.json");
-    let setup_params: SetupParams = SetupParams::read_from_json(setup_params_path).unwrap();
+    let setup_params: SetupParams = load_setup_params_from_qap_path(paths.qap_path);
+    let shape = setup_shape(&setup_params);
+    validate_setup_shape(&shape);
+    validate_public_wire_size(shape.l);
 
     // Extract key parameters from setup_params
     let m_d = setup_params.m_D; // Total number of wires
@@ -93,35 +101,16 @@ fn main() {
     let s_max = setup_params.s_max; // The maximum number of placements.
     // Additional wire-related parameters
     let l = setup_params.l;     // Number of public I/O wires
-    let l_user = setup_params.l_user;
-    let l_d = setup_params.l_D; // Number of interface wires
     // The last wire-related parameter
-    let m_i = l_d - l;
+    let m_i = shape.m_i;
     println!("Setup parameters: \n n = {:?}, \n s_max = {:?}, \n l = {:?}, \n m_I = {:?}, \n m_D = {:?}", n, s_max, l, m_i, m_d);
-    
-    // Verify n is a power of two
-    if !n.is_power_of_two() {
-        panic!("n is not a power of two.");
-    }
-    
-    if !(l.is_power_of_two() || l==0) {
-        panic!("l is not a power of two.");
-    }
 
-    // if !(l_prv.is_power_of_two()) {
-    //     panic!("l_prv is not a power of two.");
-    // }
+    #[cfg(feature = "testing-mode")]
+    let ntt_domain_size = trusted_setup_testing_ntt_domain_size(&shape);
+    #[cfg(not(feature = "testing-mode"))]
+    let ntt_domain_size = trusted_setup_ntt_domain_size(&shape);
+    init_ntt_domain(ntt_domain_size);
 
-    // Verify s_max is a power of two
-    if !s_max.is_power_of_two() {
-        panic!("s_max is not a power of two.");
-    }
-    
-    // Verify m_I is a power of two
-    if !m_i.is_power_of_two() {
-        panic!("m_I is not a power of two.");
-    }
-    
     // Load subcircuit information
     let subcircuit_infos_path = PathBuf::from(paths.qap_path).join("subcircuitInfo.json");
     let subcircuit_infos = SubcircuitInfo::read_box_from_json(subcircuit_infos_path).unwrap();
@@ -427,20 +416,25 @@ fn main() {
 
     let start = Instant::now();
     
-    // Write bincode version for faster loading
     let output_dir_path = PathBuf::from(paths.output_path);
     std::fs::create_dir_all(&output_dir_path).expect("Failed to create output directory");
-    println!("Writing the sigma into bincode...");
-    let bincode_data = bincode::serialize(&sigma).expect("Failed to serialize sigma to bincode");
-    std::fs::write(output_dir_path.join("combined_sigma.bin"), bincode_data).expect("Failed to write bincode file");
-    
-    // // Writing the sigma into rust code
-    // println!("Writing the sigma into a rust code...");
-    // let output_path = "setup/trusted-setup/output/combined_sigma.rs";
-    // sigma.write_into_rust_code(output_path).unwrap();
+    {
+        use libs::iotools::{SigmaPreprocessRkyv, SigmaRkyv, SigmaVerifyRkyv};
+        println!("Writing the sigma into rkyv (zero-copy)...");
+        let sigma_rkyv = SigmaRkyv::from_sigma(&sigma);
+        let bytes = rkyv::to_bytes::<_, 256>(&sigma_rkyv).expect("Failed to serialize sigma to rkyv");
+        std::fs::write(output_dir_path.join("combined_sigma.rkyv"), bytes).expect("Failed to write rkyv file");
 
-    sigma.write_into_json_for_verify(output_dir_path.join("sigma_verify.json")).unwrap();
-    sigma.write_into_json_for_preprocess(output_dir_path.join("sigma_preprocess.json")).unwrap();
+        println!("Writing sigma_verify into rkyv...");
+        let sigma_verify_rkyv = SigmaVerifyRkyv::from_sigma(&sigma);
+        let bytes = rkyv::to_bytes::<_, 256>(&sigma_verify_rkyv).expect("Failed to serialize sigma_verify to rkyv");
+        std::fs::write(output_dir_path.join("sigma_verify.rkyv"), bytes).expect("Failed to write sigma_verify.rkyv");
+
+        println!("Writing sigma_preprocess into rkyv...");
+        let sigma_preprocess_rkyv = SigmaPreprocessRkyv::from_sigma(&sigma);
+        let bytes = rkyv::to_bytes::<_, 256>(&sigma_preprocess_rkyv).expect("Failed to serialize sigma_preprocess to rkyv");
+        std::fs::write(output_dir_path.join("sigma_preprocess.rkyv"), bytes).expect("Failed to write sigma_preprocess.rkyv");
+    }
     let lap = start.elapsed();
     println!("The sigma writing time: {:.6} seconds", lap.as_secs_f64());
 

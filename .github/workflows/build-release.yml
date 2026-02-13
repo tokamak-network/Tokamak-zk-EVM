@@ -65,8 +65,13 @@ jobs:
 
       - name: Build and setup environment
         env:
-          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
         run: |
+          if [ -z "$ALCHEMY_API_KEY" ]; then
+            echo "❌ Missing required secret: ALCHEMY_API_KEY"
+            exit 1
+          fi
+
           # Fix file permissions and line endings
           echo "🔧 Fixing file permissions and line endings..."
           find . -name "*.sh" -exec chmod +x {} \;
@@ -83,7 +88,22 @@ jobs:
 
           # Run install step (this builds all binaries)
           echo "🔧 Running tokamak-cli --install (building binaries)..."
-          ./tokamak-cli --install "$ALCHEMY_API_KEY"
+          ./tokamak-cli --install "$ALCHEMY_API_KEY" --bun
+
+      - name: Validate backend setup outputs
+        run: |
+          required=(
+            "dist/resource/setup/output/combined_sigma.rkyv"
+            "dist/resource/setup/output/sigma_preprocess.rkyv"
+            "dist/resource/setup/output/sigma_verify.rkyv"
+          )
+          for file in "${required[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing backend setup output: $file"
+              exit 1
+            fi
+          done
+          echo "✅ Backend setup outputs are ready"
 
       - name: Upload built dist folder
         uses: actions/upload-artifact@v4
@@ -114,14 +134,14 @@ jobs:
           retention-days: 1
 
   # ============================================================================
-  # L2TONTransfer Test - Uses pre-built binaries
+  # EVM compatibility tests
   # ============================================================================
-  l2-ton-transfer-test:
-    name: L2 TON Transfer Test
+  evm-compat-test:
+    name: EVM compatibility tests
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
     needs: build-and-setup
-    timeout-minutes: 30
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'dev')) || (github.event_name == 'push' && github.ref == 'refs/heads/main')
 
     steps:
       - name: Checkout code
@@ -131,15 +151,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Install tsx globally
-        run: npm install -g tsx
-
-      - name: Download built dist
-        uses: actions/download-artifact@v4
-        with:
-          name: built-dist
-          path: dist/
+          cache: 'npm'
 
       - name: Download qap-compiler
         uses: actions/download-artifact@v4
@@ -153,78 +165,129 @@ jobs:
           name: synthesizer
           path: packages/frontend/synthesizer/
 
-      - name: Make binaries executable
+      - name: Install tsx
+        run: |
+          if ! command -v tsx >/dev/null 2>&1; then
+            npm install -g tsx
+          fi
+
+      - name: Run synthesizer tests
+        env:
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+          ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+        run: |
+          cd packages/frontend/synthesizer
+          npm test
+
+      - name: Upload EVM compatibility outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evm-compat-test-outputs-${{ github.run_number }}
+          path: packages/frontend/synthesizer/outputs/
+          retention-days: 7
+
+  # ============================================================================
+  # Proof Generation Test
+  # ============================================================================
+  proof-generation-test:
+    name: Proof Generation Test
+    runs-on: ubuntu-22.04
+    needs: [build-and-setup, evm-compat-test]
+    timeout-minutes: 30
+    if: (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'dev')) || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Ensure zip/unzip
+        run: |
+          if ! command -v zip >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y zip unzip
+          fi
+
+      - name: Download built dist
+        uses: actions/download-artifact@v4
+        with:
+          name: built-dist
+          path: dist/
+
+      - name: Download EVM compatibility outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: evm-compat-test-outputs-${{ github.run_number }}
+          path: packages/frontend/synthesizer/outputs/
+
+      - name: Make binaries and scripts executable
         run: |
           chmod +x ./tokamak-cli
           chmod +x ./scripts/tokamak-cli-core
           chmod +x dist/bin/* 2>/dev/null || true
           chmod +x dist/*.sh 2>/dev/null || true
 
-      - name: Setup synthesizer environment
-        env:
-          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
+      - name: Validate setup artifacts in dist
         run: |
-          # Create .env file for synthesizer (not included in artifact due to .gitignore)
-          echo "RPC_URL='https://eth-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY'" > packages/frontend/synthesizer/.env
-          echo "✅ Synthesizer .env configured"
+          required=(
+            "dist/resource/setup/output/combined_sigma.rkyv"
+            "dist/resource/setup/output/sigma_preprocess.rkyv"
+            "dist/resource/setup/output/sigma_verify.rkyv"
+          )
+          for file in "${required[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing setup artifact in dist: $file"
+              exit 1
+            fi
+          done
+          echo "✅ Setup artifacts present in dist"
 
-      - name: Run L2TONTransfer synthesizer
+      - name: Validate preprocess input
         run: |
-          echo "🧪 Running L2TONTransfer synthesizer..."
-          echo "📋 Config: packages/frontend/synthesizer/examples/L2TONTransfer/input.json"
-          ./tokamak-cli --synthesize packages/frontend/synthesizer/examples/L2TONTransfer/input.json
+          if [ ! -f "packages/frontend/synthesizer/outputs/permutation.json" ]; then
+            echo "❌ Missing preprocess input: packages/frontend/synthesizer/outputs/permutation.json (expected from evm-compat-test)"
+            exit 1
+          fi
 
       - name: Run preprocess
         run: |
           echo "⚙️ Running preprocess..."
-          ./tokamak-cli --preprocess
+          ./tokamak-cli --preprocess packages/frontend/synthesizer/outputs/permutation.json
+
+      - name: Validate prove inputs
+        run: |
+          if [ ! -f "packages/frontend/synthesizer/outputs/instance_description.json" ]; then
+            echo "❌ Missing instance_description.json under packages/frontend/synthesizer/outputs (expected from evm-compat-test)"
+            exit 1
+          fi
 
       - name: Run prove
         run: |
           echo "🔐 Running prove..."
-          ./tokamak-cli --prove
+          ./tokamak-cli --prove ./packages/frontend/synthesizer/outputs
+
+      - name: Run extract-proof
+        run: |
+          echo "📦 Running extract-proof..."
+          ./tokamak-cli --extract-proof ./test-out/test-proof.zip
+
+      - name: Validate proof bundle for verify
+        run: |
+          if [ ! -f "./test-out/test-proof.zip" ]; then
+            echo "❌ Missing proof bundle for verify: ./test-out/test-proof.zip"
+            exit 1
+          fi
 
       - name: Run verify
         run: |
           echo "✅ Running verify..."
-          ./tokamak-cli --verify
-
-      - name: Validate proof artifacts
-        run: |
-          echo "🔍 Validating proof artifacts..."
-          
-          if [ -f "dist/resource/prove/output/proof.json" ]; then
-            echo "✅ proof.json exists"
-          else
-            echo "❌ proof.json not found"
-            exit 1
-          fi
-          
-          if [ -f "dist/resource/preprocess/output/preprocess.json" ]; then
-            echo "✅ preprocess.json exists"
-          else
-            echo "❌ preprocess.json not found"
-            exit 1
-          fi
-          
-          echo "✅ L2TONTransfer test passed!"
-
-      - name: Upload L2TONTransfer artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: l2-ton-transfer-artifacts-${{ github.run_number }}
-          path: |
-            dist/resource/prove/output/
-            dist/resource/preprocess/output/
-            dist/resource/synthesizer/output/
-          retention-days: 7
+          ./tokamak-cli --verify ./test-out/test-proof.zip
 
   # ============================================================================
   # L2StateChannel Test - Uses pre-built binaries
   # ============================================================================
-  l2-state-channel-test:
-    name: L2 State Channel Test
+  tokamak-ch-compat-test:
+    name: tokamak-ch-compat-test
     runs-on: ubuntu-22.04
     needs: build-and-setup
     timeout-minutes: 30
@@ -239,26 +302,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install tsx globally
-        run: npm install -g tsx
-
       - name: Download built dist
         uses: actions/download-artifact@v4
         with:
           name: built-dist
           path: dist/
-
-      - name: Download qap-compiler
-        uses: actions/download-artifact@v4
-        with:
-          name: qap-compiler
-          path: packages/frontend/qap-compiler/
-
-      - name: Download synthesizer
-        uses: actions/download-artifact@v4
-        with:
-          name: synthesizer
-          path: packages/frontend/synthesizer/
 
       - name: Make binaries executable
         run: |
@@ -267,35 +315,29 @@ jobs:
           chmod +x dist/bin/* 2>/dev/null || true
           chmod +x dist/*.sh 2>/dev/null || true
 
-      - name: Setup L2StateChannel environment
-        env:
-          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
-          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL || '' }}
+      - name: Validate setup artifacts in dist
         run: |
-          # Setup L2StateChannel .env for Sepolia
-          if [ -n "$SEPOLIA_RPC_URL" ]; then
-            echo "SEPOLIA_RPC_URL='$SEPOLIA_RPC_URL'" > packages/frontend/synthesizer/examples/L2StateChannel/.env
-            echo "DEV_MODE=true" >> packages/frontend/synthesizer/examples/L2StateChannel/.env
-            echo "✅ L2StateChannel .env configured with Sepolia RPC"
-          else
-            echo "RPC_URL='https://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KEY'" > packages/frontend/synthesizer/examples/L2StateChannel/.env
-            echo "SEPOLIA_RPC_URL='https://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KEY'" >> packages/frontend/synthesizer/examples/L2StateChannel/.env
-            echo "DEV_MODE=true" >> packages/frontend/synthesizer/examples/L2StateChannel/.env
-            echo "✅ L2StateChannel .env configured with Alchemy Sepolia"
-          fi
+          required=(
+            "dist/resource/setup/output/combined_sigma.rkyv"
+            "dist/resource/setup/output/sigma_preprocess.rkyv"
+            "dist/resource/setup/output/sigma_verify.rkyv"
+          )
+          for file in "${required[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing setup artifact in dist: $file"
+              exit 1
+            fi
+          done
+          echo "✅ Setup artifacts present in dist"
 
       - name: Run L2StateChannel CI test (synthesize)
-        working-directory: packages/frontend/synthesizer
         run: |
           echo "🧪 Running L2StateChannel CI test..."
-          npx tsx examples/L2StateChannel/index.ts --ci
-
-      - name: Copy synthesizer outputs to dist
-        run: |
-          echo "📁 Copying synthesizer outputs to dist..."
-          mkdir -p dist/resource/synthesizer/output
-          cp -r packages/frontend/synthesizer/examples/L2StateChannel/output/ci-test/* dist/resource/synthesizer/output/
-          ls -la dist/resource/synthesizer/output/
+          ./tokamak-cli --synthesize --tokamak-ch-tx \
+            --previous-state "${{ github.workspace }}/packages/frontend/synthesizer/examples/L2StateChannel/previous_state_snapshot.json" \
+            --transaction "0xf8c08094a30fe40285b8f5c0457dbc3b7c8a280373c40044b844a9059cbb00000000000000000000000026f67df81c33223350a7ddca1473a9100b519fe70000000000000000000000000000000000000000000000000000000000000004a090c69902b2e0d20638ac1bddf8a2c433529b84a31a73a6423ab39cc6f67c2e131ba0eba85914616b3df71d75f376c9db9706f0c1f306059faa07aa3c754319d16f57a006ada885d83173d5cc1759f894c857cbf492d1305d26607ecfc37db6455f13fb" \
+            --block-info "${{ github.workspace }}/packages/frontend/synthesizer/examples/L2StateChannel/block_info.json" \
+            --contract-code "${{ github.workspace }}/packages/frontend/synthesizer/examples/L2StateChannel/contract_codes.json"
 
       - name: Run preprocess
         run: |
@@ -311,30 +353,6 @@ jobs:
         run: |
           echo "✅ Running verify..."
           ./tokamak-cli --verify
-
-      - name: Validate proof artifacts
-        run: |
-          echo "🔍 Validating proof artifacts..."
-          
-          if [ -f "dist/resource/prove/output/proof.json" ]; then
-            echo "✅ proof.json exists"
-          else
-            echo "❌ proof.json not found"
-            exit 1
-          fi
-          
-          echo "✅ L2StateChannel test passed!"
-
-      - name: Upload L2StateChannel artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: l2-state-channel-artifacts-${{ github.run_number }}
-          path: |
-            packages/frontend/synthesizer/examples/L2StateChannel/output/ci-test/
-            dist/resource/prove/output/
-            dist/resource/preprocess/output/
-          retention-days: 7
 
   # ============================================================================
   # Build macOS Binary
@@ -342,7 +360,7 @@ jobs:
   build-macos:
     name: Build macOS Binary
     runs-on: macos-latest
-    needs: [l2-ton-transfer-test, l2-state-channel-test]
+    needs: [proof-generation-test, tokamak-ch-compat-test]
     timeout-minutes: 60
     # Execute only for main branch (push/PR)
     if: (github.event_name == 'push' || github.event_name == 'pull_request') && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
@@ -399,7 +417,7 @@ jobs:
   build-linux:
     name: Build Linux Binary
     runs-on: ubuntu-22.04
-    needs: [l2-ton-transfer-test, l2-state-channel-test]
+    needs: [proof-generation-test, tokamak-ch-compat-test]
     timeout-minutes: 60
     # Execute only for main branch (push/PR)
     if: (github.event_name == 'push' || github.event_name == 'pull_request') && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
@@ -477,7 +495,7 @@ jobs:
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-22.04
-    needs: [l2-ton-transfer-test, l2-state-channel-test, build-macos, build-linux]
+    needs: [proof-generation-test, tokamak-ch-compat-test, build-macos, build-linux]
     if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
@@ -576,8 +594,8 @@ jobs:
 
           ### ✅ Quality Assurance
 
-          - **L2 TON Transfer Test**: Passed ✅
-          - **L2 State Channel Test**: Passed ✅
+          - **Proof Generation Test**: Passed ✅
+          - **tokamak-ch-compat-test**: Passed ✅
 
           ### 📋 Recent Changes
 
