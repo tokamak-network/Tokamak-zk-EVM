@@ -5,7 +5,7 @@ use icicle_core::msm::{self, MSMConfig};
 use icicle_runtime::{self, memory::{HostSlice, DeviceVec}};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use crate::field_structures::FieldSerde;
-use crate::group_structures::{G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify};
+use crate::group_structures::{count_o_mid_nvar, count_o_prv_nvar, encode_o_inst_common, encode_o_pub_fix_common, encode_statement_common, G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify};
 use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use crate::polynomial_structures::{from_subcircuit_to_QAP, QAP};
 use crate::utils::{check_device, check_gpu};
@@ -1655,37 +1655,12 @@ impl ArchivedSigma1Rkyv {
         a_pub_function: &[HexString],
         setup_params: &SetupParams,
     ) -> G1serde {
-        let m_function = setup_params.l - setup_params.l_free;
-        if m_function == 0 {
-            return G1serde::zero();
-        }
-        if a_pub_function.len() != m_function {
-            panic!("a_pub_function length mismatch: expected m_function");
-        }
-        if self.gamma_inv_o_inst.len() < m_function {
-            panic!("gamma_inv_o_inst length is smaller than m_function");
-        }
-
-        let start = self.gamma_inv_o_inst.len() - m_function;
-        let scalars_field = a_pub_function
-            .iter()
-            .map(|val| ScalarField::from_hex(val))
-            .collect::<Vec<_>>();
-        let bases = self.gamma_inv_o_inst[start..]
-            .iter()
-            .map(|serde| serde.to_g1_affine())
-            .collect::<Vec<_>>();
-
-        let mut msm_res = vec![G1Projective::zero(); 1];
-        msm::msm(
-            HostSlice::from_slice(&scalars_field),
-            HostSlice::from_slice(&bases),
-            &MSMConfig::default(),
-            HostSlice::from_mut_slice(&mut msm_res),
+        encode_o_pub_fix_common(
+            a_pub_function,
+            setup_params,
+            self.gamma_inv_o_inst.len(),
+            |idx| self.gamma_inv_o_inst[idx].to_g1_affine(),
         )
-        .unwrap();
-
-        G1serde(G1Affine::from(msm_res[0]))
     }
 
     pub fn encode_O_inst(
@@ -1694,44 +1669,12 @@ impl ArchivedSigma1Rkyv {
         subcircuit_infos: &[SubcircuitInfo],
         setup_params: &SetupParams,
     ) -> G1serde {
-        let mut aligned_rs = vec![G1Affine::zero(); setup_params.l];
-        let mut aligned_wtns = vec![ScalarField::zero(); setup_params.l];
-        let mut cnt: usize = 0;
-        for i in 0..4 {
-            let subcircuit_id = placement_variables[i].subcircuitId;
-            let variables = &placement_variables[i].variables;
-            let subcircuit_info = &subcircuit_infos[subcircuit_id];
-            let flatten_map = &subcircuit_info.flattenMap;
-            let (start_idx, end_idx_exclusive) = if subcircuit_info.name == "bufferPubOut" {
-                (subcircuit_info.Out_idx[0], subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1])
-            } else if subcircuit_info.name == "bufferPubIn" {
-                (subcircuit_info.In_idx[0], subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
-            } else if subcircuit_info.name == "bufferEVMIn" {
-                (subcircuit_info.In_idx[0], subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
-            } else if subcircuit_info.name == "bufferBlockIn" {
-                (subcircuit_info.In_idx[0], subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
-            } else {
-                panic!("Target placement is not a buffer")
-            };
-
-            for j in start_idx..end_idx_exclusive {
-                aligned_wtns[cnt] = ScalarField::from_hex(&variables[j]);
-                let global_idx = flatten_map[j];
-                let curve_point = self.gamma_inv_o_inst[global_idx].to_g1_affine();
-                aligned_rs[cnt] = curve_point;
-                cnt += 1;
-            }
-        }
-        let mut msm_res = vec![G1Projective::zero(); 1];
-        msm::msm(
-            HostSlice::from_slice(&aligned_wtns),
-            HostSlice::from_slice(&aligned_rs),
-            &MSMConfig::default(),
-            HostSlice::from_mut_slice(&mut msm_res),
+        encode_o_inst_common(
+            placement_variables,
+            subcircuit_infos,
+            setup_params,
+            |global_idx| self.gamma_inv_o_inst[global_idx].to_g1_affine(),
         )
-        .unwrap();
-
-        G1serde(G1Affine::from(msm_res[0]))
     }
 
     pub fn encode_O_mid_no_zk(
@@ -1740,31 +1683,14 @@ impl ArchivedSigma1Rkyv {
         subcircuit_infos: &[SubcircuitInfo],
         setup_params: &SetupParams,
     ) -> G1serde {
-        let mut nVar: usize = 0;
-        for i in 0..placement_variables.len() {
-            let subcircuit_id = placement_variables[i].subcircuitId;
-            let subcircuit_info = &subcircuit_infos[subcircuit_id];
-            if subcircuit_info.name == "bufferPubOut" {
-                nVar = nVar + subcircuit_info.In_idx[1];
-            } else if subcircuit_info.name == "bufferPubIn" {
-                nVar = nVar + subcircuit_info.Out_idx[1];
-            } else if subcircuit_info.name == "bufferBlockIn" {
-                nVar = nVar + subcircuit_info.Out_idx[1];
-            } else if subcircuit_info.name == "bufferEVMIn" {
-                nVar = nVar + subcircuit_info.Out_idx[1];
-            } else {
-                nVar = nVar + subcircuit_info.Out_idx[1] + subcircuit_info.In_idx[1];
-            }
-            nVar += 1;
-        }
-
-        self.encode_statement(
+        let nVar = count_o_mid_nvar(placement_variables, subcircuit_infos);
+        encode_statement_common(
             setup_params.l,
             setup_params.l_D,
             nVar,
-            &self.eta_inv_li_o_inter_alpha4_kj,
             placement_variables,
             subcircuit_infos,
+            |global_idx, i| self.eta_inv_li_o_inter_alpha4_kj[global_idx][i].to_g1_affine(),
         )
     }
 
@@ -1774,20 +1700,14 @@ impl ArchivedSigma1Rkyv {
         subcircuit_infos: &[SubcircuitInfo],
         setup_params: &SetupParams,
     ) -> G1serde {
-        let mut nVar: usize = 0;
-        for i in 0..placement_variables.len() {
-            let subcircuit_id = placement_variables[i].subcircuitId;
-            let subcircuit_info = &subcircuit_infos[subcircuit_id];
-            nVar = nVar + (subcircuit_info.Nwires - subcircuit_info.In_idx[1] - subcircuit_info.Out_idx[1]);
-        }
-
-        self.encode_statement(
+        let nVar = count_o_prv_nvar(placement_variables, subcircuit_infos);
+        encode_statement_common(
             setup_params.l_D,
             setup_params.m_D,
             nVar,
-            &self.delta_inv_li_o_prv,
             placement_variables,
             subcircuit_infos,
+            |global_idx, i| self.delta_inv_li_o_prv[global_idx][i].to_g1_affine(),
         )
     }
 
@@ -1811,43 +1731,7 @@ impl ArchivedSigma1Rkyv {
         self.delta_inv_alphak_yi_ty[k][i].to_g1serde()
     }
 
-    fn encode_statement(
-        &self,
-        global_wire_index_offset: usize,
-        global_wire_index_end: usize,
-        nVar: usize,
-        bases: &rkyv::vec::ArchivedVec<rkyv::vec::ArchivedVec<ArchivedG1SerdeRkyv>>,
-        placement_variables: &[PlacementVariables],
-        subcircuit_infos: &[SubcircuitInfo],
-    ) -> G1serde {
-        let mut aligned_rs = vec![G1Affine::zero(); nVar];
-        let mut aligned_variable = vec![ScalarField::zero(); nVar];
-        let mut cnt: usize = 0;
-        for i in 0..placement_variables.len() {
-            let subcircuit_id = placement_variables[i].subcircuitId;
-            let variables = &placement_variables[i].variables;
-            let subcircuit_info = &subcircuit_infos[subcircuit_id];
-            let flatten_map = &subcircuit_info.flattenMap;
-            for j in 0..subcircuit_info.Nwires {
-                if flatten_map[j] >= global_wire_index_offset && flatten_map[j] < global_wire_index_end {
-                    let global_idx = flatten_map[j] - global_wire_index_offset;
-                    aligned_variable[cnt] = ScalarField::from_hex(&variables[j]);
-                    let curve_point = bases[global_idx][i].to_g1_affine();
-                    aligned_rs[cnt] = curve_point;
-                    cnt += 1;
-                }
-            }
-        }
-        let mut msm_res = vec![G1Projective::zero(); 1];
-        msm::msm(
-            HostSlice::from_slice(&aligned_variable),
-            HostSlice::from_slice(&aligned_rs),
-            &MSMConfig::default(),
-            HostSlice::from_mut_slice(&mut msm_res),
-        )
-        .unwrap();
-        G1serde(G1Affine::from(msm_res[0]))
-    }
+    
 }
 
 impl ArchivedPartialSigma1Rkyv {
@@ -1860,36 +1744,11 @@ impl ArchivedPartialSigma1Rkyv {
         a_pub_function: &[HexString],
         setup_params: &SetupParams,
     ) -> G1serde {
-        let m_function = setup_params.l - setup_params.l_free;
-        if m_function == 0 {
-            return G1serde::zero();
-        }
-        if a_pub_function.len() != m_function {
-            panic!("a_pub_function length mismatch: expected m_function");
-        }
-        if self.gamma_inv_o_inst.len() < m_function {
-            panic!("gamma_inv_o_inst length is smaller than m_function");
-        }
-
-        let start = self.gamma_inv_o_inst.len() - m_function;
-        let scalars_field = a_pub_function
-            .iter()
-            .map(|val| ScalarField::from_hex(val))
-            .collect::<Vec<_>>();
-        let bases = self.gamma_inv_o_inst[start..]
-            .iter()
-            .map(|serde| serde.to_g1_affine())
-            .collect::<Vec<_>>();
-
-        let mut msm_res = vec![G1Projective::zero(); 1];
-        msm::msm(
-            HostSlice::from_slice(&scalars_field),
-            HostSlice::from_slice(&bases),
-            &MSMConfig::default(),
-            HostSlice::from_mut_slice(&mut msm_res),
+        encode_o_pub_fix_common(
+            a_pub_function,
+            setup_params,
+            self.gamma_inv_o_inst.len(),
+            |idx| self.gamma_inv_o_inst[idx].to_g1_affine(),
         )
-        .unwrap();
-
-        G1serde(G1Affine::from(msm_res[0]))
     }
 }

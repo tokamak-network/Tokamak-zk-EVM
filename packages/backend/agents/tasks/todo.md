@@ -469,3 +469,15 @@ Verification: `cargo check -p libs -p trusted-setup` and `cargo check -p trusted
 - [x] Summarize changes and verification results.
 Removed `Instance::gen_a_fix_X`. Added `encode_O_pub_fix` MSM helpers on `Sigma1`/`ArchivedSigma1Rkyv`/`ArchivedPartialSigma1Rkyv` using `a_pub_function` and the last `m_function = l - l_free` bases from `gamma_inv_o_inst`. Renamed preprocess field to `O_pub_fix` and updated `trusted-setup` testing path + `verify-rust` usage accordingly.
 Verification: `cargo check -p libs -p prove -p preprocess -p verify -p trusted-setup` and `cargo check -p trusted-setup --features testing-mode` passed.
+
+# Plan (2026-02-14, dedupe same-logic functions)
+- [x] Review duplicated implementations across `Sigma1` and archived sigma variants.
+- [x] Consolidate same encode logic (`O_pub_fix`, `O_inst`, `O_mid_no_zk`, `O_prv_no_zk`, statement encoding/counting) into single shared implementations.
+- [x] Keep per-type methods as thin wrappers only.
+- [x] Verify compile on affected packages (`libs`, `prove`, `preprocess`, `verify`, `trusted-setup`).
+- [ ] Commit the changes.
+
+# Review (2026-02-14, dedupe same-logic functions)
+- [x] Summarize changes and verification results.
+Unified duplicated Sigma encode logic into shared helpers in `libs/src/group_structures/mod.rs` (`encode_o_pub_fix_common`, `encode_o_inst_common`, `encode_statement_common`, `count_o_mid_nvar`, `count_o_prv_nvar`, `msm_g1_bases`). `Sigma1`, `PartialSigma1`, `ArchivedSigma1Rkyv`, and `ArchivedPartialSigma1Rkyv` now call these shared helpers instead of keeping separate logic copies.
+Verification: `cargo check -p libs -p prove -p preprocess -p verify -p trusted-setup` and `cargo check -p trusted-setup --features testing-mode` passed.
