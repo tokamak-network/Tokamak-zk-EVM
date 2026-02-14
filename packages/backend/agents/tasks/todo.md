@@ -402,3 +402,14 @@ Verification: `cargo check -p prove` passed (only pre-existing workspace warning
 - [x] Summarize changes and verification results.
 Renamed proof binding commitment field to `A_free`, updated formatted proof packing/unpacking and verifier references, and switched instance polynomial generation to `gen_a_free_X` using only `a_pub_user` + `a_pub_block` with `l_free`. Also aligned `Sigma1::gen` segment sizing to `l_free`-based block/function split.
 Verification: `cargo check -p libs -p prove -p verify` passed. `cargo check --manifest-path verify/verify-wasm/Cargo.toml` could not run due sandbox network DNS resolution failure for crates.io.
+
+# Plan (2026-02-14, a_pub_X rename in prove)
+- [x] Rename `a_pub_X` to `a_free_X` within the `prove` package (`prove/src/lib.rs`) including struct field, local vars, and direct uses.
+- [x] Keep logic unchanged and update timing labels/metric names tied to the renamed variable for consistency.
+- [x] Verify compile with `cargo check -p prove` (and `-p verify` for downstream compatibility).
+- [ ] Commit the changes.
+
+# Review (2026-02-14, a_pub_X rename in prove)
+- [x] Summarize changes and verification results.
+Renamed `a_pub_X` to `a_free_X` in `prove/src/lib.rs` for `InstancePolynomials` field, init local binding, and all usage sites (binding encode + prove4 Pi_B path), and aligned timing `SizeInfo` labels to `a_free_X`.  
+Verification: `cargo check -p prove -p verify` passed (only pre-existing workspace warnings).

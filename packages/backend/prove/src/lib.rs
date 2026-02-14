@@ -177,7 +177,7 @@
         pub t_n: DensePolynomialExt,
         pub t_mi: DensePolynomialExt,
         pub t_smax: DensePolynomialExt,
-        pub a_pub_X: DensePolynomialExt,
+        pub a_free_X: DensePolynomialExt,
     }
     pub struct Witness{
         pub bXY: DensePolynomialExt,
@@ -593,7 +593,7 @@
                 );
 
                 // Parsing the inputs
-                let a_pub_X = crate::time_block!(
+                let a_free_X = crate::time_block!(
                     "init.build.instance.a_free_X",
                     "build",
                     vec![
@@ -655,7 +655,7 @@
                     }
                 );
 
-                InstancePolynomials {a_pub_X, t_n, t_mi, t_smax, s0XY, s1XY}
+                InstancePolynomials {a_free_X, t_n, t_mi, t_smax, s0XY, s1XY}
             };
 
             #[cfg(feature = "testing-mode")] {
@@ -799,7 +799,7 @@
                         crate::timing::SizeInfo { label: "A_free", dims: vec![setup_params.l_free, 1] },
                     ],
                     {
-                        sigma.sigma1().encode_poly(&mut instance.a_pub_X, &setup_params)
+                        sigma.sigma1().encode_poly(&mut instance.a_free_X, &setup_params)
                     }
                 );
                 let O_inst = crate::time_block!(
@@ -2164,11 +2164,11 @@
                     "poly.div_by_ruffini.prove4.Pi_B",
                     "poly",
                     vec![
-                        crate::timing::SizeInfo { label: "a_pub_X", dims: vec![self.instance.a_pub_X.x_size, self.instance.a_pub_X.y_size] },
+                        crate::timing::SizeInfo { label: "a_free_X", dims: vec![self.instance.a_free_X.x_size, self.instance.a_free_X.y_size] },
                     ],
                     {
-                    let A_eval = self.instance.a_pub_X.eval(&chi, &zeta);
-                    (&self.instance.a_pub_X - &A_eval).div_by_ruffini(&chi, &zeta)
+                    let A_eval = self.instance.a_free_X.eval(&chi, &zeta);
+                    (&self.instance.a_free_X - &A_eval).div_by_ruffini(&chi, &zeta)
                 });
 
 
@@ -2176,7 +2176,7 @@
                     "prove4.encode.Pi_B",
                     "encode",
                     vec![
-                        crate::timing::SizeInfo { label: "a_pub_X", dims: vec![self.instance.a_pub_X.x_size, self.instance.a_pub_X.y_size] },
+                        crate::timing::SizeInfo { label: "a_free_X", dims: vec![self.instance.a_free_X.x_size, self.instance.a_free_X.y_size] },
                     ],
                     {
                     self.sigma.sigma1().encode_poly(&mut pi_B_XY, &self.setup_params)
