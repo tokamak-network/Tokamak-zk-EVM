@@ -92,7 +92,7 @@ fn main() {
     let setup_params: SetupParams = load_setup_params_from_qap_path(paths.qap_path);
     let shape = setup_shape(&setup_params);
     validate_setup_shape(&shape);
-    validate_public_wire_size(shape.l);
+    validate_public_wire_size(shape.l_free);
 
     // Extract key parameters from setup_params
     let m_d = setup_params.m_D; // Total number of wires
@@ -101,6 +101,7 @@ fn main() {
     let s_max = setup_params.s_max; // The maximum number of placements.
     // Additional wire-related parameters
     let l = setup_params.l;     // Number of public I/O wires
+    let l_free = setup_params.l_free;
     // The last wire-related parameter
     let m_i = shape.m_i;
     println!("Setup parameters: \n n = {:?}, \n s_max = {:?}, \n l = {:?}, \n m_I = {:?}, \n m_D = {:?}", n, s_max, l, m_i, m_d);
@@ -130,9 +131,9 @@ fn main() {
     let mut l_evaled_vec = vec![ScalarField::zero(); s_max].into_boxed_slice();
     gen_evaled_lagrange_bases(&tau.y, s_max, &mut l_evaled_vec);
     
-    // Compute m_evaled_vec: Lagrange polynomial evaluations at τ.x of size l
-    let mut m_evaled_vec = vec![ScalarField::zero(); l].into_boxed_slice();
-    gen_evaled_lagrange_bases(&tau.x, l, &mut m_evaled_vec);
+    // Compute m_evaled_vec: Lagrange polynomial evaluations at τ.x of size l_free
+    let mut m_evaled_vec = vec![ScalarField::zero(); l_free].into_boxed_slice();
+    gen_evaled_lagrange_bases(&tau.x, l_free, &mut m_evaled_vec);
 
     // Compute o_evaled_vec: Wire polynomial evaluations
     let mut o_evaled_vec = vec![ScalarField::zero(); m_d].into_boxed_slice();
@@ -253,10 +254,13 @@ fn main() {
         // TEMP
             // public_instance.a_pub = vec![ScalarField::zero().to_string(); setup_params.l];
         ////
-        let mut a_X = public_instance.gen_a_pub_X(&setup_params);
+        let mut a_free_X = public_instance.gen_a_free_X(&setup_params);
+        let mut a_fix_X = public_instance.gen_a_fix_X(&setup_params);
         let mut bXY = gen_bXY(&placement_variables, &subcircuit_infos, &setup_params);
         let (mut uXY, mut vXY, mut wXY) = read_R1CS_gen_uvwXY(&paths.qap_path, &placement_variables, &subcircuit_infos, &setup_params);
-        let a_encoding = sigma.sigma_1.encode_poly(&mut a_X, &setup_params);
+        let a_free_encoding = sigma.sigma_1.encode_poly(&mut a_free_X, &setup_params);
+        let a_fix_encoding = sigma.sigma_1.encode_poly(&mut a_fix_X, &setup_params);
+        let a_encoding = a_free_encoding + a_fix_encoding;
         // TEMP
             // assert_eq!(a_encoding.0, G1Affine::zero());
         ////
@@ -285,7 +289,7 @@ fn main() {
             + w_encoding * tau.alpha.pow(3)
             + b_encoding * tau.alpha.pow(4);
         assert_eq!(LHS, RHS);
-        println!("Checked: o_vec");
+        println!("Checked: o_vec (A_free + A_fix)");
         let mut t: ScalarField;
         t = tau.x.pow(n) - ScalarField::one();
         for k in 1 ..4 {
