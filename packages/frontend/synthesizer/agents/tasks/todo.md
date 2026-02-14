@@ -192,14 +192,6 @@
 - [x] Ran `node -e` to confirm `l_user=40`, `l_free=64`, `l=364` yields `a_pub_user=40`, `a_pub_block=24`, `a_pub_function=300`, and `a_pub_user + a_pub_block === l_free`.
 
 # Todo
-- [x] Re-check `a_pub_function` padding in outputs and identify the unused EVM_IN tail caused by buffer padding
-- [x] Update public instance slicing to size `a_pub_function` to the actual EVM_IN inPts length and keep `a_pub_block` padded to `l_free`
-- [x] Verify with a minimal script that the trimmed output length matches the last non-empty description index, then document results
-
-# Review
-- [x] `node -e` confirmed current outputs have `funcLen=300`, `trimmedFuncLen=181`, `trailingEmpty=119` in `a_pub_function_description`, matching the intended trim point.
-
-# Todo
 - [x] Update `scripts/generate-erc20-config.ts` to emit `ChannelErc20TransferTxSimulationConfig` (entryContractAddress + storageConfigs).
 - [x] Refactor pipeline updates (preAllocated keys, userStorageSlots, callCodeAddresses) to use storageConfigs for the entry contract and keep `referenceTxHash`.
 - [x] Run a minimal verification step for the script (or record why it could not be run).

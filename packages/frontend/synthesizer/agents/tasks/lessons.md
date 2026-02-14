@@ -7,4 +7,3 @@
 - When asked to remove timeouts, confirm the actual timeout used by the tool runtime and state it explicitly.
 - When corrected on terminology (e.g., “buffer” vs “reserved variable”), align wording to the code’s actual structure and avoid implying non-existent components.
 - When updating config schemas, confirm whether legacy fields must be preserved and align any renames with explicit user direction.
-- When a user reports unexpected padding, inspect actual output arrays (values + descriptions) to identify the real padding source before changing slice boundaries.
