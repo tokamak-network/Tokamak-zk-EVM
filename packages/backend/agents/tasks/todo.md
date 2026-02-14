@@ -419,7 +419,7 @@ Verification: `cargo check -p prove -p verify` passed (only pre-existing workspa
 - [x] Implement `A_fix` generation from `Instance.a_pub_function` and encode via `sigma.sigma_1` in preprocess generation path.
 - [x] Update preprocess CLI flow to load `instance.json` and pass it into `Preprocess::gen`.
 - [x] Verify compile for affected crates.
-- [ ] Commit the changes.
+- [x] Commit the changes.
 
 # Review (2026-02-14, preprocess A_fix)
 - [x] Summarize changes and verification results.
