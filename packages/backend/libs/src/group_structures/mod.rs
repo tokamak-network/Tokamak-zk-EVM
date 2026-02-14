@@ -254,6 +254,9 @@ impl Sigma1 {
                 vec![l_vec[2]; m_block],
                 vec![l_vec[3]; m_function],
             ].concat().into_boxed_slice();
+            if user_vec.len() != l {
+                panic!("user_vec length mismatch: expected l");
+            }
 
             let mut l_o_inst_vec = vec![ScalarField::zero(); l].into_boxed_slice();
             point_mul_two_vecs(&user_vec, o_inst_vec, &mut l_o_inst_vec);
@@ -262,12 +265,15 @@ impl Sigma1 {
             if m_vec.len() != l_free {
                 panic!("m_vec length mismatch: expected l_free");
             }
-            let mut m_inst_vec = vec![ScalarField::zero(); l].into_boxed_slice();
-            m_inst_vec[..l_free].copy_from_slice(m_vec);
+            let m_inst_vec = m_vec.to_vec().into_boxed_slice();
             let mut l_o_inst_mj_vec = vec![ScalarField::zero(); l].into_boxed_slice();
-            point_add_two_vecs(&l_o_inst_vec, &m_inst_vec, &mut l_o_inst_mj_vec);
+            point_add_two_vecs(
+                &l_o_inst_vec[..l_free],
+                &m_inst_vec,
+                &mut l_o_inst_mj_vec[..l_free]
+            );
+            l_o_inst_mj_vec[l_free..].copy_from_slice(&l_o_inst_vec[l_free..]);
             drop(l_o_inst_vec);
-            drop(m_inst_vec);
 
             let mut gamma_inv_o_inst_vec = vec![ScalarField::zero(); l].into_boxed_slice();
             scale_vec(tau.gamma.inv(), &l_o_inst_mj_vec, &mut gamma_inv_o_inst_vec);

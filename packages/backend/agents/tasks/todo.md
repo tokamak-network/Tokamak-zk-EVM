@@ -446,3 +446,14 @@ Updated trusted-setup testing-mode check path to use split public instance encod
 - [x] Summarize changes and verification results.
 Updated `setup/trusted-setup/src/main.rs` so `m_evaled_vec` is generated over `l_free`. Updated `Sigma1::gen` to accept `m_vec` sized `l_free` by embedding it into an `l`-sized vector (fixed/public-function segment zero-filled) before `L*o + M` accumulation.
 Verification: `cargo check -p libs -p trusted-setup` and `cargo check -p trusted-setup --features testing-mode` both passed (with pre-existing warnings).
+
+# Plan (2026-02-14, Sigma1 user_vec/m_inst_vec)
+- [x] Enforce `user_vec` partition so `l_vec[2]` segment is `l_free - l_user` and total length matches `l`.
+- [x] Change `m_inst_vec` handling to length `l_free` and apply only to first `l_free` entries of `l_o_inst_vec` when building `l_o_inst_mj_vec`.
+- [x] Verify compile impact on `libs` and `trusted-setup`.
+- [x] Commit the changes.
+
+# Review (2026-02-14, Sigma1 user_vec/m_inst_vec)
+- [x] Summarize changes and verification results.
+`Sigma1::gen` now validates `user_vec.len() == l`, keeps the `l_vec[2]` block sized as `l_free - l_user`, uses `m_inst_vec` sized exactly `l_free`, and computes `l_o_inst_mj_vec` by adding only the first `l_free` slice of `l_o_inst_vec` with `m_inst_vec` while preserving the remaining suffix.  
+Verification: `cargo check -p libs -p trusted-setup` and `cargo check -p trusted-setup --features testing-mode` passed (with pre-existing warnings).
