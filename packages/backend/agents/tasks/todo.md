@@ -463,7 +463,7 @@ Verification: `cargo check -p libs -p trusted-setup` and `cargo check -p trusted
 - [x] Rename `Preprocess.A_fix` to `Preprocess.O_pub_fix` and update formatted preprocess packing/unpacking.
 - [x] Apply compatible updates across `trusted-setup`, `prove`, `verify/preprocess`, and `verify-rust`.
 - [x] Verify compile for affected crates.
-- [ ] Commit the changes.
+- [x] Commit the changes.
 
 # Review (2026-02-14, O_pub_fix refactor)
 - [x] Summarize changes and verification results.
