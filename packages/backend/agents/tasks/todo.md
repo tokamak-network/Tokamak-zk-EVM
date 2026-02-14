@@ -498,7 +498,7 @@ Verification: `cargo check -p libs -p prove -p verify -p trusted-setup` and `car
 - [x] Rename `encode_o_free_common` to `encode_o_pub_free_common`.
 - [x] Update all imports/call sites.
 - [x] Verify compile for affected crates.
-- [ ] Commit the changes.
+- [x] Commit the changes.
 
 # Review (2026-02-14, rename encode_o_pub_free_common)
 - [x] Summarize changes and verification results.
