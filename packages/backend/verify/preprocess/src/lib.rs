@@ -21,7 +21,7 @@ pub struct PreprocessInputPaths<'a> {
 pub struct Preprocess {
     pub s0: G1serde,
     pub s1: G1serde,
-    pub A_fix: G1serde,
+    pub O_pub_fix: G1serde,
     // pub O_function_inst: G1serde,
     // pub O_block_inst: G1serde,
     // pub lagrange_KL: G1serde,
@@ -46,8 +46,7 @@ impl Preprocess {
         let (mut s0XY, mut s1XY) = Permutation::to_poly(permutation_raw, m_i, s_max);
         let s0 = sigma.sigma_1.encode_poly(&mut s0XY, &setup_params);
         let s1 = sigma.sigma_1.encode_poly(&mut s1XY, &setup_params);
-        let mut a_fix_X = instance.gen_a_fix_X(setup_params);
-        let A_fix = sigma.sigma_1.encode_poly(&mut a_fix_X, setup_params);
+        let O_pub_fix = sigma.sigma_1.encode_O_pub_fix(&instance.a_pub_function, setup_params);
 
         
         // let mut lagrange_KL_XY = {
@@ -76,7 +75,7 @@ impl Preprocess {
         return Preprocess {
             s0, 
             s1,
-            A_fix,
+            O_pub_fix,
             // O_function_inst,
             // O_block_inst,
         };
@@ -93,7 +92,7 @@ impl Preprocess {
         split_push!(preprocess_entries_part1, preprocess_entries_part2,
             &self.s0,
             &self.s1,
-            &self.A_fix,
+            &self.O_pub_fix,
             // &self.O_function_inst,
             // &self.O_block_inst,
         );
@@ -128,7 +127,7 @@ impl FormattedPreprocess {
         pop_recover!(idx, p1, p2,
             s0,
             s1,
-            A_fix,
+            O_pub_fix,
             // O_function_inst,
             // O_block_inst,
         );
@@ -136,7 +135,7 @@ impl FormattedPreprocess {
         return Preprocess {
             s0,
             s1,
-            A_fix,
+            O_pub_fix,
             // O_function_inst,
             // O_block_inst,
         };

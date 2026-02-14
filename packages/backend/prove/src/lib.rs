@@ -460,7 +460,7 @@
 
             let shape = setup_shape(&setup_params);
             validate_setup_shape(&shape);
-            let _l = shape.l;
+            let _l = setup_params.l;
             let m_i = shape.m_i;
             let n = shape.n;
             let s_max = shape.s_max;

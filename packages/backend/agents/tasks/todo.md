@@ -457,3 +457,15 @@ Verification: `cargo check -p libs -p trusted-setup` and `cargo check -p trusted
 - [x] Summarize changes and verification results.
 `Sigma1::gen` now validates `user_vec.len() == l`, keeps the `l_vec[2]` block sized as `l_free - l_user`, uses `m_inst_vec` sized exactly `l_free`, and computes `l_o_inst_mj_vec` by adding only the first `l_free` slice of `l_o_inst_vec` with `m_inst_vec` while preserving the remaining suffix.  
 Verification: `cargo check -p libs -p trusted-setup` and `cargo check -p trusted-setup --features testing-mode` passed (with pre-existing warnings).
+
+# Plan (2026-02-14, O_pub_fix refactor)
+- [x] Remove `gen_a_fix_X` and replace fixed-public computation with MSM against the tail of `gamma_inv_o_inst`.
+- [x] Rename `Preprocess.A_fix` to `Preprocess.O_pub_fix` and update formatted preprocess packing/unpacking.
+- [x] Apply compatible updates across `trusted-setup`, `prove`, `verify/preprocess`, and `verify-rust`.
+- [x] Verify compile for affected crates.
+- [ ] Commit the changes.
+
+# Review (2026-02-14, O_pub_fix refactor)
+- [x] Summarize changes and verification results.
+Removed `Instance::gen_a_fix_X`. Added `encode_O_pub_fix` MSM helpers on `Sigma1`/`ArchivedSigma1Rkyv`/`ArchivedPartialSigma1Rkyv` using `a_pub_function` and the last `m_function = l - l_free` bases from `gamma_inv_o_inst`. Renamed preprocess field to `O_pub_fix` and updated `trusted-setup` testing path + `verify-rust` usage accordingly.
+Verification: `cargo check -p libs -p prove -p preprocess -p verify -p trusted-setup` and `cargo check -p trusted-setup --features testing-mode` passed.

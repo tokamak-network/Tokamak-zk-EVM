@@ -8,7 +8,7 @@ use ark_ff::{Field};
 use icicle_runtime::memory::HostSlice;
 use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
 use crate::field_structures::{FieldSerde, Tau};
-use crate::iotools::{from_coef_vec_to_g1serde_mat, from_coef_vec_to_g1serde_vec, scaled_outer_product_1d, scaled_outer_product_2d, PlacementVariables, SetupParams, SubcircuitInfo};
+use crate::iotools::{from_coef_vec_to_g1serde_mat, from_coef_vec_to_g1serde_vec, scaled_outer_product_1d, scaled_outer_product_2d, HexString, PlacementVariables, SetupParams, SubcircuitInfo};
 use crate::vector_operations::{*};
 
 use serde::{Deserialize, Serialize};
@@ -457,6 +457,43 @@ impl Sigma1 {
         G1serde(G1Affine::from(msm_res[0]))
     }
 
+    pub fn encode_O_pub_fix(
+        &self,
+        a_pub_function: &[HexString],
+        setup_params: &SetupParams,
+    ) -> G1serde {
+        let m_function = setup_params.l - setup_params.l_free;
+        if m_function == 0 {
+            return G1serde::zero();
+        }
+        if a_pub_function.len() != m_function {
+            panic!("a_pub_function length mismatch: expected m_function");
+        }
+        if self.gamma_inv_o_inst.len() < m_function {
+            panic!("gamma_inv_o_inst length is smaller than m_function");
+        }
+
+        let start = self.gamma_inv_o_inst.len() - m_function;
+        let scalars_field = a_pub_function
+            .iter()
+            .map(|val| ScalarField::from_hex(val))
+            .collect::<Vec<_>>();
+        let bases = self.gamma_inv_o_inst[start..]
+            .iter()
+            .map(|serde| serde.0)
+            .collect::<Vec<_>>();
+
+        let mut msm_res = vec![G1Projective::zero(); 1];
+        msm::msm(
+            HostSlice::from_slice(&scalars_field),
+            HostSlice::from_slice(&bases),
+            &MSMConfig::default(),
+            HostSlice::from_mut_slice(&mut msm_res),
+        ).unwrap();
+
+        G1serde(G1Affine::from(msm_res[0]))
+    }
+
 
     pub fn encode_O_mid_no_zk(
         &self,
@@ -678,8 +715,48 @@ pub struct SigmaPreprocess {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PartialSigma1 {
     pub xy_powers: Box<[G1serde]>,
+    pub gamma_inv_o_inst: Box<[G1serde]>,
 }
 impl_encode_poly!(PartialSigma1);
+
+impl PartialSigma1 {
+    pub fn encode_O_pub_fix(
+        &self,
+        a_pub_function: &[HexString],
+        setup_params: &SetupParams,
+    ) -> G1serde {
+        let m_function = setup_params.l - setup_params.l_free;
+        if m_function == 0 {
+            return G1serde::zero();
+        }
+        if a_pub_function.len() != m_function {
+            panic!("a_pub_function length mismatch: expected m_function");
+        }
+        if self.gamma_inv_o_inst.len() < m_function {
+            panic!("gamma_inv_o_inst length is smaller than m_function");
+        }
+
+        let start = self.gamma_inv_o_inst.len() - m_function;
+        let scalars_field = a_pub_function
+            .iter()
+            .map(|val| ScalarField::from_hex(val))
+            .collect::<Vec<_>>();
+        let bases = self.gamma_inv_o_inst[start..]
+            .iter()
+            .map(|serde| serde.0)
+            .collect::<Vec<_>>();
+
+        let mut msm_res = vec![G1Projective::zero(); 1];
+        msm::msm(
+            HostSlice::from_slice(&scalars_field),
+            HostSlice::from_slice(&bases),
+            &MSMConfig::default(),
+            HostSlice::from_mut_slice(&mut msm_res),
+        ).unwrap();
+
+        G1serde(G1Affine::from(msm_res[0]))
+    }
+}
 
 // impl PartialSigma1 {
 //     pub fn encode_O_function_inst(

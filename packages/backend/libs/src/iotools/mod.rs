@@ -145,10 +145,10 @@ pub struct PublicWireInfo {
 
 #[derive(Debug, Deserialize)]
 pub struct SetupParams {
+    pub l_free: usize,
     pub l: usize,
     pub l_user_out: usize,
     pub l_user: usize,
-    pub l_block: usize,
     pub l_D: usize, //m_I = l_D - 1
     pub m_D: usize,
     pub n: usize,
@@ -191,7 +191,7 @@ impl Sigma {
         let writer = BufWriter::new(file);
         let partial_sigma_1: PartialSigma1 = PartialSigma1 {
             xy_powers: self.sigma_1.xy_powers.clone(),
-            // gamma2_inv_o_env_inst: self.sigma_1.gamma2_inv_o_env_inst.clone(),
+            gamma_inv_o_inst: self.sigma_1.gamma_inv_o_inst.clone(),
         };
         let sigma_preprocess: SigmaPreprocess = SigmaPreprocess {
             sigma_1: partial_sigma_1
@@ -1348,6 +1348,7 @@ pub struct Sigma1Rkyv {
 #[archive(check_bytes)]
 pub struct PartialSigma1Rkyv {
     pub xy_powers: Vec<G1SerdeRkyv>,
+    pub gamma_inv_o_inst: Vec<G1SerdeRkyv>,
 }
 
 #[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
@@ -1500,7 +1501,8 @@ impl Sigma1Rkyv {
 impl PartialSigma1Rkyv {
     fn from_sigma(sigma: &crate::group_structures::Sigma1) -> Self {
         let xy_powers = sigma.xy_powers.iter().map(G1SerdeRkyv::from_g1serde).collect();
-        Self { xy_powers }
+        let gamma_inv_o_inst = sigma.gamma_inv_o_inst.iter().map(G1SerdeRkyv::from_g1serde).collect();
+        Self { xy_powers, gamma_inv_o_inst }
     }
 }
 
@@ -1646,6 +1648,44 @@ fn encode_poly_from_xy_powers(
 impl ArchivedSigma1Rkyv {
     pub fn encode_poly(&self, poly: &mut DensePolynomialExt, params: &SetupParams) -> G1serde {
         encode_poly_from_xy_powers(poly, params, self.xy_powers.as_slice())
+    }
+
+    pub fn encode_O_pub_fix(
+        &self,
+        a_pub_function: &[HexString],
+        setup_params: &SetupParams,
+    ) -> G1serde {
+        let m_function = setup_params.l - setup_params.l_free;
+        if m_function == 0 {
+            return G1serde::zero();
+        }
+        if a_pub_function.len() != m_function {
+            panic!("a_pub_function length mismatch: expected m_function");
+        }
+        if self.gamma_inv_o_inst.len() < m_function {
+            panic!("gamma_inv_o_inst length is smaller than m_function");
+        }
+
+        let start = self.gamma_inv_o_inst.len() - m_function;
+        let scalars_field = a_pub_function
+            .iter()
+            .map(|val| ScalarField::from_hex(val))
+            .collect::<Vec<_>>();
+        let bases = self.gamma_inv_o_inst[start..]
+            .iter()
+            .map(|serde| serde.to_g1_affine())
+            .collect::<Vec<_>>();
+
+        let mut msm_res = vec![G1Projective::zero(); 1];
+        msm::msm(
+            HostSlice::from_slice(&scalars_field),
+            HostSlice::from_slice(&bases),
+            &MSMConfig::default(),
+            HostSlice::from_mut_slice(&mut msm_res),
+        )
+        .unwrap();
+
+        G1serde(G1Affine::from(msm_res[0]))
     }
 
     pub fn encode_O_inst(
@@ -1813,5 +1853,43 @@ impl ArchivedSigma1Rkyv {
 impl ArchivedPartialSigma1Rkyv {
     pub fn encode_poly(&self, poly: &mut DensePolynomialExt, params: &SetupParams) -> G1serde {
         encode_poly_from_xy_powers(poly, params, self.xy_powers.as_slice())
+    }
+
+    pub fn encode_O_pub_fix(
+        &self,
+        a_pub_function: &[HexString],
+        setup_params: &SetupParams,
+    ) -> G1serde {
+        let m_function = setup_params.l - setup_params.l_free;
+        if m_function == 0 {
+            return G1serde::zero();
+        }
+        if a_pub_function.len() != m_function {
+            panic!("a_pub_function length mismatch: expected m_function");
+        }
+        if self.gamma_inv_o_inst.len() < m_function {
+            panic!("gamma_inv_o_inst length is smaller than m_function");
+        }
+
+        let start = self.gamma_inv_o_inst.len() - m_function;
+        let scalars_field = a_pub_function
+            .iter()
+            .map(|val| ScalarField::from_hex(val))
+            .collect::<Vec<_>>();
+        let bases = self.gamma_inv_o_inst[start..]
+            .iter()
+            .map(|serde| serde.to_g1_affine())
+            .collect::<Vec<_>>();
+
+        let mut msm_res = vec![G1Projective::zero(); 1];
+        msm::msm(
+            HostSlice::from_slice(&scalars_field),
+            HostSlice::from_slice(&bases),
+            &MSMConfig::default(),
+            HostSlice::from_mut_slice(&mut msm_res),
+        )
+        .unwrap();
+
+        G1serde(G1Affine::from(msm_res[0]))
     }
 }

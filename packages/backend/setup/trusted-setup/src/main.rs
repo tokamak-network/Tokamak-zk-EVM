@@ -104,7 +104,7 @@ fn main() {
     let l_free = setup_params.l_free;
     // The last wire-related parameter
     let m_i = shape.m_i;
-    println!("Setup parameters: \n n = {:?}, \n s_max = {:?}, \n l = {:?}, \n m_I = {:?}, \n m_D = {:?}", n, s_max, l, m_i, m_d);
+    println!("Setup parameters: \n n = {:?}, \n s_max = {:?}, \n l = {:?}, \n l_free = {:?}, \n m_I = {:?}, \n m_D = {:?}", n, s_max, l, l_free, m_i, m_d);
 
     #[cfg(feature = "testing-mode")]
     let ntt_domain_size = trusted_setup_testing_ntt_domain_size(&shape);
@@ -255,12 +255,11 @@ fn main() {
             // public_instance.a_pub = vec![ScalarField::zero().to_string(); setup_params.l];
         ////
         let mut a_free_X = public_instance.gen_a_free_X(&setup_params);
-        let mut a_fix_X = public_instance.gen_a_fix_X(&setup_params);
         let mut bXY = gen_bXY(&placement_variables, &subcircuit_infos, &setup_params);
         let (mut uXY, mut vXY, mut wXY) = read_R1CS_gen_uvwXY(&paths.qap_path, &placement_variables, &subcircuit_infos, &setup_params);
         let a_free_encoding = sigma.sigma_1.encode_poly(&mut a_free_X, &setup_params);
-        let a_fix_encoding = sigma.sigma_1.encode_poly(&mut a_fix_X, &setup_params);
-        let a_encoding = a_free_encoding + a_fix_encoding;
+        let o_pub_fix = sigma.sigma_1.encode_O_pub_fix(&public_instance.a_pub_function, &setup_params);
+        let a_encoding = a_free_encoding + o_pub_fix;
         // TEMP
             // assert_eq!(a_encoding.0, G1Affine::zero());
         ////
@@ -289,7 +288,7 @@ fn main() {
             + w_encoding * tau.alpha.pow(3)
             + b_encoding * tau.alpha.pow(4);
         assert_eq!(LHS, RHS);
-        println!("Checked: o_vec (A_free + A_fix)");
+        println!("Checked: o_vec (A_free + O_pub_fix)");
         let mut t: ScalarField;
         t = tau.x.pow(n) - ScalarField::one();
         for k in 1 ..4 {
