@@ -5,7 +5,7 @@ use icicle_core::msm::{self, MSMConfig};
 use icicle_runtime::{self, memory::{HostSlice, DeviceVec}};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use crate::field_structures::FieldSerde;
-use crate::group_structures::{count_o_mid_nvar, count_o_prv_nvar, encode_o_free_common, encode_o_pub_fix_common, encode_statement_common, G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify};
+use crate::group_structures::{count_o_mid_nvar, count_o_prv_nvar, encode_o_pub_fix_common, encode_o_pub_free_common, encode_statement_common, G1serde, G2serde, PartialSigma1, PartialSigma1Verify, Sigma, Sigma1, Sigma2, SigmaPreprocess, SigmaVerify};
 use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use crate::polynomial_structures::{from_subcircuit_to_QAP, QAP};
 use crate::utils::{check_device, check_gpu};
@@ -1669,7 +1669,7 @@ impl ArchivedSigma1Rkyv {
         subcircuit_infos: &[SubcircuitInfo],
         setup_params: &SetupParams,
     ) -> G1serde {
-        encode_o_free_common(
+        encode_o_pub_free_common(
             placement_variables,
             subcircuit_infos,
             setup_params,

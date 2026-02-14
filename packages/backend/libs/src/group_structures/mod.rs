@@ -184,7 +184,7 @@ where
     msm_g1_bases(&scalars_field, &bases)
 }
 
-pub(crate) fn encode_o_free_common<F>(
+pub(crate) fn encode_o_pub_free_common<F>(
     placement_variables: &[PlacementVariables],
     subcircuit_infos: &[SubcircuitInfo],
     setup_params: &SetupParams,
@@ -565,7 +565,7 @@ impl Sigma1 {
         subcircuit_infos: &[SubcircuitInfo],
         setup_params: &SetupParams
     ) -> G1serde {
-        encode_o_free_common(
+        encode_o_pub_free_common(
             placement_variables,
             subcircuit_infos,
             setup_params,
