@@ -475,7 +475,7 @@ Verification: `cargo check -p libs -p prove -p preprocess -p verify -p trusted-s
 - [x] Consolidate same encode logic (`O_pub_fix`, `O_inst`, `O_mid_no_zk`, `O_prv_no_zk`, statement encoding/counting) into single shared implementations.
 - [x] Keep per-type methods as thin wrappers only.
 - [x] Verify compile on affected packages (`libs`, `prove`, `preprocess`, `verify`, `trusted-setup`).
-- [ ] Commit the changes.
+- [x] Commit the changes.
 
 # Review (2026-02-14, dedupe same-logic functions)
 - [x] Summarize changes and verification results.
