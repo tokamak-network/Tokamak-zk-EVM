@@ -487,7 +487,7 @@ Verification: `cargo check -p libs -p prove -p preprocess -p verify -p trusted-s
 - [x] Exclude `bufferEVMIn` variables from the free-public MSM path.
 - [x] Rename prove binding variable/field `O_inst` to `O_pub_free` and update dependent verifier usage.
 - [x] Verify compile for affected crates.
-- [ ] Commit the changes.
+- [x] Commit the changes.
 
 # Review (2026-02-14, O_free rename + EVM exclusion)
 - [x] Summarize changes and verification results.
