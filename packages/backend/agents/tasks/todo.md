@@ -396,7 +396,9 @@ Verification: `cargo check -p prove` passed (only pre-existing workspace warning
 - [x] Rename binding commitment field in `prove` from `A` to `A_free` and update all serialization/deserialization/usage sites.
 - [x] Rename `Instance::gen_a_pub_X` to `gen_a_free_X` and change construction logic to use only `a_pub_user` + `a_pub_block` with `l_free = setup_params.l_free`.
 - [x] Update all call sites (including verifier crates) to new names and semantics, then run a targeted compile/test.
-- [ ] Commit all related changes.
+- [x] Commit all related changes.
 
 # Review (2026-02-14)
-- [ ] Summarize changes and verification results.
+- [x] Summarize changes and verification results.
+Renamed proof binding commitment field to `A_free`, updated formatted proof packing/unpacking and verifier references, and switched instance polynomial generation to `gen_a_free_X` using only `a_pub_user` + `a_pub_block` with `l_free`. Also aligned `Sigma1::gen` segment sizing to `l_free`-based block/function split.
+Verification: `cargo check -p libs -p prove -p verify` passed. `cargo check --manifest-path verify/verify-wasm/Cargo.toml` could not run due sandbox network DNS resolution failure for crates.io.
