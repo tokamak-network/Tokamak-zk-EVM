@@ -290,7 +290,11 @@ where
         }
     }
     if aligned_rs.len() != nVar {
-        panic!("nVar mismatch while encoding statement");
+        panic!(
+            "nVar mismatch while encoding statement: aligned_rs.len()={}, nVar={}",
+            aligned_rs.len(),
+            nVar
+        );
     }
     msm_g1_bases(&aligned_variable, &aligned_rs)
 }

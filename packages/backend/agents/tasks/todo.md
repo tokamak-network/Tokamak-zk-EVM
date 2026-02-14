@@ -1,3 +1,13 @@
+# Plan (2026-02-14, nVar panic value logging)
+- [x] Locate `nVar` mismatch panic in statement encoding path.
+- [x] Update panic to include compared values (`aligned_rs.len()`, `nVar`).
+- [x] Verify with `cargo check -p libs`.
+
+# Review (2026-02-14, nVar panic value logging)
+- [x] Summarize changes and verification results.
+Updated `encode_statement_common` panic to print concrete mismatch values for `aligned_rs.len()` and `nVar`.
+Verification: `cargo check -p libs` passed.
+
 # Plan (2026-02-14, panic value logging)
 - [x] Locate panic checks for `a_pub_function` and `gamma_inv_o_inst` length validation.
 - [x] Update panic messages to include expected/actual values for both comparisons.
