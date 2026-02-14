@@ -267,8 +267,8 @@
                 &self.proof4.N_Y,
                 // N_X (appears as N_χ in comments)
                 &self.proof4.N_X,
-                // O_inst from binding (appears to be O_pub in the test)
-                &self.binding.O_inst,
+                // O_pub_free from binding (appears to be O_pub in the test)
+                &self.binding.O_pub_free,
                 // A_free from binding
                 &self.binding.A_free,
             );
@@ -323,10 +323,10 @@
                 M_X,
                 N_Y,
                 N_X,
-                O_inst,
+                O_pub_free,
                 A_free,
             );
-            let binding = Binding { A_free, O_inst, O_mid, O_prv};
+            let binding = Binding { A_free, O_pub_free, O_mid, O_prv};
             let proof0 = Proof0 { U, V, W, Q_AX, Q_AY, B };
             let proof1 = Proof1 { R };
             let proof2 = Proof2 { Q_CX, Q_CY };
@@ -354,7 +354,7 @@
     #[derive(Debug, Serialize, Deserialize)]
     pub struct Binding {
         pub A_free: G1serde,
-        pub O_inst: G1serde,
+        pub O_pub_free: G1serde,
         pub O_mid: G1serde,
         pub O_prv: G1serde
     }
@@ -802,11 +802,11 @@
                         sigma.sigma1().encode_poly(&mut instance.a_free_X, &setup_params)
                     }
                 );
-                let O_inst = crate::time_block!(
-                    "init.build.binding.O_inst",
+                let O_pub_free = crate::time_block!(
+                    "init.build.binding.O_pub_free",
                     "build",
                     vec![
-                        crate::timing::SizeInfo { label: "O_inst", dims: vec![_l, 1] },
+                        crate::timing::SizeInfo { label: "O_pub_free", dims: vec![_l, 1] },
                     ],
                     {
                         sigma.sigma1().encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params)
@@ -863,7 +863,7 @@
                         sigma.sigma1().delta_inv_alphak_yi_ty(3, 0) * mixer.rB_Y[0]
                         + sigma.sigma1().delta_inv_alphak_yi_ty(3, 1) * mixer.rB_Y[1]
                     );
-                Binding {A_free, O_inst, O_mid, O_prv}
+                Binding {A_free, O_pub_free, O_mid, O_prv}
             };
 
             #[cfg(feature = "timing")]

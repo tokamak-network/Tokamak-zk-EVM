@@ -184,7 +184,7 @@ where
     msm_g1_bases(&scalars_field, &bases)
 }
 
-pub(crate) fn encode_o_inst_common<F>(
+pub(crate) fn encode_o_free_common<F>(
     placement_variables: &[PlacementVariables],
     subcircuit_infos: &[SubcircuitInfo],
     setup_params: &SetupParams,
@@ -199,12 +199,13 @@ where
         let subcircuit_id = placement.subcircuitId;
         let variables = &placement.variables;
         let subcircuit_info = &subcircuit_infos[subcircuit_id];
+        if subcircuit_info.name == "bufferEVMIn" {
+            continue;
+        }
         let flatten_map = &subcircuit_info.flattenMap;
         let (start_idx, end_idx_exclusive) = if subcircuit_info.name == "bufferPubOut" {
             (subcircuit_info.Out_idx[0], subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1])
         } else if subcircuit_info.name == "bufferPubIn" {
-            (subcircuit_info.In_idx[0], subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
-        } else if subcircuit_info.name == "bufferEVMIn" {
             (subcircuit_info.In_idx[0], subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
         } else if subcircuit_info.name == "bufferBlockIn" {
             (subcircuit_info.In_idx[0], subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
@@ -564,7 +565,7 @@ impl Sigma1 {
         subcircuit_infos: &[SubcircuitInfo],
         setup_params: &SetupParams
     ) -> G1serde {
-        encode_o_inst_common(
+        encode_o_free_common(
             placement_variables,
             subcircuit_infos,
             setup_params,

@@ -223,7 +223,7 @@ impl Verifier {
             &[self.sigma.h(), self.sigma.sigma2().alpha4,  self.sigma.sigma2().alpha,   self.sigma.sigma2().alpha2,  self.sigma.sigma2().alpha3]
         );
         let right_pair = pairing(
-            &[binding.O_inst,        binding.O_mid,              binding.O_prv,              AUX_X,                  AUX_Y               ],
+            &[binding.O_pub_free,    binding.O_mid,              binding.O_prv,              AUX_X,                  AUX_Y               ],
             &[self.sigma.sigma2().gamma,   self.sigma.sigma2().eta,     self.sigma.sigma2().delta,   self.sigma.sigma2().x,   self.sigma.sigma2().y]
         );
         left_pair.eq(&right_pair)
@@ -380,7 +380,7 @@ impl Verifier {
             &[self.sigma.h(),     self.sigma.sigma2().alpha4,  self.sigma.sigma2().alpha,   self.sigma.sigma2().alpha2,  self.sigma.sigma2().alpha3]
         );
         let right_pair = pairing(
-            &[binding.O_inst,            binding.O_mid,              binding.O_prv,              proof4.Pi_B * kappa2    ],
+            &[binding.O_pub_free,        binding.O_mid,              binding.O_prv,              proof4.Pi_B * kappa2    ],
             &[self.sigma.sigma2().gamma,       self.sigma.sigma2().eta,     self.sigma.sigma2().delta,   self.sigma.sigma2().x    ]
         );
 

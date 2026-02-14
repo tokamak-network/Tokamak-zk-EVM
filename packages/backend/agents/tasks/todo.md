@@ -481,3 +481,15 @@ Verification: `cargo check -p libs -p prove -p preprocess -p verify -p trusted-s
 - [x] Summarize changes and verification results.
 Unified duplicated Sigma encode logic into shared helpers in `libs/src/group_structures/mod.rs` (`encode_o_pub_fix_common`, `encode_o_inst_common`, `encode_statement_common`, `count_o_mid_nvar`, `count_o_prv_nvar`, `msm_g1_bases`). `Sigma1`, `PartialSigma1`, `ArchivedSigma1Rkyv`, and `ArchivedPartialSigma1Rkyv` now call these shared helpers instead of keeping separate logic copies.
 Verification: `cargo check -p libs -p prove -p preprocess -p verify -p trusted-setup` and `cargo check -p trusted-setup --features testing-mode` passed.
+
+# Plan (2026-02-14, O_free rename + EVM exclusion)
+- [x] Rename `encode_o_inst_common` to `encode_o_free_common` and update all call sites.
+- [x] Exclude `bufferEVMIn` variables from the free-public MSM path.
+- [x] Rename prove binding variable/field `O_inst` to `O_pub_free` and update dependent verifier usage.
+- [x] Verify compile for affected crates.
+- [ ] Commit the changes.
+
+# Review (2026-02-14, O_free rename + EVM exclusion)
+- [x] Summarize changes and verification results.
+Renamed shared helper to `encode_o_free_common`, updated callers (`Sigma1` and archived sigma), and changed logic to skip `bufferEVMIn` entries in free-public MSM accumulation. In `prove`, binding field/variable `O_inst` was renamed to `O_pub_free` (including formatted proof wiring and timing labels), and `verify-rust` references were updated accordingly.
+Verification: `cargo check -p libs -p prove -p verify -p trusted-setup` and `cargo check -p trusted-setup --features testing-mode` passed.
