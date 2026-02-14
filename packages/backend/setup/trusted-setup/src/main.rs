@@ -271,7 +271,7 @@ fn main() {
         let u_encoding = sigma.sigma_1.encode_poly(&mut uXY, &setup_params);
         let v_encoding = sigma.sigma_1.encode_poly(&mut vXY, &setup_params);
         let w_encoding = sigma.sigma_1.encode_poly(&mut wXY, &setup_params);
-        let O_inst = sigma.sigma_1.encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params);
+        let O_inst = sigma.sigma_1.encode_O_pub_free(&placement_variables, &subcircuit_infos, &setup_params);
         // TEMP
             // assert_eq!(O_pub.0, G1Affine::zero());
         ////

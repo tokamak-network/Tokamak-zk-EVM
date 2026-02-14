@@ -809,7 +809,7 @@
                         crate::timing::SizeInfo { label: "O_pub_free", dims: vec![_l, 1] },
                     ],
                     {
-                        sigma.sigma1().encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params)
+                        sigma.sigma1().encode_O_pub_free(&placement_variables, &subcircuit_infos, &setup_params)
                     }
                 );
                 

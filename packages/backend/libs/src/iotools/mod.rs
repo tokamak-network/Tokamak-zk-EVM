@@ -1663,7 +1663,7 @@ impl ArchivedSigma1Rkyv {
         )
     }
 
-    pub fn encode_O_inst(
+    pub fn encode_O_pub_free(
         &self,
         placement_variables: &[PlacementVariables],
         subcircuit_infos: &[SubcircuitInfo],

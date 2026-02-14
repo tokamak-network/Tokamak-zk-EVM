@@ -1,3 +1,13 @@
+# Plan (2026-02-14, rename encode_O_inst)
+- [x] Rename `Sigma1::encode_O_inst` to `encode_O_pub_free` at definition sites.
+- [x] Update all call sites (`prove`, `setup`, wrapper helpers) to the new method name.
+- [x] Verify compile with `cargo check -p libs -p prove -p trusted-setup -p verify`.
+
+# Review (2026-02-14, rename encode_O_inst)
+- [x] Summarize changes and verification results.
+Renamed `encode_O_inst` to `encode_O_pub_free` in `Sigma1` and `ArchivedSigma1Rkyv`, then updated all wrapper and call sites in `prove` and `trusted-setup` accordingly. Also updated the leftover commented signature name to prevent stale references.
+Verification: `cargo check -p libs -p prove -p trusted-setup -p verify` passed (workspace warnings only).
+
 # Plan (2026-02-14)
 - [x] Identify duplicated logic between `verify_snark` and test helpers (`verify_arith`, `verify_copy`, `verify_binding`) in `verify/verify-rust/src/lib.rs`.
 - [x] Refactor duplicated logic into shared internal helper functions/contexts so the same equation logic is implemented once.

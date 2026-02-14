@@ -505,7 +505,7 @@ impl Sigma1 {
         
     }
 
-    // pub fn encode_O_inst(
+    // pub fn encode_O_pub_free(
     //     &self,
     //     placement_variables: &[PlacementVariables],
     //     subcircuit_infos: &[SubcircuitInfo],
@@ -559,7 +559,7 @@ impl Sigma1 {
     //     G1serde(G1Affine::from(msm_res[0]))
     // }
 
-    pub fn encode_O_inst(
+    pub fn encode_O_pub_free(
         &self,
         placement_variables: &[PlacementVariables],
         subcircuit_infos: &[SubcircuitInfo],

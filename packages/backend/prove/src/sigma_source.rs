@@ -52,13 +52,13 @@ impl<'a> Sigma1Handle<'a> {
         self.0.encode_poly(poly, params)
     }
 
-    pub fn encode_O_inst(
+    pub fn encode_O_pub_free(
         &self,
         placement_variables: &[PlacementVariables],
         subcircuit_infos: &[SubcircuitInfo],
         setup_params: &SetupParams,
     ) -> G1serde {
-        self.0.encode_O_inst(placement_variables, subcircuit_infos, setup_params)
+        self.0.encode_O_pub_free(placement_variables, subcircuit_infos, setup_params)
     }
 
     pub fn encode_O_pub_fix(
