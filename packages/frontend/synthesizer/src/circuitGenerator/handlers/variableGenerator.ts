@@ -140,6 +140,24 @@ export class VariableGenerator {
     const l = setupParams.l;
     const l_user = setupParams.l_user;
     const l_free = setupParams.l_free;
+    const blockBufferInfo = SUBCIRCUIT_BUFFER_MAPPING.BLOCK_IN;
+    if (!blockBufferInfo) {
+      throw new Error('Missing buffer info for BLOCK_IN');
+    }
+    const placements = this.placementsCompatibleWithSubcircuits;
+    if (!placements) {
+      throw new Error('Placements are not initialized');
+    }
+    const evmInPlacementIndex = BUFFER_LIST.findIndex(str => str === 'EVM_IN');
+    if (evmInPlacementIndex < 0) {
+      throw new Error('EVM_IN buffer is not configured in BUFFER_LIST');
+    }
+    const evmInPlacement = placements[evmInPlacementIndex];
+    if (!evmInPlacement) {
+      throw new Error('EVM_IN placement is missing');
+    }
+    const blockWireCount = blockBufferInfo.NInWires;
+    const functionWireCount = evmInPlacement.inPts.length;
 
     const a_pub: `0x${string}`[] = Array(l).fill('0x00');
     for (var globalIdx = 0; globalIdx < l; globalIdx++) {
@@ -155,12 +173,19 @@ export class VariableGenerator {
     }
 
     const a_pub_user = a_pub.slice(0, l_user);
-    // const pubBlockOffset = blockBufferInfo.flattenMap[blockBufferInfo.inWireIndex]
-    // const numBlockInstance = blockBufferInfo.NInWires
-    const a_pub_block = a_pub.slice(l_user, l_free);
-    // const pubFunctionOffset = functionBufferInfo.flattenMap[functionBufferInfo.inWireIndex]
-    // const numFunctionInstance = functionBufferInfo.NInWires
-    const a_pub_function = a_pub.slice(l_free);
+    const blockStart = l_user;
+    const blockEnd = blockStart + blockWireCount;
+    const functionStart = blockEnd;
+    const functionEnd = functionStart + functionWireCount;
+    if (functionEnd > l) {
+      throw new Error('EVM_IN public wire count exceeds setupParams.l');
+    }
+    const blockPadding = l_free - blockEnd;
+    if (blockPadding < 0) {
+      throw new Error('setupParams.l_free is smaller than user+block public wires');
+    }
+    const a_pub_block = a_pub.slice(blockStart, blockEnd).concat(Array(blockPadding).fill('0x00'));
+    const a_pub_function = a_pub.slice(functionStart, functionEnd);
     return {
       a_pub_user,
       a_pub_block,
@@ -172,6 +197,24 @@ export class VariableGenerator {
     const l = setupParams.l;
     const l_user = setupParams.l_user;
     const l_free = setupParams.l_free;
+    const blockBufferInfo = SUBCIRCUIT_BUFFER_MAPPING.BLOCK_IN;
+    if (!blockBufferInfo) {
+      throw new Error('Missing buffer info for BLOCK_IN');
+    }
+    const placements = this.placementsCompatibleWithSubcircuits;
+    if (!placements) {
+      throw new Error('Placements are not initialized');
+    }
+    const evmInPlacementIndex = BUFFER_LIST.findIndex(str => str === 'EVM_IN');
+    if (evmInPlacementIndex < 0) {
+      throw new Error('EVM_IN buffer is not configured in BUFFER_LIST');
+    }
+    const evmInPlacement = placements[evmInPlacementIndex];
+    if (!evmInPlacement) {
+      throw new Error('EVM_IN placement is missing');
+    }
+    const blockWireCount = blockBufferInfo.NInWires;
+    const functionWireCount = evmInPlacement.inPts.length;
 
     const a_pub_desc: string[] = Array(l).fill('');
     for (let globalIdx = 0; globalIdx < l; globalIdx++) {
@@ -187,12 +230,21 @@ export class VariableGenerator {
     }
 
     const a_pub_user_description = a_pub_desc.slice(0, l_user);
-    // const pubBlockOffset = blockBufferInfo.flattenMap[blockBufferInfo.inWireIndex]
-    // const numBlockInstance = blockBufferInfo.NInWires
-    const a_pub_block_description = a_pub_desc.slice(l_user, l_free);
-    // const pubFunctionOffset = functionBufferInfo.flattenMap[functionBufferInfo.inWireIndex]
-    // const numFunctionInstance = functionBufferInfo.NInWires
-    const a_pub_function_description = a_pub_desc.slice(l_free);
+    const blockStart = l_user;
+    const blockEnd = blockStart + blockWireCount;
+    const functionStart = blockEnd;
+    const functionEnd = functionStart + functionWireCount;
+    if (functionEnd > l) {
+      throw new Error('EVM_IN public wire count exceeds setupParams.l');
+    }
+    const blockPadding = l_free - blockEnd;
+    if (blockPadding < 0) {
+      throw new Error('setupParams.l_free is smaller than user+block public wires');
+    }
+    const a_pub_block_description = a_pub_desc
+      .slice(blockStart, blockEnd)
+      .concat(Array(blockPadding).fill(''));
+    const a_pub_function_description = a_pub_desc.slice(functionStart, functionEnd);
     return {
       a_pub_user_description,
       a_pub_block_description,
