@@ -169,6 +169,21 @@ impl Instance {
         )
     }
 
+    pub fn gen_a_fix_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
+        let m_function = setup_params.l - setup_params.l_free;
+        let mut function_instance = vec![ScalarField::zero(); m_function];
+        for i in 0..m_function {
+            function_instance[i] = ScalarField::from_hex(&self.a_pub_function[i]);
+        }
+        DensePolynomialExt::from_rou_evals(
+            HostSlice::from_slice(&function_instance),
+            m_function,
+            1,
+            None,
+            None
+        )
+    }
+
     // pub fn gen_a_pub_env_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
     //     let m_block = setup_params.l_block - setup_params.l_user;
     //     let m_function = setup_params.l - setup_params.l_block;
