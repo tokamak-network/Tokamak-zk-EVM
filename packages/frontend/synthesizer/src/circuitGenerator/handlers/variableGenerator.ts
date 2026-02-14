@@ -139,7 +139,7 @@ export class VariableGenerator {
   private _extractPublicInstance(placementVariables: PlacementVariables): PublicInstance {
     const l = setupParams.l;
     const l_user = setupParams.l_user;
-    const l_block = setupParams.l_block;
+    const l_free = setupParams.l_free;
 
     const a_pub: `0x${string}`[] = Array(l).fill('0x00');
     for (var globalIdx = 0; globalIdx < l; globalIdx++) {
@@ -157,10 +157,10 @@ export class VariableGenerator {
     const a_pub_user = a_pub.slice(0, l_user);
     // const pubBlockOffset = blockBufferInfo.flattenMap[blockBufferInfo.inWireIndex]
     // const numBlockInstance = blockBufferInfo.NInWires
-    const a_pub_block = a_pub.slice(l_user, l_block);
+    const a_pub_block = a_pub.slice(l_user, l_free);
     // const pubFunctionOffset = functionBufferInfo.flattenMap[functionBufferInfo.inWireIndex]
     // const numFunctionInstance = functionBufferInfo.NInWires
-    const a_pub_function = a_pub.slice(l_block);
+    const a_pub_function = a_pub.slice(l_free);
     return {
       a_pub_user,
       a_pub_block,
@@ -171,7 +171,7 @@ export class VariableGenerator {
   private _extractPublicInstanceDescription(placementVariables: PlacementVariables): PublicInstanceDescription {
     const l = setupParams.l;
     const l_user = setupParams.l_user;
-    const l_block = setupParams.l_block;
+    const l_free = setupParams.l_free;
 
     const a_pub_desc: string[] = Array(l).fill('');
     for (let globalIdx = 0; globalIdx < l; globalIdx++) {
@@ -189,10 +189,10 @@ export class VariableGenerator {
     const a_pub_user_description = a_pub_desc.slice(0, l_user);
     // const pubBlockOffset = blockBufferInfo.flattenMap[blockBufferInfo.inWireIndex]
     // const numBlockInstance = blockBufferInfo.NInWires
-    const a_pub_block_description = a_pub_desc.slice(l_user, l_block);
+    const a_pub_block_description = a_pub_desc.slice(l_user, l_free);
     // const pubFunctionOffset = functionBufferInfo.flattenMap[functionBufferInfo.inWireIndex]
     // const numFunctionInstance = functionBufferInfo.NInWires
-    const a_pub_function_description = a_pub_desc.slice(l_block);
+    const a_pub_function_description = a_pub_desc.slice(l_free);
     return {
       a_pub_user_description,
       a_pub_block_description,
