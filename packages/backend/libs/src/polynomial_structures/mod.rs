@@ -140,11 +140,10 @@ impl Instance {
     //     )
     // }
 
-    pub fn gen_a_pub_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
-        let l = setup_params.l;
+    pub fn gen_a_free_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
+        let l_free = setup_params.l_free;
         let l_user = setup_params.l_user;
-        let m_block = setup_params.l_block - l_user;
-        let m_function = setup_params.l - setup_params.l_block;
+        let m_block = l_free - l_user;
 
         let mut user_instance = vec![ScalarField::zero(); l_user];
         for i in 0..l_user {
@@ -156,20 +155,14 @@ impl Instance {
             block_instance[i] = ScalarField::from_hex(&self.a_pub_block[i]);
         }
 
-        let mut function_instance = vec![ScalarField::zero(); m_function];
-        for i in 0..m_function {
-            function_instance[i] = ScalarField::from_hex(&self.a_pub_function[i]);
-        }
-
         let public_instance = [
             user_instance,
             block_instance,
-            function_instance,
         ].concat().into_boxed_slice();
 
         return DensePolynomialExt::from_rou_evals(
             HostSlice::from_slice(&public_instance),
-            l,
+            l_free,
             1,
             None,
             None

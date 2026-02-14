@@ -98,7 +98,7 @@ impl Verifier {
         let instance_path = PathBuf::from(paths.synthesizer_path).join("instance.json");
         let instance = Instance::read_from_json(instance_path).unwrap();
         // Parsing the inputs
-        let a_pub_X = instance.gen_a_pub_X(&setup_params);
+        let a_pub_X = instance.gen_a_free_X(&setup_params);
 
         // Load Sigma (reference string)
         let sigma_path = PathBuf::from(paths.setup_path).join("sigma_verify.rkyv");
@@ -199,7 +199,7 @@ impl Verifier {
             + (proof1.R - self.sigma.g() * proof3.R_omegaX_eval) * kappa2
             + (proof1.R - self.sigma.g() * proof3.R_omegaX_omegaY_eval) * kappa2.pow(2);
         let LHS_B =
-            binding.A * ( ScalarField::one() + (kappa2 * kappa1.pow(4)) )
+            binding.A_free * ( ScalarField::one() + (kappa2 * kappa1.pow(4)) )
             - self.sigma.g() * (kappa2 * kappa1.pow(4) * A_eval);
         let LHS = LHS_B + ( (LHS_A + LHS_C) * kappa2 );
         let AUX = 
@@ -371,7 +371,7 @@ impl Verifier {
 
         let A_eval = self.a_pub_X.eval(&chi, &zeta);
         let LHS_B =
-            binding.A * ( ScalarField::one() + (kappa2 * kappa1.pow(4)) )
+            binding.A_free * ( ScalarField::one() + (kappa2 * kappa1.pow(4)) )
             - self.sigma.g() * (kappa2 * kappa1.pow(4) * A_eval);
         let AUX_B = 
             proof4.Pi_B * (kappa2 * chi);

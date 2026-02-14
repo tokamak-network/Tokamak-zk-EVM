@@ -269,8 +269,8 @@
                 &self.proof4.N_X,
                 // O_inst from binding (appears to be O_pub in the test)
                 &self.binding.O_inst,
-                // A from binding
-                &self.binding.A,
+                // A_free from binding
+                &self.binding.A_free,
             );
             
             // Add evaluations to part2 only (they're scalar fields, not G1 points)
@@ -324,9 +324,9 @@
                 N_Y,
                 N_X,
                 O_inst,
-                A,
+                A_free,
             );
-            let binding = Binding { A, O_inst, O_mid, O_prv};
+            let binding = Binding { A_free, O_inst, O_mid, O_prv};
             let proof0 = Proof0 { U, V, W, Q_AX, Q_AY, B };
             let proof1 = Proof1 { R };
             let proof2 = Proof2 { Q_CX, Q_CY };
@@ -353,7 +353,7 @@
 
     #[derive(Debug, Serialize, Deserialize)]
     pub struct Binding {
-        pub A: G1serde,
+        pub A_free: G1serde,
         pub O_inst: G1serde,
         pub O_mid: G1serde,
         pub O_prv: G1serde
@@ -594,13 +594,13 @@
 
                 // Parsing the inputs
                 let a_pub_X = crate::time_block!(
-                    "init.build.instance.a_pub_X",
+                    "init.build.instance.a_free_X",
                     "build",
                     vec![
-                        crate::timing::SizeInfo { label: "a_pub_X", dims: vec![_l, 1] },
+                        crate::timing::SizeInfo { label: "a_free_X", dims: vec![setup_params.l_free, 1] },
                     ],
                     {
-                        _instance.gen_a_pub_X(&setup_params)
+                        _instance.gen_a_free_X(&setup_params)
                     }
                 );
                 // Fixed polynomials
@@ -792,11 +792,11 @@
 
             println!("🔄 Starting binding computation (MSMs)...");
             let binding: Binding = {
-                let A = crate::time_block!(
-                    "init.build.binding.A",
+                let A_free = crate::time_block!(
+                    "init.build.binding.A_free",
                     "build",
                     vec![
-                        crate::timing::SizeInfo { label: "A", dims: vec![_l, 1] },
+                        crate::timing::SizeInfo { label: "A_free", dims: vec![setup_params.l_free, 1] },
                     ],
                     {
                         sigma.sigma1().encode_poly(&mut instance.a_pub_X, &setup_params)
@@ -863,7 +863,7 @@
                         sigma.sigma1().delta_inv_alphak_yi_ty(3, 0) * mixer.rB_Y[0]
                         + sigma.sigma1().delta_inv_alphak_yi_ty(3, 1) * mixer.rB_Y[1]
                     );
-                Binding {A, O_inst, O_mid, O_prv}
+                Binding {A_free, O_inst, O_mid, O_prv}
             };
 
             #[cfg(feature = "timing")]

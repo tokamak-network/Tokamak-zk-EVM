@@ -391,3 +391,12 @@ Verification: `cargo check -p libs -p trusted-setup -p prove -p preprocess -p ve
 - [x] Summarize changes and verification results.
 Added a wall-clock timer in `prove/src/main.rs` that starts at process entry and prints total elapsed seconds/ms after proof JSON outputs are written.  
 Verification: `cargo check -p prove` passed (only pre-existing workspace warnings).
+
+# Plan (2026-02-14)
+- [x] Rename binding commitment field in `prove` from `A` to `A_free` and update all serialization/deserialization/usage sites.
+- [x] Rename `Instance::gen_a_pub_X` to `gen_a_free_X` and change construction logic to use only `a_pub_user` + `a_pub_block` with `l_free = setup_params.l_free`.
+- [x] Update all call sites (including verifier crates) to new names and semantics, then run a targeted compile/test.
+- [ ] Commit all related changes.
+
+# Review (2026-02-14)
+- [ ] Summarize changes and verification results.

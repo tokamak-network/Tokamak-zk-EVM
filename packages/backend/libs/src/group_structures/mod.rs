@@ -207,11 +207,11 @@ impl Sigma1 {
         let n = params.n;
         let m_d = params.m_D;
         let l = params.l;
+        let l_free = params.l_free;
         let l_user = params.l_user;
-        let l_block = params.l_block;
         let s_max = params.s_max;
-        let m_block = params.l_block - l_user;
-        let m_function = l - l_block;
+        let m_block = l_free - l_user;
+        let m_function = l - l_free;
         let m_i = params.l_D - l;
         
         println!("Generating Sigma1 components...");
