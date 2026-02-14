@@ -199,7 +199,7 @@ impl Verifier {
             + (proof1.R - self.sigma.g() * proof3.R_omegaX_eval) * kappa2
             + (proof1.R - self.sigma.g() * proof3.R_omegaX_omegaY_eval) * kappa2.pow(2);
         let LHS_B =
-            self.preprocess.O_pub_fix + binding.A_free * ( ScalarField::one() + (kappa2 * kappa1.pow(4)) )
+            binding.A_free * ( ScalarField::one() + (kappa2 * kappa1.pow(4)) )
             - self.sigma.g() * (kappa2 * kappa1.pow(4) * A_eval);
         let LHS = LHS_B + ( (LHS_A + LHS_C) * kappa2 );
         let AUX = 
@@ -223,7 +223,7 @@ impl Verifier {
             &[self.sigma.h(), self.sigma.sigma2().alpha4,  self.sigma.sigma2().alpha,   self.sigma.sigma2().alpha2,  self.sigma.sigma2().alpha3]
         );
         let right_pair = pairing(
-            &[binding.O_pub_free,    binding.O_mid,              binding.O_prv,              AUX_X,                  AUX_Y               ],
+            &[self.preprocess.O_pub_fix + binding.O_pub_free,    binding.O_mid,              binding.O_prv,              AUX_X,                  AUX_Y               ],
             &[self.sigma.sigma2().gamma,   self.sigma.sigma2().eta,     self.sigma.sigma2().delta,   self.sigma.sigma2().x,   self.sigma.sigma2().y]
         );
         left_pair.eq(&right_pair)
@@ -380,7 +380,7 @@ impl Verifier {
             &[self.sigma.h(),     self.sigma.sigma2().alpha4,  self.sigma.sigma2().alpha,   self.sigma.sigma2().alpha2,  self.sigma.sigma2().alpha3]
         );
         let right_pair = pairing(
-            &[binding.O_pub_free,        binding.O_mid,              binding.O_prv,              proof4.Pi_B * kappa2    ],
+            &[self.preprocess.O_pub_fix + binding.O_pub_free,    binding.O_mid,              binding.O_prv,              proof4.Pi_B * kappa2    ],
             &[self.sigma.sigma2().gamma,       self.sigma.sigma2().eta,     self.sigma.sigma2().delta,   self.sigma.sigma2().x    ]
         );
 
