@@ -1,3 +1,14 @@
+# Plan (2026-02-14)
+- [x] Identify duplicated logic between `verify_snark` and test helpers (`verify_arith`, `verify_copy`, `verify_binding`) in `verify/verify-rust/src/lib.rs`.
+- [x] Refactor duplicated logic into shared internal helper functions/contexts so the same equation logic is implemented once.
+- [x] Update all four verifier entry points to consume those shared helpers without changing public behavior.
+- [x] Verify with `cargo test -p verify --lib`.
+
+# Review (2026-02-14)
+- [x] Summarize changes and verification results.
+Introduced shared verifier helpers for transcript challenge collection, domain/vanishing context generation, `A`/`C`/`B` LHS construction, and AUX construction so duplicate equation logic is implemented once. `verify_snark`, `verify_arith`, `verify_copy`, and `verify_binding` now call the same helpers instead of re-implementing formulas.
+Verification: `cargo test -p verify --lib` passed (compilation + unit-test harness execution; 0 tests defined).
+
 # Plan
 - [x] Make `read_R1CS_gen_uvwXY` adaptive: GPU path uses subcircuit-batched matmul; CPU path uses sparse rows without dense matmul.
 - [x] Keep timing logs for both paths (CPU uses prep/sparse-eval; GPU uses wall-clock prep/matmul).
