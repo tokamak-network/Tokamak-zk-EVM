@@ -1,3 +1,13 @@
+# Plan (2026-02-14, panic value logging)
+- [x] Locate panic checks for `a_pub_function` and `gamma_inv_o_inst` length validation.
+- [x] Update panic messages to include expected/actual values for both comparisons.
+- [x] Verify compile for affected crate with `cargo check -p libs`.
+
+# Review (2026-02-14, panic value logging)
+- [x] Summarize changes and verification results.
+Updated panic messages in `encode_o_pub_fix_common` to print concrete compared values: `m_function`, `a_pub_function.len()`, and `gamma_inv_o_inst_len`.
+Verification: `cargo check -p libs` passed.
+
 # Plan (2026-02-14, rename encode_O_inst)
 - [x] Rename `Sigma1::encode_O_inst` to `encode_O_pub_free` at definition sites.
 - [x] Update all call sites (`prove`, `setup`, wrapper helpers) to the new method name.

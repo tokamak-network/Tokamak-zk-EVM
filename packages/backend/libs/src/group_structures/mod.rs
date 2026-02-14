@@ -167,10 +167,18 @@ where
         return G1serde::zero();
     }
     if a_pub_function.len() != m_function {
-        panic!("a_pub_function length mismatch: expected m_function");
+        panic!(
+            "a_pub_function length mismatch: expected m_function={}, got a_pub_function.len()={}",
+            m_function,
+            a_pub_function.len()
+        );
     }
     if gamma_inv_o_inst_len < m_function {
-        panic!("gamma_inv_o_inst length is smaller than m_function");
+        panic!(
+            "gamma_inv_o_inst length is smaller than m_function: gamma_inv_o_inst_len={}, m_function={}",
+            gamma_inv_o_inst_len,
+            m_function
+        );
     }
 
     let start = gamma_inv_o_inst_len - m_function;
