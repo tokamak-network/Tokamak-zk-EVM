@@ -397,7 +397,7 @@
 - [x] Remove `permutation.json` single-file input path from `tokamak-cli-core` preprocess flow.
 - [x] Update CLI usage/help and preprocess missing-input guidance to `DIR/ZIP` only.
 - [x] Verify behavior for valid `DIR/ZIP` and invalid single-file input.
-- [ ] Record review and commit.
+- [x] Record review and commit.
 
 ## Review
 - Removed preprocess single-file handler (`sync_preprocess_inputs_from_file`) and routed preprocess input dispatch through shared `sync_from_path` with dir/zip handlers only.
