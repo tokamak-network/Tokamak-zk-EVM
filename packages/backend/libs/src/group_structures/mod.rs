@@ -203,7 +203,7 @@ where
 {
     let mut aligned_rs = Vec::with_capacity(setup_params.l);
     let mut aligned_wtns = Vec::with_capacity(setup_params.l);
-    for placement in placement_variables.iter().take(4) {
+    for placement in placement_variables {
         let subcircuit_id = placement.subcircuitId;
         let variables = &placement.variables;
         let subcircuit_info = &subcircuit_infos[subcircuit_id];
@@ -218,7 +218,7 @@ where
         } else if subcircuit_info.name == "bufferBlockIn" {
             (subcircuit_info.In_idx[0], subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
         } else {
-            panic!("Target placement is not a buffer")
+            continue;
         };
 
         for j in start_idx..end_idx_exclusive {
