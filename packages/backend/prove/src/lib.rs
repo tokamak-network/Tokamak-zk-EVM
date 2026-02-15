@@ -806,7 +806,7 @@
                     "init.build.binding.O_pub_free",
                     "build",
                     vec![
-                        crate::timing::SizeInfo { label: "O_pub_free", dims: vec![_l, 1] },
+                        crate::timing::SizeInfo { label: "O_pub_free", dims: vec![setup_params.l_free, 1] },
                     ],
                     {
                         sigma.sigma1().encode_O_pub_free(&placement_variables, &subcircuit_infos, &setup_params)
