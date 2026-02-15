@@ -450,3 +450,16 @@
   - `./tokamak-cli --prove /tmp/tokamak-prove-missing-input` fails early with missing `placementVariables.json` (expected).
   - `./tokamak-cli --prove /tmp/tokamak-prove-min-input` reaches backend execution with only 3 prove files (later fails with data consistency panic unrelated to file-presence checks).
   - `./tokamak-cli --verify /tmp/tokamak-verify-min-input` accepts 3-file verify input and reaches backend execution (later fails due proof/instance mismatch, unrelated to file-presence checks).
+
+# Remove verify-specific install wording in help (2026-02-15)
+
+## Plan
+- [x] Remove `--install`-specific wording from `--verify` help section in `scripts/interface.sh`.
+- [x] Keep verify-specific requirement text focused on required artifacts/state instead.
+- [x] Verify `./tokamak-cli --help` output.
+- [x] Commit changes.
+
+## Review
+- Removed `Tokamak ZKP must be installed via "--install"` from `--verify` help.
+- Reworded requirement as artifact presence: `Setup artifacts (including sigma_verify.rkyv) must be present in dist`.
+- Verification: `./tokamak-cli --help` shows updated `--verify` guidance without verify-only `--install` wording.

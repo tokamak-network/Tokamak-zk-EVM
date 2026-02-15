@@ -14,3 +14,4 @@
 - When a CLI contract is clarified by the user (e.g., allow only DIR/ZIP inputs), enforce it strictly in both logic and help text; do not leave backward-compatible paths unless requested.
 - In CLI help text, explicitly separate required files from optional files to prevent users from assuming all synthesizer outputs are mandatory.
 - Keep step-specific requirements separated: inputs required for `--prove` can differ from files required later by `--extract-proof`; do not over-constrain prove checks with downstream needs.
+- Avoid placing global prerequisites (e.g., needing prior install) in a single-command help block as if they were command-specific; phrase them as shared environment/artifact requirements instead.
