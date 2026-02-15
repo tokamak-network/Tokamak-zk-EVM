@@ -218,6 +218,7 @@
 - [x] Add timing logs inside `div_by_vanishing` for `to_rou_evals`, `div`, `accumulate`, `from_coeffs`.
 - [x] Add a dedicated `div_by_vanishing` test in `libs/src/tests.rs` that asserts correctness and prints timing logs.
 - [x] Remove or deprecate the shell test script if it’s no longer needed.
+
 - [x] Verify by inspection (no runtime) and record results here.
 
 ## Review
@@ -349,3 +350,25 @@
   - Sandbox restriction: `tsx` IPC (`listen EPERM`) in non-escalated runs.
   - Secret/external dependency: `evm-compat-test` requires valid `ALCHEMY_API_KEY` and reachable Alchemy endpoint.
   - No blocking regression observed in backend CLI preprocess/prove/verify path after setup artifacts exist.
+
+# Sync preprocess inputs in tokamak-cli/CI with backend changes (2026-02-15)
+
+## Plan
+- [x] Confirm current backend binary input requirements for preprocess/prove/verify from entrypoint code.
+- [x] Update `scripts/tokamak-cli-core` preprocess input sync logic to supply all files now required by backend preprocess.
+- [x] Update `scripts/interface.sh` `--preprocess` help text to match new accepted input shape.
+- [x] Update `.github/workflows/build-release.yml` preprocess validation/invocation to match updated CLI/backend expectations.
+- [x] Run targeted validation (`bash -n`, CLI help, and preprocess command shape) and record results.
+- [x] Commit all changes.
+
+## Review
+- `packages/backend/verify/preprocess/src/main.rs` requires both `permutation.json` and `instance.json`; CLI/CI were updated to match this.
+- `scripts/tokamak-cli-core` now supports `--preprocess <SYNTH_OUTPUT_ZIP|DIR|permutation.json>` and always syncs both `permutation.json` and `instance.json`.
+- `scripts/tokamak-cli-core` now fails fast with explicit missing-input messages when either preprocess input file is absent in `dist/resource/synthesizer/output`.
+- `.github/workflows/build-release.yml` (`proof-generation-test`) now validates both preprocess inputs and invokes preprocess with the synthesizer outputs directory.
+- `.github/workflows/build-release.yml` prove-input validation was expanded to include `instance_description.json`, `instance.json`, `permutation.json`, and `placementVariables.json`.
+- Verification:
+  - `bash -n scripts/tokamak-cli-core scripts/interface.sh tokamak-cli` passed.
+  - `./tokamak-cli --help` passed and shows updated preprocess usage.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs/permutation.json` passed (backward compatibility).

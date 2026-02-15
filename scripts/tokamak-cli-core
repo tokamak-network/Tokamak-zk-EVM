@@ -441,6 +441,100 @@ sync_synth_outputs_from_path() {
   sync_from_path "$1" sync_synth_outputs_from_dir sync_synth_outputs_from_zip
 }
 
+sync_preprocess_inputs_from_dir() {
+  local src_dir="${1:-}"
+  [[ -n "$src_dir" ]] || { err "Source directory is required"; exit 1; }
+
+  local required_files=(
+    "permutation.json"
+    "instance.json"
+  )
+
+  local found_files=()
+  local name
+  for name in "${required_files[@]}"; do
+    found_files+=("$(find_first_match_or_exit "$src_dir" "$name")")
+  done
+
+  local target dist_dir dest
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+  dest="$dist_dir/resource/synthesizer/output"
+
+  log "Preprocess: syncing inputs → $dest"
+  mkdir -p "$dest"
+  local i
+  for i in "${!required_files[@]}"; do
+    cp -f "${found_files[$i]}" "$dest/${required_files[$i]}"
+  done
+  ok "Preprocess inputs copied → $dest"
+}
+
+sync_preprocess_inputs_from_permutation_file() {
+  local permutation_path_raw="${1:-}"
+  [[ -n "$permutation_path_raw" ]] || { err "Permutation path is required"; exit 1; }
+  local permutation_path permutation_base instance_path
+  permutation_path="$(abs_path_from_root "$permutation_path_raw")"
+  [[ -e "$permutation_path" ]] || { err "Preprocess input file not found: $permutation_path_raw"; exit 1; }
+  [[ -f "$permutation_path" ]] || { err "Preprocess input must be a file (not a directory): $permutation_path_raw"; exit 1; }
+
+  permutation_base="$(basename "$permutation_path")"
+  if [[ "$permutation_base" != "permutation.json" ]]; then
+    err "Preprocess file input must be permutation.json: $permutation_path_raw"
+    exit 1
+  fi
+
+  instance_path="$(dirname "$permutation_path")/instance.json"
+  [[ -f "$instance_path" ]] || {
+    err "Missing preprocess sibling file: $instance_path (backend preprocess also requires instance.json)"
+    exit 1
+  }
+
+  local target dist_dir dest
+  target="$(detect_target)"
+  dist_dir="$(dist_dir_for_target "$target")"
+  dest="$dist_dir/resource/synthesizer/output"
+
+  mkdir -p "$dest"
+  cp -f "$permutation_path" "$dest/permutation.json"
+  cp -f "$instance_path" "$dest/instance.json"
+  ok "Copied permutation.json and instance.json → $dest"
+}
+
+sync_preprocess_inputs_from_zip() {
+  local zip_path_raw="${1:-}"
+  [[ -n "$zip_path_raw" ]] || { err "Zip path is required"; exit 1; }
+  local tmp_dir
+  tmp_dir="$(extract_zip_to_tmp_or_exit "$zip_path_raw" "tokamak_preprocess_zip")"
+  sync_preprocess_inputs_from_dir "$tmp_dir"
+  rm -rf "$tmp_dir"
+}
+
+sync_preprocess_inputs_from_path() {
+  local path_raw="${1:-}"
+  [[ -n "$path_raw" ]] || { err "Path is required"; exit 1; }
+  local path path_base
+  path="$(abs_path_from_root "$path_raw")"
+
+  if [[ -d "$path" ]]; then
+    sync_preprocess_inputs_from_dir "$path"
+    return
+  fi
+
+  if [[ -f "$path" ]]; then
+    path_base="$(basename "$path")"
+    if [[ "$path_base" == "permutation.json" ]]; then
+      sync_preprocess_inputs_from_permutation_file "$path_raw"
+      return
+    fi
+    sync_preprocess_inputs_from_zip "$path_raw"
+    return
+  fi
+
+  err "Path not found: $path_raw"
+  exit 1
+}
+
 sync_proof_from_dir() {
   local src_dir="${1:-}"
   [[ -n "$src_dir" ]] || { err "Source directory is required"; exit 1; }
@@ -613,26 +707,23 @@ step_preprocess() {
   sigma_preprocess="$dist_dir/resource/setup/output/sigma_preprocess.rkyv"
 
   if [[ -n "$input_arg" ]]; then
-    local input_path synth_output_dir input_base dest_path
-    input_path="$(abs_path_from_root "$input_arg")"
-    if [[ ! -e "$input_path" ]]; then
-      err "Preprocess input file not found: $input_arg"
-      exit 1
-    fi
-    if [[ ! -f "$input_path" ]]; then
-      err "Preprocess input must be a file (not a directory): $input_arg"
-      exit 1
-    fi
-    input_base="$(basename "$input_path")"
-    if [[ "$input_base" != "permutation.json" ]]; then
-      err "Preprocess input must be permutation.json: $input_arg"
-      exit 1
-    fi
-    synth_output_dir="$dist_dir/resource/synthesizer/output"
-    mkdir -p "$synth_output_dir"
-    dest_path="$synth_output_dir/permutation.json"
-    cp "$input_path" "$dest_path"
-    ok "Copied permutation.json → $dest_path"
+    sync_preprocess_inputs_from_path "$input_arg"
+  fi
+
+  local synth_output_dir permutation_file instance_file missing=()
+  synth_output_dir="$dist_dir/resource/synthesizer/output"
+  permutation_file="$synth_output_dir/permutation.json"
+  instance_file="$synth_output_dir/instance.json"
+
+  [[ -f "$permutation_file" ]] || missing+=("$permutation_file (run --synthesize or pass --preprocess <SYNTH_OUTPUT_ZIP|DIR|permutation.json>)")
+  [[ -f "$instance_file" ]] || missing+=("$instance_file (run --synthesize or pass --preprocess <SYNTH_OUTPUT_ZIP|DIR|permutation.json>)")
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    err "Missing required preprocess inputs:"
+    local m
+    for m in "${missing[@]}"; do
+      echo "  - $m" >&2
+    done
+    exit 1
   fi
 
   log "Preprocess: running backend preprocess (target=$target)"

@@ -7,3 +7,6 @@
 - When making claims about CLI argument expectations, verify against current usage or ask for confirmation before asserting a mismatch.
 - When a user asks for a test script, confirm whether they expect a Rust test instead of an external shell runner before implementing.
 - When a user says "x_size/y_size", confirm they mean polynomial dimensions (numerator size) rather than parameter symbols like denom degrees.
+
+## 2026-02-15
+- When backend binaries change required input files, update `tokamak-cli` sync/validation logic and CI preflight checks in the same patch; do not update only one layer.
