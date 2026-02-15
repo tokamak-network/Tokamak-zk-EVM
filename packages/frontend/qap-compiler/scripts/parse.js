@@ -89,20 +89,24 @@ function parseWireList(subcircuitInfos) {
 
   const l_user_out = numPubUserOutWires
   const l_user = l_user_out + numPubUserInWires
-  const l_block = l_user + numPubBlockWires
-  const l_actual = l_block + numPubFunctinoWires
+  const l_free_actual = l_user + numPubBlockWires
 
-  console.log(`l user actual: ${l_user}`)
-  console.log(`m block actual: ${l_block - l_user}`)
-  console.log(`m function actual: ${l_actual - l_block}`)
-  console.log(`m_I actual: ${numInterfaceWires}`)
+
+  console.log(`l_user actual: ${l_user}`)
+  console.log(`m block actual: ${l_free_actual - l_user}`)
+  console.log(`l_free actual: ${l_free_actual}`)
 
   let twosPower = 1
-   while (twosPower < l_actual) {
+   while (twosPower < l_free_actual) {
     twosPower <<= 1
   }
-  const numDiff_l = twosPower - l_actual
-  const l = l_actual + numDiff_l
+  const numDiff_l_free = twosPower - l_free_actual
+  const l_free = l_free_actual + numDiff_l_free
+   console.log(`l_free: ${l_free}`)
+
+  const l = l_free + numPubFunctinoWires
+  console.log(`m function actual: ${numPubFunctinoWires}`)
+  console.log(`l: ${l}`)
 
   twosPower = 1
   while (twosPower < numInterfaceWires) {
@@ -111,13 +115,16 @@ function parseWireList(subcircuitInfos) {
 
   // twosPower >= numInterfaceWires
   const numDiff_m_I = twosPower - numInterfaceWires
-  const l_D = l+ numInterfaceWires + numDiff_m_I
-  const m_D = numTotalWires + numDiff_l + numDiff_m_I
-  // numDiff_m_I makes the parameter m_I = l_D - l to be power of two.
+  const l_D = l + numInterfaceWires + numDiff_m_I
+  const m_D = numTotalWires + numDiff_l_free + numDiff_m_I
+  // numDiff_m_I makes the parameter m_I = l_D - l_free to be power of two.
+
+  console.log(`m_I actual: ${numInterfaceWires}`)
+  console.log(`m_I: ${l_D - l}`)
 
   const globalWireList = []
 
-  // Processing user public wires
+  // Processing free public wires
   let ind = 0  
   for ( const subcircuitName of subcircuitInfoByName.keys() ){
     const targetSubcircuit = subcircuitInfoByName.get(subcircuitName)
@@ -133,7 +140,7 @@ function parseWireList(subcircuitInfos) {
             targetSubcircuit.outWireIndex + i,
           )
         }
-      } else if (listPublic.get(subcircuitName) === 'inUser') {
+      } else if (listPublic.get(subcircuitName) === 'inUser' || listPublic.get(subcircuitName) === 'inBlock') {
         const _numInterestWires = targetSubcircuit.NInWires
         for (let i = 0; i < _numInterestWires; i++) {
           _buildWireFlattenMap(
@@ -148,30 +155,11 @@ function parseWireList(subcircuitInfos) {
     }   
   }
 
-  if (ind !== l_user) {
-    throw new Error(`parseWireList: Error during flattening public wires: ind = ${ind}, l_user = ${l_user}`)
+  if (ind !== l_free_actual) {
+    throw new Error(`parseWireList: Error during flattening public wires: ind = ${ind}, l_free_actual = ${l_free_actual}`)
   }
 
-  // Processing environment public wires
-  for ( const subcircuitName of subcircuitInfoByName.keys() ){
-    const targetSubcircuit = subcircuitInfoByName.get(subcircuitName)
-    if (listPublic.has(subcircuitName)) {
-      if (listPublic.get(subcircuitName) === 'inBlock' || listPublic.get(subcircuitName) === 'inFunction' ) {
-        const _numInterestWires = targetSubcircuit.NInWires
-        for (let i = 0; i < _numInterestWires; i++) {
-          _buildWireFlattenMap(
-            globalWireList,
-            subcircuitInfos,
-            ind++,
-            targetSubcircuit.id,
-            targetSubcircuit.inWireIndex + i,
-          )
-        }
-      }
-    }   
-  }
-
-  for (let i = 0; i < numDiff_l; i++) {
+  for (let i = 0; i < numDiff_l_free; i++) {
     _buildWireFlattenMap(
       globalWireList,
       subcircuitInfos,
@@ -181,8 +169,31 @@ function parseWireList(subcircuitInfos) {
     )
   }
 
+  if (ind !== l_free) {
+    throw new Error(`parseWireList: Error during flattening public wires: ind = ${ind}, l_free = ${l_free}`)
+  }
+
+  // Processing fixed public wires
+  for ( const subcircuitName of subcircuitInfoByName.keys() ){
+    const targetSubcircuit = subcircuitInfoByName.get(subcircuitName)
+    if (listPublic.has(subcircuitName)) {
+      if (listPublic.get(subcircuitName) === 'inFunction' ) {
+        const _numInterestWires = targetSubcircuit.NInWires
+        for (let i = 0; i < _numInterestWires; i++) {
+          _buildWireFlattenMap(
+            globalWireList,
+            subcircuitInfos,
+            ind++,
+            targetSubcircuit.id,
+            targetSubcircuit.inWireIndex + i,
+          )
+        }
+      }
+    }   
+  }
+
   if (ind !== l) {
-    throw new Error(`parseWireList: Error during flattening public wires: ind = ${ind}, l = ${l}`)
+    throw new Error(`parseWireList: Error during flattening public wires: ind = ${ind}, l_free = ${l_free}`)
   }
 
   // Processing internal interface wires
@@ -287,7 +298,7 @@ function parseWireList(subcircuitInfos) {
   return {
     l_user_out,
     l_user,
-    l_block,
+    l_free,
     l,
     l_D,
     m_D,
@@ -360,10 +371,10 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
   }
 
   const setupParams = {
-    l: globalWireInfo.l,
+    l_free: globalWireInfo.l_free,
     l_user_out: globalWireInfo.l_user_out,
     l_user: globalWireInfo.l_user,
-    l_block: globalWireInfo.l_block,
+    l: globalWireInfo.l,
     l_D: globalWireInfo.l_D,
     m_D: globalWireInfo.m_D,
     n,
@@ -413,7 +424,7 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
   })
 
   // const tsSetupParams = `// Parameters for the subcircuit library
-  // // l: The number of public wires
+  // // l_free: The number of public wires
   // // l_D: The number of interface wires (private)
   // // m: The total number of wires
   // // n: The maximum number of constraints

@@ -247,7 +247,7 @@ pub(crate) fn count_o_mid_nvar(
         } else {
             nVar += subcircuit_info.Out_idx[1] + subcircuit_info.In_idx[1];
         }
-        nVar += 1;
+        nVar += 1; // Include each constant wire
     }
     nVar
 }
@@ -260,6 +260,7 @@ pub(crate) fn count_o_prv_nvar(
     for placement in placement_variables {
         let subcircuit_info = &subcircuit_infos[placement.subcircuitId];
         nVar += subcircuit_info.Nwires - subcircuit_info.In_idx[1] - subcircuit_info.Out_idx[1];
+        nVar -= 1; // Exclude each constant wire
     }
     nVar
 }
@@ -293,7 +294,7 @@ where
         panic!(
             "nVar mismatch while encoding statement: aligned_rs.len()={}, nVar={}",
             aligned_rs.len(),
-            nVar
+            nVar,
         );
     }
     msm_g1_bases(&aligned_variable, &aligned_rs)

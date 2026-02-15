@@ -7,7 +7,7 @@ import { SUBCIRCUIT_LIST, SubcircuitNames } from "./configuredTypes.ts";
 
 // Single source of truth for SetupParams keys
 export const SETUP_PARAMS_KEYS = [
-  'l', 'l_user', 'l_block',
+  'l_free', 'l_user_out', 'l_user', 'l',
   'l_D', 'm_D', 'n', 's_D', 's_max',
 ] as const;
 

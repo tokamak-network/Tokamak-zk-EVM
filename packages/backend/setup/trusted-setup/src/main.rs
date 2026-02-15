@@ -258,8 +258,8 @@ fn main() {
         let mut bXY = gen_bXY(&placement_variables, &subcircuit_infos, &setup_params);
         let (mut uXY, mut vXY, mut wXY) = read_R1CS_gen_uvwXY(&paths.qap_path, &placement_variables, &subcircuit_infos, &setup_params);
         let a_free_encoding = sigma.sigma_1.encode_poly(&mut a_free_X, &setup_params);
-        let o_pub_fix = sigma.sigma_1.encode_O_pub_fix(&public_instance.a_pub_function, &setup_params);
-        let a_encoding = a_free_encoding + o_pub_fix;
+        let O_pub_fix = sigma.sigma_1.encode_O_pub_fix(&public_instance.a_pub_function, &setup_params);
+        let a_encoding = a_free_encoding;
         // TEMP
             // assert_eq!(a_encoding.0, G1Affine::zero());
         ////
@@ -278,7 +278,7 @@ fn main() {
         let O_mid = sigma.sigma_1.encode_O_mid_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
         let O_prv = sigma.sigma_1.encode_O_prv_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
         let LHS = 
-            O_inst * tau.gamma 
+            (O_pub_fix + O_inst) * tau.gamma 
             + O_mid * tau.eta 
             + O_prv * tau.delta;
         let RHS = 
@@ -315,7 +315,7 @@ fn main() {
         println!("Checked: zk strings");
 
         let lhs1 = vec![a_encoding, b_encoding, u_encoding, v_encoding, w_encoding];
-        let lhs2 = vec![O_inst, O_mid, O_prv];
+        let lhs2 = vec![O_pub_fix + O_inst, O_mid, O_prv];
         let rhs1 = vec![sigma.H, sigma.sigma_2.alpha4, sigma.sigma_2.alpha, sigma.sigma_2.alpha2, sigma.sigma_2.alpha3];
         let rhs2 = vec![sigma.sigma_2.gamma, sigma.sigma_2.eta, sigma.sigma_2.delta];
         let LHS = pairing(&lhs1, &rhs1);
