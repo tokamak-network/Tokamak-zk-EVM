@@ -386,6 +386,48 @@ sync_from_path() {
   exit 1
 }
 
+sync_from_zip_with_dir_handler() {
+  local zip_path_raw="${1:-}"
+  local tmp_prefix="${2:-}"
+  local dir_handler="${3:-}"
+  [[ -n "$zip_path_raw" ]] || { err "Zip path is required"; exit 1; }
+  [[ -n "$tmp_prefix" ]] || { err "Zip temp prefix is required"; exit 1; }
+  [[ -n "$dir_handler" ]] || { err "Zip dir handler is required"; exit 1; }
+
+  local tmp_dir
+  tmp_dir="$(extract_zip_to_tmp_or_exit "$zip_path_raw" "$tmp_prefix")"
+  "$dir_handler" "$tmp_dir"
+  rm -rf "$tmp_dir"
+}
+
+copy_required_named_files_from_dir() {
+  local src_dir="${1:-}"
+  local dest_dir="${2:-}"
+  shift 2
+  local name src_file
+  for name in "$@"; do
+    src_file="$(find_first_match_or_exit "$src_dir" "$name")"
+    cp -f "$src_file" "$dest_dir/$name"
+  done
+}
+
+copy_optional_named_files_from_dir() {
+  local src_dir="${1:-}"
+  local dest_dir="${2:-}"
+  shift 2
+  local name matches first match_count
+  for name in "$@"; do
+    matches="$(find "$src_dir" -type f -name "$name" 2>/dev/null)"
+    [[ -n "$matches" ]] || continue
+    first="$(printf '%s\n' "$matches" | head -n1)"
+    match_count="$(printf '%s\n' "$matches" | wc -l | tr -d ' ')"
+    if [[ "$match_count" -gt 1 ]]; then
+      verbose "Multiple $name found; using: $first"
+    fi
+    cp -f "$first" "$dest_dir/$name"
+  done
+}
+
 sync_synth_outputs_from_dir() {
   local src_dir="${1:-}"
   [[ -n "$src_dir" ]] || { err "Source directory is required"; exit 1; }
@@ -396,12 +438,6 @@ sync_synth_outputs_from_dir() {
     "placementVariables.json"
   )
 
-  local found_files=()
-  local name
-  for name in "${required_files[@]}"; do
-    found_files+=("$(find_first_match_or_exit "$src_dir" "$name")")
-  done
-
   local target dist_dir dest
   target="$(detect_target)"
   dist_dir="$(dist_dir_for_target "$target")"
@@ -409,38 +445,19 @@ sync_synth_outputs_from_dir() {
 
   log "Prove: syncing synthesizer outputs → $dest"
   mkdir -p "$dest"
-  local i
-  for i in "${!required_files[@]}"; do
-    cp -f "${found_files[$i]}" "$dest/${required_files[$i]}"
-  done
+  copy_required_named_files_from_dir "$src_dir" "$dest" "${required_files[@]}"
+
   local optional_files=(
     "instance_description.json"
     "state_snapshot.json"
   )
-  local optional_name optional_matches optional_first optional_count
-  for optional_name in "${optional_files[@]}"; do
-    optional_matches="$(find "$src_dir" -type f -name "$optional_name" 2>/dev/null)"
-    if [[ -z "$optional_matches" ]]; then
-      continue
-    fi
-    optional_first="$(printf '%s\n' "$optional_matches" | head -n1)"
-    optional_count="$(printf '%s\n' "$optional_matches" | wc -l | tr -d ' ')"
-    if [[ "$optional_count" -gt 1 ]]; then
-      verbose "Multiple $optional_name found; using: $optional_first"
-    fi
-    cp -f "$optional_first" "$dest/$optional_name"
-  done
+  copy_optional_named_files_from_dir "$src_dir" "$dest" "${optional_files[@]}"
 
   ok "Synth outputs copied → $dest"
 }
 
 sync_synth_outputs_from_zip() {
-  local zip_path_raw="${1:-}"
-  [[ -n "$zip_path_raw" ]] || { err "Zip path is required"; exit 1; }
-  local tmp_dir
-  tmp_dir="$(extract_zip_to_tmp_or_exit "$zip_path_raw" "tokamak_prove_zip")"
-  sync_synth_outputs_from_dir "$tmp_dir"
-  rm -rf "$tmp_dir"
+  sync_from_zip_with_dir_handler "${1:-}" "tokamak_prove_zip" sync_synth_outputs_from_dir
 }
 
 sync_synth_outputs_from_path() {
@@ -456,12 +473,6 @@ sync_preprocess_inputs_from_dir() {
     "instance.json"
   )
 
-  local found_files=()
-  local name
-  for name in "${required_files[@]}"; do
-    found_files+=("$(find_first_match_or_exit "$src_dir" "$name")")
-  done
-
   local target dist_dir dest
   target="$(detect_target)"
   dist_dir="$(dist_dir_for_target "$target")"
@@ -469,20 +480,12 @@ sync_preprocess_inputs_from_dir() {
 
   log "Preprocess: syncing inputs → $dest"
   mkdir -p "$dest"
-  local i
-  for i in "${!required_files[@]}"; do
-    cp -f "${found_files[$i]}" "$dest/${required_files[$i]}"
-  done
+  copy_required_named_files_from_dir "$src_dir" "$dest" "${required_files[@]}"
   ok "Preprocess inputs copied → $dest"
 }
 
 sync_preprocess_inputs_from_zip() {
-  local zip_path_raw="${1:-}"
-  [[ -n "$zip_path_raw" ]] || { err "Zip path is required"; exit 1; }
-  local tmp_dir
-  tmp_dir="$(extract_zip_to_tmp_or_exit "$zip_path_raw" "tokamak_preprocess_zip")"
-  sync_preprocess_inputs_from_dir "$tmp_dir"
-  rm -rf "$tmp_dir"
+  sync_from_zip_with_dir_handler "${1:-}" "tokamak_preprocess_zip" sync_preprocess_inputs_from_dir
 }
 
 sync_preprocess_inputs_from_path() {
@@ -520,12 +523,7 @@ sync_proof_from_dir() {
 }
 
 sync_proof_from_zip() {
-  local zip_path_raw="${1:-}"
-  [[ -n "$zip_path_raw" ]] || { err "Zip path is required"; exit 1; }
-  local tmp_dir
-  tmp_dir="$(extract_zip_to_tmp_or_exit "$zip_path_raw" "tokamak_verify_zip")"
-  sync_proof_from_dir "$tmp_dir"
-  rm -rf "$tmp_dir"
+  sync_from_zip_with_dir_handler "${1:-}" "tokamak_verify_zip" sync_proof_from_dir
 }
 
 sync_proof_from_path() {

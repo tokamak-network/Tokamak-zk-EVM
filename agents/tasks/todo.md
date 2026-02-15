@@ -474,3 +474,21 @@
 ## Review
 - Removed the remaining setup-artifact sentence from `--verify` help to avoid command-specific global prerequisite wording.
 - Verification: `./tokamak-cli --help` now shows only verify input bundle requirements (`proof.json`, `preprocess.json`, `instance.json`) under `--verify`.
+
+# Consolidate tokamak-cli-core utility functions (2026-02-15)
+
+## Plan
+- [x] Identify duplicate utility patterns in `scripts/tokamak-cli-core` (especially file sync and zip extraction wrappers).
+- [x] Merge duplicate utility functions into shared helpers while preserving behavior for `--preprocess`, `--prove`, and `--verify`.
+- [x] Re-run syntax and targeted command checks to confirm no behavioral regressions in path handling.
+- [ ] Record review notes and commit only files changed by this task.
+
+## Review
+- Added shared utility `sync_from_zip_with_dir_handler` and replaced duplicated zip-sync wrappers for prove/preprocess/verify.
+- Added shared utilities `copy_required_named_files_from_dir` and `copy_optional_named_files_from_dir` to remove repeated file-search/copy loops.
+- Simplified `sync_synth_outputs_from_dir` and `sync_preprocess_inputs_from_dir` by delegating required/optional file copy behavior to the shared utilities.
+- Behavior checks:
+  - `bash -n scripts/tokamak-cli-core` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs` passed.
+  - `./tokamak-cli --preprocess /tmp/tokamak-preprocess-inputs.zip` passed.
+  - `./tokamak-cli --verify /tmp/tokamak-verify-min-input.zip` reached backend execution after successful zip sync (runtime panic remained data-related, same as before).
