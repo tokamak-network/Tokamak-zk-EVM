@@ -371,6 +371,7 @@ sync_from_path() {
   local path_raw="${1:-}"
   local dir_handler="${2:-}"
   local zip_handler="${3:-}"
+  local file_handler="${4:-}"
   [[ -n "$path_raw" ]] || { err "Path is required"; exit 1; }
   local path
   path="$(abs_path_from_root "$path_raw")"
@@ -379,7 +380,11 @@ sync_from_path() {
     return
   fi
   if [[ -f "$path" ]]; then
-    "$zip_handler" "$path_raw"
+    if [[ -n "$file_handler" ]]; then
+      "$file_handler" "$path_raw"
+    else
+      "$zip_handler" "$path_raw"
+    fi
     return
   fi
   err "Path not found: $path_raw"
@@ -470,18 +475,18 @@ sync_preprocess_inputs_from_dir() {
   ok "Preprocess inputs copied → $dest"
 }
 
-sync_preprocess_inputs_from_permutation_file() {
-  local permutation_path_raw="${1:-}"
-  [[ -n "$permutation_path_raw" ]] || { err "Permutation path is required"; exit 1; }
+sync_preprocess_inputs_from_file() {
+  local input_path_raw="${1:-}"
+  [[ -n "$input_path_raw" ]] || { err "Preprocess input path is required"; exit 1; }
   local permutation_path permutation_base instance_path
-  permutation_path="$(abs_path_from_root "$permutation_path_raw")"
-  [[ -e "$permutation_path" ]] || { err "Preprocess input file not found: $permutation_path_raw"; exit 1; }
-  [[ -f "$permutation_path" ]] || { err "Preprocess input must be a file (not a directory): $permutation_path_raw"; exit 1; }
+  permutation_path="$(abs_path_from_root "$input_path_raw")"
+  [[ -e "$permutation_path" ]] || { err "Preprocess input file not found: $input_path_raw"; exit 1; }
+  [[ -f "$permutation_path" ]] || { err "Preprocess input must be a file (not a directory): $input_path_raw"; exit 1; }
 
   permutation_base="$(basename "$permutation_path")"
   if [[ "$permutation_base" != "permutation.json" ]]; then
-    err "Preprocess file input must be permutation.json: $permutation_path_raw"
-    exit 1
+    sync_preprocess_inputs_from_zip "$input_path_raw"
+    return
   fi
 
   instance_path="$(dirname "$permutation_path")/instance.json"
@@ -511,28 +516,7 @@ sync_preprocess_inputs_from_zip() {
 }
 
 sync_preprocess_inputs_from_path() {
-  local path_raw="${1:-}"
-  [[ -n "$path_raw" ]] || { err "Path is required"; exit 1; }
-  local path path_base
-  path="$(abs_path_from_root "$path_raw")"
-
-  if [[ -d "$path" ]]; then
-    sync_preprocess_inputs_from_dir "$path"
-    return
-  fi
-
-  if [[ -f "$path" ]]; then
-    path_base="$(basename "$path")"
-    if [[ "$path_base" == "permutation.json" ]]; then
-      sync_preprocess_inputs_from_permutation_file "$path_raw"
-      return
-    fi
-    sync_preprocess_inputs_from_zip "$path_raw"
-    return
-  fi
-
-  err "Path not found: $path_raw"
-  exit 1
+  sync_from_path "$1" sync_preprocess_inputs_from_dir sync_preprocess_inputs_from_zip sync_preprocess_inputs_from_file
 }
 
 sync_proof_from_dir() {

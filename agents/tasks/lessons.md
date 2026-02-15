@@ -10,3 +10,4 @@
 
 ## 2026-02-15
 - When backend binaries change required input files, update `tokamak-cli` sync/validation logic and CI preflight checks in the same patch; do not update only one layer.
+- Before adding task-specific path-dispatch helpers, check whether existing generic dispatch utilities can absorb the behavior with an optional handler to keep diffs minimal.
