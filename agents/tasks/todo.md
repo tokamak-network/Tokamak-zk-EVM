@@ -408,3 +408,16 @@
   - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs` passed.
   - `./tokamak-cli --preprocess /tmp/tokamak-preprocess-inputs.zip` passed.
   - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs/permutation.json` failed as expected with `Invalid zip archive`.
+
+# Clarify preprocess help required files (2026-02-15)
+
+## Plan
+- [x] Update `scripts/interface.sh` help text for `--preprocess` to explicitly require `permutation.json` and `instance.json` in DIR/ZIP input.
+- [x] Explicitly mention that other synthesizer output files are not required for preprocess.
+- [x] Verify with `./tokamak-cli --help`.
+- [x] Commit changes.
+
+## Review
+- Updated `--preprocess` help text to state DIR/ZIP must include `permutation.json` and `instance.json`.
+- Added explicit note that other synthesizer output files are not required for preprocess.
+- Verification: `./tokamak-cli --help` shows the new guidance text under `--preprocess`.

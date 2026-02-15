@@ -12,3 +12,4 @@
 - When backend binaries change required input files, update `tokamak-cli` sync/validation logic and CI preflight checks in the same patch; do not update only one layer.
 - Before adding task-specific path-dispatch helpers, check whether existing generic dispatch utilities can absorb the behavior with an optional handler to keep diffs minimal.
 - When a CLI contract is clarified by the user (e.g., allow only DIR/ZIP inputs), enforce it strictly in both logic and help text; do not leave backward-compatible paths unless requested.
+- In CLI help text, explicitly separate required files from optional files to prevent users from assuming all synthesizer outputs are mandatory.
