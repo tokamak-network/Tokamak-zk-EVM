@@ -481,7 +481,7 @@
 - [x] Identify duplicate utility patterns in `scripts/tokamak-cli-core` (especially file sync and zip extraction wrappers).
 - [x] Merge duplicate utility functions into shared helpers while preserving behavior for `--preprocess`, `--prove`, and `--verify`.
 - [x] Re-run syntax and targeted command checks to confirm no behavioral regressions in path handling.
-- [ ] Record review notes and commit only files changed by this task.
+- [x] Record review notes and commit only files changed by this task.
 
 ## Review
 - Added shared utility `sync_from_zip_with_dir_handler` and replaced duplicated zip-sync wrappers for prove/preprocess/verify.
