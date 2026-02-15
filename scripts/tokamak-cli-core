@@ -371,7 +371,6 @@ sync_from_path() {
   local path_raw="${1:-}"
   local dir_handler="${2:-}"
   local zip_handler="${3:-}"
-  local file_handler="${4:-}"
   [[ -n "$path_raw" ]] || { err "Path is required"; exit 1; }
   local path
   path="$(abs_path_from_root "$path_raw")"
@@ -380,11 +379,7 @@ sync_from_path() {
     return
   fi
   if [[ -f "$path" ]]; then
-    if [[ -n "$file_handler" ]]; then
-      "$file_handler" "$path_raw"
-    else
-      "$zip_handler" "$path_raw"
-    fi
+    "$zip_handler" "$path_raw"
     return
   fi
   err "Path not found: $path_raw"
@@ -475,37 +470,6 @@ sync_preprocess_inputs_from_dir() {
   ok "Preprocess inputs copied → $dest"
 }
 
-sync_preprocess_inputs_from_file() {
-  local input_path_raw="${1:-}"
-  [[ -n "$input_path_raw" ]] || { err "Preprocess input path is required"; exit 1; }
-  local permutation_path permutation_base instance_path
-  permutation_path="$(abs_path_from_root "$input_path_raw")"
-  [[ -e "$permutation_path" ]] || { err "Preprocess input file not found: $input_path_raw"; exit 1; }
-  [[ -f "$permutation_path" ]] || { err "Preprocess input must be a file (not a directory): $input_path_raw"; exit 1; }
-
-  permutation_base="$(basename "$permutation_path")"
-  if [[ "$permutation_base" != "permutation.json" ]]; then
-    sync_preprocess_inputs_from_zip "$input_path_raw"
-    return
-  fi
-
-  instance_path="$(dirname "$permutation_path")/instance.json"
-  [[ -f "$instance_path" ]] || {
-    err "Missing preprocess sibling file: $instance_path (backend preprocess also requires instance.json)"
-    exit 1
-  }
-
-  local target dist_dir dest
-  target="$(detect_target)"
-  dist_dir="$(dist_dir_for_target "$target")"
-  dest="$dist_dir/resource/synthesizer/output"
-
-  mkdir -p "$dest"
-  cp -f "$permutation_path" "$dest/permutation.json"
-  cp -f "$instance_path" "$dest/instance.json"
-  ok "Copied permutation.json and instance.json → $dest"
-}
-
 sync_preprocess_inputs_from_zip() {
   local zip_path_raw="${1:-}"
   [[ -n "$zip_path_raw" ]] || { err "Zip path is required"; exit 1; }
@@ -516,7 +480,7 @@ sync_preprocess_inputs_from_zip() {
 }
 
 sync_preprocess_inputs_from_path() {
-  sync_from_path "$1" sync_preprocess_inputs_from_dir sync_preprocess_inputs_from_zip sync_preprocess_inputs_from_file
+  sync_from_path "$1" sync_preprocess_inputs_from_dir sync_preprocess_inputs_from_zip
 }
 
 sync_proof_from_dir() {
@@ -699,8 +663,8 @@ step_preprocess() {
   permutation_file="$synth_output_dir/permutation.json"
   instance_file="$synth_output_dir/instance.json"
 
-  [[ -f "$permutation_file" ]] || missing+=("$permutation_file (run --synthesize or pass --preprocess <SYNTH_OUTPUT_ZIP|DIR|permutation.json>)")
-  [[ -f "$instance_file" ]] || missing+=("$instance_file (run --synthesize or pass --preprocess <SYNTH_OUTPUT_ZIP|DIR|permutation.json>)")
+  [[ -f "$permutation_file" ]] || missing+=("$permutation_file (run --synthesize or pass --preprocess <SYNTH_OUTPUT_ZIP|DIR>)")
+  [[ -f "$instance_file" ]] || missing+=("$instance_file (run --synthesize or pass --preprocess <SYNTH_OUTPUT_ZIP|DIR>)")
   if [[ ${#missing[@]} -gt 0 ]]; then
     err "Missing required preprocess inputs:"
     local m

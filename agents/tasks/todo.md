@@ -390,3 +390,21 @@
   - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs` passed.
   - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs/permutation.json` passed.
   - `./tokamak-cli --preprocess /tmp/tokamak-preprocess-inputs.zip` passed.
+
+# Restrict preprocess input to DIR or ZIP only (2026-02-15)
+
+## Plan
+- [x] Remove `permutation.json` single-file input path from `tokamak-cli-core` preprocess flow.
+- [x] Update CLI usage/help and preprocess missing-input guidance to `DIR/ZIP` only.
+- [x] Verify behavior for valid `DIR/ZIP` and invalid single-file input.
+- [ ] Record review and commit.
+
+## Review
+- Removed preprocess single-file handler (`sync_preprocess_inputs_from_file`) and routed preprocess input dispatch through shared `sync_from_path` with dir/zip handlers only.
+- Updated `scripts/interface.sh` usage/help to `--preprocess [<SYNTH_OUTPUT_ZIP|DIR>]`.
+- Updated preprocess missing-input hints to `--preprocess <SYNTH_OUTPUT_ZIP|DIR>`.
+- Verification:
+  - `bash -n scripts/tokamak-cli-core scripts/interface.sh tokamak-cli` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs` passed.
+  - `./tokamak-cli --preprocess /tmp/tokamak-preprocess-inputs.zip` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs/permutation.json` failed as expected with `Invalid zip archive`.
