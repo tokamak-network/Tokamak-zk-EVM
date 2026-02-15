@@ -421,3 +421,32 @@
 - Updated `--preprocess` help text to state DIR/ZIP must include `permutation.json` and `instance.json`.
 - Added explicit note that other synthesizer output files are not required for preprocess.
 - Verification: `./tokamak-cli --help` shows the new guidance text under `--preprocess`.
+
+# Sync prove/verify input guidance with backend requirements (2026-02-15)
+
+## Plan
+- [x] Reconfirm backend-required input files for `prove` and `verify` from current Rust entrypoints.
+- [x] Align `tokamak-cli` prove input sync/validation with backend-minimum required files.
+- [x] Update CLI help text for `--prove` and `--verify` to explicitly list required files and clarify non-required extras.
+- [x] Update CI pre-check steps so `prove` validation checks only prove-required files, while keeping later-step requirements explicit.
+- [x] Verify (`bash -n`, `--help`, and targeted prove/verify path checks), then record review and commit.
+
+## Review
+- Backend `prove` requires synthesizer inputs: `placementVariables.json`, `permutation.json`, `instance.json` (plus qap/setup artifacts in dist); `instance_description.json` is not consumed by backend prove.
+- Backend `verify` requires `proof.json`, `preprocess.json`, `instance.json` (plus `sigma_verify.rkyv` and qap setup artifacts in dist), matching current verify sync behavior.
+- `scripts/tokamak-cli-core`:
+  - Relaxed prove sync required file list to backend-minimum 3 files.
+  - Made `instance_description.json` optional during prove sync (still copied if present).
+  - Added explicit pre-run prove input checks in dist for the same 3 files.
+- `scripts/interface.sh`:
+  - Updated `--prove` help with required files and explicit note that other synth files are not required for prove.
+  - Updated `--verify` help with required files and setup artifact prerequisite.
+- `.github/workflows/build-release.yml`:
+  - `Validate prove inputs` now checks only prove-required files.
+  - Added `Validate extract-proof inputs` step to keep `instance_description.json` requirement explicit for `--extract-proof`.
+- Verification:
+  - `bash -n scripts/tokamak-cli-core scripts/interface.sh tokamak-cli` passed.
+  - `./tokamak-cli --help` shows updated prove/verify guidance.
+  - `./tokamak-cli --prove /tmp/tokamak-prove-missing-input` fails early with missing `placementVariables.json` (expected).
+  - `./tokamak-cli --prove /tmp/tokamak-prove-min-input` reaches backend execution with only 3 prove files (later fails with data consistency panic unrelated to file-presence checks).
+  - `./tokamak-cli --verify /tmp/tokamak-verify-min-input` accepts 3-file verify input and reaches backend execution (later fails due proof/instance mismatch, unrelated to file-presence checks).

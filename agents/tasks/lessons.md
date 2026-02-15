@@ -13,3 +13,4 @@
 - Before adding task-specific path-dispatch helpers, check whether existing generic dispatch utilities can absorb the behavior with an optional handler to keep diffs minimal.
 - When a CLI contract is clarified by the user (e.g., allow only DIR/ZIP inputs), enforce it strictly in both logic and help text; do not leave backward-compatible paths unless requested.
 - In CLI help text, explicitly separate required files from optional files to prevent users from assuming all synthesizer outputs are mandatory.
+- Keep step-specific requirements separated: inputs required for `--prove` can differ from files required later by `--extract-proof`; do not over-constrain prove checks with downstream needs.

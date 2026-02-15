@@ -263,7 +263,6 @@ jobs:
       - name: Validate prove inputs
         run: |
           required=(
-            "packages/frontend/synthesizer/outputs/instance_description.json"
             "packages/frontend/synthesizer/outputs/instance.json"
             "packages/frontend/synthesizer/outputs/permutation.json"
             "packages/frontend/synthesizer/outputs/placementVariables.json"
@@ -279,6 +278,13 @@ jobs:
         run: |
           echo "🔐 Running prove..."
           ./tokamak-cli --prove ./packages/frontend/synthesizer/outputs
+
+      - name: Validate extract-proof inputs
+        run: |
+          if [ ! -f "packages/frontend/synthesizer/outputs/instance_description.json" ]; then
+            echo "❌ Missing extract-proof input: packages/frontend/synthesizer/outputs/instance_description.json (expected from evm-compat-test)"
+            exit 1
+          fi
 
       - name: Run extract-proof
         run: |

@@ -5,8 +5,8 @@
 #   --synthesize <TX_CONFIG_JSON>  Run frontend synthesizer with config JSON and sync outputs into dist
 #   --synthesize --tokamak-ch-tx [OPTIONS...]  Execute TokamakL2JS Channel transaction using synthesizer binary
 #   --preprocess [<SYNTH_OUTPUT_ZIP|DIR>]  Run backend preprocess step (dist only); optionally sync preprocess inputs into dist before running (DIR/ZIP must include permutation.json + instance.json)
-#   --prove [<SYNTH_OUTPUT_ZIP|DIR>] Run backend prove step and collect artifacts in dist
-#   --verify [<PROOF_ZIP|DIR>]   Verify a proof from dist outputs (default: dist)
+#   --prove [<SYNTH_OUTPUT_ZIP|DIR>] Run backend prove step and collect artifacts in dist (DIR/ZIP must include placementVariables.json + permutation.json + instance.json)
+#   --verify [<PROOF_ZIP|DIR>]   Verify a proof from dist outputs (default: dist; DIR/ZIP must include proof.json + preprocess.json + instance.json)
 #   --extract-proof <OUTPUT_ZIP> Gather proof artifacts from dist and zip them to the given path
 #   --doctor                     Check system requirements and health
 #   --help                       Show usage
@@ -42,10 +42,13 @@ Commands:
   --prove [<SYNTH_OUTPUT_ZIP|DIR>]
       Run backend prove stage and collect artifacts (after --synthesize)
       If zip or directory is provided, sync synth outputs into dist before proving
+      The directory/zip must include `placementVariables.json`, `permutation.json`, and `instance.json`; other synthesizer output files are not required for prove
 
   --verify [<PROOF_ZIP|DIR>]
       Verify a proof saved under dist (default: dist)
-      If zip or directory is provided, sync proof.json into dist before verifying
+      If zip or directory is provided, sync proof artifacts into dist before verifying
+      The directory/zip must include `proof.json`, `preprocess.json`, and `instance.json`
+      Setup artifacts from `--install` (including `sigma_verify.rkyv`) are still required
       Tokamak ZKP must be installed via "--install"
 
   --extract-proof <OUTPUT_ZIP_PATH>

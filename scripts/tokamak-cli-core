@@ -391,7 +391,6 @@ sync_synth_outputs_from_dir() {
   [[ -n "$src_dir" ]] || { err "Source directory is required"; exit 1; }
 
   local required_files=(
-    "instance_description.json"
     "instance.json"
     "permutation.json"
     "placementVariables.json"
@@ -414,16 +413,23 @@ sync_synth_outputs_from_dir() {
   for i in "${!required_files[@]}"; do
     cp -f "${found_files[$i]}" "$dest/${required_files[$i]}"
   done
-  local state_matches state_first state_count
-  state_matches="$(find "$src_dir" -type f -name "state_snapshot.json" 2>/dev/null)"
-  if [[ -n "$state_matches" ]]; then
-    state_first="$(printf '%s\n' "$state_matches" | head -n1)"
-    state_count="$(printf '%s\n' "$state_matches" | wc -l | tr -d ' ')"
-    if [[ "$state_count" -gt 1 ]]; then
-      verbose "Multiple state_snapshot.json found; using: $state_first"
+  local optional_files=(
+    "instance_description.json"
+    "state_snapshot.json"
+  )
+  local optional_name optional_matches optional_first optional_count
+  for optional_name in "${optional_files[@]}"; do
+    optional_matches="$(find "$src_dir" -type f -name "$optional_name" 2>/dev/null)"
+    if [[ -z "$optional_matches" ]]; then
+      continue
     fi
-    cp -f "$state_first" "$dest/state_snapshot.json"
-  fi
+    optional_first="$(printf '%s\n' "$optional_matches" | head -n1)"
+    optional_count="$(printf '%s\n' "$optional_matches" | wc -l | tr -d ' ')"
+    if [[ "$optional_count" -gt 1 ]]; then
+      verbose "Multiple $optional_name found; using: $optional_first"
+    fi
+    cp -f "$optional_first" "$dest/$optional_name"
+  done
 
   ok "Synth outputs copied → $dest"
 }
@@ -701,6 +707,24 @@ step_prove() {
   run4="$dist_dir/4_run-prove.sh"
   proof_output="$dist_dir/resource/prove/output"
   combined_sigma="$dist_dir/resource/setup/output/combined_sigma.rkyv"
+
+  local synth_output_dir instance_file permutation_file placement_file missing=()
+  synth_output_dir="$dist_dir/resource/synthesizer/output"
+  instance_file="$synth_output_dir/instance.json"
+  permutation_file="$synth_output_dir/permutation.json"
+  placement_file="$synth_output_dir/placementVariables.json"
+
+  [[ -f "$instance_file" ]] || missing+=("$instance_file (run --synthesize or pass --prove <SYNTH_OUTPUT_ZIP|DIR>)")
+  [[ -f "$permutation_file" ]] || missing+=("$permutation_file (run --synthesize or pass --prove <SYNTH_OUTPUT_ZIP|DIR>)")
+  [[ -f "$placement_file" ]] || missing+=("$placement_file (run --synthesize or pass --prove <SYNTH_OUTPUT_ZIP|DIR>)")
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    err "Missing required prove inputs:"
+    local m
+    for m in "${missing[@]}"; do
+      echo "  - $m" >&2
+    done
+    exit 1
+  fi
 
   log "Prove: running backend prove (target=$target)"
   [[ -f "$combined_sigma" ]] || { err "Missing setup artifact: $combined_sigma (run --install)"; exit 1; }
