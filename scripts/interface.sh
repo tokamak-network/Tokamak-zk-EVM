@@ -48,7 +48,6 @@ Commands:
       Verify a proof saved under dist (default: dist)
       If zip or directory is provided, sync proof artifacts into dist before verifying
       The directory/zip must include `proof.json`, `preprocess.json`, and `instance.json`
-      Setup artifacts (including `sigma_verify.rkyv`) must be present in dist
 
   --extract-proof <OUTPUT_ZIP_PATH>
       Collect minimal proof artifacts required for verification and zip to the given path

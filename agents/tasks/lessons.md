@@ -15,3 +15,4 @@
 - In CLI help text, explicitly separate required files from optional files to prevent users from assuming all synthesizer outputs are mandatory.
 - Keep step-specific requirements separated: inputs required for `--prove` can differ from files required later by `--extract-proof`; do not over-constrain prove checks with downstream needs.
 - Avoid placing global prerequisites (e.g., needing prior install) in a single-command help block as if they were command-specific; phrase them as shared environment/artifact requirements instead.
+- When users ask to remove misleading prerequisite wording from help, prefer strict minimalism: keep only command-local input requirements in that command section.

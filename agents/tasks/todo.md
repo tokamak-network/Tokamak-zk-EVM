@@ -463,3 +463,14 @@
 - Removed `Tokamak ZKP must be installed via "--install"` from `--verify` help.
 - Reworded requirement as artifact presence: `Setup artifacts (including sigma_verify.rkyv) must be present in dist`.
 - Verification: `./tokamak-cli --help` shows updated `--verify` guidance without verify-only `--install` wording.
+
+# Remove remaining verify setup-artifact wording in help (2026-02-15)
+
+## Plan
+- [x] Remove `Setup artifacts (including sigma_verify.rkyv) must be present in dist` from `--verify` help.
+- [x] Verify `./tokamak-cli --help` output for the `--verify` block.
+- [x] Commit changes.
+
+## Review
+- Removed the remaining setup-artifact sentence from `--verify` help to avoid command-specific global prerequisite wording.
+- Verification: `./tokamak-cli --help` now shows only verify input bundle requirements (`proof.json`, `preprocess.json`, `instance.json`) under `--verify`.
