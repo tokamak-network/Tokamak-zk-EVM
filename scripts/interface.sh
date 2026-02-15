@@ -36,18 +36,15 @@ Commands:
 
   --preprocess [<SYNTH_OUTPUT_ZIP|DIR>]
       Run backend preprocess stage (after --synthesize)
-      If a synthesizer outputs directory/zip is provided, preprocess inputs are synced into dist/resource/synthesizer/output before running preprocess
-      The directory/zip must include `permutation.json` and `instance.json`; other synthesizer output files are not required for preprocess
+      If a synthesizer outputs directory/zip is provided, it must include `permutation.json` and `instance.json`; other synthesizer output files are not required for preprocess
 
   --prove [<SYNTH_OUTPUT_ZIP|DIR>]
-      Run backend prove stage and collect artifacts (after --synthesize)
-      If zip or directory is provided, sync synth outputs into dist before proving
-      The directory/zip must include `placementVariables.json`, `permutation.json`, and `instance.json`; other synthesizer output files are not required for prove
+      Run backend prove stage (after --synthesize)
+      If zip or directory is provided, it must include `placementVariables.json`, `permutation.json`, and `instance.json`; other synthesizer output files are not required for prove
 
   --verify [<PROOF_ZIP|DIR>]
       Verify a proof saved under dist (default: dist)
-      If zip or directory is provided, sync proof artifacts into dist before verifying
-      The directory/zip must include `proof.json`, `preprocess.json`, and `instance.json`
+      If zip or directory is provided, it must include `proof.json`, `preprocess.json`, and `instance.json`
 
   --extract-proof <OUTPUT_ZIP_PATH>
       Collect minimal proof artifacts required for verification and zip to the given path
