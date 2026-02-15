@@ -379,7 +379,7 @@
 - [x] Confirm overlap between `sync_preprocess_inputs_from_path` and shared utility `sync_from_path`.
 - [x] Refactor with minimal diff: keep behaviors, but route preprocess path dispatch through shared utility.
 - [x] Re-verify syntax and key preprocess command paths.
-- [ ] Record review and commit.
+- [x] Record review and commit.
 
 ## Review
 - `sync_preprocess_inputs_from_path` dispatch logic was overlapping with `sync_from_path` (directory/file/path-not-found checks duplicated).
