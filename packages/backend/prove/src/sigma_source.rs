@@ -3,7 +3,7 @@ use std::path::Path;
 
 use libs::bivariate_polynomial::DensePolynomialExt;
 use libs::group_structures::G1serde;
-use libs::iotools::{ArchivedSigma1Rkyv, ArchivedSigmaRkyv, PlacementVariables, SetupParams, SubcircuitInfo, SigmaRkyv};
+use libs::iotools::{ArchivedSigma1Rkyv, ArchivedSigmaRkyv, HexString, PlacementVariables, SetupParams, SubcircuitInfo, SigmaRkyv};
 use memmap2::Mmap;
 use std::fs::File;
 
@@ -52,13 +52,21 @@ impl<'a> Sigma1Handle<'a> {
         self.0.encode_poly(poly, params)
     }
 
-    pub fn encode_O_inst(
+    pub fn encode_O_pub_free(
         &self,
         placement_variables: &[PlacementVariables],
         subcircuit_infos: &[SubcircuitInfo],
         setup_params: &SetupParams,
     ) -> G1serde {
-        self.0.encode_O_inst(placement_variables, subcircuit_infos, setup_params)
+        self.0.encode_O_pub_free(placement_variables, subcircuit_infos, setup_params)
+    }
+
+    pub fn encode_O_pub_fix(
+        &self,
+        a_pub_function: &[HexString],
+        setup_params: &SetupParams,
+    ) -> G1serde {
+        self.0.encode_O_pub_fix(a_pub_function, setup_params)
     }
 
     pub fn encode_O_mid_no_zk(

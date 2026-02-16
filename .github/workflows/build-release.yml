@@ -244,27 +244,47 @@ jobs:
 
       - name: Validate preprocess input
         run: |
-          if [ ! -f "packages/frontend/synthesizer/outputs/permutation.json" ]; then
-            echo "❌ Missing preprocess input: packages/frontend/synthesizer/outputs/permutation.json (expected from evm-compat-test)"
-            exit 1
-          fi
+          required=(
+            "packages/frontend/synthesizer/outputs/permutation.json"
+            "packages/frontend/synthesizer/outputs/instance.json"
+          )
+          for file in "${required[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing preprocess input: $file (expected from evm-compat-test)"
+              exit 1
+            fi
+          done
 
       - name: Run preprocess
         run: |
           echo "⚙️ Running preprocess..."
-          ./tokamak-cli --preprocess packages/frontend/synthesizer/outputs/permutation.json
+          ./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs
 
       - name: Validate prove inputs
         run: |
-          if [ ! -f "packages/frontend/synthesizer/outputs/instance_description.json" ]; then
-            echo "❌ Missing instance_description.json under packages/frontend/synthesizer/outputs (expected from evm-compat-test)"
-            exit 1
-          fi
+          required=(
+            "packages/frontend/synthesizer/outputs/instance.json"
+            "packages/frontend/synthesizer/outputs/permutation.json"
+            "packages/frontend/synthesizer/outputs/placementVariables.json"
+          )
+          for file in "${required[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing prove input: $file (expected from evm-compat-test)"
+              exit 1
+            fi
+          done
 
       - name: Run prove
         run: |
           echo "🔐 Running prove..."
           ./tokamak-cli --prove ./packages/frontend/synthesizer/outputs
+
+      - name: Validate extract-proof inputs
+        run: |
+          if [ ! -f "packages/frontend/synthesizer/outputs/instance_description.json" ]; then
+            echo "❌ Missing extract-proof input: packages/frontend/synthesizer/outputs/instance_description.json (expected from evm-compat-test)"
+            exit 1
+          fi
 
       - name: Run extract-proof
         run: |

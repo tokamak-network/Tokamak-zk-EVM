@@ -175,13 +175,13 @@ impl FormattedProof {
         let N_Y = g1_from_idx(idx, p1, p2)?; idx += 2;
         let N_X = g1_from_idx(idx, p1, p2)?; idx += 2;
         let O_inst = g1_from_idx(idx, p1, p2)?; idx += 2;
-        let A = g1_from_idx(idx, p1, p2)?;
+        let A_free = g1_from_idx(idx, p1, p2)?;
         
         // Extract scalars from end of part2
         let scalar_slice = &p2[G1_CNT * 2..];
         
         Ok(Proof {
-            binding: Binding { A, O_inst, O_mid, O_prv },
+            binding: Binding { A_free, O_inst, O_mid, O_prv },
             proof0: Proof0 { U, V, W, Q_AX, Q_AY, B },
             proof1: Proof1 { R },
             proof2: Proof2 { Q_CX, Q_CY },
@@ -214,7 +214,7 @@ pub enum G2Point {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Binding {
-    pub A: G1Point,
+    pub A_free: G1Point,
     pub O_inst: G1Point,
     pub O_mid: G1Point,
     pub O_prv: G1Point,
@@ -517,12 +517,12 @@ impl Verifier {
             .ok_or_else(|| JsValue::from_str("Sigma data required"))?;
         
         // Convert JSON points to curve points
-        let binding_A = Self::g1_from_json(&proof.binding.A)?;
+        let binding_A_free = Self::g1_from_json(&proof.binding.A_free)?;
         let binding_O_inst = Self::g1_from_json(&proof.binding.O_inst)?;
         let binding_O_mid = Self::g1_from_json(&proof.binding.O_mid)?;
         let binding_O_prv = Self::g1_from_json(&proof.binding.O_prv)?;
         
-        console_log!("binding_A: x={:?}, y={:?}", binding_A.x, binding_A.y);
+        console_log!("binding_A_free: x={:?}, y={:?}", binding_A_free.x, binding_A_free.y);
         
         let proof0_B = Self::g1_from_json(&proof.proof0.B)?;
         let proof0_U = Self::g1_from_json(&proof.proof0.U)?;
@@ -609,7 +609,7 @@ impl Verifier {
         console_log!("\nComputing challenges using TranscriptManager...");
         let mut transcript_manager = TranscriptManager::new();
         
-        // Add proof0 (binding.A is NOT committed, matches Native)
+        // Add proof0 (binding.A_free is NOT committed, matches Native)
         transcript_manager.add_proof0(&proof.proof0)?;
         let thetas = transcript_manager.get_thetas();
         let theta0 = thetas[0];
@@ -765,8 +765,8 @@ impl Verifier {
     console_log!("  scalar_a (1 + kappa2*kappa1^4): {:?}", scalar_a);
     console_log!("  scalar_b (kappa2*kappa1^4*A_eval): {:?}", scalar_b);
     
-    let lhs_b_a = (binding_A.into_affine() * scalar_a).into_affine();
-    console_log!("  lhs_b_a (binding_A * scalar_a): x={:?}, y={:?}", lhs_b_a.x, lhs_b_a.y);
+    let lhs_b_a = (binding_A_free.into_affine() * scalar_a).into_affine();
+    console_log!("  lhs_b_a (binding_A_free * scalar_a): x={:?}, y={:?}", lhs_b_a.x, lhs_b_a.y);
     
     let lhs_b_b = (sigma_G.into_affine() * scalar_b).into_affine();
     console_log!("  lhs_b_b (sigma_G * scalar_b): x={:?}, y={:?}", lhs_b_b.x, lhs_b_b.y);
@@ -1593,7 +1593,7 @@ impl TranscriptManager {
     
     fn add_proof0(&mut self, proof: &Proof0) -> Result<(), String> {
         // Commit proof0 points in order: U, V, W, Q_AX, Q_AY, B
-        // Note: binding.A is NOT committed to transcript (matches Native implementation)
+        // Note: binding.A_free is NOT committed to transcript (matches Native implementation)
         let u = g1_from_json_helper(&proof.U).map_err(|e| format!("Failed to parse U: {:?}", e))?;
         self.transcript.commit_bls12_381_field_element(&u.x)?;
         self.transcript.commit_bls12_381_field_element(&u.y)?;

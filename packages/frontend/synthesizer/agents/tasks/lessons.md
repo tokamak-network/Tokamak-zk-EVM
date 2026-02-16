@@ -7,3 +7,4 @@
 - When asked to remove timeouts, confirm the actual timeout used by the tool runtime and state it explicitly.
 - When corrected on terminology (e.g., “buffer” vs “reserved variable”), align wording to the code’s actual structure and avoid implying non-existent components.
 - When updating config schemas, confirm whether legacy fields must be preserved and align any renames with explicit user direction.
+- When asked to roll back a change, use `git revert` (not reset) and account for repo root write permissions.

@@ -7,3 +7,13 @@
 - When making claims about CLI argument expectations, verify against current usage or ask for confirmation before asserting a mismatch.
 - When a user asks for a test script, confirm whether they expect a Rust test instead of an external shell runner before implementing.
 - When a user says "x_size/y_size", confirm they mean polynomial dimensions (numerator size) rather than parameter symbols like denom degrees.
+
+## 2026-02-15
+- When backend binaries change required input files, update `tokamak-cli` sync/validation logic and CI preflight checks in the same patch; do not update only one layer.
+- Before adding task-specific path-dispatch helpers, check whether existing generic dispatch utilities can absorb the behavior with an optional handler to keep diffs minimal.
+- When a CLI contract is clarified by the user (e.g., allow only DIR/ZIP inputs), enforce it strictly in both logic and help text; do not leave backward-compatible paths unless requested.
+- In CLI help text, explicitly separate required files from optional files to prevent users from assuming all synthesizer outputs are mandatory.
+- Keep step-specific requirements separated: inputs required for `--prove` can differ from files required later by `--extract-proof`; do not over-constrain prove checks with downstream needs.
+- Avoid placing global prerequisites (e.g., needing prior install) in a single-command help block as if they were command-specific; phrase them as shared environment/artifact requirements instead.
+- When users ask to remove misleading prerequisite wording from help, prefer strict minimalism: keep only command-local input requirements in that command section.
+- In shell scripts, consolidate repeated file-sync loops and zip extraction wrappers into shared utilities first; keep command functions focused on required file sets and stage flow.

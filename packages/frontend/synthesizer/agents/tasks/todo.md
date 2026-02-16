@@ -184,6 +184,14 @@
 - [x] `./node_modules/.bin/tsc -p tsconfig.json --noEmit --pretty false` failed with TypeScript parse errors in `node_modules/inquirer/dist/index.d.ts` and `src/interface/qapCompiler/importedConstants.ts`, plus `allowImportingTsExtensions` unsupported by this compiler.
 
 # Todo
+- [x] Inspect `variableGenerator` public instance slicing/padding for `a_pub_user`, `a_pub_block`, and `a_pub_function` (including descriptions) as written to `instance.json`/`instance_description.json`
+- [x] Implement padding change: use `l_free` as the boundary so `a_pub_user.length + a_pub_block.length === l_free`, and ensure `a_pub_function` starts at `l_free` with no extra padding
+- [x] Verify by running the most relevant generator or a minimal script to confirm output lengths and boundaries, then document results
+
+# Review
+- [x] Ran `node -e` to confirm `l_user=40`, `l_free=64`, `l=364` yields `a_pub_user=40`, `a_pub_block=24`, `a_pub_function=300`, and `a_pub_user + a_pub_block === l_free`.
+
+# Todo
 - [x] Update `scripts/generate-erc20-config.ts` to emit `ChannelErc20TransferTxSimulationConfig` (entryContractAddress + storageConfigs).
 - [x] Refactor pipeline updates (preAllocated keys, userStorageSlots, callCodeAddresses) to use storageConfigs for the entry contract and keep `referenceTxHash`.
 - [x] Run a minimal verification step for the script (or record why it could not be run).

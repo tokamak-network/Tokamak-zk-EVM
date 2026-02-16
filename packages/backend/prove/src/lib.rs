@@ -177,7 +177,7 @@
         pub t_n: DensePolynomialExt,
         pub t_mi: DensePolynomialExt,
         pub t_smax: DensePolynomialExt,
-        pub a_pub_X: DensePolynomialExt,
+        pub a_free_X: DensePolynomialExt,
     }
     pub struct Witness{
         pub bXY: DensePolynomialExt,
@@ -267,10 +267,10 @@
                 &self.proof4.N_Y,
                 // N_X (appears as N_χ in comments)
                 &self.proof4.N_X,
-                // O_inst from binding (appears to be O_pub in the test)
-                &self.binding.O_inst,
-                // A from binding
-                &self.binding.A,
+                // O_pub_free from binding (appears to be O_pub in the test)
+                &self.binding.O_pub_free,
+                // A_free from binding
+                &self.binding.A_free,
             );
             
             // Add evaluations to part2 only (they're scalar fields, not G1 points)
@@ -323,10 +323,10 @@
                 M_X,
                 N_Y,
                 N_X,
-                O_inst,
-                A,
+                O_pub_free,
+                A_free,
             );
-            let binding = Binding { A, O_inst, O_mid, O_prv};
+            let binding = Binding { A_free, O_pub_free, O_mid, O_prv};
             let proof0 = Proof0 { U, V, W, Q_AX, Q_AY, B };
             let proof1 = Proof1 { R };
             let proof2 = Proof2 { Q_CX, Q_CY };
@@ -353,8 +353,8 @@
 
     #[derive(Debug, Serialize, Deserialize)]
     pub struct Binding {
-        pub A: G1serde,
-        pub O_inst: G1serde,
+        pub A_free: G1serde,
+        pub O_pub_free: G1serde,
         pub O_mid: G1serde,
         pub O_prv: G1serde
     }
@@ -460,7 +460,7 @@
 
             let shape = setup_shape(&setup_params);
             validate_setup_shape(&shape);
-            let _l = shape.l;
+            let _l = setup_params.l;
             let m_i = shape.m_i;
             let n = shape.n;
             let s_max = shape.s_max;
@@ -593,14 +593,14 @@
                 );
 
                 // Parsing the inputs
-                let a_pub_X = crate::time_block!(
-                    "init.build.instance.a_pub_X",
+                let a_free_X = crate::time_block!(
+                    "init.build.instance.a_free_X",
                     "build",
                     vec![
-                        crate::timing::SizeInfo { label: "a_pub_X", dims: vec![_l, 1] },
+                        crate::timing::SizeInfo { label: "a_free_X", dims: vec![setup_params.l_free, 1] },
                     ],
                     {
-                        _instance.gen_a_pub_X(&setup_params)
+                        _instance.gen_a_free_X(&setup_params)
                     }
                 );
                 // Fixed polynomials
@@ -655,7 +655,7 @@
                     }
                 );
 
-                InstancePolynomials {a_pub_X, t_n, t_mi, t_smax, s0XY, s1XY}
+                InstancePolynomials {a_free_X, t_n, t_mi, t_smax, s0XY, s1XY}
             };
 
             #[cfg(feature = "testing-mode")] {
@@ -792,24 +792,24 @@
 
             println!("🔄 Starting binding computation (MSMs)...");
             let binding: Binding = {
-                let A = crate::time_block!(
-                    "init.build.binding.A",
+                let A_free = crate::time_block!(
+                    "init.build.binding.A_free",
                     "build",
                     vec![
-                        crate::timing::SizeInfo { label: "A", dims: vec![_l, 1] },
+                        crate::timing::SizeInfo { label: "A_free", dims: vec![setup_params.l_free, 1] },
                     ],
                     {
-                        sigma.sigma1().encode_poly(&mut instance.a_pub_X, &setup_params)
+                        sigma.sigma1().encode_poly(&mut instance.a_free_X, &setup_params)
                     }
                 );
-                let O_inst = crate::time_block!(
-                    "init.build.binding.O_inst",
+                let O_pub_free = crate::time_block!(
+                    "init.build.binding.O_pub_free",
                     "build",
                     vec![
-                        crate::timing::SizeInfo { label: "O_inst", dims: vec![_l, 1] },
+                        crate::timing::SizeInfo { label: "O_pub_free", dims: vec![setup_params.l_free, 1] },
                     ],
                     {
-                        sigma.sigma1().encode_O_inst(&placement_variables, &subcircuit_infos, &setup_params)
+                        sigma.sigma1().encode_O_pub_free(&placement_variables, &subcircuit_infos, &setup_params)
                     }
                 );
                 
@@ -863,7 +863,7 @@
                         sigma.sigma1().delta_inv_alphak_yi_ty(3, 0) * mixer.rB_Y[0]
                         + sigma.sigma1().delta_inv_alphak_yi_ty(3, 1) * mixer.rB_Y[1]
                     );
-                Binding {A, O_inst, O_mid, O_prv}
+                Binding {A_free, O_pub_free, O_mid, O_prv}
             };
 
             #[cfg(feature = "timing")]
@@ -2164,11 +2164,11 @@
                     "poly.div_by_ruffini.prove4.Pi_B",
                     "poly",
                     vec![
-                        crate::timing::SizeInfo { label: "a_pub_X", dims: vec![self.instance.a_pub_X.x_size, self.instance.a_pub_X.y_size] },
+                        crate::timing::SizeInfo { label: "a_free_X", dims: vec![self.instance.a_free_X.x_size, self.instance.a_free_X.y_size] },
                     ],
                     {
-                    let A_eval = self.instance.a_pub_X.eval(&chi, &zeta);
-                    (&self.instance.a_pub_X - &A_eval).div_by_ruffini(&chi, &zeta)
+                    let A_eval = self.instance.a_free_X.eval(&chi, &zeta);
+                    (&self.instance.a_free_X - &A_eval).div_by_ruffini(&chi, &zeta)
                 });
 
 
@@ -2176,7 +2176,7 @@
                     "prove4.encode.Pi_B",
                     "encode",
                     vec![
-                        crate::timing::SizeInfo { label: "a_pub_X", dims: vec![self.instance.a_pub_X.x_size, self.instance.a_pub_X.y_size] },
+                        crate::timing::SizeInfo { label: "a_free_X", dims: vec![self.instance.a_free_X.x_size, self.instance.a_free_X.y_size] },
                     ],
                     {
                     self.sigma.sigma1().encode_poly(&mut pi_B_XY, &self.setup_params)

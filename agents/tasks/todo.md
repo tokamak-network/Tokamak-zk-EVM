@@ -218,6 +218,7 @@
 - [x] Add timing logs inside `div_by_vanishing` for `to_rou_evals`, `div`, `accumulate`, `from_coeffs`.
 - [x] Add a dedicated `div_by_vanishing` test in `libs/src/tests.rs` that asserts correctness and prints timing logs.
 - [x] Remove or deprecate the shell test script if it’s no longer needed.
+
 - [x] Verify by inspection (no runtime) and record results here.
 
 ## Review
@@ -349,3 +350,145 @@
   - Sandbox restriction: `tsx` IPC (`listen EPERM`) in non-escalated runs.
   - Secret/external dependency: `evm-compat-test` requires valid `ALCHEMY_API_KEY` and reachable Alchemy endpoint.
   - No blocking regression observed in backend CLI preprocess/prove/verify path after setup artifacts exist.
+
+# Sync preprocess inputs in tokamak-cli/CI with backend changes (2026-02-15)
+
+## Plan
+- [x] Confirm current backend binary input requirements for preprocess/prove/verify from entrypoint code.
+- [x] Update `scripts/tokamak-cli-core` preprocess input sync logic to supply all files now required by backend preprocess.
+- [x] Update `scripts/interface.sh` `--preprocess` help text to match new accepted input shape.
+- [x] Update `.github/workflows/build-release.yml` preprocess validation/invocation to match updated CLI/backend expectations.
+- [x] Run targeted validation (`bash -n`, CLI help, and preprocess command shape) and record results.
+- [x] Commit all changes.
+
+## Review
+- `packages/backend/verify/preprocess/src/main.rs` requires both `permutation.json` and `instance.json`; CLI/CI were updated to match this.
+- `scripts/tokamak-cli-core` now supports `--preprocess <SYNTH_OUTPUT_ZIP|DIR|permutation.json>` and always syncs both `permutation.json` and `instance.json`.
+- `scripts/tokamak-cli-core` now fails fast with explicit missing-input messages when either preprocess input file is absent in `dist/resource/synthesizer/output`.
+- `.github/workflows/build-release.yml` (`proof-generation-test`) now validates both preprocess inputs and invokes preprocess with the synthesizer outputs directory.
+- `.github/workflows/build-release.yml` prove-input validation was expanded to include `instance_description.json`, `instance.json`, `permutation.json`, and `placementVariables.json`.
+- Verification:
+  - `bash -n scripts/tokamak-cli-core scripts/interface.sh tokamak-cli` passed.
+  - `./tokamak-cli --help` passed and shows updated preprocess usage.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs/permutation.json` passed (backward compatibility).
+
+# Minimize preprocess path sync refactor (2026-02-15)
+
+## Plan
+- [x] Confirm overlap between `sync_preprocess_inputs_from_path` and shared utility `sync_from_path`.
+- [x] Refactor with minimal diff: keep behaviors, but route preprocess path dispatch through shared utility.
+- [x] Re-verify syntax and key preprocess command paths.
+- [x] Record review and commit.
+
+## Review
+- `sync_preprocess_inputs_from_path` dispatch logic was overlapping with `sync_from_path` (directory/file/path-not-found checks duplicated).
+- Refactor minimized by extending `sync_from_path` with an optional file handler and routing preprocess path handling through it.
+- `sync_preprocess_inputs_from_file` now handles `permutation.json` specially (copy + sibling `instance.json`) and falls back to zip handling for non-`permutation.json` files.
+- Verification:
+  - `bash -n scripts/tokamak-cli-core scripts/interface.sh tokamak-cli` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs/permutation.json` passed.
+  - `./tokamak-cli --preprocess /tmp/tokamak-preprocess-inputs.zip` passed.
+
+# Restrict preprocess input to DIR or ZIP only (2026-02-15)
+
+## Plan
+- [x] Remove `permutation.json` single-file input path from `tokamak-cli-core` preprocess flow.
+- [x] Update CLI usage/help and preprocess missing-input guidance to `DIR/ZIP` only.
+- [x] Verify behavior for valid `DIR/ZIP` and invalid single-file input.
+- [x] Record review and commit.
+
+## Review
+- Removed preprocess single-file handler (`sync_preprocess_inputs_from_file`) and routed preprocess input dispatch through shared `sync_from_path` with dir/zip handlers only.
+- Updated `scripts/interface.sh` usage/help to `--preprocess [<SYNTH_OUTPUT_ZIP|DIR>]`.
+- Updated preprocess missing-input hints to `--preprocess <SYNTH_OUTPUT_ZIP|DIR>`.
+- Verification:
+  - `bash -n scripts/tokamak-cli-core scripts/interface.sh tokamak-cli` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs` passed.
+  - `./tokamak-cli --preprocess /tmp/tokamak-preprocess-inputs.zip` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs/permutation.json` failed as expected with `Invalid zip archive`.
+
+# Clarify preprocess help required files (2026-02-15)
+
+## Plan
+- [x] Update `scripts/interface.sh` help text for `--preprocess` to explicitly require `permutation.json` and `instance.json` in DIR/ZIP input.
+- [x] Explicitly mention that other synthesizer output files are not required for preprocess.
+- [x] Verify with `./tokamak-cli --help`.
+- [x] Commit changes.
+
+## Review
+- Updated `--preprocess` help text to state DIR/ZIP must include `permutation.json` and `instance.json`.
+- Added explicit note that other synthesizer output files are not required for preprocess.
+- Verification: `./tokamak-cli --help` shows the new guidance text under `--preprocess`.
+
+# Sync prove/verify input guidance with backend requirements (2026-02-15)
+
+## Plan
+- [x] Reconfirm backend-required input files for `prove` and `verify` from current Rust entrypoints.
+- [x] Align `tokamak-cli` prove input sync/validation with backend-minimum required files.
+- [x] Update CLI help text for `--prove` and `--verify` to explicitly list required files and clarify non-required extras.
+- [x] Update CI pre-check steps so `prove` validation checks only prove-required files, while keeping later-step requirements explicit.
+- [x] Verify (`bash -n`, `--help`, and targeted prove/verify path checks), then record review and commit.
+
+## Review
+- Backend `prove` requires synthesizer inputs: `placementVariables.json`, `permutation.json`, `instance.json` (plus qap/setup artifacts in dist); `instance_description.json` is not consumed by backend prove.
+- Backend `verify` requires `proof.json`, `preprocess.json`, `instance.json` (plus `sigma_verify.rkyv` and qap setup artifacts in dist), matching current verify sync behavior.
+- `scripts/tokamak-cli-core`:
+  - Relaxed prove sync required file list to backend-minimum 3 files.
+  - Made `instance_description.json` optional during prove sync (still copied if present).
+  - Added explicit pre-run prove input checks in dist for the same 3 files.
+- `scripts/interface.sh`:
+  - Updated `--prove` help with required files and explicit note that other synth files are not required for prove.
+  - Updated `--verify` help with required files and setup artifact prerequisite.
+- `.github/workflows/build-release.yml`:
+  - `Validate prove inputs` now checks only prove-required files.
+  - Added `Validate extract-proof inputs` step to keep `instance_description.json` requirement explicit for `--extract-proof`.
+- Verification:
+  - `bash -n scripts/tokamak-cli-core scripts/interface.sh tokamak-cli` passed.
+  - `./tokamak-cli --help` shows updated prove/verify guidance.
+  - `./tokamak-cli --prove /tmp/tokamak-prove-missing-input` fails early with missing `placementVariables.json` (expected).
+  - `./tokamak-cli --prove /tmp/tokamak-prove-min-input` reaches backend execution with only 3 prove files (later fails with data consistency panic unrelated to file-presence checks).
+  - `./tokamak-cli --verify /tmp/tokamak-verify-min-input` accepts 3-file verify input and reaches backend execution (later fails due proof/instance mismatch, unrelated to file-presence checks).
+
+# Remove verify-specific install wording in help (2026-02-15)
+
+## Plan
+- [x] Remove `--install`-specific wording from `--verify` help section in `scripts/interface.sh`.
+- [x] Keep verify-specific requirement text focused on required artifacts/state instead.
+- [x] Verify `./tokamak-cli --help` output.
+- [x] Commit changes.
+
+## Review
+- Removed `Tokamak ZKP must be installed via "--install"` from `--verify` help.
+- Reworded requirement as artifact presence: `Setup artifacts (including sigma_verify.rkyv) must be present in dist`.
+- Verification: `./tokamak-cli --help` shows updated `--verify` guidance without verify-only `--install` wording.
+
+# Remove remaining verify setup-artifact wording in help (2026-02-15)
+
+## Plan
+- [x] Remove `Setup artifacts (including sigma_verify.rkyv) must be present in dist` from `--verify` help.
+- [x] Verify `./tokamak-cli --help` output for the `--verify` block.
+- [x] Commit changes.
+
+## Review
+- Removed the remaining setup-artifact sentence from `--verify` help to avoid command-specific global prerequisite wording.
+- Verification: `./tokamak-cli --help` now shows only verify input bundle requirements (`proof.json`, `preprocess.json`, `instance.json`) under `--verify`.
+
+# Consolidate tokamak-cli-core utility functions (2026-02-15)
+
+## Plan
+- [x] Identify duplicate utility patterns in `scripts/tokamak-cli-core` (especially file sync and zip extraction wrappers).
+- [x] Merge duplicate utility functions into shared helpers while preserving behavior for `--preprocess`, `--prove`, and `--verify`.
+- [x] Re-run syntax and targeted command checks to confirm no behavioral regressions in path handling.
+- [x] Record review notes and commit only files changed by this task.
+
+## Review
+- Added shared utility `sync_from_zip_with_dir_handler` and replaced duplicated zip-sync wrappers for prove/preprocess/verify.
+- Added shared utilities `copy_required_named_files_from_dir` and `copy_optional_named_files_from_dir` to remove repeated file-search/copy loops.
+- Simplified `sync_synth_outputs_from_dir` and `sync_preprocess_inputs_from_dir` by delegating required/optional file copy behavior to the shared utilities.
+- Behavior checks:
+  - `bash -n scripts/tokamak-cli-core` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs` passed.
+  - `./tokamak-cli --preprocess /tmp/tokamak-preprocess-inputs.zip` passed.
+  - `./tokamak-cli --verify /tmp/tokamak-verify-min-input.zip` reached backend execution after successful zip sync (runtime panic remained data-related, same as before).

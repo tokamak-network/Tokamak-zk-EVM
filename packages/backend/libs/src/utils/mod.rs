@@ -6,7 +6,7 @@ use crate::iotools::SetupParams;
 
 #[derive(Clone, Copy, Debug)]
 pub struct SetupShape {
-    pub l: usize,
+    pub l_free: usize,
     pub m_i: usize,
     pub n: usize,
     pub s_max: usize,
@@ -23,7 +23,7 @@ pub fn setup_shape(params: &SetupParams) -> SetupShape {
         .checked_sub(params.l)
         .expect("Invalid setup params: l_D must be >= l.");
     SetupShape {
-        l: params.l,
+        l_free: params.l_free,
         m_i,
         n: params.n,
         s_max: params.s_max,
@@ -58,7 +58,7 @@ pub fn prover_verifier_ntt_domain_size(shape: &SetupShape) -> usize {
 }
 
 pub fn trusted_setup_ntt_domain_size(shape: &SetupShape) -> usize {
-    *[shape.n, shape.l, shape.m_i, shape.s_max]
+    *[shape.n, shape.l_free, shape.m_i, shape.s_max]
         .iter()
         .max()
         .expect("max(n, l, m_i, s_max) requires non-empty inputs")

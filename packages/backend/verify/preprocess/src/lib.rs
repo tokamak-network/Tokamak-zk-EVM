@@ -21,6 +21,7 @@ pub struct PreprocessInputPaths<'a> {
 pub struct Preprocess {
     pub s0: G1serde,
     pub s1: G1serde,
+    pub O_pub_fix: G1serde,
     // pub O_function_inst: G1serde,
     // pub O_block_inst: G1serde,
     // pub lagrange_KL: G1serde,
@@ -30,6 +31,7 @@ impl Preprocess {
     pub fn gen(
         sigma: &ArchivedSigmaPreprocessRkyv, 
         permutation_raw: &[Permutation],
+        instance: &Instance,
         setup_params: &SetupParams
     ) -> Self {
         let shape = setup_shape(setup_params);
@@ -44,6 +46,7 @@ impl Preprocess {
         let (mut s0XY, mut s1XY) = Permutation::to_poly(permutation_raw, m_i, s_max);
         let s0 = sigma.sigma_1.encode_poly(&mut s0XY, &setup_params);
         let s1 = sigma.sigma_1.encode_poly(&mut s1XY, &setup_params);
+        let O_pub_fix = sigma.sigma_1.encode_O_pub_fix(&instance.a_pub_function, setup_params);
 
         
         // let mut lagrange_KL_XY = {
@@ -72,6 +75,7 @@ impl Preprocess {
         return Preprocess {
             s0, 
             s1,
+            O_pub_fix,
             // O_function_inst,
             // O_block_inst,
         };
@@ -88,6 +92,7 @@ impl Preprocess {
         split_push!(preprocess_entries_part1, preprocess_entries_part2,
             &self.s0,
             &self.s1,
+            &self.O_pub_fix,
             // &self.O_function_inst,
             // &self.O_block_inst,
         );
@@ -112,7 +117,7 @@ impl FormattedPreprocess {
         let p1 = &self.preprocess_entries_part1;
         let p2 = &self.preprocess_entries_part2;
 
-        const G1_CNT: usize = 2;      // The number of G1 points 
+        const G1_CNT: usize = 3;      // The number of G1 points
         assert_eq!(p1.len(), G1_CNT * 2);
         assert_eq!(p2.len(), G1_CNT * 2);
 
@@ -122,6 +127,7 @@ impl FormattedPreprocess {
         pop_recover!(idx, p1, p2,
             s0,
             s1,
+            O_pub_fix,
             // O_function_inst,
             // O_block_inst,
         );
@@ -129,6 +135,7 @@ impl FormattedPreprocess {
         return Preprocess {
             s0,
             s1,
+            O_pub_fix,
             // O_function_inst,
             // O_block_inst,
         };

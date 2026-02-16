@@ -1,3 +1,44 @@
+# Plan (2026-02-14, nVar panic value logging)
+- [x] Locate `nVar` mismatch panic in statement encoding path.
+- [x] Update panic to include compared values (`aligned_rs.len()`, `nVar`).
+- [x] Verify with `cargo check -p libs`.
+
+# Review (2026-02-14, nVar panic value logging)
+- [x] Summarize changes and verification results.
+Updated `encode_statement_common` panic to print concrete mismatch values for `aligned_rs.len()` and `nVar`.
+Verification: `cargo check -p libs` passed.
+
+# Plan (2026-02-14, panic value logging)
+- [x] Locate panic checks for `a_pub_function` and `gamma_inv_o_inst` length validation.
+- [x] Update panic messages to include expected/actual values for both comparisons.
+- [x] Verify compile for affected crate with `cargo check -p libs`.
+
+# Review (2026-02-14, panic value logging)
+- [x] Summarize changes and verification results.
+Updated panic messages in `encode_o_pub_fix_common` to print concrete compared values: `m_function`, `a_pub_function.len()`, and `gamma_inv_o_inst_len`.
+Verification: `cargo check -p libs` passed.
+
+# Plan (2026-02-14, rename encode_O_inst)
+- [x] Rename `Sigma1::encode_O_inst` to `encode_O_pub_free` at definition sites.
+- [x] Update all call sites (`prove`, `setup`, wrapper helpers) to the new method name.
+- [x] Verify compile with `cargo check -p libs -p prove -p trusted-setup -p verify`.
+
+# Review (2026-02-14, rename encode_O_inst)
+- [x] Summarize changes and verification results.
+Renamed `encode_O_inst` to `encode_O_pub_free` in `Sigma1` and `ArchivedSigma1Rkyv`, then updated all wrapper and call sites in `prove` and `trusted-setup` accordingly. Also updated the leftover commented signature name to prevent stale references.
+Verification: `cargo check -p libs -p prove -p trusted-setup -p verify` passed (workspace warnings only).
+
+# Plan (2026-02-14)
+- [x] Identify duplicated logic between `verify_snark` and test helpers (`verify_arith`, `verify_copy`, `verify_binding`) in `verify/verify-rust/src/lib.rs`.
+- [x] Refactor duplicated logic into shared internal helper functions/contexts so the same equation logic is implemented once.
+- [x] Update all four verifier entry points to consume those shared helpers without changing public behavior.
+- [x] Verify with `cargo test -p verify --lib`.
+
+# Review (2026-02-14)
+- [x] Summarize changes and verification results.
+Introduced shared verifier helpers for transcript challenge collection, domain/vanishing context generation, `A`/`C`/`B` LHS construction, and AUX construction so duplicate equation logic is implemented once. `verify_snark`, `verify_arith`, `verify_copy`, and `verify_binding` now call the same helpers instead of re-implementing formulas.
+Verification: `cargo test -p verify --lib` passed (compilation + unit-test harness execution; 0 tests defined).
+
 # Plan
 - [x] Make `read_R1CS_gen_uvwXY` adaptive: GPU path uses subcircuit-batched matmul; CPU path uses sparse rows without dense matmul.
 - [x] Keep timing logs for both paths (CPU uses prep/sparse-eval; GPU uses wall-clock prep/matmul).
@@ -391,3 +432,115 @@ Verification: `cargo check -p libs -p trusted-setup -p prove -p preprocess -p ve
 - [x] Summarize changes and verification results.
 Added a wall-clock timer in `prove/src/main.rs` that starts at process entry and prints total elapsed seconds/ms after proof JSON outputs are written.  
 Verification: `cargo check -p prove` passed (only pre-existing workspace warnings).
+
+# Plan (2026-02-14)
+- [x] Rename binding commitment field in `prove` from `A` to `A_free` and update all serialization/deserialization/usage sites.
+- [x] Rename `Instance::gen_a_pub_X` to `gen_a_free_X` and change construction logic to use only `a_pub_user` + `a_pub_block` with `l_free = setup_params.l_free`.
+- [x] Update all call sites (including verifier crates) to new names and semantics, then run a targeted compile/test.
+- [x] Commit all related changes.
+
+# Review (2026-02-14)
+- [x] Summarize changes and verification results.
+Renamed proof binding commitment field to `A_free`, updated formatted proof packing/unpacking and verifier references, and switched instance polynomial generation to `gen_a_free_X` using only `a_pub_user` + `a_pub_block` with `l_free`. Also aligned `Sigma1::gen` segment sizing to `l_free`-based block/function split.
+Verification: `cargo check -p libs -p prove -p verify` passed. `cargo check --manifest-path verify/verify-wasm/Cargo.toml` could not run due sandbox network DNS resolution failure for crates.io.
+
+# Plan (2026-02-14, a_pub_X rename in prove)
+- [x] Rename `a_pub_X` to `a_free_X` within the `prove` package (`prove/src/lib.rs`) including struct field, local vars, and direct uses.
+- [x] Keep logic unchanged and update timing labels/metric names tied to the renamed variable for consistency.
+- [x] Verify compile with `cargo check -p prove` (and `-p verify` for downstream compatibility).
+- [ ] Commit the changes.
+
+# Review (2026-02-14, a_pub_X rename in prove)
+- [x] Summarize changes and verification results.
+Renamed `a_pub_X` to `a_free_X` in `prove/src/lib.rs` for `InstancePolynomials` field, init local binding, and all usage sites (binding encode + prove4 Pi_B path), and aligned timing `SizeInfo` labels to `a_free_X`.  
+Verification: `cargo check -p prove -p verify` passed (only pre-existing workspace warnings).
+
+# Plan (2026-02-14, preprocess A_fix)
+- [x] Add `A_fix: G1serde` to `Preprocess` and include it in format conversion/recovery.
+- [x] Implement `A_fix` generation from `Instance.a_pub_function` and encode via `sigma.sigma_1` in preprocess generation path.
+- [x] Update preprocess CLI flow to load `instance.json` and pass it into `Preprocess::gen`.
+- [x] Verify compile for affected crates.
+- [x] Commit the changes.
+
+# Review (2026-02-14, preprocess A_fix)
+- [x] Summarize changes and verification results.
+Added `Preprocess.A_fix` and wired serialization format to include it. `A_fix` is generated by building a function-only public polynomial from `Instance.a_pub_function` (`l - l_free`) and encoding it in preprocess generation. `verify/preprocess` now reads `instance.json` and passes it to `Preprocess::gen`.
+Verification: `cargo check -p libs -p preprocess -p verify` passed (workspace warnings only).
+
+# Plan (2026-02-14, trusted-setup sync)
+- [x] Identify trusted-setup paths that still depend on old public-instance model after `A_free`/`A_fix` split.
+- [x] Update trusted-setup testing-mode checks to use `gen_a_free_X` and `gen_a_fix_X`, and validate against combined encoding.
+- [x] Verify compile for trusted-setup in both default and testing-mode.
+- [x] Commit the changes.
+
+# Review (2026-02-14, trusted-setup sync)
+- [x] Summarize changes and verification results.
+Updated trusted-setup testing-mode check path to use split public instance encodings (`A_free` + `A_fix`) instead of removed `gen_a_pub_X`, and verified the combined binding equation with the updated model.
+
+# Plan (2026-02-14, trusted-setup m_evaled_vec l_free)
+- [x] Change `trusted-setup` so `m_evaled_vec` length/domain basis uses `l_free` instead of `l`.
+- [x] Ensure CRS generation path consuming `m_vec` remains length-consistent after the change.
+- [x] Verify compile for `libs` and `trusted-setup` (default + testing-mode).
+- [x] Commit the changes.
+
+# Review (2026-02-14, trusted-setup m_evaled_vec l_free)
+- [x] Summarize changes and verification results.
+Updated `setup/trusted-setup/src/main.rs` so `m_evaled_vec` is generated over `l_free`. Updated `Sigma1::gen` to accept `m_vec` sized `l_free` by embedding it into an `l`-sized vector (fixed/public-function segment zero-filled) before `L*o + M` accumulation.
+Verification: `cargo check -p libs -p trusted-setup` and `cargo check -p trusted-setup --features testing-mode` both passed (with pre-existing warnings).
+
+# Plan (2026-02-14, Sigma1 user_vec/m_inst_vec)
+- [x] Enforce `user_vec` partition so `l_vec[2]` segment is `l_free - l_user` and total length matches `l`.
+- [x] Change `m_inst_vec` handling to length `l_free` and apply only to first `l_free` entries of `l_o_inst_vec` when building `l_o_inst_mj_vec`.
+- [x] Verify compile impact on `libs` and `trusted-setup`.
+- [x] Commit the changes.
+
+# Review (2026-02-14, Sigma1 user_vec/m_inst_vec)
+- [x] Summarize changes and verification results.
+`Sigma1::gen` now validates `user_vec.len() == l`, keeps the `l_vec[2]` block sized as `l_free - l_user`, uses `m_inst_vec` sized exactly `l_free`, and computes `l_o_inst_mj_vec` by adding only the first `l_free` slice of `l_o_inst_vec` with `m_inst_vec` while preserving the remaining suffix.  
+Verification: `cargo check -p libs -p trusted-setup` and `cargo check -p trusted-setup --features testing-mode` passed (with pre-existing warnings).
+
+# Plan (2026-02-14, O_pub_fix refactor)
+- [x] Remove `gen_a_fix_X` and replace fixed-public computation with MSM against the tail of `gamma_inv_o_inst`.
+- [x] Rename `Preprocess.A_fix` to `Preprocess.O_pub_fix` and update formatted preprocess packing/unpacking.
+- [x] Apply compatible updates across `trusted-setup`, `prove`, `verify/preprocess`, and `verify-rust`.
+- [x] Verify compile for affected crates.
+- [x] Commit the changes.
+
+# Review (2026-02-14, O_pub_fix refactor)
+- [x] Summarize changes and verification results.
+Removed `Instance::gen_a_fix_X`. Added `encode_O_pub_fix` MSM helpers on `Sigma1`/`ArchivedSigma1Rkyv`/`ArchivedPartialSigma1Rkyv` using `a_pub_function` and the last `m_function = l - l_free` bases from `gamma_inv_o_inst`. Renamed preprocess field to `O_pub_fix` and updated `trusted-setup` testing path + `verify-rust` usage accordingly.
+Verification: `cargo check -p libs -p prove -p preprocess -p verify -p trusted-setup` and `cargo check -p trusted-setup --features testing-mode` passed.
+
+# Plan (2026-02-14, dedupe same-logic functions)
+- [x] Review duplicated implementations across `Sigma1` and archived sigma variants.
+- [x] Consolidate same encode logic (`O_pub_fix`, `O_inst`, `O_mid_no_zk`, `O_prv_no_zk`, statement encoding/counting) into single shared implementations.
+- [x] Keep per-type methods as thin wrappers only.
+- [x] Verify compile on affected packages (`libs`, `prove`, `preprocess`, `verify`, `trusted-setup`).
+- [x] Commit the changes.
+
+# Review (2026-02-14, dedupe same-logic functions)
+- [x] Summarize changes and verification results.
+Unified duplicated Sigma encode logic into shared helpers in `libs/src/group_structures/mod.rs` (`encode_o_pub_fix_common`, `encode_o_inst_common`, `encode_statement_common`, `count_o_mid_nvar`, `count_o_prv_nvar`, `msm_g1_bases`). `Sigma1`, `PartialSigma1`, `ArchivedSigma1Rkyv`, and `ArchivedPartialSigma1Rkyv` now call these shared helpers instead of keeping separate logic copies.
+Verification: `cargo check -p libs -p prove -p preprocess -p verify -p trusted-setup` and `cargo check -p trusted-setup --features testing-mode` passed.
+
+# Plan (2026-02-14, O_free rename + EVM exclusion)
+- [x] Rename `encode_o_inst_common` to `encode_o_free_common` and update all call sites.
+- [x] Exclude `bufferEVMIn` variables from the free-public MSM path.
+- [x] Rename prove binding variable/field `O_inst` to `O_pub_free` and update dependent verifier usage.
+- [x] Verify compile for affected crates.
+- [x] Commit the changes.
+
+# Review (2026-02-14, O_free rename + EVM exclusion)
+- [x] Summarize changes and verification results.
+Renamed shared helper to `encode_o_free_common`, updated callers (`Sigma1` and archived sigma), and changed logic to skip `bufferEVMIn` entries in free-public MSM accumulation. In `prove`, binding field/variable `O_inst` was renamed to `O_pub_free` (including formatted proof wiring and timing labels), and `verify-rust` references were updated accordingly.
+Verification: `cargo check -p libs -p prove -p verify -p trusted-setup` and `cargo check -p trusted-setup --features testing-mode` passed.
+
+# Plan (2026-02-14, rename encode_o_pub_free_common)
+- [x] Rename `encode_o_free_common` to `encode_o_pub_free_common`.
+- [x] Update all imports/call sites.
+- [x] Verify compile for affected crates.
+- [x] Commit the changes.
+
+# Review (2026-02-14, rename encode_o_pub_free_common)
+- [x] Summarize changes and verification results.
+Renamed helper function to `encode_o_pub_free_common` and updated all references in `group_structures` and `iotools`. Verification: `cargo check -p libs -p prove -p verify -p trusted-setup` passed.
