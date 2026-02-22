@@ -600,3 +600,14 @@ Verification: `grep -n '\\left{' temp/setup.md`, `grep -n ',\\$' temp/setup.md`,
 Filled all TS-1..TS-5 LaTeX slots in `.agents/skills/backend-math-guardrails/references/trusted-setup.md` with equations derived from `temp/setup.md` plus code-level semantics.
 Added `% TODO(review): ...` comments for ambiguous points: `\sigma_{A,C}` degree bound, `L_t(y)` partition mapping, and `\delta^{-1}\alpha^4 x^j t_{m_i}(x)` index range.
 Verification: manual scan with `sed -n '1,280p' .agents/skills/backend-math-guardrails/references/trusted-setup.md`.
+
+# Plan (2026-02-22, fix non-rendering KaTeX in trusted-setup guardrail doc)
+- [x] Identify why formulas do not render in `.agents/skills/backend-math-guardrails/references/trusted-setup.md`.
+- [x] Replace non-rendering fenced `tex` blocks with renderable display-math blocks.
+- [x] Re-scan for leftover non-rendering LaTeX delimiters and commit.
+
+# Review (2026-02-22, fix non-rendering KaTeX in trusted-setup guardrail doc)
+- [x] Summarize changes and verification results.
+Converted TS-1..TS-5 LaTeX content from fenced code blocks into direct `$$ ... $$` math blocks so Markdown+KaTeX renderers treat them as equations.
+Kept review-request notes as plain `TODO(review): ...` text lines outside math blocks.
+Verification: `rg -n '```tex|\\\\\\[|\\\\\\]' .agents/skills/backend-math-guardrails/references/trusted-setup.md` (no matches).
