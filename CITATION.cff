@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+title: Tokamak-zk-EVM
+message: 'If you use Tokamak-zk-EVM, please cite this software.'
+type: software
+license: MIT OR Apache-2.0
+repository-code: https://github.com/tokamak-network/Tokamak-zk-EVM
+url: https://github.com/tokamak-network/Tokamak-zk-EVM
+authors:
+  - family-names: Jang
+    given-names: Jehyuk
+    affiliation: Tokamak Network
+  - name: Tokamak Network Contributors
+keywords:
+  - zkEVM
+  - zk-SNARK
+  - zero-knowledge proofs
+  - layer 2
+  - Ethereum
+  - Tokamak Network

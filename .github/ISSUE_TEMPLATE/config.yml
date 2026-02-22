@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Usage and Troubleshooting Support
+    url: https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/SUPPORT.md
+    about: Start here for usage issues and environment troubleshooting.
+  - name: Security Vulnerability Reporting
+    url: https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/SECURITY.md
+    about: Please report vulnerabilities through private channels only.

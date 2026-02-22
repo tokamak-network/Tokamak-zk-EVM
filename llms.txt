@@ -1,0 +1,27 @@
+# Tokamak-zk-EVM
+
+> Open-source CLI and monorepo that converts Tokamak Layer 2 transactions into zk-SNARK proofs.
+
+## Primary Docs
+
+- [README](README.md): Project overview, prerequisites, and CLI usage flow.
+- [FAQ](docs/FAQ.md): Retrieval-friendly Q&A for common technical questions.
+- [Contributing](CONTRIBUTING.md): Contribution workflow and coding standards.
+- [Security](SECURITY.md): Vulnerability disclosure process.
+- [Support](SUPPORT.md): Where to ask usage and troubleshooting questions.
+- [Citation](CITATION.cff): Citation metadata for research and attribution.
+
+## Core Packages
+
+- [Synthesizer](packages/frontend/synthesizer/README.md): Converts transaction/state context into proving inputs.
+- [QAP Compiler](packages/frontend/qap-compiler/README.md): Subcircuit library and compiler assets.
+- [Backend](packages/backend/README.md): Setup, preprocess, prove, and verify implementations.
+
+## Key Terms
+
+- zkEVM
+- zk-SNARK
+- zero-knowledge proof
+- Tokamak Layer 2
+- Ethereum-compatible transactions
+- transaction proving pipeline

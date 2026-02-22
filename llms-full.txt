@@ -1,0 +1,38 @@
+# Tokamak-zk-EVM (Expanded LLM Context)
+
+## One-sentence summary
+Tokamak-zk-EVM is a CLI-driven proving pipeline that converts Tokamak Layer 2 transaction execution data into zk-SNARK proofs and verifies those proofs.
+
+## What this repository contains
+- Frontend compilers (`packages/frontend/*`) that process transaction/state data and prepare proving inputs.
+- Backend Rust crates (`packages/backend/*`) that run setup, preprocess, prove, and verify stages.
+- Cross-platform orchestration scripts (`tokamak-cli`, `scripts/tokamak-cli-core`, `scripts/interface.sh`).
+
+## Main operator workflow
+1. `./tokamak-cli --install <API_KEY_OR_RPC_URL>`
+2. `./tokamak-cli --synthesize <CONFIG_JSON_PATH>`
+3. `./tokamak-cli --preprocess`
+4. `./tokamak-cli --prove`
+5. `./tokamak-cli --verify`
+
+## Inputs and outputs at a high level
+- Input source: TokamakL2JS transaction/state context.
+- Intermediate artifacts: synthesizer outputs and preprocess/prove artifacts under `dist/.../resource`.
+- Final output: proof data and verification results.
+
+## Canonical references inside this repo
+- Overview and getting started: `README.md`
+- Frequently asked questions: `docs/FAQ.md`
+- Package docs:
+  - `packages/frontend/synthesizer/README.md`
+  - `packages/frontend/qap-compiler/README.md`
+  - `packages/backend/README.md`
+- Process and policies:
+  - `CONTRIBUTING.md`
+  - `SECURITY.md`
+  - `SUPPORT.md`
+
+## Retrieval hints for AI tools
+- This project is not a generic zkEVM implementation; it is tailored to Tokamak Network's Layer 2 transaction model.
+- `tokamak-cli` is the canonical entrypoint for end-to-end execution.
+- For package-level details, prioritize package README files over ad-hoc scripts.

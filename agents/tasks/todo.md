@@ -492,3 +492,27 @@
   - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs` passed.
   - `./tokamak-cli --preprocess /tmp/tokamak-preprocess-inputs.zip` passed.
   - `./tokamak-cli --verify /tmp/tokamak-verify-min-input.zip` reached backend execution after successful zip sync (runtime panic remained data-related, same as before).
+
+# Repository SEO + GEO hardening (2026-02-22)
+
+## Plan
+- [x] Research up-to-date GitHub repository SEO and GEO guidance.
+- [x] Add a task checklist for this work and track progress in this file.
+- [x] Improve root discoverability content in `README.md` (search-intent intro, badges, navigation, metadata links).
+- [x] Add AI/crawler-friendly documentation surfaces (`llms.txt`, `llms-full.txt`, FAQ).
+- [x] Add repository trust/discovery files (`CITATION.cff`, `SECURITY.md`, `SUPPORT.md`, issue template routing).
+- [x] Verify markdown/files and summarize concrete outcomes.
+- [x] Commit all files changed for this task.
+
+## Review
+- Added top-level discoverability improvements in `README.md`: workflow/license badges, keyword surface, quick navigation, and direct links to retrieval/support/citation assets.
+- Added GEO-oriented machine-readable docs: `llms.txt`, `llms-full.txt`, and `docs/FAQ.md`.
+- Added trust/discovery files: `CITATION.cff`, `SECURITY.md`, `SUPPORT.md`, and `.github/ISSUE_TEMPLATE/config.yml`.
+- Added root package metadata fields (`keywords`, `homepage`, `bugs`, `repository`) in `package.json`.
+- Verification:
+  - `npx prettier --check README.md docs/FAQ.md SECURITY.md SUPPORT.md CITATION.cff .github/ISSUE_TEMPLATE/config.yml package.json` passed.
+  - `gh repo view ... --json ...` confirms updated GitHub-hosted metadata:
+    - description and homepage updated
+    - topics added (`tokamak`, `zkevm`, `zk-snark`, etc.)
+    - discussions and issues enabled
+- Committed all related file changes in one commit for this task.
