@@ -10,8 +10,9 @@ Applies to `verify/preprocess`.
 - Code anchors:
   - `verify/preprocess/src/lib.rs` (`Preprocess::gen`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Output must remain deterministic for same `(sigma_preprocess, permutation, instance, setupParams)`.
-- LaTeX slot:
+- Mathematical constraints:
 ```tex
 % PP-1
 % Fill equations here.
@@ -26,8 +27,9 @@ Applies to `verify/preprocess`.
   - `verify/preprocess/src/lib.rs`
   - `libs/src/utils/mod.rs`
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Do not bypass shape validation or domain initialization semantics.
-- LaTeX slot:
+- Mathematical constraints:
 ```tex
 % PP-2
 % Fill equations here.
@@ -43,8 +45,9 @@ Applies to `verify/preprocess`.
 - Code anchors:
   - `verify/preprocess/src/lib.rs` (`convert_format_for_solidity_verifier`, `recover_proof_from_format`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Do not reorder fields without synchronized verifier/prover format migration.
-- LaTeX slot:
+- Mathematical constraints:
 ```tex
 % PP-3
 % Fill equations here.

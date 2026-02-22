@@ -12,8 +12,9 @@ Applies to `prove` crate and shared polynomial utilities it depends on.
   - `prove/src/main.rs`
   - `prove/src/lib.rs` (`TranscriptManager`, `Proof{0,1,2,3}::verify*_with_manager`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Commitment order and field-coordinate order must not change.
-- LaTeX slot:
+- Mathematical constraints:
 ```tex
 % PV-1
 % Fill equations here.
@@ -29,8 +30,9 @@ Applies to `prove` crate and shared polynomial utilities it depends on.
 - Code anchors:
   - `prove/src/lib.rs` (`prove0`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Division strategy may change; relation must remain identical.
-- LaTeX slot:
+- Mathematical constraints:
 ```tex
 % PV-2
 % Fill equations here.
@@ -46,8 +48,9 @@ Applies to `prove` crate and shared polynomial utilities it depends on.
 - Code anchors:
   - `prove/src/lib.rs` (`prove1`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Matrix traversal/transposition optimizations must keep the same recurrence semantics.
-- LaTeX slot:
+- Mathematical constraints:
 ```tex
 % PV-3
 % Fill equations here.
@@ -66,8 +69,9 @@ Applies to `prove` crate and shared polynomial utilities it depends on.
 - Code anchors:
   - `prove/src/lib.rs` (`prove2`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Split/combined implementations are acceptable only if algebra remains equivalent.
-- LaTeX slot:
+- Mathematical constraints:
 ```tex
 % PV-4
 % Fill equations here.
@@ -84,8 +88,9 @@ Applies to `prove` crate and shared polynomial utilities it depends on.
 - Code anchors:
   - `prove/src/lib.rs` (`prove3`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Any optimization must preserve exact evaluation points.
-- LaTeX slot:
+- Mathematical constraints:
 ```tex
 % PV-5
 % Fill equations here.
@@ -102,8 +107,9 @@ Applies to `prove` crate and shared polynomial utilities it depends on.
 - Code anchors:
   - `prove/src/lib.rs` (`prove4`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Terms may be reorganized computationally, not algebraically.
-- LaTeX slot:
+- Mathematical constraints:
 ```tex
 % PV-6
 % Fill equations here.
@@ -118,8 +124,9 @@ Applies to `prove` crate and shared polynomial utilities it depends on.
 - Code anchors:
   - `prove/src/lib.rs` (`Prover::init`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Do not remove or alter cancellation structure between `O_mid` and `O_prv`.
-- LaTeX slot:
+- Mathematical constraints:
 ```tex
 % PV-7
 % Fill equations here.

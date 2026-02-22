@@ -11,8 +11,9 @@ Applies to `verify/verify-rust`.
   - `verify/verify-rust/src/lib.rs` (`collect_challenges`)
   - `prove/src/lib.rs` (`Proof*::verify*_with_manager`, `TranscriptManager`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Never change transcript feed order unless prover side is changed in lockstep.
-- LaTeX slot:
+- Mathematical constraints:
 ```tex
 % VR-1
 % Fill equations here.
@@ -30,8 +31,9 @@ Applies to `verify/verify-rust`.
 - Code anchors:
   - `verify/verify-rust/src/lib.rs` (`build_domain_context`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Preserve these exact definitions and dimensions.
-- LaTeX slot:
+- Mathematical constraints:
 ```tex
 % VR-2
 % Fill equations here.
@@ -47,8 +49,9 @@ Applies to `verify/verify-rust`.
 - Code anchors:
   - `verify/verify-rust/src/lib.rs` (`lhs_arith`, `lhs_copy`, `lhs_binding`, `verify_snark`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Refactoring into helpers is allowed; coefficients and terms are not.
-- LaTeX slot:
+- Mathematical constraints:
 ```tex
 % VR-3
 % Fill equations here.
@@ -64,8 +67,9 @@ Applies to `verify/verify-rust`.
 - Code anchors:
   - `verify/verify-rust/src/lib.rs` (`verify_snark`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Pairing tuple order and term grouping must remain unchanged.
-- LaTeX slot:
+- Mathematical constraints:
 ```tex
 % VR-4
 % Fill equations here.
@@ -79,8 +83,9 @@ Applies to `verify/verify-rust`.
 - Code anchors:
   - `verify/verify-rust/src/lib.rs`
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Any equation change in shared helpers must be reflected consistently across all verifier entry points.
-- LaTeX slot:
+- Mathematical constraints:
 ```tex
 % VR-5
 % Fill equations here.

@@ -621,3 +621,15 @@ Verification: `rg -n '```tex|\\\\\\[|\\\\\\]' .agents/skills/backend-math-guardr
 - [x] Summarize changes and verification results.
 Fixed the remaining TS-2 parse error by replacing `(\mathbb F^\*)^6` with `(\mathbb{F}^{\times})^6` in `.agents/skills/backend-math-guardrails/references/trusted-setup.md`.
 Verification: manual check on the TS-2 equation line and grep for the old `\*` pattern in the same file.
+
+# Plan (2026-02-22, rename LaTeX slot labels and strengthen guardrail wording)
+- [x] Replace `LaTeX slot` labels with `Mathematical constraints` across backend-math-guardrails documents.
+- [x] Add strict-compliance wording to every `Guardrail` section in reference docs.
+- [x] Add strict-compliance wording to the main skill policy (`SKILL.md`) and verify replacements.
+
+# Review (2026-02-22, rename LaTeX slot labels and strengthen guardrail wording)
+- [x] Summarize changes and verification results.
+Replaced all `LaTeX slot` labels with `Mathematical constraints` in reference docs (`trusted-setup`, `prove`, `verify/preprocess`, `verify-rust`).
+Added explicit strict wording under every `Guardrail` section: mathematical constraints must be followed strictly with zero deviation.
+Added the same strict rule to `SKILL.md` under Non-Negotiable Rule.
+Verification: `rg -n "LaTeX slot|Mathematical constraints" .agents/skills/backend-math-guardrails -S`.

@@ -17,6 +17,7 @@ If a change intentionally alters protocol equations, this skill must block the p
 No merged patch may change the protocol relation
 `Completeness + Soundness equations + Fiat-Shamir challenge flow`
 without an explicit protocol-change request.
+Mathematical constraints defined in the reference documents must be followed strictly with zero deviation.
 
 ## Guardrail References
 - Trusted setup: `.agents/skills/backend-math-guardrails/references/trusted-setup.md`

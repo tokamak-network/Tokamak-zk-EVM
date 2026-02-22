@@ -9,8 +9,9 @@ Applies to `setup/trusted-setup` and CRS generation logic in `libs`.
 - Code anchors:
   - `libs/src/utils/mod.rs` (`setup_shape`, `validate_setup_shape`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Any change must preserve the same validity checks and domain assumptions.
-- LaTeX slot:
+- Mathematical constraints:
 $$
 m_i = l_D - l,\qquad
 n=2^{\nu_n},\quad s_{\max}=2^{\nu_s},\quad m_i=2^{\nu_m}
@@ -32,8 +33,9 @@ $$
 - Code anchors:
   - `libs/src/group_structures/mod.rs` (`Sigma2::gen`, `Sigma::gen`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - No permutation, omission, or semantic reassignment of `sigma_2` slots.
-- LaTeX slot:
+- Mathematical constraints:
 $$
 \tau=(\alpha,\gamma,\delta,\eta,x,y)\in(\mathbb{F}^{\times})^6
 $$
@@ -58,8 +60,9 @@ $$
 - Code anchors:
   - `libs/src/group_structures/mod.rs` (`Sigma1::gen`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Refactors are allowed, formula changes are blocked unless protocol change is approved.
-- LaTeX slot:
+- Mathematical constraints:
 $$
 o_j(X):=\alpha u_j(X)+\alpha^2 v_j(X)+\alpha^3 w_j(X)
 $$
@@ -112,8 +115,9 @@ $$
   - `libs/src/group_structures/mod.rs`
   - `libs/src/iotools/mod.rs` (archived/rkyv mirrors)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Live and archived encoders must remain algebraically equivalent.
-- LaTeX slot:
+- Mathematical constraints:
 $$
 F(X,Y)=\sum_{a=0}^{d_x}\sum_{b=0}^{d_y} f_{a,b}X^aY^b
 $$
@@ -159,8 +163,9 @@ TODO(review): $\mathcal I_{\mathrm{pub\_free}}, \mathcal I_{\mathrm{mid}}, \math
   - `setup/trusted-setup/src/main.rs`
   - `libs/src/iotools/mod.rs` (`SigmaRkyv`, `SigmaVerifyRkyv`, `SigmaPreprocessRkyv`)
 - Guardrail:
+  - Mathematical constraints below must be followed strictly with zero deviation.
   - Any format change must preserve exact group-element values and ordering.
-- LaTeX slot:
+- Mathematical constraints:
 $$
 \Sigma_{\mathrm{combined}}
 :=
