@@ -4,8 +4,8 @@ Applies to `setup/trusted-setup` and CRS generation logic in `libs`.
 
 ## TS-1: Setup shape constraints
 - Definition:
-  - $m_i = l_D - l$
-  - $n$, $s_max$, $m_i$ are powers of two.
+  - $m_I = l_D - l$
+  - $n$, $s_{max}$, $m_I$ are powers of two.
 - Code anchors:
   - `libs/src/utils/mod.rs` (`setup_shape`, `validate_setup_shape`)
 - Guardrail:
@@ -13,17 +13,11 @@ Applies to `setup/trusted-setup` and CRS generation logic in `libs`.
   - Any change must preserve the same validity checks and domain assumptions.
 - Mathematical constraints:
 $$
-m_i = l_D - l,\qquad
-n=2^{\nu_n},\quad s_{\max}=2^{\nu_s},\quad m_i=2^{\nu_m}
+m_I = l_D - l,\qquad
+n=2^{\nu_n},\quad s_{\max}=2^{\nu_s},\quad m_I=2^{\nu_m}
 $$
 $$
 l_{\mathrm{free}}=0\ \ \text{or}\ \ l_{\mathrm{free}}=2^{\nu_f}
-$$
-$$
-N_{\mathrm{NTT}}^{\mathrm{setup}}=\max\{n,l_{\mathrm{free}},m_i,s_{\max}\}
-$$
-$$
-N_{\mathrm{NTT}}^{\mathrm{setup,test}}=\max\{n,m_i\}\cdot s_{\max}
 $$
 
 ## TS-2: CRS basis definitions
