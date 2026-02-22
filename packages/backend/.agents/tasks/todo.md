@@ -95,8 +95,8 @@ Added a math/spec write-up for `div_by_vanishing` with inputs, intermediate step
 
 # Review (2026-02-22, backend math guardrail skill draft)
 - [x] Summarize changes and verification results.
-Added a new skill draft under `agents/skills/backend-math-guardrails/` with a workflow gate and invariant-driven checks, plus package-specific math guardrails for `trusted-setup`, `prove`, `verify/preprocess`, and `verify-rust` in `references/`.
-Verification: structural verification only (`find agents/skills/backend-math-guardrails -maxdepth 3 -type f`); no Rust build/test run because this change is documentation-only.
+Added a new skill draft under `.agents/skills/backend-math-guardrails/` with a workflow gate and invariant-driven checks, plus package-specific math guardrails for `trusted-setup`, `prove`, `verify/preprocess`, and `verify-rust` in `references/`.
+Verification: structural verification only (`find .agents/skills/backend-math-guardrails -maxdepth 3 -type f`); no Rust build/test run because this change is documentation-only.
 
 # Plan (2026-02-07)
 - [x] Rework `div_by_vanishing.md` to include explicit variable dimensions and rigorous TeX formulas.
@@ -564,8 +564,18 @@ Renamed helper function to `encode_o_pub_free_common` and updated all references
 # Review (2026-02-22, latex slot placeholders in guardrail docs)
 - [x] Summarize changes and verification results.
 Added `LaTeX slot` fenced `tex` placeholders for every invariant section in:
-- `agents/skills/backend-math-guardrails/references/trusted-setup.md`
-- `agents/skills/backend-math-guardrails/references/prove.md`
-- `agents/skills/backend-math-guardrails/references/verify-preprocess.md`
-- `agents/skills/backend-math-guardrails/references/verify-rust.md`
-Verification: `rg -n "LaTeX slot" agents/skills/backend-math-guardrails/references/*.md`.
+- `.agents/skills/backend-math-guardrails/references/trusted-setup.md`
+- `.agents/skills/backend-math-guardrails/references/prove.md`
+- `.agents/skills/backend-math-guardrails/references/verify-preprocess.md`
+- `.agents/skills/backend-math-guardrails/references/verify-rust.md`
+Verification: `rg -n "LaTeX slot" .agents/skills/backend-math-guardrails/references/*.md`.
+
+# Plan (2026-02-22, rename agents directory)
+- [x] Rename `agents` directory to `.agents`.
+- [x] Update internal path references from `agents/...` to `.agents/...` where they refer to real file paths.
+- [x] Verify no stale path references remain and commit the rename.
+
+# Review (2026-02-22, rename agents directory)
+- [x] Summarize changes and verification results.
+Renamed `agents` to `.agents` and updated skill/todo path references to `.agents/...`.
+Verification: `rg -n "\\bagents/|\\bagents\\b" -S --hidden --glob '!target/**'` shows no stale real-path references (excluding plain English usage like "LLM agents").

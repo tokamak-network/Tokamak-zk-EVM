@@ -19,10 +19,10 @@ No merged patch may change the protocol relation
 without an explicit protocol-change request.
 
 ## Guardrail References
-- Trusted setup: `agents/skills/backend-math-guardrails/references/trusted-setup.md`
-- Prover: `agents/skills/backend-math-guardrails/references/prove.md`
-- Verifier preprocess: `agents/skills/backend-math-guardrails/references/verify-preprocess.md`
-- Verifier core: `agents/skills/backend-math-guardrails/references/verify-rust.md`
+- Trusted setup: `.agents/skills/backend-math-guardrails/references/trusted-setup.md`
+- Prover: `.agents/skills/backend-math-guardrails/references/prove.md`
+- Verifier preprocess: `.agents/skills/backend-math-guardrails/references/verify-preprocess.md`
+- Verifier core: `.agents/skills/backend-math-guardrails/references/verify-rust.md`
 
 ## Execution Workflow
 1. Map changed files to package(s).
@@ -59,4 +59,3 @@ Use this exact structure in the report:
 2. `Invariant impact table` (ID, status, evidence)
 3. `Verification commands + outputs`
 4. `Residual risks` (if any)
-
