@@ -87,6 +87,17 @@ Verification: `cargo test -p prove --lib --features timing` (0 tests). Warnings 
 - [x] Summarize changes and verification results.
 Added a math/spec write-up for `div_by_vanishing` with inputs, intermediate steps, outputs, cache behavior, and constraints. No code execution or tests were run.
 
+# Plan (2026-02-22, backend math guardrail skill draft)
+- [x] Scan current setup/prove/preprocess/verify-rust equations and invariants from code.
+- [x] Draft a reusable skill skeleton for LLM agents that enforces math-level guardrails.
+- [x] Add package-specific guardrail specs for `trusted-setup`, `prove`, `verify/preprocess`, and `verify-rust`.
+- [x] Add verification checklist/commands and a review section in this todo file.
+
+# Review (2026-02-22, backend math guardrail skill draft)
+- [x] Summarize changes and verification results.
+Added a new skill draft under `agents/skills/backend-math-guardrails/` with a workflow gate and invariant-driven checks, plus package-specific math guardrails for `trusted-setup`, `prove`, `verify/preprocess`, and `verify-rust` in `references/`.
+Verification: structural verification only (`find agents/skills/backend-math-guardrails -maxdepth 3 -type f`); no Rust build/test run because this change is documentation-only.
+
 # Plan (2026-02-07)
 - [x] Rework `div_by_vanishing.md` to include explicit variable dimensions and rigorous TeX formulas.
 - [x] Align the document with code-level behaviors (NTT domains, coset scaling, resize semantics).
