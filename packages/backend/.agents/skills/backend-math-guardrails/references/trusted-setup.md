@@ -37,10 +37,6 @@ $$
 \sigma_2=
 \big([\alpha]_2,[\alpha^2]_2,[\alpha^3]_2,[\alpha^4]_2,[\gamma]_2,[\delta]_2,[\eta]_2,[x]_2,[y]_2\big)
 $$
-$$
-G=[1]_1,\qquad H=[1]_2,\qquad [\beta]_d:=g_d^{\beta}
-$$
-
 ## TS-3: Sigma1 element equations
 - Definition (must stay algebraically identical):
   - `xy_powers = {[x^h y^i]_1}` over configured range.
