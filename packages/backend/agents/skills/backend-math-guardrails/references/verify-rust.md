@@ -12,6 +12,13 @@ Applies to `verify/verify-rust`.
   - `prove/src/lib.rs` (`Proof*::verify*_with_manager`, `TranscriptManager`)
 - Guardrail:
   - Never change transcript feed order unless prover side is changed in lockstep.
+- LaTeX slot:
+```tex
+% VR-1
+% Fill equations here.
+% \[
+% \]
+```
 
 ## VR-2: Domain context equations
 - Definition:
@@ -24,6 +31,13 @@ Applies to `verify/verify-rust`.
   - `verify/verify-rust/src/lib.rs` (`build_domain_context`)
 - Guardrail:
   - Preserve these exact definitions and dimensions.
+- LaTeX slot:
+```tex
+% VR-2
+% Fill equations here.
+% \[
+% \]
+```
 
 ## VR-3: Arithmetic/copy/binding LHS decomposition
 - Definition:
@@ -34,6 +48,13 @@ Applies to `verify/verify-rust`.
   - `verify/verify-rust/src/lib.rs` (`lhs_arith`, `lhs_copy`, `lhs_binding`, `verify_snark`)
 - Guardrail:
   - Refactoring into helpers is allowed; coefficients and terms are not.
+- LaTeX slot:
+```tex
+% VR-3
+% Fill equations here.
+% \[
+% \]
+```
 
 ## VR-4: Pairing equation structure
 - Definition:
@@ -44,6 +65,13 @@ Applies to `verify/verify-rust`.
   - `verify/verify-rust/src/lib.rs` (`verify_snark`)
 - Guardrail:
   - Pairing tuple order and term grouping must remain unchanged.
+- LaTeX slot:
+```tex
+% VR-4
+% Fill equations here.
+% \[
+% \]
+```
 
 ## VR-5: Sub-verifier consistency
 - Definition:
@@ -52,4 +80,10 @@ Applies to `verify/verify-rust`.
   - `verify/verify-rust/src/lib.rs`
 - Guardrail:
   - Any equation change in shared helpers must be reflected consistently across all verifier entry points.
-
+- LaTeX slot:
+```tex
+% VR-5
+% Fill equations here.
+% \[
+% \]
+```

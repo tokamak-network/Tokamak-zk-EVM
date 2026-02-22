@@ -11,6 +11,13 @@ Applies to `verify/preprocess`.
   - `verify/preprocess/src/lib.rs` (`Preprocess::gen`)
 - Guardrail:
   - Output must remain deterministic for same `(sigma_preprocess, permutation, instance, setupParams)`.
+- LaTeX slot:
+```tex
+% PP-1
+% Fill equations here.
+% \[
+% \]
+```
 
 ## PP-2: Shared setup-shape/domain assumptions
 - Definition:
@@ -20,6 +27,13 @@ Applies to `verify/preprocess`.
   - `libs/src/utils/mod.rs`
 - Guardrail:
   - Do not bypass shape validation or domain initialization semantics.
+- LaTeX slot:
+```tex
+% PP-2
+% Fill equations here.
+% \[
+% \]
+```
 
 ## PP-3: Output format bijection
 - Definition:
@@ -30,4 +44,10 @@ Applies to `verify/preprocess`.
   - `verify/preprocess/src/lib.rs` (`convert_format_for_solidity_verifier`, `recover_proof_from_format`)
 - Guardrail:
   - Do not reorder fields without synchronized verifier/prover format migration.
-
+- LaTeX slot:
+```tex
+% PP-3
+% Fill equations here.
+% \[
+% \]
+```

@@ -555,3 +555,17 @@ Verification: `cargo check -p libs -p prove -p verify -p trusted-setup` and `car
 # Review (2026-02-14, rename encode_o_pub_free_common)
 - [x] Summarize changes and verification results.
 Renamed helper function to `encode_o_pub_free_common` and updated all references in `group_structures` and `iotools`. Verification: `cargo check -p libs -p prove -p verify -p trusted-setup` passed.
+
+# Plan (2026-02-22, latex slot placeholders in guardrail docs)
+- [x] Identify all guardrail reference markdown files requiring equation insertion points.
+- [x] Add per-invariant LaTeX placeholder blocks in each reference file.
+- [x] Verify file structure and commit the documentation updates.
+
+# Review (2026-02-22, latex slot placeholders in guardrail docs)
+- [x] Summarize changes and verification results.
+Added `LaTeX slot` fenced `tex` placeholders for every invariant section in:
+- `agents/skills/backend-math-guardrails/references/trusted-setup.md`
+- `agents/skills/backend-math-guardrails/references/prove.md`
+- `agents/skills/backend-math-guardrails/references/verify-preprocess.md`
+- `agents/skills/backend-math-guardrails/references/verify-rust.md`
+Verification: `rg -n "LaTeX slot" agents/skills/backend-math-guardrails/references/*.md`.

@@ -10,6 +10,13 @@ Applies to `setup/trusted-setup` and CRS generation logic in `libs`.
   - `libs/src/utils/mod.rs` (`setup_shape`, `validate_setup_shape`)
 - Guardrail:
   - Any change must preserve the same validity checks and domain assumptions.
+- LaTeX slot:
+```tex
+% TS-1
+% Fill equations here.
+% \[
+% \]
+```
 
 ## TS-2: CRS basis definitions
 - Definition:
@@ -19,6 +26,13 @@ Applies to `setup/trusted-setup` and CRS generation logic in `libs`.
   - `libs/src/group_structures/mod.rs` (`Sigma2::gen`, `Sigma::gen`)
 - Guardrail:
   - No permutation, omission, or semantic reassignment of `sigma_2` slots.
+- LaTeX slot:
+```tex
+% TS-2
+% Fill equations here.
+% \[
+% \]
+```
 
 ## TS-3: Sigma1 element equations
 - Definition (must stay algebraically identical):
@@ -34,6 +48,13 @@ Applies to `setup/trusted-setup` and CRS generation logic in `libs`.
   - `libs/src/group_structures/mod.rs` (`Sigma1::gen`)
 - Guardrail:
   - Refactors are allowed, formula changes are blocked unless protocol change is approved.
+- LaTeX slot:
+```tex
+% TS-3
+% Fill equations here.
+% \[
+% \]
+```
 
 ## TS-4: Encode-path consistency
 - Definition:
@@ -44,6 +65,13 @@ Applies to `setup/trusted-setup` and CRS generation logic in `libs`.
   - `libs/src/iotools/mod.rs` (archived/rkyv mirrors)
 - Guardrail:
   - Live and archived encoders must remain algebraically equivalent.
+- LaTeX slot:
+```tex
+% TS-4
+% Fill equations here.
+% \[
+% \]
+```
 
 ## TS-5: Output split equivalence
 - Definition:
@@ -53,4 +81,10 @@ Applies to `setup/trusted-setup` and CRS generation logic in `libs`.
   - `libs/src/iotools/mod.rs` (`SigmaRkyv`, `SigmaVerifyRkyv`, `SigmaPreprocessRkyv`)
 - Guardrail:
   - Any format change must preserve exact group-element values and ordering.
-
+- LaTeX slot:
+```tex
+% TS-5
+% Fill equations here.
+% \[
+% \]
+```
