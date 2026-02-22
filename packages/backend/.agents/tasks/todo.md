@@ -579,3 +579,24 @@ Verification: `rg -n "LaTeX slot" .agents/skills/backend-math-guardrails/referen
 - [x] Summarize changes and verification results.
 Renamed `agents` to `.agents` and updated skill/todo path references to `.agents/...`.
 Verification: `rg -n "\\bagents/|\\bagents\\b" -S --hidden --glob '!target/**'` shows no stale real-path references (excluding plain English usage like "LLM agents").
+
+# Plan (2026-02-22, fix KaTeX syntax in temp/setup.md)
+- [x] Inspect `temp/setup.md` and locate malformed LaTeX/KaTeX patterns.
+- [x] Fix syntax-breaking math constructs while preserving equation meaning.
+- [x] Re-scan the file for common KaTeX error patterns and commit changes.
+
+# Review (2026-02-22, fix KaTeX syntax in temp/setup.md)
+- [x] Summarize changes and verification results.
+Resolved KaTeX-breaking patterns in `temp/setup.md`: invalid delimiters (`\left{`, `\Bigg{`), malformed line breaks, broken set notation, and malformed relation equations in blocks (16), (17), (20), and Setup output definitions.
+Verification: `grep -n '\\left{' temp/setup.md`, `grep -n ',\\$' temp/setup.md`, `grep -n '\\\\[2pt\\]' temp/setup.md` (no remaining syntax-breaking matches).
+
+# Plan (2026-02-22, fill trusted-setup skill equations from temp/setup.md)
+- [x] Map TS-1..TS-5 slots in `.agents/skills/backend-math-guardrails/references/trusted-setup.md` to source equations in `temp/setup.md` and current code semantics.
+- [x] Fill each LaTeX slot with concrete equations and preserve KaTeX-safe syntax.
+- [x] Add explicit review-request comments for ambiguous or paper-vs-code diverging definitions.
+
+# Review (2026-02-22, fill trusted-setup skill equations from temp/setup.md)
+- [x] Summarize changes and verification results.
+Filled all TS-1..TS-5 LaTeX slots in `.agents/skills/backend-math-guardrails/references/trusted-setup.md` with equations derived from `temp/setup.md` plus code-level semantics.
+Added `% TODO(review): ...` comments for ambiguous points: `\sigma_{A,C}` degree bound, `L_t(y)` partition mapping, and `\delta^{-1}\alpha^4 x^j t_{m_i}(x)` index range.
+Verification: manual scan with `sed -n '1,280p' .agents/skills/backend-math-guardrails/references/trusted-setup.md`.

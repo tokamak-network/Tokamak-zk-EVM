@@ -4,8 +4,8 @@ Applies to `setup/trusted-setup` and CRS generation logic in `libs`.
 
 ## TS-1: Setup shape constraints
 - Definition:
-  - `m_i = l_D - l`
-  - `n`, `s_max`, `m_i` are powers of two.
+  - $m_i = l_D - l$
+  - $n$, $s_max$, $m_i$ are powers of two.
 - Code anchors:
   - `libs/src/utils/mod.rs` (`setup_shape`, `validate_setup_shape`)
 - Guardrail:
@@ -13,9 +13,19 @@ Applies to `setup/trusted-setup` and CRS generation logic in `libs`.
 - LaTeX slot:
 ```tex
 % TS-1
-% Fill equations here.
-% \[
-% \]
+\[
+m_i = l_D - l,\qquad
+n=2^{\nu_n},\quad s_{\max}=2^{\nu_s},\quad m_i=2^{\nu_m}
+\]
+\[
+l_{\mathrm{free}}=0\ \ \text{or}\ \ l_{\mathrm{free}}=2^{\nu_f}
+\]
+\[
+N_{\mathrm{NTT}}^{\mathrm{setup}}=\max\{n,l_{\mathrm{free}},m_i,s_{\max}\}
+\]
+\[
+N_{\mathrm{NTT}}^{\mathrm{setup,test}}=\max\{n,m_i\}\cdot s_{\max}
+\]
 ```
 
 ## TS-2: CRS basis definitions
@@ -29,9 +39,16 @@ Applies to `setup/trusted-setup` and CRS generation logic in `libs`.
 - LaTeX slot:
 ```tex
 % TS-2
-% Fill equations here.
-% \[
-% \]
+\[
+\tau=(\alpha,\gamma,\delta,\eta,x,y)\in(\mathbb F^\*)^6
+\]
+\[
+\sigma_2=
+\big([\alpha]_2,[\alpha^2]_2,[\alpha^3]_2,[\alpha^4]_2,[\gamma]_2,[\delta]_2,[\eta]_2,[x]_2,[y]_2\big)
+\]
+\[
+G=[1]_1,\qquad H=[1]_2,\qquad [\beta]_d:=g_d^{\beta}
+\]
 ```
 
 ## TS-3: Sigma1 element equations
@@ -51,9 +68,49 @@ Applies to `setup/trusted-setup` and CRS generation logic in `libs`.
 - LaTeX slot:
 ```tex
 % TS-3
-% Fill equations here.
-% \[
-% \]
+\[
+o_j(X):=\alpha u_j(X)+\alpha^2 v_j(X)+\alpha^3 w_j(X)
+\]
+\[
+\{[x^h y^i]_1\}_{h=0,i=0}^{h_{\max}-1,\,2s_{\max}-1},
+\qquad h_{\max}:=\max(2n,2m_i)\ \ \text{(code)}
+\]
+% TODO(review): manuscript in temp/setup.md uses an upper bound like \max(2n-2,3m_I-3), while current code uses \max(2n,2m_i). Please confirm intended canonical bound.
+\[
+\left\{
+\left[\gamma^{-1}\!\left(L_{t(j)}(y)\,o_j(x)+\mathbf 1_{j<l_{\mathrm{free}}}\,M_j(x)\right)\right]_1
+\right\}_{j=0}^{l-1}
+\]
+\[
+t(j)\in\{0,1,2,3\}\ \text{is selected by public-wire partition in setup params}
+\]
+% TODO(review): paper notation uses L_0/L_{-1} style in places; code uses 4-way partition (user\_out, user\_in, block\_in, function).
+\[
+\left\{
+\left[\eta^{-1}L_i(y)\left(o_{j+l}(x)+\alpha^4K_j(x)\right)\right]_1
+\right\}_{i=0,j=0}^{s_{\max}-1,\,m_i-1}
+\]
+\[
+\left\{
+\left[\delta^{-1}L_i(y)o_j(x)\right]_1
+\right\}_{i=0,j=l+m_i}^{s_{\max}-1,\,m_D-1}
+\]
+\[
+\left\{
+\left[\delta^{-1}\alpha^k x^h(x^n-1)\right]_1
+\right\}_{k=1,h=0}^{3,2}
+\]
+\[
+\left\{
+\left[\delta^{-1}\alpha^4 x^j(x^{m_i}-1)\right]_1
+\right\}_{j=0}^{1}
+\]
+% TODO(review): temp/setup.md has an expression resembling j=0..l-1, but code materializes only j\in\{0,1\}. Please confirm intended range.
+\[
+\left\{
+\left[\delta^{-1}\alpha^k y^i(y^{s_{\max}}-1)\right]_1
+\right\}_{k=1,i=0}^{4,2}
+\]
 ```
 
 ## TS-4: Encode-path consistency
@@ -68,9 +125,43 @@ Applies to `setup/trusted-setup` and CRS generation logic in `libs`.
 - LaTeX slot:
 ```tex
 % TS-4
-% Fill equations here.
-% \[
-% \]
+\[
+F(X,Y)=\sum_{a=0}^{d_x}\sum_{b=0}^{d_y} f_{a,b}X^aY^b
+\]
+\[
+\mathrm{Enc}(F):=\sum_{a=0}^{d_x}\sum_{b=0}^{d_y} f_{a,b}[x^a y^b]_1
+\]
+\[
+\mathrm{Enc}_{\text{live}}(F)=\mathrm{Enc}_{\text{archived}}(F)
+\]
+\[
+\mathrm{EncO}_{\mathrm{pub\_fix}}(\mathbf a)=
+\sum_{r=0}^{m_{\mathrm{function}}-1}
+a_r\cdot
+\big[\gamma^{-1}o_{\mathrm{inst},\,(\ell_\gamma-m_{\mathrm{function}}+r)}\big]_1
+\]
+\[
+\mathrm{EncO}_{\mathrm{pub\_free}}
+=
+\sum_{(p,j)\in\mathcal I_{\mathrm{pub\_free}}}
+w_{p,j}\cdot
+\big[\gamma^{-1}o_{\mathrm{inst},\,\mathrm{flat}(p,j)}\big]_1
+\]
+\[
+\mathrm{EncO}_{\mathrm{mid}}
+=
+\sum_{(p,j)\in\mathcal I_{\mathrm{mid}}}
+w_{p,j}\cdot
+\big[\eta^{-1}L_p(y)\,(o_{j+l}(x)+\alpha^4K_j(x))\big]_1
+\]
+\[
+\mathrm{EncO}_{\mathrm{prv}}
+=
+\sum_{(p,j)\in\mathcal I_{\mathrm{prv}}}
+w_{p,j}\cdot
+\big[\delta^{-1}L_p(y)\,o_j(x)\big]_1
+\]
+% TODO(review): \mathcal I_{\mathrm{pub\_free}}, \mathcal I_{\mathrm{mid}}, \mathcal I_{\mathrm{prv}} depend on buffer-type filtering and flatten-map ranges in code; please review this abstraction.
 ```
 
 ## TS-5: Output split equivalence
@@ -84,7 +175,32 @@ Applies to `setup/trusted-setup` and CRS generation logic in `libs`.
 - LaTeX slot:
 ```tex
 % TS-5
-% Fill equations here.
-% \[
-% \]
+\[
+\Sigma_{\mathrm{combined}}
+:=
+(G,H,\sigma_1,\sigma_2,\mathrm{Lagrange}_{KL})
+\]
+\[
+\Sigma_{\mathrm{verify}}
+:=
+\pi_{\mathrm{verify}}(\Sigma_{\mathrm{combined}})
+=
+\big(G,H,\sigma_1^{\mathrm{verify}},\sigma_2,\mathrm{Lagrange}_{KL}\big),
+\quad
+\sigma_1^{\mathrm{verify}}=(x,y)
+\]
+\[
+\Sigma_{\mathrm{preprocess}}
+:=
+\pi_{\mathrm{preprocess}}(\Sigma_{\mathrm{combined}})
+=
+\big(\sigma_1^{\mathrm{preprocess}}\big),
+\quad
+\sigma_1^{\mathrm{preprocess}}=(xy\_powers,\gamma^{-1}o_{\mathrm{inst}})
+\]
+\[
+\forall v\in\{\mathrm{verify},\mathrm{preprocess}\},\quad
+\Sigma_v=\pi_v(\Sigma_{\mathrm{combined}})
+\ \text{(field-wise equality, order preserved)}
+\]
 ```
