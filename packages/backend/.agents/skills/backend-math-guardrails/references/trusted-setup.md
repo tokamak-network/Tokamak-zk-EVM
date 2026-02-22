@@ -35,7 +35,7 @@ $$
   - No permutation, omission, or semantic reassignment of `sigma_2` slots.
 - LaTeX slot:
 $$
-\tau=(\alpha,\gamma,\delta,\eta,x,y)\in(\mathbb F^\*)^6
+\tau=(\alpha,\gamma,\delta,\eta,x,y)\in(\mathbb{F}^{\times})^6
 $$
 $$
 \sigma_2=

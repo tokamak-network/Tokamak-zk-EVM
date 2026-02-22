@@ -611,3 +611,13 @@ Verification: manual scan with `sed -n '1,280p' .agents/skills/backend-math-guar
 Converted TS-1..TS-5 LaTeX content from fenced code blocks into direct `$$ ... $$` math blocks so Markdown+KaTeX renderers treat them as equations.
 Kept review-request notes as plain `TODO(review): ...` text lines outside math blocks.
 Verification: `rg -n '```tex|\\\\\\[|\\\\\\]' .agents/skills/backend-math-guardrails/references/trusted-setup.md` (no matches).
+
+# Plan (2026-02-22, fix remaining KaTeX parse error in TS-2)
+- [x] Locate the remaining TS-2 formula parse error from renderer output.
+- [x] Replace unsupported expression with KaTeX-safe equivalent.
+- [x] Verify no `\*` control sequence remains in the trusted-setup guardrail formula block.
+
+# Review (2026-02-22, fix remaining KaTeX parse error in TS-2)
+- [x] Summarize changes and verification results.
+Fixed the remaining TS-2 parse error by replacing `(\mathbb F^\*)^6` with `(\mathbb{F}^{\times})^6` in `.agents/skills/backend-math-guardrails/references/trusted-setup.md`.
+Verification: manual check on the TS-2 equation line and grep for the old `\*` pattern in the same file.
