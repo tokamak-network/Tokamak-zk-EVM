@@ -480,8 +480,8 @@ export class InstructionHandler {
     keyPt: DataPt,
     value: bigint,
     mode: VerifyStorageMode,
-  ): Promise<DataPt> {
-    const _verifyRegisteredStorage = async (): Promise<DataPt> => {
+  ): Promise<DataPt | undefined> {
+    const _verifyRegisteredStorage = async (): Promise<DataPt | undefined> => {
       let treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
       const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
       let childPt: DataPt | undefined;
@@ -502,7 +502,6 @@ export class InstructionHandler {
             poseidon_raw([NULL_STORAGE_KEY, 0n]),
             true,
           );
-          resultPt = childPt;
         } else {
           return this.parent.addReservedVariableToBufferIn(
             'UNREGISTERED_CONTRACT_STORAGE_IN',
@@ -549,9 +548,6 @@ export class InstructionHandler {
         refInitRootPt[refInitRootPt.length - 1],
       )
 
-      if (resultPt === undefined) {
-        throw new Error('Debug: Storage verification result point was not initialized')
-      }
       return resultPt
     }
 
@@ -582,6 +578,9 @@ export class InstructionHandler {
 
     // let accessHistory: CachedStorageEntry;
     const valuePt = await this.verifyStorage(address, keyPt, value, 'SLOAD');
+    if (valuePt === undefined) {
+      throw new Error('Debug: SLOAD storage verification must return a value point')
+    }
     // if (indexPt !== null) {
     //   accessHistory = {
     //     addressIndex: MTIndex[0],
