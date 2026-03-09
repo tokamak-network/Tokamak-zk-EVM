@@ -530,6 +530,9 @@ export class InstructionHandler {
       });
       const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(treeIndex[1]), true);
       if (mode === 'SSTORE_PRE_STEP') {
+        if (this.parent.state.cachedMerkleProof !== null) {
+          throw new Error('Debug: cachedMerkleProof must be empty before SSTORE pre-step caching')
+        }
         this.parent.state.cachedMerkleProof = {
           indexPt: DataPtFactory.deepCopy(indexPt),
           siblingPts: siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt))),
