@@ -485,6 +485,7 @@ export class InstructionHandler {
       let treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
       const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
       let proofKeyPt = keyPt;
+      let proofValue = value;
 
       if (!isRegisteredKey) {
         if (mode === 'SSTORE_PRE_STEP') {
@@ -492,12 +493,12 @@ export class InstructionHandler {
           if (registeredKeys === null) {
             throw new Error('Debug: registeredKeys is not initialized')
           }
-          const addressIndex = registeredKeys.findIndex((entry) => entry.address.equals(address));
-          if (addressIndex < 0) {
+          if (treeIndex[0] < 0) {
             throw new Error(`Debug: No registeredKeys entry for address ${address.toString()}`)
           }
-          treeIndex = [addressIndex, registeredKeys[addressIndex].keys.length];
+          treeIndex = [treeIndex[0], registeredKeys[treeIndex[0]].keys.length];
           proofKeyPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', NULL_STORAGE_KEY, true);
+          proofValue = 0n;
         } else {
           return this.parent.addReservedVariableToBufferIn(
             'UNREGISTERED_CONTRACT_STORAGE_IN',
@@ -515,7 +516,12 @@ export class InstructionHandler {
       const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
       const merkleProof = merkleTree.getProof(treeIndex);
       const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(treeIndex[1]), true);
-      const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', value, true, ` at MT index: ${treeIndex[1]} of address: ${address}`);
+      const valuePt = this.parent.addReservedVariableToBufferIn(
+        mode === 'SSTORE_PRE_STEP' && !isRegisteredKey ? 'MERKLE_PROOF' : 'IN_VALUE',
+        proofValue,
+        true,
+        ` at MT index: ${treeIndex[1]} of address: ${address}`,
+      );
       const childPt = this.parent.placePoseidon([
         proofKeyPt,
         valuePt,
