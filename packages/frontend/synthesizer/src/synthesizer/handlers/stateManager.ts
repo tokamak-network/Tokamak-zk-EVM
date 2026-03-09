@@ -15,7 +15,7 @@ import { MemoryPt, StackPt } from '../dataStructure/index.ts';
 import { SubcircuitInfoByName, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
 import { subcircuitInfoByName } from '../../interface/qapCompiler/importedConstants.ts';
 import { InterpreterStep, Message } from '@ethereumjs/evm';
-import { bytesToBigInt } from '@ethereumjs/util';
+import { Address, bytesToBigInt } from '@ethereumjs/util';
 
 export type CachedStorageEntry = {
   addressIndex: number,
@@ -67,7 +67,7 @@ export class StateManager {
 
   public cachedEVMIn: Map<bigint, DataPt> = new Map()
   public cachedOrigin: DataPt | undefined = undefined
-  public cachedInitRoots: DataPt[] | undefined = undefined
+  public cachedRoots: Map<Address, DataPt[]> | undefined = undefined
 
   public contextByDepth: ContextManager[] = [];
 
