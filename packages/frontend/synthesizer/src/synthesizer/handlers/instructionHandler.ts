@@ -14,7 +14,7 @@ import {
   createAddressFromString,
 } from '@ethereumjs/util'
 import { InterpreterStep } from '@ethereumjs/evm'
-import { NULL_STORAGE_KEY } from 'tokamak-l2js';
+import { NULL_STORAGE_KEY, poseidon_raw } from 'tokamak-l2js';
 import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
 import { DataPtFactory, MemoryPt, StackPt } from '../dataStructure/index.ts';
 import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from '../../interface/qapCompiler/configuredTypes.ts';
@@ -484,8 +484,8 @@ export class InstructionHandler {
     const _verifyRegisteredStorage = async (): Promise<DataPt> => {
       let treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
       const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
-      let proofKeyPt = keyPt;
-      let proofValue = value;
+      let childPt: DataPt | undefined;
+      let resultPt: DataPt | undefined;
 
       if (!isRegisteredKey) {
         if (mode === 'SSTORE_PRE_STEP') {
@@ -497,8 +497,12 @@ export class InstructionHandler {
             throw new Error(`Debug: No registeredKeys entry for address ${address.toString()}`)
           }
           treeIndex = [treeIndex[0], registeredKeys[treeIndex[0]].keys.length];
-          proofKeyPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', NULL_STORAGE_KEY, true);
-          proofValue = 0n;
+          childPt = this.parent.addReservedVariableToBufferIn(
+            'MERKLE_PROOF',
+            poseidon_raw([NULL_STORAGE_KEY, 0n]),
+            true,
+          );
+          resultPt = childPt;
         } else {
           return this.parent.addReservedVariableToBufferIn(
             'UNREGISTERED_CONTRACT_STORAGE_IN',
@@ -516,16 +520,19 @@ export class InstructionHandler {
       const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
       const merkleProof = merkleTree.getProof(treeIndex);
       const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(treeIndex[1]), true);
-      const valuePt = this.parent.addReservedVariableToBufferIn(
-        mode === 'SSTORE_PRE_STEP' && !isRegisteredKey ? 'MERKLE_PROOF' : 'IN_VALUE',
-        proofValue,
-        true,
-        ` at MT index: ${treeIndex[1]} of address: ${address}`,
-      );
-      const childPt = this.parent.placePoseidon([
-        proofKeyPt,
-        valuePt,
-      ])
+      if (childPt === undefined) {
+        const valuePt = this.parent.addReservedVariableToBufferIn(
+          'IN_VALUE',
+          value,
+          true,
+          ` at MT index: ${treeIndex[1]} of address: ${address}`,
+        );
+        childPt = this.parent.placePoseidon([
+          keyPt,
+          valuePt,
+        ])
+        resultPt = valuePt;
+      }
       if (merkleProof.leaf !== childPt.value) {
         throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
       }
@@ -542,7 +549,10 @@ export class InstructionHandler {
         refInitRootPt[refInitRootPt.length - 1],
       )
 
-      return valuePt
+      if (resultPt === undefined) {
+        throw new Error('Debug: Storage verification result point was not initialized')
+      }
+      return resultPt
     }
 
     switch (mode) {
