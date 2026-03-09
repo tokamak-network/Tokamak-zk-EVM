@@ -546,7 +546,7 @@ export class Synthesizer implements SynthesizerInterface
   placePoseidon(inPts: DataPt[]): DataPt {
     return this._arithmeticManager.placePoseidon(inPts)
   }
-  placeMerkleProofVerification(indexPt: DataPt, leafPt: DataPt, siblings: bigint[][], rootPt: DataPt): void {
+  placeMerkleProofVerification(indexPt: DataPt, leafPt: DataPt, siblings: DataPt[][], rootPt: DataPt): void {
     return this._arithmeticManager.placeMerkleProofVerification(indexPt, leafPt, siblings, rootPt)
   }
 

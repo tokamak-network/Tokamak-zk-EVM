@@ -521,6 +521,11 @@ export class InstructionHandler {
       }
       const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
       const merkleProof = merkleTree.getProof(treeIndex);
+      const siblingPts = merkleProof.siblings.map((siblingsAtLevel) =>
+        siblingsAtLevel.map((sibling) =>
+          this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', sibling, true),
+        ),
+      );
       const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(treeIndex[1]), true);
       if (childPt === undefined) {
         const valuePt = this.parent.addReservedVariableToBufferIn(
@@ -547,7 +552,7 @@ export class InstructionHandler {
       this.parent.placeMerkleProofVerification(
         indexPt,
         childPt,
-        merkleProof.siblings,
+        siblingPts,
         refInitRootPt[refInitRootPt.length - 1],
       )
 

@@ -50,7 +50,7 @@ export interface ISynthesizerProvider extends SynthesizerInterface {
   placeExp(inPts: DataPt[], reference?: bigint): DataPt
   placeJubjubExp(inPts: DataPt[], PoI: DataPt[], reference?: bigint): DataPt[]
   placePoseidon(inPts: DataPt[]): DataPt
-  placeMerkleProofVerification(indexPt: DataPt, leafPt: DataPt, siblings: bigint[][], rootPt: DataPt): void
+  placeMerkleProofVerification(indexPt: DataPt, leafPt: DataPt, siblings: DataPt[][], rootPt: DataPt): void
   //from memoryManager
   placeMemoryToMemory(dataAliasInfos: DataAliasInfos): DataPt[]
   placeMemoryToStack(dataAliasInfos: DataAliasInfos): DataPt
