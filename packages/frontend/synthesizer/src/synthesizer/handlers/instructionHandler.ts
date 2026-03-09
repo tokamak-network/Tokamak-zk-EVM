@@ -482,7 +482,7 @@ export class InstructionHandler {
       throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
     }
 
-    const refInitRootPt = this.parent.state.cachedInitRoots === undefined ? undefined : this.parent.state.cachedInitRoots[treeIndex[0]];
+    const refInitRootPt = this.parent.state.cachedRoots.get(this.parent.state.storageAddresses[treeIndex[0]]);
     if (refInitRootPt === undefined) {
       throw new Error('Initial Merkle tree root for a specific address was not initialized in Synthesizer')
     }

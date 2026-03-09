@@ -37,7 +37,8 @@ npm install
 ```
 
 ### Local TokamakL2JS development
-- `tsx`-based development scripts use `tsconfig.dev.json`, which resolves `tokamak-l2js` to `submodules/TokamakL2JS/src/index.ts`.
+- The root `tsconfig.json` resolves `tokamak-l2js` to `submodules/TokamakL2JS/src/index.ts`, so IDE diagnostics and local TypeScript tooling follow the submodule during development.
+- `tsx`-based development scripts keep using `tsconfig.dev.json`, which inherits that root development mapping.
 - Production builds keep the package import specifier and therefore consume the published `tokamak-l2js` package from `node_modules`.
 
 ### Inputs
