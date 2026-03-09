@@ -19,7 +19,7 @@ More detail is in `doc/synthesizer.md`.
 ## Package layout
 - Core: `src/synthesizer`, `src/circuitGenerator`.
 - Input helpers: `src/interface` collects transaction/block/state inputs for the synthesizer; sources are not limited to L1 RPC.
-- Tokamak L2 primitives: `src/TokamakL2JS` (planned to become an independent package).
+- Tokamak L2 primitives: `submodules/TokamakL2JS` for local development, `tokamak-l2js` as the published package consumed by build outputs.
 
 ## Run example (L2 TON transfer)
 `examples/L2TONTransfer/main.ts` is the end-to-end example. It derives L2 keypairs from seeds, builds `SynthesizerOpts` via `createSynthesizerOptsForSimulationFromRPC`, runs `synthesizeTX()`, and writes outputs to `outputs/` by default.
@@ -35,6 +35,10 @@ More detail is in `doc/synthesizer.md`.
 cd packages/frontend/synthesizer
 npm install
 ```
+
+### Local TokamakL2JS development
+- `tsx`-based development scripts use `tsconfig.dev.json`, which resolves `tokamak-l2js` to `submodules/TokamakL2JS/src/index.ts`.
+- Production builds keep the package import specifier and therefore consume the published `tokamak-l2js` package from `node_modules`.
 
 ### Inputs
 - Ethereum RPC provider URL: create an `./.env` file:

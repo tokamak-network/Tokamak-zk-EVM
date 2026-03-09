@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "tokamak-l2js": [
+        "./submodules/TokamakL2JS/src/index.ts"
+      ]
+    }
+  }
+}
