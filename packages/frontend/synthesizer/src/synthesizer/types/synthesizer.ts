@@ -57,5 +57,6 @@ export interface ISynthesizerProvider extends SynthesizerInterface {
   placeMSTORE(dataPt: DataPt, truncBitSize: number): DataPt
   copyMemoryPts(target: MemoryPts, srcOffset: bigint, length: bigint, dstOffset?: bigint): MemoryPts
   //from instructionHandler
+  updateStoragePreStep(stepResult: InterpreterStep): Promise<void>
   get synthesizerHandlers(): Map<number, SynthesizerOpHandler>
 }

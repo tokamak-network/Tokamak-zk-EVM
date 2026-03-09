@@ -11,7 +11,6 @@ import { MAX_MT_LEAVES } from '../interface/qapCompiler/importedConstants.ts';
 import { DataPtFactory } from './dataStructure/dataPt.ts';
 import { TypedTransaction } from '@ethereumjs/tx';
 import { MemoryPt } from './dataStructure/memoryPt.ts';
-import { PermutationForAddress } from 'tokamak-l2js';
 
 /**
  * The Synthesizer class manages data related to subcircuits.
@@ -67,6 +66,9 @@ export class Synthesizer implements SynthesizerInterface
       ; (async () => {
         try {
           await this._applySynthesizerHandler(data);
+          if (data.opcode.name === 'SSTORE') {
+            await this.updateStoragePreStep(data);
+          }
         } catch (err) {
           console.error('Synthesizer: step error:', err)
         } finally {
@@ -458,6 +460,14 @@ export class Synthesizer implements SynthesizerInterface
 
   public get messageCodeAddresses(): Set<`0x${string}`> {
     return this._messageCodeAddresses
+  }
+
+  public async updateStoragePreStep(data: InterpreterStep): Promise<void> {
+    const stepResult: InterpreterStep = {
+      ...data,
+      stack: data.stack.slice().reverse(),
+    }
+    await this._instructionHandlers.updateStoragePreStep(stepResult)
   }
 
   public get placements(): Placements {

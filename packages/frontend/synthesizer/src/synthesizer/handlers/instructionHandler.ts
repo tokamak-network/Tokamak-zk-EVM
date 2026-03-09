@@ -10,12 +10,14 @@ import {
   bigIntToHex,
   setLengthLeft,
   bigIntToBytes,
+  hexToBigInt,
+  createAddressFromString,
 } from '@ethereumjs/util'
 import { InterpreterStep } from '@ethereumjs/evm'
 import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
 import { DataPtFactory, MemoryPt, StackPt } from '../dataStructure/index.ts';
 import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from '../../interface/qapCompiler/configuredTypes.ts';
-import { CachedStorageEntry, ContextManager } from './stateManager.ts';
+import { ContextManager } from './stateManager.ts';
 
 export interface HandlerOpts {
   op: SynthesizerSupportedOpcodes,
@@ -467,11 +469,13 @@ export class InstructionHandler {
     return DataPtFactory.deepCopy(this.parent.state.cachedOrigin!)
   }
 
-  public verifyStorage(keyPt: DataPt, value: bigint, treeIndex: [number, number], address: Address): {indexPt: DataPt, valuePt: DataPt} {
-    if (!this.parent.cachedOpts.stateManager.initialMerkleTrees.addresses[treeIndex[0]].equals(address)) {
+  public async verifyStorage(keyPt: DataPt, value: bigint, treeIndex: [number, number], address: Address): Promise<{indexPt: DataPt, valuePt: DataPt}> {
+    const refAddress = this.parent.state.storageAddresses[treeIndex[0]];
+    if (! createAddressFromString(refAddress).equals(address) ) {
       throw new Error(`Need to debug: Merkle tree index mismatches with given address`)
     }
-    const merkleProof = this.cachedOpts.stateManager.getMerkleProof(treeIndex);
+    const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
+    const merkleProof = merkleTree.getProof(treeIndex);
     const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(treeIndex[1]), true);
     const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', value, true, ` at MT index: ${treeIndex[1]} of address: ${address}`);
     const childPt = this.parent.placePoseidon([
@@ -482,8 +486,8 @@ export class InstructionHandler {
       throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
     }
 
-    const refInitRootPt = this.parent.state.cachedRoots.get(this.parent.state.storageAddresses[treeIndex[0]]);
-    if (refInitRootPt === undefined) {
+    const refInitRootPt = this.parent.state.cachedRoots.get(refAddress);
+    if (refInitRootPt === undefined || refInitRootPt.length === 0) {
       throw new Error('Initial Merkle tree root for a specific address was not initialized in Synthesizer')
     }
 
@@ -491,18 +495,17 @@ export class InstructionHandler {
       indexPt,
       childPt,
       merkleProof.siblings,
-      refInitRootPt,
+      refInitRootPt[refInitRootPt.length - 1],
     )
 
-    if (this.parent.state.verifiedStorageMTIndices.findIndex(val => val[0] === treeIndex[0] && val[1] === treeIndex[1]) >= 0) {
-      throw new Error(`A storage entry is verified twice.`)
-    }
-    this.parent.state.verifiedStorageMTIndices.push(treeIndex);
+    // if (this.parent.state.verifiedStorageMTIndices.findIndex(val => val[0] === treeIndex[0] && val[1] === treeIndex[1]) >= 0) {
+    //   throw new Error(`A storage entry is verified twice.`)
+    // }
+    // this.parent.state.verifiedStorageMTIndices.push(treeIndex);
     return {indexPt, valuePt}
   }
 
   public async loadStorage(address: Address, keyPt: DataPt, valueGiven?: bigint): Promise<DataPt> {
-    const addressKey = address.toString();
     const key = keyPt.value;
     const valueStored = bytesToBigInt(
       await this.cachedOpts.stateManager.getStorage(
@@ -520,119 +523,117 @@ export class InstructionHandler {
 
     const MTIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, key);
     const isRegisteredKey = MTIndex[0] >= 0 && MTIndex[1] >= 0 ? true : false;
-    const cached = this.parent.state.cachedStorage.get(addressKey)?.get(key);
-    const isColdAccess = cached === undefined ? true : false;
 
-    let accessHistory: CachedStorageEntry;
+    // let accessHistory: CachedStorageEntry;
     let indexPt, valuePt: DataPt;
-    if (isColdAccess) {
-      if (isRegisteredKey ) {
-        ({ indexPt, valuePt } = this.verifyStorage(keyPt, value, MTIndex, address));
-        accessHistory = {
-          addressIndex: MTIndex[0],
-          indexPt,
-          keyPt,
-          valuePt,
-          access: "Read",
-        };
-      } else {
-        valuePt = this.parent.addReservedVariableToBufferIn(
-          'UNREGISTERED_CONTRACT_STORAGE_IN',
-          value,
-          true,
-          ` at MPT key ${bigIntToHex(key)} of address ${address.toString()}`,
-        );
-        accessHistory = {
-          addressIndex: MTIndex[0],
-          indexPt: null,
-          keyPt,
-          valuePt,
-          access: "Read",
-        };
-      }
-      this.parent.state.cachedStorage.get(addressKey)?.set(key, [accessHistory]) ?? this.parent.state.cachedStorage.set(addressKey, new Map([[key, [accessHistory]]]));
+    if (isRegisteredKey ) {
+      ({ indexPt, valuePt } = await this.verifyStorage(keyPt, value, MTIndex, address));
+      // accessHistory = {
+      //   addressIndex: MTIndex[0],
+      //   indexPt,
+      //   keyPt,
+      //   valuePt,
+      //   access: "Read",
+      // };
     } else {
-      if ( cached === undefined || cached!.length === 0 ) {
-        throw new Error('A cached storage is present, but no history.')
-      }
-      valuePt = cached[cached.length - 1].valuePt;
-      if (valuePt.value !== value) {
-        throw new Error('Discrepancy between cached and actual storage values')
-      }
-      if (cached[cached.length - 1].keyPt.value !== key) {
-        throw new Error('Discrepancy between cached and actual key values')
-      }
-      const addressIndex = isRegisteredKey ? cached[cached.length - 1].addressIndex : null;
-      if (addressIndex !== null && addressIndex !== MTIndex[0]) {
-        throw new Error('Discrepancy between cached and actual MT address indices')
-      }
-      const indexPt = isRegisteredKey ? cached[cached.length - 1].indexPt : null;
-      if (indexPt !== null && Number(indexPt.value) !== MTIndex[1]) {
-        throw new Error('Discrepancy between cached and actual MT indices')
-      }
-      accessHistory = {
-        addressIndex: MTIndex[0],
-        indexPt,
-        keyPt,
-        valuePt,
-        access: "Read",
-      };
-      cached.push(accessHistory);
+      valuePt = this.parent.addReservedVariableToBufferIn(
+        'UNREGISTERED_CONTRACT_STORAGE_IN',
+        value,
+        true,
+        ` at MPT key ${bigIntToHex(key)} of address ${address.toString()}`,
+      );
+      // accessHistory = {
+      //   addressIndex: MTIndex[0],
+      //   indexPt: null,
+      //   keyPt,
+      //   valuePt,
+      //   access: "Read",
+      // };
     }
+    // this.parent.state.cachedStorage.get(addressKey)?.set(key, [accessHistory]) ?? this.parent.state.cachedStorage.set(addressKey, new Map([[key, [accessHistory]]]));
     return DataPtFactory.deepCopy(valuePt);
   }
 
   public async storeStorage(address: Address, keyPt: DataPt, symbolDataPt: DataPt): Promise<void> {
     const addressKey = address.toString();
     const key = keyPt.value
-    const cached = this.parent.state.cachedStorage.get(addressKey)?.get(key);
+    // const cached = this.parent.state.cachedStorage.get(addressKey)?.get(key);
     const MTIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, key);
     const isRegisteredKey = MTIndex[0] >= 0 && MTIndex[1] >= 0 ? true : false;
-    const isColdAccess = cached === undefined ? true : false;
+    // const isColdAccess = cached === undefined ? true : false;
 
-    let accessHistory: CachedStorageEntry;
-    if (isColdAccess) {
-      if (isRegisteredKey) {
-         throw new Error('Storage writing at a registered key is expected to be warm access');
-        // Storage at a registered key must be warm (already loaded via loadStorage)
-        // For odd cases, you could warm it first then retry:
-        // await this.loadStorage(key, undefined, false);
-        // return this.storeStorage(key, symbolDataPt);
-      } else {
-        accessHistory = {
-          addressIndex: MTIndex[0],
-          indexPt: null,
-          keyPt: keyPt, 
-          valuePt: symbolDataPt, 
-          access: 'Write'
-        };
-        
-      }
-      this.parent.state.cachedStorage.get(addressKey)?.set(key, [accessHistory]) ?? this.parent.state.cachedStorage.set(addressKey, new Map([[key, [accessHistory]]]));
+    // let accessHistory: CachedStorageEntry;
+    // if (isColdAccess) {
+    if (isRegisteredKey) {
+        throw new Error('Storage writing at a registered key is expected to be warm access');
+      // Storage at a registered key must be warm (already loaded via loadStorage)
+      // For odd cases, you could warm it first then retry:
+      // await this.loadStorage(key, undefined, false);
+      // return this.storeStorage(key, symbolDataPt);
     } else {
-      if ( cached === undefined || cached!.length === 0 ) {
-        throw new Error('A cached storage is present, but no history.')
-      }
-      if (cached[cached.length - 1].keyPt.value !== key) {
-        throw new Error('Discrepancy between cached and actual key values')
-      }
-      const addressIndex = isRegisteredKey ? cached[cached.length - 1].addressIndex : null;
-      if (addressIndex !== null && addressIndex !== MTIndex[0]) {
-        throw new Error('Discrepancy between cached and actual MT address indices')
-      }
-      const indexPt = isRegisteredKey ? cached[cached.length - 1].indexPt : null;
-      if (indexPt !== null && Number(indexPt.value) !== MTIndex[1]) {
-        throw new Error('Discrepancy between cached and actual MT indices')
-      }
-      accessHistory = { 
+      accessHistory = {
         addressIndex: MTIndex[0],
-        indexPt,
-        keyPt, 
+        indexPt: null,
+        keyPt: keyPt,
         valuePt: symbolDataPt, 
-        access: 'Write' 
+        access: 'Write'
       };
-      cached.push(accessHistory);      
+
     }
+    this.parent.state.cachedStorage.get(addressKey)?.set(key, [accessHistory]) ?? this.parent.state.cachedStorage.set(addressKey, new Map([[key, [accessHistory]]]));
+    // } else {
+    //   if ( cached === undefined || cached!.length === 0 ) {
+    //     throw new Error('A cached storage is present, but no history.')
+    //   }
+    //   if (cached[cached.length - 1].keyPt.value !== key) {
+    //     throw new Error('Discrepancy between cached and actual key values')
+    //   }
+    //   const addressIndex = isRegisteredKey ? cached[cached.length - 1].addressIndex : null;
+    //   if (addressIndex !== null && addressIndex !== MTIndex[0]) {
+    //     throw new Error('Discrepancy between cached and actual MT address indices')
+    //   }
+    //   const indexPt = isRegisteredKey ? cached[cached.length - 1].indexPt : null;
+    //   if (indexPt !== null && Number(indexPt.value) !== MTIndex[1]) {
+    //     throw new Error('Discrepancy between cached and actual MT indices')
+    //   }
+    //   accessHistory = {
+    //     addressIndex: MTIndex[0],
+    //     indexPt,
+    //     keyPt,
+    //     valuePt: symbolDataPt,
+    //     access: 'Write'
+    //   };
+    //   cached.push(accessHistory);
+    // }
+  }
+
+  public async updateStoragePreStep(stepResult: InterpreterStep): Promise<void> {
+    if (stepResult.opcode.name !== 'SSTORE') {
+      return
+    }
+
+    const context = this.parent.state.contextByDepth[stepResult.depth];
+    if (context === undefined) {
+      throw new Error('Debug: The current context is not initialized')
+    }
+
+    const [keyPt, valuePt] = context.stackPt.peek(2);
+    const key = stepResult.stack[0];
+    const value = stepResult.stack[1];
+    if (key === undefined || value === undefined) {
+      throw new Error('Synthesizer: SSTORE pre-step requires key and value on stack')
+    }
+    if (keyPt.value !== key || valuePt.value !== value) {
+      throw new Error('Synthesizer: SSTORE pre-step stack mismatch')
+    }
+
+    const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(stepResult.address, key);
+    const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
+    if (!isRegisteredKey) {
+      return
+    }
+
+    await this.loadStorage(stepResult.address, DataPtFactory.deepCopy(keyPt))
   }
 
   public handleArith = (
