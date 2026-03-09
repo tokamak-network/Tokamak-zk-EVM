@@ -521,12 +521,13 @@ export class InstructionHandler {
       }
       const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
       const merkleProof = merkleTree.getProof(treeIndex);
-      const siblingValues = merkleProof.siblings as bigint[][];
-      const siblingPts = siblingValues.map((siblingsAtLevel) =>
-        siblingsAtLevel.map((sibling) =>
-          this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', sibling, true),
-        ),
-      );
+      const siblingPts = merkleProof.siblings.map((siblingsAtLevel) => {
+        if (!Array.isArray(siblingsAtLevel)) throw new Error('Merkle proof siblings must be arrays')
+        return siblingsAtLevel.map((sibling) => {
+          if (typeof sibling !== 'bigint') throw new Error('Merkle proof sibling must be bigint')
+          return this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', sibling, true)
+        })
+      });
       const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(treeIndex[1]), true);
       if (childPt === undefined) {
         const valuePt = this.parent.addReservedVariableToBufferIn(
