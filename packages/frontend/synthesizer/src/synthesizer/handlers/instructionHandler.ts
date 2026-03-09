@@ -40,6 +40,9 @@ export type VerifyStorageMode =
   | 'SSTORE_PRE_STEP'
   | 'SSTORE_MAIN_STEP'
 
+export type VerifyStorageResult<M extends VerifyStorageMode> =
+  M extends 'SLOAD' ? DataPt : DataPt | undefined
+
 export interface SynthesizerOpHandler {
   (context: ContextManager, stepResult: InterpreterStep): void | Promise<void>
 }
@@ -475,12 +478,12 @@ export class InstructionHandler {
     return DataPtFactory.deepCopy(this.parent.state.cachedOrigin!)
   }
 
-  public async verifyStorage(
+  public async verifyStorage<M extends VerifyStorageMode>(
     address: Address,
     keyPt: DataPt,
     value: bigint,
-    mode: VerifyStorageMode,
-  ): Promise<DataPt | undefined> {
+    mode: M,
+  ): Promise<VerifyStorageResult<M>> {
     const _verifyRegisteredStorage = async (): Promise<DataPt | undefined> => {
       let treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
       const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
@@ -555,7 +558,7 @@ export class InstructionHandler {
       case 'SLOAD':
       case 'SSTORE_PRE_STEP':
       case 'SSTORE_MAIN_STEP':
-        return _verifyRegisteredStorage()
+        return await _verifyRegisteredStorage() as VerifyStorageResult<M>
       default:
         throw new Error(`Unsupported verifyStorage mode: ${String(mode)}`)
     }
@@ -578,9 +581,6 @@ export class InstructionHandler {
 
     // let accessHistory: CachedStorageEntry;
     const valuePt = await this.verifyStorage(address, keyPt, value, 'SLOAD');
-    if (valuePt === undefined) {
-      throw new Error('Debug: SLOAD storage verification must return a value point')
-    }
     // if (indexPt !== null) {
     //   accessHistory = {
     //     addressIndex: MTIndex[0],
