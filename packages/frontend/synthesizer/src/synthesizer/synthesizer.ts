@@ -67,7 +67,7 @@ export class Synthesizer implements SynthesizerInterface
         try {
           await this._applySynthesizerHandler(data);
           if (data.opcode.name === 'SSTORE') {
-            await this.updateStoragePreStep(data);
+            await this._updateStoragePreStep(data);
           }
         } catch (err) {
           console.error('Synthesizer: step error:', err)
@@ -462,12 +462,33 @@ export class Synthesizer implements SynthesizerInterface
     return this._messageCodeAddresses
   }
 
-  public async updateStoragePreStep(data: InterpreterStep): Promise<void> {
+  private async _updateStoragePreStep(data: InterpreterStep): Promise<void> {
     const stepResult: InterpreterStep = {
       ...data,
       stack: data.stack.slice().reverse(),
     }
-    await this._instructionHandlers.updateStoragePreStep(stepResult)
+    const context = this.state.contextByDepth[stepResult.depth];
+    if (context === undefined) {
+      throw new Error('Debug: The current context is not initialized')
+    }
+
+    const [keyPt, valuePt] = context.stackPt.peek(2);
+    const key = stepResult.stack[0];
+    const value = stepResult.stack[1];
+    if (key === undefined || value === undefined) {
+      throw new Error('Synthesizer: SSTORE pre-step requires key and value on stack')
+    }
+    if (keyPt.value !== key || valuePt.value !== value) {
+      throw new Error('Synthesizer: SSTORE pre-step stack mismatch')
+    }
+
+    const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(stepResult.address, key);
+    const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
+    if (!isRegisteredKey) {
+      return
+    }
+
+    await this._instructionHandlers.loadStorage(stepResult.address, DataPtFactory.deepCopy(keyPt))
   }
 
   public get placements(): Placements {

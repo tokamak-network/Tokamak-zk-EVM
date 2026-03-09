@@ -607,35 +607,6 @@ export class InstructionHandler {
     // }
   }
 
-  public async updateStoragePreStep(stepResult: InterpreterStep): Promise<void> {
-    if (stepResult.opcode.name !== 'SSTORE') {
-      return
-    }
-
-    const context = this.parent.state.contextByDepth[stepResult.depth];
-    if (context === undefined) {
-      throw new Error('Debug: The current context is not initialized')
-    }
-
-    const [keyPt, valuePt] = context.stackPt.peek(2);
-    const key = stepResult.stack[0];
-    const value = stepResult.stack[1];
-    if (key === undefined || value === undefined) {
-      throw new Error('Synthesizer: SSTORE pre-step requires key and value on stack')
-    }
-    if (keyPt.value !== key || valuePt.value !== value) {
-      throw new Error('Synthesizer: SSTORE pre-step stack mismatch')
-    }
-
-    const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(stepResult.address, key);
-    const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
-    if (!isRegisteredKey) {
-      return
-    }
-
-    await this.loadStorage(stepResult.address, DataPtFactory.deepCopy(keyPt))
-  }
-
   public handleArith = (
     ins: bigint[],
     out: bigint,
