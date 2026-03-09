@@ -529,6 +529,12 @@ export class InstructionHandler {
         })
       });
       const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(treeIndex[1]), true);
+      if (mode === 'SSTORE_PRE_STEP') {
+        this.parent.state.cachedMerkleProof = {
+          indexPt: DataPtFactory.deepCopy(indexPt),
+          siblingPts: siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt))),
+        }
+      }
       if (childPt === undefined) {
         const valuePt = this.parent.addReservedVariableToBufferIn(
           'IN_VALUE',
@@ -1040,6 +1046,7 @@ export class InstructionHandler {
           const keyPt = inPts[0]
           const dataPt = inPts[1]
           this.storeStorage(opts.thisAddress, keyPt, dataPt)
+          this.parent.state.cachedMerkleProof = null
           if ( dataPt.value !== ins[1] ) {
             throw new Error(`Synthesizer: ${op}: Output storage data mismatch`)
           } 

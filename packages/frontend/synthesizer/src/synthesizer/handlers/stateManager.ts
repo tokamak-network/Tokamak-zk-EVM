@@ -31,6 +31,11 @@ export type ContextConstructionData = {
   callDataMemoryPts: MemoryPts;
 }
 
+export type CachedMerkleProof = {
+  indexPt: DataPt;
+  siblingPts: DataPt[][];
+}
+
 export class ContextManager {
   public stackPt: StackPt;
   public memoryPt: MemoryPt;
@@ -70,6 +75,7 @@ export class StateManager {
   public cachedEVMIn: Map<bigint, DataPt> = new Map()
   public cachedOrigin: DataPt | undefined = undefined
   public cachedRoots: Map<`0x${string}`, DataPt[]> = new Map()
+  public cachedMerkleProof: CachedMerkleProof | null = null
 
   public contextByDepth: ContextManager[] = [];
 
