@@ -310,6 +310,9 @@ export class ArithmeticManager {
   }
 
   public placeMerkleProofVerification (indexPt: DataPt, leafPt: DataPt, siblings: DataPt[][], rootPt: DataPt): void {
+    if (siblings.length !== MT_DEPTH) {
+      throw new Error(`Merkle proof should have exactly ${MT_DEPTH} sibling levels, but got ${siblings.length}.`)
+    }
     // const computeParentsNodePts = (childIndexPt: DataPt, childPt: DataPt, siblings: bigint[]): {parentIndexPt: DataPt, parentPt: DataPt} => {
     //   if (siblings.length !== POSEIDON_INPUTS - 1) {
     //     throw new Error(`Siblings of each level for a Merkle proof should be ${POSEIDON_INPUTS - 1}, but got ${siblings.length}.`)
