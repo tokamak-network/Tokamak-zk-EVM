@@ -14,6 +14,7 @@ import {
   createAddressFromString,
 } from '@ethereumjs/util'
 import { InterpreterStep } from '@ethereumjs/evm'
+import { NULL_STORAGE_KEY } from 'tokamak-l2js';
 import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
 import { DataPtFactory, MemoryPt, StackPt } from '../dataStructure/index.ts';
 import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from '../../interface/qapCompiler/configuredTypes.ts';
@@ -481,16 +482,30 @@ export class InstructionHandler {
     mode: VerifyStorageMode,
   ): Promise<DataPt> {
     const _verifyRegisteredStorage = async (): Promise<DataPt> => {
-      const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
+      let treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
       const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
+      let proofKeyPt = keyPt;
 
       if (!isRegisteredKey) {
-        return this.parent.addReservedVariableToBufferIn(
-          'UNREGISTERED_CONTRACT_STORAGE_IN',
-          value,
-          true,
-          ` at MPT key ${bigIntToHex(keyPt.value)} of address ${address.toString()}`,
-        );
+        if (mode === 'SSTORE_PRE_STEP') {
+          const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
+          if (registeredKeys === null) {
+            throw new Error('Debug: registeredKeys is not initialized')
+          }
+          const addressIndex = registeredKeys.findIndex((entry) => entry.address.equals(address));
+          if (addressIndex < 0) {
+            throw new Error(`Debug: No registeredKeys entry for address ${address.toString()}`)
+          }
+          treeIndex = [addressIndex, registeredKeys[addressIndex].keys.length];
+          proofKeyPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', NULL_STORAGE_KEY, true);
+        } else {
+          return this.parent.addReservedVariableToBufferIn(
+            'UNREGISTERED_CONTRACT_STORAGE_IN',
+            value,
+            true,
+            ` at MPT key ${bigIntToHex(keyPt.value)} of address ${address.toString()}`,
+          );
+        }
       }
 
       const refAddress = this.parent.state.storageAddresses[treeIndex[0]];
@@ -502,7 +517,7 @@ export class InstructionHandler {
       const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(treeIndex[1]), true);
       const valuePt = this.parent.addReservedVariableToBufferIn('IN_VALUE', value, true, ` at MT index: ${treeIndex[1]} of address: ${address}`);
       const childPt = this.parent.placePoseidon([
-        keyPt,
+        proofKeyPt,
         valuePt,
       ])
       if (merkleProof.leaf !== childPt.value) {
