@@ -1,7 +1,7 @@
 import { AfterTxEvent, createVM, runTx, RunTxOpts, RunTxResult, VM, VMOpts } from '@ethereumjs/vm';
 
 import { BlockData, BlockOptions, createBlock, HeaderData } from '@ethereumjs/block';
-import { Address, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromBigInt, createAddressFromString } from '@ethereumjs/util';
+import { Address, bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromBigInt, createAddressFromString, setLengthLeft } from '@ethereumjs/util';
 
 import { EVMResult, InterpreterStep, Message } from '@ethereumjs/evm';
 import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable, SynthesizerInterface, SynthesizerOpts, SynthesizerStepLogEntry, SynthesizerSupportedOpcodes } from './types/index.ts';
@@ -482,13 +482,18 @@ export class Synthesizer implements SynthesizerInterface
       throw new Error('Synthesizer: SSTORE pre-step stack mismatch')
     }
 
-    const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(stepResult.address, key);
-    const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
-    if (!isRegisteredKey) {
-      return
-    }
-
-    await this._instructionHandlers.loadStorage(stepResult.address, DataPtFactory.deepCopy(keyPt))
+    const valueStored = bytesToBigInt(
+      await this.cachedOpts.stateManager.getStorage(
+        stepResult.address,
+        setLengthLeft(bigIntToBytes(keyPt.value), 32),
+      ),
+    );
+    await this._instructionHandlers.verifyStorage(
+      stepResult.address,
+      DataPtFactory.deepCopy(keyPt),
+      valueStored,
+      'SSTORE_PRE_STEP',
+    )
   }
 
   public get placements(): Placements {
