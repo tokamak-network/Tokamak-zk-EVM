@@ -521,7 +521,8 @@ export class InstructionHandler {
       }
       const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
       const merkleProof = merkleTree.getProof(treeIndex);
-      const siblingPts = merkleProof.siblings.map((siblingsAtLevel) =>
+      const siblingValues = merkleProof.siblings as bigint[][];
+      const siblingPts = siblingValues.map((siblingsAtLevel) =>
         siblingsAtLevel.map((sibling) =>
           this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', sibling, true),
         ),
