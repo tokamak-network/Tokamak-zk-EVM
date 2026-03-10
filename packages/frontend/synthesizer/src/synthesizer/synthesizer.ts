@@ -44,14 +44,16 @@ export class Synthesizer implements SynthesizerInterface
       throw new Error("EVM event emitter is turned off.")
     }
     vm.events.on('beforeTx', (data: TypedTransaction, resolve?: (result?: any) => void) => {
-      try { 
-        this._prepareSynthesizeTransaction()
-        // TODO: BLOCKHASH preparation in state manager for EIP-7709
-      } catch (err) {
-        console.error('Synthesizer: beforeTx error:', err)
-      } finally {
-        resolve?.()
-      }
+      ; (async () => {
+        try {
+          await this._prepareSynthesizeTransaction()
+          // TODO: BLOCKHASH preparation in state manager for EIP-7709
+        } catch (err) {
+          console.error('Synthesizer: beforeTx error:', err)
+        } finally {
+          resolve?.()
+        }
+      })()
     });
     vm.evm.events.on('beforeMessage', (data: Message, resolve?: (result?: any) => void) => {
       try { 
@@ -142,13 +144,17 @@ export class Synthesizer implements SynthesizerInterface
     })
   }
 
-  private _prepareSynthesizeTransaction(): void {
+  private async _prepareSynthesizeTransaction(): Promise<void> {
     this.state.cachedRoots = new Map()
-    for (const [idx, tree] of this.cachedOpts.stateManager.initialMerkleTrees.merkleTrees.entries()) {
-      const address = this.cachedOpts.stateManager.initialMerkleTrees.addresses[idx];
+    const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
+    const roots = merkleTree.getRoots();
+    if (roots.length !== this.state.storageAddresses.length) {
+      throw new Error('Mismatch between Merkle root count and storage address count')
+    }
+    for (const [idx, address] of this.state.storageAddresses.entries()) {
       this.state.cachedRoots.set(
-        address.toString(),
-        [this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', BigInt(tree.root), true, ` of ${address.toString()}`)],
+        address,
+        [this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', roots[idx], true, ` of ${address}`)],
       );
     }
     this.state.cachedOrigin = this._instructionHandlers.getOriginAddressPt();
