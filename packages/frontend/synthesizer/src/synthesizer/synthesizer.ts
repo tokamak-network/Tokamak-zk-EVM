@@ -399,7 +399,7 @@ export class Synthesizer implements SynthesizerInterface
         setLengthLeft(bigIntToBytes(keyPt.value), 32),
       ),
     );
-    await this._instructionHandlers.verifyStorage(
+    await this._instructionHandlers.storeStorage(
       stepResult.address,
       DataPtFactory.deepCopy(keyPt),
       this.addReservedVariableToBufferIn(

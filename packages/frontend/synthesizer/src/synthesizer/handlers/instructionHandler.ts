@@ -35,13 +35,9 @@ export interface HandlerOpts {
   memOut?: Uint8Array,
 }
 
-export type VerifyStorageMode =
-  | 'SLOAD'
+export type StoreStorageMode =
   | 'SSTORE_PRE_STEP'
   | 'SSTORE_MAIN_STEP'
-
-export type VerifyStorageInput<M extends VerifyStorageMode> =
-  M extends 'SLOAD' ? bigint : DataPt
 
 export interface SynthesizerOpHandler {
   (context: ContextManager, stepResult: InterpreterStep): void | Promise<void>
@@ -478,71 +474,129 @@ export class InstructionHandler {
     return DataPtFactory.deepCopy(this.parent.state.cachedOrigin!)
   }
 
-  public async verifyStorage<M extends VerifyStorageMode>(
+  private _getStorageRefAddress(address: Address, addressIndex: number): `0x${string}` {
+    if (addressIndex < 0) {
+      throw new Error(`Debug: No registeredKeys entry for address ${address.toString()}`)
+    }
+    const refAddress = this.parent.state.storageAddresses[addressIndex];
+    if (!createAddressFromString(refAddress).equals(address)) {
+      throw new Error(`Need to debug: Merkle tree index mismatches with given address`)
+    }
+    return refAddress;
+  }
+
+  private _getSiblingPts(siblingsRaw: unknown[]): DataPt[][] {
+    return siblingsRaw.map((siblingsAtLevel) => {
+      if (!Array.isArray(siblingsAtLevel)) {
+        throw new Error('Merkle proof siblings must be arrays')
+      }
+      return siblingsAtLevel.map((sibling) => {
+        if (typeof sibling !== 'bigint') {
+          throw new Error('Merkle proof sibling must be bigint')
+        }
+        return this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', sibling, true)
+      })
+    });
+  }
+
+  private async _buildStorageProof(
     address: Address,
-    keyPt: DataPt,
-    valueOrValuePt: VerifyStorageInput<M>,
-    mode: M,
-  ): Promise<DataPt> {
+    proofTreeIndex: [number, number],
+  ): Promise<{
+    refAddress: `0x${string}`,
+    merkleProof: { leaf: bigint, siblings: unknown[] },
+    indexPt: DataPt,
+    siblingPts: DataPt[][],
+  }> {
+    const refAddress = this._getStorageRefAddress(address, proofTreeIndex[0]);
+    const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
+    const merkleProof = merkleTree.getProof(proofTreeIndex);
+    const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(proofTreeIndex[1]), true);
+    const siblingPts = this._getSiblingPts(merkleProof.siblings);
+    return { refAddress, merkleProof, indexPt, siblingPts };
+  }
+
+  private _getLatestCachedRootPt(refAddress: `0x${string}`): DataPt {
+    const refInitRootPt = this.parent.state.cachedRoots.get(refAddress);
+    if (refInitRootPt === undefined || refInitRootPt.length === 0) {
+      throw new Error('Initial Merkle tree root for a specific address was not initialized in Synthesizer')
+    }
+    return refInitRootPt[refInitRootPt.length - 1];
+  }
+
+  private _cacheMerkleProof(indexPt: DataPt, siblingPts: DataPt[][]): void {
+    if (this.parent.state.cachedMerkleProof !== null) {
+      throw new Error('Debug: cachedMerkleProof must be empty before SSTORE pre-step caching')
+    }
+    this.parent.state.cachedMerkleProof = {
+      indexPt: DataPtFactory.deepCopy(indexPt),
+      siblingPts: siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt))),
+    };
+  }
+
+  public async loadStorage(address: Address, keyPt: DataPt, valueGiven?: bigint): Promise<DataPt> {
+    const valueStored = bytesToBigInt(
+      await this.cachedOpts.stateManager.getStorage(
+        address,
+        setLengthLeft(bigIntToBytes(keyPt.value), 32),
+      ),
+    );
+
+    if (valueGiven !== undefined && valueGiven !== valueStored) {
+      throw new Error('Mismatch in storage values');
+    }
+
     const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
     const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
-    const value = mode === 'SLOAD'
-      ? valueOrValuePt as bigint
-      : (valueOrValuePt as DataPt).value;
-    const getWriteValuePt = (): DataPt => {
-      if (mode === 'SLOAD') {
-        throw new Error('Debug: SLOAD does not use a write value point')
-      }
-      return valueOrValuePt as DataPt;
-    };
-
-    const getRefAddress = (addressIndex: number): `0x${string}` => {
-      if (addressIndex < 0) {
-        throw new Error(`Debug: No registeredKeys entry for address ${address.toString()}`)
-      }
-      const refAddress = this.parent.state.storageAddresses[addressIndex];
-      if (!createAddressFromString(refAddress).equals(address)) {
-        throw new Error(`Need to debug: Merkle tree index mismatches with given address`)
-      }
-      return refAddress;
-    };
-
-    const getSiblingPts = (siblingsRaw: unknown[]): DataPt[][] => {
-      return siblingsRaw.map((siblingsAtLevel) => {
-        if (!Array.isArray(siblingsAtLevel)) {
-          throw new Error('Merkle proof siblings must be arrays')
-        }
-        return siblingsAtLevel.map((sibling) => {
-          if (typeof sibling !== 'bigint') {
-            throw new Error('Merkle proof sibling must be bigint')
-          }
-          return this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', sibling, true)
-        })
-      });
-    };
-
-    // SLOAD returns a synthetic point immediately for unregistered keys.
-    if (mode === 'SLOAD' && !isRegisteredKey) {
+    if (!isRegisteredKey) {
       return this.parent.addReservedVariableToBufferIn(
         'UNREGISTERED_CONTRACT_STORAGE_IN',
-        value,
+        valueStored,
         true,
         ` at MPT key ${bigIntToHex(keyPt.value)} of address ${address.toString()}`,
       );
     }
 
-    // SSTORE main-step reuses the proof cached during the pre-step.
+    const { refAddress, merkleProof, indexPt, siblingPts } = await this._buildStorageProof(address, treeIndex);
+    const valuePt = this.parent.addReservedVariableToBufferIn(
+      'IN_VALUE',
+      valueStored,
+      true,
+      ` at MT index: ${treeIndex[1]} of address: ${address}`,
+    );
+    const childPt = this.parent.placePoseidon([keyPt, valuePt]);
+    if (merkleProof.leaf !== childPt.value) {
+      throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
+    }
+
+    this.parent.placeMerkleProofVerification(
+      indexPt,
+      childPt,
+      siblingPts,
+      this._getLatestCachedRootPt(refAddress),
+    )
+
+    return DataPtFactory.deepCopy(valuePt);
+  }
+
+  public async storeStorage(
+    address: Address,
+    keyPt: DataPt,
+    symbolDataPt: DataPt,
+    mode: StoreStorageMode = 'SSTORE_MAIN_STEP',
+  ): Promise<void> {
+    const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
+    const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
+
     if (mode === 'SSTORE_MAIN_STEP') {
-      const refAddress = getRefAddress(treeIndex[0]);
-      const valuePt = getWriteValuePt();
+      const refAddress = this._getStorageRefAddress(address, treeIndex[0]);
       const cachedMerkleProof = this.parent.state.cachedMerkleProof;
       if (cachedMerkleProof === null) {
         throw new Error('Debug: cachedMerkleProof is required for SSTORE main-step verification')
       }
-
       const indexPt = DataPtFactory.deepCopy(cachedMerkleProof.indexPt);
       const siblingPts = cachedMerkleProof.siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt)));
-      const childPt = this.parent.placePoseidon([keyPt, valuePt]);
+      const childPt = this.parent.placePoseidon([keyPt, symbolDataPt]);
       this.parent.state.cachedMerkleProof = null
 
       const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
@@ -556,16 +610,13 @@ export class InstructionHandler {
       this.parent.state.cachedRoots.set(refAddress, cachedRoots);
 
       this.parent.placeMerkleProofVerification(indexPt, childPt, siblingPts, refRootPt)
-      return valuePt;
+      return
     }
 
     let proofTreeIndex = treeIndex;
     let childPt: DataPt;
-    let resultPt: DataPt;
 
-    // SSTORE pre-step uses a padded null leaf when the key is not registered yet.
-    if (mode === 'SSTORE_PRE_STEP' && !isRegisteredKey) {
-      resultPt = getWriteValuePt();
+    if (!isRegisteredKey) {
       const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
       if (registeredKeys === null) {
         throw new Error('Debug: registeredKeys is not initialized')
@@ -580,76 +631,21 @@ export class InstructionHandler {
         true,
       );
     } else {
-      // SLOAD and registered SSTORE pre-step derive the child from key/value directly.
-      const storageValuePt = mode === 'SLOAD'
-        ? this.parent.addReservedVariableToBufferIn(
-          'IN_VALUE',
-          value,
-          true,
-          ` at MT index: ${proofTreeIndex[1]} of address: ${address}`,
-        )
-        : getWriteValuePt();
-      resultPt = storageValuePt;
-      childPt = this.parent.placePoseidon([keyPt, storageValuePt]);
+      childPt = this.parent.placePoseidon([keyPt, symbolDataPt]);
     }
 
-    const refAddress = getRefAddress(proofTreeIndex[0]);
-    const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
-    const merkleProof = merkleTree.getProof(proofTreeIndex);
-    const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(proofTreeIndex[1]), true);
-    const siblingPts = getSiblingPts(merkleProof.siblings);
-
-    // SSTORE pre-step caches the proof so the main step can consume it once.
-    if (mode === 'SSTORE_PRE_STEP') {
-      if (this.parent.state.cachedMerkleProof !== null) {
-        throw new Error('Debug: cachedMerkleProof must be empty before SSTORE pre-step caching')
-      }
-      this.parent.state.cachedMerkleProof = {
-        indexPt: DataPtFactory.deepCopy(indexPt),
-        siblingPts: siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt))),
-      };
-    }
-
+    const { refAddress, merkleProof, indexPt, siblingPts } = await this._buildStorageProof(address, proofTreeIndex);
+    this._cacheMerkleProof(indexPt, siblingPts);
     if (merkleProof.leaf !== childPt.value) {
       throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
-    }
-
-    const refInitRootPt = this.parent.state.cachedRoots.get(refAddress);
-    if (refInitRootPt === undefined || refInitRootPt.length === 0) {
-      throw new Error('Initial Merkle tree root for a specific address was not initialized in Synthesizer')
     }
 
     this.parent.placeMerkleProofVerification(
       indexPt,
       childPt,
       siblingPts,
-      refInitRootPt[refInitRootPt.length - 1],
+      this._getLatestCachedRootPt(refAddress),
     )
-
-    return resultPt;
-  }
-
-  public async loadStorage(address: Address, keyPt: DataPt, valueGiven?: bigint): Promise<DataPt> {
-    const valueStored = bytesToBigInt(
-      await this.cachedOpts.stateManager.getStorage(
-        address,
-        setLengthLeft(bigIntToBytes(keyPt.value), 32),
-      ),
-    );
-
-    if (valueGiven !== undefined) {
-      if (valueGiven !== valueStored ) {
-        throw new Error('Mismatch in storage values');
-      }
-    }
-    const value = valueStored;
-
-    const valuePt = await this.verifyStorage(address, keyPt, value, 'SLOAD');
-    return DataPtFactory.deepCopy(valuePt);
-  }
-
-  public async storeStorage(address: Address, keyPt: DataPt, symbolDataPt: DataPt): Promise<void> {
-    await this.verifyStorage(address, keyPt, symbolDataPt, 'SSTORE_MAIN_STEP')
   }
 
   public handleArith = (
