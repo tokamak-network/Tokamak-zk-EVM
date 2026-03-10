@@ -524,6 +524,7 @@ export class InstructionHandler {
       });
     };
 
+    // SLOAD returns a synthetic point immediately for unregistered keys.
     if (mode === 'SLOAD' && !isRegisteredKey) {
       return this.parent.addReservedVariableToBufferIn(
         'UNREGISTERED_CONTRACT_STORAGE_IN',
@@ -533,6 +534,7 @@ export class InstructionHandler {
       );
     }
 
+    // SSTORE main-step reuses the proof cached during the pre-step.
     if (mode === 'SSTORE_MAIN_STEP') {
       const refAddress = getRefAddress(treeIndex[0]);
       const valuePt = getWriteValuePt();
@@ -561,6 +563,7 @@ export class InstructionHandler {
     let childPt: DataPt;
     let resultPt: DataPt;
 
+    // SSTORE pre-step uses a padded null leaf when the key is not registered yet.
     if (mode === 'SSTORE_PRE_STEP' && !isRegisteredKey) {
       resultPt = getWriteValuePt();
       const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
@@ -577,6 +580,7 @@ export class InstructionHandler {
         true,
       );
     } else {
+      // SLOAD and registered SSTORE pre-step derive the child from key/value directly.
       const storageValuePt = mode === 'SLOAD'
         ? this.parent.addReservedVariableToBufferIn(
           'IN_VALUE',
@@ -595,6 +599,7 @@ export class InstructionHandler {
     const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(proofTreeIndex[1]), true);
     const siblingPts = getSiblingPts(merkleProof.siblings);
 
+    // SSTORE pre-step caches the proof so the main step can consume it once.
     if (mode === 'SSTORE_PRE_STEP') {
       if (this.parent.state.cachedMerkleProof !== null) {
         throw new Error('Debug: cachedMerkleProof must be empty before SSTORE pre-step caching')
