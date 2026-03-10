@@ -409,6 +409,7 @@ export class Synthesizer implements SynthesizerInterface
     let childPt: DataPt;
 
     if (!isRegisteredKey) {
+      await this.cachedOpts.stateManager.getUpdatedMerkleTree();
       const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
       if (registeredKeys === null) {
         throw new Error('Debug: registeredKeys is not initialized')

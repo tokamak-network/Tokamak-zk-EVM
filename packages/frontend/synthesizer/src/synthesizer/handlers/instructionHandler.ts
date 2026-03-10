@@ -495,8 +495,8 @@ export class InstructionHandler {
     indexPt: DataPt,
     siblingPts: DataPt[][],
   }> {
-    const refAddress = this._getStorageRefAddress(address, proofTreeIndex[0]);
     const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
+    const refAddress = this._getStorageRefAddress(address, proofTreeIndex[0]);
     const merkleProof = merkleTree.getProof(proofTreeIndex);
     const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(proofTreeIndex[1]), true);
     const siblingPts = merkleProof.siblings.map((siblingsAtLevel) => {
