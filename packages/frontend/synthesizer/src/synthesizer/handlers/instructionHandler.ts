@@ -533,6 +533,7 @@ export class InstructionHandler {
       throw new Error('Mismatch in storage values');
     }
 
+    await this.cachedOpts.stateManager.getUpdatedMerkleTree();
     const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
     const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
     if (!isRegisteredKey) {

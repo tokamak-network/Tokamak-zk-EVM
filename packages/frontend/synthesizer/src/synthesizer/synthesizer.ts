@@ -403,13 +403,13 @@ export class Synthesizer implements SynthesizerInterface
     if (keyPt.value !== key || valuePt.value !== value) {
       throw new Error('Synthesizer: SSTORE pre-step stack mismatch')
     }
+    await this.cachedOpts.stateManager.getUpdatedMerkleTree();
     const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(stepResult.address, keyPt.value);
     const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
     let proofTreeIndex = treeIndex;
     let childPt: DataPt;
 
     if (!isRegisteredKey) {
-      await this.cachedOpts.stateManager.getUpdatedMerkleTree();
       const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
       if (registeredKeys === null) {
         throw new Error('Debug: registeredKeys is not initialized')
