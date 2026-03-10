@@ -11,7 +11,6 @@ import {
   setLengthLeft,
   bigIntToBytes,
   hexToBigInt,
-  createAddressFromString,
 } from '@ethereumjs/util'
 import { InterpreterStep } from '@ethereumjs/evm'
 import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
@@ -470,14 +469,21 @@ export class InstructionHandler {
   }
 
   private _getStorageRefAddress(address: Address, addressIndex: number): `0x${string}` {
+    const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
+    if (registeredKeys === null) {
+      throw new Error('Debug: registeredKeys is not initialized')
+    }
     if (addressIndex < 0) {
       throw new Error(`Debug: No registeredKeys entry for address ${address.toString()}`)
     }
-    const refAddress = this.parent.state.storageAddresses[addressIndex];
-    if (!createAddressFromString(refAddress).equals(address)) {
+    const registeredKeysForAddress = registeredKeys[addressIndex];
+    if (registeredKeysForAddress === undefined) {
+      throw new Error(`Debug: No registeredKeys entry for address ${address.toString()}`)
+    }
+    if (!registeredKeysForAddress.address.equals(address)) {
       throw new Error(`Need to debug: Merkle tree index mismatches with given address`)
     }
-    return refAddress;
+    return registeredKeysForAddress.address.toString();
   }
 
   public async buildStorageProof(
@@ -584,11 +590,11 @@ export class InstructionHandler {
     if (BigInt(treeIndex[1]) !== indexPt.value) {
       throw new Error(`Debug: Cached Merkle proof leaf index mismatches with updated tree index`)
     }
-    const addressIndex = this.parent.state.storageAddresses.findIndex((storageAddress) =>
-      createAddressFromString(storageAddress).equals(address),
+    const addressIndex = this.cachedOpts.stateManager.registeredKeys.findIndex((entry) =>
+      entry.address.equals(address),
     );
     if (addressIndex < 0) {
-      throw new Error(`Debug: Address ${address.toString()} is not tracked in storageAddresses`)
+      throw new Error(`Debug: Address ${address.toString()} is not tracked in registeredKeys`)
     }
     if (treeIndex[0] !== addressIndex) {
       throw new Error(`Debug: Merkle tree address index mismatches with tracked storage address order`)

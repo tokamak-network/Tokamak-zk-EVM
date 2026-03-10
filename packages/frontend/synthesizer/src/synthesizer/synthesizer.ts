@@ -147,11 +147,16 @@ export class Synthesizer implements SynthesizerInterface
   private async _prepareSynthesizeTransaction(): Promise<void> {
     this.state.cachedRoots = new Map()
     const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
+    const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
+    if (registeredKeys === null) {
+      throw new Error('Debug: registeredKeys is not initialized')
+    }
     const roots = merkleTree.getRoots();
-    if (roots.length !== this.state.storageAddresses.length) {
+    if (roots.length !== registeredKeys.length) {
       throw new Error('Mismatch between Merkle root count and storage address count')
     }
-    for (const [idx, address] of this.state.storageAddresses.entries()) {
+    for (const [idx, entry] of registeredKeys.entries()) {
+      const address = entry.address.toString();
       this.state.cachedRoots.set(
         address,
         [this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', roots[idx], true, ` of ${address}`)],
@@ -266,11 +271,16 @@ export class Synthesizer implements SynthesizerInterface
 
   private async _finalizeStorage(): Promise<void> {    
     const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
+    const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
+    if (registeredKeys === null) {
+      throw new Error('Debug: registeredKeys is not initialized')
+    }
     const roots = merkleTree.getRoots();
-    if (roots.length !== this.state.storageAddresses.length) {
+    if (roots.length !== registeredKeys.length) {
       throw new Error('Mismatch between Merkle root count and storage address count')
     }
-    for (const [addressIdx, address] of this.state.storageAddresses.entries()) {
+    for (const [addressIdx, entry] of registeredKeys.entries()) {
+      const address = entry.address.toString();
       const cachedRoots = this.state.cachedRoots.get(address);
       if (cachedRoots === undefined || cachedRoots.length === 0) {
         throw new Error(`Cached Merkle roots are missing for address ${address}`)

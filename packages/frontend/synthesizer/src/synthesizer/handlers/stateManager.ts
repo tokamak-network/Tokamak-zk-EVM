@@ -66,8 +66,6 @@ export class StateManager {
   private cachedOpts: SynthesizerOpts
   private _placements: Placements = []
 
-  public storageAddresses: `0x${string}`[];
-
   // public verifiedStorageMTIndices: [number, number][] = [] // [ADDRESS_INDEX, LEAF_INDEX]
   // public cachedStorage: Map<string, Map<bigint, CachedStorageEntry[]>> = new Map() // Map<ADDRESS_STRING, Map<KEY, ENTRY>>
   public subcircuitInfoByName: SubcircuitInfoByName = subcircuitInfoByName;
@@ -82,11 +80,6 @@ export class StateManager {
   constructor(parent: ISynthesizerProvider) {
     this.parent = parent
     this.cachedOpts = parent.cachedOpts
-    const cache = this.cachedOpts.stateManager.cachedOpts?.storageAddresses;
-    if (cache === undefined) {
-      throw new Error(`Missing storageAddresses in TokamakL2StateManager`)
-    }
-    this.storageAddresses = cache.map(addr => addr.toString());
   }
 
   public get placements(): Placements {
