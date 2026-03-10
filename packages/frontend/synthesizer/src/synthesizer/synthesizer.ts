@@ -431,7 +431,13 @@ export class Synthesizer implements SynthesizerInterface
 
     const { refAddress, merkleProof, indexPt, siblingPts } =
       await this._instructionHandlers.buildStorageProof(stepResult.address, proofTreeIndex);
-    this._instructionHandlers.cacheMerkleProof(indexPt, siblingPts);
+    if (this.state.cachedMerkleProof !== null) {
+      throw new Error('Debug: cachedMerkleProof must be empty before SSTORE pre-step caching')
+    }
+    this.state.cachedMerkleProof = {
+      indexPt: DataPtFactory.deepCopy(indexPt),
+      siblingPts: siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt))),
+    };
     if (merkleProof.leaf !== childPt.value) {
       throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
     }

@@ -480,20 +480,6 @@ export class InstructionHandler {
     return refAddress;
   }
 
-  private _getSiblingPts(siblingsRaw: unknown[]): DataPt[][] {
-    return siblingsRaw.map((siblingsAtLevel) => {
-      if (!Array.isArray(siblingsAtLevel)) {
-        throw new Error('Merkle proof siblings must be arrays')
-      }
-      return siblingsAtLevel.map((sibling) => {
-        if (typeof sibling !== 'bigint') {
-          throw new Error('Merkle proof sibling must be bigint')
-        }
-        return this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', sibling, true)
-      })
-    });
-  }
-
   public async buildStorageProof(
     address: Address,
     proofTreeIndex: [number, number],
@@ -507,7 +493,17 @@ export class InstructionHandler {
     const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
     const merkleProof = merkleTree.getProof(proofTreeIndex);
     const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(proofTreeIndex[1]), true);
-    const siblingPts = this._getSiblingPts(merkleProof.siblings);
+    const siblingPts = merkleProof.siblings.map((siblingsAtLevel) => {
+      if (!Array.isArray(siblingsAtLevel)) {
+        throw new Error('Merkle proof siblings must be arrays')
+      }
+      return siblingsAtLevel.map((sibling) => {
+        if (typeof sibling !== 'bigint') {
+          throw new Error('Merkle proof sibling must be bigint')
+        }
+        return this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', sibling, true)
+      })
+    });
     return { refAddress, merkleProof, indexPt, siblingPts };
   }
 
@@ -517,16 +513,6 @@ export class InstructionHandler {
       throw new Error('Initial Merkle tree root for a specific address was not initialized in Synthesizer')
     }
     return refInitRootPt[refInitRootPt.length - 1];
-  }
-
-  public cacheMerkleProof(indexPt: DataPt, siblingPts: DataPt[][]): void {
-    if (this.parent.state.cachedMerkleProof !== null) {
-      throw new Error('Debug: cachedMerkleProof must be empty before SSTORE pre-step caching')
-    }
-    this.parent.state.cachedMerkleProof = {
-      indexPt: DataPtFactory.deepCopy(indexPt),
-      siblingPts: siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt))),
-    };
   }
 
   public async loadStorage(address: Address, keyPt: DataPt, valueGiven?: bigint): Promise<DataPt> {
