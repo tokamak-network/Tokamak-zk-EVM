@@ -40,6 +40,9 @@ export type VerifyStorageMode =
   | 'SSTORE_PRE_STEP'
   | 'SSTORE_MAIN_STEP'
 
+export type VerifyStorageInput<M extends VerifyStorageMode> =
+  M extends 'SLOAD' ? bigint : DataPt
+
 export interface SynthesizerOpHandler {
   (context: ContextManager, stepResult: InterpreterStep): void | Promise<void>
 }
@@ -475,28 +478,22 @@ export class InstructionHandler {
     return DataPtFactory.deepCopy(this.parent.state.cachedOrigin!)
   }
 
-  public async verifyStorage(
+  public async verifyStorage<M extends VerifyStorageMode>(
     address: Address,
     keyPt: DataPt,
-    valueOrValuePt: bigint | DataPt,
-    mode: VerifyStorageMode,
+    valueOrValuePt: VerifyStorageInput<M>,
+    mode: M,
   ): Promise<DataPt> {
     const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
     const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
-    const value = typeof valueOrValuePt === 'bigint' ? valueOrValuePt : valueOrValuePt.value;
+    const value = mode === 'SLOAD'
+      ? valueOrValuePt as bigint
+      : (valueOrValuePt as DataPt).value;
     const getWriteValuePt = (): DataPt => {
       if (mode === 'SLOAD') {
         throw new Error('Debug: SLOAD does not use a write value point')
       }
-      if (typeof valueOrValuePt === 'bigint') {
-        return this.parent.addReservedVariableToBufferIn(
-          'IN_VALUE',
-          valueOrValuePt,
-          true,
-          ` at MPT key ${bigIntToHex(keyPt.value)} of address ${address.toString()}`,
-        );
-      }
-      return valueOrValuePt;
+      return valueOrValuePt as DataPt;
     };
 
     const getRefAddress = (addressIndex: number): `0x${string}` => {
@@ -652,7 +649,7 @@ export class InstructionHandler {
   }
 
   public async storeStorage(address: Address, keyPt: DataPt, symbolDataPt: DataPt): Promise<void> {
-    await this.verifyStorage(address, keyPt, symbolDataPt.value, 'SSTORE_MAIN_STEP')
+    await this.verifyStorage(address, keyPt, symbolDataPt, 'SSTORE_MAIN_STEP')
   }
 
   public handleArith = (

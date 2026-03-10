@@ -373,18 +373,6 @@ export class Synthesizer implements SynthesizerInterface
     }
   }
 
-  public get state(): StateManager {
-    return this._state;
-  }
-
-  public get stepLogs(): SynthesizerStepLogEntry[] {
-    return this._stepLogs
-  }
-
-  public get messageCodeAddresses(): Set<`0x${string}`> {
-    return this._messageCodeAddresses
-  }
-
   private async _updateStoragePreStep(data: InterpreterStep): Promise<void> {
     const stepResult: InterpreterStep = {
       ...data,
@@ -414,9 +402,26 @@ export class Synthesizer implements SynthesizerInterface
     await this._instructionHandlers.verifyStorage(
       stepResult.address,
       DataPtFactory.deepCopy(keyPt),
-      valueStored,
+      this.addReservedVariableToBufferIn(
+        'IN_VALUE',
+        valueStored,
+        true,
+        ` at MPT key ${bigIntToHex(keyPt.value)} of address ${stepResult.address.toString()}`,
+      ),
       'SSTORE_PRE_STEP',
     )
+  }
+
+  public get state(): StateManager {
+    return this._state;
+  }
+
+  public get stepLogs(): SynthesizerStepLogEntry[] {
+    return this._stepLogs
+  }
+
+  public get messageCodeAddresses(): Set<`0x${string}`> {
+    return this._messageCodeAddresses
   }
 
   public get placements(): Placements {
