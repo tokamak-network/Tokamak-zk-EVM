@@ -644,87 +644,12 @@ export class InstructionHandler {
     }
     const value = valueStored;
 
-    // let accessHistory: CachedStorageEntry;
     const valuePt = await this.verifyStorage(address, keyPt, value, 'SLOAD');
-    // if (indexPt !== null) {
-    //   accessHistory = {
-    //     addressIndex: MTIndex[0],
-    //     indexPt,
-    //     keyPt,
-    //     valuePt,
-    //     access: "Read",
-    //   };
-    // } else {
-    //   accessHistory = {
-    //     addressIndex: MTIndex[0],
-    //     indexPt: null,
-    //     keyPt,
-    //     valuePt,
-    //     access: "Read",
-    //   };
-    // }
-    // this.parent.state.cachedStorage.get(addressKey)?.set(key, [accessHistory]) ?? this.parent.state.cachedStorage.set(addressKey, new Map([[key, [accessHistory]]]));
     return DataPtFactory.deepCopy(valuePt);
   }
 
   public async storeStorage(address: Address, keyPt: DataPt, symbolDataPt: DataPt): Promise<void> {
-    const addressKey = address.toString();
-    const key = keyPt.value
-    // const cached = this.parent.state.cachedStorage.get(addressKey)?.get(key);
-    const MTIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, key);
-    const isRegisteredKey = MTIndex[0] >= 0 && MTIndex[1] >= 0 ? true : false;
-    // const isColdAccess = cached === undefined ? true : false;
-
-    let accessHistory: {
-      addressIndex: number;
-      indexPt: null;
-      keyPt: DataPt;
-      valuePt: DataPt;
-      access: 'Write';
-    };
-    // if (isColdAccess) {
     await this.verifyStorage(address, keyPt, symbolDataPt.value, 'SSTORE_MAIN_STEP')
-    if (isRegisteredKey) {
-      return
-      // Storage at a registered key must be warm (already loaded via loadStorage)
-      // For odd cases, you could warm it first then retry:
-      // await this.loadStorage(key, undefined, false);
-      // return this.storeStorage(key, symbolDataPt);
-    } else {
-      accessHistory = {
-        addressIndex: MTIndex[0],
-        indexPt: null,
-        keyPt: keyPt,
-        valuePt: symbolDataPt, 
-        access: 'Write'
-      };
-
-    }
-    this.parent.state.cachedStorage.get(addressKey)?.set(key, [accessHistory]) ?? this.parent.state.cachedStorage.set(addressKey, new Map([[key, [accessHistory]]]));
-    // } else {
-    //   if ( cached === undefined || cached!.length === 0 ) {
-    //     throw new Error('A cached storage is present, but no history.')
-    //   }
-    //   if (cached[cached.length - 1].keyPt.value !== key) {
-    //     throw new Error('Discrepancy between cached and actual key values')
-    //   }
-    //   const addressIndex = isRegisteredKey ? cached[cached.length - 1].addressIndex : null;
-    //   if (addressIndex !== null && addressIndex !== MTIndex[0]) {
-    //     throw new Error('Discrepancy between cached and actual MT address indices')
-    //   }
-    //   const indexPt = isRegisteredKey ? cached[cached.length - 1].indexPt : null;
-    //   if (indexPt !== null && Number(indexPt.value) !== MTIndex[1]) {
-    //     throw new Error('Discrepancy between cached and actual MT indices')
-    //   }
-    //   accessHistory = {
-    //     addressIndex: MTIndex[0],
-    //     indexPt,
-    //     keyPt,
-    //     valuePt: symbolDataPt,
-    //     access: 'Write'
-    //   };
-    //   cached.push(accessHistory);
-    // }
   }
 
   public handleArith = (
