@@ -1,7 +1,7 @@
 #   - Before executing any internal shell script, this CLI normalizes line endings via dos2unix
 #     and ensures the script is executable, to avoid Windows CRLF issues.
 # Commands:
-#   --install <API_KEY|RPC_URL> [--bun]  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
+#   --install <ALCHEMY_API_KEY|ALCHEMY_RPC_URL> [--bun]  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
 #   --synthesize <TX_CONFIG_JSON>  Run frontend synthesizer with config JSON and sync outputs into dist
 #   --synthesize --tokamak-ch-tx [OPTIONS...]  Execute TokamakL2JS Channel transaction using synthesizer binary
 #   --preprocess [<SYNTH_OUTPUT_ZIP|DIR>]  Run backend preprocess step (dist only); optionally sync preprocess inputs into dist before running (DIR/ZIP must include permutation.json + instance.json)
@@ -19,7 +19,7 @@ print_usage() {
   cat <<'USAGE'
 
 Commands:
-  --install <API_KEY|RPC_URL> [--bun]
+  --install <ALCHEMY_API_KEY|ALCHEMY_RPC_URL> [--bun]
       Install and setup Tokamak ZKP
 
   --synthesize <TX_CONFIG_JSON>
@@ -73,7 +73,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --install)
       CMD="install"; ARG1="${2:-}";
-      [[ -n "$ARG1" ]] || { err "--install requires <API_KEY|RPC_URL>"; echo "💡 Get an API key from https://dashboard.alchemy.com/" >&2; exit 1; }
+      [[ -n "$ARG1" ]] || { err "--install requires <ALCHEMY_API_KEY|ALCHEMY_RPC_URL>"; echo "💡 Get an API key from https://dashboard.alchemy.com/" >&2; exit 1; }
       shift 2
       while [[ $# -gt 0 ]]; do
         case "$1" in

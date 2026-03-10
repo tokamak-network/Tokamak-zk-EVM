@@ -42,10 +42,10 @@ npm install
 - Production builds keep the package import specifier and therefore consume the published `tokamak-l2js` package from `node_modules`.
 
 ### Inputs
-- Ethereum RPC provider URL: create an `./.env` file:
+- Alchemy API key: create an `./.env` file:
 ```bash
-RPC_URL='<your endpoint>'
-# Example: RPC_URL='https://eth-mainnet.g.alchemy.com/v2/e_QJdxxxxxxxxxxisG_xQ'
+ALCHEMY_API_KEY='<your alchemy api key>'
+# Example: ALCHEMY_API_KEY='e_QJdxxxxxxxxxxisG_xQ'
 ```
 - Transaction batch configuration in `examples/L2TONTransfer/input.json`
 - Subcircuit library: install and run [qap-compiler](../qap-compiler/README.md) (no need to copy files into this package)
