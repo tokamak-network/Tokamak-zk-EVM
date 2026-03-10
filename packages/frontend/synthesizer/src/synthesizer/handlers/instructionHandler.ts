@@ -532,6 +532,7 @@ export class InstructionHandler {
         }
         indexPt = DataPtFactory.deepCopy(cachedMerkleProof.indexPt);
         siblingPts = cachedMerkleProof.siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt)));
+        this.parent.state.cachedMerkleProof = null
         const valuePt = this.parent.addReservedVariableToBufferIn(
           'IN_VALUE',
           value,
@@ -655,11 +656,16 @@ export class InstructionHandler {
     const isRegisteredKey = MTIndex[0] >= 0 && MTIndex[1] >= 0 ? true : false;
     // const isColdAccess = cached === undefined ? true : false;
 
-    // let accessHistory: CachedStorageEntry;
+    let accessHistory: {
+      addressIndex: number;
+      indexPt: null;
+      keyPt: DataPt;
+      valuePt: DataPt;
+      access: 'Write';
+    };
     // if (isColdAccess) {
     await this.verifyStorage(address, keyPt, symbolDataPt.value, 'SSTORE_MAIN_STEP')
     if (isRegisteredKey) {
-      this.parent.state.cachedMerkleProof = null
       return
       // Storage at a registered key must be warm (already loaded via loadStorage)
       // For odd cases, you could warm it first then retry:
@@ -676,7 +682,6 @@ export class InstructionHandler {
 
     }
     this.parent.state.cachedStorage.get(addressKey)?.set(key, [accessHistory]) ?? this.parent.state.cachedStorage.set(addressKey, new Map([[key, [accessHistory]]]));
-    this.parent.state.cachedMerkleProof = null
     // } else {
     //   if ( cached === undefined || cached!.length === 0 ) {
     //     throw new Error('A cached storage is present, but no history.')
