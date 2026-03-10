@@ -143,10 +143,13 @@ export class Synthesizer implements SynthesizerInterface
   }
 
   private _prepareSynthesizeTransaction(): void {
-    this.state.cachedInitRoots = [];
+    this.state.cachedRoots = new Map()
     for (const [idx, tree] of this.cachedOpts.stateManager.initialMerkleTrees.merkleTrees.entries()) {
       const address = this.cachedOpts.stateManager.initialMerkleTrees.addresses[idx];
-      this.state.cachedInitRoots.push(this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', BigInt(tree.root), true, ` of ${address.toString()}`));
+      this.state.cachedRoots.set(
+        address.toString(),
+        [this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', BigInt(tree.root), true, ` of ${address.toString()}`)],
+      );
     }
     this.state.cachedOrigin = this._instructionHandlers.getOriginAddressPt();
   }
