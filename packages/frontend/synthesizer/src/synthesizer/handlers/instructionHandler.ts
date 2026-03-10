@@ -565,8 +565,6 @@ export class InstructionHandler {
     keyPt: DataPt,
     symbolDataPt: DataPt,
   ): Promise<void> {
-    const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
-    const refAddress = this._getStorageRefAddress(address, treeIndex[0]);
     const cachedMerkleProof = this.parent.state.cachedMerkleProof;
     if (cachedMerkleProof === null) {
       throw new Error('Debug: cachedMerkleProof is required for SSTORE main-step verification')
@@ -577,18 +575,14 @@ export class InstructionHandler {
     this.parent.state.cachedMerkleProof = null
 
     const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
-    const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
-    if (registeredKeys === null) {
+    if (this.cachedOpts.stateManager.registeredKeys === null) {
       throw new Error('Debug: registeredKeys is not initialized')
     }
-    const registeredKeysForAddress = registeredKeys[treeIndex[0]];
-    if (registeredKeysForAddress === undefined) {
-      throw new Error(`Debug: No registeredKeys entry for address ${address.toString()}`)
+    const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
+    if (treeIndex[0] < 0 || treeIndex[1] < 0) {
+      throw new Error(`Debug: Merkle tree index is not registered for address ${address.toString()}`)
     }
-    const latestRegisteredKey = registeredKeysForAddress.keys[registeredKeysForAddress.keys.length - 1];
-    if (latestRegisteredKey === undefined || bytesToBigInt(latestRegisteredKey) !== keyPt.value) {
-      throw new Error(`Debug: Latest registered key mismatch for address ${address.toString()}`)
-    }
+    const refAddress = this._getStorageRefAddress(address, treeIndex[0]);
     const valueStored = bytesToBigInt(
       await this.cachedOpts.stateManager.getStorage(
         address,
