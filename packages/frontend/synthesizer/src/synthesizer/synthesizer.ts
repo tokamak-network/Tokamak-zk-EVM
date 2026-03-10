@@ -1,17 +1,16 @@
 import { AfterTxEvent, createVM, runTx, RunTxOpts, RunTxResult, VM, VMOpts } from '@ethereumjs/vm';
 
 import { BlockData, BlockOptions, createBlock, HeaderData } from '@ethereumjs/block';
-import { Address, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromBigInt, createAddressFromString } from '@ethereumjs/util';
+import { Address, bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromBigInt, setLengthLeft } from '@ethereumjs/util';
 
 import { EVMResult, InterpreterStep, Message } from '@ethereumjs/evm';
 import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable, SynthesizerInterface, SynthesizerOpts, SynthesizerStepLogEntry, SynthesizerSupportedOpcodes } from './types/index.ts';
 import { ArithmeticManager, BufferManager, ContextConstructionData, ContextManager, InstructionHandler, MemoryManager, StateManager, SynthesizerOpHandler } from './handlers/index.ts';
 import { ArithmeticOperator, SubcircuitNames } from '../interface/qapCompiler/configuredTypes.ts';
-import { MAX_MT_LEAVES } from '../interface/qapCompiler/importedConstants.ts';
 import { DataPtFactory } from './dataStructure/dataPt.ts';
 import { TypedTransaction } from '@ethereumjs/tx';
 import { MemoryPt } from './dataStructure/memoryPt.ts';
-import { PermutationForAddress } from 'tokamak-l2js';
+import { NULL_STORAGE_KEY, poseidon_raw } from 'tokamak-l2js';
 
 /**
  * The Synthesizer class manages data related to subcircuits.
@@ -45,14 +44,16 @@ export class Synthesizer implements SynthesizerInterface
       throw new Error("EVM event emitter is turned off.")
     }
     vm.events.on('beforeTx', (data: TypedTransaction, resolve?: (result?: any) => void) => {
-      try { 
-        this._prepareSynthesizeTransaction()
-        // TODO: BLOCKHASH preparation in state manager for EIP-7709
-      } catch (err) {
-        console.error('Synthesizer: beforeTx error:', err)
-      } finally {
-        resolve?.()
-      }
+      ; (async () => {
+        try {
+          await this._prepareSynthesizeTransaction()
+          // TODO: BLOCKHASH preparation in state manager for EIP-7709
+        } catch (err) {
+          console.error('Synthesizer: beforeTx error:', err)
+        } finally {
+          resolve?.()
+        }
+      })()
     });
     vm.evm.events.on('beforeMessage', (data: Message, resolve?: (result?: any) => void) => {
       try { 
@@ -67,6 +68,9 @@ export class Synthesizer implements SynthesizerInterface
       ; (async () => {
         try {
           await this._applySynthesizerHandler(data);
+          if (data.opcode.name === 'SSTORE') {
+            await this._updateStoragePreStep(data);
+          }
         } catch (err) {
           console.error('Synthesizer: step error:', err)
         } finally {
@@ -140,11 +144,23 @@ export class Synthesizer implements SynthesizerInterface
     })
   }
 
-  private _prepareSynthesizeTransaction(): void {
-    this.state.cachedInitRoots = [];
-    for (const [idx, tree] of this.cachedOpts.stateManager.initialMerkleTrees.merkleTrees.entries()) {
-      const address = this.cachedOpts.stateManager.initialMerkleTrees.addresses[idx];
-      this.state.cachedInitRoots.push(this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', BigInt(tree.root), true, ` of ${address.toString()}`));
+  private async _prepareSynthesizeTransaction(): Promise<void> {
+    this.state.cachedRoots = new Map()
+    const merkleTree = this.cachedOpts.stateManager.lastMerkleTrees;
+    const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
+    if (registeredKeys === null) {
+      throw new Error('Debug: registeredKeys is not initialized')
+    }
+    const roots = merkleTree.getRoots();
+    if (roots.length !== registeredKeys.length) {
+      throw new Error('Mismatch between Merkle root count and storage address count')
+    }
+    for (const [idx, entry] of registeredKeys.entries()) {
+      const address = entry.address.toString();
+      this.state.cachedRoots.set(
+        address,
+        [this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', roots[idx], true, ` of ${address}`)],
+      );
     }
     this.state.cachedOrigin = this._instructionHandlers.getOriginAddressPt();
   }
@@ -254,106 +270,26 @@ export class Synthesizer implements SynthesizerInterface
   }
 
   private async _finalizeStorage(): Promise<void> {    
-    await this._updateMerkleTree()
-    this._unregisteredContractStorageWritings()
-  }
-
-  private async _updateMerkleTree(): Promise<void> {    
-    const treeEntriesPtByAddress: {address: Address, treeEntriesPt: DataPt[][]}[] = [];
-    const permutations: PermutationForAddress[] = [];
-    for (const [addressIdx, registeredKeysForAddress] of this.cachedOpts.stateManager.registeredKeys!.entries()) {
-      const address = registeredKeysForAddress.address;
-      const treeEntriesPt: DataPt[][] = [];
-      if (!this.cachedOpts.stateManager.initialMerkleTrees.addresses[addressIdx].equals(address)) {
-        throw new Error('The order of addresses in registeredKeys is inconsistent with that in Merkle trees')
-      } 
-      for (const key of registeredKeysForAddress.keys){
-        const keyBigInt = bytesToBigInt(key);
-        const cached = this._state.cachedStorage.get(address.toString())?.get(keyBigInt);
-        if (cached !== undefined && cached.length === 0 ) {
-          throw new Error(`A storage was cached with no history`)
-        }
-        const keyPt = cached === undefined ?
-          this.addReservedVariableToBufferIn('MERKLE_PROOF', keyBigInt, true) :
-          cached[cached.length-1].keyPt;
-        // Make sure every registered storage verified
-        const valuePt = await this._instructionHandlers.loadStorage(address, keyPt);
-        treeEntriesPt.push([
-          keyPt, 
-          valuePt,
-        ]);
-      }
-      const numActualKeys = registeredKeysForAddress.keys.length;
-      const verifiedTreeIndicesForAddress = this._state.verifiedStorageMTIndices
-        .filter(entry => entry[0] === addressIdx)
-        .map(entry => entry[1]);
-      if (verifiedTreeIndicesForAddress.length !== numActualKeys) {
-        throw new Error(`Mismatch between verified keys and registered keys`)
-      }
-
-      const permutation = [...verifiedTreeIndicesForAddress]; // permutation[newIdx] = oldIdx
-      permutations.push({address, permutation});
-      // Make every padded keys warm
-      for ( var MTIndex = numActualKeys; MTIndex < MAX_MT_LEAVES; MTIndex++ ) {
-        const keyPt = this.addReservedVariableToBufferIn('MERKLE_PROOF', 0n, true);
-        const {indexPt, valuePt} = this._instructionHandlers.verifyStorage(keyPt, 0n, [addressIdx, MTIndex], address);
-        treeEntriesPt.push([
-          keyPt,
-          valuePt,
-        ])
-      }
-      treeEntriesPtByAddress.push({address, treeEntriesPt});
+    const merkleTree = this.cachedOpts.stateManager.lastMerkleTrees;
+    const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
+    if (registeredKeys === null) {
+      throw new Error('Debug: registeredKeys is not initialized')
     }
-
-    const finalMerkleRootRefs = await this.cachedOpts.stateManager.getUpdatedMerkleTreeRoots(permutations);
-    for (const [addressIdx, address] of this.cachedOpts.stateManager.initialMerkleTrees.addresses.entries()) {
-      const treeEntriesPt = treeEntriesPtByAddress.find(entry => entry.address.equals(address))?.treeEntriesPt;
-      if (treeEntriesPt === undefined) {
-        throw new Error(`DataPts for the tree leaves for a specific address are not defined`)
-      }
-      if (treeEntriesPt.length !== MAX_MT_LEAVES ) {
-        throw new Error(`Expected ${MAX_MT_LEAVES} leaves for updated tree root computation, but got ${treeEntriesPt.length} leaves.`)
-      }
-      // Permute MT leaves
-      const permutation = permutations.find(entry => entry.address.equals(address))?.permutation;
-      if (permutation === undefined) {
-        throw new Error(`Permutation for a specific address is not defined`)
-      }
-      const permutedTreeEntriesPt: DataPt[][] = treeEntriesPt.map(entry1 => entry1.map(entry2 => DataPtFactory.deepCopy(entry2)));
-      for (const [newIdx, oldIdx] of permutation.entries()) {
-        permutedTreeEntriesPt[newIdx] = DataPtFactory.deepCopy(treeEntriesPt[oldIdx]);
-      }
-      const finalMerkleRootPt = this.placePoseidon(permutedTreeEntriesPt.flat());
-      if (finalMerkleRootRefs[addressIdx] !== finalMerkleRootPt.value) {
-        throw new Error(`Updated Merkle tree root is different from the reference.`);
-      }
-      this.addReservedVariableToBufferOut(
-        'RES_MERKLE_ROOT',
-        finalMerkleRootPt,
-        true,
-        ` of ${address.toString()}`
-      );
+    const roots = merkleTree.getRoots();
+    if (roots.length !== registeredKeys.length) {
+      throw new Error('Mismatch between Merkle root count and storage address count')
     }
-  }
-
-  private _unregisteredContractStorageWritings(): void {
-    for (const [addressKey, cachedStorageEntriesByKey] of this.state.cachedStorage.entries()) {
-      const address = createAddressFromString(addressKey);
-      for (const [key, cache] of cachedStorageEntriesByKey.entries()){
-        const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, key);
-        if (treeIndex[0] < 0 || treeIndex[1] < 0){
-          // Filtering the latest unregistered storage writings
-          const lastWritingIndex = cache.findIndex(entry => entry.access === "Write")
-          if (lastWritingIndex >= 0) {
-            this.addReservedVariableToBufferOut(
-              'UNREGISTERED_CONTRACT_STORAGE_OUT',
-              cache[lastWritingIndex].valuePt,
-              true,
-              ` at MPT key ${bigIntToHex(key)} of address ${address.toString()}`,
-            );
-          }
-        }
+    for (const [addressIdx, entry] of registeredKeys.entries()) {
+      const address = entry.address.toString();
+      const cachedRoots = this.state.cachedRoots.get(address);
+      if (cachedRoots === undefined || cachedRoots.length === 0) {
+        throw new Error(`Cached Merkle roots are missing for address ${address}`)
       }
+      const finalRootPt = cachedRoots[cachedRoots.length - 1];
+      if (finalRootPt.value !== roots[addressIdx]) {
+        throw new Error(`Final Merkle root mismatch for address ${address}`)
+      }
+      this.addReservedVariableToBufferOut('RES_MERKLE_ROOT', finalRootPt, true, ` of ${address}`)
     }
   }
 
@@ -448,6 +384,81 @@ export class Synthesizer implements SynthesizerInterface
     }
   }
 
+  private async _updateStoragePreStep(data: InterpreterStep): Promise<void> {
+    const stepResult: InterpreterStep = {
+      ...data,
+      stack: data.stack.slice().reverse(),
+    }
+    const context = this.state.contextByDepth[stepResult.depth];
+    if (context === undefined) {
+      throw new Error('Debug: The current context is not initialized')
+    }
+
+    const [keyPt, valuePt] = context.stackPt.peek(2);
+    const key = stepResult.stack[0];
+    const value = stepResult.stack[1];
+    if (key === undefined || value === undefined) {
+      throw new Error('Synthesizer: SSTORE pre-step requires key and value on stack')
+    }
+    if (keyPt.value !== key || valuePt.value !== value) {
+      throw new Error('Synthesizer: SSTORE pre-step stack mismatch')
+    }
+    const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(stepResult.address, keyPt.value);
+    const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
+    let proofTreeIndex = treeIndex;
+    let childPt: DataPt;
+
+    if (!isRegisteredKey) {
+      const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
+      if (registeredKeys === null) {
+        throw new Error('Debug: registeredKeys is not initialized')
+      }
+      if (treeIndex[0] < 0) {
+        throw new Error(`Debug: No registeredKeys entry for address ${stepResult.address.toString()}`)
+      }
+      proofTreeIndex = [treeIndex[0], registeredKeys[treeIndex[0]].keys.length];
+      childPt = this.addReservedVariableToBufferIn(
+        'MERKLE_PROOF',
+        poseidon_raw([NULL_STORAGE_KEY, 0n]),
+        true,
+      );
+    } else {
+      const valueStored = bytesToBigInt(
+        await this.cachedOpts.stateManager.getStorage(
+          stepResult.address,
+          setLengthLeft(bigIntToBytes(keyPt.value), 32),
+        ),
+      );
+      const valueStoredPt = this.addReservedVariableToBufferIn(
+        'IN_VALUE',
+        valueStored,
+        true,
+        ` at MT index: ${treeIndex[1]} of address: ${stepResult.address.toString()}`,
+      );
+      childPt = this.placePoseidon([DataPtFactory.deepCopy(keyPt), valueStoredPt]);
+    }
+
+    const { refAddress, merkleProof, indexPt, siblingPts } =
+      await this._instructionHandlers.buildStorageProof(stepResult.address, proofTreeIndex);
+    if (merkleProof.leaf !== childPt.value) {
+      throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
+    }
+
+    this.placeMerkleProofVerification(
+      indexPt,
+      childPt,
+      siblingPts,
+      this._instructionHandlers.getLatestCachedRootPt(refAddress),
+    )
+    if (this.state.cachedMerkleProof !== null) {
+      throw new Error('Debug: cachedMerkleProof must be empty before SSTORE pre-step caching')
+    }
+    this.state.cachedMerkleProof = {
+      indexPt: DataPtFactory.deepCopy(indexPt),
+      siblingPts: siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt))),
+    };
+  }
+
   public get state(): StateManager {
     return this._state;
   }
@@ -510,8 +521,8 @@ export class Synthesizer implements SynthesizerInterface
   placePoseidon(inPts: DataPt[]): DataPt {
     return this._arithmeticManager.placePoseidon(inPts)
   }
-  placeMerkleProofVerification(indexPt: DataPt, leafPt: DataPt, siblings: bigint[][], rootPt: DataPt): void {
-    return this._arithmeticManager.placeMerkleProofVerification(indexPt, leafPt, siblings, rootPt)
+  placeMerkleProofVerification(indexPt: DataPt, leafPt: DataPt, siblingPts: DataPt[][], rootPt: DataPt): void {
+    return this._arithmeticManager.placeMerkleProofVerification(indexPt, leafPt, siblingPts, rootPt)
   }
 
   placeMemoryToStack(dataAliasInfos: DataAliasInfos): DataPt {

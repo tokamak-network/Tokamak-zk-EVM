@@ -19,7 +19,7 @@ More detail is in `doc/synthesizer.md`.
 ## Package layout
 - Core: `src/synthesizer`, `src/circuitGenerator`.
 - Input helpers: `src/interface` collects transaction/block/state inputs for the synthesizer; sources are not limited to L1 RPC.
-- Tokamak L2 primitives: `src/TokamakL2JS` (planned to become an independent package).
+- Tokamak L2 primitives: `submodules/TokamakL2JS` for local development, `tokamak-l2js` as the published package consumed by build outputs.
 
 ## Run example (L2 TON transfer)
 `examples/L2TONTransfer/main.ts` is the end-to-end example. It derives L2 keypairs from seeds, builds `SynthesizerOpts` via `createSynthesizerOptsForSimulationFromRPC`, runs `synthesizeTX()`, and writes outputs to `outputs/` by default.
@@ -36,11 +36,16 @@ cd packages/frontend/synthesizer
 npm install
 ```
 
+### Local TokamakL2JS development
+- The root `tsconfig.json` resolves `tokamak-l2js` to `submodules/TokamakL2JS/src/index.ts`, so IDE diagnostics and local TypeScript tooling follow the submodule during development.
+- `tsx`-based development scripts keep using `tsconfig.dev.json`, which inherits that root development mapping.
+- Production builds keep the package import specifier and therefore consume the published `tokamak-l2js` package from `node_modules`.
+
 ### Inputs
-- Ethereum RPC provider URL: create an `./.env` file:
+- Alchemy API key: create an `./.env` file:
 ```bash
-RPC_URL='<your endpoint>'
-# Example: RPC_URL='https://eth-mainnet.g.alchemy.com/v2/e_QJdxxxxxxxxxxisG_xQ'
+ALCHEMY_API_KEY='<your alchemy api key>'
+# Example: ALCHEMY_API_KEY='e_QJdxxxxxxxxxxisG_xQ'
 ```
 - Transaction batch configuration in `examples/L2TONTransfer/input.json`
 - Subcircuit library: install and run [qap-compiler](../qap-compiler/README.md) (no need to copy files into this package)

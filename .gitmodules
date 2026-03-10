@@ -1,3 +1,7 @@
 [submodule "packages/backend/verify/solidity/lib/forge-std"]
 	path = packages/backend/verify/solidity/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "packages/frontend/synthesizer/submodules/TokamakL2JS"]
+	path = packages/frontend/synthesizer/submodules/TokamakL2JS
+	url = https://github.com/tokamak-network/TokamakL2JS
+	branch = main

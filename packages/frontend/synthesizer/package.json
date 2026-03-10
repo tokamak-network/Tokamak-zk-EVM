@@ -48,9 +48,9 @@
   "scripts": {
     "build": "../../../config/monorepo-js/cli/ts-build.sh",
     "clean": "../../../config/monorepo-js//cli/clean-package.sh",
-    "cli": "tsx src/cli/index.ts",
+    "cli": "tsx --tsconfig tsconfig.dev.json src/interface/cli/index.ts",
     "docs:build": "typedoc --options typedoc.cjs",
-    "examples": "tsx ../../scripts/examples-runner.ts -- evm",
+    "examples": "tsx --tsconfig tsconfig.dev.json ../../scripts/examples-runner.ts -- evm",
     "examples:build": "npx embedme README.md",
     "hooks:install": "git config core.hooksPath packages/frontend/synthesizer/.githooks",
     "hooks:uninstall": "git config --unset core.hooksPath",
@@ -58,11 +58,11 @@
     "lint:diff": "../../../config/monorepo-js//cli/lint-diff.sh",
     "lint:fix": "../../../config/monorepo-js//cli/lint-fix.sh",
     "profiling": "0x ./benchmarks/run.js profiling",
-    "synthesize": "tsx src/cli/index.ts synthesize",
-    "synthesizer": "tsx src/cli/index.ts run",
-    "erc20-transfer-l2": "tsx examples/erc20Transfers/main.ts",
-    "test": "tsx tests/scripts/run-erc20-main-from-configs.ts",
-    "test:prep": "tsx tests/scripts/run-erc20-config-matrix.ts",
+    "synthesize": "tsx --tsconfig tsconfig.dev.json src/interface/cli/index.ts synthesize",
+    "synthesizer": "tsx --tsconfig tsconfig.dev.json src/interface/cli/index.ts run",
+    "erc20-transfer-l2": "tsx --tsconfig tsconfig.dev.json examples/erc20Transfers/main.ts",
+    "test": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-erc20-main-from-configs.ts",
+    "test:prep": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-erc20-config-matrix.ts",
     "test:node": "npm run -s test",
     "tsc": "../../../config/monorepo-js//cli/ts-compile.sh"
   },
@@ -88,9 +88,9 @@
     "ethereum-cryptography": "^3.0.0",
     "eventemitter3": "^5.0.1",
     "poseidon-bls12381": "^1.0.2",
+    "tokamak-l2js": "^0.0.25",
     "verkle-cryptography-wasm": "^0.4.8",
-    "vitest": "^2.1.8",
-    "tokamak-l2js": "^0.0.19"
+    "vitest": "^2.1.8"
   },
   "peerDependencies": {
     "ethers": "^6.14.3"

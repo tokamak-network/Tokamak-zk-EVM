@@ -15,20 +15,25 @@ import { MemoryPt, StackPt } from '../dataStructure/index.ts';
 import { SubcircuitInfoByName, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
 import { subcircuitInfoByName } from '../../interface/qapCompiler/importedConstants.ts';
 import { InterpreterStep, Message } from '@ethereumjs/evm';
-import { bytesToBigInt } from '@ethereumjs/util';
+import { Address, bytesToBigInt } from '@ethereumjs/util';
 
-export type CachedStorageEntry = {
-  addressIndex: number,
-  indexPt: DataPt | null,
-  keyPt: DataPt,
-  valuePt: DataPt,
-  access: 'Read' | 'Write'
-}
+// export type CachedStorageEntry = {
+//   addressIndex: number,
+//   indexPt: DataPt | null,
+//   keyPt: DataPt,
+//   valuePt: DataPt,
+//   access: 'Read' | 'Write'
+// }
 
 export type ContextConstructionData = {
   callerPt: DataPt;
   toAddressPt: DataPt;
   callDataMemoryPts: MemoryPts;
+}
+
+export type CachedMerkleProof = {
+  indexPt: DataPt;
+  siblingPts: DataPt[][];
 }
 
 export class ContextManager {
@@ -61,13 +66,14 @@ export class StateManager {
   private cachedOpts: SynthesizerOpts
   private _placements: Placements = []
 
-  public verifiedStorageMTIndices: [number, number][] = [] // [ADDRESS_INDEX, LEAF_INDEX]
-  public cachedStorage: Map<string, Map<bigint, CachedStorageEntry[]>> = new Map() // Map<ADDRESS_STRING, Map<KEY, ENTRY>>
+  // public verifiedStorageMTIndices: [number, number][] = [] // [ADDRESS_INDEX, LEAF_INDEX]
+  // public cachedStorage: Map<string, Map<bigint, CachedStorageEntry[]>> = new Map() // Map<ADDRESS_STRING, Map<KEY, ENTRY>>
   public subcircuitInfoByName: SubcircuitInfoByName = subcircuitInfoByName;
 
   public cachedEVMIn: Map<bigint, DataPt> = new Map()
   public cachedOrigin: DataPt | undefined = undefined
-  public cachedInitRoots: DataPt[] | undefined = undefined
+  public cachedRoots: Map<`0x${string}`, DataPt[]> = new Map()
+  public cachedMerkleProof: CachedMerkleProof | null = null
 
   public contextByDepth: ContextManager[] = [];
 

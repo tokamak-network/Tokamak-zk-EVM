@@ -539,10 +539,10 @@ run_synthesizer() {
 
   pushd "$FE_SYN" >/dev/null
   if [[ -f .env ]]; then
-    verbose "Using RPC_URL from synthesizer/.env"
+    verbose "Using ALCHEMY_API_KEY from synthesizer/.env"
     npm run erc20-transfer-l2 "$config_path"
   else
-    err "RPC_URL not configured. Run --install first or set RPC_URL environment variable"
+    err "ALCHEMY_API_KEY not configured. Run --install first or set ALCHEMY_API_KEY"
     exit 1
   fi
   popd >/dev/null
@@ -550,16 +550,24 @@ run_synthesizer() {
 
 step_install() {
   local install_arg="${1:-}"
-  [[ -n "$install_arg" ]] || { err "--install requires <API_KEY|RPC_URL>"; exit 1; }
+  [[ -n "$install_arg" ]] || { err "--install requires <ALCHEMY_API_KEY|ALCHEMY_RPC_URL>"; exit 1; }
 
   log "Install: writing synthesizer .env"
-  local rpc_url
+  local alchemy_api_key
   if [[ "$install_arg" == https://* ]]; then
-    rpc_url="$install_arg"
+    case "$install_arg" in
+      https://eth-mainnet.g.alchemy.com/v2/*|https://eth-sepolia.g.alchemy.com/v2/*)
+        alchemy_api_key="${install_arg##*/}"
+        ;;
+      *)
+        err "--install only supports an Alchemy API key or an Alchemy RPC URL"
+        exit 1
+        ;;
+    esac
   else
-    rpc_url="https://eth-mainnet.g.alchemy.com/v2/${install_arg}"
+    alchemy_api_key="$install_arg"
   fi
-  printf "RPC_URL='%s'\n" "$rpc_url" > "$FE_SYN/.env"
+  printf "ALCHEMY_API_KEY='%s'\n" "$alchemy_api_key" > "$FE_SYN/.env"
 
   log "Install: installing frontend dependencies"
   npm_install_safe "$FE_QAP"

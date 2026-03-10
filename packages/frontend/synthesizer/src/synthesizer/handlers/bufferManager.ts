@@ -1,7 +1,7 @@
 import { NUMBER_OF_PREV_BLOCK_HASHES, POSEIDON_INPUTS, SUBCIRCUIT_BUFFER_MAPPING } from '../../interface/qapCompiler/importedConstants.ts';
 import { bytesToBigInt, hexToBigInt, toBytes } from '@ethereumjs/util';
 import { jubjub } from "@noble/curves/misc.js";
-import { DataPt, DataPtDescription, ISynthesizerProvider, PlacementEntry, ReservedVariable, SynthesizerOpts, VARIABLE_DESCRIPTION } from '../types/index.ts';
+import { BufferErrorMessage, DataPt, DataPtDescription, ISynthesizerProvider, PlacementEntry, ReservedVariable, SynthesizerOpts, VARIABLE_DESCRIPTION } from '../types/index.ts';
 import { DataPtFactory } from '../dataStructure/index.ts';
 import { BUFFER_DESCRIPTION, BUFFER_LIST } from '../../interface/qapCompiler/configuredTypes.ts';
 import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
@@ -16,6 +16,21 @@ export class BufferManager {
     this.parent = parent;
     this.cachedOpts = parent.cachedOpts;
     this._initBuffers();
+  }
+
+  private _warnIfBufferError(wireDesc: DataPtDescription): void {
+    const bufferMessages = [wireDesc.extSource, wireDesc.extDest];
+    for (const bufferMessage of bufferMessages) {
+      if (bufferMessage === undefined) {
+        continue;
+      }
+      const matchedError = Object.values(BufferErrorMessage).find(errorMessage =>
+        bufferMessage.startsWith(errorMessage),
+      );
+      if (matchedError !== undefined) {
+        console.warn(`BUFFER WARNING: ${bufferMessage.toUpperCase()}`);
+      }
+    }
   }
 
   // public addWireToOutBuffer(
@@ -51,6 +66,7 @@ export class BufferManager {
   public addReservedVariableToBufferIn(varName: ReservedVariable, value: bigint = 0n, dynamic: boolean = false, message?: string): DataPt {
     const placementIndex = VARIABLE_DESCRIPTION[varName].source
     const wireDesc: DataPtDescription = {...VARIABLE_DESCRIPTION[varName], extSource: VARIABLE_DESCRIPTION[varName].extSource + (message ?? '')}
+    this._warnIfBufferError(wireDesc)
     const externalDataPt = DataPtFactory.create(wireDesc, value)
     if (dynamic) {
       if (wireDesc.wireIndex !== -1) {
@@ -65,6 +81,7 @@ export class BufferManager {
   public addReservedVariableToBufferOut(varName: ReservedVariable, symbolDataPt: DataPt, dynamic: boolean = false, message?: string): DataPt {
     const placementIndex = VARIABLE_DESCRIPTION[varName].source
     const wireDesc: DataPtDescription = {...VARIABLE_DESCRIPTION[varName], extDest: VARIABLE_DESCRIPTION[varName].extDest + (message ?? '')}
+    this._warnIfBufferError(wireDesc)
     const externalDataPt = DataPtFactory.create(wireDesc, symbolDataPt.value)
     if (dynamic) {
       if (wireDesc.wireIndex !== -1) {
@@ -261,6 +278,5 @@ export class BufferManager {
     return DataPtFactory.deepCopy(outPt)
   }
 }
-
 
 

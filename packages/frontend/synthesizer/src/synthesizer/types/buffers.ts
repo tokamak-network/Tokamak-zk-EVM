@@ -3,7 +3,6 @@ import type { DataPt, DataPtDescription } from './index.ts'
 import { BUFFER_LIST, ReservedBuffer, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
 
 export enum BufferErrorMessage {
-  UnregisteredContractStorageWrite = 'Error: Writing at a storage key not registered ',
   UnregisteredContractStorageRead = 'Error: Access to a storage key not registered ',
 }
 
@@ -11,7 +10,6 @@ const PUBLIC_OUT_VARIABLES_STATIC = [
   // Nothing
 ] as const
 const PUBLIC_OUT_VARIABLES_DYNAMIC = [
-  'UNREGISTERED_CONTRACT_STORAGE_OUT',
   'RES_MERKLE_ROOT',
 ] as const
 const PUBLIC_IN_VARIABLES_STATIC = [
@@ -326,6 +324,7 @@ const PRIVATE_IN_VARIABLES_DYNAMIC = [
   // 'IN_MT_INDEX',
   // 'IN_MPT_KEY',
   'IN_VALUE',
+  'INTER_MERKLE_ROOT',
   'MERKLE_PROOF',
 ] as const
 
@@ -417,14 +416,14 @@ const VARIABLE_DESCRIPTION_INCOMPLETE: Record<ReservedVariable, DataPtDescriptio
   ..._PRIVATE_IN_DESCRIPTION_INCOMPLETE,
 }
 
-VARIABLE_DESCRIPTION_INCOMPLETE.UNREGISTERED_CONTRACT_STORAGE_OUT.extDest =
-  BufferErrorMessage.UnregisteredContractStorageWrite;
-
 VARIABLE_DESCRIPTION_INCOMPLETE.RES_MERKLE_ROOT.extDest = `Resulting Merkle tree root hash`;
 VARIABLE_DESCRIPTION_INCOMPLETE.RES_MERKLE_ROOT.sourceBitSize = 255;
 
 VARIABLE_DESCRIPTION_INCOMPLETE.INI_MERKLE_ROOT.extSource = `Initial Merkle tree root hash`;
 VARIABLE_DESCRIPTION_INCOMPLETE.INI_MERKLE_ROOT.sourceBitSize = 255;
+
+VARIABLE_DESCRIPTION_INCOMPLETE.INTER_MERKLE_ROOT.extSource = `Intermediate Merkle tree root hash`;
+VARIABLE_DESCRIPTION_INCOMPLETE.INTER_MERKLE_ROOT.sourceBitSize = 255;
 
 VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_SIGNATURE.extSource = `EdDSA signature of transaction`;
 VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_SIGNATURE.sourceBitSize = 255;

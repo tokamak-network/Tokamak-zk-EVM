@@ -309,7 +309,10 @@ export class ArithmeticManager {
     return DataPtFactory.deepCopy(P)
   }
 
-  public placeMerkleProofVerification (indexPt: DataPt, leafPt: DataPt, siblings: bigint[][], rootPt: DataPt): void {
+  public placeMerkleProofVerification (indexPt: DataPt, leafPt: DataPt, siblingPts: DataPt[][], rootPt: DataPt): void {
+    if (siblingPts.length !== MT_DEPTH) {
+      throw new Error(`Merkle proof should have exactly ${MT_DEPTH} sibling levels, but got ${siblingPts.length}.`)
+    }
     // const computeParentsNodePts = (childIndexPt: DataPt, childPt: DataPt, siblings: bigint[]): {parentIndexPt: DataPt, parentPt: DataPt} => {
     //   if (siblings.length !== POSEIDON_INPUTS - 1) {
     //     throw new Error(`Siblings of each level for a Merkle proof should be ${POSEIDON_INPUTS - 1}, but got ${siblings.length}.`)
@@ -330,10 +333,11 @@ export class ArithmeticManager {
     //   }
     // }
 
-    const computeParentsNode = (childIndex: number, child: bigint, siblings: bigint[]): {parentIndex: number, parent: bigint} => {
-      if (siblings.length !== POSEIDON_INPUTS - 1) {
-        throw new Error(`Siblings of each level for a Merkle proof should be ${POSEIDON_INPUTS - 1}, but got ${siblings.length}.`)
+    const computeParentsNode = (childIndex: number, child: bigint, siblingPts: DataPt[]): {parentIndex: number, parent: bigint} => {
+      if (siblingPts.length !== POSEIDON_INPUTS - 1) {
+        throw new Error(`Siblings of each level for a Merkle proof should be ${POSEIDON_INPUTS - 1}, but got ${siblingPts.length}.`)
       }
+      const siblings = siblingPts.map((pt) => pt.value)
       const childHomeIndex = childIndex % POSEIDON_INPUTS
       const parentIndex = Math.floor( childIndex / POSEIDON_INPUTS)
       
@@ -352,7 +356,7 @@ export class ArithmeticManager {
     let childIndexPt: DataPt = indexPt
 
     // for (var level = 0; level < MT_DEPTH; level++) {
-    //   const thisSiblings = siblings[level]
+    //   const thisSiblings = siblingPts[level]
     //   const siblingPts: DataPt[] = thisSiblings.map(value => this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', value, true))
     //   const {parentIndexPt, parentPt} = computeParentsNodePts(childIndexPt, childPt, thisSiblings)
 
@@ -371,13 +375,9 @@ export class ArithmeticManager {
       const remaining = MT_DEPTH - level
 
       if (remaining >= 3) {
-        const sib0 = siblings[level]
-        const sib1 = siblings[level + 1]
-        const sib2 = siblings[level + 2]
-
-        const sibPts0: DataPt[] = sib0.map(value => this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', value, true))
-        const sibPts1: DataPt[] = sib1.map(value => this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', value, true))
-        const sibPts2: DataPt[] = sib2.map(value => this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', value, true))
+        const sib0 = siblingPts[level]
+        const sib1 = siblingPts[level + 1]
+        const sib2 = siblingPts[level + 2]
 
         const { parentIndex: pIdx1, parent: pPt1 } = computeParentsNode(Number(childIndexPt.value), childPt.value, sib0)
         const { parentIndex: pIdx2, parent: pPt2 } = computeParentsNode(pIdx1, pPt1, sib1)
@@ -391,9 +391,9 @@ export class ArithmeticManager {
         this.placeArith('VerifyMerkleProof3x', [
           childIndexPt,
           childPt,
-          ...sibPts0,
-          ...sibPts1,
-          ...sibPts2,
+          ...sib0,
+          ...sib1,
+          ...sib2,
           parentIndexPt,
           finalParentPt,
         ])
@@ -402,11 +402,8 @@ export class ArithmeticManager {
         childIndexPt = parentIndexPt
         level += 3
       } else if (remaining >= 2) {
-        const sib0 = siblings[level]
-        const sib1 = siblings[level + 1]
-
-        const sibPts0: DataPt[] = sib0.map(value => this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', value, true))
-        const sibPts1: DataPt[] = sib1.map(value => this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', value, true))
+        const sib0 = siblingPts[level]
+        const sib1 = siblingPts[level + 1]
 
         const { parentIndex: pIdx1, parent: pPt1 } = computeParentsNode(Number(childIndexPt.value), childPt.value, sib0)
         const { parentIndex, parent: parentVal } = computeParentsNode(pIdx1, pPt1, sib1)
@@ -419,8 +416,8 @@ export class ArithmeticManager {
         this.placeArith('VerifyMerkleProof2x', [
           childIndexPt,
           childPt,
-          ...sibPts0,
-          ...sibPts1,
+          ...sib0,
+          ...sib1,
           parentIndexPt,
           finalParentPt,
         ])
@@ -429,8 +426,7 @@ export class ArithmeticManager {
         childIndexPt = parentIndexPt
         level += 2
       } else {
-        const thisSiblings = siblings[level]
-        const siblingPts: DataPt[] = thisSiblings.map(value => this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', value, true))
+        const thisSiblings = siblingPts[level]
         const { parentIndex, parent: parentVal } = computeParentsNode(Number(childIndexPt.value), childPt.value, thisSiblings)
         const parentIndexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(parentIndex), true)
         const parentPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', parentVal, true)
@@ -441,7 +437,7 @@ export class ArithmeticManager {
         this.placeArith('VerifyMerkleProof', [
           childIndexPt,
           childPt,
-          ...siblingPts,
+          ...thisSiblings,
           parentIndexPt,
           finalParentPt,
         ])
@@ -515,4 +511,3 @@ const ARITHMETIC_MAPPING: Record<ArithmeticOperator, (...args: any) => any> = {
   VerifyMerkleProof2x: ArithmeticOperations.verifyMerkleProof2x,
   VerifyMerkleProof3x: ArithmeticOperations.verifyMerkleProof3x,
 } as const
-
