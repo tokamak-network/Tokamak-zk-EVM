@@ -40,9 +40,6 @@ export type VerifyStorageMode =
   | 'SSTORE_PRE_STEP'
   | 'SSTORE_MAIN_STEP'
 
-export type VerifyStorageResult<M extends VerifyStorageMode> =
-  M extends 'SLOAD' ? DataPt : DataPt | undefined
-
 export type VerifyStorageValue<M extends VerifyStorageMode> =
   M extends 'SLOAD' ? bigint : bigint | DataPt
 
@@ -486,8 +483,8 @@ export class InstructionHandler {
     keyPt: DataPt,
     valueOrValuePt: VerifyStorageValue<M>,
     mode: M,
-  ): Promise<VerifyStorageResult<M>> {
-    const _verifyRegisteredStorage = async (): Promise<DataPt | undefined> => {
+  ): Promise<DataPt> {
+    const _verifyRegisteredStorage = async (): Promise<DataPt> => {
       let treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
       const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
       let childPt: DataPt | undefined;
@@ -522,12 +519,14 @@ export class InstructionHandler {
             true,
           );
         } else {
-          return this.parent.addReservedVariableToBufferIn(
-            'UNREGISTERED_CONTRACT_STORAGE_IN',
-            value,
-            true,
-            ` at MPT key ${bigIntToHex(keyPt.value)} of address ${address.toString()}`,
-          );
+          return mode === 'SLOAD'
+            ? this.parent.addReservedVariableToBufferIn(
+              'UNREGISTERED_CONTRACT_STORAGE_IN',
+              value,
+              true,
+              ` at MPT key ${bigIntToHex(keyPt.value)} of address ${address.toString()}`,
+            )
+            : valuePt as DataPt;
         }
       }
 
@@ -554,7 +553,6 @@ export class InstructionHandler {
           keyPt,
           storageValuePt,
         ])
-        resultPt = storageValuePt;
         const roots = merkleTree.getRoots();
         refRootPt = this.parent.addReservedVariableToBufferIn('INTER_MERKLE_ROOT', roots[treeIndex[0]], true);
         const cachedRoots = this.parent.state.cachedRoots.get(refAddress) ?? [];
@@ -608,14 +606,14 @@ export class InstructionHandler {
         refRootPt,
       )
 
-      return resultPt
+      return mode === 'SLOAD' ? resultPt as DataPt : valuePt as DataPt
     }
 
     switch (mode) {
       case 'SLOAD':
       case 'SSTORE_PRE_STEP':
       case 'SSTORE_MAIN_STEP':
-        return await _verifyRegisteredStorage() as VerifyStorageResult<M>
+        return await _verifyRegisteredStorage()
       default:
         throw new Error(`Unsupported verifyStorage mode: ${String(mode)}`)
     }
