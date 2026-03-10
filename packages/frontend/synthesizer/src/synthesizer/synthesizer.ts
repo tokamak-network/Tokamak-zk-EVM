@@ -10,6 +10,7 @@ import { ArithmeticOperator, SubcircuitNames } from '../interface/qapCompiler/co
 import { DataPtFactory } from './dataStructure/dataPt.ts';
 import { TypedTransaction } from '@ethereumjs/tx';
 import { MemoryPt } from './dataStructure/memoryPt.ts';
+import { NULL_STORAGE_KEY, poseidon_raw } from 'tokamak-l2js';
 
 /**
  * The Synthesizer class manages data related to subcircuits.
@@ -399,16 +400,47 @@ export class Synthesizer implements SynthesizerInterface
         setLengthLeft(bigIntToBytes(keyPt.value), 32),
       ),
     );
-    await this._instructionHandlers.storeStorage(
-      stepResult.address,
-      DataPtFactory.deepCopy(keyPt),
-      this.addReservedVariableToBufferIn(
-        'IN_VALUE',
-        valueStored,
+    const storedValuePt = this.addReservedVariableToBufferIn(
+      'IN_VALUE',
+      valueStored,
+      true,
+      ` at MPT key ${bigIntToHex(keyPt.value)} of address ${stepResult.address.toString()}`,
+    )
+    const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(stepResult.address, keyPt.value);
+    const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
+    let proofTreeIndex = treeIndex;
+    let childPt: DataPt;
+
+    if (!isRegisteredKey) {
+      const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
+      if (registeredKeys === null) {
+        throw new Error('Debug: registeredKeys is not initialized')
+      }
+      if (treeIndex[0] < 0) {
+        throw new Error(`Debug: No registeredKeys entry for address ${stepResult.address.toString()}`)
+      }
+      proofTreeIndex = [treeIndex[0], registeredKeys[treeIndex[0]].keys.length];
+      childPt = this.addReservedVariableToBufferIn(
+        'MERKLE_PROOF',
+        poseidon_raw([NULL_STORAGE_KEY, 0n]),
         true,
-        ` at MPT key ${bigIntToHex(keyPt.value)} of address ${stepResult.address.toString()}`,
-      ),
-      'SSTORE_PRE_STEP',
+      );
+    } else {
+      childPt = this.placePoseidon([DataPtFactory.deepCopy(keyPt), storedValuePt]);
+    }
+
+    const { refAddress, merkleProof, indexPt, siblingPts } =
+      await this._instructionHandlers.buildStorageProof(stepResult.address, proofTreeIndex);
+    this._instructionHandlers.cacheMerkleProof(indexPt, siblingPts);
+    if (merkleProof.leaf !== childPt.value) {
+      throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
+    }
+
+    this.placeMerkleProofVerification(
+      indexPt,
+      childPt,
+      siblingPts,
+      this._instructionHandlers.getLatestCachedRootPt(refAddress),
     )
   }
 
