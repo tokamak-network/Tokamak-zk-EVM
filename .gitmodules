@@ -4,4 +4,4 @@
 [submodule "packages/frontend/synthesizer/submodules/TokamakL2JS"]
 	path = packages/frontend/synthesizer/submodules/TokamakL2JS
 	url = https://github.com/tokamak-network/TokamakL2JS
-	branch = feat-dynamic-trees
+	branch = main
