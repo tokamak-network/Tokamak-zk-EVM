@@ -43,7 +43,7 @@
     "mocha": "^11.0.1",
     "poseidon-bls12381-circom": "^1.0.0",
     "@noble/curves": "^1.9.7",
-    "tokamak-l2js": "^0.0.21"
+    "tokamak-l2js": "^0.0.22"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

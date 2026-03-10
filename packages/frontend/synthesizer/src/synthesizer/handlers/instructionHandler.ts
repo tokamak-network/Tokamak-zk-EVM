@@ -495,7 +495,7 @@ export class InstructionHandler {
     indexPt: DataPt,
     siblingPts: DataPt[][],
   }> {
-    const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
+    const merkleTree = this.cachedOpts.stateManager.lastMerkleTrees;
     const refAddress = this._getStorageRefAddress(address, proofTreeIndex[0]);
     const merkleProof = merkleTree.getProof(proofTreeIndex);
     const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(proofTreeIndex[1]), true);
@@ -533,7 +533,6 @@ export class InstructionHandler {
       throw new Error('Mismatch in storage values');
     }
 
-    await this.cachedOpts.stateManager.getUpdatedMerkleTree();
     const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
     const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
     if (!isRegisteredKey) {
@@ -580,7 +579,7 @@ export class InstructionHandler {
     const siblingPts = cachedMerkleProof.siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt)));
     const childPt = this.parent.placePoseidon([keyPt, symbolDataPt]);
 
-    const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
+    const merkleTree = this.cachedOpts.stateManager.lastMerkleTrees;
     if (this.cachedOpts.stateManager.registeredKeys === null) {
       throw new Error('Debug: registeredKeys is not initialized')
     }

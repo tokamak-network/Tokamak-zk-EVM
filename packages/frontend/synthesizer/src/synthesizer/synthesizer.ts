@@ -146,7 +146,7 @@ export class Synthesizer implements SynthesizerInterface
 
   private async _prepareSynthesizeTransaction(): Promise<void> {
     this.state.cachedRoots = new Map()
-    const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
+    const merkleTree = this.cachedOpts.stateManager.lastMerkleTrees;
     const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
     if (registeredKeys === null) {
       throw new Error('Debug: registeredKeys is not initialized')
@@ -270,7 +270,7 @@ export class Synthesizer implements SynthesizerInterface
   }
 
   private async _finalizeStorage(): Promise<void> {    
-    const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
+    const merkleTree = this.cachedOpts.stateManager.lastMerkleTrees;
     const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
     if (registeredKeys === null) {
       throw new Error('Debug: registeredKeys is not initialized')
@@ -403,7 +403,6 @@ export class Synthesizer implements SynthesizerInterface
     if (keyPt.value !== key || valuePt.value !== value) {
       throw new Error('Synthesizer: SSTORE pre-step stack mismatch')
     }
-    await this.cachedOpts.stateManager.getUpdatedMerkleTree();
     const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(stepResult.address, keyPt.value);
     const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
     let proofTreeIndex = treeIndex;
