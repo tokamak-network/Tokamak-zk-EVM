@@ -4,7 +4,7 @@
   "nEVMIn": 300,
   "nPrvIn": 450,
   "nPoseidonInputs": 2,
-  "nMtDepth": 4,
+  "nMtDepth": 20,
   "nAccumulation": 32,
   "nPrevBlockHashes": 4,
   "nJubjubExpBatch": 64,

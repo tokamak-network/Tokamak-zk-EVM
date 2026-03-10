@@ -5,7 +5,7 @@ function nEVMIn() {return 300;}
 function nPrvIn() {return 450;}
 
 function nPoseidonInputs() {return 2;}
-function nMtDepth() {return 4;}
+function nMtDepth() {return 20;}
 function nMtLeaves() {return nPoseidonInputs() ** nMtDepth();}
 function nAccumulation() {return 32;}
 function nPrevBlockHashes() {return 4;}
