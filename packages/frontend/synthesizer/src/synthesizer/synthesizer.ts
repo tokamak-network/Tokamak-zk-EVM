@@ -491,12 +491,7 @@ export class Synthesizer implements SynthesizerInterface
     await this._instructionHandlers.verifyStorage(
       stepResult.address,
       DataPtFactory.deepCopy(keyPt),
-      this.addReservedVariableToBufferIn(
-        'IN_VALUE',
-        valueStored,
-        true,
-        ` at MPT key ${bigIntToHex(keyPt.value)} of address ${stepResult.address.toString()}`,
-      ),
+      valueStored,
       'SSTORE_PRE_STEP',
     )
   }

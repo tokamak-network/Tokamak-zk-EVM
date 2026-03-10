@@ -44,7 +44,7 @@ export type VerifyStorageResult<M extends VerifyStorageMode> =
   M extends 'SLOAD' ? DataPt : DataPt | undefined
 
 export type VerifyStorageValue<M extends VerifyStorageMode> =
-  M extends 'SLOAD' ? bigint : DataPt
+  M extends 'SLOAD' ? bigint : bigint | DataPt
 
 export interface SynthesizerOpHandler {
   (context: ContextManager, stepResult: InterpreterStep): void | Promise<void>
@@ -494,10 +494,17 @@ export class InstructionHandler {
       let resultPt: DataPt | undefined;
       const value = mode === 'SLOAD'
         ? valueOrValuePt as bigint
-        : (valueOrValuePt as DataPt).value;
+        : typeof valueOrValuePt === 'bigint' ? valueOrValuePt : valueOrValuePt.value;
       const valuePt = mode === 'SLOAD'
         ? undefined
-        : valueOrValuePt as DataPt;
+        : typeof valueOrValuePt === 'bigint'
+          ? this.parent.addReservedVariableToBufferIn(
+            'IN_VALUE',
+            valueOrValuePt,
+            true,
+            ` at MPT key ${bigIntToHex(keyPt.value)} of address ${address.toString()}`,
+          )
+          : valueOrValuePt;
 
       if (!isRegisteredKey) {
         if (mode === 'SSTORE_PRE_STEP') {
@@ -668,7 +675,7 @@ export class InstructionHandler {
       access: 'Write';
     };
     // if (isColdAccess) {
-    await this.verifyStorage(address, keyPt, symbolDataPt, 'SSTORE_MAIN_STEP')
+    await this.verifyStorage(address, keyPt, symbolDataPt.value, 'SSTORE_MAIN_STEP')
     if (isRegisteredKey) {
       return
       // Storage at a registered key must be warm (already loaded via loadStorage)
