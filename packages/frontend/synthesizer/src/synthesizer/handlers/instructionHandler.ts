@@ -582,6 +582,18 @@ export class InstructionHandler {
     if (treeIndex[0] < 0 || treeIndex[1] < 0) {
       throw new Error(`Debug: Merkle tree index is not registered for address ${address.toString()}`)
     }
+    if (BigInt(treeIndex[1]) !== indexPt.value) {
+      throw new Error(`Debug: Cached Merkle proof leaf index mismatches with updated tree index`)
+    }
+    const addressIndex = this.parent.state.storageAddresses.findIndex((storageAddress) =>
+      createAddressFromString(storageAddress).equals(address),
+    );
+    if (addressIndex < 0) {
+      throw new Error(`Debug: Address ${address.toString()} is not tracked in storageAddresses`)
+    }
+    if (treeIndex[0] !== addressIndex) {
+      throw new Error(`Debug: Merkle tree address index mismatches with tracked storage address order`)
+    }
     const refAddress = this._getStorageRefAddress(address, treeIndex[0]);
     const valueStored = bytesToBigInt(
       await this.cachedOpts.stateManager.getStorage(
