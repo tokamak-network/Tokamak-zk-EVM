@@ -551,7 +551,10 @@ export class InstructionHandler {
       const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
       const roots = merkleTree.getRoots();
       const refRootPt = this.parent.addReservedVariableToBufferIn('INTER_MERKLE_ROOT', roots[treeIndex[0]], true);
-      const cachedRoots = this.parent.state.cachedRoots.get(refAddress) ?? [];
+      const cachedRoots = this.parent.state.cachedRoots.get(refAddress);
+      if (cachedRoots === undefined || cachedRoots.length === 0) {
+        throw new Error('Initial Merkle tree root for a specific address was not initialized in Synthesizer')
+      }
       cachedRoots.push(DataPtFactory.deepCopy(refRootPt));
       this.parent.state.cachedRoots.set(refAddress, cachedRoots);
 
