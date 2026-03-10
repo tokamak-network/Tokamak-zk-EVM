@@ -572,7 +572,6 @@ export class InstructionHandler {
     const indexPt = DataPtFactory.deepCopy(cachedMerkleProof.indexPt);
     const siblingPts = cachedMerkleProof.siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt)));
     const childPt = this.parent.placePoseidon([keyPt, symbolDataPt]);
-    this.parent.state.cachedMerkleProof = null
 
     const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
     if (this.cachedOpts.stateManager.registeredKeys === null) {
@@ -619,6 +618,7 @@ export class InstructionHandler {
     )
     cachedRoots.push(DataPtFactory.deepCopy(refRootPt));
     this.parent.state.cachedRoots.set(refAddress, cachedRoots);
+    this.parent.state.cachedMerkleProof = null
   }
 
   public handleArith = (

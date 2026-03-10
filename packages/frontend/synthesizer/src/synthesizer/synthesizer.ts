@@ -393,19 +393,6 @@ export class Synthesizer implements SynthesizerInterface
     if (keyPt.value !== key || valuePt.value !== value) {
       throw new Error('Synthesizer: SSTORE pre-step stack mismatch')
     }
-
-    const valueStored = bytesToBigInt(
-      await this.cachedOpts.stateManager.getStorage(
-        stepResult.address,
-        setLengthLeft(bigIntToBytes(keyPt.value), 32),
-      ),
-    );
-    const storedValuePt = this.addReservedVariableToBufferIn(
-      'IN_VALUE',
-      valueStored,
-      true,
-      ` at MPT key ${bigIntToHex(keyPt.value)} of address ${stepResult.address.toString()}`,
-    )
     const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(stepResult.address, keyPt.value);
     const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
     let proofTreeIndex = treeIndex;
@@ -426,18 +413,11 @@ export class Synthesizer implements SynthesizerInterface
         true,
       );
     } else {
-      childPt = this.placePoseidon([DataPtFactory.deepCopy(keyPt), storedValuePt]);
+      childPt = this.placePoseidon([DataPtFactory.deepCopy(keyPt), valuePt]);
     }
 
     const { refAddress, merkleProof, indexPt, siblingPts } =
       await this._instructionHandlers.buildStorageProof(stepResult.address, proofTreeIndex);
-    if (this.state.cachedMerkleProof !== null) {
-      throw new Error('Debug: cachedMerkleProof must be empty before SSTORE pre-step caching')
-    }
-    this.state.cachedMerkleProof = {
-      indexPt: DataPtFactory.deepCopy(indexPt),
-      siblingPts: siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt))),
-    };
     if (merkleProof.leaf !== childPt.value) {
       throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
     }
@@ -448,6 +428,13 @@ export class Synthesizer implements SynthesizerInterface
       siblingPts,
       this._instructionHandlers.getLatestCachedRootPt(refAddress),
     )
+    if (this.state.cachedMerkleProof !== null) {
+      throw new Error('Debug: cachedMerkleProof must be empty before SSTORE pre-step caching')
+    }
+    this.state.cachedMerkleProof = {
+      indexPt: DataPtFactory.deepCopy(indexPt),
+      siblingPts: siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt))),
+    };
   }
 
   public get state(): StateManager {
