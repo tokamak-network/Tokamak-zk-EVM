@@ -577,14 +577,33 @@ export class InstructionHandler {
     this.parent.state.cachedMerkleProof = null
 
     const merkleTree = await this.cachedOpts.stateManager.getUpdatedMerkleTree();
+    const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
+    if (registeredKeys === null) {
+      throw new Error('Debug: registeredKeys is not initialized')
+    }
+    const registeredKeysForAddress = registeredKeys[treeIndex[0]];
+    if (registeredKeysForAddress === undefined) {
+      throw new Error(`Debug: No registeredKeys entry for address ${address.toString()}`)
+    }
+    const latestRegisteredKey = registeredKeysForAddress.keys[registeredKeysForAddress.keys.length - 1];
+    if (latestRegisteredKey === undefined || bytesToBigInt(latestRegisteredKey) !== keyPt.value) {
+      throw new Error(`Debug: Latest registered key mismatch for address ${address.toString()}`)
+    }
+    const valueStored = bytesToBigInt(
+      await this.cachedOpts.stateManager.getStorage(
+        address,
+        setLengthLeft(bigIntToBytes(keyPt.value), 32),
+      ),
+    );
+    if (valueStored !== symbolDataPt.value) {
+      throw new Error('Mismatch in storage values');
+    }
     const roots = merkleTree.getRoots();
     const refRootPt = this.parent.addReservedVariableToBufferIn('INTER_MERKLE_ROOT', roots[treeIndex[0]], true);
     const cachedRoots = this.parent.state.cachedRoots.get(refAddress);
     if (cachedRoots === undefined || cachedRoots.length === 0) {
       throw new Error('Initial Merkle tree root for a specific address was not initialized in Synthesizer')
     }
-    cachedRoots.push(DataPtFactory.deepCopy(refRootPt));
-    this.parent.state.cachedRoots.set(refAddress, cachedRoots);
 
     this.parent.placeMerkleProofVerification(
       indexPt,
@@ -592,6 +611,8 @@ export class InstructionHandler {
       siblingPts,
       refRootPt,
     )
+    cachedRoots.push(DataPtFactory.deepCopy(refRootPt));
+    this.parent.state.cachedRoots.set(refAddress, cachedRoots);
   }
 
   public handleArith = (
