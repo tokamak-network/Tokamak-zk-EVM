@@ -424,7 +424,19 @@ export class Synthesizer implements SynthesizerInterface
         true,
       );
     } else {
-      childPt = this.placePoseidon([DataPtFactory.deepCopy(keyPt), valuePt]);
+      const valueStored = bytesToBigInt(
+        await this.cachedOpts.stateManager.getStorage(
+          stepResult.address,
+          setLengthLeft(bigIntToBytes(keyPt.value), 32),
+        ),
+      );
+      const valueStoredPt = this.addReservedVariableToBufferIn(
+        'IN_VALUE',
+        valueStored,
+        true,
+        ` at MT index: ${treeIndex[1]} of address: ${stepResult.address.toString()}`,
+      );
+      childPt = this.placePoseidon([DataPtFactory.deepCopy(keyPt), valueStoredPt]);
     }
 
     const { refAddress, merkleProof, indexPt, siblingPts } =
