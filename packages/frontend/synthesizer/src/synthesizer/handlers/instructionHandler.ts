@@ -43,6 +43,9 @@ export type VerifyStorageMode =
 export type VerifyStorageResult<M extends VerifyStorageMode> =
   M extends 'SLOAD' ? DataPt : DataPt | undefined
 
+export type VerifyStorageValue<M extends VerifyStorageMode> =
+  M extends 'SLOAD' ? bigint : DataPt
+
 export interface SynthesizerOpHandler {
   (context: ContextManager, stepResult: InterpreterStep): void | Promise<void>
 }
@@ -481,7 +484,7 @@ export class InstructionHandler {
   public async verifyStorage<M extends VerifyStorageMode>(
     address: Address,
     keyPt: DataPt,
-    value: bigint,
+    valueOrValuePt: VerifyStorageValue<M>,
     mode: M,
   ): Promise<VerifyStorageResult<M>> {
     const _verifyRegisteredStorage = async (): Promise<DataPt | undefined> => {
@@ -489,6 +492,12 @@ export class InstructionHandler {
       const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
       let childPt: DataPt | undefined;
       let resultPt: DataPt | undefined;
+      const value = mode === 'SLOAD'
+        ? valueOrValuePt as bigint
+        : (valueOrValuePt as DataPt).value;
+      const valuePt = mode === 'SLOAD'
+        ? undefined
+        : valueOrValuePt as DataPt;
 
       if (!isRegisteredKey) {
         if (mode === 'SSTORE_PRE_STEP') {
@@ -533,17 +542,12 @@ export class InstructionHandler {
         indexPt = DataPtFactory.deepCopy(cachedMerkleProof.indexPt);
         siblingPts = cachedMerkleProof.siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt)));
         this.parent.state.cachedMerkleProof = null
-        const valuePt = this.parent.addReservedVariableToBufferIn(
-          'IN_VALUE',
-          value,
-          true,
-          ` at MT index: ${treeIndex[1]} of address: ${address}`,
-        );
+        const storageValuePt = valuePt as DataPt;
         childPt = this.parent.placePoseidon([
           keyPt,
-          valuePt,
+          storageValuePt,
         ])
-        resultPt = valuePt;
+        resultPt = storageValuePt;
         const roots = merkleTree.getRoots();
         refRootPt = this.parent.addReservedVariableToBufferIn('INTER_MERKLE_ROOT', roots[treeIndex[0]], true);
         const cachedRoots = this.parent.state.cachedRoots.get(refAddress) ?? [];
@@ -568,7 +572,7 @@ export class InstructionHandler {
           }
         }
         if (childPt === undefined) {
-          const valuePt = this.parent.addReservedVariableToBufferIn(
+          const storageValuePt = valuePt ?? this.parent.addReservedVariableToBufferIn(
             'IN_VALUE',
             value,
             true,
@@ -576,9 +580,9 @@ export class InstructionHandler {
           );
           childPt = this.parent.placePoseidon([
             keyPt,
-            valuePt,
+            storageValuePt,
           ])
-          resultPt = valuePt;
+          resultPt = storageValuePt;
         }
         const refInitRootPt = this.parent.state.cachedRoots.get(refAddress);
         if (refInitRootPt === undefined || refInitRootPt.length === 0) {
@@ -664,7 +668,7 @@ export class InstructionHandler {
       access: 'Write';
     };
     // if (isColdAccess) {
-    await this.verifyStorage(address, keyPt, symbolDataPt.value, 'SSTORE_MAIN_STEP')
+    await this.verifyStorage(address, keyPt, symbolDataPt, 'SSTORE_MAIN_STEP')
     if (isRegisteredKey) {
       return
       // Storage at a registered key must be warm (already loaded via loadStorage)
