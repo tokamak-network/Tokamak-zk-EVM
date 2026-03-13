@@ -41,7 +41,6 @@
       ]
     }
   ],
-  "entryContractAddress": "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06",
   "callCodeAddresses": [
     "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06"
   ],
@@ -50,5 +49,8 @@
   "senderIndex": 0,
   "recipientIndex": 1,
   "amount": "0x00000000000000000000000000000000000000000000000000000000000186a0",
-  "transferSelector": "0xa9059cbb"
+  "function": {
+    "entryContractAddress": "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06",
+    "selector": "0xa9059cbb"
+  }
 }

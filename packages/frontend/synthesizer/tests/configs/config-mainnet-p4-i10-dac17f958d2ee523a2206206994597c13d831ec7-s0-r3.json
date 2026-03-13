@@ -33,7 +33,6 @@
       ]
     }
   ],
-  "entryContractAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
   "callCodeAddresses": [
     "0xdAC17F958D2ee523a2206206994597C13D831ec7"
   ],
@@ -42,6 +41,9 @@
   "senderIndex": 0,
   "recipientIndex": 3,
   "amount": "0x000000000000000000000000000000000000000000000000000000000501bd00",
-  "transferSelector": "0xa9059cbb",
-  "referenceTxHash": "0x28f6d0ae284e65e248f0bad36802fd3546c593da792118b88f714869ae493834"
+  "referenceTxHash": "0x28f6d0ae284e65e248f0bad36802fd3546c593da792118b88f714869ae493834",
+  "function": {
+    "entryContractAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    "selector": "0xa9059cbb"
+  }
 }

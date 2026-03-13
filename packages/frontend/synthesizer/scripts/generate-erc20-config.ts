@@ -22,18 +22,22 @@ type StorageConfigEntry = {
   preAllocatedKeys: `0x${string}`[];
 };
 
+type FunctionConfig = {
+  selector: `0x${string}` | '';
+  entryContractAddress: `0x${string}` | '';
+};
+
 type Erc20TransferConfig = {
   network: NetworkName | '';
   participants: ParticipantEntry[];
   storageConfigs: StorageConfigEntry[];
-  entryContractAddress: `0x${string}` | '';
   callCodeAddresses: `0x${string}`[];
   blockNumber: number;
   txNonce: number;
   senderIndex: number;
   recipientIndex: number;
   amount: `0x${string}` | '';
-  transferSelector: `0x${string}` | '';
+  function: FunctionConfig;
   referenceTxHash: `0x${string}` | '';
 };
 
@@ -86,14 +90,16 @@ const DEFAULT_CONFIG: Erc20TransferConfig = {
     { addressL1: '0x0000000000000000000000000000000000000000', prvSeedL2: "Recipient's L2 wallet" },
   ],
   storageConfigs: [],
-  entryContractAddress: '',
   callCodeAddresses: [],
   blockNumber: 0,
   txNonce: 0,
   senderIndex: 0,
   recipientIndex: 1,
   amount: '',
-  transferSelector: '0xa9059cbb',
+  function: {
+    selector: '0xa9059cbb',
+    entryContractAddress: '',
+  },
   referenceTxHash: '',
 };
 
@@ -163,6 +169,9 @@ const toHexString = (value: string): `0x${string}` => {
   }
   return `0x${trimmed}` as `0x${string}`;
 };
+
+const getEntryContractAddress = (config: Pick<Erc20TransferConfig, 'function'>) =>
+  config.function.entryContractAddress;
 
 const normalizeNetwork = (value: string): NetworkName | null => {
   const normalized = value.trim().toLowerCase();
@@ -362,7 +371,7 @@ const fetchFromEtherscan = async (
 };
 
 const isTransferInput = (input: string): boolean =>
-  typeof input === 'string' && input.toLowerCase().startsWith(DEFAULT_CONFIG.transferSelector);
+  typeof input === 'string' && input.toLowerCase().startsWith(DEFAULT_CONFIG.function.selector);
 
 const isSuccessfulTx = (tx: EtherscanTx): boolean => {
   const isError = tx.isError ? tx.isError === '0' : true;
@@ -373,7 +382,7 @@ const isSuccessfulTx = (tx: EtherscanTx): boolean => {
 const parseTransferInput = (input: string): { recipient: `0x${string}`; amount: `0x${string}` } => {
   const data = input.startsWith('0x') ? input.slice(2) : input;
   const selector = data.slice(0, 8);
-  if (selector.toLowerCase() !== DEFAULT_CONFIG.transferSelector.slice(2)) {
+  if (selector.toLowerCase() !== DEFAULT_CONFIG.function.selector.slice(2)) {
     throw new Error('Input data does not match transfer selector');
   }
   const recipientWord = data.slice(8, 72);
@@ -652,15 +661,16 @@ const findStorageConfigIndex = (storageConfigs: StorageConfigEntry[], address: `
 const ensureEntryStorageConfig = (
   config: Erc20TransferConfig,
 ): { config: Erc20TransferConfig; storageIndex: number } => {
-  if (!config.entryContractAddress) {
+  const entryContractAddress = getEntryContractAddress(config);
+  if (!entryContractAddress) {
     throw new Error('entryContractAddress is required before updating storageConfigs.');
   }
-  const storageIndex = findStorageConfigIndex(config.storageConfigs, config.entryContractAddress);
+  const storageIndex = findStorageConfigIndex(config.storageConfigs, entryContractAddress);
   if (storageIndex >= 0) {
     return { config, storageIndex };
   }
   const nextEntry: StorageConfigEntry = {
-    address: config.entryContractAddress,
+    address: entryContractAddress,
     userStorageSlots: [],
     preAllocatedKeys: [],
   };
@@ -672,10 +682,11 @@ const ensureEntryStorageConfig = (
 };
 
 const getEntryStorageConfig = (config: Erc20TransferConfig): StorageConfigEntry => {
-  if (!config.entryContractAddress) {
+  const entryContractAddress = getEntryContractAddress(config);
+  if (!entryContractAddress) {
     throw new Error('entryContractAddress is required before reading storageConfigs.');
   }
-  const storageIndex = findStorageConfigIndex(config.storageConfigs, config.entryContractAddress);
+  const storageIndex = findStorageConfigIndex(config.storageConfigs, entryContractAddress);
   if (storageIndex < 0) {
     throw new Error('storageConfigs must include entryContractAddress before running analysis.');
   }
@@ -737,7 +748,7 @@ const updateCallCodeAddresses = async (
     return config;
   }
   const merged = mergeUniqueHexValues(config.callCodeAddresses, filteredIncoming);
-  const normalizedCallCodes = normalizeCallCodeAddresses(config.entryContractAddress, merged);
+  const normalizedCallCodes = normalizeCallCodeAddresses(getEntryContractAddress(config), merged);
   const added = normalizedCallCodes.length - config.callCodeAddresses.length;
   const next = { ...config, callCodeAddresses: normalizedCallCodes };
   if (added > 0) {
@@ -861,7 +872,7 @@ const promptForBaseInputs = async (): Promise<BaseInputs> => {
       name: 'contractAddress',
       type: 'input',
       message: 'Token contract address (L1)',
-      default: DEFAULT_CONFIG.entryContractAddress,
+      default: DEFAULT_CONFIG.function.entryContractAddress,
       validate: (value: string) => {
         const trimmed = value.trim();
         if (trimmed.length === 0) {
@@ -967,7 +978,10 @@ const buildConfig = async (baseOverride?: BaseInputs): Promise<{
       ...DEFAULT_CONFIG,
       participants,
       storageConfigs,
-      entryContractAddress: base.entryContractAddress,
+      function: {
+        ...DEFAULT_CONFIG.function,
+        entryContractAddress: base.entryContractAddress,
+      },
       network: base.network,
       senderIndex: base.senderIndex,
       recipientIndex: base.recipientIndex,
@@ -985,12 +999,12 @@ const runPipeline = async (outputPath: string, finalPath: string, baseOverride?:
   workingConfig = ensureEntryStorageConfig(workingConfig).config;
   await writeConfig(outputPath, workingConfig);
 
-  if (!workingConfig.entryContractAddress) {
+  if (!getEntryContractAddress(workingConfig)) {
     throw new Error('Entry contract address is required before fetching from Etherscan.');
   }
   const latestTx = await fetchLatestSuccessfulTransferTx(
     workingNetwork,
-    workingConfig.entryContractAddress,
+    getEntryContractAddress(workingConfig),
   );
   const { recipient, amount } = parseTransferInput(latestTx.input);
   const blockNumber = Math.max(0, Number(latestTx.blockNumber) - 1);

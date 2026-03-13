@@ -2,22 +2,28 @@
 
 import {
   bytesToHex,
-  bytesToBigInt,
-  concatBytes,
   createAddressFromString,
-  hexToBytes,
-  setLengthLeft,
 } from '@ethereumjs/util';
-import { jubjub } from "@noble/curves/misc.js";
-import { createStateManagerOptsFromChannelConfig, createTokamakL2StateManagerFromL1RPC, createTokamakL2Tx, deriveL2KeysFromSignature, fromEdwardsToAddress, TokamakL2TxData } from 'tokamak-l2js';
+import {
+  createStateManagerOptsFromChannelConfig,
+  createTokamakL2StateManagerFromL1RPC,
+  createTokamakL2Tx,
+  TokamakL2TxData,
+} from '../../submodules/TokamakL2JS/src/index.ts';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
-import { EdwardsPoint } from '@noble/curves/abstract/edwards';
 import { writeCircuitJson, writeEvmAnalysisJson } from '../../src/interface/node/jsonWriter.ts';
 import { loadSubcircuitWasm } from '../../src/interface/node/wasmLoader.ts';
 import { getBlockInfoFromRPC } from '../../src/interface/rpc/rpc.ts';
 import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../src/interface/qapCompiler/importedConstants.ts';
-import { getExampleRpcUrl, getStateManagerOptsOptions, loadConfig, toSeedBytes } from './utils.ts';
+import {
+  buildErc20Calldata,
+  deriveParticipantKeys,
+  getExampleRpcUrl,
+  getStateManagerOptsOptions,
+  loadConfig,
+  toStateManagerChannelConfig,
+} from './utils.ts';
 
 const main = async () => {
   const configPath = process.argv[2];
@@ -27,30 +33,14 @@ const main = async () => {
 
   const config = await loadConfig(configPath);
   const rpcUrl = getExampleRpcUrl(config.network, process.env);
-
-  const privateSignatures = config.participants.map((participant) => 
-    bytesToHex(jubjub.utils.randomPrivateKey(toSeedBytes(participant.prvSeedL2)))
-  );
-
-  const derivedPrivateKeyListL2: Uint8Array[] = [];
-  const derivedPublicKeyListL2: EdwardsPoint[] = [];
-  privateSignatures.map( sig => {
-    const keySet = deriveL2KeysFromSignature(sig);
-    derivedPrivateKeyListL2.push(keySet.privateKey);
-    derivedPublicKeyListL2.push(jubjub.Point.fromBytes(keySet.publicKey));
-  })
-
-  const senderL2PrvKey = derivedPrivateKeyListL2[config.senderIndex];
-  const tokenRecipientPubKey = derivedPublicKeyListL2[config.recipientIndex];
-  const tokenRecipientAddress = fromEdwardsToAddress(tokenRecipientPubKey);
-
-  const callData = concatBytes(
-    setLengthLeft(hexToBytes(config.transferSelector), 4),
-    setLengthLeft(tokenRecipientAddress.toBytes(), 32),
-    setLengthLeft(hexToBytes(config.amount), 32),
-  );
+  const keyMaterial = deriveParticipantKeys(config.participants);
+  const senderL2PrvKey = keyMaterial.privateKeys[config.senderIndex];
+  if (!senderL2PrvKey) {
+    throw new Error(`senderIndex must point to an existing participant; got ${config.senderIndex}`);
+  }
+  const callData = buildErc20Calldata(config, keyMaterial);
   const stateManagerOpts = createStateManagerOptsFromChannelConfig(
-    config,
+    toStateManagerChannelConfig(config),
     await getStateManagerOptsOptions(config.network, rpcUrl),
   );
   const stateManager = await createTokamakL2StateManagerFromL1RPC(rpcUrl, stateManagerOpts);
@@ -58,9 +48,9 @@ const main = async () => {
 
   const txData: TokamakL2TxData = {
     nonce: BigInt(config.txNonce),
-    to: createAddressFromString(config.entryContractAddress),
+    to: createAddressFromString(config.function.entryContractAddress),
     data: callData,
-    senderPubKey: jubjub.Point.BASE.multiply(bytesToBigInt(senderL2PrvKey)).toBytes(),
+    senderPubKey: keyMaterial.publicKeys[config.senderIndex].toBytes(),
   };
   const unsignedTransaction = createTokamakL2Tx(txData, { common: stateManagerOpts.common });
   const signedTransaction = unsignedTransaction.sign(senderL2PrvKey);
