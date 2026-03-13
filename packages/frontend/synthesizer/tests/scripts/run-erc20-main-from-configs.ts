@@ -24,17 +24,34 @@ type Erc20Config = {
 };
 
 const runCommand = (command: string, args: string[]) =>
-  new Promise<void>((resolve, reject) => {
-    const child = spawn(command, args, { stdio: 'inherit' });
+  new Promise<string>((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let combinedOutput = '';
+    child.stdout.on('data', (chunk: Buffer | string) => {
+      const text = chunk.toString();
+      combinedOutput += text;
+      process.stdout.write(text);
+    });
+    child.stderr.on('data', (chunk: Buffer | string) => {
+      const text = chunk.toString();
+      combinedOutput += text;
+      process.stderr.write(text);
+    });
     child.on('error', reject);
     child.on('close', (code) => {
       if (code === 0) {
-        resolve();
+        resolve(combinedOutput);
       } else {
         reject(new Error(`${command} exited with code ${code ?? 'unknown'}`));
       }
     });
   });
+
+const collectErrorLogLines = (output: string) =>
+  output
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.includes('Error:'));
 
 const fileExists = async (target: string) => {
   try {
@@ -133,7 +150,16 @@ const main = async () => {
 
     console.log(`[erc20-main] Running ${configFile}`);
     try {
-      await runCommand('tsx', [EXAMPLE_ENTRY, configPath]);
+      const output = await runCommand('tsx', [EXAMPLE_ENTRY, configPath]);
+      const errorLogLines = collectErrorLogLines(output);
+      if (errorLogLines.length > 0) {
+        throw new Error(
+          [
+            `Final execution emitted error logs for ${configFile}:`,
+            ...errorLogLines.map((line) => `  ${line}`),
+          ].join('\n'),
+        );
+      }
     } catch (error) {
       console.error(`[erc20-main] Failed for config: ${configPath}`);
       throw error;

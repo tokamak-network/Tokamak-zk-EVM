@@ -145,22 +145,51 @@ const finalizeConfig = async (
   console.log(`Saved final config to ${finalPath}`);
 };
 
-const runExample = async (configPath: string) => {
-  await runCommand('tsx', [resolveFromRoot('examples/erc20Transfers/main.ts'), configPath]);
-};
-
 const runCommand = (command: string, args: string[]) =>
-  new Promise<void>((resolve, reject) => {
-    const child = spawn(command, args, { stdio: 'inherit' });
+  new Promise<string>((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let combinedOutput = '';
+    child.stdout.on('data', (chunk: Buffer | string) => {
+      const text = chunk.toString();
+      combinedOutput += text;
+      process.stdout.write(text);
+    });
+    child.stderr.on('data', (chunk: Buffer | string) => {
+      const text = chunk.toString();
+      combinedOutput += text;
+      process.stderr.write(text);
+    });
     child.on('error', reject);
     child.on('close', (code) => {
       if (code === 0) {
-        resolve();
+        resolve(combinedOutput);
       } else {
         reject(new Error(`${command} exited with code ${code ?? 'unknown'}`));
       }
     });
   });
+
+const runExample = async (configPath: string) =>
+  runCommand('tsx', [resolveFromRoot('examples/erc20Transfers/main.ts'), configPath]);
+
+const collectErrorLogLines = (output: string) =>
+  output
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.includes('Error:'));
+
+const assertNoErrorLogs = (output: string, context: string) => {
+  const errorLogLines = collectErrorLogLines(output);
+  if (errorLogLines.length === 0) {
+    return;
+  }
+  throw new Error(
+    [
+      `${context} emitted error logs:`,
+      ...errorLogLines.map((line) => `  ${line}`),
+    ].join('\n'),
+  );
+};
 
 const toHexString = (value: string): `0x${string}` => {
   const trimmed = value.trim();
@@ -1090,6 +1119,9 @@ const runPipeline = async (outputPath: string, finalPath: string, baseOverride?:
     }
   }
 
+  await writeConfig(outputPath, workingConfig);
+  const finalRunOutput = await runExample(outputPath);
+  assertNoErrorLogs(finalRunOutput, 'Final config validation');
   await finalizeConfig(workingConfig, outputPath, finalPath);
 };
 

@@ -66,7 +66,9 @@ const main = async () => {
   const circuitGenerator = await createCircuitGenerator(synthesizer, subcircuitBuffers);
   writeCircuitJson(circuitGenerator);
 
-  console.log(`Exception Error: ${runTxResult.execResult.exceptionError}`);
+  if (runTxResult.execResult.exceptionError !== undefined) {
+    console.error(`Exception Error: ${runTxResult.execResult.exceptionError}`);
+  }
   console.log(`Return Value: ${bytesToHex(runTxResult.execResult.returnValue)}`);
   if (runTxResult.execResult.logs) {
     for (const [index, log] of runTxResult.execResult.logs.entries()) {
