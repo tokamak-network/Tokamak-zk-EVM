@@ -15,6 +15,7 @@ const resolveFromRoot = (...segments: string[]) =>
   path.resolve(packageRoot, ...segments);
 
 const OUTPUT_DIR = resolveFromRoot('tests', 'configs');
+const TEMP_OUTPUT_DIR = resolveFromRoot('tests', 'outputs', 'prep-configs-temp');
 const PARTICIPANT_COUNT = 4;
 const MAX_ITERATIONS = 10;
 
@@ -51,22 +52,8 @@ const runCommand = (command: string, args: string[]) =>
     });
   });
 
-const runCommandIgnoringFailure = async (
-  command: string,
-  args: string[],
-  context: string,
-) => {
-  try {
-    await runCommand(command, args);
-    return true;
-  } catch (error) {
-    console.error(`[erc20-config] Failed (ignored): ${context}`);
-    console.error(error);
-    return false;
-  }
-};
-
 const buildOutputPath = (
+  outputDir: string,
   network: NetworkName,
   entryContractAddress: string,
   senderIndex: number,
@@ -81,19 +68,27 @@ const buildOutputPath = (
     `s${senderIndex}`,
     `r${recipientIndex}`,
   ].join('-');
-  return path.join(OUTPUT_DIR, `${filename}.json`);
+  return path.join(outputDir, `${filename}.json`);
 };
 
 const runMatrix = async () => {
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
+  await fs.rm(TEMP_OUTPUT_DIR, { recursive: true, force: true });
+  await fs.mkdir(TEMP_OUTPUT_DIR, { recursive: true });
 
   for (const [network, contracts] of Object.entries(CONTRACTS_BY_NETWORK) as [NetworkName, string[]][]) {
     for (const entryContractAddress of contracts) {
       for (const [senderIndex, recipientIndex] of INDEX_PAIRS) {
-        const outputPath = buildOutputPath(network, entryContractAddress, senderIndex, recipientIndex);
+        const outputPath = buildOutputPath(
+          TEMP_OUTPUT_DIR,
+          network,
+          entryContractAddress,
+          senderIndex,
+          recipientIndex,
+        );
         const context = `network=${network} entryContract=${entryContractAddress} sender=${senderIndex} recipient=${recipientIndex}`;
         console.log(`[erc20-config] ${context}`);
-        await runCommandIgnoringFailure('tsx', [
+        await runCommand('tsx', [
           resolveFromRoot('scripts', 'generate-erc20-config.ts'),
           '--network',
           network,
@@ -110,10 +105,13 @@ const runMatrix = async () => {
           '--output',
           outputPath,
           '--non-interactive',
-        ], context);
+        ]);
       }
     }
   }
+
+  await fs.cp(TEMP_OUTPUT_DIR, OUTPUT_DIR, { recursive: true });
+  await fs.rm(TEMP_OUTPUT_DIR, { recursive: true, force: true });
 };
 
 void runMatrix().catch((err) => {

@@ -760,10 +760,7 @@ const updateCallCodeAddresses = async (
   return next;
 };
 
-const STORAGE_KEY_ERROR_MESSAGES = [
-  BufferErrorMessage.UnregisteredContractStorageWrite.trim(),
-  BufferErrorMessage.UnregisteredContractStorageRead.trim(),
-];
+const STORAGE_KEY_ERROR_MESSAGES = Object.values(BufferErrorMessage).map((message) => message.trim());
 
 const hasStorageKeyErrors = async (): Promise<boolean> => {
   try {
