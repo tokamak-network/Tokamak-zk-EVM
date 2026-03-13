@@ -9,7 +9,7 @@ import {
   setLengthLeft,
 } from '@ethereumjs/util';
 import { jubjub } from "@noble/curves/misc.js";
-import { createTokamakL2StateManagerFromL1RPC, createTokamakL2Tx, deriveL2KeysFromSignature, fromEdwardsToAddress, TokamakL2TxData } from 'tokamak-l2js';
+import { createStateManagerOptsFromChannelConfig, createTokamakL2StateManagerFromL1RPC, createTokamakL2Tx, deriveL2KeysFromSignature, fromEdwardsToAddress, TokamakL2TxData } from 'tokamak-l2js';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
 import { EdwardsPoint } from '@noble/curves/abstract/edwards';
@@ -17,7 +17,7 @@ import { writeCircuitJson, writeEvmAnalysisJson } from '../../src/interface/node
 import { loadSubcircuitWasm } from '../../src/interface/node/wasmLoader.ts';
 import { getBlockInfoFromRPC } from '../../src/interface/rpc/rpc.ts';
 import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../src/interface/qapCompiler/importedConstants.ts';
-import { createStateManagerOptsFromExampleConfig, getExampleRpcUrl, loadConfig, toSeedBytes } from './utils.ts';
+import { getExampleRpcUrl, getStateManagerOptsOptions, loadConfig, toSeedBytes } from './utils.ts';
 
 const main = async () => {
   const configPath = process.argv[2];
@@ -49,7 +49,10 @@ const main = async () => {
     setLengthLeft(tokenRecipientAddress.toBytes(), 32),
     setLengthLeft(hexToBytes(config.amount), 32),
   );
-  const stateManagerOpts = await createStateManagerOptsFromExampleConfig(config, rpcUrl);
+  const stateManagerOpts = createStateManagerOptsFromChannelConfig(
+    config,
+    await getStateManagerOptsOptions(config.network, rpcUrl),
+  );
   const stateManager = await createTokamakL2StateManagerFromL1RPC(rpcUrl, stateManagerOpts);
   const blockInfo = await getBlockInfoFromRPC(rpcUrl, config.blockNumber, NUMBER_OF_PREV_BLOCK_HASHES);
 

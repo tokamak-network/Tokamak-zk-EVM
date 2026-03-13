@@ -2,17 +2,14 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { Common, type CommonOpts, Mainnet, Sepolia } from '@ethereumjs/common';
-import { bytesToHex, createAddressFromString, hexToBytes, setLengthLeft, utf8ToBytes } from '@ethereumjs/util';
+import { setLengthLeft, utf8ToBytes } from '@ethereumjs/util';
 import { ethers } from 'ethers';
-import { jubjub } from '@noble/curves/misc.js';
 import type {
+  CreateStateManagerOptsFromChannelConfigOptions,
   ChannelErc20TransferTxSimulationConfig,
   ChannelParticipantConfig,
   ChannelStorageConfig,
-  TokamakL2StateManagerOpts,
 } from 'tokamak-l2js';
-import { deriveL2KeysFromSignature, fromEdwardsToAddress, getEddsaPublicKey, getUserStorageKey, poseidon } from 'tokamak-l2js';
 import { getRpcUrlFromEnv } from '../../src/interface/node/env.ts';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,13 +23,7 @@ export const EXAMPLES_ENV_PATH = envPath;
 export const ANVIL_RPC_URL_ENV_KEY = 'ANVIL_RPC_URL';
 export const DEFAULT_ANVIL_RPC_URL = 'http://127.0.0.1:8545';
 
-export type ExampleNetwork = 'mainnet' | 'sepolia' | 'anvil';
-export type ExampleChannelErc20TransferTxSimulationConfig = Omit<
-  ChannelErc20TransferTxSimulationConfig,
-  'network'
-> & {
-  network: ExampleNetwork;
-};
+export type ExampleNetwork = ChannelErc20TransferTxSimulationConfig['network'];
 
 const parseHexString = (value: unknown, label: string): `0x${string}` => {
   if (typeof value !== 'string' || !value.startsWith('0x')) {
@@ -110,7 +101,7 @@ const assertStorageConfigs = (value: unknown, label: string): ChannelStorageConf
   });
 };
 
-export const loadConfig = async (configPath: string): Promise<ExampleChannelErc20TransferTxSimulationConfig> => {
+export const loadConfig = async (configPath: string): Promise<ChannelErc20TransferTxSimulationConfig> => {
   const configRaw = JSON.parse(await fs.readFile(configPath, 'utf8'));
 
   const participants = assertParticipantArray(configRaw.participants, 'participants');
@@ -140,10 +131,7 @@ export const loadConfig = async (configPath: string): Promise<ExampleChannelErc2
 
 export const toSeedBytes = (seed: string): Uint8Array => setLengthLeft(utf8ToBytes(seed), 32);
 
-export const getExampleRpcUrl = (
-  network: ExampleNetwork,
-  env: NodeJS.ProcessEnv = process.env,
-): string => {
+export const getExampleRpcUrl = (network: ExampleNetwork, env: NodeJS.ProcessEnv = process.env): string => {
   if (network === 'anvil') {
     const configuredRpcUrl = env[ANVIL_RPC_URL_ENV_KEY]?.trim();
     return configuredRpcUrl && configuredRpcUrl.length > 0 ? configuredRpcUrl : DEFAULT_ANVIL_RPC_URL;
@@ -152,79 +140,18 @@ export const getExampleRpcUrl = (
   return getRpcUrlFromEnv(network, env, { envPath: EXAMPLES_ENV_PATH });
 };
 
-const createCommonForNetwork = async (network: ExampleNetwork, rpcUrl: string): Promise<Common> => {
-  const customCrypto = { keccak256: poseidon, ecrecover: getEddsaPublicKey };
-  if (network === 'anvil') {
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const rpcNetwork = await provider.getNetwork();
-    const chainId = Number(rpcNetwork.chainId);
-
-    if (!Number.isSafeInteger(chainId) || chainId <= 0) {
-      throw new Error(`Unsupported Anvil chain ID: ${rpcNetwork.chainId.toString()}`);
-    }
-
-    const commonOpts: CommonOpts = {
-      chain: {
-        ...Mainnet,
-        name: 'anvil',
-        chainId,
-      },
-      customCrypto,
-    };
-    return new Common(commonOpts);
-  }
-
-  const chain = network === 'sepolia' ? Sepolia : Mainnet;
-  return new Common({
-    chain: {
-      ...chain,
-    },
-    customCrypto,
-  });
-};
-
-export const createStateManagerOptsFromExampleConfig = async (
-  config: ExampleChannelErc20TransferTxSimulationConfig,
+export const getStateManagerOptsOptions = async (
+  network: ExampleNetwork,
   rpcUrl: string,
-): Promise<TokamakL2StateManagerOpts> => {
-  const privateSignatures = config.participants.map((entry) =>
-    bytesToHex(jubjub.utils.randomPrivateKey(setLengthLeft(utf8ToBytes(entry.prvSeedL2), 32))),
-  );
-
-  const derivedPublicKeyListL2 = privateSignatures.map((signature) => {
-    const keySet = deriveL2KeysFromSignature(signature);
-    return jubjub.Point.fromBytes(keySet.publicKey);
-  });
-
-  const initStorageKeys: NonNullable<TokamakL2StateManagerOpts['initStorageKeys']> = [];
-  for (const entryByAddress of config.storageConfigs) {
-    const keyPairs: { L1: Uint8Array; L2: Uint8Array }[] = [];
-    for (const preAllocatedKey of entryByAddress.preAllocatedKeys) {
-      const keyBytes = setLengthLeft(hexToBytes(preAllocatedKey), 32);
-      keyPairs.push({ L1: keyBytes, L2: keyBytes });
-    }
-
-    for (const slot of entryByAddress.userStorageSlots) {
-      for (let userIndex = 0; userIndex < config.participants.length; userIndex += 1) {
-        const participant = config.participants[userIndex];
-        keyPairs.push({
-          L1: getUserStorageKey([participant.addressL1, slot], 'L1'),
-          L2: getUserStorageKey([fromEdwardsToAddress(derivedPublicKeyListL2[userIndex]), slot], 'TokamakL2'),
-        });
-      }
-    }
-
-    initStorageKeys.push({
-      address: createAddressFromString(entryByAddress.address),
-      keyPairs,
-    });
+): Promise<CreateStateManagerOptsFromChannelConfigOptions> => {
+  if (network !== 'anvil') {
+    return {};
   }
 
-  return {
-    common: await createCommonForNetwork(config.network, rpcUrl),
-    blockNumber: config.blockNumber,
-    entryContractAddress: createAddressFromString(config.entryContractAddress),
-    initStorageKeys,
-    callCodeAddresses: config.callCodeAddresses.map((entry) => createAddressFromString(entry)),
-  };
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const chainId = Number((await provider.getNetwork()).chainId);
+  if (!Number.isSafeInteger(chainId) || chainId <= 0) {
+    throw new Error(`Unsupported Anvil chain ID: ${chainId}`);
+  }
+  return { anvilChainId: chainId };
 };
