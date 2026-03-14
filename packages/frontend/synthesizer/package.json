@@ -61,8 +61,11 @@
     "synthesize": "tsx --tsconfig tsconfig.dev.json src/interface/cli/index.ts synthesize",
     "synthesizer": "tsx --tsconfig tsconfig.dev.json src/interface/cli/index.ts run",
     "erc20-transfer-l2": "tsx --tsconfig tsconfig.dev.json examples/erc20Transfers/main.ts",
+    "private-state-mint-l2": "tsx --tsconfig tsconfig.dev.json examples/privateStateMint/main.ts",
     "test": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-erc20-main-from-configs.ts",
     "test:prep": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-erc20-config-matrix.ts",
+    "test:private-state": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-private-state-mint-main-from-configs.ts",
+    "test:private-state:prep": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-private-state-mint-config-matrix.ts",
     "test:node": "npm run -s test",
     "tsc": "../../../config/monorepo-js//cli/ts-compile.sh"
   },

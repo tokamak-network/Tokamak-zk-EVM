@@ -1,0 +1,60 @@
+{
+  "network": "anvil",
+  "participants": [
+    {
+      "addressL1": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "prvSeedL2": "private-state participant 0"
+    },
+    {
+      "addressL1": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "prvSeedL2": "private-state participant 1"
+    },
+    {
+      "addressL1": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "prvSeedL2": "private-state participant 2"
+    },
+    {
+      "addressL1": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+      "prvSeedL2": "private-state participant 3"
+    }
+  ],
+  "storageConfigs": [
+    {
+      "address": "0xcafac3dd18ac6c6e92c921884f9e4176737c052c",
+      "userStorageSlots": [],
+      "preAllocatedKeys": [
+        "0x00"
+      ]
+    },
+    {
+      "address": "0xb8f896b584e8c867fada0e016423652b6fddaf5b",
+      "userStorageSlots": [
+        0
+      ],
+      "preAllocatedKeys": []
+    },
+    {
+      "address": "0x1f3a02883fe6c84c5a8b5f17576a93af4005a8d0",
+      "userStorageSlots": [],
+      "preAllocatedKeys": [
+        "0xe511493bc8e405a5efea42de70d0f03c91d74b516dec659dab01a0ff36620862"
+      ]
+    }
+  ],
+  "entryContractAddress": "0xcafac3dd18ac6c6e92c921884f9e4176737c052c",
+  "callCodeAddresses": [
+    "0xcafac3dd18ac6c6e92c921884f9e4176737c052c",
+    "0xb8f896b584e8c867fada0e016423652b6fddaf5b",
+    "0x1f3a02883fe6c84c5a8b5f17576a93af4005a8d0"
+  ],
+  "blockNumber": 5,
+  "txNonce": 0,
+  "senderIndex": 0,
+  "noteOwnerIndex": 0,
+  "noteValue": "0x0de0b6b3a7640000",
+  "noteSalt": "0x1edd7878a6fb8c8384eb8e6c3b1f2c5d1525b7b8f92b90d4881e93af58b95129",
+  "function": {
+    "selector": "0x0df1a4ac",
+    "entryContractAddress": "0xcafac3dd18ac6c6e92c921884f9e4176737c052c"
+  }
+}
