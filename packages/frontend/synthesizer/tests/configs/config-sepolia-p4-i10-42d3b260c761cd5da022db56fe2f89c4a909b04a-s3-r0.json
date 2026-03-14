@@ -6,11 +6,11 @@
       "prvSeedL2": "Recipient's L2 wallet"
     },
     {
-      "addressL1": "0x81a146571a686972b9c4dc7adff3be6c220c4916",
+      "addressL1": "0x4fd147326d141b4647de4b54511b47fc3ae33d54",
       "prvSeedL2": "Participant 2"
     },
     {
-      "addressL1": "0xb8795a063c42fa5379a64584e7418f80a02e9563",
+      "addressL1": "0x02b09dd1f7b88abc152b648f9c4c883fe512ebc7",
       "prvSeedL2": "Participant 3"
     },
     {
@@ -41,9 +41,9 @@
   "senderIndex": 3,
   "recipientIndex": 0,
   "amount": "0x0000000000000000000000000000000000000000000000000000000000989680",
+  "referenceTxHash": "0xadb223ee9203802c918d47e63ef507e0b607d55020e9e332e115a31619067478",
   "function": {
-    "selector": "0xa9059cbb",
-    "entryContractAddress": "0x42d3b260c761cD5da022dB56Fe2F89c4A909b04A"
-  },
-  "referenceTxHash": "0xadb223ee9203802c918d47e63ef507e0b607d55020e9e332e115a31619067478"
+    "entryContractAddress": "0x42d3b260c761cD5da022dB56Fe2F89c4A909b04A",
+    "selector": "0xa9059cbb"
+  }
 }
