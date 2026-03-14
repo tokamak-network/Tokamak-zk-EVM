@@ -8,6 +8,7 @@ import { randomBytes } from 'crypto';
 import inquirer from 'inquirer';
 import minimist from 'minimist';
 import dotenv from 'dotenv';
+import { ethers } from 'ethers';
 import { fileURLToPath } from 'url';
 import { BufferErrorMessage } from '../src/synthesizer/types/buffers.ts';
 
@@ -118,6 +119,8 @@ const FINAL_CONFIG_PATH = resolveFromRoot('scripts', 'config.json');
 const INSTANCE_DESCRIPTION_PATH = resolveFromRoot('outputs', 'instance_description.json');
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const DEFAULT_MAX_ANALYSIS_ITERATIONS = 10;
+const MAX_REFERENCE_TX_RETRIES = 3;
+const RETRYABLE_REVERT_REASON = 'ERC20: transfer amount exceeds balance';
 
 dotenv.config({ path: scriptsEnvPath });
 if (!process.env.ETHERSCAN_API_KEY) {
@@ -191,6 +194,26 @@ const assertNoErrorLogs = (output: string, context: string) => {
       ...errorLogLines.map((line) => `  ${line}`),
     ].join('\n'),
   );
+};
+
+const extractReturnValueHex = (output: string): `0x${string}` | null => {
+  const matches = [...output.matchAll(/^Return Value:\s*(0x[0-9a-fA-F]*)$/gmu)];
+  const raw = matches.at(-1)?.[1];
+  return raw ? (raw as `0x${string}`) : null;
+};
+
+const decodeRevertReason = (returnValue: `0x${string}` | null): string | null => {
+  if (!returnValue || !returnValue.startsWith('0x08c379a0')) {
+    return null;
+  }
+
+  try {
+    const encodedReason = `0x${returnValue.slice(10)}`;
+    const [decoded] = ethers.AbiCoder.defaultAbiCoder().decode(['string'], encodedReason);
+    return typeof decoded === 'string' ? decoded : null;
+  } catch {
+    return null;
+  }
 };
 
 const toHexString = (value: string): `0x${string}` => {
@@ -845,11 +868,13 @@ const normalizeCallCodeAddresses = (
   return [entryContractAddress, ...rest];
 };
 
-const fetchLatestSuccessfulTransferTx = async (
+const fetchSuccessfulTransferTxCandidates = async (
   network: NetworkName,
   contractAddress: `0x${string}`,
-): Promise<EtherscanTx> => {
+  limit: number,
+): Promise<EtherscanTx[]> => {
   const addressLower = contractAddress.toLowerCase();
+  const matches: EtherscanTx[] = [];
 
   for (let page = 1; page <= 20; page += 1) {
     const response = await fetchFromEtherscan(network, {
@@ -872,19 +897,25 @@ const fetchLatestSuccessfulTransferTx = async (
       break;
     }
 
-    const match = result.find((tx) => {
+    for (const tx of result) {
       if (!tx.to) {
-        return false;
+        continue;
       }
-      return tx.to.toLowerCase() === addressLower && isTransferInput(tx.input) && isSuccessfulTx(tx);
-    });
-
-    if (match) {
-      return match;
+      if (tx.to.toLowerCase() !== addressLower || !isTransferInput(tx.input) || !isSuccessfulTx(tx)) {
+        continue;
+      }
+      matches.push(tx);
+      if (matches.length >= limit) {
+        return matches;
+      }
     }
   }
 
-  throw new Error('No successful transfer transactions found for this contract.');
+  if (matches.length === 0) {
+    throw new Error('No successful transfer transactions found for this contract.');
+  }
+
+  return matches;
 };
 
 const promptForBaseInputs = async (): Promise<BaseInputs> => {
@@ -1019,27 +1050,15 @@ const buildConfig = async (baseOverride?: BaseInputs): Promise<{
   };
 };
 
-const runPipeline = async (outputPath: string, finalPath: string, baseOverride?: BaseInputs) => {
-  const { network, config, maxIterations } = await buildConfig(baseOverride);
-  let workingConfig = { ...config };
-  const workingNetwork = network;
-
-  workingConfig = ensureEntryStorageConfig(workingConfig).config;
-  await writeConfig(outputPath, workingConfig);
-
-  if (!getEntryContractAddress(workingConfig)) {
-    throw new Error('Entry contract address is required before fetching from Etherscan.');
-  }
-  const latestTx = await fetchLatestSuccessfulTransferTx(
-    workingNetwork,
-    getEntryContractAddress(workingConfig),
-  );
-  const { recipient, amount } = parseTransferInput(latestTx.input);
-  const blockNumber = Math.max(0, Number(latestTx.blockNumber) - 1);
-
-  const participants = [...workingConfig.participants];
-  const senderIndex = workingConfig.senderIndex ?? 0;
-  const recipientIndex = workingConfig.recipientIndex ?? 1;
+const buildConfigFromReferenceTx = (
+  config: Erc20TransferConfig,
+  referenceTx: EtherscanTx,
+): Erc20TransferConfig => {
+  const { recipient, amount } = parseTransferInput(referenceTx.input);
+  const blockNumber = Math.max(0, Number(referenceTx.blockNumber) - 1);
+  const participants = [...config.participants];
+  const senderIndex = config.senderIndex ?? 0;
+  const recipientIndex = config.recipientIndex ?? 1;
   if (participants.length < 2) {
     throw new Error('participants must include at least sender and recipient entries');
   }
@@ -1049,24 +1068,29 @@ const runPipeline = async (outputPath: string, finalPath: string, baseOverride?:
 
   participants[senderIndex] = {
     ...participants[senderIndex],
-    addressL1: toHexString(latestTx.from),
+    addressL1: toHexString(referenceTx.from),
   };
   participants[recipientIndex] = {
     ...participants[recipientIndex],
     addressL1: recipient,
   };
 
-  workingConfig = {
-    ...workingConfig,
+  return {
+    ...config,
     participants,
     blockNumber,
     amount,
-    referenceTxHash: toHexString(latestTx.hash),
+    referenceTxHash: toHexString(referenceTx.hash),
   };
+};
 
-  console.log(`Latest transfer tx: ${latestTx.hash}`);
-  console.log(`Block number: ${blockNumber}`);
-
+const convergeConfig = async (
+  outputPath: string,
+  config: Erc20TransferConfig,
+  maxIterations: number,
+): Promise<Erc20TransferConfig> => {
+  let workingConfig = ensureEntryStorageConfig(config).config;
+  await writeConfig(outputPath, workingConfig);
   for (let iteration = 1; iteration <= maxIterations; iteration += 1) {
     await writeConfig(outputPath, workingConfig);
     await runExample(outputPath);
@@ -1121,10 +1145,57 @@ const runPipeline = async (outputPath: string, finalPath: string, baseOverride?:
     }
   }
 
-  await writeConfig(outputPath, workingConfig);
-  const finalRunOutput = await runExample(outputPath);
-  assertNoErrorLogs(finalRunOutput, 'Final config validation');
-  await finalizeConfig(workingConfig, outputPath, finalPath);
+  return workingConfig;
+};
+
+const shouldRetryWithNextReferenceTx = (output: string, error: unknown): boolean => {
+  const revertReason = decodeRevertReason(extractReturnValueHex(output));
+  if (revertReason === RETRYABLE_REVERT_REASON) {
+    return true;
+  }
+  return error instanceof Error && error.message.includes(RETRYABLE_REVERT_REASON);
+};
+
+const runPipeline = async (outputPath: string, finalPath: string, baseOverride?: BaseInputs) => {
+  const { network, config, maxIterations } = await buildConfig(baseOverride);
+  const entryContractAddress = getEntryContractAddress(config);
+  if (!entryContractAddress) {
+    throw new Error('Entry contract address is required before fetching from Etherscan.');
+  }
+
+  const referenceTxCandidates = await fetchSuccessfulTransferTxCandidates(
+    network,
+    entryContractAddress,
+    MAX_REFERENCE_TX_RETRIES + 1,
+  );
+
+  let lastError: Error | null = null;
+  for (const [index, referenceTx] of referenceTxCandidates.entries()) {
+    const workingConfig = buildConfigFromReferenceTx(config, referenceTx);
+    let finalRunOutput = '';
+
+    console.log(`${index === 0 ? 'Latest' : 'Retry'} transfer tx: ${referenceTx.hash}`);
+    console.log(`Block number: ${workingConfig.blockNumber}`);
+
+    try {
+      const convergedConfig = await convergeConfig(outputPath, workingConfig, maxIterations);
+      await writeConfig(outputPath, convergedConfig);
+      finalRunOutput = await runExample(outputPath);
+      assertNoErrorLogs(finalRunOutput, 'Final config validation');
+      await finalizeConfig(convergedConfig, outputPath, finalPath);
+      return;
+    } catch (error) {
+      lastError = error as Error;
+      if (index === referenceTxCandidates.length - 1 || !shouldRetryWithNextReferenceTx(finalRunOutput, error)) {
+        throw error;
+      }
+      console.log(
+        `Reference tx ${referenceTx.hash} failed with retryable revert reason "${RETRYABLE_REVERT_REASON}". Retrying with the next successful tx candidate.`,
+      );
+    }
+  }
+
+  throw lastError ?? new Error('Failed to generate config from recent successful transfer tx candidates.');
 };
 
 const main = async () => {

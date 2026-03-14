@@ -2,7 +2,7 @@
   "network": "sepolia",
   "participants": [
     {
-      "addressL1": "0x2ac8f49c745ea228bc621c9426e7224bd95fde00",
+      "addressL1": "0x0693fa86724c5a5efde49e43af0fb75ac1fd8b98",
       "prvSeedL2": "Participant 1"
     },
     {
@@ -14,7 +14,7 @@
       "prvSeedL2": "Recipient's L2 wallet"
     },
     {
-      "addressL1": "0x46d904b2c0b15be47dd5a013159c3dc11cab7736",
+      "addressL1": "0x74461787e9d06d143f24e8feeb9b417097313a0e",
       "prvSeedL2": "Participant 4"
     }
   ],
@@ -41,9 +41,9 @@
   "senderIndex": 1,
   "recipientIndex": 2,
   "amount": "0x0000000000000000000000000000000000000000000000000000000000989680",
-  "referenceTxHash": "0xadb223ee9203802c918d47e63ef507e0b607d55020e9e332e115a31619067478",
   "function": {
-    "entryContractAddress": "0x42d3b260c761cD5da022dB56Fe2F89c4A909b04A",
-    "selector": "0xa9059cbb"
-  }
+    "selector": "0xa9059cbb",
+    "entryContractAddress": "0x42d3b260c761cD5da022dB56Fe2F89c4A909b04A"
+  },
+  "referenceTxHash": "0xadb223ee9203802c918d47e63ef507e0b607d55020e9e332e115a31619067478"
 }
