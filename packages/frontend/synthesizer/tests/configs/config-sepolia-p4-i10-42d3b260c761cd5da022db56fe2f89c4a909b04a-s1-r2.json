@@ -2,7 +2,7 @@
   "network": "sepolia",
   "participants": [
     {
-      "addressL1": "0x0693fa86724c5a5efde49e43af0fb75ac1fd8b98",
+      "addressL1": "0x760187c6438fefb92c1d35229855f001b5a14060",
       "prvSeedL2": "Participant 1"
     },
     {
@@ -14,7 +14,7 @@
       "prvSeedL2": "Recipient's L2 wallet"
     },
     {
-      "addressL1": "0x74461787e9d06d143f24e8feeb9b417097313a0e",
+      "addressL1": "0x2000be16cb678dca80600bfbc89a1168bd8894b5",
       "prvSeedL2": "Participant 4"
     }
   ],

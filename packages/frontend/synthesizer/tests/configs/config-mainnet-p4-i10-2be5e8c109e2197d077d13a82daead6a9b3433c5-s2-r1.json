@@ -2,7 +2,7 @@
   "network": "mainnet",
   "participants": [
     {
-      "addressL1": "0xd023e5cb40bad7d5ac56c0b6431048433e7541fb",
+      "addressL1": "0xf4cea991c54ce3e77984823b02f543d4af982f9e",
       "prvSeedL2": "Participant 1"
     },
     {
@@ -14,7 +14,7 @@
       "prvSeedL2": "Sender's L2 wallet"
     },
     {
-      "addressL1": "0xcdc7795ac0d198dfc8b8a7b82f17d84426a220d2",
+      "addressL1": "0x9f52edc5df56385dcb158be47f7152a372857867",
       "prvSeedL2": "Participant 4"
     }
   ],
