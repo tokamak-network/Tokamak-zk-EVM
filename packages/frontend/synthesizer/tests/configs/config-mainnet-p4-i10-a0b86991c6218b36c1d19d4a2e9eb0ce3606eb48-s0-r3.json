@@ -2,19 +2,19 @@
   "network": "mainnet",
   "participants": [
     {
-      "addressL1": "0xce6479cbf0106022df00105215ba07764066a6cf",
+      "addressL1": "0xe5774394ccd8b25c941b5f1d7d7a42473647e213",
       "prvSeedL2": "Sender's L2 wallet"
     },
     {
-      "addressL1": "0x3d035fe3a29bd6183bca8c314c3c6c2ff7b7e7f8",
+      "addressL1": "0xb537ab4790e25262a7677b5cb67648ba3681be35",
       "prvSeedL2": "Participant 2"
     },
     {
-      "addressL1": "0x4d17491f3e36d1ee808b0abcfff97215cdf95938",
+      "addressL1": "0x099f0f5dd20b093f28716b4e93e1e01715a4a90f",
       "prvSeedL2": "Participant 3"
     },
     {
-      "addressL1": "0x616cacbe5c1f4d460b9b2b4caa43227efc073bd0",
+      "addressL1": "0x09aac7bb5021b837f8c281b27470d7372b5a396c",
       "prvSeedL2": "Recipient's L2 wallet"
     }
   ],
@@ -35,14 +35,14 @@
     "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
     "0x43506849d7c04f9138d1a2050bbf3a0c054402dd"
   ],
-  "blockNumber": 24442927,
+  "blockNumber": 24653508,
   "txNonce": 0,
   "senderIndex": 0,
   "recipientIndex": 3,
-  "amount": "0x00000000000000000000000000000000000000000000000000000000000077dc",
-  "referenceTxHash": "0x1573d6022ee4ea883f3cff69ecb0d84b2135571236875c14b5d401eded4e845e",
+  "amount": "0x0000000000000000000000000000000000000000000000000000000017ddd128",
   "function": {
-    "entryContractAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-    "selector": "0xa9059cbb"
-  }
+    "selector": "0xa9059cbb",
+    "entryContractAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+  },
+  "referenceTxHash": "0xe4e8e65e9dfe73fb30b95194a379d90962c8de4097449746d0211699bbe54711"
 }

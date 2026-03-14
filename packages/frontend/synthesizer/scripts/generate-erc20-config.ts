@@ -845,11 +845,13 @@ const normalizeCallCodeAddresses = (
   return [entryContractAddress, ...rest];
 };
 
-const fetchLatestSuccessfulTransferTx = async (
+const fetchSuccessfulTransferTxCandidates = async (
   network: NetworkName,
   contractAddress: `0x${string}`,
-): Promise<EtherscanTx> => {
+  maxCandidates = 20,
+): Promise<EtherscanTx[]> => {
   const addressLower = contractAddress.toLowerCase();
+  const matches: EtherscanTx[] = [];
 
   for (let page = 1; page <= 20; page += 1) {
     const response = await fetchFromEtherscan(network, {
@@ -872,19 +874,28 @@ const fetchLatestSuccessfulTransferTx = async (
       break;
     }
 
-    const match = result.find((tx) => {
+    for (const tx of result) {
       if (!tx.to) {
-        return false;
+        continue;
       }
-      return tx.to.toLowerCase() === addressLower && isTransferInput(tx.input) && isSuccessfulTx(tx);
-    });
-
-    if (match) {
-      return match;
+      if (tx.to.toLowerCase() !== addressLower) {
+        continue;
+      }
+      if (!isTransferInput(tx.input) || !isSuccessfulTx(tx)) {
+        continue;
+      }
+      matches.push(tx);
+      if (matches.length >= maxCandidates) {
+        return matches;
+      }
     }
   }
 
-  throw new Error('No successful transfer transactions found for this contract.');
+  if (matches.length === 0) {
+    throw new Error('No successful transfer transactions found for this contract.');
+  }
+
+  return matches;
 };
 
 const promptForBaseInputs = async (): Promise<BaseInputs> => {
@@ -1019,27 +1030,15 @@ const buildConfig = async (baseOverride?: BaseInputs): Promise<{
   };
 };
 
-const runPipeline = async (outputPath: string, finalPath: string, baseOverride?: BaseInputs) => {
-  const { network, config, maxIterations } = await buildConfig(baseOverride);
-  let workingConfig = { ...config };
-  const workingNetwork = network;
-
-  workingConfig = ensureEntryStorageConfig(workingConfig).config;
-  await writeConfig(outputPath, workingConfig);
-
-  if (!getEntryContractAddress(workingConfig)) {
-    throw new Error('Entry contract address is required before fetching from Etherscan.');
-  }
-  const latestTx = await fetchLatestSuccessfulTransferTx(
-    workingNetwork,
-    getEntryContractAddress(workingConfig),
-  );
-  const { recipient, amount } = parseTransferInput(latestTx.input);
-  const blockNumber = Math.max(0, Number(latestTx.blockNumber) - 1);
-
-  const participants = [...workingConfig.participants];
-  const senderIndex = workingConfig.senderIndex ?? 0;
-  const recipientIndex = workingConfig.recipientIndex ?? 1;
+const applyReferenceTxToConfig = (
+  config: Erc20TransferConfig,
+  referenceTx: EtherscanTx,
+): Erc20TransferConfig => {
+  const { recipient, amount } = parseTransferInput(referenceTx.input);
+  const blockNumber = Math.max(0, Number(referenceTx.blockNumber) - 1);
+  const participants = [...config.participants];
+  const senderIndex = config.senderIndex ?? 0;
+  const recipientIndex = config.recipientIndex ?? 1;
   if (participants.length < 2) {
     throw new Error('participants must include at least sender and recipient entries');
   }
@@ -1049,24 +1048,29 @@ const runPipeline = async (outputPath: string, finalPath: string, baseOverride?:
 
   participants[senderIndex] = {
     ...participants[senderIndex],
-    addressL1: toHexString(latestTx.from),
+    addressL1: toHexString(referenceTx.from),
   };
   participants[recipientIndex] = {
     ...participants[recipientIndex],
     addressL1: recipient,
   };
 
-  workingConfig = {
-    ...workingConfig,
+  return {
+    ...config,
     participants,
     blockNumber,
     amount,
-    referenceTxHash: toHexString(latestTx.hash),
+    referenceTxHash: toHexString(referenceTx.hash),
   };
+};
 
-  console.log(`Latest transfer tx: ${latestTx.hash}`);
-  console.log(`Block number: ${blockNumber}`);
-
+const convergeConfig = async (
+  outputPath: string,
+  config: Erc20TransferConfig,
+  maxIterations: number,
+): Promise<Erc20TransferConfig> => {
+  let workingConfig = ensureEntryStorageConfig(config).config;
+  await writeConfig(outputPath, workingConfig);
   for (let iteration = 1; iteration <= maxIterations; iteration += 1) {
     await writeConfig(outputPath, workingConfig);
     await runExample(outputPath);
@@ -1121,10 +1125,47 @@ const runPipeline = async (outputPath: string, finalPath: string, baseOverride?:
     }
   }
 
-  await writeConfig(outputPath, workingConfig);
-  const finalRunOutput = await runExample(outputPath);
-  assertNoErrorLogs(finalRunOutput, 'Final config validation');
-  await finalizeConfig(workingConfig, outputPath, finalPath);
+  return workingConfig;
+};
+
+const runPipeline = async (outputPath: string, finalPath: string, baseOverride?: BaseInputs) => {
+  const { network, config, maxIterations } = await buildConfig(baseOverride);
+  const entryContractAddress = getEntryContractAddress(config);
+  if (!entryContractAddress) {
+    throw new Error('Entry contract address is required before fetching from Etherscan.');
+  }
+
+  const referenceTxCandidates = await fetchSuccessfulTransferTxCandidates(
+    network,
+    entryContractAddress,
+  );
+  let lastError: Error | null = null;
+
+  for (const referenceTx of referenceTxCandidates) {
+    const blockNumber = Math.max(0, Number(referenceTx.blockNumber) - 1);
+    console.log(`Trying reference tx: ${referenceTx.hash}`);
+    console.log(`Block number: ${blockNumber}`);
+
+    try {
+      const workingConfig = await convergeConfig(
+        outputPath,
+        applyReferenceTxToConfig(config, referenceTx),
+        maxIterations,
+      );
+      await writeConfig(outputPath, workingConfig);
+      const finalRunOutput = await runExample(outputPath);
+      assertNoErrorLogs(finalRunOutput, `Final config validation for ${referenceTx.hash}`);
+      await finalizeConfig(workingConfig, outputPath, finalPath);
+      return;
+    } catch (error) {
+      lastError = error as Error;
+      console.log(`Reference tx ${referenceTx.hash} failed: ${lastError.message}`);
+    }
+  }
+
+  throw new Error(
+    `Unable to generate a clean config from ${referenceTxCandidates.length} recent transfer tx candidates.${lastError ? ` Last error: ${lastError.message}` : ''}`,
+  );
 };
 
 const main = async () => {
