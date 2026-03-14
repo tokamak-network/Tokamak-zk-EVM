@@ -47,11 +47,13 @@ const runCommand = (command: string, args: string[]) =>
     });
   });
 
+const ERROR_LOG_PATTERN = /error:/iu;
+
 const collectErrorLogLines = (output: string) =>
   output
     .split(/\r?\n/u)
     .map((line) => line.trim())
-    .filter((line) => line.includes('Error:'));
+    .filter((line) => ERROR_LOG_PATTERN.test(line));
 
 const fileExists = async (target: string) => {
   try {
@@ -94,8 +96,8 @@ const validateInstanceDescriptions = async (configs: string[]) => {
     const outputDir = path.join(ARCHIVE_ROOT, baseName);
     const descriptionPath = path.join(outputDir, 'instance_description.json');
     const contents = await fs.readFile(descriptionPath, 'utf8');
-    if (contents.includes('Error:')) {
-      throw new Error(`instance_description.json contains Error: for ${baseName}`);
+    if (ERROR_LOG_PATTERN.test(contents)) {
+      throw new Error(`instance_description.json contains error logs for ${baseName}`);
     }
   }
 };

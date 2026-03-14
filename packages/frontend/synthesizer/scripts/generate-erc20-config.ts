@@ -172,11 +172,13 @@ const runCommand = (command: string, args: string[]) =>
 const runExample = async (configPath: string) =>
   runCommand('tsx', [resolveFromRoot('examples/erc20Transfers/main.ts'), configPath]);
 
+const ERROR_LOG_PATTERN = /error:/iu;
+
 const collectErrorLogLines = (output: string) =>
   output
     .split(/\r?\n/u)
     .map((line) => line.trim())
-    .filter((line) => line.includes('Error:'));
+    .filter((line) => ERROR_LOG_PATTERN.test(line));
 
 const assertNoErrorLogs = (output: string, context: string) => {
   const errorLogLines = collectErrorLogLines(output);
