@@ -16,6 +16,7 @@
       "type": "node",
       "request": "launch",
       "name": "Private-state mint on anvil",
+      "preLaunchTask": "private-state:prep",
       "runtimeExecutable": "tsx",
       "program": "${workspaceFolder}/examples/privateStateMint/main.ts",
       "args": [
