@@ -10,7 +10,7 @@ import { ArithmeticOperator, SubcircuitNames } from '../interface/qapCompiler/co
 import { DataPtFactory } from './dataStructure/dataPt.ts';
 import { TypedTransaction } from '@ethereumjs/tx';
 import { MemoryPt } from './dataStructure/memoryPt.ts';
-import { NULL_STORAGE_KEY, poseidon_raw } from 'tokamak-l2js';
+import { NULL_STORAGE_KEY, poseidon_raw } from '../tokamakL2js.ts';
 
 /**
  * The Synthesizer class manages data related to subcircuits.

@@ -19,7 +19,7 @@ More detail is in `doc/synthesizer.md`.
 ## Package layout
 - Core: `src/synthesizer`, `src/circuitGenerator`.
 - Input helpers: `src/interface` collects transaction/block/state inputs for the synthesizer; sources are not limited to L1 RPC.
-- Tokamak L2 primitives: `submodules/TokamakL2JS` for local development, `tokamak-l2js` as the published package consumed by build outputs.
+- Tokamak L2 primitives: `submodules/TokamakL2JS` is the only Tokamak L2 source consumed by this package.
 
 ## Run example (L2 TON transfer)
 `examples/L2TONTransfer/main.ts` is the end-to-end example. It derives L2 keypairs from seeds, builds `SynthesizerOpts` via `createSynthesizerOptsForSimulationFromRPC`, runs `synthesizeTX()`, and writes outputs to `outputs/` by default.
@@ -37,9 +37,9 @@ npm install
 ```
 
 ### Local TokamakL2JS development
-- The root `tsconfig.json` resolves `tokamak-l2js` to `submodules/TokamakL2JS/src/index.ts`, so IDE diagnostics and local TypeScript tooling follow the submodule during development.
-- `tsx`-based development scripts keep using `tsconfig.dev.json`, which inherits that root development mapping.
-- Production builds keep the package import specifier and therefore consume the published `tokamak-l2js` package from `node_modules`.
+- Synthesizer imports Tokamak L2 helpers through `src/tokamakL2js.ts`, which re-exports `submodules/TokamakL2JS/src/index.ts`.
+- The same local submodule source is used in development scripts and build outputs.
+- The published `tokamak-l2js` package is not used by Synthesizer anymore.
 
 ### Inputs
 - Alchemy API key: create an `./.env` file:

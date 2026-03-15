@@ -6,7 +6,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { ethers } from 'ethers';
 import { fileURLToPath } from 'url';
-import { fromEdwardsToAddress } from 'tokamak-l2js';
+import { fromEdwardsToAddress } from '../src/tokamakL2js.ts';
 import {
   deriveParticipantKeys,
   mintNotes1Interface,

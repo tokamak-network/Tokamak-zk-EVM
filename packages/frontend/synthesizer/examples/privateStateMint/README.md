@@ -24,11 +24,11 @@ npm run -s test:private-state
 
 ## Current Limitation
 
-Config generation succeeds on anvil, and the Synthesizer now handles `PUSH0` while replaying the deployed private-state bytecode. The example now also uses L2-derived participant addresses for note owners and seeds the sender's initial liquid balance directly into anvil storage using the same L2-derived address model.
+Config generation succeeds on anvil, and the Synthesizer now handles `PUSH0` while replaying the deployed private-state bytecode. The example now also uses L2-derived participant addresses for note owners and seeds the sender's initial liquid balance directly into anvil storage using the same L2-derived address model. Tokamak L2 helpers are loaded from the local `TokamakL2JS` submodule through the shared Synthesizer wrapper.
 
-The remaining failure is later in execution, where the private-state mint replay still reaches a nested-call `REVERT` because the replayed vault balance does not yet line up with the prepared on-chain setup state.
+The remaining failure is later in circuit generation, where the Synthesizer replay now completes the EVM execution path but runs into qap-compiler buffer sizing limits for this transaction shape.
 
 That means:
 
 - `test:private-state:prep` is expected to pass.
-- `test:private-state` now progresses past opcode handling, but still fails on downstream Synthesizer state/preparation issues unrelated to `PUSH0`.
+- `test:private-state` now progresses past opcode and chain configuration issues, but still fails because the current circuit buffer limits are too small for the generated trace.

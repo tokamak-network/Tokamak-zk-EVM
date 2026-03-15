@@ -1,7 +1,7 @@
 import { LegacyTx } from '@ethereumjs/tx';
 import { InterpreterStep } from '@ethereumjs/evm';
 import { RunTxResult } from '@ethereumjs/vm';
-import { TokamakL2StateManager, TokamakL2Tx } from 'tokamak-l2js';
+import { TokamakL2StateManager, TokamakL2Tx } from '../../tokamakL2js.ts';
 import { StateManager } from '../handlers/index.ts';
 import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable } from './index.ts';
 import { SynthesizerOpHandler } from '../handlers/instructionHandler.ts';

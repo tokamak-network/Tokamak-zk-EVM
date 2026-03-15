@@ -3,7 +3,7 @@
 import { program } from 'commander';
 import path from 'path';
 import fs from 'fs';
-import { createTokamakL2StateManagerFromStateSnapshot, createTokamakL2TxFromRLP, getEddsaPublicKey, poseidon, StateSnapshot, TokamakL2StateManagerOpts, TokamakL2Tx } from 'tokamak-l2js';
+import { createTokamakL2StateManagerFromStateSnapshot, createTokamakL2TxFromRLP, getEddsaPublicKey, poseidon, StateSnapshot, TokamakL2StateManagerOpts, TokamakL2Tx } from '../../tokamakL2js.ts';
 import { Common, CommonOpts, Mainnet } from '@ethereumjs/common';
 import { SynthesizerOpts } from 'src/synthesizer/types/synthesizer.ts';
 import { createSynthesizer } from 'src/synthesizer/constructors.ts';

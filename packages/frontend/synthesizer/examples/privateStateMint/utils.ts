@@ -11,8 +11,8 @@ import type {
   ChannelStateConfig,
   ChannelStorageConfig,
   CreateStateManagerOptsFromChannelConfigOptions,
-} from 'tokamak-l2js';
-import { deriveL2KeysFromSignature, fromEdwardsToAddress } from 'tokamak-l2js';
+} from '../../src/tokamakL2js.ts';
+import { deriveL2KeysFromSignature, fromEdwardsToAddress } from '../../src/tokamakL2js.ts';
 import { getRpcUrlFromEnv } from '../../src/interface/node/env.ts';
 
 const __filename = fileURLToPath(import.meta.url);
