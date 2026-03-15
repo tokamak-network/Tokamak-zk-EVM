@@ -20,41 +20,41 @@
   ],
   "storageConfigs": [
     {
-      "address": "0xd6537d6d5694473590faead79c446a81c0f3890b",
+      "address": "0xb6afde6b21e7b4774f4aa7e5502019febdfec9d2",
       "userStorageSlots": [],
       "preAllocatedKeys": [
         "0x00"
       ]
     },
     {
-      "address": "0xdbcce3d1183f7ff7e63c9db3db8334eaed485282",
+      "address": "0xf6ca23e604a4e239d6eccd12146385acdaa5d712",
       "userStorageSlots": [
         0
       ],
       "preAllocatedKeys": []
     },
     {
-      "address": "0xaf0584c7bbb835f5d20ebcdfff0282f85704125d",
+      "address": "0xcbf80a219b7915cb9c2fc9063413347fed6dad7c",
       "userStorageSlots": [],
       "preAllocatedKeys": [
-        "0x169ebb6855f7549b2a9a8979b541b934cc5a11a07ce6421c199b54b78ee60f12"
+        "0x62c60d132345239a64752daa7b363a2a5c710fd600463227b28f790b2607a6fd"
       ]
     }
   ],
   "callCodeAddresses": [
-    "0xd6537d6d5694473590faead79c446a81c0f3890b",
-    "0xdbcce3d1183f7ff7e63c9db3db8334eaed485282",
-    "0xaf0584c7bbb835f5d20ebcdfff0282f85704125d"
+    "0xb6afde6b21e7b4774f4aa7e5502019febdfec9d2",
+    "0xf6ca23e604a4e239d6eccd12146385acdaa5d712",
+    "0xcbf80a219b7915cb9c2fc9063413347fed6dad7c"
   ],
-  "blockNumber": 347,
+  "blockNumber": 379,
   "txNonce": 0,
-  "calldata": "0x0df1a4ac000000000000000000000000d11ce3932fcc65398f0da6e4a53ca67d8fc320a80000000000000000000000000000000000000000000000000de0b6b3a76400001edd7878a6fb8c8384eb8e6c3b1f2c5d1525b7b8f92b90d4881e93af58b95129",
+  "calldata": "0x0df1a4ac000000000000000000000000d11ce3932fcc65398f0da6e4a53ca67d8fc320a80000000000000000000000000000000000000000000000000de0b6b3a76400002aefd1257d5e0f3b51b1b664317d5457c16813b5f92d34d5881e93b058b95129",
   "senderIndex": 0,
   "noteOwnerIndex": 0,
   "noteValue": "0x0de0b6b3a7640000",
-  "noteSalt": "0x1edd7878a6fb8c8384eb8e6c3b1f2c5d1525b7b8f92b90d4881e93af58b95129",
+  "noteSalt": "0x2aefd1257d5e0f3b51b1b664317d5457c16813b5f92d34d5881e93b058b95129",
   "function": {
     "selector": "0x0df1a4ac",
-    "entryContractAddress": "0xd6537d6d5694473590faead79c446a81c0f3890b"
+    "entryContractAddress": "0xb6afde6b21e7b4774f4aa7e5502019febdfec9d2"
   }
 }
