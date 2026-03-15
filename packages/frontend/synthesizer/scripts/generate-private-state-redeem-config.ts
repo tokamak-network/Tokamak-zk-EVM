@@ -15,6 +15,11 @@ import {
   redeemNotes4Interface,
   type PrivateStateRedeemConfig,
 } from '../examples/privateStateRedeem/utils.ts';
+import {
+  computeReplayPrivateStateMappingKey,
+  computeReplayPrivateStateNoteCommitment,
+  computeReplayPrivateStateNullifier,
+} from './private-state-hash.ts';
 
 type ParticipantEntry = {
   addressL1: `0x${string}`;
@@ -28,6 +33,8 @@ type StorageConfigEntry = {
 };
 
 type DeploymentManifest = {
+  canonicalAsset: `0x${string}`;
+  chainId: number;
   contracts: {
     controller: `0x${string}`;
     l2AccountingVault: `0x${string}`;
@@ -369,25 +376,28 @@ const main = async () => {
   };
   config.calldata = buildPrivateStateRedeemCalldata(config, keyMaterial);
 
-  const controllerInterface = new ethers.Interface([
-    'function computeNoteCommitment(uint256 value, address owner, bytes32 salt) view returns (bytes32)',
-    'function computeNullifier(uint256 value, address owner, bytes32 salt) view returns (bytes32)',
-  ]);
-  const controller = new ethers.Contract(manifest.contracts.controller, controllerInterface, provider);
   const truthyValue = ethers.zeroPadValue('0x01', 32);
 
   const inputCommitments: `0x${string}`[] = [];
   const nullifiers: `0x${string}`[] = [];
 
   for (const note of inputNotes) {
-    const commitment = await controller.computeNoteCommitment(BigInt(note.value), note.owner, note.salt) as `0x${string}`;
-    const nullifier = await controller.computeNullifier(BigInt(note.value), note.owner, note.salt) as `0x${string}`;
+    const commitment = computeReplayPrivateStateNoteCommitment(
+      BigInt(manifest.chainId),
+      manifest.contracts.noteRegistry,
+      manifest.canonicalAsset,
+      note,
+    );
+    const nullifier = computeReplayPrivateStateNullifier(
+      BigInt(manifest.chainId),
+      manifest.contracts.nullifierRegistry,
+      manifest.canonicalAsset,
+      note,
+    );
     inputCommitments.push(commitment);
     nullifiers.push(nullifier);
 
-    const noteRegistryKey = ethers.keccak256(
-      ethers.AbiCoder.defaultAbiCoder().encode(['bytes32', 'uint256'], [commitment, 0n]),
-    ) as `0x${string}`;
+    const noteRegistryKey = computeReplayPrivateStateMappingKey(commitment);
     await provider.send('anvil_setStorageAt', [manifest.contracts.noteRegistry, noteRegistryKey, truthyValue]);
   }
 
@@ -395,13 +405,9 @@ const main = async () => {
   const blockNumber = await provider.getBlockNumber();
 
   const noteRegistryKeys = inputCommitments.map((commitment) =>
-    ethers.keccak256(
-      ethers.AbiCoder.defaultAbiCoder().encode(['bytes32', 'uint256'], [commitment, 0n]),
-    ) as `0x${string}`);
+    computeReplayPrivateStateMappingKey(commitment));
   const nullifierKeys = nullifiers.map((nullifier) =>
-    ethers.keccak256(
-      ethers.AbiCoder.defaultAbiCoder().encode(['bytes32', 'uint256'], [nullifier, 0n]),
-    ) as `0x${string}`);
+    computeReplayPrivateStateMappingKey(nullifier));
   config.blockNumber = blockNumber;
   config.storageConfigs = [
     {

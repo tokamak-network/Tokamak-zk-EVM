@@ -13,6 +13,11 @@ import {
   deriveParticipantKeys,
   mintNotes1Interface,
 } from '../examples/privateStateMint/utils.ts';
+import {
+  computeReplayPrivateStateMappingKey,
+  computeReplayPrivateStateNoteCommitment,
+  type PrivateStateNoteLike,
+} from './private-state-hash.ts';
 
 type ParticipantEntry = {
   addressL1: `0x${string}`;
@@ -44,6 +49,8 @@ type PrivateStateMintConfig = {
 };
 
 type DeploymentManifest = {
+  canonicalAsset: `0x${string}`;
+  chainId: number;
   contracts: {
     controller: `0x${string}`;
     l2AccountingVault: `0x${string}`;
@@ -363,15 +370,6 @@ const main = async () => {
     throw new Error('Failed to resolve mintNotes1 selector');
   }
 
-  const controllerInterface = new ethers.Interface([
-    'function computeNoteCommitment(uint256 value, address owner, bytes32 salt) view returns (bytes32)',
-  ]);
-  const controller = new ethers.Contract(
-    manifest.contracts.controller,
-    controllerInterface,
-    provider,
-  );
-
   const noteSalt =
     ethers.toBeHex(
       BigInt(
@@ -416,14 +414,18 @@ const main = async () => {
   await provider.send('evm_mine', []);
 
   const blockNumber = await provider.getBlockNumber();
-  const noteCommitment = await controller.computeNoteCommitment(
-    BigInt(decodedOutput.value),
-    decodedOutput.owner,
-    decodedOutput.salt,
-  ) as `0x${string}`;
-  const noteRegistryStorageKey = ethers.keccak256(
-    ethers.AbiCoder.defaultAbiCoder().encode(['bytes32', 'uint256'], [noteCommitment, 0n]),
-  ) as `0x${string}`;
+  const replayOutputNote: PrivateStateNoteLike = {
+    owner: decodedOutput.owner as `0x${string}`,
+    value: ethers.toBeHex(BigInt(decodedOutput.value)) as `0x${string}`,
+    salt: decodedOutput.salt as `0x${string}`,
+  };
+  const noteCommitment = computeReplayPrivateStateNoteCommitment(
+    BigInt(manifest.chainId),
+    manifest.contracts.noteRegistry,
+    manifest.canonicalAsset,
+    replayOutputNote,
+  );
+  const noteRegistryStorageKey = computeReplayPrivateStateMappingKey(noteCommitment);
 
   const config: PrivateStateMintConfig = {
     network: 'anvil',
