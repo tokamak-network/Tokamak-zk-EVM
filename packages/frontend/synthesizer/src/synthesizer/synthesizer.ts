@@ -254,7 +254,7 @@ export class Synthesizer implements SynthesizerInterface
       );
       const simCalldataMemoryPt = MemoryPt.simulateMemoryPt(callDataMemoryPts);
       const syntheCallData = simCalldataMemoryPt.viewMemory(0, Number(inLength));
-      const actualCallData = callingStep.memory.subarray(Number(inOffset), Number(inLength))
+      const actualCallData = callingStep.memory.subarray(Number(inOffset), Number(inOffset) + Number(inLength))
       if (bytesToBigInt(syntheCallData) !== bytesToBigInt(actualCallData)) {
         throw new Error(`Debug: Mismatch between calldata memory and memoryPt of the parent context`)
       }
