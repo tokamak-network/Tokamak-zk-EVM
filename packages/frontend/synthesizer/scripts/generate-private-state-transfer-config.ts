@@ -12,7 +12,7 @@ import { BLS12831ARITHMODULUS } from '../src/synthesizer/params/index.ts';
 import {
   buildPrivateStateTransferCalldata,
   deriveParticipantKeys,
-  transferNotes4Interface,
+  transferNotes1Interface,
   type PrivateStateNote,
   type PrivateStateTransferConfig,
 } from '../examples/privateStateTransfer/utils.ts';
@@ -63,7 +63,7 @@ const privateStateMainPath = path.resolve(packageRoot, 'examples', 'privateState
 const DEFAULT_ANVIL_RPC_URL = 'http://127.0.0.1:8545';
 const DEFAULT_ANVIL_MNEMONIC = 'test test test test test test test test test test test junk';
 const DEFAULT_PARTICIPANT_COUNT = 4;
-const DEFAULT_NOTE_VALUE = 1n * 10n ** 18n;
+const DEFAULT_NOTE_VALUE = 3n * 10n ** 18n;
 const DEFAULT_L2_TX_NONCE = 0;
 
 const applyEnvFileIfPresent = (targetPath: string) => {
@@ -341,32 +341,36 @@ const main = async () => {
     throw new Error('Could not resolve transfer participants');
   }
 
-  const selector = transferNotes4Interface.getFunction('transferNotes4')?.selector as `0x${string}` | undefined;
+  const selector = transferNotes1Interface.getFunction('transferNotes1')?.selector as `0x${string}` | undefined;
   if (!selector) {
-    throw new Error('Failed to resolve transferNotes4 selector');
+    throw new Error('Failed to resolve transferNotes1 selector');
   }
 
   const inputValueHex = ethers.toBeHex(noteValue) as `0x${string}`;
-  const doubleInputValueHex = ethers.toBeHex(noteValue * 2n) as `0x${string}`;
-  const inputNotes = Array.from({length: 4}, (_, index) => ({
+  const splitValue = noteValue / 3n;
+  if (splitValue == 0 || splitValue * 3n != noteValue) {
+    throw new Error('transfer note value must be divisible by 3 and greater than zero');
+  }
+  const outputValueHex = ethers.toBeHex(splitValue) as `0x${string}`;
+  const inputNotes = [{
     owner: senderAddress,
     value: inputValueHex,
-    salt: toSalt(`private-state-transfer-input-sender-${senderIndex}-${index}`),
-  })) as PrivateStateTransferConfig['inputNotes'];
+    salt: toSalt(`private-state-transfer-input-sender-${senderIndex}-0`),
+  }] as PrivateStateTransferConfig['inputNotes'];
   const outputNotes = [
     {
       owner: senderAddress,
-      value: doubleInputValueHex,
+      value: outputValueHex,
       salt: toSalt(`private-state-transfer-output-sender-${senderIndex}-0`),
     },
     {
       owner: recipientOneAddress,
-      value: inputValueHex,
+      value: outputValueHex,
       salt: toSalt(`private-state-transfer-output-sender-${senderIndex}-1`),
     },
     {
       owner: recipientTwoAddress,
-      value: inputValueHex,
+      value: outputValueHex,
       salt: toSalt(`private-state-transfer-output-sender-${senderIndex}-2`),
     },
   ] as PrivateStateTransferConfig['outputNotes'];

@@ -25,7 +25,7 @@ export type PrivateStateTransferConfig = ChannelStateConfig & {
   txNonce: number;
   calldata: `0x${string}`;
   senderIndex: number;
-  inputNotes: [PrivateStateNote, PrivateStateNote, PrivateStateNote, PrivateStateNote];
+  inputNotes: [PrivateStateNote];
   outputNotes: [PrivateStateNote, PrivateStateNote, PrivateStateNote];
   function: ChannelFunctionConfig;
 };
@@ -38,11 +38,11 @@ export {
   type ExampleNetwork,
 };
 
-const TRANSFER_NOTES4_ABI = [
-  'function transferNotes4((address owner,uint256 value,bytes32 salt)[4] inputNotes,(address owner,uint256 value,bytes32 salt)[3] outputs) returns (bytes32[4] nullifiers, bytes32[3] outputCommitments)',
+const TRANSFER_NOTES1_ABI = [
+  'function transferNotes1((address owner,uint256 value,bytes32 salt)[1] inputNotes,(address owner,uint256 value,bytes32 salt)[3] outputs) returns (bytes32[1] nullifiers, bytes32[3] outputCommitments)',
 ];
 
-export const transferNotes4Interface = new ethers.Interface(TRANSFER_NOTES4_ABI);
+export const transferNotes1Interface = new ethers.Interface(TRANSFER_NOTES1_ABI);
 
 const parseHexString = (value: unknown, label: string): `0x${string}` => {
   if (typeof value !== 'string' || !value.startsWith('0x')) {
@@ -158,7 +158,7 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateTransf
     throw new Error('participants must include at least three entries');
   }
 
-  const inputNotes = parseFixedNotes(configRaw.inputNotes, 'inputNotes', 4) as PrivateStateTransferConfig['inputNotes'];
+  const inputNotes = parseFixedNotes(configRaw.inputNotes, 'inputNotes', 1) as PrivateStateTransferConfig['inputNotes'];
   const outputNotes = parseFixedNotes(configRaw.outputNotes, 'outputNotes', 3) as PrivateStateTransferConfig['outputNotes'];
 
   return {
@@ -182,7 +182,7 @@ export const buildPrivateStateTransferCalldata = (
   config: PrivateStateTransferConfig,
   _keyMaterial: DerivedParticipantKeys,
 ): `0x${string}` =>
-  transferNotes4Interface.encodeFunctionData('transferNotes4', [config.inputNotes, config.outputNotes]) as `0x${string}`;
+  transferNotes1Interface.encodeFunctionData('transferNotes1', [config.inputNotes, config.outputNotes]) as `0x${string}`;
 
 export const toStateManagerChannelConfig = (
   config: PrivateStateTransferConfig,
