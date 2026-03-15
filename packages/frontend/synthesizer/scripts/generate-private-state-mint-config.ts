@@ -185,13 +185,6 @@ const parseAmount = (value: unknown): bigint => {
   return BigInt(trimmed);
 };
 
-const deriveAnvilWallet = (mnemonic: string, index: number, provider: ethers.JsonRpcProvider) =>
-  ethers.HDNodeWallet.fromPhrase(
-    mnemonic,
-    undefined,
-    `m/44'/60'/0'/0/${index}`,
-  ).connect(provider);
-
 const buildParticipants = (mnemonic: string, participantCount: number): ParticipantEntry[] => {
   const participants: ParticipantEntry[] = [];
   for (let index = 0; index < participantCount; index += 1) {
@@ -262,19 +255,28 @@ const main = async () => {
   await ensurePrivateStateBootstrap();
   const manifest = await loadDeploymentManifest();
   const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const participants = buildParticipants(mnemonic, participantCount);
-  const keyMaterial = deriveParticipantKeys(participants);
-  const senderWallet = deriveAnvilWallet(mnemonic, senderIndex, provider);
-  const noteOwner = fromEdwardsToAddress(keyMaterial.publicKeys[noteOwnerIndex]).toString() as `0x${string}`;
+  const baseParticipants = buildParticipants(mnemonic, participantCount);
+  const keyMaterial = deriveParticipantKeys(baseParticipants);
+  const participants = baseParticipants.map((participant, index) => ({
+    ...participant,
+    addressL1: fromEdwardsToAddress(keyMaterial.publicKeys[index]).toString() as `0x${string}`,
+  }));
+  const senderAddress = participants[senderIndex]?.addressL1;
+  const noteOwner = participants[noteOwnerIndex]?.addressL1;
+  if (!senderAddress) {
+    throw new Error(`Could not resolve sender at index ${senderIndex}`);
+  }
+  if (!noteOwner) {
+    throw new Error(`Could not resolve note owner at index ${noteOwnerIndex}`);
+  }
 
   const controllerInterface = new ethers.Interface([
-    'function mockBridgeDeposit(uint256 amount)',
     'function computeNoteCommitment(uint256 value, address owner, bytes32 salt) view returns (bytes32)',
   ]);
   const controller = new ethers.Contract(
     manifest.contracts.controller,
     controllerInterface,
-    senderWallet,
+    provider,
   );
 
   const noteSalt =
@@ -287,8 +289,16 @@ const main = async () => {
       32,
     ) as `0x${string}`;
 
-  const depositTx = await controller.mockBridgeDeposit(noteValue);
-  await depositTx.wait();
+  const liquidBalanceStorageKey = ethers.keccak256(
+    ethers.AbiCoder.defaultAbiCoder().encode(['address', 'uint256'], [senderAddress, 0n]),
+  ) as `0x${string}`;
+  const liquidBalanceStorageValue = ethers.zeroPadValue(ethers.toBeHex(noteValue), 32);
+  await provider.send('anvil_setStorageAt', [
+    manifest.contracts.l2AccountingVault,
+    liquidBalanceStorageKey,
+    liquidBalanceStorageValue,
+  ]);
+  await provider.send('evm_mine', []);
 
   const blockNumber = await provider.getBlockNumber();
   const noteCommitment = await controller.computeNoteCommitment(noteValue, noteOwner, noteSalt) as `0x${string}`;

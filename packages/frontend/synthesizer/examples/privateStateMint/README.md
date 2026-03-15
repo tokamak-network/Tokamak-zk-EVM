@@ -24,7 +24,7 @@ npm run -s test:private-state
 
 ## Current Limitation
 
-Config generation succeeds on anvil, and the Synthesizer now handles `PUSH0` while replaying the deployed private-state bytecode. The example now also uses L2-derived participant addresses for note owners, matching the ERC-20 example pattern.
+Config generation succeeds on anvil, and the Synthesizer now handles `PUSH0` while replaying the deployed private-state bytecode. The example now also uses L2-derived participant addresses for note owners and seeds the sender's initial liquid balance directly into anvil storage using the same L2-derived address model.
 
 The remaining failure is later in execution, where the private-state mint replay still reaches a nested-call `REVERT` because the replayed vault balance does not yet line up with the prepared on-chain setup state.
 
