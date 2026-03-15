@@ -1,5 +1,5 @@
 import { Common, CommonOpts, Mainnet, Sepolia } from "@ethereumjs/common"
-import { createTokamakL2StateManagerFromL1RPC, createTokamakL2Tx, fromEdwardsToAddress, getEddsaPublicKey, poseidon, TokamakL2StateManagerOpts, TokamakL2TxData } from "../../tokamakL2js.ts"
+import { createTokamakL2StateManagerFromL1RPC, createTokamakL2Tx, fromEdwardsToAddress, getEddsaPublicKey, poseidon, TokamakL2StateManagerOpts, TokamakL2TxData } from "../../../submodules/TokamakL2JS/src/index.ts"
 import { RPCStateManager } from "@ethereumjs/statemanager"
 import { addHexPrefix, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromString, hexToBigInt, hexToBytes, toBytes } from "@ethereumjs/util"
 import { ethers } from "ethers"

@@ -5,7 +5,7 @@ import { BufferErrorMessage, DataPt, DataPtDescription, ISynthesizerProvider, Pl
 import { DataPtFactory } from '../dataStructure/index.ts';
 import { BUFFER_DESCRIPTION, BUFFER_LIST } from '../../interface/qapCompiler/configuredTypes.ts';
 import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
-import { FUNCTION_INPUT_LENGTH } from '../../tokamakL2js.ts';
+import { FUNCTION_INPUT_LENGTH } from '../../../submodules/TokamakL2JS/src/index.ts';
 
 export class BufferManager {
   private parent: ISynthesizerProvider;
@@ -279,4 +279,3 @@ export class BufferManager {
     return DataPtFactory.deepCopy(outPt)
   }
 }
-

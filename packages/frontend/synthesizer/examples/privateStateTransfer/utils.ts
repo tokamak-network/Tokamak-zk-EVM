@@ -5,7 +5,7 @@ import type {
   ChannelParticipantConfig,
   ChannelStateConfig,
   ChannelStorageConfig,
-} from '../../src/tokamakL2js.ts';
+} from '../../submodules/TokamakL2JS/src/index.ts';
 import {
   deriveParticipantKeys,
   getExampleRpcUrl,

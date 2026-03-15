@@ -1,4 +1,4 @@
-import { FUNCTION_INPUT_LENGTH } from '../../tokamakL2js.ts';
+import { FUNCTION_INPUT_LENGTH } from '../../../submodules/TokamakL2JS/src/index.ts';
 
 export const ARITHMETIC_OPERATOR_LIST = [
   'ADD',
