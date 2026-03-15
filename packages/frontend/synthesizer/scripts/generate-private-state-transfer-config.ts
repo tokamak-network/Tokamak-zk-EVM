@@ -400,16 +400,8 @@ const main = async () => {
   const nullifiers: `0x${string}`[] = [];
 
   for (const note of inputNotes) {
-    const commitment = computeReplayPrivateStateNoteCommitment(
-      BigInt(manifest.chainId),
-      manifest.canonicalAsset,
-      note,
-    );
-    const nullifier = computeReplayPrivateStateNullifier(
-      BigInt(manifest.chainId),
-      manifest.canonicalAsset,
-      note,
-    );
+    const commitment = computeReplayPrivateStateNoteCommitment(note);
+    const nullifier = computeReplayPrivateStateNullifier(note);
     inputCommitments.push(commitment);
     nullifiers.push(nullifier);
 
@@ -418,11 +410,7 @@ const main = async () => {
   }
 
   for (const note of outputNotes) {
-    const commitment = computeReplayPrivateStateNoteCommitment(
-      BigInt(manifest.chainId),
-      manifest.canonicalAsset,
-      note,
-    );
+    const commitment = computeReplayPrivateStateNoteCommitment(note);
     outputCommitments.push(commitment);
   }
 

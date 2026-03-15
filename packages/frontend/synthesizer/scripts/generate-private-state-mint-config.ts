@@ -419,11 +419,7 @@ const main = async () => {
     value: ethers.toBeHex(BigInt(decodedOutput.value)) as `0x${string}`,
     salt: decodedOutput.salt as `0x${string}`,
   };
-  const noteCommitment = computeReplayPrivateStateNoteCommitment(
-    BigInt(manifest.chainId),
-    manifest.canonicalAsset,
-    replayOutputNote,
-  );
+  const noteCommitment = computeReplayPrivateStateNoteCommitment(replayOutputNote);
   const noteRegistryStorageKey = computeReplayPrivateStateMappingKey(noteCommitment);
 
   const config: PrivateStateMintConfig = {
