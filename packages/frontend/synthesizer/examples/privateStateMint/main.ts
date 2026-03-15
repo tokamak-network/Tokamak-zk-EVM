@@ -1,6 +1,6 @@
 // Usage: tsx examples/privateStateMint/main.ts <config.json>
 
-import { bytesToHex, createAddressFromString } from '@ethereumjs/util';
+import { bytesToHex, createAddressFromString, hexToBytes } from '@ethereumjs/util';
 import {
   createStateManagerOptsFromChannelConfig,
   createTokamakL2StateManagerFromL1RPC,
@@ -14,7 +14,6 @@ import { loadSubcircuitWasm } from '../../src/interface/node/wasmLoader.ts';
 import { getBlockInfoFromRPC } from '../../src/interface/rpc/rpc.ts';
 import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../src/interface/qapCompiler/importedConstants.ts';
 import {
-  buildPrivateStateMintCalldata,
   deriveParticipantKeys,
   getExampleRpcUrl,
   getStateManagerOptsOptions,
@@ -36,7 +35,7 @@ const main = async () => {
     throw new Error(`senderIndex must point to an existing participant; got ${config.senderIndex}`);
   }
 
-  const callData = buildPrivateStateMintCalldata(config, keyMaterial);
+  const callData = hexToBytes(config.calldata);
   const stateManagerOpts = createStateManagerOptsFromChannelConfig(
     toStateManagerChannelConfig(config),
     await getStateManagerOptsOptions(config.network, rpcUrl),
@@ -60,6 +59,9 @@ const main = async () => {
   });
   const runTxResult = await synthesizer.synthesizeTX();
   await writeEvmAnalysisJson(synthesizer);
+  if (process.env.PRIVATE_STATE_ANALYSIS_ONLY === '1') {
+    return;
+  }
   const subcircuitBuffers = loadSubcircuitWasm();
   const circuitGenerator = await createCircuitGenerator(synthesizer, subcircuitBuffers);
   writeCircuitJson(circuitGenerator);

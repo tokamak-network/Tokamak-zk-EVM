@@ -54,6 +54,7 @@ export const DEFAULT_ANVIL_RPC_URL = 'http://127.0.0.1:8545';
 export type PrivateStateMintConfig = ChannelStateConfig & {
   network: 'mainnet' | 'sepolia' | 'anvil';
   txNonce: number;
+  calldata: `0x${string}`;
   senderIndex: number;
   noteOwnerIndex: number;
   noteValue: `0x${string}`;
@@ -173,15 +174,12 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateMintCo
     network: parseNetwork(configRaw.network, 'network'),
     participants,
     storageConfigs: assertStorageConfigs(configRaw.storageConfigs, 'storageConfigs'),
-    entryContractAddress: parseHexString(
-      configRaw.entryContractAddress ?? configRaw.function?.entryContractAddress,
-      'entryContractAddress',
-    ),
     callCodeAddresses: assertStringArray(configRaw.callCodeAddresses, 'callCodeAddresses').map(
       (entry) => parseHexString(entry, 'callCodeAddresses'),
     ),
     blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
     txNonce: parseNumberValue(configRaw.txNonce, 'txNonce'),
+    calldata: parseHexString(configRaw.calldata, 'calldata'),
     senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
     noteOwnerIndex: parseNumberValue(configRaw.noteOwnerIndex, 'noteOwnerIndex'),
     noteValue: parseHexString(configRaw.noteValue, 'noteValue'),
@@ -226,7 +224,7 @@ const assertParticipantIndex = (
 export const buildPrivateStateMintCalldata = (
   config: PrivateStateMintConfig,
   keyMaterial: DerivedParticipantKeys,
-): Uint8Array => {
+): `0x${string}` => {
   assertParticipantIndex(config, config.senderIndex, 'senderIndex', keyMaterial);
   assertParticipantIndex(config, config.noteOwnerIndex, 'noteOwnerIndex', keyMaterial);
 
@@ -237,7 +235,7 @@ export const buildPrivateStateMintCalldata = (
     value: BigInt(config.noteValue),
     salt: config.noteSalt,
   }]]);
-  return hexToBytes(encoded as `0x${string}`);
+  return encoded as `0x${string}`;
 };
 
 export const toStateManagerChannelConfig = (
@@ -246,7 +244,6 @@ export const toStateManagerChannelConfig = (
   network: config.network,
   participants: config.participants,
   storageConfigs: config.storageConfigs,
-  entryContractAddress: config.entryContractAddress,
   callCodeAddresses: config.callCodeAddresses,
   blockNumber: config.blockNumber,
   function: config.function,

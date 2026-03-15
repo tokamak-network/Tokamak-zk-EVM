@@ -4,10 +4,12 @@
 import fsSync from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
+import { spawn } from 'child_process';
 import { ethers } from 'ethers';
 import { fileURLToPath } from 'url';
 import { fromEdwardsToAddress } from '../src/tokamakL2js.ts';
 import {
+  buildPrivateStateMintCalldata,
   deriveParticipantKeys,
   mintNotes1Interface,
 } from '../examples/privateStateMint/utils.ts';
@@ -27,10 +29,10 @@ type PrivateStateMintConfig = {
   network: 'anvil';
   participants: ParticipantEntry[];
   storageConfigs: StorageConfigEntry[];
-  entryContractAddress: `0x${string}`;
   callCodeAddresses: `0x${string}`[];
   blockNumber: number;
   txNonce: number;
+  calldata: `0x${string}`;
   senderIndex: number;
   noteOwnerIndex: number;
   noteValue: `0x${string}`;
@@ -50,6 +52,11 @@ type DeploymentManifest = {
   };
 };
 
+type UnregisteredStorageWarning = {
+  address: `0x${string}`;
+  key: `0x${string}`;
+};
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, '..');
@@ -59,6 +66,7 @@ const packageEnvPath = path.resolve(packageRoot, '.env');
 const defaultOutputPath = path.resolve(packageRoot, 'scripts', 'private-state-mint-config.json');
 const deploymentManifestPath = path.resolve(repoRoot, 'apps', 'private-state', 'deploy', 'deployment.31337.latest.json');
 const privateStateAppDir = path.resolve(repoRoot, 'apps', 'private-state');
+const privateStateMainPath = path.resolve(packageRoot, 'examples', 'privateStateMint', 'main.ts');
 
 const DEFAULT_ANVIL_RPC_URL = 'http://127.0.0.1:8545';
 const DEFAULT_ANVIL_MNEMONIC = 'test test test test test test test test test test test junk';
@@ -206,6 +214,87 @@ const writeConfig = async (targetPath: string, config: PrivateStateMintConfig) =
   await fs.writeFile(targetPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
 };
 
+const mergeUniqueHexValues = (existing: `0x${string}`[], incoming: `0x${string}`[]) => {
+  const seen = new Set<string>();
+  const merged: `0x${string}`[] = [];
+  for (const value of [...existing, ...incoming]) {
+    const normalized = value.toLowerCase();
+    if (seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    merged.push(value);
+  }
+  return merged;
+};
+
+const runAnalysisOnlyReplay = async (configPath: string): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const child = spawn(
+      'tsx',
+      [privateStateMainPath, configPath],
+      {
+        cwd: packageRoot,
+        env: {
+          ...process.env,
+          PRIVATE_STATE_ANALYSIS_ONLY: '1',
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
+
+    let combinedOutput = '';
+    child.stdout.on('data', (chunk: Buffer | string) => {
+      const text = chunk.toString();
+      combinedOutput += text;
+      process.stdout.write(text);
+    });
+    child.stderr.on('data', (chunk: Buffer | string) => {
+      const text = chunk.toString();
+      combinedOutput += text;
+      process.stderr.write(text);
+    });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code !== 0) {
+        console.warn(`Analysis-only replay exited with code ${code ?? 'unknown'}`);
+      }
+      resolve(combinedOutput);
+    });
+  });
+
+const collectUnregisteredStorageWarnings = (output: string): UnregisteredStorageWarning[] => {
+  const warnings: UnregisteredStorageWarning[] = [];
+  const matches = output.matchAll(
+    /AT MPT KEY (0X[0-9A-F]+) OF ADDRESS (0X[0-9A-F]+)/gu,
+  );
+  for (const match of matches) {
+    warnings.push({
+      key: `0x${match[1].slice(2).toLowerCase()}` as `0x${string}`,
+      address: `0x${match[2].slice(2).toLowerCase()}` as `0x${string}`,
+    });
+  }
+  return warnings;
+};
+
+const applyWarningKeysToStorageConfigs = (
+  storageConfigs: StorageConfigEntry[],
+  warnings: UnregisteredStorageWarning[],
+): StorageConfigEntry[] =>
+  storageConfigs.map((entry) => {
+    const incoming = warnings
+      .filter((warning) => warning.address.toLowerCase() === entry.address.toLowerCase())
+      .map((warning) => warning.key);
+    if (incoming.length === 0) {
+      return entry;
+    }
+
+    return {
+      ...entry,
+      preAllocatedKeys: mergeUniqueHexValues(entry.preAllocatedKeys, incoming),
+    };
+  });
+
 const loadDeploymentManifest = async (): Promise<DeploymentManifest> => {
   const contents = await fs.readFile(deploymentManifestPath, 'utf8');
   return JSON.parse(contents) as DeploymentManifest;
@@ -262,12 +351,16 @@ const main = async () => {
     addressL1: fromEdwardsToAddress(keyMaterial.publicKeys[index]).toString() as `0x${string}`,
   }));
   const senderAddress = participants[senderIndex]?.addressL1;
-  const noteOwner = participants[noteOwnerIndex]?.addressL1;
   if (!senderAddress) {
     throw new Error(`Could not resolve sender at index ${senderIndex}`);
   }
-  if (!noteOwner) {
+  if (!participants[noteOwnerIndex]?.addressL1) {
     throw new Error(`Could not resolve note owner at index ${noteOwnerIndex}`);
+  }
+
+  const selector = mintNotes1Interface.getFunction('mintNotes1')?.selector as `0x${string}` | undefined;
+  if (!selector) {
+    throw new Error('Failed to resolve mintNotes1 selector');
   }
 
   const controllerInterface = new ethers.Interface([
@@ -288,6 +381,28 @@ const main = async () => {
       ) & MAX_255_BIT_VALUE,
       32,
     ) as `0x${string}`;
+  const calldata = buildPrivateStateMintCalldata(
+    {
+      network: 'anvil',
+      participants,
+      storageConfigs: [],
+      callCodeAddresses: [],
+      blockNumber: 0,
+      txNonce: DEFAULT_L2_TX_NONCE,
+      calldata: '0x',
+      senderIndex,
+      noteOwnerIndex,
+      noteValue: ethers.toBeHex(noteValue) as `0x${string}`,
+      noteSalt,
+      function: {
+        selector,
+        entryContractAddress: manifest.contracts.controller,
+      },
+    },
+    keyMaterial,
+  );
+  const decodedMintCall = mintNotes1Interface.decodeFunctionData('mintNotes1', calldata);
+  const decodedOutput = decodedMintCall[0][0];
 
   const liquidBalanceStorageKey = ethers.keccak256(
     ethers.AbiCoder.defaultAbiCoder().encode(['address', 'uint256'], [senderAddress, 0n]),
@@ -301,14 +416,14 @@ const main = async () => {
   await provider.send('evm_mine', []);
 
   const blockNumber = await provider.getBlockNumber();
-  const noteCommitment = await controller.computeNoteCommitment(noteValue, noteOwner, noteSalt) as `0x${string}`;
+  const noteCommitment = await controller.computeNoteCommitment(
+    BigInt(decodedOutput.value),
+    decodedOutput.owner,
+    decodedOutput.salt,
+  ) as `0x${string}`;
   const noteRegistryStorageKey = ethers.keccak256(
     ethers.AbiCoder.defaultAbiCoder().encode(['bytes32', 'uint256'], [noteCommitment, 0n]),
   ) as `0x${string}`;
-  const selector = mintNotes1Interface.getFunction('mintNotes1')?.selector as `0x${string}` | undefined;
-  if (!selector) {
-    throw new Error('Failed to resolve mintNotes1 selector');
-  }
 
   const config: PrivateStateMintConfig = {
     network: 'anvil',
@@ -330,7 +445,6 @@ const main = async () => {
         preAllocatedKeys: [noteRegistryStorageKey],
       },
     ],
-    entryContractAddress: manifest.contracts.controller,
     callCodeAddresses: [
       manifest.contracts.controller,
       manifest.contracts.l2AccountingVault,
@@ -338,6 +452,7 @@ const main = async () => {
     ],
     blockNumber,
     txNonce: DEFAULT_L2_TX_NONCE,
+    calldata,
     senderIndex,
     noteOwnerIndex,
     noteValue: ethers.toBeHex(noteValue) as `0x${string}`,
@@ -349,6 +464,15 @@ const main = async () => {
   };
 
   await writeConfig(outputPath, config);
+  const replayOutput = await runAnalysisOnlyReplay(outputPath);
+  const warningKeys = collectUnregisteredStorageWarnings(replayOutput);
+  if (warningKeys.length > 0) {
+    const updatedConfig: PrivateStateMintConfig = {
+      ...config,
+      storageConfigs: applyWarningKeysToStorageConfigs(config.storageConfigs, warningKeys),
+    };
+    await writeConfig(outputPath, updatedConfig);
+  }
   console.log(`Saved private-state mint config to ${outputPath}`);
 };
 
