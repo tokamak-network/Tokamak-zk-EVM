@@ -6,7 +6,11 @@ import fs from 'fs/promises';
 import path from 'path';
 import { ethers } from 'ethers';
 import { fileURLToPath } from 'url';
-import { mintNotes1Interface } from '../examples/privateStateMint/utils.ts';
+import { fromEdwardsToAddress } from 'tokamak-l2js';
+import {
+  deriveParticipantKeys,
+  mintNotes1Interface,
+} from '../examples/privateStateMint/utils.ts';
 
 type ParticipantEntry = {
   addressL1: `0x${string}`;
@@ -259,11 +263,9 @@ const main = async () => {
   const manifest = await loadDeploymentManifest();
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const participants = buildParticipants(mnemonic, participantCount);
+  const keyMaterial = deriveParticipantKeys(participants);
   const senderWallet = deriveAnvilWallet(mnemonic, senderIndex, provider);
-  const noteOwner = participants[noteOwnerIndex]?.addressL1;
-  if (!noteOwner) {
-    throw new Error(`Could not resolve note owner at index ${noteOwnerIndex}`);
-  }
+  const noteOwner = fromEdwardsToAddress(keyMaterial.publicKeys[noteOwnerIndex]).toString() as `0x${string}`;
 
   const controllerInterface = new ethers.Interface([
     'function mockBridgeDeposit(uint256 amount)',

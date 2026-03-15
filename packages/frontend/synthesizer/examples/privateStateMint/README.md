@@ -24,11 +24,11 @@ npm run -s test:private-state
 
 ## Current Limitation
 
-Config generation succeeds on anvil, and the Synthesizer now handles `PUSH0` while replaying the deployed private-state bytecode.
+Config generation succeeds on anvil, and the Synthesizer now handles `PUSH0` while replaying the deployed private-state bytecode. The example now also uses L2-derived participant addresses for note owners, matching the ERC-20 example pattern.
 
-The remaining failure is later in execution, where the private-state mint replay still hits calldata/context consistency errors during nested call handling.
+The remaining failure is later in execution, where the private-state mint replay still reaches a nested-call `REVERT` because the replayed vault balance does not yet line up with the prepared on-chain setup state.
 
 That means:
 
 - `test:private-state:prep` is expected to pass.
-- `test:private-state` now progresses past opcode handling, but still fails on downstream Synthesizer state-tracking issues unrelated to `PUSH0`.
+- `test:private-state` now progresses past opcode handling, but still fails on downstream Synthesizer state/preparation issues unrelated to `PUSH0`.

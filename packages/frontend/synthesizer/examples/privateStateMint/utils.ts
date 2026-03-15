@@ -12,7 +12,7 @@ import type {
   ChannelStorageConfig,
   CreateStateManagerOptsFromChannelConfigOptions,
 } from 'tokamak-l2js';
-import { deriveL2KeysFromSignature } from 'tokamak-l2js';
+import { deriveL2KeysFromSignature, fromEdwardsToAddress } from 'tokamak-l2js';
 import { getRpcUrlFromEnv } from '../../src/interface/node/env.ts';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -230,10 +230,7 @@ export const buildPrivateStateMintCalldata = (
   assertParticipantIndex(config, config.senderIndex, 'senderIndex', keyMaterial);
   assertParticipantIndex(config, config.noteOwnerIndex, 'noteOwnerIndex', keyMaterial);
 
-  const noteOwnerAddress = config.participants[config.noteOwnerIndex]?.addressL1;
-  if (!noteOwnerAddress) {
-    throw new Error(`noteOwnerIndex must point to an existing participant; got ${config.noteOwnerIndex}`);
-  }
+  const noteOwnerAddress = fromEdwardsToAddress(keyMaterial.publicKeys[config.noteOwnerIndex]).toString();
 
   const encoded = mintNotes1Interface.encodeFunctionData('mintNotes1', [[{
     owner: noteOwnerAddress,
