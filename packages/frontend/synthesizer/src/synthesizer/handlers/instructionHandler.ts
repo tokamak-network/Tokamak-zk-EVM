@@ -16,6 +16,7 @@ import { InterpreterStep } from '@ethereumjs/evm'
 import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
 import { DataPtFactory, MemoryPt, StackPt } from '../dataStructure/index.ts';
 import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from '../../interface/qapCompiler/configuredTypes.ts';
+import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../interface/qapCompiler/importedConstants.ts';
 import { ContextManager } from './stateManager.ts';
 
 export interface HandlerOpts {
@@ -692,9 +693,17 @@ export class InstructionHandler {
         }
         this._popStackPtAndCheckInputConsistency(opts.stackPt, [blockNumber]);
         const blockNumberDiff = this.parent.getReservedVariableFromBuffer('NUMBER').value - blockNumber;
-        dataPt =  blockNumberDiff <= 0n && blockNumberDiff > 256n ? 
-          this.parent.loadArbitraryStatic(0n) : 
-          this.parent.getReservedVariableFromBuffer(`BLOCKHASH_${blockNumberDiff}` as ReservedVariable)
+        if (blockNumberDiff <= 0n || blockNumberDiff > 256n) {
+          dataPt = this.parent.loadArbitraryStatic(0n)
+          break
+        }
+        if (blockNumberDiff > BigInt(NUMBER_OF_PREV_BLOCK_HASHES)) {
+          throw new Error(
+            `Synthesizer: BLOCKHASH requires ${blockNumberDiff.toString()} previous block hashes, but qap-compiler nPrevBlockHashes is ${NUMBER_OF_PREV_BLOCK_HASHES}. Increase qap-compiler nPrevBlockHashes.`,
+          )
+        }
+        dataPt = this.parent.getReservedVariableFromBuffer(`BLOCKHASH_${blockNumberDiff}` as ReservedVariable)
+        break
       }
       default:
         throw new Error(
