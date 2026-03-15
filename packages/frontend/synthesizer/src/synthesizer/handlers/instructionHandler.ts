@@ -328,7 +328,6 @@ export class InstructionHandler {
       // , 'TLOAD'
       // , 'TSTORE'
       , 'MCOPY'
-      , 'PUSH0'
       // , 'CREATE'
       , 'CALL'
       , 'CALLCODE'
@@ -343,9 +342,9 @@ export class InstructionHandler {
 
     // PUSHs
     this.synthesizerHandlers.set(
-      synthesizerOpcodeByName['PUSH1'],
+      synthesizerOpcodeByName['PUSH0'],
       (context, stepResult) => {
-        const opts = this._createHandlerOpts('PUSH1', context);
+        const opts = this._createHandlerOpts('PUSH0', context);
         const out: bigint = stepResult.stack[0]
         const numToPush = opts.prevStepResult.opcode.code - 0x5f
         const staticInDesc = `Static input for PUSH${numToPush} instruction at PC ${opts.pc} of code address ${opts.thisAddress} (depth: ${opts.callDepth})`
@@ -359,8 +358,8 @@ export class InstructionHandler {
         }
       },
     )
-    const pushFn = this.synthesizerHandlers.get(synthesizerOpcodeByName['PUSH1'])!
-    for (let i = 0x61; i <= 0x7f; i++) {
+    const pushFn = this.synthesizerHandlers.get(synthesizerOpcodeByName['PUSH0'])!
+    for (let i = 0x60; i <= 0x7f; i++) {
       this.synthesizerHandlers.set(i, pushFn);
     }
     // DUPs
