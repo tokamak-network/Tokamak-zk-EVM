@@ -5,6 +5,7 @@ import { BufferErrorMessage, DataPt, DataPtDescription, ISynthesizerProvider, Pl
 import { DataPtFactory } from '../dataStructure/index.ts';
 import { BUFFER_DESCRIPTION, BUFFER_LIST } from '../../interface/qapCompiler/configuredTypes.ts';
 import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
+import { FUNCTION_INPUT_LENGTH } from '../../tokamakL2js.ts';
 
 export class BufferManager {
   private parent: ISynthesizerProvider;
@@ -213,7 +214,7 @@ export class BufferManager {
     this.addReservedVariableToBufferIn('CONTRACT_ADDRESS', bytesToBigInt(toBytes(l2Tx.to)))
     this.addReservedVariableToBufferIn('FUNCTION_SELECTOR', bytesToBigInt(l2Tx.getFunctionSelector()))
     this.addReservedVariableToBufferIn('TRANSACTION_NONCE', l2Tx.nonce)
-    for (var inputIndex = 0; inputIndex < 9; inputIndex ++) {
+    for (var inputIndex = 0; inputIndex < FUNCTION_INPUT_LENGTH; inputIndex ++) {
       this.addReservedVariableToBufferIn(
         `TRANSACTION_INPUT${inputIndex}` as ReservedVariable, 
         bytesToBigInt(l2Tx.getFunctionInput(inputIndex)),
@@ -278,5 +279,4 @@ export class BufferManager {
     return DataPtFactory.deepCopy(outPt)
   }
 }
-
 

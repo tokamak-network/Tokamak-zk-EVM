@@ -1,5 +1,6 @@
 import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
 import type { DataPt, DataPtDescription } from './index.ts'
+import { FUNCTION_INPUT_LENGTH } from '../../tokamakL2js.ts';
 import { BUFFER_LIST, ReservedBuffer, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
 
 export enum BufferErrorMessage {
@@ -317,6 +318,26 @@ const PRIVATE_IN_VARIABLES_STATIC = [
   'TRANSACTION_INPUT6',
   'TRANSACTION_INPUT7',
   'TRANSACTION_INPUT8',
+  'TRANSACTION_INPUT9',
+  'TRANSACTION_INPUT10',
+  'TRANSACTION_INPUT11',
+  'TRANSACTION_INPUT12',
+  'TRANSACTION_INPUT13',
+  'TRANSACTION_INPUT14',
+  'TRANSACTION_INPUT15',
+  'TRANSACTION_INPUT16',
+  'TRANSACTION_INPUT17',
+  'TRANSACTION_INPUT18',
+  'TRANSACTION_INPUT19',
+  'TRANSACTION_INPUT20',
+  'TRANSACTION_INPUT21',
+  'TRANSACTION_INPUT22',
+  'TRANSACTION_INPUT23',
+  'TRANSACTION_INPUT24',
+  'TRANSACTION_INPUT25',
+  'TRANSACTION_INPUT26',
+  'TRANSACTION_INPUT27',
+  'TRANSACTION_INPUT28',
   'EDDSA_RANDOMIZER_X',
   'EDDSA_RANDOMIZER_Y',
 ] as const
@@ -477,7 +498,7 @@ VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_X.sourceBitSize = 255;
 
 VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_Y.extSource = `EdDSA public key of caller (y coordinate)`;
 VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_Y.sourceBitSize = 255;
-for (let i = 0; i < 9; i++) {
+for (let i = 0; i < FUNCTION_INPUT_LENGTH; i++) {
   const varName = `TRANSACTION_INPUT${i}` as ReservedVariable
   if ( PRIVATE_IN_VARIABLES_STATIC.findIndex(staticVarName => staticVarName === varName) < 0 ) {
     throw new Error(`${varName} is not a ReservedVariable`)

@@ -10,7 +10,7 @@ import { ArithmeticOperator, SubcircuitNames } from '../interface/qapCompiler/co
 import { DataPtFactory } from './dataStructure/dataPt.ts';
 import { TypedTransaction } from '@ethereumjs/tx';
 import { MemoryPt } from './dataStructure/memoryPt.ts';
-import { NULL_STORAGE_KEY, poseidon_raw } from '../tokamakL2js.ts';
+import { FUNCTION_INPUT_LENGTH, NULL_STORAGE_KEY, poseidon_raw } from '../tokamakL2js.ts';
 
 /**
  * The Synthesizer class manages data related to subcircuits.
@@ -191,7 +191,7 @@ export class Synthesizer implements SynthesizerInterface
     let toAddressPt: DataPt;
     if (depth == 0) {
       const selectorPt = this.getReservedVariableFromBuffer('FUNCTION_SELECTOR')
-      const inPts: DataPt[] = Array.from({ length: 9 }, (_, i) =>
+      const inPts: DataPt[] = Array.from({ length: FUNCTION_INPUT_LENGTH }, (_, i) =>
         this.getReservedVariableFromBuffer(`TRANSACTION_INPUT${i}` as ReservedVariable)
       )
       callDataMemoryPts = [
