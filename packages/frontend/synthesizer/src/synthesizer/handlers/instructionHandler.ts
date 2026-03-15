@@ -17,7 +17,7 @@ import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
 import { DataPtFactory, MemoryPt, StackPt } from '../dataStructure/index.ts';
 import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from '../../interface/qapCompiler/configuredTypes.ts';
 import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../interface/qapCompiler/importedConstants.ts';
-import { FUNCTION_INPUT_LENGTH } from '../../../submodules/TokamakL2JS/src/index.ts';
+import { FUNCTION_INPUT_LENGTH } from '../../interface/tokamakL2js/index.ts';
 import { ContextManager } from './stateManager.ts';
 
 export interface HandlerOpts {

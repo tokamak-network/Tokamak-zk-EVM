@@ -5,7 +5,7 @@ import type {
   ChannelParticipantConfig,
   ChannelStateConfig,
   ChannelStorageConfig,
-} from '../../submodules/TokamakL2JS/src/index.ts';
+} from '../../src/interface/tokamakL2js/index.ts';
 import {
   deriveParticipantKeys,
   getExampleRpcUrl,
@@ -13,7 +13,7 @@ import {
   type DerivedParticipantKeys,
   type ExampleNetwork,
 } from '../privateStateMint/utils.ts';
-import { fromEdwardsToAddress } from '../../submodules/TokamakL2JS/src/index.ts';
+import { fromEdwardsToAddress } from '../../src/interface/tokamakL2js/index.ts';
 
 export type PrivateStateNote = {
   owner: `0x${string}`;
