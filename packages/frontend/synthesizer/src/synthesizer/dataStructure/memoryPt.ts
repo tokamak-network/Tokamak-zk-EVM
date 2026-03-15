@@ -86,21 +86,31 @@ export class MemoryPt {
   }
 
   writeBatch(memoryPts: MemoryPts): Uint8Array {
-    let minOffset: number = 0
-    let maxSize: number = 0
+    let minOffset: number | undefined
+    let maxEndOffsetExclusive: number | undefined
     for (const entry of memoryPts) {
       // the lower index, the older data
-      entry.memByteOffset < minOffset ? minOffset = entry.memByteOffset : {}
-      const thisEndPoint = entry.memByteOffset + entry.containerByteSize - 1
-      const maxEndPoint = minOffset + maxSize - 1
-      thisEndPoint > maxEndPoint ? maxSize = thisEndPoint - minOffset + 1 : {}
       this.write(
         entry.memByteOffset,
         entry.containerByteSize,
         entry.dataPt,
       )
+      if (entry.containerByteSize === 0) {
+        continue
+      }
+
+      const entryStartOffset = entry.memByteOffset
+      const entryEndOffsetExclusive = entry.memByteOffset + entry.containerByteSize
+      minOffset = minOffset === undefined ? entryStartOffset : Math.min(minOffset, entryStartOffset)
+      maxEndOffsetExclusive =
+        maxEndOffsetExclusive === undefined
+          ? entryEndOffsetExclusive
+          : Math.max(maxEndOffsetExclusive, entryEndOffsetExclusive)
     }
-    return this.viewMemory(minOffset, maxSize)
+    if (minOffset === undefined || maxEndOffsetExclusive === undefined) {
+      return new Uint8Array(0)
+    }
+    return this.viewMemory(minOffset, maxEndOffsetExclusive - minOffset)
   }
 
   /**
