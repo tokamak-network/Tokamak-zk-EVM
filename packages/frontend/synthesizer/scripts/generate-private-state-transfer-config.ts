@@ -402,13 +402,11 @@ const main = async () => {
   for (const note of inputNotes) {
     const commitment = computeReplayPrivateStateNoteCommitment(
       BigInt(manifest.chainId),
-      manifest.contracts.noteRegistry,
       manifest.canonicalAsset,
       note,
     );
     const nullifier = computeReplayPrivateStateNullifier(
       BigInt(manifest.chainId),
-      manifest.contracts.nullifierRegistry,
       manifest.canonicalAsset,
       note,
     );
@@ -422,7 +420,6 @@ const main = async () => {
   for (const note of outputNotes) {
     const commitment = computeReplayPrivateStateNoteCommitment(
       BigInt(manifest.chainId),
-      manifest.contracts.noteRegistry,
       manifest.canonicalAsset,
       note,
     );

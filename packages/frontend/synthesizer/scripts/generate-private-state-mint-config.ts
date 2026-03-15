@@ -421,7 +421,6 @@ const main = async () => {
   };
   const noteCommitment = computeReplayPrivateStateNoteCommitment(
     BigInt(manifest.chainId),
-    manifest.contracts.noteRegistry,
     manifest.canonicalAsset,
     replayOutputNote,
   );
