@@ -10,6 +10,26 @@
         "cwd": "${workspaceFolder}"
       },
       "problemMatcher": []
+    },
+    {
+      "label": "private-state-transfer:prep",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "-s", "test:private-state-transfer:prep"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "private-state-redeem:prep",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "-s", "test:private-state-redeem:prep"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
     }
   ]
 }

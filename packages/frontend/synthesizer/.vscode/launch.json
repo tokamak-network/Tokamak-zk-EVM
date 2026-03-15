@@ -29,6 +29,34 @@
     {
       "type": "node",
       "request": "launch",
+      "name": "Private-state transfer on anvil",
+      "preLaunchTask": "private-state-transfer:prep",
+      "runtimeExecutable": "tsx",
+      "program": "${workspaceFolder}/examples/privateStateTransfer/main.ts",
+      "args": [
+        "${workspaceFolder}/tests/configs/private-state-transfer/config-anvil-private-state-transfer-p4-s0.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state redeem on anvil",
+      "preLaunchTask": "private-state-redeem:prep",
+      "runtimeExecutable": "tsx",
+      "program": "${workspaceFolder}/examples/privateStateRedeem/main.ts",
+      "args": [
+        "${workspaceFolder}/tests/configs/private-state-redeem/config-anvil-private-state-redeem-p4-s0.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
       "name": "tokamak-ch-tx (debug, file inputs)",
       "runtimeExecutable": "tsx",
       "program": "${workspaceFolder}/src/interface/cli/index.ts",
