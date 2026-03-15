@@ -8,6 +8,7 @@ import { spawn } from 'child_process';
 import { ethers } from 'ethers';
 import { fileURLToPath } from 'url';
 import { fromEdwardsToAddress } from '../src/interface/tokamakL2js/index.ts';
+import { BLS12831ARITHMODULUS } from '../src/synthesizer/params/index.ts';
 import {
   buildPrivateStateMintCalldata,
   deriveParticipantKeys,
@@ -81,8 +82,6 @@ const DEFAULT_PARTICIPANT_COUNT = 4;
 const DEFAULT_NOTE_VALUE = 1n * 10n ** 18n;
 const DEFAULT_NOTE_OWNER_INDEX = -1;
 const DEFAULT_L2_TX_NONCE = 0;
-const BLS12831ARITHMODULUS =
-  52435875175126190479447740508185965837690552500527637822603658699938581184512n;
 
 const applyEnvFileIfPresent = (targetPath: string) => {
   try {
