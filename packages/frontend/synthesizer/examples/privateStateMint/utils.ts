@@ -57,7 +57,7 @@ export type PrivateStateMintConfig = ChannelStateConfig & {
   calldata: `0x${string}`;
   senderIndex: number;
   noteOwnerIndex: number;
-  outputCount: 1 | 2 | 3 | 4;
+  outputCount: 1 | 2 | 3 | 4 | 5 | 6;
   noteValues: [`0x${string}`, ...`0x${string}`[]];
   noteSalts: [`0x${string}`, ...`0x${string}`[]];
   function: ChannelFunctionConfig;
@@ -85,12 +85,20 @@ const MINT_NOTES3_ABI = [
 const MINT_NOTES4_ABI = [
   'function mintNotes4((address owner,uint256 value,bytes32 salt)[4] outputs) returns (bytes32[4] commitments)',
 ];
+const MINT_NOTES5_ABI = [
+  'function mintNotes5((address owner,uint256 value,bytes32 salt)[5] outputs) returns (bytes32[5] commitments)',
+];
+const MINT_NOTES6_ABI = [
+  'function mintNotes6((address owner,uint256 value,bytes32 salt)[6] outputs) returns (bytes32[6] commitments)',
+];
 
 export const mintInterfaces = {
   1: new ethers.Interface(MINT_NOTES1_ABI),
   2: new ethers.Interface(MINT_NOTES2_ABI),
   3: new ethers.Interface(MINT_NOTES3_ABI),
   4: new ethers.Interface(MINT_NOTES4_ABI),
+  5: new ethers.Interface(MINT_NOTES5_ABI),
+  6: new ethers.Interface(MINT_NOTES6_ABI),
 } as const;
 
 const parseHexString = (value: unknown, label: string): `0x${string}` => {
@@ -115,10 +123,10 @@ const parseNumberValue = (value: unknown, label: string): number => {
   return parsed;
 };
 
-const parseOutputCount = (value: unknown, label: string): 1 | 2 | 3 | 4 => {
+const parseOutputCount = (value: unknown, label: string): 1 | 2 | 3 | 4 | 5 | 6 => {
   const parsed = parseNumberValue(value, label);
-  if (parsed !== 1 && parsed !== 2 && parsed !== 3 && parsed !== 4) {
-    throw new Error(`${label} must be 1, 2, 3, or 4`);
+  if (parsed !== 1 && parsed !== 2 && parsed !== 3 && parsed !== 4 && parsed !== 5 && parsed !== 6) {
+    throw new Error(`${label} must be 1, 2, 3, 4, 5, or 6`);
   }
   return parsed;
 };
@@ -271,7 +279,13 @@ export const buildPrivateStateMintCalldata = (
 
   const noteOwnerAddress = fromEdwardsToAddress(keyMaterial.publicKeys[config.noteOwnerIndex]).toString();
   const mintInterface = mintInterfaces[config.outputCount];
-  const functionName = `mintNotes${config.outputCount}` as 'mintNotes1' | 'mintNotes2' | 'mintNotes3' | 'mintNotes4';
+  const functionName = `mintNotes${config.outputCount}` as
+    | 'mintNotes1'
+    | 'mintNotes2'
+    | 'mintNotes3'
+    | 'mintNotes4'
+    | 'mintNotes5'
+    | 'mintNotes6';
   const outputs = config.noteValues.map((value, index) => ({
     owner: noteOwnerAddress,
     value: BigInt(value),

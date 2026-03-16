@@ -14,7 +14,7 @@ const privateStateAppDir = path.resolve(repoRoot, 'apps', 'private-state');
 const outputDir = path.resolve(packageRoot, 'tests', 'configs', 'private-state-redeem');
 const participantCount = 4;
 const senderIndexes = [0, 1, 2, 3];
-const defaultInputCount = 4;
+const defaultInputCount = 1;
 
 const parseInteger = (value: unknown, label: string): number => {
   const parsed = Number(value);
@@ -43,8 +43,8 @@ const parseArgs = () => {
       case '--inputs':
       case '-n': {
         const inputCount = parseInteger(consumeValue(current), 'inputs');
-        if (inputCount !== 3 && inputCount !== 4 && inputCount !== 6 && inputCount !== 8) {
-          throw new Error('inputs must be 3, 4, 6, or 8');
+        if (inputCount !== 1 && inputCount !== 2 && inputCount !== 3) {
+          throw new Error('inputs must be 1, 2, or 3');
         }
         args.inputs = inputCount;
         break;

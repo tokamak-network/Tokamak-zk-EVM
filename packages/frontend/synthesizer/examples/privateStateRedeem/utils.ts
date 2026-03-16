@@ -27,7 +27,7 @@ export type PrivateStateRedeemConfig = ChannelStateConfig & {
   calldata: `0x${string}`;
   senderIndex: number;
   receiverIndex: number;
-  inputCount: 3 | 4 | 6 | 8;
+  inputCount: 1 | 2 | 3;
   inputNotes: [PrivateStateNote, ...PrivateStateNote[]];
   function: ChannelFunctionConfig;
 };
@@ -40,24 +40,20 @@ export {
   type ExampleNetwork,
 };
 
+const REDEEM_NOTES1_ABI = [
+  'function redeemNotes1((address owner,uint256 value,bytes32 salt)[1] inputNotes,address receiver) returns (bytes32[1] nullifiers)',
+];
+const REDEEM_NOTES2_ABI = [
+  'function redeemNotes2((address owner,uint256 value,bytes32 salt)[2] inputNotes,address receiver) returns (bytes32[2] nullifiers)',
+];
 const REDEEM_NOTES3_ABI = [
   'function redeemNotes3((address owner,uint256 value,bytes32 salt)[3] inputNotes,address receiver) returns (bytes32[3] nullifiers)',
 ];
-const REDEEM_NOTES4_ABI = [
-  'function redeemNotes4((address owner,uint256 value,bytes32 salt)[4] inputNotes,address receiver) returns (bytes32[4] nullifiers)',
-];
-const REDEEM_NOTES6_ABI = [
-  'function redeemNotes6((address owner,uint256 value,bytes32 salt)[6] inputNotes,address receiver) returns (bytes32[6] nullifiers)',
-];
-const REDEEM_NOTES8_ABI = [
-  'function redeemNotes8((address owner,uint256 value,bytes32 salt)[8] inputNotes,address receiver) returns (bytes32[8] nullifiers)',
-];
 
 export const redeemInterfaces = {
+  1: new ethers.Interface(REDEEM_NOTES1_ABI),
+  2: new ethers.Interface(REDEEM_NOTES2_ABI),
   3: new ethers.Interface(REDEEM_NOTES3_ABI),
-  4: new ethers.Interface(REDEEM_NOTES4_ABI),
-  6: new ethers.Interface(REDEEM_NOTES6_ABI),
-  8: new ethers.Interface(REDEEM_NOTES8_ABI),
 } as const;
 
 const parseHexString = (value: unknown, label: string): `0x${string}` => {
@@ -82,10 +78,10 @@ const parseNumberValue = (value: unknown, label: string): number => {
   return parsed;
 };
 
-const parseInputCount = (value: unknown, label: string): 3 | 4 | 6 | 8 => {
+const parseInputCount = (value: unknown, label: string): 1 | 2 | 3 => {
   const parsed = parseNumberValue(value, label);
-  if (parsed !== 3 && parsed !== 4 && parsed !== 6 && parsed !== 8) {
-    throw new Error(`${label} must be 3, 4, 6, or 8`);
+  if (parsed !== 1 && parsed !== 2 && parsed !== 3) {
+    throw new Error(`${label} must be 1, 2, or 3`);
   }
   return parsed;
 };
@@ -210,7 +206,7 @@ export const buildPrivateStateRedeemCalldata = (
     throw new Error(`receiverIndex must point to an existing participant; got ${config.receiverIndex}`);
   }
   const receiverAddress = fromEdwardsToAddress(receiverPoint).toString();
-  const functionName = `redeemNotes${config.inputCount}` as 'redeemNotes3' | 'redeemNotes4' | 'redeemNotes6' | 'redeemNotes8';
+  const functionName = `redeemNotes${config.inputCount}` as 'redeemNotes1' | 'redeemNotes2' | 'redeemNotes3';
   return redeemInterfaces[config.inputCount].encodeFunctionData(
     functionName,
     [config.inputNotes, receiverAddress],

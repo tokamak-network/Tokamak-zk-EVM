@@ -96,7 +96,7 @@ type ParsedArgs = {
   participants: number;
   sender: number;
   receiver?: number;
-  inputs: 3 | 4 | 6 | 8;
+  inputs: 1 | 2 | 3;
   rpcUrl?: string;
   mnemonic?: string;
   amount?: string;
@@ -167,8 +167,8 @@ const parseArgs = (): ParsedArgs => {
       case '--inputs':
       case '-n': {
         const inputCount = parseInteger(consumeValue(current), 'inputs');
-        if (inputCount !== 3 && inputCount !== 4 && inputCount !== 6 && inputCount !== 8) {
-          throw new Error('inputs must be 3, 4, 6, or 8');
+        if (inputCount !== 1 && inputCount !== 2 && inputCount !== 3) {
+          throw new Error('inputs must be 1, 2, or 3');
         }
         args.inputs = inputCount;
         break;
@@ -356,7 +356,7 @@ const main = async () => {
     throw new Error('Could not resolve redeem participants');
   }
 
-  const functionName = `redeemNotes${inputCount}` as 'redeemNotes3' | 'redeemNotes4' | 'redeemNotes6' | 'redeemNotes8';
+  const functionName = `redeemNotes${inputCount}` as 'redeemNotes1' | 'redeemNotes2' | 'redeemNotes3';
   const redeemInterface = redeemInterfaces[inputCount];
   const selector = redeemInterface.getFunction(functionName)?.selector as `0x${string}` | undefined;
   if (!selector) {
