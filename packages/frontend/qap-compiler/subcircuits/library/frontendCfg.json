@@ -7,6 +7,6 @@
   "nMtDepth": 10,
   "nAccumulation": 32,
   "nPrevBlockHashes": 4,
-  "nJubjubExpBatch": 64,
-  "nSubExpBatch": 16
+  "nJubjubExpBatch": 128,
+  "nSubExpBatch": 32
 }
