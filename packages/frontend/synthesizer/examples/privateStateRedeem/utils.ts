@@ -27,7 +27,8 @@ export type PrivateStateRedeemConfig = ChannelStateConfig & {
   calldata: `0x${string}`;
   senderIndex: number;
   receiverIndex: number;
-  inputNotes: [PrivateStateNote, PrivateStateNote, PrivateStateNote, PrivateStateNote];
+  inputCount: 4 | 6 | 8;
+  inputNotes: [PrivateStateNote, ...PrivateStateNote[]];
   function: ChannelFunctionConfig;
 };
 
@@ -42,8 +43,18 @@ export {
 const REDEEM_NOTES4_ABI = [
   'function redeemNotes4((address owner,uint256 value,bytes32 salt)[4] inputNotes,address receiver) returns (bytes32[4] nullifiers)',
 ];
+const REDEEM_NOTES6_ABI = [
+  'function redeemNotes6((address owner,uint256 value,bytes32 salt)[6] inputNotes,address receiver) returns (bytes32[6] nullifiers)',
+];
+const REDEEM_NOTES8_ABI = [
+  'function redeemNotes8((address owner,uint256 value,bytes32 salt)[8] inputNotes,address receiver) returns (bytes32[8] nullifiers)',
+];
 
-export const redeemNotes4Interface = new ethers.Interface(REDEEM_NOTES4_ABI);
+export const redeemInterfaces = {
+  4: new ethers.Interface(REDEEM_NOTES4_ABI),
+  6: new ethers.Interface(REDEEM_NOTES6_ABI),
+  8: new ethers.Interface(REDEEM_NOTES8_ABI),
+} as const;
 
 const parseHexString = (value: unknown, label: string): `0x${string}` => {
   if (typeof value !== 'string' || !value.startsWith('0x')) {
@@ -63,6 +74,14 @@ const parseNumberValue = (value: unknown, label: string): number => {
   const parsed = Number(value);
   if (!Number.isInteger(parsed)) {
     throw new Error(`${label} must be an integer`);
+  }
+  return parsed;
+};
+
+const parseInputCount = (value: unknown, label: string): 4 | 6 | 8 => {
+  const parsed = parseNumberValue(value, label);
+  if (parsed !== 4 && parsed !== 6 && parsed !== 8) {
+    throw new Error(`${label} must be 4, 6, or 8`);
   }
   return parsed;
 };
@@ -158,6 +177,7 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateRedeem
   if (participants.length < 2) {
     throw new Error('participants must include at least two entries');
   }
+  const inputCount = parseInputCount(configRaw.inputCount, 'inputCount');
 
   return {
     network: parseNetwork(configRaw.network, 'network'),
@@ -171,7 +191,8 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateRedeem
     calldata: parseHexString(configRaw.calldata, 'calldata'),
     senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
     receiverIndex: parseNumberValue(configRaw.receiverIndex, 'receiverIndex'),
-    inputNotes: parseFixedNotes(configRaw.inputNotes, 'inputNotes', 4) as PrivateStateRedeemConfig['inputNotes'],
+    inputCount,
+    inputNotes: parseFixedNotes(configRaw.inputNotes, 'inputNotes', inputCount) as PrivateStateRedeemConfig['inputNotes'],
     function: assertFunctionConfig(configRaw.function, 'function'),
   };
 };
@@ -185,8 +206,9 @@ export const buildPrivateStateRedeemCalldata = (
     throw new Error(`receiverIndex must point to an existing participant; got ${config.receiverIndex}`);
   }
   const receiverAddress = fromEdwardsToAddress(receiverPoint).toString();
-  return redeemNotes4Interface.encodeFunctionData(
-    'redeemNotes4',
+  const functionName = `redeemNotes${config.inputCount}` as 'redeemNotes4' | 'redeemNotes6' | 'redeemNotes8';
+  return redeemInterfaces[config.inputCount].encodeFunctionData(
+    functionName,
     [config.inputNotes, receiverAddress],
   ) as `0x${string}`;
 };

@@ -12,6 +12,36 @@
       "problemMatcher": []
     },
     {
+      "label": "private-state-mint:1:prep",
+      "type": "shell",
+      "command": "tsx",
+      "args": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json", "${workspaceFolder}/tests/scripts/run-private-state-mint-config-matrix.ts", "--outputs", "1"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "private-state-mint:2:prep",
+      "type": "shell",
+      "command": "tsx",
+      "args": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json", "${workspaceFolder}/tests/scripts/run-private-state-mint-config-matrix.ts", "--outputs", "2"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "private-state-mint:3:prep",
+      "type": "shell",
+      "command": "tsx",
+      "args": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json", "${workspaceFolder}/tests/scripts/run-private-state-mint-config-matrix.ts", "--outputs", "3"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "private-state-transfer:prep",
       "type": "shell",
       "command": "npm",
@@ -96,6 +126,36 @@
       "type": "shell",
       "command": "npm",
       "args": ["run", "-s", "test:private-state-redeem:prep"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "private-state-redeem:4:prep",
+      "type": "shell",
+      "command": "tsx",
+      "args": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json", "${workspaceFolder}/tests/scripts/run-private-state-redeem-config-matrix.ts", "--inputs", "4"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "private-state-redeem:6:prep",
+      "type": "shell",
+      "command": "tsx",
+      "args": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json", "${workspaceFolder}/tests/scripts/run-private-state-redeem-config-matrix.ts", "--inputs", "6"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "private-state-redeem:8:prep",
+      "type": "shell",
+      "command": "tsx",
+      "args": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json", "${workspaceFolder}/tests/scripts/run-private-state-redeem-config-matrix.ts", "--inputs", "8"],
       "options": {
         "cwd": "${workspaceFolder}"
       },

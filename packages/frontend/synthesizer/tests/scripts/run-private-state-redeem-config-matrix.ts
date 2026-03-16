@@ -14,6 +14,48 @@ const privateStateAppDir = path.resolve(repoRoot, 'apps', 'private-state');
 const outputDir = path.resolve(packageRoot, 'tests', 'configs', 'private-state-redeem');
 const participantCount = 4;
 const senderIndexes = [0, 1, 2, 3];
+const defaultInputCount = 4;
+
+const parseInteger = (value: unknown, label: string): number => {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`${label} must be an integer`);
+  }
+  return parsed;
+};
+
+const parseArgs = () => {
+  const args = { inputs: defaultInputCount };
+  const argv = process.argv.slice(2);
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const current = argv[index];
+    const next = argv[index + 1];
+    const consumeValue = (label: string) => {
+      if (!next || next.startsWith('-')) {
+        throw new Error(`Missing value for ${label}`);
+      }
+      index += 1;
+      return next;
+    };
+
+    switch (current) {
+      case '--inputs':
+      case '-n': {
+        const inputCount = parseInteger(consumeValue(current), 'inputs');
+        if (inputCount !== 4 && inputCount !== 6 && inputCount !== 8) {
+          throw new Error('inputs must be 4, 6, or 8');
+        }
+        args.inputs = inputCount;
+        break;
+      }
+      default:
+        throw new Error(`Unknown argument: ${current}`);
+    }
+  }
+
+  return args;
+};
 
 const runCommand = (command: string, args: string[]) =>
   new Promise<void>((resolve, reject) => {
@@ -28,10 +70,11 @@ const runCommand = (command: string, args: string[]) =>
     });
   });
 
-const buildOutputPath = (senderIndex: number) =>
-  path.join(outputDir, `config-anvil-private-state-redeem-p${participantCount}-s${senderIndex}.json`);
+const buildOutputPath = (inputCount: number, senderIndex: number) =>
+  path.join(outputDir, `config-anvil-private-state-redeem-n${inputCount}-p${participantCount}-s${senderIndex}.json`);
 
 const main = async () => {
+  const { inputs } = parseArgs();
   await fs.rm(outputDir, { recursive: true, force: true });
   await fs.mkdir(outputDir, { recursive: true });
 
@@ -40,8 +83,8 @@ const main = async () => {
   await runCommand('make', ['-C', privateStateAppDir, 'anvil-bootstrap']);
 
   for (const senderIndex of senderIndexes) {
-    const outputPath = buildOutputPath(senderIndex);
-    console.log(`[private-state-redeem-config] sender=${senderIndex} output=${outputPath}`);
+    const outputPath = buildOutputPath(inputs, senderIndex);
+    console.log(`[private-state-redeem-config] inputs=${inputs} sender=${senderIndex} output=${outputPath}`);
     await runCommand('tsx', [
       '--tsconfig',
       path.resolve(packageRoot, 'tsconfig.dev.json'),
@@ -52,6 +95,8 @@ const main = async () => {
       String(participantCount),
       '--sender',
       String(senderIndex),
+      '--inputs',
+      String(inputs),
     ]);
   }
 };

@@ -12,7 +12,7 @@ import { BLS12831ARITHMODULUS } from '../src/synthesizer/params/index.ts';
 import {
   buildPrivateStateMintCalldata,
   deriveParticipantKeys,
-  mintNotes1Interface,
+  mintInterfaces,
 } from '../examples/privateStateMint/utils.ts';
 import {
   computeReplayPrivateStateMappingKey,
@@ -41,8 +41,9 @@ type PrivateStateMintConfig = {
   calldata: `0x${string}`;
   senderIndex: number;
   noteOwnerIndex: number;
-  noteValue: `0x${string}`;
-  noteSalt: `0x${string}`;
+  outputCount: 1 | 2 | 3;
+  noteValues: [`0x${string}`, ...`0x${string}`[]];
+  noteSalts: [`0x${string}`, ...`0x${string}`[]];
   function: {
     selector: `0x${string}`;
     entryContractAddress: `0x${string}`;
@@ -114,6 +115,7 @@ type ParsedArgs = {
   participants: number;
   sender: number;
   noteOwner: number;
+  outputs: 1 | 2 | 3;
   rpcUrl?: string;
   mnemonic?: string;
   amount?: string;
@@ -124,6 +126,7 @@ const parseArgs = (): ParsedArgs => {
     participants: DEFAULT_PARTICIPANT_COUNT,
     sender: 0,
     noteOwner: DEFAULT_NOTE_OWNER_INDEX,
+    outputs: 1,
   };
   const argv = process.argv.slice(2);
 
@@ -158,6 +161,15 @@ const parseArgs = (): ParsedArgs => {
       case '--note-owner':
         args.noteOwner = parseInteger(consumeValue(current), 'note-owner');
         break;
+      case '--outputs':
+      case '-m': {
+        const outputCount = parseInteger(consumeValue(current), 'outputs');
+        if (outputCount !== 1 && outputCount !== 2 && outputCount !== 3) {
+          throw new Error('outputs must be 1, 2, or 3');
+        }
+        args.outputs = outputCount;
+        break;
+      }
       case '--rpc-url':
         args.rpcUrl = consumeValue(current);
         break;
@@ -328,7 +340,9 @@ const main = async () => {
   const senderIndex = args.sender;
   const rawNoteOwnerIndex = args.noteOwner;
   const noteOwnerIndex = rawNoteOwnerIndex === DEFAULT_NOTE_OWNER_INDEX ? senderIndex : rawNoteOwnerIndex;
-  const noteValue = parseAmount(args.amount);
+  const outputCount = args.outputs;
+  const outputNoteValue = parseAmount(args.amount);
+  const totalNoteValue = outputNoteValue * BigInt(outputCount);
   const rpcUrl = typeof args.rpcUrl === 'string' && args.rpcUrl.trim().length > 0
     ? args.rpcUrl.trim()
     : process.env.ANVIL_RPC_URL?.trim() || DEFAULT_ANVIL_RPC_URL;
@@ -363,20 +377,28 @@ const main = async () => {
     throw new Error(`Could not resolve note owner at index ${noteOwnerIndex}`);
   }
 
-  const selector = mintNotes1Interface.getFunction('mintNotes1')?.selector as `0x${string}` | undefined;
+  const functionName = `mintNotes${outputCount}` as 'mintNotes1' | 'mintNotes2' | 'mintNotes3';
+  const mintInterface = mintInterfaces[outputCount];
+  const selector = mintInterface.getFunction(functionName)?.selector as `0x${string}` | undefined;
   if (!selector) {
-    throw new Error('Failed to resolve mintNotes1 selector');
+    throw new Error(`Failed to resolve ${functionName} selector`);
   }
 
-  const noteSalt =
+  const noteValues = Array.from({ length: outputCount }, () =>
+    ethers.toBeHex(outputNoteValue) as `0x${string}`,
+  ) as [`0x${string}`, ...`0x${string}`[]];
+  const noteSalts = Array.from({ length: outputCount }, (_, index) =>
     ethers.toBeHex(
       BigInt(
         ethers.keccak256(
-          ethers.toUtf8Bytes(`private-state-mint-sender-${senderIndex}-owner-${noteOwnerIndex}`),
+          ethers.toUtf8Bytes(
+            `private-state-mint-sender-${senderIndex}-owner-${noteOwnerIndex}-output-${index}`,
+          ),
         ),
       ) % BLS12831ARITHMODULUS,
       32,
-    ) as `0x${string}`;
+    ) as `0x${string}`,
+  ) as [`0x${string}`, ...`0x${string}`[]];
   const calldata = buildPrivateStateMintCalldata(
     {
       network: 'anvil',
@@ -388,8 +410,9 @@ const main = async () => {
       calldata: '0x',
       senderIndex,
       noteOwnerIndex,
-      noteValue: ethers.toBeHex(noteValue) as `0x${string}`,
-      noteSalt,
+      outputCount,
+      noteValues,
+      noteSalts,
       function: {
         selector,
         entryContractAddress: manifest.contracts.controller,
@@ -397,13 +420,17 @@ const main = async () => {
     },
     keyMaterial,
   );
-  const decodedMintCall = mintNotes1Interface.decodeFunctionData('mintNotes1', calldata);
-  const decodedOutput = decodedMintCall[0][0];
+  const decodedMintCall = mintInterface.decodeFunctionData(functionName, calldata);
+  const decodedOutputs = decodedMintCall[0] as Array<{
+    owner: string;
+    value: bigint;
+    salt: `0x${string}`;
+  }>;
 
   const liquidBalanceStorageKey = ethers.keccak256(
     ethers.AbiCoder.defaultAbiCoder().encode(['address', 'uint256'], [senderAddress, 0n]),
   ) as `0x${string}`;
-  const liquidBalanceStorageValue = ethers.zeroPadValue(ethers.toBeHex(noteValue), 32);
+  const liquidBalanceStorageValue = ethers.zeroPadValue(ethers.toBeHex(totalNoteValue), 32);
   await provider.send('anvil_setStorageAt', [
     manifest.contracts.l2AccountingVault,
     liquidBalanceStorageKey,
@@ -412,13 +439,15 @@ const main = async () => {
   await provider.send('evm_mine', []);
 
   const blockNumber = await provider.getBlockNumber();
-  const replayOutputNote: PrivateStateNoteLike = {
-    owner: decodedOutput.owner as `0x${string}`,
-    value: ethers.toBeHex(BigInt(decodedOutput.value)) as `0x${string}`,
-    salt: decodedOutput.salt as `0x${string}`,
-  };
-  const noteCommitment = computeReplayPrivateStateNoteCommitment(replayOutputNote);
-  const noteRegistryStorageKey = computeReplayPrivateStateMappingKey(noteCommitment, 0);
+  const noteRegistryStorageKeys = decodedOutputs.map((decodedOutput) => {
+    const replayOutputNote: PrivateStateNoteLike = {
+      owner: decodedOutput.owner as `0x${string}`,
+      value: ethers.toBeHex(BigInt(decodedOutput.value)) as `0x${string}`,
+      salt: decodedOutput.salt as `0x${string}`,
+    };
+    const noteCommitment = computeReplayPrivateStateNoteCommitment(replayOutputNote);
+    return computeReplayPrivateStateMappingKey(noteCommitment, 0);
+  });
 
   const config: PrivateStateMintConfig = {
     network: 'anvil',
@@ -427,7 +456,7 @@ const main = async () => {
       {
         address: manifest.contracts.controller,
         userStorageSlots: [],
-        preAllocatedKeys: ['0x00', noteRegistryStorageKey],
+        preAllocatedKeys: mergeUniqueHexValues(['0x00'], noteRegistryStorageKeys),
       },
       {
         address: manifest.contracts.l2AccountingVault,
@@ -444,8 +473,9 @@ const main = async () => {
     calldata,
     senderIndex,
     noteOwnerIndex,
-    noteValue: ethers.toBeHex(noteValue) as `0x${string}`,
-    noteSalt,
+    outputCount,
+    noteValues,
+    noteSalts,
     function: {
       selector,
       entryContractAddress: manifest.contracts.controller,

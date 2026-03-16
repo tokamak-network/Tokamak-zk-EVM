@@ -57,8 +57,9 @@ export type PrivateStateMintConfig = ChannelStateConfig & {
   calldata: `0x${string}`;
   senderIndex: number;
   noteOwnerIndex: number;
-  noteValue: `0x${string}`;
-  noteSalt: `0x${string}`;
+  outputCount: 1 | 2 | 3;
+  noteValues: [`0x${string}`, ...`0x${string}`[]];
+  noteSalts: [`0x${string}`, ...`0x${string}`[]];
   function: ChannelFunctionConfig;
 };
 
@@ -73,7 +74,19 @@ const MINT_NOTES1_ABI = [
   'function mintNotes1((address owner,uint256 value,bytes32 salt)[1] outputs) returns (bytes32[1] commitments)',
 ];
 
-export const mintNotes1Interface = new ethers.Interface(MINT_NOTES1_ABI);
+const MINT_NOTES2_ABI = [
+  'function mintNotes2((address owner,uint256 value,bytes32 salt)[2] outputs) returns (bytes32[2] commitments)',
+];
+
+const MINT_NOTES3_ABI = [
+  'function mintNotes3((address owner,uint256 value,bytes32 salt)[3] outputs) returns (bytes32[3] commitments)',
+];
+
+export const mintInterfaces = {
+  1: new ethers.Interface(MINT_NOTES1_ABI),
+  2: new ethers.Interface(MINT_NOTES2_ABI),
+  3: new ethers.Interface(MINT_NOTES3_ABI),
+} as const;
 
 const parseHexString = (value: unknown, label: string): `0x${string}` => {
   if (typeof value !== 'string' || !value.startsWith('0x')) {
@@ -93,6 +106,14 @@ const parseNumberValue = (value: unknown, label: string): number => {
   const parsed = Number(value);
   if (!Number.isInteger(parsed)) {
     throw new Error(`${label} must be an integer`);
+  }
+  return parsed;
+};
+
+const parseOutputCount = (value: unknown, label: string): 1 | 2 | 3 => {
+  const parsed = parseNumberValue(value, label);
+  if (parsed !== 1 && parsed !== 2 && parsed !== 3) {
+    throw new Error(`${label} must be 1, 2, or 3`);
   }
   return parsed;
 };
@@ -170,6 +191,20 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateMintCo
     throw new Error('participants must include at least two entries');
   }
 
+  const outputCount = parseOutputCount(configRaw.outputCount, 'outputCount');
+  const noteValues = assertStringArray(configRaw.noteValues, 'noteValues').map(
+    (entry, index) => parseHexString(entry, `noteValues[${index}]`),
+  );
+  const noteSalts = assertStringArray(configRaw.noteSalts, 'noteSalts').map(
+    (entry, index) => parseHexString(entry, `noteSalts[${index}]`),
+  );
+  if (noteValues.length !== outputCount) {
+    throw new Error(`noteValues must have length ${outputCount}`);
+  }
+  if (noteSalts.length !== outputCount) {
+    throw new Error(`noteSalts must have length ${outputCount}`);
+  }
+
   return {
     network: parseNetwork(configRaw.network, 'network'),
     participants,
@@ -182,8 +217,9 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateMintCo
     calldata: parseHexString(configRaw.calldata, 'calldata'),
     senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
     noteOwnerIndex: parseNumberValue(configRaw.noteOwnerIndex, 'noteOwnerIndex'),
-    noteValue: parseHexString(configRaw.noteValue, 'noteValue'),
-    noteSalt: parseHexString(configRaw.noteSalt, 'noteSalt'),
+    outputCount,
+    noteValues: noteValues as [`0x${string}`, ...`0x${string}`[]],
+    noteSalts: noteSalts as [`0x${string}`, ...`0x${string}`[]],
     function: assertFunctionConfig(configRaw.function, 'function'),
   };
 };
@@ -229,12 +265,14 @@ export const buildPrivateStateMintCalldata = (
   assertParticipantIndex(config, config.noteOwnerIndex, 'noteOwnerIndex', keyMaterial);
 
   const noteOwnerAddress = fromEdwardsToAddress(keyMaterial.publicKeys[config.noteOwnerIndex]).toString();
-
-  const encoded = mintNotes1Interface.encodeFunctionData('mintNotes1', [[{
+  const mintInterface = mintInterfaces[config.outputCount];
+  const functionName = `mintNotes${config.outputCount}` as 'mintNotes1' | 'mintNotes2' | 'mintNotes3';
+  const outputs = config.noteValues.map((value, index) => ({
     owner: noteOwnerAddress,
-    value: BigInt(config.noteValue),
-    salt: config.noteSalt,
-  }]]);
+    value: BigInt(value),
+    salt: config.noteSalts[index],
+  }));
+  const encoded = mintInterface.encodeFunctionData(functionName, [outputs]);
   return encoded as `0x${string}`;
 };
 

@@ -12,7 +12,7 @@ import { BLS12831ARITHMODULUS } from '../src/synthesizer/params/index.ts';
 import {
   buildPrivateStateRedeemCalldata,
   deriveParticipantKeys,
-  redeemNotes4Interface,
+  redeemInterfaces,
   type PrivateStateRedeemConfig,
 } from '../examples/privateStateRedeem/utils.ts';
 import {
@@ -96,6 +96,7 @@ type ParsedArgs = {
   participants: number;
   sender: number;
   receiver?: number;
+  inputs: 4 | 6 | 8;
   rpcUrl?: string;
   mnemonic?: string;
   amount?: string;
@@ -127,6 +128,7 @@ const parseArgs = (): ParsedArgs => {
   const args: ParsedArgs = {
     participants: DEFAULT_PARTICIPANT_COUNT,
     sender: 0,
+    inputs: 4,
   };
   const argv = process.argv.slice(2);
 
@@ -162,6 +164,15 @@ const parseArgs = (): ParsedArgs => {
       case '-r':
         args.receiver = parseInteger(consumeValue(current), 'receiver');
         break;
+      case '--inputs':
+      case '-n': {
+        const inputCount = parseInteger(consumeValue(current), 'inputs');
+        if (inputCount !== 4 && inputCount !== 6 && inputCount !== 8) {
+          throw new Error('inputs must be 4, 6, or 8');
+        }
+        args.inputs = inputCount;
+        break;
+      }
       case '--rpc-url':
         args.rpcUrl = consumeValue(current);
         break;
@@ -310,6 +321,7 @@ const main = async () => {
   const participantCount = args.participants;
   const senderIndex = args.sender;
   const receiverIndex = args.receiver ?? ((senderIndex + 1) % participantCount);
+  const inputCount = args.inputs;
   const noteValue = parseAmount(args.amount);
   const rpcUrl = typeof args.rpcUrl === 'string' && args.rpcUrl.trim().length > 0
     ? args.rpcUrl.trim()
@@ -344,13 +356,15 @@ const main = async () => {
     throw new Error('Could not resolve redeem participants');
   }
 
-  const selector = redeemNotes4Interface.getFunction('redeemNotes4')?.selector as `0x${string}` | undefined;
+  const functionName = `redeemNotes${inputCount}` as 'redeemNotes4' | 'redeemNotes6' | 'redeemNotes8';
+  const redeemInterface = redeemInterfaces[inputCount];
+  const selector = redeemInterface.getFunction(functionName)?.selector as `0x${string}` | undefined;
   if (!selector) {
-    throw new Error('Failed to resolve redeemNotes4 selector');
+    throw new Error(`Failed to resolve ${functionName} selector`);
   }
 
   const inputValueHex = ethers.toBeHex(noteValue) as `0x${string}`;
-  const inputNotes = Array.from({length: 4}, (_, index) => ({
+  const inputNotes = Array.from({length: inputCount}, (_, index) => ({
     owner: senderAddress,
     value: inputValueHex,
     salt: toSalt(`private-state-redeem-input-sender-${senderIndex}-${index}`),
@@ -366,6 +380,7 @@ const main = async () => {
     calldata: '0x',
     senderIndex,
     receiverIndex,
+    inputCount,
     inputNotes,
     function: {
       selector,
