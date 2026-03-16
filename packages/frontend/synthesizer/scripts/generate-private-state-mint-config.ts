@@ -51,7 +51,6 @@ type PrivateStateMintConfig = {
 };
 
 type DeploymentManifest = {
-  canonicalAsset: `0x${string}`;
   chainId: number;
   contracts: {
     controller: `0x${string}`;
