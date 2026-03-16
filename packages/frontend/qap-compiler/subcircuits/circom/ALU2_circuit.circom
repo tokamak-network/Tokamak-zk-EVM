@@ -5,15 +5,12 @@ template ALU2_() {
     signal input in[7];
     signal output out[2];
 
-    component alu2 = ALU2();
-    alu2.selector <== in[0];
-    
-    alu2.in1 <== [in[1], in[2]];
-    alu2.in2 <== [in[3], in[4]];
-    alu2.in3 <== [in[5], in[6]];
-    
-    out <== alu2.out;
+    component alu = ALU_based_on_div();
+    alu.selector <== in[0];
+    alu.in1 <== [in[1], in[2]];
+    alu.in2 <== [in[3], in[4]];
+    alu.in3 <== [in[5], in[6]];
+    out <== alu.out;
 }
 
 component main {public [in]} = ALU2_();
-

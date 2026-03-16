@@ -185,11 +185,18 @@ export class ArithmeticManager {
       finalInPts = [selectorPt, ...finalInPts];
     }
 
-    if (subcircuitName === 'ALU3' || subcircuitName === 'ALU5') {
-      const values = inPts.map((pt) => pt.value);
-      if (values[0] > 255n) {
+    if (name === 'SHL' || name === 'SHR' || name === 'SAR') {
+      if (inPts[0] !== undefined && inPts[0].value > 255n) {
         throw new Error(
-          `Synthesizer: Operation ${name} has a shift or size value greater than 255. Adjust ${subcircuitName} subcircuit in qap-compiler.`,
+          `Synthesizer: Operation ${name} has a shift value greater than 255. Adjust ${subcircuitName} subcircuit in qap-compiler.`,
+        );
+      }
+    }
+
+    if (name === 'BYTE' || name === 'SIGNEXTEND') {
+      if (inPts[0] !== undefined && inPts[0].value > 31n) {
+        throw new Error(
+          `Synthesizer: Operation ${name} has an index or size value greater than 31. Adjust ${subcircuitName} subcircuit in qap-compiler.`,
         );
       }
     }
