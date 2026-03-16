@@ -43,6 +43,9 @@ export class ArithmeticManager {
       case 'JubjubExpBatch':
       case 'EdDsaVerify':
       case 'VerifyMerkleProof':
+      case 'VerifyMerkleProof2x':
+      case 'VerifyMerkleProof3x':
+      case 'VerifyMerkleProof4x':
         sourceBitSize = 255
         break
       default:
@@ -61,6 +64,39 @@ export class ArithmeticManager {
           }, value),
         )
       : []
+  }
+
+  private _normalizeMerkleProofInputs(
+    name: ArithmeticOperator,
+    inPts: DataPt[],
+  ): DataPt[] {
+    const stepByName: Partial<Record<ArithmeticOperator, number>> = {
+      VerifyMerkleProof: 1,
+      VerifyMerkleProof2x: 2,
+      VerifyMerkleProof3x: 3,
+      VerifyMerkleProof4x: 4,
+    }
+    const nSteps = stepByName[name]
+    if (nSteps === undefined) {
+      return inPts
+    }
+
+    const expectedLen = nSteps + 4
+    if (inPts.length !== expectedLen) {
+      throw new Error(`Synthesizer: Operation ${name} expected ${expectedLen} inputs, but got ${inPts.length}.`)
+    }
+
+    const childIndexPt = inPts[0]
+    const childPt = inPts[1]
+    const siblingPts = inPts.slice(2, -2)
+    const parentIndexPt = inPts[inPts.length - 2]
+    const parentPt = inPts[inPts.length - 1]
+    const zeroPt = this.parent.loadArbitraryStatic(0n, 255, `Merkle proof padding for ${name}`)
+    const paddedSiblings = siblingPts.concat(
+      Array.from({ length: 4 - nSteps }, () => DataPtFactory.deepCopy(zeroPt)),
+    )
+
+    return [childIndexPt, childPt, ...paddedSiblings, parentIndexPt, parentPt]
   }
 
   /**
@@ -83,10 +119,10 @@ export class ArithmeticManager {
       );
     }
 
-    let finalInPts: DataPt[] = inPts;
+    let finalInPts: DataPt[] = this._normalizeMerkleProofInputs(name, inPts);
     if (selector !== undefined) {
       const selectorPt = this.parent.loadArbitraryStatic(selector, 32, `ALU selector for ${name} of ${subcircuitName}`);
-      finalInPts = [selectorPt, ...inPts];
+      finalInPts = [selectorPt, ...finalInPts];
     }
 
     if (subcircuitName === 'ALU3' || subcircuitName === 'ALU5') {

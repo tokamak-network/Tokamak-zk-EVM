@@ -102,9 +102,6 @@ export const SUBCIRCUIT_LIST = [
     'JubjubExpBatch',
     'EdDsaVerify',
     'VerifyMerkleProof',
-    'VerifyMerkleProof2x',
-    'VerifyMerkleProof3x',
-    'VerifyMerkleProof4x',
 ] as const
 
 export type SubcircuitNames = typeof SUBCIRCUIT_LIST[number]
@@ -160,10 +157,10 @@ export const SUBCIRCUIT_ALU_MAPPING: Record<ArithmeticOperator, [SubcircuitNames
   // PrepareEdDsaScalars: ['PrepareEdDsaScalars', undefined],
   EdDsaVerify: ['EdDsaVerify', undefined],
   JubjubExpBatch: ['JubjubExpBatch', undefined],
-  VerifyMerkleProof: ['VerifyMerkleProof', undefined],
-  VerifyMerkleProof2x: ['VerifyMerkleProof2x', undefined],
-  VerifyMerkleProof3x: ['VerifyMerkleProof3x', undefined],
-  VerifyMerkleProof4x: ['VerifyMerkleProof4x', undefined],
+  VerifyMerkleProof: ['VerifyMerkleProof', 1n],
+  VerifyMerkleProof2x: ['VerifyMerkleProof', 2n],
+  VerifyMerkleProof3x: ['VerifyMerkleProof', 4n],
+  VerifyMerkleProof4x: ['VerifyMerkleProof', 8n],
 } as const;
 
 export const TX_MESSAGE_TO_HASH = [

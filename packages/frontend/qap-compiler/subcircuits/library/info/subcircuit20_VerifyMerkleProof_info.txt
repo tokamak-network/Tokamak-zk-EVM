@@ -1,11 +1,11 @@
-[32mtemplate instances[0m: 71
-non-linear constraints: 247
-linear constraints: 394
-public inputs: 10
+[32mtemplate instances[0m: 74
+non-linear constraints: 1008
+linear constraints: 1578
+public inputs: 17
 private inputs: 0
 public outputs: 0
-wires: 647
-labels: 1132
+wires: 2598
+labels: 4564
 [32mWritten successfully:[0m ../subcircuits/library/VerifyMerkleProof_circuit.r1cs
 [32mConstraints written in:[0m ../subcircuits/library/VerifyMerkleProof_circuit_constraints.json
 [32mWritten successfully:[0m ../subcircuits/library/VerifyMerkleProof_circuit_js/VerifyMerkleProof_circuit.wasm
