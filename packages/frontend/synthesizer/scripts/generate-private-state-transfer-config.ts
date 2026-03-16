@@ -313,8 +313,8 @@ const main = async () => {
     ? args.mnemonic.trim()
     : process.env.APPS_ANVIL_MNEMONIC?.trim() || DEFAULT_ANVIL_MNEMONIC;
 
-  if (participantCount < 3) {
-    throw new Error('participants must be >= 3');
+  if (participantCount < 2) {
+    throw new Error('participants must be >= 2');
   }
   if (senderIndex < 0 || senderIndex >= participantCount) {
     throw new Error(`sender must be between 0 and ${participantCount - 1}`);
@@ -332,10 +332,8 @@ const main = async () => {
 
   const senderAddress = participants[senderIndex]?.addressL1;
   const recipientOneIndex = (senderIndex + 1) % participantCount;
-  const recipientTwoIndex = (senderIndex + 2) % participantCount;
   const recipientOneAddress = participants[recipientOneIndex]?.addressL1;
-  const recipientTwoAddress = participants[recipientTwoIndex]?.addressL1;
-  if (!senderAddress || !recipientOneAddress || !recipientTwoAddress) {
+  if (!senderAddress || !recipientOneAddress) {
     throw new Error('Could not resolve transfer participants');
   }
 
@@ -345,9 +343,9 @@ const main = async () => {
   }
 
   const inputValueHex = ethers.toBeHex(noteValue) as `0x${string}`;
-  const splitValue = noteValue / 3n;
-  if (splitValue == 0 || splitValue * 3n != noteValue) {
-    throw new Error('transfer note value must be divisible by 3 and greater than zero');
+  const splitValue = noteValue / 2n;
+  if (splitValue == 0 || splitValue * 2n != noteValue) {
+    throw new Error('transfer note value must be divisible by 2 and greater than zero');
   }
   const outputValueHex = ethers.toBeHex(splitValue) as `0x${string}`;
   const inputNotes = [{
@@ -365,11 +363,6 @@ const main = async () => {
       owner: recipientOneAddress,
       value: outputValueHex,
       salt: toSalt(`private-state-transfer-output-sender-${senderIndex}-1`),
-    },
-    {
-      owner: recipientTwoAddress,
-      value: outputValueHex,
-      salt: toSalt(`private-state-transfer-output-sender-${senderIndex}-2`),
     },
   ] as PrivateStateTransferConfig['outputNotes'];
 

@@ -2,11 +2,11 @@
 
 This example replays `PrivateStateController.transferNotes1` against the local `private-state` DApp deployment on anvil.
 
-The flow prepares one existing input note commitment for the sender, then executes a `1 -> 3` transfer that:
+The flow prepares one existing input note commitment for the sender, then executes a `1 -> 2` transfer that:
 
-- splits the single input note into three output notes
+- splits the single input note into two output notes
 - keeps one change note for the sender
-- creates two output notes for other L2 participants
+- creates one output note for another L2 participant
 - consumes the single input note through its nullifier
 
 Use the generated configs under `tests/configs/private-state-transfer` together with:

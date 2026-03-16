@@ -26,7 +26,7 @@ export type PrivateStateTransferConfig = ChannelStateConfig & {
   calldata: `0x${string}`;
   senderIndex: number;
   inputNotes: [PrivateStateNote];
-  outputNotes: [PrivateStateNote, PrivateStateNote, PrivateStateNote];
+  outputNotes: [PrivateStateNote, PrivateStateNote];
   function: ChannelFunctionConfig;
 };
 
@@ -39,7 +39,7 @@ export {
 };
 
 const TRANSFER_NOTES1_ABI = [
-  'function transferNotes1((address owner,uint256 value,bytes32 salt)[1] inputNotes,(address owner,uint256 value,bytes32 salt)[3] outputs) returns (bytes32[1] nullifiers, bytes32[3] outputCommitments)',
+  'function transferNotes1((address owner,uint256 value,bytes32 salt)[1] inputNotes,(address owner,uint256 value,bytes32 salt)[2] outputs) returns (bytes32[1] nullifiers, bytes32[2] outputCommitments)',
 ];
 
 export const transferNotes1Interface = new ethers.Interface(TRANSFER_NOTES1_ABI);
@@ -154,12 +154,12 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateTransf
   const configRaw = JSON.parse(await fs.readFile(configPath, 'utf8'));
 
   const participants = assertParticipantArray(configRaw.participants, 'participants');
-  if (participants.length < 3) {
-    throw new Error('participants must include at least three entries');
+  if (participants.length < 2) {
+    throw new Error('participants must include at least two entries');
   }
 
   const inputNotes = parseFixedNotes(configRaw.inputNotes, 'inputNotes', 1) as PrivateStateTransferConfig['inputNotes'];
-  const outputNotes = parseFixedNotes(configRaw.outputNotes, 'outputNotes', 3) as PrivateStateTransferConfig['outputNotes'];
+  const outputNotes = parseFixedNotes(configRaw.outputNotes, 'outputNotes', 2) as PrivateStateTransferConfig['outputNotes'];
 
   return {
     network: parseNetwork(configRaw.network, 'network'),
