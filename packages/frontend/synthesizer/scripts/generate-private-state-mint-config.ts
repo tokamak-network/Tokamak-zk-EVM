@@ -55,8 +55,6 @@ type DeploymentManifest = {
   contracts: {
     controller: `0x${string}`;
     l2AccountingVault: `0x${string}`;
-    noteRegistry: `0x${string}`;
-    nullifierRegistry: `0x${string}`;
   };
 };
 
@@ -420,7 +418,7 @@ const main = async () => {
     salt: decodedOutput.salt as `0x${string}`,
   };
   const noteCommitment = computeReplayPrivateStateNoteCommitment(replayOutputNote);
-  const noteRegistryStorageKey = computeReplayPrivateStateMappingKey(noteCommitment);
+  const noteRegistryStorageKey = computeReplayPrivateStateMappingKey(noteCommitment, 0);
 
   const config: PrivateStateMintConfig = {
     network: 'anvil',
@@ -429,23 +427,17 @@ const main = async () => {
       {
         address: manifest.contracts.controller,
         userStorageSlots: [],
-        preAllocatedKeys: ['0x00'],
+        preAllocatedKeys: ['0x00', noteRegistryStorageKey],
       },
       {
         address: manifest.contracts.l2AccountingVault,
         userStorageSlots: [0],
         preAllocatedKeys: [],
       },
-      {
-        address: manifest.contracts.noteRegistry,
-        userStorageSlots: [],
-        preAllocatedKeys: [noteRegistryStorageKey],
-      },
     ],
     callCodeAddresses: [
       manifest.contracts.controller,
       manifest.contracts.l2AccountingVault,
-      manifest.contracts.noteRegistry,
     ],
     blockNumber,
     txNonce: DEFAULT_L2_TX_NONCE,

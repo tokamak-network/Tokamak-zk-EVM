@@ -36,5 +36,7 @@ export const computeReplayPrivateStateNullifier = (note: PrivateStateNoteLike): 
     ) as `0x${string}`,
   );
 
-export const computeReplayPrivateStateMappingKey = (key: `0x${string}`): `0x${string}` =>
-  poseidonHex(coder.encode(['bytes32', 'uint256'], [key, 0n]) as `0x${string}`);
+export const computeReplayPrivateStateMappingKey = (
+  key: `0x${string}`,
+  slot: bigint | number,
+): `0x${string}` => poseidonHex(coder.encode(['bytes32', 'uint256'], [key, BigInt(slot)]) as `0x${string}`);

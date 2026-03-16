@@ -38,8 +38,6 @@ type DeploymentManifest = {
   contracts: {
     controller: `0x${string}`;
     l2AccountingVault: `0x${string}`;
-    noteRegistry: `0x${string}`;
-    nullifierRegistry: `0x${string}`;
   };
 };
 
@@ -387,46 +385,31 @@ const main = async () => {
     inputCommitments.push(commitment);
     nullifiers.push(nullifier);
 
-    const noteRegistryKey = computeReplayPrivateStateMappingKey(commitment);
-    await provider.send('anvil_setStorageAt', [manifest.contracts.noteRegistry, noteRegistryKey, truthyValue]);
+    const noteRegistryKey = computeReplayPrivateStateMappingKey(commitment, 0);
+    await provider.send('anvil_setStorageAt', [manifest.contracts.controller, noteRegistryKey, truthyValue]);
   }
 
   await provider.send('evm_mine', []);
   const blockNumber = await provider.getBlockNumber();
 
   const noteRegistryKeys = inputCommitments.map((commitment) =>
-    computeReplayPrivateStateMappingKey(commitment));
+    computeReplayPrivateStateMappingKey(commitment, 0));
   const nullifierKeys = nullifiers.map((nullifier) =>
-    computeReplayPrivateStateMappingKey(nullifier));
+    computeReplayPrivateStateMappingKey(nullifier, 1));
   config.blockNumber = blockNumber;
   config.storageConfigs = [
     {
       address: manifest.contracts.controller,
       userStorageSlots: [],
-      preAllocatedKeys: ['0x00'],
+      preAllocatedKeys: mergeUniqueHexValues(['0x00'], [...noteRegistryKeys, ...nullifierKeys]),
     },
     {
       address: manifest.contracts.l2AccountingVault,
       userStorageSlots: [0],
       preAllocatedKeys: [],
     },
-    {
-      address: manifest.contracts.noteRegistry,
-      userStorageSlots: [],
-      preAllocatedKeys: noteRegistryKeys,
-    },
-    {
-      address: manifest.contracts.nullifierRegistry,
-      userStorageSlots: [],
-      preAllocatedKeys: nullifierKeys,
-    },
   ];
-  config.callCodeAddresses = [
-    manifest.contracts.controller,
-    manifest.contracts.l2AccountingVault,
-    manifest.contracts.noteRegistry,
-    manifest.contracts.nullifierRegistry,
-  ];
+  config.callCodeAddresses = [manifest.contracts.controller, manifest.contracts.l2AccountingVault];
 
   await writeConfig(outputPath, config);
   const replayOutput = await runAnalysisOnlyReplay(outputPath);
