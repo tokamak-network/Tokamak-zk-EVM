@@ -425,15 +425,17 @@ template ALU5 () {
     var ind = 0;
 
     // common process for SIGNEXTEND and BYTE
-    // in1[0] is assumed to be less than 32. Otherwise, assertion error.
-    signal (SE_exp_shift[2], SE_is_shift_gt_255, BY_exp_shift[2], BY_is_shift_gt_255) <== FindShiftingTwosPower256TwoInput(11, 11)(in1[0] * 8 + 8, in1[0] * 8);
+    // The byte index constraint should only be enforced for BYTE and SIGNEXTEND selectors.
+    signal is_byte_family <== b_selector[11] + b_selector[26];
+    signal safe_byte_minus_one <== is_byte_family * in1[0];
+    signal (SE_exp_shift[2], SE_is_shift_gt_255, BY_exp_shift[2], BY_is_shift_gt_255) <== FindShiftingTwosPower256TwoInput(11, 11)(safe_byte_minus_one * 8 + 8, safe_byte_minus_one * 8);
 
     // operator 0x0B (11): SIGNEXTEND
     // in[0] * 8 + 8: bit length
     component signExtend = _SignExted256_internal();
     signExtend.masker_plus_one <== SE_exp_shift;
     signExtend.is_size_gt_255 <== SE_is_shift_gt_255;
-    signExtend.byte_minus_one <== in1[0];
+    signExtend.byte_minus_one <== safe_byte_minus_one;
     signExtend.in <== in2;
     outs[ind] <== signExtend.out;
     rems[ind] <== signExtend.rem;
@@ -732,15 +734,17 @@ template ALU_based_on_div () {
     ind++;
 
     // common process for SIGNEXTEND and BYTE
-    // in1[0] is assumed to be less than 32. Otherwise, assertion error.
-    signal (SE_exp_shift[2], SE_is_shift_gt_255, BY_exp_shift[2], BY_is_shift_gt_255) <== FindShiftingTwosPower256TwoInput(11, 11)(in1[0] * 8 + 8, in1[0] * 8);
+    // The byte index constraint should only be enforced for BYTE and SIGNEXTEND selectors.
+    signal is_byte_family <== b_selector[11] + b_selector[26];
+    signal safe_byte_minus_one <== is_byte_family * in1[0];
+    signal (SE_exp_shift[2], SE_is_shift_gt_255, BY_exp_shift[2], BY_is_shift_gt_255) <== FindShiftingTwosPower256TwoInput(11, 11)(safe_byte_minus_one * 8 + 8, safe_byte_minus_one * 8);
 
     // operator 0x0B (11): SIGNEXTEND
     // in[0] * 8 + 8: bit length
     component signExtend = _SignExted256_internal();
     signExtend.masker_plus_one <== SE_exp_shift;
     signExtend.is_size_gt_255 <== SE_is_shift_gt_255;
-    signExtend.byte_minus_one <== in1[0];
+    signExtend.byte_minus_one <== safe_byte_minus_one;
     signExtend.in <== in2;
     outs[ind] <== signExtend.out;
     rems[ind] <== signExtend.rem;
@@ -760,8 +764,11 @@ template ALU_based_on_div () {
     ind++;
 
     // common process for SHL, SHR, SAR
-    signal inv_shift <== 256 - in1[0];
-    signal (exp_shift[2], is_shift_gt_255, exp_inv_shift[2], is_inv_shift_gt_255) <== FindShiftingTwosPower256TwoInput(8, 8)(in1[0], inv_shift);
+    // The shift constraint should only be enforced for shift-family selectors.
+    signal is_shift_family <== b_selector[27] + b_selector[28] + b_selector[29];
+    signal safe_shift <== is_shift_family * in1[0];
+    signal inv_shift <== 256 - safe_shift;
+    signal (exp_shift[2], is_shift_gt_255, exp_inv_shift[2], is_inv_shift_gt_255) <== FindShiftingTwosPower256TwoInput(8, 8)(safe_shift, inv_shift);
 
     // operator 0x1B (27): SHL
     component lshift = Mul256_unsafe();
@@ -789,7 +796,7 @@ template ALU_based_on_div () {
     // operator 0x1D (29): SAR
     signal (isNeg_in, abs[2]) <== getSignAndAbs256_unsafe()(in2);
     component sar = _SignedShiftRight256_internal();
-    sar.shift <== in1[0];
+    sar.shift <== safe_shift;
     sar.shifted_in <== rshift.q;
     sar.isNeg_in <== isNeg_in;
     sar.exp_inv_shift <== exp_inv_shift;
