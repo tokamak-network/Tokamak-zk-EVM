@@ -119,7 +119,7 @@ export class ArithmeticManager {
     const siblingPts = inPts.slice(2, -2)
     const parentIndexPt = inPts[inPts.length - 2]
     const parentPt = inPts[inPts.length - 1]
-    const zeroPt = this.parent.loadArbitraryStatic(0n, 255, `Merkle proof padding for ${name}`)
+    const zeroPt = this.parent.loadArbitraryStatic(0n, 255)
     const paddedSiblings = siblingPts.concat(
       Array.from({ length: 6 - nSteps }, () => DataPtFactory.deepCopy(zeroPt)),
     )
@@ -149,7 +149,7 @@ export class ArithmeticManager {
       throw new Error(`Synthesizer: Operation ${name} expected ${expectedLen} inputs, but got ${inPts.length}.`)
     }
 
-    const zeroPt = this.parent.loadArbitraryStatic(0n, 255, `Poseidon padding for ${name}`)
+    const zeroPt = this.parent.loadArbitraryStatic(0n, 255)
     return inPts.concat(
       Array.from(
         { length: 7 - expectedLen },
