@@ -39,7 +39,7 @@ include "./constants.circom";
 // }
 
 template VerifyMerkleProof() {
-    signal input in[17];
+    signal input in[21];
 
     component module = verifyP2MerkleProofByMode();
     module._selector <== in[0];
@@ -67,13 +67,21 @@ template VerifyMerkleProof() {
         in[11],
         in[12]
     ];
-    module._parentIndex <== [
+    module._sib[4] <== [
         in[13],
         in[14]
     ];
-    module._parent <== [
+    module._sib[5] <== [
         in[15],
         in[16]
+    ];
+    module._parentIndex <== [
+        in[17],
+        in[18]
+    ];
+    module._parent <== [
+        in[19],
+        in[20]
     ];
 }
 

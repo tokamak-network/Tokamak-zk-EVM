@@ -16,7 +16,7 @@ template verifyParentNode(N) {
 }
 
 template verifyP2MerkleProofByMode() {
-    signal input _selector, _childIndex[2], _child[2], _sib[4][2], _parentIndex[2], _parent[2];
+    signal input _selector, _childIndex[2], _child[2], _sib[6][2], _parentIndex[2], _parent[2];
     var FIELD_SIZE = 1<<128;
 
     var childIndex;
@@ -126,6 +126,56 @@ template verifyP2MerkleProofByMode() {
         parent \ FIELD_SIZE
     ];
 
+    component fifthStep = verifyP2MerkleProofStep();
+    fifthStep._childIndex <== fourthStep._parentIndex;
+    fifthStep._child <== fourthStep._parent;
+    fifthStep._sib <== _sib[4];
+
+    childIndex = fifthStep._childIndex[0];
+    childHomeIndex = childIndex % 2;
+    child = fifthStep._child[0] + fifthStep._child[1] * FIELD_SIZE;
+    sib = fifthStep._sib[0] + fifthStep._sib[1] * FIELD_SIZE;
+    if (childHomeIndex == 0) {
+        children = [child, sib];
+    } else {
+        children = [sib, child];
+    }
+    parent = _Poseidon255_2(children);
+
+    fifthStep._parentIndex <-- [
+        childIndex \ 2,
+        0
+    ];
+    fifthStep._parent <-- [
+        parent % FIELD_SIZE,
+        parent \ FIELD_SIZE
+    ];
+
+    component sixthStep = verifyP2MerkleProofStep();
+    sixthStep._childIndex <== fifthStep._parentIndex;
+    sixthStep._child <== fifthStep._parent;
+    sixthStep._sib <== _sib[5];
+
+    childIndex = sixthStep._childIndex[0];
+    childHomeIndex = childIndex % 2;
+    child = sixthStep._child[0] + sixthStep._child[1] * FIELD_SIZE;
+    sib = sixthStep._sib[0] + sixthStep._sib[1] * FIELD_SIZE;
+    if (childHomeIndex == 0) {
+        children = [child, sib];
+    } else {
+        children = [sib, child];
+    }
+    parent = _Poseidon255_2(children);
+
+    sixthStep._parentIndex <-- [
+        childIndex \ 2,
+        0
+    ];
+    sixthStep._parent <-- [
+        parent % FIELD_SIZE,
+        parent \ FIELD_SIZE
+    ];
+
     component eq1 = IsEqual();
     eq1.in[0] <== _selector;
     eq1.in[1] <== 1;
@@ -142,36 +192,54 @@ template verifyP2MerkleProofByMode() {
     eq4.in[0] <== _selector;
     eq4.in[1] <== 8;
 
+    component eq5 = IsEqual();
+    eq5.in[0] <== _selector;
+    eq5.in[1] <== 16;
+
+    component eq6 = IsEqual();
+    eq6.in[0] <== _selector;
+    eq6.in[1] <== 32;
+
     signal s1 <== eq1.out;
     signal s2 <== eq2.out;
     signal s3 <== eq3.out;
     signal s4 <== eq4.out;
-    signal selectorCheck <== s1 + s2 + s3 + s4;
+    signal s5 <== eq5.out;
+    signal s6 <== eq6.out;
+    signal selectorCheck <== s1 + s2 + s3 + s4 + s5 + s6;
     selectorCheck === 1;
 
     signal parentIndex0Step0 <== s1 * firstStep._parentIndex[0];
     signal parentIndex0Step1 <== parentIndex0Step0 + s2 * secondStep._parentIndex[0];
     signal parentIndex0Step2 <== parentIndex0Step1 + s3 * thirdStep._parentIndex[0];
     signal parentIndex0Step3 <== parentIndex0Step2 + s4 * fourthStep._parentIndex[0];
-    _parentIndex[0] === parentIndex0Step3;
+    signal parentIndex0Step4 <== parentIndex0Step3 + s5 * fifthStep._parentIndex[0];
+    signal parentIndex0Step5 <== parentIndex0Step4 + s6 * sixthStep._parentIndex[0];
+    _parentIndex[0] === parentIndex0Step5;
 
     signal parentIndex1Step0 <== s1 * firstStep._parentIndex[1];
     signal parentIndex1Step1 <== parentIndex1Step0 + s2 * secondStep._parentIndex[1];
     signal parentIndex1Step2 <== parentIndex1Step1 + s3 * thirdStep._parentIndex[1];
     signal parentIndex1Step3 <== parentIndex1Step2 + s4 * fourthStep._parentIndex[1];
-    _parentIndex[1] === parentIndex1Step3;
+    signal parentIndex1Step4 <== parentIndex1Step3 + s5 * fifthStep._parentIndex[1];
+    signal parentIndex1Step5 <== parentIndex1Step4 + s6 * sixthStep._parentIndex[1];
+    _parentIndex[1] === parentIndex1Step5;
 
     signal parent0Step0 <== s1 * firstStep._parent[0];
     signal parent0Step1 <== parent0Step0 + s2 * secondStep._parent[0];
     signal parent0Step2 <== parent0Step1 + s3 * thirdStep._parent[0];
     signal parent0Step3 <== parent0Step2 + s4 * fourthStep._parent[0];
-    _parent[0] === parent0Step3;
+    signal parent0Step4 <== parent0Step3 + s5 * fifthStep._parent[0];
+    signal parent0Step5 <== parent0Step4 + s6 * sixthStep._parent[0];
+    _parent[0] === parent0Step5;
 
     signal parent1Step0 <== s1 * firstStep._parent[1];
     signal parent1Step1 <== parent1Step0 + s2 * secondStep._parent[1];
     signal parent1Step2 <== parent1Step1 + s3 * thirdStep._parent[1];
     signal parent1Step3 <== parent1Step2 + s4 * fourthStep._parent[1];
-    _parent[1] === parent1Step3;
+    signal parent1Step4 <== parent1Step3 + s5 * fifthStep._parent[1];
+    signal parent1Step5 <== parent1Step4 + s6 * sixthStep._parent[1];
+    _parent[1] === parent1Step5;
 }
 
 template verifyP2MerkleProofStep4x() {

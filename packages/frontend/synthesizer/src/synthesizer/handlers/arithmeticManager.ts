@@ -46,6 +46,8 @@ export class ArithmeticManager {
       case 'VerifyMerkleProof2x':
       case 'VerifyMerkleProof3x':
       case 'VerifyMerkleProof4x':
+      case 'VerifyMerkleProof5x':
+      case 'VerifyMerkleProof6x':
         sourceBitSize = 255
         break
       default:
@@ -75,6 +77,8 @@ export class ArithmeticManager {
       VerifyMerkleProof2x: 2,
       VerifyMerkleProof3x: 3,
       VerifyMerkleProof4x: 4,
+      VerifyMerkleProof5x: 5,
+      VerifyMerkleProof6x: 6,
     }
     const nSteps = stepByName[name]
     if (nSteps === undefined) {
@@ -93,7 +97,7 @@ export class ArithmeticManager {
     const parentPt = inPts[inPts.length - 1]
     const zeroPt = this.parent.loadArbitraryStatic(0n, 255, `Merkle proof padding for ${name}`)
     const paddedSiblings = siblingPts.concat(
-      Array.from({ length: 4 - nSteps }, () => DataPtFactory.deepCopy(zeroPt)),
+      Array.from({ length: 6 - nSteps }, () => DataPtFactory.deepCopy(zeroPt)),
     )
 
     return [childIndexPt, childPt, ...paddedSiblings, parentIndexPt, parentPt]
@@ -414,110 +418,70 @@ export class ArithmeticManager {
     //   childIndexPt = parentIndexPt
     // }
 
+    const placeMerkleBatch = (nSteps: number, finalRootPt: DataPt): { nextIndexPt: DataPt; nextChildPt: DataPt } => {
+      const siblingBatch = siblingPts.slice(level, level + nSteps)
+      let nextParentIndex = Number(childIndexPt.value)
+      let nextParentValue = childPt.value
+
+      for (const siblings of siblingBatch) {
+        const parentNode = computeParentsNode(nextParentIndex, nextParentValue, siblings)
+        nextParentIndex = parentNode.parentIndex
+        nextParentValue = parentNode.parent
+      }
+
+      const parentIndexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(nextParentIndex), true)
+      const parentPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', nextParentValue, true)
+      const isLastGroup = level + nSteps >= MT_DEPTH
+      const finalParentPt = isLastGroup ? finalRootPt : parentPt
+      const operationName = `VerifyMerkleProof${nSteps === 1 ? '' : `${nSteps}x`}` as ArithmeticOperator
+
+      this.placeArith(operationName, [
+        childIndexPt,
+        childPt,
+        ...siblingBatch.flat(),
+        parentIndexPt,
+        finalParentPt,
+      ])
+
+      return {
+        nextIndexPt: parentIndexPt,
+        nextChildPt: finalParentPt,
+      }
+    }
+
     let level = 0
     while (level < MT_DEPTH) {
       const remaining = MT_DEPTH - level
 
-      if (remaining >= 4) {
-        const sib0 = siblingPts[level]
-        const sib1 = siblingPts[level + 1]
-        const sib2 = siblingPts[level + 2]
-        const sib3 = siblingPts[level + 3]
-
-        const { parentIndex: pIdx1, parent: pPt1 } = computeParentsNode(Number(childIndexPt.value), childPt.value, sib0)
-        const { parentIndex: pIdx2, parent: pPt2 } = computeParentsNode(pIdx1, pPt1, sib1)
-        const { parentIndex: pIdx3, parent: pPt3 } = computeParentsNode(pIdx2, pPt2, sib2)
-        const { parentIndex, parent: parentVal } = computeParentsNode(pIdx3, pPt3, sib3)
-        const parentIndexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(parentIndex), true)
-        const parentPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', parentVal, true)
-
-        const isLastGroup = level + 4 >= MT_DEPTH
-        const finalParentPt = isLastGroup ? rootPt : parentPt
-
-        this.placeArith('VerifyMerkleProof4x', [
-          childIndexPt,
-          childPt,
-          ...sib0,
-          ...sib1,
-          ...sib2,
-          ...sib3,
-          parentIndexPt,
-          finalParentPt,
-        ])
-
-        childPt = finalParentPt
-        childIndexPt = parentIndexPt
+      if (remaining >= 6) {
+        const placedBatch = placeMerkleBatch(6, rootPt)
+        childPt = placedBatch.nextChildPt
+        childIndexPt = placedBatch.nextIndexPt
+        level += 6
+      } else if (remaining >= 5) {
+        const placedBatch = placeMerkleBatch(5, rootPt)
+        childPt = placedBatch.nextChildPt
+        childIndexPt = placedBatch.nextIndexPt
+        level += 5
+      } else if (remaining >= 4) {
+        const placedBatch = placeMerkleBatch(4, rootPt)
+        childPt = placedBatch.nextChildPt
+        childIndexPt = placedBatch.nextIndexPt
         level += 4
       } else if (remaining >= 3) {
-        const sib0 = siblingPts[level]
-        const sib1 = siblingPts[level + 1]
-        const sib2 = siblingPts[level + 2]
-
-        const { parentIndex: pIdx1, parent: pPt1 } = computeParentsNode(Number(childIndexPt.value), childPt.value, sib0)
-        const { parentIndex: pIdx2, parent: pPt2 } = computeParentsNode(pIdx1, pPt1, sib1)
-        const { parentIndex, parent: parentVal } = computeParentsNode(pIdx2, pPt2, sib2)
-        const parentIndexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(parentIndex), true)
-        const parentPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', parentVal, true)
-
-        const isLastGroup = level + 3 >= MT_DEPTH
-        const finalParentPt = isLastGroup ? rootPt : parentPt
-
-        this.placeArith('VerifyMerkleProof3x', [
-          childIndexPt,
-          childPt,
-          ...sib0,
-          ...sib1,
-          ...sib2,
-          parentIndexPt,
-          finalParentPt,
-        ])
-
-        childPt = finalParentPt
-        childIndexPt = parentIndexPt
+        const placedBatch = placeMerkleBatch(3, rootPt)
+        childPt = placedBatch.nextChildPt
+        childIndexPt = placedBatch.nextIndexPt
         level += 3
       } else if (remaining >= 2) {
-        const sib0 = siblingPts[level]
-        const sib1 = siblingPts[level + 1]
-
-        const { parentIndex: pIdx1, parent: pPt1 } = computeParentsNode(Number(childIndexPt.value), childPt.value, sib0)
-        const { parentIndex, parent: parentVal } = computeParentsNode(pIdx1, pPt1, sib1)
-        const parentIndexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(parentIndex), true)
-        const parentPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', parentVal, true)
-
-        const isLastGroup = level + 2 >= MT_DEPTH
-        const finalParentPt = isLastGroup ? rootPt : parentPt
-
-        this.placeArith('VerifyMerkleProof2x', [
-          childIndexPt,
-          childPt,
-          ...sib0,
-          ...sib1,
-          parentIndexPt,
-          finalParentPt,
-        ])
-
-        childPt = finalParentPt
-        childIndexPt = parentIndexPt
+        const placedBatch = placeMerkleBatch(2, rootPt)
+        childPt = placedBatch.nextChildPt
+        childIndexPt = placedBatch.nextIndexPt
         level += 2
       } else {
-        const thisSiblings = siblingPts[level]
-        const { parentIndex, parent: parentVal } = computeParentsNode(Number(childIndexPt.value), childPt.value, thisSiblings)
-        const parentIndexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(parentIndex), true)
-        const parentPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', parentVal, true)
-
-        const isLastLevel = level === MT_DEPTH - 1
-        const finalParentPt = isLastLevel ? rootPt : parentPt
-
-        this.placeArith('VerifyMerkleProof', [
-          childIndexPt,
-          childPt,
-          ...thisSiblings,
-          parentIndexPt,
-          finalParentPt,
-        ])
-
-        childPt = parentPt
-        childIndexPt = parentIndexPt
+        const placedBatch = placeMerkleBatch(1, rootPt)
+        childPt = placedBatch.nextChildPt
+        childIndexPt = placedBatch.nextIndexPt
         level += 1
       }
     }
@@ -585,4 +549,6 @@ const ARITHMETIC_MAPPING: Record<ArithmeticOperator, (...args: any) => any> = {
   VerifyMerkleProof2x: ArithmeticOperations.verifyMerkleProof2x,
   VerifyMerkleProof3x: ArithmeticOperations.verifyMerkleProof3x,
   VerifyMerkleProof4x: ArithmeticOperations.verifyMerkleProof4x,
+  VerifyMerkleProof5x: ArithmeticOperations.verifyMerkleProof5x,
+  VerifyMerkleProof6x: ArithmeticOperations.verifyMerkleProof6x,
 } as const
