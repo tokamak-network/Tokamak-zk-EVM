@@ -1,5 +1,5 @@
 import { jubjub } from "@noble/curves/misc.js"
-import { poseidon_raw, poseidonN2xCompress, poseidonN3xCompress } from "../../interface/tokamakL2js/index.ts"
+import { poseidon_raw, poseidonN2xCompress } from "../../interface/tokamakL2js/index.ts"
 import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE, POSEIDON_INPUTS } from "../../interface/qapCompiler/importedConstants.ts"
 import { DEFAULT_SOURCE_BIT_SIZE} from "../../synthesizer/params/index.ts"
 
@@ -361,13 +361,6 @@ export class ArithmeticOperations {
    */
   static poseidonN2xCompress(in_vals: bigint[]): bigint {
     return poseidonN2xCompress(in_vals)
-  }
-
-  /**
-   * PoseidonN3xCompress
-   */
-  static poseidonN3xCompress(in_vals: bigint[]): bigint {
-    return poseidonN3xCompress(in_vals)
   }
 
   // /**
