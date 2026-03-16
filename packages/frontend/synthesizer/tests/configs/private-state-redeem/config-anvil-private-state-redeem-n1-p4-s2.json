@@ -1,0 +1,60 @@
+{
+  "network": "anvil",
+  "participants": [
+    {
+      "addressL1": "0x5d1d2c910c42bc9084465c4cb4b3c7d2aae4d075",
+      "prvSeedL2": "private-state participant 0"
+    },
+    {
+      "addressL1": "0x5ed57de52bc869e17fee34c202d51b69013252f2",
+      "prvSeedL2": "private-state participant 1"
+    },
+    {
+      "addressL1": "0xc107f75815a4a83baa7c062ec6ad77054aa5ce95",
+      "prvSeedL2": "private-state participant 2"
+    },
+    {
+      "addressL1": "0xd388de6a2dc622776c3546e32c67144d304f6d48",
+      "prvSeedL2": "private-state participant 3"
+    }
+  ],
+  "storageConfigs": [
+    {
+      "address": "0xf72b94eccf1ffc8aa8f3054a615d75d90c0c028d",
+      "userStorageSlots": [],
+      "preAllocatedKeys": [
+        "0x00",
+        "0x689c2ac9487c77a97c69254d81896ee96d672279af736ee00af2a81c246f6acf",
+        "0x28b7f6db0d542c20a227685dd873019394c8b536082e53b395628e0298b0b0a0"
+      ]
+    },
+    {
+      "address": "0x98a9a70aee1750d3d85ecf5b035331a463ef6316",
+      "userStorageSlots": [
+        0
+      ],
+      "preAllocatedKeys": []
+    }
+  ],
+  "callCodeAddresses": [
+    "0xf72b94eccf1ffc8aa8f3054a615d75d90c0c028d",
+    "0x98a9a70aee1750d3d85ecf5b035331a463ef6316"
+  ],
+  "blockNumber": 1472,
+  "txNonce": 0,
+  "calldata": "0xc0856c7c000000000000000000000000c107f75815a4a83baa7c062ec6ad77054aa5ce950000000000000000000000000000000000000000000000000de0b6b3a764000029a492b0d1fcf10779561d286cbf16b402e0152c4039abb25b7d71e3c4ac4161000000000000000000000000d388de6a2dc622776c3546e32c67144d304f6d48",
+  "senderIndex": 2,
+  "receiverIndex": 3,
+  "inputCount": 1,
+  "inputNotes": [
+    {
+      "owner": "0xc107f75815a4a83baa7c062ec6ad77054aa5ce95",
+      "value": "0x0de0b6b3a7640000",
+      "salt": "0x29a492b0d1fcf10779561d286cbf16b402e0152c4039abb25b7d71e3c4ac4161"
+    }
+  ],
+  "function": {
+    "selector": "0xc0856c7c",
+    "entryContractAddress": "0xf72b94eccf1ffc8aa8f3054a615d75d90c0c028d"
+  }
+}
