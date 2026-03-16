@@ -149,10 +149,11 @@ export class ArithmeticManager {
       throw new Error(`Synthesizer: Operation ${name} expected ${expectedLen} inputs, but got ${inPts.length}.`)
     }
 
+    const zeroPt = this.parent.loadArbitraryStatic(0n, 255, `Poseidon padding for ${name}`)
     return inPts.concat(
       Array.from(
         { length: 7 - expectedLen },
-        () => this.parent.loadArbitraryStatic(0n, 255, `Poseidon padding for ${name}`),
+        () => DataPtFactory.deepCopy(zeroPt),
       ),
     )
   }

@@ -1,7 +1,7 @@
 pragma circom 2.1.6;
 function nPubOut() {return 10;}
 function nPubIn() {return 20;}
-function nEVMIn() {return 700;}
+function nEVMIn() {return 1300;}
 function nPrvIn() {return 1000;}
 
 function nPoseidonInputs() {return 2;}
