@@ -41,6 +41,10 @@ export {
   type ExampleNetwork,
 };
 
+export const isSupportedTransferArity = (inputCount: number, outputCount: number) =>
+  (outputCount === 1 && inputCount >= 1 && inputCount <= 4)
+  || (outputCount === 2 && inputCount >= 1 && inputCount <= 3);
+
 const buildTransferFunctionName = (inputCount: number, outputCount: number) => `transferNotes${inputCount}To${outputCount}`;
 
 const buildTransferAbi = (inputCount: number, outputCount: number) => [
@@ -174,6 +178,9 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateTransf
   const functionName = parseTransferFunctionName(configRaw.functionName, 'functionName');
   const inputCount = parseNumberValue(configRaw.inputCount, 'inputCount');
   const outputCount = parseNumberValue(configRaw.outputCount, 'outputCount');
+  if (!isSupportedTransferArity(inputCount, outputCount)) {
+    throw new Error('private-state transfer replay only supports N<=4 for To1 and N<=3 for To2');
+  }
   if (functionName !== buildTransferFunctionName(inputCount, outputCount)) {
     throw new Error('functionName must match inputCount and outputCount');
   }

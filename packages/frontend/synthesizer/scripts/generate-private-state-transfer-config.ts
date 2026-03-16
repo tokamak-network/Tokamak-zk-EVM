@@ -13,6 +13,7 @@ import {
   buildPrivateStateTransferCalldata,
   createTransferInterface,
   deriveParticipantKeys,
+  isSupportedTransferArity,
   type PrivateStateNote,
   type PrivateStateTransferConfig,
 } from '../examples/privateStateTransfer/utils.ts';
@@ -353,6 +354,9 @@ const main = async () => {
   }
   if (outputCount < 1 || outputCount > 2) {
     throw new Error('outputs must be 1 or 2');
+  }
+  if (!isSupportedTransferArity(inputCount, outputCount)) {
+    throw new Error('private-state transfer configs only support N<=4 for To1 and N<=3 for To2');
   }
 
   const noteValue = parseAmount(args.amount, defaultTransferValue(inputCount, outputCount));
