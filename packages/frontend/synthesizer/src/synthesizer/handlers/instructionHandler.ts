@@ -140,7 +140,7 @@ export class InstructionHandler {
               nIns = 3
               {
                 const ins = opts.prevStepResult.stack.slice(0, nIns)
-                const memOffset = ins[1]
+                const memOffset = ins[0]
                 const dataLength = ins[2]
                 opts.memOut = stepResult.memory.subarray(Number(memOffset), Number(memOffset) + Number(dataLength))
               }
@@ -149,7 +149,7 @@ export class InstructionHandler {
               nIns = 4
               {
                 const ins = opts.prevStepResult.stack.slice(0, nIns)
-                const memOffset = ins[2]
+                const memOffset = ins[1]
                 const dataLength = ins[3]
                 opts.memOut = stepResult.memory.subarray(Number(memOffset), Number(memOffset) + Number(dataLength))
               }
@@ -219,7 +219,7 @@ export class InstructionHandler {
               nIns = 3
               {
                 const ins = opts.prevStepResult.stack.slice(0, nIns)
-                const memOffset = ins[1]
+                const memOffset = ins[0]
                 const dataLength = ins[2]
                 opts.memOut = stepResult.memory.subarray(Number(memOffset), Number(memOffset) + Number(dataLength))
               }
