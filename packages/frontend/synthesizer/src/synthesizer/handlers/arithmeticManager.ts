@@ -28,37 +28,37 @@ export class ArithmeticManager {
       // case 'PrepareEdDsaScalars': 
         sourceBitSize = 1
         break
-      case 'Poseidon2':
+      case 'Poseidon':
         if (inPts.length !== POSEIDON_INPUTS) {
           throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
         }
         sourceBitSize = 255
         break
-      case 'Poseidon3':
+      case 'Poseidon2x':
         if (inPts.length !== POSEIDON_INPUTS + 1) {
           throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
         }
         sourceBitSize = 255
         break
-      case 'Poseidon4':
+      case 'Poseidon3x':
         if (inPts.length !== POSEIDON_INPUTS + 2) {
           throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
         }
         sourceBitSize = 255
         break
-      case 'Poseidon5':
+      case 'Poseidon4x':
         if (inPts.length !== POSEIDON_INPUTS + 3) {
           throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
         }
         sourceBitSize = 255
         break
-      case 'Poseidon6':
+      case 'Poseidon5x':
         if (inPts.length !== POSEIDON_INPUTS + 4) {
           throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
         }
         sourceBitSize = 255
         break
-      case 'Poseidon7':
+      case 'Poseidon6x':
         if (inPts.length !== POSEIDON_INPUTS + 5) {
           throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
         }
@@ -132,12 +132,12 @@ export class ArithmeticManager {
     inPts: DataPt[],
   ): DataPt[] {
     const nCallsByName: Partial<Record<ArithmeticOperator, number>> = {
-      Poseidon2: 1,
-      Poseidon3: 2,
-      Poseidon4: 3,
-      Poseidon5: 4,
-      Poseidon6: 5,
-      Poseidon7: 6,
+      Poseidon: 1,
+      Poseidon2x: 2,
+      Poseidon3x: 3,
+      Poseidon4x: 4,
+      Poseidon5x: 5,
+      Poseidon6x: 6,
     }
     const nCalls = nCallsByName[name]
     if (nCalls === undefined) {
@@ -218,24 +218,24 @@ export class ArithmeticManager {
 
   public placePoseidon(inPts: DataPt[]): DataPt {
     if (inPts.length === 0) {
-      return this.placeArith('Poseidon2', Array<DataPt>(POSEIDON_INPUTS).fill(this.parent.loadArbitraryStatic(0n)))[0]
+      return this.placeArith('Poseidon', Array<DataPt>(POSEIDON_INPUTS).fill(this.parent.loadArbitraryStatic(0n)))[0]
     }
     if (inPts.length === 1) {
-      return this.placeArith('Poseidon2', [inPts[0], this.parent.loadArbitraryStatic(0n)])[0]
+      return this.placeArith('Poseidon', [inPts[0], this.parent.loadArbitraryStatic(0n)])[0]
     }
 
     const operationByLen: Record<number, ArithmeticOperator> = {
-      2: 'Poseidon2',
-      3: 'Poseidon3',
-      4: 'Poseidon4',
-      5: 'Poseidon5',
-      6: 'Poseidon6',
-      7: 'Poseidon7',
+      2: 'Poseidon',
+      3: 'Poseidon2x',
+      4: 'Poseidon3x',
+      5: 'Poseidon4x',
+      6: 'Poseidon5x',
+      7: 'Poseidon6x',
     }
 
     let chainInputs = [...inPts]
     while (chainInputs.length > 7) {
-      const prefixHash = this.placeArith('Poseidon7', chainInputs.slice(0, 7))[0]
+      const prefixHash = this.placeArith('Poseidon6x', chainInputs.slice(0, 7))[0]
       chainInputs = [prefixHash, ...chainInputs.slice(7)]
     }
 
@@ -588,12 +588,12 @@ const ARITHMETIC_MAPPING: Record<ArithmeticOperator, (...args: any) => any> = {
   // SubEXP: ArithmeticOperations.subEXP,
   SubExpBatch: ArithmeticOperations.subExpBatch,
   Accumulator: ArithmeticOperations.accumulator,
-  Poseidon2: ArithmeticOperations.poseidonN,
-  Poseidon3: (values: bigint[]) => ArithmeticOperations.poseidonChainCompress(values),
-  Poseidon4: (values: bigint[]) => ArithmeticOperations.poseidonChainCompress(values),
-  Poseidon5: (values: bigint[]) => ArithmeticOperations.poseidonChainCompress(values),
-  Poseidon6: (values: bigint[]) => ArithmeticOperations.poseidonChainCompress(values),
-  Poseidon7: (values: bigint[]) => ArithmeticOperations.poseidonChainCompress(values),
+  Poseidon: ArithmeticOperations.poseidonN,
+  Poseidon2x: (values: bigint[]) => ArithmeticOperations.poseidonChainCompress(values),
+  Poseidon3x: (values: bigint[]) => ArithmeticOperations.poseidonChainCompress(values),
+  Poseidon4x: (values: bigint[]) => ArithmeticOperations.poseidonChainCompress(values),
+  Poseidon5x: (values: bigint[]) => ArithmeticOperations.poseidonChainCompress(values),
+  Poseidon6x: (values: bigint[]) => ArithmeticOperations.poseidonChainCompress(values),
   // PrepareEdDsaScalars: ArithmeticOperations.prepareEdDsaScalars,
   JubjubExpBatch: ArithmeticOperations.jubjubExpBatch,
   EdDsaVerify: ArithmeticOperations.edDsaVerify,

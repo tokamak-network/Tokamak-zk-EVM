@@ -2,7 +2,7 @@ pragma circom 2.1.6;
 include "../../templates/255bit/poseidon.circom";
 include "./constants.circom";
 
-template Poseidon2Tokamak(N) {
+template PoseidonTokamak(N) {
     signal input in[15];
     signal output out[2];
 
@@ -16,4 +16,4 @@ template Poseidon2Tokamak(N) {
 
 }
 
-component main = Poseidon2Tokamak(nPoseidonInputs());
+component main = PoseidonTokamak(nPoseidonInputs());
