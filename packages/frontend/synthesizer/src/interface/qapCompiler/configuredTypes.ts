@@ -32,13 +32,14 @@ export const ARITHMETIC_OPERATOR_LIST = [
   'Accumulator',
   'Poseidon',
   'Poseidon2xCompress',
+  'Poseidon4xCompress',
   // 'PrepareEdDsaScalars',
   'JubjubExpBatch',
   'EdDsaVerify',
   'VerifyMerkleProof',
   'VerifyMerkleProof2x',
   'VerifyMerkleProof3x',
-    'VerifyMerkleProof4x',
+  'VerifyMerkleProof4x',
 ] as const
 
 export type ArithmeticOperator = (typeof ARITHMETIC_OPERATOR_LIST)[number]
@@ -98,6 +99,7 @@ export const SUBCIRCUIT_LIST = [
     'Accumulator',
     'Poseidon',
     'Poseidon2xCompress',
+    'Poseidon4xCompress',
     // 'PrepareEdDsaScalars',
     'JubjubExpBatch',
     'EdDsaVerify',
@@ -157,6 +159,7 @@ export const SUBCIRCUIT_ALU_MAPPING: Record<ArithmeticOperator, [SubcircuitNames
   EXP: ['ALU1', 1n << 10n], // Not directly used. SubEXP is used instead.
   Poseidon: ['Poseidon', undefined],
   Poseidon2xCompress: ['Poseidon2xCompress', undefined],
+  Poseidon4xCompress: ['Poseidon4xCompress', undefined],
   // PrepareEdDsaScalars: ['PrepareEdDsaScalars', undefined],
   EdDsaVerify: ['EdDsaVerify', undefined],
   JubjubExpBatch: ['JubjubExpBatch', undefined],

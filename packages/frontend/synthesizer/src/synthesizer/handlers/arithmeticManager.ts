@@ -32,6 +32,20 @@ export class ArithmeticManager {
         if (inPts.length !== POSEIDON_INPUTS) {
           throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
         }
+        sourceBitSize = 255
+        break
+      case 'Poseidon2xCompress':
+        if (inPts.length !== POSEIDON_INPUTS ** 2) {
+          throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
+        }
+        sourceBitSize = 255
+        break
+      case 'Poseidon4xCompress':
+        if (inPts.length !== POSEIDON_INPUTS ** 4) {
+          throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
+        }
+        sourceBitSize = 255
+        break
       case 'JubjubExpBatch':
       case 'EdDsaVerify':
       case 'VerifyMerkleProof':
@@ -122,13 +136,16 @@ export class ArithmeticManager {
       const n1xChunks = Math.ceil(arr.length / POSEIDON_INPUTS);
       const nPaddedChildren = n1xChunks * POSEIDON_INPUTS;
 
-      const mode2x: boolean = nPaddedChildren % (POSEIDON_INPUTS ** 2) === 0
+      const mode4x: boolean = nPaddedChildren % (POSEIDON_INPUTS ** 4) === 0
+      const mode2x: boolean = !mode4x && nPaddedChildren % (POSEIDON_INPUTS ** 2) === 0
 
-      let placeFunction = mode2x ?
-        (chunk: DataPt[]): DataPt[] => {return this.placeArith('Poseidon2xCompress', chunk)} :
-        (chunk: DataPt[]): DataPt[] => {return this.placeArith('Poseidon', chunk)}
+      const placeFunction = mode4x ?
+        (chunk: DataPt[]): DataPt[] => { return this.placeArith('Poseidon4xCompress', chunk) } :
+        mode2x ?
+          (chunk: DataPt[]): DataPt[] => { return this.placeArith('Poseidon2xCompress', chunk) } :
+          (chunk: DataPt[]): DataPt[] => { return this.placeArith('Poseidon', chunk) }
 
-      const nChildren = mode2x ? (POSEIDON_INPUTS ** 2) : POSEIDON_INPUTS
+      const nChildren = mode4x ? (POSEIDON_INPUTS ** 4) : mode2x ? (POSEIDON_INPUTS ** 2) : POSEIDON_INPUTS
       
       const out: DataPt[] = [];
       for (let childId = 0; childId < nPaddedChildren; childId += nChildren) {
@@ -534,6 +551,7 @@ const ARITHMETIC_MAPPING: Record<ArithmeticOperator, (...args: any) => any> = {
   Accumulator: ArithmeticOperations.accumulator,
   Poseidon: ArithmeticOperations.poseidonN,
   Poseidon2xCompress: ArithmeticOperations.poseidonN2xCompress,
+  Poseidon4xCompress: ArithmeticOperations.poseidonN4xCompress,
   // PrepareEdDsaScalars: ArithmeticOperations.prepareEdDsaScalars,
   JubjubExpBatch: ArithmeticOperations.jubjubExpBatch,
   EdDsaVerify: ArithmeticOperations.edDsaVerify,
