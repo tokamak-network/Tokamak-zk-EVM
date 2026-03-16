@@ -870,7 +870,8 @@ export class InstructionHandler {
             const memPts: MemoryPts = this._prepareCodeMemoryPts(
               opts.memOut!,
               bytesToBigInt(thisAddress.toBytes()),
-              codeOffset,
+              memOffset,
+              0n,
               dataLength,
             )
             memoryPt.writeBatch(memPts)
@@ -905,7 +906,8 @@ export class InstructionHandler {
             const memPts: MemoryPts = this._prepareCodeMemoryPts(
               opts.memOut!,
               addressBigInt,
-              codeOffset,
+              memOffset,
+              0n,
               dataLength,
             )
             memoryPt.writeBatch(memPts)
