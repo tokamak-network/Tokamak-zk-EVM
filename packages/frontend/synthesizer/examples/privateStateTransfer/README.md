@@ -1,6 +1,6 @@
 # Private-State Transfer Example
 
-This example replays `PrivateStateController.transferNotes1` against the local `private-state` DApp deployment on anvil.
+This example replays `PrivateStateController.transferNotes1To2` against the local `private-state` DApp deployment on anvil.
 
 The flow prepares one existing input note commitment for the sender, then executes a `1 -> 2` transfer that:
 

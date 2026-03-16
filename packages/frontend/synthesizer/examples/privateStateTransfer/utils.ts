@@ -38,11 +38,11 @@ export {
   type ExampleNetwork,
 };
 
-const TRANSFER_NOTES1_ABI = [
-  'function transferNotes1((address owner,uint256 value,bytes32 salt)[1] inputNotes,(address owner,uint256 value,bytes32 salt)[2] outputs) returns (bytes32[1] nullifiers, bytes32[2] outputCommitments)',
+const TRANSFER_NOTES1_TO2_ABI = [
+  'function transferNotes1To2((address owner,uint256 value,bytes32 salt)[1] inputNotes,(address owner,uint256 value,bytes32 salt)[2] outputs) returns (bytes32[1] nullifiers, bytes32[2] outputCommitments)',
 ];
 
-export const transferNotes1Interface = new ethers.Interface(TRANSFER_NOTES1_ABI);
+export const transferNotes1To2Interface = new ethers.Interface(TRANSFER_NOTES1_TO2_ABI);
 
 const parseHexString = (value: unknown, label: string): `0x${string}` => {
   if (typeof value !== 'string' || !value.startsWith('0x')) {
@@ -182,7 +182,7 @@ export const buildPrivateStateTransferCalldata = (
   config: PrivateStateTransferConfig,
   _keyMaterial: DerivedParticipantKeys,
 ): `0x${string}` =>
-  transferNotes1Interface.encodeFunctionData('transferNotes1', [config.inputNotes, config.outputNotes]) as `0x${string}`;
+  transferNotes1To2Interface.encodeFunctionData('transferNotes1To2', [config.inputNotes, config.outputNotes]) as `0x${string}`;
 
 export const toStateManagerChannelConfig = (
   config: PrivateStateTransferConfig,

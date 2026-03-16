@@ -12,7 +12,7 @@ import { BLS12831ARITHMODULUS } from '../src/synthesizer/params/index.ts';
 import {
   buildPrivateStateTransferCalldata,
   deriveParticipantKeys,
-  transferNotes1Interface,
+  transferNotes1To2Interface,
   type PrivateStateNote,
   type PrivateStateTransferConfig,
 } from '../examples/privateStateTransfer/utils.ts';
@@ -61,7 +61,7 @@ const privateStateMainPath = path.resolve(packageRoot, 'examples', 'privateState
 const DEFAULT_ANVIL_RPC_URL = 'http://127.0.0.1:8545';
 const DEFAULT_ANVIL_MNEMONIC = 'test test test test test test test test test test test junk';
 const DEFAULT_PARTICIPANT_COUNT = 4;
-const DEFAULT_NOTE_VALUE = 3n * 10n ** 18n;
+const DEFAULT_NOTE_VALUE = 2n * 10n ** 18n;
 const DEFAULT_L2_TX_NONCE = 0;
 
 const applyEnvFileIfPresent = (targetPath: string) => {
@@ -337,9 +337,9 @@ const main = async () => {
     throw new Error('Could not resolve transfer participants');
   }
 
-  const selector = transferNotes1Interface.getFunction('transferNotes1')?.selector as `0x${string}` | undefined;
+  const selector = transferNotes1To2Interface.getFunction('transferNotes1To2')?.selector as `0x${string}` | undefined;
   if (!selector) {
-    throw new Error('Failed to resolve transferNotes1 selector');
+    throw new Error('Failed to resolve transferNotes1To2 selector');
   }
 
   const inputValueHex = ethers.toBeHex(noteValue) as `0x${string}`;
