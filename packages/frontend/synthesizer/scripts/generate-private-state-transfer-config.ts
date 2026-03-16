@@ -61,7 +61,7 @@ const privateStateMainPath = path.resolve(packageRoot, 'examples', 'privateState
 const DEFAULT_ANVIL_RPC_URL = 'http://127.0.0.1:8545';
 const DEFAULT_ANVIL_MNEMONIC = 'test test test test test test test test test test test junk';
 const DEFAULT_PARTICIPANT_COUNT = 4;
-const DEFAULT_NOTE_VALUE = 2n * 10n ** 18n;
+const DEFAULT_AMOUNT_UNIT = 10n ** 18n;
 const DEFAULT_L2_TX_NONCE = 0;
 
 const applyEnvFileIfPresent = (targetPath: string) => {
@@ -111,9 +111,25 @@ const parseInteger = (value: unknown, label: string): number => {
   return parsed;
 };
 
-const parseAmount = (value: unknown): bigint => {
+const gcd = (left: bigint, right: bigint): bigint => {
+  let a = left;
+  let b = right;
+  while (b !== 0n) {
+    const next = a % b;
+    a = b;
+    b = next;
+  }
+  return a;
+};
+
+const lcm = (left: bigint, right: bigint): bigint => (left / gcd(left, right)) * right;
+
+const defaultTransferValue = (inputCount: number, outputCount: number): bigint =>
+  lcm(BigInt(inputCount), BigInt(outputCount)) * DEFAULT_AMOUNT_UNIT;
+
+const parseAmount = (value: unknown, fallback: bigint): bigint => {
   if (value === undefined || value === '') {
-    return DEFAULT_NOTE_VALUE;
+    return fallback;
   }
   if (typeof value !== 'string') {
     throw new Error('amount must be a string');
@@ -319,7 +335,6 @@ const main = async () => {
   const senderIndex = args.sender;
   const inputCount = args.inputCount;
   const outputCount = args.outputCount;
-  const noteValue = parseAmount(args.amount);
   const rpcUrl = typeof args.rpcUrl === 'string' && args.rpcUrl.trim().length > 0
     ? args.rpcUrl.trim()
     : process.env.ANVIL_RPC_URL?.trim() || DEFAULT_ANVIL_RPC_URL;
@@ -339,6 +354,8 @@ const main = async () => {
   if (outputCount < 1 || outputCount > 2) {
     throw new Error('outputs must be 1 or 2');
   }
+
+  const noteValue = parseAmount(args.amount, defaultTransferValue(inputCount, outputCount));
 
   await ensurePrivateStateBootstrap();
   const manifest = await loadDeploymentManifest();
