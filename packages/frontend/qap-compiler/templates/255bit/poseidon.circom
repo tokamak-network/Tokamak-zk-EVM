@@ -18,7 +18,8 @@ template poseidonTokamak(N) {
    H.out === out[0] + out[1] * FIELD_SIZE;
 }
 
-template poseidonTokamakByMode() {
+template poseidonTokamakByMode(N) {
+    assert(N == 2);
     signal input selector;
     signal input in[7][2];
     signal output out[2];

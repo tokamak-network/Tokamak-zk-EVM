@@ -6,7 +6,7 @@ template PoseidonTokamak(N) {
     signal input in[15];
     signal output out[2];
 
-    component H = poseidonTokamakByMode();
+    component H = poseidonTokamakByMode(N);
     H.selector <== in[0];
     for (var i = 0; i < 7; i++){
         H.in[i][0] <== in[1 + 2 * i];
