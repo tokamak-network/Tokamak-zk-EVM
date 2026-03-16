@@ -15,6 +15,102 @@ template verifyParentNode(N) {
     H.out[1] === parent[1];
 }
 
+template verifyP2MerkleProofStep4x() {
+    // Fixed for 2-ary Merkle tree
+    // inputs
+    signal input _childIndex[2], _child[2], _sib[4][2], _parentIndex[2], _parent[2];
+    var FIELD_SIZE = 1<<128;
+
+    var childIndex;
+    var child;
+    var sib;
+    var children[2];
+    var parent;
+    var childHomeIndex;
+
+    component firstStep = verifyP2MerkleProofStep();
+    firstStep._childIndex <== _childIndex;
+    firstStep._child <== _child;
+    firstStep._sib <== _sib[0];
+
+    childIndex = firstStep._childIndex[0];
+    childHomeIndex = childIndex % 2;
+    child = firstStep._child[0] + firstStep._child[1] * FIELD_SIZE;
+    sib = firstStep._sib[0] + firstStep._sib[1] * FIELD_SIZE;
+    if (childHomeIndex == 0) {
+        children = [child, sib];
+    } else {
+        children = [sib, child];
+    }
+    parent = _Poseidon255_2(children);
+
+    firstStep._parentIndex <-- [
+        childIndex \ 2,
+        0
+    ];
+    firstStep._parent <-- [
+        parent % FIELD_SIZE,
+        parent \ FIELD_SIZE
+    ];
+
+    component secondStep = verifyP2MerkleProofStep();
+    secondStep._childIndex <== firstStep._parentIndex;
+    secondStep._child <== firstStep._parent;
+    secondStep._sib <== _sib[1];
+
+    childIndex = secondStep._childIndex[0];
+    childHomeIndex = childIndex % 2;
+    child = secondStep._child[0] + secondStep._child[1] * FIELD_SIZE;
+    sib = secondStep._sib[0] + secondStep._sib[1] * FIELD_SIZE;
+    if (childHomeIndex == 0) {
+        children = [child, sib];
+    } else {
+        children = [sib, child];
+    }
+    parent = _Poseidon255_2(children);
+
+    secondStep._parentIndex <-- [
+        childIndex \ 2,
+        0
+    ];
+    secondStep._parent <-- [
+        parent % FIELD_SIZE,
+        parent \ FIELD_SIZE
+    ];
+
+    component thirdStep = verifyP2MerkleProofStep();
+    thirdStep._childIndex <== secondStep._parentIndex;
+    thirdStep._child <== secondStep._parent;
+    thirdStep._sib <== _sib[2];
+
+    childIndex = thirdStep._childIndex[0];
+    childHomeIndex = childIndex % 2;
+    child = thirdStep._child[0] + thirdStep._child[1] * FIELD_SIZE;
+    sib = thirdStep._sib[0] + thirdStep._sib[1] * FIELD_SIZE;
+    if (childHomeIndex == 0) {
+        children = [child, sib];
+    } else {
+        children = [sib, child];
+    }
+    parent = _Poseidon255_2(children);
+
+    thirdStep._parentIndex <-- [
+        childIndex \ 2,
+        0
+    ];
+    thirdStep._parent <-- [
+        parent % FIELD_SIZE,
+        parent \ FIELD_SIZE
+    ];
+
+    component fourthStep = verifyP2MerkleProofStep();
+    fourthStep._childIndex <== thirdStep._parentIndex;
+    fourthStep._child <== thirdStep._parent;
+    fourthStep._sib <== _sib[3];
+    fourthStep._parentIndex <== _parentIndex;
+    fourthStep._parent <== _parent;
+}
+
 template verifyP2MerkleProofStep3x() {
     // Fixed for 2-ary Merkle tree
     // inputs

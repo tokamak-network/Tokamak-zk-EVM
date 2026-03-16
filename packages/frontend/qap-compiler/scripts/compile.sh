@@ -2,7 +2,7 @@
 
 # Library configuration for n=1024
 # names=("bufferPubOut" "bufferPubIn" "bufferBlockIn" "bufferEVMIn" "bufferPrvIn" "ALU1" "ALU2" "ALU3" "ALU4" "ALU5" "OR" "XOR" "AND" "DecToBit" "Accumulator" "Poseidon" "PrepareEdDsaScalars" "JubjubExp36" "EdDsaVerify" "VerifyMerkleProof")
-names=("bufferPubOut" "bufferPubIn" "bufferBlockIn" "bufferEVMIn" "bufferPrvIn" "ALU1" "ALU2" "ALU3" "ALU4" "ALU5" "OR" "XOR" "AND" "DecToBit" "SubExpBatch" "Accumulator" "Poseidon" "Poseidon2xCompress" "JubjubExpBatch" "EdDsaVerify" "VerifyMerkleProof" "VerifyMerkleProof2x" "VerifyMerkleProof3x")
+names=("bufferPubOut" "bufferPubIn" "bufferBlockIn" "bufferEVMIn" "bufferPrvIn" "ALU1" "ALU2" "ALU3" "ALU4" "ALU5" "OR" "XOR" "AND" "DecToBit" "SubExpBatch" "Accumulator" "Poseidon" "Poseidon2xCompress" "JubjubExpBatch" "EdDsaVerify" "VerifyMerkleProof" "VerifyMerkleProof2x" "VerifyMerkleProof3x" "VerifyMerkleProof4x")
 # Library configuration for n=2048
 # names=("bufferPubOut" "bufferPubIn" "bufferBlockIn" "bufferEVMIn" "bufferPrvIn" "ALU_basic" "ALU_based_on_div" "ALU_bitwise" "DecToBit" "Accumulator")
 CURVE_NAME="bls12381"
@@ -26,16 +26,24 @@ const fs = require('fs');
   const src = fs.readFileSync(constantsPath, 'utf8');
 
   let next = src;
+  let updatedPoseidonInputs = false;
+  let updatedMtDepth = false;
   next = next.replace(
-    /(function\s+nPoseidonInputs\s*\(\s*\)\s*\{\s*return\s+)\d+(\s*;\s*\})/, 
-    `$1${POSEIDON_INPUTS}$2`
+    /(function\s+nPoseidonInputs\s*\(\s*\)\s*\{\s*return\s+)\d+(\s*;\s*\})/,
+    (_, prefix, suffix) => {
+      updatedPoseidonInputs = true;
+      return `${prefix}${POSEIDON_INPUTS}${suffix}`;
+    }
   );
   next = next.replace(
-    /(function\s+nMtDepth\s*\(\s*\)\s*\{\s*return\s+)\d+(\s*;\s*\})/, 
-    `$1${MT_DEPTH}$2`
+    /(function\s+nMtDepth\s*\(\s*\)\s*\{\s*return\s+)\d+(\s*;\s*\})/,
+    (_, prefix, suffix) => {
+      updatedMtDepth = true;
+      return `${prefix}${MT_DEPTH}${suffix}`;
+    }
   );
 
-  if (next === src) {
+  if (!updatedPoseidonInputs || !updatedMtDepth) {
     throw new Error('Failed to update constants.circom (pattern not found).');
   }
 

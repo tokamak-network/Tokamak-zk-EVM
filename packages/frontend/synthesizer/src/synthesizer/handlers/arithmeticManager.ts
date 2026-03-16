@@ -374,7 +374,37 @@ export class ArithmeticManager {
     while (level < MT_DEPTH) {
       const remaining = MT_DEPTH - level
 
-      if (remaining >= 3) {
+      if (remaining >= 4) {
+        const sib0 = siblingPts[level]
+        const sib1 = siblingPts[level + 1]
+        const sib2 = siblingPts[level + 2]
+        const sib3 = siblingPts[level + 3]
+
+        const { parentIndex: pIdx1, parent: pPt1 } = computeParentsNode(Number(childIndexPt.value), childPt.value, sib0)
+        const { parentIndex: pIdx2, parent: pPt2 } = computeParentsNode(pIdx1, pPt1, sib1)
+        const { parentIndex: pIdx3, parent: pPt3 } = computeParentsNode(pIdx2, pPt2, sib2)
+        const { parentIndex, parent: parentVal } = computeParentsNode(pIdx3, pPt3, sib3)
+        const parentIndexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(parentIndex), true)
+        const parentPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', parentVal, true)
+
+        const isLastGroup = level + 4 >= MT_DEPTH
+        const finalParentPt = isLastGroup ? rootPt : parentPt
+
+        this.placeArith('VerifyMerkleProof4x', [
+          childIndexPt,
+          childPt,
+          ...sib0,
+          ...sib1,
+          ...sib2,
+          ...sib3,
+          parentIndexPt,
+          finalParentPt,
+        ])
+
+        childPt = finalParentPt
+        childIndexPt = parentIndexPt
+        level += 4
+      } else if (remaining >= 3) {
         const sib0 = siblingPts[level]
         const sib1 = siblingPts[level + 1]
         const sib2 = siblingPts[level + 2]
@@ -510,4 +540,5 @@ const ARITHMETIC_MAPPING: Record<ArithmeticOperator, (...args: any) => any> = {
   VerifyMerkleProof: ArithmeticOperations.verifyMerkleProof,
   VerifyMerkleProof2x: ArithmeticOperations.verifyMerkleProof2x,
   VerifyMerkleProof3x: ArithmeticOperations.verifyMerkleProof3x,
+  VerifyMerkleProof4x: ArithmeticOperations.verifyMerkleProof4x,
 } as const

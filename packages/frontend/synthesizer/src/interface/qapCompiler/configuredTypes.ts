@@ -38,6 +38,7 @@ export const ARITHMETIC_OPERATOR_LIST = [
   'VerifyMerkleProof',
   'VerifyMerkleProof2x',
   'VerifyMerkleProof3x',
+    'VerifyMerkleProof4x',
 ] as const
 
 export type ArithmeticOperator = (typeof ARITHMETIC_OPERATOR_LIST)[number]
@@ -103,6 +104,7 @@ export const SUBCIRCUIT_LIST = [
     'VerifyMerkleProof',
     'VerifyMerkleProof2x',
     'VerifyMerkleProof3x',
+    'VerifyMerkleProof4x',
 ] as const
 
 export type SubcircuitNames = typeof SUBCIRCUIT_LIST[number]
@@ -161,6 +163,7 @@ export const SUBCIRCUIT_ALU_MAPPING: Record<ArithmeticOperator, [SubcircuitNames
   VerifyMerkleProof: ['VerifyMerkleProof', undefined],
   VerifyMerkleProof2x: ['VerifyMerkleProof2x', undefined],
   VerifyMerkleProof3x: ['VerifyMerkleProof3x', undefined],
+  VerifyMerkleProof4x: ['VerifyMerkleProof4x', undefined],
 } as const;
 
 export const TX_MESSAGE_TO_HASH = [
