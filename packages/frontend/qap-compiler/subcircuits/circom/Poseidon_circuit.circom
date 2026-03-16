@@ -3,6 +3,7 @@ include "../../templates/255bit/poseidon.circom";
 include "./constants.circom";
 
 template PoseidonTokamak(N) {
+    assert(N == 2);
     signal input in[15];
     signal output out[2];
 
