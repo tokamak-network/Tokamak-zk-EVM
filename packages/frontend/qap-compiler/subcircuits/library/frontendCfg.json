@@ -1,8 +1,8 @@
 {
   "nPubOut": 10,
   "nPubIn": 20,
-  "nEVMIn": 100,
-  "nPrvIn": 100,
+  "nEVMIn": 700,
+  "nPrvIn": 1000,
   "nPoseidonInputs": 2,
   "nMtDepth": 10,
   "nAccumulation": 32,
