@@ -1,6 +1,6 @@
 # Merged ALU Security Audit
 
-> Status update: This document records the audit findings before the follow-up hardening that was later applied. In the current repository state, the selector-canonicalization issue and the missing high-limb constraint for the shift and byte family have been remediated.
+> Status update: This document records the audit findings before the follow-up hardening that was later applied. In the current repository state, the selector-canonicalization issue, the missing high-limb constraint for the shift and byte family, and the direct input bus canonicalization gap for the merged wrappers have been remediated.
 
 ## Scope
 
@@ -135,12 +135,12 @@ The merged templates continue to omit direct input bus range checks:
 
 - [templates/256bit/alu_safe.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/templates/256bit/alu_safe.circom#L661)
 
-The same assumption existed before the merge. This is therefore not a regression. However, it remains a trust boundary:
+The same assumption existed before the merge. This is therefore not a regression. However, at audit time it remained a trust boundary:
 
 - If upstream circuits always constrain each limb to 128 bits, the design is consistent.
 - If that assumption is violated anywhere, several `unsafe` arithmetic templates can be fed malformed non-canonical limbs.
 
-This is a residual security dependency, not a newly introduced bug.
+This was a residual security dependency, not a newly introduced bug. The current repository state hardens the merged `ALU1` and `ALU2` wrappers with direct `CheckBus()` input checks.
 
 ## Operation-by-Operation Comparison
 
