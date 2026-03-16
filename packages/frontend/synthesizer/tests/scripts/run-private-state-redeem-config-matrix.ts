@@ -43,8 +43,8 @@ const parseArgs = () => {
       case '--inputs':
       case '-n': {
         const inputCount = parseInteger(consumeValue(current), 'inputs');
-        if (inputCount !== 1 && inputCount !== 2 && inputCount !== 3 && inputCount !== 4 && inputCount !== 5) {
-          throw new Error('inputs must be 1, 2, 3, 4, or 5');
+        if (inputCount !== 1 && inputCount !== 2 && inputCount !== 3 && inputCount !== 4) {
+          throw new Error('inputs must be 1, 2, 3, or 4');
         }
         args.inputs = inputCount;
         break;

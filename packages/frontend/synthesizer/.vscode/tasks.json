@@ -182,16 +182,6 @@
       "problemMatcher": []
     },
     {
-      "label": "private-state-redeem:5:prep",
-      "type": "shell",
-      "command": "tsx",
-      "args": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json", "${workspaceFolder}/tests/scripts/run-private-state-redeem-config-matrix.ts", "--inputs", "5"],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": []
-    },
-    {
       "label": "private-state-redeem:1:prep",
       "type": "shell",
       "command": "tsx",
