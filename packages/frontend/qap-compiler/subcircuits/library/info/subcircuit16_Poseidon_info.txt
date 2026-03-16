@@ -1,11 +1,11 @@
-[32mtemplate instances[0m: 69
-non-linear constraints: 240
-linear constraints: 387
+[32mtemplate instances[0m: 72
+non-linear constraints: 1464
+linear constraints: 2329
 public inputs: 0
-private inputs: 4
+private inputs: 15
 public outputs: 2
-wires: 633
-labels: 1104
+wires: 3814
+labels: 6672
 [32mWritten successfully:[0m ../subcircuits/library/Poseidon_circuit.r1cs
 [32mConstraints written in:[0m ../subcircuits/library/Poseidon_circuit_constraints.json
 [32mWritten successfully:[0m ../subcircuits/library/Poseidon_circuit_js/Poseidon_circuit.wasm

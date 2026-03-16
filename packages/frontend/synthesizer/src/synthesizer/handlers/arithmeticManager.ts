@@ -35,7 +35,31 @@ export class ArithmeticManager {
         sourceBitSize = 255
         break
       case 'Poseidon2xCompress':
-        if (inPts.length !== POSEIDON_INPUTS ** 2) {
+        if (inPts.length !== POSEIDON_INPUTS + 1) {
+          throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
+        }
+        sourceBitSize = 255
+        break
+      case 'Poseidon3xCompress':
+        if (inPts.length !== POSEIDON_INPUTS + 2) {
+          throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
+        }
+        sourceBitSize = 255
+        break
+      case 'Poseidon4xCompress':
+        if (inPts.length !== POSEIDON_INPUTS + 3) {
+          throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
+        }
+        sourceBitSize = 255
+        break
+      case 'Poseidon5xCompress':
+        if (inPts.length !== POSEIDON_INPUTS + 4) {
+          throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
+        }
+        sourceBitSize = 255
+        break
+      case 'Poseidon6xCompress':
+        if (inPts.length !== POSEIDON_INPUTS + 5) {
           throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
         }
         sourceBitSize = 255
@@ -103,6 +127,34 @@ export class ArithmeticManager {
     return [childIndexPt, childPt, ...paddedSiblings, parentIndexPt, parentPt]
   }
 
+  private _normalizePoseidonInputs(
+    name: ArithmeticOperator,
+    inPts: DataPt[],
+  ): DataPt[] {
+    const nCallsByName: Partial<Record<ArithmeticOperator, number>> = {
+      Poseidon: 1,
+      Poseidon2xCompress: 2,
+      Poseidon3xCompress: 3,
+      Poseidon4xCompress: 4,
+      Poseidon5xCompress: 5,
+      Poseidon6xCompress: 6,
+    }
+    const nCalls = nCallsByName[name]
+    if (nCalls === undefined) {
+      return inPts
+    }
+
+    const expectedLen = nCalls + 1
+    if (inPts.length !== expectedLen) {
+      throw new Error(`Synthesizer: Operation ${name} expected ${expectedLen} inputs, but got ${inPts.length}.`)
+    }
+
+    const zeroPt = this.parent.loadArbitraryStatic(0n, 255, `Poseidon padding for ${name}`)
+    return inPts.concat(
+      Array.from({ length: 7 - expectedLen }, () => DataPtFactory.deepCopy(zeroPt)),
+    )
+  }
+
   /**
    * Prepares the inputs for a subcircuit, including any required selectors.
    *
@@ -123,7 +175,8 @@ export class ArithmeticManager {
       );
     }
 
-    let finalInPts: DataPt[] = this._normalizeMerkleProofInputs(name, inPts);
+    let finalInPts: DataPt[] = this._normalizePoseidonInputs(name, inPts);
+    finalInPts = this._normalizeMerkleProofInputs(name, finalInPts);
     if (selector !== undefined) {
       const selectorPt = this.parent.loadArbitraryStatic(selector, 32, `ALU selector for ${name} of ${subcircuitName}`);
       finalInPts = [selectorPt, ...finalInPts];
@@ -162,38 +215,31 @@ export class ArithmeticManager {
   }
 
   public placePoseidon(inPts: DataPt[]): DataPt {
-    // Fold in chunks of POSEIDON_INPUTS; zero-pad tail; **strict field check** (no modular reduction)
     if (inPts.length === 0) {
       return this.placeArith('Poseidon', Array<DataPt>(POSEIDON_INPUTS).fill(this.parent.loadArbitraryStatic(0n)))[0]
     }
-    const fold = (arr: DataPt[]): DataPt[] => {
-      const n1xChunks = Math.ceil(arr.length / POSEIDON_INPUTS);
-      const nPaddedChildren = n1xChunks * POSEIDON_INPUTS;
+    if (inPts.length === 1) {
+      return this.placeArith('Poseidon', [inPts[0], this.parent.loadArbitraryStatic(0n)])[0]
+    }
 
-      const mode2x: boolean = nPaddedChildren % (POSEIDON_INPUTS ** 2) === 0
+    const operationByLen: Record<number, ArithmeticOperator> = {
+      2: 'Poseidon',
+      3: 'Poseidon2xCompress',
+      4: 'Poseidon3xCompress',
+      5: 'Poseidon4xCompress',
+      6: 'Poseidon5xCompress',
+      7: 'Poseidon6xCompress',
+    }
 
-      const placeFunction = mode2x ?
-        (chunk: DataPt[]): DataPt[] => { return this.placeArith('Poseidon2xCompress', chunk) } :
-        (chunk: DataPt[]): DataPt[] => { return this.placeArith('Poseidon', chunk) }
+    let chainInputs = [...inPts]
+    while (chainInputs.length > 7) {
+      const prefixHash = this.placeArith('Poseidon6xCompress', chainInputs.slice(0, 7))[0]
+      chainInputs = [prefixHash, ...chainInputs.slice(7)]
+    }
 
-      const nChildren = mode2x ? (POSEIDON_INPUTS ** 2) : POSEIDON_INPUTS
-      
-      const out: DataPt[] = [];
-      for (let childId = 0; childId < nPaddedChildren; childId += nChildren) {
-          const chunk = Array.from({ length: nChildren }, (_, localChildId) => arr[childId + localChildId] ?? this.parent.loadArbitraryStatic(0n));
-          // Every word must be within the field [0, MOD)
-          // chunk.map(checkBLS12Modulus)
-          out.push(...placeFunction(chunk));
-      }
-      return out;
-    };
-
-    // Repeatedly fold until a single word remains
-    let acc: DataPt[] = fold(inPts)
-    while (acc.length > 1) acc = fold(acc)
-
-    // Return big-endian bytes of the field element; caller decides fixed-length padding if needed
-    return DataPtFactory.deepCopy(acc[0])
+    return DataPtFactory.deepCopy(
+      this.placeArith(operationByLen[chainInputs.length], chainInputs)[0],
+    )
   }
 
   // public placeExp(inPts: DataPt[]): DataPt {
@@ -542,6 +588,10 @@ const ARITHMETIC_MAPPING: Record<ArithmeticOperator, (...args: any) => any> = {
   Accumulator: ArithmeticOperations.accumulator,
   Poseidon: ArithmeticOperations.poseidonN,
   Poseidon2xCompress: ArithmeticOperations.poseidonN2xCompress,
+  Poseidon3xCompress: ArithmeticOperations.poseidonN3xCompress,
+  Poseidon4xCompress: ArithmeticOperations.poseidonN4xCompress,
+  Poseidon5xCompress: ArithmeticOperations.poseidonN5xCompress,
+  Poseidon6xCompress: ArithmeticOperations.poseidonN6xCompress,
   // PrepareEdDsaScalars: ArithmeticOperations.prepareEdDsaScalars,
   JubjubExpBatch: ArithmeticOperations.jubjubExpBatch,
   EdDsaVerify: ArithmeticOperations.edDsaVerify,
