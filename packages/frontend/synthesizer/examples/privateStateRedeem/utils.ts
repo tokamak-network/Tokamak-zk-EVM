@@ -27,7 +27,7 @@ export type PrivateStateRedeemConfig = ChannelStateConfig & {
   calldata: `0x${string}`;
   senderIndex: number;
   receiverIndex: number;
-  inputCount: 4 | 6 | 8;
+  inputCount: 3 | 4 | 6 | 8;
   inputNotes: [PrivateStateNote, ...PrivateStateNote[]];
   function: ChannelFunctionConfig;
 };
@@ -40,6 +40,9 @@ export {
   type ExampleNetwork,
 };
 
+const REDEEM_NOTES3_ABI = [
+  'function redeemNotes3((address owner,uint256 value,bytes32 salt)[3] inputNotes,address receiver) returns (bytes32[3] nullifiers)',
+];
 const REDEEM_NOTES4_ABI = [
   'function redeemNotes4((address owner,uint256 value,bytes32 salt)[4] inputNotes,address receiver) returns (bytes32[4] nullifiers)',
 ];
@@ -51,6 +54,7 @@ const REDEEM_NOTES8_ABI = [
 ];
 
 export const redeemInterfaces = {
+  3: new ethers.Interface(REDEEM_NOTES3_ABI),
   4: new ethers.Interface(REDEEM_NOTES4_ABI),
   6: new ethers.Interface(REDEEM_NOTES6_ABI),
   8: new ethers.Interface(REDEEM_NOTES8_ABI),
@@ -78,10 +82,10 @@ const parseNumberValue = (value: unknown, label: string): number => {
   return parsed;
 };
 
-const parseInputCount = (value: unknown, label: string): 4 | 6 | 8 => {
+const parseInputCount = (value: unknown, label: string): 3 | 4 | 6 | 8 => {
   const parsed = parseNumberValue(value, label);
-  if (parsed !== 4 && parsed !== 6 && parsed !== 8) {
-    throw new Error(`${label} must be 4, 6, or 8`);
+  if (parsed !== 3 && parsed !== 4 && parsed !== 6 && parsed !== 8) {
+    throw new Error(`${label} must be 3, 4, 6, or 8`);
   }
   return parsed;
 };
@@ -206,7 +210,7 @@ export const buildPrivateStateRedeemCalldata = (
     throw new Error(`receiverIndex must point to an existing participant; got ${config.receiverIndex}`);
   }
   const receiverAddress = fromEdwardsToAddress(receiverPoint).toString();
-  const functionName = `redeemNotes${config.inputCount}` as 'redeemNotes4' | 'redeemNotes6' | 'redeemNotes8';
+  const functionName = `redeemNotes${config.inputCount}` as 'redeemNotes3' | 'redeemNotes4' | 'redeemNotes6' | 'redeemNotes8';
   return redeemInterfaces[config.inputCount].encodeFunctionData(
     functionName,
     [config.inputNotes, receiverAddress],

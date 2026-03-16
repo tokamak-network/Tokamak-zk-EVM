@@ -41,7 +41,7 @@ type PrivateStateMintConfig = {
   calldata: `0x${string}`;
   senderIndex: number;
   noteOwnerIndex: number;
-  outputCount: 1 | 2 | 3;
+  outputCount: 1 | 2 | 3 | 4;
   noteValues: [`0x${string}`, ...`0x${string}`[]];
   noteSalts: [`0x${string}`, ...`0x${string}`[]];
   function: {
@@ -164,8 +164,8 @@ const parseArgs = (): ParsedArgs => {
       case '--outputs':
       case '-m': {
         const outputCount = parseInteger(consumeValue(current), 'outputs');
-        if (outputCount !== 1 && outputCount !== 2 && outputCount !== 3) {
-          throw new Error('outputs must be 1, 2, or 3');
+        if (outputCount !== 1 && outputCount !== 2 && outputCount !== 3 && outputCount !== 4) {
+          throw new Error('outputs must be 1, 2, 3, or 4');
         }
         args.outputs = outputCount;
         break;
@@ -377,7 +377,7 @@ const main = async () => {
     throw new Error(`Could not resolve note owner at index ${noteOwnerIndex}`);
   }
 
-  const functionName = `mintNotes${outputCount}` as 'mintNotes1' | 'mintNotes2' | 'mintNotes3';
+  const functionName = `mintNotes${outputCount}` as 'mintNotes1' | 'mintNotes2' | 'mintNotes3' | 'mintNotes4';
   const mintInterface = mintInterfaces[outputCount];
   const selector = mintInterface.getFunction(functionName)?.selector as `0x${string}` | undefined;
   if (!selector) {

@@ -42,6 +42,16 @@
       "problemMatcher": []
     },
     {
+      "label": "private-state-mint:4:prep",
+      "type": "shell",
+      "command": "tsx",
+      "args": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json", "${workspaceFolder}/tests/scripts/run-private-state-mint-config-matrix.ts", "--outputs", "4"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "private-state-transfer:prep",
       "type": "shell",
       "command": "npm",
@@ -126,6 +136,16 @@
       "type": "shell",
       "command": "npm",
       "args": ["run", "-s", "test:private-state-redeem:prep"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "private-state-redeem:3:prep",
+      "type": "shell",
+      "command": "tsx",
+      "args": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json", "${workspaceFolder}/tests/scripts/run-private-state-redeem-config-matrix.ts", "--inputs", "3"],
       "options": {
         "cwd": "${workspaceFolder}"
       },

@@ -57,7 +57,7 @@ export type PrivateStateMintConfig = ChannelStateConfig & {
   calldata: `0x${string}`;
   senderIndex: number;
   noteOwnerIndex: number;
-  outputCount: 1 | 2 | 3;
+  outputCount: 1 | 2 | 3 | 4;
   noteValues: [`0x${string}`, ...`0x${string}`[]];
   noteSalts: [`0x${string}`, ...`0x${string}`[]];
   function: ChannelFunctionConfig;
@@ -82,10 +82,15 @@ const MINT_NOTES3_ABI = [
   'function mintNotes3((address owner,uint256 value,bytes32 salt)[3] outputs) returns (bytes32[3] commitments)',
 ];
 
+const MINT_NOTES4_ABI = [
+  'function mintNotes4((address owner,uint256 value,bytes32 salt)[4] outputs) returns (bytes32[4] commitments)',
+];
+
 export const mintInterfaces = {
   1: new ethers.Interface(MINT_NOTES1_ABI),
   2: new ethers.Interface(MINT_NOTES2_ABI),
   3: new ethers.Interface(MINT_NOTES3_ABI),
+  4: new ethers.Interface(MINT_NOTES4_ABI),
 } as const;
 
 const parseHexString = (value: unknown, label: string): `0x${string}` => {
@@ -110,10 +115,10 @@ const parseNumberValue = (value: unknown, label: string): number => {
   return parsed;
 };
 
-const parseOutputCount = (value: unknown, label: string): 1 | 2 | 3 => {
+const parseOutputCount = (value: unknown, label: string): 1 | 2 | 3 | 4 => {
   const parsed = parseNumberValue(value, label);
-  if (parsed !== 1 && parsed !== 2 && parsed !== 3) {
-    throw new Error(`${label} must be 1, 2, or 3`);
+  if (parsed !== 1 && parsed !== 2 && parsed !== 3 && parsed !== 4) {
+    throw new Error(`${label} must be 1, 2, 3, or 4`);
   }
   return parsed;
 };
@@ -266,7 +271,7 @@ export const buildPrivateStateMintCalldata = (
 
   const noteOwnerAddress = fromEdwardsToAddress(keyMaterial.publicKeys[config.noteOwnerIndex]).toString();
   const mintInterface = mintInterfaces[config.outputCount];
-  const functionName = `mintNotes${config.outputCount}` as 'mintNotes1' | 'mintNotes2' | 'mintNotes3';
+  const functionName = `mintNotes${config.outputCount}` as 'mintNotes1' | 'mintNotes2' | 'mintNotes3' | 'mintNotes4';
   const outputs = config.noteValues.map((value, index) => ({
     owner: noteOwnerAddress,
     value: BigInt(value),

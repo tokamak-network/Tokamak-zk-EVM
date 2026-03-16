@@ -1,10 +1,10 @@
 # Private-State Mint Example
 
-This example mirrors the existing ERC-20 Synthesizer workflow, but targets the `apps/private-state` DApp across `mintNotes1`, `mintNotes2`, and `mintNotes3`.
+This example mirrors the existing ERC-20 Synthesizer workflow, but targets the `apps/private-state` DApp across `mintNotes1`, `mintNotes2`, `mintNotes3`, and `mintNotes4`.
 
 ## Scope
 
-- Target functions: `mintNotes1`, `mintNotes2`, `mintNotes3`
+- Target functions: `mintNotes1`, `mintNotes2`, `mintNotes3`, `mintNotes4`
 - Target network for generated configs: `anvil`
 - Config generator: `scripts/generate-private-state-mint-config.ts`
 - Replay test entrypoint: `tests/scripts/run-private-state-mint-main-from-configs.ts`

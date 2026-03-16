@@ -57,6 +57,20 @@
     {
       "type": "node",
       "request": "launch",
+      "name": "Private-state mintNotes4 on anvil",
+      "preLaunchTask": "private-state-mint:4:prep",
+      "runtimeExecutable": "tsx",
+      "program": "${workspaceFolder}/examples/privateStateMint/main.ts",
+      "args": [
+        "${workspaceFolder}/tests/configs/private-state-mint/config-anvil-private-state-mint-m4-p4-s0.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
       "name": "Private-state transferNotes1To1 on anvil",
       "preLaunchTask": "private-state-transfer:1to1:prep",
       "runtimeExecutable": "tsx",
@@ -147,6 +161,20 @@
       "program": "${workspaceFolder}/examples/privateStateTransfer/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-transfer/config-anvil-private-state-transfer-n4-m1-p4-s0.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state redeemNotes3 on anvil",
+      "preLaunchTask": "private-state-redeem:3:prep",
+      "runtimeExecutable": "tsx",
+      "program": "${workspaceFolder}/examples/privateStateRedeem/main.ts",
+      "args": [
+        "${workspaceFolder}/tests/configs/private-state-redeem/config-anvil-private-state-redeem-n3-p4-s0.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],
