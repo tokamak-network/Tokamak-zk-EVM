@@ -298,7 +298,10 @@ export class Synthesizer implements SynthesizerInterface
     this._stepLogs = []
 
     const headerData: HeaderData = {
-      parentHash: this.getReservedVariableFromBuffer('BLOCKHASH_1').value,
+      parentHash: setLengthLeft(
+        bigIntToBytes(this.getReservedVariableFromBuffer('BLOCKHASH_1').value),
+        32,
+      ),
       coinbase: createAddressFromBigInt(this.getReservedVariableFromBuffer('COINBASE').value),
       // difficulty = 0 for PoS blocks
       difficulty: 0n,
