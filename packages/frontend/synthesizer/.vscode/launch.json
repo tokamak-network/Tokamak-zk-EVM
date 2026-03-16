@@ -239,6 +239,34 @@
     {
       "type": "node",
       "request": "launch",
+      "name": "Private-state redeemNotes4 on anvil",
+      "preLaunchTask": "private-state-redeem:4:prep",
+      "runtimeExecutable": "tsx",
+      "program": "${workspaceFolder}/examples/privateStateRedeem/main.ts",
+      "args": [
+        "${workspaceFolder}/tests/configs/private-state-redeem/config-anvil-private-state-redeem-n4-p4-s0.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state redeemNotes5 on anvil",
+      "preLaunchTask": "private-state-redeem:5:prep",
+      "runtimeExecutable": "tsx",
+      "program": "${workspaceFolder}/examples/privateStateRedeem/main.ts",
+      "args": [
+        "${workspaceFolder}/tests/configs/private-state-redeem/config-anvil-private-state-redeem-n5-p4-s0.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
       "name": "tokamak-ch-tx (debug, file inputs)",
       "runtimeExecutable": "tsx",
       "program": "${workspaceFolder}/src/interface/cli/index.ts",

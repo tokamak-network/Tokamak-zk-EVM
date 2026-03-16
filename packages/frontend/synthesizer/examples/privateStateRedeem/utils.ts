@@ -27,7 +27,7 @@ export type PrivateStateRedeemConfig = ChannelStateConfig & {
   calldata: `0x${string}`;
   senderIndex: number;
   receiverIndex: number;
-  inputCount: 1 | 2 | 3;
+  inputCount: 1 | 2 | 3 | 4 | 5;
   inputNotes: [PrivateStateNote, ...PrivateStateNote[]];
   function: ChannelFunctionConfig;
 };
@@ -49,11 +49,19 @@ const REDEEM_NOTES2_ABI = [
 const REDEEM_NOTES3_ABI = [
   'function redeemNotes3((address owner,uint256 value,bytes32 salt)[3] inputNotes,address receiver) returns (bytes32[3] nullifiers)',
 ];
+const REDEEM_NOTES4_ABI = [
+  'function redeemNotes4((address owner,uint256 value,bytes32 salt)[4] inputNotes,address receiver) returns (bytes32[4] nullifiers)',
+];
+const REDEEM_NOTES5_ABI = [
+  'function redeemNotes5((address owner,uint256 value,bytes32 salt)[5] inputNotes,address receiver) returns (bytes32[5] nullifiers)',
+];
 
 export const redeemInterfaces = {
   1: new ethers.Interface(REDEEM_NOTES1_ABI),
   2: new ethers.Interface(REDEEM_NOTES2_ABI),
   3: new ethers.Interface(REDEEM_NOTES3_ABI),
+  4: new ethers.Interface(REDEEM_NOTES4_ABI),
+  5: new ethers.Interface(REDEEM_NOTES5_ABI),
 } as const;
 
 const parseHexString = (value: unknown, label: string): `0x${string}` => {
@@ -78,10 +86,10 @@ const parseNumberValue = (value: unknown, label: string): number => {
   return parsed;
 };
 
-const parseInputCount = (value: unknown, label: string): 1 | 2 | 3 => {
+const parseInputCount = (value: unknown, label: string): 1 | 2 | 3 | 4 | 5 => {
   const parsed = parseNumberValue(value, label);
-  if (parsed !== 1 && parsed !== 2 && parsed !== 3) {
-    throw new Error(`${label} must be 1, 2, or 3`);
+  if (parsed !== 1 && parsed !== 2 && parsed !== 3 && parsed !== 4 && parsed !== 5) {
+    throw new Error(`${label} must be 1, 2, 3, 4, or 5`);
   }
   return parsed;
 };
@@ -206,7 +214,12 @@ export const buildPrivateStateRedeemCalldata = (
     throw new Error(`receiverIndex must point to an existing participant; got ${config.receiverIndex}`);
   }
   const receiverAddress = fromEdwardsToAddress(receiverPoint).toString();
-  const functionName = `redeemNotes${config.inputCount}` as 'redeemNotes1' | 'redeemNotes2' | 'redeemNotes3';
+  const functionName = `redeemNotes${config.inputCount}` as
+    | 'redeemNotes1'
+    | 'redeemNotes2'
+    | 'redeemNotes3'
+    | 'redeemNotes4'
+    | 'redeemNotes5';
   return redeemInterfaces[config.inputCount].encodeFunctionData(
     functionName,
     [config.inputNotes, receiverAddress],
