@@ -25,8 +25,11 @@ export type PrivateStateTransferConfig = ChannelStateConfig & {
   txNonce: number;
   calldata: `0x${string}`;
   senderIndex: number;
-  inputNotes: [PrivateStateNote];
-  outputNotes: [PrivateStateNote, PrivateStateNote];
+  functionName: string;
+  inputCount: number;
+  outputCount: number;
+  inputNotes: PrivateStateNote[];
+  outputNotes: PrivateStateNote[];
   function: ChannelFunctionConfig;
 };
 
@@ -38,11 +41,14 @@ export {
   type ExampleNetwork,
 };
 
-const TRANSFER_NOTES1_TO2_ABI = [
-  'function transferNotes1To2((address owner,uint256 value,bytes32 salt)[1] inputNotes,(address owner,uint256 value,bytes32 salt)[2] outputs) returns (bytes32[1] nullifiers, bytes32[2] outputCommitments)',
+const buildTransferFunctionName = (inputCount: number, outputCount: number) => `transferNotes${inputCount}To${outputCount}`;
+
+const buildTransferAbi = (inputCount: number, outputCount: number) => [
+  `function ${buildTransferFunctionName(inputCount, outputCount)}((address owner,uint256 value,bytes32 salt)[${inputCount}] inputNotes,(address owner,uint256 value,bytes32 salt)[${outputCount}] outputs) returns (bytes32[${inputCount}] nullifiers, bytes32[${outputCount}] outputCommitments)`,
 ];
 
-export const transferNotes1To2Interface = new ethers.Interface(TRANSFER_NOTES1_TO2_ABI);
+export const createTransferInterface = (inputCount: number, outputCount: number) =>
+  new ethers.Interface(buildTransferAbi(inputCount, outputCount));
 
 const parseHexString = (value: unknown, label: string): `0x${string}` => {
   if (typeof value !== 'string' || !value.startsWith('0x')) {
@@ -64,6 +70,13 @@ const parseNumberValue = (value: unknown, label: string): number => {
     throw new Error(`${label} must be an integer`);
   }
   return parsed;
+};
+
+const parseTransferFunctionName = (value: unknown, label: string): string => {
+  if (typeof value !== 'string' || !/^transferNotes[1-8]To[12]$/u.test(value)) {
+    throw new Error(`${label} must match transferNotes<N>To<M> with N in [1,8] and M in [1,2]`);
+  }
+  return value;
 };
 
 const assertStringArray = (value: unknown, label: string): string[] => {
@@ -158,8 +171,15 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateTransf
     throw new Error('participants must include at least two entries');
   }
 
-  const inputNotes = parseFixedNotes(configRaw.inputNotes, 'inputNotes', 1) as PrivateStateTransferConfig['inputNotes'];
-  const outputNotes = parseFixedNotes(configRaw.outputNotes, 'outputNotes', 2) as PrivateStateTransferConfig['outputNotes'];
+  const functionName = parseTransferFunctionName(configRaw.functionName, 'functionName');
+  const inputCount = parseNumberValue(configRaw.inputCount, 'inputCount');
+  const outputCount = parseNumberValue(configRaw.outputCount, 'outputCount');
+  if (functionName !== buildTransferFunctionName(inputCount, outputCount)) {
+    throw new Error('functionName must match inputCount and outputCount');
+  }
+  const inputNotes = parseFixedNotes(configRaw.inputNotes, 'inputNotes', inputCount) as PrivateStateTransferConfig['inputNotes'];
+  const outputNotes =
+    parseFixedNotes(configRaw.outputNotes, 'outputNotes', outputCount) as PrivateStateTransferConfig['outputNotes'];
 
   return {
     network: parseNetwork(configRaw.network, 'network'),
@@ -172,6 +192,9 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateTransf
     txNonce: parseNumberValue(configRaw.txNonce, 'txNonce'),
     calldata: parseHexString(configRaw.calldata, 'calldata'),
     senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
+    functionName,
+    inputCount,
+    outputCount,
     inputNotes,
     outputNotes,
     function: assertFunctionConfig(configRaw.function, 'function'),
@@ -182,7 +205,10 @@ export const buildPrivateStateTransferCalldata = (
   config: PrivateStateTransferConfig,
   _keyMaterial: DerivedParticipantKeys,
 ): `0x${string}` =>
-  transferNotes1To2Interface.encodeFunctionData('transferNotes1To2', [config.inputNotes, config.outputNotes]) as `0x${string}`;
+  createTransferInterface(config.inputCount, config.outputCount).encodeFunctionData(
+    config.functionName,
+    [config.inputNotes, config.outputNotes],
+  ) as `0x${string}`;
 
 export const toStateManagerChannelConfig = (
   config: PrivateStateTransferConfig,

@@ -11,8 +11,8 @@ import { fromEdwardsToAddress } from '../src/interface/tokamakL2js/index.ts';
 import { BLS12831ARITHMODULUS } from '../src/synthesizer/params/index.ts';
 import {
   buildPrivateStateTransferCalldata,
+  createTransferInterface,
   deriveParticipantKeys,
-  transferNotes1To2Interface,
   type PrivateStateNote,
   type PrivateStateTransferConfig,
 } from '../examples/privateStateTransfer/utils.ts';
@@ -96,6 +96,8 @@ type ParsedArgs = {
   output?: string;
   participants: number;
   sender: number;
+  inputCount: number;
+  outputCount: number;
   rpcUrl?: string;
   mnemonic?: string;
   amount?: string;
@@ -127,6 +129,8 @@ const parseArgs = (): ParsedArgs => {
   const args: ParsedArgs = {
     participants: DEFAULT_PARTICIPANT_COUNT,
     sender: 0,
+    inputCount: 1,
+    outputCount: 2,
   };
   const argv = process.argv.slice(2);
 
@@ -157,6 +161,14 @@ const parseArgs = (): ParsedArgs => {
       case '--sender':
       case '-s':
         args.sender = parseInteger(consumeValue(current), 'sender');
+        break;
+      case '--inputs':
+      case '-i':
+        args.inputCount = parseInteger(consumeValue(current), 'inputs');
+        break;
+      case '--outputs':
+      case '-m':
+        args.outputCount = parseInteger(consumeValue(current), 'outputs');
         break;
       case '--rpc-url':
         args.rpcUrl = consumeValue(current);
@@ -305,6 +317,8 @@ const main = async () => {
   const outputPath = args.output ? path.resolve(process.cwd(), String(args.output)) : defaultOutputPath;
   const participantCount = args.participants;
   const senderIndex = args.sender;
+  const inputCount = args.inputCount;
+  const outputCount = args.outputCount;
   const noteValue = parseAmount(args.amount);
   const rpcUrl = typeof args.rpcUrl === 'string' && args.rpcUrl.trim().length > 0
     ? args.rpcUrl.trim()
@@ -318,6 +332,12 @@ const main = async () => {
   }
   if (senderIndex < 0 || senderIndex >= participantCount) {
     throw new Error(`sender must be between 0 and ${participantCount - 1}`);
+  }
+  if (inputCount < 1 || inputCount > 8) {
+    throw new Error('inputs must be between 1 and 8');
+  }
+  if (outputCount < 1 || outputCount > 2) {
+    throw new Error('outputs must be 1 or 2');
   }
 
   await ensurePrivateStateBootstrap();
@@ -337,34 +357,34 @@ const main = async () => {
     throw new Error('Could not resolve transfer participants');
   }
 
-  const selector = transferNotes1To2Interface.getFunction('transferNotes1To2')?.selector as `0x${string}` | undefined;
+  const functionName = `transferNotes${inputCount}To${outputCount}`;
+  const transferInterface = createTransferInterface(inputCount, outputCount);
+  const selector = transferInterface.getFunction(functionName)?.selector as `0x${string}` | undefined;
   if (!selector) {
-    throw new Error('Failed to resolve transferNotes1To2 selector');
+    throw new Error(`Failed to resolve ${functionName} selector`);
   }
 
-  const inputValueHex = ethers.toBeHex(noteValue) as `0x${string}`;
-  const splitValue = noteValue / 2n;
-  if (splitValue == 0 || splitValue * 2n != noteValue) {
-    throw new Error('transfer note value must be divisible by 2 and greater than zero');
+  const inputValue = noteValue / BigInt(inputCount);
+  if (inputValue == 0 || inputValue * BigInt(inputCount) != noteValue) {
+    throw new Error('total transfer note value must be divisible by the input count and greater than zero');
   }
-  const outputValueHex = ethers.toBeHex(splitValue) as `0x${string}`;
-  const inputNotes = [{
+  const outputValue = noteValue / BigInt(outputCount);
+  if (outputValue == 0 || outputValue * BigInt(outputCount) != noteValue) {
+    throw new Error('total transfer note value must be divisible by the output count and greater than zero');
+  }
+  const inputValueHex = ethers.toBeHex(inputValue) as `0x${string}`;
+  const outputValueHex = ethers.toBeHex(outputValue) as `0x${string}`;
+  const inputNotes = Array.from({ length: inputCount }, (_, index) => ({
     owner: senderAddress,
     value: inputValueHex,
-    salt: toSalt(`private-state-transfer-input-sender-${senderIndex}-0`),
-  }] as PrivateStateTransferConfig['inputNotes'];
-  const outputNotes = [
-    {
-      owner: senderAddress,
-      value: outputValueHex,
-      salt: toSalt(`private-state-transfer-output-sender-${senderIndex}-0`),
-    },
-    {
-      owner: recipientOneAddress,
-      value: outputValueHex,
-      salt: toSalt(`private-state-transfer-output-sender-${senderIndex}-1`),
-    },
-  ] as PrivateStateTransferConfig['outputNotes'];
+    salt: toSalt(`private-state-transfer-input-sender-${senderIndex}-${inputCount}-${outputCount}-${index}`),
+  })) as PrivateStateTransferConfig['inputNotes'];
+  const outputOwners = outputCount === 1 ? [recipientOneAddress] : [recipientOneAddress, senderAddress];
+  const outputNotes = outputOwners.map((owner, index) => ({
+    owner,
+    value: outputValueHex,
+    salt: toSalt(`private-state-transfer-output-sender-${senderIndex}-${inputCount}-${outputCount}-${index}`),
+  })) as PrivateStateTransferConfig['outputNotes'];
 
   const config: PrivateStateTransferConfig = {
     network: 'anvil',
@@ -375,6 +395,9 @@ const main = async () => {
     txNonce: DEFAULT_L2_TX_NONCE,
     calldata: '0x',
     senderIndex,
+    functionName,
+    inputCount,
+    outputCount,
     inputNotes,
     outputNotes,
     function: {
