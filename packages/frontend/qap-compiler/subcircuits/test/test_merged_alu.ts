@@ -88,6 +88,17 @@ const assertWitnessMatches = (witness: WitnessValue[], expected: bigint, label: 
   assert.equal(normalizeWitnessValue(witness[2]), expectedHi, `high limb mismatch for ${label}`);
 };
 
+const expectWitnessFailure = async (
+  runWitness: Promise<WitnessValue[]>,
+  label: string,
+): Promise<void> => {
+  const didFail = await runWitness.then(
+    () => false,
+    () => true,
+  );
+  assert.equal(didFail, true, `${label} was expected to fail`);
+};
+
 const runAlu1Op = async (
   witnessCalculator: WitnessCalculator,
   opCase: Alu1OpCase,
@@ -495,15 +506,59 @@ const main = async (): Promise<void> => {
     await runAlu2Op(alu2WitnessCalculator, opCase);
   }
 
-  const invalidShiftWitness = await alu2WitnessCalculator.calculateWitness(
-    { in: encodeAlu2Input(1n << 28n, 300n, randomWord(), 0n) },
-    true,
-  ).then(
-    () => false,
-    () => true,
+  await expectWitnessFailure(
+    alu2WitnessCalculator.calculateWitness(
+      { in: encodeAlu2Input(1n << 28n, 300n, randomWord(), 0n) },
+      true,
+    ),
+    "ALU2 invalid shift test",
   );
-  assert.equal(invalidShiftWitness, true, "ALU2 invalid shift test was expected to fail");
   console.log("ALU2 invalid shift test passed");
+
+  await expectWitnessFailure(
+    alu1WitnessCalculator.calculateWitness(
+      { in: encodeAlu1Input((1n << 1n) + (1n << 10n), 7n, 9n) },
+      true,
+    ),
+    "ALU1 invalid selector test",
+  );
+  console.log("ALU1 invalid selector test passed");
+
+  await expectWitnessFailure(
+    alu2WitnessCalculator.calculateWitness(
+      { in: encodeAlu2Input((1n << 4n) + (1n << 10n), 9n, 3n, 0n) },
+      true,
+    ),
+    "ALU2 invalid selector test",
+  );
+  console.log("ALU2 invalid selector test passed");
+
+  await expectWitnessFailure(
+    alu2WitnessCalculator.calculateWitness(
+      { in: [1n << 11n, 5n, 1n, ...split256BitInteger(0x80n), 0n, 0n] },
+      true,
+    ),
+    "ALU2 invalid signextend high-limb test",
+  );
+  console.log("ALU2 invalid signextend high-limb test passed");
+
+  await expectWitnessFailure(
+    alu2WitnessCalculator.calculateWitness(
+      { in: [1n << 26n, 31n, 42n, ...split256BitInteger(MAX_UINT256), 0n, 0n] },
+      true,
+    ),
+    "ALU2 invalid byte high-limb test",
+  );
+  console.log("ALU2 invalid byte high-limb test passed");
+
+  await expectWitnessFailure(
+    alu2WitnessCalculator.calculateWitness(
+      { in: [1n << 28n, 1n, 123456789n, ...split256BitInteger(5n), 0n, 0n] },
+      true,
+    ),
+    "ALU2 invalid shift high-limb test",
+  );
+  console.log("ALU2 invalid shift high-limb test passed");
 };
 
 main().catch((error) => {

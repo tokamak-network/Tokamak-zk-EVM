@@ -1,13 +1,15 @@
 # Merged ALU Security Audit
 
+> Status update: This document records the audit findings before the follow-up hardening that was later applied. In the current repository state, the selector-canonicalization issue and the missing high-limb constraint for the shift and byte family have been remediated.
+
 ## Scope
 
-This report audits the merged arithmetic circuits introduced by the two-circuit ALU consolidation:
-
-- Current merged wrappers:
+This report audits the merged arithmetic circuits introduced by the two-circuit ALU consolidation.
+It preserves the original audit conclusions, even though some findings were fixed after the audit.
+- Audited wrappers:
   - [subcircuits/circom/ALU1_circuit.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/subcircuits/circom/ALU1_circuit.circom)
   - [subcircuits/circom/ALU2_circuit.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/subcircuits/circom/ALU2_circuit.circom)
-- Current merged templates:
+- Audited templates:
   - [templates/256bit/alu_safe.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/templates/256bit/alu_safe.circom)
 
 The comparison baseline is the pre-merge implementation from the parent of commit `9b5b616b`, which used separate `ALU1` through `ALU5` wrappers and standalone `AND`, `OR`, and `XOR` circuits.
@@ -226,6 +228,6 @@ These tests should fail once the hardening changes are in place.
 
 ## Final Assessment
 
-The ALU merge preserved most core arithmetic constraints, but it did not preserve full statement canonicality.
+At audit time, the ALU merge preserved most core arithmetic constraints, but it did not preserve full statement canonicality.
 
-The highest-priority issue is the missing `in1[1] === 0` constraint for the shift and byte family in merged `ALU2`. That is a genuine regression compared with the pre-merge circuit set and should be fixed before relying on the merged circuit for security-sensitive proving flows.
+The highest-priority issue was the missing `in1[1] === 0` constraint for the shift and byte family in merged `ALU2`. That regression, together with the selector-canonicalization gap, has since been fixed in the current repository state.

@@ -15,6 +15,12 @@ template ALU1_() {
     signal in2[2] <== [in[3], in[4]];
 
     signal b_selector[NUM_SELECTOR_BITS] <== Num2Bits(NUM_SELECTOR_BITS)(selector);
+    signal selector_weight[NUM_SELECTOR_BITS];
+    selector_weight[0] <== b_selector[0];
+    for (var i = 1; i < NUM_SELECTOR_BITS; i++) {
+        selector_weight[i] <== selector_weight[i - 1] + b_selector[i];
+    }
+    selector_weight[NUM_SELECTOR_BITS - 1] === 1;
     signal outs[NUM_ALU_FUNCTIONS][2];
     signal flags[NUM_ALU_FUNCTIONS];
     var ind = 0;

@@ -22,6 +22,12 @@ template ALU1 () {
     // b_selector[Opcode] = 1, b_selector[i] = 0 for all i != Opcode.
     // selector bitification
     signal b_selector[NUM_SELECTOR_BITS] <== Num2Bits(NUM_SELECTOR_BITS)(selector);
+    signal selector_weight[NUM_SELECTOR_BITS];
+    selector_weight[0] <== b_selector[0];
+    for (var i = 1; i < NUM_SELECTOR_BITS; i++) {
+        selector_weight[i] <== selector_weight[i - 1] + b_selector[i];
+    }
+    selector_weight[NUM_SELECTOR_BITS - 1] === 1;
 
     /* Input range check can be omitted, as each subcircuit will be connected to other subcircuits.
     // // Check inputs are in 128 bit limbs
@@ -138,6 +144,12 @@ template ALU2 () {
     // b_selector[Opcode] = 1, b_selector[i] = 0 for all i != Opcode.
     // selector bitification
     signal b_selector[NUM_SELECTOR_BITS] <== Num2Bits(NUM_SELECTOR_BITS)(selector);
+    signal selector_weight[NUM_SELECTOR_BITS];
+    selector_weight[0] <== b_selector[0];
+    for (var i = 1; i < NUM_SELECTOR_BITS; i++) {
+        selector_weight[i] <== selector_weight[i - 1] + b_selector[i];
+    }
+    selector_weight[NUM_SELECTOR_BITS - 1] === 1;
 
     /* Input range check can be omitted, as each subcircuit will be connected to other subcircuits.
     // // Check inputs are in 128 bit limbs
@@ -657,6 +669,12 @@ template ALU_based_on_div () {
     // b_selector[Opcode] = 1, b_selector[i] = 0 for all i != Opcode.
     // selector bitification
     signal b_selector[NUM_SELECTOR_BITS] <== Num2Bits(NUM_SELECTOR_BITS)(selector);
+    signal selector_weight[NUM_SELECTOR_BITS];
+    selector_weight[0] <== b_selector[0];
+    for (var i = 1; i < NUM_SELECTOR_BITS; i++) {
+        selector_weight[i] <== selector_weight[i - 1] + b_selector[i];
+    }
+    selector_weight[NUM_SELECTOR_BITS - 1] === 1;
 
     /* Input range check can be omitted, as each subcircuit will be connected to other subcircuits.
     // // Check inputs are in 128 bit limbs
@@ -767,6 +785,8 @@ template ALU_based_on_div () {
     // The shift constraint should only be enforced for shift-family selectors.
     signal is_shift_family <== b_selector[27] + b_selector[28] + b_selector[29];
     signal safe_shift <== is_shift_family * in1[0];
+    signal is_index_family <== is_byte_family + is_shift_family;
+    in1[1] * is_index_family === 0;
     signal inv_shift <== 256 - safe_shift;
     signal (exp_shift[2], is_shift_gt_255, exp_inv_shift[2], is_inv_shift_gt_255) <== FindShiftingTwosPower256TwoInput(8, 8)(safe_shift, inv_shift);
 
