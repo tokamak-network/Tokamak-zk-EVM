@@ -14,9 +14,6 @@ template ALU1_() {
     signal in1[2] <== [in[1], in[2]];
     signal in2[2] <== [in[3], in[4]];
 
-    CheckBus()(in1);
-    CheckBus()(in2);
-
     signal b_selector[NUM_SELECTOR_BITS] <== Num2Bits(NUM_SELECTOR_BITS)(selector);
     signal selector_weight[NUM_SELECTOR_BITS];
     selector_weight[0] <== b_selector[0];
