@@ -41,7 +41,8 @@ npm install
 ### Local TokamakL2JS development
 - Synthesizer imports Tokamak L2 helpers through `src/interface/tokamakL2js/index.ts`.
 - The actual local source binding lives in `src/interface/tokamakL2js/source.ts`, which re-exports `vendor/TokamakL2JS/src/index.ts`.
-- `vendor/TokamakL2JS` is only a bridge to the repository-root submodule; the Git submodule itself now lives at `submodules/TokamakL2JS`.
+- `vendor/TokamakL2JS` is only a bridge to the repository-root submodule; the Git submodule itself lives only at the repository root (`../../../submodules/TokamakL2JS` from this package).
+- Do not create or keep a package-local `submodules/TokamakL2JS` copy under Synthesizer.
 - The install/build scripts also maintain `submodules/node_modules` as a symlink to this package's `node_modules` so Bun and Node can resolve TokamakL2JS dependencies while using the shared submodule source.
 - When Synthesizer switches to the published `tokamak-l2js` package, update `src/interface/tokamakL2js/source.ts` instead of changing imports throughout the package.
 
