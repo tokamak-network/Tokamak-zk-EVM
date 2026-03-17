@@ -9,6 +9,7 @@ packages/backend/prove/output/*
 
 # Node
 node_modules/
+submodules/node_modules
 build/
 .env
 act.env
