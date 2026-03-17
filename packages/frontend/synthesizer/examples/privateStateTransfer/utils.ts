@@ -188,11 +188,13 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateTransf
   const inputNotes = parseFixedNotes(configRaw.inputNotes, 'inputNotes', inputCount) as PrivateStateTransferConfig['inputNotes'];
   const outputNotes =
     parseFixedNotes(configRaw.outputNotes, 'outputNotes', outputCount) as PrivateStateTransferConfig['outputNotes'];
+  const functionConfig = assertFunctionConfig(configRaw.function, 'function');
 
   return {
     network: parseNetwork(configRaw.network, 'network'),
     participants,
     storageConfigs: assertStorageConfigs(configRaw.storageConfigs, 'storageConfigs'),
+    entryContractAddress: functionConfig.entryContractAddress,
     callCodeAddresses: assertStringArray(configRaw.callCodeAddresses, 'callCodeAddresses').map(
       (entry) => parseHexString(entry, 'callCodeAddresses'),
     ),
@@ -205,7 +207,7 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateTransf
     outputCount,
     inputNotes,
     outputNotes,
-    function: assertFunctionConfig(configRaw.function, 'function'),
+    function: functionConfig,
   };
 };
 
@@ -224,6 +226,7 @@ export const toStateManagerChannelConfig = (
   network: config.network,
   participants: config.participants,
   storageConfigs: config.storageConfigs,
+  entryContractAddress: config.entryContractAddress,
   callCodeAddresses: config.callCodeAddresses,
   blockNumber: config.blockNumber,
   function: config.function,

@@ -217,11 +217,13 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateMintCo
   if (noteSalts.length !== outputCount) {
     throw new Error(`noteSalts must have length ${outputCount}`);
   }
+  const functionConfig = assertFunctionConfig(configRaw.function, 'function');
 
   return {
     network: parseNetwork(configRaw.network, 'network'),
     participants,
     storageConfigs: assertStorageConfigs(configRaw.storageConfigs, 'storageConfigs'),
+    entryContractAddress: functionConfig.entryContractAddress,
     callCodeAddresses: assertStringArray(configRaw.callCodeAddresses, 'callCodeAddresses').map(
       (entry) => parseHexString(entry, 'callCodeAddresses'),
     ),
@@ -233,7 +235,7 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateMintCo
     outputCount,
     noteValues: noteValues as [`0x${string}`, ...`0x${string}`[]],
     noteSalts: noteSalts as [`0x${string}`, ...`0x${string}`[]],
-    function: assertFunctionConfig(configRaw.function, 'function'),
+    function: functionConfig,
   };
 };
 
@@ -301,6 +303,7 @@ export const toStateManagerChannelConfig = (
   network: config.network,
   participants: config.participants,
   storageConfigs: config.storageConfigs,
+  entryContractAddress: config.entryContractAddress,
   callCodeAddresses: config.callCodeAddresses,
   blockNumber: config.blockNumber,
   function: config.function,
