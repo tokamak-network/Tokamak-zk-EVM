@@ -35,6 +35,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@noble/curves": "^1.9.7",
     "chai": "^4.3.6",
     "circom": "^0.5.46",
     "circom_tester": "^0.0.20",
@@ -42,7 +43,7 @@
     "ffjavascript": "^0.2.55",
     "mocha": "^11.0.1",
     "poseidon-bls12381-circom": "^1.0.0",
-    "@noble/curves": "^1.9.7"
+    "tokamak-l2js": "^0.0.26"
   },
   "devDependencies": {
     "typescript": "^5.8.3"
