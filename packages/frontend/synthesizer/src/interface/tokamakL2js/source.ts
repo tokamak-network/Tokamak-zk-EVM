@@ -1,5 +1,5 @@
 // Keep the TokamakL2JS source binding isolated here.
-// The package-local vendor symlink points to the repository-root submodule.
+// Synthesizer imports the repository-root submodule directly from this file.
 // When Synthesizer switches to the published `tokamak-l2js` package,
 // update this file instead of touching call sites across the package.
-export * from '../../../vendor/TokamakL2JS/src/index.ts'
+export * from '../../../../../../submodules/TokamakL2JS/src/index.ts'

@@ -21,7 +21,6 @@ More detail is in `doc/synthesizer.md`.
 - Input helpers: `src/interface` collects transaction/block/state inputs for the synthesizer; sources are not limited to L1 RPC.
 - Tokamak L2 primitives: the repository-root `submodules/TokamakL2JS` submodule is the local Tokamak L2 source consumed by this package.
 - Integration boundary: Synthesizer code should import Tokamak L2 helpers only through `src/interface/tokamakL2js/index.ts`.
-- Local bridge: `vendor/TokamakL2JS` is a package-local symlink that points to the repository-root submodule so TypeScript and local tooling can keep using package-local paths.
 
 ## Run example (L2 TON transfer)
 `examples/L2TONTransfer/main.ts` is the end-to-end example. It derives L2 keypairs from seeds, builds `SynthesizerOpts` via `createSynthesizerOptsForSimulationFromRPC`, runs `synthesizeTX()`, and writes outputs to `outputs/` by default.
@@ -40,9 +39,8 @@ npm install
 
 ### Local TokamakL2JS development
 - Synthesizer imports Tokamak L2 helpers through `src/interface/tokamakL2js/index.ts`.
-- The actual local source binding lives in `src/interface/tokamakL2js/source.ts`, which re-exports `vendor/TokamakL2JS/src/index.ts`.
-- `vendor/TokamakL2JS` is only a bridge to the repository-root submodule; the Git submodule itself lives only at the repository root (`../../../submodules/TokamakL2JS` from this package).
-- Do not create or keep a package-local `submodules/TokamakL2JS` copy under Synthesizer.
+- The actual local source binding lives in `src/interface/tokamakL2js/source.ts`, which re-exports the repository-root `submodules/TokamakL2JS/src/index.ts` source directly.
+- Do not add a package-local `vendor/TokamakL2JS` bridge or a package-local `submodules/TokamakL2JS` copy under Synthesizer.
 - The install/build scripts also maintain `submodules/node_modules` as a symlink to this package's `node_modules` so Bun and Node can resolve TokamakL2JS dependencies while using the shared submodule source.
 - When Synthesizer switches to the published `tokamak-l2js` package, update `src/interface/tokamakL2js/source.ts` instead of changing imports throughout the package.
 
