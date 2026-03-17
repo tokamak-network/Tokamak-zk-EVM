@@ -19,6 +19,13 @@ export const loadTokamakL2JsConstants = () => {
   // Keep the TokamakL2JS reference isolated here.
   // When qap-compiler switches back to the published `tokamak-l2js` package,
   // update this loader instead of touching compile scripts.
+  if (!fs.existsSync(paramsSourcePath)) {
+    throw new Error(
+      `TokamakL2JS params source not found at ${paramsSourcePath}. ` +
+      'Initialize repository submodules before building qap-compiler.'
+    );
+  }
+
   const source = fs.readFileSync(paramsSourcePath, 'utf8');
 
   return {
