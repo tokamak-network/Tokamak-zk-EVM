@@ -144,20 +144,18 @@ export const loadConfig = async (configPath: string): Promise<ExampleErc20Transf
   const callCodeAddresses = assertStringArray(configRaw.callCodeAddresses, 'callCodeAddresses').map(
     (entry) => parseHexString(entry, 'callCodeAddresses'),
   );
-  const functionConfig = assertFunctionConfig(configRaw.function, 'function');
 
   return {
     network: parseNetwork(configRaw.network, 'network'),
     participants,
     storageConfigs,
-    entryContractAddress: functionConfig.entryContractAddress,
     callCodeAddresses,
     blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
     txNonce: parseNumberValue(configRaw.txNonce, 'txNonce'),
     amount: parseHexString(configRaw.amount, 'amount'),
     senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
     recipientIndex: parseNumberValue(configRaw.recipientIndex, 'recipientIndex'),
-    function: functionConfig,
+    function: assertFunctionConfig(configRaw.function, 'function'),
     referenceTxHash:
       configRaw.referenceTxHash === undefined
         ? undefined
@@ -218,7 +216,6 @@ export const toStateManagerChannelConfig = (
   network: config.network,
   participants: config.participants,
   storageConfigs: config.storageConfigs,
-  entryContractAddress: config.entryContractAddress,
   callCodeAddresses: config.callCodeAddresses,
   blockNumber: config.blockNumber,
   function: config.function,

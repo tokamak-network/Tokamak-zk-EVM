@@ -182,13 +182,11 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateRedeem
     throw new Error('participants must include at least two entries');
   }
   const inputCount = parseInputCount(configRaw.inputCount, 'inputCount');
-  const functionConfig = assertFunctionConfig(configRaw.function, 'function');
 
   return {
     network: parseNetwork(configRaw.network, 'network'),
     participants,
     storageConfigs: assertStorageConfigs(configRaw.storageConfigs, 'storageConfigs'),
-    entryContractAddress: functionConfig.entryContractAddress,
     callCodeAddresses: assertStringArray(configRaw.callCodeAddresses, 'callCodeAddresses').map(
       (entry) => parseHexString(entry, 'callCodeAddresses'),
     ),
@@ -199,7 +197,7 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateRedeem
     receiverIndex: parseNumberValue(configRaw.receiverIndex, 'receiverIndex'),
     inputCount,
     inputNotes: parseFixedNotes(configRaw.inputNotes, 'inputNotes', inputCount) as PrivateStateRedeemConfig['inputNotes'],
-    function: functionConfig,
+    function: assertFunctionConfig(configRaw.function, 'function'),
   };
 };
 
@@ -229,7 +227,6 @@ export const toStateManagerChannelConfig = (
   network: config.network,
   participants: config.participants,
   storageConfigs: config.storageConfigs,
-  entryContractAddress: config.entryContractAddress,
   callCodeAddresses: config.callCodeAddresses,
   blockNumber: config.blockNumber,
   function: config.function,
