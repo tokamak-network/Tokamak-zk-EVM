@@ -351,11 +351,11 @@ const main = async () => {
   if (inputCount < 1 || inputCount > 8) {
     throw new Error('inputs must be between 1 and 8');
   }
-  if (outputCount < 1 || outputCount > 2) {
-    throw new Error('outputs must be 1 or 2');
+  if (outputCount < 1 || outputCount > 3) {
+    throw new Error('outputs must be 1, 2, or 3');
   }
   if (!isSupportedTransferArity(inputCount, outputCount)) {
-    throw new Error('private-state transfer configs only support N<=4 for To1 and N<=3 for To2');
+    throw new Error('private-state transfer configs only support N<=4 for To1, N<=3 for To2, and only 1->3 for To3');
   }
 
   const noteValue = parseAmount(args.amount, defaultTransferValue(inputCount, outputCount));
@@ -373,7 +373,9 @@ const main = async () => {
   const senderAddress = participants[senderIndex]?.addressL1;
   const recipientOneIndex = (senderIndex + 1) % participantCount;
   const recipientOneAddress = participants[recipientOneIndex]?.addressL1;
-  if (!senderAddress || !recipientOneAddress) {
+  const recipientTwoIndex = (senderIndex + 2) % participantCount;
+  const recipientTwoAddress = participants[recipientTwoIndex]?.addressL1;
+  if (!senderAddress || !recipientOneAddress || !recipientTwoAddress) {
     throw new Error('Could not resolve transfer participants');
   }
 
@@ -399,7 +401,11 @@ const main = async () => {
     value: inputValueHex,
     salt: toSalt(`private-state-transfer-input-sender-${senderIndex}-${inputCount}-${outputCount}-${index}`),
   })) as PrivateStateTransferConfig['inputNotes'];
-  const outputOwners = outputCount === 1 ? [recipientOneAddress] : [recipientOneAddress, senderAddress];
+  const outputOwners = outputCount === 1
+    ? [recipientOneAddress]
+    : outputCount === 2
+      ? [recipientOneAddress, senderAddress]
+      : [recipientOneAddress, senderAddress, recipientTwoAddress];
   const outputNotes = outputOwners.map((owner, index) => ({
     owner,
     value: outputValueHex,

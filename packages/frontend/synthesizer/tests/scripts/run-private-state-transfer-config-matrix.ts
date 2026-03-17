@@ -19,7 +19,8 @@ const defaultOutputCount = 2;
 
 const isSupportedTransferArity = (inputCount: number, outputCount: number) =>
   (outputCount === 1 && inputCount >= 1 && inputCount <= 4)
-  || (outputCount === 2 && inputCount >= 1 && inputCount <= 3);
+  || (outputCount === 2 && inputCount >= 1 && inputCount <= 3)
+  || (outputCount === 3 && inputCount === 1);
 
 type ParsedArgs = {
   inputCount: number;
@@ -83,7 +84,7 @@ const buildOutputPath = (inputCount: number, outputCount: number, senderIndex: n
 const main = async () => {
   const { inputCount, outputCount } = parseArgs();
   if (!isSupportedTransferArity(inputCount, outputCount)) {
-    throw new Error('private-state transfer prep only supports N<=4 for To1 and N<=3 for To2');
+    throw new Error('private-state transfer prep only supports N<=4 for To1, N<=3 for To2, and only 1->3 for To3');
   }
   await fs.rm(outputDir, { recursive: true, force: true });
   await fs.mkdir(outputDir, { recursive: true });

@@ -127,6 +127,20 @@
     {
       "type": "node",
       "request": "launch",
+      "name": "Private-state transferNotes1To3 on anvil",
+      "preLaunchTask": "private-state-transfer:1to3:prep",
+      "runtimeExecutable": "tsx",
+      "program": "${workspaceFolder}/examples/privateStateTransfer/main.ts",
+      "args": [
+        "${workspaceFolder}/tests/configs/private-state-transfer/config-anvil-private-state-transfer-n1-m3-p4-s0.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
       "name": "Private-state transferNotes2To1 on anvil",
       "preLaunchTask": "private-state-transfer:2to1:prep",
       "runtimeExecutable": "tsx",
