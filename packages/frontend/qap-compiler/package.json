@@ -43,7 +43,7 @@
     "ffjavascript": "^0.2.55",
     "mocha": "^11.0.1",
     "poseidon-bls12381-circom": "^1.0.0",
-    "tokamak-l2js": "^0.0.26"
+    "tokamak-l2js": "^0.0.27"
   },
   "devDependencies": {
     "typescript": "^5.8.3"
