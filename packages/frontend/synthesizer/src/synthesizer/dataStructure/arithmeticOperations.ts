@@ -1,5 +1,5 @@
 import { jubjub } from "@noble/curves/misc.js"
-import { poseidon_raw, poseidonChainCompress } from "../../interface/tokamakL2js/index.ts"
+import { poseidon_raw, poseidonChainCompress } from 'tokamak-l2js'
 import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE, POSEIDON_INPUTS } from "../../interface/qapCompiler/importedConstants.ts"
 import { DEFAULT_SOURCE_BIT_SIZE} from "../../synthesizer/params/index.ts"
 

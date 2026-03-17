@@ -6,7 +6,7 @@ import {
   createTokamakL2StateManagerFromL1RPC,
   createTokamakL2Tx,
   TokamakL2TxData,
-} from '../../src/interface/tokamakL2js/index.ts';
+} from 'tokamak-l2js';
 import { createSynthesizer } from '../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
 import { writeCircuitJson, writeEvmAnalysisJson } from '../../src/interface/node/jsonWriter.ts';

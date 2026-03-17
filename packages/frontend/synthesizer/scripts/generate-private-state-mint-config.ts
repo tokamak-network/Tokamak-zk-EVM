@@ -7,7 +7,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { ethers } from 'ethers';
 import { fileURLToPath } from 'url';
-import { fromEdwardsToAddress } from '../src/interface/tokamakL2js/index.ts';
+import { fromEdwardsToAddress } from 'tokamak-l2js';
 import { BLS12831ARITHMODULUS } from '../src/synthesizer/params/index.ts';
 import {
   buildPrivateStateMintCalldata,

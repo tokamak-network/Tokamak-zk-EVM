@@ -64,7 +64,6 @@
     "private-state-mint-l2": "tsx --tsconfig tsconfig.dev.json examples/privateStateMint/main.ts",
     "private-state-transfer-l2": "tsx --tsconfig tsconfig.dev.json examples/privateStateTransfer/main.ts",
     "private-state-redeem-l2": "tsx --tsconfig tsconfig.dev.json examples/privateStateRedeem/main.ts",
-    "postinstall": "node ./scripts/link-submodule-node-modules.mjs",
     "test": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-erc20-main-from-configs.ts",
     "test:prep": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-erc20-config-matrix.ts",
     "test:private-state": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-private-state-mint-main-from-configs.ts",
@@ -98,6 +97,7 @@
     "ethereum-cryptography": "^3.0.0",
     "eventemitter3": "^5.0.1",
     "poseidon-bls12381": "^1.0.2",
+    "tokamak-l2js": "^0.0.25",
     "verkle-cryptography-wasm": "^0.4.8",
     "vitest": "^2.1.8"
   },

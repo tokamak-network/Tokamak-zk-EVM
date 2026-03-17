@@ -1,6 +1,6 @@
 import { bytesToHex, hexToBytes } from '@ethereumjs/util';
 import { ethers } from 'ethers';
-import { poseidon } from '../src/interface/tokamakL2js/index.ts';
+import { poseidon } from 'tokamak-l2js';
 
 export type PrivateStateNoteLike = {
   owner: `0x${string}`;

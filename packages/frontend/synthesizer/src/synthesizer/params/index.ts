@@ -1,4 +1,5 @@
-import { ANY_LARGE_GAS_LIMIT, ANY_LARGE_GAS_PRICE, DST_NONCE, jubjub } from "../../interface/tokamakL2js/index.ts"
+import { jubjub } from '@noble/curves/misc.js'
+import { ANY_LARGE_GAS_LIMIT, ANY_LARGE_GAS_PRICE, DST_NONCE } from 'tokamak-l2js'
 
 export const BLS12831ARITHMODULUS = jubjub.Point.Fp.ORDER
 export const JUBJUBFIELDMODULUS = BLS12831ARITHMODULUS
