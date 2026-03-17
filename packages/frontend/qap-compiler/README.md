@@ -20,6 +20,14 @@ To obtain the latest version, simply require the project using `npm`:
 npm install
 ```
 
+## TokamakL2JS source
+
+`qap-compiler` reads Tokamak L2 constants through `scripts/tokamakL2js/source.mjs`.
+
+- The current source is the repository-local `TokamakL2JS` submodule at `submodules/TokamakL2JS`.
+- `vendor/TokamakL2JS` is a package-local symlink bridge to that submodule so local scripts can use stable package-relative paths.
+- When this package switches back to the published `tokamak-l2js` package, update `scripts/tokamakL2js/source.mjs` instead of changing the compile pipeline.
+
 ## Usage
 1. Configure the sizes of four buffer subcircuits.
    > - If the sizes of buffers are insufficient, [frontend/synthesizer](../synthesizer) will throw an error.

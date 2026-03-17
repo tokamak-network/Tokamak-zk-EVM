@@ -10,46 +10,7 @@ cd "$script_dir"
 
 # pull constants from tokamak-l2js and update circom constants
 constants_path="${script_dir}/../subcircuits/circom/constants.circom"
-CONSTANTS_PATH="$constants_path" node <<'NODE'
-const fs = require('fs');
-
-(async () => {
-  const { POSEIDON_INPUTS, MT_DEPTH } = await import('tokamak-l2js');
-  if (!Number.isInteger(POSEIDON_INPUTS) || !Number.isInteger(MT_DEPTH)) {
-    throw new Error(`Invalid tokamak-l2js constants: POSEIDON_INPUTS=${POSEIDON_INPUTS}, MT_DEPTH=${MT_DEPTH}`);
-  }
-
-  const constantsPath = process.env.CONSTANTS_PATH;
-  const src = fs.readFileSync(constantsPath, 'utf8');
-
-  let next = src;
-  let updatedPoseidonInputs = false;
-  let updatedMtDepth = false;
-  next = next.replace(
-    /(function\s+nPoseidonInputs\s*\(\s*\)\s*\{\s*return\s+)\d+(\s*;\s*\})/,
-    (_, prefix, suffix) => {
-      updatedPoseidonInputs = true;
-      return `${prefix}${POSEIDON_INPUTS}${suffix}`;
-    }
-  );
-  next = next.replace(
-    /(function\s+nMtDepth\s*\(\s*\)\s*\{\s*return\s+)\d+(\s*;\s*\})/,
-    (_, prefix, suffix) => {
-      updatedMtDepth = true;
-      return `${prefix}${MT_DEPTH}${suffix}`;
-    }
-  );
-
-  if (!updatedPoseidonInputs || !updatedMtDepth) {
-    throw new Error('Failed to update constants.circom (pattern not found).');
-  }
-
-  fs.writeFileSync(constantsPath, next);
-})().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
-NODE
+node ./tokamakL2js/updateCircomConstants.mjs "$constants_path"
 
 circom_dir_path="../subcircuits/circom"
 output_dir_path="../subcircuits/library"
