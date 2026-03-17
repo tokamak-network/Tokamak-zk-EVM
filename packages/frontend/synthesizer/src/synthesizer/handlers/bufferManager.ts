@@ -98,8 +98,9 @@ export class BufferManager {
     bitSize?: number,
     desc?: string,
   ): DataPt {
+    const resolvedBitSize = bitSize ?? DEFAULT_SOURCE_BIT_SIZE
     if (desc === undefined) {
-      const cachedDataPt = this.parent.state.cachedEVMIn.get(value)
+      const cachedDataPt = this.parent.state.cachedEVMIn.get(value)?.get(resolvedBitSize)
       if (cachedDataPt !== undefined) {
         return DataPtFactory.deepCopy(cachedDataPt)
       }
@@ -107,14 +108,16 @@ export class BufferManager {
     const placementIndex = BUFFER_LIST.findIndex(str => str === 'EVM_IN')
     const inPtRaw: DataPtDescription = {
       extSource: desc ?? 'Arbitrary constant',
-      sourceBitSize: bitSize ?? DEFAULT_SOURCE_BIT_SIZE,
+      sourceBitSize: resolvedBitSize,
       source: placementIndex,
       wireIndex: this.parent.placements[placementIndex]!.inPts.length,
     };
     const inPt = DataPtFactory.create(inPtRaw, value)
     const outPt = DataPtFactory.createBufferTwin(inPt)
     this.parent.addWirePairToBufferIn(inPt, outPt, true)
-    this.parent.state.cachedEVMIn.set(value, outPt)
+    const cachedByBitSize = this.parent.state.cachedEVMIn.get(value) ?? new Map<number, DataPt>()
+    cachedByBitSize.set(resolvedBitSize, outPt)
+    this.parent.state.cachedEVMIn.set(value, cachedByBitSize)
     return DataPtFactory.deepCopy(outPt)
   }
 
