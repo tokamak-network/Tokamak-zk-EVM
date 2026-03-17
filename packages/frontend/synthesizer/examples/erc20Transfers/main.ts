@@ -20,7 +20,6 @@ import {
   buildErc20Calldata,
   deriveParticipantKeys,
   getExampleRpcUrl,
-  getStateManagerOptsOptions,
   loadConfig,
   toStateManagerChannelConfig,
 } from './utils.ts';
@@ -39,10 +38,7 @@ const main = async () => {
     throw new Error(`senderIndex must point to an existing participant; got ${config.senderIndex}`);
   }
   const callData = buildErc20Calldata(config, keyMaterial);
-  const stateManagerOpts = createStateManagerOptsFromChannelConfig(
-    toStateManagerChannelConfig(config),
-    await getStateManagerOptsOptions(config.network, rpcUrl),
-  );
+  const stateManagerOpts = createStateManagerOptsFromChannelConfig(toStateManagerChannelConfig(config));
   const stateManager = await createTokamakL2StateManagerFromL1RPC(rpcUrl, stateManagerOpts);
   const blockInfo = await getBlockInfoFromRPC(rpcUrl, config.blockNumber, NUMBER_OF_PREV_BLOCK_HASHES);
 

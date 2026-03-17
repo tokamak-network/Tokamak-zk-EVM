@@ -1,7 +1,7 @@
 import { DataAliasInfoEntry, DataAliasInfos, DataPt, DataPtDescription, ISynthesizerProvider, MemoryPtEntry, MemoryPts } from '../types/index.ts';
 import { DataPtFactory, MemoryPt } from '../dataStructure/index.ts';
 import { ACCUMULATOR_INPUT_LIMIT } from '../../interface/qapCompiler/importedConstants.ts';
-import { ArithmeticOperator } from '../../interface/qapCompiler/configuredTypes.ts';
+import { ArithmeticOperator, SUBCIRCUIT_ALU_MAPPING } from '../../interface/qapCompiler/configuredTypes.ts';
 import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
 
 export class MemoryManager {
@@ -18,7 +18,8 @@ export class MemoryManager {
 
       const outValue = dataPt.value & BigInt(maskerString);
       if (dataPt.value !== outValue) {
-        const subcircuitName = 'AND';
+        const usage = 'AND';
+        const subcircuitName = SUBCIRCUIT_ALU_MAPPING[usage][0];
         const inPts: DataPt[] = [
           this.parent.loadArbitraryStatic(BigInt(maskerString), DEFAULT_SOURCE_BIT_SIZE, 'Masker for memory manipulation'),
           dataPt,
@@ -29,7 +30,7 @@ export class MemoryManager {
           sourceBitSize: truncBitSize,
         };
         const outPts: DataPt[] = [DataPtFactory.create(rawOutPt, outValue)];
-        this.parent.place(subcircuitName, inPts, outPts, subcircuitName);
+        this.parent.place(subcircuitName, inPts, outPts, usage);
 
         return DataPtFactory.deepCopy(outPts[0]);
       }

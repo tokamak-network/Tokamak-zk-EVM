@@ -5,11 +5,9 @@ import dotenv from 'dotenv';
 import { bytesToHex, concatBytes, hexToBytes, setLengthLeft, utf8ToBytes } from '@ethereumjs/util';
 import type { EdwardsPoint } from '@noble/curves/abstract/edwards';
 import { jubjub } from '@noble/curves/misc.js';
-import { ethers } from 'ethers';
 import type {
   ChannelFunctionConfig,
   ChannelStateConfig,
-  CreateStateManagerOptsFromChannelConfigOptions,
   ChannelParticipantConfig,
   ChannelStorageConfig,
 } from 'tokamak-l2js';
@@ -212,13 +210,12 @@ export const buildErc20Calldata = (
 
 export const toStateManagerChannelConfig = (
   config: ExampleErc20TransferConfig,
-): ChannelStateConfig & Pick<ExampleErc20TransferConfig, 'function'> => ({
+): ChannelStateConfig => ({
   network: config.network,
   participants: config.participants,
   storageConfigs: config.storageConfigs,
   callCodeAddresses: config.callCodeAddresses,
   blockNumber: config.blockNumber,
-  function: config.function,
 });
 
 export const getExampleRpcUrl = (network: ExampleNetwork, env: NodeJS.ProcessEnv = process.env): string => {
@@ -228,20 +225,4 @@ export const getExampleRpcUrl = (network: ExampleNetwork, env: NodeJS.ProcessEnv
   }
 
   return getRpcUrlFromEnv(network, env, { envPath: EXAMPLES_ENV_PATH });
-};
-
-export const getStateManagerOptsOptions = async (
-  network: ExampleNetwork,
-  rpcUrl: string,
-): Promise<CreateStateManagerOptsFromChannelConfigOptions> => {
-  if (network !== 'anvil') {
-    return {};
-  }
-
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const chainId = Number((await provider.getNetwork()).chainId);
-  if (!Number.isSafeInteger(chainId) || chainId <= 0) {
-    throw new Error(`Unsupported Anvil chain ID: ${chainId}`);
-  }
-  return { anvilChainId: chainId };
 };

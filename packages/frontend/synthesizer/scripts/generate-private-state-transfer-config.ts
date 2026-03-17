@@ -387,11 +387,11 @@ const main = async () => {
   }
 
   const inputValue = noteValue / BigInt(inputCount);
-  if (inputValue == 0 || inputValue * BigInt(inputCount) != noteValue) {
+  if (inputValue === 0n || inputValue * BigInt(inputCount) !== noteValue) {
     throw new Error('total transfer note value must be divisible by the input count and greater than zero');
   }
   const outputValue = noteValue / BigInt(outputCount);
-  if (outputValue == 0 || outputValue * BigInt(outputCount) != noteValue) {
+  if (outputValue === 0n || outputValue * BigInt(outputCount) !== noteValue) {
     throw new Error('total transfer note value must be divisible by the output count and greater than zero');
   }
   const inputValueHex = ethers.toBeHex(inputValue) as `0x${string}`;

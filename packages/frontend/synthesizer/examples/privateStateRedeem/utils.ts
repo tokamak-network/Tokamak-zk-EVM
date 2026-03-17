@@ -9,7 +9,6 @@ import type {
 import {
   deriveParticipantKeys,
   getExampleRpcUrl,
-  getStateManagerOptsOptions,
   type DerivedParticipantKeys,
   type ExampleNetwork,
 } from '../privateStateMint/utils.ts';
@@ -35,7 +34,6 @@ export type PrivateStateRedeemConfig = ChannelStateConfig & {
 export {
   deriveParticipantKeys,
   getExampleRpcUrl,
-  getStateManagerOptsOptions,
   type DerivedParticipantKeys,
   type ExampleNetwork,
 };
@@ -209,7 +207,7 @@ export const buildPrivateStateRedeemCalldata = (
   if (!receiverPoint) {
     throw new Error(`receiverIndex must point to an existing participant; got ${config.receiverIndex}`);
   }
-  const receiverAddress = fromEdwardsToAddress(receiverPoint).toString();
+  const receiverAddress = fromEdwardsToAddress(receiverPoint).toString() as `0x${string}`;
   const functionName = `redeemNotes${config.inputCount}` as
     | 'redeemNotes1'
     | 'redeemNotes2'
@@ -223,11 +221,10 @@ export const buildPrivateStateRedeemCalldata = (
 
 export const toStateManagerChannelConfig = (
   config: PrivateStateRedeemConfig,
-): ChannelStateConfig & Pick<PrivateStateRedeemConfig, 'function'> => ({
+): ChannelStateConfig => ({
   network: config.network,
   participants: config.participants,
   storageConfigs: config.storageConfigs,
   callCodeAddresses: config.callCodeAddresses,
   blockNumber: config.blockNumber,
-  function: config.function,
 });

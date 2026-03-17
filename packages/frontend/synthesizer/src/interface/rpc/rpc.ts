@@ -1,4 +1,4 @@
-import { createTokamakL2Common, createTokamakL2StateManagerFromL1RPC, createTokamakL2Tx, TokamakL2StateManagerOpts, TokamakL2TxData } from 'tokamak-l2js'
+import { createTokamakL2Common, createTokamakL2StateManagerFromL1RPC, createTokamakL2Tx, storageKeysForAddress, TokamakL2StateManagerOpts, TokamakL2TxData } from 'tokamak-l2js'
 import { addHexPrefix, bigIntToHex, bytesToBigInt, createAddressFromString } from "@ethereumjs/util"
 import { ethers } from "ethers"
 import { SynthesizerOpts } from "../../synthesizer/types/index.ts"
@@ -10,10 +10,7 @@ export type SynthesizerSimulationOpts = {
   rpcUrl: string,
   blockNumber: number,
   contractAddress: `0x${string}`,
-  initStorageKeys: {
-    L1: Uint8Array,
-    L2: Uint8Array,
-  }[],
+  initStorageKeys: storageKeysForAddress[],
 
   // TX Info
   senderL2PrvKey: Uint8Array,
@@ -79,7 +76,6 @@ export async function createSynthesizerOptsForSimulationFromRPC(opts: Synthesize
     const stateManagerOpts: TokamakL2StateManagerOpts = {
         common,
         blockNumber: opts.blockNumber,
-        contractAddress: createAddressFromString(opts.contractAddress),
         initStorageKeys: opts.initStorageKeys,
         callCodeAddresses: opts.callCodeAddresses.map(str => createAddressFromString(str)),
     }

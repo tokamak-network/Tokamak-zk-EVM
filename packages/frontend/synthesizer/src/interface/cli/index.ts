@@ -42,7 +42,6 @@ program
       const contractCodesStr =  readJson<{address: string, code: string}[]>(options.contractCode);
       const stateManagerOpts: TokamakL2StateManagerOpts = {
         common,
-        entryContractAddress: transaction.to,
         contractCodes: contractCodesStr.map(entry => ({
           address: createAddressFromString(entry.address),
           code: addHexPrefix(entry.code),

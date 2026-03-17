@@ -10,7 +10,6 @@ import type {
   ChannelParticipantConfig,
   ChannelStateConfig,
   ChannelStorageConfig,
-  CreateStateManagerOptsFromChannelConfigOptions,
 } from 'tokamak-l2js';
 import { deriveL2KeysFromSignature, fromEdwardsToAddress } from 'tokamak-l2js';
 import { getRpcUrlFromEnv } from '../../src/interface/node/env.ts';
@@ -247,7 +246,7 @@ export const deriveParticipantKeys = (
   const publicKeys: EdwardsPoint[] = [];
 
   for (const participant of participants) {
-    const signature = ethers.hexlify(jubjub.utils.randomPrivateKey(toSeedBytes(participant.prvSeedL2)));
+    const signature = ethers.hexlify(jubjub.utils.randomPrivateKey(toSeedBytes(participant.prvSeedL2))) as `0x${string}`;
     const keySet = deriveL2KeysFromSignature(signature);
     privateKeys.push(keySet.privateKey);
     publicKeys.push(jubjub.Point.fromBytes(keySet.publicKey));
@@ -277,7 +276,7 @@ export const buildPrivateStateMintCalldata = (
   assertParticipantIndex(config, config.senderIndex, 'senderIndex', keyMaterial);
   assertParticipantIndex(config, config.noteOwnerIndex, 'noteOwnerIndex', keyMaterial);
 
-  const noteOwnerAddress = fromEdwardsToAddress(keyMaterial.publicKeys[config.noteOwnerIndex]).toString();
+  const noteOwnerAddress = fromEdwardsToAddress(keyMaterial.publicKeys[config.noteOwnerIndex]).toString() as `0x${string}`;
   const mintInterface = mintInterfaces[config.outputCount];
   const functionName = `mintNotes${config.outputCount}` as
     | 'mintNotes1'
@@ -297,13 +296,12 @@ export const buildPrivateStateMintCalldata = (
 
 export const toStateManagerChannelConfig = (
   config: PrivateStateMintConfig,
-): ChannelStateConfig & Pick<PrivateStateMintConfig, 'function'> => ({
+): ChannelStateConfig => ({
   network: config.network,
   participants: config.participants,
   storageConfigs: config.storageConfigs,
   callCodeAddresses: config.callCodeAddresses,
   blockNumber: config.blockNumber,
-  function: config.function,
 });
 
 export const getExampleRpcUrl = (network: ExampleNetwork, env: NodeJS.ProcessEnv = process.env): string => {
@@ -313,20 +311,4 @@ export const getExampleRpcUrl = (network: ExampleNetwork, env: NodeJS.ProcessEnv
   }
 
   return getRpcUrlFromEnv(network, env, { envPath: EXAMPLES_ENV_PATH });
-};
-
-export const getStateManagerOptsOptions = async (
-  network: ExampleNetwork,
-  rpcUrl: string,
-): Promise<CreateStateManagerOptsFromChannelConfigOptions> => {
-  if (network !== 'anvil') {
-    return {};
-  }
-
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const chainId = Number((await provider.getNetwork()).chainId);
-  if (!Number.isSafeInteger(chainId) || chainId <= 0) {
-    throw new Error(`Unsupported Anvil chain ID: ${chainId}`);
-  }
-  return { anvilChainId: chainId };
 };

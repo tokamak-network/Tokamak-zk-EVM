@@ -9,7 +9,6 @@ import type {
 import {
   deriveParticipantKeys,
   getExampleRpcUrl,
-  getStateManagerOptsOptions,
   type DerivedParticipantKeys,
   type ExampleNetwork,
 } from '../privateStateMint/utils.ts';
@@ -36,7 +35,6 @@ export type PrivateStateTransferConfig = ChannelStateConfig & {
 export {
   deriveParticipantKeys,
   getExampleRpcUrl,
-  getStateManagerOptsOptions,
   type DerivedParticipantKeys,
   type ExampleNetwork,
 };
@@ -220,11 +218,10 @@ export const buildPrivateStateTransferCalldata = (
 
 export const toStateManagerChannelConfig = (
   config: PrivateStateTransferConfig,
-): ChannelStateConfig & Pick<PrivateStateTransferConfig, 'function'> => ({
+): ChannelStateConfig => ({
   network: config.network,
   participants: config.participants,
   storageConfigs: config.storageConfigs,
   callCodeAddresses: config.callCodeAddresses,
   blockNumber: config.blockNumber,
-  function: config.function,
 });

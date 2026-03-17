@@ -14,7 +14,6 @@ import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../src/interface/qapCompiler/imp
 import {
   deriveParticipantKeys,
   getExampleRpcUrl,
-  getStateManagerOptsOptions,
   loadConfig,
   toStateManagerChannelConfig,
 } from './utils.ts';
@@ -34,10 +33,7 @@ const main = async () => {
   }
 
   const callData = hexToBytes(config.calldata);
-  const stateManagerOpts = createStateManagerOptsFromChannelConfig(
-    toStateManagerChannelConfig(config),
-    await getStateManagerOptsOptions(config.network, rpcUrl),
-  );
+  const stateManagerOpts = createStateManagerOptsFromChannelConfig(toStateManagerChannelConfig(config));
   const stateManager = await createTokamakL2StateManagerFromL1RPC(rpcUrl, stateManagerOpts);
   const blockInfo = await getBlockInfoFromRPC(rpcUrl, config.blockNumber, NUMBER_OF_PREV_BLOCK_HASHES);
 

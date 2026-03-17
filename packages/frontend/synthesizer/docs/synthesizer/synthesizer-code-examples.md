@@ -38,7 +38,12 @@ async function run(txHash: `0x${string}`, rpcUrl: string) {
     senderL2PrvKey: new Uint8Array(32), // caller key (generate as needed)
     txNonce: 0n,
     callData: new Uint8Array(),     // tx.data
-    initStorageKeys: [],            // registered storage slots
+    initStorageKeys: [
+      {
+        address: createAddressFromString('0x...'),
+        keyPairs: [],               // registered L1/L2 storage slot pairs
+      },
+    ],
   });
 
   // Run synthesis

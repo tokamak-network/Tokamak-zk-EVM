@@ -114,7 +114,7 @@ type ParsedArgs = {
   participants: number;
   sender: number;
   noteOwner: number;
-  outputs: 1 | 2 | 3;
+  outputs: 1 | 2 | 3 | 4 | 5 | 6;
   rpcUrl?: string;
   mnemonic?: string;
   amount?: string;
