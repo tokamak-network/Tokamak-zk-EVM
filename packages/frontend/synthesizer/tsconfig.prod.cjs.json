@@ -8,6 +8,7 @@
     "outDir": "dist/cjs",
     "baseUrl": ".",
     "composite": true,
+    "preserveSymlinks": true,
     "paths": {
       "@synthesizer-libs/util": [
         "./node_modules/@synthesizer-libs/util/src/index.js"
