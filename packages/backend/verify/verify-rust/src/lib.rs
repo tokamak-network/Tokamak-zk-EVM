@@ -5,7 +5,7 @@ use libs::iotools::{Instance, SetupParams};
 use libs::group_structures::{G1serde, G2serde, Sigma2};
 use libs::iotools::{ArchivedSigmaVerifyRkyv, SigmaVerifyRkyv};
 use libs::utils::{
-    check_device, init_ntt_domain, load_setup_params_from_qap_path, prover_verifier_ntt_domain_size, setup_shape,
+    init_ntt_domain, load_setup_params_from_qap_path, prover_verifier_ntt_domain_size, setup_shape,
     validate_setup_shape,
 };
 use memmap2::Mmap;
@@ -110,7 +110,6 @@ impl Verifier {
         let shape = setup_shape(&setup_params);
         validate_setup_shape(&shape);
         let ntt_domain_size = prover_verifier_ntt_domain_size(&shape);
-        check_device();
         init_ntt_domain(ntt_domain_size);
 
         // Load instance
