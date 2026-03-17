@@ -1,6 +1,6 @@
 {
-  "nPubOut": 10,
-  "nPubIn": 20,
+  "nPubOut": 20,
+  "nPubIn": 30,
   "nEVMIn": 600,
   "nPrvIn": 550,
   "nPoseidonInputs": 2,

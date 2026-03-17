@@ -48,13 +48,9 @@ program
       const transaction = createTokamakL2TxFromRLP(hexToBytes(addHexPrefix(transactionRlpStr)), { common });
 
       const contractCodesStr =  readJson<{address: string, code: string}[]>(options.contractCode);
-      const entryContractAddress = createAddressFromString(previousState.entryContractAddress);
-      if (!entryContractAddress.equals(transaction.to)) {
-        throw new Error(`Transaction target (${transaction.to.toString()}) does not match snapshot entryContractAddress (${entryContractAddress.toString()}).`);
-      }
       const stateManagerOpts: TokamakL2StateManagerOpts = {
         common,
-        entryContractAddress,
+        entryContractAddress: transaction.to,
         contractCodes: contractCodesStr.map(entry => ({
           address: createAddressFromString(entry.address),
           code: addHexPrefix(entry.code),
