@@ -1,7 +1,5 @@
-import { Common, CommonOpts, Mainnet, Sepolia } from "@ethereumjs/common"
-import { createTokamakL2StateManagerFromL1RPC, createTokamakL2Tx, fromEdwardsToAddress, getEddsaPublicKey, poseidon, TokamakL2StateManagerOpts, TokamakL2TxData } from 'tokamak-l2js'
-import { RPCStateManager } from "@ethereumjs/statemanager"
-import { addHexPrefix, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromString, hexToBigInt, hexToBytes, toBytes } from "@ethereumjs/util"
+import { createTokamakL2Common, createTokamakL2StateManagerFromL1RPC, createTokamakL2Tx, TokamakL2StateManagerOpts, TokamakL2TxData } from 'tokamak-l2js'
+import { addHexPrefix, bigIntToHex, bytesToBigInt, createAddressFromString } from "@ethereumjs/util"
 import { ethers } from "ethers"
 import { SynthesizerOpts } from "../../synthesizer/types/index.ts"
 import { jubjub } from "@noble/curves/misc.js"
@@ -76,13 +74,7 @@ export async function createSynthesizerOptsForSimulationFromRPC(opts: Synthesize
     }
     const blockInfo = await getBlockInfoFromRPC(opts.rpcUrl, opts.blockNumber, NUMBER_OF_PREV_BLOCK_HASHES)
 
-    const commonOpts: CommonOpts = {
-        chain: {
-            ...Mainnet,
-        },
-        customCrypto: { keccak256: poseidon, ecrecover: getEddsaPublicKey }
-    }
-    const common = new Common(commonOpts)
+    const common = createTokamakL2Common()
 
     const stateManagerOpts: TokamakL2StateManagerOpts = {
         common,

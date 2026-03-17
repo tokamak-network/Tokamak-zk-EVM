@@ -3,8 +3,7 @@
 import { program } from 'commander';
 import path from 'path';
 import fs from 'fs';
-import { createTokamakL2StateManagerFromStateSnapshot, createTokamakL2TxFromRLP, getEddsaPublicKey, poseidon, StateSnapshot, TokamakL2StateManagerOpts, TokamakL2Tx } from 'tokamak-l2js';
-import { Common, CommonOpts, Mainnet } from '@ethereumjs/common';
+import { createTokamakL2Common, createTokamakL2StateManagerFromStateSnapshot, createTokamakL2TxFromRLP, StateSnapshot, TokamakL2StateManagerOpts } from 'tokamak-l2js';
 import { SynthesizerOpts } from 'src/synthesizer/types/synthesizer.ts';
 import { createSynthesizer } from 'src/synthesizer/constructors.ts';
 import { RunTxResult } from '@ethereumjs/vm';
@@ -31,14 +30,7 @@ program
       console.log('🔄 Executing L2 State Channel Transfer...');
       console.log('');
 
-      const commonOpts: CommonOpts = {
-          chain: {
-            // Note: Fix this to Mainnet even if the channel is managed on Sepolia
-              ...Mainnet,
-          },
-          customCrypto: { keccak256: poseidon, ecrecover: getEddsaPublicKey }
-      }
-      const common = new Common(commonOpts);
+      const common = createTokamakL2Common();
 
       const previousState = readJson<StateSnapshot>(options.previousState);
       const previousStateRoots = previousState.stateRoots;
