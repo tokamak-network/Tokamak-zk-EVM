@@ -1,6 +1,7 @@
 import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
 import type { DataPt, DataPtDescription } from './index.ts'
-import { BUFFER_LIST, FUNCTION_INPUT_LENGTH, ReservedBuffer, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
+import { FUNCTION_INPUT_LENGTH } from 'tokamak-l2js';
+import { BUFFER_LIST, ReservedBuffer, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
 
 export enum BufferErrorMessage {
   UnregisteredContractStorageRead = 'Error: Access to a storage key not registered ',

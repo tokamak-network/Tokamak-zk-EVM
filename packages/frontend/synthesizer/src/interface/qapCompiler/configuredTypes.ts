@@ -1,4 +1,4 @@
-export const FUNCTION_INPUT_LENGTH = 29;
+import { FUNCTION_INPUT_LENGTH } from 'tokamak-l2js';
 
 export const ARITHMETIC_OPERATOR_LIST = [
   'ADD',

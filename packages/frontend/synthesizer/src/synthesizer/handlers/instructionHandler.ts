@@ -15,8 +15,9 @@ import {
 import { InterpreterStep } from '@ethereumjs/evm'
 import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
 import { DataPtFactory, MemoryPt, StackPt } from '../dataStructure/index.ts';
-import { ArithmeticOperator, FUNCTION_INPUT_LENGTH, TX_MESSAGE_TO_HASH } from '../../interface/qapCompiler/configuredTypes.ts';
+import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from '../../interface/qapCompiler/configuredTypes.ts';
 import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../interface/qapCompiler/importedConstants.ts';
+import { FUNCTION_INPUT_LENGTH } from 'tokamak-l2js';
 import { ContextManager } from './stateManager.ts';
 
 export interface HandlerOpts {
