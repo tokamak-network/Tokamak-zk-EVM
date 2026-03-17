@@ -1,10 +1,7 @@
 # The buffers must be placed in the following order: "bufferPubOut" "bufferPubIn" "bufferPrvOut" "bufferPrvIn"
 
-# Library configuration for n=1024
-# names=("bufferPubOut" "bufferPubIn" "bufferBlockIn" "bufferEVMIn" "bufferPrvIn" "ALU1" "ALU2" "ALU3" "ALU4" "ALU5" "OR" "XOR" "AND" "DecToBit" "Accumulator" "Poseidon" "PrepareEdDsaScalars" "JubjubExp36" "EdDsaVerify" "VerifyMerkleProof")
-names=("bufferPubOut" "bufferPubIn" "bufferBlockIn" "bufferEVMIn" "bufferPrvIn" "ALU1" "ALU2" "ALU3" "ALU4" "ALU5" "OR" "XOR" "AND" "DecToBit" "SubExpBatch" "Accumulator" "Poseidon" "Poseidon2xCompress" "JubjubExpBatch" "EdDsaVerify" "VerifyMerkleProof" "VerifyMerkleProof2x" "VerifyMerkleProof3x")
-# Library configuration for n=2048
-# names=("bufferPubOut" "bufferPubIn" "bufferBlockIn" "bufferEVMIn" "bufferPrvIn" "ALU_basic" "ALU_based_on_div" "ALU_bitwise" "DecToBit" "Accumulator")
+# Library configuration for merged arithmetic circuits
+names=("bufferPubOut" "bufferPubIn" "bufferBlockIn" "bufferEVMIn" "bufferPrvIn" "ALU1" "ALU2" "DecToBit" "SubExpBatch" "Accumulator" "Poseidon" "JubjubExpBatch" "EdDsaVerify" "VerifyMerkleProof")
 CURVE_NAME="bls12381"
 
 # get the directory of the script
@@ -13,38 +10,7 @@ cd "$script_dir"
 
 # pull constants from tokamak-l2js and update circom constants
 constants_path="${script_dir}/../subcircuits/circom/constants.circom"
-CONSTANTS_PATH="$constants_path" node <<'NODE'
-const fs = require('fs');
-
-(async () => {
-  const { POSEIDON_INPUTS, MT_DEPTH } = await import('tokamak-l2js');
-  if (!Number.isInteger(POSEIDON_INPUTS) || !Number.isInteger(MT_DEPTH)) {
-    throw new Error(`Invalid tokamak-l2js constants: POSEIDON_INPUTS=${POSEIDON_INPUTS}, MT_DEPTH=${MT_DEPTH}`);
-  }
-
-  const constantsPath = process.env.CONSTANTS_PATH;
-  const src = fs.readFileSync(constantsPath, 'utf8');
-
-  let next = src;
-  next = next.replace(
-    /(function\s+nPoseidonInputs\s*\(\s*\)\s*\{\s*return\s+)\d+(\s*;\s*\})/, 
-    `$1${POSEIDON_INPUTS}$2`
-  );
-  next = next.replace(
-    /(function\s+nMtDepth\s*\(\s*\)\s*\{\s*return\s+)\d+(\s*;\s*\})/, 
-    `$1${MT_DEPTH}$2`
-  );
-
-  if (next === src) {
-    throw new Error('Failed to update constants.circom (pattern not found).');
-  }
-
-  fs.writeFileSync(constantsPath, next);
-})().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
-NODE
+node ./tokamakL2js/updateCircomConstants.mjs "$constants_path"
 
 circom_dir_path="../subcircuits/circom"
 output_dir_path="../subcircuits/library"

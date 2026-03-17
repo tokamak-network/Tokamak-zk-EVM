@@ -32,9 +32,46 @@ export class ArithmeticManager {
         if (inPts.length !== POSEIDON_INPUTS) {
           throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
         }
+        sourceBitSize = 255
+        break
+      case 'Poseidon2x':
+        if (inPts.length !== POSEIDON_INPUTS + 1) {
+          throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
+        }
+        sourceBitSize = 255
+        break
+      case 'Poseidon3x':
+        if (inPts.length !== POSEIDON_INPUTS + 2) {
+          throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
+        }
+        sourceBitSize = 255
+        break
+      case 'Poseidon4x':
+        if (inPts.length !== POSEIDON_INPUTS + 3) {
+          throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
+        }
+        sourceBitSize = 255
+        break
+      case 'Poseidon5x':
+        if (inPts.length !== POSEIDON_INPUTS + 4) {
+          throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
+        }
+        sourceBitSize = 255
+        break
+      case 'Poseidon6x':
+        if (inPts.length !== POSEIDON_INPUTS + 5) {
+          throw new Error(`Use 'placePoseidon' function for variable input length, instead.`)
+        }
+        sourceBitSize = 255
+        break
       case 'JubjubExpBatch':
       case 'EdDsaVerify':
       case 'VerifyMerkleProof':
+      case 'VerifyMerkleProof2x':
+      case 'VerifyMerkleProof3x':
+      case 'VerifyMerkleProof4x':
+      case 'VerifyMerkleProof5x':
+      case 'VerifyMerkleProof6x':
         sourceBitSize = 255
         break
       default:
@@ -53,6 +90,72 @@ export class ArithmeticManager {
           }, value),
         )
       : []
+  }
+
+  private _normalizeMerkleProofInputs(
+    name: ArithmeticOperator,
+    inPts: DataPt[],
+  ): DataPt[] {
+    const stepByName: Partial<Record<ArithmeticOperator, number>> = {
+      VerifyMerkleProof: 1,
+      VerifyMerkleProof2x: 2,
+      VerifyMerkleProof3x: 3,
+      VerifyMerkleProof4x: 4,
+      VerifyMerkleProof5x: 5,
+      VerifyMerkleProof6x: 6,
+    }
+    const nSteps = stepByName[name]
+    if (nSteps === undefined) {
+      return inPts
+    }
+
+    const expectedLen = nSteps + 4
+    if (inPts.length !== expectedLen) {
+      throw new Error(`Synthesizer: Operation ${name} expected ${expectedLen} inputs, but got ${inPts.length}.`)
+    }
+
+    const childIndexPt = inPts[0]
+    const childPt = inPts[1]
+    const siblingPts = inPts.slice(2, -2)
+    const parentIndexPt = inPts[inPts.length - 2]
+    const parentPt = inPts[inPts.length - 1]
+    const zeroPt = this.parent.loadArbitraryStatic(0n, 255)
+    const paddedSiblings = siblingPts.concat(
+      Array.from({ length: 6 - nSteps }, () => DataPtFactory.deepCopy(zeroPt)),
+    )
+
+    return [childIndexPt, childPt, ...paddedSiblings, parentIndexPt, parentPt]
+  }
+
+  private _normalizePoseidonInputs(
+    name: ArithmeticOperator,
+    inPts: DataPt[],
+  ): DataPt[] {
+    const nCallsByName: Partial<Record<ArithmeticOperator, number>> = {
+      Poseidon: 1,
+      Poseidon2x: 2,
+      Poseidon3x: 3,
+      Poseidon4x: 4,
+      Poseidon5x: 5,
+      Poseidon6x: 6,
+    }
+    const nCalls = nCallsByName[name]
+    if (nCalls === undefined) {
+      return inPts
+    }
+
+    const expectedLen = nCalls + 1
+    if (inPts.length !== expectedLen) {
+      throw new Error(`Synthesizer: Operation ${name} expected ${expectedLen} inputs, but got ${inPts.length}.`)
+    }
+
+    const zeroPt = this.parent.loadArbitraryStatic(0n, 255)
+    return inPts.concat(
+      Array.from(
+        { length: 7 - expectedLen },
+        () => DataPtFactory.deepCopy(zeroPt),
+      ),
+    )
   }
 
   /**
@@ -75,17 +178,25 @@ export class ArithmeticManager {
       );
     }
 
-    let finalInPts: DataPt[] = inPts;
+    let finalInPts: DataPt[] = this._normalizePoseidonInputs(name, inPts);
+    finalInPts = this._normalizeMerkleProofInputs(name, finalInPts);
     if (selector !== undefined) {
       const selectorPt = this.parent.loadArbitraryStatic(selector, 32, `ALU selector for ${name} of ${subcircuitName}`);
-      finalInPts = [selectorPt, ...inPts];
+      finalInPts = [selectorPt, ...finalInPts];
     }
 
-    if (subcircuitName === 'ALU3' || subcircuitName === 'ALU5') {
-      const values = inPts.map((pt) => pt.value);
-      if (values[0] > 255n) {
+    if (name === 'SHL' || name === 'SHR' || name === 'SAR') {
+      if (inPts[0] !== undefined && inPts[0].value > 255n) {
         throw new Error(
-          `Synthesizer: Operation ${name} has a shift or size value greater than 255. Adjust ${subcircuitName} subcircuit in qap-compiler.`,
+          `Synthesizer: Operation ${name} has a shift value greater than 255. Adjust ${subcircuitName} subcircuit in qap-compiler.`,
+        );
+      }
+    }
+
+    if (name === 'BYTE' || name === 'SIGNEXTEND') {
+      if (inPts[0] !== undefined && inPts[0].value > 31n) {
+        throw new Error(
+          `Synthesizer: Operation ${name} has an index or size value greater than 31. Adjust ${subcircuitName} subcircuit in qap-compiler.`,
         );
       }
     }
@@ -114,38 +225,31 @@ export class ArithmeticManager {
   }
 
   public placePoseidon(inPts: DataPt[]): DataPt {
-    // Fold in chunks of POSEIDON_INPUTS; zero-pad tail; **strict field check** (no modular reduction)
     if (inPts.length === 0) {
       return this.placeArith('Poseidon', Array<DataPt>(POSEIDON_INPUTS).fill(this.parent.loadArbitraryStatic(0n)))[0]
     }
-    const fold = (arr: DataPt[]): DataPt[] => {
-      const n1xChunks = Math.ceil(arr.length / POSEIDON_INPUTS);
-      const nPaddedChildren = n1xChunks * POSEIDON_INPUTS;
+    if (inPts.length === 1) {
+      return this.placeArith('Poseidon', [inPts[0], this.parent.loadArbitraryStatic(0n)])[0]
+    }
 
-      const mode2x: boolean = nPaddedChildren % (POSEIDON_INPUTS ** 2) === 0
+    const operationByLen: Record<number, ArithmeticOperator> = {
+      2: 'Poseidon',
+      3: 'Poseidon2x',
+      4: 'Poseidon3x',
+      5: 'Poseidon4x',
+      6: 'Poseidon5x',
+      7: 'Poseidon6x',
+    }
 
-      let placeFunction = mode2x ?
-        (chunk: DataPt[]): DataPt[] => {return this.placeArith('Poseidon2xCompress', chunk)} :
-        (chunk: DataPt[]): DataPt[] => {return this.placeArith('Poseidon', chunk)}
+    let chainInputs = [...inPts]
+    while (chainInputs.length > 7) {
+      const prefixHash = this.placeArith('Poseidon6x', chainInputs.slice(0, 7))[0]
+      chainInputs = [prefixHash, ...chainInputs.slice(7)]
+    }
 
-      const nChildren = mode2x ? (POSEIDON_INPUTS ** 2) : POSEIDON_INPUTS
-      
-      const out: DataPt[] = [];
-      for (let childId = 0; childId < nPaddedChildren; childId += nChildren) {
-          const chunk = Array.from({ length: nChildren }, (_, localChildId) => arr[childId + localChildId] ?? this.parent.loadArbitraryStatic(0n));
-          // Every word must be within the field [0, MOD)
-          // chunk.map(checkBLS12Modulus)
-          out.push(...placeFunction(chunk));
-      }
-      return out;
-    };
-
-    // Repeatedly fold until a single word remains
-    let acc: DataPt[] = fold(inPts)
-    while (acc.length > 1) acc = fold(acc)
-
-    // Return big-endian bytes of the field element; caller decides fixed-length padding if needed
-    return DataPtFactory.deepCopy(acc[0])
+    return DataPtFactory.deepCopy(
+      this.placeArith(operationByLen[chainInputs.length], chainInputs)[0],
+    )
   }
 
   // public placeExp(inPts: DataPt[]): DataPt {
@@ -370,80 +474,70 @@ export class ArithmeticManager {
     //   childIndexPt = parentIndexPt
     // }
 
+    const placeMerkleBatch = (nSteps: number, finalRootPt: DataPt): { nextIndexPt: DataPt; nextChildPt: DataPt } => {
+      const siblingBatch = siblingPts.slice(level, level + nSteps)
+      let nextParentIndex = Number(childIndexPt.value)
+      let nextParentValue = childPt.value
+
+      for (const siblings of siblingBatch) {
+        const parentNode = computeParentsNode(nextParentIndex, nextParentValue, siblings)
+        nextParentIndex = parentNode.parentIndex
+        nextParentValue = parentNode.parent
+      }
+
+      const parentIndexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(nextParentIndex), true)
+      const parentPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', nextParentValue, true)
+      const isLastGroup = level + nSteps >= MT_DEPTH
+      const finalParentPt = isLastGroup ? finalRootPt : parentPt
+      const operationName = `VerifyMerkleProof${nSteps === 1 ? '' : `${nSteps}x`}` as ArithmeticOperator
+
+      this.placeArith(operationName, [
+        childIndexPt,
+        childPt,
+        ...siblingBatch.flat(),
+        parentIndexPt,
+        finalParentPt,
+      ])
+
+      return {
+        nextIndexPt: parentIndexPt,
+        nextChildPt: finalParentPt,
+      }
+    }
+
     let level = 0
     while (level < MT_DEPTH) {
       const remaining = MT_DEPTH - level
 
-      if (remaining >= 3) {
-        const sib0 = siblingPts[level]
-        const sib1 = siblingPts[level + 1]
-        const sib2 = siblingPts[level + 2]
-
-        const { parentIndex: pIdx1, parent: pPt1 } = computeParentsNode(Number(childIndexPt.value), childPt.value, sib0)
-        const { parentIndex: pIdx2, parent: pPt2 } = computeParentsNode(pIdx1, pPt1, sib1)
-        const { parentIndex, parent: parentVal } = computeParentsNode(pIdx2, pPt2, sib2)
-        const parentIndexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(parentIndex), true)
-        const parentPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', parentVal, true)
-
-        const isLastGroup = level + 3 >= MT_DEPTH
-        const finalParentPt = isLastGroup ? rootPt : parentPt
-
-        this.placeArith('VerifyMerkleProof3x', [
-          childIndexPt,
-          childPt,
-          ...sib0,
-          ...sib1,
-          ...sib2,
-          parentIndexPt,
-          finalParentPt,
-        ])
-
-        childPt = finalParentPt
-        childIndexPt = parentIndexPt
+      if (remaining >= 6) {
+        const placedBatch = placeMerkleBatch(6, rootPt)
+        childPt = placedBatch.nextChildPt
+        childIndexPt = placedBatch.nextIndexPt
+        level += 6
+      } else if (remaining >= 5) {
+        const placedBatch = placeMerkleBatch(5, rootPt)
+        childPt = placedBatch.nextChildPt
+        childIndexPt = placedBatch.nextIndexPt
+        level += 5
+      } else if (remaining >= 4) {
+        const placedBatch = placeMerkleBatch(4, rootPt)
+        childPt = placedBatch.nextChildPt
+        childIndexPt = placedBatch.nextIndexPt
+        level += 4
+      } else if (remaining >= 3) {
+        const placedBatch = placeMerkleBatch(3, rootPt)
+        childPt = placedBatch.nextChildPt
+        childIndexPt = placedBatch.nextIndexPt
         level += 3
       } else if (remaining >= 2) {
-        const sib0 = siblingPts[level]
-        const sib1 = siblingPts[level + 1]
-
-        const { parentIndex: pIdx1, parent: pPt1 } = computeParentsNode(Number(childIndexPt.value), childPt.value, sib0)
-        const { parentIndex, parent: parentVal } = computeParentsNode(pIdx1, pPt1, sib1)
-        const parentIndexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(parentIndex), true)
-        const parentPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', parentVal, true)
-
-        const isLastGroup = level + 2 >= MT_DEPTH
-        const finalParentPt = isLastGroup ? rootPt : parentPt
-
-        this.placeArith('VerifyMerkleProof2x', [
-          childIndexPt,
-          childPt,
-          ...sib0,
-          ...sib1,
-          parentIndexPt,
-          finalParentPt,
-        ])
-
-        childPt = finalParentPt
-        childIndexPt = parentIndexPt
+        const placedBatch = placeMerkleBatch(2, rootPt)
+        childPt = placedBatch.nextChildPt
+        childIndexPt = placedBatch.nextIndexPt
         level += 2
       } else {
-        const thisSiblings = siblingPts[level]
-        const { parentIndex, parent: parentVal } = computeParentsNode(Number(childIndexPt.value), childPt.value, thisSiblings)
-        const parentIndexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(parentIndex), true)
-        const parentPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', parentVal, true)
-
-        const isLastLevel = level === MT_DEPTH - 1
-        const finalParentPt = isLastLevel ? rootPt : parentPt
-
-        this.placeArith('VerifyMerkleProof', [
-          childIndexPt,
-          childPt,
-          ...thisSiblings,
-          parentIndexPt,
-          finalParentPt,
-        ])
-
-        childPt = parentPt
-        childIndexPt = parentIndexPt
+        const placedBatch = placeMerkleBatch(1, rootPt)
+        childPt = placedBatch.nextChildPt
+        childIndexPt = placedBatch.nextIndexPt
         level += 1
       }
     }
@@ -503,11 +597,18 @@ const ARITHMETIC_MAPPING: Record<ArithmeticOperator, (...args: any) => any> = {
   SubExpBatch: ArithmeticOperations.subExpBatch,
   Accumulator: ArithmeticOperations.accumulator,
   Poseidon: ArithmeticOperations.poseidonN,
-  Poseidon2xCompress: ArithmeticOperations.poseidonN2xCompress,
+  Poseidon2x: (values: bigint[]) => ArithmeticOperations.poseidonChainCompress(values),
+  Poseidon3x: (values: bigint[]) => ArithmeticOperations.poseidonChainCompress(values),
+  Poseidon4x: (values: bigint[]) => ArithmeticOperations.poseidonChainCompress(values),
+  Poseidon5x: (values: bigint[]) => ArithmeticOperations.poseidonChainCompress(values),
+  Poseidon6x: (values: bigint[]) => ArithmeticOperations.poseidonChainCompress(values),
   // PrepareEdDsaScalars: ArithmeticOperations.prepareEdDsaScalars,
   JubjubExpBatch: ArithmeticOperations.jubjubExpBatch,
   EdDsaVerify: ArithmeticOperations.edDsaVerify,
   VerifyMerkleProof: ArithmeticOperations.verifyMerkleProof,
   VerifyMerkleProof2x: ArithmeticOperations.verifyMerkleProof2x,
   VerifyMerkleProof3x: ArithmeticOperations.verifyMerkleProof3x,
+  VerifyMerkleProof4x: ArithmeticOperations.verifyMerkleProof4x,
+  VerifyMerkleProof5x: ArithmeticOperations.verifyMerkleProof5x,
+  VerifyMerkleProof6x: ArithmeticOperations.verifyMerkleProof6x,
 } as const

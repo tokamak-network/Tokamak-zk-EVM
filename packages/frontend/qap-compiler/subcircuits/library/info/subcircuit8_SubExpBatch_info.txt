@@ -1,0 +1,12 @@
+[32mtemplate instances[0m: 7
+non-linear constraints: 1312
+linear constraints: 2624
+public inputs: 0
+private inputs: 36
+public outputs: 4
+wires: 5093
+labels: 8789
+[32mWritten successfully:[0m ../subcircuits/library/SubExpBatch_circuit.r1cs
+[32mConstraints written in:[0m ../subcircuits/library/SubExpBatch_circuit_constraints.json
+[32mWritten successfully:[0m ../subcircuits/library/SubExpBatch_circuit_js/SubExpBatch_circuit.wasm
+[32mEverything went okay[0m

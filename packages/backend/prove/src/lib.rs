@@ -10,7 +10,7 @@
     use libs::group_structures::G1serde;
     use libs::polynomial_structures::gen_bXY;
     use libs::utils::{
-        check_device, init_ntt_domain, load_setup_params_from_qap_path, prover_verifier_ntt_domain_size,
+        init_ntt_domain, load_setup_params_from_qap_path, prover_verifier_ntt_domain_size,
         setup_shape, validate_setup_shape,
     };
     use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
@@ -468,7 +468,6 @@
             let s_d = setup_params.s_D;
 
             let ntt_domain_size = prover_verifier_ntt_domain_size(&shape);
-            check_device();
             init_ntt_domain(ntt_domain_size);
 
             // Load subcircuit information

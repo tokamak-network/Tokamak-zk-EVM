@@ -1,2 +1,2 @@
-export * from '../../../submodules/TokamakL2JS/src/index.ts'
+export * from './source.ts'
 export { jubjub } from '@noble/curves/misc.js'

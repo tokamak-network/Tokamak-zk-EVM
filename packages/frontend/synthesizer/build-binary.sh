@@ -35,6 +35,9 @@ if ! command -v bun &> /dev/null; then
     exit 1
 fi
 
+# Ensure the shared TokamakL2JS submodule can resolve package dependencies
+node ./scripts/link-submodule-node-modules.mjs
+
 # Copy WASM files to bin directory
 copy_wasm_files() {
     echo "📦 Copying subcircuit library..."

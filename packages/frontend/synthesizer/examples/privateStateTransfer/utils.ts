@@ -43,7 +43,8 @@ export {
 
 export const isSupportedTransferArity = (inputCount: number, outputCount: number) =>
   (outputCount === 1 && inputCount >= 1 && inputCount <= 4)
-  || (outputCount === 2 && inputCount >= 1 && inputCount <= 3);
+  || (outputCount === 2 && inputCount >= 1 && inputCount <= 3)
+  || (outputCount === 3 && inputCount === 1);
 
 const buildTransferFunctionName = (inputCount: number, outputCount: number) => `transferNotes${inputCount}To${outputCount}`;
 
@@ -77,8 +78,8 @@ const parseNumberValue = (value: unknown, label: string): number => {
 };
 
 const parseTransferFunctionName = (value: unknown, label: string): string => {
-  if (typeof value !== 'string' || !/^transferNotes[1-8]To[12]$/u.test(value)) {
-    throw new Error(`${label} must match transferNotes<N>To<M> with N in [1,8] and M in [1,2]`);
+  if (typeof value !== 'string' || !/^transferNotes[1-8]To[123]$/u.test(value)) {
+    throw new Error(`${label} must match transferNotes<N>To<M> with N in [1,8] and M in [1,3]`);
   }
   return value;
 };
@@ -179,7 +180,7 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateTransf
   const inputCount = parseNumberValue(configRaw.inputCount, 'inputCount');
   const outputCount = parseNumberValue(configRaw.outputCount, 'outputCount');
   if (!isSupportedTransferArity(inputCount, outputCount)) {
-    throw new Error('private-state transfer replay only supports N<=4 for To1 and N<=3 for To2');
+    throw new Error('private-state transfer replay only supports N<=4 for To1, N<=3 for To2, and only 1->3 for To3');
   }
   if (functionName !== buildTransferFunctionName(inputCount, outputCount)) {
     throw new Error('functionName must match inputCount and outputCount');

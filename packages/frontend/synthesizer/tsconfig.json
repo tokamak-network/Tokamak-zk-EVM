@@ -10,7 +10,8 @@
     "allowJs": true,
     "declaration": true,
     "baseUrl": ".",
-    "composite": true
+    "composite": true,
+    "preserveSymlinks": true
   },
   "exclude": ["node_modules", "dist"]
 }

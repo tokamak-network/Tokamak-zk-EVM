@@ -7,7 +7,7 @@
       "name": "L2 transfer on mainnet/sepolia",
       "runtimeExecutable": "tsx",
       "program": "${workspaceFolder}/examples/erc20Transfers/main.ts",
-      "args": ["${workspaceFolder}/examples/erc20Transfers/ton/config-ton-sepolia.json"],
+      "args": ["${workspaceFolder}/examples/erc20Transfers/usdt/config-usdt-sepolia.json"],
       "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],
       "console": "integratedTerminal"
@@ -119,6 +119,20 @@
       "program": "${workspaceFolder}/examples/privateStateTransfer/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-transfer/config-anvil-private-state-transfer-n1-m2-p4-s0.json"
+      ],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state transferNotes1To3 on anvil",
+      "preLaunchTask": "private-state-transfer:1to3:prep",
+      "runtimeExecutable": "tsx",
+      "program": "${workspaceFolder}/examples/privateStateTransfer/main.ts",
+      "args": [
+        "${workspaceFolder}/tests/configs/private-state-transfer/config-anvil-private-state-transfer-n1-m3-p4-s0.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],
@@ -261,7 +275,7 @@
         "--previous-state",
         "${workspaceFolder}/examples/L2StateChannel/previous_state_snapshot.json",
         "--transaction",
-        "0xf8c08094a30fe40285b8f5c0457dbc3b7c8a280373c40044b844a9059cbb00000000000000000000000026f67df81c33223350a7ddca1473a9100b519fe70000000000000000000000000000000000000000000000000000000000000004a090c69902b2e0d20638ac1bddf8a2c433529b84a31a73a6423ab39cc6f67c2e131ba0eba85914616b3df71d75f376c9db9706f0c1f306059faa07aa3c754319d16f57a006ada885d83173d5cc1759f894c857cbf492d1305d26607ecfc37db6455f13fb",
+        "0xf8c08094a30fe40285b8f5c0457dbc3b7c8a280373c40044b844a9059cbb00000000000000000000000026f67df81c33223350a7ddca1473a9100b519fe70000000000000000000000000000000000000000000000000000000000000004a090c69902b2e0d20638ac1bddf8a2c433529b84a31a73a6423ab39cc6f67c2e131ba026175b7a9cfe43d6733a7c7f4196f5ad8d94e1db7222d18f5d018262ac2c910ca00cc0f0c9a7692740c08025da604cc83d87ca7048df4f7884f179bdc0bb2f9348",
         "--block-info",
         "${workspaceFolder}/examples/L2StateChannel/block_info.json",
         "--contract-code",

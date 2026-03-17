@@ -1,12 +1,14 @@
 # Private-State Transfer Example
 
-This example replays `PrivateStateController.transferNotes1To2` against the local `private-state` DApp deployment on anvil.
+This example replays fixed-arity `PrivateStateController.transferNotes<N>To<M>` calls against the local `private-state` DApp deployment on anvil.
 
-The flow prepares one existing input note commitment for the sender, then executes a `1 -> 2` transfer that:
+The currently wired launch targets cover `1 -> 1`, `1 -> 2`, `1 -> 3`, `2 -> 1`, `2 -> 2`, `3 -> 1`, `3 -> 2`, and `4 -> 1`.
 
-- splits the single input note into two output notes
-- keeps one change note for the sender
-- creates one output note for another L2 participant
+The default flow prepares one existing input note commitment for the sender, then executes a transfer that:
+
+- can split the single input note into two or three output notes
+- can keep one or more change notes for the sender
+- can create one or more output notes for other L2 participants
 - consumes the single input note through its nullifier
 
 Use the generated configs under `tests/configs/private-state-transfer` together with:

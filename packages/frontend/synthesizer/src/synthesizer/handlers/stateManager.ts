@@ -70,7 +70,7 @@ export class StateManager {
   // public cachedStorage: Map<string, Map<bigint, CachedStorageEntry[]>> = new Map() // Map<ADDRESS_STRING, Map<KEY, ENTRY>>
   public subcircuitInfoByName: SubcircuitInfoByName = subcircuitInfoByName;
 
-  public cachedEVMIn: Map<bigint, DataPt> = new Map()
+  public cachedEVMIn: Map<bigint, Map<number, DataPt>> = new Map()
   public cachedOrigin: DataPt | undefined = undefined
   public cachedRoots: Map<`0x${string}`, DataPt[]> = new Map()
   public cachedMerkleProof: CachedMerkleProof | null = null

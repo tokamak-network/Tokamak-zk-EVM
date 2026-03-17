@@ -3,7 +3,7 @@ use libs::group_structures::G1serde;
 use libs::iotools::ArchivedSigmaPreprocessRkyv;
 use libs::iotools::{*};
 use libs::utils::{
-    check_device, init_ntt_domain, prover_verifier_ntt_domain_size, setup_shape, validate_setup_shape,
+    init_ntt_domain, prover_verifier_ntt_domain_size, setup_shape, validate_setup_shape,
 };
 use libs::{impl_read_from_json, impl_write_into_json, split_push, pop_recover};
 
@@ -39,7 +39,6 @@ impl Preprocess {
         let m_i = shape.m_i;
         let s_max = shape.s_max;
         let ntt_domain_size = prover_verifier_ntt_domain_size(&shape);
-        check_device();
         init_ntt_domain(ntt_domain_size);
         // Generating permutation polynomials
         println!("Converting the permutation matrices into polynomials s^0 and s^1...");
