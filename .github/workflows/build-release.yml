@@ -23,6 +23,13 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Update TokamakL2JS to latest main
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          git submodule update --remote submodules/TokamakL2JS
+          echo "TokamakL2JS HEAD: $(git -C submodules/TokamakL2JS rev-parse --short HEAD)"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -151,6 +158,13 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Update TokamakL2JS to latest main
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          git submodule update --remote submodules/TokamakL2JS
+          echo "TokamakL2JS HEAD: $(git -C submodules/TokamakL2JS rev-parse --short HEAD)"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -210,6 +224,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Update TokamakL2JS to latest main
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          git submodule update --remote submodules/TokamakL2JS
+          echo "TokamakL2JS HEAD: $(git -C submodules/TokamakL2JS rev-parse --short HEAD)"
 
       - name: Ensure zip/unzip
         run: |
@@ -329,6 +350,13 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Update TokamakL2JS to latest main
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          git submodule update --remote submodules/TokamakL2JS
+          echo "TokamakL2JS HEAD: $(git -C submodules/TokamakL2JS rev-parse --short HEAD)"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -403,6 +431,13 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Update TokamakL2JS to latest main
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          git submodule update --remote submodules/TokamakL2JS
+          echo "TokamakL2JS HEAD: $(git -C submodules/TokamakL2JS rev-parse --short HEAD)"
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -461,6 +496,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Update TokamakL2JS to latest main
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          git submodule update --remote submodules/TokamakL2JS
+          echo "TokamakL2JS HEAD: $(git -C submodules/TokamakL2JS rev-parse --short HEAD)"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -540,6 +582,13 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+
+      - name: Update TokamakL2JS to latest main
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          git submodule update --remote submodules/TokamakL2JS
+          echo "TokamakL2JS HEAD: $(git -C submodules/TokamakL2JS rev-parse --short HEAD)"
 
       - name: Generate version tag
         id: version
