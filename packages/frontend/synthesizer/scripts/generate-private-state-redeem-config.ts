@@ -282,6 +282,9 @@ const main = async () => {
   if (!senderAddress || !receiverAddress) {
     throw new Error('Could not resolve redeem participants');
   }
+  const receiverLiquidBalanceStorageKey = ethers.keccak256(
+    ethers.AbiCoder.defaultAbiCoder().encode(['address', 'uint256'], [receiverAddress, 0n]),
+  ) as `0x${string}`;
 
   const functionName = `redeemNotes${inputCount}` as
     | 'redeemNotes1'
@@ -334,6 +337,15 @@ const main = async () => {
 
   await provider.send('evm_mine', []);
   const blockNumber = await provider.getBlockNumber();
+  const receiverLiquidBalance = await provider.getStorage(
+    manifest.contracts.l2AccountingVault,
+    receiverLiquidBalanceStorageKey,
+    blockNumber,
+  );
+  const existingVaultKeys =
+    BigInt(receiverLiquidBalance) === 0n
+      ? []
+      : [receiverLiquidBalanceStorageKey];
 
   const noteRegistryKeys = inputCommitments.map((commitment) =>
     computeReplayPrivateStateMappingKey(commitment, 0));
@@ -346,8 +358,8 @@ const main = async () => {
     },
     {
       address: manifest.contracts.l2AccountingVault,
-      userStorageSlots: [0],
-      preAllocatedKeys: [],
+      userStorageSlots: [],
+      preAllocatedKeys: existingVaultKeys,
     },
   ];
   config.callCodeAddresses = [manifest.contracts.controller, manifest.contracts.l2AccountingVault];

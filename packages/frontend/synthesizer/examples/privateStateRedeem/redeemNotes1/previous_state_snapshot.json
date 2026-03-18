@@ -2,7 +2,7 @@
   "channelId": 4,
   "stateRoots": [
     "27aa0a81628860f178b6cdea2a96566a79c0b429672132bb8c7c0f8801b2a898",
-    "491821ff6698d5d4b29e6c77964239525ab9d7bb793a336b136984ab68baf926"
+    "f3a6cc9f1def0748226b7a37807a3ca1d5ea814258df790b3e50a0e9a98ae35"
   ],
   "storageAddresses": [
     "0x175166047d99b9783570140f673e4884735edb7d",
@@ -17,19 +17,7 @@
     ],
     [
       {
-        "key": "0x23313b4c8769629dd44617787e41e9d983a632bf0a48e37ee05d518f5a71a122",
-        "value": "0x53444835ec580000"
-      },
-      {
-        "key": "0x3b8c8f2fc3e6d5091632b9ea9e25cf18bdf6c3bf527461d1e68d498c279bb790",
-        "value": "0x0de0b6b3a7640000"
-      },
-      {
-        "key": "0x2240286ca410bc7d9a43edfc3caf5e36299584279e7bb2ee3f2d48126d697a6a",
-        "value": "0x0de0b6b3a7640000"
-      },
-      {
-        "key": "0x48d321bb8266f14ec0ff7e768c739e089c3f12af370b0573e18020aa23733a69",
+        "key": "0xb0cfa2f31d567938639d1e85743df0fda6044fbc4166e15ca771be086fa0ac2a",
         "value": "0x0de0b6b3a7640000"
       }
     ]
