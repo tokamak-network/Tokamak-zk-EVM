@@ -354,7 +354,7 @@ const main = async () => {
     {
       address: manifest.contracts.controller,
       userStorageSlots: [],
-      preAllocatedKeys: mergeUniqueHexValues([], noteRegistryKeys),
+      preAllocatedKeys: mergeUniqueHexValues(['0x00'], noteRegistryKeys),
     },
     {
       address: manifest.contracts.l2AccountingVault,

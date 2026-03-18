@@ -384,7 +384,7 @@ const main = async () => {
     {
       address: manifest.contracts.controller,
       userStorageSlots: [],
-      preAllocatedKeys: mergeUniqueHexValues([], noteRegistryKeys),
+      preAllocatedKeys: mergeUniqueHexValues(['0x00'], noteRegistryKeys),
     },
   ];
   config.callCodeAddresses = [manifest.contracts.controller];

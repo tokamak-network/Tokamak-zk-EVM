@@ -358,7 +358,7 @@ const main = async () => {
       {
         address: manifest.contracts.controller,
         userStorageSlots: [],
-        preAllocatedKeys: [],
+        preAllocatedKeys: ['0x00'],
       },
       {
         address: manifest.contracts.l2AccountingVault,
