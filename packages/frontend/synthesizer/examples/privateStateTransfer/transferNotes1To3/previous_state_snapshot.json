@@ -1,36 +1,16 @@
 {
   "channelId": 4,
   "stateRoots": [
-    "56a28c9acb18b7fb90c43213b65094e5b738de88647a3cbf323acf7f4d6d43c9"
+    "6dcc4e2e857fc566d7519709c065b2f8ec8c497db588c2ff4dedecc556ff4cc6"
   ],
   "storageAddresses": [
-    "0x88ecfe1a46a162da66f08108abfc7155d9a85607"
+    "0x175166047d99b9783570140f673e4884735edb7d"
   ],
   "registeredKeys": [
     [
       {
-        "key": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "value": "0x"
-      },
-      {
         "key": "0x5de794ec589ddb24c33f44fb35c8ca9ff793bda3248c73af689d95d5acec91da",
         "value": "0x01"
-      },
-      {
-        "key": "0x176a45269e9830095cc2382ea0e4133b30e908ec21abfa6179ea99eef040140d",
-        "value": "0x"
-      },
-      {
-        "key": "0x5648dbb7ea4bbf9fbb26ed09cc6abfac461f327a0c80039c808fad86bd9d3ed7",
-        "value": "0x"
-      },
-      {
-        "key": "0x295092832a0e75a4a253a782fbd809b4b74b00c7039be15d2b540cb63220d78d",
-        "value": "0x"
-      },
-      {
-        "key": "0x3fb47d45e9d1156c57e224296e5cd49488d972483b975da66f331620ffcf7430",
-        "value": "0x"
       }
     ]
   ]

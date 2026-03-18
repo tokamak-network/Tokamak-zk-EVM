@@ -4,7 +4,6 @@
 import fsSync from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
-import { spawn } from 'child_process';
 import { ethers } from 'ethers';
 import { fileURLToPath } from 'url';
 import { fromEdwardsToAddress } from 'tokamak-l2js';
@@ -18,7 +17,6 @@ import {
 import {
   computeReplayPrivateStateMappingKey,
   computeReplayPrivateStateNoteCommitment,
-  computeReplayPrivateStateNullifier,
 } from './private-state-hash.ts';
 
 type ParticipantEntry = {
@@ -40,11 +38,6 @@ type DeploymentManifest = {
   };
 };
 
-type UnregisteredStorageWarning = {
-  address: `0x${string}`;
-  key: `0x${string}`;
-};
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, '..');
@@ -54,7 +47,6 @@ const packageEnvPath = path.resolve(packageRoot, '.env');
 const defaultOutputPath = path.resolve(packageRoot, 'scripts', 'private-state-redeem-config.json');
 const deploymentManifestPath = path.resolve(repoRoot, 'apps', 'private-state', 'deploy', 'deployment.31337.latest.json');
 const privateStateAppDir = path.resolve(repoRoot, 'apps', 'private-state');
-const privateStateMainPath = path.resolve(packageRoot, 'examples', 'privateStateRedeem', 'main.ts');
 
 const DEFAULT_ANVIL_RPC_URL = 'http://127.0.0.1:8545';
 const DEFAULT_ANVIL_MNEMONIC = 'test test test test test test test test test test test junk';
@@ -225,70 +217,6 @@ const mergeUniqueHexValues = (existing: `0x${string}`[], incoming: `0x${string}`
   return merged;
 };
 
-const runAnalysisOnlyReplay = async (configPath: string): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const child = spawn(
-      'tsx',
-      [privateStateMainPath, configPath],
-      {
-        cwd: packageRoot,
-        env: {
-          ...process.env,
-          PRIVATE_STATE_ANALYSIS_ONLY: '1',
-        },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    );
-
-    let combinedOutput = '';
-    child.stdout.on('data', (chunk: Buffer | string) => {
-      const text = chunk.toString();
-      combinedOutput += text;
-      process.stdout.write(text);
-    });
-    child.stderr.on('data', (chunk: Buffer | string) => {
-      const text = chunk.toString();
-      combinedOutput += text;
-      process.stderr.write(text);
-    });
-    child.on('error', reject);
-    child.on('close', (code) => {
-      if (code !== 0) {
-        console.warn(`Analysis-only replay exited with code ${code ?? 'unknown'}`);
-      }
-      resolve(combinedOutput);
-    });
-  });
-
-const collectUnregisteredStorageWarnings = (output: string): UnregisteredStorageWarning[] => {
-  const warnings: UnregisteredStorageWarning[] = [];
-  const matches = output.matchAll(/AT MPT KEY (0X[0-9A-F]+) OF ADDRESS (0X[0-9A-F]+)/gu);
-  for (const match of matches) {
-    warnings.push({
-      key: `0x${match[1].slice(2).toLowerCase()}` as `0x${string}`,
-      address: `0x${match[2].slice(2).toLowerCase()}` as `0x${string}`,
-    });
-  }
-  return warnings;
-};
-
-const applyWarningKeysToStorageConfigs = (
-  storageConfigs: StorageConfigEntry[],
-  warnings: UnregisteredStorageWarning[],
-): StorageConfigEntry[] =>
-  storageConfigs.map((entry) => {
-    const incoming = warnings
-      .filter((warning) => warning.address.toLowerCase() === entry.address.toLowerCase())
-      .map((warning) => warning.key);
-    if (incoming.length === 0) {
-      return entry;
-    }
-    return {
-      ...entry,
-      preAllocatedKeys: mergeUniqueHexValues(entry.preAllocatedKeys, incoming),
-    };
-  });
-
 const loadDeploymentManifest = async (): Promise<DeploymentManifest> => {
   const contents = await fs.readFile(deploymentManifestPath, 'utf8');
   return JSON.parse(contents) as DeploymentManifest;
@@ -395,13 +323,10 @@ const main = async () => {
   const truthyValue = ethers.zeroPadValue('0x01', 32);
 
   const inputCommitments: `0x${string}`[] = [];
-  const nullifiers: `0x${string}`[] = [];
 
   for (const note of inputNotes) {
     const commitment = computeReplayPrivateStateNoteCommitment(note);
-    const nullifier = computeReplayPrivateStateNullifier(note);
     inputCommitments.push(commitment);
-    nullifiers.push(nullifier);
 
     const noteRegistryKey = computeReplayPrivateStateMappingKey(commitment, 0);
     await provider.send('anvil_setStorageAt', [manifest.contracts.controller, noteRegistryKey, truthyValue]);
@@ -412,14 +337,12 @@ const main = async () => {
 
   const noteRegistryKeys = inputCommitments.map((commitment) =>
     computeReplayPrivateStateMappingKey(commitment, 0));
-  const nullifierKeys = nullifiers.map((nullifier) =>
-    computeReplayPrivateStateMappingKey(nullifier, 1));
   config.blockNumber = blockNumber;
   config.storageConfigs = [
     {
       address: manifest.contracts.controller,
       userStorageSlots: [],
-      preAllocatedKeys: mergeUniqueHexValues(['0x00'], [...noteRegistryKeys, ...nullifierKeys]),
+      preAllocatedKeys: mergeUniqueHexValues([], noteRegistryKeys),
     },
     {
       address: manifest.contracts.l2AccountingVault,
@@ -430,15 +353,6 @@ const main = async () => {
   config.callCodeAddresses = [manifest.contracts.controller, manifest.contracts.l2AccountingVault];
 
   await writeConfig(outputPath, config);
-  const replayOutput = await runAnalysisOnlyReplay(outputPath);
-  const warningKeys = collectUnregisteredStorageWarnings(replayOutput);
-  if (warningKeys.length > 0) {
-    const updatedConfig: PrivateStateRedeemConfig = {
-      ...config,
-      storageConfigs: applyWarningKeysToStorageConfigs(config.storageConfigs, warningKeys),
-    };
-    await writeConfig(outputPath, updatedConfig);
-  }
   console.log(`Saved private-state redeem config to ${outputPath}`);
 };
 
