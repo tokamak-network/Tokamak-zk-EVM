@@ -102,6 +102,7 @@ type ParsedArgs = {
   sender: number;
   noteOwner: number;
   outputs: 1 | 2 | 3 | 4 | 5 | 6;
+  extraBalanceAccounts: number[];
   rpcUrl?: string;
   mnemonic?: string;
   amount?: string;
@@ -113,6 +114,7 @@ const parseArgs = (): ParsedArgs => {
     sender: 0,
     noteOwner: DEFAULT_NOTE_OWNER_INDEX,
     outputs: 1,
+    extraBalanceAccounts: [],
   };
   const argv = process.argv.slice(2);
 
@@ -154,6 +156,13 @@ const parseArgs = (): ParsedArgs => {
           throw new Error('outputs must be 1, 2, 3, 4, 5, or 6');
         }
         args.outputs = outputCount;
+        break;
+      }
+      case '--extra-balance-accounts': {
+        const rawValue = consumeValue(current);
+        args.extraBalanceAccounts = rawValue.length === 0
+          ? []
+          : rawValue.split(',').map((value) => parseInteger(value.trim(), 'extra-balance-accounts'));
         break;
       }
       case '--rpc-url':
@@ -246,6 +255,7 @@ const main = async () => {
   const rawNoteOwnerIndex = args.noteOwner;
   const noteOwnerIndex = rawNoteOwnerIndex === DEFAULT_NOTE_OWNER_INDEX ? senderIndex : rawNoteOwnerIndex;
   const outputCount = args.outputs;
+  const extraBalanceAccounts = args.extraBalanceAccounts;
   const outputNoteValue = parseAmount(args.amount);
   const totalNoteValue = outputNoteValue * BigInt(outputCount);
   const rpcUrl = typeof args.rpcUrl === 'string' && args.rpcUrl.trim().length > 0
@@ -263,6 +273,11 @@ const main = async () => {
   }
   if (noteOwnerIndex < 0 || noteOwnerIndex >= participantCount) {
     throw new Error(`note-owner must be between 0 and ${participantCount - 1}`);
+  }
+  for (const accountIndex of extraBalanceAccounts) {
+    if (accountIndex < 0 || accountIndex >= participantCount) {
+      throw new Error(`extra-balance-accounts entries must be between 0 and ${participantCount - 1}`);
+    }
   }
 
   await ensurePrivateStateBootstrap();
@@ -338,15 +353,24 @@ const main = async () => {
     salt: `0x${string}`;
   }>;
 
-  const liquidBalanceStorageKey = ethers.keccak256(
-    ethers.AbiCoder.defaultAbiCoder().encode(['address', 'uint256'], [senderAddress, 0n]),
-  ) as `0x${string}`;
+  const fundedAccounts = Array.from(new Set([senderIndex, ...extraBalanceAccounts]));
+  const liquidBalanceStorageKeys: `0x${string}`[] = [];
   const liquidBalanceStorageValue = ethers.zeroPadValue(ethers.toBeHex(totalNoteValue), 32);
-  await provider.send('anvil_setStorageAt', [
-    manifest.contracts.l2AccountingVault,
-    liquidBalanceStorageKey,
-    liquidBalanceStorageValue,
-  ]);
+  for (const accountIndex of fundedAccounts) {
+    const accountAddress = participants[accountIndex]?.addressL1;
+    if (!accountAddress) {
+      throw new Error(`Could not resolve extra balance account at index ${accountIndex}`);
+    }
+    const liquidBalanceStorageKey = ethers.keccak256(
+      ethers.AbiCoder.defaultAbiCoder().encode(['address', 'uint256'], [accountAddress, 0n]),
+    ) as `0x${string}`;
+    liquidBalanceStorageKeys.push(liquidBalanceStorageKey);
+    await provider.send('anvil_setStorageAt', [
+      manifest.contracts.l2AccountingVault,
+      liquidBalanceStorageKey,
+      liquidBalanceStorageValue,
+    ]);
+  }
   await provider.send('evm_mine', []);
 
   const blockNumber = await provider.getBlockNumber();
@@ -363,7 +387,7 @@ const main = async () => {
       {
         address: manifest.contracts.l2AccountingVault,
         userStorageSlots: [],
-        preAllocatedKeys: [liquidBalanceStorageKey],
+        preAllocatedKeys: liquidBalanceStorageKeys,
       },
     ],
     callCodeAddresses: [

@@ -88,6 +88,8 @@ type ParsedArgs = {
   output?: string;
   participants: number;
   sender: number;
+  toAccounts?: number[];
+  extraCommitments: number;
   inputCount: number;
   outputCount: number;
   rpcUrl?: string;
@@ -137,6 +139,7 @@ const parseArgs = (): ParsedArgs => {
   const args: ParsedArgs = {
     participants: DEFAULT_PARTICIPANT_COUNT,
     sender: 0,
+    extraCommitments: 0,
     inputCount: 1,
     outputCount: 2,
   };
@@ -169,6 +172,14 @@ const parseArgs = (): ParsedArgs => {
       case '--sender':
       case '-s':
         args.sender = parseInteger(consumeValue(current), 'sender');
+        break;
+      case '--to-accounts': {
+        const rawValue = consumeValue(current);
+        args.toAccounts = rawValue.split(',').map((value) => parseInteger(value.trim(), 'to-accounts'));
+        break;
+      }
+      case '--extra-commitments':
+        args.extraCommitments = parseInteger(consumeValue(current), 'extra-commitments');
         break;
       case '--inputs':
       case '-i':
@@ -261,6 +272,8 @@ const main = async () => {
   const outputPath = args.output ? path.resolve(process.cwd(), String(args.output)) : defaultOutputPath;
   const participantCount = args.participants;
   const senderIndex = args.sender;
+  const toAccounts = args.toAccounts;
+  const extraCommitments = args.extraCommitments;
   const inputCount = args.inputCount;
   const outputCount = args.outputCount;
   const rpcUrl = typeof args.rpcUrl === 'string' && args.rpcUrl.trim().length > 0
@@ -276,6 +289,9 @@ const main = async () => {
   if (senderIndex < 0 || senderIndex >= participantCount) {
     throw new Error(`sender must be between 0 and ${participantCount - 1}`);
   }
+  if (extraCommitments < 0) {
+    throw new Error('extra-commitments must be >= 0');
+  }
   if (inputCount < 1 || inputCount > 8) {
     throw new Error('inputs must be between 1 and 8');
   }
@@ -284,6 +300,16 @@ const main = async () => {
   }
   if (!isSupportedTransferArity(inputCount, outputCount)) {
     throw new Error('private-state transfer configs only support N<=4 for To1, N<=3 for To2, and only 1->3 for To3');
+  }
+  if (toAccounts !== undefined) {
+    if (toAccounts.length !== outputCount) {
+      throw new Error(`to-accounts must provide exactly ${outputCount} account indices`);
+    }
+    for (const accountIndex of toAccounts) {
+      if (accountIndex < 0 || accountIndex >= participantCount) {
+        throw new Error(`to-accounts entries must be between 0 and ${participantCount - 1}`);
+      }
+    }
   }
 
   const noteValue = parseAmount(args.amount, defaultTransferValue(inputCount, outputCount));
@@ -329,11 +355,20 @@ const main = async () => {
     value: inputValueHex,
     salt: toSalt(`private-state-transfer-input-sender-${senderIndex}-${inputCount}-${outputCount}-${index}`),
   })) as PrivateStateTransferConfig['inputNotes'];
-  const outputOwners = outputCount === 1
+  const defaultOutputOwners = outputCount === 1
     ? [recipientOneAddress]
     : outputCount === 2
       ? [recipientOneAddress, senderAddress]
       : [recipientOneAddress, senderAddress, recipientTwoAddress];
+  const outputOwners = toAccounts === undefined
+    ? defaultOutputOwners
+    : toAccounts.map((accountIndex) => {
+      const accountAddress = participants[accountIndex]?.addressL1;
+      if (!accountAddress) {
+        throw new Error(`Could not resolve toAccount at index ${accountIndex}`);
+      }
+      return accountAddress;
+    });
   const outputNotes = outputOwners.map((owner, index) => ({
     owner,
     value: outputValueHex,
@@ -369,6 +404,18 @@ const main = async () => {
     const commitment = computeReplayPrivateStateNoteCommitment(note);
     inputCommitments.push(commitment);
 
+    const noteRegistryKey = computeReplayPrivateStateMappingKey(commitment, 0);
+    await provider.send('anvil_setStorageAt', [manifest.contracts.controller, noteRegistryKey, truthyValue]);
+  }
+
+  for (let index = 0; index < extraCommitments; index += 1) {
+    const dormantNote: PrivateStateNote = {
+      owner: senderAddress,
+      value: inputValueHex,
+      salt: toSalt(`private-state-transfer-dormant-sender-${senderIndex}-${inputCount}-${outputCount}-${index}`),
+    };
+    const commitment = computeReplayPrivateStateNoteCommitment(dormantNote);
+    inputCommitments.push(commitment);
     const noteRegistryKey = computeReplayPrivateStateMappingKey(commitment, 0);
     await provider.send('anvil_setStorageAt', [manifest.contracts.controller, noteRegistryKey, truthyValue]);
   }

@@ -87,6 +87,7 @@ type ParsedArgs = {
   participants: number;
   sender: number;
   receiver?: number;
+  extraBalanceAccounts: number[];
   inputs: 1 | 2 | 3 | 4;
   rpcUrl?: string;
   mnemonic?: string;
@@ -119,6 +120,7 @@ const parseArgs = (): ParsedArgs => {
   const args: ParsedArgs = {
     participants: DEFAULT_PARTICIPANT_COUNT,
     sender: 0,
+    extraBalanceAccounts: [],
     inputs: 4,
   };
   const argv = process.argv.slice(2);
@@ -155,6 +157,13 @@ const parseArgs = (): ParsedArgs => {
       case '-r':
         args.receiver = parseInteger(consumeValue(current), 'receiver');
         break;
+      case '--extra-balance-accounts': {
+        const rawValue = consumeValue(current);
+        args.extraBalanceAccounts = rawValue.length === 0
+          ? []
+          : rawValue.split(',').map((value) => parseInteger(value.trim(), 'extra-balance-accounts'));
+        break;
+      }
       case '--inputs':
       case '-n': {
         const inputCount = parseInteger(consumeValue(current), 'inputs');
@@ -248,6 +257,7 @@ const main = async () => {
   const participantCount = args.participants;
   const senderIndex = args.sender;
   const receiverIndex = args.receiver ?? ((senderIndex + 1) % participantCount);
+  const extraBalanceAccounts = args.extraBalanceAccounts;
   const inputCount = args.inputs;
   const noteValue = parseAmount(args.amount);
   const rpcUrl = typeof args.rpcUrl === 'string' && args.rpcUrl.trim().length > 0
@@ -266,6 +276,11 @@ const main = async () => {
   if (receiverIndex < 0 || receiverIndex >= participantCount) {
     throw new Error(`receiver must be between 0 and ${participantCount - 1}`);
   }
+  for (const accountIndex of extraBalanceAccounts) {
+    if (accountIndex < 0 || accountIndex >= participantCount) {
+      throw new Error(`extra-balance-accounts entries must be between 0 and ${participantCount - 1}`);
+    }
+  }
 
   await ensurePrivateStateBootstrap();
   const manifest = await loadDeploymentManifest();
@@ -282,9 +297,7 @@ const main = async () => {
   if (!senderAddress || !receiverAddress) {
     throw new Error('Could not resolve redeem participants');
   }
-  const receiverLiquidBalanceStorageKey = ethers.keccak256(
-    ethers.AbiCoder.defaultAbiCoder().encode(['address', 'uint256'], [receiverAddress, 0n]),
-  ) as `0x${string}`;
+  const extraFundedAccounts = Array.from(new Set([receiverIndex, ...extraBalanceAccounts]));
 
   const functionName = `redeemNotes${inputCount}` as
     | 'redeemNotes1'
@@ -324,6 +337,7 @@ const main = async () => {
   config.calldata = buildPrivateStateRedeemCalldata(config, keyMaterial);
 
   const truthyValue = ethers.zeroPadValue('0x01', 32);
+  const extraLiquidBalanceValue = ethers.zeroPadValue(ethers.toBeHex(noteValue), 32);
 
   const inputCommitments: `0x${string}`[] = [];
 
@@ -335,17 +349,37 @@ const main = async () => {
     await provider.send('anvil_setStorageAt', [manifest.contracts.controller, noteRegistryKey, truthyValue]);
   }
 
+  for (const accountIndex of extraBalanceAccounts) {
+    const accountAddress = participants[accountIndex]?.addressL1;
+    if (!accountAddress) {
+      throw new Error(`Could not resolve extra balance account at index ${accountIndex}`);
+    }
+    const balanceKey = ethers.keccak256(
+      ethers.AbiCoder.defaultAbiCoder().encode(['address', 'uint256'], [accountAddress, 0n]),
+    ) as `0x${string}`;
+    await provider.send('anvil_setStorageAt', [manifest.contracts.l2AccountingVault, balanceKey, extraLiquidBalanceValue]);
+  }
+
   await provider.send('evm_mine', []);
   const blockNumber = await provider.getBlockNumber();
-  const receiverLiquidBalance = await provider.getStorage(
-    manifest.contracts.l2AccountingVault,
-    receiverLiquidBalanceStorageKey,
-    blockNumber,
-  );
-  const existingVaultKeys =
-    BigInt(receiverLiquidBalance) === 0n
-      ? []
-      : [receiverLiquidBalanceStorageKey];
+  const existingVaultKeys: `0x${string}`[] = [];
+  for (const accountIndex of extraFundedAccounts) {
+    const accountAddress = participants[accountIndex]?.addressL1;
+    if (!accountAddress) {
+      throw new Error(`Could not resolve extra balance account at index ${accountIndex}`);
+    }
+    const balanceKey = ethers.keccak256(
+      ethers.AbiCoder.defaultAbiCoder().encode(['address', 'uint256'], [accountAddress, 0n]),
+    ) as `0x${string}`;
+    const liquidBalance = await provider.getStorage(
+      manifest.contracts.l2AccountingVault,
+      balanceKey,
+      blockNumber,
+    );
+    if (BigInt(liquidBalance) !== 0n) {
+      existingVaultKeys.push(balanceKey);
+    }
+  }
 
   const noteRegistryKeys = inputCommitments.map((commitment) =>
     computeReplayPrivateStateMappingKey(commitment, 0));
