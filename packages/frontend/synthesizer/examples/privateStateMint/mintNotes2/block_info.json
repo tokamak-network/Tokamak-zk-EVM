@@ -1,0 +1,16 @@
+{
+  "coinBase": "0x0000000000000000000000000000000000000000",
+  "timeStamp": "0x69ba48cd",
+  "blockNumber": "0x65e",
+  "prevRanDao": "0x4580ae93f4191b20c43a4478a59dd04db36a2cc11911fa6c99a829ab53ed69cb",
+  "gasLimit": "0x1c9c380",
+  "chainId": "0x7a69",
+  "selfBalance": "0x0",
+  "prevBlockHashes": [
+    "0x876ef12ba2341a1c16d386077b7fbe4534518f2149b55829fad3e8da191d261a",
+    "0x6112a0195cc23a741c97e4cbdd8cb3d1cc05b9af1e5dd874c2b33565a0bace11",
+    "0x9d6dc6a7d32f10c8635e88d7c83e0fbb2e5133ad2174924ccce796910bacf4cf",
+    "0xa7d7c3d25ad7f6e5cf9727c5668fde1d83d8184820fab66bfe678fa734e282e7"
+  ],
+  "baseFee": "0x7"
+}

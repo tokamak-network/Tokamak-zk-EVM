@@ -1,0 +1,61 @@
+{
+  "network": "anvil",
+  "participants": [
+    {
+      "addressL1": "0x5d1d2c910c42bc9084465c4cb4b3c7d2aae4d075",
+      "prvSeedL2": "private-state participant 0"
+    },
+    {
+      "addressL1": "0x5ed57de52bc869e17fee34c202d51b69013252f2",
+      "prvSeedL2": "private-state participant 1"
+    },
+    {
+      "addressL1": "0xc107f75815a4a83baa7c062ec6ad77054aa5ce95",
+      "prvSeedL2": "private-state participant 2"
+    },
+    {
+      "addressL1": "0xd388de6a2dc622776c3546e32c67144d304f6d48",
+      "prvSeedL2": "private-state participant 3"
+    }
+  ],
+  "storageConfigs": [
+    {
+      "address": "0x88ecfe1a46a162da66f08108abfc7155d9a85607",
+      "userStorageSlots": [],
+      "preAllocatedKeys": [
+        "0x00",
+        "0x4a0c7f425be10af0945f455ef639ac825718fd0b6acaa2a3579fa6343e5b59d3",
+        "0x015ec14b8d2f102c625b030be588e864ee2ba41a43152b139bfaead9b6e5fb53",
+        "0x60d458e42703c365f30f6eed18c1908ec5f26c3cb7fe04fea40a6f82077b04e4"
+      ]
+    }
+  ],
+  "callCodeAddresses": [
+    "0x88ecfe1a46a162da66f08108abfc7155d9a85607"
+  ],
+  "blockNumber": 1635,
+  "txNonce": 0,
+  "calldata": "0xf350acff0000000000000000000000005d1d2c910c42bc9084465c4cb4b3c7d2aae4d0750000000000000000000000000000000000000000000000000de0b6b3a76400003b5094732bff9846e075d337be09f05326f51a6c569641b9632a5502201c5ec60000000000000000000000005ed57de52bc869e17fee34c202d51b69013252f20000000000000000000000000000000000000000000000000de0b6b3a764000070485c0322b30718affd389ed57336cae895cfec7f4749949164671aab9d0a0a",
+  "senderIndex": 0,
+  "functionName": "transferNotes1To1",
+  "inputCount": 1,
+  "outputCount": 1,
+  "inputNotes": [
+    {
+      "owner": "0x5d1d2c910c42bc9084465c4cb4b3c7d2aae4d075",
+      "value": "0x0de0b6b3a7640000",
+      "salt": "0x3b5094732bff9846e075d337be09f05326f51a6c569641b9632a5502201c5ec6"
+    }
+  ],
+  "outputNotes": [
+    {
+      "owner": "0x5ed57de52bc869e17fee34c202d51b69013252f2",
+      "value": "0x0de0b6b3a7640000",
+      "salt": "0x70485c0322b30718affd389ed57336cae895cfec7f4749949164671aab9d0a0a"
+    }
+  ],
+  "function": {
+    "selector": "0xf350acff",
+    "entryContractAddress": "0x88ecfe1a46a162da66f08108abfc7155d9a85607"
+  }
+}
