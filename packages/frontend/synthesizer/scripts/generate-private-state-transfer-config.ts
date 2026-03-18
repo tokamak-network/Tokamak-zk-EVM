@@ -90,6 +90,7 @@ type ParsedArgs = {
   sender: number;
   toAccounts?: number[];
   extraCommitments: number;
+  saltLabel?: string;
   inputCount: number;
   outputCount: number;
   rpcUrl?: string;
@@ -180,6 +181,9 @@ const parseArgs = (): ParsedArgs => {
       }
       case '--extra-commitments':
         args.extraCommitments = parseInteger(consumeValue(current), 'extra-commitments');
+        break;
+      case '--salt-label':
+        args.saltLabel = consumeValue(current);
         break;
       case '--inputs':
       case '-i':
@@ -274,6 +278,7 @@ const main = async () => {
   const senderIndex = args.sender;
   const toAccounts = args.toAccounts;
   const extraCommitments = args.extraCommitments;
+  const saltLabel = args.saltLabel?.trim() ?? '';
   const inputCount = args.inputCount;
   const outputCount = args.outputCount;
   const rpcUrl = typeof args.rpcUrl === 'string' && args.rpcUrl.trim().length > 0
@@ -353,7 +358,7 @@ const main = async () => {
   const inputNotes = Array.from({ length: inputCount }, (_, index) => ({
     owner: senderAddress,
     value: inputValueHex,
-    salt: toSalt(`private-state-transfer-input-sender-${senderIndex}-${inputCount}-${outputCount}-${index}`),
+    salt: toSalt(`private-state-transfer-input-sender-${senderIndex}-${inputCount}-${outputCount}-${saltLabel}-${index}`),
   })) as PrivateStateTransferConfig['inputNotes'];
   const defaultOutputOwners = outputCount === 1
     ? [recipientOneAddress]
@@ -372,7 +377,7 @@ const main = async () => {
   const outputNotes = outputOwners.map((owner, index) => ({
     owner,
     value: outputValueHex,
-    salt: toSalt(`private-state-transfer-output-sender-${senderIndex}-${inputCount}-${outputCount}-${index}`),
+    salt: toSalt(`private-state-transfer-output-sender-${senderIndex}-${inputCount}-${outputCount}-${saltLabel}-${index}`),
   })) as PrivateStateTransferConfig['outputNotes'];
 
   const config: PrivateStateTransferConfig = {
@@ -412,7 +417,7 @@ const main = async () => {
     const dormantNote: PrivateStateNote = {
       owner: senderAddress,
       value: inputValueHex,
-      salt: toSalt(`private-state-transfer-dormant-sender-${senderIndex}-${inputCount}-${outputCount}-${index}`),
+      salt: toSalt(`private-state-transfer-dormant-sender-${senderIndex}-${inputCount}-${outputCount}-${saltLabel}-${index}`),
     };
     const commitment = computeReplayPrivateStateNoteCommitment(dormantNote);
     inputCommitments.push(commitment);
