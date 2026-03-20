@@ -1,11 +1,11 @@
-import { MAX_MT_LEAVES, NUMBER_OF_PREV_BLOCK_HASHES, POSEIDON_INPUTS, SUBCIRCUIT_BUFFER_MAPPING } from '../../interface/qapCompiler/importedConstants.ts';
+import { NUMBER_OF_PREV_BLOCK_HASHES, SUBCIRCUIT_BUFFER_MAPPING } from '../../interface/qapCompiler/importedConstants.ts';
 import { bytesToBigInt, hexToBigInt, toBytes } from '@ethereumjs/util';
 import { jubjub } from "@noble/curves/misc.js";
 import { BufferErrorMessage, DataPt, DataPtDescription, ISynthesizerProvider, PlacementEntry, ReservedVariable, SynthesizerOpts, VARIABLE_DESCRIPTION } from '../types/index.ts';
 import { DataPtFactory } from '../dataStructure/index.ts';
 import { BUFFER_DESCRIPTION, BUFFER_LIST } from '../../interface/qapCompiler/configuredTypes.ts';
 import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
-import { FUNCTION_INPUT_LENGTH } from 'tokamak-l2js';
+import { FUNCTION_INPUT_LENGTH, MAX_MT_LEAVES, NULL_LEAF } from 'tokamak-l2js';
 
 export class BufferManager {
   private parent: ISynthesizerProvider;
@@ -166,6 +166,7 @@ export class BufferManager {
     this.addReservedVariableToBufferIn('JUBJUB_POI_X', jubjub.Point.ZERO.toAffine().x)
     this.addReservedVariableToBufferIn('JUBJUB_POI_Y', jubjub.Point.ZERO.toAffine().y)
     this.addReservedVariableToBufferIn('TREE_SIZE', BigInt(MAX_MT_LEAVES))
+    this.addReservedVariableToBufferIn('NULL_LEAF', NULL_LEAF)
     // const nullPoseidonL0 = poseidon_raw(Array(POSEIDON_INPUTS).fill(0n))
     // this.addReservedVariableToBufferIn('NULL_POSEIDON_LEVEL0', nullPoseidonL0)
     // const nullPoseidonL1 = poseidon_raw(Array(POSEIDON_INPUTS).fill(nullPoseidonL0))

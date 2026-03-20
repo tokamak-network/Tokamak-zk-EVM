@@ -40,9 +40,6 @@ export const SUBCIRCUIT_BUFFER_MAPPING: Record<ReservedBuffer, SubcircuitInfoByN
 
 export const ACCUMULATOR_INPUT_LIMIT = frontendCfg.nAccumulation
 // export const MAX_TX_NUMBER = qapCompilerParams.nTx
-export const MT_DEPTH = frontendCfg.nMtDepth
-export const POSEIDON_INPUTS = frontendCfg.nPoseidonInputs
-export const MAX_MT_LEAVES = POSEIDON_INPUTS ** MT_DEPTH
 export const NUMBER_OF_PREV_BLOCK_HASHES = frontendCfg.nPrevBlockHashes
 export const JUBJUB_EXP_BATCH_SIZE = frontendCfg.nJubjubExpBatch
 export const ARITH_EXP_BATCH_SIZE = frontendCfg.nSubExpBatch

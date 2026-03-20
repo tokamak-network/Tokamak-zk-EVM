@@ -428,7 +428,7 @@ export class Synthesizer implements SynthesizerInterface
         true,
         ` at MT index: ${treeIndex[1]} of address: ${stepResult.address.toString()}`,
       );
-      childPt = this.placePoseidon([DataPtFactory.deepCopy(keyPt), valueStoredPt]);
+      childPt = valueStoredPt;
     }
 
     const { merkleProof, indexPt, siblingPts } =

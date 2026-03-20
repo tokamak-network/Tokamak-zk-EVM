@@ -538,7 +538,7 @@ export class InstructionHandler {
       true,
       ` at MT index: ${treeIndex[1]} of address: ${address}`,
     );
-    const childPt = this.parent.placePoseidon([keyPt, valuePt]);
+    const childPt = valuePt;
     if (merkleProof.leaf !== childPt.value) {
       throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
     }
@@ -564,23 +564,6 @@ export class InstructionHandler {
     }
     const indexPt = DataPtFactory.deepCopy(cachedMerkleProof.indexPt);
     const siblingPts = cachedMerkleProof.siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt)));
-    const childPt = this.parent.placePoseidon([keyPt, symbolDataPt]);
-
-    const merkleTree = this.cachedOpts.stateManager.merkleTrees;
-    const treeIndex = this._getStorageTreeIndex(address, keyPt.value);
-    if (treeIndex[0] < 0 || treeIndex[1] < 0) {
-      throw new Error(`Debug: Merkle tree index is not registered for address ${address.toString()}`)
-    }
-    if (BigInt(treeIndex[1]) !== indexPt.value) {
-      throw new Error(`Debug: Cached Merkle proof leaf index mismatches with updated tree index`)
-    }
-    const addressIndex = this._getStorageAddressIndex(address);
-    if (addressIndex < 0) {
-      throw new Error(`Debug: Address ${address.toString()} is not tracked in storageAddresses`)
-    }
-    if (treeIndex[0] !== addressIndex) {
-      throw new Error(`Debug: Merkle tree address index mismatches with tracked storage address order`)
-    }
     const valueStored = bytesToBigInt(
       await this.cachedOpts.stateManager.getStorage(
         address,
@@ -590,6 +573,8 @@ export class InstructionHandler {
     if (valueStored !== symbolDataPt.value) {
       throw new Error('Mismatch in storage values');
     }
+    const childPt = symbolDataPt;
+    const merkleTree = this.cachedOpts.stateManager.merkleTrees;
     const roots = merkleTree.getRoots(this.cachedOpts.stateManager.storageAddresses);
     const refRootPt = this.parent.addReservedVariableToBufferIn('INTER_MERKLE_ROOT', roots[treeIndex[0]], true);
     const refAddress = bytesToBigInt(address.bytes);
