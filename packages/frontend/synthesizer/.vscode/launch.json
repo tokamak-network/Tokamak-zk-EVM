@@ -6,7 +6,6 @@
       "request": "launch",
       "name": "L2 transfer on mainnet/sepolia",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/erc20Transfers/main.ts",
       "args": ["${workspaceFolder}/examples/erc20Transfers/usdt/config-usdt-sepolia.json"],
       "cwd": "${workspaceFolder}",
@@ -19,7 +18,6 @@
       "name": "Private-state mintNotes1 on anvil",
       "preLaunchTask": "private-state-mint:1:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateMint/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-mint/config-anvil-private-state-mint-m1-p4-s0.json"
@@ -34,7 +32,6 @@
       "name": "Private-state mintNotes2 on anvil",
       "preLaunchTask": "private-state-mint:2:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateMint/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-mint/config-anvil-private-state-mint-m2-p4-s0.json"
@@ -49,7 +46,6 @@
       "name": "Private-state mintNotes3 on anvil",
       "preLaunchTask": "private-state-mint:3:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateMint/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-mint/config-anvil-private-state-mint-m3-p4-s0.json"
@@ -64,7 +60,6 @@
       "name": "Private-state mintNotes4 on anvil",
       "preLaunchTask": "private-state-mint:4:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateMint/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-mint/config-anvil-private-state-mint-m4-p4-s0.json"
@@ -79,7 +74,6 @@
       "name": "Private-state mintNotes5 on anvil",
       "preLaunchTask": "private-state-mint:5:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateMint/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-mint/config-anvil-private-state-mint-m5-p4-s0.json"
@@ -94,7 +88,6 @@
       "name": "Private-state mintNotes6 on anvil",
       "preLaunchTask": "private-state-mint:6:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateMint/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-mint/config-anvil-private-state-mint-m6-p4-s0.json"
@@ -109,7 +102,6 @@
       "name": "Private-state transferNotes1To1 on anvil",
       "preLaunchTask": "private-state-transfer:1to1:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateTransfer/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-transfer/config-anvil-private-state-transfer-n1-m1-p4-s0.json"
@@ -124,7 +116,6 @@
       "name": "Private-state transferNotes1To2 on anvil",
       "preLaunchTask": "private-state-transfer:1to2:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateTransfer/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-transfer/config-anvil-private-state-transfer-n1-m2-p4-s0.json"
@@ -139,7 +130,6 @@
       "name": "Private-state transferNotes1To3 on anvil",
       "preLaunchTask": "private-state-transfer:1to3:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateTransfer/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-transfer/config-anvil-private-state-transfer-n1-m3-p4-s0.json"
@@ -154,7 +144,6 @@
       "name": "Private-state transferNotes2To1 on anvil",
       "preLaunchTask": "private-state-transfer:2to1:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateTransfer/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-transfer/config-anvil-private-state-transfer-n2-m1-p4-s0.json"
@@ -169,7 +158,6 @@
       "name": "Private-state transferNotes2To2 on anvil",
       "preLaunchTask": "private-state-transfer:2to2:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateTransfer/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-transfer/config-anvil-private-state-transfer-n2-m2-p4-s0.json"
@@ -184,7 +172,6 @@
       "name": "Private-state transferNotes3To1 on anvil",
       "preLaunchTask": "private-state-transfer:3to1:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateTransfer/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-transfer/config-anvil-private-state-transfer-n3-m1-p4-s0.json"
@@ -199,7 +186,6 @@
       "name": "Private-state transferNotes3To2 on anvil",
       "preLaunchTask": "private-state-transfer:3to2:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateTransfer/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-transfer/config-anvil-private-state-transfer-n3-m2-p4-s0.json"
@@ -214,7 +200,6 @@
       "name": "Private-state transferNotes4To1 on anvil",
       "preLaunchTask": "private-state-transfer:4to1:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateTransfer/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-transfer/config-anvil-private-state-transfer-n4-m1-p4-s0.json"
@@ -229,7 +214,6 @@
       "name": "Private-state redeemNotes1 on anvil",
       "preLaunchTask": "private-state-redeem:1:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateRedeem/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-redeem/config-anvil-private-state-redeem-n1-p4-s0.json"
@@ -244,7 +228,6 @@
       "name": "Private-state redeemNotes2 on anvil",
       "preLaunchTask": "private-state-redeem:2:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateRedeem/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-redeem/config-anvil-private-state-redeem-n2-p4-s0.json"
@@ -259,7 +242,6 @@
       "name": "Private-state redeemNotes3 on anvil",
       "preLaunchTask": "private-state-redeem:3:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateRedeem/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-redeem/config-anvil-private-state-redeem-n3-p4-s0.json"
@@ -274,7 +256,6 @@
       "name": "Private-state redeemNotes4 on anvil",
       "preLaunchTask": "private-state-redeem:4:prep",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/examples/privateStateRedeem/main.ts",
       "args": [
         "${workspaceFolder}/tests/configs/private-state-redeem/config-anvil-private-state-redeem-n4-p4-s0.json"
@@ -288,7 +269,6 @@
       "request": "launch",
       "name": "tokamak-ch-tx (debug, file inputs)",
       "runtimeExecutable": "tsx",
-      "runtimeArgs": ["--tsconfig", "${workspaceFolder}/tsconfig.dev.json"],
       "program": "${workspaceFolder}/src/interface/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
