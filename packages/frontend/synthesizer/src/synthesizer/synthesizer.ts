@@ -1,7 +1,7 @@
 import { AfterTxEvent, createVM, runTx, RunTxOpts, RunTxResult, VM, VMOpts } from '@ethereumjs/vm';
 
 import { BlockData, BlockOptions, createBlock, HeaderData } from '@ethereumjs/block';
-import { Address, bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromBigInt, setLengthLeft } from '@ethereumjs/util';
+import { Address, bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromBigInt, hexToBigInt, setLengthLeft } from '@ethereumjs/util';
 
 import { EVMResult, InterpreterStep, Message } from '@ethereumjs/evm';
 import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable, SynthesizerInterface, SynthesizerOpts, SynthesizerStepLogEntry, SynthesizerSupportedOpcodes } from './types/index.ts';
@@ -400,49 +400,30 @@ export class Synthesizer implements SynthesizerInterface
     if (keyPt.value !== key || valuePt.value !== value) {
       throw new Error('Synthesizer: SSTORE pre-step stack mismatch')
     }
-    const treeIndex = this._getStorageTreeIndex(stepResult.address, keyPt.value);
-    const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
-    let proofTreeIndex = treeIndex;
-    let childPt: DataPt;
-
-    if (!isRegisteredKey) {
-      if (treeIndex[0] < 0) {
-        throw new Error(`Debug: No storage address entry for address ${stepResult.address.toString()}`)
-      }
-      proofTreeIndex = [treeIndex[0], this._getMerkleTreeLeafIndex(keyPt.value)];
-      childPt = this.addReservedVariableToBufferIn(
-        'MERKLE_PROOF',
-        poseidon_raw([NULL_STORAGE_KEY, 0n]),
-        true,
-      );
-    } else {
-      const valueStored = bytesToBigInt(
-        await this.cachedOpts.stateManager.getStorage(
-          stepResult.address,
-          setLengthLeft(bigIntToBytes(keyPt.value), 32),
-        ),
-      );
-      const valueStoredPt = this.addReservedVariableToBufferIn(
-        'IN_VALUE',
-        valueStored,
-        true,
-        ` at MT index: ${treeIndex[1]} of address: ${stepResult.address.toString()}`,
-      );
-      childPt = valueStoredPt;
-    }
-
     const { merkleProof, indexPt, siblingPts } =
       await this._instructionHandlers.buildStorageProof(stepResult.address, keyPt);
-    const refAddress = stepResult.address.toString() as `0x${string}`;
-    if (merkleProof.leaf !== childPt.value) {
-      throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
+
+    const valueStored = bytesToBigInt(
+      await this.cachedOpts.stateManager.getStorage(
+        stepResult.address,
+        setLengthLeft(bigIntToBytes(keyPt.value), 32),
+      ),
+    );
+    if (merkleProof.leaf !== valueStored) {
+      throw new Error('Mismatch in storage values between MPT and EVM stack');
     }
+    const valueStoredPt = this.addReservedVariableToBufferIn(
+      'IN_VALUE',
+      valueStored,
+      true,
+      ` at MT index: ${Number(indexPt.value)} of address: ${stepResult.address.toString()}`,
+    );
 
     this.placeMerkleProofVerification(
       indexPt,
-      childPt,
+      valueStoredPt,
       siblingPts,
-      this._instructionHandlers.getLatestCachedRootPt(refAddress),
+      this._instructionHandlers.getLatestCachedRootPt(bytesToBigInt(stepResult.address.bytes)),
     )
     if (this.state.cachedMerkleProof !== null) {
       throw new Error('Debug: cachedMerkleProof must be empty before SSTORE pre-step caching')

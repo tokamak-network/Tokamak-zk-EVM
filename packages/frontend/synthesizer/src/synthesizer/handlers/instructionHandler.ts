@@ -514,40 +514,27 @@ export class InstructionHandler {
         setLengthLeft(bigIntToBytes(keyPt.value), 32),
       ),
     );
-
     if (valueGiven !== undefined && valueGiven !== valueStored) {
       throw new Error('Mismatch in storage values');
     }
 
-    const treeIndex = this._getStorageTreeIndex(address, keyPt.value);
-    const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
-    if (!isRegisteredKey) {
-      return this.parent.addReservedVariableToBufferIn(
-        'UNREGISTERED_CONTRACT_STORAGE_IN',
-        valueStored,
-        true,
-        ` at MPT key ${bigIntToHex(keyPt.value)} of address ${address.toString()}`,
-      );
+    const { merkleProof, indexPt, siblingPts } = await this.buildStorageProof(address, keyPt);
+    if (merkleProof.leaf !== valueStored) {
+      throw new Error(`Mismatch between stored values in MPT and MT`)
     }
 
-    const { merkleProof, indexPt, siblingPts } = await this.buildStorageProof(address, keyPt);
-    const refAddress = bytesToBigInt(address.bytes);
     const valuePt = this.parent.addReservedVariableToBufferIn(
       'IN_VALUE',
       valueStored,
       true,
-      ` at MT index: ${treeIndex[1]} of address: ${address}`,
+      ` at MT index: ${Number(indexPt.value)} of address: ${address}`,
     );
-    const childPt = valuePt;
-    if (merkleProof.leaf !== childPt.value) {
-      throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
-    }
-
+    
     this.parent.placeMerkleProofVerification(
       indexPt,
-      childPt,
+      valuePt,
       siblingPts,
-      this.getLatestCachedRootPt(refAddress),
+      this.getLatestCachedRootPt(bytesToBigInt(address.bytes)),
     )
 
     return DataPtFactory.deepCopy(valuePt);
@@ -571,26 +558,25 @@ export class InstructionHandler {
       ),
     );
     if (valueStored !== symbolDataPt.value) {
-      throw new Error('Mismatch in storage values');
+      throw new Error('Mismatch in storage values between MPT and EVM stack');
     }
-    const childPt = symbolDataPt;
     const merkleTree = this.cachedOpts.stateManager.merkleTrees;
-    const roots = merkleTree.getRoots(this.cachedOpts.stateManager.storageAddresses);
-    const refRootPt = this.parent.addReservedVariableToBufferIn('INTER_MERKLE_ROOT', roots[treeIndex[0]], true);
-    const refAddress = bytesToBigInt(address.bytes);
-    const cachedRoots = this.parent.state.cachedRoots.get(refAddress);
+    const root = merkleTree.getRoot(address);
+    const refRootPt = this.parent.addReservedVariableToBufferIn('INTER_MERKLE_ROOT', root, true);
+    const addrBigint = bytesToBigInt(address.bytes);
+    const cachedRoots = this.parent.state.cachedRoots.get(addrBigint);
     if (cachedRoots === undefined || cachedRoots.length === 0) {
       throw new Error('Initial Merkle tree root for a specific address was not initialized in Synthesizer')
     }
 
     this.parent.placeMerkleProofVerification(
       indexPt,
-      childPt,
+      symbolDataPt,
       siblingPts,
       refRootPt,
     )
     cachedRoots.push(DataPtFactory.deepCopy(refRootPt));
-    this.parent.state.cachedRoots.set(refAddress, cachedRoots);
+    this.parent.state.cachedRoots.set(addrBigint, cachedRoots);
     this.parent.state.cachedMerkleProof = null
   }
 
