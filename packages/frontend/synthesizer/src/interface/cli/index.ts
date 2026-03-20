@@ -8,7 +8,6 @@ import {
   createTokamakL2StateManagerFromStateSnapshot,
   createTokamakL2TxFromRLP,
   StateSnapshot,
-  TokamakL2StateManager,
   TokamakL2StateManagerSnapshotOpts,
 } from 'tokamak-l2js';
 import { SynthesizerOpts } from 'src/synthesizer/types/synthesizer.ts';
@@ -18,33 +17,12 @@ import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
 import { createCircuitGenerator } from 'src/circuitGenerator/circuitGenerator.ts';
 import { Permutation, PublicInstance } from 'src/circuitGenerator/types/types.ts';
 import { PlacementVariables } from 'src/synthesizer/types/placements.ts';
-import { addHexPrefix, bigIntToBytes, bigIntToHex, bytesToBigInt, bytesToHex, createAddressFromString, hexToBytes, setLengthLeft } from '@ethereumjs/util';
+import { addHexPrefix, createAddressFromString, hexToBytes } from '@ethereumjs/util';
 import { readJson, writeSnapshotJson } from './utils/node.ts';
 import { writeCircuitJson } from '../node/jsonWriter.ts';
 import { SynthesizerBlockInfo } from '../rpc/index.ts';
 
 program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthesizer').version('0.9.0');
-
-function captureStateSnapshotCompat(stateManager: TokamakL2StateManager, channelId: number): StateSnapshot {
-  const storageAddresses = stateManager.storageAddresses;
-  const stateRoots = stateManager.merkleTrees.getRoots(storageAddresses).map(root => addHexPrefix(root.toString(16)));
-  const storageEntries = storageAddresses.map(address => {
-    const entries = stateManager.storageEntries.get(bytesToBigInt(address.bytes));
-    if (entries === undefined) {
-      throw new Error(`Cannot capture snapshot for unregistered storage address: ${address.toString()}`);
-    }
-    return Array.from(entries.entries()).map(([key, value]) => ({
-      key: bytesToHex(setLengthLeft(bigIntToBytes(key), 32)),
-      value: bigIntToHex(value),
-    }));
-  });
-  return {
-    channelId,
-    stateRoots,
-    storageAddresses: storageAddresses.map(address => address.toString()),
-    storageEntries,
-  };
-}
 
 program
   .command('tokamak-ch-tx')
@@ -115,7 +93,7 @@ program
       }
       
       // Export final state
-      const finalState = captureStateSnapshotCompat(stateManager, previousState.channelId);
+      const finalState = await stateManager.captureStateSnapshot();
       console.log(`[SynthesizerAdapter] ✅ Final state exported with roots: ${finalState.stateRoots.join(', ')}`);
       
       writeCircuitJson(circuitGenerator);
