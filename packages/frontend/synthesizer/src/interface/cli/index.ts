@@ -61,9 +61,6 @@ program
       const common = createTokamakL2Common();
 
       const previousState = readJson<StateSnapshot>(options.previousState);
-      if (!Array.isArray((previousState as Partial<StateSnapshot>).storageEntries)) {
-        throw new Error('State snapshot must include storageEntries. Regenerate the snapshot with the current tokamak-l2js version.');
-      }
       const previousStateRoots = previousState.stateRoots;
       console.log(`   ✅ Previous state roots: ${previousStateRoots.join(', ')}`);
 
