@@ -10,9 +10,6 @@
     "allowJs": true,
     "declaration": true,
     "baseUrl": ".",
-    "paths": {
-      "tokamak-l2js": ["../../../submodules/TokamakL2JS/src/index.ts"]
-    },
     "composite": true,
     "preserveSymlinks": true
   },
