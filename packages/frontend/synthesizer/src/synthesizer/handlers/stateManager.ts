@@ -72,7 +72,7 @@ export class StateManager {
 
   public cachedEVMIn: Map<bigint, Map<number, DataPt>> = new Map()
   public cachedOrigin: DataPt | undefined = undefined
-  public cachedRoots: Map<`0x${string}`, DataPt[]> = new Map()
+  public cachedRoots: Map<bigint, DataPt[]> = new Map()
   public cachedMerkleProof: CachedMerkleProof | null = null
 
   public contextByDepth: ContextManager[] = [];

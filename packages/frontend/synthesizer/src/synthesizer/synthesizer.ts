@@ -152,9 +152,10 @@ export class Synthesizer implements SynthesizerInterface
       throw new Error('Mismatch between Merkle root count and storage address count')
     }
     for (const [idx, address] of storageAddresses.entries()) {
+      const addressBigInt = bytesToBigInt(address.bytes);
       const addressString = address.toString();
       this.state.cachedRoots.set(
-        addressString,
+        addressBigInt,
         [this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', roots[idx], true, ` of ${addressString}`)],
       );
     }
@@ -272,8 +273,9 @@ export class Synthesizer implements SynthesizerInterface
       throw new Error('Mismatch between Merkle root count and storage address count')
     }
     for (const [addressIdx, address] of storageAddresses.entries()) {
+      const addressBigInt = bytesToBigInt(address.bytes);
       const addressString = address.toString();
-      const cachedRoots = this.state.cachedRoots.get(addressString);
+      const cachedRoots = this.state.cachedRoots.get(addressBigInt);
       if (cachedRoots === undefined || cachedRoots.length === 0) {
         throw new Error(`Cached Merkle roots are missing for address ${addressString}`)
       }

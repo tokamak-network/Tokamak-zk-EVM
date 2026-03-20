@@ -20,6 +20,7 @@ import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from '../../interface/qapCompi
 import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../interface/qapCompiler/importedConstants.ts';
 import { FUNCTION_INPUT_LENGTH } from 'tokamak-l2js';
 import { ContextManager } from './stateManager.ts';
+import { IMTMerkleProof } from '@zk-kit/imt';
 
 export interface HandlerOpts {
   op: SynthesizerSupportedOpcodes,
@@ -476,36 +477,29 @@ export class InstructionHandler {
     address: Address,
     keyPt: DataPt,
   ): Promise<{
-    merkleProof: { leaf: bigint, siblings: unknown[] },
+    merkleProof: IMTMerkleProof,
     indexPt: DataPt,
     siblingPts: DataPt[][],
   }> {
     const merkleTree = this.cachedOpts.stateManager.merkleTrees;
-    const rawMerkleProof = merkleTree.getProof(address, keyPt.value);
-    const merkleProof = {
-      leaf: typeof rawMerkleProof.leaf === 'bigint' ? rawMerkleProof.leaf : hexToBigInt(addHexPrefix(rawMerkleProof.leaf.toString())),
-      siblings: rawMerkleProof.siblings.map((siblingsAtLevel) =>
-        siblingsAtLevel.map((sibling) =>
-          typeof sibling === 'bigint' ? sibling : hexToBigInt(addHexPrefix(sibling.toString())),
-        ),
-      ),
-    };
-    const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(this._getMerkleTreeLeafIndex(keyPt.value)), true);
+    const merkleProof = merkleTree.getProof(address, keyPt.value);
+    const indexPt = this.parent.placeArith('MOD', [keyPt, this.parent.getReservedVariableFromBuffer('TREE_SIZE')])[0];
     const siblingPts = merkleProof.siblings.map((siblingsAtLevel) => {
       if (!Array.isArray(siblingsAtLevel)) {
         throw new Error('Merkle proof siblings must be arrays')
       }
       return siblingsAtLevel.map((sibling) => {
-        if (typeof sibling !== 'bigint') {
-          throw new Error('Merkle proof sibling must be bigint')
+        let siblingBigInt = sibling;
+        if (typeof siblingBigInt !== 'bigint') {
+          siblingBigInt = BigInt(sibling);
         }
-        return this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', sibling, true)
+        return this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', siblingBigInt, true)
       })
     });
     return { merkleProof, indexPt, siblingPts };
   }
 
-  public getLatestCachedRootPt(refAddress: `0x${string}`): DataPt {
+  public getLatestCachedRootPt(refAddress: bigint): DataPt {
     const refInitRootPt = this.parent.state.cachedRoots.get(refAddress);
     if (refInitRootPt === undefined || refInitRootPt.length === 0) {
       throw new Error('Initial Merkle tree root for a specific address was not initialized in Synthesizer')
@@ -537,7 +531,7 @@ export class InstructionHandler {
     }
 
     const { merkleProof, indexPt, siblingPts } = await this.buildStorageProof(address, keyPt);
-    const refAddress = address.toString() as `0x${string}`;
+    const refAddress = bytesToBigInt(address.bytes);
     const valuePt = this.parent.addReservedVariableToBufferIn(
       'IN_VALUE',
       valueStored,
@@ -587,7 +581,6 @@ export class InstructionHandler {
     if (treeIndex[0] !== addressIndex) {
       throw new Error(`Debug: Merkle tree address index mismatches with tracked storage address order`)
     }
-    const refAddress = this._getStorageRefAddress(address, treeIndex[0]);
     const valueStored = bytesToBigInt(
       await this.cachedOpts.stateManager.getStorage(
         address,
@@ -599,6 +592,7 @@ export class InstructionHandler {
     }
     const roots = merkleTree.getRoots(this.cachedOpts.stateManager.storageAddresses);
     const refRootPt = this.parent.addReservedVariableToBufferIn('INTER_MERKLE_ROOT', roots[treeIndex[0]], true);
+    const refAddress = bytesToBigInt(address.bytes);
     const cachedRoots = this.parent.state.cachedRoots.get(refAddress);
     if (cachedRoots === undefined || cachedRoots.length === 0) {
       throw new Error('Initial Merkle tree root for a specific address was not initialized in Synthesizer')
