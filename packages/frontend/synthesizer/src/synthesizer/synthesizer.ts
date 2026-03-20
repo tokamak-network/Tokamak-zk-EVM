@@ -39,6 +39,30 @@ export class Synthesizer implements SynthesizerInterface
     this._messageCodeAddresses = new Set()
   }
 
+  private _getStorageAddressIndex(address: Address): number {
+    return this.cachedOpts.stateManager.storageAddresses.findIndex((entry) => entry.equals(address))
+  }
+
+  private _getMerkleTreeLeafIndex(key: bigint): number {
+    return (
+      this.cachedOpts.stateManager.merkleTrees.constructor as { getLeafIndex: (key: bigint) => number }
+    ).getLeafIndex(key)
+  }
+
+  private _getStorageTreeIndex(address: Address, key: bigint): [number, number] {
+    const addressIndex = this._getStorageAddressIndex(address)
+    if (addressIndex < 0) {
+      return [-1, -1]
+    }
+
+    const storageEntriesForAddress = this.cachedOpts.stateManager.storageEntries.get(bytesToBigInt(address.bytes))
+    if (storageEntriesForAddress === undefined || !storageEntriesForAddress.has(key)) {
+      return [addressIndex, -1]
+    }
+
+    return [addressIndex, this._getMerkleTreeLeafIndex(key)]
+  }
+
   private _attachSynthesizerToVM(vm: VM): void {
     if (vm.evm.events === undefined ) {
       throw new Error("EVM event emitter is turned off.")
@@ -146,20 +170,16 @@ export class Synthesizer implements SynthesizerInterface
 
   private async _prepareSynthesizeTransaction(): Promise<void> {
     this.state.cachedRoots = new Map()
-    const merkleTree = this.cachedOpts.stateManager.lastMerkleTrees;
-    const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
-    if (registeredKeys === null) {
-      throw new Error('Debug: registeredKeys is not initialized')
-    }
-    const roots = merkleTree.getRoots();
-    if (roots.length !== registeredKeys.length) {
+    const storageAddresses = this.cachedOpts.stateManager.storageAddresses;
+    const roots = this.cachedOpts.stateManager.merkleTrees.getRoots(storageAddresses);
+    if (roots.length !== storageAddresses.length) {
       throw new Error('Mismatch between Merkle root count and storage address count')
     }
-    for (const [idx, entry] of registeredKeys.entries()) {
-      const address = entry.address.toString();
+    for (const [idx, address] of storageAddresses.entries()) {
+      const addressString = address.toString();
       this.state.cachedRoots.set(
-        address,
-        [this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', roots[idx], true, ` of ${address}`)],
+        addressString,
+        [this.addReservedVariableToBufferIn('INI_MERKLE_ROOT', roots[idx], true, ` of ${addressString}`)],
       );
     }
     this.state.cachedOrigin = this._instructionHandlers.getOriginAddressPt();
@@ -270,26 +290,22 @@ export class Synthesizer implements SynthesizerInterface
   }
 
   private async _finalizeStorage(): Promise<void> {    
-    const merkleTree = this.cachedOpts.stateManager.lastMerkleTrees;
-    const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
-    if (registeredKeys === null) {
-      throw new Error('Debug: registeredKeys is not initialized')
-    }
-    const roots = merkleTree.getRoots();
-    if (roots.length !== registeredKeys.length) {
+    const storageAddresses = this.cachedOpts.stateManager.storageAddresses;
+    const roots = this.cachedOpts.stateManager.merkleTrees.getRoots(storageAddresses);
+    if (roots.length !== storageAddresses.length) {
       throw new Error('Mismatch between Merkle root count and storage address count')
     }
-    for (const [addressIdx, entry] of registeredKeys.entries()) {
-      const address = entry.address.toString();
-      const cachedRoots = this.state.cachedRoots.get(address);
+    for (const [addressIdx, address] of storageAddresses.entries()) {
+      const addressString = address.toString();
+      const cachedRoots = this.state.cachedRoots.get(addressString);
       if (cachedRoots === undefined || cachedRoots.length === 0) {
-        throw new Error(`Cached Merkle roots are missing for address ${address}`)
+        throw new Error(`Cached Merkle roots are missing for address ${addressString}`)
       }
       const finalRootPt = cachedRoots[cachedRoots.length - 1];
       if (finalRootPt.value !== roots[addressIdx]) {
-        throw new Error(`Final Merkle root mismatch for address ${address}`)
+        throw new Error(`Final Merkle root mismatch for address ${addressString}`)
       }
-      this.addReservedVariableToBufferOut('RES_MERKLE_ROOT', finalRootPt, true, ` of ${address}`)
+      this.addReservedVariableToBufferOut('RES_MERKLE_ROOT', finalRootPt, true, ` of ${addressString}`)
     }
   }
 
@@ -406,20 +422,16 @@ export class Synthesizer implements SynthesizerInterface
     if (keyPt.value !== key || valuePt.value !== value) {
       throw new Error('Synthesizer: SSTORE pre-step stack mismatch')
     }
-    const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(stepResult.address, keyPt.value);
+    const treeIndex = this._getStorageTreeIndex(stepResult.address, keyPt.value);
     const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
     let proofTreeIndex = treeIndex;
     let childPt: DataPt;
 
     if (!isRegisteredKey) {
-      const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
-      if (registeredKeys === null) {
-        throw new Error('Debug: registeredKeys is not initialized')
-      }
       if (treeIndex[0] < 0) {
-        throw new Error(`Debug: No registeredKeys entry for address ${stepResult.address.toString()}`)
+        throw new Error(`Debug: No storage address entry for address ${stepResult.address.toString()}`)
       }
-      proofTreeIndex = [treeIndex[0], registeredKeys[treeIndex[0]].keys.length];
+      proofTreeIndex = [treeIndex[0], this._getMerkleTreeLeafIndex(keyPt.value)];
       childPt = this.addReservedVariableToBufferIn(
         'MERKLE_PROOF',
         poseidon_raw([NULL_STORAGE_KEY, 0n]),
@@ -442,7 +454,7 @@ export class Synthesizer implements SynthesizerInterface
     }
 
     const { refAddress, merkleProof, indexPt, siblingPts } =
-      await this._instructionHandlers.buildStorageProof(stepResult.address, proofTreeIndex);
+      await this._instructionHandlers.buildStorageProof(stepResult.address, proofTreeIndex[1], keyPt.value);
     if (merkleProof.leaf !== childPt.value) {
       throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
     }

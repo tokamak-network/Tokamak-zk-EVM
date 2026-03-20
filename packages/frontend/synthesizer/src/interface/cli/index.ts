@@ -3,7 +3,7 @@
 import { program } from 'commander';
 import path from 'path';
 import fs from 'fs';
-import { createTokamakL2Common, createTokamakL2TxFromRLP, StateSnapshot, TokamakL2StateManagerSnapshotOpts } from 'tokamak-l2js';
+import { createTokamakL2Common, createTokamakL2StateManagerFromStateSnapshot, createTokamakL2TxFromRLP, StateSnapshot, TokamakL2StateManagerSnapshotOpts } from 'tokamak-l2js';
 import { SynthesizerOpts } from 'src/synthesizer/types/synthesizer.ts';
 import { createSynthesizer } from 'src/synthesizer/constructors.ts';
 import { RunTxResult } from '@ethereumjs/vm';
@@ -15,7 +15,6 @@ import { addHexPrefix, createAddressFromString, hexToBytes } from '@ethereumjs/u
 import { readJson, writeSnapshotJson } from './utils/node.ts';
 import { writeCircuitJson } from '../node/jsonWriter.ts';
 import { SynthesizerBlockInfo } from '../rpc/index.ts';
-import { createCompatibleTokamakL2StateManagerFromStateSnapshot } from '../tokamakL2Adapter.ts';
 
 program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthesizer').version('0.9.0');
 
@@ -47,7 +46,7 @@ program
           code: addHexPrefix(entry.code),
         })),
       }
-      const stateManager = await createCompatibleTokamakL2StateManagerFromStateSnapshot(previousState, stateManagerOpts);
+      const stateManager = await createTokamakL2StateManagerFromStateSnapshot(previousState, stateManagerOpts);
 
       const blockInfo = readJson<SynthesizerBlockInfo>(options.blockInfo);
 

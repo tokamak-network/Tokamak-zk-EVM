@@ -2,6 +2,7 @@
 import { ISynthesizerProvider, MemoryPts, synthesizerOpcodeByName, SynthesizerOpts, SynthesizerSupportedArithOpcodes, SynthesizerSupportedBlkInfOpcodes, SynthesizerSupportedEnvInfOpcodes, SynthesizerSupportedSysFlowOpcodes, VARIABLE_DESCRIPTION, type DataPt, type ReservedVariable, type SynthesizerSupportedOpcodes } from '../types/index.ts';
 
 import {
+  addHexPrefix,
   Address,
   BIGINT_0,
   bytesToBigInt,
@@ -51,6 +52,30 @@ export class InstructionHandler {
   ) {
     this.cachedOpts = parent.cachedOpts
     this._createSynthesizerHandlers()
+  }
+
+  private _getStorageAddressIndex(address: Address): number {
+    return this.cachedOpts.stateManager.storageAddresses.findIndex((entry) => entry.equals(address))
+  }
+
+  private _getMerkleTreeLeafIndex(key: bigint): number {
+    return (
+      this.cachedOpts.stateManager.merkleTrees.constructor as { getLeafIndex: (key: bigint) => number }
+    ).getLeafIndex(key)
+  }
+
+  private _getStorageTreeIndex(address: Address, key: bigint): [number, number] {
+    const addressIndex = this._getStorageAddressIndex(address)
+    if (addressIndex < 0) {
+      return [-1, -1]
+    }
+
+    const storageEntriesForAddress = this.cachedOpts.stateManager.storageEntries.get(bytesToBigInt(address.bytes))
+    if (storageEntriesForAddress === undefined || !storageEntriesForAddress.has(key)) {
+      return [addressIndex, -1]
+    }
+
+    return [addressIndex, this._getMerkleTreeLeafIndex(key)]
   }
 
   private _createHandlerOpts(opName: SynthesizerSupportedOpcodes, context: ContextManager): HandlerOpts {
@@ -472,36 +497,42 @@ export class InstructionHandler {
   }
 
   private _getStorageRefAddress(address: Address, addressIndex: number): `0x${string}` {
-    const registeredKeys = this.cachedOpts.stateManager.registeredKeys;
-    if (registeredKeys === null) {
-      throw new Error('Debug: registeredKeys is not initialized')
-    }
     if (addressIndex < 0) {
-      throw new Error(`Debug: No registeredKeys entry for address ${address.toString()}`)
+      throw new Error(`Debug: No storage address entry for address ${address.toString()}`)
     }
-    const registeredKeysForAddress = registeredKeys[addressIndex];
-    if (registeredKeysForAddress === undefined) {
-      throw new Error(`Debug: No registeredKeys entry for address ${address.toString()}`)
+    const storageAddress = this.cachedOpts.stateManager.storageAddresses[addressIndex];
+    if (storageAddress === undefined) {
+      throw new Error(`Debug: No storage address entry for address ${address.toString()}`)
     }
-    if (!registeredKeysForAddress.address.equals(address)) {
+    if (!storageAddress.equals(address)) {
       throw new Error(`Need to debug: Merkle tree index mismatches with given address`)
     }
-    return registeredKeysForAddress.address.toString();
+    return storageAddress.toString() as `0x${string}`;
   }
 
   public async buildStorageProof(
     address: Address,
-    proofTreeIndex: [number, number],
+    leafIndex: number,
+    key: bigint,
   ): Promise<{
     refAddress: `0x${string}`,
     merkleProof: { leaf: bigint, siblings: unknown[] },
     indexPt: DataPt,
     siblingPts: DataPt[][],
   }> {
-    const merkleTree = this.cachedOpts.stateManager.lastMerkleTrees;
-    const refAddress = this._getStorageRefAddress(address, proofTreeIndex[0]);
-    const merkleProof = merkleTree.getProof(proofTreeIndex);
-    const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(proofTreeIndex[1]), true);
+    const merkleTree = this.cachedOpts.stateManager.merkleTrees;
+    const addressIndex = this._getStorageAddressIndex(address);
+    const refAddress = this._getStorageRefAddress(address, addressIndex);
+    const rawMerkleProof = merkleTree.getProof(address, key);
+    const merkleProof = {
+      leaf: typeof rawMerkleProof.leaf === 'bigint' ? rawMerkleProof.leaf : hexToBigInt(addHexPrefix(rawMerkleProof.leaf.toString())),
+      siblings: rawMerkleProof.siblings.map((siblingsAtLevel) =>
+        siblingsAtLevel.map((sibling) =>
+          typeof sibling === 'bigint' ? sibling : hexToBigInt(addHexPrefix(sibling.toString())),
+        ),
+      ),
+    };
+    const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(leafIndex), true);
     const siblingPts = merkleProof.siblings.map((siblingsAtLevel) => {
       if (!Array.isArray(siblingsAtLevel)) {
         throw new Error('Merkle proof siblings must be arrays')
@@ -536,7 +567,7 @@ export class InstructionHandler {
       throw new Error('Mismatch in storage values');
     }
 
-    const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
+    const treeIndex = this._getStorageTreeIndex(address, keyPt.value);
     const isRegisteredKey = treeIndex[0] >= 0 && treeIndex[1] >= 0;
     if (!isRegisteredKey) {
       return this.parent.addReservedVariableToBufferIn(
@@ -547,7 +578,7 @@ export class InstructionHandler {
       );
     }
 
-    const { refAddress, merkleProof, indexPt, siblingPts } = await this.buildStorageProof(address, treeIndex);
+    const { refAddress, merkleProof, indexPt, siblingPts } = await this.buildStorageProof(address, treeIndex[1], keyPt.value);
     const valuePt = this.parent.addReservedVariableToBufferIn(
       'IN_VALUE',
       valueStored,
@@ -582,22 +613,17 @@ export class InstructionHandler {
     const siblingPts = cachedMerkleProof.siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt)));
     const childPt = this.parent.placePoseidon([keyPt, symbolDataPt]);
 
-    const merkleTree = this.cachedOpts.stateManager.lastMerkleTrees;
-    if (this.cachedOpts.stateManager.registeredKeys === null) {
-      throw new Error('Debug: registeredKeys is not initialized')
-    }
-    const treeIndex = this.cachedOpts.stateManager.getMerkleTreeLeafIndex(address, keyPt.value);
+    const merkleTree = this.cachedOpts.stateManager.merkleTrees;
+    const treeIndex = this._getStorageTreeIndex(address, keyPt.value);
     if (treeIndex[0] < 0 || treeIndex[1] < 0) {
       throw new Error(`Debug: Merkle tree index is not registered for address ${address.toString()}`)
     }
     if (BigInt(treeIndex[1]) !== indexPt.value) {
       throw new Error(`Debug: Cached Merkle proof leaf index mismatches with updated tree index`)
     }
-    const addressIndex = this.cachedOpts.stateManager.registeredKeys.findIndex((entry) =>
-      entry.address.equals(address),
-    );
+    const addressIndex = this._getStorageAddressIndex(address);
     if (addressIndex < 0) {
-      throw new Error(`Debug: Address ${address.toString()} is not tracked in registeredKeys`)
+      throw new Error(`Debug: Address ${address.toString()} is not tracked in storageAddresses`)
     }
     if (treeIndex[0] !== addressIndex) {
       throw new Error(`Debug: Merkle tree address index mismatches with tracked storage address order`)
@@ -612,7 +638,7 @@ export class InstructionHandler {
     if (valueStored !== symbolDataPt.value) {
       throw new Error('Mismatch in storage values');
     }
-    const roots = merkleTree.getRoots();
+    const roots = merkleTree.getRoots(this.cachedOpts.stateManager.storageAddresses);
     const refRootPt = this.parent.addReservedVariableToBufferIn('INTER_MERKLE_ROOT', roots[treeIndex[0]], true);
     const cachedRoots = this.parent.state.cachedRoots.get(refAddress);
     if (cachedRoots === undefined || cachedRoots.length === 0) {
