@@ -4,7 +4,8 @@ import { DataPtFactory } from '../dataStructure/index.ts';
 import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
 import { ArithmeticOperator, SUBCIRCUIT_ALU_MAPPING, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
 import { ArithmeticOperations } from '../dataStructure/arithmeticOperations.ts';
-import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE, MT_DEPTH, POSEIDON_INPUTS } from '../../interface/qapCompiler/importedConstants.ts';
+import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE } from '../../interface/qapCompiler/importedConstants.ts';
+import { MT_DEPTH, POSEIDON_INPUTS } from 'tokamak-l2js';
 
 export class ArithmeticManager {
   constructor(

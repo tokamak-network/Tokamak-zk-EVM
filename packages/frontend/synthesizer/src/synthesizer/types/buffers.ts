@@ -3,10 +3,6 @@ import type { DataPt, DataPtDescription } from './index.ts'
 import { FUNCTION_INPUT_LENGTH } from 'tokamak-l2js';
 import { BUFFER_LIST, ReservedBuffer, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
 
-export enum BufferErrorMessage {
-  UnregisteredContractStorageRead = 'Error: Access to a storage key not registered ',
-}
-
 const PUBLIC_OUT_VARIABLES_STATIC = [
   // Nothing
 ] as const
@@ -19,7 +15,6 @@ const PUBLIC_IN_VARIABLES_STATIC = [
   'FUNCTION_SELECTOR',   // For debugging. Can be moved to PRIVATE_IN buffer
 ] as const
 const PUBLIC_IN_VARIABLES_DYNAMIC = [
-  'UNREGISTERED_CONTRACT_STORAGE_IN',
   'INI_MERKLE_ROOT',
 ] as const
 const BLOCK_IN_VARIABLES_STATIC = [
@@ -301,7 +296,6 @@ const EVM_IN_VARIABLES_STATIC = [
   'JUBJUB_POI_X',
   'JUBJUB_POI_Y',
   'TREE_SIZE',
-  'NULL_LEAF',
 ] as const
 const EVM_IN_VARIABLES_DYNAMIC = [
   // Nothing
@@ -453,8 +447,6 @@ VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_SIGNATURE.sourceBitSize = 255;
 
 VARIABLE_DESCRIPTION_INCOMPLETE.CONTRACT_ADDRESS.extSource = `Contract address to call`;
 VARIABLE_DESCRIPTION_INCOMPLETE.FUNCTION_SELECTOR.extSource = `Selector for a function to call`;
-VARIABLE_DESCRIPTION_INCOMPLETE.UNREGISTERED_CONTRACT_STORAGE_IN.extSource =
-  BufferErrorMessage.UnregisteredContractStorageRead;
 VARIABLE_DESCRIPTION_INCOMPLETE.COINBASE.extSource = `COINBASE`;
 VARIABLE_DESCRIPTION_INCOMPLETE.TIMESTAMP.extSource = `TIMESTAMP`;
 VARIABLE_DESCRIPTION_INCOMPLETE.NUMBER.extSource = `NUMBER`;
@@ -493,10 +485,6 @@ VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_POI_Y.extSource = `Point at infinity of J
 VARIABLE_DESCRIPTION_INCOMPLETE.JUBJUB_POI_Y.sourceBitSize = 255;
 
 VARIABLE_DESCRIPTION_INCOMPLETE.TREE_SIZE.extSource = `The number of leaves in each Merkle tree, specified by TokamakL2JS`;
-VARIABLE_DESCRIPTION_INCOMPLETE.TREE_SIZE.sourceBitSize = 256;
-
-VARIABLE_DESCRIPTION_INCOMPLETE.TREE_SIZE.extSource = `The null leaf value of Merkle trees, specified by TokamakL2JS`;
-VARIABLE_DESCRIPTION_INCOMPLETE.TREE_SIZE.sourceBitSize = 255;
 
 VARIABLE_DESCRIPTION_INCOMPLETE.TRANSACTION_NONCE.extSource = `Transaction nonce`;
 VARIABLE_DESCRIPTION_INCOMPLETE.TRANSACTION_NONCE.sourceBitSize = 255;
