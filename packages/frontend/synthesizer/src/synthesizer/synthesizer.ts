@@ -39,30 +39,6 @@ export class Synthesizer implements SynthesizerInterface
     this._messageCodeAddresses = new Set()
   }
 
-  private _getStorageAddressIndex(address: Address): number {
-    return this.cachedOpts.stateManager.storageAddresses.findIndex((entry) => entry.equals(address))
-  }
-
-  private _getMerkleTreeLeafIndex(key: bigint): number {
-    return (
-      this.cachedOpts.stateManager.merkleTrees.constructor as { getLeafIndex: (key: bigint) => number }
-    ).getLeafIndex(key)
-  }
-
-  private _getStorageTreeIndex(address: Address, key: bigint): [number, number] {
-    const addressIndex = this._getStorageAddressIndex(address)
-    if (addressIndex < 0) {
-      return [-1, -1]
-    }
-
-    const storageEntriesForAddress = this.cachedOpts.stateManager.storageEntries.get(bytesToBigInt(address.bytes))
-    if (storageEntriesForAddress === undefined || !storageEntriesForAddress.has(key)) {
-      return [addressIndex, -1]
-    }
-
-    return [addressIndex, this._getMerkleTreeLeafIndex(key)]
-  }
-
   private _attachSynthesizerToVM(vm: VM): void {
     if (vm.evm.events === undefined ) {
       throw new Error("EVM event emitter is turned off.")
@@ -453,8 +429,9 @@ export class Synthesizer implements SynthesizerInterface
       childPt = this.placePoseidon([DataPtFactory.deepCopy(keyPt), valueStoredPt]);
     }
 
-    const { refAddress, merkleProof, indexPt, siblingPts } =
-      await this._instructionHandlers.buildStorageProof(stepResult.address, proofTreeIndex[1], keyPt.value);
+    const { merkleProof, indexPt, siblingPts } =
+      await this._instructionHandlers.buildStorageProof(stepResult.address, keyPt);
+    const refAddress = stepResult.address.toString() as `0x${string}`;
     if (merkleProof.leaf !== childPt.value) {
       throw new Error(`Trying to access a cold storage but derived a leaf different from the initial Merkle Tree`)
     }

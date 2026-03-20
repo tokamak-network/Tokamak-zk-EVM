@@ -54,30 +54,6 @@ export class InstructionHandler {
     this._createSynthesizerHandlers()
   }
 
-  private _getStorageAddressIndex(address: Address): number {
-    return this.cachedOpts.stateManager.storageAddresses.findIndex((entry) => entry.equals(address))
-  }
-
-  private _getMerkleTreeLeafIndex(key: bigint): number {
-    return (
-      this.cachedOpts.stateManager.merkleTrees.constructor as { getLeafIndex: (key: bigint) => number }
-    ).getLeafIndex(key)
-  }
-
-  private _getStorageTreeIndex(address: Address, key: bigint): [number, number] {
-    const addressIndex = this._getStorageAddressIndex(address)
-    if (addressIndex < 0) {
-      return [-1, -1]
-    }
-
-    const storageEntriesForAddress = this.cachedOpts.stateManager.storageEntries.get(bytesToBigInt(address.bytes))
-    if (storageEntriesForAddress === undefined || !storageEntriesForAddress.has(key)) {
-      return [addressIndex, -1]
-    }
-
-    return [addressIndex, this._getMerkleTreeLeafIndex(key)]
-  }
-
   private _createHandlerOpts(opName: SynthesizerSupportedOpcodes, context: ContextManager): HandlerOpts {
     const prevStepResult = context.prevInterpreterStep;
     if (prevStepResult === null) {
@@ -496,34 +472,16 @@ export class InstructionHandler {
     return DataPtFactory.deepCopy(this.parent.state.cachedOrigin!)
   }
 
-  private _getStorageRefAddress(address: Address, addressIndex: number): `0x${string}` {
-    if (addressIndex < 0) {
-      throw new Error(`Debug: No storage address entry for address ${address.toString()}`)
-    }
-    const storageAddress = this.cachedOpts.stateManager.storageAddresses[addressIndex];
-    if (storageAddress === undefined) {
-      throw new Error(`Debug: No storage address entry for address ${address.toString()}`)
-    }
-    if (!storageAddress.equals(address)) {
-      throw new Error(`Need to debug: Merkle tree index mismatches with given address`)
-    }
-    return storageAddress.toString() as `0x${string}`;
-  }
-
   public async buildStorageProof(
     address: Address,
-    leafIndex: number,
-    key: bigint,
+    keyPt: DataPt,
   ): Promise<{
-    refAddress: `0x${string}`,
     merkleProof: { leaf: bigint, siblings: unknown[] },
     indexPt: DataPt,
     siblingPts: DataPt[][],
   }> {
     const merkleTree = this.cachedOpts.stateManager.merkleTrees;
-    const addressIndex = this._getStorageAddressIndex(address);
-    const refAddress = this._getStorageRefAddress(address, addressIndex);
-    const rawMerkleProof = merkleTree.getProof(address, key);
+    const rawMerkleProof = merkleTree.getProof(address, keyPt.value);
     const merkleProof = {
       leaf: typeof rawMerkleProof.leaf === 'bigint' ? rawMerkleProof.leaf : hexToBigInt(addHexPrefix(rawMerkleProof.leaf.toString())),
       siblings: rawMerkleProof.siblings.map((siblingsAtLevel) =>
@@ -532,7 +490,7 @@ export class InstructionHandler {
         ),
       ),
     };
-    const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(leafIndex), true);
+    const indexPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', BigInt(this._getMerkleTreeLeafIndex(keyPt.value)), true);
     const siblingPts = merkleProof.siblings.map((siblingsAtLevel) => {
       if (!Array.isArray(siblingsAtLevel)) {
         throw new Error('Merkle proof siblings must be arrays')
@@ -544,7 +502,7 @@ export class InstructionHandler {
         return this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', sibling, true)
       })
     });
-    return { refAddress, merkleProof, indexPt, siblingPts };
+    return { merkleProof, indexPt, siblingPts };
   }
 
   public getLatestCachedRootPt(refAddress: `0x${string}`): DataPt {
@@ -578,7 +536,8 @@ export class InstructionHandler {
       );
     }
 
-    const { refAddress, merkleProof, indexPt, siblingPts } = await this.buildStorageProof(address, treeIndex[1], keyPt.value);
+    const { merkleProof, indexPt, siblingPts } = await this.buildStorageProof(address, keyPt);
+    const refAddress = address.toString() as `0x${string}`;
     const valuePt = this.parent.addReservedVariableToBufferIn(
       'IN_VALUE',
       valueStored,
