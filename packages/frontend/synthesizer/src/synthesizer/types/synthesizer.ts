@@ -1,7 +1,8 @@
 import { LegacyTx } from '@ethereumjs/tx';
 import { InterpreterStep } from '@ethereumjs/evm';
 import { RunTxResult } from '@ethereumjs/vm';
-import { TokamakL2StateManager, TokamakL2Tx } from 'tokamak-l2js';
+import { TokamakL2Tx } from 'tokamak-l2js';
+import { SynthesizerTokamakL2StateManager } from '../../interface/tokamakL2Adapter.ts';
 import { StateManager } from '../handlers/index.ts';
 import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable } from './index.ts';
 import { SynthesizerOpHandler } from '../handlers/instructionHandler.ts';
@@ -11,7 +12,7 @@ import { SynthesizerBlockInfo } from 'src/interface/index.ts';
 export interface SynthesizerOpts {
   signedTransaction: TokamakL2Tx
   blockInfo: SynthesizerBlockInfo
-  stateManager: TokamakL2StateManager
+  stateManager: SynthesizerTokamakL2StateManager
 }
 
 export interface SynthesizerStepLogEntry {

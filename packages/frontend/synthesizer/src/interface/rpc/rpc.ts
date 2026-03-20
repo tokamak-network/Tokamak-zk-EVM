@@ -1,16 +1,17 @@
-import { createTokamakL2Common, createTokamakL2StateManagerFromL1RPC, createTokamakL2Tx, storageKeysForAddress, TokamakL2StateManagerOpts, TokamakL2TxData } from 'tokamak-l2js'
+import { createTokamakL2Common, createTokamakL2Tx, TokamakL2StateManagerRPCOpts, TokamakL2TxData } from 'tokamak-l2js'
 import { addHexPrefix, bigIntToHex, bytesToBigInt, createAddressFromString } from "@ethereumjs/util"
 import { ethers } from "ethers"
 import { SynthesizerOpts } from "../../synthesizer/types/index.ts"
 import { jubjub } from "@noble/curves/misc.js"
 import { NUMBER_OF_PREV_BLOCK_HASHES } from "../qapCompiler/importedConstants.ts"
 import { SynthesizerBlockInfo } from "./types.ts"
+import { createCompatibleTokamakL2StateManagerFromL1RPC } from '../tokamakL2Adapter.ts'
 
 export type SynthesizerSimulationOpts = {
   rpcUrl: string,
   blockNumber: number,
   contractAddress: `0x${string}`,
-  initStorageKeys: storageKeysForAddress[],
+  storageConfig: TokamakL2StateManagerRPCOpts['storageConfig'],
 
   // TX Info
   senderL2PrvKey: Uint8Array,
@@ -73,13 +74,12 @@ export async function createSynthesizerOptsForSimulationFromRPC(opts: Synthesize
 
     const common = createTokamakL2Common()
 
-    const stateManagerOpts: TokamakL2StateManagerOpts = {
-        common,
+    const stateManagerOpts: TokamakL2StateManagerRPCOpts = {
         blockNumber: opts.blockNumber,
-        initStorageKeys: opts.initStorageKeys,
+        storageConfig: opts.storageConfig,
         callCodeAddresses: opts.callCodeAddresses.map(str => createAddressFromString(str)),
     }
-    const L2StateManager = await createTokamakL2StateManagerFromL1RPC(opts.rpcUrl, stateManagerOpts)
+    const L2StateManager = await createCompatibleTokamakL2StateManagerFromL1RPC(opts.rpcUrl, stateManagerOpts)
 
     const transactionData: TokamakL2TxData = {
         nonce: opts.txNonce,

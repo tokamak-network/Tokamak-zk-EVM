@@ -3,7 +3,7 @@
 import { program } from 'commander';
 import path from 'path';
 import fs from 'fs';
-import { createTokamakL2Common, createTokamakL2StateManagerFromStateSnapshot, createTokamakL2TxFromRLP, StateSnapshot, TokamakL2StateManagerOpts } from 'tokamak-l2js';
+import { createTokamakL2Common, createTokamakL2TxFromRLP, StateSnapshot, TokamakL2StateManagerSnapshotOpts } from 'tokamak-l2js';
 import { SynthesizerOpts } from 'src/synthesizer/types/synthesizer.ts';
 import { createSynthesizer } from 'src/synthesizer/constructors.ts';
 import { RunTxResult } from '@ethereumjs/vm';
@@ -15,6 +15,7 @@ import { addHexPrefix, createAddressFromString, hexToBytes } from '@ethereumjs/u
 import { readJson, writeSnapshotJson } from './utils/node.ts';
 import { writeCircuitJson } from '../node/jsonWriter.ts';
 import { SynthesizerBlockInfo } from '../rpc/index.ts';
+import { createCompatibleTokamakL2StateManagerFromStateSnapshot } from '../tokamakL2Adapter.ts';
 
 program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthesizer').version('0.9.0');
 
@@ -40,15 +41,13 @@ program
       const transaction = createTokamakL2TxFromRLP(hexToBytes(addHexPrefix(transactionRlpStr)), { common });
 
       const contractCodesStr =  readJson<{address: string, code: string}[]>(options.contractCode);
-      const stateManagerOpts: TokamakL2StateManagerOpts = {
-        common,
+      const stateManagerOpts: TokamakL2StateManagerSnapshotOpts = {
         contractCodes: contractCodesStr.map(entry => ({
           address: createAddressFromString(entry.address),
           code: addHexPrefix(entry.code),
         })),
-        storageAddresses: previousState.storageAddresses.map(addrStr => createAddressFromString(addrStr)),
       }
-      const stateManager = await createTokamakL2StateManagerFromStateSnapshot(previousState, stateManagerOpts);
+      const stateManager = await createCompatibleTokamakL2StateManagerFromStateSnapshot(previousState, stateManagerOpts);
 
       const blockInfo = readJson<SynthesizerBlockInfo>(options.blockInfo);
 
@@ -89,7 +88,7 @@ program
       }
       
       // Export final state
-      const finalState = await stateManager.captureStateSnapshot(previousState);
+      const finalState = await stateManager.captureStateSnapshot();
       console.log(`[SynthesizerAdapter] ✅ Final state exported with roots: ${finalState.stateRoots.join(', ')}`);
       
       writeCircuitJson(circuitGenerator);

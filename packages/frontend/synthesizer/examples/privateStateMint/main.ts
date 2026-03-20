@@ -2,8 +2,8 @@
 
 import { bytesToHex, createAddressFromString, hexToBytes } from '@ethereumjs/util';
 import {
+  createTokamakL2Common,
   createStateManagerOptsFromChannelConfig,
-  createTokamakL2StateManagerFromL1RPC,
   createTokamakL2Tx,
   TokamakL2TxData,
 } from 'tokamak-l2js';
@@ -19,6 +19,7 @@ import {
   loadConfig,
   toStateManagerChannelConfig,
 } from './utils.ts';
+import { createCompatibleTokamakL2StateManagerFromL1RPC } from '../../src/interface/tokamakL2Adapter.ts';
 
 const main = async () => {
   const configPath = process.argv[2];
@@ -35,8 +36,9 @@ const main = async () => {
   }
 
   const callData = hexToBytes(config.calldata);
+  const common = createTokamakL2Common();
   const stateManagerOpts = createStateManagerOptsFromChannelConfig(toStateManagerChannelConfig(config));
-  const stateManager = await createTokamakL2StateManagerFromL1RPC(rpcUrl, stateManagerOpts);
+  const stateManager = await createCompatibleTokamakL2StateManagerFromL1RPC(rpcUrl, stateManagerOpts);
   const blockInfo = await getBlockInfoFromRPC(rpcUrl, config.blockNumber, NUMBER_OF_PREV_BLOCK_HASHES);
 
   const txData: TokamakL2TxData = {
@@ -45,7 +47,7 @@ const main = async () => {
     data: callData,
     senderPubKey: keyMaterial.publicKeys[config.senderIndex].toBytes(),
   };
-  const unsignedTransaction = createTokamakL2Tx(txData, { common: stateManagerOpts.common });
+  const unsignedTransaction = createTokamakL2Tx(txData, { common });
   const signedTransaction = unsignedTransaction.sign(senderL2PrvKey);
 
   const synthesizer = await createSynthesizer({
