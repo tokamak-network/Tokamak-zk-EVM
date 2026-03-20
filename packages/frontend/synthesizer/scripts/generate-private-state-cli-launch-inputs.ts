@@ -13,6 +13,7 @@ import {
   hexToBytes,
 } from '@ethereumjs/util';
 import {
+  createTokamakL2Common,
   createStateManagerOptsFromChannelConfig,
   createTokamakL2StateManagerFromL1RPC,
   createTokamakL2Tx,
@@ -43,6 +44,7 @@ const packageRoot = path.resolve(__dirname, '..');
 const repoRoot = path.resolve(packageRoot, '..', '..', '..', '..', '..');
 const privateStateAppDir = path.resolve(repoRoot, 'apps', 'private-state');
 const tsconfigPath = path.resolve(packageRoot, 'tsconfig.dev.json');
+const launchJsonPath = path.resolve(packageRoot, '.vscode', 'launch.json');
 const defaultChannelId = 4;
 
 type CliInputFileSet = {
@@ -125,51 +127,56 @@ const runCommand = (command: string, args: string[], cwd = repoRoot) =>
 const toRelativePackagePath = (targetPath: string) =>
   path.relative(packageRoot, targetPath).split(path.sep).join('/');
 
-const buildStateSnapshot = async (stateManager: Awaited<ReturnType<typeof createTokamakL2StateManagerFromL1RPC>>): Promise<StateSnapshot> => {
-  if (stateManager.registeredKeys === null) {
-    throw new Error('State manager has no registered keys.');
-  }
-
-  const roots = stateManager.lastMerkleTrees.getRoots();
-  const rootByAddress = new Map<string, string>();
-  for (const [index, address] of stateManager.lastMerkleTrees.addresses.entries()) {
-    rootByAddress.set(address.toString().toLowerCase(), roots[index].toString(16));
-  }
-
-  const storageAddresses: string[] = [];
-  const stateRoots: string[] = [];
-  const registeredKeys: { key: string; value: string }[][] = [];
-
-  for (const registeredKeysForAddress of stateManager.registeredKeys) {
-    const addressString = registeredKeysForAddress.address.toString();
-    const root = rootByAddress.get(addressString.toLowerCase());
-    if (root === undefined) {
-      throw new Error(`Missing Merkle root for ${addressString}`);
-    }
-
-    storageAddresses.push(addressString);
-    stateRoots.push(root);
-    registeredKeys.push(
-      await Promise.all(
-        registeredKeysForAddress.keys.map(async (keyBytes) => ({
-          key: addHexPrefix(bytesToHex(keyBytes)),
-          value: addHexPrefix(bytesToHex(await stateManager.getStorage(registeredKeysForAddress.address, keyBytes))),
-        })),
-      ),
-    );
-  }
-
-  return {
-    channelId: defaultChannelId,
-    stateRoots,
-    storageAddresses,
-    registeredKeys,
-  };
-};
-
 const writeJsonFile = async (filePath: string, value: unknown) => {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+};
+
+const assignChannelId = (
+  stateManager: Awaited<ReturnType<typeof createTokamakL2StateManagerFromL1RPC>>,
+  channelId: number,
+) => {
+  (stateManager as Awaited<ReturnType<typeof createTokamakL2StateManagerFromL1RPC>> & { _channelId?: number })._channelId = channelId;
+};
+
+const syncLaunchJson = async (manifestEntries: LaunchManifestEntry[]) => {
+  const launchJson = JSON.parse(await fs.readFile(launchJsonPath, 'utf8')) as {
+    configurations?: Array<{ name?: string; args?: string[] }>;
+  };
+  if (!Array.isArray(launchJson.configurations)) {
+    throw new Error(`Expected launch configurations in ${launchJsonPath}`);
+  }
+
+  const manifestByName = new Map(manifestEntries.map((entry) => [entry.name, entry]));
+  for (const configuration of launchJson.configurations) {
+    if (typeof configuration.name !== 'string') {
+      continue;
+    }
+    const manifest = manifestByName.get(configuration.name);
+    if (manifest === undefined || !Array.isArray(configuration.args)) {
+      continue;
+    }
+    for (let index = 0; index < configuration.args.length; index += 1) {
+      switch (configuration.args[index]) {
+        case '--previous-state':
+          configuration.args[index + 1] = `\${workspaceFolder}/${manifest.files.previousState}`;
+          break;
+        case '--transaction':
+          configuration.args[index + 1] = manifest.transactionRlp;
+          break;
+        case '--block-info':
+          configuration.args[index + 1] = `\${workspaceFolder}/${manifest.files.blockInfo}`;
+          break;
+        case '--contract-code':
+          configuration.args[index + 1] = `\${workspaceFolder}/${manifest.files.contractCode}`;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  await fs.writeFile(launchJsonPath, `${JSON.stringify(launchJson, null, 2)}\n`, 'utf8');
 };
 
 const exportCliLaunchInput = async <TConfig extends BaseConfigShape>(
@@ -187,6 +194,7 @@ const exportCliLaunchInput = async <TConfig extends BaseConfigShape>(
   const stateManagerOpts = createStateManagerOptsFromChannelConfig(spec.toChannelConfig(config));
   const stateManager = await createTokamakL2StateManagerFromL1RPC(rpcUrl, stateManagerOpts);
   const blockInfo = await getBlockInfoFromRPC(rpcUrl, config.blockNumber, NUMBER_OF_PREV_BLOCK_HASHES);
+  const common = createTokamakL2Common();
 
   const txData: TokamakL2TxData = {
     nonce: BigInt(config.txNonce),
@@ -194,7 +202,7 @@ const exportCliLaunchInput = async <TConfig extends BaseConfigShape>(
     data: hexToBytes(config.calldata),
     senderPubKey: senderPublicKey.toBytes(),
   };
-  const unsignedTransaction = createTokamakL2Tx(txData, { common: stateManagerOpts.common });
+  const unsignedTransaction = createTokamakL2Tx(txData, { common });
   const signedTransaction = unsignedTransaction.sign(senderPrivateKey);
   const transactionRlp = addHexPrefix(bytesToHex(signedTransaction.serialize())) as `0x${string}`;
 
@@ -205,7 +213,8 @@ const exportCliLaunchInput = async <TConfig extends BaseConfigShape>(
       code: await provider.getCode(address, config.blockNumber),
     })),
   );
-  const previousState = await buildStateSnapshot(stateManager);
+  assignChannelId(stateManager, defaultChannelId);
+  const previousState = await stateManager.captureStateSnapshot();
 
   const previousStatePath = path.join(spec.outputDir, 'previous_state_snapshot.json');
   const blockInfoPath = path.join(spec.outputDir, 'block_info.json');
@@ -378,6 +387,7 @@ const main = async () => {
     path.resolve(packageRoot, 'examples', 'privateStateRedeem', 'cli-launch-manifest.json'),
     redeemManifest,
   );
+  await syncLaunchJson([...mintManifest, ...transferManifest, ...redeemManifest]);
 
   console.log(JSON.stringify({ mintManifest, transferManifest, redeemManifest }, null, 2));
 };

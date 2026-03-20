@@ -1,19 +1,15 @@
 {
   "channelId": 4,
   "stateRoots": [
-    "59c124a8500d430e1a74dc667f9390287c4815d37fb1dd311b0de5defc2b493e",
-    "f3a6cc9f1def0748226b7a37807a3ca1d5ea814258df790b3e50a0e9a98ae35"
+    "0x3e1681b7f2d8e50e600af7f937b7d2dee81f9e3197c2f064bcec4eef98ec1fde",
+    "0x5e142bf353693159f1e4a1e06dc56a7ec86b4268d46a07879a5467463cfbf589"
   ],
   "storageAddresses": [
-    "0x175166047d99b9783570140f673e4884735edb7d",
-    "0x8e36772df67761760c4ced49af13db40411ce24f"
+    "0x64bd90847606d1b114b710a06e7339414afc0ece",
+    "0x06dd3475d0622c359f45a1985b9eaba9119f0f28"
   ],
-  "registeredKeys": [
+  "storageEntries": [
     [
-      {
-        "key": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "value": "0x"
-      },
       {
         "key": "0x3d6bbc38cd2d0ff5633f36ed00659bc3dfa526b09f5e0b045376b9ab5b2fbd68",
         "value": "0x01"
@@ -31,11 +27,6 @@
         "value": "0x01"
       }
     ],
-    [
-      {
-        "key": "0xb0cfa2f31d567938639d1e85743df0fda6044fbc4166e15ca771be086fa0ac2a",
-        "value": "0x0de0b6b3a7640000"
-      }
-    ]
+    []
   ]
 }
