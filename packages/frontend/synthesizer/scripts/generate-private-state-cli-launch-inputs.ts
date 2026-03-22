@@ -7,8 +7,6 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { ethers } from 'ethers';
 import {
-  addHexPrefix,
-  bytesToHex,
   createAddressFromString,
   hexToBytes,
 } from '@ethereumjs/util';
@@ -19,6 +17,7 @@ import {
   createTokamakL2Tx,
   type StateSnapshot,
   type TokamakL2TxData,
+  type TxSnapshot,
 } from 'tokamak-l2js';
 import { NUMBER_OF_PREV_BLOCK_HASHES } from '../src/interface/qapCompiler/importedConstants.ts';
 import { getBlockInfoFromRPC } from '../src/interface/rpc/rpc.ts';
@@ -49,13 +48,13 @@ const defaultChannelId = 4;
 
 type CliInputFileSet = {
   previousState: string;
+  transaction: string;
   blockInfo: string;
   contractCode: string;
 };
 
 type LaunchManifestEntry = {
   name: string;
-  transactionRlp: `0x${string}`;
   files: CliInputFileSet;
 };
 
@@ -162,7 +161,7 @@ const syncLaunchJson = async (manifestEntries: LaunchManifestEntry[]) => {
           configuration.args[index + 1] = `\${workspaceFolder}/${manifest.files.previousState}`;
           break;
         case '--transaction':
-          configuration.args[index + 1] = manifest.transactionRlp;
+          configuration.args[index + 1] = `\${workspaceFolder}/${manifest.files.transaction}`;
           break;
         case '--block-info':
           configuration.args[index + 1] = `\${workspaceFolder}/${manifest.files.blockInfo}`;
@@ -204,7 +203,7 @@ const exportCliLaunchInput = async <TConfig extends BaseConfigShape>(
   };
   const unsignedTransaction = createTokamakL2Tx(txData, { common });
   const signedTransaction = unsignedTransaction.sign(senderPrivateKey);
-  const transactionRlp = addHexPrefix(bytesToHex(signedTransaction.serialize())) as `0x${string}`;
+  const transactionSnapshot = signedTransaction.captureTxSnapshot() satisfies TxSnapshot;
 
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const contractCodes = await Promise.all(
@@ -217,18 +216,20 @@ const exportCliLaunchInput = async <TConfig extends BaseConfigShape>(
   const previousState = await stateManager.captureStateSnapshot();
 
   const previousStatePath = path.join(spec.outputDir, 'previous_state_snapshot.json');
+  const transactionPath = path.join(spec.outputDir, 'transaction.json');
   const blockInfoPath = path.join(spec.outputDir, 'block_info.json');
   const contractCodePath = path.join(spec.outputDir, 'contract_codes.json');
 
   await writeJsonFile(previousStatePath, previousState);
+  await writeJsonFile(transactionPath, transactionSnapshot);
   await writeJsonFile(blockInfoPath, blockInfo satisfies SynthesizerBlockInfo);
   await writeJsonFile(contractCodePath, contractCodes);
 
   return {
     name: spec.launchName,
-    transactionRlp,
     files: {
       previousState: toRelativePackagePath(previousStatePath),
+      transaction: toRelativePackagePath(transactionPath),
       blockInfo: toRelativePackagePath(blockInfoPath),
       contractCode: toRelativePackagePath(contractCodePath),
     },

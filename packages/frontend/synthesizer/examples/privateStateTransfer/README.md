@@ -11,9 +11,10 @@ The default flow prepares one existing input note commitment for the sender, the
 - can create one or more output notes for other L2 participants
 - consumes the single input note through its nullifier
 
-Use the generated static input folders together with the stored RLP values in:
+Use the generated static input folders together with the stored transaction snapshots in:
 
 - `examples/privateStateTransfer/*/previous_state_snapshot.json`
+- `examples/privateStateTransfer/*/transaction.json`
 - `examples/privateStateTransfer/*/block_info.json`
 - `examples/privateStateTransfer/*/contract_codes.json`
 - `examples/privateStateTransfer/cli-launch-manifest.json`

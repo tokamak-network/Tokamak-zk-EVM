@@ -1,23 +1,20 @@
 #!/usr/bin/env node
 
 import { program } from 'commander';
-import path from 'path';
-import fs from 'fs';
 import {
   createTokamakL2Common,
   createTokamakL2StateManagerFromStateSnapshot,
-  createTokamakL2TxFromRLP,
   StateSnapshot,
   TokamakL2StateManagerSnapshotOpts,
+  TxSnapshot,
+  createTokamakL2TxFromSnapshot,
 } from 'tokamak-l2js';
 import { SynthesizerOpts } from 'src/synthesizer/types/synthesizer.ts';
 import { createSynthesizer } from 'src/synthesizer/constructors.ts';
-import { RunTxResult } from '@ethereumjs/vm';
 import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
 import { createCircuitGenerator } from 'src/circuitGenerator/circuitGenerator.ts';
-import { Permutation, PublicInstance } from 'src/circuitGenerator/types/types.ts';
 import { PlacementVariables } from 'src/synthesizer/types/placements.ts';
-import { addHexPrefix, createAddressFromString, hexToBytes } from '@ethereumjs/util';
+import { addHexPrefix, createAddressFromString } from '@ethereumjs/util';
 import { readJson, writeSnapshotJson } from './utils/node.ts';
 import { writeCircuitJson } from '../node/jsonWriter.ts';
 import { SynthesizerBlockInfo } from '../rpc/index.ts';
@@ -28,7 +25,7 @@ program
   .command('tokamak-ch-tx')
   .description('Execute TokamakL2JS Channel transaction')
   .requiredOption('--previous-state <path>', 'Path to previous state snapshot')
-  .requiredOption('--transaction <rlp>', 'RLP string of transaction')
+  .requiredOption('--transaction <path>', 'Path to transaction snapshot JSON')
   .requiredOption('--block-info <path>', 'Path to block information')
   .requiredOption('--contract-code <path>', 'Path to contract code')
   .action(async options => {
@@ -42,8 +39,8 @@ program
       const previousStateRoots = previousState.stateRoots;
       console.log(`   ✅ Previous state roots: ${previousStateRoots.join(', ')}`);
 
-      const transactionRlpStr = options.transaction;
-      const transaction = createTokamakL2TxFromRLP(hexToBytes(addHexPrefix(transactionRlpStr)), { common });
+      const transactionSnapshot = readJson<TxSnapshot>(options.transaction);
+      const transaction = createTokamakL2TxFromSnapshot(transactionSnapshot, { common });
 
       const contractCodesStr =  readJson<{address: string, code: string}[]>(options.contractCode);
       const stateManagerOpts: TokamakL2StateManagerSnapshotOpts = {
@@ -66,9 +63,8 @@ program
       const synthesizer = await createSynthesizer(synthesizerOpts);
 
       console.log('[SynthesizerAdapter] Executing transaction...');
-      let runTxResult: RunTxResult;
       try {
-        runTxResult = await synthesizer.synthesizeTX();
+        await synthesizer.synthesizeTX();
       } catch (error: any) {
         console.error('\n❌ [SynthesizerAdapter] CRITICAL ERROR: Synthesizer execution failed!');
         console.error(`   Error: ${error.message || error}`);

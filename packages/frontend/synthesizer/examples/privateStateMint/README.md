@@ -13,8 +13,8 @@ This example now uses static `tokamak-ch-tx` launch inputs for the `apps/private
 ## Usage
 
 1. Bootstrap the private-state app on anvil and regenerate the static launch inputs.
-2. Use the generated `previous_state_snapshot.json`, `block_info.json`, and `contract_codes.json` files under each `mintNotes*` folder.
-3. Execute the stored RLP transaction through `tokamak-ch-tx`.
+2. Use the generated `previous_state_snapshot.json`, `transaction.json`, `block_info.json`, and `contract_codes.json` files under each `mintNotes*` folder.
+3. Execute the stored transaction snapshot through `tokamak-ch-tx`.
 
 To refresh the static launch inputs:
 
