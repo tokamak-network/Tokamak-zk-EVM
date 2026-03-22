@@ -13,6 +13,7 @@ import {
   deriveParticipantKeys,
   mintInterfaces,
 } from '../examples/privateStateMint/utils.ts';
+import { computeReplayPrivateStateAddressMappingKey } from './private-state-hash.ts';
 
 type ParticipantEntry = {
   addressL1: `0x${string}`;
@@ -361,9 +362,7 @@ const main = async () => {
     if (!accountAddress) {
       throw new Error(`Could not resolve extra balance account at index ${accountIndex}`);
     }
-    const liquidBalanceStorageKey = ethers.keccak256(
-      ethers.AbiCoder.defaultAbiCoder().encode(['address', 'uint256'], [accountAddress, 0n]),
-    ) as `0x${string}`;
+    const liquidBalanceStorageKey = computeReplayPrivateStateAddressMappingKey(accountAddress, 0n);
     liquidBalanceStorageKeys.push(liquidBalanceStorageKey);
     await provider.send('anvil_setStorageAt', [
       manifest.contracts.l2AccountingVault,

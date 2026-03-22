@@ -15,6 +15,7 @@ import {
   type PrivateStateRedeemConfig,
 } from '../examples/privateStateRedeem/utils.ts';
 import {
+  computeReplayPrivateStateAddressMappingKey,
   computeReplayPrivateStateMappingKey,
   computeReplayPrivateStateNoteCommitment,
 } from './private-state-hash.ts';
@@ -373,9 +374,7 @@ const main = async () => {
     if (!accountAddress) {
       throw new Error(`Could not resolve extra balance account at index ${accountIndex}`);
     }
-    const balanceKey = ethers.keccak256(
-      ethers.AbiCoder.defaultAbiCoder().encode(['address', 'uint256'], [accountAddress, 0n]),
-    ) as `0x${string}`;
+    const balanceKey = computeReplayPrivateStateAddressMappingKey(accountAddress, 0n);
     await provider.send('anvil_setStorageAt', [manifest.contracts.l2AccountingVault, balanceKey, extraLiquidBalanceValue]);
   }
 
