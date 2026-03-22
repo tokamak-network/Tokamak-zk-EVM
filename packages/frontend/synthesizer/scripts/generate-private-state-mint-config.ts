@@ -14,6 +14,10 @@ import {
   mintInterfaces,
 } from '../examples/privateStateMint/utils.ts';
 import { computeReplayPrivateStateAddressMappingKey } from './private-state-hash.ts';
+import {
+  getPrivateStateVaultLiquidBalancesSlot,
+  loadPrivateStateStorageLayoutManifest,
+} from './private-state-storage-layout.ts';
 
 type ParticipantEntry = {
   addressL1: `0x${string}`;
@@ -283,6 +287,7 @@ const main = async () => {
 
   await ensurePrivateStateBootstrap();
   const manifest = await loadDeploymentManifest();
+  const storageLayoutManifest = await loadPrivateStateStorageLayoutManifest();
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const baseParticipants = buildParticipants(mnemonic, participantCount);
   const keyMaterial = deriveParticipantKeys(baseParticipants);
@@ -357,12 +362,13 @@ const main = async () => {
   const fundedAccounts = Array.from(new Set([senderIndex, ...extraBalanceAccounts]));
   const liquidBalanceStorageKeys: `0x${string}`[] = [];
   const liquidBalanceStorageValue = ethers.zeroPadValue(ethers.toBeHex(totalNoteValue), 32);
+  const liquidBalancesSlot = getPrivateStateVaultLiquidBalancesSlot(storageLayoutManifest);
   for (const accountIndex of fundedAccounts) {
     const accountAddress = participants[accountIndex]?.addressL1;
     if (!accountAddress) {
       throw new Error(`Could not resolve extra balance account at index ${accountIndex}`);
     }
-    const liquidBalanceStorageKey = computeReplayPrivateStateAddressMappingKey(accountAddress, 0n);
+    const liquidBalanceStorageKey = computeReplayPrivateStateAddressMappingKey(accountAddress, liquidBalancesSlot);
     liquidBalanceStorageKeys.push(liquidBalanceStorageKey);
     await provider.send('anvil_setStorageAt', [
       manifest.contracts.l2AccountingVault,
@@ -381,7 +387,7 @@ const main = async () => {
       {
         address: manifest.contracts.controller,
         userStorageSlots: [],
-        preAllocatedKeys: ['0x00'],
+        preAllocatedKeys: [],
       },
       {
         address: manifest.contracts.l2AccountingVault,

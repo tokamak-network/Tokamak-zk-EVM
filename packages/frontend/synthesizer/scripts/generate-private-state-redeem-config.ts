@@ -19,6 +19,11 @@ import {
   computeReplayPrivateStateMappingKey,
   computeReplayPrivateStateNoteCommitment,
 } from './private-state-hash.ts';
+import {
+  getPrivateStateControllerCommitmentExistsSlot,
+  getPrivateStateVaultLiquidBalancesSlot,
+  loadPrivateStateStorageLayoutManifest,
+} from './private-state-storage-layout.ts';
 
 type ParticipantEntry = {
   addressL1: `0x${string}`;
@@ -294,6 +299,9 @@ const main = async () => {
 
   await ensurePrivateStateBootstrap();
   const manifest = await loadDeploymentManifest();
+  const storageLayoutManifest = await loadPrivateStateStorageLayoutManifest();
+  const commitmentExistsSlot = getPrivateStateControllerCommitmentExistsSlot(storageLayoutManifest);
+  const liquidBalancesSlot = getPrivateStateVaultLiquidBalancesSlot(storageLayoutManifest);
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const baseParticipants = buildParticipants(mnemonic, participantCount);
   const keyMaterial = deriveParticipantKeys(baseParticipants);
@@ -353,7 +361,7 @@ const main = async () => {
     const commitment = computeReplayPrivateStateNoteCommitment(note);
     inputCommitments.push(commitment);
 
-    const noteRegistryKey = computeReplayPrivateStateMappingKey(commitment, 0);
+    const noteRegistryKey = computeReplayPrivateStateMappingKey(commitment, commitmentExistsSlot);
     await provider.send('anvil_setStorageAt', [manifest.contracts.controller, noteRegistryKey, truthyValue]);
   }
 
@@ -365,7 +373,7 @@ const main = async () => {
     } satisfies PrivateStateNote;
     const commitment = computeReplayPrivateStateNoteCommitment(dormantNote);
     inputCommitments.push(commitment);
-    const noteRegistryKey = computeReplayPrivateStateMappingKey(commitment, 0);
+    const noteRegistryKey = computeReplayPrivateStateMappingKey(commitment, commitmentExistsSlot);
     await provider.send('anvil_setStorageAt', [manifest.contracts.controller, noteRegistryKey, truthyValue]);
   }
 
@@ -374,20 +382,20 @@ const main = async () => {
     if (!accountAddress) {
       throw new Error(`Could not resolve extra balance account at index ${accountIndex}`);
     }
-    const balanceKey = computeReplayPrivateStateAddressMappingKey(accountAddress, 0n);
+    const balanceKey = computeReplayPrivateStateAddressMappingKey(accountAddress, liquidBalancesSlot);
     await provider.send('anvil_setStorageAt', [manifest.contracts.l2AccountingVault, balanceKey, extraLiquidBalanceValue]);
   }
 
   await provider.send('evm_mine', []);
   const blockNumber = await provider.getBlockNumber();
   const noteRegistryKeys = inputCommitments.map((commitment) =>
-    computeReplayPrivateStateMappingKey(commitment, 0));
+    computeReplayPrivateStateMappingKey(commitment, commitmentExistsSlot));
   config.blockNumber = blockNumber;
   config.storageConfigs = [
     {
       address: manifest.contracts.controller,
       userStorageSlots: [],
-      preAllocatedKeys: mergeUniqueHexValues(['0x00'], noteRegistryKeys),
+      preAllocatedKeys: mergeUniqueHexValues([], noteRegistryKeys),
     },
     {
       address: manifest.contracts.l2AccountingVault,

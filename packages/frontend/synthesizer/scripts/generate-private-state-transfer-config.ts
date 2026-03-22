@@ -21,6 +21,10 @@ import {
   computeReplayPrivateStateNoteCommitment,
   computeReplayPrivateStateNullifier,
 } from './private-state-hash.ts';
+import {
+  getPrivateStateControllerCommitmentExistsSlot,
+  loadPrivateStateStorageLayoutManifest,
+} from './private-state-storage-layout.ts';
 
 type ParticipantEntry = {
   addressL1: `0x${string}`;
@@ -321,6 +325,7 @@ const main = async () => {
 
   await ensurePrivateStateBootstrap();
   const manifest = await loadDeploymentManifest();
+  const storageLayoutManifest = await loadPrivateStateStorageLayoutManifest();
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const baseParticipants = buildParticipants(mnemonic, participantCount);
   const keyMaterial = deriveParticipantKeys(baseParticipants);
@@ -402,6 +407,7 @@ const main = async () => {
   config.calldata = buildPrivateStateTransferCalldata(config, keyMaterial);
 
   const truthyValue = ethers.zeroPadValue('0x01', 32);
+  const commitmentExistsSlot = getPrivateStateControllerCommitmentExistsSlot(storageLayoutManifest);
 
   const inputCommitments: `0x${string}`[] = [];
 
@@ -409,7 +415,7 @@ const main = async () => {
     const commitment = computeReplayPrivateStateNoteCommitment(note);
     inputCommitments.push(commitment);
 
-    const noteRegistryKey = computeReplayPrivateStateMappingKey(commitment, 0);
+    const noteRegistryKey = computeReplayPrivateStateMappingKey(commitment, commitmentExistsSlot);
     await provider.send('anvil_setStorageAt', [manifest.contracts.controller, noteRegistryKey, truthyValue]);
   }
 
@@ -421,7 +427,7 @@ const main = async () => {
     };
     const commitment = computeReplayPrivateStateNoteCommitment(dormantNote);
     inputCommitments.push(commitment);
-    const noteRegistryKey = computeReplayPrivateStateMappingKey(commitment, 0);
+    const noteRegistryKey = computeReplayPrivateStateMappingKey(commitment, commitmentExistsSlot);
     await provider.send('anvil_setStorageAt', [manifest.contracts.controller, noteRegistryKey, truthyValue]);
   }
 
@@ -429,14 +435,14 @@ const main = async () => {
   const blockNumber = await provider.getBlockNumber();
 
   const noteRegistryKeys = inputCommitments.map((commitment) =>
-    computeReplayPrivateStateMappingKey(commitment, 0));
+    computeReplayPrivateStateMappingKey(commitment, commitmentExistsSlot));
 
   config.blockNumber = blockNumber;
   config.storageConfigs = [
     {
       address: manifest.contracts.controller,
       userStorageSlots: [],
-      preAllocatedKeys: mergeUniqueHexValues(['0x00'], noteRegistryKeys),
+      preAllocatedKeys: mergeUniqueHexValues([], noteRegistryKeys),
     },
   ];
   config.callCodeAddresses = [manifest.contracts.controller];
