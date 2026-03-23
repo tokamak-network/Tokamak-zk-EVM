@@ -1,4 +1,4 @@
-# TokamakL2JS Channel transaction (via synthesizer binary)
+# TokamakL2JS Channel transaction (via dist binary or source CLI fallback)
 normalize_tokamak_ch_tx_args() {
   TOKAMAK_CH_TX_ARGS=()
 
@@ -47,23 +47,27 @@ normalize_tokamak_ch_tx_args() {
 }
 
 step_tokamak_ch_tx() {
-  local dist_dir synthesizer_binary
+  local dist_dir synthesizer_binary run_dir
+  local -a synth_command
   normalize_tokamak_ch_tx_args "$@"
   dist_dir="$(dist_dir_for_target "$(detect_target)")"
 
-  # Try dist/bin/synthesizer first, then FE_SYN/bin/synthesizer
+  # Prefer dist/bin/synthesizer. If it is absent, fall back to the source CLI.
   synthesizer_binary="$dist_dir/bin/synthesizer"
-  if [[ ! -f "$synthesizer_binary" ]]; then
-    synthesizer_binary="$FE_SYN/bin/synthesizer"
+  if [[ -f "$synthesizer_binary" ]]; then
+    synth_command=("$synthesizer_binary" tokamak-ch-tx)
+    run_dir="$(dirname "$synthesizer_binary")"
+    log "TokamakL2JS Tx: executing dist synthesizer binary..."
+  else
+    [[ -f "$FE_SYN/tsconfig.dev.json" ]] || { err "Synthesizer tsconfig not found: $FE_SYN/tsconfig.dev.json"; exit 1; }
+    [[ -f "$FE_SYN/src/interface/cli/index.ts" ]] || { err "Synthesizer CLI entrypoint not found: $FE_SYN/src/interface/cli/index.ts"; exit 1; }
+    synth_command=(node --import tsx src/interface/cli/index.ts tokamak-ch-tx)
+    run_dir="$FE_SYN"
+    log "TokamakL2JS Tx: executing synthesizer source CLI..."
   fi
-  [[ -f "$synthesizer_binary" ]] || { err "Synthesizer binary not found. Tried: $dist_dir/bin/synthesizer and $FE_SYN/bin/synthesizer"; echo "💡 Build the binary first: cd packages/frontend/synthesizer && ./build-binary.sh" >&2; exit 1; }
+  verbose "Command: ${synth_command[*]} ${TOKAMAK_CH_TX_ARGS[*]}"
 
-  log "TokamakL2JS Tx: executing synthesizer binary..."
-  verbose "Command: $synthesizer_binary tokamak-ch-tx ${TOKAMAK_CH_TX_ARGS[*]}"
-
-  local binary_dir
-  binary_dir="$(dirname "$synthesizer_binary")"
-  if (cd "$binary_dir" && "$synthesizer_binary" tokamak-ch-tx "${TOKAMAK_CH_TX_ARGS[@]}"); then
+  if (cd "$run_dir" && "${synth_command[@]}" "${TOKAMAK_CH_TX_ARGS[@]}"); then
     ok "TokamakL2JS Tx completed successfully"
   else
     err "TokamakL2JS Tx failed"

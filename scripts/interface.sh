@@ -3,7 +3,7 @@
 # Commands:
 #   --install <ALCHEMY_API_KEY|ALCHEMY_RPC_URL> [--bun]  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
 #   --synthesize <TX_CONFIG_JSON>  Run frontend synthesizer with config JSON and sync outputs into dist
-#   --synthesize --tokamak-ch-tx <INPUT_DIR|OPTIONS...>  Execute TokamakL2JS Channel transaction using synthesizer binary
+#   --synthesize --tokamak-ch-tx <INPUT_DIR|OPTIONS...>  Execute TokamakL2JS Channel transaction using dist synthesizer binary or source CLI fallback
 #   --preprocess [<SYNTH_OUTPUT_ZIP|DIR>]  Run backend preprocess step (dist only); optionally sync preprocess inputs into dist before running (DIR/ZIP must include permutation.json + instance.json)
 #   --prove [<SYNTH_OUTPUT_ZIP|DIR>] Run backend prove step and collect artifacts in dist (DIR/ZIP must include placementVariables.json + permutation.json + instance.json)
 #   --verify [<PROOF_ZIP|DIR>]   Verify a proof from dist outputs (default: dist; DIR/ZIP must include proof.json + preprocess.json + instance.json)
@@ -26,7 +26,7 @@ Commands:
       Run frontend synthesizer with an input transaction config JSON
 
   --synthesize --tokamak-ch-tx <INPUT_DIR|OPTIONS...>
-      Execute TokamakL2JS Channel transaction using synthesizer binary
+      Execute TokamakL2JS Channel transaction using dist synthesizer binary or source CLI fallback
       Supported inputs:
         <INPUT_DIR>      Directory containing previous_state_snapshot.json, transaction.json, block_info.json, and contract_codes.json
       Or provide:
@@ -35,7 +35,7 @@ Commands:
         --block-info      Path to block information JSON
         --contract-code   Path to contract code JSON
       File inputs are resolved to absolute paths before execution
-      For options, see: bin/synthesizer tokamak-ch-tx --help
+      For options, run: ./tokamak-cli --synthesize --tokamak-ch-tx --help
 
   --preprocess [<SYNTH_OUTPUT_ZIP|DIR>]
       Run backend preprocess stage (after --synthesize)
