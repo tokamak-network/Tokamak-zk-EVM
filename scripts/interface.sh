@@ -28,10 +28,11 @@ Commands:
   --synthesize --tokamak-ch-tx [OPTIONS...]
       Execute TokamakL2JS Channel transaction using synthesizer binary
       Required:
-        --previous-state  JSON string of previous state snapshot
-        --transaction     RLP string of transaction
-        --block-info      JSON string of block information
-        --contract-code   Hexadecimal string of contract code
+        --previous-state  Path to previous state snapshot JSON
+        --transaction     Path to transaction snapshot JSON
+        --block-info      Path to block information JSON
+        --contract-code   Path to contract code JSON
+      All required options accept file paths, not inline JSON or RLP strings
       For options, see: bin/synthesizer tokamak-ch-tx --help
 
   --preprocess [<SYNTH_OUTPUT_ZIP|DIR>]
