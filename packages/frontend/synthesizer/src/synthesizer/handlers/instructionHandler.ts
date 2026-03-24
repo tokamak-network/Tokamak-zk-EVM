@@ -579,8 +579,8 @@ export class InstructionHandler {
       refRootPt,
     )
     this.parent.addReservedVariableToBufferOut(
-      'TREE_INDEX',
-      indexPt,
+      'STORAGE_KEY',
+      keyPt,
       true,
       ` for address: ${address.toString()}`,
     );
