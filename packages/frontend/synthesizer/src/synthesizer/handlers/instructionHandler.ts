@@ -18,7 +18,7 @@ import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
 import { DataPtFactory, MemoryPt, StackPt } from '../dataStructure/index.ts';
 import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from '../../interface/qapCompiler/configuredTypes.ts';
 import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../interface/qapCompiler/importedConstants.ts';
-import { FUNCTION_INPUT_LENGTH } from 'tokamak-l2js';
+import { FUNCTION_INPUT_LENGTH, MAX_MT_LEAVES } from 'tokamak-l2js';
 import { ContextManager } from './stateManager.ts';
 import { IMTMerkleProof } from '@zk-kit/imt';
 
@@ -550,6 +550,9 @@ export class InstructionHandler {
       throw new Error('Debug: cachedMerkleProof is required for SSTORE main-step verification')
     }
     const indexPt = DataPtFactory.deepCopy(cachedMerkleProof.indexPt);
+    if (keyPt.value % BigInt(MAX_MT_LEAVES) !== indexPt.value) {
+      throw new Error('Mismatch between storage key modulo MAX_MT_LEAVES and cached tree index')
+    }
     const siblingPts = cachedMerkleProof.siblingPts.map((pts) => pts.map((pt) => DataPtFactory.deepCopy(pt)));
     const valueStored = bytesToBigInt(
       await this.cachedOpts.stateManager.getStorage(
