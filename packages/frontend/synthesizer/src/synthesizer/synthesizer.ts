@@ -304,7 +304,7 @@ export class Synthesizer implements SynthesizerInterface
       timestamp: this.getReservedVariableFromBuffer('TIMESTAMP').value,
 
       // To bypass checking EIPs
-      // baseFeePerGas: this.getReservedVariableFromBuffer('BASEFEE').value,
+      // baseFeePerGas: this.getReservedVariableFromBuffer('BASEFEE').valuef,
       baseFeePerGas: undefined,
     };
     
@@ -413,7 +413,7 @@ export class Synthesizer implements SynthesizerInterface
       throw new Error('Mismatch in storage values between MPT and EVM stack');
     }
     const valueStoredPt = this.addReservedVariableToBufferIn(
-      'IN_VALUE',
+      'STORAGE_READ',
       valueStored,
       true,
       ` at MT index: ${Number(indexPt.value)} of address: ${stepResult.address.toString()}`,

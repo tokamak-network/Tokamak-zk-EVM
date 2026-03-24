@@ -524,7 +524,7 @@ export class InstructionHandler {
     }
 
     const valuePt = this.parent.addReservedVariableToBufferIn(
-      'IN_VALUE',
+      'STORAGE_READ',
       valueStored,
       true,
       ` at MT index: ${Number(indexPt.value)} of address: ${address}`,
@@ -575,6 +575,12 @@ export class InstructionHandler {
       siblingPts,
       refRootPt,
     )
+    this.parent.addReservedVariableToBufferOut(
+      'STORAGE_WRITE',
+      symbolDataPt,
+      true,
+      ` at MT index: ${Number(indexPt.value)} of address: ${address.toString()}`,
+    );
     cachedRoots.push(DataPtFactory.deepCopy(refRootPt));
     this.parent.state.cachedRoots.set(addrBigint, cachedRoots);
     this.parent.state.cachedMerkleProof = null
