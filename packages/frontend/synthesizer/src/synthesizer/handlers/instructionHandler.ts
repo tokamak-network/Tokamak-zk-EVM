@@ -576,10 +576,16 @@ export class InstructionHandler {
       refRootPt,
     )
     this.parent.addReservedVariableToBufferOut(
+      'TREE_INDEX',
+      indexPt,
+      true,
+      ` for address: ${address.toString()}`,
+    );
+    this.parent.addReservedVariableToBufferOut(
       'STORAGE_WRITE',
       symbolDataPt,
       true,
-      ` at MT index: ${Number(indexPt.value)} of address: ${address.toString()}`,
+      ` for address: ${address.toString()}`,
     );
     cachedRoots.push(DataPtFactory.deepCopy(refRootPt));
     this.parent.state.cachedRoots.set(addrBigint, cachedRoots);
