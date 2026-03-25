@@ -4,6 +4,7 @@ import { program } from 'commander';
 import {
   createTokamakL2Common,
   createTokamakL2StateManagerFromStateSnapshot,
+  fromEdwardsToAddress,
   StateSnapshot,
   TokamakL2StateManagerSnapshotOpts,
   TxSnapshot,
@@ -14,13 +15,26 @@ import { createSynthesizer } from 'src/synthesizer/constructors.ts';
 import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
 import { createCircuitGenerator } from 'src/circuitGenerator/circuitGenerator.ts';
 import { PlacementVariables } from 'src/synthesizer/types/placements.ts';
-import { addHexPrefix, createAddressFromString } from '@ethereumjs/util';
+import { addHexPrefix, createAccount, createAddressFromString, hexToBytes } from '@ethereumjs/util';
 import { readJson, writeSnapshotJson } from './utils/node.ts';
 import { writeCircuitJson } from '../node/jsonWriter.ts';
 import { SynthesizerBlockInfo } from '../rpc/index.ts';
 import { Permutation, PublicInstance } from 'src/circuitGenerator/types/types.ts';
 
 program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthesizer').version('0.9.0');
+
+async function seedSenderNonceFromTransactionSnapshot(
+  stateManager: Awaited<ReturnType<typeof createTokamakL2StateManagerFromStateSnapshot>>,
+  transactionSnapshot: TxSnapshot,
+) {
+  const senderPubKey = hexToBytes(addHexPrefix(transactionSnapshot.senderPubKey));
+  const senderAddress = createAddressFromString(fromEdwardsToAddress(senderPubKey).toString());
+  const senderAccount = createAccount({
+    nonce: BigInt(transactionSnapshot.nonce),
+    balance: 0n,
+  });
+  await stateManager.putAccount(senderAddress, senderAccount);
+}
 
 program
   .command('tokamak-ch-tx')
@@ -51,6 +65,7 @@ program
         })),
       }
       const stateManager = await createTokamakL2StateManagerFromStateSnapshot(previousState, stateManagerOpts);
+      await seedSenderNonceFromTransactionSnapshot(stateManager, transactionSnapshot);
 
       const blockInfo = readJson<SynthesizerBlockInfo>(options.blockInfo);
 
