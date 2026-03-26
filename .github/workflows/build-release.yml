@@ -189,10 +189,6 @@ jobs:
             npm install -g tsx
           fi
 
-      - name: Restore TokamakL2JS dependency link
-        run: |
-          node packages/frontend/synthesizer/scripts/link-submodule-node-modules.mjs
-
       - name: Run synthesizer tests
         env:
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
