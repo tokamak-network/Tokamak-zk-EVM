@@ -150,7 +150,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     needs: build-and-setup
-    if: (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'dev')) || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'dev')) || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'))
 
     steps:
       - name: Checkout code
@@ -217,7 +217,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: [build-and-setup, evm-compat-test]
     timeout-minutes: 30
-    if: (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'dev')) || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'dev')) || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'))
 
     steps:
       - name: Checkout code
