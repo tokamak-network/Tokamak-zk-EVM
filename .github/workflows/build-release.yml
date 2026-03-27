@@ -73,14 +73,7 @@ jobs:
           chmod +x ./scripts/tokamak-cli-core
 
       - name: Build and setup environment
-        env:
-          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
         run: |
-          if [ -z "$ALCHEMY_API_KEY" ]; then
-            echo "❌ Missing required secret: ALCHEMY_API_KEY"
-            exit 1
-          fi
-
           # Fix file permissions and line endings
           echo "🔧 Fixing file permissions and line endings..."
           find . -name "*.sh" -exec chmod +x {} \;
@@ -97,7 +90,7 @@ jobs:
 
           # Run install step (this builds all binaries)
           echo "🔧 Running tokamak-cli --install (building binaries)..."
-          ./tokamak-cli --install "$ALCHEMY_API_KEY" --bun
+          ./tokamak-cli --install --bun
 
       - name: Validate backend setup outputs
         run: |

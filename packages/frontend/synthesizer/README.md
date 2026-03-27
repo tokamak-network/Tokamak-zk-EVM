@@ -42,10 +42,10 @@ npm install
 - Keep Synthesizer call sites importing from `tokamak-l2js` instead of introducing package-local wrapper modules.
 
 ### Inputs
-- Alchemy API key: create an `./.env` file:
+- RPC URL: create an `./.env` file:
 ```bash
-ALCHEMY_API_KEY='<your alchemy api key>'
-# Example: ALCHEMY_API_KEY='e_QJdxxxxxxxxxxisG_xQ'
+RPC_URL='<your rpc url>'
+# Example: RPC_URL='https://eth-sepolia.g.alchemy.com/v2/your-key'
 ```
 - Transaction batch configuration in `examples/L2TONTransfer/input.json`
 - Subcircuit library: install and run [qap-compiler](../qap-compiler/README.md) (no need to copy files into this package)

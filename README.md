@@ -11,12 +11,12 @@ If you are interested in converting Ethereum transactions to ZKP, check out bran
 This section describes how to use the **main CLI** named **`tokamak-cli`**.
 
 ## Prerequisites
-### Alchemy API key
-1. Create an Alchemy account and log in to the dashboard (https://dashboard.alchemy.com/).
-2. Create a new app/project for **Ethereum Mainnet**.
-3. Copy the **API Key** (the short token).  
-   You will pass this key to the CLI as `--install <API_KEY>`.
-> Note: You can paste the full RPC URL obtained from any provider other than Alchemy.
+### RPC URL
+1. Prepare an Ethereum RPC URL for the network you want to synthesize against.
+2. Set it once in the CLI:
+   ```bash
+   ./tokamak-cli --set-rpc <FULL_RPC_URL>
+   ```
 
 ### For Windows users
 1. Install Docker Desktop for Windows – https://docs.docker.com/desktop/install/windows-install/
@@ -101,28 +101,33 @@ To avoid compatibility/permission issues on the main script itself:
 
 From the repository root:
 
-1) **Install** (Install deps, compile circuits, write RPC URL using your **Alchemy API key**, run trusted setup, then run OS-specific backend packaging)
+1) **Set RPC** (save the RPC endpoint used by the synthesizer)
 ```bash
-./tokamak-cli --install <YOUR_ALCHEMY_API_KEY | FULL_RPC_URL>
+./tokamak-cli --set-rpc <FULL_RPC_URL>
 ```
 
-2) **Synthesize** (prepare inputs using a transaction config JSON)
+2) **Install** (install deps, compile circuits, run trusted setup, then run OS-specific backend packaging)
+```bash
+./tokamak-cli --install
+```
+
+3) **Synthesize** (prepare inputs using a transaction config JSON)
 ```bash
 ./tokamak-cli --synthesize <PATH_TO_CONFIG_JSON>
 ```
 > A template for the config JSON lives in `synthesizer-input-template/`.
 
-3) **Preprocess** (backend preprocess stage)
+4) **Preprocess** (backend preprocess stage)
 ```bash
 ./tokamak-cli --preprocess
 ```
 
-4) **Prove** (backend prove stage; outputs stay under `dist/<platform>/resource/prove/output`)
+5) **Prove** (backend prove stage; outputs stay under `dist/<platform>/resource/prove/output`)
 ```bash
 ./tokamak-cli --prove
 ```
 
-5) **Verify** (verify proof artifacts in dist; optional resource overlay path)
+6) **Verify** (verify proof artifacts in dist; optional resource overlay path)
 ```bash
 # Uses dist/<platform>/resource by default
 ./tokamak-cli --verify
@@ -131,15 +136,15 @@ From the repository root:
 ./tokamak-cli --verify <PATH_WITH_RESOURCE>
 ```
 
-6) **Extract proof bundle** (optional; zip key artifacts)
+7) **Extract proof bundle** (optional; zip key artifacts)
 ```bash
 ./tokamak-cli --extract-proof <OUTPUT_ZIP_PATH>
 ```
 
 ## Disclaimer
 - The Tokamak‑zk‑EVM project and its maintainers are **not responsible for any leakage or misuse of your API keys or credentials**.
-- For local testing, use a **free, non‑sensitive Alchemy API key**. Do **not** use production or paid keys, or keys tied to sensitive data.
-- During `--install`, the CLI writes your RPC endpoint to `packages/frontend/synthesizer/.env`. We **recommend deleting `.env` after use** (or rotating the key) and ensuring it is **not committed** to version control.
+- For local testing, use a **non-sensitive RPC endpoint**. Do **not** use production credentials or endpoints tied to sensitive data.
+- During `--set-rpc`, the CLI writes your RPC endpoint to `packages/frontend/synthesizer/.env`. We recommend deleting `.env` after use and ensuring it is not committed to version control.
 
 ## Package Composition
 ![Tokamak-zk-EVM Flow Chart](.github/assets/flowchart.png)

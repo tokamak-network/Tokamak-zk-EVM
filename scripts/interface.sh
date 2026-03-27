@@ -1,7 +1,8 @@
 #   - Before executing any internal shell script, this CLI normalizes line endings via dos2unix
 #     and ensures the script is executable, to avoid Windows CRLF issues.
 # Commands:
-#   --install <ALCHEMY_API_KEY|ALCHEMY_RPC_URL> [--bun]  Install frontend deps, run backend packaging, compile qap-compiler, write synthesizer/.env
+#   --set-rpc <RPC_URL>          Write synthesizer RPC configuration to .env
+#   --install [--bun]            Install frontend deps, run backend packaging, and compile qap-compiler
 #   --synthesize <TX_CONFIG_JSON>  Run frontend synthesizer with config JSON and sync outputs into dist
 #   --synthesize --tokamak-ch-tx <INPUT_DIR|OPTIONS...>  Execute TokamakL2JS Channel transaction using dist synthesizer binary or source CLI fallback
 #   --preprocess [<SYNTH_OUTPUT_ZIP|DIR>]  Run backend preprocess step (dist only); optionally sync preprocess inputs into dist before running (DIR/ZIP must include permutation.json + instance.json)
@@ -19,7 +20,10 @@ print_usage() {
   cat <<'USAGE'
 
 Commands:
-  --install <ALCHEMY_API_KEY|ALCHEMY_RPC_URL> [--bun]
+  --set-rpc <RPC_URL>
+      Write synthesizer RPC configuration to packages/frontend/synthesizer/.env
+
+  --install [--bun]
       Install and setup Tokamak ZKP
 
   --synthesize <TX_CONFIG_JSON>
@@ -75,9 +79,8 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --install)
-      CMD="install"; ARG1="${2:-}";
-      [[ -n "$ARG1" ]] || { err "--install requires <ALCHEMY_API_KEY|ALCHEMY_RPC_URL>"; echo "💡 Get an API key from https://dashboard.alchemy.com/" >&2; exit 1; }
-      shift 2
+      CMD="install"
+      shift
       while [[ $# -gt 0 ]]; do
         case "$1" in
           --bun)
@@ -94,6 +97,12 @@ while [[ $# -gt 0 ]]; do
             ;;
         esac
       done
+      break
+      ;;
+    --set-rpc)
+      CMD="set_rpc"; ARG1="${2:-}";
+      [[ -n "$ARG1" ]] || { err "--set-rpc requires <RPC_URL>"; exit 1; }
+      [[ -z "${3:-}" ]] || { err "Too many arguments for --set-rpc"; exit 1; }
       break
       ;;
     --synthesize)
@@ -156,7 +165,8 @@ done
 
 # Dispatch
 case "$CMD" in
-  install) step_install "$ARG1" ;;
+  set_rpc) step_set_rpc "$ARG1" ;;
+  install) step_install ;;
   synthesize) step_synthesize "$ARG1" ;;
   preprocess) step_preprocess "${ARG1:-}" ;;
   prove) step_prove "${ARG1:-}" ;;
