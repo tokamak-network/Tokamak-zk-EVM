@@ -1,5 +1,5 @@
 
-import { ISynthesizerProvider, MemoryPts, synthesizerOpcodeByName, SynthesizerOpts, SynthesizerSupportedArithOpcodes, SynthesizerSupportedBlkInfOpcodes, SynthesizerSupportedEnvInfOpcodes, SynthesizerSupportedSysFlowOpcodes, VARIABLE_DESCRIPTION, type DataPt, type ReservedVariable, type SynthesizerSupportedOpcodes } from '../types/index.ts';
+import { ISynthesizerProvider, MemoryPts, synthesizerOpcodeByName, SynthesizerOpts, SynthesizerSupportedArithOpcodes, SynthesizerSupportedBlkInfOpcodes, SynthesizerSupportedEnvInfOpcodes, SynthesizerSupportedLogOpcodes, SynthesizerSupportedSysFlowOpcodes, VARIABLE_DESCRIPTION, type DataPt, type ReservedVariable, type SynthesizerSupportedOpcodes } from '../types/index.ts';
 
 import {
   addHexPrefix,
@@ -947,7 +947,7 @@ export class InstructionHandler {
     opts: HandlerOpts,
   ): void {
     const inPts = this._popStackPtAndCheckInputConsistency(opts.stackPt, ins)
-    const op = opts.op
+    const op = opts.op as SynthesizerSupportedLogOpcodes
     const [memOffset, dataLength] = ins
     const topicPts = inPts.slice(2)
     const nTopics = opts.prevStepResult.opcode.code - 0xa0
@@ -960,31 +960,29 @@ export class InstructionHandler {
         'LOG_TOPIC',
         topicPt,
         true,
-        ` for ${op} instruction at PC ${opts.pc} of code address ${opts.codeAddress} (depth: ${opts.callDepth}, topic: ${index})`,
+        ` for ${op} instruction, topic index: ${index})`,
       )
     }
 
-    if (dataLength !== BIGINT_0) {
-      const { chunkDataPts, dataRecovered } = this._chunkMemory(
-        opts.memoryPt,
-        memOffset,
-        dataLength,
-      )
-      const expectedLogData = bytesToBigInt(
-        opts.prevStepResult.memory.subarray(Number(memOffset), Number(memOffset) + Number(dataLength)),
-      )
-      if (dataRecovered !== expectedLogData) {
-        throw new Error(`Synthesizer: ${op}: Log data mismatch`)
-      }
+    const { chunkDataPts, dataRecovered } = this._chunkMemory(
+      opts.memoryPt,
+      memOffset,
+      dataLength,
+    )
+    const expectedLogData = bytesToBigInt(
+      opts.prevStepResult.memory.subarray(Number(memOffset), Number(memOffset) + Number(dataLength)),
+    )
+    if (dataRecovered !== expectedLogData) {
+      throw new Error(`Synthesizer: ${op}: Log data mismatch`)
+    }
 
-      for (const [index, chunkDataPt] of chunkDataPts.entries()) {
-        this.parent.addReservedVariableToBufferOut(
-          'LOG_VALUE',
-          chunkDataPt,
-          true,
-          ` for ${op} instruction at PC ${opts.pc} of code address ${opts.codeAddress} (depth: ${opts.callDepth}, chunk: ${index + 1}/${chunkDataPts.length})`,
-        )
-      }
+    for (const [index, chunkDataPt] of chunkDataPts.entries()) {
+      this.parent.addReservedVariableToBufferOut(
+        'LOG_VALUE',
+        chunkDataPt,
+        true,
+        ` for ${op} instruction at PC ${opts.pc} of code address ${opts.codeAddress} (depth: ${opts.callDepth}, chunk: ${index + 1}/${chunkDataPts.length})`,
+      )
     }
 
     if (out === null) {
