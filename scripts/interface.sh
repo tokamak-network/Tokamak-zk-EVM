@@ -1,9 +1,8 @@
 #   - Before executing any internal shell script, this CLI normalizes line endings via dos2unix
 #     and ensures the script is executable, to avoid Windows CRLF issues.
 # Commands:
-#   --set-rpc <RPC_URL>          Write synthesizer RPC configuration to .env
 #   --install [--bun]            Install frontend deps, run backend packaging, and compile qap-compiler
-#   --synthesize <TX_CONFIG_JSON>  Run frontend synthesizer with config JSON and sync outputs into dist
+#   --synthesize <TX_CONFIG_JSON> [--alchemy-key <KEY>]  Run frontend synthesizer with config JSON and sync outputs into dist
 #   --synthesize --tokamak-ch-tx <INPUT_DIR|OPTIONS...>  Execute TokamakL2JS Channel transaction using dist synthesizer binary or source CLI fallback
 #   --preprocess [<SYNTH_OUTPUT_ZIP|DIR>]  Run backend preprocess step (dist only); optionally sync preprocess inputs into dist before running (DIR/ZIP must include permutation.json + instance.json)
 #   --prove [<SYNTH_OUTPUT_ZIP|DIR>] Run backend prove step and collect artifacts in dist (DIR/ZIP must include placementVariables.json + permutation.json + instance.json)
@@ -20,14 +19,13 @@ print_usage() {
   cat <<'USAGE'
 
 Commands:
-  --set-rpc <RPC_URL>
-      Write synthesizer RPC configuration to packages/frontend/synthesizer/.env
-
   --install [--bun]
       Install and setup Tokamak ZKP
 
-  --synthesize <TX_CONFIG_JSON>
+  --synthesize <TX_CONFIG_JSON> [--alchemy-key <KEY>]
       Run frontend synthesizer with an input transaction config JSON
+      If --alchemy-key is provided, it overwrites packages/frontend/synthesizer/.env
+      Without --alchemy-key, packages/frontend/synthesizer/.env must already contain ALCHEMY_API_KEY
 
   --synthesize --tokamak-ch-tx <INPUT_DIR|OPTIONS...>
       Execute TokamakL2JS Channel transaction using dist synthesizer binary or source CLI fallback
@@ -99,12 +97,6 @@ while [[ $# -gt 0 ]]; do
       done
       break
       ;;
-    --set-rpc)
-      CMD="set_rpc"; ARG1="${2:-}";
-      [[ -n "$ARG1" ]] || { err "--set-rpc requires <RPC_URL>"; exit 1; }
-      [[ -z "${3:-}" ]] || { err "Too many arguments for --set-rpc"; exit 1; }
-      break
-      ;;
     --synthesize)
       if [[ "${2:-}" == "--tokamak-ch-tx" ]]; then
         CMD="tokamak_ch_tx"
@@ -118,7 +110,24 @@ while [[ $# -gt 0 ]]; do
       fi
       CMD="synthesize"; ARG1="${2:-}";
       [[ -n "$ARG1" ]] || { err "--synthesize requires <TX_CONFIG_JSON>"; echo "💡 Provide the path to your transaction config JSON" >&2; exit 1; }
-      [[ -z "${3:-}" ]] || { err "Too many arguments for --synthesize"; exit 1; }
+      shift 2
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --alchemy-key)
+            SYNTHESIZE_ALCHEMY_KEY="${2:-}"
+            [[ -n "$SYNTHESIZE_ALCHEMY_KEY" ]] || { err "--alchemy-key requires <KEY>"; exit 1; }
+            shift 2
+            ;;
+          --verbose)
+            VERBOSE=true
+            shift
+            ;;
+          *)
+            err "Unknown option for --synthesize: $1"
+            exit 1
+            ;;
+        esac
+      done
       break
       ;;
     --preprocess)
@@ -165,9 +174,8 @@ done
 
 # Dispatch
 case "$CMD" in
-  set_rpc) step_set_rpc "$ARG1" ;;
   install) step_install ;;
-  synthesize) step_synthesize "$ARG1" ;;
+  synthesize) step_synthesize "$ARG1" "${SYNTHESIZE_ALCHEMY_KEY:-}" ;;
   preprocess) step_preprocess "${ARG1:-}" ;;
   prove) step_prove "${ARG1:-}" ;;
   verify) step_verify "${ARG1:-}" ;;

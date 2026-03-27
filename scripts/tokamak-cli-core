@@ -538,64 +538,53 @@ run_synthesizer() {
   [[ -f "$config_path" ]] || { err "Synthesizer config not found: $config_path"; exit 1; }
 
   pushd "$FE_SYN" >/dev/null
-  if [[ -f .env ]] || [[ -n "${RPC_URL:-}" ]] || [[ -n "${ALCHEMY_API_KEY:-}" ]]; then
-    verbose "Using RPC configuration from synthesizer/.env or process environment"
+  if synthesizer_env_has_alchemy_key; then
+    verbose "Using ALCHEMY_API_KEY from synthesizer/.env"
     npm run erc20-transfer-l2 "$config_path"
   else
-    err "RPC is not configured. Run --set-rpc <RPC_URL> first or set RPC_URL"
+    err "ALCHEMY_API_KEY is not configured. Provide --alchemy-key to --synthesize or write it to $FE_SYN/.env"
     exit 1
   fi
   popd >/dev/null
 }
 
-write_synthesizer_rpc_env() {
-  local rpc_url="$1"
-  local env_file="$FE_SYN/.env"
-  local tmp_file wrote_rpc=false line
+synthesizer_env_has_alchemy_key() {
+  [[ -f "$FE_SYN/.env" ]] || return 1
+  grep -Eq "^[[:space:]]*ALCHEMY_API_KEY=['\"]?[^'\"]+['\"]?[[:space:]]*$" "$FE_SYN/.env"
+}
 
-  tmp_file="$(mktemp -t tokamak_rpc_env.XXXXXX)"
+write_synthesizer_alchemy_env() {
+  local alchemy_key="$1"
+  local env_file="$FE_SYN/.env"
+  local tmp_file wrote_key=false line
+
+  tmp_file="$(mktemp -t tokamak_alchemy_env.XXXXXX)"
   if [[ -f "$env_file" ]]; then
     while IFS= read -r line || [[ -n "$line" ]]; do
-      if [[ "$line" =~ ^[[:space:]]*RPC_URL= ]]; then
-        if [[ "$wrote_rpc" == false ]]; then
-          printf "RPC_URL='%s'\n" "$rpc_url" >> "$tmp_file"
-          wrote_rpc=true
+      if [[ "$line" =~ ^[[:space:]]*ALCHEMY_API_KEY= ]]; then
+        if [[ "$wrote_key" == false ]]; then
+          printf "ALCHEMY_API_KEY='%s'\n" "$alchemy_key" >> "$tmp_file"
+          wrote_key=true
         fi
         continue
       fi
-      if [[ "$line" =~ ^[[:space:]]*ALCHEMY_API_KEY= ]]; then
+      if [[ "$line" =~ ^[[:space:]]*RPC_URL= ]]; then
         continue
       fi
       printf '%s\n' "$line" >> "$tmp_file"
     done < "$env_file"
   fi
 
-  if [[ "$wrote_rpc" == false ]]; then
-    printf "RPC_URL='%s'\n" "$rpc_url" >> "$tmp_file"
+  if [[ "$wrote_key" == false ]]; then
+    printf "ALCHEMY_API_KEY='%s'\n" "$alchemy_key" >> "$tmp_file"
   fi
 
   mv "$tmp_file" "$env_file"
 }
 
-step_set_rpc() {
-  local rpc_url="${1:-}"
-  [[ -n "$rpc_url" ]] || { err "--set-rpc requires <RPC_URL>"; exit 1; }
-  case "$rpc_url" in
-    http://*|https://*) ;;
-    *)
-      err "--set-rpc requires an http:// or https:// RPC URL"
-      exit 1
-      ;;
-  esac
-
-  log "Set RPC: writing synthesizer .env"
-  write_synthesizer_rpc_env "$rpc_url"
-  ok "RPC URL saved to $FE_SYN/.env"
-}
-
 step_install() {
   if [[ $# -gt 0 ]] && [[ -n "${1:-}" ]]; then
-    err "--install does not accept a positional argument. Use --set-rpc <RPC_URL> instead"
+    err "--install does not accept a positional argument"
     exit 1
   fi
 
@@ -665,11 +654,22 @@ step_install() {
 
 step_synthesize() {
   local config_path_raw="${1:-}"
+  local alchemy_key="${2:-}"
   [[ -n "$config_path_raw" ]] || { err "--synthesize requires <TX_CONFIG_JSON_PATH>"; exit 1; }
 
   local config_path
   config_path="$(abs_path_from_root "$config_path_raw")"
   [[ -f "$config_path" ]] || { err "Config JSON not found: $config_path_raw"; exit 1; }
+
+  if [[ -n "$alchemy_key" ]]; then
+    log "Synthesize: writing ALCHEMY_API_KEY to synthesizer .env"
+    write_synthesizer_alchemy_env "$alchemy_key"
+  fi
+
+  if ! synthesizer_env_has_alchemy_key; then
+    err "ALCHEMY_API_KEY is not configured. Provide --alchemy-key or write ALCHEMY_API_KEY to $FE_SYN/.env"
+    exit 1
+  fi
 
   local target dist_dir proof_output synth_config_dest
   target="$(detect_target)"
@@ -1018,11 +1018,11 @@ step_doctor() {
     verbose "Installation: complete (setup artifacts found)"
   fi
 
-  if [[ -f "$FE_SYN/.env" ]] || [[ -n "${RPC_URL:-}" ]] || [[ -n "${ALCHEMY_API_KEY:-}" ]]; then
-    verbose "RPC configuration: present"
+  if synthesizer_env_has_alchemy_key; then
+    verbose "Alchemy key configuration: present"
   else
-    err "RPC is not configured - run --set-rpc <RPC_URL> before synthesis"
-    echo "💡 Run: ./tokamak-cli --set-rpc <YOUR_RPC_URL>" >&2
+    err "ALCHEMY_API_KEY is not configured for synthesis"
+    echo "💡 Run: ./tokamak-cli --synthesize <CONFIG_JSON> --alchemy-key <YOUR_ALCHEMY_API_KEY>" >&2
     all_good=false
   fi
 
