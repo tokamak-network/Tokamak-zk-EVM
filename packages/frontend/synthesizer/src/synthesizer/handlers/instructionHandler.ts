@@ -960,7 +960,7 @@ export class InstructionHandler {
         'LOG_TOPIC',
         topicPt,
         true,
-        ` for ${op} instruction, topic index: ${index})`,
+        ` for ${op} instruction, topic index: ${index}`,
       )
     }
 
