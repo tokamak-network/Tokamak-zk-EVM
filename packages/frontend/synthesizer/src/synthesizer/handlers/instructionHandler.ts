@@ -403,12 +403,17 @@ export class InstructionHandler {
     this.synthesizerHandlers.set(
       synthesizerOpcodeByName['LOG0'],
       (context, stepResult) => {
-        const opts = this._createHandlerOpts('LOG0', context);
-        const nIns = opts.prevStepResult.opcode.code - 0x9f + 1
-        opts.stackPt.popN(nIns)
-        if (opts.stackPt.peek(1)[0].value !== stepResult.stack[0]) {
-          throw new Error(`Synthesizer: LOG${nIns - 2}: Output data mismatch`)
+        const prevStepResult = context.prevInterpreterStep;
+        if (prevStepResult === null) {
+          throw new Error('Debug: previous interpreter step is not set')
         }
+        const nTopics = prevStepResult.opcode.code - 0xa0
+        const opName = `LOG${nTopics}` as SynthesizerSupportedOpcodes
+        const out: bigint | null = stepResult.stack[0] ?? null
+        const opts = this._createHandlerOpts(opName, context);
+        const ins = opts.prevStepResult.stack.slice(0, nTopics + 2)
+
+        this.handleLoggers(ins, out, opts)
       },
     )
     const logFn = this.synthesizerHandlers.get(synthesizerOpcodeByName['LOG0'])!
@@ -932,6 +937,63 @@ export class InstructionHandler {
     } else {
       if (stackPt.peek(1)[0].value !== out) {
         throw new Error(`Synthesizer: ${op}: Output data mismatch`);
+      }
+    }
+  }
+
+  public handleLoggers(
+    ins: bigint[],
+    out: bigint | null,
+    opts: HandlerOpts,
+  ): void {
+    const inPts = this._popStackPtAndCheckInputConsistency(opts.stackPt, ins)
+    const op = opts.op
+    const [memOffset, dataLength] = ins
+    const topicPts = inPts.slice(2)
+    const nTopics = opts.prevStepResult.opcode.code - 0xa0
+    if (topicPts.length !== nTopics) {
+      throw new Error(`Synthesizer: ${op}: Topic count mismatch`)
+    }
+
+    for (const [index, topicPt] of topicPts.entries()) {
+      this.parent.addReservedVariableToBufferOut(
+        'LOG_TOPIC',
+        topicPt,
+        true,
+        ` for ${op} instruction at PC ${opts.pc} of code address ${opts.codeAddress} (depth: ${opts.callDepth}, topic: ${index})`,
+      )
+    }
+
+    if (dataLength !== BIGINT_0) {
+      const { chunkDataPts, dataRecovered } = this._chunkMemory(
+        opts.memoryPt,
+        memOffset,
+        dataLength,
+      )
+      const expectedLogData = bytesToBigInt(
+        opts.prevStepResult.memory.subarray(Number(memOffset), Number(memOffset) + Number(dataLength)),
+      )
+      if (dataRecovered !== expectedLogData) {
+        throw new Error(`Synthesizer: ${op}: Log data mismatch`)
+      }
+
+      for (const [index, chunkDataPt] of chunkDataPts.entries()) {
+        this.parent.addReservedVariableToBufferOut(
+          'LOG_VALUE',
+          chunkDataPt,
+          true,
+          ` for ${op} instruction at PC ${opts.pc} of code address ${opts.codeAddress} (depth: ${opts.callDepth}, chunk: ${index + 1}/${chunkDataPts.length})`,
+        )
+      }
+    }
+
+    if (out === null) {
+      if (opts.stackPt.length !== 0) {
+        throw new Error(`Synthesizer: ${op}: Output data mismatch`)
+      }
+    } else {
+      if (opts.stackPt.peek(1)[0].value !== out) {
+        throw new Error(`Synthesizer: ${op}: Output data mismatch`)
       }
     }
   }
