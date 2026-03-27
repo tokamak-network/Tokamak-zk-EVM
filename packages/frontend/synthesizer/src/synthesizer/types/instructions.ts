@@ -68,11 +68,7 @@ export type SynthesizerSupportedOpcodes =
   | 'SWAP14'
   | 'SWAP15'
   | 'SWAP16'
-  | 'LOG0'
-  | 'LOG1'
-  | 'LOG2'
-  | 'LOG3'
-  | 'LOG4'
+  | SynthesizerSupportedLogOpcodes
 
 export type SynthesizerSupportedArithOpcodes =
   | 'ADD'
@@ -160,6 +156,13 @@ export type SynthesizerSupportedSysFlowOpcodes =
   | 'REVERT'
   // | 'INVALID'
   // | 'SELFDESTRUCT'
+
+  export type SynthesizerSupportedLogOpcodes = 
+  | 'LOG0'
+  | 'LOG1'
+  | 'LOG2'
+  | 'LOG3'
+  | 'LOG4'
 
 export const synthesizerOpcodeList: Record<number, SynthesizerSupportedOpcodes> = {
   0x00: 'STOP',

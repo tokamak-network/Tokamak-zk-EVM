@@ -1,5 +1,5 @@
 
-import { ISynthesizerProvider, MemoryPts, synthesizerOpcodeByName, SynthesizerOpts, SynthesizerSupportedArithOpcodes, SynthesizerSupportedBlkInfOpcodes, SynthesizerSupportedEnvInfOpcodes, SynthesizerSupportedSysFlowOpcodes, VARIABLE_DESCRIPTION, type DataPt, type ReservedVariable, type SynthesizerSupportedOpcodes } from '../types/index.ts';
+import { ISynthesizerProvider, MemoryPts, synthesizerOpcodeByName, SynthesizerOpts, SynthesizerSupportedArithOpcodes, SynthesizerSupportedBlkInfOpcodes, SynthesizerSupportedEnvInfOpcodes, SynthesizerSupportedLogOpcodes, SynthesizerSupportedSysFlowOpcodes, VARIABLE_DESCRIPTION, type DataPt, type ReservedVariable, type SynthesizerSupportedOpcodes } from '../types/index.ts';
 
 import {
   addHexPrefix,
@@ -255,6 +255,20 @@ export class InstructionHandler {
         },
       )
     }
+    const __createLoggerHandlers = (opName: SynthesizerSupportedLogOpcodes): void => {
+      const op: number = synthesizerOpcodeByName[opName]
+      this.synthesizerHandlers.set(
+        op,
+        (context, stepResult) => {
+          const out: bigint | null = stepResult.stack[0] ?? null
+          const opts = this._createHandlerOpts(opName, context)
+          const nTopics = opts.prevStepResult.opcode.code - 0xa0
+          const ins = opts.prevStepResult.stack.slice(0, nTopics + 2)
+
+          this.handleLoggers(ins, out, opts)
+        },
+      )
+    }
 
     // Start creating handlers
     this.synthesizerHandlers.set(synthesizerOpcodeByName['STOP'], function(){})
@@ -343,6 +357,13 @@ export class InstructionHandler {
       // , 'INVALID'
       // , 'SELFDESTRUCT'
     ] satisfies SynthesizerSupportedOpcodes[]).forEach(__createSysFlowHandlers)
+    ;([
+      'LOG0',
+      'LOG1',
+      'LOG2',
+      'LOG3',
+      'LOG4',
+    ] satisfies SynthesizerSupportedOpcodes[]).forEach(__createLoggerHandlers)
 
     // PUSHs
     this.synthesizerHandlers.set(
@@ -399,22 +420,6 @@ export class InstructionHandler {
       this.synthesizerHandlers.set(i, swapFn)
     }
 
-    // LOGs
-    this.synthesizerHandlers.set(
-      synthesizerOpcodeByName['LOG0'],
-      (context, stepResult) => {
-        const opts = this._createHandlerOpts('LOG0', context);
-        const nIns = opts.prevStepResult.opcode.code - 0x9f + 1
-        opts.stackPt.popN(nIns)
-        if (opts.stackPt.peek(1)[0].value !== stepResult.stack[0]) {
-          throw new Error(`Synthesizer: LOG${nIns - 2}: Output data mismatch`)
-        }
-      },
-    )
-    const logFn = this.synthesizerHandlers.get(synthesizerOpcodeByName['LOG0'])!
-    for (let i = 0xa1; i <= 0xa4; i++) {
-      this.synthesizerHandlers.set(i, logFn)
-    }
   }
 
   getOriginAddressPt(): DataPt {
@@ -932,6 +937,61 @@ export class InstructionHandler {
     } else {
       if (stackPt.peek(1)[0].value !== out) {
         throw new Error(`Synthesizer: ${op}: Output data mismatch`);
+      }
+    }
+  }
+
+  public handleLoggers(
+    ins: bigint[],
+    out: bigint | null,
+    opts: HandlerOpts,
+  ): void {
+    const inPts = this._popStackPtAndCheckInputConsistency(opts.stackPt, ins)
+    const op = opts.op as SynthesizerSupportedLogOpcodes
+    const [memOffset, dataLength] = ins
+    const topicPts = inPts.slice(2)
+    const nTopics = opts.prevStepResult.opcode.code - 0xa0
+    if (topicPts.length !== nTopics) {
+      throw new Error(`Synthesizer: ${op}: Topic count mismatch`)
+    }
+
+    for (const [index, topicPt] of topicPts.entries()) {
+      this.parent.addReservedVariableToBufferOut(
+        'LOG_TOPIC',
+        topicPt,
+        true,
+        ` for ${op} instruction, topic index: ${index}`,
+      )
+    }
+
+    const { chunkDataPts, dataRecovered } = this._chunkMemory(
+      opts.memoryPt,
+      memOffset,
+      dataLength,
+    )
+    const expectedLogData = bytesToBigInt(
+      opts.prevStepResult.memory.subarray(Number(memOffset), Number(memOffset) + Number(dataLength)),
+    )
+    if (dataRecovered !== expectedLogData) {
+      throw new Error(`Synthesizer: ${op}: Log data mismatch`)
+    }
+
+    for (const [index, chunkDataPt] of chunkDataPts.entries()) {
+      this.parent.addReservedVariableToBufferOut(
+        'LOG_VALUE',
+        chunkDataPt,
+        true,
+        ` for ${op} instruction, data index: ${index}`,
+      )
+    }
+
+    if (out === null) {
+      if (opts.stackPt.length !== 0) {
+        throw new Error(`Synthesizer: ${op}: Output data mismatch`)
+      }
+    } else {
+      if (opts.stackPt.peek(1)[0].value !== out) {
+        throw new Error(`Synthesizer: ${op}: Output data mismatch`)
       }
     }
   }
