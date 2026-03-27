@@ -255,6 +255,20 @@ export class InstructionHandler {
         },
       )
     }
+    const __createLoggerHandlers = (opName: SynthesizerSupportedLogOpcodes): void => {
+      const op: number = synthesizerOpcodeByName[opName]
+      this.synthesizerHandlers.set(
+        op,
+        (context, stepResult) => {
+          const out: bigint | null = stepResult.stack[0] ?? null
+          const opts = this._createHandlerOpts(opName, context)
+          const nTopics = opts.prevStepResult.opcode.code - 0xa0
+          const ins = opts.prevStepResult.stack.slice(0, nTopics + 2)
+
+          this.handleLoggers(ins, out, opts)
+        },
+      )
+    }
 
     // Start creating handlers
     this.synthesizerHandlers.set(synthesizerOpcodeByName['STOP'], function(){})
@@ -343,6 +357,13 @@ export class InstructionHandler {
       // , 'INVALID'
       // , 'SELFDESTRUCT'
     ] satisfies SynthesizerSupportedOpcodes[]).forEach(__createSysFlowHandlers)
+    ;([
+      'LOG0',
+      'LOG1',
+      'LOG2',
+      'LOG3',
+      'LOG4',
+    ] satisfies SynthesizerSupportedOpcodes[]).forEach(__createLoggerHandlers)
 
     // PUSHs
     this.synthesizerHandlers.set(
@@ -399,27 +420,6 @@ export class InstructionHandler {
       this.synthesizerHandlers.set(i, swapFn)
     }
 
-    // LOGs
-    this.synthesizerHandlers.set(
-      synthesizerOpcodeByName['LOG0'],
-      (context, stepResult) => {
-        const prevStepResult = context.prevInterpreterStep;
-        if (prevStepResult === null) {
-          throw new Error('Debug: previous interpreter step is not set')
-        }
-        const nTopics = prevStepResult.opcode.code - 0xa0
-        const opName = `LOG${nTopics}` as SynthesizerSupportedOpcodes
-        const out: bigint | null = stepResult.stack[0] ?? null
-        const opts = this._createHandlerOpts(opName, context);
-        const ins = opts.prevStepResult.stack.slice(0, nTopics + 2)
-
-        this.handleLoggers(ins, out, opts)
-      },
-    )
-    const logFn = this.synthesizerHandlers.get(synthesizerOpcodeByName['LOG0'])!
-    for (let i = 0xa1; i <= 0xa4; i++) {
-      this.synthesizerHandlers.set(i, logFn)
-    }
   }
 
   getOriginAddressPt(): DataPt {
@@ -981,7 +981,7 @@ export class InstructionHandler {
         'LOG_VALUE',
         chunkDataPt,
         true,
-        ` for ${op} instruction at PC ${opts.pc} of code address ${opts.codeAddress} (depth: ${opts.callDepth}, chunk: ${index + 1}/${chunkDataPts.length})`,
+        ` for ${op} instruction, data index: ${index}`,
       )
     }
 
