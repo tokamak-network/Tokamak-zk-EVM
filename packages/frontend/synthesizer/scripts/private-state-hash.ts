@@ -15,6 +15,9 @@ const NULLIFIER_DOMAIN = ethers.keccak256(ethers.toUtf8Bytes('PRIVATE_STATE_NULL
 const poseidonHex = (encoded: `0x${string}`): `0x${string}` =>
   bytesToHex(poseidon(hexToBytes(encoded))) as `0x${string}`;
 
+export const deriveReplayPrivateStateFieldValue = (label: string): `0x${string}` =>
+  bytesToHex(poseidon(ethers.toUtf8Bytes(label))) as `0x${string}`;
+
 export const computeReplayPrivateStateNoteCommitment = (note: PrivateStateNoteLike): `0x${string}` =>
   poseidonHex(
     coder.encode(

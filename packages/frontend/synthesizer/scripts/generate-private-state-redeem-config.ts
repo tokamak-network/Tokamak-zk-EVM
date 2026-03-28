@@ -7,7 +7,6 @@ import path from 'path';
 import { ethers } from 'ethers';
 import { fileURLToPath } from 'url';
 import { fromEdwardsToAddress } from 'tokamak-l2js';
-import { BLS12831ARITHMODULUS } from '../src/synthesizer/params/index.ts';
 import {
   buildPrivateStateRedeemCalldata,
   deriveParticipantKeys,
@@ -16,6 +15,7 @@ import {
 } from '../examples/privateStateRedeem/utils.ts';
 import {
   computeReplayPrivateStateAddressMappingKey,
+  deriveReplayPrivateStateFieldValue,
   computeReplayPrivateStateMappingKey,
   computeReplayPrivateStateNoteCommitment,
 } from './private-state-hash.ts';
@@ -256,11 +256,7 @@ const ensurePrivateStateBootstrap = async () => {
   }
 };
 
-const toSalt = (label: string): `0x${string}` =>
-  ethers.toBeHex(
-    BigInt(ethers.keccak256(ethers.toUtf8Bytes(label))) % BLS12831ARITHMODULUS,
-    32,
-  ) as `0x${string}`;
+const toSalt = (label: string): `0x${string}` => deriveReplayPrivateStateFieldValue(label);
 
 const main = async () => {
   const args = parseArgs();

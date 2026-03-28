@@ -7,7 +7,6 @@ import path from 'path';
 import { ethers } from 'ethers';
 import { fileURLToPath } from 'url';
 import { fromEdwardsToAddress } from 'tokamak-l2js';
-import { BLS12831ARITHMODULUS } from '../src/synthesizer/params/index.ts';
 import {
   buildPrivateStateTransferCalldata,
   createTransferInterface,
@@ -19,6 +18,7 @@ import {
 } from '../examples/privateStateTransfer/utils.ts';
 import {
   computeReplayPrivateStateEncryptedNoteSalt,
+  deriveReplayPrivateStateFieldValue,
   computeReplayPrivateStateMappingKey,
   computeReplayPrivateStateNoteCommitment,
   computeReplayPrivateStateNullifier,
@@ -271,16 +271,12 @@ const ensurePrivateStateBootstrap = async () => {
   }
 };
 
-const toSalt = (label: string): `0x${string}` =>
-  ethers.toBeHex(
-    BigInt(ethers.keccak256(ethers.toUtf8Bytes(label))) % BLS12831ARITHMODULUS,
-    32,
-  ) as `0x${string}`;
+const toFieldValue = (label: string): `0x${string}` => deriveReplayPrivateStateFieldValue(label);
 
 const toEncryptedNoteValue = (label: string): [`0x${string}`, `0x${string}`, `0x${string}`] => [
-  toSalt(`${label}:word0`),
-  toSalt(`${label}:word1`),
-  toSalt(`${label}:word2`),
+  toFieldValue(`${label}:word0`),
+  toFieldValue(`${label}:word1`),
+  toFieldValue(`${label}:word2`),
 ];
 
 const main = async () => {
@@ -371,7 +367,7 @@ const main = async () => {
   const inputNotes = Array.from({ length: inputCount }, (_, index) => ({
     owner: senderAddress,
     value: inputValueHex,
-    salt: toSalt(`private-state-transfer-input-sender-${senderIndex}-${inputCount}-${outputCount}-${saltLabel}-${index}`),
+    salt: toFieldValue(`private-state-transfer-input-sender-${senderIndex}-${inputCount}-${outputCount}-${saltLabel}-${index}`),
   })) as PrivateStateTransferConfig['inputNotes'];
   const defaultOutputOwners = outputCount === 1
     ? [recipientOneAddress]
@@ -439,7 +435,7 @@ const main = async () => {
     const dormantNote: PrivateStateNote = {
       owner: senderAddress,
       value: inputValueHex,
-      salt: toSalt(`private-state-transfer-dormant-sender-${senderIndex}-${inputCount}-${outputCount}-${saltLabel}-${index}`),
+      salt: toFieldValue(`private-state-transfer-dormant-sender-${senderIndex}-${inputCount}-${outputCount}-${saltLabel}-${index}`),
     };
     const commitment = computeReplayPrivateStateNoteCommitment(dormantNote);
     inputCommitments.push(commitment);

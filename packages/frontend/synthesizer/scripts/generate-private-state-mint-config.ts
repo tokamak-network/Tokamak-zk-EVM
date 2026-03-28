@@ -7,13 +7,15 @@ import path from 'path';
 import { ethers } from 'ethers';
 import { fileURLToPath } from 'url';
 import { fromEdwardsToAddress } from 'tokamak-l2js';
-import { BLS12831ARITHMODULUS } from '../src/synthesizer/params/index.ts';
 import {
   buildPrivateStateMintCalldata,
   deriveParticipantKeys,
   mintInterfaces,
 } from '../examples/privateStateMint/utils.ts';
-import { computeReplayPrivateStateAddressMappingKey } from './private-state-hash.ts';
+import {
+  computeReplayPrivateStateAddressMappingKey,
+  deriveReplayPrivateStateFieldValue,
+} from './private-state-hash.ts';
 import {
   getPrivateStateVaultLiquidBalancesSlot,
   loadPrivateStateStorageLayoutManifest,
@@ -320,16 +322,9 @@ const main = async () => {
     ethers.toBeHex(outputNoteValue) as `0x${string}`,
   ) as [`0x${string}`, ...`0x${string}`[]];
   const noteSalts = Array.from({ length: outputCount }, (_, index) =>
-    ethers.toBeHex(
-      BigInt(
-        ethers.keccak256(
-          ethers.toUtf8Bytes(
-            `private-state-mint-sender-${senderIndex}-owner-${noteOwnerIndex}-output-${index}`,
-          ),
-        ),
-      ) % BLS12831ARITHMODULUS,
-      32,
-    ) as `0x${string}`,
+    deriveReplayPrivateStateFieldValue(
+      `private-state-mint-sender-${senderIndex}-owner-${noteOwnerIndex}-output-${index}`,
+    ),
   ) as [`0x${string}`, ...`0x${string}`[]];
   const calldata = buildPrivateStateMintCalldata(
     {

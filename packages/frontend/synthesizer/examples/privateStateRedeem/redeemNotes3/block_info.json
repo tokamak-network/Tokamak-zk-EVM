@@ -1,16 +1,16 @@
 {
   "coinBase": "0x0000000000000000000000000000000000000000",
-  "timeStamp": "0x69c85e1c",
-  "blockNumber": "0x14",
-  "prevRanDao": "0xde310c53a5c12e950d73831249197b9e65d8554dbfd79eee17ed82417a45d702",
+  "timeStamp": "0x69c860d2",
+  "blockNumber": "0x13",
+  "prevRanDao": "0xb5a0a03cc3c24b9c9254613dcbaa58ae4a8cf1e0b6902adb756d7737ab999cb9",
   "gasLimit": "0x1c9c380",
   "chainId": "0x7a69",
   "selfBalance": "0x0",
   "prevBlockHashes": [
-    "0x064d70422ab7ef54a7a1f74eb44ebbdb4218a26748d5dc2575e2468b6d7ffa95",
-    "0xedd3bc34125016f5b9e3589d31e4c483f42cb9133cfcc6bd5bfe9ecf5d78a806",
-    "0xd24ead401d2fdcfa4a4609ab3cb45717adb09930ed2046c94c5099ea78c241b7",
-    "0x3af1eca47121c7450866a020c1d1e7ac349d649eed468e728291cceb7e5dfb4e"
+    "0xee456e5bb4be6f4e1b7da571c4203ccdf14c218cc7afb948d2edbcc5364d6c05",
+    "0x8be1a235ae27ba7ccb7ab65aee30779e4ec9916ac0ae8b26046e83ebfc0b6d1c",
+    "0x59b1a4041e992978576c261938d4838e18b0cefe5cd7b0aea5ae311ce3761838",
+    "0x33088e4d3ad69a519bf634d37c0ff865fb10c1af96c809988c0eceea242440f0"
   ],
-  "baseFee": "0x4e010bd"
+  "baseFee": "0x5920528"
 }
