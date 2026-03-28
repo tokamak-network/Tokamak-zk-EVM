@@ -40,3 +40,8 @@ export const computeReplayPrivateStateAddressMappingKey = (
   account: `0x${string}`,
   slot: bigint | number,
 ): `0x${string}` => poseidonHex(coder.encode(['address', 'uint256'], [account, BigInt(slot)]) as `0x${string}`);
+
+export const computeReplayPrivateStateEncryptedNoteSalt = (
+  encryptedNoteValue: [`0x${string}`, `0x${string}`, `0x${string}`],
+): `0x${string}` =>
+  poseidonHex(coder.encode(['bytes32[3]'], [encryptedNoteValue]) as `0x${string}`);

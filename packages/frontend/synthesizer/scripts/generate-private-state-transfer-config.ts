@@ -14,9 +14,11 @@ import {
   deriveParticipantKeys,
   isSupportedTransferArity,
   type PrivateStateNote,
+  type PrivateStateTransferOutput,
   type PrivateStateTransferConfig,
 } from '../examples/privateStateTransfer/utils.ts';
 import {
+  computeReplayPrivateStateEncryptedNoteSalt,
   computeReplayPrivateStateMappingKey,
   computeReplayPrivateStateNoteCommitment,
   computeReplayPrivateStateNullifier,
@@ -275,6 +277,12 @@ const toSalt = (label: string): `0x${string}` =>
     32,
   ) as `0x${string}`;
 
+const toEncryptedNoteValue = (label: string): [`0x${string}`, `0x${string}`, `0x${string}`] => [
+  toSalt(`${label}:word0`),
+  toSalt(`${label}:word1`),
+  toSalt(`${label}:word2`),
+];
+
 const main = async () => {
   const args = parseArgs();
   const outputPath = args.output ? path.resolve(process.cwd(), String(args.output)) : defaultOutputPath;
@@ -379,10 +387,17 @@ const main = async () => {
       }
       return accountAddress;
     });
-  const outputNotes = outputOwners.map((owner, index) => ({
+  const transferOutputs = outputOwners.map((owner, index) => ({
     owner,
     value: outputValueHex,
-    salt: toSalt(`private-state-transfer-output-sender-${senderIndex}-${inputCount}-${outputCount}-${saltLabel}-${index}`),
+    encryptedNoteValue: toEncryptedNoteValue(
+      `private-state-transfer-output-sender-${senderIndex}-${inputCount}-${outputCount}-${saltLabel}-${index}`,
+    ),
+  })) as PrivateStateTransferOutput[];
+  const outputNotes = transferOutputs.map((output) => ({
+    owner: output.owner,
+    value: output.value,
+    salt: computeReplayPrivateStateEncryptedNoteSalt(output.encryptedNoteValue),
   })) as PrivateStateTransferConfig['outputNotes'];
 
   const config: PrivateStateTransferConfig = {
@@ -398,6 +413,7 @@ const main = async () => {
     inputCount,
     outputCount,
     inputNotes,
+    transferOutputs,
     outputNotes,
     function: {
       selector,

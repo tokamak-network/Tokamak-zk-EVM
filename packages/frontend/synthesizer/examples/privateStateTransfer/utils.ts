@@ -19,6 +19,14 @@ export type PrivateStateNote = {
   salt: `0x${string}`;
 };
 
+export type OpaqueEncryptedNoteValue = [`0x${string}`, `0x${string}`, `0x${string}`];
+
+export type PrivateStateTransferOutput = {
+  owner: `0x${string}`;
+  value: `0x${string}`;
+  encryptedNoteValue: OpaqueEncryptedNoteValue;
+};
+
 export type PrivateStateTransferConfig = ChannelStateConfig & {
   network: ExampleNetwork;
   txNonce: number;
@@ -28,6 +36,7 @@ export type PrivateStateTransferConfig = ChannelStateConfig & {
   inputCount: number;
   outputCount: number;
   inputNotes: PrivateStateNote[];
+  transferOutputs: PrivateStateTransferOutput[];
   outputNotes: PrivateStateNote[];
   function: ChannelFunctionConfig;
 };
@@ -47,7 +56,7 @@ export const isSupportedTransferArity = (inputCount: number, outputCount: number
 const buildTransferFunctionName = (inputCount: number, outputCount: number) => `transferNotes${inputCount}To${outputCount}`;
 
 const buildTransferAbi = (inputCount: number, outputCount: number) => [
-  `function ${buildTransferFunctionName(inputCount, outputCount)}((address owner,uint256 value,bytes32 salt)[${inputCount}] inputNotes,(address owner,uint256 value,bytes32 salt)[${outputCount}] outputs) returns (bytes32[${inputCount}] nullifiers, bytes32[${outputCount}] outputCommitments)`,
+  `function ${buildTransferFunctionName(inputCount, outputCount)}((address owner,uint256 value,bytes32[3] encryptedNoteValue)[${outputCount}] outputs,(address owner,uint256 value,bytes32 salt)[${inputCount}] inputNotes) returns (bytes32[${inputCount}] nullifiers, bytes32[${outputCount}] outputCommitments)`,
 ];
 
 export const createTransferInterface = (inputCount: number, outputCount: number) =>
@@ -159,11 +168,42 @@ const parseNote = (value: unknown, label: string): PrivateStateNote => {
   };
 };
 
+const parseEncryptedNoteValue = (value: unknown, label: string): OpaqueEncryptedNoteValue => {
+  if (!Array.isArray(value) || value.length !== 3) {
+    throw new Error(`${label} must be an array of three bytes32 words`);
+  }
+  return value.map((entry, index) =>
+    parseHexString(entry, `${label}[${index}]`)) as OpaqueEncryptedNoteValue;
+};
+
+const parseTransferOutput = (value: unknown, label: string): PrivateStateTransferOutput => {
+  if (typeof value !== 'object' || value === null) {
+    throw new Error(`${label} must be an object`);
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    owner: parseHexString(record.owner, `${label}.owner`) as `0x${string}`,
+    value: parseHexString(record.value, `${label}.value`),
+    encryptedNoteValue: parseEncryptedNoteValue(record.encryptedNoteValue, `${label}.encryptedNoteValue`),
+  };
+};
+
 const parseFixedNotes = <N extends number>(value: unknown, label: string, expectedLength: N): PrivateStateNote[] => {
   if (!Array.isArray(value) || value.length !== expectedLength) {
     throw new Error(`${label} must be an array of length ${expectedLength}`);
   }
   return value.map((entry, index) => parseNote(entry, `${label}[${index}]`));
+};
+
+const parseFixedTransferOutputs = <N extends number>(
+  value: unknown,
+  label: string,
+  expectedLength: N,
+): PrivateStateTransferOutput[] => {
+  if (!Array.isArray(value) || value.length !== expectedLength) {
+    throw new Error(`${label} must be an array of length ${expectedLength}`);
+  }
+  return value.map((entry, index) => parseTransferOutput(entry, `${label}[${index}]`));
 };
 
 export const loadConfig = async (configPath: string): Promise<PrivateStateTransferConfig> => {
@@ -184,6 +224,8 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateTransf
     throw new Error('functionName must match inputCount and outputCount');
   }
   const inputNotes = parseFixedNotes(configRaw.inputNotes, 'inputNotes', inputCount) as PrivateStateTransferConfig['inputNotes'];
+  const transferOutputs =
+    parseFixedTransferOutputs(configRaw.transferOutputs, 'transferOutputs', outputCount) as PrivateStateTransferConfig['transferOutputs'];
   const outputNotes =
     parseFixedNotes(configRaw.outputNotes, 'outputNotes', outputCount) as PrivateStateTransferConfig['outputNotes'];
 
@@ -202,6 +244,7 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateTransf
     inputCount,
     outputCount,
     inputNotes,
+    transferOutputs,
     outputNotes,
     function: assertFunctionConfig(configRaw.function, 'function'),
   };
@@ -213,7 +256,7 @@ export const buildPrivateStateTransferCalldata = (
 ): `0x${string}` =>
   createTransferInterface(config.inputCount, config.outputCount).encodeFunctionData(
     config.functionName,
-    [config.inputNotes, config.outputNotes],
+    [config.transferOutputs, config.inputNotes],
   ) as `0x${string}`;
 
 export const toStateManagerChannelConfig = (
