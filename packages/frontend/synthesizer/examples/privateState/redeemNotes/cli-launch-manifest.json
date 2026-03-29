@@ -1,6 +1,6 @@
 [
   {
-    "name": "Private-state redeemNotes1 on anvil",
+    "name": "Private-state redeemNotes1 on sepolia",
     "files": {
       "previousState": "examples/privateState/redeemNotes/redeemNotes1/previous_state_snapshot.json",
       "transaction": "examples/privateState/redeemNotes/redeemNotes1/transaction.json",
@@ -9,7 +9,7 @@
     }
   },
   {
-    "name": "Private-state redeemNotes2 on anvil",
+    "name": "Private-state redeemNotes2 on sepolia",
     "files": {
       "previousState": "examples/privateState/redeemNotes/redeemNotes2/previous_state_snapshot.json",
       "transaction": "examples/privateState/redeemNotes/redeemNotes2/transaction.json",
@@ -18,7 +18,7 @@
     }
   },
   {
-    "name": "Private-state redeemNotes3 on anvil",
+    "name": "Private-state redeemNotes3 on sepolia",
     "files": {
       "previousState": "examples/privateState/redeemNotes/redeemNotes3/previous_state_snapshot.json",
       "transaction": "examples/privateState/redeemNotes/redeemNotes3/transaction.json",
@@ -27,7 +27,7 @@
     }
   },
   {
-    "name": "Private-state redeemNotes4 on anvil",
+    "name": "Private-state redeemNotes4 on sepolia",
     "files": {
       "previousState": "examples/privateState/redeemNotes/redeemNotes4/previous_state_snapshot.json",
       "transaction": "examples/privateState/redeemNotes/redeemNotes4/transaction.json",
