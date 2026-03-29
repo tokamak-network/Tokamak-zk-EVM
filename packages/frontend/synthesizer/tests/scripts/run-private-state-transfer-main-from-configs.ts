@@ -23,7 +23,7 @@ const privateStateAppDir = path.resolve(repoRoot, 'apps', 'private-state');
 const configDir = path.resolve(packageRoot, 'tests', 'configs', 'private-state-transfer');
 const outputsDir = path.resolve(packageRoot, 'outputs');
 const archiveRoot = path.resolve(packageRoot, 'tests', 'outputs', 'private-state-transfer');
-const exampleEntry = path.resolve(packageRoot, 'examples', 'privateStateTransfer', 'main.ts');
+const exampleEntry = path.resolve(packageRoot, 'examples', 'privateState/transferNotes', 'main.ts');
 const prepEntry = path.resolve(packageRoot, 'tests', 'scripts', 'run-private-state-transfer-config-matrix.ts');
 const errorLogPattern = /error:/iu;
 

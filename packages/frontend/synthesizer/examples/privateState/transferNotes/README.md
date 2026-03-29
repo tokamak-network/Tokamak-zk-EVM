@@ -13,11 +13,11 @@ The default flow prepares one existing input note commitment for the sender, the
 
 Use the generated static input folders together with the stored transaction snapshots in:
 
-- `examples/privateStateTransfer/*/previous_state_snapshot.json`
-- `examples/privateStateTransfer/*/transaction.json`
-- `examples/privateStateTransfer/*/block_info.json`
-- `examples/privateStateTransfer/*/contract_codes.json`
-- `examples/privateStateTransfer/cli-launch-manifest.json`
+- `examples/privateState/transferNotes/*/previous_state_snapshot.json`
+- `examples/privateState/transferNotes/*/transaction.json`
+- `examples/privateState/transferNotes/*/block_info.json`
+- `examples/privateState/transferNotes/*/contract_codes.json`
+- `examples/privateState/transferNotes/cli-launch-manifest.json`
 
 To regenerate them:
 

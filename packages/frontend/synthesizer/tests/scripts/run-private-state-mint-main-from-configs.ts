@@ -23,7 +23,7 @@ const privateStateAppDir = path.resolve(repoRoot, 'apps', 'private-state');
 const configDir = path.resolve(packageRoot, 'tests', 'configs', 'private-state-mint');
 const outputsDir = path.resolve(packageRoot, 'outputs');
 const archiveRoot = path.resolve(packageRoot, 'tests', 'outputs', 'private-state-mint');
-const exampleEntry = path.resolve(packageRoot, 'examples', 'privateStateMint', 'main.ts');
+const exampleEntry = path.resolve(packageRoot, 'examples', 'privateState/mintNotes', 'main.ts');
 const prepEntry = path.resolve(packageRoot, 'tests', 'scripts', 'run-private-state-mint-config-matrix.ts');
 const errorLogPattern = /error:/iu;
 

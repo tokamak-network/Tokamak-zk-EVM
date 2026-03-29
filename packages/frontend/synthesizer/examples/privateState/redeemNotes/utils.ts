@@ -11,7 +11,7 @@ import {
   getExampleRpcUrl,
   type DerivedParticipantKeys,
   type ExampleNetwork,
-} from '../privateStateMint/utils.ts';
+} from '../mintNotes/utils.ts';
 import { fromEdwardsToAddress } from 'tokamak-l2js';
 
 export type PrivateStateNote = {

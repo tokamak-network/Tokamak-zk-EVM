@@ -10,4 +10,4 @@ Use the generated static input folders and the stored transaction snapshots in:
 npx tsx --tsconfig tsconfig.dev.json scripts/generate-private-state-cli-launch-inputs.ts
 ```
 
-The current launch source of truth is `examples/privateStateRedeem/cli-launch-manifest.json`.
+The current launch source of truth is `examples/privateState/redeemNotes/cli-launch-manifest.json`.

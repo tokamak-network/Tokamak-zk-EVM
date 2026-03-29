@@ -27,15 +27,15 @@ import {
   getExampleRpcUrl,
   loadConfig as loadMintConfig,
   toStateManagerChannelConfig as toMintChannelConfig,
-} from '../examples/privateStateMint/utils.ts';
+} from '../examples/privateState/mintNotes/utils.ts';
 import {
   loadConfig as loadTransferConfig,
   toStateManagerChannelConfig as toTransferChannelConfig,
-} from '../examples/privateStateTransfer/utils.ts';
+} from '../examples/privateState/transferNotes/utils.ts';
 import {
   loadConfig as loadRedeemConfig,
   toStateManagerChannelConfig as toRedeemChannelConfig,
-} from '../examples/privateStateRedeem/utils.ts';
+} from '../examples/privateState/redeemNotes/utils.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -330,7 +330,7 @@ const main = async () => {
       'private-state-mint',
       `config-anvil-private-state-mint-m${outputs}-p4-s0.json`,
     ),
-    outputDir: path.resolve(packageRoot, 'examples', 'privateStateMint', `mintNotes${outputs}`),
+    outputDir: path.resolve(packageRoot, 'examples', 'privateState/mintNotes', `mintNotes${outputs}`),
     loadConfig: loadMintConfig as ConfigLoader<BaseConfigShape>,
     toChannelConfig: toMintChannelConfig as ChannelConfigMapper<BaseConfigShape>,
   }));
@@ -353,7 +353,7 @@ const main = async () => {
       'private-state-transfer',
       `config-anvil-private-state-transfer-n${inputs}-m${outputs}-p4-s0.json`,
     ),
-    outputDir: path.resolve(packageRoot, 'examples', 'privateStateTransfer', `transferNotes${inputs}To${outputs}`),
+    outputDir: path.resolve(packageRoot, 'examples', 'privateState/transferNotes', `transferNotes${inputs}To${outputs}`),
     loadConfig: loadTransferConfig as ConfigLoader<BaseConfigShape>,
     toChannelConfig: toTransferChannelConfig as ChannelConfigMapper<BaseConfigShape>,
   }));
@@ -367,7 +367,7 @@ const main = async () => {
       'private-state-redeem',
       `config-anvil-private-state-redeem-n${inputs}-p4-s0.json`,
     ),
-    outputDir: path.resolve(packageRoot, 'examples', 'privateStateRedeem', `redeemNotes${inputs}`),
+    outputDir: path.resolve(packageRoot, 'examples', 'privateState/redeemNotes', `redeemNotes${inputs}`),
     loadConfig: loadRedeemConfig as ConfigLoader<BaseConfigShape>,
     toChannelConfig: toRedeemChannelConfig as ChannelConfigMapper<BaseConfigShape>,
   }));
@@ -377,15 +377,15 @@ const main = async () => {
   const redeemManifest = await Promise.all(redeemSpecs.map((spec) => exportCliLaunchInput(spec)));
 
   await writeJsonFile(
-    path.resolve(packageRoot, 'examples', 'privateStateMint', 'cli-launch-manifest.json'),
+    path.resolve(packageRoot, 'examples', 'privateState/mintNotes', 'cli-launch-manifest.json'),
     mintManifest,
   );
   await writeJsonFile(
-    path.resolve(packageRoot, 'examples', 'privateStateTransfer', 'cli-launch-manifest.json'),
+    path.resolve(packageRoot, 'examples', 'privateState/transferNotes', 'cli-launch-manifest.json'),
     transferManifest,
   );
   await writeJsonFile(
-    path.resolve(packageRoot, 'examples', 'privateStateRedeem', 'cli-launch-manifest.json'),
+    path.resolve(packageRoot, 'examples', 'privateState/redeemNotes', 'cli-launch-manifest.json'),
     redeemManifest,
   );
   await syncLaunchJson([...mintManifest, ...transferManifest, ...redeemManifest]);

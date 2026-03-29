@@ -25,13 +25,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes1/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes1/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes1/transaction.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes1/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes1/block_info.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes1/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes1/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes1/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -48,13 +48,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes2/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes2/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes2/transaction.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes2/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes2/block_info.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes2/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes2/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes2/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -71,13 +71,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes3/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes3/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes3/transaction.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes3/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes3/block_info.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes3/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes3/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes3/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -94,13 +94,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes4/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes4/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes4/transaction.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes4/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes4/block_info.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes4/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes4/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes4/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -117,13 +117,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes5/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes5/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes5/transaction.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes5/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes5/block_info.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes5/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes5/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes5/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -140,13 +140,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes6/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes6/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes6/transaction.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes6/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes6/block_info.json",
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes6/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateMint/mintNotes6/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/mintNotes/mintNotes6/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -163,13 +163,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes1To1/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To1/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes1To1/transaction.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To1/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes1To1/block_info.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To1/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes1To1/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To1/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -186,13 +186,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes1To2/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To2/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes1To2/transaction.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To2/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes1To2/block_info.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To2/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes1To2/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To2/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -209,13 +209,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes1To3/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To3/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes1To3/transaction.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To3/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes1To3/block_info.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To3/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes1To3/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes1To3/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -232,13 +232,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes2To1/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes2To1/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes2To1/transaction.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes2To1/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes2To1/block_info.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes2To1/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes2To1/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes2To1/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -255,13 +255,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes2To2/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes2To2/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes2To2/transaction.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes2To2/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes2To2/block_info.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes2To2/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes2To2/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes2To2/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -278,13 +278,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes3To1/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes3To1/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes3To1/transaction.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes3To1/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes3To1/block_info.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes3To1/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes3To1/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes3To1/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -301,13 +301,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes3To2/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes3To2/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes3To2/transaction.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes3To2/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes3To2/block_info.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes3To2/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes3To2/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes3To2/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -324,13 +324,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes4To1/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes4To1/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes4To1/transaction.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes4To1/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes4To1/block_info.json",
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes4To1/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateTransfer/transferNotes4To1/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/transferNotes/transferNotes4To1/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -347,13 +347,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes1/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes1/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes1/transaction.json",
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes1/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes1/block_info.json",
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes1/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes1/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes1/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -370,13 +370,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes2/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes2/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes2/transaction.json",
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes2/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes2/block_info.json",
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes2/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes2/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes2/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -393,13 +393,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes3/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes3/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes3/transaction.json",
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes3/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes3/block_info.json",
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes3/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes3/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes3/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [
@@ -416,13 +416,13 @@
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes4/previous_state_snapshot.json",
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes4/previous_state_snapshot.json",
         "--transaction",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes4/transaction.json",
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes4/transaction.json",
         "--block-info",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes4/block_info.json",
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes4/block_info.json",
         "--contract-code",
-        "${workspaceFolder}/examples/privateStateRedeem/redeemNotes4/contract_codes.json"
+        "${workspaceFolder}/examples/privateState/redeemNotes/redeemNotes4/contract_codes.json"
       ],
       "cwd": "${workspaceFolder}",
       "skipFiles": [

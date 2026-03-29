@@ -11,7 +11,7 @@ import {
   getExampleRpcUrl,
   type DerivedParticipantKeys,
   type ExampleNetwork,
-} from '../privateStateMint/utils.ts';
+} from '../mintNotes/utils.ts';
 
 export type PrivateStateNote = {
   owner: `0x${string}`;

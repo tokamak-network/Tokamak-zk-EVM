@@ -11,7 +11,7 @@ import {
   buildPrivateStateMintCalldata,
   deriveParticipantKeys,
   mintInterfaces,
-} from '../examples/privateStateMint/utils.ts';
+} from '../examples/privateState/mintNotes/utils.ts';
 import {
   computeReplayPrivateStateAddressMappingKey,
   deriveReplayPrivateStateFieldValue,

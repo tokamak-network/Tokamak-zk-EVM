@@ -1,3 +1,5 @@
+// Usage: tsx examples/privateState/mintNotes/main.ts <config.json>
+
 import { bytesToHex, createAddressFromString, hexToBytes } from '@ethereumjs/util';
 import {
   createTokamakL2Common,
@@ -6,12 +8,12 @@ import {
   createTokamakL2Tx,
   TokamakL2TxData,
 } from 'tokamak-l2js';
-import { createSynthesizer } from '../../src/synthesizer/index.ts';
-import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
-import { writeCircuitJson, writeEvmAnalysisJson } from '../../src/interface/node/jsonWriter.ts';
-import { loadSubcircuitWasm } from '../../src/interface/node/wasmLoader.ts';
-import { getBlockInfoFromRPC } from '../../src/interface/rpc/rpc.ts';
-import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../src/interface/qapCompiler/importedConstants.ts';
+import { createSynthesizer } from '../../../src/synthesizer/index.ts';
+import { createCircuitGenerator } from '../../../src/circuitGenerator/circuitGenerator.ts';
+import { writeCircuitJson, writeEvmAnalysisJson } from '../../../src/interface/node/jsonWriter.ts';
+import { loadSubcircuitWasm } from '../../../src/interface/node/wasmLoader.ts';
+import { getBlockInfoFromRPC } from '../../../src/interface/rpc/rpc.ts';
+import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../../src/interface/qapCompiler/importedConstants.ts';
 import {
   deriveParticipantKeys,
   getExampleRpcUrl,
@@ -22,7 +24,7 @@ import {
 const main = async () => {
   const configPath = process.argv[2];
   if (!configPath) {
-    throw new Error('Config file path required. Usage: tsx examples/privateStateRedeem/main.ts <config.json>');
+    throw new Error('Config file path required. Usage: tsx examples/privateState/mintNotes/main.ts <config.json>');
   }
 
   const config = await loadConfig(configPath);

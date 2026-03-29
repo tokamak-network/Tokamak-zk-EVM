@@ -12,11 +12,11 @@ import type {
   ChannelStorageConfig,
 } from 'tokamak-l2js';
 import { deriveL2KeysFromSignature, fromEdwardsToAddress } from 'tokamak-l2js';
-import { getRpcUrlFromEnv } from '../../src/interface/node/env.ts';
+import { getRpcUrlFromEnv } from '../../../src/interface/node/env.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const packageRoot = path.resolve(__dirname, '..', '..');
+const packageRoot = path.resolve(__dirname, '..', '..', '..');
 const envPath = path.join(packageRoot, '.env');
 
 const applyEnvFileIfPresent = (targetPath: string) => {

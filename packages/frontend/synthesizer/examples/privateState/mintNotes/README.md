@@ -7,7 +7,7 @@ This example now uses static `tokamak-ch-tx` launch inputs for the `apps/private
 - Target functions: `mintNotes1`, `mintNotes2`, `mintNotes3`, `mintNotes4`, `mintNotes5`, `mintNotes6`
 - Target network for generated inputs: `anvil`
 - Static input generator: `scripts/generate-private-state-cli-launch-inputs.ts`
-- Launch manifest: `examples/privateStateMint/cli-launch-manifest.json`
+- Launch manifest: `examples/privateState/mintNotes/cli-launch-manifest.json`
 - Launch entrypoint: `src/interface/cli/index.ts tokamak-ch-tx`
 
 ## Usage

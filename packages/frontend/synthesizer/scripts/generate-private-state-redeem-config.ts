@@ -12,7 +12,7 @@ import {
   deriveParticipantKeys,
   redeemInterfaces,
   type PrivateStateRedeemConfig,
-} from '../examples/privateStateRedeem/utils.ts';
+} from '../examples/privateState/redeemNotes/utils.ts';
 import {
   computeReplayPrivateStateAddressMappingKey,
   deriveReplayPrivateStateFieldValue,
