@@ -15,11 +15,9 @@ import {
 import {
   computeReplayPrivateStateAddressMappingKey,
   deriveReplayPrivateStateFieldValue,
-} from './private-state-hash.ts';
-import {
   getPrivateStateVaultLiquidBalancesSlot,
   loadPrivateStateStorageLayoutManifest,
-} from './private-state-storage-layout.ts';
+} from './utils/private-state.ts';
 
 type ParticipantEntry = {
   addressL1: `0x${string}`;

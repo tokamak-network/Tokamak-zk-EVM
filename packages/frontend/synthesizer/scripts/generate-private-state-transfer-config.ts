@@ -18,15 +18,13 @@ import {
 } from '../examples/privateState/transferNotes/utils.ts';
 import {
   computeReplayPrivateStateEncryptedNoteSalt,
-  deriveReplayPrivateStateFieldValue,
   computeReplayPrivateStateMappingKey,
   computeReplayPrivateStateNoteCommitment,
   computeReplayPrivateStateNullifier,
-} from './private-state-hash.ts';
-import {
+  deriveReplayPrivateStateFieldValue,
   getPrivateStateControllerCommitmentExistsSlot,
   loadPrivateStateStorageLayoutManifest,
-} from './private-state-storage-layout.ts';
+} from './utils/private-state.ts';
 
 type ParticipantEntry = {
   addressL1: `0x${string}`;
