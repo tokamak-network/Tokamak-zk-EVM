@@ -1,6 +1,6 @@
 [
   {
-    "name": "Private-state mintNotes1 on sepolia",
+    "name": "Private-state mintNotes1 on anvil",
     "files": {
       "previousState": "examples/privateState/mintNotes/mintNotes1/previous_state_snapshot.json",
       "transaction": "examples/privateState/mintNotes/mintNotes1/transaction.json",
@@ -9,7 +9,7 @@
     }
   },
   {
-    "name": "Private-state mintNotes2 on sepolia",
+    "name": "Private-state mintNotes2 on anvil",
     "files": {
       "previousState": "examples/privateState/mintNotes/mintNotes2/previous_state_snapshot.json",
       "transaction": "examples/privateState/mintNotes/mintNotes2/transaction.json",
@@ -18,7 +18,7 @@
     }
   },
   {
-    "name": "Private-state mintNotes3 on sepolia",
+    "name": "Private-state mintNotes3 on anvil",
     "files": {
       "previousState": "examples/privateState/mintNotes/mintNotes3/previous_state_snapshot.json",
       "transaction": "examples/privateState/mintNotes/mintNotes3/transaction.json",
@@ -27,7 +27,7 @@
     }
   },
   {
-    "name": "Private-state mintNotes4 on sepolia",
+    "name": "Private-state mintNotes4 on anvil",
     "files": {
       "previousState": "examples/privateState/mintNotes/mintNotes4/previous_state_snapshot.json",
       "transaction": "examples/privateState/mintNotes/mintNotes4/transaction.json",
@@ -36,7 +36,7 @@
     }
   },
   {
-    "name": "Private-state mintNotes5 on sepolia",
+    "name": "Private-state mintNotes5 on anvil",
     "files": {
       "previousState": "examples/privateState/mintNotes/mintNotes5/previous_state_snapshot.json",
       "transaction": "examples/privateState/mintNotes/mintNotes5/transaction.json",
@@ -45,7 +45,7 @@
     }
   },
   {
-    "name": "Private-state mintNotes6 on sepolia",
+    "name": "Private-state mintNotes6 on anvil",
     "files": {
       "previousState": "examples/privateState/mintNotes/mintNotes6/previous_state_snapshot.json",
       "transaction": "examples/privateState/mintNotes/mintNotes6/transaction.json",

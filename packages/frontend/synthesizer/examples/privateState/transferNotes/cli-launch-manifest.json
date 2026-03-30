@@ -1,6 +1,6 @@
 [
   {
-    "name": "Private-state transferNotes1To1 on sepolia",
+    "name": "Private-state transferNotes1To1 on anvil",
     "files": {
       "previousState": "examples/privateState/transferNotes/transferNotes1To1/previous_state_snapshot.json",
       "transaction": "examples/privateState/transferNotes/transferNotes1To1/transaction.json",
@@ -9,7 +9,7 @@
     }
   },
   {
-    "name": "Private-state transferNotes1To2 on sepolia",
+    "name": "Private-state transferNotes1To2 on anvil",
     "files": {
       "previousState": "examples/privateState/transferNotes/transferNotes1To2/previous_state_snapshot.json",
       "transaction": "examples/privateState/transferNotes/transferNotes1To2/transaction.json",
@@ -18,7 +18,7 @@
     }
   },
   {
-    "name": "Private-state transferNotes1To3 on sepolia",
+    "name": "Private-state transferNotes1To3 on anvil",
     "files": {
       "previousState": "examples/privateState/transferNotes/transferNotes1To3/previous_state_snapshot.json",
       "transaction": "examples/privateState/transferNotes/transferNotes1To3/transaction.json",
@@ -27,7 +27,7 @@
     }
   },
   {
-    "name": "Private-state transferNotes2To1 on sepolia",
+    "name": "Private-state transferNotes2To1 on anvil",
     "files": {
       "previousState": "examples/privateState/transferNotes/transferNotes2To1/previous_state_snapshot.json",
       "transaction": "examples/privateState/transferNotes/transferNotes2To1/transaction.json",
@@ -36,7 +36,7 @@
     }
   },
   {
-    "name": "Private-state transferNotes2To2 on sepolia",
+    "name": "Private-state transferNotes2To2 on anvil",
     "files": {
       "previousState": "examples/privateState/transferNotes/transferNotes2To2/previous_state_snapshot.json",
       "transaction": "examples/privateState/transferNotes/transferNotes2To2/transaction.json",
@@ -45,7 +45,7 @@
     }
   },
   {
-    "name": "Private-state transferNotes3To1 on sepolia",
+    "name": "Private-state transferNotes3To1 on anvil",
     "files": {
       "previousState": "examples/privateState/transferNotes/transferNotes3To1/previous_state_snapshot.json",
       "transaction": "examples/privateState/transferNotes/transferNotes3To1/transaction.json",
@@ -54,7 +54,7 @@
     }
   },
   {
-    "name": "Private-state transferNotes3To2 on sepolia",
+    "name": "Private-state transferNotes3To2 on anvil",
     "files": {
       "previousState": "examples/privateState/transferNotes/transferNotes3To2/previous_state_snapshot.json",
       "transaction": "examples/privateState/transferNotes/transferNotes3To2/transaction.json",
@@ -63,7 +63,7 @@
     }
   },
   {
-    "name": "Private-state transferNotes4To1 on sepolia",
+    "name": "Private-state transferNotes4To1 on anvil",
     "files": {
       "previousState": "examples/privateState/transferNotes/transferNotes4To1/previous_state_snapshot.json",
       "transaction": "examples/privateState/transferNotes/transferNotes4To1/transaction.json",
