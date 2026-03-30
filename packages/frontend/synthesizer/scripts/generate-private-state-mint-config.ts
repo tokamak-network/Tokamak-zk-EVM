@@ -32,6 +32,7 @@ type StorageConfigEntry = {
 
 type PrivateStateMintConfig = {
   network: 'anvil';
+  channelId?: number;
   participants: ParticipantEntry[];
   storageConfigs: StorageConfigEntry[];
   callCodeAddresses: `0x${string}`[];
@@ -72,6 +73,7 @@ const DEFAULT_PARTICIPANT_COUNT = 4;
 const DEFAULT_NOTE_VALUE = 1n * 10n ** 18n;
 const DEFAULT_NOTE_OWNER_INDEX = -1;
 const DEFAULT_L2_TX_NONCE = 0;
+const DEFAULT_CHANNEL_ID = 4;
 
 const applyEnvFileIfPresent = (targetPath: string) => {
   try {
@@ -279,6 +281,9 @@ const main = async () => {
   if (noteOwnerIndex < 0 || noteOwnerIndex >= participantCount) {
     throw new Error(`note-owner must be between 0 and ${participantCount - 1}`);
   }
+  if (noteOwnerIndex !== senderIndex) {
+    throw new Error('mintNotes is self-mint only; note-owner must equal sender');
+  }
   for (const accountIndex of extraBalanceAccounts) {
     if (accountIndex < 0 || accountIndex >= participantCount) {
       throw new Error(`extra-balance-accounts entries must be between 0 and ${participantCount - 1}`);
@@ -335,6 +340,7 @@ const main = async () => {
       calldata: '0x',
       senderIndex,
       noteOwnerIndex,
+      channelId: DEFAULT_CHANNEL_ID,
       outputCount,
       noteValues,
       noteSalts,
@@ -347,9 +353,8 @@ const main = async () => {
   );
   const decodedMintCall = mintInterface.decodeFunctionData(functionName, calldata);
   const decodedOutputs = decodedMintCall[0] as Array<{
-    owner: string;
     value: bigint;
-    salt: `0x${string}`;
+    encryptedNoteValue: [`0x${string}`, `0x${string}`, `0x${string}`];
   }>;
 
   const fundedAccounts = Array.from(new Set([senderIndex, ...extraBalanceAccounts]));
@@ -397,6 +402,7 @@ const main = async () => {
     calldata,
     senderIndex,
     noteOwnerIndex,
+    channelId: DEFAULT_CHANNEL_ID,
     outputCount,
     noteValues,
     noteSalts,
