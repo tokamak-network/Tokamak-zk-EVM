@@ -1,5 +1,5 @@
 pragma circom 2.1.6;
-function nPubOut() {return 40;}
+function nPubOut() {return 45;}
 function nPubIn() {return 20;}
 function nEVMIn() {return 600;}
 function nPrvIn() {return 600;}
