@@ -45,12 +45,11 @@ type DeploymentManifest = {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, '..');
-const repoRoot = path.resolve(packageRoot, '..', '..', '..', '..', '..');
 const scriptsEnvPath = path.resolve(__dirname, '.env');
 const packageEnvPath = path.resolve(packageRoot, '.env');
 const defaultOutputPath = path.resolve(packageRoot, 'scripts', 'private-state-redeem-config.json');
-const deploymentManifestPath = path.resolve(repoRoot, 'apps', 'private-state', 'deploy', 'deployment.31337.latest.json');
-const privateStateAppDir = path.resolve(repoRoot, 'apps', 'private-state');
+const deploymentManifestPath = path.resolve(packageRoot, 'scripts', 'deployment', 'private-state', 'deployment.31337.latest.json');
+const privateStateAppDir = path.resolve(packageRoot, '..', '..', '..', '..', '..', 'apps', 'private-state');
 
 const DEFAULT_ANVIL_RPC_URL = 'http://127.0.0.1:8545';
 const DEFAULT_ANVIL_MNEMONIC = 'test test test test test test test test test test test junk';
