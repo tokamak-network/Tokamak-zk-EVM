@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { program } from 'commander';
+import { writeFileSync } from 'fs';
 import {
   createTokamakL2Common,
   createTokamakL2StateManagerFromStateSnapshot,
@@ -14,7 +15,7 @@ import { SynthesizerOpts } from 'src/synthesizer/types/synthesizer.ts';
 import { createSynthesizer } from 'src/synthesizer/constructors.ts';
 import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
 import { createCircuitGenerator } from 'src/circuitGenerator/circuitGenerator.ts';
-import { PlacementVariables } from 'src/synthesizer/types/placements.ts';
+import { PlacementVariables, Placements } from 'src/synthesizer/types/placements.ts';
 import { addHexPrefix, createAccount, createAddressFromString, hexToBytes } from '@ethereumjs/util';
 import { readJson, writeSnapshotJson } from './utils/node.ts';
 import { writeCircuitJson } from '../node/jsonWriter.ts';
@@ -22,6 +23,18 @@ import { SynthesizerBlockInfo } from '../rpc/index.ts';
 import { Permutation, PublicInstance } from 'src/circuitGenerator/types/types.ts';
 
 program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthesizer').version('0.9.0');
+
+function writeDebugPlacementsIfRequested(placements: Placements): void {
+  const outPath = process.env.TOKAMAK_DEBUG_PLACEMENTS_OUT;
+  if (!outPath) {
+    return;
+  }
+  writeFileSync(
+    outPath,
+    JSON.stringify(placements, (_key, value) => typeof value === 'bigint' ? value.toString() : value, 2),
+  );
+  console.log(`[SynthesizerAdapter] Debug placements written: ${outPath}`);
+}
 
 async function seedSenderNonceFromTransactionSnapshot(
   stateManager: Awaited<ReturnType<typeof createTokamakL2StateManagerFromStateSnapshot>>,
@@ -90,6 +103,7 @@ program
         }
         throw new Error(`Synthesizer execution failed: ${error.message || error}`);
       }
+      writeDebugPlacementsIfRequested(synthesizer.placements);
   
       console.log('[SynthesizerAdapter] Generating circuit outputs...');
       const wasmBuffers = loadSubcircuitWasm();
