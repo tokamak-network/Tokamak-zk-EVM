@@ -49,15 +49,45 @@ applyEnvFileIfPresent(envPath);
 export const EXAMPLES_ENV_PATH = envPath;
 export const ANVIL_RPC_URL_ENV_KEY = 'ANVIL_RPC_URL';
 export const DEFAULT_ANVIL_RPC_URL = 'http://127.0.0.1:8545';
+export const DEFAULT_EXAMPLE_NOTE_RECEIVE_CHANNEL_NAME = 'private-state-example-channel';
 const DEFAULT_CHANNEL_ID = 4;
 const BLS12_381_SCALAR_FIELD_MODULUS =
   BigInt('0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001');
 const JUBJUB_ORDER = jubjub.CURVE.n;
+const JUBJUB_FP = jubjub.CURVE.Fp;
+const JUBJUB_A = jubjub.CURVE.a;
+const JUBJUB_D = jubjub.CURVE.d;
+const NOTE_RECEIVE_TYPED_DATA_DOMAIN = {
+  name: 'TokamakPrivateState',
+  version: '1',
+};
+const NOTE_RECEIVE_TYPED_DATA_TYPES = {
+  NoteReceiveKey: [
+    { name: 'protocol', type: 'string' },
+    { name: 'dapp', type: 'string' },
+    { name: 'channelId', type: 'uint256' },
+    { name: 'channelName', type: 'string' },
+    { name: 'account', type: 'address' },
+  ],
+};
+const NOTE_RECEIVE_TYPED_DATA_PROTOCOL = 'PRIVATE_STATE_NOTE_RECEIVE_KEY_V2';
+const NOTE_RECEIVE_TYPED_DATA_DAPP = 'private-state';
 const MINT_NOTE_FIELD_ENCRYPTION_INFO = 'PRIVATE_STATE_SELF_MINT_NOTE_FIELD_ENCRYPTION_V1';
 const ENCRYPTED_NOTE_SCHEME_SELF_MINT = 1;
 
-export type PrivateStateMintConfig = ChannelStateConfig & {
+export type NoteReceivePubKey = {
+  x: `0x${string}`;
+  yParity: number;
+};
+
+export type MintExampleParticipant = ChannelParticipantConfig & {
+  noteReceivePubKeyX: `0x${string}`;
+  noteReceivePubKeyYParity: number;
+};
+
+export type PrivateStateMintConfig = Omit<ChannelStateConfig, 'participants'> & {
   network: 'mainnet' | 'sepolia' | 'anvil';
+  participants: MintExampleParticipant[];
   channelId?: number;
   txNonce: number;
   calldata: `0x${string}`;
@@ -74,6 +104,29 @@ export type ExampleNetwork = PrivateStateMintConfig['network'];
 export type DerivedParticipantKeys = {
   privateKeys: Uint8Array[];
   publicKeys: EdwardsPoint[];
+};
+
+const noteReceivePubKeyFromPoint = (point: EdwardsPoint): NoteReceivePubKey => {
+  const affine = point.toAffine();
+  return {
+    x: normalizeBytes32Hex(ethers.toBeHex(affine.x)),
+    yParity: Number(affine.y & 1n),
+  };
+};
+
+const pointFromNoteReceivePubKey = (noteReceivePubKey: NoteReceivePubKey): EdwardsPoint => {
+  const x = ethers.toBigInt(noteReceivePubKey.x);
+  if (x >= JUBJUB_FP.ORDER) {
+    throw new Error('Jubjub note-receive public key x-coordinate is out of range');
+  }
+  const xSquared = JUBJUB_FP.mul(x, x);
+  const numerator = JUBJUB_FP.sub(1n, JUBJUB_FP.mul(JUBJUB_A, xSquared));
+  const denominator = JUBJUB_FP.sub(1n, JUBJUB_FP.mul(JUBJUB_D, xSquared));
+  let y = JUBJUB_FP.sqrt(JUBJUB_FP.div(numerator, denominator));
+  if (Number(y & 1n) !== Number(noteReceivePubKey.yParity)) {
+    y = JUBJUB_FP.neg(y);
+  }
+  return jubjub.ExtendedPoint.fromAffine({ x, y });
 };
 
 const MINT_NOTES1_ABI = [
@@ -140,6 +193,11 @@ const parseOutputCount = (value: unknown, label: string): 1 | 2 | 3 | 4 | 5 | 6 
 const normalizeBytes32Hex = (value: ethers.BytesLike): `0x${string}` =>
   ethers.hexlify(ethers.zeroPadValue(ethers.hexlify(value), 32)).toLowerCase() as `0x${string}`;
 
+const normalizeNoteReceivePubKey = (noteReceivePubKey: NoteReceivePubKey): NoteReceivePubKey => ({
+  x: normalizeBytes32Hex(noteReceivePubKey.x),
+  yParity: Number(noteReceivePubKey.yParity),
+});
+
 const networkChainId = (network: ExampleNetwork): bigint => {
   if (network === 'mainnet') {
     return 1n;
@@ -155,6 +213,68 @@ const fieldElementHex = (value: bigint): `0x${string}` =>
 
 const deriveDeterministicEphemeralScalar = (seed: `0x${string}`): bigint =>
   (BigInt(seed) % (JUBJUB_ORDER - 1n)) + 1n;
+
+const buildNoteReceiveTypedData = ({
+  chainId,
+  channelId,
+  channelName,
+  account,
+}: {
+  chainId: bigint | number;
+  channelId: bigint | number;
+  channelName: string;
+  account: `0x${string}`;
+}) => ({
+  domain: {
+    ...NOTE_RECEIVE_TYPED_DATA_DOMAIN,
+    chainId: Number(chainId),
+  },
+  types: NOTE_RECEIVE_TYPED_DATA_TYPES,
+  value: {
+    protocol: NOTE_RECEIVE_TYPED_DATA_PROTOCOL,
+    dapp: NOTE_RECEIVE_TYPED_DATA_DAPP,
+    channelId: BigInt(channelId).toString(),
+    channelName,
+    account: ethers.getAddress(account),
+  },
+});
+
+export const deriveNoteReceiveKeyMaterial = async ({
+  signer,
+  chainId,
+  channelId,
+  channelName,
+  account,
+}: {
+  signer: {
+    signTypedData(
+      domain: Record<string, unknown>,
+      types: Record<string, Array<{ name: string; type: string }>>,
+      value: Record<string, unknown>,
+    ): Promise<string>;
+  };
+  chainId: bigint | number;
+  channelId: bigint | number;
+  channelName: string;
+  account: `0x${string}`;
+}) => {
+  const typedData = buildNoteReceiveTypedData({
+    chainId,
+    channelId,
+    channelName,
+    account,
+  });
+  const signature = await signer.signTypedData(typedData.domain, typedData.types, typedData.value);
+  const derivedKeys = deriveL2KeysFromSignature(signature as `0x${string}`);
+  const privateKey = ethers.hexlify(derivedKeys.privateKey) as `0x${string}`;
+  const noteReceivePoint = jubjub.ExtendedPoint.fromHex(derivedKeys.publicKey);
+  return {
+    typedData,
+    signature,
+    privateKey,
+    noteReceivePubKey: noteReceivePubKeyFromPoint(noteReceivePoint),
+  };
+};
 
 const packEncryptedNoteValue = ({
   ephemeralPubKeyX,
@@ -266,14 +386,14 @@ const deriveCipherTag = ({
 
 const buildDeterministicMintEncryptedNoteValue = ({
   owner,
-  ownerPoint,
+  ownerNoteReceivePubKey,
   value,
   seed,
   network,
   channelId,
 }: {
   owner: `0x${string}`;
-  ownerPoint: EdwardsPoint;
+  ownerNoteReceivePubKey: NoteReceivePubKey;
   value: bigint;
   seed: `0x${string}`;
   network: ExampleNetwork;
@@ -282,7 +402,7 @@ const buildDeterministicMintEncryptedNoteValue = ({
   const ephemeralPrivateScalar = deriveDeterministicEphemeralScalar(seed);
   const nonce = ethers.dataSlice(seed, 0, 12) as `0x${string}`;
   const ephemeralPoint = jubjub.ExtendedPoint.BASE.multiply(ephemeralPrivateScalar);
-  const sharedSecretPoint = ownerPoint.multiply(ephemeralPrivateScalar);
+  const sharedSecretPoint = pointFromNoteReceivePubKey(ownerNoteReceivePubKey).multiply(ephemeralPrivateScalar);
   if (value < 0n || value >= BLS12_381_SCALAR_FIELD_MODULUS) {
     throw new Error('Mint note value must fit within the BLS12-381 scalar field');
   }
@@ -326,7 +446,7 @@ const assertUserStorageSlots = (value: unknown, label: string): number[] => {
   return value;
 };
 
-const assertParticipantArray = (value: unknown, label: string): ChannelParticipantConfig[] => {
+const assertParticipantArray = (value: unknown, label: string): MintExampleParticipant[] => {
   if (!Array.isArray(value)) {
     throw new Error(`${label} must be an array`);
   }
@@ -337,13 +457,26 @@ const assertParticipantArray = (value: unknown, label: string): ChannelParticipa
     const record = entry as Record<string, unknown>;
     const addressL1 = record.addressL1;
     const prvSeedL2 = record.prvSeedL2;
+    const noteReceivePubKeyX = record.noteReceivePubKeyX;
+    const noteReceivePubKeyYParity = record.noteReceivePubKeyYParity;
     if (typeof addressL1 !== 'string' || !addressL1.startsWith('0x')) {
       throw new Error(`${label}[${index}].addressL1 must be a hex string with 0x prefix`);
     }
     if (typeof prvSeedL2 !== 'string') {
       throw new Error(`${label}[${index}].prvSeedL2 must be a string`);
     }
-    return { addressL1: addressL1 as `0x${string}`, prvSeedL2 };
+    if (typeof noteReceivePubKeyX !== 'string' || !noteReceivePubKeyX.startsWith('0x')) {
+      throw new Error(`${label}[${index}].noteReceivePubKeyX must be a hex string with 0x prefix`);
+    }
+    if (noteReceivePubKeyYParity !== 0 && noteReceivePubKeyYParity !== 1) {
+      throw new Error(`${label}[${index}].noteReceivePubKeyYParity must be 0 or 1`);
+    }
+    return {
+      addressL1: addressL1 as `0x${string}`,
+      prvSeedL2,
+      noteReceivePubKeyX: normalizeBytes32Hex(noteReceivePubKeyX as `0x${string}`),
+      noteReceivePubKeyYParity: Number(noteReceivePubKeyYParity),
+    };
   });
 };
 
@@ -465,7 +598,14 @@ export const buildPrivateStateMintCalldata = (
   }
 
   const noteOwnerAddress = fromEdwardsToAddress(keyMaterial.publicKeys[config.senderIndex]).toString() as `0x${string}`;
-  const noteOwnerPoint = keyMaterial.publicKeys[config.senderIndex];
+  const noteOwnerParticipant = config.participants[config.senderIndex];
+  if (!noteOwnerParticipant) {
+    throw new Error(`Could not resolve note owner participant at index ${config.senderIndex}`);
+  }
+  const noteOwnerNoteReceivePubKey = normalizeNoteReceivePubKey({
+    x: noteOwnerParticipant.noteReceivePubKeyX,
+    yParity: noteOwnerParticipant.noteReceivePubKeyYParity,
+  });
   const mintInterface = mintInterfaces[config.outputCount];
   const functionName = `mintNotes${config.outputCount}` as
     | 'mintNotes1'
@@ -478,7 +618,7 @@ export const buildPrivateStateMintCalldata = (
     value: BigInt(value),
     encryptedNoteValue: buildDeterministicMintEncryptedNoteValue({
       owner: noteOwnerAddress,
-      ownerPoint: noteOwnerPoint,
+      ownerNoteReceivePubKey: noteOwnerNoteReceivePubKey,
       value: BigInt(value),
       seed: config.noteSalts[index],
       network: config.network,

@@ -8,7 +8,9 @@ import { ethers } from 'ethers';
 import { fileURLToPath } from 'url';
 import { fromEdwardsToAddress } from 'tokamak-l2js';
 import {
+  DEFAULT_EXAMPLE_NOTE_RECEIVE_CHANNEL_NAME,
   buildPrivateStateMintCalldata,
+  deriveNoteReceiveKeyMaterial,
   deriveParticipantKeys,
   mintInterfaces,
 } from '../examples/privateState/mintNotes/utils.ts';
@@ -23,6 +25,8 @@ import {
 type ParticipantEntry = {
   addressL1: `0x${string}`;
   prvSeedL2: string;
+  noteReceivePubKeyX: `0x${string}`;
+  noteReceivePubKeyYParity: number;
 };
 
 type StorageConfigEntry = {
@@ -211,7 +215,7 @@ const parseAmount = (value: unknown): bigint => {
   return BigInt(trimmed);
 };
 
-const buildParticipants = (mnemonic: string, participantCount: number): ParticipantEntry[] => {
+const buildParticipants = async (mnemonic: string, participantCount: number): Promise<ParticipantEntry[]> => {
   const participants: ParticipantEntry[] = [];
   for (let index = 0; index < participantCount; index += 1) {
     const wallet = ethers.HDNodeWallet.fromPhrase(
@@ -219,9 +223,18 @@ const buildParticipants = (mnemonic: string, participantCount: number): Particip
       undefined,
       `m/44'/60'/0'/0/${index}`,
     );
+    const noteReceive = await deriveNoteReceiveKeyMaterial({
+      signer: wallet,
+      chainId: 31337,
+      channelId: DEFAULT_CHANNEL_ID,
+      channelName: DEFAULT_EXAMPLE_NOTE_RECEIVE_CHANNEL_NAME,
+      account: wallet.address as `0x${string}`,
+    });
     participants.push({
       addressL1: wallet.address as `0x${string}`,
       prvSeedL2: `private-state participant ${index}`,
+      noteReceivePubKeyX: noteReceive.noteReceivePubKey.x,
+      noteReceivePubKeyYParity: noteReceive.noteReceivePubKey.yParity,
     });
   }
   return participants;
@@ -294,7 +307,7 @@ const main = async () => {
   const storageLayoutManifest = await loadPrivateStateStorageLayoutManifest();
   const managedStorageAddresses = getPrivateStateManagedStorageAddresses(storageLayoutManifest);
   const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const baseParticipants = buildParticipants(mnemonic, participantCount);
+  const baseParticipants = await buildParticipants(mnemonic, participantCount);
   const keyMaterial = deriveParticipantKeys(baseParticipants);
   const participants = baseParticipants.map((participant, index) => ({
     ...participant,
