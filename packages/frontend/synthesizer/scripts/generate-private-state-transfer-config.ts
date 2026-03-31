@@ -236,6 +236,20 @@ const writeConfig = async (targetPath: string, config: PrivateStateTransferConfi
   await fs.writeFile(targetPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
 };
 
+const getManagedPrivateStateAddresses = (manifest: DeploymentManifest): `0x${string}`[] => {
+  const seen = new Set<string>();
+  const addresses: `0x${string}`[] = [];
+  for (const address of Object.values(manifest.contracts)) {
+    const normalized = ethers.getAddress(address);
+    if (seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    addresses.push(normalized as `0x${string}`);
+  }
+  return addresses;
+};
+
 const mergeUniqueHexValues = (existing: `0x${string}`[], incoming: `0x${string}`[]) => {
   const seen = new Set<string>();
   const merged: `0x${string}`[] = [];
@@ -327,6 +341,7 @@ const main = async () => {
 
   await ensurePrivateStateBootstrap();
   const manifest = await loadDeploymentManifest();
+  const managedStorageAddresses = getManagedPrivateStateAddresses(manifest);
   const storageLayoutManifest = await loadPrivateStateStorageLayoutManifest();
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const baseParticipants = buildParticipants(mnemonic, participantCount);
@@ -448,14 +463,14 @@ const main = async () => {
     computeReplayPrivateStateMappingKey(commitment, commitmentExistsSlot));
 
   config.blockNumber = blockNumber;
-  config.storageConfigs = [
-    {
-      address: manifest.contracts.controller,
-      userStorageSlots: [],
-      preAllocatedKeys: mergeUniqueHexValues([], noteRegistryKeys),
-    },
-  ];
-  config.callCodeAddresses = [manifest.contracts.controller];
+  config.storageConfigs = managedStorageAddresses.map((address) => ({
+    address,
+    userStorageSlots: [],
+    preAllocatedKeys: address.toLowerCase() === manifest.contracts.controller.toLowerCase()
+      ? mergeUniqueHexValues([], noteRegistryKeys)
+      : [],
+  }));
+  config.callCodeAddresses = managedStorageAddresses;
 
   await writeConfig(outputPath, config);
   console.log(`Saved private-state transfer config to ${outputPath}`);
