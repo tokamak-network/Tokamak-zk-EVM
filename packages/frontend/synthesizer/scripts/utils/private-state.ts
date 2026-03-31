@@ -52,12 +52,11 @@ const NULLIFIER_DOMAIN = ethers.keccak256(ethers.toUtf8Bytes('PRIVATE_STATE_NULL
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, '..', '..');
-const repoRoot = path.resolve(packageRoot, '..', '..', '..', '..', '..');
 const defaultStorageLayoutPath = path.resolve(
-  repoRoot,
-  'apps',
+  packageRoot,
+  'scripts',
+  'deployment',
   'private-state',
-  'deploy',
   'storage-layout.31337.latest.json',
 );
 
