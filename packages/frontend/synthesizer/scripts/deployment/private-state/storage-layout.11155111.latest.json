@@ -1,9 +1,9 @@
 {
-  "generatedAtUtc": "20260331T163201Z",
+  "generatedAtUtc": "20260331T164149Z",
   "chainId": 11155111,
   "contracts": {
     "PrivateStateController": {
-      "address": "0x65970f27b8afaf7ac38b9970ba60c5ec85a1945d",
+      "address": "0x96a3074f81aaec403b42821e7f8710bbe319ef11",
       "sourceName": "apps/private-state/src/PrivateStateController.sol",
       "contractName": "PrivateStateController",
       "storageLayout": {
@@ -47,7 +47,7 @@
       }
     },
     "L2AccountingVault": {
-      "address": "0x06ec278e75ef36ede5c889e113b197c5ef5a07c6",
+      "address": "0x41744cfdd50b51c3c2471e1f6afed4ba13485a80",
       "sourceName": "apps/private-state/src/L2AccountingVault.sol",
       "contractName": "L2AccountingVault",
       "storageLayout": {

@@ -1,17 +1,14 @@
 {
   "channelId": 4,
   "stateRoots": [
-    "0xce3a78a0131c84050bbe2205642f9e176ffe98488dbddb19336b987420f3bde",
     "0x6c75512bd77e601e966c0cfacb2a7753f23ad2fe87101dbab025b031eca9b039",
     "0xce3a78a0131c84050bbe2205642f9e176ffe98488dbddb19336b987420f3bde"
   ],
   "storageAddresses": [
-    "0xa3193b72724895c871740708dd03c39bc3f4fa24",
-    "0x65970f27b8afaf7ac38b9970ba60c5ec85a1945d",
-    "0x06ec278e75ef36ede5c889e113b197c5ef5a07c6"
+    "0x96a3074f81aaec403b42821e7f8710bbe319ef11",
+    "0x41744cfdd50b51c3c2471e1f6afed4ba13485a80"
   ],
   "storageEntries": [
-    [],
     [
       {
         "key": "0x3bb47baad8f4e795af1cfb350bc4c73617394738f94a5d8a8fddcc9f79aeda25",

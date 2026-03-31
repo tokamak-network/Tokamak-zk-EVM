@@ -11,6 +11,7 @@ import {
   buildPrivateStateRedeemCalldata,
   deriveParticipantKeys,
   redeemInterfaces,
+  type PrivateStateNote,
   type PrivateStateRedeemConfig,
 } from '../examples/privateState/redeemNotes/utils.ts';
 import {
@@ -18,6 +19,7 @@ import {
   computeReplayPrivateStateMappingKey,
   computeReplayPrivateStateNoteCommitment,
   deriveReplayPrivateStateFieldValue,
+  getPrivateStateManagedStorageAddresses,
   getPrivateStateControllerCommitmentExistsSlot,
   getPrivateStateVaultLiquidBalancesSlot,
   loadPrivateStateStorageLayoutManifest,
@@ -292,6 +294,7 @@ const main = async () => {
   await ensurePrivateStateBootstrap();
   const manifest = await loadDeploymentManifest();
   const storageLayoutManifest = await loadPrivateStateStorageLayoutManifest();
+  const managedStorageAddresses = getPrivateStateManagedStorageAddresses(storageLayoutManifest);
   const commitmentExistsSlot = getPrivateStateControllerCommitmentExistsSlot(storageLayoutManifest);
   const liquidBalancesSlot = getPrivateStateVaultLiquidBalancesSlot(storageLayoutManifest);
   const provider = new ethers.JsonRpcProvider(rpcUrl);
@@ -383,19 +386,14 @@ const main = async () => {
   const noteRegistryKeys = inputCommitments.map((commitment) =>
     computeReplayPrivateStateMappingKey(commitment, commitmentExistsSlot));
   config.blockNumber = blockNumber;
-  config.storageConfigs = [
-    {
-      address: manifest.contracts.controller,
-      userStorageSlots: [],
-      preAllocatedKeys: mergeUniqueHexValues([], noteRegistryKeys),
-    },
-    {
-      address: manifest.contracts.l2AccountingVault,
-      userStorageSlots: [],
-      preAllocatedKeys: [],
-    },
-  ];
-  config.callCodeAddresses = [manifest.contracts.controller, manifest.contracts.l2AccountingVault];
+  config.storageConfigs = managedStorageAddresses.map((address) => ({
+    address,
+    userStorageSlots: [],
+    preAllocatedKeys: address.toLowerCase() === manifest.contracts.controller.toLowerCase()
+      ? mergeUniqueHexValues([], noteRegistryKeys)
+      : [],
+  }));
+  config.callCodeAddresses = managedStorageAddresses;
 
   await writeConfig(outputPath, config);
   console.log(`Saved private-state redeem config to ${outputPath}`);

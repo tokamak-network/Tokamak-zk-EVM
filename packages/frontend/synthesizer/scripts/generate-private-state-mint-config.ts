@@ -15,6 +15,7 @@ import {
 import {
   computeReplayPrivateStateAddressMappingKey,
   deriveReplayPrivateStateFieldValue,
+  getPrivateStateManagedStorageAddresses,
   getPrivateStateVaultLiquidBalancesSlot,
   loadPrivateStateStorageLayoutManifest,
 } from './utils/private-state.ts';
@@ -291,6 +292,7 @@ const main = async () => {
   await ensurePrivateStateBootstrap();
   const manifest = await loadDeploymentManifest();
   const storageLayoutManifest = await loadPrivateStateStorageLayoutManifest();
+  const managedStorageAddresses = getPrivateStateManagedStorageAddresses(storageLayoutManifest);
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const baseParticipants = buildParticipants(mnemonic, participantCount);
   const keyMaterial = deriveParticipantKeys(baseParticipants);
@@ -379,22 +381,14 @@ const main = async () => {
   const config: PrivateStateMintConfig = {
     network: 'anvil',
     participants,
-    storageConfigs: [
-      {
-        address: manifest.contracts.controller,
-        userStorageSlots: [],
-        preAllocatedKeys: [],
-      },
-      {
-        address: manifest.contracts.l2AccountingVault,
-        userStorageSlots: [],
-        preAllocatedKeys: liquidBalanceStorageKeys,
-      },
-    ],
-    callCodeAddresses: [
-      manifest.contracts.controller,
-      manifest.contracts.l2AccountingVault,
-    ],
+    storageConfigs: managedStorageAddresses.map((address) => ({
+      address,
+      userStorageSlots: [],
+      preAllocatedKeys: address.toLowerCase() === manifest.contracts.l2AccountingVault.toLowerCase()
+        ? liquidBalanceStorageKeys
+        : [],
+    })),
+    callCodeAddresses: managedStorageAddresses,
     blockNumber,
     txNonce: DEFAULT_L2_TX_NONCE,
     calldata,

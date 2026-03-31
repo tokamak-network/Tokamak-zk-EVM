@@ -120,6 +120,22 @@ export const loadPrivateStateStorageLayoutManifest = async (
   return JSON.parse(contents) as PrivateStateStorageLayoutManifest;
 };
 
+export const getPrivateStateManagedStorageAddresses = (
+  manifest: PrivateStateStorageLayoutManifest,
+): `0x${string}`[] => {
+  const seen = new Set<string>();
+  const addresses: `0x${string}`[] = [];
+  for (const contract of Object.values(manifest.contracts)) {
+    const normalized = ethers.getAddress(contract.address);
+    if (seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    addresses.push(normalized as `0x${string}`);
+  }
+  return addresses;
+};
+
 export const getPrivateStateControllerCommitmentExistsSlot = (
   manifest: PrivateStateStorageLayoutManifest,
 ): bigint => BigInt(getLayoutEntry(manifest, 'PrivateStateController', 'commitmentExists').slot);
