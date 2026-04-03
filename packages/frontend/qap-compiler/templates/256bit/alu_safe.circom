@@ -22,12 +22,8 @@ template ALU1 () {
     // b_selector[Opcode] = 1, b_selector[i] = 0 for all i != Opcode.
     // selector bitification
     signal b_selector[NUM_SELECTOR_BITS] <== Num2Bits(NUM_SELECTOR_BITS)(selector);
-    signal selector_weight[NUM_SELECTOR_BITS];
-    selector_weight[0] <== b_selector[0];
-    for (var i = 1; i < NUM_SELECTOR_BITS; i++) {
-        selector_weight[i] <== selector_weight[i - 1] + b_selector[i];
-    }
-    selector_weight[NUM_SELECTOR_BITS - 1] === 1;
+    signal unsupported_selector_sum <== b_selector[0] + b_selector[4] + b_selector[5] + b_selector[6] + b_selector[7] + b_selector[8] + b_selector[9] + b_selector[10] + b_selector[11] + b_selector[12] + b_selector[13] + b_selector[14] + b_selector[15] + b_selector[16] + b_selector[17] + b_selector[18] + b_selector[19] + b_selector[22] + b_selector[23] + b_selector[24] + b_selector[26] + b_selector[27] + b_selector[28] + b_selector[29];
+    unsupported_selector_sum === 0;
 
     /* Input range check can be omitted, as each subcircuit will be connected to other subcircuits.
     // // Check inputs are in 128 bit limbs
@@ -42,7 +38,6 @@ template ALU1 () {
     // signal is_in3_1_zero <== IsZero()(in3[1]);
 
     signal outs1[NUM_ALU_FUNCTIONS][2];
-    signal outs2[NUM_ALU_FUNCTIONS][2];
     signal flags[NUM_ALU_FUNCTIONS];
     var ind = 0;
 
@@ -51,7 +46,6 @@ template ALU1 () {
     add.in1 <== in1;
     add.in2 <== in2;
     outs1[ind] <== add.out;
-    outs2[ind] <== [0, 0];
     flags[ind] <== b_selector[1];
     ind++;
 
@@ -60,7 +54,6 @@ template ALU1 () {
     mul.in1 <== in1;
     mul.in2 <== in2;
     outs1[ind] <== mul.out;
-    outs2[ind] <== [0, 0];
     flags[ind] <== b_selector[2];
     ind++;
 
@@ -69,7 +62,6 @@ template ALU1 () {
     sub.in1 <== in1;
     sub.in2 <== in2;
     outs1[ind] <== sub.out;
-    outs2[ind] <== [0, 0];
     flags[ind] <== b_selector[3];
     ind++;
 
@@ -88,7 +80,6 @@ template ALU1 () {
     eq.in1 <== in1;
     eq.in2 <== in2;
     outs1[ind] <== [eq.out, 0];
-    outs2[ind] <== [0, 0];
     flags[ind] <== b_selector[20];
     ind++;
 
@@ -96,7 +87,6 @@ template ALU1 () {
     component iszero = IsZero256();
     iszero.in <== in1;
     outs1[ind] <== [iszero.out, 0];
-    outs2[ind] <== [0, 0];
     flags[ind] <== b_selector[21];
     ind++;
     // is_in2_zero * b_selector[21] + (1 - b_selector[21]) === 1;
@@ -105,24 +95,22 @@ template ALU1 () {
     component not = Not256_unsafe();
     not.in <== in1;
     outs1[ind] <== not.out;
-    outs2[ind] <== [0, 0];
     flags[ind] <== b_selector[25];
     ind++;
     // is_in2_zero * b_selector[25] + (1 - b_selector[25]) === 1;
 
-    component mux1 = ComplexMux256_unsafe(NUM_ALU_FUNCTIONS);
+    signal flags_sum <== flags[0] + flags[1] + flags[2] + flags[3] + flags[4] + flags[5];
+    flags_sum === 1;
+
+    component mux1 = ComplexMux256_checked(NUM_ALU_FUNCTIONS);
     mux1.selector <== flags;
     mux1.ins <== outs1;
     out1 <== mux1.out;
 
-    component mux2 = ComplexMux256_unsafe(NUM_ALU_FUNCTIONS);
-    mux2.selector <== flags;
-    mux2.ins <== outs2;
-    out2 <== mux2.out;
+    out2 <== [0, 0];
 
     // Check outputs are in 128 bit limbs
     CheckBus()(out1);
-    CheckBus()(out2);
 }
 
 template _SafeDivisor(){
@@ -144,12 +132,8 @@ template ALU2 () {
     // b_selector[Opcode] = 1, b_selector[i] = 0 for all i != Opcode.
     // selector bitification
     signal b_selector[NUM_SELECTOR_BITS] <== Num2Bits(NUM_SELECTOR_BITS)(selector);
-    signal selector_weight[NUM_SELECTOR_BITS];
-    selector_weight[0] <== b_selector[0];
-    for (var i = 1; i < NUM_SELECTOR_BITS; i++) {
-        selector_weight[i] <== selector_weight[i - 1] + b_selector[i];
-    }
-    selector_weight[NUM_SELECTOR_BITS - 1] === 1;
+    signal unsupported_selector_sum <== b_selector[0] + b_selector[1] + b_selector[2] + b_selector[3] + b_selector[10] + b_selector[12] + b_selector[13] + b_selector[14] + b_selector[15] + b_selector[16] + b_selector[17] + b_selector[18] + b_selector[19] + b_selector[20] + b_selector[21] + b_selector[22] + b_selector[23] + b_selector[24] + b_selector[25];
+    unsupported_selector_sum === 0;
 
     /* Input range check can be omitted, as each subcircuit will be connected to other subcircuits.
     // // Check inputs are in 128 bit limbs
@@ -167,16 +151,17 @@ template ALU2 () {
     component div = Div256_unsafe();
     div.in1 <== in1;
     div.in2 <== in2;
+    signal safe_div_in2[2] <== _SafeDivisor()(in2);
     outs[ind] <== div.q;
     rems[ind] <== div.r;
-    divisors[ind] <== _SafeDivisor()(div.in2);
+    divisors[ind] <== safe_div_in2;
     flags[ind] <== b_selector[4];
     ind++;
 
     // operator 0x06: mod
     outs[ind] <== div.r;
     rems[ind] <== div.r;
-    divisors[ind] <== _SafeDivisor()(div.in2);
+    divisors[ind] <== safe_div_in2;
     flags[ind] <== b_selector[6];
     ind++;
 
@@ -186,6 +171,7 @@ template ALU2 () {
 
     signal (abs_res[2], abs_rem[2]) <== Div256_unsafe()(abs_in1, abs_in2);
     signal isNeg_res <== XOR()(isNeg_in1, isNeg_in2);
+    signal safe_div_abs_in2[2] <== _SafeDivisor()(abs_in2);
 
     signal q[2] <== recoverSignedInteger256_unsafe()(isNeg_res, abs_res);
     signal r[2] <== recoverSignedInteger256_unsafe()(isNeg_in1, abs_rem);
@@ -193,14 +179,14 @@ template ALU2 () {
     // operator 0x05: sdiv
     outs[ind] <== q;
     rems[ind] <== abs_rem;
-    divisors[ind] <== _SafeDivisor()(abs_in2);
+    divisors[ind] <== safe_div_abs_in2;
     flags[ind] <== b_selector[5];
     ind++;
 
     // operator 0x07: smod
     outs[ind] <== r;
     rems[ind] <== abs_rem;
-    divisors[ind] <== _SafeDivisor()(abs_in2);
+    divisors[ind] <== safe_div_abs_in2;
     flags[ind] <== b_selector[7];
     ind++;
 
@@ -209,9 +195,10 @@ template ALU2 () {
     addmod.in1 <== in1;
     addmod.in2 <== in2;
     addmod.in3 <== in3;
+    signal safe_div_in3[2] <== _SafeDivisor()(in3);
     outs[ind] <== addmod.out;
     rems[ind] <== addmod.out;
-    divisors[ind] <== _SafeDivisor()(in3);
+    divisors[ind] <== safe_div_in3;
     flags[ind] <== b_selector[8];
     ind++;
 
@@ -222,21 +209,24 @@ template ALU2 () {
     mulmod.in3 <== in3;
     outs[ind] <== mulmod.out;
     rems[ind] <== mulmod.out;
-    divisors[ind] <== _SafeDivisor()(in3);
+    divisors[ind] <== safe_div_in3;
     flags[ind] <== b_selector[9];
     ind++;
 
-    component mux1 = ComplexMux256_unsafe(NUM_ALU_FUNCTIONS);
+    signal flags_sum <== flags[0] + flags[1] + flags[2] + flags[3] + flags[4] + flags[5] + flags[6] + flags[7] + flags[8] + flags[9] + flags[10];
+    flags_sum === 1;
+
+    component mux1 = ComplexMux256_checked(NUM_ALU_FUNCTIONS);
     mux1.selector <== flags;
     mux1.ins <== outs;
     out <== mux1.out;
 
-    component mux2 = ComplexMux256_unsafe(NUM_ALU_FUNCTIONS);
+    component mux2 = ComplexMux256_checked(NUM_ALU_FUNCTIONS);
     mux2.selector <== flags;
     mux2.ins <== rems;
     signal rem[2] <== mux2.out;
 
-    component mux3 = ComplexMux256_unsafe(NUM_ALU_FUNCTIONS);
+    component mux3 = ComplexMux256_checked(NUM_ALU_FUNCTIONS);
     mux3.selector <== flags;
     mux3.ins <== divisors;
     signal divisor[2] <== mux3.out;
