@@ -1,6 +1,6 @@
 # Merged ALU Security Audit
 
-> Status update: This document records the audit findings before the follow-up hardening that was later applied. In the current repository state, the selector-canonicalization issue, the missing high-limb constraint for the shift and byte family, and the direct input bus canonicalization gap for the merged wrappers have been remediated.
+> Status update: Revalidated against the repository state on April 4, 2026. The three original merged-wrapper findings in this document are now resolved. A follow-up review also identified additional live vulnerabilities that are recorded below.
 
 ## Scope
 
@@ -30,7 +30,7 @@ The review also included direct witness-generation reproductions against the com
 
 Most arithmetic constraints were preserved during the merge. The core logic for `ADD`, `MUL`, `SUB`, `LT`, `GT`, `SLT`, `SGT`, `EQ`, `ISZERO`, `NOT`, `AND`, `OR`, `XOR`, `DIV`, `MOD`, `SDIV`, `SMOD`, `ADDMOD`, and `MULMOD` is materially equivalent to the pre-merge design.
 
-However, the merged `ALU2` introduced a real regression for the shift and byte family:
+At audit time, the merged `ALU2` introduced a real regression for the shift and byte family:
 
 - `SIGNEXTEND`
 - `BYTE`
@@ -40,15 +40,29 @@ However, the merged `ALU2` introduced a real regression for the shift and byte f
 
 In the pre-merge design, the wrappers for `ALU3` and `ALU5` enforced `in1[1] === 0`, ensuring that the shift amount or byte index was canonical and only occupied the low limb. In the merged `ALU2`, that wrapper-level constraint no longer exists. The merged template only reads `in1[0]` for these operations, so different public inputs with different `in1[1]` values are now accepted as the same statement.
 
-This is a soundness regression and should be treated as security-relevant.
+That issue was security-relevant at audit time. It has since been remediated in the current repository state.
 
-The audit also found a second issue that already existed before the merge and still exists now: selectors are not fully canonicalized. Unused selector bits may be set without causing the proof to fail.
+The audit also found two broader canonicalization concerns:
+
+- selector canonicalization was incomplete
+- direct limb-range safety depended on wrapper-level enforcement
+
+Those two merged-wrapper concerns have also been remediated in the current repository state.
+
+However, the follow-up review identified additional live vulnerabilities:
+
+- `DIV` and `SDIV` can still return an unconstrained quotient when the divisor is zero
+- `SHR` and `SAR` can still return unconstrained outputs when `shift >= 256`
+- selector canonicalization remains incomplete in several standalone ALU templates outside the merged wrappers reviewed here
+- several 255-bit hash, Merkle, and Jubjub templates still accept non-canonical limb encodings
 
 ## Detailed Findings
 
 ### Finding 1: Missing high-limb constraint for shift and byte family inputs
 
 Severity: High
+
+Current status: Resolved
 
 #### Pre-merge behavior
 
@@ -98,9 +112,26 @@ This allows multiple different public inputs to represent the same logical opera
 
 This is the most important regression identified in the audit.
 
+#### Current status revalidation
+
+This issue is now fixed in the merged path.
+
+The current `ALU_based_on_div()` template gates the high limb of `in1` for the byte and shift families:
+
+- `is_index_family <== is_byte_family + is_shift_family`
+- `in1[1] * is_index_family === 0`
+
+Relevant code:
+
+- [`templates/256bit/alu_safe.circom`](../templates/256bit/alu_safe.circom)
+
+This restores the missing canonicalization constraint for `SIGNEXTEND`, `BYTE`, `SHL`, `SHR`, and `SAR` in the merged ALU path.
+
 ### Finding 2: Selector canonicalization remains incomplete
 
 Severity: Medium
+
+Current status: Resolved for the merged wrappers originally audited
 
 The merged circuits bit-decompose the full selector:
 
@@ -127,9 +158,25 @@ for the same `ADD` input, and both produced the same output `(16, 0)`.
 
 This is not introduced by the merge. The older ALUs had the same issue. It is nevertheless a real non-canonicality problem and should be fixed if selector uniqueness matters to the surrounding system.
 
+#### Current status revalidation
+
+For the merged wrappers originally audited, selector canonicalization is now enforced.
+
+The current `ALU1` wrapper constrains the full selector weight to exactly one after bit-decomposition:
+
+- [`subcircuits/circom/ALU1_circuit.circom`](../subcircuits/circom/ALU1_circuit.circom)
+
+The current merged division-based wrapper path also enforces the same selector-weight rule inside `ALU_based_on_div()`:
+
+- [`templates/256bit/alu_safe.circom`](../templates/256bit/alu_safe.circom)
+
+This resolves the original merged-wrapper selector issue. A different selector-canonicalization gap still exists in several standalone templates and is documented below as a new finding.
+
 ### Finding 3: Limb range safety still depends on external wiring
 
 Severity: Medium
+
+Current status: Resolved for the merged wrappers originally audited
 
 The merged templates continue to omit direct input bus range checks:
 
@@ -140,11 +187,127 @@ The same assumption existed before the merge. This is therefore not a regression
 - If upstream circuits always constrain each limb to 128 bits, the design is consistent.
 - If that assumption is violated anywhere, several `unsafe` arithmetic templates can be fed malformed non-canonical limbs.
 
-This was a residual security dependency, not a newly introduced bug. The current repository state hardens the merged `ALU1` and `ALU2` wrappers with direct `CheckBus()` input checks.
+This was a residual security dependency, not a newly introduced bug. The current repository state hardens the merged `ALU1` and `ALU2` wrappers with direct input-bound enforcement.
+
+#### Current status revalidation
+
+This concern is now resolved for the merged wrappers reviewed in this report:
+
+- The current `ALU2` wrapper applies `CheckBus()` directly to `in1`, `in2`, and `in3`.
+- The current `ALU1` wrapper bit-decomposes every input limb with `Num2Bits(128)`, which also enforces the 128-bit limb bound.
+
+Relevant code:
+
+- [`subcircuits/circom/ALU1_circuit.circom`](../subcircuits/circom/ALU1_circuit.circom)
+- [`subcircuits/circom/ALU2_circuit.circom`](../subcircuits/circom/ALU2_circuit.circom)
+
+The underlying `unsafe` arithmetic templates still rely on correct callers, but the merged wrappers covered by this document no longer expose the original bus-canonicalization gap.
+
+## Additional Findings From Follow-up Review
+
+### Finding 4: `DIV` and `SDIV` still admit an arbitrary quotient when the divisor is zero
+
+Severity: Critical
+
+Current status: Active
+
+`Div256_unsafe()` zeroes the remainder in the `in2 == 0` branch but does not constrain the quotient in the same branch. Because the arithmetic check only enforces:
+
+- `q * in2 + r_temp == in1`
+
+when `in2 == 0`, the quotient term vanishes and the internal remainder witness can absorb the full numerator. The public output remainder is later masked to zero, but the quotient witness is still left unconstrained.
+
+Relevant code:
+
+- `r <== Mux256()(is_zero_denom, [0, 0], r_temp)` in [`templates/256bit/arithmetic_unsafe_type2.circom`](../templates/256bit/arithmetic_unsafe_type2.circom)
+- `outs[ind] <== div.q` for opcode `0x04`
+- `outs[ind] <== q` for opcode `0x05`
+- [`templates/256bit/alu_safe.circom`](../templates/256bit/alu_safe.circom)
+
+Security impact:
+
+- `DIV` can produce a forged non-zero output when the divisor is zero
+- `SDIV` can produce a forged non-zero output when the divisor is zero
+
+This is a live soundness issue in the merged division-based ALU path.
+
+### Finding 5: `SHR` and `SAR` still admit unconstrained outputs when `shift >= 256`
+
+Severity: High
+
+Current status: Active
+
+`FindShiftingTwosPower256()` maps shifts greater than `255` to a zero divisor. The merged shift-family path then reuses `Div256_unsafe()` as the right-shift primitive. This recreates the same unconstrained-quotient problem as zero-divisor division.
+
+Relevant code:
+
+- [`templates/256bit/arithmetic_safe.circom`](../templates/256bit/arithmetic_safe.circom)
+- [`templates/256bit/arithmetic_unsafe_type2.circom`](../templates/256bit/arithmetic_unsafe_type2.circom)
+- [`templates/256bit/alu_safe.circom`](../templates/256bit/alu_safe.circom)
+
+Security impact:
+
+- `SHR(x, shift >= 256)` should be `0`, but the circuit does not enforce that result
+- `SAR(x, shift >= 256)` should saturate by sign, but the circuit builds on the same unconstrained right-shift witness
+
+This is a live semantic and soundness issue in the merged division-based ALU path.
+
+### Finding 6: Selector canonicalization remains incomplete in several standalone ALU templates
+
+Severity: Medium
+
+Current status: Active
+
+The original merged-wrapper selector issue is fixed, but several standalone templates still bit-decompose `selector` without enforcing that exactly one opcode bit is set:
+
+- `ALU3`
+- `ALU4`
+- `ALU5`
+- `ALU_basic`
+- `ALU_bitwise`
+
+These templates rely on subset mux constraints only. A prover can set the intended opcode bit together with unrelated extra bits and still satisfy the selected subcircuit.
+
+Relevant code:
+
+- [`templates/256bit/alu_safe.circom`](../templates/256bit/alu_safe.circom)
+- [`templates/256bit/mux.circom`](../templates/256bit/mux.circom)
+- [`templates/128bit/mux.circom`](../templates/128bit/mux.circom)
+
+Security impact:
+
+- the proof statement is not fully canonical for those standalone templates
+- public selector values can encode more than one opcode bit while still proving the same computation
+
+This is distinct from the original merged-wrapper finding because the live issue is now limited to these standalone template entry points.
+
+### Finding 7: Several 255-bit templates accept non-canonical limb encodings
+
+Severity: Medium
+
+Current status: Active
+
+The 255-bit Poseidon, Merkle, and Jubjub templates recombine two 128-bit limbs directly into a field element but do not enforce canonical 255-bit encoding or `< Fr` bounds for external limb inputs.
+
+Affected templates:
+
+- [`templates/255bit/poseidon.circom`](../templates/255bit/poseidon.circom)
+- [`templates/255bit/merkleTree.circom`](../templates/255bit/merkleTree.circom)
+- [`templates/255bit/jubjub.circom`](../templates/255bit/jubjub.circom)
+
+Security impact:
+
+- different limb pairs that are congruent modulo the field can be accepted as the same Poseidon input
+- the same concern propagates into Merkle proof verification and Jubjub-based constructions
+- public statements that are expected to bind split limbs uniquely are not fully canonical at the circuit boundary
+
+This issue was identified during the broader template review and was not part of the original merged-ALU audit scope.
 
 ## Operation-by-Operation Comparison
 
 ### Preserved without identified regression
+
+This section preserves the original merge-comparison conclusion only. It does not override the live follow-up findings above for zero-divisor handling, oversized shifts, or non-canonical statement encoding.
 
 - `ADD`
 - `MUL`
@@ -168,7 +331,7 @@ This was a residual security dependency, not a newly introduced bug. The current
 
 These operations preserve the relevant pre-merge arithmetic and comparison constraints.
 
-### Preserved internally but weakened at the wrapper boundary
+### Preserved internally but weakened at the wrapper boundary at audit time
 
 - `SIGNEXTEND`
 - `BYTE`
@@ -176,7 +339,7 @@ These operations preserve the relevant pre-merge arithmetic and comparison const
 - `SHR`
 - `SAR`
 
-The arithmetic inside the merged template is still present, but the pre-merge wrapper constraint `in1[1] === 0` is no longer enforced. This weakens the statement being proven.
+The arithmetic inside the merged template was preserved, but the pre-merge wrapper constraint `in1[1] === 0` was not enforced at the time of the original audit. That specific wrapper-boundary issue has since been fixed, as described in Finding 1.
 
 ## Additional Notes
 
@@ -196,38 +359,34 @@ Those checks still exist through the `rem < divisor` structure and the internal 
 
 ### Immediate remediation
 
-Reintroduce canonical high-limb constraints for the shift and byte family in merged `ALU2`.
+Fix the live division and shift-family soundness bugs:
 
-At minimum, enforce:
+- force `q = 0` when `Div256_unsafe()` is called with a zero divisor, or mask the quotient to zero in every caller that exposes EVM `DIV` and `SDIV`
+- make `ShiftRight256_unsafe()` return the EVM-defined result explicitly when `shift >= 256`
+- ensure `SAR` derives its saturated output from a constrained branch for `shift >= 256`
 
-- `in1[1] === 0` for `SIGNEXTEND`
-- `in1[1] === 0` for `BYTE`
-- `in1[1] === 0` for `SHL`
-- `in1[1] === 0` for `SHR`
-- `in1[1] === 0` for `SAR`
-
-This can be done either:
-
-- in the `ALU2` wrapper, gated by selector, or
-- inside `ALU_based_on_div()`, also gated by selector
+These should be treated as higher priority than the already-resolved canonicalization findings above.
 
 ### Recommended follow-up hardening
 
-Force every unused selector bit to zero.
+Complete selector canonicalization for all standalone ALU entry points that still rely only on subset mux constraints.
 
-For example, after `Num2Bits`, explicitly constrain the sum of all unsupported opcode bits to zero.
+Also add canonical limb-range checks for 255-bit field-facing inputs in the Poseidon, Merkle, and Jubjub templates when those split limbs are meant to be uniquely bound by the public statement.
 
 ### Test coverage improvements
 
 Add negative tests for:
 
-- non-zero `in1[1]` on `SIGNEXTEND`, `BYTE`, `SHL`, `SHR`, and `SAR`
-- selectors that include a valid opcode bit plus one or more unsupported bits
+- zero-divisor `DIV` and `SDIV`, asserting that the quotient is forced to zero
+- `SHR` with `shift >= 256`, asserting that the result is zero
+- `SAR` with `shift >= 256`, asserting that the result saturates by sign
+- selectors that include a valid opcode bit plus one or more unsupported bits on the standalone ALU templates
+- non-canonical split-limb encodings for 255-bit Poseidon, Merkle, and Jubjub inputs
 
-These tests should fail once the hardening changes are in place.
+The older negative tests for non-zero `in1[1]` on the shift and byte family remain useful as regression tests for the issue that has already been fixed.
 
 ## Final Assessment
 
-At audit time, the ALU merge preserved most core arithmetic constraints, but it did not preserve full statement canonicality.
+The original merged-wrapper findings in this report are resolved in the current repository state.
 
-The highest-priority issue was the missing `in1[1] === 0` constraint for the shift and byte family in merged `ALU2`. That regression, together with the selector-canonicalization gap, has since been fixed in the current repository state.
+However, the follow-up review shows that the merged division-based ALU path still has live soundness bugs around zero-divisor and oversized-shift handling, and the broader template library still contains canonicalization gaps outside the original merged-wrapper scope.
