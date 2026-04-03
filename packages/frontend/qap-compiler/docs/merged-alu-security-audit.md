@@ -1,11 +1,17 @@
 # Merged ALU Security Audit
 
-> Status update: Revalidated against the repository state on April 4, 2026. The three original merged-wrapper findings in this document are resolved. The later zero-divisor and oversized-shift soundness issues in the merged division path are also resolved. The remaining live in-circuit issue is limited to standalone selector canonicalization. The 255-bit split-limb canonicalization issue is now handled by an external verifier-wrapper requirement rather than by additional circuit constraints.
+> Status update: Revalidated against the repository state on April 4, 2026. The original merged-wrapper findings in this document are resolved. A fresh review of every circuit compiled by `scripts/compile.sh` identified four additional live issues outside the original merged-ALU scope: a non-canonical public-input problem in `Accumulator`, a hidden-state canonicalization gap in `SubExpBatch`, invalid-point acceptance in `JubjubExpBatch`, and a vacuous standalone `EdDsaVerify` artifact. The 255-bit split-limb canonicalization concern remains an external-verifier requirement rather than an in-circuit fix.
 
 ## Scope
 
-This report audits the merged arithmetic circuits introduced by the two-circuit ALU consolidation.
-It preserves the original audit conclusions, even though some findings were fixed after the audit.
+This report now has two layers:
+
+- the original merged-ALU security audit
+- a fresh April 4, 2026 review of every circuit currently compiled by `scripts/compile.sh`
+
+The fresh compile-target review was performed from code and witness behavior without using the older findings in this document as the source of truth. The older merged-ALU findings are preserved here for historical continuity, but the current-status notes have been updated to match the repository state.
+
+The original scope was the merged arithmetic circuits introduced by the two-circuit ALU consolidation.
 - Audited wrappers:
   - [subcircuits/circom/ALU1_circuit.circom](../subcircuits/circom/ALU1_circuit.circom)
   - [subcircuits/circom/ALU2_circuit.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/subcircuits/circom/ALU2_circuit.circom)
@@ -14,17 +20,36 @@ It preserves the original audit conclusions, even though some findings were fixe
 
 The comparison baseline is the pre-merge implementation from the parent of commit `9b5b616b`, which used separate `ALU1` through `ALU5` wrappers and standalone `AND`, `OR`, and `XOR` circuits.
 
-The goal of this audit is to determine whether each operation in the merged ALUs preserves all relevant constraints from the pre-merge design, with special attention to constraint loss that could create soundness or security issues.
+The added compile-target review scope is the full set of circuits currently built by [scripts/compile.sh](../scripts/compile.sh):
+
+- `bufferPubOut`
+- `bufferPubIn`
+- `bufferBlockIn`
+- `bufferEVMIn`
+- `bufferPrvIn`
+- `ALU1`
+- `ALU2`
+- `DecToBit`
+- `SubExpBatch`
+- `Accumulator`
+- `Poseidon`
+- `JubjubExpBatch`
+- `EdDsaVerify`
+- `VerifyMerkleProof`
+
+The goal of the combined document is to preserve the merged-ALU audit history while also recording the current security posture of the compiled circuit library.
 
 ## Methodology
 
-The audit compared the current merged circuits against the pre-merge circuit sources at three levels:
+The original merged-ALU audit compared the merged circuits against the pre-merge circuit sources at three levels:
 
 1. Wrapper-level constraints
 2. Operation-specific arithmetic and comparison constraints
 3. Shared selector and mux constraints
 
 The review also included direct witness-generation reproductions against the compiled merged circuits to check whether suspicious inputs were accepted by the current implementation.
+
+The fresh compile-target review used the current `scripts/compile.sh` target list, traced each wrapper into its transitive templates, and then re-derived findings from the live code. Where a suspected issue affected proof semantics, witness-generation checks were used to confirm that the compiled artifact accepted the problematic case.
 
 ## Executive Summary
 
@@ -49,11 +74,14 @@ The audit also found two broader canonicalization concerns:
 
 Those two merged-wrapper concerns have also been remediated in the current repository state.
 
-However, the follow-up review identified additional vulnerabilities beyond the original merged-wrapper audit. After the latest hardening, the remaining live in-circuit issue is:
+However, the fresh compile-target review identified additional live issues outside the original merged-wrapper audit scope:
 
-- selector canonicalization remains incomplete in several standalone ALU templates outside the merged wrappers reviewed here
+- `Accumulator` accepts non-canonical public 256-bit split-limb inputs
+- `SubExpBatch` accepts non-canonical hidden 256-bit state
+- `JubjubExpBatch` can certify invalid public points because it never checks input or output point validity
+- the standalone `EdDsaVerify` artifact has no public statement and is trivially satisfiable
 
-The 255-bit hash, Merkle, and Jubjub split-limb canonicalization issue is now treated as an external-verifier responsibility. That mitigation is only valid if every proof-verification wrapper rejects non-canonical split-limb inputs before passing them into the proof-verification algorithm.
+The 255-bit split-limb canonicalization issue remains handled as an external-verifier responsibility. That mitigation is only valid if every proof-verification wrapper rejects non-canonical split-limb inputs before passing them into the proof-verification algorithm.
 
 ## Detailed Findings
 
@@ -282,7 +310,7 @@ For `shift > 255`, the current circuit rejects witness generation through the sh
 
 Severity: Medium
 
-Current status: Mitigated externally
+Current status: Resolved
 
 The original merged-wrapper selector issue is fixed, but several standalone templates still bit-decompose `selector` without enforcing that exactly one opcode bit is set:
 
@@ -305,7 +333,19 @@ Security impact:
 - the proof statement is not fully canonical for those standalone templates
 - public selector values can encode more than one opcode bit while still proving the same computation
 
-This is distinct from the original merged-wrapper finding because the live issue is now limited to these standalone template entry points.
+This was distinct from the original merged-wrapper finding because it was limited to standalone template entry points.
+
+#### Current status revalidation
+
+These standalone selector gaps are now fixed in the current repository state:
+
+- `ALU3`
+- `ALU4`
+- `ALU5`
+- `ALU_basic`
+- `ALU_bitwise`
+
+The current templates zero unsupported selector bits before the mux stage, and the existing mux constraints still enforce a one-hot selection across the supported branch flags.
 
 ### Finding 7: Several 255-bit templates accept non-canonical limb encodings
 
@@ -344,6 +384,127 @@ Residual risk:
 
 - this finding should be considered mitigated only under the assumption that every verifier entry point applies the same canonical split-limb check
 - if any consumer verifies proofs directly from raw public inputs without that wrapper, the original ambiguity remains
+
+### Finding 8: `Accumulator` accepts non-canonical public 256-bit split-limb inputs
+
+Severity: Medium
+
+Current status: Active
+
+`Accumulator_circuit.circom` chains `Add256_unsafe()` over public split-limb inputs but only checks the final output bus:
+
+- [`subcircuits/circom/Accumulator_circuit.circom`](../subcircuits/circom/Accumulator_circuit.circom)
+
+The underlying arithmetic template explicitly states that it is safe only when input and output well-formedness is guaranteed:
+
+- [`templates/256bit/arithmetic_unsafe_type1.circom`](../templates/256bit/arithmetic_unsafe_type1.circom)
+
+No `CheckBus()` or equivalent bit-decomposition is applied to the public input pairs before they are fed into the addition chain.
+
+#### Reproduction
+
+A focused witness-generation check against the compiled `Accumulator` artifact used two different public inputs:
+
+- canonical first term `(lo, hi) = (0, 1)`
+- non-canonical first term `(lo, hi) = (2^128, 0)`
+
+with every other term set to zero. Both witnesses succeeded and both produced the same public output `(0, 1)`.
+
+#### Security impact
+
+- the public statement is not canonical
+- different public input vectors can encode the same accumulated 256-bit value
+- downstream systems that interpret each pair as a unique 256-bit split-limb integer can be misled
+
+### Finding 9: `SubExpBatch` accepts non-canonical hidden 256-bit state
+
+Severity: Medium
+
+Current status: Active
+
+`SubExpBatch_circuit.circom` forwards `c_prev` and `a_prev` directly into `subExpBatch(N)` without any bus-range checks, while the underlying arithmetic path is built from `SubExp_unsafe()`, `Mul256_unsafe()`, and `Add256_unsafe()`:
+
+- [`subcircuits/circom/SubExpBatch_circuit.circom`](../subcircuits/circom/SubExpBatch_circuit.circom)
+- [`templates/256bit/arithmetic_unsafe_type1.circom`](../templates/256bit/arithmetic_unsafe_type1.circom)
+
+The wrapper also leaves its output bus checks commented out.
+
+#### Reproduction
+
+A focused witness-generation check against the compiled `SubExpBatch` artifact used the same private state except for the first `c_prev` pair:
+
+- canonical `(lo, hi) = (0, 1)`
+- non-canonical `(lo, hi) = (2^128, 0)`
+
+Both witnesses succeeded and both produced the same public outputs `(0, 1, 1, 0)`.
+
+#### Security impact
+
+- the hidden 256-bit state is not canonically bound
+- distinct malformed witnesses can prove the same public transition
+- if downstream logic assumes that `c_prev` and `a_prev` are canonical 256-bit split-limb integers, that assumption is false in the standalone artifact
+
+### Finding 10: `JubjubExpBatch` does not enforce valid input or output points
+
+Severity: High
+
+Current status: Active
+
+`JubjubExpBatch_circuit.circom` passes private split-limb points into `jubjubExp(N)`, which merges them and repeatedly applies the addition formulas, but it never checks that:
+
+- the input points lie on Jubjub
+- the output points lie on Jubjub
+
+Relevant code:
+
+- [`subcircuits/circom/JubjubExpBatch_circuit.circom`](../subcircuits/circom/JubjubExpBatch_circuit.circom)
+- [`templates/255bit/jubjub.circom`](../templates/255bit/jubjub.circom)
+
+Unlike `edDsaVerify()`, the `jubjubExp()` path never calls `jubjubCheck()`.
+
+#### Reproduction
+
+A focused witness-generation check against the compiled `JubjubExpBatch` artifact used all-zero private inputs, including all-zero point coordinates and all-zero exponent bits. The witness succeeded and the public output point tuple was also all zeros.
+
+The affine point `(0, 0)` does not satisfy the Jubjub curve equation, so the standalone artifact can certify invalid public points.
+
+#### Security impact
+
+- the proof does not guarantee that the public outputs are Jubjub points
+- the proof does not guarantee that the published outputs came from valid Jubjub-point exponentiation
+- an application that treats the public outputs as valid curve points can accept invalid data
+
+### Finding 11: The standalone `EdDsaVerify` artifact is vacuous
+
+Severity: High
+
+Current status: Active
+
+The compiled `EdDsaVerify` wrapper exposes no public inputs and no public outputs:
+
+- [`subcircuits/circom/EdDsaVerify_circuit.circom`](../subcircuits/circom/EdDsaVerify_circuit.circom)
+
+The inner template checks only that three private Jubjub points satisfy the curve equation and the relation `SG = R + eA`:
+
+- [`templates/255bit/jubjub.circom`](../templates/255bit/jubjub.circom)
+
+As a standalone proof artifact, this does not bind a proof to any message, signature, public key, or challenge.
+
+#### Reproduction
+
+A focused witness-generation check against the compiled `EdDsaVerify` artifact succeeded with the trivial private witness:
+
+- `SG = (0, 1)`
+- `R = (0, 1)`
+- `eA = (0, 1)`
+
+Those are simply three copies of the affine identity point.
+
+#### Security impact
+
+- a standalone proof over this artifact does not verify any concrete EdDSA statement
+- the artifact is satisfiable with a trivial private witness
+- any consumer that treats this compiled circuit as a meaningful standalone signature verifier is relying on a false security property
 
 ## Operation-by-Operation Comparison
 
@@ -401,33 +562,45 @@ Those checks still exist through the `rem < divisor` structure and the internal 
 
 ### Immediate remediation
 
-Fix the remaining live canonicalization issues:
+Fix the remaining live compiled-circuit issues:
 
-- complete selector canonicalization for the standalone ALU templates
+- add direct input bus checks to `Accumulator`
+- add direct input and output bus checks to `SubExpBatch`
+- add point-validity checks to `JubjubExpBatch` for both hidden inputs and public outputs
+- do not expose `EdDsaVerify_circuit.circom` as a standalone verifier artifact unless the wrapper binds the relevant statement through public inputs or outputs
 - ensure all deployed proof-verification wrappers reject non-canonical 255-bit split-limb inputs before verification
 
 ### Recommended follow-up hardening
 
-Complete selector canonicalization for all standalone ALU entry points that still rely only on subset mux constraints.
+Retain the merged-ALU regression tests that already cover:
+
+- zero-divisor `DIV` and `SDIV`
+- oversized `SHR` and `SAR`
+- high-limb rejection for the shift and byte family
 
 If external verifier-wrapper canonicalization cannot be guaranteed uniformly across all consumers, add canonical limb-range checks inside the Poseidon, Merkle, and Jubjub templates instead.
+
+If `JubjubExpBatch` is intentionally meant to accept unchecked intermediate algebraic states rather than validated Jubjub points, rename the artifact or document that narrower contract explicitly. As currently named, it suggests a stronger guarantee than the circuit enforces.
 
 ### Test coverage improvements
 
 Add negative tests for:
 
-- selectors that include a valid opcode bit plus one or more unsupported bits on the standalone ALU templates
+- non-canonical public input pairs on `Accumulator`
+- non-canonical hidden state pairs on `SubExpBatch`
+- invalid private points producing public outputs on `JubjubExpBatch`
+- trivial satisfiability of the standalone `EdDsaVerify` artifact
 - verifier-wrapper rejection of non-canonical split-limb encodings for 255-bit Poseidon, Merkle, and Jubjub public inputs
-
-The following regression tests should also be retained for the issues that have already been fixed:
-
-- zero-divisor `DIV` and `SDIV`, asserting that the quotient is forced to zero
-- `SHR` with `shift = 256`, asserting that the result is zero
-- `SAR` with `shift = 256`, asserting that the result saturates by sign
-- non-zero `in1[1]` on the shift and byte family
 
 ## Final Assessment
 
 The original merged-wrapper findings in this report are resolved in the current repository state.
 
-The later merged division-path soundness bugs around zero-divisor handling and oversized shifts are also resolved. The remaining live in-circuit issue is now limited to standalone selector canonicalization outside the original merged-wrapper scope. The 255-bit split-limb ambiguity is treated as externally mitigated, contingent on uniform verifier-wrapper enforcement.
+The later merged division-path soundness bugs around zero-divisor handling and oversized shifts are also resolved. However, the current library produced by `scripts/compile.sh` still contains live issues outside the merged-ALU path:
+
+- `Accumulator` still exposes non-canonical public 256-bit limb encodings
+- `SubExpBatch` still accepts non-canonical hidden 256-bit state
+- `JubjubExpBatch` still certifies outputs without enforcing valid Jubjub-point semantics
+- the standalone `EdDsaVerify` artifact is still vacuous
+
+The 255-bit split-limb ambiguity is also still a real concern wherever proof-verification wrappers do not enforce canonical limb encoding before verification.
