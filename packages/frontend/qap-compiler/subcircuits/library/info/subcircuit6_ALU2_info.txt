@@ -1,5 +1,5 @@
 [32mtemplate instances[0m: 47
-non-linear constraints: 2038
+non-linear constraints: 2046
 linear constraints: 826
 public inputs: 7
 private inputs: 0

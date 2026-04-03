@@ -1,5 +1,5 @@
 // pragma circom 2.1.6;
-// include "../../templates/255bit/jubjub.circom";
+// include "../../../templates/255bit/jubjub.circom";
 
 // template PrepareEdDsaScalars() {
 //     signal input in[4];
