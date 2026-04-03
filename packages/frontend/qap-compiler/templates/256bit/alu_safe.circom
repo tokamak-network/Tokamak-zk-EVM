@@ -258,6 +258,8 @@ template ALU3 () {
     // b_selector[Opcode] = 1, b_selector[i] = 0 for all i != Opcode.
     // selector bitification
     signal b_selector[NUM_SELECTOR_BITS] <== Num2Bits(NUM_SELECTOR_BITS)(selector);
+    signal unsupported_selector_sum <== b_selector[0] + b_selector[1] + b_selector[2] + b_selector[3] + b_selector[4] + b_selector[5] + b_selector[6] + b_selector[7] + b_selector[8] + b_selector[9] + b_selector[10] + b_selector[12] + b_selector[13] + b_selector[14] + b_selector[15] + b_selector[16] + b_selector[17] + b_selector[18] + b_selector[19] + b_selector[20] + b_selector[21] + b_selector[22] + b_selector[23] + b_selector[24] + b_selector[25] + b_selector[27] + b_selector[28] + b_selector[29];
+    unsupported_selector_sum === 0;
 
     /* Input range check can be omitted, as each subcircuit will be connected to other subcircuits.
     // // Check inputs are in 128 bit limbs
@@ -344,6 +346,8 @@ template ALU4 () {
     // b_selector[Opcode] = 1, b_selector[i] = 0 for all i != Opcode.
     // selector bitification
     signal b_selector[NUM_SELECTOR_BITS] <== Num2Bits(NUM_SELECTOR_BITS)(selector);
+    signal unsupported_selector_sum <== b_selector[0] + b_selector[4] + b_selector[5] + b_selector[6] + b_selector[7] + b_selector[8] + b_selector[9] + b_selector[11] + b_selector[12] + b_selector[13] + b_selector[14] + b_selector[15] + b_selector[22] + b_selector[23] + b_selector[24] + b_selector[26] + b_selector[27] + b_selector[28] + b_selector[29];
+    unsupported_selector_sum === 0;
 
     signal outs[NUM_ALU_FUNCTIONS];
     signal flags[NUM_ALU_FUNCTIONS];
@@ -423,6 +427,8 @@ template ALU5 () {
     // b_selector[Opcode] = 1, b_selector[i] = 0 for all i != Opcode.
     // selector bitification
     signal b_selector[NUM_SELECTOR_BITS] <== Num2Bits(NUM_SELECTOR_BITS)(selector);
+    signal unsupported_selector_sum <== b_selector[0] + b_selector[1] + b_selector[2] + b_selector[3] + b_selector[4] + b_selector[5] + b_selector[6] + b_selector[7] + b_selector[8] + b_selector[9] + b_selector[10] + b_selector[11] + b_selector[12] + b_selector[13] + b_selector[14] + b_selector[15] + b_selector[16] + b_selector[17] + b_selector[18] + b_selector[19] + b_selector[20] + b_selector[21] + b_selector[25] + b_selector[26] + b_selector[27] + b_selector[28] + b_selector[29];
+    unsupported_selector_sum === 0;
 
     /* Input range check can be omitted, as each subcircuit will be connected to other subcircuits.
     // // Check inputs are in 128 bit limbs
@@ -500,6 +506,8 @@ template ALU_basic () {
     // b_selector[Opcode] = 1, b_selector[i] = 0 for all i != Opcode.
     // selector bitification
     signal b_selector[NUM_SELECTOR_BITS] <== Num2Bits(NUM_SELECTOR_BITS)(selector);
+    signal unsupported_selector_sum <== b_selector[0] + b_selector[4] + b_selector[5] + b_selector[6] + b_selector[7] + b_selector[8] + b_selector[9] + b_selector[11] + b_selector[12] + b_selector[13] + b_selector[14] + b_selector[15] + b_selector[22] + b_selector[23] + b_selector[24] + b_selector[26] + b_selector[27] + b_selector[28] + b_selector[29];
+    unsupported_selector_sum === 0;
 
     /* Input range check can be omitted, as each subcircuit will be connected to other subcircuits.
     // // Check inputs are in 128 bit limbs
@@ -858,6 +866,8 @@ template ALU_bitwise () {
     // b_selector[Opcode] = 1, b_selector[i] = 0 for all i != Opcode.
     // selector bitification
     signal b_selector[NUM_SELECTOR_BITS] <== Num2Bits(NUM_SELECTOR_BITS)(selector);
+    signal unsupported_selector_sum <== b_selector[0] + b_selector[1] + b_selector[2] + b_selector[3] + b_selector[4] + b_selector[5] + b_selector[6] + b_selector[7] + b_selector[8] + b_selector[9] + b_selector[10] + b_selector[11] + b_selector[12] + b_selector[13] + b_selector[14] + b_selector[15] + b_selector[16] + b_selector[17] + b_selector[18] + b_selector[19] + b_selector[20] + b_selector[21] + b_selector[25] + b_selector[26] + b_selector[27] + b_selector[28] + b_selector[29];
+    unsupported_selector_sum === 0;
 
     /* Input range check can be omitted, as each subcircuit will be connected to other subcircuits.
     // // Check inputs are in 128 bit limbs
