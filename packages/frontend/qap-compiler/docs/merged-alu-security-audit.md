@@ -1,6 +1,6 @@
 # Merged ALU Security Audit
 
-> Status update: Revalidated against the repository state on April 4, 2026. The three original merged-wrapper findings in this document are resolved. The later zero-divisor and oversized-shift soundness issues in the merged division path are also resolved. The remaining live issues are limited to standalone selector canonicalization and non-canonical 255-bit limb encodings.
+> Status update: Revalidated against the repository state on April 4, 2026. The three original merged-wrapper findings in this document are resolved. The later zero-divisor and oversized-shift soundness issues in the merged division path are also resolved. The remaining live in-circuit issue is limited to standalone selector canonicalization. The 255-bit split-limb canonicalization issue is now handled by an external verifier-wrapper requirement rather than by additional circuit constraints.
 
 ## Scope
 
@@ -49,10 +49,11 @@ The audit also found two broader canonicalization concerns:
 
 Those two merged-wrapper concerns have also been remediated in the current repository state.
 
-However, the follow-up review identified additional vulnerabilities beyond the original merged-wrapper audit. After the latest hardening, the remaining live issues are:
+However, the follow-up review identified additional vulnerabilities beyond the original merged-wrapper audit. After the latest hardening, the remaining live in-circuit issue is:
 
 - selector canonicalization remains incomplete in several standalone ALU templates outside the merged wrappers reviewed here
-- several 255-bit hash, Merkle, and Jubjub templates still accept non-canonical limb encodings
+
+The 255-bit hash, Merkle, and Jubjub split-limb canonicalization issue is now treated as an external-verifier responsibility. That mitigation is only valid if every proof-verification wrapper rejects non-canonical split-limb inputs before passing them into the proof-verification algorithm.
 
 ## Detailed Findings
 
@@ -281,7 +282,7 @@ For `shift > 255`, the current circuit rejects witness generation through the sh
 
 Severity: Medium
 
-Current status: Active
+Current status: Mitigated externally
 
 The original merged-wrapper selector issue is fixed, but several standalone templates still bit-decompose `selector` without enforcing that exactly one opcode bit is set:
 
@@ -327,6 +328,22 @@ Security impact:
 - public statements that are expected to bind split limbs uniquely are not fully canonical at the circuit boundary
 
 This issue was identified during the broader template review and was not part of the original merged-ALU audit scope.
+
+Current handling decision:
+
+- this finding is not being fixed inside the circuits because the minimum in-circuit remediation adds a large constraint cost to the affected Poseidon, Merkle, and Jubjub entry points
+- instead, the deployed proof-verification wrapper is expected to reject non-canonical split-limb public inputs before invoking the proof-verification algorithm
+
+Required external wrapper behavior:
+
+- do not rely on simple 128-bit masking alone; masking does not eliminate encodings of the form `x + Fr`
+- for every external 255-bit split-limb public input, enforce both limb-width and field-canonicality before verification
+- a sufficient wrapper check is to reject unless `hi < 2^127` and `(hi, lo) < (Fr_hi, Fr_lo)` in lexicographic limb order
+
+Residual risk:
+
+- this finding should be considered mitigated only under the assumption that every verifier entry point applies the same canonical split-limb check
+- if any consumer verifies proofs directly from raw public inputs without that wrapper, the original ambiguity remains
 
 ## Operation-by-Operation Comparison
 
@@ -387,20 +404,20 @@ Those checks still exist through the `rem < divisor` structure and the internal 
 Fix the remaining live canonicalization issues:
 
 - complete selector canonicalization for the standalone ALU templates
-- add canonical limb-range enforcement for 255-bit field-facing split-limb inputs
+- ensure all deployed proof-verification wrappers reject non-canonical 255-bit split-limb inputs before verification
 
 ### Recommended follow-up hardening
 
 Complete selector canonicalization for all standalone ALU entry points that still rely only on subset mux constraints.
 
-Also add canonical limb-range checks for 255-bit field-facing inputs in the Poseidon, Merkle, and Jubjub templates when those split limbs are meant to be uniquely bound by the public statement.
+If external verifier-wrapper canonicalization cannot be guaranteed uniformly across all consumers, add canonical limb-range checks inside the Poseidon, Merkle, and Jubjub templates instead.
 
 ### Test coverage improvements
 
 Add negative tests for:
 
 - selectors that include a valid opcode bit plus one or more unsupported bits on the standalone ALU templates
-- non-canonical split-limb encodings for 255-bit Poseidon, Merkle, and Jubjub inputs
+- verifier-wrapper rejection of non-canonical split-limb encodings for 255-bit Poseidon, Merkle, and Jubjub public inputs
 
 The following regression tests should also be retained for the issues that have already been fixed:
 
@@ -413,4 +430,4 @@ The following regression tests should also be retained for the issues that have 
 
 The original merged-wrapper findings in this report are resolved in the current repository state.
 
-The later merged division-path soundness bugs around zero-divisor handling and oversized shifts are also resolved. The remaining live issues are now limited to canonicalization gaps outside the original merged-wrapper scope.
+The later merged division-path soundness bugs around zero-divisor handling and oversized shifts are also resolved. The remaining live in-circuit issue is now limited to standalone selector canonicalization outside the original merged-wrapper scope. The 255-bit split-limb ambiguity is treated as externally mitigated, contingent on uniform verifier-wrapper enforcement.
