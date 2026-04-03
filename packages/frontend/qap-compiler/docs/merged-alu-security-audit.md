@@ -1,6 +1,6 @@
 # Merged ALU Security Audit
 
-> Status update: Revalidated against the repository state on April 4, 2026. The three original merged-wrapper findings in this document are now resolved. A follow-up review also identified additional live vulnerabilities that are recorded below.
+> Status update: Revalidated against the repository state on April 4, 2026. The three original merged-wrapper findings in this document are resolved. The later zero-divisor and oversized-shift soundness issues in the merged division path are also resolved. The remaining live issues are limited to standalone selector canonicalization and non-canonical 255-bit limb encodings.
 
 ## Scope
 
@@ -49,10 +49,8 @@ The audit also found two broader canonicalization concerns:
 
 Those two merged-wrapper concerns have also been remediated in the current repository state.
 
-However, the follow-up review identified additional live vulnerabilities:
+However, the follow-up review identified additional vulnerabilities beyond the original merged-wrapper audit. After the latest hardening, the remaining live issues are:
 
-- `DIV` and `SDIV` can still return an unconstrained quotient when the divisor is zero
-- `SHR` and `SAR` can still return unconstrained outputs when `shift >= 256`
 - selector canonicalization remains incomplete in several standalone ALU templates outside the merged wrappers reviewed here
 - several 255-bit hash, Merkle, and Jubjub templates still accept non-canonical limb encodings
 
@@ -209,7 +207,7 @@ The underlying `unsafe` arithmetic templates still rely on correct callers, but 
 
 Severity: Critical
 
-Current status: Active
+Current status: Resolved
 
 `Div256_unsafe()` zeroes the remainder in the `in2 == 0` branch but does not constrain the quotient in the same branch. Because the arithmetic check only enforces:
 
@@ -229,13 +227,28 @@ Security impact:
 - `DIV` can produce a forged non-zero output when the divisor is zero
 - `SDIV` can produce a forged non-zero output when the divisor is zero
 
-This is a live soundness issue in the merged division-based ALU path.
+This was a live soundness issue in the merged division-based ALU path.
+
+#### Current status revalidation
+
+This issue is now fixed in `Div256_unsafe()`.
+
+The current implementation explicitly constrains each quotient limb to zero when `is_zero_denom == 1`:
+
+- `q[0] * is_zero_denom === 0`
+- `q[1] * is_zero_denom === 0`
+
+Relevant code:
+
+- [`templates/256bit/arithmetic_unsafe_type2.circom`](../templates/256bit/arithmetic_unsafe_type2.circom)
+
+Focused witness-generation checks against the current `ALU2` build show that `DIV` by zero now yields output `(0, 0)`.
 
 ### Finding 5: `SHR` and `SAR` still admit unconstrained outputs when `shift >= 256`
 
 Severity: High
 
-Current status: Active
+Current status: Resolved
 
 `FindShiftingTwosPower256()` maps shifts greater than `255` to a zero divisor. The merged shift-family path then reuses `Div256_unsafe()` as the right-shift primitive. This recreates the same unconstrained-quotient problem as zero-divisor division.
 
@@ -250,7 +263,19 @@ Security impact:
 - `SHR(x, shift >= 256)` should be `0`, but the circuit does not enforce that result
 - `SAR(x, shift >= 256)` should saturate by sign, but the circuit builds on the same unconstrained right-shift witness
 
-This is a live semantic and soundness issue in the merged division-based ALU path.
+This was a live semantic and soundness issue in the merged division-based ALU path.
+
+#### Current status revalidation
+
+This finding is resolved as originally stated because the unconstrained-output path is no longer available.
+
+Focused witness-generation checks against the current `ALU2` build show:
+
+- `SHR` with `shift = 256` yields `(0, 0)`
+- `SAR` with `shift = 256` yields `(0, 0)` for non-negative input
+- `SAR` with `shift = 256` yields `(2^128 - 1, 2^128 - 1)` for `-1`
+
+For `shift > 255`, the current circuit rejects witness generation through the shift helper range checks instead of admitting an unconstrained output witness.
 
 ### Finding 6: Selector canonicalization remains incomplete in several standalone ALU templates
 
@@ -359,13 +384,10 @@ Those checks still exist through the `rem < divisor` structure and the internal 
 
 ### Immediate remediation
 
-Fix the live division and shift-family soundness bugs:
+Fix the remaining live canonicalization issues:
 
-- force `q = 0` when `Div256_unsafe()` is called with a zero divisor, or mask the quotient to zero in every caller that exposes EVM `DIV` and `SDIV`
-- make `ShiftRight256_unsafe()` return the EVM-defined result explicitly when `shift >= 256`
-- ensure `SAR` derives its saturated output from a constrained branch for `shift >= 256`
-
-These should be treated as higher priority than the already-resolved canonicalization findings above.
+- complete selector canonicalization for the standalone ALU templates
+- add canonical limb-range enforcement for 255-bit field-facing split-limb inputs
 
 ### Recommended follow-up hardening
 
@@ -377,16 +399,18 @@ Also add canonical limb-range checks for 255-bit field-facing inputs in the Pose
 
 Add negative tests for:
 
-- zero-divisor `DIV` and `SDIV`, asserting that the quotient is forced to zero
-- `SHR` with `shift >= 256`, asserting that the result is zero
-- `SAR` with `shift >= 256`, asserting that the result saturates by sign
 - selectors that include a valid opcode bit plus one or more unsupported bits on the standalone ALU templates
 - non-canonical split-limb encodings for 255-bit Poseidon, Merkle, and Jubjub inputs
 
-The older negative tests for non-zero `in1[1]` on the shift and byte family remain useful as regression tests for the issue that has already been fixed.
+The following regression tests should also be retained for the issues that have already been fixed:
+
+- zero-divisor `DIV` and `SDIV`, asserting that the quotient is forced to zero
+- `SHR` with `shift = 256`, asserting that the result is zero
+- `SAR` with `shift = 256`, asserting that the result saturates by sign
+- non-zero `in1[1]` on the shift and byte family
 
 ## Final Assessment
 
 The original merged-wrapper findings in this report are resolved in the current repository state.
 
-However, the follow-up review shows that the merged division-based ALU path still has live soundness bugs around zero-divisor and oversized-shift handling, and the broader template library still contains canonicalization gaps outside the original merged-wrapper scope.
+The later merged division-path soundness bugs around zero-divisor handling and oversized shifts are also resolved. The remaining live issues are now limited to canonicalization gaps outside the original merged-wrapper scope.
