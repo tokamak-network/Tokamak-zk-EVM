@@ -6,7 +6,10 @@ use libs::field_structures::{from_r1cs_to_evaled_qap_mixture, Tau};
 use libs::group_structures::{PartialSigma1, SigmaPreprocess};
 use libs::iotools::read_global_wire_list_as_boxed_boxed_numbers;
 use libs::iotools::{SetupParams, SubcircuitInfo, SubcircuitR1CS};
-use libs::utils::{setup_shape, validate_public_wire_size, validate_setup_shape};
+use libs::utils::{
+    init_ntt_domain, setup_shape, trusted_setup_ntt_domain_size,
+    validate_public_wire_size, validate_setup_shape,
+};
 use libs::vector_operations::gen_evaled_lagrange_bases;
 use mpc_setup::conversions::{icicle_g1_generator, icicle_g2_generator};
 use mpc_setup::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
@@ -50,6 +53,8 @@ fn main() {
     let shape = setup_shape(&setup_params);
     validate_setup_shape(&shape);
     validate_public_wire_size(shape.l_free);
+    let ntt_domain_size = trusted_setup_ntt_domain_size(&shape);
+    init_ntt_domain(ntt_domain_size);
 
     // Extract key parameters from setup_params
     let m_d = setup_params.m_D; // Total number of wires

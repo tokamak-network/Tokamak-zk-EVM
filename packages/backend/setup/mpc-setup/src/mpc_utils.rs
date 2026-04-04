@@ -57,10 +57,49 @@ pub fn poly_mult(
     poly2: &DensePolynomialExt,
     multpxy_coeffs: &mut Vec<ScalarField>,
 ) {
+    if poly1.y_size == 1 && poly2.x_size == 1 {
+        separable_poly_mult(poly1, poly2, multpxy_coeffs);
+        return;
+    }
+    if poly1.x_size == 1 && poly2.y_size == 1 {
+        separable_poly_mult(poly2, poly1, multpxy_coeffs);
+        return;
+    }
+
     let multpxy = poly1.mul(poly2);
     let cached_val_pows = HostSlice::from_mut_slice(multpxy_coeffs);
     multpxy.copy_coeffs(0, cached_val_pows);
     // Mutex guard dropped here
+}
+
+fn separable_poly_mult(
+    x_poly: &DensePolynomialExt,
+    y_poly: &DensePolynomialExt,
+    multpxy_coeffs: &mut Vec<ScalarField>,
+) {
+    debug_assert_eq!(x_poly.y_size, 1);
+    debug_assert_eq!(y_poly.x_size, 1);
+
+    let x_size = x_poly.x_size;
+    let y_size = y_poly.y_size;
+    let expected_len = x_size * y_size;
+    assert_eq!(
+        multpxy_coeffs.len(),
+        expected_len,
+        "output buffer length mismatch for separable polynomial multiplication",
+    );
+
+    let mut x_coeffs = vec![ScalarField::zero(); x_size];
+    let mut y_coeffs = vec![ScalarField::zero(); y_size];
+    x_poly.copy_coeffs(0, HostSlice::from_mut_slice(&mut x_coeffs));
+    y_poly.copy_coeffs(0, HostSlice::from_mut_slice(&mut y_coeffs));
+
+    for (x_idx, x_coeff) in x_coeffs.iter().enumerate() {
+        let row = &mut multpxy_coeffs[x_idx * y_size..(x_idx + 1) * y_size];
+        for (dst, y_coeff) in row.iter_mut().zip(y_coeffs.iter()) {
+            *dst = *x_coeff * *y_coeff;
+        }
+    }
 }
 
 // given x_g1 = [x^i*G1, x^i*G1, ..., x_max^i*G1]

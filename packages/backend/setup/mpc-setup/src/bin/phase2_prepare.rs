@@ -11,7 +11,10 @@ use libs::bivariate_polynomial::DensePolynomialExt;
 use libs::group_structures::{G1serde, Sigma, Sigma1, Sigma2};
 use libs::iotools::{SetupParams, SubcircuitInfo};
 use libs::polynomial_structures::QAP;
-use libs::utils::{setup_shape, validate_public_wire_size, validate_setup_shape};
+use libs::utils::{
+    init_ntt_domain, setup_shape, trusted_setup_ntt_domain_size,
+    validate_public_wire_size, validate_setup_shape,
+};
 use mpc_setup::mpc_utils::{compute_langrange_i_coeffs, compute_langrange_i_poly, poly_mult};
 use mpc_setup::phase1_source::{AccumulatorSource, Phase1SrsSource};
 use mpc_setup::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
@@ -211,6 +214,8 @@ pub fn process_prepare(
     let shape = setup_shape(&setup_params);
     validate_setup_shape(&shape);
     validate_public_wire_size(shape.l_free);
+    let ntt_domain_size = trusted_setup_ntt_domain_size(&shape);
+    init_ntt_domain(ntt_domain_size);
     let segments = public_wire_segments(&setup_params);
     let n = setup_params.n; // Number of constraints per subcircuit
     let s_max = setup_params.s_max;
