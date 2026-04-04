@@ -1,6 +1,6 @@
 # Merged ALU Security Audit
 
-> Status update: Revalidated against the repository state on April 4, 2026. The original merged-wrapper findings in this document are resolved. Under the composed-system model used by the external compiler, the fresh review identified one clear remaining external-verifier requirement and two topology-dependent contract gaps outside the original merged-ALU scope. In particular, the 255-bit split-limb canonicalization concern remains an external-verifier requirement, while the `Accumulator` / `SubExpBatch` canonicalization observations collapse into system-level bus-well-formedness dependencies rather than standalone public-input exploits.
+> Status update: Revalidated against the repository state on April 4, 2026. The original merged-wrapper findings in this document are resolved. Under the composed-system model used by the external compiler, the fresh review identified two topology-dependent contract gaps outside the original merged-ALU scope. The `Accumulator` / `SubExpBatch` canonicalization observations collapse into system-level bus-well-formedness dependencies rather than standalone public-input exploits. The separate 255-bit split-limb canonicalization observation is retained below only as a boundary-handling note for affected compile targets, not as a live in-repository compiled-circuit issue.
 
 ## Scope
 
@@ -54,6 +54,7 @@ The fresh review is interpreted under the following system-level assumptions sup
 - the last chain node is always `EdDsaVerify`, and its input is connected to the previous `jubjubExpBatch` output
 - the binary inputs of the first `jubjubExpBatch` node come from `DecToBit`
 - the point inputs of the first `jubjubExpBatch` node are constant point-at-infinity values
+- in practice, inputs to `Accumulator` and `SubExpBatch` are often driven by `buffer*In` outputs or `ALU*` outputs, but that producer set is not guaranteed to be exclusive
 
 This context changes how several findings should be interpreted:
 
@@ -104,7 +105,7 @@ Under the composed-system assumptions above:
 - the `jubjubExpBatch -> ... -> EdDsaVerify` chain no longer remains a live issue from this repository alone once the valid chain seed and fixed terminal `EdDsaVerify` sink are taken as part of the system contract
 - the standalone `EdDsaVerify` vacuity observation is not a live issue if the artifact is never used standalone
 
-The 255-bit split-limb canonicalization issue remains handled as an external-verifier responsibility. That mitigation is only valid if every proof-verification wrapper rejects non-canonical split-limb inputs before passing them into the proof-verification algorithm.
+The 255-bit split-limb canonicalization observation is no longer reported here at template scope. Instead, it is tracked below only at the compile-target boundary level for the wrappers that actually move 255-bit split-limb values.
 
 ## Detailed Findings
 
@@ -370,43 +371,41 @@ These standalone selector gaps are now fixed in the current repository state:
 
 The current templates zero unsupported selector bits before the mux stage, and the existing mux constraints still enforce a one-hot selection across the supported branch flags.
 
-### Finding 7: Several 255-bit templates accept non-canonical limb encodings
+### Finding 7: The compiled 255-bit wrappers do not locally canonicalize split-limb values
 
 Severity: Medium
 
-Current status: Mitigated externally
+Current status: Not a live issue under the composed-system boundary assumptions
 
-The 255-bit Poseidon, Merkle, and Jubjub templates recombine two 128-bit limbs directly into a field element but do not enforce canonical 255-bit encoding or `< Fr` bounds for external limb inputs.
+At the compile-target level, the affected wrappers are:
 
-Affected templates:
+- [`subcircuits/circom/Poseidon_circuit.circom`](../subcircuits/circom/Poseidon_circuit.circom)
+- [`subcircuits/circom/JubjubExpBatch_circuit.circom`](../subcircuits/circom/JubjubExpBatch_circuit.circom)
+- [`subcircuits/circom/EdDsaVerify_circuit.circom`](../subcircuits/circom/EdDsaVerify_circuit.circom)
+- [`subcircuits/circom/VerifyMerkleProof_circuit.circom`](../subcircuits/circom/VerifyMerkleProof_circuit.circom)
 
-- [`templates/255bit/poseidon.circom`](../templates/255bit/poseidon.circom)
-- [`templates/255bit/merkleTree.circom`](../templates/255bit/merkleTree.circom)
-- [`templates/255bit/jubjub.circom`](../templates/255bit/jubjub.circom)
+Those wrappers pass split limbs into 255-bit Poseidon, Merkle, and Jubjub logic without adding local `< Fr` or canonical-encoding checks at the wrapper boundary.
 
 Security impact:
 
-- different limb pairs that are congruent modulo the field can be accepted as the same Poseidon input
-- the same concern propagates into Merkle proof verification and Jubjub-based constructions
-- public statements that are expected to bind split limbs uniquely are not fully canonical at the circuit boundary
+- if a final composed circuit exposes such split-limb values as statement-bearing boundary data without canonicalization, different encodings congruent modulo the field can collapse to the same internal field value
+- that ambiguity can matter for Poseidon inputs, Merkle-path values, or Jubjub coordinates if the surrounding system expects unique split-limb binding
 
-This issue was identified during the broader template review and was not part of the original merged-ALU audit scope.
+This issue was identified during the broader follow-up review and was not part of the original merged-ALU audit scope.
 
-Current handling decision:
+#### Composed-system revalidation
 
-- this finding is not being fixed inside the circuits because the minimum in-circuit remediation adds a large constraint cost to the affected Poseidon, Merkle, and Jubjub entry points
-- instead, the deployed proof-verification wrapper is expected to reject non-canonical split-limb public inputs before invoking the proof-verification algorithm
+Under the repository user's composition model, these compiled wrappers are internal subcircuits rather than final proof boundaries:
 
-Required external wrapper behavior:
+- `Poseidon`, `JubjubExpBatch`, and `EdDsaVerify` are not meant to be consumed as standalone top-level proof statements
+- every non-buffer subcircuit input and output is internally connected elsewhere
+- buffer boundary formats are checked by the external verifier wrapper
 
-- do not rely on simple 128-bit masking alone; masking does not eliminate encodings of the form `x + Fr`
-- for every external 255-bit split-limb public input, enforce both limb-width and field-canonicality before verification
-- a sufficient wrapper check is to reject unless `hi < 2^127` and `(hi, lo) < (Fr_hi, Fr_lo)` in lexicographic limb order
+Under those assumptions, the lack of local canonicalization in these wrappers is not by itself a live compiled-circuit issue in this repository.
 
-Residual risk:
+If a future composition surfaces any of these 255-bit split-limb values through public buffer boundaries, the verifier wrapper must still reject non-canonical encodings there. A sufficient boundary check is to reject unless `hi < 2^127` and `(hi, lo) < (Fr_hi, Fr_lo)` in lexicographic limb order. Simple 128-bit masking alone is not sufficient because it does not eliminate encodings of the form `x + Fr`.
 
-- this finding should be considered mitigated only under the assumption that every verifier entry point applies the same canonical split-limb check
-- if any consumer verifies proofs directly from raw public inputs without that wrapper, the original ambiguity remains
+Accordingly, this finding is kept only as a compile-target boundary note rather than as an unresolved in-circuit vulnerability.
 
 ### Finding 8: `Accumulator` accepts non-canonical public 256-bit split-limb inputs
 
@@ -442,6 +441,8 @@ with every other term set to zero. Both witnesses succeeded and both produced th
 #### Composed-system revalidation
 
 Under the stated system model, `Accumulator` inputs are not root public inputs of a standalone proof artifact. Each input wire is driven by some other subcircuit output.
+
+The repository user also clarified that, in practice, many such producer paths originate from `buffer*In` outputs or `ALU*` outputs. That reduces the chance that a malformed producer is present, but it does not resolve the finding because that producer set is not guaranteed to be exclusive.
 
 That means the standalone reproduction above no longer translates directly into a system-level attack by itself. The issue instead becomes a bus-well-formedness dependency:
 
@@ -481,6 +482,8 @@ Both witnesses succeeded and both produced the same public outputs `(0, 1, 1, 0)
 #### Composed-system revalidation
 
 Under the stated system model, the hidden state of `SubExpBatch` is not a free-standing witness root. Its inputs and outputs are all connected elsewhere in the composed circuit.
+
+The repository user also clarified that, in practice, many such producer paths originate from `buffer*In` outputs or `ALU*` outputs. That reduces practical exposure, but it does not resolve the finding because the surrounding producer set is not guaranteed to be exclusive.
 
 As with `Accumulator`, this weakens the standalone exploit claim and turns the issue into a system-level dependency:
 
@@ -629,7 +632,6 @@ Fix or discharge the remaining compiled-circuit issues at the system level:
 
 - ensure every producer path into `Accumulator` and `SubExpBatch` enforces canonical 128-bit limbs, or add local bus checks inside those subcircuits
 - ensure the top-level proof statement binds the intended EdDSA message, challenge, key, and relation if `EdDsaVerify` is used as part of the composed circuit
-- ensure all deployed proof-verification wrappers reject non-canonical 255-bit split-limb inputs before verification
 
 ### Recommended follow-up hardening
 
@@ -639,7 +641,7 @@ Retain the merged-ALU regression tests that already cover:
 - oversized `SHR` and `SAR`
 - high-limb rejection for the shift and byte family
 
-If external verifier-wrapper canonicalization cannot be guaranteed uniformly across all consumers, add canonical limb-range checks inside the Poseidon, Merkle, and Jubjub templates instead.
+If a future composition exposes raw 255-bit split-limb values through public buffer boundaries, enforce canonical limb-range checks in the verifier wrapper at those boundaries or add them locally inside the affected 255-bit circuits.
 
 ### Test coverage improvements
 
@@ -648,7 +650,6 @@ Add negative tests for:
 - unchecked producer paths feeding non-canonical values into `Accumulator`
 - unchecked producer paths feeding non-canonical values into `SubExpBatch`
 - top-level statement-binding failures around any composed use of `EdDsaVerify`
-- verifier-wrapper rejection of non-canonical split-limb encodings for 255-bit Poseidon, Merkle, and Jubjub public inputs
 
 ## Final Assessment
 
@@ -659,6 +660,5 @@ The later merged division-path soundness bugs around zero-divisor handling and o
 Under the composed-system assumptions supplied for this repository, the current residual concerns are:
 
 - a system-level requirement that producer paths into `Accumulator` and `SubExpBatch` enforce canonical 256-bit bus encoding
-- a still-open external-verifier requirement for canonical 255-bit split-limb encoding
 
-The earlier standalone-artifact concerns about `JubjubExpBatch` and `EdDsaVerify` do not remain live issues once the wrappers are understood strictly as internal subcircuits under the fixed composed-chain contract described above.
+The earlier standalone-artifact concerns about `JubjubExpBatch` and `EdDsaVerify` do not remain live issues once the wrappers are understood strictly as internal subcircuits under the fixed composed-chain contract described above. The 255-bit split-limb note is retained only as a boundary-handling consideration for future compositions that choose to expose those values publicly.
