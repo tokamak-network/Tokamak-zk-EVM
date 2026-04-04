@@ -58,7 +58,13 @@ async fn main() {
     let fpath = base_path.join(append);
     match config.mode {
         Mode::Upload => {
-            upload_contributor_file(config.phase_type, fpath.as_path().to_str().unwrap(), contributor_index, shared_folder_id.as_str()).await;
+            upload_contributor_file(
+                config.phase_type,
+                fpath.as_path().to_str().unwrap(),
+                contributor_index,
+                shared_folder_id.as_str(),
+            )
+            .await;
             println!("contributor files uploaded");
         }
         Mode::Download => {
@@ -68,14 +74,18 @@ async fn main() {
                 contributor_index,
                 shared_folder_id.as_str(),
             )
-                .await
-                .unwrap();
+            .await
+            .unwrap();
             println!("latest files downloaded");
         }
     }
 }
-async fn upload_contributor_file(phase_type: u32,
-                                 dest_folder: &str, contributor_index: u32, shared_folder_id: &str) {
+async fn upload_contributor_file(
+    phase_type: u32,
+    dest_folder: &str,
+    contributor_index: u32,
+    shared_folder_id: &str,
+) {
     let mail = env::var("MAIL_NOTIFICATION").unwrap();
 
     let archive_path = format!(
@@ -83,35 +93,24 @@ async fn upload_contributor_file(phase_type: u32,
         dest_folder, phase_type, contributor_index
     );
 
-    let contributor_file = build_file_path(
-        phase_type,
-        &dest_folder,
-        "contributor",
-        contributor_index,
-    );
-    let acc_file = build_file_path(
-        phase_type,
-        &dest_folder,
-        "acc",
-        contributor_index,
-    );
-    let proof_file = build_file_path(
-        phase_type,
-        &dest_folder,
-        "proof",
-        contributor_index,
-    );
+    let contributor_file =
+        build_file_path(phase_type, &dest_folder, "contributor", contributor_index);
+    let acc_file = build_file_path(phase_type, &dest_folder, "acc", contributor_index);
+    let proof_file = build_file_path(phase_type, &dest_folder, "proof", contributor_index);
 
     let files = if contributor_index == 0 {
         vec![&contributor_file, &acc_file]
     } else {
         vec![&contributor_file, &acc_file, &proof_file]
     }
-        .iter()
-        .map(|s| s.as_str())
-        .collect::<Vec<&str>>();
+    .iter()
+    .map(|s| s.as_str())
+    .collect::<Vec<&str>>();
 
-    println!("all files ({:?}) are zipping into {:?}", files, archive_path);
+    println!(
+        "all files ({:?}) are zipping into {:?}",
+        files, archive_path
+    );
     zip_files(&archive_path, &files).expect("Failed to zip files");
     println!("all files are zipped");
 
@@ -132,13 +131,15 @@ async fn upload_contributor_file(phase_type: u32,
     {
         let names_query = format!(
             "name = '{}'",
-            format!(
-                "phase{}_contributor_{}.zip",
-                phase_type, contributor_index
-            )
+            format!("phase{}_contributor_{}.zip", phase_type, contributor_index)
         );
         let query = format!("'{}' in parents and ({})", shared_folder_id, names_query);
-        let result = drive.files.list().q(&query).execute().expect("there is already a file with this name");
+        let result = drive
+            .files
+            .list()
+            .q(&query)
+            .execute()
+            .expect("there is already a file with this name");
 
         let files = result.files.unwrap_or_default();
         // Extract all file IDs

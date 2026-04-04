@@ -375,8 +375,8 @@ impl Accumulator {
     }
 }
 
-impl AaccExt for Accumulator{
-    fn get_contributor_index (&self) -> u32 {
+impl AaccExt for Accumulator {
+    fn get_contributor_index(&self) -> u32 {
         self.contributor_index as u32
     }
     fn blake2b_hash(&self) -> [u8; HASH_BYTES_LEN] {

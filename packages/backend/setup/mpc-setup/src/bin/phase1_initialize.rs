@@ -98,8 +98,8 @@ async fn main() {
     println!("device info: {:?}", get_device_info());
     println!("Current directory: {:?}", env::current_dir().unwrap());
 
-    let setup_params =
-        SetupParams::read_from_json(qap_path.join(&config.setup_params_file)).expect("cannot SetupParams read file");
+    let setup_params = SetupParams::read_from_json(qap_path.join(&config.setup_params_file))
+        .expect("cannot SetupParams read file");
     let x_degree = 2 * max(setup_params.n, setup_params.l_D - setup_params.l);
     let y_degree = 2 * config.s_max;
 
@@ -131,7 +131,6 @@ async fn main() {
         .write_into_json(&outfile)
         .expect("cannot write to file");
 
-
     let fpath = format!(
         "{}/phase1_contributor_{}.txt",
         config.outfolder, genesis_acc.contributor_index
@@ -143,7 +142,7 @@ async fn main() {
         &location,
         fpath,
     )
-        .expect("cannot write to file");
+    .expect("cannot write to file");
     println!("Time elapsed: {:?}", start.elapsed().as_secs_f64());
     println!("Thanks for your contribution...");
 }

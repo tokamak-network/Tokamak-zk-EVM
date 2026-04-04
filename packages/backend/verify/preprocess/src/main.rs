@@ -1,12 +1,12 @@
-use std::{env, process};
 use std::path::PathBuf;
+use std::{env, process};
 
 use libs::iotools::SigmaPreprocessRkyv;
+use libs::iotools::{Instance, Permutation};
 use libs::utils::{check_device, load_setup_params_from_qap_path};
 use memmap2::Mmap;
-use std::fs::File;
-use libs::iotools::{Instance, Permutation};
 use preprocess::{Preprocess, PreprocessInputPaths};
+use std::fs::File;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -30,8 +30,9 @@ fn main() {
 
     let setup_params = load_setup_params_from_qap_path(paths.qap_path);
     let sigma_path = PathBuf::from(paths.setup_path).join("sigma_preprocess.rkyv");
-    let file = File::open(&sigma_path)
-        .expect("No reference string is found. Run the Setup first (expected sigma_preprocess.rkyv).");
+    let file = File::open(&sigma_path).expect(
+        "No reference string is found. Run the Setup first (expected sigma_preprocess.rkyv).",
+    );
     let mmap = unsafe { Mmap::map(&file).expect("Failed to map sigma_preprocess.rkyv") };
     let sigma = rkyv::check_archived_root::<SigmaPreprocessRkyv>(&mmap)
         .expect("Invalid sigma_preprocess.rkyv archive");

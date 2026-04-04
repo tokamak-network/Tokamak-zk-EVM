@@ -27,7 +27,10 @@ fn main() {
     let total_start_time = Instant::now();
 
     if let Err(e) = check_outfolder_writable(&config.outfolder) {
-        eprintln!("Error: output folder '{}' is not accessible: {}", config.outfolder, e);
+        eprintln!(
+            "Error: output folder '{}' is not accessible: {}",
+            config.outfolder, e
+        );
         std::process::exit(1);
     }
 
@@ -55,13 +58,16 @@ fn main() {
             .to_str()
             .unwrap(),
     )
-        .expect("Failed to load initial accumulator");
+    .expect("Failed to load initial accumulator");
 
     for i in 1..contributor_count {
         match verify_contribution(&phase1_files, i) {
             Ok((acc, elapsed)) => {
                 current_acc = acc;
-                println!("Verified contributor {}, elapsed time: {} seconds", i, elapsed);
+                println!(
+                    "Verified contributor {}, elapsed time: {} seconds",
+                    i, elapsed
+                );
             }
             Err(e) => {
                 eprintln!("Verification error: {}", e);
@@ -70,10 +76,16 @@ fn main() {
         }
     }
 
-
-    println!("Total execution time: {} seconds", total_start_time.elapsed().as_secs_f64());
+    println!(
+        "Total execution time: {} seconds",
+        total_start_time.elapsed().as_secs_f64()
+    );
 }
-fn get_file_path(files: &HashMap<String, PathBuf>, prefix: &str, index: usize) -> io::Result<String> {
+fn get_file_path(
+    files: &HashMap<String, PathBuf>,
+    prefix: &str,
+    index: usize,
+) -> io::Result<String> {
     files
         .get(&format!("{}{}", prefix, index))
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, ERROR_PREV_ACC_NOT_FOUND))
@@ -99,18 +111,24 @@ fn verify_contribution(
     let start_time = Instant::now();
     println!("another accumulator is loading  ...");
 
-    let prev_acc: Accumulator = load_json_file(
-        &get_file_path(phase1_files, PHASE1_ACC_PREFIX, contributor_index - 1)?
-    )?;
+    let prev_acc: Accumulator = load_json_file(&get_file_path(
+        phase1_files,
+        PHASE1_ACC_PREFIX,
+        contributor_index - 1,
+    )?)?;
     println!("another accumulator is loading  ...");
 
-    let current_acc: Accumulator = load_json_file(
-        &get_file_path(phase1_files, PHASE1_ACC_PREFIX, contributor_index)?
-    )?;
+    let current_acc: Accumulator = load_json_file(&get_file_path(
+        phase1_files,
+        PHASE1_ACC_PREFIX,
+        contributor_index,
+    )?)?;
 
-    let current_proof: Phase1Proof = load_json_file(
-        &get_file_path(phase1_files, PHASE1_PROOF_PREFIX, contributor_index)?
-    )?;
+    let current_proof: Phase1Proof = load_json_file(&get_file_path(
+        phase1_files,
+        PHASE1_PROOF_PREFIX,
+        contributor_index,
+    )?)?;
 
     if !prev_acc.verify(&current_acc, &current_proof) {
         return Err(io::Error::new(
@@ -121,5 +139,3 @@ fn verify_contribution(
 
     Ok((current_acc, start_time.elapsed().as_secs_f64()))
 }
-
-

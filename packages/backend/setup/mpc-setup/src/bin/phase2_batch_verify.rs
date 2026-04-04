@@ -56,7 +56,7 @@ fn main() {
             .to_str()
             .unwrap(),
     )
-        .expect("Failed to load initial accumulator");
+    .expect("Failed to load initial accumulator");
 
     for i in 1..contributor_count {
         match verify_contribution(&phase2_files, i) {

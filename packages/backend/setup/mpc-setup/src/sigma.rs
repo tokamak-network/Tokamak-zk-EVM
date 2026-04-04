@@ -4,10 +4,7 @@ use blake2::{Blake2b, Digest};
 use chrono::Local;
 use icicle_bls12_381::curve::{G1Affine, G2Affine, ScalarField};
 use libs::field_structures::Tau;
-use libs::group_structures::{
-    G1serde, Sigma
-    ,
-};
+use libs::group_structures::{G1serde, Sigma};
 use libs::iotools::SetupParams;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_reader, to_writer_pretty};
@@ -22,7 +19,7 @@ pub const HASH_BYTES_LEN: usize = 64;
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SigmaV2 {
     pub contributor_index: usize,
-   // #[serde(flatten)]
+    // #[serde(flatten)]
     pub sigma: Sigma,
     pub gamma: G1serde,
 }
@@ -62,11 +59,10 @@ impl SigmaV2 {
     pub fn write_into_rust_code(&self, path: &str) -> io::Result<()> {
         self.sigma.write_into_rust_code(path)
     }
-
 }
 
-impl AaccExt for SigmaV2{
-    fn get_contributor_index (&self) -> u32 {
+impl AaccExt for SigmaV2 {
+    fn get_contributor_index(&self) -> u32 {
         self.contributor_index as u32
     }
     fn blake2b_hash(&self) -> [u8; HASH_BYTES_LEN] {
@@ -110,6 +106,6 @@ pub fn save_contributor_info(
 }
 
 pub trait AaccExt {
-    fn get_contributor_index (&self) -> u32;
+    fn get_contributor_index(&self) -> u32;
     fn blake2b_hash(&self) -> [u8; HASH_BYTES_LEN];
 }

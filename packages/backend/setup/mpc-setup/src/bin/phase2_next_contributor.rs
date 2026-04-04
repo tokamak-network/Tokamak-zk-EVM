@@ -3,7 +3,10 @@ use clap::Parser;
 use icicle_core::traits::Arithmetic;
 use mpc_setup::contributor::{get_device_info, ContributorInfo};
 use mpc_setup::sigma::{AaccExt, SigmaV2, HASH_BYTES_LEN};
-use mpc_setup::utils::{hash_sigma, initialize_random_generator, pok, prompt_user_input, Mode, Phase2Proof, RandomGenerator};
+use mpc_setup::utils::{
+    hash_sigma, initialize_random_generator, pok, prompt_user_input, Mode, Phase2Proof,
+    RandomGenerator,
+};
 use rayon::iter::ParallelIterator;
 use rayon::prelude::IntoParallelRefMutIterator;
 use std::fs::File;
@@ -12,7 +15,6 @@ use std::ops::Mul;
 use std::path::PathBuf;
 use std::time::Instant;
 use thiserror::Error;
-
 
 const CONTRIBUTOR_FILE_FORMAT: &str = "phase2_contributor_{}.txt";
 
@@ -68,10 +70,7 @@ fn main() {
     let latest_acc = load_phase2_accumulator(&config.outfolder, contributor_index - 1);
 
     println!("loading current challenge and proof...");
-    println!(
-        "latest contributor index: {}",
-        latest_acc.contributor_index
-    );
+    println!("latest contributor index: {}", latest_acc.contributor_index);
 
     let mut previous_hashes = vec![];
     previous_hashes.push(latest_acc.blake2b_hash());
@@ -101,11 +100,28 @@ fn main() {
     );
 
     verify_and_save_results(&config.outfolder, &latest_acc, &new_acc, &new_proof);
-    save_contributor_info(&previous_hashes, &start, &config, &new_acc, &new_proof, name, location).expect("cannot contribution info into file");
+    save_contributor_info(
+        &previous_hashes,
+        &start,
+        &config,
+        &new_acc,
+        &new_proof,
+        name,
+        location,
+    )
+    .expect("cannot contribution info into file");
     println!("Time elapsed: {:?}", start.elapsed().as_secs_f64());
     println!("thanks for your contribution...");
 }
-fn save_contributor_info(previous_hashes: &Vec<[u8; HASH_BYTES_LEN]>, start_time: &Instant, config: &Config, acc: &SigmaV2, proof: &Phase2Proof, name: String, location: String) -> Result<(), ContributorError> {
+fn save_contributor_info(
+    previous_hashes: &Vec<[u8; HASH_BYTES_LEN]>,
+    start_time: &Instant,
+    config: &Config,
+    acc: &SigmaV2,
+    proof: &Phase2Proof,
+    name: String,
+    location: String,
+) -> Result<(), ContributorError> {
     let info = create_contributor_info(previous_hashes, start_time, acc, proof, name, location);
     let file_path = format!(
         "{}/{}",
@@ -120,8 +136,18 @@ fn save_contributor_info(previous_hashes: &Vec<[u8; HASH_BYTES_LEN]>, start_time
     Ok(())
 }
 
-fn create_contributor_info(previous_hashes: &Vec<[u8; HASH_BYTES_LEN]>, start_time: &Instant, acc: &SigmaV2, proof: &Phase2Proof, name: String, location: String) -> ContributorInfo {
-    println!("Total time elapsed: {:?}", start_time.elapsed().as_secs_f64());
+fn create_contributor_info(
+    previous_hashes: &Vec<[u8; HASH_BYTES_LEN]>,
+    start_time: &Instant,
+    acc: &SigmaV2,
+    proof: &Phase2Proof,
+    name: String,
+    location: String,
+) -> ContributorInfo {
+    println!(
+        "Total time elapsed: {:?}",
+        start_time.elapsed().as_secs_f64()
+    );
     ContributorInfo {
         contributor_no: acc.contributor_index as u32,
         date: Local::now().format("%Y-%m-%d").to_string(),
@@ -141,8 +167,7 @@ fn verify_latest_contribution(outfolder: &str, latest_sigma: &SigmaV2) {
 
     let proof_file_str = &format!(
         "{}/phase2_proof_{}.json",
-        outfolder,
-        latest_sigma.contributor_index
+        outfolder, latest_sigma.contributor_index
     );
     let latest_proof = Phase2Proof::read_from_json(proof_file_str)
         .expect(format!("cannot read proof file: {}", proof_file_str).as_str());
@@ -160,7 +185,7 @@ fn load_phase2_accumulator(outfolder: &str, contributor_index: usize) -> SigmaV2
         "{}/phase2_acc_{}.json",
         outfolder, contributor_index
     ))
-        .unwrap()
+    .unwrap()
 }
 
 fn verify_and_save_results(
@@ -181,7 +206,7 @@ fn verify_and_save_results(
             outfolder, new_sigma.contributor_index
         ),
     )
-        .expect("cannot write new combined_sigma to file");
+    .expect("cannot write new combined_sigma to file");
 
     Phase2Proof::write_into_json(
         new_proof,
@@ -190,7 +215,7 @@ fn verify_and_save_results(
             outfolder, new_sigma.contributor_index
         ),
     )
-        .expect("cannot write new_proof to file");
+    .expect("cannot write new_proof to file");
 }
 
 fn compute_new_sigma(rng: &mut RandomGenerator, sigma_old: &SigmaV2) -> (SigmaV2, Phase2Proof) {

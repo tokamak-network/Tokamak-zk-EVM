@@ -6,6 +6,7 @@ use libs::field_structures::{from_r1cs_to_evaled_qap_mixture, Tau};
 use libs::group_structures::{PartialSigma1, SigmaPreprocess};
 use libs::iotools::read_global_wire_list_as_boxed_boxed_numbers;
 use libs::iotools::{SetupParams, SubcircuitInfo, SubcircuitR1CS};
+use libs::utils::{setup_shape, validate_public_wire_size, validate_setup_shape};
 use libs::vector_operations::gen_evaled_lagrange_bases;
 use mpc_setup::conversions::{icicle_g1_generator, icicle_g2_generator};
 use mpc_setup::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
@@ -19,14 +20,12 @@ fn main() {
     let base_path = env::current_dir().unwrap();
     let qap_path = base_path.join(QAP_COMPILER_PATH_PREFIX);
 
-
     let use_gpu: bool = env::var("USE_GPU")
         .ok()
         .and_then(|v| v.parse::<bool>().ok())
         .unwrap_or(false); // default to false
-    let mut is_gpu_enabled = false;
     if use_gpu {
-        is_gpu_enabled = load_gpu_if_possible()
+        let _ = load_gpu_if_possible();
     }
     let start = Instant::now();
 
@@ -47,48 +46,26 @@ fn main() {
 
     // Load setup parameters from JSON file
     let setup_file_name = "setupParams.json";
-    let mut setup_params = SetupParams::read_from_json(qap_path.join(setup_file_name)).unwrap();
-
+    let setup_params = SetupParams::read_from_json(qap_path.join(setup_file_name)).unwrap();
+    let shape = setup_shape(&setup_params);
+    validate_setup_shape(&shape);
+    validate_public_wire_size(shape.l_free);
 
     // Extract key parameters from setup_params
     let m_d = setup_params.m_D; // Total number of wires
     let s_d = setup_params.s_D; // Number of subcircuits
     let n = setup_params.n; // Number of constraints per subcircuit
     let s_max = setup_params.s_max; // The maximum number of placements.
-    // Additional wire-related parameters
+                                    // Additional wire-related parameters
     let l = setup_params.l; // Number of public I/O wires
-    let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
-    let l_prv = setup_params.l_prv_in + setup_params.l_prv_out;
+    let l_free = setup_params.l_free;
     let l_d = setup_params.l_D; // Number of interface wires
-    // The last wire-related parameter
+                                // The last wire-related parameter
     let m_i = l_d - l;
     println!(
-        "Setup parameters: \n n = {:?}, \n s_max = {:?}, \n l = {:?}, \n m_I = {:?}, \n m_D = {:?}",
-        n, s_max, l, m_i, m_d
+        "Setup parameters: \n n = {:?}, \n s_max = {:?}, \n l = {:?}, \n l_free = {:?}, \n m_I = {:?}, \n m_D = {:?}",
+        n, s_max, l, l_free, m_i, m_d
     );
-
-    // Verify n is a power of two
-    if !n.is_power_of_two() {
-        panic!("n is not a power of two.");
-    }
-
-    if !(l_pub.is_power_of_two() || l_pub == 0) {
-        panic!("l_pub is not a power of two.");
-    }
-
-    if !(l_prv.is_power_of_two()) {
-        panic!("l_prv is not a power of two.");
-    }
-
-    // Verify s_max is a power of two
-    if !s_max.is_power_of_two() {
-        panic!("s_max is not a power of two.");
-    }
-
-    // Verify m_I is a power of two
-    if !m_i.is_power_of_two() {
-        panic!("m_I is not a power of two.");
-    }
 
     // Load subcircuit information
     let subcircuit_file_name = "subcircuitInfo.json";
@@ -106,15 +83,14 @@ fn main() {
     let mut k_evaled_vec = vec![ScalarField::zero(); m_i].into_boxed_slice();
     gen_evaled_lagrange_bases(&tau.x, m_i, &mut k_evaled_vec);
 
-    ///
     // Compute l_evaled_vec: Lagrange polynomial evaluations at τ.y of size s_max
     let mut l_evaled_vec = vec![ScalarField::zero(); s_max].into_boxed_slice();
     gen_evaled_lagrange_bases(&tau.y, s_max, &mut l_evaled_vec);
 
-    // Compute m_evaled_vec: Lagrange polynomial evaluations at τ.x of size l
-    let mut m_evaled_vec = vec![ScalarField::zero(); l_pub].into_boxed_slice();
-    if l > 0 {
-        gen_evaled_lagrange_bases(&tau.x, l_pub, &mut m_evaled_vec);
+    // Compute m_evaled_vec: Lagrange polynomial evaluations at τ.x of size l_free
+    let mut m_evaled_vec = vec![ScalarField::zero(); l_free].into_boxed_slice();
+    if l_free > 0 {
+        gen_evaled_lagrange_bases(&tau.x, l_free, &mut m_evaled_vec);
     }
 
     // Compute o_evaled_vec: Wire polynomial evaluations
@@ -135,7 +111,7 @@ fn main() {
                 &setup_params,
                 &subcircuit_infos[i],
             )
-                .unwrap();
+            .unwrap();
             let o_evaled = from_r1cs_to_evaled_qap_mixture(
                 &compact_r1cs,
                 &setup_params,
@@ -176,7 +152,7 @@ fn main() {
     );
 
     // Generate sigma components using the computed polynomial evaluations
-    let mut sigma = SigmaV2::gen(
+    let sigma = SigmaV2::gen(
         &setup_params,
         &tau,
         &o_evaled_vec,
@@ -186,11 +162,12 @@ fn main() {
         &g1_gen.0,
         &g2_gen,
     );
-    
+
     let lagrange_kl = compute_lagrange_kl(
         &SigmaPreprocess {
             sigma_1: PartialSigma1 {
                 xy_powers: sigma.sigma.sigma_1.xy_powers.clone(),
+                gamma_inv_o_inst: sigma.sigma.sigma_1.gamma_inv_o_inst.clone(),
             },
         },
         &setup_params,
@@ -199,7 +176,6 @@ fn main() {
     assert_eq!(sigma.sigma.lagrange_KL, lagrange_kl);
 
     // Writing the sigma into JSON
-    let mut output_path: &str;
     println!("Writing the sigma into JSON...");
     sigma
         .write_into_json("setup/mpc-setup/output/phase2_acc_0.json")
@@ -225,7 +201,7 @@ fn main() {
         hex::encode([0u8; HASH_BYTES_LEN]),
         hex::encode([0u8; HASH_BYTES_LEN]),
     )
-        .expect("cannot write contributor info");
+    .expect("cannot write contributor info");
     println!(
         "The total time: {:.6} seconds",
         start.elapsed().as_secs_f64()

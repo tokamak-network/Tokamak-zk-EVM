@@ -1,56 +1,50 @@
 #![allow(non_snake_case)]
+use libs::field_structures::{from_r1cs_to_evaled_qap_mixture, Tau};
+use libs::iotools::read_global_wire_list_as_boxed_boxed_numbers;
 use libs::iotools::{SetupParams, SubcircuitInfo, SubcircuitR1CS};
-use libs::field_structures::{Tau, from_r1cs_to_evaled_qap_mixture};
-use libs::iotools::{read_global_wire_list_as_boxed_boxed_numbers};
 // use libs::polynomial_structures::{gen_bXY, gen_uXY, gen_vXY, gen_wXY, QAP};
-use libs::utils::{
-    check_device, init_ntt_domain, load_setup_params_from_qap_path, setup_shape,
-    trusted_setup_ntt_domain_size,
-    validate_public_wire_size, validate_setup_shape,
+use icicle_bls12_381::curve::{
+    BaseField, CurveCfg, G1Affine, G2Affine, G2BaseField, G2CurveCfg, ScalarField,
 };
+use icicle_core::traits::FieldImpl;
+use libs::group_structures::Sigma;
 #[cfg(feature = "testing-mode")]
 use libs::utils::trusted_setup_testing_ntt_domain_size;
-use libs::vector_operations::{gen_evaled_lagrange_bases};
-use libs::group_structures::{Sigma};
-use icicle_bls12_381::curve::{BaseField, CurveCfg, G1Affine, G2Affine, G2BaseField, G2CurveCfg, ScalarField};
-use icicle_core::traits::{FieldImpl};
+use libs::utils::{
+    check_device, init_ntt_domain, load_setup_params_from_qap_path, setup_shape,
+    trusted_setup_ntt_domain_size, validate_public_wire_size, validate_setup_shape,
+};
+use libs::vector_operations::gen_evaled_lagrange_bases;
 // use icicle_core::ntt;
 use icicle_core::curve::Curve;
 use trusted_setup::SetupInputPaths;
 
 use std::path::PathBuf;
-use std::{env, process, vec};
 use std::time::Instant;
-
+use std::{env, process, vec};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    #[cfg(not(feature = "testing-mode"))] 
+    #[cfg(not(feature = "testing-mode"))]
     if args.len() < 3 || args.len() > 4 {
-        eprintln!(
-            "Usage: {} <QAP_PATH> <OUT_PATH> [--fixed-tau]",
-            args[0]
-        );
+        eprintln!("Usage: {} <QAP_PATH> <OUT_PATH> [--fixed-tau]", args[0]);
         process::exit(1);
     }
 
     #[cfg(feature = "testing-mode")]
     if args.len() < 4 || args.len() > 5 {
-        eprintln!(
-            "Usage: {} <QAP_PATH> <OUT_PATH> [--fixed-tau]",
-            args[0]
-        );
+        eprintln!("Usage: {} <QAP_PATH> <OUT_PATH> [--fixed-tau]", args[0]);
         process::exit(1);
     }
 
-    #[cfg(not(feature = "testing-mode"))] 
+    #[cfg(not(feature = "testing-mode"))]
     let use_fixed_tau = args.len() == 4 && (args[3] == "--fixed-tau");
 
     #[cfg(feature = "testing-mode")]
     let use_fixed_tau = args.len() == 5 && (args[4] == "--fixed-tau");
 
-    #[cfg(not(feature = "testing-mode"))] 
+    #[cfg(not(feature = "testing-mode"))]
     let paths = SetupInputPaths {
         qap_path: &args[1],
         output_path: &args[2],
@@ -64,7 +58,7 @@ fn main() {
 
     check_device();
     let start1 = Instant::now();
-    
+
     // Select base points for G1/G2
     let (g1_gen, g2_gen, tau) = if use_fixed_tau {
         println!("Using hardcoded G1, G2 generators and tau");
@@ -84,10 +78,10 @@ fn main() {
             CurveCfg::generate_random_affine_points(1)[0],
             G2CurveCfg::generate_random_affine_points(1)[0],
             // Generate a random secret parameter tau (x and y only, no z as per the paper)
-            Tau::gen()
+            Tau::gen(),
         )
     };
-    
+
     // Load setup parameters from JSON file
     let setup_params: SetupParams = load_setup_params_from_qap_path(paths.qap_path);
     let shape = setup_shape(&setup_params);
@@ -97,10 +91,10 @@ fn main() {
     // Extract key parameters from setup_params
     let m_d = setup_params.m_D; // Total number of wires
     let s_d = setup_params.s_D; // Number of subcircuits
-    let n = setup_params.n;     // Number of constraints per subcircuit
+    let n = setup_params.n; // Number of constraints per subcircuit
     let s_max = setup_params.s_max; // The maximum number of placements.
-    // Additional wire-related parameters
-    let l = setup_params.l;     // Number of public I/O wires
+                                    // Additional wire-related parameters
+    let l = setup_params.l; // Number of public I/O wires
     let l_free = setup_params.l_free;
     // The last wire-related parameter
     let m_i = shape.m_i;
@@ -118,8 +112,9 @@ fn main() {
 
     // Load global wire list
     let global_wire_list_path = PathBuf::from(paths.qap_path).join("globalWireList.json");
-    let global_wire_list = read_global_wire_list_as_boxed_boxed_numbers(global_wire_list_path).unwrap();
-    
+    let global_wire_list =
+        read_global_wire_list_as_boxed_boxed_numbers(global_wire_list_path).unwrap();
+
     // ------------------- Generate Polynomial Evaluations -------------------
     let start = Instant::now();
 
@@ -130,7 +125,7 @@ fn main() {
     // Compute l_evaled_vec: Lagrange polynomial evaluations at τ.y of size s_max
     let mut l_evaled_vec = vec![ScalarField::zero(); s_max].into_boxed_slice();
     gen_evaled_lagrange_bases(&tau.y, s_max, &mut l_evaled_vec);
-    
+
     // Compute m_evaled_vec: Lagrange polynomial evaluations at τ.x of size l_free
     let mut m_evaled_vec = vec![ScalarField::zero(); l_free].into_boxed_slice();
     gen_evaled_lagrange_bases(&tau.x, l_free, &mut m_evaled_vec);
@@ -147,15 +142,16 @@ fn main() {
             let r1cs_path = PathBuf::from(paths.qap_path).join(format!("json/subcircuit{i}.json"));
 
             // Evaluate QAP for the current subcircuit
-            let compact_r1cs = SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
+            let compact_r1cs =
+                SubcircuitR1CS::from_path(r1cs_path, &setup_params, &subcircuit_infos[i]).unwrap();
             let o_evaled = from_r1cs_to_evaled_qap_mixture(
                 &compact_r1cs,
                 &setup_params,
                 &subcircuit_infos[i],
                 &tau,
-                &x_evaled_lagrange_vec
+                &x_evaled_lagrange_vec,
             );
-            
+
             // Map local wire indices to global wire indices
             let flatten_map = &subcircuit_infos[i].flattenMap;
 
@@ -164,8 +160,9 @@ fn main() {
                 let global_idx = flatten_map[local_idx];
 
                 // Verify global wire list consistency with flatten map
-                if (global_wire_list[global_idx][0] != subcircuit_infos[i].id) || 
-                   (global_wire_list[global_idx][1] != local_idx) {
+                if (global_wire_list[global_idx][0] != subcircuit_infos[i].id)
+                    || (global_wire_list[global_idx][1] != local_idx)
+                {
                     panic!("GlobalWireList is not the inverse of flattenMap.");
                 }
 
@@ -180,10 +177,11 @@ fn main() {
         }
     }
 
-    #[cfg(feature = "testing-mode")] {
-        use libs::polynomial_structures::QAP;
-        use libs::bivariate_polynomial::BivariatePolynomial;
+    #[cfg(feature = "testing-mode")]
+    {
         use icicle_core::traits::{Arithmetic, FieldImpl};
+        use libs::bivariate_polynomial::BivariatePolynomial;
+        use libs::polynomial_structures::QAP;
         let r1cs_path = PathBuf::from(paths.qap_path);
         println!("Entering into testing mode");
         let qap = QAP::gen_from_R1CS(&r1cs_path, &subcircuit_infos, &setup_params);
@@ -192,14 +190,18 @@ fn main() {
             let u_eval = qap.u_j_X[j].eval(&tau.x, &ScalarField::one());
             let v_eval = qap.v_j_X[j].eval(&tau.x, &ScalarField::one());
             let w_eval = qap.w_j_X[j].eval(&tau.x, &ScalarField::one());
-            let o_eval_est = tau.alpha * u_eval + tau.alpha.pow(2) * v_eval + tau.alpha.pow(3) * w_eval;
+            let o_eval_est =
+                tau.alpha * u_eval + tau.alpha.pow(2) * v_eval + tau.alpha.pow(3) * w_eval;
             assert_eq!(o_eval, o_eval_est);
         }
         println!("Checked: o_evaled_vec");
     }
-    
+
     let duration = start.elapsed();
-    println!("Polynomial evaluation computation time: {:.6} seconds", duration.as_secs_f64());
+    println!(
+        "Polynomial evaluation computation time: {:.6} seconds",
+        duration.as_secs_f64()
+    );
 
     // Generate sigma components using the computed polynomial evaluations
     let start = Instant::now();
@@ -211,78 +213,112 @@ fn main() {
         &k_evaled_vec,
         &m_evaled_vec,
         &g1_gen,
-        &g2_gen
+        &g2_gen,
     );
 
     let lap = start.elapsed();
-    println!("The sigma generation time: {:.6} seconds", lap.as_secs_f64());
+    println!(
+        "The sigma generation time: {:.6} seconds",
+        lap.as_secs_f64()
+    );
 
-    #[cfg(feature = "testing-mode")] {
-        use icicle_bls12_381::curve::{ScalarCfg};
-        use icicle_core::traits::{GenerateRandom, Arithmetic};
-        use libs::vector_operations::{resize};
-        use libs::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
+    #[cfg(feature = "testing-mode")]
+    {
+        use icicle_bls12_381::curve::G1Affine;
+        use icicle_bls12_381::curve::ScalarCfg;
+        use icicle_core::traits::{Arithmetic, GenerateRandom};
         use icicle_runtime::memory::HostSlice;
-        use icicle_bls12_381::curve::{G1Affine};
-        use libs::iotools::{Instance, PlacementVariables, read_R1CS_gen_uvwXY};
-        use libs::polynomial_structures::{gen_bXY};
-        use libs::group_structures::{G1serde, pairing};
+        use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
+        use libs::group_structures::{pairing, G1serde};
+        use libs::iotools::{read_R1CS_gen_uvwXY, Instance, PlacementVariables};
+        use libs::polynomial_structures::gen_bXY;
+        use libs::vector_operations::resize;
 
-        let poly_coefs_opt = ScalarCfg::generate_random( (n + 10) * (s_max + 10));
-        let poly_coefs = resize(&poly_coefs_opt, n+10, s_max+10, 2*n, 2*s_max, ScalarField::zero());
-        let mut poly = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&poly_coefs), 2*n, 2*s_max);
+        let poly_coefs_opt = ScalarCfg::generate_random((n + 10) * (s_max + 10));
+        let poly_coefs = resize(
+            &poly_coefs_opt,
+            n + 10,
+            s_max + 10,
+            2 * n,
+            2 * s_max,
+            ScalarField::zero(),
+        );
+        let mut poly =
+            DensePolynomialExt::from_coeffs(HostSlice::from_slice(&poly_coefs), 2 * n, 2 * s_max);
         poly.optimize_size();
         let encoding = sigma.sigma_1.encode_poly(&mut poly, &setup_params);
         let poly_eval = poly.eval(&tau.x, &tau.y);
         let direct = G1Affine::from(g1_gen.to_projective() * poly_eval);
-        assert_eq!(sigma.sigma_1.xy_powers[2*s_max].0.to_projective(), g1_gen.to_projective() * tau.x);
-        assert_eq!(sigma.sigma_1.xy_powers[1].0.to_projective(), g1_gen.to_projective() * tau.y);
+        assert_eq!(
+            sigma.sigma_1.xy_powers[2 * s_max].0.to_projective(),
+            g1_gen.to_projective() * tau.x
+        );
+        assert_eq!(
+            sigma.sigma_1.xy_powers[1].0.to_projective(),
+            g1_gen.to_projective() * tau.y
+        );
         assert_eq!(encoding.0, direct);
         println!("Checked: xy_powers");
-        let placement_variables_path = PathBuf::from(paths.synthesizer_path).join("placementVariables.json");
-        let mut placement_variables = PlacementVariables::read_box_from_json(placement_variables_path).unwrap();
+        let placement_variables_path =
+            PathBuf::from(paths.synthesizer_path).join("placementVariables.json");
+        let mut placement_variables =
+            PlacementVariables::read_box_from_json(placement_variables_path).unwrap();
         // let placement_variables = PlacementVariables::gen_dummy(&setup_params, &subcircuit_infos);
 
         // TEMP
-            // for i in 0..4 {
-            //     placement_variables[i].variables = vec![ScalarField::zero().to_string(); placement_variables[i].variables.len()].into_boxed_slice();
-            // }
+        // for i in 0..4 {
+        //     placement_variables[i].variables = vec![ScalarField::zero().to_string(); placement_variables[i].variables.len()].into_boxed_slice();
+        // }
         ////
-        
+
         let instance_path = PathBuf::from(paths.synthesizer_path).join("instance.json");
         let mut public_instance = Instance::read_from_json(instance_path).unwrap();
         // TEMP
-            // public_instance.a_pub = vec![ScalarField::zero().to_string(); setup_params.l];
+        // public_instance.a_pub = vec![ScalarField::zero().to_string(); setup_params.l];
         ////
         let mut a_free_X = public_instance.gen_a_free_X(&setup_params);
         let mut bXY = gen_bXY(&placement_variables, &subcircuit_infos, &setup_params);
-        let (mut uXY, mut vXY, mut wXY) = read_R1CS_gen_uvwXY(&paths.qap_path, &placement_variables, &subcircuit_infos, &setup_params);
+        let (mut uXY, mut vXY, mut wXY) = read_R1CS_gen_uvwXY(
+            &paths.qap_path,
+            &placement_variables,
+            &subcircuit_infos,
+            &setup_params,
+        );
         let a_free_encoding = sigma.sigma_1.encode_poly(&mut a_free_X, &setup_params);
-        let O_pub_fix = sigma.sigma_1.encode_O_pub_fix(&public_instance.a_pub_function, &setup_params);
+        let O_pub_fix = sigma
+            .sigma_1
+            .encode_O_pub_fix(&public_instance.a_pub_function, &setup_params);
         let a_encoding = a_free_encoding;
         // TEMP
-            // assert_eq!(a_encoding.0, G1Affine::zero());
+        // assert_eq!(a_encoding.0, G1Affine::zero());
         ////
         let mut b_encoding = sigma.sigma_1.encode_poly(&mut bXY, &setup_params);
         // TEMP
-            // b_encoding = G1serde::zero();
-            // assert_ne!(b_encoding.0, G1Affine::zero());
+        // b_encoding = G1serde::zero();
+        // assert_ne!(b_encoding.0, G1Affine::zero());
         ////
         let u_encoding = sigma.sigma_1.encode_poly(&mut uXY, &setup_params);
         let v_encoding = sigma.sigma_1.encode_poly(&mut vXY, &setup_params);
         let w_encoding = sigma.sigma_1.encode_poly(&mut wXY, &setup_params);
-        let O_inst = sigma.sigma_1.encode_O_pub_free(&placement_variables, &subcircuit_infos, &setup_params);
+        let O_inst =
+            sigma
+                .sigma_1
+                .encode_O_pub_free(&placement_variables, &subcircuit_infos, &setup_params);
         // TEMP
-            // assert_eq!(O_pub.0, G1Affine::zero());
+        // assert_eq!(O_pub.0, G1Affine::zero());
         ////
-        let O_mid = sigma.sigma_1.encode_O_mid_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
-        let O_prv = sigma.sigma_1.encode_O_prv_no_zk(&placement_variables, &subcircuit_infos, &setup_params);
-        let LHS = 
-            (O_pub_fix + O_inst) * tau.gamma 
-            + O_mid * tau.eta 
-            + O_prv * tau.delta;
-        let RHS = 
-            a_encoding
+        let O_mid = sigma.sigma_1.encode_O_mid_no_zk(
+            &placement_variables,
+            &subcircuit_infos,
+            &setup_params,
+        );
+        let O_prv = sigma.sigma_1.encode_O_prv_no_zk(
+            &placement_variables,
+            &subcircuit_infos,
+            &setup_params,
+        );
+        let LHS = (O_pub_fix + O_inst) * tau.gamma + O_mid * tau.eta + O_prv * tau.delta;
+        let RHS = a_encoding
             + u_encoding * tau.alpha
             + v_encoding * tau.alpha.pow(2)
             + w_encoding * tau.alpha.pow(3)
@@ -291,24 +327,31 @@ fn main() {
         println!("Checked: o_vec (A_free + O_pub_fix)");
         let mut t: ScalarField;
         t = tau.x.pow(n) - ScalarField::one();
-        for k in 1 ..4 {
+        for k in 1..4 {
             for h in 0..3 {
-                let rs = sigma.sigma_1.delta_inv_alphak_xh_tx[k-1][h].0.to_projective();
-                let val = sigma.G.0.to_projective() * (tau.delta.inv() * tau.alpha.pow(k) * tau.x.pow(h) * t);
+                let rs = sigma.sigma_1.delta_inv_alphak_xh_tx[k - 1][h]
+                    .0
+                    .to_projective();
+                let val = sigma.G.0.to_projective()
+                    * (tau.delta.inv() * tau.alpha.pow(k) * tau.x.pow(h) * t);
                 assert_eq!(rs, val);
             }
         }
         t = tau.x.pow(m_i) - ScalarField::one();
         for j in 0..2 {
             let rs = sigma.sigma_1.delta_inv_alpha4_xj_tx[j].0.to_projective();
-            let val = sigma.G.0.to_projective() * (tau.delta.inv() * tau.alpha.pow(4) * tau.x.pow(j) * t);
+            let val =
+                sigma.G.0.to_projective() * (tau.delta.inv() * tau.alpha.pow(4) * tau.x.pow(j) * t);
             assert_eq!(rs, val);
         }
         t = tau.y.pow(s_max) - ScalarField::one();
-        for k in 1 ..5 {
+        for k in 1..5 {
             for i in 0..3 {
-                let rs = sigma.sigma_1.delta_inv_alphak_yi_ty[k-1][i].0.to_projective();
-                let val = sigma.G.0.to_projective() * (tau.delta.inv() * tau.alpha.pow(k) * tau.y.pow(i) * t);
+                let rs = sigma.sigma_1.delta_inv_alphak_yi_ty[k - 1][i]
+                    .0
+                    .to_projective();
+                let val = sigma.G.0.to_projective()
+                    * (tau.delta.inv() * tau.alpha.pow(k) * tau.y.pow(i) * t);
                 assert_eq!(rs, val);
             }
         }
@@ -316,27 +359,35 @@ fn main() {
 
         let lhs1 = vec![a_encoding, b_encoding, u_encoding, v_encoding, w_encoding];
         let lhs2 = vec![O_pub_fix + O_inst, O_mid, O_prv];
-        let rhs1 = vec![sigma.H, sigma.sigma_2.alpha4, sigma.sigma_2.alpha, sigma.sigma_2.alpha2, sigma.sigma_2.alpha3];
+        let rhs1 = vec![
+            sigma.H,
+            sigma.sigma_2.alpha4,
+            sigma.sigma_2.alpha,
+            sigma.sigma_2.alpha2,
+            sigma.sigma_2.alpha3,
+        ];
         let rhs2 = vec![sigma.sigma_2.gamma, sigma.sigma_2.eta, sigma.sigma_2.delta];
         let LHS = pairing(&lhs1, &rhs1);
         let RHS = pairing(&lhs2, &rhs2);
         assert_eq!(LHS, RHS);
         println!("Checked: polynomial binding");
 
-        let mut t_n_coeffs = vec![ScalarField::zero(); 2*n];
+        let mut t_n_coeffs = vec![ScalarField::zero(); 2 * n];
         t_n_coeffs[0] = ScalarField::zero() - ScalarField::one();
         t_n_coeffs[n] = ScalarField::one();
-        let mut t_n = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_n_coeffs), 2*n, 1);
+        let mut t_n = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_n_coeffs), 2 * n, 1);
         t_n.optimize_size();
-        let mut t_mi_coeffs = vec![ScalarField::zero(); 2*m_i];
+        let mut t_mi_coeffs = vec![ScalarField::zero(); 2 * m_i];
         t_mi_coeffs[0] = ScalarField::zero() - ScalarField::one();
         t_mi_coeffs[m_i] = ScalarField::one();
-        let mut t_mi = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_mi_coeffs), 2*m_i, 1);
+        let mut t_mi =
+            DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_mi_coeffs), 2 * m_i, 1);
         t_mi.optimize_size();
-        let mut t_smax_coeffs = vec![ScalarField::zero(); 2*s_max];
+        let mut t_smax_coeffs = vec![ScalarField::zero(); 2 * s_max];
         t_smax_coeffs[0] = ScalarField::zero() - ScalarField::one();
         t_smax_coeffs[s_max] = ScalarField::one();
-        let mut t_smax = DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_smax_coeffs), 1, 2*s_max);
+        let mut t_smax =
+            DensePolynomialExt::from_coeffs(HostSlice::from_slice(&t_smax_coeffs), 1, 2 * s_max);
         t_smax.optimize_size();
         let rU_X = ScalarCfg::generate_random(1)[0];
         let rU_Y = ScalarCfg::generate_random(1)[0];
@@ -359,89 +410,137 @@ fn main() {
         let mut rW_X_t_x = &rW_X * &t_n;
         let mut rW_Y_t_y = &rW_Y * &t_smax;
         let B_zk = G1serde(G1Affine::from(
-            sigma.sigma_1.encode_poly(&mut rB_X_t_x, &setup_params).0.to_projective()
-            + sigma.sigma_1.encode_poly(&mut rB_Y_t_y, &setup_params).0.to_projective()
+            sigma
+                .sigma_1
+                .encode_poly(&mut rB_X_t_x, &setup_params)
+                .0
+                .to_projective()
+                + sigma
+                    .sigma_1
+                    .encode_poly(&mut rB_Y_t_y, &setup_params)
+                    .0
+                    .to_projective(),
         ));
         let U_zk = G1serde(G1Affine::from(
-            sigma.sigma_1.encode_poly(&mut (&rU_X * &t_n), &setup_params).0.to_projective()
-            + sigma.sigma_1.encode_poly(&mut (&rU_Y * &t_smax), &setup_params).0.to_projective()
+            sigma
+                .sigma_1
+                .encode_poly(&mut (&rU_X * &t_n), &setup_params)
+                .0
+                .to_projective()
+                + sigma
+                    .sigma_1
+                    .encode_poly(&mut (&rU_Y * &t_smax), &setup_params)
+                    .0
+                    .to_projective(),
         ));
         let V_zk = G1serde(G1Affine::from(
-            sigma.sigma_1.encode_poly(&mut (&rV_X * &t_n), &setup_params).0.to_projective()
-            + sigma.sigma_1.encode_poly(&mut (&rV_Y * &t_smax), &setup_params).0.to_projective()
+            sigma
+                .sigma_1
+                .encode_poly(&mut (&rV_X * &t_n), &setup_params)
+                .0
+                .to_projective()
+                + sigma
+                    .sigma_1
+                    .encode_poly(&mut (&rV_Y * &t_smax), &setup_params)
+                    .0
+                    .to_projective(),
         ));
         let W_zk1 = G1serde(G1Affine::from(
-            sigma.sigma_1.encode_poly(&mut rW_X_t_x, &setup_params).0.to_projective()
+            sigma
+                .sigma_1
+                .encode_poly(&mut rW_X_t_x, &setup_params)
+                .0
+                .to_projective(),
         ));
         let W_zk2 = G1serde(G1Affine::from(
-            sigma.sigma_1.encode_poly(&mut rW_Y_t_y, &setup_params).0.to_projective()
+            sigma
+                .sigma_1
+                .encode_poly(&mut rW_Y_t_y, &setup_params)
+                .0
+                .to_projective(),
         ));
 
         let B_zk_rhs = G1serde(G1Affine::from(
-            (
-                sigma.sigma_1.delta_inv_alpha4_xj_tx[0].0.to_projective() * rB_X_coeffs[0]
-                + sigma.sigma_1.delta_inv_alpha4_xj_tx[1].0.to_projective() * rB_X_coeffs[1]
-            )
-            + (
-                sigma.sigma_1.delta_inv_alphak_yi_ty[3][0].0.to_projective() * rB_Y_coeffs[0]
-                + sigma.sigma_1.delta_inv_alphak_yi_ty[3][1].0.to_projective() * rB_Y_coeffs[1]
-            )
+            (sigma.sigma_1.delta_inv_alpha4_xj_tx[0].0.to_projective() * rB_X_coeffs[0]
+                + sigma.sigma_1.delta_inv_alpha4_xj_tx[1].0.to_projective() * rB_X_coeffs[1])
+                + (sigma.sigma_1.delta_inv_alphak_yi_ty[3][0].0.to_projective() * rB_Y_coeffs[0]
+                    + sigma.sigma_1.delta_inv_alphak_yi_ty[3][1].0.to_projective()
+                        * rB_Y_coeffs[1]),
         ));
         let U_zk_rhs = G1serde(G1Affine::from(
             sigma.sigma_1.delta_inv_alphak_xh_tx[0][0].0.to_projective() * rU_X
-            + sigma.sigma_1.delta_inv_alphak_yi_ty[0][0].0.to_projective() * rU_Y
+                + sigma.sigma_1.delta_inv_alphak_yi_ty[0][0].0.to_projective() * rU_Y,
         ));
         let V_zk_rhs = G1serde(G1Affine::from(
             sigma.sigma_1.delta_inv_alphak_xh_tx[1][0].0.to_projective() * rV_X
-            + sigma.sigma_1.delta_inv_alphak_yi_ty[1][0].0.to_projective() * rV_Y
+                + sigma.sigma_1.delta_inv_alphak_yi_ty[1][0].0.to_projective() * rV_Y,
         ));
         let W_zk_rhs1 = G1serde(G1Affine::from(
-            (
-                sigma.sigma_1.delta_inv_alphak_xh_tx[2][0].0.to_projective() * rW_X_coeffs[0]
+            (sigma.sigma_1.delta_inv_alphak_xh_tx[2][0].0.to_projective() * rW_X_coeffs[0]
                 + sigma.sigma_1.delta_inv_alphak_xh_tx[2][1].0.to_projective() * rW_X_coeffs[1]
-                + sigma.sigma_1.delta_inv_alphak_xh_tx[2][2].0.to_projective() * rW_X_coeffs[2]
-            )
+                + sigma.sigma_1.delta_inv_alphak_xh_tx[2][2].0.to_projective() * rW_X_coeffs[2]),
         ));
         let W_zk_rhs2 = G1serde(G1Affine::from(
-            (
-                sigma.sigma_1.delta_inv_alphak_yi_ty[2][0].0.to_projective() * rW_Y_coeffs[0]
+            (sigma.sigma_1.delta_inv_alphak_yi_ty[2][0].0.to_projective() * rW_Y_coeffs[0]
                 + sigma.sigma_1.delta_inv_alphak_yi_ty[2][1].0.to_projective() * rW_Y_coeffs[1]
-                + sigma.sigma_1.delta_inv_alphak_yi_ty[2][2].0.to_projective() * rW_Y_coeffs[2]
-            )
+                + sigma.sigma_1.delta_inv_alphak_yi_ty[2][2].0.to_projective() * rW_Y_coeffs[2]),
         ));
-        assert_eq!(pairing(&[B_zk], &[sigma.sigma_2.alpha4]), pairing(&[B_zk_rhs], &[sigma.sigma_2.delta]));
-        assert_eq!(pairing(&[U_zk], &[sigma.sigma_2.alpha]), pairing(&[U_zk_rhs], &[sigma.sigma_2.delta]));
-        assert_eq!(pairing(&[V_zk], &[sigma.sigma_2.alpha2]), pairing(&[V_zk_rhs], &[sigma.sigma_2.delta]));
-        assert_eq!(pairing(&[W_zk1], &[sigma.sigma_2.alpha3]), pairing(&[W_zk_rhs1], &[sigma.sigma_2.delta]));
-        assert_eq!(pairing(&[W_zk2], &[sigma.sigma_2.alpha3]), pairing(&[W_zk_rhs2], &[sigma.sigma_2.delta]));  
+        assert_eq!(
+            pairing(&[B_zk], &[sigma.sigma_2.alpha4]),
+            pairing(&[B_zk_rhs], &[sigma.sigma_2.delta])
+        );
+        assert_eq!(
+            pairing(&[U_zk], &[sigma.sigma_2.alpha]),
+            pairing(&[U_zk_rhs], &[sigma.sigma_2.delta])
+        );
+        assert_eq!(
+            pairing(&[V_zk], &[sigma.sigma_2.alpha2]),
+            pairing(&[V_zk_rhs], &[sigma.sigma_2.delta])
+        );
+        assert_eq!(
+            pairing(&[W_zk1], &[sigma.sigma_2.alpha3]),
+            pairing(&[W_zk_rhs1], &[sigma.sigma_2.delta])
+        );
+        assert_eq!(
+            pairing(&[W_zk2], &[sigma.sigma_2.alpha3]),
+            pairing(&[W_zk_rhs2], &[sigma.sigma_2.delta])
+        );
         println!("Checked: each proof component");
     }
 
     let start = Instant::now();
-    
+
     let output_dir_path = PathBuf::from(paths.output_path);
     std::fs::create_dir_all(&output_dir_path).expect("Failed to create output directory");
     {
         use libs::iotools::{SigmaPreprocessRkyv, SigmaRkyv, SigmaVerifyRkyv};
         println!("Writing the sigma into rkyv (zero-copy)...");
         let sigma_rkyv = SigmaRkyv::from_sigma(&sigma);
-        let bytes = rkyv::to_bytes::<_, 256>(&sigma_rkyv).expect("Failed to serialize sigma to rkyv");
-        std::fs::write(output_dir_path.join("combined_sigma.rkyv"), bytes).expect("Failed to write rkyv file");
+        let bytes =
+            rkyv::to_bytes::<_, 256>(&sigma_rkyv).expect("Failed to serialize sigma to rkyv");
+        std::fs::write(output_dir_path.join("combined_sigma.rkyv"), bytes)
+            .expect("Failed to write rkyv file");
 
         println!("Writing sigma_verify into rkyv...");
         let sigma_verify_rkyv = SigmaVerifyRkyv::from_sigma(&sigma);
-        let bytes = rkyv::to_bytes::<_, 256>(&sigma_verify_rkyv).expect("Failed to serialize sigma_verify to rkyv");
-        std::fs::write(output_dir_path.join("sigma_verify.rkyv"), bytes).expect("Failed to write sigma_verify.rkyv");
+        let bytes = rkyv::to_bytes::<_, 256>(&sigma_verify_rkyv)
+            .expect("Failed to serialize sigma_verify to rkyv");
+        std::fs::write(output_dir_path.join("sigma_verify.rkyv"), bytes)
+            .expect("Failed to write sigma_verify.rkyv");
 
         println!("Writing sigma_preprocess into rkyv...");
         let sigma_preprocess_rkyv = SigmaPreprocessRkyv::from_sigma(&sigma);
-        let bytes = rkyv::to_bytes::<_, 256>(&sigma_preprocess_rkyv).expect("Failed to serialize sigma_preprocess to rkyv");
-        std::fs::write(output_dir_path.join("sigma_preprocess.rkyv"), bytes).expect("Failed to write sigma_preprocess.rkyv");
+        let bytes = rkyv::to_bytes::<_, 256>(&sigma_preprocess_rkyv)
+            .expect("Failed to serialize sigma_preprocess to rkyv");
+        std::fs::write(output_dir_path.join("sigma_preprocess.rkyv"), bytes)
+            .expect("Failed to write sigma_preprocess.rkyv");
     }
     let lap = start.elapsed();
     println!("The sigma writing time: {:.6} seconds", lap.as_secs_f64());
 
     let total_duration = start1.elapsed();
-    println!("Total setup time: {:.6} seconds", total_duration.as_secs_f64());
-    
+    println!(
+        "Total setup time: {:.6} seconds",
+        total_duration.as_secs_f64()
+    );
 }

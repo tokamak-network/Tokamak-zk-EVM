@@ -1,5 +1,8 @@
 use icicle_bls12_381::curve::{CurveCfg, ScalarField};
+use icicle_bls12_381::polynomials::DensePolynomial;
 use icicle_core::curve::Curve;
+use icicle_core::ntt;
+use icicle_core::polynomials::UnivariatePolynomial;
 use icicle_core::traits::FieldImpl;
 use icicle_runtime::memory::HostSlice;
 use lazy_static::lazy_static;
@@ -11,14 +14,10 @@ use libs::vector_operations::gen_evaled_lagrange_bases;
 use rayon::prelude::*;
 use std::ops::{Add, Mul};
 use std::sync::Mutex;
-use icicle_bls12_381::polynomials::DensePolynomial;
-use icicle_core::ntt;
-use icicle_core::polynomials::UnivariatePolynomial;
 
 lazy_static! {
     static ref FFT_MUTEX: Mutex<()> = Mutex::new(());
-        static ref POLY_MUTEX: Mutex<()> = Mutex::new(());
-
+    static ref POLY_MUTEX: Mutex<()> = Mutex::new(());
 }
 
 #[test]
@@ -53,7 +52,11 @@ pub fn compute_langrange_i_poly(i: usize, max_x: usize, max_y: usize) -> DensePo
     // Mutex guard dropped here
     DensePolynomialExt::from_coeffs(HostSlice::from_slice(&lag_coeffs), max_x, max_y)
 }
-pub fn poly_mult(poly1: &DensePolynomialExt, poly2: &DensePolynomialExt, multpxy_coeffs: &mut Vec<ScalarField>) {
+pub fn poly_mult(
+    poly1: &DensePolynomialExt,
+    poly2: &DensePolynomialExt,
+    multpxy_coeffs: &mut Vec<ScalarField>,
+) {
     let multpxy = poly1.mul(poly2);
     let cached_val_pows = HostSlice::from_mut_slice(multpxy_coeffs);
     multpxy.copy_coeffs(0, cached_val_pows);
@@ -67,23 +70,20 @@ pub fn eval_langrange_bases(x_g1: &Vec<G1serde>, x_evaled_vec: &mut Vec<G1serde>
     let s_max = x_g1.len();
     assert_eq!(x_evaled_vec.len(), s_max);
 
-    x_evaled_vec
-        .iter_mut()
-        .enumerate()
-        .for_each(|(i, out)| {
-            let mut lag_coeffs = vec![ScalarField::zero(); s_max];
+    x_evaled_vec.iter_mut().enumerate().for_each(|(i, out)| {
+        let mut lag_coeffs = vec![ScalarField::zero(); s_max];
 
-            compute_langrange_i_coeffs(i, s_max, 1, &mut lag_coeffs);
-            // evaluate lagrange base for i
-            let result = x_g1
-                .iter()
-                .zip(lag_coeffs.iter())
-                .fold(G1serde::zero(), |acc, (x_g1, coeff_i)| {
-                    acc.add(x_g1.mul(*coeff_i))
-                });
+        compute_langrange_i_coeffs(i, s_max, 1, &mut lag_coeffs);
+        // evaluate lagrange base for i
+        let result = x_g1
+            .iter()
+            .zip(lag_coeffs.iter())
+            .fold(G1serde::zero(), |acc, (x_g1, coeff_i)| {
+                acc.add(x_g1.mul(*coeff_i))
+            });
 
-            *out = result;
-        });
+        *out = result;
+    });
 }
 // TODO update to accumulator [x^0,X^1,...x^len_x-1]
 fn compute_powers(x_r: ScalarField, len_x: usize) -> Vec<ScalarField> {
@@ -95,15 +95,12 @@ fn compute_powers(x_r: ScalarField, len_x: usize) -> Vec<ScalarField> {
     }
     x_powers
 }
-pub fn initialize_domain(size: usize){
+pub fn initialize_domain(size: usize) {
     ntt::initialize_domain::<ScalarField>(
-        ntt::get_root_of_unity::<ScalarField>(
-            size.try_into()
-                .unwrap(),
-        ),
+        ntt::get_root_of_unity::<ScalarField>(size.try_into().unwrap()),
         &ntt::NTTInitDomainConfig::default(),
     )
-        .unwrap();
+    .unwrap();
 }
 
 pub fn compute_langrange_i_coeffs(i: usize, max_x: usize, max_y: usize, res: &mut [ScalarField]) {
@@ -119,4 +116,3 @@ pub fn compute_langrange_i_coeffs(i: usize, max_x: usize, max_y: usize, res: &mu
     let cached_val_pows = HostSlice::from_mut_slice(res);
     lagrange_L_XY.copy_coeffs(0, cached_val_pows);
 }
-

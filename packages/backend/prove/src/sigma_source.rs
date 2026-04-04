@@ -3,7 +3,10 @@ use std::path::Path;
 
 use libs::bivariate_polynomial::DensePolynomialExt;
 use libs::group_structures::G1serde;
-use libs::iotools::{ArchivedSigma1Rkyv, ArchivedSigmaRkyv, HexString, PlacementVariables, SetupParams, SubcircuitInfo, SigmaRkyv};
+use libs::iotools::{
+    ArchivedSigma1Rkyv, ArchivedSigmaRkyv, HexString, PlacementVariables, SetupParams, SigmaRkyv,
+    SubcircuitInfo,
+};
 use memmap2::Mmap;
 use std::fs::File;
 
@@ -42,7 +45,6 @@ impl SigmaHolder {
     pub fn sigma1(&self) -> Sigma1Handle<'_> {
         Sigma1Handle(&self.inner.sigma().sigma_1)
     }
-
 }
 
 pub struct Sigma1Handle<'a>(&'a ArchivedSigma1Rkyv);
@@ -58,7 +60,8 @@ impl<'a> Sigma1Handle<'a> {
         subcircuit_infos: &[SubcircuitInfo],
         setup_params: &SetupParams,
     ) -> G1serde {
-        self.0.encode_O_pub_free(placement_variables, subcircuit_infos, setup_params)
+        self.0
+            .encode_O_pub_free(placement_variables, subcircuit_infos, setup_params)
     }
 
     pub fn encode_O_pub_fix(
@@ -75,7 +78,8 @@ impl<'a> Sigma1Handle<'a> {
         subcircuit_infos: &[SubcircuitInfo],
         setup_params: &SetupParams,
     ) -> G1serde {
-        self.0.encode_O_mid_no_zk(placement_variables, subcircuit_infos, setup_params)
+        self.0
+            .encode_O_mid_no_zk(placement_variables, subcircuit_infos, setup_params)
     }
 
     pub fn encode_O_prv_no_zk(
@@ -84,7 +88,8 @@ impl<'a> Sigma1Handle<'a> {
         subcircuit_infos: &[SubcircuitInfo],
         setup_params: &SetupParams,
     ) -> G1serde {
-        self.0.encode_O_prv_no_zk(placement_variables, subcircuit_infos, setup_params)
+        self.0
+            .encode_O_prv_no_zk(placement_variables, subcircuit_infos, setup_params)
     }
 
     pub fn delta(&self) -> G1serde {

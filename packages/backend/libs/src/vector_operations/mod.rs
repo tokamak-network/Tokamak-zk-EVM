@@ -1,13 +1,13 @@
-use super::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
-use icicle_core::vec_ops::{VecOps, VecOpsConfig};
+use super::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::FieldImpl;
-use icicle_runtime::memory::{HostSlice, DeviceVec, DeviceSlice, HostOrDeviceSlice};
+use icicle_core::vec_ops::{VecOps, VecOpsConfig};
+use icicle_runtime::memory::{DeviceSlice, DeviceVec, HostOrDeviceSlice, HostSlice};
 
 pub fn gen_evaled_lagrange_bases(val: &ScalarField, size: usize, res: &mut [ScalarField]) {
     let mut val_pows = vec![ScalarField::one(); size];
     for i in 1..size {
-        val_pows[i] = val_pows[i-1] * *val;
+        val_pows[i] = val_pows[i - 1] * *val;
     }
     let temp_evals = HostSlice::from_slice(&val_pows);
     let temp_poly = DensePolynomialExt::from_rou_evals(temp_evals, size, 1, None, None);
@@ -15,7 +15,7 @@ pub fn gen_evaled_lagrange_bases(val: &ScalarField, size: usize, res: &mut [Scal
     temp_poly.copy_coeffs(0, cached_val_pows);
 }
 
-pub fn point_mul_two_vecs(lhs: &[ScalarField], rhs: &[ScalarField], res: &mut [ScalarField]){
+pub fn point_mul_two_vecs(lhs: &[ScalarField], rhs: &[ScalarField], res: &mut [ScalarField]) {
     if lhs.len() != rhs.len() || lhs.len() != res.len() {
         panic!("Mismatch of sizes of vectors to be pointwise-multiplied");
     }
@@ -24,15 +24,14 @@ pub fn point_mul_two_vecs(lhs: &[ScalarField], rhs: &[ScalarField], res: &mut [S
     vec_ops_cfg.is_a_on_device = false;
     vec_ops_cfg.is_b_on_device = false;
     vec_ops_cfg.is_result_on_device = false;
-    
+
     let lhs_buff = HostSlice::from_slice(lhs);
     let rhs_buff = HostSlice::from_slice(rhs);
     let res_buff = HostSlice::from_mut_slice(res);
     ScalarCfg::mul(lhs_buff, rhs_buff, res_buff, &vec_ops_cfg).unwrap();
 }
 
-
-pub fn point_div_two_vecs(numer: &[ScalarField], denom: &[ScalarField], res: &mut [ScalarField]){
+pub fn point_div_two_vecs(numer: &[ScalarField], denom: &[ScalarField], res: &mut [ScalarField]) {
     if numer.len() != denom.len() || numer.len() != res.len() {
         panic!("Mismatch of sizes of vectors to be pointwise-multiplied");
     }
@@ -43,7 +42,7 @@ pub fn point_div_two_vecs(numer: &[ScalarField], denom: &[ScalarField], res: &mu
     ScalarCfg::div(lhs_buff, rhs_buff, res_buff, &vec_ops_cfg).unwrap();
 }
 
-pub fn point_add_two_vecs(lhs: &[ScalarField], rhs: &[ScalarField], res: &mut [ScalarField]){
+pub fn point_add_two_vecs(lhs: &[ScalarField], rhs: &[ScalarField], res: &mut [ScalarField]) {
     if lhs.len() != rhs.len() || lhs.len() != res.len() {
         panic!("Mismatch of sizes of vectors to be pointwise-multiplied");
     }
@@ -54,7 +53,7 @@ pub fn point_add_two_vecs(lhs: &[ScalarField], rhs: &[ScalarField], res: &mut [S
     ScalarCfg::add(lhs_buff, rhs_buff, res_buff, &vec_ops_cfg).unwrap();
 }
 
-pub fn scale_vec(scaler: ScalarField, vec: &[ScalarField], res: &mut [ScalarField]){
+pub fn scale_vec(scaler: ScalarField, vec: &[ScalarField], res: &mut [ScalarField]) {
     if vec.len() != res.len() {
         panic!("Incorrect output buffer length");
     }
@@ -68,7 +67,7 @@ pub fn scale_vec(scaler: ScalarField, vec: &[ScalarField], res: &mut [ScalarFiel
     ScalarCfg::scalar_mul(lhs_buff, rhs_buff, res_buff, &vec_ops_cfg).unwrap();
 }
 
-pub fn scalar_vec_sub(lhs: ScalarField, rhs: &[ScalarField], res: &mut [ScalarField]){
+pub fn scalar_vec_sub(lhs: ScalarField, rhs: &[ScalarField], res: &mut [ScalarField]) {
     if rhs.len() != res.len() {
         panic!("Incorrect output buffer length");
     }
@@ -80,7 +79,7 @@ pub fn scalar_vec_sub(lhs: ScalarField, rhs: &[ScalarField], res: &mut [ScalarFi
     ScalarCfg::scalar_sub(lhs_buff, rhs_buff, res_buff, &vec_ops_cfg).unwrap();
 }
 
-pub fn scalar_vec_add(scalar: ScalarField, vec: &[ScalarField], res: &mut [ScalarField]){
+pub fn scalar_vec_add(scalar: ScalarField, vec: &[ScalarField], res: &mut [ScalarField]) {
     if vec.len() != res.len() {
         panic!("Incorrect output buffer length");
     }
@@ -101,11 +100,17 @@ pub fn inner_product_two_vecs(lhs_vec: &[ScalarField], rhs_vec: &[ScalarField]) 
     let vec_ops_cfg = VecOpsConfig::default();
     let mut mul_res_vec = vec![ScalarField::zero(); len];
     let mul_res_buff = HostSlice::from_mut_slice(&mut mul_res_vec);
-    ScalarCfg::mul(HostSlice::from_slice(&lhs_vec), HostSlice::from_slice(&rhs_vec), mul_res_buff, &vec_ops_cfg).unwrap();
+    ScalarCfg::mul(
+        HostSlice::from_slice(&lhs_vec),
+        HostSlice::from_slice(&rhs_vec),
+        mul_res_buff,
+        &vec_ops_cfg,
+    )
+    .unwrap();
     let mut res_vec = vec![ScalarField::zero()];
     let res = HostSlice::from_mut_slice(&mut res_vec);
     ScalarCfg::sum(mul_res_buff, res, &vec_ops_cfg).unwrap();
-    return res_vec[0]
+    return res_vec[0];
 }
 fn _repeat_extend(v: &mut Vec<ScalarField>, n: usize) {
     let original = v.clone();
@@ -113,12 +118,12 @@ fn _repeat_extend(v: &mut Vec<ScalarField>, n: usize) {
         v.extend(original.iter().cloned());
     }
 }
-pub fn transpose_inplace (a_vec: &mut [ScalarField], row_size: usize, col_size:usize) {
+pub fn transpose_inplace(a_vec: &mut [ScalarField], row_size: usize, col_size: usize) {
     if a_vec.len() != row_size * col_size {
         panic!("Error in transpose")
-    } 
+    }
     if row_size * col_size == 0 {
-        return
+        return;
     }
     let vec_ops_cfg = VecOpsConfig::default();
     let a = HostSlice::from_slice(&a_vec);
@@ -128,27 +133,39 @@ pub fn transpose_inplace (a_vec: &mut [ScalarField], row_size: usize, col_size:u
     a_vec.clone_from_slice(&res_vec);
 }
 
-pub fn transpose_device_inplace (a_vec: &mut DeviceSlice<ScalarField>, row_size: usize, col_size:usize) {
+pub fn transpose_device_inplace(
+    a_vec: &mut DeviceSlice<ScalarField>,
+    row_size: usize,
+    col_size: usize,
+) {
     if a_vec.len() != row_size * col_size {
         panic!("Error in transpose")
     }
     if row_size * col_size == 0 {
-        return
+        return;
     }
     let mut vec_ops_cfg = VecOpsConfig::default();
     vec_ops_cfg.is_a_on_device = true;
     vec_ops_cfg.is_result_on_device = true;
 
-    let mut res_vec = DeviceVec::device_malloc(row_size * col_size).expect("Failed to allocate device memory");
+    let mut res_vec =
+        DeviceVec::device_malloc(row_size * col_size).expect("Failed to allocate device memory");
 
-    ScalarCfg::transpose(a_vec, row_size as u32, col_size as u32, &mut res_vec, &vec_ops_cfg).unwrap();
+    ScalarCfg::transpose(
+        a_vec,
+        row_size as u32,
+        col_size as u32,
+        &mut res_vec,
+        &vec_ops_cfg,
+    )
+    .unwrap();
     a_vec.copy(&res_vec).unwrap();
 }
 
 // TODO: benchmark this with a naive approach
 fn _repeat_extend_device(v: &DeviceSlice<ScalarField>, n: usize) -> DeviceVec<ScalarField> {
     let original_len = v.len();
-    
+
     if n == 0 {
         return DeviceVec::device_malloc(0).unwrap();
     }
@@ -159,33 +176,42 @@ fn _repeat_extend_device(v: &DeviceSlice<ScalarField>, n: usize) -> DeviceVec<Sc
         result.copy(v).unwrap();
         return result;
     }
-    
+
     let target_len = original_len * n;
     let mut extended_vec = DeviceVec::device_malloc(target_len).unwrap();
-    
+
     // Optimized approach: Use exponential doubling to minimize kernel launches
     // This reduces the number of copy operations from O(n) to O(log n)
-    
+
     // First copy: original vector -> position 0
     extended_vec[0..original_len].copy(v).unwrap();
-    
+
     // Exponential doubling: each iteration doubles the amount of valid data
     let mut current_len = original_len;
     while current_len < target_len {
         let copy_len = std::cmp::min(current_len, target_len - current_len);
-        
+
         // Use a temporary buffer to avoid borrowing issues
         let mut temp_buffer = DeviceVec::device_malloc(copy_len).unwrap();
         temp_buffer.copy(&extended_vec[0..copy_len]).unwrap();
-        extended_vec[current_len..current_len + copy_len].copy(&temp_buffer).unwrap();
-        
+        extended_vec[current_len..current_len + copy_len]
+            .copy(&temp_buffer)
+            .unwrap();
+
         current_len += copy_len;
     }
-    
+
     extended_vec
 }
 
-pub fn matrix_matrix_mul(lhs_mat: &[ScalarField], rhs_mat: &[ScalarField], m: usize, n:usize, l:usize, res_mat: &mut [ScalarField]) {
+pub fn matrix_matrix_mul(
+    lhs_mat: &[ScalarField],
+    rhs_mat: &[ScalarField],
+    m: usize,
+    n: usize,
+    l: usize,
+    res_mat: &mut [ScalarField],
+) {
     if lhs_mat.len() != m * n || rhs_mat.len() != n * l || res_mat.len() != m * l {
         panic!("Incorrect sizes for the matrix multiplication")
     }
@@ -201,7 +227,7 @@ pub fn matrix_matrix_mul(lhs_mat: &[ScalarField], rhs_mat: &[ScalarField], m: us
     // Extended_RHS = [c1^T, c2^T c1^T, c2^T; c1^T, c2^T].
     // Then, LHS*RHS is a batched inner product of Extended_LHS and Extended_RHS.
 
-    // steps: 
+    // steps:
     // 1. [CPU -> GPU] copy host inputs matrices to device
     // 2. [GPU] transpose the device matrices
     // 3. [GPU] extend the device matrices
@@ -211,35 +237,70 @@ pub fn matrix_matrix_mul(lhs_mat: &[ScalarField], rhs_mat: &[ScalarField], m: us
 
     // Copy input matrices to device
     let mut lhs_device = DeviceVec::device_malloc(m * n).unwrap();
-    lhs_device.as_mut_slice().copy_from_host(HostSlice::from_slice(lhs_mat)).unwrap();
+    lhs_device
+        .as_mut_slice()
+        .copy_from_host(HostSlice::from_slice(lhs_mat))
+        .unwrap();
     let mut rhs_device = DeviceVec::device_malloc(n * l).unwrap();
-    rhs_device.as_mut_slice().copy_from_host(HostSlice::from_slice(rhs_mat)).unwrap();
+    rhs_device
+        .as_mut_slice()
+        .copy_from_host(HostSlice::from_slice(rhs_mat))
+        .unwrap();
 
     // Build extended matrices on the GPU
     let mut transposed_lhs = DeviceVec::device_malloc(m * n).unwrap();
     let mut vec_ops_cfg = VecOpsConfig::default();
     vec_ops_cfg.is_a_on_device = true;
     vec_ops_cfg.is_result_on_device = true;
-    ScalarCfg::transpose(&lhs_device, m as u32, n as u32, &mut transposed_lhs, &vec_ops_cfg).unwrap();
+    ScalarCfg::transpose(
+        &lhs_device,
+        m as u32,
+        n as u32,
+        &mut transposed_lhs,
+        &vec_ops_cfg,
+    )
+    .unwrap();
     let mut extended_lhs = _repeat_extend_device(&transposed_lhs, l);
-    transpose_device_inplace(&mut extended_lhs, l*n, m);
+    transpose_device_inplace(&mut extended_lhs, l * n, m);
 
     let mut transposed_rhs = DeviceVec::device_malloc(n * l).unwrap();
-    ScalarCfg::transpose(&rhs_device, n as u32, l as u32, &mut transposed_rhs, &vec_ops_cfg).unwrap();
+    ScalarCfg::transpose(
+        &rhs_device,
+        n as u32,
+        l as u32,
+        &mut transposed_rhs,
+        &vec_ops_cfg,
+    )
+    .unwrap();
     let extended_rhs = _repeat_extend_device(&transposed_rhs, m);
 
     vec_ops_cfg.is_b_on_device = true;
 
     let mut mul_res_device = DeviceVec::device_malloc(m * n * l).unwrap();
-    ScalarCfg::mul(&extended_lhs, &extended_rhs, &mut mul_res_device, &vec_ops_cfg).unwrap();
+    ScalarCfg::mul(
+        &extended_lhs,
+        &extended_rhs,
+        &mut mul_res_device,
+        &vec_ops_cfg,
+    )
+    .unwrap();
 
     vec_ops_cfg.batch_size = (m * l) as i32;
     vec_ops_cfg.columns_batch = false;
     vec_ops_cfg.is_result_on_device = false; // Result goes to host
-    ScalarCfg::sum(&mul_res_device, HostSlice::from_mut_slice(res_mat), &vec_ops_cfg).unwrap();
+    ScalarCfg::sum(
+        &mul_res_device,
+        HostSlice::from_mut_slice(res_mat),
+        &vec_ops_cfg,
+    )
+    .unwrap();
 }
 
-pub fn outer_product_two_vecs(col_vec: &[ScalarField], row_vec: &[ScalarField], res: &mut [ScalarField]){
+pub fn outer_product_two_vecs(
+    col_vec: &[ScalarField],
+    row_vec: &[ScalarField],
+    res: &mut [ScalarField],
+) {
     if col_vec.len() * row_vec.len() != res.len() {
         panic!("Insufficient buffer length");
     }
@@ -250,24 +311,28 @@ pub fn outer_product_two_vecs(col_vec: &[ScalarField], row_vec: &[ScalarField], 
     // let vec_ops_cfg = VecOpsConfig::default();
     let min_len = std::cmp::min(row_len, col_len);
     let max_len = std::cmp::max(row_len, col_len);
-    let max_col = if max_len == row_len {true } else {false};
+    let max_col = if max_len == row_len { true } else { false };
 
     let base_vec = if max_col { col_vec } else { row_vec };
-     
+
     // let mut res_untransposed = vec![ScalarField::zero(); res.len()];
-    for ind in 0 .. min_len {
-        let scaler = if max_col {row_vec[ind]} else {col_vec[ind]};
+    for ind in 0..min_len {
+        let scaler = if max_col { row_vec[ind] } else { col_vec[ind] };
         let mut _res_vec = vec![ScalarField::zero(); max_len];
         scale_vec(scaler, base_vec, &mut _res_vec);
-        res[ind * max_len .. (ind + 1) * max_len].copy_from_slice(&_res_vec);
+        res[ind * max_len..(ind + 1) * max_len].copy_from_slice(&_res_vec);
     }
-    
+
     if max_col {
         transpose_inplace(res, min_len, max_len);
     }
 }
 
-pub fn outer_product_two_vecs_rayon(col_vec: &[ScalarField], row_vec: &[ScalarField], res: &mut [ScalarField]) {
+pub fn outer_product_two_vecs_rayon(
+    col_vec: &[ScalarField],
+    row_vec: &[ScalarField],
+    res: &mut [ScalarField],
+) {
     if col_vec.len() * row_vec.len() != res.len() {
         panic!("Insufficient buffer length");
     }
@@ -292,40 +357,39 @@ pub fn outer_product_two_vecs_rayon(col_vec: &[ScalarField], row_vec: &[ScalarFi
             let scaler = if max_dir { col_vec[ind] } else { row_vec[ind] };
             let scaler_vec = vec![scaler; max_len];
             let mut res_vec = vec![ScalarField::zero(); max_len];
-            
+
             ScalarCfg::mul(
                 HostSlice::from_slice(&scaler_vec),
                 HostSlice::from_slice(&base_vec),
                 HostSlice::from_mut_slice(&mut res_vec),
                 &vec_ops_cfg,
-            ).unwrap();
+            )
+            .unwrap();
             chunk.copy_from_slice(&res_vec);
         });
 
     if !max_dir {
         let res_untranposed_buf = HostSlice::from_slice(&res_untransposed);
         let res_buf = HostSlice::from_mut_slice(res);
-        
+
         ScalarCfg::transpose(
             res_untranposed_buf,
             min_len as u32,
             max_len as u32,
             res_buf,
             &vec_ops_cfg,
-        ).unwrap();
+        )
+        .unwrap();
     } else {
         res.clone_from_slice(&res_untransposed);
     }
 }
 
-pub fn extend_monomial_vec (
-    mono_vec: &[ScalarField],
-    res: &mut [ScalarField],
-) {
+pub fn extend_monomial_vec(mono_vec: &[ScalarField], res: &mut [ScalarField]) {
     let size_diff = res.len() as i64 - mono_vec.len() as i64;
     if size_diff == 0 {
-        res.copy_from_slice(mono_vec); 
-    } else if size_diff > 0{
+        res.copy_from_slice(mono_vec);
+    } else if size_diff > 0 {
         res[0..mono_vec.len()].copy_from_slice(mono_vec);
         for i in 0..size_diff as usize {
             res[mono_vec.len() + i] = res[mono_vec.len() + i - 1] * mono_vec[1];
@@ -338,29 +402,29 @@ pub fn extend_monomial_vec (
 pub fn resize<F>(
     mat: &[F],
     curr_row_size: usize,
-    curr_col_size: usize, 
-    target_row_size: usize, 
+    curr_col_size: usize,
+    target_row_size: usize,
     target_col_size: usize,
-    zero: F
-) ->  Vec<F> 
-where F: Copy,
+    zero: F,
+) -> Vec<F>
+where
+    F: Copy,
 {
     let target_size: usize = target_row_size * target_col_size;
     let mut res_coeffs_vec = vec![zero; target_size];
-    for i in 0 .. std::cmp::min(curr_row_size, target_row_size) {
+    for i in 0..std::cmp::min(curr_row_size, target_row_size) {
         let each_col_size = std::cmp::min(curr_col_size, target_col_size);
-        res_coeffs_vec[target_col_size * i .. target_col_size * i + each_col_size].copy_from_slice(
-            &mat[curr_col_size * i .. curr_col_size * i + each_col_size]
-        );  
+        res_coeffs_vec[target_col_size * i..target_col_size * i + each_col_size]
+            .copy_from_slice(&mat[curr_col_size * i..curr_col_size * i + each_col_size]);
     }
-    return res_coeffs_vec 
+    return res_coeffs_vec;
 }
 
 pub fn scaled_outer_product(
-    col_vec: &[ScalarField], 
+    col_vec: &[ScalarField],
     row_vec: &[ScalarField],
-    scaler: Option<&ScalarField>, 
-    res: &mut [ScalarField]
+    scaler: Option<&ScalarField>,
+    res: &mut [ScalarField],
 ) {
     let col_size = col_vec.len();
     let row_size = row_vec.len();
@@ -374,18 +438,19 @@ pub fn scaled_outer_product(
     } else {
         scaled_vec.clone_from_slice(col_vec);
     }
-    outer_product_two_vecs(
-        &scaled_vec,
-        row_vec, 
-        res
-    );
-    
+    outer_product_two_vecs(&scaled_vec, row_vec, res);
 }
 
 #[deprecated(
     note = "This function can be replced with a combination of resize_monomial_vec and scaled_outer_product."
 )]
-pub fn gen_monomial_matrix(x_size: usize, y_size: usize, x: &ScalarField, y: &ScalarField, res_vec: &mut [ScalarField]) {
+pub fn gen_monomial_matrix(
+    x_size: usize,
+    y_size: usize,
+    x: &ScalarField,
+    y: &ScalarField,
+    res_vec: &mut [ScalarField],
+) {
     // x_size: column size
     // y_size: row size
     if res_vec.len() != x_size * y_size {
@@ -394,27 +459,30 @@ pub fn gen_monomial_matrix(x_size: usize, y_size: usize, x: &ScalarField, y: &Sc
     let vec_ops_cfg = VecOpsConfig::default();
     let min_len = std::cmp::min(x_size, y_size);
     let max_len = std::cmp::max(x_size, y_size);
-    let max_dir = if max_len == x_size {true } else {false};
+    let max_dir = if max_len == x_size { true } else { false };
     let mut base_row_vec = vec![ScalarField::one(); max_len];
     for ind in 1..max_len {
         if max_dir {
-            base_row_vec[ind] = base_row_vec[ind-1] * *x;
-        }
-        else {
-            base_row_vec[ind] = base_row_vec[ind-1] * *y;
+            base_row_vec[ind] = base_row_vec[ind - 1] * *x;
+        } else {
+            base_row_vec[ind] = base_row_vec[ind - 1] * *y;
         }
     }
-    let val_dup_vec = if max_dir {vec![*y; max_len] } else {vec![*x; max_len] };
+    let val_dup_vec = if max_dir {
+        vec![*y; max_len]
+    } else {
+        vec![*x; max_len]
+    };
     let val_dup = HostSlice::from_slice(&val_dup_vec);
-    res_vec[0 .. max_len].copy_from_slice(&base_row_vec);
+    res_vec[0..max_len].copy_from_slice(&base_row_vec);
     for ind in 1..min_len {
-        let curr_row_view = HostSlice::from_slice(&res_vec[(ind-1) * max_len .. (ind) * max_len]);
+        let curr_row_view = HostSlice::from_slice(&res_vec[(ind - 1) * max_len..(ind) * max_len]);
         let mut next_row_vec = vec![ScalarField::zero(); max_len];
-        let next_row = HostSlice::from_mut_slice(&mut next_row_vec); 
+        let next_row = HostSlice::from_mut_slice(&mut next_row_vec);
         ScalarCfg::mul(curr_row_view, val_dup, next_row, &vec_ops_cfg).unwrap();
-        res_vec[ind*max_len .. (ind+1)*max_len].copy_from_slice(&next_row_vec);
+        res_vec[ind * max_len..(ind + 1) * max_len].copy_from_slice(&next_row_vec);
     }
-    
+
     if !max_dir {
         transpose_inplace(res_vec, min_len, max_len);
     }

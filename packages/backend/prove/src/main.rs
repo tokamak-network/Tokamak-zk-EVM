@@ -1,8 +1,8 @@
-use std::path::PathBuf;
-use std::{env, process};
-use std::time::Instant;
-use prove::{Proof, ProveInputPaths, Prover, TranscriptManager};
 use libs::utils::check_device;
+use prove::{Proof, ProveInputPaths, Prover, TranscriptManager};
+use std::path::PathBuf;
+use std::time::Instant;
+use std::{env, process};
 
 fn main() {
     let total_start = Instant::now();
@@ -22,9 +22,9 @@ fn main() {
         setup_path: &args[3],
         output_path: &args[4],
     };
-    
+
     check_device();
-    
+
     println!("Prover initialization...");
     let (mut prover, binding) = Prover::init(&paths);
 
@@ -36,24 +36,24 @@ fn main() {
 
     // Use the manager to get thetas
     let thetas = proof0.verify0_with_manager(&mut manager);
-        
+
     println!("Running prove1...");
     let proof1 = prover.prove1(&thetas);
-    
+
     // Use the manager to get kappa0
     let kappa0 = proof1.verify1_with_manager(&mut manager);
-    
+
     println!("Running prove2...");
     let proof2 = prover.prove2(&thetas, kappa0);
 
     // Use the manager to get chi and zeta
     let (chi, zeta) = proof2.verify2_with_manager(&mut manager);
-    
+
     println!("Running prove3...");
     let proof3 = prover.prove3(chi, zeta);
 
     let kappa1 = proof3.verify3_with_manager(&mut manager);
-    
+
     println!("Running prove4...");
     let (proof4, proof4_test) = prover.prove4(&proof3, &thetas, kappa0, chi, zeta, kappa1);
     #[cfg(not(feature = "testing-mode"))]
@@ -70,17 +70,17 @@ fn main() {
 
     // // Convert to serializable version
     // let challenge_serde = ChallengeSerde::from(challenge);
-    
+
     let proof = Proof {
-        binding, 
-        proof0, 
-        proof1, 
-        proof2, 
-        proof3, 
+        binding,
+        proof0,
+        proof1,
+        proof2,
+        proof3,
         proof4,
         // challenge: challenge_serde,
     };
-    
+
     // println!("Writing the proof into JSON (old format)...");
     // let output_path = "prove/output/proof.json";
     // proof.write_into_json(output_path).unwrap();
@@ -90,7 +90,8 @@ fn main() {
     let output_path = PathBuf::from(paths.output_path).join("proof.json");
     formatted_proof.write_into_json(output_path).unwrap();
 
-    #[cfg(feature = "testing-mode")] {
+    #[cfg(feature = "testing-mode")]
+    {
         let test_output_path = PathBuf::from(paths.output_path).join("proof4_test.json");
         proof4_test.write_into_json(test_output_path).unwrap();
 

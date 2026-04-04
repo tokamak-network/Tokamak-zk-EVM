@@ -42,13 +42,9 @@ struct TimingReport {
 }
 
 fn read_env(name: &str) -> Option<String> {
-    env::var(name).ok().and_then(|v| {
-        if v.trim().is_empty() {
-            None
-        } else {
-            Some(v)
-        }
-    })
+    env::var(name)
+        .ok()
+        .and_then(|v| if v.trim().is_empty() { None } else { Some(v) })
 }
 
 #[cfg(feature = "timing")]
@@ -175,7 +171,8 @@ fn timing_prove_stages() {
         events,
     };
 
-    let report_json = serde_json::to_string_pretty(&report).expect("failed to serialize timing report");
+    let report_json =
+        serde_json::to_string_pretty(&report).expect("failed to serialize timing report");
     let default_out = PathBuf::from("prove/optimization/timing.release.json");
     let out_path = read_env("TIMING_OUT")
         .map(PathBuf::from)

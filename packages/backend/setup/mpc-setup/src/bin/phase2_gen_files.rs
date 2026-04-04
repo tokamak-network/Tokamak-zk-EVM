@@ -9,7 +9,6 @@ struct Config {
     /// Output folder path (must exist and be writeable)
     #[arg(long, value_name = "OUTFOLDER")]
     outfolder: String,
-
 }
 //cargo run --release --bin phase2_gen_files -- --outfolder ./setup/mpc-setup/output
 fn main() {
@@ -25,17 +24,32 @@ fn main() {
     let sigma = latest_acc.sigma;
 
     println!("Writing the sigma into JSON...");
-    println!("{}", base_path.join(format!("{}/sigma_preprocess.json", &config.outfolder)).display());
-    sigma.write_into_json(base_path.join(format!("{}/combined_sigma.json", &config.outfolder))).unwrap();
+    println!(
+        "{}",
+        base_path
+            .join(format!("{}/sigma_preprocess.json", &config.outfolder))
+            .display()
+    );
+    sigma
+        .write_into_json(base_path.join(format!("{}/combined_sigma.json", &config.outfolder)))
+        .unwrap();
 
     // // Writing the sigma into rust code
     //  println!("Writing the sigma into a rust code...");
     // sigma.write_into_rust_code(&format!("{}/combined_sigma.rs", &config.outfolder)).unwrap();
     println!("Writing the sigma preprocess into json...");
-    sigma.write_into_json_for_preprocess(base_path.join(format!("{}/sigma_preprocess.json", &config.outfolder))).unwrap();
+    sigma
+        .write_into_json_for_preprocess(
+            base_path.join(format!("{}/sigma_preprocess.json", &config.outfolder)),
+        )
+        .unwrap();
 
     println!("Writing the sigma verify into json...");
-    sigma.write_into_json_for_verify(base_path.join(format!("{}/sigma_verify.json", &config.outfolder))).unwrap();
+    sigma
+        .write_into_json_for_verify(
+            base_path.join(format!("{}/sigma_verify.json", &config.outfolder)),
+        )
+        .unwrap();
 
     let lap = start.elapsed();
     println!("The sigma writing time: {:.6} seconds", lap.as_secs_f64());
@@ -45,5 +59,5 @@ fn load_phase2_accumulator(outfolder: &str, contributor_index: usize) -> SigmaV2
         "{}/phase2_acc_{}.json",
         outfolder, contributor_index
     ))
-        .unwrap()
+    .unwrap()
 }

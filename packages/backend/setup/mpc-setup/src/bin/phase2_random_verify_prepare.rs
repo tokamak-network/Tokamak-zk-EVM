@@ -10,11 +10,12 @@ use libs::bivariate_polynomial::DensePolynomialExt;
 use libs::group_structures::{G1serde, PartialSigma1, SigmaPreprocess};
 use libs::iotools::{SetupParams, SubcircuitInfo};
 use libs::polynomial_structures::QAP;
+use libs::utils::{setup_shape, validate_public_wire_size, validate_setup_shape};
 use mpc_setup::accumulator::Accumulator;
 use mpc_setup::mpc_utils::{compute_langrange_i_coeffs, compute_langrange_i_poly, poly_mult};
 use mpc_setup::sigma::SigmaV2;
 use mpc_setup::utils::{load_gpu_if_possible, prompt_user_input};
-use mpc_setup::{compute_lagrange_kl, QAP_COMPILER_PATH_PREFIX};
+use mpc_setup::{compute_lagrange_kl, public_wire_segments, QAP_COMPILER_PATH_PREFIX};
 use rand::rngs::ThreadRng;
 use rand::Rng;
 use std::ops::Sub;
@@ -37,42 +38,44 @@ fn main() {
         .ok()
         .and_then(|v| v.parse::<bool>().ok())
         .unwrap_or(false); // default to false
-    let mut is_gpu_enabled = false;
     if use_gpu {
-        is_gpu_enabled = load_gpu_if_possible()
+        let _ = load_gpu_if_possible();
     }
     let config = Config::parse();
 
     let contributor_index = prompt_user_input(
         "Enter the last contributor's index (the index i of the last phase1_acc_i.json file):",
     )
-        .parse::<usize>()
-        .expect("Please enter a valid number");
+    .parse::<usize>()
+    .expect("Please enter a valid number");
 
     let accumulator = format!("phase1_acc_{}.json", contributor_index);
 
     let setup_file_name = "setupParams.json";
-    let mut setup_params =
-        SetupParams::read_from_json(qap_path.join(&setup_file_name)).expect("cannot SetupParams read file");
+    let setup_params = SetupParams::read_from_json(qap_path.join(&setup_file_name))
+        .expect("cannot SetupParams read file");
+    let shape = setup_shape(&setup_params);
+    validate_setup_shape(&shape);
+    validate_public_wire_size(shape.l_free);
+    let segments = public_wire_segments(&setup_params);
 
     let n = setup_params.n; // Number of constraints per subcircuit
 
     let s_max = setup_params.s_max;
     let m_d = setup_params.m_D; // Total number of wires
-    let l_pub_out = setup_params.l_pub_out;
     let l = setup_params.l; // Number of public I/O wires
-    let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
-    let l_prv_out = setup_params.l_prv_out;
+    let l_free = setup_params.l_free;
     let l_d = setup_params.l_D; // Number of interface wires
     let m_i = l_d - l;
     println!(
-        "Setup parameters: \n n = {:?}, \n s_max = {:?}, \n l = {:?}, \n m_I = {:?}, \n m_D = {:?}, \n l_pub_out = {:?}",
-        n, s_max, l, m_i, m_d, l_pub_out
+        "Setup parameters: \n n = {:?}, \n s_max = {:?}, \n l = {:?}, \n l_free = {:?}, \n m_I = {:?}, \n m_D = {:?}",
+        n, s_max, l, l_free, m_i, m_d
     );
 
     let start1 = Instant::now();
     let subcircuit_file_name = "subcircuitInfo.json";
-    let subcircuit_infos = SubcircuitInfo::read_box_from_json(qap_path.join(&subcircuit_file_name)).unwrap();
+    let subcircuit_infos =
+        SubcircuitInfo::read_box_from_json(qap_path.join(&subcircuit_file_name)).unwrap();
 
     let mut li_y_vec: Vec<DensePolynomialExt> = vec![];
 
@@ -92,7 +95,7 @@ fn main() {
     let alpha2xy_g1s = latest_acc.get_alphaxy_g1_range(2, n, li_y_vec[0].y_size);
     let alpha3xy_g1s = latest_acc.get_alphaxy_g1_range(3, n, li_y_vec[0].y_size);
 
-    let qap = QAP::gen_from_R1CS(qap_path.to_str().unwrap(), &subcircuit_infos, &setup_params);
+    let qap = QAP::gen_from_R1CS(&qap_path, &subcircuit_infos, &setup_params);
     println!(
         "The qap load time: {:.6} seconds",
         start1.elapsed().as_secs_f64()
@@ -102,6 +105,7 @@ fn main() {
         &SigmaPreprocess {
             sigma_1: PartialSigma1 {
                 xy_powers: latest_acc.get_boxed_xypower(),
+                gamma_inv_o_inst: vec![G1serde::zero(); l].into_boxed_slice(),
             },
         },
         &setup_params,
@@ -112,31 +116,7 @@ fn main() {
 
     compute_gamma_part_i(
         0,
-        l_pub_out,
-        &qap,
-        &li_y_vec[1],
-        &alpha1xy_g1s,
-        &alpha2xy_g1s,
-        &alpha3xy_g1s,
-        &mut gamma_inv_o_inst,
-    );
-    let xi_g1s = latest_acc.get_x_g1_range(0, l_pub - 1);
-    for j in 0..l_pub_out {
-        let mut m_j_x_coeffs = vec![ScalarField::zero(); l_pub];
-        compute_langrange_i_coeffs(j, l_pub, 1, &mut m_j_x_coeffs);
-        gamma_inv_o_inst[j] = gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
-        println!("gamma_inv_o_inst[{}] = {:?}", j, gamma_inv_o_inst[j].0.x);
-        assert_eq!(
-            sigma_trusted.sigma.sigma_1.gamma_inv_o_inst[j],
-            gamma_inv_o_inst[j]
-        );
-        check_count = check_count + 1;
-        println!("check_count = {}", check_count);
-    }
-
-    compute_gamma_part_i(
-        l_pub_out,
-        l_pub,
+        segments.user_out_end,
         &qap,
         &li_y_vec[0],
         &alpha1xy_g1s,
@@ -144,38 +124,55 @@ fn main() {
         &alpha3xy_g1s,
         &mut gamma_inv_o_inst,
     );
-    for j in l_pub_out..l_pub {
-        let mut m_j_x_coeffs = vec![ScalarField::zero(); l_pub];
-        compute_langrange_i_coeffs(j, l_pub, 1, &mut m_j_x_coeffs);
-        gamma_inv_o_inst[j] = gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
-        println!("gamma_inv_o_inst[{}] = {:?}", j, gamma_inv_o_inst[j].0.x);
-        assert_eq!(
-            sigma_trusted.sigma.sigma_1.gamma_inv_o_inst[j],
-            gamma_inv_o_inst[j]
-        );
-        check_count = check_count + 1;
-        println!("check_count = {}", check_count);
+    let xi_g1s = if l_free > 0 {
+        latest_acc.get_x_g1_range(0, l_free - 1)
+    } else {
+        Vec::new()
+    };
+    if l_free > 0 {
+        for j in 0..segments.user_out_end {
+            let mut m_j_x_coeffs = vec![ScalarField::zero(); l_free];
+            compute_langrange_i_coeffs(j, l_free, 1, &mut m_j_x_coeffs);
+            gamma_inv_o_inst[j] =
+                gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
+            println!("gamma_inv_o_inst[{}] = {:?}", j, gamma_inv_o_inst[j].0.x);
+            assert_eq!(
+                sigma_trusted.sigma.sigma_1.gamma_inv_o_inst[j],
+                gamma_inv_o_inst[j]
+            );
+            check_count = check_count + 1;
+            println!("check_count = {}", check_count);
+        }
     }
+
     compute_gamma_part_i(
-        l_pub,
-        l_pub + l_prv_out,
+        segments.user_out_end,
+        segments.user_end,
         &qap,
-        &li_y_vec[3],
+        &li_y_vec[1],
         &alpha1xy_g1s,
         &alpha2xy_g1s,
         &alpha3xy_g1s,
         &mut gamma_inv_o_inst,
     );
-    for i in l_pub..l_pub + l_prv_out {
-        assert_eq!(
-            sigma_trusted.sigma.sigma_1.gamma_inv_o_inst[i],
-            gamma_inv_o_inst[i]
-        );
-        check_count = check_count + 1;
+    if l_free > 0 {
+        for j in segments.user_out_end..segments.user_end {
+            let mut m_j_x_coeffs = vec![ScalarField::zero(); l_free];
+            compute_langrange_i_coeffs(j, l_free, 1, &mut m_j_x_coeffs);
+            gamma_inv_o_inst[j] =
+                gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
+            println!("gamma_inv_o_inst[{}] = {:?}", j, gamma_inv_o_inst[j].0.x);
+            assert_eq!(
+                sigma_trusted.sigma.sigma_1.gamma_inv_o_inst[j],
+                gamma_inv_o_inst[j]
+            );
+            check_count = check_count + 1;
+            println!("check_count = {}", check_count);
+        }
     }
     compute_gamma_part_i(
-        l_pub + l_prv_out,
-        l,
+        segments.user_end,
+        segments.free_end,
         &qap,
         &li_y_vec[2],
         &alpha1xy_g1s,
@@ -183,7 +180,31 @@ fn main() {
         &alpha3xy_g1s,
         &mut gamma_inv_o_inst,
     );
-    for i in l_pub + l_prv_out..l {
+    if l_free > 0 {
+        for j in segments.user_end..segments.free_end {
+            let mut m_j_x_coeffs = vec![ScalarField::zero(); l_free];
+            compute_langrange_i_coeffs(j, l_free, 1, &mut m_j_x_coeffs);
+            gamma_inv_o_inst[j] =
+                gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
+            println!("gamma_inv_o_inst[{}] = {:?}", j, gamma_inv_o_inst[j].0.x);
+            assert_eq!(
+                sigma_trusted.sigma.sigma_1.gamma_inv_o_inst[j],
+                gamma_inv_o_inst[j]
+            );
+            check_count = check_count + 1;
+        }
+    }
+    compute_gamma_part_i(
+        segments.free_end,
+        segments.total_end,
+        &qap,
+        &li_y_vec[3],
+        &alpha1xy_g1s,
+        &alpha2xy_g1s,
+        &alpha3xy_g1s,
+        &mut gamma_inv_o_inst,
+    );
+    for i in segments.free_end..segments.total_end {
         assert_eq!(
             sigma_trusted.sigma.sigma_1.gamma_inv_o_inst[i],
             gamma_inv_o_inst[i]
@@ -342,7 +363,7 @@ fn main() {
 
     // {δ^(-1)L_i(y)o_j(x)}_{i=0,j=l+m_I}^{s_max-1,m_I-1}
     let mut delta_inv_li_o_prv =
-        vec![vec![G1serde::zero(); s_max].into_boxed_slice(); (m_d - (l + m_i))].into_boxed_slice();
+        vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_d - (l + m_i)].into_boxed_slice();
     //for private wires,
     println!(
         "len of (delta_inv_li_o_prv) is {}",
@@ -392,7 +413,9 @@ fn main() {
                 );
                 println!(
                     "delta_inv_li_o_prv[{}][{}] = {:?}",
-                    j - (l + m_i), i, delta_inv_li_o_prv[j - (l + m_i)][i].0.x
+                    j - (l + m_i),
+                    i,
+                    delta_inv_li_o_prv[j - (l + m_i)][i].0.x
                 );
                 check_count = check_count + 1;
                 println!("check_count = {}", check_count);
@@ -504,7 +527,7 @@ pub fn sum_vector_dot_product(scalars: &Vec<ScalarField>, commit: &[G1Affine]) -
         &cfg,
         &mut msm_res[..],
     )
-        .unwrap();
+    .unwrap();
     stream.synchronize().unwrap();
     let mut host_res = vec![G1Projective::zero(); 1];
     msm_res
@@ -536,7 +559,7 @@ pub fn sum_vector_dot_product_chunked(
             &cfg,
             &mut msm_res[..],
         )
-            .unwrap();
+        .unwrap();
 
         stream.synchronize().unwrap();
 

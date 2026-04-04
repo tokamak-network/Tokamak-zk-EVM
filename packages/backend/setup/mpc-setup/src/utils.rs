@@ -48,7 +48,6 @@ pub fn load_gpu_if_possible() -> bool {
         println!("METAL GPU is available");
         icicle_runtime::set_device(&device_metal_gpu).expect("Failed to set metal device");
         is_gpu_enabled = true;
-
     } else if icicle_runtime::is_device_available(&device_cuda_gpu) {
         println!("CUDA GPU is available");
         icicle_runtime::set_device(&device_cuda_gpu).expect("Failed to set cuda device");

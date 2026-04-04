@@ -1,5 +1,5 @@
-use std::fmt;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::process::Command;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -16,11 +16,11 @@ pub struct ContributorInfo {
     pub time_taken_seconds: f64,
 }
 
-
 impl fmt::Display for ContributorInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f,
-               "### Contributor No: {:02}\n\n\
+        write!(
+            f,
+            "### Contributor No: {:02}\n\n\
             **Date:** {}\n\n\
             Name: {}\n\n\
             Location: {}\n\n\
@@ -30,20 +30,19 @@ impl fmt::Display for ContributorInfo {
             Response accumulator hash:\n    Blake2b: {}\n\
             Response proof hash:\n    Blake2b: {}\n\n\
             Time taken: ~{} seconds",
-               self.contributor_no,
-               self.date,
-               self.name,
-               self.location,
-               self.devices,
-               self.prev_acc_hash,
-               self.prev_proof_hash,
-               self.current_acc_hash,
-               self.current_proof_hash,
-               self.time_taken_seconds,
+            self.contributor_no,
+            self.date,
+            self.name,
+            self.location,
+            self.devices,
+            self.prev_acc_hash,
+            self.prev_proof_hash,
+            self.current_acc_hash,
+            self.current_proof_hash,
+            self.time_taken_seconds,
         )
     }
 }
-
 
 #[derive(Debug)]
 pub struct DeviceInfo {
@@ -55,7 +54,10 @@ pub struct DeviceInfo {
 
 impl DeviceInfo {
     pub fn to_string(&self) -> String {
-        format!("Manufacturer: {}\nModel: {}\nArchitecture: {}\nProcessor: {}", self.manufacturer, self.model, self.architecture, self.processor)
+        format!(
+            "Manufacturer: {}\nModel: {}\nArchitecture: {}\nProcessor: {}",
+            self.manufacturer, self.model, self.architecture, self.processor
+        )
     }
 }
 
@@ -68,13 +70,23 @@ pub fn get_device_info() -> DeviceInfo {
             .args(["computersystem", "get", "manufacturer,model"])
             .output()
             .expect("Failed to execute WMIC command");
-        let manufacturer_model = String::from_utf8_lossy(&manufacturer_model_output.stdout).lines().nth(1).unwrap_or("").split_whitespace().collect::<Vec<&str>>();
+        let manufacturer_model = String::from_utf8_lossy(&manufacturer_model_output.stdout)
+            .lines()
+            .nth(1)
+            .unwrap_or("")
+            .split_whitespace()
+            .collect::<Vec<&str>>();
 
         let cpu_output = Command::new("wmic")
             .args(["cpu", "get", "name"])
             .output()
             .expect("Failed to execute WMIC CPU command");
-        let processor = String::from_utf8_lossy(&cpu_output.stdout).lines().nth(1).unwrap_or("").trim().to_string();
+        let processor = String::from_utf8_lossy(&cpu_output.stdout)
+            .lines()
+            .nth(1)
+            .unwrap_or("")
+            .trim()
+            .to_string();
 
         DeviceInfo {
             manufacturer: manufacturer_model.get(0).unwrap_or(&"").to_string(),
@@ -90,18 +102,30 @@ pub fn get_device_info() -> DeviceInfo {
             .arg("/sys/devices/virtual/dmi/id/sys_vendor")
             .output()
             .expect("Failed to read manufacturer");
-        let manufacturer = String::from_utf8_lossy(&manufacturer_output.stdout).trim().to_string();
+        let manufacturer = String::from_utf8_lossy(&manufacturer_output.stdout)
+            .trim()
+            .to_string();
 
         let model_output = Command::new("cat")
             .arg("/sys/devices/virtual/dmi/id/product_name")
             .output()
             .expect("Failed to read model");
-        let model = String::from_utf8_lossy(&model_output.stdout).trim().to_string();
+        let model = String::from_utf8_lossy(&model_output.stdout)
+            .trim()
+            .to_string();
 
         let processor_output = Command::new("lscpu")
             .output()
             .expect("Failed to execute lscpu command");
-        let processor_info = String::from_utf8_lossy(&processor_output.stdout).lines().find(|line| line.contains("Model name:")).unwrap_or("").split(':').nth(1).unwrap_or("").trim().to_string();
+        let processor_info = String::from_utf8_lossy(&processor_output.stdout)
+            .lines()
+            .find(|line| line.contains("Model name:"))
+            .unwrap_or("")
+            .split(':')
+            .nth(1)
+            .unwrap_or("")
+            .trim()
+            .to_string();
 
         DeviceInfo {
             manufacturer,
@@ -119,13 +143,17 @@ pub fn get_device_info() -> DeviceInfo {
             .args(["-n", "hw.model"])
             .output()
             .expect("Failed to get model");
-        let model = String::from_utf8_lossy(&model_output.stdout).trim().to_string();
+        let model = String::from_utf8_lossy(&model_output.stdout)
+            .trim()
+            .to_string();
 
         let cpu_output = Command::new("sysctl")
             .args(["-n", "machdep.cpu.brand_string"])
             .output()
             .expect("Failed to get CPU info");
-        let processor = String::from_utf8_lossy(&cpu_output.stdout).trim().to_string();
+        let processor = String::from_utf8_lossy(&cpu_output.stdout)
+            .trim()
+            .to_string();
 
         DeviceInfo {
             manufacturer,

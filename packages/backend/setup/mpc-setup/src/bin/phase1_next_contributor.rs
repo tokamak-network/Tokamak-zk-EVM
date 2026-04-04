@@ -3,7 +3,9 @@ use clap::Parser;
 use mpc_setup::accumulator::Accumulator;
 use mpc_setup::contributor::{get_device_info, ContributorInfo};
 use mpc_setup::sigma::AaccExt;
-use mpc_setup::utils::{initialize_random_generator, load_gpu_if_possible, prompt_user_input, Mode, Phase1Proof};
+use mpc_setup::utils::{
+    initialize_random_generator, load_gpu_if_possible, prompt_user_input, Mode, Phase1Proof,
+};
 use std::env;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -110,7 +112,6 @@ impl ContributorSession {
         let mut name = String::new();
         let mut location = String::new();
 
-
         if matches!(self.config.mode, Mode::Random) {
             name = prompt_user_input("Enter your name :");
             location = prompt_user_input("Enter location :");
@@ -151,7 +152,9 @@ impl ContributorSession {
         );
 
         if latest_acc.hash() != acc_check.hash() {
-            return Err(ContributorError::AccumulatorValidation("Genesis hash verification failed".into()));
+            return Err(ContributorError::AccumulatorValidation(
+                "Genesis hash verification failed".into(),
+            ));
         }
 
         println!("Genesis hash verified");
@@ -165,18 +168,19 @@ impl ContributorSession {
             self.config.outfolder,
             ACC_FILE_FORMAT.replace("{}", &(self.contributor_index - 1).to_string())
         );
-        Accumulator::read_from_json(&path)
-            .map_err(ContributorError::Io)
+        Accumulator::read_from_json(&path).map_err(ContributorError::Io)
     }
 
-    fn load_previous_accumulator(&self, latest_acc: &Accumulator) -> Result<Accumulator, ContributorError> {
+    fn load_previous_accumulator(
+        &self,
+        latest_acc: &Accumulator,
+    ) -> Result<Accumulator, ContributorError> {
         let path = format!(
             "{}/{}",
             self.config.outfolder,
             ACC_FILE_FORMAT.replace("{}", &(latest_acc.contributor_index - 1).to_string())
         );
-        Accumulator::read_from_json(&path)
-            .map_err(ContributorError::Io)
+        Accumulator::read_from_json(&path).map_err(ContributorError::Io)
     }
 
     fn load_latest_proof(&self) -> Result<Phase1Proof, ContributorError> {
@@ -185,11 +189,13 @@ impl ContributorSession {
             self.config.outfolder,
             PROOF_FILE_FORMAT.replace("{}", &(self.contributor_index - 1).to_string())
         );
-        Phase1Proof::load_from_json(&path)
-            .map_err(ContributorError::Io)
+        Phase1Proof::load_from_json(&path).map_err(ContributorError::Io)
     }
 
-    fn verify_previous_contribution(&mut self, latest_acc: &Accumulator) -> Result<(), ContributorError> {
+    fn verify_previous_contribution(
+        &mut self,
+        latest_acc: &Accumulator,
+    ) -> Result<(), ContributorError> {
         println!("Verifying previous contribution...");
 
         let prev_acc = self.load_previous_accumulator(latest_acc)?;
@@ -197,10 +203,15 @@ impl ContributorSession {
 
         let start = Instant::now();
         if !prev_acc.verify(latest_acc, &latest_proof) {
-            return Err(ContributorError::AccumulatorValidation("Verification failed".into()));
+            return Err(ContributorError::AccumulatorValidation(
+                "Verification failed".into(),
+            ));
         }
 
-        println!("Previous contribution verified in {} seconds", start.elapsed().as_secs_f64());
+        println!(
+            "Previous contribution verified in {} seconds",
+            start.elapsed().as_secs_f64()
+        );
 
         self.previous_hashes.proof_hash = latest_proof.blake2b_hash();
         self.previous_hashes.acc_hash = latest_acc.blake2b_hash();
@@ -226,7 +237,13 @@ impl ContributorSession {
         Ok((new_acc, new_proof))
     }
 
-    fn save_results(&self, new_acc: &Accumulator, new_proof: &Phase1Proof, name: String, location: String) -> Result<(), ContributorError> {
+    fn save_results(
+        &self,
+        new_acc: &Accumulator,
+        new_proof: &Phase1Proof,
+        name: String,
+        location: String,
+    ) -> Result<(), ContributorError> {
         self.save_accumulator(new_acc)?;
         self.save_proof(new_proof)?;
 
@@ -253,7 +270,13 @@ impl ContributorSession {
         proof.save_to_json(&path).map_err(ContributorError::Io)
     }
 
-    fn save_contributor_info(&self, acc: &Accumulator, proof: &Phase1Proof, name: String, location: String) -> Result<(), ContributorError> {
+    fn save_contributor_info(
+        &self,
+        acc: &Accumulator,
+        proof: &Phase1Proof,
+        name: String,
+        location: String,
+    ) -> Result<(), ContributorError> {
         let info = self.create_contributor_info(acc, proof, name, location);
         let file_path = format!(
             "{}/{}",
@@ -268,8 +291,17 @@ impl ContributorSession {
         Ok(())
     }
 
-    fn create_contributor_info(&self, acc: &Accumulator, proof: &Phase1Proof, name: String, location: String) -> ContributorInfo {
-        println!("Total time elapsed: {:?}", self.start_time.elapsed().as_secs_f64());
+    fn create_contributor_info(
+        &self,
+        acc: &Accumulator,
+        proof: &Phase1Proof,
+        name: String,
+        location: String,
+    ) -> ContributorInfo {
+        println!(
+            "Total time elapsed: {:?}",
+            self.start_time.elapsed().as_secs_f64()
+        );
         ContributorInfo {
             contributor_no: acc.contributor_index as u32,
             date: Local::now().format("%Y-%m-%d").to_string(),
