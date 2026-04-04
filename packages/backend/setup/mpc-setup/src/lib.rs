@@ -1,9 +1,14 @@
 #![allow(unused_imports)]
 
-use icicle_bls12_381::curve::ScalarField;
+use crate::mpc_utils::compute_langrange_i_coeffs;
+use crate::phase1_source::Phase1SrsSource;
+use icicle_bls12_381::curve::{G1Affine, G1Projective, ScalarField};
+use icicle_core::msm;
+use icicle_core::msm::MSMConfig;
 use icicle_core::traits::FieldImpl;
-use icicle_runtime::memory::HostSlice;
-use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
+use icicle_runtime::memory::{DeviceVec, HostSlice};
+use icicle_runtime::stream::IcicleStream;
+use libs::bivariate_polynomial::BivariatePolynomial;
 use libs::group_structures::{G1serde, SigmaPreprocess};
 use libs::iotools::SetupParams;
 
@@ -16,6 +21,7 @@ pub mod utils;
 pub mod accumulator;
 pub mod contributor;
 pub mod mpc_utils;
+pub mod phase1_source;
 
 pub mod sigma;
 
@@ -45,29 +51,87 @@ pub fn public_wire_segments(setup_params: &SetupParams) -> PublicWireSegments {
     }
 }
 
-pub fn compute_lagrange_kl(sigma: &SigmaPreprocess, setup_params: &SetupParams) -> G1serde {
+const LAGRANGE_KL_MSM_CHUNK_SIZE: usize = 1 << 15;
+
+fn msm_chunk_to_projective(scalars: &[ScalarField], bases: &[G1Affine]) -> G1Projective {
+    assert_eq!(scalars.len(), bases.len());
+
+    let mut msm_res = DeviceVec::<G1Projective>::device_malloc(1).expect("device_malloc failed");
+    let mut stream = IcicleStream::create().expect("Stream creation failed");
+    let mut cfg = MSMConfig::default();
+    cfg.stream_handle = *stream;
+    cfg.is_async = true;
+    msm::msm(
+        HostSlice::from_slice(scalars),
+        HostSlice::from_slice(bases),
+        &cfg,
+        &mut msm_res[..],
+    )
+    .unwrap();
+    stream.synchronize().unwrap();
+
+    let mut host_res = vec![G1Projective::zero(); 1];
+    msm_res
+        .copy_to_host(HostSlice::from_mut_slice(&mut host_res[..]))
+        .unwrap();
+    stream.destroy().unwrap();
+    host_res[0]
+}
+
+fn compute_last_lagrange_coeffs(size: usize, along_x: bool) -> Vec<ScalarField> {
+    let mut coeffs = vec![ScalarField::zero(); size];
+    if along_x {
+        compute_langrange_i_coeffs(size - 1, size, 1, &mut coeffs);
+    } else {
+        compute_langrange_i_coeffs(size - 1, 1, size, &mut coeffs);
+    }
+    coeffs
+}
+
+fn compute_lagrange_kl_with_basis<F>(setup_params: &SetupParams, basis_at: F) -> G1serde
+where
+    F: Fn(usize, usize) -> G1Affine,
+{
     let m_i = setup_params.l_D - setup_params.l;
     let s_max = setup_params.s_max;
-    // Generating permutation polynomials
-    println!("Converting the permutation matrices into polynomials s^0 and s^1...");
-    let mut lagrange_KL_XY = {
-        let mut k_evals = vec![ScalarField::zero(); m_i];
-        k_evals[m_i - 1] = ScalarField::one();
-        let lagrange_K_XY =
-            DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&k_evals), m_i, 1, None, None);
-        let mut l_evals = vec![ScalarField::zero(); s_max];
-        l_evals[s_max - 1] = ScalarField::one();
-        let lagrange_L_XY = DensePolynomialExt::from_rou_evals(
-            HostSlice::from_slice(&l_evals),
-            1,
-            s_max,
-            None,
-            None,
-        );
-        &lagrange_K_XY * &lagrange_L_XY
-    };
-    let lagrange_KL = sigma
-        .sigma_1
-        .encode_poly(&mut lagrange_KL_XY, &setup_params);
-    lagrange_KL
+    println!("Encoding lagrange_KL with a dedicated separable MSM path...");
+
+    let k_coeffs = compute_last_lagrange_coeffs(m_i, true);
+    let l_coeffs = compute_last_lagrange_coeffs(s_max, false);
+    let mut scalars = Vec::with_capacity(LAGRANGE_KL_MSM_CHUNK_SIZE);
+    let mut bases = Vec::with_capacity(LAGRANGE_KL_MSM_CHUNK_SIZE);
+    let mut acc = G1Projective::zero();
+
+    for (x_idx, x_coeff) in k_coeffs.iter().enumerate() {
+        for (y_idx, y_coeff) in l_coeffs.iter().enumerate() {
+            scalars.push(*x_coeff * *y_coeff);
+            bases.push(basis_at(x_idx, y_idx));
+
+            if scalars.len() == LAGRANGE_KL_MSM_CHUNK_SIZE {
+                acc = acc + msm_chunk_to_projective(&scalars, &bases);
+                scalars.clear();
+                bases.clear();
+            }
+        }
+    }
+
+    if !scalars.is_empty() {
+        acc = acc + msm_chunk_to_projective(&scalars, &bases);
+    }
+
+    G1serde(G1Affine::from(acc))
+}
+
+pub fn compute_lagrange_kl(sigma: &SigmaPreprocess, setup_params: &SetupParams) -> G1serde {
+    let rs_y_size = setup_params.s_max * 2;
+    compute_lagrange_kl_with_basis(setup_params, |x_idx, y_idx| {
+        sigma.sigma_1.xy_powers[x_idx * rs_y_size + y_idx].0
+    })
+}
+
+pub fn compute_lagrange_kl_from_source<S: Phase1SrsSource>(
+    source: &S,
+    setup_params: &SetupParams,
+) -> G1serde {
+    compute_lagrange_kl_with_basis(setup_params, |x_idx, y_idx| source.xy_g1(x_idx, y_idx).0)
 }

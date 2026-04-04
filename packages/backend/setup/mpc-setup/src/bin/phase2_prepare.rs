@@ -8,15 +8,15 @@ use icicle_core::msm::MSMConfig;
 use icicle_core::traits::FieldImpl;
 use icicle_runtime::stream::IcicleStream;
 use libs::bivariate_polynomial::DensePolynomialExt;
-use libs::group_structures::{G1serde, PartialSigma1, Sigma, Sigma1, Sigma2, SigmaPreprocess};
+use libs::group_structures::{G1serde, Sigma, Sigma1, Sigma2};
 use libs::iotools::{SetupParams, SubcircuitInfo};
 use libs::polynomial_structures::QAP;
 use libs::utils::{setup_shape, validate_public_wire_size, validate_setup_shape};
-use mpc_setup::accumulator::Accumulator;
 use mpc_setup::mpc_utils::{compute_langrange_i_coeffs, compute_langrange_i_poly, poly_mult};
+use mpc_setup::phase1_source::{AccumulatorSource, Phase1SrsSource};
 use mpc_setup::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
 use mpc_setup::utils::{load_gpu_if_possible, prompt_user_input};
-use mpc_setup::{compute_lagrange_kl, public_wire_segments, QAP_COMPILER_PATH_PREFIX};
+use mpc_setup::{compute_lagrange_kl_from_source, public_wire_segments, QAP_COMPILER_PATH_PREFIX};
 use rayon::iter::ParallelIterator;
 use rayon::prelude::IntoParallelRefIterator;
 use std::ops::Sub;
@@ -235,9 +235,10 @@ pub fn process_prepare(
         let li_y = compute_langrange_i_poly(i, 1, s_max);
         li_y_vec.push(li_y);
     }
-    println!("loading latest accumulator json");
-    let latest_acc = Accumulator::read_from_json(&format!("{}/{}", outfolder, accumulator))
-        .expect("cannot read from latest accumulator json");
+    println!("loading latest phase-1 source");
+    let phase1_source =
+        AccumulatorSource::read_from_json(&format!("{}/{}", outfolder, accumulator))
+            .expect("cannot read from latest accumulator json");
 
     let sigma_trusted = if is_checking {
         println!("loading sigma_trusted json for testing purpose");
@@ -246,14 +247,14 @@ pub fn process_prepare(
         None
     };
 
-    let g1 = latest_acc.g1;
-    let g2 = latest_acc.g2;
+    let g1 = phase1_source.g1();
+    let g2 = phase1_source.g2();
 
     // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}_{t=0,j=0}^{1,l-1} where t=0 for j∈[0,l_in-1] and t=1 for j∈[l_in,l-1]
     let mut gamma_inv_o_inst = vec![G1serde::zero(); l].into_boxed_slice();
-    let alpha1xy_g1s = latest_acc.get_alphaxy_g1_range(1, n, li_y_vec[0].y_size);
-    let alpha2xy_g1s = latest_acc.get_alphaxy_g1_range(2, n, li_y_vec[0].y_size);
-    let alpha3xy_g1s = latest_acc.get_alphaxy_g1_range(3, n, li_y_vec[0].y_size);
+    let alpha1xy_g1s = phase1_source.alphaxy_g1_range(1, n, li_y_vec[0].y_size);
+    let alpha2xy_g1s = phase1_source.alphaxy_g1_range(2, n, li_y_vec[0].y_size);
+    let alpha3xy_g1s = phase1_source.alphaxy_g1_range(3, n, li_y_vec[0].y_size);
 
     let qap = QAP::gen_from_R1CS(&qap_path, &subcircuit_infos, &setup_params);
     println!(
@@ -273,7 +274,7 @@ pub fn process_prepare(
         is_gpu_enabled,
     );
     let xi_g1s = if l_free > 0 {
-        latest_acc.get_x_g1_range(0, l_free - 1)
+        phase1_source.x_g1_range(0, l_free - 1)
     } else {
         Vec::new()
     };
@@ -370,9 +371,9 @@ pub fn process_prepare(
     for k in 1..=3 {
         for h in 0..=2 {
             //let alpha^k x^{n+h}
-            let alphak_xnh = latest_acc.get_alphax_g1(k, n + h);
+            let alphak_xnh = phase1_source.alphax_g1(k, n + h);
             //let alpha^k x^{h}
-            let alphak_xh = latest_acc.get_alphax_g1(k, h);
+            let alphak_xh = phase1_source.alphax_g1(k, h);
 
             delta_inv_alphak_xh_tx[k - 1][h] = alphak_xnh.sub(alphak_xh);
             println!(
@@ -387,8 +388,8 @@ pub fn process_prepare(
     // {δ^(-1)α^4 x^j t_{m_I}(x)}_{j=0}^{1}
     let mut delta_inv_alpha4_xj_tx = vec![G1serde::zero(); 2].into_boxed_slice();
     for j in 0..=1 {
-        delta_inv_alpha4_xj_tx[j] = latest_acc.get_alphax_g1(4, m_i + j);
-        delta_inv_alpha4_xj_tx[j] = delta_inv_alpha4_xj_tx[j].sub(latest_acc.get_alphax_g1(4, j));
+        delta_inv_alpha4_xj_tx[j] = phase1_source.alphax_g1(4, m_i + j);
+        delta_inv_alpha4_xj_tx[j] = delta_inv_alpha4_xj_tx[j].sub(phase1_source.alphax_g1(4, j));
         println!(
             "delta_inv_alpha4_xj_tx[{}] = {:?}",
             j, delta_inv_alpha4_xj_tx[j].0.x
@@ -407,9 +408,9 @@ pub fn process_prepare(
         vec![vec![G1serde::zero(); 3].into_boxed_slice(); 4].into_boxed_slice();
     for k in 1..=4 {
         for i in 0..=2 {
-            delta_inv_alphak_yi_ty[k - 1][i] = latest_acc
-                .get_alphay_g1(k, s_max + i)
-                .sub(latest_acc.get_alphay_g1(k, i));
+            delta_inv_alphak_yi_ty[k - 1][i] = phase1_source
+                .alphay_g1(k, s_max + i)
+                .sub(phase1_source.alphay_g1(k, i));
 
             println!(
                 "delta_inv_alphak_yi_ty[{}][{}] = {:?}",
@@ -437,7 +438,7 @@ pub fn process_prepare(
         kj_x_vec.push(kj_x);
     }
     let mut xy_coeffs = vec![ScalarField::zero(); li_y_vec[0].y_size * kj_x_vec[0].x_size];
-    let alpha4xy_g1s = latest_acc.get_alphaxy_g1_range(4, kj_x_vec[0].x_size, li_y_vec[0].y_size);
+    let alpha4xy_g1s = phase1_source.alphaxy_g1_range(4, kj_x_vec[0].x_size, li_y_vec[0].y_size);
     println!("len of (eta_inv_li_o_inter_alpha4_kj) is {}", m_i * s_max);
     let batch_count = env::var("BATCH_COUNT")
         .unwrap_or("512".to_string())
@@ -610,15 +611,7 @@ pub fn process_prepare(
     let avg = start2.elapsed().as_secs_f64() / (s_max * (m_d - (l + m_i))) as f64;
     println!("avg delta per second {}", 1f64 / avg);
 
-    let lagrange_kl = compute_lagrange_kl(
-        &SigmaPreprocess {
-            sigma_1: PartialSigma1 {
-                xy_powers: latest_acc.get_boxed_xypower(),
-                gamma_inv_o_inst: vec![G1serde::zero(); l].into_boxed_slice(),
-            },
-        },
-        &setup_params,
-    );
+    let lagrange_kl = compute_lagrange_kl_from_source(&phase1_source, &setup_params);
 
     SigmaV2 {
         contributor_index: 0,
@@ -627,9 +620,9 @@ pub fn process_prepare(
             G: g1,
             H: g2,
             sigma_1: Sigma1 {
-                xy_powers: latest_acc.get_boxed_xypower(),
-                x: latest_acc.get_x_g1(1),
-                y: latest_acc.get_y_g1(1),
+                xy_powers: phase1_source.xy_powers(),
+                x: phase1_source.xy_g1(1, 0),
+                y: phase1_source.xy_g1(0, 1),
                 delta: g1,
                 eta: g1,
                 gamma_inv_o_inst,
@@ -640,15 +633,15 @@ pub fn process_prepare(
                 delta_inv_alphak_yi_ty,
             },
             sigma_2: Sigma2 {
-                alpha: latest_acc.alpha[0].g2,
-                alpha2: latest_acc.alpha[1].g2,
-                alpha3: latest_acc.alpha[2].g2,
-                alpha4: latest_acc.alpha[3].g2,
+                alpha: phase1_source.alpha_g2(1),
+                alpha2: phase1_source.alpha_g2(2),
+                alpha3: phase1_source.alpha_g2(3),
+                alpha4: phase1_source.alpha_g2(4),
                 gamma: g2,
                 delta: g2,
                 eta: g2,
-                x: latest_acc.x[0].g2,
-                y: latest_acc.y.g2,
+                x: phase1_source.x_g2(1),
+                y: phase1_source.y_g2(1),
             },
             lagrange_KL: lagrange_kl,
         },

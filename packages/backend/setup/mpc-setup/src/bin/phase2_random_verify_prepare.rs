@@ -7,15 +7,15 @@ use icicle_core::msm;
 use icicle_core::traits::FieldImpl;
 use icicle_runtime::stream::IcicleStream;
 use libs::bivariate_polynomial::DensePolynomialExt;
-use libs::group_structures::{G1serde, PartialSigma1, SigmaPreprocess};
+use libs::group_structures::G1serde;
 use libs::iotools::{SetupParams, SubcircuitInfo};
 use libs::polynomial_structures::QAP;
 use libs::utils::{setup_shape, validate_public_wire_size, validate_setup_shape};
-use mpc_setup::accumulator::Accumulator;
 use mpc_setup::mpc_utils::{compute_langrange_i_coeffs, compute_langrange_i_poly, poly_mult};
+use mpc_setup::phase1_source::{AccumulatorSource, Phase1SrsSource};
 use mpc_setup::sigma::SigmaV2;
 use mpc_setup::utils::{load_gpu_if_possible, prompt_user_input};
-use mpc_setup::{compute_lagrange_kl, public_wire_segments, QAP_COMPILER_PATH_PREFIX};
+use mpc_setup::{compute_lagrange_kl_from_source, public_wire_segments, QAP_COMPILER_PATH_PREFIX};
 use rand::rngs::ThreadRng;
 use rand::Rng;
 use std::ops::Sub;
@@ -83,17 +83,18 @@ fn main() {
         let li_y = compute_langrange_i_poly(i, 1, s_max);
         li_y_vec.push(li_y);
     }
-    println!("loading latest accumulator json");
-    let latest_acc = Accumulator::read_from_json(&format!("{}/{}", config.outfolder, accumulator))
-        .expect("cannot read from latest accumulator json");
+    println!("loading latest phase-1 source");
+    let phase1_source =
+        AccumulatorSource::read_from_json(&format!("{}/{}", config.outfolder, accumulator))
+            .expect("cannot read from latest accumulator json");
     let sigma_trusted =
         SigmaV2::read_from_json("setup/mpc-setup/output/phase2_acc_0.json").unwrap();
 
     // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}_{t=0,j=0}^{1,l-1} where t=0 for j∈[0,l_in-1] and t=1 for j∈[l_in,l-1]
     let mut gamma_inv_o_inst = vec![G1serde::zero(); l].into_boxed_slice();
-    let alpha1xy_g1s = latest_acc.get_alphaxy_g1_range(1, n, li_y_vec[0].y_size);
-    let alpha2xy_g1s = latest_acc.get_alphaxy_g1_range(2, n, li_y_vec[0].y_size);
-    let alpha3xy_g1s = latest_acc.get_alphaxy_g1_range(3, n, li_y_vec[0].y_size);
+    let alpha1xy_g1s = phase1_source.alphaxy_g1_range(1, n, li_y_vec[0].y_size);
+    let alpha2xy_g1s = phase1_source.alphaxy_g1_range(2, n, li_y_vec[0].y_size);
+    let alpha3xy_g1s = phase1_source.alphaxy_g1_range(3, n, li_y_vec[0].y_size);
 
     let qap = QAP::gen_from_R1CS(&qap_path, &subcircuit_infos, &setup_params);
     println!(
@@ -101,15 +102,7 @@ fn main() {
         start1.elapsed().as_secs_f64()
     );
 
-    let lagrange_kl = compute_lagrange_kl(
-        &SigmaPreprocess {
-            sigma_1: PartialSigma1 {
-                xy_powers: latest_acc.get_boxed_xypower(),
-                gamma_inv_o_inst: vec![G1serde::zero(); l].into_boxed_slice(),
-            },
-        },
-        &setup_params,
-    );
+    let lagrange_kl = compute_lagrange_kl_from_source(&phase1_source, &setup_params);
 
     assert_eq!(sigma_trusted.sigma.lagrange_KL, lagrange_kl);
     println!("lagrange_kl is checked!");
@@ -125,7 +118,7 @@ fn main() {
         &mut gamma_inv_o_inst,
     );
     let xi_g1s = if l_free > 0 {
-        latest_acc.get_x_g1_range(0, l_free - 1)
+        phase1_source.x_g1_range(0, l_free - 1)
     } else {
         Vec::new()
     };
@@ -217,9 +210,9 @@ fn main() {
     for k in 1..=3 {
         for h in 0..=2 {
             //let alpha^k x^{n+h}
-            let alphak_xnh = latest_acc.get_alphax_g1(k, n + h);
+            let alphak_xnh = phase1_source.alphax_g1(k, n + h);
             //let alpha^k x^{h}
-            let alphak_xh = latest_acc.get_alphax_g1(k, h);
+            let alphak_xh = phase1_source.alphax_g1(k, h);
 
             delta_inv_alphak_xh_tx[k - 1][h] = alphak_xnh.sub(alphak_xh);
             println!(
@@ -239,8 +232,8 @@ fn main() {
     // {δ^(-1)α^4 x^j t_{m_I}(x)}_{j=0}^{1}
     let mut delta_inv_alpha4_xj_tx = vec![G1serde::zero(); 2].into_boxed_slice();
     for j in 0..=1 {
-        delta_inv_alpha4_xj_tx[j] = latest_acc.get_alphax_g1(4, m_i + j);
-        delta_inv_alpha4_xj_tx[j] = delta_inv_alpha4_xj_tx[j].sub(latest_acc.get_alphax_g1(4, j));
+        delta_inv_alpha4_xj_tx[j] = phase1_source.alphax_g1(4, m_i + j);
+        delta_inv_alpha4_xj_tx[j] = delta_inv_alpha4_xj_tx[j].sub(phase1_source.alphax_g1(4, j));
         println!(
             "delta_inv_alpha4_xj_tx[{}] = {:?}",
             j, delta_inv_alpha4_xj_tx[j].0.x
@@ -259,9 +252,9 @@ fn main() {
         vec![vec![G1serde::zero(); 3].into_boxed_slice(); 4].into_boxed_slice();
     for k in 1..=4 {
         for i in 0..=2 {
-            delta_inv_alphak_yi_ty[k - 1][i] = latest_acc
-                .get_alphay_g1(k, s_max + i)
-                .sub(latest_acc.get_alphay_g1(k, i));
+            delta_inv_alphak_yi_ty[k - 1][i] = phase1_source
+                .alphay_g1(k, s_max + i)
+                .sub(phase1_source.alphay_g1(k, i));
 
             println!(
                 "delta_inv_alphak_yi_ty[{}][{}] = {:?}",
@@ -289,7 +282,7 @@ fn main() {
         kj_x_vec.push(kj_x);
     }
     let mut xy_coeffs = vec![ScalarField::zero(); li_y_vec[0].y_size * kj_x_vec[0].x_size];
-    let alpha4xy_g1s = latest_acc.get_alphaxy_g1_range(4, kj_x_vec[0].x_size, li_y_vec[0].y_size);
+    let alpha4xy_g1s = phase1_source.alphaxy_g1_range(4, kj_x_vec[0].x_size, li_y_vec[0].y_size);
     println!("len of (eta_inv_li_o_inter_alpha4_kj) is {}", m_i * s_max);
     let mut cache: Vec<(usize, usize, Vec<ScalarField>, Vec<G1Affine>)> = vec![];
     let mut rng = rand::thread_rng();
