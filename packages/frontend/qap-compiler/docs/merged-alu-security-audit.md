@@ -1,6 +1,6 @@
 # Merged ALU Security Audit
 
-> Status update: Revalidated against the repository state on April 4, 2026. The original merged-wrapper findings in this document are resolved. A fresh review of every circuit compiled by `scripts/compile.sh` identified four additional live issues outside the original merged-ALU scope: a non-canonical public-input problem in `Accumulator`, a hidden-state canonicalization gap in `SubExpBatch`, invalid-point acceptance in `JubjubExpBatch`, and a vacuous standalone `EdDsaVerify` artifact. The 255-bit split-limb canonicalization concern remains an external-verifier requirement rather than an in-circuit fix.
+> Status update: Revalidated against the repository state on April 4, 2026. The original merged-wrapper findings in this document are resolved. Under the composed-system model used by the external compiler, the fresh review identified one clear remaining external-verifier requirement and several topology-dependent contract gaps outside the original merged-ALU scope. In particular, the 255-bit split-limb canonicalization concern remains an external-verifier requirement, `JubjubExpBatch` still does not guarantee point validity on its own, and the `Accumulator` / `SubExpBatch` canonicalization observations collapse into system-level bus-well-formedness dependencies rather than standalone public-input exploits.
 
 ## Scope
 
@@ -39,6 +39,23 @@ The added compile-target review scope is the full set of circuits currently buil
 
 The goal of the combined document is to preserve the merged-ALU audit history while also recording the current security posture of the compiled circuit library.
 
+## Composition Context
+
+The fresh review is interpreted under the following system-level assumptions supplied by the repository user:
+
+- each circuit compiled by `scripts/compile.sh` is a subcircuit rather than a standalone proof statement
+- an external compiler combines those subcircuits with other subcircuits into one independent circuit
+- every `buffer*` subcircuit is used exactly once
+- every `buffer*Out` input is connected to another subcircuit output
+- every `buffer*In` output is connected to another subcircuit input
+- for every non-buffer subcircuit, every input and every output is connected to another subcircuit input or output
+
+This context changes how several findings should be interpreted:
+
+- a vulnerability that only exists because a compiled artifact is standalone is not automatically a live system-level issue
+- a missing local range check can become either harmless redundancy or a real system-level dependency, depending on whether some connected producer or consumer already enforces the same property
+- where the exact external wiring is not part of this repository, the strongest justified conclusion is sometimes conditional rather than absolute
+
 ## Methodology
 
 The original merged-ALU audit compared the merged circuits against the pre-merge circuit sources at three levels:
@@ -74,12 +91,13 @@ The audit also found two broader canonicalization concerns:
 
 Those two merged-wrapper concerns have also been remediated in the current repository state.
 
-However, the fresh compile-target review identified additional live issues outside the original merged-wrapper audit scope:
+However, the fresh compile-target review identified additional issues outside the original merged-wrapper audit scope.
 
-- `Accumulator` accepts non-canonical public 256-bit split-limb inputs
-- `SubExpBatch` accepts non-canonical hidden 256-bit state
-- `JubjubExpBatch` can certify invalid public points because it never checks input or output point validity
-- the standalone `EdDsaVerify` artifact has no public statement and is trivially satisfiable
+Under the composed-system assumptions above:
+
+- `Accumulator` and `SubExpBatch` no longer present standalone-statement attacks by themselves, but they still rely on system-level bus well-formedness along every producer path that reaches them
+- `JubjubExpBatch` still does not by itself guarantee that its inputs or outputs are valid Jubjub points
+- the standalone `EdDsaVerify` vacuity observation is not a live issue if the artifact is never used standalone
 
 The 255-bit split-limb canonicalization issue remains handled as an external-verifier responsibility. That mitigation is only valid if every proof-verification wrapper rejects non-canonical split-limb inputs before passing them into the proof-verification algorithm.
 
@@ -351,7 +369,7 @@ The current templates zero unsupported selector bits before the mux stage, and t
 
 Severity: Medium
 
-Current status: Active
+Current status: Mitigated externally
 
 The 255-bit Poseidon, Merkle, and Jubjub templates recombine two 128-bit limbs directly into a field element but do not enforce canonical 255-bit encoding or `< Fr` bounds for external limb inputs.
 
@@ -389,7 +407,7 @@ Residual risk:
 
 Severity: Medium
 
-Current status: Active
+Current status: Conditional under composed-system wiring
 
 `Accumulator_circuit.circom` chains `Add256_unsafe()` over public split-limb inputs but only checks the final output bus:
 
@@ -416,11 +434,22 @@ with every other term set to zero. Both witnesses succeeded and both produced th
 - different public input vectors can encode the same accumulated 256-bit value
 - downstream systems that interpret each pair as a unique 256-bit split-limb integer can be misled
 
+#### Composed-system revalidation
+
+Under the stated system model, `Accumulator` inputs are not root public inputs of a standalone proof artifact. Each input wire is driven by some other subcircuit output.
+
+That means the standalone reproduction above no longer translates directly into a system-level attack by itself. The issue instead becomes a bus-well-formedness dependency:
+
+- if every producer path feeding `Accumulator` already enforces canonical 128-bit limbs, the missing local input checks are redundant rather than dangerous
+- if any producer path can carry unchecked non-canonical split limbs into `Accumulator`, the same ambiguity can still propagate through the composed system
+
+So this is not a confirmed top-level exploit from the local code alone, but it remains a real dependency that must be discharged by the external composition.
+
 ### Finding 9: `SubExpBatch` accepts non-canonical hidden 256-bit state
 
 Severity: Medium
 
-Current status: Active
+Current status: Conditional under composed-system wiring
 
 `SubExpBatch_circuit.circom` forwards `c_prev` and `a_prev` directly into `subExpBatch(N)` without any bus-range checks, while the underlying arithmetic path is built from `SubExp_unsafe()`, `Mul256_unsafe()`, and `Add256_unsafe()`:
 
@@ -444,11 +473,22 @@ Both witnesses succeeded and both produced the same public outputs `(0, 1, 1, 0)
 - distinct malformed witnesses can prove the same public transition
 - if downstream logic assumes that `c_prev` and `a_prev` are canonical 256-bit split-limb integers, that assumption is false in the standalone artifact
 
+#### Composed-system revalidation
+
+Under the stated system model, the hidden state of `SubExpBatch` is not a free-standing witness root. Its inputs and outputs are all connected elsewhere in the composed circuit.
+
+As with `Accumulator`, this weakens the standalone exploit claim and turns the issue into a system-level dependency:
+
+- if all producer paths into `SubExpBatch` already enforce canonical 128-bit limbs, the missing local bus checks are redundant
+- if unchecked producer paths can drive `SubExpBatch`, the ambiguity can still persist inside the composed witness
+
+This finding therefore remains relevant as a composition requirement, but it is not by itself a proof that the final top-level circuit is vulnerable.
+
 ### Finding 10: `JubjubExpBatch` does not enforce valid input or output points
 
 Severity: High
 
-Current status: Active
+Current status: Active unless downstream point validation is guaranteed
 
 `JubjubExpBatch_circuit.circom` passes private split-limb points into `jubjubExp(N)`, which merges them and repeatedly applies the addition formulas, but it never checks that:
 
@@ -474,11 +514,19 @@ The affine point `(0, 0)` does not satisfy the Jubjub curve equation, so the sta
 - the proof does not guarantee that the published outputs came from valid Jubjub-point exponentiation
 - an application that treats the public outputs as valid curve points can accept invalid data
 
+#### Composed-system revalidation
+
+The composed-system context removes the standalone-artifact framing but does not eliminate the underlying contract gap.
+
+If every downstream use of `JubjubExpBatch` outputs passes through a consumer that explicitly checks Jubjub point validity before relying on point semantics, then the missing checks here may be redundant.
+
+If not, the composed circuit can still carry and publish invalid points. Because the exact external topology is not part of this repository, the strongest justified conclusion is conditional rather than absolute. The local subcircuit still does not enforce the property suggested by its name.
+
 ### Finding 11: The standalone `EdDsaVerify` artifact is vacuous
 
 Severity: High
 
-Current status: Active
+Current status: Not a live issue under the composed-system assumption
 
 The compiled `EdDsaVerify` wrapper exposes no public inputs and no public outputs:
 
@@ -505,6 +553,14 @@ Those are simply three copies of the affine identity point.
 - a standalone proof over this artifact does not verify any concrete EdDSA statement
 - the artifact is satisfiable with a trivial private witness
 - any consumer that treats this compiled circuit as a meaningful standalone signature verifier is relying on a false security property
+
+#### Composed-system revalidation
+
+Under the stated system model, this artifact is never used standalone. In that setting, the lack of public inputs and outputs in this wrapper is not itself a vulnerability.
+
+The real system-level question is whether the surrounding composed circuit binds the intended EdDSA statement through other connected subcircuits and public buffers. That question cannot be answered from this repository alone because the final wiring is delegated to the external compiler.
+
+Accordingly, this finding should be treated as an artifact-only observation rather than a live issue in the composed system.
 
 ## Operation-by-Operation Comparison
 
@@ -562,12 +618,11 @@ Those checks still exist through the `rem < divisor` structure and the internal 
 
 ### Immediate remediation
 
-Fix the remaining live compiled-circuit issues:
+Fix or discharge the remaining compiled-circuit issues at the system level:
 
-- add direct input bus checks to `Accumulator`
-- add direct input and output bus checks to `SubExpBatch`
-- add point-validity checks to `JubjubExpBatch` for both hidden inputs and public outputs
-- do not expose `EdDsaVerify_circuit.circom` as a standalone verifier artifact unless the wrapper binds the relevant statement through public inputs or outputs
+- ensure every producer path into `Accumulator` and `SubExpBatch` enforces canonical 128-bit limbs, or add local bus checks inside those subcircuits
+- ensure every semantic use of `JubjubExpBatch` outputs validates Jubjub point correctness, or add `jubjubCheck()` constraints inside the subcircuit
+- ensure the top-level proof statement binds the intended EdDSA message, challenge, key, and relation if `EdDsaVerify` is used as part of the composed circuit
 - ensure all deployed proof-verification wrappers reject non-canonical 255-bit split-limb inputs before verification
 
 ### Recommended follow-up hardening
@@ -586,21 +641,22 @@ If `JubjubExpBatch` is intentionally meant to accept unchecked intermediate alge
 
 Add negative tests for:
 
-- non-canonical public input pairs on `Accumulator`
-- non-canonical hidden state pairs on `SubExpBatch`
-- invalid private points producing public outputs on `JubjubExpBatch`
-- trivial satisfiability of the standalone `EdDsaVerify` artifact
+- unchecked producer paths feeding non-canonical values into `Accumulator`
+- unchecked producer paths feeding non-canonical values into `SubExpBatch`
+- invalid private points producing outputs from `JubjubExpBatch` without any downstream point validation
+- top-level statement-binding failures around any composed use of `EdDsaVerify`
 - verifier-wrapper rejection of non-canonical split-limb encodings for 255-bit Poseidon, Merkle, and Jubjub public inputs
 
 ## Final Assessment
 
 The original merged-wrapper findings in this report are resolved in the current repository state.
 
-The later merged division-path soundness bugs around zero-divisor handling and oversized shifts are also resolved. However, the current library produced by `scripts/compile.sh` still contains live issues outside the merged-ALU path:
+The later merged division-path soundness bugs around zero-divisor handling and oversized shifts are also resolved.
 
-- `Accumulator` still exposes non-canonical public 256-bit limb encodings
-- `SubExpBatch` still accepts non-canonical hidden 256-bit state
-- `JubjubExpBatch` still certifies outputs without enforcing valid Jubjub-point semantics
-- the standalone `EdDsaVerify` artifact is still vacuous
+Under the composed-system assumptions supplied for this repository, the current residual concerns are:
 
-The 255-bit split-limb ambiguity is also still a real concern wherever proof-verification wrappers do not enforce canonical limb encoding before verification.
+- a system-level requirement that producer paths into `Accumulator` and `SubExpBatch` enforce canonical 256-bit bus encoding
+- a still-open contract gap around `JubjubExpBatch` point validity unless downstream validation is guaranteed
+- a still-open external-verifier requirement for canonical 255-bit split-limb encoding
+
+The earlier standalone-artifact concern about `EdDsaVerify` does not remain a live issue once the wrapper is understood strictly as an internal subcircuit rather than a standalone proof statement.
