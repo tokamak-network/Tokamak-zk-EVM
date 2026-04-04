@@ -90,10 +90,7 @@ template ALU1_() {
     flags[ind] <== b_selector[19];
     ind++;
 
-    component eq = IsEqual256();
-    eq.in1 <== in1;
-    eq.in2 <== in2;
-    outs[ind] <== [eq.out, 0];
+    outs[ind] <== [is_eq, 0];
     flags[ind] <== b_selector[20];
     ind++;
 
