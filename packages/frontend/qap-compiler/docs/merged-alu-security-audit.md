@@ -15,8 +15,6 @@ The original scope was the merged arithmetic circuits introduced by the two-circ
 - Audited wrappers:
   - [subcircuits/circom/ALU1_circuit.circom](../subcircuits/circom/ALU1_circuit.circom)
   - [subcircuits/circom/ALU2_circuit.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/subcircuits/circom/ALU2_circuit.circom)
-- Audited templates:
-  - [templates/256bit/alu_safe.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/templates/256bit/alu_safe.circom)
 
 The comparison baseline is the pre-merge implementation from the parent of commit `9b5b616b`, which used separate `ALU1` through `ALU5` wrappers and standalone `AND`, `OR`, and `XOR` circuits.
 
@@ -72,7 +70,7 @@ The original merged-ALU audit compared the merged circuits against the pre-merge
 
 The review also included direct witness-generation reproductions against the compiled merged circuits to check whether suspicious inputs were accepted by the current implementation.
 
-The fresh compile-target review used the current `scripts/compile.sh` target list, traced each wrapper into its transitive templates, and then re-derived findings from the live code. Where a suspected issue affected proof semantics, witness-generation checks were used to confirm that the compiled artifact accepted the problematic case.
+The fresh compile-target review used the current `scripts/compile.sh` target list, traced each compiled wrapper into its implementation dependencies, and then re-derived findings from the live code. Where a suspected issue affected proof semantics, witness-generation checks were used to confirm that the compiled artifact accepted the problematic case.
 
 ## Executive Summary
 
@@ -86,7 +84,7 @@ At audit time, the merged `ALU2` introduced a real regression for the shift and 
 - `SHR`
 - `SAR`
 
-In the pre-merge design, the wrappers for `ALU3` and `ALU5` enforced `in1[1] === 0`, ensuring that the shift amount or byte index was canonical and only occupied the low limb. In the merged `ALU2`, that wrapper-level constraint no longer exists. The merged template only reads `in1[0]` for these operations, so different public inputs with different `in1[1]` values are now accepted as the same statement.
+In the pre-merge design, the wrappers for `ALU3` and `ALU5` enforced `in1[1] === 0`, ensuring that the shift amount or byte index was canonical and only occupied the low limb. In the merged `ALU2`, that wrapper-level constraint no longer exists. The merged implementation only reads `in1[0]` for these operations, so different public inputs with different `in1[1]` values are now accepted as the same statement.
 
 That issue was security-relevant at audit time. It has since been remediated in the current repository state.
 
@@ -105,7 +103,7 @@ Under the composed-system assumptions above:
 - the `jubjubExpBatch -> ... -> EdDsaVerify` chain no longer remains a live issue from this repository alone once the valid chain seed and fixed terminal `EdDsaVerify` sink are taken as part of the system contract
 - the standalone `EdDsaVerify` vacuity observation is not a live issue if the artifact is never used standalone
 
-The 255-bit split-limb canonicalization observation is no longer reported here at template scope. Instead, it is tracked below only at the compile-target boundary level for the wrappers that actually move 255-bit split-limb values.
+The 255-bit split-limb canonicalization observation is tracked only at the compile-target boundary level for the wrappers that actually move 255-bit split-limb values.
 
 ## Detailed Findings
 
@@ -131,9 +129,9 @@ This ensured that the shift amount or byte index was represented canonically in 
 
 #### Current behavior
 
-The merged wrapper [subcircuits/circom/ALU2_circuit.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/subcircuits/circom/ALU2_circuit.circom#L8) forwards both limbs of `in1` without any wrapper-level canonicalization.
+The merged wrapper [subcircuits/circom/ALU2_circuit.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/subcircuits/circom/ALU2_circuit.circom#L8) forwarded both limbs of `in1` without any wrapper-level canonicalization.
 
-Inside the merged template, only `in1[0]` is used for the shift and byte family:
+Within the compiled `ALU2` implementation, only `in1[0]` was used for the shift and byte family:
 
 - `safe_byte_minus_one <== is_byte_family * in1[0]` at [templates/256bit/alu_safe.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/templates/256bit/alu_safe.circom#L739)
 - `safe_shift <== is_shift_family * in1[0]` at [templates/256bit/alu_safe.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/templates/256bit/alu_safe.circom#L769)
@@ -167,13 +165,14 @@ This is the most important regression identified in the audit.
 
 This issue is now fixed in the merged path.
 
-The current `ALU_based_on_div()` template gates the high limb of `in1` for the byte and shift families:
+The current compiled `ALU2` path now gates the high limb of `in1` for the byte and shift families:
 
 - `is_index_family <== is_byte_family + is_shift_family`
 - `in1[1] * is_index_family === 0`
 
-Relevant code:
+Relevant implementation:
 
+- [`subcircuits/circom/ALU2_circuit.circom`](../subcircuits/circom/ALU2_circuit.circom)
 - [`templates/256bit/alu_safe.circom`](../templates/256bit/alu_safe.circom)
 
 This restores the missing canonicalization constraint for `SIGNEXTEND`, `BYTE`, `SHL`, `SHR`, and `SAR` in the merged ALU path.
@@ -184,7 +183,7 @@ Severity: Medium
 
 Current status: Resolved for the merged wrappers originally audited
 
-The merged circuits bit-decompose the full selector:
+The merged compiled `ALU1` / `ALU2` path bit-decomposed the full selector:
 
 - [subcircuits/circom/ALU1_circuit.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/subcircuits/circom/ALU1_circuit.circom#L17)
 - [templates/256bit/alu_safe.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/templates/256bit/alu_safe.circom#L659)
@@ -207,7 +206,7 @@ for the same `ADD` input, and both produced the same output `(16, 0)`.
 
 #### Security impact
 
-This is not introduced by the merge. The older ALUs had the same issue. It is nevertheless a real non-canonicality problem and should be fixed if selector uniqueness matters to the surrounding system.
+This was not introduced by the merge. The older ALUs had the same issue. It was nevertheless a real non-canonicality problem for the compiled merged wrappers when selector uniqueness mattered to the surrounding system.
 
 #### Current status revalidation
 
@@ -217,11 +216,12 @@ The current `ALU1` wrapper constrains the full selector weight to exactly one af
 
 - [`subcircuits/circom/ALU1_circuit.circom`](../subcircuits/circom/ALU1_circuit.circom)
 
-The current merged division-based wrapper path also enforces the same selector-weight rule inside `ALU_based_on_div()`:
+The current merged division-based compiled path also enforces the same selector-weight rule:
 
+- [`subcircuits/circom/ALU2_circuit.circom`](../subcircuits/circom/ALU2_circuit.circom)
 - [`templates/256bit/alu_safe.circom`](../templates/256bit/alu_safe.circom)
 
-This resolves the original merged-wrapper selector issue. A different selector-canonicalization gap still exists in several standalone templates and is documented below as a new finding.
+This resolves the original merged-wrapper selector issue for the current compiled ALU targets.
 
 ### Finding 3: Limb range safety still depends on external wiring
 
@@ -229,11 +229,7 @@ Severity: Medium
 
 Current status: Resolved for the merged wrappers originally audited
 
-The merged templates continue to omit direct input bus range checks:
-
-- [templates/256bit/alu_safe.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/templates/256bit/alu_safe.circom#L661)
-
-The same assumption existed before the merge. This is therefore not a regression. However, at audit time it remained a trust boundary:
+At audit time, the merged compiled ALU wrappers still relied on external wiring for input bus well-formedness. The same assumption existed before the merge, so this was not a regression. However, it remained a trust boundary:
 
 - If upstream circuits always constrain each limb to 128 bits, the design is consistent.
 - If that assumption is violated anywhere, several `unsafe` arithmetic templates can be fed malformed non-canonical limbs.
@@ -252,17 +248,17 @@ Relevant code:
 - [`subcircuits/circom/ALU1_circuit.circom`](../subcircuits/circom/ALU1_circuit.circom)
 - [`subcircuits/circom/ALU2_circuit.circom`](../subcircuits/circom/ALU2_circuit.circom)
 
-The underlying `unsafe` arithmetic templates still rely on correct callers, but the merged wrappers covered by this document no longer expose the original bus-canonicalization gap.
+The underlying implementation still relies on correct callers in some helper paths, but the merged wrappers covered by this document no longer expose the original bus-canonicalization gap.
 
 ## Additional Findings From Follow-up Review
 
-### Finding 4: `DIV` and `SDIV` still admit an arbitrary quotient when the divisor is zero
+### Finding 4: The compiled `ALU2` path for `DIV` and `SDIV` admitted an arbitrary quotient when the divisor was zero
 
 Severity: Critical
 
 Current status: Resolved
 
-`Div256_unsafe()` zeroes the remainder in the `in2 == 0` branch but does not constrain the quotient in the same branch. Because the arithmetic check only enforces:
+The compiled `ALU2` path zeroed the remainder in the `in2 == 0` branch but did not constrain the quotient in the same branch. Because the arithmetic check only enforced:
 
 - `q * in2 + r_temp == in1`
 
@@ -280,11 +276,11 @@ Security impact:
 - `DIV` can produce a forged non-zero output when the divisor is zero
 - `SDIV` can produce a forged non-zero output when the divisor is zero
 
-This was a live soundness issue in the merged division-based ALU path.
+This was a live soundness issue in the compiled merged `ALU2` path.
 
 #### Current status revalidation
 
-This issue is now fixed in `Div256_unsafe()`.
+This issue is now fixed in the compiled `ALU2` division path.
 
 The current implementation explicitly constrains each quotient limb to zero when `is_zero_denom == 1`:
 
@@ -297,13 +293,13 @@ Relevant code:
 
 Focused witness-generation checks against the current `ALU2` build show that `DIV` by zero now yields output `(0, 0)`.
 
-### Finding 5: `SHR` and `SAR` still admit unconstrained outputs when `shift >= 256`
+### Finding 5: The compiled `ALU2` path for `SHR` and `SAR` admitted unconstrained outputs when `shift >= 256`
 
 Severity: High
 
 Current status: Resolved
 
-`FindShiftingTwosPower256()` maps shifts greater than `255` to a zero divisor. The merged shift-family path then reuses `Div256_unsafe()` as the right-shift primitive. This recreates the same unconstrained-quotient problem as zero-divisor division.
+The compiled `ALU2` shift-family path mapped shifts greater than `255` to a zero divisor and then reused the same division-based right-shift machinery. That recreated the same unconstrained-quotient problem as zero-divisor division.
 
 Relevant code:
 
@@ -316,7 +312,7 @@ Security impact:
 - `SHR(x, shift >= 256)` should be `0`, but the circuit does not enforce that result
 - `SAR(x, shift >= 256)` should saturate by sign, but the circuit builds on the same unconstrained right-shift witness
 
-This was a live semantic and soundness issue in the merged division-based ALU path.
+This was a live semantic and soundness issue in the compiled merged `ALU2` path.
 
 #### Current status revalidation
 
@@ -330,13 +326,13 @@ Focused witness-generation checks against the current `ALU2` build show:
 
 For `shift > 255`, the current circuit rejects witness generation through the shift helper range checks instead of admitting an unconstrained output witness.
 
-### Finding 6: Selector canonicalization remains incomplete in several standalone ALU templates
+### Finding 6: Earlier selector-canonicalization follow-up notes outside the current compile set are no longer part of the live compile-target review
 
 Severity: Medium
 
-Current status: Resolved
+Current status: Historical only; not part of the current `scripts/compile.sh` target set
 
-The original merged-wrapper selector issue is fixed, but several standalone templates still bit-decompose `selector` without enforcing that exactly one opcode bit is set:
+An earlier follow-up note recorded selector-canonicalization gaps in helper ALU implementations that were not part of the merged `ALU1` / `ALU2` wrappers:
 
 - `ALU3`
 - `ALU4`
@@ -344,24 +340,13 @@ The original merged-wrapper selector issue is fixed, but several standalone temp
 - `ALU_basic`
 - `ALU_bitwise`
 
-These templates rely on subset mux constraints only. A prover can set the intended opcode bit together with unrelated extra bits and still satisfy the selected subcircuit.
+Those helper circuits are not part of the current `scripts/compile.sh` target set and therefore are not part of the live compile-target review in this document.
 
-Relevant code:
-
-- [`templates/256bit/alu_safe.circom`](../templates/256bit/alu_safe.circom)
-- [`templates/256bit/mux.circom`](../templates/256bit/mux.circom)
-- [`templates/128bit/mux.circom`](../templates/128bit/mux.circom)
-
-Security impact:
-
-- the proof statement is not fully canonical for those standalone templates
-- public selector values can encode more than one opcode bit while still proving the same computation
-
-This was distinct from the original merged-wrapper finding because it was limited to standalone template entry points.
+The current compiled targets covered by this document do not expose that issue.
 
 #### Current status revalidation
 
-These standalone selector gaps are now fixed in the current repository state:
+Those earlier helper-circuit selector gaps are now fixed in the current repository state:
 
 - `ALU3`
 - `ALU4`
@@ -369,7 +354,7 @@ These standalone selector gaps are now fixed in the current repository state:
 - `ALU_basic`
 - `ALU_bitwise`
 
-The current templates zero unsupported selector bits before the mux stage, and the existing mux constraints still enforce a one-hot selection across the supported branch flags.
+The implementation now zeroes unsupported selector bits before the mux stage, and the existing mux constraints still enforce a one-hot selection across the supported branch flags. This note is retained only for historical continuity and is not a live compile-target vulnerability.
 
 ### Finding 7: The compiled 255-bit wrappers do not locally canonicalize split-limb values
 
@@ -417,7 +402,7 @@ Current status: Conditional under composed-system wiring
 
 - [`subcircuits/circom/Accumulator_circuit.circom`](../subcircuits/circom/Accumulator_circuit.circom)
 
-The underlying arithmetic template explicitly states that it is safe only when input and output well-formedness is guaranteed:
+The arithmetic implementation used by the compiled wrapper explicitly assumes that input and output well-formedness is guaranteed:
 
 - [`templates/256bit/arithmetic_unsafe_type1.circom`](../templates/256bit/arithmetic_unsafe_type1.circom)
 
@@ -457,7 +442,7 @@ Severity: Medium
 
 Current status: Conditional under composed-system wiring
 
-`SubExpBatch_circuit.circom` forwards `c_prev` and `a_prev` directly into `subExpBatch(N)` without any bus-range checks, while the underlying arithmetic path is built from `SubExp_unsafe()`, `Mul256_unsafe()`, and `Add256_unsafe()`:
+`SubExpBatch_circuit.circom` forwards `c_prev` and `a_prev` directly into the compiled exponentiation batch path without any bus-range checks, while the implementation underneath is built from `SubExp_unsafe()`, `Mul256_unsafe()`, and `Add256_unsafe()`:
 
 - [`subcircuits/circom/SubExpBatch_circuit.circom`](../subcircuits/circom/SubExpBatch_circuit.circom)
 - [`templates/256bit/arithmetic_unsafe_type1.circom`](../templates/256bit/arithmetic_unsafe_type1.circom)
@@ -477,7 +462,7 @@ Both witnesses succeeded and both produced the same public outputs `(0, 1, 1, 0)
 
 - the hidden 256-bit state is not canonically bound
 - distinct malformed witnesses can prove the same public transition
-- if downstream logic assumes that `c_prev` and `a_prev` are canonical 256-bit split-limb integers, that assumption is false in the standalone artifact
+- if downstream logic assumes that `c_prev` and `a_prev` are canonical 256-bit split-limb integers, that assumption is false in the compiled `SubExpBatch` wrapper when viewed in isolation
 
 #### Composed-system revalidation
 
@@ -492,18 +477,18 @@ As with `Accumulator`, this weakens the standalone exploit claim and turns the i
 
 This finding therefore remains relevant as a composition requirement, but it is not by itself a proof that the final top-level circuit is vulnerable.
 
-### Finding 10: The standalone `JubjubExpBatch` artifact omits local point-validity checks, but that does not remain a live issue under the fixed composed chain
+### Finding 10: The compiled `JubjubExpBatch` wrapper omits local point-validity checks, but that does not remain a live issue under the fixed composed chain
 
 Severity: High
 
 Current status: Not a live issue under the fixed composed-system assumptions
 
-`JubjubExpBatch_circuit.circom` passes split-limb points into `jubjubExp(N)`, which merges them and repeatedly applies the addition formulas, but it never performs local `jubjubCheck()` validation on those points:
+`JubjubExpBatch_circuit.circom` passes split-limb points into its exponentiation implementation, but it never performs local `jubjubCheck()` validation on those points:
 
 - [`subcircuits/circom/JubjubExpBatch_circuit.circom`](../subcircuits/circom/JubjubExpBatch_circuit.circom)
 - [`templates/255bit/jubjub.circom`](../templates/255bit/jubjub.circom)
 
-Unlike `edDsaVerify()`, the `jubjubExp()` path never calls `jubjubCheck()`.
+Unlike the compiled `EdDsaVerify` path, the compiled `JubjubExpBatch` path never calls `jubjubCheck()`.
 
 #### Reproduction
 
@@ -532,7 +517,7 @@ No direct evidence remains in this repository that invalid intermediate algebrai
 
 Accordingly, this finding should now be treated as an artifact-level observation rather than a live issue in the composed system described by the repository user.
 
-### Finding 11: The standalone `EdDsaVerify` artifact is vacuous
+### Finding 11: The compiled `EdDsaVerify` wrapper is vacuous if misused standalone
 
 Severity: High
 
@@ -542,7 +527,7 @@ The compiled `EdDsaVerify` wrapper exposes no public inputs and no public output
 
 - [`subcircuits/circom/EdDsaVerify_circuit.circom`](../subcircuits/circom/EdDsaVerify_circuit.circom)
 
-The inner template checks only that three private Jubjub points satisfy the curve equation and the relation `SG = R + eA`:
+Its implementation checks only that three private Jubjub points satisfy the curve equation and the relation `SG = R + eA`:
 
 - [`templates/255bit/jubjub.circom`](../templates/255bit/jubjub.circom)
 
@@ -608,7 +593,7 @@ These operations preserve the relevant pre-merge arithmetic and comparison const
 - `SHR`
 - `SAR`
 
-The arithmetic inside the merged template was preserved, but the pre-merge wrapper constraint `in1[1] === 0` was not enforced at the time of the original audit. That specific wrapper-boundary issue has since been fixed, as described in Finding 1.
+The arithmetic inside the merged implementation was preserved, but the pre-merge wrapper constraint `in1[1] === 0` was not enforced at the time of the original audit. That specific wrapper-boundary issue has since been fixed, as described in Finding 1.
 
 ## Additional Notes
 
