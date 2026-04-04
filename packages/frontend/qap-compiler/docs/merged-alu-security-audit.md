@@ -1,6 +1,6 @@
 # Merged ALU Security Audit
 
-> Status update: Revalidated against the repository state on April 4, 2026. The original merged-wrapper findings in this document are resolved. Under the composed-system model used by the external compiler, the fresh review identified one clear remaining external-verifier requirement and several topology-dependent contract gaps outside the original merged-ALU scope. In particular, the 255-bit split-limb canonicalization concern remains an external-verifier requirement, the `jubjubExpBatch -> ... -> EdDsaVerify` chain still relies on unchecked initial and intermediate point semantics, and the `Accumulator` / `SubExpBatch` canonicalization observations collapse into system-level bus-well-formedness dependencies rather than standalone public-input exploits.
+> Status update: Revalidated against the repository state on April 4, 2026. The original merged-wrapper findings in this document are resolved. Under the composed-system model used by the external compiler, the fresh review identified one clear remaining external-verifier requirement and two topology-dependent contract gaps outside the original merged-ALU scope. In particular, the 255-bit split-limb canonicalization concern remains an external-verifier requirement, while the `Accumulator` / `SubExpBatch` canonicalization observations collapse into system-level bus-well-formedness dependencies rather than standalone public-input exploits.
 
 ## Scope
 
@@ -52,6 +52,8 @@ The fresh review is interpreted under the following system-level assumptions sup
 - `jubjubExpBatch` subcircuits, when present, form a serial chain
 - except for the first `jubjubExpBatch` node, each later `jubjubExpBatch` node receives all inputs from the previous chain node's outputs
 - the last chain node is always `EdDsaVerify`, and its input is connected to the previous `jubjubExpBatch` output
+- the binary inputs of the first `jubjubExpBatch` node come from `DecToBit`
+- the point inputs of the first `jubjubExpBatch` node are constant point-at-infinity values
 
 This context changes how several findings should be interpreted:
 
@@ -99,7 +101,7 @@ However, the fresh compile-target review identified additional issues outside th
 Under the composed-system assumptions above:
 
 - `Accumulator` and `SubExpBatch` no longer present standalone-statement attacks by themselves, but they still rely on system-level bus well-formedness along every producer path that reaches them
-- the `jubjubExpBatch -> ... -> EdDsaVerify` chain does not expose unchecked terminal points directly, but it still does not by itself guarantee valid initial or intermediate point semantics
+- the `jubjubExpBatch -> ... -> EdDsaVerify` chain no longer remains a live issue from this repository alone once the valid chain seed and fixed terminal `EdDsaVerify` sink are taken as part of the system contract
 - the standalone `EdDsaVerify` vacuity observation is not a live issue if the artifact is never used standalone
 
 The 255-bit split-limb canonicalization issue remains handled as an external-verifier responsibility. That mitigation is only valid if every proof-verification wrapper rejects non-canonical split-limb inputs before passing them into the proof-verification algorithm.
@@ -487,18 +489,13 @@ As with `Accumulator`, this weakens the standalone exploit claim and turns the i
 
 This finding therefore remains relevant as a composition requirement, but it is not by itself a proof that the final top-level circuit is vulnerable.
 
-### Finding 10: The `jubjubExpBatch -> ... -> EdDsaVerify` chain still relies on unchecked initial and intermediate point semantics
+### Finding 10: The standalone `JubjubExpBatch` artifact omits local point-validity checks, but that does not remain a live issue under the fixed composed chain
 
 Severity: High
 
-Current status: Conditional under the fixed chain topology
+Current status: Not a live issue under the fixed composed-system assumptions
 
-`JubjubExpBatch_circuit.circom` passes private split-limb points into `jubjubExp(N)`, which merges them and repeatedly applies the addition formulas, but it never checks that:
-
-- the initial chain inputs lie on Jubjub
-- the intermediate chain states stay within the intended Jubjub-point semantics
-
-Relevant code:
+`JubjubExpBatch_circuit.circom` passes split-limb points into `jubjubExp(N)`, which merges them and repeatedly applies the addition formulas, but it never performs local `jubjubCheck()` validation on those points:
 
 - [`subcircuits/circom/JubjubExpBatch_circuit.circom`](../subcircuits/circom/JubjubExpBatch_circuit.circom)
 - [`templates/255bit/jubjub.circom`](../templates/255bit/jubjub.circom)
@@ -509,29 +506,28 @@ Unlike `edDsaVerify()`, the `jubjubExp()` path never calls `jubjubCheck()`.
 
 A focused witness-generation check against the compiled standalone `JubjubExpBatch` artifact accepted all-zero private inputs, including all-zero point coordinates and all-zero exponent bits.
 
-Under the composed-system topology, those unchecked terminal outputs are not published directly because the chain always ends in `EdDsaVerify`, which does check the terminal points it receives. The reproduction therefore demonstrates a missing local contract inside the exponentiation chain, not by itself a final published invalid-point exploit.
+That reproduction demonstrates only that the compiled wrapper is weak if misused as a standalone artifact. It no longer maps directly to the composed-system contract described for this repository.
 
 #### Security impact
 
-- the proof chain does not by itself guarantee that the exponentiation started from valid Jubjub points
-- the proof chain does not by itself guarantee that every intermediate step preserved the intended point semantics
-- if the surrounding composed circuit assumes that the final `EdDsaVerify` inputs arose from valid Jubjub exponentiation from valid starting points, that assumption still requires justification elsewhere
+- if treated as a standalone artifact, the wrapper does not itself guarantee that its supplied points are valid Jubjub points
+- if misused outside the documented chain topology, the wrapper can accept witnesses that do not correspond to intended Jubjub-point semantics
 
 #### Composed-system revalidation
 
 The fixed chain topology changes this finding materially:
 
+- the first `jubjubExpBatch` node does not receive arbitrary private seeds; its exponent bits come from `DecToBit`
+- the point inputs of that first node are fixed point-at-infinity constants, which are valid Jubjub points
+- every later `jubjubExpBatch` node consumes only the previous chain node's outputs
 - the final chain outputs are not consumed arbitrarily; they are always fed into `EdDsaVerify`
 - `EdDsaVerify` does perform `jubjubCheck()` on the terminal points it receives
 
-That removes the narrower concern that `JubjubExpBatch` terminal outputs are published unchecked.
+Under those system facts, the earlier concern about unchecked initial points no longer applies, and the standalone all-zero witness does not describe a reachable top-level proof statement.
 
-However, the broader semantic gap still remains:
+No direct evidence remains in this repository that invalid intermediate algebraic states can still be injected or exploited once the chain starts from valid seed points and terminates in `EdDsaVerify`.
 
-- the first `jubjubExpBatch` node in the chain can still start from unchecked points unless some earlier component validates them
-- intermediate chain states are never checked for Jubjub membership inside the exponentiation path itself
-
-So the remaining issue is not “unchecked final outputs,” but “unchecked initial and intermediate exponentiation semantics.”
+Accordingly, this finding should now be treated as an artifact-level observation rather than a live issue in the composed system described by the repository user.
 
 ### Finding 11: The standalone `EdDsaVerify` artifact is vacuous
 
@@ -632,7 +628,6 @@ Those checks still exist through the `rem < divisor` structure and the internal 
 Fix or discharge the remaining compiled-circuit issues at the system level:
 
 - ensure every producer path into `Accumulator` and `SubExpBatch` enforces canonical 128-bit limbs, or add local bus checks inside those subcircuits
-- ensure the first `jubjubExpBatch` node in every chain starts from validated Jubjub points, or add `jubjubCheck()` constraints inside the exponentiation path
 - ensure the top-level proof statement binds the intended EdDSA message, challenge, key, and relation if `EdDsaVerify` is used as part of the composed circuit
 - ensure all deployed proof-verification wrappers reject non-canonical 255-bit split-limb inputs before verification
 
@@ -646,16 +641,12 @@ Retain the merged-ALU regression tests that already cover:
 
 If external verifier-wrapper canonicalization cannot be guaranteed uniformly across all consumers, add canonical limb-range checks inside the Poseidon, Merkle, and Jubjub templates instead.
 
-If `jubjubExpBatch` is intentionally meant to accept unchecked intermediate algebraic states and rely only on terminal `EdDsaVerify` checks, document that narrower contract explicitly. Otherwise, validate the initial chain inputs or add local point checks.
-
 ### Test coverage improvements
 
 Add negative tests for:
 
 - unchecked producer paths feeding non-canonical values into `Accumulator`
 - unchecked producer paths feeding non-canonical values into `SubExpBatch`
-- invalid initial chain points entering the first `jubjubExpBatch`
-- intermediate chain states that satisfy the arithmetic recurrence without a justified Jubjub-point interpretation
 - top-level statement-binding failures around any composed use of `EdDsaVerify`
 - verifier-wrapper rejection of non-canonical split-limb encodings for 255-bit Poseidon, Merkle, and Jubjub public inputs
 
@@ -668,7 +659,6 @@ The later merged division-path soundness bugs around zero-divisor handling and o
 Under the composed-system assumptions supplied for this repository, the current residual concerns are:
 
 - a system-level requirement that producer paths into `Accumulator` and `SubExpBatch` enforce canonical 256-bit bus encoding
-- a still-open contract gap around unchecked initial and intermediate semantics in the `jubjubExpBatch -> ... -> EdDsaVerify` chain
 - a still-open external-verifier requirement for canonical 255-bit split-limb encoding
 
-The earlier standalone-artifact concern about `EdDsaVerify` does not remain a live issue once the wrapper is understood strictly as an internal subcircuit rather than a standalone proof statement.
+The earlier standalone-artifact concerns about `JubjubExpBatch` and `EdDsaVerify` do not remain live issues once the wrappers are understood strictly as internal subcircuits under the fixed composed-chain contract described above.
