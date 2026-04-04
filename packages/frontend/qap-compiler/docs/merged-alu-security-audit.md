@@ -181,7 +181,7 @@ This restores the missing canonicalization constraint for `SIGNEXTEND`, `BYTE`, 
 
 Severity: Medium
 
-Current status: Resolved for the merged wrappers originally audited
+Current status: Resolved
 
 The merged compiled `ALU1` / `ALU2` path bit-decomposed the full selector:
 
@@ -227,7 +227,7 @@ This resolves the original merged-wrapper selector issue for the current compile
 
 Severity: Medium
 
-Current status: Resolved for the merged wrappers originally audited
+Current status: Resolved
 
 At audit time, the merged compiled ALU wrappers still relied on external wiring for input bus well-formedness. The same assumption existed before the merge, so this was not a regression. However, it remained a trust boundary:
 
@@ -330,7 +330,7 @@ For `shift > 255`, the current circuit rejects witness generation through the sh
 
 Severity: Medium
 
-Current status: Historical only; not part of the current `scripts/compile.sh` target set
+Current status: Resolved
 
 An earlier follow-up note recorded selector-canonicalization gaps in helper ALU implementations that were not part of the merged `ALU1` / `ALU2` wrappers:
 
@@ -360,7 +360,7 @@ The implementation now zeroes unsupported selector bits before the mux stage, an
 
 Severity: Medium
 
-Current status: Not a live issue under the composed-system boundary assumptions
+Current status: Conditional
 
 At the compile-target level, the affected wrappers are:
 
@@ -396,7 +396,7 @@ Accordingly, this finding is kept only as a compile-target boundary note rather 
 
 Severity: Medium
 
-Current status: Conditional under composed-system wiring
+Current status: Conditional
 
 `Accumulator_circuit.circom` chains `Add256_unsafe()` over public split-limb inputs but only checks the final output bus:
 
@@ -440,7 +440,7 @@ So this is not a confirmed top-level exploit from the local code alone, but it r
 
 Severity: Medium
 
-Current status: Conditional under composed-system wiring
+Current status: Conditional
 
 `SubExpBatch_circuit.circom` forwards `c_prev` and `a_prev` directly into the compiled exponentiation batch path without any bus-range checks, while the implementation underneath is built from `SubExp_unsafe()`, `Mul256_unsafe()`, and `Add256_unsafe()`:
 
@@ -481,7 +481,7 @@ This finding therefore remains relevant as a composition requirement, but it is 
 
 Severity: High
 
-Current status: Not a live issue under the fixed composed-system assumptions
+Current status: Resolved
 
 `JubjubExpBatch_circuit.circom` passes split-limb points into its exponentiation implementation, but it never performs local `jubjubCheck()` validation on those points:
 
@@ -521,7 +521,7 @@ Accordingly, this finding should now be treated as an artifact-level observation
 
 Severity: High
 
-Current status: Not a live issue under the composed-system assumption
+Current status: Resolved
 
 The compiled `EdDsaVerify` wrapper exposes no public inputs and no public outputs:
 
