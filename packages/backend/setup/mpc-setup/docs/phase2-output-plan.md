@@ -1,0 +1,237 @@
+# MPC Phase 2 Output Plan
+
+## Objective
+
+This document fixes the mathematical target of the final `mpc-setup` outputs.
+It intentionally describes the outputs as formulas, not as code paths.
+The purpose is to provide a stable reference before changing the phase-1 / phase-2 split.
+
+## Notation
+
+Let:
+
+- `l` be the number of public wires.
+- `m_i` be the number of intermediate wires.
+- `m_prv = m_D - (l + m_i)` be the number of private wires.
+- `s = s_max` be the maximum placement count.
+- `n` be the number of constraints per subcircuit.
+
+Trapdoor symbols:
+
+- `alpha`
+- `x`
+- `y`
+- `gamma`
+- `delta`
+- `eta`
+
+Polynomial symbols:
+
+- `o_j(X)` for the wire polynomial indexed by `j`
+- `K_j(X)` for the intermediate-wire helper polynomial
+- `M_j(X)` for the free-wire helper polynomial
+- `L_i(Y)` for the `i`-th Lagrange basis polynomial on the `Y` domain
+- `t_n(X) = X^n - 1`
+- `t_mi(X) = X^{m_i} - 1`
+- `t_s(Y) = Y^s - 1`
+
+Commitment notation:
+
+- `[P(X, Y)]_1` means the G1 commitment of polynomial `P(X, Y)`
+- `[Q]_2` means the G2 encoding of scalar `Q`
+
+Public-wire segment selector:
+
+- `t(j)` selects the public segment used by public wire `j`
+
+## Final Output Structure
+
+The final output is a CRS object of the form:
+
+- `SigmaV2 = (gamma, Sigma)`
+- `Sigma = (G, H, Sigma1, Sigma2, lagrange_KL)`
+
+The formulas below define the mathematical target of each final output field.
+
+## Final G1 Outputs
+
+### Base points
+
+- `gamma = [gamma]_1`
+- `G = [1]_1`
+- `Sigma1.x = [x]_1`
+- `Sigma1.y = [y]_1`
+- `Sigma1.delta = [delta]_1`
+- `Sigma1.eta = [eta]_1`
+
+### Monomial basis table
+
+`Sigma1.xy_powers` stores:
+
+\[
+\left\{ [x^a y^b]_1 \right\}_{0 \le a \le h_{\max},\ 0 \le b \le 2s-2}
+\]
+
+where:
+
+\[
+h_{\max} = \max(2n-2,\ 2m_i-2)
+\]
+
+### Public-wire block
+
+For each public wire `j`:
+
+\[
+\mathrm{gamma\_inv\_o\_inst}[j]
+=
+
+\left[
+\gamma^{-1}
+\left(
+L_{t(j)}(Y)\,o_j(X) + M_j(X)
+\right)
+\right]_1
+\]
+
+### Intermediate-wire block
+
+For each intermediate wire `j = 0, \dots, m_i-1` and each placement `i = 0, \dots, s-1`:
+
+\[
+\mathrm{eta\_inv\_li\_o\_inter\_alpha4\_kj}[j][i]
+=
+\left[
+\eta^{-1}
+L_i(Y)
+\left(
+o_{j+l}(X) + \alpha^4 K_j(X)
+\right)
+\right]_1
+\]
+
+### Private-wire block
+
+For each private wire and each placement `i = 0, \dots, s-1`:
+
+\[
+\mathrm{delta\_inv\_li\_o\_prv}[j][i]
+=
+\left[
+\delta^{-1}
+L_i(Y)\,o_j(X)
+\right]_1
+\]
+
+### Vanishing-polynomial correction terms in `X`
+
+For `k = 1, 2, 3` and `h = 0, 1, 2`:
+
+\[
+\mathrm{delta\_inv\_alphak\_xh\_tx}[k][h]
+=
+\left[
+\delta^{-1}\alpha^k x^h t_n(X)
+\right]_1
+\]
+
+For `j = 0, 1`:
+
+\[
+\mathrm{delta\_inv\_alpha4\_xj\_tx}[j]
+=
+\left[
+\delta^{-1}\alpha^4 x^j t_{m_i}(X)
+\right]_1
+\]
+
+### Vanishing-polynomial correction terms in `Y`
+
+For the required `(k, i)` index pairs:
+
+\[
+\mathrm{delta\_inv\_alphak\_yi\_ty}[k][i]
+=
+\left[
+\delta^{-1}\alpha^k y^i t_s(Y)
+\right]_1
+\]
+
+### Lagrange boundary term
+
+\[
+\mathrm{lagrange\_KL}
+=
+\left[
+K_{m_i-1}(X)\,L_{s-1}(Y)
+\right]_1
+\]
+
+## Final G2 Outputs
+
+`Sigma2` stores:
+
+- `Sigma2.alpha  = [alpha]_2`
+- `Sigma2.alpha2 = [alpha^2]_2`
+- `Sigma2.alpha3 = [alpha^3]_2`
+- `Sigma2.alpha4 = [alpha^4]_2`
+- `Sigma2.gamma  = [gamma]_2`
+- `Sigma2.delta  = [delta]_2`
+- `Sigma2.eta    = [eta]_2`
+- `Sigma2.x      = [x]_2`
+- `Sigma2.y      = [y]_2`
+
+## Dependency View
+
+This section groups the outputs by which trapdoor symbols they depend on.
+
+### Outputs that depend on `x` only
+
+- `Sigma1.x`
+- parts of `delta_inv_alphak_xh_tx`
+- parts of `delta_inv_alpha4_xj_tx`
+
+### Outputs that depend on `y` only
+
+- `Sigma1.y`
+- parts of `delta_inv_alphak_yi_ty`
+- the `Y` side of `lagrange_KL`
+
+### Outputs that depend on both `x` and `y`
+
+- `Sigma1.xy_powers`
+- `gamma_inv_o_inst`
+- `eta_inv_li_o_inter_alpha4_kj`
+- `delta_inv_li_o_prv`
+- `lagrange_KL`
+
+### Outputs that depend on `gamma`, `delta`, or `eta`
+
+- `gamma`
+- `Sigma1.delta`
+- `Sigma1.eta`
+- `Sigma2.gamma`
+- `Sigma2.delta`
+- `Sigma2.eta`
+- `gamma_inv_o_inst`
+- `eta_inv_li_o_inter_alpha4_kj`
+- `delta_inv_li_o_prv`
+- `delta_inv_alphak_xh_tx`
+- `delta_inv_alpha4_xj_tx`
+- `delta_inv_alphak_yi_ty`
+
+## Planning Implication For A Refactor
+
+If `y` is removed from phase 1 and moved into phase 2, then every output listed under "Outputs that depend on both `x` and `y`" must still be expressible from the new phase-1 artifact contract.
+
+That means a refactor must preserve the ability to construct:
+
+\[
+[x^a y^b]_1,\quad
+[\alpha^k x^a y^b]_1,\quad
+[y]_2
+\]
+
+or another mathematically equivalent representation.
+
+The refactor is therefore feasible only if phase 2 gains enough structure to reconstruct all `Y`-dependent and `XY`-dependent commitments in the formulas above.
