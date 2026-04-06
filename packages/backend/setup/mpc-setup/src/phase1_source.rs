@@ -1,5 +1,5 @@
 use crate::accumulator::{Accumulator, AccumulatorRkyv};
-use crate::utils::{icicle_g1_generator, icicle_g2_generator};
+use crate::utils::icicle_g1_generator;
 use icicle_bls12_381::curve::G1Affine;
 use libs::group_structures::{G1serde, G2serde};
 use memmap::{Mmap, MmapOptions};
@@ -107,6 +107,96 @@ fn cache_is_fresh(cache_path: &Path, source_path: &Path) -> bool {
     cache_modified >= source_modified
 }
 
+fn archived_x_g1_range(
+    archived: &rkyv::Archived<AccumulatorRkyv>,
+    exp_min: usize,
+    exp_max: usize,
+) -> Vec<G1Affine> {
+    if exp_min > 0 {
+        return archived.x[exp_min - 1..exp_max]
+            .iter()
+            .map(|value| value.g1.to_g1_affine())
+            .collect();
+    }
+
+    let mut out = Vec::with_capacity(exp_max + 1);
+    out.push(icicle_g1_generator().0);
+    out.extend(
+        archived.x[..exp_max]
+            .iter()
+            .map(|value| value.g1.to_g1_affine()),
+    );
+    out
+}
+
+fn archived_alphaxy_g1_chunk(
+    archived: &rkyv::Archived<AccumulatorRkyv>,
+    exp_alpha: usize,
+    exp_x_start: usize,
+    exp_x_len: usize,
+    exp_y_max: usize,
+) -> Vec<G1Affine> {
+    let y_len = archived.y.g1.len();
+    let alpha_xy_stride = archived.x.len() * y_len;
+    let mut out = vec![G1Affine::zero(); exp_x_len * exp_y_max];
+
+    if exp_alpha > 0 {
+        for local_x in 0..exp_x_len {
+            let exp_x = exp_x_start + local_x;
+            let row = &mut out[local_x * exp_y_max..(local_x + 1) * exp_y_max];
+            if exp_x == 0 {
+                if !row.is_empty() {
+                    row[0] = archived.alpha[exp_alpha - 1].g1.to_g1_affine();
+                }
+                for exp_y in 1..exp_y_max {
+                    row[exp_y] =
+                        archived.alpha_y[(exp_alpha - 1) * y_len + exp_y - 1].to_g1_affine();
+                }
+                continue;
+            }
+
+            if !row.is_empty() {
+                row[0] =
+                    archived.alpha_x[(exp_alpha - 1) * archived.x.len() + exp_x - 1].to_g1_affine();
+            }
+            let xy_start = (exp_alpha - 1) * alpha_xy_stride + (exp_x - 1) * y_len;
+            let xy_take = exp_y_max.saturating_sub(1).min(y_len);
+            for (offset, value) in archived.alpha_xy[xy_start..xy_start + xy_take]
+                .iter()
+                .enumerate()
+            {
+                row[offset + 1] = value.to_g1_affine();
+            }
+        }
+        return out;
+    }
+
+    for local_x in 0..exp_x_len {
+        let exp_x = exp_x_start + local_x;
+        let row = &mut out[local_x * exp_y_max..(local_x + 1) * exp_y_max];
+        if exp_x == 0 {
+            if !row.is_empty() {
+                row[0] = icicle_g1_generator().0;
+            }
+            for exp_y in 1..exp_y_max {
+                row[exp_y] = archived.y.g1[exp_y - 1].to_g1_affine();
+            }
+            continue;
+        }
+
+        if !row.is_empty() {
+            row[0] = archived.x[exp_x - 1].g1.to_g1_affine();
+        }
+        let xy_start = (exp_x - 1) * y_len;
+        let xy_take = exp_y_max.saturating_sub(1).min(y_len);
+        for (offset, value) in archived.xy[xy_start..xy_start + xy_take].iter().enumerate() {
+            row[offset + 1] = value.to_g1_affine();
+        }
+    }
+
+    out
+}
+
 impl Phase1SrsSource for AccumulatorSource {
     fn g1(&self) -> G1serde {
         match &self.inner {
@@ -149,15 +239,9 @@ impl Phase1SrsSource for AccumulatorSource {
     fn x_g1_range(&self, exp_min: usize, exp_max: usize) -> Vec<G1Affine> {
         match &self.inner {
             AccumulatorSourceInner::Owned(acc) => acc.get_x_g1_range(exp_min, exp_max),
-            AccumulatorSourceInner::Mapped(acc) => (exp_min..=exp_max)
-                .map(|exp| {
-                    if exp == 0 {
-                        icicle_g1_generator().0
-                    } else {
-                        acc.accumulator().x[exp - 1].g1.to_g1_affine()
-                    }
-                })
-                .collect(),
+            AccumulatorSourceInner::Mapped(acc) => {
+                archived_x_g1_range(acc.accumulator(), exp_min, exp_max)
+            }
         }
     }
 
@@ -172,41 +256,7 @@ impl Phase1SrsSource for AccumulatorSource {
                 acc.get_alphaxy_g1_range(exp_alpha, exp_x_max, exp_y_max)
             }
             AccumulatorSourceInner::Mapped(acc) => {
-                let archived = acc.accumulator();
-                let y_len = archived.y.g1.len();
-                let alpha_xy_stride = archived.x.len() * y_len;
-                let mut out = vec![G1Affine::zero(); exp_x_max * exp_y_max];
-                for exp_x in 0..exp_x_max {
-                    for exp_y in 0..exp_y_max {
-                        out[exp_x * exp_y_max + exp_y] = if exp_alpha == 0 {
-                            if exp_x == 0 && exp_y == 0 {
-                                icicle_g1_generator().0
-                            } else if exp_x == 0 {
-                                archived.y.g1[exp_y - 1].to_g1_affine()
-                            } else if exp_y == 0 {
-                                archived.x[exp_x - 1].g1.to_g1_affine()
-                            } else {
-                                archived.xy[(exp_x - 1) * y_len + exp_y - 1].to_g1_affine()
-                            }
-                        } else if exp_x == 0 {
-                            if exp_y == 0 {
-                                archived.alpha[exp_alpha - 1].g1.to_g1_affine()
-                            } else {
-                                archived.alpha_y[(exp_alpha - 1) * y_len + exp_y - 1].to_g1_affine()
-                            }
-                        } else if exp_y == 0 {
-                            archived.alpha_x[(exp_alpha - 1) * archived.x.len() + exp_x - 1]
-                                .to_g1_affine()
-                        } else {
-                            archived.alpha_xy[(exp_alpha - 1) * alpha_xy_stride
-                                + (exp_x - 1) * y_len
-                                + exp_y
-                                - 1]
-                            .to_g1_affine()
-                        };
-                    }
-                }
-                out
+                archived_alphaxy_g1_chunk(acc.accumulator(), exp_alpha, 0, exp_x_max, exp_y_max)
             }
         }
     }
@@ -222,44 +272,13 @@ impl Phase1SrsSource for AccumulatorSource {
             AccumulatorSourceInner::Owned(acc) => {
                 acc.get_alphaxy_g1_chunk(exp_alpha, exp_x_start, exp_x_len, exp_y_max)
             }
-            AccumulatorSourceInner::Mapped(acc) => {
-                let archived = acc.accumulator();
-                let y_len = archived.y.g1.len();
-                let alpha_xy_stride = archived.x.len() * y_len;
-                let mut out = vec![G1Affine::zero(); exp_x_len * exp_y_max];
-                for local_x in 0..exp_x_len {
-                    let exp_x = exp_x_start + local_x;
-                    for exp_y in 0..exp_y_max {
-                        out[local_x * exp_y_max + exp_y] = if exp_alpha == 0 {
-                            if exp_x == 0 && exp_y == 0 {
-                                icicle_g1_generator().0
-                            } else if exp_x == 0 {
-                                archived.y.g1[exp_y - 1].to_g1_affine()
-                            } else if exp_y == 0 {
-                                archived.x[exp_x - 1].g1.to_g1_affine()
-                            } else {
-                                archived.xy[(exp_x - 1) * y_len + exp_y - 1].to_g1_affine()
-                            }
-                        } else if exp_x == 0 {
-                            if exp_y == 0 {
-                                archived.alpha[exp_alpha - 1].g1.to_g1_affine()
-                            } else {
-                                archived.alpha_y[(exp_alpha - 1) * y_len + exp_y - 1].to_g1_affine()
-                            }
-                        } else if exp_y == 0 {
-                            archived.alpha_x[(exp_alpha - 1) * archived.x.len() + exp_x - 1]
-                                .to_g1_affine()
-                        } else {
-                            archived.alpha_xy[(exp_alpha - 1) * alpha_xy_stride
-                                + (exp_x - 1) * y_len
-                                + exp_y
-                                - 1]
-                            .to_g1_affine()
-                        };
-                    }
-                }
-                out
-            }
+            AccumulatorSourceInner::Mapped(acc) => archived_alphaxy_g1_chunk(
+                acc.accumulator(),
+                exp_alpha,
+                exp_x_start,
+                exp_x_len,
+                exp_y_max,
+            ),
         }
     }
 
