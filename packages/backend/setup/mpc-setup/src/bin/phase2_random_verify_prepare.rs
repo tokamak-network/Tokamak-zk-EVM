@@ -11,8 +11,8 @@ use libs::group_structures::G1serde;
 use libs::iotools::{SetupParams, SubcircuitInfo};
 use libs::polynomial_structures::QAP;
 use libs::utils::{
-    init_ntt_domain, setup_shape, trusted_setup_ntt_domain_size,
-    validate_public_wire_size, validate_setup_shape,
+    init_ntt_domain, setup_shape, trusted_setup_ntt_domain_size, validate_public_wire_size,
+    validate_setup_shape,
 };
 use mpc_setup::mpc_utils::{compute_langrange_i_coeffs, compute_langrange_i_poly, poly_mult};
 use mpc_setup::phase1_source::{AccumulatorSource, Phase1SrsSource};
@@ -107,7 +107,10 @@ fn main() {
     let alpha3xy_g1s = phase1_source.alphaxy_g1_range(3, n, li_y_vec[0].y_size);
 
     let qap = QAP::gen_from_R1CS(&qap_path, &subcircuit_infos, &setup_params);
-    println!("QAP loaded in {:.2} seconds", start1.elapsed().as_secs_f64());
+    println!(
+        "QAP loaded in {:.2} seconds",
+        start1.elapsed().as_secs_f64()
+    );
 
     let lagrange_kl = compute_lagrange_kl_from_source(&phase1_source, &setup_params);
 
@@ -245,7 +248,6 @@ fn main() {
             delta_inv_alphak_yi_ty[k - 1][i] = phase1_source
                 .alphay_g1(k, s_max + i)
                 .sub(phase1_source.alphay_g1(k, i));
-
         }
     }
     assert_eq!(

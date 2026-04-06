@@ -1,30 +1,25 @@
-use icicle_runtime::memory::{DeviceVec, HostSlice};
+use icicle_runtime::memory::HostSlice;
 use std::env;
 
 use clap::Parser;
-use icicle_bls12_381::curve::{G1Affine, G1Projective, ScalarField};
-use icicle_core::msm;
-use icicle_core::msm::MSMConfig;
+use icicle_bls12_381::curve::{G1Affine, ScalarField};
 use icicle_core::traits::FieldImpl;
-use icicle_runtime::stream::IcicleStream;
-use libs::bivariate_polynomial::DensePolynomialExt;
+use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::group_structures::{G1serde, Sigma, Sigma1, Sigma2};
 use libs::iotools::{SetupParams, SubcircuitInfo};
 use libs::polynomial_structures::QAP;
 use libs::utils::{
-    init_ntt_domain, setup_shape, trusted_setup_ntt_domain_size,
-    validate_public_wire_size, validate_setup_shape,
+    init_ntt_domain, setup_shape, trusted_setup_ntt_domain_size, validate_public_wire_size,
+    validate_setup_shape,
 };
-use mpc_setup::mpc_utils::{compute_langrange_i_coeffs, compute_langrange_i_poly, poly_mult};
+use mpc_setup::mpc_utils::compute_langrange_i_coeffs;
 use mpc_setup::phase1_source::{AccumulatorSource, Phase1SrsSource};
 use mpc_setup::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
 use mpc_setup::utils::{load_gpu_if_possible, prompt_user_input};
 use mpc_setup::{
-    compute_lagrange_kl_from_source, ensure_testing_mode, public_wire_segments,
+    compute_lagrange_kl_from_source, ensure_testing_mode, public_wire_segments, MsmWorkspace,
     QAP_COMPILER_PATH_PREFIX,
 };
-use rayon::iter::ParallelIterator;
-use rayon::prelude::IntoParallelRefIterator;
 use std::ops::Sub;
 use std::time::Instant;
 
@@ -237,11 +232,11 @@ pub fn process_prepare(
     let subcircuit_infos =
         SubcircuitInfo::read_box_from_json(qap_path.join(&subcircuit_file_name)).unwrap();
 
-    let mut li_y_vec: Vec<DensePolynomialExt> = vec![];
-
+    let mut li_y_coeffs = Vec::with_capacity(s_max);
     for i in 0..s_max {
-        let li_y = compute_langrange_i_poly(i, 1, s_max);
-        li_y_vec.push(li_y);
+        let mut coeffs = vec![ScalarField::zero(); s_max];
+        compute_langrange_i_coeffs(i, 1, s_max, &mut coeffs);
+        li_y_coeffs.push(coeffs);
     }
     println!("Loading phase-1 source...");
     let phase1_source =
@@ -258,26 +253,37 @@ pub fn process_prepare(
 
     let g1 = phase1_source.g1();
     let g2 = phase1_source.g2();
+    let batch_count = env::var("BATCH_COUNT")
+        .unwrap_or("512".to_string())
+        .parse::<usize>()
+        .unwrap();
+    let mut msm_workspace = MsmWorkspace::new(batch_count.max(8));
 
     // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}_{t=0,j=0}^{1,l-1} where t=0 for j∈[0,l_in-1] and t=1 for j∈[l_in,l-1]
     let mut gamma_inv_o_inst = vec![G1serde::zero(); l].into_boxed_slice();
-    let alpha1xy_g1s = phase1_source.alphaxy_g1_range(1, n, li_y_vec[0].y_size);
-    let alpha2xy_g1s = phase1_source.alphaxy_g1_range(2, n, li_y_vec[0].y_size);
-    let alpha3xy_g1s = phase1_source.alphaxy_g1_range(3, n, li_y_vec[0].y_size);
+    let alpha1xy_g1s = phase1_source.alphaxy_g1_range(1, n, s_max);
+    let alpha2xy_g1s = phase1_source.alphaxy_g1_range(2, n, s_max);
+    let alpha3xy_g1s = phase1_source.alphaxy_g1_range(3, n, s_max);
 
     let qap = QAP::gen_from_R1CS(&qap_path, &subcircuit_infos, &setup_params);
-    println!("QAP loaded in {:.2} seconds", start1.elapsed().as_secs_f64());
+    println!(
+        "QAP loaded in {:.2} seconds",
+        start1.elapsed().as_secs_f64()
+    );
 
-    compute_gamma_part_i(
+    process_gamma_component(
         0,
         segments.user_out_end,
-        &qap,
-        &li_y_vec[0],
+        &qap.u_j_X,
+        &li_y_coeffs[0],
         &alpha1xy_g1s,
         &alpha2xy_g1s,
         &alpha3xy_g1s,
         &mut gamma_inv_o_inst,
-        is_gpu_enabled,
+        &qap.v_j_X,
+        &qap.w_j_X,
+        gamma_batch_size(is_gpu_enabled, alpha1xy_g1s.len()),
+        &mut msm_workspace,
     );
     let xi_g1s = if l_free > 0 {
         phase1_source.x_g1_range(0, l_free - 1)
@@ -288,8 +294,7 @@ pub fn process_prepare(
         for j in 0..segments.user_out_end {
             let mut m_j_x_coeffs = vec![ScalarField::zero(); l_free];
             compute_langrange_i_coeffs(j, l_free, 1, &mut m_j_x_coeffs);
-            gamma_inv_o_inst[j] =
-                gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
+            gamma_inv_o_inst[j] = gamma_inv_o_inst[j] + msm_workspace.msm(&m_j_x_coeffs, &xi_g1s);
             if let Some(sigma_for_check) = &sigma_trusted {
                 assert_eq!(
                     sigma_for_check.sigma.sigma_1.gamma_inv_o_inst[j],
@@ -299,23 +304,25 @@ pub fn process_prepare(
         }
     }
 
-    compute_gamma_part_i(
+    process_gamma_component(
         segments.user_out_end,
         segments.user_end,
-        &qap,
-        &li_y_vec[1],
+        &qap.u_j_X,
+        &li_y_coeffs[1],
         &alpha1xy_g1s,
         &alpha2xy_g1s,
         &alpha3xy_g1s,
         &mut gamma_inv_o_inst,
-        is_gpu_enabled,
+        &qap.v_j_X,
+        &qap.w_j_X,
+        gamma_batch_size(is_gpu_enabled, alpha1xy_g1s.len()),
+        &mut msm_workspace,
     );
     if l_free > 0 {
         for j in segments.user_out_end..segments.user_end {
             let mut m_j_x_coeffs = vec![ScalarField::zero(); l_free];
             compute_langrange_i_coeffs(j, l_free, 1, &mut m_j_x_coeffs);
-            gamma_inv_o_inst[j] =
-                gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
+            gamma_inv_o_inst[j] = gamma_inv_o_inst[j] + msm_workspace.msm(&m_j_x_coeffs, &xi_g1s);
             if let Some(sigma_for_check) = &sigma_trusted {
                 assert_eq!(
                     sigma_for_check.sigma.sigma_1.gamma_inv_o_inst[j],
@@ -324,23 +331,25 @@ pub fn process_prepare(
             }
         }
     }
-    compute_gamma_part_i(
+    process_gamma_component(
         segments.user_end,
         segments.free_end,
-        &qap,
-        &li_y_vec[2],
+        &qap.u_j_X,
+        &li_y_coeffs[2],
         &alpha1xy_g1s,
         &alpha2xy_g1s,
         &alpha3xy_g1s,
         &mut gamma_inv_o_inst,
-        is_gpu_enabled,
+        &qap.v_j_X,
+        &qap.w_j_X,
+        gamma_batch_size(is_gpu_enabled, alpha1xy_g1s.len()),
+        &mut msm_workspace,
     );
     if l_free > 0 {
         for j in segments.user_end..segments.free_end {
             let mut m_j_x_coeffs = vec![ScalarField::zero(); l_free];
             compute_langrange_i_coeffs(j, l_free, 1, &mut m_j_x_coeffs);
-            gamma_inv_o_inst[j] =
-                gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
+            gamma_inv_o_inst[j] = gamma_inv_o_inst[j] + msm_workspace.msm(&m_j_x_coeffs, &xi_g1s);
             if let Some(sigma_for_check) = &sigma_trusted {
                 assert_eq!(
                     sigma_for_check.sigma.sigma_1.gamma_inv_o_inst[j],
@@ -349,16 +358,19 @@ pub fn process_prepare(
             }
         }
     }
-    compute_gamma_part_i(
+    process_gamma_component(
         segments.free_end,
         segments.total_end,
-        &qap,
-        &li_y_vec[3],
+        &qap.u_j_X,
+        &li_y_coeffs[3],
         &alpha1xy_g1s,
         &alpha2xy_g1s,
         &alpha3xy_g1s,
         &mut gamma_inv_o_inst,
-        is_gpu_enabled,
+        &qap.v_j_X,
+        &qap.w_j_X,
+        gamma_batch_size(is_gpu_enabled, alpha1xy_g1s.len()),
+        &mut msm_workspace,
     );
     if let Some(sigma_for_check) = &sigma_trusted {
         for i in segments.free_end..segments.total_end {
@@ -405,28 +417,19 @@ pub fn process_prepare(
             delta_inv_alphak_yi_ty[k - 1][i] = phase1_source
                 .alphay_g1(k, s_max + i)
                 .sub(phase1_source.alphay_g1(k, i));
-
         }
     }
     //assert_eq!(sigma_trusted.sigma.sigma_1.delta_inv_alphak_yi_ty, delta_inv_alphak_yi_ty);
     let lap = start1.elapsed();
-    println!("Prepared gamma and delta constants in {:.2} seconds", lap.as_secs_f64());
+    println!(
+        "Prepared gamma and delta constants in {:.2} seconds",
+        lap.as_secs_f64()
+    );
 
-    let mut multpxy_coeffs = vec![ScalarField::zero(); n * li_y_vec[0].y_size];
     // {η^(-1)L_i(y)(o_{j+l}(x) + α^4 K_j(x))}_{i=0,j=0}^{s_max-1,m_I-1}
     let mut eta_inv_li_o_inter_alpha4_kj =
         vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_i].into_boxed_slice();
-    let mut kj_x_vec: Vec<DensePolynomialExt> = vec![];
-    for i in 0..m_i {
-        let kj_x = compute_langrange_i_poly(i, m_i, 1);
-        kj_x_vec.push(kj_x);
-    }
-    let mut xy_coeffs = vec![ScalarField::zero(); li_y_vec[0].y_size * kj_x_vec[0].x_size];
-    let alpha4xy_g1s = phase1_source.alphaxy_g1_range(4, kj_x_vec[0].x_size, li_y_vec[0].y_size);
-    let batch_count = env::var("BATCH_COUNT")
-        .unwrap_or("512".to_string())
-        .parse::<usize>()
-        .unwrap();
+    let alpha4xy_g1s = phase1_source.alphaxy_g1_range(4, m_i, s_max);
 
     let mut start = 0;
     let mut end = s_max;
@@ -444,59 +447,61 @@ pub fn process_prepare(
         "u",
         m_i,
         l,
-        batch_count,
-        &li_y_vec,
+        effective_batch_size(alpha1xy_g1s.len(), batch_count),
+        &li_y_coeffs,
         |j_plus_l, _| qap.u_j_X.get(j_plus_l),
         &alpha1xy_g1s,
-        &mut multpxy_coeffs,
         &mut eta_inv_li_o_inter_alpha4_kj,
-        is_gpu_enabled,
+        n,
         start,
         end,
+        &mut msm_workspace,
     );
     process_qap_component_for_eta(
         "v",
         m_i,
         l,
-        batch_count,
-        &li_y_vec,
+        effective_batch_size(alpha2xy_g1s.len(), batch_count),
+        &li_y_coeffs,
         |j_plus_l, _| qap.v_j_X.get(j_plus_l),
         &alpha2xy_g1s,
-        &mut multpxy_coeffs,
         &mut eta_inv_li_o_inter_alpha4_kj,
-        is_gpu_enabled,
+        n,
         start,
         end,
+        &mut msm_workspace,
     );
 
     process_qap_component_for_eta(
         "w",
         m_i,
         l,
-        batch_count,
-        &li_y_vec,
+        effective_batch_size(alpha3xy_g1s.len(), batch_count),
+        &li_y_coeffs,
         |j_plus_l, _| qap.w_j_X.get(j_plus_l),
         &alpha3xy_g1s,
-        &mut multpxy_coeffs,
         &mut eta_inv_li_o_inter_alpha4_kj,
-        is_gpu_enabled,
+        n,
         start,
         end,
+        &mut msm_workspace,
     );
 
-    process_qap_component_for_eta(
+    process_coeff_source_for_eta(
         "kjx",
         m_i,
-        0, // no offset needed for kj_x_vec
-        batch_count,
-        &li_y_vec,
-        |_, j| kj_x_vec.get(j),
+        effective_batch_size(alpha4xy_g1s.len(), batch_count),
+        &li_y_coeffs,
+        |j, coeffs| {
+            compute_langrange_i_coeffs(j, m_i, 1, coeffs);
+            true
+        },
         &alpha4xy_g1s,
-        &mut xy_coeffs,
         &mut eta_inv_li_o_inter_alpha4_kj,
-        is_gpu_enabled,
+        m_i,
         start,
         end,
+        &mut msm_workspace,
     );
     for i in start..end {
         for j in 0..m_i {
@@ -519,51 +524,54 @@ pub fn process_prepare(
         vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_d - (l + m_i)].into_boxed_slice();
     //for private wires,
     let start2 = Instant::now();
-    let s_max = li_y_vec.len();
+    let s_max = li_y_coeffs.len();
 
     process_qap_contributions_for_delta_inv(
         "u",
         &qap.u_j_X,
         &alpha1xy_g1s,
-        &li_y_vec,
+        &li_y_coeffs,
         l,
         m_i,
         m_d,
-        &mut multpxy_coeffs,
         &mut delta_inv_li_o_prv,
-        batch_count,
+        effective_batch_size(alpha1xy_g1s.len(), batch_count),
         start,
         end,
+        n,
+        &mut msm_workspace,
     );
 
     process_qap_contributions_for_delta_inv(
         "v",
         &qap.v_j_X,
         &alpha2xy_g1s,
-        &li_y_vec,
+        &li_y_coeffs,
         l,
         m_i,
         m_d,
-        &mut multpxy_coeffs,
         &mut delta_inv_li_o_prv,
-        batch_count,
+        effective_batch_size(alpha2xy_g1s.len(), batch_count),
         start,
         end,
+        n,
+        &mut msm_workspace,
     );
 
     process_qap_contributions_for_delta_inv(
         "w",
         &qap.w_j_X,
         &alpha3xy_g1s,
-        &li_y_vec,
+        &li_y_coeffs,
         l,
         m_i,
         m_d,
-        &mut multpxy_coeffs,
         &mut delta_inv_li_o_prv,
-        batch_count,
+        effective_batch_size(alpha3xy_g1s.len(), batch_count),
         start,
         end,
+        n,
+        &mut msm_workspace,
     );
 
     for i in start..end {
@@ -580,7 +588,10 @@ pub fn process_prepare(
         println!("Verified private-wire delta terms against the trusted reference");
     }
     let avg = start2.elapsed().as_secs_f64() / (s_max * (m_d - (l + m_i))) as f64;
-    println!("Prepared private-wire delta terms at {:.2} items/s", 1f64 / avg);
+    println!(
+        "Prepared private-wire delta terms at {:.2} items/s",
+        1f64 / avg
+    );
 
     let lagrange_kl = compute_lagrange_kl_from_source(&phase1_source, &setup_params);
 
@@ -619,294 +630,307 @@ pub fn process_prepare(
     }
 }
 
+const MAX_BATCH_SCALARS: usize = 1 << 22;
+
+fn effective_batch_size(scalars_per_item: usize, requested: usize) -> usize {
+    let max_batch = (MAX_BATCH_SCALARS / scalars_per_item).max(1);
+    requested.max(1).min(max_batch)
+}
+
+fn gamma_batch_size(is_gpu_enabled: bool, scalars_per_item: usize) -> usize {
+    let requested = if is_gpu_enabled { 1 } else { 7 };
+    effective_batch_size(scalars_per_item, requested)
+}
+
+fn copy_univariate_coeffs(poly: &DensePolynomialExt, coeffs: &mut [ScalarField]) {
+    assert_eq!(poly.x_size * poly.y_size, coeffs.len());
+    poly.copy_coeffs(0, HostSlice::from_mut_slice(coeffs));
+}
+
+fn append_outer_product_scalars(
+    x_coeffs: &[ScalarField],
+    y_coeffs: &[ScalarField],
+    dest: &mut Vec<ScalarField>,
+) {
+    dest.reserve(x_coeffs.len() * y_coeffs.len());
+    for x_coeff in x_coeffs {
+        for y_coeff in y_coeffs {
+            dest.push(*x_coeff * *y_coeff);
+        }
+    }
+}
+
+fn flush_shared_batch_1d(
+    msm_workspace: &mut MsmWorkspace,
+    bases: &[G1Affine],
+    scalars: &mut Vec<ScalarField>,
+    indexes: &mut Vec<usize>,
+    dest: &mut Box<[G1serde]>,
+) {
+    if indexes.is_empty() {
+        return;
+    }
+
+    let results = msm_workspace.shared_bases_msm(bases, scalars, indexes.len());
+    for (batch_idx, row_idx) in indexes.iter().enumerate() {
+        dest[*row_idx] = dest[*row_idx] + G1serde(G1Affine::from(results[batch_idx]));
+    }
+    scalars.clear();
+    indexes.clear();
+}
+
+fn flush_shared_batch_2d(
+    msm_workspace: &mut MsmWorkspace,
+    bases: &[G1Affine],
+    scalars: &mut Vec<ScalarField>,
+    indexes: &mut Vec<(usize, usize)>,
+    dest: &mut Box<[Box<[G1serde]>]>,
+) {
+    if indexes.is_empty() {
+        return;
+    }
+
+    let results = msm_workspace.shared_bases_msm(bases, scalars, indexes.len());
+    for (batch_idx, &(row_idx, col_idx)) in indexes.iter().enumerate() {
+        dest[row_idx][col_idx] =
+            dest[row_idx][col_idx] + G1serde(G1Affine::from(results[batch_idx]));
+    }
+    scalars.clear();
+    indexes.clear();
+}
+
+fn process_gamma_slice(
+    qap_slice: &[DensePolynomialExt],
+    start: usize,
+    end: usize,
+    lag_y_coeffs: &[ScalarField],
+    bases: &[G1Affine],
+    batch_size: usize,
+    gamma_inv_o_inst: &mut Box<[G1serde]>,
+    msm_workspace: &mut MsmWorkspace,
+) {
+    if start >= end {
+        return;
+    }
+
+    let mut x_coeffs = vec![ScalarField::zero(); qap_slice[start].x_size];
+    let mut scalars = Vec::with_capacity(bases.len() * batch_size);
+    let mut indexes = Vec::with_capacity(batch_size);
+
+    for j in start..end {
+        let poly = &qap_slice[j];
+        if poly.is_zero() {
+            continue;
+        }
+
+        copy_univariate_coeffs(poly, &mut x_coeffs);
+        append_outer_product_scalars(&x_coeffs, lag_y_coeffs, &mut scalars);
+        indexes.push(j);
+
+        if indexes.len() == batch_size {
+            flush_shared_batch_1d(
+                msm_workspace,
+                bases,
+                &mut scalars,
+                &mut indexes,
+                gamma_inv_o_inst,
+            );
+        }
+    }
+
+    flush_shared_batch_1d(
+        msm_workspace,
+        bases,
+        &mut scalars,
+        &mut indexes,
+        gamma_inv_o_inst,
+    );
+}
+
+fn process_gamma_component(
+    start: usize,
+    end: usize,
+    qap_u: &[DensePolynomialExt],
+    lag_y_coeffs: &[ScalarField],
+    alpha1xy_g1s: &[G1Affine],
+    alpha2xy_g1s: &[G1Affine],
+    alpha3xy_g1s: &[G1Affine],
+    gamma_inv_o_inst: &mut Box<[G1serde]>,
+    qap_v: &[DensePolynomialExt],
+    qap_w: &[DensePolynomialExt],
+    batch_size: usize,
+    msm_workspace: &mut MsmWorkspace,
+) {
+    process_gamma_slice(
+        qap_u,
+        start,
+        end,
+        lag_y_coeffs,
+        alpha1xy_g1s,
+        batch_size,
+        gamma_inv_o_inst,
+        msm_workspace,
+    );
+    process_gamma_slice(
+        qap_v,
+        start,
+        end,
+        lag_y_coeffs,
+        alpha2xy_g1s,
+        batch_size,
+        gamma_inv_o_inst,
+        msm_workspace,
+    );
+    process_gamma_slice(
+        qap_w,
+        start,
+        end,
+        lag_y_coeffs,
+        alpha3xy_g1s,
+        batch_size,
+        gamma_inv_o_inst,
+        msm_workspace,
+    );
+}
+
+fn process_coeff_source_for_eta<F>(
+    label: &str,
+    row_count: usize,
+    batch_count: usize,
+    li_y_coeffs: &[Vec<ScalarField>],
+    mut fill_x_coeffs: F,
+    alpha_k_xy_g1s: &[G1Affine],
+    result_matrix: &mut Box<[Box<[G1serde]>]>,
+    x_size: usize,
+    start: usize,
+    end: usize,
+    msm_workspace: &mut MsmWorkspace,
+) where
+    F: FnMut(usize, &mut [ScalarField]) -> bool,
+{
+    println!("Preparing eta contribution: {}", label);
+    let mut x_coeffs = vec![ScalarField::zero(); x_size];
+    let mut scalars = Vec::with_capacity(alpha_k_xy_g1s.len() * batch_count);
+    let mut indexes = Vec::with_capacity(batch_count);
+
+    for row_idx in 0..row_count {
+        if !fill_x_coeffs(row_idx, &mut x_coeffs) {
+            continue;
+        }
+
+        for col_idx in start..end {
+            append_outer_product_scalars(&x_coeffs, &li_y_coeffs[col_idx], &mut scalars);
+            indexes.push((row_idx, col_idx));
+            if indexes.len() == batch_count {
+                flush_shared_batch_2d(
+                    msm_workspace,
+                    alpha_k_xy_g1s,
+                    &mut scalars,
+                    &mut indexes,
+                    result_matrix,
+                );
+            }
+        }
+    }
+
+    flush_shared_batch_2d(
+        msm_workspace,
+        alpha_k_xy_g1s,
+        &mut scalars,
+        &mut indexes,
+        result_matrix,
+    );
+    println!("Finished eta contribution: {}", label);
+}
+
 fn process_qap_component_for_eta<'a, F>(
     label: &str,
     m_i: usize,
     l: usize,
     batch_count: usize,
-    li_y_vec: &'a Vec<DensePolynomialExt>,
+    li_y_coeffs: &[Vec<ScalarField>],
     poly_source: F,
-    alpha_k_xy_g1s: &'a Vec<G1Affine>,
-    coeff_buf: &mut Vec<ScalarField>,
+    alpha_k_xy_g1s: &[G1Affine],
     result_matrix: &mut Box<[Box<[G1serde]>]>,
-    _is_gpu_enabled: bool,
+    x_size: usize,
     start: usize,
     end: usize,
+    msm_workspace: &mut MsmWorkspace,
 ) where
     F: Fn(usize, usize) -> Option<&'a DensePolynomialExt>,
 {
-    println!("Preparing eta contribution: {}", label);
-    for i in start..end {
-        let mut coeffs = Vec::with_capacity(coeff_buf.len() * batch_count);
-        let mut indexes = Vec::with_capacity(batch_count);
-
-        for j in 0..m_i {
-            if let Some(poly) = poly_source(j + l, j) {
+    process_coeff_source_for_eta(
+        label,
+        m_i,
+        batch_count,
+        li_y_coeffs,
+        |row_idx, x_coeffs| {
+            if let Some(poly) = poly_source(row_idx + l, row_idx) {
                 if !poly.is_zero() {
-                    poly_mult(poly, &li_y_vec[i], coeff_buf);
-                    coeffs.extend(&*coeff_buf);
-                    indexes.push((j, i));
-
-                    if indexes.len() == batch_count {
-                        sum_batch_vector_dot_product(
-                            &alpha_k_xy_g1s,
-                            &coeffs,
-                            &indexes,
-                            result_matrix,
-                        );
-                        coeffs.clear();
-                        indexes.clear();
-                    }
+                    copy_univariate_coeffs(poly, x_coeffs);
+                    return true;
                 }
             }
-        }
-
-        if !indexes.is_empty() {
-            sum_batch_vector_dot_product(alpha_k_xy_g1s, &coeffs, &indexes, result_matrix);
-        }
-    }
-
-    println!("Finished eta contribution: {}", label);
+            false
+        },
+        alpha_k_xy_g1s,
+        result_matrix,
+        x_size,
+        start,
+        end,
+        msm_workspace,
+    );
 }
 
 fn process_qap_contributions_for_delta_inv(
     label: &str,
-    qap_slice: &Vec<DensePolynomialExt>,
-    alpha_k_g1s: &Vec<G1Affine>,
-    li_y_vec: &Vec<DensePolynomialExt>,
+    qap_slice: &[DensePolynomialExt],
+    alpha_k_g1s: &[G1Affine],
+    li_y_coeffs: &[Vec<ScalarField>],
     l: usize,
     m_i: usize,
     m_d: usize,
-    multpxy_coeffs: &mut Vec<ScalarField>,
     delta_inv_li_o_prv: &mut Box<[Box<[G1serde]>]>,
     batch_count: usize,
     start: usize,
     end: usize,
+    x_size: usize,
+    msm_workspace: &mut MsmWorkspace,
 ) {
     println!("Preparing delta contribution: {}", label);
-    for i in start..end {
-        let mut coeffs = Vec::with_capacity(multpxy_coeffs.len() * batch_count);
-        let mut indexes = Vec::with_capacity(batch_count);
+    let mut x_coeffs = vec![ScalarField::zero(); x_size];
+    let mut scalars = Vec::with_capacity(alpha_k_g1s.len() * batch_count);
+    let mut indexes = Vec::with_capacity(batch_count);
 
-        for j in (l + m_i)..m_d {
-            if !qap_slice[j].is_zero() {
-                poly_mult(&qap_slice[j], &li_y_vec[i], multpxy_coeffs);
-                coeffs.extend(&*multpxy_coeffs);
-                indexes.push((j - (l + m_i), i));
+    for qap_idx in (l + m_i)..m_d {
+        let poly = &qap_slice[qap_idx];
+        if poly.is_zero() {
+            continue;
+        }
 
-                if indexes.len() == batch_count {
-                    sum_batch_vector_dot_product(
-                        alpha_k_g1s,
-                        &coeffs,
-                        &indexes,
-                        delta_inv_li_o_prv,
-                    );
-                    indexes.clear();
-                    coeffs.clear();
-                }
+        copy_univariate_coeffs(poly, &mut x_coeffs);
+        let row_idx = qap_idx - (l + m_i);
+        for col_idx in start..end {
+            append_outer_product_scalars(&x_coeffs, &li_y_coeffs[col_idx], &mut scalars);
+            indexes.push((row_idx, col_idx));
+            if indexes.len() == batch_count {
+                flush_shared_batch_2d(
+                    msm_workspace,
+                    alpha_k_g1s,
+                    &mut scalars,
+                    &mut indexes,
+                    delta_inv_li_o_prv,
+                );
             }
         }
-
-        if !indexes.is_empty() {
-            sum_batch_vector_dot_product(alpha_k_g1s, &coeffs, &indexes, delta_inv_li_o_prv);
-        }
     }
+
+    flush_shared_batch_2d(
+        msm_workspace,
+        alpha_k_g1s,
+        &mut scalars,
+        &mut indexes,
+        delta_inv_li_o_prv,
+    );
+    println!("Finished delta contribution: {}", label);
 }
-
-fn compute_gamma_part_i(
-    start: usize,
-    end: usize,
-    qap: &QAP,
-    lag_i: &DensePolynomialExt,
-    alpha1xy_g1s: &Vec<G1Affine>,
-    alpha2xy_g1s: &Vec<G1Affine>,
-    alpha3xy_g1s: &Vec<G1Affine>,
-    gamma_inv_o_inst: &mut Box<[G1serde]>,
-    is_gpu_enabled: bool,
-) {
-    let mut multpxy_coeffs = vec![ScalarField::zero(); qap.w_j_X[start].x_size * lag_i.y_size];
-    let mut cache: Vec<(usize, Vec<ScalarField>, Vec<G1Affine>)> = vec![];
-
-    let batch_size = if is_gpu_enabled { 1 } else { 7 };
-
-    for j in start..end {
-        let mut coeffs: Vec<ScalarField> = Vec::with_capacity(multpxy_coeffs.len() * 3);
-        let mut commits: Vec<G1Affine> = Vec::with_capacity(multpxy_coeffs.len() * 3);
-
-        //lookup with alpha x^i y^j
-        if !qap.u_j_X[j].is_zero() {
-            poly_mult(&qap.u_j_X[j], lag_i, &mut multpxy_coeffs);
-            coeffs.extend(&multpxy_coeffs);
-            commits.extend(alpha1xy_g1s);
-        }
-        //lookup with alpha^2 x^i y^j
-        if !qap.v_j_X[j].is_zero() {
-            poly_mult(&qap.v_j_X[j], lag_i, &mut multpxy_coeffs);
-            coeffs.extend(&multpxy_coeffs);
-            commits.extend(alpha2xy_g1s);
-        }
-        //lookup with alpha^3 x^i y^j
-        if !qap.w_j_X[j].is_zero() {
-            poly_mult(&qap.w_j_X[j], lag_i, &mut multpxy_coeffs);
-            coeffs.extend(&multpxy_coeffs);
-            commits.extend(alpha3xy_g1s);
-        }
-
-        if coeffs.len() > 0 {
-            cache.push((j, coeffs, commits));
-            //gamma_inv_o_inst[j] = sum_vector_dot_product(&coeffs, &commits);//out;
-        }
-        if cache.len() > batch_size {
-            run_sum_vector_dot_product(&cache, gamma_inv_o_inst, is_gpu_enabled);
-            cache.clear();
-        }
-    }
-    if cache.len() > 0 {
-        run_sum_vector_dot_product(&cache, gamma_inv_o_inst, is_gpu_enabled);
-    }
-}
-
-fn run_sum_vector_dot_product(
-    cache: &Vec<(usize, Vec<ScalarField>, Vec<G1Affine>)>,
-    gamma_inv_o_inst: &mut Box<[G1serde]>,
-    is_gpu_enabled: bool,
-) {
-    let mut results: Vec<(usize, G1serde)> = if is_gpu_enabled {
-        cache
-            .iter()
-            .map(|(j, coeffs, commits)| (*j, sum_vector_dot_product(coeffs, commits)))
-            .collect()
-    } else {
-        cache
-            .par_iter() //par_iter
-            .map(|(j, coeffs, commits)| (*j, sum_vector_dot_product(coeffs, commits)))
-            .collect()
-    };
-
-    results.sort_by_key(|(j, _)| *j);
-    for (j, val) in results {
-        gamma_inv_o_inst[j] = val;
-    }
-}
-
-fn run_sum_vector_dot_product2(
-    cache: &Vec<(usize, usize, Vec<ScalarField>, Vec<G1Affine>)>,
-    p1: &mut Box<[Box<[G1serde]>]>,
-) {
-    let results: Vec<(usize, usize, G1serde)> = cache
-        .par_iter() //par_iter
-        .map(|(j, i, coeffs, commits)| (*j, *i, sum_vector_dot_product(coeffs, commits)))
-        .collect();
-
-    //results.sort_by_key(|(i,j, _)| *j);
-    for (j, i, val) in results {
-        p1[j][i] = val;
-    }
-}
-
-fn sum_batch_vector_dot_product(
-    bases: &Vec<G1Affine>,
-    scalars: &Vec<ScalarField>,
-    indexes: &Vec<(usize, usize)>,
-    dest: &mut Box<[Box<[G1serde]>]>,
-) {
-    let output_size = indexes.len();
-
-    assert_eq!(scalars.len(), bases.len() * output_size);
-    let mut msm_res =
-        DeviceVec::<G1Projective>::device_malloc(output_size).expect("device_malloc failed");
-    let mut stream = IcicleStream::create().expect("Stream creation failed");
-    let mut cfg = MSMConfig::default();
-    cfg.stream_handle = *stream;
-    cfg.is_async = true;
-    cfg.batch_size = bases.len() as i32;
-    cfg.are_points_shared_in_batch = true;
-    msm::msm(
-        HostSlice::from_slice(&scalars),
-        HostSlice::from_slice(&bases),
-        &cfg,
-        &mut msm_res[..],
-    )
-    .unwrap();
-
-    stream.synchronize().unwrap();
-
-    let mut host_res = vec![G1Projective::zero(); output_size];
-    msm_res
-        .copy_to_host(HostSlice::from_mut_slice(&mut host_res[..]))
-        .unwrap();
-    drop(msm_res);
-
-    for (i, &(j, k)) in indexes.iter().enumerate() {
-        dest[j][k] = dest[j][k] + G1serde(G1Affine::from(host_res[i]));
-    }
-    stream.destroy().unwrap();
-}
-
-// phase1_acc_1.json
-pub fn sum_vector_dot_product(scalars: &Vec<ScalarField>, commit: &[G1Affine]) -> G1serde {
-    //  sum_vector_dot_product_chunked(scalars,commit,1024*32)
-    let mut msm_res = DeviceVec::<G1Projective>::device_malloc(1).expect("device_malloc failed");
-    let mut stream = IcicleStream::create().expect("Stream creation failed");
-    let mut cfg = MSMConfig::default();
-    cfg.stream_handle = *stream;
-    cfg.is_async = true;
-    msm::msm(
-        HostSlice::from_slice(&scalars),
-        HostSlice::from_slice(&commit),
-        &cfg,
-        &mut msm_res[..],
-    )
-    .unwrap();
-    stream.synchronize().unwrap();
-    let mut host_res = vec![G1Projective::zero(); 1];
-    msm_res
-        .copy_to_host(HostSlice::from_mut_slice(&mut host_res[..]))
-        .unwrap();
-    stream.destroy().unwrap();
-    // drop(msm_res);
-    G1serde(G1Affine::from(host_res[0]))
-}
-pub fn sum_vector_dot_product_chunked(
-    scalars: &[ScalarField],
-    commit: &[G1Affine],
-    chunk_size: usize,
-) -> G1serde {
-    assert_eq!(scalars.len(), commit.len());
-
-    let mut partial_results = Vec::new();
-    let mut stream = IcicleStream::create().expect("Stream creation failed");
-    let mut cfg = msm::MSMConfig::default();
-    cfg.stream_handle = *stream;
-    cfg.is_async = true;
-
-    for (scalar_chunk, commit_chunk) in scalars.chunks(chunk_size).zip(commit.chunks(chunk_size)) {
-        let mut msm_res =
-            DeviceVec::<G1Projective>::device_malloc(1).expect("device_malloc failed");
-        msm::msm(
-            HostSlice::from_slice(scalar_chunk),
-            HostSlice::from_slice(commit_chunk),
-            &cfg,
-            &mut msm_res[..],
-        )
-        .unwrap();
-
-        stream.synchronize().unwrap();
-
-        let mut host_res = vec![G1Projective::zero(); 1];
-        msm_res
-            .copy_to_host(HostSlice::from_mut_slice(&mut host_res[..]))
-            .unwrap();
-        drop(msm_res);
-        partial_results.push(host_res[0]);
-    }
-    stream.destroy().unwrap();
-
-    // Sum all partial MSM results using CPU
-    let final_sum = partial_results
-        .into_iter()
-        .fold(G1Projective::zero(), |acc, p| acc + p);
-
-    G1serde(G1Affine::from(final_sum))
-}
-//phase1_acc_1.json

@@ -7,8 +7,8 @@ use libs::group_structures::{PartialSigma1, SigmaPreprocess};
 use libs::iotools::read_global_wire_list_as_boxed_boxed_numbers;
 use libs::iotools::{SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use libs::utils::{
-    init_ntt_domain, setup_shape, trusted_setup_ntt_domain_size,
-    validate_public_wire_size, validate_setup_shape,
+    init_ntt_domain, setup_shape, trusted_setup_ntt_domain_size, validate_public_wire_size,
+    validate_setup_shape,
 };
 use libs::vector_operations::gen_evaled_lagrange_bases;
 use mpc_setup::conversions::{icicle_g1_generator, icicle_g2_generator};
@@ -209,5 +209,8 @@ fn main() {
         hex::encode([0u8; HASH_BYTES_LEN]),
     )
     .expect("cannot write contributor info");
-    println!("Testing prepare completed in {:.2} seconds", start.elapsed().as_secs_f64());
+    println!(
+        "Testing prepare completed in {:.2} seconds",
+        start.elapsed().as_secs_f64()
+    );
 }

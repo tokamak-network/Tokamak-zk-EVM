@@ -45,6 +45,93 @@ pub mod phase1_source;
 
 pub mod sigma;
 
+pub struct MsmWorkspace {
+    stream: IcicleStream,
+    output: DeviceVec<G1Projective>,
+    host: Vec<G1Projective>,
+    capacity: usize,
+}
+
+impl MsmWorkspace {
+    pub fn new(capacity: usize) -> Self {
+        let capacity = capacity.max(1);
+        Self {
+            stream: IcicleStream::create().expect("Stream creation failed"),
+            output: DeviceVec::<G1Projective>::device_malloc(capacity)
+                .expect("device_malloc failed"),
+            host: vec![G1Projective::zero(); capacity],
+            capacity,
+        }
+    }
+
+    fn ensure_capacity(&mut self, capacity: usize) {
+        if capacity <= self.capacity {
+            return;
+        }
+        let new_capacity = capacity.next_power_of_two();
+        self.output =
+            DeviceVec::<G1Projective>::device_malloc(new_capacity).expect("device_malloc failed");
+        self.host.resize(new_capacity, G1Projective::zero());
+        self.capacity = new_capacity;
+    }
+
+    pub fn msm(&mut self, scalars: &[ScalarField], bases: &[G1Affine]) -> G1serde {
+        assert_eq!(scalars.len(), bases.len());
+        self.ensure_capacity(1);
+
+        let mut cfg = MSMConfig::default();
+        cfg.stream_handle = *self.stream;
+        cfg.is_async = true;
+        msm::msm(
+            HostSlice::from_slice(scalars),
+            HostSlice::from_slice(bases),
+            &cfg,
+            &mut self.output[..1],
+        )
+        .unwrap();
+        self.stream.synchronize().unwrap();
+        self.output[..1]
+            .copy_to_host(HostSlice::from_mut_slice(&mut self.host[..1]))
+            .unwrap();
+        G1serde(G1Affine::from(self.host[0]))
+    }
+
+    pub fn shared_bases_msm(
+        &mut self,
+        bases: &[G1Affine],
+        batched_scalars: &[ScalarField],
+        output_size: usize,
+    ) -> &[G1Projective] {
+        assert!(output_size > 0);
+        assert_eq!(batched_scalars.len(), bases.len() * output_size);
+        self.ensure_capacity(output_size);
+
+        let mut cfg = MSMConfig::default();
+        cfg.stream_handle = *self.stream;
+        cfg.is_async = true;
+        cfg.batch_size = bases.len() as i32;
+        cfg.are_points_shared_in_batch = true;
+        msm::msm(
+            HostSlice::from_slice(batched_scalars),
+            HostSlice::from_slice(bases),
+            &cfg,
+            &mut self.output[..output_size],
+        )
+        .unwrap();
+        self.stream.synchronize().unwrap();
+        self.output[..output_size]
+            .copy_to_host(HostSlice::from_mut_slice(&mut self.host[..output_size]))
+            .unwrap();
+        &self.host[..output_size]
+    }
+}
+
+impl Drop for MsmWorkspace {
+    fn drop(&mut self) {
+        let _ = self.stream.destroy();
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct PublicWireSegments {
     pub user_out_end: usize,
@@ -73,31 +160,6 @@ pub fn public_wire_segments(setup_params: &SetupParams) -> PublicWireSegments {
 
 const LAGRANGE_KL_MSM_CHUNK_SIZE: usize = 1 << 15;
 
-fn msm_chunk_to_projective(scalars: &[ScalarField], bases: &[G1Affine]) -> G1Projective {
-    assert_eq!(scalars.len(), bases.len());
-
-    let mut msm_res = DeviceVec::<G1Projective>::device_malloc(1).expect("device_malloc failed");
-    let mut stream = IcicleStream::create().expect("Stream creation failed");
-    let mut cfg = MSMConfig::default();
-    cfg.stream_handle = *stream;
-    cfg.is_async = true;
-    msm::msm(
-        HostSlice::from_slice(scalars),
-        HostSlice::from_slice(bases),
-        &cfg,
-        &mut msm_res[..],
-    )
-    .unwrap();
-    stream.synchronize().unwrap();
-
-    let mut host_res = vec![G1Projective::zero(); 1];
-    msm_res
-        .copy_to_host(HostSlice::from_mut_slice(&mut host_res[..]))
-        .unwrap();
-    stream.destroy().unwrap();
-    host_res[0]
-}
-
 fn compute_last_lagrange_coeffs(size: usize, along_x: bool) -> Vec<ScalarField> {
     let mut coeffs = vec![ScalarField::zero(); size];
     if along_x {
@@ -121,6 +183,7 @@ where
     let mut scalars = Vec::with_capacity(LAGRANGE_KL_MSM_CHUNK_SIZE);
     let mut bases = Vec::with_capacity(LAGRANGE_KL_MSM_CHUNK_SIZE);
     let mut acc = G1Projective::zero();
+    let mut msm_workspace = MsmWorkspace::new(1);
 
     for (x_idx, x_coeff) in k_coeffs.iter().enumerate() {
         for (y_idx, y_coeff) in l_coeffs.iter().enumerate() {
@@ -128,7 +191,7 @@ where
             bases.push(basis_at(x_idx, y_idx));
 
             if scalars.len() == LAGRANGE_KL_MSM_CHUNK_SIZE {
-                acc = acc + msm_chunk_to_projective(&scalars, &bases);
+                acc = acc + msm_workspace.msm(&scalars, &bases).0.to_projective();
                 scalars.clear();
                 bases.clear();
             }
@@ -136,7 +199,7 @@ where
     }
 
     if !scalars.is_empty() {
-        acc = acc + msm_chunk_to_projective(&scalars, &bases);
+        acc = acc + msm_workspace.msm(&scalars, &bases).0.to_projective();
     }
 
     G1serde(G1Affine::from(acc))
