@@ -244,7 +244,7 @@ fn is_power_of_two_bitwise(n: usize) -> bool {
 pub fn process_prepare(
     contributor_index: usize,
     outfolder: &str,
-    is_gpu_enabled: bool,
+    _is_gpu_enabled: bool,
     is_checking: bool,
     total_part: usize,
     part_no: usize,
@@ -299,16 +299,7 @@ pub fn process_prepare(
 
     let g1 = phase1_source.g1();
     let g2 = phase1_source.g2();
-    let batch_count = env::var("BATCH_COUNT")
-        .unwrap_or("512".to_string())
-        .parse::<usize>()
-        .unwrap();
-    let basis_x_chunk_size = env::var("BASIS_X_CHUNK_SIZE")
-        .ok()
-        .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(DEFAULT_BASIS_X_CHUNK_SIZE)
-        .max(1);
-    let mut msm_workspace = MsmWorkspace::new(batch_count.max(8));
+    let mut msm_workspace = MsmWorkspace::new(1);
     let mut ntt_workspace = NttWorkspace::new(n.max(1));
 
     // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}_{t=0,j=0}^{1,l-1} where t=0 for j∈[0,l_in-1] and t=1 for j∈[l_in,l-1]
@@ -378,10 +369,6 @@ pub fn process_prepare(
     // {δ^(-1)L_i(y)o_j(x)}_{i=0,j=l+m_I}^{s_max-1,m_I-1}
     let mut delta_inv_li_o_prv =
         vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_d - (l + m_i)].into_boxed_slice();
-    let chunked_scalar_width = basis_x_chunk_size.min(n) * s_max;
-    let gamma_batch_size = gamma_batch_size(is_gpu_enabled, chunked_scalar_width);
-    let eta_batch_size = effective_batch_size(chunked_scalar_width, batch_count);
-    let delta_batch_size = effective_batch_size(chunked_scalar_width, batch_count);
     let stream_start = Instant::now();
 
     for (subcircuit_idx, subcircuit_info) in subcircuit_infos
@@ -417,10 +404,6 @@ pub fn process_prepare(
             l,
             m_i,
             m_d,
-            gamma_batch_size,
-            eta_batch_size,
-            delta_batch_size,
-            basis_x_chunk_size,
             0,
             s_max,
             &mut msm_workspace,
@@ -439,10 +422,6 @@ pub fn process_prepare(
             l,
             m_i,
             m_d,
-            gamma_batch_size,
-            eta_batch_size,
-            delta_batch_size,
-            basis_x_chunk_size,
             0,
             s_max,
             &mut msm_workspace,
@@ -461,10 +440,6 @@ pub fn process_prepare(
             l,
             m_i,
             m_d,
-            gamma_batch_size,
-            eta_batch_size,
-            delta_batch_size,
-            basis_x_chunk_size,
             0,
             s_max,
             &mut msm_workspace,
@@ -502,12 +477,10 @@ pub fn process_prepare(
     }
 
     let start2 = Instant::now();
-    let lagrange_chunk_width = basis_x_chunk_size.min(m_i) * s_max;
     if compute_shared_terms {
         process_coeff_source_for_eta(
             "kjx",
             m_i,
-            effective_batch_size(lagrange_chunk_width, batch_count),
             &li_y_coeffs,
             |j, coeffs| {
                 compute_langrange_i_coeffs(j, m_i, 1, coeffs);
@@ -517,7 +490,6 @@ pub fn process_prepare(
             4,
             &mut eta_inv_li_o_inter_alpha4_kj,
             m_i,
-            basis_x_chunk_size,
             0,
             s_max,
             &mut msm_workspace,
@@ -597,20 +569,6 @@ pub fn process_prepare(
         },
     }
 }
-
-const MAX_BATCH_SCALARS: usize = 1 << 22;
-const DEFAULT_BASIS_X_CHUNK_SIZE: usize = 128;
-
-fn effective_batch_size(scalars_per_item: usize, requested: usize) -> usize {
-    let max_batch = (MAX_BATCH_SCALARS / scalars_per_item).max(1);
-    requested.max(1).min(max_batch)
-}
-
-fn gamma_batch_size(is_gpu_enabled: bool, scalars_per_item: usize) -> usize {
-    let requested = if is_gpu_enabled { 1 } else { 7 };
-    effective_batch_size(scalars_per_item, requested)
-}
-
 struct ActiveCoeffMatrix {
     compact_by_local: Vec<usize>,
     coeffs: Vec<ScalarField>,
@@ -845,7 +803,6 @@ fn flush_chunked_batch_1d<S: Phase1SrsSource>(
     source: &S,
     exp_alpha: usize,
     li_y_coeffs: &LagrangeCoeffTable,
-    x_chunk_size: usize,
     msm_workspace: &mut MsmWorkspace,
     pending: &mut Vec<Pending1d<'_>>,
     scratch: &mut BatchScratch<usize>,
@@ -857,28 +814,24 @@ fn flush_chunked_batch_1d<S: Phase1SrsSource>(
 
     let x_size = pending[0].x_coeffs.len();
     let y_size = li_y_coeffs.len();
-
-    for x_start in (0..x_size).step_by(x_chunk_size.max(1)) {
-        let x_len = (x_size - x_start).min(x_chunk_size.max(1));
-        source.fill_alphaxy_g1_chunk(exp_alpha, x_start, x_len, y_size, &mut scratch.bases);
-        scratch
-            .scalars
-            .resize(scratch.bases.len() * pending.len(), ScalarField::zero());
-        scratch.indexes.clear();
-        scratch
-            .indexes
-            .extend(pending.iter().map(|item| item.dest_idx));
-        for (pending_idx, item) in pending.iter().enumerate() {
-            let scalar_start = pending_idx * scratch.bases.len();
-            fill_outer_product_scalars(
-                &item.x_coeffs[x_start..x_start + x_len],
-                li_y_coeffs,
-                item.y_row_idx,
-                &mut scratch.scalars[scalar_start..scalar_start + scratch.bases.len()],
-            );
-        }
-        flush_shared_batch_1d(msm_workspace, scratch, dest);
+    source.fill_alphaxy_g1_chunk(exp_alpha, 0, x_size, y_size, &mut scratch.bases);
+    scratch
+        .scalars
+        .resize(scratch.bases.len() * pending.len(), ScalarField::zero());
+    scratch.indexes.clear();
+    scratch
+        .indexes
+        .extend(pending.iter().map(|item| item.dest_idx));
+    for (pending_idx, item) in pending.iter().enumerate() {
+        let scalar_start = pending_idx * scratch.bases.len();
+        fill_outer_product_scalars(
+            item.x_coeffs,
+            li_y_coeffs,
+            item.y_row_idx,
+            &mut scratch.scalars[scalar_start..scalar_start + scratch.bases.len()],
+        );
     }
+    flush_shared_batch_1d(msm_workspace, scratch, dest);
 
     pending.clear();
 }
@@ -906,7 +859,6 @@ fn flush_chunked_batch_2d<S: Phase1SrsSource>(
     source: &S,
     exp_alpha: usize,
     li_y_coeffs: &LagrangeCoeffTable,
-    x_chunk_size: usize,
     msm_workspace: &mut MsmWorkspace,
     pending: &mut Vec<Pending2d<'_>>,
     scratch: &mut BatchScratch<(usize, usize)>,
@@ -918,28 +870,24 @@ fn flush_chunked_batch_2d<S: Phase1SrsSource>(
 
     let x_size = pending[0].x_coeffs.len();
     let y_size = li_y_coeffs.len();
-
-    for x_start in (0..x_size).step_by(x_chunk_size.max(1)) {
-        let x_len = (x_size - x_start).min(x_chunk_size.max(1));
-        source.fill_alphaxy_g1_chunk(exp_alpha, x_start, x_len, y_size, &mut scratch.bases);
-        scratch
-            .scalars
-            .resize(scratch.bases.len() * pending.len(), ScalarField::zero());
-        scratch.indexes.clear();
-        scratch
-            .indexes
-            .extend(pending.iter().map(|item| (item.row_idx, item.col_idx)));
-        for (pending_idx, item) in pending.iter().enumerate() {
-            let scalar_start = pending_idx * scratch.bases.len();
-            fill_outer_product_scalars(
-                &item.x_coeffs[x_start..x_start + x_len],
-                li_y_coeffs,
-                item.y_row_idx,
-                &mut scratch.scalars[scalar_start..scalar_start + scratch.bases.len()],
-            );
-        }
-        flush_shared_batch_2d(msm_workspace, scratch, dest);
+    source.fill_alphaxy_g1_chunk(exp_alpha, 0, x_size, y_size, &mut scratch.bases);
+    scratch
+        .scalars
+        .resize(scratch.bases.len() * pending.len(), ScalarField::zero());
+    scratch.indexes.clear();
+    scratch
+        .indexes
+        .extend(pending.iter().map(|item| (item.row_idx, item.col_idx)));
+    for (pending_idx, item) in pending.iter().enumerate() {
+        let scalar_start = pending_idx * scratch.bases.len();
+        fill_outer_product_scalars(
+            item.x_coeffs,
+            li_y_coeffs,
+            item.y_row_idx,
+            &mut scratch.scalars[scalar_start..scalar_start + scratch.bases.len()],
+        );
     }
+    flush_shared_batch_2d(msm_workspace, scratch, dest);
 
     pending.clear();
 }
@@ -958,17 +906,13 @@ fn process_component_for_subcircuit<S: Phase1SrsSource>(
     l: usize,
     m_i: usize,
     m_d: usize,
-    gamma_batch_size: usize,
-    eta_batch_size: usize,
-    delta_batch_size: usize,
-    basis_x_chunk_size: usize,
     start: usize,
     end: usize,
     msm_workspace: &mut MsmWorkspace,
 ) {
-    let mut gamma_pending = Vec::with_capacity(gamma_batch_size);
-    let mut eta_pending = Vec::with_capacity(eta_batch_size);
-    let mut delta_pending = Vec::with_capacity(delta_batch_size);
+    let mut gamma_pending = Vec::new();
+    let mut eta_pending = Vec::new();
+    let mut delta_pending = Vec::new();
     let mut gamma_scratch = BatchScratch::new();
     let mut eta_scratch = BatchScratch::new();
     let mut delta_scratch = BatchScratch::new();
@@ -985,18 +929,6 @@ fn process_component_for_subcircuit<S: Phase1SrsSource>(
                     x_coeffs,
                     y_row_idx: segment_idx,
                 });
-                if gamma_pending.len() == gamma_batch_size {
-                    flush_chunked_batch_1d(
-                        phase1_source,
-                        exp_alpha,
-                        li_y_coeffs,
-                        basis_x_chunk_size,
-                        msm_workspace,
-                        &mut gamma_pending,
-                        &mut gamma_scratch,
-                        gamma_inv_o_inst,
-                    );
-                }
             }
         }
 
@@ -1009,18 +941,6 @@ fn process_component_for_subcircuit<S: Phase1SrsSource>(
                     x_coeffs,
                     y_row_idx: col_idx,
                 });
-                if eta_pending.len() == eta_batch_size {
-                    flush_chunked_batch_2d(
-                        phase1_source,
-                        exp_alpha,
-                        li_y_coeffs,
-                        basis_x_chunk_size,
-                        msm_workspace,
-                        &mut eta_pending,
-                        &mut eta_scratch,
-                        eta_inv_li_o_inter_alpha4_kj,
-                    );
-                }
             }
         } else if global_idx >= l + m_i && global_idx < m_d {
             let row_idx = global_idx - (l + m_i);
@@ -1031,18 +951,6 @@ fn process_component_for_subcircuit<S: Phase1SrsSource>(
                     x_coeffs,
                     y_row_idx: col_idx,
                 });
-                if delta_pending.len() == delta_batch_size {
-                    flush_chunked_batch_2d(
-                        phase1_source,
-                        exp_alpha,
-                        li_y_coeffs,
-                        basis_x_chunk_size,
-                        msm_workspace,
-                        &mut delta_pending,
-                        &mut delta_scratch,
-                        delta_inv_li_o_prv,
-                    );
-                }
             }
         }
     }
@@ -1052,7 +960,6 @@ fn process_component_for_subcircuit<S: Phase1SrsSource>(
             phase1_source,
             exp_alpha,
             li_y_coeffs,
-            basis_x_chunk_size,
             msm_workspace,
             &mut gamma_pending,
             &mut gamma_scratch,
@@ -1063,7 +970,6 @@ fn process_component_for_subcircuit<S: Phase1SrsSource>(
         phase1_source,
         exp_alpha,
         li_y_coeffs,
-        basis_x_chunk_size,
         msm_workspace,
         &mut eta_pending,
         &mut eta_scratch,
@@ -1073,7 +979,6 @@ fn process_component_for_subcircuit<S: Phase1SrsSource>(
         phase1_source,
         exp_alpha,
         li_y_coeffs,
-        basis_x_chunk_size,
         msm_workspace,
         &mut delta_pending,
         &mut delta_scratch,
@@ -1084,14 +989,12 @@ fn process_component_for_subcircuit<S: Phase1SrsSource>(
 fn process_coeff_source_for_eta<S: Phase1SrsSource, F>(
     label: &str,
     row_count: usize,
-    batch_count: usize,
     li_y_coeffs: &LagrangeCoeffTable,
     mut fill_x_coeffs: F,
     phase1_source: &S,
     exp_alpha: usize,
     result_matrix: &mut Box<[Box<[G1serde]>]>,
     x_size: usize,
-    basis_x_chunk_size: usize,
     start: usize,
     end: usize,
     msm_workspace: &mut MsmWorkspace,
@@ -1107,7 +1010,7 @@ fn process_coeff_source_for_eta<S: Phase1SrsSource, F>(
             continue;
         }
 
-        let mut pending = Vec::with_capacity(batch_count);
+        let mut pending = Vec::new();
         for col_idx in start..end {
             pending.push(Pending2d {
                 row_idx,
@@ -1115,25 +1018,12 @@ fn process_coeff_source_for_eta<S: Phase1SrsSource, F>(
                 x_coeffs: &x_coeffs,
                 y_row_idx: col_idx,
             });
-            if pending.len() == batch_count {
-                flush_chunked_batch_2d(
-                    phase1_source,
-                    exp_alpha,
-                    li_y_coeffs,
-                    basis_x_chunk_size,
-                    msm_workspace,
-                    &mut pending,
-                    &mut scratch,
-                    result_matrix,
-                );
-            }
         }
 
         flush_chunked_batch_2d(
             phase1_source,
             exp_alpha,
             li_y_coeffs,
-            basis_x_chunk_size,
             msm_workspace,
             &mut pending,
             &mut scratch,
