@@ -4,8 +4,8 @@ use crate::conversions::{
 use crate::sigma::{AaccExt, HASH_BYTES_LEN};
 use crate::utils::RandomStrategy::SystemRandom;
 use crate::utils::{
-    compute5, icicle_g1_generator, icicle_g2_generator, verify5, PairSerde, Phase1Proof,
-    RandomGenerator, SerialSerde,
+    compute5, compute_phase1_x_only, icicle_g1_generator, icicle_g2_generator, verify5,
+    verify_phase1_x_only, PairSerde, Phase1Proof, RandomGenerator, SerialSerde,
 };
 use crate::{impl_read_from_json, impl_write_into_json};
 use ark_serialize::Compress;
@@ -287,7 +287,7 @@ impl Accumulator {
         g2: G2serde,
         power_alpha_length: usize,
         power_x_length: usize,
-        power_y_length: usize,
+        _power_y_length: usize,
         compress: bool,
     ) -> Self {
         let acc = Accumulator {
@@ -297,15 +297,14 @@ impl Accumulator {
             alpha: vec![PairSerde::new(g1, g2); power_alpha_length],
             // [x^1,x^2,...,x^power_x_length]
             x: vec![PairSerde::new(g1, g2); power_x_length],
-            // [y^1,y^2,...,y^power_y_length]
-            y: SerialSerde::new(g1, g2, power_y_length),
+            // Phase 1 is x-only after the refactor, so the legacy y-shaped fields
+            // are kept empty for serialization compatibility.
+            y: SerialSerde::new(g1, g2, 0),
             // [alpha^1 * x^1...alpha^i * x^j,...,alpha^power_alpha_length * x^power_x_length]
             alpha_x: vec![g1; power_alpha_length * power_x_length],
-            // [alpha^1 * y^1...alpha^i * y^j,...,alpha^power_alpha_length * y^power_y_length]
-            alpha_y: vec![g1; power_alpha_length * power_y_length],
-            // [x^1 * y^1...x^i * y^j,...,x^power_x_length * y^power_y_length]
-            xy: vec![g1; power_x_length * power_y_length],
-            alpha_xy: vec![g1; power_alpha_length * power_x_length * power_y_length],
+            alpha_y: vec![],
+            xy: vec![],
+            alpha_xy: vec![],
             contributor_index: 0,
             compress,
         };
@@ -471,31 +470,25 @@ impl Accumulator {
     }
 
     pub fn compute(&self, rng: &mut RandomGenerator) -> (Accumulator, Phase1Proof) {
-        let (cur_alphaxy, cur_xy, cur_alphax, cur_alphay, cur_alpha, cur_x, cur_y, mut proof_5) =
-            compute5(
-                rng,
-                &self.g1,
-                &self.g2,
-                &self.alpha_xy,
-                &self.xy,
-                &self.alpha_x,
-                &self.alpha_y,
-                &self.alpha,
-                &self.x,
-                &self.y,
-                &self.hash(),
-            );
+        let (cur_alphax, cur_alpha, cur_x, mut proof_5) = compute_phase1_x_only(
+            rng,
+            &self.g1,
+            &self.alpha_x,
+            &self.alpha,
+            &self.x,
+            &self.hash(),
+        );
 
         let acc = Accumulator {
             g1: self.g1,
             g2: self.g2,
             alpha: cur_alpha,
             x: cur_x,
-            y: cur_y,
+            y: self.y.clone(),
             alpha_x: cur_alphax,
-            alpha_y: cur_alphay,
-            xy: cur_xy,
-            alpha_xy: cur_alphaxy,
+            alpha_y: self.alpha_y.clone(),
+            xy: self.xy.clone(),
+            alpha_xy: self.alpha_xy.clone(),
             contributor_index: self.contributor_index + 1,
             compress: self.compress,
         };
@@ -503,19 +496,14 @@ impl Accumulator {
         (acc, proof_5)
     }
     pub fn verify(&self, cur: &Accumulator, cur_proof: &Phase1Proof) -> bool {
-        verify5(
+        verify_phase1_x_only(
             &self.g1,
             &self.g2,
             &self.alpha,
             &self.x,
-            &self.y,
-            &cur.alpha_xy,
-            &cur.xy,
             &cur.alpha_x,
-            &cur.alpha_y,
             &cur.alpha,
             &cur.x,
-            &cur.y,
             &cur_proof,
         )
     }

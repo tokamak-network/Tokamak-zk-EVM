@@ -99,13 +99,16 @@ async fn main() {
     let setup_params = SetupParams::read_from_json(qap_path.join(&config.setup_params_file))
         .expect("cannot SetupParams read file");
     let x_degree = 2 * max(setup_params.n, setup_params.l_D - setup_params.l);
-    let y_degree = 2 * config.s_max;
+    let y_degree = 0;
 
     println!("Initializing phase-1 accumulator...");
     if testing_mode_enabled() {
         println!("Device: {:?}", get_device_info());
         println!("Config: {:?}", config);
-        println!("Power bounds: x_degree={}, y_degree={}", x_degree, y_degree);
+        println!(
+            "Power bounds: x_degree={}, y_degree={} (phase 1 is x-only)",
+            x_degree, y_degree
+        );
     }
     let scalar = initialize_scalar(&config.mode, config.blockhash.as_ref())
         .expect("cannot initialize scalar");

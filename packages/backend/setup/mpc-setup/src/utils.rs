@@ -1035,6 +1035,76 @@ pub fn compute5(
     )
 }
 
+pub fn compute_phase1_x_only(
+    rng: &mut RandomGenerator,
+    g1: &G1serde,
+    prev_alphax: &[G1serde],
+    prev_alpha: &[PairSerde],
+    prev_x: &[PairSerde],
+    v: &[u8; 64],
+) -> (Vec<G1serde>, Vec<PairSerde>, Vec<PairSerde>, Phase1Proof) {
+    let prev_alpha_vec = prev_alpha.to_vec();
+    let prev_x_vec = prev_x.to_vec();
+    let (cur_alpha, proof2_alpha, alpha_powers) = compute2_tempi(rng, g1, &prev_alpha_vec, v);
+    let (cur_x, proof2_x, x_powers) = compute2_tempi(rng, g1, &prev_x_vec, v);
+
+    let alphax_powers = vector_product(&alpha_powers, &x_powers);
+    let cur_alphax: Vec<G1serde> = prev_alphax
+        .par_iter()
+        .zip(alphax_powers.par_iter())
+        .map(|(point, scalar)| point.mul(*scalar))
+        .collect();
+
+    (
+        cur_alphax,
+        cur_alpha,
+        cur_x,
+        Phase1Proof {
+            contributor_index: 0,
+            proof2_alpha,
+            proof2_x: proof2_x.clone(),
+            // The x-only phase-1 ceremony no longer updates y, but the field is
+            // kept to avoid a file-format fork during the transition.
+            proof2_y: proof2_x,
+        },
+    )
+}
+
+pub fn verify_phase1_x_only(
+    g1: &G1serde,
+    g2: &G2serde,
+    prev_alpha: &[PairSerde],
+    prev_x: &[PairSerde],
+    cur_alphax: &[G1serde],
+    cur_alpha: &[PairSerde],
+    cur_x: &[PairSerde],
+    proof: &Phase1Proof,
+) -> bool {
+    let prev_alpha_vec = prev_alpha.to_vec();
+    let prev_x_vec = prev_x.to_vec();
+    let cur_alpha_vec = cur_alpha.to_vec();
+    let cur_x_vec = cur_x.to_vec();
+    let cur_alphax_vec = cur_alphax.to_vec();
+
+    if !verify2i(g1, g2, &prev_alpha_vec, &cur_alpha_vec, &proof.proof2_alpha) {
+        return false;
+    }
+    if !verify2i(g1, g2, &prev_x_vec, &cur_x_vec, &proof.proof2_x) {
+        return false;
+    }
+    verify3i(
+        g1,
+        g2,
+        &prev_alpha_vec,
+        &prev_x_vec,
+        &cur_alphax_vec,
+        &cur_alpha_vec,
+        &cur_x_vec,
+        &proof.proof2_alpha,
+        &proof.proof2_x,
+    )
+}
+
 //type 5: verify5
 pub fn verify5(
     g1: &G1serde,

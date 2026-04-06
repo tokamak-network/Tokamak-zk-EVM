@@ -3,7 +3,6 @@ use std::path::Path;
 
 use clap::Parser;
 use icicle_bls12_381::curve::{G1Affine, ScalarField};
-use icicle_core::ntt;
 use icicle_core::traits::{Arithmetic, FieldImpl};
 use libs::group_structures::{G1serde, Sigma, Sigma1, Sigma2};
 use libs::iotools::{SetupParams, SubcircuitInfo, SubcircuitR1CS};
@@ -11,13 +10,15 @@ use libs::utils::{
     init_ntt_domain, setup_shape, trusted_setup_ntt_domain_size, validate_public_wire_size,
     validate_setup_shape,
 };
+use libs::vector_operations::gen_evaled_lagrange_bases;
 use mpc_setup::mpc_utils::compute_langrange_i_coeffs;
 use mpc_setup::phase1_source::{AccumulatorSource, Phase1SrsSource};
 use mpc_setup::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
-use mpc_setup::utils::{load_gpu_if_possible, prompt_user_input};
+use mpc_setup::utils::{
+    initialize_random_generator, load_gpu_if_possible, prompt_user_input, Mode, RandomGenerator,
+};
 use mpc_setup::{
-    compute_lagrange_kl_from_source, ensure_testing_mode, public_wire_segments, MsmWorkspace,
-    NttWorkspace, QAP_COMPILER_PATH_PREFIX,
+    ensure_testing_mode, public_wire_segments, MsmWorkspace, NttWorkspace, QAP_COMPILER_PATH_PREFIX,
 };
 use std::ops::Sub;
 use std::time::Instant;
@@ -40,6 +41,22 @@ struct Config {
 
     #[arg(long, value_name = "MERGE_PARTS", default_value = "false")]
     merge_parts: Option<bool>,
+
+    #[arg(
+        long,
+        value_enum,
+        value_name = "MODE",
+        default_value = "random",
+        help = "Phase-2 y sampling mode: testing | random | beacon"
+    )]
+    mode: Mode,
+
+    #[arg(
+        long,
+        value_name = "Y_HEX",
+        help = "Optional explicit y scalar as a hex string to reuse across multipart runs"
+    )]
+    y_hex: Option<String>,
 }
 // cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output --is-checking
 // cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output
@@ -82,6 +99,8 @@ fn main() {
         config.is_checking,
         total_part,
         part_no,
+        &config.mode,
+        config.y_hex.as_deref(),
     );
     if config.part_no.is_some() && config.total_part.is_some() {
         sigma
@@ -241,6 +260,176 @@ fn is_power_of_two_bitwise(n: usize) -> bool {
         (n & (n - 1)) == 0
     }
 }
+
+fn parse_scalar_hex(input: &str) -> ScalarField {
+    let trimmed = input.trim().trim_start_matches("0x");
+    let bytes = hex::decode(trimmed).expect("invalid hex encoding for y");
+    ScalarField::from_bytes_le(&bytes)
+}
+
+fn sample_phase2_y(
+    mode: &Mode,
+    y_hex: Option<&str>,
+    total_part: usize,
+    s_max: usize,
+) -> ScalarField {
+    let mut y = if let Some(hex_value) = y_hex {
+        parse_scalar_hex(hex_value)
+    } else {
+        if total_part > 1 {
+            panic!("multipart phase2_prepare requires --y-hex so every part uses the same y");
+        }
+        let mut rng: RandomGenerator = initialize_random_generator(mode);
+        match mode {
+            Mode::Testing => ScalarField::from_u32(5),
+            _ => rng.next_random(),
+        }
+    };
+
+    while y.pow(s_max) == ScalarField::one() {
+        if y_hex.is_some() {
+            panic!("the supplied phase-2 y is invalid because y^s_max = 1");
+        }
+        let mut rng: RandomGenerator = initialize_random_generator(mode);
+        y = match mode {
+            Mode::Testing => ScalarField::from_u32(7),
+            _ => rng.next_random(),
+        };
+    }
+    y
+}
+
+fn build_x_basis<S: Phase1SrsSource>(source: &S, exp_alpha: usize, x_size: usize) -> Vec<G1Affine> {
+    if exp_alpha == 0 {
+        return source.x_g1_range(0, x_size - 1);
+    }
+    (0..x_size)
+        .map(|exp_x| source.alphax_g1(exp_alpha, exp_x).0)
+        .collect()
+}
+
+fn accumulate_component_x_only(
+    coeffs: &ActiveCoeffMatrix,
+    flatten_map: &[usize],
+    bases: &[G1Affine],
+    msm_workspace: &mut MsmWorkspace,
+    dest: &mut [G1serde],
+) {
+    let mut scalars = Vec::new();
+    let mut global_indexes = Vec::new();
+    for (local_idx, &global_idx) in flatten_map.iter().enumerate() {
+        let Some(x_coeffs) = coeffs.row(local_idx) else {
+            continue;
+        };
+        scalars.extend_from_slice(x_coeffs);
+        global_indexes.push(global_idx);
+    }
+    if global_indexes.is_empty() {
+        return;
+    }
+    let results = msm_workspace.shared_bases_msm(bases, &scalars, global_indexes.len());
+    for (batch_idx, &global_idx) in global_indexes.iter().enumerate() {
+        dest[global_idx] = dest[global_idx] + G1serde(G1Affine::from(results[batch_idx]));
+    }
+}
+
+fn build_x_only_commitments<S: Phase1SrsSource>(
+    coeff_views: &[SubcircuitCoeffView],
+    subcircuit_infos: &[&SubcircuitInfo],
+    source: &S,
+    setup_params: &SetupParams,
+    msm_workspace: &mut MsmWorkspace,
+) -> Box<[G1serde]> {
+    let mut commitments = vec![G1serde::zero(); setup_params.m_D].into_boxed_slice();
+    let a_bases = build_x_basis(source, 1, setup_params.n);
+    let b_bases = build_x_basis(source, 2, setup_params.n);
+    let c_bases = build_x_basis(source, 3, setup_params.n);
+
+    for (coeff_view, subcircuit_info) in coeff_views.iter().zip(subcircuit_infos.iter()) {
+        accumulate_component_x_only(
+            &coeff_view.a,
+            &subcircuit_info.flattenMap,
+            &a_bases,
+            msm_workspace,
+            &mut commitments,
+        );
+        accumulate_component_x_only(
+            &coeff_view.b,
+            &subcircuit_info.flattenMap,
+            &b_bases,
+            msm_workspace,
+            &mut commitments,
+        );
+        accumulate_component_x_only(
+            &coeff_view.c,
+            &subcircuit_info.flattenMap,
+            &c_bases,
+            msm_workspace,
+            &mut commitments,
+        );
+    }
+
+    commitments
+}
+
+fn build_plain_lagrange_commitments<S: Phase1SrsSource>(
+    source: &S,
+    size: usize,
+    msm_workspace: &mut MsmWorkspace,
+) -> Box<[G1serde]> {
+    if size == 0 {
+        return Vec::new().into_boxed_slice();
+    }
+    let bases = build_x_basis(source, 0, size);
+    let mut batched_scalars = vec![ScalarField::zero(); size * size];
+    for row_idx in 0..size {
+        let row = &mut batched_scalars[row_idx * size..(row_idx + 1) * size];
+        compute_langrange_i_coeffs(row_idx, size, 1, row);
+    }
+    let results = msm_workspace.shared_bases_msm(&bases, &batched_scalars, size);
+    results
+        .iter()
+        .map(|point| G1serde(G1Affine::from(*point)))
+        .collect::<Vec<_>>()
+        .into_boxed_slice()
+}
+
+fn build_alpha4_k_commitments<S: Phase1SrsSource>(
+    source: &S,
+    m_i: usize,
+    msm_workspace: &mut MsmWorkspace,
+) -> Box<[G1serde]> {
+    if m_i == 0 {
+        return Vec::new().into_boxed_slice();
+    }
+    let bases = build_x_basis(source, 4, m_i);
+    let mut batched_scalars = vec![ScalarField::zero(); m_i * m_i];
+    for row_idx in 0..m_i {
+        let row = &mut batched_scalars[row_idx * m_i..(row_idx + 1) * m_i];
+        compute_langrange_i_coeffs(row_idx, m_i, 1, row);
+    }
+    let results = msm_workspace.shared_bases_msm(&bases, &batched_scalars, m_i);
+    results
+        .iter()
+        .map(|point| G1serde(G1Affine::from(*point)))
+        .collect::<Vec<_>>()
+        .into_boxed_slice()
+}
+
+fn build_xy_powers_from_x_basis<S: Phase1SrsSource>(
+    source: &S,
+    h_max: usize,
+    y_pows: &[ScalarField],
+) -> Box<[G1serde]> {
+    let x_basis = source.x_g1_range(0, h_max - 1);
+    let mut xy = Vec::with_capacity(h_max * y_pows.len());
+    for x_point in x_basis.iter() {
+        for y_pow in y_pows.iter() {
+            xy.push(G1serde(*x_point) * *y_pow);
+        }
+    }
+    xy.into_boxed_slice()
+}
 pub fn process_prepare(
     contributor_index: usize,
     outfolder: &str,
@@ -248,11 +437,12 @@ pub fn process_prepare(
     is_checking: bool,
     total_part: usize,
     part_no: usize,
+    mode: &Mode,
+    y_hex: Option<&str>,
 ) -> SigmaV2 {
     let base_path = env::current_dir().unwrap();
     let qap_path = base_path.join(QAP_COMPILER_PATH_PREFIX);
 
-    let start1 = Instant::now();
     let accumulator = format!("phase1_acc_{}.json", contributor_index);
     let setup_file_name = "setupParams.json";
     let setup_params = SetupParams::read_from_json(qap_path.join(&setup_file_name))
@@ -279,7 +469,17 @@ pub fn process_prepare(
     let subcircuit_infos =
         SubcircuitInfo::read_box_from_json(qap_path.join(&subcircuit_file_name)).unwrap();
 
-    let li_y_coeffs = build_li_y_coeffs(s_max);
+    let phase2_y = sample_phase2_y(mode, y_hex, total_part, s_max);
+    let mut l_evaled_vec = vec![ScalarField::zero(); s_max].into_boxed_slice();
+    gen_evaled_lagrange_bases(&phase2_y, s_max, &mut l_evaled_vec);
+
+    let mut y_pows = Vec::with_capacity(2 * s_max);
+    let mut current_y_pow = ScalarField::one();
+    for _ in 0..(2 * s_max) {
+        y_pows.push(current_y_pow);
+        current_y_pow = current_y_pow * phase2_y;
+    }
+
     println!("Loading phase-1 source...");
     let phase1_source =
         AccumulatorSource::read_from_json(&format!("{}/{}", outfolder, accumulator))
@@ -302,75 +502,15 @@ pub fn process_prepare(
     let mut msm_workspace = MsmWorkspace::new(1);
     let mut ntt_workspace = NttWorkspace::new(n.max(1));
 
-    // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}_{t=0,j=0}^{1,l-1} where t=0 for j∈[0,l_in-1] and t=1 for j∈[l_in,l-1]
-    let mut gamma_inv_o_inst = vec![G1serde::zero(); l].into_boxed_slice();
-
     let subcircuit_start = part_no * subcircuit_infos.len() / total_part.max(1);
     let mut subcircuit_end = (part_no + 1) * subcircuit_infos.len() / total_part.max(1);
     if part_no + 1 == total_part {
         subcircuit_end = subcircuit_infos.len();
     }
     let compute_shared_terms = total_part == 1 || part_no == 0;
-    // {δ^(-1)α^k x^h t_n(x)}_{h=0,k=1}^{2,3}
-    let mut delta_inv_alphak_xh_tx =
-        vec![vec![G1serde::zero(); 3].into_boxed_slice(); 3].into_boxed_slice();
-    if compute_shared_terms {
-        for k in 1..=3 {
-            for h in 0..=2 {
-                let alphak_xnh = phase1_source.alphax_g1(k, n + h);
-                let alphak_xh = phase1_source.alphax_g1(k, h);
-                delta_inv_alphak_xh_tx[k - 1][h] = alphak_xnh.sub(alphak_xh);
-            }
-        }
-    }
-
-    // {δ^(-1)α^4 x^j t_{m_I}(x)}_{j=0}^{1}
-    let mut delta_inv_alpha4_xj_tx = vec![G1serde::zero(); 2].into_boxed_slice();
-    if compute_shared_terms {
-        for j in 0..=1 {
-            delta_inv_alpha4_xj_tx[j] = phase1_source.alphax_g1(4, m_i + j);
-            delta_inv_alpha4_xj_tx[j] =
-                delta_inv_alpha4_xj_tx[j].sub(phase1_source.alphax_g1(4, j));
-        }
-    }
-
-    if compute_shared_terms {
-        if let Some(sigma_for_check) = &sigma_trusted {
-            assert_eq!(
-                sigma_for_check.sigma.sigma_1.delta_inv_alpha4_xj_tx,
-                delta_inv_alpha4_xj_tx
-            );
-        }
-    }
-
-    // {δ^(-1)α^k y^i t_{s_max}(y)}_{i=0,k=1}^{2,4}
-    let mut delta_inv_alphak_yi_ty =
-        vec![vec![G1serde::zero(); 3].into_boxed_slice(); 4].into_boxed_slice();
-    if compute_shared_terms {
-        for k in 1..=4 {
-            for i in 0..=2 {
-                delta_inv_alphak_yi_ty[k - 1][i] = phase1_source
-                    .alphay_g1(k, s_max + i)
-                    .sub(phase1_source.alphay_g1(k, i));
-            }
-        }
-    }
-    //assert_eq!(sigma_trusted.sigma.sigma_1.delta_inv_alphak_yi_ty, delta_inv_alphak_yi_ty);
-    let lap = start1.elapsed();
-    println!(
-        "Prepared gamma and delta constants in {:.2} seconds",
-        lap.as_secs_f64()
-    );
-
-    // {η^(-1)L_i(y)(o_{j+l}(x) + α^4 K_j(x))}_{i=0,j=0}^{s_max-1,m_I-1}
-    let mut eta_inv_li_o_inter_alpha4_kj =
-        vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_i].into_boxed_slice();
-
-    // {δ^(-1)L_i(y)o_j(x)}_{i=0,j=l+m_I}^{s_max-1,m_I-1}
-    let mut delta_inv_li_o_prv =
-        vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_d - (l + m_i)].into_boxed_slice();
+    let mut assigned_infos = Vec::new();
+    let mut coeff_views = Vec::new();
     let stream_start = Instant::now();
-
     for (subcircuit_idx, subcircuit_info) in subcircuit_infos
         .iter()
         .enumerate()
@@ -389,151 +529,145 @@ pub fn process_prepare(
             subcircuit_info,
             &mut ntt_workspace,
         );
-
-        process_component_for_subcircuit(
-            &coeff_view.a,
-            &subcircuit_info.flattenMap,
-            &segments,
-            &li_y_coeffs,
-            &phase1_source,
-            1,
-            compute_shared_terms,
-            &mut gamma_inv_o_inst,
-            &mut eta_inv_li_o_inter_alpha4_kj,
-            &mut delta_inv_li_o_prv,
-            l,
-            m_i,
-            m_d,
-            0,
-            s_max,
-            &mut msm_workspace,
-        );
-        process_component_for_subcircuit(
-            &coeff_view.b,
-            &subcircuit_info.flattenMap,
-            &segments,
-            &li_y_coeffs,
-            &phase1_source,
-            2,
-            compute_shared_terms,
-            &mut gamma_inv_o_inst,
-            &mut eta_inv_li_o_inter_alpha4_kj,
-            &mut delta_inv_li_o_prv,
-            l,
-            m_i,
-            m_d,
-            0,
-            s_max,
-            &mut msm_workspace,
-        );
-        process_component_for_subcircuit(
-            &coeff_view.c,
-            &subcircuit_info.flattenMap,
-            &segments,
-            &li_y_coeffs,
-            &phase1_source,
-            3,
-            compute_shared_terms,
-            &mut gamma_inv_o_inst,
-            &mut eta_inv_li_o_inter_alpha4_kj,
-            &mut delta_inv_li_o_prv,
-            l,
-            m_i,
-            m_d,
-            0,
-            s_max,
-            &mut msm_workspace,
-        );
+        assigned_infos.push(subcircuit_info);
+        coeff_views.push(coeff_view);
     }
     println!(
-        "Streamed subcircuit coefficients in {:.2} seconds",
+        "Loaded coefficient rows in {:.2} seconds",
         stream_start.elapsed().as_secs_f64()
     );
 
-    let xi_g1s = if compute_shared_terms && l_free > 0 {
-        phase1_source.x_g1_range(0, l_free - 1)
+    let commitment_start = Instant::now();
+    let o_commitments = build_x_only_commitments(
+        &coeff_views,
+        &assigned_infos,
+        &phase1_source,
+        &setup_params,
+        &mut msm_workspace,
+    );
+    let k_commitments = if compute_shared_terms {
+        build_alpha4_k_commitments(&phase1_source, m_i, &mut msm_workspace)
     } else {
-        Vec::new()
+        vec![G1serde::zero(); m_i].into_boxed_slice()
     };
-    if compute_shared_terms && l_free > 0 {
-        let mut batched_scalars = vec![ScalarField::zero(); l_free * l_free];
-        for j in 0..l_free {
-            let row = &mut batched_scalars[j * l_free..(j + 1) * l_free];
-            compute_langrange_i_coeffs(j, l_free, 1, row);
-        }
-        let results = msm_workspace.shared_bases_msm(&xi_g1s, &batched_scalars, l_free);
-        for j in 0..l_free {
-            gamma_inv_o_inst[j] = gamma_inv_o_inst[j] + G1serde(G1Affine::from(results[j]));
-        }
-    }
-    if compute_shared_terms {
-        if let Some(sigma_for_check) = &sigma_trusted {
-            assert_eq!(
-                sigma_for_check.sigma.sigma_1.gamma_inv_o_inst,
-                gamma_inv_o_inst
-            );
-            println!("Verified gamma terms against the trusted reference");
+    let m_commitments = if compute_shared_terms {
+        build_plain_lagrange_commitments(&phase1_source, l_free, &mut msm_workspace)
+    } else {
+        Vec::new().into_boxed_slice()
+    };
+    println!(
+        "Built x-only commitments in {:.2} seconds",
+        commitment_start.elapsed().as_secs_f64()
+    );
+
+    // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}
+    let mut gamma_inv_o_inst = vec![G1serde::zero(); l].into_boxed_slice();
+    for global_idx in 0..l {
+        let segment_idx =
+            public_segment_index(global_idx, &segments).expect("public wire must map to a segment");
+        gamma_inv_o_inst[global_idx] = o_commitments[global_idx] * l_evaled_vec[segment_idx];
+        if global_idx < l_free {
+            gamma_inv_o_inst[global_idx] = gamma_inv_o_inst[global_idx] + m_commitments[global_idx];
         }
     }
 
-    let start2 = Instant::now();
-    if compute_shared_terms {
-        process_coeff_source_for_eta(
-            "kjx",
-            m_i,
-            &li_y_coeffs,
-            |j, coeffs| {
-                compute_langrange_i_coeffs(j, m_i, 1, coeffs);
-                true
-            },
-            &phase1_source,
-            4,
-            &mut eta_inv_li_o_inter_alpha4_kj,
-            m_i,
-            0,
-            s_max,
-            &mut msm_workspace,
-        );
-    }
-    if let Some(sigma_for_check) = &sigma_trusted {
+    // {η^(-1)L_i(y)(o_{j+l}(x) + α^4 K_j(x))}
+    let mut eta_inv_li_o_inter_alpha4_kj =
+        vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_i].into_boxed_slice();
+    for row_idx in 0..m_i {
+        let base = o_commitments[l + row_idx] + k_commitments[row_idx];
         for col_idx in 0..s_max {
-            for row_idx in 0..m_i {
-                assert_eq!(
-                    eta_inv_li_o_inter_alpha4_kj[row_idx][col_idx],
-                    sigma_for_check.sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj[row_idx][col_idx]
-                );
+            eta_inv_li_o_inter_alpha4_kj[row_idx][col_idx] = base * l_evaled_vec[col_idx];
+        }
+    }
+
+    // {δ^(-1)L_i(y)o_j(x)}
+    let mut delta_inv_li_o_prv =
+        vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_d - (l + m_i)].into_boxed_slice();
+    for global_idx in (l + m_i)..m_d {
+        let row_idx = global_idx - (l + m_i);
+        let base = o_commitments[global_idx];
+        for col_idx in 0..s_max {
+            delta_inv_li_o_prv[row_idx][col_idx] = base * l_evaled_vec[col_idx];
+        }
+    }
+
+    // {δ^(-1)α^k x^h t_n(x)}
+    let mut delta_inv_alphak_xh_tx =
+        vec![vec![G1serde::zero(); 3].into_boxed_slice(); 3].into_boxed_slice();
+    if compute_shared_terms {
+        for k in 1..=3 {
+            for h in 0..=2 {
+                let alphak_xnh = phase1_source.alphax_g1(k, n + h);
+                let alphak_xh = phase1_source.alphax_g1(k, h);
+                delta_inv_alphak_xh_tx[k - 1][h] = alphak_xnh.sub(alphak_xh);
             }
         }
-        println!("Verified eta terms against the trusted reference");
-    }
-    let eta_items = s_max * m_i;
-    if eta_items > 0 {
-        let avg = start2.elapsed().as_secs_f64() / eta_items as f64;
-        println!("Prepared eta terms at {:.2} items/s", 1f64 / avg);
     }
 
-    if let Some(sigma_for_check) = &sigma_trusted {
-        for col_idx in 0..s_max {
-            for global_idx in (l + m_i)..m_d {
-                let row_idx = global_idx - (l + m_i);
-                assert_eq!(
-                    delta_inv_li_o_prv[row_idx][col_idx],
-                    sigma_for_check.sigma.sigma_1.delta_inv_li_o_prv[row_idx][col_idx]
-                );
+    // {δ^(-1)α^4 x^j t_{m_i}(x)}
+    let mut delta_inv_alpha4_xj_tx = vec![G1serde::zero(); 2].into_boxed_slice();
+    if compute_shared_terms {
+        for j in 0..=1 {
+            delta_inv_alpha4_xj_tx[j] = phase1_source.alphax_g1(4, m_i + j);
+            delta_inv_alpha4_xj_tx[j] =
+                delta_inv_alpha4_xj_tx[j].sub(phase1_source.alphax_g1(4, j));
+        }
+    }
+
+    // {δ^(-1)α^k y^i t_s(y)}
+    let mut delta_inv_alphak_yi_ty =
+        vec![vec![G1serde::zero(); 3].into_boxed_slice(); 4].into_boxed_slice();
+    if compute_shared_terms {
+        let t_y = phase2_y.pow(s_max) - ScalarField::one();
+        for k in 1..=4 {
+            let alpha_k = phase1_source.alphax_g1(k, 0);
+            for i in 0..=2 {
+                delta_inv_alphak_yi_ty[k - 1][i] = alpha_k * (y_pows[i] * t_y);
             }
         }
-        println!("Verified private-wire delta terms against the trusted reference");
-    }
-    let delta_items = s_max * (m_d - (l + m_i));
-    if delta_items > 0 {
-        let avg = start2.elapsed().as_secs_f64() / delta_items as f64;
-        println!(
-            "Prepared private-wire delta terms at {:.2} items/s",
-            1f64 / avg
-        );
     }
 
-    let lagrange_kl = compute_lagrange_kl_from_source(&phase1_source, &setup_params);
+    let h_max = std::cmp::max(2 * n, 2 * m_i);
+    let xy_powers = if compute_shared_terms {
+        build_xy_powers_from_x_basis(&phase1_source, h_max, &y_pows)
+    } else {
+        Vec::new().into_boxed_slice()
+    };
+    let lagrange_kl = if compute_shared_terms {
+        k_commitments[m_i - 1] * l_evaled_vec[s_max - 1]
+    } else {
+        G1serde::zero()
+    };
+
+    if let Some(sigma_for_check) = &sigma_trusted {
+        assert_eq!(
+            sigma_for_check.sigma.sigma_1.gamma_inv_o_inst,
+            gamma_inv_o_inst
+        );
+        assert_eq!(
+            sigma_for_check.sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj,
+            eta_inv_li_o_inter_alpha4_kj
+        );
+        assert_eq!(
+            sigma_for_check.sigma.sigma_1.delta_inv_li_o_prv,
+            delta_inv_li_o_prv
+        );
+        assert_eq!(
+            sigma_for_check.sigma.sigma_1.delta_inv_alphak_xh_tx,
+            delta_inv_alphak_xh_tx
+        );
+        assert_eq!(
+            sigma_for_check.sigma.sigma_1.delta_inv_alpha4_xj_tx,
+            delta_inv_alpha4_xj_tx
+        );
+        assert_eq!(
+            sigma_for_check.sigma.sigma_1.delta_inv_alphak_yi_ty,
+            delta_inv_alphak_yi_ty
+        );
+        assert_eq!(sigma_for_check.sigma.lagrange_KL, lagrange_kl);
+        println!("Verified phase-2 prepare outputs against the trusted reference");
+    }
 
     SigmaV2 {
         contributor_index: 0,
@@ -542,9 +676,9 @@ pub fn process_prepare(
             G: g1,
             H: g2,
             sigma_1: Sigma1 {
-                xy_powers: phase1_source.xy_powers(),
-                x: phase1_source.xy_g1(1, 0),
-                y: phase1_source.xy_g1(0, 1),
+                xy_powers,
+                x: phase1_source.alphax_g1(0, 1),
+                y: g1 * phase2_y,
                 delta: g1,
                 eta: g1,
                 gamma_inv_o_inst,
@@ -563,7 +697,7 @@ pub fn process_prepare(
                 delta: g2,
                 eta: g2,
                 x: phase1_source.x_g2(1),
-                y: phase1_source.y_g2(1),
+                y: g2 * phase2_y,
             },
             lagrange_KL: lagrange_kl,
         },
@@ -622,25 +756,6 @@ impl ActiveCoeffMatrix {
     }
 }
 
-struct LagrangeCoeffTable {
-    row_len: usize,
-    scaled_inv_root_pows: Vec<ScalarField>,
-}
-
-impl LagrangeCoeffTable {
-    fn new(row_len: usize, scaled_inv_root_pows: Vec<ScalarField>) -> Self {
-        assert_eq!(scaled_inv_root_pows.len(), row_len);
-        Self {
-            row_len,
-            scaled_inv_root_pows,
-        }
-    }
-
-    fn len(&self) -> usize {
-        self.row_len
-    }
-}
-
 struct SubcircuitCoeffView {
     a: ActiveCoeffMatrix,
     b: ActiveCoeffMatrix,
@@ -680,18 +795,6 @@ impl SubcircuitCoeffView {
     }
 }
 
-fn build_li_y_coeffs(s_max: usize) -> LagrangeCoeffTable {
-    let inv_len = ScalarField::from_u32(s_max as u32).inv();
-    let inv_root = ntt::get_root_of_unity::<ScalarField>(s_max as u64).inv();
-    let mut scaled_inv_root_pows = vec![ScalarField::zero(); s_max];
-    let mut current = inv_len;
-    for slot in scaled_inv_root_pows.iter_mut() {
-        *slot = current;
-        current = current * inv_root;
-    }
-    LagrangeCoeffTable::new(s_max, scaled_inv_root_pows)
-}
-
 fn load_coeff_view(
     source_path: &Path,
     setup_params: &SetupParams,
@@ -728,307 +831,4 @@ fn public_segment_index(
     } else {
         None
     }
-}
-
-fn fill_outer_product_scalars(
-    x_coeffs: &[ScalarField],
-    li_y_coeffs: &LagrangeCoeffTable,
-    y_row_idx: usize,
-    dest: &mut [ScalarField],
-) {
-    let y_len = li_y_coeffs.row_len;
-    assert_eq!(dest.len(), x_coeffs.len() * y_len);
-    let row_step = y_row_idx % y_len;
-    for (row_idx, x_coeff) in x_coeffs.iter().enumerate() {
-        let row = &mut dest[row_idx * y_len..(row_idx + 1) * y_len];
-        let mut root_idx = 0usize;
-        for slot in row.iter_mut() {
-            *slot = *x_coeff * li_y_coeffs.scaled_inv_root_pows[root_idx];
-            root_idx += row_step;
-            if root_idx >= y_len {
-                root_idx -= y_len;
-            }
-        }
-    }
-}
-
-struct Pending1d<'a> {
-    dest_idx: usize,
-    x_coeffs: &'a [ScalarField],
-    y_row_idx: usize,
-}
-
-struct Pending2d<'a> {
-    row_idx: usize,
-    col_idx: usize,
-    x_coeffs: &'a [ScalarField],
-    y_row_idx: usize,
-}
-
-struct BatchScratch<I> {
-    bases: Vec<G1Affine>,
-    scalars: Vec<ScalarField>,
-    indexes: Vec<I>,
-}
-
-impl<I> BatchScratch<I> {
-    fn new() -> Self {
-        Self {
-            bases: Vec::new(),
-            scalars: Vec::new(),
-            indexes: Vec::new(),
-        }
-    }
-}
-
-fn flush_shared_batch_1d(
-    msm_workspace: &mut MsmWorkspace,
-    scratch: &mut BatchScratch<usize>,
-    dest: &mut Box<[G1serde]>,
-) {
-    if scratch.indexes.is_empty() {
-        return;
-    }
-
-    let results =
-        msm_workspace.shared_bases_msm(&scratch.bases, &scratch.scalars, scratch.indexes.len());
-    for (batch_idx, row_idx) in scratch.indexes.iter().enumerate() {
-        dest[*row_idx] = dest[*row_idx] + G1serde(G1Affine::from(results[batch_idx]));
-    }
-    scratch.scalars.clear();
-    scratch.indexes.clear();
-}
-
-fn flush_chunked_batch_1d<S: Phase1SrsSource>(
-    source: &S,
-    exp_alpha: usize,
-    li_y_coeffs: &LagrangeCoeffTable,
-    msm_workspace: &mut MsmWorkspace,
-    pending: &mut Vec<Pending1d<'_>>,
-    scratch: &mut BatchScratch<usize>,
-    dest: &mut Box<[G1serde]>,
-) {
-    if pending.is_empty() {
-        return;
-    }
-
-    let x_size = pending[0].x_coeffs.len();
-    let y_size = li_y_coeffs.len();
-    source.fill_alphaxy_g1_chunk(exp_alpha, 0, x_size, y_size, &mut scratch.bases);
-    scratch
-        .scalars
-        .resize(scratch.bases.len() * pending.len(), ScalarField::zero());
-    scratch.indexes.clear();
-    scratch
-        .indexes
-        .extend(pending.iter().map(|item| item.dest_idx));
-    for (pending_idx, item) in pending.iter().enumerate() {
-        let scalar_start = pending_idx * scratch.bases.len();
-        fill_outer_product_scalars(
-            item.x_coeffs,
-            li_y_coeffs,
-            item.y_row_idx,
-            &mut scratch.scalars[scalar_start..scalar_start + scratch.bases.len()],
-        );
-    }
-    flush_shared_batch_1d(msm_workspace, scratch, dest);
-
-    pending.clear();
-}
-
-fn flush_shared_batch_2d(
-    msm_workspace: &mut MsmWorkspace,
-    scratch: &mut BatchScratch<(usize, usize)>,
-    dest: &mut Box<[Box<[G1serde]>]>,
-) {
-    if scratch.indexes.is_empty() {
-        return;
-    }
-
-    let results =
-        msm_workspace.shared_bases_msm(&scratch.bases, &scratch.scalars, scratch.indexes.len());
-    for (batch_idx, &(row_idx, col_idx)) in scratch.indexes.iter().enumerate() {
-        dest[row_idx][col_idx] =
-            dest[row_idx][col_idx] + G1serde(G1Affine::from(results[batch_idx]));
-    }
-    scratch.scalars.clear();
-    scratch.indexes.clear();
-}
-
-fn flush_chunked_batch_2d<S: Phase1SrsSource>(
-    source: &S,
-    exp_alpha: usize,
-    li_y_coeffs: &LagrangeCoeffTable,
-    msm_workspace: &mut MsmWorkspace,
-    pending: &mut Vec<Pending2d<'_>>,
-    scratch: &mut BatchScratch<(usize, usize)>,
-    dest: &mut Box<[Box<[G1serde]>]>,
-) {
-    if pending.is_empty() {
-        return;
-    }
-
-    let x_size = pending[0].x_coeffs.len();
-    let y_size = li_y_coeffs.len();
-    source.fill_alphaxy_g1_chunk(exp_alpha, 0, x_size, y_size, &mut scratch.bases);
-    scratch
-        .scalars
-        .resize(scratch.bases.len() * pending.len(), ScalarField::zero());
-    scratch.indexes.clear();
-    scratch
-        .indexes
-        .extend(pending.iter().map(|item| (item.row_idx, item.col_idx)));
-    for (pending_idx, item) in pending.iter().enumerate() {
-        let scalar_start = pending_idx * scratch.bases.len();
-        fill_outer_product_scalars(
-            item.x_coeffs,
-            li_y_coeffs,
-            item.y_row_idx,
-            &mut scratch.scalars[scalar_start..scalar_start + scratch.bases.len()],
-        );
-    }
-    flush_shared_batch_2d(msm_workspace, scratch, dest);
-
-    pending.clear();
-}
-
-fn process_component_for_subcircuit<S: Phase1SrsSource>(
-    coeffs: &ActiveCoeffMatrix,
-    flatten_map: &[usize],
-    segments: &mpc_setup::PublicWireSegments,
-    li_y_coeffs: &LagrangeCoeffTable,
-    phase1_source: &S,
-    exp_alpha: usize,
-    compute_gamma: bool,
-    gamma_inv_o_inst: &mut Box<[G1serde]>,
-    eta_inv_li_o_inter_alpha4_kj: &mut Box<[Box<[G1serde]>]>,
-    delta_inv_li_o_prv: &mut Box<[Box<[G1serde]>]>,
-    l: usize,
-    m_i: usize,
-    m_d: usize,
-    start: usize,
-    end: usize,
-    msm_workspace: &mut MsmWorkspace,
-) {
-    let mut gamma_pending = Vec::new();
-    let mut eta_pending = Vec::new();
-    let mut delta_pending = Vec::new();
-    let mut gamma_scratch = BatchScratch::new();
-    let mut eta_scratch = BatchScratch::new();
-    let mut delta_scratch = BatchScratch::new();
-
-    for (local_idx, &global_idx) in flatten_map.iter().enumerate() {
-        let Some(x_coeffs) = coeffs.row(local_idx) else {
-            continue;
-        };
-
-        if compute_gamma {
-            if let Some(segment_idx) = public_segment_index(global_idx, segments) {
-                gamma_pending.push(Pending1d {
-                    dest_idx: global_idx,
-                    x_coeffs,
-                    y_row_idx: segment_idx,
-                });
-            }
-        }
-
-        if global_idx >= l && global_idx < l + m_i {
-            let row_idx = global_idx - l;
-            for col_idx in start..end {
-                eta_pending.push(Pending2d {
-                    row_idx,
-                    col_idx,
-                    x_coeffs,
-                    y_row_idx: col_idx,
-                });
-            }
-        } else if global_idx >= l + m_i && global_idx < m_d {
-            let row_idx = global_idx - (l + m_i);
-            for col_idx in start..end {
-                delta_pending.push(Pending2d {
-                    row_idx,
-                    col_idx,
-                    x_coeffs,
-                    y_row_idx: col_idx,
-                });
-            }
-        }
-    }
-
-    if compute_gamma {
-        flush_chunked_batch_1d(
-            phase1_source,
-            exp_alpha,
-            li_y_coeffs,
-            msm_workspace,
-            &mut gamma_pending,
-            &mut gamma_scratch,
-            gamma_inv_o_inst,
-        );
-    }
-    flush_chunked_batch_2d(
-        phase1_source,
-        exp_alpha,
-        li_y_coeffs,
-        msm_workspace,
-        &mut eta_pending,
-        &mut eta_scratch,
-        eta_inv_li_o_inter_alpha4_kj,
-    );
-    flush_chunked_batch_2d(
-        phase1_source,
-        exp_alpha,
-        li_y_coeffs,
-        msm_workspace,
-        &mut delta_pending,
-        &mut delta_scratch,
-        delta_inv_li_o_prv,
-    );
-}
-
-fn process_coeff_source_for_eta<S: Phase1SrsSource, F>(
-    label: &str,
-    row_count: usize,
-    li_y_coeffs: &LagrangeCoeffTable,
-    mut fill_x_coeffs: F,
-    phase1_source: &S,
-    exp_alpha: usize,
-    result_matrix: &mut Box<[Box<[G1serde]>]>,
-    x_size: usize,
-    start: usize,
-    end: usize,
-    msm_workspace: &mut MsmWorkspace,
-) where
-    F: FnMut(usize, &mut [ScalarField]) -> bool,
-{
-    println!("Preparing eta contribution: {}", label);
-    let mut x_coeffs = vec![ScalarField::zero(); x_size];
-    let mut scratch = BatchScratch::new();
-
-    for row_idx in 0..row_count {
-        if !fill_x_coeffs(row_idx, &mut x_coeffs) {
-            continue;
-        }
-
-        let mut pending = Vec::new();
-        for col_idx in start..end {
-            pending.push(Pending2d {
-                row_idx,
-                col_idx,
-                x_coeffs: &x_coeffs,
-                y_row_idx: col_idx,
-            });
-        }
-
-        flush_chunked_batch_2d(
-            phase1_source,
-            exp_alpha,
-            li_y_coeffs,
-            msm_workspace,
-            &mut pending,
-            &mut scratch,
-            result_matrix,
-        );
-    }
-    println!("Finished eta contribution: {}", label);
 }
