@@ -10,6 +10,7 @@ use mpc_setup::accumulator::Accumulator;
 use mpc_setup::contributor::{get_device_info, ContributorInfo};
 use mpc_setup::conversions::{icicle_g1_generator, icicle_g2_generator};
 use mpc_setup::sigma::AaccExt;
+use mpc_setup::testing_mode_enabled;
 use mpc_setup::utils::{prompt_user_input, Mode};
 use mpc_setup::QAP_COMPILER_PATH_PREFIX;
 use std::cmp::max;
@@ -95,17 +96,17 @@ async fn main() {
         (String::new(), String::new())
     };
 
-    println!("device info: {:?}", get_device_info());
-    println!("Current directory: {:?}", env::current_dir().unwrap());
-
     let setup_params = SetupParams::read_from_json(qap_path.join(&config.setup_params_file))
         .expect("cannot SetupParams read file");
     let x_degree = 2 * max(setup_params.n, setup_params.l_D - setup_params.l);
     let y_degree = 2 * config.s_max;
 
-    println!("Parsed config: {:?}", config);
-    println!("x_degree = {}", x_degree);
-    println!("y_degree = {}", y_degree);
+    println!("Initializing phase-1 accumulator...");
+    if testing_mode_enabled() {
+        println!("Device: {:?}", get_device_info());
+        println!("Config: {:?}", config);
+        println!("Power bounds: x_degree={}, y_degree={}", x_degree, y_degree);
+    }
     let scalar = initialize_scalar(&config.mode, config.blockhash.as_ref())
         .expect("cannot initialize scalar");
     let start = Instant::now();
@@ -143,8 +144,11 @@ async fn main() {
         fpath,
     )
     .expect("cannot write to file");
-    println!("Time elapsed: {:?}", start.elapsed().as_secs_f64());
-    println!("Thanks for your contribution...");
+    println!(
+        "Phase-1 initialization completed in {:.2} seconds",
+        start.elapsed().as_secs_f64()
+    );
+    println!("Thanks for your contribution.");
 }
 
 fn initialize_scalar(mode: &Mode, blockhash: Option<&String>) -> Result<ScalarField, String> {

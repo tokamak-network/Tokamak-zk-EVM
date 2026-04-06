@@ -18,7 +18,10 @@ use mpc_setup::mpc_utils::{compute_langrange_i_coeffs, compute_langrange_i_poly,
 use mpc_setup::phase1_source::{AccumulatorSource, Phase1SrsSource};
 use mpc_setup::sigma::SigmaV2;
 use mpc_setup::utils::{load_gpu_if_possible, prompt_user_input};
-use mpc_setup::{compute_lagrange_kl_from_source, public_wire_segments, QAP_COMPILER_PATH_PREFIX};
+use mpc_setup::{
+    compute_lagrange_kl_from_source, ensure_testing_mode, public_wire_segments,
+    QAP_COMPILER_PATH_PREFIX,
+};
 use rand::rngs::ThreadRng;
 use rand::Rng;
 use std::ops::Sub;
@@ -33,6 +36,8 @@ struct Config {
 }
 // cargo run --release --bin phase2_random_verify_prepare -- --outfolder ./setup/mpc-setup/output
 fn main() {
+    ensure_testing_mode("phase2_random_verify_prepare");
+
     let base_path = env::current_dir().unwrap();
     let qap_path = base_path.join(QAP_COMPILER_PATH_PREFIX);
 
@@ -73,7 +78,7 @@ fn main() {
     let l_d = setup_params.l_D; // Number of interface wires
     let m_i = l_d - l;
     println!(
-        "Setup parameters: \n n = {:?}, \n s_max = {:?}, \n l = {:?}, \n l_free = {:?}, \n m_I = {:?}, \n m_D = {:?}",
+        "Random verification setup: n={}, s_max={}, l={}, l_free={}, m_i={}, m_d={}",
         n, s_max, l, l_free, m_i, m_d
     );
 
@@ -88,7 +93,7 @@ fn main() {
         let li_y = compute_langrange_i_poly(i, 1, s_max);
         li_y_vec.push(li_y);
     }
-    println!("loading latest phase-1 source");
+    println!("Loading phase-1 source...");
     let phase1_source =
         AccumulatorSource::read_from_json(&format!("{}/{}", config.outfolder, accumulator))
             .expect("cannot read from latest accumulator json");
@@ -102,15 +107,12 @@ fn main() {
     let alpha3xy_g1s = phase1_source.alphaxy_g1_range(3, n, li_y_vec[0].y_size);
 
     let qap = QAP::gen_from_R1CS(&qap_path, &subcircuit_infos, &setup_params);
-    println!(
-        "The qap load time: {:.6} seconds",
-        start1.elapsed().as_secs_f64()
-    );
+    println!("QAP loaded in {:.2} seconds", start1.elapsed().as_secs_f64());
 
     let lagrange_kl = compute_lagrange_kl_from_source(&phase1_source, &setup_params);
 
     assert_eq!(sigma_trusted.sigma.lagrange_KL, lagrange_kl);
-    println!("lagrange_kl is checked!");
+    println!("Verified lagrange_KL");
 
     compute_gamma_part_i(
         0,
@@ -133,13 +135,11 @@ fn main() {
             compute_langrange_i_coeffs(j, l_free, 1, &mut m_j_x_coeffs);
             gamma_inv_o_inst[j] =
                 gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
-            println!("gamma_inv_o_inst[{}] = {:?}", j, gamma_inv_o_inst[j].0.x);
             assert_eq!(
                 sigma_trusted.sigma.sigma_1.gamma_inv_o_inst[j],
                 gamma_inv_o_inst[j]
             );
-            check_count = check_count + 1;
-            println!("check_count = {}", check_count);
+            check_count += 1;
         }
     }
 
@@ -159,13 +159,11 @@ fn main() {
             compute_langrange_i_coeffs(j, l_free, 1, &mut m_j_x_coeffs);
             gamma_inv_o_inst[j] =
                 gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
-            println!("gamma_inv_o_inst[{}] = {:?}", j, gamma_inv_o_inst[j].0.x);
             assert_eq!(
                 sigma_trusted.sigma.sigma_1.gamma_inv_o_inst[j],
                 gamma_inv_o_inst[j]
             );
-            check_count = check_count + 1;
-            println!("check_count = {}", check_count);
+            check_count += 1;
         }
     }
     compute_gamma_part_i(
@@ -184,12 +182,11 @@ fn main() {
             compute_langrange_i_coeffs(j, l_free, 1, &mut m_j_x_coeffs);
             gamma_inv_o_inst[j] =
                 gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
-            println!("gamma_inv_o_inst[{}] = {:?}", j, gamma_inv_o_inst[j].0.x);
             assert_eq!(
                 sigma_trusted.sigma.sigma_1.gamma_inv_o_inst[j],
                 gamma_inv_o_inst[j]
             );
-            check_count = check_count + 1;
+            check_count += 1;
         }
     }
     compute_gamma_part_i(
@@ -207,7 +204,7 @@ fn main() {
             sigma_trusted.sigma.sigma_1.gamma_inv_o_inst[i],
             gamma_inv_o_inst[i]
         );
-        check_count = check_count + 1;
+        check_count += 1;
     }
     // {δ^(-1)α^k x^h t_n(x)}_{h=0,k=1}^{2,3}
     let mut delta_inv_alphak_xh_tx =
@@ -220,37 +217,25 @@ fn main() {
             let alphak_xh = phase1_source.alphax_g1(k, h);
 
             delta_inv_alphak_xh_tx[k - 1][h] = alphak_xnh.sub(alphak_xh);
-            println!(
-                "delta_inv_alphak_xh_tx[{}][{}] = {:?}",
-                k - 1,
-                h,
-                delta_inv_alphak_xh_tx[k - 1][h].0.x
-            );
         }
     }
     assert_eq!(
         sigma_trusted.sigma.sigma_1.delta_inv_alphak_xh_tx,
         delta_inv_alphak_xh_tx
     );
-    check_count = check_count + 9;
-    println!("check_count = {}", check_count);
+    check_count += 9;
     // {δ^(-1)α^4 x^j t_{m_I}(x)}_{j=0}^{1}
     let mut delta_inv_alpha4_xj_tx = vec![G1serde::zero(); 2].into_boxed_slice();
     for j in 0..=1 {
         delta_inv_alpha4_xj_tx[j] = phase1_source.alphax_g1(4, m_i + j);
         delta_inv_alpha4_xj_tx[j] = delta_inv_alpha4_xj_tx[j].sub(phase1_source.alphax_g1(4, j));
-        println!(
-            "delta_inv_alpha4_xj_tx[{}] = {:?}",
-            j, delta_inv_alpha4_xj_tx[j].0.x
-        );
     }
 
     assert_eq!(
         sigma_trusted.sigma.sigma_1.delta_inv_alpha4_xj_tx,
         delta_inv_alpha4_xj_tx
     );
-    check_count = check_count + 2;
-    println!("check_count = {}", check_count);
+    check_count += 2;
 
     // {δ^(-1)α^k y^i t_{s_max}(y)}_{i=0,k=1}^{2,4}
     let mut delta_inv_alphak_yi_ty =
@@ -261,38 +246,29 @@ fn main() {
                 .alphay_g1(k, s_max + i)
                 .sub(phase1_source.alphay_g1(k, i));
 
-            println!(
-                "delta_inv_alphak_yi_ty[{}][{}] = {:?}",
-                k - 1,
-                i,
-                delta_inv_alphak_yi_ty[k - 1][i].0.x
-            );
         }
     }
     assert_eq!(
         sigma_trusted.sigma.sigma_1.delta_inv_alphak_yi_ty,
         delta_inv_alphak_yi_ty
     );
-    check_count = check_count + 12;
-    println!("check_count = {}", check_count);
+    check_count += 12;
 
     let mut multpxy_coeffs = vec![ScalarField::zero(); n * li_y_vec[0].y_size];
     // {η^(-1)L_i(y)(o_{j+l}(x) + α^4 K_j(x))}_{i=0,j=0}^{s_max-1,m_I-1}
     let mut eta_inv_li_o_inter_alpha4_kj =
         vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_i].into_boxed_slice();
     let mut kj_x_vec: Vec<DensePolynomialExt> = vec![];
-    println!("n = {} , s_max = {}, m_i = {} ", n, s_max, m_i);
     for i in 0..m_i {
         let kj_x = compute_langrange_i_poly(i, m_i, 1);
         kj_x_vec.push(kj_x);
     }
     let mut xy_coeffs = vec![ScalarField::zero(); li_y_vec[0].y_size * kj_x_vec[0].x_size];
     let alpha4xy_g1s = phase1_source.alphaxy_g1_range(4, kj_x_vec[0].x_size, li_y_vec[0].y_size);
-    println!("len of (eta_inv_li_o_inter_alpha4_kj) is {}", m_i * s_max);
     let mut cache: Vec<(usize, usize, Vec<ScalarField>, Vec<G1Affine>)> = vec![];
     let mut rng = rand::thread_rng();
 
-    let start2 = Instant::now();
+    let _start2 = Instant::now();
     for i in 0..s_max {
         for j in 0..m_i {
             if skip_verify(&mut rng) {
@@ -345,16 +321,11 @@ fn main() {
             if cache.len() > 0 {
                 run_sum_vector_dot_product2(&cache, &mut eta_inv_li_o_inter_alpha4_kj);
                 cache.clear();
-                println!(
-                    "eta_inv_li_o_inter_alpha4_kj[{}][{}] = {:?}",
-                    j, i, eta_inv_li_o_inter_alpha4_kj[j][i].0.x
-                );
                 assert_eq!(
                     eta_inv_li_o_inter_alpha4_kj[j][i],
                     sigma_trusted.sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj[j][i]
                 );
-                check_count = check_count + 1;
-                println!("check_count = {}", check_count);
+                check_count += 1;
             }
         }
     }
@@ -363,11 +334,7 @@ fn main() {
     let mut delta_inv_li_o_prv =
         vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_d - (l + m_i)].into_boxed_slice();
     //for private wires,
-    println!(
-        "len of (delta_inv_li_o_prv) is {}",
-        s_max * (m_d - (l + m_i))
-    );
-    let start2 = Instant::now();
+    let _start2 = Instant::now();
     for i in 0..s_max {
         for j in (l + m_i)..m_d {
             if skip_verify(&mut rng) {
@@ -409,20 +376,14 @@ fn main() {
                     delta_inv_li_o_prv[j - (l + m_i)][i],
                     sigma_trusted.sigma.sigma_1.delta_inv_li_o_prv[j - (l + m_i)][i]
                 );
-                println!(
-                    "delta_inv_li_o_prv[{}][{}] = {:?}",
-                    j - (l + m_i),
-                    i,
-                    delta_inv_li_o_prv[j - (l + m_i)][i].0.x
-                );
-                check_count = check_count + 1;
-                println!("check_count = {}", check_count);
+                check_count += 1;
             }
         }
     }
 
     println!(
-        "The total time: {:.6} seconds",
+        "Random verification completed with {} spot checks in {:.2} seconds",
+        check_count,
         start1.elapsed().as_secs_f64()
     );
 }

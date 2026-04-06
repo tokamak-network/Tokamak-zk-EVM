@@ -37,7 +37,6 @@ impl SigmaV2 {
         g1_gen: &G1Affine,
         g2_gen: &G2Affine,
     ) -> Self {
-        println!("Generating a sigma (σ)...");
         let sigma = Sigma::gen(params, tau, o_vec, l_vec, k_vec, m_vec, g1_gen, g2_gen);
         let gamma = G1serde(G1Affine::from((*g1_gen).to_projective() * tau.gamma));
         Self {

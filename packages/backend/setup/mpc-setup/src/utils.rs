@@ -45,11 +45,11 @@ pub fn load_gpu_if_possible() -> bool {
     let device_cuda_gpu = Device::new("CUDA", 0);
 
     if icicle_runtime::is_device_available(&device_metal_gpu) {
-        println!("METAL GPU is available");
+        println!("Using METAL GPU backend");
         icicle_runtime::set_device(&device_metal_gpu).expect("Failed to set metal device");
         is_gpu_enabled = true;
     } else if icicle_runtime::is_device_available(&device_cuda_gpu) {
-        println!("CUDA GPU is available");
+        println!("Using CUDA GPU backend");
         icicle_runtime::set_device(&device_cuda_gpu).expect("Failed to set cuda device");
         is_gpu_enabled = true;
     }
@@ -445,7 +445,7 @@ impl Phase2Proof {
                 consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.gamma_t_g2])
             });
         assert_eq!(consistent_all, true);
-        println!("consistent_all for gamma_inv_o_inst: {}", consistent_all);
+        crate::testing_log!("Verified gamma_inv_o_inst consistency");
 
         let consistent_all = sigma_cur
             .sigma
@@ -458,10 +458,7 @@ impl Phase2Proof {
             });
         assert_eq!(consistent_all, true);
 
-        println!(
-            "consistent_all for delta_inv_alpha4_xj_tx: {}",
-            consistent_all
-        );
+        crate::testing_log!("Verified delta_inv_alpha4_xj_tx consistency");
         let consistent_all = sigma_cur
             .sigma
             .sigma_1
@@ -477,10 +474,7 @@ impl Phase2Proof {
                     })
             });
         assert_eq!(consistent_all, true);
-        println!(
-            "consistent_all for delta_inv_alphak_xh_tx: {}",
-            consistent_all
-        );
+        crate::testing_log!("Verified delta_inv_alphak_xh_tx consistency");
 
         let consistent_all = sigma_cur
             .sigma
@@ -497,10 +491,7 @@ impl Phase2Proof {
                     })
             });
         assert_eq!(consistent_all, true);
-        println!(
-            "consistent_all for delta_inv_alphak_yi_ty: {}",
-            consistent_all
-        );
+        crate::testing_log!("Verified delta_inv_alphak_yi_ty consistency");
 
         let consistent_all = sigma_cur
             .sigma
@@ -524,10 +515,7 @@ impl Phase2Proof {
             });
 
         assert_eq!(consistent_all, true);
-        println!(
-            "consistent_all for eta_inv_li_o_inter_alpha4_kj: {}",
-            consistent_all
-        );
+        crate::testing_log!("Verified eta_inv_li_o_inter_alpha4_kj consistency");
 
         let consistent_all = sigma_cur
             .sigma

@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use icicle_bls12_381::curve::ScalarField;
-use icicle_core::traits::{Arithmetic, FieldImpl};
+use icicle_core::traits::FieldImpl;
 use libs::field_structures::{from_r1cs_to_evaled_qap_mixture, Tau};
 use libs::group_structures::{PartialSigma1, SigmaPreprocess};
 use libs::iotools::read_global_wire_list_as_boxed_boxed_numbers;
@@ -14,12 +14,14 @@ use libs::vector_operations::gen_evaled_lagrange_bases;
 use mpc_setup::conversions::{icicle_g1_generator, icicle_g2_generator};
 use mpc_setup::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
 use mpc_setup::utils::load_gpu_if_possible;
-use mpc_setup::{compute_lagrange_kl, QAP_COMPILER_PATH_PREFIX};
+use mpc_setup::{compute_lagrange_kl, ensure_testing_mode, QAP_COMPILER_PATH_PREFIX};
 use std::time::Instant;
 use std::{env, vec};
 
 //cargo run --release --bin phase2_testing_prepare
 fn main() {
+    ensure_testing_mode("phase2_testing_prepare");
+
     let base_path = env::current_dir().unwrap();
     let qap_path = base_path.join(QAP_COMPILER_PATH_PREFIX);
 
@@ -45,8 +47,6 @@ fn main() {
     tau.gamma = ScalarField::from_u32(1);
     tau.eta = ScalarField::from_u32(1);
 
-    println!("inverse gamma {}", tau.gamma.inv());
-
     // Load setup parameters from JSON file
     let setup_file_name = "setupParams.json";
     let setup_params = SetupParams::read_from_json(qap_path.join(setup_file_name)).unwrap();
@@ -68,7 +68,7 @@ fn main() {
                                 // The last wire-related parameter
     let m_i = l_d - l;
     println!(
-        "Setup parameters: \n n = {:?}, \n s_max = {:?}, \n l = {:?}, \n l_free = {:?}, \n m_I = {:?}, \n m_D = {:?}",
+        "Testing setup: n={}, s_max={}, l={}, l_free={}, m_i={}, m_d={}",
         n, s_max, l, l_free, m_i, m_d
     );
 
@@ -107,7 +107,9 @@ fn main() {
         gen_evaled_lagrange_bases(&tau.x, n, &mut x_evaled_lagrange_vec);
         // Process each subcircuit
         for i in 0..s_d {
-            println!("Processing subcircuit id {}", i);
+            if i % 4 == 0 || i + 1 == s_d {
+                println!("Evaluating subcircuits: {}/{}", i + 1, s_d);
+            }
             let r1cs_path: String = format!("json/subcircuit{i}.json");
 
             // Evaluate QAP for the current subcircuit
@@ -152,7 +154,7 @@ fn main() {
 
     let duration = start.elapsed();
     println!(
-        "Polynomial evaluation computation time: {:.6} seconds",
+        "Polynomial evaluations completed in {:.2} seconds",
         duration.as_secs_f64()
     );
 
@@ -181,7 +183,7 @@ fn main() {
     assert_eq!(sigma.sigma.lagrange_KL, lagrange_kl);
 
     // Writing the sigma into JSON
-    println!("Writing the sigma into JSON...");
+    println!("Writing testing sigma...");
     sigma
         .write_into_json("setup/mpc-setup/output/phase2_acc_0.json")
         .unwrap();
@@ -194,7 +196,7 @@ fn main() {
     //     )
     //    .unwrap();
     let lap = start.elapsed();
-    println!("The sigma writing time: {:.6} seconds", lap.as_secs_f64());
+    println!("Testing sigma written in {:.2} seconds", lap.as_secs_f64());
 
     save_contributor_info(
         &sigma,
@@ -207,8 +209,5 @@ fn main() {
         hex::encode([0u8; HASH_BYTES_LEN]),
     )
     .expect("cannot write contributor info");
-    println!(
-        "The total time: {:.6} seconds",
-        start.elapsed().as_secs_f64()
-    );
+    println!("Testing prepare completed in {:.2} seconds", start.elapsed().as_secs_f64());
 }

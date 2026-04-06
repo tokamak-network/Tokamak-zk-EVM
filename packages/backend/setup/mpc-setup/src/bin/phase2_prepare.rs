@@ -19,7 +19,10 @@ use mpc_setup::mpc_utils::{compute_langrange_i_coeffs, compute_langrange_i_poly,
 use mpc_setup::phase1_source::{AccumulatorSource, Phase1SrsSource};
 use mpc_setup::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
 use mpc_setup::utils::{load_gpu_if_possible, prompt_user_input};
-use mpc_setup::{compute_lagrange_kl_from_source, public_wire_segments, QAP_COMPILER_PATH_PREFIX};
+use mpc_setup::{
+    compute_lagrange_kl_from_source, ensure_testing_mode, public_wire_segments,
+    QAP_COMPILER_PATH_PREFIX,
+};
 use rayon::iter::ParallelIterator;
 use rayon::prelude::IntoParallelRefIterator;
 use std::ops::Sub;
@@ -226,7 +229,7 @@ pub fn process_prepare(
     let l_d = setup_params.l_D; // Number of interface wires
     let m_i = l_d - l;
     println!(
-        "Setup parameters: \n n = {:?}, \n s_max = {:?}, \n l = {:?}, \n l_free = {:?}, \n m_I = {:?}, \n m_D = {:?}",
+        "Phase-2 prepare setup: n={}, s_max={}, l={}, l_free={}, m_i={}, m_d={}",
         n, s_max, l, l_free, m_i, m_d
     );
 
@@ -240,13 +243,14 @@ pub fn process_prepare(
         let li_y = compute_langrange_i_poly(i, 1, s_max);
         li_y_vec.push(li_y);
     }
-    println!("loading latest phase-1 source");
+    println!("Loading phase-1 source...");
     let phase1_source =
         AccumulatorSource::read_from_json(&format!("{}/{}", outfolder, accumulator))
             .expect("cannot read from latest accumulator json");
 
     let sigma_trusted = if is_checking {
-        println!("loading sigma_trusted json for testing purpose");
+        ensure_testing_mode("phase2_prepare --is-checking");
+        println!("Loading trusted reference sigma...");
         Some(SigmaV2::read_from_json("setup/mpc-setup/output/phase2_acc_0.json").unwrap())
     } else {
         None
@@ -262,10 +266,7 @@ pub fn process_prepare(
     let alpha3xy_g1s = phase1_source.alphaxy_g1_range(3, n, li_y_vec[0].y_size);
 
     let qap = QAP::gen_from_R1CS(&qap_path, &subcircuit_infos, &setup_params);
-    println!(
-        "The qap load time: {:.6} seconds",
-        start1.elapsed().as_secs_f64()
-    );
+    println!("QAP loaded in {:.2} seconds", start1.elapsed().as_secs_f64());
 
     compute_gamma_part_i(
         0,
@@ -289,7 +290,6 @@ pub fn process_prepare(
             compute_langrange_i_coeffs(j, l_free, 1, &mut m_j_x_coeffs);
             gamma_inv_o_inst[j] =
                 gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
-            println!("gamma_inv_o_inst[{}] = {:?}", j, gamma_inv_o_inst[j].0.x);
             if let Some(sigma_for_check) = &sigma_trusted {
                 assert_eq!(
                     sigma_for_check.sigma.sigma_1.gamma_inv_o_inst[j],
@@ -316,7 +316,6 @@ pub fn process_prepare(
             compute_langrange_i_coeffs(j, l_free, 1, &mut m_j_x_coeffs);
             gamma_inv_o_inst[j] =
                 gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
-            println!("gamma_inv_o_inst[{}] = {:?}", j, gamma_inv_o_inst[j].0.x);
             if let Some(sigma_for_check) = &sigma_trusted {
                 assert_eq!(
                     sigma_for_check.sigma.sigma_1.gamma_inv_o_inst[j],
@@ -342,7 +341,6 @@ pub fn process_prepare(
             compute_langrange_i_coeffs(j, l_free, 1, &mut m_j_x_coeffs);
             gamma_inv_o_inst[j] =
                 gamma_inv_o_inst[j] + sum_vector_dot_product(&m_j_x_coeffs, &xi_g1s);
-            println!("gamma_inv_o_inst[{}] = {:?}", j, gamma_inv_o_inst[j].0.x);
             if let Some(sigma_for_check) = &sigma_trusted {
                 assert_eq!(
                     sigma_for_check.sigma.sigma_1.gamma_inv_o_inst[j],
@@ -369,6 +367,7 @@ pub fn process_prepare(
                 gamma_inv_o_inst[i]
             );
         }
+        println!("Verified gamma terms against the trusted reference");
     }
     // {δ^(-1)α^k x^h t_n(x)}_{h=0,k=1}^{2,3}
     let mut delta_inv_alphak_xh_tx =
@@ -381,12 +380,6 @@ pub fn process_prepare(
             let alphak_xh = phase1_source.alphax_g1(k, h);
 
             delta_inv_alphak_xh_tx[k - 1][h] = alphak_xnh.sub(alphak_xh);
-            println!(
-                "delta_inv_alphak_xh_tx[{}][{}] = {:?}",
-                k - 1,
-                h,
-                delta_inv_alphak_xh_tx[k - 1][h].0.x
-            );
         }
     }
 
@@ -395,10 +388,6 @@ pub fn process_prepare(
     for j in 0..=1 {
         delta_inv_alpha4_xj_tx[j] = phase1_source.alphax_g1(4, m_i + j);
         delta_inv_alpha4_xj_tx[j] = delta_inv_alpha4_xj_tx[j].sub(phase1_source.alphax_g1(4, j));
-        println!(
-            "delta_inv_alpha4_xj_tx[{}] = {:?}",
-            j, delta_inv_alpha4_xj_tx[j].0.x
-        );
     }
 
     if let Some(sigma_for_check) = &sigma_trusted {
@@ -417,34 +406,23 @@ pub fn process_prepare(
                 .alphay_g1(k, s_max + i)
                 .sub(phase1_source.alphay_g1(k, i));
 
-            println!(
-                "delta_inv_alphak_yi_ty[{}][{}] = {:?}",
-                k - 1,
-                i,
-                delta_inv_alphak_yi_ty[k - 1][i].0.x
-            );
         }
     }
     //assert_eq!(sigma_trusted.sigma.sigma_1.delta_inv_alphak_yi_ty, delta_inv_alphak_yi_ty);
     let lap = start1.elapsed();
-    println!(
-        "The total time for first part: {:.6} seconds",
-        lap.as_secs_f64()
-    );
+    println!("Prepared gamma and delta constants in {:.2} seconds", lap.as_secs_f64());
 
     let mut multpxy_coeffs = vec![ScalarField::zero(); n * li_y_vec[0].y_size];
     // {η^(-1)L_i(y)(o_{j+l}(x) + α^4 K_j(x))}_{i=0,j=0}^{s_max-1,m_I-1}
     let mut eta_inv_li_o_inter_alpha4_kj =
         vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_i].into_boxed_slice();
     let mut kj_x_vec: Vec<DensePolynomialExt> = vec![];
-    println!("n = {} , s_max = {}, m_i = {} ", n, s_max, m_i);
     for i in 0..m_i {
         let kj_x = compute_langrange_i_poly(i, m_i, 1);
         kj_x_vec.push(kj_x);
     }
     let mut xy_coeffs = vec![ScalarField::zero(); li_y_vec[0].y_size * kj_x_vec[0].x_size];
     let alpha4xy_g1s = phase1_source.alphaxy_g1_range(4, kj_x_vec[0].x_size, li_y_vec[0].y_size);
-    println!("len of (eta_inv_li_o_inter_alpha4_kj) is {}", m_i * s_max);
     let batch_count = env::var("BATCH_COUNT")
         .unwrap_or("512".to_string())
         .parse::<usize>()
@@ -476,7 +454,6 @@ pub fn process_prepare(
         start,
         end,
     );
-    println!("processing u for eta done");
     process_qap_component_for_eta(
         "v",
         m_i,
@@ -491,7 +468,6 @@ pub fn process_prepare(
         start,
         end,
     );
-    println!("processing v for eta done");
 
     process_qap_component_for_eta(
         "w",
@@ -507,7 +483,6 @@ pub fn process_prepare(
         start,
         end,
     );
-    println!("processing w for eta  done");
 
     process_qap_component_for_eta(
         "kjx",
@@ -523,13 +498,8 @@ pub fn process_prepare(
         start,
         end,
     );
-    println!("processing kjx for eta  done");
     for i in start..end {
         for j in 0..m_i {
-            println!(
-                "eta_inv_li_o_inter_alpha4_kj[{}][{}] = {:?}",
-                j, i, eta_inv_li_o_inter_alpha4_kj[j][i].0.x
-            );
             if let Some(sigma_for_check) = &sigma_trusted {
                 assert_eq!(
                     eta_inv_li_o_inter_alpha4_kj[j][i],
@@ -538,17 +508,16 @@ pub fn process_prepare(
             }
         }
     }
+    if sigma_trusted.is_some() {
+        println!("Verified eta terms against the trusted reference");
+    }
     let avg = start2.elapsed().as_secs_f64() / (s_max * m_i) as f64;
-    println!("avg eta_inv_li_o_inter_alpha4_kj per second {}", 1f64 / avg);
+    println!("Prepared eta terms at {:.2} items/s", 1f64 / avg);
 
     // {δ^(-1)L_i(y)o_j(x)}_{i=0,j=l+m_I}^{s_max-1,m_I-1}
     let mut delta_inv_li_o_prv =
         vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_d - (l + m_i)].into_boxed_slice();
     //for private wires,
-    println!(
-        "len of (delta_inv_li_o_prv) is {}",
-        s_max * (m_d - (l + m_i))
-    );
     let start2 = Instant::now();
     let s_max = li_y_vec.len();
 
@@ -599,12 +568,6 @@ pub fn process_prepare(
 
     for i in start..end {
         for j in (l + m_i)..m_d {
-            println!(
-                "delta_inv_li_o_prv[{}][{}] = {:?}",
-                j - (l + m_i),
-                i,
-                delta_inv_li_o_prv[j - (l + m_i)][i].0.x
-            );
             if let Some(sigma_for_check) = &sigma_trusted {
                 assert_eq!(
                     delta_inv_li_o_prv[j - (l + m_i)][i],
@@ -613,8 +576,11 @@ pub fn process_prepare(
             }
         }
     }
+    if sigma_trusted.is_some() {
+        println!("Verified private-wire delta terms against the trusted reference");
+    }
     let avg = start2.elapsed().as_secs_f64() / (s_max * (m_d - (l + m_i))) as f64;
-    println!("avg delta per second {}", 1f64 / avg);
+    println!("Prepared private-wire delta terms at {:.2} items/s", 1f64 / avg);
 
     let lagrange_kl = compute_lagrange_kl_from_source(&phase1_source, &setup_params);
 
@@ -669,10 +635,7 @@ fn process_qap_component_for_eta<'a, F>(
 ) where
     F: Fn(usize, usize) -> Option<&'a DensePolynomialExt>,
 {
-    println!(
-        "processing eta: labeled = {} for start = {} end = {}",
-        label, start, end
-    );
+    println!("Preparing eta contribution: {}", label);
     for i in start..end {
         let mut coeffs = Vec::with_capacity(coeff_buf.len() * batch_count);
         let mut indexes = Vec::with_capacity(batch_count);
@@ -693,7 +656,6 @@ fn process_qap_component_for_eta<'a, F>(
                         );
                         coeffs.clear();
                         indexes.clear();
-                        println!("computation {} with li is done", label);
                     }
                 }
             }
@@ -704,7 +666,7 @@ fn process_qap_component_for_eta<'a, F>(
         }
     }
 
-    println!("processing {} done", label);
+    println!("Finished eta contribution: {}", label);
 }
 
 fn process_qap_contributions_for_delta_inv(
@@ -721,10 +683,7 @@ fn process_qap_contributions_for_delta_inv(
     start: usize,
     end: usize,
 ) {
-    println!(
-        "processing delta_inv: labeled = {} for start = {} end = {}",
-        label, start, end
-    );
+    println!("Preparing delta contribution: {}", label);
     for i in start..end {
         let mut coeffs = Vec::with_capacity(multpxy_coeffs.len() * batch_count);
         let mut indexes = Vec::with_capacity(batch_count);
@@ -744,7 +703,6 @@ fn process_qap_contributions_for_delta_inv(
                     );
                     indexes.clear();
                     coeffs.clear();
-                    println!("computation {} with li is done", label);
                 }
             }
         }

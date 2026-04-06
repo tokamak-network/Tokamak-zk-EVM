@@ -15,6 +15,26 @@ use libs::iotools::SetupParams;
 pub const QAP_COMPILER_PATH_PREFIX: &str = "../frontend/qap-compiler/subcircuits/library";
 pub const SYNTHESIZER_PATH_PREFIX: &str = "../frontend/synthesizer/examples/outputs";
 
+pub const fn testing_mode_enabled() -> bool {
+    cfg!(feature = "testing-mode")
+}
+
+pub fn ensure_testing_mode(context: &str) {
+    assert!(
+        testing_mode_enabled(),
+        "{context} requires the `testing-mode` feature"
+    );
+}
+
+#[macro_export]
+macro_rules! testing_log {
+    ($($arg:tt)*) => {{
+        if $crate::testing_mode_enabled() {
+            println!($($arg)*);
+        }
+    }};
+}
+
 pub mod conversions;
 pub mod utils;
 
@@ -94,7 +114,7 @@ where
 {
     let m_i = setup_params.l_D - setup_params.l;
     let s_max = setup_params.s_max;
-    println!("Encoding lagrange_KL with a dedicated separable MSM path...");
+    testing_log!("Encoding lagrange_KL with the separable MSM path");
 
     let k_coeffs = compute_last_lagrange_coeffs(m_i, true);
     let l_coeffs = compute_last_lagrange_coeffs(s_max, false);
