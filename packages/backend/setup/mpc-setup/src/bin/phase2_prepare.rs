@@ -17,7 +17,7 @@ use mpc_setup::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
 use mpc_setup::utils::{load_gpu_if_possible, prompt_user_input};
 use mpc_setup::{
     compute_lagrange_kl_from_source, ensure_testing_mode, public_wire_segments, MsmWorkspace,
-    NttWorkspace, QAP_COMPILER_PATH_PREFIX,
+    NttWorkspace, MPC_SETUP_CACHE_PATH_PREFIX, QAP_COMPILER_PATH_PREFIX,
 };
 use std::ops::Sub;
 use std::time::Instant;
@@ -251,6 +251,7 @@ pub fn process_prepare(
 ) -> SigmaV2 {
     let base_path = env::current_dir().unwrap();
     let qap_path = base_path.join(QAP_COMPILER_PATH_PREFIX);
+    let cache_root = base_path.join(MPC_SETUP_CACHE_PATH_PREFIX);
 
     let start1 = Instant::now();
     let accumulator = format!("phase1_acc_{}.json", contributor_index);
@@ -279,7 +280,7 @@ pub fn process_prepare(
     let subcircuit_infos =
         SubcircuitInfo::read_box_from_json(qap_path.join(&subcircuit_file_name)).unwrap();
 
-    let li_y_coeffs = load_or_build_li_y_coeffs(&qap_path, s_max);
+    let li_y_coeffs = load_or_build_li_y_coeffs(&cache_root, s_max);
     println!("Loading phase-1 source...");
     let phase1_source =
         AccumulatorSource::read_from_json(&format!("{}/{}", outfolder, accumulator))
@@ -397,7 +398,7 @@ pub fn process_prepare(
         );
         let r1cs_path = qap_path.join(format!("json/subcircuit{subcircuit_idx}.json"));
         let coeff_view = load_or_build_coeff_view(
-            &qap_path,
+            &cache_root,
             &r1cs_path,
             subcircuit_idx,
             &setup_params,
@@ -827,8 +828,8 @@ impl SubcircuitCoeffView {
     }
 }
 
-fn li_y_cache_path(qap_path: &Path, s_max: usize) -> PathBuf {
-    cache_dir(qap_path).join(format!("lagrange_y_s{}.rkyv", s_max))
+fn li_y_cache_path(cache_root: &Path, s_max: usize) -> PathBuf {
+    cache_dir(cache_root).join(format!("lagrange_y_s{}.rkyv", s_max))
 }
 
 fn write_li_y_coeffs_cache(cache_path: &Path, table: &LagrangeCoeffTable) {
@@ -857,28 +858,28 @@ fn build_li_y_coeffs(s_max: usize) -> LagrangeCoeffTable {
     LagrangeCoeffTable::new(s_max, coeffs)
 }
 
-fn load_or_build_li_y_coeffs(qap_path: &Path, s_max: usize) -> LagrangeCoeffTable {
-    let cache_path = li_y_cache_path(qap_path, s_max);
+fn load_or_build_li_y_coeffs(cache_root: &Path, s_max: usize) -> LagrangeCoeffTable {
+    let cache_path = li_y_cache_path(cache_root, s_max);
     if let Some(table) = load_li_y_coeffs_cache(&cache_path, s_max) {
         return table;
     }
 
     let table = build_li_y_coeffs(s_max);
-    fs::create_dir_all(cache_dir(qap_path)).expect("failed to create coeff cache directory");
+    fs::create_dir_all(cache_dir(cache_root)).expect("failed to create coeff cache directory");
     write_li_y_coeffs_cache(&cache_path, &table);
     table
 }
 
-fn cache_dir(qap_path: &Path) -> PathBuf {
-    qap_path.join("backend-cache").join("phase2-prepare")
+fn cache_dir(cache_root: &Path) -> PathBuf {
+    cache_root.join("phase2-prepare")
 }
 
 fn cache_path_for_subcircuit(
-    qap_path: &Path,
+    cache_root: &Path,
     subcircuit_idx: usize,
     setup_params: &SetupParams,
 ) -> PathBuf {
-    cache_dir(qap_path).join(format!(
+    cache_dir(cache_root).join(format!(
         "subcircuit{}_n{}_s{}_lf{}_mi{}.rkyv",
         subcircuit_idx,
         setup_params.n,
@@ -932,14 +933,14 @@ fn write_coeff_view_cache(
 }
 
 fn load_or_build_coeff_view(
-    qap_path: &Path,
+    cache_root: &Path,
     source_path: &Path,
     subcircuit_idx: usize,
     setup_params: &SetupParams,
     subcircuit_info: &SubcircuitInfo,
     ntt_workspace: &mut NttWorkspace,
 ) -> SubcircuitCoeffView {
-    let cache_path = cache_path_for_subcircuit(qap_path, subcircuit_idx, setup_params);
+    let cache_path = cache_path_for_subcircuit(cache_root, subcircuit_idx, setup_params);
     if cache_is_fresh(&cache_path, source_path) {
         if let Some(coeff_view) = load_coeff_view_from_cache(&cache_path, subcircuit_info) {
             return coeff_view;
@@ -958,7 +959,7 @@ fn load_or_build_coeff_view(
         setup_params.n,
         ntt_workspace,
     );
-    fs::create_dir_all(cache_dir(qap_path)).expect("failed to create coeff cache directory");
+    fs::create_dir_all(cache_dir(cache_root)).expect("failed to create coeff cache directory");
     write_coeff_view_cache(&cache_path, &coeff_view, &compact_r1cs);
     coeff_view
 }
