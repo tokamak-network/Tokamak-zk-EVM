@@ -498,3 +498,163 @@ The refactor is correct only if all of the following remain true:
 3. `phase2_prepare` is the first point where a concrete $y$ enters the ceremony state.
 4. The implementation rejects degenerate $y$ values with $y^s = 1$.
 5. Downstream preprocess, prove, and verify code can consume the resulting `SigmaV2` without a format change.
+
+## Future Work: Replace First-Contributor $y$ With A Public Beacon
+
+### Current implementation status
+
+The current implementation follows the first-phase-2-contributor model described above.
+In concrete terms:
+
+- Phase 1 emits an x-only artifact.
+- `phase2_prepare` is the first step that chooses a concrete $y$.
+- When `phase2_prepare` is run without an explicit `--y-hex`, the first phase-2 operator effectively determines the final $y$ value used to expand:
+
+$$
+[x^a y^b]_1,\quad
+[\alpha^k x^a y^b]_1,\quad
+L_i(y),\quad
+y^i t_s(y).
+$$
+
+This achieves the intended performance improvement, but it also means that the implemented protocol is not an MPC for $y$.
+
+### Security limitation of the current implementation
+
+Under the current implementation, the first phase-2 operator can bias the distribution of $y$.
+Even if later contributors honestly update $\gamma$, $\delta$, and $\eta$, they do not repair a bad $y$ choice because the final $Y$-expanded structure has already been fixed.
+
+The concrete limitations are:
+
+1. The setup now relies on the first phase-2 operator to choose $y$ honestly.
+2. The setup must trust that the first phase-2 operator does not choose $y$ from the $Y$-evaluation domain.
+3. The setup must trust that the first phase-2 operator does not choose any value such that
+
+$$
+y^s = 1.
+$$
+
+4. The security guarantee for $y$ is therefore weaker than the standard "at least one honest contributor" property that still applies to $\gamma$, $\delta$, and $\eta$.
+
+This does not automatically imply that knowledge of $y$ alone reveals $x$, $\alpha$, $\gamma$, $\delta$, or $\eta$, but it does mean that the protocol currently gives one party unilateral control over the $Y$-side structure of the CRS.
+
+### Target hardening model
+
+The preferred hardening path is to make $y$ a public, deterministic transcript value instead of a secret contributor-selected value.
+
+The target property is:
+
+$$
+y = \mathrm{HashToField}(\mathrm{domain\_separator} \parallel \mathrm{transcript\_commitment} \parallel \mathrm{beacon\_value} \parallel \mathrm{counter})
+$$
+
+with rejection and counter increment until:
+
+$$
+y^s \neq 1.
+$$
+
+Under this model:
+
+- no contributor privately chooses $y$;
+- every verifier can recompute the same $y$ from public inputs;
+- multipart `phase2_prepare` runs derive the same $y$ without manual coordination;
+- the performance benefit of the x-only phase-1 split is preserved.
+
+### Concrete random-beacon migration plan
+
+#### Step 1: Fix the public inputs that define the transcript
+
+Define a canonical transcript preimage that includes at least:
+
+- a domain separator dedicated to phase-2 $y$ derivation;
+- the final phase-1 accumulator hash;
+- the setup-parameter hash;
+- the subcircuit-library hash;
+- the selected public beacon identifier and value.
+
+All fields must use a canonical byte encoding and a fixed order.
+
+#### Step 2: Fix the beacon source contract
+
+Choose and document one beacon source.
+Acceptable examples are:
+
+- a finalized Ethereum block hash at a precommitted height;
+- a drand round output at a precommitted round;
+- another public randomness source with stable archival access.
+
+The protocol must specify:
+
+- which network or service is used;
+- how the beacon value is represented as bytes;
+- when the beacon becomes fixed;
+- how implementations behave if the beacon is unavailable.
+
+#### Step 3: Define a deterministic `HashToField` rule
+
+Specify the exact derivation algorithm, including:
+
+- the hash function;
+- the byte order;
+- the reduction into the scalar field;
+- the rejection rule for invalid values;
+- the counter-based retry rule.
+
+For example, the protocol can define:
+
+$$
+seed_0 = H(\mathrm{transcript} \parallel \mathrm{beacon}),
+$$
+
+$$
+y_c = \mathrm{FieldReduce}(H(seed_0 \parallel c)),
+$$
+
+and choose the first $y_c$ such that
+
+$$
+y_c^s \neq 1.
+$$
+
+#### Step 4: Make multipart phase-2 derivation automatic
+
+Remove the requirement that multipart runs share `--y-hex` manually.
+Instead, every part must derive the same $y$ locally from the public transcript and beacon.
+
+Each partial phase-2 artifact should still record a compact commitment to the derived $y$ so that merge code can assert equality across all parts.
+
+#### Step 5: Bind the derived $y$ into the phase-2 artifact
+
+Store enough metadata in the phase-2 accumulator or contributor record to make the derivation auditable.
+At minimum, record:
+
+- the beacon source identifier;
+- the beacon value or its hash;
+- the transcript hash used for derivation;
+- the final derived $y$ encoding.
+
+This lets downstream tooling and external auditors reproduce the exact value of $y$ used in the ceremony.
+
+#### Step 6: Reject non-canonical or adversarial inputs
+
+`phase2_prepare` should fail if:
+
+- the beacon input is missing when beacon mode is selected;
+- the beacon metadata does not match the documented source contract;
+- the recomputed $y$ disagrees with the recorded value;
+- the derived value satisfies
+
+$$
+y^s = 1.
+$$
+
+### Migration completion criterion
+
+This future work is complete only when all of the following are true:
+
+1. No contributor privately chooses $y$.
+2. Every implementation derives the same $y$ from the same public inputs.
+3. Multipart runs no longer require manual `--y-hex` coordination.
+4. The resulting `SigmaV2` remains byte-compatible with downstream preprocess, prove, and verify stages.
+5. The ceremony regains a public, bias-resistant rule for the $Y$-side structure of the CRS.
