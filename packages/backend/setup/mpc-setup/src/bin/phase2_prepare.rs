@@ -5,7 +5,7 @@ use clap::Parser;
 use icicle_bls12_381::curve::{G1Affine, ScalarField};
 use icicle_core::traits::{Arithmetic, FieldImpl};
 use libs::group_structures::{G1serde, Sigma, Sigma1, Sigma2};
-use libs::iotools::{SetupParams, SubcircuitInfo, SubcircuitR1CS};
+use libs::iotools::{scalar_to_hex, SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use libs::utils::{
     init_ntt_domain, setup_shape, trusted_setup_ntt_domain_size, validate_public_wire_size,
     validate_setup_shape,
@@ -193,6 +193,7 @@ fn merge_all_parts(outfolder: &str, total_part: usize) -> SigmaV2 {
         assert_eq!(sigma.sigma.sigma_2.alpha2, next.sigma.sigma_2.alpha2);
         assert_eq!(sigma.sigma.sigma_2.alpha3, next.sigma.sigma_2.alpha3);
         assert_eq!(sigma.sigma.sigma_2.alpha4, next.sigma.sigma_2.alpha4);
+        assert_eq!(sigma.public_y_hex, next.public_y_hex);
         assert_eq!(sigma.sigma.sigma_1.x, next.sigma.sigma_1.x);
         assert_eq!(sigma.sigma.sigma_1.y, next.sigma.sigma_1.y);
         assert_eq!(sigma.sigma.sigma_1.eta, next.sigma.sigma_1.eta);
@@ -672,6 +673,7 @@ pub fn process_prepare(
     SigmaV2 {
         contributor_index: 0,
         gamma: g1,
+        public_y_hex: Some(scalar_to_hex(&phase2_y)),
         sigma: Sigma {
             G: g1,
             H: g2,

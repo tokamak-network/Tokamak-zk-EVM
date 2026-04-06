@@ -68,9 +68,19 @@ fn main() {
     let mut rng = initialize_random_generator(&config.mode);
 
     let latest_acc = load_phase2_accumulator(&config.outfolder, contributor_index - 1);
+    latest_acc
+        .validate_public_phase2_y()
+        .expect("phase-2 accumulator carries an invalid disclosed y");
 
     println!("loading current challenge and proof...");
     println!("latest contributor index: {}", latest_acc.contributor_index);
+    println!(
+        "verified disclosed phase-2 y {}",
+        latest_acc
+            .public_y_hex
+            .as_deref()
+            .expect("validated phase-2 y must be disclosed")
+    );
 
     let mut previous_hashes = vec![];
     previous_hashes.push(latest_acc.blake2b_hash());
@@ -164,6 +174,17 @@ fn create_contributor_info(
 
 fn verify_latest_contribution(outfolder: &str, latest_sigma: &SigmaV2) {
     let prev_sigma = load_phase2_accumulator(outfolder, latest_sigma.contributor_index - 1);
+    let prev_y = prev_sigma
+        .validate_public_phase2_y()
+        .expect("previous phase-2 accumulator carries an invalid disclosed y");
+    let latest_y = latest_sigma
+        .validate_public_phase2_y()
+        .expect("latest phase-2 accumulator carries an invalid disclosed y");
+    assert_eq!(prev_y, latest_y, "phase-2 y changed across contributors");
+    assert_eq!(
+        prev_sigma.public_y_hex, latest_sigma.public_y_hex,
+        "phase-2 y disclosure changed across contributors"
+    );
 
     let proof_file_str = &format!(
         "{}/phase2_proof_{}.json",

@@ -3,9 +3,10 @@ use crate::{impl_read_from_json, impl_write_into_json};
 use blake2::{Blake2b, Digest};
 use chrono::Local;
 use icicle_bls12_381::curve::{G1Affine, G2Affine, ScalarField};
+use icicle_core::traits::{Arithmetic, FieldImpl};
 use libs::field_structures::Tau;
 use libs::group_structures::{G1serde, Sigma};
-use libs::iotools::SetupParams;
+use libs::iotools::{scalar_to_hex, SetupParams};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_reader, to_writer_pretty};
 use std::env;
@@ -22,6 +23,8 @@ pub struct SigmaV2 {
     // #[serde(flatten)]
     pub sigma: Sigma,
     pub gamma: G1serde,
+    #[serde(default)]
+    pub public_y_hex: Option<String>,
 }
 impl_read_from_json!(SigmaV2);
 impl_write_into_json!(SigmaV2);
@@ -43,6 +46,7 @@ impl SigmaV2 {
             contributor_index: 0,
             sigma,
             gamma,
+            public_y_hex: None,
         }
     }
     /// Write verifier CRS into JSON
@@ -57,6 +61,68 @@ impl SigmaV2 {
 
     pub fn write_into_rust_code(&self, path: &str) -> io::Result<()> {
         self.sigma.write_into_rust_code(path)
+    }
+
+    fn parse_public_y_hex(input: &str) -> Result<ScalarField, String> {
+        let trimmed = input.trim().trim_start_matches("0x");
+        let mut bytes = hex::decode(trimmed)
+            .map_err(|err| format!("invalid public phase-2 y hex encoding: {err}"))?;
+        bytes.reverse();
+        Ok(ScalarField::from_bytes_le(&bytes))
+    }
+
+    fn infer_phase2_s_max(&self) -> Option<usize> {
+        self.sigma
+            .sigma_1
+            .eta_inv_li_o_inter_alpha4_kj
+            .first()
+            .map(|row| row.len())
+            .filter(|len| *len > 0)
+            .or_else(|| {
+                self.sigma
+                    .sigma_1
+                    .delta_inv_li_o_prv
+                    .first()
+                    .map(|row| row.len())
+                    .filter(|len| *len > 0)
+            })
+    }
+
+    pub fn public_phase2_y(&self) -> Result<ScalarField, String> {
+        let public_y_hex = self
+            .public_y_hex
+            .as_deref()
+            .ok_or_else(|| "missing public phase-2 y disclosure".to_string())?;
+        Self::parse_public_y_hex(public_y_hex)
+    }
+
+    pub fn validate_public_phase2_y(&self) -> Result<ScalarField, String> {
+        let public_y = self.public_phase2_y()?;
+        let inferred_s = self
+            .infer_phase2_s_max()
+            .ok_or_else(|| "cannot infer s_max from phase-2 accumulator shape".to_string())?;
+
+        if public_y.pow(inferred_s) == ScalarField::one() {
+            return Err("public phase-2 y is invalid because y^s_max = 1".to_string());
+        }
+
+        let expected_g1_y = self.sigma.G * public_y;
+        if self.sigma.sigma_1.y != expected_g1_y {
+            return Err(format!(
+                "Sigma1.y does not match the disclosed phase-2 y {}",
+                scalar_to_hex(&public_y)
+            ));
+        }
+
+        let expected_g2_y = self.sigma.H * public_y;
+        if self.sigma.sigma_2.y != expected_g2_y {
+            return Err(format!(
+                "Sigma2.y does not match the disclosed phase-2 y {}",
+                scalar_to_hex(&public_y)
+            ));
+        }
+
+        Ok(public_y)
     }
 }
 

@@ -508,6 +508,15 @@ In concrete terms:
 
 - Phase 1 emits an x-only artifact.
 - `phase2_prepare` is the first step that chooses a concrete $y$.
+- `phase2_prepare` writes the chosen $y$ into the phase-2 accumulator as public metadata.
+- Later phase-2 contributors recompute checks from that disclosed value and reject the accumulator if:
+  - the disclosed value does not match $\Sigma_1.y$ and $\Sigma_2.y$; or
+  - the disclosed value satisfies
+
+$$
+y^s = 1.
+$$
+
 - When `phase2_prepare` is run without an explicit `--y-hex`, the first phase-2 operator effectively determines the final $y$ value used to expand:
 
 $$
@@ -517,12 +526,13 @@ L_i(y),\quad
 y^i t_s(y).
 $$
 
-This achieves the intended performance improvement, but it also means that the implemented protocol is not an MPC for $y$.
+This achieves the intended performance improvement and gives later contributors a concrete non-degeneracy check for the disclosed $y$, but it still means that the implemented protocol is not an MPC for $y$.
 
 ### Security limitation of the current implementation
 
 Under the current implementation, the first phase-2 operator can bias the distribution of $y$.
 Even if later contributors honestly update $\gamma$, $\delta$, and $\eta$, they do not repair a bad $y$ choice because the final $Y$-expanded structure has already been fixed.
+The later-contributor check only proves that the disclosed $y$ is non-degenerate and self-consistent with the accumulator encoding; it does not remove the first operator's ability to bias the choice of $y$.
 
 The concrete limitations are:
 
