@@ -14,6 +14,7 @@ use ark_std::fs;
 use blake2::{Blake2b, Digest};
 use icicle_bls12_381::curve::G1Affine;
 use libs::group_structures::{G1serde, G2serde};
+use libs::iotools::{G1SerdeRkyv, G2SerdeRkyv};
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 use serde_json::from_reader;
@@ -21,6 +22,7 @@ use serde_json::to_writer_pretty;
 use std::fs::File;
 use std::io;
 use std::io::{BufReader, BufWriter, Read, Write};
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -159,7 +161,114 @@ impl<'de> Deserialize<'de> for Accumulator {
 impl_write_into_json!(Accumulator);
 impl_read_from_json!(Accumulator);
 
+#[derive(Debug, Clone, Copy, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[archive(check_bytes)]
+pub struct PairSerdeRkyv {
+    pub g1: G1SerdeRkyv,
+    pub g2: G2SerdeRkyv,
+}
+
+#[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[archive(check_bytes)]
+pub struct SerialSerdeRkyv {
+    pub g1: Vec<G1SerdeRkyv>,
+    pub g2: G2SerdeRkyv,
+}
+
+#[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[archive(check_bytes)]
+pub struct AccumulatorRkyv {
+    pub contributor_index: usize,
+    pub g1: G1SerdeRkyv,
+    pub g2: G2SerdeRkyv,
+    pub alpha: Vec<PairSerdeRkyv>,
+    pub x: Vec<PairSerdeRkyv>,
+    pub y: SerialSerdeRkyv,
+    pub alpha_x: Vec<G1SerdeRkyv>,
+    pub alpha_y: Vec<G1SerdeRkyv>,
+    pub xy: Vec<G1SerdeRkyv>,
+    pub alpha_xy: Vec<G1SerdeRkyv>,
+    pub compress: bool,
+}
+
+impl PairSerdeRkyv {
+    fn from_pair_serde(value: &PairSerde) -> Self {
+        Self {
+            g1: G1SerdeRkyv::from_g1serde(&value.g1),
+            g2: G2SerdeRkyv::from_g2serde(&value.g2),
+        }
+    }
+}
+
+impl SerialSerdeRkyv {
+    fn from_serial_serde(value: &SerialSerde) -> Self {
+        Self {
+            g1: value.g1.iter().map(G1SerdeRkyv::from_g1serde).collect(),
+            g2: G2SerdeRkyv::from_g2serde(&value.g2),
+        }
+    }
+}
+
+impl AccumulatorRkyv {
+    pub fn from_accumulator(value: &Accumulator) -> Self {
+        Self {
+            contributor_index: value.contributor_index,
+            g1: G1SerdeRkyv::from_g1serde(&value.g1),
+            g2: G2SerdeRkyv::from_g2serde(&value.g2),
+            alpha: value
+                .alpha
+                .iter()
+                .map(PairSerdeRkyv::from_pair_serde)
+                .collect(),
+            x: value.x.iter().map(PairSerdeRkyv::from_pair_serde).collect(),
+            y: SerialSerdeRkyv::from_serial_serde(&value.y),
+            alpha_x: value
+                .alpha_x
+                .iter()
+                .map(G1SerdeRkyv::from_g1serde)
+                .collect(),
+            alpha_y: value
+                .alpha_y
+                .iter()
+                .map(G1SerdeRkyv::from_g1serde)
+                .collect(),
+            xy: value.xy.iter().map(G1SerdeRkyv::from_g1serde).collect(),
+            alpha_xy: value
+                .alpha_xy
+                .iter()
+                .map(G1SerdeRkyv::from_g1serde)
+                .collect(),
+            compress: value.compress,
+        }
+    }
+}
+
 impl Accumulator {
+    pub fn rkyv_path_for_json_path(path: &Path) -> PathBuf {
+        path.with_extension("rkyv")
+    }
+
+    pub fn write_into_rkyv_path(&self, path: &Path) -> io::Result<()> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let archive = AccumulatorRkyv::from_accumulator(self);
+        let bytes = rkyv::to_bytes::<_, 256>(&archive).map_err(|err| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("failed to serialize accumulator archive: {err}"),
+            )
+        })?;
+        std::fs::write(path, bytes)
+    }
+
+    pub fn write_rkyv_sidecar_for_json_path(&self, path: &str) -> io::Result<PathBuf> {
+        let abs_json_path = env::current_dir()?.join(path);
+        let rkyv_path = Self::rkyv_path_for_json_path(&abs_json_path);
+        self.write_into_rkyv_path(&rkyv_path)?;
+        Ok(rkyv_path)
+    }
+
     pub fn get_boxed_xypower(&self) -> Box<[G1serde]> {
         let y_len = self.y.len_g1();
         let mut out = vec![G1serde::zero(); self.x.len() * y_len];

@@ -258,7 +258,10 @@ impl ContributorSession {
             self.config.outfolder,
             ACC_FILE_FORMAT.replace("{}", &self.contributor_index.to_string())
         );
-        acc.write_into_json(&path).map_err(ContributorError::Io)
+        acc.write_into_json(&path).map_err(ContributorError::Io)?;
+        acc.write_rkyv_sidecar_for_json_path(&path)
+            .map_err(ContributorError::Io)?;
+        Ok(())
     }
 
     fn save_proof(&self, proof: &Phase1Proof) -> Result<(), ContributorError> {

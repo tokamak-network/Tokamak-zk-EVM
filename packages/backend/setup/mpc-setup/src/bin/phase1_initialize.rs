@@ -131,6 +131,9 @@ async fn main() {
     genesis_acc
         .write_into_json(&outfile)
         .expect("cannot write to file");
+    genesis_acc
+        .write_rkyv_sidecar_for_json_path(&outfile)
+        .expect("cannot write accumulator archive");
 
     let fpath = format!(
         "{}/phase1_contributor_{}.txt",

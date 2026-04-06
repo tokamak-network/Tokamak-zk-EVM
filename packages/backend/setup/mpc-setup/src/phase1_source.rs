@@ -1,7 +1,12 @@
-use crate::accumulator::Accumulator;
+use crate::accumulator::{Accumulator, AccumulatorRkyv};
+use crate::utils::{icicle_g1_generator, icicle_g2_generator};
 use icicle_bls12_381::curve::G1Affine;
 use libs::group_structures::{G1serde, G2serde};
+use memmap::{Mmap, MmapOptions};
+use std::env;
+use std::fs::File;
 use std::io;
+use std::path::Path;
 
 pub trait Phase1SrsSource {
     fn g1(&self) -> G1serde;
@@ -29,42 +34,131 @@ pub trait Phase1SrsSource {
     fn xy_g1(&self, exp_x: usize, exp_y: usize) -> G1serde;
 }
 
+struct AccumulatorZeroCopy {
+    mmap: Mmap,
+}
+
+impl AccumulatorZeroCopy {
+    fn load(path: &Path) -> io::Result<Self> {
+        let file = File::open(path)?;
+        let mmap = unsafe { MmapOptions::new().map(&file)? };
+        rkyv::check_archived_root::<AccumulatorRkyv>(&mmap).map_err(|err| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Invalid accumulator archive: {err:?}"),
+            )
+        })?;
+        Ok(Self { mmap })
+    }
+
+    fn accumulator(&self) -> &rkyv::Archived<AccumulatorRkyv> {
+        unsafe { rkyv::archived_root::<AccumulatorRkyv>(&self.mmap) }
+    }
+}
+
+enum AccumulatorSourceInner {
+    Owned(Accumulator),
+    Mapped(AccumulatorZeroCopy),
+}
+
 pub struct AccumulatorSource {
-    inner: Accumulator,
+    inner: AccumulatorSourceInner,
 }
 
 impl AccumulatorSource {
     pub fn read_from_json(path: &str) -> io::Result<Self> {
+        let abs_json_path = env::current_dir()?.join(path);
+        let rkyv_path = Accumulator::rkyv_path_for_json_path(&abs_json_path);
+        if cache_is_fresh(&rkyv_path, &abs_json_path) {
+            if let Ok(mapped) = AccumulatorZeroCopy::load(&rkyv_path) {
+                return Ok(Self {
+                    inner: AccumulatorSourceInner::Mapped(mapped),
+                });
+            }
+        }
+
+        let accumulator = Accumulator::read_from_json(path)?;
+        let _ = accumulator.write_rkyv_sidecar_for_json_path(path);
+        if let Ok(mapped) = AccumulatorZeroCopy::load(&rkyv_path) {
+            return Ok(Self {
+                inner: AccumulatorSourceInner::Mapped(mapped),
+            });
+        }
+
         Ok(Self {
-            inner: Accumulator::read_from_json(path)?,
+            inner: AccumulatorSourceInner::Owned(accumulator),
         })
     }
 }
 
+fn cache_is_fresh(cache_path: &Path, source_path: &Path) -> bool {
+    let Ok(cache_meta) = std::fs::metadata(cache_path) else {
+        return false;
+    };
+    let Ok(cache_modified) = cache_meta.modified() else {
+        return false;
+    };
+    let Ok(source_meta) = std::fs::metadata(source_path) else {
+        return true;
+    };
+    let Ok(source_modified) = source_meta.modified() else {
+        return true;
+    };
+    cache_modified >= source_modified
+}
+
 impl Phase1SrsSource for AccumulatorSource {
     fn g1(&self) -> G1serde {
-        self.inner.g1
+        match &self.inner {
+            AccumulatorSourceInner::Owned(acc) => acc.g1,
+            AccumulatorSourceInner::Mapped(acc) => acc.accumulator().g1.to_g1serde(),
+        }
     }
 
     fn g2(&self) -> G2serde {
-        self.inner.g2
+        match &self.inner {
+            AccumulatorSourceInner::Owned(acc) => acc.g2,
+            AccumulatorSourceInner::Mapped(acc) => acc.accumulator().g2.to_g2serde(),
+        }
     }
 
     fn alpha_g2(&self, exp_alpha: usize) -> G2serde {
-        self.inner.alpha[exp_alpha - 1].g2
+        match &self.inner {
+            AccumulatorSourceInner::Owned(acc) => acc.alpha[exp_alpha - 1].g2,
+            AccumulatorSourceInner::Mapped(acc) => {
+                acc.accumulator().alpha[exp_alpha - 1].g2.to_g2serde()
+            }
+        }
     }
 
     fn x_g2(&self, exp_x: usize) -> G2serde {
-        self.inner.x[exp_x - 1].g2
+        match &self.inner {
+            AccumulatorSourceInner::Owned(acc) => acc.x[exp_x - 1].g2,
+            AccumulatorSourceInner::Mapped(acc) => acc.accumulator().x[exp_x - 1].g2.to_g2serde(),
+        }
     }
 
     fn y_g2(&self, exp_y: usize) -> G2serde {
         assert_eq!(exp_y, 1, "only y^1 in G2 is currently required");
-        self.inner.y.g2
+        match &self.inner {
+            AccumulatorSourceInner::Owned(acc) => acc.y.g2,
+            AccumulatorSourceInner::Mapped(acc) => acc.accumulator().y.g2.to_g2serde(),
+        }
     }
 
     fn x_g1_range(&self, exp_min: usize, exp_max: usize) -> Vec<G1Affine> {
-        self.inner.get_x_g1_range(exp_min, exp_max)
+        match &self.inner {
+            AccumulatorSourceInner::Owned(acc) => acc.get_x_g1_range(exp_min, exp_max),
+            AccumulatorSourceInner::Mapped(acc) => (exp_min..=exp_max)
+                .map(|exp| {
+                    if exp == 0 {
+                        icicle_g1_generator().0
+                    } else {
+                        acc.accumulator().x[exp - 1].g1.to_g1_affine()
+                    }
+                })
+                .collect(),
+        }
     }
 
     fn alphaxy_g1_range(
@@ -73,8 +167,48 @@ impl Phase1SrsSource for AccumulatorSource {
         exp_x_max: usize,
         exp_y_max: usize,
     ) -> Vec<G1Affine> {
-        self.inner
-            .get_alphaxy_g1_range(exp_alpha, exp_x_max, exp_y_max)
+        match &self.inner {
+            AccumulatorSourceInner::Owned(acc) => {
+                acc.get_alphaxy_g1_range(exp_alpha, exp_x_max, exp_y_max)
+            }
+            AccumulatorSourceInner::Mapped(acc) => {
+                let archived = acc.accumulator();
+                let y_len = archived.y.g1.len();
+                let alpha_xy_stride = archived.x.len() * y_len;
+                let mut out = vec![G1Affine::zero(); exp_x_max * exp_y_max];
+                for exp_x in 0..exp_x_max {
+                    for exp_y in 0..exp_y_max {
+                        out[exp_x * exp_y_max + exp_y] = if exp_alpha == 0 {
+                            if exp_x == 0 && exp_y == 0 {
+                                icicle_g1_generator().0
+                            } else if exp_x == 0 {
+                                archived.y.g1[exp_y - 1].to_g1_affine()
+                            } else if exp_y == 0 {
+                                archived.x[exp_x - 1].g1.to_g1_affine()
+                            } else {
+                                archived.xy[(exp_x - 1) * y_len + exp_y - 1].to_g1_affine()
+                            }
+                        } else if exp_x == 0 {
+                            if exp_y == 0 {
+                                archived.alpha[exp_alpha - 1].g1.to_g1_affine()
+                            } else {
+                                archived.alpha_y[(exp_alpha - 1) * y_len + exp_y - 1].to_g1_affine()
+                            }
+                        } else if exp_y == 0 {
+                            archived.alpha_x[(exp_alpha - 1) * archived.x.len() + exp_x - 1]
+                                .to_g1_affine()
+                        } else {
+                            archived.alpha_xy[(exp_alpha - 1) * alpha_xy_stride
+                                + (exp_x - 1) * y_len
+                                + exp_y
+                                - 1]
+                            .to_g1_affine()
+                        };
+                    }
+                }
+                out
+            }
+        }
     }
 
     fn alphaxy_g1_chunk(
@@ -84,23 +218,130 @@ impl Phase1SrsSource for AccumulatorSource {
         exp_x_len: usize,
         exp_y_max: usize,
     ) -> Vec<G1Affine> {
-        self.inner
-            .get_alphaxy_g1_chunk(exp_alpha, exp_x_start, exp_x_len, exp_y_max)
+        match &self.inner {
+            AccumulatorSourceInner::Owned(acc) => {
+                acc.get_alphaxy_g1_chunk(exp_alpha, exp_x_start, exp_x_len, exp_y_max)
+            }
+            AccumulatorSourceInner::Mapped(acc) => {
+                let archived = acc.accumulator();
+                let y_len = archived.y.g1.len();
+                let alpha_xy_stride = archived.x.len() * y_len;
+                let mut out = vec![G1Affine::zero(); exp_x_len * exp_y_max];
+                for local_x in 0..exp_x_len {
+                    let exp_x = exp_x_start + local_x;
+                    for exp_y in 0..exp_y_max {
+                        out[local_x * exp_y_max + exp_y] = if exp_alpha == 0 {
+                            if exp_x == 0 && exp_y == 0 {
+                                icicle_g1_generator().0
+                            } else if exp_x == 0 {
+                                archived.y.g1[exp_y - 1].to_g1_affine()
+                            } else if exp_y == 0 {
+                                archived.x[exp_x - 1].g1.to_g1_affine()
+                            } else {
+                                archived.xy[(exp_x - 1) * y_len + exp_y - 1].to_g1_affine()
+                            }
+                        } else if exp_x == 0 {
+                            if exp_y == 0 {
+                                archived.alpha[exp_alpha - 1].g1.to_g1_affine()
+                            } else {
+                                archived.alpha_y[(exp_alpha - 1) * y_len + exp_y - 1].to_g1_affine()
+                            }
+                        } else if exp_y == 0 {
+                            archived.alpha_x[(exp_alpha - 1) * archived.x.len() + exp_x - 1]
+                                .to_g1_affine()
+                        } else {
+                            archived.alpha_xy[(exp_alpha - 1) * alpha_xy_stride
+                                + (exp_x - 1) * y_len
+                                + exp_y
+                                - 1]
+                            .to_g1_affine()
+                        };
+                    }
+                }
+                out
+            }
+        }
     }
 
     fn xy_powers(&self) -> Box<[G1serde]> {
-        self.inner.get_boxed_xypower()
+        match &self.inner {
+            AccumulatorSourceInner::Owned(acc) => acc.get_boxed_xypower(),
+            AccumulatorSourceInner::Mapped(acc) => acc
+                .accumulator()
+                .xy
+                .iter()
+                .map(|value| value.to_g1serde())
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        }
     }
 
     fn alphax_g1(&self, exp_alpha: usize, exp_x: usize) -> G1serde {
-        self.inner.get_alphax_g1(exp_alpha, exp_x)
+        match &self.inner {
+            AccumulatorSourceInner::Owned(acc) => acc.get_alphax_g1(exp_alpha, exp_x),
+            AccumulatorSourceInner::Mapped(acc) => {
+                let archived = acc.accumulator();
+                assert!(exp_alpha <= 4);
+                assert!(exp_x <= archived.x.len());
+                if exp_alpha == 0 && exp_x == 0 {
+                    icicle_g1_generator()
+                } else if exp_alpha == 0 {
+                    if exp_x == 0 {
+                        icicle_g1_generator()
+                    } else {
+                        archived.x[exp_x - 1].g1.to_g1serde()
+                    }
+                } else if exp_x == 0 {
+                    archived.alpha[exp_alpha - 1].g1.to_g1serde()
+                } else {
+                    archived.alpha_x[(exp_alpha - 1) * archived.x.len() + exp_x - 1].to_g1serde()
+                }
+            }
+        }
     }
 
     fn alphay_g1(&self, exp_alpha: usize, exp_y: usize) -> G1serde {
-        self.inner.get_alphay_g1(exp_alpha, exp_y)
+        match &self.inner {
+            AccumulatorSourceInner::Owned(acc) => acc.get_alphay_g1(exp_alpha, exp_y),
+            AccumulatorSourceInner::Mapped(acc) => {
+                let archived = acc.accumulator();
+                assert!(exp_alpha <= 4);
+                assert!(exp_y <= archived.y.g1.len());
+                if exp_alpha == 0 && exp_y == 0 {
+                    icicle_g1_generator()
+                } else if exp_alpha == 0 {
+                    if exp_y == 0 {
+                        icicle_g1_generator()
+                    } else {
+                        archived.y.g1[exp_y - 1].to_g1serde()
+                    }
+                } else if exp_y == 0 {
+                    archived.alpha[exp_alpha - 1].g1.to_g1serde()
+                } else {
+                    archived.alpha_y[(exp_alpha - 1) * archived.y.g1.len() + exp_y - 1].to_g1serde()
+                }
+            }
+        }
     }
 
     fn xy_g1(&self, exp_x: usize, exp_y: usize) -> G1serde {
-        self.inner.get_xy_g1(exp_x, exp_y)
+        match &self.inner {
+            AccumulatorSourceInner::Owned(acc) => acc.get_xy_g1(exp_x, exp_y),
+            AccumulatorSourceInner::Mapped(acc) => {
+                let archived = acc.accumulator();
+                let y_len = archived.y.g1.len();
+                assert!(exp_y <= y_len);
+                assert!(exp_x <= archived.x.len());
+                if exp_x == 0 && exp_y == 0 {
+                    icicle_g1_generator()
+                } else if exp_x == 0 {
+                    archived.y.g1[exp_y - 1].to_g1serde()
+                } else if exp_y == 0 {
+                    archived.x[exp_x - 1].g1.to_g1serde()
+                } else {
+                    archived.xy[(exp_x - 1) * y_len + exp_y - 1].to_g1serde()
+                }
+            }
+        }
     }
 }
