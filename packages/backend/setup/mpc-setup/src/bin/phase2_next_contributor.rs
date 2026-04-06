@@ -1,6 +1,6 @@
 use chrono::Local;
 use clap::Parser;
-use icicle_core::traits::Arithmetic;
+use icicle_core::traits::{Arithmetic, FieldImpl};
 use mpc_setup::contributor::{get_device_info, ContributorInfo};
 use mpc_setup::sigma::{AaccExt, SigmaV2, HASH_BYTES_LEN};
 use mpc_setup::utils::{
@@ -68,9 +68,32 @@ fn main() {
     let mut rng = initialize_random_generator(&config.mode);
 
     let latest_acc = load_phase2_accumulator(&config.outfolder, contributor_index - 1);
-    latest_acc
-        .validate_public_phase2_y()
-        .expect("phase-2 accumulator carries an invalid disclosed y");
+    let latest_y = latest_acc
+        .public_phase2_y()
+        .expect("phase-2 accumulator must disclose y");
+    let latest_s = latest_acc
+        .sigma
+        .sigma_1
+        .eta_inv_li_o_inter_alpha4_kj
+        .first()
+        .map(|row| row.len())
+        .filter(|len| *len > 0)
+        .or_else(|| {
+            latest_acc
+                .sigma
+                .sigma_1
+                .delta_inv_li_o_prv
+                .first()
+                .map(|row| row.len())
+                .filter(|len| *len > 0)
+        })
+        .expect("phase-2 accumulator shape must reveal s_max");
+    assert_ne!(
+        latest_y.pow(latest_s),
+        icicle_bls12_381::curve::ScalarField::one()
+    );
+    assert_eq!(latest_acc.sigma.sigma_1.y, latest_acc.sigma.G * latest_y);
+    assert_eq!(latest_acc.sigma.sigma_2.y, latest_acc.sigma.H * latest_y);
 
     println!("loading current challenge and proof...");
     println!("latest contributor index: {}", latest_acc.contributor_index);
@@ -174,17 +197,6 @@ fn create_contributor_info(
 
 fn verify_latest_contribution(outfolder: &str, latest_sigma: &SigmaV2) {
     let prev_sigma = load_phase2_accumulator(outfolder, latest_sigma.contributor_index - 1);
-    let prev_y = prev_sigma
-        .validate_public_phase2_y()
-        .expect("previous phase-2 accumulator carries an invalid disclosed y");
-    let latest_y = latest_sigma
-        .validate_public_phase2_y()
-        .expect("latest phase-2 accumulator carries an invalid disclosed y");
-    assert_eq!(prev_y, latest_y, "phase-2 y changed across contributors");
-    assert_eq!(
-        prev_sigma.public_y_hex, latest_sigma.public_y_hex,
-        "phase-2 y disclosure changed across contributors"
-    );
 
     let proof_file_str = &format!(
         "{}/phase2_proof_{}.json",

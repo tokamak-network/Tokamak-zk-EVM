@@ -36,6 +36,25 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use std::{fs, io};
 
+fn inferred_phase2_s_max(sigma: &SigmaV2) -> Option<usize> {
+    sigma
+        .sigma
+        .sigma_1
+        .eta_inv_li_o_inter_alpha4_kj
+        .first()
+        .map(|row| row.len())
+        .filter(|len| *len > 0)
+        .or_else(|| {
+            sigma
+                .sigma
+                .sigma_1
+                .delta_inv_li_o_prv
+                .first()
+                .map(|row| row.len())
+                .filter(|len| *len > 0)
+        })
+}
+
 pub fn load_gpu_if_possible() -> bool {
     let mut is_gpu_enabled = false;
 
@@ -363,6 +382,26 @@ impl Phase2Proof {
         result
     }
     pub fn verify(&self, sigma_old: &SigmaV2, sigma_cur: &SigmaV2) -> bool {
+        let old_y = sigma_old.public_phase2_y().expect(
+            "phase-2 proof verification requires a disclosed y in the previous accumulator",
+        );
+        let cur_y = sigma_cur
+            .public_phase2_y()
+            .expect("phase-2 proof verification requires a disclosed y in the current accumulator");
+        let old_s = inferred_phase2_s_max(sigma_old)
+            .expect("phase-2 proof verification cannot infer s_max from the previous accumulator");
+        let cur_s = inferred_phase2_s_max(sigma_cur)
+            .expect("phase-2 proof verification cannot infer s_max from the current accumulator");
+        assert_eq!(old_s, cur_s);
+        assert_ne!(old_y.pow(old_s), ScalarField::one(), "invalid disclosed y");
+        assert_ne!(cur_y.pow(cur_s), ScalarField::one(), "invalid disclosed y");
+        assert_eq!(old_y, cur_y);
+        assert_eq!(sigma_old.public_y_hex, sigma_cur.public_y_hex);
+        assert_eq!(sigma_old.sigma.sigma_1.y, sigma_old.sigma.G * old_y);
+        assert_eq!(sigma_cur.sigma.sigma_1.y, sigma_cur.sigma.G * cur_y);
+        assert_eq!(sigma_old.sigma.sigma_2.y, sigma_old.sigma.H * old_y);
+        assert_eq!(sigma_cur.sigma.sigma_2.y, sigma_cur.sigma.H * cur_y);
+
         let v = hash_sigma(&sigma_old);
 
         assert_eq!(sigma_old.sigma.G, sigma_cur.sigma.G);
