@@ -5,6 +5,7 @@ use crate::phase1_source::Phase1SrsSource;
 use icicle_bls12_381::curve::{G1Affine, G1Projective, ScalarField};
 use icicle_core::msm;
 use icicle_core::msm::MSMConfig;
+use icicle_core::ntt::{self, NTTConfig, NTTDir};
 use icicle_core::traits::FieldImpl;
 use icicle_runtime::memory::{DeviceVec, HostSlice};
 use icicle_runtime::stream::IcicleStream;
@@ -127,6 +128,83 @@ impl MsmWorkspace {
 }
 
 impl Drop for MsmWorkspace {
+    fn drop(&mut self) {
+        let _ = self.stream.destroy();
+    }
+}
+
+pub struct NttWorkspace {
+    stream: IcicleStream,
+    device: DeviceVec<ScalarField>,
+    host: Vec<ScalarField>,
+    capacity: usize,
+}
+
+impl NttWorkspace {
+    pub fn new(capacity: usize) -> Self {
+        let capacity = capacity.max(1);
+        Self {
+            stream: IcicleStream::create().expect("Stream creation failed"),
+            device: DeviceVec::<ScalarField>::device_malloc(capacity)
+                .expect("device_malloc failed"),
+            host: vec![ScalarField::zero(); capacity],
+            capacity,
+        }
+    }
+
+    fn ensure_capacity(&mut self, capacity: usize) {
+        if capacity <= self.capacity {
+            return;
+        }
+        let new_capacity = capacity.next_power_of_two();
+        self.device =
+            DeviceVec::<ScalarField>::device_malloc(new_capacity).expect("device_malloc failed");
+        self.host.resize(new_capacity, ScalarField::zero());
+        self.capacity = new_capacity;
+    }
+
+    pub fn inverse_rows_into(
+        &mut self,
+        input: &[ScalarField],
+        row_count: usize,
+        row_len: usize,
+        out: &mut Vec<ScalarField>,
+    ) {
+        let size = row_count * row_len;
+        assert_eq!(input.len(), size);
+        if size == 0 {
+            out.clear();
+            return;
+        }
+
+        self.ensure_capacity(size);
+        if out.len() != size {
+            out.resize(size, ScalarField::zero());
+        }
+
+        let mut cfg = NTTConfig::<ScalarField>::default();
+        cfg.stream_handle = *self.stream;
+        cfg.is_async = true;
+        cfg.batch_size = row_count as i32;
+        cfg.columns_batch = false;
+        cfg.are_outputs_on_device = true;
+        cfg.coset_gen = ScalarField::one();
+
+        ntt::ntt(
+            HostSlice::from_slice(input),
+            NTTDir::kInverse,
+            &cfg,
+            &mut self.device[..size],
+        )
+        .unwrap();
+        self.stream.synchronize().unwrap();
+        self.device[..size]
+            .copy_to_host(HostSlice::from_mut_slice(out))
+            .unwrap();
+    }
+}
+
+impl Drop for NttWorkspace {
     fn drop(&mut self) {
         let _ = self.stream.destroy();
     }

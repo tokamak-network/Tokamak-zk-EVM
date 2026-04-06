@@ -16,6 +16,13 @@ pub trait Phase1SrsSource {
         exp_x_max: usize,
         exp_y_max: usize,
     ) -> Vec<G1Affine>;
+    fn alphaxy_g1_chunk(
+        &self,
+        exp_alpha: usize,
+        exp_x_start: usize,
+        exp_x_len: usize,
+        exp_y_max: usize,
+    ) -> Vec<G1Affine>;
     fn xy_powers(&self) -> Box<[G1serde]>;
     fn alphax_g1(&self, exp_alpha: usize, exp_x: usize) -> G1serde;
     fn alphay_g1(&self, exp_alpha: usize, exp_y: usize) -> G1serde;
@@ -68,6 +75,17 @@ impl Phase1SrsSource for AccumulatorSource {
     ) -> Vec<G1Affine> {
         self.inner
             .get_alphaxy_g1_range(exp_alpha, exp_x_max, exp_y_max)
+    }
+
+    fn alphaxy_g1_chunk(
+        &self,
+        exp_alpha: usize,
+        exp_x_start: usize,
+        exp_x_len: usize,
+        exp_y_max: usize,
+    ) -> Vec<G1Affine> {
+        self.inner
+            .get_alphaxy_g1_chunk(exp_alpha, exp_x_start, exp_x_len, exp_y_max)
     }
 
     fn xy_powers(&self) -> Box<[G1serde]> {

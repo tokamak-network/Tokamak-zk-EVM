@@ -297,6 +297,23 @@ impl Accumulator {
         }
         out
     }
+
+    pub fn get_alphaxy_g1_chunk(
+        &self,
+        exp_alpha: usize,
+        exp_x_start: usize,
+        exp_x_len: usize,
+        exp_y_max: usize,
+    ) -> Vec<G1Affine> {
+        let mut out = vec![G1Affine::zero(); exp_x_len * exp_y_max];
+        for local_x in 0..exp_x_len {
+            let exp_x = exp_x_start + local_x;
+            for exp_y in 0..exp_y_max {
+                out[local_x * exp_y_max + exp_y] = self.get_alphaxy_g1(exp_alpha, exp_x, exp_y).0;
+            }
+        }
+        out
+    }
     //alpha^exp_alpha * x^exp_x * y^exp_y * G1
     pub fn get_alphaxy_g1(&self, exp_alpha: usize, exp_x: usize, exp_y: usize) -> G1serde {
         assert_eq!(exp_y <= self.y.len_g1(), true);

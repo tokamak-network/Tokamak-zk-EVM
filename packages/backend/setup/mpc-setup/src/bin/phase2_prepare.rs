@@ -2,9 +2,7 @@ use std::env;
 
 use clap::Parser;
 use icicle_bls12_381::curve::{G1Affine, ScalarField};
-use icicle_core::ntt::{self, NTTDir};
 use icicle_core::traits::FieldImpl;
-use icicle_runtime::memory::{DeviceVec, HostSlice};
 use libs::group_structures::{G1serde, Sigma, Sigma1, Sigma2};
 use libs::iotools::{SetupParams, SubcircuitInfo, SubcircuitR1CS};
 use libs::utils::{
@@ -17,7 +15,7 @@ use mpc_setup::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
 use mpc_setup::utils::{load_gpu_if_possible, prompt_user_input};
 use mpc_setup::{
     compute_lagrange_kl_from_source, ensure_testing_mode, public_wire_segments, MsmWorkspace,
-    QAP_COMPILER_PATH_PREFIX,
+    NttWorkspace, QAP_COMPILER_PATH_PREFIX,
 };
 use std::ops::Sub;
 use std::time::Instant;
@@ -124,6 +122,25 @@ pub fn extend_boxed_2d_array(target: &mut Box<[Box<[G1serde]>]>, source: &Box<[B
         .collect::<Vec<_>>()
         .into_boxed_slice();
 }
+
+fn merge_optional_point(target: &mut G1serde, source: G1serde) {
+    if *target == G1serde::zero() {
+        *target = source;
+    } else if source != G1serde::zero() {
+        assert_eq!(*target, source);
+    }
+}
+
+fn merge_matrix_columns(target: &mut Box<[Box<[G1serde]>]>, source: &Box<[Box<[G1serde]>]>) {
+    assert_eq!(target.len(), source.len());
+    for (target_row, source_row) in target.iter_mut().zip(source.iter()) {
+        assert_eq!(target_row.len(), source_row.len());
+        for (target_cell, source_cell) in target_row.iter_mut().zip(source_row.iter()) {
+            merge_optional_point(target_cell, *source_cell);
+        }
+    }
+}
+
 fn merge_all_parts(outfolder: &str, total_part: usize) -> SigmaV2 {
     let mut sigma = SigmaV2::read_from_json(&format!(
         "{}/phase2_acc_0_{}_{}.json",
@@ -153,29 +170,53 @@ fn merge_all_parts(outfolder: &str, total_part: usize) -> SigmaV2 {
         assert_eq!(sigma.sigma.sigma_1.y, next.sigma.sigma_1.y);
         assert_eq!(sigma.sigma.sigma_1.eta, next.sigma.sigma_1.eta);
         assert_eq!(sigma.sigma.sigma_1.delta, next.sigma.sigma_1.delta);
-        assert_eq!(
-            sigma.sigma.sigma_1.gamma_inv_o_inst,
-            next.sigma.sigma_1.gamma_inv_o_inst
-        );
-        assert_eq!(
-            sigma.sigma.sigma_1.delta_inv_alphak_yi_ty,
-            next.sigma.sigma_1.delta_inv_alphak_yi_ty
-        );
-        assert_eq!(
-            sigma.sigma.sigma_1.delta_inv_alpha4_xj_tx,
-            next.sigma.sigma_1.delta_inv_alpha4_xj_tx
-        );
-        assert_eq!(
-            sigma.sigma.sigma_1.delta_inv_alphak_xh_tx,
-            next.sigma.sigma_1.delta_inv_alphak_xh_tx
-        );
+        for (target, source) in sigma
+            .sigma
+            .sigma_1
+            .gamma_inv_o_inst
+            .iter_mut()
+            .zip(next.sigma.sigma_1.gamma_inv_o_inst.iter())
+        {
+            merge_optional_point(target, *source);
+        }
+        for (target_row, source_row) in sigma
+            .sigma
+            .sigma_1
+            .delta_inv_alphak_yi_ty
+            .iter_mut()
+            .zip(next.sigma.sigma_1.delta_inv_alphak_yi_ty.iter())
+        {
+            for (target, source) in target_row.iter_mut().zip(source_row.iter()) {
+                merge_optional_point(target, *source);
+            }
+        }
+        for (target, source) in sigma
+            .sigma
+            .sigma_1
+            .delta_inv_alpha4_xj_tx
+            .iter_mut()
+            .zip(next.sigma.sigma_1.delta_inv_alpha4_xj_tx.iter())
+        {
+            merge_optional_point(target, *source);
+        }
+        for (target_row, source_row) in sigma
+            .sigma
+            .sigma_1
+            .delta_inv_alphak_xh_tx
+            .iter_mut()
+            .zip(next.sigma.sigma_1.delta_inv_alphak_xh_tx.iter())
+        {
+            for (target, source) in target_row.iter_mut().zip(source_row.iter()) {
+                merge_optional_point(target, *source);
+            }
+        }
 
-        extend_boxed_2d_array(
+        merge_matrix_columns(
             &mut sigma.sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj,
             &next.sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj,
         );
 
-        extend_boxed_2d_array(
+        merge_matrix_columns(
             &mut sigma.sigma.sigma_1.delta_inv_li_o_prv,
             &next.sigma.sigma_1.delta_inv_li_o_prv,
         );
@@ -256,13 +297,16 @@ pub fn process_prepare(
         .unwrap_or("512".to_string())
         .parse::<usize>()
         .unwrap();
+    let basis_x_chunk_size = env::var("BASIS_X_CHUNK_SIZE")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(DEFAULT_BASIS_X_CHUNK_SIZE)
+        .max(1);
     let mut msm_workspace = MsmWorkspace::new(batch_count.max(8));
+    let mut ntt_workspace = NttWorkspace::new(n.max(1));
 
     // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}_{t=0,j=0}^{1,l-1} where t=0 for j∈[0,l_in-1] and t=1 for j∈[l_in,l-1]
     let mut gamma_inv_o_inst = vec![G1serde::zero(); l].into_boxed_slice();
-    let alpha1xy_g1s = phase1_source.alphaxy_g1_range(1, n, s_max);
-    let alpha2xy_g1s = phase1_source.alphaxy_g1_range(2, n, s_max);
-    let alpha3xy_g1s = phase1_source.alphaxy_g1_range(3, n, s_max);
 
     let mut start = 0;
     let mut end = s_max;
@@ -273,42 +317,49 @@ pub fn process_prepare(
             end = s_max;
         }
     }
+    let compute_shared_terms = total_part == 1 || part_no == 0;
     // {δ^(-1)α^k x^h t_n(x)}_{h=0,k=1}^{2,3}
     let mut delta_inv_alphak_xh_tx =
         vec![vec![G1serde::zero(); 3].into_boxed_slice(); 3].into_boxed_slice();
-    for k in 1..=3 {
-        for h in 0..=2 {
-            //let alpha^k x^{n+h}
-            let alphak_xnh = phase1_source.alphax_g1(k, n + h);
-            //let alpha^k x^{h}
-            let alphak_xh = phase1_source.alphax_g1(k, h);
-
-            delta_inv_alphak_xh_tx[k - 1][h] = alphak_xnh.sub(alphak_xh);
+    if compute_shared_terms {
+        for k in 1..=3 {
+            for h in 0..=2 {
+                let alphak_xnh = phase1_source.alphax_g1(k, n + h);
+                let alphak_xh = phase1_source.alphax_g1(k, h);
+                delta_inv_alphak_xh_tx[k - 1][h] = alphak_xnh.sub(alphak_xh);
+            }
         }
     }
 
     // {δ^(-1)α^4 x^j t_{m_I}(x)}_{j=0}^{1}
     let mut delta_inv_alpha4_xj_tx = vec![G1serde::zero(); 2].into_boxed_slice();
-    for j in 0..=1 {
-        delta_inv_alpha4_xj_tx[j] = phase1_source.alphax_g1(4, m_i + j);
-        delta_inv_alpha4_xj_tx[j] = delta_inv_alpha4_xj_tx[j].sub(phase1_source.alphax_g1(4, j));
+    if compute_shared_terms {
+        for j in 0..=1 {
+            delta_inv_alpha4_xj_tx[j] = phase1_source.alphax_g1(4, m_i + j);
+            delta_inv_alpha4_xj_tx[j] =
+                delta_inv_alpha4_xj_tx[j].sub(phase1_source.alphax_g1(4, j));
+        }
     }
 
-    if let Some(sigma_for_check) = &sigma_trusted {
-        assert_eq!(
-            sigma_for_check.sigma.sigma_1.delta_inv_alpha4_xj_tx,
-            delta_inv_alpha4_xj_tx
-        );
+    if compute_shared_terms {
+        if let Some(sigma_for_check) = &sigma_trusted {
+            assert_eq!(
+                sigma_for_check.sigma.sigma_1.delta_inv_alpha4_xj_tx,
+                delta_inv_alpha4_xj_tx
+            );
+        }
     }
 
     // {δ^(-1)α^k y^i t_{s_max}(y)}_{i=0,k=1}^{2,4}
     let mut delta_inv_alphak_yi_ty =
         vec![vec![G1serde::zero(); 3].into_boxed_slice(); 4].into_boxed_slice();
-    for k in 1..=4 {
-        for i in 0..=2 {
-            delta_inv_alphak_yi_ty[k - 1][i] = phase1_source
-                .alphay_g1(k, s_max + i)
-                .sub(phase1_source.alphay_g1(k, i));
+    if compute_shared_terms {
+        for k in 1..=4 {
+            for i in 0..=2 {
+                delta_inv_alphak_yi_ty[k - 1][i] = phase1_source
+                    .alphay_g1(k, s_max + i)
+                    .sub(phase1_source.alphay_g1(k, i));
+            }
         }
     }
     //assert_eq!(sigma_trusted.sigma.sigma_1.delta_inv_alphak_yi_ty, delta_inv_alphak_yi_ty);
@@ -321,14 +372,14 @@ pub fn process_prepare(
     // {η^(-1)L_i(y)(o_{j+l}(x) + α^4 K_j(x))}_{i=0,j=0}^{s_max-1,m_I-1}
     let mut eta_inv_li_o_inter_alpha4_kj =
         vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_i].into_boxed_slice();
-    let alpha4xy_g1s = phase1_source.alphaxy_g1_range(4, m_i, s_max);
 
     // {δ^(-1)L_i(y)o_j(x)}_{i=0,j=l+m_I}^{s_max-1,m_I-1}
     let mut delta_inv_li_o_prv =
         vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_d - (l + m_i)].into_boxed_slice();
-    let gamma_batch_size = gamma_batch_size(is_gpu_enabled, alpha1xy_g1s.len());
-    let eta_batch_size = effective_batch_size(alpha1xy_g1s.len(), batch_count);
-    let delta_batch_size = effective_batch_size(alpha1xy_g1s.len(), batch_count);
+    let chunked_scalar_width = basis_x_chunk_size.min(n) * s_max;
+    let gamma_batch_size = gamma_batch_size(is_gpu_enabled, chunked_scalar_width);
+    let eta_batch_size = effective_batch_size(chunked_scalar_width, batch_count);
+    let delta_batch_size = effective_batch_size(chunked_scalar_width, batch_count);
     let stream_start = Instant::now();
 
     for (subcircuit_idx, subcircuit_info) in subcircuit_infos.iter().enumerate() {
@@ -341,14 +392,21 @@ pub fn process_prepare(
         let compact_r1cs =
             SubcircuitR1CS::from_path_compact_only(r1cs_path, &setup_params, subcircuit_info)
                 .unwrap();
-        let coeff_view = SubcircuitCoeffView::from_compact_r1cs(&compact_r1cs, subcircuit_info, n);
+        let coeff_view = SubcircuitCoeffView::from_compact_r1cs(
+            &compact_r1cs,
+            subcircuit_info,
+            n,
+            &mut ntt_workspace,
+        );
 
         process_component_for_subcircuit(
             &coeff_view.a,
             &subcircuit_info.flattenMap,
             &segments,
             &li_y_coeffs,
-            &alpha1xy_g1s,
+            &phase1_source,
+            1,
+            compute_shared_terms,
             &mut gamma_inv_o_inst,
             &mut eta_inv_li_o_inter_alpha4_kj,
             &mut delta_inv_li_o_prv,
@@ -358,6 +416,7 @@ pub fn process_prepare(
             gamma_batch_size,
             eta_batch_size,
             delta_batch_size,
+            basis_x_chunk_size,
             start,
             end,
             &mut msm_workspace,
@@ -367,7 +426,9 @@ pub fn process_prepare(
             &subcircuit_info.flattenMap,
             &segments,
             &li_y_coeffs,
-            &alpha2xy_g1s,
+            &phase1_source,
+            2,
+            compute_shared_terms,
             &mut gamma_inv_o_inst,
             &mut eta_inv_li_o_inter_alpha4_kj,
             &mut delta_inv_li_o_prv,
@@ -377,6 +438,7 @@ pub fn process_prepare(
             gamma_batch_size,
             eta_batch_size,
             delta_batch_size,
+            basis_x_chunk_size,
             start,
             end,
             &mut msm_workspace,
@@ -386,7 +448,9 @@ pub fn process_prepare(
             &subcircuit_info.flattenMap,
             &segments,
             &li_y_coeffs,
-            &alpha3xy_g1s,
+            &phase1_source,
+            3,
+            compute_shared_terms,
             &mut gamma_inv_o_inst,
             &mut eta_inv_li_o_inter_alpha4_kj,
             &mut delta_inv_li_o_prv,
@@ -396,6 +460,7 @@ pub fn process_prepare(
             gamma_batch_size,
             eta_batch_size,
             delta_batch_size,
+            basis_x_chunk_size,
             start,
             end,
             &mut msm_workspace,
@@ -406,39 +471,44 @@ pub fn process_prepare(
         stream_start.elapsed().as_secs_f64()
     );
 
-    let xi_g1s = if l_free > 0 {
+    let xi_g1s = if compute_shared_terms && l_free > 0 {
         phase1_source.x_g1_range(0, l_free - 1)
     } else {
         Vec::new()
     };
-    if l_free > 0 {
+    if compute_shared_terms && l_free > 0 {
         for j in 0..l_free {
             let mut m_j_x_coeffs = vec![ScalarField::zero(); l_free];
             compute_langrange_i_coeffs(j, l_free, 1, &mut m_j_x_coeffs);
             gamma_inv_o_inst[j] = gamma_inv_o_inst[j] + msm_workspace.msm(&m_j_x_coeffs, &xi_g1s);
         }
     }
-    if let Some(sigma_for_check) = &sigma_trusted {
-        assert_eq!(
-            sigma_for_check.sigma.sigma_1.gamma_inv_o_inst,
-            gamma_inv_o_inst
-        );
-        println!("Verified gamma terms against the trusted reference");
+    if compute_shared_terms {
+        if let Some(sigma_for_check) = &sigma_trusted {
+            assert_eq!(
+                sigma_for_check.sigma.sigma_1.gamma_inv_o_inst,
+                gamma_inv_o_inst
+            );
+            println!("Verified gamma terms against the trusted reference");
+        }
     }
 
     let start2 = Instant::now();
+    let lagrange_chunk_width = basis_x_chunk_size.min(m_i) * s_max;
     process_coeff_source_for_eta(
         "kjx",
         m_i,
-        effective_batch_size(alpha4xy_g1s.len(), batch_count),
+        effective_batch_size(lagrange_chunk_width, batch_count),
         &li_y_coeffs,
         |j, coeffs| {
             compute_langrange_i_coeffs(j, m_i, 1, coeffs);
             true
         },
-        &alpha4xy_g1s,
+        &phase1_source,
+        4,
         &mut eta_inv_li_o_inter_alpha4_kj,
         m_i,
+        basis_x_chunk_size,
         start,
         end,
         &mut msm_workspace,
@@ -519,6 +589,7 @@ pub fn process_prepare(
 }
 
 const MAX_BATCH_SCALARS: usize = 1 << 22;
+const DEFAULT_BASIS_X_CHUNK_SIZE: usize = 128;
 
 fn effective_batch_size(scalars_per_item: usize, requested: usize) -> usize {
     let max_batch = (MAX_BATCH_SCALARS / scalars_per_item).max(1);
@@ -528,38 +599,6 @@ fn effective_batch_size(scalars_per_item: usize, requested: usize) -> usize {
 fn gamma_batch_size(is_gpu_enabled: bool, scalars_per_item: usize) -> usize {
     let requested = if is_gpu_enabled { 1 } else { 7 };
     effective_batch_size(scalars_per_item, requested)
-}
-
-fn inverse_ntt_rows(
-    compact_eval_rows: &[ScalarField],
-    row_count: usize,
-    row_len: usize,
-) -> Vec<ScalarField> {
-    assert_eq!(compact_eval_rows.len(), row_count * row_len);
-    if compact_eval_rows.is_empty() {
-        return Vec::new();
-    }
-
-    let mut cfg = ntt::NTTConfig::<ScalarField>::default();
-    cfg.batch_size = row_count as i32;
-    cfg.columns_batch = false;
-    cfg.coset_gen = ScalarField::one();
-
-    let mut device_coeffs =
-        DeviceVec::<ScalarField>::device_malloc(compact_eval_rows.len()).unwrap();
-    ntt::ntt(
-        HostSlice::from_slice(compact_eval_rows),
-        NTTDir::kInverse,
-        &cfg,
-        &mut device_coeffs,
-    )
-    .unwrap();
-
-    let mut coeffs = vec![ScalarField::zero(); compact_eval_rows.len()];
-    device_coeffs
-        .copy_to_host(HostSlice::from_mut_slice(&mut coeffs))
-        .unwrap();
-    coeffs
 }
 
 struct ActiveCoeffMatrix {
@@ -574,15 +613,24 @@ impl ActiveCoeffMatrix {
         active_wires: &[usize],
         local_wire_count: usize,
         row_len: usize,
+        ntt_workspace: &mut NttWorkspace,
     ) -> Self {
         let mut compact_by_local = vec![usize::MAX; local_wire_count];
         for (compact_idx, &local_idx) in active_wires.iter().enumerate() {
             compact_by_local[local_idx] = compact_idx;
         }
 
+        let mut coeffs = Vec::new();
+        ntt_workspace.inverse_rows_into(
+            compact_eval_rows,
+            active_wires.len(),
+            row_len,
+            &mut coeffs,
+        );
+
         Self {
             compact_by_local,
-            coeffs: inverse_ntt_rows(compact_eval_rows, active_wires.len(), row_len),
+            coeffs,
             row_len,
         }
     }
@@ -609,6 +657,7 @@ impl SubcircuitCoeffView {
         compact_r1cs: &SubcircuitR1CS,
         subcircuit_info: &SubcircuitInfo,
         row_len: usize,
+        ntt_workspace: &mut NttWorkspace,
     ) -> Self {
         Self {
             a: ActiveCoeffMatrix::from_compact_eval_rows(
@@ -616,18 +665,21 @@ impl SubcircuitCoeffView {
                 &compact_r1cs.A_active_wires,
                 subcircuit_info.Nwires,
                 row_len,
+                ntt_workspace,
             ),
             b: ActiveCoeffMatrix::from_compact_eval_rows(
                 &compact_r1cs.B_compact_col_mat,
                 &compact_r1cs.B_active_wires,
                 subcircuit_info.Nwires,
                 row_len,
+                ntt_workspace,
             ),
             c: ActiveCoeffMatrix::from_compact_eval_rows(
                 &compact_r1cs.C_compact_col_mat,
                 &compact_r1cs.C_active_wires,
                 subcircuit_info.Nwires,
                 row_len,
+                ntt_workspace,
             ),
         }
     }
@@ -663,6 +715,19 @@ fn append_outer_product_scalars(
     }
 }
 
+struct Pending1d<'a> {
+    dest_idx: usize,
+    x_coeffs: &'a [ScalarField],
+    y_coeffs: &'a [ScalarField],
+}
+
+struct Pending2d<'a> {
+    row_idx: usize,
+    col_idx: usize,
+    x_coeffs: &'a [ScalarField],
+    y_coeffs: &'a [ScalarField],
+}
+
 fn flush_shared_batch_1d(
     msm_workspace: &mut MsmWorkspace,
     bases: &[G1Affine],
@@ -680,6 +745,42 @@ fn flush_shared_batch_1d(
     }
     scalars.clear();
     indexes.clear();
+}
+
+fn flush_chunked_batch_1d<S: Phase1SrsSource>(
+    source: &S,
+    exp_alpha: usize,
+    y_size: usize,
+    x_chunk_size: usize,
+    msm_workspace: &mut MsmWorkspace,
+    pending: &mut Vec<Pending1d<'_>>,
+    dest: &mut Box<[G1serde]>,
+) {
+    if pending.is_empty() {
+        return;
+    }
+
+    let x_size = pending[0].x_coeffs.len();
+    let mut scalars = Vec::new();
+    let mut indexes: Vec<usize> = pending.iter().map(|item| item.dest_idx).collect();
+
+    for x_start in (0..x_size).step_by(x_chunk_size.max(1)) {
+        let x_len = (x_size - x_start).min(x_chunk_size.max(1));
+        let bases = source.alphaxy_g1_chunk(exp_alpha, x_start, x_len, y_size);
+        scalars.clear();
+        scalars.reserve(bases.len() * pending.len());
+        for item in pending.iter() {
+            append_outer_product_scalars(
+                &item.x_coeffs[x_start..x_start + x_len],
+                item.y_coeffs,
+                &mut scalars,
+            );
+        }
+        flush_shared_batch_1d(msm_workspace, &bases, &mut scalars, &mut indexes, dest);
+        indexes.extend(pending.iter().map(|item| item.dest_idx));
+    }
+
+    pending.clear();
 }
 
 fn flush_shared_batch_2d(
@@ -702,12 +803,53 @@ fn flush_shared_batch_2d(
     indexes.clear();
 }
 
-fn process_component_for_subcircuit(
+fn flush_chunked_batch_2d<S: Phase1SrsSource>(
+    source: &S,
+    exp_alpha: usize,
+    y_size: usize,
+    x_chunk_size: usize,
+    msm_workspace: &mut MsmWorkspace,
+    pending: &mut Vec<Pending2d<'_>>,
+    dest: &mut Box<[Box<[G1serde]>]>,
+) {
+    if pending.is_empty() {
+        return;
+    }
+
+    let x_size = pending[0].x_coeffs.len();
+    let mut scalars = Vec::new();
+    let mut indexes: Vec<(usize, usize)> = pending
+        .iter()
+        .map(|item| (item.row_idx, item.col_idx))
+        .collect();
+
+    for x_start in (0..x_size).step_by(x_chunk_size.max(1)) {
+        let x_len = (x_size - x_start).min(x_chunk_size.max(1));
+        let bases = source.alphaxy_g1_chunk(exp_alpha, x_start, x_len, y_size);
+        scalars.clear();
+        scalars.reserve(bases.len() * pending.len());
+        for item in pending.iter() {
+            append_outer_product_scalars(
+                &item.x_coeffs[x_start..x_start + x_len],
+                item.y_coeffs,
+                &mut scalars,
+            );
+        }
+        flush_shared_batch_2d(msm_workspace, &bases, &mut scalars, &mut indexes, dest);
+        indexes.extend(pending.iter().map(|item| (item.row_idx, item.col_idx)));
+    }
+
+    pending.clear();
+}
+
+fn process_component_for_subcircuit<S: Phase1SrsSource>(
     coeffs: &ActiveCoeffMatrix,
     flatten_map: &[usize],
     segments: &mpc_setup::PublicWireSegments,
     li_y_coeffs: &[Vec<ScalarField>],
-    alpha_xy_g1s: &[G1Affine],
+    phase1_source: &S,
+    exp_alpha: usize,
+    compute_gamma: bool,
     gamma_inv_o_inst: &mut Box<[G1serde]>,
     eta_inv_li_o_inter_alpha4_kj: &mut Box<[Box<[G1serde]>]>,
     delta_inv_li_o_prv: &mut Box<[Box<[G1serde]>]>,
@@ -717,47 +859,58 @@ fn process_component_for_subcircuit(
     gamma_batch_size: usize,
     eta_batch_size: usize,
     delta_batch_size: usize,
+    basis_x_chunk_size: usize,
     start: usize,
     end: usize,
     msm_workspace: &mut MsmWorkspace,
 ) {
-    let mut gamma_scalars = Vec::with_capacity(alpha_xy_g1s.len() * gamma_batch_size);
-    let mut gamma_indexes = Vec::with_capacity(gamma_batch_size);
-    let mut eta_scalars = Vec::with_capacity(alpha_xy_g1s.len() * eta_batch_size);
-    let mut eta_indexes = Vec::with_capacity(eta_batch_size);
-    let mut delta_scalars = Vec::with_capacity(alpha_xy_g1s.len() * delta_batch_size);
-    let mut delta_indexes = Vec::with_capacity(delta_batch_size);
+    let mut gamma_pending = Vec::with_capacity(gamma_batch_size);
+    let mut eta_pending = Vec::with_capacity(eta_batch_size);
+    let mut delta_pending = Vec::with_capacity(delta_batch_size);
 
     for (local_idx, &global_idx) in flatten_map.iter().enumerate() {
         let Some(x_coeffs) = coeffs.row(local_idx) else {
             continue;
         };
 
-        if let Some(segment_idx) = public_segment_index(global_idx, segments) {
-            append_outer_product_scalars(x_coeffs, &li_y_coeffs[segment_idx], &mut gamma_scalars);
-            gamma_indexes.push(global_idx);
-            if gamma_indexes.len() == gamma_batch_size {
-                flush_shared_batch_1d(
-                    msm_workspace,
-                    alpha_xy_g1s,
-                    &mut gamma_scalars,
-                    &mut gamma_indexes,
-                    gamma_inv_o_inst,
-                );
+        if compute_gamma {
+            if let Some(segment_idx) = public_segment_index(global_idx, segments) {
+                gamma_pending.push(Pending1d {
+                    dest_idx: global_idx,
+                    x_coeffs,
+                    y_coeffs: &li_y_coeffs[segment_idx],
+                });
+                if gamma_pending.len() == gamma_batch_size {
+                    flush_chunked_batch_1d(
+                        phase1_source,
+                        exp_alpha,
+                        li_y_coeffs[segment_idx].len(),
+                        basis_x_chunk_size,
+                        msm_workspace,
+                        &mut gamma_pending,
+                        gamma_inv_o_inst,
+                    );
+                }
             }
         }
 
         if global_idx >= l && global_idx < l + m_i {
             let row_idx = global_idx - l;
             for col_idx in start..end {
-                append_outer_product_scalars(x_coeffs, &li_y_coeffs[col_idx], &mut eta_scalars);
-                eta_indexes.push((row_idx, col_idx));
-                if eta_indexes.len() == eta_batch_size {
-                    flush_shared_batch_2d(
+                eta_pending.push(Pending2d {
+                    row_idx,
+                    col_idx,
+                    x_coeffs,
+                    y_coeffs: &li_y_coeffs[col_idx],
+                });
+                if eta_pending.len() == eta_batch_size {
+                    flush_chunked_batch_2d(
+                        phase1_source,
+                        exp_alpha,
+                        li_y_coeffs[col_idx].len(),
+                        basis_x_chunk_size,
                         msm_workspace,
-                        alpha_xy_g1s,
-                        &mut eta_scalars,
-                        &mut eta_indexes,
+                        &mut eta_pending,
                         eta_inv_li_o_inter_alpha4_kj,
                     );
                 }
@@ -765,14 +918,20 @@ fn process_component_for_subcircuit(
         } else if global_idx >= l + m_i && global_idx < m_d {
             let row_idx = global_idx - (l + m_i);
             for col_idx in start..end {
-                append_outer_product_scalars(x_coeffs, &li_y_coeffs[col_idx], &mut delta_scalars);
-                delta_indexes.push((row_idx, col_idx));
-                if delta_indexes.len() == delta_batch_size {
-                    flush_shared_batch_2d(
+                delta_pending.push(Pending2d {
+                    row_idx,
+                    col_idx,
+                    x_coeffs,
+                    y_coeffs: &li_y_coeffs[col_idx],
+                });
+                if delta_pending.len() == delta_batch_size {
+                    flush_chunked_batch_2d(
+                        phase1_source,
+                        exp_alpha,
+                        li_y_coeffs[col_idx].len(),
+                        basis_x_chunk_size,
                         msm_workspace,
-                        alpha_xy_g1s,
-                        &mut delta_scalars,
-                        &mut delta_indexes,
+                        &mut delta_pending,
                         delta_inv_li_o_prv,
                     );
                 }
@@ -780,38 +939,48 @@ fn process_component_for_subcircuit(
         }
     }
 
-    flush_shared_batch_1d(
+    if compute_gamma {
+        flush_chunked_batch_1d(
+            phase1_source,
+            exp_alpha,
+            li_y_coeffs[0].len(),
+            basis_x_chunk_size,
+            msm_workspace,
+            &mut gamma_pending,
+            gamma_inv_o_inst,
+        );
+    }
+    flush_chunked_batch_2d(
+        phase1_source,
+        exp_alpha,
+        li_y_coeffs[0].len(),
+        basis_x_chunk_size,
         msm_workspace,
-        alpha_xy_g1s,
-        &mut gamma_scalars,
-        &mut gamma_indexes,
-        gamma_inv_o_inst,
-    );
-    flush_shared_batch_2d(
-        msm_workspace,
-        alpha_xy_g1s,
-        &mut eta_scalars,
-        &mut eta_indexes,
+        &mut eta_pending,
         eta_inv_li_o_inter_alpha4_kj,
     );
-    flush_shared_batch_2d(
+    flush_chunked_batch_2d(
+        phase1_source,
+        exp_alpha,
+        li_y_coeffs[0].len(),
+        basis_x_chunk_size,
         msm_workspace,
-        alpha_xy_g1s,
-        &mut delta_scalars,
-        &mut delta_indexes,
+        &mut delta_pending,
         delta_inv_li_o_prv,
     );
 }
 
-fn process_coeff_source_for_eta<F>(
+fn process_coeff_source_for_eta<S: Phase1SrsSource, F>(
     label: &str,
     row_count: usize,
     batch_count: usize,
     li_y_coeffs: &[Vec<ScalarField>],
     mut fill_x_coeffs: F,
-    alpha_k_xy_g1s: &[G1Affine],
+    phase1_source: &S,
+    exp_alpha: usize,
     result_matrix: &mut Box<[Box<[G1serde]>]>,
     x_size: usize,
+    basis_x_chunk_size: usize,
     start: usize,
     end: usize,
     msm_workspace: &mut MsmWorkspace,
@@ -820,35 +989,42 @@ fn process_coeff_source_for_eta<F>(
 {
     println!("Preparing eta contribution: {}", label);
     let mut x_coeffs = vec![ScalarField::zero(); x_size];
-    let mut scalars = Vec::with_capacity(alpha_k_xy_g1s.len() * batch_count);
-    let mut indexes = Vec::with_capacity(batch_count);
 
     for row_idx in 0..row_count {
         if !fill_x_coeffs(row_idx, &mut x_coeffs) {
             continue;
         }
 
+        let mut pending = Vec::with_capacity(batch_count);
         for col_idx in start..end {
-            append_outer_product_scalars(&x_coeffs, &li_y_coeffs[col_idx], &mut scalars);
-            indexes.push((row_idx, col_idx));
-            if indexes.len() == batch_count {
-                flush_shared_batch_2d(
+            pending.push(Pending2d {
+                row_idx,
+                col_idx,
+                x_coeffs: &x_coeffs,
+                y_coeffs: &li_y_coeffs[col_idx],
+            });
+            if pending.len() == batch_count {
+                flush_chunked_batch_2d(
+                    phase1_source,
+                    exp_alpha,
+                    li_y_coeffs[col_idx].len(),
+                    basis_x_chunk_size,
                     msm_workspace,
-                    alpha_k_xy_g1s,
-                    &mut scalars,
-                    &mut indexes,
+                    &mut pending,
                     result_matrix,
                 );
             }
         }
-    }
 
-    flush_shared_batch_2d(
-        msm_workspace,
-        alpha_k_xy_g1s,
-        &mut scalars,
-        &mut indexes,
-        result_matrix,
-    );
+        flush_chunked_batch_2d(
+            phase1_source,
+            exp_alpha,
+            li_y_coeffs[0].len(),
+            basis_x_chunk_size,
+            msm_workspace,
+            &mut pending,
+            result_matrix,
+        );
+    }
     println!("Finished eta contribution: {}", label);
 }
