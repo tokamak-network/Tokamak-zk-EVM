@@ -237,6 +237,7 @@ pub fn public_wire_segments(setup_params: &SetupParams) -> PublicWireSegments {
 }
 
 const LAGRANGE_KL_MSM_CHUNK_SIZE: usize = 1 << 15;
+const LAGRANGE_KL_X_CHUNK_SIZE: usize = 128;
 
 fn compute_last_lagrange_coeffs(size: usize, along_x: bool) -> Vec<ScalarField> {
     let mut coeffs = vec![ScalarField::zero(); size];
@@ -294,5 +295,30 @@ pub fn compute_lagrange_kl_from_source<S: Phase1SrsSource>(
     source: &S,
     setup_params: &SetupParams,
 ) -> G1serde {
-    compute_lagrange_kl_with_basis(setup_params, |x_idx, y_idx| source.xy_g1(x_idx, y_idx).0)
+    let m_i = setup_params.l_D - setup_params.l;
+    let s_max = setup_params.s_max;
+    let k_coeffs = compute_last_lagrange_coeffs(m_i, true);
+    let l_coeffs = compute_last_lagrange_coeffs(s_max, false);
+    let mut scalars = Vec::new();
+    let mut bases = Vec::new();
+    let mut acc = G1Projective::zero();
+    let mut msm_workspace = MsmWorkspace::new(1);
+
+    for x_start in (0..m_i).step_by(LAGRANGE_KL_X_CHUNK_SIZE) {
+        let x_len = (m_i - x_start).min(LAGRANGE_KL_X_CHUNK_SIZE);
+        source.fill_alphaxy_g1_chunk(0, x_start, x_len, s_max, &mut bases);
+        let expected = x_len * s_max;
+        if scalars.len() != expected {
+            scalars.resize(expected, ScalarField::zero());
+        }
+        for (local_x, x_coeff) in k_coeffs[x_start..x_start + x_len].iter().enumerate() {
+            let row = &mut scalars[local_x * s_max..(local_x + 1) * s_max];
+            for (slot, y_coeff) in row.iter_mut().zip(l_coeffs.iter()) {
+                *slot = *x_coeff * *y_coeff;
+            }
+        }
+        acc = acc + msm_workspace.msm(&scalars, &bases).0.to_projective();
+    }
+
+    G1serde(G1Affine::from(acc))
 }

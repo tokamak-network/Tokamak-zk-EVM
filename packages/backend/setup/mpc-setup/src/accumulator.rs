@@ -423,6 +423,32 @@ impl Accumulator {
         }
         out
     }
+
+    pub fn fill_alphaxy_g1_chunk(
+        &self,
+        exp_alpha: usize,
+        exp_x_start: usize,
+        exp_x_len: usize,
+        exp_y_max: usize,
+        out: &mut Vec<G1Affine>,
+    ) {
+        let expected_len = exp_x_len * exp_y_max;
+        if out.len() != expected_len {
+            out.resize(expected_len, G1Affine::zero());
+        }
+        for local_x in 0..exp_x_len {
+            let exp_x = exp_x_start + local_x;
+            let row = &mut out[local_x * exp_y_max..(local_x + 1) * exp_y_max];
+            for exp_y in 0..exp_y_max {
+                row[exp_y] = self.get_alphaxy_g1(exp_alpha, exp_x, exp_y).0;
+            }
+        }
+    }
+
+    pub fn fill_xy_powers(&self, out: &mut Vec<G1serde>) {
+        out.clear();
+        out.extend_from_slice(&self.xy);
+    }
     //alpha^exp_alpha * x^exp_x * y^exp_y * G1
     pub fn get_alphaxy_g1(&self, exp_alpha: usize, exp_x: usize, exp_y: usize) -> G1serde {
         assert_eq!(exp_y <= self.y.len_g1(), true);

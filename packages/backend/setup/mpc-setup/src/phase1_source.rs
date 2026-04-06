@@ -27,8 +27,25 @@ pub trait Phase1SrsSource {
         exp_x_start: usize,
         exp_x_len: usize,
         exp_y_max: usize,
-    ) -> Vec<G1Affine>;
-    fn xy_powers(&self) -> Box<[G1serde]>;
+    ) -> Vec<G1Affine> {
+        let mut out = Vec::new();
+        self.fill_alphaxy_g1_chunk(exp_alpha, exp_x_start, exp_x_len, exp_y_max, &mut out);
+        out
+    }
+    fn fill_alphaxy_g1_chunk(
+        &self,
+        exp_alpha: usize,
+        exp_x_start: usize,
+        exp_x_len: usize,
+        exp_y_max: usize,
+        out: &mut Vec<G1Affine>,
+    );
+    fn xy_powers(&self) -> Box<[G1serde]> {
+        let mut out = Vec::new();
+        self.fill_xy_powers(&mut out);
+        out.into_boxed_slice()
+    }
+    fn fill_xy_powers(&self, out: &mut Vec<G1serde>);
     fn alphax_g1(&self, exp_alpha: usize, exp_x: usize) -> G1serde;
     fn alphay_g1(&self, exp_alpha: usize, exp_y: usize) -> G1serde;
     fn xy_g1(&self, exp_x: usize, exp_y: usize) -> G1serde;
@@ -129,16 +146,39 @@ fn archived_x_g1_range(
     out
 }
 
-fn archived_alphaxy_g1_chunk(
+fn archived_fill_alphaxy_g1_chunk(
     archived: &rkyv::Archived<AccumulatorRkyv>,
     exp_alpha: usize,
     exp_x_start: usize,
     exp_x_len: usize,
     exp_y_max: usize,
 ) -> Vec<G1Affine> {
+    let mut out = Vec::new();
+    fill_archived_alphaxy_g1_chunk(
+        archived,
+        exp_alpha,
+        exp_x_start,
+        exp_x_len,
+        exp_y_max,
+        &mut out,
+    );
+    out
+}
+
+fn fill_archived_alphaxy_g1_chunk(
+    archived: &rkyv::Archived<AccumulatorRkyv>,
+    exp_alpha: usize,
+    exp_x_start: usize,
+    exp_x_len: usize,
+    exp_y_max: usize,
+    out: &mut Vec<G1Affine>,
+) {
     let y_len = archived.y.g1.len();
     let alpha_xy_stride = archived.x.len() * y_len;
-    let mut out = vec![G1Affine::zero(); exp_x_len * exp_y_max];
+    let expected_len = exp_x_len * exp_y_max;
+    if out.len() != expected_len {
+        out.resize(expected_len, G1Affine::zero());
+    }
 
     if exp_alpha > 0 {
         for local_x in 0..exp_x_len {
@@ -168,7 +208,7 @@ fn archived_alphaxy_g1_chunk(
                 row[offset + 1] = value.to_g1_affine();
             }
         }
-        return out;
+        return;
     }
 
     for local_x in 0..exp_x_len {
@@ -193,8 +233,12 @@ fn archived_alphaxy_g1_chunk(
             row[offset + 1] = value.to_g1_affine();
         }
     }
+}
 
-    out
+fn fill_archived_xy_powers(archived: &rkyv::Archived<AccumulatorRkyv>, out: &mut Vec<G1serde>) {
+    out.clear();
+    out.reserve(archived.xy.len());
+    out.extend(archived.xy.iter().map(|value| value.to_g1serde()));
 }
 
 impl Phase1SrsSource for AccumulatorSource {
@@ -255,43 +299,43 @@ impl Phase1SrsSource for AccumulatorSource {
             AccumulatorSourceInner::Owned(acc) => {
                 acc.get_alphaxy_g1_range(exp_alpha, exp_x_max, exp_y_max)
             }
-            AccumulatorSourceInner::Mapped(acc) => {
-                archived_alphaxy_g1_chunk(acc.accumulator(), exp_alpha, 0, exp_x_max, exp_y_max)
-            }
-        }
-    }
-
-    fn alphaxy_g1_chunk(
-        &self,
-        exp_alpha: usize,
-        exp_x_start: usize,
-        exp_x_len: usize,
-        exp_y_max: usize,
-    ) -> Vec<G1Affine> {
-        match &self.inner {
-            AccumulatorSourceInner::Owned(acc) => {
-                acc.get_alphaxy_g1_chunk(exp_alpha, exp_x_start, exp_x_len, exp_y_max)
-            }
-            AccumulatorSourceInner::Mapped(acc) => archived_alphaxy_g1_chunk(
+            AccumulatorSourceInner::Mapped(acc) => archived_fill_alphaxy_g1_chunk(
                 acc.accumulator(),
                 exp_alpha,
-                exp_x_start,
-                exp_x_len,
+                0,
+                exp_x_max,
                 exp_y_max,
             ),
         }
     }
 
-    fn xy_powers(&self) -> Box<[G1serde]> {
+    fn fill_alphaxy_g1_chunk(
+        &self,
+        exp_alpha: usize,
+        exp_x_start: usize,
+        exp_x_len: usize,
+        exp_y_max: usize,
+        out: &mut Vec<G1Affine>,
+    ) {
         match &self.inner {
-            AccumulatorSourceInner::Owned(acc) => acc.get_boxed_xypower(),
-            AccumulatorSourceInner::Mapped(acc) => acc
-                .accumulator()
-                .xy
-                .iter()
-                .map(|value| value.to_g1serde())
-                .collect::<Vec<_>>()
-                .into_boxed_slice(),
+            AccumulatorSourceInner::Owned(acc) => {
+                acc.fill_alphaxy_g1_chunk(exp_alpha, exp_x_start, exp_x_len, exp_y_max, out)
+            }
+            AccumulatorSourceInner::Mapped(acc) => fill_archived_alphaxy_g1_chunk(
+                acc.accumulator(),
+                exp_alpha,
+                exp_x_start,
+                exp_x_len,
+                exp_y_max,
+                out,
+            ),
+        }
+    }
+
+    fn fill_xy_powers(&self, out: &mut Vec<G1serde>) {
+        match &self.inner {
+            AccumulatorSourceInner::Owned(acc) => acc.fill_xy_powers(out),
+            AccumulatorSourceInner::Mapped(acc) => fill_archived_xy_powers(acc.accumulator(), out),
         }
     }
 

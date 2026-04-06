@@ -279,12 +279,7 @@ pub fn process_prepare(
     let subcircuit_infos =
         SubcircuitInfo::read_box_from_json(qap_path.join(&subcircuit_file_name)).unwrap();
 
-    let mut li_y_coeffs = Vec::with_capacity(s_max);
-    for i in 0..s_max {
-        let mut coeffs = vec![ScalarField::zero(); s_max];
-        compute_langrange_i_coeffs(i, 1, s_max, &mut coeffs);
-        li_y_coeffs.push(coeffs);
-    }
+    let li_y_coeffs = load_or_build_li_y_coeffs(&qap_path, s_max);
     println!("Loading phase-1 source...");
     let phase1_source =
         AccumulatorSource::read_from_json(&format!("{}/{}", outfolder, accumulator))
@@ -692,6 +687,58 @@ impl ScalarFieldRkyv {
     }
 }
 
+struct LagrangeCoeffTable {
+    row_len: usize,
+    coeffs: Vec<ScalarField>,
+}
+
+impl LagrangeCoeffTable {
+    fn new(row_len: usize, coeffs: Vec<ScalarField>) -> Self {
+        assert_eq!(coeffs.len() % row_len, 0);
+        Self { row_len, coeffs }
+    }
+
+    fn row(&self, row_idx: usize) -> &[ScalarField] {
+        let start = row_idx * self.row_len;
+        let end = start + self.row_len;
+        &self.coeffs[start..end]
+    }
+
+    fn row_count(&self) -> usize {
+        self.coeffs.len() / self.row_len
+    }
+}
+
+#[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[archive(check_bytes)]
+struct LagrangeCoeffTableRkyv {
+    row_len: u32,
+    coeffs: Vec<ScalarFieldRkyv>,
+}
+
+impl LagrangeCoeffTableRkyv {
+    fn from_table(table: &LagrangeCoeffTable) -> Self {
+        Self {
+            row_len: table.row_len as u32,
+            coeffs: table
+                .coeffs
+                .iter()
+                .map(ScalarFieldRkyv::from_scalar)
+                .collect(),
+        }
+    }
+
+    fn into_table(self) -> LagrangeCoeffTable {
+        LagrangeCoeffTable::new(
+            self.row_len as usize,
+            self.coeffs
+                .into_iter()
+                .map(|value| value.to_scalar())
+                .collect(),
+        )
+    }
+}
+
 #[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 #[archive(check_bytes)]
 struct ActiveCoeffMatrixCacheRkyv {
@@ -778,6 +825,48 @@ impl SubcircuitCoeffView {
             ),
         }
     }
+}
+
+fn li_y_cache_path(qap_path: &Path, s_max: usize) -> PathBuf {
+    cache_dir(qap_path).join(format!("lagrange_y_s{}.rkyv", s_max))
+}
+
+fn write_li_y_coeffs_cache(cache_path: &Path, table: &LagrangeCoeffTable) {
+    let cache = LagrangeCoeffTableRkyv::from_table(table);
+    let bytes = rkyv::to_bytes::<_, 256>(&cache).expect("failed to serialize li_y coeff cache");
+    fs::write(cache_path, bytes).expect("failed to write li_y coeff cache");
+}
+
+fn load_li_y_coeffs_cache(cache_path: &Path, s_max: usize) -> Option<LagrangeCoeffTable> {
+    let bytes = fs::read(cache_path).ok()?;
+    let table = rkyv::from_bytes::<LagrangeCoeffTableRkyv>(&bytes)
+        .ok()?
+        .into_table();
+    if table.row_len != s_max || table.row_count() != s_max {
+        return None;
+    }
+    Some(table)
+}
+
+fn build_li_y_coeffs(s_max: usize) -> LagrangeCoeffTable {
+    let mut coeffs = vec![ScalarField::zero(); s_max * s_max];
+    for row_idx in 0..s_max {
+        let row = &mut coeffs[row_idx * s_max..(row_idx + 1) * s_max];
+        compute_langrange_i_coeffs(row_idx, 1, s_max, row);
+    }
+    LagrangeCoeffTable::new(s_max, coeffs)
+}
+
+fn load_or_build_li_y_coeffs(qap_path: &Path, s_max: usize) -> LagrangeCoeffTable {
+    let cache_path = li_y_cache_path(qap_path, s_max);
+    if let Some(table) = load_li_y_coeffs_cache(&cache_path, s_max) {
+        return table;
+    }
+
+    let table = build_li_y_coeffs(s_max);
+    fs::create_dir_all(cache_dir(qap_path)).expect("failed to create coeff cache directory");
+    write_li_y_coeffs_cache(&cache_path, &table);
+    table
 }
 
 fn cache_dir(qap_path: &Path) -> PathBuf {
@@ -891,15 +980,17 @@ fn public_segment_index(
     }
 }
 
-fn append_outer_product_scalars(
+fn fill_outer_product_scalars(
     x_coeffs: &[ScalarField],
     y_coeffs: &[ScalarField],
-    dest: &mut Vec<ScalarField>,
+    dest: &mut [ScalarField],
 ) {
-    dest.reserve(x_coeffs.len() * y_coeffs.len());
-    for x_coeff in x_coeffs {
-        for y_coeff in y_coeffs {
-            dest.push(*x_coeff * *y_coeff);
+    let y_len = y_coeffs.len();
+    assert_eq!(dest.len(), x_coeffs.len() * y_len);
+    for (row_idx, x_coeff) in x_coeffs.iter().enumerate() {
+        let row = &mut dest[row_idx * y_len..(row_idx + 1) * y_len];
+        for (slot, y_coeff) in row.iter_mut().zip(y_coeffs.iter()) {
+            *slot = *x_coeff * *y_coeff;
         }
     }
 }
@@ -918,6 +1009,7 @@ struct Pending2d<'a> {
 }
 
 struct BatchScratch<I> {
+    bases: Vec<G1Affine>,
     scalars: Vec<ScalarField>,
     indexes: Vec<I>,
 }
@@ -925,6 +1017,7 @@ struct BatchScratch<I> {
 impl<I> BatchScratch<I> {
     fn new() -> Self {
         Self {
+            bases: Vec::new(),
             scalars: Vec::new(),
             indexes: Vec::new(),
         }
@@ -933,7 +1026,6 @@ impl<I> BatchScratch<I> {
 
 fn flush_shared_batch_1d(
     msm_workspace: &mut MsmWorkspace,
-    bases: &[G1Affine],
     scratch: &mut BatchScratch<usize>,
     dest: &mut Box<[G1serde]>,
 ) {
@@ -941,7 +1033,8 @@ fn flush_shared_batch_1d(
         return;
     }
 
-    let results = msm_workspace.shared_bases_msm(bases, &scratch.scalars, scratch.indexes.len());
+    let results =
+        msm_workspace.shared_bases_msm(&scratch.bases, &scratch.scalars, scratch.indexes.len());
     for (batch_idx, row_idx) in scratch.indexes.iter().enumerate() {
         dest[*row_idx] = dest[*row_idx] + G1serde(G1Affine::from(results[batch_idx]));
     }
@@ -967,21 +1060,23 @@ fn flush_chunked_batch_1d<S: Phase1SrsSource>(
 
     for x_start in (0..x_size).step_by(x_chunk_size.max(1)) {
         let x_len = (x_size - x_start).min(x_chunk_size.max(1));
-        let bases = source.alphaxy_g1_chunk(exp_alpha, x_start, x_len, y_size);
-        scratch.scalars.clear();
-        scratch.scalars.reserve(bases.len() * pending.len());
+        source.fill_alphaxy_g1_chunk(exp_alpha, x_start, x_len, y_size, &mut scratch.bases);
+        scratch
+            .scalars
+            .resize(scratch.bases.len() * pending.len(), ScalarField::zero());
         scratch.indexes.clear();
         scratch
             .indexes
             .extend(pending.iter().map(|item| item.dest_idx));
-        for item in pending.iter() {
-            append_outer_product_scalars(
+        for (pending_idx, item) in pending.iter().enumerate() {
+            let scalar_start = pending_idx * scratch.bases.len();
+            fill_outer_product_scalars(
                 &item.x_coeffs[x_start..x_start + x_len],
                 item.y_coeffs,
-                &mut scratch.scalars,
+                &mut scratch.scalars[scalar_start..scalar_start + scratch.bases.len()],
             );
         }
-        flush_shared_batch_1d(msm_workspace, &bases, scratch, dest);
+        flush_shared_batch_1d(msm_workspace, scratch, dest);
     }
 
     pending.clear();
@@ -989,7 +1084,6 @@ fn flush_chunked_batch_1d<S: Phase1SrsSource>(
 
 fn flush_shared_batch_2d(
     msm_workspace: &mut MsmWorkspace,
-    bases: &[G1Affine],
     scratch: &mut BatchScratch<(usize, usize)>,
     dest: &mut Box<[Box<[G1serde]>]>,
 ) {
@@ -997,7 +1091,8 @@ fn flush_shared_batch_2d(
         return;
     }
 
-    let results = msm_workspace.shared_bases_msm(bases, &scratch.scalars, scratch.indexes.len());
+    let results =
+        msm_workspace.shared_bases_msm(&scratch.bases, &scratch.scalars, scratch.indexes.len());
     for (batch_idx, &(row_idx, col_idx)) in scratch.indexes.iter().enumerate() {
         dest[row_idx][col_idx] =
             dest[row_idx][col_idx] + G1serde(G1Affine::from(results[batch_idx]));
@@ -1024,21 +1119,23 @@ fn flush_chunked_batch_2d<S: Phase1SrsSource>(
 
     for x_start in (0..x_size).step_by(x_chunk_size.max(1)) {
         let x_len = (x_size - x_start).min(x_chunk_size.max(1));
-        let bases = source.alphaxy_g1_chunk(exp_alpha, x_start, x_len, y_size);
-        scratch.scalars.clear();
-        scratch.scalars.reserve(bases.len() * pending.len());
+        source.fill_alphaxy_g1_chunk(exp_alpha, x_start, x_len, y_size, &mut scratch.bases);
+        scratch
+            .scalars
+            .resize(scratch.bases.len() * pending.len(), ScalarField::zero());
         scratch.indexes.clear();
         scratch
             .indexes
             .extend(pending.iter().map(|item| (item.row_idx, item.col_idx)));
-        for item in pending.iter() {
-            append_outer_product_scalars(
+        for (pending_idx, item) in pending.iter().enumerate() {
+            let scalar_start = pending_idx * scratch.bases.len();
+            fill_outer_product_scalars(
                 &item.x_coeffs[x_start..x_start + x_len],
                 item.y_coeffs,
-                &mut scratch.scalars,
+                &mut scratch.scalars[scalar_start..scalar_start + scratch.bases.len()],
             );
         }
-        flush_shared_batch_2d(msm_workspace, &bases, scratch, dest);
+        flush_shared_batch_2d(msm_workspace, scratch, dest);
     }
 
     pending.clear();
@@ -1048,7 +1145,7 @@ fn process_component_for_subcircuit<S: Phase1SrsSource>(
     coeffs: &ActiveCoeffMatrix,
     flatten_map: &[usize],
     segments: &mpc_setup::PublicWireSegments,
-    li_y_coeffs: &[Vec<ScalarField>],
+    li_y_coeffs: &LagrangeCoeffTable,
     phase1_source: &S,
     exp_alpha: usize,
     compute_gamma: bool,
@@ -1083,13 +1180,13 @@ fn process_component_for_subcircuit<S: Phase1SrsSource>(
                 gamma_pending.push(Pending1d {
                     dest_idx: global_idx,
                     x_coeffs,
-                    y_coeffs: &li_y_coeffs[segment_idx],
+                    y_coeffs: li_y_coeffs.row(segment_idx),
                 });
                 if gamma_pending.len() == gamma_batch_size {
                     flush_chunked_batch_1d(
                         phase1_source,
                         exp_alpha,
-                        li_y_coeffs[segment_idx].len(),
+                        li_y_coeffs.row(segment_idx).len(),
                         basis_x_chunk_size,
                         msm_workspace,
                         &mut gamma_pending,
@@ -1107,13 +1204,13 @@ fn process_component_for_subcircuit<S: Phase1SrsSource>(
                     row_idx,
                     col_idx,
                     x_coeffs,
-                    y_coeffs: &li_y_coeffs[col_idx],
+                    y_coeffs: li_y_coeffs.row(col_idx),
                 });
                 if eta_pending.len() == eta_batch_size {
                     flush_chunked_batch_2d(
                         phase1_source,
                         exp_alpha,
-                        li_y_coeffs[col_idx].len(),
+                        li_y_coeffs.row(col_idx).len(),
                         basis_x_chunk_size,
                         msm_workspace,
                         &mut eta_pending,
@@ -1129,13 +1226,13 @@ fn process_component_for_subcircuit<S: Phase1SrsSource>(
                     row_idx,
                     col_idx,
                     x_coeffs,
-                    y_coeffs: &li_y_coeffs[col_idx],
+                    y_coeffs: li_y_coeffs.row(col_idx),
                 });
                 if delta_pending.len() == delta_batch_size {
                     flush_chunked_batch_2d(
                         phase1_source,
                         exp_alpha,
-                        li_y_coeffs[col_idx].len(),
+                        li_y_coeffs.row(col_idx).len(),
                         basis_x_chunk_size,
                         msm_workspace,
                         &mut delta_pending,
@@ -1151,7 +1248,7 @@ fn process_component_for_subcircuit<S: Phase1SrsSource>(
         flush_chunked_batch_1d(
             phase1_source,
             exp_alpha,
-            li_y_coeffs[0].len(),
+            li_y_coeffs.row(0).len(),
             basis_x_chunk_size,
             msm_workspace,
             &mut gamma_pending,
@@ -1162,7 +1259,7 @@ fn process_component_for_subcircuit<S: Phase1SrsSource>(
     flush_chunked_batch_2d(
         phase1_source,
         exp_alpha,
-        li_y_coeffs[0].len(),
+        li_y_coeffs.row(0).len(),
         basis_x_chunk_size,
         msm_workspace,
         &mut eta_pending,
@@ -1172,7 +1269,7 @@ fn process_component_for_subcircuit<S: Phase1SrsSource>(
     flush_chunked_batch_2d(
         phase1_source,
         exp_alpha,
-        li_y_coeffs[0].len(),
+        li_y_coeffs.row(0).len(),
         basis_x_chunk_size,
         msm_workspace,
         &mut delta_pending,
@@ -1185,7 +1282,7 @@ fn process_coeff_source_for_eta<S: Phase1SrsSource, F>(
     label: &str,
     row_count: usize,
     batch_count: usize,
-    li_y_coeffs: &[Vec<ScalarField>],
+    li_y_coeffs: &LagrangeCoeffTable,
     mut fill_x_coeffs: F,
     phase1_source: &S,
     exp_alpha: usize,
@@ -1213,13 +1310,13 @@ fn process_coeff_source_for_eta<S: Phase1SrsSource, F>(
                 row_idx,
                 col_idx,
                 x_coeffs: &x_coeffs,
-                y_coeffs: &li_y_coeffs[col_idx],
+                y_coeffs: li_y_coeffs.row(col_idx),
             });
             if pending.len() == batch_count {
                 flush_chunked_batch_2d(
                     phase1_source,
                     exp_alpha,
-                    li_y_coeffs[col_idx].len(),
+                    li_y_coeffs.row(col_idx).len(),
                     basis_x_chunk_size,
                     msm_workspace,
                     &mut pending,
@@ -1232,7 +1329,7 @@ fn process_coeff_source_for_eta<S: Phase1SrsSource, F>(
         flush_chunked_batch_2d(
             phase1_source,
             exp_alpha,
-            li_y_coeffs[0].len(),
+            li_y_coeffs.row(0).len(),
             basis_x_chunk_size,
             msm_workspace,
             &mut pending,
