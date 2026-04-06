@@ -474,6 +474,23 @@ impl SubcircuitR1CS {
         setup_params: &SetupParams,
         subcircuit_info: &SubcircuitInfo,
     ) -> io::Result<Self> {
+        Self::from_path_with_mode(path, setup_params, subcircuit_info, true)
+    }
+
+    pub fn from_path_compact_only(
+        path: PathBuf,
+        setup_params: &SetupParams,
+        subcircuit_info: &SubcircuitInfo,
+    ) -> io::Result<Self> {
+        Self::from_path_with_mode(path, setup_params, subcircuit_info, false)
+    }
+
+    fn from_path_with_mode(
+        path: PathBuf,
+        setup_params: &SetupParams,
+        subcircuit_info: &SubcircuitInfo,
+        include_sparse_rows: bool,
+    ) -> io::Result<Self> {
         let mut constraints = Constraints::read_from_json(path)?;
         Constraints::convert_values_to_hex(&mut constraints);
 
@@ -533,10 +550,22 @@ impl SubcircuitR1CS {
         let mut B_compact_col_mat = vec![ScalarField::zero(); n * B_len];
         let mut C_compact_col_mat = vec![ScalarField::zero(); n * C_len];
 
-        // Sparse rows (CPU path)
-        let mut A_sparse_rows: Vec<Vec<(usize, ScalarField)>> = vec![Vec::new(); n];
-        let mut B_sparse_rows: Vec<Vec<(usize, ScalarField)>> = vec![Vec::new(); n];
-        let mut C_sparse_rows: Vec<Vec<(usize, ScalarField)>> = vec![Vec::new(); n];
+        // Sparse rows are only needed by CPU evaluation paths outside phase2_prepare.
+        let mut A_sparse_rows: Vec<Vec<(usize, ScalarField)>> = if include_sparse_rows {
+            vec![Vec::new(); n]
+        } else {
+            Vec::new()
+        };
+        let mut B_sparse_rows: Vec<Vec<(usize, ScalarField)>> = if include_sparse_rows {
+            vec![Vec::new(); n]
+        } else {
+            Vec::new()
+        };
+        let mut C_sparse_rows: Vec<Vec<(usize, ScalarField)>> = if include_sparse_rows {
+            vec![Vec::new(); n]
+        } else {
+            Vec::new()
+        };
 
         for row_idx in 0..subcircuit_info.Nconsts {
             let constraint = &constraints.constraints[row_idx];
@@ -565,23 +594,25 @@ impl SubcircuitR1CS {
                 }
             }
 
-            // Build sparse rows from original constraints (compact index)
-            for (local_idx, hex_val) in a_constraint.iter() {
-                let compact_idx = a_index_map[*local_idx];
-                if compact_idx != usize::MAX {
-                    A_sparse_rows[row_idx].push((compact_idx, ScalarField::from_hex(hex_val)));
+            if include_sparse_rows {
+                // Build sparse rows from original constraints for CPU evaluation paths.
+                for (local_idx, hex_val) in a_constraint.iter() {
+                    let compact_idx = a_index_map[*local_idx];
+                    if compact_idx != usize::MAX {
+                        A_sparse_rows[row_idx].push((compact_idx, ScalarField::from_hex(hex_val)));
+                    }
                 }
-            }
-            for (local_idx, hex_val) in b_constraint.iter() {
-                let compact_idx = b_index_map[*local_idx];
-                if compact_idx != usize::MAX {
-                    B_sparse_rows[row_idx].push((compact_idx, ScalarField::from_hex(hex_val)));
+                for (local_idx, hex_val) in b_constraint.iter() {
+                    let compact_idx = b_index_map[*local_idx];
+                    if compact_idx != usize::MAX {
+                        B_sparse_rows[row_idx].push((compact_idx, ScalarField::from_hex(hex_val)));
+                    }
                 }
-            }
-            for (local_idx, hex_val) in c_constraint.iter() {
-                let compact_idx = c_index_map[*local_idx];
-                if compact_idx != usize::MAX {
-                    C_sparse_rows[row_idx].push((compact_idx, ScalarField::from_hex(hex_val)));
+                for (local_idx, hex_val) in c_constraint.iter() {
+                    let compact_idx = c_index_map[*local_idx];
+                    if compact_idx != usize::MAX {
+                        C_sparse_rows[row_idx].push((compact_idx, ScalarField::from_hex(hex_val)));
+                    }
                 }
             }
         }

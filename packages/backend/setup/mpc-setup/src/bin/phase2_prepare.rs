@@ -339,7 +339,8 @@ pub fn process_prepare(
         );
         let r1cs_path = qap_path.join(format!("json/subcircuit{subcircuit_idx}.json"));
         let compact_r1cs =
-            SubcircuitR1CS::from_path(r1cs_path, &setup_params, subcircuit_info).unwrap();
+            SubcircuitR1CS::from_path_compact_only(r1cs_path, &setup_params, subcircuit_info)
+                .unwrap();
         let coeff_view = SubcircuitCoeffView::from_compact_r1cs(&compact_r1cs, subcircuit_info, n);
 
         process_component_for_subcircuit(
