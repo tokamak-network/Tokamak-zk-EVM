@@ -14,7 +14,6 @@ use libs::group_structures::{G1serde, SigmaPreprocess};
 use libs::iotools::SetupParams;
 
 pub const QAP_COMPILER_PATH_PREFIX: &str = "../frontend/qap-compiler/subcircuits/library";
-pub const MPC_SETUP_CACHE_PATH_PREFIX: &str = "setup/mpc-setup/backend-cache";
 pub const SYNTHESIZER_PATH_PREFIX: &str = "../frontend/synthesizer/examples/outputs";
 
 pub const fn testing_mode_enabled() -> bool {

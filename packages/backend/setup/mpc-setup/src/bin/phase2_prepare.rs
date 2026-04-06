@@ -1,6 +1,5 @@
 use std::env;
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use clap::Parser;
 use icicle_bls12_381::curve::{G1Affine, ScalarField};
@@ -17,7 +16,7 @@ use mpc_setup::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
 use mpc_setup::utils::{load_gpu_if_possible, prompt_user_input};
 use mpc_setup::{
     compute_lagrange_kl_from_source, ensure_testing_mode, public_wire_segments, MsmWorkspace,
-    NttWorkspace, MPC_SETUP_CACHE_PATH_PREFIX, QAP_COMPILER_PATH_PREFIX,
+    NttWorkspace, QAP_COMPILER_PATH_PREFIX,
 };
 use std::ops::Sub;
 use std::time::Instant;
@@ -251,7 +250,6 @@ pub fn process_prepare(
 ) -> SigmaV2 {
     let base_path = env::current_dir().unwrap();
     let qap_path = base_path.join(QAP_COMPILER_PATH_PREFIX);
-    let cache_root = base_path.join(MPC_SETUP_CACHE_PATH_PREFIX);
 
     let start1 = Instant::now();
     let accumulator = format!("phase1_acc_{}.json", contributor_index);
@@ -280,7 +278,7 @@ pub fn process_prepare(
     let subcircuit_infos =
         SubcircuitInfo::read_box_from_json(qap_path.join(&subcircuit_file_name)).unwrap();
 
-    let li_y_coeffs = load_or_build_li_y_coeffs(&cache_root, s_max);
+    let li_y_coeffs = build_li_y_coeffs(s_max);
     println!("Loading phase-1 source...");
     let phase1_source =
         AccumulatorSource::read_from_json(&format!("{}/{}", outfolder, accumulator))
@@ -601,7 +599,6 @@ pub fn process_prepare(
 
 const MAX_BATCH_SCALARS: usize = 1 << 22;
 const DEFAULT_BASIS_X_CHUNK_SIZE: usize = 128;
-const SCALAR_FIELD_BYTE_LEN: usize = 32;
 
 fn effective_batch_size(scalars_per_item: usize, requested: usize) -> usize {
     let max_batch = (MAX_BATCH_SCALARS / scalars_per_item).max(1);
@@ -666,26 +663,6 @@ impl ActiveCoeffMatrix {
     }
 }
 
-#[derive(Debug, Clone, Copy, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
-struct ScalarFieldRkyv {
-    bytes: [u8; SCALAR_FIELD_BYTE_LEN],
-}
-
-impl ScalarFieldRkyv {
-    fn from_scalar(value: &ScalarField) -> Self {
-        let bytes: [u8; SCALAR_FIELD_BYTE_LEN] = value
-            .to_bytes_le()
-            .try_into()
-            .expect("unexpected scalar byte length");
-        Self { bytes }
-    }
-
-    fn to_scalar(&self) -> ScalarField {
-        ScalarField::from_bytes_le(&self.bytes)
-    }
-}
-
 struct LagrangeCoeffTable {
     row_len: usize,
     coeffs: Vec<ScalarField>,
@@ -701,40 +678,6 @@ impl LagrangeCoeffTable {
         let start = row_idx * self.row_len;
         let end = start + self.row_len;
         &self.coeffs[start..end]
-    }
-
-    fn row_count(&self) -> usize {
-        self.coeffs.len() / self.row_len
-    }
-}
-
-#[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
-struct LagrangeCoeffTableRkyv {
-    row_len: u32,
-    coeffs: Vec<ScalarFieldRkyv>,
-}
-
-impl LagrangeCoeffTableRkyv {
-    fn from_table(table: &LagrangeCoeffTable) -> Self {
-        Self {
-            row_len: table.row_len as u32,
-            coeffs: table
-                .coeffs
-                .iter()
-                .map(ScalarFieldRkyv::from_scalar)
-                .collect(),
-        }
-    }
-
-    fn into_table(self) -> LagrangeCoeffTable {
-        LagrangeCoeffTable::new(
-            self.row_len as usize,
-            self.coeffs
-                .into_iter()
-                .map(|value| value.to_scalar())
-                .collect(),
-        )
     }
 }
 
@@ -777,27 +720,6 @@ impl SubcircuitCoeffView {
     }
 }
 
-fn li_y_cache_path(cache_root: &Path, s_max: usize) -> PathBuf {
-    cache_dir(cache_root).join(format!("lagrange_y_s{}.rkyv", s_max))
-}
-
-fn write_li_y_coeffs_cache(cache_path: &Path, table: &LagrangeCoeffTable) {
-    let cache = LagrangeCoeffTableRkyv::from_table(table);
-    let bytes = rkyv::to_bytes::<_, 256>(&cache).expect("failed to serialize li_y coeff cache");
-    fs::write(cache_path, bytes).expect("failed to write li_y coeff cache");
-}
-
-fn load_li_y_coeffs_cache(cache_path: &Path, s_max: usize) -> Option<LagrangeCoeffTable> {
-    let bytes = fs::read(cache_path).ok()?;
-    let table = rkyv::from_bytes::<LagrangeCoeffTableRkyv>(&bytes)
-        .ok()?
-        .into_table();
-    if table.row_len != s_max || table.row_count() != s_max {
-        return None;
-    }
-    Some(table)
-}
-
 fn build_li_y_coeffs(s_max: usize) -> LagrangeCoeffTable {
     let mut coeffs = vec![ScalarField::zero(); s_max * s_max];
     for row_idx in 0..s_max {
@@ -805,22 +727,6 @@ fn build_li_y_coeffs(s_max: usize) -> LagrangeCoeffTable {
         compute_langrange_i_coeffs(row_idx, 1, s_max, row);
     }
     LagrangeCoeffTable::new(s_max, coeffs)
-}
-
-fn load_or_build_li_y_coeffs(cache_root: &Path, s_max: usize) -> LagrangeCoeffTable {
-    let cache_path = li_y_cache_path(cache_root, s_max);
-    if let Some(table) = load_li_y_coeffs_cache(&cache_path, s_max) {
-        return table;
-    }
-
-    let table = build_li_y_coeffs(s_max);
-    fs::create_dir_all(cache_dir(cache_root)).expect("failed to create coeff cache directory");
-    write_li_y_coeffs_cache(&cache_path, &table);
-    table
-}
-
-fn cache_dir(cache_root: &Path) -> PathBuf {
-    cache_root.join("phase2-prepare")
 }
 
 fn load_coeff_view(
