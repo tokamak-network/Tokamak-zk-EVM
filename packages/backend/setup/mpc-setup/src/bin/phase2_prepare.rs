@@ -397,10 +397,8 @@ pub fn process_prepare(
             subcircuit_infos.len()
         );
         let r1cs_path = qap_path.join(format!("json/subcircuit{subcircuit_idx}.json"));
-        let coeff_view = load_or_build_coeff_view(
-            &cache_root,
+        let coeff_view = load_coeff_view(
             &r1cs_path,
-            subcircuit_idx,
             &setup_params,
             subcircuit_info,
             &mut ntt_workspace,
@@ -740,55 +738,6 @@ impl LagrangeCoeffTableRkyv {
     }
 }
 
-#[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
-struct ActiveCoeffMatrixCacheRkyv {
-    active_wires: Vec<u32>,
-    coeffs: Vec<ScalarFieldRkyv>,
-    row_len: u32,
-}
-
-impl ActiveCoeffMatrixCacheRkyv {
-    fn from_matrix(matrix: &ActiveCoeffMatrix, active_wires: &[usize]) -> Self {
-        Self {
-            active_wires: active_wires.iter().map(|&idx| idx as u32).collect(),
-            coeffs: matrix
-                .coeffs
-                .iter()
-                .map(ScalarFieldRkyv::from_scalar)
-                .collect(),
-            row_len: matrix.row_len as u32,
-        }
-    }
-
-    fn into_matrix(self, local_wire_count: usize) -> ActiveCoeffMatrix {
-        let active_wires: Vec<usize> = self
-            .active_wires
-            .into_iter()
-            .map(|idx| idx as usize)
-            .collect();
-        let coeffs = self
-            .coeffs
-            .into_iter()
-            .map(|value| value.to_scalar())
-            .collect();
-        ActiveCoeffMatrix::from_coeffs(
-            &active_wires,
-            coeffs,
-            local_wire_count,
-            self.row_len as usize,
-        )
-    }
-}
-
-#[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-#[archive(check_bytes)]
-struct SubcircuitCoeffCacheRkyv {
-    a: ActiveCoeffMatrixCacheRkyv,
-    b: ActiveCoeffMatrixCacheRkyv,
-    c: ActiveCoeffMatrixCacheRkyv,
-}
-
 struct SubcircuitCoeffView {
     a: ActiveCoeffMatrix,
     b: ActiveCoeffMatrix,
@@ -874,79 +823,12 @@ fn cache_dir(cache_root: &Path) -> PathBuf {
     cache_root.join("phase2-prepare")
 }
 
-fn cache_path_for_subcircuit(
-    cache_root: &Path,
-    subcircuit_idx: usize,
-    setup_params: &SetupParams,
-) -> PathBuf {
-    cache_dir(cache_root).join(format!(
-        "subcircuit{}_n{}_s{}_lf{}_mi{}.rkyv",
-        subcircuit_idx,
-        setup_params.n,
-        setup_params.s_max,
-        setup_params.l_free,
-        setup_params.l_D - setup_params.l
-    ))
-}
-
-fn cache_is_fresh(cache_path: &Path, source_path: &Path) -> bool {
-    let Ok(cache_meta) = fs::metadata(cache_path) else {
-        return false;
-    };
-    let Ok(source_meta) = fs::metadata(source_path) else {
-        return false;
-    };
-    let Ok(cache_modified) = cache_meta.modified() else {
-        return false;
-    };
-    let Ok(source_modified) = source_meta.modified() else {
-        return false;
-    };
-    cache_modified >= source_modified
-}
-
-fn load_coeff_view_from_cache(
-    cache_path: &Path,
-    subcircuit_info: &SubcircuitInfo,
-) -> Option<SubcircuitCoeffView> {
-    let bytes = fs::read(cache_path).ok()?;
-    let cache = rkyv::from_bytes::<SubcircuitCoeffCacheRkyv>(&bytes).ok()?;
-    Some(SubcircuitCoeffView {
-        a: cache.a.into_matrix(subcircuit_info.Nwires),
-        b: cache.b.into_matrix(subcircuit_info.Nwires),
-        c: cache.c.into_matrix(subcircuit_info.Nwires),
-    })
-}
-
-fn write_coeff_view_cache(
-    cache_path: &Path,
-    coeff_view: &SubcircuitCoeffView,
-    compact_r1cs: &SubcircuitR1CS,
-) {
-    let cache = SubcircuitCoeffCacheRkyv {
-        a: ActiveCoeffMatrixCacheRkyv::from_matrix(&coeff_view.a, &compact_r1cs.A_active_wires),
-        b: ActiveCoeffMatrixCacheRkyv::from_matrix(&coeff_view.b, &compact_r1cs.B_active_wires),
-        c: ActiveCoeffMatrixCacheRkyv::from_matrix(&coeff_view.c, &compact_r1cs.C_active_wires),
-    };
-    let bytes = rkyv::to_bytes::<_, 256>(&cache).expect("failed to serialize coeff cache");
-    fs::write(cache_path, bytes).expect("failed to write coeff cache");
-}
-
-fn load_or_build_coeff_view(
-    cache_root: &Path,
+fn load_coeff_view(
     source_path: &Path,
-    subcircuit_idx: usize,
     setup_params: &SetupParams,
     subcircuit_info: &SubcircuitInfo,
     ntt_workspace: &mut NttWorkspace,
 ) -> SubcircuitCoeffView {
-    let cache_path = cache_path_for_subcircuit(cache_root, subcircuit_idx, setup_params);
-    if cache_is_fresh(&cache_path, source_path) {
-        if let Some(coeff_view) = load_coeff_view_from_cache(&cache_path, subcircuit_info) {
-            return coeff_view;
-        }
-    }
-
     let compact_r1cs = SubcircuitR1CS::from_path_compact_only(
         source_path.to_path_buf(),
         setup_params,
@@ -959,8 +841,6 @@ fn load_or_build_coeff_view(
         setup_params.n,
         ntt_workspace,
     );
-    fs::create_dir_all(cache_dir(cache_root)).expect("failed to create coeff cache directory");
-    write_coeff_view_cache(&cache_path, &coeff_view, &compact_r1cs);
     coeff_view
 }
 
