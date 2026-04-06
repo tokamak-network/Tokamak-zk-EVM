@@ -32,7 +32,7 @@ struct Config {
     #[arg(long, value_name = "IS_CHECKING")]
     is_checking: bool,
 
-    #[arg(long, value_name = "PART_NO", default_value = "1")]
+    #[arg(long, value_name = "PART_NO", default_value = "0")]
     part_no: Option<usize>,
 
     #[arg(long, value_name = "TOTAL_PART", default_value = "1")]
