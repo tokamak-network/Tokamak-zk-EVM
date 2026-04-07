@@ -54,6 +54,18 @@ fn main() {
     );
 
     run_mpc_bin(
+        "phase1_next_contributor",
+        &[
+            "--outfolder".to_string(),
+            config.outfolder.clone(),
+            "--mode".to_string(),
+            config.phase1_mode.clone(),
+        ],
+        scripted_input_for_mode(&config.phase1_mode, 1),
+        &qap_path,
+    );
+
+    run_mpc_bin(
         "phase2_prepare",
         &[
             "--outfolder".to_string(),
@@ -63,14 +75,26 @@ fn main() {
             "--phase1-source-mode".to_string(),
             "native".to_string(),
         ],
-        Some("0\n"),
+        Some("1\n"),
+        &qap_path,
+    );
+
+    run_mpc_bin(
+        "phase2_next_contributor",
+        &[
+            "--outfolder".to_string(),
+            config.outfolder.clone(),
+            "--mode".to_string(),
+            config.phase2_mode.clone(),
+        ],
+        scripted_input_for_mode(&config.phase2_mode, 1),
         &qap_path,
     );
 
     run_mpc_bin(
         "phase2_gen_files",
         &["--outfolder".to_string(), config.outfolder.clone()],
-        Some("0\n"),
+        Some("1\n"),
         &qap_path,
     );
 
@@ -95,6 +119,17 @@ fn load_s_max(qap_path: &Path) -> usize {
 
 fn ensure_directory(path: &str) {
     fs::create_dir_all(path).expect("cannot create orchestrator output directory");
+}
+
+fn scripted_input_for_mode(mode: &str, contributor_index: usize) -> Option<&'static str> {
+    if mode == "testing" {
+        match contributor_index {
+            1 => Some("1\n"),
+            _ => None,
+        }
+    } else {
+        None
+    }
 }
 
 fn run_mpc_bin(bin_name: &str, args: &[String], stdin_input: Option<&str>, qap_path: &Path) {
