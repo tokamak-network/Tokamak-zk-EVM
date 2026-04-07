@@ -12,7 +12,9 @@ use libs::utils::{
 };
 use libs::vector_operations::gen_evaled_lagrange_bases;
 use mpc_setup::mpc_utils::compute_langrange_i_coeffs;
-use mpc_setup::phase1_source::{AccumulatorSource, Phase1SrsSource};
+use mpc_setup::phase1_source::{
+    AccumulatorSource, DuskGroth16Source, Phase1Source, Phase1SrsSource,
+};
 use mpc_setup::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
 use mpc_setup::utils::{
     initialize_random_generator, load_gpu_if_possible, prompt_user_input, Mode, RandomGenerator,
@@ -54,10 +56,32 @@ struct Config {
 
     #[arg(
         long,
+        value_enum,
+        value_name = "PHASE1_SOURCE_MODE",
+        default_value = "native",
+        help = "Phase-1 source mode: native Tokamak phase-1 accumulator or Dusk Groth16 raw PoT"
+    )]
+    phase1_source_mode: Phase1SourceMode,
+
+    #[arg(
+        long,
+        value_name = "DUSK_RAW_FILE",
+        help = "Path to a Dusk Groth16 raw challenge/response file, required when --phase1-source-mode dusk-groth16"
+    )]
+    dusk_raw_file: Option<String>,
+
+    #[arg(
+        long,
         value_name = "Y_HEX",
         help = "Optional explicit y scalar as a hex string to reuse across multipart runs"
     )]
     y_hex: Option<String>,
+}
+
+#[derive(Clone, Debug, clap::ValueEnum)]
+enum Phase1SourceMode {
+    Native,
+    DuskGroth16,
 }
 // cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output --is-checking
 // cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output
@@ -90,9 +114,14 @@ fn main() {
         assert_eq!(part_no < total_part, true);
         assert_eq!(is_power_of_two_bitwise(total_part), true);
     }
-    let contributor_index = prompt_user_input("Enter the last phase-1 contributor's index:")
-        .parse::<usize>()
-        .expect("Please enter a valid number");
+    let contributor_index = match config.phase1_source_mode {
+        Phase1SourceMode::Native => {
+            prompt_user_input("Enter the last phase-1 contributor's index:")
+                .parse::<usize>()
+                .expect("Please enter a valid number")
+        }
+        Phase1SourceMode::DuskGroth16 => 0,
+    };
     let sigma = process_prepare(
         contributor_index,
         &outfolder,
@@ -102,6 +131,8 @@ fn main() {
         part_no,
         &config.mode,
         config.y_hex.as_deref(),
+        &config.phase1_source_mode,
+        config.dusk_raw_file.as_deref(),
     );
     if total_part > 1 {
         sigma
@@ -443,7 +474,7 @@ fn build_xy_powers_from_x_basis<S: Phase1SrsSource>(
     }
     xy.into_boxed_slice()
 }
-pub fn process_prepare(
+fn process_prepare(
     contributor_index: usize,
     outfolder: &str,
     _is_gpu_enabled: bool,
@@ -452,11 +483,12 @@ pub fn process_prepare(
     part_no: usize,
     mode: &Mode,
     y_hex: Option<&str>,
+    phase1_source_mode: &Phase1SourceMode,
+    dusk_raw_file: Option<&str>,
 ) -> SigmaV2 {
     let base_path = env::current_dir().unwrap();
     let qap_path = base_path.join(QAP_COMPILER_PATH_PREFIX);
 
-    let accumulator = format!("phase1_acc_{}.json", contributor_index);
     let setup_file_name = "setupParams.json";
     let setup_params = SetupParams::read_from_json(qap_path.join(&setup_file_name))
         .expect("cannot SetupParams read file");
@@ -494,9 +526,24 @@ pub fn process_prepare(
     }
 
     println!("Loading phase-1 source...");
-    let phase1_source =
-        AccumulatorSource::read_from_json(&format!("{}/{}", outfolder, accumulator))
-            .expect("cannot read from latest accumulator json");
+    let phase1_source = match phase1_source_mode {
+        Phase1SourceMode::Native => {
+            let accumulator = format!("phase1_acc_{}.json", contributor_index);
+            Phase1Source::Accumulator(
+                AccumulatorSource::read_from_json(&format!("{}/{}", outfolder, accumulator))
+                    .expect("cannot read from latest accumulator json"),
+            )
+        }
+        Phase1SourceMode::DuskGroth16 => {
+            let dusk_raw_file =
+                dusk_raw_file.expect("--dusk-raw-file is required in dusk-groth16 mode");
+            let tokamak_n = std::cmp::max(n, m_i);
+            Phase1Source::DuskGroth16(
+                DuskGroth16Source::read_from_file(dusk_raw_file, tokamak_n)
+                    .expect("cannot read Dusk Groth16 raw PoT file"),
+            )
+        }
+    };
 
     let sigma_trusted = if is_checking {
         ensure_testing_mode("phase2_prepare --is-checking");

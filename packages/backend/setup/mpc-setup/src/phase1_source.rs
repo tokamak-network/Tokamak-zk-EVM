@@ -1,6 +1,8 @@
 use crate::accumulator::{Accumulator, AccumulatorRkyv};
-use crate::utils::icicle_g1_generator;
-use icicle_bls12_381::curve::G1Affine;
+use crate::conversions::{deserialize_g1_affine, deserialize_g2_affine};
+use crate::utils::{icicle_g1_generator, icicle_g2_generator};
+use ark_serialize::Compress;
+use icicle_bls12_381::curve::{G1Affine, G2Affine};
 use libs::group_structures::{G1serde, G2serde};
 use memmap::{Mmap, MmapOptions};
 use std::env;
@@ -106,6 +108,154 @@ impl AccumulatorSource {
             inner: AccumulatorSourceInner::Owned(accumulator),
         })
     }
+}
+
+const DUSK_HASH_BYTES: usize = 64;
+const DUSK_TAU_POWERS_LENGTH: usize = 1 << 21;
+const DUSK_TAU_POWERS_G1_LENGTH: usize = (DUSK_TAU_POWERS_LENGTH << 1) - 1;
+const DUSK_G1_UNCOMPRESSED_BYTES: usize = 96;
+const DUSK_G2_UNCOMPRESSED_BYTES: usize = 192;
+const DUSK_G1_COMPRESSED_BYTES: usize = 48;
+const DUSK_G2_COMPRESSED_BYTES: usize = 96;
+const DUSK_PUBLIC_KEY_BYTES: usize =
+    (3 * DUSK_G2_UNCOMPRESSED_BYTES) + (6 * DUSK_G1_UNCOMPRESSED_BYTES);
+const DUSK_CHALLENGE_BYTES: usize = DUSK_HASH_BYTES
+    + (DUSK_TAU_POWERS_G1_LENGTH * DUSK_G1_UNCOMPRESSED_BYTES)
+    + (DUSK_TAU_POWERS_LENGTH * DUSK_G2_UNCOMPRESSED_BYTES)
+    + (DUSK_TAU_POWERS_LENGTH * DUSK_G1_UNCOMPRESSED_BYTES)
+    + (DUSK_TAU_POWERS_LENGTH * DUSK_G1_UNCOMPRESSED_BYTES)
+    + DUSK_G2_UNCOMPRESSED_BYTES;
+const DUSK_RESPONSE_BYTES: usize = DUSK_HASH_BYTES
+    + (DUSK_TAU_POWERS_G1_LENGTH * DUSK_G1_COMPRESSED_BYTES)
+    + (DUSK_TAU_POWERS_LENGTH * DUSK_G2_COMPRESSED_BYTES)
+    + (DUSK_TAU_POWERS_LENGTH * DUSK_G1_COMPRESSED_BYTES)
+    + (DUSK_TAU_POWERS_LENGTH * DUSK_G1_COMPRESSED_BYTES)
+    + DUSK_G2_COMPRESSED_BYTES
+    + DUSK_PUBLIC_KEY_BYTES;
+
+#[derive(Clone, Copy)]
+enum DuskRawEncoding {
+    Compressed,
+    Uncompressed,
+}
+
+pub struct DuskGroth16Source {
+    g1: G1serde,
+    g2: G2serde,
+    tau_powers_g1: Vec<G1Affine>,
+    tau_powers_g2: Vec<G2Affine>,
+    tokamak_n: usize,
+}
+
+impl DuskGroth16Source {
+    pub fn read_from_file(path: &str, tokamak_n: usize) -> io::Result<Self> {
+        let bytes = std::fs::read(path)?;
+        let encoding = match bytes.len() {
+            DUSK_CHALLENGE_BYTES => DuskRawEncoding::Uncompressed,
+            DUSK_RESPONSE_BYTES => DuskRawEncoding::Compressed,
+            len => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!(
+                        "unsupported Dusk raw PoT file size {len}; expected challenge size {DUSK_CHALLENGE_BYTES} or response size {DUSK_RESPONSE_BYTES}"
+                    ),
+                ))
+            }
+        };
+
+        let max_g1_exp = 10usize
+            .checked_mul(tokamak_n)
+            .expect("Tokamak n overflow while sizing Dusk G1 powers");
+        let max_g2_exp = 8usize
+            .checked_mul(tokamak_n)
+            .expect("Tokamak n overflow while sizing Dusk G2 powers");
+
+        if max_g1_exp >= DUSK_TAU_POWERS_G1_LENGTH || max_g2_exp >= DUSK_TAU_POWERS_LENGTH {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!(
+                    "Tokamak n={} requires tau powers beyond the Dusk raw PoT bounds",
+                    tokamak_n
+                ),
+            ));
+        }
+
+        let (g1_point_bytes, g2_point_bytes, compression) = match encoding {
+            DuskRawEncoding::Compressed => (
+                DUSK_G1_COMPRESSED_BYTES,
+                DUSK_G2_COMPRESSED_BYTES,
+                Compress::Yes,
+            ),
+            DuskRawEncoding::Uncompressed => (
+                DUSK_G1_UNCOMPRESSED_BYTES,
+                DUSK_G2_UNCOMPRESSED_BYTES,
+                Compress::No,
+            ),
+        };
+
+        let tau_g1_offset = DUSK_HASH_BYTES;
+        let tau_g2_offset = tau_g1_offset + (DUSK_TAU_POWERS_G1_LENGTH * g1_point_bytes);
+
+        let mut tau_powers_g1 = Vec::with_capacity(max_g1_exp + 1);
+        for exp in 0..=max_g1_exp {
+            let start = tau_g1_offset + (exp * g1_point_bytes);
+            let end = start + g1_point_bytes;
+            tau_powers_g1.push(deserialize_g1_affine(
+                &bytes[start..end].to_vec().into_boxed_slice(),
+                compression,
+            ));
+        }
+
+        let mut tau_powers_g2 = Vec::with_capacity(max_g2_exp + 1);
+        for exp in 0..=max_g2_exp {
+            let start = tau_g2_offset + (exp * g2_point_bytes);
+            let end = start + g2_point_bytes;
+            tau_powers_g2.push(deserialize_g2_affine(
+                &bytes[start..end].to_vec().into_boxed_slice(),
+                compression,
+            ));
+        }
+
+        let g1 = G1serde(tau_powers_g1[0]);
+        let g2 = G2serde(tau_powers_g2[0]);
+        if g1 != icicle_g1_generator() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid Dusk raw PoT file: tau^0 in G1 is not the canonical generator",
+            ));
+        }
+        if g2 != icicle_g2_generator() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid Dusk raw PoT file: tau^0 in G2 is not the canonical generator",
+            ));
+        }
+
+        Ok(Self {
+            g1,
+            g2,
+            tau_powers_g1,
+            tau_powers_g2,
+            tokamak_n,
+        })
+    }
+
+    fn omega_exp(&self, exp_alpha: usize) -> usize {
+        2 * self.tokamak_n * exp_alpha
+    }
+
+    fn tau_g1(&self, exp: usize) -> G1serde {
+        G1serde(self.tau_powers_g1[exp])
+    }
+
+    fn tau_g2(&self, exp: usize) -> G2serde {
+        G2serde(self.tau_powers_g2[exp])
+    }
+}
+
+pub enum Phase1Source {
+    Accumulator(AccumulatorSource),
+    DuskGroth16(DuskGroth16Source),
 }
 
 fn cache_is_fresh(cache_path: &Path, source_path: &Path) -> bool {
@@ -406,6 +556,178 @@ impl Phase1SrsSource for AccumulatorSource {
                     archived.xy[(exp_x - 1) * y_len + exp_y - 1].to_g1serde()
                 }
             }
+        }
+    }
+}
+
+impl Phase1SrsSource for DuskGroth16Source {
+    fn g1(&self) -> G1serde {
+        self.g1
+    }
+
+    fn g2(&self) -> G2serde {
+        self.g2
+    }
+
+    fn alpha_g2(&self, exp_alpha: usize) -> G2serde {
+        self.tau_g2(self.omega_exp(exp_alpha))
+    }
+
+    fn x_g2(&self, exp_x: usize) -> G2serde {
+        assert_eq!(exp_x, 1, "Dusk-backed source stores only x^1 in G2");
+        self.tau_g2(1)
+    }
+
+    fn y_g2(&self, _exp_y: usize) -> G2serde {
+        panic!("Dusk-backed source does not provide y powers in G2")
+    }
+
+    fn x_g1_range(&self, exp_min: usize, exp_max: usize) -> Vec<G1Affine> {
+        self.tau_powers_g1[exp_min..=exp_max].to_vec()
+    }
+
+    fn alphaxy_g1_range(
+        &self,
+        _exp_alpha: usize,
+        _exp_x_max: usize,
+        _exp_y_max: usize,
+    ) -> Vec<G1Affine> {
+        panic!("Dusk-backed source does not provide XY-expanded G1 powers")
+    }
+
+    fn fill_alphaxy_g1_chunk(
+        &self,
+        _exp_alpha: usize,
+        _exp_x_start: usize,
+        _exp_x_len: usize,
+        _exp_y_max: usize,
+        _out: &mut Vec<G1Affine>,
+    ) {
+        panic!("Dusk-backed source does not provide XY-expanded G1 powers")
+    }
+
+    fn fill_xy_powers(&self, _out: &mut Vec<G1serde>) {
+        panic!("Dusk-backed source does not provide XY-expanded G1 powers")
+    }
+
+    fn alphax_g1(&self, exp_alpha: usize, exp_x: usize) -> G1serde {
+        if exp_alpha == 0 {
+            return self.tau_g1(exp_x);
+        }
+        self.tau_g1(self.omega_exp(exp_alpha) + exp_x)
+    }
+
+    fn alphay_g1(&self, _exp_alpha: usize, _exp_y: usize) -> G1serde {
+        panic!("Dusk-backed source does not provide Y-expanded G1 powers")
+    }
+
+    fn xy_g1(&self, _exp_x: usize, _exp_y: usize) -> G1serde {
+        panic!("Dusk-backed source does not provide XY-expanded G1 powers")
+    }
+}
+
+impl Phase1SrsSource for Phase1Source {
+    fn g1(&self) -> G1serde {
+        match self {
+            Phase1Source::Accumulator(source) => source.g1(),
+            Phase1Source::DuskGroth16(source) => source.g1(),
+        }
+    }
+
+    fn g2(&self) -> G2serde {
+        match self {
+            Phase1Source::Accumulator(source) => source.g2(),
+            Phase1Source::DuskGroth16(source) => source.g2(),
+        }
+    }
+
+    fn alpha_g2(&self, exp_alpha: usize) -> G2serde {
+        match self {
+            Phase1Source::Accumulator(source) => source.alpha_g2(exp_alpha),
+            Phase1Source::DuskGroth16(source) => source.alpha_g2(exp_alpha),
+        }
+    }
+
+    fn x_g2(&self, exp_x: usize) -> G2serde {
+        match self {
+            Phase1Source::Accumulator(source) => source.x_g2(exp_x),
+            Phase1Source::DuskGroth16(source) => source.x_g2(exp_x),
+        }
+    }
+
+    fn y_g2(&self, exp_y: usize) -> G2serde {
+        match self {
+            Phase1Source::Accumulator(source) => source.y_g2(exp_y),
+            Phase1Source::DuskGroth16(source) => source.y_g2(exp_y),
+        }
+    }
+
+    fn x_g1_range(&self, exp_min: usize, exp_max: usize) -> Vec<G1Affine> {
+        match self {
+            Phase1Source::Accumulator(source) => source.x_g1_range(exp_min, exp_max),
+            Phase1Source::DuskGroth16(source) => source.x_g1_range(exp_min, exp_max),
+        }
+    }
+
+    fn alphaxy_g1_range(
+        &self,
+        exp_alpha: usize,
+        exp_x_max: usize,
+        exp_y_max: usize,
+    ) -> Vec<G1Affine> {
+        match self {
+            Phase1Source::Accumulator(source) => {
+                source.alphaxy_g1_range(exp_alpha, exp_x_max, exp_y_max)
+            }
+            Phase1Source::DuskGroth16(source) => {
+                source.alphaxy_g1_range(exp_alpha, exp_x_max, exp_y_max)
+            }
+        }
+    }
+
+    fn fill_alphaxy_g1_chunk(
+        &self,
+        exp_alpha: usize,
+        exp_x_start: usize,
+        exp_x_len: usize,
+        exp_y_max: usize,
+        out: &mut Vec<G1Affine>,
+    ) {
+        match self {
+            Phase1Source::Accumulator(source) => {
+                source.fill_alphaxy_g1_chunk(exp_alpha, exp_x_start, exp_x_len, exp_y_max, out)
+            }
+            Phase1Source::DuskGroth16(source) => {
+                source.fill_alphaxy_g1_chunk(exp_alpha, exp_x_start, exp_x_len, exp_y_max, out)
+            }
+        }
+    }
+
+    fn fill_xy_powers(&self, out: &mut Vec<G1serde>) {
+        match self {
+            Phase1Source::Accumulator(source) => source.fill_xy_powers(out),
+            Phase1Source::DuskGroth16(source) => source.fill_xy_powers(out),
+        }
+    }
+
+    fn alphax_g1(&self, exp_alpha: usize, exp_x: usize) -> G1serde {
+        match self {
+            Phase1Source::Accumulator(source) => source.alphax_g1(exp_alpha, exp_x),
+            Phase1Source::DuskGroth16(source) => source.alphax_g1(exp_alpha, exp_x),
+        }
+    }
+
+    fn alphay_g1(&self, exp_alpha: usize, exp_y: usize) -> G1serde {
+        match self {
+            Phase1Source::Accumulator(source) => source.alphay_g1(exp_alpha, exp_y),
+            Phase1Source::DuskGroth16(source) => source.alphay_g1(exp_alpha, exp_y),
+        }
+    }
+
+    fn xy_g1(&self, exp_x: usize, exp_y: usize) -> G1serde {
+        match self {
+            Phase1Source::Accumulator(source) => source.xy_g1(exp_x, exp_y),
+            Phase1Source::DuskGroth16(source) => source.xy_g1(exp_x, exp_y),
         }
     }
 }
