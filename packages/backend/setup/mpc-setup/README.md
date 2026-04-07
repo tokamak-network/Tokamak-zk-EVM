@@ -130,6 +130,7 @@ The generated outputs include:
 - `combined_sigma.rkyv`
 - `sigma_preprocess.rkyv`
 - `sigma_verify.rkyv`
+- `crs_provenance.json`
 
 ## Single-Contributor Wrappers
 
@@ -156,7 +157,11 @@ cargo run --release --bin dusk_backed_mpc_setup -- \
 
 In both wrappers:
 
-- the final output folder contains only the same three files written by `trusted-setup`
+- the final output folder contains:
+  - `combined_sigma.rkyv`
+  - `sigma_preprocess.rkyv`
+  - `sigma_verify.rkyv`
+  - `crs_provenance.json`
 - the intermediate folder contains `phase1_acc_*`, `phase1_proof_*`, `phase2_acc_*`,
   `phase2_proof_*`, contributor info, and any downloaded Dusk raw response file
 - `dusk_backed_mpc_setup` stores or downloads the Dusk raw response at `<intermediate>/dusk.response`
@@ -192,6 +197,15 @@ In `testing-mode` builds:
 
 This mode skips the Tokamak phase-1 ceremony and uses a Dusk Groth16 raw powers-of-tau artifact as the phase-2 source.
 
+The current implementation does not let operators choose an arbitrary Dusk response.
+It is pinned in code to the current supported Dusk raw response contribution:
+
+- contribution: `0015`
+- README: `https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions/0015/README.md`
+- drive file id: `1nv9WpxXWMiP8-YwImd2FVn523u7_sb48`
+
+If `<intermediate>/dusk.response` is absent, the downloader fetches that pinned artifact only.
+
 ### Supported source artifact
 
 `phase2_prepare` expects a raw Dusk Groth16 powers-of-tau challenge or response file, not a converted PLONK setup file.
@@ -211,6 +225,7 @@ In this mode:
 - The Dusk `\alpha` and `\beta` families are ignored.
 - The Tokamak phase-2 source contract is read from plain Dusk tau powers under the identification described in:
   - `setup/mpc-setup/docs/phase2-output-plan.md`
+- The raw Dusk transcript is checked for used-range tau consistency before phase 2 proceeds.
 
 After `phase2_prepare`, the remaining steps are the same:
 
@@ -224,6 +239,84 @@ After `phase2_prepare`, the remaining steps are the same:
 - `phase2_prepare` is the first step that introduces a concrete `y`.
 - The first phase-2 step discloses `y`, and later phase-2 contributors validate that the disclosed value is consistent and non-degenerate for the current setup.
 - Downstream preprocess, prove, and verify flows continue to consume the same final artifact format.
+
+## CRS Provenance
+
+`phase2_gen_files` now emits a final provenance manifest:
+
+- `crs_provenance.json`
+
+For Dusk-backed mode, the manifest records:
+
+- the canonical local source path used for the raw Dusk artifact
+- the raw file size and encoding
+- the pinned Dusk contribution, README URL, and Drive file id compiled into the binary
+- whether the raw file was auto-downloaded
+- whether used-range transcript consistency verification passed
+- the maximum G1 and G2 exponents consumed by Tokamak phase 2
+
+The current JSON shape for a Dusk-backed CRS is:
+
+```json
+{
+  "DuskGroth16": {
+    "source_path": "...",
+    "source_size_bytes": 603981040,
+    "raw_encoding": "compressed-response",
+    "pinned_contribution": "0015",
+    "pinned_readme_url": "https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions/0015/README.md",
+    "pinned_drive_file_id": "1nv9WpxXWMiP8-YwImd2FVn523u7_sb48",
+    "auto_downloaded": true,
+    "downloaded_contribution": "0015",
+    "downloaded_readme_url": "https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions/0015/README.md",
+    "downloaded_drive_file_id": "1nv9WpxXWMiP8-YwImd2FVn523u7_sb48",
+    "max_g1_exp_used": 40960,
+    "max_g2_exp_used": 32768,
+    "transcript_consistency_verified": true
+  }
+}
+```
+
+### Service-side provenance check
+
+Before publishing or serving a Dusk-backed CRS, the service-side verifier wrapper should reject the manifest unless all of the following hold:
+
+```bash
+jq -e '
+  .DuskGroth16.pinned_contribution == "0015" and
+  .DuskGroth16.pinned_drive_file_id == "1nv9WpxXWMiP8-YwImd2FVn523u7_sb48" and
+  .DuskGroth16.pinned_readme_url == "https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions/0015/README.md" and
+  .DuskGroth16.transcript_consistency_verified == true
+' ./final/crs_provenance.json
+```
+
+Recommended additional checks:
+
+- `source_size_bytes > 0`
+- `raw_encoding == "compressed-response"` for the currently pinned artifact
+- `max_g1_exp_used` and `max_g2_exp_used` match the deployment configuration
+- `auto_downloaded` is either explicitly allowed by policy or rejected by policy
+
+The downstream zk verifier does not enforce this manifest.
+If provenance matters in production, the service wrapper must check `crs_provenance.json` before loading the CRS.
+
+## Future Work
+
+### Multi-party Dusk-backed phase 2
+
+The current `dusk_backed_mpc_setup` wrapper is an orchestration shortcut for a single phase-2 contributor.
+That means the wrapper alone does not provide an MPC guarantee for the phase-2 toxic waste.
+
+Production operators who need a real multi-party phase 2 must still run:
+
+- `phase2_prepare`
+- `phase2_next_contributor`
+- `phase2_batch_verify`
+- `phase2_gen_files`
+
+across multiple independent contributors and distribution channels.
+
+Future work should provide a first-class Dusk-backed multi-contributor orchestration flow instead of the current single-wrapper bootstrap path.
 
 ## Reference
 

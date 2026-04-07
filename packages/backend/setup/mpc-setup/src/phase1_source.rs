@@ -10,7 +10,6 @@ use memmap::{Mmap, MmapOptions};
 use rayon::prelude::*;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, USER_AGENT};
-use serde::Deserialize;
 use std::cmp::max;
 use std::env;
 use std::fs::File;
@@ -142,21 +141,12 @@ const DUSK_RESPONSE_BYTES: usize = DUSK_HASH_BYTES
     + (DUSK_TAU_POWERS_LENGTH * DUSK_G1_COMPRESSED_BYTES)
     + DUSK_G2_COMPRESSED_BYTES
     + DUSK_PUBLIC_KEY_BYTES;
-const DUSK_GITHUB_CONTRIBUTIONS_API: &str =
-    "https://api.github.com/repos/dusk-network/trusted-setup/contents/contributions";
 const DUSK_TRUSTED_SETUP_REPO: &str = "dusk-network/trusted-setup";
-const DUSK_GITHUB_RAW_PREFIX: &str =
-    "https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions";
-const DUSK_DRIVE_ID_PREFIX: &str = "https://drive.google.com/file/d/";
-const DUSK_KNOWN_CONTRIBUTION_FALLBACKS: &[&str] = &["0015"];
+const DUSK_PINNED_CONTRIBUTION: &str = "0015";
+const DUSK_PINNED_README_URL: &str =
+    "https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions/0015/README.md";
+const DUSK_PINNED_DRIVE_FILE_ID: &str = "1nv9WpxXWMiP8-YwImd2FVn523u7_sb48";
 const DUSK_DOWNLOAD_PROGRESS_STEP_BYTES: u64 = 32 * 1024 * 1024;
-
-#[derive(Deserialize)]
-struct GithubContentEntry {
-    name: String,
-    #[serde(rename = "type")]
-    entry_type: String,
-}
 
 struct DuskResponseDownload {
     contribution: String,
@@ -283,6 +273,9 @@ impl DuskGroth16Source {
             source_path: canonical_source_path,
             source_size_bytes: bytes.len() as u64,
             raw_encoding: encoding.as_str().to_string(),
+            pinned_contribution: DUSK_PINNED_CONTRIBUTION.to_string(),
+            pinned_readme_url: DUSK_PINNED_README_URL.to_string(),
+            pinned_drive_file_id: DUSK_PINNED_DRIVE_FILE_ID.to_string(),
             auto_downloaded: downloaded.is_some(),
             downloaded_contribution: downloaded.as_ref().map(|value| value.contribution.clone()),
             downloaded_readme_url: downloaded.as_ref().map(|value| value.readme_url.clone()),
@@ -394,90 +387,12 @@ fn dusk_http_client() -> io::Result<Client> {
         .map_err(|err| io::Error::other(format!("failed to build HTTP client: {err}")))
 }
 
-fn readme_url_for_contribution(name: &str) -> String {
-    format!("{DUSK_GITHUB_RAW_PREFIX}/{name}/README.md")
-}
-
-fn parse_drive_file_id(readme: &str) -> Option<String> {
-    let start = readme.find(DUSK_DRIVE_ID_PREFIX)?;
-    let suffix = &readme[start + DUSK_DRIVE_ID_PREFIX.len()..];
-    let end = suffix.find('/')?;
-    Some(suffix[..end].to_string())
-}
-
-fn candidate_contributions(client: &Client) -> io::Result<Vec<String>> {
-    let response = client
-        .get(DUSK_GITHUB_CONTRIBUTIONS_API)
-        .send()
-        .map_err(|err| {
-            io::Error::other(format!("failed to fetch Dusk contribution list: {err}"))
-        })?;
-    if !response.status().is_success() {
-        return Err(io::Error::other(format!(
-            "failed to fetch Dusk contribution list: HTTP {}",
-            response.status()
-        )));
+fn pinned_dusk_response() -> DuskResponseDownload {
+    DuskResponseDownload {
+        contribution: DUSK_PINNED_CONTRIBUTION.to_string(),
+        readme_url: DUSK_PINNED_README_URL.to_string(),
+        drive_file_id: DUSK_PINNED_DRIVE_FILE_ID.to_string(),
     }
-    let entries: Vec<GithubContentEntry> = response.json().map_err(|err| {
-        io::Error::other(format!("failed to parse Dusk contribution list: {err}"))
-    })?;
-    let mut names = entries
-        .into_iter()
-        .filter(|entry| entry.entry_type == "dir" && entry.name.chars().all(|c| c.is_ascii_digit()))
-        .map(|entry| entry.name)
-        .collect::<Vec<_>>();
-    names.sort_unstable_by(|lhs, rhs| rhs.cmp(lhs));
-    Ok(names)
-}
-
-fn fetch_readme(client: &Client, readme_url: &str) -> io::Result<String> {
-    let response = client
-        .get(readme_url)
-        .send()
-        .map_err(|err| io::Error::other(format!("failed to fetch {readme_url}: {err}")))?;
-    if !response.status().is_success() {
-        return Err(io::Error::other(format!(
-            "failed to fetch {readme_url}: HTTP {}",
-            response.status()
-        )));
-    }
-    response
-        .text()
-        .map_err(|err| io::Error::other(format!("failed to decode {readme_url}: {err}")))
-}
-
-fn discover_latest_dusk_response(client: &Client) -> io::Result<DuskResponseDownload> {
-    let candidates = candidate_contributions(client)
-        .ok()
-        .filter(|names| !names.is_empty())
-        .unwrap_or_else(|| {
-            DUSK_KNOWN_CONTRIBUTION_FALLBACKS
-                .iter()
-                .map(|name| (*name).to_string())
-                .collect()
-        });
-
-    for contribution in candidates {
-        let readme_url = readme_url_for_contribution(&contribution);
-        let Ok(readme) = fetch_readme(client, &readme_url) else {
-            continue;
-        };
-        let Some(drive_file_id) = parse_drive_file_id(&readme) else {
-            continue;
-        };
-        return Ok(DuskResponseDownload {
-            contribution,
-            readme_url,
-            drive_file_id,
-        });
-    }
-
-    Err(io::Error::new(
-        io::ErrorKind::NotFound,
-        format!(
-            "failed to discover a downloadable Dusk Groth16 response from {DUSK_TRUSTED_SETUP_REPO}"
-        ),
-    ))
 }
 
 fn drive_direct_download_url(file_id: &str) -> String {
@@ -496,11 +411,11 @@ fn format_progress_bytes(bytes: u64) -> String {
 
 fn download_dusk_response(path: &Path) -> io::Result<DuskResponseDownload> {
     let client = dusk_http_client()?;
-    let download = discover_latest_dusk_response(&client)?;
+    let download = pinned_dusk_response();
     let download_url = drive_direct_download_url(&download.drive_file_id);
     println!(
-        "Downloading latest Dusk Groth16 response contribution {} from {}",
-        download.contribution, download.readme_url
+        "Downloading pinned Dusk Groth16 response contribution {} from {} in {}",
+        download.contribution, download.readme_url, DUSK_TRUSTED_SETUP_REPO
     );
 
     if let Some(parent) = path.parent() {
