@@ -6,7 +6,11 @@ use icicle_bls12_381::curve::{G1Affine, G2Affine, ScalarField};
 use icicle_core::traits::FieldImpl;
 use libs::field_structures::Tau;
 use libs::group_structures::{G1serde, Sigma};
+use libs::iotools::{
+    ArchivedG1SerdeRkyv, ArchivedSigma1Rkyv, G1SerdeRkyv, Sigma1Rkyv, SigmaRkyv,
+};
 use libs::iotools::SetupParams;
+use rkyv::{check_archived_root, Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_reader, to_writer_pretty};
 use std::env;
@@ -28,31 +32,57 @@ pub struct SigmaV2 {
 }
 impl_read_from_json!(SigmaV2);
 impl_write_into_json!(SigmaV2);
+
+#[derive(Debug, Archive, RkyvSerialize, RkyvDeserialize)]
+#[archive(check_bytes)]
+struct SigmaV2Rkyv {
+    contributor_index: usize,
+    sigma: SigmaRkyv,
+    gamma: G1SerdeRkyv,
+    public_y_hex: Option<String>,
+}
+
+impl SigmaV2Rkyv {
+    fn from_sigma_v2(value: &SigmaV2) -> Self {
+        Self {
+            contributor_index: value.contributor_index,
+            sigma: SigmaRkyv::from_sigma(&value.sigma),
+            gamma: G1SerdeRkyv::from_g1serde(&value.gamma),
+            public_y_hex: value.public_y_hex.clone(),
+        }
+    }
+}
+
 impl SigmaV2 {
-    fn phase2_acc_binary_path(path: &str) -> io::Result<PathBuf> {
-        let abs_path = env::current_dir()?.join(path);
-        let mut binary_path = abs_path.clone();
-        binary_path.set_extension("bin");
-        Ok(binary_path)
+    fn phase2_acc_rkyv_path(path: &str) -> io::Result<PathBuf> {
+        Ok(env::current_dir()?.join(path))
     }
 
     pub fn read_phase2_acc(path: &str) -> io::Result<Self> {
-        let binary_path = Self::phase2_acc_binary_path(path)?;
-        if binary_path.exists() {
-            let bytes = fs::read(&binary_path)?;
-            let sigma = bincode::deserialize(&bytes).map_err(io::Error::other)?;
-            return Ok(sigma);
-        }
-        Self::read_from_json(path)
+        let archive_path = Self::phase2_acc_rkyv_path(path)?;
+        let bytes = fs::read(&archive_path)?;
+        let archived = check_archived_root::<SigmaV2Rkyv>(&bytes).map_err(|err| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("failed to validate phase-2 accumulator archive: {err}"),
+            )
+        })?;
+        Ok(Self {
+            contributor_index: archived.contributor_index as usize,
+            sigma: archived_sigma_to_sigma(&archived.sigma),
+            gamma: archived.gamma.to_g1serde(),
+            public_y_hex: archived.public_y_hex.as_ref().map(|value| value.as_str().to_string()),
+        })
     }
 
     pub fn write_phase2_acc(&self, path: &str) -> io::Result<()> {
-        let binary_path = Self::phase2_acc_binary_path(path)?;
-        if let Some(parent) = binary_path.parent() {
+        let archive_path = Self::phase2_acc_rkyv_path(path)?;
+        if let Some(parent) = archive_path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let bytes = bincode::serialize(self).map_err(io::Error::other)?;
-        fs::write(&binary_path, bytes)
+        let archive = SigmaV2Rkyv::from_sigma_v2(self);
+        let bytes = rkyv::to_bytes::<_, 256>(&archive).map_err(io::Error::other)?;
+        fs::write(&archive_path, bytes)
     }
 
     /// Generate full CRS
@@ -104,6 +134,53 @@ impl SigmaV2 {
             .ok_or_else(|| "missing public phase-2 y disclosure".to_string())?;
         Self::parse_public_y_hex(public_y_hex)
     }
+}
+
+fn archived_sigma_to_sigma(archived: &rkyv::Archived<SigmaRkyv>) -> Sigma {
+    Sigma {
+        G: archived.G.to_g1serde(),
+        H: archived.H.to_g2serde(),
+        sigma_1: archived_sigma1_to_sigma1(&archived.sigma_1),
+        sigma_2: archived.sigma_2.to_sigma2(),
+        lagrange_KL: archived.lagrange_KL.to_g1serde(),
+    }
+}
+
+fn archived_sigma1_to_sigma1(archived: &ArchivedSigma1Rkyv) -> libs::group_structures::Sigma1 {
+    libs::group_structures::Sigma1 {
+        xy_powers: archived_g1_slice_to_box(&archived.xy_powers),
+        x: archived.x.to_g1serde(),
+        y: archived.y.to_g1serde(),
+        delta: archived.delta.to_g1serde(),
+        eta: archived.eta.to_g1serde(),
+        gamma_inv_o_inst: archived_g1_slice_to_box(&archived.gamma_inv_o_inst),
+        eta_inv_li_o_inter_alpha4_kj: archived_g1_matrix_to_box(&archived.eta_inv_li_o_inter_alpha4_kj),
+        delta_inv_li_o_prv: archived_g1_matrix_to_box(&archived.delta_inv_li_o_prv),
+        delta_inv_alphak_xh_tx: archived_g1_matrix_to_box(&archived.delta_inv_alphak_xh_tx),
+        delta_inv_alpha4_xj_tx: archived_g1_slice_to_box(&archived.delta_inv_alpha4_xj_tx),
+        delta_inv_alphak_yi_ty: archived_g1_matrix_to_box(&archived.delta_inv_alphak_yi_ty),
+    }
+}
+
+fn archived_g1_slice_to_box(slice: &[ArchivedG1SerdeRkyv]) -> Box<[G1serde]> {
+    slice
+        .iter()
+        .map(ArchivedG1SerdeRkyv::to_g1serde)
+        .collect::<Vec<_>>()
+        .into_boxed_slice()
+}
+
+fn archived_g1_matrix_to_box(matrix: &rkyv::vec::ArchivedVec<rkyv::vec::ArchivedVec<ArchivedG1SerdeRkyv>>) -> Box<[Box<[G1serde]>]> {
+    matrix
+        .iter()
+        .map(|row| {
+            row.iter()
+                .map(ArchivedG1SerdeRkyv::to_g1serde)
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+        })
+        .collect::<Vec<_>>()
+        .into_boxed_slice()
 }
 
 impl AaccExt for SigmaV2 {

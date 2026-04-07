@@ -108,8 +108,8 @@ fn main() {
     if is_merge {
         let sigma: SigmaV2 = merge_all_parts(&outfolder, total_part);
         sigma
-            .write_phase2_acc(&format!("{}/phase2_acc_0.json", outfolder))
-            .expect("cannot write sigma into json");
+            .write_phase2_acc(&format!("{}/phase2_acc_0.rkyv", outfolder))
+            .expect("cannot write sigma into rkyv");
         timer.log_step("merge multipart accumulators");
         timer.log_total();
         return;
@@ -142,14 +142,14 @@ fn main() {
     if total_part > 1 {
         sigma
             .write_phase2_acc(&format!(
-                "{}/phase2_acc_0_{}_{}.json",
+                "{}/phase2_acc_0_{}_{}.rkyv",
                 outfolder, total_part, part_no
             ))
-            .expect("cannot write sigma into json");
+            .expect("cannot write sigma into rkyv");
     } else {
         sigma
-            .write_phase2_acc(&format!("{}/phase2_acc_0.json", outfolder))
-            .expect("cannot write sigma into json");
+            .write_phase2_acc(&format!("{}/phase2_acc_0.rkyv", outfolder))
+            .expect("cannot write sigma into rkyv");
     }
     timer.log_step("write phase-2 accumulator");
 
@@ -210,13 +210,13 @@ fn add_matrix(target: &mut Box<[Box<[G1serde]>]>, source: &Box<[Box<[G1serde]>]>
 
 fn merge_all_parts(outfolder: &str, total_part: usize) -> SigmaV2 {
     let mut sigma = SigmaV2::read_phase2_acc(&format!(
-        "{}/phase2_acc_0_{}_{}.json",
+        "{}/phase2_acc_0_{}_{}.rkyv",
         outfolder, total_part, 0
     ))
     .unwrap();
     for part_no in 1..total_part {
         let next = SigmaV2::read_phase2_acc(&format!(
-            "{}/phase2_acc_0_{}_{}.json",
+            "{}/phase2_acc_0_{}_{}.rkyv",
             outfolder, total_part, part_no
         ))
         .unwrap();
@@ -650,7 +650,7 @@ fn process_prepare(
             "trusted-reference checking only supports a single-part run"
         );
         println!("Loading trusted reference sigma...");
-        Some(SigmaV2::read_phase2_acc("setup/mpc-setup/output/phase2_acc_0.json").unwrap())
+        Some(SigmaV2::read_phase2_acc("setup/mpc-setup/output/phase2_acc_0.rkyv").unwrap())
     } else {
         None
     };

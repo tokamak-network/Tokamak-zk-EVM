@@ -217,7 +217,7 @@ fn verify_latest_contribution(outfolder: &str, latest_sigma: &SigmaV2) {
 
 fn load_phase2_accumulator(outfolder: &str, contributor_index: usize) -> SigmaV2 {
     SigmaV2::read_phase2_acc(&format!(
-        "{}/phase2_acc_{}.json",
+        "{}/phase2_acc_{}.rkyv",
         outfolder, contributor_index
     ))
     .unwrap()
@@ -236,10 +236,10 @@ fn verify_and_save_results(
 
     new_sigma
         .write_phase2_acc(&format!(
-            "{}/phase2_acc_{}.json",
+            "{}/phase2_acc_{}.rkyv",
             outfolder, new_sigma.contributor_index
         ))
-        .expect("cannot write new combined_sigma to file");
+        .expect("cannot write new combined sigma to file");
 
     Phase2Proof::write_into_json(
         new_proof,
@@ -252,8 +252,6 @@ fn verify_and_save_results(
 }
 
 fn compute_new_sigma(rng: &mut RandomGenerator, sigma_old: &SigmaV2) -> (SigmaV2, Phase2Proof) {
-    let mut sigma_new = sigma_old.clone();
-    sigma_new.contributor_index = sigma_old.contributor_index + 1;
     let delta = rng.next_random();
     let gamma = rng.next_random();
     let eta = rng.next_random();
@@ -264,7 +262,7 @@ fn compute_new_sigma(rng: &mut RandomGenerator, sigma_old: &SigmaV2) -> (SigmaV2
 
     let v = hash_sigma(&sigma_old);
     let phase2Proof = Phase2Proof {
-        contributor_index: sigma_new.contributor_index,
+        contributor_index: sigma_old.contributor_index + 1,
         v: v.to_vec(),
         delta_t_g1: sigma_old.sigma.G.mul(delta),
         gamma_t_g1: sigma_old.sigma.G.mul(gamma),
@@ -277,62 +275,131 @@ fn compute_new_sigma(rng: &mut RandomGenerator, sigma_old: &SigmaV2) -> (SigmaV2
         eta_t_g2: sigma_old.sigma.H.mul(eta),
     };
 
-    sigma_new.sigma.sigma_1.delta = sigma_old.sigma.sigma_1.delta.mul(delta);
-    sigma_new.gamma = sigma_old.gamma.mul(gamma);
-    sigma_new.sigma.sigma_1.eta = sigma_old.sigma.sigma_1.eta.mul(eta);
-
-    sigma_new.sigma.sigma_2.delta = sigma_old.sigma.sigma_2.delta.mul(delta);
-    sigma_new.sigma.sigma_2.gamma = sigma_old.sigma.sigma_2.gamma.mul(gamma);
-    sigma_new.sigma.sigma_2.eta = sigma_old.sigma.sigma_2.eta.mul(eta);
-
-    sigma_new
+    let mut gamma_inv_o_inst = sigma_old
         .sigma
         .sigma_1
         .gamma_inv_o_inst
+        .to_vec();
+    gamma_inv_o_inst
         .par_iter_mut()
         .for_each(|n| *n = n.mul(gamma_inv));
 
-    sigma_new
+    let eta_inv_li_o_inter_alpha4_kj = sigma_old
         .sigma
         .sigma_1
         .eta_inv_li_o_inter_alpha4_kj
+        .iter()
+        .map(|row| row.to_vec())
+        .collect::<Vec<_>>();
+    let mut eta_inv_li_o_inter_alpha4_kj = eta_inv_li_o_inter_alpha4_kj;
+    eta_inv_li_o_inter_alpha4_kj
         .par_iter_mut()
         .for_each(|inner_box| {
             inner_box.par_iter_mut().for_each(|g| *g = g.mul(eta_inv));
         });
-    sigma_new
+
+    let delta_inv_li_o_prv = sigma_old
         .sigma
         .sigma_1
         .delta_inv_li_o_prv
+        .iter()
+        .map(|row| row.to_vec())
+        .collect::<Vec<_>>();
+    let mut delta_inv_li_o_prv = delta_inv_li_o_prv;
+    delta_inv_li_o_prv
         .par_iter_mut()
         .for_each(|inner_box| {
             inner_box.par_iter_mut().for_each(|g| *g = g.mul(delta_inv));
         });
 
-    sigma_new
+    let delta_inv_alphak_xh_tx = sigma_old
         .sigma
         .sigma_1
         .delta_inv_alphak_xh_tx
+        .iter()
+        .map(|row| row.to_vec())
+        .collect::<Vec<_>>();
+    let mut delta_inv_alphak_xh_tx = delta_inv_alphak_xh_tx;
+    delta_inv_alphak_xh_tx
         .par_iter_mut()
         .for_each(|inner_box| {
             inner_box.par_iter_mut().for_each(|g| *g = g.mul(delta_inv));
         });
 
-    sigma_new
+    let delta_inv_alphak_yi_ty = sigma_old
         .sigma
         .sigma_1
         .delta_inv_alphak_yi_ty
+        .iter()
+        .map(|row| row.to_vec())
+        .collect::<Vec<_>>();
+    let mut delta_inv_alphak_yi_ty = delta_inv_alphak_yi_ty;
+    delta_inv_alphak_yi_ty
         .par_iter_mut()
         .for_each(|inner_box| {
             inner_box.par_iter_mut().for_each(|g| *g = g.mul(delta_inv));
         });
 
-    sigma_new
+    let delta_inv_alpha4_xj_tx = sigma_old
         .sigma
         .sigma_1
         .delta_inv_alpha4_xj_tx
+        .to_vec();
+    let mut delta_inv_alpha4_xj_tx = delta_inv_alpha4_xj_tx;
+    delta_inv_alpha4_xj_tx
         .par_iter_mut()
         .for_each(|n| *n = n.mul(delta_inv));
+
+    let sigma_new = SigmaV2 {
+        contributor_index: sigma_old.contributor_index + 1,
+        sigma: libs::group_structures::Sigma {
+            G: sigma_old.sigma.G,
+            H: sigma_old.sigma.H,
+            sigma_1: libs::group_structures::Sigma1 {
+                xy_powers: sigma_old.sigma.sigma_1.xy_powers.clone(),
+                x: sigma_old.sigma.sigma_1.x,
+                y: sigma_old.sigma.sigma_1.y,
+                delta: sigma_old.sigma.sigma_1.delta.mul(delta),
+                eta: sigma_old.sigma.sigma_1.eta.mul(eta),
+                gamma_inv_o_inst: gamma_inv_o_inst.into_boxed_slice(),
+                eta_inv_li_o_inter_alpha4_kj: eta_inv_li_o_inter_alpha4_kj
+                    .into_iter()
+                    .map(Vec::into_boxed_slice)
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+                delta_inv_li_o_prv: delta_inv_li_o_prv
+                    .into_iter()
+                    .map(Vec::into_boxed_slice)
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+                delta_inv_alphak_xh_tx: delta_inv_alphak_xh_tx
+                    .into_iter()
+                    .map(Vec::into_boxed_slice)
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+                delta_inv_alpha4_xj_tx: delta_inv_alpha4_xj_tx.into_boxed_slice(),
+                delta_inv_alphak_yi_ty: delta_inv_alphak_yi_ty
+                    .into_iter()
+                    .map(Vec::into_boxed_slice)
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
+            },
+            sigma_2: libs::group_structures::Sigma2 {
+                alpha: sigma_old.sigma.sigma_2.alpha,
+                alpha2: sigma_old.sigma.sigma_2.alpha2,
+                alpha3: sigma_old.sigma.sigma_2.alpha3,
+                alpha4: sigma_old.sigma.sigma_2.alpha4,
+                gamma: sigma_old.sigma.sigma_2.gamma.mul(gamma),
+                delta: sigma_old.sigma.sigma_2.delta.mul(delta),
+                eta: sigma_old.sigma.sigma_2.eta.mul(eta),
+                x: sigma_old.sigma.sigma_2.x,
+                y: sigma_old.sigma.sigma_2.y,
+            },
+            lagrange_KL: sigma_old.sigma.lagrange_KL,
+        },
+        gamma: sigma_old.gamma.mul(gamma),
+        public_y_hex: sigma_old.public_y_hex.clone(),
+    };
 
     (sigma_new, phase2Proof)
 }
