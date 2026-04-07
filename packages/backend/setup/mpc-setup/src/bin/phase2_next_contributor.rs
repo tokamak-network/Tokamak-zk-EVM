@@ -214,7 +214,7 @@ fn verify_latest_contribution(outfolder: &str, latest_sigma: &SigmaV2) {
 }
 
 fn load_phase2_accumulator(outfolder: &str, contributor_index: usize) -> SigmaV2 {
-    SigmaV2::read_from_json(&format!(
+    SigmaV2::read_phase2_acc(&format!(
         "{}/phase2_acc_{}.json",
         outfolder, contributor_index
     ))
@@ -232,14 +232,12 @@ fn verify_and_save_results(
         "proof verification failed"
     );
 
-    SigmaV2::write_into_json(
-        new_sigma,
-        &format!(
+    new_sigma
+        .write_phase2_acc(&format!(
             "{}/phase2_acc_{}.json",
             outfolder, new_sigma.contributor_index
-        ),
-    )
-    .expect("cannot write new combined_sigma to file");
+        ))
+        .expect("cannot write new combined_sigma to file");
 
     Phase2Proof::write_into_json(
         new_proof,

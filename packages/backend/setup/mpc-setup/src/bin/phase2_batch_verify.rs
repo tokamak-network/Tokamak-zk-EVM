@@ -49,7 +49,7 @@ fn main() {
 
     println!("loading accumulator and proof files...");
 
-    let mut current_acc = SigmaV2::read_from_json(
+    let mut current_acc = SigmaV2::read_phase2_acc(
         phase2_files
             .get(&format!("{}{}", PHASE2_ACC_PREFIX, 0))
             .expect("Initial accumulator not found")
@@ -100,7 +100,7 @@ fn verify_contribution(
         contributor_index - 1
     );
 
-    let prev_acc: SigmaV2 = SigmaV2::read_from_json(&get_file_path(
+    let prev_acc: SigmaV2 = SigmaV2::read_phase2_acc(&get_file_path(
         phase2_files,
         PHASE2_ACC_PREFIX,
         contributor_index - 1,
@@ -110,7 +110,7 @@ fn verify_contribution(
         contributor_index
     );
 
-    let current_acc: SigmaV2 = SigmaV2::read_from_json(&get_file_path(
+    let current_acc: SigmaV2 = SigmaV2::read_phase2_acc(&get_file_path(
         phase2_files,
         PHASE2_ACC_PREFIX,
         contributor_index,

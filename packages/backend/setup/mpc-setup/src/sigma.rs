@@ -29,6 +29,32 @@ pub struct SigmaV2 {
 impl_read_from_json!(SigmaV2);
 impl_write_into_json!(SigmaV2);
 impl SigmaV2 {
+    fn phase2_acc_binary_path(path: &str) -> io::Result<PathBuf> {
+        let abs_path = env::current_dir()?.join(path);
+        let mut binary_path = abs_path.clone();
+        binary_path.set_extension("bin");
+        Ok(binary_path)
+    }
+
+    pub fn read_phase2_acc(path: &str) -> io::Result<Self> {
+        let binary_path = Self::phase2_acc_binary_path(path)?;
+        if binary_path.exists() {
+            let bytes = fs::read(&binary_path)?;
+            let sigma = bincode::deserialize(&bytes).map_err(io::Error::other)?;
+            return Ok(sigma);
+        }
+        Self::read_from_json(path)
+    }
+
+    pub fn write_phase2_acc(&self, path: &str) -> io::Result<()> {
+        let binary_path = Self::phase2_acc_binary_path(path)?;
+        if let Some(parent) = binary_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let bytes = bincode::serialize(self).map_err(io::Error::other)?;
+        fs::write(&binary_path, bytes)
+    }
+
     /// Generate full CRS
     pub fn gen(
         params: &SetupParams,

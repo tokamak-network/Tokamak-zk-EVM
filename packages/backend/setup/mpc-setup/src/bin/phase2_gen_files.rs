@@ -57,7 +57,7 @@ fn main() {
 }
 
 fn load_phase2_accumulator(outfolder: &str, contributor_index: usize) -> SigmaV2 {
-    SigmaV2::read_from_json(&format!(
+    SigmaV2::read_phase2_acc(&format!(
         "{}/phase2_acc_{}.json",
         outfolder, contributor_index
     ))

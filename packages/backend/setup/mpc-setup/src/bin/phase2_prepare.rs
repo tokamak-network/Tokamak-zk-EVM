@@ -20,6 +20,7 @@ use mpc_setup::utils::{
 use mpc_setup::{
     ensure_testing_mode, public_wire_segments, MsmWorkspace, NttWorkspace, QAP_COMPILER_PATH_PREFIX,
 };
+use rayon::prelude::*;
 use std::ops::Sub;
 use std::time::Instant;
 
@@ -81,7 +82,7 @@ fn main() {
     if is_merge {
         let sigma: SigmaV2 = merge_all_parts(&outfolder, total_part);
         sigma
-            .write_into_json(&format!("{}/phase2_acc_0.json", outfolder))
+            .write_phase2_acc(&format!("{}/phase2_acc_0.json", outfolder))
             .expect("cannot write sigma into json");
         return;
     }
@@ -102,16 +103,16 @@ fn main() {
         &config.mode,
         config.y_hex.as_deref(),
     );
-    if config.part_no.is_some() && config.total_part.is_some() {
+    if total_part > 1 {
         sigma
-            .write_into_json(&format!(
+            .write_phase2_acc(&format!(
                 "{}/phase2_acc_0_{}_{}.json",
                 outfolder, total_part, part_no
             ))
             .expect("cannot write sigma into json");
     } else {
         sigma
-            .write_into_json(&format!("{}/phase2_acc_0.json", outfolder))
+            .write_phase2_acc(&format!("{}/phase2_acc_0.json", outfolder))
             .expect("cannot write sigma into json");
     }
 
@@ -169,13 +170,13 @@ fn add_matrix(target: &mut Box<[Box<[G1serde]>]>, source: &Box<[Box<[G1serde]>]>
 }
 
 fn merge_all_parts(outfolder: &str, total_part: usize) -> SigmaV2 {
-    let mut sigma = SigmaV2::read_from_json(&format!(
+    let mut sigma = SigmaV2::read_phase2_acc(&format!(
         "{}/phase2_acc_0_{}_{}.json",
         outfolder, total_part, 0
     ))
     .unwrap();
     for part_no in 1..total_part {
-        let next = SigmaV2::read_from_json(&format!(
+        let next = SigmaV2::read_phase2_acc(&format!(
             "{}/phase2_acc_0_{}_{}.json",
             outfolder, total_part, part_no
         ))
@@ -417,6 +418,17 @@ fn build_alpha4_k_commitments<S: Phase1SrsSource>(
         .into_boxed_slice()
 }
 
+fn build_plain_last_lagrange_commitment<S: Phase1SrsSource>(
+    source: &S,
+    size: usize,
+    msm_workspace: &mut MsmWorkspace,
+) -> G1serde {
+    let bases = build_x_basis(source, 0, size);
+    let mut scalars = vec![ScalarField::zero(); size];
+    compute_langrange_i_coeffs(size - 1, size, 1, &mut scalars);
+    msm_workspace.msm(&scalars, &bases)
+}
+
 fn build_xy_powers_from_x_basis<S: Phase1SrsSource>(
     source: &S,
     h_max: usize,
@@ -493,7 +505,7 @@ pub fn process_prepare(
             "trusted-reference checking only supports a single-part run"
         );
         println!("Loading trusted reference sigma...");
-        Some(SigmaV2::read_from_json("setup/mpc-setup/output/phase2_acc_0.json").unwrap())
+        Some(SigmaV2::read_phase2_acc("setup/mpc-setup/output/phase2_acc_0.json").unwrap())
     } else {
         None
     };
@@ -563,35 +575,44 @@ pub fn process_prepare(
 
     // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}
     let mut gamma_inv_o_inst = vec![G1serde::zero(); l].into_boxed_slice();
-    for global_idx in 0..l {
-        let segment_idx =
-            public_segment_index(global_idx, &segments).expect("public wire must map to a segment");
-        gamma_inv_o_inst[global_idx] = o_commitments[global_idx] * l_evaled_vec[segment_idx];
-        if global_idx < l_free {
-            gamma_inv_o_inst[global_idx] = gamma_inv_o_inst[global_idx] + m_commitments[global_idx];
-        }
-    }
+    gamma_inv_o_inst
+        .par_iter_mut()
+        .enumerate()
+        .for_each(|(global_idx, cell)| {
+            let segment_idx = public_segment_index(global_idx, &segments)
+                .expect("public wire must map to a segment");
+            let mut value = o_commitments[global_idx] * l_evaled_vec[segment_idx];
+            if global_idx < l_free {
+                value = value + m_commitments[global_idx];
+            }
+            *cell = value;
+        });
 
     // {η^(-1)L_i(y)(o_{j+l}(x) + α^4 K_j(x))}
     let mut eta_inv_li_o_inter_alpha4_kj =
         vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_i].into_boxed_slice();
-    for row_idx in 0..m_i {
-        let base = o_commitments[l + row_idx] + k_commitments[row_idx];
-        for col_idx in 0..s_max {
-            eta_inv_li_o_inter_alpha4_kj[row_idx][col_idx] = base * l_evaled_vec[col_idx];
-        }
-    }
+    eta_inv_li_o_inter_alpha4_kj
+        .par_iter_mut()
+        .enumerate()
+        .for_each(|(row_idx, row)| {
+            let base = o_commitments[l + row_idx] + k_commitments[row_idx];
+            for col_idx in 0..s_max {
+                row[col_idx] = base * l_evaled_vec[col_idx];
+            }
+        });
 
     // {δ^(-1)L_i(y)o_j(x)}
     let mut delta_inv_li_o_prv =
         vec![vec![G1serde::zero(); s_max].into_boxed_slice(); m_d - (l + m_i)].into_boxed_slice();
-    for global_idx in (l + m_i)..m_d {
-        let row_idx = global_idx - (l + m_i);
-        let base = o_commitments[global_idx];
-        for col_idx in 0..s_max {
-            delta_inv_li_o_prv[row_idx][col_idx] = base * l_evaled_vec[col_idx];
-        }
-    }
+    delta_inv_li_o_prv
+        .par_iter_mut()
+        .enumerate()
+        .for_each(|(row_idx, row)| {
+            let base = o_commitments[l + m_i + row_idx];
+            for col_idx in 0..s_max {
+                row[col_idx] = base * l_evaled_vec[col_idx];
+            }
+        });
 
     // {δ^(-1)α^k x^h t_n(x)}
     let mut delta_inv_alphak_xh_tx =
@@ -636,7 +657,8 @@ pub fn process_prepare(
         Vec::new().into_boxed_slice()
     };
     let lagrange_kl = if compute_shared_terms {
-        k_commitments[m_i - 1] * l_evaled_vec[s_max - 1]
+        build_plain_last_lagrange_commitment(&phase1_source, m_i, &mut msm_workspace)
+            * l_evaled_vec[s_max - 1]
     } else {
         G1serde::zero()
     };
