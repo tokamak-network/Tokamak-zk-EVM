@@ -96,6 +96,80 @@ $$
 \right).
 $$
 
+The Dusk Groth16 raw powers-of-tau artifact is:
+
+$$
+\tau_{\mathrm{Dusk}}
+=
+\left(
+\left\{[\tau^i]_{G_1}\right\}_{i=0}^{2n_{\mathrm{Dusk}}-2}
+\cup
+\left\{[\tau^i]_{G_2}\right\}_{i=0}^{n_{\mathrm{Dusk}}-1}
+\cup
+\left\{[\alpha\tau^i]_{G_1}\right\}_{i=0}^{n_{\mathrm{Dusk}}-1}
+\cup
+\left\{[\beta\tau^i]_{G_1}\right\}_{i=0}^{n_{\mathrm{Dusk}}-1}
+\cup
+\{[\beta]_{G_2}\}
+\right).
+$$
+
+## Ceremony Modes
+
+This plan defines two ceremony modes.
+
+### Native mode
+
+- Run the Tokamak phase-1 ceremony and then run the Tokamak phase-2 ceremony.
+- The phase-2 input contract is the current implemented $\tau_{\mathrm{mpc}}$.
+
+### Dusk-backed mode
+
+- Skip the Tokamak phase-1 ceremony.
+- Use the Dusk Groth16 raw powers-of-tau artifact as the phase-2 source artifact.
+- Keep the same Tokamak phase-2 target formulas and final `SigmaV2` layout.
+
+The Dusk-backed mode uses the following identification:
+
+$$
+n_{\mathrm{Dusk}} = 10 n_{\mathrm{Tokamak}},
+\qquad
+x = \tau,
+\qquad
+\omega^k = \tau^{2n_{\mathrm{Tokamak}}k}
+\quad (k=1,2,3,4).
+$$
+
+Under this identification, the Tokamak phase-2 source monomials are read from plain Dusk tau powers:
+
+$$
+[x^i]_1 = [\tau^i]_{G_1},
+\qquad
+[x]_2 = [\tau]_{G_2},
+$$
+
+$$
+[\omega^k]_1 = [\tau^{2n_{\mathrm{Tokamak}}k}]_{G_1},
+\qquad
+[\omega^k]_2 = [\tau^{2n_{\mathrm{Tokamak}}k}]_{G_2},
+$$
+
+$$
+[\omega^k x^i]_1 = [\tau^{2n_{\mathrm{Tokamak}}k+i}]_{G_1}.
+$$
+
+The Dusk-backed mode does not use the Dusk $\alpha$ family or $\beta$ family:
+
+$$
+\left\{[\alpha\tau^i]_{G_1}\right\}_{i=0}^{n_{\mathrm{Dusk}}-1},
+\qquad
+\left\{[\beta\tau^i]_{G_1}\right\}_{i=0}^{n_{\mathrm{Dusk}}-1},
+\qquad
+[\beta]_{G_2}.
+$$
+
+They remain present in the Dusk artifact, but they are not part of the Tokamak phase-2 source contract in this mode.
+
 ## Final Output Structure
 
 The final output is a CRS object of the form:
