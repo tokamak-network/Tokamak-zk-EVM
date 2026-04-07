@@ -10,6 +10,7 @@ use memmap::{Mmap, MmapOptions};
 use rayon::prelude::*;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, USER_AGENT};
+use sha2::{Digest as ShaDigest, Sha256};
 use std::cmp::max;
 use std::env;
 use std::fs::File;
@@ -146,6 +147,8 @@ const DUSK_PINNED_CONTRIBUTION: &str = "0015";
 const DUSK_PINNED_README_URL: &str =
     "https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions/0015/README.md";
 const DUSK_PINNED_DRIVE_FILE_ID: &str = "1nv9WpxXWMiP8-YwImd2FVn523u7_sb48";
+const DUSK_PINNED_SOURCE_SHA256: &str =
+    "52c9d47e5cddd585b9b0c2e5ade6f809046d516289302871766bdc463e7be214";
 const DUSK_DOWNLOAD_PROGRESS_STEP_BYTES: u64 = 32 * 1024 * 1024;
 
 struct DuskResponseDownload {
@@ -182,6 +185,16 @@ impl DuskGroth16Source {
     pub fn read_from_file(path: &str, tokamak_n: usize) -> io::Result<Self> {
         let downloaded = ensure_dusk_raw_response_available(Path::new(path))?;
         let bytes = std::fs::read(path)?;
+        let actual_source_sha256 = sha256_hex(&bytes);
+        if actual_source_sha256 != DUSK_PINNED_SOURCE_SHA256 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "Dusk raw PoT file SHA-256 mismatch: expected {}, got {}",
+                    DUSK_PINNED_SOURCE_SHA256, actual_source_sha256
+                ),
+            ));
+        }
         let encoding = match bytes.len() {
             DUSK_CHALLENGE_BYTES => DuskRawEncoding::Uncompressed,
             DUSK_RESPONSE_BYTES => DuskRawEncoding::Compressed,
@@ -276,6 +289,8 @@ impl DuskGroth16Source {
             pinned_contribution: DUSK_PINNED_CONTRIBUTION.to_string(),
             pinned_readme_url: DUSK_PINNED_README_URL.to_string(),
             pinned_drive_file_id: DUSK_PINNED_DRIVE_FILE_ID.to_string(),
+            expected_source_sha256: DUSK_PINNED_SOURCE_SHA256.to_string(),
+            actual_source_sha256,
             auto_downloaded: downloaded.is_some(),
             downloaded_contribution: downloaded.as_ref().map(|value| value.contribution.clone()),
             downloaded_readme_url: downloaded.as_ref().map(|value| value.readme_url.clone()),
@@ -310,6 +325,12 @@ impl DuskGroth16Source {
     pub fn provenance(&self) -> DuskSourceProvenance {
         self.provenance.clone()
     }
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hex::encode(hasher.finalize())
 }
 
 fn verify_dusk_tau_consistency(g1_powers: &[G1Affine], g2_powers: &[G2Affine]) -> io::Result<()> {

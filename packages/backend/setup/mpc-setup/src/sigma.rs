@@ -32,6 +32,8 @@ pub struct DuskSourceProvenance {
     pub pinned_contribution: String,
     pub pinned_readme_url: String,
     pub pinned_drive_file_id: String,
+    pub expected_source_sha256: String,
+    pub actual_source_sha256: String,
     pub auto_downloaded: bool,
     pub downloaded_contribution: Option<String>,
     pub downloaded_readme_url: Option<String>,
@@ -48,6 +50,14 @@ pub struct DuskSourceProvenance {
 pub enum Phase1SourceProvenance {
     Native,
     DuskGroth16(DuskSourceProvenance),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub struct FinalCrsProvenance {
+    pub phase1_source_provenance: Option<Phase1SourceProvenance>,
+    pub combined_sigma_sha256: String,
+    pub sigma_preprocess_sha256: String,
+    pub sigma_verify_sha256: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

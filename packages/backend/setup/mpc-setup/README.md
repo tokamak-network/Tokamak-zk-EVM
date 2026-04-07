@@ -259,21 +259,28 @@ The current JSON shape for a Dusk-backed CRS is:
 
 ```json
 {
-  "DuskGroth16": {
-    "source_path": "...",
-    "source_size_bytes": 603981040,
-    "raw_encoding": "compressed-response",
-    "pinned_contribution": "0015",
-    "pinned_readme_url": "https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions/0015/README.md",
-    "pinned_drive_file_id": "1nv9WpxXWMiP8-YwImd2FVn523u7_sb48",
-    "auto_downloaded": true,
-    "downloaded_contribution": "0015",
-    "downloaded_readme_url": "https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions/0015/README.md",
-    "downloaded_drive_file_id": "1nv9WpxXWMiP8-YwImd2FVn523u7_sb48",
-    "max_g1_exp_used": 40960,
-    "max_g2_exp_used": 32768,
-    "transcript_consistency_verified": true
-  }
+  "phase1_source_provenance": {
+    "DuskGroth16": {
+      "source_path": "...",
+      "source_size_bytes": 603981040,
+      "raw_encoding": "compressed-response",
+      "pinned_contribution": "0015",
+      "pinned_readme_url": "https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions/0015/README.md",
+      "pinned_drive_file_id": "1nv9WpxXWMiP8-YwImd2FVn523u7_sb48",
+      "expected_source_sha256": "52c9d47e5cddd585b9b0c2e5ade6f809046d516289302871766bdc463e7be214",
+      "actual_source_sha256": "52c9d47e5cddd585b9b0c2e5ade6f809046d516289302871766bdc463e7be214",
+      "auto_downloaded": true,
+      "downloaded_contribution": "0015",
+      "downloaded_readme_url": "https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions/0015/README.md",
+      "downloaded_drive_file_id": "1nv9WpxXWMiP8-YwImd2FVn523u7_sb48",
+      "max_g1_exp_used": 40960,
+      "max_g2_exp_used": 32768,
+      "transcript_consistency_verified": true
+    }
+  },
+  "combined_sigma_sha256": "...",
+  "sigma_preprocess_sha256": "...",
+  "sigma_verify_sha256": "..."
 }
 ```
 
@@ -283,11 +290,24 @@ Before publishing or serving a Dusk-backed CRS, the service-side verifier wrappe
 
 ```bash
 jq -e '
-  .DuskGroth16.pinned_contribution == "0015" and
-  .DuskGroth16.pinned_drive_file_id == "1nv9WpxXWMiP8-YwImd2FVn523u7_sb48" and
-  .DuskGroth16.pinned_readme_url == "https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions/0015/README.md" and
-  .DuskGroth16.transcript_consistency_verified == true
+  .phase1_source_provenance.DuskGroth16.pinned_contribution == "0015" and
+  .phase1_source_provenance.DuskGroth16.pinned_drive_file_id == "1nv9WpxXWMiP8-YwImd2FVn523u7_sb48" and
+  .phase1_source_provenance.DuskGroth16.pinned_readme_url == "https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions/0015/README.md" and
+  .phase1_source_provenance.DuskGroth16.expected_source_sha256 == "52c9d47e5cddd585b9b0c2e5ade6f809046d516289302871766bdc463e7be214" and
+  .phase1_source_provenance.DuskGroth16.actual_source_sha256 == "52c9d47e5cddd585b9b0c2e5ade6f809046d516289302871766bdc463e7be214" and
+  .phase1_source_provenance.DuskGroth16.transcript_consistency_verified == true
 ' ./final/crs_provenance.json
+```
+
+The service wrapper must also bind the manifest to the actual CRS files it loads:
+
+```bash
+test "$(shasum -a 256 ./final/combined_sigma.rkyv | awk '{print $1}')" = \
+  "$(jq -r '.combined_sigma_sha256' ./final/crs_provenance.json)"
+test "$(shasum -a 256 ./final/sigma_preprocess.rkyv | awk '{print $1}')" = \
+  "$(jq -r '.sigma_preprocess_sha256' ./final/crs_provenance.json)"
+test "$(shasum -a 256 ./final/sigma_verify.rkyv | awk '{print $1}')" = \
+  "$(jq -r '.sigma_verify_sha256' ./final/crs_provenance.json)"
 ```
 
 Recommended additional checks:
@@ -296,6 +316,7 @@ Recommended additional checks:
 - `raw_encoding == "compressed-response"` for the currently pinned artifact
 - `max_g1_exp_used` and `max_g2_exp_used` match the deployment configuration
 - `auto_downloaded` is either explicitly allowed by policy or rejected by policy
+- the deployed CRS files match the three output hashes recorded in the manifest
 
 The downstream zk verifier does not enforce this manifest.
 If provenance matters in production, the service wrapper must check `crs_provenance.json` before loading the CRS.
