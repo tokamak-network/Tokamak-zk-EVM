@@ -11,7 +11,7 @@ use mpc_setup::contributor::{get_device_info, ContributorInfo};
 use mpc_setup::conversions::{icicle_g1_generator, icicle_g2_generator};
 use mpc_setup::sigma::AaccExt;
 use mpc_setup::testing_mode_enabled;
-use mpc_setup::utils::{prompt_user_input, Mode};
+use mpc_setup::utils::{prompt_user_input, Mode, StepTimer};
 use mpc_setup::QAP_COMPILER_PATH_PREFIX;
 use std::cmp::max;
 use std::env;
@@ -83,6 +83,7 @@ cargo run --release --bin phase1_initialize -- --s-max 512 --mode testing --setu
 
 #[tokio::main]
 async fn main() {
+    let mut timer = StepTimer::new("phase1_initialize");
     let base_path = env::current_dir().unwrap();
     let qap_path = base_path.join(QAP_COMPILER_PATH_PREFIX);
 
@@ -98,6 +99,7 @@ async fn main() {
 
     let setup_params = SetupParams::read_from_json(qap_path.join(&config.setup_params_file))
         .expect("cannot SetupParams read file");
+    timer.log_step("load setup params");
     let x_degree = 2 * max(setup_params.n, setup_params.l_D - setup_params.l);
     let y_degree = 0;
 
@@ -112,6 +114,7 @@ async fn main() {
     }
     let scalar = initialize_scalar(&config.mode, config.blockhash.as_ref())
         .expect("cannot initialize scalar");
+    timer.log_step("initialize scalar");
     let start = Instant::now();
 
     let g1 = icicle_g1_generator().mul(scalar);
@@ -126,6 +129,7 @@ async fn main() {
         y_degree,
         compress_mode,
     );
+    timer.log_step("build genesis accumulator");
 
     let outfile = format!(
         "{}/phase1_acc_{}.json",
@@ -137,6 +141,7 @@ async fn main() {
     genesis_acc
         .write_rkyv_sidecar_for_json_path(&outfile)
         .expect("cannot write accumulator archive");
+    timer.log_step("write accumulator");
 
     let fpath = format!(
         "{}/phase1_contributor_{}.txt",
@@ -150,10 +155,12 @@ async fn main() {
         fpath,
     )
     .expect("cannot write to file");
+    timer.log_step("write contributor info");
     println!(
         "Phase-1 initialization completed in {:.2} seconds",
         start.elapsed().as_secs_f64()
     );
+    timer.log_total();
     println!("Thanks for your contribution.");
 }
 

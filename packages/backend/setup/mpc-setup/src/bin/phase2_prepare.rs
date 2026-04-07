@@ -18,6 +18,7 @@ use mpc_setup::phase1_source::{
 use mpc_setup::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
 use mpc_setup::utils::{
     initialize_random_generator, load_gpu_if_possible, prompt_user_input, Mode, RandomGenerator,
+    StepTimer,
 };
 use mpc_setup::{
     ensure_testing_mode, public_wire_segments, MsmWorkspace, NttWorkspace, QAP_COMPILER_PATH_PREFIX,
@@ -89,6 +90,7 @@ enum Phase1SourceMode {
 //cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output --total-part 16 --part-no 0 --merge-parts
 
 fn main() {
+    let mut timer = StepTimer::new("phase2_prepare");
     let use_gpu: bool = env::var("USE_GPU")
         .ok()
         .and_then(|v| v.parse::<bool>().ok())
@@ -108,6 +110,8 @@ fn main() {
         sigma
             .write_phase2_acc(&format!("{}/phase2_acc_0.json", outfolder))
             .expect("cannot write sigma into json");
+        timer.log_step("merge multipart accumulators");
+        timer.log_total();
         return;
     }
     if total_part > 1 {
@@ -134,6 +138,7 @@ fn main() {
         &config.phase1_source_mode,
         config.dusk_raw_file.as_deref(),
     );
+    timer.log_step("build phase-2 accumulator");
     if total_part > 1 {
         sigma
             .write_phase2_acc(&format!(
@@ -146,6 +151,7 @@ fn main() {
             .write_phase2_acc(&format!("{}/phase2_acc_0.json", outfolder))
             .expect("cannot write sigma into json");
     }
+    timer.log_step("write phase-2 accumulator");
 
     save_contributor_info(
         &sigma,
@@ -158,10 +164,12 @@ fn main() {
         hex::encode([0u8; HASH_BYTES_LEN]),
     )
     .expect("cannot write contributor info");
+    timer.log_step("write contributor info");
     println!(
         "The total time: {:.6} seconds",
         start1.elapsed().as_secs_f64()
     );
+    timer.log_total();
 }
 pub fn extend_boxed_2d_array(target: &mut Box<[Box<[G1serde]>]>, source: &Box<[Box<[G1serde]>]>) {
     let mut temp: Vec<Vec<G1serde>> = target.iter().map(|row| row.to_vec()).collect();
@@ -486,6 +494,7 @@ fn process_prepare(
     phase1_source_mode: &Phase1SourceMode,
     dusk_raw_file: Option<&str>,
 ) -> SigmaV2 {
+    let mut timer = StepTimer::new("phase2_prepare::process_prepare");
     let base_path = env::current_dir().unwrap();
     let qap_path = base_path.join(QAP_COMPILER_PATH_PREFIX);
 
@@ -509,6 +518,7 @@ fn process_prepare(
         "Phase-2 prepare setup: n={}, s_max={}, l={}, l_free={}, m_i={}, m_d={}",
         n, s_max, l, l_free, m_i, m_d
     );
+    timer.log_step("load setup metadata and initialize domains");
 
     let subcircuit_file_name = "subcircuitInfo.json";
     let subcircuit_infos =
@@ -524,6 +534,7 @@ fn process_prepare(
         y_pows.push(current_y_pow);
         current_y_pow = current_y_pow * phase2_y;
     }
+    timer.log_step("sample y and prepare lagrange data");
 
     println!("Loading phase-1 source...");
     let phase1_source = match phase1_source_mode {
@@ -544,6 +555,7 @@ fn process_prepare(
             )
         }
     };
+    timer.log_step("load phase-1 source");
 
     let sigma_trusted = if is_checking {
         ensure_testing_mode("phase2_prepare --is-checking");
@@ -556,6 +568,7 @@ fn process_prepare(
     } else {
         None
     };
+    timer.log_step("load trusted reference when checking");
 
     let g1 = phase1_source.g1();
     let g2 = phase1_source.g2();
@@ -596,6 +609,7 @@ fn process_prepare(
         "Loaded coefficient rows in {:.2} seconds",
         stream_start.elapsed().as_secs_f64()
     );
+    timer.log_step("load coefficient rows");
 
     let commitment_start = Instant::now();
     let o_commitments = build_x_only_commitments(
@@ -619,6 +633,7 @@ fn process_prepare(
         "Built x-only commitments in {:.2} seconds",
         commitment_start.elapsed().as_secs_f64()
     );
+    timer.log_step("build x-only commitments");
 
     // {γ^(-1)(L_t(y)o_j(x) + M_j(x))}
     let mut gamma_inv_o_inst = vec![G1serde::zero(); l].into_boxed_slice();
@@ -738,6 +753,8 @@ fn process_prepare(
         assert_eq!(sigma_for_check.sigma.lagrange_KL, lagrange_kl);
         println!("Verified phase-2 prepare outputs against the trusted reference");
     }
+    timer.log_step("assemble and validate phase-2 sigma");
+    timer.log_total();
 
     SigmaV2 {
         contributor_index: 0,

@@ -5,7 +5,7 @@ use mpc_setup::contributor::{get_device_info, ContributorInfo};
 use mpc_setup::sigma::{AaccExt, SigmaV2, HASH_BYTES_LEN};
 use mpc_setup::utils::{
     hash_sigma, initialize_random_generator, pok, prompt_user_input, Mode, Phase2Proof,
-    RandomGenerator,
+    RandomGenerator, StepTimer,
 };
 use rayon::iter::ParallelIterator;
 use rayon::prelude::IntoParallelRefMutIterator;
@@ -54,6 +54,7 @@ pub enum ContributorError {
 }
 // cargo run --release --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output --mode random
 fn main() {
+    let mut timer = StepTimer::new("phase2_next_contributor");
     let config = Config::parse();
     let contributor_index = prompt_user_input("enter your contributor index (uint > 0) :")
         .parse::<usize>()
@@ -66,6 +67,7 @@ fn main() {
     }
     let start = Instant::now();
     let mut rng = initialize_random_generator(&config.mode);
+    timer.log_step("collect contributor metadata and initialize randomness");
 
     let latest_acc = load_phase2_accumulator(&config.outfolder, contributor_index - 1);
     let latest_y = latest_acc
@@ -94,6 +96,7 @@ fn main() {
     );
     assert_eq!(latest_acc.sigma.sigma_1.y, latest_acc.sigma.G * latest_y);
     assert_eq!(latest_acc.sigma.sigma_2.y, latest_acc.sigma.H * latest_y);
+    timer.log_step("load latest accumulator and validate disclosed y");
 
     println!("loading current challenge and proof...");
     println!("latest contributor index: {}", latest_acc.contributor_index);
@@ -122,6 +125,7 @@ fn main() {
         println!("previous contributor is genesis");
         previous_hashes.push([0u8; HASH_BYTES_LEN]);
     }
+    timer.log_step("verify previous contribution");
 
     println!("computing new challenge and proof...");
     let (new_acc, new_proof) = compute_new_sigma(&mut rng, &latest_acc);
@@ -131,8 +135,10 @@ fn main() {
         true,
         "new proof verification failed"
     );
+    timer.log_step("compute new accumulator and proof");
 
     verify_and_save_results(&config.outfolder, &latest_acc, &new_acc, &new_proof);
+    timer.log_step("verify new proof and save results");
     save_contributor_info(
         &previous_hashes,
         &start,
@@ -143,6 +149,8 @@ fn main() {
         location,
     )
     .expect("cannot contribution info into file");
+    timer.log_step("write contributor info");
+    timer.log_total();
     println!("Time elapsed: {:?}", start.elapsed().as_secs_f64());
     println!("thanks for your contribution...");
 }

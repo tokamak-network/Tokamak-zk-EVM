@@ -36,6 +36,40 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use std::{fs, io};
 
+pub struct StepTimer {
+    label: String,
+    total_start: Instant,
+    step_start: Instant,
+}
+
+impl StepTimer {
+    pub fn new(label: impl Into<String>) -> Self {
+        let now = Instant::now();
+        Self {
+            label: label.into(),
+            total_start: now,
+            step_start: now,
+        }
+    }
+
+    pub fn log_step(&mut self, step: &str) {
+        let elapsed = self.step_start.elapsed().as_secs_f64();
+        println!(
+            "[{}] {} completed in {:.6} seconds",
+            self.label, step, elapsed
+        );
+        self.step_start = Instant::now();
+    }
+
+    pub fn log_total(&self) {
+        println!(
+            "[{}] total elapsed time: {:.6} seconds",
+            self.label,
+            self.total_start.elapsed().as_secs_f64()
+        );
+    }
+}
+
 fn inferred_phase2_s_max(sigma: &SigmaV2) -> Option<usize> {
     sigma
         .sigma

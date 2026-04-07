@@ -5,6 +5,7 @@ use mpc_setup::contributor::{get_device_info, ContributorInfo};
 use mpc_setup::sigma::AaccExt;
 use mpc_setup::utils::{
     initialize_random_generator, load_gpu_if_possible, prompt_user_input, Mode, Phase1Proof,
+    StepTimer,
 };
 use std::env;
 use std::fs::File;
@@ -94,6 +95,7 @@ struct ContributorSession {
     contributor_index: u32,
     start_time: Instant,
     previous_hashes: AccumulatorHashes,
+    timer: StepTimer,
 }
 
 impl ContributorSession {
@@ -103,11 +105,13 @@ impl ContributorSession {
             contributor_index,
             start_time: Instant::now(),
             previous_hashes: AccumulatorHashes::default(),
+            timer: StepTimer::new("phase1_next_contributor"),
         }
     }
 
     async fn run(&mut self) -> Result<(), ContributorError> {
         let mut rng = initialize_random_generator(&self.config.mode);
+        self.timer.log_step("initialize random generator");
 
         let mut name = String::new();
         let mut location = String::new();
@@ -116,10 +120,16 @@ impl ContributorSession {
             name = prompt_user_input("Enter your name :");
             location = prompt_user_input("Enter location :");
         }
+        self.timer.log_step("collect contributor metadata");
 
         let latest_acc = self.load_and_verify_accumulator()?;
+        self.timer.log_step("load and verify latest accumulator");
         let (new_acc, new_proof) = self.compute_contribution(&latest_acc, &mut rng)?;
+        self.timer.log_step("compute new accumulator and proof");
         self.save_results(&new_acc, &new_proof, name, location)?;
+        self.timer
+            .log_step("save accumulator, proof, and contributor info");
+        self.timer.log_total();
         println!("thanks for your contribution...");
 
         Ok(())

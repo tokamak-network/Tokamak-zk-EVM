@@ -1,6 +1,6 @@
 use clap::Parser;
 use mpc_setup::accumulator::Accumulator;
-use mpc_setup::utils::{check_outfolder_writable, list_files_map, Phase1Proof};
+use mpc_setup::utils::{check_outfolder_writable, list_files_map, Phase1Proof, StepTimer};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io;
@@ -23,6 +23,7 @@ const ERROR_PREV_ACC_NOT_FOUND: &str = "Previous phase1 accumulator is not found
 
 //cargo run --release --bin phase1_batch_verify -- --outfolder ./setup/mpc-setup/output
 fn main() {
+    let mut timer = StepTimer::new("phase1_batch_verify");
     let config = Config::parse();
     let total_start_time = Instant::now();
 
@@ -33,6 +34,7 @@ fn main() {
         );
         std::process::exit(1);
     }
+    timer.log_step("validate output folder");
 
     let phase1_files = match list_files_map(&config.outfolder) {
         Ok(files) => files,
@@ -41,6 +43,7 @@ fn main() {
             std::process::exit(1);
         }
     };
+    timer.log_step("index phase-1 files");
 
     let contributor_count = phase1_files
         .keys()
@@ -59,6 +62,7 @@ fn main() {
             .unwrap(),
     )
     .expect("Failed to load initial accumulator");
+    timer.log_step("load initial accumulator");
 
     for i in 1..contributor_count {
         match verify_contribution(&phase1_files, i) {
@@ -80,6 +84,7 @@ fn main() {
         "Total execution time: {} seconds",
         total_start_time.elapsed().as_secs_f64()
     );
+    timer.log_total();
 }
 fn get_file_path(
     files: &HashMap<String, PathBuf>,
