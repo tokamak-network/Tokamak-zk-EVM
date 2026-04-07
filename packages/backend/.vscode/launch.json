@@ -77,7 +77,7 @@
       "type": "lldb",
       "request": "launch",
       "cargo": {
-        "args": ["build", "--release", "-p", "mpc-setup", "--features", "testing-mode"],
+        "args": ["build", "--release", "-p", "mpc-setup"],
         "filter": { "name": "native_mpc_setup", "kind": "bin" }
       },
       "program": "${cargo:program}",
@@ -101,7 +101,7 @@
       "type": "lldb",
       "request": "launch",
       "cargo": {
-        "args": ["build", "--release", "-p", "mpc-setup", "--features", "testing-mode"],
+        "args": ["build", "--release", "-p", "mpc-setup"],
         "filter": { "name": "dusk_backed_mpc_setup", "kind": "bin" }
       },
       "program": "${cargo:program}",
