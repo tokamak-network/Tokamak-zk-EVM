@@ -46,14 +46,8 @@ struct Config {
     #[arg(long, value_name = "MERGE_PARTS", default_value = "false")]
     merge_parts: Option<bool>,
 
-    #[arg(
-        long,
-        value_enum,
-        value_name = "MODE",
-        default_value = "random",
-        help = "Phase-2 y sampling mode when not built with testing-mode: random | beacon"
-    )]
-    mode: Mode,
+    #[arg(long, default_value_t = false)]
+    beacon_mode: bool,
 
     #[arg(
         long,
@@ -133,7 +127,7 @@ fn main() {
         config.is_checking,
         total_part,
         part_no,
-        &config.mode,
+        &ceremony_mode(config.beacon_mode),
         config.y_hex.as_deref(),
         &config.phase1_source_mode,
         config.dusk_raw_file.as_deref(),
@@ -170,6 +164,14 @@ fn main() {
         start1.elapsed().as_secs_f64()
     );
     timer.log_total();
+}
+
+fn ceremony_mode(beacon_mode: bool) -> Mode {
+    if beacon_mode {
+        Mode::Beacon
+    } else {
+        Mode::Random
+    }
 }
 pub fn extend_boxed_2d_array(target: &mut Box<[Box<[G1serde]>]>, source: &Box<[Box<[G1serde]>]>) {
     let mut temp: Vec<Vec<G1serde>> = target.iter().map(|row| row.to_vec()).collect();

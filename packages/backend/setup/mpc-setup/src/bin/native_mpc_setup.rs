@@ -22,13 +22,9 @@ struct Config {
     #[arg(long, value_name = "PATH")]
     output: String,
 
-    /// Whether phase-1 accumulator JSON uses compressed curve-point encoding
+    /// Use deterministic beacon mode instead of the default random mode
     #[arg(long, default_value_t = false)]
-    compress: bool,
-
-    /// Ceremony sampling mode shared by phase 1 and phase 2 when not built with testing-mode
-    #[arg(long, value_name = "MODE", default_value = "random")]
-    mode: String,
+    beacon_mode: bool,
 }
 
 fn main() {
@@ -44,29 +40,22 @@ fn main() {
         &[
             "--s-max".to_string(),
             s_max.to_string(),
-            "--mode".to_string(),
-            config.mode.clone(),
             "--setup-params-file".to_string(),
             "setupParams.json".to_string(),
             "--outfolder".to_string(),
             config.intermediate.clone(),
-            "--compress".to_string(),
-            config.compress.to_string(),
         ],
         None,
         &qap_path,
+        config.beacon_mode,
     );
 
     run_mpc_bin(
         "phase1_next_contributor",
-        &[
-            "--outfolder".to_string(),
-            config.intermediate.clone(),
-            "--mode".to_string(),
-            config.mode.clone(),
-        ],
-        scripted_input_for_mode(&config.mode, 1),
+        &["--outfolder".to_string(), config.intermediate.clone()],
+        scripted_input_for_mode(1),
         &qap_path,
+        config.beacon_mode,
     );
 
     run_mpc_bin(
@@ -74,25 +63,20 @@ fn main() {
         &[
             "--outfolder".to_string(),
             config.intermediate.clone(),
-            "--mode".to_string(),
-            config.mode.clone(),
             "--phase1-source-mode".to_string(),
             "native".to_string(),
         ],
         Some("1\n"),
         &qap_path,
+        config.beacon_mode,
     );
 
     run_mpc_bin(
         "phase2_next_contributor",
-        &[
-            "--outfolder".to_string(),
-            config.intermediate.clone(),
-            "--mode".to_string(),
-            config.mode.clone(),
-        ],
-        scripted_input_for_mode(&config.mode, 1),
+        &["--outfolder".to_string(), config.intermediate.clone()],
+        scripted_input_for_mode(1),
         &qap_path,
+        config.beacon_mode,
     );
 
     run_mpc_bin(
@@ -105,6 +89,7 @@ fn main() {
         ],
         Some("1\n"),
         &qap_path,
+        config.beacon_mode,
     );
 
     println!(
@@ -132,7 +117,7 @@ fn ensure_directory(path: &str) {
     fs::create_dir_all(path).expect("cannot create orchestrator output directory");
 }
 
-fn scripted_input_for_mode(_mode: &str, contributor_index: usize) -> Option<&'static str> {
+fn scripted_input_for_mode(contributor_index: usize) -> Option<&'static str> {
     if testing_mode_enabled() {
         match contributor_index {
             1 => Some("1\n"),
@@ -143,7 +128,13 @@ fn scripted_input_for_mode(_mode: &str, contributor_index: usize) -> Option<&'st
     }
 }
 
-fn run_mpc_bin(bin_name: &str, args: &[String], stdin_input: Option<&str>, qap_path: &Path) {
+fn run_mpc_bin(
+    bin_name: &str,
+    args: &[String],
+    stdin_input: Option<&str>,
+    qap_path: &Path,
+    beacon_mode: bool,
+) {
     println!("Running {bin_name}...");
     let mut command = Command::new("cargo");
     command
@@ -159,6 +150,9 @@ fn run_mpc_bin(bin_name: &str, args: &[String], stdin_input: Option<&str>, qap_p
     }
     command.arg("--bin").arg(bin_name).arg("--");
     command.args(args);
+    if beacon_mode {
+        command.arg("--beacon-mode");
+    }
 
     if stdin_input.is_some() {
         command.stdin(Stdio::piped());

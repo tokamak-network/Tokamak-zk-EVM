@@ -87,8 +87,7 @@
         "--intermediate",
         "${workspaceFolder}/setup/mpc-setup/output/native-debug.intermediate",
         "--output",
-        "${workspaceFolder}/setup/output",
-        "--compress"
+        "${workspaceFolder}/setup/output"
       ],
       "cwd": "${workspaceFolder}",
       "env": {

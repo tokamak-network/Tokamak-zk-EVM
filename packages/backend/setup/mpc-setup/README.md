@@ -44,31 +44,26 @@ Use this mode when you want to run the Tokamak phase-1 ceremony before phase 2.
 ```bash
 cargo run --release --bin phase1_initialize -- \
   --s-max 512 \
-  --mode random \
   --setup-params-file setupParams.json \
-  --outfolder ./setup/mpc-setup/output \
-  --compress false
+  --outfolder ./setup/mpc-setup/output
 ```
 
 Important options:
 
 - `--s-max`
   - Placement bound used by the setup.
-- `--mode`
-  - `random` or `beacon` in normal builds. In `testing-mode` builds, deterministic testing values are used automatically.
+- `--beacon-mode`
+  - Opt into deterministic beacon mode in normal builds. If omitted, random mode is used.
 - `--setup-params-file`
   - Setup parameter JSON file.
 - `--outfolder`
   - Output directory for ceremony artifacts.
-- `--compress`
-  - Whether JSON output stores compressed or uncompressed curve points.
 
 ### Add a phase-1 contributor
 
 ```bash
 cargo run --release --bin phase1_next_contributor -- \
-  --outfolder ./setup/mpc-setup/output \
-  --mode random
+  --outfolder ./setup/mpc-setup/output
 ```
 
 ### Batch-verify phase 1
@@ -98,9 +93,9 @@ phase1_acc_<index>.json
 
 Optional arguments:
 
-- `--mode random|beacon`
-  - Controls how the initial phase-2 `y` is sampled when `--y-hex` is not supplied in normal builds.
-  - In `testing-mode` builds, the phase-2 sampler is deterministic regardless of `--mode`.
+- `--beacon-mode`
+  - Use deterministic beacon mode for initial phase-2 `y` sampling when `--y-hex` is not supplied in normal builds.
+  - In `testing-mode` builds, the phase-2 sampler is deterministic regardless of the beacon flag.
 - `--y-hex <HEX>`
   - Reuse an explicit `y` across multipart runs.
 - `--total-part <N> --part-no <I>`
@@ -112,8 +107,7 @@ Optional arguments:
 
 ```bash
 cargo run --release --bin phase2_next_contributor -- \
-  --outfolder ./setup/mpc-setup/output \
-  --mode random
+  --outfolder ./setup/mpc-setup/output
 ```
 
 ### Batch-verify phase 2
@@ -148,8 +142,7 @@ Native mode:
 cargo run --release --bin native_mpc_setup -- \
   --subcircuit-library "$QAP_PATH" \
   --intermediate ./setup/mpc-setup/output/intermediate \
-  --output ./setup/mpc-setup/output/final \
-  --mode random
+  --output ./setup/mpc-setup/output/final
 ```
 
 Dusk-backed mode:
@@ -158,8 +151,7 @@ Dusk-backed mode:
 cargo run --release --bin dusk_backed_mpc_setup -- \
   --subcircuit-library "$QAP_PATH" \
   --intermediate ./setup/mpc-setup/output/intermediate \
-  --output ./setup/mpc-setup/output/final \
-  --mode random
+  --output ./setup/mpc-setup/output/final
 ```
 
 In both wrappers:
@@ -180,8 +172,7 @@ Examples:
 cargo run --release --features testing-mode --bin native_mpc_setup -- \
   --subcircuit-library "$QAP_PATH" \
   --intermediate ./setup/mpc-setup/output/intermediate \
-  --output ./setup/mpc-setup/output/final \
-  --compress
+  --output ./setup/mpc-setup/output/final
 ```
 
 ```bash
@@ -195,7 +186,7 @@ In `testing-mode` builds:
 
 - phase 1 and phase 2 both use deterministic testing values automatically
 - contributor prompts that exist only for normal random mode are skipped
-- `--mode` still exists for interface compatibility, but no longer selects testing behavior
+- `--beacon-mode` still exists, but testing behavior is selected by the cargo feature
 
 ## Phase 2: Dusk-Backed Source Mode
 

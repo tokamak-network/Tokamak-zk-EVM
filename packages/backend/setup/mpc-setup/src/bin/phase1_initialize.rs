@@ -9,7 +9,7 @@ use mpc_setup::contributor::{get_device_info, ContributorInfo};
 use mpc_setup::conversions::{icicle_g1_generator, icicle_g2_generator};
 use mpc_setup::sigma::AaccExt;
 use mpc_setup::testing_mode_enabled;
-use mpc_setup::utils::{prompt_user_input, Mode, StepTimer};
+use mpc_setup::utils::{prompt_user_input, StepTimer};
 use mpc_setup::QAP_COMPILER_PATH_PREFIX;
 use std::cmp::max;
 use std::env;
@@ -32,14 +32,6 @@ struct Config {
     #[arg(long, value_name = "S_MAX")]
     s_max: usize,
 
-    /// Enable compression (true for compressed, false for uncompressed)
-    #[arg(
-        long,
-        value_name = "COMPRESS",
-        help = "Enable compressed serialization (true or false)"
-    )]
-    compress: String,
-
     /// Bitcoin blockhash as a hex string (64 characters)
     #[arg(
         long,
@@ -56,15 +48,9 @@ struct Config {
     #[arg(long, value_name = "OUTFOLDER")]
     outfolder: String,
 
-    /// Mode of operation when not built with testing-mode: random or deterministic
-    #[arg(
-        long,
-        value_enum,
-        value_name = "MODE",
-        default_value = "random",
-        help = "Operation mode when not built with testing-mode: random | beacon"
-    )]
-    mode: Mode,
+    /// Use deterministic beacon mode instead of the default random mode
+    #[arg(long, default_value_t = false)]
+    beacon_mode: bool,
 }
 
 //curl http://localhost:7878/?state=a6fd0ebe973ecd09b59ae3d7c10e0402f0ab3ba98bf9b5f462188e38804672f9&code=4/0AUJR-x4BoWJZIxcgk_vMDooaffimYPVGYa-VEDUQnb3c7err_SVF5AnbalchNYpkJyGTlQ&scope=https://www.googleapis.com/auth/drive.metadata.readonly%20https://www.googleapis.com/auth/drive.file
@@ -75,14 +61,12 @@ cargo run --release --features testing-mode --bin phase1_initialize -- \
   --s-max 512 \
   --setup-params-file setupParams.json \
   --outfolder ./setup/mpc-setup/output \
-  --compress false
+  --beacon-mode
 
 cargo run --release --bin phase1_initialize -- \
   --s-max 64 \
-  --mode random \
   --setup-params-file setupParams.json \
-  --outfolder ./setup/mpc-setup/output \
-  --compress true
+  --outfolder ./setup/mpc-setup/output
 */
 
 #[tokio::main]
@@ -94,15 +78,14 @@ async fn main() {
         .unwrap_or_else(|_| base_path.join(QAP_COMPILER_PATH_PREFIX));
 
     let config = Config::parse();
-    let (contributor_name, location) =
-        if !testing_mode_enabled() && matches!(config.mode, Mode::Random) {
-            (
-                prompt_user_input("Enter your name :"),
-                prompt_user_input("Enter location :"),
-            )
-        } else {
-            (String::new(), String::new())
-        };
+    let (contributor_name, location) = if !testing_mode_enabled() && !config.beacon_mode {
+        (
+            prompt_user_input("Enter your name :"),
+            prompt_user_input("Enter location :"),
+        )
+    } else {
+        (String::new(), String::new())
+    };
 
     let setup_params = SetupParams::read_from_json(qap_path.join(&config.setup_params_file))
         .expect("cannot SetupParams read file");
@@ -119,23 +102,13 @@ async fn main() {
             x_degree, y_degree
         );
     }
-    let scalar = initialize_scalar(&config.mode, config.blockhash.as_ref())
-        .expect("cannot initialize scalar");
+    let scalar = initialize_scalar(config.blockhash.as_ref()).expect("cannot initialize scalar");
     timer.log_step("initialize scalar");
     let start = Instant::now();
 
     let g1 = icicle_g1_generator().mul(scalar);
     let g2 = icicle_g2_generator().mul(scalar);
-    let compress_mode = config.compress.parse::<bool>().unwrap();
-
-    let genesis_acc = Accumulator::new(
-        g1,
-        g2,
-        POWER_ALPHA_LENGTH,
-        x_degree,
-        y_degree,
-        compress_mode,
-    );
+    let genesis_acc = Accumulator::new(g1, g2, POWER_ALPHA_LENGTH, x_degree, y_degree, false);
     timer.log_step("build genesis accumulator");
 
     let outfile = format!(
@@ -171,7 +144,7 @@ async fn main() {
     println!("Thanks for your contribution.");
 }
 
-fn initialize_scalar(_mode: &Mode, blockhash: Option<&String>) -> Result<ScalarField, String> {
+fn initialize_scalar(blockhash: Option<&String>) -> Result<ScalarField, String> {
     if mpc_setup::testing_mode_enabled() {
         Ok(ScalarField::from_u32(1))
     } else {

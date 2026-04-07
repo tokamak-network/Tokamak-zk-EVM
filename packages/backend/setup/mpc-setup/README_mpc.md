@@ -17,21 +17,19 @@ cd "$pwd/packages/backend"
 
 This step initializes Phase 1 (takes a few seconds): 
 Here replace the **blockhash** value with a data that is not predictable inadvance. 
-For initialization (compressed form):
+For initialization:
 ```bash
- cargo run --release --features testing-mode --bin phase1_initialize -- \
+cargo run --release --features testing-mode --bin phase1_initialize -- \
   --s-max 512 \
   --setup-params-file setupParams.json  \
-  --outfolder ./setup/mpc-setup/output \
-  --compress false
+  --outfolder ./setup/mpc-setup/output
 ```
 
 ## Options:
 **--s-max** *value* : sets s_max value to another integer (for testing it should be min 128)
-**--mode** *random/beacon*: Use **random** for actual MPC ceremony, **beacon** for deterministic seed-based mode in normal builds.
+**--beacon-mode**: Use this flag for deterministic seed-based mode in normal builds. If omitted, random mode is used.
 **--setup-params-file** *setupParams.json*: Takes input parameters file.
 **--outfolder** *./setup/mpc-setup/output* : Defines the folder to write the output files.
-**--compress** *true/false*: **true** outputs EC points in compressed form, **false** outputs EC points in uncompressed form.
 
 📌 In random initialize mode, it prompts to enter a blockhash for an unpredictable input. Give a hash output of a block (eg. Bitcoin block hash https://www.blockchain.com/explorer/blocks/btc/).
 It should be *64 hexadecimal characters* (eg: for 901,620th Bitcoin Block
@@ -45,13 +43,13 @@ For testing-mode builds run:
 cargo run --release --features testing-mode --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output
 ```
 📌 For testing purpose run this once as we want to generate the same combined_sigma as trusted setup.
-For a real MPC setup set **--mode random**.
+For a real MPC setup, omit `--beacon-mode` to use the default random mode.
 
 🌐 **Beacon Contribution** (optional)
 
 Optionally, you can add extra entropy from unpredictable deterministic inputs (like future Bitcoin block hashes):
 ```bash
-cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode beacon
+cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --beacon-mode
 ```
 
 ✅ **Phase-1 Batch Verification** (30 mins to a couple of hours depending on the number of contributors)
@@ -79,7 +77,7 @@ cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output
 🔄 **Next Contributor Phase-2**
 Each next contributor in Phase-2 runs:
 ```bash
-cargo run --release --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output --mode random
+cargo run --release --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output
 ```
 
 ✅ **Phase-2 Batch Verification** (30 mins to a couple of hours based on the number participants)

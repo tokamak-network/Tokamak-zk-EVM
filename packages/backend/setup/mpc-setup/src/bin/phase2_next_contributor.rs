@@ -27,15 +27,9 @@ struct Config {
     #[arg(long, value_name = "OUTFOLDER")]
     outfolder: String,
 
-    /// Mode of operation when not built with testing-mode: random or deterministic
-    #[arg(
-        long,
-        value_enum,
-        value_name = "MODE",
-        default_value = "random",
-        help = "Operation mode when not built with testing-mode: random | beacon"
-    )]
-    mode: Mode,
+    /// Use deterministic beacon mode instead of the default random mode
+    #[arg(long, default_value_t = false)]
+    beacon_mode: bool,
 }
 #[derive(Error, Debug)]
 pub enum VerificationError {
@@ -56,7 +50,8 @@ pub enum ContributorError {
     AccumulatorValidation(String),
 }
 // cargo run --release --features testing-mode --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output
-// cargo run --release --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output --mode random
+// cargo run --release --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output
+// cargo run --release --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output --beacon-mode
 fn main() {
     let mut timer = StepTimer::new("phase2_next_contributor");
     let config = Config::parse();
@@ -65,12 +60,13 @@ fn main() {
         .expect("Please enter a valid number");
     let mut name = String::new();
     let mut location = String::new();
-    if !testing_mode_enabled() && matches!(config.mode, Mode::Random) {
+    if !testing_mode_enabled() && !config.beacon_mode {
         name = prompt_user_input("Enter your name :");
         location = prompt_user_input("Enter location :");
     }
     let start = Instant::now();
-    let mut rng = initialize_random_generator(&config.mode);
+    let mode = ceremony_mode(config.beacon_mode);
+    let mut rng = initialize_random_generator(&mode);
     timer.log_step("collect contributor metadata and initialize randomness");
 
     let latest_acc = load_phase2_accumulator(&config.outfolder, contributor_index - 1);
@@ -151,6 +147,14 @@ fn main() {
     timer.log_total();
     println!("Time elapsed: {:?}", start.elapsed().as_secs_f64());
     println!("thanks for your contribution...");
+}
+
+fn ceremony_mode(beacon_mode: bool) -> Mode {
+    if beacon_mode {
+        Mode::Beacon
+    } else {
+        Mode::Random
+    }
 }
 fn save_contributor_info(
     previous_hashes: &Vec<[u8; HASH_BYTES_LEN]>,

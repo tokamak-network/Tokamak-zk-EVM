@@ -26,19 +26,13 @@ struct Config {
     #[arg(long, value_name = "OUTFOLDER")]
     outfolder: String,
 
-    #[arg(
-        long,
-        value_enum,
-        value_name = "MODE",
-        default_value = "random",
-        help = "Operation mode when not built with testing-mode: random | beacon"
-    )]
-    mode: Mode,
+    #[arg(long, default_value_t = false)]
+    beacon_mode: bool,
 }
 
 // cargo run --release --features testing-mode --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output
-// cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode random
-// cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode beacon
+// cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output
+// cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --beacon-mode
 #[tokio::main]
 async fn main() -> Result<(), ContributorError> {
     let config = Config::parse();
@@ -117,13 +111,14 @@ impl ContributorSession {
     }
 
     async fn run(&mut self) -> Result<(), ContributorError> {
-        let mut rng = initialize_random_generator(&self.config.mode);
+        let mode = ceremony_mode(self.config.beacon_mode);
+        let mut rng = initialize_random_generator(&mode);
         self.timer.log_step("initialize random generator");
 
         let mut name = String::new();
         let mut location = String::new();
 
-        if !testing_mode_enabled() && matches!(self.config.mode, Mode::Random) {
+        if !testing_mode_enabled() && !self.config.beacon_mode {
             name = prompt_user_input("Enter your name :");
             location = prompt_user_input("Enter location :");
         }
@@ -334,6 +329,14 @@ impl ContributorSession {
             current_proof_hash: hex::encode(proof.blake2b_hash()),
             time_taken_seconds: self.start_time.elapsed().as_secs_f64(),
         }
+    }
+}
+
+fn ceremony_mode(beacon_mode: bool) -> Mode {
+    if beacon_mode {
+        Mode::Beacon
+    } else {
+        Mode::Random
     }
 }
 
