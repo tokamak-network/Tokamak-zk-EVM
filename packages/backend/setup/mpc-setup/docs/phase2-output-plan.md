@@ -44,6 +44,58 @@ Public-wire segment selector:
 
 - $t(j)$ selects the public segment used by public wire $j$
 
+## Tau Sets
+
+For the refactored ceremony discussed in this document, define:
+
+$$
+n_{\mathrm{Tokamak}} := \max(n, m_i).
+$$
+
+The current implemented phase-1 monomial set is:
+
+$$
+\tau_{\mathrm{mpc}}
+=
+\left(
+\left\{[\omega^k]_1\right\}_{k=1}^{4}
+\cup
+\left\{[\omega^k]_2\right\}_{k=1}^{4}
+\cup
+\left\{[x^i]_1\right\}_{i=1}^{2n_{\mathrm{Tokamak}}}
+\cup
+\{[x]_2\}
+\cup
+\left\{[\omega^k x^i]_1\right\}_{k=1,\ i=1}^{4,\ 2n_{\mathrm{Tokamak}}}
+\right)
+$$
+
+Under the specialization
+
+$$
+y = \gamma = \delta = \eta = 1,
+$$
+
+the minimal monomial set sufficient to complete the final CRS is:
+
+$$
+\tau_{\mathrm{Tokamak}}
+=
+\left(
+\left\{[x^a]_1\right\}_{a=0}^{2\max(n,m_i)}
+\cup
+\left\{[\alpha x^a]_1\right\}_{a=0}^{n+2}
+\cup
+\left\{[\alpha^2 x^a]_1\right\}_{a=0}^{n+2}
+\cup
+\left\{[\alpha^3 x^a]_1\right\}_{a=0}^{n+2}
+\cup
+\left\{[\alpha^4 x^a]_1\right\}_{a=0}^{m_i+1}
+\cup
+\{[\alpha]_2,[\alpha^2]_2,[\alpha^3]_2,[\alpha^4]_2,[x]_2\}
+\right).
+$$
+
 ## Final Output Structure
 
 The final output is a CRS object of the form:
