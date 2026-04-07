@@ -129,12 +129,6 @@ fn main() {
 
     println!("computing new challenge and proof...");
     let (new_acc, new_proof) = compute_new_sigma(&mut rng, &latest_acc);
-
-    assert_eq!(
-        new_proof.verify(&latest_acc, &new_acc),
-        true,
-        "new proof verification failed"
-    );
     timer.log_step("compute new accumulator and proof");
 
     verify_and_save_results(&config.outfolder, &latest_acc, &new_acc, &new_proof);
