@@ -8,9 +8,11 @@ use memmap::{Mmap, MmapOptions};
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, USER_AGENT};
 use serde::Deserialize;
+use std::cmp::max;
 use std::env;
 use std::fs::File;
 use std::io;
+use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 use tempfile::NamedTempFile;
@@ -144,6 +146,7 @@ const DUSK_GITHUB_RAW_PREFIX: &str =
     "https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions";
 const DUSK_DRIVE_ID_PREFIX: &str = "https://drive.google.com/file/d/";
 const DUSK_KNOWN_CONTRIBUTION_FALLBACKS: &[&str] = &["0015"];
+const DUSK_DOWNLOAD_PROGRESS_STEP_BYTES: u64 = 32 * 1024 * 1024;
 
 #[derive(Deserialize)]
 struct GithubContentEntry {
@@ -387,6 +390,16 @@ fn drive_direct_download_url(file_id: &str) -> String {
     format!("https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm=t")
 }
 
+fn format_progress_bytes(bytes: u64) -> String {
+    const GIB: f64 = 1024.0 * 1024.0 * 1024.0;
+    const MIB: f64 = 1024.0 * 1024.0;
+    if bytes >= 1024 * 1024 * 1024 {
+        format!("{:.2} GiB", bytes as f64 / GIB)
+    } else {
+        format!("{:.2} MiB", bytes as f64 / MIB)
+    }
+}
+
 fn download_dusk_response(path: &Path) -> io::Result<()> {
     let client = dusk_http_client()?;
     let download = discover_latest_dusk_response(&client)?;
@@ -417,8 +430,63 @@ fn download_dusk_response(path: &Path) -> io::Result<()> {
         )));
     }
 
-    io::copy(&mut response, &mut temp_file)
-        .map_err(|err| io::Error::other(format!("failed to stream Dusk response: {err}")))?;
+    let total_bytes = response.content_length();
+    match total_bytes {
+        Some(total) => println!(
+            "Starting Dusk raw response download: {} total",
+            format_progress_bytes(total)
+        ),
+        None => println!("Starting Dusk raw response download: total size unknown"),
+    }
+
+    let report_interval = total_bytes
+        .map(|total| max(total / 20, DUSK_DOWNLOAD_PROGRESS_STEP_BYTES))
+        .unwrap_or(DUSK_DOWNLOAD_PROGRESS_STEP_BYTES);
+    let mut next_report = report_interval;
+    let mut downloaded = 0u64;
+    let mut buffer = vec![0u8; 1024 * 1024];
+
+    loop {
+        let read = response
+            .read(&mut buffer)
+            .map_err(|err| io::Error::other(format!("failed to stream Dusk response: {err}")))?;
+        if read == 0 {
+            break;
+        }
+        temp_file
+            .write_all(&buffer[..read])
+            .map_err(|err| io::Error::other(format!("failed to write Dusk response: {err}")))?;
+        downloaded += read as u64;
+
+        if downloaded >= next_report {
+            match total_bytes {
+                Some(total) => println!(
+                    "Dusk raw response download progress: {:.1}% ({}/{})",
+                    (downloaded as f64 / total as f64) * 100.0,
+                    format_progress_bytes(downloaded),
+                    format_progress_bytes(total)
+                ),
+                None => println!(
+                    "Dusk raw response download progress: {} downloaded",
+                    format_progress_bytes(downloaded)
+                ),
+            }
+            next_report = next_report.saturating_add(report_interval);
+        }
+    }
+
+    match total_bytes {
+        Some(total) => println!(
+            "Completed Dusk raw response download: {}/{}",
+            format_progress_bytes(downloaded),
+            format_progress_bytes(total)
+        ),
+        None => println!(
+            "Completed Dusk raw response download: {}",
+            format_progress_bytes(downloaded)
+        ),
+    }
+
     temp_file
         .flush()
         .map_err(|err| io::Error::other(format!("failed to flush Dusk response: {err}")))?;
