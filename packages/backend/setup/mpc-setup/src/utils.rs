@@ -846,28 +846,30 @@ pub fn scalar_from_user_random_input(title: &str) -> [u8; 32] {
 
 #[derive(Debug, Clone, ValueEnum)]
 pub enum Mode {
-    Testing,
     Random,
     Beacon, //deterministic from a given seed
 }
 /// Initializes a random generator based on the specified mode
 pub fn initialize_random_generator(mode: &Mode) -> RandomGenerator {
-    let (strategy, message, seed) = match mode {
-        Mode::Testing => (
+    let (strategy, message, seed) = if crate::testing_mode_enabled() {
+        (
             RandomStrategy::Testing,
             "Initializing random generator in testing mode",
             [0u8; 32],
-        ),
-        Mode::Beacon => (
-            RandomStrategy::UserInput,
-            "Initializing random generator in deterministic mode",
-            scalar_from_user_random_input("Enter seed input for randomization: "),
-        ),
-        Mode::Random => (
-            RandomStrategy::Hybrid,
-            "Initializing random generator in hybrid random mode",
-            scalar_from_user_random_input("Enter seed input for randomization: "),
-        ),
+        )
+    } else {
+        match mode {
+            Mode::Beacon => (
+                RandomStrategy::UserInput,
+                "Initializing random generator in deterministic mode",
+                scalar_from_user_random_input("Enter seed input for randomization: "),
+            ),
+            Mode::Random => (
+                RandomStrategy::Hybrid,
+                "Initializing random generator in hybrid random mode",
+                scalar_from_user_random_input("Enter seed input for randomization: "),
+            ),
+        }
     };
 
     println!("{}", message);

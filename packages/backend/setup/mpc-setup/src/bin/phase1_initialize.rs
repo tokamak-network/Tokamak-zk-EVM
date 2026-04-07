@@ -1,6 +1,4 @@
 extern crate memmap;
-
-use crate::Mode::Testing;
 use chrono::Local;
 use clap::Parser;
 use icicle_bls12_381::curve::ScalarField;
@@ -58,12 +56,13 @@ struct Config {
     #[arg(long, value_name = "OUTFOLDER")]
     outfolder: String,
 
-    /// Mode of operation: testing, random, deterministic
+    /// Mode of operation when not built with testing-mode: random or deterministic
     #[arg(
         long,
         value_enum,
         value_name = "MODE",
-        help = "Operation mode: testing | random | deterministic"
+        default_value = "random",
+        help = "Operation mode when not built with testing-mode: random | beacon"
     )]
     mode: Mode,
 }
@@ -72,12 +71,16 @@ struct Config {
 //docker exec -it 0f1d390ea076 /bin/bash
 //  --blockhash aabbccddeeff11223344556677889900aabbccddeeff11223344556677889900 \
 /*
-cargo run --release --bin phase1_initialize -- --s-max 512 --mode testing --setup-params-file setupParams.json  --outfolder ./setup/mpc-setup/output --compress false
+cargo run --release --features testing-mode --bin phase1_initialize -- \
+  --s-max 512 \
+  --setup-params-file setupParams.json \
+  --outfolder ./setup/mpc-setup/output \
+  --compress false
 
- cargo run --release --bin phase1_initialize -- \
+cargo run --release --bin phase1_initialize -- \
   --s-max 64 \
   --mode random \
-  --setup-params-file setupParams.json  \
+  --setup-params-file setupParams.json \
   --outfolder ./setup/mpc-setup/output \
   --compress true
 */
@@ -91,14 +94,15 @@ async fn main() {
         .unwrap_or_else(|_| base_path.join(QAP_COMPILER_PATH_PREFIX));
 
     let config = Config::parse();
-    let (contributor_name, location) = if matches!(config.mode, Mode::Random) {
-        (
-            prompt_user_input("Enter your name :"),
-            prompt_user_input("Enter location :"),
-        )
-    } else {
-        (String::new(), String::new())
-    };
+    let (contributor_name, location) =
+        if !testing_mode_enabled() && matches!(config.mode, Mode::Random) {
+            (
+                prompt_user_input("Enter your name :"),
+                prompt_user_input("Enter location :"),
+            )
+        } else {
+            (String::new(), String::new())
+        };
 
     let setup_params = SetupParams::read_from_json(qap_path.join(&config.setup_params_file))
         .expect("cannot SetupParams read file");
@@ -167,21 +171,20 @@ async fn main() {
     println!("Thanks for your contribution.");
 }
 
-fn initialize_scalar(mode: &Mode, blockhash: Option<&String>) -> Result<ScalarField, String> {
-    match mode {
-        Testing => Ok(ScalarField::from_u32(1)),
-        _ => {
-            let blockhash_str = match blockhash {
-                Some(hash) => hash.trim_start_matches("0x").to_string(),
-                None => prompt_user_input("Enter blockhash (64 hex characters):")
-                    .trim_start_matches("0x")
-                    .to_string(),
-            };
+fn initialize_scalar(_mode: &Mode, blockhash: Option<&String>) -> Result<ScalarField, String> {
+    if mpc_setup::testing_mode_enabled() {
+        Ok(ScalarField::from_u32(1))
+    } else {
+        let blockhash_str = match blockhash {
+            Some(hash) => hash.trim_start_matches("0x").to_string(),
+            None => prompt_user_input("Enter blockhash (64 hex characters):")
+                .trim_start_matches("0x")
+                .to_string(),
+        };
 
-            validate_blockhash(&blockhash_str)?;
-            let hash = hex::decode(&blockhash_str).map_err(|_| "Invalid hex encoding")?;
-            Ok(ScalarField::from_bytes_le(hash.as_ref()) - ScalarField::from_u32(0))
-        }
+        validate_blockhash(&blockhash_str)?;
+        let hash = hex::decode(&blockhash_str).map_err(|_| "Invalid hex encoding")?;
+        Ok(ScalarField::from_bytes_le(hash.as_ref()) - ScalarField::from_u32(0))
     }
 }
 

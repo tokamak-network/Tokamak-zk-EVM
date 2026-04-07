@@ -55,7 +55,7 @@ Important options:
 - `--s-max`
   - Placement bound used by the setup.
 - `--mode`
-  - `random`, `testing`, or `beacon`.
+  - `random` or `beacon` in normal builds. In `testing-mode` builds, deterministic testing values are used automatically.
 - `--setup-params-file`
   - Setup parameter JSON file.
 - `--outfolder`
@@ -98,14 +98,15 @@ phase1_acc_<index>.json
 
 Optional arguments:
 
-- `--mode testing|random|beacon`
-  - Controls how the initial phase-2 `y` is sampled when `--y-hex` is not supplied.
+- `--mode random|beacon`
+  - Controls how the initial phase-2 `y` is sampled when `--y-hex` is not supplied in normal builds.
+  - In `testing-mode` builds, the phase-2 sampler is deterministic regardless of `--mode`.
 - `--y-hex <HEX>`
   - Reuse an explicit `y` across multipart runs.
 - `--total-part <N> --part-no <I>`
   - Split `phase2_prepare` into multiple parts.
 - `--merge-parts true`
-  - Merge previously generated part files into `phase2_acc_0.json`.
+  - Merge previously generated part files into `phase2_acc_0.rkyv`.
 
 ### Add a phase-2 contributor
 
@@ -171,8 +172,35 @@ In both wrappers:
 - the intermediate folder contains `phase1_acc_*`, `phase1_proof_*`, `phase2_acc_*`,
   `phase2_proof_*`, contributor info, and any downloaded Dusk raw response file
 - if `--intermediate-outfolder` is omitted, the wrappers use `<final_outfolder>.intermediate`
-- `--mode testing` applies to every ceremony step in the wrapper; otherwise all steps use the
-  chosen non-testing mode
+
+## Testing-Mode Builds
+
+Like `trusted-setup`, `mpc-setup` uses the `testing-mode` cargo feature instead of a runtime
+`testing` mode flag.
+
+Examples:
+
+```bash
+cargo run --release --features testing-mode --bin native_mpc_setup -- \
+  "$QAP_PATH" \
+  ./setup/mpc-setup/output/final \
+  --intermediate-outfolder ./setup/mpc-setup/output/intermediate \
+  --compress
+```
+
+```bash
+cargo run --release --features testing-mode --bin dusk_backed_mpc_setup -- \
+  "$QAP_PATH" \
+  ./setup/mpc-setup/output/final \
+  --intermediate-outfolder ./setup/mpc-setup/output/intermediate \
+  --dusk-raw-file ./setup/mpc-setup/output/intermediate/dusk.response
+```
+
+In `testing-mode` builds:
+
+- phase 1 and phase 2 both use deterministic testing values automatically
+- contributor prompts that exist only for normal random mode are skipped
+- `--mode` still exists for interface compatibility, but no longer selects testing behavior
 
 ## Phase 2: Dusk-Backed Source Mode
 

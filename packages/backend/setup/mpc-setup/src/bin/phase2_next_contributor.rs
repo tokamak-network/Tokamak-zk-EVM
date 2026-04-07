@@ -5,6 +5,7 @@ use icicle_core::traits::{Arithmetic, FieldImpl};
 use libs::group_structures::G1serde;
 use mpc_setup::contributor::{get_device_info, ContributorInfo};
 use mpc_setup::sigma::{AaccExt, SigmaV2, HASH_BYTES_LEN};
+use mpc_setup::testing_mode_enabled;
 use mpc_setup::utils::{
     hash_sigma, initialize_random_generator, pok, prompt_user_input, Mode, Phase2Proof,
     RandomGenerator, StepTimer,
@@ -26,12 +27,13 @@ struct Config {
     #[arg(long, value_name = "OUTFOLDER")]
     outfolder: String,
 
-    /// Mode of operation: testing, random, deterministic
+    /// Mode of operation when not built with testing-mode: random or deterministic
     #[arg(
         long,
         value_enum,
         value_name = "MODE",
-        help = "Operation mode: testing | random | deterministic"
+        default_value = "random",
+        help = "Operation mode when not built with testing-mode: random | beacon"
     )]
     mode: Mode,
 }
@@ -53,6 +55,7 @@ pub enum ContributorError {
     #[error("Accumulator validation failed: {0}")]
     AccumulatorValidation(String),
 }
+// cargo run --release --features testing-mode --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output
 // cargo run --release --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output --mode random
 fn main() {
     let mut timer = StepTimer::new("phase2_next_contributor");
@@ -62,7 +65,7 @@ fn main() {
         .expect("Please enter a valid number");
     let mut name = String::new();
     let mut location = String::new();
-    if matches!(config.mode, Mode::Random) {
+    if !testing_mode_enabled() && matches!(config.mode, Mode::Random) {
         name = prompt_user_input("Enter your name :");
         location = prompt_user_input("Enter location :");
     }

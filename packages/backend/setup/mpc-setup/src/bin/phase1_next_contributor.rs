@@ -3,6 +3,7 @@ use clap::Parser;
 use mpc_setup::accumulator::Accumulator;
 use mpc_setup::contributor::{get_device_info, ContributorInfo};
 use mpc_setup::sigma::AaccExt;
+use mpc_setup::testing_mode_enabled;
 use mpc_setup::utils::{
     initialize_random_generator, load_gpu_if_possible, prompt_user_input, Mode, Phase1Proof,
     StepTimer,
@@ -25,11 +26,17 @@ struct Config {
     #[arg(long, value_name = "OUTFOLDER")]
     outfolder: String,
 
-    #[arg(long, value_enum, value_name = "MODE")]
+    #[arg(
+        long,
+        value_enum,
+        value_name = "MODE",
+        default_value = "random",
+        help = "Operation mode when not built with testing-mode: random | beacon"
+    )]
     mode: Mode,
 }
 
-// cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode testing
+// cargo run --release --features testing-mode --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output
 // cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode random
 // cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode beacon
 #[tokio::main]
@@ -116,7 +123,7 @@ impl ContributorSession {
         let mut name = String::new();
         let mut location = String::new();
 
-        if matches!(self.config.mode, Mode::Random) {
+        if !testing_mode_enabled() && matches!(self.config.mode, Mode::Random) {
             name = prompt_user_input("Enter your name :");
             location = prompt_user_input("Enter location :");
         }

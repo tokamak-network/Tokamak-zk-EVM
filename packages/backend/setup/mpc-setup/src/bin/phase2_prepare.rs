@@ -51,7 +51,7 @@ struct Config {
         value_enum,
         value_name = "MODE",
         default_value = "random",
-        help = "Phase-2 y sampling mode: testing | random | beacon"
+        help = "Phase-2 y sampling mode when not built with testing-mode: random | beacon"
     )]
     mode: Mode,
 
@@ -320,10 +320,11 @@ fn sample_phase2_y(
         if total_part > 1 {
             panic!("multipart phase2_prepare requires --y-hex so every part uses the same y");
         }
-        let mut rng: RandomGenerator = initialize_random_generator(mode);
-        match mode {
-            Mode::Testing => ScalarField::from_u32(5),
-            _ => rng.next_random(),
+        if mpc_setup::testing_mode_enabled() {
+            ScalarField::from_u32(5)
+        } else {
+            let mut rng: RandomGenerator = initialize_random_generator(mode);
+            rng.next_random()
         }
     };
 
@@ -331,10 +332,11 @@ fn sample_phase2_y(
         if y_hex.is_some() {
             panic!("the supplied phase-2 y is invalid because y^s_max = 1");
         }
-        let mut rng: RandomGenerator = initialize_random_generator(mode);
-        y = match mode {
-            Mode::Testing => ScalarField::from_u32(7),
-            _ => rng.next_random(),
+        y = if mpc_setup::testing_mode_enabled() {
+            ScalarField::from_u32(7)
+        } else {
+            let mut rng: RandomGenerator = initialize_random_generator(mode);
+            rng.next_random()
         };
     }
     y
@@ -975,12 +977,9 @@ fn load_coeff_view(
     subcircuit_info: &SubcircuitInfo,
     ntt_workspace: &mut NttWorkspace,
 ) -> SubcircuitCoeffView {
-    let compact_r1cs = SubcircuitR1CS::from_path_compact_only(
-        source_path.to_path_buf(),
-        setup_params,
-        subcircuit_info,
-    )
-    .unwrap();
+    let compact_r1cs =
+        SubcircuitR1CS::from_path(source_path.to_path_buf(), setup_params, subcircuit_info)
+            .unwrap();
     let coeff_view = SubcircuitCoeffView::from_compact_r1cs(
         &compact_r1cs,
         subcircuit_info,

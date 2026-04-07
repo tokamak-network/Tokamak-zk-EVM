@@ -1,4 +1,5 @@
 use clap::Parser;
+use mpc_setup::testing_mode_enabled;
 use std::env;
 use std::fs;
 use std::io::Write;
@@ -22,7 +23,7 @@ struct Config {
     #[arg(long, value_name = "DUSK_RAW_FILE")]
     dusk_raw_file: Option<String>,
 
-    /// Ceremony sampling mode shared by all phase-2 steps
+    /// Ceremony sampling mode shared by all phase-2 steps when not built with testing-mode
     #[arg(long, value_name = "MODE", default_value = "random")]
     mode: String,
 }
@@ -103,8 +104,8 @@ fn default_intermediate_outfolder(final_outfolder: &str) -> String {
     format!("{final_outfolder}.intermediate")
 }
 
-fn scripted_input_for_mode(mode: &str, contributor_index: usize) -> Option<&'static str> {
-    if mode == "testing" {
+fn scripted_input_for_mode(_mode: &str, contributor_index: usize) -> Option<&'static str> {
+    if testing_mode_enabled() {
         match contributor_index {
             1 => Some("1\n"),
             _ => None,
@@ -124,10 +125,11 @@ fn run_mpc_bin(bin_name: &str, args: &[String], stdin_input: Option<&str>, qap_p
         .arg("--release")
         .arg("-q")
         .arg("-p")
-        .arg("mpc-setup")
-        .arg("--bin")
-        .arg(bin_name)
-        .arg("--");
+        .arg("mpc-setup");
+    if testing_mode_enabled() {
+        command.arg("--features").arg("testing-mode");
+    }
+    command.arg("--bin").arg(bin_name).arg("--");
     command.args(args);
 
     if stdin_input.is_some() {

@@ -19,9 +19,8 @@ This step initializes Phase 1 (takes a few seconds):
 Here replace the **blockhash** value with a data that is not predictable inadvance. 
 For initialization (compressed form):
 ```bash
- cargo run --release --bin phase1_initialize -- \
+ cargo run --release --features testing-mode --bin phase1_initialize -- \
   --s-max 512 \
-  --mode testing \
   --setup-params-file setupParams.json  \
   --outfolder ./setup/mpc-setup/output \
   --compress false
@@ -29,7 +28,7 @@ For initialization (compressed form):
 
 ## Options:
 **--s-max** *value* : sets s_max value to another integer (for testing it should be min 128)
-**--mode** *random/testin*g: Use **random** for actual MPC ceremony, **testing** for testing mode.
+**--mode** *random/beacon*: Use **random** for actual MPC ceremony, **beacon** for deterministic seed-based mode in normal builds.
 **--setup-params-file** *setupParams.json*: Takes input parameters file.
 **--outfolder** *./setup/mpc-setup/output* : Defines the folder to write the output files.
 **--compress** *true/false*: **true** outputs EC points in compressed form, **false** outputs EC points in uncompressed form.
@@ -41,9 +40,9 @@ It should be *64 hexadecimal characters* (eg: for 901,620th Bitcoin Block
 🔄 **Next Contributor Phase-1** (~60 minutes)
 
 Each next contributor in Phase-1 runs *phase1_next_contributor*.
-For testing mode run:
+For testing-mode builds run:
 ```bash
-cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode testing
+cargo run --release --features testing-mode --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output
 ```
 📌 For testing purpose run this once as we want to generate the same combined_sigma as trusted setup.
 For a real MPC setup set **--mode random**.
@@ -64,7 +63,7 @@ cargo run --release --bin phase1_batch_verify -- --outfolder ./setup/mpc-setup/o
 
 📝 **Prepare Phase-2**
 
-For testing, start with running the following once to generate *phase2_acc_0.json* to be able to prepare phase-2 initial files:
+For testing, start with running the following once to generate *phase2_acc_0.rkyv* to be able to prepare phase-2 initial files:
 ```bash
 cargo run --release --bin phase2_testing_prepare
 ```
@@ -94,7 +93,7 @@ Run this code once to generate final outputs:
 ```bash
 cargo run --release --bin phase2_gen_files -- --outfolder ./setup/mpc-setup/output
 ```
-When it prompts *Enter the last contributor's index* please type the *index* i of the last *phase2_acc_i.json* file generated in Phase-1.
-The final output files are: "sigma_preprocess.json", "sigma_verify.json" and "combined_sigma.json"
+When it prompts *Enter the last contributor's index* please type the *index* i of the last *phase2_acc_i.rkyv* file generated in Phase-2.
+The final output files are: `sigma_preprocess.rkyv`, `sigma_verify.rkyv`, and `combined_sigma.rkyv`.
 
-**CRC output** is the *combined_sigma.json* file.
+**CRS output** is the `combined_sigma.rkyv` file.

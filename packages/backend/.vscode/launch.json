@@ -70,7 +70,7 @@
       "type": "lldb",
       "request": "launch",
       "cargo": {
-        "args": ["build", "--release", "-p", "mpc-setup", "--bins"],
+        "args": ["build", "--release", "-p", "mpc-setup", "--bins", "--features", "testing-mode"],
         "filter": { "name": "native_mpc_setup", "kind": "bin" }
       },
       "program": "${cargo:program}",
@@ -79,8 +79,6 @@
         "${workspaceFolder}/setup/output",
         "--intermediate-outfolder",
         "${workspaceFolder}/setup/mpc-setup/output/native-debug.intermediate",
-        "--mode",
-        "testing",
         "--compress"
       ],
       "cwd": "${workspaceFolder}",
@@ -95,7 +93,7 @@
       "type": "lldb",
       "request": "launch",
       "cargo": {
-        "args": ["build", "--release", "-p", "mpc-setup", "--bins"],
+        "args": ["build", "--release", "-p", "mpc-setup", "--bins", "--features", "testing-mode"],
         "filter": { "name": "dusk_backed_mpc_setup", "kind": "bin" }
       },
       "program": "${cargo:program}",
@@ -104,8 +102,6 @@
         "${workspaceFolder}/setup/output",
         "--intermediate-outfolder",
         "${workspaceFolder}/setup/mpc-setup/output/dusk-debug.intermediate",
-        "--mode",
-        "testing",
         "--dusk-raw-file",
         "${workspaceFolder}/setup/mpc-setup/output/dusk-debug.intermediate/dusk.response"
       ],
