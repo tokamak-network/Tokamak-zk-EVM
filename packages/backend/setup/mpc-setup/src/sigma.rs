@@ -8,8 +8,9 @@ use libs::field_structures::Tau;
 use libs::group_structures::{G1serde, Sigma};
 use libs::iotools::SetupParams;
 use libs::iotools::{ArchivedG1SerdeRkyv, ArchivedSigma1Rkyv, G1SerdeRkyv, Sigma1Rkyv, SigmaRkyv};
+use rkyv::ser::Serializer as _;
 use rkyv::{
-    check_archived_root, Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
+    check_archived_value, Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{from_reader, to_writer_pretty};
@@ -20,6 +21,8 @@ use std::io::{self, BufReader, BufWriter, Write};
 use std::path::PathBuf;
 
 pub const HASH_BYTES_LEN: usize = 64;
+const PHASE2_ACC_MAGIC: &[u8; 8] = b"P2ACCRKY";
+const PHASE2_ACC_HEADER_LEN: usize = PHASE2_ACC_MAGIC.len() + std::mem::size_of::<u64>();
 
 #[derive(
     Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Archive, RkyvSerialize, RkyvDeserialize,
@@ -104,12 +107,37 @@ impl SigmaV2 {
     pub fn read_phase2_acc(path: &str) -> io::Result<Self> {
         let archive_path = Self::phase2_acc_rkyv_path(path)?;
         let bytes = fs::read(&archive_path)?;
-        let archived = check_archived_root::<SigmaV2Rkyv>(&bytes).map_err(|err| {
-            io::Error::new(
+        if bytes.len() < PHASE2_ACC_HEADER_LEN {
+            return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("failed to validate phase-2 accumulator archive: {err}"),
-            )
-        })?;
+                format!(
+                    "phase-2 accumulator archive is too short: expected at least {PHASE2_ACC_HEADER_LEN} bytes, got {}",
+                    bytes.len()
+                ),
+            ));
+        }
+        if &bytes[..PHASE2_ACC_MAGIC.len()] != PHASE2_ACC_MAGIC {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "unsupported phase-2 accumulator archive format",
+            ));
+        }
+        let pos_offset = PHASE2_ACC_MAGIC.len();
+        let archived_pos = u64::from_le_bytes(
+            bytes[pos_offset..pos_offset + std::mem::size_of::<u64>()]
+                .try_into()
+                .expect("phase-2 accumulator position header has fixed width"),
+        ) as usize;
+        let payload = &bytes[PHASE2_ACC_HEADER_LEN..];
+        let mut aligned_bytes = rkyv::AlignedVec::with_capacity(payload.len());
+        aligned_bytes.extend_from_slice(payload);
+        let archived =
+            check_archived_value::<SigmaV2Rkyv>(&aligned_bytes, archived_pos).map_err(|err| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("failed to validate phase-2 accumulator archive: {err}"),
+                )
+            })?;
         Ok(Self {
             contributor_index: archived.contributor_index as usize,
             sigma: archived_sigma_to_sigma(&archived.sigma),
@@ -132,8 +160,16 @@ impl SigmaV2 {
             fs::create_dir_all(parent)?;
         }
         let archive = SigmaV2Rkyv::from_sigma_v2(self);
-        let bytes = rkyv::to_bytes::<_, 256>(&archive).map_err(io::Error::other)?;
-        fs::write(&archive_path, bytes)
+        let mut serializer = rkyv::ser::serializers::AllocSerializer::<256>::default();
+        let archived_pos = serializer
+            .serialize_value(&archive)
+            .map_err(io::Error::other)? as u64;
+        let archived_bytes = serializer.into_serializer().into_inner();
+        let mut file_bytes = Vec::with_capacity(PHASE2_ACC_HEADER_LEN + archived_bytes.len());
+        file_bytes.extend_from_slice(PHASE2_ACC_MAGIC);
+        file_bytes.extend_from_slice(&archived_pos.to_le_bytes());
+        file_bytes.extend_from_slice(archived_bytes.as_ref());
+        fs::write(&archive_path, file_bytes)
     }
 
     /// Generate full CRS
@@ -286,4 +322,77 @@ pub fn save_contributor_info(
 pub trait AaccExt {
     fn get_contributor_index(&self) -> u32;
     fn blake2b_hash(&self) -> [u8; HASH_BYTES_LEN];
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use libs::group_structures::{G2serde, Sigma1, Sigma2};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn empty_sigma() -> Sigma {
+        Sigma {
+            G: G1serde::zero(),
+            H: G2serde::zero(),
+            sigma_1: Sigma1 {
+                xy_powers: Vec::new().into_boxed_slice(),
+                x: G1serde::zero(),
+                y: G1serde::zero(),
+                delta: G1serde::zero(),
+                eta: G1serde::zero(),
+                gamma_inv_o_inst: Vec::new().into_boxed_slice(),
+                eta_inv_li_o_inter_alpha4_kj: Vec::new().into_boxed_slice(),
+                delta_inv_li_o_prv: Vec::new().into_boxed_slice(),
+                delta_inv_alphak_xh_tx: Vec::new().into_boxed_slice(),
+                delta_inv_alpha4_xj_tx: Vec::new().into_boxed_slice(),
+                delta_inv_alphak_yi_ty: Vec::new().into_boxed_slice(),
+            },
+            sigma_2: Sigma2 {
+                alpha: G2serde::zero(),
+                alpha2: G2serde::zero(),
+                alpha3: G2serde::zero(),
+                alpha4: G2serde::zero(),
+                gamma: G2serde::zero(),
+                delta: G2serde::zero(),
+                eta: G2serde::zero(),
+                x: G2serde::zero(),
+                y: G2serde::zero(),
+            },
+            lagrange_KL: G1serde::zero(),
+        }
+    }
+
+    #[test]
+    fn phase2_acc_rkyv_roundtrip() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock drift before unix epoch")
+            .as_nanos();
+        let relative_path = format!("/tmp/phase2_acc_roundtrip_{nonce}.rkyv");
+        let sigma = SigmaV2 {
+            contributor_index: 7,
+            sigma: empty_sigma(),
+            gamma: G1serde::zero(),
+            public_y_hex: Some("0x05".to_string()),
+            phase1_source_provenance: Some(Phase1SourceProvenance::Native),
+        };
+
+        sigma
+            .write_phase2_acc(&relative_path)
+            .expect("failed to write phase-2 accumulator archive");
+        let loaded = SigmaV2::read_phase2_acc(&relative_path)
+            .expect("failed to read phase-2 accumulator archive");
+
+        assert_eq!(loaded.contributor_index, 7);
+        assert_eq!(loaded.public_y_hex.as_deref(), Some("0x05"));
+        assert_eq!(
+            loaded.phase1_source_provenance,
+            Some(Phase1SourceProvenance::Native)
+        );
+        assert_eq!(loaded.sigma.sigma_1.xy_powers.len(), 0);
+        assert_eq!(loaded.sigma.sigma_1.gamma_inv_o_inst.len(), 0);
+
+        fs::remove_file(SigmaV2::phase2_acc_rkyv_path(&relative_path).unwrap())
+            .expect("failed to clean up temporary phase-2 accumulator archive");
+    }
 }
