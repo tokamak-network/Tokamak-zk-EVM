@@ -17,6 +17,7 @@ libs = { workspace = true }
 tiny-keccak = "1.5"
 memmap2 = { workspace = true }
 rkyv = { workspace = true, features = ["alloc", "bytecheck", "validation"] }
+clap = { workspace = true }
 
 [features]
 default = []

@@ -10,15 +10,17 @@ use std::process::{Command, Stdio};
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Config {
-    /// QAP compiler library directory
-    qap_path: String,
+    /// Subcircuit library directory produced by the QAP compiler
+    #[arg(long, value_name = "PATH")]
+    subcircuit_library: String,
 
-    /// Final output folder path for trusted-setup-compatible setup artifacts
-    outfolder: String,
+    /// Intermediate ceremony artifact directory
+    #[arg(long, value_name = "PATH")]
+    intermediate: String,
 
-    /// Intermediate ceremony artifact folder path
-    #[arg(long, value_name = "INTERMEDIATE_OUTFOLDER")]
-    intermediate_outfolder: Option<String>,
+    /// Final output directory for trusted-setup-compatible setup artifacts
+    #[arg(long, value_name = "PATH")]
+    output: String,
 
     /// Whether phase-1 accumulator JSON uses compressed curve-point encoding
     #[arg(long, default_value_t = false)]
@@ -31,13 +33,9 @@ struct Config {
 
 fn main() {
     let config = Config::parse();
-    let intermediate_outfolder = config
-        .intermediate_outfolder
-        .clone()
-        .unwrap_or_else(|| default_intermediate_outfolder(&config.outfolder));
-    ensure_directory(&config.outfolder);
-    ensure_directory(&intermediate_outfolder);
-    let qap_path = canonicalize_existing_path(&config.qap_path);
+    ensure_directory(&config.output);
+    ensure_directory(&config.intermediate);
+    let qap_path = canonicalize_existing_path(&config.subcircuit_library);
 
     let s_max = load_s_max(&qap_path);
 
@@ -51,7 +49,7 @@ fn main() {
             "--setup-params-file".to_string(),
             "setupParams.json".to_string(),
             "--outfolder".to_string(),
-            intermediate_outfolder.clone(),
+            config.intermediate.clone(),
             "--compress".to_string(),
             config.compress.to_string(),
         ],
@@ -63,7 +61,7 @@ fn main() {
         "phase1_next_contributor",
         &[
             "--outfolder".to_string(),
-            intermediate_outfolder.clone(),
+            config.intermediate.clone(),
             "--mode".to_string(),
             config.mode.clone(),
         ],
@@ -75,7 +73,7 @@ fn main() {
         "phase2_prepare",
         &[
             "--outfolder".to_string(),
-            intermediate_outfolder.clone(),
+            config.intermediate.clone(),
             "--mode".to_string(),
             config.mode.clone(),
             "--phase1-source-mode".to_string(),
@@ -89,7 +87,7 @@ fn main() {
         "phase2_next_contributor",
         &[
             "--outfolder".to_string(),
-            intermediate_outfolder.clone(),
+            config.intermediate.clone(),
             "--mode".to_string(),
             config.mode.clone(),
         ],
@@ -100,10 +98,10 @@ fn main() {
     run_mpc_bin(
         "phase2_gen_files",
         &[
-            "--outfolder".to_string(),
-            config.outfolder.clone(),
-            "--intermediate-outfolder".to_string(),
-            intermediate_outfolder.clone(),
+            "--intermediate".to_string(),
+            config.intermediate.clone(),
+            "--output".to_string(),
+            config.output.clone(),
         ],
         Some("1\n"),
         &qap_path,
@@ -111,7 +109,7 @@ fn main() {
 
     println!(
         "Native single-contributor MPC setup completed. Downstream preprocess/prove/verify can now use {}",
-        config.outfolder
+        config.output
     );
 }
 
@@ -132,10 +130,6 @@ fn load_s_max(qap_path: &Path) -> usize {
 
 fn ensure_directory(path: &str) {
     fs::create_dir_all(path).expect("cannot create orchestrator output directory");
-}
-
-fn default_intermediate_outfolder(final_outfolder: &str) -> String {
-    format!("{final_outfolder}.intermediate")
 }
 
 fn scripted_input_for_mode(_mode: &str, contributor_index: usize) -> Option<&'static str> {

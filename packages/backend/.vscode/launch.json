@@ -11,7 +11,9 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "--output",
         "${workspaceFolder}/setup/output",
         "--fixed-tau"
       ],
@@ -32,7 +34,9 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "--output",
         "${workspaceFolder}/setup/output",
         "--fixed-tau"
       ],
@@ -53,9 +57,12 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--output",
+        "${workspaceFolder}/setup/output",
         "--fixed-tau"
       ],
       "cwd": "${workspaceFolder}",
@@ -75,10 +82,12 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/setup/output",
-        "--intermediate-outfolder",
+        "--intermediate",
         "${workspaceFolder}/setup/mpc-setup/output/native-debug.intermediate",
+        "--output",
+        "${workspaceFolder}/setup/output",
         "--compress"
       ],
       "cwd": "${workspaceFolder}",
@@ -98,12 +107,12 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/setup/output",
-        "--intermediate-outfolder",
+        "--intermediate",
         "${workspaceFolder}/setup/mpc-setup/output/dusk-debug.intermediate",
-        "--dusk-raw-file",
-        "${workspaceFolder}/setup/mpc-setup/output/dusk-debug.intermediate/dusk.response"
+        "--output",
+        "${workspaceFolder}/setup/output"
       ],
       "cwd": "${workspaceFolder}",
       "env": {
@@ -122,9 +131,13 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--crs",
         "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--output",
         "${workspaceFolder}/verify/preprocess/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -144,9 +157,13 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--crs",
         "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--output",
         "${workspaceFolder}/verify/preprocess/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -166,9 +183,13 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--crs",
         "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--output",
         "${workspaceFolder}/prove/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -188,9 +209,13 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--crs",
         "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--output",
         "${workspaceFolder}/prove/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -210,9 +235,13 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--crs",
         "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--output",
         "${workspaceFolder}/prove/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -255,10 +284,15 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--crs",
         "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--preprocess",
         "${workspaceFolder}/verify/preprocess/output",
+        "--proof",
         "${workspaceFolder}/prove/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -278,10 +312,15 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--crs",
         "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--preprocess",
         "${workspaceFolder}/verify/preprocess/output",
+        "--proof",
         "${workspaceFolder}/prove/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -301,10 +340,15 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--crs",
         "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
+        "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--preprocess",
         "${workspaceFolder}/verify/preprocess/output",
+        "--proof",
         "${workspaceFolder}/prove/output"
       ],
       "cwd": "${workspaceFolder}",

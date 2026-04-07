@@ -127,8 +127,8 @@ cargo run --release --bin phase2_batch_verify -- \
 
 ```bash
 cargo run --release --bin phase2_gen_files -- \
-  --outfolder ./setup/mpc-setup/output/final \
-  --intermediate-outfolder ./setup/mpc-setup/output/intermediate
+  --intermediate ./setup/mpc-setup/output/intermediate \
+  --output ./setup/mpc-setup/output/final
 ```
 
 The generated outputs include:
@@ -136,9 +136,6 @@ The generated outputs include:
 - `combined_sigma.rkyv`
 - `sigma_preprocess.rkyv`
 - `sigma_verify.rkyv`
-
-If `--intermediate-outfolder` is omitted, `phase2_gen_files` reads the latest phase-2
-accumulator from `--outfolder` for backward compatibility.
 
 ## Single-Contributor Wrappers
 
@@ -149,9 +146,9 @@ Native mode:
 
 ```bash
 cargo run --release --bin native_mpc_setup -- \
-  "$QAP_PATH" \
-  ./setup/mpc-setup/output/final \
-  --intermediate-outfolder ./setup/mpc-setup/output/intermediate \
+  --subcircuit-library "$QAP_PATH" \
+  --intermediate ./setup/mpc-setup/output/intermediate \
+  --output ./setup/mpc-setup/output/final \
   --mode random
 ```
 
@@ -159,10 +156,9 @@ Dusk-backed mode:
 
 ```bash
 cargo run --release --bin dusk_backed_mpc_setup -- \
-  "$QAP_PATH" \
-  ./setup/mpc-setup/output/final \
-  --intermediate-outfolder ./setup/mpc-setup/output/intermediate \
-  --dusk-raw-file ./setup/mpc-setup/output/intermediate/dusk.response \
+  --subcircuit-library "$QAP_PATH" \
+  --intermediate ./setup/mpc-setup/output/intermediate \
+  --output ./setup/mpc-setup/output/final \
   --mode random
 ```
 
@@ -171,7 +167,7 @@ In both wrappers:
 - the final output folder contains only the same three files written by `trusted-setup`
 - the intermediate folder contains `phase1_acc_*`, `phase1_proof_*`, `phase2_acc_*`,
   `phase2_proof_*`, contributor info, and any downloaded Dusk raw response file
-- if `--intermediate-outfolder` is omitted, the wrappers use `<final_outfolder>.intermediate`
+- `dusk_backed_mpc_setup` stores or downloads the Dusk raw response at `<intermediate>/dusk.response`
 
 ## Testing-Mode Builds
 
@@ -182,18 +178,17 @@ Examples:
 
 ```bash
 cargo run --release --features testing-mode --bin native_mpc_setup -- \
-  "$QAP_PATH" \
-  ./setup/mpc-setup/output/final \
-  --intermediate-outfolder ./setup/mpc-setup/output/intermediate \
+  --subcircuit-library "$QAP_PATH" \
+  --intermediate ./setup/mpc-setup/output/intermediate \
+  --output ./setup/mpc-setup/output/final \
   --compress
 ```
 
 ```bash
 cargo run --release --features testing-mode --bin dusk_backed_mpc_setup -- \
-  "$QAP_PATH" \
-  ./setup/mpc-setup/output/final \
-  --intermediate-outfolder ./setup/mpc-setup/output/intermediate \
-  --dusk-raw-file ./setup/mpc-setup/output/intermediate/dusk.response
+  --subcircuit-library "$QAP_PATH" \
+  --intermediate ./setup/mpc-setup/output/intermediate \
+  --output ./setup/mpc-setup/output/final
 ```
 
 In `testing-mode` builds:

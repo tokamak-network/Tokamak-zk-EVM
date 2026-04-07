@@ -8,33 +8,29 @@ use std::fs;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Config {
-    /// Final output folder path for the generated setup files
-    #[arg(long, value_name = "OUTFOLDER")]
-    outfolder: String,
+    /// Intermediate ceremony artifact directory to read phase-2 accumulators from
+    #[arg(long, value_name = "PATH")]
+    intermediate: String,
 
-    /// Intermediate ceremony artifact folder to read phase-2 accumulators from
-    #[arg(long, value_name = "INTERMEDIATE_OUTFOLDER")]
-    intermediate_outfolder: Option<String>,
+    /// Final output directory for the generated setup files
+    #[arg(long, value_name = "PATH")]
+    output: String,
 }
-//cargo run --release --bin phase2_gen_files -- --outfolder ./setup/mpc-setup/output
+
 fn main() {
     let mut timer = StepTimer::new("phase2_gen_files");
     let base_path = env::current_dir().unwrap();
     let start = std::time::Instant::now();
     let config = Config::parse();
-    let intermediate_outfolder = config
-        .intermediate_outfolder
-        .as_deref()
-        .unwrap_or(&config.outfolder);
     let contributor_index = prompt_user_input("enter last contributor index (uint > 0) :")
         .parse::<usize>()
         .expect("Please enter a valid number");
 
-    let latest_acc = load_phase2_accumulator(intermediate_outfolder, contributor_index);
+    let latest_acc = load_phase2_accumulator(&config.intermediate, contributor_index);
     timer.log_step("load latest phase-2 accumulator");
 
     let sigma = latest_acc.sigma;
-    let output_dir = base_path.join(&config.outfolder);
+    let output_dir = base_path.join(&config.output);
     fs::create_dir_all(&output_dir).expect("cannot create output directory");
     timer.log_step("prepare output directory");
 
@@ -42,7 +38,7 @@ fn main() {
     println!(
         "{}",
         base_path
-            .join(format!("{}/sigma_preprocess.rkyv", &config.outfolder))
+            .join(format!("{}/sigma_preprocess.rkyv", &config.output))
             .display()
     );
     let sigma_rkyv = SigmaRkyv::from_sigma(&sigma);

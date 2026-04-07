@@ -1,27 +1,42 @@
-use std::{env, process};
-
+use clap::Parser;
 use libs::utils::check_device;
 #[cfg(feature = "testing-mode")]
 use prove::Proof4Test;
 use verify::{Verifier, VerifyInputPaths};
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Config {
+    /// Subcircuit library directory produced by the QAP compiler
+    #[arg(long, value_name = "PATH")]
+    subcircuit_library: String,
 
-    if args.len() != 6 {
-        eprintln!(
-            "Usage: {} <QAP_PATH> <SYNTHESIZER_PATH> <SETUP_PATH> <PREPROCESS_PATH> <PROOF_PATH> ",
-            args[0]
-        );
-        process::exit(1);
-    }
+    /// CRS output directory containing sigma_verify.rkyv
+    #[arg(long, value_name = "PATH")]
+    crs: String,
+
+    /// Synthesizer output directory containing verification inputs
+    #[arg(long, value_name = "PATH")]
+    synthesizer_stat: String,
+
+    /// Preprocess output directory containing preprocess.json
+    #[arg(long, value_name = "PATH")]
+    preprocess: String,
+
+    /// Proof output directory containing proof.json
+    #[arg(long, value_name = "PATH")]
+    proof: String,
+}
+
+fn main() {
+    let config = Config::parse();
 
     let paths = VerifyInputPaths {
-        qap_path: &args[1],
-        synthesizer_path: &args[2],
-        setup_path: &args[3],
-        preprocess_path: &args[4],
-        proof_path: &args[5],
+        qap_path: &config.subcircuit_library,
+        synthesizer_path: &config.synthesizer_stat,
+        setup_path: &config.crs,
+        preprocess_path: &config.preprocess,
+        proof_path: &config.proof,
     };
 
     check_device();

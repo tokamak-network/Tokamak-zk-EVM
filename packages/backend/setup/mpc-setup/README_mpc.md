@@ -91,7 +91,7 @@ cargo run --release --bin phase2_batch_verify -- --outfolder ./setup/mpc-setup/o
 📝 **Generate final output files**
 Run this code once to generate final outputs: 
 ```bash
-cargo run --release --bin phase2_gen_files -- --outfolder ./setup/mpc-setup/output
+cargo run --release --bin phase2_gen_files -- --intermediate ./setup/mpc-setup/output --output ./setup/mpc-setup/final-output
 ```
 When it prompts *Enter the last contributor's index* please type the *index* i of the last *phase2_acc_i.rkyv* file generated in Phase-2.
 The final output files are: `sigma_preprocess.rkyv`, `sigma_verify.rkyv`, and `combined_sigma.rkyv`.
