@@ -77,6 +77,8 @@
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "${workspaceFolder}/setup/mpc-setup/output/native-debug",
+        "--intermediate-outfolder",
+        "${workspaceFolder}/setup/mpc-setup/output/native-debug.intermediate",
         "--phase1-mode",
         "testing",
         "--phase2-mode",
@@ -102,10 +104,12 @@
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "${workspaceFolder}/setup/mpc-setup/output/dusk-debug",
+        "--intermediate-outfolder",
+        "${workspaceFolder}/setup/mpc-setup/output/dusk-debug.intermediate",
         "--phase2-mode",
         "testing",
         "--dusk-raw-file",
-        "${workspaceFolder}/setup/mpc-setup/output/dusk-debug/dusk.response"
+        "${workspaceFolder}/setup/mpc-setup/output/dusk-debug.intermediate/dusk.response"
       ],
       "cwd": "${workspaceFolder}",
       "env": {

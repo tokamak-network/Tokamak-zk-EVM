@@ -11,8 +11,12 @@ struct Config {
     /// QAP compiler library directory
     qap_path: String,
 
-    /// Output folder path for single-contributor MPC setup artifacts
+    /// Final output folder path for trusted-setup-compatible setup artifacts
     outfolder: String,
+
+    /// Intermediate ceremony artifact folder path
+    #[arg(long, value_name = "INTERMEDIATE_OUTFOLDER")]
+    intermediate_outfolder: Option<String>,
 
     /// Optional local path for the Dusk Groth16 raw PoT response file
     #[arg(long, value_name = "DUSK_RAW_FILE")]
@@ -25,18 +29,23 @@ struct Config {
 
 fn main() {
     let config = Config::parse();
+    let intermediate_outfolder = config
+        .intermediate_outfolder
+        .clone()
+        .unwrap_or_else(|| default_intermediate_outfolder(&config.outfolder));
     ensure_directory(&config.outfolder);
+    ensure_directory(&intermediate_outfolder);
     let qap_path = canonicalize_existing_path(&config.qap_path);
 
     let dusk_raw_file = config
         .dusk_raw_file
-        .unwrap_or_else(|| format!("{}/dusk.response", config.outfolder));
+        .unwrap_or_else(|| format!("{}/dusk.response", intermediate_outfolder));
 
     run_mpc_bin(
         "phase2_prepare",
         &[
             "--outfolder".to_string(),
-            config.outfolder.clone(),
+            intermediate_outfolder.clone(),
             "--mode".to_string(),
             config.phase2_mode.clone(),
             "--phase1-source-mode".to_string(),
@@ -52,7 +61,7 @@ fn main() {
         "phase2_next_contributor",
         &[
             "--outfolder".to_string(),
-            config.outfolder.clone(),
+            intermediate_outfolder.clone(),
             "--mode".to_string(),
             config.phase2_mode.clone(),
         ],
@@ -62,7 +71,12 @@ fn main() {
 
     run_mpc_bin(
         "phase2_gen_files",
-        &["--outfolder".to_string(), config.outfolder.clone()],
+        &[
+            "--outfolder".to_string(),
+            config.outfolder.clone(),
+            "--intermediate-outfolder".to_string(),
+            intermediate_outfolder.clone(),
+        ],
         Some("1\n"),
         &qap_path,
     );
@@ -83,6 +97,10 @@ fn canonicalize_existing_path(path: &str) -> PathBuf {
 
 fn ensure_directory(path: &str) {
     fs::create_dir_all(path).expect("cannot create orchestrator output directory");
+}
+
+fn default_intermediate_outfolder(final_outfolder: &str) -> String {
+    format!("{final_outfolder}.intermediate")
 }
 
 fn scripted_input_for_mode(mode: &str, contributor_index: usize) -> Option<&'static str> {

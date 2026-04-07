@@ -12,8 +12,12 @@ struct Config {
     /// QAP compiler library directory
     qap_path: String,
 
-    /// Output folder path for single-contributor MPC setup artifacts
+    /// Final output folder path for trusted-setup-compatible setup artifacts
     outfolder: String,
+
+    /// Intermediate ceremony artifact folder path
+    #[arg(long, value_name = "INTERMEDIATE_OUTFOLDER")]
+    intermediate_outfolder: Option<String>,
 
     /// Whether phase-1 accumulator JSON uses compressed curve-point encoding
     #[arg(long, default_value_t = false)]
@@ -30,7 +34,12 @@ struct Config {
 
 fn main() {
     let config = Config::parse();
+    let intermediate_outfolder = config
+        .intermediate_outfolder
+        .clone()
+        .unwrap_or_else(|| default_intermediate_outfolder(&config.outfolder));
     ensure_directory(&config.outfolder);
+    ensure_directory(&intermediate_outfolder);
     let qap_path = canonicalize_existing_path(&config.qap_path);
 
     let s_max = load_s_max(&qap_path);
@@ -45,7 +54,7 @@ fn main() {
             "--setup-params-file".to_string(),
             "setupParams.json".to_string(),
             "--outfolder".to_string(),
-            config.outfolder.clone(),
+            intermediate_outfolder.clone(),
             "--compress".to_string(),
             config.compress.to_string(),
         ],
@@ -57,7 +66,7 @@ fn main() {
         "phase1_next_contributor",
         &[
             "--outfolder".to_string(),
-            config.outfolder.clone(),
+            intermediate_outfolder.clone(),
             "--mode".to_string(),
             config.phase1_mode.clone(),
         ],
@@ -69,7 +78,7 @@ fn main() {
         "phase2_prepare",
         &[
             "--outfolder".to_string(),
-            config.outfolder.clone(),
+            intermediate_outfolder.clone(),
             "--mode".to_string(),
             config.phase2_mode.clone(),
             "--phase1-source-mode".to_string(),
@@ -83,7 +92,7 @@ fn main() {
         "phase2_next_contributor",
         &[
             "--outfolder".to_string(),
-            config.outfolder.clone(),
+            intermediate_outfolder.clone(),
             "--mode".to_string(),
             config.phase2_mode.clone(),
         ],
@@ -93,7 +102,12 @@ fn main() {
 
     run_mpc_bin(
         "phase2_gen_files",
-        &["--outfolder".to_string(), config.outfolder.clone()],
+        &[
+            "--outfolder".to_string(),
+            config.outfolder.clone(),
+            "--intermediate-outfolder".to_string(),
+            intermediate_outfolder.clone(),
+        ],
         Some("1\n"),
         &qap_path,
     );
@@ -114,11 +128,17 @@ fn canonicalize_existing_path(path: &str) -> PathBuf {
 
 fn load_s_max(qap_path: &Path) -> usize {
     let setup_params_path = qap_path.join("setupParams.json");
-    SetupParams::read_from_json(setup_params_path).expect("cannot read setup parameters").s_max
+    SetupParams::read_from_json(setup_params_path)
+        .expect("cannot read setup parameters")
+        .s_max
 }
 
 fn ensure_directory(path: &str) {
     fs::create_dir_all(path).expect("cannot create orchestrator output directory");
+}
+
+fn default_intermediate_outfolder(final_outfolder: &str) -> String {
+    format!("{final_outfolder}.intermediate")
 }
 
 fn scripted_input_for_mode(mode: &str, contributor_index: usize) -> Option<&'static str> {

@@ -126,14 +126,52 @@ cargo run --release --bin phase2_batch_verify -- \
 
 ```bash
 cargo run --release --bin phase2_gen_files -- \
-  --outfolder ./setup/mpc-setup/output
+  --outfolder ./setup/mpc-setup/output/final \
+  --intermediate-outfolder ./setup/mpc-setup/output/intermediate
 ```
 
 The generated outputs include:
 
-- `sigma_preprocess.json`
-- `sigma_verify.json`
-- `combined_sigma.json`
+- `combined_sigma.rkyv`
+- `sigma_preprocess.rkyv`
+- `sigma_verify.rkyv`
+
+If `--intermediate-outfolder` is omitted, `phase2_gen_files` reads the latest phase-2
+accumulator from `--outfolder` for backward compatibility.
+
+## Single-Contributor Wrappers
+
+The orchestrator bins write intermediate ceremony files and final setup files to
+different folders.
+
+Native mode:
+
+```bash
+cargo run --release --bin native_mpc_setup -- \
+  "$QAP_PATH" \
+  ./setup/mpc-setup/output/final \
+  --intermediate-outfolder ./setup/mpc-setup/output/intermediate \
+  --phase1-mode random \
+  --phase2-mode random
+```
+
+Dusk-backed mode:
+
+```bash
+cargo run --release --bin dusk_backed_mpc_setup -- \
+  "$QAP_PATH" \
+  ./setup/mpc-setup/output/final \
+  --intermediate-outfolder ./setup/mpc-setup/output/intermediate \
+  --dusk-raw-file ./setup/mpc-setup/output/intermediate/dusk.response \
+  --phase2-mode random
+```
+
+In both wrappers:
+
+- the final output folder contains only the same three files written by `trusted-setup`
+- the intermediate folder contains `phase1_acc_*`, `phase1_proof_*`, `phase2_acc_*`,
+  `phase2_proof_*`, contributor info, and any downloaded Dusk raw response file
+- if `--intermediate-outfolder` is omitted, the wrappers use `<final_outfolder>.intermediate`
 
 ## Phase 2: Dusk-Backed Source Mode
 
