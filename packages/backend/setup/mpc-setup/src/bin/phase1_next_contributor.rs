@@ -146,7 +146,7 @@ impl ContributorSession {
             g1,
             g2,
             latest_acc.alpha.len(),
-            latest_acc.x.len(),
+            latest_acc.x.len_g1(),
             latest_acc.y.len_g1(),
             latest_acc.compress,
         );

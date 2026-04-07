@@ -31,7 +31,7 @@ pub struct Accumulator {
     pub g1: G1serde,
     pub g2: G2serde,
     pub alpha: Vec<PairSerde>,
-    pub x: Vec<PairSerde>,
+    pub x: SerialSerde,
     pub y: SerialSerde,
     pub alpha_x: Vec<G1serde>,
     pub alpha_y: Vec<G1serde>,
@@ -69,14 +69,9 @@ impl Serialize for Accumulator {
                 .map(|p| p.serialize_with_compress(compress))
                 .collect::<Vec<_>>(),
         )?;
-        state.serialize_field(
-            "x",
-            &self
-                .x
-                .iter()
-                .map(|p| p.serialize_with_compress(compress))
-                .collect::<Vec<_>>(),
-        )?;
+        let (x_g1, x_g2) = self.x.serialize_with_compress(compress);
+        state.serialize_field("x_g1", &x_g1)?;
+        state.serialize_field("x_g2", &x_g2)?;
 
         let (y_g1, y_g2) = self.y.serialize_with_compress(compress);
         state.serialize_field("y_g1", &y_g1)?;
@@ -102,7 +97,8 @@ impl<'de> Deserialize<'de> for Accumulator {
             g2: String,
             compress: String,
             alpha: Vec<(String, String)>,
-            x: Vec<(String, String)>,
+            x_g1: Vec<String>,
+            x_g2: String,
             y_g1: Vec<String>,
             y_g2: String,
             alpha_x: Vec<String>,
@@ -117,7 +113,8 @@ impl<'de> Deserialize<'de> for Accumulator {
             g2,
             compress,
             alpha,
-            x,
+            x_g1,
+            x_g2,
             y_g1,
             y_g2,
             alpha_x,
@@ -146,9 +143,7 @@ impl<'de> Deserialize<'de> for Accumulator {
                 .iter()
                 .map(|(a, b)| PairSerde::deserialize_with_compress(a, b, compress_mode))
                 .collect(),
-            x: x.iter()
-                .map(|(a, b)| PairSerde::deserialize_with_compress(a, b, compress_mode))
-                .collect(),
+            x: SerialSerde::deserialize_with_compress(x_g1, x_g2, compress_mode),
             y: SerialSerde::deserialize_with_compress(y_g1, y_g2, compress_mode),
             alpha_x: parse_vec(alpha_x),
             alpha_y: parse_vec(alpha_y),
@@ -182,7 +177,7 @@ pub struct AccumulatorRkyv {
     pub g1: G1SerdeRkyv,
     pub g2: G2SerdeRkyv,
     pub alpha: Vec<PairSerdeRkyv>,
-    pub x: Vec<PairSerdeRkyv>,
+    pub x: SerialSerdeRkyv,
     pub y: SerialSerdeRkyv,
     pub alpha_x: Vec<G1SerdeRkyv>,
     pub alpha_y: Vec<G1SerdeRkyv>,
@@ -220,7 +215,7 @@ impl AccumulatorRkyv {
                 .iter()
                 .map(PairSerdeRkyv::from_pair_serde)
                 .collect(),
-            x: value.x.iter().map(PairSerdeRkyv::from_pair_serde).collect(),
+            x: SerialSerdeRkyv::from_serial_serde(&value.x),
             y: SerialSerdeRkyv::from_serial_serde(&value.y),
             alpha_x: value
                 .alpha_x
@@ -271,8 +266,8 @@ impl Accumulator {
 
     pub fn get_boxed_xypower(&self) -> Box<[G1serde]> {
         let y_len = self.y.len_g1();
-        let mut out = vec![G1serde::zero(); self.x.len() * y_len];
-        for i in 0..self.x.len() {
+        let mut out = vec![G1serde::zero(); self.x.len_g1() * y_len];
+        for i in 0..self.x.len_g1() {
             for j in 0..y_len {
                 out[i * y_len + j] = self.get_xy_g1(i, j);
             }
@@ -296,7 +291,7 @@ impl Accumulator {
             // [alpha^1,alpha^2,...,alpha^power_alpha_length]
             alpha: vec![PairSerde::new(g1, g2); power_alpha_length],
             // [x^1,x^2,...,x^power_x_length]
-            x: vec![PairSerde::new(g1, g2); power_x_length],
+            x: SerialSerde::new(g1, g2, power_x_length),
             // Phase 1 is x-only after the refactor, so the legacy y-shaped fields
             // are kept empty for serialization compatibility.
             y: SerialSerde::new(g1, g2, 0),
@@ -323,8 +318,11 @@ impl Accumulator {
         if exp == 0 {
             return icicle_g1_generator();
         }
-        let result = self.x.get(exp - 1).unwrap();
-        result.g1
+        self.x.get_g1(exp - 1)
+    }
+    pub fn get_x_g2(&self, exp: usize) -> G2serde {
+        assert_eq!(exp, 1, "only x^1 in G2 is stored in phase-1");
+        self.x.get_g2()
     }
     //y^exp * G1
     pub fn get_y_g1(&self, exp: usize) -> G1serde {
@@ -361,7 +359,7 @@ impl Accumulator {
     //alpha^exp_alpha * x^exp_x * G1
     pub fn get_alphax_g1(&self, exp_alpha: usize, exp_x: usize) -> G1serde {
         assert_eq!(exp_alpha <= 4, true);
-        assert_eq!(exp_x <= self.x.len(), true);
+        assert_eq!(exp_x <= self.x.len_g1(), true);
         if exp_alpha == 0 && exp_x == 0 {
             return icicle_g1_generator();
         } else if exp_alpha == 0 {
@@ -370,7 +368,7 @@ impl Accumulator {
             return self.get_alpha_g1(exp_alpha);
         }
         //TODO check if this is correct
-        let idx = (exp_alpha - 1) * self.x.len() + exp_x - 1;
+        let idx = (exp_alpha - 1) * self.x.len_g1() + exp_x - 1;
         //   println!("alpha: {} x: {} idx: {} len_alpha_x {}", exp_alpha, exp_x, idx, self.alpha_x.len());
         *self.alpha_x.get(idx).unwrap()
     }
@@ -378,7 +376,7 @@ impl Accumulator {
     //x^exp_x * y^exp_y * G1
     pub fn get_xy_g1(&self, exp_x: usize, exp_y: usize) -> G1serde {
         assert_eq!(exp_y <= self.y.len_g1(), true);
-        assert_eq!(exp_x <= self.x.len(), true);
+        assert_eq!(exp_x <= self.x.len_g1(), true);
         if exp_x == 0 && exp_y == 0 {
             return icicle_g1_generator();
         } else if exp_x == 0 {
@@ -451,7 +449,7 @@ impl Accumulator {
     //alpha^exp_alpha * x^exp_x * y^exp_y * G1
     pub fn get_alphaxy_g1(&self, exp_alpha: usize, exp_x: usize, exp_y: usize) -> G1serde {
         assert_eq!(exp_y <= self.y.len_g1(), true);
-        assert_eq!(exp_x <= self.x.len(), true);
+        assert_eq!(exp_x <= self.x.len_g1(), true);
         if exp_alpha == 0 && exp_x == 0 && exp_y == 0 {
             return icicle_g1_generator();
         } else if exp_alpha == 0 {
@@ -462,7 +460,7 @@ impl Accumulator {
             return self.get_alphax_g1(exp_alpha, exp_x);
         }
         //TODO check if this is correct
-        let idx = (exp_alpha - 1) * (self.x.len() * self.y.len_g1())
+        let idx = (exp_alpha - 1) * (self.x.len_g1() * self.y.len_g1())
             + (exp_x - 1) * self.y.len_g1()
             + exp_y
             - 1;
@@ -545,7 +543,7 @@ mod tests {
             g1,
             g2,
             alpha: vec![PairSerde::new(g1, g2)],
-            x: vec![PairSerde::new(g1, g2)],
+            x: SerialSerde::new(g1, g2, 1),
             y: SerialSerde::new(g1, g2, 2),
             alpha_x: vec![g1; 2],
             alpha_y: vec![g1; 2],

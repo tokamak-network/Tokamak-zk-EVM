@@ -645,6 +645,38 @@ pub fn verify2i(
         .all(|i| consistent(&[cur_x[i - 1].g1, cur_x[i].g1], &[], &[*g2, cur_x[0].g2]))
 }
 
+pub fn verify_alpha_x_x_only(
+    g2: &G2serde,
+    cur_alphax: &[G1serde],
+    cur_alpha: &[PairSerde],
+    cur_x: &SerialSerde,
+) -> bool {
+    let len_x = cur_x.len_g1();
+    cur_alpha.par_iter().enumerate().all(|(alpha_idx, alpha)| {
+        if len_x == 0 {
+            return true;
+        }
+        let row_offset = alpha_idx * len_x;
+        if !consistent(
+            &[alpha.g1, cur_alphax[row_offset]],
+            &[],
+            &[*g2, cur_x.get_g2()],
+        ) {
+            return false;
+        }
+        (1..len_x).into_par_iter().all(|x_idx| {
+            consistent(
+                &[
+                    cur_alphax[row_offset + x_idx - 1],
+                    cur_alphax[row_offset + x_idx],
+                ],
+                &[],
+                &[*g2, cur_x.get_g2()],
+            )
+        })
+    })
+}
+
 fn compute2_temp(
     rng: &mut RandomGenerator,
     g1: &G1serde,
@@ -1079,13 +1111,12 @@ pub fn compute_phase1_x_only(
     g1: &G1serde,
     prev_alphax: &[G1serde],
     prev_alpha: &[PairSerde],
-    prev_x: &[PairSerde],
+    prev_x: &SerialSerde,
     v: &[u8; 64],
-) -> (Vec<G1serde>, Vec<PairSerde>, Vec<PairSerde>, Phase1Proof) {
+) -> (Vec<G1serde>, Vec<PairSerde>, SerialSerde, Phase1Proof) {
     let prev_alpha_vec = prev_alpha.to_vec();
-    let prev_x_vec = prev_x.to_vec();
     let (cur_alpha, proof2_alpha, alpha_powers) = compute2_tempi(rng, g1, &prev_alpha_vec, v);
-    let (cur_x, proof2_x, x_powers) = compute2_tempi(rng, g1, &prev_x_vec, v);
+    let (cur_x, proof2_x, x_powers) = compute2_temp(rng, g1, prev_x, v);
 
     let alphax_powers = vector_product(&alpha_powers, &x_powers);
     let cur_alphax: Vec<G1serde> = prev_alphax
@@ -1113,35 +1144,22 @@ pub fn verify_phase1_x_only(
     g1: &G1serde,
     g2: &G2serde,
     prev_alpha: &[PairSerde],
-    prev_x: &[PairSerde],
+    prev_x: &SerialSerde,
     cur_alphax: &[G1serde],
     cur_alpha: &[PairSerde],
-    cur_x: &[PairSerde],
+    cur_x: &SerialSerde,
     proof: &Phase1Proof,
 ) -> bool {
     let prev_alpha_vec = prev_alpha.to_vec();
-    let prev_x_vec = prev_x.to_vec();
     let cur_alpha_vec = cur_alpha.to_vec();
-    let cur_x_vec = cur_x.to_vec();
-    let cur_alphax_vec = cur_alphax.to_vec();
 
     if !verify2i(g1, g2, &prev_alpha_vec, &cur_alpha_vec, &proof.proof2_alpha) {
         return false;
     }
-    if !verify2i(g1, g2, &prev_x_vec, &cur_x_vec, &proof.proof2_x) {
+    if !verify2(g1, g2, prev_x, cur_x, &proof.proof2_x) {
         return false;
     }
-    verify3i(
-        g1,
-        g2,
-        &prev_alpha_vec,
-        &prev_x_vec,
-        &cur_alphax_vec,
-        &cur_alpha_vec,
-        &cur_x_vec,
-        &proof.proof2_alpha,
-        &proof.proof2_x,
-    )
+    verify_alpha_x_x_only(g2, cur_alphax, &cur_alpha_vec, cur_x)
 }
 
 //type 5: verify5

@@ -130,18 +130,18 @@ fn archived_x_g1_range(
     exp_max: usize,
 ) -> Vec<G1Affine> {
     if exp_min > 0 {
-        return archived.x[exp_min - 1..exp_max]
+        return archived.x.g1[exp_min - 1..exp_max]
             .iter()
-            .map(|value| value.g1.to_g1_affine())
+            .map(|value| value.to_g1_affine())
             .collect();
     }
 
     let mut out = Vec::with_capacity(exp_max + 1);
     out.push(icicle_g1_generator().0);
     out.extend(
-        archived.x[..exp_max]
+        archived.x.g1[..exp_max]
             .iter()
-            .map(|value| value.g1.to_g1_affine()),
+            .map(|value| value.to_g1_affine()),
     );
     out
 }
@@ -174,7 +174,7 @@ fn fill_archived_alphaxy_g1_chunk(
     out: &mut Vec<G1Affine>,
 ) {
     let y_len = archived.y.g1.len();
-    let alpha_xy_stride = archived.x.len() * y_len;
+    let alpha_xy_stride = archived.x.g1.len() * y_len;
     let expected_len = exp_x_len * exp_y_max;
     if out.len() != expected_len {
         out.resize(expected_len, G1Affine::zero());
@@ -196,8 +196,8 @@ fn fill_archived_alphaxy_g1_chunk(
             }
 
             if !row.is_empty() {
-                row[0] =
-                    archived.alpha_x[(exp_alpha - 1) * archived.x.len() + exp_x - 1].to_g1_affine();
+                row[0] = archived.alpha_x[(exp_alpha - 1) * archived.x.g1.len() + exp_x - 1]
+                    .to_g1_affine();
             }
             let xy_start = (exp_alpha - 1) * alpha_xy_stride + (exp_x - 1) * y_len;
             let xy_take = exp_y_max.saturating_sub(1).min(y_len);
@@ -225,7 +225,7 @@ fn fill_archived_alphaxy_g1_chunk(
         }
 
         if !row.is_empty() {
-            row[0] = archived.x[exp_x - 1].g1.to_g1_affine();
+            row[0] = archived.x.g1[exp_x - 1].to_g1_affine();
         }
         let xy_start = (exp_x - 1) * y_len;
         let xy_take = exp_y_max.saturating_sub(1).min(y_len);
@@ -266,9 +266,10 @@ impl Phase1SrsSource for AccumulatorSource {
     }
 
     fn x_g2(&self, exp_x: usize) -> G2serde {
+        assert_eq!(exp_x, 1, "only x^1 in G2 is stored in phase-1");
         match &self.inner {
-            AccumulatorSourceInner::Owned(acc) => acc.x[exp_x - 1].g2,
-            AccumulatorSourceInner::Mapped(acc) => acc.accumulator().x[exp_x - 1].g2.to_g2serde(),
+            AccumulatorSourceInner::Owned(acc) => acc.get_x_g2(exp_x),
+            AccumulatorSourceInner::Mapped(acc) => acc.accumulator().x.g2.to_g2serde(),
         }
     }
 
@@ -345,19 +346,19 @@ impl Phase1SrsSource for AccumulatorSource {
             AccumulatorSourceInner::Mapped(acc) => {
                 let archived = acc.accumulator();
                 assert!(exp_alpha <= 4);
-                assert!(exp_x <= archived.x.len());
+                assert!(exp_x <= archived.x.g1.len());
                 if exp_alpha == 0 && exp_x == 0 {
                     icicle_g1_generator()
                 } else if exp_alpha == 0 {
                     if exp_x == 0 {
                         icicle_g1_generator()
                     } else {
-                        archived.x[exp_x - 1].g1.to_g1serde()
+                        archived.x.g1[exp_x - 1].to_g1serde()
                     }
                 } else if exp_x == 0 {
                     archived.alpha[exp_alpha - 1].g1.to_g1serde()
                 } else {
-                    archived.alpha_x[(exp_alpha - 1) * archived.x.len() + exp_x - 1].to_g1serde()
+                    archived.alpha_x[(exp_alpha - 1) * archived.x.g1.len() + exp_x - 1].to_g1serde()
                 }
             }
         }
@@ -394,13 +395,13 @@ impl Phase1SrsSource for AccumulatorSource {
                 let archived = acc.accumulator();
                 let y_len = archived.y.g1.len();
                 assert!(exp_y <= y_len);
-                assert!(exp_x <= archived.x.len());
+                assert!(exp_x <= archived.x.g1.len());
                 if exp_x == 0 && exp_y == 0 {
                     icicle_g1_generator()
                 } else if exp_x == 0 {
                     archived.y.g1[exp_y - 1].to_g1serde()
                 } else if exp_y == 0 {
-                    archived.x[exp_x - 1].g1.to_g1serde()
+                    archived.x.g1[exp_x - 1].to_g1serde()
                 } else {
                     archived.xy[(exp_x - 1) * y_len + exp_y - 1].to_g1serde()
                 }
