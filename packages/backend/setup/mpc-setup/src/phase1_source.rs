@@ -5,10 +5,15 @@ use ark_serialize::Compress;
 use icicle_bls12_381::curve::{G1Affine, G2Affine};
 use libs::group_structures::{G1serde, G2serde};
 use memmap::{Mmap, MmapOptions};
+use reqwest::blocking::Client;
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, USER_AGENT};
+use serde::Deserialize;
 use std::env;
 use std::fs::File;
 use std::io;
+use std::io::Write;
 use std::path::Path;
+use tempfile::NamedTempFile;
 
 pub trait Phase1SrsSource {
     fn g1(&self) -> G1serde;
@@ -132,6 +137,26 @@ const DUSK_RESPONSE_BYTES: usize = DUSK_HASH_BYTES
     + (DUSK_TAU_POWERS_LENGTH * DUSK_G1_COMPRESSED_BYTES)
     + DUSK_G2_COMPRESSED_BYTES
     + DUSK_PUBLIC_KEY_BYTES;
+const DUSK_GITHUB_CONTRIBUTIONS_API: &str =
+    "https://api.github.com/repos/dusk-network/trusted-setup/contents/contributions";
+const DUSK_TRUSTED_SETUP_REPO: &str = "dusk-network/trusted-setup";
+const DUSK_GITHUB_RAW_PREFIX: &str =
+    "https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions";
+const DUSK_DRIVE_ID_PREFIX: &str = "https://drive.google.com/file/d/";
+const DUSK_KNOWN_CONTRIBUTION_FALLBACKS: &[&str] = &["0015"];
+
+#[derive(Deserialize)]
+struct GithubContentEntry {
+    name: String,
+    #[serde(rename = "type")]
+    entry_type: String,
+}
+
+struct DuskResponseDownload {
+    contribution: String,
+    readme_url: String,
+    drive_file_id: String,
+}
 
 #[derive(Clone, Copy)]
 enum DuskRawEncoding {
@@ -149,6 +174,7 @@ pub struct DuskGroth16Source {
 
 impl DuskGroth16Source {
     pub fn read_from_file(path: &str, tokamak_n: usize) -> io::Result<Self> {
+        ensure_dusk_raw_response_available(Path::new(path))?;
         let bytes = std::fs::read(path)?;
         let encoding = match bytes.len() {
             DUSK_CHALLENGE_BYTES => DuskRawEncoding::Uncompressed,
@@ -251,6 +277,166 @@ impl DuskGroth16Source {
     fn tau_g2(&self, exp: usize) -> G2serde {
         G2serde(self.tau_powers_g2[exp])
     }
+}
+
+fn dusk_http_client() -> io::Result<Client> {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        USER_AGENT,
+        HeaderValue::from_static("tokamak-zkevm-mpc-setup/1.0"),
+    );
+    headers.insert(
+        ACCEPT,
+        HeaderValue::from_static(
+            "application/vnd.github+json, text/plain, application/octet-stream",
+        ),
+    );
+    Client::builder()
+        .default_headers(headers)
+        .build()
+        .map_err(|err| io::Error::other(format!("failed to build HTTP client: {err}")))
+}
+
+fn readme_url_for_contribution(name: &str) -> String {
+    format!("{DUSK_GITHUB_RAW_PREFIX}/{name}/README.md")
+}
+
+fn parse_drive_file_id(readme: &str) -> Option<String> {
+    let start = readme.find(DUSK_DRIVE_ID_PREFIX)?;
+    let suffix = &readme[start + DUSK_DRIVE_ID_PREFIX.len()..];
+    let end = suffix.find('/')?;
+    Some(suffix[..end].to_string())
+}
+
+fn candidate_contributions(client: &Client) -> io::Result<Vec<String>> {
+    let response = client
+        .get(DUSK_GITHUB_CONTRIBUTIONS_API)
+        .send()
+        .map_err(|err| {
+            io::Error::other(format!("failed to fetch Dusk contribution list: {err}"))
+        })?;
+    if !response.status().is_success() {
+        return Err(io::Error::other(format!(
+            "failed to fetch Dusk contribution list: HTTP {}",
+            response.status()
+        )));
+    }
+    let entries: Vec<GithubContentEntry> = response.json().map_err(|err| {
+        io::Error::other(format!("failed to parse Dusk contribution list: {err}"))
+    })?;
+    let mut names = entries
+        .into_iter()
+        .filter(|entry| entry.entry_type == "dir" && entry.name.chars().all(|c| c.is_ascii_digit()))
+        .map(|entry| entry.name)
+        .collect::<Vec<_>>();
+    names.sort_unstable_by(|lhs, rhs| rhs.cmp(lhs));
+    Ok(names)
+}
+
+fn fetch_readme(client: &Client, readme_url: &str) -> io::Result<String> {
+    let response = client
+        .get(readme_url)
+        .send()
+        .map_err(|err| io::Error::other(format!("failed to fetch {readme_url}: {err}")))?;
+    if !response.status().is_success() {
+        return Err(io::Error::other(format!(
+            "failed to fetch {readme_url}: HTTP {}",
+            response.status()
+        )));
+    }
+    response
+        .text()
+        .map_err(|err| io::Error::other(format!("failed to decode {readme_url}: {err}")))
+}
+
+fn discover_latest_dusk_response(client: &Client) -> io::Result<DuskResponseDownload> {
+    let candidates = candidate_contributions(client)
+        .ok()
+        .filter(|names| !names.is_empty())
+        .unwrap_or_else(|| {
+            DUSK_KNOWN_CONTRIBUTION_FALLBACKS
+                .iter()
+                .map(|name| (*name).to_string())
+                .collect()
+        });
+
+    for contribution in candidates {
+        let readme_url = readme_url_for_contribution(&contribution);
+        let Ok(readme) = fetch_readme(client, &readme_url) else {
+            continue;
+        };
+        let Some(drive_file_id) = parse_drive_file_id(&readme) else {
+            continue;
+        };
+        return Ok(DuskResponseDownload {
+            contribution,
+            readme_url,
+            drive_file_id,
+        });
+    }
+
+    Err(io::Error::new(
+        io::ErrorKind::NotFound,
+        format!(
+            "failed to discover a downloadable Dusk Groth16 response from {DUSK_TRUSTED_SETUP_REPO}"
+        ),
+    ))
+}
+
+fn drive_direct_download_url(file_id: &str) -> String {
+    format!("https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm=t")
+}
+
+fn download_dusk_response(path: &Path) -> io::Result<()> {
+    let client = dusk_http_client()?;
+    let download = discover_latest_dusk_response(&client)?;
+    let download_url = drive_direct_download_url(&download.drive_file_id);
+    println!(
+        "Downloading latest Dusk Groth16 response contribution {} from {}",
+        download.contribution, download.readme_url
+    );
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    let temp_dir = path
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| Path::new(".").to_path_buf());
+    let mut temp_file = NamedTempFile::new_in(temp_dir)?;
+
+    let mut response = client
+        .get(&download_url)
+        .send()
+        .map_err(|err| io::Error::other(format!("failed to download Dusk response: {err}")))?;
+    if !response.status().is_success() {
+        return Err(io::Error::other(format!(
+            "failed to download Dusk response: HTTP {}",
+            response.status()
+        )));
+    }
+
+    io::copy(&mut response, &mut temp_file)
+        .map_err(|err| io::Error::other(format!("failed to stream Dusk response: {err}")))?;
+    temp_file
+        .flush()
+        .map_err(|err| io::Error::other(format!("failed to flush Dusk response: {err}")))?;
+    temp_file
+        .persist(path)
+        .map_err(|err| io::Error::other(format!("failed to persist Dusk response: {err}")))?;
+    Ok(())
+}
+
+fn ensure_dusk_raw_response_available(path: &Path) -> io::Result<()> {
+    if path.exists() {
+        return Ok(());
+    }
+    println!(
+        "Dusk raw response file {} is missing locally; downloading it from the web.",
+        path.display()
+    );
+    download_dusk_response(path)
 }
 
 pub enum Phase1Source {
