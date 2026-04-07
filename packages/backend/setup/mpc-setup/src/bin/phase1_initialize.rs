@@ -18,6 +18,7 @@ use std::env;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::Mul;
+use std::path::PathBuf;
 use std::time::Instant;
 
 pub mod drive;
@@ -85,7 +86,9 @@ cargo run --release --bin phase1_initialize -- --s-max 512 --mode testing --setu
 async fn main() {
     let mut timer = StepTimer::new("phase1_initialize");
     let base_path = env::current_dir().unwrap();
-    let qap_path = base_path.join(QAP_COMPILER_PATH_PREFIX);
+    let qap_path = env::var("TOKAMAK_QAP_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| base_path.join(QAP_COMPILER_PATH_PREFIX));
 
     let config = Config::parse();
     let (contributor_name, location) = if matches!(config.mode, Mode::Random) {

@@ -580,7 +580,9 @@ fn process_prepare(
 ) -> SigmaV2 {
     let mut timer = StepTimer::new("phase2_prepare::process_prepare");
     let base_path = env::current_dir().unwrap();
-    let qap_path = base_path.join(QAP_COMPILER_PATH_PREFIX);
+    let qap_path = env::var("TOKAMAK_QAP_PATH")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| base_path.join(QAP_COMPILER_PATH_PREFIX));
 
     let setup_file_name = "setupParams.json";
     let setup_params = SetupParams::read_from_json(qap_path.join(&setup_file_name))
