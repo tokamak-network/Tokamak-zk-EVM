@@ -1,8 +1,7 @@
 use crate::contributor::{get_device_info, ContributorInfo};
 use crate::sigma::{AaccExt, SigmaV2, HASH_BYTES_LEN};
-use crate::testing_mode_enabled;
 use crate::utils::{
-    hash_sigma, initialize_random_generator, pok, prompt_user_input, Mode, Phase2Proof,
+    hash_sigma, initialize_random_generator_with_seed_input, pok, Mode, Phase2Proof,
     RandomGenerator, StepTimer,
 };
 use chrono::Local;
@@ -24,6 +23,9 @@ pub struct Phase2NextContributorConfig {
     pub outfolder: String,
     pub beacon_mode: bool,
     pub contributor_index: usize,
+    pub contributor_name: String,
+    pub location: String,
+    pub random_seed_input: Option<String>,
 }
 #[derive(Error, Debug)]
 pub enum VerificationError {
@@ -45,15 +47,12 @@ pub enum ContributorError {
 }
 pub fn run(config: &Phase2NextContributorConfig) {
     let mut timer = StepTimer::new("phase2_next_contributor");
-    let mut name = String::new();
-    let mut location = String::new();
-    if !testing_mode_enabled() && !config.beacon_mode {
-        name = prompt_user_input("Enter your name :");
-        location = prompt_user_input("Enter location :");
-    }
+    let name = config.contributor_name.clone();
+    let location = config.location.clone();
     let start = Instant::now();
     let mode = ceremony_mode(config.beacon_mode);
-    let mut rng = initialize_random_generator(&mode);
+    let mut rng =
+        initialize_random_generator_with_seed_input(&mode, config.random_seed_input.as_deref());
     timer.log_step("collect contributor metadata and initialize randomness");
 
     let latest_acc = load_phase2_accumulator(&config.outfolder, config.contributor_index - 1);

@@ -49,6 +49,16 @@ cargo run --release --bin native_mpc_setup -- \
 Use `--beacon-mode` to switch the normal build from random sampling to deterministic
 seed-based beacon mode.
 
+Optional wrapper-only inputs:
+
+- `--contributor-name`
+- `--location`
+- `--blockhash`
+- `--seed-input`
+
+The wrappers are non-interactive. If these values are omitted, the wrapper does not prompt
+on stdin.
+
 ## Dusk-Backed Mode
 
 ```bash
@@ -57,6 +67,12 @@ cargo run --release --bin dusk_backed_mpc_setup -- \
   --intermediate ./setup/mpc-setup/output/dusk.intermediate \
   --output ./setup/mpc-setup/output/dusk.final
 ```
+
+Optional wrapper-only inputs:
+
+- `--contributor-name`
+- `--location`
+- `--seed-input`
 
 In dusk-backed mode:
 

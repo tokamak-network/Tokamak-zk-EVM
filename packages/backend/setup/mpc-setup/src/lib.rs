@@ -48,8 +48,7 @@ pub mod phase1_source;
 pub mod sigma;
 
 pub use flows::{
-    run_dusk_backed_mpc_setup, run_native_mpc_setup, DuskBackedMpcSetupConfig,
-    NativeMpcSetupConfig,
+    run_dusk_backed_mpc_setup, run_native_mpc_setup, DuskBackedMpcSetupConfig, NativeMpcSetupConfig,
 };
 
 pub struct MsmWorkspace {

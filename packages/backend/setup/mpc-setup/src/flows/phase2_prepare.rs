@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 use crate::phase1_source::{AccumulatorSource, DuskGroth16Source, Phase1Source, Phase1SrsSource};
 use crate::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
 use crate::utils::{
-    initialize_random_generator, load_gpu_if_possible, Mode, RandomGenerator, StepTimer,
+    initialize_random_generator_with_seed_input, load_gpu_if_possible, Mode, RandomGenerator,
+    StepTimer,
 };
 use crate::{ensure_testing_mode, public_wire_segments, MsmWorkspace, NttWorkspace};
 use icicle_bls12_381::curve::{G1Affine, ScalarField};
@@ -34,6 +35,7 @@ pub struct Phase2PrepareConfig {
     pub phase1_source_mode: Phase1SourceMode,
     pub dusk_raw_file: Option<String>,
     pub y_hex: Option<String>,
+    pub random_seed_input: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -257,7 +259,11 @@ fn sample_phase2_y(
     y_hex: Option<&str>,
     total_part: usize,
     s_max: usize,
+    random_seed_input: Option<&str>,
 ) -> ScalarField {
+    let mut rng = (!crate::testing_mode_enabled() && y_hex.is_none())
+        .then(|| initialize_random_generator_with_seed_input(mode, random_seed_input));
+
     let mut y = if let Some(hex_value) = y_hex {
         parse_scalar_hex(hex_value)
     } else {
@@ -267,8 +273,9 @@ fn sample_phase2_y(
         if crate::testing_mode_enabled() {
             ScalarField::from_u32(5)
         } else {
-            let mut rng: RandomGenerator = initialize_random_generator(mode);
-            rng.next_random()
+            rng.as_mut()
+                .expect("phase-2 y sampling must initialize a random generator")
+                .next_random()
         }
     };
 
@@ -279,8 +286,9 @@ fn sample_phase2_y(
         y = if crate::testing_mode_enabled() {
             ScalarField::from_u32(7)
         } else {
-            let mut rng: RandomGenerator = initialize_random_generator(mode);
-            rng.next_random()
+            rng.as_mut()
+                .expect("phase-2 y sampling must initialize a random generator")
+                .next_random()
         };
     }
     y
@@ -547,7 +555,13 @@ fn process_prepare(config: &Phase2PrepareConfig, _is_gpu_enabled: bool) -> Sigma
     let subcircuit_infos =
         SubcircuitInfo::read_box_from_json(qap_path.join(&subcircuit_file_name)).unwrap();
 
-    let phase2_y = sample_phase2_y(&mode, config.y_hex.as_deref(), total_part, s_max);
+    let phase2_y = sample_phase2_y(
+        &mode,
+        config.y_hex.as_deref(),
+        total_part,
+        s_max,
+        config.random_seed_input.as_deref(),
+    );
     let mut l_evaled_vec = vec![ScalarField::zero(); s_max].into_boxed_slice();
     gen_evaled_lagrange_bases(&phase2_y, s_max, &mut l_evaled_vec);
 

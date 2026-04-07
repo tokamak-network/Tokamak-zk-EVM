@@ -3,8 +3,7 @@ use crate::contributor::{get_device_info, ContributorInfo};
 use crate::sigma::AaccExt;
 use crate::testing_mode_enabled;
 use crate::utils::{
-    initialize_random_generator, load_gpu_if_possible, prompt_user_input, Mode, Phase1Proof,
-    StepTimer,
+    initialize_random_generator_with_seed_input, load_gpu_if_possible, Mode, Phase1Proof, StepTimer,
 };
 use chrono::Local;
 use std::env;
@@ -24,6 +23,9 @@ pub struct Phase1NextContributorConfig {
     pub outfolder: String,
     pub beacon_mode: bool,
     pub contributor_index: u32,
+    pub contributor_name: String,
+    pub location: String,
+    pub random_seed_input: Option<String>,
 }
 
 pub fn run(config: &Phase1NextContributorConfig) -> Result<(), ContributorError> {
@@ -97,16 +99,14 @@ impl ContributorSession {
 
     fn run(&mut self) -> Result<(), ContributorError> {
         let mode = ceremony_mode(self.config.beacon_mode);
-        let mut rng = initialize_random_generator(&mode);
+        let mut rng = initialize_random_generator_with_seed_input(
+            &mode,
+            self.config.random_seed_input.as_deref(),
+        );
         self.timer.log_step("initialize random generator");
 
-        let mut name = String::new();
-        let mut location = String::new();
-
-        if !testing_mode_enabled() && !self.config.beacon_mode {
-            name = prompt_user_input("Enter your name :");
-            location = prompt_user_input("Enter location :");
-        }
+        let name = self.config.contributor_name.clone();
+        let location = self.config.location.clone();
         self.timer.log_step("collect contributor metadata");
 
         let latest_acc = self.load_and_verify_accumulator()?;

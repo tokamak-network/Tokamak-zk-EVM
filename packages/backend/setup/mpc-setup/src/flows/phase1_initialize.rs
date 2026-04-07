@@ -3,10 +3,10 @@ use crate::contributor::{get_device_info, ContributorInfo};
 use crate::conversions::{icicle_g1_generator, icicle_g2_generator};
 use crate::sigma::AaccExt;
 use crate::testing_mode_enabled;
-use crate::utils::{prompt_user_input, StepTimer};
+use crate::utils::StepTimer;
 use chrono::Local;
-use icicle_bls12_381::curve::ScalarField;
-use icicle_core::traits::FieldImpl;
+use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
+use icicle_core::traits::{FieldImpl, GenerateRandom};
 use libs::iotools::SetupParams;
 use std::cmp::max;
 use std::fs::File;
@@ -27,18 +27,14 @@ pub struct Phase1InitializeConfig {
     pub setup_params_file: String,
     pub outfolder: String,
     pub beacon_mode: bool,
+    pub contributor_name: String,
+    pub location: String,
 }
 
 pub fn run(config: &Phase1InitializeConfig) {
     let mut timer = StepTimer::new("phase1_initialize");
-    let (contributor_name, location) = if !testing_mode_enabled() && !config.beacon_mode {
-        (
-            prompt_user_input("Enter your name :"),
-            prompt_user_input("Enter location :"),
-        )
-    } else {
-        (String::new(), String::new())
-    };
+    let contributor_name = config.contributor_name.clone();
+    let location = config.location.clone();
 
     let setup_params = SetupParams::read_from_json(config.qap_path.join(&config.setup_params_file))
         .expect("cannot SetupParams read file");
@@ -103,9 +99,7 @@ fn initialize_scalar(blockhash: Option<&String>) -> Result<ScalarField, String> 
     } else {
         let blockhash_str = match blockhash {
             Some(hash) => hash.trim_start_matches("0x").to_string(),
-            None => prompt_user_input("Enter blockhash (64 hex characters):")
-                .trim_start_matches("0x")
-                .to_string(),
+            None => return Ok(ScalarCfg::generate_random(1)[0]),
         };
 
         validate_blockhash(&blockhash_str)?;

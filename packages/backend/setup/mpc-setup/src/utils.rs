@@ -844,6 +844,16 @@ pub fn scalar_from_user_random_input(title: &str) -> [u8; 32] {
     bytes
 }
 
+pub fn seed_bytes_from_input(input: &str) -> [u8; 32] {
+    let mut hasher = Hasher::new();
+    hasher.update(input.trim().as_bytes());
+    let hash = hasher.finalize();
+
+    let mut bytes = [0u8; 32];
+    bytes.copy_from_slice(hash.as_bytes());
+    bytes
+}
+
 #[derive(Debug, Clone, ValueEnum)]
 pub enum Mode {
     Random,
@@ -869,6 +879,48 @@ pub fn initialize_random_generator(mode: &Mode) -> RandomGenerator {
                 "Initializing random generator in hybrid random mode",
                 scalar_from_user_random_input("Enter seed input for randomization: "),
             ),
+        }
+    };
+
+    println!("{}", message);
+    RandomGenerator::new(strategy, seed)
+}
+
+pub fn initialize_random_generator_with_seed_input(
+    mode: &Mode,
+    seed_input: Option<&str>,
+) -> RandomGenerator {
+    let (strategy, message, seed) = if crate::testing_mode_enabled() {
+        (
+            RandomStrategy::Testing,
+            "Initializing random generator in testing mode",
+            [0u8; 32],
+        )
+    } else {
+        match mode {
+            Mode::Beacon => {
+                let input = seed_input.expect("beacon mode requires --seed-input");
+                (
+                    RandomStrategy::UserInput,
+                    "Initializing random generator in deterministic mode",
+                    seed_bytes_from_input(input),
+                )
+            }
+            Mode::Random => {
+                if let Some(input) = seed_input {
+                    (
+                        RandomStrategy::Hybrid,
+                        "Initializing random generator in hybrid random mode",
+                        seed_bytes_from_input(input),
+                    )
+                } else {
+                    (
+                        RandomStrategy::SystemRandom,
+                        "Initializing random generator in system random mode",
+                        [0u8; 32],
+                    )
+                }
+            }
         }
     };
 
