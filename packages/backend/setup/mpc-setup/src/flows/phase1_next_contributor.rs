@@ -1,13 +1,12 @@
-use chrono::Local;
-use clap::Parser;
-use mpc_setup::accumulator::Accumulator;
-use mpc_setup::contributor::{get_device_info, ContributorInfo};
-use mpc_setup::sigma::AaccExt;
-use mpc_setup::testing_mode_enabled;
-use mpc_setup::utils::{
+use crate::accumulator::Accumulator;
+use crate::contributor::{get_device_info, ContributorInfo};
+use crate::sigma::AaccExt;
+use crate::testing_mode_enabled;
+use crate::utils::{
     initialize_random_generator, load_gpu_if_possible, prompt_user_input, Mode, Phase1Proof,
     StepTimer,
 };
+use chrono::Local;
 use std::env;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -20,40 +19,26 @@ const ACC_FILE_FORMAT: &str = "phase1_acc_{}.json";
 const PROOF_FILE_FORMAT: &str = "phase1_proof_{}.json";
 const CONTRIBUTOR_FILE_FORMAT: &str = "phase1_contributor_{}.txt";
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Config {
-    #[arg(long, value_name = "OUTFOLDER")]
-    outfolder: String,
-
-    #[arg(long, default_value_t = false)]
-    beacon_mode: bool,
+#[derive(Debug, Clone)]
+pub struct Phase1NextContributorConfig {
+    pub outfolder: String,
+    pub beacon_mode: bool,
+    pub contributor_index: u32,
 }
 
-// cargo run --release --features testing-mode --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output
-// cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output
-// cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --beacon-mode
-#[tokio::main]
-async fn main() -> Result<(), ContributorError> {
-    let config = Config::parse();
-
+pub fn run(config: &Phase1NextContributorConfig) -> Result<(), ContributorError> {
     let use_gpu: bool = env::var("USE_GPU")
         .ok()
         .and_then(|v| v.parse::<bool>().ok())
         .unwrap_or(false); // default to false
-    let mut is_gpu_enabled = false;
     if use_gpu {
-        is_gpu_enabled = load_gpu_if_possible()
+        let _ = load_gpu_if_possible();
     }
 
-    let contributor_index = prompt_user_input("enter your contributor index (uint > 0) :")
-        .parse::<u32>()
-        .expect("Please enter a valid number");
+    verify_existence_of_contributor_files(config, config.contributor_index)?;
 
-    verify_existence_of_contributor_files(&config, contributor_index)?;
-
-    let mut session = ContributorSession::new(config, contributor_index);
-    session.run().await?;
+    let mut session = ContributorSession::new(config.clone(), config.contributor_index);
+    session.run()?;
 
     Ok(())
 }
@@ -92,7 +77,7 @@ pub enum ContributorError {
 }
 
 struct ContributorSession {
-    config: Config,
+    config: Phase1NextContributorConfig,
     contributor_index: u32,
     start_time: Instant,
     previous_hashes: AccumulatorHashes,
@@ -100,7 +85,7 @@ struct ContributorSession {
 }
 
 impl ContributorSession {
-    fn new(config: Config, contributor_index: u32) -> Self {
+    fn new(config: Phase1NextContributorConfig, contributor_index: u32) -> Self {
         Self {
             config,
             contributor_index,
@@ -110,7 +95,7 @@ impl ContributorSession {
         }
     }
 
-    async fn run(&mut self) -> Result<(), ContributorError> {
+    fn run(&mut self) -> Result<(), ContributorError> {
         let mode = ceremony_mode(self.config.beacon_mode);
         let mut rng = initialize_random_generator(&mode);
         self.timer.log_step("initialize random generator");
@@ -234,7 +219,7 @@ impl ContributorSession {
     fn compute_contribution(
         &self,
         latest_acc: &Accumulator,
-        rng: &mut mpc_setup::utils::RandomGenerator,
+        rng: &mut crate::utils::RandomGenerator,
     ) -> Result<(Accumulator, Phase1Proof), ContributorError> {
         println!("Computing new challenge and proof...");
         let start = Instant::now();
@@ -341,7 +326,7 @@ fn ceremony_mode(beacon_mode: bool) -> Mode {
 }
 
 fn verify_existence_of_contributor_files(
-    config: &Config,
+    config: &Phase1NextContributorConfig,
     contributor_index: u32,
 ) -> Result<(), VerificationError> {
     if contributor_index == 0 {

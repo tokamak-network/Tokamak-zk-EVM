@@ -41,10 +41,16 @@ pub mod utils;
 
 pub mod accumulator;
 pub mod contributor;
+pub mod flows;
 pub mod mpc_utils;
 pub mod phase1_source;
 
 pub mod sigma;
+
+pub use flows::{
+    run_dusk_backed_mpc_setup, run_native_mpc_setup, DuskBackedMpcSetupConfig,
+    NativeMpcSetupConfig,
+};
 
 pub struct MsmWorkspace {
     stream: IcicleStream,

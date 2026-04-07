@@ -1,97 +1,93 @@
-# 🚀MPC Ceremony Guidlines for Tokamak zk-EVM
+# MPC Ceremony Quick Guide for Tokamak zk-EVM
 
-This guide provides step-by-step instructions to run the MPC (Multi-Party Computation) ceremony for Tokamak zk-EVM setup.
+This file is a short operator guide. The public entrypoints are:
 
-⚙️ Prerequisites
+- `native_mpc_setup`
+- `dusk_backed_mpc_setup`
 
-Before running the MPC ceremony, ensure you follow the [prerequisites](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/README.md) of Tokamak zk-EVM (at least until end of step 4). Ensure the frontend is running properly.
-Install openSSL on your system. 
+The lower-level ceremony steps now live in library flow modules and are not the normal user
+interface anymore.
 
-🛡️ **Phase 1:**
-Navigate to the backend directory:
+## Prerequisites
+
+Before running the ceremony:
+
+- complete the repository prerequisites from the project root README
+- ensure the frontend subcircuit library exists
+- install OpenSSL if required by your platform
+
+Run all commands from:
+
 ```bash
-cd "$pwd/packages/backend"
+cd "$PWD/packages/backend"
 ```
 
-🛠️ **Initialize Phase 1**
+## Native Mode
 
-This step initializes Phase 1 (takes a few seconds): 
-Here replace the **blockhash** value with a data that is not predictable inadvance. 
-For initialization:
 ```bash
-cargo run --release --features testing-mode --bin phase1_initialize -- \
-  --s-max 512 \
-  --setup-params-file setupParams.json  \
-  --outfolder ./setup/mpc-setup/output
+cargo run --release --bin native_mpc_setup -- \
+  --subcircuit-library "$QAP_PATH" \
+  --intermediate ./setup/mpc-setup/output/native.intermediate \
+  --output ./setup/mpc-setup/output/native.final
 ```
 
-## Options:
-**--s-max** *value* : sets s_max value to another integer (for testing it should be min 128)
-**--beacon-mode**: Use this flag for deterministic seed-based mode in normal builds. If omitted, random mode is used.
-**--setup-params-file** *setupParams.json*: Takes input parameters file.
-**--outfolder** *./setup/mpc-setup/output* : Defines the folder to write the output files.
+This wrapper performs:
 
-📌 In random initialize mode, it prompts to enter a blockhash for an unpredictable input. Give a hash output of a block (eg. Bitcoin block hash https://www.blockchain.com/explorer/blocks/btc/).
-It should be *64 hexadecimal characters* (eg: for 901,620th Bitcoin Block
-0000000000000000000111043d2144755ed8bdf0c6a91fa292d3e544ebee963b)
+1. Tokamak phase-1 initialization
+2. one native phase-1 contribution
+3. phase-2 prepare
+4. one phase-2 contribution
+5. final CRS file generation
 
-🔄 **Next Contributor Phase-1** (~60 minutes)
+Add `--beacon-mode` in normal builds if you want deterministic beacon-mode sampling instead
+of the default random mode.
 
-Each next contributor in Phase-1 runs *phase1_next_contributor*.
-For testing-mode builds run:
+## Dusk-Backed Mode
+
 ```bash
-cargo run --release --features testing-mode --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output
-```
-📌 For testing purpose run this once as we want to generate the same combined_sigma as trusted setup.
-For a real MPC setup, omit `--beacon-mode` to use the default random mode.
-
-🌐 **Beacon Contribution** (optional)
-
-Optionally, you can add extra entropy from unpredictable deterministic inputs (like future Bitcoin block hashes):
-```bash
-cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --beacon-mode
+cargo run --release --bin dusk_backed_mpc_setup -- \
+  --subcircuit-library "$QAP_PATH" \
+  --intermediate ./setup/mpc-setup/output/dusk.intermediate \
+  --output ./setup/mpc-setup/output/dusk.final
 ```
 
-✅ **Phase-1 Batch Verification** (30 mins to a couple of hours depending on the number of contributors)
+This wrapper:
 
-Each "Next Contributor's execution" already includes verification of the previous contributor automatically, but for batch verification of all contributions run:
+1. loads or downloads the pinned Dusk raw powers-of-tau file at `<intermediate>/dusk.response`
+2. verifies the pinned digest and the used tau ranges
+3. runs phase-2 prepare
+4. runs one phase-2 contribution
+5. generates final CRS files
+
+## Testing-Mode Builds
+
+Testing mode is selected through the cargo feature, not a runtime flag.
+
+Native:
+
 ```bash
-cargo run --release --bin phase1_batch_verify -- --outfolder ./setup/mpc-setup/output
+cargo run --release --features testing-mode --bin native_mpc_setup -- \
+  --subcircuit-library "$QAP_PATH" \
+  --intermediate ./setup/mpc-setup/output/native-testing.intermediate \
+  --output ./setup/mpc-setup/output/native-testing.final
 ```
 
-📝 **Prepare Phase-2**
+Dusk-backed:
 
-For testing, start with running the following once to generate *phase2_acc_0.rkyv* to be able to prepare phase-2 initial files:
 ```bash
-cargo run --release --bin phase2_testing_prepare
-```
-📌Here for testing s_max is set to 128.
-
-The following starts the prepare phase-2.
-⚠️ Note: This step can take a significant amount of time (days):
-```bash
-cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output
-```
-📌 When it prompts *Enter the last contributor's index* please type the *index* i of the last phase1_acc_i.json file generated in Phase-1. You can skip this for testing as we have the required file generated in *phase2_testing_prepare*.
-
-🔄 **Next Contributor Phase-2**
-Each next contributor in Phase-2 runs:
-```bash
-cargo run --release --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output
+cargo run --release --features testing-mode --bin dusk_backed_mpc_setup -- \
+  --subcircuit-library "$QAP_PATH" \
+  --intermediate ./setup/mpc-setup/output/dusk-testing.intermediate \
+  --output ./setup/mpc-setup/output/dusk-testing.final
 ```
 
-✅ **Phase-2 Batch Verification** (30 mins to a couple of hours based on the number participants)
-Each "Next Contributor's execution" includes verification of the previous contributor automatically, but for batch verification of all contributions run:
-```bash
-cargo run --release --bin phase2_batch_verify -- --outfolder ./setup/mpc-setup/output
-```
+## Outputs
 
-📝 **Generate final output files**
-Run this code once to generate final outputs: 
-```bash
-cargo run --release --bin phase2_gen_files -- --intermediate ./setup/mpc-setup/output --output ./setup/mpc-setup/final-output
-```
-When it prompts *Enter the last contributor's index* please type the *index* i of the last *phase2_acc_i.rkyv* file generated in Phase-2.
-The final output files are: `sigma_preprocess.rkyv`, `sigma_verify.rkyv`, and `combined_sigma.rkyv`.
+The final output folder contains:
 
-**CRS output** is the `combined_sigma.rkyv` file.
+- `combined_sigma.rkyv`
+- `sigma_preprocess.rkyv`
+- `sigma_verify.rkyv`
+- `crs_provenance.json`
+
+The deployable CRS is `combined_sigma.rkyv`.

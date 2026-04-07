@@ -1,83 +1,36 @@
-extern crate memmap;
+use crate::accumulator::Accumulator;
+use crate::contributor::{get_device_info, ContributorInfo};
+use crate::conversions::{icicle_g1_generator, icicle_g2_generator};
+use crate::sigma::AaccExt;
+use crate::testing_mode_enabled;
+use crate::utils::{prompt_user_input, StepTimer};
 use chrono::Local;
-use clap::Parser;
 use icicle_bls12_381::curve::ScalarField;
 use icicle_core::traits::FieldImpl;
 use libs::iotools::SetupParams;
-use mpc_setup::accumulator::Accumulator;
-use mpc_setup::contributor::{get_device_info, ContributorInfo};
-use mpc_setup::conversions::{icicle_g1_generator, icicle_g2_generator};
-use mpc_setup::sigma::AaccExt;
-use mpc_setup::testing_mode_enabled;
-use mpc_setup::utils::{prompt_user_input, StepTimer};
-use mpc_setup::QAP_COMPILER_PATH_PREFIX;
 use std::cmp::max;
-use std::env;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::Mul;
 use std::path::PathBuf;
 use std::time::Instant;
 
-pub mod drive;
-
 const BLOCKHASH_LENGTH: usize = 64;
 const HASH_BYTES: usize = 32;
 const POWER_ALPHA_LENGTH: usize = 4;
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Config {
-    /// Maximum value in y dimension
-    #[arg(long, value_name = "S_MAX")]
-    s_max: usize,
-
-    /// Bitcoin blockhash as a hex string (64 characters)
-    #[arg(
-        long,
-        value_name = "BLOCKHASH",
-        help = "Optional Hex-encoded 32-byte Bitcoin block hash (64 characters)"
-    )]
-    blockhash: Option<String>,
-
-    /// Output folder path (must exist and be writeable)
-    #[arg(long, value_name = "SETUP_PARAMS_FILE")]
-    setup_params_file: String,
-
-    /// Output folder path (must exist and be writeable)
-    #[arg(long, value_name = "OUTFOLDER")]
-    outfolder: String,
-
-    /// Use deterministic beacon mode instead of the default random mode
-    #[arg(long, default_value_t = false)]
-    beacon_mode: bool,
+#[derive(Debug, Clone)]
+pub struct Phase1InitializeConfig {
+    pub qap_path: PathBuf,
+    pub s_max: usize,
+    pub blockhash: Option<String>,
+    pub setup_params_file: String,
+    pub outfolder: String,
+    pub beacon_mode: bool,
 }
 
-//curl http://localhost:7878/?state=a6fd0ebe973ecd09b59ae3d7c10e0402f0ab3ba98bf9b5f462188e38804672f9&code=4/0AUJR-x4BoWJZIxcgk_vMDooaffimYPVGYa-VEDUQnb3c7err_SVF5AnbalchNYpkJyGTlQ&scope=https://www.googleapis.com/auth/drive.metadata.readonly%20https://www.googleapis.com/auth/drive.file
-//docker exec -it 0f1d390ea076 /bin/bash
-//  --blockhash aabbccddeeff11223344556677889900aabbccddeeff11223344556677889900 \
-/*
-cargo run --release --features testing-mode --bin phase1_initialize -- \
-  --s-max 512 \
-  --setup-params-file setupParams.json \
-  --outfolder ./setup/mpc-setup/output \
-  --beacon-mode
-
-cargo run --release --bin phase1_initialize -- \
-  --s-max 64 \
-  --setup-params-file setupParams.json \
-  --outfolder ./setup/mpc-setup/output
-*/
-
-#[tokio::main]
-async fn main() {
+pub fn run(config: &Phase1InitializeConfig) {
     let mut timer = StepTimer::new("phase1_initialize");
-    let base_path = env::current_dir().unwrap();
-    let qap_path = env::var("TOKAMAK_QAP_PATH")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| base_path.join(QAP_COMPILER_PATH_PREFIX));
-
-    let config = Config::parse();
     let (contributor_name, location) = if !testing_mode_enabled() && !config.beacon_mode {
         (
             prompt_user_input("Enter your name :"),
@@ -87,7 +40,7 @@ async fn main() {
         (String::new(), String::new())
     };
 
-    let setup_params = SetupParams::read_from_json(qap_path.join(&config.setup_params_file))
+    let setup_params = SetupParams::read_from_json(config.qap_path.join(&config.setup_params_file))
         .expect("cannot SetupParams read file");
     timer.log_step("load setup params");
     let x_degree = 2 * max(setup_params.n, setup_params.l_D - setup_params.l);
@@ -145,7 +98,7 @@ async fn main() {
 }
 
 fn initialize_scalar(blockhash: Option<&String>) -> Result<ScalarField, String> {
-    if mpc_setup::testing_mode_enabled() {
+    if crate::testing_mode_enabled() {
         Ok(ScalarField::from_u32(1))
     } else {
         let blockhash_str = match blockhash {

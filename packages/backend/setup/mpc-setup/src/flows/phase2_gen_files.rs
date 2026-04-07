@@ -1,33 +1,22 @@
-use clap::Parser;
+use crate::sigma::{FinalCrsProvenance, SigmaV2};
+use crate::utils::StepTimer;
 use libs::iotools::{SigmaPreprocessRkyv, SigmaRkyv, SigmaVerifyRkyv};
-use mpc_setup::sigma::{FinalCrsProvenance, SigmaV2};
-use mpc_setup::utils::{prompt_user_input, StepTimer};
 use sha2::{Digest, Sha256};
 use std::env;
 use std::fs;
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Config {
-    /// Intermediate ceremony artifact directory to read phase-2 accumulators from
-    #[arg(long, value_name = "PATH")]
-    intermediate: String,
-
-    /// Final output directory for the generated setup files
-    #[arg(long, value_name = "PATH")]
-    output: String,
+#[derive(Debug, Clone)]
+pub struct Phase2GenFilesConfig {
+    pub intermediate: String,
+    pub output: String,
+    pub contributor_index: usize,
 }
 
-fn main() {
+pub fn run(config: &Phase2GenFilesConfig) {
     let mut timer = StepTimer::new("phase2_gen_files");
     let base_path = env::current_dir().unwrap();
     let start = std::time::Instant::now();
-    let config = Config::parse();
-    let contributor_index = prompt_user_input("enter last contributor index (uint > 0) :")
-        .parse::<usize>()
-        .expect("Please enter a valid number");
-
-    let latest_acc = load_phase2_accumulator(&config.intermediate, contributor_index);
+    let latest_acc = load_phase2_accumulator(&config.intermediate, config.contributor_index);
     timer.log_step("load latest phase-2 accumulator");
 
     let sigma = latest_acc.sigma;

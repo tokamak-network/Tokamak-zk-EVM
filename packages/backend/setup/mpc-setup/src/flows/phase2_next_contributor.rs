@@ -1,15 +1,14 @@
-use chrono::Local;
-use clap::Parser;
-use icicle_bls12_381::curve::ScalarField;
-use icicle_core::traits::{Arithmetic, FieldImpl};
-use libs::group_structures::G1serde;
-use mpc_setup::contributor::{get_device_info, ContributorInfo};
-use mpc_setup::sigma::{AaccExt, SigmaV2, HASH_BYTES_LEN};
-use mpc_setup::testing_mode_enabled;
-use mpc_setup::utils::{
+use crate::contributor::{get_device_info, ContributorInfo};
+use crate::sigma::{AaccExt, SigmaV2, HASH_BYTES_LEN};
+use crate::testing_mode_enabled;
+use crate::utils::{
     hash_sigma, initialize_random_generator, pok, prompt_user_input, Mode, Phase2Proof,
     RandomGenerator, StepTimer,
 };
+use chrono::Local;
+use icicle_bls12_381::curve::ScalarField;
+use icicle_core::traits::{Arithmetic, FieldImpl};
+use libs::group_structures::G1serde;
 use rayon::prelude::*;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -20,16 +19,11 @@ use thiserror::Error;
 
 const CONTRIBUTOR_FILE_FORMAT: &str = "phase2_contributor_{}.txt";
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Config {
-    /// Output folder path (must exist and be writeable)
-    #[arg(long, value_name = "OUTFOLDER")]
-    outfolder: String,
-
-    /// Use deterministic beacon mode instead of the default random mode
-    #[arg(long, default_value_t = false)]
-    beacon_mode: bool,
+#[derive(Debug, Clone)]
+pub struct Phase2NextContributorConfig {
+    pub outfolder: String,
+    pub beacon_mode: bool,
+    pub contributor_index: usize,
 }
 #[derive(Error, Debug)]
 pub enum VerificationError {
@@ -49,15 +43,8 @@ pub enum ContributorError {
     #[error("Accumulator validation failed: {0}")]
     AccumulatorValidation(String),
 }
-// cargo run --release --features testing-mode --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output
-// cargo run --release --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output
-// cargo run --release --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output --beacon-mode
-fn main() {
+pub fn run(config: &Phase2NextContributorConfig) {
     let mut timer = StepTimer::new("phase2_next_contributor");
-    let config = Config::parse();
-    let contributor_index = prompt_user_input("enter your contributor index (uint > 0) :")
-        .parse::<usize>()
-        .expect("Please enter a valid number");
     let mut name = String::new();
     let mut location = String::new();
     if !testing_mode_enabled() && !config.beacon_mode {
@@ -69,7 +56,7 @@ fn main() {
     let mut rng = initialize_random_generator(&mode);
     timer.log_step("collect contributor metadata and initialize randomness");
 
-    let latest_acc = load_phase2_accumulator(&config.outfolder, contributor_index - 1);
+    let latest_acc = load_phase2_accumulator(&config.outfolder, config.contributor_index - 1);
     let latest_y = latest_acc
         .public_phase2_y()
         .expect("phase-2 accumulator must disclose y");
@@ -159,7 +146,7 @@ fn ceremony_mode(beacon_mode: bool) -> Mode {
 fn save_contributor_info(
     previous_hashes: &Vec<[u8; HASH_BYTES_LEN]>,
     start_time: &Instant,
-    config: &Config,
+    config: &Phase2NextContributorConfig,
     acc: &SigmaV2,
     proof: &Phase2Proof,
     name: String,

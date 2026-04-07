@@ -1,7 +1,12 @@
 use std::env;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use clap::Parser;
+use crate::phase1_source::{AccumulatorSource, DuskGroth16Source, Phase1Source, Phase1SrsSource};
+use crate::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
+use crate::utils::{
+    initialize_random_generator, load_gpu_if_possible, Mode, RandomGenerator, StepTimer,
+};
+use crate::{ensure_testing_mode, public_wire_segments, MsmWorkspace, NttWorkspace};
 use icicle_bls12_381::curve::{G1Affine, ScalarField};
 use icicle_core::ntt;
 use icicle_core::traits::{Arithmetic, FieldImpl};
@@ -12,78 +17,31 @@ use libs::utils::{
     validate_setup_shape,
 };
 use libs::vector_operations::gen_evaled_lagrange_bases;
-use mpc_setup::phase1_source::{
-    AccumulatorSource, DuskGroth16Source, Phase1Source, Phase1SrsSource,
-};
-use mpc_setup::sigma::{save_contributor_info, SigmaV2, HASH_BYTES_LEN};
-use mpc_setup::utils::{
-    initialize_random_generator, load_gpu_if_possible, prompt_user_input, Mode, RandomGenerator,
-    StepTimer,
-};
-use mpc_setup::{
-    ensure_testing_mode, public_wire_segments, MsmWorkspace, NttWorkspace, QAP_COMPILER_PATH_PREFIX,
-};
 use rayon::prelude::*;
 use std::ops::Sub;
 use std::time::Instant;
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Config {
-    /// Output folder path (must exist and be writeable)
-    #[arg(long, value_name = "OUTFOLDER")]
-    outfolder: String,
-
-    #[arg(long, value_name = "IS_CHECKING")]
-    is_checking: bool,
-
-    #[arg(long, value_name = "PART_NO", default_value = "0")]
-    part_no: Option<usize>,
-
-    #[arg(long, value_name = "TOTAL_PART", default_value = "1")]
-    total_part: Option<usize>,
-
-    #[arg(long, value_name = "MERGE_PARTS", default_value = "false")]
-    merge_parts: Option<bool>,
-
-    #[arg(long, default_value_t = false)]
-    beacon_mode: bool,
-
-    #[arg(
-        long,
-        value_enum,
-        value_name = "PHASE1_SOURCE_MODE",
-        default_value = "native",
-        help = "Phase-1 source mode: native Tokamak phase-1 accumulator or Dusk Groth16 raw PoT"
-    )]
-    phase1_source_mode: Phase1SourceMode,
-
-    #[arg(
-        long,
-        value_name = "DUSK_RAW_FILE",
-        help = "Path to a Dusk Groth16 raw challenge/response file, required when --phase1-source-mode dusk-groth16"
-    )]
-    dusk_raw_file: Option<String>,
-
-    #[arg(
-        long,
-        value_name = "Y_HEX",
-        help = "Optional explicit y scalar as a hex string to reuse across multipart runs"
-    )]
-    y_hex: Option<String>,
+#[derive(Debug, Clone)]
+pub struct Phase2PrepareConfig {
+    pub qap_path: PathBuf,
+    pub outfolder: String,
+    pub contributor_index: usize,
+    pub is_checking: bool,
+    pub part_no: usize,
+    pub total_part: usize,
+    pub merge_parts: bool,
+    pub beacon_mode: bool,
+    pub phase1_source_mode: Phase1SourceMode,
+    pub dusk_raw_file: Option<String>,
+    pub y_hex: Option<String>,
 }
 
-#[derive(Clone, Debug, clap::ValueEnum)]
-enum Phase1SourceMode {
+#[derive(Clone, Debug)]
+pub enum Phase1SourceMode {
     Native,
     DuskGroth16,
 }
-// cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output --is-checking
-// cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output
-//cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output --total-part 16 --part-no 0
-//cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output --total-part 16 --part-no 0 --merge-parts
-
-fn main() {
+pub fn run(config: &Phase2PrepareConfig) {
     let mut timer = StepTimer::new("phase2_prepare");
     let use_gpu: bool = env::var("USE_GPU")
         .ok()
@@ -93,12 +51,11 @@ fn main() {
     if use_gpu {
         is_gpu_enabled = load_gpu_if_possible()
     }
-    let config = Config::parse();
-    let outfolder = config.outfolder;
+    let outfolder = config.outfolder.clone();
     let start1 = Instant::now();
-    let part_no = config.part_no.unwrap();
-    let total_part = config.total_part.unwrap();
-    let is_merge = config.merge_parts.unwrap();
+    let part_no = config.part_no;
+    let total_part = config.total_part;
+    let is_merge = config.merge_parts;
     if is_merge {
         let sigma: SigmaV2 = merge_all_parts(&outfolder, total_part);
         sigma
@@ -112,26 +69,7 @@ fn main() {
         assert_eq!(part_no < total_part, true);
         assert_eq!(is_power_of_two_bitwise(total_part), true);
     }
-    let contributor_index = match config.phase1_source_mode {
-        Phase1SourceMode::Native => {
-            prompt_user_input("Enter the last phase-1 contributor's index:")
-                .parse::<usize>()
-                .expect("Please enter a valid number")
-        }
-        Phase1SourceMode::DuskGroth16 => 0,
-    };
-    let sigma = process_prepare(
-        contributor_index,
-        &outfolder,
-        is_gpu_enabled,
-        config.is_checking,
-        total_part,
-        part_no,
-        &ceremony_mode(config.beacon_mode),
-        config.y_hex.as_deref(),
-        &config.phase1_source_mode,
-        config.dusk_raw_file.as_deref(),
-    );
+    let sigma = process_prepare(config, is_gpu_enabled);
     timer.log_step("build phase-2 accumulator");
     if total_part > 1 {
         sigma
@@ -326,7 +264,7 @@ fn sample_phase2_y(
         if total_part > 1 {
             panic!("multipart phase2_prepare requires --y-hex so every part uses the same y");
         }
-        if mpc_setup::testing_mode_enabled() {
+        if crate::testing_mode_enabled() {
             ScalarField::from_u32(5)
         } else {
             let mut rng: RandomGenerator = initialize_random_generator(mode);
@@ -338,7 +276,7 @@ fn sample_phase2_y(
         if y_hex.is_some() {
             panic!("the supplied phase-2 y is invalid because y^s_max = 1");
         }
-        y = if mpc_setup::testing_mode_enabled() {
+        y = if crate::testing_mode_enabled() {
             ScalarField::from_u32(7)
         } else {
             let mut rng: RandomGenerator = initialize_random_generator(mode);
@@ -574,23 +512,14 @@ fn build_xy_powers_from_x_basis<S: Phase1SrsSource>(
         });
     xy.into_boxed_slice()
 }
-fn process_prepare(
-    contributor_index: usize,
-    outfolder: &str,
-    _is_gpu_enabled: bool,
-    is_checking: bool,
-    total_part: usize,
-    part_no: usize,
-    mode: &Mode,
-    y_hex: Option<&str>,
-    phase1_source_mode: &Phase1SourceMode,
-    dusk_raw_file: Option<&str>,
-) -> SigmaV2 {
+fn process_prepare(config: &Phase2PrepareConfig, _is_gpu_enabled: bool) -> SigmaV2 {
     let mut timer = StepTimer::new("phase2_prepare::process_prepare");
-    let base_path = env::current_dir().unwrap();
-    let qap_path = env::var("TOKAMAK_QAP_PATH")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| base_path.join(QAP_COMPILER_PATH_PREFIX));
+    let qap_path = config.qap_path.clone();
+    let outfolder = &config.outfolder;
+    let contributor_index = config.contributor_index;
+    let total_part = config.total_part;
+    let part_no = config.part_no;
+    let mode = ceremony_mode(config.beacon_mode);
 
     let setup_file_name = "setupParams.json";
     let setup_params = SetupParams::read_from_json(qap_path.join(&setup_file_name))
@@ -618,7 +547,7 @@ fn process_prepare(
     let subcircuit_infos =
         SubcircuitInfo::read_box_from_json(qap_path.join(&subcircuit_file_name)).unwrap();
 
-    let phase2_y = sample_phase2_y(mode, y_hex, total_part, s_max);
+    let phase2_y = sample_phase2_y(&mode, config.y_hex.as_deref(), total_part, s_max);
     let mut l_evaled_vec = vec![ScalarField::zero(); s_max].into_boxed_slice();
     gen_evaled_lagrange_bases(&phase2_y, s_max, &mut l_evaled_vec);
 
@@ -631,7 +560,7 @@ fn process_prepare(
     timer.log_step("sample y and prepare lagrange data");
 
     println!("Loading phase-1 source...");
-    let phase1_source = match phase1_source_mode {
+    let phase1_source = match &config.phase1_source_mode {
         Phase1SourceMode::Native => {
             let accumulator = format!("phase1_acc_{}.json", contributor_index);
             Phase1Source::Accumulator(
@@ -640,8 +569,10 @@ fn process_prepare(
             )
         }
         Phase1SourceMode::DuskGroth16 => {
-            let dusk_raw_file =
-                dusk_raw_file.expect("--dusk-raw-file is required in dusk-groth16 mode");
+            let dusk_raw_file = config
+                .dusk_raw_file
+                .as_deref()
+                .expect("--dusk-raw-file is required in dusk-groth16 mode");
             let tokamak_n = std::cmp::max(n, m_i);
             Phase1Source::DuskGroth16(
                 DuskGroth16Source::read_from_file(dusk_raw_file, tokamak_n)
@@ -651,7 +582,7 @@ fn process_prepare(
     };
     timer.log_step("load phase-1 source");
 
-    let sigma_trusted = if is_checking {
+    let sigma_trusted = if config.is_checking {
         ensure_testing_mode("phase2_prepare --is-checking");
         assert_eq!(
             total_part, 1,
@@ -996,10 +927,7 @@ fn load_coeff_view(
     coeff_view
 }
 
-fn public_segment_index(
-    global_idx: usize,
-    segments: &mpc_setup::PublicWireSegments,
-) -> Option<usize> {
+fn public_segment_index(global_idx: usize, segments: &crate::PublicWireSegments) -> Option<usize> {
     if global_idx < segments.user_out_end {
         Some(0)
     } else if global_idx < segments.user_end {
