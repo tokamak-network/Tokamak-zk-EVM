@@ -3,6 +3,7 @@ use std::path::Path;
 
 use clap::Parser;
 use icicle_bls12_381::curve::{G1Affine, ScalarField};
+use icicle_core::ntt;
 use icicle_core::traits::{Arithmetic, FieldImpl};
 use libs::group_structures::{G1serde, Sigma, Sigma1, Sigma2};
 use libs::iotools::{scalar_to_hex, SetupParams, SubcircuitInfo, SubcircuitR1CS};
@@ -11,7 +12,6 @@ use libs::utils::{
     validate_setup_shape,
 };
 use libs::vector_operations::gen_evaled_lagrange_bases;
-use mpc_setup::mpc_utils::compute_langrange_i_coeffs;
 use mpc_setup::phase1_source::{
     AccumulatorSource, DuskGroth16Source, Phase1Source, Phase1SrsSource,
 };
@@ -349,13 +349,11 @@ fn build_x_basis<S: Phase1SrsSource>(source: &S, exp_alpha: usize, x_size: usize
         .collect()
 }
 
-fn accumulate_component_x_only(
+fn gather_component_x_only_rows(
     coeffs: &ActiveCoeffMatrix,
     flatten_map: &[usize],
-    bases: &[G1Affine],
-    msm_workspace: &mut MsmWorkspace,
-    dest: &mut [G1serde],
-) {
+    row_len: usize,
+) -> (Vec<ScalarField>, Vec<usize>) {
     let mut scalars = Vec::new();
     let mut global_indexes = Vec::new();
     for (local_idx, &global_idx) in flatten_map.iter().enumerate() {
@@ -365,9 +363,46 @@ fn accumulate_component_x_only(
         scalars.extend_from_slice(x_coeffs);
         global_indexes.push(global_idx);
     }
-    if global_indexes.is_empty() {
+    debug_assert_eq!(scalars.len(), global_indexes.len() * row_len);
+    (scalars, global_indexes)
+}
+
+fn commit_component_x_only(
+    coeff_views: &[SubcircuitCoeffView],
+    subcircuit_infos: &[&SubcircuitInfo],
+    coeff_selector: fn(&SubcircuitCoeffView) -> &ActiveCoeffMatrix,
+    bases: &[G1Affine],
+    row_len: usize,
+    msm_workspace: &mut MsmWorkspace,
+    dest: &mut [G1serde],
+) {
+    let gathered: Vec<(Vec<ScalarField>, Vec<usize>)> = coeff_views
+        .par_iter()
+        .zip(subcircuit_infos.par_iter())
+        .map(|(coeff_view, subcircuit_info)| {
+            gather_component_x_only_rows(
+                coeff_selector(coeff_view),
+                &subcircuit_info.flattenMap,
+                row_len,
+            )
+        })
+        .collect();
+
+    let total_outputs = gathered
+        .iter()
+        .map(|(_, indexes)| indexes.len())
+        .sum::<usize>();
+    if total_outputs == 0 {
         return;
     }
+
+    let mut scalars = Vec::with_capacity(total_outputs * row_len);
+    let mut global_indexes = Vec::with_capacity(total_outputs);
+    for (subcircuit_scalars, subcircuit_indexes) in gathered {
+        scalars.extend(subcircuit_scalars);
+        global_indexes.extend(subcircuit_indexes);
+    }
+
     let results = msm_workspace.shared_bases_msm(bases, &scalars, global_indexes.len());
     for (batch_idx, &global_idx) in global_indexes.iter().enumerate() {
         dest[global_idx] = dest[global_idx] + G1serde(G1Affine::from(results[batch_idx]));
@@ -386,31 +421,69 @@ fn build_x_only_commitments<S: Phase1SrsSource>(
     let b_bases = build_x_basis(source, 2, setup_params.n);
     let c_bases = build_x_basis(source, 3, setup_params.n);
 
-    for (coeff_view, subcircuit_info) in coeff_views.iter().zip(subcircuit_infos.iter()) {
-        accumulate_component_x_only(
-            &coeff_view.a,
-            &subcircuit_info.flattenMap,
-            &a_bases,
-            msm_workspace,
-            &mut commitments,
-        );
-        accumulate_component_x_only(
-            &coeff_view.b,
-            &subcircuit_info.flattenMap,
-            &b_bases,
-            msm_workspace,
-            &mut commitments,
-        );
-        accumulate_component_x_only(
-            &coeff_view.c,
-            &subcircuit_info.flattenMap,
-            &c_bases,
-            msm_workspace,
-            &mut commitments,
-        );
-    }
+    commit_component_x_only(
+        coeff_views,
+        subcircuit_infos,
+        |coeff_view| &coeff_view.a,
+        &a_bases,
+        setup_params.n,
+        msm_workspace,
+        &mut commitments,
+    );
+    commit_component_x_only(
+        coeff_views,
+        subcircuit_infos,
+        |coeff_view| &coeff_view.b,
+        &b_bases,
+        setup_params.n,
+        msm_workspace,
+        &mut commitments,
+    );
+    commit_component_x_only(
+        coeff_views,
+        subcircuit_infos,
+        |coeff_view| &coeff_view.c,
+        &c_bases,
+        setup_params.n,
+        msm_workspace,
+        &mut commitments,
+    );
 
     commitments
+}
+
+fn scaled_inverse_root_powers(size: usize) -> Vec<ScalarField> {
+    let omega = ntt::get_root_of_unity::<ScalarField>(size as u64);
+    let omega_inv = omega.inv();
+    let inv_size = ScalarField::from_u32(size as u32).inv();
+
+    let mut powers = Vec::with_capacity(size);
+    let mut current = ScalarField::one();
+    for _ in 0..size {
+        powers.push(inv_size * current);
+        current = current * omega_inv;
+    }
+    powers
+}
+
+fn fill_lagrange_row_coeffs_from_root_table(
+    scaled_inv_root_pows: &[ScalarField],
+    row_idx: usize,
+    out: &mut [ScalarField],
+) {
+    if out.is_empty() {
+        return;
+    }
+    let size = scaled_inv_root_pows.len();
+    let step = row_idx % size;
+    let mut root_idx = 0usize;
+    for slot in out.iter_mut() {
+        *slot = scaled_inv_root_pows[root_idx];
+        root_idx += step;
+        if root_idx >= size {
+            root_idx -= size;
+        }
+    }
 }
 
 fn build_plain_lagrange_commitments<S: Phase1SrsSource>(
@@ -423,10 +496,13 @@ fn build_plain_lagrange_commitments<S: Phase1SrsSource>(
     }
     let bases = build_x_basis(source, 0, size);
     let mut batched_scalars = vec![ScalarField::zero(); size * size];
-    for row_idx in 0..size {
-        let row = &mut batched_scalars[row_idx * size..(row_idx + 1) * size];
-        compute_langrange_i_coeffs(row_idx, size, 1, row);
-    }
+    let scaled_inv_root_pows = scaled_inverse_root_powers(size);
+    batched_scalars
+        .par_chunks_mut(size)
+        .enumerate()
+        .for_each(|(row_idx, row)| {
+            fill_lagrange_row_coeffs_from_root_table(&scaled_inv_root_pows, row_idx, row);
+        });
     let results = msm_workspace.shared_bases_msm(&bases, &batched_scalars, size);
     results
         .iter()
@@ -445,10 +521,13 @@ fn build_alpha4_k_commitments<S: Phase1SrsSource>(
     }
     let bases = build_x_basis(source, 4, m_i);
     let mut batched_scalars = vec![ScalarField::zero(); m_i * m_i];
-    for row_idx in 0..m_i {
-        let row = &mut batched_scalars[row_idx * m_i..(row_idx + 1) * m_i];
-        compute_langrange_i_coeffs(row_idx, m_i, 1, row);
-    }
+    let scaled_inv_root_pows = scaled_inverse_root_powers(m_i);
+    batched_scalars
+        .par_chunks_mut(m_i)
+        .enumerate()
+        .for_each(|(row_idx, row)| {
+            fill_lagrange_row_coeffs_from_root_table(&scaled_inv_root_pows, row_idx, row);
+        });
     let results = msm_workspace.shared_bases_msm(&bases, &batched_scalars, m_i);
     results
         .iter()
@@ -464,7 +543,8 @@ fn build_plain_last_lagrange_commitment<S: Phase1SrsSource>(
 ) -> G1serde {
     let bases = build_x_basis(source, 0, size);
     let mut scalars = vec![ScalarField::zero(); size];
-    compute_langrange_i_coeffs(size - 1, size, 1, &mut scalars);
+    let scaled_inv_root_pows = scaled_inverse_root_powers(size);
+    fill_lagrange_row_coeffs_from_root_table(&scaled_inv_root_pows, size - 1, &mut scalars);
     msm_workspace.msm(&scalars, &bases)
 }
 
@@ -474,12 +554,16 @@ fn build_xy_powers_from_x_basis<S: Phase1SrsSource>(
     y_pows: &[ScalarField],
 ) -> Box<[G1serde]> {
     let x_basis = source.x_g1_range(0, h_max - 1);
-    let mut xy = Vec::with_capacity(h_max * y_pows.len());
-    for x_point in x_basis.iter() {
-        for y_pow in y_pows.iter() {
-            xy.push(G1serde(*x_point) * *y_pow);
-        }
-    }
+    let y_len = y_pows.len();
+    let mut xy = vec![G1serde::zero(); h_max * y_len];
+    xy.par_chunks_mut(y_len)
+        .zip(x_basis.par_iter())
+        .for_each(|(row, x_point)| {
+            let base = G1serde(*x_point);
+            for (slot, y_pow) in row.iter_mut().zip(y_pows.iter()) {
+                *slot = base * *y_pow;
+            }
+        });
     xy.into_boxed_slice()
 }
 fn process_prepare(
