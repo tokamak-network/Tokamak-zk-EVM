@@ -6,11 +6,11 @@ use icicle_bls12_381::curve::{G1Affine, G2Affine, ScalarField};
 use icicle_core::traits::FieldImpl;
 use libs::field_structures::Tau;
 use libs::group_structures::{G1serde, Sigma};
-use libs::iotools::{
-    ArchivedG1SerdeRkyv, ArchivedSigma1Rkyv, G1SerdeRkyv, Sigma1Rkyv, SigmaRkyv,
-};
 use libs::iotools::SetupParams;
-use rkyv::{check_archived_root, Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
+use libs::iotools::{ArchivedG1SerdeRkyv, ArchivedSigma1Rkyv, G1SerdeRkyv, Sigma1Rkyv, SigmaRkyv};
+use rkyv::{
+    check_archived_root, Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_reader, to_writer_pretty};
 use std::env;
@@ -71,7 +71,10 @@ impl SigmaV2 {
             contributor_index: archived.contributor_index as usize,
             sigma: archived_sigma_to_sigma(&archived.sigma),
             gamma: archived.gamma.to_g1serde(),
-            public_y_hex: archived.public_y_hex.as_ref().map(|value| value.as_str().to_string()),
+            public_y_hex: archived
+                .public_y_hex
+                .as_ref()
+                .map(|value| value.as_str().to_string()),
         })
     }
 
@@ -154,7 +157,9 @@ fn archived_sigma1_to_sigma1(archived: &ArchivedSigma1Rkyv) -> libs::group_struc
         delta: archived.delta.to_g1serde(),
         eta: archived.eta.to_g1serde(),
         gamma_inv_o_inst: archived_g1_slice_to_box(&archived.gamma_inv_o_inst),
-        eta_inv_li_o_inter_alpha4_kj: archived_g1_matrix_to_box(&archived.eta_inv_li_o_inter_alpha4_kj),
+        eta_inv_li_o_inter_alpha4_kj: archived_g1_matrix_to_box(
+            &archived.eta_inv_li_o_inter_alpha4_kj,
+        ),
         delta_inv_li_o_prv: archived_g1_matrix_to_box(&archived.delta_inv_li_o_prv),
         delta_inv_alphak_xh_tx: archived_g1_matrix_to_box(&archived.delta_inv_alphak_xh_tx),
         delta_inv_alpha4_xj_tx: archived_g1_slice_to_box(&archived.delta_inv_alpha4_xj_tx),
@@ -170,7 +175,9 @@ fn archived_g1_slice_to_box(slice: &[ArchivedG1SerdeRkyv]) -> Box<[G1serde]> {
         .into_boxed_slice()
 }
 
-fn archived_g1_matrix_to_box(matrix: &rkyv::vec::ArchivedVec<rkyv::vec::ArchivedVec<ArchivedG1SerdeRkyv>>) -> Box<[Box<[G1serde]>]> {
+fn archived_g1_matrix_to_box(
+    matrix: &rkyv::vec::ArchivedVec<rkyv::vec::ArchivedVec<ArchivedG1SerdeRkyv>>,
+) -> Box<[Box<[G1serde]>]> {
     matrix
         .iter()
         .map(|row| {

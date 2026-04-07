@@ -8,7 +8,7 @@ use crate::sigma::{SigmaV2, HASH_BYTES_LEN};
 use ark_bls12_381::Bls12_381;
 use ark_ec::pairing::PairingOutput;
 use ark_ec::{AffineRepr, PrimeGroup};
-use ark_ff::One;
+use ark_ff::{One, Zero};
 use ark_serialize::Compress;
 use blake2::{Blake2b, Digest};
 use blake3::Hasher;
@@ -20,7 +20,6 @@ use icicle_runtime::Device;
 use libs::field_structures::Tau;
 use libs::group_structures::{pairing, G1serde, G2serde};
 use rand::Rng;
-use rayon::join;
 use rayon::prelude::*;
 use serde::de::{MapAccess, SeqAccess, Visitor};
 use serde::ser::{SerializeStruct, SerializeTuple};
@@ -539,12 +538,9 @@ impl Phase2Proof {
             .par_iter()
             .zip(sigma_old.sigma.sigma_1.delta_inv_alphak_xh_tx.par_iter())
             .all(|(cur_inner, old_inner)| {
-                cur_inner
-                    .par_iter()
-                    .zip(old_inner.par_iter())
-                    .all(|(cur, prev)| {
-                        consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
-                    })
+                cur_inner.iter().zip(old_inner.iter()).all(|(cur, prev)| {
+                    consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
+                })
             });
         assert_eq!(consistent_all, true);
         crate::testing_log!("Verified delta_inv_alphak_xh_tx consistency");
@@ -556,12 +552,9 @@ impl Phase2Proof {
             .par_iter()
             .zip(sigma_old.sigma.sigma_1.delta_inv_alphak_yi_ty.par_iter())
             .all(|(cur_inner, old_inner)| {
-                cur_inner
-                    .par_iter()
-                    .zip(old_inner.par_iter())
-                    .all(|(cur, prev)| {
-                        consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
-                    })
+                cur_inner.iter().zip(old_inner.iter()).all(|(cur, prev)| {
+                    consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
+                })
             });
         assert_eq!(consistent_all, true);
         crate::testing_log!("Verified delta_inv_alphak_yi_ty consistency");
@@ -579,12 +572,9 @@ impl Phase2Proof {
                     .par_iter(),
             )
             .all(|(cur_inner, old_inner)| {
-                cur_inner
-                    .par_iter()
-                    .zip(old_inner.par_iter())
-                    .all(|(cur, prev)| {
-                        consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.eta_t_g2])
-                    })
+                cur_inner.iter().zip(old_inner.iter()).all(|(cur, prev)| {
+                    consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.eta_t_g2])
+                })
             });
 
         assert_eq!(consistent_all, true);
@@ -597,12 +587,9 @@ impl Phase2Proof {
             .par_iter()
             .zip(sigma_old.sigma.sigma_1.delta_inv_li_o_prv.par_iter())
             .all(|(cur_inner, old_inner)| {
-                cur_inner
-                    .par_iter()
-                    .zip(old_inner.par_iter())
-                    .all(|(cur, prev)| {
-                        consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
-                    })
+                cur_inner.iter().zip(old_inner.iter()).all(|(cur, prev)| {
+                    consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
+                })
             });
         assert_eq!(consistent_all, true);
         true
@@ -1417,10 +1404,7 @@ pub fn consistent(ab_g1: &[G1serde], ab_g2: &[G2serde], c: &[G2serde]) -> bool {
     } else {
         let a2 = ab_g2[0];
         let b2 = ab_g2[1];
-
-        let (res_ab, res_c) = join(|| same_ratio(a1, b1, a2, b2), || same_ratio(a1, b1, c1, c2));
-
-        res_ab && res_c
+        same_ratio(a1, b1, a2, b2) && same_ratio(a1, b1, c1, c2)
     }
 }
 
@@ -1436,12 +1420,8 @@ pub fn pok(g1: &G1serde, alpha: ScalarField, v: &[u8]) -> G2serde {
 }
 
 pub fn same_ratio(g1_0: G1serde, g1_1: G1serde, g2_0: G2serde, g2_1: G2serde) -> bool {
-    let results: Vec<PairingOutput<Bls12_381>> = [(&[g1_0], &[g2_1]), (&[g1_1], &[g2_0])]
-        .par_iter()
-        .map(|(g1, g2)| pairing(*g1, *g2))
-        .collect();
-
-    results[0].eq(&results[1])
+    let neg_g1_1 = G1serde::zero() - g1_1;
+    pairing(&[g1_0, neg_g1_1], &[g2_1, g2_0]).is_zero()
 }
 
 pub fn ro(a: &G1serde, v: &[u8]) -> G2serde {

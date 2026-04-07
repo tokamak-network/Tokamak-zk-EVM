@@ -1,14 +1,15 @@
 use chrono::Local;
 use clap::Parser;
+use icicle_bls12_381::curve::ScalarField;
 use icicle_core::traits::{Arithmetic, FieldImpl};
+use libs::group_structures::G1serde;
 use mpc_setup::contributor::{get_device_info, ContributorInfo};
 use mpc_setup::sigma::{AaccExt, SigmaV2, HASH_BYTES_LEN};
 use mpc_setup::utils::{
     hash_sigma, initialize_random_generator, pok, prompt_user_input, Mode, Phase2Proof,
     RandomGenerator, StepTimer,
 };
-use rayon::iter::ParallelIterator;
-use rayon::prelude::IntoParallelRefMutIterator;
+use rayon::prelude::*;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::ops::Mul;
@@ -251,6 +252,26 @@ fn verify_and_save_results(
     .expect("cannot write new_proof to file");
 }
 
+fn scale_g1_slice(points: &[G1serde], scalar: ScalarField) -> Box<[G1serde]> {
+    points
+        .par_iter()
+        .map(|point| point.mul(scalar))
+        .collect::<Vec<_>>()
+        .into_boxed_slice()
+}
+
+fn scale_g1_matrix(rows: &[Box<[G1serde]>], scalar: ScalarField) -> Box<[Box<[G1serde]>]> {
+    rows.par_iter()
+        .map(|row| {
+            row.iter()
+                .map(|point| point.mul(scalar))
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+        })
+        .collect::<Vec<_>>()
+        .into_boxed_slice()
+}
+
 fn compute_new_sigma(rng: &mut RandomGenerator, sigma_old: &SigmaV2) -> (SigmaV2, Phase2Proof) {
     let delta = rng.next_random();
     let gamma = rng.next_random();
@@ -275,80 +296,75 @@ fn compute_new_sigma(rng: &mut RandomGenerator, sigma_old: &SigmaV2) -> (SigmaV2
         eta_t_g2: sigma_old.sigma.H.mul(eta),
     };
 
-    let mut gamma_inv_o_inst = sigma_old
-        .sigma
-        .sigma_1
-        .gamma_inv_o_inst
-        .to_vec();
-    gamma_inv_o_inst
-        .par_iter_mut()
-        .for_each(|n| *n = n.mul(gamma_inv));
-
-    let eta_inv_li_o_inter_alpha4_kj = sigma_old
-        .sigma
-        .sigma_1
-        .eta_inv_li_o_inter_alpha4_kj
-        .iter()
-        .map(|row| row.to_vec())
-        .collect::<Vec<_>>();
-    let mut eta_inv_li_o_inter_alpha4_kj = eta_inv_li_o_inter_alpha4_kj;
-    eta_inv_li_o_inter_alpha4_kj
-        .par_iter_mut()
-        .for_each(|inner_box| {
-            inner_box.par_iter_mut().for_each(|g| *g = g.mul(eta_inv));
-        });
-
-    let delta_inv_li_o_prv = sigma_old
-        .sigma
-        .sigma_1
-        .delta_inv_li_o_prv
-        .iter()
-        .map(|row| row.to_vec())
-        .collect::<Vec<_>>();
-    let mut delta_inv_li_o_prv = delta_inv_li_o_prv;
-    delta_inv_li_o_prv
-        .par_iter_mut()
-        .for_each(|inner_box| {
-            inner_box.par_iter_mut().for_each(|g| *g = g.mul(delta_inv));
-        });
-
-    let delta_inv_alphak_xh_tx = sigma_old
-        .sigma
-        .sigma_1
-        .delta_inv_alphak_xh_tx
-        .iter()
-        .map(|row| row.to_vec())
-        .collect::<Vec<_>>();
-    let mut delta_inv_alphak_xh_tx = delta_inv_alphak_xh_tx;
-    delta_inv_alphak_xh_tx
-        .par_iter_mut()
-        .for_each(|inner_box| {
-            inner_box.par_iter_mut().for_each(|g| *g = g.mul(delta_inv));
-        });
-
-    let delta_inv_alphak_yi_ty = sigma_old
-        .sigma
-        .sigma_1
-        .delta_inv_alphak_yi_ty
-        .iter()
-        .map(|row| row.to_vec())
-        .collect::<Vec<_>>();
-    let mut delta_inv_alphak_yi_ty = delta_inv_alphak_yi_ty;
-    delta_inv_alphak_yi_ty
-        .par_iter_mut()
-        .for_each(|inner_box| {
-            inner_box.par_iter_mut().for_each(|g| *g = g.mul(delta_inv));
-        });
-
-    let delta_inv_alpha4_xj_tx = sigma_old
-        .sigma
-        .sigma_1
-        .delta_inv_alpha4_xj_tx
-        .to_vec();
-    let mut delta_inv_alpha4_xj_tx = delta_inv_alpha4_xj_tx;
-    delta_inv_alpha4_xj_tx
-        .par_iter_mut()
-        .for_each(|n| *n = n.mul(delta_inv));
+    let (gamma_inv_o_inst, tail_terms) = rayon::join(
+        || scale_g1_slice(&sigma_old.sigma.sigma_1.gamma_inv_o_inst, gamma_inv),
+        || {
+            let (eta_inv_li_o_inter_alpha4_kj, delta_group) = rayon::join(
+                || {
+                    scale_g1_matrix(
+                        &sigma_old.sigma.sigma_1.eta_inv_li_o_inter_alpha4_kj,
+                        eta_inv,
+                    )
+                },
+                || {
+                    let (delta_inv_li_o_prv, delta_shape_terms) = rayon::join(
+                        || scale_g1_matrix(&sigma_old.sigma.sigma_1.delta_inv_li_o_prv, delta_inv),
+                        || {
+                            let (delta_inv_alphak_xh_tx, delta_tail_terms) = rayon::join(
+                                || {
+                                    scale_g1_matrix(
+                                        &sigma_old.sigma.sigma_1.delta_inv_alphak_xh_tx,
+                                        delta_inv,
+                                    )
+                                },
+                                || {
+                                    rayon::join(
+                                        || {
+                                            scale_g1_matrix(
+                                                &sigma_old.sigma.sigma_1.delta_inv_alphak_yi_ty,
+                                                delta_inv,
+                                            )
+                                        },
+                                        || {
+                                            scale_g1_slice(
+                                                &sigma_old.sigma.sigma_1.delta_inv_alpha4_xj_tx,
+                                                delta_inv,
+                                            )
+                                        },
+                                    )
+                                },
+                            );
+                            (
+                                delta_inv_alphak_xh_tx,
+                                delta_tail_terms.0,
+                                delta_tail_terms.1,
+                            )
+                        },
+                    );
+                    (
+                        delta_inv_li_o_prv,
+                        delta_shape_terms.0,
+                        delta_shape_terms.1,
+                        delta_shape_terms.2,
+                    )
+                },
+            );
+            (
+                eta_inv_li_o_inter_alpha4_kj,
+                delta_group.0,
+                delta_group.1,
+                delta_group.2,
+                delta_group.3,
+            )
+        },
+    );
+    let (
+        eta_inv_li_o_inter_alpha4_kj,
+        delta_inv_li_o_prv,
+        delta_inv_alphak_xh_tx,
+        delta_inv_alphak_yi_ty,
+        delta_inv_alpha4_xj_tx,
+    ) = tail_terms;
 
     let sigma_new = SigmaV2 {
         contributor_index: sigma_old.contributor_index + 1,
@@ -361,28 +377,12 @@ fn compute_new_sigma(rng: &mut RandomGenerator, sigma_old: &SigmaV2) -> (SigmaV2
                 y: sigma_old.sigma.sigma_1.y,
                 delta: sigma_old.sigma.sigma_1.delta.mul(delta),
                 eta: sigma_old.sigma.sigma_1.eta.mul(eta),
-                gamma_inv_o_inst: gamma_inv_o_inst.into_boxed_slice(),
-                eta_inv_li_o_inter_alpha4_kj: eta_inv_li_o_inter_alpha4_kj
-                    .into_iter()
-                    .map(Vec::into_boxed_slice)
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
-                delta_inv_li_o_prv: delta_inv_li_o_prv
-                    .into_iter()
-                    .map(Vec::into_boxed_slice)
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
-                delta_inv_alphak_xh_tx: delta_inv_alphak_xh_tx
-                    .into_iter()
-                    .map(Vec::into_boxed_slice)
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
-                delta_inv_alpha4_xj_tx: delta_inv_alpha4_xj_tx.into_boxed_slice(),
-                delta_inv_alphak_yi_ty: delta_inv_alphak_yi_ty
-                    .into_iter()
-                    .map(Vec::into_boxed_slice)
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
+                gamma_inv_o_inst,
+                eta_inv_li_o_inter_alpha4_kj,
+                delta_inv_li_o_prv,
+                delta_inv_alphak_xh_tx,
+                delta_inv_alpha4_xj_tx,
+                delta_inv_alphak_yi_ty,
             },
             sigma_2: libs::group_structures::Sigma2 {
                 alpha: sigma_old.sigma.sigma_2.alpha,
