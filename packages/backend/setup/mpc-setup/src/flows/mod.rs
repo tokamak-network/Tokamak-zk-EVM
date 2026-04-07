@@ -15,9 +15,6 @@ pub struct NativeMpcSetupConfig {
     pub intermediate: String,
     pub output: String,
     pub beacon_mode: bool,
-    pub contributor_name: String,
-    pub location: String,
-    pub blockhash: Option<String>,
     pub seed_input: Option<String>,
 }
 
@@ -27,8 +24,6 @@ pub struct DuskBackedMpcSetupConfig {
     pub intermediate: String,
     pub output: String,
     pub beacon_mode: bool,
-    pub contributor_name: String,
-    pub location: String,
     pub seed_input: Option<String>,
 }
 
@@ -41,20 +36,14 @@ pub fn run_native_mpc_setup(config: &NativeMpcSetupConfig) {
     phase1_initialize::run(&phase1_initialize::Phase1InitializeConfig {
         qap_path: qap_path.clone(),
         s_max,
-        blockhash: config.blockhash.clone(),
         setup_params_file: "setupParams.json".to_string(),
         outfolder: config.intermediate.clone(),
-        beacon_mode: config.beacon_mode,
-        contributor_name: config.contributor_name.clone(),
-        location: config.location.clone(),
     });
 
     phase1_next_contributor::run(&phase1_next_contributor::Phase1NextContributorConfig {
         outfolder: config.intermediate.clone(),
         beacon_mode: config.beacon_mode,
         contributor_index: 1,
-        contributor_name: config.contributor_name.clone(),
-        location: config.location.clone(),
         random_seed_input: derive_stage_seed_input(config.seed_input.as_deref(), "phase1-next"),
     })
     .expect("phase1_next_contributor failed");
@@ -63,8 +52,6 @@ pub fn run_native_mpc_setup(config: &NativeMpcSetupConfig) {
         &config.intermediate,
         &config.output,
         config.beacon_mode,
-        config.contributor_name.clone(),
-        config.location.clone(),
         Phase2SourceConfig::Native {
             qap_path: qap_path.clone(),
         },
@@ -82,8 +69,6 @@ pub fn run_dusk_backed_mpc_setup(config: &DuskBackedMpcSetupConfig) {
         &config.intermediate,
         &config.output,
         config.beacon_mode,
-        config.contributor_name.clone(),
-        config.location.clone(),
         Phase2SourceConfig::DuskGroth16 {
             qap_path,
             dusk_raw_file,
@@ -106,8 +91,6 @@ fn run_single_contributor_phase2(
     intermediate: &str,
     output: &str,
     beacon_mode: bool,
-    contributor_name: String,
-    location: String,
     source: Phase2SourceConfig,
     master_seed_input: Option<&str>,
 ) {
@@ -145,8 +128,6 @@ fn run_single_contributor_phase2(
         outfolder: intermediate.to_string(),
         beacon_mode,
         contributor_index: 1,
-        contributor_name,
-        location,
         random_seed_input: derive_stage_seed_input(master_seed_input, "phase2-next"),
     });
 

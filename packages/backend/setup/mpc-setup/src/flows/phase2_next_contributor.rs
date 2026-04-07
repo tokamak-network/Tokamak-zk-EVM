@@ -23,8 +23,6 @@ pub struct Phase2NextContributorConfig {
     pub outfolder: String,
     pub beacon_mode: bool,
     pub contributor_index: usize,
-    pub contributor_name: String,
-    pub location: String,
     pub random_seed_input: Option<String>,
 }
 #[derive(Error, Debug)]
@@ -47,8 +45,6 @@ pub enum ContributorError {
 }
 pub fn run(config: &Phase2NextContributorConfig) {
     let mut timer = StepTimer::new("phase2_next_contributor");
-    let name = config.contributor_name.clone();
-    let location = config.location.clone();
     let start = Instant::now();
     let mode = ceremony_mode(config.beacon_mode);
     let mut rng =
@@ -119,16 +115,8 @@ pub fn run(config: &Phase2NextContributorConfig) {
 
     verify_and_save_results(&config.outfolder, &latest_acc, &new_acc, &new_proof);
     timer.log_step("verify new proof and save results");
-    save_contributor_info(
-        &previous_hashes,
-        &start,
-        &config,
-        &new_acc,
-        &new_proof,
-        name,
-        location,
-    )
-    .expect("cannot contribution info into file");
+    save_contributor_info(&previous_hashes, &start, &config, &new_acc, &new_proof)
+        .expect("cannot contribution info into file");
     timer.log_step("write contributor info");
     timer.log_total();
     println!("Time elapsed: {:?}", start.elapsed().as_secs_f64());
@@ -148,10 +136,8 @@ fn save_contributor_info(
     config: &Phase2NextContributorConfig,
     acc: &SigmaV2,
     proof: &Phase2Proof,
-    name: String,
-    location: String,
 ) -> Result<(), ContributorError> {
-    let info = create_contributor_info(previous_hashes, start_time, acc, proof, name, location);
+    let info = create_contributor_info(previous_hashes, start_time, acc, proof);
     let file_path = format!(
         "{}/{}",
         config.outfolder,
@@ -170,8 +156,6 @@ fn create_contributor_info(
     start_time: &Instant,
     acc: &SigmaV2,
     proof: &Phase2Proof,
-    name: String,
-    location: String,
 ) -> ContributorInfo {
     println!(
         "Total time elapsed: {:?}",
@@ -180,8 +164,8 @@ fn create_contributor_info(
     ContributorInfo {
         contributor_no: acc.contributor_index as u32,
         date: Local::now().format("%Y-%m-%d").to_string(),
-        name,
-        location,
+        name: String::new(),
+        location: String::new(),
         devices: get_device_info().to_string(),
         prev_acc_hash: hex::encode(previous_hashes[0]),
         prev_proof_hash: hex::encode(previous_hashes[1]),

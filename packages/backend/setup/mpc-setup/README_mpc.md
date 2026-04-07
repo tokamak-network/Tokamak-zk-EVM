@@ -42,15 +42,12 @@ This wrapper performs:
 Add `--beacon-mode` in normal builds if you want deterministic beacon-mode sampling instead
 of the default random mode.
 
-Optional wrapper-only inputs:
+Optional wrapper-only input:
 
-- `--contributor-name`
-- `--location`
-- `--blockhash`
 - `--seed-input`
 
-The wrappers are non-interactive. If these values are omitted, they default to empty
-metadata or internal randomness instead of prompting on stdin.
+The wrappers are non-interactive. Contributor metadata defaults to empty strings, and the
+native phase-1 initialization scalar uses internal randomness instead of prompting on stdin.
 
 ## Dusk-Backed Mode
 
@@ -61,10 +58,8 @@ cargo run --release --bin dusk_backed_mpc_setup -- \
   --output ./setup/mpc-setup/output/dusk.final
 ```
 
-Optional wrapper-only inputs:
+Optional wrapper-only input:
 
-- `--contributor-name`
-- `--location`
 - `--seed-input`
 
 This wrapper:

@@ -23,8 +23,6 @@ pub struct Phase1NextContributorConfig {
     pub outfolder: String,
     pub beacon_mode: bool,
     pub contributor_index: u32,
-    pub contributor_name: String,
-    pub location: String,
     pub random_seed_input: Option<String>,
 }
 
@@ -105,15 +103,13 @@ impl ContributorSession {
         );
         self.timer.log_step("initialize random generator");
 
-        let name = self.config.contributor_name.clone();
-        let location = self.config.location.clone();
         self.timer.log_step("collect contributor metadata");
 
         let latest_acc = self.load_and_verify_accumulator()?;
         self.timer.log_step("load and verify latest accumulator");
         let (new_acc, new_proof) = self.compute_contribution(&latest_acc, &mut rng)?;
         self.timer.log_step("compute new accumulator and proof");
-        self.save_results(&new_acc, &new_proof, name, location)?;
+        self.save_results(&new_acc, &new_proof)?;
         self.timer
             .log_step("save accumulator, proof, and contributor info");
         self.timer.log_total();
@@ -238,13 +234,11 @@ impl ContributorSession {
         &self,
         new_acc: &Accumulator,
         new_proof: &Phase1Proof,
-        name: String,
-        location: String,
     ) -> Result<(), ContributorError> {
         self.save_accumulator(new_acc)?;
         self.save_proof(new_proof)?;
 
-        self.save_contributor_info(new_acc, new_proof, name, location)?;
+        self.save_contributor_info(new_acc, new_proof)?;
 
         Ok(())
     }
@@ -274,10 +268,8 @@ impl ContributorSession {
         &self,
         acc: &Accumulator,
         proof: &Phase1Proof,
-        name: String,
-        location: String,
     ) -> Result<(), ContributorError> {
-        let info = self.create_contributor_info(acc, proof, name, location);
+        let info = self.create_contributor_info(acc, proof);
         let file_path = format!(
             "{}/{}",
             self.config.outfolder,
@@ -291,13 +283,7 @@ impl ContributorSession {
         Ok(())
     }
 
-    fn create_contributor_info(
-        &self,
-        acc: &Accumulator,
-        proof: &Phase1Proof,
-        name: String,
-        location: String,
-    ) -> ContributorInfo {
+    fn create_contributor_info(&self, acc: &Accumulator, proof: &Phase1Proof) -> ContributorInfo {
         println!(
             "Total time elapsed: {:?}",
             self.start_time.elapsed().as_secs_f64()
@@ -305,8 +291,8 @@ impl ContributorSession {
         ContributorInfo {
             contributor_no: acc.contributor_index as u32,
             date: Local::now().format("%Y-%m-%d").to_string(),
-            name,
-            location,
+            name: String::new(),
+            location: String::new(),
             devices: get_device_info().to_string(),
             prev_acc_hash: hex::encode(self.previous_hashes.acc_hash),
             prev_proof_hash: hex::encode(self.previous_hashes.proof_hash),

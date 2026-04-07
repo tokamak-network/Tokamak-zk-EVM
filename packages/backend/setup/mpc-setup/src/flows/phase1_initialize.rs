@@ -15,7 +15,6 @@ use std::ops::Mul;
 use std::path::PathBuf;
 use std::time::Instant;
 
-const BLOCKHASH_LENGTH: usize = 64;
 const HASH_BYTES: usize = 32;
 const POWER_ALPHA_LENGTH: usize = 4;
 
@@ -23,18 +22,12 @@ const POWER_ALPHA_LENGTH: usize = 4;
 pub struct Phase1InitializeConfig {
     pub qap_path: PathBuf,
     pub s_max: usize,
-    pub blockhash: Option<String>,
     pub setup_params_file: String,
     pub outfolder: String,
-    pub beacon_mode: bool,
-    pub contributor_name: String,
-    pub location: String,
 }
 
 pub fn run(config: &Phase1InitializeConfig) {
     let mut timer = StepTimer::new("phase1_initialize");
-    let contributor_name = config.contributor_name.clone();
-    let location = config.location.clone();
 
     let setup_params = SetupParams::read_from_json(config.qap_path.join(&config.setup_params_file))
         .expect("cannot SetupParams read file");
@@ -51,7 +44,7 @@ pub fn run(config: &Phase1InitializeConfig) {
             x_degree, y_degree
         );
     }
-    let scalar = initialize_scalar(config.blockhash.as_ref()).expect("cannot initialize scalar");
+    let scalar = initialize_scalar();
     timer.log_step("initialize scalar");
     let start = Instant::now();
 
@@ -76,14 +69,8 @@ pub fn run(config: &Phase1InitializeConfig) {
         "{}/phase1_contributor_{}.txt",
         config.outfolder, genesis_acc.contributor_index
     );
-    save_contributor_info(
-        &genesis_acc,
-        start.elapsed(),
-        &contributor_name,
-        &location,
-        fpath,
-    )
-    .expect("cannot write to file");
+    save_contributor_info(&genesis_acc, start.elapsed(), "", "", fpath)
+        .expect("cannot write to file");
     timer.log_step("write contributor info");
     println!(
         "Phase-1 initialization completed in {:.2} seconds",
@@ -93,26 +80,12 @@ pub fn run(config: &Phase1InitializeConfig) {
     println!("Thanks for your contribution.");
 }
 
-fn initialize_scalar(blockhash: Option<&String>) -> Result<ScalarField, String> {
+fn initialize_scalar() -> ScalarField {
     if crate::testing_mode_enabled() {
-        Ok(ScalarField::from_u32(1))
+        ScalarField::from_u32(1)
     } else {
-        let blockhash_str = match blockhash {
-            Some(hash) => hash.trim_start_matches("0x").to_string(),
-            None => return Ok(ScalarCfg::generate_random(1)[0]),
-        };
-
-        validate_blockhash(&blockhash_str)?;
-        let hash = hex::decode(&blockhash_str).map_err(|_| "Invalid hex encoding")?;
-        Ok(ScalarField::from_bytes_le(hash.as_ref()) - ScalarField::from_u32(0))
+        ScalarCfg::generate_random(1)[0]
     }
-}
-
-fn validate_blockhash(hash: &str) -> Result<(), String> {
-    if hash.len() != BLOCKHASH_LENGTH || !hash.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err("Blockhash must be a 64-character hex string".to_string());
-    }
-    Ok(())
 }
 
 fn save_contributor_info(
