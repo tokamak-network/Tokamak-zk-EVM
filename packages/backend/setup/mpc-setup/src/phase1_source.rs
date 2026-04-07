@@ -1,10 +1,13 @@
 use crate::accumulator::{Accumulator, AccumulatorRkyv};
 use crate::conversions::{deserialize_g1_affine, deserialize_g2_affine};
+use crate::sigma::{DuskSourceProvenance, Phase1SourceProvenance};
+use crate::utils::same_ratio;
 use crate::utils::{icicle_g1_generator, icicle_g2_generator};
 use ark_serialize::Compress;
 use icicle_bls12_381::curve::{G1Affine, G2Affine};
 use libs::group_structures::{G1serde, G2serde};
 use memmap::{Mmap, MmapOptions};
+use rayon::prelude::*;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, USER_AGENT};
 use serde::Deserialize;
@@ -167,17 +170,27 @@ enum DuskRawEncoding {
     Uncompressed,
 }
 
+impl DuskRawEncoding {
+    fn as_str(self) -> &'static str {
+        match self {
+            DuskRawEncoding::Compressed => "compressed-response",
+            DuskRawEncoding::Uncompressed => "uncompressed-challenge",
+        }
+    }
+}
+
 pub struct DuskGroth16Source {
     g1: G1serde,
     g2: G2serde,
     tau_powers_g1: Vec<G1Affine>,
     tau_powers_g2: Vec<G2Affine>,
     tokamak_n: usize,
+    provenance: DuskSourceProvenance,
 }
 
 impl DuskGroth16Source {
     pub fn read_from_file(path: &str, tokamak_n: usize) -> io::Result<Self> {
-        ensure_dusk_raw_response_available(Path::new(path))?;
+        let downloaded = ensure_dusk_raw_response_available(Path::new(path))?;
         let bytes = std::fs::read(path)?;
         let encoding = match bytes.len() {
             DUSK_CHALLENGE_BYTES => DuskRawEncoding::Uncompressed,
@@ -260,12 +273,32 @@ impl DuskGroth16Source {
             ));
         }
 
+        verify_dusk_tau_consistency(&tau_powers_g1, &tau_powers_g2)?;
+
+        let canonical_source_path = std::fs::canonicalize(path)
+            .unwrap_or_else(|_| Path::new(path).to_path_buf())
+            .to_string_lossy()
+            .to_string();
+        let provenance = DuskSourceProvenance {
+            source_path: canonical_source_path,
+            source_size_bytes: bytes.len() as u64,
+            raw_encoding: encoding.as_str().to_string(),
+            auto_downloaded: downloaded.is_some(),
+            downloaded_contribution: downloaded.as_ref().map(|value| value.contribution.clone()),
+            downloaded_readme_url: downloaded.as_ref().map(|value| value.readme_url.clone()),
+            downloaded_drive_file_id: downloaded.as_ref().map(|value| value.drive_file_id.clone()),
+            max_g1_exp_used: max_g1_exp,
+            max_g2_exp_used: max_g2_exp,
+            transcript_consistency_verified: true,
+        };
+
         Ok(Self {
             g1,
             g2,
             tau_powers_g1,
             tau_powers_g2,
             tokamak_n,
+            provenance,
         })
     }
 
@@ -280,6 +313,67 @@ impl DuskGroth16Source {
     fn tau_g2(&self, exp: usize) -> G2serde {
         G2serde(self.tau_powers_g2[exp])
     }
+
+    pub fn provenance(&self) -> DuskSourceProvenance {
+        self.provenance.clone()
+    }
+}
+
+fn verify_dusk_tau_consistency(g1_powers: &[G1Affine], g2_powers: &[G2Affine]) -> io::Result<()> {
+    if g1_powers.len() < 2 || g2_powers.len() < 2 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Dusk raw PoT file must contain at least tau^0 and tau^1 in both G1 and G2",
+        ));
+    }
+
+    let g1_gen = G1serde(g1_powers[0]);
+    let tau_g1 = G1serde(g1_powers[1]);
+    let g2_gen = G2serde(g2_powers[0]);
+    let tau_g2 = G2serde(g2_powers[1]);
+
+    if !same_ratio(g1_gen, tau_g1, g2_gen, tau_g2) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Dusk raw PoT file failed tau consistency between G1 and G2 generators",
+        ));
+    }
+
+    if let Some(index) = (0..g1_powers.len() - 1).into_par_iter().find_any(|&index| {
+        !same_ratio(
+            G1serde(g1_powers[index]),
+            G1serde(g1_powers[index + 1]),
+            g2_gen,
+            tau_g2,
+        )
+    }) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!(
+                "Dusk raw PoT file failed G1 tau consistency at exponent {}",
+                index + 1
+            ),
+        ));
+    }
+
+    if let Some(index) = (0..g2_powers.len() - 1).into_par_iter().find_any(|&index| {
+        !same_ratio(
+            g1_gen,
+            tau_g1,
+            G2serde(g2_powers[index]),
+            G2serde(g2_powers[index + 1]),
+        )
+    }) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!(
+                "Dusk raw PoT file failed G2 tau consistency at exponent {}",
+                index + 1
+            ),
+        ));
+    }
+
+    Ok(())
 }
 
 fn dusk_http_client() -> io::Result<Client> {
@@ -400,7 +494,7 @@ fn format_progress_bytes(bytes: u64) -> String {
     }
 }
 
-fn download_dusk_response(path: &Path) -> io::Result<()> {
+fn download_dusk_response(path: &Path) -> io::Result<DuskResponseDownload> {
     let client = dusk_http_client()?;
     let download = discover_latest_dusk_response(&client)?;
     let download_url = drive_direct_download_url(&download.drive_file_id);
@@ -493,23 +587,34 @@ fn download_dusk_response(path: &Path) -> io::Result<()> {
     temp_file
         .persist(path)
         .map_err(|err| io::Error::other(format!("failed to persist Dusk response: {err}")))?;
-    Ok(())
+    Ok(download)
 }
 
-fn ensure_dusk_raw_response_available(path: &Path) -> io::Result<()> {
+fn ensure_dusk_raw_response_available(path: &Path) -> io::Result<Option<DuskResponseDownload>> {
     if path.exists() {
-        return Ok(());
+        return Ok(None);
     }
     println!(
         "Dusk raw response file {} is missing locally; downloading it from the web.",
         path.display()
     );
-    download_dusk_response(path)
+    download_dusk_response(path).map(Some)
 }
 
 pub enum Phase1Source {
     Accumulator(AccumulatorSource),
     DuskGroth16(DuskGroth16Source),
+}
+
+impl Phase1Source {
+    pub fn provenance(&self) -> Phase1SourceProvenance {
+        match self {
+            Phase1Source::Accumulator(_) => Phase1SourceProvenance::Native,
+            Phase1Source::DuskGroth16(source) => {
+                Phase1SourceProvenance::DuskGroth16(source.provenance())
+            }
+        }
+    }
 }
 
 fn cache_is_fresh(cache_path: &Path, source_path: &Path) -> bool {
@@ -983,5 +1088,56 @@ impl Phase1SrsSource for Phase1Source {
             Phase1Source::Accumulator(source) => source.xy_g1(exp_x, exp_y),
             Phase1Source::DuskGroth16(source) => source.xy_g1(exp_x, exp_y),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::verify_dusk_tau_consistency;
+    use crate::utils::{icicle_g1_generator, icicle_g2_generator};
+    use icicle_bls12_381::curve::{G1Affine, G2Affine, ScalarField};
+    use icicle_core::traits::{Arithmetic, FieldImpl};
+
+    fn synthetic_tau_sequences(len: usize, tau: ScalarField) -> (Vec<G1Affine>, Vec<G2Affine>) {
+        let g1 = icicle_g1_generator().0;
+        let g2 = icicle_g2_generator().0;
+        let mut current = ScalarField::one();
+        let mut g1_powers = Vec::with_capacity(len);
+        let mut g2_powers = Vec::with_capacity(len);
+        for _ in 0..len {
+            g1_powers.push(G1Affine::from(g1.to_projective() * current));
+            g2_powers.push(G2Affine::from(g2.to_projective() * current));
+            current = current * tau;
+        }
+        (g1_powers, g2_powers)
+    }
+
+    #[test]
+    fn dusk_tau_consistency_accepts_valid_sequence() {
+        let tau = ScalarField::from_u32(5);
+        let (g1_powers, g2_powers) = synthetic_tau_sequences(8, tau);
+        assert!(verify_dusk_tau_consistency(&g1_powers, &g2_powers).is_ok());
+    }
+
+    #[test]
+    fn dusk_tau_consistency_rejects_broken_g1_sequence() {
+        let tau = ScalarField::from_u32(5);
+        let (mut g1_powers, g2_powers) = synthetic_tau_sequences(8, tau);
+        let bad_scalar = ScalarField::from_u32(17);
+        g1_powers[4] = G1Affine::from(icicle_g1_generator().0.to_projective() * bad_scalar);
+        let err = verify_dusk_tau_consistency(&g1_powers, &g2_powers)
+            .expect_err("broken G1 tau sequence must fail consistency validation");
+        assert!(err.to_string().contains("G1 tau consistency"));
+    }
+
+    #[test]
+    fn dusk_tau_consistency_rejects_broken_g2_sequence() {
+        let tau = ScalarField::from_u32(5);
+        let (g1_powers, mut g2_powers) = synthetic_tau_sequences(8, tau);
+        let bad_scalar = ScalarField::from_u32(19);
+        g2_powers[5] = G2Affine::from(icicle_g2_generator().0.to_projective() * bad_scalar);
+        let err = verify_dusk_tau_consistency(&g1_powers, &g2_powers)
+            .expect_err("broken G2 tau sequence must fail consistency validation");
+        assert!(err.to_string().contains("G2 tau consistency"));
     }
 }

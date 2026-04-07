@@ -21,6 +21,32 @@ use std::path::PathBuf;
 
 pub const HASH_BYTES_LEN: usize = 64;
 
+#[derive(
+    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Archive, RkyvSerialize, RkyvDeserialize,
+)]
+#[archive(check_bytes)]
+pub struct DuskSourceProvenance {
+    pub source_path: String,
+    pub source_size_bytes: u64,
+    pub raw_encoding: String,
+    pub auto_downloaded: bool,
+    pub downloaded_contribution: Option<String>,
+    pub downloaded_readme_url: Option<String>,
+    pub downloaded_drive_file_id: Option<String>,
+    pub max_g1_exp_used: usize,
+    pub max_g2_exp_used: usize,
+    pub transcript_consistency_verified: bool,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Deserialize, Serialize, Archive, RkyvSerialize, RkyvDeserialize,
+)]
+#[archive(check_bytes)]
+pub enum Phase1SourceProvenance {
+    Native,
+    DuskGroth16(DuskSourceProvenance),
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SigmaV2 {
     pub contributor_index: usize,
@@ -29,6 +55,8 @@ pub struct SigmaV2 {
     pub gamma: G1serde,
     #[serde(default)]
     pub public_y_hex: Option<String>,
+    #[serde(default)]
+    pub phase1_source_provenance: Option<Phase1SourceProvenance>,
 }
 impl_read_from_json!(SigmaV2);
 impl_write_into_json!(SigmaV2);
@@ -40,6 +68,7 @@ struct SigmaV2Rkyv {
     sigma: SigmaRkyv,
     gamma: G1SerdeRkyv,
     public_y_hex: Option<String>,
+    phase1_source_provenance: Option<Phase1SourceProvenance>,
 }
 
 impl SigmaV2Rkyv {
@@ -49,6 +78,7 @@ impl SigmaV2Rkyv {
             sigma: SigmaRkyv::from_sigma(&value.sigma),
             gamma: G1SerdeRkyv::from_g1serde(&value.gamma),
             public_y_hex: value.public_y_hex.clone(),
+            phase1_source_provenance: value.phase1_source_provenance.clone(),
         }
     }
 }
@@ -75,6 +105,11 @@ impl SigmaV2 {
                 .public_y_hex
                 .as_ref()
                 .map(|value| value.as_str().to_string()),
+            phase1_source_provenance: archived.phase1_source_provenance.as_ref().map(|value| {
+                value
+                    .deserialize(&mut rkyv::Infallible)
+                    .expect("cannot deserialize phase-1 source provenance")
+            }),
         })
     }
 
@@ -106,6 +141,7 @@ impl SigmaV2 {
             sigma,
             gamma,
             public_y_hex: None,
+            phase1_source_provenance: None,
         }
     }
     /// Write verifier CRS into JSON

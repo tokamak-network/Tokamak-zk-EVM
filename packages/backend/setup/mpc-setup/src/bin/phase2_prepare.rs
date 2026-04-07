@@ -236,6 +236,10 @@ fn merge_all_parts(outfolder: &str, total_part: usize) -> SigmaV2 {
         assert_eq!(sigma.sigma.sigma_2.alpha3, next.sigma.sigma_2.alpha3);
         assert_eq!(sigma.sigma.sigma_2.alpha4, next.sigma.sigma_2.alpha4);
         assert_eq!(sigma.public_y_hex, next.public_y_hex);
+        assert_eq!(
+            sigma.phase1_source_provenance,
+            next.phase1_source_provenance
+        );
         assert_eq!(sigma.sigma.sigma_1.x, next.sigma.sigma_1.x);
         assert_eq!(sigma.sigma.sigma_1.y, next.sigma.sigma_1.y);
         assert_eq!(sigma.sigma.sigma_1.eta, next.sigma.sigma_1.eta);
@@ -850,6 +854,7 @@ fn process_prepare(
         contributor_index: 0,
         gamma: g1,
         public_y_hex: Some(scalar_to_hex(&phase2_y)),
+        phase1_source_provenance: Some(phase1_source.provenance()),
         sigma: Sigma {
             G: g1,
             H: g2,

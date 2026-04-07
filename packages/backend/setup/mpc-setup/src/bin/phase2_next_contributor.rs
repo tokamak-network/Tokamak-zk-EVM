@@ -406,6 +406,7 @@ fn compute_new_sigma(rng: &mut RandomGenerator, sigma_old: &SigmaV2) -> (SigmaV2
         },
         gamma: sigma_old.gamma.mul(gamma),
         public_y_hex: sigma_old.public_y_hex.clone(),
+        phase1_source_provenance: sigma_old.phase1_source_provenance.clone(),
     };
 
     (sigma_new, phase2Proof)

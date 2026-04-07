@@ -62,6 +62,14 @@ fn main() {
     fs::write(output_dir.join("sigma_verify.rkyv"), bytes).expect("cannot write sigma_verify.rkyv");
     timer.log_step("write sigma verify");
 
+    if let Some(provenance) = latest_acc.phase1_source_provenance {
+        let bytes =
+            serde_json::to_vec_pretty(&provenance).expect("cannot serialize CRS provenance");
+        fs::write(output_dir.join("crs_provenance.json"), bytes)
+            .expect("cannot write crs_provenance.json");
+        timer.log_step("write CRS provenance");
+    }
+
     let lap = start.elapsed();
     println!("The sigma writing time: {:.6} seconds", lap.as_secs_f64());
     timer.log_total();
