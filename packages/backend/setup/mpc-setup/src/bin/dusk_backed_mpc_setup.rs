@@ -22,9 +22,9 @@ struct Config {
     #[arg(long, value_name = "DUSK_RAW_FILE")]
     dusk_raw_file: Option<String>,
 
-    /// Phase-2 y sampling mode
+    /// Ceremony sampling mode shared by all phase-2 steps
     #[arg(long, value_name = "MODE", default_value = "random")]
-    phase2_mode: String,
+    mode: String,
 }
 
 fn main() {
@@ -47,7 +47,7 @@ fn main() {
             "--outfolder".to_string(),
             intermediate_outfolder.clone(),
             "--mode".to_string(),
-            config.phase2_mode.clone(),
+            config.mode.clone(),
             "--phase1-source-mode".to_string(),
             "dusk-groth16".to_string(),
             "--dusk-raw-file".to_string(),
@@ -63,9 +63,9 @@ fn main() {
             "--outfolder".to_string(),
             intermediate_outfolder.clone(),
             "--mode".to_string(),
-            config.phase2_mode.clone(),
+            config.mode.clone(),
         ],
-        scripted_input_for_mode(&config.phase2_mode, 1),
+        scripted_input_for_mode(&config.mode, 1),
         &qap_path,
     );
 

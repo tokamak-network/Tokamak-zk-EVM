@@ -12,7 +12,7 @@
       "program": "${cargo:program}",
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/setup/output",
         "--fixed-tau"
       ],
       "cwd": "${workspaceFolder}",
@@ -33,7 +33,7 @@
       "program": "${cargo:program}",
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/setup/output",
         "--fixed-tau"
       ],
       "cwd": "${workspaceFolder}",
@@ -54,7 +54,7 @@
       "program": "${cargo:program}",
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/setup/output",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
         "--fixed-tau"
       ],
@@ -76,12 +76,10 @@
       "program": "${cargo:program}",
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/setup/mpc-setup/output/native-debug",
+        "${workspaceFolder}/setup/output",
         "--intermediate-outfolder",
         "${workspaceFolder}/setup/mpc-setup/output/native-debug.intermediate",
-        "--phase1-mode",
-        "testing",
-        "--phase2-mode",
+        "--mode",
         "testing",
         "--compress"
       ],
@@ -103,10 +101,10 @@
       "program": "${cargo:program}",
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/setup/mpc-setup/output/dusk-debug",
+        "${workspaceFolder}/setup/output",
         "--intermediate-outfolder",
         "${workspaceFolder}/setup/mpc-setup/output/dusk-debug.intermediate",
-        "--phase2-mode",
+        "--mode",
         "testing",
         "--dusk-raw-file",
         "${workspaceFolder}/setup/mpc-setup/output/dusk-debug.intermediate/dusk.response"
@@ -130,7 +128,7 @@
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/setup/output",
         "${workspaceFolder}/verify/preprocess/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -152,7 +150,7 @@
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/setup/output",
         "${workspaceFolder}/verify/preprocess/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -174,7 +172,7 @@
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/setup/output",
         "${workspaceFolder}/prove/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -196,7 +194,7 @@
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/setup/output",
         "${workspaceFolder}/prove/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -218,7 +216,7 @@
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/setup/output",
         "${workspaceFolder}/prove/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -242,7 +240,7 @@
       "env": {
         "PROVE_QAP_PATH": "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "PROVE_SYNTHESIZER_PATH": "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "PROVE_SETUP_PATH": "${workspaceFolder}/setup/trusted-setup/output",
+        "PROVE_SETUP_PATH": "${workspaceFolder}/setup/output",
         "PROVE_OUT_PATH": "${workspaceFolder}/prove/output",
         "TIMING_OUT": "${workspaceFolder}/prove/output/timing.release.json",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
@@ -263,7 +261,7 @@
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/setup/output",
         "${workspaceFolder}/verify/preprocess/output",
         "${workspaceFolder}/prove/output"
       ],
@@ -286,7 +284,7 @@
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/setup/output",
         "${workspaceFolder}/verify/preprocess/output",
         "${workspaceFolder}/prove/output"
       ],
@@ -309,7 +307,7 @@
       "args": [
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "${workspaceFolder}/setup/output",
         "${workspaceFolder}/verify/preprocess/output",
         "${workspaceFolder}/prove/output"
       ],

@@ -151,8 +151,7 @@ cargo run --release --bin native_mpc_setup -- \
   "$QAP_PATH" \
   ./setup/mpc-setup/output/final \
   --intermediate-outfolder ./setup/mpc-setup/output/intermediate \
-  --phase1-mode random \
-  --phase2-mode random
+  --mode random
 ```
 
 Dusk-backed mode:
@@ -163,7 +162,7 @@ cargo run --release --bin dusk_backed_mpc_setup -- \
   ./setup/mpc-setup/output/final \
   --intermediate-outfolder ./setup/mpc-setup/output/intermediate \
   --dusk-raw-file ./setup/mpc-setup/output/intermediate/dusk.response \
-  --phase2-mode random
+  --mode random
 ```
 
 In both wrappers:
@@ -172,6 +171,8 @@ In both wrappers:
 - the intermediate folder contains `phase1_acc_*`, `phase1_proof_*`, `phase2_acc_*`,
   `phase2_proof_*`, contributor info, and any downloaded Dusk raw response file
 - if `--intermediate-outfolder` is omitted, the wrappers use `<final_outfolder>.intermediate`
+- `--mode testing` applies to every ceremony step in the wrapper; otherwise all steps use the
+  chosen non-testing mode
 
 ## Phase 2: Dusk-Backed Source Mode
 

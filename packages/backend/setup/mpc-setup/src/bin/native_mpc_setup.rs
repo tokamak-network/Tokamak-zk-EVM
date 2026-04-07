@@ -23,13 +23,9 @@ struct Config {
     #[arg(long, default_value_t = false)]
     compress: bool,
 
-    /// Phase-1 scalar sampling mode
+    /// Ceremony sampling mode shared by phase 1 and phase 2
     #[arg(long, value_name = "MODE", default_value = "random")]
-    phase1_mode: String,
-
-    /// Phase-2 y sampling mode
-    #[arg(long, value_name = "MODE", default_value = "random")]
-    phase2_mode: String,
+    mode: String,
 }
 
 fn main() {
@@ -50,7 +46,7 @@ fn main() {
             "--s-max".to_string(),
             s_max.to_string(),
             "--mode".to_string(),
-            config.phase1_mode.clone(),
+            config.mode.clone(),
             "--setup-params-file".to_string(),
             "setupParams.json".to_string(),
             "--outfolder".to_string(),
@@ -68,9 +64,9 @@ fn main() {
             "--outfolder".to_string(),
             intermediate_outfolder.clone(),
             "--mode".to_string(),
-            config.phase1_mode.clone(),
+            config.mode.clone(),
         ],
-        scripted_input_for_mode(&config.phase1_mode, 1),
+        scripted_input_for_mode(&config.mode, 1),
         &qap_path,
     );
 
@@ -80,7 +76,7 @@ fn main() {
             "--outfolder".to_string(),
             intermediate_outfolder.clone(),
             "--mode".to_string(),
-            config.phase2_mode.clone(),
+            config.mode.clone(),
             "--phase1-source-mode".to_string(),
             "native".to_string(),
         ],
@@ -94,9 +90,9 @@ fn main() {
             "--outfolder".to_string(),
             intermediate_outfolder.clone(),
             "--mode".to_string(),
-            config.phase2_mode.clone(),
+            config.mode.clone(),
         ],
-        scripted_input_for_mode(&config.phase2_mode, 1),
+        scripted_input_for_mode(&config.mode, 1),
         &qap_path,
     );
 
