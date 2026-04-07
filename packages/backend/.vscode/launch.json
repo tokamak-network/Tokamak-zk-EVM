@@ -66,6 +66,48 @@
       "sourceLanguages": ["rust"]
     },
     {
+      "name": "Debug native mpc-setup (release)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "--release", "-p", "mpc-setup", "--bins"],
+        "filter": { "name": "native_mpc_setup", "kind": "bin" }
+      },
+      "program": "${cargo:program}",
+      "args": [
+        "--outfolder",
+        "${workspaceFolder}/setup/mpc-setup/output/native-debug"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
+      },
+      "sourceLanguages": ["rust"]
+    },
+    {
+      "name": "Debug Dusk-backed mpc-setup (release)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "--release", "-p", "mpc-setup", "--bins"],
+        "filter": { "name": "dusk_backed_mpc_setup", "kind": "bin" }
+      },
+      "program": "${cargo:program}",
+      "args": [
+        "--outfolder",
+        "${workspaceFolder}/setup/mpc-setup/output/dusk-debug",
+        "--dusk-raw-file",
+        "${workspaceFolder}/setup/mpc-setup/output/dusk-debug/dusk.response"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
+      },
+      "sourceLanguages": ["rust"]
+    },
+    {
       "name": "Debug preprocess (release)",
       "type": "lldb",
       "request": "launch",
