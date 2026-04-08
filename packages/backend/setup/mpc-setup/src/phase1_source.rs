@@ -582,7 +582,7 @@ fn archived_x_g1_range(
     }
 
     let mut out = Vec::with_capacity(exp_max + 1);
-    out.push(icicle_g1_generator().0);
+    out.push(archived.g1.to_g1_affine());
     out.extend(
         archived.x.g1[..exp_max]
             .iter()
@@ -661,7 +661,7 @@ fn fill_archived_alphaxy_g1_chunk(
         let row = &mut out[local_x * exp_y_max..(local_x + 1) * exp_y_max];
         if exp_x == 0 {
             if !row.is_empty() {
-                row[0] = icicle_g1_generator().0;
+                row[0] = archived.g1.to_g1_affine();
             }
             for exp_y in 1..exp_y_max {
                 row[exp_y] = archived.y.g1[exp_y - 1].to_g1_affine();
@@ -793,10 +793,10 @@ impl Phase1SrsSource for AccumulatorSource {
                 assert!(exp_alpha <= 4);
                 assert!(exp_x <= archived.x.g1.len());
                 if exp_alpha == 0 && exp_x == 0 {
-                    icicle_g1_generator()
+                    archived.g1.to_g1serde()
                 } else if exp_alpha == 0 {
                     if exp_x == 0 {
-                        icicle_g1_generator()
+                        archived.g1.to_g1serde()
                     } else {
                         archived.x.g1[exp_x - 1].to_g1serde()
                     }
@@ -817,10 +817,10 @@ impl Phase1SrsSource for AccumulatorSource {
                 assert!(exp_alpha <= 4);
                 assert!(exp_y <= archived.y.g1.len());
                 if exp_alpha == 0 && exp_y == 0 {
-                    icicle_g1_generator()
+                    archived.g1.to_g1serde()
                 } else if exp_alpha == 0 {
                     if exp_y == 0 {
-                        icicle_g1_generator()
+                        archived.g1.to_g1serde()
                     } else {
                         archived.y.g1[exp_y - 1].to_g1serde()
                     }
@@ -842,9 +842,13 @@ impl Phase1SrsSource for AccumulatorSource {
                 assert!(exp_y <= y_len);
                 assert!(exp_x <= archived.x.g1.len());
                 if exp_x == 0 && exp_y == 0 {
-                    icicle_g1_generator()
+                    archived.g1.to_g1serde()
                 } else if exp_x == 0 {
-                    archived.y.g1[exp_y - 1].to_g1serde()
+                    if exp_y == 0 {
+                        archived.g1.to_g1serde()
+                    } else {
+                        archived.y.g1[exp_y - 1].to_g1serde()
+                    }
                 } else if exp_y == 0 {
                     archived.x.g1[exp_x - 1].to_g1serde()
                 } else {

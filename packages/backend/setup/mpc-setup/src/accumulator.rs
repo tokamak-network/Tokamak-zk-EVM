@@ -308,7 +308,7 @@ impl Accumulator {
     pub fn get_x_g1_range(&self, exp_min: usize, exp_max: usize) -> Vec<G1Affine> {
         let mut out = vec![G1Affine::zero(); exp_max - exp_min + 1];
         for i in exp_min..exp_max + 1 {
-            out[i] = self.get_x_g1(i).0;
+            out[i - exp_min] = self.get_x_g1(i).0;
         }
         out
     }
@@ -316,7 +316,7 @@ impl Accumulator {
     //x^exp * G1
     pub fn get_x_g1(&self, exp: usize) -> G1serde {
         if exp == 0 {
-            return icicle_g1_generator();
+            return self.g1;
         }
         self.x.get_g1(exp - 1)
     }
@@ -327,14 +327,14 @@ impl Accumulator {
     //y^exp * G1
     pub fn get_y_g1(&self, exp: usize) -> G1serde {
         if exp == 0 {
-            return icicle_g1_generator();
+            return self.g1;
         }
         self.y.get_g1(exp - 1)
     }
     //alpha^exp * G1
     pub fn get_alpha_g1(&self, exp: usize) -> G1serde {
         if exp == 0 {
-            return icicle_g1_generator();
+            return self.g1;
         }
         let result = self.alpha.get(exp - 1).unwrap();
         result.g1
@@ -345,7 +345,7 @@ impl Accumulator {
         assert_eq!(exp_y <= self.y.len_g1(), true);
         assert_eq!(exp_alpha <= 4, true);
         if exp_alpha == 0 && exp_y == 0 {
-            return icicle_g1_generator();
+            return self.g1;
         } else if exp_alpha == 0 {
             return self.get_y_g1(exp_y);
         } else if exp_y == 0 {
@@ -361,7 +361,7 @@ impl Accumulator {
         assert_eq!(exp_alpha <= 4, true);
         assert_eq!(exp_x <= self.x.len_g1(), true);
         if exp_alpha == 0 && exp_x == 0 {
-            return icicle_g1_generator();
+            return self.g1;
         } else if exp_alpha == 0 {
             return self.get_x_g1(exp_x);
         } else if exp_x == 0 {
@@ -378,7 +378,7 @@ impl Accumulator {
         assert_eq!(exp_y <= self.y.len_g1(), true);
         assert_eq!(exp_x <= self.x.len_g1(), true);
         if exp_x == 0 && exp_y == 0 {
-            return icicle_g1_generator();
+            return self.g1;
         } else if exp_x == 0 {
             return self.get_y_g1(exp_y);
         } else if exp_y == 0 {
@@ -451,7 +451,7 @@ impl Accumulator {
         assert_eq!(exp_y <= self.y.len_g1(), true);
         assert_eq!(exp_x <= self.x.len_g1(), true);
         if exp_alpha == 0 && exp_x == 0 && exp_y == 0 {
-            return icicle_g1_generator();
+            return self.g1;
         } else if exp_alpha == 0 {
             return self.get_xy_g1(exp_x, exp_y);
         } else if exp_x == 0 {
