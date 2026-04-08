@@ -6,6 +6,7 @@ IFS=$'\n\t'
 # Global config
 VERBOSE=false
 INSTALL_USE_BUN=false
+INSTALL_USE_DUSK_BACKED_MPC=false
 
 # ---------- Importing functions ----------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -626,6 +627,10 @@ step_install() {
 
   if [[ "$INSTALL_USE_BUN" == true ]]; then
     packaging_options+=("--bun")
+  fi
+
+  if [[ "$INSTALL_USE_DUSK_BACKED_MPC" == true ]]; then
+    packaging_options+=("--dusk-backed-mpc")
   fi
 
   if [ -z "${GITHUB_ACTIONS:-}" ] && [ -z "${CI:-}" ] && [ -z "${CONTINUOUS_INTEGRATION:-}" ]; then

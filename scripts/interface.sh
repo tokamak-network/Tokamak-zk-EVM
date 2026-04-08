@@ -1,7 +1,7 @@
 #   - Before executing any internal shell script, this CLI normalizes line endings via dos2unix
 #     and ensures the script is executable, to avoid Windows CRLF issues.
 # Commands:
-#   --install [--bun]            Install frontend deps, run backend packaging, and compile qap-compiler
+#   --install [--bun] [--dusk-backed-mpc]  Install frontend deps, run backend packaging, and compile qap-compiler
 #   --synthesize <TX_CONFIG_JSON> [--alchemy-key <KEY>]  Run frontend synthesizer with config JSON and sync outputs into dist
 #   --synthesize --tokamak-ch-tx <INPUT_DIR|OPTIONS...>  Execute TokamakL2JS Channel transaction using dist synthesizer binary or source CLI fallback
 #   --preprocess [<SYNTH_OUTPUT_ZIP|DIR>]  Run backend preprocess step (dist only); optionally sync preprocess inputs into dist before running (DIR/ZIP must include permutation.json + instance.json)
@@ -13,13 +13,14 @@
 # Options:
 #   --verbose                    Show detailed output
 #   --bun                        Use Bun for packaging during --install
+#   --dusk-backed-mpc           Use dusk-backed mpc-setup instead of trusted-setup during --install
 
 # ---------- CLI ----------
 print_usage() {
   cat <<'USAGE'
 
 Commands:
-  --install [--bun]
+  --install [--bun] [--dusk-backed-mpc]
       Install and setup Tokamak ZKP
 
   --synthesize <TX_CONFIG_JSON> [--alchemy-key <KEY>]
@@ -62,7 +63,8 @@ Commands:
 
 Options:
   --verbose       Show detailed output
-  --bun           Use Bun for packaging during --install
+  --bun               Use Bun for packaging during --install
+  --dusk-backed-mpc   Use dusk-backed mpc-setup instead of trusted-setup during --install
 USAGE
 }
 
@@ -83,6 +85,10 @@ while [[ $# -gt 0 ]]; do
         case "$1" in
           --bun)
             INSTALL_USE_BUN=true
+            shift
+            ;;
+          --dusk-backed-mpc)
+            INSTALL_USE_DUSK_BACKED_MPC=true
             shift
             ;;
           --verbose)

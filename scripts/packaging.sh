@@ -30,6 +30,7 @@ DO_SIGN=false
 DO_BUN=false  # Default to no bun for local development
 DO_COMPRESS=true
 DO_SETUP=true  # Default to full build with setup
+DO_DUSK_BACKED_MPC=false
 TARGET_DIR_OVERRIDE=""
 
 # Parse arguments
@@ -44,6 +45,7 @@ Platform Selection:
 
 Build Options:
   --bun                   Use Bun to build synthesizer (default: false)
+  --dusk-backed-mpc      Use dusk_backed_mpc_setup instead of trusted-setup during setup generation
   --no-compress          Skip compression of final package
   --no-setup             Skip setup generation (build-only mode)
   --target-dir <path>    Override install target directory (default: dist/<platform>)
@@ -56,6 +58,7 @@ Other Options:
 
 Examples:
   $0 --linux --bun                    # Build for Linux with Bun
+  $0 --macos --dusk-backed-mpc        # Build for macOS and generate setup via dusk-backed mpc-setup
   $0 --macos --sign --no-setup        # Build for macOS with signing, no setup
   $0 --platform linux --no-compress   # Build for Linux without compression
   $0                                   # Auto-detect platform and build with defaults
@@ -83,6 +86,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --bun)
             DO_BUN=true
+            shift
+            ;;
+        --dusk-backed-mpc)
+            DO_DUSK_BACKED_MPC=true
             shift
             ;;
         --no-compress)
@@ -131,7 +138,7 @@ case "$PLATFORM" in
 esac
 
 echo "🔍 Unified packaging script running from workspace root: $(pwd)"
-echo "ℹ️ Configuration: PLATFORM=${PLATFORM}, DO_SETUP=${DO_SETUP}, DO_BUN=${DO_BUN}, DO_COMPRESS=${DO_COMPRESS}, DO_SIGN=${DO_SIGN}"
+echo "ℹ️ Configuration: PLATFORM=${PLATFORM}, DO_SETUP=${DO_SETUP}, DO_BUN=${DO_BUN}, DO_DUSK_BACKED_MPC=${DO_DUSK_BACKED_MPC}, DO_COMPRESS=${DO_COMPRESS}, DO_SIGN=${DO_SIGN}"
 
 # =========================
 # Platform-specific Configuration
@@ -239,6 +246,9 @@ build_backend() {
     echo "[*] Building backend..."
     cd packages/backend
     cargo build -p trusted-setup --release
+    if [[ "$DO_DUSK_BACKED_MPC" == "true" ]]; then
+        cargo build -p mpc-setup --release --bin dusk_backed_mpc_setup
+    fi
     cargo build -p preprocess --release
     cargo build -p prove --release
     cargo build -p verify --release
@@ -278,6 +288,18 @@ copy_binaries() {
         fi
     done
 
+    if [[ "$DO_DUSK_BACKED_MPC" == "true" ]]; then
+        DUSK_BINARY_PATH="packages/backend/target/release/dusk_backed_mpc_setup"
+        if [ -f "$DUSK_BINARY_PATH" ]; then
+            echo "✅ Found dusk_backed_mpc_setup binary at $DUSK_BINARY_PATH"
+            cp -vf "$DUSK_BINARY_PATH" "${TARGET}/bin"
+        else
+            echo "❌ Error: dusk_backed_mpc_setup binary not found at $DUSK_BINARY_PATH"
+            echo "🔍 Make sure the dusk-backed MPC setup binary is built properly"
+            exit 1
+        fi
+    fi
+
     echo "✅ copied to ${TARGET}/bin"
 }
 
@@ -310,6 +332,9 @@ configure_macos_rpath() {
         RPATH="@executable_path/../${BACKEND_PATH}/lib"
 
         install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/trusted-setup"
+        if [[ -f "${TARGET}/bin/dusk_backed_mpc_setup" ]]; then
+            install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/dusk_backed_mpc_setup"
+        fi
         install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/prove"
         install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/preprocess"
         install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/verify"
@@ -354,16 +379,33 @@ handle_setup() {
             if [ "$missing_setup_file" = "false" ]; then
                 echo "✅ Setup files verified: $(ls -lh ${TARGET}/resource/setup/output/)"
             else
-                echo "❌ Setup files verification failed, falling back to trusted-setup"
-                run_trusted_setup
+                if [[ "$DO_DUSK_BACKED_MPC" == "true" ]]; then
+                    echo "❌ Setup files verification failed, falling back to dusk-backed mpc-setup"
+                    run_dusk_backed_mpc_setup
+                else
+                    echo "❌ Setup files verification failed, falling back to trusted-setup"
+                    run_trusted_setup
+                fi
             fi
         else
             if [ "$IS_CI_ENV" = "false" ]; then
-                echo "[*] Local environment detected - Running fresh trusted-setup for safety..."
+                if [[ "$DO_DUSK_BACKED_MPC" == "true" ]]; then
+                    echo "[*] Local environment detected - Running fresh dusk-backed mpc-setup..."
+                else
+                    echo "[*] Local environment detected - Running fresh trusted-setup for safety..."
+                fi
             else
-                echo "[*] No prebuilt setup files found - Running trusted-setup..."
+                if [[ "$DO_DUSK_BACKED_MPC" == "true" ]]; then
+                    echo "[*] No prebuilt setup files found - Running dusk-backed mpc-setup..."
+                else
+                    echo "[*] No prebuilt setup files found - Running trusted-setup..."
+                fi
             fi
-            run_trusted_setup
+            if [[ "$DO_DUSK_BACKED_MPC" == "true" ]]; then
+                run_dusk_backed_mpc_setup
+            else
+                run_trusted_setup
+            fi
         fi
     fi
 }
@@ -371,6 +413,15 @@ handle_setup() {
 run_trusted_setup() {
     echo "[*] Running trusted-setup..."
     SETUP_SCRIPT="${TARGET}/1_run-trusted-setup.sh"
+    dos2unix "$SETUP_SCRIPT"
+    chmod +x "$SETUP_SCRIPT"
+    "$SETUP_SCRIPT"
+    echo "✅ CRS has been generated"
+}
+
+run_dusk_backed_mpc_setup() {
+    echo "[*] Running dusk-backed mpc-setup..."
+    SETUP_SCRIPT="${TARGET}/1_run-dusk-backed-mpc-setup.sh"
     dos2unix "$SETUP_SCRIPT"
     chmod +x "$SETUP_SCRIPT"
     "$SETUP_SCRIPT"
