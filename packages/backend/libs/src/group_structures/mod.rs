@@ -1,65 +1,59 @@
-use ark_ec::pairing::PairingOutput;
-use icicle_bls12_381::curve::{G1Affine, G1Projective, G2Affine, ScalarField};
-use icicle_core::traits::{Arithmetic, FieldImpl};
-use icicle_core::msm::{self, MSMConfig};
-use ark_bls12_381::{Bls12_381, G1Affine as ArkG1Affine, G2Affine as ArkG2Affine};
-use ark_ec::{pairing::Pairing};
-use ark_ff::{Field};
-use icicle_runtime::memory::HostSlice;
-use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
+use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use crate::field_structures::{FieldSerde, Tau};
-use crate::iotools::{from_coef_vec_to_g1serde_mat, from_coef_vec_to_g1serde_vec, scaled_outer_product_1d, scaled_outer_product_2d, HexString, PlacementVariables, SetupParams, SubcircuitInfo};
-use crate::vector_operations::{*};
+use crate::iotools::{
+    from_coef_vec_to_g1serde_mat, from_coef_vec_to_g1serde_vec, scaled_outer_product_1d,
+    scaled_outer_product_2d, HexString, PlacementVariables, SetupParams, SubcircuitInfo,
+};
+use crate::vector_operations::*;
+use ark_bls12_381::{Bls12_381, G1Affine as ArkG1Affine, G2Affine as ArkG2Affine};
+use ark_ec::pairing::Pairing;
+use ark_ec::pairing::PairingOutput;
+use ark_ff::Field;
+use icicle_bls12_381::curve::{G1Affine, G1Projective, G2Affine, ScalarField};
+use icicle_core::msm::{self, MSMConfig};
+use icicle_core::traits::{Arithmetic, FieldImpl};
+use icicle_runtime::memory::HostSlice;
 
 use serde::{Deserialize, Serialize};
-use std::{
-    ops::{Add, Mul, Sub},
-};
+use std::ops::{Add, Mul, Sub};
 
 macro_rules! extend_monomial_vec {
-    ($mono_vec: expr, $target_size: expr) => {
-        {
-            let mut res = vec![ScalarField::zero(); $target_size].into_boxed_slice();
-            extend_monomial_vec($mono_vec, &mut res);
-            res
-        }
-    };
+    ($mono_vec: expr, $target_size: expr) => {{
+        let mut res = vec![ScalarField::zero(); $target_size].into_boxed_slice();
+        extend_monomial_vec($mono_vec, &mut res);
+        res
+    }};
 }
 
 macro_rules! type_scaled_outer_product_2d {
-    ($col_vec: expr, $row_vec: expr, $g1_gen: expr, $scaler: expr) => {
-        {
-            let row_size = $col_vec.len();
-            let col_size = $row_vec.len();
-            let mut res = vec![vec![G1serde::zero(); col_size].into_boxed_slice(); row_size].into_boxed_slice(); 
-            scaled_outer_product_2d($col_vec, $row_vec, $g1_gen, $scaler, &mut res);
-            res
-        }
-    };  
+    ($col_vec: expr, $row_vec: expr, $g1_gen: expr, $scaler: expr) => {{
+        let row_size = $col_vec.len();
+        let col_size = $row_vec.len();
+        let mut res =
+            vec![vec![G1serde::zero(); col_size].into_boxed_slice(); row_size].into_boxed_slice();
+        scaled_outer_product_2d($col_vec, $row_vec, $g1_gen, $scaler, &mut res);
+        res
+    }};
 }
 
 macro_rules! type_scaled_outer_product_1d {
-    ($col_vec: expr, $row_vec: expr, $g1_gen: expr, $scaler: expr) => {
-        {
-            let row_size = $col_vec.len();
-            let col_size = $row_vec.len();
-            let mut res = vec![G1serde::zero(); row_size * col_size].into_boxed_slice();
-            scaled_outer_product_1d($col_vec, $row_vec, $g1_gen, $scaler, &mut res);
-            res
-        }
-    };  
+    ($col_vec: expr, $row_vec: expr, $g1_gen: expr, $scaler: expr) => {{
+        let row_size = $col_vec.len();
+        let col_size = $row_vec.len();
+        let mut res = vec![G1serde::zero(); row_size * col_size].into_boxed_slice();
+        scaled_outer_product_1d($col_vec, $row_vec, $g1_gen, $scaler, &mut res);
+        res
+    }};
 }
 
 #[macro_export]
 macro_rules! type_scaled_monomials_1d {
-    ( $cached_x_vec: expr, $cached_y_vec: expr, $x_size: expr, $y_size: expr, $scaler: expr, $g1_gen: expr ) => {
-        {
-            let col_vec = extend_monomial_vec!($cached_x_vec, $x_size);
-            let row_vec = extend_monomial_vec!($cached_y_vec, $y_size);
-            let res = type_scaled_outer_product_1d!(&col_vec, &row_vec, $g1_gen, $scaler);
-            res
-        }
-    };
+    ( $cached_x_vec: expr, $cached_y_vec: expr, $x_size: expr, $y_size: expr, $scaler: expr, $g1_gen: expr ) => {{
+        let col_vec = extend_monomial_vec!($cached_x_vec, $x_size);
+        let row_vec = extend_monomial_vec!($cached_y_vec, $y_size);
+        let res = type_scaled_outer_product_1d!(&col_vec, &row_vec, $g1_gen, $scaler);
+        res
+    }};
 }
 
 macro_rules! impl_encode_poly {
@@ -68,20 +62,20 @@ macro_rules! impl_encode_poly {
             pub fn encode_poly(
                 &self,
                 poly: &mut DensePolynomialExt,
-                params: &SetupParams
+                params: &SetupParams,
             ) -> G1serde {
                 poly.optimize_size();
                 let x_size = poly.x_size;
                 let y_size = poly.y_size;
-                let rs_x_size = std::cmp::max(2*params.n, 2*(params.l_D - params.l) );
-                let rs_y_size = params.s_max*2;
+                let rs_x_size = std::cmp::max(2 * params.n, 2 * (params.l_D - params.l));
+                let rs_y_size = params.s_max * 2;
                 let target_x_size = (poly.x_degree + 1) as usize;
                 let target_y_size = (poly.y_degree + 1) as usize;
                 if target_x_size > rs_x_size || target_y_size > rs_y_size {
                     panic!("Insufficient length of sigma.sigma_1.xy_powers");
                 }
                 if target_x_size * target_y_size == 0 {
-                    return G1serde::zero()
+                    return G1serde::zero();
                 }
                 let poly_coeffs_vec_compact = {
                     let mut poly_coeffs_vec = vec![ScalarField::zero(); x_size * y_size];
@@ -93,34 +87,31 @@ macro_rules! impl_encode_poly {
                         y_size,
                         target_x_size,
                         target_y_size,
-                        ScalarField::zero()
+                        ScalarField::zero(),
                     )
                 };
-                
+
                 let rs_unpacked: Vec<G1Affine> = {
                     let rs_resized = resize(
-                        &self.xy_powers, 
-                        rs_x_size, 
-                        rs_y_size, 
-                        target_x_size, 
+                        &self.xy_powers,
+                        rs_x_size,
+                        rs_y_size,
+                        target_x_size,
                         target_y_size,
-                        G1serde::zero()
+                        G1serde::zero(),
                     );
                     rs_resized.iter().map(|x| x.0).collect()
                 };
 
                 let mut msm_res = vec![G1Projective::zero(); 1];
-                
+
                 msm::msm(
-                    HostSlice::from_slice(
-                        &poly_coeffs_vec_compact
-                    ),
-                    HostSlice::from_slice(
-                        &rs_unpacked
-                    ),
+                    HostSlice::from_slice(&poly_coeffs_vec_compact),
+                    HostSlice::from_slice(&rs_unpacked),
                     &MSMConfig::default(),
-                    HostSlice::from_mut_slice(&mut msm_res)
-                ).unwrap();
+                    HostSlice::from_mut_slice(&mut msm_res),
+                )
+                .unwrap();
                 G1serde(G1Affine::from(msm_res[0]))
             }
         }
@@ -130,10 +121,7 @@ macro_rules! impl_encode_poly {
 pub fn pairing(lhs: &[G1serde], rhs: &[G2serde]) -> PairingOutput<Bls12_381> {
     let lhs_ark: Vec<ArkG1Affine> = lhs.iter().map(|x| icicle_g1_affine_to_ark(&x.0)).collect();
     let rhs_ark: Vec<ArkG2Affine> = rhs.iter().map(|x| icicle_g2_affine_to_ark(&x.0)).collect();
-    Bls12_381::multi_pairing(
-        lhs_ark, 
-        rhs_ark
-    )
+    Bls12_381::multi_pairing(lhs_ark, rhs_ark)
 }
 
 pub(crate) fn msm_g1_bases(scalars: &[ScalarField], bases: &[G1Affine]) -> G1serde {
@@ -149,7 +137,8 @@ pub(crate) fn msm_g1_bases(scalars: &[ScalarField], bases: &[G1Affine]) -> G1ser
         HostSlice::from_slice(bases),
         &MSMConfig::default(),
         HostSlice::from_mut_slice(&mut msm_res),
-    ).unwrap();
+    )
+    .unwrap();
     G1serde(G1Affine::from(msm_res[0]))
 }
 
@@ -212,11 +201,20 @@ where
         }
         let flatten_map = &subcircuit_info.flattenMap;
         let (start_idx, end_idx_exclusive) = if subcircuit_info.name == "bufferPubOut" {
-            (subcircuit_info.Out_idx[0], subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1])
+            (
+                subcircuit_info.Out_idx[0],
+                subcircuit_info.Out_idx[0] + subcircuit_info.Out_idx[1],
+            )
         } else if subcircuit_info.name == "bufferPubIn" {
-            (subcircuit_info.In_idx[0], subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
+            (
+                subcircuit_info.In_idx[0],
+                subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1],
+            )
         } else if subcircuit_info.name == "bufferBlockIn" {
-            (subcircuit_info.In_idx[0], subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1])
+            (
+                subcircuit_info.In_idx[0],
+                subcircuit_info.In_idx[0] + subcircuit_info.In_idx[1],
+            )
         } else {
             continue;
         };
@@ -283,7 +281,8 @@ where
         let subcircuit_info = &subcircuit_infos[placement.subcircuitId];
         let flatten_map = &subcircuit_info.flattenMap;
         for j in 0..subcircuit_info.Nwires {
-            if flatten_map[j] >= global_wire_index_offset && flatten_map[j] < global_wire_index_end {
+            if flatten_map[j] >= global_wire_index_offset && flatten_map[j] < global_wire_index_end
+            {
                 let global_idx = flatten_map[j] - global_wire_index_offset;
                 aligned_variable.push(ScalarField::from_hex(&variables[j]));
                 aligned_rs.push(base_at(global_idx, i));
@@ -321,11 +320,12 @@ impl Sigma {
         k_vec: &[ScalarField],
         m_vec: &[ScalarField],
         g1_gen: &G1Affine,
-        g2_gen: &G2Affine
+        g2_gen: &G2Affine,
     ) -> Self {
         println!("Generating a sigma (σ)...");
-        let lagrange_KL = (l_vec[params.s_max - 1] * k_vec[params.l_D - params.l - 1]) * G1serde(*g1_gen);
-        let sigma_1 = Sigma1::gen(params, tau, o_vec, l_vec, k_vec, m_vec,g1_gen);
+        let lagrange_KL =
+            (l_vec[params.s_max - 1] * k_vec[params.l_D - params.l - 1]) * G1serde(*g1_gen);
+        let sigma_1 = Sigma1::gen(params, tau, o_vec, l_vec, k_vec, m_vec, g1_gen);
         let sigma_2 = Sigma2::gen(tau, g2_gen);
         Self {
             G: G1serde(*g1_gen),
@@ -351,7 +351,7 @@ pub struct Sigma1 {
     pub eta_inv_li_o_inter_alpha4_kj: Box<[Box<[G1serde]>]>, // {η^(-1)L_i(y)(o_{j+l}(x) + α^4 K_j(x))}_{i=0,j=0}^{s_max-1,m_I-1}
     pub delta_inv_li_o_prv: Box<[Box<[G1serde]>]>, // {δ^(-1)L_i(y)o_j(x)}_{i=0,j=l+m_I}^{s_max-1,m_I-1}
     pub delta_inv_alphak_xh_tx: Box<[Box<[G1serde]>]>, // {δ^(-1)α^k x^h t_n(x)}_{h=0,k=1}^{2,3}
-    pub delta_inv_alpha4_xj_tx: Box<[G1serde]>, // {δ^(-1)α^4 x^j t_{m_I}(x)}_{j=0}^{1}
+    pub delta_inv_alpha4_xj_tx: Box<[G1serde]>,    // {δ^(-1)α^4 x^j t_{m_I}(x)}_{j=0}^{1}
     pub delta_inv_alphak_yi_ty: Box<[Box<[G1serde]>]>, // {δ^(-1)α^k y^i t_{s_max}(y)}_{i=0,k=1}^{2,4}
 }
 
@@ -365,9 +365,8 @@ impl Sigma1 {
         l_vec: &[ScalarField],
         k_vec: &[ScalarField],
         m_vec: &[ScalarField],
-        g1_gen: &G1Affine
+        g1_gen: &G1Affine,
     ) -> Self {
-
         let n = params.n;
         let m_d = params.m_D;
         let l = params.l;
@@ -377,47 +376,48 @@ impl Sigma1 {
         let m_block = l_free - l_user;
         let m_function = l - l_free;
         let m_i = params.l_D - l;
-        
+
         println!("Generating Sigma1 components...");
-        
+
         // Calculate max(2n-2, 3m_I-3) for h upper bound
-        let h_max = std::cmp::max(2*n, 2*m_i);
-        
+        let h_max = std::cmp::max(2 * n, 2 * m_i);
+
         // Calculate elements of the form {x^h y^i}
-        println!("Generating xy_powers of size {}...", h_max * (2*s_max));
-        let x_pows_vec = extend_monomial_vec!(
-            &vec![ScalarField::one(), tau.x].into_boxed_slice(), 
-            h_max
-        );
+        println!("Generating xy_powers of size {}...", h_max * (2 * s_max));
+        let x_pows_vec =
+            extend_monomial_vec!(&vec![ScalarField::one(), tau.x].into_boxed_slice(), h_max);
         let y_pows_vec = extend_monomial_vec!(
-            &vec![ScalarField::one(), tau.y].into_boxed_slice(), 
-            2*s_max
+            &vec![ScalarField::one(), tau.y].into_boxed_slice(),
+            2 * s_max
         );
-        let xy_powers = type_scaled_monomials_1d!(&x_pows_vec, &y_pows_vec, h_max, 2*s_max, None, g1_gen);
+        let xy_powers =
+            type_scaled_monomials_1d!(&x_pows_vec, &y_pows_vec, h_max, 2 * s_max, None, g1_gen);
         println!("");
 
         // Split output vector into input, output, intermediate, and private parts
         let o_inst_vec = &o_vec[0..l].to_vec().into_boxed_slice();
-        let o_inter_vec = &o_vec[l..l+m_i].to_vec().into_boxed_slice();
-        let o_prv_vec = &o_vec[l+m_i..m_d].to_vec().into_boxed_slice();
-        
+        let o_inter_vec = &o_vec[l..l + m_i].to_vec().into_boxed_slice();
+        let o_prv_vec = &o_vec[l + m_i..m_d].to_vec().into_boxed_slice();
+
         // Generate delta = G1serde · δ and eta = G1serde · η
         let x = G1serde(G1Affine::from((*g1_gen).to_projective() * tau.x));
         let y = G1serde(G1Affine::from((*g1_gen).to_projective() * tau.y));
         let delta = G1serde(G1Affine::from((*g1_gen).to_projective() * tau.delta));
         let eta = G1serde(G1Affine::from((*g1_gen).to_projective() * tau.eta));
-        
+
         // Generate γ^(-1)(L_t(y)o_j(x) + M_j(x)) for public instance wires j∈[0,l_pub-1], t={0, 1} and γ^(-1)L_t(y)o_j(x) for private instance wires j∈[l_pub,l-1], t={2, 3}
         println!("Generating gamma_inv_o_inst of size {}...", l);
         let mut gamma_inv_o_inst = vec![G1serde::zero(); l].into_boxed_slice();
         {
             // For the order of indices of l_vec, see BUFFER_LIST of tokamak-zk-evm/packages/frontend/synthesizer/src/interface/qapCompiler/configuredTypes.ts
             let user_vec = [
-                vec![l_vec[0]; params.l_user_out], 
+                vec![l_vec[0]; params.l_user_out],
                 vec![l_vec[1]; params.l_user - params.l_user_out],
                 vec![l_vec[2]; m_block],
                 vec![l_vec[3]; m_function],
-            ].concat().into_boxed_slice();
+            ]
+            .concat()
+            .into_boxed_slice();
             if user_vec.len() != l {
                 panic!("user_vec length mismatch: expected l");
             }
@@ -434,7 +434,7 @@ impl Sigma1 {
             point_add_two_vecs(
                 &l_o_inst_vec[..l_free],
                 &m_inst_vec,
-                &mut l_o_inst_mj_vec[..l_free]
+                &mut l_o_inst_mj_vec[..l_free],
             );
             l_o_inst_mj_vec[l_free..].copy_from_slice(&l_o_inst_vec[l_free..]);
             drop(l_o_inst_vec);
@@ -445,36 +445,56 @@ impl Sigma1 {
 
             from_coef_vec_to_g1serde_vec(&gamma_inv_o_inst_vec, g1_gen, &mut gamma_inv_o_inst);
         }
-        
+
         // Generate η^(-1)L_i(y)(o_{j+l}(x) + α^k K_j(x)) for intermediate wires
-        println!("Generating eta_inv_li_o_inter_alpha4_kj of size {}...", m_i * s_max);
+        println!(
+            "Generating eta_inv_li_o_inter_alpha4_kj of size {}...",
+            m_i * s_max
+        );
         let mut alpha4_kj_vec = vec![ScalarField::zero(); m_i].into_boxed_slice();
         scale_vec(tau.alpha.pow(4), k_vec, &mut alpha4_kj_vec);
         let mut o_inter_alpha4_kj_vec = vec![ScalarField::zero(); m_i].into_boxed_slice();
         point_add_two_vecs(o_inter_vec, &alpha4_kj_vec, &mut o_inter_alpha4_kj_vec);
-        let eta_inv_li_o_inter_alpha4_kj = type_scaled_outer_product_2d!(&o_inter_alpha4_kj_vec, l_vec, g1_gen, Some(&tau.eta.inv()));   
+        let eta_inv_li_o_inter_alpha4_kj = type_scaled_outer_product_2d!(
+            &o_inter_alpha4_kj_vec,
+            l_vec,
+            g1_gen,
+            Some(&tau.eta.inv())
+        );
         drop(alpha4_kj_vec);
         drop(o_inter_alpha4_kj_vec);
-        
+
         // Generate δ^(-1)L_i(y)o_j(x) for private wires
-        println!("Generating delta_inv_li_o_prv of size {}...", (m_d - (l + m_i)) * s_max );
-        let delta_inv_li_o_prv = type_scaled_outer_product_2d!(o_prv_vec, l_vec, g1_gen, Some(&tau.delta.inv()));
-        
+        println!(
+            "Generating delta_inv_li_o_prv of size {}...",
+            (m_d - (l + m_i)) * s_max
+        );
+        let delta_inv_li_o_prv =
+            type_scaled_outer_product_2d!(o_prv_vec, l_vec, g1_gen, Some(&tau.delta.inv()));
+
         // Generate δ^(-1)α^k x^h t_n(x) for a vanishing polynomial in x
         println!("Generating delta_inv_alphak_xh_tx...");
-        let mut delta_inv_alphak_xh_tx = vec![vec![G1serde::zero(); 3].into_boxed_slice(); 3].into_boxed_slice(); // k ∈ [1,3], h ∈ [0,2]
+        let mut delta_inv_alphak_xh_tx =
+            vec![vec![G1serde::zero(); 3].into_boxed_slice(); 3].into_boxed_slice(); // k ∈ [1,3], h ∈ [0,2]
         {
             let mut delta_inv_alphak_xh_tx_vec = vec![ScalarField::zero(); 9].into_boxed_slice(); // k ∈ [1,3], h ∈ [0,2]
             let t_x = tau.x.pow(n) - ScalarField::one(); // t_n(x) = x^n - 1
             for k in 1..=3 {
                 for h in 0..=2 {
-                    let idx = (k-1) * 3 + h;
-                    delta_inv_alphak_xh_tx_vec[idx] = tau.delta.inv() * tau.alpha.pow(k) * tau.x.pow(h) * t_x;
+                    let idx = (k - 1) * 3 + h;
+                    delta_inv_alphak_xh_tx_vec[idx] =
+                        tau.delta.inv() * tau.alpha.pow(k) * tau.x.pow(h) * t_x;
                 }
             }
-            from_coef_vec_to_g1serde_mat(&delta_inv_alphak_xh_tx_vec, 3, 3, g1_gen, &mut delta_inv_alphak_xh_tx);
+            from_coef_vec_to_g1serde_mat(
+                &delta_inv_alphak_xh_tx_vec,
+                3,
+                3,
+                g1_gen,
+                &mut delta_inv_alphak_xh_tx,
+            );
         }
-        
+
         // Generate δ^(-1)α^4 x^j t_{m_I}(x) for a vanishing polynomial in x
         println!("Generating delta_inv_alpha4_xj_tx...");
         let mut delta_inv_alpha4_xj_tx = vec![G1serde::zero(); 2].into_boxed_slice(); // Only j ∈ [0,1]
@@ -482,24 +502,37 @@ impl Sigma1 {
             let mut delta_inv_alpha4_xj_tx_vec = vec![ScalarField::zero(); 2].into_boxed_slice();
             let t_x = tau.x.pow(m_i) - ScalarField::one(); // t_{m_I}(x) = x^{m_I} - 1
             for j in 0..=1 {
-                delta_inv_alpha4_xj_tx_vec[j] = tau.delta.inv() * tau.alpha.pow(4) * tau.x.pow(j) * t_x;
+                delta_inv_alpha4_xj_tx_vec[j] =
+                    tau.delta.inv() * tau.alpha.pow(4) * tau.x.pow(j) * t_x;
             }
-            from_coef_vec_to_g1serde_vec(&delta_inv_alpha4_xj_tx_vec, g1_gen, &mut delta_inv_alpha4_xj_tx);
+            from_coef_vec_to_g1serde_vec(
+                &delta_inv_alpha4_xj_tx_vec,
+                g1_gen,
+                &mut delta_inv_alpha4_xj_tx,
+            );
         }
-        
+
         // Generate δ^(-1)α^k y^i t_{s_max}(y) for a vanishing polynomial in y
         println!("Generating delta_inv_alphak_yi_ty...");
-        let mut delta_inv_alphak_yi_ty = vec![vec![G1serde::zero(); 3].into_boxed_slice(); 4].into_boxed_slice(); // k ∈ [1,4], i ∈ [0,2]
+        let mut delta_inv_alphak_yi_ty =
+            vec![vec![G1serde::zero(); 3].into_boxed_slice(); 4].into_boxed_slice(); // k ∈ [1,4], i ∈ [0,2]
         {
             let mut delta_inv_alphak_yi_ty_vec = vec![ScalarField::zero(); 12].into_boxed_slice();
             let t_y = tau.y.pow(s_max) - ScalarField::one(); // t_{s_max}(y) = y^{s_max} - 1
             for k in 1..=4 {
                 for i in 0..=2 {
-                    let idx = (k-1) * 3 + i;
-                    delta_inv_alphak_yi_ty_vec[idx] = tau.delta.inv() * tau.alpha.pow(k) * tau.y.pow(i) * t_y;
+                    let idx = (k - 1) * 3 + i;
+                    delta_inv_alphak_yi_ty_vec[idx] =
+                        tau.delta.inv() * tau.alpha.pow(k) * tau.y.pow(i) * t_y;
                 }
             }
-            from_coef_vec_to_g1serde_mat(&delta_inv_alphak_yi_ty_vec, 4, 3, g1_gen, &mut delta_inv_alphak_yi_ty);
+            from_coef_vec_to_g1serde_mat(
+                &delta_inv_alphak_yi_ty_vec,
+                4,
+                3,
+                g1_gen,
+                &mut delta_inv_alphak_yi_ty,
+            );
         }
 
         Self {
@@ -513,9 +546,8 @@ impl Sigma1 {
             delta_inv_li_o_prv,
             delta_inv_alphak_xh_tx,
             delta_inv_alpha4_xj_tx,
-            delta_inv_alphak_yi_ty
+            delta_inv_alphak_yi_ty,
         }
-        
     }
 
     // pub fn encode_O_pub_free(
@@ -576,7 +608,7 @@ impl Sigma1 {
         &self,
         placement_variables: &[PlacementVariables],
         subcircuit_infos: &[SubcircuitInfo],
-        setup_params: &SetupParams
+        setup_params: &SetupParams,
     ) -> G1serde {
         encode_o_pub_free_common(
             placement_variables,
@@ -599,19 +631,18 @@ impl Sigma1 {
         )
     }
 
-
     pub fn encode_O_mid_no_zk(
         &self,
         placement_variables: &[PlacementVariables],
         subcircuit_infos: &[SubcircuitInfo],
-        setup_params: &SetupParams
+        setup_params: &SetupParams,
     ) -> G1serde {
         let nVar = count_o_mid_nvar(placement_variables, subcircuit_infos);
         encode_statement_common(
             setup_params.l,
             setup_params.l_D,
-            nVar, 
-            placement_variables, 
+            nVar,
+            placement_variables,
             subcircuit_infos,
             |global_idx, i| self.eta_inv_li_o_inter_alpha4_kj[global_idx][i].0,
         )
@@ -647,7 +678,7 @@ impl Sigma1 {
         //         let curve_point = self.eta_inv_li_o_inter_alpha4_kj[global_idx][i].0;
         //         aligned_rs[cnt] = curve_point;
         //         cnt += 1;
-        //     }        
+        //     }
         // }
         // let mut msm_res = vec![G1Projective::zero(); 1];
         // msm::msm(
@@ -663,14 +694,14 @@ impl Sigma1 {
         &self,
         placement_variables: &[PlacementVariables],
         subcircuit_infos: &[SubcircuitInfo],
-        setup_params: &SetupParams
+        setup_params: &SetupParams,
     ) -> G1serde {
         let nVar = count_o_prv_nvar(placement_variables, subcircuit_infos);
         encode_statement_common(
             setup_params.l_D,
             setup_params.m_D,
-            nVar, 
-            placement_variables, 
+            nVar,
+            placement_variables,
             subcircuit_infos,
             |global_idx, i| self.delta_inv_li_o_prv[global_idx][i].0,
         )
@@ -691,7 +722,7 @@ impl Sigma1 {
         //             aligned_rs[cnt] = curve_point;
         //             cnt += 1;
         //         }
-        //     }        
+        //     }
         // }
         // let mut msm_res = vec![G1Projective::zero(); 1];
         // msm::msm(
@@ -702,8 +733,6 @@ impl Sigma1 {
         // ).unwrap();
         // return G1serde(G1Affine::from(msm_res[0]))
     }
-
-    
 }
 /// This corresponds to σ_2 in the paper:
 /// σ_2 := (α, α^2, α^3, α^4, γ, δ, η, x, y)
@@ -722,10 +751,7 @@ pub struct Sigma2 {
 
 impl Sigma2 {
     /// Generate CRS elements for trapdoor component
-    pub fn gen(
-        tau: &Tau,
-        g2_gen: &G2Affine
-    ) -> Self {
+    pub fn gen(tau: &Tau, g2_gen: &G2Affine) -> Self {
         println!("Generating Sigma2 components...");
         let alpha = G2serde(G2Affine::from((*g2_gen).to_projective() * tau.alpha));
         let alpha2 = G2serde(G2Affine::from((*g2_gen).to_projective() * tau.alpha.pow(2)));
@@ -736,7 +762,7 @@ impl Sigma2 {
         let eta = G2serde(G2Affine::from((*g2_gen).to_projective() * tau.eta));
         let x = G2serde(G2Affine::from((*g2_gen).to_projective() * tau.x));
         let y = G2serde(G2Affine::from((*g2_gen).to_projective() * tau.y));
-        
+
         Self {
             alpha,
             alpha2,
@@ -746,14 +772,14 @@ impl Sigma2 {
             delta,
             eta,
             x,
-            y
+            y,
         }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SigmaPreprocess {
-    pub sigma_1: PartialSigma1
+    pub sigma_1: PartialSigma1,
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PartialSigma1 {
@@ -797,7 +823,7 @@ impl PartialSigma1 {
 
 //         G1serde(G1Affine::from(msm_res[0]))
 //     }
-    
+
 //     pub fn encode_O_block_inst(
 //         &self,
 //         a_pub_block: &[String],
@@ -844,7 +870,9 @@ impl Add for G1serde {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        G1serde(G1Affine::from(self.0.to_projective() + other.0.to_projective()))
+        G1serde(G1Affine::from(
+            self.0.to_projective() + other.0.to_projective(),
+        ))
     }
 }
 
@@ -852,7 +880,9 @@ impl Sub for G1serde {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
-        G1serde(G1Affine::from(self.0.to_projective() - other.0.to_projective()))
+        G1serde(G1Affine::from(
+            self.0.to_projective() - other.0.to_projective(),
+        ))
     }
 }
 
@@ -890,7 +920,6 @@ impl Mul<G1serde> for FieldSerde {
     }
 }
 
-
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub struct G2serde(pub G2Affine);
 impl G2serde {
@@ -903,7 +932,9 @@ impl Add for G2serde {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        G2serde(G2Affine::from(self.0.to_projective() + other.0.to_projective()))
+        G2serde(G2Affine::from(
+            self.0.to_projective() + other.0.to_projective(),
+        ))
     }
 }
 
@@ -911,7 +942,9 @@ impl Sub for G2serde {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
-        G2serde(G2Affine::from(self.0.to_projective() - other.0.to_projective()))
+        G2serde(G2Affine::from(
+            self.0.to_projective() - other.0.to_projective(),
+        ))
     }
 }
 
@@ -962,11 +995,11 @@ pub fn icicle_g1_affine_to_ark(g: &G1Affine) -> ArkG1Affine {
 pub fn icicle_g2_affine_to_ark(g: &G2Affine) -> ArkG2Affine {
     let x_bytes = g.x.to_bytes_le();
     let y_bytes = g.y.to_bytes_le();
-    
+
     let x = ark_bls12_381::Fq2::from_random_bytes(&x_bytes)
         .expect("failed to convert x from icicle to ark");
     let y = ark_bls12_381::Fq2::from_random_bytes(&y_bytes)
         .expect("failed to convert y from icicle to ark");
-    
+
     ArkG2Affine::new_unchecked(x, y)
 }

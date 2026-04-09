@@ -11,8 +11,10 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "--output",
+        "${workspaceFolder}/setup/output",
         "--fixed-tau"
       ],
       "cwd": "${workspaceFolder}",
@@ -32,8 +34,10 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "--output",
+        "${workspaceFolder}/setup/output",
         "--fixed-tau"
       ],
       "cwd": "${workspaceFolder}",
@@ -53,9 +57,12 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
+        "--output",
+        "${workspaceFolder}/setup/output",
         "--fixed-tau"
       ],
       "cwd": "${workspaceFolder}",
@@ -63,6 +70,54 @@
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
         "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
       },  
+      "sourceLanguages": ["rust"]
+    },
+    {
+      "name": "Debug native mpc-setup (release)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "--release", "-p", "mpc-setup"],
+        "filter": { "name": "native_mpc_setup", "kind": "bin" }
+      },
+      "program": "${cargo:program}",
+      "args": [
+        "--subcircuit-library",
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "--intermediate",
+        "${workspaceFolder}/setup/mpc-setup/output/native-debug.intermediate",
+        "--output",
+        "${workspaceFolder}/setup/output"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
+      },
+      "sourceLanguages": ["rust"]
+    },
+    {
+      "name": "Debug Dusk-backed mpc-setup (release)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "--release", "-p", "mpc-setup"],
+        "filter": { "name": "dusk_backed_mpc_setup", "kind": "bin" }
+      },
+      "program": "${cargo:program}",
+      "args": [
+        "--subcircuit-library",
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "--intermediate",
+        "${workspaceFolder}/setup/mpc-setup/output/dusk-debug.intermediate",
+        "--output",
+        "${workspaceFolder}/setup/output"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib:${env:LD_LIBRARY_PATH}"
+      },
       "sourceLanguages": ["rust"]
     },
     {
@@ -75,9 +130,13 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "--crs",
+        "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "--output",
         "${workspaceFolder}/verify/preprocess/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -97,9 +156,13 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "--crs",
+        "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "--output",
         "${workspaceFolder}/verify/preprocess/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -119,9 +182,13 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "--crs",
+        "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "--output",
         "${workspaceFolder}/prove/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -141,9 +208,13 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "--crs",
+        "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "--output",
         "${workspaceFolder}/prove/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -163,9 +234,13 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "--crs",
+        "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "--output",
         "${workspaceFolder}/prove/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -189,7 +264,7 @@
       "env": {
         "PROVE_QAP_PATH": "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "PROVE_SYNTHESIZER_PATH": "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "PROVE_SETUP_PATH": "${workspaceFolder}/setup/trusted-setup/output",
+        "PROVE_SETUP_PATH": "${workspaceFolder}/setup/output",
         "PROVE_OUT_PATH": "${workspaceFolder}/prove/output",
         "TIMING_OUT": "${workspaceFolder}/prove/output/timing.release.json",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/external-lib/mac/lib",
@@ -208,10 +283,15 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "--crs",
+        "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "--preprocess",
         "${workspaceFolder}/verify/preprocess/output",
+        "--proof",
         "${workspaceFolder}/prove/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -231,10 +311,15 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "--crs",
+        "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "--preprocess",
         "${workspaceFolder}/verify/preprocess/output",
+        "--proof",
         "${workspaceFolder}/prove/output"
       ],
       "cwd": "${workspaceFolder}",
@@ -254,10 +339,15 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
         "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
+        "--crs",
+        "${workspaceFolder}/setup/output",
+        "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
-        "${workspaceFolder}/setup/trusted-setup/output",
+        "--preprocess",
         "${workspaceFolder}/verify/preprocess/output",
+        "--proof",
         "${workspaceFolder}/prove/output"
       ],
       "cwd": "${workspaceFolder}",

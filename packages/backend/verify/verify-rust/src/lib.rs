@@ -1,24 +1,24 @@
 #![allow(non_snake_case)]
+use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
+use icicle_core::ntt;
+use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_runtime::memory::HostSlice;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
-use libs::iotools::{Instance, SetupParams};
+use libs::group_structures::pairing;
 use libs::group_structures::{G1serde, G2serde, Sigma2};
 use libs::iotools::{ArchivedSigmaVerifyRkyv, SigmaVerifyRkyv};
+use libs::iotools::{Instance, SetupParams};
 use libs::utils::{
     init_ntt_domain, load_setup_params_from_qap_path, prover_verifier_ntt_domain_size, setup_shape,
     validate_setup_shape,
 };
 use memmap2::Mmap;
-use std::io;
+use preprocess::{FormattedPreprocess, Preprocess};
+use prove::*;
 use std::fs::File;
-use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
-use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
-use icicle_core::ntt;
-use prove::{*};
-use libs::group_structures::pairing;
-use preprocess::{Preprocess, FormattedPreprocess};
+use std::io;
 
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use std::vec;
 
 pub struct VerifyInputPaths<'a> {
@@ -27,7 +27,7 @@ pub struct VerifyInputPaths<'a> {
     pub setup_path: &'a str,
     pub preprocess_path: &'a str,
     pub proof_path: &'a str,
-}   
+}
 
 pub struct SigmaVerifyZeroCopy {
     mmap: Mmap,
@@ -120,8 +120,9 @@ impl Verifier {
 
         // Load Sigma (reference string)
         let sigma_path = PathBuf::from(paths.setup_path).join("sigma_verify.rkyv");
-        let sigma = SigmaVerifyZeroCopy::load(&sigma_path)
-            .expect("No reference string is found. Run the Setup first (expected sigma_verify.rkyv).");
+        let sigma = SigmaVerifyZeroCopy::load(&sigma_path).expect(
+            "No reference string is found. Run the Setup first (expected sigma_verify.rkyv).",
+        );
 
         // Load Verifier preprocess
         let preprocess_path = PathBuf::from(paths.preprocess_path).join("preprocess.json");
@@ -134,17 +135,18 @@ impl Verifier {
         // let proof = Proof::read_from_json(&proof_path)
         // .expect("No proof is found. Run the Prove first.");
         let proof = FormattedProof::read_from_json(proof_path)
-        .expect("No proof is found. Run the Prove first.").recover_proof_from_format();
+            .expect("No proof is found. Run the Prove first.")
+            .recover_proof_from_format();
 
         return Self {
-            sigma, 
-            a_pub_X, 
-            // publicInputBuffer: instance.publicInputBuffer, 
-            // publicOutputBuffer: instance.publicOutputBuffer, 
-            setup_params, 
+            sigma,
+            a_pub_X,
+            // publicInputBuffer: instance.publicInputBuffer,
+            // publicOutputBuffer: instance.publicOutputBuffer,
+            setup_params,
             preprocess,
-            proof
-        }
+            proof,
+        };
     }
 
     fn collect_challenges(&self) -> VerificationChallenges {
@@ -168,7 +170,10 @@ impl Verifier {
         }
     }
 
-    fn build_domain_context(&self, challenges: &VerificationChallenges) -> VerificationDomainContext {
+    fn build_domain_context(
+        &self,
+        challenges: &VerificationChallenges,
+    ) -> VerificationDomainContext {
         let m_i = self.setup_params.l_D - self.setup_params.l;
         let s_max = self.setup_params.s_max;
         VerificationDomainContext {
@@ -181,7 +186,11 @@ impl Verifier {
         }
     }
 
-    fn eval_lagrange_k0(&self, domain: &VerificationDomainContext, challenges: &VerificationChallenges) -> ScalarField {
+    fn eval_lagrange_k0(
+        &self,
+        domain: &VerificationDomainContext,
+        challenges: &VerificationChallenges,
+    ) -> ScalarField {
         let lagrange_K0_XY = {
             let mut k0_evals = vec![ScalarField::zero(); domain.m_i];
             k0_evals[0] = ScalarField::one();
@@ -190,7 +199,7 @@ impl Verifier {
                 domain.m_i,
                 1,
                 None,
-                None
+                None,
             )
         };
         lagrange_K0_XY.eval(&challenges.chi, &challenges.zeta)
@@ -200,11 +209,14 @@ impl Verifier {
         self.a_pub_X.eval(&challenges.chi, &challenges.zeta)
     }
 
-    fn lhs_arith(&self, domain: &VerificationDomainContext, challenges: &VerificationChallenges) -> G1serde {
+    fn lhs_arith(
+        &self,
+        domain: &VerificationDomainContext,
+        challenges: &VerificationChallenges,
+    ) -> G1serde {
         let proof0 = &self.proof.proof0;
         let proof3 = &self.proof.proof3;
-        (proof0.U * proof3.V_eval)
-            - proof0.W
+        (proof0.U * proof3.V_eval) - proof0.W
             + (proof0.V - self.sigma.g() * proof3.V_eval) * challenges.kappa1
             - proof0.Q_AX * domain.t_n_eval
             - proof0.Q_AY * domain.t_smax_eval
@@ -280,12 +292,10 @@ impl Verifier {
             + proof4.M_Y * (challenges.kappa2 * challenges.zeta)
             + proof4.N_X * (challenges.kappa2.pow(2) * domain.omega_m_i.inv() * challenges.chi)
             + proof4.N_Y * (challenges.kappa2.pow(2) * domain.omega_s_max.inv() * challenges.zeta);
-        let AUX_X = proof4.Pi_CX
-            + proof4.M_X * challenges.kappa2
-            + proof4.N_X * challenges.kappa2.pow(2);
-        let AUX_Y = proof4.Pi_CY
-            + proof4.M_Y * challenges.kappa2
-            + proof4.N_Y * challenges.kappa2.pow(2);
+        let AUX_X =
+            proof4.Pi_CX + proof4.M_X * challenges.kappa2 + proof4.N_X * challenges.kappa2.pow(2);
+        let AUX_Y =
+            proof4.Pi_CY + proof4.M_Y * challenges.kappa2 + proof4.N_Y * challenges.kappa2.pow(2);
         (AUX_C, AUX_X, AUX_Y)
     }
 
@@ -308,12 +318,30 @@ impl Verifier {
         let (aux, aux_x, aux_y) = self.snark_aux(proof4, &domain, &challenges);
 
         let left_pair = pairing(
-            &[lhs + aux,    proof0.B,                   proof0.U,                   proof0.V,                   proof0.W                 ],
-            &[self.sigma.h(), self.sigma.sigma2().alpha4,  self.sigma.sigma2().alpha,   self.sigma.sigma2().alpha2,  self.sigma.sigma2().alpha3]
+            &[lhs + aux, proof0.B, proof0.U, proof0.V, proof0.W],
+            &[
+                self.sigma.h(),
+                self.sigma.sigma2().alpha4,
+                self.sigma.sigma2().alpha,
+                self.sigma.sigma2().alpha2,
+                self.sigma.sigma2().alpha3,
+            ],
         );
         let right_pair = pairing(
-            &[self.preprocess.O_pub_fix + binding.O_pub_free,    binding.O_mid,              binding.O_prv,              aux_x,                  aux_y               ],
-            &[self.sigma.sigma2().gamma,   self.sigma.sigma2().eta,     self.sigma.sigma2().delta,   self.sigma.sigma2().x,   self.sigma.sigma2().y]
+            &[
+                self.preprocess.O_pub_fix + binding.O_pub_free,
+                binding.O_mid,
+                binding.O_prv,
+                aux_x,
+                aux_y,
+            ],
+            &[
+                self.sigma.sigma2().gamma,
+                self.sigma.sigma2().eta,
+                self.sigma.sigma2().delta,
+                self.sigma.sigma2().x,
+                self.sigma.sigma2().y,
+            ],
         );
         left_pair.eq(&right_pair)
     }
@@ -324,15 +352,12 @@ impl Verifier {
         let lhs_a = self.lhs_arith(&domain, &challenges);
         let aux_a = self.arith_aux(proof4, &challenges);
 
-        let left_pair = pairing(
-            &[lhs_a + aux_a],
-            &[self.sigma.h()]
-        );
+        let left_pair = pairing(&[lhs_a + aux_a], &[self.sigma.h()]);
         let right_pair = pairing(
-            &[proof4.Pi_AX,             proof4.Pi_AY],
-            &[self.sigma.sigma2().x,     self.sigma.sigma2().y]
+            &[proof4.Pi_AX, proof4.Pi_AY],
+            &[self.sigma.sigma2().x, self.sigma.sigma2().y],
         );
-        return left_pair.eq(&right_pair)
+        return left_pair.eq(&right_pair);
     }
 
     pub fn verify_copy(&self, proof4: &Proof4Test) -> bool {
@@ -341,15 +366,12 @@ impl Verifier {
         let lagrange_k0_eval = self.eval_lagrange_k0(&domain, &challenges);
         let lhs_c = self.lhs_copy(&domain, &challenges, lagrange_k0_eval);
         let (aux_c, aux_x, aux_y) = self.copy_aux(proof4, &domain, &challenges);
-        let left_pair = pairing(
-            &[lhs_c + aux_c],
-            &[self.sigma.h()]
-        );
+        let left_pair = pairing(&[lhs_c + aux_c], &[self.sigma.h()]);
         let right_pair = pairing(
-            &[aux_x,                  aux_y               ],
-            &[self.sigma.sigma2().x,   self.sigma.sigma2().y]
+            &[aux_x, aux_y],
+            &[self.sigma.sigma2().x, self.sigma.sigma2().y],
         );
-        return left_pair.eq(&right_pair)
+        return left_pair.eq(&right_pair);
     }
 
     pub fn verify_binding(&self, proof4: &Proof4Test) -> bool {
@@ -360,17 +382,30 @@ impl Verifier {
         let lhs_b = self.lhs_binding(&challenges, a_eval);
         let aux_b = proof4.Pi_B * (challenges.kappa2 * challenges.chi);
         let left_pair = pairing(
-            &[lhs_b + aux_b,    proof0.B,                   proof0.U,                   proof0.V,                   proof0.W                 ],
-            &[self.sigma.h(),     self.sigma.sigma2().alpha4,  self.sigma.sigma2().alpha,   self.sigma.sigma2().alpha2,  self.sigma.sigma2().alpha3]
+            &[lhs_b + aux_b, proof0.B, proof0.U, proof0.V, proof0.W],
+            &[
+                self.sigma.h(),
+                self.sigma.sigma2().alpha4,
+                self.sigma.sigma2().alpha,
+                self.sigma.sigma2().alpha2,
+                self.sigma.sigma2().alpha3,
+            ],
         );
         let right_pair = pairing(
-            &[self.preprocess.O_pub_fix + binding.O_pub_free,    binding.O_mid,              binding.O_prv,              proof4.Pi_B * challenges.kappa2    ],
-            &[self.sigma.sigma2().gamma,       self.sigma.sigma2().eta,     self.sigma.sigma2().delta,   self.sigma.sigma2().x    ]
+            &[
+                self.preprocess.O_pub_fix + binding.O_pub_free,
+                binding.O_mid,
+                binding.O_prv,
+                proof4.Pi_B * challenges.kappa2,
+            ],
+            &[
+                self.sigma.sigma2().gamma,
+                self.sigma.sigma2().eta,
+                self.sigma.sigma2().delta,
+                self.sigma.sigma2().x,
+            ],
         );
 
-        return left_pair.eq(&right_pair)
-        
+        return left_pair.eq(&right_pair);
     }
-
-
 }

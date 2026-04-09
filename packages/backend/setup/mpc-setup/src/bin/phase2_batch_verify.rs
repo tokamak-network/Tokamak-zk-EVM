@@ -1,6 +1,6 @@
 use clap::Parser;
 use mpc_setup::sigma::SigmaV2;
-use mpc_setup::utils::{check_outfolder_writable, list_files_map, Phase2Proof};
+use mpc_setup::utils::{check_outfolder_writable, list_files_map, Phase2Proof, StepTimer};
 use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
@@ -21,6 +21,7 @@ const ERROR_PREV_ACC_NOT_FOUND: &str = "Previous phase2 accumulator is not found
 
 //cargo run --release --bin phase2_batch_verify -- --outfolder ./setup/mpc-setup/output
 fn main() {
+    let mut timer = StepTimer::new("phase2_batch_verify");
     let config = Config::parse();
     let total_start_time = Instant::now();
 
@@ -31,6 +32,7 @@ fn main() {
         );
         std::process::exit(1);
     }
+    timer.log_step("validate output folder");
 
     let phase2_files = match list_files_map(&config.outfolder) {
         Ok(files) => files,
@@ -39,6 +41,7 @@ fn main() {
             std::process::exit(1);
         }
     };
+    timer.log_step("index phase-2 files");
 
     let contributor_count = phase2_files
         .keys()
@@ -49,14 +52,15 @@ fn main() {
 
     println!("loading accumulator and proof files...");
 
-    let mut current_acc = SigmaV2::read_from_json(
+    let mut current_acc = SigmaV2::read_phase2_acc(
         phase2_files
             .get(&format!("{}{}", PHASE2_ACC_PREFIX, 0))
             .expect("Initial accumulator not found")
             .to_str()
             .unwrap(),
     )
-        .expect("Failed to load initial accumulator");
+    .expect("Failed to load initial accumulator");
+    timer.log_step("load initial accumulator");
 
     for i in 1..contributor_count {
         match verify_contribution(&phase2_files, i) {
@@ -78,6 +82,7 @@ fn main() {
         "Total execution time: {} seconds",
         total_start_time.elapsed().as_secs_f64()
     );
+    timer.log_total();
 }
 fn get_file_path(
     files: &HashMap<String, PathBuf>,
@@ -100,7 +105,7 @@ fn verify_contribution(
         contributor_index - 1
     );
 
-    let prev_acc: SigmaV2 = SigmaV2::read_from_json(&get_file_path(
+    let prev_acc: SigmaV2 = SigmaV2::read_phase2_acc(&get_file_path(
         phase2_files,
         PHASE2_ACC_PREFIX,
         contributor_index - 1,
@@ -110,7 +115,7 @@ fn verify_contribution(
         contributor_index
     );
 
-    let current_acc: SigmaV2 = SigmaV2::read_from_json(&get_file_path(
+    let current_acc: SigmaV2 = SigmaV2::read_phase2_acc(&get_file_path(
         phase2_files,
         PHASE2_ACC_PREFIX,
         contributor_index,

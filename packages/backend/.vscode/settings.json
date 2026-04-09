@@ -3,5 +3,6 @@
     "testing-mode"
   ],
   "rust-analyzer.cargo.allFeatures": false,
+  "chatgpt.commentCodeLensEnabled": true,
   // "rust-analyzer.cargo.noDefaultFeatures": false
 }

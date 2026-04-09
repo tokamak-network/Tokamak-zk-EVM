@@ -1,11 +1,11 @@
 #![allow(non_snake_case)]
 use libs::group_structures::G1serde;
 use libs::iotools::ArchivedSigmaPreprocessRkyv;
-use libs::iotools::{*};
+use libs::iotools::*;
 use libs::utils::{
     init_ntt_domain, prover_verifier_ntt_domain_size, setup_shape, validate_setup_shape,
 };
-use libs::{impl_read_from_json, impl_write_into_json, split_push, pop_recover};
+use libs::{impl_read_from_json, impl_write_into_json, pop_recover, split_push};
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -15,7 +15,7 @@ pub struct PreprocessInputPaths<'a> {
     pub synthesizer_path: &'a str,
     pub setup_path: &'a str,
     pub output_path: &'a str,
-}   
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Preprocess {
@@ -29,10 +29,10 @@ pub struct Preprocess {
 
 impl Preprocess {
     pub fn gen(
-        sigma: &ArchivedSigmaPreprocessRkyv, 
+        sigma: &ArchivedSigmaPreprocessRkyv,
         permutation_raw: &[Permutation],
         instance: &Instance,
-        setup_params: &SetupParams
+        setup_params: &SetupParams,
     ) -> Self {
         let shape = setup_shape(setup_params);
         validate_setup_shape(&shape);
@@ -45,9 +45,10 @@ impl Preprocess {
         let (mut s0XY, mut s1XY) = Permutation::to_poly(permutation_raw, m_i, s_max);
         let s0 = sigma.sigma_1.encode_poly(&mut s0XY, &setup_params);
         let s1 = sigma.sigma_1.encode_poly(&mut s1XY, &setup_params);
-        let O_pub_fix = sigma.sigma_1.encode_O_pub_fix(&instance.a_pub_function, setup_params);
+        let O_pub_fix = sigma
+            .sigma_1
+            .encode_O_pub_fix(&instance.a_pub_function, setup_params);
 
-        
         // let mut lagrange_KL_XY = {
         //     let mut k_evals = vec![ScalarField::zero(); m_i];
         //     k_evals[m_i - 1] = ScalarField::one();
@@ -72,7 +73,7 @@ impl Preprocess {
         // let lagrange_KL = sigma.sigma_1.encode_poly(&mut lagrange_KL_XY, &setup_params);
         // return Preprocess {s0, s1, lagrange_KL}
         return Preprocess {
-            s0, 
+            s0,
             s1,
             O_pub_fix,
             // O_function_inst,
@@ -88,14 +89,19 @@ impl Preprocess {
         let mut preprocess_entries_part2 = Vec::<String>::new();
 
         // Process
-        split_push!(preprocess_entries_part1, preprocess_entries_part2,
+        split_push!(
+            preprocess_entries_part1,
+            preprocess_entries_part2,
             &self.s0,
             &self.s1,
             &self.O_pub_fix,
             // &self.O_function_inst,
             // &self.O_block_inst,
         );
-        return FormattedPreprocess { preprocess_entries_part1, preprocess_entries_part2 };
+        return FormattedPreprocess {
+            preprocess_entries_part1,
+            preprocess_entries_part2,
+        };
     }
 }
 
@@ -116,17 +122,15 @@ impl FormattedPreprocess {
         let p1 = &self.preprocess_entries_part1;
         let p2 = &self.preprocess_entries_part2;
 
-        const G1_CNT: usize = 3;      // The number of G1 points
+        const G1_CNT: usize = 3; // The number of G1 points
         assert_eq!(p1.len(), G1_CNT * 2);
         assert_eq!(p2.len(), G1_CNT * 2);
 
         let mut idx = 0;
 
         // Must follow the same order of inputs as split_push!
-        pop_recover!(idx, p1, p2,
-            s0,
-            s1,
-            O_pub_fix,
+        pop_recover!(
+            idx, p1, p2, s0, s1, O_pub_fix,
             // O_function_inst,
             // O_block_inst,
         );
