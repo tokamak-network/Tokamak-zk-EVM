@@ -7,6 +7,10 @@ on:
     branches: [main, dev, ale-ci] # Execute on PR creation and updates
   workflow_dispatch: # Manual execution allowed
 
+concurrency:
+  group: build-release-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # ============================================================================
   # Build & Setup - Build binaries once and share across test jobs
