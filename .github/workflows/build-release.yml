@@ -382,10 +382,12 @@ jobs:
       - name: Run L2StateChannel CI test (synthesize)
         run: |
           echo "🧪 Running L2StateChannel CI test..."
-          node ./packages/frontend/synthesizer/scripts/run-vscode-launch-config.mjs \
-            --config-name "tokamak-ch-tx (debug, file inputs)" \
-            --workspace-folder "${{ github.workspace }}/packages/frontend/synthesizer" \
-            --tokamak-cli "${{ github.workspace }}/tokamak-cli"
+          cd packages/frontend/synthesizer
+          "${{ github.workspace }}/tokamak-cli" --synthesize --tokamak-ch-tx \
+            --previous-state "./examples/L2StateChannel/previous_state_snapshot.json" \
+            --transaction "./examples/L2StateChannel/transaction.json" \
+            --block-info "./examples/L2StateChannel/block_info.json" \
+            --contract-code "./examples/L2StateChannel/contract_codes.json"
 
       - name: Run preprocess
         run: |
