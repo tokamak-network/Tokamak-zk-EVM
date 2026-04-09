@@ -382,12 +382,11 @@ jobs:
       - name: Run L2StateChannel CI test (synthesize)
         run: |
           echo "🧪 Running L2StateChannel CI test..."
-          cd packages/frontend/synthesizer
           "${{ github.workspace }}/tokamak-cli" --synthesize --tokamak-ch-tx \
-            --previous-state "./examples/L2StateChannel/previous_state_snapshot.json" \
-            --transaction "./examples/L2StateChannel/transaction.json" \
-            --block-info "./examples/L2StateChannel/block_info.json" \
-            --contract-code "./examples/L2StateChannel/contract_codes.json"
+            --previous-state "${{ github.workspace }}/packages/frontend/synthesizer/examples/L2StateChannel/previous_state_snapshot.json" \
+            --transaction "${{ github.workspace }}/packages/frontend/synthesizer/examples/L2StateChannel/transaction.json" \
+            --block-info "${{ github.workspace }}/packages/frontend/synthesizer/examples/L2StateChannel/block_info.json" \
+            --contract-code "${{ github.workspace }}/packages/frontend/synthesizer/examples/L2StateChannel/contract_codes.json"
 
       - name: Run preprocess
         run: |
