@@ -1,5 +1,5 @@
 pragma circom 2.1.6;
-include "../../templates/256bit/alu_safe.circom";
+include "../../../templates/256bit/alu_safe.circom";
 
 template ALU_based_on_div_() {
     signal input in[7];
@@ -16,4 +16,3 @@ template ALU_based_on_div_() {
 }
 
 component main {public [in]} = ALU_based_on_div_();
-

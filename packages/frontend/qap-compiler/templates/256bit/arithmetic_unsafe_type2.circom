@@ -34,6 +34,8 @@ template Div256_unsafe () {
     carry3 === 0;
 
     signal is_zero_denom <== IsZero256()(in2);
+    q[0] * is_zero_denom === 0;
+    q[1] * is_zero_denom === 0;
 
     /*
     //Ensure 0 <= remainder < divisor when diviser > 0

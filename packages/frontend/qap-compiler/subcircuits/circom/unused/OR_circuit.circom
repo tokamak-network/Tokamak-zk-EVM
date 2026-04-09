@@ -1,5 +1,5 @@
 pragma circom 2.1.6;
-include "../../templates/256bit/bitwise_safe.circom";
+include "../../../templates/256bit/bitwise_safe.circom";
 
 template OR_() {
     signal input in[4];

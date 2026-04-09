@@ -15,12 +15,8 @@ template ALU1_() {
     signal in2[2] <== [in[3], in[4]];
 
     signal b_selector[NUM_SELECTOR_BITS] <== Num2Bits(NUM_SELECTOR_BITS)(selector);
-    signal selector_weight[NUM_SELECTOR_BITS];
-    selector_weight[0] <== b_selector[0];
-    for (var i = 1; i < NUM_SELECTOR_BITS; i++) {
-        selector_weight[i] <== selector_weight[i - 1] + b_selector[i];
-    }
-    selector_weight[NUM_SELECTOR_BITS - 1] === 1;
+    signal unsupported_selector_sum <== b_selector[0] + b_selector[4] + b_selector[5] + b_selector[6] + b_selector[7] + b_selector[8] + b_selector[9] + b_selector[10] + b_selector[11] + b_selector[12] + b_selector[13] + b_selector[14] + b_selector[15] + b_selector[26] + b_selector[27] + b_selector[28] + b_selector[29];
+    unsupported_selector_sum === 0;
     signal outs[NUM_ALU_FUNCTIONS][2];
     signal flags[NUM_ALU_FUNCTIONS];
     var ind = 0;
@@ -94,10 +90,7 @@ template ALU1_() {
     flags[ind] <== b_selector[19];
     ind++;
 
-    component eq = IsEqual256();
-    eq.in1 <== in1;
-    eq.in2 <== in2;
-    outs[ind] <== [eq.out, 0];
+    outs[ind] <== [is_eq, 0];
     flags[ind] <== b_selector[20];
     ind++;
 
@@ -161,7 +154,10 @@ template ALU1_() {
     flags[ind] <== b_selector[25];
     ind++;
 
-    component mux = ComplexMux256_unsafe(NUM_ALU_FUNCTIONS);
+    signal flags_sum <== flags[0] + flags[1] + flags[2] + flags[3] + flags[4] + flags[5] + flags[6] + flags[7] + flags[8] + flags[9] + flags[10] + flags[11] + flags[12];
+    flags_sum === 1;
+
+    component mux = ComplexMux256_checked(NUM_ALU_FUNCTIONS);
     mux.selector <== flags;
     mux.ins <== outs;
     out <== mux.out;
