@@ -16,8 +16,8 @@ import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
 import { createCircuitGenerator } from 'src/circuitGenerator/circuitGenerator.ts';
 import { PlacementVariables } from 'src/synthesizer/types/placements.ts';
 import { addHexPrefix, createAccount, createAddressFromString, hexToBytes } from '@ethereumjs/util';
-import { readJson, writeSnapshotJson } from './utils/node.ts';
-import { writeCircuitJson } from '../node/jsonWriter.ts';
+import { readJson } from './utils/node.ts';
+import { writeCircuitJson, writeStateSnapshotJson } from '../node/jsonWriter.ts';
 import { SynthesizerBlockInfo } from '../rpc/index.ts';
 import { Permutation, PublicInstance } from 'src/circuitGenerator/types/types.ts';
 
@@ -110,7 +110,7 @@ program
       
       writeCircuitJson(circuitGenerator);
       // Also save state_snapshot.json
-      writeSnapshotJson(finalState);
+      writeStateSnapshotJson(finalState);
       console.log(`[SynthesizerAdapter] ✅ Outputs written`);
 
     } catch (error: any) {

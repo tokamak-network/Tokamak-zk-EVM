@@ -1,26 +1,46 @@
 {
   "channelId": 4,
   "stateRoots": [
-    "0x718ffcf6dca884de674f6f55a26ec160d8d306c4b05d9c71e34234879f51b016",
-    "0xce3a78a0131c84050bbe2205642f9e176ffe98488dbddb19336b987420f3bde"
+    "0x2511471b8cda6b41dc5ef75787d00de59c2e88cbbcf173940a25aaeb451ba695",
+    "0x32fe7eab871c48cbc0c5c1b6444be3d71bfba4056511b49dd0ceb179c8807bc6"
   ],
   "storageAddresses": [
     "0xd67f66ce46f0e5fa4c3c9993f93dca60b9fb0ac0",
     "0x8d82ddb053da8d6372cba54b09fd05fb92e5581b"
   ],
-  "storageEntries": [
+  "storageKeys": [
+    [
+      "0x1ec679e5f29b637e85bc2349642f826453817db6aeb2e2cd4962b3f5c400d626",
+      "0x4323d454446f5909dede8baf5741713d63f3a5ded8f61759d731dd0ce09a00be",
+      "0x177216d8fd0b66f7d5ee198cef321eae361a91dfcdf9ccd0cb37756e26930ce4"
+    ],
+    []
+  ],
+  "storageTrieRoots": [
+    "0x5663a06933ce13ba67bbced14823c32478973b2640600ca4219fb7e5342830a7",
+    "0x16a879c8e84b5f10aaca50c8973b0e21d3142cb62033d8b9631f8ec9a1c0e51e"
+  ],
+  "storageTrieDb": [
     [
       {
-        "key": "0x1ec679e5f29b637e85bc2349642f826453817db6aeb2e2cd4962b3f5c400d626",
-        "value": "0x01"
+        "key": "0x5663a06933ce13ba67bbced14823c32478973b2640600ca4219fb7e5342830a7",
+        "value": "0xf85180a008f9c2f53c1f007062744b0c8bc49eed224cf473b70d1748bbce65896b424d2880808080a0436887122f6b5c8a6c92995f6017d12d577c25f2eec7b043686872b06fe53c5580808080808080808080"
       },
       {
-        "key": "0x4323d454446f5909dede8baf5741713d63f3a5ded8f61759d731dd0ce09a00be",
-        "value": "0x01"
+        "key": "0x08f9c2f53c1f007062744b0c8bc49eed224cf473b70d1748bbce65896b424d28",
+        "value": "0xf85180808080808080a021c3ecbaa7b9c9d64e7d6a561712f436efd4e0a51bf9a9baf1cff641e00f95fa808080808080a0358b4314c525be1703ec9cc984e8697ccba42c3c3808130f34d73bdd59a0d7c68080"
       },
       {
-        "key": "0x177216d8fd0b66f7d5ee198cef321eae361a91dfcdf9ccd0cb37756e26930ce4",
-        "value": "0x01"
+        "key": "0x21c3ecbaa7b9c9d64e7d6a561712f436efd4e0a51bf9a9baf1cff641e00f95fa",
+        "value": "0xe2a0208eaf611322c8607ad5751352d93bf25682dfe9e43166d88a9b587bedd809bd01"
+      },
+      {
+        "key": "0x358b4314c525be1703ec9cc984e8697ccba42c3c3808130f34d73bdd59a0d7c6",
+        "value": "0xe2a02011273d0d62b8c7185f3917bc2fb6c120dd543088c2090e19b13d668344089d01"
+      },
+      {
+        "key": "0x436887122f6b5c8a6c92995f6017d12d577c25f2eec7b043686872b06fe53c55",
+        "value": "0xe2a035dd325170b92c33eb44ca56aae63b3c9f2390f24499dc5bdda037ebc4ab256c01"
       }
     ],
     []

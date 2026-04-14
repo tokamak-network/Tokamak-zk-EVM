@@ -7,6 +7,7 @@ import { subcircuitInfo } from "../qapCompiler/importedConstants.ts";
 import { wasmDir } from "./wasmLoader.ts";
 import { readFileSync } from "node:fs";
 import { SynthesizerInterface } from "src/synthesizer/index.ts";
+import { StateSnapshot } from "tokamak-l2js";
 
 /**
    * Write placementVariables, instance (publicInstance), and permutation to JSON files.
@@ -89,4 +90,23 @@ export async function writeEvmAnalysisJson(synthesizer: SynthesizerInterface, ou
     const messageCodeAddressesPath = path.join(outputDir, 'message_code_addresses.json')
     await fsPromises.writeFile(messageCodeAddressesPath, JSON.stringify(messageCodeAddresses, null, 2), 'utf-8')
     console.log(`Success in writing '${messageCodeAddressesPath}'.`)
+}
+
+export function writeStateSnapshotJson(snapshot: StateSnapshot, outputDir?: string): void {
+    const stateSnapshotPath =
+        outputDir === undefined
+            ? path.resolve(appRootPath.path, 'outputs/state_snapshot.json')
+            : path.resolve(appRootPath.path, outputDir, 'state_snapshot.json');
+
+    const stateSnapshotDir = path.dirname(stateSnapshotPath);
+    if (!fs.existsSync(stateSnapshotDir)) {
+        fs.mkdirSync(stateSnapshotDir, { recursive: true });
+    }
+
+    fs.writeFileSync(
+        stateSnapshotPath,
+        JSON.stringify(snapshot, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2),
+        'utf-8',
+    );
+    console.log(`Synthesizer: Success in writing '${stateSnapshotPath}'.`);
 }

@@ -10,7 +10,7 @@ import {
 } from 'tokamak-l2js';
 import { createSynthesizer } from '../../../src/synthesizer/index.ts';
 import { createCircuitGenerator } from '../../../src/circuitGenerator/circuitGenerator.ts';
-import { writeCircuitJson, writeEvmAnalysisJson } from '../../../src/interface/node/jsonWriter.ts';
+import { writeCircuitJson, writeEvmAnalysisJson, writeStateSnapshotJson } from '../../../src/interface/node/jsonWriter.ts';
 import { loadSubcircuitWasm } from '../../../src/interface/node/wasmLoader.ts';
 import { getBlockInfoFromRPC } from '../../../src/interface/rpc/rpc.ts';
 import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../../src/interface/qapCompiler/importedConstants.ts';
@@ -63,6 +63,7 @@ const main = async () => {
   const subcircuitBuffers = loadSubcircuitWasm();
   const circuitGenerator = await createCircuitGenerator(synthesizer, subcircuitBuffers);
   writeCircuitJson(circuitGenerator);
+  writeStateSnapshotJson(await stateManager.captureStateSnapshot());
 
   if (runTxResult.execResult.exceptionError !== undefined) {
     console.error(`Exception Error: ${runTxResult.execResult.exceptionError}`);

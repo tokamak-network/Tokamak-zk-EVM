@@ -52,6 +52,7 @@
     "docs:build": "typedoc --options typedoc.cjs",
     "examples": "tsx --tsconfig tsconfig.dev.json ../../scripts/examples-runner.ts -- evm",
     "examples:build": "npx embedme README.md",
+    "examples:regen-snapshots": "tsx --tsconfig tsconfig.dev.json scripts/regenerate-state-snapshots.ts",
     "hooks:install": "git config core.hooksPath packages/frontend/synthesizer/.githooks",
     "hooks:uninstall": "git config --unset core.hooksPath",
     "lint": "../../../config/monorepo-js//cli/lint.sh",
@@ -97,7 +98,7 @@
     "ethereum-cryptography": "^3.0.0",
     "eventemitter3": "^5.0.1",
     "poseidon-bls12381": "^1.0.2",
-    "tokamak-l2js": "^0.0.33",
+    "tokamak-l2js": "^0.1.1",
     "verkle-cryptography-wasm": "^0.4.8",
     "vitest": "^2.1.8"
   },
