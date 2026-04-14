@@ -52,7 +52,6 @@
     "docs:build": "typedoc --options typedoc.cjs",
     "examples": "tsx --tsconfig tsconfig.dev.json ../../scripts/examples-runner.ts -- evm",
     "examples:build": "npx embedme README.md",
-    "examples:regen-snapshots": "tsx --tsconfig tsconfig.dev.json scripts/regenerate-state-snapshots.ts",
     "hooks:install": "git config core.hooksPath packages/frontend/synthesizer/.githooks",
     "hooks:uninstall": "git config --unset core.hooksPath",
     "lint": "../../../config/monorepo-js//cli/lint.sh",
