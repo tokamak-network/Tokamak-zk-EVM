@@ -583,18 +583,6 @@ export class InstructionHandler {
       siblingPts,
       refRootPt,
     )
-    this.parent.addReservedVariableToBufferOut(
-      'STORAGE_KEY',
-      keyPt,
-      true,
-      ` for address: ${address.toString()}`,
-    );
-    this.parent.addReservedVariableToBufferOut(
-      'STORAGE_WRITE',
-      symbolDataPt,
-      true,
-      ` for address: ${address.toString()}`,
-    );
     
     cachedRoots.push(DataPtFactory.deepCopy(refRootPt));
     this.parent.state.cachedRoots.set(addrBigint, cachedRoots);
