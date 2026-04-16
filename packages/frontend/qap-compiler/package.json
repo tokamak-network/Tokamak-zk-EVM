@@ -36,7 +36,8 @@
   ],
   "license": "MIT OR Apache-2.0",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "bin": {
     "qap-compiler": "scripts/qap-compiler.mjs"
