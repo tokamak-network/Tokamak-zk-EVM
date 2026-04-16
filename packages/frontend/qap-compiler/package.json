@@ -35,6 +35,9 @@
     "templates/512bit/*.circom"
   ],
   "license": "MIT OR Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "qap-compiler": "scripts/qap-compiler.mjs"
   },
