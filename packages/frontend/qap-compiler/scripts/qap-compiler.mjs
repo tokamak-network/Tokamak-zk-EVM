@@ -10,6 +10,8 @@ const packageRoot = path.resolve(__dirname, '..');
 const compileScript = path.resolve(packageRoot, 'scripts/compile.sh');
 const reloadScript = path.resolve(packageRoot, 'scripts/reload-constants.sh');
 const distScript = path.resolve(packageRoot, 'scripts/dist-package.mjs');
+const bundledCircomPath = path.resolve(packageRoot, 'node_modules/.bin/circom2');
+const bundledCircomCliPath = path.resolve(packageRoot, 'node_modules/circom2/cli.js');
 
 const printHelp = () => {
   console.log(`Usage:
@@ -19,9 +21,13 @@ const printHelp = () => {
   qap-compiler --help`);
 };
 
-const runScript = (scriptPath, args, command = scriptPath) => {
+const runScript = (scriptPath, args, command = scriptPath, extraEnv = {}) => {
   const result = spawnSync(scriptPath, args, {
     cwd: process.cwd(),
+    env: {
+      ...process.env,
+      ...extraEnv,
+    },
     stdio: 'inherit',
   });
 
@@ -30,6 +36,40 @@ const runScript = (scriptPath, args, command = scriptPath) => {
   }
 
   console.error(`Failed to execute '${command}'.`);
+  process.exit(1);
+};
+
+const resolveCircomCommand = () => {
+  const systemCircom = spawnSync('circom', ['--version'], {
+    cwd: process.cwd(),
+    stdio: 'ignore',
+  });
+
+  if (systemCircom.status === 0) {
+    console.log('[qap-compiler] Using system circom from PATH.');
+    return {
+      command: 'circom',
+      extraEnv: {},
+    };
+  }
+
+  const bundledCircom = spawnSync(process.execPath, [bundledCircomCliPath, '--version'], {
+    cwd: process.cwd(),
+    stdio: 'ignore',
+  });
+
+  if (bundledCircom.status === 0) {
+    console.log(`[qap-compiler] System circom was not found. Falling back to bundled circom2 at '${bundledCircomPath}'.`);
+    return {
+      command: process.execPath,
+      extraEnv: {
+        QAP_COMPILER_CIRCOM_SCRIPT: bundledCircomCliPath,
+      },
+    };
+  }
+
+  console.error('Error: No usable Circom compiler was found.');
+  console.error("Install official 'circom' on your system PATH or run 'npm install' to provide the bundled circom2 wrapper.");
   process.exit(1);
 };
 
@@ -61,12 +101,13 @@ if (args[0] === '--build') {
     process.exit(1);
   }
 
-  const compileArgs = [];
+  const circomCommand = resolveCircomCommand();
+  const compileArgs = [circomCommand.command];
   if (args[1] !== undefined) {
     compileArgs.push(path.resolve(process.cwd(), args[1]));
   }
 
-  runScript(compileScript, compileArgs);
+  runScript(compileScript, compileArgs, compileScript, circomCommand.extraEnv);
 }
 
 if (args[0] === '--dist') {

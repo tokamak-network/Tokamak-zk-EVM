@@ -13,18 +13,19 @@ script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 package_root="${script_dir}/.."
 cd "$script_dir"
 
-circom_bin="${script_dir}/../node_modules/.bin/circom2"
 circom_dir_path="${package_root}/subcircuits/circom"
 default_output_dir="${script_dir}/../subcircuits/library"
 
-if [[ ! -x "$circom_bin" ]]; then
-  echo "Error: circom2 executable not found at '$circom_bin'." >&2
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+  echo "Usage: ./scripts/compile.sh <circom-bin> [output-dir]" >&2
   exit 1
 fi
 
-if [[ $# -gt 1 ]]; then
-  echo "Usage: ./scripts/compile.sh [output-dir]" >&2
-  exit 1
+circom_bin="$1"
+shift
+circom_cmd=("${circom_bin}")
+if [[ -n "${QAP_COMPILER_CIRCOM_SCRIPT:-}" ]]; then
+  circom_cmd+=("${QAP_COMPILER_CIRCOM_SCRIPT}")
 fi
 
 output_dir_path="$default_output_dir"
@@ -58,7 +59,7 @@ for (( i = 0 ; i < ${#names[@]} ; i++ )) ; do
 
   (
     cd "$package_root"
-    "$circom_bin" "./subcircuits/circom/${names[$i]}_circuit.circom" --r1cs --wasm --json -o "$output_dir_path" -p "$CURVE_NAME" -l "./subcircuits/circom"
+    "${circom_cmd[@]}" "./subcircuits/circom/${names[$i]}_circuit.circom" --r1cs --wasm --json -o "$output_dir_path" -p "$CURVE_NAME" -l "./subcircuits/circom"
   ) | tee "$output_dir_path/info/subcircuit${i}_${names[$i]}_info.txt"
   cat "$output_dir_path/info/subcircuit${i}_${names[$i]}_info.txt" >> temp.txt
   mv "$output_dir_path/${names[$i]}_circuit_constraints.json" "$output_dir_path/json/subcircuit${i}.json"

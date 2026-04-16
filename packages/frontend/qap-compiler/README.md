@@ -65,6 +65,7 @@ npm publish ./dist
 
 - `--build` without an explicit output directory keeps the previous behavior and overwrites `subcircuits/library`.
 - `--dist` expects the package-internal `subcircuits/library` output produced by `npx qap-compiler --build`.
+- `qap-compiler --build` prefers a system-installed `circom` and falls back to the bundled `circom2` wrapper only when `circom` is not available on `PATH`.
 - Supported platforms are macOS and Linux.
 
 ## References
