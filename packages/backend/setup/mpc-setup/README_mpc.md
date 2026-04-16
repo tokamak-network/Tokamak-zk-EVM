@@ -75,8 +75,10 @@ This wrapper:
 Required `.env` keys for dusk-backed uploads:
 
 - `TOKAMAK_MPC_DRIVE_FOLDER_ID`
-- `TOKAMAK_MPC_DRIVE_FOLDER_URL`
 - `TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH`
+
+The published folder URL in provenance is derived automatically from
+`TOKAMAK_MPC_DRIVE_FOLDER_ID`.
 
 ## Testing-Mode Builds
 

@@ -94,10 +94,11 @@ The current pinned Dusk source is:
 Required keys:
 
 - `TOKAMAK_MPC_DRIVE_FOLDER_ID`
-- `TOKAMAK_MPC_DRIVE_FOLDER_URL`
 - `TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH`
 
 The service account JSON file must have permission to add children to the configured folder.
+The published folder URL recorded in provenance is derived automatically from
+`TOKAMAK_MPC_DRIVE_FOLDER_ID`.
 If preflight fails or the upload fails, the whole dusk-backed setup run fails.
 
 ## Testing-Mode Builds

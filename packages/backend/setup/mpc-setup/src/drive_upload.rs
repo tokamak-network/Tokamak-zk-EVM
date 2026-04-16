@@ -23,7 +23,6 @@ const FINAL_OUTPUT_FILES: [&str; 4] = [
     PROVENANCE_FILE_NAME,
 ];
 const DRIVE_FOLDER_ID_ENV: &str = "TOKAMAK_MPC_DRIVE_FOLDER_ID";
-const DRIVE_FOLDER_URL_ENV: &str = "TOKAMAK_MPC_DRIVE_FOLDER_URL";
 const DRIVE_SERVICE_ACCOUNT_PATH_ENV: &str = "TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH";
 
 #[derive(Debug, Clone)]
@@ -105,15 +104,8 @@ pub fn publish_output_archive(
 
 fn read_drive_upload_config() -> Result<DriveUploadConfig, DriveUploadError> {
     let folder_id = read_required_env(DRIVE_FOLDER_ID_ENV)?;
-    let folder_url = read_required_env(DRIVE_FOLDER_URL_ENV)?;
     let service_account_json_path =
         PathBuf::from(read_required_env(DRIVE_SERVICE_ACCOUNT_PATH_ENV)?);
-
-    if !folder_url.starts_with("https://") {
-        return Err(DriveUploadError::Message(format!(
-            "{DRIVE_FOLDER_URL_ENV} must be an https URL"
-        )));
-    }
 
     if !service_account_json_path.exists() {
         return Err(DriveUploadError::Message(format!(
@@ -124,10 +116,14 @@ fn read_drive_upload_config() -> Result<DriveUploadConfig, DriveUploadError> {
     }
 
     Ok(DriveUploadConfig {
+        folder_url: drive_folder_url(&folder_id),
         folder_id,
-        folder_url,
         service_account_json_path,
     })
+}
+
+fn drive_folder_url(folder_id: &str) -> String {
+    format!("https://drive.google.com/drive/folders/{folder_id}")
 }
 
 fn read_required_env(key: &str) -> Result<String, DriveUploadError> {
