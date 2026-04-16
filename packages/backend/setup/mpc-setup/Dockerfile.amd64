@@ -45,16 +45,6 @@ RUN echo '#!/bin/bash\ncargo run --release --bin native_mpc_setup -- --subcircui
 
 RUN echo '#!/bin/bash\ncargo run --release --bin dusk_backed_mpc_setup -- --subcircuit-library /app/packages/frontend/qap-compiler/subcircuits/library --intermediate setup/mpc-setup/output/intermediate --output setup/mpc-setup/output/final' > /usr/local/bin/dusk_backed_mpc_setup && chmod +x /usr/local/bin/dusk_backed_mpc_setup
 
-RUN echo '#!/bin/bash\ncargo run --release --bin drive -- --outfolder setup/mpc-setup/output --mode upload --phase-type 1' > /usr/local/bin/drive_upload_phase1 && chmod +x /usr/local/bin/drive_upload_phase1
-
-RUN echo '#!/bin/bash\ncargo run --release --bin drive -- --outfolder setup/mpc-setup/output --mode download --phase-type 1' > /usr/local/bin/drive_download_phase1 && chmod +x /usr/local/bin/drive_download_phase1
-
-RUN echo '#!/bin/bash\ncargo run --release --bin drive -- --outfolder setup/mpc-setup/output --mode upload --phase-type 2' > /usr/local/bin/drive_upload_phase2 && chmod +x /usr/local/bin/drive_upload_phase2
-
-RUN echo '#!/bin/bash\ncargo run --release --bin drive -- --outfolder setup/mpc-setup/output --mode download --phase-type 2' > /usr/local/bin/drive_download_phase2 && chmod +x /usr/local/bin/drive_download_phase2
-
-RUN echo '#!/bin/bash\ncargo run --release --bin phase2_testing_prepare' > /usr/local/bin/phase2_testing_prepare && chmod +x /usr/local/bin/phase2_testing_prepare
-
 # Set environment variables
 
 # Set environment variables

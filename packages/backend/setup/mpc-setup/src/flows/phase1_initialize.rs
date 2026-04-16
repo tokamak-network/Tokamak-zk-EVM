@@ -33,16 +33,11 @@ pub fn run(config: &Phase1InitializeConfig) {
         .expect("cannot SetupParams read file");
     timer.log_step("load setup params");
     let x_degree = 2 * max(setup_params.n, setup_params.l_D - setup_params.l);
-    let y_degree = 0;
-
     println!("Initializing phase-1 accumulator...");
     if testing_mode_enabled() {
         println!("Device: {:?}", get_device_info());
         println!("Config: {:?}", config);
-        println!(
-            "Power bounds: x_degree={}, y_degree={} (phase 1 is x-only)",
-            x_degree, y_degree
-        );
+        println!("Power bounds: x_degree={} (phase 1 is x-only)", x_degree);
     }
     let scalar = initialize_scalar();
     timer.log_step("initialize scalar");
@@ -50,7 +45,7 @@ pub fn run(config: &Phase1InitializeConfig) {
 
     let g1 = icicle_g1_generator().mul(scalar);
     let g2 = icicle_g2_generator().mul(scalar);
-    let genesis_acc = Accumulator::new(g1, g2, POWER_ALPHA_LENGTH, x_degree, y_degree, false);
+    let genesis_acc = Accumulator::new(g1, g2, POWER_ALPHA_LENGTH, x_degree, false);
     timer.log_step("build genesis accumulator");
 
     let outfile = format!(

@@ -2,10 +2,9 @@ use crate::conversions::{
     deserialize_g1serde, deserialize_g2serde, serialize_g1serde, serialize_g2serde,
 };
 use crate::sigma::{AaccExt, HASH_BYTES_LEN};
-use crate::utils::RandomStrategy::SystemRandom;
 use crate::utils::{
-    compute5, compute_phase1_x_only, icicle_g1_generator, icicle_g2_generator, verify5,
-    verify_phase1_x_only, PairSerde, Phase1Proof, RandomGenerator, SerialSerde,
+    compute_phase1_x_only, verify_phase1_x_only, PairSerde, Phase1Proof, RandomGenerator,
+    SerialSerde,
 };
 use crate::{impl_read_from_json, impl_write_into_json};
 use ark_serialize::Compress;
@@ -23,7 +22,6 @@ use std::fs::File;
 use std::io;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
-use std::time::Instant;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Accumulator {
@@ -32,11 +30,7 @@ pub struct Accumulator {
     pub g2: G2serde,
     pub alpha: Vec<PairSerde>,
     pub x: SerialSerde,
-    pub y: SerialSerde,
     pub alpha_x: Vec<G1serde>,
-    pub alpha_y: Vec<G1serde>,
-    pub xy: Vec<G1serde>,
-    pub alpha_xy: Vec<G1serde>,
     pub compress: bool, // ← this is the controlling flag
 }
 impl Serialize for Accumulator {
@@ -44,7 +38,7 @@ impl Serialize for Accumulator {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_struct("Accumulator", 11)?;
+        let mut state = serializer.serialize_struct("Accumulator", 7)?;
 
         let compress = if self.compress {
             Compress::Yes
@@ -72,15 +66,7 @@ impl Serialize for Accumulator {
         let (x_g1, x_g2) = self.x.serialize_with_compress(compress);
         state.serialize_field("x_g1", &x_g1)?;
         state.serialize_field("x_g2", &x_g2)?;
-
-        let (y_g1, y_g2) = self.y.serialize_with_compress(compress);
-        state.serialize_field("y_g1", &y_g1)?;
-        state.serialize_field("y_g2", &y_g2)?;
-
         state.serialize_field("alpha_x", &to_str_vec(&self.alpha_x))?;
-        state.serialize_field("alpha_y", &to_str_vec(&self.alpha_y))?;
-        state.serialize_field("xy", &to_str_vec(&self.xy))?;
-        state.serialize_field("alpha_xy", &to_str_vec(&self.alpha_xy))?;
 
         state.end()
     }
@@ -99,12 +85,7 @@ impl<'de> Deserialize<'de> for Accumulator {
             alpha: Vec<(String, String)>,
             x_g1: Vec<String>,
             x_g2: String,
-            y_g1: Vec<String>,
-            y_g2: String,
             alpha_x: Vec<String>,
-            alpha_y: Vec<String>,
-            xy: Vec<String>,
-            alpha_xy: Vec<String>,
         }
 
         let Helper {
@@ -115,12 +96,7 @@ impl<'de> Deserialize<'de> for Accumulator {
             alpha,
             x_g1,
             x_g2,
-            y_g1,
-            y_g2,
             alpha_x,
-            alpha_y,
-            xy,
-            alpha_xy,
         } = Helper::deserialize(deserializer)?;
 
         let compress_mode = match compress.as_str() {
@@ -144,11 +120,7 @@ impl<'de> Deserialize<'de> for Accumulator {
                 .map(|(a, b)| PairSerde::deserialize_with_compress(a, b, compress_mode))
                 .collect(),
             x: SerialSerde::deserialize_with_compress(x_g1, x_g2, compress_mode),
-            y: SerialSerde::deserialize_with_compress(y_g1, y_g2, compress_mode),
             alpha_x: parse_vec(alpha_x),
-            alpha_y: parse_vec(alpha_y),
-            xy: parse_vec(xy),
-            alpha_xy: parse_vec(alpha_xy),
             compress: compress_mode == Compress::Yes,
         })
     }
@@ -178,11 +150,7 @@ pub struct AccumulatorRkyv {
     pub g2: G2SerdeRkyv,
     pub alpha: Vec<PairSerdeRkyv>,
     pub x: SerialSerdeRkyv,
-    pub y: SerialSerdeRkyv,
     pub alpha_x: Vec<G1SerdeRkyv>,
-    pub alpha_y: Vec<G1SerdeRkyv>,
-    pub xy: Vec<G1SerdeRkyv>,
-    pub alpha_xy: Vec<G1SerdeRkyv>,
     pub compress: bool,
 }
 
@@ -216,20 +184,8 @@ impl AccumulatorRkyv {
                 .map(PairSerdeRkyv::from_pair_serde)
                 .collect(),
             x: SerialSerdeRkyv::from_serial_serde(&value.x),
-            y: SerialSerdeRkyv::from_serial_serde(&value.y),
             alpha_x: value
                 .alpha_x
-                .iter()
-                .map(G1SerdeRkyv::from_g1serde)
-                .collect(),
-            alpha_y: value
-                .alpha_y
-                .iter()
-                .map(G1SerdeRkyv::from_g1serde)
-                .collect(),
-            xy: value.xy.iter().map(G1SerdeRkyv::from_g1serde).collect(),
-            alpha_xy: value
-                .alpha_xy
                 .iter()
                 .map(G1SerdeRkyv::from_g1serde)
                 .collect(),
@@ -264,46 +220,25 @@ impl Accumulator {
         Ok(rkyv_path)
     }
 
-    pub fn get_boxed_xypower(&self) -> Box<[G1serde]> {
-        let y_len = self.y.len_g1();
-        let mut out = vec![G1serde::zero(); self.x.len_g1() * y_len];
-        for i in 0..self.x.len_g1() {
-            for j in 0..y_len {
-                out[i * y_len + j] = self.get_xy_g1(i, j);
-            }
-        }
-        out.into_boxed_slice()
-    }
-}
-
-impl Accumulator {
     pub fn new(
         g1: G1serde,
         g2: G2serde,
         power_alpha_length: usize,
         power_x_length: usize,
-        _power_y_length: usize,
         compress: bool,
     ) -> Self {
-        let acc = Accumulator {
+        Accumulator {
             g1,
             g2,
             // [alpha^1,alpha^2,...,alpha^power_alpha_length]
             alpha: vec![PairSerde::new(g1, g2); power_alpha_length],
             // [x^1,x^2,...,x^power_x_length]
             x: SerialSerde::new(g1, g2, power_x_length),
-            // Phase 1 is x-only after the refactor, so the legacy y-shaped fields
-            // are kept empty for serialization compatibility.
-            y: SerialSerde::new(g1, g2, 0),
             // [alpha^1 * x^1...alpha^i * x^j,...,alpha^power_alpha_length * x^power_x_length]
             alpha_x: vec![g1; power_alpha_length * power_x_length],
-            alpha_y: vec![],
-            xy: vec![],
-            alpha_xy: vec![],
             contributor_index: 0,
             compress,
-        };
-        acc
+        }
     }
     pub fn get_x_g1_range(&self, exp_min: usize, exp_max: usize) -> Vec<G1Affine> {
         let mut out = vec![G1Affine::zero(); exp_max - exp_min + 1];
@@ -324,13 +259,6 @@ impl Accumulator {
         assert_eq!(exp, 1, "only x^1 in G2 is stored in phase-1");
         self.x.get_g2()
     }
-    //y^exp * G1
-    pub fn get_y_g1(&self, exp: usize) -> G1serde {
-        if exp == 0 {
-            return self.g1;
-        }
-        self.y.get_g1(exp - 1)
-    }
     //alpha^exp * G1
     pub fn get_alpha_g1(&self, exp: usize) -> G1serde {
         if exp == 0 {
@@ -338,22 +266,6 @@ impl Accumulator {
         }
         let result = self.alpha.get(exp - 1).unwrap();
         result.g1
-    }
-
-    //alpha^exp_alpha * y^exp_y * G1
-    pub fn get_alphay_g1(&self, exp_alpha: usize, exp_y: usize) -> G1serde {
-        assert_eq!(exp_y <= self.y.len_g1(), true);
-        assert_eq!(exp_alpha <= 4, true);
-        if exp_alpha == 0 && exp_y == 0 {
-            return self.g1;
-        } else if exp_alpha == 0 {
-            return self.get_y_g1(exp_y);
-        } else if exp_y == 0 {
-            return self.get_alpha_g1(exp_alpha);
-        }
-        //TODO check if this is correct
-        let idx = (exp_alpha - 1) * self.y.len_g1() + exp_y - 1;
-        *self.alpha_y.get(idx).unwrap()
     }
 
     //alpha^exp_alpha * x^exp_x * G1
@@ -373,100 +285,6 @@ impl Accumulator {
         *self.alpha_x.get(idx).unwrap()
     }
 
-    //x^exp_x * y^exp_y * G1
-    pub fn get_xy_g1(&self, exp_x: usize, exp_y: usize) -> G1serde {
-        assert_eq!(exp_y <= self.y.len_g1(), true);
-        assert_eq!(exp_x <= self.x.len_g1(), true);
-        if exp_x == 0 && exp_y == 0 {
-            return self.g1;
-        } else if exp_x == 0 {
-            return self.get_y_g1(exp_y);
-        } else if exp_y == 0 {
-            return self.get_x_g1(exp_x);
-        }
-        //TODO check if this is correct
-        let idx = (exp_x - 1) * self.y.len_g1() + exp_y - 1;
-        *self.xy.get(idx).unwrap()
-    }
-
-    pub fn get_alphaxy_g1_range(
-        &self,
-        exp_alpha: usize,
-        exp_x_max: usize,
-        exp_y_max: usize,
-    ) -> Vec<G1Affine> {
-        let mut out = vec![G1Affine::zero(); exp_x_max * exp_y_max];
-        for i in 0..exp_x_max {
-            for k in 0..exp_y_max {
-                out[i * exp_y_max + k] = self.get_alphaxy_g1(exp_alpha, i, k).0;
-            }
-        }
-        out
-    }
-
-    pub fn get_alphaxy_g1_chunk(
-        &self,
-        exp_alpha: usize,
-        exp_x_start: usize,
-        exp_x_len: usize,
-        exp_y_max: usize,
-    ) -> Vec<G1Affine> {
-        let mut out = vec![G1Affine::zero(); exp_x_len * exp_y_max];
-        for local_x in 0..exp_x_len {
-            let exp_x = exp_x_start + local_x;
-            for exp_y in 0..exp_y_max {
-                out[local_x * exp_y_max + exp_y] = self.get_alphaxy_g1(exp_alpha, exp_x, exp_y).0;
-            }
-        }
-        out
-    }
-
-    pub fn fill_alphaxy_g1_chunk(
-        &self,
-        exp_alpha: usize,
-        exp_x_start: usize,
-        exp_x_len: usize,
-        exp_y_max: usize,
-        out: &mut Vec<G1Affine>,
-    ) {
-        let expected_len = exp_x_len * exp_y_max;
-        if out.len() != expected_len {
-            out.resize(expected_len, G1Affine::zero());
-        }
-        for local_x in 0..exp_x_len {
-            let exp_x = exp_x_start + local_x;
-            let row = &mut out[local_x * exp_y_max..(local_x + 1) * exp_y_max];
-            for exp_y in 0..exp_y_max {
-                row[exp_y] = self.get_alphaxy_g1(exp_alpha, exp_x, exp_y).0;
-            }
-        }
-    }
-
-    pub fn fill_xy_powers(&self, out: &mut Vec<G1serde>) {
-        out.clear();
-        out.extend_from_slice(&self.xy);
-    }
-    //alpha^exp_alpha * x^exp_x * y^exp_y * G1
-    pub fn get_alphaxy_g1(&self, exp_alpha: usize, exp_x: usize, exp_y: usize) -> G1serde {
-        assert_eq!(exp_y <= self.y.len_g1(), true);
-        assert_eq!(exp_x <= self.x.len_g1(), true);
-        if exp_alpha == 0 && exp_x == 0 && exp_y == 0 {
-            return self.g1;
-        } else if exp_alpha == 0 {
-            return self.get_xy_g1(exp_x, exp_y);
-        } else if exp_x == 0 {
-            return self.get_alphay_g1(exp_alpha, exp_y);
-        } else if exp_y == 0 {
-            return self.get_alphax_g1(exp_alpha, exp_x);
-        }
-        //TODO check if this is correct
-        let idx = (exp_alpha - 1) * (self.x.len_g1() * self.y.len_g1())
-            + (exp_x - 1) * self.y.len_g1()
-            + exp_y
-            - 1;
-        *self.alpha_xy.get(idx).unwrap()
-    }
-
     pub fn compute(&self, rng: &mut RandomGenerator) -> (Accumulator, Phase1Proof) {
         let (cur_alphax, cur_alpha, cur_x, mut proof_5) = compute_phase1_x_only(
             rng,
@@ -482,11 +300,7 @@ impl Accumulator {
             g2: self.g2,
             alpha: cur_alpha,
             x: cur_x,
-            y: self.y.clone(),
             alpha_x: cur_alphax,
-            alpha_y: self.alpha_y.clone(),
-            xy: self.xy.clone(),
-            alpha_xy: self.alpha_xy.clone(),
             contributor_index: self.contributor_index + 1,
             compress: self.compress,
         };
@@ -536,19 +350,15 @@ mod tests {
 
     #[test]
     fn test_accumulator_serialization_roundtrip() {
-        let g1 = icicle_g1_generator();
-        let g2 = icicle_g2_generator();
+        let g1 = crate::utils::icicle_g1_generator();
+        let g2 = crate::utils::icicle_g2_generator();
         // Construct dummy data for the Accumulator struct
         let accumulator = Accumulator {
             g1,
             g2,
             alpha: vec![PairSerde::new(g1, g2)],
             x: SerialSerde::new(g1, g2, 1),
-            y: SerialSerde::new(g1, g2, 2),
             alpha_x: vec![g1; 2],
-            alpha_y: vec![g1; 2],
-            xy: vec![g1; 4],
-            alpha_xy: vec![g1; 8],
             contributor_index: 0,
             compress: false,
         };
@@ -566,27 +376,17 @@ mod tests {
         // Verify integrity (assuming Accumulator implements PartialEq)
         assert_eq!(accumulator.alpha, deserialized.alpha, "alpha mismatch");
         assert_eq!(accumulator.x, deserialized.x, "x mismatch");
-        assert_eq!(accumulator.y, deserialized.y, "y mismatch");
         assert_eq!(
             accumulator.alpha_x, deserialized.alpha_x,
             "alpha_x mismatch"
-        );
-        assert_eq!(
-            accumulator.alpha_y, deserialized.alpha_y,
-            "alpha_y mismatch"
-        );
-        assert_eq!(accumulator.xy, deserialized.xy, "xy mismatch");
-        assert_eq!(
-            accumulator.alpha_xy, deserialized.alpha_xy,
-            "alpha_xy mismatch"
         );
         assert_eq!(accumulator.hash(), deserialized.hash(), "hash mismatch");
     }
     #[test]
     fn test_save_load_accumulator() {
-        let g1 = icicle_g1_generator();
-        let g2 = icicle_g2_generator();
-        let accumulator = Accumulator::new(g1, g2, 2, 4, 8, true);
+        let g1 = crate::utils::icicle_g1_generator();
+        let g2 = crate::utils::icicle_g2_generator();
+        let accumulator = Accumulator::new(g1, g2, 2, 4, true);
         accumulator
             .write_into_json("accumulator.json")
             .expect("Failed to save");
@@ -596,89 +396,4 @@ mod tests {
         println!("Loaded Accumulator: {:?}", loaded_accumulator);
         assert_eq!(accumulator, loaded_accumulator);
     }
-}
-#[test]
-fn test_compute5() {
-    let rng = &mut RandomGenerator::new(SystemRandom, [0u8; 32]);
-    let start = Instant::now();
-    //initialize
-    let g1 = icicle_g1_generator();
-    let g2 = icicle_g2_generator();
-
-    let alpha_degree: usize = 4; //alpha
-    let x_degree: usize = 64; //x^i
-    let y_degree: usize = 128; //y^k
-
-    let v = [34u8; 64];
-    let mut prev_alpha = vec![PairSerde::new(g1.clone(), g2.clone()); alpha_degree];
-    let mut prev_x = vec![PairSerde::new(g1.clone(), g2.clone()); x_degree];
-    let mut prev_y = SerialSerde::new(g1, g2, y_degree);
-    let mut prev_xy = vec![g1; x_degree * y_degree];
-    let mut prev_alphax = vec![g1; alpha_degree * x_degree];
-    let mut prev_alphay = vec![g1; alpha_degree * y_degree];
-
-    let mut prev_alphaxy = vec![g1; alpha_degree * x_degree * y_degree];
-
-    // first participant
-    let (cur_alphaxy, cur_xy, cur_alphax, cur_alphay, cur_alpha, cur_x, cur_y, proof5) = compute5(
-        rng,
-        &g1,
-        &g2,
-        &prev_alphaxy,
-        &prev_xy,
-        &prev_alphax,
-        &prev_alphay,
-        &prev_alpha,
-        &prev_x,
-        &prev_y,
-        &v,
-    );
-
-    assert_eq!(
-        verify5(
-            &g1,
-            &g2,
-            &prev_alpha,
-            &prev_x,
-            &prev_y,
-            &cur_alphaxy,
-            &cur_xy,
-            &cur_alphax,
-            &cur_alphay,
-            &cur_alpha,
-            &cur_x,
-            &cur_y,
-            &proof5
-        ),
-        true,
-    );
-
-    println!("proof is verified.");
-    prev_alpha = cur_alpha;
-    prev_x = cur_x;
-    prev_y = cur_y;
-    prev_xy = cur_xy;
-    prev_alphaxy = cur_alphaxy;
-    prev_alphax = cur_alphax;
-    prev_alphay = cur_alphay;
-
-    // second participant
-    let (_cur_alphaxy, _cur_xy, _cur_alphax, _cur_alphay, _cur_alpha, _cur_x, _cur_y, _proof5) =
-        compute5(
-            rng,
-            &g1,
-            &g2,
-            &prev_alphaxy,
-            &prev_xy,
-            &prev_alphax,
-            &prev_alphay,
-            &prev_alpha,
-            &prev_x,
-            &prev_y,
-            &v,
-        );
-
-    let duration = start.elapsed();
-
-    println!("Time elapsed: {:?}", duration.as_secs());
 }

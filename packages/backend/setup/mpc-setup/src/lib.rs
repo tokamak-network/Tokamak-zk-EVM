@@ -1,7 +1,6 @@
 #![allow(unused_imports)]
 
 use crate::mpc_utils::compute_langrange_i_coeffs;
-use crate::phase1_source::Phase1SrsSource;
 use icicle_bls12_381::curve::{G1Affine, G1Projective, ScalarField};
 use icicle_core::msm;
 use icicle_core::msm::MSMConfig;
@@ -280,25 +279,4 @@ pub fn compute_lagrange_kl(sigma: &SigmaPreprocess, setup_params: &SetupParams) 
     compute_lagrange_kl_with_basis(setup_params, |x_idx, y_idx| {
         sigma.sigma_1.xy_powers[x_idx * rs_y_size + y_idx].0
     })
-}
-
-pub fn compute_lagrange_kl_from_source<S: Phase1SrsSource>(
-    source: &S,
-    setup_params: &SetupParams,
-) -> G1serde {
-    let m_i = setup_params.l_D - setup_params.l;
-    let s_max = setup_params.s_max;
-    let k_coeffs = compute_last_lagrange_coeffs(m_i, true);
-    let l_coeffs = compute_last_lagrange_coeffs(s_max, false);
-    let mut scalars = vec![ScalarField::zero(); m_i * s_max];
-    let mut bases = Vec::new();
-    let mut msm_workspace = MsmWorkspace::new(1);
-    source.fill_alphaxy_g1_chunk(0, 0, m_i, s_max, &mut bases);
-    for (x_idx, x_coeff) in k_coeffs.iter().enumerate() {
-        let row = &mut scalars[x_idx * s_max..(x_idx + 1) * s_max];
-        for (slot, y_coeff) in row.iter_mut().zip(l_coeffs.iter()) {
-            *slot = *x_coeff * *y_coeff;
-        }
-    }
-    msm_workspace.msm(&scalars, &bases)
 }
