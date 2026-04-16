@@ -4,8 +4,10 @@ const {LIST_PUBLIC} = require('./configure.js')
 const listPublic = LIST_PUBLIC
 
 const fs = require('fs')
+const path = require('path')
 
-const numOfLinesPerCircuit = 13
+const outputDir = process.argv[2] ? path.resolve(process.argv[2]) : path.resolve(__dirname, '../subcircuits/library')
+const ansiEscapePattern = /\u001b\[[0-9;]*m/g
 
 function _buildWireFlattenMap(globalWireList, subcircuitInfos, globalWireIndex, subcircuitId, subcircuitWireId) {
   if (subcircuitId >= 0 ){
@@ -310,57 +312,81 @@ function parseWireList(subcircuitInfos) {
 
 const numConstsVec= [];
 
+function getLineValue(lines, prefix) {
+  const targetLine = lines.find((line) => line.startsWith(prefix))
+  if (targetLine === undefined) {
+    throw new Error(`parse.js: Missing '${prefix}' in compiler output.`)
+  }
+
+  const matches = targetLine.match(/\d+/g)
+  if (matches === null || matches.length === 0) {
+    throw new Error(`parse.js: Missing numeric value for '${prefix}'.`)
+  }
+
+  return Number(matches[matches.length - 1])
+}
+
+function parseSubcircuitBlock(lines) {
+  const id = Number(lines[0].match(/\d+/)[0])
+
+  let name
+  const parts = lines[0].split(' = ')
+  if (parts.length > 1) {
+    const tempName = parts[1]
+    if (tempName.includes('_')) {
+      const index = tempName.indexOf('_')
+      name = tempName.substring(0, index) + '-' + tempName.substring(index + 1)
+    } else {
+      name = tempName
+    }
+  } else {
+    throw new Error(`parse.js: Failed to parse subcircuit name from '${lines[0]}'.`)
+  }
+
+  const numWires = getLineValue(lines, 'wires:')
+  const numOutput = getLineValue(lines, 'public outputs:')
+  const numInput = getLineValue(lines, 'public inputs:') + getLineValue(lines, 'private inputs:')
+  const numConsts = getLineValue(lines, 'non-linear constraints:') + getLineValue(lines, 'linear constraints:')
+  numConstsVec.push(numConsts)
+
+  return {
+    id,
+    name,
+    Nwires: numWires,
+    Nconsts: numConsts,
+    Out_idx: [1, numOutput],
+    In_idx: [numOutput + 1, numInput],
+  }
+}
+
 fs.readFile('./temp.txt', 'utf8', function(err, data) {
   if (err) throw err;
   
   const subcircuits = []
 
-  const output = data.split('\n').slice(0, -1)
-  for (var i = 0; i < output.length; i += numOfLinesPerCircuit) {
-    // circuit id
-    const id = Number(output[i].match(/\d+/)[0])
+  const output = data
+    .replace(ansiEscapePattern, '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
 
-    // circuit name
-    let name
-    const parts = output[i].split(' = ');
-    if (parts.length > 1) {
-      //let tempName = parts[1].toUpperCase();
-      let tempName = parts[1];
-      if (tempName.includes('_')) {
-        const index = tempName.indexOf('_');
-        name = tempName.substring(0, index) + '-' + tempName.substring(index + 1);
-      } else {
-        name = tempName;
+  let currentBlock = []
+  for (const line of output) {
+    if (line.startsWith('id[')) {
+      if (currentBlock.length > 0) {
+        subcircuits.push(parseSubcircuitBlock(currentBlock))
       }
-    } else {
-      continue;
+      currentBlock = [line]
+      continue
     }
 
-    // circuit opcode
-    //const opcode = opcodeDictionary[name]
-
-    // num_wires 
-    const numWires = output[i + 7].match(/\d+/)[0]
-
-    // public output
-    const numOutput = output[i + 6].match(/\d+/)[0]
-
-    // public input
-    const numInput = Number(output[i + 4].match(/\d+/)[0]) + Number(output[i + 5].match(/\d+/)[0])
-
-    // num_constraints
-    const numConsts = Number(output[i + 2].match(/\d+/)[0]) + Number(output[i + 3].match(/\d+/)[0])
-    numConstsVec.push(numConsts)
-
-    const subcircuit = {
-      id: id,
-      name: name,
-      Nwires: Number(numWires),
-      Nconsts: Number(numConsts),
-      Out_idx: [1, Number(numOutput)],
-      In_idx: [Number(numOutput)+1, numInput],
+    if (currentBlock.length > 0) {
+      currentBlock.push(line)
     }
-    subcircuits.push(subcircuit)
+  }
+
+  if (currentBlock.length > 0) {
+    subcircuits.push(parseSubcircuitBlock(currentBlock))
   }
 
   const globalWireInfo = parseWireList(subcircuits)
@@ -396,7 +422,7 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
   //     console.log('Successfully wrote the TypeScript file');
   //   }
   // })
-  fs.writeFile('../subcircuits/library/subcircuitInfo.json', JSON.stringify(subcircuits, null), (err) => {
+  fs.writeFile(path.join(outputDir, 'subcircuitInfo.json'), JSON.stringify(subcircuits, null), (err) => {
     if (err) {
       console.log('Error writing the JSON file', err);
     } else {
@@ -415,7 +441,7 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
   //     console.log('Successfully wrote the TypeScript file');
   //   }
   // })
-  fs.writeFile('../subcircuits/library/globalWireList.json', JSON.stringify(globalWireList, null), (err) => {
+  fs.writeFile(path.join(outputDir, 'globalWireList.json'), JSON.stringify(globalWireList, null), (err) => {
     if (err) {
       console.log('Error writing the JSON file', err);
     } else {
@@ -437,7 +463,7 @@ fs.readFile('./temp.txt', 'utf8', function(err, data) {
   //     console.log('Successfully wrote the TypeScript file');
   //   }
   // })
-  fs.writeFile('../subcircuits/library/setupParams.json', JSON.stringify(setupParams, null, 2), (err) => {
+  fs.writeFile(path.join(outputDir, 'setupParams.json'), JSON.stringify(setupParams, null, 2), (err) => {
     if (err) {
       console.log('Error writing the JSON file', err);
     } else {
