@@ -2,14 +2,14 @@
 
 ## Overview
 
-`@tokamak-zk-evm/qap-compiler` provides the published Tokamak zk-EVM subcircuit library package.
+`@tokamak-zk-evm/subcircuit-library` provides the published Tokamak zk-EVM subcircuit library package.
 
 The package contains prebuilt subcircuit artifacts and the synced `subcircuits/circom/constants.circom` file used to produce them.
 
 ## Installation
 
 ```shell
-npm install @tokamak-zk-evm/qap-compiler
+npm install @tokamak-zk-evm/subcircuit-library
 ```
 
 ## Package Contents

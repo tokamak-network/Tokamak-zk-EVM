@@ -33,7 +33,7 @@ if (!fs.existsSync(publishedReadmePath)) {
 const publishedPackage = {
   name: rootPackage.name,
   version: rootPackage.version,
-  description: 'Library subcircuits for Tokamak zk-EVM',
+  description: 'A library set of subcircuits for Tokamak zk-EVM',
   keywords: rootPackage.keywords,
   homepage: rootPackage.homepage,
   bugs: rootPackage.bugs,

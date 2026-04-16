@@ -2,7 +2,7 @@
 
 ## Overview
 
-`@tokamak-zk-evm/qap-compiler` is the source package used by maintainers to regenerate the published Tokamak zk-EVM subcircuit library package.
+`@tokamak-zk-evm/subcircuit-library` is the source package used by maintainers to regenerate the published Tokamak zk-EVM subcircuit library package.
 
 The maintainer workflow is:
 
