@@ -2,11 +2,12 @@
 non-linear constraints: 1060
 linear constraints: 1060
 public inputs: 1060
-private inputs: 0
 public outputs: 1060
+private inputs: 0
+private outputs: 0
 wires: 2121
 labels: 2121
-[32mWritten successfully:[0m ../subcircuits/library/bufferPrvIn_circuit.r1cs
-[32mConstraints written in:[0m ../subcircuits/library/bufferPrvIn_circuit_constraints.json
-[32mWritten successfully:[0m ../subcircuits/library/bufferPrvIn_circuit_js/bufferPrvIn_circuit.wasm
-[32mEverything went okay[0m
+[32mWritten successfully:[0m subcircuits/library/bufferPrvIn_circuit.r1cs
+[32mConstraints written in:[0m subcircuits/library/bufferPrvIn_circuit_constraints.json
+[32mWritten successfully:[0m subcircuits/library/bufferPrvIn_circuit_js/bufferPrvIn_circuit.wasm
+[32mEverything went okay, circom safe[0m

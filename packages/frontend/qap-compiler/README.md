@@ -2,62 +2,70 @@
 
 ## Overview
 
-`@tokamak-zk-evm/qap-compiler` is a toolkit package for generating the Tokamak zk-EVM subcircuit library.
+`@tokamak-zk-evm/qap-compiler` is the source package used by maintainers to regenerate the published Tokamak zk-EVM subcircuit library package.
 
-The package ships the Circom sources, templates, and build scripts needed to compile the library locally. Consumers are expected to install the package and run the build command to generate their own `library` output directory.
+The maintainer workflow is:
+
+1. Sync `subcircuits/circom/constants.circom` from `tokamak-l2js`.
+2. Build `subcircuits/library`.
+3. Copy the generated publishable contents into `dist`.
+4. Publish `./dist` to npm.
 
 ## Installation
 
 ```shell
-npm install @tokamak-zk-evm/qap-compiler
+npm install
 ```
 
-## Usage
+## CLI
 
-Build the library into a directory in the current project:
-
-```shell
-npx qap-compiler --build ./qap-library
-```
-
-If `output-dir` is omitted, `qap-compiler` keeps the previous behavior and writes into the package-internal `subcircuits/library` directory.
-
-```shell
-npx qap-compiler --build
-```
-
-The legacy script entrypoint remains available for compatibility:
-
-```shell
-./scripts/compile.sh [output-dir]
-```
-
-## Constants Reload
-
-`qap-compiler --reload-constants` updates `subcircuits/circom/constants.circom` from the published `tokamak-l2js` package and then exits.
-
-This command is intended for package maintainers before publishing a new npm release. Consumers normally need only `qap-compiler --build [output-dir]`.
+Reload `subcircuits/circom/constants.circom` from the published `tokamak-l2js` package:
 
 ```shell
 npx qap-compiler --reload-constants
 ```
 
-## Package Contents
+Build the library into the package-internal `subcircuits/library` directory:
 
-The published package includes:
+```shell
+npx qap-compiler --build
+```
 
-- `subcircuits/circom/*.circom`
-- `templates/**/*.circom` except `templates/unused`
-- `functions/*.circom`
-- The build scripts under `scripts/`
+Build the library into a custom directory:
 
-The published package excludes generated `subcircuits/library` artifacts. Consumers generate those artifacts locally by running the build command.
+```shell
+npx qap-compiler --build ./qap-library
+```
+
+Create the publishable `dist` package from the current `subcircuits/library` output and the synced `constants.circom` file:
+
+```shell
+npx qap-compiler --dist
+```
+
+## Publish Flow
+
+Run the commands below in order before publishing:
+
+```shell
+npm install
+npx qap-compiler --reload-constants
+npx qap-compiler --build
+npx qap-compiler --dist
+npm publish ./dist
+```
+
+`dist` contains:
+
+- `subcircuits/library/**/*`
+- `subcircuits/circom/constants.circom`
+- npm package metadata and licenses for publishing
 
 ## Notes
 
-- The build command uses the package-local `circom2` and `tsx` executables from its installed dependencies.
+- `--build` without an explicit output directory keeps the previous behavior and overwrites `subcircuits/library`.
+- `--dist` expects the package-internal `subcircuits/library` output produced by `npx qap-compiler --build`.
 - Supported platforms are macOS and Linux.
-- The package is intended to be installed as a project dependency and executed with `npx`.
 
 ## References
 

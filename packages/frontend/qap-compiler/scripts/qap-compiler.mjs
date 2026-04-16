@@ -9,15 +9,17 @@ const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, '..');
 const compileScript = path.resolve(packageRoot, 'scripts/compile.sh');
 const reloadScript = path.resolve(packageRoot, 'scripts/reload-constants.sh');
+const distScript = path.resolve(packageRoot, 'scripts/dist-package.mjs');
 
 const printHelp = () => {
   console.log(`Usage:
   qap-compiler --build [output-dir]
   qap-compiler --reload-constants
+  qap-compiler --dist
   qap-compiler --help`);
 };
 
-const runScript = (scriptPath, args) => {
+const runScript = (scriptPath, args, command = scriptPath) => {
   const result = spawnSync(scriptPath, args, {
     cwd: process.cwd(),
     stdio: 'inherit',
@@ -27,7 +29,7 @@ const runScript = (scriptPath, args) => {
     process.exit(result.status);
   }
 
-  console.error(`Failed to execute '${scriptPath}'.`);
+  console.error(`Failed to execute '${command}'.`);
   process.exit(1);
 };
 
@@ -65,6 +67,16 @@ if (args[0] === '--build') {
   }
 
   runScript(compileScript, compileArgs);
+}
+
+if (args[0] === '--dist') {
+  if (args.length !== 1) {
+    console.error('Error: --dist does not accept additional arguments.');
+    printHelp();
+    process.exit(1);
+  }
+
+  runScript(process.execPath, [distScript], 'node scripts/dist-package.mjs');
 }
 
 console.error(`Error: Unknown command '${args[0]}'.`);

@@ -1,7 +1,8 @@
 {
   "name": "@tokamak-zk-evm/qap-compiler",
   "version": "1.0.0",
-  "description": "Toolkit for generating Tokamak zk-EVM subcircuit libraries",
+  "description": "Source toolkit for generating the published Tokamak zk-EVM subcircuit library package",
+  "private": true,
   "keywords": [
     "ethereum",
     "zk-EVM",
@@ -40,8 +41,10 @@
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
+    "postinstall": "node scripts/setup-local-bin.mjs",
     "reload-constants": "npx qap-compiler --reload-constants",
-    "prepublishOnly": "npx qap-compiler --reload-constants"
+    "build:library": "npx qap-compiler --build",
+    "dist": "npx qap-compiler --dist"
   },
   "bin": {
     "qap-compiler": "scripts/qap-compiler.mjs"

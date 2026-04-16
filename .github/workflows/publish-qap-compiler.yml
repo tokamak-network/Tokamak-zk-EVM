@@ -29,15 +29,24 @@ jobs:
           cache-dependency-path: packages/frontend/qap-compiler/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
+
+      - name: Reload constants
+        run: npx qap-compiler --reload-constants
+
+      - name: Build library
+        run: npx qap-compiler --build
+
+      - name: Prepare dist package
+        run: npx qap-compiler --dist
 
       - name: Compare package version with npm
         id: version-check
         shell: bash
         run: |
-          node <<'EOF' >> "$GITHUB_OUTPUT"
+          node <<'EOF_NODE' >> "$GITHUB_OUTPUT"
           const { execSync } = require('node:child_process');
-          const pkg = require('./package.json');
+          const pkg = require('./dist/package.json');
 
           function compareSemver(left, right) {
             const leftParts = left.split('.').map((value) => Number(value));
@@ -67,7 +76,7 @@ jobs:
           console.log(`local_version=${pkg.version}`);
           console.log(`published_version=${publishedVersion ?? 'none'}`);
           console.log(`should_publish=${shouldPublish}`);
-          EOF
+          EOF_NODE
 
       - name: Show version decision
         run: |
@@ -78,10 +87,10 @@ jobs:
 
       - name: Validate npm package contents
         if: steps.version-check.outputs.should_publish == 'true'
-        run: npm pack --dry-run
+        run: npm publish --dry-run ./dist
 
       - name: Publish to npm
         if: steps.version-check.outputs.should_publish == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish
+        run: npm publish ./dist

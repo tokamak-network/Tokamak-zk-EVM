@@ -14,17 +14,11 @@ package_root="${script_dir}/.."
 cd "$script_dir"
 
 circom_bin="${script_dir}/../node_modules/.bin/circom2"
-tsx_bin="${script_dir}/../node_modules/.bin/tsx"
 circom_dir_path="${package_root}/subcircuits/circom"
 default_output_dir="${script_dir}/../subcircuits/library"
 
 if [[ ! -x "$circom_bin" ]]; then
   echo "Error: circom2 executable not found at '$circom_bin'." >&2
-  exit 1
-fi
-
-if [[ ! -x "$tsx_bin" ]]; then
-  echo "Error: tsx executable not found at '$tsx_bin'." >&2
   exit 1
 fi
 
@@ -76,5 +70,5 @@ for (( i = 0 ; i < ${#names[@]} ; i++ )) ; do
 done
 
 node parse.js "$output_dir_path"
-"$tsx_bin" ./exporter/exporter.ts "$output_dir_path"
+node --import tsx ./exporter/exporter.ts "$output_dir_path"
 rm -f temp.txt
