@@ -13,6 +13,18 @@ if (!Number.isInteger(POSEIDON_INPUTS) || !Number.isInteger(MT_DEPTH)) {
 
 const src = fs.readFileSync(constantsPath, 'utf8');
 
+const readCurrentConstant = (source, name) => {
+  const match = source.match(new RegExp(`function\\s+${name}\\s*\\(\\s*\\)\\s*\\{\\s*return\\s+(\\d+)\\s*;\\s*\\}`));
+  if (match === null) {
+    throw new Error(`Failed to read current ${name} from constants.circom.`);
+  }
+
+  return Number(match[1]);
+};
+
+const previousPoseidonInputs = readCurrentConstant(src, 'nPoseidonInputs');
+const previousMtDepth = readCurrentConstant(src, 'nMtDepth');
+
 let next = src;
 let updatedPoseidonInputs = false;
 let updatedMtDepth = false;
@@ -36,3 +48,10 @@ if (!updatedPoseidonInputs || !updatedMtDepth) {
 }
 
 fs.writeFileSync(constantsPath, next);
+
+const poseidonStatus = previousPoseidonInputs === POSEIDON_INPUTS ? 'unchanged' : 'updated';
+const mtDepthStatus = previousMtDepth === MT_DEPTH ? 'unchanged' : 'updated';
+
+console.log(`[qap-compiler] Reloaded constants in ${constantsPath}`);
+console.log(`[qap-compiler] nPoseidonInputs: ${previousPoseidonInputs} -> ${POSEIDON_INPUTS} (${poseidonStatus})`);
+console.log(`[qap-compiler] nMtDepth: ${previousMtDepth} -> ${MT_DEPTH} (${mtDepthStatus})`);

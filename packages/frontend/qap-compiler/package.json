@@ -39,6 +39,10 @@
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
+  "scripts": {
+    "reload-constants": "npx qap-compiler --reload-constants",
+    "prepublishOnly": "npx qap-compiler --reload-constants"
+  },
   "bin": {
     "qap-compiler": "scripts/qap-compiler.mjs"
   },
