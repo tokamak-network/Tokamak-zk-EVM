@@ -1,5 +1,6 @@
 use crate::sigma::{FinalCrsProvenance, SigmaV2};
 use crate::utils::StepTimer;
+use chrono::Utc;
 use libs::iotools::{SigmaPreprocessRkyv, SigmaRkyv, SigmaVerifyRkyv};
 use sha2::{Digest, Sha256};
 use std::env;
@@ -57,10 +58,14 @@ pub fn run(config: &Phase2GenFilesConfig) {
     timer.log_step("write sigma verify");
 
     let provenance = FinalCrsProvenance {
+        generated_at_utc: Utc::now().to_rfc3339(),
+        backend_version: env!("CARGO_PKG_VERSION").to_string(),
         phase1_source_provenance: latest_acc.phase1_source_provenance,
         combined_sigma_sha256,
         sigma_preprocess_sha256,
         sigma_verify_sha256,
+        published_folder_url: None,
+        published_archive_name: None,
     };
     let bytes = serde_json::to_vec_pretty(&provenance).expect("cannot serialize CRS provenance");
     fs::write(output_dir.join("crs_provenance.json"), bytes)

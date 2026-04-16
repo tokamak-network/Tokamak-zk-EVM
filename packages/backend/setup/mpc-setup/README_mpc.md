@@ -65,10 +65,18 @@ Optional wrapper-only input:
 This wrapper:
 
 1. loads or downloads the pinned Dusk raw powers-of-tau file at `<intermediate>/dusk.response`
-2. verifies the pinned digest and the used tau ranges
-3. runs phase-2 prepare
-4. runs one phase-2 contribution
-5. generates final CRS files
+2. checks the Google Drive upload configuration from `.env`
+3. verifies the pinned digest and the used tau ranges
+4. runs phase-2 prepare
+5. runs one phase-2 contribution
+6. generates final CRS files
+7. zips the final `--output` artifacts and uploads the archive to the configured Google Drive folder
+
+Required `.env` keys for dusk-backed uploads:
+
+- `TOKAMAK_MPC_DRIVE_FOLDER_ID`
+- `TOKAMAK_MPC_DRIVE_FOLDER_URL`
+- `TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH`
 
 ## Testing-Mode Builds
 
@@ -102,3 +110,10 @@ The final output folder contains:
 - `crs_provenance.json`
 
 The deployable CRS is `combined_sigma.rkyv`.
+
+`crs_provenance.json` now also records:
+
+- `generated_at_utc`
+- `backend_version`
+- `published_folder_url`
+- `published_archive_name`

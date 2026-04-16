@@ -41,6 +41,7 @@ pub mod utils;
 
 pub mod accumulator;
 pub mod contributor;
+pub mod drive_upload;
 pub mod flows;
 pub mod mpc_utils;
 pub mod phase1_source;

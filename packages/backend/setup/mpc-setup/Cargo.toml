@@ -45,6 +45,8 @@ zip = "4.0.0"
 tempfile = "3.20.0"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 sha2 = "0.10"
+dotenvy = "0.15"
+mime = "0.3"
 [features]
 default = []
 testing-mode = ["libs/testing-mode"]

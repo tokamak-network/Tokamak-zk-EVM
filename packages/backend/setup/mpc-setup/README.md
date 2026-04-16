@@ -75,6 +75,10 @@ In dusk-backed mode:
 - if the file is missing, the wrapper downloads the pinned Dusk contribution
 - the downloaded or local file must match the pinned SHA-256 digest compiled into the binary
 - the used G1 and G2 tau ranges are verified before phase 2 begins
+- before setup starts, the wrapper checks that the Google Drive upload environment is valid
+- after setup succeeds, the wrapper zips the final `--output` artifacts and uploads the archive to
+  the configured Google Drive folder
+- the output archive name always includes the backend version and CRS generation timestamp
 
 The current pinned Dusk source is:
 
@@ -82,6 +86,19 @@ The current pinned Dusk source is:
 - README:
   `https://raw.githubusercontent.com/dusk-network/trusted-setup/main/contributions/0015/README.md`
 - drive file id: `1nv9WpxXWMiP8-YwImd2FVn523u7_sb48`
+
+## Dusk Upload Environment
+
+`dusk_backed_mpc_setup` reads its publish configuration from `.env`.
+
+Required keys:
+
+- `TOKAMAK_MPC_DRIVE_FOLDER_ID`
+- `TOKAMAK_MPC_DRIVE_FOLDER_URL`
+- `TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH`
+
+The service account JSON file must have permission to add children to the configured folder.
+If preflight fails or the upload fails, the whole dusk-backed setup run fails.
 
 ## Testing-Mode Builds
 
@@ -131,6 +148,11 @@ This matches the trusted-setup artifact set, with the additional provenance mani
 `crs_provenance.json` is a final output artifact. Service-side loaders should reject a CRS
 unless this manifest matches both the pinned Dusk source and the exact final CRS bytes.
 
+For every CRS, the manifest also records:
+
+- `generated_at_utc`
+- `backend_version`
+
 For dusk-backed mode, the manifest records:
 
 - the canonical local source path
@@ -139,6 +161,8 @@ For dusk-backed mode, the manifest records:
 - whether the file was auto-downloaded
 - whether used-range tau verification succeeded
 - the maximum G1 and G2 exponents consumed by Tokamak phase 2
+- the Google Drive folder URL used for publication
+- the uploaded archive file name
 - the SHA-256 digests of:
   - `combined_sigma.rkyv`
   - `sigma_preprocess.rkyv`
@@ -151,12 +175,17 @@ When serving a dusk-backed CRS, the service wrapper should verify:
 1. the pinned Dusk source metadata
 2. the pinned Dusk raw SHA-256
 3. the final CRS file hashes
+4. the expected published folder URL, if the deployment relies on the automated upload path
 
 Example checks:
 
 ```bash
-jq -r '.phase1_source.pinned_contribution' "$CRS_DIR/crs_provenance.json"
-jq -r '.phase1_source.expected_source_sha256' "$CRS_DIR/crs_provenance.json"
+jq -r '.phase1_source_provenance.DuskGroth16.pinned_contribution' "$CRS_DIR/crs_provenance.json"
+jq -r '.phase1_source_provenance.DuskGroth16.expected_source_sha256' "$CRS_DIR/crs_provenance.json"
+jq -r '.generated_at_utc' "$CRS_DIR/crs_provenance.json"
+jq -r '.backend_version' "$CRS_DIR/crs_provenance.json"
+jq -r '.published_folder_url' "$CRS_DIR/crs_provenance.json"
+jq -r '.published_archive_name' "$CRS_DIR/crs_provenance.json"
 jq -r '.combined_sigma_sha256' "$CRS_DIR/crs_provenance.json"
 shasum -a 256 "$CRS_DIR/combined_sigma.rkyv"
 ```

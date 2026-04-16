@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::drive_upload::{preflight_drive_upload, publish_output_archive};
 use libs::iotools::SetupParams;
 
 pub mod phase1_initialize;
@@ -60,6 +61,7 @@ pub fn run_native_mpc_setup(config: &NativeMpcSetupConfig) {
 }
 
 pub fn run_dusk_backed_mpc_setup(config: &DuskBackedMpcSetupConfig) {
+    let upload_config = preflight_drive_upload().expect("dusk-backed upload preflight failed");
     ensure_directory(&config.output);
     ensure_directory(&config.intermediate);
     let qap_path = canonicalize_existing_path(&config.subcircuit_library);
@@ -74,6 +76,14 @@ pub fn run_dusk_backed_mpc_setup(config: &DuskBackedMpcSetupConfig) {
             dusk_raw_file,
         },
         config.seed_input.as_deref(),
+    );
+
+    let upload_result =
+        publish_output_archive(&upload_config, &config.intermediate, &config.output)
+            .expect("cannot publish dusk-backed CRS archive");
+    println!(
+        "Uploaded dusk-backed CRS archive {} to {}",
+        upload_result.archive_name, upload_result.folder_url
     );
 }
 
