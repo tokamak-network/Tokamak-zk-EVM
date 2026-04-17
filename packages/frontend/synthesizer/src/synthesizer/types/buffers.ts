@@ -1,4 +1,4 @@
-import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
+import { DEFAULT_SOURCE_BIT_SIZE } from '../params/constants.ts';
 import type { DataPt, DataPtDescription } from './index.ts'
 import { FUNCTION_INPUT_LENGTH } from 'tokamak-l2js';
 import { BUFFER_LIST, ReservedBuffer, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';

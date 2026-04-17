@@ -3,7 +3,7 @@ import { jubjub } from "@noble/curves/misc.js";
 import { DataPt, DataPtDescription, ISynthesizerProvider, PlacementEntry, ReservedVariable, SynthesizerOpts, VARIABLE_DESCRIPTION } from '../types/index.ts';
 import { DataPtFactory } from '../dataStructure/index.ts';
 import { BUFFER_DESCRIPTION, BUFFER_LIST } from '../../interface/qapCompiler/configuredTypes.ts';
-import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
+import { DEFAULT_SOURCE_BIT_SIZE } from '../params/constants.ts';
 import { FUNCTION_INPUT_LENGTH, MAX_MT_LEAVES } from 'tokamak-l2js';
 
 export class BufferManager {

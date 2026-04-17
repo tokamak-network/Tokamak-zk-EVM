@@ -1,4 +1,4 @@
-import { SynthesizerInterface } from '../synthesizer/index.ts';
+import { SynthesizerInterface } from '../synthesizer/types/index.ts';
 import { VariableGenerator } from './handlers/variableGenerator.ts';
 import { Placements } from '../synthesizer/types/placements.ts';
 import { PermutationGenerator } from './handlers/permutationGenerator.ts';

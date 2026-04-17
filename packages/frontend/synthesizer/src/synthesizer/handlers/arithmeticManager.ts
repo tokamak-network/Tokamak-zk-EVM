@@ -1,7 +1,7 @@
 
 import { DataPt, ISynthesizerProvider } from '../types/index.ts';
 import { DataPtFactory } from '../dataStructure/index.ts';
-import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
+import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/constants.ts';
 import { ArithmeticOperator, SUBCIRCUIT_ALU_MAPPING, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
 import { ArithmeticOperations } from '../dataStructure/arithmeticOperations.ts';
 import { MT_DEPTH, POSEIDON_INPUTS } from 'tokamak-l2js';

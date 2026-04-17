@@ -1,6 +1,6 @@
 import { jubjub } from "@noble/curves/misc.js"
 import { poseidon_raw, poseidonChainCompress, POSEIDON_INPUTS } from 'tokamak-l2js'
-import { DEFAULT_SOURCE_BIT_SIZE} from "../../synthesizer/params/index.ts"
+import { DEFAULT_SOURCE_BIT_SIZE} from "../../synthesizer/params/constants.ts"
 
 const convertToSigned = (value: bigint): bigint => {
   const SIGN_BIT = 1n << 255n

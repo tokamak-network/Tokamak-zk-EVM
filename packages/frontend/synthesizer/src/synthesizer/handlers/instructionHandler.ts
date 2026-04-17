@@ -14,7 +14,7 @@ import {
   hexToBigInt,
 } from '@ethereumjs/util'
 import { InterpreterStep } from '@ethereumjs/evm'
-import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
+import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/constants.ts';
 import { DataPtFactory, MemoryPt, StackPt } from '../dataStructure/index.ts';
 import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from '../../interface/qapCompiler/configuredTypes.ts';
 import { FUNCTION_INPUT_LENGTH, MAX_MT_LEAVES } from 'tokamak-l2js';

@@ -17,7 +17,7 @@ import { createCircuitGenerator } from 'src/circuitGenerator/circuitGenerator.ts
 import { addHexPrefix, createAccount, createAddressFromString, hexToBytes } from '@ethereumjs/util';
 import { readJson } from './utils/node.ts';
 import { writeCircuitJson, writeStateSnapshotJson } from '../node/jsonWriter.ts';
-import { SynthesizerBlockInfo } from '../rpc/index.ts';
+import { SynthesizerBlockInfo } from '../rpc/types.ts';
 
 program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthesizer').version('0.9.0');
 

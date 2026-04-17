@@ -6,7 +6,7 @@ import {
 import type { CircuitArtifacts } from "../../circuitGenerator/types/types.ts";
 import appRootPath from "app-root-path";
 import fs from 'fs';
-import { SynthesizerInterface } from "src/synthesizer/index.ts";
+import { SynthesizerInterface } from "src/synthesizer/types/index.ts";
 import { StateSnapshot } from "tokamak-l2js";
 
 /**

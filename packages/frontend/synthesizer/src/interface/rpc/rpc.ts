@@ -5,7 +5,7 @@ import { SynthesizerOpts } from "../../synthesizer/types/index.ts"
 import { jubjub } from "@noble/curves/misc.js"
 import {
   installedSubcircuitLibrary,
-} from "../qapCompiler/index.ts"
+} from "../qapCompiler/installedLibrary.ts"
 import type { ResolvedSubcircuitLibrary } from "../qapCompiler/libraryTypes.ts"
 import { SynthesizerBlockInfo } from "./types.ts"
 
