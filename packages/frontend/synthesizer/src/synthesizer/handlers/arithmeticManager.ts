@@ -479,19 +479,7 @@ export class ArithmeticManager {
     //   childIndexPt = parentIndexPt
     // }
 
-    const merkleProofOperationBySteps: Record<1 | 2 | 3 | 4 | 5 | 6, ArithmeticOperator> = {
-      1: 'VerifyMerkleProof',
-      2: 'VerifyMerkleProof2x',
-      3: 'VerifyMerkleProof3x',
-      4: 'VerifyMerkleProof4x',
-      5: 'VerifyMerkleProof5x',
-      6: 'VerifyMerkleProof6x',
-    }
-
-    const placeMerkleBatch = (
-      nSteps: keyof typeof merkleProofOperationBySteps,
-      finalRootPt: DataPt,
-    ): { nextIndexPt: DataPt; nextChildPt: DataPt } => {
+    const placeMerkleBatch = (nSteps: number, finalRootPt: DataPt): { nextIndexPt: DataPt; nextChildPt: DataPt } => {
       const siblingBatch = siblingPts.slice(level, level + nSteps)
       let nextParentIndex = Number(childIndexPt.value)
       let nextParentValue = childPt.value
@@ -506,7 +494,7 @@ export class ArithmeticManager {
       const parentPt = this.parent.addReservedVariableToBufferIn('MERKLE_PROOF', nextParentValue, true)
       const isLastGroup = level + nSteps >= MT_DEPTH
       const finalParentPt = isLastGroup ? finalRootPt : parentPt
-      const operationName = merkleProofOperationBySteps[nSteps]
+      const operationName = `VerifyMerkleProof${nSteps === 1 ? '' : `${nSteps}x`}` as ArithmeticOperator
 
       this.placeArith(operationName, [
         childIndexPt,
@@ -628,4 +616,4 @@ const ARITHMETIC_MAPPING: Record<ArithmeticOperator, (...args: any) => any> = {
   VerifyMerkleProof4x: ArithmeticOperations.verifyMerkleProof4x,
   VerifyMerkleProof5x: ArithmeticOperations.verifyMerkleProof5x,
   VerifyMerkleProof6x: ArithmeticOperations.verifyMerkleProof6x,
-}
+} as const

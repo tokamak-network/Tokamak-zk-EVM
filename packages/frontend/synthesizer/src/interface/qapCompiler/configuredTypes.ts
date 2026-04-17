@@ -81,7 +81,7 @@ export const BUFFER_DESCRIPTION: Record<ReservedBuffer, string> = {
   BLOCK_IN: '[Private output & Public input] Buffer to load block input',
   EVM_IN: '[Private output & Public input] Buffer to load public static input such as ROM, environmental data, or ALU selectors',
   PRIVATE_IN: '[Private output & Private input] Buffer to load witness as private, such as initial storage, transaction data, and Merkle tree proofs',
-}
+} as const
 
 export type ReservedBuffer = (typeof BUFFER_LIST)[number]
 
@@ -166,7 +166,7 @@ export const SUBCIRCUIT_ALU_MAPPING: Record<ArithmeticOperator, [SubcircuitNames
   VerifyMerkleProof4x: ['VerifyMerkleProof', 8n],
   VerifyMerkleProof5x: ['VerifyMerkleProof', 16n],
   VerifyMerkleProof6x: ['VerifyMerkleProof', 32n],
-};
+} as const;
 
 export const TX_MESSAGE_TO_HASH = [
   'TRANSACTION_NONCE', 'CONTRACT_ADDRESS', 'FUNCTION_SELECTOR',

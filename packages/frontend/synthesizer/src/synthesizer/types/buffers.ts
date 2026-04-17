@@ -362,8 +362,6 @@ type EVMInVariable =
 type PrivateInVariable =
   | (typeof PRIVATE_IN_VARIABLES_STATIC)[number]
   | (typeof PRIVATE_IN_VARIABLES_DYNAMIC)[number]
-type BlockHashVariable = Extract<BlockInVariable, `BLOCKHASH_${number}`>
-type TransactionInputVariable = Extract<PrivateInVariable, `TRANSACTION_INPUT${number}`>
 export type ReservedVariable =
   | PublicOutVariable
   | PublicInVariable
@@ -371,7 +369,7 @@ export type ReservedVariable =
   | EVMInVariable
   | PrivateInVariable
 
-const _VARIABLES: ReservedVariable[] = [
+const _VARIABLES: string[] = [
   ...PUBLIC_OUT_VARIABLES_STATIC,
   ...PUBLIC_OUT_VARIABLES_DYNAMIC,
   ...PUBLIC_IN_VARIABLES_STATIC,
@@ -383,24 +381,13 @@ const _VARIABLES: ReservedVariable[] = [
   ...PRIVATE_IN_VARIABLES_STATIC,
   ...PRIVATE_IN_VARIABLES_DYNAMIC,
 ]
-
-const assertCompleteDescriptions = <TVariable extends string>(
-  descriptions: Partial<Record<TVariable, DataPtDescription>>,
-  variableNames: readonly TVariable[],
-): asserts descriptions is Record<TVariable, DataPtDescription> => {
-  for (const variableName of variableNames) {
-    if (descriptions[variableName] === undefined) {
-      throw new Error(`Missing variable description for ${variableName}`)
-    }
-  }
-}
-
-const __buildIncompleteDescription = <TVariable extends ReservedVariable>(
-  STATIC_VARIABLES: readonly TVariable[],
-  DYNAMIC_VARIABLES: readonly TVariable[],
+    
+const __buildIncompleteDescription = (
+  STATIC_VARIABLES: readonly string[], 
+  DYNAMIC_VARIABLES: readonly string[],
   bufferName: ReservedBuffer,
 ) => {
-  const m: Partial<Record<TVariable, DataPtDescription>> = {};
+  const m: Record<string, DataPtDescription> = {};
   const FULL_VARIABLES = [
     ...STATIC_VARIABLES,
     ...DYNAMIC_VARIABLES,
@@ -412,34 +399,33 @@ const __buildIncompleteDescription = <TVariable extends ReservedVariable>(
       wireIndex: STATIC_VARIABLES.findIndex(staticName => staticName === varName)
     }
   }
-  assertCompleteDescriptions(m, FULL_VARIABLES)
-  return m
+  return m as unknown
 }
 const _PUBLIC_OUT_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
   PUBLIC_OUT_VARIABLES_STATIC,
   PUBLIC_OUT_VARIABLES_DYNAMIC,
   'PUBLIC_OUT',
-);
+) as Record<PublicOutVariable, DataPtDescription>;
 const _PUBLIC_IN_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
   PUBLIC_IN_VARIABLES_STATIC,
   PUBLIC_IN_VARIABLES_DYNAMIC,
   'PUBLIC_IN',
-);
+) as Record<PublicInVariable, DataPtDescription>;
 const _BLOCK_IN_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
   BLOCK_IN_VARIABLES_STATIC,
   BLOCK_IN_VARIABLES_DYNAMIC,
   'BLOCK_IN',
-);
+) as Record<BlockInVariable, DataPtDescription>;
 const _EVM_IN_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
   EVM_IN_VARIABLES_STATIC,
   EVM_IN_VARIABLES_DYNAMIC,
   'EVM_IN',
-);
+) as Record<EVMInVariable, DataPtDescription>;
 const _PRIVATE_IN_DESCRIPTION_INCOMPLETE = __buildIncompleteDescription(
   PRIVATE_IN_VARIABLES_STATIC,
   PRIVATE_IN_VARIABLES_DYNAMIC,
   'PRIVATE_IN',
-);
+) as Record<PrivateInVariable, DataPtDescription>;
 
 const VARIABLE_DESCRIPTION_INCOMPLETE: Record<ReservedVariable, DataPtDescription> = {
   ..._PUBLIC_OUT_DESCRIPTION_INCOMPLETE,
@@ -474,12 +460,12 @@ VARIABLE_DESCRIPTION_INCOMPLETE.GASLIMIT.extSource = `GASLIMIT`;
 VARIABLE_DESCRIPTION_INCOMPLETE.CHAINID.extSource = `CHAINID`;
 VARIABLE_DESCRIPTION_INCOMPLETE.SELFBALANCE.extSource = `SELFBALANCE`;
 VARIABLE_DESCRIPTION_INCOMPLETE.BASEFEE.extSource = `BASEFEE`;
-const blockHashVariables = BLOCK_IN_VARIABLES_STATIC.filter(
-  (varName): varName is BlockHashVariable => varName.startsWith('BLOCKHASH_'),
-)
-for (const [index, varName] of blockHashVariables.entries()) {
-  const blockAge = index + 1
-  VARIABLE_DESCRIPTION_INCOMPLETE[varName].extSource = `Block hash ${blockAge} ${blockAge === 1 ? 'block' : 'blocks'} ago`;
+for (let i = 1; i <= 256; i++) {
+  const varName = `BLOCKHASH_${i}` as ReservedVariable
+  if ( BLOCK_IN_VARIABLES_STATIC.findIndex(staticVarName => staticVarName === varName) < 0 ) {
+    throw new Error(`${varName} is not a ReservedVariable`)
+  }
+  VARIABLE_DESCRIPTION_INCOMPLETE[varName].extSource = `Block hash ${i} ${i === 1 ? 'block' : 'blocks'} ago`;
 }
 
 VARIABLE_DESCRIPTION_INCOMPLETE.CIRCOM_CONST_ONE.extSource = 'Arbitrary constant',
@@ -513,14 +499,12 @@ VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_X.sourceBitSize = 255;
 
 VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_Y.extSource = `EdDSA public key of caller (y coordinate)`;
 VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_PUBLIC_KEY_Y.sourceBitSize = 255;
-const transactionInputVariables = PRIVATE_IN_VARIABLES_STATIC.filter(
-  (varName): varName is TransactionInputVariable => varName.startsWith('TRANSACTION_INPUT'),
-)
-if (transactionInputVariables.length !== FUNCTION_INPUT_LENGTH) {
-  throw new Error('TRANSACTION_INPUT variables do not match the expected function input length')
-}
-for (const [index, varName] of transactionInputVariables.entries()) {
-  VARIABLE_DESCRIPTION_INCOMPLETE[varName].extSource = `The ${index}-th input to the selected function`;
+for (let i = 0; i < FUNCTION_INPUT_LENGTH; i++) {
+  const varName = `TRANSACTION_INPUT${i}` as ReservedVariable
+  if ( PRIVATE_IN_VARIABLES_STATIC.findIndex(staticVarName => staticVarName === varName) < 0 ) {
+    throw new Error(`${varName} is not a ReservedVariable`)
+  }
+  VARIABLE_DESCRIPTION_INCOMPLETE[varName].extSource = `The ${i}-th input to the selected function`;
   VARIABLE_DESCRIPTION_INCOMPLETE[varName].sourceBitSize = 255;
 }
 VARIABLE_DESCRIPTION_INCOMPLETE.EDDSA_RANDOMIZER_X.extSource = `EdDSA randomizer (x coordinate)`;
@@ -535,7 +519,8 @@ VARIABLE_DESCRIPTION_INCOMPLETE.STORAGE_READ.sourceBitSize = 255;
 VARIABLE_DESCRIPTION_INCOMPLETE.MERKLE_PROOF.extSource = `Merkle proof component`;
 VARIABLE_DESCRIPTION_INCOMPLETE.MERKLE_PROOF.sourceBitSize = 255;
 
-for (const varName of _VARIABLES) {
+for (const _varName of _VARIABLES) {
+  const varName = _varName as ReservedVariable
   if (
     VARIABLE_DESCRIPTION_INCOMPLETE[varName].extDest === undefined && 
     VARIABLE_DESCRIPTION_INCOMPLETE[varName].extSource === undefined

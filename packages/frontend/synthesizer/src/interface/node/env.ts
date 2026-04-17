@@ -4,10 +4,6 @@ type GetRpcUrlFromEnvOptions = {
   envPath?: string;
 };
 
-const isAlchemyNetwork = (
-  network: string,
-): network is keyof typeof ALCHEMY_RPC_URLS => network in ALCHEMY_RPC_URLS;
-
 export const getRpcUrlFromEnv = (
   network: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -23,10 +19,7 @@ export const getRpcUrlFromEnv = (
   }
 
   const normalizedNetwork = network.trim().toLowerCase();
-  if (!isAlchemyNetwork(normalizedNetwork)) {
-    throw new Error('network must be "mainnet" or "sepolia"');
-  }
-  const baseUrl = ALCHEMY_RPC_URLS[normalizedNetwork];
+  const baseUrl = ALCHEMY_RPC_URLS[normalizedNetwork as keyof typeof ALCHEMY_RPC_URLS];
   if (!baseUrl) {
     throw new Error('network must be "mainnet" or "sepolia"');
   }

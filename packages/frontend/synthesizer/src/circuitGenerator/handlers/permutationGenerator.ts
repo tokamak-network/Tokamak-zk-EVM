@@ -75,8 +75,7 @@ export class PermutationGenerator {
   private _retrieveDataPtFromPlacementWireId(
     inputIdx: PlacementWireIndex,
   ): DataPt {
-    const wireEntry = this.flattenMapInverse[inputIdx.globalWireId];
-    const localWireId = wireEntry?.[1];
+    const [/*subcircuitId*/, localWireId] = this.flattenMapInverse[inputIdx.globalWireId] ?? [] as any;
     if (localWireId === undefined) {
       throw new Error(
         `Permutation: Invalid global wire ID: ${inputIdx.globalWireId}`,

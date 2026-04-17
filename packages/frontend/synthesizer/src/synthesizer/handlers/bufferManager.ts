@@ -166,7 +166,7 @@ export class BufferManager {
     this.addReservedVariableToBufferIn('SELFBALANCE', hexToBigInt(this.cachedOpts.blockInfo.selfBalance))
     this.addReservedVariableToBufferIn('BASEFEE', hexToBigInt(this.cachedOpts.blockInfo.baseFee))
     for (let i = 1; i <= this.parent.subcircuitLibrary.numberOfPrevBlockHashes; i++) {
-      this.addReservedVariableToBufferIn(`BLOCKHASH_${i}`, hexToBigInt(this.cachedOpts.blockInfo.prevBlockHashes[i-1]));
+      this.addReservedVariableToBufferIn(`BLOCKHASH_${i}` as ReservedVariable, hexToBigInt(this.cachedOpts.blockInfo.prevBlockHashes[i-1]));
     }
 
     // Transaction inputs
@@ -202,7 +202,7 @@ export class BufferManager {
     this.addReservedVariableToBufferIn('TRANSACTION_NONCE', l2Tx.nonce)
     for (var inputIndex = 0; inputIndex < FUNCTION_INPUT_LENGTH; inputIndex ++) {
       this.addReservedVariableToBufferIn(
-        `TRANSACTION_INPUT${inputIndex}`,
+        `TRANSACTION_INPUT${inputIndex}` as ReservedVariable, 
         bytesToBigInt(l2Tx.getFunctionInput(inputIndex)),
       )
     }

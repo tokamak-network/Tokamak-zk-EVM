@@ -100,7 +100,7 @@ export class VariableGenerator {
         } catch (err) {
           console.log(`Placement index: ${placementId}`);
           console.log(`Subcircuit name: ${placement.name}`);
-          throw err instanceof Error ? err : new Error(String(err));
+          throw new Error(err as string);
         }
 
         for (let i = 1; i <= outs.values.length; i++) {

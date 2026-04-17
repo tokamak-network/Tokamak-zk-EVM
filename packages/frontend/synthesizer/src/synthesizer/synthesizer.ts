@@ -192,7 +192,7 @@ export class Synthesizer implements SynthesizerInterface
     if (depth == 0) {
       const selectorPt = this.getReservedVariableFromBuffer('FUNCTION_SELECTOR')
       const inPts: DataPt[] = Array.from({ length: FUNCTION_INPUT_LENGTH }, (_, i) =>
-        this.getReservedVariableFromBuffer(`TRANSACTION_INPUT${i}`)
+        this.getReservedVariableFromBuffer(`TRANSACTION_INPUT${i}` as ReservedVariable)
       )
       callDataMemoryPts = [
         { memByteOffset: 0, containerByteSize: 4, dataPt: selectorPt },

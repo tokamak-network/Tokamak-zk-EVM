@@ -263,25 +263,14 @@ export const synthesizerOpcodeList: Record<number, SynthesizerSupportedOpcodes> 
   // 0xfd: 'REVERT', (unsupported per current status)
   // 0xfe: 'INVALID', (unsupported per current status)
   // 0xff: 'SELFDESTRUCT', (unsupported per current status)
-};
-
-const createSynthesizerOpcodeByName = (): Readonly<Record<SynthesizerSupportedOpcodes, number>> => {
-  const opcodeByName: Partial<Record<SynthesizerSupportedOpcodes, number>> = {};
-
-  for (const [code, name] of Object.entries(synthesizerOpcodeList)) {
-    opcodeByName[name] = Number(code);
-  }
-  for (const name of Object.values(synthesizerOpcodeList)) {
-    if (opcodeByName[name] === undefined) {
-      throw new Error(`Missing opcode mapping for ${name}`);
-    }
-  }
-
-  return Object.freeze(opcodeByName);
-};
+} as const;
 
 /**
  * Reverse mapping: opcode name -> opcode number
  * Note: uses the declared list above as source of truth.
  */
-export const synthesizerOpcodeByName = createSynthesizerOpcodeByName();
+export const synthesizerOpcodeByName = Object.freeze(
+  Object.fromEntries(
+    Object.entries(synthesizerOpcodeList).map(([code, name]) => [name, Number(code)])
+  )
+) as Readonly<Record<SynthesizerSupportedOpcodes, number>>;

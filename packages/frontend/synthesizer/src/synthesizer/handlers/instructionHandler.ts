@@ -36,10 +36,6 @@ export interface HandlerOpts {
   memOut?: Uint8Array,
 }
 
-type TypedHandlerOpts<TOp extends SynthesizerSupportedOpcodes> = HandlerOpts & {
-  op: TOp,
-}
-
 export interface SynthesizerOpHandler {
   (context: ContextManager, stepResult: InterpreterStep): void | Promise<void>
 }
@@ -595,11 +591,11 @@ export class InstructionHandler {
   public handleArith = (
     ins: bigint[],
     out: bigint,
-    opts: TypedHandlerOpts<SynthesizerSupportedArithOpcodes>,
+    opts: HandlerOpts,
   ): void => {
     const inPts = this._popStackPtAndCheckInputConsistency(opts.stackPt, ins)
     let outPts: DataPt[];
-    const op = opts.op
+    const op = opts.op as SynthesizerSupportedArithOpcodes
     switch (op) {
       case 'EXP':
         const basePt = inPts[0]
@@ -623,7 +619,7 @@ export class InstructionHandler {
         }
         break
       default:
-        outPts = this.parent.placeArith(op, inPts);
+        outPts = this.parent.placeArith(op as ArithmeticOperator, inPts);
         break;
     }
     if (outPts.length !== 1 || outPts[0].value !== out) {
@@ -667,7 +663,7 @@ export class InstructionHandler {
             `Synthesizer: BLOCKHASH requires ${blockNumberDiff.toString()} previous block hashes, but qap-compiler nPrevBlockHashes is ${this.parent.subcircuitLibrary.numberOfPrevBlockHashes}. Increase qap-compiler nPrevBlockHashes.`,
           )
         }
-        dataPt = this.parent.getReservedVariableFromBuffer(`BLOCKHASH_${blockNumberDiff}`)
+        dataPt = this.parent.getReservedVariableFromBuffer(`BLOCKHASH_${blockNumberDiff}` as ReservedVariable)
         break
       }
       default:
@@ -708,7 +704,7 @@ export class InstructionHandler {
   public handleEnvInf(
     ins: bigint[],
     out: bigint | null,
-    opts: TypedHandlerOpts<SynthesizerSupportedEnvInfOpcodes>,
+    opts: HandlerOpts,
   ): void {
     const _retrieveOriginAddressPt = (): DataPt => {
       checkRequiredInput(opts.originAddress)
@@ -727,7 +723,7 @@ export class InstructionHandler {
     const stackPt = opts.stackPt;
     const memoryPt = opts.memoryPt;
     this._popStackPtAndCheckInputConsistency(opts.stackPt, ins)
-    const op = opts.op
+    const op = opts.op as SynthesizerSupportedEnvInfOpcodes
     switch (op) {
       case 'ADDRESS': 
         {
@@ -936,10 +932,10 @@ export class InstructionHandler {
   public handleLoggers(
     ins: bigint[],
     out: bigint | null,
-    opts: TypedHandlerOpts<SynthesizerSupportedLogOpcodes>,
+    opts: HandlerOpts,
   ): void {
     const inPts = this._popStackPtAndCheckInputConsistency(opts.stackPt, ins)
-    const op = opts.op
+    const op = opts.op as SynthesizerSupportedLogOpcodes
     const [memOffset, dataLength] = ins
     const topicPts = inPts.slice(2)
     const nTopics = opts.prevStepResult.opcode.code - 0xa0
@@ -991,9 +987,9 @@ export class InstructionHandler {
   public async handleSysFlow(
     ins: bigint[],
     out: bigint | null,
-    opts: TypedHandlerOpts<SynthesizerSupportedSysFlowOpcodes>,
+    opts: HandlerOpts,
   ): Promise<void> {
-    const op = opts.op;
+    const op = opts.op as SynthesizerSupportedSysFlowOpcodes;
     const inPts = this._popStackPtAndCheckInputConsistency(opts.stackPt, ins);
     switch (op) {
       case 'POP': 
