@@ -6,6 +6,7 @@ import { StateManager } from '../handlers/index.ts';
 import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable } from './index.ts';
 import { SynthesizerOpHandler } from '../handlers/instructionHandler.ts';
 import { ArithmeticOperator, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
+import type { ResolvedSubcircuitLibrary } from '../../interface/qapCompiler/library.ts';
 import { SynthesizerBlockInfo } from 'src/interface/index.ts';
 
 export interface SynthesizerOpts {
@@ -26,6 +27,7 @@ export interface SynthesizerInterface {
   get placements(): Placements
   get stepLogs(): SynthesizerStepLogEntry[]
   get messageCodeAddresses(): Set<`0x${string}`>
+  readonly subcircuitLibrary: ResolvedSubcircuitLibrary
   synthesizeTX(): Promise<RunTxResult>
   cachedOpts: SynthesizerOpts
 }

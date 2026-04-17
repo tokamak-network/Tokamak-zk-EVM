@@ -1,11 +1,11 @@
 import path from "node:path";
 import fsPromises from "node:fs/promises";
-import { CircuitGenerator } from "../../circuitGenerator/circuitGenerator.ts";
+import {
+  CircuitGenerator,
+} from "../../circuitGenerator/circuitGenerator.ts";
+import type { CircuitArtifacts } from "../../circuitGenerator/circuitGenerator.ts";
 import appRootPath from "app-root-path";
 import fs from 'fs';
-import { subcircuitInfo } from "../qapCompiler/importedConstants.ts";
-import { wasmDir } from "./wasmLoader.ts";
-import { readFileSync } from "node:fs";
 import { SynthesizerInterface } from "src/synthesizer/index.ts";
 import { StateSnapshot } from "tokamak-l2js";
 
@@ -13,18 +13,19 @@ import { StateSnapshot } from "tokamak-l2js";
    * Write placementVariables, instance (publicInstance), and permutation to JSON files.
    * If no path is provided, default to examples/outputs under app root.
    */
-export function writeCircuitJson(circuitGenerator: CircuitGenerator, _path?: string): void {
-    if (!circuitGenerator.variableGenerator.placementVariables || !circuitGenerator.variableGenerator.publicInstance) {
-        throw new Error('VariableGenerator is not initialized. Run initVariableGenerator() first.');
-    }
-    if (!circuitGenerator.permutationGenerator || !circuitGenerator.permutationGenerator.permutation) {
-        throw new Error('PermutationGenerator is not initialized.');
-    }
+export function writeCircuitJson(
+    circuitArtifacts: CircuitArtifacts | CircuitGenerator,
+    _path?: string,
+): void {
+    const artifacts =
+        circuitArtifacts instanceof CircuitGenerator
+            ? circuitArtifacts.getArtifacts()
+            : circuitArtifacts;
 
-    const placementVariables = circuitGenerator.variableGenerator.placementVariables;
-    const a_pub = circuitGenerator.variableGenerator.publicInstance;
-    const a_pub_desc = circuitGenerator.variableGenerator.publicInstanceDescription;
-    const permutation = circuitGenerator.permutationGenerator.permutation;
+    const placementVariables = artifacts.placementVariables;
+    const a_pub = artifacts.publicInstance;
+    const a_pub_desc = artifacts.publicInstanceDescription;
+    const permutation = artifacts.permutation;
 
     // Prepare JSON strings
     const placementVariablesJson = JSON.stringify(placementVariables, null, 2);

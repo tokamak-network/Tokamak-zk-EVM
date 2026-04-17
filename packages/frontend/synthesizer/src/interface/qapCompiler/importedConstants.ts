@@ -1,47 +1,14 @@
-import { FrontendConfig, GlobalWireList, SetupParams, SubcircuitInfo } from './types.ts';
-import { createInfoByName, structCheckForFrontendConfig, structCheckForGlobalWireList, structCheckForSetupParams, structCheckForSubcircuitInfo } from './utils.ts'
-import { BUFFER_LIST, ReservedBuffer, SubcircuitInfoByName, SubcircuitInfoByNameEntry } from './configuredTypes.ts';
-import setupParamsJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/setupParams.json';
-import globalWireListJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/globalWireList.json';
-import frontendCfgJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/frontendCfg.json';
-import subcircuitInfoJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/subcircuitInfo.json';
+import { BUFFER_LIST } from './configuredTypes.ts';
+import { installedSubcircuitLibrary, installedSubcircuitLibraryData } from './installedLibrary.ts';
 
+export const globalWireList = installedSubcircuitLibraryData.globalWireList;
+export const setupParams = installedSubcircuitLibraryData.setupParams;
+export const subcircuitInfo = installedSubcircuitLibraryData.subcircuitInfo;
+export const subcircuitInfoByName = installedSubcircuitLibrary.subcircuitInfoByName;
 
-
-
-// // -----------------------------------------------------------------------------
-// // Load compiler JSONs concurrently (URL-based, platform-safe)
-// // -----------------------------------------------------------------------------
-// const [gRaw, sRaw, scRaw] = await Promise.all([
-//   readJson(new URL('subcircuits/library/globalWireList.json', BASE_URL)),
-//   readJson(new URL('subcircuits/library/setupParams.json', BASE_URL)),
-//   readJson(new URL('subcircuits/library/subcircuitInfo.json', BASE_URL)),
-// ]);
-
-// Validate and expose typed constants
-structCheckForGlobalWireList(globalWireListJson);
-structCheckForSetupParams(setupParamsJson);
-structCheckForSubcircuitInfo(subcircuitInfoJson);
-structCheckForFrontendConfig(frontendCfgJson);
-
-export const globalWireList: GlobalWireList = globalWireListJson;
-export const setupParams: SetupParams = setupParamsJson;
-export const subcircuitInfo: SubcircuitInfo = subcircuitInfoJson;
-export const subcircuitInfoByName: SubcircuitInfoByName = createInfoByName(subcircuitInfo)
-const frontendCfg: FrontendConfig = frontendCfgJson;
-
-export const SUBCIRCUIT_BUFFER_MAPPING: Record<ReservedBuffer, SubcircuitInfoByNameEntry | undefined> = {
-  PUBLIC_OUT: subcircuitInfoByName.get('bufferPubOut'),
-  PUBLIC_IN: subcircuitInfoByName.get('bufferPubIn'),
-  BLOCK_IN: subcircuitInfoByName.get('bufferBlockIn'),
-  EVM_IN: subcircuitInfoByName.get('bufferEVMIn'),
-  PRIVATE_IN: subcircuitInfoByName.get('bufferPrvIn'),
-}
-
-export const ACCUMULATOR_INPUT_LIMIT = frontendCfg.nAccumulation
-// export const MAX_TX_NUMBER = qapCompilerParams.nTx
-export const NUMBER_OF_PREV_BLOCK_HASHES = frontendCfg.nPrevBlockHashes
-export const JUBJUB_EXP_BATCH_SIZE = frontendCfg.nJubjubExpBatch
-export const ARITH_EXP_BATCH_SIZE = frontendCfg.nSubExpBatch
-
-export const FIRST_ARITHMETIC_PLACEMENT_INDEX = BUFFER_LIST.length
+export const SUBCIRCUIT_BUFFER_MAPPING = installedSubcircuitLibrary.subcircuitBufferMapping;
+export const ACCUMULATOR_INPUT_LIMIT = installedSubcircuitLibrary.accumulatorInputLimit;
+export const NUMBER_OF_PREV_BLOCK_HASHES = installedSubcircuitLibrary.numberOfPrevBlockHashes;
+export const JUBJUB_EXP_BATCH_SIZE = installedSubcircuitLibrary.jubjubExpBatchSize;
+export const ARITH_EXP_BATCH_SIZE = installedSubcircuitLibrary.arithExpBatchSize;
+export const FIRST_ARITHMETIC_PLACEMENT_INDEX = BUFFER_LIST.length;

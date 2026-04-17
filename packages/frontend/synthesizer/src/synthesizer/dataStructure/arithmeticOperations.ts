@@ -1,6 +1,5 @@
 import { jubjub } from "@noble/curves/misc.js"
 import { poseidon_raw, poseidonChainCompress, POSEIDON_INPUTS } from 'tokamak-l2js'
-import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE } from "../../interface/qapCompiler/importedConstants.ts"
 import { DEFAULT_SOURCE_BIT_SIZE} from "../../synthesizer/params/index.ts"
 
 const convertToSigned = (value: bigint): bigint => {
@@ -11,6 +10,14 @@ const convertToSigned = (value: bigint): bigint => {
  * Utility class for handling Synthesizer arithmetic operations
  */
 export class ArithmeticOperations {
+  private static _config: {
+    arithExpBatchSize: number;
+    jubjubExpBatchSize: number;
+  } = {
+    arithExpBatchSize: 0,
+    jubjubExpBatchSize: 0,
+  }
+
   private static readonly MAX_UINT256 = (1n << 256n) - 1n
   private static readonly SIGN_BIT = 1n << 255n
    // N is 2^256, copied from opcodes/utils.ts. Used as modulo in EXP operations
@@ -18,6 +25,20 @@ export class ArithmeticOperations {
   private static readonly BLS12381MODULUS = jubjub.Point.Fp.ORDER
   private static readonly JUBJUBMODULUS = jubjub.Point.Fn.ORDER
   // Convert to signed integer (256-bit)
+
+  static configure(config: {
+    arithExpBatchSize: number;
+    jubjubExpBatchSize: number;
+  }): void {
+    ArithmeticOperations._config = config
+  }
+
+  private static _requireBatchSize(value: number, operationName: string): number {
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new Error(`${operationName} batch size is not configured`)
+    }
+    return value
+  }
   
   /**
    * Basic arithmetic operations
@@ -320,7 +341,10 @@ export class ArithmeticOperations {
       return res;
     };
 
-    const Nbits= ARITH_EXP_BATCH_SIZE
+    const Nbits = ArithmeticOperations._requireBatchSize(
+      ArithmeticOperations._config.arithExpBatchSize,
+      'SubExpBatch',
+    )
     if (in_vals.length !== 2 + Nbits) {
       throw new Error(`subExpBatch expected exactly ${2 + Nbits} input values, but got ${in_vals.length} values`)
     }
@@ -521,7 +545,10 @@ export class ArithmeticOperations {
    * JubjubExpBatch
    */
   static jubjubExpBatch(in_vals: bigint[]): bigint[] {
-    const Nbits= JUBJUB_EXP_BATCH_SIZE
+    const Nbits = ArithmeticOperations._requireBatchSize(
+      ArithmeticOperations._config.jubjubExpBatchSize,
+      'JubjubExpBatch',
+    )
     if (in_vals.length !== 4 + Nbits) {
       throw new Error(`jubjubExpBatch expected exactly ${4 + Nbits} input values, but got ${in_vals.length} values`)
     }

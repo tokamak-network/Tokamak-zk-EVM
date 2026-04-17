@@ -13,7 +13,6 @@ import {
 } from '../types/index.ts';
 import { MemoryPt, StackPt } from '../dataStructure/index.ts';
 import { SubcircuitInfoByName, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
-import { subcircuitInfoByName } from '../../interface/qapCompiler/importedConstants.ts';
 import { InterpreterStep, Message } from '@ethereumjs/evm';
 import { Address, bytesToBigInt } from '@ethereumjs/util';
 
@@ -68,7 +67,7 @@ export class StateManager {
 
   // public verifiedStorageMTIndices: [number, number][] = [] // [ADDRESS_INDEX, LEAF_INDEX]
   // public cachedStorage: Map<string, Map<bigint, CachedStorageEntry[]>> = new Map() // Map<ADDRESS_STRING, Map<KEY, ENTRY>>
-  public subcircuitInfoByName: SubcircuitInfoByName = subcircuitInfoByName;
+  public subcircuitInfoByName: SubcircuitInfoByName;
 
   public cachedEVMIn: Map<bigint, Map<number, DataPt>> = new Map()
   public cachedOrigin: DataPt | undefined = undefined
@@ -80,6 +79,7 @@ export class StateManager {
   constructor(parent: ISynthesizerProvider) {
     this.parent = parent
     this.cachedOpts = parent.cachedOpts
+    this.subcircuitInfoByName = parent.subcircuitLibrary.subcircuitInfoByName
   }
 
   public get placements(): Placements {

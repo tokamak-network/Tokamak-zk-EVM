@@ -1,6 +1,5 @@
 import { DataAliasInfoEntry, DataAliasInfos, DataPt, DataPtDescription, ISynthesizerProvider, MemoryPtEntry, MemoryPts } from '../types/index.ts';
 import { DataPtFactory, MemoryPt } from '../dataStructure/index.ts';
-import { ACCUMULATOR_INPUT_LIMIT } from '../../interface/qapCompiler/importedConstants.ts';
 import { ArithmeticOperator, SUBCIRCUIT_ALU_MAPPING } from '../../interface/qapCompiler/configuredTypes.ts';
 import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
 
@@ -159,7 +158,7 @@ export class MemoryManager {
       return transformedSlices[0];
     }
 
-    if (transformedSlices.length > ACCUMULATOR_INPUT_LIMIT) {
+    if (transformedSlices.length > this.parent.subcircuitLibrary.accumulatorInputLimit) {
       throw new Error(
         `Synthesizer: Go to qap-compiler and unlimit the number of inputs for the Accumulator.`,
       );

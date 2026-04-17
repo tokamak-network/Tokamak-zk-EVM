@@ -17,7 +17,6 @@ import { InterpreterStep } from '@ethereumjs/evm'
 import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
 import { DataPtFactory, MemoryPt, StackPt } from '../dataStructure/index.ts';
 import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from '../../interface/qapCompiler/configuredTypes.ts';
-import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../interface/qapCompiler/importedConstants.ts';
 import { FUNCTION_INPUT_LENGTH, MAX_MT_LEAVES } from 'tokamak-l2js';
 import { ContextManager } from './stateManager.ts';
 import { IMTMerkleProof } from '@zk-kit/imt';
@@ -659,9 +658,9 @@ export class InstructionHandler {
           dataPt = this.parent.loadArbitraryStatic(0n)
           break
         }
-        if (blockNumberDiff > BigInt(NUMBER_OF_PREV_BLOCK_HASHES)) {
+        if (blockNumberDiff > BigInt(this.parent.subcircuitLibrary.numberOfPrevBlockHashes)) {
           throw new Error(
-            `Synthesizer: BLOCKHASH requires ${blockNumberDiff.toString()} previous block hashes, but qap-compiler nPrevBlockHashes is ${NUMBER_OF_PREV_BLOCK_HASHES}. Increase qap-compiler nPrevBlockHashes.`,
+            `Synthesizer: BLOCKHASH requires ${blockNumberDiff.toString()} previous block hashes, but qap-compiler nPrevBlockHashes is ${this.parent.subcircuitLibrary.numberOfPrevBlockHashes}. Increase qap-compiler nPrevBlockHashes.`,
           )
         }
         dataPt = this.parent.getReservedVariableFromBuffer(`BLOCKHASH_${blockNumberDiff}` as ReservedVariable)

@@ -10,12 +10,6 @@ import {
   PlacementVariables,
 } from '../../synthesizer/types/placements.ts';
 import { CircuitGenerator } from '../circuitGenerator.ts';
-import {
-  globalWireList,
-  setupParams,
-  SUBCIRCUIT_BUFFER_MAPPING,
-  subcircuitInfoByName,
-} from '../../interface/qapCompiler/importedConstants.ts';
 import { builder } from '../utils/witness_calculator.ts';
 import { VARIABLE_DESCRIPTION } from '../../synthesizer/types/buffers.ts';
 import { PublicInstance, PublicInstanceDescription } from '../types/types.ts';
@@ -30,6 +24,10 @@ export class VariableGenerator {
 
   constructor(circuitGenerator: CircuitGenerator) {
     this.parent = circuitGenerator;
+  }
+
+  private get _subcircuitLibrary() {
+    return this.parent.subcircuitLibrary;
   }
 
   async initVariableGenerator(): Promise<void> {
@@ -68,8 +66,8 @@ export class VariableGenerator {
     // Preparing input values
     const expectedLen =
       target === 'In'
-        ? subcircuitInfoByName.get(placement.name)!.NInWires
-        : subcircuitInfoByName.get(placement.name)!.NOutWires;
+        ? this._subcircuitLibrary.subcircuitInfoByName.get(placement.name)!.NInWires
+        : this._subcircuitLibrary.subcircuitInfoByName.get(placement.name)!.NOutWires;
     if (expectedLen < origValues.length) {
       throw new Error(`Placement at index ${placement.name} has excessive number of ${target} wires`);
     }
@@ -112,7 +110,7 @@ export class VariableGenerator {
             );
           }
         }
-        if (subcircuitInfoByName.get(placement.name)!.flattenMap.length !== variables.length) {
+        if (this._subcircuitLibrary.subcircuitInfoByName.get(placement.name)!.flattenMap.length !== variables.length) {
           throw new Error(`Flatten map cannot be applied to the placement variables due to difference lengths`);
         }
         // process.stdout.write('\r' + ' '.repeat(100) + '\r');
@@ -137,6 +135,7 @@ export class VariableGenerator {
   }
 
   private _extractPublicInstance(placementVariables: PlacementVariables): PublicInstance {
+    const { globalWireList, setupParams } = this._subcircuitLibrary.data;
     const l = setupParams.l;
     const l_user = setupParams.l_user;
     const l_free = setupParams.l_free;
@@ -169,6 +168,7 @@ export class VariableGenerator {
   }
 
   private _extractPublicInstanceDescription(placementVariables: PlacementVariables): PublicInstanceDescription {
+    const { globalWireList, setupParams } = this._subcircuitLibrary.data;
     const l = setupParams.l;
     const l_user = setupParams.l_user;
     const l_free = setupParams.l_free;
@@ -331,7 +331,7 @@ export class VariableGenerator {
       if (bufferPlacement === undefined) {
         throw new Error(`Buffer ${bufferName} is not placed`);
       }
-      const subcircuitInfo = SUBCIRCUIT_BUFFER_MAPPING[bufferName];
+      const subcircuitInfo = this._subcircuitLibrary.subcircuitBufferMapping[bufferName];
       if (subcircuitInfo === undefined) {
         throw new Error(`Subcircuit information for ${bufferName} is not loaded`);
       }
@@ -342,7 +342,7 @@ export class VariableGenerator {
         );
       }
     }
-    if (outPlacements.length > setupParams.s_max) {
+    if (outPlacements.length > this._subcircuitLibrary.data.setupParams.s_max) {
       flags.push(false);
       console.log(
         `Error: Synthesizer: Insufficient s_max. Ask the qap-compiler for increasing s_max (required s_max: ${outPlacements.length}).`,

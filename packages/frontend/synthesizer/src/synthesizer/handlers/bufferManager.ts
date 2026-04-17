@@ -1,4 +1,3 @@
-import { NUMBER_OF_PREV_BLOCK_HASHES, SUBCIRCUIT_BUFFER_MAPPING } from '../../interface/qapCompiler/importedConstants.ts';
 import { bytesToBigInt, hexToBigInt, toBytes } from '@ethereumjs/util';
 import { jubjub } from "@noble/curves/misc.js";
 import { DataPt, DataPtDescription, ISynthesizerProvider, PlacementEntry, ReservedVariable, SynthesizerOpts, VARIABLE_DESCRIPTION } from '../types/index.ts';
@@ -125,7 +124,7 @@ export class BufferManager {
     // }
 
     for (const buffer of BUFFER_LIST) {
-      const subcircuit = SUBCIRCUIT_BUFFER_MAPPING[buffer];
+      const subcircuit = this.parent.subcircuitLibrary.subcircuitBufferMapping[buffer];
       if (subcircuit === undefined) {
         throw new Error(
           `Could not find subcircuit info for placement '${buffer}'`,
@@ -166,7 +165,7 @@ export class BufferManager {
     this.addReservedVariableToBufferIn('CHAINID', hexToBigInt(this.cachedOpts.blockInfo.chainId))
     this.addReservedVariableToBufferIn('SELFBALANCE', hexToBigInt(this.cachedOpts.blockInfo.selfBalance))
     this.addReservedVariableToBufferIn('BASEFEE', hexToBigInt(this.cachedOpts.blockInfo.baseFee))
-    for (let i = 1; i <=NUMBER_OF_PREV_BLOCK_HASHES; i++) {
+    for (let i = 1; i <= this.parent.subcircuitLibrary.numberOfPrevBlockHashes; i++) {
       this.addReservedVariableToBufferIn(`BLOCKHASH_${i}` as ReservedVariable, hexToBigInt(this.cachedOpts.blockInfo.prevBlockHashes[i-1]));
     }
 

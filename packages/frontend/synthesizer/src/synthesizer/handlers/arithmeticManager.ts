@@ -4,13 +4,17 @@ import { DataPtFactory } from '../dataStructure/index.ts';
 import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
 import { ArithmeticOperator, SUBCIRCUIT_ALU_MAPPING, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
 import { ArithmeticOperations } from '../dataStructure/arithmeticOperations.ts';
-import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE } from '../../interface/qapCompiler/importedConstants.ts';
 import { MT_DEPTH, POSEIDON_INPUTS } from 'tokamak-l2js';
 
 export class ArithmeticManager {
   constructor(
     private parent: ISynthesizerProvider
-  ) {}
+  ) {
+    ArithmeticOperations.configure({
+      arithExpBatchSize: this.parent.subcircuitLibrary.arithExpBatchSize,
+      jubjubExpBatchSize: this.parent.subcircuitLibrary.jubjubExpBatchSize,
+    })
+  }
 
   /**
    * Creates the output data points for an arithmetic operation.
@@ -290,7 +294,7 @@ export class ArithmeticManager {
 
   public placeExp(inPts: DataPt[], reference?: bigint): DataPt {
     // a^b
-    const CHUNK_SIZE = ARITH_EXP_BATCH_SIZE
+    const CHUNK_SIZE = this.parent.subcircuitLibrary.arithExpBatchSize
     const NUM_CHUNKS = Math.ceil(DEFAULT_SOURCE_BIT_SIZE / CHUNK_SIZE)
     if (inPts.length !== DEFAULT_SOURCE_BIT_SIZE + 1) {
       throw new Error('Invalid input to SubExp')
@@ -349,7 +353,7 @@ export class ArithmeticManager {
   }
 
   public placeJubjubExp(inPts: DataPt[], PoI: DataPt[], reference?: bigint): DataPt[] {
-    const CHUNK_SIZE = JUBJUB_EXP_BATCH_SIZE
+    const CHUNK_SIZE = this.parent.subcircuitLibrary.jubjubExpBatchSize
     const NUM_CHUNKS = Math.ceil(DEFAULT_SOURCE_BIT_SIZE / CHUNK_SIZE)
 
     if (inPts.length !== DEFAULT_SOURCE_BIT_SIZE + 2) {

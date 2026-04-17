@@ -1,8 +1,11 @@
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
-import { subcircuitInfo } from '../qapCompiler/importedConstants.ts';
-import appRootPath from 'app-root-path';
 import { readFileSync } from 'node:fs';
+import {
+  installedSubcircuitLibraryData,
+  type SubcircuitLibraryProvider,
+} from '../qapCompiler/index.ts';
+import type { SubcircuitInfo } from '../qapCompiler/types.ts';
 
 // -----------------------------------------------------------------------------
 // Base location (ESM-friendly): resolve everything relative to this module
@@ -48,7 +51,32 @@ const BASE_URL = getBaseURL();
 // Derived path for WASM artifacts (filesystem path)
 export const wasmDir = fileURLToPath(new URL('library/wasm', BASE_URL));
 
-export function loadSubcircuitWasm(): any[] {
+export async function loadSubcircuitWasmBuffer(subcircuitId: number): Promise<ArrayBuffer> {
+  const targetWasmPath = path.resolve(wasmDir, `subcircuit${subcircuitId}.wasm`);
+  let buffer: Buffer;
+  try {
+    buffer = readFileSync(targetWasmPath);
+  } catch {
+    throw new Error(`Error while reading subcircuit${subcircuitId}.wasm`);
+  }
+  return buffer.buffer.slice(
+    buffer.byteOffset,
+    buffer.byteOffset + buffer.byteLength,
+  );
+}
+
+export const nodeSubcircuitLibraryProvider: SubcircuitLibraryProvider = {
+  async getData() {
+    return installedSubcircuitLibraryData;
+  },
+  async loadWasm(subcircuitId: number) {
+    return loadSubcircuitWasmBuffer(subcircuitId);
+  },
+};
+
+export function loadSubcircuitWasm(
+  subcircuitInfo: SubcircuitInfo = installedSubcircuitLibraryData.subcircuitInfo,
+): any[] {
   const witnessCalculatorbuffers: any[] = [];
   for (const subcircuit of subcircuitInfo) {
     const id = subcircuit.id;

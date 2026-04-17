@@ -14,12 +14,10 @@ import { SynthesizerOpts } from 'src/synthesizer/types/synthesizer.ts';
 import { createSynthesizer } from 'src/synthesizer/constructors.ts';
 import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
 import { createCircuitGenerator } from 'src/circuitGenerator/circuitGenerator.ts';
-import { PlacementVariables } from 'src/synthesizer/types/placements.ts';
 import { addHexPrefix, createAccount, createAddressFromString, hexToBytes } from '@ethereumjs/util';
 import { readJson } from './utils/node.ts';
 import { writeCircuitJson, writeStateSnapshotJson } from '../node/jsonWriter.ts';
 import { SynthesizerBlockInfo } from '../rpc/index.ts';
-import { Permutation, PublicInstance } from 'src/circuitGenerator/types/types.ts';
 
 program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthesizer').version('0.9.0');
 
@@ -94,11 +92,12 @@ program
       console.log('[SynthesizerAdapter] Generating circuit outputs...');
       const wasmBuffers = loadSubcircuitWasm();
       const circuitGenerator = await createCircuitGenerator(synthesizer, wasmBuffers);
+      const circuitArtifacts = circuitGenerator.getArtifacts();
   
       // Get the data before writing (if we need in-memory access)
-      const placementVariables: PlacementVariables = circuitGenerator.variableGenerator.placementVariables!;
-      const a_pub: PublicInstance = circuitGenerator.variableGenerator.publicInstance!;
-      const permutation: Permutation = circuitGenerator.permutationGenerator?.permutation!;
+      const placementVariables = circuitArtifacts.placementVariables;
+      const a_pub = circuitArtifacts.publicInstance;
+      const permutation = circuitArtifacts.permutation;
 
       if (placementVariables === undefined || a_pub === undefined || permutation === undefined ) {
         throw new Error('[SynthesizerAdapter] CircuitGenerator falls into failure.')
@@ -108,7 +107,7 @@ program
       const finalState = await stateManager.captureStateSnapshot();
       console.log(`[SynthesizerAdapter] ✅ Final state exported with roots: ${finalState.stateRoots.join(', ')}`);
       
-      writeCircuitJson(circuitGenerator);
+      writeCircuitJson(circuitArtifacts);
       // Also save state_snapshot.json
       writeStateSnapshotJson(finalState);
       console.log(`[SynthesizerAdapter] ✅ Outputs written`);

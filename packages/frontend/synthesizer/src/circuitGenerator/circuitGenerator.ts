@@ -1,7 +1,20 @@
 import { SynthesizerInterface } from '../synthesizer/index.ts';
 import { VariableGenerator } from './handlers/variableGenerator.ts';
-import { Placements } from '../synthesizer/types/placements.ts';
+import { PlacementVariables, Placements } from '../synthesizer/types/placements.ts';
 import { PermutationGenerator } from './handlers/permutationGenerator.ts';
+import {
+  Permutation,
+  PublicInstance,
+  PublicInstanceDescription,
+} from './types/types.ts';
+import type { ResolvedSubcircuitLibrary } from '../interface/qapCompiler/library.ts';
+
+export interface CircuitArtifacts {
+  placementVariables: PlacementVariables;
+  publicInstance: PublicInstance;
+  publicInstanceDescription: PublicInstanceDescription;
+  permutation: Permutation;
+}
 
 export async function createCircuitGenerator(synthesizer: SynthesizerInterface, subcircuitWasmBuffers: any[]): Promise<CircuitGenerator> {
   const circuitGenerator = new CircuitGenerator(synthesizer, subcircuitWasmBuffers);
@@ -11,21 +24,52 @@ export async function createCircuitGenerator(synthesizer: SynthesizerInterface, 
   return circuitGenerator;
 }
 
+export async function createCircuitArtifacts(
+  synthesizer: SynthesizerInterface,
+  subcircuitWasmBuffers: any[],
+): Promise<CircuitArtifacts> {
+  const circuitGenerator = await createCircuitGenerator(
+    synthesizer,
+    subcircuitWasmBuffers,
+  );
+  return circuitGenerator.getArtifacts();
+}
+
 export class CircuitGenerator {
   public pathToWrite?: string;
   // public subcircuitIndicesByName: Map<SubcircuitNames, SubcircuitIndicesByNameEntry> = new Map()
   public variableGenerator: VariableGenerator;
   public permutationGenerator: PermutationGenerator | undefined = undefined;
   public synthesizer: SynthesizerInterface;
+  public readonly subcircuitLibrary: ResolvedSubcircuitLibrary;
   public EVMPlacements: Placements;
   public circuitPlacements: Placements | undefined = undefined;
   public subcircuitWasmBuffers: any[];
 
   constructor(synthesizer: SynthesizerInterface, subcircuitWasmBuffers: any[]) {
     this.synthesizer = synthesizer;
+    this.subcircuitLibrary = synthesizer.subcircuitLibrary;
     this.EVMPlacements = this.synthesizer.placements;
     this.variableGenerator = new VariableGenerator(this);
     this.subcircuitWasmBuffers = subcircuitWasmBuffers;
+  }
+
+  public getArtifacts(): CircuitArtifacts {
+    if (
+      this.variableGenerator.placementVariables === undefined ||
+      this.variableGenerator.publicInstance === undefined ||
+      this.variableGenerator.publicInstanceDescription === undefined ||
+      this.permutationGenerator?.permutation === undefined
+    ) {
+      throw new Error('Circuit artifacts are not generated yet.');
+    }
+
+    return {
+      placementVariables: this.variableGenerator.placementVariables,
+      publicInstance: this.variableGenerator.publicInstance,
+      publicInstanceDescription: this.variableGenerator.publicInstanceDescription,
+      permutation: this.permutationGenerator.permutation,
+    };
   }
 
   // public async writeCircuit(

@@ -3,7 +3,10 @@ import { addHexPrefix, bigIntToHex, bytesToBigInt, createAddressFromString } fro
 import { ethers } from "ethers"
 import { SynthesizerOpts } from "../../synthesizer/types/index.ts"
 import { jubjub } from "@noble/curves/misc.js"
-import { NUMBER_OF_PREV_BLOCK_HASHES } from "../qapCompiler/importedConstants.ts"
+import {
+  installedSubcircuitLibrary,
+  type ResolvedSubcircuitLibrary,
+} from "../qapCompiler/index.ts"
 import { SynthesizerBlockInfo } from "./types.ts"
 
 export type SynthesizerSimulationOpts = {
@@ -65,11 +68,18 @@ export async function getBlockInfoFromRPC(
 	}
 }
 
-export async function createSynthesizerOptsForSimulationFromRPC(opts: SynthesizerSimulationOpts): Promise<SynthesizerOpts> {
+export async function createSynthesizerOptsForSimulationFromRPC(
+    opts: SynthesizerSimulationOpts,
+    subcircuitLibrary: ResolvedSubcircuitLibrary = installedSubcircuitLibrary,
+): Promise<SynthesizerOpts> {
     if (typeof opts.rpcUrl !== 'string' || !opts.rpcUrl.startsWith('http')) {
       throw new Error(`valid RPC provider url required; got ${opts.rpcUrl}`)
     }
-    const blockInfo = await getBlockInfoFromRPC(opts.rpcUrl, opts.blockNumber, NUMBER_OF_PREV_BLOCK_HASHES)
+    const blockInfo = await getBlockInfoFromRPC(
+      opts.rpcUrl,
+      opts.blockNumber,
+      subcircuitLibrary.numberOfPrevBlockHashes,
+    )
 
     const common = createTokamakL2Common()
 

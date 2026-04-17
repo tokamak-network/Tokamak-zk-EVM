@@ -1,5 +1,3 @@
-import { globalWireList, setupParams, subcircuitInfoByName } from '../../interface/qapCompiler/importedConstants.ts';
-
 import { GlobalWireList } from '../../interface/qapCompiler/types.ts';
 import { Placements, PlacementVariables } from '../../synthesizer/types/placements.ts';
 import { BUFFER_DESCRIPTION, BUFFER_LIST, SubcircuitInfoByName, SubcircuitInfoByNameEntry } from '../../interface/qapCompiler/configuredTypes.ts';
@@ -40,11 +38,12 @@ export class PermutationGenerator {
     }
     this.circuitPlacements = circuitPlacements
     this.placementVariables = placementVariables
-    this.flattenMapInverse = globalWireList as GlobalWireList;
+    this.flattenMapInverse = this.parent.subcircuitLibrary.data.globalWireList as GlobalWireList;
     // Construct permutation
     this.permGroup = this._buildPermGroup();
 
     // Initialization for the permutation polynomials in equation 8 of the paper
+    const { setupParams } = this.parent.subcircuitLibrary.data;
     const numWires = setupParams.l_D - setupParams.l;
     const numPlacements = this.circuitPlacements.length;
 
@@ -90,7 +89,7 @@ export class PermutationGenerator {
       );
     }
 
-    const subcircuitInfo = subcircuitInfoByName.get(placement.name);
+    const subcircuitInfo = this.parent.subcircuitLibrary.subcircuitInfoByName.get(placement.name);
     if (!subcircuitInfo) {
       throw new Error(
         `Permutation: Subcircuit info not found for: ${placement.name}`,
@@ -125,6 +124,7 @@ export class PermutationGenerator {
     Y: number;
   }[] {
     let permutationFile = [];
+    const { setupParams } = this.parent.subcircuitLibrary.data;
     for (const _group of this.permGroup) {
       const group = [..._group.keys()];
       const groupLength = group.length;
@@ -165,6 +165,8 @@ export class PermutationGenerator {
 
   private _buildPermGroup(): Map<string, boolean>[] {
     const permGroup: Map<string, boolean>[] = [];
+    const { setupParams } = this.parent.subcircuitLibrary.data;
+    const subcircuitInfoByName = this.parent.subcircuitLibrary.subcircuitInfoByName;
 
     // Initialize group representatives.
     // Each output wire of every placement is picked as a representative and forms a new group, if it is not a public wire.
@@ -290,6 +292,8 @@ export class PermutationGenerator {
   }
 
   private _validatePermutation(): void {
+    const { setupParams } = this.parent.subcircuitLibrary.data;
+    const subcircuitInfoByName = this.parent.subcircuitLibrary.subcircuitInfoByName;
     let permutationDetected = false;
     const circomConsts = Array(setupParams.l_D).fill('0x01');
     let b: string[][] = []; // ab.size = l_D \times s_max

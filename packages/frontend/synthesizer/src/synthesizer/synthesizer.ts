@@ -7,6 +7,7 @@ import { EVMResult, InterpreterStep, Message } from '@ethereumjs/evm';
 import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable, SynthesizerInterface, SynthesizerOpts, SynthesizerStepLogEntry, SynthesizerSupportedOpcodes } from './types/index.ts';
 import { ArithmeticManager, BufferManager, ContextConstructionData, ContextManager, InstructionHandler, MemoryManager, StateManager, SynthesizerOpHandler } from './handlers/index.ts';
 import { ArithmeticOperator, SubcircuitNames } from '../interface/qapCompiler/configuredTypes.ts';
+import type { ResolvedSubcircuitLibrary } from '../interface/qapCompiler/library.ts';
 import { DataPtFactory } from './dataStructure/dataPt.ts';
 import { TypedTransaction } from '@ethereumjs/tx';
 import { MemoryPt } from './dataStructure/memoryPt.ts';
@@ -24,12 +25,14 @@ export class Synthesizer implements SynthesizerInterface
   protected _bufferManager: BufferManager
   protected _instructionHandlers: InstructionHandler
   public readonly cachedOpts: SynthesizerOpts
+  public readonly subcircuitLibrary: ResolvedSubcircuitLibrary
   private _stepLogs: SynthesizerStepLogEntry[]
   private _messageCodeAddresses: Set<`0x${string}`>
 
   // @deprecated
-  constructor(opts: SynthesizerOpts) {
+  constructor(opts: SynthesizerOpts, subcircuitLibrary: ResolvedSubcircuitLibrary) {
     this.cachedOpts = opts
+    this.subcircuitLibrary = subcircuitLibrary
     this._state = new StateManager(this)
     this._bufferManager = new BufferManager(this)
     this._arithmeticManager = new ArithmeticManager(this)
