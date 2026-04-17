@@ -6,7 +6,7 @@ import { BUFFER_LIST } from './configuredTypes.ts';
 import type {
   CircomKey,
   SubcircuitLibraryData,
-} from './types.ts';
+} from './libraryTypes.ts';
 import {
   isNumber,
   isTupleNumber2,
@@ -15,7 +15,7 @@ import {
   SETUP_PARAMS_KEYS,
   SUBCIRCUIT_INFO_VALIDATORS,
   type ValidatorMap,
-} from './types.ts';
+} from './libraryTypes.ts';
 import { createInfoByName } from './utils.ts';
 
 export const installedSubcircuitLibraryData: SubcircuitLibraryData = {

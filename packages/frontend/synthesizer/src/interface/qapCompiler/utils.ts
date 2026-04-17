@@ -1,6 +1,6 @@
 import {
   SubcircuitInfo,
-} from './types.ts';
+} from './libraryTypes.ts';
 import {
   SUBCIRCUIT_LIST,
   SubcircuitInfoByName,

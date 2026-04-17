@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 import {
   installedSubcircuitLibraryData,
 } from '../qapCompiler/index.ts';
-import type { SubcircuitLibraryProvider } from '../qapCompiler/types.ts';
-import type { SubcircuitInfo } from '../qapCompiler/types.ts';
+import type { SubcircuitLibraryProvider } from '../qapCompiler/libraryTypes.ts';
+import type { SubcircuitInfo } from '../qapCompiler/libraryTypes.ts';
 
 // -----------------------------------------------------------------------------
 // Base location (ESM-friendly): resolve everything relative to this module

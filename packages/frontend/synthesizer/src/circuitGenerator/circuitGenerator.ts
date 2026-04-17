@@ -5,7 +5,7 @@ import { PermutationGenerator } from './handlers/permutationGenerator.ts';
 import {
   CircuitArtifacts,
 } from './types/types.ts';
-import type { ResolvedSubcircuitLibrary } from '../interface/qapCompiler/types.ts';
+import type { ResolvedSubcircuitLibrary } from '../interface/qapCompiler/libraryTypes.ts';
 
 export async function createCircuitGenerator(synthesizer: SynthesizerInterface, subcircuitWasmBuffers: any[]): Promise<CircuitGenerator> {
   const circuitGenerator = new CircuitGenerator(synthesizer, subcircuitWasmBuffers);
