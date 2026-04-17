@@ -1,3 +1,5 @@
+import { PlacementVariables } from '../../synthesizer/types/placements.ts';
+
 export type PublicInstance = {
     a_pub_user: `0x${string}`[]
     a_pub_block: `0x${string}`[]
@@ -11,3 +13,10 @@ export type PublicInstanceDescription = {
 }
 
 export type Permutation = { row: number; col: number; X: number; Y: number }[];
+
+export interface CircuitArtifacts {
+    placementVariables: PlacementVariables
+    publicInstance: PublicInstance
+    publicInstanceDescription: PublicInstanceDescription
+    permutation: Permutation
+}

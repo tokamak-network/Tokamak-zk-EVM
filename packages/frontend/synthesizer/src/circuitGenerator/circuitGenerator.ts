@@ -1,20 +1,11 @@
 import { SynthesizerInterface } from '../synthesizer/index.ts';
 import { VariableGenerator } from './handlers/variableGenerator.ts';
-import { PlacementVariables, Placements } from '../synthesizer/types/placements.ts';
+import { Placements } from '../synthesizer/types/placements.ts';
 import { PermutationGenerator } from './handlers/permutationGenerator.ts';
 import {
-  Permutation,
-  PublicInstance,
-  PublicInstanceDescription,
+  CircuitArtifacts,
 } from './types/types.ts';
-import type { ResolvedSubcircuitLibrary } from '../interface/qapCompiler/library.ts';
-
-export interface CircuitArtifacts {
-  placementVariables: PlacementVariables;
-  publicInstance: PublicInstance;
-  publicInstanceDescription: PublicInstanceDescription;
-  permutation: Permutation;
-}
+import type { ResolvedSubcircuitLibrary } from '../interface/qapCompiler/types.ts';
 
 export async function createCircuitGenerator(synthesizer: SynthesizerInterface, subcircuitWasmBuffers: any[]): Promise<CircuitGenerator> {
   const circuitGenerator = new CircuitGenerator(synthesizer, subcircuitWasmBuffers);

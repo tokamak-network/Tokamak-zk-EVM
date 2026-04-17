@@ -4,6 +4,11 @@
 // -----------------------------------------------------------------------------
 
 import { SUBCIRCUIT_LIST, SubcircuitNames } from "./configuredTypes.ts";
+import type {
+  ReservedBuffer,
+  SubcircuitInfoByName,
+  SubcircuitInfoByNameEntry,
+} from './configuredTypes.ts';
 
 // Single source of truth for SetupParams keys
 export const SETUP_PARAMS_KEYS = [
@@ -57,3 +62,26 @@ export const REQUIRED_CIRCOM_KEYS = [
 export type CircomKey = typeof REQUIRED_CIRCOM_KEYS[number];
 
 export type FrontendConfig = Record<CircomKey, number>;
+
+export interface SubcircuitLibraryData {
+  setupParams: SetupParams;
+  globalWireList: GlobalWireList;
+  frontendCfg: FrontendConfig;
+  subcircuitInfo: SubcircuitInfo;
+}
+
+export interface SubcircuitLibraryProvider {
+  getData(): Promise<SubcircuitLibraryData>;
+  loadWasm(subcircuitId: number): Promise<ArrayBuffer>;
+}
+
+export interface ResolvedSubcircuitLibrary {
+  data: SubcircuitLibraryData;
+  subcircuitInfoByName: SubcircuitInfoByName;
+  subcircuitBufferMapping: Record<ReservedBuffer, SubcircuitInfoByNameEntry | undefined>;
+  accumulatorInputLimit: number;
+  numberOfPrevBlockHashes: number;
+  jubjubExpBatchSize: number;
+  arithExpBatchSize: number;
+  firstArithmeticPlacementIndex: number;
+}

@@ -4,7 +4,9 @@ export {
   installedSubcircuitLibrary,
   installedSubcircuitLibraryData,
   resolveSubcircuitLibrary,
-  type ResolvedSubcircuitLibrary,
-  type SubcircuitLibraryData,
-  type SubcircuitLibraryProvider,
+} from './qapCompiler/index.ts'
+export type {
+  ResolvedSubcircuitLibrary,
+  SubcircuitLibraryData,
+  SubcircuitLibraryProvider,
 } from './qapCompiler/index.ts'

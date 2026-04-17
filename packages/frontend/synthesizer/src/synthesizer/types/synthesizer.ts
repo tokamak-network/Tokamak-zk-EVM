@@ -6,7 +6,7 @@ import { StateManager } from '../handlers/index.ts';
 import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable } from './index.ts';
 import { SynthesizerOpHandler } from '../handlers/instructionHandler.ts';
 import { ArithmeticOperator, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
-import type { ResolvedSubcircuitLibrary } from '../../interface/qapCompiler/library.ts';
+import type { ResolvedSubcircuitLibrary } from '../../interface/qapCompiler/types.ts';
 import { SynthesizerBlockInfo } from 'src/interface/index.ts';
 
 export interface SynthesizerOpts {

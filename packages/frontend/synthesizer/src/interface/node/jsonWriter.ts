@@ -3,7 +3,7 @@ import fsPromises from "node:fs/promises";
 import {
   CircuitGenerator,
 } from "../../circuitGenerator/circuitGenerator.ts";
-import type { CircuitArtifacts } from "../../circuitGenerator/circuitGenerator.ts";
+import type { CircuitArtifacts } from "../../circuitGenerator/types/types.ts";
 import appRootPath from "app-root-path";
 import fs from 'fs';
 import { SynthesizerInterface } from "src/synthesizer/index.ts";

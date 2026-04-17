@@ -1,5 +1,26 @@
-import { FrontendConfig, CircomKey, GlobalWireList, isNumber, isTupleNumber2, REQUIRED_CIRCOM_KEYS, SETUP_PARAMS_KEYS, SetupParams, SUBCIRCUIT_INFO_VALIDATORS, SubcircuitInfo, ValidatorMap } from './types.ts';
-import { SUBCIRCUIT_LIST, SubcircuitInfoByName, SubcircuitInfoByNameEntry, SubcircuitNames } from './configuredTypes.ts';
+import {
+  FrontendConfig,
+  CircomKey,
+  GlobalWireList,
+  isNumber,
+  isTupleNumber2,
+  REQUIRED_CIRCOM_KEYS,
+  type ResolvedSubcircuitLibrary,
+  SETUP_PARAMS_KEYS,
+  SetupParams,
+  type SubcircuitLibraryData,
+  SUBCIRCUIT_INFO_VALIDATORS,
+  SubcircuitInfo,
+  ValidatorMap,
+} from './types.ts';
+import {
+  BUFFER_LIST,
+  SUBCIRCUIT_LIST,
+  type ReservedBuffer,
+  SubcircuitInfoByName,
+  SubcircuitInfoByNameEntry,
+  SubcircuitNames,
+} from './configuredTypes.ts';
 
 
 // -----------------------------------------------------------------------------
@@ -86,4 +107,40 @@ export function createInfoByName(subcircuitInfo: SubcircuitInfo): SubcircuitInfo
   }
 
   return subcircuitInfoByName;
+}
+
+export function validateSubcircuitLibraryData(data: SubcircuitLibraryData): void {
+  structCheckForGlobalWireList(data.globalWireList);
+  structCheckForSetupParams(data.setupParams);
+  structCheckForSubcircuitInfo(data.subcircuitInfo);
+  structCheckForFrontendConfig(data.frontendCfg);
+}
+
+export function resolveSubcircuitLibrary(
+  data: SubcircuitLibraryData,
+): ResolvedSubcircuitLibrary {
+  validateSubcircuitLibraryData(data);
+
+  const subcircuitInfoByName = createInfoByName(data.subcircuitInfo);
+  const subcircuitBufferMapping: Record<
+    ReservedBuffer,
+    SubcircuitInfoByNameEntry | undefined
+  > = {
+    PUBLIC_OUT: subcircuitInfoByName.get('bufferPubOut'),
+    PUBLIC_IN: subcircuitInfoByName.get('bufferPubIn'),
+    BLOCK_IN: subcircuitInfoByName.get('bufferBlockIn'),
+    EVM_IN: subcircuitInfoByName.get('bufferEVMIn'),
+    PRIVATE_IN: subcircuitInfoByName.get('bufferPrvIn'),
+  };
+
+  return {
+    data,
+    subcircuitInfoByName,
+    subcircuitBufferMapping,
+    accumulatorInputLimit: data.frontendCfg.nAccumulation,
+    numberOfPrevBlockHashes: data.frontendCfg.nPrevBlockHashes,
+    jubjubExpBatchSize: data.frontendCfg.nJubjubExpBatch,
+    arithExpBatchSize: data.frontendCfg.nSubExpBatch,
+    firstArithmeticPlacementIndex: BUFFER_LIST.length,
+  };
 }

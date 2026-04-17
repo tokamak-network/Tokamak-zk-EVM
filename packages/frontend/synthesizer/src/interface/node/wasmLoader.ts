@@ -3,8 +3,8 @@ import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import {
   installedSubcircuitLibraryData,
-  type SubcircuitLibraryProvider,
 } from '../qapCompiler/index.ts';
+import type { SubcircuitLibraryProvider } from '../qapCompiler/types.ts';
 import type { SubcircuitInfo } from '../qapCompiler/types.ts';
 
 // -----------------------------------------------------------------------------
