@@ -41,7 +41,6 @@ program
   .requiredOption('--transaction <path>', 'Path to transaction snapshot JSON file')
   .requiredOption('--block-info <path>', 'Path to block information JSON')
   .requiredOption('--contract-code <path>', 'Path to contract code JSON')
-  .option('--analysis-only', 'Skip circuit generation and only execute transaction/state synthesis')
   .action(async options => {
     try {
       console.log('🔄 Executing L2 State Channel Transfer...');
@@ -93,15 +92,6 @@ program
       // Export final state
       const finalState = await stateManager.captureStateSnapshot();
       console.log(`[SynthesizerAdapter] ✅ Final state exported with roots: ${finalState.stateRoots.join(', ')}`);
-
-      const analysisOnly =
-        options.analysisOnly === true || process.env.PRIVATE_STATE_ANALYSIS_ONLY === '1';
-
-      if (analysisOnly) {
-        writeStateSnapshotJson(finalState);
-        console.log('[SynthesizerAdapter] Skipped circuit generation (analysis-only mode).');
-        return;
-      }
 
       console.log('[SynthesizerAdapter] Generating circuit outputs...');
       const wasmBuffers = loadSubcircuitWasm();

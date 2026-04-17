@@ -13,6 +13,7 @@ import type {
 import {
   isNumber,
   isNumberArray,
+  isObjectRecord,
   isSubcircuitName,
   isTupleNumber2,
   REQUIRED_CIRCOM_KEYS,
@@ -21,9 +22,6 @@ import {
   SUBCIRCUIT_INFO_VALIDATORS,
 } from './libraryTypes.ts';
 import { createInfoByName } from './utils.ts';
-
-const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
 
 const getRequiredNumber = (record: Record<string, unknown>, key: string): number => {
   const value = record[key];

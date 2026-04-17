@@ -22,6 +22,8 @@ export type GlobalWireEntry = readonly [subcircuitId: number, localWireIndex: nu
 export type GlobalWireList = GlobalWireEntry[];
 
 // Primitive validators
+export const isObjectRecord = (x: unknown): x is Record<string, unknown> =>
+  typeof x === 'object' && x !== null;
 export const isNumber = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
 export const isSubcircuitName = (x: unknown): x is SubcircuitNames =>
   typeof x === 'string' && SUBCIRCUIT_LIST.some((name) => name === x);
