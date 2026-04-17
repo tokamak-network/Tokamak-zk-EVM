@@ -10,6 +10,10 @@ Tokamak zk-EVM Synthesizer turns a batch of Ethereum-like transactions into a ci
 
 More detail is in `doc/synthesizer.md`.
 
+## Future packaging direction
+- The recommended future split is a pure `synthesizer-core`, a Node CLI package, a browser library package, and the published subcircuit asset package.
+- The concrete package boundaries and migration order are documented in [docs/synthesizer/synthesizer-dual-target-packaging.md](./docs/synthesizer/synthesizer-dual-target-packaging.md).
+
 ## What it does
 - Assumes a prepared execution context for a transaction batch on [EthereumJS VM](https://github.com/ethereumjs/ethereumjs-monorepo) (helpers in `src/interface/` can build this, but any source works).
 - Runs the VM with that context, hooking each opcode execution.
