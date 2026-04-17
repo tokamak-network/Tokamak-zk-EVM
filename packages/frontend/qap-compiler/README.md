@@ -45,7 +45,13 @@ npx qap-compiler --dist
 
 ## Publish Flow
 
-Run the commands below in order before publishing:
+For manual publishing, run the single command below:
+
+```shell
+npm run publish:dist
+```
+
+It expands to the following sequence:
 
 ```shell
 npm install
