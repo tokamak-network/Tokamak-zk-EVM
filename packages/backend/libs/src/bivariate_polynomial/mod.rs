@@ -32,7 +32,7 @@ pub fn init_ntt_domain_for_size(size: usize) -> Result<(), icicle_runtime::error
         if current == size {
             return Ok(());
         }
-        ntt::release_domain::<ScalarField>().unwrap();
+        ntt::release_domain::<ScalarField>()?;
     }
     ntt::initialize_domain::<ScalarField>(
         ntt::get_root_of_unity::<ScalarField>(size as u64),

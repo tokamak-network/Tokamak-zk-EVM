@@ -614,6 +614,9 @@ impl SubcircuitR1CS {
                         C_sparse_rows[row_idx].push((compact_idx, ScalarField::from_hex(hex_val)));
                     }
                 }
+                A_sparse_rows[row_idx].sort_unstable_by_key(|(compact_idx, _)| *compact_idx);
+                B_sparse_rows[row_idx].sort_unstable_by_key(|(compact_idx, _)| *compact_idx);
+                C_sparse_rows[row_idx].sort_unstable_by_key(|(compact_idx, _)| *compact_idx);
             }
         }
         // IMPORTANT: A, B, C matrices are of size A_len-by-n, B_len-by-n, and C_len-by-n, respectively.
