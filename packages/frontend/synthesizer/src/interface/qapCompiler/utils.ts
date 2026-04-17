@@ -1,22 +1,8 @@
 import {
-  FrontendConfig,
-  CircomKey,
-  GlobalWireList,
-  isNumber,
-  isTupleNumber2,
-  REQUIRED_CIRCOM_KEYS,
-  type ResolvedSubcircuitLibrary,
-  SETUP_PARAMS_KEYS,
-  SetupParams,
-  type SubcircuitLibraryData,
-  SUBCIRCUIT_INFO_VALIDATORS,
   SubcircuitInfo,
-  ValidatorMap,
 } from './types.ts';
 import {
-  BUFFER_LIST,
   SUBCIRCUIT_LIST,
-  type ReservedBuffer,
   SubcircuitInfoByName,
   SubcircuitInfoByNameEntry,
   SubcircuitNames,
@@ -30,60 +16,6 @@ import {
 //   // Convert URL → filesystem path and parse JSON
 //   return JSON.parse(await readFile(fileURLToPath(u), 'utf8')) as unknown;
 // }
-
-// -----------------------------------------------------------------------------
-// Runtime shape assertions (fail fast with readable messages)
-// -----------------------------------------------------------------------------
-export function structCheckForGlobalWireList(x: unknown): asserts x is GlobalWireList {
-  if (!Array.isArray(x) || x.some((e) => !isTupleNumber2(e))) {
-    throw new Error('Invalid shape for globalWireList.json: expected [number, number][]');
-  }
-}
-
-export function structCheckForSetupParams(x: unknown): asserts x is SetupParams {
-  if (typeof x !== 'object' || x === null) throw new Error('Invalid shape for setupParams.json: expected object');
-  const o = x as Record<string, unknown>;
-  if (!SETUP_PARAMS_KEYS.every((k) => isNumber(o[k]))) {
-    throw new Error('Invalid values in setupParams.json: all keys must be finite numbers');
-  }
-  // Optional strictness: reject unknown keys
-  // for (const k of Object.keys(o)) {
-  //   if (!SETUP_PARAMS_KEYS.includes(k as (typeof SETUP_PARAMS_KEYS)[number])) {
-  //     throw new Error(`Unexpected key in setupParams.json: ${k}`);
-  //   }
-  // }
-}
-
-export function structCheckForFrontendConfig(x: unknown): asserts x is FrontendConfig {
-  if (typeof x !== 'object' || x === null) throw new Error('Invalid shape for frontendCfg.json: expected object');
-  const o = x as Record<string, unknown>;
-  if (!REQUIRED_CIRCOM_KEYS.every((k) => isNumber(o[k]))) {
-    throw new Error('Invalid values in frontendCfg.json: all keys must be finite numbers');
-  }
-  for (const key of Object.keys(o)) {
-    if (!REQUIRED_CIRCOM_KEYS.includes(key as CircomKey)) {
-      throw new Error(`Unexpected key in frontendCfg.json: ${key}`);
-    }
-  }
-}
-
-export function structCheckForSubcircuitInfo(x: unknown): asserts x is SubcircuitInfo {
-  if (!Array.isArray(x)) throw new Error('Invalid shape for subcircuitInfo.json: expected array');
-  for (const e of x) {
-    if (typeof e !== 'object' || e === null) throw new Error('Invalid item in subcircuitInfo.json: expected object');
-    const o = e as Record<string, unknown>;
-    for (const k in SUBCIRCUIT_INFO_VALIDATORS) {
-      const check = SUBCIRCUIT_INFO_VALIDATORS[k as keyof ValidatorMap] as (v: unknown) => boolean;
-      if (!check(o[k])) throw new Error(`Invalid field in subcircuitInfo.json: ${k}`);
-    }
-    // Optional strictness: reject unknown keys
-    // for (const key of Object.keys(o)) {
-    //   if (!(key in SUBCIRCUIT_INFO_VALIDATORS)) {
-    //     throw new Error(`Unexpected key in subcircuitInfo.json: ${key}`);
-    //   }
-    // }
-  }
-}
 
 export function createInfoByName(subcircuitInfo: SubcircuitInfo): SubcircuitInfoByName {
   const subcircuitInfoByName = new Map<
@@ -107,40 +39,4 @@ export function createInfoByName(subcircuitInfo: SubcircuitInfo): SubcircuitInfo
   }
 
   return subcircuitInfoByName;
-}
-
-export function validateSubcircuitLibraryData(data: SubcircuitLibraryData): void {
-  structCheckForGlobalWireList(data.globalWireList);
-  structCheckForSetupParams(data.setupParams);
-  structCheckForSubcircuitInfo(data.subcircuitInfo);
-  structCheckForFrontendConfig(data.frontendCfg);
-}
-
-export function resolveSubcircuitLibrary(
-  data: SubcircuitLibraryData,
-): ResolvedSubcircuitLibrary {
-  validateSubcircuitLibraryData(data);
-
-  const subcircuitInfoByName = createInfoByName(data.subcircuitInfo);
-  const subcircuitBufferMapping: Record<
-    ReservedBuffer,
-    SubcircuitInfoByNameEntry | undefined
-  > = {
-    PUBLIC_OUT: subcircuitInfoByName.get('bufferPubOut'),
-    PUBLIC_IN: subcircuitInfoByName.get('bufferPubIn'),
-    BLOCK_IN: subcircuitInfoByName.get('bufferBlockIn'),
-    EVM_IN: subcircuitInfoByName.get('bufferEVMIn'),
-    PRIVATE_IN: subcircuitInfoByName.get('bufferPrvIn'),
-  };
-
-  return {
-    data,
-    subcircuitInfoByName,
-    subcircuitBufferMapping,
-    accumulatorInputLimit: data.frontendCfg.nAccumulation,
-    numberOfPrevBlockHashes: data.frontendCfg.nPrevBlockHashes,
-    jubjubExpBatchSize: data.frontendCfg.nJubjubExpBatch,
-    arithExpBatchSize: data.frontendCfg.nSubExpBatch,
-    firstArithmeticPlacementIndex: BUFFER_LIST.length,
-  };
 }

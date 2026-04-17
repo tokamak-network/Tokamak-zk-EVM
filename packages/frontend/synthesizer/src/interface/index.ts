@@ -3,7 +3,6 @@ export { createSynthesizerOptsForSimulationFromRPC, type SynthesizerSimulationOp
 export {
   installedSubcircuitLibrary,
   installedSubcircuitLibraryData,
-  resolveSubcircuitLibrary,
 } from './qapCompiler/index.ts'
 export type {
   ResolvedSubcircuitLibrary,
