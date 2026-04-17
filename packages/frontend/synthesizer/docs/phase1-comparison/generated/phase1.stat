@@ -1,0 +1,25 @@
+ .../src/circuitGenerator/circuitGenerator.ts       | 35 +++++++++
+ .../handlers/permutationGenerator.ts               | 16 ++--
+ .../circuitGenerator/handlers/variableGenerator.ts | 22 +++---
+ .../src/circuitGenerator/types/types.ts            | 11 ++-
+ packages/frontend/synthesizer/src/index.ts         |  1 +
+ .../synthesizer/src/interface/cli/index.ts         | 11 ++-
+ .../frontend/synthesizer/src/interface/index.ts    | 11 ++-
+ .../synthesizer/src/interface/node/jsonWriter.ts   | 31 ++++----
+ .../synthesizer/src/interface/node/wasmLoader.ts   | 59 ++++++++-------
+ .../src/interface/qapCompiler/importedConstants.ts | 47 ------------
+ .../synthesizer/src/interface/qapCompiler/index.ts |  6 +-
+ .../src/interface/qapCompiler/installedLibrary.ts  | 87 ++++++++++++++++++++++
+ .../qapCompiler/{types.ts => libraryTypes.ts}      | 35 ++++++++-
+ .../synthesizer/src/interface/qapCompiler/utils.ts | 76 +++----------------
+ .../frontend/synthesizer/src/interface/rpc/rpc.ts  | 16 +++-
+ .../synthesizer/src/synthesizer/constructors.ts    | 13 +++-
+ .../dataStructure/arithmeticOperations.ts          | 33 +++++++-
+ .../src/synthesizer/handlers/arithmeticManager.ts  | 12 ++-
+ .../src/synthesizer/handlers/bufferManager.ts      |  5 +-
+ .../src/synthesizer/handlers/instructionHandler.ts |  5 +-
+ .../src/synthesizer/handlers/memoryManager.ts      |  3 +-
+ .../src/synthesizer/handlers/stateManager.ts       |  4 +-
+ .../synthesizer/src/synthesizer/synthesizer.ts     |  5 +-
+ .../src/synthesizer/types/synthesizer.ts           |  2 +
+ 24 files changed, 338 insertions(+), 208 deletions(-)
