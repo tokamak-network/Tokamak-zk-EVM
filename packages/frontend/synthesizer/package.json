@@ -46,7 +46,7 @@
     "NOTICE"
   ],
   "scripts": {
-    "build": "../../../config/monorepo-js/cli/ts-build.sh",
+    "build": "npm run typecheck && npm run build:package",
     "build:package": "node scripts/build-package.mjs",
     "clean": "../../../config/monorepo-js//cli/clean-package.sh",
     "cli": "tsx --tsconfig tsconfig.dev.json src/interface/cli/index.ts",
@@ -74,7 +74,8 @@
     "test:private-state-redeem": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-private-state-redeem-main-from-configs.ts",
     "test:private-state-redeem:prep": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-private-state-redeem-config-matrix.ts",
     "test:node": "npm run -s test",
-    "tsc": "../../../config/monorepo-js//cli/ts-compile.sh",
+    "tsc": "npm run typecheck",
+    "typecheck": "tsc -p tsconfig.json --pretty false",
     "prepack": "npm run build:package"
   },
   "dependencies": {
@@ -142,7 +143,8 @@
     "solc": "^0.8.1",
     "split": "^1.0.1",
     "ts-loader": "^9.5.2",
-    "typescript": "^4.7.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
     "webpack": "^5.101.0",
     "webpack-cli": "^6.0.1"
   },

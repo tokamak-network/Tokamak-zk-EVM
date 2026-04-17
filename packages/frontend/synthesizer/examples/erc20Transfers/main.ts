@@ -16,7 +16,7 @@ import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenera
 import { writeCircuitJson, writeEvmAnalysisJson } from '../../src/interface/node/jsonWriter.ts';
 import { loadSubcircuitWasm } from '../../src/interface/node/wasmLoader.ts';
 import { getBlockInfoFromRPC } from '../../src/interface/rpc/rpc.ts';
-import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../src/interface/qapCompiler/importedConstants.ts';
+import { installedSubcircuitLibrary } from '../../src/interface/qapCompiler/installedLibrary.ts';
 import {
   buildErc20Calldata,
   deriveParticipantKeys,
@@ -42,7 +42,11 @@ const main = async () => {
   const common = createTokamakL2Common();
   const stateManagerOpts = createStateManagerOptsFromChannelConfig(toStateManagerChannelConfig(config));
   const stateManager = await createTokamakL2StateManagerFromL1RPC(rpcUrl, stateManagerOpts);
-  const blockInfo = await getBlockInfoFromRPC(rpcUrl, config.blockNumber, NUMBER_OF_PREV_BLOCK_HASHES);
+  const blockInfo = await getBlockInfoFromRPC(
+    rpcUrl,
+    config.blockNumber,
+    installedSubcircuitLibrary.numberOfPrevBlockHashes,
+  );
 
   const txData: TokamakL2TxData = {
     nonce: BigInt(config.txNonce),

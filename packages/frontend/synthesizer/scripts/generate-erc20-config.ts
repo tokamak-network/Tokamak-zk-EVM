@@ -10,7 +10,6 @@ import minimist from 'minimist';
 import dotenv from 'dotenv';
 import { ethers } from 'ethers';
 import { fileURLToPath } from 'url';
-import { BufferErrorMessage } from '../src/synthesizer/types/buffers.ts';
 
 type ParticipantEntry = {
   addressL1: `0x${string}`;
@@ -121,6 +120,9 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const DEFAULT_MAX_ANALYSIS_ITERATIONS = 10;
 const MAX_REFERENCE_TX_RETRIES = 3;
 const RETRYABLE_REVERT_REASON = 'ERC20: transfer amount exceeds balance';
+const STORAGE_KEY_ERROR_MESSAGES = [
+  'Storage key to write for address:',
+].map((message) => message.trim());
 
 dotenv.config({ path: scriptsEnvPath });
 if (!process.env.ETHERSCAN_API_KEY) {
@@ -813,8 +815,6 @@ const updateCallCodeAddresses = async (
   }
   return next;
 };
-
-const STORAGE_KEY_ERROR_MESSAGES = Object.values(BufferErrorMessage).map((message) => message.trim());
 
 const hasStorageKeyErrors = async (): Promise<boolean> => {
   try {

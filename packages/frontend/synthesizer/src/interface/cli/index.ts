@@ -41,6 +41,7 @@ program
   .requiredOption('--transaction <path>', 'Path to transaction snapshot JSON file')
   .requiredOption('--block-info <path>', 'Path to block information JSON')
   .requiredOption('--contract-code <path>', 'Path to contract code JSON')
+  .option('--analysis-only', 'Skip circuit generation and only execute transaction/state synthesis')
   .action(async options => {
     try {
       console.log('🔄 Executing L2 State Channel Transfer...');
@@ -88,13 +89,25 @@ program
         }
         throw new Error(`Synthesizer execution failed: ${error.message || error}`);
       }
-  
+
+      // Export final state
+      const finalState = await stateManager.captureStateSnapshot();
+      console.log(`[SynthesizerAdapter] ✅ Final state exported with roots: ${finalState.stateRoots.join(', ')}`);
+
+      const analysisOnly =
+        options.analysisOnly === true || process.env.PRIVATE_STATE_ANALYSIS_ONLY === '1';
+
+      if (analysisOnly) {
+        writeStateSnapshotJson(finalState);
+        console.log('[SynthesizerAdapter] Skipped circuit generation (analysis-only mode).');
+        return;
+      }
+
       console.log('[SynthesizerAdapter] Generating circuit outputs...');
       const wasmBuffers = loadSubcircuitWasm();
       const circuitGenerator = await createCircuitGenerator(synthesizer, wasmBuffers);
       const circuitArtifacts = circuitGenerator.getArtifacts();
-  
-      // Get the data before writing (if we need in-memory access)
+
       const placementVariables = circuitArtifacts.placementVariables;
       const a_pub = circuitArtifacts.publicInstance;
       const permutation = circuitArtifacts.permutation;
@@ -102,13 +115,8 @@ program
       if (placementVariables === undefined || a_pub === undefined || permutation === undefined ) {
         throw new Error('[SynthesizerAdapter] CircuitGenerator falls into failure.')
       }
-      
-      // Export final state
-      const finalState = await stateManager.captureStateSnapshot();
-      console.log(`[SynthesizerAdapter] ✅ Final state exported with roots: ${finalState.stateRoots.join(', ')}`);
-      
+
       writeCircuitJson(circuitArtifacts);
-      // Also save state_snapshot.json
       writeStateSnapshotJson(finalState);
       console.log(`[SynthesizerAdapter] ✅ Outputs written`);
 
@@ -118,19 +126,4 @@ program
     }
   });
 
-// Check if this file is being run directly (works for both CommonJS and ES modules)
-const isMainModule = (() => {
-  if (typeof require !== 'undefined' && typeof module !== 'undefined') {
-    return require.main === module;
-  }
-
-  try {
-    return require.main === module;
-  } catch {
-    return import.meta.url === `file://${process.argv[1]}`;
-  }
-})();
-
-if (isMainModule) {
-  program.parse();
-}
+void program.parseAsync(process.argv);

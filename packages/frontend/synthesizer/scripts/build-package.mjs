@@ -15,8 +15,12 @@ const entryPoints = {
 const baseConfig = {
   absWorkingDir: rootDir,
   bundle: true,
+  external: ['@tokamak-zk-evm/subcircuit-library/package.json'],
   entryPoints,
   logLevel: 'info',
+  logOverride: {
+    'empty-import-meta': 'silent',
+  },
   platform: 'node',
   target: 'node18',
   tsconfig: path.join(rootDir, 'tsconfig.json'),

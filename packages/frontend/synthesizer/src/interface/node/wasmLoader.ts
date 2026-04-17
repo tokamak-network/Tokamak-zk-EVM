@@ -13,7 +13,7 @@ function getBaseURL(): URL {
   }
 
   const subcircuitLibraryRoot = path.dirname(
-    typeof require !== 'undefined' && typeof require.resolve === 'function'
+    typeof require === 'function' && typeof require.resolve === 'function'
       ? require.resolve('@tokamak-zk-evm/subcircuit-library/package.json')
       : fileURLToPath(import.meta.resolve('@tokamak-zk-evm/subcircuit-library/package.json')),
   );
@@ -40,10 +40,7 @@ export async function loadSubcircuitWasmBuffer(subcircuitId: number): Promise<Ar
   } catch {
     throw new Error(`Error while reading subcircuit${subcircuitId}.wasm`);
   }
-  return buffer.buffer.slice(
-    buffer.byteOffset,
-    buffer.byteOffset + buffer.byteLength,
-  );
+  return Uint8Array.from(buffer).buffer;
 }
 
 export const nodeSubcircuitLibraryProvider: SubcircuitLibraryProvider = {
