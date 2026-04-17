@@ -454,7 +454,7 @@ export class Memory {
   read(offset: number, size: number, avoidCopy?: boolean): Uint8Array<ArrayBuffer> {
     this.extend(offset, size)
 
-    const loaded = this._store.subarray(offset, offset + size) as Uint8Array<ArrayBuffer>
+    const loaded = this._store.subarray(offset, offset + size)
     if (avoidCopy === true) {
       return loaded
     }

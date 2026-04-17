@@ -4,7 +4,6 @@ import frontendCfgJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/libr
 import subcircuitInfoJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/subcircuitInfo.json';
 import { BUFFER_LIST } from './configuredTypes.ts';
 import type {
-  CircomKey,
   SubcircuitLibraryData,
 } from './libraryTypes.ts';
 import {
@@ -14,7 +13,6 @@ import {
   type ResolvedSubcircuitLibrary,
   SETUP_PARAMS_KEYS,
   SUBCIRCUIT_INFO_VALIDATORS,
-  type ValidatorMap,
 } from './libraryTypes.ts';
 import { createInfoByName } from './utils.ts';
 
@@ -35,7 +33,7 @@ if (typeof data.setupParams !== 'object' || data.setupParams === null) {
   throw new Error('Invalid shape for setupParams.json: expected object');
 }
 
-const setupParamsObject = data.setupParams as Record<string, unknown>;
+const setupParamsObject: Record<string, unknown> = data.setupParams;
 if (!SETUP_PARAMS_KEYS.every((key) => isNumber(setupParamsObject[key]))) {
   throw new Error('Invalid values in setupParams.json: all keys must be finite numbers');
 }
@@ -44,12 +42,12 @@ if (typeof data.frontendCfg !== 'object' || data.frontendCfg === null) {
   throw new Error('Invalid shape for frontendCfg.json: expected object');
 }
 
-const frontendConfigObject = data.frontendCfg as Record<string, unknown>;
+const frontendConfigObject: Record<string, unknown> = data.frontendCfg;
 if (!REQUIRED_CIRCOM_KEYS.every((key) => isNumber(frontendConfigObject[key]))) {
   throw new Error('Invalid values in frontendCfg.json: all keys must be finite numbers');
 }
 for (const key of Object.keys(frontendConfigObject)) {
-  if (!REQUIRED_CIRCOM_KEYS.includes(key as CircomKey)) {
+  if (!REQUIRED_CIRCOM_KEYS.some((requiredKey) => requiredKey === key)) {
     throw new Error(`Unexpected key in frontendCfg.json: ${key}`);
   }
 }
@@ -61,9 +59,8 @@ for (const entry of data.subcircuitInfo) {
   if (typeof entry !== 'object' || entry === null) {
     throw new Error('Invalid item in subcircuitInfo.json: expected object');
   }
-  const objectEntry = entry as Record<string, unknown>;
-  for (const key in SUBCIRCUIT_INFO_VALIDATORS) {
-    const check = SUBCIRCUIT_INFO_VALIDATORS[key as keyof ValidatorMap] as (value: unknown) => boolean;
+  const objectEntry: Record<string, unknown> = entry;
+  for (const [key, check] of Object.entries(SUBCIRCUIT_INFO_VALIDATORS)) {
     if (!check(objectEntry[key])) {
       throw new Error(`Invalid field in subcircuitInfo.json: ${key}`);
     }

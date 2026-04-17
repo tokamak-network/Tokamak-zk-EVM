@@ -24,7 +24,8 @@ export type GlobalWireList = GlobalWireEntry[];
 // Primitive validators
 export const isNumber = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
 export const isString = (x: unknown): x is string => typeof x === 'string';
-export const isSubcircuitName = (x: unknown): x is SubcircuitNames => typeof x === 'string' && (SUBCIRCUIT_LIST as readonly string[]).includes(x);
+export const isSubcircuitName = (x: unknown): x is SubcircuitNames =>
+  typeof x === 'string' && SUBCIRCUIT_LIST.some((name) => name === x);
 export const isTupleNumber2 = (x: unknown): x is [number, number] =>
   Array.isArray(x) && x.length === 2 && isNumber(x[0]) && isNumber(x[1]);
 export const isNumberArray = (x: unknown): x is number[] => Array.isArray(x) && x.every(isNumber);
@@ -38,7 +39,7 @@ export const SUBCIRCUIT_INFO_VALIDATORS = {
   Out_idx: isTupleNumber2,
   In_idx: isTupleNumber2,
   flattenMap: isNumberArray,
-} as const;
+};
 
 export type ValidatorMap = typeof SUBCIRCUIT_INFO_VALIDATORS;
 // Derive the item shape from the validator map (no duplication)

@@ -38,7 +38,7 @@ export class PermutationGenerator {
     }
     this.circuitPlacements = circuitPlacements
     this.placementVariables = placementVariables
-    this.flattenMapInverse = this.parent.subcircuitLibrary.data.globalWireList as GlobalWireList;
+    this.flattenMapInverse = this.parent.subcircuitLibrary.data.globalWireList;
     // Construct permutation
     this.permGroup = this._buildPermGroup();
 
@@ -75,7 +75,8 @@ export class PermutationGenerator {
   private _retrieveDataPtFromPlacementWireId(
     inputIdx: PlacementWireIndex,
   ): DataPt {
-    const [/*subcircuitId*/, localWireId] = this.flattenMapInverse[inputIdx.globalWireId] ?? [] as any;
+    const wireEntry = this.flattenMapInverse[inputIdx.globalWireId];
+    const localWireId = wireEntry?.[1];
     if (localWireId === undefined) {
       throw new Error(
         `Permutation: Invalid global wire ID: ${inputIdx.globalWireId}`,

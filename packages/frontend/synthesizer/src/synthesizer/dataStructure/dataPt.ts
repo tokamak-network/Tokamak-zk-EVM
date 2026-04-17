@@ -30,21 +30,19 @@ export class DataPtFactory {
   public static deepCopy(a: DataPt): DataPt;
   public static deepCopy(a: [DataPt, DataPt]): [DataPt, DataPt];
   public static deepCopy(a: readonly [DataPt, DataPt]): [DataPt, DataPt];
-  public static deepCopy<T extends ReadonlyArray<DataPt>>(a: T): T;
-  public static deepCopy<T extends DataPt | ReadonlyArray<DataPt>>(a: T): T {
+  public static deepCopy(a: ReadonlyArray<DataPt>): DataPt[];
+  public static deepCopy(a: DataPt | ReadonlyArray<DataPt>): DataPt | [DataPt, DataPt] | DataPt[] {
     if (Array.isArray(a)) {
       // Handle fixed-length 2-tuple precisely to preserve tuple type
       if (a.length === 2) {
-        const [d0, d1] = a as unknown as readonly [DataPt, DataPt];
-        const tuple: [DataPt, DataPt] = [{ ...d0 }, { ...d1 }];
-        return tuple as unknown as T;
+        const [d0, d1] = a;
+        return [{ ...d0 }, { ...d1 }];
       }
       // General array clone (deep at 1-level; DataPt is a flat object)
-      const arr = (a as ReadonlyArray<DataPt>).map((dp) => ({ ...dp }));
-      return arr as unknown as T;
+      return a.map((dp) => ({ ...dp }));
     }
     // Single object
-    return { ...(a as DataPt) } as T;
+    return { ...a };
   }
 
   public static create(params: DataPtDescription, value: bigint): DataPt {

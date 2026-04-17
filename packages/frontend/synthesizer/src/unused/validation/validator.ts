@@ -48,7 +48,7 @@ export class SynthesizerValidator {
       'NOT', 'BYTE', 'SHL', 'SHR', 'SAR', 'DecToBit', 'SubEXP',
     ] 
 
-    if (!implementedOpcodes.includes(opcode as ArithmeticOperator)) {
+    if (!implementedOpcodes.some((implementedOpcode) => implementedOpcode === opcode)) {
       throw new Error(`Synthesizer: Opcode '${opcode}' is not implemented`)
     }
   }
