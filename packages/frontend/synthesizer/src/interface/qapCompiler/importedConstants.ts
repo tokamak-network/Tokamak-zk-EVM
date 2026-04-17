@@ -1,10 +1,10 @@
 import { FrontendConfig, GlobalWireList, SetupParams, SubcircuitInfo } from './types.ts';
 import { createInfoByName, structCheckForFrontendConfig, structCheckForGlobalWireList, structCheckForSetupParams, structCheckForSubcircuitInfo } from './utils.ts'
 import { BUFFER_LIST, ReservedBuffer, SubcircuitInfoByName, SubcircuitInfoByNameEntry } from './configuredTypes.ts';
-import setupParamsJson from '../../../../qap-compiler/subcircuits/library/setupParams.json' with {type: 'json'};
-import globalWireListJson from '../../../../qap-compiler/subcircuits/library/globalWireList.json' with {type: 'json'};
-import frontendCfgJson from '../../../../qap-compiler/subcircuits/library/frontendCfg.json' with {type: 'json'};
-import subcircuitInfoJson from '../../../../qap-compiler/subcircuits/library/subcircuitInfo.json' with {type: 'json'};
+import setupParamsJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/setupParams.json' with {type: 'json'};
+import globalWireListJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/globalWireList.json' with {type: 'json'};
+import frontendCfgJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/frontendCfg.json' with {type: 'json'};
+import subcircuitInfoJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/subcircuitInfo.json' with {type: 'json'};
 
 
 
