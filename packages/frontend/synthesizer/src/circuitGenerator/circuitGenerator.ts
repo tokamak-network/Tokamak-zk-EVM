@@ -15,17 +15,6 @@ export async function createCircuitGenerator(synthesizer: SynthesizerInterface, 
   return circuitGenerator;
 }
 
-export async function createCircuitArtifacts(
-  synthesizer: SynthesizerInterface,
-  subcircuitWasmBuffers: any[],
-): Promise<CircuitArtifacts> {
-  const circuitGenerator = await createCircuitGenerator(
-    synthesizer,
-    subcircuitWasmBuffers,
-  );
-  return circuitGenerator.getArtifacts();
-}
-
 export class CircuitGenerator {
   public pathToWrite?: string;
   // public subcircuitIndicesByName: Map<SubcircuitNames, SubcircuitIndicesByNameEntry> = new Map()

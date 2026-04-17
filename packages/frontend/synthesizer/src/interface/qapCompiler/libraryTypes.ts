@@ -23,7 +23,6 @@ export type GlobalWireList = GlobalWireEntry[];
 
 // Primitive validators
 export const isNumber = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
-export const isString = (x: unknown): x is string => typeof x === 'string';
 export const isSubcircuitName = (x: unknown): x is SubcircuitNames =>
   typeof x === 'string' && SUBCIRCUIT_LIST.some((name) => name === x);
 export const isTupleNumber2 = (x: unknown): x is [number, number] =>
