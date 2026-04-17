@@ -1,0 +1,1086 @@
+diff --git a/packages/frontend/synthesizer/src/circuitGenerator/circuitGenerator.ts b/packages/frontend/synthesizer/src/circuitGenerator/circuitGenerator.ts
+index f008dec3..42ba0b87 100644
+--- a/packages/frontend/synthesizer/src/circuitGenerator/circuitGenerator.ts
++++ b/packages/frontend/synthesizer/src/circuitGenerator/circuitGenerator.ts
+@@ -2,6 +2,10 @@ import { SynthesizerInterface } from '../synthesizer/index.ts';
+ import { VariableGenerator } from './handlers/variableGenerator.ts';
+ import { Placements } from '../synthesizer/types/placements.ts';
+ import { PermutationGenerator } from './handlers/permutationGenerator.ts';
++import {
++  CircuitArtifacts,
++} from './types/types.ts';
++import type { ResolvedSubcircuitLibrary } from '../interface/qapCompiler/libraryTypes.ts';
+ 
+ export async function createCircuitGenerator(synthesizer: SynthesizerInterface, subcircuitWasmBuffers: any[]): Promise<CircuitGenerator> {
+   const circuitGenerator = new CircuitGenerator(synthesizer, subcircuitWasmBuffers);
+@@ -11,23 +15,54 @@ export async function createCircuitGenerator(synthesizer: SynthesizerInterface,
+   return circuitGenerator;
+ }
+ 
++export async function createCircuitArtifacts(
++  synthesizer: SynthesizerInterface,
++  subcircuitWasmBuffers: any[],
++): Promise<CircuitArtifacts> {
++  const circuitGenerator = await createCircuitGenerator(
++    synthesizer,
++    subcircuitWasmBuffers,
++  );
++  return circuitGenerator.getArtifacts();
++}
++
+ export class CircuitGenerator {
+   public pathToWrite?: string;
+   // public subcircuitIndicesByName: Map<SubcircuitNames, SubcircuitIndicesByNameEntry> = new Map()
+   public variableGenerator: VariableGenerator;
+   public permutationGenerator: PermutationGenerator | undefined = undefined;
+   public synthesizer: SynthesizerInterface;
++  public readonly subcircuitLibrary: ResolvedSubcircuitLibrary;
+   public EVMPlacements: Placements;
+   public circuitPlacements: Placements | undefined = undefined;
+   public subcircuitWasmBuffers: any[];
+ 
+   constructor(synthesizer: SynthesizerInterface, subcircuitWasmBuffers: any[]) {
+     this.synthesizer = synthesizer;
++    this.subcircuitLibrary = synthesizer.subcircuitLibrary;
+     this.EVMPlacements = this.synthesizer.placements;
+     this.variableGenerator = new VariableGenerator(this);
+     this.subcircuitWasmBuffers = subcircuitWasmBuffers;
+   }
+ 
++  public getArtifacts(): CircuitArtifacts {
++    if (
++      this.variableGenerator.placementVariables === undefined ||
++      this.variableGenerator.publicInstance === undefined ||
++      this.variableGenerator.publicInstanceDescription === undefined ||
++      this.permutationGenerator?.permutation === undefined
++    ) {
++      throw new Error('Circuit artifacts are not generated yet.');
++    }
++
++    return {
++      placementVariables: this.variableGenerator.placementVariables,
++      publicInstance: this.variableGenerator.publicInstance,
++      publicInstanceDescription: this.variableGenerator.publicInstanceDescription,
++      permutation: this.permutationGenerator.permutation,
++    };
++  }
++
+   // public async writeCircuit(
+   //   pathToWrite: string,
+   //   // writeToFS: boolean = true,
+diff --git a/packages/frontend/synthesizer/src/circuitGenerator/handlers/permutationGenerator.ts b/packages/frontend/synthesizer/src/circuitGenerator/handlers/permutationGenerator.ts
+index 80493bba..d8bc0639 100644
+--- a/packages/frontend/synthesizer/src/circuitGenerator/handlers/permutationGenerator.ts
++++ b/packages/frontend/synthesizer/src/circuitGenerator/handlers/permutationGenerator.ts
+@@ -1,6 +1,4 @@
+-import { globalWireList, setupParams, subcircuitInfoByName } from '../../interface/qapCompiler/importedConstants.ts';
+-
+-import { GlobalWireList } from '../../interface/qapCompiler/types.ts';
++import { GlobalWireList } from '../../interface/qapCompiler/libraryTypes.ts';
+ import { Placements, PlacementVariables } from '../../synthesizer/types/placements.ts';
+ import { BUFFER_DESCRIPTION, BUFFER_LIST, SubcircuitInfoByName, SubcircuitInfoByNameEntry } from '../../interface/qapCompiler/configuredTypes.ts';
+ import { DataPt } from '../../synthesizer/types/dataStructure.ts';
+@@ -40,11 +38,12 @@ export class PermutationGenerator {
+     }
+     this.circuitPlacements = circuitPlacements
+     this.placementVariables = placementVariables
+-    this.flattenMapInverse = globalWireList as GlobalWireList;
++    this.flattenMapInverse = this.parent.subcircuitLibrary.data.globalWireList;
+     // Construct permutation
+     this.permGroup = this._buildPermGroup();
+ 
+     // Initialization for the permutation polynomials in equation 8 of the paper
++    const { setupParams } = this.parent.subcircuitLibrary.data;
+     const numWires = setupParams.l_D - setupParams.l;
+     const numPlacements = this.circuitPlacements.length;
+ 
+@@ -90,7 +89,7 @@ export class PermutationGenerator {
+       );
+     }
+ 
+-    const subcircuitInfo = subcircuitInfoByName.get(placement.name);
++    const subcircuitInfo = this.parent.subcircuitLibrary.subcircuitInfoByName.get(placement.name);
+     if (!subcircuitInfo) {
+       throw new Error(
+         `Permutation: Subcircuit info not found for: ${placement.name}`,
+@@ -125,6 +124,7 @@ export class PermutationGenerator {
+     Y: number;
+   }[] {
+     let permutationFile = [];
++    const { setupParams } = this.parent.subcircuitLibrary.data;
+     for (const _group of this.permGroup) {
+       const group = [..._group.keys()];
+       const groupLength = group.length;
+@@ -165,6 +165,8 @@ export class PermutationGenerator {
+ 
+   private _buildPermGroup(): Map<string, boolean>[] {
+     const permGroup: Map<string, boolean>[] = [];
++    const { setupParams } = this.parent.subcircuitLibrary.data;
++    const subcircuitInfoByName = this.parent.subcircuitLibrary.subcircuitInfoByName;
+ 
+     // Initialize group representatives.
+     // Each output wire of every placement is picked as a representative and forms a new group, if it is not a public wire.
+@@ -290,6 +292,8 @@ export class PermutationGenerator {
+   }
+ 
+   private _validatePermutation(): void {
++    const { setupParams } = this.parent.subcircuitLibrary.data;
++    const subcircuitInfoByName = this.parent.subcircuitLibrary.subcircuitInfoByName;
+     let permutationDetected = false;
+     const circomConsts = Array(setupParams.l_D).fill('0x01');
+     let b: string[][] = []; // ab.size = l_D \times s_max
+@@ -380,4 +384,4 @@ function searchInsert(
+   throw new Error(
+     'Synthesizer: A wire has a parent, which however does not belong to any group.',
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/packages/frontend/synthesizer/src/circuitGenerator/handlers/variableGenerator.ts b/packages/frontend/synthesizer/src/circuitGenerator/handlers/variableGenerator.ts
+index bc3c9b84..b1e45e49 100644
+--- a/packages/frontend/synthesizer/src/circuitGenerator/handlers/variableGenerator.ts
++++ b/packages/frontend/synthesizer/src/circuitGenerator/handlers/variableGenerator.ts
+@@ -10,12 +10,6 @@ import {
+   PlacementVariables,
+ } from '../../synthesizer/types/placements.ts';
+ import { CircuitGenerator } from '../circuitGenerator.ts';
+-import {
+-  globalWireList,
+-  setupParams,
+-  SUBCIRCUIT_BUFFER_MAPPING,
+-  subcircuitInfoByName,
+-} from '../../interface/qapCompiler/importedConstants.ts';
+ import { builder } from '../utils/witness_calculator.ts';
+ import { VARIABLE_DESCRIPTION } from '../../synthesizer/types/buffers.ts';
+ import { PublicInstance, PublicInstanceDescription } from '../types/types.ts';
+@@ -32,6 +26,10 @@ export class VariableGenerator {
+     this.parent = circuitGenerator;
+   }
+ 
++  private get _subcircuitLibrary() {
++    return this.parent.subcircuitLibrary;
++  }
++
+   async initVariableGenerator(): Promise<void> {
+     if (
+       this.placementsCompatibleWithSubcircuits !== undefined ||
+@@ -68,8 +66,8 @@ export class VariableGenerator {
+     // Preparing input values
+     const expectedLen =
+       target === 'In'
+-        ? subcircuitInfoByName.get(placement.name)!.NInWires
+-        : subcircuitInfoByName.get(placement.name)!.NOutWires;
++        ? this._subcircuitLibrary.subcircuitInfoByName.get(placement.name)!.NInWires
++        : this._subcircuitLibrary.subcircuitInfoByName.get(placement.name)!.NOutWires;
+     if (expectedLen < origValues.length) {
+       throw new Error(`Placement at index ${placement.name} has excessive number of ${target} wires`);
+     }
+@@ -112,7 +110,7 @@ export class VariableGenerator {
+             );
+           }
+         }
+-        if (subcircuitInfoByName.get(placement.name)!.flattenMap.length !== variables.length) {
++        if (this._subcircuitLibrary.subcircuitInfoByName.get(placement.name)!.flattenMap.length !== variables.length) {
+           throw new Error(`Flatten map cannot be applied to the placement variables due to difference lengths`);
+         }
+         // process.stdout.write('\r' + ' '.repeat(100) + '\r');
+@@ -137,6 +135,7 @@ export class VariableGenerator {
+   }
+ 
+   private _extractPublicInstance(placementVariables: PlacementVariables): PublicInstance {
++    const { globalWireList, setupParams } = this._subcircuitLibrary.data;
+     const l = setupParams.l;
+     const l_user = setupParams.l_user;
+     const l_free = setupParams.l_free;
+@@ -169,6 +168,7 @@ export class VariableGenerator {
+   }
+ 
+   private _extractPublicInstanceDescription(placementVariables: PlacementVariables): PublicInstanceDescription {
++    const { globalWireList, setupParams } = this._subcircuitLibrary.data;
+     const l = setupParams.l;
+     const l_user = setupParams.l_user;
+     const l_free = setupParams.l_free;
+@@ -331,7 +331,7 @@ export class VariableGenerator {
+       if (bufferPlacement === undefined) {
+         throw new Error(`Buffer ${bufferName} is not placed`);
+       }
+-      const subcircuitInfo = SUBCIRCUIT_BUFFER_MAPPING[bufferName];
++      const subcircuitInfo = this._subcircuitLibrary.subcircuitBufferMapping[bufferName];
+       if (subcircuitInfo === undefined) {
+         throw new Error(`Subcircuit information for ${bufferName} is not loaded`);
+       }
+@@ -342,7 +342,7 @@ export class VariableGenerator {
+         );
+       }
+     }
+-    if (outPlacements.length > setupParams.s_max) {
++    if (outPlacements.length > this._subcircuitLibrary.data.setupParams.s_max) {
+       flags.push(false);
+       console.log(
+         `Error: Synthesizer: Insufficient s_max. Ask the qap-compiler for increasing s_max (required s_max: ${outPlacements.length}).`,
+diff --git a/packages/frontend/synthesizer/src/circuitGenerator/types/types.ts b/packages/frontend/synthesizer/src/circuitGenerator/types/types.ts
+index de5dd9a4..c4646fe6 100644
+--- a/packages/frontend/synthesizer/src/circuitGenerator/types/types.ts
++++ b/packages/frontend/synthesizer/src/circuitGenerator/types/types.ts
+@@ -1,3 +1,5 @@
++import { PlacementVariables } from '../../synthesizer/types/placements.ts';
++
+ export type PublicInstance = {
+     a_pub_user: `0x${string}`[]
+     a_pub_block: `0x${string}`[]
+@@ -10,4 +12,11 @@ export type PublicInstanceDescription = {
+     a_pub_function_description: string[]
+ }
+ 
+-export type Permutation = { row: number; col: number; X: number; Y: number }[];
+\ No newline at end of file
++export type Permutation = { row: number; col: number; X: number; Y: number }[];
++
++export interface CircuitArtifacts {
++    placementVariables: PlacementVariables
++    publicInstance: PublicInstance
++    publicInstanceDescription: PublicInstanceDescription
++    permutation: Permutation
++}
+diff --git a/packages/frontend/synthesizer/src/index.ts b/packages/frontend/synthesizer/src/index.ts
+index 77e3868b..bcc07759 100644
+--- a/packages/frontend/synthesizer/src/index.ts
++++ b/packages/frontend/synthesizer/src/index.ts
+@@ -1,2 +1,3 @@
+ export * from './interface/index.ts';
+ export * from './synthesizer/index.ts';
++export * from './circuitGenerator/circuitGenerator.ts';
+diff --git a/packages/frontend/synthesizer/src/interface/cli/index.ts b/packages/frontend/synthesizer/src/interface/cli/index.ts
+index 17eaa2d6..06711328 100644
+--- a/packages/frontend/synthesizer/src/interface/cli/index.ts
++++ b/packages/frontend/synthesizer/src/interface/cli/index.ts
+@@ -14,12 +14,10 @@ import { SynthesizerOpts } from 'src/synthesizer/types/synthesizer.ts';
+ import { createSynthesizer } from 'src/synthesizer/constructors.ts';
+ import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
+ import { createCircuitGenerator } from 'src/circuitGenerator/circuitGenerator.ts';
+-import { PlacementVariables } from 'src/synthesizer/types/placements.ts';
+ import { addHexPrefix, createAccount, createAddressFromString, hexToBytes } from '@ethereumjs/util';
+ import { readJson } from './utils/node.ts';
+ import { writeCircuitJson, writeStateSnapshotJson } from '../node/jsonWriter.ts';
+ import { SynthesizerBlockInfo } from '../rpc/index.ts';
+-import { Permutation, PublicInstance } from 'src/circuitGenerator/types/types.ts';
+ 
+ program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthesizer').version('0.9.0');
+ 
+@@ -94,11 +92,12 @@ program
+       console.log('[SynthesizerAdapter] Generating circuit outputs...');
+       const wasmBuffers = loadSubcircuitWasm();
+       const circuitGenerator = await createCircuitGenerator(synthesizer, wasmBuffers);
++      const circuitArtifacts = circuitGenerator.getArtifacts();
+   
+       // Get the data before writing (if we need in-memory access)
+-      const placementVariables: PlacementVariables = circuitGenerator.variableGenerator.placementVariables!;
+-      const a_pub: PublicInstance = circuitGenerator.variableGenerator.publicInstance!;
+-      const permutation: Permutation = circuitGenerator.permutationGenerator?.permutation!;
++      const placementVariables = circuitArtifacts.placementVariables;
++      const a_pub = circuitArtifacts.publicInstance;
++      const permutation = circuitArtifacts.permutation;
+ 
+       if (placementVariables === undefined || a_pub === undefined || permutation === undefined ) {
+         throw new Error('[SynthesizerAdapter] CircuitGenerator falls into failure.')
+@@ -108,7 +107,7 @@ program
+       const finalState = await stateManager.captureStateSnapshot();
+       console.log(`[SynthesizerAdapter] ✅ Final state exported with roots: ${finalState.stateRoots.join(', ')}`);
+       
+-      writeCircuitJson(circuitGenerator);
++      writeCircuitJson(circuitArtifacts);
+       // Also save state_snapshot.json
+       writeStateSnapshotJson(finalState);
+       console.log(`[SynthesizerAdapter] ✅ Outputs written`);
+diff --git a/packages/frontend/synthesizer/src/interface/index.ts b/packages/frontend/synthesizer/src/interface/index.ts
+index f2912f8a..a22b5625 100644
+--- a/packages/frontend/synthesizer/src/interface/index.ts
++++ b/packages/frontend/synthesizer/src/interface/index.ts
+@@ -1,2 +1,11 @@
+ export { mapToStr } from './debugging/utils.ts'
+-export { createSynthesizerOptsForSimulationFromRPC, type SynthesizerSimulationOpts, type SynthesizerBlockInfo } from './rpc/index.ts'
+\ No newline at end of file
++export { createSynthesizerOptsForSimulationFromRPC, type SynthesizerSimulationOpts, type SynthesizerBlockInfo } from './rpc/index.ts'
++export {
++  installedSubcircuitLibrary,
++  installedSubcircuitLibraryData,
++} from './qapCompiler/index.ts'
++export type {
++  ResolvedSubcircuitLibrary,
++  SubcircuitLibraryData,
++  SubcircuitLibraryProvider,
++} from './qapCompiler/index.ts'
+diff --git a/packages/frontend/synthesizer/src/interface/node/jsonWriter.ts b/packages/frontend/synthesizer/src/interface/node/jsonWriter.ts
+index 710b8420..a3e8f109 100644
+--- a/packages/frontend/synthesizer/src/interface/node/jsonWriter.ts
++++ b/packages/frontend/synthesizer/src/interface/node/jsonWriter.ts
+@@ -1,11 +1,11 @@
+ import path from "node:path";
+ import fsPromises from "node:fs/promises";
+-import { CircuitGenerator } from "../../circuitGenerator/circuitGenerator.ts";
++import {
++  CircuitGenerator,
++} from "../../circuitGenerator/circuitGenerator.ts";
++import type { CircuitArtifacts } from "../../circuitGenerator/types/types.ts";
+ import appRootPath from "app-root-path";
+ import fs from 'fs';
+-import { subcircuitInfo } from "../qapCompiler/importedConstants.ts";
+-import { wasmDir } from "./wasmLoader.ts";
+-import { readFileSync } from "node:fs";
+ import { SynthesizerInterface } from "src/synthesizer/index.ts";
+ import { StateSnapshot } from "tokamak-l2js";
+ 
+@@ -13,18 +13,19 @@ import { StateSnapshot } from "tokamak-l2js";
+    * Write placementVariables, instance (publicInstance), and permutation to JSON files.
+    * If no path is provided, default to examples/outputs under app root.
+    */
+-export function writeCircuitJson(circuitGenerator: CircuitGenerator, _path?: string): void {
+-    if (!circuitGenerator.variableGenerator.placementVariables || !circuitGenerator.variableGenerator.publicInstance) {
+-        throw new Error('VariableGenerator is not initialized. Run initVariableGenerator() first.');
+-    }
+-    if (!circuitGenerator.permutationGenerator || !circuitGenerator.permutationGenerator.permutation) {
+-        throw new Error('PermutationGenerator is not initialized.');
+-    }
++export function writeCircuitJson(
++    circuitArtifacts: CircuitArtifacts | CircuitGenerator,
++    _path?: string,
++): void {
++    const artifacts =
++        circuitArtifacts instanceof CircuitGenerator
++            ? circuitArtifacts.getArtifacts()
++            : circuitArtifacts;
+ 
+-    const placementVariables = circuitGenerator.variableGenerator.placementVariables;
+-    const a_pub = circuitGenerator.variableGenerator.publicInstance;
+-    const a_pub_desc = circuitGenerator.variableGenerator.publicInstanceDescription;
+-    const permutation = circuitGenerator.permutationGenerator.permutation;
++    const placementVariables = artifacts.placementVariables;
++    const a_pub = artifacts.publicInstance;
++    const a_pub_desc = artifacts.publicInstanceDescription;
++    const permutation = artifacts.permutation;
+ 
+     // Prepare JSON strings
+     const placementVariablesJson = JSON.stringify(placementVariables, null, 2);
+diff --git a/packages/frontend/synthesizer/src/interface/node/wasmLoader.ts b/packages/frontend/synthesizer/src/interface/node/wasmLoader.ts
+index ee5340b3..44b422e4 100644
+--- a/packages/frontend/synthesizer/src/interface/node/wasmLoader.ts
++++ b/packages/frontend/synthesizer/src/interface/node/wasmLoader.ts
+@@ -1,27 +1,11 @@
+ import { fileURLToPath, pathToFileURL } from 'node:url';
+ import path from 'node:path';
+-import { subcircuitInfo } from '../qapCompiler/importedConstants.ts';
+-import appRootPath from 'app-root-path';
+ import { readFileSync } from 'node:fs';
+-
+-// -----------------------------------------------------------------------------
+-// Base location (ESM-friendly): resolve everything relative to this module
+-// When running as a Bun binary, use the executable's directory
+-// -----------------------------------------------------------------------------
+-// function getBaseURL(): URL {
+-//   // Check if running as a Bun compiled binary
+-//   if ((process as any).isBun && (process as any).execPath) {
+-//     // Running as binary: use executable's parent directory
+-//     // e.g., /path/to/dist/bin/synthesizer -> /path/to/dist/
+-//     const execPath = (process as any).execPath as string;
+-//     const execDir = fileURLToPath(new URL('.', `file://${execPath}`));
+-//     // Go up one level from bin/ to get to the base directory
+-//     return new URL('../resource/qap-compiler/', `file://${execDir}`);
+-//   }
+-
+-//   // Development mode: use import.meta.url
+-//   return new URL('../../../../qap-compiler/', import.meta.url);
+-// }
++import {
++  installedSubcircuitLibraryData,
++} from '../qapCompiler/index.ts';
++import type { SubcircuitLibraryProvider } from '../qapCompiler/libraryTypes.ts';
++import type { SubcircuitInfo } from '../qapCompiler/libraryTypes.ts';
+ 
+ function getBaseURL(): URL {
+   if (typeof window !== "undefined") {
+@@ -34,9 +18,9 @@ function getBaseURL(): URL {
+       : fileURLToPath(import.meta.resolve('@tokamak-zk-evm/subcircuit-library/package.json')),
+   );
+ 
+-  if ((process as any).isBun && (process as any).execPath) {
+-    const execPath = (process as any).execPath as string;
+-    const execDir = path.dirname(execPath);
++  const isBun = Reflect.get(process, 'isBun');
++  if (isBun === true && process.execPath) {
++    const execDir = path.dirname(process.execPath);
+     return pathToFileURL(path.resolve(execDir, "../resource/qap-compiler") + path.sep);
+   }
+ 
+@@ -48,7 +32,32 @@ const BASE_URL = getBaseURL();
+ // Derived path for WASM artifacts (filesystem path)
+ export const wasmDir = fileURLToPath(new URL('library/wasm', BASE_URL));
+ 
+-export function loadSubcircuitWasm(): any[] {
++export async function loadSubcircuitWasmBuffer(subcircuitId: number): Promise<ArrayBuffer> {
++  const targetWasmPath = path.resolve(wasmDir, `subcircuit${subcircuitId}.wasm`);
++  let buffer: Buffer;
++  try {
++    buffer = readFileSync(targetWasmPath);
++  } catch {
++    throw new Error(`Error while reading subcircuit${subcircuitId}.wasm`);
++  }
++  return buffer.buffer.slice(
++    buffer.byteOffset,
++    buffer.byteOffset + buffer.byteLength,
++  );
++}
++
++export const nodeSubcircuitLibraryProvider: SubcircuitLibraryProvider = {
++  async getData() {
++    return installedSubcircuitLibraryData;
++  },
++  async loadWasm(subcircuitId: number) {
++    return loadSubcircuitWasmBuffer(subcircuitId);
++  },
++};
++
++export function loadSubcircuitWasm(
++  subcircuitInfo: SubcircuitInfo = installedSubcircuitLibraryData.subcircuitInfo,
++): any[] {
+   const witnessCalculatorbuffers: any[] = [];
+   for (const subcircuit of subcircuitInfo) {
+     const id = subcircuit.id;
+diff --git a/packages/frontend/synthesizer/src/interface/qapCompiler/importedConstants.ts b/packages/frontend/synthesizer/src/interface/qapCompiler/importedConstants.ts
+deleted file mode 100644
+index 45bc5524..00000000
+--- a/packages/frontend/synthesizer/src/interface/qapCompiler/importedConstants.ts
++++ /dev/null
+@@ -1,47 +0,0 @@
+-import { FrontendConfig, GlobalWireList, SetupParams, SubcircuitInfo } from './types.ts';
+-import { createInfoByName, structCheckForFrontendConfig, structCheckForGlobalWireList, structCheckForSetupParams, structCheckForSubcircuitInfo } from './utils.ts'
+-import { BUFFER_LIST, ReservedBuffer, SubcircuitInfoByName, SubcircuitInfoByNameEntry } from './configuredTypes.ts';
+-import setupParamsJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/setupParams.json';
+-import globalWireListJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/globalWireList.json';
+-import frontendCfgJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/frontendCfg.json';
+-import subcircuitInfoJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/subcircuitInfo.json';
+-
+-
+-
+-
+-// // -----------------------------------------------------------------------------
+-// // Load compiler JSONs concurrently (URL-based, platform-safe)
+-// // -----------------------------------------------------------------------------
+-// const [gRaw, sRaw, scRaw] = await Promise.all([
+-//   readJson(new URL('subcircuits/library/globalWireList.json', BASE_URL)),
+-//   readJson(new URL('subcircuits/library/setupParams.json', BASE_URL)),
+-//   readJson(new URL('subcircuits/library/subcircuitInfo.json', BASE_URL)),
+-// ]);
+-
+-// Validate and expose typed constants
+-structCheckForGlobalWireList(globalWireListJson);
+-structCheckForSetupParams(setupParamsJson);
+-structCheckForSubcircuitInfo(subcircuitInfoJson);
+-structCheckForFrontendConfig(frontendCfgJson);
+-
+-export const globalWireList: GlobalWireList = globalWireListJson;
+-export const setupParams: SetupParams = setupParamsJson;
+-export const subcircuitInfo: SubcircuitInfo = subcircuitInfoJson;
+-export const subcircuitInfoByName: SubcircuitInfoByName = createInfoByName(subcircuitInfo)
+-const frontendCfg: FrontendConfig = frontendCfgJson;
+-
+-export const SUBCIRCUIT_BUFFER_MAPPING: Record<ReservedBuffer, SubcircuitInfoByNameEntry | undefined> = {
+-  PUBLIC_OUT: subcircuitInfoByName.get('bufferPubOut'),
+-  PUBLIC_IN: subcircuitInfoByName.get('bufferPubIn'),
+-  BLOCK_IN: subcircuitInfoByName.get('bufferBlockIn'),
+-  EVM_IN: subcircuitInfoByName.get('bufferEVMIn'),
+-  PRIVATE_IN: subcircuitInfoByName.get('bufferPrvIn'),
+-}
+-
+-export const ACCUMULATOR_INPUT_LIMIT = frontendCfg.nAccumulation
+-// export const MAX_TX_NUMBER = qapCompilerParams.nTx
+-export const NUMBER_OF_PREV_BLOCK_HASHES = frontendCfg.nPrevBlockHashes
+-export const JUBJUB_EXP_BATCH_SIZE = frontendCfg.nJubjubExpBatch
+-export const ARITH_EXP_BATCH_SIZE = frontendCfg.nSubExpBatch
+-
+-export const FIRST_ARITHMETIC_PLACEMENT_INDEX = BUFFER_LIST.length
+diff --git a/packages/frontend/synthesizer/src/interface/qapCompiler/index.ts b/packages/frontend/synthesizer/src/interface/qapCompiler/index.ts
+index c544fcab..8be78476 100644
+--- a/packages/frontend/synthesizer/src/interface/qapCompiler/index.ts
++++ b/packages/frontend/synthesizer/src/interface/qapCompiler/index.ts
+@@ -1,4 +1,4 @@
+ export * from './configuredTypes.ts'
+-export * from './importedConstants.ts'
+-export * from './types.ts'
+-export * from './utils.ts'
+\ No newline at end of file
++export * from './installedLibrary.ts'
++export * from './libraryTypes.ts'
++export * from './utils.ts'
+diff --git a/packages/frontend/synthesizer/src/interface/qapCompiler/installedLibrary.ts b/packages/frontend/synthesizer/src/interface/qapCompiler/installedLibrary.ts
+new file mode 100644
+index 00000000..f8e7d288
+--- /dev/null
++++ b/packages/frontend/synthesizer/src/interface/qapCompiler/installedLibrary.ts
+@@ -0,0 +1,87 @@
++import setupParamsJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/setupParams.json';
++import globalWireListJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/globalWireList.json';
++import frontendCfgJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/frontendCfg.json';
++import subcircuitInfoJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/subcircuitInfo.json';
++import { BUFFER_LIST } from './configuredTypes.ts';
++import type {
++  SubcircuitLibraryData,
++} from './libraryTypes.ts';
++import {
++  isNumber,
++  isTupleNumber2,
++  REQUIRED_CIRCOM_KEYS,
++  type ResolvedSubcircuitLibrary,
++  SETUP_PARAMS_KEYS,
++  SUBCIRCUIT_INFO_VALIDATORS,
++} from './libraryTypes.ts';
++import { createInfoByName } from './utils.ts';
++
++export const installedSubcircuitLibraryData: SubcircuitLibraryData = {
++  setupParams: setupParamsJson,
++  globalWireList: globalWireListJson,
++  frontendCfg: frontendCfgJson,
++  subcircuitInfo: subcircuitInfoJson,
++};
++
++const data = installedSubcircuitLibraryData;
++
++if (!Array.isArray(data.globalWireList) || data.globalWireList.some((entry) => !isTupleNumber2(entry))) {
++  throw new Error('Invalid shape for globalWireList.json: expected [number, number][]');
++}
++
++if (typeof data.setupParams !== 'object' || data.setupParams === null) {
++  throw new Error('Invalid shape for setupParams.json: expected object');
++}
++
++const setupParamsObject: Record<string, unknown> = data.setupParams;
++if (!SETUP_PARAMS_KEYS.every((key) => isNumber(setupParamsObject[key]))) {
++  throw new Error('Invalid values in setupParams.json: all keys must be finite numbers');
++}
++
++if (typeof data.frontendCfg !== 'object' || data.frontendCfg === null) {
++  throw new Error('Invalid shape for frontendCfg.json: expected object');
++}
++
++const frontendConfigObject: Record<string, unknown> = data.frontendCfg;
++if (!REQUIRED_CIRCOM_KEYS.every((key) => isNumber(frontendConfigObject[key]))) {
++  throw new Error('Invalid values in frontendCfg.json: all keys must be finite numbers');
++}
++for (const key of Object.keys(frontendConfigObject)) {
++  if (!REQUIRED_CIRCOM_KEYS.some((requiredKey) => requiredKey === key)) {
++    throw new Error(`Unexpected key in frontendCfg.json: ${key}`);
++  }
++}
++
++if (!Array.isArray(data.subcircuitInfo)) {
++  throw new Error('Invalid shape for subcircuitInfo.json: expected array');
++}
++for (const entry of data.subcircuitInfo) {
++  if (typeof entry !== 'object' || entry === null) {
++    throw new Error('Invalid item in subcircuitInfo.json: expected object');
++  }
++  const objectEntry: Record<string, unknown> = entry;
++  for (const [key, check] of Object.entries(SUBCIRCUIT_INFO_VALIDATORS)) {
++    if (!check(objectEntry[key])) {
++      throw new Error(`Invalid field in subcircuitInfo.json: ${key}`);
++    }
++  }
++}
++
++const subcircuitInfoByName = createInfoByName(data.subcircuitInfo);
++
++export const installedSubcircuitLibrary: ResolvedSubcircuitLibrary = {
++  data,
++  subcircuitInfoByName,
++  subcircuitBufferMapping: {
++    PUBLIC_OUT: subcircuitInfoByName.get('bufferPubOut'),
++    PUBLIC_IN: subcircuitInfoByName.get('bufferPubIn'),
++    BLOCK_IN: subcircuitInfoByName.get('bufferBlockIn'),
++    EVM_IN: subcircuitInfoByName.get('bufferEVMIn'),
++    PRIVATE_IN: subcircuitInfoByName.get('bufferPrvIn'),
++  },
++  accumulatorInputLimit: data.frontendCfg.nAccumulation,
++  numberOfPrevBlockHashes: data.frontendCfg.nPrevBlockHashes,
++  jubjubExpBatchSize: data.frontendCfg.nJubjubExpBatch,
++  arithExpBatchSize: data.frontendCfg.nSubExpBatch,
++  firstArithmeticPlacementIndex: BUFFER_LIST.length,
++};
+diff --git a/packages/frontend/synthesizer/src/interface/qapCompiler/types.ts b/packages/frontend/synthesizer/src/interface/qapCompiler/libraryTypes.ts
+similarity index 69%
+rename from packages/frontend/synthesizer/src/interface/qapCompiler/types.ts
+rename to packages/frontend/synthesizer/src/interface/qapCompiler/libraryTypes.ts
+index 93fce8f4..216655c3 100644
+--- a/packages/frontend/synthesizer/src/interface/qapCompiler/types.ts
++++ b/packages/frontend/synthesizer/src/interface/qapCompiler/libraryTypes.ts
+@@ -4,6 +4,11 @@
+ // -----------------------------------------------------------------------------
+ 
+ import { SUBCIRCUIT_LIST, SubcircuitNames } from "./configuredTypes.ts";
++import type {
++  ReservedBuffer,
++  SubcircuitInfoByName,
++  SubcircuitInfoByNameEntry,
++} from './configuredTypes.ts';
+ 
+ // Single source of truth for SetupParams keys
+ export const SETUP_PARAMS_KEYS = [
+@@ -19,7 +24,8 @@ export type GlobalWireList = GlobalWireEntry[];
+ // Primitive validators
+ export const isNumber = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
+ export const isString = (x: unknown): x is string => typeof x === 'string';
+-export const isSubcircuitName = (x: unknown): x is SubcircuitNames => typeof x === 'string' && (SUBCIRCUIT_LIST as readonly string[]).includes(x);
++export const isSubcircuitName = (x: unknown): x is SubcircuitNames =>
++  typeof x === 'string' && SUBCIRCUIT_LIST.some((name) => name === x);
+ export const isTupleNumber2 = (x: unknown): x is [number, number] =>
+   Array.isArray(x) && x.length === 2 && isNumber(x[0]) && isNumber(x[1]);
+ export const isNumberArray = (x: unknown): x is number[] => Array.isArray(x) && x.every(isNumber);
+@@ -33,7 +39,7 @@ export const SUBCIRCUIT_INFO_VALIDATORS = {
+   Out_idx: isTupleNumber2,
+   In_idx: isTupleNumber2,
+   flattenMap: isNumberArray,
+-} as const;
++};
+ 
+ export type ValidatorMap = typeof SUBCIRCUIT_INFO_VALIDATORS;
+ // Derive the item shape from the validator map (no duplication)
+@@ -56,4 +62,27 @@ export const REQUIRED_CIRCOM_KEYS = [
+ ] as const;
+ export type CircomKey = typeof REQUIRED_CIRCOM_KEYS[number];
+ 
+-export type FrontendConfig = Record<CircomKey, number>;
+\ No newline at end of file
++export type FrontendConfig = Record<CircomKey, number>;
++
++export interface SubcircuitLibraryData {
++  setupParams: SetupParams;
++  globalWireList: GlobalWireList;
++  frontendCfg: FrontendConfig;
++  subcircuitInfo: SubcircuitInfo;
++}
++
++export interface SubcircuitLibraryProvider {
++  getData(): Promise<SubcircuitLibraryData>;
++  loadWasm(subcircuitId: number): Promise<ArrayBuffer>;
++}
++
++export interface ResolvedSubcircuitLibrary {
++  data: SubcircuitLibraryData;
++  subcircuitInfoByName: SubcircuitInfoByName;
++  subcircuitBufferMapping: Record<ReservedBuffer, SubcircuitInfoByNameEntry | undefined>;
++  accumulatorInputLimit: number;
++  numberOfPrevBlockHashes: number;
++  jubjubExpBatchSize: number;
++  arithExpBatchSize: number;
++  firstArithmeticPlacementIndex: number;
++}
+diff --git a/packages/frontend/synthesizer/src/interface/qapCompiler/utils.ts b/packages/frontend/synthesizer/src/interface/qapCompiler/utils.ts
+index 3fbac306..6910ce3d 100644
+--- a/packages/frontend/synthesizer/src/interface/qapCompiler/utils.ts
++++ b/packages/frontend/synthesizer/src/interface/qapCompiler/utils.ts
+@@ -1,68 +1,12 @@
+-import { FrontendConfig, CircomKey, GlobalWireList, isNumber, isTupleNumber2, REQUIRED_CIRCOM_KEYS, SETUP_PARAMS_KEYS, SetupParams, SUBCIRCUIT_INFO_VALIDATORS, SubcircuitInfo, ValidatorMap } from './types.ts';
+-import { SUBCIRCUIT_LIST, SubcircuitInfoByName, SubcircuitInfoByNameEntry, SubcircuitNames } from './configuredTypes.ts';
+-
+-
+-// -----------------------------------------------------------------------------
+-// Helpers: URL-based JSON loader + tiny runtime validators
+-// -----------------------------------------------------------------------------
+-// export async function readJson(u: URL): Promise<unknown> {
+-//   // Convert URL → filesystem path and parse JSON
+-//   return JSON.parse(await readFile(fileURLToPath(u), 'utf8')) as unknown;
+-// }
+-
+-// -----------------------------------------------------------------------------
+-// Runtime shape assertions (fail fast with readable messages)
+-// -----------------------------------------------------------------------------
+-export function structCheckForGlobalWireList(x: unknown): asserts x is GlobalWireList {
+-  if (!Array.isArray(x) || x.some((e) => !isTupleNumber2(e))) {
+-    throw new Error('Invalid shape for globalWireList.json: expected [number, number][]');
+-  }
+-}
+-
+-export function structCheckForSetupParams(x: unknown): asserts x is SetupParams {
+-  if (typeof x !== 'object' || x === null) throw new Error('Invalid shape for setupParams.json: expected object');
+-  const o = x as Record<string, unknown>;
+-  if (!SETUP_PARAMS_KEYS.every((k) => isNumber(o[k]))) {
+-    throw new Error('Invalid values in setupParams.json: all keys must be finite numbers');
+-  }
+-  // Optional strictness: reject unknown keys
+-  // for (const k of Object.keys(o)) {
+-  //   if (!SETUP_PARAMS_KEYS.includes(k as (typeof SETUP_PARAMS_KEYS)[number])) {
+-  //     throw new Error(`Unexpected key in setupParams.json: ${k}`);
+-  //   }
+-  // }
+-}
+-
+-export function structCheckForFrontendConfig(x: unknown): asserts x is FrontendConfig {
+-  if (typeof x !== 'object' || x === null) throw new Error('Invalid shape for frontendCfg.json: expected object');
+-  const o = x as Record<string, unknown>;
+-  if (!REQUIRED_CIRCOM_KEYS.every((k) => isNumber(o[k]))) {
+-    throw new Error('Invalid values in frontendCfg.json: all keys must be finite numbers');
+-  }
+-  for (const key of Object.keys(o)) {
+-    if (!REQUIRED_CIRCOM_KEYS.includes(key as CircomKey)) {
+-      throw new Error(`Unexpected key in frontendCfg.json: ${key}`);
+-    }
+-  }
+-}
+-
+-export function structCheckForSubcircuitInfo(x: unknown): asserts x is SubcircuitInfo {
+-  if (!Array.isArray(x)) throw new Error('Invalid shape for subcircuitInfo.json: expected array');
+-  for (const e of x) {
+-    if (typeof e !== 'object' || e === null) throw new Error('Invalid item in subcircuitInfo.json: expected object');
+-    const o = e as Record<string, unknown>;
+-    for (const k in SUBCIRCUIT_INFO_VALIDATORS) {
+-      const check = SUBCIRCUIT_INFO_VALIDATORS[k as keyof ValidatorMap] as (v: unknown) => boolean;
+-      if (!check(o[k])) throw new Error(`Invalid field in subcircuitInfo.json: ${k}`);
+-    }
+-    // Optional strictness: reject unknown keys
+-    // for (const key of Object.keys(o)) {
+-    //   if (!(key in SUBCIRCUIT_INFO_VALIDATORS)) {
+-    //     throw new Error(`Unexpected key in subcircuitInfo.json: ${key}`);
+-    //   }
+-    // }
+-  }
+-}
++import {
++  SubcircuitInfo,
++} from './libraryTypes.ts';
++import {
++  SUBCIRCUIT_LIST,
++  SubcircuitInfoByName,
++  SubcircuitInfoByNameEntry,
++  SubcircuitNames,
++} from './configuredTypes.ts';
+ 
+ export function createInfoByName(subcircuitInfo: SubcircuitInfo): SubcircuitInfoByName {
+   const subcircuitInfoByName = new Map<
+@@ -82,7 +26,7 @@ export function createInfoByName(subcircuitInfo: SubcircuitInfo): SubcircuitInfo
+       flattenMap: subcircuit.flattenMap,
+     };
+ 
+-    subcircuitInfoByName.set(subcircuit.name as SubcircuitNames, entryObject);
++    subcircuitInfoByName.set(subcircuit.name, entryObject);
+   }
+ 
+   return subcircuitInfoByName;
+diff --git a/packages/frontend/synthesizer/src/interface/rpc/rpc.ts b/packages/frontend/synthesizer/src/interface/rpc/rpc.ts
+index fb898c0f..7e736527 100644
+--- a/packages/frontend/synthesizer/src/interface/rpc/rpc.ts
++++ b/packages/frontend/synthesizer/src/interface/rpc/rpc.ts
+@@ -3,7 +3,10 @@ import { addHexPrefix, bigIntToHex, bytesToBigInt, createAddressFromString } fro
+ import { ethers } from "ethers"
+ import { SynthesizerOpts } from "../../synthesizer/types/index.ts"
+ import { jubjub } from "@noble/curves/misc.js"
+-import { NUMBER_OF_PREV_BLOCK_HASHES } from "../qapCompiler/importedConstants.ts"
++import {
++  installedSubcircuitLibrary,
++} from "../qapCompiler/index.ts"
++import type { ResolvedSubcircuitLibrary } from "../qapCompiler/libraryTypes.ts"
+ import { SynthesizerBlockInfo } from "./types.ts"
+ 
+ export type SynthesizerSimulationOpts = {
+@@ -65,11 +68,18 @@ export async function getBlockInfoFromRPC(
+ 	}
+ }
+ 
+-export async function createSynthesizerOptsForSimulationFromRPC(opts: SynthesizerSimulationOpts): Promise<SynthesizerOpts> {
++export async function createSynthesizerOptsForSimulationFromRPC(
++    opts: SynthesizerSimulationOpts,
++    subcircuitLibrary: ResolvedSubcircuitLibrary = installedSubcircuitLibrary,
++): Promise<SynthesizerOpts> {
+     if (typeof opts.rpcUrl !== 'string' || !opts.rpcUrl.startsWith('http')) {
+       throw new Error(`valid RPC provider url required; got ${opts.rpcUrl}`)
+     }
+-    const blockInfo = await getBlockInfoFromRPC(opts.rpcUrl, opts.blockNumber, NUMBER_OF_PREV_BLOCK_HASHES)
++    const blockInfo = await getBlockInfoFromRPC(
++      opts.rpcUrl,
++      opts.blockNumber,
++      subcircuitLibrary.numberOfPrevBlockHashes,
++    )
+ 
+     const common = createTokamakL2Common()
+ 
+diff --git a/packages/frontend/synthesizer/src/synthesizer/constructors.ts b/packages/frontend/synthesizer/src/synthesizer/constructors.ts
+index a2bf6378..cc13ebb7 100644
+--- a/packages/frontend/synthesizer/src/synthesizer/constructors.ts
++++ b/packages/frontend/synthesizer/src/synthesizer/constructors.ts
+@@ -1,7 +1,14 @@
+ import { Synthesizer } from "./synthesizer.ts"
+ import { SynthesizerInterface, SynthesizerOpts } from "./types/index.ts"
++import {
++  installedSubcircuitLibrary,
++} from '../interface/qapCompiler/index.ts';
++import type { ResolvedSubcircuitLibrary } from '../interface/qapCompiler/libraryTypes.ts';
+ 
+-export async function createSynthesizer(opts: SynthesizerOpts): Promise<SynthesizerInterface> {
+-  const synthesizer = new Synthesizer(opts)
++export async function createSynthesizer(
++  opts: SynthesizerOpts,
++  subcircuitLibrary: ResolvedSubcircuitLibrary = installedSubcircuitLibrary,
++): Promise<SynthesizerInterface> {
++  const synthesizer = new Synthesizer(opts, subcircuitLibrary)
+   return synthesizer
+-}
+\ No newline at end of file
++}
+diff --git a/packages/frontend/synthesizer/src/synthesizer/dataStructure/arithmeticOperations.ts b/packages/frontend/synthesizer/src/synthesizer/dataStructure/arithmeticOperations.ts
+index a1739407..11e68b76 100644
+--- a/packages/frontend/synthesizer/src/synthesizer/dataStructure/arithmeticOperations.ts
++++ b/packages/frontend/synthesizer/src/synthesizer/dataStructure/arithmeticOperations.ts
+@@ -1,6 +1,5 @@
+ import { jubjub } from "@noble/curves/misc.js"
+ import { poseidon_raw, poseidonChainCompress, POSEIDON_INPUTS } from 'tokamak-l2js'
+-import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE } from "../../interface/qapCompiler/importedConstants.ts"
+ import { DEFAULT_SOURCE_BIT_SIZE} from "../../synthesizer/params/index.ts"
+ 
+ const convertToSigned = (value: bigint): bigint => {
+@@ -11,6 +10,14 @@ const convertToSigned = (value: bigint): bigint => {
+  * Utility class for handling Synthesizer arithmetic operations
+  */
+ export class ArithmeticOperations {
++  private static _config: {
++    arithExpBatchSize: number;
++    jubjubExpBatchSize: number;
++  } = {
++    arithExpBatchSize: 0,
++    jubjubExpBatchSize: 0,
++  }
++
+   private static readonly MAX_UINT256 = (1n << 256n) - 1n
+   private static readonly SIGN_BIT = 1n << 255n
+    // N is 2^256, copied from opcodes/utils.ts. Used as modulo in EXP operations
+@@ -18,6 +25,20 @@ export class ArithmeticOperations {
+   private static readonly BLS12381MODULUS = jubjub.Point.Fp.ORDER
+   private static readonly JUBJUBMODULUS = jubjub.Point.Fn.ORDER
+   // Convert to signed integer (256-bit)
++
++  static configure(config: {
++    arithExpBatchSize: number;
++    jubjubExpBatchSize: number;
++  }): void {
++    ArithmeticOperations._config = config
++  }
++
++  private static _requireBatchSize(value: number, operationName: string): number {
++    if (!Number.isInteger(value) || value <= 0) {
++      throw new Error(`${operationName} batch size is not configured`)
++    }
++    return value
++  }
+   
+   /**
+    * Basic arithmetic operations
+@@ -320,7 +341,10 @@ export class ArithmeticOperations {
+       return res;
+     };
+ 
+-    const Nbits= ARITH_EXP_BATCH_SIZE
++    const Nbits = ArithmeticOperations._requireBatchSize(
++      ArithmeticOperations._config.arithExpBatchSize,
++      'SubExpBatch',
++    )
+     if (in_vals.length !== 2 + Nbits) {
+       throw new Error(`subExpBatch expected exactly ${2 + Nbits} input values, but got ${in_vals.length} values`)
+     }
+@@ -521,7 +545,10 @@ export class ArithmeticOperations {
+    * JubjubExpBatch
+    */
+   static jubjubExpBatch(in_vals: bigint[]): bigint[] {
+-    const Nbits= JUBJUB_EXP_BATCH_SIZE
++    const Nbits = ArithmeticOperations._requireBatchSize(
++      ArithmeticOperations._config.jubjubExpBatchSize,
++      'JubjubExpBatch',
++    )
+     if (in_vals.length !== 4 + Nbits) {
+       throw new Error(`jubjubExpBatch expected exactly ${4 + Nbits} input values, but got ${in_vals.length} values`)
+     }
+diff --git a/packages/frontend/synthesizer/src/synthesizer/handlers/arithmeticManager.ts b/packages/frontend/synthesizer/src/synthesizer/handlers/arithmeticManager.ts
+index 6dbdbd1a..366ed5fc 100644
+--- a/packages/frontend/synthesizer/src/synthesizer/handlers/arithmeticManager.ts
++++ b/packages/frontend/synthesizer/src/synthesizer/handlers/arithmeticManager.ts
+@@ -4,13 +4,17 @@ import { DataPtFactory } from '../dataStructure/index.ts';
+ import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
+ import { ArithmeticOperator, SUBCIRCUIT_ALU_MAPPING, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
+ import { ArithmeticOperations } from '../dataStructure/arithmeticOperations.ts';
+-import { ARITH_EXP_BATCH_SIZE, JUBJUB_EXP_BATCH_SIZE } from '../../interface/qapCompiler/importedConstants.ts';
+ import { MT_DEPTH, POSEIDON_INPUTS } from 'tokamak-l2js';
+ 
+ export class ArithmeticManager {
+   constructor(
+     private parent: ISynthesizerProvider
+-  ) {}
++  ) {
++    ArithmeticOperations.configure({
++      arithExpBatchSize: this.parent.subcircuitLibrary.arithExpBatchSize,
++      jubjubExpBatchSize: this.parent.subcircuitLibrary.jubjubExpBatchSize,
++    })
++  }
+ 
+   /**
+    * Creates the output data points for an arithmetic operation.
+@@ -290,7 +294,7 @@ export class ArithmeticManager {
+ 
+   public placeExp(inPts: DataPt[], reference?: bigint): DataPt {
+     // a^b
+-    const CHUNK_SIZE = ARITH_EXP_BATCH_SIZE
++    const CHUNK_SIZE = this.parent.subcircuitLibrary.arithExpBatchSize
+     const NUM_CHUNKS = Math.ceil(DEFAULT_SOURCE_BIT_SIZE / CHUNK_SIZE)
+     if (inPts.length !== DEFAULT_SOURCE_BIT_SIZE + 1) {
+       throw new Error('Invalid input to SubExp')
+@@ -349,7 +353,7 @@ export class ArithmeticManager {
+   }
+ 
+   public placeJubjubExp(inPts: DataPt[], PoI: DataPt[], reference?: bigint): DataPt[] {
+-    const CHUNK_SIZE = JUBJUB_EXP_BATCH_SIZE
++    const CHUNK_SIZE = this.parent.subcircuitLibrary.jubjubExpBatchSize
+     const NUM_CHUNKS = Math.ceil(DEFAULT_SOURCE_BIT_SIZE / CHUNK_SIZE)
+ 
+     if (inPts.length !== DEFAULT_SOURCE_BIT_SIZE + 2) {
+diff --git a/packages/frontend/synthesizer/src/synthesizer/handlers/bufferManager.ts b/packages/frontend/synthesizer/src/synthesizer/handlers/bufferManager.ts
+index ecca9244..6428b7cf 100644
+--- a/packages/frontend/synthesizer/src/synthesizer/handlers/bufferManager.ts
++++ b/packages/frontend/synthesizer/src/synthesizer/handlers/bufferManager.ts
+@@ -1,4 +1,3 @@
+-import { NUMBER_OF_PREV_BLOCK_HASHES, SUBCIRCUIT_BUFFER_MAPPING } from '../../interface/qapCompiler/importedConstants.ts';
+ import { bytesToBigInt, hexToBigInt, toBytes } from '@ethereumjs/util';
+ import { jubjub } from "@noble/curves/misc.js";
+ import { DataPt, DataPtDescription, ISynthesizerProvider, PlacementEntry, ReservedVariable, SynthesizerOpts, VARIABLE_DESCRIPTION } from '../types/index.ts';
+@@ -125,7 +124,7 @@ export class BufferManager {
+     // }
+ 
+     for (const buffer of BUFFER_LIST) {
+-      const subcircuit = SUBCIRCUIT_BUFFER_MAPPING[buffer];
++      const subcircuit = this.parent.subcircuitLibrary.subcircuitBufferMapping[buffer];
+       if (subcircuit === undefined) {
+         throw new Error(
+           `Could not find subcircuit info for placement '${buffer}'`,
+@@ -166,7 +165,7 @@ export class BufferManager {
+     this.addReservedVariableToBufferIn('CHAINID', hexToBigInt(this.cachedOpts.blockInfo.chainId))
+     this.addReservedVariableToBufferIn('SELFBALANCE', hexToBigInt(this.cachedOpts.blockInfo.selfBalance))
+     this.addReservedVariableToBufferIn('BASEFEE', hexToBigInt(this.cachedOpts.blockInfo.baseFee))
+-    for (let i = 1; i <=NUMBER_OF_PREV_BLOCK_HASHES; i++) {
++    for (let i = 1; i <= this.parent.subcircuitLibrary.numberOfPrevBlockHashes; i++) {
+       this.addReservedVariableToBufferIn(`BLOCKHASH_${i}` as ReservedVariable, hexToBigInt(this.cachedOpts.blockInfo.prevBlockHashes[i-1]));
+     }
+ 
+diff --git a/packages/frontend/synthesizer/src/synthesizer/handlers/instructionHandler.ts b/packages/frontend/synthesizer/src/synthesizer/handlers/instructionHandler.ts
+index 7b277bc2..256f3240 100644
+--- a/packages/frontend/synthesizer/src/synthesizer/handlers/instructionHandler.ts
++++ b/packages/frontend/synthesizer/src/synthesizer/handlers/instructionHandler.ts
+@@ -17,7 +17,6 @@ import { InterpreterStep } from '@ethereumjs/evm'
+ import { DEFAULT_SOURCE_BIT_SIZE } from '../../synthesizer/params/index.ts';
+ import { DataPtFactory, MemoryPt, StackPt } from '../dataStructure/index.ts';
+ import { ArithmeticOperator, TX_MESSAGE_TO_HASH } from '../../interface/qapCompiler/configuredTypes.ts';
+-import { NUMBER_OF_PREV_BLOCK_HASHES } from '../../interface/qapCompiler/importedConstants.ts';
+ import { FUNCTION_INPUT_LENGTH, MAX_MT_LEAVES } from 'tokamak-l2js';
+ import { ContextManager } from './stateManager.ts';
+ import { IMTMerkleProof } from '@zk-kit/imt';
+@@ -659,9 +658,9 @@ export class InstructionHandler {
+           dataPt = this.parent.loadArbitraryStatic(0n)
+           break
+         }
+-        if (blockNumberDiff > BigInt(NUMBER_OF_PREV_BLOCK_HASHES)) {
++        if (blockNumberDiff > BigInt(this.parent.subcircuitLibrary.numberOfPrevBlockHashes)) {
+           throw new Error(
+-            `Synthesizer: BLOCKHASH requires ${blockNumberDiff.toString()} previous block hashes, but qap-compiler nPrevBlockHashes is ${NUMBER_OF_PREV_BLOCK_HASHES}. Increase qap-compiler nPrevBlockHashes.`,
++            `Synthesizer: BLOCKHASH requires ${blockNumberDiff.toString()} previous block hashes, but qap-compiler nPrevBlockHashes is ${this.parent.subcircuitLibrary.numberOfPrevBlockHashes}. Increase qap-compiler nPrevBlockHashes.`,
+           )
+         }
+         dataPt = this.parent.getReservedVariableFromBuffer(`BLOCKHASH_${blockNumberDiff}` as ReservedVariable)
+diff --git a/packages/frontend/synthesizer/src/synthesizer/handlers/memoryManager.ts b/packages/frontend/synthesizer/src/synthesizer/handlers/memoryManager.ts
+index b78bd90a..920b8842 100644
+--- a/packages/frontend/synthesizer/src/synthesizer/handlers/memoryManager.ts
++++ b/packages/frontend/synthesizer/src/synthesizer/handlers/memoryManager.ts
+@@ -1,6 +1,5 @@
+ import { DataAliasInfoEntry, DataAliasInfos, DataPt, DataPtDescription, ISynthesizerProvider, MemoryPtEntry, MemoryPts } from '../types/index.ts';
+ import { DataPtFactory, MemoryPt } from '../dataStructure/index.ts';
+-import { ACCUMULATOR_INPUT_LIMIT } from '../../interface/qapCompiler/importedConstants.ts';
+ import { ArithmeticOperator, SUBCIRCUIT_ALU_MAPPING } from '../../interface/qapCompiler/configuredTypes.ts';
+ import { DEFAULT_SOURCE_BIT_SIZE } from '../params/index.ts';
+ 
+@@ -159,7 +158,7 @@ export class MemoryManager {
+       return transformedSlices[0];
+     }
+ 
+-    if (transformedSlices.length > ACCUMULATOR_INPUT_LIMIT) {
++    if (transformedSlices.length > this.parent.subcircuitLibrary.accumulatorInputLimit) {
+       throw new Error(
+         `Synthesizer: Go to qap-compiler and unlimit the number of inputs for the Accumulator.`,
+       );
+diff --git a/packages/frontend/synthesizer/src/synthesizer/handlers/stateManager.ts b/packages/frontend/synthesizer/src/synthesizer/handlers/stateManager.ts
+index 1575bb2a..348ea565 100644
+--- a/packages/frontend/synthesizer/src/synthesizer/handlers/stateManager.ts
++++ b/packages/frontend/synthesizer/src/synthesizer/handlers/stateManager.ts
+@@ -13,7 +13,6 @@ import {
+ } from '../types/index.ts';
+ import { MemoryPt, StackPt } from '../dataStructure/index.ts';
+ import { SubcircuitInfoByName, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
+-import { subcircuitInfoByName } from '../../interface/qapCompiler/importedConstants.ts';
+ import { InterpreterStep, Message } from '@ethereumjs/evm';
+ import { Address, bytesToBigInt } from '@ethereumjs/util';
+ 
+@@ -68,7 +67,7 @@ export class StateManager {
+ 
+   // public verifiedStorageMTIndices: [number, number][] = [] // [ADDRESS_INDEX, LEAF_INDEX]
+   // public cachedStorage: Map<string, Map<bigint, CachedStorageEntry[]>> = new Map() // Map<ADDRESS_STRING, Map<KEY, ENTRY>>
+-  public subcircuitInfoByName: SubcircuitInfoByName = subcircuitInfoByName;
++  public subcircuitInfoByName: SubcircuitInfoByName;
+ 
+   public cachedEVMIn: Map<bigint, Map<number, DataPt>> = new Map()
+   public cachedOrigin: DataPt | undefined = undefined
+@@ -80,6 +79,7 @@ export class StateManager {
+   constructor(parent: ISynthesizerProvider) {
+     this.parent = parent
+     this.cachedOpts = parent.cachedOpts
++    this.subcircuitInfoByName = parent.subcircuitLibrary.subcircuitInfoByName
+   }
+ 
+   public get placements(): Placements {
+diff --git a/packages/frontend/synthesizer/src/synthesizer/synthesizer.ts b/packages/frontend/synthesizer/src/synthesizer/synthesizer.ts
+index edb50ad8..ecd0bd55 100644
+--- a/packages/frontend/synthesizer/src/synthesizer/synthesizer.ts
++++ b/packages/frontend/synthesizer/src/synthesizer/synthesizer.ts
+@@ -7,6 +7,7 @@ import { EVMResult, InterpreterStep, Message } from '@ethereumjs/evm';
+ import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable, SynthesizerInterface, SynthesizerOpts, SynthesizerStepLogEntry, SynthesizerSupportedOpcodes } from './types/index.ts';
+ import { ArithmeticManager, BufferManager, ContextConstructionData, ContextManager, InstructionHandler, MemoryManager, StateManager, SynthesizerOpHandler } from './handlers/index.ts';
+ import { ArithmeticOperator, SubcircuitNames } from '../interface/qapCompiler/configuredTypes.ts';
++import type { ResolvedSubcircuitLibrary } from '../interface/qapCompiler/libraryTypes.ts';
+ import { DataPtFactory } from './dataStructure/dataPt.ts';
+ import { TypedTransaction } from '@ethereumjs/tx';
+ import { MemoryPt } from './dataStructure/memoryPt.ts';
+@@ -24,12 +25,14 @@ export class Synthesizer implements SynthesizerInterface
+   protected _bufferManager: BufferManager
+   protected _instructionHandlers: InstructionHandler
+   public readonly cachedOpts: SynthesizerOpts
++  public readonly subcircuitLibrary: ResolvedSubcircuitLibrary
+   private _stepLogs: SynthesizerStepLogEntry[]
+   private _messageCodeAddresses: Set<`0x${string}`>
+ 
+   // @deprecated
+-  constructor(opts: SynthesizerOpts) {
++  constructor(opts: SynthesizerOpts, subcircuitLibrary: ResolvedSubcircuitLibrary) {
+     this.cachedOpts = opts
++    this.subcircuitLibrary = subcircuitLibrary
+     this._state = new StateManager(this)
+     this._bufferManager = new BufferManager(this)
+     this._arithmeticManager = new ArithmeticManager(this)
+diff --git a/packages/frontend/synthesizer/src/synthesizer/types/synthesizer.ts b/packages/frontend/synthesizer/src/synthesizer/types/synthesizer.ts
+index 985affa6..b3e0a287 100644
+--- a/packages/frontend/synthesizer/src/synthesizer/types/synthesizer.ts
++++ b/packages/frontend/synthesizer/src/synthesizer/types/synthesizer.ts
+@@ -6,6 +6,7 @@ import { StateManager } from '../handlers/index.ts';
+ import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable } from './index.ts';
+ import { SynthesizerOpHandler } from '../handlers/instructionHandler.ts';
+ import { ArithmeticOperator, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
++import type { ResolvedSubcircuitLibrary } from '../../interface/qapCompiler/libraryTypes.ts';
+ import { SynthesizerBlockInfo } from 'src/interface/index.ts';
+ 
+ export interface SynthesizerOpts {
+@@ -26,6 +27,7 @@ export interface SynthesizerInterface {
+   get placements(): Placements
+   get stepLogs(): SynthesizerStepLogEntry[]
+   get messageCodeAddresses(): Set<`0x${string}`>
++  readonly subcircuitLibrary: ResolvedSubcircuitLibrary
+   synthesizeTX(): Promise<RunTxResult>
+   cachedOpts: SynthesizerOpts
+ }
