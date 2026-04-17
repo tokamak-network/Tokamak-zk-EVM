@@ -47,6 +47,7 @@
   ],
   "scripts": {
     "build": "../../../config/monorepo-js/cli/ts-build.sh",
+    "build:package": "node scripts/build-package.mjs",
     "clean": "../../../config/monorepo-js//cli/clean-package.sh",
     "cli": "tsx --tsconfig tsconfig.dev.json src/interface/cli/index.ts",
     "docs:build": "typedoc --options typedoc.cjs",
@@ -73,7 +74,8 @@
     "test:private-state-redeem": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-private-state-redeem-main-from-configs.ts",
     "test:private-state-redeem:prep": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-private-state-redeem-config-matrix.ts",
     "test:node": "npm run -s test",
-    "tsc": "../../../config/monorepo-js//cli/ts-compile.sh"
+    "tsc": "../../../config/monorepo-js//cli/ts-compile.sh",
+    "prepack": "npm run build:package"
   },
   "dependencies": {
     "@ethereumjs/block": "^10.0.0",
@@ -86,7 +88,6 @@
     "@ethereumjs/vm": "^10.0.0",
     "@js-sdsl/ordered-map": "^4.4.2",
     "@noble/curves": "1.9.7",
-    "@tokamak-zk-evm/qap-compiler": "^0.0.2",
     "@tokamak-zk-evm/subcircuit-library": "^1.0.0",
     "@types/debug": "^4.1.9",
     "@vitest/coverage-v8": "^2.1.8",

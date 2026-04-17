@@ -121,12 +121,14 @@ program
 
 // Check if this file is being run directly (works for both CommonJS and ES modules)
 const isMainModule = (() => {
-  try {
-    // ES modules
-    return import.meta.url === `file://${process.argv[1]}`;
-  } catch {
-    // CommonJS
+  if (typeof require !== 'undefined' && typeof module !== 'undefined') {
     return require.main === module;
+  }
+
+  try {
+    return require.main === module;
+  } catch {
+    return import.meta.url === `file://${process.argv[1]}`;
   }
 })();
 

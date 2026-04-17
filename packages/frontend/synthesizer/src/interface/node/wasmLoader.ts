@@ -28,14 +28,19 @@ function getBaseURL(): URL {
     throw new Error("getBaseURL must run on the server");
   }
 
+  const subcircuitLibraryRoot = path.dirname(
+    typeof require !== 'undefined' && typeof require.resolve === 'function'
+      ? require.resolve('@tokamak-zk-evm/subcircuit-library/package.json')
+      : fileURLToPath(import.meta.resolve('@tokamak-zk-evm/subcircuit-library/package.json')),
+  );
+
   if ((process as any).isBun && (process as any).execPath) {
     const execPath = (process as any).execPath as string;
     const execDir = path.dirname(execPath);
     return pathToFileURL(path.resolve(execDir, "../resource/qap-compiler") + path.sep);
   }
 
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  return pathToFileURL(path.resolve(here, "../../../../qap-compiler/subcircuits") + path.sep);
+  return pathToFileURL(path.resolve(subcircuitLibraryRoot, "subcircuits") + path.sep);
 }
 
 const BASE_URL = getBaseURL();
