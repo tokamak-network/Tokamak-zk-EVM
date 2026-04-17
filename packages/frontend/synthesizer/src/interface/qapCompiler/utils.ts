@@ -8,15 +8,6 @@ import {
   SubcircuitNames,
 } from './configuredTypes.ts';
 
-
-// -----------------------------------------------------------------------------
-// Helpers: URL-based JSON loader + tiny runtime validators
-// -----------------------------------------------------------------------------
-// export async function readJson(u: URL): Promise<unknown> {
-//   // Convert URL → filesystem path and parse JSON
-//   return JSON.parse(await readFile(fileURLToPath(u), 'utf8')) as unknown;
-// }
-
 export function createInfoByName(subcircuitInfo: SubcircuitInfo): SubcircuitInfoByName {
   const subcircuitInfoByName = new Map<
     SubcircuitNames,
@@ -35,7 +26,7 @@ export function createInfoByName(subcircuitInfo: SubcircuitInfo): SubcircuitInfo
       flattenMap: subcircuit.flattenMap,
     };
 
-    subcircuitInfoByName.set(subcircuit.name as SubcircuitNames, entryObject);
+    subcircuitInfoByName.set(subcircuit.name, entryObject);
   }
 
   return subcircuitInfoByName;
