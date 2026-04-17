@@ -1,13 +1,12 @@
 [32mtemplate instances[0m: 5
 non-linear constraints: 19
-linear constraints: 0
+linear constraints: 7
 public inputs: 0
-public outputs: 0
 private inputs: 12
-private outputs: 0
-wires: 27
+public outputs: 0
+wires: 34
 labels: 78
-[32mWritten successfully:[0m subcircuits/library/EdDsaVerify_circuit.r1cs
-[32mConstraints written in:[0m subcircuits/library/EdDsaVerify_circuit_constraints.json
-[32mWritten successfully:[0m subcircuits/library/EdDsaVerify_circuit_js/EdDsaVerify_circuit.wasm
-[32mEverything went okay, circom safe[0m
+[32mWritten successfully:[0m /Users/jehyuk/Documents/repo/Tokamak-zk-EVM/packages/frontend/qap-compiler/scripts/../subcircuits/library/EdDsaVerify_circuit.r1cs
+[32mConstraints written in:[0m /Users/jehyuk/Documents/repo/Tokamak-zk-EVM/packages/frontend/qap-compiler/scripts/../subcircuits/library/EdDsaVerify_circuit_constraints.json
+[32mWritten successfully:[0m /Users/jehyuk/Documents/repo/Tokamak-zk-EVM/packages/frontend/qap-compiler/scripts/../subcircuits/library/EdDsaVerify_circuit_js/EdDsaVerify_circuit.wasm
+[32mEverything went okay[0m

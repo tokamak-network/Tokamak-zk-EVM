@@ -36,6 +36,7 @@ const publishedPackage = {
   description: 'A library set of subcircuits for Tokamak zk-EVM',
   keywords: rootPackage.keywords,
   homepage: rootPackage.homepage,
+  repository: rootPackage.repository,
   bugs: rootPackage.bugs,
   license: rootPackage.license,
   publishConfig: rootPackage.publishConfig,

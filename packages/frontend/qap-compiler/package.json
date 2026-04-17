@@ -13,6 +13,11 @@
     "tokamak-network"
   ],
   "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/frontend/qap-compiler#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tokamak-network/tokamak-zk-evm.git",
+    "directory": "packages/frontend/qap-compiler"
+  },
   "bugs": {
     "url": "https://github.com/tokamak-network/tokamak-zk-evm/issues"
   },

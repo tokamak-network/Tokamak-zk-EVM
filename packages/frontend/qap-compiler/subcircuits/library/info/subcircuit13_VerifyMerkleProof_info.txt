@@ -1,13 +1,12 @@
 [32mtemplate instances[0m: 74
-non-linear constraints: 1488
-linear constraints: 2
+non-linear constraints: 1512
+linear constraints: 2366
 public inputs: 21
-public outputs: 0
 private inputs: 0
-private outputs: 0
-wires: 1512
+public outputs: 0
+wires: 3894
 labels: 6836
-[32mWritten successfully:[0m subcircuits/library/VerifyMerkleProof_circuit.r1cs
-[32mConstraints written in:[0m subcircuits/library/VerifyMerkleProof_circuit_constraints.json
-[32mWritten successfully:[0m subcircuits/library/VerifyMerkleProof_circuit_js/VerifyMerkleProof_circuit.wasm
-[32mEverything went okay, circom safe[0m
+[32mWritten successfully:[0m /Users/jehyuk/Documents/repo/Tokamak-zk-EVM/packages/frontend/qap-compiler/scripts/../subcircuits/library/VerifyMerkleProof_circuit.r1cs
+[32mConstraints written in:[0m /Users/jehyuk/Documents/repo/Tokamak-zk-EVM/packages/frontend/qap-compiler/scripts/../subcircuits/library/VerifyMerkleProof_circuit_constraints.json
+[32mWritten successfully:[0m /Users/jehyuk/Documents/repo/Tokamak-zk-EVM/packages/frontend/qap-compiler/scripts/../subcircuits/library/VerifyMerkleProof_circuit_js/VerifyMerkleProof_circuit.wasm
+[32mEverything went okay[0m
