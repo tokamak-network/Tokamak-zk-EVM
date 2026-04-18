@@ -9,12 +9,12 @@ The recommendation assumes that backward compatibility is not required. The goal
 
 ## Target outcome
 
-Publish four packages with explicit responsibilities:
+Publish three packages with explicit responsibilities and keep one internal module:
 
 1. `@tokamak-zk-evm/subcircuit-library`
-2. `@tokamak-zk-evm/synthesizer-core`
-3. `@tokamak-zk-evm/synthesizer-node`
-4. `@tokamak-zk-evm/synthesizer-browser`
+2. `@tokamak-zk-evm/synthesizer-node`
+3. `@tokamak-zk-evm/synthesizer-web`
+4. `packages/frontend/synthesizer/core`
 
 ### Package responsibilities
 
@@ -23,20 +23,21 @@ Publish four packages with explicit responsibilities:
   - Exposes a stable manifest API.
   - Does not contain CLI logic or synthesis logic.
 
-- `@tokamak-zk-evm/synthesizer-core`
-  - Owns all environment-neutral synthesis logic.
-  - Contains the `Synthesizer`, circuit generation, shared types, and subcircuit metadata derivation logic.
-  - Does not import `node:*`, `commander`, `fs`, `path`, `process`, or browser globals.
-
 - `@tokamak-zk-evm/synthesizer-node`
   - Owns the published CLI.
   - Owns Node-specific asset loading, RPC helpers, and file output helpers.
-  - Depends on `@tokamak-zk-evm/synthesizer-core` and `@tokamak-zk-evm/subcircuit-library`.
+  - Depends on the internal `core` module and `@tokamak-zk-evm/subcircuit-library`.
 
-- `@tokamak-zk-evm/synthesizer-browser`
+- `@tokamak-zk-evm/synthesizer-web`
   - Owns the browser library surface.
   - Owns browser-specific asset loading and optional worker helpers.
-  - Depends on `@tokamak-zk-evm/synthesizer-core`.
+  - Depends on the internal `core` module.
+
+- `packages/frontend/synthesizer/core`
+  - Owns all environment-neutral synthesis logic.
+  - Contains the `Synthesizer`, circuit generation, shared types, and subcircuit metadata derivation logic.
+  - Is not published as a standalone npm package.
+  - Does not import `node:*`, `commander`, `fs`, `path`, `process`, or browser globals.
 
 ## Why this structure
 
@@ -56,9 +57,9 @@ This works for a Node package, but it is the wrong boundary for a browser librar
 
 ## Required architectural rule
 
-`synthesizer-core` must not read subcircuit assets directly from the installed package or the filesystem.
+`core` must not read subcircuit assets directly from the installed package or the filesystem.
 
-Instead, `synthesizer-core` must accept a provider interface.
+Instead, `core` must accept a provider interface.
 
 ```ts
 export interface SubcircuitLibraryData {
@@ -74,7 +75,7 @@ export interface SubcircuitLibraryProvider {
 }
 ```
 
-`synthesizer-core` should then derive all computed constants from `SubcircuitLibraryData` through a pure function.
+`core` should then derive all computed constants from `SubcircuitLibraryData` through a pure function.
 
 ```ts
 export interface ResolvedSubcircuitLibrary {
@@ -100,7 +101,7 @@ as core runtime assumptions.
 
 ## Current code to target package mapping
 
-### Move to `@tokamak-zk-evm/synthesizer-core`
+### Move to the internal `core` module
 
 These modules are already close to environment-neutral logic:
 
@@ -118,10 +119,10 @@ Required change before moving:
   - constructor injection, or
   - a runtime context object created from `ResolvedSubcircuitLibrary`
 
-Recommended new location structure:
+Recommended location structure:
 
 ```text
-packages/frontend/synthesizer/synthesizer-core/src/
+packages/frontend/synthesizer/core/src/
   circuitGenerator/
   synthesizer/
   subcircuits/
@@ -144,7 +145,7 @@ These modules are Node-specific:
 Recommended new location structure:
 
 ```text
-packages/frontend/synthesizer-node/src/
+packages/frontend/synthesizer/node-cli/src/
   cli/
     index.ts
   provider/
@@ -157,12 +158,12 @@ packages/frontend/synthesizer-node/src/
   index.ts
 ```
 
-### Create in `@tokamak-zk-evm/synthesizer-browser`
+### Create in `@tokamak-zk-evm/synthesizer-web`
 
 These do not exist yet and should be introduced as browser-specific adapters:
 
 ```text
-packages/frontend/synthesizer-browser/src/
+packages/frontend/synthesizer/web-library/src/
   provider/
     fetchSubcircuitLibrary.ts
   worker/
@@ -197,13 +198,13 @@ The Node target is a built CLI package.
 - browser asset loading
 - browser worker orchestration
 
-## Browser library package design
+## Web library package design
 
 The browser target is a library, not an application.
 
 ### Published surface
 
-- package name: `@tokamak-zk-evm/synthesizer-browser`
+- package name: `@tokamak-zk-evm/synthesizer-web`
 - output format: ESM
 - no CLI
 - no filesystem APIs
@@ -237,7 +238,7 @@ export async function createBrowserSynthesizerRuntime(opts: {
 
 ## Core runtime API design
 
-The core package should expose a pure API that both targets can share.
+The internal `core` module should expose a pure API that both targets can share.
 
 ### Recommended runtime shape
 
@@ -282,16 +283,12 @@ Use bundlers for runtime outputs and TypeScript only for type checking and decla
 
 ### Suggested build tool split
 
-- `synthesizer-core`
-  - `tsup` or `esbuild`
-  - no Node builtins in source
-
 - `synthesizer-node`
   - `esbuild` or `tsup` for the CLI bundle
   - platform target: `node`
   - keep the shebang in the CLI entry
 
-- `synthesizer-browser`
+- `synthesizer-web`
   - `vite` library mode or `tsup`
   - optional worker bundle handled in the same package
 
@@ -324,7 +321,7 @@ Recommended runtime helpers:
 - `createNodeSubcircuitLibraryProvider()`
 - `createFetchSubcircuitLibraryProvider(baseUrl)`
 
-If these helpers live in the subcircuit library package itself, the Synthesizer packages become even thinner. If not, keep them in `synthesizer-node` and `synthesizer-browser`.
+If these helpers live in the subcircuit library package itself, the Synthesizer packages become even thinner. If not, keep them in `synthesizer-node` and `synthesizer-web`.
 
 ## Migration sequence
 
@@ -341,27 +338,27 @@ Exit criteria:
 
 - the current package can run end-to-end without core code importing Node APIs
 
-### Phase 2: split `synthesizer-core`
+### Phase 2: move environment-neutral code into `core`
 
-1. Move environment-neutral source files into a new `synthesizer-core` package.
-2. Add a narrow public API only for runtime creation, synthesis, and artifact generation.
-3. Publish only library outputs and type declarations.
+1. Move environment-neutral source files into `packages/frontend/synthesizer/core`.
+2. Keep a narrow public API only for runtime creation, synthesis, and artifact generation.
+3. Keep the module private to the repository.
 
 Exit criteria:
 
-- `synthesizer-core` builds with no Node-only imports
+- `core` builds with no Node-only imports
 
 ### Phase 3: split `synthesizer-node`
 
-1. Move CLI, RPC, filesystem output, and node asset loading into `synthesizer-node`.
+1. Move CLI, RPC, filesystem output, and node asset loading into `synthesizer/node-cli`.
 2. Keep the published `bin` here.
-3. Make `synthesizer-node` depend on `synthesizer-core` and `subcircuit-library`.
+3. Make `synthesizer-node` depend on `core` and `subcircuit-library`.
 
 Exit criteria:
 
 - a clean `npx @tokamak-zk-evm/synthesizer-node ...` flow exists
 
-### Phase 4: create `synthesizer-browser`
+### Phase 4: create `synthesizer-web`
 
 1. Add fetch-based asset loading.
 2. Add a browser-facing runtime factory.
@@ -369,7 +366,7 @@ Exit criteria:
 
 Exit criteria:
 
-- a bundler can import `@tokamak-zk-evm/synthesizer-browser` into a web application without Node polyfills
+- a bundler can import `@tokamak-zk-evm/synthesizer-web` into a web application without Node polyfills
 
 ## File-by-file refactor priorities
 
@@ -385,7 +382,7 @@ These files are the first pressure points to change:
    - Keep in Node only. Core should return data structures, not write files.
 
 4. `src/interface/cli/index.ts`
-   - Keep in Node only. It should become a thin adapter over `synthesizer-core`.
+   - Keep in Node only. It should become a thin adapter over `core`.
 
 5. any module that imports `importedConstants.ts`
    - Change to receive a resolved subcircuit runtime object through dependency injection.
@@ -405,8 +402,8 @@ The migration is complete only if all of the following are true:
 The recommended long-term shape is:
 
 - `subcircuit-library` publishes assets and manifest
-- `synthesizer-core` owns all pure synthesis logic
+- `packages/frontend/synthesizer/core` owns all pure synthesis logic
 - `synthesizer-node` owns the CLI and Node integrations
-- `synthesizer-browser` owns the browser library adapters
+- `synthesizer-web` owns the browser library adapters
 
 Do not try to keep one package that directly mixes CLI, filesystem, installed assets, and reusable browser logic. That boundary is the current source of friction and will keep breaking both targets in different ways.
