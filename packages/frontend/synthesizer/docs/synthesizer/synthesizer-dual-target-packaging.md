@@ -121,7 +121,7 @@ Required change before moving:
 Recommended new location structure:
 
 ```text
-packages/frontend/synthesizer-core/src/
+packages/frontend/synthesizer/synthesizer-core/src/
   circuitGenerator/
   synthesizer/
   subcircuits/

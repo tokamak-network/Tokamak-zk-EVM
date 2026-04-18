@@ -2,7 +2,7 @@
   "name": "@tokamak-zk-evm/synthesizer-core",
   "version": "0.0.10",
   "description": "Environment-neutral core logic for the Tokamak zk-EVM synthesizer.",
-  "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/frontend/synthesizer-core#readme",
+  "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/frontend/synthesizer/synthesizer-core#readme",
   "bugs": {
     "url": "https://github.com/tokamak-network/tokamak-zk-evm/issues"
   },

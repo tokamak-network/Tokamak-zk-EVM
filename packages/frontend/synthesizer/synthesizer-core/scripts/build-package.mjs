@@ -1,5 +1,6 @@
 import { build } from 'esbuild';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +10,8 @@ const rootDir = path.resolve(here, '..');
 const distDir = path.join(rootDir, 'dist');
 const cjsDir = path.join(distDir, 'cjs');
 const esmDir = path.join(distDir, 'esm');
+const require = createRequire(import.meta.url);
+const tscPath = require.resolve('typescript/bin/tsc');
 const packageJson = JSON.parse(
   await fs.readFile(path.join(rootDir, 'package.json'), 'utf-8'),
 );
@@ -31,7 +34,7 @@ const baseConfig = {
 };
 
 const tscArgs = [
-  path.join(rootDir, 'node_modules', 'typescript', 'bin', 'tsc'),
+  tscPath,
   'src/index.ts',
   '--declaration',
   '--emitDeclarationOnly',

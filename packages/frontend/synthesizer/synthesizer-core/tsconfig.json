@@ -1,5 +1,5 @@
 {
-  "extends": "../../../config/monorepo-js/tsconfig.json",
+  "extends": "../../../../config/monorepo-js/tsconfig.json",
   "compilerOptions": {
     "allowImportingTsExtensions": true,
     "emitDeclarationOnly": true,

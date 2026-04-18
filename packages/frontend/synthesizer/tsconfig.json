@@ -10,6 +10,11 @@
     "allowJs": true,
     "declaration": true,
     "baseUrl": ".",
+    "paths": {
+      "@tokamak-zk-evm/synthesizer-core": [
+        "./synthesizer-core/src/index.ts"
+      ]
+    },
     "composite": true,
     "preserveSymlinks": true
   },
