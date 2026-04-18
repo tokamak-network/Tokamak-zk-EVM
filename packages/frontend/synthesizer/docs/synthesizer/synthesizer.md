@@ -9,7 +9,7 @@ Tokamak zk-EVM Synthesizer interprets an Ethereum transaction with a Tokamak L2 
 - [Execution Flow](./synthesizer-execution-flow.md) – Step-by-step run from RPC fetch to circuit files
 - [Transaction Flow](./synthesizer-transaction-flow.md) – What happens while the VM executes opcodes
 - [Architecture](./synthesizer-architecture.md) – Components and how they fit together
-- [Dual-Target Packaging Plan](./synthesizer-dual-target-packaging.md) – Recommended package split for a Node CLI and a browser library
+- [Dual-Target Packaging Plan](./synthesizer-dual-target-packaging.md) – Recommended package split for a Node CLI and a browser app package
 - [Class Structure](./synthesizer-class-structure.md) – Key classes and responsibilities
 - [Data Structures](./synthesizer-data-structure.md) – DataPt, MemoryPts, StackPt, and caches
 - [Output Files](./synthesizer-output-files.md) – placementVariables, instance, and permutation formats

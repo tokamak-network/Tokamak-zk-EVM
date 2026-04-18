@@ -10,9 +10,9 @@ This directory is now a container for the split Synthesizer codebase.
 - `node-cli/`
   - Published as `@tokamak-zk-evm/synthesizer-node`.
   - Owns the Node CLI, RPC helpers, installed subcircuit loading, and filesystem output helpers.
-- `web-library/`
+- `web-app/`
   - Published as `@tokamak-zk-evm/synthesizer-web`.
-  - Owns the browser-compatible library surface.
+  - Owns the browser-compatible app surface and browser adapters.
 - `docs/`
   - Design and architecture documents shared across the split packages.
 
@@ -24,5 +24,5 @@ This directory is now a container for the split Synthesizer codebase.
 ## Shared rules
 
 - `core/` must stay environment-neutral.
-- `node-cli/` and `web-library/` may depend on `core/`.
-- `node-cli/` and `web-library/` must not depend on each other.
+- `node-cli/` and `web-app/` may depend on `core/`.
+- `node-cli/` and `web-app/` must not depend on each other.

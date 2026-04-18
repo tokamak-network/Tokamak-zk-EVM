@@ -3,7 +3,7 @@
 This document defines the recommended packaging model for the Synthesizer when it must be shipped in two forms:
 
 - a built CLI for Node.js users
-- a browser-compatible library, not a browser application
+- a browser-compatible app package with callable synthesis functions
 
 The recommendation assumes that backward compatibility is not required. The goal is to choose a structure that stays valid for both targets instead of extending the current Node-first package layout.
 
@@ -29,8 +29,8 @@ Publish three packages with explicit responsibilities and keep one internal modu
   - Depends on the internal `core` module and `@tokamak-zk-evm/subcircuit-library`.
 
 - `@tokamak-zk-evm/synthesizer-web`
-  - Owns the browser library surface.
-  - Owns browser-specific asset loading and optional worker helpers.
+  - Owns the browser app surface.
+  - Owns browser-specific input loading, asset loading, and output adapters.
   - Depends on the internal `core` module.
 
 - `packages/frontend/synthesizer/core`
@@ -53,7 +53,7 @@ That coupling is the reason one package has to solve incompatible concerns at on
 - `src/interface/node/jsonWriter.ts` and `src/interface/node/wasmLoader.ts` require filesystem access.
 - `src/interface/qapCompiler/importedConstants.ts` imports installed package assets directly instead of receiving them through an abstraction.
 
-This works for a Node package, but it is the wrong boundary for a browser library. The browser target needs the same synthesis logic with different asset loading and no filesystem or CLI dependencies.
+This works for a Node package, but it is the wrong boundary for a browser app package. The browser target needs the same synthesis logic with different asset loading and no filesystem or CLI dependencies.
 
 ## Required architectural rule
 
@@ -163,7 +163,7 @@ packages/frontend/synthesizer/node-cli/src/
 These do not exist yet and should be introduced as browser-specific adapters:
 
 ```text
-packages/frontend/synthesizer/web-library/src/
+packages/frontend/synthesizer/web-app/src/
   provider/
     fetchSubcircuitLibrary.ts
   worker/
@@ -404,6 +404,6 @@ The recommended long-term shape is:
 - `subcircuit-library` publishes assets and manifest
 - `packages/frontend/synthesizer/core` owns all pure synthesis logic
 - `synthesizer-node` owns the CLI and Node integrations
-- `synthesizer-web` owns the browser library adapters
+- `synthesizer-web` owns the browser app adapters
 
 Do not try to keep one package that directly mixes CLI, filesystem, installed assets, and reusable browser logic. That boundary is the current source of friction and will keep breaking both targets in different ways.

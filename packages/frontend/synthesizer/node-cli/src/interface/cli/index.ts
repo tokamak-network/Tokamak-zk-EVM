@@ -1,40 +1,15 @@
 #!/usr/bin/env node
 
 import { program } from 'commander';
-import {
-  createTokamakL2Common,
-  createTokamakL2StateManagerFromStateSnapshot,
-  fromEdwardsToAddress,
-  StateSnapshot,
-  TokamakL2StateManagerSnapshotOpts,
-  TxSnapshot,
-  createTokamakL2TxFromSnapshot,
-} from 'tokamak-l2js';
-import {
-  createCircuitGenerator,
-  type SynthesizerOpts,
-} from '../../core.ts';
-import { createSynthesizer } from 'src/synthesizer/constructors.ts';
+import { StateSnapshot, TxSnapshot } from 'tokamak-l2js';
+import { synthesizeFromSnapshotInput } from '../../core.ts';
 import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
-import { addHexPrefix, createAccount, createAddressFromString, hexToBytes } from '@ethereumjs/util';
 import { readJson } from './utils/node.ts';
-import { writeCircuitJson, writeStateSnapshotJson } from '../node/jsonWriter.ts';
+import { writeSynthesisOutputJson } from '../node/jsonWriter.ts';
 import { SynthesizerBlockInfo } from '../rpc/types.ts';
+import { installedSubcircuitLibrary } from '../qapCompiler/installedLibrary.ts';
 
 program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthesizer').version('0.9.0');
-
-async function seedSenderNonceFromTransactionSnapshot(
-  stateManager: Awaited<ReturnType<typeof createTokamakL2StateManagerFromStateSnapshot>>,
-  transactionSnapshot: TxSnapshot,
-) {
-  const senderPubKey = hexToBytes(addHexPrefix(transactionSnapshot.senderPubKey));
-  const senderAddress = createAddressFromString(fromEdwardsToAddress(senderPubKey).toString());
-  const senderAccount = createAccount({
-    nonce: BigInt(transactionSnapshot.nonce),
-    balance: 0n,
-  });
-  await stateManager.putAccount(senderAddress, senderAccount);
-}
 
 program
   .command('tokamak-ch-tx')
@@ -48,68 +23,25 @@ program
       console.log('🔄 Executing L2 State Channel Transfer...');
       console.log('');
 
-      const common = createTokamakL2Common();
-
       const previousState = readJson<StateSnapshot>(options.previousState);
       const previousStateRoots = previousState.stateRoots;
       console.log(`   ✅ Previous state roots: ${previousStateRoots.join(', ')}`);
 
       const transactionSnapshot = readJson<TxSnapshot>(options.transaction);
-      const transaction = createTokamakL2TxFromSnapshot(transactionSnapshot, { common });
-
       const contractCodesStr =  readJson<{address: string, code: string}[]>(options.contractCode);
-      const stateManagerOpts: TokamakL2StateManagerSnapshotOpts = {
-        contractCodes: contractCodesStr.map(entry => ({
-          address: createAddressFromString(entry.address),
-          code: addHexPrefix(entry.code),
-        })),
-      }
-      const stateManager = await createTokamakL2StateManagerFromStateSnapshot(previousState, stateManagerOpts);
-      await seedSenderNonceFromTransactionSnapshot(stateManager, transactionSnapshot);
-
       const blockInfo = readJson<SynthesizerBlockInfo>(options.blockInfo);
 
-      const synthesizerOpts: SynthesizerOpts = {
-        stateManager,
-        blockInfo,
-        signedTransaction: transaction,
-      }
-
-      console.log('[SynthesizerAdapter] Creating synthesizer with restored state...');
-      const synthesizer = await createSynthesizer(synthesizerOpts);
-
-      console.log('[SynthesizerAdapter] Executing transaction...');
-      try {
-        await synthesizer.synthesizeTX();
-      } catch (error: any) {
-        console.error('\n❌ [SynthesizerAdapter] CRITICAL ERROR: Synthesizer execution failed!');
-        console.error(`   Error: ${error.message || error}`);
-        if (error.stack) {
-          const stackLines = error.stack.split('\n').slice(0, 10);
-          console.error(`   Stack trace:\n${stackLines.join('\n')}`);
-        }
-        throw new Error(`Synthesizer execution failed: ${error.message || error}`);
-      }
-
-      // Export final state
-      const finalState = await stateManager.captureStateSnapshot();
-      console.log(`[SynthesizerAdapter] ✅ Final state exported with roots: ${finalState.stateRoots.join(', ')}`);
-
       console.log('[SynthesizerAdapter] Generating circuit outputs...');
-      const wasmBuffers = loadSubcircuitWasm();
-      const circuitGenerator = await createCircuitGenerator(synthesizer, wasmBuffers);
-      const circuitArtifacts = circuitGenerator.getArtifacts();
+      const output = await synthesizeFromSnapshotInput({
+        previousState,
+        transaction: transactionSnapshot,
+        blockInfo,
+        contractCodes: contractCodesStr,
+        subcircuitLibrary: installedSubcircuitLibrary,
+        wasmBuffers: loadSubcircuitWasm(),
+      });
 
-      const placementVariables = circuitArtifacts.placementVariables;
-      const a_pub = circuitArtifacts.publicInstance;
-      const permutation = circuitArtifacts.permutation;
-
-      if (placementVariables === undefined || a_pub === undefined || permutation === undefined ) {
-        throw new Error('[SynthesizerAdapter] CircuitGenerator falls into failure.')
-      }
-
-      writeCircuitJson(circuitArtifacts);
-      writeStateSnapshotJson(finalState);
+      writeSynthesisOutputJson(output);
       console.log(`[SynthesizerAdapter] ✅ Outputs written`);
 
     } catch (error: any) {

@@ -2,7 +2,9 @@ import path from "node:path";
 import fsPromises from "node:fs/promises";
 import {
   CircuitGenerator,
+  createSynthesisOutputJsonFiles,
   type CircuitArtifacts,
+  type SynthesisOutput,
   type SynthesizerInterface,
 } from "../../core.ts";
 import appRootPath from "app-root-path";
@@ -73,6 +75,23 @@ export function writeCircuitJson(
         console.log(`Synthesizer: Permutation rule is generated in '${permPath}'.`);
     } catch (error) {
         throw new Error('Synthesizer: Failure in writing outputs.');
+    }
+}
+
+export function writeSynthesisOutputJson(output: SynthesisOutput, outputDir?: string): void {
+    const files = createSynthesisOutputJsonFiles(output);
+
+    for (const [fileName, jsonContent] of Object.entries(files)) {
+        const filePath =
+            outputDir === undefined
+                ? path.resolve(appRootPath.path, 'outputs', fileName)
+                : path.resolve(appRootPath.path, outputDir, fileName);
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(filePath, jsonContent, 'utf-8');
+        console.log(`Synthesizer: Success in writing '${filePath}'.`);
     }
 }
 

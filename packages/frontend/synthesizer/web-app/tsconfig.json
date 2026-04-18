@@ -11,6 +11,7 @@
     "allowJs": true,
     "declaration": true,
     "baseUrl": ".",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "rootDir": "..",
     "composite": true,
     "preserveSymlinks": true

@@ -1,8 +1,8 @@
 {
   "name": "@tokamak-zk-evm/synthesizer-web",
   "version": "0.0.10",
-  "description": "Browser-compatible Tokamak zk-EVM synthesizer library.",
-  "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/frontend/synthesizer/web-library#readme",
+  "description": "Browser-compatible Tokamak zk-EVM synthesizer app package.",
+  "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/frontend/synthesizer/web-app#readme",
   "bugs": {
     "url": "https://github.com/tokamak-network/tokamak-zk-evm/issues"
   },
@@ -20,10 +20,10 @@
   "sideEffects": false,
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
-  "types": "dist/types/web-library/src/index.d.ts",
+  "types": "dist/types/web-app/src/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/types/web-library/src/index.d.ts",
+      "types": "./dist/types/web-app/src/index.d.ts",
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.js"
     }
