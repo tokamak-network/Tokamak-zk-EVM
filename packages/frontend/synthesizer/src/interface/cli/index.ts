@@ -10,10 +10,12 @@ import {
   TxSnapshot,
   createTokamakL2TxFromSnapshot,
 } from 'tokamak-l2js';
-import { SynthesizerOpts } from 'src/synthesizer/types/synthesizer.ts';
+import {
+  createCircuitGenerator,
+  type SynthesizerOpts,
+} from '@tokamak-zk-evm/synthesizer-core';
 import { createSynthesizer } from 'src/synthesizer/constructors.ts';
 import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
-import { createCircuitGenerator } from 'src/circuitGenerator/circuitGenerator.ts';
 import { addHexPrefix, createAccount, createAddressFromString, hexToBytes } from '@ethereumjs/util';
 import { readJson } from './utils/node.ts';
 import { writeCircuitJson, writeStateSnapshotJson } from '../node/jsonWriter.ts';

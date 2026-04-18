@@ -2,14 +2,18 @@ import setupParamsJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/libr
 import globalWireListJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/globalWireList.json' with { type: 'json' };
 import frontendCfgJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/frontendCfg.json' with { type: 'json' };
 import subcircuitInfoJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/subcircuitInfo.json' with { type: 'json' };
-import { BUFFER_LIST } from './configuredTypes.ts';
+import {
+  BUFFER_LIST,
+  createInfoByName,
+} from '@tokamak-zk-evm/synthesizer-core';
 import type {
   FrontendConfig,
   GlobalWireList,
+  ResolvedSubcircuitLibrary,
   SubcircuitLibraryData,
   SubcircuitInfo,
   SetupParams,
-} from './libraryTypes.ts';
+} from '@tokamak-zk-evm/synthesizer-core';
 import {
   isNumber,
   isNumberArray,
@@ -17,11 +21,8 @@ import {
   isSubcircuitName,
   isTupleNumber2,
   REQUIRED_CIRCOM_KEYS,
-  type ResolvedSubcircuitLibrary,
   SETUP_PARAMS_KEYS,
-  SUBCIRCUIT_INFO_VALIDATORS,
-} from './libraryTypes.ts';
-import { createInfoByName } from './utils.ts';
+} from '@tokamak-zk-evm/synthesizer-core';
 
 const getRequiredNumber = (record: Record<string, unknown>, key: string): number => {
   const value = record[key];

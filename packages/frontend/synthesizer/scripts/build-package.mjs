@@ -15,7 +15,10 @@ const entryPoints = {
 const baseConfig = {
   absWorkingDir: rootDir,
   bundle: true,
-  external: ['@tokamak-zk-evm/subcircuit-library/package.json'],
+  external: [
+    '@tokamak-zk-evm/synthesizer-core',
+    '@tokamak-zk-evm/subcircuit-library/package.json',
+  ],
   entryPoints,
   logLevel: 'info',
   logOverride: {

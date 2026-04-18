@@ -4,8 +4,10 @@ import { readFileSync } from 'node:fs';
 import {
   installedSubcircuitLibraryData,
 } from '../qapCompiler/installedLibrary.ts';
-import type { SubcircuitLibraryProvider } from '../qapCompiler/libraryTypes.ts';
-import type { SubcircuitInfo } from '../qapCompiler/libraryTypes.ts';
+import type {
+  SubcircuitInfo,
+  SubcircuitLibraryProvider,
+} from '@tokamak-zk-evm/synthesizer-core';
 
 function getBaseURL(): URL {
   if (typeof window !== "undefined") {

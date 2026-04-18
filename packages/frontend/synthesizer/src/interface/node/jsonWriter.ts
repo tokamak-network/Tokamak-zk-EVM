@@ -2,11 +2,11 @@ import path from "node:path";
 import fsPromises from "node:fs/promises";
 import {
   CircuitGenerator,
-} from "../../circuitGenerator/circuitGenerator.ts";
-import type { CircuitArtifacts } from "../../circuitGenerator/types/types.ts";
+  type CircuitArtifacts,
+  type SynthesizerInterface,
+} from "@tokamak-zk-evm/synthesizer-core";
 import appRootPath from "app-root-path";
 import fs from 'fs';
-import { SynthesizerInterface } from "src/synthesizer/types/index.ts";
 import { StateSnapshot } from "tokamak-l2js";
 
 /**

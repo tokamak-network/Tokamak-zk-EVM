@@ -1,12 +1,14 @@
 import { createTokamakL2Common, createTokamakL2StateManagerFromL1RPC, createTokamakL2Tx, TokamakL2StateManagerRPCOpts, TokamakL2TxData } from 'tokamak-l2js'
 import { addHexPrefix, bigIntToHex, bytesToBigInt, createAddressFromString } from "@ethereumjs/util"
 import { ethers } from "ethers"
-import { SynthesizerOpts } from "../../synthesizer/types/index.ts"
+import {
+  type ResolvedSubcircuitLibrary,
+  type SynthesizerOpts,
+} from "@tokamak-zk-evm/synthesizer-core"
 import { jubjub } from "@noble/curves/misc.js"
 import {
   installedSubcircuitLibrary,
 } from "../qapCompiler/installedLibrary.ts"
-import type { ResolvedSubcircuitLibrary } from "../qapCompiler/libraryTypes.ts"
 import { SynthesizerBlockInfo } from "./types.ts"
 
 export type SynthesizerSimulationOpts = {

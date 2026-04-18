@@ -11,8 +11,8 @@ import {
   createTokamakL2Tx,
   TokamakL2TxData,
 } from 'tokamak-l2js';
+import { createCircuitGenerator } from '@tokamak-zk-evm/synthesizer-core';
 import { createSynthesizer } from '../../src/synthesizer/constructors.ts';
-import { createCircuitGenerator } from '../../src/circuitGenerator/circuitGenerator.ts';
 import { writeCircuitJson, writeEvmAnalysisJson } from '../../src/interface/node/jsonWriter.ts';
 import { loadSubcircuitWasm } from '../../src/interface/node/wasmLoader.ts';
 import { getBlockInfoFromRPC } from '../../src/interface/rpc/rpc.ts';

@@ -11,7 +11,12 @@ export type {
   ResolvedSubcircuitLibrary,
   SubcircuitLibraryData,
   SubcircuitLibraryProvider,
-} from './interface/qapCompiler/libraryTypes.ts';
+} from '@tokamak-zk-evm/synthesizer-core';
 export * from './synthesizer/constructors.ts';
-export { type SynthesizerInterface } from './synthesizer/types/index.ts';
-export * from './circuitGenerator/circuitGenerator.ts';
+export {
+  CircuitGenerator,
+  createCircuitGenerator,
+  type CircuitArtifacts,
+  type SynthesizerInterface,
+  type SynthesizerOpts,
+} from '@tokamak-zk-evm/synthesizer-core';
