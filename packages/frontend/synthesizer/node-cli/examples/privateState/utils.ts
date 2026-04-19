@@ -446,25 +446,34 @@ const assertUserStorageSlots = (value: unknown, label: string): number[] => {
   return value;
 };
 
-const assertParticipantArray = (value: unknown, label: string): MintExampleParticipant[] => {
+const parseBaseParticipant = (
+  value: unknown,
+  label: string,
+): ChannelParticipantConfig => {
+  if (typeof value !== 'object' || value === null) {
+    throw new Error(`${label} must be an object`);
+  }
+  const record = value as Record<string, unknown>;
+  const addressL1 = record.addressL1;
+  const prvSeedL2 = record.prvSeedL2;
+  if (typeof addressL1 !== 'string' || !addressL1.startsWith('0x')) {
+    throw new Error(`${label}.addressL1 must be a hex string with 0x prefix`);
+  }
+  if (typeof prvSeedL2 !== 'string') {
+    throw new Error(`${label}.prvSeedL2 must be a string`);
+  }
+  return { addressL1: addressL1 as `0x${string}`, prvSeedL2 };
+};
+
+const assertMintParticipantArray = (value: unknown, label: string): MintExampleParticipant[] => {
   if (!Array.isArray(value)) {
     throw new Error(`${label} must be an array`);
   }
   return value.map((entry, index) => {
-    if (typeof entry !== 'object' || entry === null) {
-      throw new Error(`${label}[${index}] must be an object`);
-    }
+    const participant = parseBaseParticipant(entry, `${label}[${index}]`);
     const record = entry as Record<string, unknown>;
-    const addressL1 = record.addressL1;
-    const prvSeedL2 = record.prvSeedL2;
     const noteReceivePubKeyX = record.noteReceivePubKeyX;
     const noteReceivePubKeyYParity = record.noteReceivePubKeyYParity;
-    if (typeof addressL1 !== 'string' || !addressL1.startsWith('0x')) {
-      throw new Error(`${label}[${index}].addressL1 must be a hex string with 0x prefix`);
-    }
-    if (typeof prvSeedL2 !== 'string') {
-      throw new Error(`${label}[${index}].prvSeedL2 must be a string`);
-    }
     if (typeof noteReceivePubKeyX !== 'string' || !noteReceivePubKeyX.startsWith('0x')) {
       throw new Error(`${label}[${index}].noteReceivePubKeyX must be a hex string with 0x prefix`);
     }
@@ -472,8 +481,7 @@ const assertParticipantArray = (value: unknown, label: string): MintExampleParti
       throw new Error(`${label}[${index}].noteReceivePubKeyYParity must be 0 or 1`);
     }
     return {
-      addressL1: addressL1 as `0x${string}`,
-      prvSeedL2,
+      ...participant,
       noteReceivePubKeyX: normalizeBytes32Hex(noteReceivePubKeyX as `0x${string}`),
       noteReceivePubKeyYParity: Number(noteReceivePubKeyYParity),
     };
@@ -510,12 +518,52 @@ const assertFunctionConfig = (value: unknown, label: string): ChannelFunctionCon
   };
 };
 
+type ParsedBasePrivateStateConfig = {
+  network: ExampleNetwork;
+  storageConfigs: ChannelStorageConfig[];
+  callCodeAddresses: `0x${string}`[];
+  blockNumber: number;
+  txNonce: number;
+  calldata: `0x${string}`;
+  senderIndex: number;
+  function: ChannelFunctionConfig;
+};
+
+const parseBasePrivateStateConfig = (
+  configRaw: Record<string, unknown>,
+): ParsedBasePrivateStateConfig => ({
+  network: parseNetwork(configRaw.network, 'network'),
+  storageConfigs: assertStorageConfigs(configRaw.storageConfigs, 'storageConfigs'),
+  callCodeAddresses: assertStringArray(configRaw.callCodeAddresses, 'callCodeAddresses').map(
+    (entry) => parseHexString(entry, 'callCodeAddresses'),
+  ),
+  blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
+  txNonce: parseNumberValue(configRaw.txNonce, 'txNonce'),
+  calldata: parseHexString(configRaw.calldata, 'calldata'),
+  senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
+  function: assertFunctionConfig(configRaw.function, 'function'),
+});
+
+const toPrivateStateStateManagerChannelConfig = (
+  config: Pick<
+    ChannelStateConfig,
+    'network' | 'participants' | 'storageConfigs' | 'callCodeAddresses' | 'blockNumber'
+  >,
+): ChannelStateConfig => ({
+  network: config.network,
+  participants: config.participants,
+  storageConfigs: config.storageConfigs,
+  callCodeAddresses: config.callCodeAddresses,
+  blockNumber: config.blockNumber,
+});
+
 export const loadPrivateStateMintConfig = async (
   configPath: string,
 ): Promise<PrivateStateMintConfig> => {
-  const configRaw = JSON.parse(await fs.readFile(configPath, 'utf8'));
+  const configRaw = JSON.parse(await fs.readFile(configPath, 'utf8')) as Record<string, unknown>;
+  const baseConfig = parseBasePrivateStateConfig(configRaw);
 
-  const participants = assertParticipantArray(configRaw.participants, 'participants');
+  const participants = assertMintParticipantArray(configRaw.participants, 'participants');
   if (participants.length < 2) {
     throw new Error('participants must include at least two entries');
   }
@@ -535,19 +583,11 @@ export const loadPrivateStateMintConfig = async (
   }
 
   return {
-    network: parseNetwork(configRaw.network, 'network'),
+    ...baseConfig,
     channelId: configRaw.channelId === undefined
       ? DEFAULT_CHANNEL_ID
       : parseNumberValue(configRaw.channelId, 'channelId'),
     participants,
-    storageConfigs: assertStorageConfigs(configRaw.storageConfigs, 'storageConfigs'),
-    callCodeAddresses: assertStringArray(configRaw.callCodeAddresses, 'callCodeAddresses').map(
-      (entry) => parseHexString(entry, 'callCodeAddresses'),
-    ),
-    blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
-    txNonce: parseNumberValue(configRaw.txNonce, 'txNonce'),
-    calldata: parseHexString(configRaw.calldata, 'calldata'),
-    senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
     noteOwnerIndex: parseNumberValue(configRaw.noteOwnerIndex, 'noteOwnerIndex'),
     outputCount,
     noteValues: noteValues as [`0x${string}`, ...`0x${string}`[]],
@@ -633,13 +673,7 @@ export const buildPrivateStateMintCalldata = (
 
 export const toPrivateStateMintStateManagerChannelConfig = (
   config: PrivateStateMintConfig,
-): ChannelStateConfig => ({
-  network: config.network,
-  participants: config.participants,
-  storageConfigs: config.storageConfigs,
-  callCodeAddresses: config.callCodeAddresses,
-  blockNumber: config.blockNumber,
-});
+): ChannelStateConfig => toPrivateStateStateManagerChannelConfig(config);
 
 export const getPrivateStateExampleRpcUrl = (
   network: ExampleNetwork,
@@ -705,21 +739,7 @@ const assertBaseParticipantArray = (
   if (!Array.isArray(value)) {
     throw new Error(`${label} must be an array`);
   }
-  return value.map((entry, index) => {
-    if (typeof entry !== 'object' || entry === null) {
-      throw new Error(`${label}[${index}] must be an object`);
-    }
-    const record = entry as Record<string, unknown>;
-    const addressL1 = record.addressL1;
-    const prvSeedL2 = record.prvSeedL2;
-    if (typeof addressL1 !== 'string' || !addressL1.startsWith('0x')) {
-      throw new Error(`${label}[${index}].addressL1 must be a hex string with 0x prefix`);
-    }
-    if (typeof prvSeedL2 !== 'string') {
-      throw new Error(`${label}[${index}].prvSeedL2 must be a string`);
-    }
-    return { addressL1: addressL1 as `0x${string}`, prvSeedL2 };
-  });
+  return value.map((entry, index) => parseBaseParticipant(entry, `${label}[${index}]`));
 };
 
 const parseNote = (value: unknown, label: string): PrivateStateNote => {
@@ -748,7 +768,8 @@ const parseFixedNotes = (
 export const loadPrivateStateRedeemConfig = async (
   configPath: string,
 ): Promise<PrivateStateRedeemConfig> => {
-  const configRaw = JSON.parse(await fs.readFile(configPath, 'utf8'));
+  const configRaw = JSON.parse(await fs.readFile(configPath, 'utf8')) as Record<string, unknown>;
+  const baseConfig = parseBasePrivateStateConfig(configRaw);
 
   const participants = assertBaseParticipantArray(configRaw.participants, 'participants');
   if (participants.length < 2) {
@@ -757,16 +778,8 @@ export const loadPrivateStateRedeemConfig = async (
   const inputCount = parseInputCount(configRaw.inputCount, 'inputCount');
 
   return {
-    network: parseNetwork(configRaw.network, 'network'),
+    ...baseConfig,
     participants,
-    storageConfigs: assertStorageConfigs(configRaw.storageConfigs, 'storageConfigs'),
-    callCodeAddresses: assertStringArray(configRaw.callCodeAddresses, 'callCodeAddresses').map(
-      (entry) => parseHexString(entry, 'callCodeAddresses'),
-    ),
-    blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
-    txNonce: parseNumberValue(configRaw.txNonce, 'txNonce'),
-    calldata: parseHexString(configRaw.calldata, 'calldata'),
-    senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
     receiverIndex: parseNumberValue(configRaw.receiverIndex, 'receiverIndex'),
     inputCount,
     inputNotes: parseFixedNotes(
@@ -800,13 +813,7 @@ export const buildPrivateStateRedeemCalldata = (
 
 export const toPrivateStateRedeemStateManagerChannelConfig = (
   config: PrivateStateRedeemConfig,
-): ChannelStateConfig => ({
-  network: config.network,
-  participants: config.participants,
-  storageConfigs: config.storageConfigs,
-  callCodeAddresses: config.callCodeAddresses,
-  blockNumber: config.blockNumber,
-});
+): ChannelStateConfig => toPrivateStateStateManagerChannelConfig(config);
 
 export type OpaqueEncryptedNoteValue = [`0x${string}`, `0x${string}`, `0x${string}`];
 
@@ -898,7 +905,8 @@ const parseFixedTransferOutputs = (
 export const loadPrivateStateTransferConfig = async (
   configPath: string,
 ): Promise<PrivateStateTransferConfig> => {
-  const configRaw = JSON.parse(await fs.readFile(configPath, 'utf8'));
+  const configRaw = JSON.parse(await fs.readFile(configPath, 'utf8')) as Record<string, unknown>;
+  const baseConfig = parseBasePrivateStateConfig(configRaw);
 
   const participants = assertBaseParticipantArray(configRaw.participants, 'participants');
   if (participants.length < 2) {
@@ -931,16 +939,8 @@ export const loadPrivateStateTransferConfig = async (
   ) as PrivateStateTransferConfig['outputNotes'];
 
   return {
-    network: parseNetwork(configRaw.network, 'network'),
+    ...baseConfig,
     participants,
-    storageConfigs: assertStorageConfigs(configRaw.storageConfigs, 'storageConfigs'),
-    callCodeAddresses: assertStringArray(configRaw.callCodeAddresses, 'callCodeAddresses').map(
-      (entry) => parseHexString(entry, 'callCodeAddresses'),
-    ),
-    blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
-    txNonce: parseNumberValue(configRaw.txNonce, 'txNonce'),
-    calldata: parseHexString(configRaw.calldata, 'calldata'),
-    senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
     functionName,
     inputCount,
     outputCount,
@@ -962,10 +962,4 @@ export const buildPrivateStateTransferCalldata = (
 
 export const toPrivateStateTransferStateManagerChannelConfig = (
   config: PrivateStateTransferConfig,
-): ChannelStateConfig => ({
-  network: config.network,
-  participants: config.participants,
-  storageConfigs: config.storageConfigs,
-  callCodeAddresses: config.callCodeAddresses,
-  blockNumber: config.blockNumber,
-});
+): ChannelStateConfig => toPrivateStateStateManagerChannelConfig(config);
