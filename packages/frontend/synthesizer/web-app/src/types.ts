@@ -2,7 +2,7 @@ import type {
   SynthesisInput,
   SynthesisOutput,
   SynthesisPayloadInput,
-} from '../../core/src/index.ts';
+} from '../../core/src/app.ts';
 
 export type WebAppInput = SynthesisInput;
 export type WebAppOutput = SynthesisOutput;

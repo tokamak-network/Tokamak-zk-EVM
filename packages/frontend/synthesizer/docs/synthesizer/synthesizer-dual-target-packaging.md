@@ -1,15 +1,15 @@
 # Dual-Target Packaging Plan
 
-This document defines the recommended packaging model for the Synthesizer when it must be shipped in two forms:
+This document defines the current packaging model for the Synthesizer when it is shipped in two forms:
 
 - a built CLI for Node.js users
 - a browser-compatible app package with callable synthesis functions
 
-The recommendation assumes that backward compatibility is not required. The goal is to choose a structure that stays valid for both targets instead of extending the current Node-first package layout.
+Backward compatibility is not required. The goal is to keep one shared synthesis core and expose target-specific adapters without duplicating synthesis flow logic.
 
 ## Target outcome
 
-Publish three packages with explicit responsibilities and keep one internal module:
+Use two published packages with explicit responsibilities and keep one internal module:
 
 1. `@tokamak-zk-evm/subcircuit-library`
 2. `@tokamak-zk-evm/synthesizer-node`
@@ -30,7 +30,7 @@ Publish three packages with explicit responsibilities and keep one internal modu
 
 - `@tokamak-zk-evm/synthesizer-web`
   - Owns the browser app surface.
-  - Owns browser-specific input loading, asset loading, and output adapters.
+  - Exposes `synthesize(input)` plus browser-specific input loading, asset loading, and output adapters.
   - Depends on the internal `core` module.
 
 - `packages/frontend/synthesizer/core`
@@ -54,6 +54,12 @@ That coupling is the reason one package has to solve incompatible concerns at on
 - `src/interface/qapCompiler/importedConstants.ts` imports installed package assets directly instead of receiving them through an abstraction.
 
 This works for a Node package, but it is the wrong boundary for a browser app package. The browser target needs the same synthesis logic with different asset loading and no filesystem or CLI dependencies.
+
+The current structure therefore uses:
+
+- `core/` for shared synthesis flow and shared metadata parsing
+- `node-cli/` for CLI parsing, Node RPC helpers, installed asset loading, and filesystem output
+- `web-app/` for browser input loading, fetch-based asset loading, download helpers, and JSON POST output
 
 ## Required architectural rule
 
@@ -119,19 +125,18 @@ Required change before moving:
   - constructor injection, or
   - a runtime context object created from `ResolvedSubcircuitLibrary`
 
-Recommended location structure:
+Current location structure:
 
 ```text
 packages/frontend/synthesizer/core/src/
+  app.ts
+  circuit.ts
+  qapCompiler.ts
+  synthesizer.ts
+  app/
   circuitGenerator/
+  interface/qapCompiler/
   synthesizer/
-  subcircuits/
-    configuredTypes.ts
-    schema.ts
-    resolveLibrary.ts
-    types.ts
-  debugging/
-  index.ts
 ```
 
 ### Move to `@tokamak-zk-evm/synthesizer-node`
@@ -142,37 +147,33 @@ These modules are Node-specific:
 - `src/interface/node/**`
 - `src/interface/rpc/**`
 
-Recommended new location structure:
+Current location structure:
 
 ```text
 packages/frontend/synthesizer/node-cli/src/
-  cli/
-    index.ts
-  provider/
-    nodeSubcircuitLibrary.ts
-  io/
-    jsonWriter.ts
-  rpc/
-    index.ts
-    rpc.ts
+  interface/cli/
+  interface/node/
+  interface/qapCompiler/
+  interface/rpc/
+  synthesizer/
   index.ts
 ```
 
 ### Create in `@tokamak-zk-evm/synthesizer-web`
 
-These do not exist yet and should be introduced as browser-specific adapters:
+Current browser-specific adapters:
 
 ```text
 packages/frontend/synthesizer/web-app/src/
-  provider/
-    fetchSubcircuitLibrary.ts
-  worker/
-    synthesizer.worker.ts
-    workerClient.ts
   index.ts
+  input.ts
+  output.ts
+  subcircuitLibrary.ts
+  synthesize.ts
+  types.ts
 ```
 
-The browser package should return synthesis results as in-memory objects and `Uint8Array` values. It should never assume writable files or a fixed output directory.
+The browser package returns synthesis results as in-memory objects. It can additionally expose download and JSON POST adapters, but it must never depend on Node filesystem APIs.
 
 ## Node CLI package design
 
@@ -198,9 +199,9 @@ The Node target is a built CLI package.
 - browser asset loading
 - browser worker orchestration
 
-## Web library package design
+## Web app package design
 
-The browser target is a library, not an application.
+The browser target is a callable package, not a CLI.
 
 ### Published surface
 
@@ -209,36 +210,35 @@ The browser target is a library, not an application.
 - no CLI
 - no filesystem APIs
 
-### Recommended exports
+### Export shape
 
 ```ts
-export function createFetchSubcircuitLibraryProvider(opts: {
-  baseUrl: string;
-  manifest?: SubcircuitManifest;
-}): SubcircuitLibraryProvider;
-
-export async function createBrowserSynthesizerRuntime(opts: {
-  provider: SubcircuitLibraryProvider;
-  synthesizerOpts: SynthesizerOpts;
-}): Promise<BrowserSynthesizerRuntime>;
+export async function synthesize(input: SynthesisInput): Promise<SynthesisOutput>;
+export async function prepareSynthesisInput(
+  payload: SynthesisPayloadInput,
+  provider: SubcircuitLibraryProvider,
+): Promise<SynthesisInput>;
+export function createFetchSubcircuitLibraryProvider(source: FetchSubcircuitLibrarySource): SubcircuitLibraryProvider;
+export function createFileSubcircuitLibraryProvider(files: SubcircuitLibraryFiles): SubcircuitLibraryProvider;
+export function saveSynthesisOutputToFiles(output: SynthesisOutput): void;
+export async function postSynthesisOutput(url: string, output: SynthesisOutput): Promise<Response>;
 ```
 
 ### Runtime behavior
 
-- fetch JSON metadata from URLs or use an injected manifest
+- fetch JSON metadata from URLs or load them from uploaded files
 - fetch WASM files by subcircuit id
 - return synthesis outputs in memory
-- optionally expose a Worker-based API because witness generation can block the main thread
 
 ### What the browser package should not do
 
 - own application state or UI
 - assume React, Vue, or any specific framework
-- write files directly
+- depend on Node filesystem APIs
 
 ## Core runtime API design
 
-The internal `core` module should expose a pure API that both targets can share.
+The internal `core` module should expose shared APIs that both targets can share without importing target-specific adapters.
 
 ### Recommended runtime shape
 

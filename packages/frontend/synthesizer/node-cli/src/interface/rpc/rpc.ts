@@ -2,9 +2,11 @@ import { createTokamakL2Common, createTokamakL2StateManagerFromL1RPC, createToka
 import { addHexPrefix, bigIntToHex, bytesToBigInt, createAddressFromString } from "@ethereumjs/util"
 import { ethers } from "ethers"
 import {
-  type ResolvedSubcircuitLibrary,
   type SynthesizerOpts,
-} from "../../core.ts"
+} from "../../../../core/src/synthesizer.ts"
+import {
+  type ResolvedSubcircuitLibrary,
+} from "../../../../core/src/qapCompiler.ts"
 import { jubjub } from "@noble/curves/misc.js"
 import {
   installedSubcircuitLibrary,

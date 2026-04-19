@@ -1,4 +1,4 @@
-import type { SynthesisPayloadInput } from '../../core/src/index.ts';
+import type { SynthesisPayloadInput } from '../../core/src/app.ts';
 import type { SynthesisInputFiles, SynthesisInputUrls } from './types.ts';
 
 export async function loadJsonFromBlob<T>(blob: Blob): Promise<T> {

@@ -1,9 +1,9 @@
 import {
   createSynthesizer as createCoreSynthesizer,
-  type ResolvedSubcircuitLibrary,
   type SynthesizerInterface,
   type SynthesizerOpts,
-} from '../core.ts';
+} from '../../../core/src/synthesizer.ts';
+import type { ResolvedSubcircuitLibrary } from '../../../core/src/qapCompiler.ts';
 import { installedSubcircuitLibrary } from '../interface/qapCompiler/installedLibrary.ts';
 
 export async function createSynthesizer(

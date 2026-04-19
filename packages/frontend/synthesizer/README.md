@@ -16,6 +16,12 @@ This directory is now a container for the split Synthesizer codebase.
 - `docs/`
   - Design and architecture documents shared across the split packages.
 
+## Container rule
+
+- This directory is a container only.
+- Build outputs, runtime outputs, and installed dependencies should live under `node-cli/` or `web-app/`.
+- `core/` should contain source files only.
+
 ## Package direction
 
 - The old `@tokamak-zk-evm/synthesizer` package is being retired.

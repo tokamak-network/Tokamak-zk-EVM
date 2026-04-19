@@ -1,4 +1,14 @@
-export * from '../../core/src/index.ts';
+export type {
+  ContractCodeEntry,
+  SynthesisInput,
+  SynthesisOutput,
+  SynthesisPayloadInput,
+} from '../../core/src/app.ts';
+export type {
+  ResolvedSubcircuitLibrary,
+  SubcircuitLibraryData,
+  SubcircuitLibraryProvider,
+} from '../../core/src/qapCompiler.ts';
 export { loadJsonFromBlob, loadJsonFromUrl, loadSynthesisInputFromFiles, loadSynthesisInputFromUrls } from './input.ts';
 export {
   createFetchSubcircuitLibraryProvider,

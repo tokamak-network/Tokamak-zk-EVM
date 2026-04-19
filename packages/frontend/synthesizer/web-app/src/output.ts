@@ -1,4 +1,4 @@
-import { createSynthesisOutputJsonFiles, type SynthesisOutput } from '../../core/src/index.ts';
+import { createSynthesisOutputJsonFiles, type SynthesisOutput } from '../../core/src/app.ts';
 
 export function createSynthesisOutputBlobs(output: SynthesisOutput): Record<string, Blob> {
   return Object.fromEntries(

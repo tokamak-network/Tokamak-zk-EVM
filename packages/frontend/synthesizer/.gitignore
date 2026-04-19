@@ -1,4 +1,5 @@
 .cachedb
+/node_modules/
 .env
 scripts/.env
 scripts/config.json

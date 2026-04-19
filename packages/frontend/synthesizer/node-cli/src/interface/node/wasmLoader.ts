@@ -7,7 +7,7 @@ import {
 import type {
   SubcircuitInfo,
   SubcircuitLibraryProvider,
-} from '../../core.ts';
+} from '../../../../core/src/qapCompiler.ts';
 
 function getBaseURL(): URL {
   if (typeof window !== "undefined") {

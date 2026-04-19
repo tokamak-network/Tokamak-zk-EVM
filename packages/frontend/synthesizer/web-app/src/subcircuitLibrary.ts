@@ -1,11 +1,13 @@
 import {
   loadResolvedSubcircuitLibrary,
   loadSubcircuitWasmBuffers,
-  parseSubcircuitLibraryData,
-  type SubcircuitLibraryProvider,
   type SynthesisInput,
   type SynthesisPayloadInput,
-} from '../../core/src/index.ts';
+} from '../../core/src/app.ts';
+import {
+  parseSubcircuitLibraryData,
+  type SubcircuitLibraryProvider,
+} from '../../core/src/qapCompiler.ts';
 import { loadJsonFromBlob, loadJsonFromUrl } from './input.ts';
 import type { FetchSubcircuitLibrarySource, SubcircuitLibraryFiles } from './types.ts';
 

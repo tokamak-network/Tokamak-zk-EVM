@@ -2,7 +2,7 @@
 
 import { program } from 'commander';
 import { StateSnapshot, TxSnapshot } from 'tokamak-l2js';
-import { synthesizeFromSnapshotInput } from '../../core.ts';
+import { synthesizeFromSnapshotInput } from '../../../../core/src/app.ts';
 import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
 import { readJson } from './utils/node.ts';
 import { writeSynthesisOutputJson } from '../node/jsonWriter.ts';

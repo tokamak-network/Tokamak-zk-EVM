@@ -2,11 +2,15 @@ import path from "node:path";
 import fsPromises from "node:fs/promises";
 import {
   CircuitGenerator,
-  createSynthesisOutputJsonFiles,
   type CircuitArtifacts,
+} from "../../../../core/src/circuit.ts";
+import {
+  createSynthesisOutputJsonFiles,
   type SynthesisOutput,
+} from "../../../../core/src/app.ts";
+import {
   type SynthesizerInterface,
-} from "../../core.ts";
+} from "../../../../core/src/synthesizer.ts";
 import appRootPath from "app-root-path";
 import fs from 'fs';
 import { StateSnapshot } from "tokamak-l2js";
