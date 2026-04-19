@@ -9,7 +9,7 @@ const distDir = path.join(rootDir, 'dist');
 
 const entryPoints = {
   index: path.join(rootDir, 'src/index.ts'),
-  'cli/index': path.join(rootDir, 'src/interface/cli/index.ts'),
+  'cli/index': path.join(rootDir, 'src/cli/index.ts'),
 };
 
 const baseConfig = {

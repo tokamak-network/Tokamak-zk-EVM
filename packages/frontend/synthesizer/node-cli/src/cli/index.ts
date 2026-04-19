@@ -2,12 +2,12 @@
 
 import { program } from 'commander';
 import { StateSnapshot, TxSnapshot } from 'tokamak-l2js';
-import { synthesizeFromSnapshotInput } from '../../../../core/src/app.ts';
-import { loadSubcircuitWasm } from '../node/wasmLoader.ts';
+import { synthesizeFromSnapshotInput } from '../../../core/src/app.ts';
+import { loadSubcircuitWasm } from '../subcircuit/wasmLoader.ts';
 import { readJson } from './utils/node.ts';
-import { writeSynthesisOutputJson } from '../node/jsonWriter.ts';
+import { writeSynthesisOutputJson } from '../io/jsonWriter.ts';
 import { SynthesizerBlockInfo } from '../rpc/types.ts';
-import { installedSubcircuitLibrary } from '../qapCompiler/installedLibrary.ts';
+import { installedSubcircuitLibrary } from '../subcircuit/installedLibrary.ts';
 
 program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthesizer').version('0.9.0');
 

@@ -14,7 +14,7 @@ Synthesizer tracks symbolic values during EVM execution. These structures live u
 - Buffer placements are created first by `BufferManager`; opcode handlers append new placements in execution order.
 
 ## Buffers and reserved variables
-- Buffer names: `PUBLIC_IN`, `BLOCK_IN`, `EVM_IN`, `PRIVATE_IN`, `PUBLIC_OUT` (see `interface/qapCompiler/configuredTypes.ts`).
+- Buffer names: `PUBLIC_IN`, `BLOCK_IN`, `EVM_IN`, `PRIVATE_IN`, `PUBLIC_OUT` (see `core/src/interface/qapCompiler/configuredTypes.ts`).
 - Reserved variables (e.g., `FUNCTION_SELECTOR`, `CONTRACT_ADDRESS`, `MERKLE_PROOF`, `EDDSA_PUBLIC_KEY_X`) are preloaded into buffers via `BufferManager`. Metadata lives in `types/buffers.ts`.
 - Buffer wires are the only entry/exit points for non-symbolic values.
 

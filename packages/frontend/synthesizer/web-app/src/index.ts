@@ -9,18 +9,18 @@ export type {
   SubcircuitLibraryData,
   SubcircuitLibraryProvider,
 } from '../../core/src/qapCompiler.ts';
-export { loadJsonFromBlob, loadJsonFromUrl, loadSynthesisInputFromFiles, loadSynthesisInputFromUrls } from './input.ts';
+export { loadJsonFromBlob, loadJsonFromUrl, loadSynthesisInputFromFiles, loadSynthesisInputFromUrls } from './input/index.ts';
 export {
   createFetchSubcircuitLibraryProvider,
   createFileSubcircuitLibraryProvider,
   prepareSynthesisInput,
-} from './subcircuitLibrary.ts';
+} from './subcircuit/index.ts';
 export {
   createSynthesisOutputBlobs,
   createSynthesisOutputPayload,
   postSynthesisOutput,
   saveSynthesisOutputToFiles,
-} from './output.ts';
+} from './output/index.ts';
 export { synthesize } from './synthesize.ts';
 export type {
   FetchSubcircuitLibrarySource,

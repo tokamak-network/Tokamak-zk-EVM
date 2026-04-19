@@ -1,12 +1,12 @@
 export {
   createSynthesizerOptsForSimulationFromRPC,
   type SynthesizerSimulationOpts,
-} from './interface/rpc/rpc.ts';
-export { type SynthesizerBlockInfo } from './interface/rpc/types.ts';
+} from './rpc/index.ts';
+export { type SynthesizerBlockInfo } from './rpc/types.ts';
 export {
   installedSubcircuitLibrary,
   installedSubcircuitLibraryData,
-} from './interface/qapCompiler/installedLibrary.ts';
+} from './subcircuit/installedLibrary.ts';
 export type {
   ResolvedSubcircuitLibrary,
   SubcircuitLibraryData,

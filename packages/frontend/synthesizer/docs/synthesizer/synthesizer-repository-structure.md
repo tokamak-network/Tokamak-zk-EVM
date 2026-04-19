@@ -1,34 +1,41 @@
 # Synthesizer Repository Structure
 
-Current layout of `packages/frontend/synthesizer/src`:
+Current layout of `packages/frontend/synthesizer/`:
 
-```
-src/
-├── cli/                         # Minimal CLI (run/info) for L2 state-channel simulation
-├── interface/
-│   ├── adapters/                # SynthesizerAdapter and utilities
-│   ├── cli/                     # Interactive CLI (parse/synthesize/demo)
-│   ├── debugging/               # Helper utilities
-│   ├── qapCompiler/             # Subcircuit metadata and constants from qap-compiler
-│   └── rpc/                     # RPC helpers to build SynthesizerOpts from L1 state
-├── synthesizer/
-│   ├── handlers/                # Buffer/Arithmetic/Memory/State/Instruction managers
-│   ├── dataStructure/           # StackPt, MemoryPt, DataPt factory
-│   ├── params/                  # Synthesizer constants (placements, defaults)
-│   ├── types/                   # Shared types (buffers, placements, opcodes)
-│   ├── constructors.ts          # createSynthesizer factory
-│   ├── index.ts                 # Public exports
-│   └── synthesizer.ts           # Core Synthesizer class and VM wiring
-├── circuitGenerator/
-│   ├── handlers/                # VariableGenerator, PermutationGenerator
-│   ├── utils/                   # Witness calculator loader
-│   └── circuitGenerator.ts      # Output writer facade
-├── TokamakL2JS/                 # L2 crypto/state/tx helpers and state manager
-└── unused/                      # Legacy/experimental code (not part of current pipeline)
+```text
+synthesizer/
+├── core/
+│   └── src/
+│       ├── app.ts               # Shared synthesis flow and output serialization entry
+│       ├── circuit.ts           # Circuit generator entry
+│       ├── qapCompiler.ts       # Shared subcircuit metadata parsing/types entry
+│       ├── synthesizer.ts       # Shared runtime entry
+│       ├── app/                 # Shared orchestration helpers
+│       ├── circuitGenerator/    # Variable/permutation generation
+│       ├── interface/qapCompiler/
+│       └── synthesizer/         # Core runtime and handlers
+├── node-cli/
+│   ├── src/
+│   │   ├── cli/                 # Node CLI entry and CLI-only utilities
+│   │   ├── io/                  # Filesystem output helpers and env helpers
+│   │   ├── rpc/                 # RPC helpers and RPC-facing types
+│   │   ├── subcircuit/          # Installed library loading and Node WASM loading
+│   │   └── synthesizer/         # Node wrapper around the shared core runtime
+│   ├── examples/                # Node example flows and launch configs
+│   └── tests/                   # Node package tests
+├── web-app/
+│   └── src/
+│       ├── input/               # Blob/URL input loading helpers
+│       ├── output/              # Download and JSON POST output helpers
+│       ├── subcircuit/          # Browser subcircuit library providers
+│       ├── synthesize.ts        # Browser-facing synthesis entry
+│       └── types.ts             # Browser app package types
+└── docs/
+    └── synthesizer/             # Architecture and packaging notes
 ```
 
-Top-level supporting files:
-- `package.json`, `tsconfig*.json`: build/test configuration.
-- `examples/`: sample scripts and default output location used by CLI.
-- `outputs/`: default output directory if no path is provided to `writeOutputs`.
-- `doc/`: this documentation set.
+Rules:
+- `core/` contains shared logic only.
+- `node-cli/` and `web-app/` may depend on `core/`.
+- `node-cli/` and `web-app/` must not depend on each other.
+- The repository root is a container, not a published package.

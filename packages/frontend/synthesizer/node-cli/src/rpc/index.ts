@@ -3,14 +3,14 @@ import { addHexPrefix, bigIntToHex, bytesToBigInt, createAddressFromString } fro
 import { ethers } from "ethers"
 import {
   type SynthesizerOpts,
-} from "../../../../core/src/synthesizer.ts"
+} from "../../../core/src/synthesizer.ts"
 import {
   type ResolvedSubcircuitLibrary,
-} from "../../../../core/src/qapCompiler.ts"
+} from "../../../core/src/qapCompiler.ts"
 import { jubjub } from "@noble/curves/misc.js"
 import {
   installedSubcircuitLibrary,
-} from "../qapCompiler/installedLibrary.ts"
+} from "../subcircuit/installedLibrary.ts"
 import { SynthesizerBlockInfo } from "./types.ts"
 
 export type SynthesizerSimulationOpts = {

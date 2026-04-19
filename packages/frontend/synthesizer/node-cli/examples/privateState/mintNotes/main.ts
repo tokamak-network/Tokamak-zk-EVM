@@ -10,10 +10,10 @@ import {
 } from 'tokamak-l2js';
 import { createCircuitGenerator } from '../../../../core/src/circuit.ts';
 import { createSynthesizer } from '../../../src/synthesizer/constructors.ts';
-import { writeCircuitJson, writeEvmAnalysisJson } from '../../../src/interface/node/jsonWriter.ts';
-import { loadSubcircuitWasm } from '../../../src/interface/node/wasmLoader.ts';
-import { getBlockInfoFromRPC } from '../../../src/interface/rpc/rpc.ts';
-import { installedSubcircuitLibrary } from '../../../src/interface/qapCompiler/installedLibrary.ts';
+import { writeCircuitJson, writeEvmAnalysisJson } from '../../../src/io/jsonWriter.ts';
+import { loadSubcircuitWasm } from '../../../src/subcircuit/wasmLoader.ts';
+import { getBlockInfoFromRPC } from '../../../src/rpc/index.ts';
+import { installedSubcircuitLibrary } from '../../../src/subcircuit/installedLibrary.ts';
 import {
   deriveParticipantKeys,
   getExampleRpcUrl,

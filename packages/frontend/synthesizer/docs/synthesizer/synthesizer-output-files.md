@@ -1,6 +1,6 @@
 # Synthesizer Output Files
 
-`CircuitGenerator.writeOutputs()` produces four JSON artifacts. By default they are written to `outputs/` (or to a custom directory passed to `writeOutputs`, which the CLI sets to `examples/outputs`).
+The shared synthesis result is serialized by `core/src/app/output.ts`. The Node package writes those JSON files through `node-cli/src/io/jsonWriter.ts`, while the web package turns them into download `Blob`s or JSON payloads.
 
 ## placementVariables.json
 - Full witness for every placement.
@@ -12,7 +12,7 @@
 
 ## instance.json
 - Public/private instance split derived from `placementVariables`.
-- `a_pub_user`, `a_pub_block`, and `a_pub_function` segments follow `setupParams` in `interface/qapCompiler/importedConstants.ts`.
+- `a_pub_user`, `a_pub_block`, and `a_pub_function` segments follow the resolved setup parameters from the shared subcircuit library context.
 - Values are hex strings aligned with the global wire list.
 
 ## instance_description.json

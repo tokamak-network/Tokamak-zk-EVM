@@ -3,13 +3,13 @@ import {
   loadSubcircuitWasmBuffers,
   type SynthesisInput,
   type SynthesisPayloadInput,
-} from '../../core/src/app.ts';
+} from '../../../core/src/app.ts';
 import {
   parseSubcircuitLibraryData,
   type SubcircuitLibraryProvider,
-} from '../../core/src/qapCompiler.ts';
-import { loadJsonFromBlob, loadJsonFromUrl } from './input.ts';
-import type { FetchSubcircuitLibrarySource, SubcircuitLibraryFiles } from './types.ts';
+} from '../../../core/src/qapCompiler.ts';
+import { loadJsonFromBlob, loadJsonFromUrl } from '../input/index.ts';
+import type { FetchSubcircuitLibrarySource, SubcircuitLibraryFiles } from '../types.ts';
 
 function trimTrailingSlashes(value: string): string {
   return value.replace(/\/+$/, '');

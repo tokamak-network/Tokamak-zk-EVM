@@ -3,11 +3,11 @@ import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import {
   installedSubcircuitLibraryData,
-} from '../qapCompiler/installedLibrary.ts';
+} from './installedLibrary.ts';
 import type {
   SubcircuitInfo,
   SubcircuitLibraryProvider,
-} from '../../../../core/src/qapCompiler.ts';
+} from '../../../core/src/qapCompiler.ts';
 
 function getBaseURL(): URL {
   if (typeof window !== "undefined") {

@@ -15,7 +15,7 @@ import {
   deriveL2KeysFromSignature,
   fromEdwardsToAddress,
 } from 'tokamak-l2js';
-import { getRpcUrlFromEnv } from '../../src/interface/node/env.ts';
+import { getRpcUrlFromEnv } from '../../src/io/env.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

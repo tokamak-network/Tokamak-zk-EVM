@@ -25,7 +25,7 @@
       "request": "launch",
       "name": "Private-state mintNotes1 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -52,7 +52,7 @@
       "request": "launch",
       "name": "Private-state mintNotes2 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -79,7 +79,7 @@
       "request": "launch",
       "name": "Private-state mintNotes3 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -106,7 +106,7 @@
       "request": "launch",
       "name": "Private-state mintNotes4 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -133,7 +133,7 @@
       "request": "launch",
       "name": "Private-state mintNotes5 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -160,7 +160,7 @@
       "request": "launch",
       "name": "Private-state mintNotes6 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -187,7 +187,7 @@
       "request": "launch",
       "name": "Private-state transferNotes1To1 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -214,7 +214,7 @@
       "request": "launch",
       "name": "Private-state transferNotes1To2 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -241,7 +241,7 @@
       "request": "launch",
       "name": "Private-state transferNotes1To3 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -268,7 +268,7 @@
       "request": "launch",
       "name": "Private-state transferNotes2To1 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -295,7 +295,7 @@
       "request": "launch",
       "name": "Private-state transferNotes2To2 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -322,7 +322,7 @@
       "request": "launch",
       "name": "Private-state transferNotes3To1 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -349,7 +349,7 @@
       "request": "launch",
       "name": "Private-state transferNotes3To2 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -376,7 +376,7 @@
       "request": "launch",
       "name": "Private-state transferNotes4To1 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -403,7 +403,7 @@
       "request": "launch",
       "name": "Private-state redeemNotes1 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -430,7 +430,7 @@
       "request": "launch",
       "name": "Private-state redeemNotes2 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -457,7 +457,7 @@
       "request": "launch",
       "name": "Private-state redeemNotes3 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -484,7 +484,7 @@
       "request": "launch",
       "name": "Private-state redeemNotes4 on anvil",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
@@ -511,7 +511,7 @@
       "request": "launch",
       "name": "tokamak-ch-tx (debug, file inputs)",
       "runtimeExecutable": "node",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "program": "${workspaceFolder}/src/cli/index.ts",
       "args": [
         "tokamak-ch-tx",
         "--previous-state",
