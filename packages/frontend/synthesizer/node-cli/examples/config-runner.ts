@@ -184,11 +184,10 @@ async function runConfigExample<TConfig>(
 
   const callData = adapter.buildCalldata(config, keyMaterial);
   const common = createTokamakL2Common();
-  const stateManagerOpts = createStateManagerOptsFromChannelConfig(
-    adapter.toStateManagerChannelConfig(config),
-  );
+  const stateManagerChannelConfig = adapter.toStateManagerChannelConfig(config);
+  const stateManagerOpts = createStateManagerOptsFromChannelConfig(stateManagerChannelConfig);
   const stateManager = await createTokamakL2StateManagerFromL1RPC(rpcUrl, stateManagerOpts);
-  const blockNumber = adapter.toStateManagerChannelConfig(config).blockNumber;
+  const blockNumber = stateManagerChannelConfig.blockNumber;
   const blockInfo = await getBlockInfoFromRPC(
     rpcUrl,
     blockNumber,
