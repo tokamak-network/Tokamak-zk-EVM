@@ -17,7 +17,7 @@ export {
   CircuitGenerator,
   createCircuitGenerator,
   type CircuitArtifacts,
-} from '../../core/src/app.ts';
+} from '../../core/src/circuit.ts';
 export {
   type SynthesizerInterface,
   type SynthesizerOpts,

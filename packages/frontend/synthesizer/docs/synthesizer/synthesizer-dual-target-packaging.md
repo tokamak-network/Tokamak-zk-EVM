@@ -75,6 +75,7 @@ packages/frontend/synthesizer/
 ├── core/
 │   └── src/
 │       ├── app.ts
+│       ├── circuit.ts
 │       ├── subcircuit.ts
 │       ├── synthesizer.ts
 │       ├── app/
@@ -104,10 +105,11 @@ The current shared entrypoints are:
 - `core/src/app.ts`
   - `synthesizeFromSnapshotInput`
   - `createSynthesisOutputJsonFiles`
+  - subcircuit library resolution helpers
+- `core/src/circuit.ts`
   - `createCircuitGenerator`
   - `CircuitGenerator`
   - `CircuitArtifacts`
-  - subcircuit library resolution helpers
 - `core/src/synthesizer.ts`
   - `createSynthesizer`
   - `SynthesizerInterface`

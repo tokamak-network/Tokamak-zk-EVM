@@ -3,7 +3,7 @@ import fsPromises from "node:fs/promises";
 import {
   CircuitGenerator,
   type CircuitArtifacts,
-} from "../../../core/src/app.ts";
+} from "../../../core/src/circuit.ts";
 import {
   createSynthesisOutputJsonFiles,
   type SynthesisOutput,

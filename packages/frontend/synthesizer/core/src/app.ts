@@ -9,13 +9,6 @@ export {
 export {
   synthesizeFromSnapshotInput,
 } from './app/synthesize.ts';
-export {
-  CircuitGenerator,
-  createCircuitGenerator,
-} from './circuitGenerator/circuitGenerator.ts';
-export type {
-  CircuitArtifacts,
-} from './circuitGenerator/types/types.ts';
 export type {
   ContractCodeEntry,
   SynthesisInput,

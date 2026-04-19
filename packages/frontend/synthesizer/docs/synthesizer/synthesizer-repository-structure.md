@@ -23,6 +23,7 @@ synthesizer/
 │       │   ├── synthesize.ts
 │       │   └── types.ts
 │       ├── app.ts
+│       ├── circuit.ts
 │       ├── circuitGenerator
 │       │   ├── circuitGenerator.ts
 │       │   ├── handlers
