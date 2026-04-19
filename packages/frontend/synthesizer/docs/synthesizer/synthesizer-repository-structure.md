@@ -5,12 +5,17 @@ Generated or untracked directories such as `dist/`, `node_modules/`, runtime out
 
 ```text
 synthesizer/
+├── .vscode
+│   ├── launch.json
+│   └── web-app-debug.ts
 ├── .gitignore
 ├── .prettierignore
 ├── LICENSE-APACHE
 ├── LICENSE-MIT
 ├── NOTICE
 ├── README.md
+├── package-lock.json
+├── package.json
 ├── agents
 │   └── tasks
 │       ├── lessons.md

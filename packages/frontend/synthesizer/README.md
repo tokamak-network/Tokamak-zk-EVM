@@ -1,6 +1,6 @@
-# Tokamak zk-EVM Synthesizer Packages
+# Tokamak zk-EVM Synthesizer Workspace
 
-This directory is now a container for the split Synthesizer codebase.
+This directory is the local workspace root for the split Synthesizer codebase.
 
 ## Layout
 
@@ -15,10 +15,14 @@ This directory is now a container for the split Synthesizer codebase.
   - Owns the browser-compatible app surface and browser adapters.
 - `docs/`
   - Design and architecture documents shared across the split packages.
+- `.vscode/`
+  - Workspace-level debug entrypoints for `node-cli/` and `web-app/`.
 
-## Container rule
+## Workspace rule
 
-- This directory is a container only.
+- This directory is a private workspace root.
+- Published packages still live under `node-cli/` and `web-app/`.
+- Workspace-level metadata and debug entrypoints live at the root.
 - Build outputs, runtime outputs, and installed dependencies should live under `node-cli/` or `web-app/`.
 - `core/` should contain source files only.
 

@@ -72,6 +72,8 @@ Rules:
 
 ```text
 packages/frontend/synthesizer/
+├── .vscode/
+├── package.json
 ├── core/
 │   └── src/
 │       ├── app.ts
@@ -144,13 +146,14 @@ These entrypoints are intentionally narrower than the underlying directory tree 
 
 The browser package prepares inputs, calls shared synthesis flow, and returns or transports results without using Node filesystem APIs.
 
-## Container rule
+## Workspace root rule
 
-`packages/frontend/synthesizer/` is a container directory, not a published package.
+`packages/frontend/synthesizer/` is a private workspace root, not a published package.
 
 It should contain:
 - shared source modules
 - published child packages
+- workspace-level debug entrypoints
 - architecture documents
 
 It should not become a runtime output location.

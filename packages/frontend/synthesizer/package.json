@@ -1,0 +1,15 @@
+{
+  "name": "@tokamak-zk-evm/synthesizer-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "node-cli",
+    "web-app"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "build:node-cli": "npm run build --workspace @tokamak-zk-evm/synthesizer-node",
+    "build:web-app": "npm run build --workspace @tokamak-zk-evm/synthesizer-web"
+  }
+}
