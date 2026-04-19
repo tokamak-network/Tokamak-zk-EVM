@@ -9,11 +9,11 @@ import { fileURLToPath } from 'url';
 import { fromEdwardsToAddress } from 'tokamak-l2js';
 import {
   buildPrivateStateRedeemCalldata,
-  deriveParticipantKeys,
+  derivePrivateStateParticipantKeys,
   redeemInterfaces,
   type PrivateStateNote,
   type PrivateStateRedeemConfig,
-} from '../examples/privateState/redeemNotes/utils.ts';
+} from '../examples/privateState/utils.ts';
 import {
   computeReplayPrivateStateAddressMappingKey,
   computeReplayPrivateStateMappingKey,
@@ -299,7 +299,7 @@ const main = async () => {
   const liquidBalancesSlot = getPrivateStateVaultLiquidBalancesSlot(storageLayoutManifest);
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const baseParticipants = buildParticipants(mnemonic, participantCount);
-  const keyMaterial = deriveParticipantKeys(baseParticipants);
+  const keyMaterial = derivePrivateStateParticipantKeys(baseParticipants);
   const participants = baseParticipants.map((participant, index) => ({
     ...participant,
     addressL1: fromEdwardsToAddress(keyMaterial.publicKeys[index]).toString() as `0x${string}`,

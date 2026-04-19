@@ -12,11 +12,11 @@ import type {
   ChannelStorageConfig,
 } from 'tokamak-l2js';
 import { deriveL2KeysFromSignature, fromEdwardsToAddress, poseidon } from 'tokamak-l2js';
-import { getRpcUrlFromEnv } from '../../../src/io/env.ts';
+import { getRpcUrlFromEnv } from '../../src/io/env.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const packageRoot = path.resolve(__dirname, '..', '..', '..');
+const packageRoot = path.resolve(__dirname, '..', '..');
 const envPath = path.join(packageRoot, '.env');
 
 const applyEnvFileIfPresent = (targetPath: string) => {
@@ -510,7 +510,9 @@ const assertFunctionConfig = (value: unknown, label: string): ChannelFunctionCon
   };
 };
 
-export const loadConfig = async (configPath: string): Promise<PrivateStateMintConfig> => {
+export const loadPrivateStateMintConfig = async (
+  configPath: string,
+): Promise<PrivateStateMintConfig> => {
   const configRaw = JSON.parse(await fs.readFile(configPath, 'utf8'));
 
   const participants = assertParticipantArray(configRaw.participants, 'participants');
@@ -557,7 +559,7 @@ export const loadConfig = async (configPath: string): Promise<PrivateStateMintCo
 const toSeedBytes = (seed: string): Uint8Array =>
   setLengthLeft(utf8ToBytes(seed), 32);
 
-export const deriveParticipantKeys = (
+export const derivePrivateStateParticipantKeys = (
   participants: ChannelParticipantConfig[],
 ): DerivedParticipantKeys => {
   const privateKeys: Uint8Array[] = [];
@@ -629,7 +631,7 @@ export const buildPrivateStateMintCalldata = (
   return encoded as `0x${string}`;
 };
 
-export const toStateManagerChannelConfig = (
+export const toPrivateStateMintStateManagerChannelConfig = (
   config: PrivateStateMintConfig,
 ): ChannelStateConfig => ({
   network: config.network,
@@ -639,7 +641,10 @@ export const toStateManagerChannelConfig = (
   blockNumber: config.blockNumber,
 });
 
-export const getExampleRpcUrl = (network: ExampleNetwork, env: NodeJS.ProcessEnv = process.env): string => {
+export const getPrivateStateExampleRpcUrl = (
+  network: ExampleNetwork,
+  env: NodeJS.ProcessEnv = process.env,
+): string => {
   if (network === 'anvil') {
     const configuredRpcUrl = env[ANVIL_RPC_URL_ENV_KEY]?.trim();
     return configuredRpcUrl && configuredRpcUrl.length > 0 ? configuredRpcUrl : DEFAULT_ANVIL_RPC_URL;
@@ -647,3 +652,320 @@ export const getExampleRpcUrl = (network: ExampleNetwork, env: NodeJS.ProcessEnv
 
   return getRpcUrlFromEnv(network, env, { envPath: EXAMPLES_ENV_PATH });
 };
+
+export type PrivateStateNote = {
+  owner: `0x${string}`;
+  value: `0x${string}`;
+  salt: `0x${string}`;
+};
+
+export type PrivateStateRedeemConfig = ChannelStateConfig & {
+  network: ExampleNetwork;
+  txNonce: number;
+  calldata: `0x${string}`;
+  senderIndex: number;
+  receiverIndex: number;
+  inputCount: 1 | 2 | 3 | 4;
+  inputNotes: [PrivateStateNote, ...PrivateStateNote[]];
+  function: ChannelFunctionConfig;
+};
+
+const REDEEM_NOTES1_ABI = [
+  'function redeemNotes1((address owner,uint256 value,bytes32 salt)[1] inputNotes,address receiver) returns (bytes32[1] nullifiers)',
+];
+const REDEEM_NOTES2_ABI = [
+  'function redeemNotes2((address owner,uint256 value,bytes32 salt)[2] inputNotes,address receiver) returns (bytes32[2] nullifiers)',
+];
+const REDEEM_NOTES3_ABI = [
+  'function redeemNotes3((address owner,uint256 value,bytes32 salt)[3] inputNotes,address receiver) returns (bytes32[3] nullifiers)',
+];
+const REDEEM_NOTES4_ABI = [
+  'function redeemNotes4((address owner,uint256 value,bytes32 salt)[4] inputNotes,address receiver) returns (bytes32[4] nullifiers)',
+];
+
+export const redeemInterfaces = {
+  1: new ethers.Interface(REDEEM_NOTES1_ABI),
+  2: new ethers.Interface(REDEEM_NOTES2_ABI),
+  3: new ethers.Interface(REDEEM_NOTES3_ABI),
+  4: new ethers.Interface(REDEEM_NOTES4_ABI),
+} as const;
+
+const parseInputCount = (value: unknown, label: string): 1 | 2 | 3 | 4 => {
+  const parsed = parseNumberValue(value, label);
+  if (parsed !== 1 && parsed !== 2 && parsed !== 3 && parsed !== 4) {
+    throw new Error(`${label} must be 1, 2, 3, or 4`);
+  }
+  return parsed;
+};
+
+const assertBaseParticipantArray = (
+  value: unknown,
+  label: string,
+): ChannelParticipantConfig[] => {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+  return value.map((entry, index) => {
+    if (typeof entry !== 'object' || entry === null) {
+      throw new Error(`${label}[${index}] must be an object`);
+    }
+    const record = entry as Record<string, unknown>;
+    const addressL1 = record.addressL1;
+    const prvSeedL2 = record.prvSeedL2;
+    if (typeof addressL1 !== 'string' || !addressL1.startsWith('0x')) {
+      throw new Error(`${label}[${index}].addressL1 must be a hex string with 0x prefix`);
+    }
+    if (typeof prvSeedL2 !== 'string') {
+      throw new Error(`${label}[${index}].prvSeedL2 must be a string`);
+    }
+    return { addressL1: addressL1 as `0x${string}`, prvSeedL2 };
+  });
+};
+
+const parseNote = (value: unknown, label: string): PrivateStateNote => {
+  if (typeof value !== 'object' || value === null) {
+    throw new Error(`${label} must be an object`);
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    owner: parseHexString(record.owner, `${label}.owner`) as `0x${string}`,
+    value: parseHexString(record.value, `${label}.value`),
+    salt: parseHexString(record.salt, `${label}.salt`),
+  };
+};
+
+const parseFixedNotes = (
+  value: unknown,
+  label: string,
+  expectedLength: number,
+): PrivateStateNote[] => {
+  if (!Array.isArray(value) || value.length !== expectedLength) {
+    throw new Error(`${label} must be an array of length ${expectedLength}`);
+  }
+  return value.map((entry, index) => parseNote(entry, `${label}[${index}]`));
+};
+
+export const loadPrivateStateRedeemConfig = async (
+  configPath: string,
+): Promise<PrivateStateRedeemConfig> => {
+  const configRaw = JSON.parse(await fs.readFile(configPath, 'utf8'));
+
+  const participants = assertBaseParticipantArray(configRaw.participants, 'participants');
+  if (participants.length < 2) {
+    throw new Error('participants must include at least two entries');
+  }
+  const inputCount = parseInputCount(configRaw.inputCount, 'inputCount');
+
+  return {
+    network: parseNetwork(configRaw.network, 'network'),
+    participants,
+    storageConfigs: assertStorageConfigs(configRaw.storageConfigs, 'storageConfigs'),
+    callCodeAddresses: assertStringArray(configRaw.callCodeAddresses, 'callCodeAddresses').map(
+      (entry) => parseHexString(entry, 'callCodeAddresses'),
+    ),
+    blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
+    txNonce: parseNumberValue(configRaw.txNonce, 'txNonce'),
+    calldata: parseHexString(configRaw.calldata, 'calldata'),
+    senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
+    receiverIndex: parseNumberValue(configRaw.receiverIndex, 'receiverIndex'),
+    inputCount,
+    inputNotes: parseFixedNotes(
+      configRaw.inputNotes,
+      'inputNotes',
+      inputCount,
+    ) as PrivateStateRedeemConfig['inputNotes'],
+    function: assertFunctionConfig(configRaw.function, 'function'),
+  };
+};
+
+export const buildPrivateStateRedeemCalldata = (
+  config: PrivateStateRedeemConfig,
+  keyMaterial: DerivedParticipantKeys,
+): `0x${string}` => {
+  const receiverPoint = keyMaterial.publicKeys[config.receiverIndex];
+  if (!receiverPoint) {
+    throw new Error(`receiverIndex must point to an existing participant; got ${config.receiverIndex}`);
+  }
+  const receiverAddress = fromEdwardsToAddress(receiverPoint).toString() as `0x${string}`;
+  const functionName = `redeemNotes${config.inputCount}` as
+    | 'redeemNotes1'
+    | 'redeemNotes2'
+    | 'redeemNotes3'
+    | 'redeemNotes4';
+  return redeemInterfaces[config.inputCount].encodeFunctionData(
+    functionName,
+    [config.inputNotes, receiverAddress],
+  ) as `0x${string}`;
+};
+
+export const toPrivateStateRedeemStateManagerChannelConfig = (
+  config: PrivateStateRedeemConfig,
+): ChannelStateConfig => ({
+  network: config.network,
+  participants: config.participants,
+  storageConfigs: config.storageConfigs,
+  callCodeAddresses: config.callCodeAddresses,
+  blockNumber: config.blockNumber,
+});
+
+export type OpaqueEncryptedNoteValue = [`0x${string}`, `0x${string}`, `0x${string}`];
+
+export type PrivateStateTransferOutput = {
+  owner: `0x${string}`;
+  value: `0x${string}`;
+  encryptedNoteValue: OpaqueEncryptedNoteValue;
+};
+
+export type PrivateStateTransferConfig = ChannelStateConfig & {
+  network: ExampleNetwork;
+  txNonce: number;
+  calldata: `0x${string}`;
+  senderIndex: number;
+  functionName: string;
+  inputCount: number;
+  outputCount: number;
+  inputNotes: PrivateStateNote[];
+  transferOutputs: PrivateStateTransferOutput[];
+  outputNotes: PrivateStateNote[];
+  function: ChannelFunctionConfig;
+};
+
+export const isSupportedTransferArity = (
+  inputCount: number,
+  outputCount: number,
+) =>
+  (outputCount === 1 && inputCount >= 1 && inputCount <= 4)
+  || (outputCount === 2 && inputCount >= 1 && inputCount <= 3)
+  || (outputCount === 3 && inputCount === 1);
+
+const buildTransferFunctionName = (inputCount: number, outputCount: number) =>
+  `transferNotes${inputCount}To${outputCount}`;
+
+const buildTransferAbi = (inputCount: number, outputCount: number) => [
+  `function ${buildTransferFunctionName(inputCount, outputCount)}((address owner,uint256 value,bytes32[3] encryptedNoteValue)[${outputCount}] outputs,(address owner,uint256 value,bytes32 salt)[${inputCount}] inputNotes) returns (bytes32[${inputCount}] nullifiers, bytes32[${outputCount}] outputCommitments)`,
+];
+
+export const createTransferInterface = (inputCount: number, outputCount: number) =>
+  new ethers.Interface(buildTransferAbi(inputCount, outputCount));
+
+const parseTransferFunctionName = (value: unknown, label: string): string => {
+  if (typeof value !== 'string' || !/^transferNotes[1-8]To[123]$/u.test(value)) {
+    throw new Error(`${label} must match transferNotes<N>To<M> with N in [1,8] and M in [1,3]`);
+  }
+  return value;
+};
+
+const parseEncryptedNoteValue = (
+  value: unknown,
+  label: string,
+): OpaqueEncryptedNoteValue => {
+  if (!Array.isArray(value) || value.length !== 3) {
+    throw new Error(`${label} must be an array of three bytes32 words`);
+  }
+  return value.map((entry, index) =>
+    parseHexString(entry, `${label}[${index}]`)) as OpaqueEncryptedNoteValue;
+};
+
+const parseTransferOutput = (
+  value: unknown,
+  label: string,
+): PrivateStateTransferOutput => {
+  if (typeof value !== 'object' || value === null) {
+    throw new Error(`${label} must be an object`);
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    owner: parseHexString(record.owner, `${label}.owner`) as `0x${string}`,
+    value: parseHexString(record.value, `${label}.value`),
+    encryptedNoteValue: parseEncryptedNoteValue(
+      record.encryptedNoteValue,
+      `${label}.encryptedNoteValue`,
+    ),
+  };
+};
+
+const parseFixedTransferOutputs = (
+  value: unknown,
+  label: string,
+  expectedLength: number,
+): PrivateStateTransferOutput[] => {
+  if (!Array.isArray(value) || value.length !== expectedLength) {
+    throw new Error(`${label} must be an array of length ${expectedLength}`);
+  }
+  return value.map((entry, index) => parseTransferOutput(entry, `${label}[${index}]`));
+};
+
+export const loadPrivateStateTransferConfig = async (
+  configPath: string,
+): Promise<PrivateStateTransferConfig> => {
+  const configRaw = JSON.parse(await fs.readFile(configPath, 'utf8'));
+
+  const participants = assertBaseParticipantArray(configRaw.participants, 'participants');
+  if (participants.length < 2) {
+    throw new Error('participants must include at least two entries');
+  }
+
+  const functionName = parseTransferFunctionName(configRaw.functionName, 'functionName');
+  const inputCount = parseNumberValue(configRaw.inputCount, 'inputCount');
+  const outputCount = parseNumberValue(configRaw.outputCount, 'outputCount');
+  if (!isSupportedTransferArity(inputCount, outputCount)) {
+    throw new Error('private-state transfer replay only supports N<=4 for To1, N<=3 for To2, and only 1->3 for To3');
+  }
+  if (functionName !== buildTransferFunctionName(inputCount, outputCount)) {
+    throw new Error('functionName must match inputCount and outputCount');
+  }
+  const inputNotes = parseFixedNotes(
+    configRaw.inputNotes,
+    'inputNotes',
+    inputCount,
+  ) as PrivateStateTransferConfig['inputNotes'];
+  const transferOutputs = parseFixedTransferOutputs(
+    configRaw.transferOutputs,
+    'transferOutputs',
+    outputCount,
+  ) as PrivateStateTransferConfig['transferOutputs'];
+  const outputNotes = parseFixedNotes(
+    configRaw.outputNotes,
+    'outputNotes',
+    outputCount,
+  ) as PrivateStateTransferConfig['outputNotes'];
+
+  return {
+    network: parseNetwork(configRaw.network, 'network'),
+    participants,
+    storageConfigs: assertStorageConfigs(configRaw.storageConfigs, 'storageConfigs'),
+    callCodeAddresses: assertStringArray(configRaw.callCodeAddresses, 'callCodeAddresses').map(
+      (entry) => parseHexString(entry, 'callCodeAddresses'),
+    ),
+    blockNumber: parseNumberValue(configRaw.blockNumber, 'blockNumber'),
+    txNonce: parseNumberValue(configRaw.txNonce, 'txNonce'),
+    calldata: parseHexString(configRaw.calldata, 'calldata'),
+    senderIndex: parseNumberValue(configRaw.senderIndex, 'senderIndex'),
+    functionName,
+    inputCount,
+    outputCount,
+    inputNotes,
+    transferOutputs,
+    outputNotes,
+    function: assertFunctionConfig(configRaw.function, 'function'),
+  };
+};
+
+export const buildPrivateStateTransferCalldata = (
+  config: PrivateStateTransferConfig,
+  _keyMaterial: DerivedParticipantKeys,
+): `0x${string}` =>
+  createTransferInterface(config.inputCount, config.outputCount).encodeFunctionData(
+    config.functionName,
+    [config.transferOutputs, config.inputNotes],
+  ) as `0x${string}`;
+
+export const toPrivateStateTransferStateManagerChannelConfig = (
+  config: PrivateStateTransferConfig,
+): ChannelStateConfig => ({
+  network: config.network,
+  participants: config.participants,
+  storageConfigs: config.storageConfigs,
+  callCodeAddresses: config.callCodeAddresses,
+  blockNumber: config.blockNumber,
+});

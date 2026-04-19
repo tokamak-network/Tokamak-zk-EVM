@@ -10,12 +10,12 @@ import { fromEdwardsToAddress } from 'tokamak-l2js';
 import {
   buildPrivateStateTransferCalldata,
   createTransferInterface,
-  deriveParticipantKeys,
+  derivePrivateStateParticipantKeys,
   isSupportedTransferArity,
   type PrivateStateNote,
   type PrivateStateTransferOutput,
   type PrivateStateTransferConfig,
-} from '../examples/privateState/transferNotes/utils.ts';
+} from '../examples/privateState/utils.ts';
 import {
   computeReplayPrivateStateEncryptedNoteSalt,
   computeReplayPrivateStateMappingKey,
@@ -330,7 +330,7 @@ const main = async () => {
   const managedStorageAddresses = getPrivateStateManagedStorageAddresses(storageLayoutManifest);
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const baseParticipants = buildParticipants(mnemonic, participantCount);
-  const keyMaterial = deriveParticipantKeys(baseParticipants);
+  const keyMaterial = derivePrivateStateParticipantKeys(baseParticipants);
   const participants = baseParticipants.map((participant, index) => ({
     ...participant,
     addressL1: fromEdwardsToAddress(keyMaterial.publicKeys[index]).toString() as `0x${string}`,
