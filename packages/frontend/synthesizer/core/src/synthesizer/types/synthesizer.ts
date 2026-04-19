@@ -7,11 +7,11 @@ import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable } from 
 import { SynthesizerOpHandler } from '../handlers/instructionHandler.ts';
 import { ArithmeticOperator, SubcircuitNames } from '../../subcircuit/configuredTypes.ts';
 import type { ResolvedSubcircuitLibrary } from '../../subcircuit/libraryTypes.ts';
-import { SynthesizerBlockInfo } from '../../rpc/types.ts';
+import type { SynthesizerInputBlockInfo } from '../../app/io.ts';
 
 export interface SynthesizerOpts {
   signedTransaction: TokamakL2Tx
-  blockInfo: SynthesizerBlockInfo
+  blockInfo: SynthesizerInputBlockInfo
   stateManager: TokamakL2StateManager
 }
 

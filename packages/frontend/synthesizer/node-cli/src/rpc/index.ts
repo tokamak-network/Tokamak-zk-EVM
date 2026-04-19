@@ -11,7 +11,7 @@ import { jubjub } from "@noble/curves/misc.js"
 import {
   installedSubcircuitLibrary,
 } from "../subcircuit/installedLibrary.ts"
-import { SynthesizerBlockInfo } from "./types.ts"
+import type { SynthesizerInputBlockInfo } from "./types.ts"
 
 export type SynthesizerSimulationOpts = {
   rpcUrl: string,
@@ -30,7 +30,7 @@ export async function getBlockInfoFromRPC(
 	rpcUrl: string,
 	blockNumber: number,
 	nHashes: number,
-): Promise<SynthesizerBlockInfo> {
+): Promise<SynthesizerInputBlockInfo> {
 	const provider = new ethers.JsonRpcProvider(rpcUrl)
 	const block = await provider.getBlock(blockNumber, false)
 	

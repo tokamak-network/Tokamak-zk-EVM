@@ -1,7 +1,7 @@
 import type { StateSnapshot, TxSnapshot } from 'tokamak-l2js';
 import type { CircuitArtifacts } from '../circuitGenerator/types/types.ts';
 import type { ResolvedSubcircuitLibrary } from '../subcircuit/libraryTypes.ts';
-import type { SynthesizerBlockInfo } from '../rpc/types.ts';
+import type { SynthesizerInputBlockInfo } from './io.ts';
 import type { SynthesizerInterface } from '../synthesizer/types/index.ts';
 
 export type ContractCodeEntry = {
@@ -12,7 +12,7 @@ export type ContractCodeEntry = {
 export interface SynthesisPayloadInput {
   previousState: StateSnapshot;
   transaction: TxSnapshot;
-  blockInfo: SynthesizerBlockInfo;
+  blockInfo: SynthesizerInputBlockInfo;
   contractCodes: ContractCodeEntry[];
 }
 

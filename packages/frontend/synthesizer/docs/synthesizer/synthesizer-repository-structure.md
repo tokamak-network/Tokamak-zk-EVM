@@ -18,7 +18,7 @@ synthesizer/
 ├── core
 │   └── src
 │       ├── app
-│       │   ├── output.ts
+│       │   ├── io.ts
 │       │   ├── subcircuitLibrary.ts
 │       │   ├── synthesize.ts
 │       │   └── types.ts
@@ -34,8 +34,6 @@ synthesizer/
 │       │   └── utils
 │       │       └── witness_calculator.ts
 │       ├── index.ts
-│       ├── rpc
-│       │   └── types.ts
 │       ├── subcircuit
 │       │   ├── configuredTypes.ts
 │       │   ├── libraryTypes.ts
