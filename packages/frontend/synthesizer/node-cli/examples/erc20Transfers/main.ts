@@ -11,7 +11,7 @@ import {
   createTokamakL2Tx,
   TokamakL2TxData,
 } from 'tokamak-l2js';
-import { createCircuitGenerator } from '../../../core/src/circuit.ts';
+import { createCircuitGenerator } from '../../../core/src/app.ts';
 import { createSynthesizer } from '../../src/synthesizer/constructors.ts';
 import { writeCircuitJson, writeEvmAnalysisJson } from '../../src/io/jsonWriter.ts';
 import { loadSubcircuitWasm } from '../../src/subcircuit/wasmLoader.ts';

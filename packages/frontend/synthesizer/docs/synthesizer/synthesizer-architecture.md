@@ -19,14 +19,11 @@ Key shared entrypoints:
 - `core/src/app.ts`
   - shared synthesis orchestration
   - shared output JSON serialization
+  - circuit generator entry
   - shared subcircuit library resolution helpers
 - `core/src/synthesizer.ts`
   - `createSynthesizer`
   - shared runtime types
-- `core/src/circuit.ts`
-  - `createCircuitGenerator`
-  - `CircuitGenerator`
-  - circuit artifact types
 - `core/src/subcircuit.ts`
   - shared subcircuit metadata parsing
   - resolved library types
