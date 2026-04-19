@@ -42,7 +42,7 @@ The shared result contains:
 - `finalStateSnapshot`
 - `evmAnalysis`
 
-`core/src/app/io.ts` turns that result into JSON strings.
+`core/src/app/serialization.ts` turns that result into JSON strings.
 
 ## 4) Adapter-specific output handling
 

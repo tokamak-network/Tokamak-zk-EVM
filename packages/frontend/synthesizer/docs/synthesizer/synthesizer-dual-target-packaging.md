@@ -114,7 +114,7 @@ The current shared entrypoints are:
   - `createSynthesizer`
   - `SynthesizerInterface`
   - `SynthesizerOpts`
-  - `SynthesizerInputBlockInfo`
+  - `BlockInfo`
 - `core/src/subcircuit.ts`
   - subcircuit parsing helpers
   - resolved-library types

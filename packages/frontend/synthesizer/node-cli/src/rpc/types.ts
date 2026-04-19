@@ -1,4 +1,4 @@
-export type { SynthesizerInputBlockInfo } from '../../../core/src/synthesizer.ts';
+export type { BlockInfo } from '../../../core/src/synthesizer.ts';
 
 export const ALCHEMY_API_KEY_ENV_KEY = 'ALCHEMY_API_KEY';
 export const NETWORK_ENV_KEY = 'NETWORK';

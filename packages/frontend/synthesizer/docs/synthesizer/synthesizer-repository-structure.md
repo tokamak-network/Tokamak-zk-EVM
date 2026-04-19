@@ -18,7 +18,7 @@ synthesizer/
 ├── core
 │   └── src
 │       ├── app
-│       │   ├── io.ts
+│       │   ├── serialization.ts
 │       │   ├── subcircuitLibrary.ts
 │       │   ├── synthesize.ts
 │       │   └── types.ts

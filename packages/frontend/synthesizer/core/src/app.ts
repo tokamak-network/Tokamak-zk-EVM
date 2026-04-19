@@ -1,7 +1,6 @@
 export {
   createSynthesisOutputJsonFiles,
-  type SynthesizerInputBlockInfo,
-} from './app/io.ts';
+} from './app/serialization.ts';
 export {
   loadResolvedSubcircuitLibrary,
   loadSubcircuitWasmBuffers,
@@ -11,6 +10,7 @@ export {
   synthesizeFromSnapshotInput,
 } from './app/synthesize.ts';
 export type {
+  BlockInfo,
   ContractCodeEntry,
   SynthesisInput,
   SynthesisOutput,

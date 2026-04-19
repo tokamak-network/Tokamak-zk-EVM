@@ -1,17 +1,5 @@
 import type { SynthesisOutput } from './types.ts';
 
-export type SynthesizerInputBlockInfo = {
-  coinBase: `0x${string}`;
-  timeStamp: `0x${string}`;
-  blockNumber: `0x${string}`;
-  prevRanDao: `0x${string}`;
-  gasLimit: `0x${string}`;
-  chainId: `0x${string}`;
-  selfBalance: `0x${string}`;
-  baseFee: `0x${string}`;
-  prevBlockHashes: `0x${string}`[];
-};
-
 const bigintJsonReplacer = (_key: string, value: unknown) =>
   typeof value === 'bigint' ? value.toString() : value;
 

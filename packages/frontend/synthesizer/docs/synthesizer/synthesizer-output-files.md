@@ -1,6 +1,6 @@
 # Synthesizer Output Files
 
-The shared synthesis result is serialized by `core/src/app/io.ts`. The Node package writes those JSON files through `node-cli/src/io/jsonWriter.ts`, while the web package turns them into download `Blob`s or JSON payloads.
+The shared synthesis result is serialized by `core/src/app/serialization.ts`. The Node package writes those JSON files through `node-cli/src/io/jsonWriter.ts`, while the web package turns them into download `Blob`s or JSON payloads.
 
 ## placementVariables.json
 - Full witness for every placement.
