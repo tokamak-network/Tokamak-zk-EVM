@@ -1,8 +1,23 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import type {
+  SynthesisOutput,
+  SynthesisPayloadInput,
+} from '../core/src/app.ts';
 
 const workspaceDir = fileURLToPath(new URL('..', import.meta.url));
+
+type WebAppModule = {
+  createSynthesisOutputPayload(output: SynthesisOutput): Record<string, unknown>;
+  loadSynthesisInputFromFiles(files: {
+    previousState: Blob;
+    transaction: Blob;
+    blockInfo: Blob;
+    contractCodes: Blob;
+  }): Promise<SynthesisPayloadInput>;
+  synthesize(input: SynthesisPayloadInput): Promise<SynthesisOutput>;
+};
 
 function resolveScenarioDir(): string {
   const scenarioArg = process.argv[2];
@@ -34,7 +49,8 @@ async function loadWebAppModule() {
     throw new Error('Failed to build @tokamak-zk-evm/synthesizer-web before debug run');
   }
 
-  return import('../web-app/dist/esm/index.js');
+  const runtimeModulePath = '../web-app/dist/esm/index.js';
+  return import(runtimeModulePath) as Promise<WebAppModule>;
 }
 
 async function main(): Promise<void> {
