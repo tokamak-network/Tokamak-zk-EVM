@@ -1,10 +1,9 @@
 import type {
-  SynthesisInput,
   SynthesisOutput,
   SynthesisPayloadInput,
 } from '../../core/src/app.ts';
 
-export type WebAppInput = SynthesisInput;
+export type WebAppInput = SynthesisPayloadInput;
 export type WebAppOutput = SynthesisOutput;
 export type WebAppPayloadInput = SynthesisPayloadInput;
 
@@ -20,17 +19,4 @@ export interface SynthesisInputUrls {
   transaction: string;
   blockInfo: string;
   contractCodes: string;
-}
-
-export interface SubcircuitLibraryFiles {
-  setupParams: Blob;
-  globalWireList: Blob;
-  frontendCfg: Blob;
-  subcircuitInfo: Blob;
-  wasmFiles: Record<number, Blob>;
-}
-
-export interface FetchSubcircuitLibrarySource {
-  baseUrl: string;
-  fetchImpl?: typeof fetch;
 }

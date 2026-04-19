@@ -24,8 +24,6 @@ Use the browser package with uploaded files:
 
 ```ts
 import {
-  createFileSubcircuitLibraryProvider,
-  prepareSynthesisInput,
   loadSynthesisInputFromFiles,
   saveSynthesisOutputToFiles,
   synthesize,
@@ -38,17 +36,10 @@ const payload = await loadSynthesisInputFromFiles({
   contractCodes,
 });
 
-const provider = createFileSubcircuitLibraryProvider({
-  setupParams,
-  globalWireList,
-  frontendCfg,
-  subcircuitInfo,
-  wasmFiles,
-});
-
-const input = await prepareSynthesisInput(payload, provider);
-const output = await synthesize(input);
+const output = await synthesize(payload);
 saveSynthesisOutputToFiles(output);
 ```
+
+The published browser package bundles the subcircuit library JSON and WASM at build time, so callers only provide the transaction input payload.
 
 Use `postSynthesisOutput(url, output)` instead of downloads if the result should be sent to a server.

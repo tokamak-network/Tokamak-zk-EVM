@@ -1,9 +1,10 @@
 import {
   synthesizeFromSnapshotInput,
-  type SynthesisInput,
+  type SynthesisPayloadInput,
   type SynthesisOutput,
 } from '../../core/src/app.ts';
+import { prepareSynthesisInput } from './subcircuit/index.ts';
 
-export async function synthesize(input: SynthesisInput): Promise<SynthesisOutput> {
-  return synthesizeFromSnapshotInput(input);
+export async function synthesize(input: SynthesisPayloadInput): Promise<SynthesisOutput> {
+  return synthesizeFromSnapshotInput(await prepareSynthesisInput(input));
 }

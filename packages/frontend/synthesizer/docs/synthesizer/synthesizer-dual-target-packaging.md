@@ -137,14 +137,12 @@ These entrypoints are intentionally narrower than the underlying directory tree 
 `web-app/` exposes:
 - `loadSynthesisInputFromFiles`
 - `loadSynthesisInputFromUrls`
-- `createFetchSubcircuitLibraryProvider`
-- `createFileSubcircuitLibraryProvider`
 - `prepareSynthesisInput`
 - `synthesize`
 - `saveSynthesisOutputToFiles`
 - `postSynthesisOutput`
 
-The browser package prepares inputs, calls shared synthesis flow, and returns or transports results without using Node filesystem APIs.
+The browser package prepares inputs, uses a subcircuit library bundled at build time, calls shared synthesis flow, and returns or transports results without using Node filesystem APIs.
 
 ## Workspace root rule
 

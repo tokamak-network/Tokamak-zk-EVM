@@ -36,9 +36,10 @@
     "NOTICE"
   ],
   "scripts": {
+    "sync:bundled-subcircuit-module": "node scripts/generate-bundled-subcircuit-module.mjs",
     "build": "npm run typecheck && npm run build:package",
-    "build:package": "node scripts/build-package.mjs",
-    "typecheck": "tsc -p tsconfig.json --pretty false",
+    "build:package": "npm run sync:bundled-subcircuit-module && node scripts/build-package.mjs",
+    "typecheck": "npm run sync:bundled-subcircuit-module && tsc -p tsconfig.json --pretty false",
     "tsc": "npm run typecheck",
     "prepack": "npm run build:package"
   },
@@ -49,6 +50,7 @@
     "@ethereumjs/util": "^10.0.0",
     "@ethereumjs/vm": "^10.0.0",
     "@noble/curves": "1.9.7",
+    "@tokamak-zk-evm/subcircuit-library": "^1.0.0",
     "@zk-kit/imt": "2.0.0-beta.8",
     "tokamak-l2js": "^0.1.3"
   },

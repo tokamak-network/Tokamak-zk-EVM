@@ -17,6 +17,9 @@ const baseConfig = {
   platform: 'browser',
   target: 'es2020',
   tsconfig: path.join(rootDir, 'tsconfig.json'),
+  loader: {
+    '.wasm': 'binary',
+  },
 };
 
 await fs.rm(path.join(distDir, 'cjs'), { force: true, recursive: true });

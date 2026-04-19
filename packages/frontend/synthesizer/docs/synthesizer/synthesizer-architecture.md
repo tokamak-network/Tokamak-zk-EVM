@@ -58,7 +58,7 @@ The Node package should not duplicate synthesis flow. It should prepare inputs, 
 - `src/input/`
   - Blob and URL input loaders
 - `src/subcircuit/`
-  - fetch-based or uploaded-file subcircuit library providers
+  - bundled subcircuit library runtime
 - `src/output/`
   - browser download helpers
   - JSON POST helpers

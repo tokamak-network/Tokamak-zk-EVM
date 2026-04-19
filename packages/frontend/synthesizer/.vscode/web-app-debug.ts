@@ -1,22 +1,8 @@
-import { createRequire } from 'node:module';
-import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-import {
-  createFileSubcircuitLibraryProvider,
-  createSynthesisOutputPayload,
-  loadSynthesisInputFromFiles,
-  prepareSynthesisInput,
-  synthesize,
-} from '../web-app/src/index.ts';
-
-type SubcircuitInfoEntry = {
-  id: number;
-};
+import { spawnSync } from 'node:child_process';
 
 const workspaceDir = fileURLToPath(new URL('..', import.meta.url));
-const nodeCliRequire = createRequire(new URL('../node-cli/package.json', import.meta.url));
 
 function resolveScenarioDir(): string {
   const scenarioArg = process.argv[2];
@@ -30,28 +16,34 @@ function resolveScenarioDir(): string {
   return path.resolve(workspaceDir, scenarioArg);
 }
 
-function resolveLibraryDir(): string {
-  const libraryArg = process.argv[3];
-  if (libraryArg !== undefined) {
-    return path.resolve(workspaceDir, libraryArg);
-  }
-
-  const setupParamsPath = nodeCliRequire.resolve(
-    '@tokamak-zk-evm/subcircuit-library/subcircuits/library/setupParams.json',
-  );
-  return path.dirname(setupParamsPath);
+async function readBlob(filePath: string): Promise<Blob> {
+  const { readFile } = await import('node:fs/promises');
+  return new Blob([await readFile(filePath)]);
 }
 
-async function readBlob(filePath: string): Promise<Blob> {
-  return new Blob([await readFile(filePath)]);
+async function loadWebAppModule() {
+  const buildResult = spawnSync(
+    'npm',
+    ['run', 'build', '--workspace', '@tokamak-zk-evm/synthesizer-web'],
+    {
+      cwd: workspaceDir,
+      stdio: 'inherit',
+    },
+  );
+  if (buildResult.status !== 0) {
+    throw new Error('Failed to build @tokamak-zk-evm/synthesizer-web before debug run');
+  }
+
+  return import('../web-app/dist/esm/index.js');
 }
 
 async function main(): Promise<void> {
   const scenarioDir = resolveScenarioDir();
-  const libraryDir = resolveLibraryDir();
-  const subcircuitInfo = JSON.parse(
-    await readFile(path.join(libraryDir, 'subcircuitInfo.json'), 'utf8'),
-  ) as SubcircuitInfoEntry[];
+  const {
+    createSynthesisOutputPayload,
+    loadSynthesisInputFromFiles,
+    synthesize,
+  } = await loadWebAppModule();
 
   const payload = await loadSynthesisInputFromFiles({
     previousState: await readBlob(path.join(scenarioDir, 'previous_state_snapshot.json')),
@@ -60,23 +52,7 @@ async function main(): Promise<void> {
     contractCodes: await readBlob(path.join(scenarioDir, 'contract_codes.json')),
   });
 
-  const wasmEntries = await Promise.all(
-    subcircuitInfo.map(async ({ id }) => [
-      id,
-      await readBlob(path.join(libraryDir, 'wasm', `subcircuit${id}.wasm`)),
-    ] as const),
-  );
-
-  const provider = createFileSubcircuitLibraryProvider({
-    setupParams: await readBlob(path.join(libraryDir, 'setupParams.json')),
-    globalWireList: await readBlob(path.join(libraryDir, 'globalWireList.json')),
-    frontendCfg: await readBlob(path.join(libraryDir, 'frontendCfg.json')),
-    subcircuitInfo: await readBlob(path.join(libraryDir, 'subcircuitInfo.json')),
-    wasmFiles: Object.fromEntries(wasmEntries),
-  });
-
-  const input = await prepareSynthesisInput(payload, provider);
-  const output = await synthesize(input);
+  const output = await synthesize(payload);
   const outputPayload = createSynthesisOutputPayload(output);
 
   console.log(

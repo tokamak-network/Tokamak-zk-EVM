@@ -4,95 +4,66 @@ import {
   type SynthesisInput,
   type SynthesisPayloadInput,
 } from '../../../core/src/app.ts';
+import { parseSubcircuitLibraryData } from '../../../core/src/subcircuit.ts';
 import {
-  parseSubcircuitLibraryData,
-  type SubcircuitLibraryProvider,
-} from '../../../core/src/subcircuit.ts';
-import { loadJsonFromBlob, loadJsonFromUrl } from '../input/index.ts';
-import type { FetchSubcircuitLibrarySource, SubcircuitLibraryFiles } from '../types.ts';
+  frontendCfgJson,
+  globalWireListJson,
+  setupParamsJson,
+  subcircuitInfoJson,
+  wasmFiles,
+} from './bundled.generated.ts';
 
-function trimTrailingSlashes(value: string): string {
-  return value.replace(/\/+$/, '');
-}
+const bundledSubcircuitLibraryData = parseSubcircuitLibraryData({
+  setupParams: setupParamsJson,
+  globalWireList: globalWireListJson,
+  frontendCfg: frontendCfgJson,
+  subcircuitInfo: subcircuitInfoJson,
+});
 
-export function createFetchSubcircuitLibraryProvider(
-  source: FetchSubcircuitLibrarySource,
-): SubcircuitLibraryProvider {
-  const baseUrl = trimTrailingSlashes(source.baseUrl);
-  const fetchImpl = source.fetchImpl ?? fetch;
+const bundledSubcircuitLibraryProvider = {
+  async getData() {
+    return bundledSubcircuitLibraryData;
+  },
+  async loadWasm(subcircuitId: number): Promise<ArrayBuffer> {
+    const wasmFile = wasmFiles[subcircuitId];
+    if (wasmFile === undefined) {
+      throw new Error(`Missing bundled WASM file for subcircuit${subcircuitId}.wasm`);
+    }
 
-  return {
-    async getData() {
-      const [setupParams, globalWireList, frontendCfg, subcircuitInfo] = await Promise.all([
-        loadJsonFromUrl(`${baseUrl}/setupParams.json`, undefined, fetchImpl),
-        loadJsonFromUrl(`${baseUrl}/globalWireList.json`, undefined, fetchImpl),
-        loadJsonFromUrl(`${baseUrl}/frontendCfg.json`, undefined, fetchImpl),
-        loadJsonFromUrl(`${baseUrl}/subcircuitInfo.json`, undefined, fetchImpl),
-      ]);
+    return wasmFile.slice().buffer;
+  },
+};
 
-      return parseSubcircuitLibraryData({
-        setupParams,
-        globalWireList,
-        frontendCfg,
-        subcircuitInfo,
-      });
-    },
-    async loadWasm(subcircuitId: number) {
-      const response = await fetchImpl(`${baseUrl}/wasm/subcircuit${subcircuitId}.wasm`);
-      if (!response.ok) {
-        throw new Error(
-          `Failed to load subcircuit${subcircuitId}.wasm: ${response.status} ${response.statusText}`,
-        );
-      }
+let preparedRuntimePromise:
+  | Promise<Pick<SynthesisInput, 'subcircuitLibrary' | 'wasmBuffers'>>
+  | undefined;
 
-      return response.arrayBuffer();
-    },
-  };
-}
+async function getPreparedRuntime(): Promise<Pick<SynthesisInput, 'subcircuitLibrary' | 'wasmBuffers'>> {
+  if (preparedRuntimePromise === undefined) {
+    preparedRuntimePromise = (async () => {
+      const subcircuitLibrary = await loadResolvedSubcircuitLibrary(
+        bundledSubcircuitLibraryProvider,
+      );
+      const wasmBuffers = await loadSubcircuitWasmBuffers(
+        bundledSubcircuitLibraryProvider,
+        subcircuitLibrary.data.subcircuitInfo,
+      );
 
-export function createFileSubcircuitLibraryProvider(
-  files: SubcircuitLibraryFiles,
-): SubcircuitLibraryProvider {
-  return {
-    async getData() {
-      const [setupParams, globalWireList, frontendCfg, subcircuitInfo] = await Promise.all([
-        loadJsonFromBlob(files.setupParams),
-        loadJsonFromBlob(files.globalWireList),
-        loadJsonFromBlob(files.frontendCfg),
-        loadJsonFromBlob(files.subcircuitInfo),
-      ]);
+      return {
+        subcircuitLibrary,
+        wasmBuffers,
+      };
+    })();
+  }
 
-      return parseSubcircuitLibraryData({
-        setupParams,
-        globalWireList,
-        frontendCfg,
-        subcircuitInfo,
-      });
-    },
-    async loadWasm(subcircuitId: number) {
-      const wasmFile = files.wasmFiles[subcircuitId];
-      if (wasmFile === undefined) {
-        throw new Error(`Missing uploaded WASM file for subcircuit${subcircuitId}.wasm`);
-      }
-
-      return wasmFile.arrayBuffer();
-    },
-  };
+  return preparedRuntimePromise;
 }
 
 export async function prepareSynthesisInput(
   payload: SynthesisPayloadInput,
-  provider: SubcircuitLibraryProvider,
 ): Promise<SynthesisInput> {
-  const subcircuitLibrary = await loadResolvedSubcircuitLibrary(provider);
-  const wasmBuffers = await loadSubcircuitWasmBuffers(
-    provider,
-    subcircuitLibrary.data.subcircuitInfo,
-  );
-
   return {
     ...payload,
-    subcircuitLibrary,
-    wasmBuffers,
+    ...(await getPreparedRuntime()),
   };
 }
