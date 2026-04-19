@@ -14,6 +14,8 @@ stats.html
 
 dist/
 **/outputs
+!web-app/src/output/
+!web-app/src/output/**
 
 # binary
 bin/
