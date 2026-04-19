@@ -1,7 +1,4 @@
 import { promises as fs } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
 import { bytesToHex, concatBytes, hexToBytes, setLengthLeft, utf8ToBytes } from '@ethereumjs/util';
 import type { EdwardsPoint } from '@noble/curves/abstract/edwards';
 import { jubjub } from '@noble/curves/misc.js';
@@ -15,19 +12,6 @@ import {
   deriveL2KeysFromSignature,
   fromEdwardsToAddress,
 } from 'tokamak-l2js';
-import { getRpcUrlFromEnv } from '../../src/io/env.ts';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const packageRoot = path.resolve(__dirname, '..', '..');
-const envPath = path.join(packageRoot, '.env');
-
-dotenv.config({ path: envPath });
-
-export const EXAMPLES_ENV_PATH = envPath;
-export const ANVIL_RPC_URL_ENV_KEY = 'ANVIL_RPC_URL';
-export const DEFAULT_ANVIL_RPC_URL = 'http://127.0.0.1:8545';
-
 export type ExampleErc20TransferConfig = ChannelStateConfig & {
   txNonce: number;
   senderIndex: number;
@@ -217,12 +201,3 @@ export const toStateManagerChannelConfig = (
   callCodeAddresses: config.callCodeAddresses,
   blockNumber: config.blockNumber,
 });
-
-export const getExampleRpcUrl = (network: ExampleNetwork, env: NodeJS.ProcessEnv = process.env): string => {
-  if (network === 'anvil') {
-    const configuredRpcUrl = env[ANVIL_RPC_URL_ENV_KEY]?.trim();
-    return configuredRpcUrl && configuredRpcUrl.length > 0 ? configuredRpcUrl : DEFAULT_ANVIL_RPC_URL;
-  }
-
-  return getRpcUrlFromEnv(network, env, { envPath: EXAMPLES_ENV_PATH });
-};

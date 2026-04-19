@@ -1,4 +1,5 @@
 import { bytesToHex, createAddressFromString, hexToBytes } from '@ethereumjs/util';
+import { ethers } from 'ethers';
 import {
   createTokamakL2Common,
   createStateManagerOptsFromChannelConfig,
@@ -8,32 +9,29 @@ import {
   type TokamakL2TxData,
 } from 'tokamak-l2js';
 import { createCircuitGenerator } from '../../core/src/circuit.ts';
+import type { BlockInfo } from '../../core/src/synthesizer.ts';
 import { createSynthesizer } from '../src/synthesizer/constructors.ts';
 import { writeCircuitJson, writeEvmAnalysisJson } from '../src/io/jsonWriter.ts';
-import { getBlockInfoFromRPC } from '../src/rpc/index.ts';
 import { installedSubcircuitLibrary } from '../src/subcircuit/installedLibrary.ts';
 import { loadSubcircuitWasm } from '../src/subcircuit/wasmLoader.ts';
 import {
   buildErc20Calldata,
   deriveParticipantKeys as deriveErc20ParticipantKeys,
-  getExampleRpcUrl as getErc20RpcUrl,
   loadConfig as loadErc20Config,
   toStateManagerChannelConfig as toErc20StateManagerChannelConfig,
   type ExampleErc20TransferConfig,
+  type ExampleNetwork as Erc20ExampleNetwork,
 } from './erc20Transfers/utils.ts';
 import {
-  buildPrivateStateMintCalldata,
-  buildPrivateStateRedeemCalldata,
-  buildPrivateStateTransferCalldata,
   type DerivedParticipantKeys as SharedDerivedParticipantKeys,
   derivePrivateStateParticipantKeys,
-  getPrivateStateExampleRpcUrl,
   loadPrivateStateMintConfig,
   loadPrivateStateRedeemConfig,
   loadPrivateStateTransferConfig,
   toPrivateStateMintStateManagerChannelConfig,
   toPrivateStateRedeemStateManagerChannelConfig,
   toPrivateStateTransferStateManagerChannelConfig,
+  type ExampleNetwork as PrivateStateExampleNetwork,
   type PrivateStateMintConfig,
   type PrivateStateRedeemConfig,
   type PrivateStateTransferConfig,
@@ -57,10 +55,76 @@ type ConfigAdapter<TConfig> = {
   allowAnalysisOnly?: boolean;
 };
 
+const ALCHEMY_API_KEY_ENV_KEY = 'ALCHEMY_API_KEY';
+const ALCHEMY_RPC_URLS = {
+  mainnet: 'https://eth-mainnet.g.alchemy.com/v2/',
+  sepolia: 'https://eth-sepolia.g.alchemy.com/v2/',
+} as const;
+const ANVIL_RPC_URL_ENV_KEY = 'ANVIL_RPC_URL';
+const DEFAULT_ANVIL_RPC_URL = 'http://127.0.0.1:8545';
+
+function getRpcUrlFromEnv(
+  network: Erc20ExampleNetwork | PrivateStateExampleNetwork,
+  env: NodeJS.ProcessEnv,
+): string {
+  if (network === 'anvil') {
+    const configuredRpcUrl = env[ANVIL_RPC_URL_ENV_KEY]?.trim();
+    return configuredRpcUrl && configuredRpcUrl.length > 0
+      ? configuredRpcUrl
+      : DEFAULT_ANVIL_RPC_URL;
+  }
+
+  const apiKey = env[ALCHEMY_API_KEY_ENV_KEY];
+  if (typeof apiKey !== 'string' || apiKey.trim().length === 0) {
+    throw new Error(`Environment variable ${ALCHEMY_API_KEY_ENV_KEY} must be set`);
+  }
+
+  return `${ALCHEMY_RPC_URLS[network]}${apiKey}`;
+}
+
+async function getBlockInfoFromRPC(
+  rpcUrl: string,
+  blockNumber: number,
+  nHashes: number,
+): Promise<BlockInfo> {
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const block = await provider.getBlock(blockNumber, false);
+
+  if (block === null) {
+    throw new Error('RPC calls an invalid block');
+  }
+
+  const hashes: `0x${string}`[] = new Array<`0x${string}`>(nHashes);
+  for (let index = 0; index < nHashes; index += 1) {
+    const previousBlock = await provider.getBlock(blockNumber - index - 1, false);
+    if (previousBlock === undefined || previousBlock === null) {
+      throw new Error(`Can't retrieve a previous block hash. The block is ${previousBlock}.`);
+    }
+    if (previousBlock.hash === undefined || previousBlock.hash === null) {
+      throw new Error(`Can't retrieve a previous block hash. It's ${previousBlock.hash}.`);
+    }
+    hashes[index] = previousBlock.hash as `0x${string}`;
+  }
+
+  return {
+    coinBase: block.miner as `0x${string}`,
+    timeStamp: `0x${block.timestamp.toString(16)}` as `0x${string}`,
+    blockNumber: `0x${block.number.toString(16)}` as `0x${string}`,
+    prevRanDao: block.prevRandao == null
+      ? `0x${block.difficulty.toString(16)}` as `0x${string}`
+      : block.prevRandao as `0x${string}`,
+    gasLimit: `0x${block.gasLimit.toString(16)}` as `0x${string}`,
+    chainId: `0x${(await provider.getNetwork()).chainId.toString(16)}` as `0x${string}`,
+    selfBalance: '0x0' as `0x${string}`,
+    prevBlockHashes: hashes,
+    baseFee: `0x${(block.baseFeePerGas || 0n).toString(16)}` as `0x${string}`,
+  };
+}
+
 const configAdapters: Record<ConfigExampleType, ConfigAdapter<any>> = {
   'erc20-transfer': {
     loadConfig: loadErc20Config,
-    getRpcUrl: (config: ExampleErc20TransferConfig, env) => getErc20RpcUrl(config.network, env),
+    getRpcUrl: (config: ExampleErc20TransferConfig, env) => getRpcUrlFromEnv(config.network, env),
     deriveParticipantKeys: (config: ExampleErc20TransferConfig) => deriveErc20ParticipantKeys(config.participants),
     getSenderIndex: (config: ExampleErc20TransferConfig) => config.senderIndex,
     buildCalldata: (config: ExampleErc20TransferConfig, keyMaterial) => buildErc20Calldata(config, keyMaterial),
@@ -70,7 +134,7 @@ const configAdapters: Record<ConfigExampleType, ConfigAdapter<any>> = {
   },
   'private-state-mint': {
     loadConfig: loadPrivateStateMintConfig,
-    getRpcUrl: (config: PrivateStateMintConfig, env) => getPrivateStateExampleRpcUrl(config.network, env),
+    getRpcUrl: (config: PrivateStateMintConfig, env) => getRpcUrlFromEnv(config.network, env),
     deriveParticipantKeys: (config: PrivateStateMintConfig) => derivePrivateStateParticipantKeys(config.participants),
     getSenderIndex: (config: PrivateStateMintConfig) => config.senderIndex,
     buildCalldata: (config: PrivateStateMintConfig) => hexToBytes(config.calldata),
@@ -81,7 +145,7 @@ const configAdapters: Record<ConfigExampleType, ConfigAdapter<any>> = {
   },
   'private-state-redeem': {
     loadConfig: loadPrivateStateRedeemConfig,
-    getRpcUrl: (config: PrivateStateRedeemConfig, env) => getPrivateStateExampleRpcUrl(config.network, env),
+    getRpcUrl: (config: PrivateStateRedeemConfig, env) => getRpcUrlFromEnv(config.network, env),
     deriveParticipantKeys: (config: PrivateStateRedeemConfig) => derivePrivateStateParticipantKeys(config.participants),
     getSenderIndex: (config: PrivateStateRedeemConfig) => config.senderIndex,
     buildCalldata: (config: PrivateStateRedeemConfig) => hexToBytes(config.calldata),
@@ -92,7 +156,7 @@ const configAdapters: Record<ConfigExampleType, ConfigAdapter<any>> = {
   },
   'private-state-transfer': {
     loadConfig: loadPrivateStateTransferConfig,
-    getRpcUrl: (config: PrivateStateTransferConfig, env) => getPrivateStateExampleRpcUrl(config.network, env),
+    getRpcUrl: (config: PrivateStateTransferConfig, env) => getRpcUrlFromEnv(config.network, env),
     deriveParticipantKeys: (config: PrivateStateTransferConfig) => derivePrivateStateParticipantKeys(config.participants),
     getSenderIndex: (config: PrivateStateTransferConfig) => config.senderIndex,
     buildCalldata: (config: PrivateStateTransferConfig) => hexToBytes(config.calldata),

@@ -1,9 +1,4 @@
 export {
-  createSynthesizerOptsForSimulationFromRPC,
-  type SynthesizerSimulationOpts,
-} from './rpc/index.ts';
-export { type BlockInfo } from './rpc/types.ts';
-export {
   installedSubcircuitLibrary,
   installedSubcircuitLibraryData,
 } from './subcircuit/installedLibrary.ts';
@@ -21,4 +16,5 @@ export {
 export {
   type SynthesizerInterface,
   type SynthesizerOpts,
+  type BlockInfo,
 } from '../../core/src/synthesizer.ts';

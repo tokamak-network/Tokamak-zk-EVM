@@ -1,6 +1,4 @@
-import { promises as fs, readFileSync } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { promises as fs } from 'fs';
 import { bytesToHex, hexToBytes, setLengthLeft, utf8ToBytes } from '@ethereumjs/util';
 import type { EdwardsPoint } from '@noble/curves/abstract/edwards';
 import { jubjub } from '@noble/curves/misc.js';
@@ -12,43 +10,6 @@ import type {
   ChannelStorageConfig,
 } from 'tokamak-l2js';
 import { deriveL2KeysFromSignature, fromEdwardsToAddress, poseidon } from 'tokamak-l2js';
-import { getRpcUrlFromEnv } from '../../src/io/env.ts';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const packageRoot = path.resolve(__dirname, '..', '..');
-const envPath = path.join(packageRoot, '.env');
-
-const applyEnvFileIfPresent = (targetPath: string) => {
-  try {
-    const contents = readFileSync(targetPath, 'utf8');
-    for (const rawLine of contents.split(/\r?\n/u)) {
-      const line = rawLine.trim();
-      if (line.length === 0 || line.startsWith('#')) {
-        continue;
-      }
-      const separatorIndex = line.indexOf('=');
-      if (separatorIndex <= 0) {
-        continue;
-      }
-      const key = line.slice(0, separatorIndex).trim();
-      const value = line.slice(separatorIndex + 1).trim().replace(/^['"]|['"]$/gu, '');
-      if (!(key in process.env)) {
-        process.env[key] = value;
-      }
-    }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      throw error;
-    }
-  }
-};
-
-applyEnvFileIfPresent(envPath);
-
-export const EXAMPLES_ENV_PATH = envPath;
-export const ANVIL_RPC_URL_ENV_KEY = 'ANVIL_RPC_URL';
-export const DEFAULT_ANVIL_RPC_URL = 'http://127.0.0.1:8545';
 export const DEFAULT_EXAMPLE_NOTE_RECEIVE_CHANNEL_NAME = 'private-state-example-channel';
 const DEFAULT_CHANNEL_ID = 4;
 const BLS12_381_SCALAR_FIELD_MODULUS =
@@ -674,18 +635,6 @@ export const buildPrivateStateMintCalldata = (
 export const toPrivateStateMintStateManagerChannelConfig = (
   config: PrivateStateMintConfig,
 ): ChannelStateConfig => toPrivateStateStateManagerChannelConfig(config);
-
-export const getPrivateStateExampleRpcUrl = (
-  network: ExampleNetwork,
-  env: NodeJS.ProcessEnv = process.env,
-): string => {
-  if (network === 'anvil') {
-    const configuredRpcUrl = env[ANVIL_RPC_URL_ENV_KEY]?.trim();
-    return configuredRpcUrl && configuredRpcUrl.length > 0 ? configuredRpcUrl : DEFAULT_ANVIL_RPC_URL;
-  }
-
-  return getRpcUrlFromEnv(network, env, { envPath: EXAMPLES_ENV_PATH });
-};
 
 export type PrivateStateNote = {
   owner: `0x${string}`;

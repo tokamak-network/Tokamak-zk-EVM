@@ -1,6 +1,6 @@
 import { StateSnapshot, TxSnapshot } from 'tokamak-l2js';
 import { synthesizeFromSnapshotInput } from '../../../core/src/app.ts';
-import type { BlockInfo } from '../rpc/types.ts';
+import type { BlockInfo } from '../../../core/src/synthesizer.ts';
 import { writeSynthesisOutputJson } from '../io/jsonWriter.ts';
 import { installedSubcircuitLibrary } from '../subcircuit/installedLibrary.ts';
 import { loadSubcircuitWasm } from '../subcircuit/wasmLoader.ts';

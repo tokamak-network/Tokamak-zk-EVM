@@ -8,7 +8,7 @@ Synthesizer is the frontend that turns an Ethereum transaction into a Tokamak zk
 - **Witness**: Concrete values for every wire (placement variables) plus public/private instance splits.
 
 ## Inputs
-- **Transaction context**: Transaction hash and RPC endpoint. `createSynthesizerOptsForSimulationFromRPC` pulls block info, contract code, storage snapshots, and signs a Tokamak L2 transaction.
+- **Transaction context**: Debug config execution can derive block info and state snapshots from an RPC endpoint inside `node-cli/examples/config-runner.ts`.
 - **Subcircuit library**: Metadata and WASM artifacts produced by `@tokamak-zk-evm/qap-compiler` (Poseidon/Jubjub/ALU buffers, etc.).
 - **L2 keys**: Deterministic L2 keypairs are generated inside the CLI for state-channel simulation; they drive EDDSA verification inside the circuit.
 

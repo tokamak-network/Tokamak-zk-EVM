@@ -39,8 +39,8 @@ This document summarizes the classes and modules that still matter after the pac
   - loads installed subcircuit WASM
   - calls shared synthesis flow
   - writes output files
-- **Node RPC adapter** (`node-cli/src/rpc/index.ts`)
-  - builds `SynthesizerOpts` from RPC state
+- **Debug config adapter** (`node-cli/examples/config-runner.ts`)
+  - builds execution inputs from config files and RPC state
 - **Node subcircuit adapter** (`node-cli/src/subcircuit/*`)
   - resolves installed subcircuit metadata
   - loads WASM from the installed package

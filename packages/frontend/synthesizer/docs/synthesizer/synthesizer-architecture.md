@@ -43,12 +43,12 @@ Core runtime internals still live under:
   - CLI command entrypoint
 - `src/io/`
   - filesystem output writers
-  - environment helpers
-- `src/rpc/`
-  - RPC helpers that build `SynthesizerOpts`
 - `src/subcircuit/`
   - installed subcircuit metadata loading
   - Node WASM loading
+- `examples/config-runner.ts`
+  - debug-only config execution adapters
+  - RPC and env-backed config input preparation
 
 The Node package should not duplicate synthesis flow. It should prepare inputs, call `core`, and write files.
 
