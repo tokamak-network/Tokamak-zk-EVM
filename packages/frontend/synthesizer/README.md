@@ -1,38 +1,45 @@
 # Tokamak zk-EVM Synthesizer Workspace
 
-This directory is the local workspace root for the split Synthesizer codebase.
+This directory is the private workspace root for the split Tokamak zk-EVM Synthesizer codebase.
 
-## Layout
+## Published packages
+
+- `node-cli/`
+  - Published as `@tokamak-zk-evm/synthesizer-node`
+  - Owns the Node CLI, installed subcircuit loading, and filesystem output helpers
+- `web-app/`
+  - Published as `@tokamak-zk-evm/synthesizer-web`
+  - Owns the browser-facing `synthesize(input)` API and browser output helpers
+
+## Internal module
 
 - `core/`
-  - Internal environment-neutral synthesis module.
-  - Not published as a standalone npm package.
-- `node-cli/`
-  - Published as `@tokamak-zk-evm/synthesizer-node`.
-  - Owns the Node CLI, RPC helpers, installed subcircuit loading, and filesystem output helpers.
-- `web-app/`
-  - Published as `@tokamak-zk-evm/synthesizer-web`.
-  - Owns the browser-compatible app surface and browser adapters.
+  - Internal environment-neutral synthesis module
+  - Not published as a standalone npm package
+
+## Workspace layout
+
 - `docs/`
-  - Design and architecture documents shared across the split packages.
+  - Maintained developer wiki for architecture, flow, data structures, and packaging
 - `.vscode/`
-  - Workspace-level debug entrypoints for `node-cli/` and `web-app/`.
+  - Workspace-level debug entrypoints for `node-cli/` and `web-app/`
 
-## Workspace rule
+## Workspace rules
 
-- This directory is a private workspace root.
-- Published packages still live under `node-cli/` and `web-app/`.
-- Workspace-level metadata and debug entrypoints live at the root.
-- Build outputs, runtime outputs, and installed dependencies should live under `node-cli/` or `web-app/`.
-- `core/` should contain source files only.
-
-## Package direction
-
-- The old `@tokamak-zk-evm/synthesizer` package is being retired.
-- The current packaging plan is documented in [docs/synthesizer/synthesizer-dual-target-packaging.md](./docs/synthesizer/synthesizer-dual-target-packaging.md).
-
-## Shared rules
-
+- This directory is not a published npm package.
+- Published packages live under `node-cli/` and `web-app/`.
+- `core/` must contain source files only.
+- Build outputs and installed dependencies belong under the published child packages.
 - `core/` must stay environment-neutral.
 - `node-cli/` and `web-app/` may depend on `core/`.
 - `node-cli/` and `web-app/` must not depend on each other.
+
+## Versioning policy
+
+- `@tokamak-zk-evm/synthesizer-node` and `@tokamak-zk-evm/synthesizer-web` use synchronized versions.
+- Release notes and package responsibilities should be updated together when either published package changes.
+
+## Documentation
+
+- Overview: [docs/synthesizer/synthesizer.md](./docs/synthesizer/synthesizer.md)
+- Packaging and package responsibilities: [docs/synthesizer/synthesizer-dual-target-packaging.md](./docs/synthesizer/synthesizer-dual-target-packaging.md)

@@ -1,32 +1,72 @@
-# Synthsizer Introduction
+# Synthesizer Introduction
 
-Synthesizer is the frontend that turns an Ethereum transaction into a Tokamak zk-SNARK-ready circuit. It traces EVM execution, mirrors each opcode with pre-built subcircuits, and writes the witness and permutation files the backend prover expects.
+Tokamak zk-EVM Synthesizer turns a Tokamak L2 transaction snapshot into circuit-ready artifacts.
+It mirrors EVM execution with subcircuit placements, records wire-equality constraints, and emits the JSON files that the downstream prover consumes.
 
-## What it builds
-- **Placements**: Ordered subcircuit instances that mirror opcode effects. Each placement records input/output `DataPt` connections.
-- **Permutation**: Wire-equality constraints showing which placement wires must carry the same value.
-- **Witness**: Concrete values for every wire (placement variables) plus public/private instance splits.
+## Workspace layout
+
+The workspace contains three parts:
+
+- `core/`
+  - internal shared runtime
+  - synthesis orchestration
+  - circuit generation
+  - subcircuit metadata parsing
+- `node-cli/`
+  - published as `@tokamak-zk-evm/synthesizer-node`
+  - runs synthesis from JSON files on Node.js
+  - loads `@tokamak-zk-evm/subcircuit-library` at runtime
+- `web-app/`
+  - published as `@tokamak-zk-evm/synthesizer-web`
+  - exposes browser-facing helpers and `synthesize(input)`
+  - bundles the subcircuit library JSON and WASM at build time
+
+## What the synthesizer produces
+
+The shared runtime produces:
+
+- placement variables for every subcircuit placement
+- the public instance and its descriptions
+- the wire-equality permutation
+- the final state snapshot after execution
+- EVM analysis data such as step logs and message code addresses
 
 ## Inputs
-- **Transaction context**: Debug config execution can derive block info and state snapshots from an RPC endpoint inside `node-cli/examples/config-runner.ts`.
-- **Subcircuit library**: Metadata and WASM artifacts produced by `@tokamak-zk-evm/qap-compiler` (Poseidon/Jubjub/ALU buffers, etc.).
-- **L2 keys**: Deterministic L2 keypairs are generated inside the CLI for state-channel simulation; they drive EDDSA verification inside the circuit.
 
-## Outputs
-- `placementVariables.json`: Witness for every placement.
-- `instance.json` and `instance_description.json`: Public/private instance split plus descriptions.
-- `permutation.json`: Wire connection cycles enforcing equality constraints.
-- Location: `outputs/` by default, or a caller-specified directory (CLI uses `examples/outputs`).
+The common payload is defined by `core/src/app/types.ts`:
 
-## Execution model
-- Runs inside EthereumJS VM with a Tokamak L2 state manager seeded from L1 RPC.
-- Hooks interpreter steps to keep symbolic `StackPt`/`MemoryPt` aligned with VM execution.
-- Uses Poseidon/Jubjub primitives in place of Keccak/ECRecover; storage reads/writes verify Merkle proofs from the L1 snapshot.
+- `previousState`
+  - Tokamak L2 state snapshot
+- `transaction`
+  - Tokamak L2 transaction snapshot
+- `blockInfo`
+  - block metadata used by block opcodes and buffer initialization
+- `contractCodes`
+  - deployed bytecode snapshots for addresses involved in the run
 
-## Scope and limits
-- Most Cancun-era opcodes are handled; CREATE/CREATE2/SELFDESTRUCT and blob/TSTORE/TLOAD are not yet synthesized.
-- KECCAK256 is represented via Poseidon hashing for circuit feasibility.
-- Gas accounting is observed from the VM but not enforced in circuit constraints yet.
+Adapters add the runtime-specific pieces:
 
- 
-Tokamak zk-EVM Synthesizer turns a batch of Ethereum-like transactions into circuit-ready artifacts. The core lives in `src/synthesizer` (execution tracing, state management) and `src/circuitGenerator` (witness/public-instance/permutation generation). It interprets each opcode with Tokamak zk-EVM subcircuits and emits the witness/permutation files the zk-SNARK backend needs to produce and verify proofs.
+- `node-cli/`
+  - resolves the installed subcircuit metadata
+  - loads WASM buffers from the installed package
+- `web-app/`
+  - uses the subcircuit JSON and WASM that were bundled into the published package
+
+## Runtime model
+
+The shared synthesis flow:
+
+1. reconstructs a Tokamak L2 state manager from the snapshot input
+2. recreates the signed L2 transaction
+3. runs the shared `Synthesizer` runtime
+4. generates circuit artifacts from the placement trace
+5. serializes or exports those results through the adapter layer
+
+## Scope and current limits
+
+The implementation is designed for Tokamak zk-EVM circuit preparation, not for general-purpose Ethereum tracing.
+Important current constraints:
+
+- `KECCAK256` is represented with Poseidon-oriented circuit logic
+- gas accounting is observed from the VM but not fully enforced as circuit constraints
+- unsupported EVM features still include `CREATE`, `CREATE2`, `SELFDESTRUCT`, `TLOAD`, `TSTORE`, blob opcodes, and precompiles

@@ -1,12 +1,12 @@
 # Synthesizer Class Structure
 
-This document summarizes the classes and modules that still matter after the package split.
+This document summarizes the main classes and modules in the current split workspace.
 
 ## Shared runtime classes
 
 - **Synthesizer** (`core/src/synthesizer/synthesizer.ts`)
   - orchestrates opcode tracing
-  - subscribes to EVM events
+  - subscribes to EVM lifecycle events
   - exposes `synthesizeTX()`
 - **StateManager** (`core/src/synthesizer/handlers/stateManager.ts`)
   - owns placements, buffer placements, and subcircuit metadata
@@ -47,7 +47,7 @@ This document summarizes the classes and modules that still matter after the pac
 - **Web input adapter** (`web-app/src/input/index.ts`)
   - loads inputs from `Blob` or URL
 - **Web subcircuit adapter** (`web-app/src/subcircuit/index.ts`)
-  - resolves fetch-based or uploaded-file subcircuit libraries
+  - prepares synthesis input with the bundled subcircuit library
 - **Web output adapter** (`web-app/src/output/index.ts`)
   - creates downloads or JSON POST payloads
 

@@ -4,23 +4,37 @@ The execution flow is now shared by `core/` and called by target-specific adapte
 
 ## 1) Prepare input payload
 
-The adapter prepares:
+The adapter prepares the common payload:
+
 - previous state snapshot
 - transaction snapshot
 - block info
 - contract code list
-- resolved subcircuit library
-- WASM buffers
 
 Examples:
+
 - `node-cli/src/cli/index.ts`
   - reads JSON input files
   - uses `node-cli/src/subcircuit/installedLibrary.ts`
   - loads WASM with `node-cli/src/subcircuit/wasmLoader.ts`
 - `web-app/src/input/index.ts`
   - loads the same payload from uploaded `Blob`s or fetched URLs
-- `web-app/src/subcircuit/index.ts`
-  - builds browser-compatible subcircuit providers
+
+Each adapter then prepares the runtime-specific subcircuit assets:
+
+- `node-cli/`
+  - resolves the installed subcircuit metadata from `@tokamak-zk-evm/subcircuit-library`
+  - loads WASM buffers from the installed package
+- `web-app/`
+  - resolves the bundled subcircuit metadata generated during the package build
+  - loads bundled WASM buffers from the generated module
+
+Debug-only config execution is separate:
+
+- `node-cli/examples/config-runner.ts`
+  - derives block info from RPC
+  - builds state manager options from config files
+  - runs synthesis for development and debugging only
 
 ## 2) Run shared synthesis flow
 

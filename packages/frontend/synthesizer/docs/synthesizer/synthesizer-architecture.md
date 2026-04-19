@@ -1,6 +1,6 @@
 # Synthesizer Architecture
 
-The current Synthesizer layout has three layers:
+The current workspace has three layers:
 
 1. `core/` for shared synthesis logic
 2. `node-cli/` for Node-specific adapters
@@ -8,30 +8,38 @@ The current Synthesizer layout has three layers:
 
 ## High-level pipeline
 
-- Adapter layer prepares inputs and subcircuit assets.
-- `core/src/app/synthesize.ts` runs synthesis from an input snapshot.
-- `core/src/circuitGenerator/` produces circuit artifacts.
-- Adapter layer serializes or transports outputs.
+- the adapter layer prepares the common synthesis payload
+- `core/src/app/synthesize.ts` runs synthesis from that payload plus resolved subcircuit assets
+- `core/src/circuitGenerator/` produces circuit artifacts
+- the adapter layer serializes or transports outputs
 
 ## Shared core
 
-Key shared entrypoints:
+`core/` is an internal shared module, not a published package.
+
+Its public entrypoints are:
+
 - `core/src/app.ts`
-  - shared synthesis orchestration
-  - shared output JSON serialization
-  - shared subcircuit library resolution helpers
+  - `synthesizeFromSnapshotInput`
+  - `createSynthesisOutputJsonFiles`
+  - payload and output types
+  - helpers for resolving subcircuit-library data and WASM buffers
 - `core/src/synthesizer.ts`
   - `createSynthesizer`
-  - shared runtime types
+  - `SynthesizerOpts`
+  - `SynthesizerInterface`
+  - `BlockInfo`
 - `core/src/circuit.ts`
-  - `createCircuitGenerator`
   - `CircuitGenerator`
-  - circuit artifact types
+  - `createCircuitGenerator`
+  - `CircuitArtifacts`
 - `core/src/subcircuit.ts`
-  - shared subcircuit metadata parsing
-  - resolved library types
+  - subcircuit metadata parsing
+  - library type guards
+  - resolved subcircuit-library types
 
-Core runtime internals still live under:
+Implementation-heavy code lives under:
+
 - `core/src/synthesizer/`
 - `core/src/circuitGenerator/`
 - `core/src/subcircuit/`
@@ -39,8 +47,9 @@ Core runtime internals still live under:
 ## Node package
 
 `node-cli/` owns:
+
 - `src/cli/`
-  - CLI command entrypoint
+  - the published CLI command entrypoint
 - `src/io/`
   - filesystem output writers
 - `src/subcircuit/`
@@ -50,22 +59,25 @@ Core runtime internals still live under:
   - debug-only config execution adapters
   - RPC and env-backed config input preparation
 
-The Node package should not duplicate synthesis flow. It should prepare inputs, call `core`, and write files.
+The published Node package does not own synthesis flow.
+It prepares file-based inputs, loads the installed subcircuit library, calls `core`, and writes JSON outputs.
 
 ## Web package
 
 `web-app/` owns:
+
 - `src/input/`
   - Blob and URL input loaders
 - `src/subcircuit/`
-  - bundled subcircuit library runtime
+  - runtime bridge to the bundled subcircuit JSON and WASM
 - `src/output/`
   - browser download helpers
   - JSON POST helpers
 - `src/synthesize.ts`
   - browser-facing `synthesize(input)` wrapper
 
-The web package should prepare browser-friendly inputs, call `core`, and return in-memory outputs.
+The published web package does not fetch subcircuit assets at runtime.
+Its build step generates a bundled module from `@tokamak-zk-evm/subcircuit-library`, and the runtime consumes that bundled data directly.
 
 ## Dependency direction
 

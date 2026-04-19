@@ -12,4 +12,6 @@
 - **Subcircuit library**: Pre-built circuits (ALU, Poseidon, Jubjub, buffers) from `@tokamak-zk-evm/subcircuit-library`. Shared parsing and resolved-library types live under `core/src/subcircuit/` and `core/src/subcircuit.ts`.
 - **Permutation**: Wire-equality cycles emitted to `permutation.json`, ensuring all placements that share a value are constrained together.
 - **Public instance**: Extracted subset of witness values split into user, block, and function sections according to the resolved setup parameters in the shared subcircuit library context.
-- **Tokamak L2 state manager**: Adapter that loads L1 contract storage via RPC, provides Merkle proofs, and signs L2 transactions for synthesis.
+- **Tokamak L2 state manager**: Runtime object from `tokamak-l2js` that exposes contract storage snapshots, Merkle proofs, and final state capture.
+- **Bundled subcircuit runtime**: The `web-app` build output that already contains the subcircuit-library JSON and WASM assets.
+- **Config runner**: Debug-only example adapter in `node-cli/examples/config-runner.ts` that derives synthesis inputs from config files and RPC state. It is not part of the published CLI surface.

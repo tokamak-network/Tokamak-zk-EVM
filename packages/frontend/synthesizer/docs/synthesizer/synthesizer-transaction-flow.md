@@ -1,6 +1,6 @@
 # Synthesizer Transaction Flow
 
-This document focuses on how opcodes are translated into placements while an EVM transaction executes.
+This document focuses on how opcodes are translated into placements while a transaction executes inside the shared `Synthesizer` runtime.
 
 ## Event-driven processing
 - **beforeMessage**: clears call-memory stack, seeds transaction-related reserved variables (selector + 9 inputs, origin/caller/to caches), and resets the previous interpreter step tracker.

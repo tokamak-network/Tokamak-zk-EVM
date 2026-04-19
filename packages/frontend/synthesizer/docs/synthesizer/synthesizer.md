@@ -1,18 +1,29 @@
-# Synthesizer Documentation
+# Synthesizer Developer Wiki
 
-Tokamak zk-EVM Synthesizer interprets an Ethereum transaction with a Tokamak L2 state manager, records opcode-level circuit placements, and produces the inputs required by the zk-SNARK backend. The documents below reflect the current TypeScript sources in `packages/frontend/synthesizer`.
+This wiki documents the current implementation in `packages/frontend/synthesizer/`.
+The workspace publishes two packages:
 
-**Document map**
+- `@tokamak-zk-evm/synthesizer-node`
+- `@tokamak-zk-evm/synthesizer-web`
 
-- [Concepts](./synthesizer-concepts.md) – What the synthesizer builds and how it uses the subcircuit library
-- [Terminology](./synthesizer-terminology.md) – Quick glossary for placements, buffers, proofs, and outputs
-- [Execution Flow](./synthesizer-execution-flow.md) – Step-by-step run from RPC fetch to circuit files
-- [Transaction Flow](./synthesizer-transaction-flow.md) – What happens while the VM executes opcodes
-- [Architecture](./synthesizer-architecture.md) – Components and how they fit together
-- [Dual-Target Packaging Plan](./synthesizer-dual-target-packaging.md) – Recommended package split for a Node CLI and a browser app package
-- [Class Structure](./synthesizer-class-structure.md) – Key classes and responsibilities
-- [Data Structures](./synthesizer-data-structure.md) – DataPt, MemoryPts, StackPt, and caches
-- [Output Files](./synthesizer-output-files.md) – placementVariables, instance, and permutation formats
-- [Opcodes](./synthesizer-opcodes.md) – Supported opcode set and caveats
-- [Code Examples](./synthesizer-code-examples.md) – CLI and programmatic usage
-- [Repository Structure](./synthesizer-repository-structure.md) – What lives where in this package
+Both packages share the same internal synthesis runtime in `core/`.
+
+## Recommended reading order
+
+Start here when you need a broad orientation:
+
+1. [Introduction](./synthesizer-introduction.md)
+2. [Architecture](./synthesizer-architecture.md)
+3. [Execution Flow](./synthesizer-execution-flow.md)
+4. [Repository Structure](./synthesizer-repository-structure.md)
+
+Use the remaining pages as focused references:
+
+- [Terminology](./synthesizer-terminology.md)
+- [Class Structure](./synthesizer-class-structure.md)
+- [Data Structures](./synthesizer-data-structure.md)
+- [Transaction Flow](./synthesizer-transaction-flow.md)
+- [Opcodes](./synthesizer-opcodes.md)
+- [Output Files](./synthesizer-output-files.md)
+- [Code Examples](./synthesizer-code-examples.md)
+- [Dual-Target Packaging](./synthesizer-dual-target-packaging.md)

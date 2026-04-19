@@ -1,6 +1,6 @@
 # Synthesizer Dual-Target Packaging
 
-This document describes the current packaging model for the split Synthesizer codebase.
+This document describes the current packaging model and release assumptions for the workspace.
 
 ## Published packages
 
@@ -12,11 +12,19 @@ The repository exposes two published packages and one internal shared module:
 
 `core/` is not published as a standalone package.
 
+The workspace version policy is synchronized:
+
+- `@tokamak-zk-evm/synthesizer-node`
+- `@tokamak-zk-evm/synthesizer-web`
+
+should be released at the same version.
+
 ## Responsibilities
 
 ### `core/`
 
 `core/` owns:
+
 - shared synthesis execution flow
 - circuit generation
 - shared subcircuit metadata parsing
@@ -25,6 +33,7 @@ The repository exposes two published packages and one internal shared module:
 `core/` must stay environment-neutral.
 
 It must not depend on:
+
 - `node:*`
 - filesystem APIs
 - `commander`
@@ -34,19 +43,21 @@ It must not depend on:
 ### `@tokamak-zk-evm/synthesizer-node`
 
 `node-cli/` owns:
+
 - the CLI entrypoint
-- Node RPC helpers
 - installed subcircuit library loading
 - Node WASM loading
 - filesystem output helpers
+- debug-only config execution adapters under `examples/config-runner.ts`
 
 `node-cli/` may depend on `core/`, but it must not reimplement shared synthesis flow.
 
 ### `@tokamak-zk-evm/synthesizer-web`
 
 `web-app/` owns:
+
 - browser input loading from uploaded files or fetched URLs
-- browser subcircuit providers
+- a bundled subcircuit-library runtime generated at build time
 - browser output adapters for downloads and JSON POST
 - the browser-facing `synthesize(input)` wrapper
 
@@ -63,6 +74,7 @@ core
 ```
 
 Rules:
+
 - `core/` must not depend on `node-cli/` or `web-app/`
 - `node-cli/` may depend on `core/`
 - `web-app/` may depend on `core/`
@@ -76,19 +88,19 @@ packages/frontend/synthesizer/
 ├── package.json
 ├── core/
 │   └── src/
+│       ├── app/
 │       ├── app.ts
 │       ├── circuit.ts
-│       ├── subcircuit.ts
-│       ├── synthesizer.ts
-│       ├── app/
-│       ├── circuitGenerator/
+│       ├── index.ts
 │       ├── subcircuit/
-│       └── synthesizer/
+│       ├── subcircuit.ts
+│       ├── synthesizer/
+│       └── synthesizer.ts
 ├── node-cli/
+│   ├── examples/
 │   └── src/
 │       ├── cli/
 │       ├── io/
-│       ├── rpc/
 │       ├── subcircuit/
 │       └── synthesizer/
 └── web-app/
@@ -107,7 +119,7 @@ The current shared entrypoints are:
 - `core/src/app.ts`
   - `synthesizeFromSnapshotInput`
   - `createSynthesisOutputJsonFiles`
-  - subcircuit library resolution helpers
+  - subcircuit-library resolution helpers
 - `core/src/circuit.ts`
   - `createCircuitGenerator`
   - `CircuitGenerator`
@@ -121,37 +133,27 @@ The current shared entrypoints are:
   - subcircuit parsing helpers
   - resolved-library types
 
-These entrypoints are intentionally narrower than the underlying directory tree so adapter packages can depend on stable boundaries.
+These entrypoints are intentionally narrower than the underlying directory tree so the adapter packages can depend on stable boundaries.
 
-## Node adapter flow
+## Build and runtime differences
 
-`node-cli/src/cli/index.ts`:
-1. loads JSON input files
-2. loads the installed subcircuit library
-3. loads WASM buffers from the installed package
-4. calls `synthesizeFromSnapshotInput`
-5. writes output files through `node-cli/src/io/jsonWriter.ts`
+### Node package
 
-## Web adapter flow
+- build: `esbuild` bundles the CLI and library entrypoints
+- runtime subcircuit dependency: external
+- runtime WASM loading: from the installed `@tokamak-zk-evm/subcircuit-library` package
 
-`web-app/` exposes:
-- `loadSynthesisInputFromFiles`
-- `loadSynthesisInputFromUrls`
-- `prepareSynthesisInput`
-- `synthesize`
-- `saveSynthesisOutputToFiles`
-- `postSynthesisOutput`
+### Web package
 
-The browser package prepares inputs, uses a subcircuit library bundled at build time, calls shared synthesis flow, and returns or transports results without using Node filesystem APIs.
+- build: a generated module imports subcircuit JSON and all WASM assets before `esbuild` runs
+- runtime subcircuit dependency: bundled
+- runtime WASM loading: from the generated bundled module, not from network fetch
 
-## Workspace root rule
+## Stability rules
 
-`packages/frontend/synthesizer/` is a private workspace root, not a published package.
+To keep the split stable:
 
-It should contain:
-- shared source modules
-- published child packages
-- workspace-level debug entrypoints
-- architecture documents
-
-It should not become a runtime output location.
+- `core/` must remain environment-neutral
+- config-only debug flows must stay outside the published `node-cli/src/` surface
+- `web-app/` must keep browser delivery concerns outside `core/`
+- package docs and published package metadata must describe the real split, not the old monolithic package

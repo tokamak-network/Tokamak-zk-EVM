@@ -1,7 +1,19 @@
 {
   "name": "@tokamak-zk-evm/synthesizer-web",
   "version": "0.0.10",
-  "description": "Browser-compatible Tokamak zk-EVM synthesizer app package.",
+  "description": "Browser-facing Tokamak zk-EVM synthesizer package with bundled subcircuit library assets.",
+  "keywords": [
+    "ethereum",
+    "zkevm",
+    "zero-knowledge",
+    "zk-SNARK",
+    "browser",
+    "wasm",
+    "synthesizer",
+    "tokamak",
+    "layer2",
+    "tokamak-network"
+  ],
   "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/frontend/synthesizer/web-app#readme",
   "bugs": {
     "url": "https://github.com/tokamak-network/tokamak-zk-evm/issues"

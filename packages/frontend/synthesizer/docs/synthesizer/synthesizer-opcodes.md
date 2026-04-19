@@ -1,6 +1,7 @@
 # Synthesizer Opcodes
 
-Synthesizer currently covers most Cancun-era EVM opcodes. The table below reflects `InstructionHandler` mappings in `src/synthesizer/handlers/instructionHandler.ts`.
+Synthesizer currently covers most Cancun-era EVM opcodes.
+The table below reflects `InstructionHandler` mappings in `core/src/synthesizer/handlers/instructionHandler.ts`.
 
 | Status | Opcodes | Notes |
 | ------ | ------- | ----- |

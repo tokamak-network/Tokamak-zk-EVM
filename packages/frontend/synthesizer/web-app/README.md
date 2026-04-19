@@ -1,11 +1,56 @@
 # Tokamak zk-EVM Synthesizer Web App
 
-`@tokamak-zk-evm/synthesizer-web` is the browser-compatible app package for the Tokamak zk-EVM synthesizer.
+`@tokamak-zk-evm/synthesizer-web` is the browser-facing package for running the Tokamak zk-EVM synthesizer from uploaded files or application-provided payload objects.
 
-It exposes `synthesize(input)` for browser callers.
+## Install
+
+```bash
+npm install @tokamak-zk-evm/synthesizer-web
+```
+
+## Runtime model
 
 - The published build bundles the subcircuit library JSON and WASM artifacts at build time.
-- Callers only need to provide the transaction/state/block/code input payload.
-- The package still provides helpers for loading that payload from uploaded files or fetched URLs.
-- saving synthesis outputs as local JSON downloads
-- posting synthesis outputs to a server as JSON
+- Callers only provide the transaction/state/block/code payload.
+- No extra subcircuit fetch or file upload step is required at runtime.
+
+## Quick start
+
+```ts
+import {
+  loadSynthesisInputFromFiles,
+  saveSynthesisOutputToFiles,
+  synthesize,
+} from '@tokamak-zk-evm/synthesizer-web';
+
+const payload = await loadSynthesisInputFromFiles({
+  previousState,
+  transaction,
+  blockInfo,
+  contractCodes,
+});
+
+const output = await synthesize(payload);
+saveSynthesisOutputToFiles(output);
+```
+
+## Input shape
+
+`synthesize(input)` expects one transaction payload with:
+
+- `previousState`
+- `transaction`
+- `blockInfo`
+- `contractCodes`
+
+The package also provides:
+
+- `loadSynthesisInputFromFiles(...)`
+- `loadSynthesisInputFromUrls(...)`
+- `saveSynthesisOutputToFiles(...)`
+- `postSynthesisOutput(...)`
+
+## Notes
+
+- This package targets browser-style runtimes and ESM consumption.
+- Node CLI usage belongs to `@tokamak-zk-evm/synthesizer-node`.

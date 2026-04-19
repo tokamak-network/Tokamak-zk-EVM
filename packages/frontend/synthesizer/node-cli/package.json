@@ -1,12 +1,15 @@
 {
   "name": "@tokamak-zk-evm/synthesizer-node",
   "version": "0.0.10",
-  "description": "Tokamak zk-EVM Synthesizer - Interprets an Ethereum transaction as a combination of the library subcircuits.",
+  "description": "Node CLI for running the Tokamak zk-EVM synthesizer against JSON transaction snapshot inputs.",
   "keywords": [
     "ethereum",
     "zk-EVM",
     "zero-knowledge",
     "zk-SNARK",
+    "cli",
+    "synthesizer",
+    "state-channel",
     "tokamak",
     "layer2",
     "tokamak-network"
