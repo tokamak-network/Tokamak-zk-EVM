@@ -7,7 +7,7 @@ import {
 import {
   parseSubcircuitLibraryData,
   type SubcircuitLibraryProvider,
-} from '../../../core/src/qapCompiler.ts';
+} from '../../../core/src/subcircuit.ts';
 import { loadJsonFromBlob, loadJsonFromUrl } from '../input/index.ts';
 import type { FetchSubcircuitLibrarySource, SubcircuitLibraryFiles } from '../types.ts';
 

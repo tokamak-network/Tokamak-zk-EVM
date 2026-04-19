@@ -3,7 +3,7 @@ import {
   type SynthesizerInterface,
   type SynthesizerOpts,
 } from '../../../core/src/synthesizer.ts';
-import type { ResolvedSubcircuitLibrary } from '../../../core/src/qapCompiler.ts';
+import type { ResolvedSubcircuitLibrary } from '../../../core/src/subcircuit.ts';
 import { installedSubcircuitLibrary } from '../subcircuit/installedLibrary.ts';
 
 export async function createSynthesizer(

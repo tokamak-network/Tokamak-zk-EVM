@@ -8,7 +8,7 @@ export type {
   ResolvedSubcircuitLibrary,
   SubcircuitLibraryData,
   SubcircuitLibraryProvider,
-} from '../../core/src/qapCompiler.ts';
+} from '../../core/src/subcircuit.ts';
 export { loadJsonFromBlob, loadJsonFromUrl, loadSynthesisInputFromFiles, loadSynthesisInputFromUrls } from './input/index.ts';
 export {
   createFetchSubcircuitLibraryProvider,

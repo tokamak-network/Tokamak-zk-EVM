@@ -1,6 +1,6 @@
 export {
   BUFFER_LIST,
-} from './interface/qapCompiler/configuredTypes.ts';
+} from './subcircuit/configuredTypes.ts';
 export {
   createInfoByName,
   parseFrontendConfig,
@@ -8,7 +8,7 @@ export {
   parseSetupParams,
   parseSubcircuitInfo,
   parseSubcircuitLibraryData,
-} from './interface/qapCompiler/utils.ts';
+} from './subcircuit/utils.ts';
 export {
   isNumber,
   isNumberArray,
@@ -17,7 +17,7 @@ export {
   isTupleNumber2,
   REQUIRED_CIRCOM_KEYS,
   SETUP_PARAMS_KEYS,
-} from './interface/qapCompiler/libraryTypes.ts';
+} from './subcircuit/libraryTypes.ts';
 export type {
   FrontendConfig,
   GlobalWireList,
@@ -26,4 +26,4 @@ export type {
   SubcircuitInfo,
   SubcircuitLibraryData,
   SubcircuitLibraryProvider,
-} from './interface/qapCompiler/libraryTypes.ts';
+} from './subcircuit/libraryTypes.ts';

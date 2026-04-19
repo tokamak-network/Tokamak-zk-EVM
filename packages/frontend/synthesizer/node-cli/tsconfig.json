@@ -22,5 +22,5 @@
     "scripts/**/*",
     "../core/src/**/*"
   ],
-  "exclude": ["node_modules", "dist", "src/unused"]
+  "exclude": ["node_modules", "dist"]
 }

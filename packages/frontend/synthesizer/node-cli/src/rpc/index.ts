@@ -6,7 +6,7 @@ import {
 } from "../../../core/src/synthesizer.ts"
 import {
   type ResolvedSubcircuitLibrary,
-} from "../../../core/src/qapCompiler.ts"
+} from "../../../core/src/subcircuit.ts"
 import { jubjub } from "@noble/curves/misc.js"
 import {
   installedSubcircuitLibrary,

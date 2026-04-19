@@ -1,6 +1,6 @@
 import { DataAliasInfoEntry, DataAliasInfos, DataPt, DataPtDescription, ISynthesizerProvider, MemoryPtEntry, MemoryPts } from '../types/index.ts';
 import { DataPtFactory, MemoryPt } from '../dataStructure/index.ts';
-import { ArithmeticOperator, SUBCIRCUIT_ALU_MAPPING } from '../../interface/qapCompiler/configuredTypes.ts';
+import { ArithmeticOperator, SUBCIRCUIT_ALU_MAPPING } from '../../subcircuit/configuredTypes.ts';
 import { DEFAULT_SOURCE_BIT_SIZE } from '../params/constants.ts';
 
 export class MemoryManager {

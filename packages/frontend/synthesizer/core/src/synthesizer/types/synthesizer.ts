@@ -5,9 +5,9 @@ import { TokamakL2StateManager, TokamakL2Tx } from 'tokamak-l2js';
 import { StateManager } from '../handlers/index.ts';
 import { DataAliasInfos, DataPt, MemoryPts, Placements, ReservedVariable } from './index.ts';
 import { SynthesizerOpHandler } from '../handlers/instructionHandler.ts';
-import { ArithmeticOperator, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
-import type { ResolvedSubcircuitLibrary } from '../../interface/qapCompiler/libraryTypes.ts';
-import { SynthesizerBlockInfo } from '../../interface/rpc/types.ts';
+import { ArithmeticOperator, SubcircuitNames } from '../../subcircuit/configuredTypes.ts';
+import type { ResolvedSubcircuitLibrary } from '../../subcircuit/libraryTypes.ts';
+import { SynthesizerBlockInfo } from '../../rpc/types.ts';
 
 export interface SynthesizerOpts {
   signedTransaction: TokamakL2Tx

@@ -8,11 +8,11 @@ synthesizer/
 │   └── src/
 │       ├── app.ts               # Shared synthesis flow and output serialization entry
 │       ├── circuit.ts           # Circuit generator entry
-│       ├── qapCompiler.ts       # Shared subcircuit metadata parsing/types entry
+│       ├── subcircuit.ts        # Shared subcircuit metadata parsing/types entry
 │       ├── synthesizer.ts       # Shared runtime entry
 │       ├── app/                 # Shared orchestration helpers
 │       ├── circuitGenerator/    # Variable/permutation generation
-│       ├── interface/qapCompiler/
+│       ├── subcircuit/
 │       └── synthesizer/         # Core runtime and handlers
 ├── node-cli/
 │   ├── src/

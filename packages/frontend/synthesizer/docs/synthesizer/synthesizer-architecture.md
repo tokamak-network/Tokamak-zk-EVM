@@ -27,14 +27,14 @@ Key shared entrypoints:
   - `createCircuitGenerator`
   - `CircuitGenerator`
   - circuit artifact types
-- `core/src/qapCompiler.ts`
+- `core/src/subcircuit.ts`
   - shared subcircuit metadata parsing
   - resolved library types
 
 Core runtime internals still live under:
 - `core/src/synthesizer/`
 - `core/src/circuitGenerator/`
-- `core/src/interface/qapCompiler/`
+- `core/src/subcircuit/`
 
 ## Node package
 

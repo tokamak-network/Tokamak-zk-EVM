@@ -12,7 +12,7 @@ import {
   type SynthesizerOpts,
 } from '../types/index.ts';
 import { MemoryPt, StackPt } from '../dataStructure/index.ts';
-import { SubcircuitInfoByName, SubcircuitNames } from '../../interface/qapCompiler/configuredTypes.ts';
+import { SubcircuitInfoByName, SubcircuitNames } from '../../subcircuit/configuredTypes.ts';
 import { InterpreterStep, Message } from '@ethereumjs/evm';
 import { Address, bytesToBigInt } from '@ethereumjs/util';
 

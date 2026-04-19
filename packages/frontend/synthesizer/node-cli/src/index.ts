@@ -11,7 +11,7 @@ export type {
   ResolvedSubcircuitLibrary,
   SubcircuitLibraryData,
   SubcircuitLibraryProvider,
-} from '../../core/src/qapCompiler.ts';
+} from '../../core/src/subcircuit.ts';
 export * from './synthesizer/constructors.ts';
 export {
   CircuitGenerator,

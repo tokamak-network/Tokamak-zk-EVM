@@ -1,6 +1,6 @@
-import { GlobalWireList } from '../../interface/qapCompiler/libraryTypes.ts';
+import { GlobalWireList } from '../../subcircuit/libraryTypes.ts';
 import { Placements, PlacementVariables } from '../../synthesizer/types/placements.ts';
-import { BUFFER_DESCRIPTION, BUFFER_LIST, SubcircuitInfoByName, SubcircuitInfoByNameEntry } from '../../interface/qapCompiler/configuredTypes.ts';
+import { BUFFER_DESCRIPTION, BUFFER_LIST, SubcircuitInfoByName, SubcircuitInfoByNameEntry } from '../../subcircuit/configuredTypes.ts';
 import { DataPt } from '../../synthesizer/types/dataStructure.ts';
 import { CircuitGenerator } from '../circuitGenerator.ts';
 import { VARIABLE_DESCRIPTION } from '../../synthesizer/types/buffers.ts';

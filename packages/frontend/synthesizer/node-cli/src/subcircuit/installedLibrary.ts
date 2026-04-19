@@ -4,14 +4,14 @@ import frontendCfgJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/libr
 import subcircuitInfoJson from '@tokamak-zk-evm/subcircuit-library/subcircuits/library/subcircuitInfo.json' with { type: 'json' };
 import {
   parseSubcircuitLibraryData,
-} from '../../../core/src/qapCompiler.ts';
+} from '../../../core/src/subcircuit.ts';
 import {
   resolveSubcircuitLibraryData,
 } from '../../../core/src/app.ts';
 import type {
   ResolvedSubcircuitLibrary,
   SubcircuitLibraryData,
-} from '../../../core/src/qapCompiler.ts';
+} from '../../../core/src/subcircuit.ts';
 
 export const installedSubcircuitLibraryData: SubcircuitLibraryData = parseSubcircuitLibraryData({
   setupParams: setupParamsJson,

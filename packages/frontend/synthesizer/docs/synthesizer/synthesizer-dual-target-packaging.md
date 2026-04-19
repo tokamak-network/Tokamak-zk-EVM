@@ -76,11 +76,11 @@ packages/frontend/synthesizer/
 │   └── src/
 │       ├── app.ts
 │       ├── circuit.ts
-│       ├── qapCompiler.ts
+│       ├── subcircuit.ts
 │       ├── synthesizer.ts
 │       ├── app/
 │       ├── circuitGenerator/
-│       ├── interface/qapCompiler/
+│       ├── subcircuit/
 │       └── synthesizer/
 ├── node-cli/
 │   └── src/
@@ -115,7 +115,7 @@ The current shared entrypoints are:
   - `SynthesizerInterface`
   - `SynthesizerOpts`
   - `SynthesizerBlockInfo`
-- `core/src/qapCompiler.ts`
+- `core/src/subcircuit.ts`
   - subcircuit parsing helpers
   - resolved-library types
 

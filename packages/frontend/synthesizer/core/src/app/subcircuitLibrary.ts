@@ -1,11 +1,11 @@
-import { BUFFER_LIST } from '../interface/qapCompiler/configuredTypes.ts';
+import { BUFFER_LIST } from '../subcircuit/configuredTypes.ts';
 import type {
   ResolvedSubcircuitLibrary,
   SubcircuitInfo,
   SubcircuitLibraryData,
   SubcircuitLibraryProvider,
-} from '../interface/qapCompiler/libraryTypes.ts';
-import { createInfoByName } from '../interface/qapCompiler/utils.ts';
+} from '../subcircuit/libraryTypes.ts';
+import { createInfoByName } from '../subcircuit/utils.ts';
 
 export function resolveSubcircuitLibraryData(
   data: SubcircuitLibraryData,

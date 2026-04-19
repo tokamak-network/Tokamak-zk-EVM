@@ -1,5 +1,5 @@
 import { addHexPrefix, bigIntToHex } from '@ethereumjs/util';
-import { BUFFER_LIST } from '../../interface/qapCompiler/configuredTypes.ts';
+import { BUFFER_LIST } from '../../subcircuit/configuredTypes.ts';
 import { DataPtFactory } from '../../synthesizer/dataStructure/dataPt.ts';
 import { DataPt } from '../../synthesizer/types/dataStructure.ts';
 import {

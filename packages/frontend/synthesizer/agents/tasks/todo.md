@@ -81,25 +81,25 @@
 - [ ] `npm run tsc` failed: `sh: ../../../config/monorepo-js//cli/ts-compile.sh: Permission denied`
 
 # Todo
-- [x] Inspect shared RPC/network helpers and define reusable utilities/types in `src/interface/rpc/types.ts` or `src/interface/rpc/utils.ts`
+- [x] Inspect shared RPC/network helpers and define reusable utilities/types in `src/rpc/types.ts` or `src/rpc/utils.ts`
 - [x] Refactor ERC20 example + CLI to consume the shared RPC/network utilities
 - [x] Verify TypeScript build or targeted checks and record results
 
 # Review
-- [x] Confirmed duplicated RPC/network logic is consolidated into `src/interface/rpc` utilities
+- [x] Confirmed duplicated RPC/network logic is consolidated into `src/rpc` utilities
 - [ ] `npm run tsc` failed: `sh: ../../../config/monorepo-js//cli/ts-compile.sh: Permission denied`
 
 # Todo
-- [x] Move Alchemy RPC constants/types from `src/interface/rpc/utils.ts` into `src/interface/rpc/types.ts`
+- [x] Move Alchemy RPC constants/types from `src/rpc/utils.ts` into `src/rpc/types.ts`
 - [x] Update RPC utilities and CLI imports to use the shared types/constants
 - [x] Re-run the most relevant verification and record results
 
 # Review
-- [x] Confirmed Alchemy RPC constants/types are defined in `src/interface/rpc/types.ts` and consumed via imports
+- [x] Confirmed Alchemy RPC constants/types are defined in `src/rpc/types.ts` and consumed via imports
 - [ ] `npm run tsc` failed: `sh: ../../../config/monorepo-js//cli/ts-compile.sh: Permission denied`
 
 # Todo
-- [x] Identify NodeJS-dependent env helpers in `src/interface/rpc/utils.ts` and relocate them to `src/interface/node/env.ts`
+- [x] Identify NodeJS-dependent env helpers in `src/rpc/utils.ts` and relocate them to `src/interface/node/env.ts`
 - [x] Update CLI and example imports to use the node env helpers
 - [x] Re-run the most relevant verification and record results
 
@@ -181,7 +181,7 @@
 - [x] Run the most relevant verification and record results.
 
 # Review
-- [x] `./node_modules/.bin/tsc -p tsconfig.json --noEmit --pretty false` failed with TypeScript parse errors in `node_modules/inquirer/dist/index.d.ts` and `src/interface/qapCompiler/importedConstants.ts`, plus `allowImportingTsExtensions` unsupported by this compiler.
+- [x] `./node_modules/.bin/tsc -p tsconfig.json --noEmit --pretty false` failed with TypeScript parse errors in `node_modules/inquirer/dist/index.d.ts` and `src/subcircuit/importedConstants.ts`, plus `allowImportingTsExtensions` unsupported by this compiler.
 
 # Todo
 - [x] Inspect `variableGenerator` public instance slicing/padding for `a_pub_user`, `a_pub_block`, and `a_pub_function` (including descriptions) as written to `instance.json`/`instance_description.json`
@@ -197,4 +197,4 @@
 - [x] Run a minimal verification step for the script (or record why it could not be run).
 
 # Review
-- [x] `./node_modules/.bin/tsc -p tsconfig.json --noEmit --pretty false` failed with TypeScript parse errors in `node_modules/inquirer/dist/index.d.ts` and `src/interface/qapCompiler/importedConstants.ts`, plus `allowImportingTsExtensions` unsupported by this compiler.
+- [x] `./node_modules/.bin/tsc -p tsconfig.json --noEmit --pretty false` failed with TypeScript parse errors in `node_modules/inquirer/dist/index.d.ts` and `src/subcircuit/importedConstants.ts`, plus `allowImportingTsExtensions` unsupported by this compiler.
