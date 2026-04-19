@@ -13,7 +13,8 @@ const packageRoot = path.resolve(process.cwd());
 const CONFIG_DIR = path.resolve(packageRoot, 'tests', 'configs');
 const OUTPUTS_DIR = path.resolve(packageRoot, 'outputs');
 const ARCHIVE_ROOT = path.resolve(packageRoot, 'tests', 'outputs');
-const EXAMPLE_ENTRY = path.resolve(packageRoot, 'examples', 'erc20Transfers', 'main.ts');
+const EXAMPLE_ENTRY = path.resolve(packageRoot, 'examples', 'config-runner.ts');
+const EXAMPLE_TYPE = 'erc20-transfer';
 
 type Erc20Config = {
   network?: string;
@@ -152,7 +153,7 @@ const main = async () => {
 
     console.log(`[erc20-main] Running ${configFile}`);
     try {
-      const output = await runCommand('tsx', [EXAMPLE_ENTRY, configPath]);
+      const output = await runCommand('tsx', [EXAMPLE_ENTRY, EXAMPLE_TYPE, configPath]);
       const errorLogLines = collectErrorLogLines(output);
       if (errorLogLines.length > 0) {
         throw new Error(

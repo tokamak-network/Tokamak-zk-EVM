@@ -103,13 +103,13 @@ synthesizer/
 │   ├── README.md
 │   ├── build-binary.sh
 │   ├── examples
+│   │   ├── config-runner.ts
 │   │   ├── L2StateChannel
 │   │   │   ├── block_info.json
 │   │   │   ├── contract_codes.json
 │   │   │   ├── previous_state_snapshot.json
 │   │   │   └── transaction.json
 │   │   ├── erc20Transfers
-│   │   │   ├── main.ts
 │   │   │   ├── ton
 │   │   │   │   ├── config-ton-1.json
 │   │   │   │   ├── config-ton-2.json
@@ -129,11 +129,11 @@ synthesizer/
 │   │   │   │   ├── config-usdt-4.json
 │   │   │   │   └── config-usdt-sepolia.json
 │   │   │   └── utils.ts
+│   │   ├── manifest-runner.ts
 │   │   └── privateState
 │   │       ├── mintNotes
 │   │       │   ├── README.md
 │   │       │   ├── cli-launch-manifest.json
-│   │       │   ├── main.ts
 │   │       │   ├── mintNotes1
 │   │       │   │   ├── block_info.json
 │   │       │   │   ├── contract_codes.json
@@ -168,7 +168,6 @@ synthesizer/
 │   │       ├── redeemNotes
 │   │       │   ├── README.md
 │   │       │   ├── cli-launch-manifest.json
-│   │       │   ├── main.ts
 │   │       │   ├── redeemNotes1
 │   │       │   │   ├── block_info.json
 │   │       │   │   ├── contract_codes.json
@@ -193,7 +192,6 @@ synthesizer/
 │   │       └── transferNotes
 │   │           ├── README.md
 │   │           ├── cli-launch-manifest.json
-│   │           ├── main.ts
 │   │           ├── transferNotes1To1
 │   │           │   ├── block_info.json
 │   │           │   ├── contract_codes.json

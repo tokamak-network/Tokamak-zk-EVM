@@ -6,7 +6,7 @@ This report presents the development of a new product, `generate-erc20-config.ts
 **Body**  
 
 **1. Product Scope and Objectives**  
-The product is a bot-like CLI tool that generates a configuration file compatible with `examples/erc20Transfers/main.ts`. It accepts minimal user input—contract address, network, participant count, sender index, recipient index, and max iteration count—and completes the rest automatically. The output is a finalized `config.json` that contains addresses, transfer parameters, storage keys, and supporting metadata needed by the synthesizer.
+The product is a bot-like CLI tool that generates a configuration file compatible with `examples/config-runner.ts` when invoked with the `erc20-transfer` example type. It accepts minimal user input—contract address, network, participant count, sender index, recipient index, and max iteration count—and completes the rest automatically. The output is a finalized `config.json` that contains addresses, transfer parameters, storage keys, and supporting metadata needed by the synthesizer.
 
 **2. Data Sources and Core Workflow**  
 The product relies on three sources of truth:

@@ -23,7 +23,8 @@ const privateStateAppDir = path.resolve(repoRoot, 'apps', 'private-state');
 const configDir = path.resolve(packageRoot, 'tests', 'configs', 'private-state-redeem');
 const outputsDir = path.resolve(packageRoot, 'outputs');
 const archiveRoot = path.resolve(packageRoot, 'tests', 'outputs', 'private-state-redeem');
-const exampleEntry = path.resolve(packageRoot, 'examples', 'privateState/redeemNotes', 'main.ts');
+const exampleEntry = path.resolve(packageRoot, 'examples', 'config-runner.ts');
+const exampleType = 'private-state-redeem';
 const prepEntry = path.resolve(packageRoot, 'tests', 'scripts', 'run-private-state-redeem-config-matrix.ts');
 const errorLogPattern = /error:/iu;
 
@@ -161,6 +162,7 @@ const main = async () => {
           '--tsconfig',
           path.resolve(packageRoot, 'tsconfig.dev.json'),
           exampleEntry,
+          exampleType,
           configPath,
         ]);
         const errorLogLines = collectErrorLogLines(output);
