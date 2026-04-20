@@ -66,11 +66,6 @@ jobs:
           sudo mv circom-linux-amd64 /usr/local/bin/circom
           circom --version
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
       - name: Make scripts executable
         run: |
           chmod +x ./tokamak-cli
@@ -94,7 +89,7 @@ jobs:
 
           # Run install step (this builds all binaries)
           echo "🔧 Running tokamak-cli --install (building binaries)..."
-          ./tokamak-cli --install --bun
+          ./tokamak-cli --install
 
       - name: Validate backend setup outputs
         run: |
@@ -449,11 +444,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
       - name: Download setup files from build
         uses: actions/download-artifact@v4
         with:
@@ -464,7 +454,7 @@ jobs:
         run: |
           echo "🔍 Building macOS binary using packaging script..."
           chmod +x scripts/packaging.sh
-          ./scripts/packaging.sh --macos --bun --no-setup
+          ./scripts/packaging.sh --macos --no-setup
 
       - name: Upload macOS binary
         uses: actions/upload-artifact@v4
@@ -516,11 +506,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
       - name: Download setup files from build
         uses: actions/download-artifact@v4
         with:
@@ -531,7 +516,7 @@ jobs:
         run: |
           echo "🔍 Building Linux binary using packaging script..."
           chmod +x scripts/packaging.sh
-          ./scripts/packaging.sh --linux --bun --no-setup
+          ./scripts/packaging.sh --linux --no-setup
 
       - name: Create setup files archive
         run: |

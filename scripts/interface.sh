@@ -1,7 +1,7 @@
 #   - Before executing any internal shell script, this CLI normalizes line endings via dos2unix
 #     and ensures the script is executable, to avoid Windows CRLF issues.
 # Commands:
-#   --install [--bun] [--dusk-backed-mpc]  Install frontend deps, run backend packaging, and compile qap-compiler
+#   --install [--trusted-setup] [--no-setup]  Install published runtime packages, build backend binaries, and prepare setup artifacts
 #   --synthesize <TX_CONFIG_JSON> [--alchemy-key <KEY>]  Run frontend synthesizer with config JSON and sync outputs into dist
 #   --synthesize --tokamak-ch-tx <INPUT_DIR|OPTIONS...>  Execute TokamakL2JS Channel transaction using dist synthesizer binary or source CLI fallback
 #   --preprocess [<SYNTH_OUTPUT_ZIP|DIR>]  Run backend preprocess step (dist only); optionally sync preprocess inputs into dist before running (DIR/ZIP must include permutation.json + instance.json)
@@ -12,16 +12,21 @@
 #   --help                       Show usage
 # Options:
 #   --verbose                    Show detailed output
-#   --bun                        Use Bun for packaging during --install
-#   --dusk-backed-mpc           Use dusk-backed mpc-setup instead of trusted-setup during --install
+#   --trusted-setup             Build trusted-setup and generate CRS locally during --install
+#   --no-setup                  Skip setup artifact provisioning during --install
 
 # ---------- CLI ----------
 print_usage() {
   cat <<'USAGE'
 
 Commands:
-  --install [--bun] [--dusk-backed-mpc]
+  --install [--trusted-setup] [--no-setup]
       Install and setup Tokamak ZKP
+      Installs `@tokamak-zk-evm/subcircuit-library` and `@tokamak-zk-evm/synthesizer-node`
+      from npm, builds backend release binaries, and prepares dist resources
+      By default, setup artifacts are downloaded from the published CRS Google Drive folder
+      Use `--trusted-setup` to build `trusted-setup` and generate CRS locally instead
+      Use `--no-setup` to skip setup artifact provisioning entirely
 
   --synthesize <TX_CONFIG_JSON> [--alchemy-key <KEY>]
       Run frontend synthesizer with an input transaction config JSON
@@ -63,8 +68,8 @@ Commands:
 
 Options:
   --verbose       Show detailed output
-  --bun               Use Bun for packaging during --install
-  --dusk-backed-mpc   Use dusk-backed mpc-setup instead of trusted-setup during --install
+  --trusted-setup  Build trusted-setup and generate CRS locally during --install
+  --no-setup       Skip setup artifact provisioning during --install
 USAGE
 }
 
@@ -83,12 +88,12 @@ while [[ $# -gt 0 ]]; do
       shift
       while [[ $# -gt 0 ]]; do
         case "$1" in
-          --bun)
-            INSTALL_USE_BUN=true
+          --trusted-setup)
+            INSTALL_USE_TRUSTED_SETUP=true
             shift
             ;;
-          --dusk-backed-mpc)
-            INSTALL_USE_DUSK_BACKED_MPC=true
+          --no-setup)
+            INSTALL_SKIP_SETUP=true
             shift
             ;;
           --verbose)

@@ -55,7 +55,6 @@ This script will detect the following dependencies and install any missing autom
 - Install Circom – https://docs.circom.io/getting-started/installation/
 - Install Rust – https://www.rust-lang.org/tools/install
 - Install CMake – https://cmake.org/download/
-- Install Bun – https://bun.sh/ (required for Synthesizer binary build)
 - Install dos2unix
     ```zsh 
     brew install dos2unix
@@ -101,10 +100,13 @@ To avoid compatibility/permission issues on the main script itself:
 
 From the repository root:
 
-1) **Install** (install deps, compile circuits, run trusted setup, then run OS-specific backend packaging)
+1) **Install** (install published runtime packages, build backend binaries, and prepare setup artifacts)
 ```bash
 ./tokamak-cli --install
 ```
+By default, `--install` downloads the latest compatible CRS archive from the published Google Drive
+folder. Use `./tokamak-cli --install --trusted-setup` to generate CRS locally, or
+`./tokamak-cli --install --no-setup` to skip setup artifact provisioning.
 
 2) **Synthesize** (prepare inputs using a transaction config JSON)
 ```bash

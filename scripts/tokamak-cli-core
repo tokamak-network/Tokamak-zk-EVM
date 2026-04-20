@@ -5,8 +5,8 @@ IFS=$'\n\t'
 
 # Global config
 VERBOSE=false
-INSTALL_USE_BUN=false
-INSTALL_USE_DUSK_BACKED_MPC=false
+INSTALL_USE_TRUSTED_SETUP=false
+INSTALL_SKIP_SETUP=false
 
 # ---------- Importing functions ----------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -589,34 +589,16 @@ step_install() {
     exit 1
   fi
 
-  log "Install: installing frontend dependencies"
-  npm_install_safe "$FE_QAP"
-  npm_install_safe "$FE_SYN"
-
-  log "Install: compiling qap-compiler"
-  pushd "$FE_QAP" >/dev/null
-  [[ -f "./scripts/compile.sh" ]] || { err "Missing: $FE_QAP/scripts/compile.sh"; exit 1; }
-  to_unix_exec "./scripts/compile.sh"
-  bash "./scripts/compile.sh"
-  popd >/dev/null
-
   local target script
   target="$(detect_target)"
   script="$(packaging_script_for_target "$target")"
 
   log "Install: running backend packaging for target=$target -> $(basename "$script")"
-  # pushd "$BE_ROOT" >/dev/null
   [[ -f "$script" ]] || { err "Packaging script missing: $script"; exit 1; }
   to_unix_exec "$script"
 
-  # Detect CI environment and set appropriate options
-  # Different behavior based on CI job type:
-  # - Proof Generation Test: needs fresh setup generation (--bun only)
-  # - Binary Building: uses prebuilt setup (--bun --no-setup)
-
   local packaging_options=()
 
-  # Add platform-specific option for unified script
   case "$target" in
     mac)     packaging_options+=("--macos") ;;
     linux20) packaging_options+=("--linux") ;;
@@ -625,34 +607,15 @@ step_install() {
   esac
   packaging_options+=("--target-dir" "$ROOT/dist")
 
-  if [[ "$INSTALL_USE_BUN" == true ]]; then
-    packaging_options+=("--bun")
+  if [[ "$INSTALL_USE_TRUSTED_SETUP" == true ]]; then
+    packaging_options+=("--trusted-setup")
   fi
 
-  if [[ "$INSTALL_USE_DUSK_BACKED_MPC" == true ]]; then
-    packaging_options+=("--dusk-backed-mpc")
-  fi
-
-  if [ -z "${GITHUB_ACTIONS:-}" ] && [ -z "${CI:-}" ] && [ -z "${CONTINUOUS_INTEGRATION:-}" ]; then
-    # Local environment: use default settings (npm) and skip compression
-    packaging_options+=("--no-compress")
-    log "Install: Local environment detected - using options: ${packaging_options[*]}"
-  else
-    # CI environment: use bun for performance, always skip compression
-    # Note: setup generation depends on whether prebuilt files are available
-    if [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
-      # Prebuilt setup available (Binary Building jobs)
-      packaging_options+=("--bun" "--no-setup" "--no-compress")
-      log "Install: CI environment with prebuilt setup - using options: ${packaging_options[*]}"
-    else
-      # No prebuilt setup (Proof Generation Test)
-      packaging_options+=("--bun" "--no-compress")
-      log "Install: CI environment, generating fresh setup - using options: ${packaging_options[*]}"
-    fi
+  if [[ "$INSTALL_SKIP_SETUP" == true ]]; then
+    packaging_options+=("--no-setup")
   fi
 
   bash "$script" "${packaging_options[@]}"
-  # popd >/dev/null
 
   ok "Install complete"
 }

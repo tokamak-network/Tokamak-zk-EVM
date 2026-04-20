@@ -2,20 +2,40 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
-# =========================
-# Unified packaging script for Linux and macOS
-# This script works in both CI and local environments
-# =========================
-
-# Navigate to workspace root from scripts/
 WORKSPACE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$WORKSPACE_ROOT"
 
-# =========================
-# Platform Detection and Configuration
-# =========================
+CRS_DRIVE_FOLDER_ID="1Xvm8mdliHJZafzE5jaPidK4xqWAM0F9A"
+CRS_DRIVE_FOLDER_URL="https://drive.google.com/drive/mobile/folders"
+CRS_DOWNLOAD_BASE_URL="https://drive.usercontent.google.com/download"
 
-# Auto-detect platform
+PLATFORM=""
+DO_SIGN=false
+DO_SETUP=true
+DO_TRUSTED_SETUP=false
+TARGET_DIR_OVERRIDE=""
+PACKAGE_STAGING_DIR=""
+TARGET=""
+BACKEND_PATH=""
+OUT_PACKAGE=""
+COMMON_TARBALL=""
+BACKEND_TARBALL=""
+COMMON_URL=""
+BACKEND_URL=""
+SCRIPTS_SOURCE=""
+INSTALLED_SUBCIRCUIT_PACKAGE_DIR=""
+INSTALLED_SYNTHESIZER_PACKAGE_DIR=""
+APP_SIGN_ID=""
+NOTARY_PROFILE=""
+
+cleanup_staging_dir() {
+    if [[ -n "$PACKAGE_STAGING_DIR" && -d "$PACKAGE_STAGING_DIR" ]]; then
+        rm -rf "$PACKAGE_STAGING_DIR"
+    fi
+}
+
+trap cleanup_staging_dir EXIT
+
 detect_platform() {
     case "$(uname -s)" in
         Darwin*) echo "macos" ;;
@@ -24,48 +44,33 @@ detect_platform() {
     esac
 }
 
-# Default settings
-PLATFORM=""  # Will be set based on detection or user input
-DO_SIGN=false
-DO_BUN=false  # Default to no bun for local development
-DO_COMPRESS=true
-DO_SETUP=true  # Default to full build with setup
-DO_DUSK_BACKED_MPC=false
-TARGET_DIR_OVERRIDE=""
-
-# Parse arguments
 show_help() {
     cat << EOF
 Usage: $0 [OPTIONS]
 
 Platform Selection:
   --platform PLATFORM    Target platform: linux, macos (auto-detected if not specified)
-  --linux                 Build for Linux (shorthand for --platform linux)
-  --macos                 Build for macOS (shorthand for --platform macos)
+  --linux                Build for Linux (shorthand for --platform linux)
+  --macos                Build for macOS (shorthand for --platform macos)
 
 Build Options:
-  --bun                   Use Bun to build synthesizer (default: false)
-  --dusk-backed-mpc      Use dusk_backed_mpc_setup instead of trusted-setup during setup generation
-  --no-compress          Skip compression of final package
-  --no-setup             Skip setup generation (build-only mode)
-  --target-dir <path>    Override install target directory (default: dist/<platform>)
+  --trusted-setup        Build trusted-setup and generate CRS locally
+  --no-setup             Skip setup artifact provisioning
+  --target-dir <path>    Override install target directory
 
 macOS-specific Options:
-  --sign                  Sign and notarize macOS binaries (macOS only)
+  --sign                 Sign and notarize macOS binaries
 
 Other Options:
-  --help                  Show this help message
+  --help                 Show this help message
 
 Examples:
-  $0 --linux --bun                    # Build for Linux with Bun
-  $0 --macos --dusk-backed-mpc        # Build for macOS and generate setup via dusk-backed mpc-setup
-  $0 --macos --sign --no-setup        # Build for macOS with signing, no setup
-  $0 --platform linux --no-compress   # Build for Linux without compression
-  $0                                   # Auto-detect platform and build with defaults
+  $0 --linux
+  $0 --macos --trusted-setup
+  $0 --platform linux --no-setup
 EOF
 }
 
-# Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --platform)
@@ -84,16 +89,8 @@ while [[ $# -gt 0 ]]; do
             DO_SIGN=true
             shift
             ;;
-        --bun)
-            DO_BUN=true
-            shift
-            ;;
-        --dusk-backed-mpc)
-            DO_DUSK_BACKED_MPC=true
-            shift
-            ;;
-        --no-compress)
-            DO_COMPRESS=false
+        --trusted-setup)
+            DO_TRUSTED_SETUP=true
             shift
             ;;
         --no-setup)
@@ -110,8 +107,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             if [[ "$1" =~ ^-- ]]; then
-                echo "❌ Unknown option: $1"
-                echo "Use --help for usage information"
+                echo "Unknown option: $1" >&2
                 exit 1
             fi
             shift
@@ -119,30 +115,26 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Auto-detect platform if not specified
-if [ -z "$PLATFORM" ]; then
-    PLATFORM=$(detect_platform)
-    echo "🔍 Auto-detected platform: $PLATFORM"
+if [[ -z "$PLATFORM" ]]; then
+    PLATFORM="$(detect_platform)"
+    echo "Auto-detected platform: $PLATFORM"
 fi
 
-# Validate platform
+if [[ "$DO_SETUP" == "false" && "$DO_TRUSTED_SETUP" == "true" ]]; then
+    echo "--trusted-setup cannot be combined with --no-setup" >&2
+    exit 1
+fi
+
 case "$PLATFORM" in
-    linux|macos)
-        echo "✅ Building for platform: $PLATFORM"
-        ;;
+    linux|macos) ;;
     *)
-        echo "❌ Unsupported platform: $PLATFORM"
-        echo "Supported platforms: linux, macos"
+        echo "Unsupported platform: $PLATFORM" >&2
         exit 1
         ;;
 esac
 
-echo "🔍 Unified packaging script running from workspace root: $(pwd)"
-echo "ℹ️ Configuration: PLATFORM=${PLATFORM}, DO_SETUP=${DO_SETUP}, DO_BUN=${DO_BUN}, DO_DUSK_BACKED_MPC=${DO_DUSK_BACKED_MPC}, DO_COMPRESS=${DO_COMPRESS}, DO_SIGN=${DO_SIGN}"
-
-# =========================
-# Platform-specific Configuration
-# =========================
+echo "Packaging from workspace root: $(pwd)"
+echo "Configuration: PLATFORM=${PLATFORM}, DO_SETUP=${DO_SETUP}, DO_TRUSTED_SETUP=${DO_TRUSTED_SETUP}, DO_SIGN=${DO_SIGN}"
 
 setup_platform_config() {
     case "$PLATFORM" in
@@ -156,32 +148,33 @@ setup_platform_config() {
 }
 
 setup_linux_config() {
-    # Detect Ubuntu version (20 or 22) and set targets
-    UB_MAJOR="22"
-    if [ -r /etc/os-release ]; then . /etc/os-release; fi
-    if [ -n "${VERSION_ID:-}" ]; then UB_MAJOR="${VERSION_ID%%.*}"; fi
-    if [ "$UB_MAJOR" != "22" ] && [ "$UB_MAJOR" != "20" ]; then
-        echo "[!] Unsupported Ubuntu VERSION_ID=${VERSION_ID:-unknown}; defaulting to 22"
-        UB_MAJOR="22"
+    local ubuntu_major="22"
+    if [[ -r /etc/os-release ]]; then
+        . /etc/os-release
+        if [[ -n "${VERSION_ID:-}" ]]; then
+            ubuntu_major="${VERSION_ID%%.*}"
+        fi
+    fi
+    if [[ "$ubuntu_major" != "20" && "$ubuntu_major" != "22" ]]; then
+        ubuntu_major="22"
     fi
 
-    local default_target="dist/linux${UB_MAJOR}"
+    local default_target="dist/linux${ubuntu_major}"
     if [[ -n "$TARGET_DIR_OVERRIDE" ]]; then
         TARGET="$TARGET_DIR_OVERRIDE"
     else
         TARGET="$default_target"
     fi
+
     BACKEND_PATH="backend-lib/icicle"
-    OUT_PACKAGE="tokamak-zk-evm-linux${UB_MAJOR}.tar.gz"
+    OUT_PACKAGE="tokamak-zk-evm-linux${ubuntu_major}.tar.gz"
 
-    BASE_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0"
-    COMMON_TARBALL="icicle_3_8_0-ubuntu${UB_MAJOR}.tar.gz"
-    BACKEND_TARBALL="icicle_3_8_0-ubuntu${UB_MAJOR}-cuda122.tar.gz"
-    COMMON_URL="${BASE_URL}/${COMMON_TARBALL}"
-    BACKEND_URL="${BASE_URL}/${BACKEND_TARBALL}"
+    local base_url="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0"
+    COMMON_TARBALL="icicle_3_8_0-ubuntu${ubuntu_major}.tar.gz"
+    BACKEND_TARBALL="icicle_3_8_0-ubuntu${ubuntu_major}-cuda122.tar.gz"
+    COMMON_URL="${base_url}/${COMMON_TARBALL}"
+    BACKEND_URL="${base_url}/${BACKEND_TARBALL}"
     SCRIPTS_SOURCE=".run_scripts/linux"
-
-    echo "ℹ️ Linux configuration: Ubuntu ${UB_MAJOR}, Target: ${TARGET}"
 }
 
 setup_macos_config() {
@@ -191,346 +184,440 @@ setup_macos_config() {
     else
         TARGET="$default_target"
     fi
+
     BACKEND_PATH="backend-lib/icicle"
     OUT_PACKAGE="tokamak-zk-evm-macOS.zip"
-
     COMMON_TARBALL="icicle_3_8_0-macOS.tar.gz"
     BACKEND_TARBALL="icicle_3_8_0-macOS-Metal.tar.gz"
-    COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$COMMON_TARBALL"
-    BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/$BACKEND_TARBALL"
+    COMMON_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/${COMMON_TARBALL}"
+    BACKEND_URL="https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/${BACKEND_TARBALL}"
     SCRIPTS_SOURCE=".run_scripts/macOS"
-
-    # macOS-specific signing configuration
     APP_SIGN_ID='3524416ED3903027378EA41BB258070785F977F9'
     NOTARY_PROFILE='tokamak-zk-evm-backend'
-
-    echo "ℹ️ macOS configuration: Target: ${TARGET}"
 }
 
-# =========================
-# Common Functions
-# =========================
+require_command() {
+    local name="$1"
+    command -v "$name" >/dev/null 2>&1 || {
+        echo "Required command not found: $name" >&2
+        exit 1
+    }
+}
 
-copy_scripts_and_resources() {
-    echo "[*] Copying scripts..."
-    rm -rf -- "${TARGET}"
-    mkdir -p "${TARGET}"
-    cp -r "${SCRIPTS_SOURCE}"/* "${TARGET}"
-    echo "✅ copied to ${TARGET}"
+json_get() {
+    local json_path="$1"
+    local field_path="$2"
+    node - "$json_path" "$field_path" <<'NODE'
+const fs = require('fs');
+const [jsonPath, fieldPath] = process.argv.slice(2);
+const payload = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+let value = payload;
+for (const key of fieldPath.split('.')) {
+  if (value === null || value === undefined || !(key in value)) {
+    console.error(`Missing JSON field ${fieldPath} in ${jsonPath}`);
+    process.exit(1);
+  }
+  value = value[key];
+}
+if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+  process.stdout.write(String(value));
+} else {
+  process.stdout.write(JSON.stringify(value));
+}
+NODE
+}
 
-    echo "[*] Copying resource..."
+find_named_file_or_die() {
+    local root_dir="$1"
+    local filename="$2"
+    local found
+    found="$(find "$root_dir" -type f -name "$filename" 2>/dev/null | head -n 1)"
+    [[ -n "$found" ]] || {
+        echo "Missing ${filename} under ${root_dir}" >&2
+        exit 1
+    }
+    printf '%s\n' "$found"
+}
+
+copy_scripts() {
+    echo "[*] Copying wrapper scripts..."
+    rm -rf -- "$TARGET"
+    mkdir -p "$TARGET"
+    cp -r "${SCRIPTS_SOURCE}/"* "$TARGET"
+}
+
+install_published_packages() {
+    require_command npm
+
+    PACKAGE_STAGING_DIR="$(mktemp -d -t tokamak_install_packages.XXXXXX)"
+    printf '{ "private": true }\n' > "${PACKAGE_STAGING_DIR}/package.json"
+
+    echo "[*] Installing published npm packages..."
+    (
+        cd "$PACKAGE_STAGING_DIR"
+        npm install --silent --ignore-scripts --no-save \
+            @tokamak-zk-evm/subcircuit-library@latest \
+            @tokamak-zk-evm/synthesizer-node@latest
+    )
+
+    INSTALLED_SUBCIRCUIT_PACKAGE_DIR="${PACKAGE_STAGING_DIR}/node_modules/@tokamak-zk-evm/subcircuit-library"
+    INSTALLED_SYNTHESIZER_PACKAGE_DIR="${PACKAGE_STAGING_DIR}/node_modules/@tokamak-zk-evm/synthesizer-node"
+
+    [[ -d "$INSTALLED_SUBCIRCUIT_PACKAGE_DIR" ]] || {
+        echo "Installed subcircuit-library package not found" >&2
+        exit 1
+    }
+    [[ -d "$INSTALLED_SYNTHESIZER_PACKAGE_DIR" ]] || {
+        echo "Installed synthesizer-node package not found" >&2
+        exit 1
+    }
+}
+
+copy_published_resources() {
+    local subcircuit_library_dir synthesizer_dist_dir
+    subcircuit_library_dir="${INSTALLED_SUBCIRCUIT_PACKAGE_DIR}/subcircuits/library"
+    synthesizer_dist_dir="${INSTALLED_SYNTHESIZER_PACKAGE_DIR}/dist"
+
+    [[ -d "$subcircuit_library_dir" ]] || {
+        echo "Published subcircuit library payload missing: $subcircuit_library_dir" >&2
+        exit 1
+    }
+    [[ -d "$synthesizer_dist_dir" ]] || {
+        echo "Published synthesizer dist missing: $synthesizer_dist_dir" >&2
+        exit 1
+    }
+
+    echo "[*] Copying published subcircuit library..."
     mkdir -p "${TARGET}/resource/qap-compiler/library"
-    cp -r packages/frontend/qap-compiler/subcircuits/library/* "${TARGET}/resource/qap-compiler/library"
-    echo "✅ copied to ${TARGET}/resource"
-}
+    cp -R "${subcircuit_library_dir}/." "${TARGET}/resource/qap-compiler/library/"
+    cp "${INSTALLED_SUBCIRCUIT_PACKAGE_DIR}/build-metadata.json" "${TARGET}/resource/qap-compiler/build-metadata.json"
 
-build_synthesizer() {
-    if [[ "$DO_BUN" == "true" ]]; then
-
-        cd packages/frontend/synthesizer
-        echo "🔍 Installing synthesizer dependencies..."
-        bun install
-        BUN_SCRIPT="./build-binary.sh"
-        dos2unix "$BUN_SCRIPT" || true
-        chmod +x "$BUN_SCRIPT" 2>/dev/null || true
-        echo "🔍 Building synthesizer binary for ${PLATFORM}..."
-        "$BUN_SCRIPT"
-        cd "$WORKSPACE_ROOT"
-        echo "✅ built synthesizer"
-    else
-        echo "ℹ️ Skipping bun-based synthesizer build (using npm by default)"
-    fi
+    echo "[*] Copying published synthesizer dist..."
+    mkdir -p "${TARGET}/bin/synthesizer"
+    cp -R "${synthesizer_dist_dir}/." "${TARGET}/bin/synthesizer/"
 }
 
 build_backend() {
-    echo "[*] Building backend..."
-    cd packages/backend
-    cargo build -p trusted-setup --release
-    if [[ "$DO_DUSK_BACKED_MPC" == "true" ]]; then
-        cargo build -p mpc-setup --release --bin dusk_backed_mpc_setup
-    fi
-    cargo build -p preprocess --release
-    cargo build -p prove --release
-    cargo build -p verify --release
-    cd "$WORKSPACE_ROOT"
-    echo "✅ built backend"
+    require_command cargo
+
+    echo "[*] Building backend release binaries..."
+    (
+        cd packages/backend
+        if [[ "$DO_TRUSTED_SETUP" == "true" ]]; then
+            cargo build -p trusted-setup --release
+        fi
+        cargo build -p preprocess --release
+        cargo build -p prove --release
+        cargo build -p verify --release
+    )
 }
 
-copy_binaries() {
-    echo "[*] Copying executable binaries..."
+copy_backend_binary() {
+    local binary_name="$1"
+    local binary_path metadata_path
+    binary_path="packages/backend/target/release/${binary_name}"
+    metadata_path="packages/backend/target/release/build-metadata-${binary_name}.json"
+
+    [[ -f "$binary_path" ]] || {
+        echo "Missing backend binary: $binary_path" >&2
+        exit 1
+    }
+    [[ -f "$metadata_path" ]] || {
+        echo "Missing backend build metadata: $metadata_path" >&2
+        exit 1
+    }
+
+    cp -f "$binary_path" "${TARGET}/bin/"
+    cp -f "$metadata_path" "${TARGET}/bin/"
+}
+
+copy_backend_binaries() {
     mkdir -p "${TARGET}/bin"
-
-    # Check if synthesizer binary exists and copy it
-    if [[ "$DO_BUN" == "true" ]]; then
-        SYNTHESIZER_PATH="packages/frontend/synthesizer/bin/synthesizer"
-        if [ -f "$SYNTHESIZER_PATH" ]; then
-            echo "✅ Found synthesizer binary at $SYNTHESIZER_PATH"
-            cp -vf "$SYNTHESIZER_PATH" "${TARGET}/bin"
-            # mv "${TARGET}/bin/${SYNTHESIZER_BINARY}" "${TARGET}/bin/synthesizer"
-        else
-            echo "❌ Error: synthesizer binary not found at $SYNTHESIZER_PATH"
-            echo "🔍 Checking if binary exists in other locations..."
-            find packages/frontend/synthesizer -name "*synthesizer*" -type f 2>/dev/null || echo "No synthesizer binaries found"
-            exit 1
-        fi
+    copy_backend_binary preprocess
+    copy_backend_binary prove
+    copy_backend_binary verify
+    if [[ "$DO_TRUSTED_SETUP" == "true" ]]; then
+        copy_backend_binary trusted-setup
     fi
-
-    # Copy Rust binaries with existence check
-    for binary in trusted-setup preprocess prove verify; do
-        BINARY_PATH="packages/backend/target/release/$binary"
-        METADATA_PATH="packages/backend/target/release/build-metadata-$binary.json"
-        if [ -f "$BINARY_PATH" ]; then
-            echo "✅ Found $binary binary at $BINARY_PATH"
-            cp -vf "$BINARY_PATH" "${TARGET}/bin"
-        else
-            echo "❌ Error: $binary binary not found at $BINARY_PATH"
-            echo "🔍 Make sure Rust binaries are built properly"
-            exit 1
-        fi
-
-        if [ -f "$METADATA_PATH" ]; then
-            echo "✅ Found $binary build metadata at $METADATA_PATH"
-            cp -vf "$METADATA_PATH" "${TARGET}/bin"
-        else
-            echo "❌ Error: $binary build metadata not found at $METADATA_PATH"
-            echo "🔍 Make sure release build metadata is generated properly"
-            exit 1
-        fi
-    done
-
-    if [[ "$DO_DUSK_BACKED_MPC" == "true" ]]; then
-        DUSK_BINARY_PATH="packages/backend/target/release/dusk_backed_mpc_setup"
-        DUSK_METADATA_PATH="packages/backend/target/release/build-metadata-mpc-setup.json"
-        if [ -f "$DUSK_BINARY_PATH" ]; then
-            echo "✅ Found dusk_backed_mpc_setup binary at $DUSK_BINARY_PATH"
-            cp -vf "$DUSK_BINARY_PATH" "${TARGET}/bin"
-        else
-            echo "❌ Error: dusk_backed_mpc_setup binary not found at $DUSK_BINARY_PATH"
-            echo "🔍 Make sure the dusk-backed MPC setup binary is built properly"
-            exit 1
-        fi
-
-        if [ -f "$DUSK_METADATA_PATH" ]; then
-            echo "✅ Found mpc-setup build metadata at $DUSK_METADATA_PATH"
-            cp -vf "$DUSK_METADATA_PATH" "${TARGET}/bin"
-        else
-            echo "❌ Error: mpc-setup build metadata not found at $DUSK_METADATA_PATH"
-            echo "🔍 Make sure release build metadata is generated properly"
-            exit 1
-        fi
-    fi
-
-    echo "✅ copied to ${TARGET}/bin"
 }
 
 download_and_extract_icicle() {
-    # Preflight checks
-    command -v curl >/dev/null 2>&1 || { echo "curl is required but not found"; exit 1; }
-    command -v tar  >/dev/null 2>&1 || { echo "tar is required but not found"; exit 1; }
+    require_command curl
+    require_command tar
 
-    echo "[*] Downloading backend package: ${BACKEND_TARBALL}"
+    echo "[*] Downloading ICICLE runtime packages..."
     curl -fL --retry 3 -o "$BACKEND_TARBALL" "$BACKEND_URL"
-
-    echo "[*] Downloading common runtime package: ${COMMON_TARBALL}"
     curl -fL --retry 3 -o "$COMMON_TARBALL" "$COMMON_URL"
 
-    echo "[*] Extracting packages..."
     tar -xzf "$BACKEND_TARBALL"
     tar -xzf "$COMMON_TARBALL"
 
-    echo "[*] Installing to ${TARGET}/${BACKEND_PATH} ..."
     mkdir -p "${TARGET}/${BACKEND_PATH}"
-    cp -r icicle/* "${TARGET}/${BACKEND_PATH}"
+    cp -R icicle/. "${TARGET}/${BACKEND_PATH}/"
 
-    echo "[*] Cleaning up temporary files..."
     rm -rf "$BACKEND_TARBALL" "$COMMON_TARBALL" icicle
 }
 
 configure_macos_rpath() {
-    if [ "$PLATFORM" = "macos" ]; then
-        echo "[*] Configuring @rpath of the binaries..."
-        RPATH="@executable_path/../${BACKEND_PATH}/lib"
-
-        install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/trusted-setup"
-        if [[ -f "${TARGET}/bin/dusk_backed_mpc_setup" ]]; then
-            install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/dusk_backed_mpc_setup"
-        fi
-        install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/prove"
-        install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/preprocess"
-        install_name_tool -add_rpath "$RPATH" "${TARGET}/bin/verify"
-        echo "✅ @rpath set to ${RPATH}"
+    if [[ "$PLATFORM" != "macos" ]]; then
+        return
     fi
+
+    require_command install_name_tool
+
+    local rpath binary
+    rpath="@executable_path/../${BACKEND_PATH}/lib"
+    for binary in trusted-setup preprocess prove verify; do
+        if [[ -f "${TARGET}/bin/${binary}" ]]; then
+            install_name_tool -add_rpath "$rpath" "${TARGET}/bin/${binary}" || true
+        fi
+    done
 }
 
-handle_setup() {
-    if [[ "$DO_SETUP" == "false" ]]; then
-        echo "ℹ️ Build-only mode: Skipping setup execution and setup files"
-        echo "ℹ️ Setup files are distributed separately to reduce binary size"
-        mkdir -p "${TARGET}/resource/setup/output"
-        # Create placeholder file to maintain directory structure
-        echo "Setup files not included in binary distribution. Download separately from GitHub Release." > "${TARGET}/resource/setup/output/README.txt"
-    else
-        # Check if running in CI environment and prebuilt setup files are available
-        IS_CI_ENV=false
-        if [ -n "${GITHUB_ACTIONS:-}" ] || [ -n "${CI:-}" ] || [ -n "${CONTINUOUS_INTEGRATION:-}" ]; then
-            IS_CI_ENV=true
-        fi
+drive_direct_download_url() {
+    local file_id="$1"
+    printf '%s?id=%s&export=download&confirm=t\n' "$CRS_DOWNLOAD_BASE_URL" "$file_id"
+}
 
-        if [ "$IS_CI_ENV" = "true" ] && [ -d "./prebuilt-setup" ] && [ "$(ls -A ./prebuilt-setup 2>/dev/null)" ]; then
-            echo "[*] CI environment detected - Using prebuilt setup files from proof test..."
-            mkdir -p "${TARGET}/resource/setup/output"
-            cp -r ./prebuilt-setup/* "${TARGET}/resource/setup/output/"
-            echo "✅ Prebuilt setup files copied"
+select_latest_drive_archive() {
+    require_command curl
+    local html
+    html="$(curl -fsSL "${CRS_DRIVE_FOLDER_URL}/${CRS_DRIVE_FOLDER_ID}")"
 
-            # Verify setup files
-            local required_setup_files=(
-                "${TARGET}/resource/setup/output/combined_sigma.rkyv"
-                "${TARGET}/resource/setup/output/sigma_preprocess.rkyv"
-                "${TARGET}/resource/setup/output/sigma_verify.rkyv"
-            )
-            local missing_setup_file=false
-            local setup_file
-            for setup_file in "${required_setup_files[@]}"; do
-                if [ ! -f "$setup_file" ]; then
-                    echo "❌ Missing setup artifact: $setup_file"
-                    missing_setup_file=true
-                fi
-            done
-            if [ "$missing_setup_file" = "false" ]; then
-                echo "✅ Setup files verified: $(ls -lh ${TARGET}/resource/setup/output/)"
-            else
-                if [[ "$DO_DUSK_BACKED_MPC" == "true" ]]; then
-                    echo "❌ Setup files verification failed, falling back to dusk-backed mpc-setup"
-                    run_dusk_backed_mpc_setup
-                else
-                    echo "❌ Setup files verification failed, falling back to trusted-setup"
-                    run_trusted_setup
-                fi
-            fi
-        else
-            if [ "$IS_CI_ENV" = "false" ]; then
-                if [[ "$DO_DUSK_BACKED_MPC" == "true" ]]; then
-                    echo "[*] Local environment detected - Running fresh dusk-backed mpc-setup..."
-                else
-                    echo "[*] Local environment detected - Running fresh trusted-setup for safety..."
-                fi
-            else
-                if [[ "$DO_DUSK_BACKED_MPC" == "true" ]]; then
-                    echo "[*] No prebuilt setup files found - Running dusk-backed mpc-setup..."
-                else
-                    echo "[*] No prebuilt setup files found - Running trusted-setup..."
-                fi
-            fi
-            if [[ "$DO_DUSK_BACKED_MPC" == "true" ]]; then
-                run_dusk_backed_mpc_setup
-            else
-                run_trusted_setup
-            fi
+    DRIVE_FOLDER_HTML="$html" node - <<'NODE'
+const vm = require('vm');
+
+const html = process.env.DRIVE_FOLDER_HTML || '';
+const match = html.match(/window\['_DRIVE_ivd'\]\s*=\s*('(?:\\.|[^'])*')/);
+if (!match) {
+  console.error('Unable to locate Google Drive listing payload.');
+  process.exit(1);
+}
+
+const decoded = vm.runInNewContext(match[1]);
+const payload = JSON.parse(decoded);
+const entriesById = new Map();
+
+function extractGeneratedAt(name) {
+  const match = name.match(/v(\d+)\.(\d+)\.(\d+)-(\d{8}T\d{6}Z)\.zip$/i);
+  if (!match) {
+    return null;
+  }
+  return {
+    version: [Number(match[1]), Number(match[2]), Number(match[3])],
+    generatedAt: match[4],
+  };
+}
+
+function walk(node) {
+  if (!Array.isArray(node)) {
+    return;
+  }
+
+  if (typeof node[0] === 'string' && typeof node[2] === 'string' && node[3] === 'application/zip') {
+    const parsed = extractGeneratedAt(node[2]);
+    if (parsed) {
+      entriesById.set(node[0], {
+        fileId: node[0],
+        name: node[2],
+        version: parsed.version,
+        generatedAt: parsed.generatedAt,
+      });
+    }
+  }
+
+  for (const child of node) {
+    walk(child);
+  }
+}
+
+walk(payload);
+
+const entries = [...entriesById.values()];
+if (entries.length === 0) {
+  console.error('No CRS archive matching the expected naming convention was found in Google Drive.');
+  process.exit(1);
+}
+
+entries.sort((left, right) => {
+  for (let index = 0; index < 3; index += 1) {
+    if (left.version[index] !== right.version[index]) {
+      return right.version[index] - left.version[index];
+    }
+  }
+  return right.generatedAt.localeCompare(left.generatedAt);
+});
+
+const best = entries[0];
+process.stdout.write(`${best.fileId}\t${best.name}`);
+NODE
+}
+
+download_latest_crs_archive() {
+    local download_dir="$1"
+    local selection file_id archive_name archive_path
+
+    selection="$(select_latest_drive_archive)"
+    IFS=$'\t' read -r file_id archive_name <<< "$selection"
+    [[ -n "$file_id" && -n "$archive_name" ]] || {
+        echo "Failed to resolve the latest CRS archive from Google Drive." >&2
+        exit 1
+    }
+
+    archive_path="${download_dir}/${archive_name}"
+    echo "[*] Downloading CRS archive: ${archive_name}" >&2
+    curl -fL --retry 3 -o "$archive_path" "$(drive_direct_download_url "$file_id")"
+    printf '%s\t%s\n' "$archive_path" "$archive_name"
+}
+
+extract_zip_archive() {
+    local zip_path="$1"
+    local dest_dir="$2"
+    require_command unzip
+    if ! unzip -tqq "$zip_path" >/dev/null 2>&1; then
+        if grep -Eq "hasn't given you permission to download this file|hasn&#39;t given you permission to download this file|Google Drive - Can&#39;t download file" "$zip_path" 2>/dev/null; then
+            echo "Google Drive denied downloading the selected CRS archive. The folder listing is visible, but the file is not downloadable with the current permissions: ${CRS_DRIVE_FOLDER_URL}/${CRS_DRIVE_FOLDER_ID}" >&2
+            exit 1
         fi
+        echo "Downloaded CRS archive is not a valid zip file: $zip_path" >&2
+        exit 1
     fi
+    unzip -q "$zip_path" -d "$dest_dir"
+}
+
+validate_downloaded_crs_versions() {
+    local extracted_dir="$1"
+    local archive_name="$2"
+    local mpc_metadata_path installed_subcircuit_metadata_path
+    local installed_subcircuit_version mpc_subcircuit_version mpc_version backend_version
+
+    mpc_metadata_path="$(find_named_file_or_die "$extracted_dir" "build-metadata-mpc-setup.json")"
+    installed_subcircuit_metadata_path="${INSTALLED_SUBCIRCUIT_PACKAGE_DIR}/build-metadata.json"
+    [[ -f "$installed_subcircuit_metadata_path" ]] || {
+        echo "Installed subcircuit-library build metadata is missing." >&2
+        exit 1
+    }
+
+    installed_subcircuit_version="$(json_get "$installed_subcircuit_metadata_path" "packageVersion")"
+    mpc_subcircuit_version="$(json_get "$mpc_metadata_path" "dependencies.subcircuitLibrary.buildVersion")"
+
+    if [[ "$mpc_subcircuit_version" != "$installed_subcircuit_version" ]]; then
+        echo "CRS archive ${archive_name} was built against subcircuit-library ${mpc_subcircuit_version}, but the installed subcircuit-library version is ${installed_subcircuit_version}." >&2
+        exit 1
+    fi
+
+    mpc_version="$(json_get "$mpc_metadata_path" "packageVersion")"
+    for backend in preprocess prove verify; do
+        backend_version="$(json_get "packages/backend/target/release/build-metadata-${backend}.json" "packageVersion")"
+        if [[ "$backend_version" != "$mpc_version" ]]; then
+            echo "Backend package ${backend} has version ${backend_version}, but the downloaded CRS expects backend version ${mpc_version}." >&2
+            exit 1
+        fi
+    done
+}
+
+install_downloaded_setup() {
+    local output_dir archive_dir archive_info archive_path archive_name extracted_dir
+    output_dir="${TARGET}/resource/setup/output"
+    mkdir -p "$output_dir"
+
+    archive_dir="$(mktemp -d -t tokamak_crs_download.XXXXXX)"
+    archive_info="$(download_latest_crs_archive "$archive_dir")"
+    IFS=$'\t' read -r archive_path archive_name <<< "$archive_info"
+
+    extracted_dir="$(mktemp -d -t tokamak_crs_extract.XXXXXX)"
+    extract_zip_archive "$archive_path" "$extracted_dir"
+    validate_downloaded_crs_versions "$extracted_dir" "$archive_name"
+
+    cp -f "$(find_named_file_or_die "$extracted_dir" "combined_sigma.rkyv")" "${output_dir}/combined_sigma.rkyv"
+    cp -f "$(find_named_file_or_die "$extracted_dir" "sigma_preprocess.rkyv")" "${output_dir}/sigma_preprocess.rkyv"
+    cp -f "$(find_named_file_or_die "$extracted_dir" "sigma_verify.rkyv")" "${output_dir}/sigma_verify.rkyv"
+    cp -f "$(find_named_file_or_die "$extracted_dir" "build-metadata-mpc-setup.json")" "${output_dir}/build-metadata-mpc-setup.json"
+
+    local provenance_path
+    provenance_path="$(find "$extracted_dir" -type f -name "crs_provenance.json" 2>/dev/null | head -n 1 || true)"
+    if [[ -n "$provenance_path" ]]; then
+        cp -f "$provenance_path" "${output_dir}/crs_provenance.json"
+    fi
+
+    rm -rf "$archive_dir" "$extracted_dir"
 }
 
 run_trusted_setup() {
-    echo "[*] Running trusted-setup..."
-    SETUP_SCRIPT="${TARGET}/1_run-trusted-setup.sh"
-    dos2unix "$SETUP_SCRIPT"
-    chmod +x "$SETUP_SCRIPT"
-    "$SETUP_SCRIPT"
-    echo "✅ CRS has been generated"
+    local setup_script="${TARGET}/1_run-trusted-setup.sh"
+    [[ -f "${TARGET}/bin/trusted-setup" ]] || {
+        echo "trusted-setup binary is missing from ${TARGET}/bin" >&2
+        exit 1
+    }
+
+    dos2unix "$setup_script" >/dev/null 2>&1 || true
+    chmod +x "$setup_script"
+    "$setup_script"
 }
 
-run_dusk_backed_mpc_setup() {
-    echo "[*] Running dusk-backed mpc-setup..."
-    SETUP_SCRIPT="${TARGET}/1_run-dusk-backed-mpc-setup.sh"
-    dos2unix "$SETUP_SCRIPT"
-    chmod +x "$SETUP_SCRIPT"
-    "$SETUP_SCRIPT"
-    echo "✅ CRS has been generated"
+handle_setup() {
+    local output_dir="${TARGET}/resource/setup/output"
+    mkdir -p "$output_dir"
+
+    if [[ "$DO_SETUP" == "false" ]]; then
+        printf 'Setup artifacts were skipped during packaging.\n' > "${output_dir}/README.txt"
+        return
+    fi
+
+    if [[ "$DO_TRUSTED_SETUP" == "true" ]]; then
+        echo "[*] Generating CRS with trusted-setup..."
+        run_trusted_setup
+        return
+    fi
+
+    echo "[*] Downloading published CRS artifacts..."
+    install_downloaded_setup
 }
 
 sign_macos_binaries() {
-    if [[ "$PLATFORM" == "macos" && "$DO_SIGN" == "true" ]]; then
-        echo "[*] Signing on all distribution..."
-        find "$TARGET" -type f \( -perm -111 -o -name "*.dylib" -o -name "*.so" \) -print0 | xargs -0 -I{} codesign --force --options runtime --entitlements entitlements.plist --timestamp -s "$APP_SIGN_ID" "{}"
-        echo "✅ Signed"
-    elif [[ "$PLATFORM" == "macos" ]]; then
-        echo "ℹ️ Skipping code signing (run with --sign to enable)"
+    if [[ "$PLATFORM" != "macos" || "$DO_SIGN" != "true" ]]; then
+        return
     fi
+
+    find "$TARGET" -type f \( -perm -111 -o -name "*.dylib" -o -name "*.so" \) -print0 | \
+        xargs -0 -I{} codesign --force --options runtime --entitlements entitlements.plist --timestamp -s "$APP_SIGN_ID" "{}"
 }
 
 package_distribution() {
-    echo "✅ Distribution for ${PLATFORM} has been generated"
-
-    if [[ "$DO_COMPRESS" == "true" ]]; then
-        echo "[*] Packaging..."
-        mkdir -p dist
-        rm -f "dist/$OUT_PACKAGE"
-
-        case "$PLATFORM" in
-            macos)
-                ( cd "$TARGET" && ditto -c -k --sequesterRsrc . "../../dist/$OUT_PACKAGE" )
-                echo "✅ Packaged: dist/$OUT_PACKAGE"
-
-                if [[ "$DO_SIGN" == "true" ]]; then
-                    echo "[*] Notarizing..."
-                    xcrun notarytool submit "dist/$OUT_PACKAGE" --keychain-profile "$NOTARY_PROFILE" --wait
-                    echo "✅ Notarization completed"
-                else
-                    echo "ℹ️ Skipping notarization (run with --sign to enable)"
-                fi
-                ;;
-            linux)
-                # Use maximum compression with gzip - output to dist folder
-                tar -C "$TARGET" -c . | gzip -9 > "dist/$OUT_PACKAGE"
-
-                # Show compression stats
-                UNCOMPRESSED_SIZE=$(du -sb "$TARGET" | cut -f1)
-                COMPRESSED_SIZE=$(stat -c%s "dist/$OUT_PACKAGE" 2>/dev/null || stat -f%z "dist/$OUT_PACKAGE")
-                COMPRESSION_RATIO=$(echo "scale=1; $COMPRESSED_SIZE * 100 / $UNCOMPRESSED_SIZE" | bc -l 2>/dev/null || echo "N/A")
-
-                echo "✅ Packaging complete: dist/${OUT_PACKAGE}"
-                echo "📊 Uncompressed: $(numfmt --to=iec $UNCOMPRESSED_SIZE 2>/dev/null || echo "${UNCOMPRESSED_SIZE} bytes")"
-                echo "📊 Compressed: $(numfmt --to=iec $COMPRESSED_SIZE 2>/dev/null || echo "${COMPRESSED_SIZE} bytes")"
-                echo "📊 Compression ratio: ${COMPRESSION_RATIO}%"
-
-                # Check if approaching GitHub limit
-                if [ "$COMPRESSED_SIZE" -gt 1900000000 ]; then
-                    echo "⚠️  WARNING: File size approaching GitHub 2GB limit!"
-                fi
-                ;;
-        esac
-
-        echo "✅ Packaging for ${PLATFORM} has been completed"
-    else
-        echo "ℹ️ Skipping compression (--no-compress)"
+    if [[ -n "$TARGET_DIR_OVERRIDE" ]]; then
+        echo "[*] Skipping archive generation for explicit target directory ${TARGET_DIR_OVERRIDE}."
+        return
     fi
+
+    mkdir -p dist
+    rm -f "dist/${OUT_PACKAGE}"
+
+    case "$PLATFORM" in
+        macos)
+            ( cd "$TARGET" && ditto -c -k --sequesterRsrc . "../../dist/${OUT_PACKAGE}" )
+            if [[ "$DO_SIGN" == "true" ]]; then
+                xcrun notarytool submit "dist/${OUT_PACKAGE}" --keychain-profile "$NOTARY_PROFILE" --wait
+            fi
+            ;;
+        linux)
+            tar -C "$TARGET" -c . | gzip -9 > "dist/${OUT_PACKAGE}"
+            ;;
+    esac
 }
 
-# =========================
-# Main Execution Flow
-# =========================
-
 main() {
-    # Setup platform-specific configuration
     setup_platform_config
-
-    # Execute build steps
-    copy_scripts_and_resources
-    build_synthesizer
+    copy_scripts
+    install_published_packages
+    copy_published_resources
     build_backend
-    copy_binaries
+    copy_backend_binaries
     download_and_extract_icicle
     configure_macos_rpath
     handle_setup
     sign_macos_binaries
     package_distribution
-
-    echo "🎉 Unified packaging completed successfully for ${PLATFORM}!"
+    echo "Packaging completed successfully for ${PLATFORM}."
 }
 
-# =========================
-# Execute Main Function
-# =========================
-
-# Run the main function
 main

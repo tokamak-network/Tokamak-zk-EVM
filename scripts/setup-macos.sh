@@ -195,14 +195,6 @@ get_git_status() {
     fi
 }
 
-get_bun_status() {
-    if command -v bun &> /dev/null; then
-        echo "$(bun --version)"
-    else
-        echo ""
-    fi
-}
-
 # ============================================================================
 # INSTALLATION FUNCTIONS
 # ============================================================================
@@ -272,15 +264,6 @@ install_git() {
     print_installing "Git (via Homebrew)"
     brew install git
     print_status "success" "Git installed successfully!"
-}
-
-install_bun() {
-    print_installing "Bun (via official installer)"
-    curl -fsSL https://bun.sh/install | bash
-    # Add bun to current session
-    export BUN_INSTALL="$HOME/.bun"
-    export PATH="$BUN_INSTALL/bin:$PATH"
-    print_status "success" "Bun installed successfully!"
 }
 
 # ============================================================================
@@ -383,15 +366,6 @@ main() {
         missing_deps+=("dos2unix")
     fi
     
-    # Check Bun
-    local bun_ver=$(get_bun_status)
-    if [[ -n "$bun_ver" ]]; then
-        print_status "installed" "bun" "(v$bun_ver)"
-    else
-        print_status "missing" "bun"
-        missing_deps+=("bun")
-    fi
-    
     # ========================================================================
     # STEP 2: Summary
     # ========================================================================
@@ -458,7 +432,6 @@ main() {
             circom) install_circom ;;
             cmake) install_cmake ;;
             dos2unix) install_dos2unix ;;
-            bun) install_bun ;;
         esac
     done
     
@@ -550,15 +523,6 @@ main() {
         all_success=false
     fi
     
-    # Verify Bun
-    bun_ver=$(get_bun_status)
-    if [[ -n "$bun_ver" ]]; then
-        print_status "installed" "bun" "(v$bun_ver)"
-    else
-        print_status "error" "bun" "(installation failed)"
-        all_success=false
-    fi
-    
     # ========================================================================
     # STEP 6: Final message
     # ========================================================================
@@ -584,7 +548,6 @@ main() {
         echo -e "  ${DIM}• Rust:${RESET}     https://www.rust-lang.org/tools/install"
         echo -e "  ${DIM}• Circom:${RESET}   https://docs.circom.io/getting-started/installation/"
         echo -e "  ${DIM}• CMake:${RESET}    https://cmake.org/download/"
-        echo -e "  ${DIM}• Bun:${RESET}      https://bun.sh/"
     fi
     
     echo ""
