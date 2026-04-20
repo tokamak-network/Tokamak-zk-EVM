@@ -149,7 +149,8 @@ folder. Use `./tokamak-cli --install --trusted-setup` to generate CRS locally, o
 | Package                                            | Description                                                                        | Language   | Version |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------- | ------- |
 | [`qap-compiler`](./packages/frontend/qap-compiler) | Library of subcircuits for basic EVM operations                                    | Circom     | [`1.0.3` on npm (`@tokamak-zk-evm/subcircuit-library`)](https://www.npmjs.com/package/@tokamak-zk-evm/subcircuit-library) |
-| [`synthesizer`](./packages/frontend/synthesizer)   | Compiler that converts an Ethereum transaction into a circuit for Tokamak zk-SNARK | TypeScript | [`1.0.2` on npm (`@tokamak-zk-evm/synthesizer-node`)](https://www.npmjs.com/package/@tokamak-zk-evm/synthesizer-node) |
+| [`synthesizer-node`](./packages/frontend/synthesizer/node-cli) | Node CLI package that converts Tokamak L2 transaction snapshots into circuit inputs | TypeScript | [`1.0.2` on npm (`@tokamak-zk-evm/synthesizer-node`)](https://www.npmjs.com/package/@tokamak-zk-evm/synthesizer-node) |
+| [`synthesizer-web`](./packages/frontend/synthesizer/web-app) | Browser-facing package that converts Tokamak L2 transaction snapshots into circuit inputs | TypeScript | [`1.0.2` on npm (`@tokamak-zk-evm/synthesizer-web`)](https://www.npmjs.com/package/@tokamak-zk-evm/synthesizer-web) |
 
 ### Backend Packages
 
