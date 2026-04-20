@@ -40,10 +40,20 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y dos2unix cmake build-essential
+
+      - name: Install Google API client
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install google-api-python-client google-auth
 
       - name: Install Rust and Cargo
         uses: dtolnay/rust-toolchain@stable
@@ -65,6 +75,8 @@ jobs:
           chmod +x ./scripts/tokamak-cli-core
 
       - name: Build and setup environment
+        env:
+          TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON }}
         run: |
           # Fix file permissions and line endings
           echo "🔧 Fixing file permissions and line endings..."

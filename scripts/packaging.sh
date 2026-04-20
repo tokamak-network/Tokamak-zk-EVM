@@ -15,6 +15,8 @@ DO_SETUP=true
 DO_TRUSTED_SETUP=false
 TARGET_DIR_OVERRIDE=""
 PACKAGE_STAGING_DIR=""
+DRIVE_SERVICE_ACCOUNT_TEMP_PATH=""
+RESOLVED_DRIVE_SERVICE_ACCOUNT_JSON_PATH=""
 TARGET=""
 BACKEND_PATH=""
 OUT_PACKAGE=""
@@ -31,6 +33,9 @@ NOTARY_PROFILE=""
 cleanup_staging_dir() {
     if [[ -n "$PACKAGE_STAGING_DIR" && -d "$PACKAGE_STAGING_DIR" ]]; then
         rm -rf "$PACKAGE_STAGING_DIR"
+    fi
+    if [[ -n "$DRIVE_SERVICE_ACCOUNT_TEMP_PATH" && -f "$DRIVE_SERVICE_ACCOUNT_TEMP_PATH" ]]; then
+        rm -f "$DRIVE_SERVICE_ACCOUNT_TEMP_PATH"
     fi
 }
 
@@ -202,6 +207,26 @@ require_command() {
         echo "Required command not found: $name" >&2
         exit 1
     }
+}
+
+resolve_drive_service_account_path() {
+    if [[ -n "${TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH:-}" ]]; then
+        [[ -f "${TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH}" ]] || {
+            echo "TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH points to a missing file: ${TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH}" >&2
+            exit 1
+        }
+        RESOLVED_DRIVE_SERVICE_ACCOUNT_JSON_PATH="${TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH}"
+        return
+    fi
+
+    if [[ -n "${TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON:-}" ]]; then
+        DRIVE_SERVICE_ACCOUNT_TEMP_PATH="$(mktemp -t tokamak_drive_service_account.XXXXXX.json)"
+        printf '%s' "${TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON}" > "$DRIVE_SERVICE_ACCOUNT_TEMP_PATH"
+        RESOLVED_DRIVE_SERVICE_ACCOUNT_JSON_PATH="$DRIVE_SERVICE_ACCOUNT_TEMP_PATH"
+        return
+    fi
+
+    RESOLVED_DRIVE_SERVICE_ACCOUNT_JSON_PATH=""
 }
 
 json_get() {
@@ -379,6 +404,95 @@ drive_direct_download_url() {
     printf '%s?id=%s&export=download&confirm=t\n' "$CRS_DOWNLOAD_BASE_URL" "$file_id"
 }
 
+download_latest_crs_archive_with_service_account() {
+    local download_dir="$1"
+    require_command python3
+
+    GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON_PATH="$RESOLVED_DRIVE_SERVICE_ACCOUNT_JSON_PATH" \
+    GOOGLE_DRIVE_FOLDER_ID="$CRS_DRIVE_FOLDER_ID" \
+    python3 - "$download_dir" <<'PY'
+import os
+import re
+import sys
+
+try:
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaIoBaseDownload
+except ImportError as exc:
+    raise SystemExit(
+        "Authenticated Google Drive download requires google-api-python-client and google-auth. "
+        "Install them before running --install with TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON."
+    ) from exc
+
+download_dir = sys.argv[1]
+folder_id = os.environ["GOOGLE_DRIVE_FOLDER_ID"].strip()
+service_account_path = os.environ["GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON_PATH"].strip()
+pattern = re.compile(r"v(\d+)\.(\d+)\.(\d+)-(\d{8}T\d{6}Z)\.zip$", re.IGNORECASE)
+
+credentials = service_account.Credentials.from_service_account_file(
+    service_account_path,
+    scopes=["https://www.googleapis.com/auth/drive.readonly"],
+)
+service = build("drive", "v3", credentials=credentials, cache_discovery=False)
+
+query = (
+    f"'{folder_id}' in parents and "
+    "trashed = false and "
+    "mimeType = 'application/zip'"
+)
+
+page_token = None
+entries = []
+while True:
+    response = service.files().list(
+        q=query,
+        pageSize=100,
+        pageToken=page_token,
+        fields="nextPageToken, files(id,name,mimeType)",
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True,
+    ).execute()
+    for item in response.get("files", []):
+        name = item.get("name", "")
+        match = pattern.search(name)
+        if not match:
+            continue
+        entries.append(
+            {
+                "id": item["id"],
+                "name": name,
+                "version": tuple(int(part) for part in match.group(1, 2, 3)),
+                "generated_at": match.group(4),
+            }
+        )
+    page_token = response.get("nextPageToken")
+    if not page_token:
+        break
+
+if not entries:
+    raise SystemExit(
+        "No CRS archive matching the expected naming convention was found in Google Drive."
+    )
+
+entries.sort(key=lambda item: (item["version"], item["generated_at"]), reverse=True)
+selected = entries[0]
+archive_path = os.path.join(download_dir, selected["name"])
+
+request = service.files().get_media(
+    fileId=selected["id"],
+    supportsAllDrives=True,
+)
+with open(archive_path, "wb") as output_file:
+    downloader = MediaIoBaseDownload(output_file, request)
+    done = False
+    while not done:
+        _, done = downloader.next_chunk()
+
+sys.stdout.write(f"{archive_path}\t{selected['name']}")
+PY
+}
+
 select_latest_drive_archive() {
     require_command curl
     local html
@@ -456,6 +570,11 @@ NODE
 download_latest_crs_archive() {
     local download_dir="$1"
     local selection file_id archive_name archive_path
+
+    if [[ -n "$RESOLVED_DRIVE_SERVICE_ACCOUNT_JSON_PATH" ]]; then
+        download_latest_crs_archive_with_service_account "$download_dir"
+        return
+    fi
 
     selection="$(select_latest_drive_archive)"
     IFS=$'\t' read -r file_id archive_name <<< "$selection"
@@ -607,6 +726,7 @@ package_distribution() {
 
 main() {
     setup_platform_config
+    resolve_drive_service_account_path
     copy_scripts
     install_published_packages
     copy_published_resources
