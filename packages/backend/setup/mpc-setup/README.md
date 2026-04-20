@@ -28,7 +28,7 @@ Both wrappers write:
 Before running the ceremony:
 
 - follow the repository prerequisites from the project root README
-- ensure the frontend subcircuit library exists
+- ensure the frontend subcircuit library exists for non-release builds
 - install OpenSSL if required by your platform
 
 Run all commands from:
@@ -39,9 +39,12 @@ cd "$PWD/packages/backend"
 
 ## Native Mode
 
+Release builds resolve the latest `@tokamak-zk-evm/subcircuit-library` npm package during build
+time, embed it into the binary, and no longer accept `--subcircuit-library` at runtime. Non-release
+builds still require `--subcircuit-library`.
+
 ```bash
 cargo run --release --bin native_mpc_setup -- \
-  --subcircuit-library "$QAP_PATH" \
   --intermediate ./setup/mpc-setup/output/native.intermediate \
   --output ./setup/mpc-setup/output/native.final
 ```
@@ -60,7 +63,6 @@ native phase-1 initialization scalar uses internal randomness when testing mode 
 
 ```bash
 cargo run --release --bin dusk_backed_mpc_setup -- \
-  --subcircuit-library "$QAP_PATH" \
   --intermediate ./setup/mpc-setup/output/dusk.intermediate \
   --output ./setup/mpc-setup/output/dusk.final
 ```
@@ -110,7 +112,6 @@ Native:
 
 ```bash
 cargo run --release --features testing-mode --bin native_mpc_setup -- \
-  --subcircuit-library "$QAP_PATH" \
   --intermediate ./setup/mpc-setup/output/native-testing.intermediate \
   --output ./setup/mpc-setup/output/native-testing.final
 ```
@@ -119,7 +120,6 @@ Dusk-backed:
 
 ```bash
 cargo run --release --features testing-mode --bin dusk_backed_mpc_setup -- \
-  --subcircuit-library "$QAP_PATH" \
   --intermediate ./setup/mpc-setup/output/dusk-testing.intermediate \
   --output ./setup/mpc-setup/output/dusk-testing.final
 ```
@@ -143,6 +143,9 @@ The final output directory contains only:
 - `crs_provenance.json`
 
 This matches the trusted-setup artifact set, with the additional provenance manifest.
+
+For release builds, Cargo also emits `build-metadata-mpc-setup.json` into
+`packages/backend/target/release/`.
 
 ## CRS Provenance
 

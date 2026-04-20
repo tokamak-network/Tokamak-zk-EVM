@@ -4,6 +4,7 @@ pub mod field_structures;
 pub mod group_structures;
 pub mod iotools;
 pub mod polynomial_structures;
+pub mod subcircuit_library;
 pub mod utils;
 pub mod vector_operations;
 

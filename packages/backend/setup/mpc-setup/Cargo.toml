@@ -49,3 +49,6 @@ mime = "0.3"
 [features]
 default = []
 testing-mode = ["libs/testing-mode"]
+
+[build-dependencies]
+serde_json = { workspace = true }

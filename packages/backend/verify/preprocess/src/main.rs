@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use libs::iotools::SigmaPreprocessRkyv;
 use libs::iotools::{Instance, Permutation};
+use libs::subcircuit_library::resolve_subcircuit_library_path;
 use libs::utils::{check_device, load_setup_params_from_qap_path};
 use memmap2::Mmap;
 use preprocess::{Preprocess, PreprocessInputPaths};
@@ -12,6 +13,7 @@ use preprocess::{Preprocess, PreprocessInputPaths};
 #[command(author, version, about, long_about = None)]
 struct Config {
     /// Subcircuit library directory produced by the QAP compiler
+    #[cfg(not(tokamak_embedded_subcircuit_library))]
     #[arg(long, value_name = "PATH")]
     subcircuit_library: String,
 
@@ -30,9 +32,12 @@ struct Config {
 
 fn main() {
     let config = Config::parse();
+    let qap_path = resolve_subcircuit_library_path(subcircuit_library_arg(&config))
+        .to_string_lossy()
+        .into_owned();
 
     let paths = PreprocessInputPaths {
-        qap_path: &config.subcircuit_library,
+        qap_path: &qap_path,
         synthesizer_path: &config.synthesizer_stat,
         setup_path: &config.crs,
         output_path: &config.output,
@@ -57,4 +62,14 @@ fn main() {
     let formatted_preprocess = preprocess.convert_format_for_solidity_verifier();
     let output_path = PathBuf::from(paths.output_path).join("preprocess.json");
     formatted_preprocess.write_into_json(output_path).unwrap();
+}
+
+#[cfg(not(tokamak_embedded_subcircuit_library))]
+fn subcircuit_library_arg(config: &Config) -> Option<&str> {
+    Some(&config.subcircuit_library)
+}
+
+#[cfg(tokamak_embedded_subcircuit_library)]
+fn subcircuit_library_arg(_: &Config) -> Option<&str> {
+    None
 }

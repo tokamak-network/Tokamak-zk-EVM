@@ -13,7 +13,7 @@ interface anymore.
 Before running the ceremony:
 
 - complete the repository prerequisites from the project root README
-- ensure the frontend subcircuit library exists
+- ensure the frontend subcircuit library exists for non-release builds
 - install OpenSSL if required by your platform
 
 Run all commands from:
@@ -24,9 +24,11 @@ cd "$PWD/packages/backend"
 
 ## Native Mode
 
+Release builds embed the latest `@tokamak-zk-evm/subcircuit-library` npm snapshot at build time,
+so `--subcircuit-library` is only required in non-release builds.
+
 ```bash
 cargo run --release --bin native_mpc_setup -- \
-  --subcircuit-library "$QAP_PATH" \
   --intermediate ./setup/mpc-setup/output/native.intermediate \
   --output ./setup/mpc-setup/output/native.final
 ```
@@ -53,7 +55,6 @@ native phase-1 initialization scalar uses internal randomness instead of prompti
 
 ```bash
 cargo run --release --bin dusk_backed_mpc_setup -- \
-  --subcircuit-library "$QAP_PATH" \
   --intermediate ./setup/mpc-setup/output/dusk.intermediate \
   --output ./setup/mpc-setup/output/dusk.final
 ```
@@ -88,7 +89,6 @@ Native:
 
 ```bash
 cargo run --release --features testing-mode --bin native_mpc_setup -- \
-  --subcircuit-library "$QAP_PATH" \
   --intermediate ./setup/mpc-setup/output/native-testing.intermediate \
   --output ./setup/mpc-setup/output/native-testing.final
 ```
@@ -97,7 +97,6 @@ Dusk-backed:
 
 ```bash
 cargo run --release --features testing-mode --bin dusk_backed_mpc_setup -- \
-  --subcircuit-library "$QAP_PATH" \
   --intermediate ./setup/mpc-setup/output/dusk-testing.intermediate \
   --output ./setup/mpc-setup/output/dusk-testing.final
 ```
@@ -119,3 +118,6 @@ The deployable CRS is `combined_sigma.rkyv`.
 - `backend_version`
 - `published_folder_url`
 - `published_archive_name`
+
+Release builds also emit `build-metadata-mpc-setup.json` into
+`packages/backend/target/release/`.

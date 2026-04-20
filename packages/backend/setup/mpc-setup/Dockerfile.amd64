@@ -41,9 +41,9 @@ RUN cargo build --release
 RUN mkdir -p setup/mpc-setup/output/intermediate setup/mpc-setup/output/final && chmod -R 755 setup/mpc-setup/output
 
 # Add convenience scripts
-RUN echo '#!/bin/bash\ncargo run --release --bin native_mpc_setup -- --subcircuit-library /app/packages/frontend/qap-compiler/subcircuits/library --intermediate setup/mpc-setup/output/intermediate --output setup/mpc-setup/output/final' > /usr/local/bin/native_mpc_setup && chmod +x /usr/local/bin/native_mpc_setup
+RUN echo '#!/bin/bash\ncargo run --release --bin native_mpc_setup -- --intermediate setup/mpc-setup/output/intermediate --output setup/mpc-setup/output/final' > /usr/local/bin/native_mpc_setup && chmod +x /usr/local/bin/native_mpc_setup
 
-RUN echo '#!/bin/bash\ncargo run --release --bin dusk_backed_mpc_setup -- --subcircuit-library /app/packages/frontend/qap-compiler/subcircuits/library --intermediate setup/mpc-setup/output/intermediate --output setup/mpc-setup/output/final' > /usr/local/bin/dusk_backed_mpc_setup && chmod +x /usr/local/bin/dusk_backed_mpc_setup
+RUN echo '#!/bin/bash\ncargo run --release --bin dusk_backed_mpc_setup -- --intermediate setup/mpc-setup/output/intermediate --output setup/mpc-setup/output/final' > /usr/local/bin/dusk_backed_mpc_setup && chmod +x /usr/local/bin/dusk_backed_mpc_setup
 
 # Set environment variables
 

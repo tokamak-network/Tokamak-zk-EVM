@@ -1,4 +1,5 @@
 use clap::Parser;
+use libs::subcircuit_library::resolve_subcircuit_library_path;
 use libs::utils::check_device;
 #[cfg(feature = "testing-mode")]
 use prove::Proof4Test;
@@ -8,6 +9,7 @@ use verify::{Verifier, VerifyInputPaths};
 #[command(author, version, about, long_about = None)]
 struct Config {
     /// Subcircuit library directory produced by the QAP compiler
+    #[cfg(not(tokamak_embedded_subcircuit_library))]
     #[arg(long, value_name = "PATH")]
     subcircuit_library: String,
 
@@ -30,9 +32,12 @@ struct Config {
 
 fn main() {
     let config = Config::parse();
+    let qap_path = resolve_subcircuit_library_path(subcircuit_library_arg(&config))
+        .to_string_lossy()
+        .into_owned();
 
     let paths = VerifyInputPaths {
-        qap_path: &config.subcircuit_library,
+        qap_path: &qap_path,
         synthesizer_path: &config.synthesizer_stat,
         setup_path: &config.crs,
         preprocess_path: &config.preprocess,
@@ -63,4 +68,14 @@ fn main() {
             verifier.verify_binding(&proof4_test)
         );
     }
+}
+
+#[cfg(not(tokamak_embedded_subcircuit_library))]
+fn subcircuit_library_arg(config: &Config) -> Option<&str> {
+    Some(&config.subcircuit_library)
+}
+
+#[cfg(tokamak_embedded_subcircuit_library)]
+fn subcircuit_library_arg(_: &Config) -> Option<&str> {
+    None
 }

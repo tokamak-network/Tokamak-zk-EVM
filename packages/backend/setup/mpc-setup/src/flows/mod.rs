@@ -12,7 +12,7 @@ pub mod phase2_prepare;
 
 #[derive(Debug, Clone)]
 pub struct NativeMpcSetupConfig {
-    pub subcircuit_library: String,
+    pub qap_path: String,
     pub intermediate: String,
     pub output: String,
     pub beacon_mode: bool,
@@ -21,7 +21,7 @@ pub struct NativeMpcSetupConfig {
 
 #[derive(Debug, Clone)]
 pub struct DuskBackedMpcSetupConfig {
-    pub subcircuit_library: String,
+    pub qap_path: String,
     pub intermediate: String,
     pub output: String,
     pub beacon_mode: bool,
@@ -31,7 +31,7 @@ pub struct DuskBackedMpcSetupConfig {
 pub fn run_native_mpc_setup(config: &NativeMpcSetupConfig) {
     ensure_directory(&config.output);
     ensure_directory(&config.intermediate);
-    let qap_path = canonicalize_existing_path(&config.subcircuit_library);
+    let qap_path = canonicalize_existing_path(&config.qap_path);
     let s_max = load_s_max(&qap_path);
 
     phase1_initialize::run(&phase1_initialize::Phase1InitializeConfig {
@@ -64,7 +64,7 @@ pub fn run_dusk_backed_mpc_setup(config: &DuskBackedMpcSetupConfig) {
     let upload_config = preflight_drive_upload().expect("dusk-backed upload preflight failed");
     ensure_directory(&config.output);
     ensure_directory(&config.intermediate);
-    let qap_path = canonicalize_existing_path(&config.subcircuit_library);
+    let qap_path = canonicalize_existing_path(&config.qap_path);
     let dusk_raw_file = format!("{}/dusk.response", config.intermediate);
 
     run_single_contributor_phase2(

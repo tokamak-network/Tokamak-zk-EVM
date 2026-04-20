@@ -35,3 +35,6 @@ harness = false
 [features]
 default = []
 testing-mode = []
+
+[build-dependencies]
+serde_json = { workspace = true }

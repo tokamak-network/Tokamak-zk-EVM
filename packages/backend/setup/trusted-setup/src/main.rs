@@ -9,6 +9,7 @@ use libs::field_structures::{from_r1cs_to_evaled_qap_mixture, Tau};
 use libs::group_structures::Sigma;
 use libs::iotools::read_global_wire_list_as_boxed_boxed_numbers;
 use libs::iotools::{SetupParams, SubcircuitInfo, SubcircuitR1CS};
+use libs::subcircuit_library::resolve_subcircuit_library_path;
 #[cfg(not(feature = "testing-mode"))]
 use libs::utils::trusted_setup_ntt_domain_size;
 #[cfg(feature = "testing-mode")]
@@ -27,6 +28,7 @@ use trusted_setup::SetupInputPaths;
 #[command(author, version, about, long_about = None)]
 struct Config {
     /// Subcircuit library directory produced by the QAP compiler
+    #[cfg(not(tokamak_embedded_subcircuit_library))]
     #[arg(long, value_name = "PATH")]
     subcircuit_library: String,
 
@@ -46,15 +48,18 @@ struct Config {
 
 fn main() {
     let config = Config::parse();
+    let qap_path = resolve_subcircuit_library_path(subcircuit_library_arg(&config))
+        .to_string_lossy()
+        .into_owned();
 
     #[cfg(not(feature = "testing-mode"))]
     let paths = SetupInputPaths {
-        qap_path: &config.subcircuit_library,
+        qap_path: &qap_path,
         output_path: &config.output,
     };
     #[cfg(feature = "testing-mode")]
     let paths = SetupInputPaths {
-        qap_path: &config.subcircuit_library,
+        qap_path: &qap_path,
         output_path: &config.output,
         synthesizer_path: &config.synthesizer_stat,
     };
@@ -501,4 +506,14 @@ fn main() {
         "Total setup time: {:.6} seconds",
         total_duration.as_secs_f64()
     );
+}
+
+#[cfg(not(tokamak_embedded_subcircuit_library))]
+fn subcircuit_library_arg(config: &Config) -> Option<&str> {
+    Some(&config.subcircuit_library)
+}
+
+#[cfg(tokamak_embedded_subcircuit_library)]
+fn subcircuit_library_arg(_: &Config) -> Option<&str> {
+    None
 }
