@@ -71,7 +71,7 @@ This wrapper:
 4. runs phase-2 prepare
 5. runs one phase-2 contribution
 6. generates final CRS files
-7. zips the final `--output` artifacts and uploads the archive to the configured Google Drive folder
+7. zips the final `--output` artifacts plus `build-metadata-mpc-setup.json` and uploads the archive to the configured Google Drive folder
 
 Required `.env` keys for dusk-backed uploads:
 

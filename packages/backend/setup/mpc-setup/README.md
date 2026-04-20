@@ -80,6 +80,7 @@ In dusk-backed mode:
 - before setup starts, the wrapper checks that the Google Drive upload environment is valid
 - after setup succeeds, the wrapper zips the final `--output` artifacts and uploads the archive to
   the configured Google Drive folder
+- the uploaded zip also includes `build-metadata-mpc-setup.json`
 - the output archive name always includes the backend version and CRS generation timestamp
 
 The current pinned Dusk source is:

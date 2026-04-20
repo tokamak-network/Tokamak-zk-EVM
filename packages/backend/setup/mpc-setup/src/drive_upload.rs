@@ -16,6 +16,7 @@ use zip::write::{ExtendedFileOptions, FileOptions};
 
 const DRIVE_FOLDER_MIME_TYPE: &str = "application/vnd.google-apps.folder";
 const PROVENANCE_FILE_NAME: &str = "crs_provenance.json";
+const BUILD_METADATA_FILE_NAME: &str = "build-metadata-mpc-setup.json";
 const FINAL_OUTPUT_FILES: [&str; 4] = [
     "combined_sigma.rkyv",
     "sigma_preprocess.rkyv",
@@ -87,7 +88,8 @@ pub fn publish_output_archive(
     write_provenance(&output_path, &provenance)?;
 
     let archive_path = intermediate_path.join(&archive_name);
-    create_output_archive(&output_path, &archive_path)?;
+    let build_metadata_path = resolve_build_metadata_path()?;
+    create_output_archive(&output_path, &archive_path, &build_metadata_path)?;
 
     let runtime = tokio::runtime::Runtime::new()
         .map_err(|err| DriveUploadError::Message(format!("cannot create tokio runtime: {err}")))?;
@@ -167,7 +169,11 @@ fn build_archive_name(provenance: &FinalCrsProvenance) -> Result<String, DriveUp
     ))
 }
 
-fn create_output_archive(output_path: &Path, archive_path: &Path) -> Result<(), DriveUploadError> {
+fn create_output_archive(
+    output_path: &Path,
+    archive_path: &Path,
+    build_metadata_path: &Path,
+) -> Result<(), DriveUploadError> {
     if let Some(parent) = archive_path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -186,8 +192,40 @@ fn create_output_archive(output_path: &Path, archive_path: &Path) -> Result<(), 
         archive.write_all(&bytes)?;
     }
 
+    let mut source = StdFile::open(build_metadata_path)?;
+    let mut bytes = Vec::new();
+    source.read_to_end(&mut bytes)?;
+    archive.start_file(BUILD_METADATA_FILE_NAME, options.clone())?;
+    archive.write_all(&bytes)?;
+
     archive.finish()?;
     Ok(())
+}
+
+fn resolve_build_metadata_path() -> Result<PathBuf, DriveUploadError> {
+    let mut candidates = Vec::new();
+
+    if let Ok(executable_path) = env::current_exe() {
+        if let Some(parent) = executable_path.parent() {
+            candidates.push(parent.join(BUILD_METADATA_FILE_NAME));
+        }
+    }
+
+    let manifest_candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../target/release")
+        .join(BUILD_METADATA_FILE_NAME);
+    candidates.push(manifest_candidate);
+
+    for candidate in candidates {
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+
+    Err(DriveUploadError::Message(format!(
+        "cannot locate {}; expected it next to the executing binary or under packages/backend/target/release",
+        BUILD_METADATA_FILE_NAME
+    )))
 }
 
 async fn validate_drive_folder(config: &DriveUploadConfig) -> Result<(), DriveUploadError> {
