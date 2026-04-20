@@ -41,6 +41,7 @@ coverage.json
 dist/
 dist-*/
 **/dist/
+packages/cli/vendor/
 
 #Package
 *.zip

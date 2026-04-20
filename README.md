@@ -158,7 +158,7 @@ folder. Use `./tokamak-cli --install --trusted-setup` to generate CRS locally, o
 
 | Package                     | Description                                                                                       | Language   | Version |
 | --------------------------- | ------------------------------------------------------------------------------------------------- | ---------- | ------- |
-| [`tokamak-cli`](./packages/cli) | npm-distributed launcher package that downloads release runtimes and exposes the Tokamak CLI flow | TypeScript | `2.0.0` |
+| [`tokamak-cli`](./packages/cli) | npm-distributed launcher package that builds the backend locally and exposes the Tokamak CLI flow | TypeScript | [`2.0.0` on npm (`@tokamak-zk-evm/cli`)](https://www.npmjs.com/package/@tokamak-zk-evm/cli) |
 
 ### Backend Packages
 

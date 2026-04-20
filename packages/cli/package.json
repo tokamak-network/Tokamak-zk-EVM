@@ -1,7 +1,7 @@
 {
   "name": "@tokamak-zk-evm/cli",
   "version": "2.0.0",
-  "description": "Tokamak zk-EVM CLI package that downloads release runtimes and orchestrates proof generation commands.",
+  "description": "Tokamak zk-EVM CLI package that installs local backend runtimes and orchestrates proof generation commands.",
   "keywords": [
     "cli",
     "ethereum",
@@ -33,17 +33,22 @@
   },
   "files": [
     "dist",
+    "scripts",
+    "vendor",
     "README.md",
     "LICENSE-MIT",
     "LICENSE-APACHE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json --pretty false",
+    "prepare:package": "node scripts/prepare-package.mjs",
+    "build": "npm run prepare:package && tsc -p tsconfig.json --pretty false",
     "typecheck": "tsc -p tsconfig.json --pretty false --noEmit",
     "tsc": "npm run typecheck",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "postinstall": "node scripts/postinstall.cjs"
   },
   "dependencies": {
+    "@tokamak-zk-evm/subcircuit-library": "^1.0.3",
     "@tokamak-zk-evm/synthesizer-node": "^1.0.3"
   },
   "devDependencies": {

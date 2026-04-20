@@ -1,8 +1,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { createWriteStream } from 'node:fs';
-import { Readable } from 'node:stream';
+import fsSync from 'node:fs';
 import { spawn } from 'node:child_process';
 
 export type CliPlatform = 'linux' | 'macos';
@@ -14,40 +13,32 @@ export interface InstallOptions {
 }
 
 export interface RuntimeState {
-  releaseTag: string;
+  packageVersion: string;
   platform: CliPlatform;
   installedAt: string;
 }
 
 export interface RuntimeContext {
   cacheRoot: string;
+  packageRoot: string;
   platform: CliPlatform;
   platformDir: string;
   runtimeDir: string;
   statePath: string;
-  releaseTag: string;
+  packageVersion: string;
 }
 
-interface GitHubReleaseAsset {
-  name: string;
-}
-
-interface GitHubRelease {
-  tag_name?: string;
-  draft?: boolean;
-  prerelease?: boolean;
-  assets?: GitHubReleaseAsset[];
-}
-
-const REPO_OWNER = 'tokamak-network';
-const REPO_NAME = 'Tokamak-zk-EVM';
-const RELEASE_TAG_ENV = 'TOKAMAK_ZKEVM_RELEASE_TAG';
 const CACHE_DIR_ENV = 'TOKAMAK_ZKEVM_CLI_CACHE_DIR';
 
 function logVerbose(enabled: boolean, message: string): void {
   if (enabled) {
     console.error(`[info] ${message}`);
   }
+}
+
+export interface CommandResult {
+  stdout: string;
+  stderr: string;
 }
 
 export function detectPlatform(): CliPlatform {
@@ -69,17 +60,37 @@ export function resolveCacheRoot(): string {
   return path.join(os.homedir(), '.tokamak-zk-evm', 'cli');
 }
 
-export function createRuntimeContext(releaseTag: string): RuntimeContext {
+export function resolvePackageRoot(): string {
+  return path.resolve(__dirname, '..');
+}
+
+function resolveVendoredWorkspaceRoot(packageRoot: string): string {
+  return path.join(packageRoot, 'vendor', 'workspace');
+}
+
+async function resolvePackageVersion(packageRoot: string): Promise<string> {
+  const manifestPath = path.join(packageRoot, 'package.json');
+  const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8')) as { version?: string };
+  if (!manifest.version) {
+    throw new Error(`Package version is missing from ${manifestPath}.`);
+  }
+  return manifest.version;
+}
+
+export async function createRuntimeContext(): Promise<RuntimeContext> {
+  const packageRoot = resolvePackageRoot();
+  const packageVersion = await resolvePackageVersion(packageRoot);
   const platform = detectPlatform();
   const cacheRoot = resolveCacheRoot();
   const platformDir = path.join(cacheRoot, platform);
   return {
     cacheRoot,
+    packageRoot,
     platform,
     platformDir,
     runtimeDir: path.join(platformDir, 'runtime'),
     statePath: path.join(platformDir, 'installation.json'),
-    releaseTag,
+    packageVersion,
   };
 }
 
@@ -94,15 +105,16 @@ export async function readInstalledState(platform: CliPlatform): Promise<Runtime
 }
 
 export async function requireInstalledRuntime(): Promise<RuntimeContext> {
-  const platform = detectPlatform();
-  const state = await readInstalledState(platform);
+  const context = await createRuntimeContext();
+  const state = await readInstalledState(context.platform);
   if (state === null) {
     throw new Error('Tokamak zk-EVM runtime is not installed. Run `tokamak-cli --install` first.');
   }
-
-  const context = createRuntimeContext(state.releaseTag);
   await fs.access(context.runtimeDir);
-  return context;
+  return {
+    ...context,
+    packageVersion: state.packageVersion,
+  };
 }
 
 export function runtimePaths(context: RuntimeContext) {
@@ -128,112 +140,6 @@ export function runtimePaths(context: RuntimeContext) {
   };
 }
 
-export function assetNameForPlatform(releaseTag: string, platform: CliPlatform): string {
-  return platform === 'macos'
-    ? `tokamak-zk-evm-${releaseTag}-macos.zip`
-    : `tokamak-zk-evm-${releaseTag}-linux22.tar.gz`;
-}
-
-export function setupAssetName(releaseTag: string): string {
-  return `tokamak-zk-evm-${releaseTag}-setup-files.tar.gz`;
-}
-
-async function fetchGitHubRelease(url: string): Promise<GitHubRelease> {
-  const response = await fetch(url, {
-    headers: {
-      accept: 'application/vnd.github+json',
-      'user-agent': '@tokamak-zk-evm/cli',
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to resolve GitHub release metadata: ${response.status} ${response.statusText}`);
-  }
-  return (await response.json()) as GitHubRelease;
-}
-
-async function fetchGitHubReleases(url: string): Promise<GitHubRelease[]> {
-  const response = await fetch(url, {
-    headers: {
-      accept: 'application/vnd.github+json',
-      'user-agent': '@tokamak-zk-evm/cli',
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to resolve GitHub releases: ${response.status} ${response.statusText}`);
-  }
-  return (await response.json()) as GitHubRelease[];
-}
-
-function releaseHasRequiredAssets(
-  release: GitHubRelease,
-  platform: CliPlatform,
-  requireSetupAsset: boolean,
-): boolean {
-  const releaseTag = release.tag_name?.trim();
-  if (!releaseTag) {
-    return false;
-  }
-
-  const assetNames = new Set((release.assets ?? []).map((asset) => asset.name));
-  if (!assetNames.has(assetNameForPlatform(releaseTag, platform))) {
-    return false;
-  }
-
-  if (requireSetupAsset && !assetNames.has(setupAssetName(releaseTag))) {
-    return false;
-  }
-
-  return true;
-}
-
-export async function resolveReleaseTag(
-  verbose: boolean,
-  options: {
-    platform: CliPlatform;
-    requireSetupAsset: boolean;
-  },
-): Promise<string> {
-  const pinned = process.env[RELEASE_TAG_ENV]?.trim();
-  if (pinned) {
-    const release = await fetchGitHubRelease(
-      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/tags/${pinned}`,
-    );
-    if (!releaseHasRequiredAssets(release, options.platform, options.requireSetupAsset)) {
-      throw new Error(
-        `Pinned release ${pinned} does not contain the required runtime assets for ${options.platform}.`,
-      );
-    }
-    logVerbose(verbose, `Using pinned release tag from ${RELEASE_TAG_ENV}: ${pinned}`);
-    return pinned;
-  }
-
-  const releases = await fetchGitHubReleases(
-    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases?per_page=30`,
-  );
-
-  const stableCandidate = releases.find(
-    (release) =>
-      !release.draft &&
-      !release.prerelease &&
-      releaseHasRequiredAssets(release, options.platform, options.requireSetupAsset),
-  );
-  const prereleaseCandidate = releases.find(
-    (release) =>
-      !release.draft &&
-      release.prerelease &&
-      releaseHasRequiredAssets(release, options.platform, options.requireSetupAsset),
-  );
-  const selected = stableCandidate ?? prereleaseCandidate;
-
-  if (!selected?.tag_name) {
-    throw new Error(
-      `Failed to find a GitHub release containing the required runtime assets for ${options.platform}.`,
-    );
-  }
-  logVerbose(verbose, `Resolved GitHub release tag: ${selected.tag_name}`);
-  return selected.tag_name;
-}
-
 async function ensureDir(dirPath: string): Promise<void> {
   await fs.mkdir(dirPath, { recursive: true });
 }
@@ -243,32 +149,26 @@ async function emptyDir(dirPath: string): Promise<void> {
   await fs.mkdir(dirPath, { recursive: true });
 }
 
-async function downloadFile(url: string, destination: string, verbose: boolean): Promise<void> {
-  logVerbose(verbose, `Downloading ${url}`);
-  const response = await fetch(url, {
-    headers: {
-      'user-agent': '@tokamak-zk-evm/cli',
-    },
-    redirect: 'follow',
-  });
-  if (!response.ok || response.body === null) {
-    throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
-  }
-
-  await ensureDir(path.dirname(destination));
-  await new Promise<void>((resolve, reject) => {
-    const fileStream = createWriteStream(destination);
-    const bodyStream = Readable.fromWeb(response.body as globalThis.ReadableStream<Uint8Array>);
-    bodyStream.on('error', reject);
-    fileStream.on('error', reject);
-    fileStream.on('finish', () => resolve());
-    bodyStream.pipe(fileStream);
-  });
+function prependEnvPath(existing: string | undefined, nextValue: string): string {
+  return existing && existing.length > 0 ? `${nextValue}:${existing}` : nextValue;
 }
 
-export interface CommandResult {
-  stdout: string;
-  stderr: string;
+export function backendEnvironment(context: RuntimeContext): NodeJS.ProcessEnv {
+  const paths = runtimePaths(context);
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  env.LD_LIBRARY_PATH = prependEnvPath(env.LD_LIBRARY_PATH, paths.icicleLibDir);
+  if (context.platform === 'macos') {
+    env.DYLD_LIBRARY_PATH = prependEnvPath(env.DYLD_LIBRARY_PATH, paths.icicleLibDir);
+    env.ICICLE_BACKEND_INSTALL_DIR = path.join(paths.icicleLibDir, 'backend');
+    return env;
+  }
+
+  const backendDir = path.join(paths.icicleLibDir, 'backend');
+  env.ICICLE_BACKEND_INSTALL_DIR = '';
+  if (process.platform === 'linux') {
+    env.ICICLE_BACKEND_INSTALL_DIR = backendDir;
+  }
+  return env;
 }
 
 export async function runCommand(
@@ -315,103 +215,75 @@ export async function runCommand(
   });
 }
 
-async function extractZip(archivePath: string, destination: string, verbose: boolean): Promise<void> {
-  await ensureDir(destination);
-  await runCommand('unzip', ['-q', archivePath, '-d', destination], { verbose });
-}
-
-async function extractTarGz(archivePath: string, destination: string, verbose: boolean): Promise<void> {
-  await ensureDir(destination);
-  await runCommand('tar', ['-xzf', archivePath, '-C', destination], { verbose });
-}
-
-function releaseDownloadUrl(releaseTag: string, assetName: string): string {
-  return `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${releaseTag}/${assetName}`;
-}
-
-function prependEnvPath(existing: string | undefined, nextValue: string): string {
-  return existing && existing.length > 0 ? `${nextValue}:${existing}` : nextValue;
-}
-
-export function backendEnvironment(context: RuntimeContext): NodeJS.ProcessEnv {
-  const paths = runtimePaths(context);
-  const env: NodeJS.ProcessEnv = { ...process.env };
-  env.LD_LIBRARY_PATH = prependEnvPath(env.LD_LIBRARY_PATH, paths.icicleLibDir);
-  if (context.platform === 'macos') {
-    env.DYLD_LIBRARY_PATH = prependEnvPath(env.DYLD_LIBRARY_PATH, paths.icicleLibDir);
-    env.ICICLE_BACKEND_INSTALL_DIR = path.join(paths.icicleLibDir, 'backend');
-    return env;
+function resolveInstalledPackageDir(packageRoot: string, packageName: string): string {
+  const packageSegments = packageName.split('/');
+  let current = packageRoot;
+  while (true) {
+    const candidate = path.join(current, 'node_modules', ...packageSegments);
+    if (fsSync.existsSync(candidate)) {
+      return candidate;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      throw new Error(`Failed to locate an installed node_modules directory for ${packageName}.`);
+    }
+    current = parent;
   }
-
-  const backendDir = path.join(paths.icicleLibDir, 'backend');
-  env.ICICLE_BACKEND_INSTALL_DIR = '';
-  if (process.platform === 'linux') {
-    env.ICICLE_BACKEND_INSTALL_DIR = backendDir;
-  }
-  return env;
 }
 
-async function installSetupArchive(context: RuntimeContext, verbose: boolean): Promise<void> {
-  const paths = runtimePaths(context);
-  await emptyDir(paths.setupOutputDir);
-  const archivePath = path.join(context.platformDir, setupAssetName(context.releaseTag));
-  await downloadFile(releaseDownloadUrl(context.releaseTag, setupAssetName(context.releaseTag)), archivePath, verbose);
-  await extractTarGz(archivePath, paths.setupOutputDir, verbose);
-}
-
-async function runTrustedSetup(context: RuntimeContext, verbose: boolean): Promise<void> {
-  const paths = runtimePaths(context);
+async function ensureVendoredWorkspaceExists(packageRoot: string): Promise<string> {
+  const workspaceRoot = resolveVendoredWorkspaceRoot(packageRoot);
+  const packagingScript = path.join(workspaceRoot, 'scripts', 'packaging.sh');
   try {
-    await fs.access(paths.trustedSetupBinary);
+    await fs.access(packagingScript);
   } catch {
     throw new Error(
-      `The selected release ${context.releaseTag} does not contain the trusted-setup binary for ${context.platform}. ` +
-      'Install a newer runtime release or use --no-setup until a release with trusted-setup support is available.',
+      'The vendored backend workspace is missing. Rebuild the package so that vendor/workspace is populated.',
     );
   }
-  await emptyDir(paths.setupOutputDir);
-  const args = [
-    '--output',
-    paths.setupOutputDir,
-    '--fixed-tau',
-  ];
-  await runCommand(paths.trustedSetupBinary, args, {
-    env: backendEnvironment(context),
-    verbose,
-  });
+  return workspaceRoot;
 }
 
 export async function installRuntime(options: InstallOptions): Promise<RuntimeContext> {
-  const platform = detectPlatform();
-  const releaseTag = await resolveReleaseTag(options.verbose, {
-    platform,
-    requireSetupAsset: !options.noSetup && !options.trustedSetup,
-  });
-  const context = createRuntimeContext(releaseTag);
-  const platformAsset = assetNameForPlatform(releaseTag, context.platform);
-  const platformArchivePath = path.join(context.platformDir, platformAsset);
+  const context = await createRuntimeContext();
+  const workspaceRoot = await ensureVendoredWorkspaceExists(context.packageRoot);
 
+  const packagingScript = path.join(workspaceRoot, 'scripts', 'packaging.sh');
+  const args = [
+    packagingScript,
+    context.platform === 'macos' ? '--macos' : '--linux',
+    '--target-dir',
+    context.runtimeDir,
+  ];
+  if (options.noSetup) {
+    args.push('--no-setup');
+  } else if (options.trustedSetup) {
+    args.push('--trusted-setup');
+  }
+
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    TOKAMAK_ZKEVM_SUBCIRCUIT_PACKAGE_DIR: resolveInstalledPackageDir(
+      context.packageRoot,
+      '@tokamak-zk-evm/subcircuit-library',
+    ),
+    TOKAMAK_ZKEVM_SYNTHESIZER_PACKAGE_DIR: resolveInstalledPackageDir(
+      context.packageRoot,
+      '@tokamak-zk-evm/synthesizer-node',
+    ),
+  };
+
+  logVerbose(options.verbose, `Using vendored workspace ${workspaceRoot}`);
   await ensureDir(context.platformDir);
   await emptyDir(context.runtimeDir);
-  await downloadFile(releaseDownloadUrl(releaseTag, platformAsset), platformArchivePath, options.verbose);
-
-  if (platformAsset.endsWith('.zip')) {
-    await extractZip(platformArchivePath, context.runtimeDir, options.verbose);
-  } else {
-    await extractTarGz(platformArchivePath, context.runtimeDir, options.verbose);
-  }
-
-  const paths = runtimePaths(context);
-  if (options.noSetup) {
-    await emptyDir(paths.setupOutputDir);
-  } else if (options.trustedSetup) {
-    await runTrustedSetup(context, options.verbose);
-  } else {
-    await installSetupArchive(context, options.verbose);
-  }
+  await runCommand('bash', args, {
+    cwd: workspaceRoot,
+    env,
+    verbose: options.verbose,
+  });
 
   const state: RuntimeState = {
-    releaseTag,
+    packageVersion: context.packageVersion,
     platform: context.platform,
     installedAt: new Date().toISOString(),
   };

@@ -41,8 +41,8 @@ function printUsage(): void {
   console.log(`
 Commands:
   --install [--trusted-setup] [--no-setup]
-      Download the current Tokamak zk-EVM runtime from GitHub Releases and prepare local resources
-      By default setup artifacts are installed from the published setup archive
+      Build the local Tokamak zk-EVM runtime from the packaged backend workspace and prepare local resources
+      By default setup artifacts are installed from the published CRS archive
       Use --trusted-setup to generate setup artifacts locally with the trusted-setup binary
       Use --no-setup to skip setup artifact provisioning
 
@@ -491,7 +491,7 @@ async function main(): Promise<void> {
         noSetup: parsed.installOptions?.noSetup ?? false,
         trustedSetup: parsed.installOptions?.trustedSetup ?? false,
       });
-      ok(`Install complete for release ${context.releaseTag}`);
+      ok(`Install complete for package ${context.packageVersion}`);
       return;
     }
     case 'doctor':
