@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [1.0.2] - 2026-04-20
+
+### node-cli
+
+- Updated the published `@tokamak-zk-evm/subcircuit-library` dependency range to `^1.0.3`.
+
+### web-app
+
+- Updated the published `@tokamak-zk-evm/subcircuit-library` dependency range to `^1.0.3`.
+
+### core
+
+- No consumer-facing changes.
+
 ## [1.0.1] - 2026-04-20
 
 ### node-cli
