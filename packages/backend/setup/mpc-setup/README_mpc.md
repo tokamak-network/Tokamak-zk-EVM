@@ -67,12 +67,13 @@ This wrapper:
 
 1. loads or downloads the pinned Dusk raw powers-of-tau file at `<intermediate>/dusk.response`
 2. checks the Google Drive upload configuration from `.env`
-3. verifies the pinned digest and the used tau ranges
-4. runs phase-2 prepare
-5. runs one phase-2 contribution
-6. generates final CRS files
-7. zips the final `--output` artifacts plus `build-metadata-mpc-setup.json` and uploads the archive to the configured Google Drive folder
-8. validates that publication is running from a release build and that the bundled build metadata
+3. rejects publication if the target Drive folder already contains a CRS archive for the current backend version
+4. verifies the pinned digest and the used tau ranges
+5. runs phase-2 prepare
+6. runs one phase-2 contribution
+7. generates final CRS files
+8. zips the final `--output` artifacts plus `build-metadata-mpc-setup.json` and uploads the archive to the configured Google Drive folder
+9. validates that publication is running from a release build and that the bundled build metadata
    matches the current `mpc-setup` binary version
 
 Required `.env` keys for dusk-backed uploads:

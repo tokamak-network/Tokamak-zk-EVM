@@ -326,7 +326,43 @@ async fn validate_drive_folder(config: &DriveUploadConfig) -> Result<(), DriveUp
         )));
     }
 
+    let archive_prefix = archive_version_prefix();
+    let list_query = format!(
+        "'{}' in parents and trashed = false and mimeType != '{}' and name contains '{}'",
+        config.folder_id, DRIVE_FOLDER_MIME_TYPE, archive_prefix
+    );
+    let (_, listing) = hub
+        .files()
+        .list()
+        .q(&list_query)
+        .param("fields", "files(id,name)")
+        .page_size(10)
+        .supports_all_drives(true)
+        .include_items_from_all_drives(true)
+        .add_scope(Scope::Full)
+        .doit()
+        .await?;
+    if let Some(existing_files) = listing.files {
+        if !existing_files.is_empty() {
+            let existing_names = existing_files
+                .into_iter()
+                .filter_map(|file| file.name)
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(DriveUploadError::Message(format!(
+                "drive folder {} already contains CRS archive(s) for backend version {}: {}; bump the backend version before publishing again",
+                config.folder_id,
+                env!("CARGO_PKG_VERSION"),
+                existing_names
+            )));
+        }
+    }
+
     Ok(())
+}
+
+fn archive_version_prefix() -> String {
+    format!("tokamak-backend-crs-v{}-", env!("CARGO_PKG_VERSION"))
 }
 
 async fn upload_archive(

@@ -78,6 +78,7 @@ In dusk-backed mode:
 - the downloaded or local file must match the pinned SHA-256 digest compiled into the binary
 - the used G1 and G2 tau ranges are verified before phase 2 begins
 - before setup starts, the wrapper checks that the Google Drive upload environment is valid
+- preflight fails if the target Drive folder already contains a CRS archive for the current backend version
 - after setup succeeds, the wrapper zips the final `--output` artifacts and uploads the archive to
   the configured Google Drive folder
 - the uploaded zip also includes `build-metadata-mpc-setup.json`
