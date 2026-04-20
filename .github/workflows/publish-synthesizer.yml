@@ -1,0 +1,161 @@
+name: Publish synthesizer
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish-synthesizer:
+    name: Publish synthesizer packages to npm
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: packages/frontend/synthesizer
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+          cache-dependency-path: packages/frontend/synthesizer/package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Compare package versions with npm
+        id: version-check
+        shell: bash
+        run: |
+          node <<'EOF_NODE' >> "$GITHUB_OUTPUT"
+          const { execSync } = require('node:child_process');
+          const path = require('node:path');
+
+          const packageEntries = [
+            {
+              outputPrefix: 'node',
+              manifestPath: path.join(process.cwd(), 'node-cli', 'package.json'),
+            },
+            {
+              outputPrefix: 'web',
+              manifestPath: path.join(process.cwd(), 'web-app', 'package.json'),
+            },
+          ];
+
+          function compareSemver(left, right) {
+            const leftParts = left.split('.').map((value) => Number(value));
+            const rightParts = right.split('.').map((value) => Number(value));
+            const maxLength = Math.max(leftParts.length, rightParts.length);
+
+            for (let i = 0; i < maxLength; i += 1) {
+              const leftValue = leftParts[i] ?? 0;
+              const rightValue = rightParts[i] ?? 0;
+              if (leftValue > rightValue) return 1;
+              if (leftValue < rightValue) return -1;
+            }
+
+            return 0;
+          }
+
+          const manifests = packageEntries.map((entry) => {
+            const manifest = require(entry.manifestPath);
+            return {
+              ...entry,
+              name: manifest.name,
+              version: manifest.version,
+            };
+          });
+
+          const localVersion = manifests[0].version;
+          for (const manifest of manifests) {
+            if (manifest.version !== localVersion) {
+              throw new Error(
+                `Synchronized release policy violation: ${manifests
+                  .map((value) => `${value.name}=${value.version}`)
+                  .join(', ')}`,
+              );
+            }
+          }
+
+          let publishCount = 0;
+          for (const manifest of manifests) {
+            let publishedVersion = null;
+            try {
+              publishedVersion = execSync(`npm view "${manifest.name}" version`, {
+                encoding: 'utf8',
+                stdio: ['ignore', 'pipe', 'pipe'],
+              }).trim();
+            } catch (error) {
+              publishedVersion = null;
+            }
+
+            const comparison =
+              publishedVersion === null ? 1 : compareSemver(manifest.version, publishedVersion);
+            if (comparison < 0) {
+              throw new Error(
+                `Local version ${manifest.version} is behind npm version ${publishedVersion} for ${manifest.name}.`,
+              );
+            }
+
+            const shouldPublish = publishedVersion === null || comparison > 0;
+            if (shouldPublish) {
+              publishCount += 1;
+            }
+
+            console.log(`${manifest.outputPrefix}_package_name=${manifest.name}`);
+            console.log(`${manifest.outputPrefix}_local_version=${manifest.version}`);
+            console.log(
+              `${manifest.outputPrefix}_published_version=${publishedVersion ?? 'none'}`,
+            );
+            console.log(`${manifest.outputPrefix}_should_publish=${shouldPublish}`);
+          }
+
+          console.log(`release_version=${localVersion}`);
+          console.log(`publish_count=${publishCount}`);
+          console.log(`should_publish_any=${publishCount > 0}`);
+          EOF_NODE
+
+      - name: Show version decision
+        run: |
+          echo "Release version: ${{ steps.version-check.outputs.release_version }}"
+          echo "Node package: ${{ steps.version-check.outputs.node_package_name }}"
+          echo "Node local version: ${{ steps.version-check.outputs.node_local_version }}"
+          echo "Node published version: ${{ steps.version-check.outputs.node_published_version }}"
+          echo "Node should publish: ${{ steps.version-check.outputs.node_should_publish }}"
+          echo "Web package: ${{ steps.version-check.outputs.web_package_name }}"
+          echo "Web local version: ${{ steps.version-check.outputs.web_local_version }}"
+          echo "Web published version: ${{ steps.version-check.outputs.web_published_version }}"
+          echo "Web should publish: ${{ steps.version-check.outputs.web_should_publish }}"
+
+      - name: Build workspace
+        if: steps.version-check.outputs.should_publish_any == 'true'
+        run: npm run build
+
+      - name: Validate node package contents
+        if: steps.version-check.outputs.node_should_publish == 'true'
+        working-directory: packages/frontend/synthesizer/node-cli
+        run: npm publish --dry-run
+
+      - name: Publish node package to npm
+        if: steps.version-check.outputs.node_should_publish == 'true'
+        working-directory: packages/frontend/synthesizer/node-cli
+        run: npm publish
+
+      - name: Validate web package contents
+        if: steps.version-check.outputs.web_should_publish == 'true'
+        working-directory: packages/frontend/synthesizer/web-app
+        run: npm publish --dry-run
+
+      - name: Publish web package to npm
+        if: steps.version-check.outputs.web_should_publish == 'true'
+        working-directory: packages/frontend/synthesizer/web-app
+        run: npm publish
