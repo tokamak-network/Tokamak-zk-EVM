@@ -1,3 +1,4 @@
+use clap::Args;
 use std::env;
 use std::fs;
 #[cfg(tokamak_embedded_subcircuit_library)]
@@ -12,6 +13,30 @@ include!(concat!(env!("OUT_DIR"), "/embedded_subcircuit_library.rs"));
 
 #[cfg(tokamak_embedded_subcircuit_library)]
 static MATERIALIZED_PATH: OnceLock<PathBuf> = OnceLock::new();
+
+#[cfg(not(tokamak_embedded_subcircuit_library))]
+#[derive(Args, Debug, Clone)]
+pub struct SubcircuitLibraryArg {
+    /// Subcircuit library directory produced by the QAP compiler
+    #[arg(long, value_name = "PATH")]
+    pub subcircuit_library: String,
+}
+
+#[cfg(tokamak_embedded_subcircuit_library)]
+#[derive(Args, Debug, Clone, Default)]
+pub struct SubcircuitLibraryArg {}
+
+impl SubcircuitLibraryArg {
+    #[cfg(not(tokamak_embedded_subcircuit_library))]
+    pub fn as_deref(&self) -> Option<&str> {
+        Some(self.subcircuit_library.as_str())
+    }
+
+    #[cfg(tokamak_embedded_subcircuit_library)]
+    pub fn as_deref(&self) -> Option<&str> {
+        None
+    }
+}
 
 pub fn resolve_subcircuit_library_path(local_path: Option<&str>) -> PathBuf {
     #[cfg(tokamak_embedded_subcircuit_library)]

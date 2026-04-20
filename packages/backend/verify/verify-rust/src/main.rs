@@ -1,5 +1,5 @@
 use clap::Parser;
-use libs::subcircuit_library::resolve_subcircuit_library_path;
+use libs::subcircuit_library::{resolve_subcircuit_library_path, SubcircuitLibraryArg};
 use libs::utils::check_device;
 #[cfg(feature = "testing-mode")]
 use prove::Proof4Test;
@@ -8,10 +8,8 @@ use verify::{Verifier, VerifyInputPaths};
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Config {
-    /// Subcircuit library directory produced by the QAP compiler
-    #[cfg(not(tokamak_embedded_subcircuit_library))]
-    #[arg(long, value_name = "PATH")]
-    subcircuit_library: String,
+    #[command(flatten)]
+    subcircuit_library: SubcircuitLibraryArg,
 
     /// CRS output directory containing sigma_verify.rkyv
     #[arg(long, value_name = "PATH")]
@@ -32,7 +30,7 @@ struct Config {
 
 fn main() {
     let config = Config::parse();
-    let qap_path = resolve_subcircuit_library_path(subcircuit_library_arg(&config))
+    let qap_path = resolve_subcircuit_library_path(config.subcircuit_library.as_deref())
         .to_string_lossy()
         .into_owned();
 
@@ -68,14 +66,4 @@ fn main() {
             verifier.verify_binding(&proof4_test)
         );
     }
-}
-
-#[cfg(not(tokamak_embedded_subcircuit_library))]
-fn subcircuit_library_arg(config: &Config) -> Option<&str> {
-    Some(&config.subcircuit_library)
-}
-
-#[cfg(tokamak_embedded_subcircuit_library)]
-fn subcircuit_library_arg(_: &Config) -> Option<&str> {
-    None
 }

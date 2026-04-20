@@ -1,5 +1,5 @@
 use clap::Parser;
-use libs::subcircuit_library::resolve_subcircuit_library_path;
+use libs::subcircuit_library::{resolve_subcircuit_library_path, SubcircuitLibraryArg};
 use libs::utils::check_device;
 use prove::{Proof, ProveInputPaths, Prover, TranscriptManager};
 use std::path::PathBuf;
@@ -8,10 +8,8 @@ use std::time::Instant;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Config {
-    /// Subcircuit library directory produced by the QAP compiler
-    #[cfg(not(tokamak_embedded_subcircuit_library))]
-    #[arg(long, value_name = "PATH")]
-    subcircuit_library: String,
+    #[command(flatten)]
+    subcircuit_library: SubcircuitLibraryArg,
 
     /// CRS output directory containing proof setup artifacts
     #[arg(long, value_name = "PATH")]
@@ -29,7 +27,7 @@ struct Config {
 fn main() {
     let total_start = Instant::now();
     let config = Config::parse();
-    let qap_path = resolve_subcircuit_library_path(subcircuit_library_arg(&config))
+    let qap_path = resolve_subcircuit_library_path(config.subcircuit_library.as_deref())
         .to_string_lossy()
         .into_owned();
 
@@ -97,14 +95,4 @@ fn main() {
         total_elapsed_secs,
         total_elapsed_secs * 1000.0
     );
-}
-
-#[cfg(not(tokamak_embedded_subcircuit_library))]
-fn subcircuit_library_arg(config: &Config) -> Option<&str> {
-    Some(&config.subcircuit_library)
-}
-
-#[cfg(tokamak_embedded_subcircuit_library)]
-fn subcircuit_library_arg(_: &Config) -> Option<&str> {
-    None
 }

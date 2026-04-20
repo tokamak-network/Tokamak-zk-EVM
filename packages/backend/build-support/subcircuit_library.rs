@@ -24,6 +24,33 @@ pub struct ResolvedSubcircuitLibrary {
     pub release_dir: PathBuf,
 }
 
+pub enum BuildOutputMode<'a> {
+    EmbeddedModuleOnly { out_dir: &'a Path },
+    MetadataOnly,
+}
+
+pub fn configure_release_subcircuit_library(
+    mode: BuildOutputMode<'_>,
+    package_name: &str,
+    package_version: &str,
+) -> io::Result<()> {
+    println!("cargo:rustc-check-cfg=cfg(tokamak_embedded_subcircuit_library)");
+    if let Some(snapshot) = prepare_release_subcircuit_library()? {
+        println!("cargo:rustc-cfg=tokamak_embedded_subcircuit_library");
+        match mode {
+            BuildOutputMode::EmbeddedModuleOnly { out_dir } => {
+                generate_embedded_module(&snapshot, out_dir)?;
+            }
+            BuildOutputMode::MetadataOnly => {
+                emit_build_metadata(&snapshot, package_name, package_version)?;
+            }
+        }
+    } else if let BuildOutputMode::EmbeddedModuleOnly { out_dir } = mode {
+        write_stub_embedded_module(out_dir)?;
+    }
+    Ok(())
+}
+
 pub fn prepare_release_subcircuit_library() -> io::Result<Option<ResolvedSubcircuitLibrary>> {
     if env::var("PROFILE").ok().as_deref() != Some("release") {
         return Ok(None);
@@ -37,13 +64,13 @@ pub fn prepare_release_subcircuit_library() -> io::Result<Option<ResolvedSubcirc
     let lock_path = snapshot_root.join(".lock");
     let _guard = acquire_lock(&lock_path)?;
     let info_path = snapshot_root.join(SNAPSHOT_INFO_FILE);
+    let repo_root = repo_root_from_manifest_dir(&manifest_dir)?;
+    let npm_view = npm_view_latest(&repo_root)?;
 
-    if let Some(existing) = try_read_snapshot(&info_path, &release_dir)? {
+    if let Some(existing) = try_read_snapshot(&info_path, &release_dir, &npm_view)? {
         return Ok(Some(existing));
     }
 
-    let repo_root = repo_root_from_manifest_dir(&manifest_dir)?;
-    let npm_view = npm_view_latest(&repo_root)?;
     let unpack_root = snapshot_root.join(format!(
         "{}-{}",
         sanitize(&npm_view.version),
@@ -333,6 +360,7 @@ fn sanitize(input: &str) -> String {
 fn try_read_snapshot(
     path: &Path,
     release_dir: &Path,
+    npm_view: &NpmView,
 ) -> io::Result<Option<ResolvedSubcircuitLibrary>> {
     if !path.exists() {
         return Ok(None);
@@ -347,22 +375,28 @@ fn try_read_snapshot(
     if !snapshot_dir.exists() {
         return Ok(None);
     }
+    let package_name = value
+        .get("packageName")
+        .and_then(Value::as_str)
+        .ok_or_else(|| io::Error::other("resolved snapshot metadata missing packageName"))?
+        .to_string();
+    let version = value
+        .get("version")
+        .and_then(Value::as_str)
+        .ok_or_else(|| io::Error::other("resolved snapshot metadata missing version"))?
+        .to_string();
+    let integrity = value
+        .get("integrity")
+        .and_then(Value::as_str)
+        .ok_or_else(|| io::Error::other("resolved snapshot metadata missing integrity"))?
+        .to_string();
+    if version != npm_view.version || integrity != npm_view.integrity {
+        return Ok(None);
+    }
     Ok(Some(ResolvedSubcircuitLibrary {
-        package_name: value
-            .get("packageName")
-            .and_then(Value::as_str)
-            .ok_or_else(|| io::Error::other("resolved snapshot metadata missing packageName"))?
-            .to_string(),
-        version: value
-            .get("version")
-            .and_then(Value::as_str)
-            .ok_or_else(|| io::Error::other("resolved snapshot metadata missing version"))?
-            .to_string(),
-        integrity: value
-            .get("integrity")
-            .and_then(Value::as_str)
-            .ok_or_else(|| io::Error::other("resolved snapshot metadata missing integrity"))?
-            .to_string(),
+        package_name,
+        version,
+        integrity,
         snapshot_dir,
         release_dir: release_dir.to_path_buf(),
     }))

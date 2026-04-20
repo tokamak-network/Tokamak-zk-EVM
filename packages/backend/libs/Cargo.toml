@@ -23,6 +23,7 @@ ark-ec = { workspace = true }
 ark-ff = { workspace = true }
 rand = { workspace = true }
 rkyv = { workspace = true, features = ["alloc", "bytecheck", "validation"] }
+clap = { workspace = true }
 
 [[bench]]
 name = "outer_product_bench"
