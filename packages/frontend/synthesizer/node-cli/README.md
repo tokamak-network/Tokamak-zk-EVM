@@ -8,12 +8,12 @@
 npm install @tokamak-zk-evm/synthesizer-node ethers
 ```
 
-## What this package does
+## Package Role
 
-- exposes the published `synthesizer` CLI
-- loads the installed subcircuit library package at runtime
-- reads JSON snapshot inputs from disk
-- writes synthesis outputs back to disk
+- Exposes the published `synthesizer` CLI.
+- Loads `@tokamak-zk-evm/subcircuit-library` from the installed dependency at runtime.
+- Reads one JSON transaction replay payload from disk.
+- Writes synthesized JSON artifacts back to disk.
 
 The shared synthesis logic lives in `../core` and is bundled into this package at build time.
 
@@ -27,7 +27,7 @@ synthesizer tokamak-ch-tx \
   --contract-code ./contract_codes.json
 ```
 
-## Required input files
+## Required Input Files
 
 - `previous_state_snapshot.json`
 - `transaction.json`
@@ -36,7 +36,7 @@ synthesizer tokamak-ch-tx \
 
 These files must describe a complete synthesis payload for one transaction replay.
 
-## Output files
+## Output Files
 
 The CLI writes:
 
@@ -52,3 +52,5 @@ The CLI writes:
 
 - Debug-only config execution lives under `examples/config-runner.ts`.
 - Browser usage belongs to `@tokamak-zk-evm/synthesizer-web`.
+- Workspace overview: [../README.md](../README.md)
+- Workspace changelog: [../CHANGELOG.md](../CHANGELOG.md)

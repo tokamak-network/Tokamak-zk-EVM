@@ -1,3 +1,5 @@
+> Internal reference note: This document is maintained as a secondary repository reference. Start with `docs/README.md`, `docs/architecture.md`, or `docs/maintainer-guide.md` for the canonical maintainer entrypoints.
+
 # Synthesizer Data Structures
 
 The shared runtime tracks symbolic values during EVM execution and then converts that trace into circuit artifacts.

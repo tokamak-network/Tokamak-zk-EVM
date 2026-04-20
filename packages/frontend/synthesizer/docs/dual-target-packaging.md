@@ -1,10 +1,12 @@
+> Internal reference note: This document is maintained as a secondary repository reference. Start with `docs/README.md`, `docs/architecture.md`, or `docs/maintainer-guide.md` for the canonical maintainer entrypoints.
+
 # Synthesizer Dual-Target Packaging
 
 This document describes the current packaging model and release assumptions for the workspace.
 
 ## Published packages
 
-The repository exposes two published packages and one internal shared module:
+The workspace exposes two published packages and one internal shared module:
 
 1. `@tokamak-zk-evm/synthesizer-node`
 2. `@tokamak-zk-evm/synthesizer-web`
@@ -12,12 +14,12 @@ The repository exposes two published packages and one internal shared module:
 
 `core/` is not published as a standalone package.
 
-The workspace version policy is synchronized:
+The version policy is synchronized:
 
 - `@tokamak-zk-evm/synthesizer-node`
 - `@tokamak-zk-evm/synthesizer-web`
 
-should be released at the same version.
+and must always be released at the same version.
 
 ## Responsibilities
 
@@ -80,38 +82,6 @@ Rules:
 - `web-app/` may depend on `core/`
 - `node-cli/` and `web-app/` must not depend on each other
 
-## Current layout
-
-```text
-packages/frontend/synthesizer/
-├── .vscode/
-├── package.json
-├── core/
-│   └── src/
-│       ├── app/
-│       ├── app.ts
-│       ├── circuit.ts
-│       ├── index.ts
-│       ├── subcircuit/
-│       ├── subcircuit.ts
-│       ├── synthesizer/
-│       └── synthesizer.ts
-├── node-cli/
-│   ├── examples/
-│   └── src/
-│       ├── cli/
-│       ├── io/
-│       ├── subcircuit/
-│       └── synthesizer/
-└── web-app/
-    └── src/
-        ├── input/
-        ├── output/
-        ├── subcircuit/
-        ├── synthesize.ts
-        └── types.ts
-```
-
 ## Shared core API
 
 The current shared entrypoints are:
@@ -135,19 +105,30 @@ The current shared entrypoints are:
 
 These entrypoints are intentionally narrower than the underlying directory tree so the adapter packages can depend on stable boundaries.
 
-## Build and runtime differences
+## Build, Publish, and Runtime Differences
 
 ### Node package
 
 - build: `esbuild` bundles the CLI and library entrypoints
+- publish root: `node-cli/`
+- published build outputs: `dist/` included through `files`
 - runtime subcircuit dependency: external
 - runtime WASM loading: from the installed `@tokamak-zk-evm/subcircuit-library` package
 
 ### Web package
 
 - build: a generated module imports subcircuit JSON and all WASM assets before `esbuild` runs
+- publish root: `web-app/`
+- published build outputs: `dist/` included through `files`
 - runtime subcircuit dependency: bundled
 - runtime WASM loading: from the generated bundled module, not from network fetch
+
+### Workspace release surface
+
+- canonical changelog source: `CHANGELOG.md`
+- publish inclusion: mirrored into each package root during build and prepack
+- workspace tag format: `synthesizer-vX.Y.Z`
+- canonical release entrypoint: `npm run release`
 
 ## Stability rules
 

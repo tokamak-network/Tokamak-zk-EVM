@@ -1,3 +1,5 @@
+> Internal reference note: This document is maintained as a secondary repository reference. Start with `docs/README.md`, `docs/architecture.md`, or `docs/maintainer-guide.md` for the canonical maintainer entrypoints.
+
 # Synthesizer Output Files
 
 The shared synthesis result is serialized by `core/src/app/serialization.ts`. The Node package writes those JSON files through `node-cli/src/io/jsonWriter.ts`, while the web package turns them into download `Blob`s or JSON payloads.

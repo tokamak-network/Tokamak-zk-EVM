@@ -1,9 +1,20 @@
 #!/usr/bin/env node
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { program } from 'commander';
 import { runTokamakChannelTxFromFiles } from './tokamakChTx.ts';
 
-program.name('synthesizer-cli').description('CLI tool for Tokamak zk-EVM Synthesizer').version('0.9.0');
+const here = path.dirname(fileURLToPath(import.meta.url));
+const packageVersion = JSON.parse(
+  fs.readFileSync(path.resolve(here, '..', '..', 'package.json'), 'utf8'),
+).version as string;
+
+program
+  .name('synthesizer-cli')
+  .description('CLI tool for Tokamak zk-EVM Synthesizer')
+  .version(packageVersion);
 
 program
   .command('tokamak-ch-tx')

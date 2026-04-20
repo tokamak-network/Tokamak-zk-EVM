@@ -13,6 +13,8 @@ stats.html
 !.vscode/**
 
 dist/
+node-cli/CHANGELOG.md
+web-app/CHANGELOG.md
 **/outputs
 !web-app/src/output/
 !web-app/src/output/**

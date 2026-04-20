@@ -1,45 +1,68 @@
-# Tokamak zk-EVM Synthesizer Workspace
+# Tokamak zk-EVM Synthesizer
 
-This directory is the private workspace root for the split Tokamak zk-EVM Synthesizer codebase.
+Tokamak zk-EVM Synthesizer turns a Tokamak L2 transaction snapshot into circuit-ready artifacts for the downstream proving pipeline.
 
-## Published packages
+## Packages
 
-- `node-cli/`
-  - Published as `@tokamak-zk-evm/synthesizer-node`
-  - Owns the Node CLI, installed subcircuit loading, and filesystem output helpers
-- `web-app/`
-  - Published as `@tokamak-zk-evm/synthesizer-web`
-  - Owns the browser-facing `synthesize(input)` API and browser output helpers
+- `@tokamak-zk-evm/synthesizer-node`
+  - Use this package when you want a Node.js CLI that reads JSON files from disk and writes JSON outputs back to disk.
+  - Package docs: [node-cli/README.md](./node-cli/README.md)
+- `@tokamak-zk-evm/synthesizer-web`
+  - Use this package when you want a browser-facing API that accepts payload objects or uploaded files.
+  - Package docs: [web-app/README.md](./web-app/README.md)
 
-## Internal module
+The shared synthesis runtime lives in `core/` and is not published as a standalone package.
 
-- `core/`
-  - Internal environment-neutral synthesis module
-  - Not published as a standalone npm package
+## Shared Input Model
 
-## Workspace layout
+Both published packages work from the same transaction payload shape:
 
-- `docs/`
-  - Maintained developer wiki for architecture, flow, data structures, and packaging
-- `.vscode/`
-  - Workspace-level debug entrypoints for `node-cli/` and `web-app/`
+- `previousState`
+- `transaction`
+- `blockInfo`
+- `contractCodes`
 
-## Workspace rules
+## Shared Output Model
 
-- This directory is not a published npm package.
-- Published packages live under `node-cli/` and `web-app/`.
-- `core/` must contain source files only.
-- Build outputs and installed dependencies belong under the published child packages.
-- `core/` must stay environment-neutral.
-- `node-cli/` and `web-app/` may depend on `core/`.
-- `node-cli/` and `web-app/` must not depend on each other.
+Both packages produce the same synthesized artifacts:
 
-## Versioning policy
+- `placementVariables.json`
+- `instance.json`
+- `instance_description.json`
+- `permutation.json`
+- `state_snapshot.json`
+- `step_log.json`
+- `message_code_addresses.json`
 
-- `@tokamak-zk-evm/synthesizer-node` and `@tokamak-zk-evm/synthesizer-web` use synchronized versions.
-- Release notes and package responsibilities should be updated together when either published package changes.
+## Runtime Model
+
+- `@tokamak-zk-evm/synthesizer-node` loads `@tokamak-zk-evm/subcircuit-library` from the installed dependency at runtime.
+- `@tokamak-zk-evm/synthesizer-web` bundles the published subcircuit-library JSON and WASM artifacts at build time.
 
 ## Documentation
 
-- Overview: [docs/synthesizer/synthesizer.md](./docs/synthesizer/synthesizer.md)
-- Packaging and package responsibilities: [docs/synthesizer/synthesizer-dual-target-packaging.md](./docs/synthesizer/synthesizer-dual-target-packaging.md)
+- Consumer landing: [README.md](./README.md)
+- Workspace changelog: [CHANGELOG.md](./CHANGELOG.md)
+- Maintainer docs index: [docs/README.md](./docs/README.md)
+
+## FAQ
+
+### Which package should I install?
+
+Install `@tokamak-zk-evm/synthesizer-node` for file-based Node.js execution. Install `@tokamak-zk-evm/synthesizer-web` for browser-style runtimes and UI integrations.
+
+### What input does the synthesizer need?
+
+Both packages expect one complete transaction replay payload with `previousState`, `transaction`, `blockInfo`, and `contractCodes`.
+
+### What does the synthesizer emit?
+
+The synthesizer emits circuit-ready placement data, public instances, permutation constraints, the final state snapshot, and execution analysis files.
+
+### How does this relate to `@tokamak-zk-evm/subcircuit-library`?
+
+The synthesizer depends on the published subcircuit library for metadata and WASM artifacts. The Node package resolves those assets from the installed package at runtime, while the web package bundles them at build time.
+
+### Is `core/` a public npm package?
+
+No. `core/` is an internal shared runtime used by both published packages.

@@ -20,7 +20,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/tokamak-network/tokamak-zk-evm.git"
+    "url": "https://github.com/tokamak-network/tokamak-zk-evm.git",
+    "directory": "packages/frontend/synthesizer/web-app"
   },
   "license": "MIT OR Apache-2.0",
   "author": "Tokamak Network",
@@ -42,15 +43,17 @@
   },
   "files": [
     "dist",
+    "CHANGELOG.md",
     "README.md",
     "LICENSE-MIT",
     "LICENSE-APACHE",
     "NOTICE"
   ],
   "scripts": {
+    "sync:changelog": "node ../scripts/sync-package-changelog.mjs web-app",
     "sync:bundled-subcircuit-module": "node scripts/generate-bundled-subcircuit-module.mjs",
     "build": "npm run typecheck && npm run build:package",
-    "build:package": "npm run sync:bundled-subcircuit-module && node scripts/build-package.mjs",
+    "build:package": "npm run sync:changelog && npm run sync:bundled-subcircuit-module && node scripts/build-package.mjs",
     "typecheck": "npm run sync:bundled-subcircuit-module && tsc -p tsconfig.json --pretty false",
     "tsc": "npm run typecheck",
     "prepack": "npm run build:package"

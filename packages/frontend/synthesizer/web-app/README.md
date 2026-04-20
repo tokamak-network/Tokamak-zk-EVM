@@ -8,7 +8,7 @@
 npm install @tokamak-zk-evm/synthesizer-web
 ```
 
-## Runtime model
+## Runtime Model
 
 - The published build bundles the subcircuit library JSON and WASM artifacts at build time.
 - Callers only provide the transaction/state/block/code payload.
@@ -34,7 +34,7 @@ const output = await synthesize(payload);
 saveSynthesisOutputToFiles(output);
 ```
 
-## Input shape
+## Input Shape
 
 `synthesize(input)` expects one transaction payload with:
 
@@ -54,3 +54,5 @@ The package also provides:
 
 - This package targets browser-style runtimes and ESM consumption.
 - Node CLI usage belongs to `@tokamak-zk-evm/synthesizer-node`.
+- Workspace overview: [../README.md](../README.md)
+- Workspace changelog: [../CHANGELOG.md](../CHANGELOG.md)

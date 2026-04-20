@@ -1,3 +1,5 @@
+> Internal reference note: This document is maintained as a secondary repository reference. Start with `docs/README.md`, `docs/architecture.md`, or `docs/maintainer-guide.md` for the canonical maintainer entrypoints.
+
 # Synthesizer Class Structure
 
 This document summarizes the main classes and modules in the current split workspace.

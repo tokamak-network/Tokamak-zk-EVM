@@ -1,0 +1,34 @@
+Tokamak zk-EVM Synthesizer
+
+Tokamak zk-EVM Synthesizer publishes two consumer packages that turn a Tokamak L2 transaction snapshot into circuit-ready artifacts.
+
+Package chooser:
+- Use @tokamak-zk-evm/synthesizer-node when you want a Node.js CLI that reads JSON files from disk and writes JSON outputs back to disk.
+- Use @tokamak-zk-evm/synthesizer-web when you want a browser-facing API that accepts payload objects or uploaded files and runs without runtime subcircuit downloads.
+
+Shared input model:
+- previousState
+- transaction
+- blockInfo
+- contractCodes
+
+Shared output model:
+- placementVariables.json
+- instance.json
+- instance_description.json
+- permutation.json
+- state_snapshot.json
+- step_log.json
+- message_code_addresses.json
+
+Subcircuit library relationship:
+- The Node package resolves @tokamak-zk-evm/subcircuit-library from the installed dependency at runtime.
+- The web package bundles the published subcircuit-library JSON and WASM artifacts at build time.
+
+Canonical docs:
+- README.md
+- node-cli/README.md
+- web-app/README.md
+- docs/README.md
+- docs/maintainer-guide.md
+- docs/architecture.md
