@@ -13,6 +13,7 @@ PLATFORM=""
 DO_SIGN=false
 DO_SETUP=true
 DO_TRUSTED_SETUP=false
+INCLUDE_TRUSTED_SETUP_BINARY=false
 TARGET_DIR_OVERRIDE=""
 PACKAGE_STAGING_DIR=""
 DRIVE_SERVICE_ACCOUNT_TEMP_PATH=""
@@ -60,6 +61,8 @@ Platform Selection:
 
 Build Options:
   --trusted-setup        Build trusted-setup and generate CRS locally
+  --include-trusted-setup-binary
+                         Build and package the trusted-setup binary without generating CRS
   --no-setup             Skip setup artifact provisioning
   --target-dir <path>    Override install target directory
 
@@ -72,6 +75,7 @@ Other Options:
 Examples:
   $0 --linux
   $0 --macos --trusted-setup
+  $0 --linux --include-trusted-setup-binary --no-setup
   $0 --platform linux --no-setup
 EOF
 }
@@ -96,6 +100,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --trusted-setup)
             DO_TRUSTED_SETUP=true
+            shift
+            ;;
+        --include-trusted-setup-binary)
+            INCLUDE_TRUSTED_SETUP_BINARY=true
             shift
             ;;
         --no-setup)
@@ -139,7 +147,7 @@ case "$PLATFORM" in
 esac
 
 echo "Packaging from workspace root: $(pwd)"
-echo "Configuration: PLATFORM=${PLATFORM}, DO_SETUP=${DO_SETUP}, DO_TRUSTED_SETUP=${DO_TRUSTED_SETUP}, DO_SIGN=${DO_SIGN}"
+echo "Configuration: PLATFORM=${PLATFORM}, DO_SETUP=${DO_SETUP}, DO_TRUSTED_SETUP=${DO_TRUSTED_SETUP}, INCLUDE_TRUSTED_SETUP_BINARY=${INCLUDE_TRUSTED_SETUP_BINARY}, DO_SIGN=${DO_SIGN}"
 
 setup_platform_config() {
     case "$PLATFORM" in
@@ -328,7 +336,7 @@ build_backend() {
     echo "[*] Building backend release binaries..."
     (
         cd packages/backend
-        if [[ "$DO_TRUSTED_SETUP" == "true" ]]; then
+        if [[ "$DO_TRUSTED_SETUP" == "true" || "$INCLUDE_TRUSTED_SETUP_BINARY" == "true" ]]; then
             cargo build -p trusted-setup --release
         fi
         cargo build -p preprocess --release
@@ -361,7 +369,7 @@ copy_backend_binaries() {
     copy_backend_binary preprocess
     copy_backend_binary prove
     copy_backend_binary verify
-    if [[ "$DO_TRUSTED_SETUP" == "true" ]]; then
+    if [[ "$DO_TRUSTED_SETUP" == "true" || "$INCLUDE_TRUSTED_SETUP_BINARY" == "true" ]]; then
         copy_backend_binary trusted-setup
     fi
 }

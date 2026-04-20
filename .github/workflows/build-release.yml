@@ -420,7 +420,7 @@ jobs:
         run: |
           echo "🔍 Building macOS binary using packaging script..."
           chmod +x scripts/packaging.sh
-          ./scripts/packaging.sh --macos --no-setup
+          ./scripts/packaging.sh --macos --include-trusted-setup-binary --no-setup
 
       - name: Upload macOS binary
         uses: actions/upload-artifact@v4
@@ -482,7 +482,7 @@ jobs:
         run: |
           echo "🔍 Building Linux binary using packaging script..."
           chmod +x scripts/packaging.sh
-          ./scripts/packaging.sh --linux --no-setup
+          ./scripts/packaging.sh --linux --include-trusted-setup-binary --no-setup
 
       - name: Create setup files archive
         run: |

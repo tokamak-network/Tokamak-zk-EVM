@@ -3,6 +3,10 @@ export {
   installedSubcircuitLibraryData,
 } from './subcircuit/installedLibrary.ts';
 export {
+  runTokamakChannelTxFromFiles,
+  type TokamakChannelTxFiles,
+} from './cli/tokamakChTx.ts';
+export {
   buildMetadata,
   type BuildDependencyMetadata,
   type BuildMetadata,

@@ -6,6 +6,7 @@
   "author": "Tokamak Network",
   "private": true,
   "workspaces": [
+    "packages/cli",
     "packages/frontend/synthesizer/node-cli",
     "packages/frontend/synthesizer/web-app"
   ],

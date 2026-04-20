@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/synthesizer-node",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Node CLI for running the Tokamak zk-EVM synthesizer against JSON transaction snapshot inputs.",
   "keywords": [
     "ethereum",

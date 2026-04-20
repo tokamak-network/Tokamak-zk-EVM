@@ -15,6 +15,7 @@ export interface TokamakChannelTxFiles {
 
 export async function runTokamakChannelTxFromFiles(
   files: TokamakChannelTxFiles,
+  outputDir?: string,
 ): Promise<void> {
   console.log('🔄 Executing L2 State Channel Transfer...');
   console.log('');
@@ -37,6 +38,6 @@ export async function runTokamakChannelTxFromFiles(
     wasmBuffers: loadSubcircuitWasm(),
   });
 
-  writeSynthesisOutputJson(output);
+  writeSynthesisOutputJson(output, outputDir);
   console.log('[SynthesizerAdapter] ✅ Outputs written');
 }
