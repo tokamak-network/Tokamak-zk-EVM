@@ -59,13 +59,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install circom
-        run: |
-          wget https://github.com/iden3/circom/releases/download/v2.2.2/circom-linux-amd64
-          chmod +x circom-linux-amd64
-          sudo mv circom-linux-amd64 /usr/local/bin/circom
-          circom --version
-
       - name: Make scripts executable
         run: |
           chmod +x ./tokamak-cli
@@ -77,15 +70,6 @@ jobs:
           echo "🔧 Fixing file permissions and line endings..."
           find . -name "*.sh" -exec chmod +x {} \;
           find . -name "*.sh" -exec dos2unix {} \; 2>/dev/null || true
-
-          # Install dependencies
-          echo "🔧 Installing frontend dependencies..."
-          cd packages/frontend/qap-compiler && npm install --legacy-peer-deps
-          cd ../synthesizer && npm install --legacy-peer-deps
-          cd ../../..
-
-          # Install tsx globally
-          npm install -g tsx
 
           # Run install step (this builds all binaries)
           echo "🔧 Running tokamak-cli --install (building binaries)..."
@@ -120,20 +104,6 @@ jobs:
           path: dist/resource/setup/output/
           retention-days: 7
 
-      - name: Upload qap-compiler for tests
-        uses: actions/upload-artifact@v4
-        with:
-          name: qap-compiler
-          path: packages/frontend/qap-compiler/
-          retention-days: 1
-
-      - name: Upload synthesizer for tests
-        uses: actions/upload-artifact@v4
-        with:
-          name: synthesizer
-          path: packages/frontend/synthesizer/
-          retention-days: 1
-
   # ============================================================================
   # EVM compatibility tests
   # ============================================================================
@@ -163,31 +133,18 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Download qap-compiler
-        uses: actions/download-artifact@v4
-        with:
-          name: qap-compiler
-          path: packages/frontend/qap-compiler/
-
-      - name: Download synthesizer
-        uses: actions/download-artifact@v4
-        with:
-          name: synthesizer
-          path: packages/frontend/synthesizer/
-
-      - name: Install tsx
+      - name: Install synthesizer workspace dependencies
         run: |
-          if ! command -v tsx >/dev/null 2>&1; then
-            npm install -g tsx
-          fi
+          cd packages/frontend/synthesizer
+          npm ci
 
-      - name: Run synthesizer tests
+      - name: Run synthesizer-node tests
         env:
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
           ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
         run: |
           cd packages/frontend/synthesizer
-          npm test
+          npm run --workspace @tokamak-zk-evm/synthesizer-node test
 
       - name: Upload EVM compatibility outputs
         if: always()
@@ -349,6 +306,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+
+      - name: Install synthesizer workspace dependencies
+        run: |
+          cd packages/frontend/synthesizer
+          npm ci
 
       - name: Download built dist
         uses: actions/download-artifact@v4
@@ -382,10 +345,7 @@ jobs:
         run: |
           echo "🧪 Running L2StateChannel CI test..."
           "${{ github.workspace }}/tokamak-cli" --synthesize \
-            --previous-state "${{ github.workspace }}/packages/frontend/synthesizer/examples/L2StateChannel/previous_state_snapshot.json" \
-            --transaction "${{ github.workspace }}/packages/frontend/synthesizer/examples/L2StateChannel/transaction.json" \
-            --block-info "${{ github.workspace }}/packages/frontend/synthesizer/examples/L2StateChannel/block_info.json" \
-            --contract-code "${{ github.workspace }}/packages/frontend/synthesizer/examples/L2StateChannel/contract_codes.json"
+            "${{ github.workspace }}/packages/frontend/synthesizer/node-cli/examples/L2StateChannel"
 
       - name: Run preprocess
         run: |
@@ -443,12 +403,6 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
-
-      - name: Download setup files from build
-        uses: actions/download-artifact@v4
-        with:
-          name: setup-files
-          path: ./prebuilt-setup/
 
       - name: Build macOS binary
         run: |

@@ -1,4 +1,4 @@
-name: Publish qap-compiler
+name: Publish subcircuit-library
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  publish-qap-compiler:
-    name: Publish qap-compiler to npm
+  publish-subcircuit-library:
+    name: Publish subcircuit-library to npm
     runs-on: ubuntu-22.04
     defaults:
       run:
