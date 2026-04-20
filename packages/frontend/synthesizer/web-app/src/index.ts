@@ -3,6 +3,11 @@ export type {
   SynthesisOutput,
   SynthesisPayloadInput,
 } from '../../core/src/app.ts';
+export {
+  buildMetadata,
+  type BuildDependencyMetadata,
+  type BuildMetadata,
+} from './buildMetadata.ts';
 export { loadJsonFromBlob, loadJsonFromUrl, loadSynthesisInputFromFiles, loadSynthesisInputFromUrls } from './input/index.ts';
 export {
   prepareSynthesisInput,

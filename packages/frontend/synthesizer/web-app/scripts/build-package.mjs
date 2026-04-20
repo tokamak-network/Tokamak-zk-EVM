@@ -2,14 +2,20 @@ import { build } from 'esbuild';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createBuildMetadataDefines, createPackageBuildMetadata } from '../../scripts/build-metadata.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(here, '..');
 const distDir = path.join(rootDir, 'dist');
+const buildMetadata = createPackageBuildMetadata(rootDir, {
+  subcircuitLibrary: 'bundled',
+  tokamakL2js: 'bundled',
+});
 
 const baseConfig = {
   absWorkingDir: rootDir,
   bundle: true,
+  define: createBuildMetadataDefines(buildMetadata),
   entryPoints: {
     index: path.join(rootDir, 'src/index.ts'),
   },

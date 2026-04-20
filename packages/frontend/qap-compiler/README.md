@@ -18,6 +18,7 @@ npm install @tokamak-zk-evm/subcircuit-library
 - `subcircuits/library/*.json`: library-wide metadata such as setup parameters, global wiring, frontend configuration, and the subcircuit catalog.
 - `subcircuits/library/*.js`: witness-generation helper scripts published with the library.
 - `subcircuits/circom/constants.circom`: synced Circom constants used by the generated library.
+- `build-metadata.json`: build metadata for the published package, including the `tokamak-l2js` package version used to generate the library.
 
 ## Consumers
 

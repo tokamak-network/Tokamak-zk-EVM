@@ -52,6 +52,8 @@ The package also provides:
 
 ## Notes
 
+- Build-time dependency metadata is exported as `buildMetadata`.
+- `buildMetadata.dependencies.subcircuitLibrary.buildVersion` and `buildMetadata.dependencies.tokamakL2js.buildVersion` record the exact versions bundled into the published web package.
 - This package targets browser-style runtimes and ESM consumption.
 - Node CLI usage belongs to `@tokamak-zk-evm/synthesizer-node`.
 - Workspace overview: [../README.md](../README.md)

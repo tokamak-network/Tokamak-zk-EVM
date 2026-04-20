@@ -18,6 +18,8 @@
   },
   "include": [
     "src/**/*",
+    "scripts/**/*",
+    "../scripts/**/*",
     "../core/src/**/*"
   ],
   "exclude": [

@@ -41,6 +41,7 @@ The published package contains:
 - generated JSON metadata
 - witness-generation helper scripts
 - synced `constants.circom`
+- `build-metadata.json` with the `tokamak-l2js` package version used for the generated build
 - package metadata and licenses
 
 These published outputs form the consumer-facing subcircuit library surface.

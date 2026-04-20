@@ -2,6 +2,11 @@ export {
   installedSubcircuitLibrary,
   installedSubcircuitLibraryData,
 } from './subcircuit/installedLibrary.ts';
+export {
+  buildMetadata,
+  type BuildDependencyMetadata,
+  type BuildMetadata,
+} from './buildMetadata.ts';
 export type {
   ResolvedSubcircuitLibrary,
   SubcircuitLibraryData,

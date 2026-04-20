@@ -2,10 +2,15 @@ import { build } from 'esbuild';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createBuildMetadataDefines, createPackageBuildMetadata } from '../../scripts/build-metadata.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(here, '..');
 const distDir = path.join(rootDir, 'dist');
+const buildMetadata = createPackageBuildMetadata(rootDir, {
+  subcircuitLibrary: 'runtime-installed',
+  tokamakL2js: 'bundled',
+});
 
 const entryPoints = {
   index: path.join(rootDir, 'src/index.ts'),
@@ -19,6 +24,7 @@ const baseConfig = {
     '@tokamak-zk-evm/subcircuit-library/package.json',
   ],
   entryPoints,
+  define: createBuildMetadataDefines(buildMetadata),
   logLevel: 'info',
   logOverride: {
     'empty-import-meta': 'silent',
