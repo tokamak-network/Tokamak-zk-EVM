@@ -57,7 +57,7 @@
     "reload-constants": "npx qap-compiler --reload-constants",
     "build:library": "npx qap-compiler --build",
     "dist": "npx qap-compiler --dist",
-    "publish:dist": "npm install && npx qap-compiler --reload-constants && npx qap-compiler --build && npx qap-compiler --dist && npm publish ./dist"
+    "publish": "npm install && npx qap-compiler --reload-constants && npx qap-compiler --build && npx qap-compiler --dist && npm publish ./dist"
   },
   "bin": {
     "qap-compiler": "scripts/qap-compiler.mjs"
