@@ -180,7 +180,7 @@ folder. Use `./tokamak-cli --install --trusted-setup` to generate CRS locally, o
   - Verification of input state,
   - Execution of transaction opcodes,
   - Reconstruction of output state.
-- Compatible with [Tokamak Private App Channels](https://github.com/tokamak-network/Tokamak-zkp-channel-manager).
+- Compatible with [Tokamak Private App Channels](https://github.com/tokamak-network/private-app-channel-manager).
 
 ## Apr. 2026
 - The current main branch.
