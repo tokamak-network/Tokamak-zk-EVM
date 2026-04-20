@@ -45,3 +45,4 @@ dist-*/
 #Package
 *.zip
 *.tar.gz
+gen-lang-client-*.json
