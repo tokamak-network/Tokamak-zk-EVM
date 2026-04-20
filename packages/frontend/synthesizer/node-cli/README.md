@@ -5,7 +5,7 @@
 ## Install
 
 ```bash
-npm install @tokamak-zk-evm/synthesizer-node ethers
+npm install @tokamak-zk-evm/synthesizer-node
 ```
 
 ## Package Role

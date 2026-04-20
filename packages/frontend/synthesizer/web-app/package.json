@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/synthesizer-web",
-  "version": "0.0.10",
+  "version": "1.0.0",
   "description": "Browser-facing Tokamak zk-EVM synthesizer package with bundled subcircuit library assets.",
   "keywords": [
     "ethereum",
