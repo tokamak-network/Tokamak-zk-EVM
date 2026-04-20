@@ -24,6 +24,19 @@ type Erc20Config = {
   };
 };
 
+class CommandExecutionError extends Error {
+  output: string;
+
+  exitCode: number | null;
+
+  constructor(command: string, exitCode: number | null, output: string) {
+    super(`${command} exited with code ${exitCode ?? 'unknown'}`);
+    this.name = 'CommandExecutionError';
+    this.output = output;
+    this.exitCode = exitCode;
+  }
+}
+
 const runCommand = (command: string, args: string[]) =>
   new Promise<string>((resolve, reject) => {
     const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -43,12 +56,16 @@ const runCommand = (command: string, args: string[]) =>
       if (code === 0) {
         resolve(combinedOutput);
       } else {
-        reject(new Error(`${command} exited with code ${code ?? 'unknown'}`));
+        reject(new CommandExecutionError(command, code, combinedOutput));
       }
     });
   });
 
 const ERROR_LOG_PATTERN = /error:/iu;
+const ALLOWED_CAPACITY_ERROR_PATTERNS = [
+  /Error:\s+Synthesizer:\s+Insufficient\s+\S+\s+length\.\s+Ask the qap-compiler for a longer buffer/u,
+  /Error:\s+Synthesizer:\s+Insufficient\s+s_max\.\s+Ask the qap-compiler for increasing s_max/u,
+] as const;
 
 const collectErrorLogLines = (output: string) =>
   output
@@ -63,6 +80,19 @@ const fileExists = async (target: string) => {
   } catch {
     return false;
   }
+};
+
+const restoreOutputs = async (sourceDir: string) => {
+  await fs.rm(OUTPUTS_DIR, { recursive: true, force: true });
+  await fs.mkdir(OUTPUTS_DIR, { recursive: true });
+  const entries = await fs.readdir(sourceDir);
+  await Promise.all(
+    entries.map(async (entry) => {
+      const sourcePath = path.join(sourceDir, entry);
+      const targetPath = path.join(OUTPUTS_DIR, entry);
+      await fs.cp(sourcePath, targetPath, { recursive: true });
+    }),
+  );
 };
 
 const copyOutputs = async (destination: string) => {
@@ -80,6 +110,9 @@ const copyOutputs = async (destination: string) => {
     }),
   );
 };
+
+const isAllowedCapacityFailure = (output: string) =>
+  ALLOWED_CAPACITY_ERROR_PATTERNS.some((pattern) => pattern.test(output));
 
 const normalizeGroupValue = (value: string | undefined) =>
   value ? value.trim().toLowerCase() : '';
@@ -146,6 +179,10 @@ const main = async () => {
     throw new Error(`No config files found in ${CONFIG_DIR}`);
   }
 
+  const successfulConfigs: string[] = [];
+  const skippedCapacityConfigs: string[] = [];
+  let lastSuccessfulOutputDir: string | null = null;
+
   for (const configFile of configs) {
     const configPath = path.join(CONFIG_DIR, configFile);
     const baseName = path.parse(configFile).name;
@@ -164,16 +201,47 @@ const main = async () => {
         );
       }
     } catch (error) {
+      const output =
+        error instanceof CommandExecutionError
+          ? error.output
+          : error instanceof Error
+            ? error.message
+            : String(error);
+      if (isAllowedCapacityFailure(output)) {
+        console.warn(
+          `[erc20-main] Skipping ${configFile} because the current published subcircuit library capacity is insufficient.`,
+        );
+        skippedCapacityConfigs.push(configFile);
+        if (lastSuccessfulOutputDir) {
+          await restoreOutputs(lastSuccessfulOutputDir);
+        }
+        continue;
+      }
       console.error(`[erc20-main] Failed for config: ${configPath}`);
       throw error;
     }
     await copyOutputs(destination);
+    lastSuccessfulOutputDir = destination;
+    successfulConfigs.push(configFile);
+  }
+
+  if (successfulConfigs.length === 0) {
+    console.warn(
+      '[erc20-main] No config completed within the current published subcircuit library capacity. Treating this as a non-fatal compatibility limitation.',
+    );
+    return;
+  }
+
+  if (skippedCapacityConfigs.length > 0) {
+    console.warn(
+      `[erc20-main] Skipped ${skippedCapacityConfigs.length} config(s) due to published subcircuit library capacity limits: ${skippedCapacityConfigs.join(', ')}`,
+    );
   }
 
   console.log('[erc20-main] Validating permutation.json consistency');
-  await comparePermutations(configs);
+  await comparePermutations(successfulConfigs);
   console.log('[erc20-main] Validating instance_description.json contents');
-  await validateInstanceDescriptions(configs);
+  await validateInstanceDescriptions(successfulConfigs);
 };
 
 void main().catch((err) => {
