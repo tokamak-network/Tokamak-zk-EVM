@@ -8,10 +8,11 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const packageRoot = path.resolve(process.cwd());
+const packageRoot = path.resolve(__dirname, '..', '..');
+const workspaceRoot = path.resolve(packageRoot, '..');
 
 const CONFIG_DIR = path.resolve(packageRoot, 'tests', 'configs');
-const OUTPUTS_DIR = path.resolve(packageRoot, 'outputs');
+const OUTPUTS_DIR = path.resolve(workspaceRoot, 'outputs');
 const ARCHIVE_ROOT = path.resolve(packageRoot, 'tests', 'outputs');
 const EXAMPLE_ENTRY = path.resolve(packageRoot, 'examples', 'config-runner.ts');
 const EXAMPLE_TYPE = 'erc20-transfer';
@@ -39,7 +40,10 @@ class CommandExecutionError extends Error {
 
 const runCommand = (command: string, args: string[]) =>
   new Promise<string>((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(command, args, {
+      cwd: packageRoot,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     let combinedOutput = '';
     child.stdout.on('data', (chunk: Buffer | string) => {
       const text = chunk.toString();
