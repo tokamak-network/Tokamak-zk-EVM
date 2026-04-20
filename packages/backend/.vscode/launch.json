@@ -11,8 +11,6 @@
       },
       "program": "${cargo:program}",
       "args": [
-        "--subcircuit-library",
-        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--output",
         "${workspaceFolder}/setup/output",
         "--fixed-tau"
@@ -82,8 +80,6 @@
       },
       "program": "${cargo:program}",
       "args": [
-        "--subcircuit-library",
-        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--intermediate",
         "${workspaceFolder}/setup/mpc-setup/output/native-debug.intermediate",
         "--output",
@@ -106,8 +102,6 @@
       },
       "program": "${cargo:program}",
       "args": [
-        "--subcircuit-library",
-        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--intermediate",
         "${workspaceFolder}/setup/mpc-setup/output/dusk-debug.intermediate",
         "--output",
@@ -130,8 +124,6 @@
       },
       "program": "${cargo:program}",
       "args": [
-        "--subcircuit-library",
-        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--crs",
         "${workspaceFolder}/setup/output",
         "--synthesizer-stat",
@@ -182,8 +174,6 @@
       },
       "program": "${cargo:program}",
       "args": [
-        "--subcircuit-library",
-        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--crs",
         "${workspaceFolder}/setup/output",
         "--synthesizer-stat",
@@ -208,8 +198,6 @@
       },
       "program": "${cargo:program}",
       "args": [
-        "--subcircuit-library",
-        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--crs",
         "${workspaceFolder}/setup/output",
         "--synthesizer-stat",
@@ -283,8 +271,6 @@
       },
       "program": "${cargo:program}",
       "args": [
-        "--subcircuit-library",
-        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--crs",
         "${workspaceFolder}/setup/output",
         "--synthesizer-stat",
