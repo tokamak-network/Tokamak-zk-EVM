@@ -307,22 +307,6 @@ dist_dir_for_target() {
   echo "$ROOT/dist"
 }
 
-# Copy synthesizer outputs (after demo run) into backend dist resource
-sync_synth_outputs_to_dist() {
-  local src="$FE_SYN/outputs"
-  local target dist_dir dest
-  target="$(detect_target)"
-  dist_dir="$(dist_dir_for_target "$target")"
-  dest="$dist_dir/resource/synthesizer/output"
-
-  log "Sync Synth outputs → $dest (target=$target)"
-  [[ -d "$src" ]] || { err "Synth outputs not found: $src"; exit 1; }
-  mkdir -p "$dest"
-  cp -af "$src/." "$dest/"
-  ok "Synth outputs copied → $dest"
-  echo "$dest"
-}
-
 find_first_match_or_exit() {
   local src_dir="$1"
   local filename="$2"
@@ -531,58 +515,6 @@ sync_proof_from_path() {
   sync_from_path "$1" sync_proof_from_dir sync_proof_from_zip
 }
 
-run_synthesizer() {
-  local config_path_raw="$1"
-  [[ -n "$config_path_raw" ]] || { err "Synthesizer config path is required"; exit 1; }
-  local config_path
-  config_path="$(abs_path_from_root "$config_path_raw")"
-  [[ -f "$config_path" ]] || { err "Synthesizer config not found: $config_path"; exit 1; }
-
-  pushd "$FE_SYN" >/dev/null
-  if synthesizer_env_has_alchemy_key; then
-    verbose "Using ALCHEMY_API_KEY from synthesizer/.env"
-    npm run erc20-transfer-l2 "$config_path"
-  else
-    err "ALCHEMY_API_KEY is not configured. Provide --alchemy-key to --synthesize or write it to $FE_SYN/.env"
-    exit 1
-  fi
-  popd >/dev/null
-}
-
-synthesizer_env_has_alchemy_key() {
-  [[ -f "$FE_SYN/.env" ]] || return 1
-  grep -Eq "^[[:space:]]*ALCHEMY_API_KEY=['\"]?[^'\"]+['\"]?[[:space:]]*$" "$FE_SYN/.env"
-}
-
-write_synthesizer_alchemy_env() {
-  local alchemy_key="$1"
-  local env_file="$FE_SYN/.env"
-  local tmp_file wrote_key=false line
-
-  tmp_file="$(mktemp -t tokamak_alchemy_env.XXXXXX)"
-  if [[ -f "$env_file" ]]; then
-    while IFS= read -r line || [[ -n "$line" ]]; do
-      if [[ "$line" =~ ^[[:space:]]*ALCHEMY_API_KEY= ]]; then
-        if [[ "$wrote_key" == false ]]; then
-          printf "ALCHEMY_API_KEY='%s'\n" "$alchemy_key" >> "$tmp_file"
-          wrote_key=true
-        fi
-        continue
-      fi
-      if [[ "$line" =~ ^[[:space:]]*RPC_URL= ]]; then
-        continue
-      fi
-      printf '%s\n' "$line" >> "$tmp_file"
-    done < "$env_file"
-  fi
-
-  if [[ "$wrote_key" == false ]]; then
-    printf "ALCHEMY_API_KEY='%s'\n" "$alchemy_key" >> "$tmp_file"
-  fi
-
-  mv "$tmp_file" "$env_file"
-}
-
 step_install() {
   if [[ $# -gt 0 ]] && [[ -n "${1:-}" ]]; then
     err "--install does not accept a positional argument"
@@ -621,38 +553,12 @@ step_install() {
 }
 
 step_synthesize() {
-  local config_path_raw="${1:-}"
-  local alchemy_key="${2:-}"
-  [[ -n "$config_path_raw" ]] || { err "--synthesize requires <TX_CONFIG_JSON_PATH>"; exit 1; }
-
-  local config_path
-  config_path="$(abs_path_from_root "$config_path_raw")"
-  [[ -f "$config_path" ]] || { err "Config JSON not found: $config_path_raw"; exit 1; }
-
-  if [[ -n "$alchemy_key" ]]; then
-    log "Synthesize: writing ALCHEMY_API_KEY to synthesizer .env"
-    write_synthesizer_alchemy_env "$alchemy_key"
-  fi
-
-  if ! synthesizer_env_has_alchemy_key; then
-    err "ALCHEMY_API_KEY is not configured. Provide --alchemy-key or write ALCHEMY_API_KEY to $FE_SYN/.env"
+  if [[ $# -eq 0 ]]; then
+    err "--synthesize requires <INPUT_DIR> or the file options --previous-state, --transaction, --block-info, and --contract-code"
     exit 1
   fi
 
-  local target dist_dir proof_output synth_config_dest
-  target="$(detect_target)"
-  dist_dir="$(dist_dir_for_target "$target")"
-  proof_output="$dist_dir/resource/prove/output"
-  synth_config_dest="$dist_dir/resource/synthesizer/input/config.json"
-  mkdir -p "$proof_output" "$(dirname "$synth_config_dest")"
-  cp "$config_path" "$synth_config_dest"
-
-  log "Synthesize: running frontend synthesizer with config=$config_path"
-  run_synthesizer "$config_path"
-
-  sync_synth_outputs_to_dist
-  ok "Synthesize complete. Synth outputs in $dist_dir/resource/synthesizer/output"
-  ok "Saved synth config → $synth_config_dest"
+  run_synthesizer_node "$@"
 }
 
 step_preprocess() {
@@ -986,12 +892,11 @@ step_doctor() {
     verbose "Installation: complete (setup artifacts found)"
   fi
 
-  if synthesizer_env_has_alchemy_key; then
-    verbose "Alchemy key configuration: present"
-  else
-    err "ALCHEMY_API_KEY is not configured for synthesis"
-    echo "💡 Run: ./tokamak-cli --synthesize <CONFIG_JSON> --alchemy-key <YOUR_ALCHEMY_API_KEY>" >&2
+  if [[ ! -f "$FE_SYN/node-cli/src/cli/index.ts" ]]; then
+    err "Synthesizer-node CLI entrypoint missing: $FE_SYN/node-cli/src/cli/index.ts"
     all_good=false
+  else
+    verbose "Synthesizer-node CLI entrypoint: exists"
   fi
 
   # Check disk space (basic)

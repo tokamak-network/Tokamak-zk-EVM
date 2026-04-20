@@ -2,8 +2,7 @@
 #     and ensures the script is executable, to avoid Windows CRLF issues.
 # Commands:
 #   --install [--trusted-setup] [--no-setup]  Install published runtime packages, build backend binaries, and prepare setup artifacts
-#   --synthesize <TX_CONFIG_JSON> [--alchemy-key <KEY>]  Run frontend synthesizer with config JSON and sync outputs into dist
-#   --synthesize --tokamak-ch-tx <INPUT_DIR|OPTIONS...>  Execute TokamakL2JS Channel transaction using dist synthesizer binary or source CLI fallback
+#   --synthesize <INPUT_DIR|OPTIONS...>  Execute TokamakL2JS Channel transaction via synthesizer-node and sync outputs into dist
 #   --preprocess [<SYNTH_OUTPUT_ZIP|DIR>]  Run backend preprocess step (dist only); optionally sync preprocess inputs into dist before running (DIR/ZIP must include permutation.json + instance.json)
 #   --prove [<SYNTH_OUTPUT_ZIP|DIR>] Run backend prove step and collect artifacts in dist (DIR/ZIP must include placementVariables.json + permutation.json + instance.json)
 #   --verify [<PROOF_ZIP|DIR>]   Verify a proof from dist outputs (default: dist; DIR/ZIP must include proof.json + preprocess.json + instance.json)
@@ -28,13 +27,8 @@ Commands:
       Use `--trusted-setup` to build `trusted-setup` and generate CRS locally instead
       Use `--no-setup` to skip setup artifact provisioning entirely
 
-  --synthesize <TX_CONFIG_JSON> [--alchemy-key <KEY>]
-      Run frontend synthesizer with an input transaction config JSON
-      If --alchemy-key is provided, it overwrites packages/frontend/synthesizer/.env
-      Without --alchemy-key, packages/frontend/synthesizer/.env must already contain ALCHEMY_API_KEY
-
-  --synthesize --tokamak-ch-tx <INPUT_DIR|OPTIONS...>
-      Execute TokamakL2JS Channel transaction using dist synthesizer binary or source CLI fallback
+  --synthesize <INPUT_DIR|OPTIONS...>
+      Execute TokamakL2JS Channel transaction using the synthesizer-node CLI
       Supported inputs:
         <INPUT_DIR>      Directory containing previous_state_snapshot.json, transaction.json, block_info.json, and contract_codes.json
       Or provide:
@@ -43,7 +37,7 @@ Commands:
         --block-info      Path to block information JSON
         --contract-code   Path to contract code JSON
       File inputs are resolved to absolute paths before execution
-      For options, run: ./tokamak-cli --synthesize --tokamak-ch-tx --help
+      For options, run: cd packages/frontend/synthesizer && npm run --workspace @tokamak-zk-evm/synthesizer-node cli -- --help
 
   --preprocess [<SYNTH_OUTPUT_ZIP|DIR>]
       Run backend preprocess stage (after --synthesize)
@@ -109,33 +103,18 @@ while [[ $# -gt 0 ]]; do
       break
       ;;
     --synthesize)
-      if [[ "${2:-}" == "--tokamak-ch-tx" ]]; then
-        CMD="tokamak_ch_tx"
-        shift 2 # Remove --synthesize --tokamak-ch-tx
-        L2_TRANSFER_ARGS=()
-        while [[ $# -gt 0 ]]; do
-          L2_TRANSFER_ARGS+=("$1")
-          shift
-        done
-        break
-      fi
-      CMD="synthesize"; ARG1="${2:-}";
-      [[ -n "$ARG1" ]] || { err "--synthesize requires <TX_CONFIG_JSON>"; echo "💡 Provide the path to your transaction config JSON" >&2; exit 1; }
-      shift 2
+      CMD="synthesize"
+      shift
+      SYNTHESIZE_ARGS=()
       while [[ $# -gt 0 ]]; do
         case "$1" in
-          --alchemy-key)
-            SYNTHESIZE_ALCHEMY_KEY="${2:-}"
-            [[ -n "$SYNTHESIZE_ALCHEMY_KEY" ]] || { err "--alchemy-key requires <KEY>"; exit 1; }
-            shift 2
-            ;;
           --verbose)
             VERBOSE=true
             shift
             ;;
           *)
-            err "Unknown option for --synthesize: $1"
-            exit 1
+            SYNTHESIZE_ARGS+=("$1")
+            shift
             ;;
         esac
       done
@@ -168,10 +147,6 @@ while [[ $# -gt 0 ]]; do
       CMD="doctor"
       break
       ;;
-    --l2-transfer)
-      err "--l2-transfer has moved; use --synthesize --tokamak-ch-tx"
-      exit 1
-      ;;
     --help|-h)
       print_usage; exit 0
       ;;
@@ -186,11 +161,10 @@ done
 # Dispatch
 case "$CMD" in
   install) step_install ;;
-  synthesize) step_synthesize "$ARG1" "${SYNTHESIZE_ALCHEMY_KEY:-}" ;;
+  synthesize) step_synthesize "${SYNTHESIZE_ARGS[@]}" ;;
   preprocess) step_preprocess "${ARG1:-}" ;;
   prove) step_prove "${ARG1:-}" ;;
   verify) step_verify "${ARG1:-}" ;;
   extract_proof) step_extract_proof "$ARG1" ;;
   doctor) step_doctor ;;
-  tokamak_ch_tx) step_tokamak_ch_tx "${L2_TRANSFER_ARGS[@]}" ;;
 esac
