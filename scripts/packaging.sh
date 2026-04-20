@@ -278,6 +278,7 @@ copy_binaries() {
     # Copy Rust binaries with existence check
     for binary in trusted-setup preprocess prove verify; do
         BINARY_PATH="packages/backend/target/release/$binary"
+        METADATA_PATH="packages/backend/target/release/build-metadata-$binary.json"
         if [ -f "$BINARY_PATH" ]; then
             echo "✅ Found $binary binary at $BINARY_PATH"
             cp -vf "$BINARY_PATH" "${TARGET}/bin"
@@ -286,16 +287,35 @@ copy_binaries() {
             echo "🔍 Make sure Rust binaries are built properly"
             exit 1
         fi
+
+        if [ -f "$METADATA_PATH" ]; then
+            echo "✅ Found $binary build metadata at $METADATA_PATH"
+            cp -vf "$METADATA_PATH" "${TARGET}/bin"
+        else
+            echo "❌ Error: $binary build metadata not found at $METADATA_PATH"
+            echo "🔍 Make sure release build metadata is generated properly"
+            exit 1
+        fi
     done
 
     if [[ "$DO_DUSK_BACKED_MPC" == "true" ]]; then
         DUSK_BINARY_PATH="packages/backend/target/release/dusk_backed_mpc_setup"
+        DUSK_METADATA_PATH="packages/backend/target/release/build-metadata-mpc-setup.json"
         if [ -f "$DUSK_BINARY_PATH" ]; then
             echo "✅ Found dusk_backed_mpc_setup binary at $DUSK_BINARY_PATH"
             cp -vf "$DUSK_BINARY_PATH" "${TARGET}/bin"
         else
             echo "❌ Error: dusk_backed_mpc_setup binary not found at $DUSK_BINARY_PATH"
             echo "🔍 Make sure the dusk-backed MPC setup binary is built properly"
+            exit 1
+        fi
+
+        if [ -f "$DUSK_METADATA_PATH" ]; then
+            echo "✅ Found mpc-setup build metadata at $DUSK_METADATA_PATH"
+            cp -vf "$DUSK_METADATA_PATH" "${TARGET}/bin"
+        else
+            echo "❌ Error: mpc-setup build metadata not found at $DUSK_METADATA_PATH"
+            echo "🔍 Make sure release build metadata is generated properly"
             exit 1
         fi
     fi
