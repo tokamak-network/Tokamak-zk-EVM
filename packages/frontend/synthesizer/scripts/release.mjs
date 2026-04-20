@@ -49,7 +49,7 @@ if (process.argv.includes('--help')) {
   console.log(`Tokamak zk-EVM Synthesizer workspace release tool
 
 Usage:
-  npm run release
+  npm run publish
 
 Behavior:
   - validates synchronized package versions and canonical docs

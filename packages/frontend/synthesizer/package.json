@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces",
+    "publish": "node scripts/release.mjs",
     "release": "node scripts/release.mjs",
     "typecheck": "npm run typecheck --workspaces",
     "build:node-cli": "npm run build --workspace @tokamak-zk-evm/synthesizer-node",
