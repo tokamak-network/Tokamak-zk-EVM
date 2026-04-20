@@ -1,16 +1,23 @@
 {
   "name": "@tokamak-zk-evm/subcircuit-library",
-  "version": "1.0.1",
-  "description": "A library set of subcircuits for Tokamak zk-EVM",
+  "version": "1.0.2",
+  "description": "Prebuilt R1CS subcircuit library package for Tokamak zk-EVM",
   "private": true,
   "keywords": [
+    "artifacts",
+    "circom",
     "ethereum",
-    "zk-EVM",
+    "r1cs",
+    "subcircuit-library",
+    "subcircuits",
     "zero-knowledge",
-    "zk-SNARK",
     "tokamak",
+    "tokamak-zk-evm",
     "layer2",
-    "tokamak-network"
+    "tokamak-network",
+    "wasm",
+    "zk-EVM",
+    "zk-SNARK"
   ],
   "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/frontend/qap-compiler#readme",
   "repository": {

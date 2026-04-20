@@ -9,7 +9,8 @@ const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, '..');
 const distDir = path.resolve(packageRoot, 'dist');
 const rootPackageJsonPath = path.resolve(packageRoot, 'package.json');
-const publishedReadmePath = path.resolve(packageRoot, 'README.publish.md');
+const readmePath = path.resolve(packageRoot, 'README.md');
+const changelogPath = path.resolve(packageRoot, 'CHANGELOG.md');
 const libraryDir = path.resolve(packageRoot, 'subcircuits/library');
 const constantsPath = path.resolve(packageRoot, 'subcircuits/circom/constants.circom');
 
@@ -25,15 +26,20 @@ if (!fs.existsSync(constantsPath)) {
   process.exit(1);
 }
 
-if (!fs.existsSync(publishedReadmePath)) {
-  console.error(`Error: Published README template not found at '${publishedReadmePath}'.`);
+if (!fs.existsSync(readmePath)) {
+  console.error(`Error: README not found at '${readmePath}'.`);
+  process.exit(1);
+}
+
+if (!fs.existsSync(changelogPath)) {
+  console.error(`Error: CHANGELOG not found at '${changelogPath}'.`);
   process.exit(1);
 }
 
 const publishedPackage = {
   name: rootPackage.name,
   version: rootPackage.version,
-  description: 'A library set of subcircuits for Tokamak zk-EVM',
+  description: rootPackage.description,
   keywords: rootPackage.keywords,
   homepage: rootPackage.homepage,
   repository: rootPackage.repository,
@@ -47,9 +53,13 @@ const publishedPackage = {
 fs.rmSync(distDir, { recursive: true, force: true });
 fs.mkdirSync(path.join(distDir, 'subcircuits', 'circom'), { recursive: true });
 
-fs.cpSync(libraryDir, path.join(distDir, 'subcircuits', 'library'), { recursive: true });
+fs.cpSync(libraryDir, path.join(distDir, 'subcircuits', 'library'), {
+  recursive: true,
+  filter: (sourcePath) => path.basename(sourcePath) !== 'info',
+});
 fs.copyFileSync(constantsPath, path.join(distDir, 'subcircuits', 'circom', 'constants.circom'));
-fs.copyFileSync(publishedReadmePath, path.join(distDir, 'README.md'));
+fs.copyFileSync(readmePath, path.join(distDir, 'README.md'));
+fs.copyFileSync(changelogPath, path.join(distDir, 'CHANGELOG.md'));
 fs.copyFileSync(path.resolve(packageRoot, 'LICENSE-MIT'), path.join(distDir, 'LICENSE-MIT'));
 fs.copyFileSync(path.resolve(packageRoot, 'LICENSE-APACHE'), path.join(distDir, 'LICENSE-APACHE'));
 fs.writeFileSync(path.join(distDir, 'package.json'), `${JSON.stringify(publishedPackage, null, 2)}\n`);

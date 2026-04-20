@@ -14,7 +14,7 @@ The fresh compile-target review was performed from code and witness behavior wit
 The original scope was the merged arithmetic circuits introduced by the two-circuit ALU consolidation.
 - Audited wrappers:
   - [subcircuits/circom/ALU1_circuit.circom](../subcircuits/circom/ALU1_circuit.circom)
-  - [subcircuits/circom/ALU2_circuit.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/subcircuits/circom/ALU2_circuit.circom)
+  - [subcircuits/circom/ALU2_circuit.circom](../subcircuits/circom/ALU2_circuit.circom)
 
 The comparison baseline is the pre-merge implementation from the parent of commit `9b5b616b`, which used separate `ALU1` through `ALU5` wrappers and standalone `AND`, `OR`, and `XOR` circuits.
 
@@ -117,8 +117,8 @@ Current status: Resolved
 
 Before the merge, the wrappers explicitly constrained the high limb of the shift or byte index:
 
-- [subcircuits/circom/ALU3_circuit.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/subcircuits/circom/ALU3_circuit.circom)
-- [subcircuits/circom/ALU5_circuit.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/subcircuits/circom/ALU5_circuit.circom)
+- [subcircuits/circom/ALU3_circuit.circom](../subcircuits/circom/unused/ALU3_circuit.circom)
+- [subcircuits/circom/ALU5_circuit.circom](../subcircuits/circom/unused/ALU5_circuit.circom)
 
 The parent-of-merge versions included:
 
@@ -129,13 +129,13 @@ This ensured that the shift amount or byte index was represented canonically in 
 
 #### Current behavior
 
-The merged wrapper [subcircuits/circom/ALU2_circuit.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/subcircuits/circom/ALU2_circuit.circom#L8) forwarded both limbs of `in1` without any wrapper-level canonicalization.
+The merged wrapper [subcircuits/circom/ALU2_circuit.circom](../subcircuits/circom/ALU2_circuit.circom#L8) forwarded both limbs of `in1` without any wrapper-level canonicalization.
 
 Within the compiled `ALU2` implementation, only `in1[0]` was used for the shift and byte family:
 
-- `safe_byte_minus_one <== is_byte_family * in1[0]` at [templates/256bit/alu_safe.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/templates/256bit/alu_safe.circom#L739)
-- `safe_shift <== is_shift_family * in1[0]` at [templates/256bit/alu_safe.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/templates/256bit/alu_safe.circom#L769)
-- `sar.shift <== safe_shift` at [templates/256bit/alu_safe.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/templates/256bit/alu_safe.circom#L799)
+- `safe_byte_minus_one <== is_byte_family * in1[0]` at [templates/256bit/alu_safe.circom](../templates/256bit/alu_safe.circom#L739)
+- `safe_shift <== is_shift_family * in1[0]` at [templates/256bit/alu_safe.circom](../templates/256bit/alu_safe.circom#L769)
+- `sar.shift <== safe_shift` at [templates/256bit/alu_safe.circom](../templates/256bit/alu_safe.circom#L799)
 
 As a result, `in1[1]` is now an unconstrained public input for these operations.
 
@@ -185,13 +185,13 @@ Current status: Resolved
 
 The merged compiled `ALU1` / `ALU2` path bit-decomposed the full selector:
 
-- [subcircuits/circom/ALU1_circuit.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/subcircuits/circom/ALU1_circuit.circom#L17)
-- [templates/256bit/alu_safe.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/templates/256bit/alu_safe.circom#L659)
+- [subcircuits/circom/ALU1_circuit.circom](../subcircuits/circom/ALU1_circuit.circom#L17)
+- [templates/256bit/alu_safe.circom](../templates/256bit/alu_safe.circom#L659)
 
 But the mux circuits only require that the selected subset sums to exactly one:
 
-- [templates/256bit/mux.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/templates/256bit/mux.circom#L22)
-- [templates/128bit/mux.circom](/Users/jehyuk/Documents/repo/Tokamak-zk-EVM-contracts/submodules/Tokamak-zk-EVM/packages/frontend/qap-compiler/templates/128bit/mux.circom#L9)
+- [templates/256bit/mux.circom](../templates/256bit/mux.circom#L22)
+- [templates/128bit/mux.circom](../templates/128bit/mux.circom#L9)
 
 Unused selector bits are not forced to zero.
 

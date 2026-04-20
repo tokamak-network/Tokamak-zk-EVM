@@ -1,88 +1,82 @@
-# QAP compiler
+# Tokamak zk-EVM Subcircuit Library
 
-## Overview
+Tokamak zk-EVM Subcircuit Library is a prebuilt R1CS subcircuit library package for Tokamak zk-EVM.
 
-`@tokamak-zk-evm/subcircuit-library` is the source package used by maintainers to regenerate the published Tokamak zk-EVM subcircuit library package.
-
-The maintainer workflow is:
-
-1. Sync `subcircuits/circom/constants.circom` from `tokamak-l2js`.
-2. Build `subcircuits/library`.
-3. Copy the generated publishable contents into `dist`.
-4. Publish `./dist` to npm.
+The published package exposes consumer-facing subcircuit artifacts, metadata, witness-generation helpers, and synced Circom constants used by Tokamak zk-EVM consumers on the `main` branch.
 
 ## Installation
 
 ```shell
-npm install
+npm install @tokamak-zk-evm/subcircuit-library
 ```
 
-## CLI
+## Package Contents
 
-Reload `subcircuits/circom/constants.circom` from the published `tokamak-l2js` package:
+- `subcircuits/library/r1cs/`: prebuilt R1CS subcircuit artifacts.
+- `subcircuits/library/wasm/`: per-subcircuit WASM artifacts used for witness generation and runtime loading.
+- `subcircuits/library/json/`: per-subcircuit JSON outputs generated alongside the compiled library.
+- `subcircuits/library/*.json`: library-wide metadata such as setup parameters, global wiring, frontend configuration, and the subcircuit catalog.
+- `subcircuits/library/*.js`: witness-generation helper scripts published with the library.
+- `subcircuits/circom/constants.circom`: synced Circom constants used by the generated library.
 
-```shell
-npx qap-compiler --reload-constants
-```
+## Consumers
 
-Build the library into the package-internal `subcircuits/library` directory:
+- [`tokamak-cli`](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/main): orchestrates install, setup, proving, and verification flows that package the generated subcircuit library into runnable resources.
+- [`synthesizer`](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/main/packages/frontend/synthesizer): consumes the published library metadata and WASM artifacts to synthesize transaction-specific circuit inputs.
+- [`backend`](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/main/packages/backend): uses the subcircuit library as setup and proving input for the Tokamak zk-SNARK backend.
+- [`Tokamak-zk-EVM-contracts`](https://github.com/tokamak-network/Tokamak-zk-EVM-contracts): integrates the generated subcircuit library through repository-level coordination with the Tokamak zk-EVM stack.
 
-```shell
-npx qap-compiler --build
-```
+## Example Integration
 
-Build the library into a custom directory:
+The `synthesizer` packages use the library as an installed artifact package rather than as a source dependency:
 
-```shell
-npx qap-compiler --build ./qap-library
-```
+1. They load library-wide metadata such as setup parameters, wiring data, frontend configuration, and the subcircuit catalog from the published package.
+2. They resolve that metadata into an internal subcircuit-library model used by the synthesizer runtime.
+3. They load the matching WASM subcircuit artifacts from the installed package to drive witness generation and execution-specific subcircuit handling.
+4. The web-facing synthesizer build can bundle those published assets ahead of time, while the Node-targeted synthesizer resolves them from the installed package at runtime.
 
-Create the publishable `dist` package from the current `subcircuits/library` output and the synced `constants.circom` file:
+## Compatibility
 
-```shell
-npx qap-compiler --dist
-```
+Published artifacts are consumer-facing and platform-neutral. Maintainer-side regeneration of the library is documented separately.
 
-## Publish Flow
+| Surface | Compatibility |
+| --- | --- |
+| Consumer support | Supported for `main`-branch consumers of `tokamak-cli`, `synthesizer`, `backend`, and `Tokamak-zk-EVM-contracts`. |
+| Runtime shape | Consumers integrate against published R1CS, JSON metadata, WASM artifacts, witness-generation helpers, and synced Circom constants. |
+| Maintainer tooling | Source regeneration of the library is maintained on Node.js 18+ for macOS and Linux. |
 
-For manual publishing, run the single command below:
+## FAQ
 
-```shell
-npm run publish:dist
-```
+### Is this package source circuits or prebuilt artifacts?
 
-It expands to the following sequence:
+It is the published prebuilt subcircuit library package. Consumers use the generated artifacts that are shipped through npm.
 
-```shell
-npm install
-npx qap-compiler --reload-constants
-npx qap-compiler --build
-npx qap-compiler --dist
-npm publish ./dist
-```
+### How do consumers use this package?
 
-`dist` contains:
+Consumers install the package and read its published artifacts and metadata. They do not use it as an application-level API library.
 
-- `subcircuits/library/**/*`
-- `subcircuits/circom/constants.circom`
-- npm package metadata and licenses for publishing
+### What formats does the package publish?
 
-## Notes
+The package publishes R1CS artifacts, WASM artifacts, JSON metadata, witness-generation helper scripts, and synced `constants.circom`.
 
-- `--build` without an explicit output directory keeps the previous behavior and overwrites `subcircuits/library`.
-- `--dist` expects the package-internal `subcircuits/library` output produced by `npx qap-compiler --build`.
-- `qap-compiler --build` prefers a system-installed `circom` and falls back to the bundled `circom2` wrapper only when `circom` is not available on `PATH`.
-- Supported platforms are macOS and Linux.
+### Is it compatible with the Tokamak zk-EVM `main` branch?
 
-## References
+Yes. This package is documented and maintained as the consumer-facing subcircuit library surface for `main`-branch Tokamak zk-EVM consumers.
 
+### Was this package previously called QAP compiler?
+
+The maintainer-side generation algorithm and tooling are still referred to as `qap-compiler` in repository-internal contexts. The published consumer package is the Tokamak zk-EVM Subcircuit Library.
+
+## Further Documentation
+
+- [Detailed package documentation](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/packages/frontend/qap-compiler/docs/README.md)
 - [Tokamak zk-SNARK paper](https://eprint.iacr.org/2024/507)
 
-## Original contribution
+## Original Contribution
 
 - [JehyukJang](https://github.com/JehyukJang): Overall planning and direction. Constraints optimization.
 - [pleiadex](https://github.com/pleiadex): Initial subcircuits design and implementation. Script development.
-- [jdhyun09](https://github.com/jdhyun09): Improvement of EVM-compatability. Constraints optimization.
+- [jdhyun09](https://github.com/jdhyun09): Improvement of EVM compatibility. Constraints optimization.
 
 ## License
 
