@@ -128,7 +128,8 @@ These entrypoints are intentionally narrower than the underlying directory tree 
 - canonical changelog source: `CHANGELOG.md`
 - publish inclusion: mirrored into each package root during build and prepack
 - workspace tag format: `synthesizer-vX.Y.Z`
-- canonical release entrypoint: `npm run release`
+- canonical release entrypoint: `npm run publish`
+- release alias: `npm run release`
 
 ## Stability rules
 
