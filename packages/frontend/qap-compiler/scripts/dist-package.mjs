@@ -58,10 +58,16 @@ const publishedPackage = {
 
 const tokamakL2jsPackage = JSON.parse(fs.readFileSync(tokamakL2jsPackageJsonPath, 'utf8'));
 const buildMetadata = {
-  tokamakL2js: {
-    packageName: tokamakL2jsPackage.name,
-    version: tokamakL2jsPackage.version,
+  dependencies: {
+    tokamakL2js: {
+      buildVersion: tokamakL2jsPackage.version,
+      declaredRange: rootPackage.dependencies['tokamak-l2js'],
+      packageName: tokamakL2jsPackage.name,
+      runtimeMode: 'runtime-installed',
+    },
   },
+  packageName: rootPackage.name,
+  packageVersion: rootPackage.version,
 };
 
 fs.rmSync(distDir, { recursive: true, force: true });
