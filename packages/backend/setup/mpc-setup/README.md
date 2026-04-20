@@ -81,6 +81,9 @@ In dusk-backed mode:
 - after setup succeeds, the wrapper zips the final `--output` artifacts and uploads the archive to
   the configured Google Drive folder
 - the uploaded zip also includes `build-metadata-mpc-setup.json`
+- upload is only allowed in release builds with embedded subcircuit library assets
+- before uploading, the wrapper validates that `build-metadata-mpc-setup.json` matches the running
+  `mpc-setup` binary version and uses `runtimeMode = bundled`
 - the output archive name always includes the backend version and CRS generation timestamp
 
 The current pinned Dusk source is:

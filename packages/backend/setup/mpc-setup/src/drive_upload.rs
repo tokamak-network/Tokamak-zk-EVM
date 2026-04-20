@@ -54,6 +54,7 @@ pub enum DriveUploadError {
 }
 
 pub fn preflight_drive_upload() -> Result<DriveUploadConfig, DriveUploadError> {
+    ensure_release_publish_supported()?;
     let _ = dotenvy::dotenv();
     let config = read_drive_upload_config()?;
     let runtime = tokio::runtime::Runtime::new()
@@ -67,6 +68,7 @@ pub fn publish_output_archive(
     intermediate_dir: &str,
     output_dir: &str,
 ) -> Result<DriveUploadResult, DriveUploadError> {
+    ensure_release_publish_supported()?;
     let output_path = fs::canonicalize(output_dir).map_err(|err| {
         io::Error::new(
             err.kind(),
@@ -218,6 +220,7 @@ fn resolve_build_metadata_path() -> Result<PathBuf, DriveUploadError> {
 
     for candidate in candidates {
         if candidate.exists() {
+            validate_build_metadata(&candidate)?;
             return Ok(candidate);
         }
     }
@@ -226,6 +229,71 @@ fn resolve_build_metadata_path() -> Result<PathBuf, DriveUploadError> {
         "cannot locate {}; expected it next to the executing binary or under packages/backend/target/release",
         BUILD_METADATA_FILE_NAME
     )))
+}
+
+fn validate_build_metadata(path: &Path) -> Result<(), DriveUploadError> {
+    let value: serde_json::Value = serde_json::from_slice(&fs::read(path)?)?;
+    let package_name = value
+        .get("packageName")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| {
+            DriveUploadError::Message(format!("{} is missing packageName", path.display()))
+        })?;
+    if package_name != "mpc-setup" {
+        return Err(DriveUploadError::Message(format!(
+            "{} has unexpected packageName {}; expected mpc-setup",
+            path.display(),
+            package_name
+        )));
+    }
+
+    let package_version = value
+        .get("packageVersion")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| {
+            DriveUploadError::Message(format!("{} is missing packageVersion", path.display()))
+        })?;
+    if package_version != env!("CARGO_PKG_VERSION") {
+        return Err(DriveUploadError::Message(format!(
+            "{} has stale packageVersion {}; expected {}",
+            path.display(),
+            package_version,
+            env!("CARGO_PKG_VERSION")
+        )));
+    }
+
+    let runtime_mode = value
+        .get("dependencies")
+        .and_then(|dependencies| dependencies.get("subcircuitLibrary"))
+        .and_then(|dependency| dependency.get("runtimeMode"))
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| {
+            DriveUploadError::Message(format!(
+                "{} is missing dependencies.subcircuitLibrary.runtimeMode",
+                path.display()
+            ))
+        })?;
+    if runtime_mode != "bundled" {
+        return Err(DriveUploadError::Message(format!(
+            "{} has unexpected subcircuitLibrary runtimeMode {}; expected bundled",
+            path.display(),
+            runtime_mode
+        )));
+    }
+
+    Ok(())
+}
+
+#[cfg(tokamak_embedded_subcircuit_library)]
+fn ensure_release_publish_supported() -> Result<(), DriveUploadError> {
+    Ok(())
+}
+
+#[cfg(not(tokamak_embedded_subcircuit_library))]
+fn ensure_release_publish_supported() -> Result<(), DriveUploadError> {
+    Err(DriveUploadError::Message(
+        "dusk-backed Google Drive publication is only supported in release builds with embedded subcircuit library assets".to_string(),
+    ))
 }
 
 async fn validate_drive_folder(config: &DriveUploadConfig) -> Result<(), DriveUploadError> {
