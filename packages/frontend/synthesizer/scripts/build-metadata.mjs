@@ -65,3 +65,7 @@ export function createBuildMetadataDefines(buildMetadata) {
     __SYNTH_BUILD_METADATA_JSON__: JSON.stringify(JSON.stringify(buildMetadata)),
   };
 }
+
+export function createBuildMetadataFileContents(buildMetadata) {
+  return `${JSON.stringify(buildMetadata, null, 2)}\n`;
+}

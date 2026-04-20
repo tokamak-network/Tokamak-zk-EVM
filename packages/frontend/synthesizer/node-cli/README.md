@@ -51,6 +51,7 @@ The CLI writes:
 ## Notes
 
 - Build-time dependency metadata is exported as `buildMetadata`.
+- The same metadata is also written to `build-metadata.json` in the published package root.
 - `buildMetadata.dependencies.subcircuitLibrary.buildVersion` records the version present when this package was built, while the Node runtime still resolves the installed `@tokamak-zk-evm/subcircuit-library` package.
 - `buildMetadata.dependencies.tokamakL2js.buildVersion` records the exact `tokamak-l2js` version bundled into the published package.
 - Debug-only config execution lives under `examples/config-runner.ts`.

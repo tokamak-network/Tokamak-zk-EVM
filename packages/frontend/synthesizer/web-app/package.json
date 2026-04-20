@@ -43,6 +43,7 @@
   },
   "files": [
     "dist",
+    "build-metadata.json",
     "CHANGELOG.md",
     "README.md",
     "LICENSE-MIT",

@@ -15,6 +15,8 @@ stats.html
 dist/
 node-cli/CHANGELOG.md
 web-app/CHANGELOG.md
+node-cli/build-metadata.json
+web-app/build-metadata.json
 **/outputs
 !web-app/src/output/
 !web-app/src/output/**
