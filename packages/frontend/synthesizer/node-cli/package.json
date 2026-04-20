@@ -70,7 +70,6 @@
     "private-state-mint-l2": "tsx --tsconfig tsconfig.dev.json examples/config-runner.ts private-state-mint",
     "private-state-transfer-l2": "tsx --tsconfig tsconfig.dev.json examples/config-runner.ts private-state-transfer",
     "private-state-redeem-l2": "tsx --tsconfig tsconfig.dev.json examples/config-runner.ts private-state-redeem",
-    "manifest-example": "tsx --tsconfig tsconfig.dev.json examples/manifest-runner.ts",
     "test": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-erc20-main-from-configs.ts",
     "test:prep": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-erc20-config-matrix.ts",
     "test:private-state": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-private-state-mint-main-from-configs.ts",
