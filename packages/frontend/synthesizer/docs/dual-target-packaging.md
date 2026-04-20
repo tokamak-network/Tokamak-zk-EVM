@@ -130,6 +130,7 @@ These entrypoints are intentionally narrower than the underlying directory tree 
 - workspace tag format: `synthesizer-vX.Y.Z`
 - canonical release entrypoint: `npm run publish`
 - release alias: `npm run release`
+- release bootstrap: `npm run publish` installs workspace dependencies before build and package publish
 
 ## Stability rules
 

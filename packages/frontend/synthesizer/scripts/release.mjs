@@ -55,6 +55,7 @@ Behavior:
   - validates synchronized package versions and canonical docs
   - compares local package versions with npm
   - fails if nothing needs to be published
+  - installs workspace dependencies
   - builds the workspace
   - publishes node-cli first, then web-app, when needed
   - creates a '${workspaceTagPrefix}X.Y.Z' Git tag after successful publish`);
@@ -283,6 +284,9 @@ for (const entry of packageEntries) {
 if (packagesToPublish.length === 0) {
   fail(`No packages require publishing for ${localVersion}.`);
 }
+
+console.log('[release] Installing workspace dependencies.');
+runCommand('npm', ['install'], { stdio: 'inherit' });
 
 console.log(`[release] Building workspace for version ${localVersion}.`);
 runCommand('npm', ['run', 'build'], { stdio: 'inherit' });

@@ -86,6 +86,7 @@ Release model:
 
 - The workspace root provides the official `npm run publish` entry point.
 - `npm run release` remains as an alias to the same workflow.
+- The release script runs `npm install` before the workspace build and publish steps.
 - The release script compares local package versions with npm.
 - If remote version lookup fails for any package, the release stops.
 - If neither package needs publishing, the release fails instead of silently succeeding.
