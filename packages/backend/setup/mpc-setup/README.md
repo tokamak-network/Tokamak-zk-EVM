@@ -1,12 +1,13 @@
 # MPC Setup Guide for Tokamak zk-EVM
 
-`mpc-setup` now exposes two user-facing entrypoints only:
+`mpc-setup` exposes two user-facing entrypoints only:
 
 - `native_mpc_setup`
 - `dusk_backed_mpc_setup`
 
 Both binaries are thin CLI wrappers. The ceremony logic lives in library flow modules under
-[`src/flows`](./src/flows).
+[`src/flows`](./src/flows), and release builds consume a bundled subcircuit-library snapshot rather
+than a runtime path argument.
 
 ## Overview
 
@@ -27,7 +28,7 @@ Both wrappers write:
 
 Before running the ceremony:
 
-- follow the repository prerequisites from the project root README
+- follow the repository prerequisites from the backend root README
 - ensure the frontend subcircuit library exists for non-release builds
 - install OpenSSL if required by your platform
 
@@ -39,9 +40,10 @@ cd "$PWD/packages/backend"
 
 ## Native Mode
 
-Release builds resolve the latest `@tokamak-zk-evm/subcircuit-library` npm package during build
-time, embed it into the binary, and no longer accept `--subcircuit-library` at runtime. Non-release
-builds still require `--subcircuit-library`.
+Release builds resolve the current npm `latest` of `@tokamak-zk-evm/subcircuit-library` during
+build time, embed the resolved snapshot into the binary, and do not accept
+`--subcircuit-library` at runtime. Non-release builds still require
+`--subcircuit-library <PATH>`.
 
 ```bash
 cargo run --release --bin native_mpc_setup -- \
@@ -51,6 +53,15 @@ cargo run --release --bin native_mpc_setup -- \
 
 Use `--beacon-mode` to switch the normal build from random sampling to deterministic
 seed-based beacon mode.
+
+Non-release example:
+
+```bash
+cargo run -p mpc-setup --bin native_mpc_setup -- \
+  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
+  --intermediate ./setup/mpc-setup/output/native.intermediate \
+  --output ./setup/mpc-setup/output/native.final
+```
 
 Optional wrapper-only input:
 
@@ -86,6 +97,15 @@ In dusk-backed mode:
 - before uploading, the wrapper validates that `build-metadata-mpc-setup.json` matches the running
   `mpc-setup` binary version and uses `runtimeMode = bundled`
 - the output archive name always includes the backend version and CRS generation timestamp
+
+Non-release example:
+
+```bash
+cargo run -p mpc-setup --bin dusk_backed_mpc_setup -- \
+  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
+  --intermediate ./setup/mpc-setup/output/dusk.intermediate \
+  --output ./setup/mpc-setup/output/dusk.final
+```
 
 The current pinned Dusk source is:
 
@@ -150,7 +170,12 @@ The final output directory contains only:
 This matches the trusted-setup artifact set, with the additional provenance manifest.
 
 For release builds, Cargo also emits `build-metadata-mpc-setup.json` into
-`packages/backend/target/release/`.
+`packages/backend/target/release/`. The release-only Google Drive publication path refuses to
+publish unless that metadata file exists and matches:
+
+- `packageName == "mpc-setup"`
+- `packageVersion == env!("CARGO_PKG_VERSION")`
+- `dependencies.subcircuitLibrary.runtimeMode == "bundled"`
 
 ## CRS Provenance
 

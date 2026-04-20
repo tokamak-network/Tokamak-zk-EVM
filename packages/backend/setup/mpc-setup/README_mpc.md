@@ -24,8 +24,8 @@ cd "$PWD/packages/backend"
 
 ## Native Mode
 
-Release builds embed the latest `@tokamak-zk-evm/subcircuit-library` npm snapshot at build time,
-so `--subcircuit-library` is only required in non-release builds.
+Release builds embed the current npm `latest` of `@tokamak-zk-evm/subcircuit-library` at build
+time, so `--subcircuit-library` is only required in non-release builds.
 
 ```bash
 cargo run --release --bin native_mpc_setup -- \
@@ -43,6 +43,15 @@ This wrapper performs:
 
 Add `--beacon-mode` in normal builds if you want deterministic beacon-mode sampling instead
 of the default random mode.
+
+Non-release example:
+
+```bash
+cargo run -p mpc-setup --bin native_mpc_setup -- \
+  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
+  --intermediate ./setup/mpc-setup/output/native.intermediate \
+  --output ./setup/mpc-setup/output/native.final
+```
 
 Optional wrapper-only input:
 
@@ -75,6 +84,15 @@ This wrapper:
 8. zips the final `--output` artifacts plus `build-metadata-mpc-setup.json` and uploads the archive to the configured Google Drive folder
 9. validates that publication is running from a release build and that the bundled build metadata
    matches the current `mpc-setup` binary version
+
+Non-release example:
+
+```bash
+cargo run -p mpc-setup --bin dusk_backed_mpc_setup -- \
+  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
+  --intermediate ./setup/mpc-setup/output/dusk.intermediate \
+  --output ./setup/mpc-setup/output/dusk.final
+```
 
 Required `.env` keys for dusk-backed uploads:
 
@@ -123,4 +141,5 @@ The deployable CRS is `combined_sigma.rkyv`.
 - `published_archive_name`
 
 Release builds also emit `build-metadata-mpc-setup.json` into
-`packages/backend/target/release/`.
+`packages/backend/target/release/`. Publication is allowed only when that metadata declares
+`runtimeMode = bundled` and matches the running `mpc-setup` package version.
