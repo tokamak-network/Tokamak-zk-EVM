@@ -11,13 +11,6 @@ If you are interested in converting Ethereum transactions to ZKP, check out bran
 This section describes how to use the **main CLI** named **`tokamak-cli`**.
 
 ## Prerequisites
-### Alchemy API key
-1. Create an Alchemy account and log in to the dashboard (https://dashboard.alchemy.com/).
-2. Create a project for the Ethereum network you want to synthesize against.
-3. Copy the API key. You can either:
-   - pass it with `--synthesize --alchemy-key <KEY>`, or
-   - store it in `packages/frontend/synthesizer/.env` as `ALCHEMY_API_KEY='<KEY>'`
-
 ### For Windows users
 1. Install Docker Desktop for Windows – https://docs.docker.com/desktop/install/windows-install/
 2. (If you want to use CUDA/GPU) Install **NVIDIA GPU driver** on Windows and verify Docker GPU pass-through.
@@ -108,11 +101,18 @@ By default, `--install` downloads the latest compatible CRS archive from the pub
 folder. Use `./tokamak-cli --install --trusted-setup` to generate CRS locally, or
 `./tokamak-cli --install --no-setup` to skip setup artifact provisioning.
 
-2) **Synthesize** (prepare inputs using a transaction config JSON)
+2) **Synthesize** (prepare inputs from one Tokamak L2 transaction snapshot)
 ```bash
-./tokamak-cli --synthesize <PATH_TO_CONFIG_JSON> [--alchemy-key <YOUR_ALCHEMY_API_KEY>]
+./tokamak-cli --synthesize <INPUT_DIR>
+
+# Or pass explicit file paths
+./tokamak-cli --synthesize \
+  --previous-state <PREVIOUS_STATE_SNAPSHOT_JSON> \
+  --transaction <TRANSACTION_JSON> \
+  --block-info <BLOCK_INFO_JSON> \
+  --contract-code <CONTRACT_CODES_JSON>
 ```
-> A template for the config JSON lives in `synthesizer-input-template/`.
+`<INPUT_DIR>` must contain `previous_state_snapshot.json`, `transaction.json`, `block_info.json`, and `contract_codes.json`.
 
 3) **Preprocess** (backend preprocess stage)
 ```bash
@@ -140,8 +140,6 @@ folder. Use `./tokamak-cli --install --trusted-setup` to generate CRS locally, o
 
 ## Disclaimer
 - The Tokamak‑zk‑EVM project and its maintainers are **not responsible for any leakage or misuse of your API keys or credentials**.
-- For local testing, use a **free, non-sensitive Alchemy API key**. Do **not** use production or paid keys, or keys tied to sensitive data.
-- When `--synthesize` is run with `--alchemy-key`, the CLI overwrites `packages/frontend/synthesizer/.env`. We recommend deleting `.env` after use and ensuring it is not committed to version control.
 
 ## Package Composition
 ![Tokamak-zk-EVM Flow Chart](.github/assets/flowchart.png)

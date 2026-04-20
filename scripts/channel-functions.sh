@@ -47,6 +47,7 @@ normalize_synthesize_args() {
 }
 
 run_synthesizer_node() {
+  local dist_dir
   local run_dir
   local -a synth_command
   normalize_synthesize_args "$@"
@@ -57,8 +58,13 @@ run_synthesizer_node() {
   [[ -f "$FE_SYN/package.json" ]] || { err "Synthesizer workspace package.json not found: $FE_SYN/package.json"; exit 1; }
   [[ -f "$FE_SYN/node-cli/src/cli/index.ts" ]] || { err "Synthesizer CLI entrypoint not found: $FE_SYN/node-cli/src/cli/index.ts"; exit 1; }
 
+  if (( ${#SYNTHESIZE_ARGS[@]} == 1 )) && [[ "${SYNTHESIZE_ARGS[0]}" == "--help" || "${SYNTHESIZE_ARGS[0]}" == "-h" ]]; then
+    (cd "$run_dir" && "${synth_command[@]}" "${SYNTHESIZE_ARGS[@]}")
+    return
+  fi
+
   local synth_src
-  synth_src="$FE_SYN/node-cli/outputs"
+  synth_src="$FE_SYN/outputs"
   rm -rf "$synth_src"
 
   log "Synthesize: executing synthesizer-node CLI..."

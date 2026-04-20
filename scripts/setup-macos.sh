@@ -536,7 +536,7 @@ main() {
         echo -e "  ${BRIGHT_CYAN}Next steps:${RESET}"
         echo -e "  ${DIM}1.${RESET} ${WHITE}Restart your terminal${RESET} ${DIM}(to refresh PATH)${RESET}"
         echo -e "  ${DIM}2.${RESET} ${WHITE}From the repo root, run:${RESET} ${BOLD}./tokamak-cli --install${RESET}"
-        echo -e "  ${DIM}3.${RESET} ${WHITE}When you synthesize, provide:${RESET} ${BOLD}--alchemy-key <YOUR_ALCHEMY_API_KEY>${RESET}"
+        echo -e "  ${DIM}3.${RESET} ${WHITE}Run synthesis with either:${RESET} ${BOLD}./tokamak-cli --synthesize <INPUT_DIR>${RESET}"
         echo ""
         echo -e "  ${DIM}For more information, see README.md${RESET}"
     else
