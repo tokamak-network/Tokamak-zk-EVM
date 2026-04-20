@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/subcircuit-library",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Prebuilt R1CS subcircuit library package for Tokamak zk-EVM",
   "private": true,
   "keywords": [

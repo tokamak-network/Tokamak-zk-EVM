@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## [1.0.3](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/subcircuit-library-v1.0.3) - 2026-04-20
+
+Summary:
+- Added published build metadata for the subcircuit library package.
+- Aligned the published build metadata schema with the synthesizer package format.
+
+Consumer impact:
+- The published package now includes `build-metadata.json` with the `tokamak-l2js` build version and declared dependency range.
+
+Notes:
+- The build metadata file is generated during `dist` assembly from the installed dependency versions used for the package build.
+
 ## [1.0.2](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/subcircuit-library-v1.0.2) - 2026-04-20
 
 Summary:
