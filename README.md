@@ -162,7 +162,7 @@ folder. Use `./tokamak-cli --install --trusted-setup` to generate CRS locally, o
 | [`prover`](./packages/backend/prove)                      | Tokamak zk-SNARK's proving algorithm                                              | Rust           | `1.0.0` |
 | [`verify`](./packages/backend/verify)                     | Tokamak zk-SNARK's verifying algorithm                                            | Rust, Solidity | `1.0.0` |
 
-## Development status
+## Development Status
 ### Sep. 2025
 - Archived in branch "[archive-airdrop-Sep25](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/archive-airdrop-Sep25)".
 - Incomplete conversion of Ethereum transactions into ZKPs.
@@ -173,13 +173,18 @@ folder. Use `./tokamak-cli --install --trusted-setup` to generate CRS locally, o
   - A ZKP can be generated in 1-2 mins on CUDA or Apple silicon.
 
 ## Jan. 2026
-- The current main branch.
 - Complete conversion of Tokamak Layer 2 transactions into ZKPs, which covers:
   - Verification of transaction signatures,
   - Verification of input state,
   - Execution of transaction opcodes,
   - Reconstruction of output state.
 - Compatible with [Tokamak Private App Channels](https://github.com/tokamak-network/Tokamak-zkp-channel-manager).
+
+## Apr. 2026
+- The current main branch.
+- Performance optimizations in the Tokamak zk-SNARK backend `prove` package reduce proof generation time by at least 2x in CPU environments.
+- Security patches in the `qap-compiler` package strengthen the subcircuit library.
+- Compatible with the new version of [Tokamak Private App Channels](https://github.com/tokamak-network/Tokamak-zk-EVM-contracts/blob/main/README.md).
 
 
 ## Documentation
