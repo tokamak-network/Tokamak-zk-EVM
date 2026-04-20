@@ -22,16 +22,18 @@ This section describes how to use the **main CLI** named **`tokamak-cli`**.
 
      docker run --rm --gpus all nvidia/cuda:12.2.0-runtime-ubuntu22.04 nvidia-smi
      ```
-3. Run Docker
-    - Make sure that you are in the root directory, `Tokamak-zk-EVM`.
-        ```bash
-        docker build -f dockerfile -t tokamak-zkevm:win .
-
-        # If you will use CUDA/GPU
-        docker run --gpus all --rm -it -v "$(cygpath -m "$PWD"):/workspace" tokamak-zkevm:win bash 
-        # Else
-        docker run --rm -it -v "$(cygpath -m "$PWD"):/workspace" tokamak-zkevm:win bash 
-        ```
+3. Run Docker Compose from the repository root, `Tokamak-zk-EVM`.
+   - CPU environment:
+     ```bash
+     docker compose build cli
+     docker compose run --rm cli
+     ```
+   - GPU environment:
+     ```bash
+     docker compose build cli-gpu
+     docker compose run --rm cli-gpu
+     ```
+   - Both services mount the repository to `/workspace` inside the container and start an interactive Bash shell there.
 
 ### For macOS users
 
