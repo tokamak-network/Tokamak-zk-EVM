@@ -11,6 +11,9 @@ concurrency:
   group: build-release-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  TOKAMAK_ZKEVM_CLI_CACHE_DIR: ${{ github.workspace }}/.tokamak-cli-cache
+
 jobs:
   # ============================================================================
   # Build & Setup - Build binaries once and share across test jobs
@@ -87,10 +90,11 @@ jobs:
 
       - name: Validate backend setup outputs
         run: |
+          runtime_dir="$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime"
           required=(
-            "dist/resource/setup/output/combined_sigma.rkyv"
-            "dist/resource/setup/output/sigma_preprocess.rkyv"
-            "dist/resource/setup/output/sigma_verify.rkyv"
+            "$runtime_dir/resource/setup/output/combined_sigma.rkyv"
+            "$runtime_dir/resource/setup/output/sigma_preprocess.rkyv"
+            "$runtime_dir/resource/setup/output/sigma_verify.rkyv"
           )
           for file in "${required[@]}"; do
             if [ ! -f "$file" ]; then
@@ -100,11 +104,11 @@ jobs:
           done
           echo "✅ Backend setup outputs are ready"
 
-      - name: Upload built dist folder
+      - name: Upload CLI runtime cache
         uses: actions/upload-artifact@v4
         with:
-          name: built-dist
-          path: dist/
+          name: cli-runtime-linux
+          path: .tokamak-cli-cache/linux/
           retention-days: 1
 
 
@@ -197,11 +201,11 @@ jobs:
       - name: Install CLI workspace dependencies
         run: npm ci --workspace @tokamak-zk-evm/cli
 
-      - name: Download built dist
+      - name: Download CLI runtime cache
         uses: actions/download-artifact@v4
         with:
-          name: built-dist
-          path: dist/
+          name: cli-runtime-linux
+          path: .tokamak-cli-cache/
 
       - name: Download EVM compatibility outputs
         uses: actions/download-artifact@v4
@@ -211,23 +215,23 @@ jobs:
 
       - name: Make binaries executable
         run: |
-          chmod +x dist/bin/* 2>/dev/null || true
-          chmod +x dist/*.sh 2>/dev/null || true
+          chmod +x "$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime/bin/"* 2>/dev/null || true
 
-      - name: Validate setup artifacts in dist
+      - name: Validate setup artifacts in runtime cache
         run: |
+          runtime_dir="$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime"
           required=(
-            "dist/resource/setup/output/combined_sigma.rkyv"
-            "dist/resource/setup/output/sigma_preprocess.rkyv"
-            "dist/resource/setup/output/sigma_verify.rkyv"
+            "$runtime_dir/resource/setup/output/combined_sigma.rkyv"
+            "$runtime_dir/resource/setup/output/sigma_preprocess.rkyv"
+            "$runtime_dir/resource/setup/output/sigma_verify.rkyv"
           )
           for file in "${required[@]}"; do
             if [ ! -f "$file" ]; then
-              echo "❌ Missing setup artifact in dist: $file"
+              echo "❌ Missing setup artifact in runtime cache: $file"
               exit 1
             fi
           done
-          echo "✅ Setup artifacts present in dist"
+          echo "✅ Setup artifacts present in runtime cache"
 
       - name: Validate preprocess input
         run: |
@@ -327,31 +331,31 @@ jobs:
           cd packages/frontend/synthesizer
           npm ci
 
-      - name: Download built dist
+      - name: Download CLI runtime cache
         uses: actions/download-artifact@v4
         with:
-          name: built-dist
-          path: dist/
+          name: cli-runtime-linux
+          path: .tokamak-cli-cache/
 
       - name: Make binaries executable
         run: |
-          chmod +x dist/bin/* 2>/dev/null || true
-          chmod +x dist/*.sh 2>/dev/null || true
+          chmod +x "$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime/bin/"* 2>/dev/null || true
 
-      - name: Validate setup artifacts in dist
+      - name: Validate setup artifacts in runtime cache
         run: |
+          runtime_dir="$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime"
           required=(
-            "dist/resource/setup/output/combined_sigma.rkyv"
-            "dist/resource/setup/output/sigma_preprocess.rkyv"
-            "dist/resource/setup/output/sigma_verify.rkyv"
+            "$runtime_dir/resource/setup/output/combined_sigma.rkyv"
+            "$runtime_dir/resource/setup/output/sigma_preprocess.rkyv"
+            "$runtime_dir/resource/setup/output/sigma_verify.rkyv"
           )
           for file in "${required[@]}"; do
             if [ ! -f "$file" ]; then
-              echo "❌ Missing setup artifact in dist: $file"
+              echo "❌ Missing setup artifact in runtime cache: $file"
               exit 1
             fi
           done
-          echo "✅ Setup artifacts present in dist"
+          echo "✅ Setup artifacts present in runtime cache"
 
       - name: Run L2StateChannel CI test (synthesize)
         run: |
