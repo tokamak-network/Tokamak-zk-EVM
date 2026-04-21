@@ -84,7 +84,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Restore CLI runtime cache
+        id: runtime-cache
+        uses: actions/cache@v4
+        with:
+          path: .tokamak-cli-cache/linux/
+          key: ${{ runner.os }}-cli-runtime-${{ hashFiles('package-lock.json', 'packages/cli/package.json', 'packages/cli/src/**', 'packages/cli/vendor/backend/**', '.github/workflows/build-release.yml') }}
+
       - name: Build and setup environment
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
         env:
           TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON }}
         run: |
@@ -96,6 +104,10 @@ jobs:
           # Run install step (this builds all binaries)
           echo "🔧 Running tokamak-cli --install (building binaries)..."
           node packages/cli/dist/cli.js --install
+
+      - name: Reuse cached CLI runtime
+        if: steps.runtime-cache.outputs.cache-hit == 'true'
+        run: echo "✅ Reusing cached tokamak-cli runtime and setup artifacts"
 
       - name: Validate backend setup outputs
         run: |
