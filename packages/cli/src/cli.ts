@@ -446,17 +446,19 @@ async function extractProofBundle(context: RuntimeContext, outputPathRaw: string
 
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-proof-bundle-'));
   try {
-    for (const sourcePath of requiredFiles) {
-      const relative = path.relative(paths.resourceDir, sourcePath);
-      const destination = path.join(tempDir, relative);
-      await fs.mkdir(path.dirname(destination), { recursive: true });
-      await fs.copyFile(sourcePath, destination);
-    }
+    await fs.copyFile(path.join(paths.synthOutputDir, 'instance.json'), path.join(tempDir, 'instance.json'));
+    await fs.copyFile(
+      path.join(paths.synthOutputDir, 'instance_description.json'),
+      path.join(tempDir, 'instance_description.json'),
+    );
+    await fs.copyFile(
+      path.join(paths.preprocessOutputDir, 'preprocess.json'),
+      path.join(tempDir, 'preprocess.json'),
+    );
+    await fs.copyFile(path.join(paths.proveOutputDir, 'proof.json'), path.join(tempDir, 'proof.json'));
     const benchmarkPath = path.join(paths.proveOutputDir, 'benchmark.json');
     if (await fileExists(benchmarkPath)) {
-      const destination = path.join(tempDir, path.relative(paths.resourceDir, benchmarkPath));
-      await fs.mkdir(path.dirname(destination), { recursive: true });
-      await fs.copyFile(benchmarkPath, destination);
+      await fs.copyFile(benchmarkPath, path.join(tempDir, 'benchmark.json'));
     }
     await runCommand('zip', ['-qr', outputName, '.'], {
       cwd: tempDir,
