@@ -23,6 +23,9 @@ The package runs a full `tokamak-cli --install` during `postinstall`. This build
 Rust binaries locally on the consumer machine and provisions CRS artifacts unless the install is
 explicitly skipped with `TOKAMAK_ZKEVM_SKIP_POSTINSTALL=1`.
 
+The default install path also requires outbound HTTPS access to the npm registry, crates.io,
+GitHub, GitHub Releases, and Google Drive.
+
 ## Prerequisites
 
 The consumer machine must provide the local build toolchain required by `--install`:
@@ -35,6 +38,7 @@ The consumer machine must provide the local build toolchain required by `--insta
 - A C/C++ build toolchain compatible with the local Rust target
 - `cmake`
 - `pkg-config` on Linux
+- Outbound HTTPS access to the npm registry, crates.io, GitHub, GitHub Releases, and Google Drive
 
 `npm` is required not only for package installation but also during the backend release build.
 The backend build scripts resolve and pack the published `@tokamak-zk-evm/subcircuit-library`

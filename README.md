@@ -20,6 +20,8 @@ download prebuilt Rust backend binaries. Instead it:
 3. downloads CRS artifacts unless setup is explicitly skipped.
 
 Because of that, the consumer machine must already have the required local build toolchain.
+The default install path also requires outbound HTTPS access to the npm registry, crates.io,
+GitHub, GitHub Releases, and Google Drive.
 
 ### Supported native platforms
 
@@ -42,6 +44,7 @@ The local machine must provide all of the following before `npm install @tokamak
 - `unzip`
 - A working C/C++ build toolchain
 - `pkg-config` on Linux
+- Outbound HTTPS access to the npm registry, crates.io, GitHub, GitHub Releases, and Google Drive
 
 `npm` remains part of the minimum toolchain even after the package is installed. During the backend
 release build, the Rust build scripts resolve and pack the published
