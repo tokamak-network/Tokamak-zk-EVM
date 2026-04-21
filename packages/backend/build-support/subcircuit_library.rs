@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use serde_json::Value;
 use std::env;
 use std::fs;
@@ -17,7 +15,6 @@ const SNAPSHOT_INFO_FILE: &str = "resolved.json";
 const SNAPSHOT_LIBRARY_DIR: &str = "library";
 
 pub struct ResolvedSubcircuitLibrary {
-    pub package_name: String,
     pub version: String,
     pub integrity: String,
     pub snapshot_dir: PathBuf,
@@ -56,7 +53,6 @@ pub fn prepare_release_subcircuit_library() -> io::Result<Option<ResolvedSubcirc
         return Ok(None);
     }
 
-    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").map_err(io::Error::other)?);
     let release_dir = release_dir_from_out_dir()?;
     let snapshot_root = release_dir.join(SNAPSHOT_ROOT_DIR);
     fs::create_dir_all(&snapshot_root)?;
@@ -64,8 +60,7 @@ pub fn prepare_release_subcircuit_library() -> io::Result<Option<ResolvedSubcirc
     let lock_path = snapshot_root.join(".lock");
     let _guard = acquire_lock(&lock_path)?;
     let info_path = snapshot_root.join(SNAPSHOT_INFO_FILE);
-    let repo_root = repo_root_from_manifest_dir(&manifest_dir)?;
-    let npm_view = npm_view_latest(&repo_root)?;
+    let npm_view = npm_view_latest()?;
 
     if let Some(existing) = try_read_snapshot(&info_path, &release_dir, &npm_view)? {
         return Ok(Some(existing));
@@ -79,11 +74,10 @@ pub fn prepare_release_subcircuit_library() -> io::Result<Option<ResolvedSubcirc
     let snapshot_dir = unpack_root.join(SNAPSHOT_LIBRARY_DIR);
 
     if !snapshot_dir.exists() {
-        fetch_and_unpack_snapshot(&repo_root, &snapshot_root, &unpack_root, &npm_view.version)?;
+        fetch_and_unpack_snapshot(&snapshot_root, &unpack_root, &npm_view.version)?;
     }
 
     let snapshot = ResolvedSubcircuitLibrary {
-        package_name: PACKAGE_NAME.to_string(),
         version: npm_view.version,
         integrity: npm_view.integrity,
         snapshot_dir,
@@ -103,7 +97,7 @@ pub fn emit_build_metadata(
             "subcircuitLibrary": {
                 "buildVersion": snapshot.version,
                 "declaredRange": DECLARED_RANGE,
-                "packageName": snapshot.package_name,
+                "packageName": PACKAGE_NAME,
                 "runtimeMode": RUNTIME_MODE,
             }
         },
@@ -132,7 +126,7 @@ pub fn generate_embedded_module(
 
     let mut generated = String::new();
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_PACKAGE_NAME: &str = ");
-    generated.push_str(&format!("{:?};\n", snapshot.package_name));
+    generated.push_str(&format!("{:?};\n", PACKAGE_NAME));
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_BUILD_VERSION: &str = ");
     generated.push_str(&format!("{:?};\n", snapshot.version));
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_DECLARED_RANGE: &str = ");
@@ -205,27 +199,11 @@ fn release_dir_from_out_dir() -> io::Result<PathBuf> {
         })
 }
 
-fn repo_root_from_manifest_dir(manifest_dir: &Path) -> io::Result<PathBuf> {
-    manifest_dir
-        .ancestors()
-        .find(|candidate| {
-            candidate.join("tokamak-cli").exists() && candidate.join("package.json").exists()
-        })
-        .map(Path::to_path_buf)
-        .ok_or_else(|| {
-            io::Error::other(format!(
-                "cannot locate repository root from {}",
-                manifest_dir.display()
-            ))
-        })
-}
-
-fn npm_view_latest(repo_root: &Path) -> io::Result<NpmView> {
+fn npm_view_latest() -> io::Result<NpmView> {
     let output = Command::new("npm")
         .arg("view")
         .arg(PACKAGE_NAME)
         .args(["version", "dist.integrity", "--json"])
-        .current_dir(repo_root)
         .output()?;
     if !output.status.success() {
         return Err(io::Error::other(format!(
@@ -249,7 +227,6 @@ fn npm_view_latest(repo_root: &Path) -> io::Result<NpmView> {
 }
 
 fn fetch_and_unpack_snapshot(
-    repo_root: &Path,
     snapshot_root: &Path,
     unpack_root: &Path,
     version: &str,
@@ -285,7 +262,6 @@ fn fetch_and_unpack_snapshot(
         .arg(&tarball_path)
         .arg("-C")
         .arg(unpack_root)
-        .current_dir(repo_root)
         .output()?;
     if !tar_output.status.success() {
         return Err(io::Error::other(format!(
@@ -380,6 +356,9 @@ fn try_read_snapshot(
         .and_then(Value::as_str)
         .ok_or_else(|| io::Error::other("resolved snapshot metadata missing packageName"))?
         .to_string();
+    if package_name != PACKAGE_NAME {
+        return Ok(None);
+    }
     let version = value
         .get("version")
         .and_then(Value::as_str)
@@ -394,7 +373,6 @@ fn try_read_snapshot(
         return Ok(None);
     }
     Ok(Some(ResolvedSubcircuitLibrary {
-        package_name,
         version,
         integrity,
         snapshot_dir,
@@ -404,7 +382,7 @@ fn try_read_snapshot(
 
 fn write_snapshot_info(path: &Path, snapshot: &ResolvedSubcircuitLibrary) -> io::Result<()> {
     let payload = serde_json::json!({
-        "packageName": snapshot.package_name,
+        "packageName": PACKAGE_NAME,
         "version": snapshot.version,
         "integrity": snapshot.integrity,
         "snapshotDir": snapshot.snapshot_dir,
