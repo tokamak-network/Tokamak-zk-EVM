@@ -84,6 +84,8 @@ This wrapper:
 8. zips the final `--output` artifacts plus `build-metadata-mpc-setup.json` and uploads the archive to the configured Google Drive folder
 9. validates that publication is running from a release build and that the bundled build metadata
    matches the current `mpc-setup` binary version
+10. grants the uploaded archive `anyone with the link = viewer`
+11. allows viewers and commenters to download, print, and copy the uploaded archive
 
 Non-release example:
 
@@ -101,6 +103,8 @@ Required `.env` keys for dusk-backed uploads:
 
 The published folder URL in provenance is derived automatically from
 `TOKAMAK_MPC_DRIVE_FOLDER_ID`.
+The service account must be able to change sharing permissions on uploaded files as well as add
+children to the folder.
 
 ## Testing-Mode Builds
 

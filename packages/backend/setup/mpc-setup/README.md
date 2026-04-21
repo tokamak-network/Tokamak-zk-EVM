@@ -93,6 +93,9 @@ In dusk-backed mode:
 - after setup succeeds, the wrapper zips the final `--output` artifacts and uploads the archive to
   the configured Google Drive folder
 - the uploaded zip also includes `build-metadata-mpc-setup.json`
+- after upload, the wrapper grants the uploaded archive `anyone with the link = viewer`
+- after upload, the wrapper explicitly allows viewers and commenters to download, print, and copy
+  the uploaded archive
 - upload is only allowed in release builds with embedded subcircuit library assets
 - before uploading, the wrapper validates that `build-metadata-mpc-setup.json` matches the running
   `mpc-setup` binary version and uses `runtimeMode = bundled`
@@ -126,6 +129,8 @@ Required keys:
 The service account JSON file must have permission to add children to the configured folder.
 The published folder URL recorded in provenance is derived automatically from
 `TOKAMAK_MPC_DRIVE_FOLDER_ID`.
+The service account must also be allowed to create file permissions and update file sharing
+restrictions on uploaded archives; otherwise the publication step fails after upload.
 If preflight fails or the upload fails, the whole dusk-backed setup run fails.
 
 ## Testing-Mode Builds

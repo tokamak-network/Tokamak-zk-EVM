@@ -1,5 +1,5 @@
 use crate::sigma::FinalCrsProvenance;
-use google_drive3::api::{File, Scope};
+use google_drive3::api::{File, Permission, Scope};
 use google_drive3::hyper::client::HttpConnector;
 use google_drive3::hyper::Client;
 use google_drive3::hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
@@ -378,7 +378,8 @@ async fn upload_archive(
         ..Default::default()
     };
     let file = StdFile::open(archive_path)?;
-    hub.files()
+    let (_, uploaded_file) = hub
+        .files()
         .create(metadata)
         .supports_all_drives(true)
         .add_scope(Scope::Full)
@@ -387,6 +388,54 @@ async fn upload_archive(
             "application/zip".parse().expect("zip mime type must parse"),
         )
         .await?;
+    let file_id = uploaded_file.id.ok_or_else(|| {
+        DriveUploadError::Message(format!(
+            "drive upload for {archive_name} succeeded without returning a file id"
+        ))
+    })?;
+    configure_public_archive_access(&hub, &file_id, archive_name).await?;
+    Ok(())
+}
+
+async fn configure_public_archive_access(
+    hub: &DriveHub<HttpsConnector<HttpConnector>>,
+    file_id: &str,
+    archive_name: &str,
+) -> Result<(), DriveUploadError> {
+    let permission = Permission {
+        type_: Some("anyone".to_string()),
+        role: Some("reader".to_string()),
+        allow_file_discovery: Some(false),
+        ..Default::default()
+    };
+    hub.permissions()
+        .create(permission, file_id)
+        .supports_all_drives(true)
+        .add_scope(Scope::Full)
+        .doit()
+        .await
+        .map_err(|err| {
+            DriveUploadError::Message(format!(
+                "uploaded archive {archive_name} but failed to grant anyone-with-link viewer access: {err}"
+            ))
+        })?;
+
+    let file_metadata = File {
+        copy_requires_writer_permission: Some(false),
+        ..Default::default()
+    };
+    hub.files()
+        .update(file_metadata, file_id)
+        .supports_all_drives(true)
+        .add_scope(Scope::Full)
+        .doit_without_upload()
+        .await
+        .map_err(|err| {
+            DriveUploadError::Message(format!(
+                "uploaded archive {archive_name} but failed to allow viewers to download, print, and copy it: {err}"
+            ))
+        })?;
+
     Ok(())
 }
 
