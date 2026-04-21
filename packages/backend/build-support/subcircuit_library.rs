@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use serde_json::Value;
 use std::env;
 use std::fs;
@@ -21,29 +23,25 @@ pub struct ResolvedSubcircuitLibrary {
     pub release_dir: PathBuf,
 }
 
-pub enum BuildOutputMode<'a> {
-    EmbeddedModuleOnly { out_dir: &'a Path },
-    MetadataOnly,
+pub fn configure_embedded_release_subcircuit_library(out_dir: &Path) -> io::Result<()> {
+    println!("cargo:rustc-check-cfg=cfg(tokamak_embedded_subcircuit_library)");
+    if let Some(snapshot) = prepare_release_subcircuit_library()? {
+        println!("cargo:rustc-cfg=tokamak_embedded_subcircuit_library");
+        generate_embedded_module(&snapshot, out_dir)?;
+    } else {
+        write_stub_embedded_module(out_dir)?;
+    }
+    Ok(())
 }
 
-pub fn configure_release_subcircuit_library(
-    mode: BuildOutputMode<'_>,
+pub fn configure_release_subcircuit_library_metadata(
     package_name: &str,
     package_version: &str,
 ) -> io::Result<()> {
     println!("cargo:rustc-check-cfg=cfg(tokamak_embedded_subcircuit_library)");
     if let Some(snapshot) = prepare_release_subcircuit_library()? {
         println!("cargo:rustc-cfg=tokamak_embedded_subcircuit_library");
-        match mode {
-            BuildOutputMode::EmbeddedModuleOnly { out_dir } => {
-                generate_embedded_module(&snapshot, out_dir)?;
-            }
-            BuildOutputMode::MetadataOnly => {
-                emit_build_metadata(&snapshot, package_name, package_version)?;
-            }
-        }
-    } else if let BuildOutputMode::EmbeddedModuleOnly { out_dir } = mode {
-        write_stub_embedded_module(out_dir)?;
+        emit_build_metadata(&snapshot, package_name, package_version)?;
     }
     Ok(())
 }
