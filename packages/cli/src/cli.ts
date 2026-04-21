@@ -404,7 +404,7 @@ async function runVerify(context: RuntimeContext, inputPath: string | undefined,
   if (inputPath) {
     await syncVerifyInputs(context, inputPath);
   }
-  await ensureFile(path.join(paths.setupOutputDir, 'sigma_verify.rkyv'));
+  await ensureFile(path.join(paths.setupOutputDir, 'sigma_verify.json'));
   await ensureFile(path.join(paths.preprocessOutputDir, 'preprocess.json'));
   await ensureFile(path.join(paths.proveOutputDir, 'proof.json'));
   await ensureFile(path.join(paths.synthOutputDir, 'instance.json'));

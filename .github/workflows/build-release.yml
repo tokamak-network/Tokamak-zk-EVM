@@ -115,7 +115,7 @@ jobs:
           required=(
             "$runtime_dir/resource/setup/output/combined_sigma.rkyv"
             "$runtime_dir/resource/setup/output/sigma_preprocess.rkyv"
-            "$runtime_dir/resource/setup/output/sigma_verify.rkyv"
+            "$runtime_dir/resource/setup/output/sigma_verify.json"
           )
           for file in "${required[@]}"; do
             if [ ! -f "$file" ]; then
@@ -257,7 +257,7 @@ jobs:
           required=(
             "$runtime_dir/resource/setup/output/combined_sigma.rkyv"
             "$runtime_dir/resource/setup/output/sigma_preprocess.rkyv"
-            "$runtime_dir/resource/setup/output/sigma_verify.rkyv"
+            "$runtime_dir/resource/setup/output/sigma_verify.json"
           )
           for file in "${required[@]}"; do
             if [ ! -f "$file" ]; then
@@ -388,7 +388,7 @@ jobs:
           required=(
             "$runtime_dir/resource/setup/output/combined_sigma.rkyv"
             "$runtime_dir/resource/setup/output/sigma_preprocess.rkyv"
-            "$runtime_dir/resource/setup/output/sigma_verify.rkyv"
+            "$runtime_dir/resource/setup/output/sigma_verify.json"
           )
           for file in "${required[@]}"; do
             if [ ! -f "$file" ]; then

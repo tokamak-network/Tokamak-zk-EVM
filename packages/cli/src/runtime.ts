@@ -1106,8 +1106,8 @@ async function installDownloadedSetup(
       path.join(paths.setupOutputDir, 'sigma_preprocess.rkyv'),
     );
     await fs.copyFile(
-      await findNamedFile(extractedDir, 'sigma_verify.rkyv'),
-      path.join(paths.setupOutputDir, 'sigma_verify.rkyv'),
+      await findNamedFile(extractedDir, 'sigma_verify.json'),
+      path.join(paths.setupOutputDir, 'sigma_verify.json'),
     );
     await fs.copyFile(
       mpcMetadataPath,
