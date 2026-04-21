@@ -14,11 +14,13 @@ import {
   requireInstalledRuntime,
   runCommand,
   runtimePaths,
+  uninstallRuntime,
   type RuntimeContext,
 } from './runtime.js';
 
 type CommandName =
   | 'install'
+  | 'uninstall'
   | 'synthesize'
   | 'preprocess'
   | 'prove'
@@ -45,6 +47,9 @@ Commands:
       By default setup artifacts are installed from the published CRS archive
       Use --trusted-setup to generate setup artifacts locally with the trusted-setup binary
       Use --no-setup to skip setup artifact provisioning
+
+  --uninstall
+      Remove the local Tokamak zk-EVM workspace for the current platform, including cached runtime files and downloads
 
   --synthesize <INPUT_DIR|OPTIONS...>
       Execute TokamakL2JS Channel transaction using the synthesizer-node API
@@ -197,6 +202,13 @@ function parseArgs(argv: string[]): ParsedArgs {
       verbose,
       installOptions: { trustedSetup, noSetup },
     };
+  }
+  if (argv[0] === '--uninstall') {
+    for (const arg of argv.slice(1)) {
+      if (arg === '--verbose') continue;
+      err(`Unknown option for --uninstall: ${arg}`);
+    }
+    return { command: 'uninstall', verbose };
   }
 
   if (argv[0] === '--synthesize') {
@@ -494,6 +506,11 @@ async function main(): Promise<void> {
         trustedSetup: parsed.installOptions?.trustedSetup ?? false,
       });
       ok(`Install complete for package ${context.packageVersion}`);
+      return;
+    }
+    case 'uninstall': {
+      const context = await uninstallRuntime();
+      ok(`Uninstall complete for ${context.platformDir}`);
       return;
     }
     case 'doctor':

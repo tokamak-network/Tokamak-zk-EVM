@@ -305,6 +305,17 @@ export async function requireInstalledRuntime(): Promise<RuntimeContext> {
   };
 }
 
+async function removeDirectoryIfEmpty(target: string): Promise<void> {
+  try {
+    const entries = await fs.readdir(target);
+    if (entries.length === 0) {
+      await fs.rmdir(target);
+    }
+  } catch {
+    // Ignore missing directories or directories that cannot be removed.
+  }
+}
+
 export function runtimePaths(context: RuntimeContext) {
   const resourceDir = path.join(context.runtimeDir, 'resource');
   const setupOutputDir = path.join(resourceDir, 'setup', 'output');
@@ -1119,5 +1130,18 @@ export async function installRuntime(options: InstallOptions): Promise<RuntimeCo
     installedAt: new Date().toISOString(),
   };
   await fs.writeFile(context.statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  return context;
+}
+
+export async function uninstallRuntime(): Promise<RuntimeContext> {
+  const context = await createRuntimeContext();
+  await fs.rm(context.platformDir, { recursive: true, force: true });
+  await removeDirectoryIfEmpty(context.cacheRoot);
+
+  const defaultCacheRoot = path.join(os.homedir(), '.tokamak-zk-evm', 'cli');
+  if (path.resolve(context.cacheRoot) === defaultCacheRoot) {
+    await removeDirectoryIfEmpty(path.dirname(defaultCacheRoot));
+  }
+
   return context;
 }
