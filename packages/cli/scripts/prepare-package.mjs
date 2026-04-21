@@ -65,6 +65,15 @@ async function copyDirectory(from, to, filter) {
   });
 }
 
+async function sanitizeCargoManifest(filePath) {
+  let contents = await fs.readFile(filePath, 'utf8');
+  contents = contents.replace(/\n\[\[bench\]\]\r?\nname = "outer_product_bench"\r?\nharness = false\r?\n?/gu, '\n');
+  contents = contents.replace(/\n\[\[bench\]\]\r?\nname = "matrix_matrix_mul_bench"\r?\nharness = false\r?\n?/gu, '\n');
+  contents = contents.replace(/\n\[\[test\]\]\r?\nname = "timing"\r?\npath = "optimization\/tests\/timing\.rs"\r?\n?/gu, '\n');
+  contents = contents.replace(/\ncriterion = "0\.3"\r?\n/gu, '\n');
+  await fs.writeFile(filePath, contents, 'utf8');
+}
+
 async function removeExcludedBackendFiles(root) {
   const entries = await fs.readdir(root, { withFileTypes: true });
   await Promise.all(
@@ -99,6 +108,8 @@ async function main() {
 
   if (fsSync.existsSync(vendoredBackendRoot)) {
     await removeExcludedBackendFiles(vendoredBackendRoot);
+    await sanitizeCargoManifest(path.join(vendoredBackendRoot, 'libs', 'Cargo.toml'));
+    await sanitizeCargoManifest(path.join(vendoredBackendRoot, 'prove', 'Cargo.toml'));
   }
 }
 
