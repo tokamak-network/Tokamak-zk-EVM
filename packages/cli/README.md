@@ -30,9 +30,35 @@ The consumer machine must provide the local build toolchain required by `--insta
 - Node.js 20 or newer
 - npm
 - Rust and Cargo
+- `bash`
 - `curl`, `tar`, and `unzip`
 - A C/C++ build toolchain compatible with the local Rust target
 - `cmake`
+- `pkg-config` on Linux
+
+### macOS
+
+```bash
+xcode-select --install
+brew install node cmake
+curl https://sh.rustup.rs -sSf | sh
+source "$HOME/.cargo/env"
+npm install -g @tokamak-zk-evm/cli
+```
+
+### Linux
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential curl cmake unzip tar pkg-config bash
+curl https://sh.rustup.rs -sSf | sh
+source "$HOME/.cargo/env"
+npm install -g @tokamak-zk-evm/cli
+```
+
+### Windows
+
+Native Windows installation is not supported. Use WSL2 or Docker.
 
 ## Runtime Cache
 

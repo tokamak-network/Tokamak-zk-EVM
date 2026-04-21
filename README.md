@@ -10,16 +10,132 @@ If you are interested in converting Ethereum transactions to ZKP, check out bran
 
 This section describes how to use the **main CLI** named **`tokamak-cli`**.
 
-## Prerequisites
-### For Windows users
-1. Install Docker Desktop for Windows – https://docs.docker.com/desktop/install/windows-install/
-2. (If you want to use CUDA/GPU) Install **NVIDIA GPU driver** on Windows and verify Docker GPU pass-through.
-   - Install [the latest NVIDIA driver](https://developer.nvidia.com/cuda/wsl).
-   - Ensure Docker Desktop is using **Linux containers** with the **WSL 2** backend.
-   - (Optional) Test that CUDA is visible inside containers (at the host):
-     ```
-     nvidia-smi
+## Native npm installation
 
+`@tokamak-zk-evm/cli` performs a **full local install** during `npm install`. The package does not
+download prebuilt Rust backend binaries. Instead it:
+
+1. installs `@tokamak-zk-evm/subcircuit-library` and `@tokamak-zk-evm/synthesizer-node`,
+2. builds the backend Rust binaries locally on the consumer machine, and
+3. downloads CRS artifacts unless setup is explicitly skipped.
+
+Because of that, the consumer machine must already have the required local build toolchain.
+
+### Supported native platforms
+
+- macOS
+- Linux
+
+Native Windows is not supported for the npm package flow. Use WSL2 or the Docker flow below on Windows.
+
+### Required tools for native npm installation
+
+The local machine must provide all of the following before `npm install @tokamak-zk-evm/cli`:
+
+- Node.js 20 or newer
+- npm
+- Rust and Cargo
+- `bash`
+- `cmake`
+- `curl`
+- `tar`
+- `unzip`
+- A working C/C++ build toolchain
+- `pkg-config` on Linux
+
+### macOS setup
+
+1. Install Xcode Command Line Tools:
+   ```bash
+   xcode-select --install
+   ```
+2. Install Homebrew if it is not already installed:
+   https://brew.sh/
+3. Install Node.js and CMake:
+   ```bash
+   brew install node cmake
+   ```
+4. Install Rust:
+   ```bash
+   curl https://sh.rustup.rs -sSf | sh
+   source "$HOME/.cargo/env"
+   ```
+5. Verify the required tools:
+   ```bash
+   node --version
+   npm --version
+   rustc --version
+   cargo --version
+   cmake --version
+   curl --version
+   tar --version
+   unzip -v
+   xcode-select -p
+   cc --version
+   c++ --version
+   ```
+6. Install the CLI package:
+   ```bash
+   npm install -g @tokamak-zk-evm/cli
+   ```
+
+### Linux setup
+
+The exact package names depend on the distribution. On Ubuntu or Debian, the following is a good baseline:
+
+1. Install the system build prerequisites:
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y build-essential curl cmake unzip tar pkg-config bash
+   ```
+2. Install Node.js 20 or newer.
+   - Use https://nodejs.org/ or NodeSource if the distro package is older than 20.
+3. Install Rust:
+   ```bash
+   curl https://sh.rustup.rs -sSf | sh
+   source "$HOME/.cargo/env"
+   ```
+4. Verify the required tools:
+   ```bash
+   node --version
+   npm --version
+   rustc --version
+   cargo --version
+   cmake --version
+   curl --version
+   tar --version
+   unzip -v
+   cc --version
+   c++ --version
+   make --version
+   pkg-config --version
+   ```
+5. Install the CLI package:
+   ```bash
+   npm install -g @tokamak-zk-evm/cli
+   ```
+
+### Windows setup
+
+Native Windows installation of `@tokamak-zk-evm/cli` is not supported.
+
+Use one of:
+
+- WSL2 with an Ubuntu environment, then follow the Linux setup above.
+- Docker Desktop with the repository checkout flow below.
+
+## Repository checkout and Docker
+
+This repository checkout flow is useful for contributors or for Windows users who want an isolated environment.
+
+### Windows users
+1. Install Docker Desktop for Windows – https://docs.docker.com/desktop/install/windows-install/
+2. If you want CUDA/GPU support, install the NVIDIA GPU driver and verify Docker GPU pass-through.
+   - Install [the latest NVIDIA driver](https://developer.nvidia.com/cuda/wsl).
+   - Ensure Docker Desktop is using Linux containers with the WSL 2 backend.
+   - Optional host checks:
+     ```bash
+     nvidia-smi
      docker run --rm --gpus all nvidia/cuda:12.2.0-runtime-ubuntu22.04 nvidia-smi
      ```
 3. Run Docker Compose from the repository root, `Tokamak-zk-EVM`.
@@ -33,63 +149,17 @@ This section describes how to use the **main CLI** named **`tokamak-cli`**.
      docker compose build cli-gpu
      docker compose run --rm cli-gpu
      ```
-   - Both services mount the repository to `/workspace` inside the container and start an interactive Bash shell there.
+   - Both services mount the repository to `/workspace` and start an interactive Bash shell there.
 
-### For macOS users
+### macOS or Linux contributors
 
-**Option 1: Automatic Setup (Recommended)**
+If you are running the CLI from a repository checkout instead of the npm package, you can still use the existing repo-local flow:
 
-Run the setup script to automatically check and install all prerequisites:
 ```bash
-./scripts/setup-macos.sh
+./tokamak-cli --install
 ```
-This script will detect the following dependencies and install any missing automatically.
 
-**Option 2: Manual Installation**
-- Install Node.js – https://nodejs.org/
-- Install Circom – https://docs.circom.io/getting-started/installation/
-- Install Rust – https://www.rust-lang.org/tools/install
-- Install CMake – https://cmake.org/download/
-- Install dos2unix
-    ```zsh 
-    brew install dos2unix
-    ```
-
-### For Linux users
-- Install Node.js – https://nodejs.org/
-- Install Circom – https://docs.circom.io/getting-started/installation/
-- Install Rust – https://www.rust-lang.org/tools/install
-- Install CMake – https://cmake.org/download/
-- Install dos2unix
-  - For example, Ubuntu/Debian:
-    ```bash
-    sudo apt-get update && sudo apt-get install -y dos2unix
-    ```
-- If you want to use CUDA for GPU acceleration:
-  1. Install the **NVIDIA GPU driver** appropriate for your distro (verify with `nvidia-smi`).  
-    Docs: https://docs.nvidia.com/cuda/
-  2. Install **CUDA runtime libraries** (matching your driver’s supported CUDA version).  
-    Follow the **CUDA Installation Guide for Linux** in the docs above.
-  3. (Optional) Quick checks:
-        ```bash
-        nvidia-smi
-        ldconfig -p | grep -E 'libcudart|libcublas|libcudnn' || true
-        ```
-
-### Before first run (line endings & permissions)
-
-To avoid compatibility/permission issues on the main script itself:
-
-- Convert CRLF → LF on the CLI script:
-  ```bash
-  # Run from the repo root
-  dos2unix tokamak-cli
-  ```
-
-- Make the CLI executable:
-  ```bash
-  chmod +x tokamak-cli
-  ```
+For that checkout-based flow, install the same Node/Rust/CMake prerequisites listed above before the first run.
 
 ## How to run (for all platforms)
 

@@ -2,7 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
 export type CliPlatform = 'linux' | 'macos';
 
@@ -30,6 +30,11 @@ export interface RuntimeContext {
 
 const CACHE_DIR_ENV = 'TOKAMAK_ZKEVM_CLI_CACHE_DIR';
 
+interface PrerequisiteFailure {
+  name: string;
+  reason: string;
+}
+
 function logVerbose(enabled: boolean, message: string): void {
   if (enabled) {
     console.error(`[info] ${message}`);
@@ -48,8 +53,135 @@ export function detectPlatform(): CliPlatform {
     case 'linux':
       return 'linux';
     default:
-      throw new Error(`Unsupported platform: ${process.platform}`);
+      throw new Error(
+        `Unsupported platform: ${process.platform}. Native tokamak-cli installs currently support only macOS and Linux. Use WSL2 or Docker on Windows.`,
+      );
   }
+}
+
+function commandExists(command: string): boolean {
+  const result = spawnSync('bash', ['-c', `command -v ${JSON.stringify(command)} >/dev/null 2>&1`], {
+    env: { ...process.env, PATH: process.env.PATH ?? '' },
+    stdio: 'ignore',
+  });
+  return result.status === 0;
+}
+
+function commandWorks(command: string, args: string[]): boolean {
+  const result = spawnSync(command, args, {
+    env: { ...process.env, PATH: process.env.PATH ?? '' },
+    stdio: 'ignore',
+  });
+  return result.status === 0;
+}
+
+function prerequisiteInstallHint(platform: CliPlatform): string {
+  if (platform === 'macos') {
+    return [
+      'Install the missing prerequisites and retry:',
+      '  xcode-select --install',
+      '  brew install node cmake',
+      '  curl https://sh.rustup.rs -sSf | sh',
+      '  source "$HOME/.cargo/env"',
+    ].join('\n');
+  }
+
+  return [
+    'Install the missing prerequisites and retry:',
+    '  sudo apt-get update',
+    '  sudo apt-get install -y build-essential curl cmake unzip tar pkg-config bash',
+    '  curl https://sh.rustup.rs -sSf | sh',
+    '  source "$HOME/.cargo/env"',
+    '  Install Node.js 20 or newer from nodejs.org or NodeSource if your distro packages are older.',
+  ].join('\n');
+}
+
+function collectPrerequisiteFailures(
+  platform: CliPlatform,
+  options: InstallOptions,
+): PrerequisiteFailure[] {
+  const failures: PrerequisiteFailure[] = [];
+  const nodeMajor = Number.parseInt(process.versions.node.split('.')[0] ?? '0', 10);
+  if (!Number.isFinite(nodeMajor) || nodeMajor < 20) {
+    failures.push({
+      name: 'node',
+      reason: `Node.js ${process.version} is installed, but tokamak-cli requires Node.js 20 or newer.`,
+    });
+  }
+
+  const requiredCommands = [
+    'bash',
+    'npm',
+    'rustc',
+    'cargo',
+    'cmake',
+    'curl',
+    'tar',
+    'unzip',
+  ];
+
+  for (const command of requiredCommands) {
+    if (!commandExists(command)) {
+      failures.push({
+        name: command,
+        reason: `${command} is not available on PATH.`,
+      });
+    }
+  }
+
+  if (platform === 'macos') {
+    if (!commandExists('xcode-select') || !commandWorks('xcode-select', ['-p'])) {
+      failures.push({
+        name: 'xcode-select',
+        reason: 'Xcode Command Line Tools are not installed or not configured.',
+      });
+    }
+    for (const compiler of ['cc', 'c++']) {
+      if (!commandExists(compiler)) {
+        failures.push({
+          name: compiler,
+          reason: `${compiler} is not available on PATH. Install Xcode Command Line Tools.`,
+        });
+      }
+    }
+  } else {
+    for (const command of ['cc', 'c++', 'make', 'pkg-config']) {
+      if (!commandExists(command)) {
+        failures.push({
+          name: command,
+          reason: `${command} is not available on PATH.`,
+        });
+      }
+    }
+  }
+
+  if (!options.noSetup && process.env.TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH) {
+    if (!commandExists('python3')) {
+      failures.push({
+        name: 'python3',
+        reason:
+          'python3 is required when TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH is set for authenticated CRS downloads.',
+      });
+    }
+  }
+
+  return failures;
+}
+
+function ensureInstallPrerequisites(platform: CliPlatform, options: InstallOptions): void {
+  const failures = collectPrerequisiteFailures(platform, options);
+  if (failures.length === 0) {
+    return;
+  }
+
+  const lines = failures.map((failure) => `- ${failure.name}: ${failure.reason}`);
+  throw new Error(
+    [
+      'tokamak-cli cannot start the local install because required build prerequisites are missing.',
+      ...lines,
+      prerequisiteInstallHint(platform),
+    ].join('\n'),
+  );
 }
 
 export function resolveCacheRoot(): string {
@@ -246,6 +378,7 @@ async function ensureVendoredWorkspaceExists(packageRoot: string): Promise<strin
 
 export async function installRuntime(options: InstallOptions): Promise<RuntimeContext> {
   const context = await createRuntimeContext();
+  ensureInstallPrerequisites(context.platform, options);
   const workspaceRoot = await ensureVendoredWorkspaceExists(context.packageRoot);
 
   const packagingScript = path.join(workspaceRoot, 'scripts', 'packaging.sh');
