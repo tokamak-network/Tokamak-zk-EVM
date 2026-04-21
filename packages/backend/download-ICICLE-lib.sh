@@ -11,6 +11,32 @@ COMMON_TARBALL=""
 BACKEND_TARBALL=""
 OS_DESC=""
 
+linux_cuda_backend_available() {
+  if ! command -v nvidia-smi >/dev/null 2>&1; then
+    echo "[*] NVIDIA GPU not detected. Skipping CUDA backend package."
+    return 1
+  fi
+
+  local gpu_info
+  if ! gpu_info="$(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>/dev/null)"; then
+    echo "[*] NVIDIA GPU query failed. Skipping CUDA backend package."
+    return 1
+  fi
+
+  gpu_info="${gpu_info//$'\r'/}"
+  if [[ -z "${gpu_info//[$'\n'[:space:]]/}" ]]; then
+    echo "[*] NVIDIA GPU not detected. Skipping CUDA backend package."
+    return 1
+  fi
+
+  echo "[*] NVIDIA GPU detected:"
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && echo "    $line"
+  done <<<"$gpu_info"
+
+  return 0
+}
+
 if [[ "$OS_NAME" == "Darwin" ]]; then
   OS_DESC="macOS"
   BACKEND_PATH="mac"
@@ -63,26 +89,35 @@ else
 fi
 
 COMMON_URL="${BASE_URL}/${COMMON_TARBALL}"
-BACKEND_URL="${BASE_URL}/${BACKEND_TARBALL}"
+BACKEND_URL=""
 
 command -v curl >/dev/null 2>&1 || { echo "curl is required but not found"; exit 1; }
 command -v tar  >/dev/null 2>&1 || { echo "tar is required but not found"; exit 1; }
 
 echo "[*] Platform detected: ${OS_DESC}"
-echo "[*] Downloading backend package..."
-curl -fL --retry 3 -o "$BACKEND_TARBALL" "$BACKEND_URL"
 echo "[*] Downloading common runtime package..."
 curl -fL --retry 3 -o "$COMMON_TARBALL" "$COMMON_URL"
 
+if [[ "$OS_NAME" == "Linux" ]] && linux_cuda_backend_available; then
+  BACKEND_URL="${BASE_URL}/${BACKEND_TARBALL}"
+  echo "[*] Downloading CUDA backend package..."
+  curl -fL --retry 3 -o "$BACKEND_TARBALL" "$BACKEND_URL"
+fi
+
 echo "[*] Extracting packages..."
-tar -xzf "$BACKEND_TARBALL"
 tar -xzf "$COMMON_TARBALL"
+if [[ -n "$BACKEND_URL" ]]; then
+  tar -xzf "$BACKEND_TARBALL"
+fi
 
 echo "[*] Installing to ${TARGET}/${BACKEND_PATH} ..."
 mkdir -p "${TARGET}/${BACKEND_PATH}"
 cp -r icicle/* "${TARGET}/${BACKEND_PATH}"
 
 echo "[*] Cleaning up temporary files..."
-rm -rf "$BACKEND_TARBALL" "$COMMON_TARBALL" icicle
+rm -rf "$COMMON_TARBALL" icicle
+if [[ -n "$BACKEND_URL" ]]; then
+  rm -f "$BACKEND_TARBALL"
+fi
 
 echo "✅ ICICLE external library installed to ${TARGET}/${BACKEND_PATH}."
