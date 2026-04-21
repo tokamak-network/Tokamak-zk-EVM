@@ -1,9 +1,8 @@
 # `@tokamak-zk-evm/cli`
 
-`@tokamak-zk-evm/cli` is the npm-distributed Tokamak zk-EVM command-line interface.
+`@tokamak-zk-evm/cli` is the Tokamak zk-EVM command-line interface distributed through npm.
 
-The package carries the backend workspace source, builds the required backend runtime locally, and
-orchestrates these high-level commands:
+Main commands:
 
 - `--install`
 - `--synthesize`
@@ -13,42 +12,29 @@ orchestrates these high-level commands:
 - `--extract-proof`
 - `--doctor`
 
-## Installation
+## Install
 
 ```bash
 npm install -g @tokamak-zk-evm/cli
 ```
 
-The package runs `tokamak-cli --install` during `postinstall`. This builds the backend Rust
-binaries locally on the consumer machine and provisions CRS artifacts unless the install is
-explicitly skipped with `TOKAMAK_ZKEVM_SKIP_POSTINSTALL=1`.
+The package runs `tokamak-cli --install` during `postinstall` unless
+`TOKAMAK_ZKEVM_SKIP_POSTINSTALL=1` is set.
 
-The default install path also requires outbound HTTPS access to the npm registry, crates.io,
-GitHub, GitHub Releases, and Google Drive.
+## What You Need
 
-## Prerequisites
-
-The consumer machine must provide the local build toolchain required by `--install`:
+Before running `--install`, make sure the machine has:
 
 - Node.js 20 or newer
 - npm
 - Rust and Cargo
-- `tar` and `unzip`
-- A C/C++ build toolchain compatible with the local Rust target
 - `cmake`
-- `pkg-config` on Linux
-- Outbound HTTPS access to the npm registry, crates.io, GitHub, GitHub Releases, and Google Drive
-
-`npm` is required not only for package installation but also during the backend release build,
-because the backend release build resolves and embeds the published subcircuit library metadata it
-was built against.
+- `tar`
+- `unzip`
+- a working C/C++ toolchain
+- outbound HTTPS access to npm, crates.io, GitHub, GitHub Releases, and Google Drive
 
 ### macOS
-
-Install Apple developer tools first. Either of the following is acceptable:
-
-- `xcode-select --install`
-- a full Xcode installation with the active developer directory configured
 
 ```bash
 xcode-select --install
@@ -57,9 +43,6 @@ curl https://sh.rustup.rs -sSf | sh
 source "$HOME/.cargo/env"
 npm install -g @tokamak-zk-evm/cli
 ```
-
-The macOS install path also uses `install_name_tool` while configuring the packaged backend
-runtime, so the selected Apple developer tools must provide `cc`, `c++`, and `install_name_tool`.
 
 ### Linux
 
@@ -71,29 +54,50 @@ source "$HOME/.cargo/env"
 npm install -g @tokamak-zk-evm/cli
 ```
 
-`build-essential` is the minimum recommended baseline because the backend build uses a native C/C++
-toolchain and CMake-driven dependencies.
-
 ### Windows
 
 Native Windows installation is not supported. Use WSL2 or Docker.
 
-## Runtime Cache
+## Working Directory And Output Files
 
-By default the runtime cache is stored under:
+The CLI reads relative input paths from the directory where you run the command.
+
+Example:
+
+```bash
+cd /path/to/project
+tokamak-cli --synthesize ./L2StateChannel
+```
+
+In that example, `./L2StateChannel` means `/path/to/project/L2StateChannel`.
+
+The CLI does not write synth, preprocess, or prove outputs into your current directory.
+It writes them into the runtime cache.
+
+Default cache root:
 
 ```text
 ~/.tokamak-zk-evm/cli
 ```
 
-You can override that location with `TOKAMAK_ZKEVM_CLI_CACHE_DIR`.
+You can change that location with `TOKAMAK_ZKEVM_CLI_CACHE_DIR`.
 
-## Install Source
+Output locations under the cache:
 
-The package includes a vendored backend workspace under `vendor/backend/` and uses that
-self-contained source tree to build the local runtime.
+- `macos/runtime/resource/synthesizer/output`
+- `macos/runtime/resource/preprocess/output`
+- `macos/runtime/resource/prove/output`
+- `macos/runtime/resource/setup/output`
+- `linux/runtime/resource/synthesizer/output`
+- `linux/runtime/resource/preprocess/output`
+- `linux/runtime/resource/prove/output`
+- `linux/runtime/resource/setup/output`
 
-## Examples
+`--synthesize` clears the synth output directory before writing new files.
+
+`--extract-proof <OUTPUT_ZIP_PATH>` is different. It writes the zip file to the path you pass on the command line.
+
+## Basic Use
 
 ```bash
 tokamak-cli --install

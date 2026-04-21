@@ -1,0 +1,39 @@
+{
+  "channelId": 4,
+  "stateRoots": [
+    "0x39ce2263bd5caff8266ce32d5706aa26a5417972ae80f80f91468d060a77cfc0",
+    "0x2706b30e61bdfc645b1dc231f0ba1884d4732b9dac54a28d5cb718b8e27e375d"
+  ],
+  "storageAddresses": [
+    "0xa16e02e87b7454126e5e10d957a927a7f5b5d2be",
+    "0x14ef794e3c50cd4db9bde0eea3590edf230222fd"
+  ],
+  "storageKeys": [
+    [
+      "0x3bb47baad8f4e795af1cfb350bc4c73617394738f94a5d8a8fddcc9f79aeda25",
+      "0x2a00e8176c59f655aa5d95992a37cda4875c51955eaea6908af21bbf42b205c1"
+    ],
+    []
+  ],
+  "storageTrieRoots": [
+    "0x475f2b8083c29e879b60c4d7324b726338d92140617437715ed14e0b17510395",
+    "0x16a879c8e84b5f10aaca50c8973b0e21d3142cb62033d8b9631f8ec9a1c0e51e"
+  ],
+  "storageTrieDb": [
+    [
+      {
+        "key": "0x475f2b8083c29e879b60c4d7324b726338d92140617437715ed14e0b17510395",
+        "value": "0xf85180a03ff05aff9fcd6dbb31a37cc9c16c81ed5bece8f312c892fc40fbde9cf8160b2f808080a0392d1686083b5a8a46c1090a7d877a91568e9bc0776a26d4c76703a690b188078080808080808080808080"
+      },
+      {
+        "key": "0x3ff05aff9fcd6dbb31a37cc9c16c81ed5bece8f312c892fc40fbde9cf8160b2f",
+        "value": "0xe2a033511558a894a924e6f7e6a1881e1429919099a7b749008c326a7b8fca18387b01"
+      },
+      {
+        "key": "0x392d1686083b5a8a46c1090a7d877a91568e9bc0776a26d4c76703a690b18807",
+        "value": "0xe2a03eae3d1feb972b580a72130fce0db3c957117334e6fb099f0a83f051525fa39201"
+      }
+    ],
+    []
+  ]
+}
