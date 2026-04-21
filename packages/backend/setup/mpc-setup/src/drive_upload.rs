@@ -57,8 +57,7 @@ pub fn preflight_drive_upload() -> Result<DriveUploadConfig, DriveUploadError> {
     ensure_release_publish_supported()?;
     let _ = dotenvy::dotenv();
     let config = read_drive_upload_config()?;
-    let runtime = tokio::runtime::Runtime::new()
-        .map_err(|err| DriveUploadError::Message(format!("cannot create tokio runtime: {err}")))?;
+    let runtime = new_runtime()?;
     runtime.block_on(validate_drive_folder(&config))?;
     Ok(config)
 }
@@ -93,8 +92,7 @@ pub fn publish_output_archive(
     let build_metadata_path = resolve_build_metadata_path()?;
     create_output_archive(&output_path, &archive_path, &build_metadata_path)?;
 
-    let runtime = tokio::runtime::Runtime::new()
-        .map_err(|err| DriveUploadError::Message(format!("cannot create tokio runtime: {err}")))?;
+    let runtime = new_runtime()?;
     if let Err(err) = runtime.block_on(upload_archive(config, &archive_path, &archive_name)) {
         let _ = write_provenance(&output_path, &original_provenance);
         return Err(err);
@@ -187,20 +185,29 @@ fn create_output_archive(
 
     for file_name in FINAL_OUTPUT_FILES {
         let file_path = output_path.join(file_name);
-        let mut source = StdFile::open(&file_path)?;
-        let mut bytes = Vec::new();
-        source.read_to_end(&mut bytes)?;
-        archive.start_file(file_name, options.clone())?;
-        archive.write_all(&bytes)?;
+        add_file_to_archive(&mut archive, file_name, &file_path, options.clone())?;
     }
 
-    let mut source = StdFile::open(build_metadata_path)?;
-    let mut bytes = Vec::new();
-    source.read_to_end(&mut bytes)?;
-    archive.start_file(BUILD_METADATA_FILE_NAME, options.clone())?;
-    archive.write_all(&bytes)?;
+    add_file_to_archive(
+        &mut archive,
+        BUILD_METADATA_FILE_NAME,
+        build_metadata_path,
+        options.clone(),
+    )?;
 
     archive.finish()?;
+    Ok(())
+}
+
+fn add_file_to_archive(
+    archive: &mut zip::ZipWriter<StdFile>,
+    archive_name: &str,
+    source_path: &Path,
+    options: FileOptions<'_, ExtendedFileOptions>,
+) -> Result<(), DriveUploadError> {
+    let mut source = StdFile::open(source_path)?;
+    archive.start_file(archive_name, options)?;
+    io::copy(&mut source, archive)?;
     Ok(())
 }
 
@@ -363,6 +370,11 @@ async fn validate_drive_folder(config: &DriveUploadConfig) -> Result<(), DriveUp
 
 fn archive_version_prefix() -> String {
     format!("tokamak-backend-crs-v{}-", env!("CARGO_PKG_VERSION"))
+}
+
+fn new_runtime() -> Result<tokio::runtime::Runtime, DriveUploadError> {
+    tokio::runtime::Runtime::new()
+        .map_err(|err| DriveUploadError::Message(format!("cannot create tokio runtime: {err}")))
 }
 
 async fn upload_archive(
