@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+    paths:
+      - '.github/workflows/publish-cli.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'packages/cli/**'
+      - 'packages/frontend/synthesizer/node-cli/**'
 
 permissions:
   id-token: write
@@ -83,6 +89,16 @@ jobs:
           echo "Local version: ${{ steps.version-check.outputs.local_version }}"
           echo "Published version: ${{ steps.version-check.outputs.published_version }}"
           echo "Should publish: ${{ steps.version-check.outputs.should_publish }}"
+
+      - name: Validate CLI release readiness
+        if: steps.version-check.outputs.should_publish == 'true'
+        run: npm run --workspace @tokamak-zk-evm/cli release:check
+
+      - name: Show current CLI release notes
+        if: steps.version-check.outputs.should_publish == 'true'
+        run: |
+          echo "## @tokamak-zk-evm/cli ${{ steps.version-check.outputs.local_version }}" >> "$GITHUB_STEP_SUMMARY"
+          node packages/cli/scripts/release-readiness.cjs --print-current-notes >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build CLI package
         if: steps.version-check.outputs.should_publish == 'true'
