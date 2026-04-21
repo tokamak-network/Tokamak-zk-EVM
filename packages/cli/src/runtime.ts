@@ -80,12 +80,41 @@ const DOWNLOAD_PROGRESS_PERCENT_STEP = 5;
 
 function logVerbose(enabled: boolean, message: string): void {
   if (enabled) {
-    console.error(`[info] ${message}`);
+    writeStderrLine(`[info] ${message}`);
   }
 }
 
-function logDownloadProgress(message: string): void {
-  console.error(`[download] ${message}`);
+let activeDownloadProgressLength = 0;
+
+function flushActiveDownloadProgressLine(): void {
+  if (activeDownloadProgressLength === 0) {
+    return;
+  }
+  process.stderr.write('\n');
+  activeDownloadProgressLength = 0;
+}
+
+function writeStderrLine(message: string): void {
+  flushActiveDownloadProgressLine();
+  console.error(message);
+}
+
+function logDownloadProgress(message: string, done = false): void {
+  const line = `[download] ${message}`;
+  if (!process.stderr.isTTY) {
+    writeStderrLine(line);
+    return;
+  }
+
+  const renderedLine = line.padEnd(activeDownloadProgressLength, ' ');
+  if (done) {
+    process.stderr.write(`\r${renderedLine}\n`);
+    activeDownloadProgressLength = 0;
+    return;
+  }
+
+  process.stderr.write(`\r${renderedLine}`);
+  activeDownloadProgressLength = renderedLine.length;
 }
 
 export function detectPlatform(): CliPlatform {
@@ -350,7 +379,7 @@ export async function runCommand(
 ): Promise<CommandResult> {
   const { cwd, env, verbose = false } = options;
   if (verbose) {
-    console.error(`[info] Command: ${command} ${args.join(' ')}`);
+    writeStderrLine(`[info] Command: ${command} ${args.join(' ')}`);
   }
   return await new Promise<CommandResult>((resolve, reject) => {
     const child = spawn(command, args, {
@@ -572,11 +601,12 @@ async function streamDownloadToFile(
     });
   } catch (error) {
     writer.destroy();
+    flushActiveDownloadProgressLine();
     throw error;
   }
 
   if (finalizeProgress) {
-    logDownloadProgress(formatDownloadProgress(label, downloadedBytes, totalBytes, true));
+    logDownloadProgress(formatDownloadProgress(label, downloadedBytes, totalBytes, true), true);
   }
 }
 
