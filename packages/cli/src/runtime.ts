@@ -445,6 +445,45 @@ async function readLinuxUbuntuMajorVersion(): Promise<'20' | '22'> {
   }
 }
 
+async function linuxCudaBackendAvailable(verbose: boolean): Promise<boolean> {
+  if (process.platform !== 'linux') {
+    return false;
+  }
+
+  if (!commandExists('nvidia-smi')) {
+    logVerbose(verbose, 'Skipping CUDA ICICLE backend installation because `nvidia-smi` is not available.');
+    return false;
+  }
+
+  try {
+    const result = await runCommand(
+      'nvidia-smi',
+      ['--query-gpu=name,driver_version', '--format=csv,noheader'],
+      { verbose: false },
+    );
+    const detectedDevices = result.stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    if (detectedDevices.length === 0) {
+      logVerbose(verbose, 'Skipping CUDA ICICLE backend installation because no NVIDIA GPUs were reported.');
+      return false;
+    }
+    logVerbose(
+      verbose,
+      `Installing CUDA ICICLE backend for detected NVIDIA device(s): ${detectedDevices.join('; ')}`,
+    );
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logVerbose(
+      verbose,
+      `Skipping CUDA ICICLE backend installation because CUDA capability detection failed: ${message}`,
+    );
+    return false;
+  }
+}
+
 async function buildBackendReleaseBinaries(
   backendRoot: string,
   options: InstallOptions,
@@ -828,17 +867,19 @@ async function installIcicleRuntime(context: RuntimeContext, verbose: boolean): 
     } else {
       const ubuntuMajor = await readLinuxUbuntuMajorVersion();
       const commonTarball = path.join(tempRoot, `icicle_3_8_0-ubuntu${ubuntuMajor}.tar.gz`);
-      const backendTarball = path.join(tempRoot, `icicle_3_8_0-ubuntu${ubuntuMajor}-cuda122.tar.gz`);
       await downloadFile(
         `https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-ubuntu${ubuntuMajor}.tar.gz`,
         commonTarball,
       );
-      await downloadFile(
-        `https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-ubuntu${ubuntuMajor}-cuda122.tar.gz`,
-        backendTarball,
-      );
       await extractTarArchive(commonTarball, tempRoot, verbose);
-      await extractTarArchive(backendTarball, tempRoot, verbose);
+      if (await linuxCudaBackendAvailable(verbose)) {
+        const backendTarball = path.join(tempRoot, `icicle_3_8_0-ubuntu${ubuntuMajor}-cuda122.tar.gz`);
+        await downloadFile(
+          `https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-ubuntu${ubuntuMajor}-cuda122.tar.gz`,
+          backendTarball,
+        );
+        await extractTarArchive(backendTarball, tempRoot, verbose);
+      }
     }
 
     await copyDirectoryContents(path.join(tempRoot, 'icicle'), path.join(context.runtimeDir, 'backend-lib', 'icicle'));
