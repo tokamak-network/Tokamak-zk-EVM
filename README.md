@@ -250,7 +250,7 @@ folder. Use `./tokamak-cli --install --trusted-setup` to generate CRS locally, o
 
 | Package                                                   | Description                                                                       | Language       | Version |
 | --------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------- | ------- |
-| [`mpc-setup`](./packages/backend/setup/mpc-setup)         | Tokamak zk-SNARK's setup algorithm (multi-party computation version)              | Rust           | [`1.0.0` on Google Drive](https://drive.google.com/drive/folders/1Xvm8mdliHJZafzE5jaPidK4xqWAM0F9A) |
+| [`mpc-setup`](./packages/backend/setup/mpc-setup)         | Tokamak zk-SNARK's setup algorithm (multi-party computation version)              | Rust           | [`1.0.0` on Google Drive](https://drive.google.com/drive/u/0/folders/14xqCbLoyoVmUVTTlopiXtKnoHPBGL-Sv) |
 | [`trusted-setup`](./packages/backend/setup/trusted-setup) | Tokamak zk-SNARK's setup algorithm (trusted single entity version)                | Rust           | `1.0.0` |
 | [`prover`](./packages/backend/prove)                      | Tokamak zk-SNARK's proving algorithm                                              | Rust           | `1.0.0` |
 | [`verify`](./packages/backend/verify)                     | Tokamak zk-SNARK's verifying algorithm                                            | Rust, Solidity | `1.0.0` |
