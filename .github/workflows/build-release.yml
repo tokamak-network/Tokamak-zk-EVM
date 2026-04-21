@@ -46,12 +46,6 @@ jobs:
       - name: Install CLI workspace dependencies
         run: npm ci --workspace @tokamak-zk-evm/cli
 
-      - name: Install published synthesizer-node for CLI build
-        run: |
-          version=$(node -p "require('./packages/cli/package.json').dependencies['@tokamak-zk-evm/synthesizer-node']")
-          cd packages/cli
-          npm install --no-save "@tokamak-zk-evm/synthesizer-node@$version"
-
       - name: Build CLI package
         run: npm run build --workspace @tokamak-zk-evm/cli
 
@@ -210,12 +204,6 @@ jobs:
       - name: Install CLI workspace dependencies
         run: npm ci --workspace @tokamak-zk-evm/cli
 
-      - name: Install published synthesizer-node for CLI build
-        run: |
-          version=$(node -p "require('./packages/cli/package.json').dependencies['@tokamak-zk-evm/synthesizer-node']")
-          cd packages/cli
-          npm install --no-save "@tokamak-zk-evm/synthesizer-node@$version"
-
       - name: Build CLI package
         run: npm run build --workspace @tokamak-zk-evm/cli
 
@@ -343,12 +331,6 @@ jobs:
 
       - name: Install CLI workspace dependencies
         run: npm ci --workspace @tokamak-zk-evm/cli
-
-      - name: Install published synthesizer-node for CLI build
-        run: |
-          version=$(node -p "require('./packages/cli/package.json').dependencies['@tokamak-zk-evm/synthesizer-node']")
-          cd packages/cli
-          npm install --no-save "@tokamak-zk-evm/synthesizer-node@$version"
 
       - name: Build CLI package
         run: npm run build --workspace @tokamak-zk-evm/cli
