@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.2 - 2026-04-22
+
+- Avoided duplicate CLI publish attempts in the GitHub Actions release workflow while keeping `npm run publish` available for maintainers.
+- Aligned CLI setup artifact handling with the current CRS package format by expecting `sigma_verify.json` during install and verification.
+
 ## 2.0.1 - 2026-04-22
 
 - Added `--uninstall` so the CLI can remove its local workspace and cached runtime files for the current platform.
