@@ -335,8 +335,8 @@ async fn validate_drive_folder(config: &DriveUploadConfig) -> Result<(), DriveUp
 
     let archive_prefix = archive_version_prefix();
     let list_query = format!(
-        "'{}' in parents and trashed = false and mimeType != '{}' and name contains '{}'",
-        config.folder_id, DRIVE_FOLDER_MIME_TYPE, archive_prefix
+        "'{}' in parents and trashed = false and mimeType = 'application/zip'",
+        config.folder_id
     );
     let (_, listing) = hub
         .files()
@@ -350,17 +350,17 @@ async fn validate_drive_folder(config: &DriveUploadConfig) -> Result<(), DriveUp
         .doit()
         .await?;
     if let Some(existing_files) = listing.files {
-        if !existing_files.is_empty() {
-            let existing_names = existing_files
-                .into_iter()
-                .filter_map(|file| file.name)
-                .collect::<Vec<_>>()
-                .join(", ");
+        let existing_names = existing_files
+            .into_iter()
+            .filter_map(|file| file.name)
+            .filter(|name| name.starts_with(&archive_prefix))
+            .collect::<Vec<_>>();
+        if !existing_names.is_empty() {
             return Err(DriveUploadError::Message(format!(
                 "drive folder {} already contains CRS archive(s) for backend version {}: {}; bump the backend version before publishing again",
                 config.folder_id,
                 env!("CARGO_PKG_VERSION"),
-                existing_names
+                existing_names.join(", ")
             )));
         }
     }
