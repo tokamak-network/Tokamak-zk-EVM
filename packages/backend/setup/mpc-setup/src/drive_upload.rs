@@ -4,12 +4,14 @@ use google_drive3::hyper::client::HttpConnector;
 use google_drive3::hyper::Client;
 use google_drive3::hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use google_drive3::{oauth2, DriveHub};
-use oauth2::ServiceAccountAuthenticator;
+use oauth2::authenticator_delegate::{DefaultInstalledFlowDelegate, InstalledFlowDelegate};
 use serde_json::from_slice;
 use std::env;
+use std::future::Future;
 use std::fs;
 use std::fs::File as StdFile;
 use std::io::{self, Read, Write};
+use std::pin::Pin;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use zip::write::{ExtendedFileOptions, FileOptions};
@@ -24,13 +26,15 @@ const FINAL_OUTPUT_FILES: [&str; 4] = [
     PROVENANCE_FILE_NAME,
 ];
 const DRIVE_FOLDER_ID_ENV: &str = "TOKAMAK_MPC_DRIVE_FOLDER_ID";
-const DRIVE_SERVICE_ACCOUNT_PATH_ENV: &str = "TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH";
+const DRIVE_OAUTH_CLIENT_PATH_ENV: &str = "TOKAMAK_MPC_DRIVE_OAUTH_CLIENT_JSON_PATH";
+const DRIVE_OAUTH_TOKEN_PATH_ENV: &str = "TOKAMAK_MPC_DRIVE_OAUTH_TOKEN_PATH";
 
 #[derive(Debug, Clone)]
 pub struct DriveUploadConfig {
     pub folder_id: String,
     pub folder_url: String,
-    pub service_account_json_path: PathBuf,
+    pub oauth_client_json_path: PathBuf,
+    pub oauth_token_path: PathBuf,
 }
 
 #[derive(Debug, Clone)]
@@ -106,21 +110,26 @@ pub fn publish_output_archive(
 
 fn read_drive_upload_config() -> Result<DriveUploadConfig, DriveUploadError> {
     let folder_id = read_required_env(DRIVE_FOLDER_ID_ENV)?;
-    let service_account_json_path =
-        PathBuf::from(read_required_env(DRIVE_SERVICE_ACCOUNT_PATH_ENV)?);
+    let oauth_client_json_path = PathBuf::from(read_required_env(DRIVE_OAUTH_CLIENT_PATH_ENV)?);
+    let oauth_token_path = PathBuf::from(read_required_env(DRIVE_OAUTH_TOKEN_PATH_ENV)?);
 
-    if !service_account_json_path.exists() {
+    if !oauth_client_json_path.exists() {
         return Err(DriveUploadError::Message(format!(
             "{} points to a missing file: {}",
-            DRIVE_SERVICE_ACCOUNT_PATH_ENV,
-            service_account_json_path.display()
+            DRIVE_OAUTH_CLIENT_PATH_ENV,
+            oauth_client_json_path.display()
         )));
+    }
+
+    if let Some(parent) = oauth_token_path.parent() {
+        fs::create_dir_all(parent)?;
     }
 
     Ok(DriveUploadConfig {
         folder_url: drive_folder_url(&folder_id),
         folder_id,
-        service_account_json_path,
+        oauth_client_json_path,
+        oauth_token_path,
     })
 }
 
@@ -304,7 +313,7 @@ fn ensure_release_publish_supported() -> Result<(), DriveUploadError> {
 }
 
 async fn validate_drive_folder(config: &DriveUploadConfig) -> Result<(), DriveUploadError> {
-    let hub = build_drive_hub(&config.service_account_json_path).await?;
+    let hub = build_drive_hub(config).await?;
     let (_, folder) = hub
         .files()
         .get(&config.folder_id)
@@ -328,7 +337,7 @@ async fn validate_drive_folder(config: &DriveUploadConfig) -> Result<(), DriveUp
         .unwrap_or(false);
     if !can_add_children {
         return Err(DriveUploadError::Message(format!(
-            "service account cannot upload into drive folder {}",
+            "authenticated Google Drive user cannot upload into drive folder {}",
             config.folder_id
         )));
     }
@@ -382,7 +391,7 @@ async fn upload_archive(
     archive_path: &Path,
     archive_name: &str,
 ) -> Result<(), DriveUploadError> {
-    let hub = build_drive_hub(&config.service_account_json_path).await?;
+    let hub = build_drive_hub(config).await?;
     let metadata = File {
         name: Some(archive_name.to_string()),
         mime_type: Some("application/zip".to_string()),
@@ -451,16 +460,48 @@ async fn configure_public_archive_access(
     Ok(())
 }
 
+#[derive(Copy, Clone)]
+struct DriveOauthBrowserDelegate;
+
+impl InstalledFlowDelegate for DriveOauthBrowserDelegate {
+    fn present_user_url<'a>(
+        &'a self,
+        url: &'a str,
+        need_code: bool,
+    ) -> Pin<Box<dyn Future<Output = Result<String, String>> + Send + 'a>> {
+        Box::pin(async move {
+            if webbrowser::open(url).is_ok() {
+                println!("Opened a browser window for Google Drive login.");
+            }
+            let delegate = DefaultInstalledFlowDelegate;
+            delegate.present_user_url(url, need_code).await
+        })
+    }
+}
+
 async fn build_drive_hub(
-    service_account_json_path: &Path,
+    config: &DriveUploadConfig,
 ) -> Result<DriveHub<HttpsConnector<HttpConnector>>, DriveUploadError> {
-    let service_account_json = fs::read_to_string(service_account_json_path)?;
-    let key: oauth2::ServiceAccountKey = serde_json::from_str(&service_account_json)?;
-    let auth = ServiceAccountAuthenticator::builder(key)
+    let app_secret = oauth2::read_application_secret(&config.oauth_client_json_path)
+        .await
+        .map_err(|err| {
+            DriveUploadError::Message(format!(
+                "cannot read OAuth client JSON from {}: {err}",
+                config.oauth_client_json_path.display()
+            ))
+        })?;
+    let auth = oauth2::InstalledFlowAuthenticator::builder(
+        app_secret,
+        oauth2::InstalledFlowReturnMethod::HTTPRedirect,
+    )
+    .persist_tokens_to_disk(&config.oauth_token_path)
+    .flow_delegate(Box::new(DriveOauthBrowserDelegate))
         .build()
         .await
         .map_err(|err| {
-            DriveUploadError::Message(format!("cannot build service account authenticator: {err}"))
+            DriveUploadError::Message(format!(
+                "cannot build Google Drive OAuth authenticator: {err}"
+            ))
         })?;
     let https = HttpsConnectorBuilder::new()
         .with_native_roots()

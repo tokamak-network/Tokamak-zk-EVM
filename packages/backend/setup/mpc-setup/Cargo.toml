@@ -35,7 +35,6 @@ clap = { version = "4.4", features = ["derive"] }
 chrono = "0.4"
 tokio = { version = "1", features = ["full"] }
 google-drive3 = "5.0.0+20220225"
-oauth2 = { version = "5.0.0", features = ["rustls-tls"] }
 
 hyper = { version = "0.14", features = ["full"] }
 hyper-rustls = "0.24"
@@ -46,6 +45,7 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 sha2 = "0.10"
 dotenvy = "0.15"
 mime = "0.3"
+webbrowser = "1.0"
 [features]
 default = []
 testing-mode = ["libs/testing-mode"]

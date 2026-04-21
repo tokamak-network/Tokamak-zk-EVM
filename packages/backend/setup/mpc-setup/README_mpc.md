@@ -99,12 +99,16 @@ cargo run -p mpc-setup --bin dusk_backed_mpc_setup -- \
 Required `.env` keys for dusk-backed uploads:
 
 - `TOKAMAK_MPC_DRIVE_FOLDER_ID`
-- `TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH`
+- `TOKAMAK_MPC_DRIVE_OAUTH_CLIENT_JSON_PATH`
+- `TOKAMAK_MPC_DRIVE_OAUTH_TOKEN_PATH`
 
 The published folder URL in provenance is derived automatically from
 `TOKAMAK_MPC_DRIVE_FOLDER_ID`.
-The service account must be able to change sharing permissions on uploaded files as well as add
-children to the folder.
+The OAuth client JSON file must be a Google desktop-app client credential file.
+On the first publication run, `dusk_backed_mpc_setup` opens a browser window for Google login and
+stores the OAuth token at `TOKAMAK_MPC_DRIVE_OAUTH_TOKEN_PATH`.
+The authenticated Google account must be able to change sharing permissions on uploaded files as
+well as add children to the folder.
 
 ## Testing-Mode Builds
 

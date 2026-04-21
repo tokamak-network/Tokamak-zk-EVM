@@ -2,3 +2,4 @@
 /external-lib
 .env
 gen-lang-client-*.json
+client_secret_*.json

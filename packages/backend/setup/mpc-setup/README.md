@@ -124,13 +124,17 @@ The current pinned Dusk source is:
 Required keys:
 
 - `TOKAMAK_MPC_DRIVE_FOLDER_ID`
-- `TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH`
+- `TOKAMAK_MPC_DRIVE_OAUTH_CLIENT_JSON_PATH`
+- `TOKAMAK_MPC_DRIVE_OAUTH_TOKEN_PATH`
 
-The service account JSON file must have permission to add children to the configured folder.
 The published folder URL recorded in provenance is derived automatically from
 `TOKAMAK_MPC_DRIVE_FOLDER_ID`.
-The service account must also be allowed to create file permissions and update file sharing
-restrictions on uploaded archives; otherwise the publication step fails after upload.
+The OAuth client JSON file must be a Google desktop-app client credential file.
+On the first publication run, `dusk_backed_mpc_setup` opens a browser window for Google login and
+stores the OAuth token at `TOKAMAK_MPC_DRIVE_OAUTH_TOKEN_PATH`.
+The authenticated Google account must be able to add children to the configured folder and must
+also be allowed to create file permissions and update file sharing restrictions on uploaded
+archives; otherwise the publication step fails after upload.
 If preflight fails or the upload fails, the whole dusk-backed setup run fails.
 
 ## Testing-Mode Builds
