@@ -3,6 +3,7 @@
 ## 2.0.1 - 2026-04-22
 
 - Added `--uninstall` so the CLI can remove its local workspace and cached runtime files for the current platform.
+- Changed Linux runtime installation to download the ICICLE CUDA backend only when an NVIDIA GPU is detected.
 
 ## 2.0.0 - 2026-04-21
 
