@@ -75,7 +75,7 @@ const CRS_DRIVE_FOLDER_ID = '14xqCbLoyoVmUVTTlopiXtKnoHPBGL-Sv';
 const CRS_DRIVE_FOLDER_URL = 'https://drive.google.com/drive/mobile/folders';
 const CRS_DOWNLOAD_BASE_URL = 'https://drive.usercontent.google.com/download';
 const CRS_DOWNLOAD_CHUNK_SIZE = 64 * 1024 * 1024;
-const CRS_DOWNLOAD_MAX_RETRIES = 5;
+const CRS_DOWNLOAD_MAX_RETRIES = 10;
 const CRS_DOWNLOAD_RETRY_BASE_DELAY_MS = 1_000;
 
 function logVerbose(enabled: boolean, message: string): void {
