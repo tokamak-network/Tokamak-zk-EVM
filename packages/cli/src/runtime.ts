@@ -79,7 +79,7 @@ function prerequisiteInstallHint(platform: CliPlatform): string {
   if (platform === 'macos') {
     return [
       'Install the missing prerequisites and retry:',
-      '  xcode-select --install',
+      '  Install Apple developer tools with either `xcode-select --install` or a full Xcode installation.',
       '  brew install node cmake',
       '  curl https://sh.rustup.rs -sSf | sh',
       '  source "$HOME/.cargo/env"',
@@ -117,8 +117,11 @@ function collectPrerequisiteFailures(
     'cmake',
     'curl',
     'tar',
-    'unzip',
   ];
+
+  if (!options.noSetup && !options.trustedSetup) {
+    requiredCommands.push('unzip');
+  }
 
   for (const command of requiredCommands) {
     if (!commandExists(command)) {
@@ -130,17 +133,11 @@ function collectPrerequisiteFailures(
   }
 
   if (platform === 'macos') {
-    if (!commandExists('xcode-select') || !commandWorks('xcode-select', ['-p'])) {
-      failures.push({
-        name: 'xcode-select',
-        reason: 'Xcode Command Line Tools are not installed or not configured.',
-      });
-    }
-    for (const compiler of ['cc', 'c++']) {
+    for (const compiler of ['cc', 'c++', 'install_name_tool']) {
       if (!commandExists(compiler)) {
         failures.push({
           name: compiler,
-          reason: `${compiler} is not available on PATH. Install Xcode Command Line Tools.`,
+          reason: `${compiler} is not available on PATH. Install Apple developer tools.`,
         });
       }
     }
@@ -155,12 +152,17 @@ function collectPrerequisiteFailures(
     }
   }
 
-  if (!options.noSetup && process.env.TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH) {
+  if (
+    !options.noSetup &&
+    !options.trustedSetup &&
+    (process.env.TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH ||
+      process.env.TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON)
+  ) {
     if (!commandExists('python3')) {
       failures.push({
         name: 'python3',
         reason:
-          'python3 is required when TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH is set for authenticated CRS downloads.',
+          'python3 is required when authenticated CRS downloads are enabled with TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON or TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH.',
       });
     }
   }

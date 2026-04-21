@@ -36,7 +36,16 @@ The consumer machine must provide the local build toolchain required by `--insta
 - `cmake`
 - `pkg-config` on Linux
 
+`npm` is required not only for package installation but also during the backend release build.
+The backend build scripts resolve and pack the published `@tokamak-zk-evm/subcircuit-library`
+package while embedding release metadata.
+
 ### macOS
+
+Install Apple developer tools first. Either of the following is acceptable:
+
+- `xcode-select --install`
+- a full Xcode installation with the active developer directory configured
 
 ```bash
 xcode-select --install
@@ -45,6 +54,9 @@ curl https://sh.rustup.rs -sSf | sh
 source "$HOME/.cargo/env"
 npm install -g @tokamak-zk-evm/cli
 ```
+
+The macOS install path also uses `install_name_tool` while configuring the packaged backend
+runtime, so the selected Apple developer tools must provide `cc`, `c++`, and `install_name_tool`.
 
 ### Linux
 
@@ -55,6 +67,9 @@ curl https://sh.rustup.rs -sSf | sh
 source "$HOME/.cargo/env"
 npm install -g @tokamak-zk-evm/cli
 ```
+
+`build-essential` is the minimum recommended baseline because the backend build uses a native C/C++
+toolchain and CMake-driven dependencies.
 
 ### Windows
 

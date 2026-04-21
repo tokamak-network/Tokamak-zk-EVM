@@ -43,9 +43,18 @@ The local machine must provide all of the following before `npm install @tokamak
 - A working C/C++ build toolchain
 - `pkg-config` on Linux
 
+`npm` remains part of the minimum toolchain even after the package is installed. During the backend
+release build, the Rust build scripts resolve and pack the published
+`@tokamak-zk-evm/subcircuit-library` package to embed the release snapshot and metadata.
+
 ### macOS setup
 
-1. Install Xcode Command Line Tools:
+1. Install Apple developer tools.
+   Either of the following is acceptable:
+   - `xcode-select --install`
+   - a full Xcode installation with the active developer directory configured
+
+   Example:
    ```bash
    xcode-select --install
    ```
@@ -70,14 +79,17 @@ The local machine must provide all of the following before `npm install @tokamak
    curl --version
    tar --version
    unzip -v
-   xcode-select -p
    cc --version
    c++ --version
+   install_name_tool -h
    ```
 6. Install the CLI package:
    ```bash
    npm install -g @tokamak-zk-evm/cli
    ```
+
+The macOS packaging path rewrites runtime library search paths with `install_name_tool`, so the
+selected Apple developer tools must provide `cc`, `c++`, and `install_name_tool`.
 
 ### Linux setup
 
