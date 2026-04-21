@@ -92,7 +92,7 @@ It writes them into the runtime cache.
 Default cache root:
 
 ```text
-~/.tokamak-zk-evm/cli
+~/.tokamak-zk-evm
 ```
 
 You can change that location with `TOKAMAK_ZKEVM_CLI_CACHE_DIR`.

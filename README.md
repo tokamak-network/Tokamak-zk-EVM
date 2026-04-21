@@ -194,7 +194,7 @@ node packages/cli/dist/cli.js
 
 In the examples below, replace `<CLI>` with the entrypoint that matches your setup.
 
-The CLI stores runtime artifacts under `~/.tokamak-zk-evm/cli/<platform>/runtime/resource` by default.
+The CLI stores runtime artifacts under `~/.tokamak-zk-evm/<platform>/runtime/resource` by default.
 
 1) **Install** (install published runtime packages, build backend binaries, and prepare setup artifacts)
 ```bash

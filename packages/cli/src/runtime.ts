@@ -245,7 +245,7 @@ export function resolveCacheRoot(): string {
   if (configured) {
     return path.resolve(configured);
   }
-  return path.join(os.homedir(), '.tokamak-zk-evm', 'cli');
+  return path.join(os.homedir(), '.tokamak-zk-evm');
 }
 
 export function resolvePackageRoot(): string {
@@ -1178,11 +1178,5 @@ export async function uninstallRuntime(): Promise<RuntimeContext> {
   const context = await createRuntimeContext();
   await fs.rm(context.platformDir, { recursive: true, force: true });
   await removeDirectoryIfEmpty(context.cacheRoot);
-
-  const defaultCacheRoot = path.join(os.homedir(), '.tokamak-zk-evm', 'cli');
-  if (path.resolve(context.cacheRoot) === defaultCacheRoot) {
-    await removeDirectoryIfEmpty(path.dirname(defaultCacheRoot));
-  }
-
   return context;
 }
