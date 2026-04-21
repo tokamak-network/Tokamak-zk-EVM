@@ -48,6 +48,19 @@ interface DriveArchiveSelection {
   generatedAt: string;
 }
 
+interface RemoteDownloadMetadata {
+  acceptRanges: boolean;
+  contentLength: number;
+  lastModified: string | null;
+}
+
+interface ResumableDownloadState {
+  archiveName: string;
+  contentLength: number;
+  fileId: string;
+  lastModified: string | null;
+}
+
 interface BackendBuildMetadata {
   dependencies?: {
     subcircuitLibrary?: {
@@ -61,6 +74,9 @@ const CACHE_DIR_ENV = 'TOKAMAK_ZKEVM_CLI_CACHE_DIR';
 const CRS_DRIVE_FOLDER_ID = '14xqCbLoyoVmUVTTlopiXtKnoHPBGL-Sv';
 const CRS_DRIVE_FOLDER_URL = 'https://drive.google.com/drive/mobile/folders';
 const CRS_DOWNLOAD_BASE_URL = 'https://drive.usercontent.google.com/download';
+const CRS_DOWNLOAD_CHUNK_SIZE = 64 * 1024 * 1024;
+const CRS_DOWNLOAD_MAX_RETRIES = 5;
+const CRS_DOWNLOAD_RETRY_BASE_DELAY_MS = 1_000;
 
 function logVerbose(enabled: boolean, message: string): void {
   if (enabled) {
@@ -288,6 +304,15 @@ async function emptyDir(dirPath: string): Promise<void> {
   await fs.mkdir(dirPath, { recursive: true });
 }
 
+async function fileSizeIfExists(target: string): Promise<number | null> {
+  try {
+    const stat = await fs.stat(target);
+    return stat.size;
+  } catch {
+    return null;
+  }
+}
+
 function prependEnvPath(existing: string | undefined, nextValue: string): string {
   return existing && existing.length > 0 ? `${nextValue}:${existing}` : nextValue;
 }
@@ -432,6 +457,178 @@ async function downloadFile(url: string, destinationPath: string): Promise<void>
     Readable.fromWeb(response.body as globalThis.ReadableStream<Uint8Array>),
     fsSync.createWriteStream(destinationPath),
   );
+}
+
+function resumableDownloadStatePath(partialPath: string): string {
+  return `${partialPath}.json`;
+}
+
+async function readResumableDownloadState(partialPath: string): Promise<ResumableDownloadState | null> {
+  try {
+    const contents = await fs.readFile(resumableDownloadStatePath(partialPath), 'utf8');
+    return JSON.parse(contents) as ResumableDownloadState;
+  } catch {
+    return null;
+  }
+}
+
+async function writeResumableDownloadState(partialPath: string, state: ResumableDownloadState): Promise<void> {
+  await fs.writeFile(resumableDownloadStatePath(partialPath), `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+}
+
+async function removeResumableDownloadArtifacts(partialPath: string): Promise<void> {
+  await fs.rm(partialPath, { force: true });
+  await fs.rm(resumableDownloadStatePath(partialPath), { force: true });
+}
+
+async function sleep(milliseconds: number): Promise<void> {
+  await new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
+async function readRemoteDownloadMetadata(url: string): Promise<RemoteDownloadMetadata> {
+  const response = await fetch(url, {
+    method: 'HEAD',
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to inspect ${url}: ${response.status} ${response.statusText}`);
+  }
+  const contentLength = Number.parseInt(response.headers.get('content-length') ?? '', 10);
+  if (!Number.isFinite(contentLength) || contentLength <= 0) {
+    throw new Error(`Download endpoint did not provide a valid content length for ${url}.`);
+  }
+  return {
+    acceptRanges: response.headers.get('accept-ranges') === 'bytes',
+    contentLength,
+    lastModified: response.headers.get('last-modified'),
+  };
+}
+
+function matchesResumableDownloadState(
+  state: ResumableDownloadState | null,
+  expected: ResumableDownloadState,
+): state is ResumableDownloadState {
+  return (
+    state !== null &&
+    state.archiveName === expected.archiveName &&
+    state.fileId === expected.fileId &&
+    state.contentLength === expected.contentLength &&
+    state.lastModified === expected.lastModified
+  );
+}
+
+async function finalizeResumableDownload(
+  partialPath: string,
+  destinationPath: string,
+  expectedLength: number,
+): Promise<void> {
+  const finalSize = await fileSizeIfExists(partialPath);
+  if (finalSize !== expectedLength) {
+    throw new Error(
+      `Download finished with ${finalSize ?? 0} bytes, but ${expectedLength} bytes were expected.`,
+    );
+  }
+  await fs.rename(partialPath, destinationPath);
+  await fs.rm(resumableDownloadStatePath(partialPath), { force: true });
+}
+
+async function downloadFileWithResume(
+  url: string,
+  destinationPath: string,
+  state: ResumableDownloadState,
+  verbose: boolean,
+): Promise<void> {
+  const partialPath = `${destinationPath}.part`;
+  const existingState = await readResumableDownloadState(partialPath);
+  if (!matchesResumableDownloadState(existingState, state)) {
+    await removeResumableDownloadArtifacts(partialPath);
+  }
+
+  await ensureDir(path.dirname(destinationPath));
+  const finalSize = await fileSizeIfExists(destinationPath);
+  if (finalSize === state.contentLength) {
+    logVerbose(verbose, `Using cached CRS archive ${destinationPath}`);
+    return;
+  }
+  if (finalSize !== null) {
+    await fs.rm(destinationPath, { force: true });
+  }
+
+  await writeResumableDownloadState(partialPath, state);
+
+  let consecutiveFailures = 0;
+  while (true) {
+    const offset = (await fileSizeIfExists(partialPath)) ?? 0;
+    if (offset > state.contentLength) {
+      await removeResumableDownloadArtifacts(partialPath);
+      await writeResumableDownloadState(partialPath, state);
+      continue;
+    }
+    if (offset === state.contentLength) {
+      await finalizeResumableDownload(partialPath, destinationPath, state.contentLength);
+      return;
+    }
+
+    const chunkEnd = Math.min(offset + CRS_DOWNLOAD_CHUNK_SIZE - 1, state.contentLength - 1);
+    const headers = {
+      Range: `bytes=${offset}-${chunkEnd}`,
+    };
+    logVerbose(
+      verbose,
+      `Downloading CRS bytes ${offset}-${chunkEnd} of ${state.contentLength} (${state.archiveName})`,
+    );
+
+    try {
+      const response = await fetch(url, { headers });
+      if (!response.ok) {
+        throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
+      }
+      if (response.body === null) {
+        throw new Error(`Download response did not contain a body: ${url}`);
+      }
+      if (response.status !== 206) {
+        throw new Error(`Expected HTTP 206 for CRS chunk download, received ${response.status}`);
+      }
+      const contentRange = response.headers.get('content-range');
+      if (!contentRange?.startsWith(`bytes ${offset}-`)) {
+        throw new Error(`Resume response started at an unexpected offset: ${contentRange ?? '<missing>'}`);
+      }
+
+      await pipeline(
+        Readable.fromWeb(response.body as globalThis.ReadableStream<Uint8Array>),
+        fsSync.createWriteStream(partialPath, { flags: offset > 0 ? 'a' : 'w' }),
+      );
+
+      const currentSize = await fileSizeIfExists(partialPath);
+      const expectedSize = chunkEnd + 1;
+      if (currentSize !== expectedSize) {
+        throw new Error(
+          `CRS chunk write ended at ${currentSize ?? 0} bytes, but ${expectedSize} bytes were expected after this chunk.`,
+        );
+      }
+      consecutiveFailures = 0;
+      if (currentSize === state.contentLength) {
+        await finalizeResumableDownload(partialPath, destinationPath, state.contentLength);
+        return;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const currentSize = (await fileSizeIfExists(partialPath)) ?? 0;
+      consecutiveFailures += 1;
+      if (consecutiveFailures >= CRS_DOWNLOAD_MAX_RETRIES) {
+        throw new Error(
+          `CRS download failed after ${consecutiveFailures} consecutive attempts at ${currentSize} of ${state.contentLength} bytes: ${message}`,
+        );
+      }
+      const delayMs = CRS_DOWNLOAD_RETRY_BASE_DELAY_MS * 2 ** (consecutiveFailures - 1);
+      logVerbose(
+        verbose,
+        `CRS download attempt ${consecutiveFailures} failed at ${currentSize} of ${state.contentLength} bytes: ${message}. Retrying in ${delayMs}ms...`,
+      );
+      await sleep(delayMs);
+    }
+  }
 }
 
 async function extractTarArchive(archivePath: string, destinationPath: string, verbose: boolean): Promise<void> {
@@ -600,10 +797,30 @@ function driveDirectDownloadUrl(fileId: string): string {
   return `${CRS_DOWNLOAD_BASE_URL}?id=${fileId}&export=download&confirm=t`;
 }
 
-async function downloadLatestCrsArchive(destinationDir: string): Promise<{ archivePath: string; archiveName: string }> {
+async function downloadLatestCrsArchive(
+  context: RuntimeContext,
+  verbose: boolean,
+): Promise<{ archivePath: string; archiveName: string }> {
   const selection = await selectLatestDriveArchive();
-  const archivePath = path.join(destinationDir, selection.name);
-  await downloadFile(driveDirectDownloadUrl(selection.fileId), archivePath);
+  const url = driveDirectDownloadUrl(selection.fileId);
+  const remoteMetadata = await readRemoteDownloadMetadata(url);
+  if (!remoteMetadata.acceptRanges) {
+    throw new Error('The CRS download endpoint does not support byte-range requests required for safe resume.');
+  }
+
+  const downloadDir = path.join(context.platformDir, 'downloads', 'crs');
+  const archivePath = path.join(downloadDir, selection.name);
+  await downloadFileWithResume(
+    url,
+    archivePath,
+    {
+      archiveName: selection.name,
+      contentLength: remoteMetadata.contentLength,
+      fileId: selection.fileId,
+      lastModified: remoteMetadata.lastModified,
+    },
+    verbose,
+  );
   return {
     archivePath,
     archiveName: selection.name,
@@ -663,10 +880,9 @@ async function installDownloadedSetup(
   verbose: boolean,
 ): Promise<void> {
   const paths = runtimePaths(context);
-  const archiveDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-crs-download-'));
   const extractedDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-crs-extract-'));
   try {
-    const { archivePath, archiveName } = await downloadLatestCrsArchive(archiveDir);
+    const { archivePath, archiveName } = await downloadLatestCrsArchive(context, verbose);
     await extractZipArchive(archivePath, extractedDir, verbose);
     const { mpcMetadataPath, provenancePath } = await validateDownloadedCrsVersions(
       extractedDir,
@@ -695,7 +911,6 @@ async function installDownloadedSetup(
       await fs.copyFile(provenancePath, path.join(paths.setupOutputDir, 'crs_provenance.json'));
     }
   } finally {
-    await fs.rm(archiveDir, { recursive: true, force: true });
     await fs.rm(extractedDir, { recursive: true, force: true });
   }
 }
