@@ -40,6 +40,9 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Install CLI workspace dependencies
+        run: npm ci --workspace @tokamak-zk-evm/cli
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -69,11 +72,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Make scripts executable
-        run: |
-          chmod +x ./tokamak-cli
-          chmod +x ./scripts/tokamak-cli-core
-
       - name: Build and setup environment
         env:
           TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON }}
@@ -85,7 +83,7 @@ jobs:
 
           # Run install step (this builds all binaries)
           echo "🔧 Running tokamak-cli --install (building binaries)..."
-          ./tokamak-cli --install
+          node packages/cli/dist/cli.js --install
 
       - name: Validate backend setup outputs
         run: |
@@ -196,6 +194,15 @@ jobs:
             sudo apt-get install -y zip unzip
           fi
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install CLI workspace dependencies
+        run: npm ci --workspace @tokamak-zk-evm/cli
+
       - name: Download built dist
         uses: actions/download-artifact@v4
         with:
@@ -208,10 +215,8 @@ jobs:
           name: evm-compat-test-outputs-${{ github.run_number }}
           path: packages/frontend/synthesizer/outputs/
 
-      - name: Make binaries and scripts executable
+      - name: Make binaries executable
         run: |
-          chmod +x ./tokamak-cli
-          chmod +x ./scripts/tokamak-cli-core
           chmod +x dist/bin/* 2>/dev/null || true
           chmod +x dist/*.sh 2>/dev/null || true
 
@@ -246,7 +251,7 @@ jobs:
       - name: Run preprocess
         run: |
           echo "⚙️ Running preprocess..."
-          ./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs
+          node packages/cli/dist/cli.js --preprocess ./packages/frontend/synthesizer/outputs
 
       - name: Validate prove inputs
         run: |
@@ -265,7 +270,7 @@ jobs:
       - name: Run prove
         run: |
           echo "🔐 Running prove..."
-          ./tokamak-cli --prove ./packages/frontend/synthesizer/outputs
+          node packages/cli/dist/cli.js --prove ./packages/frontend/synthesizer/outputs
 
       - name: Validate extract-proof inputs
         run: |
@@ -277,7 +282,7 @@ jobs:
       - name: Run extract-proof
         run: |
           echo "📦 Running extract-proof..."
-          ./tokamak-cli --extract-proof ./test-out/test-proof.zip
+          node packages/cli/dist/cli.js --extract-proof ./test-out/test-proof.zip
 
       - name: Validate proof bundle for verify
         run: |
@@ -289,7 +294,7 @@ jobs:
       - name: Run verify
         run: |
           echo "✅ Running verify..."
-          ./tokamak-cli --verify ./test-out/test-proof.zip
+          node packages/cli/dist/cli.js --verify ./test-out/test-proof.zip
 
   # ============================================================================
   # L2StateChannel Test - Uses pre-built binaries
@@ -320,6 +325,9 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Install CLI workspace dependencies
+        run: npm ci --workspace @tokamak-zk-evm/cli
+
       - name: Install synthesizer workspace dependencies
         run: |
           cd packages/frontend/synthesizer
@@ -333,8 +341,6 @@ jobs:
 
       - name: Make binaries executable
         run: |
-          chmod +x ./tokamak-cli
-          chmod +x ./scripts/tokamak-cli-core
           chmod +x dist/bin/* 2>/dev/null || true
           chmod +x dist/*.sh 2>/dev/null || true
 
@@ -356,23 +362,23 @@ jobs:
       - name: Run L2StateChannel CI test (synthesize)
         run: |
           echo "🧪 Running L2StateChannel CI test..."
-          "${{ github.workspace }}/tokamak-cli" --synthesize \
+          node "${{ github.workspace }}/packages/cli/dist/cli.js" --synthesize \
             "${{ github.workspace }}/packages/frontend/synthesizer/node-cli/examples/L2StateChannel"
 
       - name: Run preprocess
         run: |
           echo "⚙️ Running preprocess..."
-          ./tokamak-cli --preprocess
+          node packages/cli/dist/cli.js --preprocess
 
       - name: Run prove
         run: |
           echo "🔐 Running prove..."
-          ./tokamak-cli --prove
+          node packages/cli/dist/cli.js --prove
 
       - name: Run verify
         run: |
           echo "✅ Running verify..."
-          ./tokamak-cli --verify
+          node packages/cli/dist/cli.js --verify
 
   # ============================================================================
   # Build macOS Binary
@@ -419,8 +425,8 @@ jobs:
       - name: Build macOS binary
         run: |
           echo "🔍 Building macOS binary using packaging script..."
-          chmod +x scripts/packaging.sh
-          ./scripts/packaging.sh --macos --no-setup
+          chmod +x packages/cli/scripts/packaging.sh
+          ./packages/cli/scripts/packaging.sh --macos --no-setup
 
       - name: Upload macOS binary
         uses: actions/upload-artifact@v4
@@ -481,8 +487,8 @@ jobs:
       - name: Build Linux binary
         run: |
           echo "🔍 Building Linux binary using packaging script..."
-          chmod +x scripts/packaging.sh
-          ./scripts/packaging.sh --linux --no-setup
+          chmod +x packages/cli/scripts/packaging.sh
+          ./packages/cli/scripts/packaging.sh --linux --no-setup
 
       - name: Create setup files archive
         run: |

@@ -377,7 +377,7 @@ main() {
         echo -e "  ${BRIGHT_GREEN}${BOLD}${ICON_DONE} All dependencies are installed!${RESET}"
         echo ""
         echo -e "  ${BRIGHT_CYAN}You're ready to use Tokamak zk-EVM.${RESET}"
-        echo -e "  ${DIM}From the repo root, run:${RESET} ${BOLD}./tokamak-cli --install${RESET}"
+        echo -e "  ${DIM}Run the installed CLI:${RESET} ${BOLD}tokamak-cli --install${RESET}"
         echo ""
         exit 0
     fi
@@ -535,8 +535,8 @@ main() {
         echo ""
         echo -e "  ${BRIGHT_CYAN}Next steps:${RESET}"
         echo -e "  ${DIM}1.${RESET} ${WHITE}Restart your terminal${RESET} ${DIM}(to refresh PATH)${RESET}"
-        echo -e "  ${DIM}2.${RESET} ${WHITE}From the repo root, run:${RESET} ${BOLD}./tokamak-cli --install${RESET}"
-        echo -e "  ${DIM}3.${RESET} ${WHITE}Run synthesis with either:${RESET} ${BOLD}./tokamak-cli --synthesize <INPUT_DIR>${RESET}"
+        echo -e "  ${DIM}2.${RESET} ${WHITE}Run the installed CLI:${RESET} ${BOLD}tokamak-cli --install${RESET}"
+        echo -e "  ${DIM}3.${RESET} ${WHITE}Run synthesis with either:${RESET} ${BOLD}tokamak-cli --synthesize <INPUT_DIR>${RESET}"
         echo ""
         echo -e "  ${DIM}For more information, see README.md${RESET}"
     else

@@ -2,7 +2,8 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
-WORKSPACE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PACKAGE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORKSPACE_ROOT="$(cd "${PACKAGE_ROOT}/../.." && pwd)"
 cd "$WORKSPACE_ROOT"
 
 CRS_DRIVE_FOLDER_ID="1Xvm8mdliHJZafzE5jaPidK4xqWAM0F9A"
