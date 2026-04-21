@@ -4,8 +4,6 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import vm from 'node:vm';
 import { spawn, spawnSync } from 'node:child_process';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 
 export type CliPlatform = 'linux' | 'macos';
 
@@ -77,11 +75,17 @@ const CRS_DOWNLOAD_BASE_URL = 'https://drive.usercontent.google.com/download';
 const CRS_DOWNLOAD_CHUNK_SIZE = 64 * 1024 * 1024;
 const CRS_DOWNLOAD_MAX_RETRIES = 10;
 const CRS_DOWNLOAD_RETRY_BASE_DELAY_MS = 1_000;
+const DOWNLOAD_PROGRESS_LOG_INTERVAL_MS = 2_000;
+const DOWNLOAD_PROGRESS_PERCENT_STEP = 5;
 
 function logVerbose(enabled: boolean, message: string): void {
   if (enabled) {
     console.error(`[info] ${message}`);
   }
+}
+
+function logDownloadProgress(message: string): void {
+  console.error(`[download] ${message}`);
 }
 
 export function detectPlatform(): CliPlatform {
@@ -453,10 +457,127 @@ async function downloadFile(url: string, destinationPath: string): Promise<void>
     throw new Error(`Download response did not contain a body: ${url}`);
   }
   await ensureDir(path.dirname(destinationPath));
-  await pipeline(
-    Readable.fromWeb(response.body as globalThis.ReadableStream<Uint8Array>),
-    fsSync.createWriteStream(destinationPath),
-  );
+  const contentLength = Number.parseInt(response.headers.get('content-length') ?? '', 10);
+  await streamDownloadToFile(response, destinationPath, {
+    label: path.basename(destinationPath),
+    totalBytes: Number.isFinite(contentLength) && contentLength > 0 ? contentLength : null,
+  });
+}
+
+function formatBytes(bytes: number): string {
+  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+  let value = bytes;
+  let index = 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
+  const digits = value >= 100 || index === 0 ? 0 : value >= 10 ? 1 : 2;
+  return `${value.toFixed(digits)} ${units[index]}`;
+}
+
+function formatDownloadProgress(
+  label: string,
+  downloadedBytes: number,
+  totalBytes: number | null,
+  done: boolean,
+): string {
+  if (totalBytes !== null && totalBytes > 0) {
+    const percent = Math.min((downloadedBytes / totalBytes) * 100, 100);
+    const verb = done ? 'Completed' : 'Downloading';
+    return `${verb} ${label}: ${percent.toFixed(1)}% (${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes)})`;
+  }
+  const verb = done ? 'Completed' : 'Downloading';
+  return `${verb} ${label}: ${formatBytes(downloadedBytes)}`;
+}
+
+async function streamDownloadToFile(
+  response: Response,
+  destinationPath: string,
+  options: {
+    append?: boolean;
+    finalizeProgress?: boolean;
+    initialBytes?: number;
+    label: string;
+    totalBytes: number | null;
+  },
+): Promise<void> {
+  if (response.body === null) {
+    throw new Error('Download response did not contain a body.');
+  }
+
+  const {
+    append = false,
+    finalizeProgress = true,
+    initialBytes = 0,
+    label,
+    totalBytes,
+  } = options;
+  const writer = fsSync.createWriteStream(destinationPath, { flags: append ? 'a' : 'w' });
+  const reader = response.body.getReader();
+  let downloadedBytes = initialBytes;
+  let lastLoggedAt = 0;
+  let lastLoggedPercentStep = totalBytes !== null && totalBytes > 0
+    ? Math.floor((downloadedBytes / totalBytes) * 100 / DOWNLOAD_PROGRESS_PERCENT_STEP)
+    : -1;
+
+  logDownloadProgress(formatDownloadProgress(label, downloadedBytes, totalBytes, false));
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (value === undefined) {
+        continue;
+      }
+      if (!writer.write(value)) {
+        await new Promise<void>((resolve, reject) => {
+          const handleDrain = (): void => {
+            writer.off('error', handleError);
+            resolve();
+          };
+          const handleError = (error: Error): void => {
+            writer.off('drain', handleDrain);
+            reject(error);
+          };
+          writer.once('drain', handleDrain);
+          writer.once('error', handleError);
+        });
+      }
+      downloadedBytes += value.byteLength;
+
+      const now = Date.now();
+      const currentPercentStep = totalBytes !== null && totalBytes > 0
+        ? Math.floor((downloadedBytes / totalBytes) * 100 / DOWNLOAD_PROGRESS_PERCENT_STEP)
+        : -1;
+      const shouldLog =
+        now - lastLoggedAt >= DOWNLOAD_PROGRESS_LOG_INTERVAL_MS ||
+        (totalBytes !== null && currentPercentStep > lastLoggedPercentStep);
+      if (shouldLog) {
+        logDownloadProgress(formatDownloadProgress(label, downloadedBytes, totalBytes, false));
+        lastLoggedAt = now;
+        lastLoggedPercentStep = currentPercentStep;
+      }
+    }
+    await new Promise<void>((resolve, reject) => {
+      const handleError = (error: Error): void => {
+        reject(error);
+      };
+      writer.once('error', handleError);
+      writer.end(() => {
+        writer.off('error', handleError);
+        resolve();
+      });
+    });
+  } catch (error) {
+    writer.destroy();
+    throw error;
+  }
+
+  if (finalizeProgress) {
+    logDownloadProgress(formatDownloadProgress(label, downloadedBytes, totalBytes, true));
+  }
 }
 
 function resumableDownloadStatePath(partialPath: string): string {
@@ -595,10 +716,13 @@ async function downloadFileWithResume(
         throw new Error(`Resume response started at an unexpected offset: ${contentRange ?? '<missing>'}`);
       }
 
-      await pipeline(
-        Readable.fromWeb(response.body as globalThis.ReadableStream<Uint8Array>),
-        fsSync.createWriteStream(partialPath, { flags: offset > 0 ? 'a' : 'w' }),
-      );
+      await streamDownloadToFile(response, partialPath, {
+        append: offset > 0,
+        finalizeProgress: chunkEnd + 1 === state.contentLength,
+        initialBytes: offset,
+        label: state.archiveName,
+        totalBytes: state.contentLength,
+      });
 
       const currentSize = await fileSizeIfExists(partialPath);
       const expectedSize = chunkEnd + 1;
