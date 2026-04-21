@@ -1,8 +1,8 @@
 name: Test & Build
 
 on:
-  pull_request:
-    branches: [main, dev, ale-ci] # Execute on PR creation and updates
+  push:
+    branches: [main, dev]
 
 concurrency:
   group: build-release-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
