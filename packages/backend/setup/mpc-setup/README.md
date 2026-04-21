@@ -169,7 +169,7 @@ The final output directory contains only:
 
 - `combined_sigma.rkyv`
 - `sigma_preprocess.rkyv`
-- `sigma_verify.rkyv`
+- `sigma_verify.json`
 - `crs_provenance.json`
 
 This matches the trusted-setup artifact set, with the additional provenance manifest.
@@ -205,7 +205,7 @@ For dusk-backed mode, the manifest records:
 - the SHA-256 digests of:
   - `combined_sigma.rkyv`
   - `sigma_preprocess.rkyv`
-  - `sigma_verify.rkyv`
+  - `sigma_verify.json`
 
 ## Service-Side Provenance Verification
 

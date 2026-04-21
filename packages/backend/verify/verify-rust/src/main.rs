@@ -11,7 +11,7 @@ struct Config {
     #[command(flatten)]
     subcircuit_library: SubcircuitLibraryArg,
 
-    /// CRS output directory containing sigma_verify.rkyv
+    /// CRS output directory containing sigma_verify.json
     #[arg(long, value_name = "PATH")]
     crs: String,
 

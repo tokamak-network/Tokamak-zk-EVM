@@ -859,6 +859,32 @@ pub struct SigmaVerify {
     pub lagrange_KL: G1serde,
 }
 
+impl SigmaVerify {
+    pub fn g(&self) -> G1serde {
+        self.G
+    }
+
+    pub fn h(&self) -> G2serde {
+        self.H
+    }
+
+    pub fn sigma1_x(&self) -> G1serde {
+        self.sigma_1.x
+    }
+
+    pub fn sigma1_y(&self) -> G1serde {
+        self.sigma_1.y
+    }
+
+    pub fn sigma2(&self) -> Sigma2 {
+        self.sigma_2
+    }
+
+    pub fn lagrange_kl(&self) -> G1serde {
+        self.lagrange_KL
+    }
+}
+
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub struct G1serde(pub G1Affine);
 impl G1serde {

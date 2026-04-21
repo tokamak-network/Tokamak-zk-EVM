@@ -474,27 +474,10 @@ fn main() {
     let output_dir_path = PathBuf::from(paths.output_path);
     std::fs::create_dir_all(&output_dir_path).expect("Failed to create output directory");
     {
-        use libs::iotools::{SigmaPreprocessRkyv, SigmaRkyv, SigmaVerifyRkyv};
-        println!("Writing the sigma into rkyv (zero-copy)...");
-        let sigma_rkyv = SigmaRkyv::from_sigma(&sigma);
-        let bytes =
-            rkyv::to_bytes::<_, 256>(&sigma_rkyv).expect("Failed to serialize sigma to rkyv");
-        std::fs::write(output_dir_path.join("combined_sigma.rkyv"), bytes)
-            .expect("Failed to write rkyv file");
-
-        println!("Writing sigma_verify into rkyv...");
-        let sigma_verify_rkyv = SigmaVerifyRkyv::from_sigma(&sigma);
-        let bytes = rkyv::to_bytes::<_, 256>(&sigma_verify_rkyv)
-            .expect("Failed to serialize sigma_verify to rkyv");
-        std::fs::write(output_dir_path.join("sigma_verify.rkyv"), bytes)
-            .expect("Failed to write sigma_verify.rkyv");
-
-        println!("Writing sigma_preprocess into rkyv...");
-        let sigma_preprocess_rkyv = SigmaPreprocessRkyv::from_sigma(&sigma);
-        let bytes = rkyv::to_bytes::<_, 256>(&sigma_preprocess_rkyv)
-            .expect("Failed to serialize sigma_preprocess to rkyv");
-        std::fs::write(output_dir_path.join("sigma_preprocess.rkyv"), bytes)
-            .expect("Failed to write sigma_preprocess.rkyv");
+        use libs::iotools::write_final_crs_artifacts;
+        println!("Writing final CRS artifacts...");
+        write_final_crs_artifacts(&output_dir_path, &sigma)
+            .expect("Failed to write final CRS artifacts");
     }
     let lap = start.elapsed();
     println!("The sigma writing time: {:.6} seconds", lap.as_secs_f64());

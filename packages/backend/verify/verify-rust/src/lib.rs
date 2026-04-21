@@ -5,19 +5,14 @@ use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_runtime::memory::HostSlice;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use libs::group_structures::pairing;
-use libs::group_structures::{G1serde, G2serde, Sigma2};
-use libs::iotools::{ArchivedSigmaVerifyRkyv, SigmaVerifyRkyv};
+use libs::group_structures::{G1serde, SigmaVerify};
 use libs::iotools::{Instance, SetupParams};
 use libs::utils::{
     init_ntt_domain, load_setup_params_from_qap_path, prover_verifier_ntt_domain_size, setup_shape,
     validate_setup_shape,
 };
-use memmap2::Mmap;
 use preprocess::{FormattedPreprocess, Preprocess};
 use prove::*;
-use std::fs::File;
-use std::io;
-
 use std::path::PathBuf;
 use std::vec;
 
@@ -29,55 +24,8 @@ pub struct VerifyInputPaths<'a> {
     pub proof_path: &'a str,
 }
 
-pub struct SigmaVerifyZeroCopy {
-    mmap: Mmap,
-}
-
-impl SigmaVerifyZeroCopy {
-    pub fn load(path: &PathBuf) -> std::io::Result<Self> {
-        let file = File::open(path)?;
-        let mmap = unsafe { Mmap::map(&file)? };
-        rkyv::check_archived_root::<SigmaVerifyRkyv>(&mmap).map_err(|err| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("Invalid sigma_verify archive: {err:?}"),
-            )
-        })?;
-        Ok(Self { mmap })
-    }
-
-    fn sigma(&self) -> &ArchivedSigmaVerifyRkyv {
-        // Safe because we validated the archive on load and the mmap lives with self.
-        unsafe { rkyv::archived_root::<SigmaVerifyRkyv>(&self.mmap) }
-    }
-
-    pub fn g(&self) -> G1serde {
-        self.sigma().g()
-    }
-
-    pub fn h(&self) -> G2serde {
-        self.sigma().h()
-    }
-
-    pub fn sigma1_x(&self) -> G1serde {
-        self.sigma().sigma1_x()
-    }
-
-    pub fn sigma1_y(&self) -> G1serde {
-        self.sigma().sigma1_y()
-    }
-
-    pub fn sigma2(&self) -> Sigma2 {
-        self.sigma().sigma2()
-    }
-
-    pub fn lagrange_kl(&self) -> G1serde {
-        self.sigma().lagrange_kl()
-    }
-}
-
 pub struct Verifier {
-    pub sigma: SigmaVerifyZeroCopy,
+    pub sigma: SigmaVerify,
     pub a_pub_X: DensePolynomialExt,
     // pub publicInputBuffer: PublicInputBuffer,
     // pub publicOutputBuffer: PublicOutputBuffer,
@@ -119,9 +67,9 @@ impl Verifier {
         let a_pub_X = instance.gen_a_free_X(&setup_params);
 
         // Load Sigma (reference string)
-        let sigma_path = PathBuf::from(paths.setup_path).join("sigma_verify.rkyv");
-        let sigma = SigmaVerifyZeroCopy::load(&sigma_path).expect(
-            "No reference string is found. Run the Setup first (expected sigma_verify.rkyv).",
+        let sigma_path = PathBuf::from(paths.setup_path).join("sigma_verify.json");
+        let sigma = SigmaVerify::read_from_json(sigma_path).expect(
+            "No reference string is found. Run the Setup first (expected sigma_verify.json).",
         );
 
         // Load Verifier preprocess

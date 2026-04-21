@@ -20,7 +20,7 @@ const BUILD_METADATA_FILE_NAME: &str = "build-metadata-mpc-setup.json";
 const FINAL_OUTPUT_FILES: [&str; 4] = [
     "combined_sigma.rkyv",
     "sigma_preprocess.rkyv",
-    "sigma_verify.rkyv",
+    "sigma_verify.json",
     PROVENANCE_FILE_NAME,
 ];
 const DRIVE_FOLDER_ID_ENV: &str = "TOKAMAK_MPC_DRIVE_FOLDER_ID";

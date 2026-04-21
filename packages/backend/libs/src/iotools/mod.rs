@@ -30,6 +30,7 @@ use serde::de::{Deserializer, Error, Visitor};
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 use serde_json::to_writer_pretty;
+use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, Write};
@@ -179,6 +180,30 @@ impl_read_from_json!(SigmaVerify);
 impl_write_into_json!(Sigma);
 
 impl Sigma {
+    pub fn sigma_verify(&self) -> SigmaVerify {
+        let partial_sigma1_verify: PartialSigma1Verify = PartialSigma1Verify {
+            x: self.sigma_1.x,
+            y: self.sigma_1.y,
+        };
+        SigmaVerify {
+            G: self.G,
+            H: self.H,
+            sigma_1: partial_sigma1_verify,
+            sigma_2: self.sigma_2,
+            lagrange_KL: self.lagrange_KL,
+        }
+    }
+
+    pub fn sigma_preprocess(&self) -> SigmaPreprocess {
+        let partial_sigma_1: PartialSigma1 = PartialSigma1 {
+            xy_powers: self.sigma_1.xy_powers.clone(),
+            gamma_inv_o_inst: self.sigma_1.gamma_inv_o_inst.clone(),
+        };
+        SigmaPreprocess {
+            sigma_1: partial_sigma_1,
+        }
+    }
+
     /// Write verifier CRS into JSON
     pub fn write_into_json_for_verify(&self, abs_path: PathBuf) -> io::Result<()> {
         if let Some(parent) = abs_path.parent() {
@@ -186,18 +211,7 @@ impl Sigma {
         }
         let file = File::create(&abs_path)?;
         let writer = BufWriter::new(file);
-        let partial_sigma1_verify: PartialSigma1Verify = PartialSigma1Verify {
-            x: self.sigma_1.x,
-            y: self.sigma_1.y,
-        };
-        let sigma_verify: SigmaVerify = SigmaVerify {
-            G: self.G,
-            H: self.H,
-            sigma_1: partial_sigma1_verify,
-            sigma_2: self.sigma_2,
-            lagrange_KL: self.lagrange_KL,
-        };
-        to_writer_pretty(writer, &sigma_verify)?;
+        to_writer_pretty(writer, &self.sigma_verify())?;
         Ok(())
     }
 
@@ -208,14 +222,7 @@ impl Sigma {
         }
         let file = File::create(&abs_path)?;
         let writer = BufWriter::new(file);
-        let partial_sigma_1: PartialSigma1 = PartialSigma1 {
-            xy_powers: self.sigma_1.xy_powers.clone(),
-            gamma_inv_o_inst: self.sigma_1.gamma_inv_o_inst.clone(),
-        };
-        let sigma_preprocess: SigmaPreprocess = SigmaPreprocess {
-            sigma_1: partial_sigma_1,
-        };
-        to_writer_pretty(writer, &sigma_preprocess)?;
+        to_writer_pretty(writer, &self.sigma_preprocess())?;
         Ok(())
     }
 
@@ -252,6 +259,51 @@ impl Sigma {
             self.sigma_2.to_rust_code()
         )
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct FinalCrsDigests {
+    pub combined_sigma_sha256: String,
+    pub sigma_preprocess_sha256: String,
+    pub sigma_verify_sha256: String,
+}
+
+pub fn write_final_crs_artifacts(
+    output_dir: &PathBuf,
+    sigma: &Sigma,
+) -> io::Result<FinalCrsDigests> {
+    fs::create_dir_all(output_dir)?;
+
+    let sigma_rkyv = SigmaRkyv::from_sigma(sigma);
+    let combined_sigma_bytes = rkyv::to_bytes::<_, 256>(&sigma_rkyv).map_err(io::Error::other)?;
+    fs::write(
+        output_dir.join("combined_sigma.rkyv"),
+        combined_sigma_bytes.as_ref(),
+    )?;
+
+    let sigma_preprocess_rkyv = SigmaPreprocessRkyv::from_sigma(sigma);
+    let sigma_preprocess_bytes =
+        rkyv::to_bytes::<_, 256>(&sigma_preprocess_rkyv).map_err(io::Error::other)?;
+    fs::write(
+        output_dir.join("sigma_preprocess.rkyv"),
+        sigma_preprocess_bytes.as_ref(),
+    )?;
+
+    let sigma_verify = sigma.sigma_verify();
+    let sigma_verify_bytes = serde_json::to_vec_pretty(&sigma_verify).map_err(io::Error::other)?;
+    fs::write(output_dir.join("sigma_verify.json"), &sigma_verify_bytes)?;
+
+    Ok(FinalCrsDigests {
+        combined_sigma_sha256: sha256_hex(combined_sigma_bytes.as_ref()),
+        sigma_preprocess_sha256: sha256_hex(sigma_preprocess_bytes.as_ref()),
+        sigma_verify_sha256: sha256_hex(&sigma_verify_bytes),
+    })
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hex::encode(hasher.finalize())
 }
 
 impl Sigma1 {

@@ -1,8 +1,7 @@
 use crate::sigma::{FinalCrsProvenance, SigmaV2};
 use crate::utils::StepTimer;
 use chrono::Utc;
-use libs::iotools::{SigmaPreprocessRkyv, SigmaRkyv, SigmaVerifyRkyv};
-use sha2::{Digest, Sha256};
+use libs::iotools::write_final_crs_artifacts;
 use std::env;
 use std::fs;
 
@@ -22,48 +21,17 @@ pub fn run(config: &Phase2GenFilesConfig) {
 
     let sigma = latest_acc.sigma;
     let output_dir = base_path.join(&config.output);
-    fs::create_dir_all(&output_dir).expect("cannot create output directory");
-    timer.log_step("prepare output directory");
-
-    println!("Writing the sigma into rkyv (zero-copy)...");
-    println!(
-        "{}",
-        base_path
-            .join(format!("{}/sigma_preprocess.rkyv", &config.output))
-            .display()
-    );
-    let sigma_rkyv = SigmaRkyv::from_sigma(&sigma);
-    let bytes = rkyv::to_bytes::<_, 256>(&sigma_rkyv).expect("cannot serialize combined sigma");
-    let combined_sigma_path = output_dir.join("combined_sigma.rkyv");
-    fs::write(&combined_sigma_path, &bytes).expect("cannot write combined_sigma.rkyv");
-    let combined_sigma_sha256 = sha256_hex(&bytes);
-    timer.log_step("write combined sigma");
-
-    println!("Writing sigma_preprocess into rkyv...");
-    let sigma_preprocess_rkyv = SigmaPreprocessRkyv::from_sigma(&sigma);
-    let bytes = rkyv::to_bytes::<_, 256>(&sigma_preprocess_rkyv)
-        .expect("cannot serialize sigma_preprocess");
-    let sigma_preprocess_path = output_dir.join("sigma_preprocess.rkyv");
-    fs::write(&sigma_preprocess_path, &bytes).expect("cannot write sigma_preprocess.rkyv");
-    let sigma_preprocess_sha256 = sha256_hex(&bytes);
-    timer.log_step("write sigma preprocess");
-
-    println!("Writing sigma_verify into rkyv...");
-    let sigma_verify_rkyv = SigmaVerifyRkyv::from_sigma(&sigma);
-    let bytes =
-        rkyv::to_bytes::<_, 256>(&sigma_verify_rkyv).expect("cannot serialize sigma_verify");
-    let sigma_verify_path = output_dir.join("sigma_verify.rkyv");
-    fs::write(&sigma_verify_path, &bytes).expect("cannot write sigma_verify.rkyv");
-    let sigma_verify_sha256 = sha256_hex(&bytes);
-    timer.log_step("write sigma verify");
+    let digests =
+        write_final_crs_artifacts(&output_dir, &sigma).expect("cannot write final CRS artifacts");
+    timer.log_step("write final CRS artifacts");
 
     let provenance = FinalCrsProvenance {
         generated_at_utc: Utc::now().to_rfc3339(),
         backend_version: env!("CARGO_PKG_VERSION").to_string(),
         phase1_source_provenance: latest_acc.phase1_source_provenance,
-        combined_sigma_sha256,
-        sigma_preprocess_sha256,
-        sigma_verify_sha256,
+        combined_sigma_sha256: digests.combined_sigma_sha256,
+        sigma_preprocess_sha256: digests.sigma_preprocess_sha256,
+        sigma_verify_sha256: digests.sigma_verify_sha256,
         published_folder_url: None,
         published_archive_name: None,
     };
@@ -75,12 +43,6 @@ pub fn run(config: &Phase2GenFilesConfig) {
     let lap = start.elapsed();
     println!("The sigma writing time: {:.6} seconds", lap.as_secs_f64());
     timer.log_total();
-}
-
-fn sha256_hex(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    hex::encode(hasher.finalize())
 }
 
 fn load_phase2_accumulator(outfolder: &str, contributor_index: usize) -> SigmaV2 {

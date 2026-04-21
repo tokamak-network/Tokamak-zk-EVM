@@ -117,13 +117,13 @@ See [setup/mpc-setup/README.md](./setup/mpc-setup/README.md) for the full MPC op
 
 - `combined_sigma.rkyv`
 - `sigma_preprocess.rkyv`
-- `sigma_verify.rkyv`
+- `sigma_verify.json`
 
 `mpc-setup` final output:
 
 - `combined_sigma.rkyv`
 - `sigma_preprocess.rkyv`
-- `sigma_verify.rkyv`
+- `sigma_verify.json`
 - `crs_provenance.json`
 
 `crs_provenance.json` binds the final CRS files to their SHA-256 digests. In dusk-backed mode it

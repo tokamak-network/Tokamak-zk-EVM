@@ -132,7 +132,7 @@ The final output folder contains:
 
 - `combined_sigma.rkyv`
 - `sigma_preprocess.rkyv`
-- `sigma_verify.rkyv`
+- `sigma_verify.json`
 - `crs_provenance.json`
 
 The deployable CRS is `combined_sigma.rkyv`.
