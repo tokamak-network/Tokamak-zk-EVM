@@ -49,7 +49,6 @@
     "postinstall": "node scripts/postinstall.cjs"
   },
   "dependencies": {
-    "@tokamak-zk-evm/subcircuit-library": "^1.0.3",
     "@tokamak-zk-evm/synthesizer-node": "^1.0.3"
   },
   "devDependencies": {

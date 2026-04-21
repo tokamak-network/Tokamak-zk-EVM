@@ -2,8 +2,8 @@
 
 `@tokamak-zk-evm/cli` is the npm-distributed Tokamak zk-EVM command-line interface.
 
-The package carries the backend workspace source, bundles its own packaging assets, installs the
-frontend npm dependencies, and orchestrates these high-level commands:
+The package carries the backend workspace source, builds the required backend runtime locally, and
+orchestrates these high-level commands:
 
 - `--install`
 - `--synthesize`
@@ -19,8 +19,8 @@ frontend npm dependencies, and orchestrates these high-level commands:
 npm install -g @tokamak-zk-evm/cli
 ```
 
-The package runs a full `tokamak-cli --install` during `postinstall`. This builds the backend
-Rust binaries locally on the consumer machine and provisions CRS artifacts unless the install is
+The package runs `tokamak-cli --install` during `postinstall`. This builds the backend Rust
+binaries locally on the consumer machine and provisions CRS artifacts unless the install is
 explicitly skipped with `TOKAMAK_ZKEVM_SKIP_POSTINSTALL=1`.
 
 The default install path also requires outbound HTTPS access to the npm registry, crates.io,
@@ -33,16 +33,15 @@ The consumer machine must provide the local build toolchain required by `--insta
 - Node.js 20 or newer
 - npm
 - Rust and Cargo
-- `bash`
-- `curl`, `tar`, and `unzip`
+- `tar` and `unzip`
 - A C/C++ build toolchain compatible with the local Rust target
 - `cmake`
 - `pkg-config` on Linux
 - Outbound HTTPS access to the npm registry, crates.io, GitHub, GitHub Releases, and Google Drive
 
-`npm` is required not only for package installation but also during the backend release build.
-The backend build scripts resolve and pack the published `@tokamak-zk-evm/subcircuit-library`
-package while embedding release metadata.
+`npm` is required not only for package installation but also during the backend release build,
+because the backend release build resolves and embeds the published subcircuit library metadata it
+was built against.
 
 ### macOS
 
@@ -91,9 +90,8 @@ You can override that location with `TOKAMAK_ZKEVM_CLI_CACHE_DIR`.
 
 ## Install Source
 
-The package includes a vendored backend workspace under `vendor/workspace/` together with the
-packaging assets needed for `--install`, and uses that self-contained source tree to build the
-local runtime.
+The package includes a vendored backend workspace under `vendor/backend/` and uses that
+self-contained source tree to build the local runtime.
 
 ## Examples
 
