@@ -5,6 +5,7 @@ import path from 'node:path';
 const packageRoot = path.resolve(import.meta.dirname, '..');
 const repoRoot = path.resolve(packageRoot, '..', '..');
 const vendorWorkspaceRoot = path.join(packageRoot, 'vendor', 'workspace');
+const assetRoot = path.join(packageRoot, 'scripts', 'runtime-assets');
 
 const backendExclusions = new Set([
   'target',
@@ -90,14 +91,12 @@ async function main() {
   await fs.rm(path.join(packageRoot, 'vendor'), { recursive: true, force: true });
   await ensureDir(vendorWorkspaceRoot);
 
-  await copyFile(path.join(repoRoot, 'package.json'), path.join(vendorWorkspaceRoot, 'package.json'));
-  await copyFile(path.join(repoRoot, 'tokamak-cli'), path.join(vendorWorkspaceRoot, 'tokamak-cli'));
   await copyFile(
-    path.join(repoRoot, 'scripts', 'packaging.sh'),
+    path.join(assetRoot, 'packaging.sh'),
     path.join(vendorWorkspaceRoot, 'scripts', 'packaging.sh'),
   );
   await copyDirectory(
-    path.join(repoRoot, '.run_scripts'),
+    path.join(assetRoot, 'run_scripts'),
     path.join(vendorWorkspaceRoot, '.run_scripts'),
   );
   await copyDirectory(

@@ -2,8 +2,8 @@
 
 `@tokamak-zk-evm/cli` is the npm-distributed Tokamak zk-EVM command-line interface.
 
-The package carries the backend workspace source, installs the frontend npm dependencies, and
-orchestrates the same high-level commands exposed by `tokamak-cli`:
+The package carries the backend workspace source, bundles its own packaging assets, installs the
+frontend npm dependencies, and orchestrates these high-level commands:
 
 - `--install`
 - `--synthesize`
@@ -91,8 +91,9 @@ You can override that location with `TOKAMAK_ZKEVM_CLI_CACHE_DIR`.
 
 ## Install Source
 
-The package includes a vendored backend workspace under `vendor/workspace/` and uses that source
-tree to build the local runtime during `--install`.
+The package includes a vendored backend workspace under `vendor/workspace/` together with the
+packaging assets needed for `--install`, and uses that self-contained source tree to build the
+local runtime.
 
 ## Examples
 
