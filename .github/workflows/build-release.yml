@@ -1,11 +1,8 @@
 name: Test & Build
 
 on:
-  push:
-    branches: [main, dev, ale-ci] # Execute when pushing to main, dev, or ale-ci branch
   pull_request:
     branches: [main, dev, ale-ci] # Execute on PR creation and updates
-  workflow_dispatch: # Manual execution allowed
 
 concurrency:
   group: build-release-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -22,7 +19,6 @@ jobs:
     name: Build & Setup
     runs-on: ubuntu-22.04
     timeout-minutes: 45
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
 
     steps:
       - name: Checkout code
@@ -133,7 +129,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     needs: build-and-setup
-    if: (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'dev')) || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'))
+    if: github.base_ref == 'main' || github.base_ref == 'dev'
 
     steps:
       - name: Checkout code
@@ -183,7 +179,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs: [build-and-setup, evm-compat-test]
     timeout-minutes: 30
-    if: (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'dev')) || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'))
+    if: github.base_ref == 'main' || github.base_ref == 'dev'
 
     steps:
       - name: Checkout code
@@ -328,7 +324,6 @@ jobs:
     runs-on: ubuntu-22.04
     needs: build-and-setup
     timeout-minutes: 30
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
 
     steps:
       - name: Checkout code
