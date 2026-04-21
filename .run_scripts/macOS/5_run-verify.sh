@@ -8,4 +8,8 @@ LOCAL="$SCRIPT_DIR/bin/verify"
 PROVE_OUT="${1:-$SCRIPT_DIR/resource/prove/output}"
 
 export ICICLE_BACKEND_INSTALL_DIR="${SCRIPT_DIR}/backend-lib/icicle/lib/backend"
-exec "$LOCAL" "$SCRIPT_DIR/resource/qap-compiler/library" "$SCRIPT_DIR/resource/synthesizer/output" "$SCRIPT_DIR/resource/setup/output" "$SCRIPT_DIR/resource/preprocess/output" "$PROVE_OUT"
+exec "$LOCAL" \
+  --crs "$SCRIPT_DIR/resource/setup/output" \
+  --synthesizer-stat "$SCRIPT_DIR/resource/synthesizer/output" \
+  --preprocess "$SCRIPT_DIR/resource/preprocess/output" \
+  --proof "$PROVE_OUT"

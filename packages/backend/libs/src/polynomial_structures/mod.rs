@@ -1,21 +1,25 @@
-use icicle_bls12_381::curve::{ScalarField};
+use crate::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
+use crate::iotools::{Instance, PlacementVariables, SetupParams, SubcircuitInfo, SubcircuitR1CS};
+use crate::vector_operations::*;
+use icicle_bls12_381::curve::ScalarField;
 use icicle_core::traits::FieldImpl;
 use icicle_runtime::memory::HostSlice;
-use crate::iotools::{PlacementVariables, Instance, SetupParams, SubcircuitInfo, SubcircuitR1CS};
-use crate::bivariate_polynomial::{DensePolynomialExt, BivariatePolynomial};
-use crate::vector_operations::{*};
 
-pub struct QAP{
+pub struct QAP {
     pub u_j_X: Vec<DensePolynomialExt>,
     pub v_j_X: Vec<DensePolynomialExt>,
-    pub w_j_X: Vec<DensePolynomialExt>
+    pub w_j_X: Vec<DensePolynomialExt>,
 }
 
 pub fn from_subcircuit_to_QAP(
     compact_R1CS: &SubcircuitR1CS,
-    setup_params: &SetupParams, 
-    subcircuit_info: &SubcircuitInfo, 
-) -> (Vec<DensePolynomialExt>, Vec<DensePolynomialExt>, Vec<DensePolynomialExt>) {
+    setup_params: &SetupParams,
+    subcircuit_info: &SubcircuitInfo,
+) -> (
+    Vec<DensePolynomialExt>,
+    Vec<DensePolynomialExt>,
+    Vec<DensePolynomialExt>,
+) {
     let compact_A_mat = &compact_R1CS.A_compact_col_mat;
     let compact_B_mat = &compact_R1CS.B_compact_col_mat;
     let compact_C_mat = &compact_R1CS.C_compact_col_mat;
@@ -33,7 +37,7 @@ pub fn from_subcircuit_to_QAP(
     let mut ordered_active_wires_A: Vec<usize> = active_wires_A.iter().cloned().collect();
     ordered_active_wires_A.sort();
     for (idx_u, &idx_o) in ordered_active_wires_A.iter().enumerate() {
-        let u_j_eval_vec = &compact_A_mat[idx_u * n .. (idx_u+1) * n];
+        let u_j_eval_vec = &compact_A_mat[idx_u * n..(idx_u + 1) * n];
         let u_j_eval = HostSlice::from_slice(&u_j_eval_vec);
         let u_j_poly = DensePolynomialExt::from_rou_evals(u_j_eval, n, 1, None, None);
         u_j_X[idx_o] = u_j_poly;
@@ -41,7 +45,7 @@ pub fn from_subcircuit_to_QAP(
     let mut ordered_active_wires_B: Vec<usize> = active_wires_B.iter().cloned().collect();
     ordered_active_wires_B.sort();
     for (idx_v, &idx_o) in ordered_active_wires_B.iter().enumerate() {
-        let v_j_eval_vec = &compact_B_mat[idx_v * n .. (idx_v+1) * n];
+        let v_j_eval_vec = &compact_B_mat[idx_v * n..(idx_v + 1) * n];
         let v_j_eval = HostSlice::from_slice(&v_j_eval_vec);
         let v_j_poly = DensePolynomialExt::from_rou_evals(v_j_eval, n, 1, None, None);
         v_j_X[idx_o] = v_j_poly;
@@ -49,13 +53,13 @@ pub fn from_subcircuit_to_QAP(
     let mut ordered_active_wires_C: Vec<usize> = active_wires_C.iter().cloned().collect();
     ordered_active_wires_C.sort();
     for (idx_w, &idx_o) in ordered_active_wires_C.iter().enumerate() {
-        let w_j_eval_vec = &compact_C_mat[idx_w * n .. (idx_w+1) * n];
+        let w_j_eval_vec = &compact_C_mat[idx_w * n..(idx_w + 1) * n];
         let w_j_eval = HostSlice::from_slice(&w_j_eval_vec);
         let w_j_poly = DensePolynomialExt::from_rou_evals(w_j_eval, n, 1, None, None);
         w_j_X[idx_o] = w_j_poly;
     }
 
-    return (u_j_X, v_j_X, w_j_X)
+    return (u_j_X, v_j_X, w_j_X);
 }
 
 // pub struct GlobalVariables {
@@ -76,7 +80,6 @@ pub fn from_subcircuit_to_QAP(
 //         Ok(data)
 //     }
 
-    
 // // }
 
 macro_rules! define_gen_qapXY {
@@ -107,19 +110,13 @@ macro_rules! define_gen_qapXY {
                     }
                     let mut frag_eval = vec![ScalarField::zero(); n].into_boxed_slice();
                     matrix_matrix_mul(&d_vec, compact_mat, 1, d_len, n, &mut frag_eval);
-                    eval[i*n .. (i+1)*n].clone_from_slice(&frag_eval);
+                    eval[i * n..(i + 1) * n].clone_from_slice(&frag_eval);
                 }
             }
 
             transpose_inplace(&mut eval, s_max, n);
 
-            DensePolynomialExt::from_rou_evals(
-                HostSlice::from_slice(&eval),
-                n,
-                s_max,
-                None,
-                None
-            )
+            DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&eval), n, s_max, None, None)
         }
     };
 }
@@ -140,11 +137,10 @@ impl Instance {
     //     )
     // }
 
-    pub fn gen_a_pub_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
-        let l = setup_params.l;
+    pub fn gen_a_free_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
+        let l_free = setup_params.l_free;
         let l_user = setup_params.l_user;
-        let m_block = setup_params.l_block - l_user;
-        let m_function = setup_params.l - setup_params.l_block;
+        let m_block = l_free - l_user;
 
         let mut user_instance = vec![ScalarField::zero(); l_user];
         for i in 0..l_user {
@@ -156,24 +152,15 @@ impl Instance {
             block_instance[i] = ScalarField::from_hex(&self.a_pub_block[i]);
         }
 
-        let mut function_instance = vec![ScalarField::zero(); m_function];
-        for i in 0..m_function {
-            function_instance[i] = ScalarField::from_hex(&self.a_pub_function[i]);
-        }
-
-        let public_instance = [
-            user_instance,
-            block_instance,
-            function_instance,
-        ].concat().into_boxed_slice();
+        let public_instance = [user_instance, block_instance].concat().into_boxed_slice();
 
         return DensePolynomialExt::from_rou_evals(
             HostSlice::from_slice(&public_instance),
-            l,
+            l_free,
             1,
             None,
-            None
-        )
+            None,
+        );
     }
 
     // pub fn gen_a_pub_env_X(&self, setup_params: &SetupParams) -> DensePolynomialExt {
@@ -221,24 +208,28 @@ impl Instance {
     // }
 }
 
-pub fn gen_bXY(placement_variables: &Box<[PlacementVariables]>, subcircuit_infos: &Box<[SubcircuitInfo]>, setup_params: &SetupParams) -> DensePolynomialExt {
+pub fn gen_bXY(
+    placement_variables: &Box<[PlacementVariables]>,
+    subcircuit_infos: &Box<[SubcircuitInfo]>,
+    setup_params: &SetupParams,
+) -> DensePolynomialExt {
     let l = setup_params.l;
     let l_d = setup_params.l_D;
     let s_max = setup_params.s_max;
     let m_i = l_d - l;
-    let mut interface_witness  = vec![ScalarField::zero(); m_i * s_max].into_boxed_slice();
+    let mut interface_witness = vec![ScalarField::zero(); m_i * s_max].into_boxed_slice();
     for i in 0..placement_variables.len() {
         let local_variables = &placement_variables[i].variables;
         let global_idx_set = &subcircuit_infos[placement_variables[i].subcircuitId].flattenMap;
-        if local_variables.len() != global_idx_set.len(){
+        if local_variables.len() != global_idx_set.len() {
             panic!("Corrupted placement variables.")
         }
         for j in 0..global_idx_set.len() {
             let global_idx = global_idx_set[j];
             let val_str: &str = &local_variables[j];
             if global_idx >= l && global_idx < l_d && val_str != "0x0" {
-                interface_witness[(global_idx-l) * s_max + i] = ScalarField::from_hex(val_str);
-            } 
+                interface_witness[(global_idx - l) * s_max + i] = ScalarField::from_hex(val_str);
+            }
         }
     }
     return DensePolynomialExt::from_rou_evals(
@@ -246,8 +237,8 @@ pub fn gen_bXY(placement_variables: &Box<[PlacementVariables]>, subcircuit_infos
         m_i,
         s_max,
         None,
-        None
-    )
+        None,
+    );
 }
 
 define_gen_qapXY!(gen_uXY, A_compact_col_mat, A_active_wires);

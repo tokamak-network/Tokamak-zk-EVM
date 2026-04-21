@@ -39,3 +39,22 @@ template ComplexMux256_unsafe(N) {
     }
     out <== inter[N-1];
 }
+
+template ComplexMux256_checked(N) {
+    // Selector well-formedness must be enforced by the caller.
+    signal input selector[N], ins[N][2];
+    signal output out[2];
+    signal inter[N][2];
+
+    inter[0] <== [
+        ins[0][0] * selector[0],
+        ins[0][1] * selector[0]
+    ];
+    for (var i = 1; i < N; i++){
+        inter[i] <== [
+            ins[i][0] * selector[i] + inter[i-1][0],
+            ins[i][1] * selector[i] + inter[i-1][1]
+        ];
+    }
+    out <== inter[N-1];
+}

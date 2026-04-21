@@ -4,41 +4,551 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "L2 transfer on mainnet",
-      "runtimeExecutable": "tsx",
-      "program": "${workspaceFolder}/examples/L2TONTransfer/main.ts",
-      "args": ["${workspaceFolder}/examples/L2TONTransfer/input4.json"],
+      "name": "Web app synthesize mintNotes2",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/.vscode/web-app-debug.ts",
       "cwd": "${workspaceFolder}",
-      "skipFiles": ["<node_internals>/**"],
-      "console": "integratedTerminal"
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
     },
     {
       "type": "node",
       "request": "launch",
-      "name": "L2 transfer on channel",
-      "runtimeExecutable": "tsx",
-      "program": "${workspaceFolder}/src/interface/cli/index.ts",
+      "name": "L2 transfer on mainnet/sepolia",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/examples/config-runner.ts",
       "args": [
-        "l2-transfer",
-        "--channel-id",
-        "4",
-        "--init-tx",
-        "0xae305543eca79e8ca6626f2db8d17c8b093d70a9587ada067c327914f340b721",
-        "--sender-key",
-        "0x05959da730bc9b5fe4291dd58651a1151f17de5506a22f5d7afec65d5dd4799f",
-        "--recipient",
-        "0x26f67df81c33223350a7ddca1473a9100b519fe7",
-        "--amount",
-        "3",
-        "--output",
-        "/Users/jehyuk/Documents/repo/Tokamak-zkp-channel-manager/Tokamak-Zk-EVM/dist/outputs/transfer-1767379638891",
-        "--rpc-url",
-        "https://eth-sepolia.g.alchemy.com/v2/e_QJd40sb7aiObJisG_8Q",
-        "--sepolia"
+        "erc20-transfer",
+        "${workspaceFolder}/node-cli/examples/erc20Transfers/usdt/config-usdt-sepolia.json"
       ],
-      "cwd": "${workspaceFolder}",
-      "skipFiles": ["<node_internals>/**"],
-      "console": "integratedTerminal"
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state mintNotes1 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes1/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes1/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes1/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes1/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state mintNotes2 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes2/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes2/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes2/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes2/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state mintNotes3 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes3/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes3/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes3/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes3/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state mintNotes4 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes4/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes4/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes4/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes4/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state mintNotes5 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes5/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes5/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes5/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes5/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state mintNotes6 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes6/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes6/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes6/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/mintNotes/mintNotes6/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state transferNotes1To1 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes1To1/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes1To1/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes1To1/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes1To1/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state transferNotes1To2 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes1To2/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes1To2/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes1To2/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes1To2/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state transferNotes1To3 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes1To3/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes1To3/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes1To3/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes1To3/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state transferNotes2To1 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes2To1/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes2To1/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes2To1/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes2To1/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state transferNotes2To2 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes2To2/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes2To2/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes2To2/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes2To2/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state transferNotes3To1 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes3To1/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes3To1/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes3To1/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes3To1/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state transferNotes3To2 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes3To2/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes3To2/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes3To2/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes3To2/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state transferNotes4To1 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes4To1/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes4To1/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes4To1/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/transferNotes/transferNotes4To1/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state redeemNotes1 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes1/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes1/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes1/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes1/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state redeemNotes2 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes2/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes2/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes2/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes2/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state redeemNotes3 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes3/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes3/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes3/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes3/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Private-state redeemNotes4 on anvil",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes4/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes4/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes4/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/privateState/redeemNotes/redeemNotes4/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "tokamak-ch-tx (debug, file inputs)",
+      "runtimeExecutable": "node",
+      "program": "${workspaceFolder}/node-cli/src/cli/index.ts",
+      "args": [
+        "tokamak-ch-tx",
+        "--previous-state",
+        "${workspaceFolder}/node-cli/examples/L2StateChannel/previous_state_snapshot.json",
+        "--transaction",
+        "${workspaceFolder}/node-cli/examples/L2StateChannel/transaction.json",
+        "--block-info",
+        "${workspaceFolder}/node-cli/examples/L2StateChannel/block_info.json",
+        "--contract-code",
+        "${workspaceFolder}/node-cli/examples/L2StateChannel/contract_codes.json"
+      ],
+      "cwd": "${workspaceFolder}/node-cli",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal",
+      "runtimeArgs": [
+        "--import",
+        "tsx"
+      ]
     }
   ]
 }

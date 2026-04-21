@@ -1,0 +1,14 @@
+# Changelog
+
+## 2.0.1 - 2026-04-22
+
+- Added `--uninstall` so the CLI can remove its local workspace and cached runtime files for the current platform.
+- Changed Linux runtime installation to download the ICICLE CUDA backend only when an NVIDIA GPU is detected.
+
+## 2.0.0 - 2026-04-21
+
+- Removed the dependency on the repository root `tokamak-cli` wrapper and root shell packaging scripts.
+- Moved runtime installation into the CLI package itself.
+- Added resumable CRS downloads with progress output.
+- Flattened proof bundle export so `--extract-proof` output can be passed back into `--verify`.
+- Clarified working-directory behavior and runtime output locations in the package documentation.

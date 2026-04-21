@@ -1,0 +1,95 @@
+name: Publish subcircuit-library
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish-subcircuit-library:
+    name: Publish subcircuit-library to npm
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: packages/frontend/qap-compiler
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+          cache-dependency-path: packages/frontend/qap-compiler/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Reload constants
+        run: npx qap-compiler --reload-constants
+
+      - name: Build library
+        run: npx qap-compiler --build
+
+      - name: Prepare dist package
+        run: npx qap-compiler --dist
+
+      - name: Compare package version with npm
+        id: version-check
+        shell: bash
+        run: |
+          node <<'EOF_NODE' >> "$GITHUB_OUTPUT"
+          const { execSync } = require('node:child_process');
+          const pkg = require('./dist/package.json');
+
+          function compareSemver(left, right) {
+            const leftParts = left.split('.').map((value) => Number(value));
+            const rightParts = right.split('.').map((value) => Number(value));
+            const maxLength = Math.max(leftParts.length, rightParts.length);
+
+            for (let i = 0; i < maxLength; i += 1) {
+              const leftValue = leftParts[i] ?? 0;
+              const rightValue = rightParts[i] ?? 0;
+              if (leftValue > rightValue) return 1;
+              if (leftValue < rightValue) return -1;
+            }
+
+            return 0;
+          }
+
+          let publishedVersion = null;
+          try {
+            publishedVersion = execSync(`npm view "${pkg.name}" version`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+          } catch (error) {
+            publishedVersion = null;
+          }
+
+          const shouldPublish = publishedVersion === null || compareSemver(pkg.version, publishedVersion) > 0;
+
+          console.log(`package_name=${pkg.name}`);
+          console.log(`local_version=${pkg.version}`);
+          console.log(`published_version=${publishedVersion ?? 'none'}`);
+          console.log(`should_publish=${shouldPublish}`);
+          EOF_NODE
+
+      - name: Show version decision
+        run: |
+          echo "Package: ${{ steps.version-check.outputs.package_name }}"
+          echo "Local version: ${{ steps.version-check.outputs.local_version }}"
+          echo "Published version: ${{ steps.version-check.outputs.published_version }}"
+          echo "Should publish: ${{ steps.version-check.outputs.should_publish }}"
+
+      - name: Validate npm package contents
+        if: steps.version-check.outputs.should_publish == 'true'
+        run: npm publish --dry-run ./dist
+
+      - name: Publish to npm
+        if: steps.version-check.outputs.should_publish == 'true'
+        run: npm publish ./dist

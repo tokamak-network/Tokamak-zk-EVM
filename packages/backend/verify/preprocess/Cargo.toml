@@ -11,7 +11,13 @@ homepage = { workspace = true }
 libs = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+memmap2 = { workspace = true }
+rkyv = { workspace = true, features = ["alloc", "bytecheck", "validation"] }
+clap = { workspace = true }
 
 [features]
 default = []
 testing-mode = ["libs/testing-mode"]
+
+[build-dependencies]
+serde_json = { workspace = true }

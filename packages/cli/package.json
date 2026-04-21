@@ -1,0 +1,74 @@
+{
+  "name": "@tokamak-zk-evm/cli",
+  "version": "2.0.1",
+  "description": "Tokamak zk-EVM CLI for installing the local prover runtime and running synthesize, preprocess, prove, verify, and proof export commands.",
+  "keywords": [
+    "cli",
+    "ethereum",
+    "ethereum-cli",
+    "proof-generation",
+    "prover",
+    "rollup",
+    "state-channel",
+    "tokamak",
+    "tokamak-cli",
+    "tokamak-network",
+    "tokamak-zk-evm",
+    "zk-proof",
+    "zk-EVM",
+    "zk-SNARK",
+    "zero-knowledge"
+  ],
+  "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/cli#readme",
+  "bugs": {
+    "url": "https://github.com/tokamak-network/tokamak-zk-evm/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tokamak-network/tokamak-zk-evm.git",
+    "directory": "packages/cli"
+  },
+  "license": "MIT OR Apache-2.0",
+  "author": "Tokamak Network",
+  "contributors": [
+    "JehyukJang <https://github.com/JehyukJang>"
+  ],
+  "type": "commonjs",
+  "bin": {
+    "tokamak-cli": "dist/cli.js",
+    "tokamak-zk-evm": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "scripts",
+    "vendor",
+    "CHANGELOG.md",
+    "README.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "scripts": {
+    "prepare:package": "node scripts/prepare-package.mjs",
+    "build": "npm run prepare:package && tsc -p tsconfig.json --pretty false",
+    "release:check": "node scripts/release-readiness.cjs",
+    "typecheck": "tsc -p tsconfig.json --pretty false --noEmit",
+    "tsc": "npm run typecheck",
+    "publish": "node scripts/publish-package.cjs",
+    "prepack": "npm run build",
+    "postinstall": "node scripts/postinstall.cjs"
+  },
+  "dependencies": {
+    "@tokamak-zk-evm/synthesizer-node": "^1.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.14",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

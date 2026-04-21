@@ -1,19 +1,19 @@
 #![allow(non_snake_case)]
-use hex::FromHex;
-use icicle_core::hash::HashConfig;
-use icicle_hash::keccak::Keccak256;
+use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
+use icicle_core::ntt;
+use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
 use icicle_runtime::memory::HostSlice;
 use libs::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
-use libs::iotools::{Instance, PublicInputBuffer, PublicOutputBuffer, SetupParams};
-use libs::group_structures::{SigmaVerify};
-use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
-use icicle_core::traits::{Arithmetic, FieldImpl, GenerateRandom};
-use icicle_core::ntt;
-use prove::{*};
 use libs::group_structures::pairing;
-use preprocess::{Preprocess, FormattedPreprocess};
-
-use std::path::{PathBuf};
+use libs::group_structures::{G1serde, SigmaVerify};
+use libs::iotools::{Instance, SetupParams};
+use libs::utils::{
+    init_ntt_domain, load_setup_params_from_qap_path, prover_verifier_ntt_domain_size, setup_shape,
+    validate_setup_shape,
+};
+use preprocess::{FormattedPreprocess, Preprocess};
+use prove::*;
+use std::path::PathBuf;
 use std::vec;
 
 pub struct VerifyInputPaths<'a> {
@@ -22,13 +22,6 @@ pub struct VerifyInputPaths<'a> {
     pub setup_path: &'a str,
     pub preprocess_path: &'a str,
     pub proof_path: &'a str,
-}   
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum KeccakVerificationResult {
-    True,
-    False,
-    NoKeccakData,
 }
 
 pub struct Verifier {
@@ -40,49 +33,44 @@ pub struct Verifier {
     pub setup_params: SetupParams,
     pub proof: Proof,
 }
+
+struct VerificationChallenges {
+    thetas: Vec<ScalarField>,
+    kappa0: ScalarField,
+    chi: ScalarField,
+    zeta: ScalarField,
+    kappa1: ScalarField,
+    kappa2: ScalarField,
+}
+
+struct VerificationDomainContext {
+    m_i: usize,
+    omega_m_i: ScalarField,
+    omega_s_max: ScalarField,
+    t_n_eval: ScalarField,
+    t_mi_eval: ScalarField,
+    t_smax_eval: ScalarField,
+}
+
 impl Verifier {
     pub fn init(paths: &VerifyInputPaths) -> Self {
-        // Load setup parameters from JSON file
-        let setup_path = PathBuf::from(paths.qap_path).join("setupParams.json");
-        let setup_params = SetupParams::read_from_json(setup_path).unwrap();
-
-        // Extract key parameters from setup_params
-        let l = setup_params.l;     // Number of public I/O wires
-        let l_d = setup_params.l_D; // Number of interface wires
-        let s_d = setup_params.s_D; // Number of subcircuits
-        let n = setup_params.n;     // Number of constraints per subcircuit
-        let s_max = setup_params.s_max; // The maximum number of placements
-        // let l_pub = setup_params.l_pub_in + setup_params.l_pub_out;
-        // let l_prv = setup_params.l_prv_in + setup_params.l_prv_out;
-    
-        // if !(l_prv.is_power_of_two()) {
-        //     panic!("l_prv is not a power of two.");
-        // }
-        // Assert n is a power of two
-        if !n.is_power_of_two() {
-            panic!("n is not a power of two.");
-        }
-        // Assert s_max is a power of two
-        if !s_max.is_power_of_two() {
-            panic!("s_max is not a power of two.");
-        }
-        // The last wire-related parameter
-        let m_i = l_d - l;
-        // Assert m_I is a power of two
-        if !m_i.is_power_of_two() {
-            panic!("m_I is not a power of two.");
-        }
+        let setup_params = load_setup_params_from_qap_path(paths.qap_path);
+        let shape = setup_shape(&setup_params);
+        validate_setup_shape(&shape);
+        let ntt_domain_size = prover_verifier_ntt_domain_size(&shape);
+        init_ntt_domain(ntt_domain_size);
 
         // Load instance
         let instance_path = PathBuf::from(paths.synthesizer_path).join("instance.json");
         let instance = Instance::read_from_json(instance_path).unwrap();
         // Parsing the inputs
-        let a_pub_X = instance.gen_a_pub_X(&setup_params);
+        let a_pub_X = instance.gen_a_free_X(&setup_params);
 
         // Load Sigma (reference string)
         let sigma_path = PathBuf::from(paths.setup_path).join("sigma_verify.json");
-        let sigma = SigmaVerify::read_from_json(sigma_path)
-        .expect("No reference string is found. Run the Setup first.");
+        let sigma = SigmaVerify::read_from_json(sigma_path).expect(
+            "No reference string is found. Run the Setup first (expected sigma_verify.json).",
+        );
 
         // Load Verifier preprocess
         let preprocess_path = PathBuf::from(paths.preprocess_path).join("preprocess.json");
@@ -95,395 +83,277 @@ impl Verifier {
         // let proof = Proof::read_from_json(&proof_path)
         // .expect("No proof is found. Run the Prove first.");
         let proof = FormattedProof::read_from_json(proof_path)
-        .expect("No proof is found. Run the Prove first.").recover_proof_from_format();
+            .expect("No proof is found. Run the Prove first.")
+            .recover_proof_from_format();
 
         return Self {
-            sigma, 
-            a_pub_X, 
-            // publicInputBuffer: instance.publicInputBuffer, 
-            // publicOutputBuffer: instance.publicOutputBuffer, 
-            setup_params, 
+            sigma,
+            a_pub_X,
+            // publicInputBuffer: instance.publicInputBuffer,
+            // publicOutputBuffer: instance.publicOutputBuffer,
+            setup_params,
             preprocess,
-            proof
-        }
+            proof,
+        };
     }
 
-    // pub fn verify_keccak256(&self) -> KeccakVerificationResult {
-    //     let l_out = self.setup_params.l_out;
-    //     let keccak_in_pts = &self.publicOutputBuffer.outPts;
-    //     let keccak_out_pts = &self.publicInputBuffer.inPts;
-    //     if keccak_out_pts.len() == 0 {
-    //         return KeccakVerificationResult::NoKeccakData
-    //     }
-        
-    //     let mut keccak_inputs_be_bytes= Vec::new();
-    //     let mut prev_key: usize = 0;
-    //     let mut data_restored: Vec<u8> = Vec::new();
-    //     for i in 0..keccak_in_pts.len()/2 {
-    //         let keccak_in_lsb = &keccak_in_pts[2 * i];
-    //         let keccak_in_msb = &keccak_in_pts[2 * i + 1];
-    //         if keccak_in_lsb.extDest != "KeccakIn" || keccak_in_msb.extDest != "KeccakIn" {
-    //             panic!("The pointed data is not a Keccak input.")
-    //         }
-    //         if !ScalarField::from_hex(&keccak_in_lsb.valueHex).eq(&self.a_pub[2 * i]) || !ScalarField::from_hex(&keccak_in_msb.valueHex).eq(&self.a_pub[2 * i + 1]) {
-    //             panic!("a_pub does not match with the publicOutputBuffer items.")
-    //         }
-    //         let this_key = usize::from_str_radix(&keccak_in_lsb.key.trim_start_matches("0x"), 16).unwrap();
-    //         let _this_key = usize::from_str_radix(&keccak_in_msb.key.trim_start_matches("0x"), 16).unwrap();
-    //         if this_key != _this_key {
-    //             panic!("Pointed two keccak inputs have different key values")
-    //         }
-    //         let msb_string = keccak_in_msb.valueHex.trim_start_matches("0x");
-    //         let lsb_string = keccak_in_lsb.valueHex.trim_start_matches("0x");
-    //         let input_string = [msb_string.to_string(), lsb_string.to_string()].concat();
-    //         let mut input_be_bytes = Vec::from_hex(&input_string).expect("Invalid hex");
-
-    //         if this_key != prev_key {
-    //             keccak_inputs_be_bytes.push(data_restored);
-    //             data_restored = input_be_bytes.clone();
-    //         } else {
-    //             data_restored.append(&mut input_be_bytes);
-    //         }
-    //         prev_key = this_key;
-    //     }
-    //     keccak_inputs_be_bytes.push(data_restored);
-
-    //     let mut keccak_outputs_be_bytes= Vec::new();
-    //     let mut prev_key: usize = 0;
-    //     let mut data_restored: Vec<u8> = Vec::new();
-    //     for i in 0..keccak_out_pts.len()/2 {
-    //         let keccak_out_lsb = &keccak_out_pts[2 * i];
-    //         let keccak_out_msb = &keccak_out_pts[2 * i + 1];
-    //         if keccak_out_lsb.extSource != "KeccakOut" || keccak_out_msb.extSource != "KeccakOut" {
-    //             panic!("The pointed data is not a Keccak output.")
-    //         }
-    //         if !ScalarField::from_hex(&keccak_out_lsb.valueHex).eq(&self.a_pub[l_pub_out + 2 * i]) || !ScalarField::from_hex(&keccak_out_msb.valueHex).eq(&self.a_pub[l_pub_out + 2 * i + 1]) {
-    //             panic!("a_pub does not match with the publicInputBuffer items.")
-    //         }
-    //         let this_key = usize::from_str_radix(&keccak_out_lsb.key.trim_start_matches("0x"), 16).unwrap();
-    //         let _this_key = usize::from_str_radix(&keccak_out_msb.key.trim_start_matches("0x"), 16).unwrap();
-    //         if this_key != _this_key {
-    //             panic!("Pointed two keccak outputs have different key values")
-    //         }
-    //         let msb_string = keccak_out_msb.valueHex.trim_start_matches("0x");
-    //         let lsb_string = keccak_out_lsb.valueHex.trim_start_matches("0x");
-    //         let output_string = [msb_string.to_string(), lsb_string.to_string()].concat();
-    //         let mut output_be_bytes = Vec::from_hex(&output_string).expect("Invalid hex");
-
-    //         if this_key != prev_key {
-    //             keccak_outputs_be_bytes.push(data_restored);
-    //             data_restored = output_be_bytes.clone();
-    //         } else {
-    //             data_restored.append(&mut output_be_bytes);
-    //         }
-    //         prev_key = this_key;
-    //     }
-    //     keccak_outputs_be_bytes.push(data_restored);
-
-    //     let keccak_hasher = Keccak256::new(0 /* default input size */).unwrap();
-    //     let mut flag = KeccakVerificationResult::True;
-    //     if keccak_inputs_be_bytes.len() != keccak_outputs_be_bytes.len() {
-    //         panic!("Length mismatch between Keccak inputs and outputs.")
-    //     }
-    //     for i in 0..keccak_inputs_be_bytes.len() {
-    //         let data_in = &keccak_inputs_be_bytes[i];
-    //         let mut res_bytes = vec![0u8; 32]; // 32-byte output buffer
-    //         keccak_hasher
-    //         .hash(
-    //             HostSlice::from_slice(&data_in),  // Input data
-    //             &HashConfig::default(),                       // Default configuration
-    //             HostSlice::from_mut_slice(&mut res_bytes),       // Output buffer
-    //         )
-    //         .unwrap();
-    //         if res_bytes != keccak_outputs_be_bytes[i] {
-    //             flag = KeccakVerificationResult::False;
-    //         }
-    //     }
-    //     return flag
-    // }
-    
-    pub fn verify_snark(&self) -> bool {
-        let binding = &self.proof.binding;
+    fn collect_challenges(&self) -> VerificationChallenges {
         let proof0 = &self.proof.proof0;
-        let proof1= &self.proof.proof1;
+        let proof1 = &self.proof.proof1;
         let proof2 = &self.proof.proof2;
-        let proof3 = &self.proof.proof3; 
-        let proof4 = &self.proof.proof4;
-
+        let proof3 = &self.proof.proof3;
         let mut transcript_manager = TranscriptManager::new();
-
-        // Compute challenges using the transcript manager
         let thetas = proof0.verify0_with_manager(&mut transcript_manager);
         let kappa0 = proof1.verify1_with_manager(&mut transcript_manager);
         let (chi, zeta) = proof2.verify2_with_manager(&mut transcript_manager);
         let kappa1 = proof3.verify3_with_manager(&mut transcript_manager);
         let kappa2 = ScalarCfg::generate_random(1)[0];
-        
+        VerificationChallenges {
+            thetas,
+            kappa0,
+            chi,
+            zeta,
+            kappa1,
+            kappa2,
+        }
+    }
+
+    fn build_domain_context(
+        &self,
+        challenges: &VerificationChallenges,
+    ) -> VerificationDomainContext {
         let m_i = self.setup_params.l_D - self.setup_params.l;
         let s_max = self.setup_params.s_max;
-        let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
-        let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
-        let t_n_eval = chi.pow(self.setup_params.n) - ScalarField::one();
-        let t_mi_eval = chi.pow(m_i) - ScalarField::one();
-        let t_smax_eval = zeta.pow(s_max) - ScalarField::one();
+        VerificationDomainContext {
+            m_i,
+            omega_m_i: ntt::get_root_of_unity::<ScalarField>(m_i as u64),
+            omega_s_max: ntt::get_root_of_unity::<ScalarField>(s_max as u64),
+            t_n_eval: challenges.chi.pow(self.setup_params.n) - ScalarField::one(),
+            t_mi_eval: challenges.chi.pow(m_i) - ScalarField::one(),
+            t_smax_eval: challenges.zeta.pow(s_max) - ScalarField::one(),
+        }
+    }
 
-        let A_eval = self.a_pub_X.eval(&chi, &zeta);
-        
-        let lagrange_K0_eval = {
-            let lagrange_K0_XY = {
-                let mut k0_evals = vec![ScalarField::zero(); m_i];
-                k0_evals[0] = ScalarField::one();
-                DensePolynomialExt::from_rou_evals(
-                    HostSlice::from_slice(&k0_evals),
-                    m_i,
-                    1,
-                    None,
-                    None
-                )
-            };
-            lagrange_K0_XY.eval(&chi, &zeta)
+    fn eval_lagrange_k0(
+        &self,
+        domain: &VerificationDomainContext,
+        challenges: &VerificationChallenges,
+    ) -> ScalarField {
+        let lagrange_K0_XY = {
+            let mut k0_evals = vec![ScalarField::zero(); domain.m_i];
+            k0_evals[0] = ScalarField::one();
+            DensePolynomialExt::from_rou_evals(
+                HostSlice::from_slice(&k0_evals),
+                domain.m_i,
+                1,
+                None,
+                None,
+            )
         };
+        lagrange_K0_XY.eval(&challenges.chi, &challenges.zeta)
+    }
 
-        let LHS_A = 
-            (proof0.U * proof3.V_eval)
-            - proof0.W
-            +(proof0.V - self.sigma.G * proof3.V_eval) * kappa1
-            - proof0.Q_AX * t_n_eval
-            - proof0.Q_AY * t_smax_eval;
-        let F = 
-            proof0.B
-            + self.preprocess.s0 * thetas[0]
-            + self.preprocess.s1 * thetas[1]
-            + self.sigma.G * thetas[2];
-        let G = 
-            proof0.B
-            + self.sigma.sigma_1.x * thetas[0]
-            + self.sigma.sigma_1.y * thetas[1]
-            + self.sigma.G * thetas[2];
-        let LHS_C_term1 = 
-            self.sigma.lagrange_KL * (proof3.R_eval - ScalarField::one())
-            + (G * proof3.R_eval - F * proof3.R_omegaX_eval) * (kappa0 * (chi - ScalarField::one()))
-            + (G * proof3.R_eval - F * proof3.R_omegaX_omegaY_eval) * (kappa0.pow(2) * lagrange_K0_eval)
-            - proof2.Q_CX * t_mi_eval
-            - proof2.Q_CY * t_smax_eval;
-        let LHS_C = 
-            LHS_C_term1 * kappa1.pow(2)
-            + (proof1.R - self.sigma.G * proof3.R_eval) * kappa1.pow(3)
-            + (proof1.R - self.sigma.G * proof3.R_omegaX_eval) * kappa2
-            + (proof1.R - self.sigma.G * proof3.R_omegaX_omegaY_eval) * kappa2.pow(2);
-        let LHS_B =
-            binding.A * ( ScalarField::one() + (kappa2 * kappa1.pow(4)) )
-            - self.sigma.G * (kappa2 * kappa1.pow(4) * A_eval);
-        let LHS = LHS_B + ( (LHS_A + LHS_C) * kappa2 );
-        let AUX = 
-            proof4.Pi_X * (kappa2 * chi)
-            + proof4.Pi_Y * (kappa2 * zeta)
-            + proof4.M_X * (kappa2.pow(2) * omega_m_i.inv() * chi)
-            + proof4.M_Y * (kappa2.pow(2) * zeta)
-            + proof4.N_X * (kappa2.pow(3) * omega_m_i.inv() * chi)
-            + proof4.N_Y * (kappa2.pow(3) * omega_s_max.inv() * zeta);
-        let AUX_X = 
-            proof4.Pi_X * kappa2
-            + proof4.M_X * kappa2.pow(2)
-            + proof4.N_X * kappa2.pow(3);
-        let AUX_Y = 
-            proof4.Pi_Y * kappa2
-            + proof4.M_Y * kappa2.pow(2)
-            + proof4.N_Y * kappa2.pow(3);
+    fn eval_a_pub(&self, challenges: &VerificationChallenges) -> ScalarField {
+        self.a_pub_X.eval(&challenges.chi, &challenges.zeta)
+    }
+
+    fn lhs_arith(
+        &self,
+        domain: &VerificationDomainContext,
+        challenges: &VerificationChallenges,
+    ) -> G1serde {
+        let proof0 = &self.proof.proof0;
+        let proof3 = &self.proof.proof3;
+        (proof0.U * proof3.V_eval) - proof0.W
+            + (proof0.V - self.sigma.g() * proof3.V_eval) * challenges.kappa1
+            - proof0.Q_AX * domain.t_n_eval
+            - proof0.Q_AY * domain.t_smax_eval
+    }
+
+    fn lhs_copy(
+        &self,
+        domain: &VerificationDomainContext,
+        challenges: &VerificationChallenges,
+        lagrange_k0_eval: ScalarField,
+    ) -> G1serde {
+        let proof0 = &self.proof.proof0;
+        let proof1 = &self.proof.proof1;
+        let proof2 = &self.proof.proof2;
+        let proof3 = &self.proof.proof3;
+        let F = proof0.B
+            + self.preprocess.s0 * challenges.thetas[0]
+            + self.preprocess.s1 * challenges.thetas[1]
+            + self.sigma.g() * challenges.thetas[2];
+        let G = proof0.B
+            + self.sigma.sigma1_x() * challenges.thetas[0]
+            + self.sigma.sigma1_y() * challenges.thetas[1]
+            + self.sigma.g() * challenges.thetas[2];
+        let LHS_C_term1 = self.sigma.lagrange_kl() * (proof3.R_eval - ScalarField::one())
+            + (G * proof3.R_eval - F * proof3.R_omegaX_eval)
+                * (challenges.kappa0 * (challenges.chi - ScalarField::one()))
+            + (G * proof3.R_eval - F * proof3.R_omegaX_omegaY_eval)
+                * (challenges.kappa0.pow(2) * lagrange_k0_eval)
+            - proof2.Q_CX * domain.t_mi_eval
+            - proof2.Q_CY * domain.t_smax_eval;
+        LHS_C_term1 * challenges.kappa1.pow(2)
+            + (proof1.R - self.sigma.g() * proof3.R_eval) * challenges.kappa1.pow(3)
+            + (proof1.R - self.sigma.g() * proof3.R_omegaX_eval) * challenges.kappa2
+            + (proof1.R - self.sigma.g() * proof3.R_omegaX_omegaY_eval) * challenges.kappa2.pow(2)
+    }
+
+    fn lhs_binding(&self, challenges: &VerificationChallenges, a_eval: ScalarField) -> G1serde {
+        let binding = &self.proof.binding;
+        binding.A_free * (ScalarField::one() + (challenges.kappa2 * challenges.kappa1.pow(4)))
+            - self.sigma.g() * (challenges.kappa2 * challenges.kappa1.pow(4) * a_eval)
+    }
+
+    fn snark_aux(
+        &self,
+        proof4: &Proof4,
+        domain: &VerificationDomainContext,
+        challenges: &VerificationChallenges,
+    ) -> (G1serde, G1serde, G1serde) {
+        let AUX = proof4.Pi_X * (challenges.kappa2 * challenges.chi)
+            + proof4.Pi_Y * (challenges.kappa2 * challenges.zeta)
+            + proof4.M_X * (challenges.kappa2.pow(2) * domain.omega_m_i.inv() * challenges.chi)
+            + proof4.M_Y * (challenges.kappa2.pow(2) * challenges.zeta)
+            + proof4.N_X * (challenges.kappa2.pow(3) * domain.omega_m_i.inv() * challenges.chi)
+            + proof4.N_Y * (challenges.kappa2.pow(3) * domain.omega_s_max.inv() * challenges.zeta);
+        let AUX_X = proof4.Pi_X * challenges.kappa2
+            + proof4.M_X * challenges.kappa2.pow(2)
+            + proof4.N_X * challenges.kappa2.pow(3);
+        let AUX_Y = proof4.Pi_Y * challenges.kappa2
+            + proof4.M_Y * challenges.kappa2.pow(2)
+            + proof4.N_Y * challenges.kappa2.pow(3);
+        (AUX, AUX_X, AUX_Y)
+    }
+
+    fn copy_aux(
+        &self,
+        proof4: &Proof4Test,
+        domain: &VerificationDomainContext,
+        challenges: &VerificationChallenges,
+    ) -> (G1serde, G1serde, G1serde) {
+        let AUX_C = proof4.Pi_CX * challenges.chi
+            + proof4.Pi_CY * challenges.zeta
+            + proof4.M_X * (challenges.kappa2 * domain.omega_m_i.inv() * challenges.chi)
+            + proof4.M_Y * (challenges.kappa2 * challenges.zeta)
+            + proof4.N_X * (challenges.kappa2.pow(2) * domain.omega_m_i.inv() * challenges.chi)
+            + proof4.N_Y * (challenges.kappa2.pow(2) * domain.omega_s_max.inv() * challenges.zeta);
+        let AUX_X =
+            proof4.Pi_CX + proof4.M_X * challenges.kappa2 + proof4.N_X * challenges.kappa2.pow(2);
+        let AUX_Y =
+            proof4.Pi_CY + proof4.M_Y * challenges.kappa2 + proof4.N_Y * challenges.kappa2.pow(2);
+        (AUX_C, AUX_X, AUX_Y)
+    }
+
+    fn arith_aux(&self, proof4: &Proof4Test, challenges: &VerificationChallenges) -> G1serde {
+        proof4.Pi_AX * challenges.chi + proof4.Pi_AY * challenges.zeta
+    }
+
+    pub fn verify_snark(&self) -> bool {
+        let binding = &self.proof.binding;
+        let proof0 = &self.proof.proof0;
+        let proof4 = &self.proof.proof4;
+        let challenges = self.collect_challenges();
+        let domain = self.build_domain_context(&challenges);
+        let lagrange_k0_eval = self.eval_lagrange_k0(&domain, &challenges);
+        let a_eval = self.eval_a_pub(&challenges);
+        let lhs_a = self.lhs_arith(&domain, &challenges);
+        let lhs_c = self.lhs_copy(&domain, &challenges, lagrange_k0_eval);
+        let lhs_b = self.lhs_binding(&challenges, a_eval);
+        let lhs = lhs_b + ((lhs_a + lhs_c) * challenges.kappa2);
+        let (aux, aux_x, aux_y) = self.snark_aux(proof4, &domain, &challenges);
 
         let left_pair = pairing(
-            &[LHS + AUX,    proof0.B,                   proof0.U,                   proof0.V,                   proof0.W                 ],
-            &[self.sigma.H, self.sigma.sigma_2.alpha4,  self.sigma.sigma_2.alpha,   self.sigma.sigma_2.alpha2,  self.sigma.sigma_2.alpha3]
+            &[lhs + aux, proof0.B, proof0.U, proof0.V, proof0.W],
+            &[
+                self.sigma.h(),
+                self.sigma.sigma2().alpha4,
+                self.sigma.sigma2().alpha,
+                self.sigma.sigma2().alpha2,
+                self.sigma.sigma2().alpha3,
+            ],
         );
         let right_pair = pairing(
-            &[binding.O_inst,        binding.O_mid,              binding.O_prv,              AUX_X,                  AUX_Y               ],
-            &[self.sigma.sigma_2.gamma,   self.sigma.sigma_2.eta,     self.sigma.sigma_2.delta,   self.sigma.sigma_2.x,   self.sigma.sigma_2.y]
+            &[
+                self.preprocess.O_pub_fix + binding.O_pub_free,
+                binding.O_mid,
+                binding.O_prv,
+                aux_x,
+                aux_y,
+            ],
+            &[
+                self.sigma.sigma2().gamma,
+                self.sigma.sigma2().eta,
+                self.sigma.sigma2().delta,
+                self.sigma.sigma2().x,
+                self.sigma.sigma2().y,
+            ],
         );
         left_pair.eq(&right_pair)
     }
 
     pub fn verify_arith(&self, proof4: &Proof4Test) -> bool {
-        let proof0 = &self.proof.proof0;
-        let proof1 = &self.proof.proof1;
-        let proof2 = &self.proof.proof2;
-        let proof3 = &self.proof.proof3;
-        
-        let mut transcript_manager = TranscriptManager::new();
+        let challenges = self.collect_challenges();
+        let domain = self.build_domain_context(&challenges);
+        let lhs_a = self.lhs_arith(&domain, &challenges);
+        let aux_a = self.arith_aux(proof4, &challenges);
 
-        // Compute challenges using the transcript manager
-        let thetas = proof0.verify0_with_manager(&mut transcript_manager);
-        let kappa0 = proof1.verify1_with_manager(&mut transcript_manager);
-        let (chi, zeta) = proof2.verify2_with_manager(&mut transcript_manager);
-        let kappa1 = proof3.verify3_with_manager(&mut transcript_manager);
-        let kappa2 = ScalarCfg::generate_random(1)[0];
-
-        let s_max = self.setup_params.s_max;
-        let t_n_eval = chi.pow(self.setup_params.n) - ScalarField::one();
-        let t_smax_eval = zeta.pow(s_max) - ScalarField::one();
-
-        let LHS_A = 
-            (proof0.U * proof3.V_eval)
-            - proof0.W
-            +(proof0.V - self.sigma.G * proof3.V_eval) * kappa1
-            - proof0.Q_AX * t_n_eval
-            - proof0.Q_AY * t_smax_eval;
-
-        let AUX_A = 
-            proof4.Pi_AX * chi
-            + proof4.Pi_AY * zeta;
-
-        let left_pair = pairing(
-            &[LHS_A + AUX_A],
-            &[self.sigma.H]
-        );
+        let left_pair = pairing(&[lhs_a + aux_a], &[self.sigma.h()]);
         let right_pair = pairing(
-            &[proof4.Pi_AX,             proof4.Pi_AY],
-            &[self.sigma.sigma_2.x,     self.sigma.sigma_2.y]
+            &[proof4.Pi_AX, proof4.Pi_AY],
+            &[self.sigma.sigma2().x, self.sigma.sigma2().y],
         );
-        return left_pair.eq(&right_pair)
+        return left_pair.eq(&right_pair);
     }
 
     pub fn verify_copy(&self, proof4: &Proof4Test) -> bool {
-        let proof0 = &self.proof.proof0;
-        let proof1 = &self.proof.proof1;
-        let proof2 = &self.proof.proof2;
-        let proof3 = &self.proof.proof3;
-        
-        let mut transcript_manager = TranscriptManager::new();
-
-        // Compute challenges using the transcript manager
-        let thetas = proof0.verify0_with_manager(&mut transcript_manager);
-        let kappa0 = proof1.verify1_with_manager(&mut transcript_manager);
-        let (chi, zeta) = proof2.verify2_with_manager(&mut transcript_manager);
-        let kappa1 = proof3.verify3_with_manager(&mut transcript_manager);
-        let kappa2 = ScalarCfg::generate_random(1)[0];
-
-        let m_i = self.setup_params.l_D - self.setup_params.l;
-        let s_max = self.setup_params.s_max;
-        let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
-        let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
-        let t_mi_eval = chi.pow(m_i) - ScalarField::one();
-        let t_smax_eval = zeta.pow(s_max) - ScalarField::one();
-        
-        let lagrange_K0_eval = {
-            let lagrange_K0_XY = {
-                let mut k0_evals = vec![ScalarField::zero(); m_i];
-                k0_evals[0] = ScalarField::one();
-                DensePolynomialExt::from_rou_evals(
-                    HostSlice::from_slice(&k0_evals),
-                    m_i,
-                    1,
-                    None,
-                    None
-                )
-            };
-            lagrange_K0_XY.eval(&chi, &zeta)
-        };
-
-        let F = 
-            proof0.B
-            + self.preprocess.s0 * thetas[0]
-            + self.preprocess.s1 * thetas[1]
-            + self.sigma.G * thetas[2];
-        let G = 
-            proof0.B
-            + self.sigma.sigma_1.x * thetas[0]
-            + self.sigma.sigma_1.y * thetas[1]
-            + self.sigma.G * thetas[2];
-        let LHS_C_term1 = 
-            self.sigma.lagrange_KL * (proof3.R_eval - ScalarField::one())
-            + (G * proof3.R_eval - F * proof3.R_omegaX_eval) * (kappa0 * (chi - ScalarField::one()))
-            + (G * proof3.R_eval - F * proof3.R_omegaX_omegaY_eval) * (kappa0.pow(2) * lagrange_K0_eval)
-            - proof2.Q_CX * t_mi_eval
-            - proof2.Q_CY * t_smax_eval;
-        let LHS_C = 
-            LHS_C_term1 * kappa1.pow(2)
-            + (proof1.R - self.sigma.G * proof3.R_eval) * kappa1.pow(3)
-            + (proof1.R - self.sigma.G * proof3.R_omegaX_eval) * kappa2
-            + (proof1.R - self.sigma.G * proof3.R_omegaX_omegaY_eval) * kappa2.pow(2);
-        let AUX_C = 
-            proof4.Pi_CX * chi
-            + proof4.Pi_CY * zeta
-            + proof4.M_X * (kappa2 * omega_m_i.inv() * chi)
-            + proof4.M_Y * (kappa2 * zeta)
-            + proof4.N_X * (kappa2.pow(2) * omega_m_i.inv() * chi)
-            + proof4.N_Y * (kappa2.pow(2) * omega_s_max.inv() * zeta);
-        let AUX_X = 
-            proof4.Pi_CX 
-            + proof4.M_X * kappa2
-            + proof4.N_X * kappa2.pow(2);
-        let AUX_Y = 
-            proof4.Pi_CY
-            + proof4.M_Y * kappa2
-            + proof4.N_Y * kappa2.pow(2);
-        let left_pair = pairing(
-            &[LHS_C + AUX_C],
-            &[self.sigma.H]
-        );
+        let challenges = self.collect_challenges();
+        let domain = self.build_domain_context(&challenges);
+        let lagrange_k0_eval = self.eval_lagrange_k0(&domain, &challenges);
+        let lhs_c = self.lhs_copy(&domain, &challenges, lagrange_k0_eval);
+        let (aux_c, aux_x, aux_y) = self.copy_aux(proof4, &domain, &challenges);
+        let left_pair = pairing(&[lhs_c + aux_c], &[self.sigma.h()]);
         let right_pair = pairing(
-            &[AUX_X,                  AUX_Y               ],
-            &[self.sigma.sigma_2.x,   self.sigma.sigma_2.y]
+            &[aux_x, aux_y],
+            &[self.sigma.sigma2().x, self.sigma.sigma2().y],
         );
-        return left_pair.eq(&right_pair)
+        return left_pair.eq(&right_pair);
     }
 
     pub fn verify_binding(&self, proof4: &Proof4Test) -> bool {
         let binding = &self.proof.binding;
         let proof0 = &self.proof.proof0;
-        let proof1 = &self.proof.proof1;
-        let proof2 = &self.proof.proof2;
-        let proof3 = &self.proof.proof3;
-        
-        let mut transcript_manager = TranscriptManager::new();
-
-        // Compute challenges using the transcript manager
-        let thetas = proof0.verify0_with_manager(&mut transcript_manager);
-        let kappa0 = proof1.verify1_with_manager(&mut transcript_manager);
-        let (chi, zeta) = proof2.verify2_with_manager(&mut transcript_manager);
-        let kappa1 = proof3.verify3_with_manager(&mut transcript_manager);
-        let kappa2 = ScalarCfg::generate_random(1)[0];
-
-        let m_i = self.setup_params.l_D - self.setup_params.l;
-        let s_max = self.setup_params.s_max;
-        let omega_m_i = ntt::get_root_of_unity::<ScalarField>(m_i as u64);
-        let omega_s_max = ntt::get_root_of_unity::<ScalarField>(s_max as u64);
-        let t_n_eval = chi.pow(self.setup_params.n) - ScalarField::one();
-        let t_mi_eval = chi.pow(m_i) - ScalarField::one();
-        let t_smax_eval = zeta.pow(s_max) - ScalarField::one();
-
-        let A_eval = self.a_pub_X.eval(&chi, &zeta);
-        
-        let lagrange_K0_eval = {
-            let lagrange_K0_XY = {
-                let mut k0_evals = vec![ScalarField::zero(); m_i];
-                k0_evals[0] = ScalarField::one();
-                DensePolynomialExt::from_rou_evals(
-                    HostSlice::from_slice(&k0_evals),
-                    m_i,
-                    1,
-                    None,
-                    None
-                )
-            };
-            lagrange_K0_XY.eval(&chi, &zeta)
-        };
-        let LHS_B =
-            binding.A * ( ScalarField::one() + (kappa2 * kappa1.pow(4)) )
-            - self.sigma.G * (kappa2 * kappa1.pow(4) * A_eval);
-        let AUX_B = 
-            proof4.Pi_B * (kappa2 * chi);
+        let challenges = self.collect_challenges();
+        let a_eval = self.eval_a_pub(&challenges);
+        let lhs_b = self.lhs_binding(&challenges, a_eval);
+        let aux_b = proof4.Pi_B * (challenges.kappa2 * challenges.chi);
         let left_pair = pairing(
-            &[LHS_B + AUX_B,    proof0.B,                   proof0.U,                   proof0.V,                   proof0.W                 ],
-            &[self.sigma.H,     self.sigma.sigma_2.alpha4,  self.sigma.sigma_2.alpha,   self.sigma.sigma_2.alpha2,  self.sigma.sigma_2.alpha3]
+            &[lhs_b + aux_b, proof0.B, proof0.U, proof0.V, proof0.W],
+            &[
+                self.sigma.h(),
+                self.sigma.sigma2().alpha4,
+                self.sigma.sigma2().alpha,
+                self.sigma.sigma2().alpha2,
+                self.sigma.sigma2().alpha3,
+            ],
         );
         let right_pair = pairing(
-            &[binding.O_inst,            binding.O_mid,              binding.O_prv,              proof4.Pi_B * kappa2    ],
-            &[self.sigma.sigma_2.gamma,       self.sigma.sigma_2.eta,     self.sigma.sigma_2.delta,   self.sigma.sigma_2.x    ]
+            &[
+                self.preprocess.O_pub_fix + binding.O_pub_free,
+                binding.O_mid,
+                binding.O_prv,
+                proof4.Pi_B * challenges.kappa2,
+            ],
+            &[
+                self.sigma.sigma2().gamma,
+                self.sigma.sigma2().eta,
+                self.sigma.sigma2().delta,
+                self.sigma.sigma2().x,
+            ],
         );
 
-        return left_pair.eq(&right_pair)
-        
+        return left_pair.eq(&right_pair);
     }
-
-
 }

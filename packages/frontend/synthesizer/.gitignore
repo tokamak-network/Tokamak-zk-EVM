@@ -1,5 +1,9 @@
 .cachedb
+/node_modules/
 .env
+scripts/.env
+scripts/config.json
+scripts/temp.json
 benchmarks/*.js
 # Bundle stats generated with npm visualize:bundle
 stats.html
@@ -9,7 +13,13 @@ stats.html
 !.vscode/**
 
 dist/
+node-cli/CHANGELOG.md
+web-app/CHANGELOG.md
+node-cli/build-metadata.json
+web-app/build-metadata.json
 **/outputs
+!web-app/src/output/
+!web-app/src/output/**
 
 # binary
 bin/

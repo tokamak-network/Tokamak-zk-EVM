@@ -1,51 +1,69 @@
-use std::{env, process, time::Instant};
-
+use clap::Parser;
+use libs::subcircuit_library::{resolve_subcircuit_library_path, SubcircuitLibraryArg};
 use libs::utils::check_device;
+#[cfg(feature = "testing-mode")]
 use prove::Proof4Test;
-use verify::{KeccakVerificationResult, Verifier, VerifyInputPaths};
+use verify::{Verifier, VerifyInputPaths};
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Config {
+    #[command(flatten)]
+    subcircuit_library: SubcircuitLibraryArg,
+
+    /// CRS output directory containing sigma_verify.json
+    #[arg(long, value_name = "PATH")]
+    crs: String,
+
+    /// Synthesizer output directory containing verification inputs
+    #[arg(long, value_name = "PATH")]
+    synthesizer_stat: String,
+
+    /// Preprocess output directory containing preprocess.json
+    #[arg(long, value_name = "PATH")]
+    preprocess: String,
+
+    /// Proof output directory containing proof.json
+    #[arg(long, value_name = "PATH")]
+    proof: String,
+}
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() != 6 {
-        eprintln!(
-            "Usage: {} <QAP_PATH> <SYNTHESIZER_PATH> <SETUP_PATH> <PREPROCESS_PATH> <PROOF_PATH> ",
-            args[0]
-        );
-        process::exit(1);
-    }
+    let config = Config::parse();
+    let qap_path = resolve_subcircuit_library_path(config.subcircuit_library.as_deref())
+        .to_string_lossy()
+        .into_owned();
 
     let paths = VerifyInputPaths {
-        qap_path: &args[1],
-        synthesizer_path: &args[2],
-        setup_path: &args[3],
-        preprocess_path: &args[4],
-        proof_path: &args[5],
+        qap_path: &qap_path,
+        synthesizer_path: &config.synthesizer_stat,
+        setup_path: &config.crs,
+        preprocess_path: &config.preprocess,
+        proof_path: &config.proof,
     };
 
     check_device();
-    
+
     println!("Verifier initialization...");
-    let mut timer = Instant::now();
     let verifier = Verifier::init(&paths);
-    let mut lap = timer.elapsed();
-    println!("Verifier init time: {:.6} seconds", lap.as_secs_f64());
 
     println!("Verifying the proof...");
-    timer = Instant::now();
-    // let res_keccak = verifier.verify_keccak256();
     let res_snark = verifier.verify_snark();
-    lap = timer.elapsed();
-    println!("Verification time: {:.6} seconds", lap.as_secs_f64());
-    // println!("{}", res_snark && res_keccak == KeccakVerificationResult::True );
-    println!("{}", res_snark );
+    println!("{}", res_snark);
 
-    #[cfg(feature = "testing-mode")] {
+    #[cfg(feature = "testing-mode")]
+    {
         use std::path::PathBuf;
         let test_proof_path = PathBuf::from(paths.proof_path).join("proof4_test.json");
         let proof4_test = Proof4Test::read_from_json(test_proof_path).unwrap();
-        println!("Verification arithmetic: {}", verifier.verify_arith(&proof4_test) );
-        println!("Verification copy: {}", verifier.verify_copy(&proof4_test) );
-        println!("Verification binding: {}", verifier.verify_binding(&proof4_test) );
+        println!(
+            "Verification arithmetic: {}",
+            verifier.verify_arith(&proof4_test)
+        );
+        println!("Verification copy: {}", verifier.verify_copy(&proof4_test));
+        println!(
+            "Verification binding: {}",
+            verifier.verify_binding(&proof4_test)
+        );
     }
 }

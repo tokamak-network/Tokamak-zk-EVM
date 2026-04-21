@@ -1,0 +1,61 @@
+{
+  "network": "anvil",
+  "participants": [
+    {
+      "addressL1": "0x5d1d2c910c42bc9084465c4cb4b3c7d2aae4d075",
+      "prvSeedL2": "private-state participant 0"
+    },
+    {
+      "addressL1": "0x5ed57de52bc869e17fee34c202d51b69013252f2",
+      "prvSeedL2": "private-state participant 1"
+    },
+    {
+      "addressL1": "0xc107f75815a4a83baa7c062ec6ad77054aa5ce95",
+      "prvSeedL2": "private-state participant 2"
+    },
+    {
+      "addressL1": "0xd388de6a2dc622776c3546e32c67144d304f6d48",
+      "prvSeedL2": "private-state participant 3"
+    }
+  ],
+  "storageConfigs": [
+    {
+      "address": "0xa16e02e87b7454126e5e10d957a927a7f5b5d2be",
+      "userStorageSlots": [],
+      "preAllocatedKeys": []
+    },
+    {
+      "address": "0x7a60bafe4789a2cf2342d54ae46cf1dfb271d4a5",
+      "userStorageSlots": [],
+      "preAllocatedKeys": [
+        "0x23313b4c8769629dd44617787e41e9d983a632bf0a48e37ee05d518f5a71a122"
+      ]
+    }
+  ],
+  "callCodeAddresses": [
+    "0xa16e02e87b7454126e5e10d957a927a7f5b5d2be",
+    "0x7a60bafe4789a2cf2342d54ae46cf1dfb271d4a5"
+  ],
+  "blockNumber": 6,
+  "txNonce": 0,
+  "calldata": "0x0009904a0000000000000000000000005d1d2c910c42bc9084465c4cb4b3c7d2aae4d0750000000000000000000000000000000000000000000000000de0b6b3a76400005ad597c1909ff2b9fa0d30c6a3650ba230c7a5bbdd9ad45c737d4e57f5107dc20000000000000000000000005d1d2c910c42bc9084465c4cb4b3c7d2aae4d0750000000000000000000000000000000000000000000000000de0b6b3a76400004cd20eaa648ff3732b1f0e18063d35fa7adfeaa2a29255d23fcec775eccdca550000000000000000000000005d1d2c910c42bc9084465c4cb4b3c7d2aae4d0750000000000000000000000000000000000000000000000000de0b6b3a76400003fdd84010f6c0f283efdf8de6eba865c47e67b4e13dd0e3f328a00f860e9aa420000000000000000000000005d1d2c910c42bc9084465c4cb4b3c7d2aae4d0750000000000000000000000000000000000000000000000000de0b6b3a764000021750502e6e25d5f92ae0c91a2cd526a4734d7f0f518dfaf475031277223e31a",
+  "senderIndex": 0,
+  "noteOwnerIndex": 0,
+  "outputCount": 4,
+  "noteValues": [
+    "0x0de0b6b3a7640000",
+    "0x0de0b6b3a7640000",
+    "0x0de0b6b3a7640000",
+    "0x0de0b6b3a7640000"
+  ],
+  "noteSalts": [
+    "0x5ad597c1909ff2b9fa0d30c6a3650ba230c7a5bbdd9ad45c737d4e57f5107dc2",
+    "0x4cd20eaa648ff3732b1f0e18063d35fa7adfeaa2a29255d23fcec775eccdca55",
+    "0x3fdd84010f6c0f283efdf8de6eba865c47e67b4e13dd0e3f328a00f860e9aa42",
+    "0x21750502e6e25d5f92ae0c91a2cd526a4734d7f0f518dfaf475031277223e31a"
+  ],
+  "function": {
+    "selector": "0x0009904a",
+    "entryContractAddress": "0xa16e02e87b7454126e5e10d957a927a7f5b5d2be"
+  }
+}

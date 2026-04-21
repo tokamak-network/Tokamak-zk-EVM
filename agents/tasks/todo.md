@@ -1,0 +1,494 @@
+# PR177 Gemini Code Assist Review Follow-up (2026-02-03)
+
+## Plan
+- [x] Reconfirm no change needed in `tests/scripts/run-erc20-main-from-configs.ts` (errors must fail fast).
+- [x] Re-run `npm run -s test:node` with no timeout under escalated permissions.
+- [x] Record verification results in this file.
+
+## Review
+- Escalated `npm run -s test:node` ran ~8m45s and failed with `Synthesizer: step error: Error: Unreachable stackPt index` during the run (runCommand in `tests/scripts/run-erc20-main-from-configs.ts` fails fast as expected).
+
+# run-erc20-main-from-configs error logging
+
+## Plan
+- [x] Add config file path logging when a run fails in `packages/frontend/synthesizer/tests/scripts/run-erc20-main-from-configs.ts`.
+- [x] Re-run `npm run -s test:node` with 1-hour timeout under escalated permissions.
+- [x] Record verification results in this file.
+
+## Review
+- Escalated `npm run -s test:node` completed in ~5m54s with exit code 0. Output still included repeated `Synthesizer: step error: Error: Unreachable stackPt index` logs during execution.
+
+# Separate prep vs test scripts
+
+## Plan
+- [x] Update `packages/frontend/synthesizer/package.json` to split config generation and test execution into separate scripts.
+- [x] Make `test` point only to the execution script; add a prep script for config generation.
+- [x] Run the new scripts or record why verification couldn’t be done.
+
+## Review
+- `npm run -s test:prep` completed successfully (exit code 0).
+- `npm run -s test` completed successfully (exit code 0) and finished permutation/instance_description validations.
+
+# Preserve outputs when archiving
+
+## Plan
+- [x] Update `packages/frontend/synthesizer/tests/scripts/run-erc20-main-from-configs.ts` to copy outputs into `tests/outputs` without deleting originals.
+- [x] Verify behavior (or record why it couldn’t be run).
+
+## Review
+- `npm run -s test` completed successfully (exit code 0) after the change.
+- [x] Restore `test:node` in `packages/frontend/synthesizer/package.json` to align the pre-commit hook.
+- [x] Update `tests/scripts/run-erc20-config-matrix.ts` to ignore `runCommand` errors but fail fast for internal script errors.
+- [x] Refactor `parseCliInputs` into smaller helpers without changing behavior.
+- [x] Run a targeted verification and record results.
+
+## Review
+- `npm run -s test:node` failed under sandbox with `listen EPERM` when `tsx` attempted IPC.
+- Escalated `npm run -s test:node` ran but timed out after 120s; output showed multiple `Unreachable stackPt index` errors during synthesizer execution.
+
+# PR177 Gemini Code Assist Review
+
+## Plan
+- [x] Locate PR 177 in tokamak-network/Tokamak-zk-EVM and collect all review comments authored by gemini-code-assist.
+- [ ] Enumerate and analyze each comment (what it asks, risk/impact, proposed change).
+- [ ] Ask for approval per comment (or grouped by file) before making code changes.
+- [ ] Implement approved changes with minimal diff and note any declines.
+- [ ] Verify changes (tests or targeted checks) and capture results.
+
+## Review
+- Updated `--preprocess` usage to accept an optional file path and copy it into `dist/resource/synthesizer/output` before preprocess runs.
+- Verified by inspection in `scripts/interface.sh` and `scripts/tokamak-cli-core`.
+
+# build-release job validation (2026-02-04)
+
+## Plan
+- [ ] Confirm execution environment (local macOS vs Linux runner) and any required secrets.
+- [ ] Enumerate jobs/steps from `.github/workflows/build-release.yml` and map to local commands.
+- [ ] Execute each job step-by-step with best-effort substitutions; capture pass/fail reasons.
+- [ ] Classify jobs as working, failing, or not runnable (with concrete error/constraint).
+- [ ] Record results and verification evidence in this file.
+
+# Integrate synthesizer-tests into build-release (2026-02-04)
+
+## Plan
+- [x] Review `.github/workflows/synthesizer-tests.yml` and `.github/workflows/build-release.yml` for overlaps and triggers.
+- [x] Decide placement for synthesizer tests within `build-release.yml` (second job position) and preserve original trigger scope.
+- [x] Remove the standalone `synthesizer-tests.yml` workflow as requested.
+- [x] Apply edits and re-check YAML validity (visual inspection) and record results here.
+
+## Review
+- Added `synthesizer-tests` job as the second job in `.github/workflows/build-release.yml`, preserving original PR-only scope (main/dev).
+- Removed `.github/workflows/synthesizer-tests.yml`.
+
+# Gate synthesizer-tests on build-and-setup artifacts (2026-02-04)
+
+## Plan
+- [x] Update `synthesizer-tests` to `needs: build-and-setup`.
+- [x] Download `qap-compiler` and `synthesizer` artifacts from `build-and-setup`.
+- [x] Remove redundant dependency install steps and rely on artifact-provided `node_modules`.
+- [x] Verify YAML integrity by inspection and record results here.
+
+## Review
+- `synthesizer-tests` now depends on `build-and-setup` and downloads `qap-compiler`/`synthesizer` artifacts.
+- Removed `npm install`/`tsx` install steps; test runs via `cd packages/frontend/synthesizer && npm test`.
+
+# Replace L2 TON Transfer test with proof generation test (2026-02-04)
+
+## Plan
+- [x] Rename the EVM compatibility test job id/artifact to align with `evm-compat-test`.
+- [x] Replace `l2-ton-transfer-test` with `proof-generation-test` using the requested CLI steps and artifacts.
+- [x] Update downstream `needs` and release notes references.
+- [x] Verify YAML integrity by inspection and record results here.
+
+## Review
+- Renamed the EVM compatibility tests job id to `evm-compat-test` and its outputs artifact accordingly.
+- Replaced `l2-ton-transfer-test` with `proof-generation-test` that consumes `built-dist` and `evm-compat-test` outputs, then runs preprocess/prove/extract-proof/verify.
+- Updated downstream job dependencies and release notes to reference the new proof generation test.
+
+# Local test of first three build-release jobs (2026-02-04)
+
+## Plan
+- [x] Identify the first three jobs in `.github/workflows/build-release.yml` and map their run steps to local commands.
+- [x] Execute the mapped commands locally (or record OS/tooling blockers) for each job in order.
+- [x] Capture outcomes, errors, and constraints in this file.
+
+## Review
+- Environment: macOS 26.2 (arm64). Node `v25.3.0`, npm `11.7.0`, Rust `1.88.0`, Bun `1.3.5`, dos2unix present.
+- build-and-setup:
+  - `sudo apt-get update` blocked (`operation not permitted: sudo`), so Ubuntu system deps step not runnable locally.
+  - `npm install --legacy-peer-deps` for `qap-compiler` and `synthesizer` reported `up to date`.
+  - `npm install -g tsx` failed due to no network (`ENOTFOUND registry.npmjs.org`).
+  - `./tokamak-cli --install` failed: `Failed to update constants.circom (pattern not found)` and `tsx` IPC `listen EPERM` under sandbox.
+- evm-compat-test:
+  - `npm test` failed immediately with `tsx` IPC `listen EPERM` (same sandbox restriction).
+- proof-generation-test:
+  - `./tokamak-cli --preprocess packages/frontend/synthesizer/outputs/preprocess.json` failed: input file not found.
+  - `./tokamak-cli --prove ./packages/frontend/synthesizer/outputs` failed: missing `instance_description.json`.
+  - `./tokamak-cli --extract-proof ./test-out/test-proof.zip` failed because preprocess failed (missing files).
+- `./tokamak-cli --verify ./test-out/test-proof.zip` failed: file not found.
+
+# Adjust test gating and missing-input logging (2026-02-04)
+
+## Plan
+- [x] Update test job conditions so they run on push to main.
+- [x] Add explicit input checks in `proof-generation-test` to log missing upstream artifacts/files before running CLI steps.
+- [x] Verify YAML integrity by inspection and record results here.
+
+## Review
+- `evm-compat-test` and `proof-generation-test` now run on PR(main/dev) and push(main).
+- Added explicit missing-input checks for preprocess/prove and proof bundle before extract/verify, with clear error logs.
+
+# tokamak-cli preprocess optional input (2026-02-04)
+
+## Plan
+- [x] Inspect CLI argument parsing and preprocess flow to decide where to accept the optional file path.
+- [x] Update `--preprocess` usage/validation plus `step_preprocess` to copy the provided file into `dist/resource/synthesizer/output` before running preprocess.
+- [x] Verify changes by inspection (and run a targeted command if appropriate), then record results here.
+
+## Review
+- Clarified `--preprocess` optional input as `permutation.json` and enforce the filename before copying into `dist/resource/synthesizer/output`.
+- Updated CLI usage text to reference `permutation.json`.
+- Ran `./tokamak-cli --preprocess .../permutation.json`; copy succeeded, but preprocess failed with `verify/preprocess/src/main.rs:40:60` missing file (`Os { code: 2, kind: NotFound }`).
+
+# Commit and push all changes (2026-02-04)
+
+## Plan
+- [ ] Review `git status` and capture the scope of changes to be committed.
+- [ ] Stage all changes.
+- [ ] Commit with the user-provided message.
+- [ ] Push the current branch to the default remote.
+
+## Review
+- Created PR from `jake-ci-update` to `dev`: https://github.com/tokamak-network/Tokamak-zk-EVM/pull/178
+
+# Create PR to dev (2026-02-04)
+
+## Plan
+- [ ] Gather PR details (base branch `dev`, compare `jake-ci-update`) and draft PR body using `.github/PULL_REQUEST_TEMPLATE.md`.
+- [ ] Confirm draft PR body with the user.
+- [ ] Create the PR (likely via `gh pr create`) and record the result here.
+
+## Review
+- Fixed typo in `scripts/interface.sh` (`preprocss` → `preprocess`).
+- Corrected preprocess input validation in `scripts/tokamak-cli-core` to distinguish missing paths vs. directories.
+- Removed accidental `packages/frontend/qap-compiler/scripts/temp.txt` from the repo.
+
+# PR 178 gemini-bot review (2026-02-04)
+
+## Plan
+- [ ] Fetch gemini-bot comments from PR 178 and summarize requested changes.
+- [ ] Analyze each comment and propose fixes; confirm scope if needed.
+- [ ] Implement approved fixes with minimal diffs.
+
+# Commit and push excluding backend (2026-02-04)
+
+## Plan
+- [ ] Confirm current staged/unstaged changes and branch/remote.
+- [ ] Adjust staging to exclude `packages/backend/**` except `packages/backend/verify/preprocess/**`.
+- [ ] Commit allowed changes with a user-approved message.
+- [ ] Push to the current branch's upstream.
+
+## Review
+- Pending.
+- [ ] Verify and record results in this file.
+- [ ] Update PR with new commits.
+
+## Review
+- Added `npm install -g tsx` in `evm-compat-test` to satisfy synthesizer test runner dependency.
+- Added a guarded `zip`/`unzip` install in `proof-generation-test` to support `--extract-proof` and ZIP-based `--verify`.
+- No extra dependency installs needed for `tokamak-ch-compat-test` beyond existing steps.
+
+# div_by_vanishing performance review (2026-02-04)
+
+## Plan
+- [x] Inspect `div_by_vanishing` implementation and helper calls for hot spots (allocation, FFT/eval, resizing).
+- [x] Map dataflow and identify redundant transforms, copies, and device/host transfers.
+- [x] Propose concrete optimization opportunities (algorithmic + micro-optimizations) with risk/complexity notes.
+- [x] Record findings in this file.
+
+## Review
+- Key hot spots: `_slice_coeffs_into_blocks` host copy + block materialization, repeated `device_malloc`/host-device copies, and multiple full 2D NTTs for denom polynomials and quotients.
+- Algorithmic wins: use 1D NTT per row/column (denom depends on single variable), broadcast denom evals instead of building full matrices, and compute `b_tilde` directly in eval space to avoid `mul_monomial` + `self - r` clones.
+- Structural wins: avoid building `t_c`/`t_d` polynomials + `resize`; compute vanishing evals directly (or cache) and reuse scratch buffers.
+- Noted risk: correctness must be rechecked if replacing 2D NTTs or changing evaluation domains; no code changes made.
+
+# div_by_vanishing test script + timing logs (2026-02-04)
+
+## Plan
+- [x] Add timing logs inside `div_by_vanishing` for `to_rou_evals`, `div`, `accumulate`, `from_coeffs`.
+- [x] Add a dedicated `div_by_vanishing` test in `libs/src/tests.rs` that asserts correctness and prints timing logs.
+- [x] Remove or deprecate the shell test script if it’s no longer needed.
+
+- [x] Verify by inspection (no runtime) and record results here.
+
+## Review
+- Added env-gated timing logs in `div_by_vanishing` around `accumulate`, `from_coeffs`, `to_rou_evals`, and `div`.
+- Added `test_div_by_vanishing_basic_with_timing` in `libs/src/tests.rs` and refactored the shared logic into a helper.
+- Removed the `tests/div_by_vanishing` shell script and directory after moving the test into Rust.
+- Verification by inspection only; no runtime executed.
+
+# div_by_vanishing denom cache in Prover (2026-02-04)
+
+## Plan
+- [ ] Inspect `Prover` usage of `div_by_vanishing` and decide cache key shape (sizes + coset) and ownership (DeviceVec).
+- [ ] Add cache fields to `Prover` and a helper to fetch/build denom evals with consistent coset values.
+- [ ] Add a `div_by_vanishing` variant that accepts cached denom evals and coset, then wire Prover call sites to it.
+- [ ] Update tests or defaults to keep existing behavior for non-Prover callers.
+- [ ] Verify by inspection (no runtime) and record results here.
+
+## Review
+- Applied size-based cache lookup for denom eval inverses in `div_by_vanishing` (Q_Y/Q_X) and reused cached coset values.
+- Added a shared helper to build denom inverse evals to reduce duplication.
+- Updated Q_X to use mul with inverse evals for consistency.
+- Verification by inspection only; no runtime executed.
+
+# Add missing dependencies in build-release test jobs (2026-02-04)
+
+## Plan
+- [ ] Inspect `.github/workflows/build-release.yml` test jobs (`evm-compat-test`, `proof-generation-test`, `tokamak-ch-compat-test`) and enumerate commands and required tools/binaries.
+- [ ] Identify missing dependencies (e.g., `tsx`, `node_modules`, CLI tools) per job and decide the minimal installation steps.
+- [ ] Update the workflow to install required dependencies in the affected jobs with minimal changes.
+- [ ] Review YAML for correctness and record results here.
+
+## Review
+- Updated `tokamak-ch-compat-test` to pass absolute `${{ github.workspace }}` paths for L2StateChannel input JSON files, avoiding path resolution issues when the synthesizer binary runs from its own directory.
+
+# Fix tokamak-ch-compat-test missing L2StateChannel inputs (2026-02-04)
+
+## Plan
+- [ ] Inspect `tokamak-ch-compat-test` command and `scripts/channel-functions.sh` to confirm path resolution for `--previous-state`, `--block-info`, and `--contract-code`.
+- [ ] Decide minimal fix (e.g., use absolute paths in workflow or adjust script to resolve paths from repo root).
+- [ ] Update `.github/workflows/build-release.yml` accordingly.
+- [ ] Record the fix in this file and note verification status.
+
+## Review
+- Pending.
+
+# Fix missing EVM compat artifact (2026-02-04)
+
+## Plan
+- [ ] Inspect synthesizer test scripts to confirm where outputs are written (e.g., `tests/outputs` vs `outputs`).
+- [ ] Compare workflow artifact upload/download paths and adjust to the actual outputs location.
+- [ ] Add any missing directory creation or validation to avoid empty artifact uploads.
+- [ ] Update workflow and record verification notes here.
+
+## Review
+- Pending.
+
+# Fix preprocess optional input to use permutation.json (2026-02-04)
+
+## Plan
+- [ ] Audit `tokamak-cli` preprocess option handling and any workflow steps that pass preprocess input paths.
+- [ ] Update help text and copy logic to use `permutation.json` instead of `preprocess.json`.
+- [ ] Fix workflow references (e.g., proof-generation-test) to pass the correct permutation path.
+- [ ] Record changes and verification notes here.
+
+## Review
+- Pending.
+
+# Sync tokamak-cli/CI with backend rkyv outputs (2026-02-09)
+
+## Plan
+- [x] Inspect backend output format changes and identify impacted CLI/CI checks.
+- [x] Update `scripts/tokamak-cli-core` to validate setup artifacts with current backend output names.
+- [x] Update CI workflow checks to assert required setup artifacts for proof/verify path.
+- [x] Run targeted validation commands and record outcomes.
+
+## Review
+- Updated `scripts/tokamak-cli-core` to align setup artifact checks with backend `*.rkyv` outputs:
+  - `--preprocess` now checks `sigma_preprocess.rkyv` before execution.
+  - `--prove` now checks `combined_sigma.rkyv` before execution.
+  - `--verify` now checks `sigma_verify.rkyv` (replacing legacy `.json`).
+- Updated `scripts/packaging.sh` prebuilt-setup validation to require `combined_sigma.rkyv`, `sigma_preprocess.rkyv`, and `sigma_verify.rkyv`.
+- Updated `.github/workflows/build-release.yml` to validate the same setup artifacts in:
+  - `build-and-setup` after install,
+  - `proof-generation-test` before preprocess/prove/verify,
+  - `tokamak-ch-compat-test` before preprocess/prove/verify.
+- Verification:
+  - `bash -n scripts/tokamak-cli-core scripts/packaging.sh tokamak-cli` passed.
+  - `./tokamak-cli --help` executed successfully.
+  - `rg -n "sigma_verify\\.json|sigma_preprocess\\.json|combined_sigma\\.json" scripts .github/workflows .run_scripts tokamak-cli` returned no matches.
+
+# CI test simulation (2026-02-09)
+
+## Plan
+- [x] Reconstruct local equivalents of `build-release.yml` test flow (`build-and-setup`, `evm-compat-test`, `proof-generation-test`, `tokamak-ch-compat-test`).
+- [x] Execute each flow step-by-step in current macOS sandbox and capture concrete pass/fail evidence.
+- [x] Classify failures by root cause (environment mismatch, sandbox restriction, missing secret/artifact, real regression).
+- [x] Record verification summary and actionable follow-ups.
+
+## Review
+- Environment:
+  - macOS arm64 (`Darwin 25.2.0`), Node `v25.6.0`, npm `11.8.0`, Bun `1.3.5`, Rust `1.88.0`, circom `2.2.2`, dos2unix available.
+- build-and-setup simulation:
+  - In sandbox, `./tokamak-cli --install TEST_ALCHEMY_KEY --bun` failed due `tsx` IPC permission error (`listen EPERM .../tsx-...pipe`).
+  - Re-run with escalated permissions succeeded end-to-end (packaging + trusted-setup), and generated:
+    - `dist/resource/setup/output/combined_sigma.rkyv`
+    - `dist/resource/setup/output/sigma_preprocess.rkyv`
+    - `dist/resource/setup/output/sigma_verify.rkyv`
+- evm-compat-test simulation (`cd packages/frontend/synthesizer && npm run test`):
+  - Requires escalated permissions (sandbox EPERM on `tsx` IPC).
+  - Without env var: fails with `Environment variable ALCHEMY_API_KEY must be set`.
+  - With dummy key (`ALCHEMY_API_KEY=TEST`): fails with RPC `401 Unauthorized` from Alchemy.
+  - Conclusion: this job is blocked locally without a valid `ALCHEMY_API_KEY` secret and external RPC access.
+- Re-run with user-provided keys from `packages/frontend/synthesizer/.env` and `packages/frontend/synthesizer/scripts/.env`:
+  - Loaded keys only in-process via `source ...` for that shell invocation.
+  - `cd packages/frontend/synthesizer && npm run test` completed successfully (`__EXIT_CODE__=0`).
+  - Final log reached consistency checks for `permutation.json` and `instance_description.json`.
+- proof-generation-test simulation (core CLI path):
+  - After setup artifacts were generated and synth outputs were prepared, the following succeeded:
+    - `./tokamak-cli --preprocess .../permutation.json`
+    - `./tokamak-cli --prove ./packages/frontend/synthesizer/outputs`
+    - `./tokamak-cli --extract-proof ./test-out/test-proof.zip`
+    - `./tokamak-cli --verify ./test-out/test-proof.zip` (output `true`)
+- proof-generation path re-validated after the key-based evm run:
+  - `./tokamak-cli --preprocess ... && ./tokamak-cli --prove ... && ./tokamak-cli --extract-proof ... && ./tokamak-cli --verify ...` succeeded end-to-end (`verify output => true`).
+- tokamak-ch-compat-test simulation:
+  - `./tokamak-cli --synthesize --tokamak-ch-tx ...` succeeded.
+  - Sequential `./tokamak-cli --preprocess && ./tokamak-cli --prove && ./tokamak-cli --verify` succeeded (verify output `true`).
+- Root-cause classification:
+  - Sandbox restriction: `tsx` IPC (`listen EPERM`) in non-escalated runs.
+  - Secret/external dependency: `evm-compat-test` requires valid `ALCHEMY_API_KEY` and reachable Alchemy endpoint.
+  - No blocking regression observed in backend CLI preprocess/prove/verify path after setup artifacts exist.
+
+# Sync preprocess inputs in tokamak-cli/CI with backend changes (2026-02-15)
+
+## Plan
+- [x] Confirm current backend binary input requirements for preprocess/prove/verify from entrypoint code.
+- [x] Update `scripts/tokamak-cli-core` preprocess input sync logic to supply all files now required by backend preprocess.
+- [x] Update `scripts/interface.sh` `--preprocess` help text to match new accepted input shape.
+- [x] Update `.github/workflows/build-release.yml` preprocess validation/invocation to match updated CLI/backend expectations.
+- [x] Run targeted validation (`bash -n`, CLI help, and preprocess command shape) and record results.
+- [x] Commit all changes.
+
+## Review
+- `packages/backend/verify/preprocess/src/main.rs` requires both `permutation.json` and `instance.json`; CLI/CI were updated to match this.
+- `scripts/tokamak-cli-core` now supports `--preprocess <SYNTH_OUTPUT_ZIP|DIR|permutation.json>` and always syncs both `permutation.json` and `instance.json`.
+- `scripts/tokamak-cli-core` now fails fast with explicit missing-input messages when either preprocess input file is absent in `dist/resource/synthesizer/output`.
+- `.github/workflows/build-release.yml` (`proof-generation-test`) now validates both preprocess inputs and invokes preprocess with the synthesizer outputs directory.
+- `.github/workflows/build-release.yml` prove-input validation was expanded to include `instance_description.json`, `instance.json`, `permutation.json`, and `placementVariables.json`.
+- Verification:
+  - `bash -n scripts/tokamak-cli-core scripts/interface.sh tokamak-cli` passed.
+  - `./tokamak-cli --help` passed and shows updated preprocess usage.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs/permutation.json` passed (backward compatibility).
+
+# Minimize preprocess path sync refactor (2026-02-15)
+
+## Plan
+- [x] Confirm overlap between `sync_preprocess_inputs_from_path` and shared utility `sync_from_path`.
+- [x] Refactor with minimal diff: keep behaviors, but route preprocess path dispatch through shared utility.
+- [x] Re-verify syntax and key preprocess command paths.
+- [x] Record review and commit.
+
+## Review
+- `sync_preprocess_inputs_from_path` dispatch logic was overlapping with `sync_from_path` (directory/file/path-not-found checks duplicated).
+- Refactor minimized by extending `sync_from_path` with an optional file handler and routing preprocess path handling through it.
+- `sync_preprocess_inputs_from_file` now handles `permutation.json` specially (copy + sibling `instance.json`) and falls back to zip handling for non-`permutation.json` files.
+- Verification:
+  - `bash -n scripts/tokamak-cli-core scripts/interface.sh tokamak-cli` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs/permutation.json` passed.
+  - `./tokamak-cli --preprocess /tmp/tokamak-preprocess-inputs.zip` passed.
+
+# Restrict preprocess input to DIR or ZIP only (2026-02-15)
+
+## Plan
+- [x] Remove `permutation.json` single-file input path from `tokamak-cli-core` preprocess flow.
+- [x] Update CLI usage/help and preprocess missing-input guidance to `DIR/ZIP` only.
+- [x] Verify behavior for valid `DIR/ZIP` and invalid single-file input.
+- [x] Record review and commit.
+
+## Review
+- Removed preprocess single-file handler (`sync_preprocess_inputs_from_file`) and routed preprocess input dispatch through shared `sync_from_path` with dir/zip handlers only.
+- Updated `scripts/interface.sh` usage/help to `--preprocess [<SYNTH_OUTPUT_ZIP|DIR>]`.
+- Updated preprocess missing-input hints to `--preprocess <SYNTH_OUTPUT_ZIP|DIR>`.
+- Verification:
+  - `bash -n scripts/tokamak-cli-core scripts/interface.sh tokamak-cli` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs` passed.
+  - `./tokamak-cli --preprocess /tmp/tokamak-preprocess-inputs.zip` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs/permutation.json` failed as expected with `Invalid zip archive`.
+
+# Clarify preprocess help required files (2026-02-15)
+
+## Plan
+- [x] Update `scripts/interface.sh` help text for `--preprocess` to explicitly require `permutation.json` and `instance.json` in DIR/ZIP input.
+- [x] Explicitly mention that other synthesizer output files are not required for preprocess.
+- [x] Verify with `./tokamak-cli --help`.
+- [x] Commit changes.
+
+## Review
+- Updated `--preprocess` help text to state DIR/ZIP must include `permutation.json` and `instance.json`.
+- Added explicit note that other synthesizer output files are not required for preprocess.
+- Verification: `./tokamak-cli --help` shows the new guidance text under `--preprocess`.
+
+# Sync prove/verify input guidance with backend requirements (2026-02-15)
+
+## Plan
+- [x] Reconfirm backend-required input files for `prove` and `verify` from current Rust entrypoints.
+- [x] Align `tokamak-cli` prove input sync/validation with backend-minimum required files.
+- [x] Update CLI help text for `--prove` and `--verify` to explicitly list required files and clarify non-required extras.
+- [x] Update CI pre-check steps so `prove` validation checks only prove-required files, while keeping later-step requirements explicit.
+- [x] Verify (`bash -n`, `--help`, and targeted prove/verify path checks), then record review and commit.
+
+## Review
+- Backend `prove` requires synthesizer inputs: `placementVariables.json`, `permutation.json`, `instance.json` (plus qap/setup artifacts in dist); `instance_description.json` is not consumed by backend prove.
+- Backend `verify` requires `proof.json`, `preprocess.json`, `instance.json` (plus `sigma_verify.rkyv` and qap setup artifacts in dist), matching current verify sync behavior.
+- `scripts/tokamak-cli-core`:
+  - Relaxed prove sync required file list to backend-minimum 3 files.
+  - Made `instance_description.json` optional during prove sync (still copied if present).
+  - Added explicit pre-run prove input checks in dist for the same 3 files.
+- `scripts/interface.sh`:
+  - Updated `--prove` help with required files and explicit note that other synth files are not required for prove.
+  - Updated `--verify` help with required files and setup artifact prerequisite.
+- `.github/workflows/build-release.yml`:
+  - `Validate prove inputs` now checks only prove-required files.
+  - Added `Validate extract-proof inputs` step to keep `instance_description.json` requirement explicit for `--extract-proof`.
+- Verification:
+  - `bash -n scripts/tokamak-cli-core scripts/interface.sh tokamak-cli` passed.
+  - `./tokamak-cli --help` shows updated prove/verify guidance.
+  - `./tokamak-cli --prove /tmp/tokamak-prove-missing-input` fails early with missing `placementVariables.json` (expected).
+  - `./tokamak-cli --prove /tmp/tokamak-prove-min-input` reaches backend execution with only 3 prove files (later fails with data consistency panic unrelated to file-presence checks).
+  - `./tokamak-cli --verify /tmp/tokamak-verify-min-input` accepts 3-file verify input and reaches backend execution (later fails due proof/instance mismatch, unrelated to file-presence checks).
+
+# Remove verify-specific install wording in help (2026-02-15)
+
+## Plan
+- [x] Remove `--install`-specific wording from `--verify` help section in `scripts/interface.sh`.
+- [x] Keep verify-specific requirement text focused on required artifacts/state instead.
+- [x] Verify `./tokamak-cli --help` output.
+- [x] Commit changes.
+
+## Review
+- Removed `Tokamak ZKP must be installed via "--install"` from `--verify` help.
+- Reworded requirement as artifact presence: `Setup artifacts (including sigma_verify.rkyv) must be present in dist`.
+- Verification: `./tokamak-cli --help` shows updated `--verify` guidance without verify-only `--install` wording.
+
+# Remove remaining verify setup-artifact wording in help (2026-02-15)
+
+## Plan
+- [x] Remove `Setup artifacts (including sigma_verify.rkyv) must be present in dist` from `--verify` help.
+- [x] Verify `./tokamak-cli --help` output for the `--verify` block.
+- [x] Commit changes.
+
+## Review
+- Removed the remaining setup-artifact sentence from `--verify` help to avoid command-specific global prerequisite wording.
+- Verification: `./tokamak-cli --help` now shows only verify input bundle requirements (`proof.json`, `preprocess.json`, `instance.json`) under `--verify`.
+
+# Consolidate tokamak-cli-core utility functions (2026-02-15)
+
+## Plan
+- [x] Identify duplicate utility patterns in `scripts/tokamak-cli-core` (especially file sync and zip extraction wrappers).
+- [x] Merge duplicate utility functions into shared helpers while preserving behavior for `--preprocess`, `--prove`, and `--verify`.
+- [x] Re-run syntax and targeted command checks to confirm no behavioral regressions in path handling.
+- [x] Record review notes and commit only files changed by this task.
+
+## Review
+- Added shared utility `sync_from_zip_with_dir_handler` and replaced duplicated zip-sync wrappers for prove/preprocess/verify.
+- Added shared utilities `copy_required_named_files_from_dir` and `copy_optional_named_files_from_dir` to remove repeated file-search/copy loops.
+- Simplified `sync_synth_outputs_from_dir` and `sync_preprocess_inputs_from_dir` by delegating required/optional file copy behavior to the shared utilities.
+- Behavior checks:
+  - `bash -n scripts/tokamak-cli-core` passed.
+  - `./tokamak-cli --preprocess ./packages/frontend/synthesizer/outputs` passed.
+  - `./tokamak-cli --preprocess /tmp/tokamak-preprocess-inputs.zip` passed.
+  - `./tokamak-cli --verify /tmp/tokamak-verify-min-input.zip` reached backend execution after successful zip sync (runtime panic remained data-related, same as before).

@@ -1,0 +1,45 @@
+{
+  "network": "sepolia",
+  "participants": [
+    {
+      "addressL1": "0x5706187dbd4bebb0efdd295acb372f8742271e0a",
+      "prvSeedL2": "Participant 1"
+    },
+    {
+      "addressL1": "0x6233a7c52652282b8b0b85c817537f072228587f",
+      "prvSeedL2": "Sender's L2 wallet"
+    },
+    {
+      "addressL1": "0x73b1c8f126e33cd0fa75d2a1542b6d777e193a42",
+      "prvSeedL2": "Recipient's L2 wallet"
+    },
+    {
+      "addressL1": "0x01432e308f6452dd2e0486c1e0ce983ae89328e4",
+      "prvSeedL2": "Participant 4"
+    }
+  ],
+  "storageConfigs": [
+    {
+      "address": "0xa30fe40285B8f5c0457DbC3B7C8A280373c40044",
+      "userStorageSlots": [
+        0
+      ],
+      "preAllocatedKeys": [
+        "0x07"
+      ]
+    }
+  ],
+  "callCodeAddresses": [
+    "0xa30fe40285B8f5c0457DbC3B7C8A280373c40044"
+  ],
+  "blockNumber": 10433196,
+  "txNonce": 0,
+  "senderIndex": 1,
+  "recipientIndex": 2,
+  "amount": "0x0000000000000000000000000000000000000000000000056bc75e2d63100000",
+  "function": {
+    "selector": "0xa9059cbb",
+    "entryContractAddress": "0xa30fe40285B8f5c0457DbC3B7C8A280373c40044"
+  },
+  "referenceTxHash": "0xb837b60845da03d8f22dfea74dbe5ccbe41da2fa90fb1694a216118938a781aa"
+}

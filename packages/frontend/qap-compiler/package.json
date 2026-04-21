@@ -1,48 +1,91 @@
 {
-  "name": "@tokamak-zk-evm/qap-compiler",
-  "version": "0.0.2",
-  "description": "Library subcircuits for Tokamak zk-EVM",
+  "name": "@tokamak-zk-evm/subcircuit-library",
+  "version": "1.0.3",
+  "description": "Prebuilt R1CS subcircuit library package for Tokamak zk-EVM",
+  "private": true,
   "keywords": [
+    "artifacts",
+    "circom",
     "ethereum",
-    "zk-EVM",
+    "r1cs",
+    "subcircuit-library",
+    "subcircuits",
     "zero-knowledge",
-    "zk-SNARK",
     "tokamak",
+    "tokamak-zk-evm",
     "layer2",
-    "tokamak-network"
+    "tokamak-network",
+    "wasm",
+    "zk-EVM",
+    "zk-SNARK"
   ],
   "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/frontend/qap-compiler#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tokamak-network/tokamak-zk-evm.git",
+    "directory": "packages/frontend/qap-compiler"
+  },
   "bugs": {
     "url": "https://github.com/tokamak-network/tokamak-zk-evm/issues"
   },
   "files": [
-    "dist/**/*",
+    "functions/*.circom",
     "README.md",
     "LICENSE-MIT",
-    "LICENSE-APACHE"
+    "LICENSE-APACHE",
+    "scripts/compile.sh",
+    "scripts/configure.js",
+    "scripts/exporter/**/*",
+    "scripts/parse.js",
+    "scripts/qap-compiler.mjs",
+    "scripts/reload-constants.sh",
+    "scripts/tokamakL2js/**/*",
+    "subcircuits/circom/*.circom",
+    "templates/*.circom",
+    "templates/128bit/*.circom",
+    "templates/255bit/*.circom",
+    "templates/256bit/*.circom",
+    "templates/512bit/*.circom"
   ],
   "license": "MIT OR Apache-2.0",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "postinstall": "node scripts/setup-local-bin.mjs",
+    "reload-constants": "npx qap-compiler --reload-constants",
+    "build:library": "npx qap-compiler --build",
+    "dist": "npx qap-compiler --dist",
+    "publish": "npm install && npx qap-compiler --reload-constants && npx qap-compiler --build && npx qap-compiler --dist && npm publish ./dist"
+  },
+  "bin": {
+    "qap-compiler": "scripts/qap-compiler.mjs"
+  },
   "author": "Tokamak Network",
   "contributors": [
     "JehyukJang <https://github.com/JehyukJang>",
     "Sungyun Seo <https://github.com/pleiadex>",
     "donghyun <https://github.com/jdhyun09>"
   ],
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "scripts": {
-    "build": "tsc",
-    "prepublishOnly": "npm run build"
+  "engines": {
+    "node": ">=18"
   },
+  "os": [
+    "darwin",
+    "linux"
+  ],
   "dependencies": {
+    "@noble/curves": "^1.9.7",
     "chai": "^4.3.6",
-    "circom": "^0.5.46",
+    "circom2": "0.2.16",
     "circom_tester": "^0.0.20",
     "circomlib": "^2.0.5",
     "ffjavascript": "^0.2.55",
     "mocha": "^11.0.1",
     "poseidon-bls12381-circom": "^1.0.0",
-    "@noble/curves": "^1.9.7"
+    "tokamak-l2js": "^0.1.3",
+    "tsx": "^4.20.3"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

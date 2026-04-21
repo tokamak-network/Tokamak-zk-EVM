@@ -1,0 +1,81 @@
+{
+  "network": "anvil",
+  "participants": [
+    {
+      "addressL1": "0x5d1d2c910c42bc9084465c4cb4b3c7d2aae4d075",
+      "prvSeedL2": "private-state participant 0"
+    },
+    {
+      "addressL1": "0x5ed57de52bc869e17fee34c202d51b69013252f2",
+      "prvSeedL2": "private-state participant 1"
+    },
+    {
+      "addressL1": "0xc107f75815a4a83baa7c062ec6ad77054aa5ce95",
+      "prvSeedL2": "private-state participant 2"
+    },
+    {
+      "addressL1": "0xd388de6a2dc622776c3546e32c67144d304f6d48",
+      "prvSeedL2": "private-state participant 3"
+    }
+  ],
+  "storageConfigs": [
+    {
+      "address": "0xa16e02e87b7454126e5e10d957a927a7f5b5d2be",
+      "userStorageSlots": [],
+      "preAllocatedKeys": [
+        "0x1ec679e5f29b637e85bc2349642f826453817db6aeb2e2cd4962b3f5c400d626",
+        "0x4323d454446f5909dede8baf5741713d63f3a5ded8f61759d731dd0ce09a00be",
+        "0x177216d8fd0b66f7d5ee198cef321eae361a91dfcdf9ccd0cb37756e26930ce4"
+      ]
+    }
+  ],
+  "callCodeAddresses": [
+    "0xa16e02e87b7454126e5e10d957a927a7f5b5d2be"
+  ],
+  "blockNumber": 14,
+  "txNonce": 0,
+  "calldata": "0x685526850000000000000000000000005ed57de52bc869e17fee34c202d51b69013252f200000000000000000000000000000000000000000000000029a2241af62c0000479acca308294de8a1e091c334a5a21431f4180781bb11412c56257d9fdccfd235fd227c56da760488de519a34b278d6e4ceb97633436b6b64eec895be15a51146376721a271d1584381e5d293afa141e0d52bd8974f70db498690a00da4dfd00000000000000000000000005d1d2c910c42bc9084465c4cb4b3c7d2aae4d0750000000000000000000000000000000000000000000000000de0b6b3a76400000ca95d6f57204d04b5f9a06625d49efff7fcfdd68a991278eab89bd217bf5fe40000000000000000000000005d1d2c910c42bc9084465c4cb4b3c7d2aae4d0750000000000000000000000000000000000000000000000000de0b6b3a76400005fae624b80f86eda5f44499f23d20ff6cfc7a68ae23cf8d6f6e7a56bea917f970000000000000000000000005d1d2c910c42bc9084465c4cb4b3c7d2aae4d0750000000000000000000000000000000000000000000000000de0b6b3a764000004e33b353ae49142757813f33fae814e062a5511322353f5e4e52baa5c97d335",
+  "senderIndex": 0,
+  "functionName": "transferNotes3To1",
+  "inputCount": 3,
+  "outputCount": 1,
+  "inputNotes": [
+    {
+      "owner": "0x5d1d2c910c42bc9084465c4cb4b3c7d2aae4d075",
+      "value": "0x0de0b6b3a7640000",
+      "salt": "0x0ca95d6f57204d04b5f9a06625d49efff7fcfdd68a991278eab89bd217bf5fe4"
+    },
+    {
+      "owner": "0x5d1d2c910c42bc9084465c4cb4b3c7d2aae4d075",
+      "value": "0x0de0b6b3a7640000",
+      "salt": "0x5fae624b80f86eda5f44499f23d20ff6cfc7a68ae23cf8d6f6e7a56bea917f97"
+    },
+    {
+      "owner": "0x5d1d2c910c42bc9084465c4cb4b3c7d2aae4d075",
+      "value": "0x0de0b6b3a7640000",
+      "salt": "0x04e33b353ae49142757813f33fae814e062a5511322353f5e4e52baa5c97d335"
+    }
+  ],
+  "transferOutputs": [
+    {
+      "owner": "0x5ed57de52bc869e17fee34c202d51b69013252f2",
+      "value": "0x29a2241af62c0000",
+      "encryptedNoteValue": [
+        "0x479acca308294de8a1e091c334a5a21431f4180781bb11412c56257d9fdccfd2",
+        "0x35fd227c56da760488de519a34b278d6e4ceb97633436b6b64eec895be15a511",
+        "0x46376721a271d1584381e5d293afa141e0d52bd8974f70db498690a00da4dfd0"
+      ]
+    }
+  ],
+  "outputNotes": [
+    {
+      "owner": "0x5ed57de52bc869e17fee34c202d51b69013252f2",
+      "value": "0x29a2241af62c0000",
+      "salt": "0x641be5de639b8a0548f53a9fdddcc44e54a283546b275b2644d7848b62ea5b75"
+    }
+  ],
+  "function": {
+    "selector": "0x68552685",
+    "entryContractAddress": "0xa16e02e87b7454126e5e10d957a927a7f5b5d2be"
+  }
+}

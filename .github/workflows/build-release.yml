@@ -1,33 +1,37 @@
-name: Test, Build & Release
+name: Test & Build
 
 on:
-  push:
-    branches: [main, dev, ale-153] # Execute when pushing to main, dev, or ale-153 branch
   pull_request:
-    branches: [main, dev, ale-153] # Execute on PR creation and updates to main, dev, or ale-153 branch
-  workflow_dispatch: # Manual execution allowed
+    branches: [main, dev, ale-ci] # Execute on PR creation and updates
+
+concurrency:
+  group: build-release-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  TOKAMAK_ZKEVM_CLI_CACHE_DIR: ${{ github.workspace }}/.tokamak-cli-cache
 
 jobs:
-  proof-generation-test:
-    name: Proof Generation Test
+  # ============================================================================
+  # Build & Setup - Build binaries once and share across test jobs
+  # ============================================================================
+  build-and-setup:
+    name: Build & Setup
     runs-on: ubuntu-22.04
     timeout-minutes: 45
-    # Execute on push to main or on any PR to main (for validation)
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
-
-    strategy:
-      matrix:
-        # Execute TON Transfer test only - using same tx as L2TONTransfer example
-        test_case:
-          - name: 'ton-transfer'
-            tx_hash: '0xa0090893a2d5f79b67cebcb65eac3efc92820ec09dc4ad9fe2bc29bbdcad2e41'
-            description: 'TON Transfer'
-
-      fail-fast: false # Continue other tests even if one fails
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Update TokamakL2JS to latest main
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          git submodule update --remote submodules/TokamakL2JS
+          echo "TokamakL2JS HEAD: $(git -C submodules/TokamakL2JS rev-parse --short HEAD)"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -35,493 +39,382 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Install CLI workspace dependencies
+        run: npm ci --workspace @tokamak-zk-evm/cli
+
+      - name: Install synthesizer workspace dependencies
+        run: |
+          cd packages/frontend/synthesizer
+          npm ci
+
+      - name: Build synthesizer-node package
+        run: |
+          cd packages/frontend/synthesizer
+          npm run build --workspace @tokamak-zk-evm/synthesizer-node
+
+      - name: Build CLI package
+        run: npm run build --workspace @tokamak-zk-evm/cli
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install system dependencies
         run: |
-          # Ubuntu에서는 apt 사용
           sudo apt-get update
           sudo apt-get install -y dos2unix cmake build-essential
+
+      - name: Install Google API client
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install google-api-python-client google-auth
 
       - name: Install Rust and Cargo
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install circom
-        run: |
-          # Install circom 2.2.2 for Linux
-          wget https://github.com/iden3/circom/releases/download/v2.2.2/circom-linux-amd64
-          chmod +x circom-linux-amd64
-          sudo mv circom-linux-amd64 /usr/local/bin/circom
-          circom --version
-
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v1
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
         with:
-          bun-version: latest
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/backend/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
-      - name: Verify Bun installation
-        run: |
-          bun --version
-          echo "✅ Bun is ready"
+      - name: Restore CLI runtime cache
+        id: runtime-cache
+        uses: actions/cache@v4
+        with:
+          path: .tokamak-cli-cache/linux/
+          key: ${{ runner.os }}-cli-runtime-${{ hashFiles('package-lock.json', 'packages/cli/package.json', 'packages/cli/src/**', 'packages/cli/vendor/backend/**', '.github/workflows/build-release.yml') }}
 
-      - name: Make tokamak-cli executable
-        run: chmod +x ./scripts/tokamak-cli-core
-
-      - name: Setup environment
+      - name: Build and setup environment
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
         env:
-          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY || 'test_api_key_placeholder' }}
+          TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON }}
         run: |
           # Fix file permissions and line endings
           echo "🔧 Fixing file permissions and line endings..."
           find . -name "*.sh" -exec chmod +x {} \;
           find . -name "*.sh" -exec dos2unix {} \; 2>/dev/null || true
 
-          # Use npm install to resolve dependency issues
-          echo "🔧 Installing dependencies with npm install instead of npm ci..."
-          cd packages/frontend/qap-compiler && npm install --legacy-peer-deps
-          cd ../synthesizer && npm install --legacy-peer-deps
-          cd ../../..
+          # Run install step (this builds all binaries)
+          echo "🔧 Running tokamak-cli --install (building binaries)..."
+          node packages/cli/dist/cli.js --install
 
-          # Install tsx globally (required for synthesizer)
-          npm install -g tsx
-          ./scripts/tokamak-cli-core --install "$ALCHEMY_API_KEY"
+      - name: Reuse cached CLI runtime
+        if: steps.runtime-cache.outputs.cache-hit == 'true'
+        run: echo "✅ Reusing cached tokamak-cli runtime and setup artifacts"
 
-          # Export RPC_URL for subsequent steps
-          echo "RPC_URL=https://eth-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY" >> $GITHUB_ENV
-
-      - name: Generate proof for ${{ matrix.test_case.name }}
-        env:
-          RPC_URL: ${{ env.RPC_URL }}
+      - name: Validate backend setup outputs
         run: |
-          echo "🧪 Testing: ${{ matrix.test_case.description }}"
-          echo "📋 TX Hash: ${{ matrix.test_case.tx_hash }}"
+          runtime_dir="$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime"
+          required=(
+            "$runtime_dir/resource/setup/output/combined_sigma.rkyv"
+            "$runtime_dir/resource/setup/output/sigma_preprocess.rkyv"
+            "$runtime_dir/resource/setup/output/sigma_verify.rkyv"
+          )
+          for file in "${required[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing backend setup output: $file"
+              exit 1
+            fi
+          done
+          echo "✅ Backend setup outputs are ready"
 
-          # Attempt proof generation
-          ./scripts/tokamak-cli-core --prove "${{ matrix.test_case.tx_hash }}" "./proof_${{ matrix.test_case.name }}"
-
-      - name: Validate proof artifacts
-        run: |
-          # Verify that required files were generated
-          test -f "./proof_${{ matrix.test_case.name }}/transaction_hash.txt"
-          test -f "./proof_${{ matrix.test_case.name }}/proof.json"
-
-          # Verify that transaction hash was stored correctly
-          stored_hash=$(cat "./proof_${{ matrix.test_case.name }}/transaction_hash.txt")
-          if [[ "$stored_hash" != "${{ matrix.test_case.tx_hash }}" ]]; then
-            echo "❌ Transaction hash mismatch!"
-            echo "Expected: ${{ matrix.test_case.tx_hash }}"
-            echo "Got: $stored_hash"
-            exit 1
-          fi
-
-          echo "✅ Proof validation passed for ${{ matrix.test_case.name }}"
-
-      - name: Upload proof artifacts
-        if: always() # Upload artifacts even on failure
+      - name: Upload CLI runtime cache
         uses: actions/upload-artifact@v4
         with:
-          name: proof-artifacts-${{ matrix.test_case.name }}-${{ github.run_number }}
-          path: ./proof_${{ matrix.test_case.name }}/
-          retention-days: 7
+          name: cli-runtime-linux
+          path: .tokamak-cli-cache/linux/
+          retention-days: 1
 
-      - name: Upload setup files for reuse
-        if: success() # Upload only on success
-        uses: actions/upload-artifact@v4
-        with:
-          name: setup-files
-          path: dist/linux22/resource/setup/output/
-          retention-days: 7
 
-  build-macos:
-    name: Build macOS Binary
-    runs-on: macos-latest
-    needs: proof-generation-test
-    timeout-minutes: 60
-    # Execute only for main branch (push/PR), skip dev and ale-153 branches
-    if: (github.event_name == 'push' || github.event_name == 'pull_request') && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install system dependencies
-        run: |
-          # Install macOS dependencies
-          brew install dos2unix
-
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            packages/backend/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Download setup files from proof test
-        uses: actions/download-artifact@v4
-        with:
-          name: setup-files
-          path: ./prebuilt-setup/
-
-      - name: Build macOS binary
-        run: |
-          echo "🔍 Building macOS binary using packaging script..."
-          chmod +x scripts/packaging.sh
-          ./scripts/packaging.sh --macos --bun --no-setup
-
-      - name: Upload macOS binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: tokamak-zk-evm-macos
-          path: tokamak-zk-evm-macOS.zip
-          retention-days: 30
-
-  build-linux:
-    name: Build Linux Binary
-    runs-on: ubuntu-22.04 # Specify Linux 22 version
-    needs: proof-generation-test # Execute after proof test passes
-    timeout-minutes: 60
-    # Execute only for main branch (push/PR), skip dev and ale-153 branches
-    if: (github.event_name == 'push' || github.event_name == 'pull_request') && (github.ref == 'refs/heads/main' || github.base_ref == 'main')
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install system dependencies
-        run: |
-          # Install Ubuntu dependencies
-          sudo apt-get update
-          sudo apt-get install -y dos2unix build-essential curl cmake
-
-          # Verify installed tools
-          gcc --version
-          g++ --version
-          cmake --version
-          dos2unix --version
-
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            packages/backend/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Verify Bun installation
-        run: |
-          bun --version
-          echo "✅ Bun is ready"
-
-      - name: Download setup files from proof test
-        uses: actions/download-artifact@v4
-        with:
-          name: setup-files
-          path: ./prebuilt-setup/
-
-      - name: Build Linux binary
-        run: |
-          echo "🔍 Building Linux binary using packaging script..."
-          chmod +x scripts/packaging.sh
-          ./scripts/packaging.sh --linux --bun --no-setup
-
-      - name: Download setup files from proof test
-        uses: actions/download-artifact@v4
-        with:
-          name: setup-files
-          path: ./setup-for-archive/
-
-      - name: Create setup files archive
-        run: |
-          echo "📦 Creating setup files archive from proof test results..."
-
-          # Check if setup files exist
-          if [ -d "./setup-for-archive" ] && [ "$(ls -A ./setup-for-archive 2>/dev/null)" ]; then
-            echo "✅ Found setup files from proof test"
-            ls -la ./setup-for-archive/
-            
-            # Create archive from actual setup files
-            tar -C ./setup-for-archive -c . | gzip -9 > tokamak-zk-evm-setup-files.tar.gz
-            
-            echo "📊 Setup files archive created:"
-            ls -lh tokamak-zk-evm-setup-files.tar.gz
-          else
-            echo "❌ No setup files found from proof test"
-            echo "Creating empty archive as fallback..."
-            mkdir -p empty-setup
-            echo "No setup files available" > empty-setup/README.txt
-            tar -C empty-setup -c . | gzip -9 > tokamak-zk-evm-setup-files.tar.gz
-            rm -rf empty-setup
-          fi
-
-      - name: Upload Linux binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: tokamak-zk-evm-linux22
-          path: tokamak-zk-evm-linux22.tar.gz
-          retention-days: 30
-
-      - name: Upload setup files
-        uses: actions/upload-artifact@v4
-        with:
-          name: tokamak-zk-evm-setup-files
-          path: tokamak-zk-evm-setup-files.tar.gz
-          retention-days: 30
-
-  create-release:
-    name: Create GitHub Release
+  # ============================================================================
+  # EVM compatibility tests
+  # ============================================================================
+  evm-compat-test:
+    name: EVM compatibility tests
     runs-on: ubuntu-22.04
-    needs: [proof-generation-test, build-macos, build-linux]
-    # Execute only when all tests and builds succeed, and only on push to main branch
-    if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 60
+    needs: build-and-setup
+    if: github.base_ref == 'main' || github.base_ref == 'dev'
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetch full history (needed for tag information)
+          submodules: recursive
 
-      - name: Generate version tag
-        id: version
+      - name: Update TokamakL2JS to latest main
         run: |
-          # Generate different version tags based on branch
-          DATE=$(date +%Y.%m.%d)
-          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-          BRANCH_NAME="${{ github.ref_name }}"
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          git submodule update --remote submodules/TokamakL2JS
+          echo "TokamakL2JS HEAD: $(git -C submodules/TokamakL2JS rev-parse --short HEAD)"
 
-          if [[ "$BRANCH_NAME" == "main" ]]; then
-            # Main branch: Official release (v2024.01.15)
-            VERSION="v${DATE}"
-            IS_PRERELEASE="false"
-            RELEASE_TYPE="Release"
-          else
-            # Test branch: Test release (test-ale-150-v2024.01.15-abc1234)
-            VERSION="test-${BRANCH_NAME}-v${DATE}-${SHORT_SHA}"
-            IS_PRERELEASE="true"
-            RELEASE_TYPE="Test Release"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install synthesizer workspace dependencies
+        run: |
+          cd packages/frontend/synthesizer
+          npm ci
+
+      - name: Run synthesizer-node tests
+        env:
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+          ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+        run: |
+          cd packages/frontend/synthesizer
+          npm run --workspace @tokamak-zk-evm/synthesizer-node test
+
+      - name: Upload EVM compatibility outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evm-compat-test-outputs-${{ github.run_number }}
+          path: packages/frontend/synthesizer/outputs/
+          retention-days: 7
+
+  # ============================================================================
+  # Proof Generation Test
+  # ============================================================================
+  proof-generation-test:
+    name: Proof Generation Test
+    runs-on: ubuntu-22.04
+    needs: [build-and-setup, evm-compat-test]
+    timeout-minutes: 30
+    if: github.base_ref == 'main' || github.base_ref == 'dev'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Update TokamakL2JS to latest main
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          git submodule update --remote submodules/TokamakL2JS
+          echo "TokamakL2JS HEAD: $(git -C submodules/TokamakL2JS rev-parse --short HEAD)"
+
+      - name: Ensure zip/unzip
+        run: |
+          if ! command -v zip >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y zip unzip
           fi
 
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "date=${DATE}" >> $GITHUB_OUTPUT
-          echo "sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
-          echo "branch=${BRANCH_NAME}" >> $GITHUB_OUTPUT
-          echo "is_prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
-          echo "release_type=${RELEASE_TYPE}" >> $GITHUB_OUTPUT
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
 
-          echo "🏷️ Generated version: ${VERSION}"
-          echo "🌿 Branch: ${BRANCH_NAME}"
-          echo "🏷️ Release type: ${RELEASE_TYPE}"
+      - name: Install CLI workspace dependencies
+        run: npm ci --workspace @tokamak-zk-evm/cli
 
-      - name: Download all artifacts
+      - name: Install synthesizer workspace dependencies
+        run: |
+          cd packages/frontend/synthesizer
+          npm ci
+
+      - name: Build synthesizer-node package
+        run: |
+          cd packages/frontend/synthesizer
+          npm run build --workspace @tokamak-zk-evm/synthesizer-node
+
+      - name: Build CLI package
+        run: npm run build --workspace @tokamak-zk-evm/cli
+
+      - name: Download CLI runtime cache
         uses: actions/download-artifact@v4
         with:
-          path: ./artifacts
+          name: cli-runtime-linux
+          path: .tokamak-cli-cache/linux
 
-      - name: Debug artifacts
+      - name: Download EVM compatibility outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: evm-compat-test-outputs-${{ github.run_number }}
+          path: packages/frontend/synthesizer/outputs/
+
+      - name: Make binaries executable
         run: |
-          echo "🔍 Checking downloaded artifacts..."
-          ls -la ./artifacts/
-          echo ""
-          echo "🔍 Expected artifacts:"
-          echo "- tokamak-zk-evm-macos"
-          echo "- tokamak-zk-evm-linux22"
-          echo "- tokamak-zk-evm-setup-files"
-          echo ""
-          echo "🔍 Actual artifacts found:"
-          find ./artifacts -name "*.zip" -o -name "*.tar.gz" | head -10
+          chmod +x "$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime/bin/"* 2>/dev/null || true
 
-      - name: Prepare release assets
+      - name: Validate setup artifacts in runtime cache
         run: |
-          mkdir -p ./release-assets
+          runtime_dir="$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime"
+          required=(
+            "$runtime_dir/resource/setup/output/combined_sigma.rkyv"
+            "$runtime_dir/resource/setup/output/sigma_preprocess.rkyv"
+            "$runtime_dir/resource/setup/output/sigma_verify.rkyv"
+          )
+          for file in "${required[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing setup artifact in runtime cache: $file"
+              exit 1
+            fi
+          done
+          echo "✅ Setup artifacts present in runtime cache"
 
-          # Track failed artifacts
-          MISSING_ASSETS=()
+      - name: Validate preprocess input
+        run: |
+          required=(
+            "packages/frontend/synthesizer/outputs/permutation.json"
+            "packages/frontend/synthesizer/outputs/instance.json"
+          )
+          for file in "${required[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing preprocess input: $file (expected from evm-compat-test)"
+              exit 1
+            fi
+          done
 
-          # Copy macOS binary
-          if [ -d "./artifacts/tokamak-zk-evm-macos" ] && [ -f "./artifacts/tokamak-zk-evm-macos/tokamak-zk-evm-macOS.zip" ]; then
-            cp "./artifacts/tokamak-zk-evm-macos/tokamak-zk-evm-macOS.zip" \
-               "./release-assets/tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip"
-            echo "✅ macOS binary prepared"
-          else
-            echo "❌ macOS binary not found"
-            MISSING_ASSETS+=("macOS binary")
-          fi
+      - name: Run preprocess
+        run: |
+          echo "⚙️ Running preprocess..."
+          node packages/cli/dist/cli.js --preprocess ./packages/frontend/synthesizer/outputs
 
-          # Copy Linux binary
-          if [ -d "./artifacts/tokamak-zk-evm-linux22" ] && [ -f "./artifacts/tokamak-zk-evm-linux22/tokamak-zk-evm-linux22.tar.gz" ]; then
-            cp "./artifacts/tokamak-zk-evm-linux22/tokamak-zk-evm-linux22.tar.gz" \
-               "./release-assets/tokamak-zk-evm-${{ steps.version.outputs.version }}-linux22.tar.gz"
-            echo "✅ Linux binary prepared"
-          else
-            echo "❌ Linux binary not found"
-            MISSING_ASSETS+=("Linux binary")
-          fi
+      - name: Validate prove inputs
+        run: |
+          required=(
+            "packages/frontend/synthesizer/outputs/instance.json"
+            "packages/frontend/synthesizer/outputs/permutation.json"
+            "packages/frontend/synthesizer/outputs/placementVariables.json"
+          )
+          for file in "${required[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing prove input: $file (expected from evm-compat-test)"
+              exit 1
+            fi
+          done
 
-          # Copy setup files
-          if [ -d "./artifacts/tokamak-zk-evm-setup-files" ] && [ -f "./artifacts/tokamak-zk-evm-setup-files/tokamak-zk-evm-setup-files.tar.gz" ]; then
-            cp "./artifacts/tokamak-zk-evm-setup-files/tokamak-zk-evm-setup-files.tar.gz" \
-               "./release-assets/tokamak-zk-evm-${{ steps.version.outputs.version }}-setup-files.tar.gz"
-            echo "✅ Setup files prepared"
-          else
-            echo "❌ Setup files not found"
-            MISSING_ASSETS+=("Setup files")
-          fi
+      - name: Run prove
+        run: |
+          echo "🔐 Running prove..."
+          node packages/cli/dist/cli.js --prove ./packages/frontend/synthesizer/outputs
 
-          # Fail if there are missing artifacts
-          if [ ${#MISSING_ASSETS[@]} -gt 0 ]; then
-            echo ""
-            echo "💥 Missing required assets:"
-            printf '%s\n' "${MISSING_ASSETS[@]}"
-            echo ""
-            echo "🔍 This usually means one of the build jobs failed."
-            echo "   Check the build job logs above for errors."
+      - name: Validate extract-proof inputs
+        run: |
+          if [ ! -f "packages/frontend/synthesizer/outputs/instance_description.json" ]; then
+            echo "❌ Missing extract-proof input: packages/frontend/synthesizer/outputs/instance_description.json (expected from evm-compat-test)"
             exit 1
           fi
 
-          echo "📦 All release assets prepared:"
-          ls -lh ./release-assets/
-
-      - name: Generate release notes
-        id: release_notes
+      - name: Run extract-proof
         run: |
-          # Generate release notes from recent commits
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "📦 Running extract-proof..."
+          node packages/cli/dist/cli.js --extract-proof ./test-out/test-proof.zip
 
-          if [ -n "$LAST_TAG" ]; then
-            COMMITS=$(git log ${LAST_TAG}..HEAD --oneline --no-merges | head -20)
-          else
-            COMMITS=$(git log --oneline --no-merges | head -20)
+      - name: Validate proof bundle for verify
+        run: |
+          if [ ! -f "./test-out/test-proof.zip" ]; then
+            echo "❌ Missing proof bundle for verify: ./test-out/test-proof.zip"
+            exit 1
           fi
 
-          # Write release notes
-          cat > release_notes.md << EOF
-          ## 🚀 Tokamak-zk-EVM ${{ steps.version.outputs.release_type }} ${{ steps.version.outputs.version }}
+      - name: Run verify
+        run: |
+          echo "✅ Running verify..."
+          node packages/cli/dist/cli.js --verify ./test-out/test-proof.zip
 
-          **Build Date:** ${{ steps.version.outputs.date }}  
-          **Branch:** \`${{ steps.version.outputs.branch }}\`  
-          **Commit:** [\`${{ steps.version.outputs.sha }}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+  # ============================================================================
+  # L2StateChannel Test - Uses pre-built binaries
+  # ============================================================================
+  tokamak-ch-compat-test:
+    name: tokamak-ch-compat-test
+    runs-on: ubuntu-22.04
+    needs: build-and-setup
+    timeout-minutes: 30
 
-          ### 📦 Downloads
-
-          - **macOS**: \`tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip\`
-          - **Linux (Ubuntu 22.04)**: \`tokamak-zk-evm-${{ steps.version.outputs.version }}-linux22.tar.gz\`
-          - **Setup Files** (Optional): \`tokamak-zk-evm-${{ steps.version.outputs.version }}-setup-files.tar.gz\`
-
-          EOF
-
-          # Additional notice for test branches
-          if [[ "${{ steps.version.outputs.branch }}" != "main" ]]; then
-            cat >> release_notes.md << EOF
-
-          > ⚠️ **This is a test release** from branch \`${{ steps.version.outputs.branch }}\`  
-          > This release is for testing purposes only and should not be used in production.
-
-          EOF
-          fi
-
-          cat >> release_notes.md << EOF
-
-          ### ✅ Quality Assurance
-
-          - **Proof Generation Test**: Passed ✅
-          - **Transaction**: TON Transfer (0x6c7903e420c5efb27639f5186a7474ef2137f12c786a90b4efdcb5d88dfdb002)
-          - **Validation**: All proof artifacts verified
-
-          ### 🔧 What's Included
-
-          **Main Binaries:**
-          - \`trusted-setup\` - Trusted setup ceremony binary
-          - \`preprocess\` - Preprocessing binary  
-          - \`prove\` - Proof generation binary
-          - \`verify\` - Proof verification binary
-          - \`synthesizer\` - Transaction synthesizer binary
-          - Required libraries and resources
-
-          **Setup Files (Optional Download):**
-          - Pre-generated trusted setup parameters
-          - Skip the time-consuming trusted setup process
-          - Extract to \`resource/setup/output/\` in your installation
-
-          ### 📋 Recent Changes
-
-          EOF
-
-          if [ -n "$COMMITS" ]; then
-            echo "$COMMITS" | while read line; do
-              echo "- $line" >> release_notes.md
-            done
-          else
-            echo "- Initial release" >> release_notes.md
-          fi
-
-          cat >> release_notes.md << EOF
-
-          ### 🛠️ Installation
-
-          1. Download the appropriate binary for your platform
-          2. Extract the archive
-          3. Run the setup script: \`./1_run-trusted-setup.sh\`
-          4. Use the binaries as needed
-
-          ### ⚠️ Requirements
-
-          - **macOS**: macOS 10.15+ (Catalina or later)
-          - **Linux**: Ubuntu 22.04 or compatible distribution
-
-          ---
-
-          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${LAST_TAG}...${{ steps.version.outputs.version }}
-          EOF
-
-          echo "Generated release notes:"
-          cat release_notes.md
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          tag_name: ${{ steps.version.outputs.version }}
-          name: 'Tokamak-zk-EVM ${{ steps.version.outputs.release_type }} ${{ steps.version.outputs.version }}'
-          body_path: release_notes.md
-          files: |
-            ./release-assets/*
-          draft: false
-          prerelease: ${{ steps.version.outputs.is_prerelease }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          submodules: recursive
 
-      - name: Update build summary
+      - name: Update TokamakL2JS to latest main
         run: |
-          echo "## 🎉 ${{ steps.version.outputs.release_type }} Created Successfully!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📋 Release Information" >> $GITHUB_STEP_SUMMARY
-          echo "- **Type**: ${{ steps.version.outputs.release_type }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: ${{ steps.version.outputs.branch }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version**: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Release URL**: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Available Downloads" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **macOS Binary**: tokamak-zk-evm-${{ steps.version.outputs.version }}-macos.zip" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Linux Binary**: tokamak-zk-evm-${{ steps.version.outputs.version }}-linux22.tar.gz" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ **Setup Files**: tokamak-zk-evm-${{ steps.version.outputs.version }}-setup-files.tar.gz" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🔗 **[View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }})**" >> $GITHUB_STEP_SUMMARY
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          git submodule update --remote submodules/TokamakL2JS
+          echo "TokamakL2JS HEAD: $(git -C submodules/TokamakL2JS rev-parse --short HEAD)"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install CLI workspace dependencies
+        run: npm ci --workspace @tokamak-zk-evm/cli
+
+      - name: Install synthesizer workspace dependencies
+        run: |
+          cd packages/frontend/synthesizer
+          npm ci
+
+      - name: Build synthesizer-node package
+        run: |
+          cd packages/frontend/synthesizer
+          npm run build --workspace @tokamak-zk-evm/synthesizer-node
+
+      - name: Build CLI package
+        run: npm run build --workspace @tokamak-zk-evm/cli
+
+      - name: Download CLI runtime cache
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-runtime-linux
+          path: .tokamak-cli-cache/linux
+
+      - name: Make binaries executable
+        run: |
+          chmod +x "$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime/bin/"* 2>/dev/null || true
+
+      - name: Validate setup artifacts in runtime cache
+        run: |
+          runtime_dir="$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime"
+          required=(
+            "$runtime_dir/resource/setup/output/combined_sigma.rkyv"
+            "$runtime_dir/resource/setup/output/sigma_preprocess.rkyv"
+            "$runtime_dir/resource/setup/output/sigma_verify.rkyv"
+          )
+          for file in "${required[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing setup artifact in runtime cache: $file"
+              exit 1
+            fi
+          done
+          echo "✅ Setup artifacts present in runtime cache"
+
+      - name: Run L2StateChannel CI test (synthesize)
+        run: |
+          echo "🧪 Running L2StateChannel CI test..."
+          node "${{ github.workspace }}/packages/cli/dist/cli.js" --synthesize \
+            "${{ github.workspace }}/packages/frontend/synthesizer/node-cli/examples/L2StateChannel"
+
+      - name: Run preprocess
+        run: |
+          echo "⚙️ Running preprocess..."
+          node packages/cli/dist/cli.js --preprocess
+
+      - name: Run prove
+        run: |
+          echo "🔐 Running prove..."
+          node packages/cli/dist/cli.js --prove
+
+      - name: Run verify
+        run: |
+          echo "✅ Running verify..."
+          node packages/cli/dist/cli.js --verify

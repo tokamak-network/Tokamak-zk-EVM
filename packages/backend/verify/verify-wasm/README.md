@@ -1,394 +1,159 @@
-# Tokamak zkEVM Verifier - WebAssembly
+# Tokamak zkEVM Verify-WASM
 
-✅ **Browser-Ready!** Works seamlessly in all major browsers (Chrome, Firefox, Safari, Edge).
+`verify-wasm` exposes the backend verifier in WebAssembly for browsers, bundlers, and Node.js.
 
-## 🎯 Key Features
+It currently exports a single `Verifier` class with two entrypoints:
 
-- ✅ **Full Browser Support**: Chrome 57+, Firefox 52+, Safari 11+, Edge 16+
-- ✅ **Mobile Support**: iOS Safari, Chrome Android
-- ✅ **No Server Required**: All verification runs client-side
-- ✅ **Privacy Preserving**: No data transmitted externally
-- ⚡ **Fast**: Verification completes in 3-5 seconds
+- `verify_keccak256()`
+- `verify_snark()`
 
-## 🚀 Quick Start
+## Packages
 
-### Option A: Install from NPM (Recommended)
+The publish script emits three npm packages:
 
-```bash
-# For Web/Browser
-npm install @tokamak-zk-evm/verify-wasm-web
+- `@tokamak-zk-evm/verify-wasm-web`
+- `@tokamak-zk-evm/verify-wasm-nodejs`
+- `@tokamak-zk-evm/verify-wasm-bundler`
 
-# For Node.js
-npm install @tokamak-zk-evm/verify-wasm-nodejs
-
-# For Bundlers (Webpack, Vite, etc.)
-npm install @tokamak-zk-evm/verify-wasm-bundler
-```
-
-### Option B: Build from Source
+## Build from Source
 
 ```bash
 cd packages/backend/verify/verify-wasm
-
-# Install wasm-pack (first time only)
-curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-# Build
-chmod +x build.sh
 ./build.sh
 ```
 
-### 2. Test in Browser
+This creates:
 
-```bash
-# Start local server
-python3 -m http.server 8000
+- `pkg-web/`
+- `pkg-node/`
+- `pkg/`
 
-# Open in browser
-open http://localhost:8000/example-simple.html
+## Constructor Contract
+
+The WASM verifier constructor accepts JSON strings:
+
+```ts
+new Verifier(
+  setupParamsJson: string,
+  instanceJson: string,
+  proofJson?: string,
+  preprocessJson?: string,
+  sigmaJson?: string,
+)
 ```
 
-### 3. Use in Your Code
+Use the optional arguments as follows:
 
-#### Using NPM Package (Web)
+- Keccak-only verification
+  - provide `setupParamsJson` and `instanceJson`
+- full SNARK verification
+  - provide all five JSON strings
+
+## Browser Example
 
 ```html
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Verifier Demo</title>
-  </head>
   <body>
-    <button id="verify">Verify Proof</button>
-    <div id="result"></div>
+    <button id="verify">Verify proof</button>
+    <pre id="result"></pre>
 
     <script type="module">
-      // Import from NPM package
       import init, { Verifier } from '@tokamak-zk-evm/verify-wasm-web';
 
-      // Or if using local build:
-      // import init, { Verifier } from './pkg-web/verify_wasm.js';
-
-      document.getElementById('verify').onclick = async () => {
-        // Initialize WASM (~50ms)
+      async function run() {
         await init();
 
-        // Load data
-        const setupParams = await fetch('setupParams.json').then((r) =>
-          r.json(),
-        );
-        const instance = await fetch('instance.json').then((r) => r.json());
+        const [
+          setupParamsJson,
+          instanceJson,
+          proofJson,
+          preprocessJson,
+          sigmaJson,
+        ] = await Promise.all([
+          fetch('/data/setupParams.json').then((r) => r.text()),
+          fetch('/data/instance.json').then((r) => r.text()),
+          fetch('/data/proof.json').then((r) => r.text()),
+          fetch('/data/preprocess.json').then((r) => r.text()),
+          fetch('/data/sigma_verify.json').then((r) => r.text()),
+        ]);
 
-        // Create verifier
         const verifier = new Verifier(
-          JSON.stringify(setupParams),
-          JSON.stringify(instance),
+          setupParamsJson,
+          instanceJson,
+          proofJson,
+          preprocessJson,
+          sigmaJson,
         );
 
-        // Run verification (3-5 seconds)
-        const result = verifier.verify_keccak256();
-
-        // Display result
-        document.getElementById('result').textContent =
-          result === 0
-            ? '✅ Passed'
-            : result === 1
-              ? '❌ Failed'
-              : '⚠️ No Keccak data';
-
-        // Clean up memory
+        const ok = verifier.verify_snark();
+        document.getElementById('result').textContent = String(ok);
         verifier.free();
-      };
+      }
+
+      document.getElementById('verify').onclick = run;
     </script>
   </body>
 </html>
 ```
 
-## 📦 Browser Compatibility
-
-### ✅ Supported Browsers
-
-| Browser              | Desktop | Mobile | Released |
-| -------------------- | ------- | ------ | -------- |
-| **Chrome**           | 57+     | 57+    | 2017     |
-| **Firefox**          | 52+     | 52+    | 2017     |
-| **Safari**           | 11+     | 11+    | 2017     |
-| **Edge**             | 16+     | -      | 2017     |
-| **Opera**            | 44+     | 44+    | 2017     |
-| **Samsung Internet** | -       | 7.2+   | 2018     |
-
-**Conclusion:** All browsers from 2017+ are supported! Compatible with 99%+ of current users.
-
-## 🎨 Framework Integration
-
-### React
-
-```typescript
-import { useEffect, useState } from 'react';
-import init, { Verifier } from '@tokamak-zk-evm/verify-wasm-bundler';
-
-function VerifyButton() {
-  const [result, setResult] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    init(); // Component mount 시 WASM 초기화
-  }, []);
-
-  const handleVerify = async () => {
-    setLoading(true);
-    try {
-      const verifier = new Verifier(setupParamsJson, instanceJson);
-      const res = verifier.verify_keccak256();
-      setResult(res === 0 ? 'Passed ✅' : 'Failed ❌');
-      verifier.free();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <button onClick={handleVerify} disabled={loading}>
-      {loading ? 'Verifying...' : 'Verify Proof'}
-    </button>
-  );
-}
-```
-
-### Vue.js
-
-```vue
-<template>
-  <button @click="verify" :disabled="loading">
-    {{ loading ? 'Verifying...' : 'Verify Proof' }}
-  </button>
-  <p v-if="result">{{ result }}</p>
-</template>
-
-<script setup>
-import { ref, onMounted } from 'vue';
-import init, { Verifier } from '@tokamak-zk-evm/verify-wasm-bundler';
-
-const loading = ref(false);
-const result = ref('');
-
-onMounted(() => init());
-
-const verify = async () => {
-  loading.value = true;
-  try {
-    const verifier = new Verifier(setupParamsJson, instanceJson);
-    const res = verifier.verify_keccak256();
-    result.value = res === 0 ? 'Passed ✅' : 'Failed ❌';
-    verifier.free();
-  } finally {
-    loading.value = false;
-  }
-};
-</script>
-```
-
-### Vanilla JavaScript
+## Node.js Example
 
 ```javascript
-// 가장 간단한 방법
-import init, { Verifier } from './pkg-web/verify_wasm.js';
+import { readFileSync } from 'node:fs';
+import init, { Verifier } from '@tokamak-zk-evm/verify-wasm-nodejs';
 
-async function verify() {
-  await init();
+await init();
 
-  const verifier = new Verifier(
-    JSON.stringify(setupParams),
-    JSON.stringify(instance),
-  );
+const verifier = new Verifier(
+  readFileSync('./data/setupParams.json', 'utf8'),
+  readFileSync('./data/instance.json', 'utf8'),
+  readFileSync('./data/proof.json', 'utf8'),
+  readFileSync('./data/preprocess.json', 'utf8'),
+  readFileSync('./data/sigma_verify.json', 'utf8'),
+);
 
-  const result = verifier.verify_keccak256();
-  console.log('Result:', result);
+const ok = verifier.verify_snark();
+console.log(ok);
+verifier.free();
+```
 
-  verifier.free();
+## Keccak-Only Example
+
+```javascript
+import init, { Verifier, KeccakVerificationResult } from '@tokamak-zk-evm/verify-wasm-bundler';
+
+await init();
+
+const verifier = new Verifier(setupParamsJson, instanceJson);
+const result = verifier.verify_keccak256();
+
+switch (result) {
+  case KeccakVerificationResult.True:
+    console.log('Keccak verification passed');
+    break;
+  case KeccakVerificationResult.False:
+    console.log('Keccak verification failed');
+    break;
+  case KeccakVerificationResult.NoKeccakData:
+    console.log('No Keccak data was present');
+    break;
 }
 
-verify();
+verifier.free();
 ```
 
-## 🛠️ Build Options
+## Notes
 
-### For Web Browsers
+- The verifier expects JSON formatted like the native backend outputs.
+- `verify_snark()` returns a `Result<bool, JsValue>` on the Rust side and a boolean in JavaScript
+  when the inputs are valid.
+- `verify_keccak256()` does not require proof, preprocess, or sigma JSON.
+- Call `free()` when you are done with the verifier instance.
 
-```bash
-wasm-pack build --target web --out-dir pkg-web
-```
+## Related Files
 
-Usage:
-
-```javascript
-import init from './pkg-web/verify_wasm.js';
-```
-
-### For Bundlers (Webpack, Vite, Rollup)
-
-```bash
-wasm-pack build --target bundler --out-dir pkg
-```
-
-Usage with NPM:
-
-```javascript
-import init from '@tokamak-zk-evm/verify-wasm-bundler';
-```
-
-Or with local build:
-
-```javascript
-import init from './pkg/verify_wasm.js';
-```
-
-### For Node.js
-
-```bash
-wasm-pack build --target nodejs --out-dir pkg-node
-```
-
-Usage with NPM:
-
-```javascript
-import { Verifier } from '@tokamak-zk-evm/verify-wasm-nodejs';
-// or
-const { Verifier } = require('@tokamak-zk-evm/verify-wasm-nodejs');
-```
-
-Or with local build:
-
-```javascript
-import { Verifier } from './pkg-node/verify_wasm.js';
-```
-
-## 🐛 Troubleshooting
-
-### "CORS policy blocked" Error
-
-**Cause:** WASM file loaded from different domain
-
-**Solution:**
-
-```javascript
-// Method 1: Host WASM on same domain
-
-// Method 2: Add CORS headers on server
-Access-Control-Allow-Origin: *
-
-// Method 3: For local testing
-python3 -m http.server 8000
-```
-
-### "Memory access out of bounds" Error
-
-**Cause:** Insufficient memory
-
-**Solution:**
-
-```javascript
-// Process large data in Web Worker
-const worker = new Worker('verifier-worker.js');
-worker.postMessage({ setupParams, instance });
-worker.onmessage = (e) => {
-  console.log('Result:', e.data);
-};
-```
-
-### Slow Performance
-
-**Solution:**
-
-```bash
-# 1. Ensure release mode build
-wasm-pack build --release
-
-# 2. Size optimization
-[profile.release]
-opt-level = "z"  # Size optimization
-lto = true       # Link Time Optimization
-```
-
-## 📱 Using in Mobile Browsers
-
-```html
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-<script type="module">
-  import init, { Verifier } from './pkg-web/verify_wasm.js';
-
-  // Works on mobile too!
-  await init();
-  const verifier = new Verifier(setupParamsJson, instanceJson);
-  const result = verifier.verify_keccak256();
-
-  alert(result === 0 ? '✅ Verified!' : '❌ Failed');
-  verifier.free();
-</script>
-```
-
-**Tested on:**
-
-- ✅ iPhone 12 Pro (iOS 15, Safari)
-- ✅ Samsung Galaxy S21 (Android 12, Chrome)
-- ✅ iPad Pro (iOS 16, Safari)
-
-## 🔐 Security Considerations
-
-### Content Security Policy (CSP)
-
-```html
-<meta
-  http-equiv="Content-Security-Policy"
-  content="default-src 'self'; 
-               script-src 'self' 'wasm-unsafe-eval';"
-/>
-```
-
-### Memory Management
-
-```javascript
-// ✅ Always call free()
-try {
-  const verifier = new Verifier(setupParamsJson, instanceJson);
-  const result = verifier.verify_keccak256();
-  return result;
-} finally {
-  verifier.free(); // Release memory
-}
-```
-
-### Input Validation
-
-```javascript
-// Validate user input
-function validateSetupParams(params) {
-  if (!params.n || !Number.isInteger(params.n)) {
-    throw new Error('Invalid n parameter');
-  }
-  if (!isPowerOfTwo(params.n)) {
-    throw new Error('n must be power of two');
-  }
-  // ... additional validation
-}
-```
-
-## 📊 Example Files
-
-1. **example-simple.html**: Simplest example (copy and use directly)
-2. **example-browser.html**: Demo with complete UI
-3. **example-node.js**: Node.js usage example
-
-## 🎯 Next Steps
-
-1. **Build**: Run `./build.sh`
-2. **Test**: Open `example-simple.html`
-3. **Integrate**: Add to your app
-4. **Deploy**: Enable compression and deploy
-
-## 📚 References
-
-- [WebAssembly Official Docs](https://webassembly.org/)
-- [wasm-pack Documentation](https://rustwasm.github.io/wasm-pack/)
-- [Arkworks Library](https://github.com/arkworks-rs)
+- [QUICK_START.md](./QUICK_START.md)
+- [NPM_USAGE.md](./NPM_USAGE.md)
+- [example-browser.html](./example-browser.html)
+- [example-node.js](./example-node.js)

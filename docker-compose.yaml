@@ -1,10 +1,29 @@
 services:
-  cli:
-    build: ./
+  cli: &cli_base
+    build:
+      context: .
+      dockerfile: dockerfile
+    image: tokamak-zkevm:dev
+    command: bash
     volumes:
-      - ./:/app
-    working_dir: /app
-    tty: true       
+      - type: bind
+        source: .
+        target: /workspace
+    working_dir: /workspace
+    tty: true
     stdin_open: true
     environment:
-      - TOKAMAK_ZK_EVM_ROOT=/app
+      TOKAMAK_ZK_EVM_ROOT: /workspace
+
+  cli-gpu:
+    <<: *cli_base
+    profiles:
+      - gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities:
+                - gpu

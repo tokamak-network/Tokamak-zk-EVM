@@ -1,12 +1,12 @@
 [32mtemplate instances[0m: 1
-non-linear constraints: 8
-linear constraints: 8
-public inputs: 8
+non-linear constraints: 65
+linear constraints: 65
+public inputs: 65
 private inputs: 0
-public outputs: 8
-wires: 17
-labels: 17
-[32mWritten successfully:[0m ../subcircuits/library/bufferPubOut_circuit.r1cs
-[32mConstraints written in:[0m ../subcircuits/library/bufferPubOut_circuit_constraints.json
-[32mWritten successfully:[0m ../subcircuits/library/bufferPubOut_circuit_js/bufferPubOut_circuit.wasm
+public outputs: 65
+wires: 131
+labels: 131
+[32mWritten successfully:[0m /Users/jehyuk/Documents/repo/Tokamak-zk-EVM/packages/frontend/qap-compiler/scripts/../subcircuits/library/bufferPubOut_circuit.r1cs
+[32mConstraints written in:[0m /Users/jehyuk/Documents/repo/Tokamak-zk-EVM/packages/frontend/qap-compiler/scripts/../subcircuits/library/bufferPubOut_circuit_constraints.json
+[32mWritten successfully:[0m /Users/jehyuk/Documents/repo/Tokamak-zk-EVM/packages/frontend/qap-compiler/scripts/../subcircuits/library/bufferPubOut_circuit_js/bufferPubOut_circuit.wasm
 [32mEverything went okay[0m

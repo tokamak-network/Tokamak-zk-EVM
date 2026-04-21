@@ -2,7 +2,7 @@ name: Test Failure Notifications
 
 on:
   workflow_run:
-    workflows: ['Required Integration Tests']
+    workflows: ['Test, Build & Release']
     types: [completed]
 
 jobs:
@@ -39,7 +39,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn", 
-                    "text": "❌ The tokamak-cli integration tests have failed.\n🚫 This branch cannot be merged until tests pass."
+                    "text": "❌ The Tokamak-zk-EVM CI workflow has failed.\n🚫 This branch cannot be merged until tests pass."
                   }
                 }
               ]
@@ -57,7 +57,7 @@ jobs:
               repo: context.repo.repo,
               body: `## 🚨 Integration Tests Failed
               
-              The required integration tests using \`tokamak-cli\` have failed for this PR.
+              The required Tokamak-zk-EVM CI workflow has failed for this PR.
               
               **Failed workflow:** [${{ github.event.workflow_run.name }}](${{ github.event.workflow_run.html_url }})
               

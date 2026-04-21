@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+
+ROOT="$(git rev-parse --show-toplevel)"
+PKG="$ROOT/packages/frontend/synthesizer"
+
+if [ ! -d "$PKG" ]; then
+  echo "[pre-commit] synthesizer package not found at: $PKG" >&2
+  exit 1
+fi
+
+echo "[pre-commit] Running synthesizer tests: npm run test:node"
+cd "$PKG"
+npm run -s test:node

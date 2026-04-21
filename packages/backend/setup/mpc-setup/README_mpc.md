@@ -1,100 +1,153 @@
-# 🚀MPC Ceremony Guidlines for Tokamak zk-EVM
+# MPC Ceremony Quick Guide for Tokamak zk-EVM
 
-This guide provides step-by-step instructions to run the MPC (Multi-Party Computation) ceremony for Tokamak zk-EVM setup.
+This file is a short operator guide. The public entrypoints are:
 
-⚙️ Prerequisites
+- `native_mpc_setup`
+- `dusk_backed_mpc_setup`
 
-Before running the MPC ceremony, ensure you follow the [prerequisites](https://github.com/tokamak-network/Tokamak-zk-EVM/blob/main/README.md) of Tokamak zk-EVM (at least until end of step 4). Ensure the frontend is running properly.
-Install openSSL on your system. 
+The lower-level ceremony steps now live in library flow modules and are not the normal user
+interface anymore.
 
-🛡️ **Phase 1:**
-Navigate to the backend directory:
+## Prerequisites
+
+Before running the ceremony:
+
+- complete the repository prerequisites from the project root README
+- ensure the frontend subcircuit library exists for non-release builds
+- install OpenSSL if required by your platform
+
+Run all commands from:
+
 ```bash
-cd "$pwd/packages/backend"
+cd "$PWD/packages/backend"
 ```
 
-🛠️ **Initialize Phase 1**
+## Native Mode
 
-This step initializes Phase 1 (takes a few seconds): 
-Here replace the **blockhash** value with a data that is not predictable inadvance. 
-For initialization (compressed form):
+Release builds embed the current npm `latest` of `@tokamak-zk-evm/subcircuit-library` at build
+time, so `--subcircuit-library` is only required in non-release builds.
+
 ```bash
- cargo run --release --bin phase1_initialize -- \
-  --s-max 512 \
-  --mode testing \
-  --setup-params-file setupParams.json  \
-  --outfolder ./setup/mpc-setup/output \
-  --compress false
+cargo run --release --bin native_mpc_setup -- \
+  --intermediate ./setup/mpc-setup/output/native.intermediate \
+  --output ./setup/mpc-setup/output/native.final
 ```
 
-## Options:
-**--s-max** *value* : sets s_max value to another integer (for testing it should be min 128)
-**--mode** *random/testin*g: Use **random** for actual MPC ceremony, **testing** for testing mode.
-**--setup-params-file** *setupParams.json*: Takes input parameters file.
-**--outfolder** *./setup/mpc-setup/output* : Defines the folder to write the output files.
-**--compress** *true/false*: **true** outputs EC points in compressed form, **false** outputs EC points in uncompressed form.
+This wrapper performs:
 
-📌 In random initialize mode, it prompts to enter a blockhash for an unpredictable input. Give a hash output of a block (eg. Bitcoin block hash https://www.blockchain.com/explorer/blocks/btc/).
-It should be *64 hexadecimal characters* (eg: for 901,620th Bitcoin Block
-0000000000000000000111043d2144755ed8bdf0c6a91fa292d3e544ebee963b)
+1. Tokamak phase-1 initialization
+2. one native phase-1 contribution
+3. phase-2 prepare
+4. one phase-2 contribution
+5. final CRS file generation
 
-🔄 **Next Contributor Phase-1** (~60 minutes)
+Add `--beacon-mode` in normal builds if you want deterministic beacon-mode sampling instead
+of the default random mode.
 
-Each next contributor in Phase-1 runs *phase1_next_contributor*.
-For testing mode run:
+Non-release example:
+
 ```bash
-cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode testing
-```
-📌 For testing purpose run this once as we want to generate the same combined_sigma as trusted setup.
-For a real MPC setup set **--mode random**.
-
-🌐 **Beacon Contribution** (optional)
-
-Optionally, you can add extra entropy from unpredictable deterministic inputs (like future Bitcoin block hashes):
-```bash
-cargo run --release --bin phase1_next_contributor -- --outfolder ./setup/mpc-setup/output --mode beacon
+cargo run -p mpc-setup --bin native_mpc_setup -- \
+  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
+  --intermediate ./setup/mpc-setup/output/native.intermediate \
+  --output ./setup/mpc-setup/output/native.final
 ```
 
-✅ **Phase-1 Batch Verification** (30 mins to a couple of hours depending on the number of contributors)
+Optional wrapper-only input:
 
-Each "Next Contributor's execution" already includes verification of the previous contributor automatically, but for batch verification of all contributions run:
+- `--seed-input`
+
+The wrappers are non-interactive. Contributor metadata defaults to empty strings, and the
+native phase-1 initialization scalar uses internal randomness instead of prompting on stdin.
+
+## Dusk-Backed Mode
+
 ```bash
-cargo run --release --bin phase1_batch_verify -- --outfolder ./setup/mpc-setup/output
+cargo run --release --bin dusk_backed_mpc_setup -- \
+  --intermediate ./setup/mpc-setup/output/dusk.intermediate \
+  --output ./setup/mpc-setup/output/dusk.final
 ```
 
-📝 **Prepare Phase-2**
+Optional wrapper-only input:
 
-For testing, start with running the following once to generate *phase2_acc_0.json* to be able to prepare phase-2 initial files:
+- `--seed-input`
+
+This wrapper:
+
+1. loads or downloads the pinned Dusk raw powers-of-tau file at `<intermediate>/dusk.response`
+2. checks the Google Drive upload configuration from `.env`
+3. rejects publication if the target Drive folder already contains a CRS archive for the current backend version
+4. verifies the pinned digest and the used tau ranges
+5. runs phase-2 prepare
+6. runs one phase-2 contribution
+7. generates final CRS files
+8. zips the final `--output` artifacts plus `build-metadata-mpc-setup.json` and uploads the archive to the configured Google Drive folder
+9. validates that publication is running from a release build and that the bundled build metadata
+   matches the current `mpc-setup` binary version
+10. grants the uploaded archive `anyone with the link = viewer`
+11. allows viewers and commenters to download, print, and copy the uploaded archive
+
+Non-release example:
+
 ```bash
-cargo run --release --bin phase2_testing_prepare
+cargo run -p mpc-setup --bin dusk_backed_mpc_setup -- \
+  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
+  --intermediate ./setup/mpc-setup/output/dusk.intermediate \
+  --output ./setup/mpc-setup/output/dusk.final
 ```
-📌Here for testing s_max is set to 128.
 
-The following starts the prepare phase-2.
-⚠️ Note: This step can take a significant amount of time (days):
+Required `.env` keys for dusk-backed uploads:
+
+- `TOKAMAK_MPC_DRIVE_FOLDER_ID`
+- `TOKAMAK_MPC_DRIVE_OAUTH_CLIENT_JSON_PATH`
+- `TOKAMAK_MPC_DRIVE_OAUTH_TOKEN_PATH`
+
+The published folder URL in provenance is derived automatically from
+`TOKAMAK_MPC_DRIVE_FOLDER_ID`.
+The OAuth client JSON file must be a Google desktop-app client credential file.
+On the first publication run, `dusk_backed_mpc_setup` opens a browser window for Google login and
+stores the OAuth token at `TOKAMAK_MPC_DRIVE_OAUTH_TOKEN_PATH`.
+The authenticated Google account must be able to change sharing permissions on uploaded files as
+well as add children to the folder.
+
+## Testing-Mode Builds
+
+Testing mode is selected through the cargo feature, not a runtime flag.
+
+Native:
+
 ```bash
-cargo run --release --bin phase2_prepare -- --outfolder ./setup/mpc-setup/output
+cargo run --release --features testing-mode --bin native_mpc_setup -- \
+  --intermediate ./setup/mpc-setup/output/native-testing.intermediate \
+  --output ./setup/mpc-setup/output/native-testing.final
 ```
-📌 When it prompts *Enter the last contributor's index* please type the *index* i of the last phase1_acc_i.json file generated in Phase-1. You can skip this for testing as we have the required file generated in *phase2_testing_prepare*.
 
-🔄 **Next Contributor Phase-2**
-Each next contributor in Phase-2 runs:
+Dusk-backed:
+
 ```bash
-cargo run --release --bin phase2_next_contributor -- --outfolder ./setup/mpc-setup/output --mode random
+cargo run --release --features testing-mode --bin dusk_backed_mpc_setup -- \
+  --intermediate ./setup/mpc-setup/output/dusk-testing.intermediate \
+  --output ./setup/mpc-setup/output/dusk-testing.final
 ```
 
-✅ **Phase-2 Batch Verification** (30 mins to a couple of hours based on the number participants)
-Each "Next Contributor's execution" includes verification of the previous contributor automatically, but for batch verification of all contributions run:
-```bash
-cargo run --release --bin phase2_batch_verify -- --outfolder ./setup/mpc-setup/output
-```
+## Outputs
 
-📝 **Generate final output files**
-Run this code once to generate final outputs: 
-```bash
-cargo run --release --bin phase2_gen_files -- --outfolder ./setup/mpc-setup/output
-```
-When it prompts *Enter the last contributor's index* please type the *index* i of the last *phase2_acc_i.json* file generated in Phase-1.
-The final output files are: "sigma_preprocess.json", "sigma_verify.json" and "combined_sigma.json"
+The final output folder contains:
 
-**CRC output** is the *combined_sigma.json* file.
+- `combined_sigma.rkyv`
+- `sigma_preprocess.rkyv`
+- `sigma_verify.json`
+- `crs_provenance.json`
+
+The deployable CRS is `combined_sigma.rkyv`.
+
+`crs_provenance.json` now also records:
+
+- `generated_at_utc`
+- `backend_version`
+- `published_folder_url`
+- `published_archive_name`
+
+Release builds also emit `build-metadata-mpc-setup.json` into
+`packages/backend/target/release/`. Publication is allowed only when that metadata declares
+`runtimeMode = bundled` and matches the running `mpc-setup` package version.

@@ -1,0 +1,10 @@
+Tokamak-zk-EVM Synthesizer
+Copyright (c) 2024-2025 Tokamak Network
+
+This software is dual-licensed under the MIT License and the Apache License 2.0.
+
+Third-party dependencies are distributed according to their own licenses.
+See `package.json` for the current dependency set.
+
+For the full text of the MIT License, see `./LICENSE-MIT`.
+For the full text of the Apache License 2.0, see `./LICENSE-APACHE`.

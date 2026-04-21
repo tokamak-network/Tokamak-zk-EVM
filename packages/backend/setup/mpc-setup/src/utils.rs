@@ -8,7 +8,7 @@ use crate::sigma::{SigmaV2, HASH_BYTES_LEN};
 use ark_bls12_381::Bls12_381;
 use ark_ec::pairing::PairingOutput;
 use ark_ec::{AffineRepr, PrimeGroup};
-use ark_ff::One;
+use ark_ff::{One, Zero};
 use ark_serialize::Compress;
 use blake2::{Blake2b, Digest};
 use blake3::Hasher;
@@ -20,7 +20,6 @@ use icicle_runtime::Device;
 use libs::field_structures::Tau;
 use libs::group_structures::{pairing, G1serde, G2serde};
 use rand::Rng;
-use rayon::join;
 use rayon::prelude::*;
 use serde::de::{MapAccess, SeqAccess, Visitor};
 use serde::ser::{SerializeStruct, SerializeTuple};
@@ -36,6 +35,59 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use std::{fs, io};
 
+pub struct StepTimer {
+    label: String,
+    total_start: Instant,
+    step_start: Instant,
+}
+
+impl StepTimer {
+    pub fn new(label: impl Into<String>) -> Self {
+        let now = Instant::now();
+        Self {
+            label: label.into(),
+            total_start: now,
+            step_start: now,
+        }
+    }
+
+    pub fn log_step(&mut self, step: &str) {
+        let elapsed = self.step_start.elapsed().as_secs_f64();
+        println!(
+            "[{}] {} completed in {:.6} seconds",
+            self.label, step, elapsed
+        );
+        self.step_start = Instant::now();
+    }
+
+    pub fn log_total(&self) {
+        println!(
+            "[{}] total elapsed time: {:.6} seconds",
+            self.label,
+            self.total_start.elapsed().as_secs_f64()
+        );
+    }
+}
+
+fn inferred_phase2_s_max(sigma: &SigmaV2) -> Option<usize> {
+    sigma
+        .sigma
+        .sigma_1
+        .eta_inv_li_o_inter_alpha4_kj
+        .first()
+        .map(|row| row.len())
+        .filter(|len| *len > 0)
+        .or_else(|| {
+            sigma
+                .sigma
+                .sigma_1
+                .delta_inv_li_o_prv
+                .first()
+                .map(|row| row.len())
+                .filter(|len| *len > 0)
+        })
+}
+
 pub fn load_gpu_if_possible() -> bool {
     let mut is_gpu_enabled = false;
 
@@ -45,12 +97,11 @@ pub fn load_gpu_if_possible() -> bool {
     let device_cuda_gpu = Device::new("CUDA", 0);
 
     if icicle_runtime::is_device_available(&device_metal_gpu) {
-        println!("METAL GPU is available");
+        println!("Using METAL GPU backend");
         icicle_runtime::set_device(&device_metal_gpu).expect("Failed to set metal device");
         is_gpu_enabled = true;
-
     } else if icicle_runtime::is_device_available(&device_cuda_gpu) {
-        println!("CUDA GPU is available");
+        println!("Using CUDA GPU backend");
         icicle_runtime::set_device(&device_cuda_gpu).expect("Failed to set cuda device");
         is_gpu_enabled = true;
     }
@@ -364,6 +415,26 @@ impl Phase2Proof {
         result
     }
     pub fn verify(&self, sigma_old: &SigmaV2, sigma_cur: &SigmaV2) -> bool {
+        let old_y = sigma_old.public_phase2_y().expect(
+            "phase-2 proof verification requires a disclosed y in the previous accumulator",
+        );
+        let cur_y = sigma_cur
+            .public_phase2_y()
+            .expect("phase-2 proof verification requires a disclosed y in the current accumulator");
+        let old_s = inferred_phase2_s_max(sigma_old)
+            .expect("phase-2 proof verification cannot infer s_max from the previous accumulator");
+        let cur_s = inferred_phase2_s_max(sigma_cur)
+            .expect("phase-2 proof verification cannot infer s_max from the current accumulator");
+        assert_eq!(old_s, cur_s);
+        assert_ne!(old_y.pow(old_s), ScalarField::one(), "invalid disclosed y");
+        assert_ne!(cur_y.pow(cur_s), ScalarField::one(), "invalid disclosed y");
+        assert_eq!(old_y, cur_y);
+        assert_eq!(sigma_old.public_y_hex, sigma_cur.public_y_hex);
+        assert_eq!(sigma_old.sigma.sigma_1.y, sigma_old.sigma.G * old_y);
+        assert_eq!(sigma_cur.sigma.sigma_1.y, sigma_cur.sigma.G * cur_y);
+        assert_eq!(sigma_old.sigma.sigma_2.y, sigma_old.sigma.H * old_y);
+        assert_eq!(sigma_cur.sigma.sigma_2.y, sigma_cur.sigma.H * cur_y);
+
         let v = hash_sigma(&sigma_old);
 
         assert_eq!(sigma_old.sigma.G, sigma_cur.sigma.G);
@@ -446,7 +517,7 @@ impl Phase2Proof {
                 consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.gamma_t_g2])
             });
         assert_eq!(consistent_all, true);
-        println!("consistent_all for gamma_inv_o_inst: {}", consistent_all);
+        crate::testing_log!("Verified gamma_inv_o_inst consistency");
 
         let consistent_all = sigma_cur
             .sigma
@@ -459,10 +530,7 @@ impl Phase2Proof {
             });
         assert_eq!(consistent_all, true);
 
-        println!(
-            "consistent_all for delta_inv_alpha4_xj_tx: {}",
-            consistent_all
-        );
+        crate::testing_log!("Verified delta_inv_alpha4_xj_tx consistency");
         let consistent_all = sigma_cur
             .sigma
             .sigma_1
@@ -470,18 +538,12 @@ impl Phase2Proof {
             .par_iter()
             .zip(sigma_old.sigma.sigma_1.delta_inv_alphak_xh_tx.par_iter())
             .all(|(cur_inner, old_inner)| {
-                cur_inner
-                    .par_iter()
-                    .zip(old_inner.par_iter())
-                    .all(|(cur, prev)| {
-                        consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
-                    })
+                cur_inner.iter().zip(old_inner.iter()).all(|(cur, prev)| {
+                    consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
+                })
             });
         assert_eq!(consistent_all, true);
-        println!(
-            "consistent_all for delta_inv_alphak_xh_tx: {}",
-            consistent_all
-        );
+        crate::testing_log!("Verified delta_inv_alphak_xh_tx consistency");
 
         let consistent_all = sigma_cur
             .sigma
@@ -490,18 +552,12 @@ impl Phase2Proof {
             .par_iter()
             .zip(sigma_old.sigma.sigma_1.delta_inv_alphak_yi_ty.par_iter())
             .all(|(cur_inner, old_inner)| {
-                cur_inner
-                    .par_iter()
-                    .zip(old_inner.par_iter())
-                    .all(|(cur, prev)| {
-                        consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
-                    })
+                cur_inner.iter().zip(old_inner.iter()).all(|(cur, prev)| {
+                    consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
+                })
             });
         assert_eq!(consistent_all, true);
-        println!(
-            "consistent_all for delta_inv_alphak_yi_ty: {}",
-            consistent_all
-        );
+        crate::testing_log!("Verified delta_inv_alphak_yi_ty consistency");
 
         let consistent_all = sigma_cur
             .sigma
@@ -516,19 +572,13 @@ impl Phase2Proof {
                     .par_iter(),
             )
             .all(|(cur_inner, old_inner)| {
-                cur_inner
-                    .par_iter()
-                    .zip(old_inner.par_iter())
-                    .all(|(cur, prev)| {
-                        consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.eta_t_g2])
-                    })
+                cur_inner.iter().zip(old_inner.iter()).all(|(cur, prev)| {
+                    consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.eta_t_g2])
+                })
             });
 
         assert_eq!(consistent_all, true);
-        println!(
-            "consistent_all for eta_inv_li_o_inter_alpha4_kj: {}",
-            consistent_all
-        );
+        crate::testing_log!("Verified eta_inv_li_o_inter_alpha4_kj consistency");
 
         let consistent_all = sigma_cur
             .sigma
@@ -537,12 +587,9 @@ impl Phase2Proof {
             .par_iter()
             .zip(sigma_old.sigma.sigma_1.delta_inv_li_o_prv.par_iter())
             .all(|(cur_inner, old_inner)| {
-                cur_inner
-                    .par_iter()
-                    .zip(old_inner.par_iter())
-                    .all(|(cur, prev)| {
-                        consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
-                    })
+                cur_inner.iter().zip(old_inner.iter()).all(|(cur, prev)| {
+                    consistent(&[*cur, *prev], &[], &[sigma_cur.sigma.H, self.delta_t_g2])
+                })
             });
         assert_eq!(consistent_all, true);
         true
@@ -617,6 +664,38 @@ pub fn verify2i(
     (1..cur_x.len())
         .into_par_iter()
         .all(|i| consistent(&[cur_x[i - 1].g1, cur_x[i].g1], &[], &[*g2, cur_x[0].g2]))
+}
+
+pub fn verify_alpha_x_x_only(
+    g2: &G2serde,
+    cur_alphax: &[G1serde],
+    cur_alpha: &[PairSerde],
+    cur_x: &SerialSerde,
+) -> bool {
+    let len_x = cur_x.len_g1();
+    cur_alpha.par_iter().enumerate().all(|(alpha_idx, alpha)| {
+        if len_x == 0 {
+            return true;
+        }
+        let row_offset = alpha_idx * len_x;
+        if !consistent(
+            &[alpha.g1, cur_alphax[row_offset]],
+            &[],
+            &[*g2, cur_x.get_g2()],
+        ) {
+            return false;
+        }
+        (1..len_x).into_par_iter().all(|x_idx| {
+            consistent(
+                &[
+                    cur_alphax[row_offset + x_idx - 1],
+                    cur_alphax[row_offset + x_idx],
+                ],
+                &[],
+                &[*g2, cur_x.get_g2()],
+            )
+        })
+    })
 }
 
 fn compute2_temp(
@@ -765,30 +844,84 @@ pub fn scalar_from_user_random_input(title: &str) -> [u8; 32] {
     bytes
 }
 
+pub fn seed_bytes_from_input(input: &str) -> [u8; 32] {
+    let mut hasher = Hasher::new();
+    hasher.update(input.trim().as_bytes());
+    let hash = hasher.finalize();
+
+    let mut bytes = [0u8; 32];
+    bytes.copy_from_slice(hash.as_bytes());
+    bytes
+}
+
 #[derive(Debug, Clone, ValueEnum)]
 pub enum Mode {
-    Testing,
     Random,
     Beacon, //deterministic from a given seed
 }
 /// Initializes a random generator based on the specified mode
 pub fn initialize_random_generator(mode: &Mode) -> RandomGenerator {
-    let (strategy, message, seed) = match mode {
-        Mode::Testing => (
+    let (strategy, message, seed) = if crate::testing_mode_enabled() {
+        (
             RandomStrategy::Testing,
             "Initializing random generator in testing mode",
             [0u8; 32],
-        ),
-        Mode::Beacon => (
-            RandomStrategy::UserInput,
-            "Initializing random generator in deterministic mode",
-            scalar_from_user_random_input("Enter seed input for randomization: "),
-        ),
-        Mode::Random => (
-            RandomStrategy::Hybrid,
-            "Initializing random generator in hybrid random mode",
-            scalar_from_user_random_input("Enter seed input for randomization: "),
-        ),
+        )
+    } else {
+        match mode {
+            Mode::Beacon => (
+                RandomStrategy::UserInput,
+                "Initializing random generator in deterministic mode",
+                scalar_from_user_random_input("Enter seed input for randomization: "),
+            ),
+            Mode::Random => (
+                RandomStrategy::Hybrid,
+                "Initializing random generator in hybrid random mode",
+                scalar_from_user_random_input("Enter seed input for randomization: "),
+            ),
+        }
+    };
+
+    println!("{}", message);
+    RandomGenerator::new(strategy, seed)
+}
+
+pub fn initialize_random_generator_with_seed_input(
+    mode: &Mode,
+    seed_input: Option<&str>,
+) -> RandomGenerator {
+    let (strategy, message, seed) = if crate::testing_mode_enabled() {
+        (
+            RandomStrategy::Testing,
+            "Initializing random generator in testing mode",
+            [0u8; 32],
+        )
+    } else {
+        match mode {
+            Mode::Beacon => {
+                let input = seed_input.expect("beacon mode requires --seed-input");
+                (
+                    RandomStrategy::UserInput,
+                    "Initializing random generator in deterministic mode",
+                    seed_bytes_from_input(input),
+                )
+            }
+            Mode::Random => {
+                if let Some(input) = seed_input {
+                    (
+                        RandomStrategy::Hybrid,
+                        "Initializing random generator in hybrid random mode",
+                        seed_bytes_from_input(input),
+                    )
+                } else {
+                    (
+                        RandomStrategy::SystemRandom,
+                        "Initializing random generator in system random mode",
+                        [0u8; 32],
+                    )
+                }
+            }
+        }
     };
 
     println!("{}", message);
@@ -1048,6 +1181,62 @@ pub fn compute5(
     )
 }
 
+pub fn compute_phase1_x_only(
+    rng: &mut RandomGenerator,
+    g1: &G1serde,
+    prev_alphax: &[G1serde],
+    prev_alpha: &[PairSerde],
+    prev_x: &SerialSerde,
+    v: &[u8; 64],
+) -> (Vec<G1serde>, Vec<PairSerde>, SerialSerde, Phase1Proof) {
+    let prev_alpha_vec = prev_alpha.to_vec();
+    let (cur_alpha, proof2_alpha, alpha_powers) = compute2_tempi(rng, g1, &prev_alpha_vec, v);
+    let (cur_x, proof2_x, x_powers) = compute2_temp(rng, g1, prev_x, v);
+
+    let alphax_powers = vector_product(&alpha_powers, &x_powers);
+    let cur_alphax: Vec<G1serde> = prev_alphax
+        .par_iter()
+        .zip(alphax_powers.par_iter())
+        .map(|(point, scalar)| point.mul(*scalar))
+        .collect();
+
+    (
+        cur_alphax,
+        cur_alpha,
+        cur_x,
+        Phase1Proof {
+            contributor_index: 0,
+            proof2_alpha,
+            proof2_x: proof2_x.clone(),
+            // The x-only phase-1 ceremony no longer updates y, but the field is
+            // kept to avoid a file-format fork during the transition.
+            proof2_y: proof2_x,
+        },
+    )
+}
+
+pub fn verify_phase1_x_only(
+    g1: &G1serde,
+    g2: &G2serde,
+    prev_alpha: &[PairSerde],
+    prev_x: &SerialSerde,
+    cur_alphax: &[G1serde],
+    cur_alpha: &[PairSerde],
+    cur_x: &SerialSerde,
+    proof: &Phase1Proof,
+) -> bool {
+    let prev_alpha_vec = prev_alpha.to_vec();
+    let cur_alpha_vec = cur_alpha.to_vec();
+
+    if !verify2i(g1, g2, &prev_alpha_vec, &cur_alpha_vec, &proof.proof2_alpha) {
+        return false;
+    }
+    if !verify2(g1, g2, prev_x, cur_x, &proof.proof2_x) {
+        return false;
+    }
+    verify_alpha_x_x_only(g2, cur_alphax, &cur_alpha_vec, cur_x)
+}
+
 //type 5: verify5
 pub fn verify5(
     g1: &G1serde,
@@ -1269,10 +1458,7 @@ pub fn consistent(ab_g1: &[G1serde], ab_g2: &[G2serde], c: &[G2serde]) -> bool {
     } else {
         let a2 = ab_g2[0];
         let b2 = ab_g2[1];
-
-        let (res_ab, res_c) = join(|| same_ratio(a1, b1, a2, b2), || same_ratio(a1, b1, c1, c2));
-
-        res_ab && res_c
+        same_ratio(a1, b1, a2, b2) && same_ratio(a1, b1, c1, c2)
     }
 }
 
@@ -1288,12 +1474,8 @@ pub fn pok(g1: &G1serde, alpha: ScalarField, v: &[u8]) -> G2serde {
 }
 
 pub fn same_ratio(g1_0: G1serde, g1_1: G1serde, g2_0: G2serde, g2_1: G2serde) -> bool {
-    let results: Vec<PairingOutput<Bls12_381>> = [(&[g1_0], &[g2_1]), (&[g1_1], &[g2_0])]
-        .par_iter()
-        .map(|(g1, g2)| pairing(*g1, *g2))
-        .collect();
-
-    results[0].eq(&results[1])
+    let neg_g1_1 = G1serde::zero() - g1_1;
+    pairing(&[g1_0, neg_g1_1], &[g2_1, g2_0]).is_zero()
 }
 
 pub fn ro(a: &G1serde, v: &[u8]) -> G2serde {

@@ -1,0 +1,48 @@
+{
+  "network": "mainnet",
+  "participants": [
+    {
+      "addressL1": "0x416ca8d86ea5024238e6a0afa5dc1a04da654bed",
+      "prvSeedL2": "Participant 1"
+    },
+    {
+      "addressL1": "0x551113afcdd32d25a77e14c393a7ea910a83df42",
+      "prvSeedL2": "Sender's L2 wallet"
+    },
+    {
+      "addressL1": "0x0b8dd819cbf290cf87ddbd16cdae985407853045",
+      "prvSeedL2": "Recipient's L2 wallet"
+    },
+    {
+      "addressL1": "0xc2a5b943c9455f7829cad38baf3042edf20ad0c9",
+      "prvSeedL2": "Participant 4"
+    }
+  ],
+  "storageConfigs": [
+    {
+      "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "userStorageSlots": [
+        9
+      ],
+      "preAllocatedKeys": [
+        "0x10d6a54a4754c8869d6886b5f5d7fbfa5b4522237ea5c60d11bc4e7a1ff9390b",
+        "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3",
+        "0x01"
+      ]
+    }
+  ],
+  "callCodeAddresses": [
+    "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    "0x43506849d7c04f9138d1a2050bbf3a0c054402dd"
+  ],
+  "blockNumber": 24654016,
+  "txNonce": 0,
+  "senderIndex": 1,
+  "recipientIndex": 2,
+  "amount": "0x000000000000000000000000000000000000000000000000000000000000006c",
+  "function": {
+    "selector": "0xa9059cbb",
+    "entryContractAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+  },
+  "referenceTxHash": "0xbd3c91fcb8a9ef857445798efd0120ffcabc7e2708c0c0e5e25ba608722f957f"
+}

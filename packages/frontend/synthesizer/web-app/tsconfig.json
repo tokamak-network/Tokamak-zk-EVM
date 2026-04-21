@@ -1,0 +1,29 @@
+{
+  "extends": "../../../../config/monorepo-js/tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./dist/types",
+    "declarationDir": "./dist/types",
+    "forceConsistentCasingInFileNames": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "declaration": true,
+    "baseUrl": ".",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "rootDir": "..",
+    "composite": true,
+    "preserveSymlinks": true
+  },
+  "include": [
+    "src/**/*",
+    "scripts/**/*",
+    "../scripts/**/*",
+    "../core/src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

@@ -6,7 +6,9 @@
   "author": "Tokamak Network",
   "private": true,
   "workspaces": [
-    "packages/frontend/synthesizer/libs/*"
+    "packages/cli",
+    "packages/frontend/synthesizer/node-cli",
+    "packages/frontend/synthesizer/web-app"
   ],
   "scripts": {
     "test": "lerna run test",

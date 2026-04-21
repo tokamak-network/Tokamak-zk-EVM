@@ -30,4 +30,7 @@ if check_backend_support "cuda"; then
 fi
 
 LOCAL="$SCRIPT_DIR/bin/prove"
-exec "$LOCAL" "$SCRIPT_DIR/resource/qap-compiler/library" "$SCRIPT_DIR/resource/synthesizer/output" "$SCRIPT_DIR/resource/setup/output" "$SCRIPT_DIR/resource/prove/output"
+exec "$LOCAL" \
+  --crs "$SCRIPT_DIR/resource/setup/output" \
+  --synthesizer-stat "$SCRIPT_DIR/resource/synthesizer/output" \
+  --output "$SCRIPT_DIR/resource/prove/output"
