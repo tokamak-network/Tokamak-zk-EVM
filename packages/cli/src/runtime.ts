@@ -58,7 +58,7 @@ interface BackendBuildMetadata {
 }
 
 const CACHE_DIR_ENV = 'TOKAMAK_ZKEVM_CLI_CACHE_DIR';
-const CRS_DRIVE_FOLDER_ID = '1Xvm8mdliHJZafzE5jaPidK4xqWAM0F9A';
+const CRS_DRIVE_FOLDER_ID = '14xqCbLoyoVmUVTTlopiXtKnoHPBGL-Sv';
 const CRS_DRIVE_FOLDER_URL = 'https://drive.google.com/drive/mobile/folders';
 const CRS_DOWNLOAD_BASE_URL = 'https://drive.usercontent.google.com/download';
 
