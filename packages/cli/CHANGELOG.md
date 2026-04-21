@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.1 - 2026-04-22
+
+- Added `--uninstall` so the CLI can remove its local workspace and cached runtime files for the current platform.
+
 ## 2.0.0 - 2026-04-21
 
 - Removed the dependency on the repository root `tokamak-cli` wrapper and root shell packaging scripts.
