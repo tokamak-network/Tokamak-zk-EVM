@@ -17,7 +17,7 @@ import {
   type TokamakL2TxData,
   type TxSnapshot,
 } from 'tokamak-l2js';
-import { installedSubcircuitLibrary } from '../src/subcircuit/installedLibrary.ts';
+import { installedSubcircuitLibrary } from '../node-cli/src/subcircuit/installedLibrary.ts';
 import {
   DEFAULT_EXAMPLE_NOTE_RECEIVE_CHANNEL_NAME,
   buildPrivateStateMintCalldata,
@@ -33,7 +33,7 @@ import {
   type PrivateStateRedeemConfig,
   type PrivateStateTransferConfig,
   type PrivateStateTransferOutput,
-} from '../examples/privateState/utils.ts';
+} from '../node-cli/examples/privateState/utils.ts';
 import {
   computeReplayPrivateStateAddressMappingKey,
   computeReplayPrivateStateEncryptedNoteSalt,
@@ -46,12 +46,13 @@ import {
   loadPrivateStateStorageLayoutManifest,
   type PrivateStateNoteLike,
   type PrivateStateStorageLayoutManifest,
-} from './utils/private-state.ts';
+} from '../node-cli/scripts/utils/private-state.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, '..');
-const examplesRoot = path.resolve(packageRoot, 'examples', 'privateState');
+const nodeCliRoot = path.resolve(packageRoot, 'node-cli');
+const examplesRoot = path.resolve(nodeCliRoot, 'examples', 'privateState');
 const defaultChannelId = 4;
 const defaultParticipantCount = 4;
 const defaultMintNoteValue = 1n * 10n ** 18n;
@@ -174,10 +175,10 @@ const resolveRpcUrl = (network: AppNetwork): string => {
 };
 
 const deploymentManifestPath = (chainId: number) =>
-  path.resolve(packageRoot, 'scripts', 'deployment', 'private-state', `deployment.${chainId}.latest.json`);
+  path.resolve(nodeCliRoot, 'scripts', 'deployment', 'private-state', `deployment.${chainId}.latest.json`);
 
 const storageLayoutManifestPath = (chainId: number) =>
-  path.resolve(packageRoot, 'scripts', 'deployment', 'private-state', `storage-layout.${chainId}.latest.json`);
+  path.resolve(nodeCliRoot, 'scripts', 'deployment', 'private-state', `storage-layout.${chainId}.latest.json`);
 
 const readJson = async <T>(filePath: string): Promise<T> =>
   JSON.parse(await fs.readFile(filePath, 'utf8')) as T;
@@ -188,7 +189,7 @@ const writeJson = async (filePath: string, value: unknown) => {
 };
 
 const toRelativeNodeCliPath = (filePath: string) =>
-  path.relative(packageRoot, filePath).split(path.sep).join('/');
+  path.relative(nodeCliRoot, filePath).split(path.sep).join('/');
 
 const makeLaunchEntryName = (
   functionName: string,
