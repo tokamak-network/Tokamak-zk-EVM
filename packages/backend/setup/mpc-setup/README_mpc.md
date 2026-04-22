@@ -147,6 +147,7 @@ The deployable CRS is `combined_sigma.rkyv`.
 - `backend_version`
 - `published_folder_url`
 - `published_archive_name`
+- `crs_download_url`
 
 Release builds also emit `build-metadata-mpc-setup.json` into
 `packages/backend/target/release/`. Publication is allowed only when that metadata declares

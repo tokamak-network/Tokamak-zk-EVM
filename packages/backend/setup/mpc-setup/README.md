@@ -229,6 +229,7 @@ jq -r '.generated_at_utc' "$CRS_DIR/crs_provenance.json"
 jq -r '.backend_version' "$CRS_DIR/crs_provenance.json"
 jq -r '.published_folder_url' "$CRS_DIR/crs_provenance.json"
 jq -r '.published_archive_name' "$CRS_DIR/crs_provenance.json"
+jq -r '.crs_download_url' "$CRS_DIR/crs_provenance.json"
 jq -r '.combined_sigma_sha256' "$CRS_DIR/crs_provenance.json"
 shasum -a 256 "$CRS_DIR/combined_sigma.rkyv"
 ```
