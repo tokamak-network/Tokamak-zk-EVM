@@ -88,6 +88,21 @@ When `--preprocess`, `--prove`, or `--verify` runs later, the CLI uses that boot
 
 The package runs `tokamak-cli --install` during `postinstall` unless `TOKAMAK_ZKEVM_SKIP_POSTINSTALL=1` is set.
 
+## What Does The Docker Install Image Include?
+
+The npm package ships the Dockerfile used by `--install --docker`.
+The host still needs only Node.js 20 or newer, the installed CLI package, Docker, and outbound HTTPS access.
+
+Inside the Docker image, the CLI installs the build and runtime tools needed to compile the vendored backend and provision local resources:
+
+- Ubuntu 22.04, or NVIDIA CUDA 12.2 on Ubuntu 22.04 when Docker CUDA probing succeeds
+- Node.js and npm for running the packaged CLI and backend build scripts
+- Rust and Cargo for building the backend binaries
+- C/C++ build tooling, `cmake`, `pkg-config`, `clang`, and `libclang-dev` for native Rust dependencies
+- `curl`, `git`, `tar`, `unzip`, and CA certificates for downloading, Git dependencies, and archive extraction
+
+The image is intentionally conservative rather than aggressively minimal. Removing packages such as `clang`, `libclang-dev`, `pkg-config`, or `bash` requires a clean Docker build test of the backend before release.
+
 ## Which Working Directory Does The CLI Use?
 
 The CLI reads relative input paths from the directory where you run the command.
