@@ -198,7 +198,7 @@ For every CRS, the manifest also records:
 
 For dusk-backed mode, the manifest records:
 
-- the canonical local source path
+- the pinned Dusk source download URL
 - the pinned Dusk contribution metadata
 - the expected and actual Dusk raw SHA-256 digest
 - whether the file was auto-downloaded
