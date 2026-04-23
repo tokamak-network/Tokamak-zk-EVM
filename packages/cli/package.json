@@ -42,6 +42,7 @@
     ".dockerignore",
     "docker",
     "dist",
+    "manifests",
     "scripts",
     "vendor",
     "CHANGELOG.md",

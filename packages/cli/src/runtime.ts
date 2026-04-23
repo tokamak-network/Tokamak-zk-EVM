@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import vm from 'node:vm';
+import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 
 export type CliPlatform = 'linux' | 'macos';
@@ -83,6 +84,25 @@ interface BackendBuildMetadata {
   packageVersion?: string;
 }
 
+interface CrsProvenance {
+  backend_version?: string;
+  combined_sigma_sha256?: string;
+  published_archive_name?: string | null;
+  sigma_preprocess_sha256?: string;
+  sigma_verify_sha256?: string;
+}
+
+interface IcicleAsset {
+  fileName: string;
+  sha256: string;
+  url: string;
+}
+
+interface IcicleManifest {
+  version: string;
+  assets: Record<string, IcicleAsset>;
+}
+
 const CACHE_DIR_ENV = 'TOKAMAK_ZKEVM_CLI_CACHE_DIR';
 const CRS_DRIVE_FOLDER_ID = '14xqCbLoyoVmUVTTlopiXtKnoHPBGL-Sv';
 const CRS_DRIVE_FOLDER_URL = 'https://drive.google.com/drive/mobile/folders';
@@ -98,6 +118,8 @@ const DOCKER_CUDA_PROBE_IMAGE = 'nvidia/cuda:12.2.0-base-ubuntu22.04';
 const DOCKER_CUDA_BASE_IMAGE = 'nvidia/cuda:12.2.0-devel-ubuntu22.04';
 const DOCKER_UBUNTU_BASE_IMAGE = 'ubuntu:22.04';
 const DOCKERFILE_PATH = path.join('docker', 'Dockerfile');
+const ICICLE_VERSION = '3.8.0';
+const ICICLE_MANIFEST_PATH = path.join('manifests', `icicle-v${ICICLE_VERSION}.json`);
 
 function logVerbose(enabled: boolean, message: string): void {
   if (enabled) {
@@ -388,6 +410,36 @@ async function fileSizeIfExists(target: string): Promise<number | null> {
   } catch {
     return null;
   }
+}
+
+async function fileExists(target: string): Promise<boolean> {
+  try {
+    await fs.access(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function sha256FileHex(filePath: string): Promise<string> {
+  const hasher = crypto.createHash('sha256');
+  await new Promise<void>((resolve, reject) => {
+    const stream = fsSync.createReadStream(filePath);
+    stream.on('data', (chunk: Buffer | string) => {
+      hasher.update(chunk);
+    });
+    stream.on('error', reject);
+    stream.on('end', resolve);
+  });
+  return hasher.digest('hex');
+}
+
+function normalizeSha256(value: string | undefined): string | null {
+  if (value === undefined) {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  return /^[a-f0-9]{64}$/u.test(normalized) ? normalized : null;
 }
 
 function prependEnvPath(existing: string | undefined, nextValue: string): string {
@@ -1005,10 +1057,6 @@ async function downloadFileWithResume(
 
   await ensureDir(path.dirname(destinationPath));
   const finalSize = await fileSizeIfExists(destinationPath);
-  if (finalSize === state.contentLength) {
-    logVerbose(verbose, `Using cached CRS archive ${destinationPath}`);
-    return;
-  }
   if (finalSize !== null) {
     await fs.rm(destinationPath, { force: true });
   }
@@ -1104,36 +1152,86 @@ async function copyDirectoryContents(sourceDir: string, destinationDir: string):
   await fs.cp(sourceDir, destinationDir, { recursive: true });
 }
 
+async function readIcicleManifest(context: RuntimeContext): Promise<IcicleManifest> {
+  const manifestPath = path.join(context.packageRoot, ICICLE_MANIFEST_PATH);
+  const manifest = await readJsonFile<IcicleManifest>(manifestPath);
+  if (manifest.version !== ICICLE_VERSION) {
+    throw new Error(`ICICLE manifest ${manifestPath} has version ${manifest.version}, expected ${ICICLE_VERSION}.`);
+  }
+  return manifest;
+}
+
+function selectIcicleAsset(manifest: IcicleManifest, key: string): IcicleAsset {
+  const asset = manifest.assets[key];
+  const sha256 = normalizeSha256(asset?.sha256);
+  if (asset === undefined || sha256 === null || !asset.fileName || !asset.url) {
+    throw new Error(`ICICLE manifest is missing a valid asset entry for ${key}.`);
+  }
+  return {
+    ...asset,
+    sha256,
+  };
+}
+
+async function downloadIcicleAssetWithCache(
+  context: RuntimeContext,
+  asset: IcicleAsset,
+  verbose: boolean,
+): Promise<string> {
+  const cacheDir = path.join(context.platformDir, 'downloads', 'icicle', `v${ICICLE_VERSION}`);
+  const archivePath = path.join(cacheDir, asset.fileName);
+  if (await fileExists(archivePath)) {
+    const actualHash = await sha256FileHex(archivePath);
+    if (actualHash === asset.sha256) {
+      logVerbose(verbose, `Using cached ICICLE archive ${archivePath}`);
+      return archivePath;
+    }
+    logVerbose(verbose, `Discarding cached ICICLE archive ${archivePath}: SHA-256 mismatch.`);
+    await fs.rm(archivePath, { force: true });
+  }
+
+  await downloadFile(asset.url, archivePath);
+  const downloadedHash = await sha256FileHex(archivePath);
+  if (downloadedHash !== asset.sha256) {
+    await fs.rm(archivePath, { force: true });
+    throw new Error(
+      `Downloaded ICICLE archive ${asset.fileName} has SHA-256 ${downloadedHash}, expected ${asset.sha256}.`,
+    );
+  }
+  return archivePath;
+}
+
 async function installIcicleRuntime(context: RuntimeContext, verbose: boolean): Promise<void> {
   const paths = runtimePaths(context);
+  const manifest = await readIcicleManifest(context);
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-icicle-'));
   try {
     if (context.platform === 'macos') {
-      const commonTarball = path.join(tempRoot, 'icicle_3_8_0-macOS.tar.gz');
-      const backendTarball = path.join(tempRoot, 'icicle_3_8_0-macOS-Metal.tar.gz');
-      await downloadFile(
-        'https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-macOS.tar.gz',
-        commonTarball,
+      const commonTarball = await downloadIcicleAssetWithCache(
+        context,
+        selectIcicleAsset(manifest, 'macos'),
+        verbose,
       );
-      await downloadFile(
-        'https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-macOS-Metal.tar.gz',
-        backendTarball,
+      const backendTarball = await downloadIcicleAssetWithCache(
+        context,
+        selectIcicleAsset(manifest, 'macos-metal'),
+        verbose,
       );
       await extractTarArchive(commonTarball, tempRoot, verbose);
       await extractTarArchive(backendTarball, tempRoot, verbose);
     } else {
       const ubuntuMajor = await readLinuxUbuntuMajorVersion();
-      const commonTarball = path.join(tempRoot, `icicle_3_8_0-ubuntu${ubuntuMajor}.tar.gz`);
-      await downloadFile(
-        `https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-ubuntu${ubuntuMajor}.tar.gz`,
-        commonTarball,
+      const commonTarball = await downloadIcicleAssetWithCache(
+        context,
+        selectIcicleAsset(manifest, `ubuntu${ubuntuMajor}`),
+        verbose,
       );
       await extractTarArchive(commonTarball, tempRoot, verbose);
       if (await linuxCudaBackendAvailable(verbose)) {
-        const backendTarball = path.join(tempRoot, `icicle_3_8_0-ubuntu${ubuntuMajor}-cuda122.tar.gz`);
-        await downloadFile(
-          `https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-ubuntu${ubuntuMajor}-cuda122.tar.gz`,
-          backendTarball,
+        const backendTarball = await downloadIcicleAssetWithCache(
+          context,
+          selectIcicleAsset(manifest, `ubuntu${ubuntuMajor}-cuda122`),
+          verbose,
         );
         await extractTarArchive(backendTarball, tempRoot, verbose);
       }
@@ -1260,19 +1358,128 @@ function driveDirectDownloadUrl(fileId: string): string {
   return `${CRS_DOWNLOAD_BASE_URL}?id=${fileId}&export=download&confirm=t`;
 }
 
+function driveArchiveVersionString(selection: DriveArchiveSelection): string {
+  return selection.version.join('.');
+}
+
+async function readCrsProvenance(rootDir: string): Promise<CrsProvenance> {
+  return await readJsonFile<CrsProvenance>(await findNamedFile(rootDir, 'crs_provenance.json'));
+}
+
+async function crsDirectoryMatchesProvenance(
+  rootDir: string,
+  selection: DriveArchiveSelection,
+  verbose: boolean,
+): Promise<boolean> {
+  try {
+    const provenance = await readCrsProvenance(rootDir);
+    const expectedVersion = driveArchiveVersionString(selection);
+    if (provenance.backend_version !== expectedVersion) {
+      logVerbose(
+        verbose,
+        `Ignoring cached CRS: provenance backend version ${provenance.backend_version ?? '<missing>'} does not match latest CRS ${expectedVersion}.`,
+      );
+      return false;
+    }
+    if (provenance.published_archive_name && provenance.published_archive_name !== selection.name) {
+      logVerbose(
+        verbose,
+        `Ignoring cached CRS: provenance archive ${provenance.published_archive_name} does not match latest CRS ${selection.name}.`,
+      );
+      return false;
+    }
+
+    const expectedHashes: Array<[string, string | undefined]> = [
+      ['combined_sigma.rkyv', provenance.combined_sigma_sha256],
+      ['sigma_preprocess.rkyv', provenance.sigma_preprocess_sha256],
+      ['sigma_verify.json', provenance.sigma_verify_sha256],
+    ];
+    for (const [filename, expectedHashValue] of expectedHashes) {
+      const expectedHash = normalizeSha256(expectedHashValue);
+      if (expectedHash === null) {
+        logVerbose(verbose, `Ignoring cached CRS: provenance is missing a valid SHA-256 for ${filename}.`);
+        return false;
+      }
+      const actualHash = await sha256FileHex(await findNamedFile(rootDir, filename));
+      if (actualHash !== expectedHash) {
+        logVerbose(
+          verbose,
+          `Ignoring cached CRS: ${filename} has SHA-256 ${actualHash}, expected ${expectedHash}.`,
+        );
+        return false;
+      }
+    }
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logVerbose(verbose, `Ignoring cached CRS: ${message}`);
+    return false;
+  }
+}
+
+async function installedCrsCacheMatches(
+  context: RuntimeContext,
+  backendRoot: string,
+  selection: DriveArchiveSelection,
+  verbose: boolean,
+): Promise<boolean> {
+  const setupOutputDir = runtimePaths(context).setupOutputDir;
+  if (!(await crsDirectoryMatchesProvenance(setupOutputDir, selection, verbose))) {
+    return false;
+  }
+  try {
+    await validateDownloadedCrsVersions(setupOutputDir, backendRoot, selection.name);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logVerbose(verbose, `Ignoring cached CRS: ${message}`);
+    return false;
+  }
+  logVerbose(verbose, `Using cached CRS output ${setupOutputDir}`);
+  return true;
+}
+
+async function crsArchiveCacheMatches(
+  archivePath: string,
+  selection: DriveArchiveSelection,
+  verbose: boolean,
+): Promise<boolean> {
+  const extractedDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-crs-cache-check-'));
+  try {
+    await extractZipArchive(archivePath, extractedDir, verbose);
+    return await crsDirectoryMatchesProvenance(extractedDir, selection, verbose);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logVerbose(verbose, `Ignoring cached CRS archive ${archivePath}: ${message}`);
+    return false;
+  } finally {
+    await fs.rm(extractedDir, { recursive: true, force: true });
+  }
+}
+
 async function downloadLatestCrsArchive(
   context: RuntimeContext,
+  selection: DriveArchiveSelection,
   verbose: boolean,
 ): Promise<{ archivePath: string; archiveName: string }> {
-  const selection = await selectLatestDriveArchive();
   const url = driveDirectDownloadUrl(selection.fileId);
+  const downloadDir = path.join(context.platformDir, 'downloads', 'crs');
+  const archivePath = path.join(downloadDir, selection.name);
+  if (await fileExists(archivePath)) {
+    if (await crsArchiveCacheMatches(archivePath, selection, verbose)) {
+      logVerbose(verbose, `Using cached CRS archive ${archivePath}`);
+      return {
+        archivePath,
+        archiveName: selection.name,
+      };
+    }
+    await fs.rm(archivePath, { force: true });
+  }
+
   const remoteMetadata = await readRemoteDownloadMetadata(url);
   if (!remoteMetadata.acceptRanges) {
     throw new Error('The CRS download endpoint does not support byte-range requests required for safe resume.');
   }
 
-  const downloadDir = path.join(context.platformDir, 'downloads', 'crs');
-  const archivePath = path.join(downloadDir, selection.name);
   await downloadFileWithResume(
     url,
     archivePath,
@@ -1284,6 +1491,10 @@ async function downloadLatestCrsArchive(
     },
     verbose,
   );
+  if (!(await crsArchiveCacheMatches(archivePath, selection, verbose))) {
+    await fs.rm(archivePath, { force: true });
+    throw new Error(`Downloaded CRS archive ${selection.name} failed provenance hash validation.`);
+  }
   return {
     archivePath,
     archiveName: selection.name,
@@ -1343,9 +1554,14 @@ async function installDownloadedSetup(
   verbose: boolean,
 ): Promise<void> {
   const paths = runtimePaths(context);
+  const selection = await selectLatestDriveArchive();
+  if (await installedCrsCacheMatches(context, backendRoot, selection, verbose)) {
+    return;
+  }
+
   const extractedDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-crs-extract-'));
   try {
-    const { archivePath, archiveName } = await downloadLatestCrsArchive(context, verbose);
+    const { archivePath, archiveName } = await downloadLatestCrsArchive(context, selection, verbose);
     await extractZipArchive(archivePath, extractedDir, verbose);
     const { mpcMetadataPath, provenancePath } = await validateDownloadedCrsVersions(
       extractedDir,
