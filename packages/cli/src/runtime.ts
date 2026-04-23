@@ -102,6 +102,7 @@ const CACHE_DIR_ENV = 'TOKAMAK_ZKEVM_CLI_CACHE_DIR';
 const CRS_DRIVE_FOLDER_ID = '14xqCbLoyoVmUVTTlopiXtKnoHPBGL-Sv';
 const CRS_DRIVE_FOLDER_URL = 'https://drive.google.com/drive/mobile/folders';
 const CRS_DOWNLOAD_BASE_URL = 'https://drive.usercontent.google.com/download';
+const CRS_DOWNLOAD_INTERSTITIAL_URL = 'https://drive.google.com/uc';
 const CRS_DOWNLOAD_CHUNK_SIZE = 64 * 1024 * 1024;
 const CRS_DOWNLOAD_MAX_RETRIES = 10;
 const CRS_DOWNLOAD_RETRY_BASE_DELAY_MS = 1_000;
@@ -1022,6 +1023,117 @@ async function finalizeResumableDownload(
   await fs.rm(resumableDownloadStatePath(partialPath), { force: true });
 }
 
+function parseContentLength(value: string | null): number | null {
+  if (value === null) {
+    return null;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function isHtmlDownloadResponse(response: Response): boolean {
+  return (response.headers.get('content-type') ?? '').toLowerCase().includes('text/html');
+}
+
+function isBinaryDownloadResponse(response: Response): boolean {
+  const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
+  const contentDisposition = (response.headers.get('content-disposition') ?? '').toLowerCase();
+  return (
+    contentDisposition.includes('attachment') ||
+    contentType.includes('application/octet-stream') ||
+    contentType.includes('application/zip') ||
+    contentType.includes('application/x-zip-compressed')
+  );
+}
+
+function decodeHtmlAttribute(value: string): string {
+  return value
+    .replaceAll('&amp;', '&')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#39;', '\'')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>');
+}
+
+function parseDriveConfirmationDownloadUrl(html: string, baseUrl: string): string | null {
+  const formMatch =
+    html.match(/<form[^>]*id="download-form"[^>]*action="([^"]+)"/i) ??
+    html.match(/<form[^>]*action="([^"]+)"[^>]*id="download-form"/i);
+  if (formMatch === null) {
+    return null;
+  }
+
+  const downloadUrl = new URL(decodeHtmlAttribute(formMatch[1]), baseUrl);
+  const hiddenInputPattern = /<input[^>]*type="hidden"[^>]*name="([^"]+)"[^>]*value="([^"]*)"[^>]*>/gi;
+  let hasHiddenField = false;
+  for (const match of html.matchAll(hiddenInputPattern)) {
+    hasHiddenField = true;
+    downloadUrl.searchParams.set(decodeHtmlAttribute(match[1]), decodeHtmlAttribute(match[2]));
+  }
+  return hasHiddenField ? downloadUrl.toString() : null;
+}
+
+async function resolveDriveConfirmationDownloadUrl(fileId: string, verbose: boolean): Promise<string | null> {
+  const interstitialUrl = `${CRS_DOWNLOAD_INTERSTITIAL_URL}?export=download&id=${encodeURIComponent(fileId)}`;
+  const response = await fetch(interstitialUrl);
+  if (!response.ok) {
+    logVerbose(
+      verbose,
+      `Failed to resolve Google Drive confirmation page for ${fileId}: ${response.status} ${response.statusText}.`,
+    );
+    return null;
+  }
+  if (!isHtmlDownloadResponse(response)) {
+    await response.body?.cancel();
+    return response.url;
+  }
+
+  const confirmedUrl = parseDriveConfirmationDownloadUrl(await response.text(), response.url);
+  if (confirmedUrl !== null) {
+    logVerbose(verbose, `Resolved Google Drive confirmed download URL for ${fileId}.`);
+  }
+  return confirmedUrl;
+}
+
+async function writeCompleteCrsDownload(
+  response: Response,
+  partialPath: string,
+  state: ResumableDownloadState,
+  verbose: boolean,
+): Promise<void> {
+  if (!isBinaryDownloadResponse(response)) {
+    throw new Error(
+      `Expected a binary CRS download response, received status ${response.status} with content-type ${response.headers.get('content-type') ?? '<missing>'}.`,
+    );
+  }
+
+  const contentLength = parseContentLength(response.headers.get('content-length'));
+  if (contentLength !== null && contentLength !== state.contentLength) {
+    throw new Error(
+      `Full CRS download response reported ${contentLength} bytes, but ${state.contentLength} bytes were expected.`,
+    );
+  }
+
+  logVerbose(
+    verbose,
+    `Google Drive returned the complete CRS archive for ${state.archiveName}; downloading the archive without range resume.`,
+  );
+  await streamDownloadToFile(response, partialPath, {
+    append: false,
+    finalizeProgress: true,
+    initialBytes: 0,
+    label: state.archiveName,
+    totalBytes: state.contentLength,
+  });
+
+  const currentSize = await fileSizeIfExists(partialPath);
+  if (currentSize !== state.contentLength) {
+    throw new Error(
+      `CRS full download wrote ${currentSize ?? 0} bytes, but ${state.contentLength} bytes were expected.`,
+    );
+  }
+}
+
 async function downloadFileWithResume(
   url: string,
   destinationPath: string,
@@ -1043,6 +1155,7 @@ async function downloadFileWithResume(
   await writeResumableDownloadState(partialPath, state);
 
   let consecutiveFailures = 0;
+  let downloadUrl = url;
   while (true) {
     const offset = (await fileSizeIfExists(partialPath)) ?? 0;
     if (offset > state.contentLength) {
@@ -1065,12 +1178,26 @@ async function downloadFileWithResume(
     );
 
     try {
-      const response = await fetch(url, { headers });
+      let response = await fetch(downloadUrl, { headers });
+      if (response.ok && response.status === 200 && isHtmlDownloadResponse(response)) {
+        const confirmedUrl = parseDriveConfirmationDownloadUrl(await response.text(), response.url)
+          ?? await resolveDriveConfirmationDownloadUrl(state.fileId, verbose);
+        if (confirmedUrl === null) {
+          throw new Error(`Google Drive returned an HTML warning page instead of CRS data for ${downloadUrl}.`);
+        }
+        downloadUrl = confirmedUrl;
+        response = await fetch(downloadUrl, { headers });
+      }
       if (!response.ok) {
-        throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to download ${downloadUrl}: ${response.status} ${response.statusText}`);
       }
       if (response.body === null) {
-        throw new Error(`Download response did not contain a body: ${url}`);
+        throw new Error(`Download response did not contain a body: ${downloadUrl}`);
+      }
+      if (response.status === 200) {
+        await writeCompleteCrsDownload(response, partialPath, state, verbose);
+        await finalizeResumableDownload(partialPath, destinationPath, state.contentLength);
+        return;
       }
       if (response.status !== 206) {
         throw new Error(`Expected HTTP 206 for CRS chunk download, received ${response.status}`);
