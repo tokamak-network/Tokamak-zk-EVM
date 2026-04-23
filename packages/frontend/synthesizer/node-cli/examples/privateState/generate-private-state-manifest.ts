@@ -3,7 +3,6 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import solc from 'solc';
 import { fileURLToPath } from 'url';
 import { ethers } from 'ethers';
 import { RLP } from '@ethereumjs/rlp';
@@ -59,8 +58,6 @@ const nodeCliRoot = path.resolve(packageRoot, 'node-cli');
 const examplesRoot = __dirname;
 const privateStateArtifactsDriveRootFolderId = '1dj9_Cyc5x1nEB85LtqeF7vRLhpkKTNHj';
 const driveFolderMimeType = 'application/vnd.google-apps.folder';
-const privateStateControllerSourceFilename = 'PrivateStateController.sol';
-const l2AccountingVaultSourceFilename = 'L2AccountingVault.sol';
 const privateStateControllerCallableAbiFilename = 'PrivateStateController.callable-abi.json';
 const defaultChannelId = 4;
 const defaultParticipantCount = 4;
@@ -79,6 +76,10 @@ type DeploymentManifest = {
   contracts: {
     controller: Address;
     l2AccountingVault: Address;
+  };
+  deployedBytecode: {
+    controller: Hex;
+    l2AccountingVault: Hex;
   };
 };
 
@@ -130,36 +131,6 @@ type DriveArtifactIds = {
   deploymentFileId: string;
   storageLayoutFileId: string;
   controllerCallableAbiFileId: string;
-  controllerSourceFileId: string;
-  vaultSourceFileId: string;
-};
-
-type SolidityCompiler = {
-  compile(input: string): string;
-};
-
-type ImmutableReference = {
-  start: number;
-  length: number;
-};
-
-type SolcContractBytecode = {
-  object: string;
-  immutableReferences: Record<string, ImmutableReference[]>;
-};
-
-type SolcContractOutput = {
-  evm: {
-    deployedBytecode: SolcContractBytecode;
-  };
-};
-
-type SolcOutput = {
-  contracts?: Record<string, Record<string, SolcContractOutput>>;
-  errors?: Array<{
-    severity: 'error' | 'warning';
-    formattedMessage: string;
-  }>;
 };
 
 type ContractCodeEntry = {
@@ -285,52 +256,21 @@ const resolveDriveArtifactIds = async (): Promise<DriveArtifactIds> => {
   }
 
   const timestampEntries = await loadDriveFolderEntries(timestampFolder.id);
-  const sourceFolder = findDriveEntryByName(timestampEntries, 'source', driveFolderMimeType);
-  if (!sourceFolder) {
-    throw new Error('Could not find the source folder in the latest private-state Google Drive folder.');
-  }
-
-  const sourceEntries = await loadDriveFolderEntries(sourceFolder.id);
-  const controllerSource = findDriveEntryByName(sourceEntries, privateStateControllerSourceFilename);
-  const vaultSource = findDriveEntryByName(sourceEntries, l2AccountingVaultSourceFilename);
   const controllerCallableAbi = findDriveEntryByName(timestampEntries, privateStateControllerCallableAbiFilename, 'application/json');
 
-  if (!controllerSource || !vaultSource || !controllerCallableAbi) {
-    throw new Error('Could not find the required source or callable ABI artifacts in Google Drive.');
+  if (!controllerCallableAbi) {
+    throw new Error('Could not find the required callable ABI artifact in Google Drive.');
   }
 
   return {
     deploymentFileId: selectSingleMatchingEntry(timestampEntries, deploymentManifestPattern, 'deployment manifest', 'application/json').id,
     storageLayoutFileId: selectSingleMatchingEntry(timestampEntries, storageLayoutManifestPattern, 'storage layout manifest', 'application/json').id,
     controllerCallableAbiFileId: controllerCallableAbi.id,
-    controllerSourceFileId: controllerSource.id,
-    vaultSourceFileId: vaultSource.id,
   };
 };
 
 const readDriveJson = async <T>(fileId: string): Promise<T> =>
   JSON.parse(await fetchText(`https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`)) as T;
-
-const readDriveText = async (fileId: string) =>
-  fetchText(`https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`);
-
-let cachedSolidityCompilerPromise: Promise<SolidityCompiler> | null = null;
-
-const loadSolidityCompiler = async () => {
-  if (!cachedSolidityCompilerPromise) {
-    cachedSolidityCompilerPromise = new Promise((resolve, reject) => {
-      solc.loadRemoteVersion('v0.8.29+commit.ab55807c', (error: Error | null, compiler: SolidityCompiler | undefined) => {
-        if (error || !compiler) {
-          reject(error ?? new Error('Failed to load Solidity compiler 0.8.29'));
-          return;
-        }
-        resolve(compiler as SolidityCompiler);
-      });
-    });
-  }
-
-  return cachedSolidityCompilerPromise;
-};
 
 const toExampleNetwork = (chainId: number): ExampleNetwork => {
   if (chainId === 1) {
@@ -538,75 +478,15 @@ const writeLaunchInput = async (
   };
 };
 
-const patchImmutableAddress = (
-  deployedBytecode: string,
-  immutableReferences: Record<string, ImmutableReference[]>,
-  address: Address,
-): Hex => {
-  const paddedAddress = address.toLowerCase().replace(/^0x/, '').padStart(64, '0');
-  let patched = deployedBytecode;
-  for (const references of Object.values(immutableReferences)) {
-    for (const reference of references) {
-      const start = reference.start * 2;
-      const end = start + reference.length * 2;
-      patched = `${patched.slice(0, start)}${paddedAddress}${patched.slice(end)}`;
-    }
-  }
-  return `0x${patched}` as Hex;
-};
-
-const buildContractCodes = async (
-  manifest: DeploymentManifest,
-  controllerSource: string,
-  vaultSource: string,
-): Promise<ContractCodeEntry[]> => {
-  const compiler = await loadSolidityCompiler();
-  const input = {
-    language: 'Solidity',
-    sources: {
-      [privateStateControllerSourceFilename]: { content: controllerSource },
-      [l2AccountingVaultSourceFilename]: { content: vaultSource },
-    },
-    settings: {
-      // This compile profile matches the existing private-state example opcode layout.
-      optimizer: { enabled: true, runs: 200 },
-      viaIR: true,
-      outputSelection: {
-        '*': {
-          '*': ['evm.deployedBytecode.object', 'evm.deployedBytecode.immutableReferences'],
-        },
-      },
-    },
-  };
-
-  const output = JSON.parse(compiler.compile(JSON.stringify(input))) as SolcOutput;
-  const errors = output.errors?.filter((entry) => entry.severity === 'error') ?? [];
-  if (errors.length > 0) {
-    throw new Error(errors.map((entry) => entry.formattedMessage).join('\n'));
-  }
-
-  const controllerOutput = output.contracts?.[privateStateControllerSourceFilename]?.PrivateStateController;
-  const vaultOutput = output.contracts?.[l2AccountingVaultSourceFilename]?.L2AccountingVault;
-  if (!controllerOutput || !vaultOutput) {
-    throw new Error('Could not compile private-state contract code from Drive source artifacts.');
-  }
-
+const buildContractCodes = (manifest: DeploymentManifest): ContractCodeEntry[] => {
   return [
     {
       address: manifest.contracts.controller,
-      code: patchImmutableAddress(
-        controllerOutput.evm.deployedBytecode.object,
-        controllerOutput.evm.deployedBytecode.immutableReferences,
-        manifest.contracts.l2AccountingVault,
-      ),
+      code: manifest.deployedBytecode.controller,
     },
     {
       address: manifest.contracts.l2AccountingVault,
-      code: patchImmutableAddress(
-        vaultOutput.evm.deployedBytecode.object,
-        vaultOutput.evm.deployedBytecode.immutableReferences,
-        manifest.contracts.controller,
-      ),
+      code: manifest.deployedBytecode.l2AccountingVault,
     },
   ];
 };
@@ -902,8 +782,6 @@ const main = async () => {
   const manifest = await readDriveJson<DeploymentManifest>(artifactIds.deploymentFileId);
   const storageLayoutManifest = await readDriveJson<PrivateStateStorageLayoutManifest>(artifactIds.storageLayoutFileId);
   const controllerCallableAbi = await readDriveJson<ethers.InterfaceAbi>(artifactIds.controllerCallableAbiFileId);
-  const controllerSource = await readDriveText(artifactIds.controllerSourceFileId);
-  const vaultSource = await readDriveText(artifactIds.vaultSourceFileId);
   const mnemonic = defaultMnemonic;
   const { participants, keyMaterial } = await deriveChannelParticipants(defaultParticipantCount, mnemonic, manifest.chainId);
 
@@ -917,7 +795,7 @@ const main = async () => {
     keyMaterial,
   };
 
-  const contractCodes = await buildContractCodes(manifest, controllerSource, vaultSource);
+  const contractCodes = buildContractCodes(manifest);
   const mintManifest = await buildMintManifest(context, contractCodes);
   const transferManifest = await buildTransferManifest(context, contractCodes);
   const redeemManifest = await buildRedeemManifest(context, contractCodes);
