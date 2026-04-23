@@ -3,31 +3,36 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import solc from 'solc';
 import { fileURLToPath } from 'url';
 import { ethers } from 'ethers';
-import { addHexPrefix, bytesToHex, createAddressFromString, hexToBytes } from '@ethereumjs/util';
+import { RLP } from '@ethereumjs/rlp';
 import {
-  createStateManagerOptsFromChannelConfig,
+  MapDB,
+  addHexPrefix,
+  bytesToBigInt,
+  bytesToHex,
+  createAddressFromString,
+  hexToBytes,
+  unpadBytes,
+} from '@ethereumjs/util';
+import { MerklePatriciaTrie } from '@ethereumjs/mpt';
+import {
   createTokamakL2Common,
-  createTokamakL2StateManagerFromL1RPC,
   createTokamakL2Tx,
   fromEdwardsToAddress,
-  type ChannelStateConfig,
   type StateSnapshot,
   type TokamakL2TxData,
   type TxSnapshot,
 } from 'tokamak-l2js';
-import { installedSubcircuitLibrary } from '../../src/subcircuit/installedLibrary.ts';
+import { TokamakL2MerkleTrees } from '../../../node_modules/tokamak-l2js/dist/stateManager/TokamakMerkleTrees.js';
 import {
   DEFAULT_EXAMPLE_NOTE_RECEIVE_CHANNEL_NAME,
   buildPrivateStateMintCalldata,
   buildPrivateStateRedeemCalldata,
   buildPrivateStateTransferCalldata,
-  createTransferInterface,
   deriveNoteReceiveKeyMaterial,
   derivePrivateStateParticipantKeys,
-  mintInterfaces,
-  redeemInterfaces,
   type DerivedParticipantKeys,
   type MintExampleParticipant,
   type PrivateStateRedeemConfig,
@@ -54,6 +59,9 @@ const nodeCliRoot = path.resolve(packageRoot, 'node-cli');
 const examplesRoot = __dirname;
 const privateStateArtifactsDriveRootFolderId = '1dj9_Cyc5x1nEB85LtqeF7vRLhpkKTNHj';
 const driveFolderMimeType = 'application/vnd.google-apps.folder';
+const privateStateControllerSourceFilename = 'PrivateStateController.sol';
+const l2AccountingVaultSourceFilename = 'L2AccountingVault.sol';
+const privateStateControllerCallableAbiFilename = 'PrivateStateController.callable-abi.json';
 const defaultChannelId = 4;
 const defaultParticipantCount = 4;
 const defaultMintNoteValue = 1n * 10n ** 18n;
@@ -62,24 +70,15 @@ const defaultAmountUnit = 10n ** 18n;
 const defaultMnemonic = 'test test test test test test test test test test test junk';
 const defaultTxNonce = 0;
 
-type AppNetwork =
-  | 'sepolia'
-  | 'mainnet'
-  | 'base-sepolia'
-  | 'base-mainnet'
-  | 'arb-sepolia'
-  | 'arb-mainnet'
-  | 'op-mainnet'
-  | 'op-sepolia'
-  | 'anvil';
-
-type ChannelStateNetwork = 'mainnet' | 'sepolia' | 'anvil';
+type Address = `0x${string}`;
+type Hex = `0x${string}`;
+type ExampleNetwork = 'mainnet' | 'sepolia' | 'anvil';
 
 type DeploymentManifest = {
   chainId: number;
   contracts: {
-    controller: `0x${string}`;
-    l2AccountingVault: `0x${string}`;
+    controller: Address;
+    l2AccountingVault: Address;
   };
 };
 
@@ -94,31 +93,29 @@ type LaunchManifestEntry = {
 };
 
 type StorageWrite = {
-  address: `0x${string}`;
-  key: `0x${string}`;
-  value: `0x${string}`;
+  address: Address;
+  key: Hex;
+  value: Hex;
 };
 
 type SynthesizerBlockInfo = {
-  coinBase: `0x${string}`;
-  timeStamp: `0x${string}`;
-  blockNumber: `0x${string}`;
-  prevRanDao: `0x${string}`;
-  gasLimit: `0x${string}`;
-  chainId: `0x${string}`;
-  selfBalance: `0x${string}`;
-  prevBlockHashes: `0x${string}`[];
-  baseFee: `0x${string}`;
+  coinBase: Address;
+  timeStamp: Hex;
+  blockNumber: Hex;
+  prevRanDao: Hex;
+  gasLimit: Hex;
+  chainId: Hex;
+  selfBalance: Hex;
+  prevBlockHashes: Hex[];
+  baseFee: Hex;
 };
 
 type ExampleContext = {
-  appNetwork: AppNetwork;
-  channelStateNetwork: ChannelStateNetwork;
   chainId: number;
-  rpcUrl: string;
-  blockNumber: number;
+  exampleNetwork: ExampleNetwork;
   manifest: DeploymentManifest;
   storageLayoutManifest: PrivateStateStorageLayoutManifest;
+  controllerInterface: ethers.Interface;
   participants: MintExampleParticipant[];
   keyMaterial: DerivedParticipantKeys;
 };
@@ -129,61 +126,67 @@ type DriveEntry = {
   mimeType: string;
 };
 
-const networkConfig = new Map<AppNetwork, { chainId: number; alchemyNetwork: string | null }>([
-  ['sepolia', { chainId: 11155111, alchemyNetwork: 'eth-sepolia' }],
-  ['mainnet', { chainId: 1, alchemyNetwork: 'eth-mainnet' }],
-  ['base-sepolia', { chainId: 84532, alchemyNetwork: 'base-sepolia' }],
-  ['base-mainnet', { chainId: 8453, alchemyNetwork: 'base-mainnet' }],
-  ['arb-sepolia', { chainId: 421614, alchemyNetwork: 'arb-sepolia' }],
-  ['arb-mainnet', { chainId: 42161, alchemyNetwork: 'arb-mainnet' }],
-  ['op-mainnet', { chainId: 10, alchemyNetwork: 'opt-mainnet' }],
-  ['op-sepolia', { chainId: 11155420, alchemyNetwork: 'opt-sepolia' }],
-  ['anvil', { chainId: 31337, alchemyNetwork: null }],
-]);
-
-const parseAppNetwork = (): AppNetwork => {
-  const raw = process.env.APPS_NETWORK?.trim();
-  if (!raw) {
-    throw new Error('APPS_NETWORK must be set before generating synthesizer launch inputs.');
-  }
-  if (!networkConfig.has(raw as AppNetwork)) {
-    throw new Error(`Unsupported APPS_NETWORK=${raw}`);
-  }
-  return raw as AppNetwork;
+type DriveArtifactIds = {
+  deploymentFileId: string;
+  storageLayoutFileId: string;
+  controllerCallableAbiFileId: string;
+  controllerSourceFileId: string;
+  vaultSourceFileId: string;
 };
 
-const toChannelStateNetwork = (network: AppNetwork): ChannelStateNetwork => {
-  if (network === 'mainnet') {
-    return 'mainnet';
-  }
-  if (network === 'sepolia') {
-    return 'sepolia';
-  }
-  return 'anvil';
+type SolidityCompiler = {
+  compile(input: string): string;
 };
 
-const resolveRpcUrl = (network: AppNetwork): string => {
-  const override = process.env.APPS_RPC_URL_OVERRIDE?.trim();
-  if (override) {
-    return override;
-  }
-  if (network === 'anvil') {
-    return 'http://127.0.0.1:8545';
-  }
-  const apiKey = process.env.APPS_ALCHEMY_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error(`APPS_ALCHEMY_API_KEY must be set for APPS_NETWORK=${network}`);
-  }
-  const config = networkConfig.get(network);
-  if (!config?.alchemyNetwork) {
-    throw new Error(`Unsupported APPS_NETWORK=${network} without APPS_RPC_URL_OVERRIDE`);
-  }
-  return `https://${config.alchemyNetwork}.g.alchemy.com/v2/${apiKey}`;
+type ImmutableReference = {
+  start: number;
+  length: number;
 };
 
-const deploymentManifestFilename = (chainId: number) => `deployment.${chainId}.latest.json`;
+type SolcContractBytecode = {
+  object: string;
+  immutableReferences: Record<string, ImmutableReference[]>;
+};
 
-const storageLayoutManifestFilename = (chainId: number) => `storage-layout.${chainId}.latest.json`;
+type SolcContractOutput = {
+  evm: {
+    deployedBytecode: SolcContractBytecode;
+  };
+};
+
+type SolcOutput = {
+  contracts?: Record<string, Record<string, SolcContractOutput>>;
+  errors?: Array<{
+    severity: 'error' | 'warning';
+    formattedMessage: string;
+  }>;
+};
+
+type ContractCodeEntry = {
+  address: Address;
+  code: Hex;
+};
+
+const staticBlockInfo: SynthesizerBlockInfo = {
+  coinBase: '0x0000000000000000000000000000000000000000',
+  timeStamp: '0x69e150e7',
+  blockNumber: '0x8',
+  prevRanDao: '0xf96958848bdee2c01fe2c0cb9c59c6eb51567b4292b8344581436a8837be9f14',
+  gasLimit: '0x1c9c380',
+  chainId: '0x7a69',
+  selfBalance: '0x0',
+  prevBlockHashes: [
+    '0x2a3b24fbcdae81b5e1d736e72ef4c74d0d643aa6bd4efa471338818602b84543',
+    '0xffae6744d483d9a7c9da5e62b597375199a08984df6f31388137078210eee731',
+    '0xb57ad9f563489a9a7837715fc9e38c150fa40fa765f9e9b75a4456c26013af6a',
+    '0x3d6d64e9c0c5d044d9d362cda0a194c9c656fcace24abd5972d2e8dff362c3f8',
+  ],
+  baseFee: '0x1ba94a75',
+};
+
+const timestampFolderNamePattern = /^\d{8}T\d{6}Z$/;
+const deploymentManifestPattern = /^deployment\.\d+\.latest\.json$/;
+const storageLayoutManifestPattern = /^storage-layout\.\d+\.latest\.json$/;
 
 const writeJson = async (filePath: string, value: unknown) => {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -205,6 +208,8 @@ const decodeDriveInlineData = (encoded: string) =>
   encoded
     .replace(/\\x([0-9A-Fa-f]{2})/g, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)))
     .replace(/\\u([0-9A-Fa-f]{4})/g, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)))
+    .replace(/\\=/g, '=')
+    .replace(/\\\//g, '/')
     .replace(/\\'/g, "'")
     .replace(/\\"/g, '"')
     .replace(/\\\\/g, '\\');
@@ -249,60 +254,95 @@ const loadDriveFolderEntries = async (folderId: string): Promise<DriveEntry[]> =
 const findDriveEntryByName = (entries: DriveEntry[], name: string, mimeType?: string) =>
   entries.find((entry) => entry.name === name && (mimeType === undefined || entry.mimeType === mimeType));
 
-const timestampFolderNamePattern = /^\d{8}T\d{6}Z$/;
+const selectSingleMatchingEntry = (
+  entries: DriveEntry[],
+  pattern: RegExp,
+  label: string,
+  mimeType?: string,
+) => {
+  const matches = entries.filter((entry) =>
+    pattern.test(entry.name) && (mimeType === undefined || entry.mimeType === mimeType));
+  if (matches.length !== 1) {
+    throw new Error(`Expected exactly one ${label} in the latest private-state Drive folder, found ${matches.length}.`);
+  }
+  return matches[0];
+};
 
-const isTimestampFolder = (entry: DriveEntry) =>
-  entry.mimeType === driveFolderMimeType && timestampFolderNamePattern.test(entry.name);
-
-const resolveDriveManifestFileIds = async (chainId: number) => {
+const resolveDriveArtifactIds = async (): Promise<DriveArtifactIds> => {
   const rootEntries = await loadDriveFolderEntries(privateStateArtifactsDriveRootFolderId);
   const privateStateFolder = findDriveEntryByName(rootEntries, 'private-state', driveFolderMimeType);
   if (!privateStateFolder) {
     throw new Error('Could not find the private-state folder in the configured Google Drive root folder.');
   }
 
-  const deploymentFilename = deploymentManifestFilename(chainId);
-  const storageLayoutFilename = storageLayoutManifestFilename(chainId);
   const privateStateEntries = await loadDriveFolderEntries(privateStateFolder.id);
-  const timestampFolders = privateStateEntries
-    .filter(isTimestampFolder)
-    .sort((left, right) => right.name.localeCompare(left.name));
+  const timestampFolder = privateStateEntries
+    .filter((entry) => entry.mimeType === driveFolderMimeType && timestampFolderNamePattern.test(entry.name))
+    .sort((left, right) => right.name.localeCompare(left.name))[0];
 
-  if (timestampFolders.length === 0) {
+  if (!timestampFolder) {
     throw new Error('Could not find any timestamp-named folders in the private-state Google Drive folder.');
   }
 
-  for (const candidateFolder of timestampFolders) {
-    const entries = await loadDriveFolderEntries(candidateFolder.id);
-    const deployment = findDriveEntryByName(entries, deploymentFilename, 'application/json');
-    const storageLayout = findDriveEntryByName(entries, storageLayoutFilename, 'application/json');
-    if (deployment && storageLayout) {
-      return {
-        deploymentFileId: deployment.id,
-        storageLayoutFileId: storageLayout.id,
-      };
-    }
+  const timestampEntries = await loadDriveFolderEntries(timestampFolder.id);
+  const sourceFolder = findDriveEntryByName(timestampEntries, 'source', driveFolderMimeType);
+  if (!sourceFolder) {
+    throw new Error('Could not find the source folder in the latest private-state Google Drive folder.');
   }
 
-  throw new Error(
-    `Could not find ${deploymentFilename} and ${storageLayoutFilename} in any timestamp-named private-state Google Drive folder.`,
-  );
+  const sourceEntries = await loadDriveFolderEntries(sourceFolder.id);
+  const controllerSource = findDriveEntryByName(sourceEntries, privateStateControllerSourceFilename);
+  const vaultSource = findDriveEntryByName(sourceEntries, l2AccountingVaultSourceFilename);
+  const controllerCallableAbi = findDriveEntryByName(timestampEntries, privateStateControllerCallableAbiFilename, 'application/json');
+
+  if (!controllerSource || !vaultSource || !controllerCallableAbi) {
+    throw new Error('Could not find the required source or callable ABI artifacts in Google Drive.');
+  }
+
+  return {
+    deploymentFileId: selectSingleMatchingEntry(timestampEntries, deploymentManifestPattern, 'deployment manifest', 'application/json').id,
+    storageLayoutFileId: selectSingleMatchingEntry(timestampEntries, storageLayoutManifestPattern, 'storage layout manifest', 'application/json').id,
+    controllerCallableAbiFileId: controllerCallableAbi.id,
+    controllerSourceFileId: controllerSource.id,
+    vaultSourceFileId: vaultSource.id,
+  };
 };
 
 const readDriveJson = async <T>(fileId: string): Promise<T> =>
   JSON.parse(await fetchText(`https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`)) as T;
 
-const makeLaunchEntryName = (
-  functionName: string,
-  appNetwork: AppNetwork,
-) => `Private-state ${functionName} on ${appNetwork}`;
+const readDriveText = async (fileId: string) =>
+  fetchText(`https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`);
 
-const assignChannelId = (
-  stateManager: Awaited<ReturnType<typeof createTokamakL2StateManagerFromL1RPC>>,
-  channelId: number,
-) => {
-  ((stateManager as unknown) as { _channelId?: number })._channelId = channelId;
+let cachedSolidityCompilerPromise: Promise<SolidityCompiler> | null = null;
+
+const loadSolidityCompiler = async () => {
+  if (!cachedSolidityCompilerPromise) {
+    cachedSolidityCompilerPromise = new Promise((resolve, reject) => {
+      solc.loadRemoteVersion('v0.8.29+commit.ab55807c', (error: Error | null, compiler: SolidityCompiler | undefined) => {
+        if (error || !compiler) {
+          reject(error ?? new Error('Failed to load Solidity compiler 0.8.29'));
+          return;
+        }
+        resolve(compiler as SolidityCompiler);
+      });
+    });
+  }
+
+  return cachedSolidityCompilerPromise;
 };
+
+const toExampleNetwork = (chainId: number): ExampleNetwork => {
+  if (chainId === 1) {
+    return 'mainnet';
+  }
+  if (chainId === 11155111) {
+    return 'sepolia';
+  }
+  return 'anvil';
+};
+
+const makeLaunchEntryName = (functionName: string) => `Private-state ${functionName}`;
 
 const buildParticipants = async (
   participantCount: number,
@@ -321,10 +361,10 @@ const buildParticipants = async (
       chainId,
       channelId: defaultChannelId,
       channelName: DEFAULT_EXAMPLE_NOTE_RECEIVE_CHANNEL_NAME,
-      account: wallet.address as `0x${string}`,
+      account: wallet.address as Address,
     });
     participants.push({
-      addressL1: wallet.address as `0x${string}`,
+      addressL1: wallet.address as Address,
       prvSeedL2: `private-state participant ${index}`,
       noteReceivePubKeyX: noteReceive.noteReceivePubKey.x,
       noteReceivePubKeyYParity: noteReceive.noteReceivePubKey.yParity,
@@ -338,7 +378,7 @@ const deriveChannelParticipants = async (participantCount: number, mnemonic: str
   const keyMaterial = derivePrivateStateParticipantKeys(baseParticipants);
   const participants = baseParticipants.map((participant, index) => ({
     ...participant,
-    addressL1: fromEdwardsToAddress(keyMaterial.publicKeys[index]).toString() as `0x${string}`,
+    addressL1: fromEdwardsToAddress(keyMaterial.publicKeys[index]).toString() as Address,
   }));
   return { participants, keyMaterial };
 };
@@ -358,50 +398,11 @@ const defaultTransferValue = (inputCount: number, outputCount: number): bigint =
   return lcm(ethers.toBigInt(inputCount), ethers.toBigInt(outputCount)) * defaultAmountUnit;
 };
 
-const buildBaseStateConfig = (
-  context: ExampleContext,
-  storageAddresses: `0x${string}`[],
-  callCodeAddresses: `0x${string}`[],
-): ChannelStateConfig => ({
-  network: context.channelStateNetwork,
-  participants: context.participants,
-  storageConfigs: storageAddresses.map((address) => ({
-    address,
-    userStorageSlots: [],
-    preAllocatedKeys: [],
-  })),
-  callCodeAddresses,
-  blockNumber: context.blockNumber,
-});
-
-const createSyntheticSnapshot = async (
-  context: ExampleContext,
-  storageAddresses: `0x${string}`[],
-  callCodeAddresses: `0x${string}`[],
-  writes: StorageWrite[],
-): Promise<StateSnapshot> => {
-  const stateManagerOpts = createStateManagerOptsFromChannelConfig(
-    buildBaseStateConfig(context, storageAddresses, callCodeAddresses),
-  );
-  const stateManager = await createTokamakL2StateManagerFromL1RPC(context.rpcUrl, stateManagerOpts);
-  assignChannelId(stateManager, defaultChannelId);
-
-  for (const write of writes) {
-    await stateManager.putStorage(
-      createAddressFromString(write.address),
-      hexToBytes(addHexPrefix(write.key)),
-      hexToBytes(addHexPrefix(write.value)),
-    );
-  }
-
-  return stateManager.captureStateSnapshot();
-};
-
 const buildTransactionSnapshot = (
   context: ExampleContext,
   senderIndex: number,
-  entryContractAddress: `0x${string}`,
-  calldata: `0x${string}`,
+  entryContractAddress: Address,
+  calldata: Hex,
 ): TxSnapshot => {
   const senderPrivateKey = context.keyMaterial.privateKeys[senderIndex];
   const senderPublicKey = context.keyMaterial.publicKeys[senderIndex];
@@ -420,57 +421,92 @@ const buildTransactionSnapshot = (
     .captureTxSnapshot();
 };
 
-const fetchContractCodes = async (
-  rpcUrl: string,
-  blockNumber: number,
-  addresses: `0x${string}`[],
-) => {
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  return Promise.all(
-    addresses.map(async (address) => ({
-      address,
-      code: await provider.getCode(address, blockNumber),
-    })),
-  );
-};
+const createSyntheticSnapshot = async (
+  storageAddresses: Address[],
+  writes: StorageWrite[],
+): Promise<StateSnapshot> => {
+  const common = createTokamakL2Common();
+  const normalizedStorageAddresses = storageAddresses.map((address) => ethers.getAddress(address) as Address);
+  const addressObjects = normalizedStorageAddresses.map((address) => createAddressFromString(address));
+  const merkleTrees = new TokamakL2MerkleTrees(addressObjects);
+  const hashTrieNode = (trie: MerklePatriciaTrie, encoded: Uint8Array) =>
+    (trie as unknown as { hash(value: Uint8Array): Uint8Array }).hash(encoded);
+  const writesByAddress = new Map<Address, StorageWrite[]>();
 
-const getBlockInfoFromRPC = async (
-  rpcUrl: string,
-  blockNumber: number,
-  nHashes: number,
-): Promise<SynthesizerBlockInfo> => {
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const block = await provider.getBlock(blockNumber, false);
-
-  if (block === null) {
-    throw new Error(`RPC returned no block for block number ${blockNumber}`);
+  for (const address of normalizedStorageAddresses) {
+    writesByAddress.set(address, []);
+  }
+  for (const write of writes) {
+    const normalizedAddress = ethers.getAddress(write.address) as Address;
+    const writesForAddress = writesByAddress.get(normalizedAddress);
+    if (writesForAddress === undefined) {
+      throw new Error(`Storage write targets unmanaged address ${normalizedAddress}`);
+    }
+    writesForAddress.push({
+      ...write,
+      address: normalizedAddress,
+    });
   }
 
-  const prevBlockHashes: `0x${string}`[] = [];
-  for (let index = 0; index < nHashes; index += 1) {
-    const previousBlockNumber = blockNumber - index - 1;
-    if (previousBlockNumber < 0) {
-      prevBlockHashes.push('0x0');
-      continue;
+  const stateRoots: Hex[] = [];
+  const storageKeys: Hex[][] = [];
+  const storageTrieRoots: Hex[] = [];
+  const storageTrieDb: Array<Array<{ key: Hex; value: Hex }>> = [];
+
+  for (const [index, address] of normalizedStorageAddresses.entries()) {
+    const trie = new MerklePatriciaTrie({
+      useKeyHashing: true,
+      common,
+      db: new MapDB(),
+    });
+    const writesForAddress = writesByAddress.get(address) ?? [];
+    const addressStorageKeys: Hex[] = [];
+
+    for (const write of writesForAddress) {
+      const keyBytes = hexToBytes(addHexPrefix(write.key));
+      const normalizedValue = unpadBytes(hexToBytes(addHexPrefix(write.value)));
+      await trie.put(keyBytes, RLP.encode(normalizedValue));
+      merkleTrees.update(
+        bytesToBigInt(addressObjects[index].bytes),
+        bytesToBigInt(keyBytes),
+        normalizedValue.length === 0 ? 0n : bytesToBigInt(normalizedValue),
+      );
+      addressStorageKeys.push(write.key);
     }
-    const previousBlock = await provider.getBlock(previousBlockNumber, false);
-    prevBlockHashes.push((previousBlock?.hash ?? '0x0') as `0x${string}`);
+
+    const trieDbEntries: Array<{ key: Hex; value: Hex }> = [];
+    const seenNodeKeys = new Set<string>();
+    for await (const { node, currentKey } of trie.walkTrieIterable(trie.root())) {
+      const encoded = node.serialize();
+      const isRoot = currentKey.length === 0;
+      if (!isRoot && encoded.length < 32) {
+        continue;
+      }
+      const nodeKey = isRoot ? trie.root() : hashTrieNode(trie, encoded);
+      const keyHex = bytesToHex(nodeKey) as Hex;
+      if (seenNodeKeys.has(keyHex)) {
+        continue;
+      }
+      seenNodeKeys.add(keyHex);
+      trieDbEntries.push({
+        key: keyHex,
+        value: bytesToHex(encoded) as Hex,
+      });
+    }
+
+    stateRoots.push(ethers.toBeHex(merkleTrees.getRoot(addressObjects[index])) as Hex);
+    storageKeys.push(addressStorageKeys);
+    storageTrieRoots.push(bytesToHex(trie.root()) as Hex);
+    storageTrieDb.push(trieDbEntries);
   }
 
   return {
-    coinBase: (block.miner ?? ethers.ZeroAddress) as `0x${string}`,
-    timeStamp: `0x${block.timestamp.toString(16)}` as `0x${string}`,
-    blockNumber: `0x${block.number.toString(16)}` as `0x${string}`,
-    prevRanDao: (
-      block.prevRandao == null
-        ? `0x${block.difficulty.toString(16)}`
-        : block.prevRandao
-    ) as `0x${string}`,
-    gasLimit: `0x${block.gasLimit.toString(16)}` as `0x${string}`,
-    chainId: `0x${(await provider.getNetwork()).chainId.toString(16)}` as `0x${string}`,
-    selfBalance: '0x0',
-    prevBlockHashes,
-    baseFee: `0x${(block.baseFeePerGas || 0n).toString(16)}` as `0x${string}`,
+    channelId: defaultChannelId,
+    stateRoots,
+    storageAddresses: normalizedStorageAddresses,
+    storageKeys,
+    storageTrieRoots,
+    storageTrieDb,
   };
 };
 
@@ -478,8 +514,7 @@ const writeLaunchInput = async (
   outputDir: string,
   previousState: StateSnapshot,
   transaction: TxSnapshot,
-  blockInfo: SynthesizerBlockInfo,
-  contractCodes: Array<{ address: `0x${string}`; code: string }>,
+  contractCodes: ContractCodeEntry[],
   name: string,
 ): Promise<LaunchManifestEntry> => {
   const previousStatePath = path.join(outputDir, 'previous_state_snapshot.json');
@@ -489,7 +524,7 @@ const writeLaunchInput = async (
 
   await writeJson(previousStatePath, previousState);
   await writeJson(transactionPath, transaction);
-  await writeJson(blockInfoPath, blockInfo);
+  await writeJson(blockInfoPath, staticBlockInfo);
   await writeJson(contractCodePath, contractCodes);
 
   return {
@@ -503,10 +538,90 @@ const writeLaunchInput = async (
   };
 };
 
+const patchImmutableAddress = (
+  deployedBytecode: string,
+  immutableReferences: Record<string, ImmutableReference[]>,
+  address: Address,
+): Hex => {
+  const paddedAddress = address.toLowerCase().replace(/^0x/, '').padStart(64, '0');
+  let patched = deployedBytecode;
+  for (const references of Object.values(immutableReferences)) {
+    for (const reference of references) {
+      const start = reference.start * 2;
+      const end = start + reference.length * 2;
+      patched = `${patched.slice(0, start)}${paddedAddress}${patched.slice(end)}`;
+    }
+  }
+  return `0x${patched}` as Hex;
+};
+
+const buildContractCodes = async (
+  manifest: DeploymentManifest,
+  controllerSource: string,
+  vaultSource: string,
+): Promise<ContractCodeEntry[]> => {
+  const compiler = await loadSolidityCompiler();
+  const input = {
+    language: 'Solidity',
+    sources: {
+      [privateStateControllerSourceFilename]: { content: controllerSource },
+      [l2AccountingVaultSourceFilename]: { content: vaultSource },
+    },
+    settings: {
+      // This compile profile matches the existing private-state example opcode layout.
+      optimizer: { enabled: true, runs: 200 },
+      viaIR: true,
+      outputSelection: {
+        '*': {
+          '*': ['evm.deployedBytecode.object', 'evm.deployedBytecode.immutableReferences'],
+        },
+      },
+    },
+  };
+
+  const output = JSON.parse(compiler.compile(JSON.stringify(input))) as SolcOutput;
+  const errors = output.errors?.filter((entry) => entry.severity === 'error') ?? [];
+  if (errors.length > 0) {
+    throw new Error(errors.map((entry) => entry.formattedMessage).join('\n'));
+  }
+
+  const controllerOutput = output.contracts?.[privateStateControllerSourceFilename]?.PrivateStateController;
+  const vaultOutput = output.contracts?.[l2AccountingVaultSourceFilename]?.L2AccountingVault;
+  if (!controllerOutput || !vaultOutput) {
+    throw new Error('Could not compile private-state contract code from Drive source artifacts.');
+  }
+
+  return [
+    {
+      address: manifest.contracts.controller,
+      code: patchImmutableAddress(
+        controllerOutput.evm.deployedBytecode.object,
+        controllerOutput.evm.deployedBytecode.immutableReferences,
+        manifest.contracts.l2AccountingVault,
+      ),
+    },
+    {
+      address: manifest.contracts.l2AccountingVault,
+      code: patchImmutableAddress(
+        vaultOutput.evm.deployedBytecode.object,
+        vaultOutput.evm.deployedBytecode.immutableReferences,
+        manifest.contracts.controller,
+      ),
+    },
+  ];
+};
+
+const selectorOf = (controllerInterface: ethers.Interface, functionName: string) => {
+  const fragment = controllerInterface.getFunction(functionName);
+  if (!fragment) {
+    throw new Error(`Could not resolve ${functionName} from the Drive callable ABI.`);
+  }
+  return fragment.selector as Hex;
+};
+
 const buildMintManifest = async (
   context: ExampleContext,
-  blockInfo: SynthesizerBlockInfo,
-  contractCodes: Array<{ address: `0x${string}`; code: string }>,
+  contractCodes: ContractCodeEntry[],
 ) => {
   const managedStorageAddresses = getPrivateStateManagedStorageAddresses(context.storageLayoutManifest);
   const liquidBalancesSlot = getPrivateStateVaultLiquidBalancesSlot(context.storageLayoutManifest);
@@ -519,22 +634,23 @@ const buildMintManifest = async (
 
   const entries: LaunchManifestEntry[] = [];
   for (const outputCount of [1, 2, 3, 4, 5, 6] as const) {
+    const functionName = `mintNotes${outputCount}` as const;
     const noteValues = Array.from({ length: outputCount }, () =>
-      ethers.toBeHex(defaultMintNoteValue) as `0x${string}`,
-    ) as [`0x${string}`, ...`0x${string}`[]];
+      ethers.toBeHex(defaultMintNoteValue) as Hex,
+    ) as [Hex, ...Hex[]];
     const noteSalts = Array.from({ length: outputCount }, (_, index) =>
       deriveReplayPrivateStateFieldValue(
         `private-state-mint-sender-${senderIndex}-owner-${noteOwnerIndex}-output-${index}`,
       ),
-    ) as [`0x${string}`, ...`0x${string}`[]];
+    ) as [Hex, ...Hex[]];
 
     const calldata = buildPrivateStateMintCalldata(
       {
-        network: 'anvil',
+        network: context.exampleNetwork,
         participants: context.participants,
         storageConfigs: [],
         callCodeAddresses: [],
-        blockNumber: context.blockNumber,
+        blockNumber: Number(staticBlockInfo.blockNumber),
         txNonce: defaultTxNonce,
         calldata: '0x',
         senderIndex,
@@ -543,7 +659,7 @@ const buildMintManifest = async (
         noteValues,
         noteSalts,
         function: {
-          selector: mintInterfaces[outputCount].getFunction(`mintNotes${outputCount}`)?.selector as `0x${string}`,
+          selector: selectorOf(context.controllerInterface, functionName),
           entryContractAddress: context.manifest.contracts.controller,
         },
       },
@@ -551,15 +667,12 @@ const buildMintManifest = async (
     );
 
     const totalValue = defaultMintNoteValue * ethers.toBigInt(outputCount);
-    const balanceKey = computeReplayPrivateStateAddressMappingKey(senderAddress, liquidBalancesSlot);
     const snapshot = await createSyntheticSnapshot(
-      context,
-      managedStorageAddresses,
       managedStorageAddresses,
       [{
         address: context.manifest.contracts.l2AccountingVault,
-        key: balanceKey,
-        value: ethers.zeroPadValue(ethers.toBeHex(totalValue), 32) as `0x${string}`,
+        key: computeReplayPrivateStateAddressMappingKey(senderAddress, liquidBalancesSlot),
+        value: ethers.zeroPadValue(ethers.toBeHex(totalValue), 32) as Hex,
       }],
     );
 
@@ -571,12 +684,11 @@ const buildMintManifest = async (
     );
     entries.push(
       await writeLaunchInput(
-        path.resolve(examplesRoot, 'mintNotes', `mintNotes${outputCount}`),
+        path.resolve(examplesRoot, 'mintNotes', functionName),
         snapshot,
         transaction,
-        blockInfo,
         contractCodes,
-        makeLaunchEntryName(`mintNotes${outputCount}`, context.appNetwork),
+        makeLaunchEntryName(functionName),
       ),
     );
   }
@@ -585,8 +697,7 @@ const buildMintManifest = async (
 
 const buildTransferManifest = async (
   context: ExampleContext,
-  blockInfo: SynthesizerBlockInfo,
-  contractCodes: Array<{ address: `0x${string}`; code: string }>,
+  contractCodes: ContractCodeEntry[],
 ) => {
   const managedStorageAddresses = getPrivateStateManagedStorageAddresses(context.storageLayoutManifest);
   const commitmentExistsSlot = getPrivateStateControllerCommitmentExistsSlot(context.storageLayoutManifest);
@@ -609,11 +720,12 @@ const buildTransferManifest = async (
     [3, 2],
     [4, 1],
   ] as const) {
+    const functionName = `transferNotes${inputCount}To${outputCount}`;
     const noteValue = defaultTransferValue(inputCount, outputCount);
     const inputValue = noteValue / ethers.toBigInt(inputCount);
     const outputValue = noteValue / ethers.toBigInt(outputCount);
-    const inputValueHex = ethers.toBeHex(inputValue) as `0x${string}`;
-    const outputValueHex = ethers.toBeHex(outputValue) as `0x${string}`;
+    const inputValueHex = ethers.toBeHex(inputValue) as Hex;
+    const outputValueHex = ethers.toBeHex(outputValue) as Hex;
 
     const inputNotes = Array.from({ length: inputCount }, (_, index) => ({
       owner: senderAddress,
@@ -650,14 +762,13 @@ const buildTransferManifest = async (
       salt: computeReplayPrivateStateEncryptedNoteSalt(output.encryptedNoteValue),
     })) as PrivateStateTransferConfig['outputNotes'];
 
-    const functionName = `transferNotes${inputCount}To${outputCount}`;
     const calldata = buildPrivateStateTransferCalldata(
       {
-        network: 'anvil',
+        network: context.exampleNetwork,
         participants: context.participants,
         storageConfigs: [],
         callCodeAddresses: [],
-        blockNumber: context.blockNumber,
+        blockNumber: Number(staticBlockInfo.blockNumber),
         txNonce: defaultTxNonce,
         calldata: '0x',
         senderIndex,
@@ -668,28 +779,25 @@ const buildTransferManifest = async (
         transferOutputs,
         outputNotes,
         function: {
-          selector: createTransferInterface(inputCount, outputCount).getFunction(functionName)?.selector as `0x${string}`,
+          selector: selectorOf(context.controllerInterface, functionName),
           entryContractAddress: context.manifest.contracts.controller,
         },
       },
       context.keyMaterial,
     );
 
-    const noteRegistryWrites = inputNotes.map((note) => {
-      const commitment = computeReplayPrivateStateNoteCommitment(note as PrivateStateNoteLike);
-      return {
-        address: context.manifest.contracts.controller,
-        key: computeReplayPrivateStateMappingKey(commitment, commitmentExistsSlot),
-        value: ethers.zeroPadValue('0x01', 32) as `0x${string}`,
-      } satisfies StorageWrite;
-    });
-
     const snapshot = await createSyntheticSnapshot(
-      context,
       managedStorageAddresses,
-      managedStorageAddresses,
-      noteRegistryWrites,
+      inputNotes.map((note) => ({
+        address: context.manifest.contracts.controller,
+        key: computeReplayPrivateStateMappingKey(
+          computeReplayPrivateStateNoteCommitment(note as PrivateStateNoteLike),
+          commitmentExistsSlot,
+        ),
+        value: ethers.zeroPadValue('0x01', 32) as Hex,
+      })),
     );
+
     const transaction = buildTransactionSnapshot(
       context,
       senderIndex,
@@ -698,12 +806,11 @@ const buildTransferManifest = async (
     );
     entries.push(
       await writeLaunchInput(
-        path.resolve(examplesRoot, 'transferNotes', `transferNotes${inputCount}To${outputCount}`),
+        path.resolve(examplesRoot, 'transferNotes', functionName),
         snapshot,
         transaction,
-        blockInfo,
         contractCodes,
-        makeLaunchEntryName(`transferNotes${inputCount}To${outputCount}`, context.appNetwork),
+        makeLaunchEntryName(functionName),
       ),
     );
   }
@@ -713,8 +820,7 @@ const buildTransferManifest = async (
 
 const buildRedeemManifest = async (
   context: ExampleContext,
-  blockInfo: SynthesizerBlockInfo,
-  contractCodes: Array<{ address: `0x${string}`; code: string }>,
+  contractCodes: ContractCodeEntry[],
 ) => {
   const managedStorageAddresses = getPrivateStateManagedStorageAddresses(context.storageLayoutManifest);
   const commitmentExistsSlot = getPrivateStateControllerCommitmentExistsSlot(context.storageLayoutManifest);
@@ -727,24 +833,24 @@ const buildRedeemManifest = async (
 
   const entries: LaunchManifestEntry[] = [];
   for (const inputCount of [1, 2, 3, 4] as const) {
-    const inputNotes = Array.from({ length: inputCount }, (_, index) => ({
-      owner: senderAddress,
-      value: ethers.toBeHex(defaultRedeemNoteValue) as `0x${string}`,
-      salt: deriveReplayPrivateStateFieldValue(`private-state-redeem-input-sender-${senderIndex}-${index}`),
-    })) as PrivateStateRedeemConfig['inputNotes'];
-
     const functionName = `redeemNotes${inputCount}` as
       | 'redeemNotes1'
       | 'redeemNotes2'
       | 'redeemNotes3'
       | 'redeemNotes4';
+    const inputNotes = Array.from({ length: inputCount }, (_, index) => ({
+      owner: senderAddress,
+      value: ethers.toBeHex(defaultRedeemNoteValue) as Hex,
+      salt: deriveReplayPrivateStateFieldValue(`private-state-redeem-input-sender-${senderIndex}-${index}`),
+    })) as PrivateStateRedeemConfig['inputNotes'];
+
     const calldata = buildPrivateStateRedeemCalldata(
       {
-        network: 'anvil',
+        network: context.exampleNetwork,
         participants: context.participants,
         storageConfigs: [],
         callCodeAddresses: [],
-        blockNumber: context.blockNumber,
+        blockNumber: Number(staticBlockInfo.blockNumber),
         txNonce: defaultTxNonce,
         calldata: '0x',
         senderIndex,
@@ -752,28 +858,25 @@ const buildRedeemManifest = async (
         inputCount,
         inputNotes,
         function: {
-          selector: redeemInterfaces[inputCount].getFunction(functionName)?.selector as `0x${string}`,
+          selector: selectorOf(context.controllerInterface, functionName),
           entryContractAddress: context.manifest.contracts.controller,
         },
       },
       context.keyMaterial,
     );
 
-    const noteRegistryWrites = inputNotes.map((note) => {
-      const commitment = computeReplayPrivateStateNoteCommitment(note as PrivateStateNoteLike);
-      return {
-        address: context.manifest.contracts.controller,
-        key: computeReplayPrivateStateMappingKey(commitment, commitmentExistsSlot),
-        value: ethers.zeroPadValue('0x01', 32) as `0x${string}`,
-      } satisfies StorageWrite;
-    });
-
     const snapshot = await createSyntheticSnapshot(
-      context,
       managedStorageAddresses,
-      managedStorageAddresses,
-      noteRegistryWrites,
+      inputNotes.map((note) => ({
+        address: context.manifest.contracts.controller,
+        key: computeReplayPrivateStateMappingKey(
+          computeReplayPrivateStateNoteCommitment(note as PrivateStateNoteLike),
+          commitmentExistsSlot,
+        ),
+        value: ethers.zeroPadValue('0x01', 32) as Hex,
+      })),
     );
+
     const transaction = buildTransactionSnapshot(
       context,
       senderIndex,
@@ -782,12 +885,11 @@ const buildRedeemManifest = async (
     );
     entries.push(
       await writeLaunchInput(
-        path.resolve(examplesRoot, 'redeemNotes', `redeemNotes${inputCount}`),
+        path.resolve(examplesRoot, 'redeemNotes', functionName),
         snapshot,
         transaction,
-        blockInfo,
         contractCodes,
-        makeLaunchEntryName(`redeemNotes${inputCount}`, context.appNetwork),
+        makeLaunchEntryName(functionName),
       ),
     );
   }
@@ -796,49 +898,29 @@ const buildRedeemManifest = async (
 };
 
 const main = async () => {
-  const appNetwork = parseAppNetwork();
-  const config = networkConfig.get(appNetwork);
-  if (!config) {
-    throw new Error(`Unsupported APPS_NETWORK=${appNetwork}`);
-  }
-
-  const chainId = config.chainId;
-  const rpcUrl = resolveRpcUrl(appNetwork);
-  const { deploymentFileId, storageLayoutFileId } = await resolveDriveManifestFileIds(chainId);
-  const manifest = await readDriveJson<DeploymentManifest>(deploymentFileId);
-  const storageLayoutManifest = await readDriveJson<PrivateStateStorageLayoutManifest>(storageLayoutFileId);
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const blockNumber = await provider.getBlockNumber();
-  const blockInfo = await getBlockInfoFromRPC(
-    rpcUrl,
-    blockNumber,
-    installedSubcircuitLibrary.numberOfPrevBlockHashes,
-  );
-  const mnemonic = process.env.APPS_ANVIL_MNEMONIC?.trim() || defaultMnemonic;
-  const { participants, keyMaterial } = await deriveChannelParticipants(defaultParticipantCount, mnemonic, chainId);
+  const artifactIds = await resolveDriveArtifactIds();
+  const manifest = await readDriveJson<DeploymentManifest>(artifactIds.deploymentFileId);
+  const storageLayoutManifest = await readDriveJson<PrivateStateStorageLayoutManifest>(artifactIds.storageLayoutFileId);
+  const controllerCallableAbi = await readDriveJson<ethers.InterfaceAbi>(artifactIds.controllerCallableAbiFileId);
+  const controllerSource = await readDriveText(artifactIds.controllerSourceFileId);
+  const vaultSource = await readDriveText(artifactIds.vaultSourceFileId);
+  const mnemonic = defaultMnemonic;
+  const { participants, keyMaterial } = await deriveChannelParticipants(defaultParticipantCount, mnemonic, manifest.chainId);
 
   const context: ExampleContext = {
-    appNetwork,
-    channelStateNetwork: toChannelStateNetwork(appNetwork),
-    chainId,
-    rpcUrl,
-    blockNumber,
+    chainId: manifest.chainId,
+    exampleNetwork: toExampleNetwork(manifest.chainId),
     manifest,
     storageLayoutManifest,
+    controllerInterface: new ethers.Interface(controllerCallableAbi),
     participants,
     keyMaterial,
   };
 
-  const managedStorageAddresses = getPrivateStateManagedStorageAddresses(storageLayoutManifest);
-  const contractCodes = await fetchContractCodes(
-    rpcUrl,
-    blockNumber,
-    managedStorageAddresses,
-  );
-
-  const mintManifest = await buildMintManifest(context, blockInfo, contractCodes);
-  const transferManifest = await buildTransferManifest(context, blockInfo, contractCodes);
-  const redeemManifest = await buildRedeemManifest(context, blockInfo, contractCodes);
+  const contractCodes = await buildContractCodes(manifest, controllerSource, vaultSource);
+  const mintManifest = await buildMintManifest(context, contractCodes);
+  const transferManifest = await buildTransferManifest(context, contractCodes);
+  const redeemManifest = await buildRedeemManifest(context, contractCodes);
 
   await writeJson(path.resolve(examplesRoot, 'mintNotes', 'cli-launch-manifest.json'), mintManifest);
   await writeJson(path.resolve(examplesRoot, 'transferNotes', 'cli-launch-manifest.json'), transferManifest);
@@ -847,9 +929,7 @@ const main = async () => {
   console.log(
     JSON.stringify(
       {
-        appNetwork,
-        chainId,
-        blockNumber,
+        chainId: manifest.chainId,
         mintExamples: mintManifest.length,
         transferExamples: transferManifest.length,
         redeemExamples: redeemManifest.length,
