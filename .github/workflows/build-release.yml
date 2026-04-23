@@ -86,15 +86,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Restore CLI runtime cache
-        id: runtime-cache
-        uses: actions/cache@v4
+      - name: Restore CRS download cache
+        id: crs-download-cache
+        uses: actions/cache/restore@v4
         with:
-          path: .tokamak-cli-cache/linux/
-          key: ${{ runner.os }}-cli-runtime-${{ hashFiles('package-lock.json', 'packages/cli/package.json', 'packages/cli/src/**', 'packages/cli/vendor/backend/**', '.github/workflows/build-release.yml') }}
+          path: .tokamak-cli-cache/linux/downloads/crs/
+          key: ${{ runner.os }}-cli-crs-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-cli-crs-
+
+      - name: Restore ICICLE download cache
+        id: icicle-download-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .tokamak-cli-cache/linux/downloads/icicle/
+          key: ${{ runner.os }}-cli-icicle-${{ hashFiles('packages/cli/manifests/**') }}
 
       - name: Build and setup environment
-        if: steps.runtime-cache.outputs.cache-hit != 'true'
         env:
           TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON }}
         run: |
@@ -107,9 +115,18 @@ jobs:
           echo "🔧 Running tokamak-cli --install (building binaries)..."
           node packages/cli/dist/cli.js --install
 
-      - name: Reuse cached CLI runtime
-        if: steps.runtime-cache.outputs.cache-hit == 'true'
-        run: echo "✅ Reusing cached tokamak-cli runtime and setup artifacts"
+      - name: Save CRS download cache
+        uses: actions/cache/save@v4
+        with:
+          path: .tokamak-cli-cache/linux/downloads/crs/
+          key: ${{ runner.os }}-cli-crs-${{ github.run_id }}
+
+      - name: Save ICICLE download cache
+        if: steps.icicle-download-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .tokamak-cli-cache/linux/downloads/icicle/
+          key: ${{ runner.os }}-cli-icicle-${{ hashFiles('packages/cli/manifests/**') }}
 
       - name: Validate backend setup outputs
         run: |
@@ -127,7 +144,7 @@ jobs:
           done
           echo "✅ Backend setup outputs are ready"
 
-      - name: Upload CLI runtime cache
+      - name: Upload CLI runtime artifact
         uses: actions/upload-artifact@v4
         with:
           name: cli-runtime-linux
@@ -235,7 +252,7 @@ jobs:
       - name: Build CLI package
         run: npm run build --workspace @tokamak-zk-evm/cli
 
-      - name: Download CLI runtime cache
+      - name: Download CLI runtime artifact
         uses: actions/download-artifact@v4
         with:
           name: cli-runtime-linux
@@ -251,7 +268,7 @@ jobs:
         run: |
           chmod +x "$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime/bin/"* 2>/dev/null || true
 
-      - name: Validate setup artifacts in runtime cache
+      - name: Validate setup artifacts in runtime artifact
         run: |
           runtime_dir="$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime"
           required=(
@@ -261,11 +278,11 @@ jobs:
           )
           for file in "${required[@]}"; do
             if [ ! -f "$file" ]; then
-              echo "❌ Missing setup artifact in runtime cache: $file"
+              echo "❌ Missing setup artifact in runtime artifact: $file"
               exit 1
             fi
           done
-          echo "✅ Setup artifacts present in runtime cache"
+          echo "✅ Setup artifacts present in runtime artifact"
 
       - name: Validate preprocess input
         run: |
@@ -372,7 +389,7 @@ jobs:
       - name: Build CLI package
         run: npm run build --workspace @tokamak-zk-evm/cli
 
-      - name: Download CLI runtime cache
+      - name: Download CLI runtime artifact
         uses: actions/download-artifact@v4
         with:
           name: cli-runtime-linux
@@ -382,7 +399,7 @@ jobs:
         run: |
           chmod +x "$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime/bin/"* 2>/dev/null || true
 
-      - name: Validate setup artifacts in runtime cache
+      - name: Validate setup artifacts in runtime artifact
         run: |
           runtime_dir="$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime"
           required=(
@@ -392,11 +409,11 @@ jobs:
           )
           for file in "${required[@]}"; do
             if [ ! -f "$file" ]; then
-              echo "❌ Missing setup artifact in runtime cache: $file"
+              echo "❌ Missing setup artifact in runtime artifact: $file"
               exit 1
             fi
           done
-          echo "✅ Setup artifacts present in runtime cache"
+          echo "✅ Setup artifacts present in runtime artifact"
 
       - name: Run L2StateChannel CI test (synthesize)
         run: |
