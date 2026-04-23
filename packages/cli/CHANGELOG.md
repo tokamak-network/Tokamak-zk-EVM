@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.4 - 2026-04-24
+
+- Added Linux-only `--install --docker` support that installs through an Ubuntu 22 Docker image, records Docker bootstrap files under `~/.tokamak-zk-evm/linux/docker`, and runs backend preprocess, prove, and verify commands through that bootstrap when Docker is available.
+- Moved Docker install image construction to a static Dockerfile that is shipped in the npm package.
+- Documented the Docker install image contents and the rationale for its conservative dependency set.
+- Reworked install caches so CRS reuse is validated with `crs_provenance.json` version and SHA-256 artifact hashes, and ICICLE tarball reuse is validated with packaged SHA-256 manifests.
+
 ## 2.0.3 - 2026-04-22
 
 - Switched the default CLI workspace root to `~/.tokamak-zk-evm` so the runtime now uses the existing top-level Tokamak workspace directly.

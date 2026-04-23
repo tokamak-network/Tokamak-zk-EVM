@@ -3,17 +3,21 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import vm from 'node:vm';
+import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 
 export type CliPlatform = 'linux' | 'macos';
 
 export interface InstallOptions {
+  docker: boolean;
   noSetup: boolean;
   trustedSetup: boolean;
   verbose: boolean;
 }
 
 export interface RuntimeState {
+  dockerEnvironment?: DockerEnvironment;
+  installMode?: 'native' | 'docker';
   packageVersion: string;
   platform: CliPlatform;
   installedAt: string;
@@ -32,6 +36,18 @@ export interface RuntimeContext {
 export interface CommandResult {
   stdout: string;
   stderr: string;
+}
+
+export type DockerEnvironment = 'ubuntu22' | 'ubuntu22-cuda122';
+
+interface DockerBootstrap {
+  version: 1;
+  createdAt: string;
+  dockerEnvironment: DockerEnvironment;
+  imageName: string;
+  packageVersion: string;
+  platform: 'linux';
+  useGpus: boolean;
 }
 
 interface PrerequisiteFailure {
@@ -68,6 +84,25 @@ interface BackendBuildMetadata {
   packageVersion?: string;
 }
 
+interface CrsProvenance {
+  backend_version?: string;
+  combined_sigma_sha256?: string;
+  published_archive_name?: string | null;
+  sigma_preprocess_sha256?: string;
+  sigma_verify_sha256?: string;
+}
+
+interface IcicleAsset {
+  fileName: string;
+  sha256: string;
+  url: string;
+}
+
+interface IcicleManifest {
+  version: string;
+  assets: Record<string, IcicleAsset>;
+}
+
 const CACHE_DIR_ENV = 'TOKAMAK_ZKEVM_CLI_CACHE_DIR';
 const CRS_DRIVE_FOLDER_ID = '14xqCbLoyoVmUVTTlopiXtKnoHPBGL-Sv';
 const CRS_DRIVE_FOLDER_URL = 'https://drive.google.com/drive/mobile/folders';
@@ -77,6 +112,14 @@ const CRS_DOWNLOAD_MAX_RETRIES = 10;
 const CRS_DOWNLOAD_RETRY_BASE_DELAY_MS = 1_000;
 const DOWNLOAD_PROGRESS_LOG_INTERVAL_MS = 2_000;
 const DOWNLOAD_PROGRESS_PERCENT_STEP = 5;
+const DOCKER_BOOTSTRAP_VERSION = 1;
+const DOCKER_CONTAINER_CACHE_ROOT = '/tokamak-cache';
+const DOCKER_CUDA_PROBE_IMAGE = 'nvidia/cuda:12.2.0-base-ubuntu22.04';
+const DOCKER_CUDA_BASE_IMAGE = 'nvidia/cuda:12.2.0-devel-ubuntu22.04';
+const DOCKER_UBUNTU_BASE_IMAGE = 'ubuntu:22.04';
+const DOCKERFILE_PATH = path.join('docker', 'Dockerfile');
+const ICICLE_VERSION = '3.8.0';
+const ICICLE_MANIFEST_PATH = path.join('manifests', `icicle-v${ICICLE_VERSION}.json`);
 
 function logVerbose(enabled: boolean, message: string): void {
   if (enabled) {
@@ -225,6 +268,10 @@ function collectPrerequisiteFailures(
 }
 
 function ensureInstallPrerequisites(platform: CliPlatform, options: InstallOptions): void {
+  if (options.docker) {
+    return;
+  }
+
   const failures = collectPrerequisiteFailures(platform, options);
   if (failures.length === 0) {
     return;
@@ -339,6 +386,14 @@ export function runtimePaths(context: RuntimeContext) {
   };
 }
 
+function dockerBootstrapDir(context: RuntimeContext): string {
+  return path.join(context.platformDir, 'docker');
+}
+
+function dockerBootstrapPath(context: RuntimeContext): string {
+  return path.join(dockerBootstrapDir(context), 'bootstrap.json');
+}
+
 async function ensureDir(dirPath: string): Promise<void> {
   await fs.mkdir(dirPath, { recursive: true });
 }
@@ -355,6 +410,36 @@ async function fileSizeIfExists(target: string): Promise<number | null> {
   } catch {
     return null;
   }
+}
+
+async function fileExists(target: string): Promise<boolean> {
+  try {
+    await fs.access(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function sha256FileHex(filePath: string): Promise<string> {
+  const hasher = crypto.createHash('sha256');
+  await new Promise<void>((resolve, reject) => {
+    const stream = fsSync.createReadStream(filePath);
+    stream.on('data', (chunk: Buffer | string) => {
+      hasher.update(chunk);
+    });
+    stream.on('error', reject);
+    stream.on('end', resolve);
+  });
+  return hasher.digest('hex');
+}
+
+function normalizeSha256(value: string | undefined): string | null {
+  if (value === undefined) {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  return /^[a-f0-9]{64}$/u.test(normalized) ? normalized : null;
 }
 
 function prependEnvPath(existing: string | undefined, nextValue: string): string {
@@ -423,6 +508,48 @@ export async function runCommand(
   });
 }
 
+async function commandSucceeds(
+  command: string,
+  args: string[],
+  options: {
+    cwd?: string;
+    env?: NodeJS.ProcessEnv;
+    verbose?: boolean;
+  } = {},
+): Promise<boolean> {
+  const { cwd, env, verbose = false } = options;
+  if (verbose) {
+    writeStderrLine(`[info] Command: ${command} ${args.join(' ')}`);
+  }
+  return await new Promise<boolean>((resolve) => {
+    const child = spawn(command, args, {
+      cwd,
+      env,
+      stdio: 'ignore',
+    });
+    child.on('error', () => resolve(false));
+    child.on('close', (code) => resolve(code === 0));
+  });
+}
+
+async function dockerDaemonAvailable(verbose: boolean): Promise<boolean> {
+  if (!commandExists('docker')) {
+    logVerbose(verbose, 'Docker is not available on PATH.');
+    return false;
+  }
+  if (await commandSucceeds('docker', ['info'], { verbose: false })) {
+    return true;
+  }
+  logVerbose(verbose, 'Docker daemon is not running or is not reachable.');
+  return false;
+}
+
+async function ensureDockerDaemonAvailable(verbose: boolean): Promise<void> {
+  if (!(await dockerDaemonAvailable(verbose))) {
+    throw new Error('Docker is required for `tokamak-cli --install --docker`, but the Docker daemon is not available.');
+  }
+}
+
 async function ensureVendoredBackendExists(packageRoot: string): Promise<string> {
   const backendRoot = resolveVendoredBackendRoot(packageRoot);
   const cargoManifestPath = path.join(backendRoot, 'Cargo.toml');
@@ -482,6 +609,190 @@ async function linuxCudaBackendAvailable(verbose: boolean): Promise<boolean> {
     );
     return false;
   }
+}
+
+async function dockerCudaAvailable(verbose: boolean): Promise<boolean> {
+  const args = ['run', '--rm', '--gpus', 'all', DOCKER_CUDA_PROBE_IMAGE, 'nvidia-smi'];
+  try {
+    const succeeded = verbose
+      ? await runCommand('docker', args, { verbose }).then(() => true)
+      : await commandSucceeds('docker', args);
+    if (!succeeded) {
+      logVerbose(verbose, 'Docker CUDA probe failed; using CPU-only Ubuntu 22 environment.');
+      return false;
+    }
+    logVerbose(verbose, 'Docker CUDA probe succeeded with `--gpus all` and `nvidia-smi`.');
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logVerbose(verbose, `Docker CUDA probe failed; using CPU-only Ubuntu 22 environment: ${message}`);
+    return false;
+  }
+}
+
+function dockerBaseImage(environment: DockerEnvironment): string {
+  return environment === 'ubuntu22-cuda122' ? DOCKER_CUDA_BASE_IMAGE : DOCKER_UBUNTU_BASE_IMAGE;
+}
+
+function dockerImageName(packageVersion: string, environment: DockerEnvironment): string {
+  const sanitizedVersion = packageVersion.replace(/[^a-zA-Z0-9_.-]/gu, '-');
+  return `tokamak-zk-evm-cli:${sanitizedVersion}-${environment}`;
+}
+
+function dockerRunPrefix(bootstrap: DockerBootstrap): string[] {
+  const args = ['run', '--rm'];
+  if (bootstrap.useGpus) {
+    args.push('--gpus', 'all');
+  }
+  return args;
+}
+
+function dockerUserArgs(): string[] {
+  if (typeof process.getuid !== 'function' || typeof process.getgid !== 'function') {
+    return [];
+  }
+  return ['--user', `${process.getuid()}:${process.getgid()}`];
+}
+
+function toContainerPath(hostPath: string, context: RuntimeContext): string {
+  const relative = path.relative(context.cacheRoot, hostPath);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`Docker bootstrap cannot map path outside the cache root: ${hostPath}`);
+  }
+  return path.posix.join(DOCKER_CONTAINER_CACHE_ROOT, ...relative.split(path.sep));
+}
+
+function toContainerArgument(arg: string, context: RuntimeContext): string {
+  if (!path.isAbsolute(arg)) {
+    return arg;
+  }
+  return toContainerPath(arg, context);
+}
+
+function dockerBackendEnvironment(context: RuntimeContext): Record<string, string> {
+  const paths = runtimePaths(context);
+  const icicleLibDir = toContainerPath(paths.icicleLibDir, context);
+  return {
+    LD_LIBRARY_PATH: icicleLibDir,
+    ICICLE_BACKEND_INSTALL_DIR: path.posix.join(icicleLibDir, 'backend'),
+  };
+}
+
+function validateDockerBootstrap(value: unknown): DockerBootstrap | null {
+  if (typeof value !== 'object' || value === null) {
+    return null;
+  }
+  const candidate = value as Partial<DockerBootstrap>;
+  if (
+    candidate.version !== DOCKER_BOOTSTRAP_VERSION ||
+    candidate.platform !== 'linux' ||
+    typeof candidate.imageName !== 'string' ||
+    typeof candidate.packageVersion !== 'string' ||
+    typeof candidate.createdAt !== 'string' ||
+    typeof candidate.useGpus !== 'boolean' ||
+    (candidate.dockerEnvironment !== 'ubuntu22' && candidate.dockerEnvironment !== 'ubuntu22-cuda122')
+  ) {
+    return null;
+  }
+  return candidate as DockerBootstrap;
+}
+
+async function readDockerBootstrap(context: RuntimeContext): Promise<DockerBootstrap | null> {
+  if (context.platform !== 'linux') {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(await fs.readFile(dockerBootstrapPath(context), 'utf8')) as unknown;
+    return validateDockerBootstrap(parsed);
+  } catch {
+    return null;
+  }
+}
+
+async function dockerBootstrapRunnable(context: RuntimeContext, verbose: boolean): Promise<DockerBootstrap | null> {
+  const bootstrap = await readDockerBootstrap(context);
+  if (bootstrap === null) {
+    return null;
+  }
+  if (!(await dockerDaemonAvailable(verbose))) {
+    return null;
+  }
+  return bootstrap;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/gu, `'\\''`)}'`;
+}
+
+async function writeDockerBootstrap(context: RuntimeContext, bootstrap: DockerBootstrap): Promise<void> {
+  const bootstrapDir = dockerBootstrapDir(context);
+  await ensureDir(bootstrapDir);
+  await fs.writeFile(dockerBootstrapPath(context), `${JSON.stringify(bootstrap, null, 2)}\n`, 'utf8');
+
+  const env = dockerBackendEnvironment(context);
+  const scriptPath = path.join(bootstrapDir, 'run.sh');
+  const gpuArgs = bootstrap.useGpus ? ' --gpus all' : '';
+  const script = [
+    '#!/usr/bin/env sh',
+    'set -eu',
+    'exec docker run --rm \\',
+    '  --user "$(id -u):$(id -g)" \\',
+    `${gpuArgs ? `  ${gpuArgs.trim()} \\` : ''}`,
+    `  -v ${shellQuote(`${context.cacheRoot}:${DOCKER_CONTAINER_CACHE_ROOT}`)} \\`,
+    '  -e HOME=/tmp \\',
+    `  -e ${shellQuote(`LD_LIBRARY_PATH=${env.LD_LIBRARY_PATH}`)} \\`,
+    `  -e ${shellQuote(`ICICLE_BACKEND_INSTALL_DIR=${env.ICICLE_BACKEND_INSTALL_DIR}`)} \\`,
+    `  ${shellQuote(bootstrap.imageName)} "$@"`,
+    '',
+  ].filter((line) => line !== '').join('\n');
+  await fs.writeFile(scriptPath, script, 'utf8');
+  await fs.chmod(scriptPath, 0o755);
+}
+
+async function runDockerBootstrapCommand(
+  context: RuntimeContext,
+  bootstrap: DockerBootstrap,
+  command: string,
+  args: string[],
+  verbose: boolean,
+): Promise<CommandResult> {
+  const env = dockerBackendEnvironment(context);
+  const containerCommand = toContainerPath(command, context);
+  const dockerArgs = [
+    ...dockerRunPrefix(bootstrap),
+    ...dockerUserArgs(),
+    '-v',
+    `${context.cacheRoot}:${DOCKER_CONTAINER_CACHE_ROOT}`,
+    '-e',
+    'HOME=/tmp',
+    '-e',
+    `LD_LIBRARY_PATH=${env.LD_LIBRARY_PATH}`,
+    '-e',
+    `ICICLE_BACKEND_INSTALL_DIR=${env.ICICLE_BACKEND_INSTALL_DIR}`,
+    '--entrypoint',
+    containerCommand,
+    bootstrap.imageName,
+    ...args.map((arg) => toContainerArgument(arg, context)),
+  ];
+  return await runCommand('docker', dockerArgs, { verbose });
+}
+
+export async function runBackendCommand(
+  context: RuntimeContext,
+  command: string,
+  args: string[],
+  verbose: boolean,
+): Promise<CommandResult> {
+  const bootstrap = await dockerBootstrapRunnable(context, verbose);
+  if (bootstrap !== null) {
+    logVerbose(verbose, `Running backend command in Docker bootstrap ${bootstrap.dockerEnvironment}.`);
+    return await runDockerBootstrapCommand(context, bootstrap, command, args, verbose);
+  }
+
+  return await runCommand(command, args, {
+    env: backendEnvironment(context),
+    verbose,
+  });
 }
 
 async function buildBackendReleaseBinaries(
@@ -748,10 +1059,6 @@ async function downloadFileWithResume(
 
   await ensureDir(path.dirname(destinationPath));
   const finalSize = await fileSizeIfExists(destinationPath);
-  if (finalSize === state.contentLength) {
-    logVerbose(verbose, `Using cached CRS archive ${destinationPath}`);
-    return;
-  }
   if (finalSize !== null) {
     await fs.rm(destinationPath, { force: true });
   }
@@ -847,36 +1154,86 @@ async function copyDirectoryContents(sourceDir: string, destinationDir: string):
   await fs.cp(sourceDir, destinationDir, { recursive: true });
 }
 
+async function readIcicleManifest(context: RuntimeContext): Promise<IcicleManifest> {
+  const manifestPath = path.join(context.packageRoot, ICICLE_MANIFEST_PATH);
+  const manifest = await readJsonFile<IcicleManifest>(manifestPath);
+  if (manifest.version !== ICICLE_VERSION) {
+    throw new Error(`ICICLE manifest ${manifestPath} has version ${manifest.version}, expected ${ICICLE_VERSION}.`);
+  }
+  return manifest;
+}
+
+function selectIcicleAsset(manifest: IcicleManifest, key: string): IcicleAsset {
+  const asset = manifest.assets[key];
+  const sha256 = normalizeSha256(asset?.sha256);
+  if (asset === undefined || sha256 === null || !asset.fileName || !asset.url) {
+    throw new Error(`ICICLE manifest is missing a valid asset entry for ${key}.`);
+  }
+  return {
+    ...asset,
+    sha256,
+  };
+}
+
+async function downloadIcicleAssetWithCache(
+  context: RuntimeContext,
+  asset: IcicleAsset,
+  verbose: boolean,
+): Promise<string> {
+  const cacheDir = path.join(context.platformDir, 'downloads', 'icicle', `v${ICICLE_VERSION}`);
+  const archivePath = path.join(cacheDir, asset.fileName);
+  if (await fileExists(archivePath)) {
+    const actualHash = await sha256FileHex(archivePath);
+    if (actualHash === asset.sha256) {
+      logVerbose(verbose, `Using cached ICICLE archive ${archivePath}`);
+      return archivePath;
+    }
+    logVerbose(verbose, `Discarding cached ICICLE archive ${archivePath}: SHA-256 mismatch.`);
+    await fs.rm(archivePath, { force: true });
+  }
+
+  await downloadFile(asset.url, archivePath);
+  const downloadedHash = await sha256FileHex(archivePath);
+  if (downloadedHash !== asset.sha256) {
+    await fs.rm(archivePath, { force: true });
+    throw new Error(
+      `Downloaded ICICLE archive ${asset.fileName} has SHA-256 ${downloadedHash}, expected ${asset.sha256}.`,
+    );
+  }
+  return archivePath;
+}
+
 async function installIcicleRuntime(context: RuntimeContext, verbose: boolean): Promise<void> {
   const paths = runtimePaths(context);
+  const manifest = await readIcicleManifest(context);
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-icicle-'));
   try {
     if (context.platform === 'macos') {
-      const commonTarball = path.join(tempRoot, 'icicle_3_8_0-macOS.tar.gz');
-      const backendTarball = path.join(tempRoot, 'icicle_3_8_0-macOS-Metal.tar.gz');
-      await downloadFile(
-        'https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-macOS.tar.gz',
-        commonTarball,
+      const commonTarball = await downloadIcicleAssetWithCache(
+        context,
+        selectIcicleAsset(manifest, 'macos'),
+        verbose,
       );
-      await downloadFile(
-        'https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-macOS-Metal.tar.gz',
-        backendTarball,
+      const backendTarball = await downloadIcicleAssetWithCache(
+        context,
+        selectIcicleAsset(manifest, 'macos-metal'),
+        verbose,
       );
       await extractTarArchive(commonTarball, tempRoot, verbose);
       await extractTarArchive(backendTarball, tempRoot, verbose);
     } else {
       const ubuntuMajor = await readLinuxUbuntuMajorVersion();
-      const commonTarball = path.join(tempRoot, `icicle_3_8_0-ubuntu${ubuntuMajor}.tar.gz`);
-      await downloadFile(
-        `https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-ubuntu${ubuntuMajor}.tar.gz`,
-        commonTarball,
+      const commonTarball = await downloadIcicleAssetWithCache(
+        context,
+        selectIcicleAsset(manifest, `ubuntu${ubuntuMajor}`),
+        verbose,
       );
       await extractTarArchive(commonTarball, tempRoot, verbose);
       if (await linuxCudaBackendAvailable(verbose)) {
-        const backendTarball = path.join(tempRoot, `icicle_3_8_0-ubuntu${ubuntuMajor}-cuda122.tar.gz`);
-        await downloadFile(
-          `https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-ubuntu${ubuntuMajor}-cuda122.tar.gz`,
-          backendTarball,
+        const backendTarball = await downloadIcicleAssetWithCache(
+          context,
+          selectIcicleAsset(manifest, `ubuntu${ubuntuMajor}-cuda122`),
+          verbose,
         );
         await extractTarArchive(backendTarball, tempRoot, verbose);
       }
@@ -1003,19 +1360,128 @@ function driveDirectDownloadUrl(fileId: string): string {
   return `${CRS_DOWNLOAD_BASE_URL}?id=${fileId}&export=download&confirm=t`;
 }
 
+function driveArchiveVersionString(selection: DriveArchiveSelection): string {
+  return selection.version.join('.');
+}
+
+async function readCrsProvenance(rootDir: string): Promise<CrsProvenance> {
+  return await readJsonFile<CrsProvenance>(await findNamedFile(rootDir, 'crs_provenance.json'));
+}
+
+async function crsDirectoryMatchesProvenance(
+  rootDir: string,
+  selection: DriveArchiveSelection,
+  verbose: boolean,
+): Promise<boolean> {
+  try {
+    const provenance = await readCrsProvenance(rootDir);
+    const expectedVersion = driveArchiveVersionString(selection);
+    if (provenance.backend_version !== expectedVersion) {
+      logVerbose(
+        verbose,
+        `Ignoring cached CRS: provenance backend version ${provenance.backend_version ?? '<missing>'} does not match latest CRS ${expectedVersion}.`,
+      );
+      return false;
+    }
+    if (provenance.published_archive_name && provenance.published_archive_name !== selection.name) {
+      logVerbose(
+        verbose,
+        `Ignoring cached CRS: provenance archive ${provenance.published_archive_name} does not match latest CRS ${selection.name}.`,
+      );
+      return false;
+    }
+
+    const expectedHashes: Array<[string, string | undefined]> = [
+      ['combined_sigma.rkyv', provenance.combined_sigma_sha256],
+      ['sigma_preprocess.rkyv', provenance.sigma_preprocess_sha256],
+      ['sigma_verify.json', provenance.sigma_verify_sha256],
+    ];
+    for (const [filename, expectedHashValue] of expectedHashes) {
+      const expectedHash = normalizeSha256(expectedHashValue);
+      if (expectedHash === null) {
+        logVerbose(verbose, `Ignoring cached CRS: provenance is missing a valid SHA-256 for ${filename}.`);
+        return false;
+      }
+      const actualHash = await sha256FileHex(await findNamedFile(rootDir, filename));
+      if (actualHash !== expectedHash) {
+        logVerbose(
+          verbose,
+          `Ignoring cached CRS: ${filename} has SHA-256 ${actualHash}, expected ${expectedHash}.`,
+        );
+        return false;
+      }
+    }
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logVerbose(verbose, `Ignoring cached CRS: ${message}`);
+    return false;
+  }
+}
+
+async function installedCrsCacheMatches(
+  context: RuntimeContext,
+  backendRoot: string,
+  selection: DriveArchiveSelection,
+  verbose: boolean,
+): Promise<boolean> {
+  const setupOutputDir = runtimePaths(context).setupOutputDir;
+  if (!(await crsDirectoryMatchesProvenance(setupOutputDir, selection, verbose))) {
+    return false;
+  }
+  try {
+    await validateDownloadedCrsVersions(setupOutputDir, backendRoot, selection.name);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logVerbose(verbose, `Ignoring cached CRS: ${message}`);
+    return false;
+  }
+  logVerbose(verbose, `Using cached CRS output ${setupOutputDir}`);
+  return true;
+}
+
+async function crsArchiveCacheMatches(
+  archivePath: string,
+  selection: DriveArchiveSelection,
+  verbose: boolean,
+): Promise<boolean> {
+  const extractedDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-crs-cache-check-'));
+  try {
+    await extractZipArchive(archivePath, extractedDir, verbose);
+    return await crsDirectoryMatchesProvenance(extractedDir, selection, verbose);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logVerbose(verbose, `Ignoring cached CRS archive ${archivePath}: ${message}`);
+    return false;
+  } finally {
+    await fs.rm(extractedDir, { recursive: true, force: true });
+  }
+}
+
 async function downloadLatestCrsArchive(
   context: RuntimeContext,
+  selection: DriveArchiveSelection,
   verbose: boolean,
 ): Promise<{ archivePath: string; archiveName: string }> {
-  const selection = await selectLatestDriveArchive();
   const url = driveDirectDownloadUrl(selection.fileId);
+  const downloadDir = path.join(context.platformDir, 'downloads', 'crs');
+  const archivePath = path.join(downloadDir, selection.name);
+  if (await fileExists(archivePath)) {
+    if (await crsArchiveCacheMatches(archivePath, selection, verbose)) {
+      logVerbose(verbose, `Using cached CRS archive ${archivePath}`);
+      return {
+        archivePath,
+        archiveName: selection.name,
+      };
+    }
+    await fs.rm(archivePath, { force: true });
+  }
+
   const remoteMetadata = await readRemoteDownloadMetadata(url);
   if (!remoteMetadata.acceptRanges) {
     throw new Error('The CRS download endpoint does not support byte-range requests required for safe resume.');
   }
 
-  const downloadDir = path.join(context.platformDir, 'downloads', 'crs');
-  const archivePath = path.join(downloadDir, selection.name);
   await downloadFileWithResume(
     url,
     archivePath,
@@ -1027,6 +1493,10 @@ async function downloadLatestCrsArchive(
     },
     verbose,
   );
+  if (!(await crsArchiveCacheMatches(archivePath, selection, verbose))) {
+    await fs.rm(archivePath, { force: true });
+    throw new Error(`Downloaded CRS archive ${selection.name} failed provenance hash validation.`);
+  }
   return {
     archivePath,
     archiveName: selection.name,
@@ -1086,9 +1556,14 @@ async function installDownloadedSetup(
   verbose: boolean,
 ): Promise<void> {
   const paths = runtimePaths(context);
+  const selection = await selectLatestDriveArchive();
+  if (await installedCrsCacheMatches(context, backendRoot, selection, verbose)) {
+    return;
+  }
+
   const extractedDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-crs-extract-'));
   try {
-    const { archivePath, archiveName } = await downloadLatestCrsArchive(context, verbose);
+    const { archivePath, archiveName } = await downloadLatestCrsArchive(context, selection, verbose);
     await extractZipArchive(archivePath, extractedDir, verbose);
     const { mpcMetadataPath, provenancePath } = await validateDownloadedCrsVersions(
       extractedDir,
@@ -1145,7 +1620,103 @@ async function runTrustedSetup(context: RuntimeContext, verbose: boolean): Promi
   );
 }
 
+async function buildDockerInstallImage(
+  context: RuntimeContext,
+  environment: DockerEnvironment,
+  imageName: string,
+  verbose: boolean,
+): Promise<void> {
+  const dockerfilePath = path.join(context.packageRoot, DOCKERFILE_PATH);
+  await fs.access(dockerfilePath);
+  await runCommand(
+    'docker',
+    [
+      'build',
+      '--build-arg',
+      `BASE_IMAGE=${dockerBaseImage(environment)}`,
+      '-t',
+      imageName,
+      '-f',
+      dockerfilePath,
+      context.packageRoot,
+    ],
+    {
+      verbose,
+    },
+  );
+}
+
+function dockerInstallArgs(context: RuntimeContext, bootstrap: DockerBootstrap, options: InstallOptions): string[] {
+  const args = [
+    ...dockerRunPrefix(bootstrap),
+    ...dockerUserArgs(),
+    '-v',
+    `${context.cacheRoot}:${DOCKER_CONTAINER_CACHE_ROOT}`,
+    '-e',
+    `TOKAMAK_ZKEVM_CLI_CACHE_DIR=${DOCKER_CONTAINER_CACHE_ROOT}`,
+    '-e',
+    'HOME=/tmp',
+    bootstrap.imageName,
+    '--install',
+  ];
+  if (options.trustedSetup) {
+    args.push('--trusted-setup');
+  }
+  if (options.noSetup) {
+    args.push('--no-setup');
+  }
+  if (options.verbose) {
+    args.push('--verbose');
+  }
+  return args;
+}
+
+async function writeRuntimeState(context: RuntimeContext, state: RuntimeState): Promise<void> {
+  await ensureDir(path.dirname(context.statePath));
+  await fs.writeFile(context.statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+}
+
+async function installDockerRuntime(options: InstallOptions): Promise<RuntimeContext> {
+  const context = await createRuntimeContext();
+  if (context.platform !== 'linux') {
+    throw new Error('`tokamak-cli --install --docker` is supported only on Linux hosts.');
+  }
+  await ensureDockerDaemonAvailable(options.verbose);
+  await ensureDir(context.cacheRoot);
+
+  const dockerEnvironment: DockerEnvironment = (await dockerCudaAvailable(options.verbose))
+    ? 'ubuntu22-cuda122'
+    : 'ubuntu22';
+  const bootstrap: DockerBootstrap = {
+    version: DOCKER_BOOTSTRAP_VERSION,
+    createdAt: new Date().toISOString(),
+    dockerEnvironment,
+    imageName: dockerImageName(context.packageVersion, dockerEnvironment),
+    packageVersion: context.packageVersion,
+    platform: 'linux',
+    useGpus: dockerEnvironment === 'ubuntu22-cuda122',
+  };
+
+  await buildDockerInstallImage(context, dockerEnvironment, bootstrap.imageName, options.verbose);
+  await runCommand('docker', dockerInstallArgs(context, bootstrap, options), {
+    verbose: options.verbose,
+  });
+  await writeDockerBootstrap(context, bootstrap);
+  await writeRuntimeState(context, {
+    dockerEnvironment,
+    installMode: 'docker',
+    packageVersion: context.packageVersion,
+    platform: context.platform,
+    installedAt: bootstrap.createdAt,
+  });
+  return context;
+}
+
 export async function installRuntime(options: InstallOptions): Promise<RuntimeContext> {
+  if (options.docker) {
+    return await installDockerRuntime(options);
+  }
+
   const context = await createRuntimeContext();
   ensureInstallPrerequisites(context.platform, options);
   const backendRoot = await ensureVendoredBackendExists(context.packageRoot);
@@ -1166,11 +1737,12 @@ export async function installRuntime(options: InstallOptions): Promise<RuntimeCo
   }
 
   const state: RuntimeState = {
+    installMode: 'native',
     packageVersion: context.packageVersion,
     platform: context.platform,
     installedAt: new Date().toISOString(),
   };
-  await fs.writeFile(context.statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  await writeRuntimeState(context, state);
   return context;
 }
 

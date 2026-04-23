@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/cli",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Tokamak zk-EVM CLI for installing the local prover runtime and running synthesize, preprocess, prove, verify, and proof export commands.",
   "keywords": [
     "cli",
@@ -39,7 +39,10 @@
     "tokamak-zk-evm": "dist/cli.js"
   },
   "files": [
+    ".dockerignore",
+    "docker",
     "dist",
+    "manifests",
     "scripts",
     "vendor",
     "CHANGELOG.md",
@@ -52,7 +55,6 @@
     "build": "npm run prepare:package && tsc -p tsconfig.json --pretty false",
     "release:check": "node scripts/release-readiness.cjs",
     "typecheck": "tsc -p tsconfig.json --pretty false --noEmit",
-    "tsc": "npm run typecheck",
     "publish": "node scripts/publish-package.cjs",
     "prepack": "npm run build",
     "postinstall": "node scripts/postinstall.cjs"

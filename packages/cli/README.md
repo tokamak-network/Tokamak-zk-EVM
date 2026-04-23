@@ -5,6 +5,7 @@
 Main commands:
 
 - `--install`
+- `--install --docker`
 - `--synthesize`
 - `--preprocess`
 - `--prove`
@@ -36,6 +37,8 @@ Before running `--install`, make sure the machine has:
 - a working C/C++ toolchain
 - outbound HTTPS access to npm, crates.io, GitHub, GitHub Releases, and Google Drive
 
+For `--install --docker`, the Linux host needs Docker installed and a running Docker daemon. CUDA is enabled only when `docker run --rm --gpus all nvidia/cuda:12.2.0-base-ubuntu22.04 nvidia-smi` succeeds.
+
 ### macOS
 
 ```bash
@@ -56,6 +59,12 @@ source "$HOME/.cargo/env"
 npm install -g @tokamak-zk-evm/cli
 ```
 
+Docker installation is also available on Linux:
+
+```bash
+tokamak-cli --install --docker
+```
+
 ### Windows
 
 Native Windows installation is not supported. Use WSL2 or Docker.
@@ -65,11 +74,34 @@ Native Windows installation is not supported. Use WSL2 or Docker.
 `--install`:
 
 - builds the local backend binaries
-- downloads the ICICLE runtime libraries
-- downloads CRS files, unless `--no-setup` is used
+- downloads the ICICLE runtime libraries, reusing cached tarballs only when their SHA-256 hashes match the packaged manifest
+- downloads CRS files, unless `--no-setup` is used, reusing cached CRS output only when `crs_provenance.json` version and artifact hashes match the latest CRS
 - writes everything into the CLI runtime cache
 
+`--install --docker` is supported only on Linux hosts. It uses the static Dockerfile shipped in the npm package, checks that Docker is running, probes CUDA with `docker run --rm --gpus all ... nvidia-smi`, then installs through either an `ubuntu22-cuda122` container environment or a CPU-only `ubuntu22` container environment. It writes the Linux runtime cache as usual and stores Docker bootstrap files in:
+
+```text
+~/.tokamak-zk-evm/linux/docker
+```
+
+When `--preprocess`, `--prove`, or `--verify` runs later, the CLI uses that bootstrap to execute the backend command inside Docker if the bootstrap exists and Docker is running. If Docker is not running, the CLI falls back to the native runtime path.
+
 The package runs `tokamak-cli --install` during `postinstall` unless `TOKAMAK_ZKEVM_SKIP_POSTINSTALL=1` is set.
+
+## What Does The Docker Install Image Include?
+
+The npm package ships the Dockerfile used by `--install --docker`.
+The host still needs only Node.js 20 or newer, the installed CLI package, Docker, and outbound HTTPS access.
+
+Inside the Docker image, the CLI installs the build and runtime tools needed to compile the vendored backend and provision local resources:
+
+- Ubuntu 22.04, or NVIDIA CUDA 12.2 on Ubuntu 22.04 when Docker CUDA probing succeeds
+- Node.js and npm for running the packaged CLI and backend build scripts
+- Rust and Cargo for building the backend binaries
+- C/C++ build tooling, `cmake`, `pkg-config`, `clang`, and `libclang-dev` for native Rust dependencies
+- `curl`, `git`, `tar`, `unzip`, and CA certificates for downloading, Git dependencies, and archive extraction
+
+The image is intentionally conservative rather than aggressively minimal. Removing packages such as `clang`, `libclang-dev`, `pkg-config`, or `bash` requires a clean Docker build test of the backend before release.
 
 ## Which Working Directory Does The CLI Use?
 

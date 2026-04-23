@@ -1,8 +1,10 @@
 name: Test & Build
 
 on:
+  pull_request:
+    branches: [main]
   push:
-    branches: [main, dev]
+    branches: [main]
 
 concurrency:
   group: build-release-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -141,7 +143,6 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     needs: build-and-setup
-    if: github.base_ref == 'main' || github.base_ref == 'dev'
 
     steps:
       - name: Checkout code
@@ -191,7 +192,6 @@ jobs:
     runs-on: ubuntu-22.04
     needs: [build-and-setup, evm-compat-test]
     timeout-minutes: 30
-    if: github.base_ref == 'main' || github.base_ref == 'dev'
 
     steps:
       - name: Checkout code
@@ -402,7 +402,7 @@ jobs:
         run: |
           echo "🧪 Running L2StateChannel CI test..."
           node "${{ github.workspace }}/packages/cli/dist/cli.js" --synthesize \
-            "${{ github.workspace }}/packages/frontend/synthesizer/node-cli/examples/L2StateChannel"
+            "${{ github.workspace }}/packages/frontend/synthesizer/examples/L2StateChannel"
 
       - name: Run preprocess
         run: |

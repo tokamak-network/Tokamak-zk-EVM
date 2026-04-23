@@ -1,0 +1,8 @@
+*
+!package.json
+!dist/
+!dist/**
+!scripts/
+!scripts/**
+!vendor/
+!vendor/**

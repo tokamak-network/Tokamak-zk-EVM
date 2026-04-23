@@ -1,0 +1,35 @@
+{
+  "version": "3.8.0",
+  "assets": {
+    "macos": {
+      "fileName": "icicle_3_8_0-macos.tar.gz",
+      "url": "https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-macos.tar.gz",
+      "sha256": "693726f17622668d04be300e71d5a2e0af50e8ec0dda97842d919c31f033c7d6"
+    },
+    "macos-metal": {
+      "fileName": "icicle_3_8_0-macos-metal.tar.gz",
+      "url": "https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-macos-metal.tar.gz",
+      "sha256": "8b473e49cb755f31a061046294e45c8c888c351ede401b4e6604d0322a8f858a"
+    },
+    "ubuntu20": {
+      "fileName": "icicle_3_8_0-ubuntu20.tar.gz",
+      "url": "https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-ubuntu20.tar.gz",
+      "sha256": "2479bdaccc0c817505eecbf1856e9595d5a3925861e9485073f2628f6bacf274"
+    },
+    "ubuntu20-cuda122": {
+      "fileName": "icicle_3_8_0-ubuntu20-cuda122.tar.gz",
+      "url": "https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-ubuntu20-cuda122.tar.gz",
+      "sha256": "a26a271658ee9fb071e7449d31dfeb619abf03daceff0ce6f7ebda432ebc6661"
+    },
+    "ubuntu22": {
+      "fileName": "icicle_3_8_0-ubuntu22.tar.gz",
+      "url": "https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-ubuntu22.tar.gz",
+      "sha256": "365a0af9416db7ec5542037895befd2daa9029f9df18616d6f5fc4fc2dcc3009"
+    },
+    "ubuntu22-cuda122": {
+      "fileName": "icicle_3_8_0-ubuntu22-cuda122.tar.gz",
+      "url": "https://github.com/ingonyama-zk/icicle/releases/download/v3.8.0/icicle_3_8_0-ubuntu22-cuda122.tar.gz",
+      "sha256": "9f2ef532aafcf1c2f81ea2ca1ffc6aeb0124b21465adb324d602452e3b03b5ca"
+    }
+  }
+}

@@ -244,12 +244,8 @@ impl DuskGroth16Source {
 
         verify_dusk_tau_consistency(&tau_powers_g1, &tau_powers_g2)?;
 
-        let canonical_source_path = std::fs::canonicalize(path)
-            .unwrap_or_else(|_| Path::new(path).to_path_buf())
-            .to_string_lossy()
-            .to_string();
         let provenance = DuskSourceProvenance {
-            source_path: canonical_source_path,
+            source_url: drive_direct_download_url(DUSK_PINNED_DRIVE_FILE_ID),
             source_size_bytes: bytes.len() as u64,
             raw_encoding: encoding.as_str().to_string(),
             pinned_contribution: DUSK_PINNED_CONTRIBUTION.to_string(),

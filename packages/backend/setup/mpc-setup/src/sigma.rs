@@ -29,7 +29,7 @@ const PHASE2_ACC_HEADER_LEN: usize = PHASE2_ACC_MAGIC.len() + std::mem::size_of:
 )]
 #[archive(check_bytes)]
 pub struct DuskSourceProvenance {
-    pub source_path: String,
+    pub source_url: String,
     pub source_size_bytes: u64,
     pub raw_encoding: String,
     pub pinned_contribution: String,
