@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.5 - 2026-04-24
+
+- Simplified CRS archive cache reuse so the CLI now compares the published archive version, timestamp, and file size instead of unpacking cached archives to verify provenance hashes.
+
 ## 2.0.4 - 2026-04-24
 
 - Added Linux-only `--install --docker` support that installs through an Ubuntu 22 Docker image, records Docker bootstrap files under `~/.tokamak-zk-evm/linux/docker`, and runs backend preprocess, prove, and verify commands through that bootstrap when Docker is available.
