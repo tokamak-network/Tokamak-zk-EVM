@@ -8,10 +8,10 @@ import {
   type TokamakChannelTxFiles,
 } from '@tokamak-zk-evm/synthesizer-node';
 import {
-  backendEnvironment,
   detectPlatform,
   installRuntime,
   requireInstalledRuntime,
+  runBackendCommand,
   runCommand,
   runtimePaths,
   uninstallRuntime,
@@ -32,6 +32,7 @@ interface ParsedArgs {
   command: CommandName;
   verbose: boolean;
   installOptions?: {
+    docker: boolean;
     trustedSetup: boolean;
     noSetup: boolean;
   };
@@ -42,11 +43,12 @@ interface ParsedArgs {
 function printUsage(): void {
   console.log(`
 Commands:
-  --install [--trusted-setup] [--no-setup]
+  --install [--trusted-setup] [--no-setup] [--docker]
       Build the local Tokamak zk-EVM runtime from the packaged backend workspace and prepare local resources
       By default setup artifacts are installed from the published CRS archive
       Use --trusted-setup to generate setup artifacts locally with the trusted-setup binary
       Use --no-setup to skip setup artifact provisioning
+      Use --docker on Linux to install and run backend commands through an Ubuntu 22 container
 
   --uninstall
       Remove the local Tokamak zk-EVM workspace for the current platform, including cached runtime files and downloads
@@ -86,6 +88,7 @@ Options:
   --verbose        Show detailed output
   --trusted-setup  Build setup artifacts locally during --install
   --no-setup       Skip setup artifact provisioning during --install
+  --docker         Install through Docker on Linux and save a Docker bootstrap
 `);
 }
 
@@ -180,10 +183,15 @@ function parseArgs(argv: string[]): ParsedArgs {
   const verbose = argv.includes('--verbose');
 
   if (argv[0] === '--install') {
+    let docker = false;
     let trustedSetup = false;
     let noSetup = false;
     for (const arg of argv.slice(1)) {
       if (arg === '--verbose') continue;
+      if (arg === '--docker') {
+        docker = true;
+        continue;
+      }
       if (arg === '--trusted-setup') {
         trustedSetup = true;
         continue;
@@ -200,7 +208,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     return {
       command: 'install',
       verbose,
-      installOptions: { trustedSetup, noSetup },
+      installOptions: { docker, trustedSetup, noSetup },
     };
   }
   if (argv[0] === '--uninstall') {
@@ -351,7 +359,8 @@ async function runPreprocess(context: RuntimeContext, inputPath: string | undefi
 
   await fs.mkdir(paths.preprocessOutputDir, { recursive: true });
   log(`Preprocess: running backend preprocess (target=${detectPlatform()})`);
-  await runCommand(
+  await runBackendCommand(
+    context,
     paths.preprocessBinary,
     [
       '--crs',
@@ -361,10 +370,7 @@ async function runPreprocess(context: RuntimeContext, inputPath: string | undefi
       '--output',
       paths.preprocessOutputDir,
     ],
-    {
-      env: backendEnvironment(context),
-      verbose,
-    },
+    verbose,
   );
   ok(`Preprocess complete → ${paths.preprocessOutputDir}`);
 }
@@ -381,7 +387,8 @@ async function runProve(context: RuntimeContext, inputPath: string | undefined, 
 
   await fs.mkdir(paths.proveOutputDir, { recursive: true });
   log(`Prove: running backend prove (target=${detectPlatform()})`);
-  await runCommand(
+  await runBackendCommand(
+    context,
     paths.proveBinary,
     [
       '--crs',
@@ -391,10 +398,7 @@ async function runProve(context: RuntimeContext, inputPath: string | undefined, 
       '--output',
       paths.proveOutputDir,
     ],
-    {
-      env: backendEnvironment(context),
-      verbose,
-    },
+    verbose,
   );
   ok(`Proof artifacts available in ${paths.proveOutputDir}`);
 }
@@ -410,7 +414,8 @@ async function runVerify(context: RuntimeContext, inputPath: string | undefined,
   await ensureFile(path.join(paths.synthOutputDir, 'instance.json'));
 
   log(`Verify: using artifacts in ${paths.resourceDir}`);
-  const result = await runCommand(
+  const result = await runBackendCommand(
+    context,
     paths.verifyBinary,
     [
       '--crs',
@@ -422,10 +427,7 @@ async function runVerify(context: RuntimeContext, inputPath: string | undefined,
       '--proof',
       paths.proveOutputDir,
     ],
-    {
-      env: backendEnvironment(context),
-      verbose,
-    },
+    verbose,
   );
 
   const lastLine = result.stdout
@@ -501,6 +503,7 @@ async function main(): Promise<void> {
   switch (parsed.command) {
     case 'install': {
       const context = await installRuntime({
+        docker: parsed.installOptions?.docker ?? false,
         verbose: parsed.verbose,
         noSetup: parsed.installOptions?.noSetup ?? false,
         trustedSetup: parsed.installOptions?.trustedSetup ?? false,

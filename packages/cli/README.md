@@ -5,6 +5,7 @@
 Main commands:
 
 - `--install`
+- `--install --docker`
 - `--synthesize`
 - `--preprocess`
 - `--prove`
@@ -36,6 +37,8 @@ Before running `--install`, make sure the machine has:
 - a working C/C++ toolchain
 - outbound HTTPS access to npm, crates.io, GitHub, GitHub Releases, and Google Drive
 
+For `--install --docker`, the Linux host needs Docker installed and a running Docker daemon. CUDA is enabled only when `docker run --rm --gpus all nvidia/cuda:12.2.0-base-ubuntu22.04 nvidia-smi` succeeds.
+
 ### macOS
 
 ```bash
@@ -56,6 +59,12 @@ source "$HOME/.cargo/env"
 npm install -g @tokamak-zk-evm/cli
 ```
 
+Docker installation is also available on Linux:
+
+```bash
+tokamak-cli --install --docker
+```
+
 ### Windows
 
 Native Windows installation is not supported. Use WSL2 or Docker.
@@ -68,6 +77,14 @@ Native Windows installation is not supported. Use WSL2 or Docker.
 - downloads the ICICLE runtime libraries
 - downloads CRS files, unless `--no-setup` is used
 - writes everything into the CLI runtime cache
+
+`--install --docker` is supported only on Linux hosts. It checks that Docker is running, probes CUDA with `docker run --rm --gpus all ... nvidia-smi`, then installs through either an `ubuntu22-cuda122` container environment or a CPU-only `ubuntu22` container environment. It writes the Linux runtime cache as usual and stores Docker bootstrap files in:
+
+```text
+~/.tokamak-zk-evm/linux/docker
+```
+
+When `--preprocess`, `--prove`, or `--verify` runs later, the CLI uses that bootstrap to execute the backend command inside Docker if the bootstrap exists and Docker is running. If Docker is not running, the CLI falls back to the native runtime path.
 
 The package runs `tokamak-cli --install` during `postinstall` unless `TOKAMAK_ZKEVM_SKIP_POSTINSTALL=1` is set.
 

@@ -8,12 +8,15 @@ import { spawn, spawnSync } from 'node:child_process';
 export type CliPlatform = 'linux' | 'macos';
 
 export interface InstallOptions {
+  docker: boolean;
   noSetup: boolean;
   trustedSetup: boolean;
   verbose: boolean;
 }
 
 export interface RuntimeState {
+  dockerEnvironment?: DockerEnvironment;
+  installMode?: 'native' | 'docker';
   packageVersion: string;
   platform: CliPlatform;
   installedAt: string;
@@ -32,6 +35,18 @@ export interface RuntimeContext {
 export interface CommandResult {
   stdout: string;
   stderr: string;
+}
+
+export type DockerEnvironment = 'ubuntu22' | 'ubuntu22-cuda122';
+
+interface DockerBootstrap {
+  version: 1;
+  createdAt: string;
+  dockerEnvironment: DockerEnvironment;
+  imageName: string;
+  packageVersion: string;
+  platform: 'linux';
+  useGpus: boolean;
 }
 
 interface PrerequisiteFailure {
@@ -77,6 +92,11 @@ const CRS_DOWNLOAD_MAX_RETRIES = 10;
 const CRS_DOWNLOAD_RETRY_BASE_DELAY_MS = 1_000;
 const DOWNLOAD_PROGRESS_LOG_INTERVAL_MS = 2_000;
 const DOWNLOAD_PROGRESS_PERCENT_STEP = 5;
+const DOCKER_BOOTSTRAP_VERSION = 1;
+const DOCKER_CONTAINER_CACHE_ROOT = '/tokamak-cache';
+const DOCKER_CUDA_BASE_IMAGE = 'nvidia/cuda:12.2.0-devel-ubuntu22.04';
+const DOCKER_CUDA_PROBE_IMAGE = 'nvidia/cuda:12.2.0-base-ubuntu22.04';
+const DOCKER_UBUNTU_BASE_IMAGE = 'ubuntu:22.04';
 
 function logVerbose(enabled: boolean, message: string): void {
   if (enabled) {
@@ -225,6 +245,10 @@ function collectPrerequisiteFailures(
 }
 
 function ensureInstallPrerequisites(platform: CliPlatform, options: InstallOptions): void {
+  if (options.docker) {
+    return;
+  }
+
   const failures = collectPrerequisiteFailures(platform, options);
   if (failures.length === 0) {
     return;
@@ -339,6 +363,14 @@ export function runtimePaths(context: RuntimeContext) {
   };
 }
 
+function dockerBootstrapDir(context: RuntimeContext): string {
+  return path.join(context.platformDir, 'docker');
+}
+
+function dockerBootstrapPath(context: RuntimeContext): string {
+  return path.join(dockerBootstrapDir(context), 'bootstrap.json');
+}
+
 async function ensureDir(dirPath: string): Promise<void> {
   await fs.mkdir(dirPath, { recursive: true });
 }
@@ -423,6 +455,48 @@ export async function runCommand(
   });
 }
 
+async function commandSucceeds(
+  command: string,
+  args: string[],
+  options: {
+    cwd?: string;
+    env?: NodeJS.ProcessEnv;
+    verbose?: boolean;
+  } = {},
+): Promise<boolean> {
+  const { cwd, env, verbose = false } = options;
+  if (verbose) {
+    writeStderrLine(`[info] Command: ${command} ${args.join(' ')}`);
+  }
+  return await new Promise<boolean>((resolve) => {
+    const child = spawn(command, args, {
+      cwd,
+      env,
+      stdio: 'ignore',
+    });
+    child.on('error', () => resolve(false));
+    child.on('close', (code) => resolve(code === 0));
+  });
+}
+
+async function dockerDaemonAvailable(verbose: boolean): Promise<boolean> {
+  if (!commandExists('docker')) {
+    logVerbose(verbose, 'Docker is not available on PATH.');
+    return false;
+  }
+  if (await commandSucceeds('docker', ['info'], { verbose: false })) {
+    return true;
+  }
+  logVerbose(verbose, 'Docker daemon is not running or is not reachable.');
+  return false;
+}
+
+async function ensureDockerDaemonAvailable(verbose: boolean): Promise<void> {
+  if (!(await dockerDaemonAvailable(verbose))) {
+    throw new Error('Docker is required for `tokamak-cli --install --docker`, but the Docker daemon is not available.');
+  }
+}
+
 async function ensureVendoredBackendExists(packageRoot: string): Promise<string> {
   const backendRoot = resolveVendoredBackendRoot(packageRoot);
   const cargoManifestPath = path.join(backendRoot, 'Cargo.toml');
@@ -482,6 +556,188 @@ async function linuxCudaBackendAvailable(verbose: boolean): Promise<boolean> {
     );
     return false;
   }
+}
+
+async function dockerCudaAvailable(verbose: boolean): Promise<boolean> {
+  const args = ['run', '--rm', '--gpus', 'all', DOCKER_CUDA_PROBE_IMAGE, 'nvidia-smi'];
+  try {
+    const succeeded = verbose
+      ? await runCommand('docker', args, { verbose }).then(() => true)
+      : await commandSucceeds('docker', args);
+    if (!succeeded) {
+      logVerbose(verbose, 'Docker CUDA probe failed; using CPU-only Ubuntu 22 environment.');
+      return false;
+    }
+    logVerbose(verbose, 'Docker CUDA probe succeeded with `--gpus all` and `nvidia-smi`.');
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logVerbose(verbose, `Docker CUDA probe failed; using CPU-only Ubuntu 22 environment: ${message}`);
+    return false;
+  }
+}
+
+function dockerBaseImage(environment: DockerEnvironment): string {
+  return environment === 'ubuntu22-cuda122' ? DOCKER_CUDA_BASE_IMAGE : DOCKER_UBUNTU_BASE_IMAGE;
+}
+
+function dockerImageName(packageVersion: string, environment: DockerEnvironment): string {
+  const sanitizedVersion = packageVersion.replace(/[^a-zA-Z0-9_.-]/gu, '-');
+  return `tokamak-zk-evm-cli:${sanitizedVersion}-${environment}`;
+}
+
+function dockerRunPrefix(bootstrap: DockerBootstrap): string[] {
+  const args = ['run', '--rm'];
+  if (bootstrap.useGpus) {
+    args.push('--gpus', 'all');
+  }
+  return args;
+}
+
+function dockerUserArgs(): string[] {
+  if (typeof process.getuid !== 'function' || typeof process.getgid !== 'function') {
+    return [];
+  }
+  return ['--user', `${process.getuid()}:${process.getgid()}`];
+}
+
+function toContainerPath(hostPath: string, context: RuntimeContext): string {
+  const relative = path.relative(context.cacheRoot, hostPath);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`Docker bootstrap cannot map path outside the cache root: ${hostPath}`);
+  }
+  return path.posix.join(DOCKER_CONTAINER_CACHE_ROOT, ...relative.split(path.sep));
+}
+
+function toContainerArgument(arg: string, context: RuntimeContext): string {
+  if (!path.isAbsolute(arg)) {
+    return arg;
+  }
+  return toContainerPath(arg, context);
+}
+
+function dockerBackendEnvironment(context: RuntimeContext): Record<string, string> {
+  const paths = runtimePaths(context);
+  const icicleLibDir = toContainerPath(paths.icicleLibDir, context);
+  return {
+    LD_LIBRARY_PATH: icicleLibDir,
+    ICICLE_BACKEND_INSTALL_DIR: path.posix.join(icicleLibDir, 'backend'),
+  };
+}
+
+function validateDockerBootstrap(value: unknown): DockerBootstrap | null {
+  if (typeof value !== 'object' || value === null) {
+    return null;
+  }
+  const candidate = value as Partial<DockerBootstrap>;
+  if (
+    candidate.version !== DOCKER_BOOTSTRAP_VERSION ||
+    candidate.platform !== 'linux' ||
+    typeof candidate.imageName !== 'string' ||
+    typeof candidate.packageVersion !== 'string' ||
+    typeof candidate.createdAt !== 'string' ||
+    typeof candidate.useGpus !== 'boolean' ||
+    (candidate.dockerEnvironment !== 'ubuntu22' && candidate.dockerEnvironment !== 'ubuntu22-cuda122')
+  ) {
+    return null;
+  }
+  return candidate as DockerBootstrap;
+}
+
+async function readDockerBootstrap(context: RuntimeContext): Promise<DockerBootstrap | null> {
+  if (context.platform !== 'linux') {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(await fs.readFile(dockerBootstrapPath(context), 'utf8')) as unknown;
+    return validateDockerBootstrap(parsed);
+  } catch {
+    return null;
+  }
+}
+
+async function dockerBootstrapRunnable(context: RuntimeContext, verbose: boolean): Promise<DockerBootstrap | null> {
+  const bootstrap = await readDockerBootstrap(context);
+  if (bootstrap === null) {
+    return null;
+  }
+  if (!(await dockerDaemonAvailable(verbose))) {
+    return null;
+  }
+  return bootstrap;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/gu, `'\\''`)}'`;
+}
+
+async function writeDockerBootstrap(context: RuntimeContext, bootstrap: DockerBootstrap): Promise<void> {
+  const bootstrapDir = dockerBootstrapDir(context);
+  await ensureDir(bootstrapDir);
+  await fs.writeFile(dockerBootstrapPath(context), `${JSON.stringify(bootstrap, null, 2)}\n`, 'utf8');
+
+  const env = dockerBackendEnvironment(context);
+  const scriptPath = path.join(bootstrapDir, 'run.sh');
+  const gpuArgs = bootstrap.useGpus ? ' --gpus all' : '';
+  const script = [
+    '#!/usr/bin/env sh',
+    'set -eu',
+    'exec docker run --rm \\',
+    `${gpuArgs ? `  ${gpuArgs.trim()} \\` : ''}`,
+    `  -v ${shellQuote(`${context.cacheRoot}:${DOCKER_CONTAINER_CACHE_ROOT}`)} \\`,
+    `  -e ${shellQuote(`LD_LIBRARY_PATH=${env.LD_LIBRARY_PATH}`)} \\`,
+    `  -e ${shellQuote(`ICICLE_BACKEND_INSTALL_DIR=${env.ICICLE_BACKEND_INSTALL_DIR}`)} \\`,
+    `  ${shellQuote(bootstrap.imageName)} "$@"`,
+    '',
+  ].filter((line) => line !== '').join('\n');
+  await fs.writeFile(scriptPath, script, 'utf8');
+  await fs.chmod(scriptPath, 0o755);
+}
+
+async function runDockerBootstrapCommand(
+  context: RuntimeContext,
+  bootstrap: DockerBootstrap,
+  command: string,
+  args: string[],
+  verbose: boolean,
+): Promise<CommandResult> {
+  const env = dockerBackendEnvironment(context);
+  const containerCommand = toContainerPath(command, context);
+  const dockerArgs = [
+    ...dockerRunPrefix(bootstrap),
+    ...dockerUserArgs(),
+    '-v',
+    `${context.cacheRoot}:${DOCKER_CONTAINER_CACHE_ROOT}`,
+    '-e',
+    'HOME=/tmp',
+    '-e',
+    `LD_LIBRARY_PATH=${env.LD_LIBRARY_PATH}`,
+    '-e',
+    `ICICLE_BACKEND_INSTALL_DIR=${env.ICICLE_BACKEND_INSTALL_DIR}`,
+    '--entrypoint',
+    containerCommand,
+    bootstrap.imageName,
+    ...args.map((arg) => toContainerArgument(arg, context)),
+  ];
+  return await runCommand('docker', dockerArgs, { verbose });
+}
+
+export async function runBackendCommand(
+  context: RuntimeContext,
+  command: string,
+  args: string[],
+  verbose: boolean,
+): Promise<CommandResult> {
+  const bootstrap = await dockerBootstrapRunnable(context, verbose);
+  if (bootstrap !== null) {
+    logVerbose(verbose, `Running backend command in Docker bootstrap ${bootstrap.dockerEnvironment}.`);
+    return await runDockerBootstrapCommand(context, bootstrap, command, args, verbose);
+  }
+
+  return await runCommand(command, args, {
+    env: backendEnvironment(context),
+    verbose,
+  });
 }
 
 async function buildBackendReleaseBinaries(
@@ -1145,7 +1401,135 @@ async function runTrustedSetup(context: RuntimeContext, verbose: boolean): Promi
   );
 }
 
+function dockerfileContents(baseImage: string): string {
+  return [
+    `FROM ${baseImage}`,
+    '',
+    'ENV DEBIAN_FRONTEND=noninteractive',
+    'RUN apt-get update && apt-get install -y \\',
+    '    bash \\',
+    '    build-essential \\',
+    '    ca-certificates \\',
+    '    clang \\',
+    '    cmake \\',
+    '    curl \\',
+    '    git \\',
+    '    libclang-dev \\',
+    '    pkg-config \\',
+    '    tar \\',
+    '    unzip \\',
+    '    && rm -rf /var/lib/apt/lists/*',
+    'RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \\',
+    '    && apt-get install -y nodejs \\',
+    '    && rm -rf /var/lib/apt/lists/*',
+    'ENV CARGO_HOME=/usr/local/cargo',
+    'ENV RUSTUP_HOME=/usr/local/rustup',
+    'ENV PATH="/usr/local/cargo/bin:${PATH}"',
+    "RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path \\",
+    '    && chmod -R a+rwx /usr/local/cargo /usr/local/rustup',
+    'WORKDIR /opt/tokamak-cli',
+    'COPY package.json ./',
+    'RUN npm install --omit=dev --ignore-scripts',
+    'COPY dist ./dist',
+    'COPY scripts ./scripts',
+    'COPY vendor ./vendor',
+    'RUN test -f dist/cli.js \\',
+    '    && test -f vendor/backend/Cargo.toml \\',
+    '    && chmod -R a+rwx /opt/tokamak-cli',
+    'ENTRYPOINT ["node", "/opt/tokamak-cli/dist/cli.js"]',
+    '',
+  ].join('\n');
+}
+
+async function buildDockerInstallImage(
+  context: RuntimeContext,
+  environment: DockerEnvironment,
+  imageName: string,
+  verbose: boolean,
+): Promise<void> {
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-cli-docker-'));
+  try {
+    const dockerfilePath = path.join(tempRoot, 'Dockerfile');
+    await fs.writeFile(dockerfilePath, dockerfileContents(dockerBaseImage(environment)), 'utf8');
+    await runCommand('docker', ['build', '-t', imageName, '-f', dockerfilePath, context.packageRoot], {
+      verbose,
+    });
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function dockerInstallArgs(context: RuntimeContext, bootstrap: DockerBootstrap, options: InstallOptions): string[] {
+  const args = [
+    ...dockerRunPrefix(bootstrap),
+    ...dockerUserArgs(),
+    '-v',
+    `${context.cacheRoot}:${DOCKER_CONTAINER_CACHE_ROOT}`,
+    '-e',
+    `TOKAMAK_ZKEVM_CLI_CACHE_DIR=${DOCKER_CONTAINER_CACHE_ROOT}`,
+    '-e',
+    'HOME=/tmp',
+    bootstrap.imageName,
+    '--install',
+  ];
+  if (options.trustedSetup) {
+    args.push('--trusted-setup');
+  }
+  if (options.noSetup) {
+    args.push('--no-setup');
+  }
+  if (options.verbose) {
+    args.push('--verbose');
+  }
+  return args;
+}
+
+async function writeRuntimeState(context: RuntimeContext, state: RuntimeState): Promise<void> {
+  await ensureDir(path.dirname(context.statePath));
+  await fs.writeFile(context.statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+}
+
+async function installDockerRuntime(options: InstallOptions): Promise<RuntimeContext> {
+  const context = await createRuntimeContext();
+  if (context.platform !== 'linux') {
+    throw new Error('`tokamak-cli --install --docker` is supported only on Linux hosts.');
+  }
+  await ensureDockerDaemonAvailable(options.verbose);
+  await ensureDir(context.cacheRoot);
+
+  const dockerEnvironment: DockerEnvironment = (await dockerCudaAvailable(options.verbose))
+    ? 'ubuntu22-cuda122'
+    : 'ubuntu22';
+  const bootstrap: DockerBootstrap = {
+    version: DOCKER_BOOTSTRAP_VERSION,
+    createdAt: new Date().toISOString(),
+    dockerEnvironment,
+    imageName: dockerImageName(context.packageVersion, dockerEnvironment),
+    packageVersion: context.packageVersion,
+    platform: 'linux',
+    useGpus: dockerEnvironment === 'ubuntu22-cuda122',
+  };
+
+  await buildDockerInstallImage(context, dockerEnvironment, bootstrap.imageName, options.verbose);
+  await runCommand('docker', dockerInstallArgs(context, bootstrap, options), {
+    verbose: options.verbose,
+  });
+  await writeDockerBootstrap(context, bootstrap);
+  await writeRuntimeState(context, {
+    dockerEnvironment,
+    installMode: 'docker',
+    packageVersion: context.packageVersion,
+    platform: context.platform,
+    installedAt: bootstrap.createdAt,
+  });
+  return context;
+}
+
 export async function installRuntime(options: InstallOptions): Promise<RuntimeContext> {
+  if (options.docker) {
+    return await installDockerRuntime(options);
+  }
+
   const context = await createRuntimeContext();
   ensureInstallPrerequisites(context.platform, options);
   const backendRoot = await ensureVendoredBackendExists(context.packageRoot);
@@ -1166,11 +1550,12 @@ export async function installRuntime(options: InstallOptions): Promise<RuntimeCo
   }
 
   const state: RuntimeState = {
+    installMode: 'native',
     packageVersion: context.packageVersion,
     platform: context.platform,
     installedAt: new Date().toISOString(),
   };
-  await fs.writeFile(context.statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  await writeRuntimeState(context, state);
   return context;
 }
 
