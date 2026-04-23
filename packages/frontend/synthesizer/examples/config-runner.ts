@@ -1,4 +1,7 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { bytesToHex, createAddressFromString, hexToBytes } from '@ethereumjs/util';
+import dotenv from 'dotenv';
 import { ethers } from 'ethers';
 import {
   createTokamakL2Common,
@@ -36,6 +39,10 @@ import {
   type PrivateStateRedeemConfig,
   type PrivateStateTransferConfig,
 } from './privateState/utils.ts';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
 type ConfigExampleType =
   | 'erc20-transfer'
