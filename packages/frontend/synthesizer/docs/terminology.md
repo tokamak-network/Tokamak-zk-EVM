@@ -16,4 +16,4 @@
 - **Public instance**: Extracted subset of witness values split into user, block, and function sections according to the resolved setup parameters in the shared subcircuit library context.
 - **Tokamak L2 state manager**: Runtime object from `tokamak-l2js` that exposes contract storage snapshots, Merkle proofs, and final state capture.
 - **Bundled subcircuit runtime**: The `web-app` build output that already contains the subcircuit-library JSON and WASM assets.
-- **Config runner**: Debug-only example adapter in `node-cli/examples/config-runner.ts` that derives synthesis inputs from config files and RPC state. It is not part of the published CLI surface.
+- **Config runner**: Debug-only example adapter in `examples/config-runner.ts` that derives synthesis inputs from config files and RPC state. It is not part of the published CLI surface.

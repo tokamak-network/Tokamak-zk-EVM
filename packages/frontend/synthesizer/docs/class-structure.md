@@ -41,7 +41,7 @@ This document summarizes the main classes and modules in the current split works
   - loads installed subcircuit WASM
   - calls shared synthesis flow
   - writes output files
-- **Debug config adapter** (`node-cli/examples/config-runner.ts`)
+- **Debug config adapter** (`examples/config-runner.ts`)
   - builds execution inputs from config files and RPC state
 - **Node subcircuit adapter** (`node-cli/src/subcircuit/*`)
   - resolves installed subcircuit metadata

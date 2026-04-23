@@ -33,7 +33,7 @@ Each adapter then prepares the runtime-specific subcircuit assets:
 
 Debug-only config execution is separate:
 
-- `node-cli/examples/config-runner.ts`
+- `examples/config-runner.ts`
   - derives block info from RPC
   - builds state manager options from config files
   - runs synthesis for development and debugging only

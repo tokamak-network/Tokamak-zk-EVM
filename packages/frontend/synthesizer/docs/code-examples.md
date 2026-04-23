@@ -58,7 +58,7 @@ Use `postSynthesisOutput(url, output)` instead of downloads if the result should
 The workspace still keeps one debug entrypoint for config-based execution:
 
 ```bash
-node --import tsx node-cli/examples/config-runner.ts private-state-mint path/to/config.json
+node --import tsx examples/config-runner.ts private-state-mint path/to/config.json
 ```
 
 That path is intentionally separate from the published Node CLI.

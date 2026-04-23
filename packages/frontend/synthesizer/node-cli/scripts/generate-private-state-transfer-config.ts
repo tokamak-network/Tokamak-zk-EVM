@@ -15,7 +15,7 @@ import {
   type PrivateStateNote,
   type PrivateStateTransferOutput,
   type PrivateStateTransferConfig,
-} from '../examples/privateState/utils.ts';
+} from '../../examples/privateState/utils.ts';
 import {
   computeReplayPrivateStateEncryptedNoteSalt,
   computeReplayPrivateStateMappingKey,

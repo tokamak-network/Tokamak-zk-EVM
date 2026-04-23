@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Private-state redeemNotes1",
+    "files": {
+      "previousState": "../examples/privateState/redeemNotes/redeemNotes1/previous_state_snapshot.json",
+      "transaction": "../examples/privateState/redeemNotes/redeemNotes1/transaction.json",
+      "blockInfo": "../examples/privateState/redeemNotes/redeemNotes1/block_info.json",
+      "contractCode": "../examples/privateState/redeemNotes/redeemNotes1/contract_codes.json"
+    }
+  },
+  {
+    "name": "Private-state redeemNotes2",
+    "files": {
+      "previousState": "../examples/privateState/redeemNotes/redeemNotes2/previous_state_snapshot.json",
+      "transaction": "../examples/privateState/redeemNotes/redeemNotes2/transaction.json",
+      "blockInfo": "../examples/privateState/redeemNotes/redeemNotes2/block_info.json",
+      "contractCode": "../examples/privateState/redeemNotes/redeemNotes2/contract_codes.json"
+    }
+  },
+  {
+    "name": "Private-state redeemNotes3",
+    "files": {
+      "previousState": "../examples/privateState/redeemNotes/redeemNotes3/previous_state_snapshot.json",
+      "transaction": "../examples/privateState/redeemNotes/redeemNotes3/transaction.json",
+      "blockInfo": "../examples/privateState/redeemNotes/redeemNotes3/block_info.json",
+      "contractCode": "../examples/privateState/redeemNotes/redeemNotes3/contract_codes.json"
+    }
+  },
+  {
+    "name": "Private-state redeemNotes4",
+    "files": {
+      "previousState": "../examples/privateState/redeemNotes/redeemNotes4/previous_state_snapshot.json",
+      "transaction": "../examples/privateState/redeemNotes/redeemNotes4/transaction.json",
+      "blockInfo": "../examples/privateState/redeemNotes/redeemNotes4/block_info.json",
+      "contractCode": "../examples/privateState/redeemNotes/redeemNotes4/contract_codes.json"
+    }
+  }
+]

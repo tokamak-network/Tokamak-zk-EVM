@@ -24,7 +24,7 @@ function resolveScenarioDir(): string {
   if (scenarioArg === undefined) {
     return path.join(
       workspaceDir,
-      'node-cli/examples/privateState/mintNotes/mintNotes2',
+      'examples/privateState/mintNotes/mintNotes2',
     );
   }
 

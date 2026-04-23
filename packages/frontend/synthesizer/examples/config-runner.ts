@@ -8,12 +8,12 @@ import {
   type ChannelStateConfig,
   type TokamakL2TxData,
 } from 'tokamak-l2js';
-import { createCircuitGenerator } from '../../core/src/circuit.ts';
-import type { BlockInfo } from '../../core/src/synthesizer.ts';
-import { createSynthesizer } from '../src/synthesizer/constructors.ts';
-import { writeCircuitJson, writeEvmAnalysisJson } from '../src/io/jsonWriter.ts';
-import { installedSubcircuitLibrary } from '../src/subcircuit/installedLibrary.ts';
-import { loadSubcircuitWasm } from '../src/subcircuit/wasmLoader.ts';
+import { createCircuitGenerator } from '../core/src/circuit.ts';
+import type { BlockInfo } from '../core/src/synthesizer.ts';
+import { createSynthesizer } from '../node-cli/src/synthesizer/constructors.ts';
+import { writeCircuitJson, writeEvmAnalysisJson } from '../node-cli/src/io/jsonWriter.ts';
+import { installedSubcircuitLibrary } from '../node-cli/src/subcircuit/installedLibrary.ts';
+import { loadSubcircuitWasm } from '../node-cli/src/subcircuit/wasmLoader.ts';
 import {
   buildErc20Calldata,
   deriveParticipantKeys as deriveErc20ParticipantKeys,

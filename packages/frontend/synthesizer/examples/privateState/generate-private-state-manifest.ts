@@ -24,7 +24,7 @@ import {
   type TokamakL2TxData,
   type TxSnapshot,
 } from 'tokamak-l2js';
-import { TokamakL2MerkleTrees } from '../../../node_modules/tokamak-l2js/dist/stateManager/TokamakMerkleTrees.js';
+import { TokamakL2MerkleTrees } from '../../node_modules/tokamak-l2js/dist/stateManager/TokamakMerkleTrees.js';
 import {
   DEFAULT_EXAMPLE_NOTE_RECEIVE_CHANNEL_NAME,
   buildPrivateStateMintCalldata,
@@ -49,11 +49,11 @@ import {
   getPrivateStateVaultLiquidBalancesSlot,
   type PrivateStateNoteLike,
   type PrivateStateStorageLayoutManifest,
-} from '../../scripts/utils/private-state.ts';
+} from '../../node-cli/scripts/utils/private-state.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const packageRoot = path.resolve(__dirname, '../../..');
+const packageRoot = path.resolve(__dirname, '../..');
 const nodeCliRoot = path.resolve(packageRoot, 'node-cli');
 const examplesRoot = __dirname;
 const privateStateArtifactsDriveRootFolderId = '1dj9_Cyc5x1nEB85LtqeF7vRLhpkKTNHj';
