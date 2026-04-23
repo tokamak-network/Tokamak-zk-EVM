@@ -1,4 +1,7 @@
-ARG BASE_IMAGE=ubuntu:22.04
+# tokamak-cli passes BASE_IMAGE at runtime:
+# - ubuntu:22.04 for CPU-only installs
+# - nvidia/cuda:12.2.0-devel-ubuntu22.04 when Docker CUDA probing succeeds
+ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive
