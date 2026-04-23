@@ -55,7 +55,6 @@
     "build": "npm run prepare:package && tsc -p tsconfig.json --pretty false",
     "release:check": "node scripts/release-readiness.cjs",
     "typecheck": "tsc -p tsconfig.json --pretty false --noEmit",
-    "tsc": "npm run typecheck",
     "publish": "node scripts/publish-package.cjs",
     "prepack": "npm run build",
     "postinstall": "node scripts/postinstall.cjs"

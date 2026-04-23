@@ -1,5 +1,4 @@
 import fs from 'node:fs/promises';
-import fsSync from 'node:fs';
 import path from 'node:path';
 
 const packageRoot = path.resolve(import.meta.dirname, '..');
@@ -31,6 +30,13 @@ const fileExclusions = [
   'Dockerfile',
   /^Dockerfile\..*/u,
   /^gen-lang-client-.*\.json$/u,
+];
+
+const cargoManifestSanitizers = [
+  /\n\[\[bench\]\]\r?\nname = "outer_product_bench"\r?\nharness = false\r?\n?/gu,
+  /\n\[\[bench\]\]\r?\nname = "matrix_matrix_mul_bench"\r?\nharness = false\r?\n?/gu,
+  /\n\[\[test\]\]\r?\nname = "timing"\r?\npath = "optimization\/tests\/timing\.rs"\r?\n?/gu,
+  /\ncriterion = "0\.3"\r?\n/gu,
 ];
 
 async function ensureDir(target) {
@@ -67,34 +73,10 @@ async function copyDirectory(from, to, filter) {
 
 async function sanitizeCargoManifest(filePath) {
   let contents = await fs.readFile(filePath, 'utf8');
-  contents = contents.replace(/\n\[\[bench\]\]\r?\nname = "outer_product_bench"\r?\nharness = false\r?\n?/gu, '\n');
-  contents = contents.replace(/\n\[\[bench\]\]\r?\nname = "matrix_matrix_mul_bench"\r?\nharness = false\r?\n?/gu, '\n');
-  contents = contents.replace(/\n\[\[test\]\]\r?\nname = "timing"\r?\npath = "optimization\/tests\/timing\.rs"\r?\n?/gu, '\n');
-  contents = contents.replace(/\ncriterion = "0\.3"\r?\n/gu, '\n');
+  for (const sanitizer of cargoManifestSanitizers) {
+    contents = contents.replace(sanitizer, '\n');
+  }
   await fs.writeFile(filePath, contents, 'utf8');
-}
-
-async function removeExcludedBackendFiles(root) {
-  const entries = await fs.readdir(root, { withFileTypes: true });
-  await Promise.all(
-    entries.map(async (entry) => {
-      const entryPath = path.join(root, entry.name);
-      if (entry.isDirectory()) {
-        if (directoryExclusions.has(entry.name)) {
-          await fs.rm(entryPath, { recursive: true, force: true });
-          return;
-        }
-        await removeExcludedBackendFiles(entryPath);
-        return;
-      }
-      const shouldRemove = fileExclusions.some((matcher) =>
-        typeof matcher === 'string' ? entry.name === matcher : matcher.test(entry.name),
-      );
-      if (shouldRemove) {
-        await fs.rm(entryPath, { force: true });
-      }
-    }),
-  );
 }
 
 async function main() {
@@ -106,11 +88,8 @@ async function main() {
     shouldCopyBackendPath,
   );
 
-  if (fsSync.existsSync(vendoredBackendRoot)) {
-    await removeExcludedBackendFiles(vendoredBackendRoot);
-    await sanitizeCargoManifest(path.join(vendoredBackendRoot, 'libs', 'Cargo.toml'));
-    await sanitizeCargoManifest(path.join(vendoredBackendRoot, 'prove', 'Cargo.toml'));
-  }
+  await sanitizeCargoManifest(path.join(vendoredBackendRoot, 'libs', 'Cargo.toml'));
+  await sanitizeCargoManifest(path.join(vendoredBackendRoot, 'prove', 'Cargo.toml'));
 }
 
 await main();

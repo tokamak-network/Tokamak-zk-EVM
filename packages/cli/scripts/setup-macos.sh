@@ -131,6 +131,15 @@ get_homebrew_status() {
     fi
 }
 
+get_command_path() {
+    local command_name=$1
+    if command -v "$command_name" &> /dev/null; then
+        command -v "$command_name"
+    else
+        echo ""
+    fi
+}
+
 get_node_status() {
     if command -v node &> /dev/null; then
         node --version
@@ -163,14 +172,6 @@ get_cargo_status() {
     fi
 }
 
-get_circom_status() {
-    if command -v circom &> /dev/null; then
-        circom --version 2>&1 | head -n1
-    else
-        echo ""
-    fi
-}
-
 get_cmake_status() {
     if command -v cmake &> /dev/null; then
         echo "v$(cmake --version | head -n1 | awk '{print $3}')"
@@ -179,25 +180,163 @@ get_cmake_status() {
     fi
 }
 
-get_dos2unix_status() {
-    if command -v dos2unix &> /dev/null; then
-        dos2unix --version 2>&1 | head -n1
+get_tar_status() {
+    if command -v tar &> /dev/null; then
+        tar --version 2>&1 | head -n1
     else
         echo ""
     fi
 }
 
-get_git_status() {
-    if command -v git &> /dev/null; then
-        echo "v$(git --version | awk '{print $3}')"
+get_unzip_status() {
+    if command -v unzip &> /dev/null; then
+        unzip -v 2>&1 | head -n1
     else
         echo ""
     fi
+}
+
+get_cc_status() {
+    get_command_path "cc"
+}
+
+get_cxx_status() {
+    get_command_path "c++"
+}
+
+get_install_name_tool_status() {
+    get_command_path "install_name_tool"
+}
+
+DEPENDENCIES=(
+    "homebrew|Homebrew|get_homebrew_status|install_homebrew|"
+    "node|node|get_node_status|install_node|"
+    "npm|npm|get_npm_status||node"
+    "rust|rust|get_rust_status|install_rust|"
+    "cargo|cargo|get_cargo_status||rust"
+    "cmake|cmake|get_cmake_status|install_cmake|"
+    "tar|tar|get_tar_status||"
+    "unzip|unzip|get_unzip_status|install_unzip|"
+    "cc|cc|get_cc_status||"
+    "cxx|c++|get_cxx_status||"
+    "install_name_tool|install_name_tool|get_install_name_tool_status||"
+)
+
+MISSING_DEPS=()
+INSTALLABLE_DEPS=()
+MANUAL_DEPS=()
+
+contains_item() {
+    local needle=$1
+    shift
+    local item
+    for item in "$@"; do
+        if [[ "$item" == "$needle" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+dependency_name() {
+    local target_id=$1
+    local dep id name status_func installer bundled_with
+    for dep in "${DEPENDENCIES[@]}"; do
+        IFS='|' read -r id name status_func installer bundled_with <<< "$dep"
+        if [[ "$id" == "$target_id" ]]; then
+            echo "$name"
+            return
+        fi
+    done
+    echo "$target_id"
+}
+
+dependency_installer() {
+    local target_id=$1
+    local dep id name status_func installer bundled_with
+    for dep in "${DEPENDENCIES[@]}"; do
+        IFS='|' read -r id name status_func installer bundled_with <<< "$dep"
+        if [[ "$id" == "$target_id" ]]; then
+            echo "$installer"
+            return
+        fi
+    done
+    echo ""
+}
+
+dependency_bundled_with() {
+    local target_id=$1
+    local dep id name status_func installer bundled_with
+    for dep in "${DEPENDENCIES[@]}"; do
+        IFS='|' read -r id name status_func installer bundled_with <<< "$dep"
+        if [[ "$id" == "$target_id" ]]; then
+            echo "$bundled_with"
+            return
+        fi
+    done
+    echo ""
+}
+
+collect_missing_dependencies() {
+    local dep id name status_func installer bundled_with status
+    MISSING_DEPS=()
+    for dep in "${DEPENDENCIES[@]}"; do
+        IFS='|' read -r id name status_func installer bundled_with <<< "$dep"
+        status="$($status_func)"
+        if [[ -n "$status" ]]; then
+            print_status "installed" "$name" "($status)"
+        else
+            print_status "missing" "$name"
+            MISSING_DEPS+=("$id")
+        fi
+    done
+}
+
+split_installable_dependencies() {
+    local id installer bundled_with
+    INSTALLABLE_DEPS=()
+    MANUAL_DEPS=()
+    for id in "${MISSING_DEPS[@]}"; do
+        installer="$(dependency_installer "$id")"
+        bundled_with="$(dependency_bundled_with "$id")"
+        if [[ -n "$installer" ]]; then
+            INSTALLABLE_DEPS+=("$id")
+        elif [[ -n "$bundled_with" ]] && contains_item "$bundled_with" "${MISSING_DEPS[@]}"; then
+            continue
+        else
+            MANUAL_DEPS+=("$id")
+        fi
+    done
+}
+
+verify_dependencies() {
+    local all_success=true
+    local dep id name status_func installer bundled_with status
+    for dep in "${DEPENDENCIES[@]}"; do
+        IFS='|' read -r id name status_func installer bundled_with <<< "$dep"
+        status="$($status_func)"
+        if [[ -n "$status" ]]; then
+            print_status "installed" "$name" "($status)"
+        else
+            print_status "error" "$name" "(installation failed or manual setup required)"
+            all_success=false
+        fi
+    done
+
+    [[ "$all_success" == "true" ]]
 }
 
 # ============================================================================
 # INSTALLATION FUNCTIONS
 # ============================================================================
+
+refresh_homebrew_path() {
+    if [[ -x /opt/homebrew/bin/brew ]]; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    elif [[ -x /usr/local/bin/brew ]]; then
+        eval "$(/usr/local/bin/brew shellenv)"
+    fi
+}
 
 install_homebrew() {
     print_installing "Homebrew"
@@ -208,6 +347,7 @@ install_homebrew() {
         echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
         eval "$(/opt/homebrew/bin/brew shellenv)"
     fi
+    refresh_homebrew_path
     print_status "success" "Homebrew installed successfully!"
 }
 
@@ -224,46 +364,16 @@ install_rust() {
     print_status "success" "Rust installed successfully!"
 }
 
-install_circom() {
-    print_installing "Circom (from source)"
-    
-    local tmp_dir original_dir
-    tmp_dir=$(mktemp -d)
-    original_dir=$(pwd)
-    # Ensure cleanup and return to original directory when the function returns, even on error.
-    trap 'cd "$original_dir"; rm -rf -- "$tmp_dir"' RETURN
-    
-    cd "$tmp_dir"
-    
-    echo -e "  ${DIM}Cloning circom repository...${RESET}"
-    git clone https://github.com/iden3/circom.git
-    cd circom
-    
-    echo -e "  ${DIM}Building circom (this may take a few minutes)...${RESET}"
-    cargo build --release
-    
-    echo -e "  ${DIM}Installing circom binary...${RESET}"
-    cargo install --path circom
-    
-    print_status "success" "Circom installed successfully!"
-}
-
 install_cmake() {
     print_installing "CMake (via Homebrew)"
     brew install cmake
     print_status "success" "CMake installed successfully!"
 }
 
-install_dos2unix() {
-    print_installing "dos2unix (via Homebrew)"
-    brew install dos2unix
-    print_status "success" "dos2unix installed successfully!"
-}
-
-install_git() {
-    print_installing "Git (via Homebrew)"
-    brew install git
-    print_status "success" "Git installed successfully!"
+install_unzip() {
+    print_installing "unzip (via Homebrew)"
+    brew install unzip
+    print_status "success" "unzip installed successfully!"
 }
 
 # ============================================================================
@@ -281,90 +391,8 @@ main() {
     # ========================================================================
     print_section "${ICON_WRENCH} Checking System Dependencies"
     
-    # Arrays to track status
-    local -a missing_deps
-    missing_deps=()
-    
-    # Check Homebrew
-    local homebrew_ver=$(get_homebrew_status)
-    if [[ -n "$homebrew_ver" ]]; then
-        print_status "installed" "homebrew" "($homebrew_ver)"
-    else
-        print_status "missing" "homebrew"
-        missing_deps+=("homebrew")
-    fi
-    
-    # Check Git
-    local git_ver=$(get_git_status)
-    if [[ -n "$git_ver" ]]; then
-        print_status "installed" "git" "($git_ver)"
-    else
-        print_status "missing" "git"
-        missing_deps+=("git")
-    fi
-    
-    # Check Node.js
-    local node_ver=$(get_node_status)
-    if [[ -n "$node_ver" ]]; then
-        print_status "installed" "node" "($node_ver)"
-    else
-        print_status "missing" "node"
-        missing_deps+=("node")
-    fi
-    
-    # Check npm
-    local npm_ver=$(get_npm_status)
-    if [[ -n "$npm_ver" ]]; then
-        print_status "installed" "npm" "($npm_ver)"
-    else
-        print_status "missing" "npm"
-        # npm comes with node, don't add separately
-    fi
-    
-    # Check Rust
-    local rust_ver=$(get_rust_status)
-    if [[ -n "$rust_ver" ]]; then
-        print_status "installed" "rust" "($rust_ver)"
-    else
-        print_status "missing" "rust"
-        missing_deps+=("rust")
-    fi
-    
-    # Check Cargo
-    local cargo_ver=$(get_cargo_status)
-    if [[ -n "$cargo_ver" ]]; then
-        print_status "installed" "cargo" "($cargo_ver)"
-    else
-        print_status "missing" "cargo"
-        # cargo comes with rust, don't add separately
-    fi
-    
-    # Check Circom
-    local circom_ver=$(get_circom_status)
-    if [[ -n "$circom_ver" ]]; then
-        print_status "installed" "circom" "($circom_ver)"
-    else
-        print_status "missing" "circom"
-        missing_deps+=("circom")
-    fi
-    
-    # Check CMake
-    local cmake_ver=$(get_cmake_status)
-    if [[ -n "$cmake_ver" ]]; then
-        print_status "installed" "cmake" "($cmake_ver)"
-    else
-        print_status "missing" "cmake"
-        missing_deps+=("cmake")
-    fi
-    
-    # Check dos2unix
-    local dos2unix_ver=$(get_dos2unix_status)
-    if [[ -n "$dos2unix_ver" ]]; then
-        print_status "installed" "dos2unix" "($dos2unix_ver)"
-    else
-        print_status "missing" "dos2unix"
-        missing_deps+=("dos2unix")
-    fi
+    collect_missing_dependencies
+    split_installable_dependencies
     
     # ========================================================================
     # STEP 2: Summary
@@ -372,7 +400,7 @@ main() {
     echo ""
     echo -e "  ${DIM}────────────────────────────────────────${RESET}"
     
-    if [[ ${#missing_deps[@]} -eq 0 ]]; then
+    if [[ ${#MISSING_DEPS[@]} -eq 0 ]]; then
         echo ""
         echo -e "  ${BRIGHT_GREEN}${BOLD}${ICON_DONE} All dependencies are installed!${RESET}"
         echo ""
@@ -383,16 +411,30 @@ main() {
     fi
     
     echo ""
-    echo -e "  ${BRIGHT_YELLOW}${ICON_WARNING}${RESET} ${YELLOW}${#missing_deps[@]} missing dependencies found:${RESET}"
-    for dep in "${missing_deps[@]}"; do
-        echo -e "     ${DIM}•${RESET} ${WHITE}${dep}${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}${ICON_WARNING}${RESET} ${YELLOW}${#MISSING_DEPS[@]} missing dependencies found:${RESET}"
+    for dep in "${MISSING_DEPS[@]}"; do
+        echo -e "     ${DIM}•${RESET} ${WHITE}$(dependency_name "$dep")${RESET}"
     done
     echo ""
+
+    if [[ ${#MANUAL_DEPS[@]} -gt 0 ]]; then
+        echo -e "  ${BRIGHT_YELLOW}${ICON_WARNING}${RESET} ${YELLOW}Manual setup is required for:${RESET}"
+        for dep in "${MANUAL_DEPS[@]}"; do
+            echo -e "     ${DIM}•${RESET} ${WHITE}$(dependency_name "$dep")${RESET}"
+        done
+        echo ""
+    fi
+
+    if [[ ${#INSTALLABLE_DEPS[@]} -eq 0 ]]; then
+        echo -e "  ${DIM}Install the missing manual dependencies and run this script again.${RESET}"
+        echo ""
+        exit 1
+    fi
     
     # ========================================================================
     # STEP 3: Ask for confirmation
     # ========================================================================
-    echo -e "  ${BRIGHT_CYAN}Would you like to install missing dependencies automatically?${RESET}"
+    echo -e "  ${BRIGHT_CYAN}Would you like to install auto-installable dependencies?${RESET}"
     echo -e "  ${DIM}(This may take several minutes depending on your internet connection)${RESET}"
     echo ""
     echo -ne "  ${BRIGHT_WHITE}${BOLD}Proceed? [Y/n]:${RESET} "
@@ -412,26 +454,19 @@ main() {
     print_section "${ICON_ROCKET} Installing Dependencies"
     
     # Install Homebrew first (if missing) as it's needed for other packages
-    if [[ " ${missing_deps[*]} " =~ " homebrew " ]]; then
+    if contains_item "homebrew" "${INSTALLABLE_DEPS[@]}"; then
         install_homebrew
-        # Refresh brew path
-        if [[ $(uname -m) == 'arm64' ]]; then
-            eval "$(/opt/homebrew/bin/brew shellenv)"
-        else
-            eval "$(/usr/local/bin/brew shellenv)"
-        fi
+        refresh_homebrew_path
     fi
     
     # Install other dependencies
-    for dep in "${missing_deps[@]}"; do
+    for dep in "${INSTALLABLE_DEPS[@]}"; do
         case $dep in
             homebrew) ;; # Already handled above
-            git) install_git ;;
             node) install_node ;;
             rust) install_rust ;;
-            circom) install_circom ;;
             cmake) install_cmake ;;
-            dos2unix) install_dos2unix ;;
+            unzip) install_unzip ;;
         esac
     done
     
@@ -440,87 +475,11 @@ main() {
     # ========================================================================
     print_section "${ICON_CHECK} Verifying Installation"
     
-    local all_success=true
-    
-    # Verify Homebrew
-    homebrew_ver=$(get_homebrew_status)
-    if [[ -n "$homebrew_ver" ]]; then
-        print_status "installed" "homebrew" "($homebrew_ver)"
+    local all_success
+    if verify_dependencies; then
+        all_success=0
     else
-        print_status "error" "homebrew" "(installation failed)"
-        all_success=false
-    fi
-    
-    # Verify Git
-    git_ver=$(get_git_status)
-    if [[ -n "$git_ver" ]]; then
-        print_status "installed" "git" "($git_ver)"
-    else
-        print_status "error" "git" "(installation failed)"
-        all_success=false
-    fi
-    
-    # Verify Node.js
-    node_ver=$(get_node_status)
-    if [[ -n "$node_ver" ]]; then
-        print_status "installed" "node" "($node_ver)"
-    else
-        print_status "error" "node" "(installation failed)"
-        all_success=false
-    fi
-    
-    # Verify npm
-    npm_ver=$(get_npm_status)
-    if [[ -n "$npm_ver" ]]; then
-        print_status "installed" "npm" "($npm_ver)"
-    else
-        print_status "error" "npm" "(installation failed)"
-        all_success=false
-    fi
-    
-    # Verify Rust
-    rust_ver=$(get_rust_status)
-    if [[ -n "$rust_ver" ]]; then
-        print_status "installed" "rust" "($rust_ver)"
-    else
-        print_status "error" "rust" "(installation failed)"
-        all_success=false
-    fi
-    
-    # Verify Cargo
-    cargo_ver=$(get_cargo_status)
-    if [[ -n "$cargo_ver" ]]; then
-        print_status "installed" "cargo" "($cargo_ver)"
-    else
-        print_status "error" "cargo" "(installation failed)"
-        all_success=false
-    fi
-    
-    # Verify Circom
-    circom_ver=$(get_circom_status)
-    if [[ -n "$circom_ver" ]]; then
-        print_status "installed" "circom" "($circom_ver)"
-    else
-        print_status "error" "circom" "(installation failed)"
-        all_success=false
-    fi
-    
-    # Verify CMake
-    cmake_ver=$(get_cmake_status)
-    if [[ -n "$cmake_ver" ]]; then
-        print_status "installed" "cmake" "($cmake_ver)"
-    else
-        print_status "error" "cmake" "(installation failed)"
-        all_success=false
-    fi
-    
-    # Verify dos2unix
-    dos2unix_ver=$(get_dos2unix_status)
-    if [[ -n "$dos2unix_ver" ]]; then
-        print_status "installed" "dos2unix" "($dos2unix_ver)"
-    else
-        print_status "error" "dos2unix" "(installation failed)"
-        all_success=false
+        all_success=1
     fi
     
     # ========================================================================
@@ -530,7 +489,7 @@ main() {
     echo -e "  ${DIM}────────────────────────────────────────${RESET}"
     echo ""
     
-    if [[ "$all_success" == "true" ]]; then
+    if [[ "$all_success" -eq 0 ]]; then
         echo -e "  ${BRIGHT_GREEN}${BOLD}${ICON_DONE} Setup completed successfully!${RESET}"
         echo ""
         echo -e "  ${BRIGHT_CYAN}Next steps:${RESET}"
@@ -546,8 +505,8 @@ main() {
         echo -e "  ${BRIGHT_CYAN}Manual installation guides:${RESET}"
         echo -e "  ${DIM}• Node.js:${RESET}  https://nodejs.org/"
         echo -e "  ${DIM}• Rust:${RESET}     https://www.rust-lang.org/tools/install"
-        echo -e "  ${DIM}• Circom:${RESET}   https://docs.circom.io/getting-started/installation/"
         echo -e "  ${DIM}• CMake:${RESET}    https://cmake.org/download/"
+        echo -e "  ${DIM}• Apple developer tools:${RESET} xcode-select --install"
     fi
     
     echo ""
