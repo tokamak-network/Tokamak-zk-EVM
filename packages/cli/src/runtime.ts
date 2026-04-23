@@ -24,7 +24,6 @@ export interface RuntimeState {
 
 export interface RuntimeContext {
   cacheRoot: string;
-  dockerBootstrapDir?: string;
   packageRoot: string;
   platform: CliPlatform;
   platformDir: string;
@@ -44,7 +43,6 @@ interface DockerBootstrap {
   version: 1;
   createdAt: string;
   dockerEnvironment: DockerEnvironment;
-  hostPlatform?: CliPlatform;
   imageName: string;
   packageVersion: string;
   platform: 'linux';
@@ -292,17 +290,14 @@ async function resolvePackageVersion(packageRoot: string): Promise<string> {
   return manifest.version;
 }
 
-async function createRuntimeContextForPlatform(
-  platform: CliPlatform,
-  options: { dockerBootstrapDir?: string } = {},
-): Promise<RuntimeContext> {
+export async function createRuntimeContext(): Promise<RuntimeContext> {
   const packageRoot = resolvePackageRoot();
   const packageVersion = await resolvePackageVersion(packageRoot);
+  const platform = detectPlatform();
   const cacheRoot = resolveCacheRoot();
   const platformDir = path.join(cacheRoot, platform);
   return {
     cacheRoot,
-    dockerBootstrapDir: options.dockerBootstrapDir,
     packageRoot,
     platform,
     platformDir,
@@ -310,17 +305,6 @@ async function createRuntimeContextForPlatform(
     statePath: path.join(platformDir, 'installation.json'),
     packageVersion,
   };
-}
-
-export async function createRuntimeContext(): Promise<RuntimeContext> {
-  return await createRuntimeContextForPlatform(detectPlatform());
-}
-
-async function createDockerRuntimeContextForHost(hostContext: RuntimeContext): Promise<RuntimeContext> {
-  return await createRuntimeContextForPlatform('linux', {
-    dockerBootstrapDir:
-      hostContext.platform === 'macos' ? path.join(hostContext.platformDir, 'docker') : undefined,
-  });
 }
 
 export async function readInstalledState(platform: CliPlatform): Promise<RuntimeState | null> {
@@ -335,24 +319,9 @@ export async function readInstalledState(platform: CliPlatform): Promise<Runtime
 
 export async function requireInstalledRuntime(): Promise<RuntimeContext> {
   const context = await createRuntimeContext();
-  const dockerContext = await createDockerRuntimeContextForHost(context);
-  const dockerBootstrap = await dockerBootstrapRunnable(dockerContext, false);
-  if (dockerBootstrap !== null) {
-    const dockerState = await readInstalledState(dockerContext.platform);
-    if (dockerState?.installMode === 'docker') {
-      await fs.access(dockerContext.runtimeDir);
-      return {
-        ...dockerContext,
-        packageVersion: dockerState.packageVersion,
-      };
-    }
-  }
-
   const state = await readInstalledState(context.platform);
   if (state === null) {
-    throw new Error(
-      'Tokamak zk-EVM runtime is not installed. Run `tokamak-cli --install` first, or start Docker if this runtime was installed with `tokamak-cli --install --docker`.',
-    );
+    throw new Error('Tokamak zk-EVM runtime is not installed. Run `tokamak-cli --install` first.');
   }
   await fs.access(context.runtimeDir);
   return {
@@ -396,7 +365,7 @@ export function runtimePaths(context: RuntimeContext) {
 }
 
 function dockerBootstrapDir(context: RuntimeContext): string {
-  return context.dockerBootstrapDir ?? path.join(context.platformDir, 'docker');
+  return path.join(context.platformDir, 'docker');
 }
 
 function dockerBootstrapPath(context: RuntimeContext): string {
@@ -662,11 +631,9 @@ function validateDockerBootstrap(value: unknown): DockerBootstrap | null {
     return null;
   }
   const candidate = value as Partial<DockerBootstrap>;
-  const hostPlatform = candidate.hostPlatform;
   if (
     candidate.version !== DOCKER_BOOTSTRAP_VERSION ||
     candidate.platform !== 'linux' ||
-    (hostPlatform !== undefined && hostPlatform !== 'linux' && hostPlatform !== 'macos') ||
     typeof candidate.imageName !== 'string' ||
     typeof candidate.packageVersion !== 'string' ||
     typeof candidate.createdAt !== 'string' ||
@@ -1492,8 +1459,10 @@ async function writeRuntimeState(context: RuntimeContext, state: RuntimeState): 
 }
 
 async function installDockerRuntime(options: InstallOptions): Promise<RuntimeContext> {
-  const hostContext = await createRuntimeContext();
-  const context = await createDockerRuntimeContextForHost(hostContext);
+  const context = await createRuntimeContext();
+  if (context.platform !== 'linux') {
+    throw new Error('`tokamak-cli --install --docker` is supported only on Linux hosts.');
+  }
   await ensureDockerDaemonAvailable(options.verbose);
   await ensureDir(context.cacheRoot);
 
@@ -1504,7 +1473,6 @@ async function installDockerRuntime(options: InstallOptions): Promise<RuntimeCon
     version: DOCKER_BOOTSTRAP_VERSION,
     createdAt: new Date().toISOString(),
     dockerEnvironment,
-    hostPlatform: hostContext.platform,
     imageName: dockerImageName(context.packageVersion, dockerEnvironment),
     packageVersion: context.packageVersion,
     platform: 'linux',

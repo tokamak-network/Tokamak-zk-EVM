@@ -37,7 +37,7 @@ Before running `--install`, make sure the machine has:
 - a working C/C++ toolchain
 - outbound HTTPS access to npm, crates.io, GitHub, GitHub Releases, and Google Drive
 
-For `--install --docker`, the Linux or macOS host needs Docker installed and a running Docker daemon. CUDA is enabled only when `docker run --rm --gpus all nvidia/cuda:12.2.0-base-ubuntu22.04 nvidia-smi` succeeds.
+For `--install --docker`, the Linux host needs Docker installed and a running Docker daemon. CUDA is enabled only when `docker run --rm --gpus all nvidia/cuda:12.2.0-base-ubuntu22.04 nvidia-smi` succeeds.
 
 ### macOS
 
@@ -47,12 +47,6 @@ brew install node cmake
 curl https://sh.rustup.rs -sSf | sh
 source "$HOME/.cargo/env"
 npm install -g @tokamak-zk-evm/cli
-```
-
-Docker installation is also available on macOS:
-
-```bash
-tokamak-cli --install --docker
 ```
 
 ### Linux
@@ -84,24 +78,10 @@ Native Windows installation is not supported. Use WSL2 or Docker.
 - downloads CRS files, unless `--no-setup` is used
 - writes everything into the CLI runtime cache
 
-`--install --docker` is supported on Linux and macOS hosts. It uses the static Dockerfile shipped in the npm package, checks that Docker is running, probes CUDA with `docker run --rm --gpus all ... nvidia-smi`, then installs through either an `ubuntu22-cuda122` container environment or a CPU-only `ubuntu22` container environment.
-
-Docker containers use the Linux runtime cache. On Linux hosts, the CLI stores Docker bootstrap files in:
+`--install --docker` is supported only on Linux hosts. It uses the static Dockerfile shipped in the npm package, checks that Docker is running, probes CUDA with `docker run --rm --gpus all ... nvidia-smi`, then installs through either an `ubuntu22-cuda122` container environment or a CPU-only `ubuntu22` container environment. It writes the Linux runtime cache as usual and stores Docker bootstrap files in:
 
 ```text
 ~/.tokamak-zk-evm/linux/docker
-```
-
-On macOS hosts, the CLI stores host-specific Docker bootstrap files in:
-
-```text
-~/.tokamak-zk-evm/macos/docker
-```
-
-The macOS bootstrap still runs the Linux container runtime from:
-
-```text
-~/.tokamak-zk-evm/linux/runtime
 ```
 
 When `--preprocess`, `--prove`, or `--verify` runs later, the CLI uses that bootstrap to execute the backend command inside Docker if the bootstrap exists and Docker is running. If Docker is not running, the CLI falls back to the native runtime path.

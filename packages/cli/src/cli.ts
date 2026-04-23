@@ -48,7 +48,7 @@ Commands:
       By default setup artifacts are installed from the published CRS archive
       Use --trusted-setup to generate setup artifacts locally with the trusted-setup binary
       Use --no-setup to skip setup artifact provisioning
-      Use --docker on Linux or macOS to install and run backend commands through an Ubuntu 22 container
+      Use --docker on Linux to install and run backend commands through an Ubuntu 22 container
 
   --uninstall
       Remove the local Tokamak zk-EVM workspace for the current platform, including cached runtime files and downloads
@@ -88,7 +88,7 @@ Options:
   --verbose        Show detailed output
   --trusted-setup  Build setup artifacts locally during --install
   --no-setup       Skip setup artifact provisioning during --install
-  --docker         Install through Docker on Linux or macOS and save a Docker bootstrap
+  --docker         Install through Docker on Linux and save a Docker bootstrap
 `);
 }
 
