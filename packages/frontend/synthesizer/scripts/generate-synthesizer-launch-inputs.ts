@@ -43,7 +43,6 @@ import {
   getPrivateStateManagedStorageAddresses,
   getPrivateStateControllerCommitmentExistsSlot,
   getPrivateStateVaultLiquidBalancesSlot,
-  loadPrivateStateStorageLayoutManifest,
   type PrivateStateNoteLike,
   type PrivateStateStorageLayoutManifest,
 } from '../node-cli/scripts/utils/private-state.ts';
@@ -53,6 +52,8 @@ const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, '..');
 const nodeCliRoot = path.resolve(packageRoot, 'node-cli');
 const examplesRoot = path.resolve(nodeCliRoot, 'examples', 'privateState');
+const privateStateArtifactsDriveRootFolderId = '1dj9_Cyc5x1nEB85LtqeF7vRLhpkKTNHj';
+const driveFolderMimeType = 'application/vnd.google-apps.folder';
 const defaultChannelId = 4;
 const defaultParticipantCount = 4;
 const defaultMintNoteValue = 1n * 10n ** 18n;
@@ -122,6 +123,12 @@ type ExampleContext = {
   keyMaterial: DerivedParticipantKeys;
 };
 
+type DriveEntry = {
+  id: string;
+  name: string;
+  mimeType: string;
+};
+
 const networkConfig = new Map<AppNetwork, { chainId: number; alchemyNetwork: string | null }>([
   ['sepolia', { chainId: 11155111, alchemyNetwork: 'eth-sepolia' }],
   ['mainnet', { chainId: 1, alchemyNetwork: 'eth-mainnet' }],
@@ -174,14 +181,9 @@ const resolveRpcUrl = (network: AppNetwork): string => {
   return `https://${config.alchemyNetwork}.g.alchemy.com/v2/${apiKey}`;
 };
 
-const deploymentManifestPath = (chainId: number) =>
-  path.resolve(nodeCliRoot, 'scripts', 'deployment', 'private-state', `deployment.${chainId}.latest.json`);
+const deploymentManifestFilename = (chainId: number) => `deployment.${chainId}.latest.json`;
 
-const storageLayoutManifestPath = (chainId: number) =>
-  path.resolve(nodeCliRoot, 'scripts', 'deployment', 'private-state', `storage-layout.${chainId}.latest.json`);
-
-const readJson = async <T>(filePath: string): Promise<T> =>
-  JSON.parse(await fs.readFile(filePath, 'utf8')) as T;
+const storageLayoutManifestFilename = (chainId: number) => `storage-layout.${chainId}.latest.json`;
 
 const writeJson = async (filePath: string, value: unknown) => {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -190,6 +192,105 @@ const writeJson = async (filePath: string, value: unknown) => {
 
 const toRelativeNodeCliPath = (filePath: string) =>
   path.relative(nodeCliRoot, filePath).split(path.sep).join('/');
+
+const fetchText = async (url: string) => {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+  }
+  return response.text();
+};
+
+const decodeDriveInlineData = (encoded: string) =>
+  encoded
+    .replace(/\\x([0-9A-Fa-f]{2})/g, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)))
+    .replace(/\\u([0-9A-Fa-f]{4})/g, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)))
+    .replace(/\\'/g, "'")
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\');
+
+const collectDriveEntries = (node: unknown, entries = new Map<string, DriveEntry>()) => {
+  if (!Array.isArray(node)) {
+    return entries;
+  }
+
+  if (
+    typeof node[0] === 'string' &&
+    Array.isArray(node[1]) &&
+    typeof node[2] === 'string' &&
+    typeof node[3] === 'string'
+  ) {
+    entries.set(node[0], {
+      id: node[0],
+      name: node[2],
+      mimeType: node[3],
+    });
+  }
+
+  for (const child of node) {
+    collectDriveEntries(child, entries);
+  }
+
+  return entries;
+};
+
+const loadDriveFolderEntries = async (folderId: string): Promise<DriveEntry[]> => {
+  const html = await fetchText(`https://drive.google.com/drive/folders/${folderId}`);
+  const inlineDataMatch = html.match(/window\['_DRIVE_ivd'\]\s*=\s*'([^']*)';/s);
+  if (!inlineDataMatch?.[1]) {
+    throw new Error(`Could not parse Google Drive folder listing for ${folderId}`);
+  }
+
+  const decoded = decodeDriveInlineData(inlineDataMatch[1]);
+  const parsed = JSON.parse(decoded) as unknown;
+  return [...collectDriveEntries(parsed).values()];
+};
+
+const findDriveEntryByName = (entries: DriveEntry[], name: string, mimeType?: string) =>
+  entries.find((entry) => entry.name === name && (mimeType === undefined || entry.mimeType === mimeType));
+
+const resolveDriveManifestFileIds = async (chainId: number) => {
+  const rootEntries = await loadDriveFolderEntries(privateStateArtifactsDriveRootFolderId);
+  const privateStateFolder = findDriveEntryByName(rootEntries, 'private-state', driveFolderMimeType);
+  if (!privateStateFolder) {
+    throw new Error('Could not find the private-state folder in the configured Google Drive root folder.');
+  }
+
+  const deploymentFilename = deploymentManifestFilename(chainId);
+  const storageLayoutFilename = storageLayoutManifestFilename(chainId);
+  const foldersToVisit = [privateStateFolder];
+  const visitedFolderIds = new Set<string>();
+
+  while (foldersToVisit.length > 0) {
+    const candidateFolder = foldersToVisit.shift();
+    if (!candidateFolder || visitedFolderIds.has(candidateFolder.id)) {
+      continue;
+    }
+    visitedFolderIds.add(candidateFolder.id);
+
+    const entries = await loadDriveFolderEntries(candidateFolder.id);
+    const deployment = findDriveEntryByName(entries, deploymentFilename, 'application/json');
+    const storageLayout = findDriveEntryByName(entries, storageLayoutFilename, 'application/json');
+    if (deployment && storageLayout) {
+      return {
+        deploymentFileId: deployment.id,
+        storageLayoutFileId: storageLayout.id,
+      };
+    }
+
+    const childFolders = entries
+      .filter((entry) => entry.mimeType === driveFolderMimeType)
+      .sort((left, right) => right.name.localeCompare(left.name));
+    foldersToVisit.push(...childFolders);
+  }
+
+  throw new Error(
+    `Could not find ${deploymentFilename} and ${storageLayoutFilename} in the configured Google Drive folder tree.`,
+  );
+};
+
+const readDriveJson = async <T>(fileId: string): Promise<T> =>
+  JSON.parse(await fetchText(`https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`)) as T;
 
 const makeLaunchEntryName = (
   functionName: string,
@@ -703,10 +804,9 @@ const main = async () => {
 
   const chainId = config.chainId;
   const rpcUrl = resolveRpcUrl(appNetwork);
-  const manifest = await readJson<DeploymentManifest>(deploymentManifestPath(chainId));
-  const storageLayoutManifest = await loadPrivateStateStorageLayoutManifest(
-    storageLayoutManifestPath(chainId),
-  );
+  const { deploymentFileId, storageLayoutFileId } = await resolveDriveManifestFileIds(chainId);
+  const manifest = await readDriveJson<DeploymentManifest>(deploymentFileId);
+  const storageLayoutManifest = await readDriveJson<PrivateStateStorageLayoutManifest>(storageLayoutFileId);
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const blockNumber = await provider.getBlockNumber();
   const blockInfo = await getBlockInfoFromRPC(
