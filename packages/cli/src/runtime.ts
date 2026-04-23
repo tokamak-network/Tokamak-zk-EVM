@@ -1023,14 +1023,6 @@ async function finalizeResumableDownload(
   await fs.rm(resumableDownloadStatePath(partialPath), { force: true });
 }
 
-function parseContentLength(value: string | null): number | null {
-  if (value === null) {
-    return null;
-  }
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-}
-
 function isHtmlDownloadResponse(response: Response): boolean {
   return (response.headers.get('content-type') ?? '').toLowerCase().includes('text/html');
 }
@@ -1076,6 +1068,14 @@ function parseDriveConfirmationDownloadUrl(html: string, baseUrl: string): strin
 async function resolveDriveConfirmationDownloadUrl(fileId: string, verbose: boolean): Promise<string | null> {
   const interstitialUrl = `${CRS_DOWNLOAD_INTERSTITIAL_URL}?export=download&id=${encodeURIComponent(fileId)}`;
   const response = await fetch(interstitialUrl);
+  return await readDriveConfirmationDownloadUrl(response, fileId, verbose);
+}
+
+async function readDriveConfirmationDownloadUrl(
+  response: Response,
+  fileId: string,
+  verbose: boolean,
+): Promise<string | null> {
   if (!response.ok) {
     logVerbose(
       verbose,
@@ -1107,8 +1107,9 @@ async function writeCompleteCrsDownload(
     );
   }
 
-  const contentLength = parseContentLength(response.headers.get('content-length'));
-  if (contentLength !== null && contentLength !== state.contentLength) {
+  const contentLengthHeader = response.headers.get('content-length');
+  const contentLength = contentLengthHeader === null ? null : Number.parseInt(contentLengthHeader, 10);
+  if (Number.isFinite(contentLength) && contentLength !== state.contentLength) {
     throw new Error(
       `Full CRS download response reported ${contentLength} bytes, but ${state.contentLength} bytes were expected.`,
     );
@@ -1180,7 +1181,7 @@ async function downloadFileWithResume(
     try {
       let response = await fetch(downloadUrl, { headers });
       if (response.ok && response.status === 200 && isHtmlDownloadResponse(response)) {
-        const confirmedUrl = parseDriveConfirmationDownloadUrl(await response.text(), response.url)
+        const confirmedUrl = await readDriveConfirmationDownloadUrl(response, state.fileId, verbose)
           ?? await resolveDriveConfirmationDownloadUrl(state.fileId, verbose);
         if (confirmedUrl === null) {
           throw new Error(`Google Drive returned an HTML warning page instead of CRS data for ${downloadUrl}.`);
