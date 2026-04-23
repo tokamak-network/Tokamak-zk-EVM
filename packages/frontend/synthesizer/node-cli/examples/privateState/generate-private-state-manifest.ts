@@ -17,7 +17,7 @@ import {
   type TokamakL2TxData,
   type TxSnapshot,
 } from 'tokamak-l2js';
-import { installedSubcircuitLibrary } from '../node-cli/src/subcircuit/installedLibrary.ts';
+import { installedSubcircuitLibrary } from '../../src/subcircuit/installedLibrary.ts';
 import {
   DEFAULT_EXAMPLE_NOTE_RECEIVE_CHANNEL_NAME,
   buildPrivateStateMintCalldata,
@@ -33,7 +33,7 @@ import {
   type PrivateStateRedeemConfig,
   type PrivateStateTransferConfig,
   type PrivateStateTransferOutput,
-} from '../node-cli/examples/privateState/utils.ts';
+} from './utils.ts';
 import {
   computeReplayPrivateStateAddressMappingKey,
   computeReplayPrivateStateEncryptedNoteSalt,
@@ -45,13 +45,13 @@ import {
   getPrivateStateVaultLiquidBalancesSlot,
   type PrivateStateNoteLike,
   type PrivateStateStorageLayoutManifest,
-} from '../node-cli/scripts/utils/private-state.ts';
+} from '../../scripts/utils/private-state.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const packageRoot = path.resolve(__dirname, '..');
+const packageRoot = path.resolve(__dirname, '../../..');
 const nodeCliRoot = path.resolve(packageRoot, 'node-cli');
-const examplesRoot = path.resolve(nodeCliRoot, 'examples', 'privateState');
+const examplesRoot = __dirname;
 const privateStateArtifactsDriveRootFolderId = '1dj9_Cyc5x1nEB85LtqeF7vRLhpkKTNHj';
 const driveFolderMimeType = 'application/vnd.google-apps.folder';
 const defaultChannelId = 4;
