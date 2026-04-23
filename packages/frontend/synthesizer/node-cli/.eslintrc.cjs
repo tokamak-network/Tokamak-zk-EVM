@@ -10,9 +10,9 @@ module.exports = {
       files: [
         'test/util.ts',
         'test/tester/**/*.ts',
-        'examples/**/*.ts',
+        '../examples/**/*.ts',
         'test/**/*.ts',
-        'examples/*.ts',
+        '../examples/*.ts',
       ],
       rules: {
         'no-console': 'off',

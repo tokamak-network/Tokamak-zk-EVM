@@ -10,6 +10,7 @@ This document summarizes the Git-tracked workspace layout. Generated outputs suc
 synthesizer/
 ├── core/
 ├── docs/
+├── examples/
 ├── node-cli/
 ├── scripts/
 ├── web-app/
@@ -29,10 +30,13 @@ synthesizer/
 - `docs/`
   - canonical maintainer docs
   - secondary reference documents
+- `examples/`
+  - debug-only example flows
+  - reusable fixture inputs and example generation scripts
 - `node-cli/`
   - published Node package
   - CLI entrypoint, filesystem adapters, installed-library loading
-  - examples and tests for file-based execution
+  - tests for file-based execution
 - `scripts/`
   - workspace-level release helpers
   - changelog mirroring for package publishing
@@ -46,7 +50,6 @@ synthesizer/
 
 ```text
 node-cli/
-├── examples/
 ├── scripts/
 ├── src/
 │   ├── cli/
@@ -56,6 +59,16 @@ node-cli/
 ├── tests/
 ├── README.md
 └── package.json
+```
+
+### `examples/`
+
+```text
+examples/
+├── config-runner.ts
+├── erc20Transfers/
+├── L2StateChannel/
+└── privateState/
 ```
 
 ### `web-app/`

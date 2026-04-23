@@ -13,7 +13,7 @@ import {
   redeemInterfaces,
   type PrivateStateNote,
   type PrivateStateRedeemConfig,
-} from '../examples/privateState/utils.ts';
+} from '../../examples/privateState/utils.ts';
 import {
   computeReplayPrivateStateAddressMappingKey,
   computeReplayPrivateStateMappingKey,

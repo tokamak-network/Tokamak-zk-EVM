@@ -51,7 +51,11 @@ Implementation-heavy code lives under:
 - `src/cli/` for the published `synthesizer` CLI
 - `src/io/` for filesystem output writing
 - `src/subcircuit/` for installed-library metadata and Node WASM loading
-- `examples/` for debug-only or example-oriented flows
+
+`examples/` at the workspace root owns:
+
+- debug-only or example-oriented flows
+- reusable fixture inputs and helper scripts used across adapters
 
 The Node package reads snapshot files, loads the installed `@tokamak-zk-evm/subcircuit-library`, calls `core`, and writes JSON artifacts to disk.
 

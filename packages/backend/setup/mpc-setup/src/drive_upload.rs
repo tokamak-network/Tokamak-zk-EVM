@@ -41,6 +41,7 @@ pub struct DriveUploadConfig {
 pub struct DriveUploadResult {
     pub folder_url: String,
     pub archive_name: String,
+    pub crs_download_url: String,
 }
 
 #[derive(Debug, Error)]
@@ -90,6 +91,7 @@ pub fn publish_output_archive(
     let archive_name = build_archive_name(&provenance)?;
     provenance.published_folder_url = Some(config.folder_url.clone());
     provenance.published_archive_name = Some(archive_name.clone());
+    provenance.crs_download_url = None;
     write_provenance(&output_path, &provenance)?;
 
     let archive_path = intermediate_path.join(&archive_name);
@@ -97,14 +99,24 @@ pub fn publish_output_archive(
     create_output_archive(&output_path, &archive_path, &build_metadata_path)?;
 
     let runtime = new_runtime()?;
-    if let Err(err) = runtime.block_on(upload_archive(config, &archive_path, &archive_name)) {
+    let upload_result = match runtime.block_on(upload_archive(config, &archive_path, &archive_name))
+    {
+        Ok(upload_result) => upload_result,
+        Err(err) => {
+            let _ = write_provenance(&output_path, &original_provenance);
+            return Err(err);
+        }
+    };
+    provenance.crs_download_url = Some(upload_result.crs_download_url.clone());
+    if let Err(err) = write_provenance(&output_path, &provenance) {
         let _ = write_provenance(&output_path, &original_provenance);
-        return Err(err);
+        return Err(err.into());
     }
 
     Ok(DriveUploadResult {
         folder_url: config.folder_url.clone(),
         archive_name,
+        crs_download_url: upload_result.crs_download_url,
     })
 }
 
@@ -390,7 +402,7 @@ async fn upload_archive(
     config: &DriveUploadConfig,
     archive_path: &Path,
     archive_name: &str,
-) -> Result<(), DriveUploadError> {
+) -> Result<DriveUploadResult, DriveUploadError> {
     let hub = build_drive_hub(config).await?;
     let metadata = File {
         name: Some(archive_name.to_string()),
@@ -415,7 +427,15 @@ async fn upload_archive(
         ))
     })?;
     configure_public_archive_access(&hub, &file_id, archive_name).await?;
-    Ok(())
+    Ok(DriveUploadResult {
+        folder_url: config.folder_url.clone(),
+        archive_name: archive_name.to_string(),
+        crs_download_url: drive_file_download_url(&file_id),
+    })
+}
+
+fn drive_file_download_url(file_id: &str) -> String {
+    format!("https://drive.google.com/uc?id={file_id}&export=download")
 }
 
 async fn configure_public_archive_access(

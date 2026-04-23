@@ -34,6 +34,7 @@ pub fn run(config: &Phase2GenFilesConfig) {
         sigma_verify_sha256: digests.sigma_verify_sha256,
         published_folder_url: None,
         published_archive_name: None,
+        crs_download_url: None,
     };
     let bytes = serde_json::to_vec_pretty(&provenance).expect("cannot serialize CRS provenance");
     fs::write(output_dir.join("crs_provenance.json"), bytes)

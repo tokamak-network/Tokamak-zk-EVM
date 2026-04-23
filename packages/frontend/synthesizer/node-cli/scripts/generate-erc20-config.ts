@@ -175,7 +175,7 @@ const runCommand = (command: string, args: string[]) =>
   });
 
 const runExample = async (configPath: string) =>
-  runCommand('tsx', [resolveFromRoot('examples/config-runner.ts'), 'erc20-transfer', configPath]);
+  runCommand('tsx', [resolveFromRoot('..', 'examples', 'config-runner.ts'), 'erc20-transfer', configPath]);
 
 const ERROR_LOG_PATTERN = /error:/iu;
 

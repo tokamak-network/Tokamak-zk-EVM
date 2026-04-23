@@ -13,7 +13,7 @@ import {
   deriveNoteReceiveKeyMaterial,
   derivePrivateStateParticipantKeys,
   mintInterfaces,
-} from '../examples/privateState/utils.ts';
+} from '../../examples/privateState/utils.ts';
 import {
   computeReplayPrivateStateAddressMappingKey,
   deriveReplayPrivateStateFieldValue,
