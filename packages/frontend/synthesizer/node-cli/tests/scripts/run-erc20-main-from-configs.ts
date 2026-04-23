@@ -14,7 +14,7 @@ const workspaceRoot = path.resolve(packageRoot, '..');
 const CONFIG_DIR = path.resolve(packageRoot, 'tests', 'configs');
 const OUTPUTS_DIR = path.resolve(workspaceRoot, 'outputs');
 const ARCHIVE_ROOT = path.resolve(packageRoot, 'tests', 'outputs');
-const EXAMPLE_ENTRY = path.resolve(packageRoot, 'examples', 'config-runner.ts');
+const EXAMPLE_ENTRY = path.resolve(workspaceRoot, 'examples', 'config-runner.ts');
 const EXAMPLE_TYPE = 'erc20-transfer';
 
 type Erc20Config = {
