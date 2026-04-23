@@ -39,6 +39,8 @@
     "tokamak-zk-evm": "dist/cli.js"
   },
   "files": [
+    ".dockerignore",
+    "docker",
     "dist",
     "scripts",
     "vendor",

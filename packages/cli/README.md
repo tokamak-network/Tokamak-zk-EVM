@@ -78,7 +78,7 @@ Native Windows installation is not supported. Use WSL2 or Docker.
 - downloads CRS files, unless `--no-setup` is used
 - writes everything into the CLI runtime cache
 
-`--install --docker` is supported only on Linux hosts. It checks that Docker is running, probes CUDA with `docker run --rm --gpus all ... nvidia-smi`, then installs through either an `ubuntu22-cuda122` container environment or a CPU-only `ubuntu22` container environment. It writes the Linux runtime cache as usual and stores Docker bootstrap files in:
+`--install --docker` is supported only on Linux hosts. It uses the static Dockerfile shipped in the npm package, checks that Docker is running, probes CUDA with `docker run --rm --gpus all ... nvidia-smi`, then installs through either an `ubuntu22-cuda122` container environment or a CPU-only `ubuntu22` container environment. It writes the Linux runtime cache as usual and stores Docker bootstrap files in:
 
 ```text
 ~/.tokamak-zk-evm/linux/docker

@@ -94,9 +94,10 @@ const DOWNLOAD_PROGRESS_LOG_INTERVAL_MS = 2_000;
 const DOWNLOAD_PROGRESS_PERCENT_STEP = 5;
 const DOCKER_BOOTSTRAP_VERSION = 1;
 const DOCKER_CONTAINER_CACHE_ROOT = '/tokamak-cache';
-const DOCKER_CUDA_BASE_IMAGE = 'nvidia/cuda:12.2.0-devel-ubuntu22.04';
 const DOCKER_CUDA_PROBE_IMAGE = 'nvidia/cuda:12.2.0-base-ubuntu22.04';
+const DOCKER_CUDA_BASE_IMAGE = 'nvidia/cuda:12.2.0-devel-ubuntu22.04';
 const DOCKER_UBUNTU_BASE_IMAGE = 'ubuntu:22.04';
+const DOCKERFILE_PATH = path.join('docker', 'Dockerfile');
 
 function logVerbose(enabled: boolean, message: string): void {
   if (enabled) {
@@ -1401,62 +1402,30 @@ async function runTrustedSetup(context: RuntimeContext, verbose: boolean): Promi
   );
 }
 
-function dockerfileContents(baseImage: string): string {
-  return [
-    `FROM ${baseImage}`,
-    '',
-    'ENV DEBIAN_FRONTEND=noninteractive',
-    'RUN apt-get update && apt-get install -y \\',
-    '    bash \\',
-    '    build-essential \\',
-    '    ca-certificates \\',
-    '    clang \\',
-    '    cmake \\',
-    '    curl \\',
-    '    git \\',
-    '    libclang-dev \\',
-    '    pkg-config \\',
-    '    tar \\',
-    '    unzip \\',
-    '    && rm -rf /var/lib/apt/lists/*',
-    'RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \\',
-    '    && apt-get install -y nodejs \\',
-    '    && rm -rf /var/lib/apt/lists/*',
-    'ENV CARGO_HOME=/usr/local/cargo',
-    'ENV RUSTUP_HOME=/usr/local/rustup',
-    'ENV PATH="/usr/local/cargo/bin:${PATH}"',
-    "RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path \\",
-    '    && chmod -R a+rwx /usr/local/cargo /usr/local/rustup',
-    'WORKDIR /opt/tokamak-cli',
-    'COPY package.json ./',
-    'RUN npm install --omit=dev --ignore-scripts',
-    'COPY dist ./dist',
-    'COPY scripts ./scripts',
-    'COPY vendor ./vendor',
-    'RUN test -f dist/cli.js \\',
-    '    && test -f vendor/backend/Cargo.toml \\',
-    '    && chmod -R a+rwx /opt/tokamak-cli',
-    'ENTRYPOINT ["node", "/opt/tokamak-cli/dist/cli.js"]',
-    '',
-  ].join('\n');
-}
-
 async function buildDockerInstallImage(
   context: RuntimeContext,
   environment: DockerEnvironment,
   imageName: string,
   verbose: boolean,
 ): Promise<void> {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-cli-docker-'));
-  try {
-    const dockerfilePath = path.join(tempRoot, 'Dockerfile');
-    await fs.writeFile(dockerfilePath, dockerfileContents(dockerBaseImage(environment)), 'utf8');
-    await runCommand('docker', ['build', '-t', imageName, '-f', dockerfilePath, context.packageRoot], {
+  const dockerfilePath = path.join(context.packageRoot, DOCKERFILE_PATH);
+  await fs.access(dockerfilePath);
+  await runCommand(
+    'docker',
+    [
+      'build',
+      '--build-arg',
+      `BASE_IMAGE=${dockerBaseImage(environment)}`,
+      '-t',
+      imageName,
+      '-f',
+      dockerfilePath,
+      context.packageRoot,
+    ],
+    {
       verbose,
-    });
-  } finally {
-    await fs.rm(tempRoot, { recursive: true, force: true });
-  }
+    },
+  );
 }
 
 function dockerInstallArgs(context: RuntimeContext, bootstrap: DockerBootstrap, options: InstallOptions): string[] {
