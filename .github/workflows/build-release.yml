@@ -402,7 +402,7 @@ jobs:
         run: |
           echo "🧪 Running L2StateChannel CI test..."
           node "${{ github.workspace }}/packages/cli/dist/cli.js" --synthesize \
-            "${{ github.workspace }}/packages/frontend/synthesizer/node-cli/examples/L2StateChannel"
+            "${{ github.workspace }}/packages/frontend/synthesizer/examples/L2StateChannel"
 
       - name: Run preprocess
         run: |
