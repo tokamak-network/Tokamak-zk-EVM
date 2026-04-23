@@ -249,6 +249,11 @@ const loadDriveFolderEntries = async (folderId: string): Promise<DriveEntry[]> =
 const findDriveEntryByName = (entries: DriveEntry[], name: string, mimeType?: string) =>
   entries.find((entry) => entry.name === name && (mimeType === undefined || entry.mimeType === mimeType));
 
+const timestampFolderNamePattern = /^\d{8}T\d{6}Z$/;
+
+const isTimestampFolder = (entry: DriveEntry) =>
+  entry.mimeType === driveFolderMimeType && timestampFolderNamePattern.test(entry.name);
+
 const resolveDriveManifestFileIds = async (chainId: number) => {
   const rootEntries = await loadDriveFolderEntries(privateStateArtifactsDriveRootFolderId);
   const privateStateFolder = findDriveEntryByName(rootEntries, 'private-state', driveFolderMimeType);
@@ -258,16 +263,16 @@ const resolveDriveManifestFileIds = async (chainId: number) => {
 
   const deploymentFilename = deploymentManifestFilename(chainId);
   const storageLayoutFilename = storageLayoutManifestFilename(chainId);
-  const foldersToVisit = [privateStateFolder];
-  const visitedFolderIds = new Set<string>();
+  const privateStateEntries = await loadDriveFolderEntries(privateStateFolder.id);
+  const timestampFolders = privateStateEntries
+    .filter(isTimestampFolder)
+    .sort((left, right) => right.name.localeCompare(left.name));
 
-  while (foldersToVisit.length > 0) {
-    const candidateFolder = foldersToVisit.shift();
-    if (!candidateFolder || visitedFolderIds.has(candidateFolder.id)) {
-      continue;
-    }
-    visitedFolderIds.add(candidateFolder.id);
+  if (timestampFolders.length === 0) {
+    throw new Error('Could not find any timestamp-named folders in the private-state Google Drive folder.');
+  }
 
+  for (const candidateFolder of timestampFolders) {
     const entries = await loadDriveFolderEntries(candidateFolder.id);
     const deployment = findDriveEntryByName(entries, deploymentFilename, 'application/json');
     const storageLayout = findDriveEntryByName(entries, storageLayoutFilename, 'application/json');
@@ -277,15 +282,10 @@ const resolveDriveManifestFileIds = async (chainId: number) => {
         storageLayoutFileId: storageLayout.id,
       };
     }
-
-    const childFolders = entries
-      .filter((entry) => entry.mimeType === driveFolderMimeType)
-      .sort((left, right) => right.name.localeCompare(left.name));
-    foldersToVisit.push(...childFolders);
   }
 
   throw new Error(
-    `Could not find ${deploymentFilename} and ${storageLayoutFilename} in the configured Google Drive folder tree.`,
+    `Could not find ${deploymentFilename} and ${storageLayoutFilename} in any timestamp-named private-state Google Drive folder.`,
   );
 };
 
