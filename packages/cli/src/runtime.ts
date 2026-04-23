@@ -60,6 +60,7 @@ interface DriveArchiveSelection {
   name: string;
   version: [number, number, number];
   generatedAt: string;
+  sizeBytes: number;
 }
 
 interface RemoteDownloadMetadata {
@@ -1298,6 +1299,17 @@ async function findNamedFileIfExists(rootDir: string, filename: string): Promise
   }
 }
 
+function parseDriveArchiveName(name: string): Pick<DriveArchiveSelection, 'generatedAt' | 'version'> | null {
+  const parsed = name.match(/v(\d+)\.(\d+)\.(\d+)-(\d{8}T\d{6}Z)\.zip$/iu);
+  if (!parsed) {
+    return null;
+  }
+  return {
+    version: [Number(parsed[1]), Number(parsed[2]), Number(parsed[3])],
+    generatedAt: parsed[4],
+  };
+}
+
 function parseDriveArchiveSelection(html: string): DriveArchiveSelection {
   const match = html.match(/window\['_DRIVE_ivd'\]\s*=\s*('(?:\\.|[^'])*')/u);
   if (!match) {
@@ -1314,13 +1326,15 @@ function parseDriveArchiveSelection(html: string): DriveArchiveSelection {
     }
 
     if (typeof node[0] === 'string' && typeof node[2] === 'string' && node[3] === 'application/zip') {
-      const parsed = node[2].match(/v(\d+)\.(\d+)\.(\d+)-(\d{8}T\d{6}Z)\.zip$/iu);
-      if (parsed) {
+      const parsedName = parseDriveArchiveName(node[2]);
+      const sizeBytes = typeof node[13] === 'number' && Number.isFinite(node[13]) ? node[13] : null;
+      if (parsedName && sizeBytes !== null && sizeBytes > 0) {
         entriesById.set(node[0], {
           fileId: node[0],
           name: node[2],
-          version: [Number(parsed[1]), Number(parsed[2]), Number(parsed[3])],
-          generatedAt: parsed[4],
+          version: parsedName.version,
+          generatedAt: parsedName.generatedAt,
+          sizeBytes,
         });
       }
     }
@@ -1445,16 +1459,41 @@ async function crsArchiveCacheMatches(
   selection: DriveArchiveSelection,
   verbose: boolean,
 ): Promise<boolean> {
-  const extractedDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-crs-cache-check-'));
   try {
-    await extractZipArchive(archivePath, extractedDir, verbose);
-    return await crsDirectoryMatchesProvenance(extractedDir, selection, verbose);
+    const archiveName = path.basename(archivePath);
+    const parsedName = parseDriveArchiveName(archiveName);
+    if (parsedName === null) {
+      logVerbose(verbose, `Ignoring cached CRS archive ${archivePath}: archive name does not match the expected CRS naming convention.`);
+      return false;
+    }
+    if (
+      parsedName.generatedAt !== selection.generatedAt ||
+      parsedName.version.some((part, index) => part !== selection.version[index])
+    ) {
+      logVerbose(
+        verbose,
+        `Ignoring cached CRS archive ${archivePath}: archive version ${parsedName.version.join('.')} at ${parsedName.generatedAt} does not match latest CRS ${selection.version.join('.')} at ${selection.generatedAt}.`,
+      );
+      return false;
+    }
+
+    const stats = await fs.stat(archivePath);
+    if (!stats.isFile()) {
+      logVerbose(verbose, `Ignoring cached CRS archive ${archivePath}: cached path is not a file.`);
+      return false;
+    }
+    if (stats.size !== selection.sizeBytes) {
+      logVerbose(
+        verbose,
+        `Ignoring cached CRS archive ${archivePath}: file size ${stats.size} does not match latest CRS size ${selection.sizeBytes}.`,
+      );
+      return false;
+    }
+    return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logVerbose(verbose, `Ignoring cached CRS archive ${archivePath}: ${message}`);
     return false;
-  } finally {
-    await fs.rm(extractedDir, { recursive: true, force: true });
   }
 }
 
@@ -1495,7 +1534,7 @@ async function downloadLatestCrsArchive(
   );
   if (!(await crsArchiveCacheMatches(archivePath, selection, verbose))) {
     await fs.rm(archivePath, { force: true });
-    throw new Error(`Downloaded CRS archive ${selection.name} failed provenance hash validation.`);
+    throw new Error(`Downloaded CRS archive ${selection.name} failed archive name and size validation.`);
   }
   return {
     archivePath,
