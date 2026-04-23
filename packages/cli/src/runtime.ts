@@ -63,12 +63,6 @@ interface DriveArchiveSelection {
   sizeBytes: number;
 }
 
-interface RemoteDownloadMetadata {
-  acceptRanges: boolean;
-  contentLength: number;
-  lastModified: string | null;
-}
-
 interface ResumableDownloadState {
   archiveName: string;
   contentLength: number;
@@ -1000,24 +994,6 @@ async function sleep(milliseconds: number): Promise<void> {
   });
 }
 
-async function readRemoteDownloadMetadata(url: string): Promise<RemoteDownloadMetadata> {
-  const response = await fetch(url, {
-    method: 'HEAD',
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to inspect ${url}: ${response.status} ${response.statusText}`);
-  }
-  const contentLength = Number.parseInt(response.headers.get('content-length') ?? '', 10);
-  if (!Number.isFinite(contentLength) || contentLength <= 0) {
-    throw new Error(`Download endpoint did not provide a valid content length for ${url}.`);
-  }
-  return {
-    acceptRanges: response.headers.get('accept-ranges') === 'bytes',
-    contentLength,
-    lastModified: response.headers.get('last-modified'),
-  };
-}
-
 function matchesResumableDownloadState(
   state: ResumableDownloadState | null,
   expected: ResumableDownloadState,
@@ -1516,19 +1492,14 @@ async function downloadLatestCrsArchive(
     await fs.rm(archivePath, { force: true });
   }
 
-  const remoteMetadata = await readRemoteDownloadMetadata(url);
-  if (!remoteMetadata.acceptRanges) {
-    throw new Error('The CRS download endpoint does not support byte-range requests required for safe resume.');
-  }
-
   await downloadFileWithResume(
     url,
     archivePath,
     {
       archiveName: selection.name,
-      contentLength: remoteMetadata.contentLength,
+      contentLength: selection.sizeBytes,
       fileId: selection.fileId,
-      lastModified: remoteMetadata.lastModified,
+      lastModified: null,
     },
     verbose,
   );

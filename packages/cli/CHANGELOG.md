@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.6 - 2026-04-24
+
+- Switched CRS download length detection to use the published Google Drive folder listing metadata instead of issuing a direct-download HEAD request before resumable downloads.
+
 ## 2.0.5 - 2026-04-24
 
 - Simplified CRS archive cache reuse so the CLI now compares the published archive version, timestamp, and file size instead of unpacking cached archives to verify provenance hashes.
