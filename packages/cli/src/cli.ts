@@ -8,6 +8,7 @@ import {
   type TokamakChannelTxFiles,
 } from '@tokamak-zk-evm/synthesizer-node';
 import {
+  type CommandResult,
   detectPlatform,
   installRuntime,
   requireInstalledRuntime,
@@ -174,6 +175,25 @@ async function withDirFromPath<T>(
   err(`Path not found: ${inputPath}`);
 }
 
+interface StageInputSyncRule {
+  destinationDir: string;
+  optionalFiles?: string[];
+  requiredFiles: string[];
+}
+
+interface BackendStageOptions {
+  args: string[];
+  binaryPath: string;
+  inputPath?: string;
+  logMessage: string;
+  outputDir?: string;
+  postProcessResult?: (result: CommandResult) => string;
+  requiredFiles: string[];
+  successMessage?: string;
+  syncInputs?: (inputPath: string) => Promise<void>;
+  verbose: boolean;
+}
+
 function parseArgs(argv: string[]): ParsedArgs {
   if (argv.length === 0 || argv.includes('--help') || argv.includes('-h')) {
     printUsage();
@@ -313,56 +333,59 @@ function normalizeSynthesizeArgs(args: string[]): TokamakChannelTxFiles {
 
 async function syncPreprocessInputs(context: RuntimeContext, inputPath: string): Promise<void> {
   const paths = runtimePaths(context);
-  await withDirFromPath(inputPath, 'tokamak-preprocess', async (dirPath) => {
-    await copyRequiredNamedFilesFromDir(dirPath, paths.synthOutputDir, [
-      'permutation.json',
-      'instance.json',
-    ]);
-  });
+  await syncStageInputs(inputPath, 'tokamak-preprocess', [
+    {
+      destinationDir: paths.synthOutputDir,
+      requiredFiles: ['permutation.json', 'instance.json'],
+    },
+  ]);
 }
 
 async function syncProveInputs(context: RuntimeContext, inputPath: string): Promise<void> {
   const paths = runtimePaths(context);
-  await withDirFromPath(inputPath, 'tokamak-prove', async (dirPath) => {
-    await copyRequiredNamedFilesFromDir(dirPath, paths.synthOutputDir, [
-      'instance.json',
-      'permutation.json',
-      'placementVariables.json',
-    ]);
-    await copyOptionalNamedFilesFromDir(dirPath, paths.synthOutputDir, [
-      'instance_description.json',
-      'state_snapshot.json',
-    ]);
-  });
+  await syncStageInputs(inputPath, 'tokamak-prove', [
+    {
+      destinationDir: paths.synthOutputDir,
+      requiredFiles: ['instance.json', 'permutation.json', 'placementVariables.json'],
+      optionalFiles: ['instance_description.json', 'state_snapshot.json'],
+    },
+  ]);
 }
 
 async function syncVerifyInputs(context: RuntimeContext, inputPath: string): Promise<void> {
   const paths = runtimePaths(context);
-  await withDirFromPath(inputPath, 'tokamak-verify', async (dirPath) => {
-    await fs.mkdir(paths.proveOutputDir, { recursive: true });
-    await fs.mkdir(paths.preprocessOutputDir, { recursive: true });
-    await fs.mkdir(paths.synthOutputDir, { recursive: true });
-    await copyRequiredNamedFilesFromDir(dirPath, paths.proveOutputDir, ['proof.json']);
-    await copyRequiredNamedFilesFromDir(dirPath, paths.preprocessOutputDir, ['preprocess.json']);
-    await copyRequiredNamedFilesFromDir(dirPath, paths.synthOutputDir, ['instance.json']);
-  });
+  await syncStageInputs(inputPath, 'tokamak-verify', [
+    {
+      destinationDir: paths.proveOutputDir,
+      requiredFiles: ['proof.json'],
+    },
+    {
+      destinationDir: paths.preprocessOutputDir,
+      requiredFiles: ['preprocess.json'],
+    },
+    {
+      destinationDir: paths.synthOutputDir,
+      requiredFiles: ['instance.json'],
+    },
+  ]);
 }
 
 async function runPreprocess(context: RuntimeContext, inputPath: string | undefined, verbose: boolean): Promise<void> {
   const paths = runtimePaths(context);
-  if (inputPath) {
-    await syncPreprocessInputs(context, inputPath);
-  }
-  await ensureFile(path.join(paths.setupOutputDir, 'sigma_preprocess.rkyv'));
-  await ensureFile(path.join(paths.synthOutputDir, 'permutation.json'));
-  await ensureFile(path.join(paths.synthOutputDir, 'instance.json'));
-
-  await fs.mkdir(paths.preprocessOutputDir, { recursive: true });
-  log(`Preprocess: running backend preprocess (target=${detectPlatform()})`);
-  await runBackendCommand(
-    context,
-    paths.preprocessBinary,
-    [
+  await runBackendStage(context, {
+    binaryPath: paths.preprocessBinary,
+    inputPath,
+    logMessage: `Preprocess: running backend preprocess (target=${detectPlatform()})`,
+    outputDir: paths.preprocessOutputDir,
+    requiredFiles: [
+      path.join(paths.setupOutputDir, 'sigma_preprocess.rkyv'),
+      path.join(paths.synthOutputDir, 'permutation.json'),
+      path.join(paths.synthOutputDir, 'instance.json'),
+    ],
+    successMessage: `Preprocess complete → ${paths.preprocessOutputDir}`,
+    syncInputs: async (resolvedInputPath) => syncPreprocessInputs(context, resolvedInputPath),
+    verbose,
+    args: [
       '--crs',
       paths.setupOutputDir,
       '--synthesizer-stat',
@@ -370,27 +393,26 @@ async function runPreprocess(context: RuntimeContext, inputPath: string | undefi
       '--output',
       paths.preprocessOutputDir,
     ],
-    verbose,
-  );
-  ok(`Preprocess complete → ${paths.preprocessOutputDir}`);
+  });
 }
 
 async function runProve(context: RuntimeContext, inputPath: string | undefined, verbose: boolean): Promise<void> {
   const paths = runtimePaths(context);
-  if (inputPath) {
-    await syncProveInputs(context, inputPath);
-  }
-  await ensureFile(path.join(paths.setupOutputDir, 'combined_sigma.rkyv'));
-  await ensureFile(path.join(paths.synthOutputDir, 'instance.json'));
-  await ensureFile(path.join(paths.synthOutputDir, 'permutation.json'));
-  await ensureFile(path.join(paths.synthOutputDir, 'placementVariables.json'));
-
-  await fs.mkdir(paths.proveOutputDir, { recursive: true });
-  log(`Prove: running backend prove (target=${detectPlatform()})`);
-  await runBackendCommand(
-    context,
-    paths.proveBinary,
-    [
+  await runBackendStage(context, {
+    binaryPath: paths.proveBinary,
+    inputPath,
+    logMessage: `Prove: running backend prove (target=${detectPlatform()})`,
+    outputDir: paths.proveOutputDir,
+    requiredFiles: [
+      path.join(paths.setupOutputDir, 'combined_sigma.rkyv'),
+      path.join(paths.synthOutputDir, 'instance.json'),
+      path.join(paths.synthOutputDir, 'permutation.json'),
+      path.join(paths.synthOutputDir, 'placementVariables.json'),
+    ],
+    successMessage: `Proof artifacts available in ${paths.proveOutputDir}`,
+    syncInputs: async (resolvedInputPath) => syncProveInputs(context, resolvedInputPath),
+    verbose,
+    args: [
       '--crs',
       paths.setupOutputDir,
       '--synthesizer-stat',
@@ -398,26 +420,31 @@ async function runProve(context: RuntimeContext, inputPath: string | undefined, 
       '--output',
       paths.proveOutputDir,
     ],
-    verbose,
-  );
-  ok(`Proof artifacts available in ${paths.proveOutputDir}`);
+  });
 }
 
 async function runVerify(context: RuntimeContext, inputPath: string | undefined, verbose: boolean): Promise<void> {
   const paths = runtimePaths(context);
-  if (inputPath) {
-    await syncVerifyInputs(context, inputPath);
-  }
-  await ensureFile(path.join(paths.setupOutputDir, 'sigma_verify.json'));
-  await ensureFile(path.join(paths.preprocessOutputDir, 'preprocess.json'));
-  await ensureFile(path.join(paths.proveOutputDir, 'proof.json'));
-  await ensureFile(path.join(paths.synthOutputDir, 'instance.json'));
-
-  log(`Verify: using artifacts in ${paths.resourceDir}`);
-  const result = await runBackendCommand(
-    context,
-    paths.verifyBinary,
-    [
+  await runBackendStage(context, {
+    binaryPath: paths.verifyBinary,
+    inputPath,
+    logMessage: `Verify: using artifacts in ${paths.resourceDir}`,
+    postProcessResult: (result) => {
+      const lastLine = getLastNonEmptyLine(result.stdout);
+      if (lastLine !== 'true') {
+        err(`Verify: verify output => ${lastLine ?? '<empty>'}`);
+      }
+      return `Verify: verify output => ${lastLine}`;
+    },
+    requiredFiles: [
+      path.join(paths.setupOutputDir, 'sigma_verify.json'),
+      path.join(paths.preprocessOutputDir, 'preprocess.json'),
+      path.join(paths.proveOutputDir, 'proof.json'),
+      path.join(paths.synthOutputDir, 'instance.json'),
+    ],
+    syncInputs: async (resolvedInputPath) => syncVerifyInputs(context, resolvedInputPath),
+    verbose,
+    args: [
       '--crs',
       paths.setupOutputDir,
       '--synthesizer-stat',
@@ -427,18 +454,50 @@ async function runVerify(context: RuntimeContext, inputPath: string | undefined,
       '--proof',
       paths.proveOutputDir,
     ],
-    verbose,
-  );
+  });
+}
 
-  const lastLine = result.stdout
+async function syncStageInputs(
+  inputPath: string,
+  prefix: string,
+  rules: StageInputSyncRule[],
+): Promise<void> {
+  await withDirFromPath(inputPath, prefix, async (dirPath) => {
+    for (const rule of rules) {
+      await copyRequiredNamedFilesFromDir(dirPath, rule.destinationDir, rule.requiredFiles);
+      if (rule.optionalFiles?.length) {
+        await copyOptionalNamedFilesFromDir(dirPath, rule.destinationDir, rule.optionalFiles);
+      }
+    }
+  });
+}
+
+async function runBackendStage(context: RuntimeContext, options: BackendStageOptions): Promise<void> {
+  if (options.inputPath && options.syncInputs) {
+    await options.syncInputs(options.inputPath);
+  }
+  for (const requiredFile of options.requiredFiles) {
+    await ensureFile(requiredFile);
+  }
+  if (options.outputDir) {
+    await fs.mkdir(options.outputDir, { recursive: true });
+  }
+
+  log(options.logMessage);
+  const result = await runBackendCommand(context, options.binaryPath, options.args, options.verbose);
+  const successMessage = options.postProcessResult?.(result) ?? options.successMessage;
+  if (!successMessage) {
+    err(`Missing success message for backend stage ${path.basename(options.binaryPath)}`);
+  }
+  ok(successMessage);
+}
+
+function getLastNonEmptyLine(content: string): string | undefined {
+  return content
     .split(/\r?\n/u)
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .at(-1);
-  if (lastLine !== 'true') {
-    err(`Verify: verify output => ${lastLine ?? '<empty>'}`);
-  }
-  ok(`Verify: verify output => ${lastLine}`);
 }
 
 async function extractProofBundle(context: RuntimeContext, outputPathRaw: string, verbose: boolean): Promise<void> {

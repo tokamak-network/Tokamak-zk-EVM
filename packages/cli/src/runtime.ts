@@ -67,7 +67,6 @@ interface ResumableDownloadState {
   archiveName: string;
   contentLength: number;
   fileId: string;
-  lastModified: string | null;
 }
 
 interface BackendBuildMetadata {
@@ -77,14 +76,6 @@ interface BackendBuildMetadata {
     };
   };
   packageVersion?: string;
-}
-
-interface CrsProvenance {
-  backend_version?: string;
-  combined_sigma_sha256?: string;
-  published_archive_name?: string | null;
-  sigma_preprocess_sha256?: string;
-  sigma_verify_sha256?: string;
 }
 
 interface IcicleAsset {
@@ -98,13 +89,23 @@ interface IcicleManifest {
   assets: Record<string, IcicleAsset>;
 }
 
+interface DownloadRequestDefinition {
+  headers?: Record<string, string>;
+  url: string;
+}
+
+interface CargoMetadata {
+  target_directory?: string;
+}
+
+const BACKEND_BINARY_NAMES = ['preprocess', 'prove', 'verify'] as const;
+
 const CACHE_DIR_ENV = 'TOKAMAK_ZKEVM_CLI_CACHE_DIR';
 const CRS_DRIVE_FOLDER_ID = '14xqCbLoyoVmUVTTlopiXtKnoHPBGL-Sv';
 const CRS_DRIVE_FOLDER_URL = 'https://drive.google.com/drive/mobile/folders';
 const CRS_DOWNLOAD_BASE_URL = 'https://drive.usercontent.google.com/download';
-const CRS_DOWNLOAD_INTERSTITIAL_URL = 'https://drive.google.com/uc';
-const CRS_DOWNLOAD_CHUNK_SIZE = 64 * 1024 * 1024;
-const CRS_DOWNLOAD_MAX_RETRIES = 10;
+const CRS_DOWNLOAD_CHUNK_SIZE = 512 * 1024 * 1024;
+const CRS_DOWNLOAD_ANONYMOUS_MAX_RETRIES = 5;
 const CRS_DOWNLOAD_RETRY_BASE_DELAY_MS = 1_000;
 const DOWNLOAD_PROGRESS_LOG_INTERVAL_MS = 2_000;
 const DOWNLOAD_PROGRESS_PERCENT_STEP = 5;
@@ -794,41 +795,53 @@ export async function runBackendCommand(
 async function buildBackendReleaseBinaries(
   backendRoot: string,
   options: InstallOptions,
-): Promise<void> {
-  if (options.trustedSetup) {
-    await runCommand('cargo', ['build', '-p', 'trusted-setup', '--release'], {
+): Promise<string> {
+  const packages = options.trustedSetup
+    ? ['trusted-setup', ...BACKEND_BINARY_NAMES]
+    : [...BACKEND_BINARY_NAMES];
+  for (const packageName of packages) {
+    await runCommand('cargo', ['build', '-p', packageName, '--release'], {
       cwd: backendRoot,
       verbose: options.verbose,
     });
   }
-  await runCommand('cargo', ['build', '-p', 'preprocess', '--release'], {
+  return resolveCargoReleaseDir(backendRoot);
+}
+
+function resolveCargoReleaseDir(backendRoot: string): string {
+  const result = spawnSync('cargo', ['metadata', '--format-version', '1', '--no-deps'], {
     cwd: backendRoot,
-    verbose: options.verbose,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
-  await runCommand('cargo', ['build', '-p', 'prove', '--release'], {
-    cwd: backendRoot,
-    verbose: options.verbose,
-  });
-  await runCommand('cargo', ['build', '-p', 'verify', '--release'], {
-    cwd: backendRoot,
-    verbose: options.verbose,
-  });
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    throw new Error(`cargo metadata exited with code ${result.status ?? 'unknown'}: ${result.stderr}`);
+  }
+
+  const metadata = JSON.parse(result.stdout) as CargoMetadata;
+  const targetDirectory = metadata.target_directory?.trim();
+  if (!targetDirectory) {
+    throw new Error(`cargo metadata did not report a target_directory for ${backendRoot}`);
+  }
+  return path.join(targetDirectory, 'release');
 }
 
 async function copyBuiltBackendBinaries(
   context: RuntimeContext,
-  backendRoot: string,
+  backendReleaseDir: string,
   options: InstallOptions,
 ): Promise<void> {
   const paths = runtimePaths(context);
-  const builtBinaryNames = ['preprocess', 'prove', 'verify'];
-  if (options.trustedSetup) {
-    builtBinaryNames.push('trusted-setup');
-  }
+  const builtBinaryNames = options.trustedSetup
+    ? ['trusted-setup', ...BACKEND_BINARY_NAMES]
+    : [...BACKEND_BINARY_NAMES];
 
   await ensureDir(paths.binaryDir);
   for (const binaryName of builtBinaryNames) {
-    const sourcePath = path.join(backendRoot, 'target', 'release', binaryName);
+    const sourcePath = path.join(backendReleaseDir, binaryName);
     await fs.access(sourcePath);
     await fs.copyFile(sourcePath, path.join(paths.binaryDir, binaryName));
   }
@@ -1003,8 +1016,7 @@ function matchesResumableDownloadState(
     state !== null &&
     state.archiveName === expected.archiveName &&
     state.fileId === expected.fileId &&
-    state.contentLength === expected.contentLength &&
-    state.lastModified === expected.lastModified
+    state.contentLength === expected.contentLength
   );
 }
 
@@ -1023,10 +1035,6 @@ async function finalizeResumableDownload(
   await fs.rm(resumableDownloadStatePath(partialPath), { force: true });
 }
 
-function isHtmlDownloadResponse(response: Response): boolean {
-  return (response.headers.get('content-type') ?? '').toLowerCase().includes('text/html');
-}
-
 function isBinaryDownloadResponse(response: Response): boolean {
   const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
   const contentDisposition = (response.headers.get('content-disposition') ?? '').toLowerCase();
@@ -1038,108 +1046,15 @@ function isBinaryDownloadResponse(response: Response): boolean {
   );
 }
 
-function decodeHtmlAttribute(value: string): string {
-  return value
-    .replaceAll('&amp;', '&')
-    .replaceAll('&quot;', '"')
-    .replaceAll('&#39;', '\'')
-    .replaceAll('&lt;', '<')
-    .replaceAll('&gt;', '>');
-}
-
-function parseDriveConfirmationDownloadUrl(html: string, baseUrl: string): string | null {
-  const formMatch =
-    html.match(/<form[^>]*id="download-form"[^>]*action="([^"]+)"/i) ??
-    html.match(/<form[^>]*action="([^"]+)"[^>]*id="download-form"/i);
-  if (formMatch === null) {
-    return null;
-  }
-
-  const downloadUrl = new URL(decodeHtmlAttribute(formMatch[1]), baseUrl);
-  const hiddenInputPattern = /<input[^>]*type="hidden"[^>]*name="([^"]+)"[^>]*value="([^"]*)"[^>]*>/gi;
-  let hasHiddenField = false;
-  for (const match of html.matchAll(hiddenInputPattern)) {
-    hasHiddenField = true;
-    downloadUrl.searchParams.set(decodeHtmlAttribute(match[1]), decodeHtmlAttribute(match[2]));
-  }
-  return hasHiddenField ? downloadUrl.toString() : null;
-}
-
-async function resolveDriveConfirmationDownloadUrl(fileId: string, verbose: boolean): Promise<string | null> {
-  const interstitialUrl = `${CRS_DOWNLOAD_INTERSTITIAL_URL}?export=download&id=${encodeURIComponent(fileId)}`;
-  const response = await fetch(interstitialUrl);
-  return await readDriveConfirmationDownloadUrl(response, fileId, verbose);
-}
-
-async function readDriveConfirmationDownloadUrl(
-  response: Response,
-  fileId: string,
-  verbose: boolean,
-): Promise<string | null> {
-  if (!response.ok) {
-    logVerbose(
-      verbose,
-      `Failed to resolve Google Drive confirmation page for ${fileId}: ${response.status} ${response.statusText}.`,
-    );
-    return null;
-  }
-  if (!isHtmlDownloadResponse(response)) {
-    await response.body?.cancel();
-    return response.url;
-  }
-
-  const confirmedUrl = parseDriveConfirmationDownloadUrl(await response.text(), response.url);
-  if (confirmedUrl !== null) {
-    logVerbose(verbose, `Resolved Google Drive confirmed download URL for ${fileId}.`);
-  }
-  return confirmedUrl;
-}
-
-async function writeCompleteCrsDownload(
-  response: Response,
-  partialPath: string,
-  state: ResumableDownloadState,
-  verbose: boolean,
-): Promise<void> {
-  if (!isBinaryDownloadResponse(response)) {
-    throw new Error(
-      `Expected a binary CRS download response, received status ${response.status} with content-type ${response.headers.get('content-type') ?? '<missing>'}.`,
-    );
-  }
-
-  const contentLengthHeader = response.headers.get('content-length');
-  const contentLength = contentLengthHeader === null ? null : Number.parseInt(contentLengthHeader, 10);
-  if (Number.isFinite(contentLength) && contentLength !== state.contentLength) {
-    throw new Error(
-      `Full CRS download response reported ${contentLength} bytes, but ${state.contentLength} bytes were expected.`,
-    );
-  }
-
-  logVerbose(
-    verbose,
-    `Google Drive returned the complete CRS archive for ${state.archiveName}; downloading the archive without range resume.`,
-  );
-  await streamDownloadToFile(response, partialPath, {
-    append: false,
-    finalizeProgress: true,
-    initialBytes: 0,
-    label: state.archiveName,
-    totalBytes: state.contentLength,
-  });
-
-  const currentSize = await fileSizeIfExists(partialPath);
-  if (currentSize !== state.contentLength) {
-    throw new Error(
-      `CRS full download wrote ${currentSize ?? 0} bytes, but ${state.contentLength} bytes were expected.`,
-    );
-  }
-}
-
 async function downloadFileWithResume(
-  url: string,
   destinationPath: string,
   state: ResumableDownloadState,
   verbose: boolean,
+  options: {
+    describe: string;
+    maxRetries: number;
+    request: (offset: number, chunkEnd: number) => Promise<DownloadRequestDefinition> | DownloadRequestDefinition;
+  },
 ): Promise<void> {
   const partialPath = `${destinationPath}.part`;
   const existingState = await readResumableDownloadState(partialPath);
@@ -1148,15 +1063,9 @@ async function downloadFileWithResume(
   }
 
   await ensureDir(path.dirname(destinationPath));
-  const finalSize = await fileSizeIfExists(destinationPath);
-  if (finalSize !== null) {
-    await fs.rm(destinationPath, { force: true });
-  }
-
   await writeResumableDownloadState(partialPath, state);
 
   let consecutiveFailures = 0;
-  let downloadUrl = url;
   while (true) {
     const offset = (await fileSizeIfExists(partialPath)) ?? 0;
     if (offset > state.contentLength) {
@@ -1170,41 +1079,34 @@ async function downloadFileWithResume(
     }
 
     const chunkEnd = Math.min(offset + CRS_DOWNLOAD_CHUNK_SIZE - 1, state.contentLength - 1);
-    const headers = {
-      Range: `bytes=${offset}-${chunkEnd}`,
-    };
     logVerbose(
       verbose,
-      `Downloading CRS bytes ${offset}-${chunkEnd} of ${state.contentLength} (${state.archiveName})`,
+      `${options.describe}: downloading CRS bytes ${offset}-${chunkEnd} of ${state.contentLength} (${state.archiveName})`,
     );
 
     try {
-      let response = await fetch(downloadUrl, { headers });
-      if (response.ok && response.status === 200 && isHtmlDownloadResponse(response)) {
-        const confirmedUrl = await readDriveConfirmationDownloadUrl(response, state.fileId, verbose)
-          ?? await resolveDriveConfirmationDownloadUrl(state.fileId, verbose);
-        if (confirmedUrl === null) {
-          throw new Error(`Google Drive returned an HTML warning page instead of CRS data for ${downloadUrl}.`);
-        }
-        downloadUrl = confirmedUrl;
-        response = await fetch(downloadUrl, { headers });
-      }
+      const request = await options.request(offset, chunkEnd);
+      const response = await fetch(request.url, {
+        headers: request.headers,
+      });
       if (!response.ok) {
-        throw new Error(`Failed to download ${downloadUrl}: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to download ${request.url}: ${response.status} ${response.statusText}`);
       }
       if (response.body === null) {
-        throw new Error(`Download response did not contain a body: ${downloadUrl}`);
+        throw new Error(`Download response did not contain a body: ${request.url}`);
       }
-      if (response.status === 200) {
-        await writeCompleteCrsDownload(response, partialPath, state, verbose);
-        await finalizeResumableDownload(partialPath, destinationPath, state.contentLength);
-        return;
+      if (!isBinaryDownloadResponse(response)) {
+        throw new Error(
+          `Expected a binary CRS download response, received status ${response.status} with content-type ${response.headers.get('content-type') ?? '<missing>'}.`,
+        );
       }
       if (response.status !== 206) {
         throw new Error(`Expected HTTP 206 for CRS chunk download, received ${response.status}`);
       }
+
       const contentRange = response.headers.get('content-range');
-      if (!contentRange?.startsWith(`bytes ${offset}-`)) {
+      const expectedRangePrefix = `bytes ${offset}-`;
+      if (!contentRange?.startsWith(expectedRangePrefix)) {
         throw new Error(`Resume response started at an unexpected offset: ${contentRange ?? '<missing>'}`);
       }
 
@@ -1232,15 +1134,15 @@ async function downloadFileWithResume(
       const message = error instanceof Error ? error.message : String(error);
       const currentSize = (await fileSizeIfExists(partialPath)) ?? 0;
       consecutiveFailures += 1;
-      if (consecutiveFailures >= CRS_DOWNLOAD_MAX_RETRIES) {
+      if (consecutiveFailures >= options.maxRetries) {
         throw new Error(
-          `CRS download failed after ${consecutiveFailures} consecutive attempts at ${currentSize} of ${state.contentLength} bytes: ${message}`,
+          `${options.describe} failed after ${consecutiveFailures} consecutive attempts at ${currentSize} of ${state.contentLength} bytes: ${message}`,
         );
       }
       const delayMs = CRS_DOWNLOAD_RETRY_BASE_DELAY_MS * 2 ** (consecutiveFailures - 1);
       logVerbose(
         verbose,
-        `CRS download attempt ${consecutiveFailures} failed at ${currentSize} of ${state.contentLength} bytes: ${message}. Retrying in ${delayMs}ms...`,
+        `${options.describe} attempt ${consecutiveFailures} failed at ${currentSize} of ${state.contentLength} bytes: ${message}. Retrying in ${delayMs}ms...`,
       );
       await sleep(delayMs);
     }
@@ -1309,7 +1211,6 @@ async function downloadIcicleAssetWithCache(
 }
 
 async function installIcicleRuntime(context: RuntimeContext, verbose: boolean): Promise<void> {
-  const paths = runtimePaths(context);
   const manifest = await readIcicleManifest(context);
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-icicle-'));
   try {
@@ -1478,86 +1379,6 @@ function driveDirectDownloadUrl(fileId: string): string {
   return `${CRS_DOWNLOAD_BASE_URL}?id=${fileId}&export=download&confirm=t`;
 }
 
-function driveArchiveVersionString(selection: DriveArchiveSelection): string {
-  return selection.version.join('.');
-}
-
-async function readCrsProvenance(rootDir: string): Promise<CrsProvenance> {
-  return await readJsonFile<CrsProvenance>(await findNamedFile(rootDir, 'crs_provenance.json'));
-}
-
-async function crsDirectoryMatchesProvenance(
-  rootDir: string,
-  selection: DriveArchiveSelection,
-  verbose: boolean,
-): Promise<boolean> {
-  try {
-    const provenance = await readCrsProvenance(rootDir);
-    const expectedVersion = driveArchiveVersionString(selection);
-    if (provenance.backend_version !== expectedVersion) {
-      logVerbose(
-        verbose,
-        `Ignoring cached CRS: provenance backend version ${provenance.backend_version ?? '<missing>'} does not match latest CRS ${expectedVersion}.`,
-      );
-      return false;
-    }
-    if (provenance.published_archive_name && provenance.published_archive_name !== selection.name) {
-      logVerbose(
-        verbose,
-        `Ignoring cached CRS: provenance archive ${provenance.published_archive_name} does not match latest CRS ${selection.name}.`,
-      );
-      return false;
-    }
-
-    const expectedHashes: Array<[string, string | undefined]> = [
-      ['combined_sigma.rkyv', provenance.combined_sigma_sha256],
-      ['sigma_preprocess.rkyv', provenance.sigma_preprocess_sha256],
-      ['sigma_verify.json', provenance.sigma_verify_sha256],
-    ];
-    for (const [filename, expectedHashValue] of expectedHashes) {
-      const expectedHash = normalizeSha256(expectedHashValue);
-      if (expectedHash === null) {
-        logVerbose(verbose, `Ignoring cached CRS: provenance is missing a valid SHA-256 for ${filename}.`);
-        return false;
-      }
-      const actualHash = await sha256FileHex(await findNamedFile(rootDir, filename));
-      if (actualHash !== expectedHash) {
-        logVerbose(
-          verbose,
-          `Ignoring cached CRS: ${filename} has SHA-256 ${actualHash}, expected ${expectedHash}.`,
-        );
-        return false;
-      }
-    }
-    return true;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logVerbose(verbose, `Ignoring cached CRS: ${message}`);
-    return false;
-  }
-}
-
-async function installedCrsCacheMatches(
-  context: RuntimeContext,
-  backendRoot: string,
-  selection: DriveArchiveSelection,
-  verbose: boolean,
-): Promise<boolean> {
-  const setupOutputDir = runtimePaths(context).setupOutputDir;
-  if (!(await crsDirectoryMatchesProvenance(setupOutputDir, selection, verbose))) {
-    return false;
-  }
-  try {
-    await validateDownloadedCrsVersions(setupOutputDir, backendRoot, selection.name);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logVerbose(verbose, `Ignoring cached CRS: ${message}`);
-    return false;
-  }
-  logVerbose(verbose, `Using cached CRS output ${setupOutputDir}`);
-  return true;
-}
-
 async function crsArchiveCacheMatches(
   archivePath: string,
   selection: DriveArchiveSelection,
@@ -1620,16 +1441,26 @@ async function downloadLatestCrsArchive(
     await fs.rm(archivePath, { force: true });
   }
 
+  const resumableState = {
+    archiveName: selection.name,
+    contentLength: selection.sizeBytes,
+    fileId: selection.fileId,
+  };
+
   await downloadFileWithResume(
-    url,
     archivePath,
-    {
-      archiveName: selection.name,
-      contentLength: selection.sizeBytes,
-      fileId: selection.fileId,
-      lastModified: null,
-    },
+    resumableState,
     verbose,
+    {
+      describe: 'Anonymous CRS download',
+      maxRetries: CRS_DOWNLOAD_ANONYMOUS_MAX_RETRIES,
+      request: (offset, chunkEnd) => ({
+        url,
+        headers: {
+          Range: `bytes=${offset}-${chunkEnd}`,
+        },
+      }),
+    },
   );
   if (!(await crsArchiveCacheMatches(archivePath, selection, verbose))) {
     await fs.rm(archivePath, { force: true });
@@ -1648,7 +1479,7 @@ async function extractZipArchive(zipPath: string, destinationDir: string, verbos
   });
 }
 
-async function validateDownloadedCrsVersions(extractedDir: string, backendRoot: string, archiveName: string): Promise<{
+async function validateDownloadedCrsVersions(extractedDir: string, backendReleaseDir: string, archiveName: string): Promise<{
   mpcMetadataPath: string;
   provenancePath: string | null;
 }> {
@@ -1660,13 +1491,8 @@ async function validateDownloadedCrsVersions(extractedDir: string, backendRoot: 
     throw new Error(`CRS archive ${archiveName} is missing required metadata.`);
   }
 
-  for (const backendName of ['preprocess', 'prove', 'verify']) {
-    const backendMetadataPath = path.join(
-      backendRoot,
-      'target',
-      'release',
-      `build-metadata-${backendName}.json`,
-    );
+  for (const backendName of BACKEND_BINARY_NAMES) {
+    const backendMetadataPath = path.join(backendReleaseDir, `build-metadata-${backendName}.json`);
     const backendMetadata = await readJsonFile<BackendBuildMetadata>(backendMetadataPath);
     const backendVersion = backendMetadata.packageVersion;
     const backendSubcircuitVersion = backendMetadata.dependencies?.subcircuitLibrary?.buildVersion;
@@ -1690,14 +1516,11 @@ async function validateDownloadedCrsVersions(extractedDir: string, backendRoot: 
 
 async function installDownloadedSetup(
   context: RuntimeContext,
-  backendRoot: string,
+  backendReleaseDir: string,
   verbose: boolean,
 ): Promise<void> {
   const paths = runtimePaths(context);
   const selection = await selectLatestDriveArchive();
-  if (await installedCrsCacheMatches(context, backendRoot, selection, verbose)) {
-    return;
-  }
 
   const extractedDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-crs-extract-'));
   try {
@@ -1705,7 +1528,7 @@ async function installDownloadedSetup(
     await extractZipArchive(archivePath, extractedDir, verbose);
     const { mpcMetadataPath, provenancePath } = await validateDownloadedCrsVersions(
       extractedDir,
-      backendRoot,
+      backendReleaseDir,
       archiveName,
     );
 
@@ -1861,8 +1684,9 @@ export async function installRuntime(options: InstallOptions): Promise<RuntimeCo
 
   logVerbose(options.verbose, `Using vendored backend ${backendRoot}`);
   await emptyDir(context.runtimeDir);
-  await buildBackendReleaseBinaries(backendRoot, options);
-  await copyBuiltBackendBinaries(context, backendRoot, options);
+  const backendReleaseDir = await buildBackendReleaseBinaries(backendRoot, options);
+  logVerbose(options.verbose, `Using backend release output ${backendReleaseDir}`);
+  await copyBuiltBackendBinaries(context, backendReleaseDir, options);
   await installIcicleRuntime(context, options.verbose);
   await configureMacosRuntime(context, options.verbose);
 
@@ -1871,7 +1695,7 @@ export async function installRuntime(options: InstallOptions): Promise<RuntimeCo
   } else if (options.trustedSetup) {
     await runTrustedSetup(context, options.verbose);
   } else {
-    await installDownloadedSetup(context, backendRoot, options.verbose);
+    await installDownloadedSetup(context, backendReleaseDir, options.verbose);
   }
 
   const state: RuntimeState = {

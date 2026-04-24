@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.7 - 2026-04-24
+
+- Simplified internal CLI stage and backend build orchestration with no intended user-facing behavior changes.
+
 ## 2.0.6 - 2026-04-24
 
 - Switched CRS download length detection to use the published Google Drive folder listing metadata instead of issuing a direct-download HEAD request before resumable downloads.
