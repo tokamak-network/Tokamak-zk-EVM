@@ -3,6 +3,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { createHash } from 'crypto';
 import { fileURLToPath } from 'url';
 import { ethers } from 'ethers';
 import { RLP } from '@ethereumjs/rlp';
@@ -56,8 +57,7 @@ const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, '../..');
 const nodeCliRoot = path.resolve(packageRoot, 'node-cli');
 const examplesRoot = __dirname;
-const privateStateArtifactsDriveRootFolderId = '1dj9_Cyc5x1nEB85LtqeF7vRLhpkKTNHj';
-const driveFolderMimeType = 'application/vnd.google-apps.folder';
+const deploymentArtifactIndexFileId = '11nM-VT0ZJlBdZUdFPGawqxvHNpXm1sXR';
 const privateStateControllerCallableAbiFilename = 'PrivateStateController.callable-abi.json';
 const defaultChannelId = 4;
 const defaultParticipantCount = 4;
@@ -121,16 +121,32 @@ type ExampleContext = {
   keyMaterial: DerivedParticipantKeys;
 };
 
-type DriveEntry = {
-  id: string;
-  name: string;
-  mimeType: string;
+type DriveArtifactMetadata = {
+  fileId: string;
+  sha256: string;
+  size: number;
+};
+
+type DeploymentArtifactIndex = {
+  schemaVersion: number;
+  chains: Record<
+    string,
+    {
+      dapps?: Record<
+        string,
+        {
+          timestamp: string;
+          files: Record<string, DriveArtifactMetadata>;
+        }
+      >;
+    }
+  >;
 };
 
 type DriveArtifactIds = {
-  deploymentFileId: string;
-  storageLayoutFileId: string;
-  controllerCallableAbiFileId: string;
+  deployment: DriveArtifactMetadata;
+  storageLayout: DriveArtifactMetadata;
+  controllerCallableAbi: DriveArtifactMetadata;
 };
 
 type ContractCodeEntry = {
@@ -155,7 +171,6 @@ const staticBlockInfo: SynthesizerBlockInfo = {
   baseFee: '0x1ba94a75',
 };
 
-const timestampFolderNamePattern = /^\d{8}T\d{6}Z$/;
 const deploymentManifestPattern = /^deployment\.\d+\.latest\.json$/;
 const storageLayoutManifestPattern = /^storage-layout\.\d+\.latest\.json$/;
 
@@ -175,102 +190,57 @@ const fetchText = async (url: string) => {
   return response.text();
 };
 
-const decodeDriveInlineData = (encoded: string) =>
-  encoded
-    .replace(/\\x([0-9A-Fa-f]{2})/g, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)))
-    .replace(/\\u([0-9A-Fa-f]{4})/g, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)))
-    .replace(/\\=/g, '=')
-    .replace(/\\\//g, '/')
-    .replace(/\\'/g, "'")
-    .replace(/\\"/g, '"')
-    .replace(/\\\\/g, '\\');
-
-const collectDriveEntries = (node: unknown, entries = new Map<string, DriveEntry>()) => {
-  if (!Array.isArray(node)) {
-    return entries;
-  }
-
-  if (
-    typeof node[0] === 'string' &&
-    Array.isArray(node[1]) &&
-    typeof node[2] === 'string' &&
-    typeof node[3] === 'string'
-  ) {
-    entries.set(node[0], {
-      id: node[0],
-      name: node[2],
-      mimeType: node[3],
-    });
-  }
-
-  for (const child of node) {
-    collectDriveEntries(child, entries);
-  }
-
-  return entries;
-};
-
-const loadDriveFolderEntries = async (folderId: string): Promise<DriveEntry[]> => {
-  const html = await fetchText(`https://drive.google.com/drive/folders/${folderId}`);
-  const inlineDataMatch = html.match(/window\['_DRIVE_ivd'\]\s*=\s*'([^']*)';/s);
-  if (!inlineDataMatch?.[1]) {
-    throw new Error(`Could not parse Google Drive folder listing for ${folderId}`);
-  }
-
-  const decoded = decodeDriveInlineData(inlineDataMatch[1]);
-  const parsed = JSON.parse(decoded) as unknown;
-  return [...collectDriveEntries(parsed).values()];
-};
-
-const findDriveEntryByName = (entries: DriveEntry[], name: string, mimeType?: string) =>
-  entries.find((entry) => entry.name === name && (mimeType === undefined || entry.mimeType === mimeType));
-
-const selectSingleMatchingEntry = (
-  entries: DriveEntry[],
-  pattern: RegExp,
-  label: string,
-  mimeType?: string,
-) => {
-  const matches = entries.filter((entry) =>
-    pattern.test(entry.name) && (mimeType === undefined || entry.mimeType === mimeType));
+const findSingleArtifact = (files: Record<string, DriveArtifactMetadata>, pattern: RegExp, label: string) => {
+  const matches = Object.entries(files).filter(([filename]) => pattern.test(filename));
   if (matches.length !== 1) {
-    throw new Error(`Expected exactly one ${label} in the latest private-state Drive folder, found ${matches.length}.`);
+    throw new Error(`Expected exactly one ${label} in the private-state artifact index, found ${matches.length}.`);
   }
-  return matches[0];
+  return matches[0][1];
 };
 
 const resolveDriveArtifactIds = async (): Promise<DriveArtifactIds> => {
-  const rootEntries = await loadDriveFolderEntries(privateStateArtifactsDriveRootFolderId);
-  const privateStateFolder = findDriveEntryByName(rootEntries, 'private-state', driveFolderMimeType);
-  if (!privateStateFolder) {
-    throw new Error('Could not find the private-state folder in the configured Google Drive root folder.');
+  const artifactIndex = await readDriveJson<DeploymentArtifactIndex>({
+    fileId: deploymentArtifactIndexFileId,
+    sha256: '',
+    size: 0,
+  });
+  const privateStateArtifacts = Object.values(artifactIndex.chains)
+    .map((chain) => chain.dapps?.['private-state'])
+    .filter((artifact): artifact is NonNullable<typeof artifact> => artifact !== undefined)
+    .sort((left, right) => right.timestamp.localeCompare(left.timestamp))[0];
+
+  if (!privateStateArtifacts) {
+    throw new Error('Could not find private-state artifacts in the deployment artifact index.');
   }
 
-  const privateStateEntries = await loadDriveFolderEntries(privateStateFolder.id);
-  const timestampFolder = privateStateEntries
-    .filter((entry) => entry.mimeType === driveFolderMimeType && timestampFolderNamePattern.test(entry.name))
-    .sort((left, right) => right.name.localeCompare(left.name))[0];
-
-  if (!timestampFolder) {
-    throw new Error('Could not find any timestamp-named folders in the private-state Google Drive folder.');
-  }
-
-  const timestampEntries = await loadDriveFolderEntries(timestampFolder.id);
-  const controllerCallableAbi = findDriveEntryByName(timestampEntries, privateStateControllerCallableAbiFilename, 'application/json');
-
+  const controllerCallableAbi = privateStateArtifacts.files[privateStateControllerCallableAbiFilename];
   if (!controllerCallableAbi) {
-    throw new Error('Could not find the required callable ABI artifact in Google Drive.');
+    throw new Error('Could not find the required callable ABI artifact in the deployment artifact index.');
   }
-
   return {
-    deploymentFileId: selectSingleMatchingEntry(timestampEntries, deploymentManifestPattern, 'deployment manifest', 'application/json').id,
-    storageLayoutFileId: selectSingleMatchingEntry(timestampEntries, storageLayoutManifestPattern, 'storage layout manifest', 'application/json').id,
-    controllerCallableAbiFileId: controllerCallableAbi.id,
+    deployment: findSingleArtifact(privateStateArtifacts.files, deploymentManifestPattern, 'deployment manifest'),
+    storageLayout: findSingleArtifact(
+      privateStateArtifacts.files,
+      storageLayoutManifestPattern,
+      'storage layout manifest',
+    ),
+    controllerCallableAbi,
   };
 };
 
-const readDriveJson = async <T>(fileId: string): Promise<T> =>
-  JSON.parse(await fetchText(`https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`)) as T;
+const readDriveJson = async <T>(artifact: DriveArtifactMetadata): Promise<T> => {
+  const text = await fetchText(`https://drive.google.com/uc?export=download&id=${encodeURIComponent(artifact.fileId)}`);
+  if (artifact.size > 0 && Buffer.byteLength(text, 'utf8') !== artifact.size) {
+    throw new Error(`Downloaded Drive artifact ${artifact.fileId} has an unexpected size.`);
+  }
+  if (artifact.sha256 !== '') {
+    const digest = createHash('sha256').update(text, 'utf8').digest('hex');
+    if (digest !== artifact.sha256) {
+      throw new Error(`Downloaded Drive artifact ${artifact.fileId} failed SHA-256 verification.`);
+    }
+  }
+  return JSON.parse(text) as T;
+};
 
 const toExampleNetwork = (chainId: number): ExampleNetwork => {
   if (chainId === 1) {
@@ -779,9 +749,9 @@ const buildRedeemManifest = async (
 
 const main = async () => {
   const artifactIds = await resolveDriveArtifactIds();
-  const manifest = await readDriveJson<DeploymentManifest>(artifactIds.deploymentFileId);
-  const storageLayoutManifest = await readDriveJson<PrivateStateStorageLayoutManifest>(artifactIds.storageLayoutFileId);
-  const controllerCallableAbi = await readDriveJson<ethers.InterfaceAbi>(artifactIds.controllerCallableAbiFileId);
+  const manifest = await readDriveJson<DeploymentManifest>(artifactIds.deployment);
+  const storageLayoutManifest = await readDriveJson<PrivateStateStorageLayoutManifest>(artifactIds.storageLayout);
+  const controllerCallableAbi = await readDriveJson<ethers.InterfaceAbi>(artifactIds.controllerCallableAbi);
   const mnemonic = defaultMnemonic;
   const { participants, keyMaterial } = await deriveChannelParticipants(defaultParticipantCount, mnemonic, manifest.chainId);
 
