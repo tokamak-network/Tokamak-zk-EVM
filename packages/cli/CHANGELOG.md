@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.8 - 2026-04-26
+
+- Added `--doctor` output for the absolute runtime workspace path.
+
 ## 2.0.7 - 2026-04-24
 
 - Simplified internal CLI stage and backend build orchestration with no intended user-facing behavior changes.
