@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.9 - 2026-04-26
+
+- Removed the npm `postinstall` hook so installing the package no longer runs `tokamak-cli --install` automatically.
+
 ## 2.0.8 - 2026-04-26
 
 - Added `--doctor` output for the absolute runtime workspace path.
