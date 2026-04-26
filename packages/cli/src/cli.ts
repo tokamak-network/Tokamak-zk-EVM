@@ -546,14 +546,15 @@ async function extractProofBundle(context: RuntimeContext, outputPathRaw: string
 
 async function runDoctor(verbose: boolean): Promise<void> {
   const platform = detectPlatform();
-  const state = await requireInstalledRuntime().catch(() => null);
+  const context = await requireInstalledRuntime().catch(() => null);
   if (verbose) {
     info(verbose, `Node version: ${process.version}`);
     info(verbose, `Platform: ${platform}`);
   }
-  if (state === null) {
+  if (context === null) {
     err('Runtime not installed. Run `tokamak-cli --install` first.');
   }
+  ok(`Runtime workspace: ${context.runtimeDir}`);
   ok('Runtime installation looks healthy');
 }
 

@@ -213,7 +213,7 @@ tokamak-cli --verify ./proof-bundle.zip
 
 ## What Does `--doctor` Check?
 
-`--doctor` checks whether the CLI can find the installed runtime for the current platform.
+`--doctor` checks whether the CLI can find the installed runtime for the current platform and prints the absolute runtime workspace path.
 
 ```bash
 tokamak-cli --doctor
