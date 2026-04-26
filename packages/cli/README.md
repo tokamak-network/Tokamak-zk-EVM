@@ -87,8 +87,6 @@ Native Windows installation is not supported. Use WSL2 or Docker.
 
 When `--preprocess`, `--prove`, or `--verify` runs later, the CLI uses that bootstrap to execute the backend command inside Docker if the bootstrap exists and Docker is running. If Docker is not running, the CLI falls back to the native runtime path.
 
-The package runs `tokamak-cli --install` during `postinstall` unless `TOKAMAK_ZKEVM_SKIP_POSTINSTALL=1` is set.
-
 ## What Does The Docker Install Image Include?
 
 The npm package ships the Dockerfile used by `--install --docker`.

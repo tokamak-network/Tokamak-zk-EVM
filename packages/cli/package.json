@@ -56,8 +56,7 @@
     "release:check": "node scripts/release-readiness.cjs",
     "typecheck": "tsc -p tsconfig.json --pretty false --noEmit",
     "publish": "node scripts/publish-package.cjs",
-    "prepack": "npm run build",
-    "postinstall": "node scripts/postinstall.cjs"
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@tokamak-zk-evm/synthesizer-node": "^1.0.3"
