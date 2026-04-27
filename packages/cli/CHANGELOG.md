@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.0.10 - 2026-04-27
 
 - Allowed `--install --docker` on Windows hosts with Docker Desktop by using the Linux Docker runtime cache for Docker installs and backend commands.
 
