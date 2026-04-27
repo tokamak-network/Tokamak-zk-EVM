@@ -37,7 +37,7 @@ Before running `--install`, make sure the machine has:
 - a working C/C++ toolchain
 - outbound HTTPS access to npm, crates.io, GitHub, GitHub Releases, and Google Drive
 
-For `--install --docker`, the Linux host needs Docker installed and a running Docker daemon. CUDA is enabled only when `docker run --rm --gpus all nvidia/cuda:12.2.0-base-ubuntu22.04 nvidia-smi` succeeds.
+For `--install --docker`, the Linux host or Windows host with Docker Desktop needs Docker installed and a running Docker daemon. CUDA is enabled only when `docker run --rm --gpus all nvidia/cuda:12.2.0-base-ubuntu22.04 nvidia-smi` succeeds.
 
 ### macOS
 
@@ -59,7 +59,7 @@ source "$HOME/.cargo/env"
 npm install -g @tokamak-zk-evm/cli
 ```
 
-Docker installation is also available on Linux:
+Docker installation is also available on Linux and Windows with Docker Desktop:
 
 ```bash
 tokamak-cli --install --docker
@@ -67,7 +67,12 @@ tokamak-cli --install --docker
 
 ### Windows
 
-Native Windows installation is not supported. Use WSL2 or Docker.
+Native Windows installation is not supported. Use WSL2, or install through Docker Desktop:
+
+```powershell
+npm install -g @tokamak-zk-evm/cli
+tokamak-cli --install --docker
+```
 
 ## What Does `--install` Do?
 
@@ -79,13 +84,13 @@ Native Windows installation is not supported. Use WSL2 or Docker.
 - retries the anonymous CRS download up to 5 times, then fails
 - writes everything into the CLI runtime cache
 
-`--install --docker` is supported only on Linux hosts. It uses the static Dockerfile shipped in the npm package, checks that Docker is running, probes CUDA with `docker run --rm --gpus all ... nvidia-smi`, then installs through either an `ubuntu22-cuda122` container environment or a CPU-only `ubuntu22` container environment. It writes the Linux runtime cache as usual and stores Docker bootstrap files in:
+`--install --docker` is supported on Linux hosts and Windows hosts with Docker Desktop. It uses the static Dockerfile shipped in the npm package, checks that Docker is running, probes CUDA with `docker run --rm --gpus all ... nvidia-smi`, then installs through either an `ubuntu22-cuda122` container environment or a CPU-only `ubuntu22` container environment. Docker installs always write the Linux runtime cache and store Docker bootstrap files in:
 
 ```text
 ~/.tokamak-zk-evm/linux/docker
 ```
 
-When `--preprocess`, `--prove`, or `--verify` runs later, the CLI uses that bootstrap to execute the backend command inside Docker if the bootstrap exists and Docker is running. If Docker is not running, the CLI falls back to the native runtime path.
+When `--preprocess`, `--prove`, or `--verify` runs later, the CLI uses that bootstrap to execute the backend command inside Docker if the bootstrap exists and Docker is running. On Linux, if Docker is not running, the CLI falls back to the native runtime path. On Windows, Docker Desktop must be running because native Windows backend execution is not supported.
 
 ## What Does The Docker Install Image Include?
 

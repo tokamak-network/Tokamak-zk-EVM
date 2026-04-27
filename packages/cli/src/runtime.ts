@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 
 export type CliPlatform = 'linux' | 'macos';
+type DockerHostPlatform = 'linux' | 'windows';
 
 export interface InstallOptions {
   docker: boolean;
@@ -165,8 +166,21 @@ export function detectPlatform(): CliPlatform {
       return 'linux';
     default:
       throw new Error(
-        `Unsupported platform: ${process.platform}. Native tokamak-cli installs currently support only macOS and Linux. Use WSL2 or Docker on Windows.`,
+        `Unsupported platform: ${process.platform}. Native tokamak-cli installs currently support only macOS and Linux. Use WSL2 or Docker Desktop with \`--install --docker\` on Windows.`,
       );
+  }
+}
+
+function detectDockerHostPlatform(): DockerHostPlatform {
+  switch (process.platform) {
+    case 'linux':
+      return 'linux';
+    case 'win32':
+      return 'windows';
+    case 'darwin':
+      throw new Error('`tokamak-cli --install --docker` is not supported on macOS hosts.');
+    default:
+      throw new Error(`Unsupported Docker host platform: ${process.platform}. Use Linux or Windows with Docker Desktop.`);
   }
 }
 
@@ -179,18 +193,31 @@ function pathEntries(): string[] {
 
 function isExecutableFile(target: string): boolean {
   try {
-    fsSync.accessSync(target, fsSync.constants.X_OK);
+    const mode = process.platform === 'win32' ? fsSync.constants.F_OK : fsSync.constants.X_OK;
+    fsSync.accessSync(target, mode);
     return true;
   } catch {
     return false;
   }
 }
 
+function commandLookupNames(command: string): string[] {
+  if (process.platform !== 'win32' || path.extname(command)) {
+    return [command];
+  }
+  const extensions = (process.env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD')
+    .split(';')
+    .map((extension) => extension.trim())
+    .filter((extension) => extension.length > 0);
+  return [command, ...extensions.map((extension) => `${command}${extension.toLowerCase()}`)];
+}
+
 function commandExists(command: string): boolean {
   if (command.includes(path.sep)) {
     return isExecutableFile(command);
   }
-  return pathEntries().some((entry) => isExecutableFile(path.join(entry, command)));
+  const names = commandLookupNames(command);
+  return pathEntries().some((entry) => names.some((name) => isExecutableFile(path.join(entry, name))));
 }
 
 function prerequisiteInstallHint(platform: CliPlatform): string {
@@ -309,10 +336,9 @@ async function resolvePackageVersion(packageRoot: string): Promise<string> {
   return manifest.version;
 }
 
-export async function createRuntimeContext(): Promise<RuntimeContext> {
+async function createRuntimeContextForPlatform(platform: CliPlatform): Promise<RuntimeContext> {
   const packageRoot = resolvePackageRoot();
   const packageVersion = await resolvePackageVersion(packageRoot);
-  const platform = detectPlatform();
   const cacheRoot = resolveCacheRoot();
   const platformDir = path.join(cacheRoot, platform);
   return {
@@ -326,6 +352,15 @@ export async function createRuntimeContext(): Promise<RuntimeContext> {
   };
 }
 
+export async function createRuntimeContext(): Promise<RuntimeContext> {
+  return await createRuntimeContextForPlatform(detectPlatform());
+}
+
+async function createDockerRuntimeContext(): Promise<RuntimeContext> {
+  detectDockerHostPlatform();
+  return await createRuntimeContextForPlatform('linux');
+}
+
 export async function readInstalledState(platform: CliPlatform): Promise<RuntimeState | null> {
   const statePath = path.join(resolveCacheRoot(), platform, 'installation.json');
   try {
@@ -337,6 +372,19 @@ export async function readInstalledState(platform: CliPlatform): Promise<Runtime
 }
 
 export async function requireInstalledRuntime(): Promise<RuntimeContext> {
+  if (process.platform === 'win32') {
+    const context = await createDockerRuntimeContext();
+    const state = await readInstalledState(context.platform);
+    if (state?.installMode !== 'docker') {
+      throw new Error('Tokamak zk-EVM Docker runtime is not installed. Run `tokamak-cli --install --docker` first.');
+    }
+    await fs.access(context.runtimeDir);
+    return {
+      ...context,
+      packageVersion: state.packageVersion,
+    };
+  }
+
   const context = await createRuntimeContext();
   const state = await readInstalledState(context.platform);
   if (state === null) {
@@ -784,6 +832,10 @@ export async function runBackendCommand(
   if (bootstrap !== null) {
     logVerbose(verbose, `Running backend command in Docker bootstrap ${bootstrap.dockerEnvironment}.`);
     return await runDockerBootstrapCommand(context, bootstrap, command, args, verbose);
+  }
+
+  if (process.platform === 'win32' && context.platform === 'linux') {
+    throw new Error('Docker Desktop is required to run the installed Tokamak zk-EVM Docker runtime on Windows.');
   }
 
   return await runCommand(command, args, {
@@ -1638,10 +1690,7 @@ async function writeRuntimeState(context: RuntimeContext, state: RuntimeState): 
 }
 
 async function installDockerRuntime(options: InstallOptions): Promise<RuntimeContext> {
-  const context = await createRuntimeContext();
-  if (context.platform !== 'linux') {
-    throw new Error('`tokamak-cli --install --docker` is supported only on Linux hosts.');
-  }
+  const context = await createDockerRuntimeContext();
   await ensureDockerDaemonAvailable(options.verbose);
   await ensureDir(context.cacheRoot);
 
