@@ -515,10 +515,11 @@ export async function runCommand(
   options: {
     cwd?: string;
     env?: NodeJS.ProcessEnv;
+    quiet?: boolean;
     verbose?: boolean;
   } = {},
 ): Promise<CommandResult> {
-  const { cwd, env, verbose = false } = options;
+  const { cwd, env, quiet = false, verbose = false } = options;
   if (verbose) {
     writeStderrLine(`[info] Command: ${command} ${args.join(' ')}`);
   }
@@ -535,12 +536,16 @@ export async function runCommand(
     child.stdout.on('data', (chunk: Buffer | string) => {
       const text = chunk.toString();
       stdout += text;
-      process.stdout.write(text);
+      if (!quiet) {
+        process.stdout.write(text);
+      }
     });
     child.stderr.on('data', (chunk: Buffer | string) => {
       const text = chunk.toString();
       stderr += text;
-      process.stderr.write(text);
+      if (!quiet) {
+        process.stderr.write(text);
+      }
     });
     child.on('error', reject);
     child.on('close', (code) => {
@@ -800,6 +805,7 @@ async function runDockerBootstrapCommand(
   command: string,
   args: string[],
   verbose: boolean,
+  quiet = false,
 ): Promise<CommandResult> {
   const env = dockerBackendEnvironment(context);
   const containerCommand = toContainerPath(command, context);
@@ -819,7 +825,7 @@ async function runDockerBootstrapCommand(
     bootstrap.imageName,
     ...args.map((arg) => toContainerArgument(arg, context)),
   ];
-  return await runCommand('docker', dockerArgs, { verbose });
+  return await runCommand('docker', dockerArgs, { quiet, verbose });
 }
 
 export async function runBackendCommand(
@@ -827,11 +833,15 @@ export async function runBackendCommand(
   command: string,
   args: string[],
   verbose: boolean,
+  options: {
+    quiet?: boolean;
+  } = {},
 ): Promise<CommandResult> {
+  const { quiet = false } = options;
   const bootstrap = await dockerBootstrapRunnable(context, verbose);
   if (bootstrap !== null) {
     logVerbose(verbose, `Running backend command in Docker bootstrap ${bootstrap.dockerEnvironment}.`);
-    return await runDockerBootstrapCommand(context, bootstrap, command, args, verbose);
+    return await runDockerBootstrapCommand(context, bootstrap, command, args, verbose, quiet);
   }
 
   if (process.platform === 'win32' && context.platform === 'linux') {
@@ -840,6 +850,7 @@ export async function runBackendCommand(
 
   return await runCommand(command, args, {
     env: backendEnvironment(context),
+    quiet,
     verbose,
   });
 }

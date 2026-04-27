@@ -283,6 +283,22 @@ function info(verbose: boolean, message: string): void {
   }
 }
 
+function parseBackendVersion(binaryName: string, stdout: string, stderr: string): string {
+  const output = `${stdout}\n${stderr}`;
+  const lines = output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  const versionPattern = /\b\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?\b/u;
+  const versionLine = lines.find((line) => line.startsWith(binaryName) && versionPattern.test(line))
+    ?? lines.find((line) => versionPattern.test(line));
+  const version = versionLine?.match(versionPattern)?.[0];
+  if (version === undefined) {
+    err(`Could not read ${binaryName} version from --version output.`);
+  }
+  return version;
+}
+
 function normalizeSynthesizeArgs(args: string[]): TokamakChannelTxFiles {
   if (args.length === 1 && !args[0].startsWith('-')) {
     const inputDir = resolveUserPath(args[0]);
@@ -559,6 +575,16 @@ async function runDoctor(verbose: boolean): Promise<void> {
   }
   if (context === null) {
     err('Runtime not installed. Run `tokamak-cli --install` first.');
+  }
+  const paths = runtimePaths(context);
+  const backendBinaries = [
+    ['preprocess', paths.preprocessBinary],
+    ['prove', paths.proveBinary],
+    ['verify', paths.verifyBinary],
+  ] as const;
+  for (const [binaryName, binaryPath] of backendBinaries) {
+    const result = await runBackendCommand(context, binaryPath, ['--version'], verbose, { quiet: true });
+    ok(`${binaryName} version: ${parseBackendVersion(binaryName, result.stdout, result.stderr)}`);
   }
   ok(`Runtime workspace: ${context.runtimeDir}`);
   ok('Runtime installation looks healthy');
