@@ -96,6 +96,7 @@
       "name": "Debug Dusk-backed mpc-setup (release)",
       "type": "lldb",
       "request": "launch",
+      "preLaunchTask": "clean Dusk-backed mpc-setup release artifacts",
       "cargo": {
         "args": ["build", "--release", "-p", "mpc-setup"],
         "filter": { "name": "dusk_backed_mpc_setup", "kind": "bin" }
