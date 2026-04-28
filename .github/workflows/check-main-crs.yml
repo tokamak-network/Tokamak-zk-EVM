@@ -72,19 +72,31 @@ jobs:
           query = (
               f"'{folder_id}' in parents and "
               "trashed = false and "
-              "mimeType != 'application/vnd.google-apps.folder' and "
-              f"name contains '{archive_prefix}'"
+              "mimeType != 'application/vnd.google-apps.folder'"
           )
 
-          response = service.files().list(
-              q=query,
-              pageSize=20,
-              fields="files(id,name,webViewLink)",
-              supportsAllDrives=True,
-              includeItemsFromAllDrives=True,
-          ).execute()
+          files = []
+          page_token = None
+          while True:
+              response = service.files().list(
+                  q=query,
+                  pageSize=100,
+                  pageToken=page_token,
+                  fields="nextPageToken,files(id,name,webViewLink)",
+                  supportsAllDrives=True,
+                  includeItemsFromAllDrives=True,
+              ).execute()
 
-          files = response.get("files", [])
+              files.extend(
+                  file
+                  for file in response.get("files", [])
+                  if file.get("name", "").startswith(archive_prefix)
+              )
+
+              page_token = response.get("nextPageToken")
+              if not page_token or files:
+                  break
+
           if not files:
               raise SystemExit(
                   "No published CRS archive found in Google Drive for "
