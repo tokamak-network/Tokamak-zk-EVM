@@ -1,9 +1,10 @@
-name: Publish subcircuit-library
+name: Publish release
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -93,3 +94,390 @@ jobs:
       - name: Publish to npm
         if: steps.version-check.outputs.should_publish == 'true'
         run: npm publish ./dist
+
+  publish-synthesizer:
+    name: Publish synthesizer packages to npm
+    runs-on: ubuntu-22.04
+    needs: publish-subcircuit-library
+    defaults:
+      run:
+        working-directory: packages/frontend/synthesizer
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        working-directory: .
+        run: npm ci
+
+      - name: Compare package versions with npm
+        id: version-check
+        shell: bash
+        run: |
+          node <<'EOF_NODE' >> "$GITHUB_OUTPUT"
+          const { execSync } = require('node:child_process');
+          const path = require('node:path');
+
+          const packageEntries = [
+            {
+              outputPrefix: 'node',
+              manifestPath: path.join(process.cwd(), 'node-cli', 'package.json'),
+            },
+            {
+              outputPrefix: 'web',
+              manifestPath: path.join(process.cwd(), 'web-app', 'package.json'),
+            },
+          ];
+
+          function compareSemver(left, right) {
+            const leftParts = left.split('.').map((value) => Number(value));
+            const rightParts = right.split('.').map((value) => Number(value));
+            const maxLength = Math.max(leftParts.length, rightParts.length);
+
+            for (let i = 0; i < maxLength; i += 1) {
+              const leftValue = leftParts[i] ?? 0;
+              const rightValue = rightParts[i] ?? 0;
+              if (leftValue > rightValue) return 1;
+              if (leftValue < rightValue) return -1;
+            }
+
+            return 0;
+          }
+
+          const manifests = packageEntries.map((entry) => {
+            const manifest = require(entry.manifestPath);
+            return {
+              ...entry,
+              name: manifest.name,
+              version: manifest.version,
+            };
+          });
+
+          const localVersion = manifests[0].version;
+          for (const manifest of manifests) {
+            if (manifest.version !== localVersion) {
+              throw new Error(
+                `Synchronized release policy violation: ${manifests
+                  .map((value) => `${value.name}=${value.version}`)
+                  .join(', ')}`,
+              );
+            }
+          }
+
+          let publishCount = 0;
+          for (const manifest of manifests) {
+            let publishedVersion = null;
+            try {
+              publishedVersion = execSync(`npm view "${manifest.name}" version`, {
+                encoding: 'utf8',
+                stdio: ['ignore', 'pipe', 'pipe'],
+              }).trim();
+            } catch (error) {
+              publishedVersion = null;
+            }
+
+            const comparison =
+              publishedVersion === null ? 1 : compareSemver(manifest.version, publishedVersion);
+            if (comparison < 0) {
+              throw new Error(
+                `Local version ${manifest.version} is behind npm version ${publishedVersion} for ${manifest.name}.`,
+              );
+            }
+
+            const shouldPublish = publishedVersion === null || comparison > 0;
+            if (shouldPublish) {
+              publishCount += 1;
+            }
+
+            console.log(`${manifest.outputPrefix}_package_name=${manifest.name}`);
+            console.log(`${manifest.outputPrefix}_local_version=${manifest.version}`);
+            console.log(
+              `${manifest.outputPrefix}_published_version=${publishedVersion ?? 'none'}`,
+            );
+            console.log(`${manifest.outputPrefix}_should_publish=${shouldPublish}`);
+          }
+
+          console.log(`release_version=${localVersion}`);
+          console.log(`publish_count=${publishCount}`);
+          console.log(`should_publish_any=${publishCount > 0}`);
+          EOF_NODE
+
+      - name: Show version decision
+        run: |
+          echo "Release version: ${{ steps.version-check.outputs.release_version }}"
+          echo "Node package: ${{ steps.version-check.outputs.node_package_name }}"
+          echo "Node local version: ${{ steps.version-check.outputs.node_local_version }}"
+          echo "Node published version: ${{ steps.version-check.outputs.node_published_version }}"
+          echo "Node should publish: ${{ steps.version-check.outputs.node_should_publish }}"
+          echo "Web package: ${{ steps.version-check.outputs.web_package_name }}"
+          echo "Web local version: ${{ steps.version-check.outputs.web_local_version }}"
+          echo "Web published version: ${{ steps.version-check.outputs.web_published_version }}"
+          echo "Web should publish: ${{ steps.version-check.outputs.web_should_publish }}"
+
+      - name: Build workspace
+        if: steps.version-check.outputs.should_publish_any == 'true'
+        run: npm run build
+
+      - name: Validate node package contents
+        if: steps.version-check.outputs.node_should_publish == 'true'
+        working-directory: packages/frontend/synthesizer/node-cli
+        run: npm publish --dry-run
+
+      - name: Publish node package to npm
+        if: steps.version-check.outputs.node_should_publish == 'true'
+        working-directory: packages/frontend/synthesizer/node-cli
+        run: npm publish
+
+      - name: Validate web package contents
+        if: steps.version-check.outputs.web_should_publish == 'true'
+        working-directory: packages/frontend/synthesizer/web-app
+        run: npm publish --dry-run
+
+      - name: Publish web package to npm
+        if: steps.version-check.outputs.web_should_publish == 'true'
+        working-directory: packages/frontend/synthesizer/web-app
+        run: npm publish
+
+  check-main-crs:
+    name: Check published CRS for current backend version
+    runs-on: ubuntu-22.04
+    needs: publish-subcircuit-library
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Google API client
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install google-api-python-client google-auth
+
+      - name: Write Google service account key
+        env:
+          TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "${TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON}" ]; then
+            echo "Missing repository secret TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON"
+            exit 1
+          fi
+          printf '%s' "${TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON}" > "$RUNNER_TEMP/tokamak-mpc-drive-service-account.json"
+
+      - name: Check published CRS archive for current backend version
+        env:
+          TOKAMAK_MPC_DRIVE_FOLDER_ID: ${{ secrets.TOKAMAK_MPC_DRIVE_FOLDER_ID }}
+          TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH: ${{ runner.temp }}/tokamak-mpc-drive-service-account.json
+        run: |
+          if [ -z "${TOKAMAK_MPC_DRIVE_FOLDER_ID}" ]; then
+            echo "Missing repository secret TOKAMAK_MPC_DRIVE_FOLDER_ID"
+            exit 1
+          fi
+
+          python <<'PY'
+          import json
+          import os
+          import tomllib
+          from pathlib import Path
+
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+
+          repo_root = Path.cwd()
+          cargo_toml = repo_root / "packages" / "backend" / "Cargo.toml"
+          with cargo_toml.open("rb") as f:
+              cargo = tomllib.load(f)
+
+          backend_version = cargo["workspace"]["package"]["version"]
+          archive_prefix = f"tokamak-backend-crs-v{backend_version}-"
+          folder_id = os.environ["TOKAMAK_MPC_DRIVE_FOLDER_ID"].strip()
+          service_account_path = os.environ["TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH"].strip()
+
+          credentials = service_account.Credentials.from_service_account_file(
+              service_account_path,
+              scopes=["https://www.googleapis.com/auth/drive.readonly"],
+          )
+          service = build("drive", "v3", credentials=credentials, cache_discovery=False)
+
+          folder = service.files().get(
+              fileId=folder_id,
+              fields="id,name,mimeType,driveId",
+              supportsAllDrives=True,
+          ).execute()
+
+          query = (
+              f"'{folder_id}' in parents and "
+              "trashed = false and "
+              "mimeType != 'application/vnd.google-apps.folder'"
+          )
+
+          files = []
+          visible_files = []
+          page_token = None
+          while True:
+              response = service.files().list(
+                  q=query,
+                  pageSize=100,
+                  pageToken=page_token,
+                  fields="nextPageToken,files(id,name,webViewLink)",
+                  supportsAllDrives=True,
+                  includeItemsFromAllDrives=True,
+              ).execute()
+
+              visible_files.extend(response.get("files", []))
+              files.extend(
+                  file
+                  for file in response.get("files", [])
+                  if file.get("name", "").startswith(archive_prefix)
+              )
+
+              page_token = response.get("nextPageToken")
+              if not page_token or files:
+                  break
+
+          if not files:
+              visible_sample = visible_files[:20]
+              print(
+                  json.dumps(
+                      {
+                          "archivePrefix": archive_prefix,
+                          "checkedFolder": folder,
+                          "matchedCount": 0,
+                          "visibleFileCountBeforeStop": len(visible_files),
+                          "visibleFileSample": visible_sample,
+                      },
+                      indent=2,
+                  )
+              )
+              raise SystemExit(
+                  "No published CRS archive found in Google Drive for "
+                  f"backend version {backend_version}. Expected an archive whose "
+                  f"name starts with '{archive_prefix}'."
+              )
+
+          print(
+              json.dumps(
+                  {
+                      "backendVersion": backend_version,
+                      "archivePrefix": archive_prefix,
+                      "matches": files,
+                  },
+                  indent=2,
+              )
+          )
+          PY
+
+  publish-cli:
+    name: Publish @tokamak-zk-evm/cli to npm
+    runs-on: ubuntu-22.04
+    needs:
+      - publish-synthesizer
+      - check-main-crs
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Compare package version with npm
+        id: version-check
+        shell: bash
+        run: |
+          node <<'EOF_NODE' >> "$GITHUB_OUTPUT"
+          const { execSync } = require('node:child_process');
+          const pkg = require('./packages/cli/package.json');
+
+          function compareSemver(left, right) {
+            const leftParts = left.split('.').map((value) => Number(value));
+            const rightParts = right.split('.').map((value) => Number(value));
+            const maxLength = Math.max(leftParts.length, rightParts.length);
+
+            for (let index = 0; index < maxLength; index += 1) {
+              const leftValue = leftParts[index] ?? 0;
+              const rightValue = rightParts[index] ?? 0;
+              if (leftValue > rightValue) return 1;
+              if (leftValue < rightValue) return -1;
+            }
+
+            return 0;
+          }
+
+          let publishedVersion = null;
+          try {
+            publishedVersion = execSync(`npm view "${pkg.name}" version`, {
+              encoding: 'utf8',
+              stdio: ['ignore', 'pipe', 'pipe'],
+            }).trim();
+          } catch (error) {
+            publishedVersion = null;
+          }
+
+          const comparison =
+            publishedVersion === null ? 1 : compareSemver(pkg.version, publishedVersion);
+          if (comparison < 0) {
+            throw new Error(
+              `Local version ${pkg.version} is behind npm version ${publishedVersion} for ${pkg.name}.`,
+            );
+          }
+
+          const shouldPublish = publishedVersion === null || comparison > 0;
+          console.log(`package_name=${pkg.name}`);
+          console.log(`local_version=${pkg.version}`);
+          console.log(`published_version=${publishedVersion ?? 'none'}`);
+          console.log(`should_publish=${shouldPublish}`);
+          EOF_NODE
+
+      - name: Show version decision
+        run: |
+          echo "Package: ${{ steps.version-check.outputs.package_name }}"
+          echo "Local version: ${{ steps.version-check.outputs.local_version }}"
+          echo "Published version: ${{ steps.version-check.outputs.published_version }}"
+          echo "Should publish: ${{ steps.version-check.outputs.should_publish }}"
+
+      - name: Validate CLI release readiness
+        if: steps.version-check.outputs.should_publish == 'true'
+        run: npm run --workspace @tokamak-zk-evm/cli release:check
+
+      - name: Show current CLI release notes
+        if: steps.version-check.outputs.should_publish == 'true'
+        run: |
+          echo "## @tokamak-zk-evm/cli ${{ steps.version-check.outputs.local_version }}" >> "$GITHUB_STEP_SUMMARY"
+          node packages/cli/scripts/release-readiness.cjs --print-current-notes >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build CLI package
+        if: steps.version-check.outputs.should_publish == 'true'
+        run: |
+          npm run --workspace @tokamak-zk-evm/synthesizer-node build
+          npm run --workspace @tokamak-zk-evm/cli build
+
+      - name: Validate npm package contents
+        if: steps.version-check.outputs.should_publish == 'true'
+        working-directory: packages/cli
+        run: npm publish --dry-run --ignore-scripts
+
+      - name: Publish to npm
+        if: steps.version-check.outputs.should_publish == 'true'
+        working-directory: packages/cli
+        run: npm publish --ignore-scripts
