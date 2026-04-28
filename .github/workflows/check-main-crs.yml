@@ -69,6 +69,12 @@ jobs:
           )
           service = build("drive", "v3", credentials=credentials, cache_discovery=False)
 
+          folder = service.files().get(
+              fileId=folder_id,
+              fields="id,name,mimeType,driveId",
+              supportsAllDrives=True,
+          ).execute()
+
           query = (
               f"'{folder_id}' in parents and "
               "trashed = false and "
@@ -76,6 +82,7 @@ jobs:
           )
 
           files = []
+          visible_files = []
           page_token = None
           while True:
               response = service.files().list(
@@ -87,6 +94,7 @@ jobs:
                   includeItemsFromAllDrives=True,
               ).execute()
 
+              visible_files.extend(response.get("files", []))
               files.extend(
                   file
                   for file in response.get("files", [])
@@ -98,6 +106,19 @@ jobs:
                   break
 
           if not files:
+              visible_sample = visible_files[:20]
+              print(
+                  json.dumps(
+                      {
+                          "archivePrefix": archive_prefix,
+                          "checkedFolder": folder,
+                          "matchedCount": 0,
+                          "visibleFileCountBeforeStop": len(visible_files),
+                          "visibleFileSample": visible_sample,
+                      },
+                      indent=2,
+                  )
+              )
               raise SystemExit(
                   "No published CRS archive found in Google Drive for "
                   f"backend version {backend_version}. Expected an archive whose "
