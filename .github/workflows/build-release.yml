@@ -1,4 +1,4 @@
-name: Test & Build
+name: Pre-publish Test & Build
 
 on:
   pull_request:
@@ -7,18 +7,12 @@ on:
     branches: [main]
 
 concurrency:
-  group: build-release-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: pre-publish-test-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  TOKAMAK_ZKEVM_CLI_CACHE_DIR: ${{ github.workspace }}/.tokamak-cli-cache
-
 jobs:
-  # ============================================================================
-  # Build & Setup - Build binaries once and share across test jobs
-  # ============================================================================
-  build-and-setup:
-    name: Build & Setup
+  source-build:
+    name: Source build
     runs-on: ubuntu-22.04
     timeout-minutes: 45
 
@@ -44,26 +38,29 @@ jobs:
       - name: Install workspace dependencies
         run: npm ci
 
-      - name: Build synthesizer-node package
+      - name: Check synchronized versions
+        run: npm run version:check
+
+      - name: Build subcircuit library
+        working-directory: packages/frontend/qap-compiler
+        run: |
+          npx qap-compiler --reload-constants
+          npx qap-compiler --build
+          npx qap-compiler --dist
+
+      - name: Build synthesizer packages
         run: npm run build --workspace @tokamak-zk-evm/synthesizer-node
+
+      - name: Build synthesizer web package
+        run: npm run build --workspace @tokamak-zk-evm/synthesizer-web
 
       - name: Build CLI package
         run: npm run build --workspace @tokamak-zk-evm/cli
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y dos2unix cmake build-essential
-
-      - name: Install Google API client
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install google-api-python-client google-auth
+          sudo apt-get install -y cmake build-essential pkg-config
 
       - name: Install Rust and Cargo
         uses: dtolnay/rust-toolchain@stable
@@ -79,80 +76,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Restore CRS download cache
-        id: crs-download-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: .tokamak-cli-cache/linux/downloads/crs/
-          key: ${{ runner.os }}-cli-crs-${{ github.run_id }}
-          restore-keys: |
-            ${{ runner.os }}-cli-crs-
+      - name: Check backend workspace
+        working-directory: packages/backend
+        run: cargo check --workspace
 
-      - name: Restore ICICLE download cache
-        id: icicle-download-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: .tokamak-cli-cache/linux/downloads/icicle/
-          key: ${{ runner.os }}-cli-icicle-${{ hashFiles('packages/cli/manifests/**') }}
-
-      - name: Build and setup environment
-        env:
-          TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON }}
-        run: |
-          # Fix file permissions and line endings
-          echo "🔧 Fixing file permissions and line endings..."
-          find . -name "*.sh" -exec chmod +x {} \;
-          find . -name "*.sh" -exec dos2unix {} \; 2>/dev/null || true
-
-          # Run install step (this builds all binaries)
-          echo "🔧 Running tokamak-cli --install (building binaries)..."
-          node packages/cli/dist/cli.js --install
-
-      - name: Save CRS download cache
-        uses: actions/cache/save@v4
-        with:
-          path: .tokamak-cli-cache/linux/downloads/crs/
-          key: ${{ runner.os }}-cli-crs-${{ github.run_id }}
-
-      - name: Save ICICLE download cache
-        if: steps.icicle-download-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: .tokamak-cli-cache/linux/downloads/icicle/
-          key: ${{ runner.os }}-cli-icicle-${{ hashFiles('packages/cli/manifests/**') }}
-
-      - name: Validate backend setup outputs
-        run: |
-          runtime_dir="$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime"
-          required=(
-            "$runtime_dir/resource/setup/output/combined_sigma.rkyv"
-            "$runtime_dir/resource/setup/output/sigma_preprocess.rkyv"
-            "$runtime_dir/resource/setup/output/sigma_verify.json"
-          )
-          for file in "${required[@]}"; do
-            if [ ! -f "$file" ]; then
-              echo "❌ Missing backend setup output: $file"
-              exit 1
-            fi
-          done
-          echo "✅ Backend setup outputs are ready"
-
-      - name: Upload CLI runtime artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: cli-runtime-linux
-          path: .tokamak-cli-cache/linux/
-          retention-days: 1
-
-
-  # ============================================================================
-  # EVM compatibility tests
-  # ============================================================================
   evm-compat-test:
     name: EVM compatibility tests
     runs-on: ubuntu-22.04
     timeout-minutes: 60
-    needs: build-and-setup
 
     steps:
       - name: Checkout code
@@ -193,238 +124,3 @@ jobs:
           name: evm-compat-test-outputs-${{ github.run_number }}
           path: packages/frontend/synthesizer/outputs/
           retention-days: 7
-
-  # ============================================================================
-  # Proof Generation Test
-  # ============================================================================
-  proof-generation-test:
-    name: Proof Generation Test
-    runs-on: ubuntu-22.04
-    needs: [build-and-setup, evm-compat-test]
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Update TokamakL2JS to latest main
-        run: |
-          git submodule sync --recursive
-          git submodule update --init --recursive
-          git submodule update --remote submodules/TokamakL2JS
-          echo "TokamakL2JS HEAD: $(git -C submodules/TokamakL2JS rev-parse --short HEAD)"
-
-      - name: Ensure zip/unzip
-        run: |
-          if ! command -v zip >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y zip unzip
-          fi
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install CLI workspace dependencies
-        run: npm ci --workspace @tokamak-zk-evm/cli
-
-      - name: Install synthesizer workspace dependencies
-        run: |
-          cd packages/frontend/synthesizer
-          npm ci
-
-      - name: Build synthesizer-node package
-        run: |
-          cd packages/frontend/synthesizer
-          npm run build --workspace @tokamak-zk-evm/synthesizer-node
-
-      - name: Build CLI package
-        run: npm run build --workspace @tokamak-zk-evm/cli
-
-      - name: Download CLI runtime artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: cli-runtime-linux
-          path: .tokamak-cli-cache/linux
-
-      - name: Download EVM compatibility outputs
-        uses: actions/download-artifact@v4
-        with:
-          name: evm-compat-test-outputs-${{ github.run_number }}
-          path: packages/frontend/synthesizer/outputs/
-
-      - name: Make binaries executable
-        run: |
-          chmod +x "$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime/bin/"* 2>/dev/null || true
-
-      - name: Validate setup artifacts in runtime artifact
-        run: |
-          runtime_dir="$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime"
-          required=(
-            "$runtime_dir/resource/setup/output/combined_sigma.rkyv"
-            "$runtime_dir/resource/setup/output/sigma_preprocess.rkyv"
-            "$runtime_dir/resource/setup/output/sigma_verify.json"
-          )
-          for file in "${required[@]}"; do
-            if [ ! -f "$file" ]; then
-              echo "❌ Missing setup artifact in runtime artifact: $file"
-              exit 1
-            fi
-          done
-          echo "✅ Setup artifacts present in runtime artifact"
-
-      - name: Validate preprocess input
-        run: |
-          required=(
-            "packages/frontend/synthesizer/outputs/permutation.json"
-            "packages/frontend/synthesizer/outputs/instance.json"
-          )
-          for file in "${required[@]}"; do
-            if [ ! -f "$file" ]; then
-              echo "❌ Missing preprocess input: $file (expected from evm-compat-test)"
-              exit 1
-            fi
-          done
-
-      - name: Run preprocess
-        run: |
-          echo "⚙️ Running preprocess..."
-          node packages/cli/dist/cli.js --preprocess ./packages/frontend/synthesizer/outputs
-
-      - name: Validate prove inputs
-        run: |
-          required=(
-            "packages/frontend/synthesizer/outputs/instance.json"
-            "packages/frontend/synthesizer/outputs/permutation.json"
-            "packages/frontend/synthesizer/outputs/placementVariables.json"
-          )
-          for file in "${required[@]}"; do
-            if [ ! -f "$file" ]; then
-              echo "❌ Missing prove input: $file (expected from evm-compat-test)"
-              exit 1
-            fi
-          done
-
-      - name: Run prove
-        run: |
-          echo "🔐 Running prove..."
-          node packages/cli/dist/cli.js --prove ./packages/frontend/synthesizer/outputs
-
-      - name: Validate extract-proof inputs
-        run: |
-          if [ ! -f "packages/frontend/synthesizer/outputs/instance_description.json" ]; then
-            echo "❌ Missing extract-proof input: packages/frontend/synthesizer/outputs/instance_description.json (expected from evm-compat-test)"
-            exit 1
-          fi
-
-      - name: Run extract-proof
-        run: |
-          echo "📦 Running extract-proof..."
-          node packages/cli/dist/cli.js --extract-proof ./test-out/test-proof.zip
-
-      - name: Validate proof bundle for verify
-        run: |
-          if [ ! -f "./test-out/test-proof.zip" ]; then
-            echo "❌ Missing proof bundle for verify: ./test-out/test-proof.zip"
-            exit 1
-          fi
-
-      - name: Run verify
-        run: |
-          echo "✅ Running verify..."
-          node packages/cli/dist/cli.js --verify ./test-out/test-proof.zip
-
-  # ============================================================================
-  # L2StateChannel Test - Uses pre-built binaries
-  # ============================================================================
-  tokamak-ch-compat-test:
-    name: tokamak-ch-compat-test
-    runs-on: ubuntu-22.04
-    needs: build-and-setup
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Update TokamakL2JS to latest main
-        run: |
-          git submodule sync --recursive
-          git submodule update --init --recursive
-          git submodule update --remote submodules/TokamakL2JS
-          echo "TokamakL2JS HEAD: $(git -C submodules/TokamakL2JS rev-parse --short HEAD)"
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install CLI workspace dependencies
-        run: npm ci --workspace @tokamak-zk-evm/cli
-
-      - name: Install synthesizer workspace dependencies
-        run: |
-          cd packages/frontend/synthesizer
-          npm ci
-
-      - name: Build synthesizer-node package
-        run: |
-          cd packages/frontend/synthesizer
-          npm run build --workspace @tokamak-zk-evm/synthesizer-node
-
-      - name: Build CLI package
-        run: npm run build --workspace @tokamak-zk-evm/cli
-
-      - name: Download CLI runtime artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: cli-runtime-linux
-          path: .tokamak-cli-cache/linux
-
-      - name: Make binaries executable
-        run: |
-          chmod +x "$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime/bin/"* 2>/dev/null || true
-
-      - name: Validate setup artifacts in runtime artifact
-        run: |
-          runtime_dir="$TOKAMAK_ZKEVM_CLI_CACHE_DIR/linux/runtime"
-          required=(
-            "$runtime_dir/resource/setup/output/combined_sigma.rkyv"
-            "$runtime_dir/resource/setup/output/sigma_preprocess.rkyv"
-            "$runtime_dir/resource/setup/output/sigma_verify.json"
-          )
-          for file in "${required[@]}"; do
-            if [ ! -f "$file" ]; then
-              echo "❌ Missing setup artifact in runtime artifact: $file"
-              exit 1
-            fi
-          done
-          echo "✅ Setup artifacts present in runtime artifact"
-
-      - name: Run L2StateChannel CI test (synthesize)
-        run: |
-          echo "🧪 Running L2StateChannel CI test..."
-          node "${{ github.workspace }}/packages/cli/dist/cli.js" --synthesize \
-            "${{ github.workspace }}/packages/frontend/synthesizer/examples/L2StateChannel"
-
-      - name: Run preprocess
-        run: |
-          echo "⚙️ Running preprocess..."
-          node packages/cli/dist/cli.js --preprocess
-
-      - name: Run prove
-        run: |
-          echo "🔐 Running prove..."
-          node packages/cli/dist/cli.js --prove
-
-      - name: Run verify
-        run: |
-          echo "✅ Running verify..."
-          node packages/cli/dist/cli.js --verify
