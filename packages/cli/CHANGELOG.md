@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.11 - 2026-04-28
+
+- Fixed `--doctor` argument validation, reduced duplicate CLI stage file lists, and removed the undocumented `tokamak-zk-evm` binary alias in favor of `tokamak-cli`.
+
 ## 2.0.10 - 2026-04-27
 
 - Allowed `--install --docker` on Windows hosts with Docker Desktop by using the Linux Docker runtime cache for Docker installs and backend commands.
@@ -9,7 +13,6 @@
 - Fixed `--verbose` parsing for preprocess, prove, verify, and proof export commands.
 - Hardened CUDA Docker mode by checking driver compatibility, forcing the selected CUDA ICICLE asset during Docker installs, validating bootstrap consistency, and falling back to non-GPU Docker runs when CUDA is no longer available.
 - Added Docker image existence checks for saved bootstraps, CUDA fallback handling to the generated Docker run script, and Windows-specific doctor install guidance.
-- Fixed `--doctor` argument validation, reduced duplicate CLI stage file lists, and removed the undocumented `tokamak-zk-evm` binary alias in favor of `tokamak-cli`.
 
 ## 2.0.9 - 2026-04-26
 
