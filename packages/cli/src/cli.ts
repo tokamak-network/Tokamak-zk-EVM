@@ -40,6 +40,81 @@ interface ParsedArgs {
   arg1?: string;
 }
 
+type RuntimePaths = ReturnType<typeof runtimePaths>;
+type RuntimeDirectoryKey = 'setupOutputDir' | 'synthOutputDir' | 'preprocessOutputDir' | 'proveOutputDir';
+
+interface RuntimeFileRef {
+  directory: RuntimeDirectoryKey;
+  filename: string;
+}
+
+interface StageInputSyncRuleTemplate {
+  destinationDir: RuntimeDirectoryKey;
+  optionalFiles?: readonly string[];
+  requiredFiles: readonly string[];
+}
+
+const PREPROCESS_INPUT_RULES = [
+  {
+    destinationDir: 'synthOutputDir',
+    requiredFiles: ['permutation.json', 'instance.json'],
+  },
+] as const satisfies readonly StageInputSyncRuleTemplate[];
+
+const PROVE_INPUT_RULES = [
+  {
+    destinationDir: 'synthOutputDir',
+    requiredFiles: ['instance.json', 'permutation.json', 'placementVariables.json'],
+    optionalFiles: ['instance_description.json', 'state_snapshot.json'],
+  },
+] as const satisfies readonly StageInputSyncRuleTemplate[];
+
+const VERIFY_INPUT_RULES = [
+  {
+    destinationDir: 'proveOutputDir',
+    requiredFiles: ['proof.json'],
+  },
+  {
+    destinationDir: 'preprocessOutputDir',
+    requiredFiles: ['preprocess.json'],
+  },
+  {
+    destinationDir: 'synthOutputDir',
+    requiredFiles: ['instance.json'],
+  },
+] as const satisfies readonly StageInputSyncRuleTemplate[];
+
+const PREPROCESS_REQUIRED_FILES = [
+  { directory: 'setupOutputDir', filename: 'sigma_preprocess.rkyv' },
+  { directory: 'synthOutputDir', filename: 'permutation.json' },
+  { directory: 'synthOutputDir', filename: 'instance.json' },
+] as const satisfies readonly RuntimeFileRef[];
+
+const PROVE_REQUIRED_FILES = [
+  { directory: 'setupOutputDir', filename: 'combined_sigma.rkyv' },
+  { directory: 'synthOutputDir', filename: 'instance.json' },
+  { directory: 'synthOutputDir', filename: 'permutation.json' },
+  { directory: 'synthOutputDir', filename: 'placementVariables.json' },
+] as const satisfies readonly RuntimeFileRef[];
+
+const VERIFY_REQUIRED_FILES = [
+  { directory: 'setupOutputDir', filename: 'sigma_verify.json' },
+  { directory: 'preprocessOutputDir', filename: 'preprocess.json' },
+  { directory: 'proveOutputDir', filename: 'proof.json' },
+  { directory: 'synthOutputDir', filename: 'instance.json' },
+] as const satisfies readonly RuntimeFileRef[];
+
+const PROOF_BUNDLE_REQUIRED_FILES = [
+  { directory: 'synthOutputDir', filename: 'instance.json' },
+  { directory: 'synthOutputDir', filename: 'instance_description.json' },
+  { directory: 'preprocessOutputDir', filename: 'preprocess.json' },
+  { directory: 'proveOutputDir', filename: 'proof.json' },
+] as const satisfies readonly RuntimeFileRef[];
+
+const PROOF_BUNDLE_OPTIONAL_FILES = [
+  { directory: 'proveOutputDir', filename: 'benchmark.json' },
+] as const satisfies readonly RuntimeFileRef[];
+
 function printUsage(): void {
   console.log(`
 Commands:
@@ -118,32 +193,22 @@ async function emptyDir(target: string): Promise<void> {
   await fs.mkdir(target, { recursive: true });
 }
 
-async function copyRequiredNamedFilesFromDir(
+async function copyNamedFilesFromDir(
   sourceDir: string,
   destinationDir: string,
-  filenames: string[],
+  filenames: readonly string[],
+  required: boolean,
 ): Promise<void> {
   await fs.mkdir(destinationDir, { recursive: true });
   for (const filename of filenames) {
     const sourcePath = path.join(sourceDir, filename);
     if (!(await fileExists(sourcePath))) {
+      if (!required) {
+        continue;
+      }
       err(`Missing ${filename} under ${sourceDir}`);
     }
     await fs.copyFile(sourcePath, path.join(destinationDir, filename));
-  }
-}
-
-async function copyOptionalNamedFilesFromDir(
-  sourceDir: string,
-  destinationDir: string,
-  filenames: string[],
-): Promise<void> {
-  await fs.mkdir(destinationDir, { recursive: true });
-  for (const filename of filenames) {
-    const sourcePath = path.join(sourceDir, filename);
-    if (await fileExists(sourcePath)) {
-      await fs.copyFile(sourcePath, path.join(destinationDir, filename));
-    }
   }
 }
 
@@ -186,6 +251,13 @@ function parseSinglePathArg(argv: string[], command: string, required: boolean):
   return args[0];
 }
 
+function rejectUnknownCommandArgs(argv: string[], command: string): void {
+  for (const arg of argv.slice(1)) {
+    if (arg === '--verbose') continue;
+    err(`Unknown option for ${command}: ${arg}`);
+  }
+}
+
 async function withDirFromPath<T>(
   inputPath: string,
   prefix: string,
@@ -209,8 +281,8 @@ async function withDirFromPath<T>(
 
 interface StageInputSyncRule {
   destinationDir: string;
-  optionalFiles?: string[];
-  requiredFiles: string[];
+  optionalFiles?: readonly string[];
+  requiredFiles: readonly string[];
 }
 
 interface BackendStageOptions {
@@ -220,7 +292,7 @@ interface BackendStageOptions {
   logMessage: string;
   outputDir?: string;
   postProcessResult?: (result: CommandResult) => string;
-  requiredFiles: string[];
+  requiredFiles: readonly string[];
   successMessage?: string;
   syncInputs?: (inputPath: string) => Promise<void>;
   verbose: boolean;
@@ -264,10 +336,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     };
   }
   if (argv[0] === '--uninstall') {
-    for (const arg of argv.slice(1)) {
-      if (arg === '--verbose') continue;
-      err(`Unknown option for --uninstall: ${arg}`);
-    }
+    rejectUnknownCommandArgs(argv, '--uninstall');
     return { command: 'uninstall', verbose };
   }
 
@@ -293,6 +362,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     return { command: 'extract-proof', verbose, arg1: outputPath };
   }
   if (argv[0] === '--doctor') {
+    rejectUnknownCommandArgs(argv, '--doctor');
     return { command: 'doctor', verbose };
   }
 
@@ -378,41 +448,17 @@ function normalizeSynthesizeArgs(args: string[]): TokamakChannelTxFiles {
 
 async function syncPreprocessInputs(context: RuntimeContext, inputPath: string): Promise<void> {
   const paths = runtimePaths(context);
-  await syncStageInputs(inputPath, 'tokamak-preprocess', [
-    {
-      destinationDir: paths.synthOutputDir,
-      requiredFiles: ['permutation.json', 'instance.json'],
-    },
-  ]);
+  await syncStageInputs(inputPath, 'tokamak-preprocess', resolveStageInputRules(paths, PREPROCESS_INPUT_RULES));
 }
 
 async function syncProveInputs(context: RuntimeContext, inputPath: string): Promise<void> {
   const paths = runtimePaths(context);
-  await syncStageInputs(inputPath, 'tokamak-prove', [
-    {
-      destinationDir: paths.synthOutputDir,
-      requiredFiles: ['instance.json', 'permutation.json', 'placementVariables.json'],
-      optionalFiles: ['instance_description.json', 'state_snapshot.json'],
-    },
-  ]);
+  await syncStageInputs(inputPath, 'tokamak-prove', resolveStageInputRules(paths, PROVE_INPUT_RULES));
 }
 
 async function syncVerifyInputs(context: RuntimeContext, inputPath: string): Promise<void> {
   const paths = runtimePaths(context);
-  await syncStageInputs(inputPath, 'tokamak-verify', [
-    {
-      destinationDir: paths.proveOutputDir,
-      requiredFiles: ['proof.json'],
-    },
-    {
-      destinationDir: paths.preprocessOutputDir,
-      requiredFiles: ['preprocess.json'],
-    },
-    {
-      destinationDir: paths.synthOutputDir,
-      requiredFiles: ['instance.json'],
-    },
-  ]);
+  await syncStageInputs(inputPath, 'tokamak-verify', resolveStageInputRules(paths, VERIFY_INPUT_RULES));
 }
 
 async function runPreprocess(context: RuntimeContext, inputPath: string | undefined, verbose: boolean): Promise<void> {
@@ -422,22 +468,11 @@ async function runPreprocess(context: RuntimeContext, inputPath: string | undefi
     inputPath,
     logMessage: `Preprocess: running backend preprocess (target=${context.platform})`,
     outputDir: paths.preprocessOutputDir,
-    requiredFiles: [
-      path.join(paths.setupOutputDir, 'sigma_preprocess.rkyv'),
-      path.join(paths.synthOutputDir, 'permutation.json'),
-      path.join(paths.synthOutputDir, 'instance.json'),
-    ],
+    requiredFiles: resolveRuntimeFiles(paths, PREPROCESS_REQUIRED_FILES),
     successMessage: `Preprocess complete → ${paths.preprocessOutputDir}`,
     syncInputs: async (resolvedInputPath) => syncPreprocessInputs(context, resolvedInputPath),
     verbose,
-    args: [
-      '--crs',
-      paths.setupOutputDir,
-      '--synthesizer-stat',
-      paths.synthOutputDir,
-      '--output',
-      paths.preprocessOutputDir,
-    ],
+    args: backendOutputArgs(paths, paths.preprocessOutputDir),
   });
 }
 
@@ -448,23 +483,11 @@ async function runProve(context: RuntimeContext, inputPath: string | undefined, 
     inputPath,
     logMessage: `Prove: running backend prove (target=${context.platform})`,
     outputDir: paths.proveOutputDir,
-    requiredFiles: [
-      path.join(paths.setupOutputDir, 'combined_sigma.rkyv'),
-      path.join(paths.synthOutputDir, 'instance.json'),
-      path.join(paths.synthOutputDir, 'permutation.json'),
-      path.join(paths.synthOutputDir, 'placementVariables.json'),
-    ],
+    requiredFiles: resolveRuntimeFiles(paths, PROVE_REQUIRED_FILES),
     successMessage: `Proof artifacts available in ${paths.proveOutputDir}`,
     syncInputs: async (resolvedInputPath) => syncProveInputs(context, resolvedInputPath),
     verbose,
-    args: [
-      '--crs',
-      paths.setupOutputDir,
-      '--synthesizer-stat',
-      paths.synthOutputDir,
-      '--output',
-      paths.proveOutputDir,
-    ],
+    args: backendOutputArgs(paths, paths.proveOutputDir),
   });
 }
 
@@ -481,25 +504,54 @@ async function runVerify(context: RuntimeContext, inputPath: string | undefined,
       }
       return `Verify: verify output => ${lastLine}`;
     },
-    requiredFiles: [
-      path.join(paths.setupOutputDir, 'sigma_verify.json'),
-      path.join(paths.preprocessOutputDir, 'preprocess.json'),
-      path.join(paths.proveOutputDir, 'proof.json'),
-      path.join(paths.synthOutputDir, 'instance.json'),
-    ],
+    requiredFiles: resolveRuntimeFiles(paths, VERIFY_REQUIRED_FILES),
     syncInputs: async (resolvedInputPath) => syncVerifyInputs(context, resolvedInputPath),
     verbose,
-    args: [
-      '--crs',
-      paths.setupOutputDir,
-      '--synthesizer-stat',
-      paths.synthOutputDir,
-      '--preprocess',
-      paths.preprocessOutputDir,
-      '--proof',
-      paths.proveOutputDir,
-    ],
+    args: backendVerifyArgs(paths),
   });
+}
+
+function runtimeFilePath(paths: RuntimePaths, file: RuntimeFileRef): string {
+  return path.join(paths[file.directory], file.filename);
+}
+
+function resolveRuntimeFiles(paths: RuntimePaths, files: readonly RuntimeFileRef[]): string[] {
+  return files.map((file) => runtimeFilePath(paths, file));
+}
+
+function resolveStageInputRules(
+  paths: RuntimePaths,
+  rules: readonly StageInputSyncRuleTemplate[],
+): StageInputSyncRule[] {
+  return rules.map((rule) => ({
+    destinationDir: paths[rule.destinationDir],
+    requiredFiles: rule.requiredFiles,
+    optionalFiles: rule.optionalFiles,
+  }));
+}
+
+function backendOutputArgs(paths: RuntimePaths, outputDir: string): string[] {
+  return [
+    '--crs',
+    paths.setupOutputDir,
+    '--synthesizer-stat',
+    paths.synthOutputDir,
+    '--output',
+    outputDir,
+  ];
+}
+
+function backendVerifyArgs(paths: RuntimePaths): string[] {
+  return [
+    '--crs',
+    paths.setupOutputDir,
+    '--synthesizer-stat',
+    paths.synthOutputDir,
+    '--preprocess',
+    paths.preprocessOutputDir,
+    '--proof',
+    paths.proveOutputDir,
+  ];
 }
 
 async function syncStageInputs(
@@ -509,9 +561,9 @@ async function syncStageInputs(
 ): Promise<void> {
   await withDirFromPath(inputPath, prefix, async (dirPath) => {
     for (const rule of rules) {
-      await copyRequiredNamedFilesFromDir(dirPath, rule.destinationDir, rule.requiredFiles);
+      await copyNamedFilesFromDir(dirPath, rule.destinationDir, rule.requiredFiles, true);
       if (rule.optionalFiles?.length) {
-        await copyOptionalNamedFilesFromDir(dirPath, rule.destinationDir, rule.optionalFiles);
+        await copyNamedFilesFromDir(dirPath, rule.destinationDir, rule.optionalFiles, false);
       }
     }
   });
@@ -552,24 +604,18 @@ async function extractProofBundle(context: RuntimeContext, outputPathRaw: string
   const outputName = path.basename(outputPath);
   await fs.mkdir(outputDir, { recursive: true });
 
-  const requiredFiles = [
-    path.join(paths.synthOutputDir, 'instance.json'),
-    path.join(paths.synthOutputDir, 'instance_description.json'),
-    path.join(paths.preprocessOutputDir, 'preprocess.json'),
-    path.join(paths.proveOutputDir, 'proof.json'),
-  ];
-  for (const filePath of requiredFiles) {
+  for (const filePath of resolveRuntimeFiles(paths, PROOF_BUNDLE_REQUIRED_FILES)) {
     await ensureFile(filePath);
   }
 
   const archive = new AdmZip();
-  archive.addLocalFile(path.join(paths.synthOutputDir, 'instance.json'));
-  archive.addLocalFile(path.join(paths.synthOutputDir, 'instance_description.json'));
-  archive.addLocalFile(path.join(paths.preprocessOutputDir, 'preprocess.json'));
-  archive.addLocalFile(path.join(paths.proveOutputDir, 'proof.json'));
-  const benchmarkPath = path.join(paths.proveOutputDir, 'benchmark.json');
-  if (await fileExists(benchmarkPath)) {
-    archive.addLocalFile(benchmarkPath);
+  for (const filePath of resolveRuntimeFiles(paths, PROOF_BUNDLE_REQUIRED_FILES)) {
+    archive.addLocalFile(filePath);
+  }
+  for (const filePath of resolveRuntimeFiles(paths, PROOF_BUNDLE_OPTIONAL_FILES)) {
+    if (await fileExists(filePath)) {
+      archive.addLocalFile(filePath);
+    }
   }
   if (verbose) {
     info(verbose, `Writing proof bundle archive: ${outputName}`);

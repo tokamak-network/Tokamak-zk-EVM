@@ -35,8 +35,7 @@
   ],
   "type": "commonjs",
   "bin": {
-    "tokamak-cli": "dist/cli.js",
-    "tokamak-zk-evm": "dist/cli.js"
+    "tokamak-cli": "dist/cli.js"
   },
   "files": [
     ".dockerignore",
