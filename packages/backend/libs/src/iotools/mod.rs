@@ -1152,7 +1152,7 @@ pub fn read_R1CS_gen_uvwXY(
                 );
 
                 let mut res_a = vec![ScalarField::zero(); m * n];
-                matrix_matrix_mul(
+                matrix_matrix_mul_auto_tiled(
                     &lhs_a,
                     &compact_r1cs.A_compact_col_mat,
                     m,
@@ -1177,7 +1177,7 @@ pub fn read_R1CS_gen_uvwXY(
                 );
 
                 let mut res_b = vec![ScalarField::zero(); m * n];
-                matrix_matrix_mul(
+                matrix_matrix_mul_auto_tiled(
                     &lhs_b,
                     &compact_r1cs.B_compact_col_mat,
                     m,
@@ -1202,7 +1202,7 @@ pub fn read_R1CS_gen_uvwXY(
                 );
 
                 let mut res_c = vec![ScalarField::zero(); m * n];
-                matrix_matrix_mul(
+                matrix_matrix_mul_auto_tiled(
                     &lhs_c,
                     &compact_r1cs.C_compact_col_mat,
                     m,

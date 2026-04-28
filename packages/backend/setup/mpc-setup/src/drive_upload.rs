@@ -7,12 +7,12 @@ use google_drive3::{oauth2, DriveHub};
 use oauth2::authenticator_delegate::{DefaultInstalledFlowDelegate, InstalledFlowDelegate};
 use serde_json::from_slice;
 use std::env;
-use std::future::Future;
 use std::fs;
 use std::fs::File as StdFile;
+use std::future::Future;
 use std::io::{self, Read, Write};
-use std::pin::Pin;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use thiserror::Error;
 use zip::write::{ExtendedFileOptions, FileOptions};
 
@@ -516,13 +516,13 @@ async fn build_drive_hub(
     )
     .persist_tokens_to_disk(&config.oauth_token_path)
     .flow_delegate(Box::new(DriveOauthBrowserDelegate))
-        .build()
-        .await
-        .map_err(|err| {
-            DriveUploadError::Message(format!(
-                "cannot build Google Drive OAuth authenticator: {err}"
-            ))
-        })?;
+    .build()
+    .await
+    .map_err(|err| {
+        DriveUploadError::Message(format!(
+            "cannot build Google Drive OAuth authenticator: {err}"
+        ))
+    })?;
     let https = HttpsConnectorBuilder::new()
         .with_native_roots()
         .map_err(|err| {

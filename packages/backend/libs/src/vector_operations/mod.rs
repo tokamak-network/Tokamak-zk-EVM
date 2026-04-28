@@ -2,7 +2,19 @@ use super::bivariate_polynomial::{BivariatePolynomial, DensePolynomialExt};
 use icicle_bls12_381::curve::{ScalarCfg, ScalarField};
 use icicle_core::traits::FieldImpl;
 use icicle_core::vec_ops::{VecOps, VecOpsConfig};
+use icicle_runtime::errors::eIcicleError;
 use icicle_runtime::memory::{DeviceSlice, DeviceVec, HostOrDeviceSlice, HostSlice};
+use std::env;
+use std::mem::size_of;
+
+const DEFAULT_GPU_MATMUL_MEMORY_FRACTION: f64 = 0.60;
+const DEFAULT_GPU_MATMUL_SAFETY_MARGIN_FRACTION: f64 = 0.15;
+const DEFAULT_GPU_MATMUL_SAFETY_MARGIN_BYTES: usize = 2 * 1024 * 1024 * 1024;
+const DEFAULT_GPU_MATMUL_FALLBACK_TILE_COLS: usize = 512;
+const MIN_GPU_MATMUL_TILE_COLS: usize = 1;
+const TILE_ENV: &str = "TOKAMAK_GPU_MATMUL_TILE_N";
+const MEMORY_FRACTION_ENV: &str = "TOKAMAK_GPU_MATMUL_MEMORY_FRACTION";
+const SAFETY_MARGIN_GIB_ENV: &str = "TOKAMAK_GPU_MATMUL_SAFETY_MARGIN_GIB";
 
 pub fn gen_evaled_lagrange_bases(val: &ScalarField, size: usize, res: &mut [ScalarField]) {
     let mut val_pows = vec![ScalarField::one(); size];
@@ -138,18 +150,25 @@ pub fn transpose_device_inplace(
     row_size: usize,
     col_size: usize,
 ) {
+    transpose_device_inplace_checked(a_vec, row_size, col_size).unwrap();
+}
+
+fn transpose_device_inplace_checked(
+    a_vec: &mut DeviceSlice<ScalarField>,
+    row_size: usize,
+    col_size: usize,
+) -> Result<(), eIcicleError> {
     if a_vec.len() != row_size * col_size {
         panic!("Error in transpose")
     }
     if row_size * col_size == 0 {
-        return;
+        return Ok(());
     }
     let mut vec_ops_cfg = VecOpsConfig::default();
     vec_ops_cfg.is_a_on_device = true;
     vec_ops_cfg.is_result_on_device = true;
 
-    let mut res_vec =
-        DeviceVec::device_malloc(row_size * col_size).expect("Failed to allocate device memory");
+    let mut res_vec = DeviceVec::device_malloc(row_size * col_size)?;
 
     ScalarCfg::transpose(
         a_vec,
@@ -157,34 +176,41 @@ pub fn transpose_device_inplace(
         col_size as u32,
         &mut res_vec,
         &vec_ops_cfg,
-    )
-    .unwrap();
-    a_vec.copy(&res_vec).unwrap();
+    )?;
+    a_vec.copy(&res_vec)?;
+    Ok(())
 }
 
 // TODO: benchmark this with a naive approach
 fn _repeat_extend_device(v: &DeviceSlice<ScalarField>, n: usize) -> DeviceVec<ScalarField> {
+    _repeat_extend_device_checked(v, n).unwrap()
+}
+
+fn _repeat_extend_device_checked(
+    v: &DeviceSlice<ScalarField>,
+    n: usize,
+) -> Result<DeviceVec<ScalarField>, eIcicleError> {
     let original_len = v.len();
 
     if n == 0 {
-        return DeviceVec::device_malloc(0).unwrap();
+        return Err(eIcicleError::AllocationFailed);
     }
 
     if n == 1 {
         // Direct copy
-        let mut result = DeviceVec::device_malloc(original_len).unwrap();
-        result.copy(v).unwrap();
-        return result;
+        let mut result = DeviceVec::device_malloc(original_len)?;
+        result.copy(v)?;
+        return Ok(result);
     }
 
     let target_len = original_len * n;
-    let mut extended_vec = DeviceVec::device_malloc(target_len).unwrap();
+    let mut extended_vec = DeviceVec::device_malloc(target_len)?;
 
     // Optimized approach: Use exponential doubling to minimize kernel launches
     // This reduces the number of copy operations from O(n) to O(log n)
 
     // First copy: original vector -> position 0
-    extended_vec[0..original_len].copy(v).unwrap();
+    extended_vec[0..original_len].copy(v)?;
 
     // Exponential doubling: each iteration doubles the amount of valid data
     let mut current_len = original_len;
@@ -192,16 +218,14 @@ fn _repeat_extend_device(v: &DeviceSlice<ScalarField>, n: usize) -> DeviceVec<Sc
         let copy_len = std::cmp::min(current_len, target_len - current_len);
 
         // Use a temporary buffer to avoid borrowing issues
-        let mut temp_buffer = DeviceVec::device_malloc(copy_len).unwrap();
-        temp_buffer.copy(&extended_vec[0..copy_len]).unwrap();
-        extended_vec[current_len..current_len + copy_len]
-            .copy(&temp_buffer)
-            .unwrap();
+        let mut temp_buffer = DeviceVec::device_malloc(copy_len)?;
+        temp_buffer.copy(&extended_vec[0..copy_len])?;
+        extended_vec[current_len..current_len + copy_len].copy(&temp_buffer)?;
 
         current_len += copy_len;
     }
 
-    extended_vec
+    Ok(extended_vec)
 }
 
 pub fn matrix_matrix_mul(
@@ -212,12 +236,23 @@ pub fn matrix_matrix_mul(
     l: usize,
     res_mat: &mut [ScalarField],
 ) {
+    matrix_matrix_mul_checked(lhs_mat, rhs_mat, m, n, l, res_mat).unwrap();
+}
+
+fn matrix_matrix_mul_checked(
+    lhs_mat: &[ScalarField],
+    rhs_mat: &[ScalarField],
+    m: usize,
+    n: usize,
+    l: usize,
+    res_mat: &mut [ScalarField],
+) -> Result<(), eIcicleError> {
     if lhs_mat.len() != m * n || rhs_mat.len() != n * l || res_mat.len() != m * l {
         panic!("Incorrect sizes for the matrix multiplication")
     }
     if lhs_mat.is_empty() || rhs_mat.is_empty() {
         res_mat.fill(ScalarField::zero());
-        return;
+        return Ok(());
     }
 
     // size of LHS: m-by-n
@@ -236,19 +271,13 @@ pub fn matrix_matrix_mul(
     // 6. [GPU -> CPU] copy the device matrices to host
 
     // Copy input matrices to device
-    let mut lhs_device = DeviceVec::device_malloc(m * n).unwrap();
+    let mut lhs_device = DeviceVec::device_malloc(m * n)?;
     lhs_device
         .as_mut_slice()
-        .copy_from_host(HostSlice::from_slice(lhs_mat))
-        .unwrap();
-    let mut rhs_device = DeviceVec::device_malloc(n * l).unwrap();
-    rhs_device
-        .as_mut_slice()
-        .copy_from_host(HostSlice::from_slice(rhs_mat))
-        .unwrap();
+        .copy_from_host(HostSlice::from_slice(lhs_mat))?;
 
     // Build extended matrices on the GPU
-    let mut transposed_lhs = DeviceVec::device_malloc(m * n).unwrap();
+    let mut transposed_lhs = DeviceVec::device_malloc(m * n)?;
     let mut vec_ops_cfg = VecOpsConfig::default();
     vec_ops_cfg.is_a_on_device = true;
     vec_ops_cfg.is_result_on_device = true;
@@ -258,32 +287,58 @@ pub fn matrix_matrix_mul(
         n as u32,
         &mut transposed_lhs,
         &vec_ops_cfg,
-    )
-    .unwrap();
-    let mut extended_lhs = _repeat_extend_device(&transposed_lhs, l);
-    transpose_device_inplace(&mut extended_lhs, l * n, m);
+    )?;
 
-    let mut transposed_rhs = DeviceVec::device_malloc(n * l).unwrap();
+    matrix_matrix_mul_with_transposed_lhs(&transposed_lhs, rhs_mat, m, n, l, res_mat)
+}
+
+fn matrix_matrix_mul_with_transposed_lhs(
+    transposed_lhs: &DeviceVec<ScalarField>,
+    rhs_mat: &[ScalarField],
+    m: usize,
+    n: usize,
+    l: usize,
+    res_mat: &mut [ScalarField],
+) -> Result<(), eIcicleError> {
+    if transposed_lhs.len() != m * n || rhs_mat.len() != n * l || res_mat.len() != m * l {
+        panic!("Incorrect sizes for the matrix multiplication")
+    }
+    if rhs_mat.is_empty() || res_mat.is_empty() {
+        res_mat.fill(ScalarField::zero());
+        return Ok(());
+    }
+
+    let mut vec_ops_cfg = VecOpsConfig::default();
+    vec_ops_cfg.is_a_on_device = true;
+    vec_ops_cfg.is_result_on_device = true;
+
+    let mut rhs_device = DeviceVec::device_malloc(n * l)?;
+    rhs_device
+        .as_mut_slice()
+        .copy_from_host(HostSlice::from_slice(rhs_mat))?;
+
+    let mut extended_lhs = _repeat_extend_device_checked(transposed_lhs, l)?;
+    transpose_device_inplace_checked(&mut extended_lhs, l * n, m)?;
+
+    let mut transposed_rhs = DeviceVec::device_malloc(n * l)?;
     ScalarCfg::transpose(
         &rhs_device,
         n as u32,
         l as u32,
         &mut transposed_rhs,
         &vec_ops_cfg,
-    )
-    .unwrap();
-    let extended_rhs = _repeat_extend_device(&transposed_rhs, m);
+    )?;
+    let extended_rhs = _repeat_extend_device_checked(&transposed_rhs, m)?;
 
     vec_ops_cfg.is_b_on_device = true;
 
-    let mut mul_res_device = DeviceVec::device_malloc(m * n * l).unwrap();
+    let mut mul_res_device = DeviceVec::device_malloc(m * n * l)?;
     ScalarCfg::mul(
         &extended_lhs,
         &extended_rhs,
         &mut mul_res_device,
         &vec_ops_cfg,
-    )
-    .unwrap();
+    )?;
 
     vec_ops_cfg.batch_size = (m * l) as i32;
     vec_ops_cfg.columns_batch = false;
@@ -292,8 +347,215 @@ pub fn matrix_matrix_mul(
         &mul_res_device,
         HostSlice::from_mut_slice(res_mat),
         &vec_ops_cfg,
-    )
-    .unwrap();
+    )?;
+    Ok(())
+}
+
+pub fn matrix_matrix_mul_auto_tiled(
+    lhs_mat: &[ScalarField],
+    rhs_mat: &[ScalarField],
+    m: usize,
+    n: usize,
+    l: usize,
+    res_mat: &mut [ScalarField],
+) {
+    let tile_cols = select_gpu_matmul_tile_cols(m, n, l);
+    if l <= 1 {
+        matrix_matrix_mul(lhs_mat, rhs_mat, m, n, l, res_mat);
+        return;
+    }
+
+    matrix_matrix_mul_tiled_with_retry(lhs_mat, rhs_mat, m, n, l, res_mat, tile_cols);
+}
+
+pub fn matrix_matrix_mul_tiled(
+    lhs_mat: &[ScalarField],
+    rhs_mat: &[ScalarField],
+    m: usize,
+    n: usize,
+    l: usize,
+    res_mat: &mut [ScalarField],
+    tile_cols: usize,
+) {
+    matrix_matrix_mul_tiled_checked(lhs_mat, rhs_mat, m, n, l, res_mat, tile_cols).unwrap();
+}
+
+fn matrix_matrix_mul_tiled_with_retry(
+    lhs_mat: &[ScalarField],
+    rhs_mat: &[ScalarField],
+    m: usize,
+    n: usize,
+    l: usize,
+    res_mat: &mut [ScalarField],
+    initial_tile_cols: usize,
+) {
+    let mut tile_cols = initial_tile_cols.clamp(MIN_GPU_MATMUL_TILE_COLS, l);
+    loop {
+        match matrix_matrix_mul_tiled_checked(lhs_mat, rhs_mat, m, n, l, res_mat, tile_cols) {
+            Ok(()) => return,
+            Err(eIcicleError::AllocationFailed | eIcicleError::OutOfMemory)
+                if tile_cols > MIN_GPU_MATMUL_TILE_COLS =>
+            {
+                let next_tile_cols = std::cmp::max(tile_cols / 2, MIN_GPU_MATMUL_TILE_COLS);
+                eprintln!(
+                    "GPU matmul tile allocation failed for tile_n={tile_cols}; retrying with tile_n={next_tile_cols}"
+                );
+                tile_cols = next_tile_cols;
+            }
+            Err(err) => panic!("GPU tiled matrix multiplication failed: {err:?}"),
+        }
+    }
+}
+
+fn matrix_matrix_mul_tiled_checked(
+    lhs_mat: &[ScalarField],
+    rhs_mat: &[ScalarField],
+    m: usize,
+    n: usize,
+    l: usize,
+    res_mat: &mut [ScalarField],
+    tile_cols: usize,
+) -> Result<(), eIcicleError> {
+    if lhs_mat.len() != m * n || rhs_mat.len() != n * l || res_mat.len() != m * l {
+        panic!("Incorrect sizes for the matrix multiplication")
+    }
+    if lhs_mat.is_empty() || rhs_mat.is_empty() {
+        res_mat.fill(ScalarField::zero());
+        return Ok(());
+    }
+    let tile_cols = tile_cols.clamp(MIN_GPU_MATMUL_TILE_COLS, l);
+    if tile_cols >= l {
+        return matrix_matrix_mul_checked(lhs_mat, rhs_mat, m, n, l, res_mat);
+    }
+
+    println!("GPU matmul tiling: m={m}, inner={n}, cols={l}, tile_n={tile_cols}");
+
+    let mut lhs_device = DeviceVec::device_malloc(m * n)?;
+    lhs_device
+        .as_mut_slice()
+        .copy_from_host(HostSlice::from_slice(lhs_mat))?;
+
+    let mut transposed_lhs = DeviceVec::device_malloc(m * n)?;
+    let mut vec_ops_cfg = VecOpsConfig::default();
+    vec_ops_cfg.is_a_on_device = true;
+    vec_ops_cfg.is_result_on_device = true;
+    ScalarCfg::transpose(
+        &lhs_device,
+        m as u32,
+        n as u32,
+        &mut transposed_lhs,
+        &vec_ops_cfg,
+    )?;
+
+    let mut col_start = 0;
+    while col_start < l {
+        let current_tile_cols = std::cmp::min(tile_cols, l - col_start);
+        let rhs_tile = pack_rhs_column_tile(rhs_mat, n, l, col_start, current_tile_cols);
+        let mut res_tile = vec![ScalarField::zero(); m * current_tile_cols];
+
+        matrix_matrix_mul_with_transposed_lhs(
+            &transposed_lhs,
+            &rhs_tile,
+            m,
+            n,
+            current_tile_cols,
+            &mut res_tile,
+        )?;
+
+        for row in 0..m {
+            let dst_start = row * l + col_start;
+            let src_start = row * current_tile_cols;
+            res_mat[dst_start..dst_start + current_tile_cols]
+                .copy_from_slice(&res_tile[src_start..src_start + current_tile_cols]);
+        }
+
+        col_start += current_tile_cols;
+    }
+    Ok(())
+}
+
+fn pack_rhs_column_tile(
+    rhs_mat: &[ScalarField],
+    rows: usize,
+    cols: usize,
+    col_start: usize,
+    tile_cols: usize,
+) -> Vec<ScalarField> {
+    let mut rhs_tile = vec![ScalarField::zero(); rows * tile_cols];
+    for row in 0..rows {
+        let src_start = row * cols + col_start;
+        let dst_start = row * tile_cols;
+        rhs_tile[dst_start..dst_start + tile_cols]
+            .copy_from_slice(&rhs_mat[src_start..src_start + tile_cols]);
+    }
+    rhs_tile
+}
+
+fn select_gpu_matmul_tile_cols(m: usize, n: usize, l: usize) -> usize {
+    if l <= 1 || m == 0 || n == 0 {
+        return l;
+    }
+    if let Some(tile_cols) = tile_cols_from_env(l) {
+        return tile_cols;
+    }
+
+    let budget = match icicle_runtime::get_available_memory() {
+        Ok((total, free)) => usable_gpu_matmul_budget(total, free) as u128,
+        Err(_) => required_tiled_matmul_bytes(m, n, DEFAULT_GPU_MATMUL_FALLBACK_TILE_COLS),
+    };
+
+    let mut max_tile_cols = l;
+    while max_tile_cols > MIN_GPU_MATMUL_TILE_COLS
+        && required_tiled_matmul_bytes(m, n, max_tile_cols) > budget
+    {
+        max_tile_cols /= 2;
+    }
+
+    max_tile_cols.clamp(MIN_GPU_MATMUL_TILE_COLS, l)
+}
+
+fn tile_cols_from_env(l: usize) -> Option<usize> {
+    let raw = env::var(TILE_ENV).ok()?;
+    let parsed = raw.parse::<usize>().ok()?;
+    if parsed == 0 {
+        return None;
+    }
+    Some(parsed.clamp(MIN_GPU_MATMUL_TILE_COLS, l))
+}
+
+fn usable_gpu_matmul_budget(total: usize, free: usize) -> usize {
+    let memory_fraction = env::var(MEMORY_FRACTION_ENV)
+        .ok()
+        .and_then(|raw| raw.parse::<f64>().ok())
+        .filter(|value| *value > 0.0 && *value <= 1.0)
+        .unwrap_or(DEFAULT_GPU_MATMUL_MEMORY_FRACTION);
+
+    let safety_margin = env::var(SAFETY_MARGIN_GIB_ENV)
+        .ok()
+        .and_then(|raw| raw.parse::<f64>().ok())
+        .filter(|value| *value >= 0.0)
+        .map(|gib| (gib * 1024.0 * 1024.0 * 1024.0) as usize)
+        .unwrap_or_else(|| {
+            std::cmp::max(
+                DEFAULT_GPU_MATMUL_SAFETY_MARGIN_BYTES,
+                (total as f64 * DEFAULT_GPU_MATMUL_SAFETY_MARGIN_FRACTION) as usize,
+            )
+        });
+
+    let fraction_budget = (free as f64 * memory_fraction) as usize;
+    let margin_budget = free.saturating_sub(safety_margin);
+    std::cmp::min(fraction_budget, margin_budget).max(1)
+}
+
+fn required_tiled_matmul_bytes(m: usize, n: usize, tile_cols: usize) -> u128 {
+    let m = m as u128;
+    let n = n as u128;
+    let tile_cols = tile_cols as u128;
+    let scalar_bytes = size_of::<ScalarField>() as u128;
+    let fixed_elements = 2 * m * n;
+    let rhs_elements = 2 * n * tile_cols;
+    let expanded_elements = (7 * m * n * tile_cols + 1) / 2;
+    scalar_bytes * (fixed_elements + rhs_elements + expanded_elements)
 }
 
 pub fn outer_product_two_vecs(

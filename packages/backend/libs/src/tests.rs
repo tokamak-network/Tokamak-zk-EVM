@@ -1112,6 +1112,26 @@ mod tests_vectors {
     }
 
     #[test]
+    fn test_matrix_matrix_mul_tiled_matches_untiled() {
+        let lhs = (1u32..=12)
+            .map(ScalarField::from_u32)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+        let rhs = (1u32..=20)
+            .map(ScalarField::from_u32)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+
+        let mut untiled = vec![ScalarField::zero(); 15].into_boxed_slice();
+        matrix_matrix_mul(&lhs, &rhs, 3, 4, 5, &mut untiled);
+
+        let mut tiled = vec![ScalarField::zero(); 15].into_boxed_slice();
+        matrix_matrix_mul_tiled(&lhs, &rhs, 3, 4, 5, &mut tiled, 2);
+
+        assert_eq!(tiled, untiled);
+    }
+
+    #[test]
     fn test_gen_evaled_lagrange_bases() {
         let x = ScalarCfg::generate_random(1)[0];
         let size = 2048;
