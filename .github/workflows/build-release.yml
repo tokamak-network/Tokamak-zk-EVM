@@ -41,18 +41,11 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install CLI workspace dependencies
-        run: npm ci --workspace @tokamak-zk-evm/cli
-
-      - name: Install synthesizer workspace dependencies
-        run: |
-          cd packages/frontend/synthesizer
-          npm ci
+      - name: Install workspace dependencies
+        run: npm ci
 
       - name: Build synthesizer-node package
-        run: |
-          cd packages/frontend/synthesizer
-          npm run build --workspace @tokamak-zk-evm/synthesizer-node
+        run: npm run build --workspace @tokamak-zk-evm/synthesizer-node
 
       - name: Build CLI package
         run: npm run build --workspace @tokamak-zk-evm/cli

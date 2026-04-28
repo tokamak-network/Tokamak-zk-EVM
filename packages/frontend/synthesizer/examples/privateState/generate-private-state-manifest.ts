@@ -4,7 +4,8 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { createHash } from 'crypto';
-import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { ethers } from 'ethers';
 import { RLP } from '@ethereumjs/rlp';
 import {
@@ -25,7 +26,6 @@ import {
   type TokamakL2TxData,
   type TxSnapshot,
 } from 'tokamak-l2js';
-import { TokamakL2MerkleTrees } from '../../node_modules/tokamak-l2js/dist/stateManager/TokamakMerkleTrees.js';
 import {
   DEFAULT_EXAMPLE_NOTE_RECEIVE_CHANNEL_NAME,
   buildPrivateStateMintCalldata,
@@ -54,10 +54,32 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
 const packageRoot = path.resolve(__dirname, '../..');
 const nodeCliRoot = path.resolve(packageRoot, 'node-cli');
 const examplesRoot = __dirname;
 const deploymentArtifactIndexFileId = '11nM-VT0ZJlBdZUdFPGawqxvHNpXm1sXR';
+
+type TokamakL2Address = ReturnType<typeof createAddressFromString>;
+type TokamakL2MerkleTreesLike = {
+  update(address: bigint, key: bigint, value: bigint): bigint;
+  getRoot(address: TokamakL2Address): bigint;
+};
+type TokamakL2MerkleTreesConstructor = new (addresses: TokamakL2Address[]) => TokamakL2MerkleTreesLike;
+
+const resolveTokamakL2jsDistModule = (relativePath: string): string => {
+  const entryPath = require.resolve('tokamak-l2js');
+  const entryDir = path.dirname(entryPath);
+  const distDir = path.basename(entryDir) === 'cjs' ? path.dirname(entryDir) : entryDir;
+  return pathToFileURL(path.join(distDir, relativePath)).href;
+};
+
+const loadTokamakL2MerkleTrees = async (): Promise<TokamakL2MerkleTreesConstructor> => {
+  const module = (await import(resolveTokamakL2jsDistModule('stateManager/TokamakMerkleTrees.js'))) as {
+    TokamakL2MerkleTrees: TokamakL2MerkleTreesConstructor;
+  };
+  return module.TokamakL2MerkleTrees;
+};
 const privateStateControllerCallableAbiFilename = 'PrivateStateController.callable-abi.json';
 const defaultChannelId = 4;
 const defaultParticipantCount = 4;
@@ -179,8 +201,7 @@ const writeJson = async (filePath: string, value: unknown) => {
   await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 };
 
-const toRelativeNodeCliPath = (filePath: string) =>
-  path.relative(nodeCliRoot, filePath).split(path.sep).join('/');
+const toRelativeNodeCliPath = (filePath: string) => path.relative(nodeCliRoot, filePath).split(path.sep).join('/');
 
 const fetchText = async (url: string) => {
   const response = await fetch(url);
@@ -205,7 +226,7 @@ const resolveDriveArtifactIds = async (): Promise<DriveArtifactIds> => {
     size: 0,
   });
   const privateStateArtifacts = Object.values(artifactIndex.chains)
-    .map((chain) => chain.dapps?.['private-state'])
+    .map(chain => chain.dapps?.['private-state'])
     .filter((artifact): artifact is NonNullable<typeof artifact> => artifact !== undefined)
     .sort((left, right) => right.timestamp.localeCompare(left.timestamp))[0];
 
@@ -261,11 +282,7 @@ const buildParticipants = async (
 ): Promise<MintExampleParticipant[]> => {
   const participants: MintExampleParticipant[] = [];
   for (let index = 0; index < participantCount; index += 1) {
-    const wallet = ethers.HDNodeWallet.fromPhrase(
-      mnemonic,
-      undefined,
-      `m/44'/60'/0'/0/${index}`,
-    );
+    const wallet = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, `m/44'/60'/0'/0/${index}`);
     const noteReceive = await deriveNoteReceiveKeyMaterial({
       signer: wallet,
       chainId,
@@ -326,18 +343,14 @@ const buildTransactionSnapshot = (
     data: hexToBytes(addHexPrefix(calldata)),
     senderPubKey: senderPublicKey.toBytes(),
   };
-  return createTokamakL2Tx(txData, { common: createTokamakL2Common() })
-    .sign(senderPrivateKey)
-    .captureTxSnapshot();
+  return createTokamakL2Tx(txData, { common: createTokamakL2Common() }).sign(senderPrivateKey).captureTxSnapshot();
 };
 
-const createSyntheticSnapshot = async (
-  storageAddresses: Address[],
-  writes: StorageWrite[],
-): Promise<StateSnapshot> => {
+const createSyntheticSnapshot = async (storageAddresses: Address[], writes: StorageWrite[]): Promise<StateSnapshot> => {
   const common = createTokamakL2Common();
-  const normalizedStorageAddresses = storageAddresses.map((address) => ethers.getAddress(address) as Address);
-  const addressObjects = normalizedStorageAddresses.map((address) => createAddressFromString(address));
+  const normalizedStorageAddresses = storageAddresses.map(address => ethers.getAddress(address) as Address);
+  const addressObjects = normalizedStorageAddresses.map(address => createAddressFromString(address));
+  const TokamakL2MerkleTrees = await loadTokamakL2MerkleTrees();
   const merkleTrees = new TokamakL2MerkleTrees(addressObjects);
   const hashTrieNode = (trie: MerklePatriciaTrie, encoded: Uint8Array) =>
     (trie as unknown as { hash(value: Uint8Array): Uint8Array }).hash(encoded);
@@ -469,10 +482,7 @@ const selectorOf = (controllerInterface: ethers.Interface, functionName: string)
   return fragment.selector as Hex;
 };
 
-const buildMintManifest = async (
-  context: ExampleContext,
-  contractCodes: ContractCodeEntry[],
-) => {
+const buildMintManifest = async (context: ExampleContext, contractCodes: ContractCodeEntry[]) => {
   const managedStorageAddresses = getPrivateStateManagedStorageAddresses(context.storageLayoutManifest);
   const liquidBalancesSlot = getPrivateStateVaultLiquidBalancesSlot(context.storageLayoutManifest);
   const senderIndex = 0;
@@ -485,9 +495,10 @@ const buildMintManifest = async (
   const entries: LaunchManifestEntry[] = [];
   for (const outputCount of [1, 2, 3, 4, 5, 6] as const) {
     const functionName = `mintNotes${outputCount}` as const;
-    const noteValues = Array.from({ length: outputCount }, () =>
-      ethers.toBeHex(defaultMintNoteValue) as Hex,
-    ) as [Hex, ...Hex[]];
+    const noteValues = Array.from({ length: outputCount }, () => ethers.toBeHex(defaultMintNoteValue) as Hex) as [
+      Hex,
+      ...Hex[],
+    ];
     const noteSalts = Array.from({ length: outputCount }, (_, index) =>
       deriveReplayPrivateStateFieldValue(
         `private-state-mint-sender-${senderIndex}-owner-${noteOwnerIndex}-output-${index}`,
@@ -517,21 +528,15 @@ const buildMintManifest = async (
     );
 
     const totalValue = defaultMintNoteValue * ethers.toBigInt(outputCount);
-    const snapshot = await createSyntheticSnapshot(
-      managedStorageAddresses,
-      [{
+    const snapshot = await createSyntheticSnapshot(managedStorageAddresses, [
+      {
         address: context.manifest.contracts.l2AccountingVault,
         key: computeReplayPrivateStateAddressMappingKey(senderAddress, liquidBalancesSlot),
         value: ethers.zeroPadValue(ethers.toBeHex(totalValue), 32) as Hex,
-      }],
-    );
+      },
+    ]);
 
-    const transaction = buildTransactionSnapshot(
-      context,
-      senderIndex,
-      context.manifest.contracts.controller,
-      calldata,
-    );
+    const transaction = buildTransactionSnapshot(context, senderIndex, context.manifest.contracts.controller, calldata);
     entries.push(
       await writeLaunchInput(
         path.resolve(examplesRoot, 'mintNotes', functionName),
@@ -545,10 +550,7 @@ const buildMintManifest = async (
   return entries;
 };
 
-const buildTransferManifest = async (
-  context: ExampleContext,
-  contractCodes: ContractCodeEntry[],
-) => {
+const buildTransferManifest = async (context: ExampleContext, contractCodes: ContractCodeEntry[]) => {
   const managedStorageAddresses = getPrivateStateManagedStorageAddresses(context.storageLayoutManifest);
   const commitmentExistsSlot = getPrivateStateControllerCommitmentExistsSlot(context.storageLayoutManifest);
   const senderIndex = 0;
@@ -585,11 +587,12 @@ const buildTransferManifest = async (
       ),
     })) as PrivateStateTransferConfig['inputNotes'];
 
-    const outputOwners = outputCount === 1
-      ? [recipientOneAddress]
-      : outputCount === 2
-        ? [recipientOneAddress, senderAddress]
-        : [recipientOneAddress, senderAddress, recipientTwoAddress];
+    const outputOwners =
+      outputCount === 1
+        ? [recipientOneAddress]
+        : outputCount === 2
+          ? [recipientOneAddress, senderAddress]
+          : [recipientOneAddress, senderAddress, recipientTwoAddress];
     const transferOutputs = outputOwners.map((owner, index) => ({
       owner,
       value: outputValueHex,
@@ -606,7 +609,7 @@ const buildTransferManifest = async (
       ],
     })) as PrivateStateTransferOutput[];
 
-    const outputNotes = transferOutputs.map((output) => ({
+    const outputNotes = transferOutputs.map(output => ({
       owner: output.owner,
       value: output.value,
       salt: computeReplayPrivateStateEncryptedNoteSalt(output.encryptedNoteValue),
@@ -638,7 +641,7 @@ const buildTransferManifest = async (
 
     const snapshot = await createSyntheticSnapshot(
       managedStorageAddresses,
-      inputNotes.map((note) => ({
+      inputNotes.map(note => ({
         address: context.manifest.contracts.controller,
         key: computeReplayPrivateStateMappingKey(
           computeReplayPrivateStateNoteCommitment(note as PrivateStateNoteLike),
@@ -648,12 +651,7 @@ const buildTransferManifest = async (
       })),
     );
 
-    const transaction = buildTransactionSnapshot(
-      context,
-      senderIndex,
-      context.manifest.contracts.controller,
-      calldata,
-    );
+    const transaction = buildTransactionSnapshot(context, senderIndex, context.manifest.contracts.controller, calldata);
     entries.push(
       await writeLaunchInput(
         path.resolve(examplesRoot, 'transferNotes', functionName),
@@ -668,10 +666,7 @@ const buildTransferManifest = async (
   return entries;
 };
 
-const buildRedeemManifest = async (
-  context: ExampleContext,
-  contractCodes: ContractCodeEntry[],
-) => {
+const buildRedeemManifest = async (context: ExampleContext, contractCodes: ContractCodeEntry[]) => {
   const managedStorageAddresses = getPrivateStateManagedStorageAddresses(context.storageLayoutManifest);
   const commitmentExistsSlot = getPrivateStateControllerCommitmentExistsSlot(context.storageLayoutManifest);
   const senderIndex = 0;
@@ -717,7 +712,7 @@ const buildRedeemManifest = async (
 
     const snapshot = await createSyntheticSnapshot(
       managedStorageAddresses,
-      inputNotes.map((note) => ({
+      inputNotes.map(note => ({
         address: context.manifest.contracts.controller,
         key: computeReplayPrivateStateMappingKey(
           computeReplayPrivateStateNoteCommitment(note as PrivateStateNoteLike),
@@ -727,12 +722,7 @@ const buildRedeemManifest = async (
       })),
     );
 
-    const transaction = buildTransactionSnapshot(
-      context,
-      senderIndex,
-      context.manifest.contracts.controller,
-      calldata,
-    );
+    const transaction = buildTransactionSnapshot(context, senderIndex, context.manifest.contracts.controller, calldata);
     entries.push(
       await writeLaunchInput(
         path.resolve(examplesRoot, 'redeemNotes', functionName),
@@ -753,7 +743,11 @@ const main = async () => {
   const storageLayoutManifest = await readDriveJson<PrivateStateStorageLayoutManifest>(artifactIds.storageLayout);
   const controllerCallableAbi = await readDriveJson<ethers.InterfaceAbi>(artifactIds.controllerCallableAbi);
   const mnemonic = defaultMnemonic;
-  const { participants, keyMaterial } = await deriveChannelParticipants(defaultParticipantCount, mnemonic, manifest.chainId);
+  const { participants, keyMaterial } = await deriveChannelParticipants(
+    defaultParticipantCount,
+    mnemonic,
+    manifest.chainId,
+  );
 
   const context: ExampleContext = {
     chainId: manifest.chainId,
@@ -788,7 +782,7 @@ const main = async () => {
   );
 };
 
-void main().catch((error) => {
+void main().catch(error => {
   console.error(error);
   process.exit(1);
 });

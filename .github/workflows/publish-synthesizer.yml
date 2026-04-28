@@ -1,9 +1,14 @@
 name: Publish synthesizer
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - Publish subcircuit-library
+    types:
+      - completed
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -13,6 +18,7 @@ jobs:
   publish-synthesizer:
     name: Publish synthesizer packages to npm
     runs-on: ubuntu-22.04
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     defaults:
       run:
         working-directory: packages/frontend/synthesizer
@@ -20,6 +26,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -27,9 +35,10 @@ jobs:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
-          cache-dependency-path: packages/frontend/synthesizer/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install workspace dependencies
+        working-directory: .
         run: npm ci
 
       - name: Compare package versions with npm

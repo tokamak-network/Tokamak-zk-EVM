@@ -2,16 +2,23 @@
 
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
 const packageRoot = path.resolve(__dirname, '..');
 const compileScript = path.resolve(packageRoot, 'scripts/compile.sh');
 const reloadScript = path.resolve(packageRoot, 'scripts/reload-constants.sh');
 const distScript = path.resolve(packageRoot, 'scripts/dist-package.mjs');
-const bundledCircomPath = path.resolve(packageRoot, 'node_modules/.bin/circom2');
-const bundledCircomCliPath = path.resolve(packageRoot, 'node_modules/circom2/cli.js');
+const resolveOptionalPackagePath = specifier => {
+  try {
+    return require.resolve(specifier, { paths: [packageRoot] });
+  } catch {
+    return null;
+  }
+};
 
 const printHelp = () => {
   console.log(`Usage:
@@ -53,13 +60,24 @@ const resolveCircomCommand = () => {
     };
   }
 
+  const bundledCircomCliPath = resolveOptionalPackagePath('circom2/cli.js');
+  if (bundledCircomCliPath === null) {
+    console.error('Error: No usable Circom compiler was found.');
+    console.error(
+      "Install official 'circom' on your system PATH or run 'npm install' to provide the bundled circom2 wrapper.",
+    );
+    process.exit(1);
+  }
+
   const bundledCircom = spawnSync(process.execPath, [bundledCircomCliPath, '--version'], {
     cwd: process.cwd(),
     stdio: 'ignore',
   });
 
   if (bundledCircom.status === 0) {
-    console.log(`[qap-compiler] System circom was not found. Falling back to bundled circom2 at '${bundledCircomPath}'.`);
+    console.log(
+      `[qap-compiler] System circom was not found. Falling back to bundled circom2 at '${bundledCircomCliPath}'.`,
+    );
     return {
       command: process.execPath,
       extraEnv: {
@@ -69,7 +87,9 @@ const resolveCircomCommand = () => {
   }
 
   console.error('Error: No usable Circom compiler was found.');
-  console.error("Install official 'circom' on your system PATH or run 'npm install' to provide the bundled circom2 wrapper.");
+  console.error(
+    "Install official 'circom' on your system PATH or run 'npm install' to provide the bundled circom2 wrapper.",
+  );
   process.exit(1);
 };
 
