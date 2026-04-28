@@ -579,8 +579,14 @@ async function extractProofBundle(context: RuntimeContext, outputPathRaw: string
 }
 
 async function runDoctor(verbose: boolean): Promise<void> {
+  const installCommand = process.platform === 'win32'
+    ? 'tokamak-cli --install --docker'
+    : 'tokamak-cli --install';
   const context = await requireInstalledRuntime().catch((error: unknown) => {
     if (error instanceof Error && error.message.startsWith('Unsupported')) {
+      throw error;
+    }
+    if (error instanceof Error && !error.message.includes('not installed')) {
       throw error;
     }
     return null;
@@ -593,7 +599,7 @@ async function runDoctor(verbose: boolean): Promise<void> {
     }
   }
   if (context === null) {
-    err('Runtime not installed. Run `tokamak-cli --install` first.');
+    err(`Runtime not installed. Run \`${installCommand}\` first.`);
   }
   const paths = runtimePaths(context);
   const backendBinaries = [

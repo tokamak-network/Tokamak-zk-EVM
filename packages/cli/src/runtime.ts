@@ -818,6 +818,11 @@ async function dockerBootstrapRunnable(context: RuntimeContext, verbose: boolean
   if (!(await dockerDaemonAvailable(verbose))) {
     return null;
   }
+  if (!(await commandSucceeds('docker', ['image', 'inspect', bootstrap.imageName]))) {
+    throw new Error(
+      `Tokamak zk-EVM Docker image ${bootstrap.imageName} is missing. Run \`tokamak-cli --install --docker\` again.`,
+    );
+  }
   return bootstrap;
 }
 
@@ -832,13 +837,29 @@ async function writeDockerBootstrap(context: RuntimeContext, bootstrap: DockerBo
 
   const env = dockerBackendEnvironment(context);
   const scriptPath = path.join(bootstrapDir, 'run.sh');
-  const gpuArgs = bootstrap.useGpus ? ' --gpus all' : '';
   const script = [
     '#!/usr/bin/env sh',
     'set -eu',
+    `IMAGE=${shellQuote(bootstrap.imageName)}`,
+    'if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then',
+    '  echo "Tokamak zk-EVM Docker image $IMAGE is missing. Run `tokamak-cli --install --docker` again." >&2',
+    '  exit 1',
+    'fi',
+    'GPU_ARGS=',
+    ...(bootstrap.useGpus
+      ? [
+        'probe_file="${TMPDIR:-/tmp}/tokamak-cuda-probe.$$"',
+        `if docker run --rm --gpus all ${shellQuote(DOCKER_CUDA_PROBE_IMAGE)} nvidia-smi --query-gpu=name,driver_version --format=csv,noheader >"$probe_file" 2>/dev/null; then`,
+        `  if awk -F, -v min=${shellQuote(DOCKER_CUDA_MIN_DRIVER_VERSION)} 'function part(v,n,a){split(v,a,"."); return a[n] + 0} function ge(v,m){return part(v,1)>part(m,1) || (part(v,1)==part(m,1) && (part(v,2)>part(m,2) || (part(v,2)==part(m,2) && part(v,3)>=part(m,3))))} {driver=$NF; gsub(/^[ \\t]+|[ \\t]+$/, "", driver); if (!ge(driver,min)) exit 1; found=1} END {if (!found) exit 1}' "$probe_file"; then`,
+        '    GPU_ARGS="--gpus all"',
+        '  fi',
+        'fi',
+        'rm -f "$probe_file"',
+      ]
+      : []),
     'exec docker run --rm \\',
     '  --user "$(id -u):$(id -g)" \\',
-    `${gpuArgs ? `  ${gpuArgs.trim()} \\` : ''}`,
+    '  $GPU_ARGS \\',
     `  -v ${shellQuote(`${context.cacheRoot}:${DOCKER_CONTAINER_CACHE_ROOT}`)} \\`,
     '  -e HOME=/tmp \\',
     `  -e ${shellQuote(`LD_LIBRARY_PATH=${env.LD_LIBRARY_PATH}`)} \\`,

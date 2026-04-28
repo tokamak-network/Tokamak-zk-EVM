@@ -8,6 +8,7 @@
 - Removed host `zip` and `unzip` command dependencies from stage input archives and proof bundle export.
 - Fixed `--verbose` parsing for preprocess, prove, verify, and proof export commands.
 - Hardened CUDA Docker mode by checking driver compatibility, forcing the selected CUDA ICICLE asset during Docker installs, validating bootstrap consistency, and falling back to non-GPU Docker runs when CUDA is no longer available.
+- Added Docker image existence checks for saved bootstraps, CUDA fallback handling to the generated Docker run script, and Windows-specific doctor install guidance.
 
 ## 2.0.9 - 2026-04-26
 
