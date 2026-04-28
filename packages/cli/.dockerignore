@@ -4,5 +4,7 @@
 !dist/**
 !scripts/
 !scripts/**
+!manifests/
+!manifests/**
 !vendor/
 !vendor/**
