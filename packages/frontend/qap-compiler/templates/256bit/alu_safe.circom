@@ -5,9 +5,9 @@ include "compare_safe.circom";
 include "two_complement_unsafe.circom";
 include "mux.circom";
 include "../128bit/mux.circom";
-include "../../node_modules/circomlib/circuits/bitify.circom";
-include "../../node_modules/circomlib/circuits/gates.circom";
-include "../../node_modules/circomlib/circuits/comparators.circom";
+include "circomlib/circuits/bitify.circom";
+include "circomlib/circuits/gates.circom";
+include "circomlib/circuits/comparators.circom";
 
 
 // ALU1-5 are optimized to have constraints less than 1024

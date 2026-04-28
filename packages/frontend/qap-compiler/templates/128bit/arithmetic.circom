@@ -1,5 +1,5 @@
 pragma circom 2.1.6;
-include "../../node_modules/circomlib/circuits/comparators.circom";
+include "circomlib/circuits/comparators.circom";
 
 template Mul128_unsafe() {
     // inputs are 128 bits

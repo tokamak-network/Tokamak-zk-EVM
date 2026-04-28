@@ -1,7 +1,7 @@
 pragma circom 2.1.6;
-include "../../node_modules/poseidon-bls12381-circom/circuits/poseidon255.circom";
-include "../../node_modules/circomlib/circuits/comparators.circom";
-include "../../node_modules/circomlib/circuits/bitify.circom";
+include "poseidon-bls12381-circom/circuits/poseidon255.circom";
+include "circomlib/circuits/comparators.circom";
+include "circomlib/circuits/bitify.circom";
 
 function jubjubconst() {
     // Constants for Jubjub over BLS12-381 Fr

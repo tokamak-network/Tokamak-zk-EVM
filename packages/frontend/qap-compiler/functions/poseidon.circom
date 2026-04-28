@@ -1,6 +1,6 @@
 pragma circom 2.1.6;
 
-include "../node_modules/poseidon-bls12381-circom/circuits/poseidon255_constants.circom";
+include "poseidon-bls12381-circom/circuits/poseidon255_constants.circom";
 
 // x ↦ x^5
 function x5_f(x) {

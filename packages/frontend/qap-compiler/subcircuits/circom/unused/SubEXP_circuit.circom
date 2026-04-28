@@ -1,6 +1,6 @@
 pragma circom 2.1.6;
 include "../../templates/256bit/arithmetic_unsafe_type1.circom";
-include "../../node_modules/circomlib/circuits/comparators.circom";
+include "circomlib/circuits/comparators.circom";
 include "../../templates/256bit/compare_safe.circom";
 
 

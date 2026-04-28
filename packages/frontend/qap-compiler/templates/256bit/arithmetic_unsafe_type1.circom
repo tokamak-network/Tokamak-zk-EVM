@@ -1,9 +1,9 @@
 pragma circom 2.1.6;
 include "../../functions/arithmetic.circom";
 include "../128bit/arithmetic.circom";
-include "../../node_modules/circomlib/circuits/comparators.circom";
+include "circomlib/circuits/comparators.circom";
 include "arithmetic_safe.circom";
-// include "../../node_modules/circomlib/circuits/gates.circom";
+// include "circomlib/circuits/gates.circom";
 
 // Each input and output is an 256-bit integer represented by two 128-bit LE limbs; e.g.) in1[0]: lower 128 bits, in1[1]: upper 128 bits
 // Each template here becomes safe only if well-formness of the input and output is guaranteed.

@@ -1,6 +1,6 @@
 pragma circom 2.1.6;
-include "../../node_modules/poseidon-bls12381-circom/circuits/poseidon255.circom";
-include "../../node_modules/circomlib/circuits/comparators.circom";
+include "poseidon-bls12381-circom/circuits/poseidon255.circom";
+include "circomlib/circuits/comparators.circom";
 // Each input and output is an 255-bit integer represented by two 128-bit LE limbs; e.g.) in1[0]: lower 128 bits, in1[1]: upper 128 bits
 template poseidonTokamak(N) {
     signal input in[N][2];

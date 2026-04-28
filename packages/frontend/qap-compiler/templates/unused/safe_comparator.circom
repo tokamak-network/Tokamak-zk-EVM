@@ -1,5 +1,5 @@
 pragma circom 2.1.6;
-include "../node_modules/circomlib/circuits/bitify.circom"
+include "circomlib/circuits/bitify.circom"
 
 template SafeLessThan(N) {
     signal input in1, in2;

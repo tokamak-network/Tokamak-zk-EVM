@@ -28,6 +28,51 @@ if [[ -n "${QAP_COMPILER_CIRCOM_SCRIPT:-}" ]]; then
   circom_cmd+=("${QAP_COMPILER_CIRCOM_SCRIPT}")
 fi
 
+dependency_include_roots="$(
+  node - "$package_root" <<'NODE'
+const path = require('node:path');
+const { createRequire } = require('node:module');
+
+const packageRoot = path.resolve(process.argv[2]);
+const requireFromPackage = createRequire(path.join(packageRoot, 'package.json'));
+const dependencyIncludes = [
+  'circomlib/circuits/comparators.circom',
+  'poseidon-bls12381-circom/circuits/poseidon255.circom',
+];
+const includeRoots = new Set();
+
+for (const dependencyInclude of dependencyIncludes) {
+  const resolved = requireFromPackage.resolve(dependencyInclude);
+  let current = path.dirname(resolved);
+
+  while (path.basename(current) !== 'node_modules') {
+    const parent = path.dirname(current);
+    if (parent === current) {
+      throw new Error(`Could not find node_modules root for ${dependencyInclude}`);
+    }
+    current = parent;
+  }
+
+  includeRoots.add(current);
+}
+
+for (const includeRoot of includeRoots) {
+  console.log(includeRoot);
+}
+NODE
+)"
+
+first_dependency_include_root="$(printf '%s\n' "$dependency_include_roots" | sed -n '1p')"
+circom_work_dir="$package_root"
+if [[ -n "$first_dependency_include_root" ]]; then
+  circom_work_dir="$(dirname "$first_dependency_include_root")"
+fi
+
+include_args=(-l "${package_root}/subcircuits/circom" -l "${package_root}/templates" -l "${package_root}/functions")
+while IFS= read -r include_root; do
+  [[ -n "$include_root" ]] && include_args+=(-l "$include_root")
+done <<< "$dependency_include_roots"
+
 output_dir_path="$default_output_dir"
 if [[ $# -eq 1 ]]; then
   requested_output="$1"
@@ -58,8 +103,8 @@ for (( i = 0 ; i < ${#names[@]} ; i++ )) ; do
   echo "id[$i] = ${names[$i]}" >> temp.txt
 
   (
-    cd "$package_root"
-    "${circom_cmd[@]}" "./subcircuits/circom/${names[$i]}_circuit.circom" --r1cs --wasm --json -o "$output_dir_path" -p "$CURVE_NAME" -l "./subcircuits/circom"
+    cd "$circom_work_dir"
+    "${circom_cmd[@]}" "${package_root}/subcircuits/circom/${names[$i]}_circuit.circom" --r1cs --wasm --json -o "$output_dir_path" -p "$CURVE_NAME" "${include_args[@]}"
   ) | tee "$output_dir_path/info/subcircuit${i}_${names[$i]}_info.txt"
   cat "$output_dir_path/info/subcircuit${i}_${names[$i]}_info.txt" >> temp.txt
   mv "$output_dir_path/${names[$i]}_circuit_constraints.json" "$output_dir_path/json/subcircuit${i}.json"

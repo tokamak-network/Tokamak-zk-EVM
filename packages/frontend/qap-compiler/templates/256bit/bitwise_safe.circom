@@ -1,6 +1,6 @@
 pragma circom 2.1.6;
-include "../../node_modules/circomlib/circuits/bitify.circom";
-include "../../node_modules/circomlib/circuits/gates.circom";
+include "circomlib/circuits/bitify.circom";
+include "circomlib/circuits/gates.circom";
 include "../128bit/bitwise.circom";
 // Input: 256-bit integers consisting of two 128-bit integers
 // Output: 256-bit integer consisting of two 128-bit integers    

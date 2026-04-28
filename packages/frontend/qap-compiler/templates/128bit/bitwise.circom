@@ -1,6 +1,6 @@
 pragma circom 2.1.6;
-include "../../node_modules/circomlib/circuits/bitify.circom";
-include "../../node_modules/circomlib/circuits/gates.circom";
+include "circomlib/circuits/bitify.circom";
+include "circomlib/circuits/gates.circom";
 // Input: 128-bit integer
 // Output: 128-bit integer
 template Xor128() {

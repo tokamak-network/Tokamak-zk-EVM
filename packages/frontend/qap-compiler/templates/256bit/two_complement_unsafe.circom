@@ -3,7 +3,7 @@ include "arithmetic_unsafe_type1.circom";
 include "../../functions/two_complement.circom";
 include "mux.circom";
 include "compare_safe.circom";
-include "../../node_modules/circomlib/circuits/gates.circom";
+include "circomlib/circuits/gates.circom";
 
 template getSignAndAbs256_unsafe() {
     signal input in[2];

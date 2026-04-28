@@ -1,6 +1,6 @@
 pragma circom 2.1.6;
-include "../../node_modules/circomlib/circuits/comparators.circom";
-include "../../node_modules/circomlib/circuits/gates.circom";
+include "circomlib/circuits/comparators.circom";
+include "circomlib/circuits/gates.circom";
 include "two_complement_unsafe.circom";
 
 template LessThan256 () {

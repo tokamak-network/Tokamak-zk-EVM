@@ -4,9 +4,9 @@ include "arithmetic_safe.circom";
 include "../512bit/arithmetic.circom";
 include "../128bit/arithmetic.circom";
 include "two_complement_unsafe.circom";
-include "../../node_modules/circomlib/circuits/gates.circom";
+include "circomlib/circuits/gates.circom";
 include "compare_safe.circom";
-include "../../node_modules/circomlib/circuits/comparators.circom";
+include "circomlib/circuits/comparators.circom";
 include "../../functions/two_complement.circom";
 include "../../functions/arithmetic.circom";
 
