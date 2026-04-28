@@ -14,13 +14,13 @@
     "layer2",
     "tokamak-network"
   ],
-  "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/frontend/synthesizer/web-app#readme",
+  "homepage": "https://github.com/tokamak-network/Tokamak-zk-EVM/tree/main/packages/frontend/synthesizer/web-app#readme",
   "bugs": {
-    "url": "https://github.com/tokamak-network/tokamak-zk-evm/issues"
+    "url": "https://github.com/tokamak-network/Tokamak-zk-EVM/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/tokamak-network/tokamak-zk-evm.git",
+    "url": "https://github.com/tokamak-network/Tokamak-zk-EVM.git",
     "directory": "packages/frontend/synthesizer/web-app"
   },
   "license": "MIT OR Apache-2.0",

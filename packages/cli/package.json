@@ -19,13 +19,13 @@
     "zk-SNARK",
     "zero-knowledge"
   ],
-  "homepage": "https://github.com/tokamak-network/tokamak-zk-evm/tree/main/packages/cli#readme",
+  "homepage": "https://github.com/tokamak-network/Tokamak-zk-EVM/tree/main/packages/cli#readme",
   "bugs": {
-    "url": "https://github.com/tokamak-network/tokamak-zk-evm/issues"
+    "url": "https://github.com/tokamak-network/Tokamak-zk-EVM/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tokamak-network/tokamak-zk-evm.git",
+    "url": "git+https://github.com/tokamak-network/Tokamak-zk-EVM.git",
     "directory": "packages/cli"
   },
   "license": "MIT OR Apache-2.0",
