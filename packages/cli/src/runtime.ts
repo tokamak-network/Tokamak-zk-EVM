@@ -102,6 +102,7 @@ interface CargoMetadata {
 const BACKEND_BINARY_NAMES = ['preprocess', 'prove', 'verify'] as const;
 
 const CACHE_DIR_ENV = 'TOKAMAK_ZKEVM_CLI_CACHE_DIR';
+const DOCKER_ENVIRONMENT_ENV = 'TOKAMAK_ZKEVM_CLI_DOCKER_ENVIRONMENT';
 const CRS_DRIVE_FOLDER_ID = '14xqCbLoyoVmUVTTlopiXtKnoHPBGL-Sv';
 const CRS_DRIVE_FOLDER_URL = 'https://drive.google.com/drive/mobile/folders';
 const CRS_DOWNLOAD_BASE_URL = 'https://drive.usercontent.google.com/download';
@@ -114,6 +115,7 @@ const DOCKER_BOOTSTRAP_VERSION = 1;
 const DOCKER_CONTAINER_CACHE_ROOT = '/tokamak-cache';
 const DOCKER_CUDA_PROBE_IMAGE = 'nvidia/cuda:12.2.0-base-ubuntu22.04';
 const DOCKER_CUDA_BASE_IMAGE = 'nvidia/cuda:12.2.0-devel-ubuntu22.04';
+const DOCKER_CUDA_MIN_DRIVER_VERSION = '525.60.13';
 const DOCKER_UBUNTU_BASE_IMAGE = 'ubuntu:22.04';
 const DOCKERFILE_PATH = path.join('docker', 'Dockerfile');
 const ICICLE_VERSION = '3.8.0';
@@ -661,17 +663,65 @@ async function linuxCudaBackendAvailable(verbose: boolean): Promise<boolean> {
   }
 }
 
+function parseVersionParts(version: string): number[] | null {
+  const parts = version.trim().split('.');
+  if (parts.length === 0) {
+    return null;
+  }
+  const parsed = parts.map((part) => Number.parseInt(part, 10));
+  return parsed.every((part) => Number.isFinite(part)) ? parsed : null;
+}
+
+function versionAtLeast(actual: string, minimum: string): boolean {
+  const actualParts = parseVersionParts(actual);
+  const minimumParts = parseVersionParts(minimum);
+  if (actualParts === null || minimumParts === null) {
+    return false;
+  }
+  const length = Math.max(actualParts.length, minimumParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const actualPart = actualParts[index] ?? 0;
+    const minimumPart = minimumParts[index] ?? 0;
+    if (actualPart !== minimumPart) {
+      return actualPart > minimumPart;
+    }
+  }
+  return true;
+}
+
 async function dockerCudaAvailable(verbose: boolean): Promise<boolean> {
-  const args = ['run', '--rm', '--gpus', 'all', DOCKER_CUDA_PROBE_IMAGE, 'nvidia-smi'];
+  const args = [
+    'run',
+    '--rm',
+    '--gpus',
+    'all',
+    DOCKER_CUDA_PROBE_IMAGE,
+    'nvidia-smi',
+    '--query-gpu=name,driver_version',
+    '--format=csv,noheader',
+  ];
   try {
-    const succeeded = verbose
-      ? await runCommand('docker', args, { verbose }).then(() => true)
-      : await commandSucceeds('docker', args);
-    if (!succeeded) {
-      logVerbose(verbose, 'Docker CUDA probe failed; using CPU-only Ubuntu 22 environment.');
+    const result = await runCommand('docker', args, { quiet: !verbose, verbose });
+    const detectedDevices = result.stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    if (detectedDevices.length === 0) {
+      logVerbose(verbose, 'Docker CUDA probe did not report any NVIDIA devices; using CPU-only Ubuntu 22 environment.');
       return false;
     }
-    logVerbose(verbose, 'Docker CUDA probe succeeded with `--gpus all` and `nvidia-smi`.');
+    for (const device of detectedDevices) {
+      const parts = device.split(',').map((part) => part.trim());
+      const driverVersion = parts.at(-1) ?? '';
+      if (!versionAtLeast(driverVersion, DOCKER_CUDA_MIN_DRIVER_VERSION)) {
+        logVerbose(
+          verbose,
+          `Docker CUDA probe found driver ${driverVersion || '<unknown>'}, but CUDA 12.2 requires ${DOCKER_CUDA_MIN_DRIVER_VERSION} or newer; using CPU-only Ubuntu 22 environment.`,
+        );
+        return false;
+      }
+    }
+    logVerbose(verbose, `Docker CUDA probe succeeded for detected NVIDIA device(s): ${detectedDevices.join('; ')}`);
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -689,9 +739,9 @@ function dockerImageName(packageVersion: string, environment: DockerEnvironment)
   return `tokamak-zk-evm-cli:${sanitizedVersion}-${environment}`;
 }
 
-function dockerRunPrefix(bootstrap: DockerBootstrap): string[] {
+function dockerRunPrefix(bootstrap: DockerBootstrap, useGpus = bootstrap.useGpus): string[] {
   const args = ['run', '--rm'];
-  if (bootstrap.useGpus) {
+  if (useGpus) {
     args.push('--gpus', 'all');
   }
   return args;
@@ -740,7 +790,8 @@ function validateDockerBootstrap(value: unknown): DockerBootstrap | null {
     typeof candidate.packageVersion !== 'string' ||
     typeof candidate.createdAt !== 'string' ||
     typeof candidate.useGpus !== 'boolean' ||
-    (candidate.dockerEnvironment !== 'ubuntu22' && candidate.dockerEnvironment !== 'ubuntu22-cuda122')
+    (candidate.dockerEnvironment !== 'ubuntu22' && candidate.dockerEnvironment !== 'ubuntu22-cuda122') ||
+    candidate.useGpus !== (candidate.dockerEnvironment === 'ubuntu22-cuda122')
   ) {
     return null;
   }
@@ -806,11 +857,12 @@ async function runDockerBootstrapCommand(
   args: string[],
   verbose: boolean,
   quiet = false,
+  useGpus = bootstrap.useGpus,
 ): Promise<CommandResult> {
   const env = dockerBackendEnvironment(context);
   const containerCommand = toContainerPath(command, context);
   const dockerArgs = [
-    ...dockerRunPrefix(bootstrap),
+    ...dockerRunPrefix(bootstrap, useGpus),
     ...dockerUserArgs(),
     '-v',
     `${context.cacheRoot}:${DOCKER_CONTAINER_CACHE_ROOT}`,
@@ -840,8 +892,16 @@ export async function runBackendCommand(
   const { quiet = false } = options;
   const bootstrap = await dockerBootstrapRunnable(context, verbose);
   if (bootstrap !== null) {
-    logVerbose(verbose, `Running backend command in Docker bootstrap ${bootstrap.dockerEnvironment}.`);
-    return await runDockerBootstrapCommand(context, bootstrap, command, args, verbose, quiet);
+    let useGpus = bootstrap.useGpus;
+    if (useGpus && !(await dockerCudaAvailable(verbose))) {
+      logVerbose(verbose, 'Docker CUDA bootstrap is installed, but CUDA is not currently available; running without `--gpus all`.');
+      useGpus = false;
+    }
+    logVerbose(
+      verbose,
+      `Running backend command in Docker bootstrap ${bootstrap.dockerEnvironment}${useGpus ? ' with CUDA' : ' without CUDA'}.`,
+    );
+    return await runDockerBootstrapCommand(context, bootstrap, command, args, verbose, quiet, useGpus);
   }
 
   if (process.platform === 'win32' && context.platform === 'linux') {
@@ -1245,6 +1305,11 @@ function selectIcicleAsset(manifest: IcicleManifest, key: string): IcicleAsset {
   };
 }
 
+function dockerEnvironmentOverride(): DockerEnvironment | null {
+  const value = process.env[DOCKER_ENVIRONMENT_ENV]?.trim();
+  return value === 'ubuntu22' || value === 'ubuntu22-cuda122' ? value : null;
+}
+
 async function downloadIcicleAssetWithCache(
   context: RuntimeContext,
   asset: IcicleAsset,
@@ -1292,13 +1357,17 @@ async function installIcicleRuntime(context: RuntimeContext, verbose: boolean): 
       await extractTarArchive(backendTarball, tempRoot, verbose);
     } else {
       const ubuntuMajor = await readLinuxUbuntuMajorVersion();
+      const dockerEnvironment = dockerEnvironmentOverride();
       const commonTarball = await downloadIcicleAssetWithCache(
         context,
         selectIcicleAsset(manifest, `ubuntu${ubuntuMajor}`),
         verbose,
       );
       await extractTarArchive(commonTarball, tempRoot, verbose);
-      if (await linuxCudaBackendAvailable(verbose)) {
+      const installCudaBackend = dockerEnvironment === 'ubuntu22-cuda122'
+        || (dockerEnvironment === null && await linuxCudaBackendAvailable(verbose));
+      if (installCudaBackend) {
+        logVerbose(verbose, 'Installing CUDA ICICLE backend package.');
         const backendTarball = await downloadIcicleAssetWithCache(
           context,
           selectIcicleAsset(manifest, `ubuntu${ubuntuMajor}-cuda122`),
@@ -1678,6 +1747,8 @@ function dockerInstallArgs(context: RuntimeContext, bootstrap: DockerBootstrap, 
     `${context.cacheRoot}:${DOCKER_CONTAINER_CACHE_ROOT}`,
     '-e',
     `TOKAMAK_ZKEVM_CLI_CACHE_DIR=${DOCKER_CONTAINER_CACHE_ROOT}`,
+    '-e',
+    `${DOCKER_ENVIRONMENT_ENV}=${bootstrap.dockerEnvironment}`,
     '-e',
     'HOME=/tmp',
     bootstrap.imageName,

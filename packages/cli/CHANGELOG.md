@@ -7,6 +7,7 @@
 - Fixed Windows Docker-mode uninstall to remove the Linux Docker runtime cache instead of failing native platform detection.
 - Removed host `zip` and `unzip` command dependencies from stage input archives and proof bundle export.
 - Fixed `--verbose` parsing for preprocess, prove, verify, and proof export commands.
+- Hardened CUDA Docker mode by checking driver compatibility, forcing the selected CUDA ICICLE asset during Docker installs, validating bootstrap consistency, and falling back to non-GPU Docker runs when CUDA is no longer available.
 
 ## 2.0.9 - 2026-04-26
 

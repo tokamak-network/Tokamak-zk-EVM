@@ -37,7 +37,7 @@ Before running `--install`, make sure the machine has:
 - a working C/C++ toolchain
 - outbound HTTPS access to npm, crates.io, GitHub, GitHub Releases, and Google Drive
 
-For `--install --docker`, the Linux host or Windows host with Docker Desktop needs Docker installed and a running Docker daemon. CUDA is enabled only when `docker run --rm --gpus all nvidia/cuda:12.2.0-base-ubuntu22.04 nvidia-smi` succeeds.
+For `--install --docker`, the Linux host or Windows host with Docker Desktop needs Docker installed and a running Docker daemon. CUDA is enabled only when a CUDA 12.2 Docker probe can run with `--gpus all`, report at least one NVIDIA GPU, and report driver version `525.60.13` or newer.
 
 ### macOS
 
@@ -84,7 +84,7 @@ tokamak-cli --install --docker
 - retries the anonymous CRS download up to 5 times, then fails
 - writes everything into the CLI runtime cache
 
-`--install --docker` is supported on Linux hosts and Windows hosts with Docker Desktop. It uses the static Dockerfile shipped in the npm package, checks that Docker is running, probes CUDA with `docker run --rm --gpus all ... nvidia-smi`, then installs through either an `ubuntu22-cuda122` container environment or a CPU-only `ubuntu22` container environment. Docker installs always write the Linux runtime cache and store Docker bootstrap files in:
+`--install --docker` is supported on Linux hosts and Windows hosts with Docker Desktop. It uses the static Dockerfile shipped in the npm package, checks that Docker is running, probes CUDA with `docker run --rm --gpus all ... nvidia-smi`, then installs through either an `ubuntu22-cuda122` container environment or a CPU-only `ubuntu22` container environment. CUDA Docker installs re-check CUDA availability before each backend command and run without `--gpus all` if the GPU runtime is no longer available. Docker installs always write the Linux runtime cache and store Docker bootstrap files in:
 
 ```text
 ~/.tokamak-zk-evm/linux/docker
