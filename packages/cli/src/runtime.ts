@@ -1769,7 +1769,9 @@ export async function installRuntime(options: InstallOptions): Promise<RuntimeCo
 }
 
 export async function uninstallRuntime(): Promise<RuntimeContext> {
-  const context = await createRuntimeContext();
+  const context = process.platform === 'win32'
+    ? await createDockerRuntimeContext()
+    : await createRuntimeContext();
   await fs.rm(context.platformDir, { recursive: true, force: true });
   await removeDirectoryIfEmpty(context.cacheRoot);
   return context;

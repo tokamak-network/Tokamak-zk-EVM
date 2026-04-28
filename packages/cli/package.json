@@ -59,9 +59,11 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@tokamak-zk-evm/synthesizer-node": "^1.0.3"
+    "@tokamak-zk-evm/synthesizer-node": "^1.0.3",
+    "adm-zip": "^0.5.17"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
     "@types/node": "^22.15.14",
     "typescript": "^5.9.3"
   },

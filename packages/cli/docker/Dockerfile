@@ -42,6 +42,7 @@ COPY manifests ./manifests
 COPY vendor ./vendor
 
 RUN test -f dist/cli.js \
+    && test -f manifests/icicle-v3.8.0.json \
     && test -f vendor/backend/Cargo.toml \
     && chmod -R a+rwx /opt/tokamak-cli
 

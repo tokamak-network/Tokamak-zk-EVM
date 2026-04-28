@@ -3,6 +3,10 @@
 ## 2.0.10 - 2026-04-27
 
 - Allowed `--install --docker` on Windows hosts with Docker Desktop by using the Linux Docker runtime cache for Docker installs and backend commands.
+- Included the ICICLE manifest in Docker install images and added a Dockerfile guard for that file.
+- Fixed Windows Docker-mode uninstall to remove the Linux Docker runtime cache instead of failing native platform detection.
+- Removed host `zip` and `unzip` command dependencies from stage input archives and proof bundle export.
+- Fixed `--verbose` parsing for preprocess, prove, verify, and proof export commands.
 
 ## 2.0.9 - 2026-04-26
 

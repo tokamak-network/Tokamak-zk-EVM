@@ -3,6 +3,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import AdmZip from 'adm-zip';
 import {
   runTokamakChannelTxFromFiles,
   type TokamakChannelTxFiles,
@@ -12,7 +13,6 @@ import {
   installRuntime,
   requireInstalledRuntime,
   runBackendCommand,
-  runCommand,
   runtimePaths,
   uninstallRuntime,
   type RuntimeContext,
@@ -149,8 +149,41 @@ async function copyOptionalNamedFilesFromDir(
 
 async function extractZipToTemp(zipPath: string, prefix: string): Promise<string> {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), `${prefix}-`));
-  await runCommand('unzip', ['-q', zipPath, '-d', tmpDir]);
-  return tmpDir;
+  try {
+    const archive = new AdmZip(zipPath);
+    const root = path.resolve(tmpDir);
+    for (const entry of archive.getEntries()) {
+      const entryName = entry.entryName.replace(/\\/gu, '/');
+      const targetPath = path.resolve(root, entryName);
+      if (targetPath !== root && !targetPath.startsWith(`${root}${path.sep}`)) {
+        err(`Unsafe zip entry path: ${entry.entryName}`);
+      }
+      if (entry.isDirectory) {
+        await fs.mkdir(targetPath, { recursive: true });
+        continue;
+      }
+      await fs.mkdir(path.dirname(targetPath), { recursive: true });
+      await fs.writeFile(targetPath, entry.getData());
+    }
+    return tmpDir;
+  } catch (error) {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+function parseSinglePathArg(argv: string[], command: string, required: boolean): string | undefined {
+  const args = argv.slice(1).filter((arg) => arg !== '--verbose');
+  if (args.length === 0) {
+    if (required) {
+      err(`${command} requires <OUTPUT_ZIP_PATH>`);
+    }
+    return undefined;
+  }
+  if (args.length > 1) {
+    err(`Unknown option for ${command}: ${args[1]}`);
+  }
+  return args[0];
 }
 
 async function withDirFromPath<T>(
@@ -247,19 +280,16 @@ function parseArgs(argv: string[]): ParsedArgs {
   }
 
   if (argv[0] === '--preprocess') {
-    return { command: 'preprocess', verbose, arg1: argv[1] };
+    return { command: 'preprocess', verbose, arg1: parseSinglePathArg(argv, '--preprocess', false) };
   }
   if (argv[0] === '--prove') {
-    return { command: 'prove', verbose, arg1: argv[1] };
+    return { command: 'prove', verbose, arg1: parseSinglePathArg(argv, '--prove', false) };
   }
   if (argv[0] === '--verify') {
-    return { command: 'verify', verbose, arg1: argv[1] };
+    return { command: 'verify', verbose, arg1: parseSinglePathArg(argv, '--verify', false) };
   }
   if (argv[0] === '--extract-proof') {
-    const outputPath = argv[1];
-    if (!outputPath) {
-      err('--extract-proof requires <OUTPUT_ZIP_PATH>');
-    }
+    const outputPath = parseSinglePathArg(argv, '--extract-proof', true);
     return { command: 'extract-proof', verbose, arg1: outputPath };
   }
   if (argv[0] === '--doctor') {
@@ -532,30 +562,19 @@ async function extractProofBundle(context: RuntimeContext, outputPathRaw: string
     await ensureFile(filePath);
   }
 
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-proof-bundle-'));
-  try {
-    await fs.copyFile(path.join(paths.synthOutputDir, 'instance.json'), path.join(tempDir, 'instance.json'));
-    await fs.copyFile(
-      path.join(paths.synthOutputDir, 'instance_description.json'),
-      path.join(tempDir, 'instance_description.json'),
-    );
-    await fs.copyFile(
-      path.join(paths.preprocessOutputDir, 'preprocess.json'),
-      path.join(tempDir, 'preprocess.json'),
-    );
-    await fs.copyFile(path.join(paths.proveOutputDir, 'proof.json'), path.join(tempDir, 'proof.json'));
-    const benchmarkPath = path.join(paths.proveOutputDir, 'benchmark.json');
-    if (await fileExists(benchmarkPath)) {
-      await fs.copyFile(benchmarkPath, path.join(tempDir, 'benchmark.json'));
-    }
-    await runCommand('zip', ['-qr', outputName, '.'], {
-      cwd: tempDir,
-      verbose,
-    });
-    await fs.copyFile(path.join(tempDir, outputName), outputPath);
-  } finally {
-    await fs.rm(tempDir, { recursive: true, force: true });
+  const archive = new AdmZip();
+  archive.addLocalFile(path.join(paths.synthOutputDir, 'instance.json'));
+  archive.addLocalFile(path.join(paths.synthOutputDir, 'instance_description.json'));
+  archive.addLocalFile(path.join(paths.preprocessOutputDir, 'preprocess.json'));
+  archive.addLocalFile(path.join(paths.proveOutputDir, 'proof.json'));
+  const benchmarkPath = path.join(paths.proveOutputDir, 'benchmark.json');
+  if (await fileExists(benchmarkPath)) {
+    archive.addLocalFile(benchmarkPath);
   }
+  if (verbose) {
+    info(verbose, `Writing proof bundle archive: ${outputName}`);
+  }
+  archive.writeZip(outputPath);
   ok(`Proof bundle written → ${outputPath}`);
 }
 
