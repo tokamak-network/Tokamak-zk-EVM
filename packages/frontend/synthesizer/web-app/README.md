@@ -17,11 +17,7 @@ npm install @tokamak-zk-evm/synthesizer-web
 ## Quick start
 
 ```ts
-import {
-  loadSynthesisInputFromFiles,
-  saveSynthesisOutputToFiles,
-  synthesize,
-} from '@tokamak-zk-evm/synthesizer-web';
+import { loadSynthesisInputFromFiles, saveSynthesisOutputToFiles, synthesize } from '@tokamak-zk-evm/synthesizer-web';
 
 const payload = await loadSynthesisInputFromFiles({
   previousState,
@@ -58,4 +54,4 @@ The package also provides:
 - This package targets browser-style runtimes and ESM consumption.
 - Node CLI usage belongs to `@tokamak-zk-evm/synthesizer-node`.
 - Workspace overview: [../README.md](../README.md)
-- Workspace changelog: [../CHANGELOG.md](../CHANGELOG.md)
+- Repository changelog: [../../../../CHANGELOG.md](../../../../CHANGELOG.md)

@@ -54,13 +54,16 @@ release build, the Rust build scripts resolve and pack the published
 
 1. Install Apple developer tools.
    Either of the following is acceptable:
+
    - `xcode-select --install`
    - a full Xcode installation with the active developer directory configured
 
    Example:
+
    ```bash
    xcode-select --install
    ```
+
 2. Install Homebrew if it is not already installed:
    https://brew.sh/
 3. Install Node.js and CMake:
@@ -144,6 +147,7 @@ Use one of:
 This repository checkout flow is useful for contributors or for Windows users who want an isolated environment.
 
 ### Windows users
+
 1. Install Docker Desktop for Windows – https://docs.docker.com/desktop/install/windows-install/
 2. If you want CUDA/GPU support, install the NVIDIA GPU driver and verify Docker GPU pass-through.
    - Install [the latest NVIDIA driver](https://developer.nvidia.com/cuda/wsl).
@@ -196,15 +200,18 @@ In the examples below, replace `<CLI>` with the entrypoint that matches your set
 
 The CLI stores runtime artifacts under `~/.tokamak-zk-evm/<platform>/runtime/resource` by default.
 
-1) **Install** (install published runtime packages, build backend binaries, and prepare setup artifacts)
+1. **Install** (install published runtime packages, build backend binaries, and prepare setup artifacts)
+
 ```bash
 <CLI> --install
 ```
+
 By default, `--install` downloads the latest compatible CRS archive from the published Google Drive
 folder. Use `<CLI> --install --trusted-setup` to generate CRS locally, or
 `<CLI> --install --no-setup` to skip setup artifact provisioning.
 
-2) **Synthesize** (prepare inputs from one Tokamak L2 transaction snapshot)
+2. **Synthesize** (prepare inputs from one Tokamak L2 transaction snapshot)
+
 ```bash
 <CLI> --synthesize <INPUT_DIR>
 
@@ -215,19 +222,23 @@ folder. Use `<CLI> --install --trusted-setup` to generate CRS locally, or
   --block-info <BLOCK_INFO_JSON> \
   --contract-code <CONTRACT_CODES_JSON>
 ```
+
 `<INPUT_DIR>` must contain `previous_state_snapshot.json`, `transaction.json`, `block_info.json`, and `contract_codes.json`.
 
-3) **Preprocess** (backend preprocess stage)
+3. **Preprocess** (backend preprocess stage)
+
 ```bash
 <CLI> --preprocess
 ```
 
-4) **Prove** (backend prove stage; outputs stay under the CLI runtime cache)
+4. **Prove** (backend prove stage; outputs stay under the CLI runtime cache)
+
 ```bash
 <CLI> --prove
 ```
 
-5) **Verify** (verify proof artifacts already stored in the CLI runtime cache)
+5. **Verify** (verify proof artifacts already stored in the CLI runtime cache)
+
 ```bash
 # Uses the installed runtime cache by default
 <CLI> --verify
@@ -236,45 +247,49 @@ folder. Use `<CLI> --install --trusted-setup` to generate CRS locally, or
 <CLI> --verify <PROOF_DIR_OR_ZIP>
 ```
 
-6) **Extract proof bundle** (optional; zip key artifacts so they can be passed back to `--verify`)
+6. **Extract proof bundle** (optional; zip key artifacts so they can be passed back to `--verify`)
+
 ```bash
 <CLI> --extract-proof <OUTPUT_ZIP_PATH>
 ```
 
 ## Disclaimer
+
 - The Tokamak‑zk‑EVM project and its maintainers are **not responsible for any leakage or misuse of your API keys or credentials**.
 
 ## Package Composition
+
 ![Tokamak-zk-EVM Flow Chart](.github/assets/flowchart.png)
 
 ### Frontend Packages (compilers)
 
-| Package                                            | Description                                                                        | Language   | Repo Version | Published Package |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------- | ------------ | ----------------- |
-| [`qap-compiler`](./packages/frontend/qap-compiler) | Maintainer-side generator for the published subcircuit library package             | Circom     | `1.0.3`      | [`@tokamak-zk-evm/subcircuit-library`](https://www.npmjs.com/package/@tokamak-zk-evm/subcircuit-library) |
-| [`synthesizer-node`](./packages/frontend/synthesizer/node-cli) | Node CLI package that converts Tokamak L2 transaction snapshots into circuit inputs | TypeScript | `1.0.3`      | [`@tokamak-zk-evm/synthesizer-node`](https://www.npmjs.com/package/@tokamak-zk-evm/synthesizer-node) |
-| [`synthesizer-web`](./packages/frontend/synthesizer/web-app) | Browser-facing package that converts Tokamak L2 transaction snapshots into circuit inputs | TypeScript | `1.0.3`      | [`@tokamak-zk-evm/synthesizer-web`](https://www.npmjs.com/package/@tokamak-zk-evm/synthesizer-web) |
+| Package                                                        | Description                                                                               | Language   | Repo Version | Published Package                                                                                        |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ---------- | ------------ | -------------------------------------------------------------------------------------------------------- |
+| [`qap-compiler`](./packages/frontend/qap-compiler)             | Maintainer-side generator for the published subcircuit library package                    | Circom     | `2.0.12`     | [`@tokamak-zk-evm/subcircuit-library`](https://www.npmjs.com/package/@tokamak-zk-evm/subcircuit-library) |
+| [`synthesizer-node`](./packages/frontend/synthesizer/node-cli) | Node CLI package that converts Tokamak L2 transaction snapshots into circuit inputs       | TypeScript | `2.0.12`     | [`@tokamak-zk-evm/synthesizer-node`](https://www.npmjs.com/package/@tokamak-zk-evm/synthesizer-node)     |
+| [`synthesizer-web`](./packages/frontend/synthesizer/web-app)   | Browser-facing package that converts Tokamak L2 transaction snapshots into circuit inputs | TypeScript | `2.0.12`     | [`@tokamak-zk-evm/synthesizer-web`](https://www.npmjs.com/package/@tokamak-zk-evm/synthesizer-web)       |
 
 ### CLI Package
 
-| Package                     | Description                                                                                       | Language   | Repo Version | Published Package |
-| --------------------------- | ------------------------------------------------------------------------------------------------- | ---------- | ------------ | ----------------- |
-| [`tokamak-cli`](./packages/cli) | npm-distributed launcher package that builds the backend locally and exposes the Tokamak CLI flow | TypeScript | `2.0.1`      | [`@tokamak-zk-evm/cli`](https://www.npmjs.com/package/@tokamak-zk-evm/cli) |
+| Package                         | Description                                                                                       | Language   | Repo Version | Published Package                                                          |
+| ------------------------------- | ------------------------------------------------------------------------------------------------- | ---------- | ------------ | -------------------------------------------------------------------------- |
+| [`tokamak-cli`](./packages/cli) | npm-distributed launcher package that builds the backend locally and exposes the Tokamak CLI flow | TypeScript | `2.0.12`     | [`@tokamak-zk-evm/cli`](https://www.npmjs.com/package/@tokamak-zk-evm/cli) |
 
 ### Backend Packages
 
+| Package                                                   | Description                                                          | Language       | Repo Version | Distribution                                                                                            |
+| --------------------------------------------------------- | -------------------------------------------------------------------- | -------------- | ------------ | ------------------------------------------------------------------------------------------------------- |
+| [`mpc-setup`](./packages/backend/setup/mpc-setup)         | Tokamak zk-SNARK's setup algorithm (multi-party computation version) | Rust           | `2.0.12`     | [Published CRS artifacts](https://drive.google.com/drive/u/0/folders/14xqCbLoyoVmUVTTlopiXtKnoHPBGL-Sv) |
+| [`trusted-setup`](./packages/backend/setup/trusted-setup) | Tokamak zk-SNARK's setup algorithm (trusted single entity version)   | Rust           | `2.0.12`     | Source-only in this repository                                                                          |
+| [`prover`](./packages/backend/prove)                      | Tokamak zk-SNARK's proving algorithm                                 | Rust           | `2.0.12`     | Source-only in this repository                                                                          |
+| [`verify`](./packages/backend/verify)                     | Tokamak zk-SNARK's verifying algorithm                               | Rust, Solidity | `2.0.12`     | Source-only in this repository                                                                          |
 
-| Package                                                   | Description                                                                       | Language       | Repo Version | Distribution |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------- | ------------ | ------------ |
-| [`mpc-setup`](./packages/backend/setup/mpc-setup)         | Tokamak zk-SNARK's setup algorithm (multi-party computation version)              | Rust           | `1.0.1`      | [Published CRS artifacts](https://drive.google.com/drive/u/0/folders/14xqCbLoyoVmUVTTlopiXtKnoHPBGL-Sv) |
-| [`trusted-setup`](./packages/backend/setup/trusted-setup) | Tokamak zk-SNARK's setup algorithm (trusted single entity version)                | Rust           | `1.0.1`      | Source-only in this repository |
-| [`prover`](./packages/backend/prove)                      | Tokamak zk-SNARK's proving algorithm                                              | Rust           | `1.0.1`      | Source-only in this repository |
-| [`verify`](./packages/backend/verify)                     | Tokamak zk-SNARK's verifying algorithm                                            | Rust, Solidity | `1.0.1`      | Source-only in this repository |
-
-Published package versions can lag behind the repository state. Check each package page for the current npm release number.
+Release versions are synchronized from the root repository version. The root [CHANGELOG.md](./CHANGELOG.md) is the canonical changelog; package-local changelogs are generated publish assets.
 
 ## Development Status
+
 ### Sep. 2025
+
 - Archived in branch "[archive-airdrop-Sep25](https://github.com/tokamak-network/Tokamak-zk-EVM/tree/archive-airdrop-Sep25)".
 - Incomplete conversion of Ethereum transactions into ZKPs.
 - What does "incomplete" mean? ZKPs only include the execution of a transaction's opcodes. Verification of input state and the transaction signature, as well as reconstruction of output state, are excluded.
@@ -284,6 +299,7 @@ Published package versions can lag behind the repository state. Check each packa
   - A ZKP can be generated in 1-2 mins on CUDA or Apple silicon.
 
 ## Jan. 2026
+
 - Complete conversion of Tokamak Layer 2 transactions into ZKPs, which covers:
   - Verification of transaction signatures,
   - Verification of input state,
@@ -292,11 +308,11 @@ Published package versions can lag behind the repository state. Check each packa
 - Compatible with [Tokamak Private App Channels](https://github.com/tokamak-network/private-app-channel-manager).
 
 ## Apr. 2026
+
 - The current main branch.
 - Performance optimizations in the Tokamak zk-SNARK backend `prove` package reduce proof generation time by at least 2x in CPU environments.
 - Security patches in the `qap-compiler` package strengthen the subcircuit library.
 - Compatible with the new version of [Tokamak Private App Channels](https://github.com/tokamak-network/Tokamak-zk-EVM-contracts/blob/main/README.md).
-
 
 ## Documentation
 

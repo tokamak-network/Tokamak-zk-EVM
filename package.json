@@ -1,12 +1,13 @@
 {
   "name": "tokamak-zk-evm-monorepo",
-  "version": "1.0.0",
+  "version": "2.0.12",
   "description": "Tokamak zk-EVM: A tool that converts Ethereum transactions into Zero-Knowledge Proofs",
   "license": "MIT OR Apache-2.0",
   "author": "Tokamak Network",
   "private": true,
   "workspaces": [
     "packages/cli",
+    "packages/frontend/qap-compiler",
     "packages/frontend/synthesizer/node-cli",
     "packages/frontend/synthesizer/web-app"
   ],
@@ -16,7 +17,9 @@
     "lint:fix": "lerna run lint:fix",
     "format": "prettier --write \"**/*.{ts,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,js,json,md}\"",
-    "clean": "lerna run clean"
+    "clean": "lerna run clean",
+    "version:sync": "node scripts/sync-version.mjs",
+    "version:check": "node scripts/check-version-sync.mjs"
   },
   "devDependencies": {
     "eslint": "^8.0.0",

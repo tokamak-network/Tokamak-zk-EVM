@@ -26,4 +26,4 @@ This directory contains the maintainer-facing documentation for the synthesizer 
 - [Workspace README](../README.md)
 - [Node package README](../node-cli/README.md)
 - [Web package README](../web-app/README.md)
-- [Workspace changelog](../CHANGELOG.md)
+- [Repository changelog](../../../../CHANGELOG.md)

@@ -4,8 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const packageRoot = path.resolve(__dirname, '..');
+const repoRoot = path.resolve(packageRoot, '..', '..');
 const manifestPath = path.join(packageRoot, 'package.json');
-const changelogPath = path.join(packageRoot, 'CHANGELOG.md');
+const changelogPath = path.join(repoRoot, 'CHANGELOG.md');
 
 function fail(message) {
   console.error(`[release-check] ${message}`);
@@ -26,7 +27,7 @@ function parseChangelogEntries(markdown) {
   let current = null;
 
   for (const line of lines) {
-    const match = /^##\s+(\S+)\s+-\s+(\d{4}-\d{2}-\d{2})\s*$/u.exec(line);
+    const match = /^##\s+\[?([^\]\s]+)\]?\s+-\s+(\d{4}-\d{2}-\d{2})\s*$/u.exec(line);
     if (match) {
       if (current !== null) {
         current.body = current.body.join('\n').trim();
@@ -58,7 +59,7 @@ function validateReleaseReadiness() {
     fail(`Missing package manifest: ${manifestPath}`);
   }
   if (!fs.existsSync(changelogPath)) {
-    fail(`Missing changelog: ${changelogPath}`);
+    fail(`Missing root changelog: ${changelogPath}`);
   }
 
   const manifest = readJson(manifestPath);
@@ -79,10 +80,13 @@ function validateReleaseReadiness() {
 
   const bulletLines = latest.body
     .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('- '));
+    .map(line => line.trim())
+    .filter(line => line.startsWith('- '));
   if (bulletLines.length === 0) {
     fail(`Top changelog entry for ${version} must contain at least one bullet.`);
+  }
+  if (!latest.body.includes('### CLI')) {
+    fail(`Top changelog entry for ${version} must include a '### CLI' section.`);
   }
 
   return {

@@ -125,7 +125,7 @@ These entrypoints are intentionally narrower than the underlying directory tree 
 
 ### Workspace release surface
 
-- canonical changelog source: `CHANGELOG.md`
+- canonical changelog source: repository root `CHANGELOG.md`
 - publish inclusion: mirrored into each package root during build and prepack
 - workspace tag format: `synthesizer-vX.Y.Z`
 - canonical release entrypoint: `npm run publish`

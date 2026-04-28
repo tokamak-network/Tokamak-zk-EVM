@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/synthesizer-web",
-  "version": "1.0.3",
+  "version": "2.0.12",
   "description": "Browser-facing Tokamak zk-EVM synthesizer package with bundled subcircuit library assets.",
   "keywords": [
     "ethereum",
@@ -51,7 +51,7 @@
     "NOTICE"
   ],
   "scripts": {
-    "sync:changelog": "node ../scripts/sync-package-changelog.mjs web-app",
+    "sync:changelog": "node ../../../../scripts/sync-package-changelog.mjs packages/frontend/synthesizer/web-app",
     "sync:bundled-subcircuit-module": "node scripts/generate-bundled-subcircuit-module.mjs",
     "build": "npm run typecheck && npm run build:package",
     "build:package": "npm run sync:changelog && npm run sync:bundled-subcircuit-module && node scripts/build-package.mjs",
@@ -66,7 +66,7 @@
     "@ethereumjs/util": "^10.0.0",
     "@ethereumjs/vm": "^10.0.0",
     "@noble/curves": "1.9.7",
-    "@tokamak-zk-evm/subcircuit-library": "^1.0.3",
+    "@tokamak-zk-evm/subcircuit-library": "^2.0.12",
     "@zk-kit/imt": "2.0.0-beta.8",
     "tokamak-l2js": "^0.1.3"
   },

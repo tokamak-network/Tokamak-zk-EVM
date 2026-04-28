@@ -52,8 +52,9 @@ The repository source package remains private. The published npm package is asse
 
 Versioning rules for this package are:
 
-- npm version changes are tracked in `CHANGELOG.md`.
-- changelog entries are concise summaries of each npm release.
+- npm version changes are synchronized from the root repository version.
+- changelog entries are maintained in the root `CHANGELOG.md`.
+- the `dist` package receives a copied changelog during assembly.
 - package-specific Git tags use the format `subcircuit-library-vX.Y.Z`.
 - package-specific tags are maintained from `1.0.0` onward.
 - pre-`1.0.0` history is preserved as reconstructed repository history rather than as package-specific tags.

@@ -10,7 +10,7 @@ Consumer-facing entry points:
 - `node-cli/README.md`
 - `web-app/README.md`
 - `llms.txt`
-- `CHANGELOG.md`
+- root `CHANGELOG.md`
 
 Canonical maintainer entry points:
 
@@ -29,20 +29,21 @@ The workspace publishes two packages:
 
 Version rules:
 
-- `node-cli/package.json` and `web-app/package.json` are the only version sources of truth.
+- The root repository version is the source of truth.
+- `node-cli/package.json` and `web-app/package.json` must be synchronized from the root version.
 - Both published packages must always use the same synchronized version.
 - The Node CLI version banner must resolve from the package version, not from a hardcoded string.
 
 ## Changelog Policy
 
-The canonical changelog is the root `CHANGELOG.md`.
+The canonical changelog is the repository root `CHANGELOG.md`.
 
 Rules:
 
 - Keep an `Unreleased` section at the top.
-- Each released version must include `node-cli`, `web-app`, and `core` subsections.
-- If a section has no user-visible change, write `No consumer-facing changes.`
-- The `core` subsection must still be written from consumer impact, not from internal refactor detail.
+- Each released version that changes synthesizer behavior must include a `### Synthesizer` section.
+- If there is no user-visible synthesizer change in a synchronized release, write `No consumer-facing synthesizer changes.`
+- The `### Synthesizer` section must be written from consumer impact, not from internal refactor detail.
 
 For package publishing, the root changelog is mirrored into `node-cli/CHANGELOG.md` and `web-app/CHANGELOG.md` by package build/prepack scripts. Those mirrored files are publish assets, not canonical editing targets.
 
@@ -95,8 +96,8 @@ Release model:
 
 Version-bump policy:
 
-- Version updates are manual.
-- Before release, manually update `node-cli/package.json`, `web-app/package.json`, and `CHANGELOG.md`.
+- Version updates are performed with `npm run version:sync -- X.Y.Z` from the repository root.
+- Before release, update the repository root `CHANGELOG.md` and run `npm run version:check`.
 
 ## Validation Rules
 

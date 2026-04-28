@@ -10,7 +10,7 @@ members = [
 
 [workspace.package]
 edition = "2021"
-version = "1.0.2"
+version = "2.0.12"
 license = "MIT OR Apache-2.0"
 authors = ["Tokamak Network"]
 repository = "https://github.com/tokamak-network/tokamak-zk-evm"

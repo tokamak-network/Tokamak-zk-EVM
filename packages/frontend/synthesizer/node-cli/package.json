@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/synthesizer-node",
-  "version": "1.0.3",
+  "version": "2.0.12",
   "description": "Node CLI for running the Tokamak zk-EVM synthesizer against JSON transaction snapshot inputs.",
   "keywords": [
     "ethereum",
@@ -79,7 +79,7 @@
     "test:private-state-redeem": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-private-state-redeem-main-from-configs.ts",
     "test:private-state-redeem:prep": "tsx --tsconfig tsconfig.dev.json tests/scripts/run-private-state-redeem-config-matrix.ts",
     "test:node": "npm run -s test",
-    "sync:changelog": "node ../scripts/sync-package-changelog.mjs node-cli",
+    "sync:changelog": "node ../../../../scripts/sync-package-changelog.mjs packages/frontend/synthesizer/node-cli",
     "tsc": "npm run typecheck",
     "typecheck": "tsc -p tsconfig.json --pretty false",
     "prepack": "npm run build:package"
@@ -95,7 +95,7 @@
     "@ethereumjs/vm": "^10.0.0",
     "@js-sdsl/ordered-map": "^4.4.2",
     "@noble/curves": "1.9.7",
-    "@tokamak-zk-evm/subcircuit-library": "^1.0.3",
+    "@tokamak-zk-evm/subcircuit-library": "^2.0.12",
     "@types/debug": "^4.1.9",
     "@vitest/coverage-v8": "^2.1.8",
     "@zk-kit/imt": "2.0.0-beta.8",

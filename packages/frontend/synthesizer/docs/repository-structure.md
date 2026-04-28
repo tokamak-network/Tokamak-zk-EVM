@@ -2,7 +2,7 @@
 
 # Synthesizer Repository Structure
 
-This document summarizes the Git-tracked workspace layout. Generated outputs such as `dist/`, ignored changelog mirrors, runtime outputs, and `node_modules/` are intentionally excluded.
+This document summarizes the Git-tracked workspace layout. Generated outputs such as `dist/`, package changelog mirrors, runtime outputs, and `node_modules/` are intentionally excluded.
 
 ## Top-Level Layout
 
@@ -14,7 +14,6 @@ synthesizer/
 ├── node-cli/
 ├── scripts/
 ├── web-app/
-├── CHANGELOG.md
 ├── README.md
 ├── llms.txt
 └── package.json
@@ -90,4 +89,4 @@ web-app/
 
 - `core/` is not published as an npm package.
 - `node-cli/` and `web-app/` publish from their package roots and include `dist/` through `files`.
-- The root `CHANGELOG.md` is canonical; package-local changelog files are generated publish assets.
+- The repository root `CHANGELOG.md` is canonical; package-local changelog files are generated publish assets.

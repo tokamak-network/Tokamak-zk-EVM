@@ -42,7 +42,7 @@ Both packages produce the same synthesized artifacts:
 ## Documentation
 
 - Consumer landing: [README.md](./README.md)
-- Workspace changelog: [CHANGELOG.md](./CHANGELOG.md)
+- Repository changelog: [../../../CHANGELOG.md](../../../CHANGELOG.md)
 - Maintainer docs index: [docs/README.md](./docs/README.md)
 
 ## FAQ

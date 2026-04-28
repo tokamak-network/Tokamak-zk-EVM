@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(here, '..');
+const repoRoot = path.resolve(workspaceRoot, '..', '..', '..');
 const workspaceTagPrefix = 'synthesizer-v';
 const packageEntries = [
   {
@@ -82,9 +83,7 @@ function runCommand(command, args, options = {}) {
     const stderr = typeof result.stderr === 'string' ? result.stderr.trim() : '';
     const stdout = typeof result.stdout === 'string' ? result.stdout.trim() : '';
     const details = [stderr, stdout].filter(Boolean).join('\n');
-    throw new Error(
-      `Command failed: ${command} ${args.join(' ')}${details ? `\n${details}` : ''}`,
-    );
+    throw new Error(`Command failed: ${command} ${args.join(' ')}${details ? `\n${details}` : ''}`);
   }
 
   return result;
@@ -97,6 +96,10 @@ function readJson(relativePath) {
 
 function readText(relativePath) {
   return fs.readFileSync(path.join(workspaceRoot, relativePath), 'utf8');
+}
+
+function readRepoText(relativePath) {
+  return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
 function ensureFile(relativePath) {
@@ -178,9 +181,7 @@ function validateDocs(version) {
     }
   }
 
-  const brokenLinks = officialDocs
-    .filter(file => file.endsWith('.md'))
-    .flatMap(findBrokenMarkdownLinks);
+  const brokenLinks = officialDocs.filter(file => file.endsWith('.md')).flatMap(findBrokenMarkdownLinks);
 
   if (brokenLinks.length > 0) {
     fail(`Broken documentation links detected:\n${brokenLinks.join('\n')}`);
@@ -193,20 +194,20 @@ function validateDocs(version) {
     }
   }
 
-  const changelog = readText('CHANGELOG.md');
+  const changelog = readRepoText('CHANGELOG.md');
   if (!changelog.includes('## Unreleased')) {
-    fail("CHANGELOG.md must include an 'Unreleased' section.");
+    fail("Root CHANGELOG.md must include an 'Unreleased' section.");
   }
 
   const versionHeading = `## [${version}]`;
   if (!changelog.includes(versionHeading)) {
-    fail(`CHANGELOG.md must include a '${versionHeading}' section.`);
+    fail(`Root CHANGELOG.md must include a '${versionHeading}' section.`);
   }
 
-  for (const section of ['node-cli', 'web-app', 'core']) {
+  for (const section of ['Synthesizer']) {
     const sectionHeading = `### ${section}`;
     if (!changelog.includes(sectionHeading)) {
-      fail(`CHANGELOG.md must include a '${sectionHeading}' subsection for released versions.`);
+      fail(`Root CHANGELOG.md must include a '${sectionHeading}' subsection for released versions.`);
     }
   }
 }
@@ -254,9 +255,7 @@ const nodeManifest = readJson('node-cli/package.json');
 const webManifest = readJson('web-app/package.json');
 
 if (nodeManifest.version !== webManifest.version) {
-  fail(
-    `Synchronized release policy violation: node-cli=${nodeManifest.version}, web-app=${webManifest.version}.`,
-  );
+  fail(`Synchronized release policy violation: node-cli=${nodeManifest.version}, web-app=${webManifest.version}.`);
 }
 
 const localVersion = nodeManifest.version;
@@ -273,9 +272,7 @@ for (const entry of packageEntries) {
   }
 
   if (comparison < 0) {
-    fail(
-      `Local version ${localVersion} is behind npm version ${remoteVersion} for ${entry.name}.`,
-    );
+    fail(`Local version ${localVersion} is behind npm version ${remoteVersion} for ${entry.name}.`);
   }
 
   packagesToPublish.push(entry);
