@@ -67,6 +67,11 @@ pub fn preflight_drive_upload() -> Result<DriveUploadConfig, DriveUploadError> {
     Ok(config)
 }
 
+pub fn validate_release_build_metadata() -> Result<PathBuf, DriveUploadError> {
+    ensure_release_publish_supported()?;
+    resolve_build_metadata_path()
+}
+
 pub fn publish_output_archive(
     config: &DriveUploadConfig,
     intermediate_dir: &str,
@@ -306,6 +311,26 @@ fn validate_build_metadata(path: &Path) -> Result<(), DriveUploadError> {
             "{} has unexpected subcircuitLibrary runtimeMode {}; expected bundled",
             path.display(),
             runtime_mode
+        )));
+    }
+
+    let subcircuit_version = value
+        .get("dependencies")
+        .and_then(|dependencies| dependencies.get("subcircuitLibrary"))
+        .and_then(|dependency| dependency.get("buildVersion"))
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| {
+            DriveUploadError::Message(format!(
+                "{} is missing dependencies.subcircuitLibrary.buildVersion",
+                path.display()
+            ))
+        })?;
+    if subcircuit_version != env!("CARGO_PKG_VERSION") {
+        return Err(DriveUploadError::Message(format!(
+            "{} embeds subcircuit-library {}; expected backend workspace version {}",
+            path.display(),
+            subcircuit_version,
+            env!("CARGO_PKG_VERSION")
         )));
     }
 
