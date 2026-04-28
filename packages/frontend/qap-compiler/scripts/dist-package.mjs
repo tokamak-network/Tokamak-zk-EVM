@@ -1,20 +1,38 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
 const packageRoot = path.resolve(__dirname, '..');
 const repoRoot = path.resolve(packageRoot, '..', '..', '..');
 const distDir = path.resolve(packageRoot, 'dist');
 const rootPackageJsonPath = path.resolve(packageRoot, 'package.json');
 const readmePath = path.resolve(packageRoot, 'README.md');
 const changelogPath = path.resolve(repoRoot, 'CHANGELOG.md');
-const tokamakL2jsPackageJsonPath = path.resolve(packageRoot, 'node_modules', 'tokamak-l2js', 'package.json');
 const libraryDir = path.resolve(packageRoot, 'subcircuits/library');
 const constantsPath = path.resolve(packageRoot, 'subcircuits/circom/constants.circom');
+
+const resolvePackageJsonPath = packageName => {
+  let currentPath = path.dirname(require.resolve(packageName, { paths: [packageRoot] }));
+
+  while (true) {
+    const packageJsonPath = path.join(currentPath, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      return packageJsonPath;
+    }
+
+    const parentPath = path.dirname(currentPath);
+    if (parentPath === currentPath) {
+      throw new Error(`Could not find package metadata for '${packageName}'.`);
+    }
+    currentPath = parentPath;
+  }
+};
 
 const rootPackage = JSON.parse(fs.readFileSync(rootPackageJsonPath, 'utf8'));
 
@@ -40,9 +58,12 @@ if (!fs.existsSync(changelogPath)) {
   process.exit(1);
 }
 
-if (!fs.existsSync(tokamakL2jsPackageJsonPath)) {
+let tokamakL2jsPackageJsonPath;
+try {
+  tokamakL2jsPackageJsonPath = resolvePackageJsonPath('tokamak-l2js');
+} catch (error) {
   console.error(
-    `Error: tokamak-l2js package metadata not found at '${tokamakL2jsPackageJsonPath}'. Run 'npm install' first.`,
+    `Error: tokamak-l2js package metadata could not be resolved. Run 'npm install' first. ${error.message}`,
   );
   process.exit(1);
 }
