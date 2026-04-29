@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -16,6 +17,8 @@ const readmePath = path.resolve(packageRoot, 'README.md');
 const changelogPath = path.resolve(repoRoot, 'CHANGELOG.md');
 const libraryDir = path.resolve(packageRoot, 'subcircuits/library');
 const constantsPath = path.resolve(packageRoot, 'subcircuits/circom/constants.circom');
+const requireSystemCircom = process.env.QAP_COMPILER_REQUIRE_SYSTEM_CIRCOM === '1';
+const expectedCircomVersion = process.env.QAP_COMPILER_EXPECTED_CIRCOM_VERSION ?? null;
 
 const resolvePackageJsonPath = packageName => {
   let currentPath = path.dirname(require.resolve(packageName, { paths: [packageRoot] }));
@@ -32,6 +35,45 @@ const resolvePackageJsonPath = packageName => {
     }
     currentPath = parentPath;
   }
+};
+
+const parseCircomVersion = rawVersion => rawVersion.match(/(\d+\.\d+\.\d+)/)?.[1] ?? null;
+
+const resolveCircomMetadata = () => {
+  const result = spawnSync('circom', ['--version'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+
+  if (result.status !== 0) {
+    if (requireSystemCircom) {
+      console.error("Error: System 'circom' is required to prepare this release package.");
+      process.exit(1);
+    }
+
+    return {
+      name: 'circom',
+      rawVersion: null,
+      source: 'unavailable',
+      version: null,
+    };
+  }
+
+  const rawVersion = `${result.stdout}${result.stderr}`.trim();
+  const version = parseCircomVersion(rawVersion);
+  if (expectedCircomVersion !== null && version !== expectedCircomVersion) {
+    console.error(
+      `Error: Expected circom ${expectedCircomVersion}, but found '${rawVersion || 'unknown version'}'.`,
+    );
+    process.exit(1);
+  }
+
+  return {
+    name: 'circom',
+    rawVersion,
+    source: 'system',
+    version,
+  };
 };
 
 const rootPackage = JSON.parse(fs.readFileSync(rootPackageJsonPath, 'utf8'));
@@ -84,6 +126,7 @@ const publishedPackage = {
 
 const tokamakL2jsPackage = JSON.parse(fs.readFileSync(tokamakL2jsPackageJsonPath, 'utf8'));
 const buildMetadata = {
+  compiler: resolveCircomMetadata(),
   dependencies: {
     tokamakL2js: {
       buildVersion: tokamakL2jsPackage.version,

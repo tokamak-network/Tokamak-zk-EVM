@@ -12,6 +12,8 @@ const packageRoot = path.resolve(__dirname, '..');
 const compileScript = path.resolve(packageRoot, 'scripts/compile.sh');
 const reloadScript = path.resolve(packageRoot, 'scripts/reload-constants.sh');
 const distScript = path.resolve(packageRoot, 'scripts/dist-package.mjs');
+const requireSystemCircom = process.env.QAP_COMPILER_REQUIRE_SYSTEM_CIRCOM === '1';
+const expectedCircomVersion = process.env.QAP_COMPILER_EXPECTED_CIRCOM_VERSION ?? null;
 const resolveOptionalPackagePath = specifier => {
   try {
     return require.resolve(specifier, { paths: [packageRoot] });
@@ -46,27 +48,50 @@ const runScript = (scriptPath, args, command = scriptPath, extraEnv = {}) => {
   process.exit(1);
 };
 
+const parseCircomVersion = rawVersion => rawVersion.match(/(\d+\.\d+\.\d+)/)?.[1] ?? null;
+
+const failCircomResolution = () => {
+  console.error('Error: No usable Circom compiler was found.');
+  console.error(
+    requireSystemCircom
+      ? "Install official 'circom' on your system PATH before running this release build."
+      : "Install official 'circom' on your system PATH or run 'npm install' to provide the bundled circom2 wrapper.",
+  );
+  process.exit(1);
+};
+
 const resolveCircomCommand = () => {
   const systemCircom = spawnSync('circom', ['--version'], {
     cwd: process.cwd(),
-    stdio: 'ignore',
+    encoding: 'utf8',
   });
 
   if (systemCircom.status === 0) {
-    console.log('[qap-compiler] Using system circom from PATH.');
+    const rawVersion = `${systemCircom.stdout}${systemCircom.stderr}`.trim();
+    const version = parseCircomVersion(rawVersion);
+    if (expectedCircomVersion !== null && version !== expectedCircomVersion) {
+      console.error(
+        `Error: Expected circom ${expectedCircomVersion}, but found '${rawVersion || 'unknown version'}'.`,
+      );
+      process.exit(1);
+    }
+
+    console.log(
+      `[qap-compiler] Using system circom from PATH${rawVersion ? ` (${rawVersion})` : ''}.`,
+    );
     return {
       command: 'circom',
       extraEnv: {},
     };
   }
 
+  if (requireSystemCircom) {
+    failCircomResolution();
+  }
+
   const bundledCircomCliPath = resolveOptionalPackagePath('circom2/cli.js');
   if (bundledCircomCliPath === null) {
-    console.error('Error: No usable Circom compiler was found.');
-    console.error(
-      "Install official 'circom' on your system PATH or run 'npm install' to provide the bundled circom2 wrapper.",
-    );
-    process.exit(1);
+    failCircomResolution();
   }
 
   const bundledCircom = spawnSync(process.execPath, [bundledCircomCliPath, '--version'], {
@@ -86,11 +111,7 @@ const resolveCircomCommand = () => {
     };
   }
 
-  console.error('Error: No usable Circom compiler was found.');
-  console.error(
-    "Install official 'circom' on your system PATH or run 'npm install' to provide the bundled circom2 wrapper.",
-  );
-  process.exit(1);
+  failCircomResolution();
 };
 
 if (process.platform !== 'darwin' && process.platform !== 'linux') {

@@ -14,6 +14,9 @@ jobs:
   publish-subcircuit-library:
     name: Publish subcircuit-library to npm
     runs-on: ubuntu-22.04
+    env:
+      QAP_COMPILER_EXPECTED_CIRCOM_VERSION: '2.2.2'
+      QAP_COMPILER_REQUIRE_SYSTEM_CIRCOM: '1'
     defaults:
       run:
         working-directory: packages/frontend/qap-compiler
@@ -30,8 +33,19 @@ jobs:
           cache: 'npm'
           cache-dependency-path: packages/frontend/qap-compiler/package-lock.json
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Circom compiler
+        run: cargo install --git https://github.com/iden3/circom --tag v2.2.2 circom
+
+      - name: Verify Circom compiler
+        run: |
+          circom --version
+          test "$(circom --version)" = "circom compiler 2.2.2"
+
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Reload constants
         run: npx qap-compiler --reload-constants
