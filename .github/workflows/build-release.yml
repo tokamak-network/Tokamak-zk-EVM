@@ -3,8 +3,6 @@ name: Pre-publish Test & Build
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
 
 concurrency:
   group: pre-publish-test-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
