@@ -119,6 +119,21 @@ if (backendVersion !== expectedVersion) {
   fail(`packages/backend/Cargo.toml workspace version is '${backendVersion}', expected '${expectedVersion}'.`);
 }
 
+const cliManifest = readJson('packages/cli/package.json');
+const compatibleBackendVersion = cliManifest.tokamakZkEvm?.compatibleBackendVersion;
+const compatibleVersionPattern = /^(\d+)\.(\d+)$/u;
+const expectedCompatibleBackendVersion = expectedVersion.split('.').slice(0, 2).join('.');
+
+if (!compatibleVersionPattern.test(String(compatibleBackendVersion ?? ''))) {
+  fail(
+    `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion must be strict MAJOR.MINOR, got '${compatibleBackendVersion}'.`,
+  );
+} else if (compatibleBackendVersion !== expectedCompatibleBackendVersion) {
+  fail(
+    `packages/cli/package.json tokamakZkEvm.compatibleBackendVersion is '${compatibleBackendVersion}', expected '${expectedCompatibleBackendVersion}' from package version '${expectedVersion}'.`,
+  );
+}
+
 for (const [name, version] of getCargoLockPackageVersions()) {
   if (version !== expectedVersion) {
     fail(`packages/backend/Cargo.lock package ${name} is '${version}', expected '${expectedVersion}'.`);

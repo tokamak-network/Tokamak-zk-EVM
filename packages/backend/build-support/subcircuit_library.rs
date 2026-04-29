@@ -22,6 +22,7 @@ const QAP_COMPILER_SCRIPT: &str = "scripts/qap-compiler.mjs";
 pub struct ResolvedSubcircuitLibrary {
     pub version: String,
     pub integrity: String,
+    pub source_digest: String,
     pub snapshot_dir: PathBuf,
     pub release_dir: PathBuf,
 }
@@ -41,6 +42,7 @@ pub fn configure_release_subcircuit_library_metadata(
     package_name: &str,
     package_version: &str,
 ) -> io::Result<()> {
+    emit_cli_package_rerun_rule();
     println!("cargo:rustc-check-cfg=cfg(tokamak_embedded_subcircuit_library)");
     if let Some(snapshot) = prepare_release_subcircuit_library()? {
         println!("cargo:rustc-cfg=tokamak_embedded_subcircuit_library");
@@ -54,14 +56,23 @@ pub fn configure_local_subcircuit_library_for_mpc_setup(
     package_name: &str,
     package_version: &str,
 ) -> io::Result<()> {
+    emit_cli_package_rerun_rule();
     emit_local_qap_rerun_rules();
     println!("cargo:rustc-check-cfg=cfg(tokamak_release_profile)");
     if env::var("PROFILE").ok().as_deref() == Some("release") {
         println!("cargo:rustc-cfg=tokamak_release_profile");
     }
 
+    let compatible_backend_version = read_cli_compatible_backend_version(package_version)?;
+    println!("cargo:rustc-env=TOKAMAK_ZKEVM_COMPATIBLE_BACKEND_VERSION={compatible_backend_version}");
+
     let library = prepare_local_subcircuit_library()?;
-    emit_local_build_metadata(&library, package_name, package_version)?;
+    emit_local_build_metadata(
+        &library,
+        package_name,
+        package_version,
+        &compatible_backend_version,
+    )?;
     fs::write(
         out_dir.join("local_subcircuit_library.rs"),
         format!(
@@ -103,6 +114,7 @@ pub fn prepare_release_subcircuit_library() -> io::Result<Option<ResolvedSubcirc
     let snapshot = ResolvedSubcircuitLibrary {
         version: npm_view.version,
         integrity: npm_view.integrity,
+        source_digest: digest_library_files(&snapshot_dir)?,
         snapshot_dir,
         release_dir,
     };
@@ -178,6 +190,7 @@ pub fn emit_build_metadata(
     current_package_name: &str,
     current_package_version: &str,
 ) -> io::Result<()> {
+    let compatible_backend_version = read_cli_compatible_backend_version(current_package_version)?;
     let metadata = serde_json::json!({
         "dependencies": {
             "subcircuitLibrary": {
@@ -185,10 +198,12 @@ pub fn emit_build_metadata(
                 "declaredRange": DECLARED_RANGE,
                 "packageName": PACKAGE_NAME,
                 "runtimeMode": RUNTIME_MODE,
+                "sourceDigest": snapshot.source_digest,
             }
         },
         "packageName": current_package_name,
         "packageVersion": current_package_version,
+        "compatibleBackendVersion": compatible_backend_version,
     });
     let path = snapshot
         .release_dir
@@ -206,6 +221,7 @@ fn emit_local_build_metadata(
     library: &LocalSubcircuitLibrary,
     current_package_name: &str,
     current_package_version: &str,
+    compatible_backend_version: &str,
 ) -> io::Result<()> {
     let metadata = serde_json::json!({
         "dependencies": {
@@ -219,6 +235,7 @@ fn emit_local_build_metadata(
         },
         "packageName": current_package_name,
         "packageVersion": current_package_version,
+        "compatibleBackendVersion": compatible_backend_version,
     });
     let path = library
         .profile_dir
@@ -348,6 +365,106 @@ fn backend_root_from_manifest_dir() -> io::Result<PathBuf> {
             ));
         }
     }
+}
+
+fn cli_package_json_path() -> io::Result<PathBuf> {
+    let backend_root = backend_root_from_manifest_dir()?;
+    let repo_root_candidate = backend_root
+        .parent()
+        .and_then(Path::parent)
+        .map(|path| path.join("packages").join("cli").join("package.json"));
+    if let Some(path) = repo_root_candidate {
+        if path.exists() {
+            return Ok(path);
+        }
+    }
+
+    let packaged_cli_candidate = backend_root
+        .parent()
+        .and_then(Path::parent)
+        .map(|path| path.join("package.json"));
+    if let Some(path) = packaged_cli_candidate {
+        if path.exists() {
+            return Ok(path);
+        }
+    }
+
+    Err(io::Error::other(format!(
+        "cannot locate @tokamak-zk-evm/cli package.json from backend root {}",
+        backend_root.display()
+    )))
+}
+
+fn emit_cli_package_rerun_rule() {
+    if let Ok(path) = cli_package_json_path() {
+        println!("cargo:rerun-if-changed={}", path.display());
+    }
+}
+
+fn strict_major_minor(value: &str, label: &str) -> io::Result<String> {
+    let parts = value.split('.').collect::<Vec<_>>();
+    if parts.len() != 2
+        || parts.iter().any(|part| part.is_empty() || !part.chars().all(|ch| ch.is_ascii_digit()))
+    {
+        return Err(io::Error::other(format!(
+            "{label} must be strict MAJOR.MINOR, got {value:?}"
+        )));
+    }
+    Ok(format!(
+        "{}.{}",
+        parts[0].parse::<u64>().map_err(io::Error::other)?,
+        parts[1].parse::<u64>().map_err(io::Error::other)?
+    ))
+}
+
+fn package_major_minor(value: &str, label: &str) -> io::Result<String> {
+    let parts = value.split('.').collect::<Vec<_>>();
+    if parts.len() != 3
+        || parts.iter().any(|part| part.is_empty() || !part.chars().all(|ch| ch.is_ascii_digit()))
+    {
+        return Err(io::Error::other(format!(
+            "{label} must be strict MAJOR.MINOR.PATCH, got {value:?}"
+        )));
+    }
+    Ok(format!(
+        "{}.{}",
+        parts[0].parse::<u64>().map_err(io::Error::other)?,
+        parts[1].parse::<u64>().map_err(io::Error::other)?
+    ))
+}
+
+fn read_cli_compatible_backend_version(package_version: &str) -> io::Result<String> {
+    let path = cli_package_json_path()?;
+    let value: Value = serde_json::from_slice(&fs::read(&path)?).map_err(io::Error::other)?;
+    let cli_version = value
+        .get("version")
+        .and_then(Value::as_str)
+        .ok_or_else(|| io::Error::other(format!("{} is missing version", path.display())))?;
+    let compatible_version = value
+        .get("tokamakZkEvm")
+        .and_then(|metadata| metadata.get("compatibleBackendVersion"))
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            io::Error::other(format!(
+                "{} is missing tokamakZkEvm.compatibleBackendVersion",
+                path.display()
+            ))
+        })?;
+
+    let normalized_compatible = strict_major_minor(
+        compatible_version,
+        "tokamakZkEvm.compatibleBackendVersion",
+    )?;
+    let cli_major_minor = package_major_minor(cli_version, "CLI package version")?;
+    let backend_major_minor = package_major_minor(package_version, "backend package version")?;
+
+    if normalized_compatible != cli_major_minor || normalized_compatible != backend_major_minor {
+        return Err(io::Error::other(format!(
+            "CLI compatible backend version {normalized_compatible} must match CLI package major.minor {cli_major_minor} and backend package major.minor {backend_major_minor}"
+        )));
+    }
+
+    Ok(normalized_compatible)
 }
 
 fn read_qap_compiler_version(qap_root: &Path) -> io::Result<String> {
@@ -643,6 +760,7 @@ fn try_read_snapshot(
     Ok(Some(ResolvedSubcircuitLibrary {
         version,
         integrity,
+        source_digest: digest_library_files(&snapshot_dir)?,
         snapshot_dir,
         release_dir: release_dir.to_path_buf(),
     }))
@@ -653,6 +771,7 @@ fn write_snapshot_info(path: &Path, snapshot: &ResolvedSubcircuitLibrary) -> io:
         "packageName": PACKAGE_NAME,
         "version": snapshot.version,
         "integrity": snapshot.integrity,
+        "sourceDigest": snapshot.source_digest,
         "snapshotDir": snapshot.snapshot_dir,
     });
     fs::write(

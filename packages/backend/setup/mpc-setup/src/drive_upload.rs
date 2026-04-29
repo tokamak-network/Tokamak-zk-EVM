@@ -1,4 +1,5 @@
 use crate::sigma::FinalCrsProvenance;
+use crate::versioning::compatible_backend_version;
 use google_drive3::api::{File, Permission, Scope};
 use google_drive3::hyper::client::HttpConnector;
 use google_drive3::hyper::Client;
@@ -93,6 +94,17 @@ pub fn publish_output_archive(
 
     let mut provenance = read_provenance(&output_path)?;
     let original_provenance = provenance.clone();
+    let provenance_compatible_version = validate_canonical_compatible_version(
+        &provenance.backend_version,
+        "crs_provenance.json backend_version",
+    )?;
+    if provenance_compatible_version != compatible_backend_version() {
+        return Err(DriveUploadError::Message(format!(
+            "crs_provenance.json backend_version {} does not match CLI compatible backend version {}",
+            provenance_compatible_version,
+            compatible_backend_version()
+        )));
+    }
     let archive_name = build_archive_name(&provenance)?;
     provenance.published_folder_url = Some(config.folder_url.clone());
     provenance.published_archive_name = Some(archive_name.clone());
@@ -184,6 +196,10 @@ fn write_provenance(
 }
 
 fn build_archive_name(provenance: &FinalCrsProvenance) -> Result<String, DriveUploadError> {
+    validate_canonical_compatible_version(
+        &provenance.backend_version,
+        "crs_provenance.json backend_version",
+    )?;
     let generated_at =
         chrono::DateTime::parse_from_rfc3339(&provenance.generated_at_utc).map_err(|err| {
             DriveUploadError::Message(format!("invalid generated_at_utc in provenance: {err}"))
@@ -295,6 +311,28 @@ fn validate_build_metadata(path: &Path) -> Result<(), DriveUploadError> {
         )));
     }
 
+    let compatible_version = value
+        .get("compatibleBackendVersion")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| {
+            DriveUploadError::Message(format!(
+                "{} is missing compatibleBackendVersion",
+                path.display()
+            ))
+        })?;
+    let normalized_compatible = validate_canonical_compatible_version(
+        compatible_version,
+        "build metadata compatibleBackendVersion",
+    )?;
+    if normalized_compatible != compatible_backend_version() {
+        return Err(DriveUploadError::Message(format!(
+            "{} has compatibleBackendVersion {}; expected {}",
+            path.display(),
+            normalized_compatible,
+            compatible_backend_version()
+        )));
+    }
+
     let runtime_mode = value
         .get("dependencies")
         .and_then(|dependencies| dependencies.get("subcircuitLibrary"))
@@ -335,6 +373,31 @@ fn validate_build_metadata(path: &Path) -> Result<(), DriveUploadError> {
     }
 
     Ok(())
+}
+
+fn validate_canonical_compatible_version(
+    value: &str,
+    label: &str,
+) -> Result<String, DriveUploadError> {
+    let parts = value.split('.').collect::<Vec<_>>();
+    if parts.len() != 2
+        || parts
+            .iter()
+            .any(|part| part.is_empty() || !part.chars().all(|ch| ch.is_ascii_digit()))
+    {
+        return Err(DriveUploadError::Message(format!(
+            "{label} must be strict MAJOR.MINOR, got {value:?}"
+        )));
+    }
+    Ok(format!(
+        "{}.{}",
+        parts[0].parse::<u64>().map_err(|err| {
+            DriveUploadError::Message(format!("{label} major version is invalid: {err}"))
+        })?,
+        parts[1].parse::<u64>().map_err(|err| {
+            DriveUploadError::Message(format!("{label} minor version is invalid: {err}"))
+        })?
+    ))
 }
 
 #[cfg(tokamak_release_profile)]
@@ -403,9 +466,9 @@ async fn validate_drive_folder(config: &DriveUploadConfig) -> Result<(), DriveUp
             .collect::<Vec<_>>();
         if !existing_names.is_empty() {
             return Err(DriveUploadError::Message(format!(
-                "drive folder {} already contains CRS archive(s) for backend version {}: {}; bump the backend version before publishing again",
+                "drive folder {} already contains CRS archive(s) for backend compatibility version {}: {}; bump the backend compatible version before publishing again",
                 config.folder_id,
-                env!("CARGO_PKG_VERSION"),
+                compatible_backend_version(),
                 existing_names.join(", ")
             )));
         }
@@ -415,7 +478,7 @@ async fn validate_drive_folder(config: &DriveUploadConfig) -> Result<(), DriveUp
 }
 
 fn archive_version_prefix() -> String {
-    format!("tokamak-backend-crs-v{}-", env!("CARGO_PKG_VERSION"))
+    format!("tokamak-backend-crs-v{}-", compatible_backend_version())
 }
 
 fn new_runtime() -> Result<tokio::runtime::Runtime, DriveUploadError> {

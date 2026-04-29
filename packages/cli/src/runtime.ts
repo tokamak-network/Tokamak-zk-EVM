@@ -17,6 +17,7 @@ export interface InstallOptions {
 }
 
 export interface RuntimeState {
+  compatibleBackendVersion: string;
   dockerEnvironment?: DockerEnvironment;
   installMode?: 'native' | 'docker';
   packageVersion: string;
@@ -31,6 +32,7 @@ export interface RuntimeContext {
   platformDir: string;
   runtimeDir: string;
   statePath: string;
+  compatibleBackendVersion: string;
   packageVersion: string;
 }
 
@@ -44,6 +46,7 @@ export type DockerEnvironment = 'ubuntu22' | 'ubuntu22-cuda122';
 interface DockerBootstrap {
   version: 1;
   createdAt: string;
+  compatibleBackendVersion: string;
   dockerEnvironment: DockerEnvironment;
   imageName: string;
   packageVersion: string;
@@ -57,9 +60,9 @@ interface PrerequisiteFailure {
 }
 
 interface DriveArchiveSelection {
+  compatibleBackendVersion: string;
   fileId: string;
   name: string;
-  version: [number, number, number];
   generatedAt: string;
   sizeBytes: number;
 }
@@ -71,12 +74,21 @@ interface ResumableDownloadState {
 }
 
 interface BackendBuildMetadata {
+  compatibleBackendVersion?: string;
   dependencies?: {
     subcircuitLibrary?: {
       buildVersion?: string;
+      sourceDigest?: string;
     };
   };
   packageVersion?: string;
+}
+
+interface CrsProvenance {
+  backend_version?: string;
+  combined_sigma_sha256?: string;
+  sigma_preprocess_sha256?: string;
+  sigma_verify_sha256?: string;
 }
 
 interface IcicleAsset {
@@ -329,18 +341,57 @@ function resolveVendoredBackendRoot(packageRoot: string): string {
   return path.join(packageRoot, 'vendor', 'backend');
 }
 
-async function resolvePackageVersion(packageRoot: string): Promise<string> {
+function normalizeCompatibleBackendVersion(value: string, label: string): string {
+  const match = /^(\d+)\.(\d+)$/u.exec(value.trim());
+  if (!match) {
+    throw new Error(`${label} must be strict MAJOR.MINOR, got ${JSON.stringify(value)}.`);
+  }
+  return `${Number(match[1])}.${Number(match[2])}`;
+}
+
+function packageCompatibleVersion(packageVersion: string, label: string): string {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/u.exec(packageVersion.trim());
+  if (!match) {
+    throw new Error(`${label} must be strict MAJOR.MINOR.PATCH, got ${JSON.stringify(packageVersion)}.`);
+  }
+  return `${Number(match[1])}.${Number(match[2])}`;
+}
+
+async function resolvePackageMetadata(packageRoot: string): Promise<{
+  compatibleBackendVersion: string;
+  packageVersion: string;
+}> {
   const manifestPath = path.join(packageRoot, 'package.json');
-  const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8')) as { version?: string };
+  const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8')) as {
+    tokamakZkEvm?: {
+      compatibleBackendVersion?: string;
+    };
+    version?: string;
+  };
   if (!manifest.version) {
     throw new Error(`Package version is missing from ${manifestPath}.`);
   }
-  return manifest.version;
+  const configuredCompatibleVersion = manifest.tokamakZkEvm?.compatibleBackendVersion;
+  if (!configuredCompatibleVersion) {
+    throw new Error(`Compatible backend version is missing from ${manifestPath}.`);
+  }
+  const packageVersion = manifest.version;
+  const compatibleBackendVersion = normalizeCompatibleBackendVersion(
+    configuredCompatibleVersion,
+    `${manifestPath} tokamakZkEvm.compatibleBackendVersion`,
+  );
+  const expectedCompatibleVersion = packageCompatibleVersion(packageVersion, `${manifestPath} version`);
+  if (compatibleBackendVersion !== expectedCompatibleVersion) {
+    throw new Error(
+      `${manifestPath} compatible backend version ${compatibleBackendVersion} must match package major.minor ${expectedCompatibleVersion}.`,
+    );
+  }
+  return { compatibleBackendVersion, packageVersion };
 }
 
 async function createRuntimeContextForPlatform(platform: CliPlatform): Promise<RuntimeContext> {
   const packageRoot = resolvePackageRoot();
-  const packageVersion = await resolvePackageVersion(packageRoot);
+  const { compatibleBackendVersion, packageVersion } = await resolvePackageMetadata(packageRoot);
   const cacheRoot = resolveCacheRoot();
   const platformDir = path.join(cacheRoot, platform);
   return {
@@ -350,6 +401,7 @@ async function createRuntimeContextForPlatform(platform: CliPlatform): Promise<R
     platformDir,
     runtimeDir: path.join(platformDir, 'runtime'),
     statePath: path.join(platformDir, 'installation.json'),
+    compatibleBackendVersion,
     packageVersion,
   };
 }
@@ -383,6 +435,8 @@ export async function requireInstalledRuntime(): Promise<RuntimeContext> {
     await fs.access(context.runtimeDir);
     return {
       ...context,
+      compatibleBackendVersion: state.compatibleBackendVersion
+        ?? packageCompatibleVersion(state.packageVersion, 'installed package version'),
       packageVersion: state.packageVersion,
     };
   }
@@ -395,6 +449,8 @@ export async function requireInstalledRuntime(): Promise<RuntimeContext> {
   await fs.access(context.runtimeDir);
   return {
     ...context,
+    compatibleBackendVersion: state.compatibleBackendVersion
+      ?? packageCompatibleVersion(state.packageVersion, 'installed package version'),
     packageVersion: state.packageVersion,
   };
 }
@@ -787,6 +843,7 @@ function validateDockerBootstrap(value: unknown): DockerBootstrap | null {
     candidate.version !== DOCKER_BOOTSTRAP_VERSION ||
     candidate.platform !== 'linux' ||
     typeof candidate.imageName !== 'string' ||
+    typeof candidate.compatibleBackendVersion !== 'string' ||
     typeof candidate.packageVersion !== 'string' ||
     typeof candidate.createdAt !== 'string' ||
     typeof candidate.useGpus !== 'boolean' ||
@@ -1449,26 +1506,18 @@ async function findNamedFile(rootDir: string, filename: string): Promise<string>
   throw new Error(`Missing ${filename} under ${rootDir}`);
 }
 
-async function findNamedFileIfExists(rootDir: string, filename: string): Promise<string | null> {
-  try {
-    return await findNamedFile(rootDir, filename);
-  } catch {
-    return null;
-  }
-}
-
-function parseDriveArchiveName(name: string): Pick<DriveArchiveSelection, 'generatedAt' | 'version'> | null {
-  const parsed = name.match(/v(\d+)\.(\d+)\.(\d+)-(\d{8}T\d{6}Z)\.zip$/iu);
+function parseDriveArchiveName(name: string): Pick<DriveArchiveSelection, 'compatibleBackendVersion' | 'generatedAt'> | null {
+  const parsed = name.match(/^tokamak-backend-crs-v(\d+)\.(\d+)-(\d{8}T\d{6}Z)\.zip$/iu);
   if (!parsed) {
     return null;
   }
   return {
-    version: [Number(parsed[1]), Number(parsed[2]), Number(parsed[3])],
-    generatedAt: parsed[4],
+    compatibleBackendVersion: `${Number(parsed[1])}.${Number(parsed[2])}`,
+    generatedAt: parsed[3],
   };
 }
 
-function parseDriveArchiveSelection(html: string): DriveArchiveSelection {
+function parseDriveArchiveSelection(html: string, expectedCompatibleVersion: string): DriveArchiveSelection {
   const match = html.match(/window\['_DRIVE_ivd'\]\s*=\s*('(?:\\.|[^'])*')/u);
   if (!match) {
     throw new Error('Unable to locate Google Drive listing payload.');
@@ -1486,11 +1535,16 @@ function parseDriveArchiveSelection(html: string): DriveArchiveSelection {
     if (typeof node[0] === 'string' && typeof node[2] === 'string' && node[3] === 'application/zip') {
       const parsedName = parseDriveArchiveName(node[2]);
       const sizeBytes = typeof node[13] === 'number' && Number.isFinite(node[13]) ? node[13] : null;
-      if (parsedName && sizeBytes !== null && sizeBytes > 0) {
+      if (
+        parsedName &&
+        parsedName.compatibleBackendVersion === expectedCompatibleVersion &&
+        sizeBytes !== null &&
+        sizeBytes > 0
+      ) {
         entriesById.set(node[0], {
           fileId: node[0],
           name: node[2],
-          version: parsedName.version,
+          compatibleBackendVersion: parsedName.compatibleBackendVersion,
           generatedAt: parsedName.generatedAt,
           sizeBytes,
         });
@@ -1506,26 +1560,23 @@ function parseDriveArchiveSelection(html: string): DriveArchiveSelection {
 
   const entries = [...entriesById.values()];
   if (entries.length === 0) {
-    throw new Error('No CRS archive matching the expected naming convention was found in Google Drive.');
+    throw new Error(
+      `No CRS archive matching compatibility version ${expectedCompatibleVersion} was found in Google Drive.`,
+    );
   }
 
   entries.sort((left, right) => {
-    for (let index = 0; index < 3; index += 1) {
-      if (left.version[index] !== right.version[index]) {
-        return right.version[index] - left.version[index];
-      }
-    }
     return right.generatedAt.localeCompare(left.generatedAt);
   });
   return entries[0];
 }
 
-async function selectLatestDriveArchive(): Promise<DriveArchiveSelection> {
+async function selectLatestDriveArchive(compatibleBackendVersion: string): Promise<DriveArchiveSelection> {
   const response = await fetch(`${CRS_DRIVE_FOLDER_URL}/${CRS_DRIVE_FOLDER_ID}`);
   if (!response.ok) {
     throw new Error(`Failed to read CRS listing: ${response.status} ${response.statusText}`);
   }
-  return parseDriveArchiveSelection(await response.text());
+  return parseDriveArchiveSelection(await response.text(), compatibleBackendVersion);
 }
 
 function driveDirectDownloadUrl(fileId: string): string {
@@ -1546,11 +1597,11 @@ async function crsArchiveCacheMatches(
     }
     if (
       parsedName.generatedAt !== selection.generatedAt ||
-      parsedName.version.some((part, index) => part !== selection.version[index])
+      parsedName.compatibleBackendVersion !== selection.compatibleBackendVersion
     ) {
       logVerbose(
         verbose,
-        `Ignoring cached CRS archive ${archivePath}: archive version ${parsedName.version.join('.')} at ${parsedName.generatedAt} does not match latest CRS ${selection.version.join('.')} at ${selection.generatedAt}.`,
+        `Ignoring cached CRS archive ${archivePath}: archive compatibility version ${parsedName.compatibleBackendVersion} at ${parsedName.generatedAt} does not match selected CRS ${selection.compatibleBackendVersion} at ${selection.generatedAt}.`,
       );
       return false;
     }
@@ -1632,39 +1683,106 @@ async function extractZipArchive(zipPath: string, destinationDir: string, verbos
   });
 }
 
-async function validateDownloadedCrsVersions(extractedDir: string, backendReleaseDir: string, archiveName: string): Promise<{
+async function validateDownloadedCrsVersions(
+  extractedDir: string,
+  backendReleaseDir: string,
+  archiveName: string,
+  compatibleBackendVersion: string,
+): Promise<{
   mpcMetadataPath: string;
-  provenancePath: string | null;
+  provenancePath: string;
 }> {
+  const provenancePath = await findNamedFile(extractedDir, 'crs_provenance.json');
+  const provenance = await readJsonFile<CrsProvenance>(provenancePath);
+  if (provenance.backend_version !== compatibleBackendVersion) {
+    throw new Error(
+      `CRS archive ${archiveName} has backend_version ${provenance.backend_version ?? '<missing>'}, expected ${compatibleBackendVersion}.`,
+    );
+  }
+  await validateCrsArtifactHashes(extractedDir, archiveName, provenance);
+
   const mpcMetadataPath = await findNamedFile(extractedDir, 'build-metadata-mpc-setup.json');
   const mpcMetadata = await readJsonFile<BackendBuildMetadata>(mpcMetadataPath);
   const mpcSubcircuitVersion = mpcMetadata.dependencies?.subcircuitLibrary?.buildVersion;
+  const mpcSubcircuitSourceDigest = mpcMetadata.dependencies?.subcircuitLibrary?.sourceDigest;
   const mpcVersion = mpcMetadata.packageVersion;
-  if (!mpcSubcircuitVersion || !mpcVersion) {
+  const mpcCompatibleVersion = mpcMetadata.compatibleBackendVersion;
+  if (!mpcSubcircuitVersion || !mpcSubcircuitSourceDigest || !mpcVersion || !mpcCompatibleVersion) {
     throw new Error(`CRS archive ${archiveName} is missing required metadata.`);
+  }
+  if (mpcCompatibleVersion !== compatibleBackendVersion) {
+    throw new Error(
+      `CRS archive ${archiveName} metadata compatibleBackendVersion ${mpcCompatibleVersion} does not match expected ${compatibleBackendVersion}.`,
+    );
+  }
+  if (packageCompatibleVersion(mpcVersion, 'CRS metadata packageVersion') !== compatibleBackendVersion) {
+    throw new Error(
+      `CRS archive ${archiveName} metadata packageVersion ${mpcVersion} is not compatible with ${compatibleBackendVersion}.`,
+    );
   }
 
   for (const backendName of BACKEND_BINARY_NAMES) {
     const backendMetadataPath = path.join(backendReleaseDir, `build-metadata-${backendName}.json`);
     const backendMetadata = await readJsonFile<BackendBuildMetadata>(backendMetadataPath);
     const backendVersion = backendMetadata.packageVersion;
+    const backendCompatibleVersion = backendMetadata.compatibleBackendVersion;
     const backendSubcircuitVersion = backendMetadata.dependencies?.subcircuitLibrary?.buildVersion;
-    if (backendVersion !== mpcVersion) {
+    const backendSubcircuitSourceDigest = backendMetadata.dependencies?.subcircuitLibrary?.sourceDigest;
+    if (
+      !backendVersion ||
+      !backendCompatibleVersion ||
+      !backendSubcircuitVersion ||
+      !backendSubcircuitSourceDigest
+    ) {
+      throw new Error(`Backend package ${backendName} is missing required build metadata.`);
+    }
+    if (backendCompatibleVersion !== compatibleBackendVersion) {
       throw new Error(
-        `Backend package ${backendName} has version ${backendVersion ?? '<missing>'}, but the downloaded CRS expects backend version ${mpcVersion}.`,
+        `Backend package ${backendName} has compatibleBackendVersion ${backendCompatibleVersion}, but the downloaded CRS expects ${compatibleBackendVersion}.`,
       );
     }
-    if (backendSubcircuitVersion !== mpcSubcircuitVersion) {
+    if (packageCompatibleVersion(backendVersion, `${backendName} packageVersion`) !== compatibleBackendVersion) {
       throw new Error(
-        `Backend package ${backendName} embeds subcircuit-library ${backendSubcircuitVersion ?? '<missing>'}, but CRS archive ${archiveName} expects ${mpcSubcircuitVersion}.`,
+        `Backend package ${backendName} has version ${backendVersion}, which is not compatible with CRS version ${compatibleBackendVersion}.`,
+      );
+    }
+    if (backendSubcircuitSourceDigest !== mpcSubcircuitSourceDigest) {
+      throw new Error(
+        `Backend package ${backendName} embeds subcircuit-library source digest ${backendSubcircuitSourceDigest}, but CRS archive ${archiveName} expects ${mpcSubcircuitSourceDigest}.`,
       );
     }
   }
 
   return {
     mpcMetadataPath,
-    provenancePath: await findNamedFileIfExists(extractedDir, 'crs_provenance.json'),
+    provenancePath,
   };
+}
+
+async function validateCrsArtifactHashes(
+  extractedDir: string,
+  archiveName: string,
+  provenance: CrsProvenance,
+): Promise<void> {
+  const checks = [
+    ['combined_sigma_sha256', 'combined_sigma.rkyv'],
+    ['sigma_preprocess_sha256', 'sigma_preprocess.rkyv'],
+    ['sigma_verify_sha256', 'sigma_verify.json'],
+  ] as const;
+
+  for (const [field, fileName] of checks) {
+    const expected = normalizeSha256(provenance[field]);
+    if (expected === null) {
+      throw new Error(`CRS archive ${archiveName} provenance is missing ${field}.`);
+    }
+    const filePath = await findNamedFile(extractedDir, fileName);
+    const actual = await sha256FileHex(filePath);
+    if (actual !== expected) {
+      throw new Error(
+        `CRS archive ${archiveName} ${fileName} sha256 mismatch: expected=${expected} actual=${actual}.`,
+      );
+    }
+  }
 }
 
 async function installDownloadedSetup(
@@ -1673,7 +1791,7 @@ async function installDownloadedSetup(
   verbose: boolean,
 ): Promise<void> {
   const paths = runtimePaths(context);
-  const selection = await selectLatestDriveArchive();
+  const selection = await selectLatestDriveArchive(context.compatibleBackendVersion);
 
   const extractedDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tokamak-crs-extract-'));
   try {
@@ -1683,6 +1801,7 @@ async function installDownloadedSetup(
       extractedDir,
       backendReleaseDir,
       archiveName,
+      context.compatibleBackendVersion,
     );
 
     await ensureDir(paths.setupOutputDir);
@@ -1803,6 +1922,7 @@ async function installDockerRuntime(options: InstallOptions): Promise<RuntimeCon
   const bootstrap: DockerBootstrap = {
     version: DOCKER_BOOTSTRAP_VERSION,
     createdAt: new Date().toISOString(),
+    compatibleBackendVersion: context.compatibleBackendVersion,
     dockerEnvironment,
     imageName: dockerImageName(context.packageVersion, dockerEnvironment),
     packageVersion: context.packageVersion,
@@ -1816,6 +1936,7 @@ async function installDockerRuntime(options: InstallOptions): Promise<RuntimeCon
   });
   await writeDockerBootstrap(context, bootstrap);
   await writeRuntimeState(context, {
+    compatibleBackendVersion: context.compatibleBackendVersion,
     dockerEnvironment,
     installMode: 'docker',
     packageVersion: context.packageVersion,
@@ -1851,6 +1972,7 @@ export async function installRuntime(options: InstallOptions): Promise<RuntimeCo
   }
 
   const state: RuntimeState = {
+    compatibleBackendVersion: context.compatibleBackendVersion,
     installMode: 'native',
     packageVersion: context.packageVersion,
     platform: context.platform,

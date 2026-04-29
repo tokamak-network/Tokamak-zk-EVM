@@ -1,5 +1,6 @@
 use crate::sigma::{FinalCrsProvenance, SigmaV2};
 use crate::utils::StepTimer;
+use crate::versioning::compatible_backend_version;
 use chrono::Utc;
 use libs::iotools::write_final_crs_artifacts;
 use std::env;
@@ -27,7 +28,7 @@ pub fn run(config: &Phase2GenFilesConfig) {
 
     let provenance = FinalCrsProvenance {
         generated_at_utc: Utc::now().to_rfc3339(),
-        backend_version: env!("CARGO_PKG_VERSION").to_string(),
+        backend_version: compatible_backend_version().to_string(),
         phase1_source_provenance: latest_acc.phase1_source_provenance,
         combined_sigma_sha256: digests.combined_sigma_sha256,
         sigma_preprocess_sha256: digests.sigma_preprocess_sha256,

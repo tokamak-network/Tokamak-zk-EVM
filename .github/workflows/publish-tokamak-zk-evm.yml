@@ -381,21 +381,54 @@ jobs:
           fi
 
           python <<'PY'
+          import hashlib
           import json
           import os
-          import tomllib
+          import re
+          import tempfile
           from pathlib import Path
+          from zipfile import ZipFile
 
           from google.oauth2 import service_account
           from googleapiclient.discovery import build
+          from googleapiclient.http import MediaIoBaseDownload
 
           repo_root = Path.cwd()
-          cargo_toml = repo_root / "packages" / "backend" / "Cargo.toml"
-          with cargo_toml.open("rb") as f:
-              cargo = tomllib.load(f)
+          cli_package_json = json.loads((repo_root / "packages" / "cli" / "package.json").read_text())
+          cli_version = cli_package_json["version"]
+          compatible_version = cli_package_json.get("tokamakZkEvm", {}).get("compatibleBackendVersion")
+          if not re.fullmatch(r"\d+\.\d+", str(compatible_version)):
+              raise SystemExit(
+                  "packages/cli/package.json tokamakZkEvm.compatibleBackendVersion "
+                  f"must be canonical MAJOR.MINOR, got {compatible_version!r}"
+              )
+          cli_major_minor = ".".join(cli_version.split(".")[:2])
+          if compatible_version != cli_major_minor:
+              raise SystemExit(
+                  "CLI compatible backend version must match CLI package major.minor: "
+                  f"compatible={compatible_version} cli={cli_version}"
+              )
 
-          backend_version = cargo["workspace"]["package"]["version"]
-          archive_prefix = f"tokamak-backend-crs-v{backend_version}-"
+          cargo_toml = repo_root / "packages" / "backend" / "Cargo.toml"
+          cargo_text = cargo_toml.read_text()
+          backend_version_match = re.search(
+              r"\[workspace\.package\][\s\S]*?\nversion\s*=\s*\"([^\"]+)\"",
+              cargo_text,
+          )
+          if not backend_version_match:
+              raise SystemExit("Cannot read backend workspace version from packages/backend/Cargo.toml")
+          backend_version = backend_version_match.group(1)
+          backend_major_minor = ".".join(backend_version.split(".")[:2])
+          if backend_major_minor != compatible_version:
+              raise SystemExit(
+                  "Backend workspace major.minor must match CLI compatible backend version: "
+                  f"backend={backend_version} compatible={compatible_version}"
+              )
+
+          archive_pattern = re.compile(
+              rf"^tokamak-backend-crs-v{re.escape(compatible_version)}-(\d{{8}}T\d{{6}}Z)\.zip$"
+          )
+          archive_prefix = f"tokamak-backend-crs-v{compatible_version}-"
           folder_id = os.environ["TOKAMAK_MPC_DRIVE_FOLDER_ID"].strip()
           service_account_path = os.environ["TOKAMAK_MPC_DRIVE_SERVICE_ACCOUNT_JSON_PATH"].strip()
 
@@ -431,14 +464,14 @@ jobs:
               ).execute()
 
               visible_files.extend(response.get("files", []))
-              files.extend(
-                  file
-                  for file in response.get("files", [])
-                  if file.get("name", "").startswith(archive_prefix)
-              )
+              for file in response.get("files", []):
+                  name = file.get("name", "")
+                  match = archive_pattern.fullmatch(name)
+                  if match:
+                      files.append({**file, "timestamp": match.group(1)})
 
               page_token = response.get("nextPageToken")
-              if not page_token or files:
+              if not page_token:
                   break
 
           if not files:
@@ -457,16 +490,86 @@ jobs:
               )
               raise SystemExit(
                   "No published CRS archive found in Google Drive for "
-                  f"backend version {backend_version}. Expected an archive whose "
+                  f"backend compatibility version {compatible_version}. Expected an archive whose "
                   f"name starts with '{archive_prefix}'."
               )
+
+          files.sort(key=lambda file: (file["timestamp"], file["name"], file["id"]), reverse=True)
+          selected = files[0]
+          archive_path = Path(tempfile.mkdtemp(prefix="tokamak-crs-check-")) / selected["name"]
+          request = service.files().get_media(fileId=selected["id"], supportsAllDrives=True)
+          with archive_path.open("wb") as output:
+              downloader = MediaIoBaseDownload(output, request, chunksize=64 * 1024 * 1024)
+              done = False
+              while not done:
+                  _, done = downloader.next_chunk()
+
+          def read_json_entry(zip_file, entry_name):
+              try:
+                  with zip_file.open(entry_name) as entry:
+                      return json.loads(entry.read().decode("utf-8"))
+              except KeyError:
+                  raise SystemExit(f"CRS archive {selected['name']} is missing {entry_name}")
+
+          def sha256_entry(zip_file, entry_name):
+              hasher = hashlib.sha256()
+              try:
+                  with zip_file.open(entry_name) as entry:
+                      for chunk in iter(lambda: entry.read(1024 * 1024), b""):
+                          hasher.update(chunk)
+              except KeyError:
+                  raise SystemExit(f"CRS archive {selected['name']} is missing {entry_name}")
+              return hasher.hexdigest()
+
+          with ZipFile(archive_path) as archive:
+              provenance = read_json_entry(archive, "crs_provenance.json")
+              metadata = read_json_entry(archive, "build-metadata-mpc-setup.json")
+
+              if provenance.get("backend_version") != compatible_version:
+                  raise SystemExit(
+                      f"CRS provenance backend_version {provenance.get('backend_version')!r} "
+                      f"does not match compatible backend version {compatible_version!r}"
+                  )
+              if metadata.get("compatibleBackendVersion") != compatible_version:
+                  raise SystemExit(
+                      f"CRS metadata compatibleBackendVersion {metadata.get('compatibleBackendVersion')!r} "
+                      f"does not match compatible backend version {compatible_version!r}"
+                  )
+              metadata_version = metadata.get("packageVersion")
+              if not isinstance(metadata_version, str) or ".".join(metadata_version.split(".")[:2]) != compatible_version:
+                  raise SystemExit(
+                      f"CRS metadata packageVersion {metadata_version!r} is not compatible with {compatible_version}"
+                  )
+              source_digest = (
+                  metadata.get("dependencies", {})
+                  .get("subcircuitLibrary", {})
+                  .get("sourceDigest")
+              )
+              if not isinstance(source_digest, str) or len(source_digest) == 0:
+                  raise SystemExit("CRS metadata is missing dependencies.subcircuitLibrary.sourceDigest")
+
+              hash_checks = {
+                  "combined_sigma.rkyv": "combined_sigma_sha256",
+                  "sigma_preprocess.rkyv": "sigma_preprocess_sha256",
+                  "sigma_verify.json": "sigma_verify_sha256",
+              }
+              for entry_name, field_name in hash_checks.items():
+                  expected = provenance.get(field_name)
+                  actual = sha256_entry(archive, entry_name)
+                  if expected != actual:
+                      raise SystemExit(
+                          f"CRS archive {selected['name']} {entry_name} sha256 mismatch: "
+                          f"expected={expected} actual={actual}"
+                      )
 
           print(
               json.dumps(
                   {
                       "backendVersion": backend_version,
+                      "compatibleBackendVersion": compatible_version,
+                      "selectedArchive": selected,
                       "archivePrefix": archive_prefix,
-                      "matches": files,
+                      "matchedCount": len(files),
                   },
                   indent=2,
               )
