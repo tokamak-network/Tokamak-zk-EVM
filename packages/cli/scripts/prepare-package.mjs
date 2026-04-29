@@ -4,7 +4,6 @@ import path from 'node:path';
 const packageRoot = path.resolve(import.meta.dirname, '..');
 const repoRoot = path.resolve(packageRoot, '..', '..');
 const vendoredBackendRoot = path.join(packageRoot, 'vendor', 'backend');
-const vendoredQapCompilerRoot = path.join(packageRoot, 'packages', 'frontend', 'qap-compiler');
 
 const backendExclusions = new Set([
   'target',
@@ -65,22 +64,6 @@ function shouldCopyBackendPath(sourcePath) {
   return true;
 }
 
-function shouldCopyQapCompilerPath(sourcePath) {
-  const qapCompilerRoot = path.join(repoRoot, 'packages', 'frontend', 'qap-compiler');
-  const relative = path.relative(qapCompilerRoot, sourcePath);
-  if (!relative || relative.startsWith('..')) {
-    return true;
-  }
-
-  const normalized = relative.split(path.sep).join('/');
-  return (
-    normalized === 'package.json' ||
-    normalized === 'subcircuits' ||
-    normalized === 'subcircuits/library' ||
-    normalized.startsWith('subcircuits/library/')
-  );
-}
-
 async function copyDirectory(from, to, filter) {
   await fs.cp(from, to, {
     recursive: true,
@@ -98,18 +81,11 @@ async function sanitizeCargoManifest(filePath) {
 
 async function main() {
   await fs.rm(path.join(packageRoot, 'vendor'), { recursive: true, force: true });
-  await fs.rm(path.join(packageRoot, 'packages'), { recursive: true, force: true });
   await ensureDir(vendoredBackendRoot);
-  await ensureDir(vendoredQapCompilerRoot);
   await copyDirectory(
     path.join(repoRoot, 'packages', 'backend'),
     vendoredBackendRoot,
     shouldCopyBackendPath,
-  );
-  await copyDirectory(
-    path.join(repoRoot, 'packages', 'frontend', 'qap-compiler'),
-    vendoredQapCompilerRoot,
-    shouldCopyQapCompilerPath,
   );
 
   await sanitizeCargoManifest(path.join(vendoredBackendRoot, 'libs', 'Cargo.toml'));
