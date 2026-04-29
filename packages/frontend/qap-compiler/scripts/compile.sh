@@ -93,20 +93,21 @@ else
   rm -rf "$output_dir_path"
 fi
 
-rm -f temp.txt
 mkdir -p "$output_dir_path/r1cs"
 mkdir -p "$output_dir_path/wasm"
 mkdir -p "$output_dir_path/info"
 mkdir -p "$output_dir_path/json"
+compiler_output_file="$output_dir_path/info/compiler-output.txt"
+rm -f "$compiler_output_file"
 
 for (( i = 0 ; i < ${#names[@]} ; i++ )) ; do
-  echo "id[$i] = ${names[$i]}" >> temp.txt
+  echo "id[$i] = ${names[$i]}" >> "$compiler_output_file"
 
   (
     cd "$circom_work_dir"
     "${circom_cmd[@]}" "${package_root}/subcircuits/circom/${names[$i]}_circuit.circom" --r1cs --wasm --json -o "$output_dir_path" -p "$CURVE_NAME" "${include_args[@]}"
   ) | tee "$output_dir_path/info/subcircuit${i}_${names[$i]}_info.txt"
-  cat "$output_dir_path/info/subcircuit${i}_${names[$i]}_info.txt" >> temp.txt
+  cat "$output_dir_path/info/subcircuit${i}_${names[$i]}_info.txt" >> "$compiler_output_file"
   mv "$output_dir_path/${names[$i]}_circuit_constraints.json" "$output_dir_path/json/subcircuit${i}.json"
   mv "$output_dir_path/${names[$i]}_circuit.r1cs" "$output_dir_path/r1cs/subcircuit${i}.r1cs"
   mv "$output_dir_path/${names[$i]}_circuit_js/${names[$i]}_circuit.wasm" "$output_dir_path/wasm/subcircuit${i}.wasm"
@@ -115,6 +116,6 @@ for (( i = 0 ; i < ${#names[@]} ; i++ )) ; do
   rm -rf "$output_dir_path/${names[$i]}_circuit_js"
 done
 
-node parse.js "$output_dir_path"
+node parse.js "$output_dir_path" "$compiler_output_file"
 node --import tsx ./exporter/exporter.ts "$output_dir_path"
-rm -f temp.txt
+rm -f "$compiler_output_file"

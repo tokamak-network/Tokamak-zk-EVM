@@ -7,6 +7,7 @@ const fs = require('fs')
 const path = require('path')
 
 const outputDir = process.argv[2] ? path.resolve(process.argv[2]) : path.resolve(__dirname, '../subcircuits/library')
+const compilerOutputPath = process.argv[3] ? path.resolve(process.argv[3]) : path.resolve(__dirname, 'temp.txt')
 const ansiEscapePattern = /\u001b\[[0-9;]*m/g
 
 function _buildWireFlattenMap(globalWireList, subcircuitInfos, globalWireIndex, subcircuitId, subcircuitWireId) {
@@ -359,7 +360,7 @@ function parseSubcircuitBlock(lines) {
   }
 }
 
-fs.readFile('./temp.txt', 'utf8', function(err, data) {
+fs.readFile(compilerOutputPath, 'utf8', function(err, data) {
   if (err) throw err;
   
   const subcircuits = []
