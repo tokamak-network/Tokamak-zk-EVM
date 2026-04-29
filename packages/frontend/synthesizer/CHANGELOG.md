@@ -8,8 +8,29 @@ The format is based on Keep a Changelog.
 
 ## Unreleased
 
+## [2.0.14] - 2026-04-29
+
+### Repository
+
+- Synchronized the release version to `2.0.14` across the CLI, subcircuit library, synthesizer packages, and backend workspace.
+
+### CLI
+
+- Bumped `@tokamak-zk-evm/cli` to `2.0.14`.
+- Updated the CLI package to consume `@tokamak-zk-evm/synthesizer-node` through the synchronized `^2.0.14` dependency range.
+
+### Subcircuit Library
+
+- Bumped `@tokamak-zk-evm/subcircuit-library` to `2.0.14`.
+
+### Synthesizer
+
+- Bumped `@tokamak-zk-evm/synthesizer-node` and `@tokamak-zk-evm/synthesizer-web` to `2.0.14`.
+- Updated both synthesizer packages to consume `@tokamak-zk-evm/subcircuit-library` through the synchronized `^2.0.14` dependency range.
+
 ### Backend Workspace
 
+- Bumped the backend Rust workspace version to `2.0.14`.
 - Limited local qap-compiler subcircuit builds to `mpc-setup`; release builds of `trusted-setup`, `preprocess`, `prove`, and `verify` continue to resolve `@tokamak-zk-evm/subcircuit-library` from npm.
 
 ## [2.0.13] - 2026-04-29

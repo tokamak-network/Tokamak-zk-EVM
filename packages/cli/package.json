@@ -1,6 +1,6 @@
 {
   "name": "@tokamak-zk-evm/cli",
-  "version": "2.0.13",
+  "version": "2.0.14",
   "description": "Tokamak zk-EVM CLI for installing the local prover runtime and running synthesize, preprocess, prove, verify, and proof export commands.",
   "keywords": [
     "cli",
@@ -59,7 +59,7 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@tokamak-zk-evm/synthesizer-node": "^2.0.13",
+    "@tokamak-zk-evm/synthesizer-node": "^2.0.14",
     "adm-zip": "^0.5.17"
   },
   "devDependencies": {
