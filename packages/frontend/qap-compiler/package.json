@@ -78,7 +78,6 @@
   "dependencies": {
     "@noble/curves": "^1.9.7",
     "chai": "^4.3.6",
-    "circom2": "0.2.16",
     "circom_tester": "^0.0.20",
     "circomlib": "^2.0.5",
     "ffjavascript": "^0.2.55",

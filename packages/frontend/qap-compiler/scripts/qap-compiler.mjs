@@ -2,25 +2,15 @@
 
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const require = createRequire(import.meta.url);
 const packageRoot = path.resolve(__dirname, '..');
 const compileScript = path.resolve(packageRoot, 'scripts/compile.sh');
 const reloadScript = path.resolve(packageRoot, 'scripts/reload-constants.sh');
 const distScript = path.resolve(packageRoot, 'scripts/dist-package.mjs');
-const requireSystemCircom = process.env.QAP_COMPILER_REQUIRE_SYSTEM_CIRCOM === '1';
 const expectedCircomVersion = process.env.QAP_COMPILER_EXPECTED_CIRCOM_VERSION ?? null;
-const resolveOptionalPackagePath = specifier => {
-  try {
-    return require.resolve(specifier, { paths: [packageRoot] });
-  } catch {
-    return null;
-  }
-};
 
 const printHelp = () => {
   console.log(`Usage:
@@ -52,11 +42,7 @@ const parseCircomVersion = rawVersion => rawVersion.match(/(\d+\.\d+\.\d+)/)?.[1
 
 const failCircomResolution = () => {
   console.error('Error: No usable Circom compiler was found.');
-  console.error(
-    requireSystemCircom
-      ? "Install official 'circom' on your system PATH before running this release build."
-      : "Install official 'circom' on your system PATH or run 'npm install' to provide the bundled circom2 wrapper.",
-  );
+  console.error("Install official 'circom' on your system PATH before running qap-compiler --build.");
   process.exit(1);
 };
 
@@ -82,32 +68,6 @@ const resolveCircomCommand = () => {
     return {
       command: 'circom',
       extraEnv: {},
-    };
-  }
-
-  if (requireSystemCircom) {
-    failCircomResolution();
-  }
-
-  const bundledCircomCliPath = resolveOptionalPackagePath('circom2/cli.js');
-  if (bundledCircomCliPath === null) {
-    failCircomResolution();
-  }
-
-  const bundledCircom = spawnSync(process.execPath, [bundledCircomCliPath, '--version'], {
-    cwd: process.cwd(),
-    stdio: 'ignore',
-  });
-
-  if (bundledCircom.status === 0) {
-    console.log(
-      `[qap-compiler] System circom was not found. Falling back to bundled circom2 at '${bundledCircomCliPath}'.`,
-    );
-    return {
-      command: process.execPath,
-      extraEnv: {
-        QAP_COMPILER_CIRCOM_SCRIPT: bundledCircomCliPath,
-      },
     };
   }
 

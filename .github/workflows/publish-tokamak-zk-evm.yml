@@ -16,7 +16,6 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       QAP_COMPILER_EXPECTED_CIRCOM_VERSION: '2.2.2'
-      QAP_COMPILER_REQUIRE_SYSTEM_CIRCOM: '1'
     defaults:
       run:
         working-directory: packages/frontend/qap-compiler

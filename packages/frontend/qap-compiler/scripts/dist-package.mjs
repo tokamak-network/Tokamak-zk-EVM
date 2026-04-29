@@ -17,7 +17,6 @@ const readmePath = path.resolve(packageRoot, 'README.md');
 const changelogPath = path.resolve(repoRoot, 'CHANGELOG.md');
 const libraryDir = path.resolve(packageRoot, 'subcircuits/library');
 const constantsPath = path.resolve(packageRoot, 'subcircuits/circom/constants.circom');
-const requireSystemCircom = process.env.QAP_COMPILER_REQUIRE_SYSTEM_CIRCOM === '1';
 const expectedCircomVersion = process.env.QAP_COMPILER_EXPECTED_CIRCOM_VERSION ?? null;
 
 const resolvePackageJsonPath = packageName => {
@@ -46,17 +45,8 @@ const resolveCircomMetadata = () => {
   });
 
   if (result.status !== 0) {
-    if (requireSystemCircom) {
-      console.error("Error: System 'circom' is required to prepare this release package.");
-      process.exit(1);
-    }
-
-    return {
-      name: 'circom',
-      rawVersion: null,
-      source: 'unavailable',
-      version: null,
-    };
+    console.error("Error: System 'circom' is required to prepare this package.");
+    process.exit(1);
   }
 
   const rawVersion = `${result.stdout}${result.stderr}`.trim();
