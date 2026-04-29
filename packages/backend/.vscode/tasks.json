@@ -2,17 +2,6 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "clean Dusk-backed mpc-setup release artifacts",
-      "type": "shell",
-      "command": "cargo",
-      "args": ["clean", "--release", "-p", "libs", "-p", "mpc-setup"],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": [],
-      "detail": "Force release build scripts for the embedded subcircuit-library snapshot and mpc-setup metadata to run before debugging dusk-backed mpc-setup."
-    },
-    {
       "label": "timing:json-to-md",
       "type": "shell",
       "command": "python3",
