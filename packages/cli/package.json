@@ -42,6 +42,7 @@
     "docker",
     "dist",
     "manifests",
+    "packages",
     "scripts",
     "vendor",
     "CHANGELOG.md",

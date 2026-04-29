@@ -15,6 +15,15 @@ The format is based on Keep a Changelog.
 - Updated backend build metadata to record the local subcircuit-library package version and source digest.
 - Removed the runtime `--subcircuit-library` path contract from backend launch flows.
 
+### CLI
+
+- Packaged the prebuilt local qap-compiler subcircuit library with the CLI so npm installs can build the vendored backend runtime without resolving a missing repository-local qap-compiler path.
+
+### CI
+
+- Installed and verified `circom 2.2.2` before pre-publish subcircuit-library source builds.
+- Updated the synthesizer workspace lockfile to match the synchronized `@tokamak-zk-evm/subcircuit-library` dependency version.
+
 ## [2.0.13] - 2026-04-29
 
 ### Repository

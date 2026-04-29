@@ -14,6 +14,7 @@ const DECLARED_RANGE: &str = "local";
 const RUNTIME_MODE: &str = "bundled";
 const LOCAL_BUILD_ROOT_DIR: &str = "local-subcircuit-library";
 const LOCAL_BUILD_LOCK_FILE: &str = "local-subcircuit-library.lock";
+const QAP_COMPILER_SCRIPT: &str = "scripts/qap-compiler.mjs";
 
 pub struct ResolvedSubcircuitLibrary {
     pub version: String,
@@ -51,6 +52,7 @@ fn emit_subcircuit_library_cfgs() {
             "package-lock.json",
             "scripts",
             "subcircuits/circom",
+            "subcircuits/library",
             "templates",
             "functions",
         ] {
@@ -72,7 +74,6 @@ fn prepare_local_subcircuit_library() -> io::Result<ResolvedSubcircuitLibrary> {
 
     let qap_root = qap_compiler_root()?;
     let version = read_qap_compiler_version(&qap_root)?;
-    ensure_qap_compiler_dependencies(&qap_root)?;
 
     let staging_root = build_root.join(format!(
         "staging-{}-{}",
@@ -86,7 +87,12 @@ fn prepare_local_subcircuit_library() -> io::Result<ResolvedSubcircuitLibrary> {
     if staging_root.exists() {
         fs::remove_dir_all(&staging_root)?;
     }
-    run_qap_compiler_build(&qap_root, &staging_library_dir)?;
+    if qap_root.join(QAP_COMPILER_SCRIPT).exists() {
+        ensure_qap_compiler_dependencies(&qap_root)?;
+        run_qap_compiler_build(&qap_root, &staging_library_dir)?;
+    } else {
+        copy_prebuilt_qap_library(&qap_root, &staging_library_dir)?;
+    }
 
     if !staging_library_dir.join("setupParams.json").exists() {
         return Err(io::Error::other(format!(
@@ -279,12 +285,43 @@ fn ensure_qap_compiler_dependencies(qap_root: &Path) -> io::Result<()> {
 fn run_qap_compiler_build(qap_root: &Path, output_dir: &Path) -> io::Result<()> {
     run_command(
         Command::new("node")
-            .arg("scripts/qap-compiler.mjs")
+            .arg(QAP_COMPILER_SCRIPT)
             .arg("--build")
             .arg(output_dir)
             .current_dir(qap_root),
         "node scripts/qap-compiler.mjs --build <target-local-subcircuit-library>",
     )
+}
+
+fn copy_prebuilt_qap_library(qap_root: &Path, output_dir: &Path) -> io::Result<()> {
+    let prebuilt_library = qap_root.join("subcircuits").join("library");
+    if !prebuilt_library.join("setupParams.json").exists() {
+        return Err(io::Error::other(format!(
+            "qap-compiler source is not available at {}, and prebuilt library output is missing at {}",
+            qap_root.join(QAP_COMPILER_SCRIPT).display(),
+            prebuilt_library.display()
+        )));
+    }
+
+    if output_dir.exists() {
+        fs::remove_dir_all(output_dir)?;
+    }
+    copy_directory(&prebuilt_library, output_dir)
+}
+
+fn copy_directory(from: &Path, to: &Path) -> io::Result<()> {
+    fs::create_dir_all(to)?;
+    for entry in fs::read_dir(from)? {
+        let entry = entry?;
+        let source = entry.path();
+        let destination = to.join(entry.file_name());
+        if source.is_dir() {
+            copy_directory(&source, &destination)?;
+        } else {
+            fs::copy(&source, &destination)?;
+        }
+    }
+    Ok(())
 }
 
 fn run_command(command: &mut Command, description: &str) -> io::Result<()> {
