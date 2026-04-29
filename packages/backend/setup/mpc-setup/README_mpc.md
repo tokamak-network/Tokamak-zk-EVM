@@ -13,7 +13,7 @@ interface anymore.
 Before running the ceremony:
 
 - complete the repository prerequisites from the project root README
-- ensure the official `circom` compiler is available on `PATH`
+- ensure the frontend subcircuit library exists for non-release builds
 - install OpenSSL if required by your platform
 
 Run all commands from:
@@ -22,10 +22,14 @@ Run all commands from:
 cd "$PWD/packages/backend"
 ```
 
+The Cargo build prepares the local qap-compiler subcircuit library for both native and dusk-backed
+MPC setup binaries.
+
 ## Native Mode
 
-All build profiles build the local `packages/frontend/qap-compiler` package and embed the
-generated `subcircuits/library` files into the backend binary.
+All `mpc-setup` builds build the local `../frontend/qap-compiler` package during the Cargo build
+and use that local subcircuit library output at runtime. `mpc-setup` does not accept
+`--subcircuit-library`.
 
 ```bash
 cargo run --release --bin native_mpc_setup -- \
@@ -43,14 +47,6 @@ This wrapper performs:
 
 Add `--beacon-mode` in normal builds if you want deterministic beacon-mode sampling instead
 of the default random mode.
-
-Non-release example:
-
-```bash
-cargo run -p mpc-setup --bin native_mpc_setup -- \
-  --intermediate ./setup/mpc-setup/output/native.intermediate \
-  --output ./setup/mpc-setup/output/native.final
-```
 
 Optional wrapper-only input:
 
@@ -81,7 +77,7 @@ This wrapper:
 6. runs one phase-2 contribution
 7. generates final CRS files
 8. zips the final `--output` artifacts plus `build-metadata-mpc-setup.json` and uploads the archive to the configured Google Drive folder
-9. validates that publication is running from a release build and that the bundled build metadata
+9. validates that publication is running from a release build and that the local build metadata
    matches the current `mpc-setup` binary version
 10. grants the uploaded archive `anyone with the link = viewer`
 11. allows viewers and commenters to download, print, and copy the uploaded archive
@@ -147,6 +143,6 @@ The deployable CRS is `combined_sigma.rkyv`.
 - `published_archive_name`
 - `crs_download_url`
 
-Cargo emits `build-metadata-mpc-setup.json` into `packages/backend/target/<profile>/`.
-Publication is allowed only when that metadata declares
+Release builds also emit `build-metadata-mpc-setup.json` into
+`packages/backend/target/release/`. Publication is allowed only when that metadata declares
 `runtimeMode = bundled` and matches the running `mpc-setup` package version.

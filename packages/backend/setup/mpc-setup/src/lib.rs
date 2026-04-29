@@ -15,6 +15,8 @@ use libs::iotools::SetupParams;
 pub const QAP_COMPILER_PATH_PREFIX: &str = "../frontend/qap-compiler/subcircuits/library";
 pub const SYNTHESIZER_PATH_PREFIX: &str = "../frontend/synthesizer/examples/outputs";
 
+include!(concat!(env!("OUT_DIR"), "/local_subcircuit_library.rs"));
+
 pub const fn testing_mode_enabled() -> bool {
     cfg!(feature = "testing-mode")
 }

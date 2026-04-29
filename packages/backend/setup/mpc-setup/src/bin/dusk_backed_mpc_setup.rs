@@ -1,13 +1,12 @@
 use clap::Parser;
-use libs::subcircuit_library::{resolve_subcircuit_library_path, SubcircuitLibraryArg};
-use mpc_setup::{run_dusk_backed_mpc_setup, DuskBackedMpcSetupConfig};
+use libs::subcircuit_library::resolve_subcircuit_library_path;
+use mpc_setup::{
+    run_dusk_backed_mpc_setup, DuskBackedMpcSetupConfig, LOCAL_SUBCIRCUIT_LIBRARY_PATH,
+};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Config {
-    #[command(flatten)]
-    subcircuit_library: SubcircuitLibraryArg,
-
     /// Intermediate ceremony artifact directory, also used for dusk.response
     #[arg(long, value_name = "PATH")]
     intermediate: String,
@@ -27,7 +26,7 @@ struct Config {
 
 fn main() {
     let config = Config::parse();
-    let qap_path = resolve_subcircuit_library_path(config.subcircuit_library.as_deref())
+    let qap_path = resolve_subcircuit_library_path(Some(LOCAL_SUBCIRCUIT_LIBRARY_PATH))
         .to_string_lossy()
         .into_owned();
     run_dusk_backed_mpc_setup(&DuskBackedMpcSetupConfig {

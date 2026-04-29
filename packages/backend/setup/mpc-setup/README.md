@@ -6,8 +6,8 @@
 - `dusk_backed_mpc_setup`
 
 Both binaries are thin CLI wrappers. The ceremony logic lives in library flow modules under
-[`src/flows`](./src/flows), and all build profiles consume a bundled local subcircuit-library
-snapshot rather than a runtime path argument.
+[`src/flows`](./src/flows), and the Cargo build prepares the local qap-compiler subcircuit library
+instead of accepting a runtime path argument.
 
 ## Overview
 
@@ -40,8 +40,9 @@ cd "$PWD/packages/backend"
 
 ## Native Mode
 
-All build profiles build the local `packages/frontend/qap-compiler` package, embed the generated
-`subcircuits/library` files into the binary, and do not accept `--subcircuit-library` at runtime.
+All `mpc-setup` builds build the local `../frontend/qap-compiler` package during the Cargo build
+and use that local subcircuit library output at runtime. `mpc-setup` does not accept
+`--subcircuit-library`.
 
 ```bash
 cargo run --release --bin native_mpc_setup -- \
@@ -51,14 +52,6 @@ cargo run --release --bin native_mpc_setup -- \
 
 Use `--beacon-mode` to switch the normal build from random sampling to deterministic
 seed-based beacon mode.
-
-Non-release example:
-
-```bash
-cargo run -p mpc-setup --bin native_mpc_setup -- \
-  --intermediate ./setup/mpc-setup/output/native.intermediate \
-  --output ./setup/mpc-setup/output/native.final
-```
 
 Optional wrapper-only input:
 
@@ -174,8 +167,8 @@ The final output directory contains only:
 
 This matches the trusted-setup artifact set, with the additional provenance manifest.
 
-Cargo emits `build-metadata-mpc-setup.json` into `packages/backend/target/<profile>/`.
-The release-only Google Drive publication path refuses to
+For release builds, Cargo also emits `build-metadata-mpc-setup.json` into
+`packages/backend/target/release/`. The release-only Google Drive publication path refuses to
 publish unless that metadata file exists and matches:
 
 - `packageName == "mpc-setup"`

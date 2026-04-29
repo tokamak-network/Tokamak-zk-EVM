@@ -32,6 +32,8 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--output",
         "${workspaceFolder}/setup/output",
         "--fixed-tau"
@@ -53,6 +55,8 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--synthesizer-stat",
         "${workspaceFolder}/../frontend/synthesizer/outputs",
         "--output",
@@ -144,6 +148,8 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--crs",
         "${workspaceFolder}/setup/output",
         "--synthesizer-stat",
@@ -216,6 +222,8 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--crs",
         "${workspaceFolder}/setup/output",
         "--synthesizer-stat",
@@ -289,6 +297,8 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--crs",
         "${workspaceFolder}/setup/output",
         "--synthesizer-stat",
@@ -315,6 +325,8 @@
       },
       "program": "${cargo:program}",
       "args": [
+        "--subcircuit-library",
+        "${workspaceFolder}/../frontend/qap-compiler/subcircuits/library",
         "--crs",
         "${workspaceFolder}/setup/output",
         "--synthesizer-stat",
