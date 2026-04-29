@@ -1,61 +1,30 @@
 use clap::Args;
 use std::env;
 use std::fs;
-#[cfg(tokamak_embedded_subcircuit_library)]
 use std::io;
 use std::path::PathBuf;
-#[cfg(tokamak_embedded_subcircuit_library)]
 use std::sync::OnceLock;
-#[cfg(tokamak_embedded_subcircuit_library)]
 use std::time::Duration;
 
 include!(concat!(env!("OUT_DIR"), "/embedded_subcircuit_library.rs"));
 
-#[cfg(tokamak_embedded_subcircuit_library)]
 static MATERIALIZED_PATH: OnceLock<PathBuf> = OnceLock::new();
 
-#[cfg(not(tokamak_embedded_subcircuit_library))]
-#[derive(Args, Debug, Clone)]
-pub struct SubcircuitLibraryArg {
-    /// Subcircuit library directory produced by the QAP compiler
-    #[arg(long, value_name = "PATH")]
-    pub subcircuit_library: String,
-}
-
-#[cfg(tokamak_embedded_subcircuit_library)]
 #[derive(Args, Debug, Clone, Default)]
 pub struct SubcircuitLibraryArg {}
 
 impl SubcircuitLibraryArg {
-    #[cfg(not(tokamak_embedded_subcircuit_library))]
-    pub fn as_deref(&self) -> Option<&str> {
-        Some(self.subcircuit_library.as_str())
-    }
-
-    #[cfg(tokamak_embedded_subcircuit_library)]
     pub fn as_deref(&self) -> Option<&str> {
         None
     }
 }
 
 pub fn resolve_subcircuit_library_path(local_path: Option<&str>) -> PathBuf {
-    #[cfg(tokamak_embedded_subcircuit_library)]
-    {
-        let _ = local_path;
-        return materialize_embedded_subcircuit_library()
-            .expect("failed to materialize embedded subcircuit library");
-    }
-
-    #[cfg(not(tokamak_embedded_subcircuit_library))]
-    {
-        let path =
-            local_path.expect("--subcircuit-library is required for non-release backend binaries");
-        return fs::canonicalize(path)
-            .unwrap_or_else(|_| panic!("cannot resolve subcircuit library path {path}"));
-    }
+    let _ = local_path;
+    materialize_embedded_subcircuit_library()
+        .expect("failed to materialize embedded subcircuit library")
 }
 
-#[cfg(tokamak_embedded_subcircuit_library)]
 fn materialize_embedded_subcircuit_library() -> io::Result<PathBuf> {
     if let Some(path) = MATERIALIZED_PATH.get() {
         return Ok(path.clone());
@@ -109,7 +78,6 @@ fn materialize_embedded_subcircuit_library() -> io::Result<PathBuf> {
     Ok(MATERIALIZED_PATH.get().cloned().unwrap_or(library_root))
 }
 
-#[cfg(tokamak_embedded_subcircuit_library)]
 fn cache_root_dir() -> io::Result<PathBuf> {
     #[cfg(target_os = "macos")]
     {
@@ -129,25 +97,14 @@ fn cache_root_dir() -> io::Result<PathBuf> {
     Ok(env::temp_dir())
 }
 
-#[cfg(tokamak_embedded_subcircuit_library)]
 fn snapshot_directory_name() -> String {
-    let integrity_fragment: String = SUBCIRCUIT_LIBRARY_INTEGRITY
-        .chars()
-        .filter(|ch| ch.is_ascii_alphanumeric())
-        .take(12)
-        .collect();
     format!(
         "{}-{}",
         sanitize_component(SUBCIRCUIT_LIBRARY_BUILD_VERSION),
-        if integrity_fragment.is_empty() {
-            "snapshot".to_string()
-        } else {
-            integrity_fragment.to_ascii_lowercase()
-        }
+        sanitize_component(SUBCIRCUIT_LIBRARY_SOURCE_DIGEST)
     )
 }
 
-#[cfg(tokamak_embedded_subcircuit_library)]
 fn sanitize_component(value: &str) -> String {
     value
         .chars()

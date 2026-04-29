@@ -337,15 +337,15 @@ fn validate_build_metadata(path: &Path) -> Result<(), DriveUploadError> {
     Ok(())
 }
 
-#[cfg(tokamak_embedded_subcircuit_library)]
+#[cfg(tokamak_release_profile)]
 fn ensure_release_publish_supported() -> Result<(), DriveUploadError> {
     Ok(())
 }
 
-#[cfg(not(tokamak_embedded_subcircuit_library))]
+#[cfg(not(tokamak_release_profile))]
 fn ensure_release_publish_supported() -> Result<(), DriveUploadError> {
     Err(DriveUploadError::Message(
-        "dusk-backed Google Drive publication is only supported in release builds with embedded subcircuit library assets".to_string(),
+        "dusk-backed Google Drive publication is only supported in release builds".to_string(),
     ))
 }
 

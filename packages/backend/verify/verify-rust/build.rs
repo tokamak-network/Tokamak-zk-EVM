@@ -4,7 +4,7 @@ mod subcircuit_library;
 use std::io;
 
 fn main() -> io::Result<()> {
-    subcircuit_library::configure_release_subcircuit_library_metadata(
+    subcircuit_library::configure_subcircuit_library_metadata(
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION"),
     )?;

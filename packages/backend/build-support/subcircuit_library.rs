@@ -10,100 +10,135 @@ use std::thread::sleep;
 use std::time::Duration;
 
 const PACKAGE_NAME: &str = "@tokamak-zk-evm/subcircuit-library";
-const DECLARED_RANGE: &str = "latest";
+const DECLARED_RANGE: &str = "local";
 const RUNTIME_MODE: &str = "bundled";
-const SNAPSHOT_ROOT_DIR: &str = "embedded-subcircuit-library";
-const SNAPSHOT_INFO_FILE: &str = "resolved.json";
-const SNAPSHOT_LIBRARY_DIR: &str = "library";
+const LOCAL_BUILD_ROOT_DIR: &str = "local-subcircuit-library";
+const LOCAL_BUILD_LOCK_FILE: &str = "local-subcircuit-library.lock";
 
 pub struct ResolvedSubcircuitLibrary {
     pub version: String,
-    pub integrity: String,
-    pub snapshot_dir: PathBuf,
-    pub release_dir: PathBuf,
+    pub source_digest: String,
+    pub library_dir: PathBuf,
+    pub profile_dir: PathBuf,
 }
 
-pub fn configure_embedded_release_subcircuit_library(out_dir: &Path) -> io::Result<()> {
-    println!("cargo:rustc-check-cfg=cfg(tokamak_embedded_subcircuit_library)");
-    if let Some(snapshot) = prepare_release_subcircuit_library()? {
-        println!("cargo:rustc-cfg=tokamak_embedded_subcircuit_library");
-        generate_embedded_module(&snapshot, out_dir)?;
-    } else {
-        write_stub_embedded_module(out_dir)?;
-    }
-    Ok(())
+pub fn configure_embedded_subcircuit_library(out_dir: &Path) -> io::Result<()> {
+    emit_subcircuit_library_cfgs();
+    let library = prepare_local_subcircuit_library()?;
+    generate_embedded_module(&library, out_dir)
 }
 
-pub fn configure_release_subcircuit_library_metadata(
+pub fn configure_subcircuit_library_metadata(
     package_name: &str,
     package_version: &str,
 ) -> io::Result<()> {
-    println!("cargo:rustc-check-cfg=cfg(tokamak_embedded_subcircuit_library)");
-    if let Some(snapshot) = prepare_release_subcircuit_library()? {
-        println!("cargo:rustc-cfg=tokamak_embedded_subcircuit_library");
-        emit_build_metadata(&snapshot, package_name, package_version)?;
-    }
-    Ok(())
+    emit_subcircuit_library_cfgs();
+    let library = prepare_local_subcircuit_library()?;
+    emit_build_metadata(&library, package_name, package_version)
 }
 
-pub fn prepare_release_subcircuit_library() -> io::Result<Option<ResolvedSubcircuitLibrary>> {
-    if env::var("PROFILE").ok().as_deref() != Some("release") {
-        return Ok(None);
+fn emit_subcircuit_library_cfgs() {
+    println!("cargo:rustc-check-cfg=cfg(tokamak_embedded_subcircuit_library)");
+    println!("cargo:rustc-check-cfg=cfg(tokamak_release_profile)");
+    println!("cargo:rustc-cfg=tokamak_embedded_subcircuit_library");
+    if env::var("PROFILE").ok().as_deref() == Some("release") {
+        println!("cargo:rustc-cfg=tokamak_release_profile");
     }
 
-    let release_dir = release_dir_from_out_dir()?;
-    let snapshot_root = release_dir.join(SNAPSHOT_ROOT_DIR);
-    fs::create_dir_all(&snapshot_root)?;
+    if let Ok(qap_root) = qap_compiler_root() {
+        for relative_path in [
+            "package.json",
+            "package-lock.json",
+            "scripts",
+            "subcircuits/circom",
+            "templates",
+            "functions",
+        ] {
+            println!(
+                "cargo:rerun-if-changed={}",
+                qap_root.join(relative_path).display()
+            );
+        }
+    }
+    println!("cargo:rerun-if-env-changed=PATH");
+}
 
-    let lock_path = snapshot_root.join(".lock");
+fn prepare_local_subcircuit_library() -> io::Result<ResolvedSubcircuitLibrary> {
+    let profile_dir = profile_dir_from_out_dir()?;
+    let build_root = profile_dir.join(LOCAL_BUILD_ROOT_DIR);
+    fs::create_dir_all(&build_root)?;
+    let lock_path = build_root.join(LOCAL_BUILD_LOCK_FILE);
     let _guard = acquire_lock(&lock_path)?;
-    let info_path = snapshot_root.join(SNAPSHOT_INFO_FILE);
-    let npm_view = npm_view_latest()?;
 
-    if let Some(existing) = try_read_snapshot(&info_path, &release_dir, &npm_view)? {
-        return Ok(Some(existing));
-    }
+    let qap_root = qap_compiler_root()?;
+    let version = read_qap_compiler_version(&qap_root)?;
+    ensure_qap_compiler_dependencies(&qap_root)?;
 
-    let unpack_root = snapshot_root.join(format!(
-        "{}-{}",
-        sanitize(&npm_view.version),
-        short_hash(&npm_view.integrity)
+    let staging_root = build_root.join(format!(
+        "staging-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or(Duration::from_secs(0))
+            .as_nanos()
     ));
-    let snapshot_dir = unpack_root.join(SNAPSHOT_LIBRARY_DIR);
+    let staging_library_dir = staging_root.join("library");
+    if staging_root.exists() {
+        fs::remove_dir_all(&staging_root)?;
+    }
+    run_qap_compiler_build(&qap_root, &staging_library_dir)?;
 
-    if !snapshot_dir.exists() {
-        fetch_and_unpack_snapshot(&snapshot_root, &unpack_root, &npm_view.version)?;
+    if !staging_library_dir.join("setupParams.json").exists() {
+        return Err(io::Error::other(format!(
+            "local qap-compiler build did not produce {}",
+            staging_library_dir.join("setupParams.json").display()
+        )));
     }
 
-    let snapshot = ResolvedSubcircuitLibrary {
-        version: npm_view.version,
-        integrity: npm_view.integrity,
-        snapshot_dir,
-        release_dir,
-    };
-    write_snapshot_info(&info_path, &snapshot)?;
-    Ok(Some(snapshot))
+    let source_digest = digest_library_files(&staging_library_dir)?;
+    let snapshot_dir = build_root.join(format!(
+        "{}-{}",
+        sanitize_component(&version),
+        sanitize_component(&source_digest)
+    ));
+    let library_dir = snapshot_dir.join("library");
+    if !library_dir.exists() {
+        if snapshot_dir.exists() {
+            fs::remove_dir_all(&snapshot_dir)?;
+        }
+        fs::rename(&staging_root, &snapshot_dir)?;
+    } else {
+        let _ = fs::remove_dir_all(&staging_root);
+    }
+
+    Ok(ResolvedSubcircuitLibrary {
+        version,
+        source_digest,
+        library_dir,
+        profile_dir,
+    })
 }
 
 pub fn emit_build_metadata(
-    snapshot: &ResolvedSubcircuitLibrary,
+    library: &ResolvedSubcircuitLibrary,
     current_package_name: &str,
     current_package_version: &str,
 ) -> io::Result<()> {
     let metadata = serde_json::json!({
         "dependencies": {
             "subcircuitLibrary": {
-                "buildVersion": snapshot.version,
+                "buildVersion": library.version,
                 "declaredRange": DECLARED_RANGE,
                 "packageName": PACKAGE_NAME,
                 "runtimeMode": RUNTIME_MODE,
+                "sourceDigest": library.source_digest,
             }
         },
         "packageName": current_package_name,
         "packageVersion": current_package_version,
     });
-    let path = snapshot
-        .release_dir
+    let path = library
+        .profile_dir
         .join(format!("build-metadata-{current_package_name}.json"));
     fs::write(
         path,
@@ -115,24 +150,24 @@ pub fn emit_build_metadata(
 }
 
 pub fn generate_embedded_module(
-    snapshot: &ResolvedSubcircuitLibrary,
+    library: &ResolvedSubcircuitLibrary,
     out_dir: &Path,
 ) -> io::Result<()> {
     let mut files = Vec::new();
-    collect_files(&snapshot.snapshot_dir, &snapshot.snapshot_dir, &mut files)?;
+    collect_library_files(&library.library_dir, &library.library_dir, &mut files)?;
     files.sort();
 
     let mut generated = String::new();
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_PACKAGE_NAME: &str = ");
     generated.push_str(&format!("{:?};\n", PACKAGE_NAME));
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_BUILD_VERSION: &str = ");
-    generated.push_str(&format!("{:?};\n", snapshot.version));
+    generated.push_str(&format!("{:?};\n", library.version));
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_DECLARED_RANGE: &str = ");
     generated.push_str(&format!("{:?};\n", DECLARED_RANGE));
     generated.push_str("pub const SUBCIRCUIT_LIBRARY_RUNTIME_MODE: &str = ");
     generated.push_str(&format!("{:?};\n", RUNTIME_MODE));
-    generated.push_str("pub const SUBCIRCUIT_LIBRARY_INTEGRITY: &str = ");
-    generated.push_str(&format!("{:?};\n", snapshot.integrity));
+    generated.push_str("pub const SUBCIRCUIT_LIBRARY_SOURCE_DIGEST: &str = ");
+    generated.push_str(&format!("{:?};\n", library.source_digest));
     generated.push_str(
         "\n#[derive(Clone, Copy)]\n\
          pub struct EmbeddedSubcircuitLibraryFile {\n\
@@ -143,7 +178,7 @@ pub fn generate_embedded_module(
     );
 
     for file in files {
-        let absolute = snapshot.snapshot_dir.join(&file);
+        let absolute = library.library_dir.join(&file);
         generated.push_str("    EmbeddedSubcircuitLibraryFile {\n");
         generated.push_str(&format!(
             "        relative_path: {:?},\n",
@@ -160,30 +195,7 @@ pub fn generate_embedded_module(
     fs::write(out_dir.join("embedded_subcircuit_library.rs"), generated)
 }
 
-pub fn write_stub_embedded_module(out_dir: &Path) -> io::Result<()> {
-    fs::write(
-        out_dir.join("embedded_subcircuit_library.rs"),
-        "pub const SUBCIRCUIT_LIBRARY_PACKAGE_NAME: &str = \"@tokamak-zk-evm/subcircuit-library\";\n\
-         pub const SUBCIRCUIT_LIBRARY_BUILD_VERSION: &str = \"\";\n\
-         pub const SUBCIRCUIT_LIBRARY_DECLARED_RANGE: &str = \"\";\n\
-         pub const SUBCIRCUIT_LIBRARY_RUNTIME_MODE: &str = \"\";\n\
-         pub const SUBCIRCUIT_LIBRARY_INTEGRITY: &str = \"\";\n\
-         #[derive(Clone, Copy)]\n\
-         pub struct EmbeddedSubcircuitLibraryFile {\n\
-         \tpub relative_path: &'static str,\n\
-         \tpub bytes: &'static [u8],\n\
-         }\n\
-         pub static EMBEDDED_SUBCIRCUIT_LIBRARY_FILES: &[EmbeddedSubcircuitLibraryFile] = &[];\n",
-    )
-}
-
-#[derive(Clone)]
-struct NpmView {
-    version: String,
-    integrity: String,
-}
-
-fn release_dir_from_out_dir() -> io::Result<PathBuf> {
+fn profile_dir_from_out_dir() -> io::Result<PathBuf> {
     let out_dir = PathBuf::from(env::var("OUT_DIR").map_err(io::Error::other)?);
     out_dir
         .ancestors()
@@ -191,104 +203,112 @@ fn release_dir_from_out_dir() -> io::Result<PathBuf> {
         .map(Path::to_path_buf)
         .ok_or_else(|| {
             io::Error::other(format!(
-                "cannot derive target/release from OUT_DIR {}",
+                "cannot derive target profile directory from OUT_DIR {}",
                 out_dir.display()
             ))
         })
 }
 
-fn npm_view_latest() -> io::Result<NpmView> {
-    let output = Command::new("npm")
-        .arg("view")
-        .arg(PACKAGE_NAME)
-        .args(["version", "dist.integrity", "--json"])
-        .output()?;
-    if !output.status.success() {
-        return Err(io::Error::other(format!(
-            "npm view failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        )));
+fn qap_compiler_root() -> io::Result<PathBuf> {
+    let backend_root = backend_root_from_manifest_dir()?;
+    Ok(backend_root
+        .parent()
+        .and_then(Path::parent)
+        .ok_or_else(|| {
+            io::Error::other(format!(
+                "cannot derive repository root from backend root {}",
+                backend_root.display()
+            ))
+        })?
+        .join("packages")
+        .join("frontend")
+        .join("qap-compiler"))
+}
+
+fn backend_root_from_manifest_dir() -> io::Result<PathBuf> {
+    let mut current = PathBuf::from(env::var("CARGO_MANIFEST_DIR").map_err(io::Error::other)?);
+    loop {
+        if current
+            .join("build-support")
+            .join("subcircuit_library.rs")
+            .exists()
+        {
+            return Ok(current);
+        }
+
+        if !current.pop() {
+            return Err(io::Error::other(
+                "cannot locate packages/backend from CARGO_MANIFEST_DIR",
+            ));
+        }
     }
-    let value: Value = serde_json::from_slice(&output.stdout).map_err(io::Error::other)?;
-    let version = value
+}
+
+fn read_qap_compiler_version(qap_root: &Path) -> io::Result<String> {
+    let value: Value = serde_json::from_slice(&fs::read(qap_root.join("package.json"))?)
+        .map_err(io::Error::other)?;
+    value
         .get("version")
         .and_then(Value::as_str)
-        .ok_or_else(|| io::Error::other("npm view output missing version"))?;
-    let integrity = value
-        .get("dist.integrity")
-        .and_then(Value::as_str)
-        .ok_or_else(|| io::Error::other("npm view output missing dist.integrity"))?;
-    Ok(NpmView {
-        version: version.to_string(),
-        integrity: integrity.to_string(),
-    })
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| io::Error::other("qap-compiler package.json is missing version"))
 }
 
-fn fetch_and_unpack_snapshot(
-    snapshot_root: &Path,
-    unpack_root: &Path,
-    version: &str,
-) -> io::Result<()> {
-    if unpack_root.exists() {
-        fs::remove_dir_all(unpack_root)?;
-    }
-    fs::create_dir_all(snapshot_root)?;
-
-    let pack_output = Command::new("npm")
-        .arg("pack")
-        .arg(format!("{PACKAGE_NAME}@{version}"))
-        .arg("--silent")
-        .current_dir(snapshot_root)
-        .output()?;
-    if !pack_output.status.success() {
-        return Err(io::Error::other(format!(
-            "npm pack failed: {}",
-            String::from_utf8_lossy(&pack_output.stderr)
-        )));
-    }
-    let tarball_name = String::from_utf8_lossy(&pack_output.stdout)
-        .trim()
-        .to_string();
-    if tarball_name.is_empty() {
-        return Err(io::Error::other("npm pack returned an empty tarball name"));
-    }
-    let tarball_path = snapshot_root.join(&tarball_name);
-
-    fs::create_dir_all(unpack_root)?;
-    let tar_output = Command::new("tar")
-        .arg("-xzf")
-        .arg(&tarball_path)
-        .arg("-C")
-        .arg(unpack_root)
-        .output()?;
-    if !tar_output.status.success() {
-        return Err(io::Error::other(format!(
-            "tar extraction failed: {}",
-            String::from_utf8_lossy(&tar_output.stderr)
-        )));
+fn ensure_qap_compiler_dependencies(qap_root: &Path) -> io::Result<()> {
+    let required_paths = [
+        qap_root.join("node_modules").join("circomlib"),
+        qap_root
+            .join("node_modules")
+            .join("poseidon-bls12381-circom"),
+        qap_root.join("node_modules").join("tsx"),
+    ];
+    if required_paths.iter().all(|path| path.exists()) {
+        return Ok(());
     }
 
-    let package_root = unpack_root.join("package");
-    let source_root = package_root.join("subcircuits").join("library");
-    if !source_root.exists() {
-        return Err(io::Error::other(format!(
-            "packed npm package does not contain subcircuits/library at {}",
-            source_root.display()
-        )));
-    }
-    let target_root = unpack_root.join(SNAPSHOT_LIBRARY_DIR);
-    fs::rename(source_root, &target_root)?;
-    let _ = fs::remove_dir_all(package_root);
-    let _ = fs::remove_file(tarball_path);
-    Ok(())
+    run_command(
+        Command::new("npm")
+            .arg("ci")
+            .arg("--ignore-scripts")
+            .arg("--workspaces=false")
+            .current_dir(qap_root),
+        "npm ci --ignore-scripts --workspaces=false",
+    )
 }
 
-fn collect_files(root: &Path, current: &Path, files: &mut Vec<String>) -> io::Result<()> {
+fn run_qap_compiler_build(qap_root: &Path, output_dir: &Path) -> io::Result<()> {
+    run_command(
+        Command::new("node")
+            .arg("scripts/qap-compiler.mjs")
+            .arg("--build")
+            .arg(output_dir)
+            .current_dir(qap_root),
+        "node scripts/qap-compiler.mjs --build <target-local-subcircuit-library>",
+    )
+}
+
+fn run_command(command: &mut Command, description: &str) -> io::Result<()> {
+    let output = command.output()?;
+    if output.status.success() {
+        return Ok(());
+    }
+
+    Err(io::Error::other(format!(
+        "{description} failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    )))
+}
+
+fn collect_library_files(root: &Path, current: &Path, files: &mut Vec<String>) -> io::Result<()> {
     for entry in fs::read_dir(current)? {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            collect_files(root, &path, files)?;
+            if path.file_name().and_then(|name| name.to_str()) == Some("info") {
+                continue;
+            }
+            collect_library_files(root, &path, files)?;
             continue;
         }
         let relative = path
@@ -301,25 +321,29 @@ fn collect_files(root: &Path, current: &Path, files: &mut Vec<String>) -> io::Re
     Ok(())
 }
 
-fn short_hash(input: &str) -> String {
-    let mut out = String::new();
-    for ch in input.chars() {
-        if ch.is_ascii_alphanumeric() {
-            out.push(ch.to_ascii_lowercase());
-        }
-        if out.len() == 12 {
-            break;
-        }
+fn digest_library_files(root: &Path) -> io::Result<String> {
+    let mut files = Vec::new();
+    collect_library_files(root, root, &mut files)?;
+    files.sort();
+
+    let mut hash = 0xcbf29ce484222325u64;
+    for file in files {
+        digest_bytes(&mut hash, file.as_bytes());
+        digest_bytes(&mut hash, &(file.len() as u64).to_le_bytes());
+        digest_bytes(&mut hash, &fs::read(root.join(file))?);
     }
-    if out.is_empty() {
-        "snapshot".to_string()
-    } else {
-        out
+    Ok(format!("{hash:016x}"))
+}
+
+fn digest_bytes(hash: &mut u64, bytes: &[u8]) {
+    for byte in bytes {
+        *hash ^= u64::from(*byte);
+        *hash = hash.wrapping_mul(0x100000001b3);
     }
 }
 
-fn sanitize(input: &str) -> String {
-    input
+fn sanitize_component(value: &str) -> String {
+    value
         .chars()
         .map(|ch| {
             if ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' {
@@ -329,69 +353,6 @@ fn sanitize(input: &str) -> String {
             }
         })
         .collect()
-}
-
-fn try_read_snapshot(
-    path: &Path,
-    release_dir: &Path,
-    npm_view: &NpmView,
-) -> io::Result<Option<ResolvedSubcircuitLibrary>> {
-    if !path.exists() {
-        return Ok(None);
-    }
-    let value: Value = serde_json::from_slice(&fs::read(path)?).map_err(io::Error::other)?;
-    let snapshot_dir = PathBuf::from(
-        value
-            .get("snapshotDir")
-            .and_then(Value::as_str)
-            .ok_or_else(|| io::Error::other("resolved snapshot metadata missing snapshotDir"))?,
-    );
-    if !snapshot_dir.exists() {
-        return Ok(None);
-    }
-    let package_name = value
-        .get("packageName")
-        .and_then(Value::as_str)
-        .ok_or_else(|| io::Error::other("resolved snapshot metadata missing packageName"))?
-        .to_string();
-    if package_name != PACKAGE_NAME {
-        return Ok(None);
-    }
-    let version = value
-        .get("version")
-        .and_then(Value::as_str)
-        .ok_or_else(|| io::Error::other("resolved snapshot metadata missing version"))?
-        .to_string();
-    let integrity = value
-        .get("integrity")
-        .and_then(Value::as_str)
-        .ok_or_else(|| io::Error::other("resolved snapshot metadata missing integrity"))?
-        .to_string();
-    if version != npm_view.version || integrity != npm_view.integrity {
-        return Ok(None);
-    }
-    Ok(Some(ResolvedSubcircuitLibrary {
-        version,
-        integrity,
-        snapshot_dir,
-        release_dir: release_dir.to_path_buf(),
-    }))
-}
-
-fn write_snapshot_info(path: &Path, snapshot: &ResolvedSubcircuitLibrary) -> io::Result<()> {
-    let payload = serde_json::json!({
-        "packageName": PACKAGE_NAME,
-        "version": snapshot.version,
-        "integrity": snapshot.integrity,
-        "snapshotDir": snapshot.snapshot_dir,
-    });
-    fs::write(
-        path,
-        format!(
-            "{}\n",
-            serde_json::to_string_pretty(&payload).map_err(io::Error::other)?
-        ),
-    )
 }
 
 fn acquire_lock(lock_path: &Path) -> io::Result<LockGuard> {

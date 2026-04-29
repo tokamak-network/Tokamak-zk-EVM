@@ -6,8 +6,8 @@
 - `dusk_backed_mpc_setup`
 
 Both binaries are thin CLI wrappers. The ceremony logic lives in library flow modules under
-[`src/flows`](./src/flows), and release builds consume a bundled subcircuit-library snapshot rather
-than a runtime path argument.
+[`src/flows`](./src/flows), and all build profiles consume a bundled local subcircuit-library
+snapshot rather than a runtime path argument.
 
 ## Overview
 
@@ -29,7 +29,7 @@ Both wrappers write:
 Before running the ceremony:
 
 - follow the repository prerequisites from the backend root README
-- ensure the frontend subcircuit library exists for non-release builds
+- ensure the official `circom` compiler is available on `PATH`
 - install OpenSSL if required by your platform
 
 Run all commands from:
@@ -40,10 +40,8 @@ cd "$PWD/packages/backend"
 
 ## Native Mode
 
-Release builds resolve the current npm `latest` of `@tokamak-zk-evm/subcircuit-library` during
-build time, embed the resolved snapshot into the binary, and do not accept
-`--subcircuit-library` at runtime. Non-release builds still require
-`--subcircuit-library <PATH>`.
+All build profiles build the local `packages/frontend/qap-compiler` package, embed the generated
+`subcircuits/library` files into the binary, and do not accept `--subcircuit-library` at runtime.
 
 ```bash
 cargo run --release --bin native_mpc_setup -- \
@@ -58,7 +56,6 @@ Non-release example:
 
 ```bash
 cargo run -p mpc-setup --bin native_mpc_setup -- \
-  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
   --intermediate ./setup/mpc-setup/output/native.intermediate \
   --output ./setup/mpc-setup/output/native.final
 ```
@@ -96,7 +93,7 @@ In dusk-backed mode:
 - after upload, the wrapper grants the uploaded archive `anyone with the link = viewer`
 - after upload, the wrapper explicitly allows viewers and commenters to download, print, and copy
   the uploaded archive
-- upload is only allowed in release builds with embedded subcircuit library assets
+- upload is only allowed in release builds
 - before uploading, the wrapper validates that `build-metadata-mpc-setup.json` matches the running
   `mpc-setup` binary version and uses `runtimeMode = bundled`
 - the output archive name always includes the backend version and CRS generation timestamp
@@ -105,7 +102,6 @@ Non-release example:
 
 ```bash
 cargo run -p mpc-setup --bin dusk_backed_mpc_setup -- \
-  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
   --intermediate ./setup/mpc-setup/output/dusk.intermediate \
   --output ./setup/mpc-setup/output/dusk.final
 ```
@@ -178,8 +174,8 @@ The final output directory contains only:
 
 This matches the trusted-setup artifact set, with the additional provenance manifest.
 
-For release builds, Cargo also emits `build-metadata-mpc-setup.json` into
-`packages/backend/target/release/`. The release-only Google Drive publication path refuses to
+Cargo emits `build-metadata-mpc-setup.json` into `packages/backend/target/<profile>/`.
+The release-only Google Drive publication path refuses to
 publish unless that metadata file exists and matches:
 
 - `packageName == "mpc-setup"`

@@ -13,7 +13,7 @@ interface anymore.
 Before running the ceremony:
 
 - complete the repository prerequisites from the project root README
-- ensure the frontend subcircuit library exists for non-release builds
+- ensure the official `circom` compiler is available on `PATH`
 - install OpenSSL if required by your platform
 
 Run all commands from:
@@ -24,8 +24,8 @@ cd "$PWD/packages/backend"
 
 ## Native Mode
 
-Release builds embed the current npm `latest` of `@tokamak-zk-evm/subcircuit-library` at build
-time, so `--subcircuit-library` is only required in non-release builds.
+All build profiles build the local `packages/frontend/qap-compiler` package and embed the
+generated `subcircuits/library` files into the backend binary.
 
 ```bash
 cargo run --release --bin native_mpc_setup -- \
@@ -48,7 +48,6 @@ Non-release example:
 
 ```bash
 cargo run -p mpc-setup --bin native_mpc_setup -- \
-  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
   --intermediate ./setup/mpc-setup/output/native.intermediate \
   --output ./setup/mpc-setup/output/native.final
 ```
@@ -91,7 +90,6 @@ Non-release example:
 
 ```bash
 cargo run -p mpc-setup --bin dusk_backed_mpc_setup -- \
-  --subcircuit-library ../frontend/qap-compiler/subcircuits/library \
   --intermediate ./setup/mpc-setup/output/dusk.intermediate \
   --output ./setup/mpc-setup/output/dusk.final
 ```
@@ -149,6 +147,6 @@ The deployable CRS is `combined_sigma.rkyv`.
 - `published_archive_name`
 - `crs_download_url`
 
-Release builds also emit `build-metadata-mpc-setup.json` into
-`packages/backend/target/release/`. Publication is allowed only when that metadata declares
+Cargo emits `build-metadata-mpc-setup.json` into `packages/backend/target/<profile>/`.
+Publication is allowed only when that metadata declares
 `runtimeMode = bundled` and matches the running `mpc-setup` package version.

@@ -8,6 +8,13 @@ The format is based on Keep a Changelog.
 
 ## Unreleased
 
+### Backend Workspace
+
+- Changed backend subcircuit-library embedding to build and bundle the local qap-compiler output instead of resolving the npm `latest` subcircuit-library package.
+- Applied local subcircuit-library embedding consistently across release and non-release backend builds.
+- Updated backend build metadata to record the local subcircuit-library package version and source digest.
+- Removed the runtime `--subcircuit-library` path contract from backend launch flows.
+
 ## [2.0.13] - 2026-04-29
 
 ### Repository
