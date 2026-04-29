@@ -8,6 +8,34 @@ The format is based on Keep a Changelog.
 
 ## Unreleased
 
+## [2.0.13] - 2026-04-29
+
+### Repository
+
+- Synchronized the release version to `2.0.13` across the CLI, subcircuit library, synthesizer packages, and backend workspace.
+
+### Subcircuit Library
+
+- Required the official system `circom` compiler for subcircuit builds instead of falling back to the bundled `circom2` package.
+- Removed the `circom2` package dependency from the subcircuit library build toolchain.
+- Recorded the system `circom` compiler metadata in the generated subcircuit library build metadata.
+- Updated the release publish workflow to install and verify `circom 2.2.2` before building the subcircuit library.
+- Switched the subcircuit library publish workflow dependency installation from `npm install` to `npm ci`.
+
+### CLI
+
+- Bumped `@tokamak-zk-evm/cli` to `2.0.13`.
+- Updated the CLI package to consume `@tokamak-zk-evm/synthesizer-node` through the synchronized `^2.0.13` dependency range.
+
+### Synthesizer
+
+- Bumped `@tokamak-zk-evm/synthesizer-node` and `@tokamak-zk-evm/synthesizer-web` to `2.0.13`.
+- Updated both synthesizer packages to consume `@tokamak-zk-evm/subcircuit-library` through the synchronized `^2.0.13` dependency range.
+
+### Backend Workspace
+
+- Bumped the backend Rust workspace version to `2.0.13`.
+
 ## [2.0.12] - 2026-04-29
 
 ### Repository

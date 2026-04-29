@@ -98,6 +98,9 @@ function updateRootPackageLock() {
         lockfile.packages['packages/cli'].version = targetVersion;
         lockfile.packages['packages/cli'].dependencies['@tokamak-zk-evm/synthesizer-node'] = `^${targetVersion}`;
       }
+      if (lockfile.packages?.['packages/frontend/qap-compiler']) {
+        lockfile.packages['packages/frontend/qap-compiler'].version = targetVersion;
+      }
       if (lockfile.packages?.['packages/frontend/synthesizer/node-cli']) {
         lockfile.packages['packages/frontend/synthesizer/node-cli'].version = targetVersion;
         lockfile.packages['packages/frontend/synthesizer/node-cli'].dependencies['@tokamak-zk-evm/subcircuit-library'] =

@@ -92,6 +92,7 @@ for (const [relativePath, dependencyName, expectedRange] of dependencyTargets) {
 const lockfileTargets = [
   ['package-lock.json', '', expectedVersion],
   ['package-lock.json', 'packages/cli', expectedVersion],
+  ['package-lock.json', 'packages/frontend/qap-compiler', expectedVersion],
   ['package-lock.json', 'packages/frontend/synthesizer/node-cli', expectedVersion],
   ['package-lock.json', 'packages/frontend/synthesizer/web-app', expectedVersion],
   ['packages/frontend/qap-compiler/package-lock.json', '', expectedVersion],
