@@ -17,7 +17,6 @@ export interface InstallOptions {
 }
 
 export interface RuntimeState {
-  compatibleBackendVersion: string;
   dockerEnvironment?: DockerEnvironment;
   installMode?: 'native' | 'docker';
   packageVersion: string;
@@ -46,7 +45,6 @@ export type DockerEnvironment = 'ubuntu22' | 'ubuntu22-cuda122';
 interface DockerBootstrap {
   version: 1;
   createdAt: string;
-  compatibleBackendVersion: string;
   dockerEnvironment: DockerEnvironment;
   imageName: string;
   packageVersion: string;
@@ -435,8 +433,7 @@ export async function requireInstalledRuntime(): Promise<RuntimeContext> {
     await fs.access(context.runtimeDir);
     return {
       ...context,
-      compatibleBackendVersion: state.compatibleBackendVersion
-        ?? packageCompatibleVersion(state.packageVersion, 'installed package version'),
+      compatibleBackendVersion: packageCompatibleVersion(state.packageVersion, 'installed package version'),
       packageVersion: state.packageVersion,
     };
   }
@@ -449,8 +446,7 @@ export async function requireInstalledRuntime(): Promise<RuntimeContext> {
   await fs.access(context.runtimeDir);
   return {
     ...context,
-    compatibleBackendVersion: state.compatibleBackendVersion
-      ?? packageCompatibleVersion(state.packageVersion, 'installed package version'),
+    compatibleBackendVersion: packageCompatibleVersion(state.packageVersion, 'installed package version'),
     packageVersion: state.packageVersion,
   };
 }
@@ -843,7 +839,6 @@ function validateDockerBootstrap(value: unknown): DockerBootstrap | null {
     candidate.version !== DOCKER_BOOTSTRAP_VERSION ||
     candidate.platform !== 'linux' ||
     typeof candidate.imageName !== 'string' ||
-    typeof candidate.compatibleBackendVersion !== 'string' ||
     typeof candidate.packageVersion !== 'string' ||
     typeof candidate.createdAt !== 'string' ||
     typeof candidate.useGpus !== 'boolean' ||
@@ -1922,7 +1917,6 @@ async function installDockerRuntime(options: InstallOptions): Promise<RuntimeCon
   const bootstrap: DockerBootstrap = {
     version: DOCKER_BOOTSTRAP_VERSION,
     createdAt: new Date().toISOString(),
-    compatibleBackendVersion: context.compatibleBackendVersion,
     dockerEnvironment,
     imageName: dockerImageName(context.packageVersion, dockerEnvironment),
     packageVersion: context.packageVersion,
@@ -1936,7 +1930,6 @@ async function installDockerRuntime(options: InstallOptions): Promise<RuntimeCon
   });
   await writeDockerBootstrap(context, bootstrap);
   await writeRuntimeState(context, {
-    compatibleBackendVersion: context.compatibleBackendVersion,
     dockerEnvironment,
     installMode: 'docker',
     packageVersion: context.packageVersion,
@@ -1972,7 +1965,6 @@ export async function installRuntime(options: InstallOptions): Promise<RuntimeCo
   }
 
   const state: RuntimeState = {
-    compatibleBackendVersion: context.compatibleBackendVersion,
     installMode: 'native',
     packageVersion: context.packageVersion,
     platform: context.platform,
