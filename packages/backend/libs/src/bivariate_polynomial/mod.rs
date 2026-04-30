@@ -18,11 +18,6 @@ use std::{
 #[cfg(feature = "timing")]
 use crate::timing::{record_detail, SizeInfo};
 
-#[cfg(feature = "timing")]
-fn record_detail_step(op: &'static str, start: Instant, label: &'static str, dims: Vec<usize>) {
-    record_detail(op, start.elapsed(), vec![SizeInfo { label, dims }]);
-}
-
 static NTT_DOMAIN_SIZE: OnceLock<Mutex<Option<usize>>> = OnceLock::new();
 
 fn ntt_domain_size_cell() -> &'static Mutex<Option<usize>> {
@@ -154,46 +149,36 @@ impl Add for &DensePolynomialExt {
     fn add(self: Self, rhs: Self) -> Self::Output {
         #[cfg(feature = "timing")]
         let timing_start = Instant::now();
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
-        let mut lhs_ext = self.clone();
-        let mut rhs_ext = rhs.clone();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "add_clone_operands",
-            step_start,
-            "lhs_rhs",
-            vec![self.x_size, self.y_size, rhs.x_size, rhs.y_size],
-        );
-        if self.x_size != rhs.x_size || self.y_size != rhs.y_size {
-            #[cfg(feature = "timing")]
-            let step_start = Instant::now();
-            let target_x_size = cmp::max(self.x_size, rhs.x_size);
-            let target_y_size = cmp::max(self.y_size, rhs.y_size);
-            lhs_ext.resize(target_x_size, target_y_size);
-            rhs_ext.resize(target_x_size, target_y_size);
-            #[cfg(feature = "timing")]
-            record_detail_step(
-                "add_resize_operands",
-                step_start,
-                "target",
-                vec![target_x_size, target_y_size],
-            );
+        let target_x_size = cmp::max(self.x_size, rhs.x_size);
+        let target_y_size = cmp::max(self.y_size, rhs.y_size);
+        let lhs_resized;
+        let lhs_poly;
+        if self.x_size == target_x_size && self.y_size == target_y_size {
+            lhs_poly = &self.poly;
+        } else {
+            lhs_resized = {
+                let mut resized = self.clone();
+                resized.resize(target_x_size, target_y_size);
+                resized
+            };
+            lhs_poly = &lhs_resized.poly;
         }
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
-        let out_poly = &lhs_ext.poly + &rhs_ext.poly;
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "add_icicle_add",
-            step_start,
-            "operands",
-            vec![lhs_ext.x_size, lhs_ext.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
-        let x_size = lhs_ext.x_size;
-        let y_size = lhs_ext.y_size;
+        let rhs_resized;
+        let rhs_poly;
+        if rhs.x_size == target_x_size && rhs.y_size == target_y_size {
+            rhs_poly = &rhs.poly;
+        } else {
+            rhs_resized = {
+                let mut resized = rhs.clone();
+                resized.resize(target_x_size, target_y_size);
+                resized
+            };
+            rhs_poly = &rhs_resized.poly;
+        }
+
+        let out_poly = lhs_poly + rhs_poly;
+        let x_size = target_x_size;
+        let y_size = target_y_size;
         //let (x_degree, y_degree) = DensePolynomialExt::find_degree(&out_poly, x_size, y_size);
         let out = DensePolynomialExt {
             poly: out_poly,
@@ -202,13 +187,6 @@ impl Add for &DensePolynomialExt {
             x_size,
             y_size,
         };
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "add_construct_result",
-            step_start,
-            "result",
-            vec![out.x_size, out.y_size],
-        );
         #[cfg(feature = "timing")]
         record_detail(
             "addition",
@@ -226,56 +204,31 @@ impl AddAssign<&DensePolynomialExt> for DensePolynomialExt {
     fn add_assign(&mut self, rhs: &DensePolynomialExt) {
         #[cfg(feature = "timing")]
         let timing_start = Instant::now();
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
-        let mut lhs_ext = self.clone();
-        let mut rhs_ext = rhs.clone();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "addassign_clone_operands",
-            step_start,
-            "lhs_rhs",
-            vec![self.x_size, self.y_size, rhs.x_size, rhs.y_size],
-        );
-        if self.x_size != rhs.x_size || self.y_size != rhs.y_size {
-            #[cfg(feature = "timing")]
-            let step_start = Instant::now();
-            let target_x_size = cmp::max(self.x_size, rhs.x_size);
-            let target_y_size = cmp::max(self.y_size, rhs.y_size);
-            lhs_ext.resize(target_x_size, target_y_size);
-            rhs_ext.resize(target_x_size, target_y_size);
-            #[cfg(feature = "timing")]
-            record_detail_step(
-                "addassign_resize_operands",
-                step_start,
-                "target",
-                vec![target_x_size, target_y_size],
-            );
+        let target_x_size = cmp::max(self.x_size, rhs.x_size);
+        let target_y_size = cmp::max(self.y_size, rhs.y_size);
+        if self.x_size != target_x_size || self.y_size != target_y_size {
+            self.resize(target_x_size, target_y_size);
         }
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
-        self.poly = &lhs_ext.poly + &rhs_ext.poly;
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "addassign_icicle_add",
-            step_start,
-            "operands",
-            vec![lhs_ext.x_size, lhs_ext.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
-        self.x_size = lhs_ext.x_size;
-        self.y_size = lhs_ext.y_size;
+
+        let rhs_resized;
+        let rhs_poly;
+        if rhs.x_size == target_x_size && rhs.y_size == target_y_size {
+            rhs_poly = &rhs.poly;
+        } else {
+            rhs_resized = {
+                let mut resized = rhs.clone();
+                resized.resize(target_x_size, target_y_size);
+                resized
+            };
+            rhs_poly = &rhs_resized.poly;
+        }
+
+        self.poly = &self.poly + rhs_poly;
+        self.x_size = target_x_size;
+        self.y_size = target_y_size;
         //let (x_degree, y_degree) = DensePolynomialExt::find_degree(&self.poly, self.x_size, self.y_size);
         self.x_degree = self.x_size as i64 - 1;
         self.y_degree = self.y_size as i64 - 1;
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "addassign_update_metadata",
-            step_start,
-            "result",
-            vec![self.x_size, self.y_size],
-        );
         #[cfg(feature = "timing")]
         record_detail(
             "addition",
@@ -294,46 +247,36 @@ impl Sub for &DensePolynomialExt {
     fn sub(self: Self, rhs: Self) -> Self::Output {
         #[cfg(feature = "timing")]
         let timing_start = Instant::now();
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
-        let mut lhs_ext = self.clone();
-        let mut rhs_ext = rhs.clone();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "sub_clone_operands",
-            step_start,
-            "lhs_rhs",
-            vec![self.x_size, self.y_size, rhs.x_size, rhs.y_size],
-        );
-        if self.x_size != rhs.x_size || self.y_size != rhs.y_size {
-            #[cfg(feature = "timing")]
-            let step_start = Instant::now();
-            let target_x_size = cmp::max(self.x_size, rhs.x_size);
-            let target_y_size = cmp::max(self.y_size, rhs.y_size);
-            lhs_ext.resize(target_x_size, target_y_size);
-            rhs_ext.resize(target_x_size, target_y_size);
-            #[cfg(feature = "timing")]
-            record_detail_step(
-                "sub_resize_operands",
-                step_start,
-                "target",
-                vec![target_x_size, target_y_size],
-            );
+        let target_x_size = cmp::max(self.x_size, rhs.x_size);
+        let target_y_size = cmp::max(self.y_size, rhs.y_size);
+        let lhs_resized;
+        let lhs_poly;
+        if self.x_size == target_x_size && self.y_size == target_y_size {
+            lhs_poly = &self.poly;
+        } else {
+            lhs_resized = {
+                let mut resized = self.clone();
+                resized.resize(target_x_size, target_y_size);
+                resized
+            };
+            lhs_poly = &lhs_resized.poly;
         }
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
-        let out_poly = &lhs_ext.poly - &rhs_ext.poly;
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "sub_icicle_sub",
-            step_start,
-            "operands",
-            vec![lhs_ext.x_size, lhs_ext.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
-        let x_size = lhs_ext.x_size;
-        let y_size = lhs_ext.y_size;
+        let rhs_resized;
+        let rhs_poly;
+        if rhs.x_size == target_x_size && rhs.y_size == target_y_size {
+            rhs_poly = &rhs.poly;
+        } else {
+            rhs_resized = {
+                let mut resized = rhs.clone();
+                resized.resize(target_x_size, target_y_size);
+                resized
+            };
+            rhs_poly = &rhs_resized.poly;
+        }
+
+        let out_poly = lhs_poly - rhs_poly;
+        let x_size = target_x_size;
+        let y_size = target_y_size;
         //let (x_degree, y_degree) = DensePolynomialExt::find_degree(&out_poly, x_size, y_size);
         let out = DensePolynomialExt {
             poly: out_poly,
@@ -342,13 +285,6 @@ impl Sub for &DensePolynomialExt {
             x_size,
             y_size,
         };
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "sub_construct_result",
-            step_start,
-            "result",
-            vec![out.x_size, out.y_size],
-        );
         #[cfg(feature = "timing")]
         record_detail(
             "addition",
@@ -390,16 +326,7 @@ impl Mul<&ScalarField> for &DensePolynomialExt {
         #[cfg(feature = "timing")]
         let timing_start = Instant::now();
         if rhs.eq(&ScalarField::one()) {
-            #[cfg(feature = "timing")]
-            let step_start = Instant::now();
             let out = self.clone();
-            #[cfg(feature = "timing")]
-            record_detail_step(
-                "scalar_mul_one_clone",
-                step_start,
-                "result",
-                vec![out.x_size, out.y_size],
-            );
             #[cfg(feature = "timing")]
             record_detail(
                 "scaling",
@@ -411,65 +338,16 @@ impl Mul<&ScalarField> for &DensePolynomialExt {
             );
             return out;
         }
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let mut coeffs =
             DeviceVec::<ScalarField>::device_malloc(self.x_size * self.y_size).unwrap();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_mul_alloc_input",
-            step_start,
-            "coeffs",
-            vec![self.x_size, self.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         self.copy_coeffs(0, &mut coeffs);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_mul_copy_coeffs",
-            step_start,
-            "coeffs",
-            vec![self.x_size, self.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let vec_ops_cfg = VecOpsConfig::default();
         let scaler_vec = [*rhs];
         let scaler = HostSlice::from_slice(&scaler_vec);
-        #[cfg(feature = "timing")]
-        record_detail_step("scalar_mul_setup", step_start, "scalar", vec![1]);
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let mut res_coeffs =
             DeviceVec::<ScalarField>::device_malloc(self.x_size * self.y_size).unwrap();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_mul_alloc_output",
-            step_start,
-            "coeffs",
-            vec![self.x_size, self.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         ScalarCfg::scalar_mul(scaler, &coeffs, &mut res_coeffs, &vec_ops_cfg).unwrap();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_mul_icicle_scalar_mul",
-            step_start,
-            "coeffs",
-            vec![self.x_size, self.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let out = DensePolynomialExt::from_coeffs(&res_coeffs, self.x_size, self.y_size);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_mul_from_coeffs",
-            step_start,
-            "result",
-            vec![out.x_size, out.y_size],
-        );
         #[cfg(feature = "timing")]
         record_detail(
             "scaling",
@@ -491,16 +369,7 @@ impl Mul<&DensePolynomialExt> for &ScalarField {
         #[cfg(feature = "timing")]
         let timing_start = Instant::now();
         if self.eq(&ScalarField::one()) {
-            #[cfg(feature = "timing")]
-            let step_start = Instant::now();
             let out = rhs.clone();
-            #[cfg(feature = "timing")]
-            record_detail_step(
-                "scalar_mul_one_clone",
-                step_start,
-                "result",
-                vec![out.x_size, out.y_size],
-            );
             #[cfg(feature = "timing")]
             record_detail(
                 "scaling",
@@ -512,64 +381,15 @@ impl Mul<&DensePolynomialExt> for &ScalarField {
             );
             return out;
         }
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let mut coeffs = DeviceVec::<ScalarField>::device_malloc(rhs.x_size * rhs.y_size).unwrap();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_mul_alloc_input",
-            step_start,
-            "coeffs",
-            vec![rhs.x_size, rhs.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         rhs.copy_coeffs(0, &mut coeffs);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_mul_copy_coeffs",
-            step_start,
-            "coeffs",
-            vec![rhs.x_size, rhs.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let vec_ops_cfg = VecOpsConfig::default();
         let scaler_vec = [*self];
         let scaler = HostSlice::from_slice(&scaler_vec);
-        #[cfg(feature = "timing")]
-        record_detail_step("scalar_mul_setup", step_start, "scalar", vec![1]);
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let mut res_coeffs =
             DeviceVec::<ScalarField>::device_malloc(rhs.x_size * rhs.y_size).unwrap();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_mul_alloc_output",
-            step_start,
-            "coeffs",
-            vec![rhs.x_size, rhs.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         ScalarCfg::scalar_mul(scaler, &coeffs, &mut res_coeffs, &vec_ops_cfg).unwrap();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_mul_icicle_scalar_mul",
-            step_start,
-            "coeffs",
-            vec![rhs.x_size, rhs.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let out = DensePolynomialExt::from_coeffs(&res_coeffs, rhs.x_size, rhs.y_size);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_mul_from_coeffs",
-            step_start,
-            "result",
-            vec![out.x_size, out.y_size],
-        );
         #[cfg(feature = "timing")]
         record_detail(
             "scaling",
@@ -590,60 +410,15 @@ impl Add<&DensePolynomialExt> for &ScalarField {
     fn add(self: Self, rhs: &DensePolynomialExt) -> Self::Output {
         #[cfg(feature = "timing")]
         let timing_start = Instant::now();
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let mut coeffs_vec = vec![ScalarField::zero(); rhs.x_size * rhs.y_size];
         let coeffs = HostSlice::from_mut_slice(&mut coeffs_vec);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_add_alloc_host",
-            step_start,
-            "coeffs",
-            vec![rhs.x_size, rhs.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         rhs.copy_coeffs(0, coeffs);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_add_copy_coeffs",
-            step_start,
-            "coeffs",
-            vec![rhs.x_size, rhs.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         coeffs_vec[0] = coeffs_vec[0] + *self;
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_add_update_constant",
-            step_start,
-            "constant",
-            vec![1],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let res_coeffs = coeffs_vec.clone();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_add_clone_coeffs",
-            step_start,
-            "coeffs",
-            vec![rhs.x_size, rhs.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let out = DensePolynomialExt::from_coeffs(
             HostSlice::from_slice(&res_coeffs),
             rhs.x_size,
             rhs.y_size,
-        );
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_add_from_coeffs",
-            step_start,
-            "result",
-            vec![out.x_size, out.y_size],
         );
         #[cfg(feature = "timing")]
         record_detail(
@@ -665,60 +440,15 @@ impl Add<&ScalarField> for &DensePolynomialExt {
     fn add(self: Self, rhs: &ScalarField) -> Self::Output {
         #[cfg(feature = "timing")]
         let timing_start = Instant::now();
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let mut coeffs_vec = vec![ScalarField::zero(); self.x_size * self.y_size];
         let coeffs = HostSlice::from_mut_slice(&mut coeffs_vec);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_add_alloc_host",
-            step_start,
-            "coeffs",
-            vec![self.x_size, self.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         self.copy_coeffs(0, coeffs);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_add_copy_coeffs",
-            step_start,
-            "coeffs",
-            vec![self.x_size, self.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         coeffs_vec[0] = coeffs_vec[0] + *rhs;
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_add_update_constant",
-            step_start,
-            "constant",
-            vec![1],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let res_coeffs = coeffs_vec.clone();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_add_clone_coeffs",
-            step_start,
-            "coeffs",
-            vec![self.x_size, self.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let out = DensePolynomialExt::from_coeffs(
             HostSlice::from_slice(&res_coeffs),
             self.x_size,
             self.y_size,
-        );
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_add_from_coeffs",
-            step_start,
-            "result",
-            vec![out.x_size, out.y_size],
         );
         #[cfg(feature = "timing")]
         record_detail(
@@ -740,58 +470,13 @@ impl Sub<&DensePolynomialExt> for &ScalarField {
     fn sub(self: Self, rhs: &DensePolynomialExt) -> Self::Output {
         #[cfg(feature = "timing")]
         let timing_start = Instant::now();
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let neg_rhs = -rhs;
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_sub_neg_rhs",
-            step_start,
-            "rhs",
-            vec![rhs.x_size, rhs.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let mut coeffs_vec = vec![ScalarField::zero(); rhs.x_size * rhs.y_size];
         let coeffs = HostSlice::from_mut_slice(&mut coeffs_vec);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_sub_alloc_host",
-            step_start,
-            "coeffs",
-            vec![rhs.x_size, rhs.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         neg_rhs.copy_coeffs(0, coeffs);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_sub_copy_coeffs",
-            step_start,
-            "coeffs",
-            vec![rhs.x_size, rhs.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         coeffs[0] = *self + coeffs[0];
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_sub_update_constant",
-            step_start,
-            "constant",
-            vec![1],
-        );
 
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let out = DensePolynomialExt::from_coeffs(coeffs, rhs.x_size, rhs.y_size);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_sub_from_coeffs",
-            step_start,
-            "result",
-            vec![out.x_size, out.y_size],
-        );
         #[cfg(feature = "timing")]
         record_detail(
             "addition",
@@ -812,60 +497,15 @@ impl Sub<&ScalarField> for &DensePolynomialExt {
     fn sub(self: Self, rhs: &ScalarField) -> Self::Output {
         #[cfg(feature = "timing")]
         let timing_start = Instant::now();
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let mut coeffs_vec = vec![ScalarField::zero(); self.x_size * self.y_size];
         let coeffs = HostSlice::from_mut_slice(&mut coeffs_vec);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_sub_alloc_host",
-            step_start,
-            "coeffs",
-            vec![self.x_size, self.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         self.copy_coeffs(0, coeffs);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_sub_copy_coeffs",
-            step_start,
-            "coeffs",
-            vec![self.x_size, self.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         coeffs_vec[0] = coeffs_vec[0] - *rhs;
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_sub_update_constant",
-            step_start,
-            "constant",
-            vec![1],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let res_coeffs = coeffs_vec.clone();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_sub_clone_coeffs",
-            step_start,
-            "coeffs",
-            vec![self.x_size, self.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let out = DensePolynomialExt::from_coeffs(
             HostSlice::from_slice(&res_coeffs),
             self.x_size,
             self.y_size,
-        );
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "scalar_sub_from_coeffs",
-            step_start,
-            "result",
-            vec![out.x_size, out.y_size],
         );
         #[cfg(feature = "timing")]
         record_detail(
@@ -1471,10 +1111,34 @@ impl BivariatePolynomial for DensePolynomialExt {
         self.copy_coeffs(0, orig_coeffs);
 
         let mut res_coeffs_vec = vec![Self::Field::zero(); new_size];
-        for i in 0..cmp::min(self.x_size, new_x_size) {
-            let each_y_size = cmp::min(self.y_size, new_y_size);
-            res_coeffs_vec[new_y_size * i..new_y_size * i + each_y_size]
-                .copy_from_slice(&orig_coeffs_vec[self.y_size * i..self.y_size * i + each_y_size]);
+        let copy_x_size = if self.x_degree < 0 || self.y_degree < 0 {
+            0
+        } else {
+            cmp::min(
+                cmp::min(self.x_size, new_x_size),
+                (self.x_degree + 1) as usize,
+            )
+        };
+        let copy_y_size = if copy_x_size == 0 {
+            0
+        } else {
+            cmp::min(
+                cmp::min(self.y_size, new_y_size),
+                (self.y_degree + 1) as usize,
+            )
+        };
+
+        if copy_x_size > 0 && copy_y_size > 0 {
+            if self.y_size == new_y_size && copy_y_size == self.y_size {
+                let copy_len = copy_x_size * copy_y_size;
+                res_coeffs_vec[..copy_len].copy_from_slice(&orig_coeffs_vec[..copy_len]);
+            } else {
+                for i in 0..copy_x_size {
+                    res_coeffs_vec[new_y_size * i..new_y_size * i + copy_y_size].copy_from_slice(
+                        &orig_coeffs_vec[self.y_size * i..self.y_size * i + copy_y_size],
+                    );
+                }
+            }
         }
 
         let res_coeffs = HostSlice::from_mut_slice(&mut res_coeffs_vec);
@@ -1526,26 +1190,8 @@ impl BivariatePolynomial for DensePolynomialExt {
     }
 
     fn _mul(&self, rhs: &Self) -> Self {
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let (lhs_x_degree, lhs_y_degree) = self.find_degree();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "mul_find_lhs_degree",
-            step_start,
-            "lhs",
-            vec![self.x_size, self.y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let (rhs_x_degree, rhs_y_degree) = rhs.find_degree();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "mul_find_rhs_degree",
-            step_start,
-            "rhs",
-            vec![rhs.x_size, rhs.y_size],
-        );
         if lhs_x_degree + lhs_y_degree == 0 && rhs_x_degree + rhs_y_degree > 0 {
             return &(rhs.clone()) * &(self.get_coeff(0, 0));
         }
@@ -1557,133 +1203,30 @@ impl BivariatePolynomial for DensePolynomialExt {
             let out_coeffs = HostSlice::from_slice(&out_coeffs_vec);
             return DensePolynomialExt::from_coeffs(out_coeffs, 1, 1);
         }
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let target_x_size = (lhs_x_degree + rhs_x_degree + 1) as usize;
         let target_y_size = (lhs_y_degree + rhs_y_degree + 1) as usize;
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "mul_compute_target_size",
-            step_start,
-            "target",
-            vec![target_x_size, target_y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let mut lhs_ext = self.clone();
         lhs_ext.resize(target_x_size, target_y_size);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "mul_clone_resize_lhs",
-            step_start,
-            "lhs",
-            vec![target_x_size, target_y_size],
-        );
         let x_size = lhs_ext.x_size;
         let y_size = lhs_ext.y_size;
         let extended_size = x_size * y_size;
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let mut lhs_evals = DeviceVec::<Self::Field>::device_malloc(extended_size).unwrap();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "mul_alloc_lhs_evals",
-            step_start,
-            "evals",
-            vec![x_size, y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         lhs_ext.to_rou_evals(None, None, &mut lhs_evals);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "mul_lhs_to_rou_evals",
-            step_start,
-            "evals",
-            vec![x_size, y_size],
-        );
         drop(lhs_ext);
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let mut rhs_ext = rhs.clone();
         rhs_ext.resize(target_x_size, target_y_size);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "mul_clone_resize_rhs",
-            step_start,
-            "rhs",
-            vec![target_x_size, target_y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let mut rhs_evals = DeviceVec::<Self::Field>::device_malloc(extended_size).unwrap();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "mul_alloc_rhs_evals",
-            step_start,
-            "evals",
-            vec![x_size, y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         rhs_ext.to_rou_evals(None, None, &mut rhs_evals);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "mul_rhs_to_rou_evals",
-            step_start,
-            "evals",
-            vec![x_size, y_size],
-        );
         drop(rhs_ext);
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let cfg_vec_ops = VecOpsConfig::default();
-        #[cfg(feature = "timing")]
-        record_detail_step("mul_setup_vec_ops", step_start, "cfg", vec![1]);
         // Element-wise mult. of evaluations
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let mut out_evals = DeviceVec::<Self::Field>::device_malloc(extended_size).unwrap();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "mul_alloc_out_evals",
-            step_start,
-            "evals",
-            vec![x_size, y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         ScalarCfg::mul(&lhs_evals, &rhs_evals, &mut out_evals, &cfg_vec_ops).unwrap();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "mul_icicle_eval_mul",
-            step_start,
-            "evals",
-            vec![x_size, y_size],
-        );
         drop(lhs_evals);
         drop(rhs_evals);
 
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         let mut res = DensePolynomialExt::from_rou_evals(&out_evals, x_size, y_size, None, None);
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "mul_from_rou_evals",
-            step_start,
-            "result",
-            vec![x_size, y_size],
-        );
-        #[cfg(feature = "timing")]
-        let step_start = Instant::now();
         res.optimize_size();
-        #[cfg(feature = "timing")]
-        record_detail_step(
-            "mul_optimize_size",
-            step_start,
-            "result",
-            vec![res.x_size, res.y_size],
-        );
         return res;
     }
 
