@@ -45,27 +45,6 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 
    The CPU total wall time had run-to-run noise (`56.905538 s` to `57.162002 s`), but the targeted stage improved clearly.
 
-4. **Special-form polynomial multiplication was accepted in existing-API form.**
-
-   Several `prove4` linear combinations multiply by special polynomials where a generic NTT-based multiplication is unnecessary:
-
-   - `t_n` and `t_smax` are two-term vanishing polynomials.
-   - `X_mono` is a monomial.
-   - `term9` is a small sparse polynomial in the measured proof.
-
-   The first implementation added ad hoc shift/scale helpers to `DensePolynomialExt`. That was removed because it copied dense coefficients to the host and did CPU loops. The accepted implementation now uses only existing polynomial APIs: `mul_monomial`, scalar multiplication, addition, and subtraction. It keeps `lagrange_K0_XY` multiplication on the existing generic path because the measured CPU prefix-window replacement was slower than ICICLE's generic multiplication for `LHS_zk2`.
-
-   | metric | before | existing-api | delta |
-   | --- | ---: | ---: | ---: |
-   | total wall | 31.712050 s | 31.237394 s | -0.474657 s |
-   | prove4 total | 10.152243 s | 9.939695 s | -0.212548 s |
-   | prove4 poly | 7.805363 s | 7.596426 s | -0.208937 s |
-   | `poly.combine.prove4.Pi_A` | 0.913962 s | 0.900134 s | -0.013828 s |
-   | `poly.combine.prove4.term_B_zk` | 0.126669 s | 0.125349 s | -0.001321 s |
-   | `poly.combine.prove4.LHS_zk1` | 1.335036 s | 1.406641 s | +0.071606 s |
-   | `poly.combine.prove4.LHS_zk2` | 1.214135 s | 1.232757 s | +0.018622 s |
-   | `poly.combine.prove4.LHS_for_copy` | 0.783756 s | 0.582091 s | -0.201665 s |
-
 ## Failed Or Rejected Changes
 
 1. **Host round-trip and small memory-movement optimizations were not adopted.**
@@ -117,14 +96,31 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 
    A follow-up attempt to keep `term9` multiplication generic while still using `mul_monomial` for `(1 - X)` failed because the existing `mul_monomial` implementation can overflow its output buffer when shifting an already full-width polynomial. That experiment is not retained.
 
+5. **Existing-API special polynomial multiplication was tested and rolled back.**
+
+   After removing the host-loop helpers, the special products were rewritten using only existing polynomial APIs: `mul_monomial`, scalar multiplication, addition, and subtraction. The measured total wall time improved in one CUDA run, but the target `poly.combine` sites did not show a clean win. In particular, `LHS_zk1` regressed and `LHS_zk2` also moved slightly in the wrong direction, while most of the apparent improvement came from downstream `LHS_for_copy` and run-to-run variation.
+
+   | metric | before | existing-api | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 31.712050 s | 31.237394 s | -0.474657 s |
+   | prove4 total | 10.152243 s | 9.939695 s | -0.212548 s |
+   | prove4 poly | 7.805363 s | 7.596426 s | -0.208937 s |
+   | `poly.combine.prove4.Pi_A` | 0.913962 s | 0.900134 s | -0.013828 s |
+   | `poly.combine.prove4.term_B_zk` | 0.126669 s | 0.125349 s | -0.001321 s |
+   | `poly.combine.prove4.LHS_zk1` | 1.335036 s | 1.406641 s | +0.071606 s |
+   | `poly.combine.prove4.LHS_zk2` | 1.214135 s | 1.232757 s | +0.018622 s |
+   | `poly.combine.prove4.LHS_for_copy` | 0.783756 s | 0.582091 s | -0.201665 s |
+
+   The `prove4` polynomial combination code was restored to the original generic expression form. The timing artifact is kept as an experiment record, but it is no longer the accepted baseline.
+
 ## Current Accepted Baseline
 
-The current accepted CUDA baseline is `timing.remote.existing-api-special-poly-mul.cuda.json`:
+The current accepted CUDA baseline is `timing.remote.s0s1-pow-cache.cuda.json`:
 
-- total wall: `31.237394 s`
-- init: `0.737941 s`
-- prove4: `9.939695 s`
-- uvwXY: `0.289162 s`
-- s0/s1: `0.053828 s`
+- total wall: `31.712050 s`
+- init: `0.748165 s`
+- prove4: `10.152243 s`
+- uvwXY: `0.286227 s`
+- s0/s1: `0.057586 s`
 
 Future optimization should treat `prove2.div_by_vanishing_opt` and selected `prove4` polynomial operations as the next higher-value targets. Fused linear combination and `lagrange_K0_XY` special multiplication should only be reconsidered in narrower forms if they are measured one site at a time.

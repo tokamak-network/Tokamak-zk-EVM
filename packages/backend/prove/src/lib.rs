@@ -1883,10 +1883,6 @@ impl Prover {
                         dims: vec![self.witness.uXY.x_size, self.witness.uXY.y_size]
                     },],
                     {
-                        let rW_X_scalar_gap =
-                            &(&rW_X * &(t_n_eval + ScalarField::one())) - &rW_X.mul_monomial(_n, 0);
-                        let rW_Y_scalar_gap = &(&rW_Y * &(t_smax_eval + ScalarField::one()))
-                            - &rW_Y.mul_monomial(0, s_max);
                         poly_comb!(
                             // for KZG of V
                             (kappa1, &VXY - &proof3.V_eval.0),
@@ -1910,8 +1906,8 @@ impl Prover {
                                         + (self.mixer.rU_Y * t_smax_eval)),
                                 self.witness.vXY
                             ),
-                            (ScalarField::one(), rW_X_scalar_gap),
-                            (ScalarField::one(), rW_Y_scalar_gap)
+                            (rW_X, &t_n_eval - &self.instance.t_n),
+                            (rW_Y, &t_smax_eval - &self.instance.t_smax)
                         )
                     }
                 );
@@ -2380,10 +2376,7 @@ impl Prover {
                             label: "rB",
                             dims: vec![m_i, s_max]
                         },],
-                        {
-                            &(&rB_X.mul_monomial(m_i, 0) - &rB_X)
-                                + &(&rB_Y.mul_monomial(0, s_max) - &rB_Y)
-                        }
+                        { &(&rB_X * &self.instance.t_mi) + &(&rB_Y * &self.instance.t_smax) }
                     );
                     (term9, term_B_zk)
                 };
@@ -2415,22 +2408,10 @@ impl Prover {
                             dims: vec![m_i, s_max]
                         },],
                         {
-                            let term9_constant =
-                                t_mi_eval * self.mixer.rB_X[0] + t_s_max_eval * self.mixer.rB_Y[0];
-                            let term9_x = t_mi_eval * self.mixer.rB_X[1];
-                            let term9_y = t_s_max_eval * self.mixer.rB_Y[1];
-                            let r_D1_term9 = poly_comb!(
-                                (term9_constant, r_D1),
-                                (term9_x, r_D1.mul_monomial(1, 0)),
-                                (term9_y, r_D1.mul_monomial(0, 1))
-                            );
-                            let r_D1_term9_one_minus_x =
-                                &r_D1_term9 - &r_D1_term9.mul_monomial(1, 0);
-                            let term10_chi_minus_x = &(&term10 * &chi) - &term10.mul_monomial(1, 0);
                             poly_comb!(
                                 ((chi - ScalarField::one()) * r_D1_eval, term_B_zk),
-                                (ScalarField::one(), r_D1_term9_one_minus_x),
-                                (ScalarField::one(), term10_chi_minus_x)
+                                (&ScalarField::one() - &X_mono, &r_D1 * &term9),
+                                (term10, (&chi - &X_mono))
                             )
                         }
                     ),
