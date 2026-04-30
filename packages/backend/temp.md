@@ -313,6 +313,59 @@ The largest detail targets are:
 
 This measurement shows that multiplication is still the largest combine component, but repeated addition and resizing are also large enough that further optimization should not focus only on multiplication count.
 
+## Special-Form Polynomial Multiplication Inventory
+
+This inventory uses the current code after the algebraic-combination rewrite. The detail timing run reports 23 generic `DensePolynomialExt * DensePolynomialExt` calls inside active `poly.combine.*` spans.
+
+The directly exploitable special-form count is 18 out of 23. If the separable boundary Lagrange product `lagrange_KL_XY` is treated as a special-form multiplier, the count becomes 19 out of 23. The remaining 4 multiplications are dense-by-dense and do not currently have an obvious special-form shortcut.
+
+| target | expression | form | status |
+| --- | --- | --- | --- |
+| `prove0.W` | `rW_X * t_n` | low-degree univariate times vanishing binomial `X^n - 1` | direct special-form |
+| `prove0.W` | `rW_Y * t_smax` | low-degree univariate times vanishing binomial `Y^s - 1` | direct special-form |
+| `prove0.B` | `rB_X * t_mi` | degree-1 univariate times vanishing binomial `X^m - 1` | direct special-form |
+| `prove0.B` | `rB_Y * t_smax` | degree-1 univariate times vanishing binomial `Y^s - 1` | direct special-form |
+| `prove0.p0XY` | `uXY * vXY` | dense by dense | no special form |
+| `prove2.p_comb` | `rXY * gXY` | dense by dense | no special form |
+| `prove2.p_comb` | `(rXY - 1) * lagrange_KL_XY` | dense times separable boundary Lagrange product | structured but not direct |
+| `prove2.p_comb` | `r_omegaX * fXY` | dense by dense | no special form |
+| `prove2.p_comb` | `(X - 1) * (...)` | binomial times dense | direct special-form |
+| `prove2.p_comb` | `r_omegaX_omegaY * fXY` | dense by dense | no special form |
+| `prove2.p_comb` | `lagrange_K0_XY * (...)` | univariate `K0(X)` Lagrange polynomial times dense | direct special-form, but previous CPU-loop attempt was poor |
+| `prove2.Q_CX` | `rB_X * r_D1` | degree-1 univariate times dense | direct special-form |
+| `prove2.Q_CX` | `(X - 1) * d1_comb` | binomial times dense | direct special-form |
+| `prove2.Q_CX` | `rB_X * r_D2` | degree-1 univariate times dense | direct special-form |
+| `prove2.Q_CX` | `lagrange_K0_XY * d2_comb` | univariate `K0(X)` Lagrange polynomial times dense | direct special-form, but needs non-CPU-loop implementation |
+| `prove2.Q_CY` | `rB_Y * r_D1` | degree-1 univariate times dense | direct special-form |
+| `prove2.Q_CY` | `(X - 1) * d1_comb` | binomial times dense | direct special-form |
+| `prove2.Q_CY` | `rB_Y * r_D2` | degree-1 univariate times dense | direct special-form |
+| `prove2.Q_CY` | `lagrange_K0_XY * d2_comb` | univariate `K0(X)` Lagrange polynomial times dense | direct special-form, but needs non-CPU-loop implementation |
+| `prove4.LHS_zk1` | `r_D1 * term9` | dense times sparse low-degree `term9` | direct special-form |
+| `prove4.LHS_zk1` | `(1 - X) * (...)` | binomial times dense | direct special-form |
+| `prove4.LHS_zk2` | `r_D2 * term9` | dense times sparse low-degree `term9` | direct special-form |
+| `prove4.LHS_zk2` | `lagrange_K0_XY * (...)` | univariate `K0(X)` Lagrange polynomial times dense | direct special-form, but needs non-CPU-loop implementation |
+
+Count summary:
+
+| category | count | share |
+| --- | ---: | ---: |
+| direct special-form candidates | 18 | 78.3% |
+| structured but not direct (`lagrange_KL_XY`) | 1 | 4.3% |
+| dense-by-dense, no obvious shortcut | 4 | 17.4% |
+| total generic polynomial multiplications in `poly.combine` spans | 23 | 100.0% |
+
+Special-form breakdown:
+
+| form | count |
+| --- | ---: |
+| vanishing binomial or simple binomial times polynomial | 8 |
+| degree-1 or low-degree univariate times polynomial | 4 |
+| `lagrange_K0_XY` times polynomial | 4 |
+| sparse low-degree `term9` times polynomial | 2 |
+| separable `lagrange_KL_XY` times polynomial, structured but not direct | 1 |
+
+The previous rejected special-multiplication attempt used CPU-side loops for some of these forms. The inventory suggests the idea is still worth revisiting only if the implementation is built from existing GPU-backed polynomial APIs or a dedicated GPU path. The most attractive direct targets are the binomial and low-degree univariate cases, because they can be expressed as a small number of shifts, scalings, and additions.
+
 ## Suggested Application Order
 
 1. Apply `Q_CX/Q_CY` factorization.
