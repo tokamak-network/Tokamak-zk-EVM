@@ -909,7 +909,7 @@ impl Prover {
                 "build",
                 vec![crate::timing::SizeInfo {
                     label: "O_mid_core",
-                    dims: vec![l_d, 1]
+                    dims: vec![setup_params.l_D, 1]
                 },],
                 {
                     sigma.sigma1().encode_O_mid_no_zk(
@@ -925,7 +925,7 @@ impl Prover {
                 "build",
                 vec![crate::timing::SizeInfo {
                     label: "O_prv_core",
-                    dims: vec![l_d, 1]
+                    dims: vec![setup_params.l_D, 1]
                 },],
                 {
                     sigma.sigma1().encode_O_prv_no_zk(

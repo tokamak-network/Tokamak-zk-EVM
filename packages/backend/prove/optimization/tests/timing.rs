@@ -4,6 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
+use libs::utils::check_device;
 use prove::{ProveInputPaths, Prover, TranscriptManager};
 
 #[cfg(feature = "timing")]
@@ -18,12 +19,13 @@ struct StageSummary {
 }
 
 #[cfg(feature = "timing")]
+#[allow(non_snake_case)]
 #[derive(serde::Serialize)]
 struct SetupParamsSummary {
+    l_free: usize,
     l: usize,
     l_user_out: usize,
     l_user: usize,
-    l_block: usize,
     l_D: usize,
     m_D: usize,
     n: usize,
@@ -85,15 +87,16 @@ fn timing_prove_stages() {
         output_path: &output_path,
     };
 
+    check_device();
     timing::reset();
     let wall_start = Instant::now();
 
     let (mut prover, _binding) = Prover::init(&paths);
     let setup_params = SetupParamsSummary {
+        l_free: prover.setup_params.l_free,
         l: prover.setup_params.l,
         l_user_out: prover.setup_params.l_user_out,
         l_user: prover.setup_params.l_user,
-        l_block: prover.setup_params.l_block,
         l_D: prover.setup_params.l_D,
         m_D: prover.setup_params.m_D,
         n: prover.setup_params.n,

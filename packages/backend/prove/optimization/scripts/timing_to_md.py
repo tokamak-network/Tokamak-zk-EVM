@@ -166,6 +166,7 @@ def build_report(data: dict) -> str:
         lines.append("| param | value |")
         lines.append("| --- | --- |")
         for key in [
+            "l_free",
             "l",
             "l_user_out",
             "l_user",
