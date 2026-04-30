@@ -761,8 +761,12 @@ impl BivariatePolynomial for DensePolynomialExt {
         if evals.len() < size {
             panic!("Insufficient buffer length for to_rou_evals")
         }
+        let mut coeffs_vec = vec![Self::Field::zero(); self.x_size * self.y_size];
+        let coeffs = HostSlice::from_mut_slice(&mut coeffs_vec);
+        self.copy_coeffs(0, coeffs);
+
         let mut in_mat = DeviceVec::<ScalarField>::device_malloc(size).unwrap();
-        self.copy_coeffs(0, &mut in_mat[..]);
+        in_mat.copy_from_host(coeffs).unwrap();
 
         let ntt_dir = ntt::NTTDir::kForward;
         Self::_biNTT(
