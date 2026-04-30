@@ -13,6 +13,8 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 | `timing.remote.r1cs-binary-sparse.cuda.json` | 32.728363 s | 1.889289 s | 10.128410 s | 0.282576 s | 1.206917 s |
 | `timing.remote.s0s1-pow-cache.cuda.json` | 31.712050 s | 0.748165 s | 10.152243 s | 0.286227 s | 0.057586 s |
 | `timing.remote.fused-poly-lc.cuda.json` | 32.072216 s | 0.736439 s | 10.430511 s | 0.288673 s | 0.054418 s |
+| `timing.remote.special-poly-mul.cuda.json` | 31.536390 s | 0.736913 s | 10.054102 s | 0.286999 s | 0.054550 s |
+| `timing.remote.special-poly-mul-lite.cuda.json` | 31.318987 s | 0.732530 s | 9.901451 s | 0.283615 s | 0.054247 s |
 
 ## Successful Changes
 
@@ -41,6 +43,27 @@ This report summarizes the CUDA prove optimization experiments performed on the 
    | `timing.local.cpu.s0s1-pow-cache.json` | 5.425999 s | 0.115509 s |
 
    The CPU total wall time had run-to-run noise (`56.905538 s` to `57.162002 s`), but the targeted stage improved clearly.
+
+4. **Special-form polynomial multiplication was accepted in targeted form.**
+
+   Several `prove4` linear combinations multiply by special polynomials where a generic NTT-based multiplication is unnecessary:
+
+   - `t_n` and `t_smax` are two-term vanishing polynomials.
+   - `X_mono` is a monomial.
+   - `term9` is a small sparse polynomial in the measured proof.
+
+   The accepted implementation adds shift/scale coefficient helpers for these cases and uses them in `Pi_A`, `term_B_zk`, and `LHS_zk1`. The accepted variant keeps `lagrange_K0_XY` multiplication on the existing generic path because the measured CPU prefix-window replacement was slower than ICICLE's generic multiplication for `LHS_zk2`.
+
+   | metric | before | special-lite | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 31.712050 s | 31.318987 s | -0.393063 s |
+   | prove4 total | 10.152243 s | 9.901451 s | -0.250793 s |
+   | prove4 poly | 7.805363 s | 7.532867 s | -0.272497 s |
+   | `poly.combine.prove4.Pi_A` | 0.913962 s | 0.906991 s | -0.006971 s |
+   | `poly.combine.prove4.term_B_zk` | 0.126669 s | 0.129554 s | +0.002885 s |
+   | `poly.combine.prove4.LHS_zk1` | 1.335036 s | 1.249776 s | -0.085260 s |
+   | `poly.combine.prove4.LHS_zk2` | 1.214135 s | 1.233239 s | +0.019104 s |
+   | `poly.combine.prove4.LHS_for_copy` | 0.783756 s | 0.587478 s | -0.196279 s |
 
 ## Failed Or Rejected Changes
 
@@ -74,14 +97,27 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 
    The likely reason is that `execute_program` setup plus coefficient-vector preparation outweighed the saved scalar-mul/add passes, especially for the 5-term `pC` combine. This experiment should not be kept as a general optimization.
 
+3. **Generic replacement of `lagrange_K0_XY` multiplication was tested and rejected.**
+
+   `lagrange_K0_XY` has constant coefficients, so it is not a fully generic dense polynomial. However, the measured replacement used a CPU prefix-window convolution and regressed `LHS_zk2`.
+
+   | metric | before | lagrange replacement | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 31.712050 s | 31.536390 s | -0.175661 s |
+   | prove4 total | 10.152243 s | 10.054102 s | -0.098141 s |
+   | prove4 poly | 7.805363 s | 7.728992 s | -0.076371 s |
+   | `poly.combine.prove4.LHS_zk2` | 1.214135 s | 1.737784 s | +0.523649 s |
+
+   The total still improved because other special-form replacements helped, but the `lagrange_K0_XY` sub-change was clearly negative. The accepted code therefore excludes it.
+
 ## Current Accepted Baseline
 
-The current accepted CUDA baseline is `timing.remote.s0s1-pow-cache.cuda.json`:
+The current accepted CUDA baseline is `timing.remote.special-poly-mul-lite.cuda.json`:
 
-- total wall: `31.712050 s`
-- init: `0.748165 s`
-- prove4: `10.152243 s`
-- uvwXY: `0.286227 s`
-- s0/s1: `0.057586 s`
+- total wall: `31.318987 s`
+- init: `0.732530 s`
+- prove4: `9.901451 s`
+- uvwXY: `0.283615 s`
+- s0/s1: `0.054247 s`
 
-Future optimization should treat `prove2.div_by_vanishing_opt` and selected `prove4` polynomial operations as the next higher-value targets. Fused linear combination should only be reconsidered in a targeted form if it excludes the regressing sites and is measured one site at a time.
+Future optimization should treat `prove2.div_by_vanishing_opt` and selected `prove4` polynomial operations as the next higher-value targets. Fused linear combination and `lagrange_K0_XY` special multiplication should only be reconsidered in narrower forms if they are measured one site at a time.

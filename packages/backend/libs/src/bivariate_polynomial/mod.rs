@@ -115,6 +115,97 @@ impl DensePolynomialExt {
         }
         return false;
     }
+
+    fn shifted_scaled_sum(&self, terms: &[(usize, usize, ScalarField)]) -> Self {
+        if terms.is_empty() {
+            return Self::zero();
+        }
+
+        let max_x_shift = terms.iter().map(|(x_shift, _, _)| *x_shift).max().unwrap();
+        let max_y_shift = terms.iter().map(|(_, y_shift, _)| *y_shift).max().unwrap();
+        let (new_x_size, new_y_size) =
+            _find_size_as_twopower(self.x_size + max_x_shift, self.y_size + max_y_shift);
+
+        let mut orig_coeffs_vec = vec![ScalarField::zero(); self.x_size * self.y_size];
+        self.copy_coeffs(0, HostSlice::from_mut_slice(&mut orig_coeffs_vec));
+
+        let mut res_coeffs_vec = vec![ScalarField::zero(); new_x_size * new_y_size];
+        for (x_shift, y_shift, scale) in terms {
+            if *scale == ScalarField::zero() {
+                continue;
+            }
+            for x_idx in 0..self.x_size {
+                let src_row_start = x_idx * self.y_size;
+                let dst_row_start = (x_idx + *x_shift) * new_y_size + *y_shift;
+                for y_idx in 0..self.y_size {
+                    let coeff = orig_coeffs_vec[src_row_start + y_idx];
+                    if coeff != ScalarField::zero() {
+                        res_coeffs_vec[dst_row_start + y_idx] =
+                            res_coeffs_vec[dst_row_start + y_idx] + coeff * *scale;
+                    }
+                }
+            }
+        }
+
+        DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&res_coeffs_vec),
+            new_x_size,
+            new_y_size,
+        )
+    }
+
+    pub fn mul_by_x_power_minus_one(&self, x_exponent: usize) -> Self {
+        self.shifted_scaled_sum(&[
+            (x_exponent, 0, ScalarField::one()),
+            (0, 0, ScalarField::zero() - ScalarField::one()),
+        ])
+    }
+
+    pub fn mul_by_y_power_minus_one(&self, y_exponent: usize) -> Self {
+        self.shifted_scaled_sum(&[
+            (0, y_exponent, ScalarField::one()),
+            (0, 0, ScalarField::zero() - ScalarField::one()),
+        ])
+    }
+
+    pub fn mul_by_scalar_minus_x_power(&self, scalar: ScalarField, x_exponent: usize) -> Self {
+        self.shifted_scaled_sum(&[
+            (0, 0, scalar),
+            (x_exponent, 0, ScalarField::zero() - ScalarField::one()),
+        ])
+    }
+
+    pub fn mul_by_scalar_minus_y_power(&self, scalar: ScalarField, y_exponent: usize) -> Self {
+        self.shifted_scaled_sum(&[
+            (0, 0, scalar),
+            (0, y_exponent, ScalarField::zero() - ScalarField::one()),
+        ])
+    }
+
+    pub fn mul_by_one_minus_x(&self) -> Self {
+        self.mul_by_scalar_minus_x_power(ScalarField::one(), 1)
+    }
+
+    pub fn mul_by_scalar_minus_x(&self, scalar: ScalarField) -> Self {
+        self.mul_by_scalar_minus_x_power(scalar, 1)
+    }
+
+    pub fn mul_by_sparse_poly(&self, rhs: &DensePolynomialExt) -> Self {
+        let mut rhs_coeffs_vec = vec![ScalarField::zero(); rhs.x_size * rhs.y_size];
+        rhs.copy_coeffs(0, HostSlice::from_mut_slice(&mut rhs_coeffs_vec));
+
+        let mut terms = Vec::new();
+        for x_idx in 0..rhs.x_size {
+            for y_idx in 0..rhs.y_size {
+                let coeff = rhs_coeffs_vec[x_idx * rhs.y_size + y_idx];
+                if coeff != ScalarField::zero() {
+                    terms.push((x_idx, y_idx, coeff));
+                }
+            }
+        }
+
+        self.shifted_scaled_sum(&terms)
+    }
 }
 
 // impl Drop for DensePolynomialExt {

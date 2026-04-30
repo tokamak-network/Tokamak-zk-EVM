@@ -1906,8 +1906,17 @@ impl Prover {
                                         + (self.mixer.rU_Y * t_smax_eval)),
                                 self.witness.vXY
                             ),
-                            (rW_X, &t_n_eval - &self.instance.t_n),
-                            (rW_Y, &t_smax_eval - &self.instance.t_smax)
+                            (
+                                ScalarField::one(),
+                                rW_X.mul_by_scalar_minus_x_power(t_n_eval + ScalarField::one(), _n)
+                            ),
+                            (
+                                ScalarField::one(),
+                                rW_Y.mul_by_scalar_minus_y_power(
+                                    t_smax_eval + ScalarField::one(),
+                                    s_max
+                                )
+                            )
                         )
                     }
                 );
@@ -2376,7 +2385,10 @@ impl Prover {
                             label: "rB",
                             dims: vec![m_i, s_max]
                         },],
-                        { &(&rB_X * &self.instance.t_mi) + &(&rB_Y * &self.instance.t_smax) }
+                        {
+                            &rB_X.mul_by_x_power_minus_one(m_i)
+                                + &rB_Y.mul_by_y_power_minus_one(s_max)
+                        }
                     );
                     (term9, term_B_zk)
                 };
@@ -2408,10 +2420,11 @@ impl Prover {
                             dims: vec![m_i, s_max]
                         },],
                         {
+                            let r_D1_term9 = r_D1.mul_by_sparse_poly(&term9);
                             poly_comb!(
                                 ((chi - ScalarField::one()) * r_D1_eval, term_B_zk),
-                                (&ScalarField::one() - &X_mono, &r_D1 * &term9),
-                                (term10, (&chi - &X_mono))
+                                (ScalarField::one(), r_D1_term9.mul_by_one_minus_x()),
+                                (ScalarField::one(), term10.mul_by_scalar_minus_x(chi))
                             )
                         }
                     ),
