@@ -104,9 +104,25 @@ names, CRS provenance, and `compatibleBackendVersion` fields must already be can
 
 Subcircuit package versions are not sufficient to prove CRS compatibility.
 
-Backend build metadata records the subcircuit library `sourceDigest`. This digest identifies the actual compiled
-subcircuit-library contents embedded into or used by the backend binary. A patch release may reuse the same CRS only when
-the backend binaries and the CRS metadata report the same subcircuit `sourceDigest`.
+Backend build metadata records the subcircuit library `sourceDigest`. This digest identifies only the subcircuit files
+that affect CRS compatibility. A patch release may reuse the same CRS when the backend binaries and the CRS metadata
+report the same subcircuit `sourceDigest`.
+
+The source digest input set is intentionally narrow. It includes exactly these qap-compiler package paths:
+
+```text
+subcircuits/circom/constants.circom
+subcircuits/library/r1cs/*
+subcircuits/library/wasm/*
+subcircuits/library/json/*
+subcircuits/library/frontendCfg.json
+subcircuits/library/globalWireList.json
+subcircuits/library/setupParams.json
+subcircuits/library/subcircuitInfo.json
+```
+
+The source digest must not include package metadata, changelogs, generated witness helper JavaScript files, diagnostic
+`info` output, or other files that do not change the CRS-relevant circuit artifacts.
 
 The required rule is:
 

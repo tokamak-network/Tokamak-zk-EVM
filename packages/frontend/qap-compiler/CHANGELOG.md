@@ -39,6 +39,7 @@ The format is based on Keep a Changelog.
 - Bumped the backend Rust workspace version to `2.0.15`.
 - Recorded the CLI-compatible backend version in backend build metadata.
 - Recorded subcircuit-library source digests in backend build metadata for CRS compatibility checks.
+- Restricted the subcircuit source digest to CRS-relevant constants, r1cs, wasm, json, and library configuration artifacts.
 - Changed dusk-backed MPC setup provenance and CRS archive naming to use the `MAJOR.MINOR` compatibility version.
 - Added pre-publication validation that rejects CRS provenance or build metadata that does not match the CLI-compatible backend version.
 

@@ -14,15 +14,25 @@ const DECLARED_RANGE: &str = "latest";
 const RUNTIME_MODE: &str = "bundled";
 const SNAPSHOT_ROOT_DIR: &str = "embedded-subcircuit-library";
 const SNAPSHOT_INFO_FILE: &str = "resolved.json";
+const SNAPSHOT_CIRCOM_DIR: &str = "circom";
+const SNAPSHOT_CONSTANTS_FILE: &str = "constants.circom";
 const SNAPSHOT_LIBRARY_DIR: &str = "library";
 const LOCAL_BUILD_ROOT_DIR: &str = "local-subcircuit-library";
 const LOCAL_BUILD_LOCK_FILE: &str = "local-subcircuit-library.lock";
 const QAP_COMPILER_SCRIPT: &str = "scripts/qap-compiler.mjs";
+const DIGEST_LIBRARY_DIRECTORIES: &[&str] = &["json", "r1cs", "wasm"];
+const DIGEST_LIBRARY_FILES: &[&str] = &[
+    "frontendCfg.json",
+    "globalWireList.json",
+    "setupParams.json",
+    "subcircuitInfo.json",
+];
 
 pub struct ResolvedSubcircuitLibrary {
     pub version: String,
     pub integrity: String,
     pub source_digest: String,
+    pub constants_path: PathBuf,
     pub snapshot_dir: PathBuf,
     pub release_dir: PathBuf,
 }
@@ -64,7 +74,9 @@ pub fn configure_local_subcircuit_library_for_mpc_setup(
     }
 
     let compatible_backend_version = read_cli_compatible_backend_version(package_version)?;
-    println!("cargo:rustc-env=TOKAMAK_ZKEVM_COMPATIBLE_BACKEND_VERSION={compatible_backend_version}");
+    println!(
+        "cargo:rustc-env=TOKAMAK_ZKEVM_COMPATIBLE_BACKEND_VERSION={compatible_backend_version}"
+    );
 
     let library = prepare_local_subcircuit_library()?;
     emit_local_build_metadata(
@@ -105,16 +117,20 @@ pub fn prepare_release_subcircuit_library() -> io::Result<Option<ResolvedSubcirc
         sanitize(&npm_view.version),
         short_hash(&npm_view.integrity)
     ));
+    let constants_path = unpack_root
+        .join(SNAPSHOT_CIRCOM_DIR)
+        .join(SNAPSHOT_CONSTANTS_FILE);
     let snapshot_dir = unpack_root.join(SNAPSHOT_LIBRARY_DIR);
 
-    if !snapshot_dir.exists() {
+    if !constants_path.exists() || !snapshot_dir.exists() {
         fetch_and_unpack_snapshot(&snapshot_root, &unpack_root, &npm_view.version)?;
     }
 
     let snapshot = ResolvedSubcircuitLibrary {
         version: npm_view.version,
         integrity: npm_view.integrity,
-        source_digest: digest_library_files(&snapshot_dir)?,
+        source_digest: digest_subcircuit_source(&constants_path, &snapshot_dir)?,
+        constants_path,
         snapshot_dir,
         release_dir,
     };
@@ -153,6 +169,22 @@ fn prepare_local_subcircuit_library() -> io::Result<LocalSubcircuitLibrary> {
         fs::remove_dir_all(&staging_root)?;
     }
     run_qap_compiler_build(&qap_root, &staging_library_dir)?;
+    let staging_constants_path = staging_root
+        .join(SNAPSHOT_CIRCOM_DIR)
+        .join(SNAPSHOT_CONSTANTS_FILE);
+    fs::create_dir_all(staging_constants_path.parent().ok_or_else(|| {
+        io::Error::other(format!(
+            "cannot derive parent directory for {}",
+            staging_constants_path.display()
+        ))
+    })?)?;
+    fs::copy(
+        qap_root
+            .join("subcircuits")
+            .join(SNAPSHOT_CIRCOM_DIR)
+            .join(SNAPSHOT_CONSTANTS_FILE),
+        &staging_constants_path,
+    )?;
 
     if !staging_library_dir.join("setupParams.json").exists() {
         return Err(io::Error::other(format!(
@@ -161,7 +193,7 @@ fn prepare_local_subcircuit_library() -> io::Result<LocalSubcircuitLibrary> {
         )));
     }
 
-    let source_digest = digest_library_files(&staging_library_dir)?;
+    let source_digest = digest_subcircuit_source(&staging_constants_path, &staging_library_dir)?;
     let snapshot_dir = build_root.join(format!(
         "{}-{}",
         sanitize(&version),
@@ -404,7 +436,9 @@ fn emit_cli_package_rerun_rule() {
 fn strict_major_minor(value: &str, label: &str) -> io::Result<String> {
     let parts = value.split('.').collect::<Vec<_>>();
     if parts.len() != 2
-        || parts.iter().any(|part| part.is_empty() || !part.chars().all(|ch| ch.is_ascii_digit()))
+        || parts
+            .iter()
+            .any(|part| part.is_empty() || !part.chars().all(|ch| ch.is_ascii_digit()))
     {
         return Err(io::Error::other(format!(
             "{label} must be strict MAJOR.MINOR, got {value:?}"
@@ -420,7 +454,9 @@ fn strict_major_minor(value: &str, label: &str) -> io::Result<String> {
 fn package_major_minor(value: &str, label: &str) -> io::Result<String> {
     let parts = value.split('.').collect::<Vec<_>>();
     if parts.len() != 3
-        || parts.iter().any(|part| part.is_empty() || !part.chars().all(|ch| ch.is_ascii_digit()))
+        || parts
+            .iter()
+            .any(|part| part.is_empty() || !part.chars().all(|ch| ch.is_ascii_digit()))
     {
         return Err(io::Error::other(format!(
             "{label} must be strict MAJOR.MINOR.PATCH, got {value:?}"
@@ -451,10 +487,8 @@ fn read_cli_compatible_backend_version(package_version: &str) -> io::Result<Stri
             ))
         })?;
 
-    let normalized_compatible = strict_major_minor(
-        compatible_version,
-        "tokamakZkEvm.compatibleBackendVersion",
-    )?;
+    let normalized_compatible =
+        strict_major_minor(compatible_version, "tokamakZkEvm.compatibleBackendVersion")?;
     let cli_major_minor = package_major_minor(cli_version, "CLI package version")?;
     let backend_major_minor = package_major_minor(package_version, "backend package version")?;
 
@@ -595,15 +629,31 @@ fn fetch_and_unpack_snapshot(
     }
 
     let package_root = unpack_root.join("package");
-    let source_root = package_root.join("subcircuits").join("library");
-    if !source_root.exists() {
+    let package_subcircuits = package_root.join("subcircuits");
+    let source_library_root = package_subcircuits.join(SNAPSHOT_LIBRARY_DIR);
+    if !source_library_root.exists() {
         return Err(io::Error::other(format!(
             "packed npm package does not contain subcircuits/library at {}",
-            source_root.display()
+            source_library_root.display()
         )));
     }
-    let target_root = unpack_root.join(SNAPSHOT_LIBRARY_DIR);
-    fs::rename(source_root, &target_root)?;
+    let source_constants_path = package_subcircuits
+        .join(SNAPSHOT_CIRCOM_DIR)
+        .join(SNAPSHOT_CONSTANTS_FILE);
+    if !source_constants_path.exists() {
+        return Err(io::Error::other(format!(
+            "packed npm package does not contain subcircuits/circom/constants.circom at {}",
+            source_constants_path.display()
+        )));
+    }
+    let target_library_root = unpack_root.join(SNAPSHOT_LIBRARY_DIR);
+    fs::rename(source_library_root, &target_library_root)?;
+    let target_circom_root = unpack_root.join(SNAPSHOT_CIRCOM_DIR);
+    fs::create_dir_all(&target_circom_root)?;
+    fs::rename(
+        source_constants_path,
+        target_circom_root.join(SNAPSHOT_CONSTANTS_FILE),
+    )?;
     let _ = fs::remove_dir_all(package_root);
     let _ = fs::remove_file(tarball_path);
     Ok(())
@@ -646,37 +696,89 @@ fn emit_local_qap_rerun_rules() {
     println!("cargo:rerun-if-env-changed=PATH");
 }
 
-fn collect_digest_files(root: &Path, current: &Path, files: &mut Vec<String>) -> io::Result<()> {
-    for entry in fs::read_dir(current)? {
+struct DigestInput {
+    logical_path: String,
+    absolute_path: PathBuf,
+}
+
+fn push_digest_input(
+    files: &mut Vec<DigestInput>,
+    logical_path: impl Into<String>,
+    absolute_path: PathBuf,
+) -> io::Result<()> {
+    if !absolute_path.is_file() {
+        return Err(io::Error::other(format!(
+            "subcircuit source digest input is missing: {}",
+            absolute_path.display()
+        )));
+    }
+    files.push(DigestInput {
+        logical_path: logical_path.into(),
+        absolute_path,
+    });
+    Ok(())
+}
+
+fn collect_digest_directory(
+    files: &mut Vec<DigestInput>,
+    logical_prefix: &str,
+    directory: &Path,
+) -> io::Result<()> {
+    if !directory.is_dir() {
+        return Err(io::Error::other(format!(
+            "subcircuit source digest directory is missing: {}",
+            directory.display()
+        )));
+    }
+    for entry in fs::read_dir(directory)? {
         let entry = entry?;
         let path = entry.path();
-        if path.is_dir() {
-            if path.file_name().and_then(|name| name.to_str()) == Some("info") {
-                continue;
-            }
-            collect_digest_files(root, &path, files)?;
-            continue;
+        if !path.is_file() {
+            return Err(io::Error::other(format!(
+                "subcircuit source digest directory contains unexpected non-file entry: {}",
+                path.display()
+            )));
         }
-        let relative = path
-            .strip_prefix(root)
-            .map_err(io::Error::other)?
-            .to_string_lossy()
-            .replace('\\', "/");
-        files.push(relative);
+        let name = entry.file_name();
+        let name = name.to_str().ok_or_else(|| {
+            io::Error::other(format!(
+                "subcircuit source digest input has non-UTF-8 file name: {}",
+                path.display()
+            ))
+        })?;
+        push_digest_input(files, format!("{logical_prefix}/{name}"), path)?;
     }
     Ok(())
 }
 
-fn digest_library_files(root: &Path) -> io::Result<String> {
+fn digest_subcircuit_source(constants_path: &Path, library_dir: &Path) -> io::Result<String> {
     let mut files = Vec::new();
-    collect_digest_files(root, root, &mut files)?;
-    files.sort();
+    push_digest_input(
+        &mut files,
+        "circom/constants.circom",
+        constants_path.to_path_buf(),
+    )?;
+    for file in DIGEST_LIBRARY_FILES {
+        push_digest_input(
+            &mut files,
+            format!("library/{file}"),
+            library_dir.join(file),
+        )?;
+    }
+    for directory in DIGEST_LIBRARY_DIRECTORIES {
+        collect_digest_directory(
+            &mut files,
+            &format!("library/{directory}"),
+            &library_dir.join(directory),
+        )?;
+    }
+    files.sort_by(|left, right| left.logical_path.cmp(&right.logical_path));
 
     let mut hash = 0xcbf29ce484222325u64;
     for file in files {
-        digest_bytes(&mut hash, file.as_bytes());
-        digest_bytes(&mut hash, &(file.len() as u64).to_le_bytes());
-        digest_bytes(&mut hash, &fs::read(root.join(file))?);
+        digest_bytes(&mut hash, file.logical_path.as_bytes());
+        digest_bytes(&mut hash, &(file.logical_path.len() as u64).to_le_bytes());
+        digest_bytes(&mut hash, &fs::read(file.absolute_path)?);
     }
     Ok(format!("{hash:016x}"))
 }
@@ -733,7 +835,14 @@ fn try_read_snapshot(
             .and_then(Value::as_str)
             .ok_or_else(|| io::Error::other("resolved snapshot metadata missing snapshotDir"))?,
     );
+    let Some(constants_path) = value.get("constantsPath").and_then(Value::as_str) else {
+        return Ok(None);
+    };
+    let constants_path = PathBuf::from(constants_path);
     if !snapshot_dir.exists() {
+        return Ok(None);
+    }
+    if !constants_path.exists() {
         return Ok(None);
     }
     let package_name = value
@@ -760,7 +869,8 @@ fn try_read_snapshot(
     Ok(Some(ResolvedSubcircuitLibrary {
         version,
         integrity,
-        source_digest: digest_library_files(&snapshot_dir)?,
+        source_digest: digest_subcircuit_source(&constants_path, &snapshot_dir)?,
+        constants_path,
         snapshot_dir,
         release_dir: release_dir.to_path_buf(),
     }))
@@ -772,6 +882,7 @@ fn write_snapshot_info(path: &Path, snapshot: &ResolvedSubcircuitLibrary) -> io:
         "version": snapshot.version,
         "integrity": snapshot.integrity,
         "sourceDigest": snapshot.source_digest,
+        "constantsPath": snapshot.constants_path,
         "snapshotDir": snapshot.snapshot_dir,
     });
     fs::write(
