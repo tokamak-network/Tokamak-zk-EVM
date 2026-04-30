@@ -16,6 +16,8 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 | `timing.remote.special-poly-mul.cuda.json` | 31.536390 s | 0.736913 s | 10.054102 s | 0.286999 s | 0.054550 s |
 | `timing.remote.special-poly-mul-lite.cuda.json` | 31.318987 s | 0.732530 s | 9.901451 s | 0.283615 s | 0.054247 s |
 | `timing.remote.existing-api-special-poly-mul.cuda.json` | 31.237394 s | 0.737941 s | 9.939695 s | 0.289162 s | 0.053828 s |
+| `timing.remote.batch-encode.cuda.json` | 31.744249 s | 0.736217 s | 10.721734 s | 0.288986 s | 0.055206 s |
+| `timing.remote.batch-encode-prove0-prove2.cuda.json` | 31.387785 s | 0.743366 s | 10.096364 s | 0.289947 s | 0.055855 s |
 
 ## Successful Changes
 
@@ -44,6 +46,24 @@ This report summarizes the CUDA prove optimization experiments performed on the 
    | `timing.local.cpu.s0s1-pow-cache.json` | 5.425999 s | 0.115509 s |
 
    The CPU total wall time had run-to-run noise (`56.905538 s` to `57.162002 s`), but the targeted stage improved clearly.
+
+4. **Batch encoding was accepted for `prove0` and `prove2`.**
+
+   `encode_poly` is an MSM over the shared `sigma1.xy_powers` bases. ICICLE supports shared-bases batch MSM, so independent encodes can be combined by concatenating coefficient vectors and producing multiple MSM results in one call.
+
+   The accepted implementation adds `batch_encode_poly` and applies it to:
+
+   - `prove0`: `U`, `V`, `W`, `Q_AX`, `Q_AY`, `B`
+   - `prove2`: `Q_CX`, `Q_CY`
+
+   | metric | before | batch prove0/prove2 | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 31.712050 s | 31.387785 s | -0.324265 s |
+   | `prove0.encode` | 2.100660 s | 1.883973 s | -0.216687 s |
+   | `prove2.encode` | 1.668537 s | 1.662291 s | -0.006246 s |
+   | `prove4.encode` | 2.322183 s | 2.313270 s | -0.008913 s |
+
+   The main accepted gain is from `prove0`. `prove2` is close to neutral but stays in the same batch encode path because it is simple and did not regress.
 
 ## Failed Or Rejected Changes
 
@@ -113,14 +133,34 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 
    The `prove4` polynomial combination code was restored to the original generic expression form. The timing artifact is kept as an experiment record, but it is no longer the accepted baseline.
 
+6. **Full prove4 batch encoding was tested and rejected.**
+
+   The first batch encoding experiment also grouped `prove4` sibling pairs:
+
+   - `Pi_AX`, `Pi_AY`
+   - `M_X`, `M_Y`
+   - `N_X`, `N_Y`
+   - `Pi_CX`, `Pi_CY`
+
+   This regressed because the paired Y-side encodes are very small while the batch uses the larger shared base size. The large X-side encodes did not benefit enough to offset that padding and batch preparation cost.
+
+   | metric | before | full batch | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 31.712050 s | 31.744249 s | +0.032199 s |
+   | `prove0.encode` | 2.100660 s | 1.874242 s | -0.226418 s |
+   | `prove2.encode` | 1.668537 s | 1.643627 s | -0.024911 s |
+   | `prove4.encode` | 2.322183 s | 2.918992 s | +0.596809 s |
+
+   The retained code therefore excludes prove4 batch encoding.
+
 ## Current Accepted Baseline
 
-The current accepted CUDA baseline is `timing.remote.s0s1-pow-cache.cuda.json`:
+The current accepted CUDA baseline is `timing.remote.batch-encode-prove0-prove2.cuda.json`:
 
-- total wall: `31.712050 s`
-- init: `0.748165 s`
-- prove4: `10.152243 s`
-- uvwXY: `0.286227 s`
-- s0/s1: `0.057586 s`
+- total wall: `31.387785 s`
+- init: `0.743366 s`
+- prove4: `10.096364 s`
+- uvwXY: `0.289947 s`
+- s0/s1: `0.055855 s`
 
 Future optimization should treat `prove2.div_by_vanishing_opt` and selected `prove4` polynomial operations as the next higher-value targets. Fused linear combination and `lagrange_K0_XY` special multiplication should only be reconsidered in narrower forms if they are measured one site at a time.

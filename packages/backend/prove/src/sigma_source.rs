@@ -54,6 +54,14 @@ impl<'a> Sigma1Handle<'a> {
         self.0.encode_poly(poly, params)
     }
 
+    pub fn batch_encode_poly(
+        &self,
+        polys: &mut [&mut DensePolynomialExt],
+        params: &SetupParams,
+    ) -> Vec<G1serde> {
+        self.0.batch_encode_poly(polys, params)
+    }
+
     pub fn encode_O_pub_free(
         &self,
         placement_variables: &[PlacementVariables],

@@ -1121,120 +1121,38 @@ impl Prover {
             self.mixer.rW_Y.len(),
         );
 
-        let U = {
-            let mut UXY = poly_comb!(
-                (ScalarField::one(), self.witness.uXY),
-                (self.mixer.rU_X, self.instance.t_n),
-                (self.mixer.rU_Y, self.instance.t_smax)
-            );
-            crate::time_block!(
-                "prove0.encode.U",
-                "encode",
-                vec![crate::timing::SizeInfo {
-                    label: "U",
-                    dims: vec![self.witness.uXY.x_size, self.witness.uXY.y_size]
-                },],
-                {
-                    self.sigma
-                        .sigma1()
-                        .encode_poly(&mut UXY, &self.setup_params)
-                }
-            )
-        };
-
-        let V = {
-            let mut VXY = poly_comb!(
-                (ScalarField::one(), self.witness.vXY),
-                (self.mixer.rV_X, self.instance.t_n),
-                (self.mixer.rV_Y, self.instance.t_smax)
-            );
-            crate::time_block!(
-                "prove0.encode.V",
-                "encode",
-                vec![crate::timing::SizeInfo {
-                    label: "V",
-                    dims: vec![self.witness.vXY.x_size, self.witness.vXY.y_size]
-                },],
-                {
-                    self.sigma
-                        .sigma1()
-                        .encode_poly(&mut VXY, &self.setup_params)
-                }
-            )
-        };
-
-        let W = {
-            let mut WXY = poly_comb!(
-                (ScalarField::one(), self.witness.wXY),
-                (rW_X, self.instance.t_n),
-                (rW_Y, self.instance.t_smax)
-            );
-            crate::time_block!(
-                "prove0.encode.W",
-                "encode",
-                vec![crate::timing::SizeInfo {
-                    label: "W",
-                    dims: vec![self.witness.wXY.x_size, self.witness.wXY.y_size]
-                },],
-                {
-                    self.sigma
-                        .sigma1()
-                        .encode_poly(&mut WXY, &self.setup_params)
-                }
-            )
-        };
-
-        let Q_AX = {
-            let mut Q_AX_XY = poly_comb!(
-                (ScalarField::one(), self.quotients.q0XY),
-                (self.mixer.rU_X, self.witness.vXY),
-                (self.mixer.rV_X, self.witness.uXY),
-                (ScalarField::zero() - ScalarField::one(), rW_X),
-                (self.mixer.rU_X * self.mixer.rV_X, self.instance.t_n),
-                (self.mixer.rU_Y * self.mixer.rV_X, self.instance.t_smax)
-            );
-            crate::time_block!(
-                "prove0.encode.Q_AX",
-                "encode",
-                vec![crate::timing::SizeInfo {
-                    label: "Q_AX",
-                    dims: vec![self.quotients.q0XY.x_size, self.quotients.q0XY.y_size]
-                },],
-                {
-                    self.sigma
-                        .sigma1()
-                        .encode_poly(&mut Q_AX_XY, &self.setup_params)
-                }
-            )
-        };
-
-        let Q_AY = {
-            let mut Q_AY_XY = poly_comb!(
-                (ScalarField::one(), self.quotients.q1XY),
-                (self.mixer.rU_Y, self.witness.vXY),
-                (self.mixer.rV_Y, self.witness.uXY),
-                (ScalarField::zero() - ScalarField::one(), rW_Y),
-                (self.mixer.rU_X * self.mixer.rV_Y, self.instance.t_n),
-                (self.mixer.rU_Y * self.mixer.rV_Y, self.instance.t_smax)
-            );
-            crate::time_block!(
-                "prove0.encode.Q_AY",
-                "encode",
-                vec![crate::timing::SizeInfo {
-                    label: "Q_AY",
-                    dims: vec![self.quotients.q1XY.x_size, self.quotients.q1XY.y_size]
-                },],
-                {
-                    self.sigma
-                        .sigma1()
-                        .encode_poly(&mut Q_AY_XY, &self.setup_params)
-                }
-            )
-        };
-        drop(rW_X);
-        drop(rW_Y);
-
-        let B = {
+        let mut UXY = poly_comb!(
+            (ScalarField::one(), self.witness.uXY),
+            (self.mixer.rU_X, self.instance.t_n),
+            (self.mixer.rU_Y, self.instance.t_smax)
+        );
+        let mut VXY = poly_comb!(
+            (ScalarField::one(), self.witness.vXY),
+            (self.mixer.rV_X, self.instance.t_n),
+            (self.mixer.rV_Y, self.instance.t_smax)
+        );
+        let mut WXY = poly_comb!(
+            (ScalarField::one(), self.witness.wXY),
+            (rW_X, self.instance.t_n),
+            (rW_Y, self.instance.t_smax)
+        );
+        let mut Q_AX_XY = poly_comb!(
+            (ScalarField::one(), self.quotients.q0XY),
+            (self.mixer.rU_X, self.witness.vXY),
+            (self.mixer.rV_X, self.witness.uXY),
+            (ScalarField::zero() - ScalarField::one(), rW_X),
+            (self.mixer.rU_X * self.mixer.rV_X, self.instance.t_n),
+            (self.mixer.rU_Y * self.mixer.rV_X, self.instance.t_smax)
+        );
+        let mut Q_AY_XY = poly_comb!(
+            (ScalarField::one(), self.quotients.q1XY),
+            (self.mixer.rU_Y, self.witness.vXY),
+            (self.mixer.rV_Y, self.witness.uXY),
+            (ScalarField::zero() - ScalarField::one(), rW_Y),
+            (self.mixer.rU_X * self.mixer.rV_Y, self.instance.t_n),
+            (self.mixer.rU_Y * self.mixer.rV_Y, self.instance.t_smax)
+        );
+        let mut BXY = {
             let rB_X = DensePolynomialExt::from_coeffs(
                 HostSlice::from_slice(&self.mixer.rB_X),
                 self.mixer.rB_X.len(),
@@ -1246,21 +1164,36 @@ impl Prover {
                 self.mixer.rB_Y.len(),
             );
             let term_B_zk = &(&rB_X * &self.instance.t_mi) + &(&rB_Y * &self.instance.t_smax);
-            let mut BXY = &self.witness.bXY + &term_B_zk;
-            crate::time_block!(
-                "prove0.encode.B",
-                "encode",
-                vec![crate::timing::SizeInfo {
-                    label: "B",
-                    dims: vec![self.witness.bXY.x_size, self.witness.bXY.y_size]
-                },],
-                {
-                    self.sigma
-                        .sigma1()
-                        .encode_poly(&mut BXY, &self.setup_params)
-                }
-            )
+            &self.witness.bXY + &term_B_zk
         };
+
+        let mut proof0_encodings = crate::time_block!(
+            "prove0.encode.batch",
+            "encode",
+            vec![crate::timing::SizeInfo {
+                label: "U/V/W/Q_AX/Q_AY/B",
+                dims: vec![6, self.setup_params.n, self.setup_params.s_max]
+            },],
+            {
+                self.sigma.sigma1().batch_encode_poly(
+                    &mut [
+                        &mut UXY,
+                        &mut VXY,
+                        &mut WXY,
+                        &mut Q_AX_XY,
+                        &mut Q_AY_XY,
+                        &mut BXY,
+                    ],
+                    &self.setup_params,
+                )
+            }
+        );
+        let U = proof0_encodings.remove(0);
+        let V = proof0_encodings.remove(0);
+        let W = proof0_encodings.remove(0);
+        let Q_AX = proof0_encodings.remove(0);
+        let Q_AY = proof0_encodings.remove(0);
+        let B = proof0_encodings.remove(0);
 
         return Proof0 {
             U,
@@ -1634,13 +1567,13 @@ impl Prover {
         drop(gXY);
         drop(fXY);
 
-        let Q_CX: G1serde = {
+        let mut Q_CX_XY = {
             let rB_X = DensePolynomialExt::from_coeffs(
                 HostSlice::from_slice(&self.mixer.rB_X),
                 self.mixer.rB_X.len(),
                 1,
             );
-            let mut Q_CX_XY = poly_comb!(
+            poly_comb!(
                 (ScalarField::one(), self.quotients.q2XY),
                 (self.mixer.rR_X, lagrange_KL_XY),
                 (
@@ -1653,29 +1586,16 @@ impl Prover {
                     (&(&(&rB_X * &lagrange_K0_XY) * &r_D2)
                         + &(&(&self.mixer.rR_X * &lagrange_K0_XY) * &g_D))
                 )
-            );
-            crate::time_block!(
-                "prove2.encode.Q_CX",
-                "encode",
-                vec![crate::timing::SizeInfo {
-                    label: "Q_CX",
-                    dims: vec![self.quotients.q2XY.x_size, self.quotients.q2XY.y_size]
-                },],
-                {
-                    self.sigma
-                        .sigma1()
-                        .encode_poly(&mut Q_CX_XY, &self.setup_params)
-                }
             )
         };
 
-        let Q_CY: G1serde = {
+        let mut Q_CY_XY = {
             let rB_Y = DensePolynomialExt::from_coeffs(
                 HostSlice::from_slice(&self.mixer.rB_Y),
                 1,
                 self.mixer.rB_Y.len(),
             );
-            let mut Q_CY_XY = poly_comb!(
+            poly_comb!(
                 (ScalarField::one(), self.quotients.q3XY),
                 (self.mixer.rR_Y, lagrange_KL_XY),
                 (
@@ -1688,21 +1608,23 @@ impl Prover {
                     (&(&(&rB_Y * &lagrange_K0_XY) * &r_D2)
                         + &(&(&self.mixer.rR_Y * &lagrange_K0_XY) * &g_D))
                 )
-            );
-            crate::time_block!(
-                "prove2.encode.Q_CY",
-                "encode",
-                vec![crate::timing::SizeInfo {
-                    label: "Q_CY",
-                    dims: vec![self.quotients.q3XY.x_size, self.quotients.q3XY.y_size]
-                },],
-                {
-                    self.sigma
-                        .sigma1()
-                        .encode_poly(&mut Q_CY_XY, &self.setup_params)
-                }
             )
         };
+        let mut q_c_encodings = crate::time_block!(
+            "prove2.encode.Q_C_batch",
+            "encode",
+            vec![crate::timing::SizeInfo {
+                label: "Q_CX/Q_CY",
+                dims: vec![2, m_i, s_max]
+            },],
+            {
+                self.sigma
+                    .sigma1()
+                    .batch_encode_poly(&mut [&mut Q_CX_XY, &mut Q_CY_XY], &self.setup_params)
+            }
+        );
+        let Q_CX = q_c_encodings.remove(0);
+        let Q_CY = q_c_encodings.remove(0);
 
         return Proof2 { Q_CX, Q_CY };
     }
