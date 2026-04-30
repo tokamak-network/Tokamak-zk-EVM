@@ -32,7 +32,6 @@ pub struct ResolvedSubcircuitLibrary {
     pub version: String,
     pub integrity: String,
     pub source_digest: String,
-    pub constants_path: PathBuf,
     pub snapshot_dir: PathBuf,
     pub release_dir: PathBuf,
 }
@@ -117,10 +116,8 @@ pub fn prepare_release_subcircuit_library() -> io::Result<Option<ResolvedSubcirc
         sanitize(&npm_view.version),
         short_hash(&npm_view.integrity)
     ));
-    let constants_path = unpack_root
-        .join(SNAPSHOT_CIRCOM_DIR)
-        .join(SNAPSHOT_CONSTANTS_FILE);
     let snapshot_dir = unpack_root.join(SNAPSHOT_LIBRARY_DIR);
+    let constants_path = constants_path_for_library_dir(&snapshot_dir)?;
 
     if !constants_path.exists() || !snapshot_dir.exists() {
         fetch_and_unpack_snapshot(&snapshot_root, &unpack_root, &npm_view.version)?;
@@ -130,7 +127,6 @@ pub fn prepare_release_subcircuit_library() -> io::Result<Option<ResolvedSubcirc
         version: npm_view.version,
         integrity: npm_view.integrity,
         source_digest: digest_subcircuit_source(&constants_path, &snapshot_dir)?,
-        constants_path,
         snapshot_dir,
         release_dir,
     };
@@ -172,12 +168,7 @@ fn prepare_local_subcircuit_library() -> io::Result<LocalSubcircuitLibrary> {
     let staging_constants_path = staging_root
         .join(SNAPSHOT_CIRCOM_DIR)
         .join(SNAPSHOT_CONSTANTS_FILE);
-    fs::create_dir_all(staging_constants_path.parent().ok_or_else(|| {
-        io::Error::other(format!(
-            "cannot derive parent directory for {}",
-            staging_constants_path.display()
-        ))
-    })?)?;
+    fs::create_dir_all(staging_root.join(SNAPSHOT_CIRCOM_DIR))?;
     fs::copy(
         qap_root
             .join("subcircuits")
@@ -696,13 +687,8 @@ fn emit_local_qap_rerun_rules() {
     println!("cargo:rerun-if-env-changed=PATH");
 }
 
-struct DigestInput {
-    logical_path: String,
-    absolute_path: PathBuf,
-}
-
 fn push_digest_input(
-    files: &mut Vec<DigestInput>,
+    files: &mut Vec<(String, PathBuf)>,
     logical_path: impl Into<String>,
     absolute_path: PathBuf,
 ) -> io::Result<()> {
@@ -712,15 +698,12 @@ fn push_digest_input(
             absolute_path.display()
         )));
     }
-    files.push(DigestInput {
-        logical_path: logical_path.into(),
-        absolute_path,
-    });
+    files.push((logical_path.into(), absolute_path));
     Ok(())
 }
 
 fn collect_digest_directory(
-    files: &mut Vec<DigestInput>,
+    files: &mut Vec<(String, PathBuf)>,
     logical_prefix: &str,
     directory: &Path,
 ) -> io::Result<()> {
@@ -751,6 +734,19 @@ fn collect_digest_directory(
     Ok(())
 }
 
+fn constants_path_for_library_dir(library_dir: &Path) -> io::Result<PathBuf> {
+    Ok(library_dir
+        .parent()
+        .ok_or_else(|| {
+            io::Error::other(format!(
+                "cannot derive snapshot root from {}",
+                library_dir.display()
+            ))
+        })?
+        .join(SNAPSHOT_CIRCOM_DIR)
+        .join(SNAPSHOT_CONSTANTS_FILE))
+}
+
 fn digest_subcircuit_source(constants_path: &Path, library_dir: &Path) -> io::Result<String> {
     let mut files = Vec::new();
     push_digest_input(
@@ -772,13 +768,13 @@ fn digest_subcircuit_source(constants_path: &Path, library_dir: &Path) -> io::Re
             &library_dir.join(directory),
         )?;
     }
-    files.sort_by(|left, right| left.logical_path.cmp(&right.logical_path));
+    files.sort_by(|left, right| left.0.cmp(&right.0));
 
     let mut hash = 0xcbf29ce484222325u64;
-    for file in files {
-        digest_bytes(&mut hash, file.logical_path.as_bytes());
-        digest_bytes(&mut hash, &(file.logical_path.len() as u64).to_le_bytes());
-        digest_bytes(&mut hash, &fs::read(file.absolute_path)?);
+    for (logical_path, absolute_path) in files {
+        digest_bytes(&mut hash, logical_path.as_bytes());
+        digest_bytes(&mut hash, &(logical_path.len() as u64).to_le_bytes());
+        digest_bytes(&mut hash, &fs::read(absolute_path)?);
     }
     Ok(format!("{hash:016x}"))
 }
@@ -835,10 +831,7 @@ fn try_read_snapshot(
             .and_then(Value::as_str)
             .ok_or_else(|| io::Error::other("resolved snapshot metadata missing snapshotDir"))?,
     );
-    let Some(constants_path) = value.get("constantsPath").and_then(Value::as_str) else {
-        return Ok(None);
-    };
-    let constants_path = PathBuf::from(constants_path);
+    let constants_path = constants_path_for_library_dir(&snapshot_dir)?;
     if !snapshot_dir.exists() {
         return Ok(None);
     }
@@ -870,7 +863,6 @@ fn try_read_snapshot(
         version,
         integrity,
         source_digest: digest_subcircuit_source(&constants_path, &snapshot_dir)?,
-        constants_path,
         snapshot_dir,
         release_dir: release_dir.to_path_buf(),
     }))
@@ -882,7 +874,6 @@ fn write_snapshot_info(path: &Path, snapshot: &ResolvedSubcircuitLibrary) -> io:
         "version": snapshot.version,
         "integrity": snapshot.integrity,
         "sourceDigest": snapshot.source_digest,
-        "constantsPath": snapshot.constants_path,
         "snapshotDir": snapshot.snapshot_dir,
     });
     fs::write(
