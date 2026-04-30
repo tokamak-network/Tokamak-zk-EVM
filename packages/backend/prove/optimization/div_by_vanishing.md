@@ -96,39 +96,57 @@ This section specifies the **existing** method in `div_by_vanishing`.
 
 ## B. Optimized: `div_by_vanishing_opt`
 
-This section specifies the **optimized** method. The algebraic identity and NTT domains are **identical** to the baseline; only **how the denominators are constructed** differs.
+This section specifies the current **optimized** method. It uses the special binomial form of the vanishing polynomials directly in coefficient space. The algebraic identity is identical to the baseline, but the optimized method no longer evaluates on cosets or interpolates quotient evaluations for this division.
 
-### B.1 Same steps as baseline for $A'$, $Q_Y$, $B$, and $Q_X$
+### B.1 X-block accumulation
 
-All steps in Sections A.1–A.3 apply unchanged. The only difference is how the denominator inverses are computed and materialized for pointwise multiplication.
+Decompose $P$ into $m$ X-blocks as in Section A.1 and accumulate:
 
-### B.2 Axis-only denominator inverses + tiling
+$$A'(X,Y) = \sum_{b=0}^{m-1} P^{(b)}(X,Y) \in \mathbb{F}_{c,y}[X,Y].$$
 
-Define the **axis-only** values:
+The $Q_X(X,Y)(X^c - 1)$ part cancels under this accumulation, so:
 
-- Y-division axis values (length $n$):
-  $$d_Y[j] = \xi^d \omega_n^j - 1, \quad j=0,\ldots,n-1.$$
-- X-division axis values (length $m$):
-  $$d_X[i] = \zeta^c \omega_m^i - 1, \quad i=0,\ldots,m-1.$$
+$$A'(X,Y) = Q_Y(X,Y)(Y^d - 1).$$
 
-Compute their inverses:
+### B.2 Coefficient recurrence for $Q_Y$
 
-- $$d_Y^{-1}[j] = (\xi^d \omega_n^j - 1)^{-1}.$$
-- $$d_X^{-1}[i] = (\zeta^c \omega_m^i - 1)^{-1}.$$
+For each fixed X coefficient row, write
 
-Then **tile** these inverses across the 2D evaluation grids:
+$$A'(Y) = \sum_{j=0}^{y-1} a_j Y^j, \quad Q_Y(Y) = \sum_{j=0}^{y-d-1} q_j Y^j.$$
 
-- For Y-division (size $c\times y$):
-  $$D_Y^{-1}(i,j) = d_Y^{-1}[j \bmod n].$$
-- For X-division (size $x\times y$):
-  $$D_X^{-1}(i,j) = d_X^{-1}[i \bmod m].$$
+From $A'(Y)=Q_Y(Y)(Y^d-1)$, the coefficients satisfy:
 
-The pointwise divisions are performed by multiplying $\widetilde{A}$ and $\widetilde{B}$ by these tiled inverse arrays, yielding the same $\widetilde{Q}_Y$ and $\widetilde{Q}_X$ as the baseline.
+$$a_j = q_{j-d} - q_j,$$
 
-### B.3 Denominator inverse construction (optimized)
+where $q_{j-d}=0$ for $j<d$. Therefore:
 
-- The optimized variant computes only $n$ or $m$ base values and **broadcasts** them across the 2D grid.
-- Construction cost drops to $\Theta(m+n)$ for base inverses plus $\Theta(xy)$ for tiling (memory write only), avoiding the extra $\Theta(xy)$ field multiplications used to form full evaluation arrays in the baseline.
+$$q_j = q_{j-d} - a_j, \quad 0 \le j < y-d.$$
+
+The final $d$ coefficients of $A'$ are consistency terms and equal $q_{j-d}$ when the input is divisible as expected.
+
+### B.3 Build $B$ and compute $Q_X$
+
+After computing $Q_Y$, form:
+
+$$B(X,Y) = P(X,Y) - Q_Y(X,Y)(Y^d - 1).$$
+
+Then:
+
+$$B(X,Y) = Q_X(X,Y)(X^c - 1).$$
+
+For each fixed Y coefficient column, write
+
+$$B(X) = \sum_{i=0}^{x-1} b_i X^i, \quad Q_X(X) = \sum_{i=0}^{x-c-1} r_i X^i.$$
+
+From $B(X)=Q_X(X)(X^c-1)$:
+
+$$b_i = r_{i-c} - r_i,$$
+
+where $r_{i-c}=0$ for $i<c$. Therefore:
+
+$$r_i = r_{i-c} - b_i, \quad 0 \le i < x-c.$$
+
+The final $c$ coefficients of $B$ are consistency terms and equal $r_{i-c}$ when the input is divisible as expected.
 
 ---
 
@@ -136,14 +154,16 @@ The pointwise divisions are performed by multiplying $\widetilde{A}$ and $\widet
 
 - **Mathematical identity:** identical for both methods; they compute the same $Q_X,Q_Y$ satisfying
   $$P = Q_X (X^c-1) + Q_Y (Y^d-1).$$
-- **NTT domains:** identical; both evaluate on $H_c \times (\xi H_y)$ for Y-division and $(\zeta H_x) \times H_y$ for X-division.
-- **Denominator construction:**
-  - Baseline builds full 2D denominator evaluations and inverts elementwise.
-  - Optimized computes **axis-only** denominators ($m$ or $n$ values), inverts them, and tiles across the grid.
+- **NTT domains:**
+  - Baseline evaluates on $H_c \times (\xi H_y)$ for Y-division and $(\zeta H_x) \times H_y$ for X-division.
+  - Optimized division does not use NTTs; it uses coefficient recurrences induced by $X^c - 1$ and $Y^d - 1$.
+- **Denominator handling:**
+  - Baseline builds denominator evaluations and performs pointwise division.
+  - Optimized never materializes denominator evaluations or inverses.
 - **Computational implication:**
-  - Baseline: $\Theta(xy)$ field ops to build denominator arrays + $\Theta(xy)$ inversions.
-  - Optimized: $\Theta(m+n)$ inversions plus $\Theta(xy)$ tiling (memory copy), reducing arithmetic cost and improving speed.
-- **Correctness:** unchanged, assuming the same cosets $\xi,\zeta$ and domain sizes.
+  - Baseline: several 2D NTTs plus pointwise denominator multiplication.
+  - Optimized: $\Theta(xy)$ coefficient additions/subtractions and copies.
+- **Correctness:** unchanged for inputs satisfying the target identity.
 
 ---
 

@@ -1287,7 +1287,7 @@ impl BivariatePolynomial for DensePolynomialExt {
         &mut self,
         denom_x_degree: i64,
         denom_y_degree: i64,
-        cache: &mut DivByVanishingCache,
+        _cache: &mut DivByVanishingCache,
     ) -> (Self, Self) {
         if !((denom_x_degree as usize).is_power_of_two()
             && (denom_y_degree as usize).is_power_of_two())
@@ -1307,183 +1307,112 @@ impl BivariatePolynomial for DensePolynomialExt {
         let c = denom_x_degree as usize;
         let d = denom_y_degree as usize;
 
-        let find_cache_index =
-            |cache: &Box<[DenomCache]>, x_size: usize, y_size: usize, base: usize| {
-                cache.iter().position(|entry| {
-                    entry.x_size == x_size && entry.y_size == y_size && entry.base == base
-                })
-            };
-        let find_axis_cache_index =
-            |cache: &Box<[AxisCache]>, axis_size: usize, base: usize, coset: &ScalarField| {
-                cache.iter().position(|entry| {
-                    entry.axis_size == axis_size && entry.base == base && entry.coset.eq(coset)
-                })
-            };
-        let find_axis_cache_any = |cache: &Box<[AxisCache]>, axis_size: usize, base: usize| {
-            cache
-                .iter()
-                .position(|entry| entry.axis_size == axis_size && entry.base == base)
-        };
+        let x_size = m * c;
+        let y_size = n * d;
+        let mut p_coeffs_vec = vec![Self::Field::zero(); x_size * y_size];
+        self.copy_coeffs(0, HostSlice::from_mut_slice(&mut p_coeffs_vec));
 
-        let cached_denom_x_index = find_cache_index(&cache.denom_x_eval_inv, m * c, n * d, c);
-        let cached_denom_y_index = find_cache_index(&cache.denom_y_eval_inv, c, n * d, d);
-
-        let cached_x_axis_any = find_axis_cache_any(&cache.denom_x_axis_inv, m * c, c);
-        let cached_y_axis_any = find_axis_cache_any(&cache.denom_y_axis_inv, n * d, d);
-
-        let zeta = cached_x_axis_any
-            .map(|idx| cache.denom_x_axis_inv[idx].coset)
-            .or_else(|| cached_denom_x_index.map(|idx| cache.denom_x_eval_inv[idx].coset))
-            .unwrap_or_else(|| Self::FieldConfig::generate_random(1)[0]);
-        let xi = cached_y_axis_any
-            .map(|idx| cache.denom_y_axis_inv[idx].coset)
-            .or_else(|| cached_denom_y_index.map(|idx| cache.denom_y_eval_inv[idx].coset))
-            .unwrap_or(zeta);
-        let vec_ops_cfg = VecOpsConfig::default();
-
-        let build_axis_inv =
-            |axis_size: usize, base: usize, coset: &ScalarField| -> Box<[ScalarField]> {
-                let repeat = axis_size / base;
-                let root = ntt::get_root_of_unity::<ScalarField>(repeat as u64);
-                let coset_pow = coset.pow(base);
-                let mut omega_pows = vec![ScalarField::one(); repeat];
-                for i in 1..repeat {
-                    omega_pows[i] = omega_pows[i - 1] * root;
-                }
-                let minus_one = ScalarField::zero() - ScalarField::one();
-                let mut inv_base = vec![ScalarField::zero(); repeat];
-                for i in 0..repeat {
-                    let val = coset_pow * omega_pows[i] + minus_one;
-                    inv_base[i] = val.inv();
-                }
-                inv_base.into_boxed_slice()
-            };
-
-        let tile_axis_inv = |target_x: usize,
-                             target_y: usize,
-                             axis_inv: &[ScalarField],
-                             is_y_dir: bool|
-         -> Box<[ScalarField]> {
-            let mut denom_inv_vec = vec![ScalarField::zero(); target_x * target_y];
-            let repeat = axis_inv.len();
-            if is_y_dir {
-                for x in 0..target_x {
-                    let row_start = x * target_y;
-                    for y in 0..target_y {
-                        denom_inv_vec[row_start + y] = axis_inv[y % repeat];
-                    }
-                }
-            } else {
-                for x in 0..target_x {
-                    let inv = axis_inv[x % repeat];
-                    let row_start = x * target_y;
-                    for y in 0..target_y {
-                        denom_inv_vec[row_start + y] = inv;
-                    }
+        let mut acc_block_vec = vec![Self::Field::zero(); c * y_size];
+        for block_x in 0..m {
+            let x_offset = block_x * c;
+            for local_x in 0..c {
+                let src_start = (x_offset + local_x) * y_size;
+                let dst_start = local_x * y_size;
+                for y in 0..y_size {
+                    acc_block_vec[dst_start + y] =
+                        acc_block_vec[dst_start + y] + p_coeffs_vec[src_start + y];
                 }
             }
-            denom_inv_vec.into_boxed_slice()
-        };
-
-        let mut acc_block_eval = DeviceVec::<Self::Field>::device_malloc(c * n * d).unwrap();
-        {
-            let mut acc_block_vec = vec![Self::Field::zero(); c * n * d];
-            let acc_block = HostSlice::from_mut_slice(&mut acc_block_vec);
-            {
-                let block = vec![Self::Field::zero(); c * n * d];
-                let mut blocks = vec![block; m];
-                self._slice_coeffs_into_blocks(m, 1, &mut blocks);
-                // Computing A' (accumulation of blocks of the numerator)
-
-                for i in 0..m {
-                    Self::FieldConfig::accumulate(
-                        acc_block,
-                        HostSlice::from_slice(&blocks[i]),
-                        &vec_ops_cfg,
-                    )
-                    .unwrap();
-                }
-            }
-            let acc_block_poly = DensePolynomialExt::from_coeffs(acc_block, c, n * d);
-            // Computing R_tilde (eval of A' on rou-X and coset-Y)
-
-            acc_block_poly.to_rou_evals(None, Some(&xi), &mut acc_block_eval);
         }
 
-        // Computing Q_Y_tilde (eval of quo_y on rou-X and coset-Y)
-        let quo_y = {
-            let mut quo_y_tilde = DeviceVec::<Self::Field>::device_malloc(c * n * d).unwrap();
-            {
-                let axis_inv_slice = if let Some(idx) =
-                    find_axis_cache_index(&cache.denom_y_axis_inv, n * d, d, &xi)
-                {
-                    cache.denom_y_axis_inv[idx].invs.as_ref()
-                } else {
-                    let invs = build_axis_inv(n * d, d, &xi);
-                    let mut new_cache = cache.denom_y_axis_inv.to_vec();
-                    new_cache.push(AxisCache {
-                        coset: xi,
-                        axis_size: n * d,
-                        base: d,
-                        invs,
-                    });
-                    cache.denom_y_axis_inv = new_cache.into_boxed_slice();
-                    cache.denom_y_axis_inv.last().unwrap().invs.as_ref()
-                };
-                let denom_y_eval_inv_vec = tile_axis_inv(c, n * d, axis_inv_slice, true);
-                let denom_y_eval_inv = HostSlice::from_slice(&denom_y_eval_inv_vec);
-                Self::FieldConfig::mul(
-                    &acc_block_eval,
-                    denom_y_eval_inv,
-                    &mut quo_y_tilde,
-                    &vec_ops_cfg,
-                )
-                .unwrap();
-            }
-            // Computing Q_Y
-            DensePolynomialExt::from_rou_evals(&quo_y_tilde, c, n * d, None, Some(&xi))
-        };
-
-        // Computing Q_X
-        let quo_x = {
-            // Computing Q_X_tilde (eval of quo_x on coset-X and extended-rou-Y)
-            let mut quo_x_tilde = DeviceVec::<Self::Field>::device_malloc(m * c * n * d).unwrap();
-            {
-                let mut b_tilde = DeviceVec::<Self::Field>::device_malloc(m * c * n * d).unwrap();
-                {
-                    // Computing R = quo_y * t_d
-                    let r = &quo_y.mul_monomial(0, d) - &quo_y;
-                    // Computing B
-                    let mut b = &*self - &r;
-                    drop(r);
-                    b.resize(m * c, n * d);
-                    // Computinb B_tilde (eval of B on coset-X and extended-rou-Y)
-
-                    b.to_rou_evals(Some(&zeta), None, &mut b_tilde);
+        let mut quo_y_coeffs_vec = vec![Self::Field::zero(); c * y_size];
+        if y_size > d {
+            for x in 0..c {
+                let row_start = x * y_size;
+                for y in 0..(y_size - d) {
+                    let prev = if y >= d {
+                        quo_y_coeffs_vec[row_start + y - d]
+                    } else {
+                        Self::Field::zero()
+                    };
+                    quo_y_coeffs_vec[row_start + y] = prev - acc_block_vec[row_start + y];
                 }
-                let axis_inv_slice = if let Some(idx) =
-                    find_axis_cache_index(&cache.denom_x_axis_inv, m * c, c, &zeta)
-                {
-                    cache.denom_x_axis_inv[idx].invs.as_ref()
-                } else {
-                    let invs = build_axis_inv(m * c, c, &zeta);
-                    let mut new_cache = cache.denom_x_axis_inv.to_vec();
-                    new_cache.push(AxisCache {
-                        coset: zeta,
-                        axis_size: m * c,
-                        base: c,
-                        invs,
-                    });
-                    cache.denom_x_axis_inv = new_cache.into_boxed_slice();
-                    cache.denom_x_axis_inv.last().unwrap().invs.as_ref()
-                };
-                let denom_x_eval_inv_vec = tile_axis_inv(m * c, n * d, axis_inv_slice, false);
-                let denom_x_eval_inv = HostSlice::from_slice(&denom_x_eval_inv_vec);
-                Self::FieldConfig::mul(&b_tilde, denom_x_eval_inv, &mut quo_x_tilde, &vec_ops_cfg)
-                    .unwrap();
             }
-            DensePolynomialExt::from_rou_evals(&quo_x_tilde, m * c, n * d, Some(&zeta), None)
-        };
+        }
+
+        let mut b_coeffs_vec = p_coeffs_vec;
+        if y_size > d {
+            for x in 0..c {
+                let row_start = x * y_size;
+                for y in 0..(y_size - d) {
+                    let coeff = quo_y_coeffs_vec[row_start + y];
+                    b_coeffs_vec[row_start + y] = b_coeffs_vec[row_start + y] + coeff;
+                    b_coeffs_vec[row_start + y + d] = b_coeffs_vec[row_start + y + d] - coeff;
+                }
+            }
+        }
+
+        let mut quo_x_coeffs_vec = vec![Self::Field::zero(); x_size * y_size];
+        if x_size > c {
+            for x in 0..(x_size - c) {
+                let row_start = x * y_size;
+                for y in 0..y_size {
+                    let prev = if x >= c {
+                        quo_x_coeffs_vec[(x - c) * y_size + y]
+                    } else {
+                        Self::Field::zero()
+                    };
+                    quo_x_coeffs_vec[row_start + y] = prev - b_coeffs_vec[row_start + y];
+                }
+            }
+        }
+
+        #[cfg(debug_assertions)]
+        {
+            if y_size > d {
+                for x in 0..c {
+                    let row_start = x * y_size;
+                    for y in (y_size - d)..y_size {
+                        debug_assert_eq!(
+                            acc_block_vec[row_start + y],
+                            quo_y_coeffs_vec[row_start + y - d]
+                        );
+                    }
+                }
+            }
+            if x_size > c {
+                for x in (x_size - c)..x_size {
+                    for y in 0..y_size {
+                        debug_assert_eq!(
+                            b_coeffs_vec[x * y_size + y],
+                            quo_x_coeffs_vec[(x - c) * y_size + y]
+                        );
+                    }
+                }
+            }
+        }
+
+        let mut quo_x = DensePolynomialExt::from_coeffs(
+            HostSlice::from_slice(&quo_x_coeffs_vec),
+            x_size,
+            y_size,
+        );
+        let mut quo_y =
+            DensePolynomialExt::from_coeffs(HostSlice::from_slice(&quo_y_coeffs_vec), c, y_size);
+        if x_size > c {
+            quo_x.x_degree = (x_size - c - 1) as i64;
+            quo_x.y_degree = y_size as i64 - 1;
+        } else {
+            quo_x.x_degree = -1;
+            quo_x.y_degree = -1;
+        }
+        if y_size > d {
+            quo_y.x_degree = c as i64 - 1;
+            quo_y.y_degree = (y_size - d - 1) as i64;
+        } else {
+            quo_y.x_degree = -1;
+            quo_y.y_degree = -1;
+        }
         return (quo_x, quo_y);
     }
 

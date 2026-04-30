@@ -18,6 +18,7 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 | `timing.remote.existing-api-special-poly-mul.cuda.json` | 31.237394 s | 0.737941 s | 9.939695 s | 0.289162 s | 0.053828 s |
 | `timing.remote.batch-encode.cuda.json` | 31.744249 s | 0.736217 s | 10.721734 s | 0.288986 s | 0.055206 s |
 | `timing.remote.batch-encode-prove0-prove2.cuda.json` | 31.387785 s | 0.743366 s | 10.096364 s | 0.289947 s | 0.055855 s |
+| `timing.remote.div-by-vanishing-recurrence.cuda.json` | 28.910223 s | 0.746520 s | 10.058344 s | 0.287018 s | 0.057240 s |
 
 ## Successful Changes
 
@@ -46,6 +47,26 @@ This report summarizes the CUDA prove optimization experiments performed on the 
    | `timing.local.cpu.s0s1-pow-cache.json` | 5.425999 s | 0.115509 s |
 
    The CPU total wall time had run-to-run noise (`56.905538 s` to `57.162002 s`), but the targeted stage improved clearly.
+
+4. **Coefficient-domain vanishing division was accepted.**
+
+   `div_by_vanishing_opt` now uses the special form of the denominators, `X^c - 1` and `Y^d - 1`, directly in coefficient space. Instead of evaluating on cosets, multiplying by tiled denominator inverses, and interpolating back, it computes the quotient blocks by recurrence:
+
+   - for `Y^d - 1`: `q_j = q_{j-d} - p_j`
+   - for `X^c - 1`: `q_i = q_{i-c} - p_i`
+
+   This removes the dominant 2D NTT work from the division path while preserving the same decomposition `P = Q_X (X^c - 1) + Q_Y (Y^d - 1)`.
+
+   | metric | before | recurrence | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 31.712050 s | 28.910223 s | -2.801828 s |
+   | `poly.div_by_vanishing_opt.prove0.q0q1` | 2.149125 s | 1.087509 s | -1.061616 s |
+   | `poly.div_by_vanishing_opt.prove2.qCXqCY` | 7.113222 s | 5.397610 s | -1.715612 s |
+   | `prove0.total` | 6.109721 s | 5.032357 s | -1.077364 s |
+   | `prove2.total` | 12.713798 s | 11.073070 s | -1.640729 s |
+   | category `poly` | 17.958210 s | 15.106989 s | -2.851220 s |
+
+   The CUDA timing test passed with this implementation. The remaining `div_by_vanishing_opt` time is mostly coefficient extraction, block accumulation, recurrence loops, and polynomial materialization rather than NTT-based division.
 
 ## Failed Or Rejected Changes
 
@@ -151,12 +172,12 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 
 ## Current Accepted Baseline
 
-The current accepted CUDA baseline is `timing.remote.s0s1-pow-cache.cuda.json`:
+The current accepted CUDA baseline is `timing.remote.div-by-vanishing-recurrence.cuda.json`:
 
-- total wall: `31.712050 s`
-- init: `0.748165 s`
-- prove4: `10.152243 s`
-- uvwXY: `0.286227 s`
-- s0/s1: `0.057586 s`
+- total wall: `28.910223 s`
+- init: `0.746520 s`
+- prove4: `10.058344 s`
+- uvwXY: `0.287018 s`
+- s0/s1: `0.057240 s`
 
-Future optimization should treat `prove2.div_by_vanishing_opt` and selected `prove4` polynomial operations as the next higher-value targets. Fused linear combination and `lagrange_K0_XY` special multiplication should only be reconsidered in narrower forms if they are measured one site at a time.
+Future optimization should treat selected `prove4` polynomial operations and the remaining coefficient movement inside `div_by_vanishing_opt` as the next higher-value targets. Fused linear combination and `lagrange_K0_XY` special multiplication should only be reconsidered in narrower forms if they are measured one site at a time.
