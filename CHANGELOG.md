@@ -48,8 +48,9 @@ The format is based on Keep a Changelog.
 ### CI
 
 - Moved source build validation to the front of the publish workflow.
-- Moved EVM compatibility tests into the publish workflow before post-publish test and build validation.
-- Added npm-registry refresh before EVM compatibility tests so post-publish checks use the latest published Tokamak zk-EVM packages.
+- Changed the publish workflow to build release tarballs once in `source-build`, pass those tarballs through EVM compatibility, CRS, and pre-publish checks, and publish the same tested tarballs to npm.
+- Moved EVM compatibility tests before subcircuit-library publishing so package-level smoke tests run before any npm publication.
+- Kept `pre-publish-test-build` after subcircuit-library publishing so backend release builds can continue resolving `@tokamak-zk-evm/subcircuit-library@latest` from npm.
 - Updated the published CRS check to select only the latest strict `MAJOR.MINOR` CRS archive and validate its embedded provenance, metadata, and hashes.
 
 ## [2.0.14] - 2026-04-29
