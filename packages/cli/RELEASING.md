@@ -44,4 +44,4 @@ Use this format:
 - Another user-facing change
 ```
 
-Keep changelog entries short and written for package consumers. Package-local changelog files are generated from the root changelog for npm publish artifacts only.
+Keep changelog entries short and written for package consumers. Record only changes that affect npm-published package artifacts or their consumer-facing behavior. Package-local changelog files are generated from the root changelog for npm publish artifacts only.

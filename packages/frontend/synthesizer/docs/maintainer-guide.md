@@ -44,6 +44,7 @@ Rules:
 - Each released version that changes synthesizer behavior must include a `### Synthesizer` section.
 - If there is no user-visible synthesizer change in a synchronized release, write `No consumer-facing synthesizer changes.`
 - The `### Synthesizer` section must be written from consumer impact, not from internal refactor detail.
+- Record only changes that affect npm-published package artifacts or their consumer-facing behavior.
 
 For package publishing, the root changelog is mirrored into `node-cli/CHANGELOG.md` and `web-app/CHANGELOG.md` by package build/prepack scripts. Those mirrored files are publish assets, not canonical editing targets.
 

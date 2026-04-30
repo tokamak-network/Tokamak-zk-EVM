@@ -22,13 +22,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Update TokamakL2JS to latest main
-        run: |
-          git submodule sync --recursive
-          git submodule update --init --recursive
-          git submodule update --remote submodules/TokamakL2JS
-          echo "TokamakL2JS HEAD: $(git -C submodules/TokamakL2JS rev-parse --short HEAD)"
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

@@ -284,7 +284,7 @@ folder. Use `<CLI> --install --trusted-setup` to generate CRS locally, or
 | [`prover`](./packages/backend/prove)                      | Tokamak zk-SNARK's proving algorithm                                 | Rust           | `2.0.12`     | Source-only in this repository                                                                          |
 | [`verify`](./packages/backend/verify)                     | Tokamak zk-SNARK's verifying algorithm                               | Rust, Solidity | `2.0.12`     | Source-only in this repository                                                                          |
 
-Release versions are synchronized from the root repository version. The root [CHANGELOG.md](./CHANGELOG.md) is the canonical changelog; package-local changelogs are generated publish assets.
+Release versions are synchronized from the root repository version. The root [CHANGELOG.md](./CHANGELOG.md) is the canonical changelog for npm-published package consumers; record only changes that affect published package artifacts or their consumer-facing behavior. Package-local changelogs are generated publish assets.
 
 ## Development Status
 
