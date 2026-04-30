@@ -274,6 +274,21 @@ If all algebraic rewrites and cache reuses above are applied together, the expec
 
 This `12` count is a static operation-count estimate. The actual runtime improvement may be smaller because some eliminated multiplications involve small or structured polynomials, and because caching larger intermediate polynomials increases memory residency.
 
+## Applied Measurement
+
+The batch was implemented and measured in `prove/optimization/timing.remote.poly-comb-algebraic.cuda.json`.
+
+| metric | strict baseline | algebraic comb | delta |
+| --- | ---: | ---: | ---: |
+| total wall | 28.598577 s | 27.490122 s | -1.108455 s |
+| category `poly` | 20.568262 s | 19.444623 s | -1.123639 s |
+| `poly.combine` | 15.840093 s | 14.863306 s | -0.976787 s |
+| `poly.mul` | 0.117172 s | 0.008618 s | -0.108554 s |
+| `prove2.total` | 10.908775 s | 10.312476 s | -0.596299 s |
+| `prove4.total` | 9.985713 s | 9.541593 s | -0.444121 s |
+
+The CUDA timing test passed. Some individual targets were neutral, but the combined rewrite is positive overall.
+
 ## Suggested Application Order
 
 1. Apply `Q_CX/Q_CY` factorization.

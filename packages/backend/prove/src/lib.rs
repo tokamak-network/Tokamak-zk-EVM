@@ -205,6 +205,9 @@ pub struct Quotients {
 
 pub struct ProverCache {
     div_by_vanishing: DivByVanishingCache,
+    w_zk: Option<DensePolynomialExt>,
+    term_b_zk: Option<DensePolynomialExt>,
+    lagrange_kl_xy: Option<DensePolynomialExt>,
 }
 
 pub struct Prover {
@@ -596,6 +599,9 @@ impl Prover {
                 denom_x_axis_inv: Box::<[AxisCache]>::default(),
                 denom_y_axis_inv: Box::<[AxisCache]>::default(),
             },
+            w_zk: None,
+            term_b_zk: None,
+            lagrange_kl_xy: None,
         };
 
         // Load permutation (copy constraints of the variables)
@@ -1187,11 +1193,11 @@ impl Prover {
                     dims: vec![self.witness.wXY.x_size, self.witness.wXY.y_size]
                 },],
                 {
-                    poly_comb!(
-                        (ScalarField::one(), self.witness.wXY),
-                        (rW_X, self.instance.t_n),
-                        (rW_Y, self.instance.t_smax)
-                    )
+                    // Original expression:
+                    // W = wXY + rW_X * t_n + rW_Y * t_smax.
+                    let W_zk = &(&rW_X * &self.instance.t_n) + &(&rW_Y * &self.instance.t_smax);
+                    self.cache.w_zk = Some(W_zk.clone());
+                    &self.witness.wXY + &W_zk
                 }
             );
             crate::time_block!(
@@ -1304,8 +1310,11 @@ impl Prover {
                     dims: vec![self.witness.bXY.x_size, self.witness.bXY.y_size]
                 },],
                 {
+                    // Original expression:
+                    // B = bXY + rB_X * t_mi + rB_Y * t_smax.
                     let term_B_zk =
                         &(&rB_X * &self.instance.t_mi) + &(&rB_Y * &self.instance.t_smax);
+                    self.cache.term_b_zk = Some(term_B_zk.clone());
                     &self.witness.bXY + &term_B_zk
                 }
             );
@@ -1624,6 +1633,7 @@ impl Prover {
             );
             &lagrange_K_XY * &lagrange_L_XY
         };
+        self.cache.lagrange_kl_xy = Some(lagrange_KL_XY.clone());
 
         let lagrange_K0_XY = crate::time_block!(
             "poly.from_rou_evals.prove2.K0",
@@ -1661,11 +1671,11 @@ impl Prover {
                 dims: vec![m_i, s_max]
             },],
             {
+                // Original expression computed `self.witness.rXY * gXY` separately in p2XY and p3XY.
+                let r_gXY = &self.witness.rXY * &gXY;
                 let p1XY = &(&self.witness.rXY - &ScalarField::one()) * &(lagrange_KL_XY);
-                let p2XY = &(&X_mono - &ScalarField::one())
-                    * &(&(&self.witness.rXY * &gXY) - &(&r_omegaX * &fXY));
-                let p3XY =
-                    &lagrange_K0_XY * &(&(&self.witness.rXY * &gXY) - &(&r_omegaX_omegaY * &fXY));
+                let p2XY = &(&X_mono - &ScalarField::one()) * &(&r_gXY - &(&r_omegaX * &fXY));
+                let p3XY = &lagrange_K0_XY * &(&r_gXY - &(&r_omegaX_omegaY * &fXY));
 
                 poly_comb!(
                     (ScalarField::one(), p1XY),
@@ -1726,19 +1736,19 @@ impl Prover {
                     dims: vec![self.quotients.q2XY.x_size, self.quotients.q2XY.y_size]
                 },],
                 {
+                    // Original expression:
+                    // (rB_X * (X - 1)) * r_D1 + (rR_X * (X - 1)) * g_D
+                    // and
+                    // (rB_X * K0) * r_D2 + (rR_X * K0) * g_D.
+                    // Factor the common left polynomial in each branch.
+                    let x_minus_one = &X_mono - &ScalarField::one();
+                    let d1_comb = &(&rB_X * &r_D1) + &(&self.mixer.rR_X * &g_D);
+                    let d2_comb = &(&rB_X * &r_D2) + &(&self.mixer.rR_X * &g_D);
                     poly_comb!(
                         (ScalarField::one(), self.quotients.q2XY),
                         (self.mixer.rR_X, lagrange_KL_XY),
-                        (
-                            kappa0,
-                            (&(&(&rB_X * &(&X_mono - &ScalarField::one())) * &r_D1)
-                                + &(&(&self.mixer.rR_X * &(&X_mono - &ScalarField::one())) * &g_D))
-                        ),
-                        (
-                            kappa0_sq,
-                            (&(&(&rB_X * &lagrange_K0_XY) * &r_D2)
-                                + &(&(&self.mixer.rR_X * &lagrange_K0_XY) * &g_D))
-                        )
+                        (kappa0, &x_minus_one * &d1_comb),
+                        (kappa0_sq, &lagrange_K0_XY * &d2_comb)
                     )
                 }
             );
@@ -1773,19 +1783,19 @@ impl Prover {
                     dims: vec![self.quotients.q3XY.x_size, self.quotients.q3XY.y_size]
                 },],
                 {
+                    // Original expression:
+                    // (rB_Y * (X - 1)) * r_D1 + (rR_Y * (X - 1)) * g_D
+                    // and
+                    // (rB_Y * K0) * r_D2 + (rR_Y * K0) * g_D.
+                    // Factor the common left polynomial in each branch.
+                    let x_minus_one = &X_mono - &ScalarField::one();
+                    let d1_comb = &(&rB_Y * &r_D1) + &(&self.mixer.rR_Y * &g_D);
+                    let d2_comb = &(&rB_Y * &r_D2) + &(&self.mixer.rR_Y * &g_D);
                     poly_comb!(
                         (ScalarField::one(), self.quotients.q3XY),
                         (self.mixer.rR_Y, lagrange_KL_XY),
-                        (
-                            kappa0,
-                            (&(&(&rB_Y * &(&X_mono - &ScalarField::one())) * &r_D1)
-                                + &(&(&self.mixer.rR_Y * &(&X_mono - &ScalarField::one())) * &g_D))
-                        ),
-                        (
-                            kappa0_sq,
-                            (&(&(&rB_Y * &lagrange_K0_XY) * &r_D2)
-                                + &(&(&self.mixer.rR_Y * &lagrange_K0_XY) * &g_D))
-                        )
+                        (kappa0, &x_minus_one * &d1_comb),
+                        (kappa0_sq, &lagrange_K0_XY * &d2_comb)
                     )
                 }
             );
@@ -1960,6 +1970,11 @@ impl Prover {
                     1,
                     self.mixer.rW_Y.len(),
                 );
+                let W_zk = self.cache.w_zk.clone().unwrap_or_else(|| {
+                    // Fallback for non-standard call order. Original cached expression:
+                    // W_zk = rW_X * t_n + rW_Y * t_smax.
+                    &(&rW_X * &self.instance.t_n) + &(&rW_Y * &self.instance.t_smax)
+                });
 
                 let VXY = crate::time_block!(
                     "poly.combine.prove4.V",
@@ -2008,8 +2023,12 @@ impl Prover {
                                         + (self.mixer.rU_Y * t_smax_eval)),
                                 self.witness.vXY
                             ),
-                            (rW_X, &t_n_eval - &self.instance.t_n),
-                            (rW_Y, &t_smax_eval - &self.instance.t_smax)
+                            // Original expression:
+                            // rW_X * (t_n_eval - t_n) + rW_Y * (t_smax_eval - t_smax).
+                            // Reuse W_zk = rW_X * t_n + rW_Y * t_smax.
+                            (t_n_eval, rW_X),
+                            (t_smax_eval, rW_Y),
+                            (ScalarField::zero() - ScalarField::one(), W_zk)
                         )
                     }
                 );
@@ -2346,7 +2365,9 @@ impl Prover {
                 },],
                 { r_omegaX_omegaY.eval(&chi, &zeta) }
             );
-            let lagrange_KL_XY = {
+            let lagrange_KL_XY = self.cache.lagrange_kl_xy.clone().unwrap_or_else(|| {
+                // Fallback for non-standard call order. Original expression:
+                // lagrange_KL_XY = lagrange_K_XY * lagrange_L_XY.
                 let lagrange_K_XY = crate::time_block!(
                     "poly.from_rou_evals.prove4.K",
                     "poly",
@@ -2412,7 +2433,7 @@ impl Prover {
                     ],
                     { &lagrange_K_XY * &lagrange_L_XY }
                 )
-            };
+            });
             let term5 = crate::time_block!(
                 "poly.combine.prove4.term5",
                 "poly",
@@ -2499,15 +2520,21 @@ impl Prover {
                         },],
                         { &(&t_mi_eval * &rB_X) + &(&t_s_max_eval * &rB_Y) }
                     );
-                    let term_B_zk = crate::time_block!(
-                        "poly.combine.prove4.term_B_zk",
-                        "poly",
-                        vec![crate::timing::SizeInfo {
-                            label: "rB",
-                            dims: vec![m_i, s_max]
-                        },],
-                        { &(&rB_X * &self.instance.t_mi) + &(&rB_Y * &self.instance.t_smax) }
-                    );
+                    let term_B_zk = self.cache.term_b_zk.clone().unwrap_or_else(|| {
+                        crate::time_block!(
+                            "poly.combine.prove4.term_B_zk",
+                            "poly",
+                            vec![crate::timing::SizeInfo {
+                                label: "rB",
+                                dims: vec![m_i, s_max]
+                            },],
+                            {
+                                // Fallback for non-standard call order. Original expression:
+                                // term_B_zk = rB_X * t_mi + rB_Y * t_smax.
+                                &(&rB_X * &self.instance.t_mi) + &(&rB_Y * &self.instance.t_smax)
+                            }
+                        )
+                    });
                     (term9, term_B_zk)
                 };
                 let g_minus_f = crate::time_block!(
@@ -2538,10 +2565,15 @@ impl Prover {
                             dims: vec![m_i, s_max]
                         },],
                         {
+                            // Original expression:
+                            // (1 - X) * (r_D1 * term9) + (chi - X) * term10.
+                            // Use chi - X = (1 - X) + (chi - 1).
+                            let one_minus_x = &ScalarField::one() - &X_mono;
+                            let r_d1_term9_plus_term10 = &(&r_D1 * &term9) + &term10;
                             poly_comb!(
                                 ((chi - ScalarField::one()) * r_D1_eval, term_B_zk),
-                                (&ScalarField::one() - &X_mono, &r_D1 * &term9),
-                                (term10, (&chi - &X_mono))
+                                (ScalarField::one(), &one_minus_x * &r_d1_term9_plus_term10),
+                                (chi - ScalarField::one(), term10)
                             )
                         }
                     ),
@@ -2553,10 +2585,17 @@ impl Prover {
                             dims: vec![m_i, s_max]
                         },],
                         {
+                            // Original expression:
+                            // (K0 * r_D2) * (-term9) + term10 * (K0_eval - K0).
+                            // Factor K0 after expanding the scalar part.
+                            let r_d2_term9_plus_term10 = &(&r_D2 * &term9) + &term10;
                             poly_comb!(
                                 (lagrange_K0_eval * r_D2_eval, term_B_zk),
-                                (&lagrange_K0_XY * &r_D2, -&term9),
-                                (term10, &lagrange_K0_eval - &lagrange_K0_XY)
+                                (lagrange_K0_eval, term10),
+                                (
+                                    ScalarField::zero() - ScalarField::one(),
+                                    &lagrange_K0_XY * &r_d2_term9_plus_term10
+                                )
                             )
                         }
                     ),

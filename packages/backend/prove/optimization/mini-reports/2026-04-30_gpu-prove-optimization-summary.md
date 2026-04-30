@@ -20,6 +20,7 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 | `timing.remote.batch-encode-prove0-prove2.cuda.json` | 31.387785 s | 0.743366 s | 10.096364 s | 0.289947 s | 0.055855 s |
 | `timing.remote.div-by-vanishing-recurrence.cuda.json` | 28.910223 s | 0.746520 s | 10.058344 s | 0.287018 s | 0.057240 s |
 | `timing.remote.strict.cuda.json` | 28.598577 s | 0.739194 s | 9.985713 s | 0.281175 s | 0.055986 s |
+| `timing.remote.poly-comb-algebraic.cuda.json` | 27.490122 s | 0.734930 s | 9.541593 s | 0.286616 s | 0.055128 s |
 
 ## Timing Semantics Correction
 
@@ -109,6 +110,42 @@ The largest strict polynomial-combination sites in this run are:
    | category `poly` | 17.958210 s | 15.106989 s | -2.851220 s |
 
    A strict follow-up measurement shows that the pure vanishing-division calls now take `1.310417 s` total: `0.461748 s` for `prove0.q0q1` and `0.848669 s` for `prove2.qCXqCY`. The CUDA timing test passed with this implementation. The remaining pure division time is mostly coefficient extraction, block accumulation, recurrence loops, and polynomial materialization rather than NTT-based division.
+
+5. **Algebraic polynomial-combination rewrites were accepted.**
+
+   The polynomial-combination pass applies algebraic factorization and cross-stage caching to reduce generic polynomial multiplication calls. The intended static reduction is 12 polynomial multiplications:
+
+   - factor `prove2.Q_CX` and `prove2.Q_CY` as `A * (rB * D + rR * g_D)`;
+   - cache `R * G` inside `prove2.p_comb`;
+   - factor `prove4.LHS_zk1` using `chi - X = (1 - X) + (chi - 1)`;
+   - factor `prove4.LHS_zk2` around `K0`;
+   - cache `W_zk = rW_X * t_n + rW_Y * t_smax` from `prove0.W` for `prove4.Pi_A`;
+   - cache `term_B_zk = rB_X * t_mi + rB_Y * t_smax` from `prove0.B`;
+   - cache `lagrange_KL_XY` from `prove2` for `prove4`.
+
+   | metric | strict baseline | algebraic comb | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 28.598577 s | 27.490122 s | -1.108455 s |
+   | category `poly` | 20.568262 s | 19.444623 s | -1.123639 s |
+   | `poly.combine` | 15.840093 s | 14.863306 s | -0.976787 s |
+   | `poly.mul` | 0.117172 s | 0.008618 s | -0.108554 s |
+   | `prove2.total` | 10.908775 s | 10.312476 s | -0.596299 s |
+   | `prove4.total` | 9.985713 s | 9.541593 s | -0.444121 s |
+
+   Main target-level changes:
+
+   | event | strict baseline | algebraic comb | delta |
+   | --- | ---: | ---: | ---: |
+   | `poly.combine.prove2.p_comb` | 4.500720 s | 3.943680 s | -0.557040 s |
+   | `poly.combine.prove2.Q_CX` | 1.616636 s | 1.620061 s | +0.003425 s |
+   | `poly.combine.prove2.Q_CY` | 1.943383 s | 1.888867 s | -0.054516 s |
+   | `poly.combine.prove4.LHS_zk1` | 1.326547 s | 1.150340 s | -0.176207 s |
+   | `poly.combine.prove4.LHS_zk2` | 1.204088 s | 1.194040 s | -0.010047 s |
+   | `poly.combine.prove4.Pi_A` | 0.912939 s | 0.917377 s | +0.004438 s |
+   | `poly.combine.prove4.term_B_zk` | 0.126422 s | 0.000000 s | -0.126422 s |
+   | `poly.mul.prove4.KL` | 0.108116 s | 0.000000 s | -0.108116 s |
+
+   `Q_CX` and `Pi_A` were neutral in this run, but the batch is positive overall because `p_comb`, `LHS_zk1`, `term_B_zk`, and `KL` improved clearly. The CUDA timing test passed.
 
 ## Failed Or Rejected Changes
 
@@ -214,15 +251,15 @@ The largest strict polynomial-combination sites in this run are:
 
 ## Current Accepted Baseline
 
-The current accepted CUDA baseline is `timing.remote.strict.cuda.json`. It uses the same accepted logic as the vanishing-division recurrence baseline, but with stricter timing boundaries:
+The current accepted CUDA baseline is `timing.remote.poly-comb-algebraic.cuda.json`:
 
-- total wall: `28.598577 s`
-- init: `0.739194 s`
-- prove4: `9.985713 s`
-- uvwXY: `0.281175 s`
-- s0/s1: `0.055986 s`
-- pure MSM encode total: `1.262047 s`
-- pure vanishing division total: `1.310417 s`
-- polynomial combination total: `15.840093 s`
+- total wall: `27.490122 s`
+- init: `0.734930 s`
+- prove4: `9.541593 s`
+- uvwXY: `0.286616 s`
+- s0/s1: `0.055128 s`
+- pure MSM encode total: `1.260407 s`
+- pure vanishing division total: `1.310085 s`
+- polynomial combination total: `14.863306 s`
 
-Future optimization should treat selected polynomial-combination sites as the next higher-value targets. Pure MSM encoding and pure vanishing division are no longer the dominant costs under the strict timing view. Fused linear combination and `lagrange_K0_XY` special multiplication should only be reconsidered in narrower forms if they are measured one site at a time.
+Future optimization should continue to treat selected polynomial-combination sites as the next higher-value targets, especially `prove2.p_comb`, `prove2.Q_CX/Q_CY`, and the remaining `prove4` copy-opening expressions. Pure MSM encoding and pure vanishing division are not the dominant costs under the strict timing view.
