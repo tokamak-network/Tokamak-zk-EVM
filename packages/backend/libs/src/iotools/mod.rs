@@ -1090,13 +1090,21 @@ pub fn read_R1CS_gen_uvwXY(
     subcircuit_infos: &Box<[SubcircuitInfo]>,
     setup_params: &SetupParams,
 ) -> (DensePolynomialExt, DensePolynomialExt, DensePolynomialExt) {
+    let phase_profile = env::var("TOKAMAK_UVWXY_PHASE_PROFILE").ok().as_deref() == Some("1");
+    let uvwxy_total_start = phase_profile.then(Instant::now);
+
     let n = setup_params.n;
     let s_max = setup_params.s_max;
 
+    let alloc_start = phase_profile.then(Instant::now);
     let mut u_eval = vec![ScalarField::zero(); s_max * n];
     let mut v_eval = vec![ScalarField::zero(); s_max * n];
     let mut w_eval = vec![ScalarField::zero(); s_max * n];
+    if let Some(start) = alloc_start {
+        print_uvwxy_phase("alloc_eval_buffers", start.elapsed().as_nanos());
+    }
 
+    let usage_scan_start = phase_profile.then(Instant::now);
     if placement_variables.len() > s_max {
         panic!("placement_variables length exceeds s_max.");
     }
@@ -1114,8 +1122,12 @@ pub fn read_R1CS_gen_uvwXY(
         unique_ids.insert(subcircuit_id);
         indices_by_subcircuit[subcircuit_id].push(i);
     }
+    if let Some(start) = usage_scan_start {
+        print_uvwxy_phase("usage_scan", start.elapsed().as_nanos());
+    }
 
     // Preload all unique subcircuit R1CS (no incremental cache)
+    let r1cs_preload_start = phase_profile.then(Instant::now);
     let mut r1cs_by_id: Vec<Option<SubcircuitR1CS>> =
         (0..subcircuit_infos.len()).map(|_| None).collect();
     for &subcircuit_id in unique_ids.iter() {
@@ -1126,11 +1138,17 @@ pub fn read_R1CS_gen_uvwXY(
                 .unwrap();
         r1cs_by_id[subcircuit_id] = Some(loaded_r1cs);
     }
+    if let Some(start) = r1cs_preload_start {
+        print_uvwxy_phase("r1cs_preload_json_compact", start.elapsed().as_nanos());
+    }
 
+    let gpu_check_start = phase_profile.then(Instant::now);
     if check_gpu() {
         println!("Using sparse CPU uvwXY generation while GPU remains active for later stages.");
     }
-    let phase_profile = env::var("TOKAMAK_UVWXY_PHASE_PROFILE").ok().as_deref() == Some("1");
+    if let Some(start) = gpu_check_start {
+        print_uvwxy_phase("gpu_check_log", start.elapsed().as_nanos());
+    }
 
     let sparse_eval_start = phase_profile.then(Instant::now);
     eval_uvwxy_sparse_rows(
@@ -1146,7 +1164,7 @@ pub fn read_R1CS_gen_uvwXY(
         print_uvwxy_phase("sparse_eval_cpu_rayon", start.elapsed().as_nanos());
     }
 
-    // Report usage statistics
+    let usage_report_start = phase_profile.then(Instant::now);
     let unique_subcircuits = unique_ids.len();
     let total_subcircuit_uses = placement_variables.len();
     println!(
@@ -1157,6 +1175,9 @@ pub fn read_R1CS_gen_uvwXY(
         if count > 0 {
             println!("  📋 Subcircuit {} used {} times", subcircuit_id, count);
         }
+    }
+    if let Some(start) = usage_report_start {
+        print_uvwxy_phase("usage_report_stdout", start.elapsed().as_nanos());
     }
 
     let transpose_start = phase_profile.then(Instant::now);
@@ -1176,6 +1197,21 @@ pub fn read_R1CS_gen_uvwXY(
         DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&w_eval), n, s_max, None, None);
     if let Some(start) = from_rou_evals_start {
         print_uvwxy_phase("from_rou_evals_gpu_icicle", start.elapsed().as_nanos());
+    }
+
+    let cleanup_start = phase_profile.then(Instant::now);
+    drop(u_eval);
+    drop(v_eval);
+    drop(w_eval);
+    drop(r1cs_by_id);
+    drop(indices_by_subcircuit);
+    drop(unique_ids);
+    drop(usage_counts);
+    if let Some(start) = cleanup_start {
+        print_uvwxy_phase("cleanup_local_buffers", start.elapsed().as_nanos());
+    }
+    if let Some(start) = uvwxy_total_start {
+        print_uvwxy_phase("uvwxy_total_function", start.elapsed().as_nanos());
     }
 
     return (uXY, vXY, wXY);

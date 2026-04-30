@@ -1,6 +1,6 @@
 {
-  "generated_at_unix_ms": 1777536404794,
-  "total_wall_ms": 39006.563248,
+  "generated_at_unix_ms": 1777536762628,
+  "total_wall_ms": 39875.181697,
   "setup_params": {
     "l_free": 128,
     "l": 728,
@@ -14,41 +14,41 @@
   },
   "summary": {
     "init": {
-      "total_ms": 8654.836026,
+      "total_ms": 8668.618006,
       "poly_ms": 0.0,
       "encode_ms": 0.0
     },
     "prove0": {
-      "total_ms": 6005.965861,
-      "poly_ms": 2099.665412,
-      "encode_ms": 2078.283165
+      "total_ms": 6140.550994,
+      "poly_ms": 2159.725519,
+      "encode_ms": 2114.741658
     },
     "prove1": {
-      "total_ms": 904.49391,
-      "poly_ms": 241.60157500000003,
-      "encode_ms": 324.798001
+      "total_ms": 919.837064,
+      "poly_ms": 245.427263,
+      "encode_ms": 329.775633
     },
     "prove2": {
-      "total_ms": 12621.362849,
-      "poly_ms": 7202.310222,
-      "encode_ms": 1649.139502
+      "total_ms": 12850.784564,
+      "poly_ms": 7337.6490380000005,
+      "encode_ms": 1678.30637
     },
     "prove3": {
-      "total_ms": 1065.312577,
-      "poly_ms": 526.2152859999999,
+      "total_ms": 1078.18077,
+      "poly_ms": 532.025379,
       "encode_ms": 0.0
     },
     "prove4": {
-      "total_ms": 9745.382872,
-      "poly_ms": 7463.337892000001,
-      "encode_ms": 2257.372773
+      "total_ms": 10207.959016,
+      "poly_ms": 7844.621177000001,
+      "encode_ms": 2338.704893
     }
   },
   "events": [
     {
       "name": "init.load.setup_params",
       "category": "load",
-      "nanos": 13618,
+      "nanos": 15839,
       "sizes": [
         {
           "label": "file_bytes",
@@ -61,7 +61,7 @@
     {
       "name": "init.load.subcircuit_infos",
       "category": "load",
-      "nanos": 617382,
+      "nanos": 642675,
       "sizes": [
         {
           "label": "file_bytes",
@@ -74,7 +74,7 @@
     {
       "name": "init.load.placement_variables",
       "category": "load",
-      "nanos": 90372336,
+      "nanos": 88708063,
       "sizes": [
         {
           "label": "file_bytes",
@@ -87,7 +87,7 @@
     {
       "name": "init.build.witness.bXY",
       "category": "build",
-      "nanos": 26863749,
+      "nanos": 27287085,
       "sizes": [
         {
           "label": "bXY",
@@ -101,7 +101,7 @@
     {
       "name": "init.build.witness.uvwXY",
       "category": "build",
-      "nanos": 7041774112,
+      "nanos": 7065986924,
       "sizes": [
         {
           "label": "uXY/vXY/wXY",
@@ -115,7 +115,7 @@
     {
       "name": "init.load.permutation",
       "category": "load",
-      "nanos": 870346,
+      "nanos": 862152,
       "sizes": [
         {
           "label": "file_bytes",
@@ -128,7 +128,7 @@
     {
       "name": "init.load.instance",
       "category": "load",
-      "nanos": 112897,
+      "nanos": 201474,
       "sizes": [
         {
           "label": "file_bytes",
@@ -141,7 +141,7 @@
     {
       "name": "init.build.instance.a_free_X",
       "category": "build",
-      "nanos": 496676,
+      "nanos": 463944,
       "sizes": [
         {
           "label": "a_free_X",
@@ -155,7 +155,7 @@
     {
       "name": "init.build.instance.t_n",
       "category": "build",
-      "nanos": 69405,
+      "nanos": 70128,
       "sizes": [
         {
           "label": "t_n",
@@ -169,7 +169,7 @@
     {
       "name": "init.build.instance.t_mi",
       "category": "build",
-      "nanos": 38051,
+      "nanos": 38226,
       "sizes": [
         {
           "label": "t_mi",
@@ -183,7 +183,7 @@
     {
       "name": "init.build.instance.t_smax",
       "category": "build",
-      "nanos": 18145,
+      "nanos": 16881,
       "sizes": [
         {
           "label": "t_smax",
@@ -197,7 +197,7 @@
     {
       "name": "init.build.instance.s0_s1",
       "category": "build",
-      "nanos": 1212919340,
+      "nanos": 1204856333,
       "sizes": [
         {
           "label": "s0/s1",
@@ -211,7 +211,7 @@
     {
       "name": "init.load.sigma",
       "category": "load",
-      "nanos": 123016,
+      "nanos": 129938,
       "sizes": [
         {
           "label": "file_bytes",
@@ -224,7 +224,7 @@
     {
       "name": "init.build.binding.A_free",
       "category": "build",
-      "nanos": 13832763,
+      "nanos": 14034432,
       "sizes": [
         {
           "label": "A_free",
@@ -238,7 +238,7 @@
     {
       "name": "init.build.binding.O_pub_free",
       "category": "build",
-      "nanos": 10160950,
+      "nanos": 10178311,
       "sizes": [
         {
           "label": "O_pub_free",
@@ -252,7 +252,7 @@
     {
       "name": "init.build.binding.O_mid_core",
       "category": "build",
-      "nanos": 16678112,
+      "nanos": 16471253,
       "sizes": [
         {
           "label": "O_mid_core",
@@ -266,7 +266,7 @@
     {
       "name": "init.build.binding.O_prv_core",
       "category": "build",
-      "nanos": 226036423,
+      "nanos": 224750045,
       "sizes": [
         {
           "label": "O_prv_core",
@@ -280,7 +280,7 @@
     {
       "name": "init.total",
       "category": "init",
-      "nanos": 8654836026,
+      "nanos": 8668618006,
       "sizes": [
         {
           "label": "n_s_max",
@@ -313,7 +313,7 @@
     {
       "name": "poly.div_by_vanishing_opt.prove0.q0q1",
       "category": "poly",
-      "nanos": 2099665412,
+      "nanos": 2159725519,
       "sizes": [
         {
           "label": "p0XY",
@@ -334,7 +334,7 @@
     {
       "name": "prove0.encode.U",
       "category": "encode",
-      "nanos": 322824140,
+      "nanos": 327695220,
       "sizes": [
         {
           "label": "U",
@@ -348,7 +348,7 @@
     {
       "name": "prove0.encode.V",
       "category": "encode",
-      "nanos": 317834923,
+      "nanos": 322795465,
       "sizes": [
         {
           "label": "V",
@@ -362,7 +362,7 @@
     {
       "name": "prove0.encode.W",
       "category": "encode",
-      "nanos": 319104372,
+      "nanos": 323576460,
       "sizes": [
         {
           "label": "W",
@@ -376,7 +376,7 @@
     {
       "name": "prove0.encode.Q_AX",
       "category": "encode",
-      "nanos": 470431669,
+      "nanos": 479016710,
       "sizes": [
         {
           "label": "Q_AX",
@@ -390,7 +390,7 @@
     {
       "name": "prove0.encode.Q_AY",
       "category": "encode",
-      "nanos": 326112344,
+      "nanos": 330051039,
       "sizes": [
         {
           "label": "Q_AY",
@@ -404,7 +404,7 @@
     {
       "name": "prove0.encode.B",
       "category": "encode",
-      "nanos": 321975717,
+      "nanos": 331606764,
       "sizes": [
         {
           "label": "B",
@@ -418,7 +418,7 @@
     {
       "name": "prove0.total",
       "category": "prove",
-      "nanos": 6005965861,
+      "nanos": 6140550994,
       "sizes": [
         {
           "label": "uXY",
@@ -439,7 +439,7 @@
     {
       "name": "poly.to_rou_evals.prove1.fXY",
       "category": "poly",
-      "nanos": 42321055,
+      "nanos": 43229994,
       "sizes": [
         {
           "label": "fXY",
@@ -453,7 +453,7 @@
     {
       "name": "poly.to_rou_evals.prove1.gXY",
       "category": "poly",
-      "nanos": 41010679,
+      "nanos": 41855008,
       "sizes": [
         {
           "label": "gXY",
@@ -467,7 +467,7 @@
     {
       "name": "poly.recursion_eval.prove1.rXY",
       "category": "poly",
-      "nanos": 145123019,
+      "nanos": 147078436,
       "sizes": [
         {
           "label": "fXY_evals",
@@ -493,7 +493,7 @@
     {
       "name": "poly.from_rou_evals.prove1.rXY",
       "category": "poly",
-      "nanos": 13146822,
+      "nanos": 13263825,
       "sizes": [
         {
           "label": "rXY_evals",
@@ -513,7 +513,7 @@
     {
       "name": "prove1.encode.R",
       "category": "encode",
-      "nanos": 324798001,
+      "nanos": 329775633,
       "sizes": [
         {
           "label": "R",
@@ -527,7 +527,7 @@
     {
       "name": "prove1.total",
       "category": "prove",
-      "nanos": 904493910,
+      "nanos": 919837064,
       "sizes": [
         {
           "label": "m_i_s_max",
@@ -541,7 +541,7 @@
     {
       "name": "poly.scale_coeffs.prove2.r_omegaX",
       "category": "poly",
-      "nanos": 69459102,
+      "nanos": 70973684,
       "sizes": [
         {
           "label": "rXY",
@@ -555,7 +555,7 @@
     {
       "name": "poly.scale_coeffs.prove2.r_omegaX_omegaY",
       "category": "poly",
-      "nanos": 45863753,
+      "nanos": 46650377,
       "sizes": [
         {
           "label": "r_omegaX",
@@ -569,7 +569,7 @@
     {
       "name": "poly.from_rou_evals.prove2.K",
       "category": "poly",
-      "nanos": 1925520,
+      "nanos": 1931259,
       "sizes": [
         {
           "label": "k_evals",
@@ -589,7 +589,7 @@
     {
       "name": "poly.from_rou_evals.prove2.L",
       "category": "poly",
-      "nanos": 331769,
+      "nanos": 338713,
       "sizes": [
         {
           "label": "l_evals",
@@ -609,7 +609,7 @@
     {
       "name": "poly.from_rou_evals.prove2.K0",
       "category": "poly",
-      "nanos": 1084078,
+      "nanos": 1075672,
       "sizes": [
         {
           "label": "k0_evals",
@@ -629,7 +629,7 @@
     {
       "name": "poly.div_by_vanishing_opt.prove2.qCXqCY",
       "category": "poly",
-      "nanos": 7083646000,
+      "nanos": 7216679333,
       "sizes": [
         {
           "label": "p_comb",
@@ -650,7 +650,7 @@
     {
       "name": "prove2.encode.Q_CX",
       "category": "encode",
-      "nanos": 1122071490,
+      "nanos": 1143333636,
       "sizes": [
         {
           "label": "Q_CX",
@@ -664,7 +664,7 @@
     {
       "name": "prove2.encode.Q_CY",
       "category": "encode",
-      "nanos": 527068012,
+      "nanos": 534972734,
       "sizes": [
         {
           "label": "Q_CY",
@@ -678,7 +678,7 @@
     {
       "name": "prove2.total",
       "category": "prove",
-      "nanos": 12621362849,
+      "nanos": 12850784564,
       "sizes": [
         {
           "label": "m_i_s_max",
@@ -692,7 +692,7 @@
     {
       "name": "poly.eval.prove3.R",
       "category": "poly",
-      "nanos": 45565368,
+      "nanos": 45633891,
       "sizes": [
         {
           "label": "R",
@@ -706,7 +706,7 @@
     {
       "name": "poly.scale_coeffs.prove3.R_omegaX",
       "category": "poly",
-      "nanos": 219711955,
+      "nanos": 221613050,
       "sizes": [
         {
           "label": "R",
@@ -720,7 +720,7 @@
     {
       "name": "poly.eval.prove3.R_omegaX",
       "category": "poly",
-      "nanos": 34339861,
+      "nanos": 35169023,
       "sizes": [
         {
           "label": "R_omegaX",
@@ -734,7 +734,7 @@
     {
       "name": "poly.scale_coeffs.prove3.R_omegaX_omegaY",
       "category": "poly",
-      "nanos": 192278689,
+      "nanos": 195198997,
       "sizes": [
         {
           "label": "R_omegaX",
@@ -748,7 +748,7 @@
     {
       "name": "poly.eval.prove3.R_omegaX_omegaY",
       "category": "poly",
-      "nanos": 34319413,
+      "nanos": 34410418,
       "sizes": [
         {
           "label": "R_omegaX_omegaY",
@@ -762,7 +762,7 @@
     {
       "name": "prove3.total",
       "category": "prove",
-      "nanos": 1065312577,
+      "nanos": 1078180770,
       "sizes": [
         {
           "label": "m_i_s_max",
@@ -776,7 +776,7 @@
     {
       "name": "poly.eval.prove4.t_n",
       "category": "poly",
-      "nanos": 5458485,
+      "nanos": 5469284,
       "sizes": [
         {
           "label": "t_n",
@@ -790,7 +790,7 @@
     {
       "name": "poly.eval.prove4.t_smax",
       "category": "poly",
-      "nanos": 24037190,
+      "nanos": 23845631,
       "sizes": [
         {
           "label": "t_smax",
@@ -804,7 +804,7 @@
     {
       "name": "poly.eval.prove4.vXY",
       "category": "poly",
-      "nanos": 15130987,
+      "nanos": 15021827,
       "sizes": [
         {
           "label": "vXY",
@@ -818,7 +818,7 @@
     {
       "name": "poly.combine.prove4.V",
       "category": "poly",
-      "nanos": 262928959,
+      "nanos": 271024084,
       "sizes": [
         {
           "label": "vXY",
@@ -832,7 +832,7 @@
     {
       "name": "poly.combine.prove4.Pi_A",
       "category": "poly",
-      "nanos": 909855325,
+      "nanos": 924715812,
       "sizes": [
         {
           "label": "uXY",
@@ -846,7 +846,7 @@
     {
       "name": "poly.div_by_ruffini.prove4.Pi_A",
       "category": "poly",
-      "nanos": 298570013,
+      "nanos": 303831877,
       "sizes": [
         {
           "label": "pA_XY",
@@ -860,7 +860,7 @@
     {
       "name": "prove4.encode.Pi_AX",
       "category": "encode",
-      "nanos": 467120958,
+      "nanos": 477297976,
       "sizes": [
         {
           "label": "Pi_AX",
@@ -874,7 +874,7 @@
     {
       "name": "prove4.encode.Pi_AY",
       "category": "encode",
-      "nanos": 12428606,
+      "nanos": 12052893,
       "sizes": [
         {
           "label": "Pi_AY",
@@ -888,7 +888,7 @@
     {
       "name": "poly.mul.prove4.RXY_t_mi",
       "category": "poly",
-      "nanos": 3854914,
+      "nanos": 3805676,
       "sizes": [
         {
           "label": "t_mi",
@@ -902,7 +902,7 @@
     {
       "name": "poly.mul.prove4.RXY_t_smax",
       "category": "poly",
-      "nanos": 259884,
+      "nanos": 274155,
       "sizes": [
         {
           "label": "t_smax",
@@ -916,7 +916,7 @@
     {
       "name": "poly.add.prove4.RXY_terms",
       "category": "poly",
-      "nanos": 122299598,
+      "nanos": 126273964,
       "sizes": [
         {
           "label": "m_i_s_max",
@@ -930,7 +930,7 @@
     {
       "name": "poly.add.prove4.RXY",
       "category": "poly",
-      "nanos": 77245436,
+      "nanos": 93647190,
       "sizes": [
         {
           "label": "R",
@@ -944,7 +944,7 @@
     {
       "name": "poly.div_by_ruffini.prove4.M",
       "category": "poly",
-      "nanos": 414375302,
+      "nanos": 434017705,
       "sizes": [
         {
           "label": "R",
@@ -958,7 +958,7 @@
     {
       "name": "prove4.encode.M_X",
       "category": "encode",
-      "nanos": 323116973,
+      "nanos": 350093639,
       "sizes": [
         {
           "label": "M_X",
@@ -972,7 +972,7 @@
     {
       "name": "prove4.encode.M_Y",
       "category": "encode",
-      "nanos": 11952541,
+      "nanos": 13304585,
       "sizes": [
         {
           "label": "M_Y",
@@ -986,7 +986,7 @@
     {
       "name": "poly.div_by_ruffini.prove4.N",
       "category": "poly",
-      "nanos": 409697450,
+      "nanos": 429308565,
       "sizes": [
         {
           "label": "R",
@@ -1000,7 +1000,7 @@
     {
       "name": "prove4.encode.N_X",
       "category": "encode",
-      "nanos": 324543194,
+      "nanos": 347179753,
       "sizes": [
         {
           "label": "N_X",
@@ -1014,7 +1014,7 @@
     {
       "name": "prove4.encode.N_Y",
       "category": "encode",
-      "nanos": 13103272,
+      "nanos": 12319528,
       "sizes": [
         {
           "label": "N_Y",
@@ -1028,7 +1028,7 @@
     {
       "name": "poly.scale_coeffs.prove4.r_omegaX",
       "category": "poly",
-      "nanos": 56351068,
+      "nanos": 64818046,
       "sizes": [
         {
           "label": "R",
@@ -1042,7 +1042,7 @@
     {
       "name": "poly.scale_coeffs.prove4.r_omegaX_omegaY",
       "category": "poly",
-      "nanos": 39069136,
+      "nanos": 46925283,
       "sizes": [
         {
           "label": "R_omegaX",
@@ -1056,7 +1056,7 @@
     {
       "name": "poly.combine.prove4.fXY",
       "category": "poly",
-      "nanos": 35778615,
+      "nanos": 42791855,
       "sizes": [
         {
           "label": "bXY",
@@ -1070,7 +1070,7 @@
     {
       "name": "poly.combine.prove4.gXY",
       "category": "poly",
-      "nanos": 39377832,
+      "nanos": 65537874,
       "sizes": [
         {
           "label": "bXY",
@@ -1084,7 +1084,7 @@
     {
       "name": "poly.from_rou_evals.prove4.K0",
       "category": "poly",
-      "nanos": 1989993,
+      "nanos": 1977958,
       "sizes": [
         {
           "label": "k0_evals",
@@ -1104,7 +1104,7 @@
     {
       "name": "poly.eval.prove4.K0",
       "category": "poly",
-      "nanos": 221396,
+      "nanos": 213969,
       "sizes": [
         {
           "label": "K0",
@@ -1118,7 +1118,7 @@
     {
       "name": "poly.eval.prove4.R",
       "category": "poly",
-      "nanos": 15257313,
+      "nanos": 15278893,
       "sizes": [
         {
           "label": "R",
@@ -1132,7 +1132,7 @@
     {
       "name": "poly.eval.prove4.R_omegaX",
       "category": "poly",
-      "nanos": 15167166,
+      "nanos": 15195275,
       "sizes": [
         {
           "label": "R_omegaX",
@@ -1146,7 +1146,7 @@
     {
       "name": "poly.eval.prove4.R_omegaX_omegaY",
       "category": "poly",
-      "nanos": 15163508,
+      "nanos": 15137120,
       "sizes": [
         {
           "label": "R_omegaX_omegaY",
@@ -1160,7 +1160,7 @@
     {
       "name": "poly.from_rou_evals.prove4.K",
       "category": "poly",
-      "nanos": 325797,
+      "nanos": 331402,
       "sizes": [
         {
           "label": "k_evals",
@@ -1180,7 +1180,7 @@
     {
       "name": "poly.from_rou_evals.prove4.L",
       "category": "poly",
-      "nanos": 345764,
+      "nanos": 374080,
       "sizes": [
         {
           "label": "l_evals",
@@ -1200,7 +1200,7 @@
     {
       "name": "poly.mul.prove4.KL",
       "category": "poly",
-      "nanos": 75008859,
+      "nanos": 111359106,
       "sizes": [
         {
           "label": "K",
@@ -1221,7 +1221,7 @@
     {
       "name": "poly.combine.prove4.term5",
       "category": "poly",
-      "nanos": 9002790,
+      "nanos": 9407203,
       "sizes": [
         {
           "label": "gXY",
@@ -1235,7 +1235,7 @@
     {
       "name": "poly.combine.prove4.term6",
       "category": "poly",
-      "nanos": 10054772,
+      "nanos": 10024475,
       "sizes": [
         {
           "label": "gXY",
@@ -1249,7 +1249,7 @@
     {
       "name": "poly.combine.prove4.pC",
       "category": "poly",
-      "nanos": 392802709,
+      "nanos": 410076090,
       "sizes": [
         {
           "label": "m_i_s_max",
@@ -1263,7 +1263,7 @@
     {
       "name": "poly.eval.prove4.r_D1",
       "category": "poly",
-      "nanos": 15923576,
+      "nanos": 15845972,
       "sizes": [
         {
           "label": "R",
@@ -1277,7 +1277,7 @@
     {
       "name": "poly.eval.prove4.r_D2",
       "category": "poly",
-      "nanos": 15269361,
+      "nanos": 15177023,
       "sizes": [
         {
           "label": "R",
@@ -1291,7 +1291,7 @@
     {
       "name": "poly.combine.prove4.term9",
       "category": "poly",
-      "nanos": 469504,
+      "nanos": 474717,
       "sizes": [
         {
           "label": "rB",
@@ -1305,7 +1305,7 @@
     {
       "name": "poly.combine.prove4.term_B_zk",
       "category": "poly",
-      "nanos": 129437088,
+      "nanos": 131056201,
       "sizes": [
         {
           "label": "rB",
@@ -1319,7 +1319,7 @@
     {
       "name": "poly.add.prove4.g_minus_f",
       "category": "poly",
-      "nanos": 5832473,
+      "nanos": 5833997,
       "sizes": [
         {
           "label": "gXY",
@@ -1333,7 +1333,7 @@
     {
       "name": "poly.mul.prove4.term10",
       "category": "poly",
-      "nanos": 4003358,
+      "nanos": 4009795,
       "sizes": [
         {
           "label": "gXY",
@@ -1347,7 +1347,7 @@
     {
       "name": "poly.combine.prove4.LHS_zk1",
       "category": "poly",
-      "nanos": 1304883714,
+      "nanos": 1374197906,
       "sizes": [
         {
           "label": "m_i_s_max",
@@ -1361,7 +1361,7 @@
     {
       "name": "poly.combine.prove4.LHS_zk2",
       "category": "poly",
-      "nanos": 1172114204,
+      "nanos": 1229769494,
       "sizes": [
         {
           "label": "m_i_s_max",
@@ -1375,7 +1375,7 @@
     {
       "name": "poly.add.prove4.R_minus_eval",
       "category": "poly",
-      "nanos": 148331121,
+      "nanos": 149458794,
       "sizes": [
         {
           "label": "R",
@@ -1389,7 +1389,7 @@
     {
       "name": "poly.combine.prove4.LHS_for_copy",
       "category": "poly",
-      "nanos": 786272690,
+      "nanos": 800875511,
       "sizes": [
         {
           "label": "m_i_s_max",
@@ -1403,7 +1403,7 @@
     {
       "name": "poly.div_by_ruffini.prove4.Pi_C",
       "category": "poly",
-      "nanos": 590394226,
+      "nanos": 637265652,
       "sizes": [
         {
           "label": "LHS_for_copy",
@@ -1417,7 +1417,7 @@
     {
       "name": "prove4.encode.Pi_CX",
       "category": "encode",
-      "nanos": 1082600510,
+      "nanos": 1104164611,
       "sizes": [
         {
           "label": "Pi_CX",
@@ -1431,7 +1431,7 @@
     {
       "name": "prove4.encode.Pi_CY",
       "category": "encode",
-      "nanos": 11520872,
+      "nanos": 11381385,
       "sizes": [
         {
           "label": "Pi_CY",
@@ -1445,7 +1445,7 @@
     {
       "name": "poly.div_by_ruffini.prove4.Pi_B",
       "category": "poly",
-      "nanos": 40776316,
+      "nanos": 39971716,
       "sizes": [
         {
           "label": "a_free_X",
@@ -1459,7 +1459,7 @@
     {
       "name": "prove4.encode.Pi_B",
       "category": "encode",
-      "nanos": 10985847,
+      "nanos": 10910523,
       "sizes": [
         {
           "label": "a_free_X",
@@ -1473,7 +1473,7 @@
     {
       "name": "prove4.total",
       "category": "prove",
-      "nanos": 9745382872,
+      "nanos": 10207959016,
       "sizes": [
         {
           "label": "n_s_max",
