@@ -364,6 +364,19 @@ Special-form breakdown:
 
 The previous rejected special-multiplication attempt used CPU-side loops for some of these forms. The inventory suggests the idea is still worth revisiting only if the implementation is built from existing GPU-backed polynomial APIs or a dedicated GPU path. The most attractive direct targets are the binomial and low-degree univariate cases, because they can be expressed as a small number of shifts, scalings, and additions. `lagrange_K0_XY` is excluded from this special-form list and should be revisited only as a separate dedicated experiment.
 
+### Implementation-Oriented Special-Form Classification
+
+After excluding `lagrange_KL_XY` and `lagrange_K0_XY`, the remaining 14 special-form multiplication candidates split by implementation strategy as follows.
+
+| class | count | expressions | implementation plan |
+| --- | ---: | --- | --- |
+| low-degree polynomial times vanishing binomial | 4 | `rW_X * t_n`, `rW_Y * t_smax`, `rB_X * t_mi`, `rB_Y * t_smax` | Build the result coefficients directly as `-P` in the low region and `+P` shifted by the vanishing exponent. The operand degree is below the vanishing exponent, so the two regions do not overlap. |
+| dense polynomial times simple X-binomial | 4 | `(X - 1) * (...)`, `(1 - X) * (...)` | Replace generic multiplication with `mul_monomial(1, 0)` plus one add/sub. |
+| degree-1 univariate times dense polynomial | 4 | `rB_X * r_D1`, `rB_X * r_D2`, `rB_Y * r_D1`, `rB_Y * r_D2` | Expand `(a0 + a1 X) * P` or `(b0 + b1 Y) * P` into two scalar-scaled terms and one monomial shift. |
+| sparse low-degree bivariate times dense polynomial | 2 | `r_D1 * term9`, `r_D2 * term9` | Use `term9 = c0 + cX X + cY Y` and expand into three scalar-scaled shifted copies of the dense operand. |
+
+The implementation should preserve the original algebraic expressions in comments at the call sites. The first class has the cleanest expected benefit because it can avoid both generic NTT multiplication and a follow-up polynomial add/sub between overlapping coefficient regions.
+
 ## Suggested Application Order
 
 1. Apply `Q_CX/Q_CY` factorization.
