@@ -132,6 +132,11 @@ CRS build-metadata-mpc-setup.json dependencies.subcircuitLibrary.sourceDigest
 backend build-metadata-{preprocess,prove,verify}.json dependencies.subcircuitLibrary.sourceDigest
 ```
 
+Within a fixed `MAJOR.MINOR` compatibility line, this `sourceDigest` equality is the only CRS reuse condition that may
+change across patch releases. For example, a CRS whose provenance and metadata use compatibility version `2.0` is reusable
+by package versions `2.0.x` only when each installed backend binary reports the same `sourceDigest` as the CRS metadata.
+If the digest changes, the existing CRS must not be reused for that package release.
+
 The subcircuit package version may be useful diagnostic metadata, but CRS compatibility is decided by the digest and the
 backend compatibility version.
 
