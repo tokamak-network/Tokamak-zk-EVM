@@ -138,18 +138,52 @@ Plan:
 - leave `_biNTT` and `to_rou_evals` unchanged for now;
 - revisit only if future timing again identifies generic multiplication or ROU conversion as the dominant remaining cost.
 
+## Add/Sub/AddAssign Fast Path Experiment
+
+The first experiment added a size-equal fast path for `Add`, `Sub`, and `AddAssign` so that equal-sized operands would skip wrapper-level cloning and resize checks.
+
+Artifact:
+
+```text
+prove/optimization/timing.remote.addsub-fastpath.cuda.json
+```
+
+Result against the accepted `timing.remote.special-form-products.cuda.json` baseline:
+
+| metric | baseline | add/sub fast path | delta |
+| --- | ---: | ---: | ---: |
+| total wall | 26.709146 s | 26.920904 s | +0.211758 s |
+| `prove2.total` | 9.540950 s | 9.652942 s | +0.111992 s |
+| `prove4.total` | 9.519266 s | 9.623267 s | +0.104001 s |
+| `poly.combine` | 14.007280 s | 14.066674 s | +0.059394 s |
+| detail multiplication | 4.914589 s | 4.973365 s | +0.058776 s |
+| detail addition | 7.076283 s | 7.094381 s | +0.018098 s |
+| detail scaling | 0.807468 s | 0.789332 s | -0.018135 s |
+
+Decision:
+
+- rejected;
+- the code change was reverted;
+- the fast path did not reduce measured addition time and slightly regressed total wall time.
+
+Likely explanation:
+
+- ICICLE polynomial add/sub already dominates the operation cost, not the Rust-side clone branch;
+- removing the wrapper clones did not reduce the number of ICICLE add/sub calls or intermediate polynomial objects;
+- run-to-run variance may contribute, but the target metric did not move in the desired direction.
+
 ## Next Experiment
 
 Apply exactly one change:
 
 ```text
-Add/Sub/AddAssign size-equal fast path
+Helper-level intermediate reduction without increasing generic polynomial multiplication count
 ```
 
 Expected effect:
 
-- reduce `poly_detail.addition`;
-- reduce clone/resize overhead in special-form helper output combinations;
+- reduce the number of add/sub calls created by special-form helpers;
+- reduce intermediate polynomial construction in `mul_by_linear_x`, `mul_by_linear_y`, and `mul_by_sparse_const_x_y`;
 - no change to polynomial multiplication count;
 - no algebraic behavior change.
 

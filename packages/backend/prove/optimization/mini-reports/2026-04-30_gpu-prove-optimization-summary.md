@@ -325,6 +325,19 @@ This changes the next optimization question: reducing multiplication count alone
 
    The selected run showed a small total improvement, but the change is at the noise level for this benchmark and is not accepted as a reliable optimization. The `batch_encode_poly` API and its `prove0`/`prove2` call sites were removed, restoring the original individual `encode_poly` calls. The timing artifacts are kept only as experiment records.
 
+7. **`DensePolynomialExt` add/sub size-equal fast paths were tested and rejected.**
+
+   The experiment added size-equal fast paths for `Add`, `Sub`, and `AddAssign` so equal-sized operands could skip wrapper-level cloning and resize checks. The code compiled and the timing test passed, but the CUDA measurement regressed slightly against the accepted `timing.remote.special-form-products.cuda.json` baseline:
+
+   | metric | before | add/sub fast path | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 26.709146 s | 26.920904 s | +0.211758 s |
+   | `poly.combine` | 14.007280 s | 14.066674 s | +0.059394 s |
+   | detail addition | 7.076283 s | 7.094381 s | +0.018098 s |
+   | detail scaling | 0.807468 s | 0.789332 s | -0.018135 s |
+
+   The result indicates that this path does not reduce the dominant cost. The likely bottleneck is the number of ICICLE add/sub operations and intermediate polynomial constructions, not the Rust-side branch that cloned operands before checking dimensions. The code change was rolled back and the timing artifact is kept only as an experiment record.
+
 ## Current Accepted Baseline
 
 The current accepted CUDA baseline is `timing.remote.special-form-products.cuda.json`:
