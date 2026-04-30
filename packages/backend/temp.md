@@ -216,6 +216,26 @@ Polynomial multiplication count:
 | `rB_Y * t_smax` in `prove4` | 1 | 0 | 1 |
 | total | 2 | 0 | 2 |
 
+### 8. `lagrange_KL_XY`
+
+Current repeated expression:
+
+```text
+lagrange_KL_XY = lagrange_K_XY * lagrange_L_XY
+```
+
+It is built in `prove2` and again in `prove4`.
+
+If cached from `prove2`, `prove4.KL` can reuse it.
+
+Polynomial multiplication count:
+
+| item | current repeated work | cached | reduction |
+| --- | ---: | ---: | ---: |
+| `lagrange_K_XY * lagrange_L_XY` in `prove4` | 1 | 0 | 1 |
+
+`lagrange_K0_XY` is also repeated, but it is created with `from_rou_evals`, not polynomial multiplication. Caching it may still save small setup time but does not reduce polynomial multiplication count.
+
 ## Other Reviewed Expressions
 
 These expressions were reviewed and do not offer meaningful generic polynomial multiplication reduction under the current APIs.
@@ -235,7 +255,6 @@ These expressions were reviewed and do not offer meaningful generic polynomial m
 | `prove4.term10` | scalar-polynomial only and already negligible |
 | `fXY`, `gXY`, `g_D` | scalar-polynomial/add only; caching may save time and memory traffic but not polynomial multiplication count |
 | `R_zk_terms` | scalar-polynomial only; caching may save time but not polynomial multiplication count |
-| `lagrange_KL_XY` | excluded; previous measurement did not justify treating KL as a future special-form target |
 
 ## Total Polynomial Multiplication Reduction
 
@@ -250,9 +269,10 @@ If all algebraic rewrites and cache reuses above are applied together, the expec
 | `prove4.Pi_A` cached `W_zk` rewrite | 2 |
 | `prove2.p_comb` cached `R * G` | 1 |
 | cached `term_B_zk` reuse | 2 |
-| **total** | **11** |
+| cached `lagrange_KL_XY` reuse | 1 |
+| **total** | **12** |
 
-This `11` count is a static operation-count estimate after excluding `lagrange_KL_XY`. The actual runtime improvement may be smaller because some eliminated multiplications involve small or structured polynomials, and because caching larger intermediate polynomials increases memory residency.
+This `12` count is a static operation-count estimate. The actual runtime improvement may be smaller because some eliminated multiplications involve small or structured polynomials, and because caching larger intermediate polynomials increases memory residency.
 
 ## Applied Measurement
 
@@ -267,7 +287,7 @@ The batch was implemented and measured in `prove/optimization/timing.remote.poly
 | `prove2.total` | 10.908775 s | 10.312476 s | -0.596299 s |
 | `prove4.total` | 9.985713 s | 9.541593 s | -0.444121 s |
 
-The CUDA timing test passed. Some individual targets were neutral, but the combined rewrite is positive overall. This measured batch included a `lagrange_KL_XY` cache; KL is excluded from the future special-form target list because its isolated practical value was not convincing.
+The CUDA timing test passed. Some individual targets were neutral, but the combined rewrite is positive overall.
 
 ## Detail Breakdown Measurement
 
@@ -297,7 +317,7 @@ This measurement shows that multiplication is still the largest combine componen
 
 This inventory uses the current code after the algebraic-combination rewrite. The detail timing run reports 23 generic `DensePolynomialExt * DensePolynomialExt` calls inside active `poly.combine.*` spans.
 
-The directly exploitable special-form count is 18 out of 23. The remaining 5 multiplications are either dense-by-dense or explicitly excluded from the current special-form target list. `lagrange_KL_XY` is excluded because it did not show enough practical value.
+The directly exploitable special-form count is 18 out of 23. `lagrange_KL_XY` is not counted as a special-form multiplication. The remaining 5 multiplications are either dense-by-dense or explicitly outside the current special-form target list.
 
 | target | expression | form | status |
 | --- | --- | --- | --- |
@@ -352,4 +372,5 @@ The previous rejected special-multiplication attempt used CPU-side loops for som
 3. Add `W_zk` cache and rewrite `Pi_A`.
 4. Cache `R * G` in `prove2.p_comb`.
 5. Cache `term_B_zk`.
-6. Consider `fXY/gXY/g_D`, `R_zk_terms`, and `lagrange_K0_XY` only after measuring memory impact, because they do not reduce generic polynomial multiplication count.
+6. Cache `lagrange_KL_XY`.
+7. Consider `fXY/gXY/g_D`, `R_zk_terms`, and `lagrange_K0_XY` only after measuring memory impact, because they do not reduce generic polynomial multiplication count.
