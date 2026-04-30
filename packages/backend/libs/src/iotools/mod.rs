@@ -2300,97 +2300,9 @@ fn encode_poly_from_xy_powers(
     G1serde(G1Affine::from(msm_res[0]))
 }
 
-fn batch_encode_poly_from_xy_powers(
-    polys: &mut [&mut DensePolynomialExt],
-    params: &SetupParams,
-    xy_powers: &[ArchivedG1SerdeRkyv],
-) -> Vec<G1serde> {
-    let rs_x_size = std::cmp::max(2 * params.n, 2 * (params.l_D - params.l));
-    let rs_y_size = params.s_max * 2;
-    let mut targets = Vec::with_capacity(polys.len());
-    let mut active_indices = Vec::new();
-    let mut max_target_x_size = 0usize;
-    let mut max_target_y_size = 0usize;
-
-    for (idx, poly) in polys.iter_mut().enumerate() {
-        poly.optimize_size();
-        let target_x_size = (poly.x_degree + 1).max(0) as usize;
-        let target_y_size = (poly.y_degree + 1).max(0) as usize;
-        if target_x_size > rs_x_size || target_y_size > rs_y_size {
-            panic!("Insufficient length of sigma.sigma_1.xy_powers");
-        }
-        targets.push((poly.x_size, poly.y_size, target_x_size, target_y_size));
-        if target_x_size * target_y_size != 0 {
-            active_indices.push(idx);
-            max_target_x_size = std::cmp::max(max_target_x_size, target_x_size);
-            max_target_y_size = std::cmp::max(max_target_y_size, target_y_size);
-        }
-    }
-
-    let mut encoded = vec![G1serde::zero(); polys.len()];
-    if active_indices.is_empty() {
-        return encoded;
-    }
-
-    let bases_len = max_target_x_size * max_target_y_size;
-    let mut scalars = Vec::with_capacity(bases_len * active_indices.len());
-    for &idx in &active_indices {
-        let (x_size, y_size, _, _) = targets[idx];
-        let mut poly_coeffs_vec = vec![ScalarField::zero(); x_size * y_size];
-        let poly_coeffs = HostSlice::from_mut_slice(&mut poly_coeffs_vec);
-        polys[idx].copy_coeffs(0, poly_coeffs);
-        let compact = resize(
-            &poly_coeffs_vec,
-            x_size,
-            y_size,
-            max_target_x_size,
-            max_target_y_size,
-            ScalarField::zero(),
-        );
-        scalars.extend_from_slice(&compact);
-    }
-
-    let rs_unpacked: Vec<G1Affine> = {
-        let mut res = Vec::with_capacity(bases_len);
-        for i in 0..max_target_x_size {
-            for j in 0..max_target_y_size {
-                if i < rs_x_size && j < rs_y_size {
-                    let idx = rs_y_size * i + j;
-                    res.push(xy_powers[idx].to_g1_affine());
-                } else {
-                    res.push(G1Affine::zero());
-                }
-            }
-        }
-        res
-    };
-
-    let mut msm_res = vec![G1Projective::zero(); active_indices.len()];
-    msm::msm(
-        HostSlice::from_slice(&scalars),
-        HostSlice::from_slice(&rs_unpacked),
-        &MSMConfig::default(),
-        HostSlice::from_mut_slice(&mut msm_res),
-    )
-    .unwrap();
-
-    for (result_idx, &poly_idx) in active_indices.iter().enumerate() {
-        encoded[poly_idx] = G1serde(G1Affine::from(msm_res[result_idx]));
-    }
-    encoded
-}
-
 impl ArchivedSigma1Rkyv {
     pub fn encode_poly(&self, poly: &mut DensePolynomialExt, params: &SetupParams) -> G1serde {
         encode_poly_from_xy_powers(poly, params, self.xy_powers.as_slice())
-    }
-
-    pub fn batch_encode_poly(
-        &self,
-        polys: &mut [&mut DensePolynomialExt],
-        params: &SetupParams,
-    ) -> Vec<G1serde> {
-        batch_encode_poly_from_xy_powers(polys, params, self.xy_powers.as_slice())
     }
 
     pub fn encode_O_pub_fix(
@@ -2478,14 +2390,6 @@ impl ArchivedSigma1Rkyv {
 impl ArchivedPartialSigma1Rkyv {
     pub fn encode_poly(&self, poly: &mut DensePolynomialExt, params: &SetupParams) -> G1serde {
         encode_poly_from_xy_powers(poly, params, self.xy_powers.as_slice())
-    }
-
-    pub fn batch_encode_poly(
-        &self,
-        polys: &mut [&mut DensePolynomialExt],
-        params: &SetupParams,
-    ) -> Vec<G1serde> {
-        batch_encode_poly_from_xy_powers(polys, params, self.xy_powers.as_slice())
     }
 
     pub fn encode_O_pub_fix(
