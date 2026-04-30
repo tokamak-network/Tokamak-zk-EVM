@@ -15,6 +15,7 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 | `timing.remote.fused-poly-lc.cuda.json` | 32.072216 s | 0.736439 s | 10.430511 s | 0.288673 s | 0.054418 s |
 | `timing.remote.special-poly-mul.cuda.json` | 31.536390 s | 0.736913 s | 10.054102 s | 0.286999 s | 0.054550 s |
 | `timing.remote.special-poly-mul-lite.cuda.json` | 31.318987 s | 0.732530 s | 9.901451 s | 0.283615 s | 0.054247 s |
+| `timing.remote.existing-api-special-poly-mul.cuda.json` | 31.237394 s | 0.737941 s | 9.939695 s | 0.289162 s | 0.053828 s |
 
 ## Successful Changes
 
@@ -44,7 +45,7 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 
    The CPU total wall time had run-to-run noise (`56.905538 s` to `57.162002 s`), but the targeted stage improved clearly.
 
-4. **Special-form polynomial multiplication was accepted in targeted form.**
+4. **Special-form polynomial multiplication was accepted in existing-API form.**
 
    Several `prove4` linear combinations multiply by special polynomials where a generic NTT-based multiplication is unnecessary:
 
@@ -52,18 +53,18 @@ This report summarizes the CUDA prove optimization experiments performed on the 
    - `X_mono` is a monomial.
    - `term9` is a small sparse polynomial in the measured proof.
 
-   The accepted implementation adds shift/scale coefficient helpers for these cases and uses them in `Pi_A`, `term_B_zk`, and `LHS_zk1`. The accepted variant keeps `lagrange_K0_XY` multiplication on the existing generic path because the measured CPU prefix-window replacement was slower than ICICLE's generic multiplication for `LHS_zk2`.
+   The first implementation added ad hoc shift/scale helpers to `DensePolynomialExt`. That was removed because it copied dense coefficients to the host and did CPU loops. The accepted implementation now uses only existing polynomial APIs: `mul_monomial`, scalar multiplication, addition, and subtraction. It keeps `lagrange_K0_XY` multiplication on the existing generic path because the measured CPU prefix-window replacement was slower than ICICLE's generic multiplication for `LHS_zk2`.
 
-   | metric | before | special-lite | delta |
+   | metric | before | existing-api | delta |
    | --- | ---: | ---: | ---: |
-   | total wall | 31.712050 s | 31.318987 s | -0.393063 s |
-   | prove4 total | 10.152243 s | 9.901451 s | -0.250793 s |
-   | prove4 poly | 7.805363 s | 7.532867 s | -0.272497 s |
-   | `poly.combine.prove4.Pi_A` | 0.913962 s | 0.906991 s | -0.006971 s |
-   | `poly.combine.prove4.term_B_zk` | 0.126669 s | 0.129554 s | +0.002885 s |
-   | `poly.combine.prove4.LHS_zk1` | 1.335036 s | 1.249776 s | -0.085260 s |
-   | `poly.combine.prove4.LHS_zk2` | 1.214135 s | 1.233239 s | +0.019104 s |
-   | `poly.combine.prove4.LHS_for_copy` | 0.783756 s | 0.587478 s | -0.196279 s |
+   | total wall | 31.712050 s | 31.237394 s | -0.474657 s |
+   | prove4 total | 10.152243 s | 9.939695 s | -0.212548 s |
+   | prove4 poly | 7.805363 s | 7.596426 s | -0.208937 s |
+   | `poly.combine.prove4.Pi_A` | 0.913962 s | 0.900134 s | -0.013828 s |
+   | `poly.combine.prove4.term_B_zk` | 0.126669 s | 0.125349 s | -0.001321 s |
+   | `poly.combine.prove4.LHS_zk1` | 1.335036 s | 1.406641 s | +0.071606 s |
+   | `poly.combine.prove4.LHS_zk2` | 1.214135 s | 1.232757 s | +0.018622 s |
+   | `poly.combine.prove4.LHS_for_copy` | 0.783756 s | 0.582091 s | -0.201665 s |
 
 ## Failed Or Rejected Changes
 
@@ -110,14 +111,20 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 
    The total still improved because other special-form replacements helped, but the `lagrange_K0_XY` sub-change was clearly negative. The accepted code therefore excludes it.
 
+4. **Ad hoc host-loop special multiplication helpers were removed.**
+
+   The `timing.remote.special-poly-mul-lite.cuda.json` run was faster than the previous baseline, but the implementation added custom `DensePolynomialExt` helpers that copied dense coefficients to host memory and performed shift/scale/add loops on the CPU. This violated the intended direction for this optimization. The helpers were removed, and the retained implementation uses only existing library APIs.
+
+   A follow-up attempt to keep `term9` multiplication generic while still using `mul_monomial` for `(1 - X)` failed because the existing `mul_monomial` implementation can overflow its output buffer when shifting an already full-width polynomial. That experiment is not retained.
+
 ## Current Accepted Baseline
 
-The current accepted CUDA baseline is `timing.remote.special-poly-mul-lite.cuda.json`:
+The current accepted CUDA baseline is `timing.remote.existing-api-special-poly-mul.cuda.json`:
 
-- total wall: `31.318987 s`
-- init: `0.732530 s`
-- prove4: `9.901451 s`
-- uvwXY: `0.283615 s`
-- s0/s1: `0.054247 s`
+- total wall: `31.237394 s`
+- init: `0.737941 s`
+- prove4: `9.939695 s`
+- uvwXY: `0.289162 s`
+- s0/s1: `0.053828 s`
 
 Future optimization should treat `prove2.div_by_vanishing_opt` and selected `prove4` polynomial operations as the next higher-value targets. Fused linear combination and `lagrange_K0_XY` special multiplication should only be reconsidered in narrower forms if they are measured one site at a time.
