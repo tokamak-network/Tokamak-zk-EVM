@@ -11,12 +11,129 @@ running 1 test
 [WARNING] Defaulting to Ingonyama icicle-cuda-license-server at `5053@license.icicle.ingonyama.com`. For more information about icicle-cuda-license, please contact support@ingonyama.com.
 [INFO] ICICLE backend loaded from /opt/icicle/lib/backend
 CUDA is available
-uvwXY.phase name=alloc_eval_buffers nanos=33435690
-uvwXY.phase name=usage_scan nanos=13205
-uvwXY.phase name=r1cs_preload_json_compact nanos=6699539603
+uvwXY.phase name=alloc_eval_buffers nanos=32880809
+uvwXY.phase name=usage_scan nanos=12750
+r1cs_preload.phase subcircuit=4 name=read_from_json nanos=2353325
+r1cs_preload.phase subcircuit=4 name=convert_values_to_hex nanos=1744674
+r1cs_preload.phase subcircuit=4 name=active_wire_scan nanos=365177
+r1cs_preload.phase subcircuit=4 name=active_wire_sort nanos=130965
+r1cs_preload.phase subcircuit=4 name=compact_index_maps nanos=17264
+r1cs_preload.phase subcircuit=4 name=alloc_compact_sparse nanos=281802992
+r1cs_preload.phase subcircuit=4 name=fill_compact_sparse nanos=80624262
+r1cs_preload.phase subcircuit=4 name=transpose_compact nanos=552056324
+r1cs_preload.phase subcircuit=4 name=total nanos=919153040
+r1cs_preload.phase subcircuit=0 name=read_from_json nanos=133756
+r1cs_preload.phase subcircuit=0 name=convert_values_to_hex nanos=105853
+r1cs_preload.phase subcircuit=0 name=active_wire_scan nanos=23572
+r1cs_preload.phase subcircuit=0 name=active_wire_sort nanos=9111
+r1cs_preload.phase subcircuit=0 name=compact_index_maps nanos=859
+r1cs_preload.phase subcircuit=0 name=alloc_compact_sparse nanos=16362254
+r1cs_preload.phase subcircuit=0 name=fill_compact_sparse nanos=441376
+r1cs_preload.phase subcircuit=0 name=transpose_compact nanos=31735184
+r1cs_preload.phase subcircuit=0 name=total nanos=48844359
+r1cs_preload.phase subcircuit=10 name=read_from_json nanos=4887970
+r1cs_preload.phase subcircuit=10 name=convert_values_to_hex nanos=4474314
+r1cs_preload.phase subcircuit=10 name=active_wire_scan nanos=546082
+r1cs_preload.phase subcircuit=10 name=active_wire_sort nanos=127624
+r1cs_preload.phase subcircuit=10 name=compact_index_maps nanos=25492
+r1cs_preload.phase subcircuit=10 name=alloc_compact_sparse nanos=274668553
+r1cs_preload.phase subcircuit=10 name=fill_compact_sparse nanos=208879149
+r1cs_preload.phase subcircuit=10 name=transpose_compact nanos=547228939
+r1cs_preload.phase subcircuit=10 name=total nanos=1040917513
+r1cs_preload.phase subcircuit=2 name=read_from_json nanos=79758
+r1cs_preload.phase subcircuit=2 name=convert_values_to_hex nanos=44998
+r1cs_preload.phase subcircuit=2 name=active_wire_scan nanos=17093
+r1cs_preload.phase subcircuit=2 name=active_wire_sort nanos=5453
+r1cs_preload.phase subcircuit=2 name=compact_index_maps nanos=632
+r1cs_preload.phase subcircuit=2 name=alloc_compact_sparse nanos=5821539
+r1cs_preload.phase subcircuit=2 name=fill_compact_sparse nanos=97113
+r1cs_preload.phase subcircuit=2 name=transpose_compact nanos=8779871
+r1cs_preload.phase subcircuit=2 name=total nanos=14872306
+r1cs_preload.phase subcircuit=3 name=read_from_json nanos=953264
+r1cs_preload.phase subcircuit=3 name=convert_values_to_hex nanos=943799
+r1cs_preload.phase subcircuit=3 name=active_wire_scan nanos=173896
+r1cs_preload.phase subcircuit=3 name=active_wire_sort nanos=66660
+r1cs_preload.phase subcircuit=3 name=compact_index_maps nanos=2337
+r1cs_preload.phase subcircuit=3 name=alloc_compact_sparse nanos=157533467
+r1cs_preload.phase subcircuit=3 name=fill_compact_sparse nanos=26303755
+r1cs_preload.phase subcircuit=3 name=transpose_compact nanos=314229904
+r1cs_preload.phase subcircuit=3 name=total nanos=500266718
+r1cs_preload.phase subcircuit=7 name=read_from_json nanos=299969
+r1cs_preload.phase subcircuit=7 name=convert_values_to_hex nanos=270329
+r1cs_preload.phase subcircuit=7 name=active_wire_scan nanos=50397
+r1cs_preload.phase subcircuit=7 name=active_wire_sort nanos=15372
+r1cs_preload.phase subcircuit=7 name=compact_index_maps nanos=909
+r1cs_preload.phase subcircuit=7 name=alloc_compact_sparse nanos=32660007
+r1cs_preload.phase subcircuit=7 name=fill_compact_sparse nanos=1863567
+r1cs_preload.phase subcircuit=7 name=transpose_compact nanos=63918690
+r1cs_preload.phase subcircuit=7 name=total nanos=99114076
+r1cs_preload.phase subcircuit=11 name=read_from_json nanos=3397986
+r1cs_preload.phase subcircuit=11 name=convert_values_to_hex nanos=3238426
+r1cs_preload.phase subcircuit=11 name=active_wire_scan nanos=721493
+r1cs_preload.phase subcircuit=11 name=active_wire_sort nanos=112539
+r1cs_preload.phase subcircuit=11 name=compact_index_maps nanos=8638
+r1cs_preload.phase subcircuit=11 name=alloc_compact_sparse nanos=264878186
+r1cs_preload.phase subcircuit=11 name=fill_compact_sparse nanos=217044965
+r1cs_preload.phase subcircuit=11 name=transpose_compact nanos=526977993
+r1cs_preload.phase subcircuit=11 name=total nanos=1016433365
+r1cs_preload.phase subcircuit=12 name=read_from_json nanos=55494
+r1cs_preload.phase subcircuit=12 name=convert_values_to_hex nanos=29290
+r1cs_preload.phase subcircuit=12 name=active_wire_scan nanos=5225
+r1cs_preload.phase subcircuit=12 name=active_wire_sort nanos=2281
+r1cs_preload.phase subcircuit=12 name=compact_index_maps nanos=340
+r1cs_preload.phase subcircuit=12 name=alloc_compact_sparse nanos=1807270
+r1cs_preload.phase subcircuit=12 name=fill_compact_sparse nanos=62469
+r1cs_preload.phase subcircuit=12 name=transpose_compact nanos=4260699
+r1cs_preload.phase subcircuit=12 name=total nanos=6251941
+r1cs_preload.phase subcircuit=5 name=read_from_json nanos=2410688
+r1cs_preload.phase subcircuit=5 name=convert_values_to_hex nanos=2401644
+r1cs_preload.phase subcircuit=5 name=active_wire_scan nanos=410420
+r1cs_preload.phase subcircuit=5 name=active_wire_sort nanos=96730
+r1cs_preload.phase subcircuit=5 name=compact_index_maps nanos=6274
+r1cs_preload.phase subcircuit=5 name=alloc_compact_sparse nanos=220402785
+r1cs_preload.phase subcircuit=5 name=fill_compact_sparse nanos=92971744
+r1cs_preload.phase subcircuit=5 name=transpose_compact nanos=436844791
+r1cs_preload.phase subcircuit=5 name=total nanos=755594678
+r1cs_preload.phase subcircuit=6 name=read_from_json nanos=2653950
+r1cs_preload.phase subcircuit=6 name=convert_values_to_hex nanos=2630685
+r1cs_preload.phase subcircuit=6 name=active_wire_scan nanos=517464
+r1cs_preload.phase subcircuit=6 name=active_wire_sort nanos=125859
+r1cs_preload.phase subcircuit=6 name=compact_index_maps nanos=7645
+r1cs_preload.phase subcircuit=6 name=alloc_compact_sparse nanos=286614597
+r1cs_preload.phase subcircuit=6 name=fill_compact_sparse nanos=127520757
+r1cs_preload.phase subcircuit=6 name=transpose_compact nanos=566290292
+r1cs_preload.phase subcircuit=6 name=total nanos=986427767
+r1cs_preload.phase subcircuit=9 name=read_from_json nanos=425236
+r1cs_preload.phase subcircuit=9 name=convert_values_to_hex nanos=361817
+r1cs_preload.phase subcircuit=9 name=active_wire_scan nanos=69612
+r1cs_preload.phase subcircuit=9 name=active_wire_sort nanos=20247
+r1cs_preload.phase subcircuit=9 name=compact_index_maps nanos=1360
+r1cs_preload.phase subcircuit=9 name=alloc_compact_sparse nanos=41604221
+r1cs_preload.phase subcircuit=9 name=fill_compact_sparse nanos=2582225
+r1cs_preload.phase subcircuit=9 name=transpose_compact nanos=82623899
+r1cs_preload.phase subcircuit=9 name=total nanos=127726609
+r1cs_preload.phase subcircuit=13 name=read_from_json nanos=4296440
+r1cs_preload.phase subcircuit=13 name=convert_values_to_hex nanos=4450677
+r1cs_preload.phase subcircuit=13 name=active_wire_scan nanos=831486
+r1cs_preload.phase subcircuit=13 name=active_wire_sort nanos=122946
+r1cs_preload.phase subcircuit=13 name=compact_index_maps nanos=9145
+r1cs_preload.phase subcircuit=13 name=alloc_compact_sparse nanos=280157692
+r1cs_preload.phase subcircuit=13 name=fill_compact_sparse nanos=215415524
+r1cs_preload.phase subcircuit=13 name=transpose_compact nanos=558795464
+r1cs_preload.phase subcircuit=13 name=total nanos=1064154726
+r1cs_preload.phase subcircuit=1 name=read_from_json nanos=80253
+r1cs_preload.phase subcircuit=1 name=convert_values_to_hex nanos=35962
+r1cs_preload.phase subcircuit=1 name=active_wire_scan nanos=9121
+r1cs_preload.phase subcircuit=1 name=active_wire_sort nanos=4876
+r1cs_preload.phase subcircuit=1 name=compact_index_maps nanos=564
+r1cs_preload.phase subcircuit=1 name=alloc_compact_sparse nanos=4819448
+r1cs_preload.phase subcircuit=1 name=fill_compact_sparse nanos=90050
+r1cs_preload.phase subcircuit=1 name=transpose_compact nanos=7241018
+r1cs_preload.phase subcircuit=1 name=total nanos=12303987
+uvwXY.phase name=r1cs_preload_json_compact nanos=6596908019
 Using sparse CPU uvwXY generation while GPU remains active for later stages.
-uvwXY.phase name=gpu_check_log nanos=3122
-uvwXY.phase name=sparse_eval_cpu_rayon nanos=46125507
+uvwXY.phase name=gpu_check_log nanos=2408
+uvwXY.phase name=sparse_eval_cpu_rayon nanos=126869271
 📊 Subcircuit uses: 13 unique, 166 total
   📋 Subcircuit 0 used 1 times
   📋 Subcircuit 1 used 1 times
@@ -31,34 +148,34 @@ uvwXY.phase name=sparse_eval_cpu_rayon nanos=46125507
   📋 Subcircuit 11 used 4 times
   📋 Subcircuit 12 used 1 times
   📋 Subcircuit 13 used 35 times
-uvwXY.phase name=usage_report_stdout nanos=17058
-uvwXY.phase name=transpose_cpu nanos=65756295
-uvwXY.phase name=from_rou_evals_gpu_icicle nanos=39745214
-uvwXY.phase name=cleanup_local_buffers nanos=181218947
-uvwXY.phase name=uvwxy_total_function nanos=7065982784
+uvwXY.phase name=usage_report_stdout nanos=21549
+uvwXY.phase name=transpose_cpu nanos=65818675
+uvwXY.phase name=from_rou_evals_gpu_icicle nanos=39413306
+uvwXY.phase name=cleanup_local_buffers nanos=180513704
+uvwXY.phase name=uvwxy_total_function nanos=7042530659
 🔄 Starting binding computation (MSMs)...
 test timing_prove_stages ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 40.14s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 39.66s
 
 	Command being timed: "env TOKAMAK_UVWXY_PHASE_PROFILE=1 PROVE_QAP_PATH=/home/ubuntu/Tokamak-zk-EVM/packages/frontend/qap-compiler/subcircuits/library PROVE_SYNTHESIZER_PATH=/home/ubuntu/Tokamak-zk-EVM/packages/frontend/synthesizer/outputs PROVE_SETUP_PATH=/home/ubuntu/Tokamak-zk-EVM/packages/backend/setup/output PROVE_OUT_PATH=/home/ubuntu/Tokamak-zk-EVM/packages/backend/prove/output TIMING_OUT=/home/ubuntu/Tokamak-zk-EVM/packages/backend/prove/output/timing.remote.uvwxy-phases.cuda.json cargo test --release -p prove --features timing --test timing -- --nocapture"
-	User time (seconds): 20.82
-	System time (seconds): 23.45
-	Percent of CPU this job got: 109%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:40.34
+	User time (seconds): 20.61
+	System time (seconds): 25.84
+	Percent of CPU this job got: 116%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:39.86
 	Average shared text size (kbytes): 0
 	Average unshared data size (kbytes): 0
 	Average stack size (kbytes): 0
 	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 6095392
+	Maximum resident set size (kbytes): 6215012
 	Average resident set size (kbytes): 0
 	Major (requiring I/O) page faults: 0
-	Minor (reclaiming a frame) page faults: 14026122
-	Voluntary context switches: 25669
-	Involuntary context switches: 2560
+	Minor (reclaiming a frame) page faults: 14022071
+	Voluntary context switches: 50825
+	Involuntary context switches: 4926
 	Swaps: 0
 	File system inputs: 0
-	File system outputs: 80
+	File system outputs: 96
 	Socket messages sent: 0
 	Socket messages received: 0
 	Signals delivered: 0

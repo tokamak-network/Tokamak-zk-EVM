@@ -545,9 +545,30 @@ impl SubcircuitR1CS {
         subcircuit_info: &SubcircuitInfo,
         include_sparse_rows: bool,
     ) -> io::Result<Self> {
-        let mut constraints = Constraints::read_from_json(path)?;
-        Constraints::convert_values_to_hex(&mut constraints);
+        let phase_profile = env::var("TOKAMAK_UVWXY_PHASE_PROFILE").ok().as_deref() == Some("1");
+        let total_start = phase_profile.then(Instant::now);
 
+        let read_json_start = phase_profile.then(Instant::now);
+        let mut constraints = Constraints::read_from_json(path)?;
+        if let Some(start) = read_json_start {
+            print_r1cs_preload_phase(
+                subcircuit_info.id,
+                "read_from_json",
+                start.elapsed().as_nanos(),
+            );
+        }
+
+        let convert_values_start = phase_profile.then(Instant::now);
+        Constraints::convert_values_to_hex(&mut constraints);
+        if let Some(start) = convert_values_start {
+            print_r1cs_preload_phase(
+                subcircuit_info.id,
+                "convert_values_to_hex",
+                start.elapsed().as_nanos(),
+            );
+        }
+
+        let active_wire_scan_start = phase_profile.then(Instant::now);
         let mut A_active_wire_indices_set = HashSet::<usize>::new();
         let mut B_active_wire_indices_set = HashSet::<usize>::new();
         let mut C_active_wire_indices_set = HashSet::<usize>::new();
@@ -559,7 +580,15 @@ impl SubcircuitR1CS {
             B_active_wire_indices_set.extend(constraint[1].keys().copied());
             C_active_wire_indices_set.extend(constraint[2].keys().copied());
         }
+        if let Some(start) = active_wire_scan_start {
+            print_r1cs_preload_phase(
+                subcircuit_info.id,
+                "active_wire_scan",
+                start.elapsed().as_nanos(),
+            );
+        }
 
+        let active_wire_sort_start = phase_profile.then(Instant::now);
         let mut A_active_wire_indices: Vec<usize> =
             A_active_wire_indices_set.iter().map(|&idx| idx).collect();
         A_active_wire_indices.sort();
@@ -569,6 +598,13 @@ impl SubcircuitR1CS {
         let mut C_active_wire_indices: Vec<usize> =
             C_active_wire_indices_set.iter().map(|&idx| idx).collect();
         C_active_wire_indices.sort();
+        if let Some(start) = active_wire_sort_start {
+            print_r1cs_preload_phase(
+                subcircuit_info.id,
+                "active_wire_sort",
+                start.elapsed().as_nanos(),
+            );
+        }
 
         let n = setup_params.n; // used as the number of rows.
         if n < subcircuit_info.Nconsts {
@@ -586,6 +622,7 @@ impl SubcircuitR1CS {
         }
 
         // Build compact index maps for sparse rows (local wire idx -> compact idx)
+        let index_map_start = phase_profile.then(Instant::now);
         let mut a_index_map = vec![usize::MAX; subcircuit_info.Nwires];
         for (i, &wire_idx) in A_active_wire_indices.iter().enumerate() {
             a_index_map[wire_idx] = i;
@@ -598,8 +635,16 @@ impl SubcircuitR1CS {
         for (i, &wire_idx) in C_active_wire_indices.iter().enumerate() {
             c_index_map[wire_idx] = i;
         }
+        if let Some(start) = index_map_start {
+            print_r1cs_preload_phase(
+                subcircuit_info.id,
+                "compact_index_maps",
+                start.elapsed().as_nanos(),
+            );
+        }
 
         // Each of a_mat_vec, b_mat_vec, and c_mat_vec is, respectively, not a matrix but just a vector of vectors (of irregular lengths).
+        let alloc_compact_start = phase_profile.then(Instant::now);
         let mut A_compact_col_mat = vec![ScalarField::zero(); n * A_len];
         let mut B_compact_col_mat = vec![ScalarField::zero(); n * B_len];
         let mut C_compact_col_mat = vec![ScalarField::zero(); n * C_len];
@@ -620,7 +665,15 @@ impl SubcircuitR1CS {
         } else {
             Vec::new()
         };
+        if let Some(start) = alloc_compact_start {
+            print_r1cs_preload_phase(
+                subcircuit_info.id,
+                "alloc_compact_sparse",
+                start.elapsed().as_nanos(),
+            );
+        }
 
+        let fill_compact_start = phase_profile.then(Instant::now);
         for row_idx in 0..subcircuit_info.Nconsts {
             let constraint = &constraints.constraints[row_idx];
             let a_constraint = &constraint[0];
@@ -673,11 +726,29 @@ impl SubcircuitR1CS {
                 C_sparse_rows[row_idx].sort_unstable_by_key(|(compact_idx, _)| *compact_idx);
             }
         }
+        if let Some(start) = fill_compact_start {
+            print_r1cs_preload_phase(
+                subcircuit_info.id,
+                "fill_compact_sparse",
+                start.elapsed().as_nanos(),
+            );
+        }
         // IMPORTANT: A, B, C matrices are of size A_len-by-n, B_len-by-n, and C_len-by-n, respectively.
         // They must be transposed before being converted into bivariate polynomials.
+        let transpose_compact_start = phase_profile.then(Instant::now);
         transpose_inplace(&mut A_compact_col_mat, n, A_len);
         transpose_inplace(&mut B_compact_col_mat, n, B_len);
         transpose_inplace(&mut C_compact_col_mat, n, C_len);
+        if let Some(start) = transpose_compact_start {
+            print_r1cs_preload_phase(
+                subcircuit_info.id,
+                "transpose_compact",
+                start.elapsed().as_nanos(),
+            );
+        }
+        if let Some(start) = total_start {
+            print_r1cs_preload_phase(subcircuit_info.id, "total", start.elapsed().as_nanos());
+        }
 
         Ok(Self {
             A_compact_col_mat,
@@ -691,6 +762,10 @@ impl SubcircuitR1CS {
             C_sparse_rows,
         })
     }
+}
+
+fn print_r1cs_preload_phase(subcircuit_id: usize, name: &str, nanos: u128) {
+    println!("r1cs_preload.phase subcircuit={subcircuit_id} name={name} nanos={nanos}");
 }
 
 impl QAP {
