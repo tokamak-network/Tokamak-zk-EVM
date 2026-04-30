@@ -21,6 +21,7 @@ This report summarizes the CUDA prove optimization experiments performed on the 
 | `timing.remote.div-by-vanishing-recurrence.cuda.json` | 28.910223 s | 0.746520 s | 10.058344 s | 0.287018 s | 0.057240 s |
 | `timing.remote.strict.cuda.json` | 28.598577 s | 0.739194 s | 9.985713 s | 0.281175 s | 0.055986 s |
 | `timing.remote.poly-comb-algebraic.cuda.json` | 27.490122 s | 0.734930 s | 9.541593 s | 0.286616 s | 0.055128 s |
+| `timing.remote.special-form-products.cuda.json` | 26.709146 s | 0.740477 s | 9.519266 s | 0.284122 s | 0.054744 s |
 
 ## Timing Semantics Correction
 
@@ -146,6 +147,53 @@ The largest strict polynomial-combination sites in this run are:
    | `poly.mul.prove4.KL` | 0.108116 s | 0.000000 s | -0.108116 s |
 
    `Q_CX` and `Pi_A` were neutral in this run, but the batch is positive overall because `p_comb`, `LHS_zk1`, `term_B_zk`, and `KL` improved clearly. The CUDA timing test passed.
+
+6. **Special-form polynomial products were accepted.**
+
+   After the algebraic-combination rewrite, detail timing showed that generic polynomial multiplication remained the largest component inside `poly.combine.*` spans:
+
+   | detail operation | time |
+   | --- | ---: |
+   | multiplication | 8.791025 s |
+   | addition | 5.720295 s |
+   | scaling | 0.625577 s |
+
+   The remaining generic polynomial multiplications were reviewed. `lagrange_KL_XY` and `lagrange_K0_XY` were excluded from the special-form target list. Out of 23 generic polynomial multiplications inside active `poly.combine.*` spans, 14 were direct special-form candidates:
+
+   | class | count | implementation |
+   | --- | ---: | --- |
+   | low-degree polynomial times vanishing binomial | 4 | build `-P` in the low region and `+P` shifted by the vanishing exponent |
+   | dense polynomial times simple X-binomial | 4 | replace generic multiplication with monomial shift plus add/sub |
+   | degree-1 univariate times dense polynomial | 4 | expand `(a0 + a1 X) * P` or `(b0 + b1 Y) * P` |
+   | sparse low-degree bivariate times dense polynomial | 2 | use `term9 = c0 + cX X + cY Y` and expand into shifted scaled copies |
+
+   The accepted implementation preserves the original expressions in comments and applies the special forms to:
+
+   - `prove0.W` and `prove0.B`;
+   - `prove2.p_comb`;
+   - `prove2.Q_CX` and `prove2.Q_CY`;
+   - `prove4.LHS_zk1` and `prove4.LHS_zk2`.
+
+   Measurement against `timing.remote.poly-comb-detail.cuda.json` shows a clear net win:
+
+   | metric | before | special-form products | delta |
+   | --- | ---: | ---: | ---: |
+   | total wall | 28.113656 s | 26.709146 s | -1.404511 s |
+   | `poly.combine` | 15.239995 s | 14.007280 s | -1.232715 s |
+   | detail multiplication | 8.791025 s | 4.914589 s | -3.876436 s |
+   | detail addition | 5.720295 s | 7.076283 s | +1.355988 s |
+   | detail scaling | 0.625577 s | 0.807468 s | +0.181891 s |
+
+   The change removes a large amount of generic multiplication work, but some of that gain is offset by more shifts, additions, and scalar multiplications. The largest improved targets were:
+
+   | target | before | after | delta |
+   | --- | ---: | ---: | ---: |
+   | `prove2.Q_CY` | 1.930174 s | 1.078511 s | -0.851663 s |
+   | `prove2.Q_CX` | 1.650657 s | 1.167393 s | -0.483264 s |
+   | `prove2.p_comb` | 4.021669 s | 3.748907 s | -0.272763 s |
+   | `prove4.LHS_zk2` | 1.211318 s | 0.982824 s | -0.228493 s |
+
+   This result shifts the next optimization target from generic multiplication count to wrapper-level addition, shift, scaling, and intermediate-polynomial creation costs.
 
 ## Diagnostic Timing
 
@@ -279,15 +327,15 @@ This changes the next optimization question: reducing multiplication count alone
 
 ## Current Accepted Baseline
 
-The current accepted CUDA baseline is `timing.remote.poly-comb-algebraic.cuda.json`:
+The current accepted CUDA baseline is `timing.remote.special-form-products.cuda.json`:
 
-- total wall: `27.490122 s`
-- init: `0.734930 s`
-- prove4: `9.541593 s`
-- uvwXY: `0.286616 s`
-- s0/s1: `0.055128 s`
-- pure MSM encode total: `1.260407 s`
-- pure vanishing division total: `1.310085 s`
-- polynomial combination total: `14.863306 s`
+- total wall: `26.709146 s`
+- init: `0.740477 s`
+- prove4: `9.519266 s`
+- uvwXY: `0.284122 s`
+- s0/s1: `0.054744 s`
+- pure MSM encode total: `1.270636 s`
+- pure vanishing division total: `1.315135 s`
+- polynomial combination total: `14.007280 s`
 
-Future optimization should continue to treat selected polynomial-combination sites as the next higher-value targets, especially `prove2.p_comb`, `prove2.Q_CX/Q_CY`, and the remaining `prove4` copy-opening expressions. Pure MSM encoding and pure vanishing division are not the dominant costs under the strict timing view.
+Future optimization should focus on `DensePolynomialExt` wrapper-level costs rather than more algebraic polynomial-multiplication reduction. The next higher-value targets are addition/subtraction fast paths, monomial-shift/intermediate reduction, and more accurate degree metadata. Pure MSM encoding and pure vanishing division are not the dominant costs under the strict timing view.
