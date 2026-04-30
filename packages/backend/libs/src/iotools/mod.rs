@@ -1130,6 +1130,9 @@ pub fn read_R1CS_gen_uvwXY(
     if check_gpu() {
         println!("Using sparse CPU uvwXY generation while GPU remains active for later stages.");
     }
+    let phase_profile = env::var("TOKAMAK_UVWXY_PHASE_PROFILE").ok().as_deref() == Some("1");
+
+    let sparse_eval_start = phase_profile.then(Instant::now);
     eval_uvwxy_sparse_rows(
         placement_variables,
         &r1cs_by_id,
@@ -1139,6 +1142,9 @@ pub fn read_R1CS_gen_uvwXY(
         &mut v_eval,
         &mut w_eval,
     );
+    if let Some(start) = sparse_eval_start {
+        print_uvwxy_phase("sparse_eval_cpu_rayon", start.elapsed().as_nanos());
+    }
 
     // Report usage statistics
     let unique_subcircuits = unique_ids.len();
@@ -1153,15 +1159,30 @@ pub fn read_R1CS_gen_uvwXY(
         }
     }
 
+    let transpose_start = phase_profile.then(Instant::now);
     transpose_inplace(&mut u_eval, s_max, n);
     transpose_inplace(&mut v_eval, s_max, n);
     transpose_inplace(&mut w_eval, s_max, n);
+    if let Some(start) = transpose_start {
+        print_uvwxy_phase("transpose_cpu", start.elapsed().as_nanos());
+    }
 
-    return (
-        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&u_eval), n, s_max, None, None),
-        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&v_eval), n, s_max, None, None),
-        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&w_eval), n, s_max, None, None),
-    );
+    let from_rou_evals_start = phase_profile.then(Instant::now);
+    let uXY =
+        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&u_eval), n, s_max, None, None);
+    let vXY =
+        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&v_eval), n, s_max, None, None);
+    let wXY =
+        DensePolynomialExt::from_rou_evals(HostSlice::from_slice(&w_eval), n, s_max, None, None);
+    if let Some(start) = from_rou_evals_start {
+        print_uvwxy_phase("from_rou_evals_gpu_icicle", start.elapsed().as_nanos());
+    }
+
+    return (uXY, vXY, wXY);
+}
+
+fn print_uvwxy_phase(name: &str, nanos: u128) {
+    println!("uvwXY.phase name={name} nanos={nanos}");
 }
 
 fn eval_uvwxy_sparse_rows(
